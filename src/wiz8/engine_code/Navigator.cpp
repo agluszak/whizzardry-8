@@ -207,9 +207,9 @@ void SetNavigatorLinkMode(unsigned char mode)
             }
             if (navigator->group_linked) {
                 W8MonsterInfo* monster_info =
-                    MonsterGetScriptPartByLocationIndex(MonsterGetIndexByLocationID(navigator->movement.location_id));
+                    FindMonster(navigator->movement.location_id);
                 if (monster_info->fActive && monster_info->monster_group_id != 0) {
-                    W8MonsterGroup* group = GetMonsterGroupByListIndex(GetMonsterGroupIndexByID(monster_info->monster_group_id));
+                    W8MonsterGroup* group = FindMonsterGroup(monster_info->monster_group_id);
                     srVector3T<float> position = navigator->movement.position;
 
                     if ((!group->fInCombat || !PositionMonsterGroupNearCamera(
@@ -1083,8 +1083,7 @@ W8Navigator* W8Navigator::ResolveBlockingNavigator(const srVector3T<float>* from
             return g_startup_world;
         }
         if (hit_location > 0) {
-            W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(
-                MonsterGetIndexByLocationID(hit_location));
+            W8MonsterInfo* monster_info = FindMonster(hit_location);
             if (monster_info->p3D != 0) {
                 return monster_info->p3D;
             }
@@ -1708,8 +1707,7 @@ void W8Navigator::SetFacingToward(const srVector3T<float>* target)
             UpdateFacing(true);
         }
         if (movement.location_id != 0) {
-            W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(
-                MonsterGetIndexByLocationID(movement.location_id));
+            W8MonsterInfo* monster_info = FindMonster(movement.location_id);
             if (monster_info->fInCombat) {
                 monster_info->pCombat->sight_refresh_pending = true;
             }
@@ -1845,8 +1843,7 @@ void W8Navigator::AimAtPosition(const srVector3T<float>* target)
         }
 
         if (movement.location_id != 0) {
-            W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(
-                MonsterGetIndexByLocationID(movement.location_id));
+            W8MonsterInfo* monster_info = FindMonster(movement.location_id);
             if (monster_info->fInCombat) {
                 monster_info->pCombat->sight_refresh_pending = true;
             }
@@ -1866,25 +1863,22 @@ void W8Navigator::CollectGroupNavigators(std::vector<W8Navigator*>& navigators)
         return;
     }
 
-    monster_info = MonsterGetScriptPartByLocationIndex(
-        MonsterGetIndexByLocationID(movement.location_id));
-    group = GetMonsterGroupByListIndex(
-        GetMonsterGroupIndexByID(monster_info->monster_group_id));
+    monster_info = FindMonster(movement.location_id);
+    group = FindMonsterGroup(monster_info->monster_group_id);
 
     for (member = 0; member < group->member_count; ++member) {
         int location_id = group->MemberLocationId(member);
         if (location_id != movement.location_id) {
-            monster_info = MonsterGetScriptPartByLocationIndex(
-                MonsterGetIndexByLocationID(location_id));
+            monster_info = FindMonster(location_id);
             navigators.push_back(monster_info->p3D);
         }
     }
 
     for (ally = 0; ally < 4; ++ally) {
         if (group->allied_group_ids[ally] != 0) {
-            W8MonsterGroup* allied_group = GetMonsterGroupByListIndex(GetMonsterGroupIndexByID(group->allied_group_ids[ally]));
+            W8MonsterGroup* allied_group = FindMonsterGroup(group->allied_group_ids[ally]);
             for (member = 0; member < allied_group->member_count; ++member) {
-                monster_info = MonsterGetScriptPartByLocationIndex(MonsterGetIndexByLocationID(allied_group->MemberLocationId(member)));
+                monster_info = FindMonster(allied_group->MemberLocationId(member));
                 navigators.push_back(monster_info->p3D);
             }
         }

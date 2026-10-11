@@ -968,7 +968,6 @@ void DrawSubMenuCharacterAction(void)
     W8Character* character;
     W8PartySlotRow* row;
     W8ActionKind action;
-    unsigned int monster_index;
     W8MonsterInfo* monster_info;
     std::string name;
     std::string text;
@@ -1048,8 +1047,7 @@ void DrawSubMenuCharacterAction(void)
                 text = fmt::format("{} - {}", g_localized_strings[g_action_kind_message_ids[5]],
                                    g_status.buffers.Char[row->target_in_combat.iChar].name);
             } else if (row->target_in_combat.iType == W8_TARGET_KIND_MONSTER) {
-                monster_index = MonsterGetIndexByLocationID(row->target_in_combat.iMonsterID);
-                monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
+                monster_info = FindMonster(row->target_in_combat.iMonsterID);
                 name = GetMonsterName(monster_info, 0, 0);
                 text =
                     fmt::format("{} - {}", g_localized_strings[g_action_kind_message_ids[5]], name);

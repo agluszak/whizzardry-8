@@ -2020,8 +2020,7 @@ no_probes:;
             int id = ids[index];
             if (((excluded < 0) || (excluded != id)) && ((target < 0) || (excluded_location != id)) &&
                 (probe_set == 0 || !pathing->MatchesPathProbe(id, 0, 0))) {
-                unsigned int monster_index =
-                    MonsterGetIndexByLocationID(id);
+                unsigned int monster_index = MonsterGetIndexByLocationID(id);
                 W8MonsterInfo* info = MonsterGetScriptPartByLocationIndex(monster_index);
                 if (info != 0) {
                     W8Monster* monster = info->p3D;
@@ -2431,7 +2430,6 @@ std::vector<w8_ulong> W8Octree::polygonsNearPoint(const glm::vec3& position, flo
 void W8Octree::UpdateMonsterLocation(unsigned short location_id, const srVector3T<float>* position)
 {
     int queue_id = location_id + 1;
-    unsigned int monster_list_index;
     W8MonsterInfo* info;
     W8Monster* monster;
     int sector;
@@ -2441,8 +2439,7 @@ void W8Octree::UpdateMonsterLocation(unsigned short location_id, const srVector3
     if (location_id == 0) {
         return;
     }
-    monster_list_index = MonsterGetIndexByLocationID(location_id);
-    info = MonsterGetScriptPartByLocationIndex(monster_list_index);
+    info = FindMonster(location_id);
     if (info != 0 && info->p3D != 0) {
         monster = info->p3D;
         sector = GetSectorForPosition(position);
@@ -3206,8 +3203,7 @@ unsigned char W8Octree::TestBoxOccupied(const srVector3T<float>* lower,
     objects = queryObjects({lower->glmValue(), upper->glmValue()}, W8_OCTREE_KIND_LOCATION, -1);
     count = objects.size();
     for (index = 0; index < count; ++index) {
-        unsigned int monster_index = MonsterGetIndexByLocationID(objects[index]);
-        W8MonsterInfo* info = MonsterGetScriptPartByLocationIndex(monster_index);
+        W8MonsterInfo* info = FindMonster(objects[index]);
         if (info != 0 && info->p3D != 0) {
             srVector3T<float> position = info->p3D->GetPosition();
             float radius = info->p3D->radius;

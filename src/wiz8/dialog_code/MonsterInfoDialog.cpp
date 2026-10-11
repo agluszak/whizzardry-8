@@ -133,8 +133,7 @@ bool W8MonsterInfoDialog::PopulateText()
     bounds.top = m_y + 0x26;
     bounds.bottom = m_y + 0xdf;
 
-    monster_info = MonsterGetScriptPartByLocationIndex(
-        MonsterGetIndexByLocationID(m_location_id));
+    monster_info = FindMonster(m_location_id);
     record = GetMonsterDataForInfo(monster_info);
     average_level = GetAveragePartyMemberLevel();
     monster_level = record->display_level;
@@ -161,7 +160,7 @@ bool W8MonsterInfoDialog::PopulateText()
     m_text_area.SetEntrySpacing(1);
 
     if (g_dev_mode) {
-        group = GetMonsterGroupByListIndex(GetMonsterGroupIndexByID(monster_info->monster_group_id));
+        group = FindMonsterGroup(monster_info->monster_group_id);
         linked = monster_info->p3D->linked_navigator;
         if (linked == 0) {
             leader_location_id = m_location_id;
@@ -431,7 +430,7 @@ bool W8MonsterInfoDialog::PopulateText()
                 (monster_info->p3D->GetPosition() - g_startup_world->GetPosition()).Length() *
                     g_world_cursor_scale),
             5, 0xf, 0);
-        leader_info = MonsterInfoFromID(leader_location_id);
+        leader_info = FindMonster(leader_location_id);
         script = leader_info->p3D->script.get();
         m_text_area.AddEntry("Leader's Current Script",
                              fmt::format("<{}>", script != 0 ? script->getName().c_str() : ""), 5,
@@ -483,9 +482,7 @@ void W8MonsterInfoDialog::Draw()
         m_button.m_dirty = true;
         W8DialogBase::Draw();
         g_wiz_text_font_secondary.resetPalette();
-        unsigned int monster_list_index =
-            MonsterGetIndexByLocationID(m_location_id);
-        W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_list_index);
+        W8MonsterInfo* monster_info = FindMonster(m_location_id);
         auto name = GetMonsterName(monster_info, 0, 0);
         std::int16_t width = g_wiz_text_font_secondary.textWidth(name);
         DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary,

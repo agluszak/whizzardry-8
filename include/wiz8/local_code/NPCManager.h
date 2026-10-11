@@ -129,7 +129,7 @@ bool NpcLeadHasNameStyle(W8NpcId kind);
    owned item-list teardown. */
 void ReleaseNpcBinding(int value);
 /* The NPC binding selected by a monster-list index, or null. */
-W8NpcState* FindNpcBindingForMonster(unsigned int monster_list_index);
+W8NpcState* FindNpcBindingForMonster(W8MonsterInfo* monster_info);
 unsigned char GetNpcDispositionBand(W8NpcState* npc);
 void SetNpcDispositionBand(W8NpcState* npc, char band);
 bool WillNpcTradeForItem(W8NpcState* npc, W8ItemInstance* item);

@@ -123,7 +123,7 @@ void MartensBluff2Setup(void)
                     group = SpawnMonsters(0x183, 1, &position, 0, true, false, false);
                     location_id = group->MemberLocationId(0);
                     if (location_id != 0) {
-                        info = MonsterGetScriptPartByLocationIndex(MonsterGetIndexByLocationID(location_id));
+                        info = FindMonster(location_id);
                         if (info != 0 && info->p3D != 0) {
                             info->p3D->SetScript("MB_MoveRapax.msf", true);
                             SetTriggerVariableByName("RavenQuest", 3);
@@ -370,8 +370,7 @@ bool MartensBluff2PerfumeBox(Trigger* pTrigger)
         group = SpawnMonsters(0x183, 1, &position, 0, true, false, false);
         location_id = group->MemberLocationId(0);
         if (location_id != 0) {
-            info = MonsterGetScriptPartByLocationIndex(
-                MonsterGetIndexByLocationID(location_id));
+            info = FindMonster(location_id);
             if (info != 0 && info->p3D != 0) {
                 info->p3D->SetScript("MB_MoveRapax.msf", true);
                 quest_state = 3;
@@ -444,7 +443,6 @@ void MartensBluff2MonsterCrusher(int command)
     std::vector<w8_ulong> location_ids;
     unsigned int count;
     unsigned int i;
-    unsigned int index;
     W8MonsterInfo* info;
     W8Monster* monster;
     float left;
@@ -557,8 +555,7 @@ void MartensBluff2MonsterCrusher(int command)
         return;
     }
     for (i = 0; i < count; i++) {
-        index = MonsterGetIndexByLocationID(location_ids[i]);
-        info = MonsterGetScriptPartByLocationIndex(index);
+        info = FindMonster(location_ids[i]);
         if (info != 0 && info->p3D != 0 &&
             (!g_crusher_excluded_flag || info->p3D != g_crusher_excluded) &&
             info->p3D->flags != 0x200000) {

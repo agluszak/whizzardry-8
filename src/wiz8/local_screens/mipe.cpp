@@ -1170,7 +1170,7 @@ void HandleMonsterDebugKey(unsigned short key)
         break;
     case 0x34:
         if (static_cast<unsigned int>(g_mipe_state->monster_ids.size()) == 1) {
-            info = MonsterGetScriptPartByLocationIndex(MonsterGetIndexByLocationID(g_mipe_state->SelectedMonsterLocationId()));
+            info = FindMonster(g_mipe_state->SelectedMonsterLocationId());
             if (info == 0 || info->p3D == 0) {
                 srAssertFail("pMonsterInfo && pMonsterInfo->p3D", MIPE_CPP, 0x6e5, 0);
             }
@@ -1187,7 +1187,7 @@ void HandleMonsterDebugKey(unsigned short key)
         break;
     case 0x35:
         if (static_cast<unsigned int>(g_mipe_state->monster_ids.size()) == 1) {
-            info = MonsterGetScriptPartByLocationIndex(MonsterGetIndexByLocationID(g_mipe_state->SelectedMonsterLocationId()));
+            info = FindMonster(g_mipe_state->SelectedMonsterLocationId());
             if (info == 0) {
                 srAssertFail("pMonsterInfo", MIPE_CPP, 0x705, 0);
             }
@@ -2871,8 +2871,7 @@ void UpdateMipeSelection(void)
         if (location_id == -1) {
             group_id = W8_MIPE_NO_GROUP;
         } else {
-            group_id = MonsterGetScriptPartByLocationIndex(
-                           MonsterGetIndexByLocationID(location_id))
+            group_id = FindMonster(location_id)
                            ->monster_group_id;
         }
         if (group_id == g_mipe_state->selected_group_id) {
@@ -2880,8 +2879,7 @@ void UpdateMipeSelection(void)
         }
         for (index = 0; index < static_cast<int>(g_mipe_state->monster_ids.size()); ++index) {
             int listed = g_mipe_state->monster_ids[index];
-            info = MonsterGetScriptPartByLocationIndex(
-                MonsterGetIndexByLocationID(listed));
+            info = FindMonster(listed);
             if (info->fActive) {
                 SetMonsterHighlight(0, listed, false);
             }
@@ -2898,8 +2896,7 @@ void UpdateMipeSelection(void)
             }
         }
         if (static_cast<unsigned int>(g_mipe_state->monster_ids.size()) == 1) {
-            info = MonsterGetScriptPartByLocationIndex(
-                MonsterGetIndexByLocationID(location_id));
+            info = FindMonster(location_id);
             if (info == 0) {
                 srAssertFail("pMonsterInfo", MIPE_CPP, 0x10ea, 0);
             }
@@ -2922,8 +2919,7 @@ void UpdateMipeSelection(void)
     }
     SetMonsterHighlight(0, location_id, true);
     g_mipe_state->monster_ids.push_back(location_id);
-    info = MonsterGetScriptPartByLocationIndex(
-        MonsterGetIndexByLocationID(location_id));
+    info = FindMonster(location_id);
     if (info == 0) {
         srAssertFail("pMonsterInfo", MIPE_CPP, 0x110e, 0);
     }
@@ -2951,7 +2947,7 @@ void DragSelectionWithCursor(void)
         g_mipe_state->trigger->SetPosition(&moved);
     } else {
         for (index = 0; index < static_cast<int>(g_mipe_state->monster_ids.size()); ++index) {
-            info = MonsterGetScriptPartByLocationIndex(MonsterGetIndexByLocationID(g_mipe_state->monster_ids[index]));
+            info = FindMonster(g_mipe_state->monster_ids[index]);
             position = MonsterGetLocalLocation(info->p3D);
             moved.Set(cursor.x - g_mipe_state->drag_anchor.x + position.x,
                       cursor.y - g_mipe_state->drag_anchor.y + position.y,

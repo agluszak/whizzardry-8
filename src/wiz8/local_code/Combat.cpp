@@ -660,8 +660,7 @@ void BeginCombatExecution(void)
         }
         if (monster->action_kind == W8_MONSTER_ACTION_PROTECT) {
             if (monster->Target.iType == W8_TARGET_KIND_MONSTER) {
-                unsigned int target_index = MonsterGetIndexByLocationID(monster->Target.iMonsterID);
-                W8MonsterInfo* target = MonsterGetScriptPartByLocationIndex(target_index);
+                W8MonsterInfo* target = FindMonster(monster->Target.iMonsterID);
                 PostMonsterNotice(monster, fmt::sprintf(g_localized_strings[0x229],
                                                         GetMonsterName(target, 0, 0)));
             } else if (monster->Target.iType == W8_TARGET_KIND_CHARACTER) {
@@ -1599,8 +1598,7 @@ void OrientMonsterTowardTarget(W8MonsterInfo* monster_info, bool alternate)
     case W8_TARGET_KIND_MONSTER:
         location_id = monster_info->Target.iMonsterID;
         if (monster_info->location_id != location_id) {
-            index = MonsterGetIndexByLocationID(location_id);
-            target = MonsterGetScriptPartByLocationIndex(index);
+            target = FindMonster(location_id);
             if (IsMonsterFacingMonster(monster_info, target) == 0) {
                 MonsterAimAtMonster(monster_info->p3D, target->p3D, alternate);
                 return;
@@ -1611,8 +1609,7 @@ void OrientMonsterTowardTarget(W8MonsterInfo* monster_info, bool alternate)
         location_id =
             FindNearestVisibleGroupMonster(monster_info, monster_info->Target.iGroupID, 3);
         if (location_id != -1) {
-            index = MonsterGetIndexByLocationID(location_id);
-            target = MonsterGetScriptPartByLocationIndex(index);
+            target = FindMonster(location_id);
             if (IsMonsterFacingMonster(monster_info, target) == 0) {
                 MonsterAimAtMonster(monster_info->p3D, target->p3D, alternate);
                 return;
@@ -2513,8 +2510,7 @@ void ExecuteMonsterAction(W8MonsterInfo* monster_info, W8MonsterRecord* record)
                     MonsterChooseTarget(monster_info, &monster_info->Target, 0);
                     SetUpMonsterTurn(monster_info);
                     if (monster_info->Target.iType == W8_TARGET_KIND_MONSTER) {
-                        unsigned int index = MonsterGetIndexByLocationID(monster_info->Target.iMonsterID);
-                        target_info = MonsterGetScriptPartByLocationIndex(index);
+                        target_info = FindMonster(monster_info->Target.iMonsterID);
                         move_result = MonsterConfigureMovementToMonster(
                             monster_info->p3D, target_info->p3D, approach_distance, engage_distance,
                             position, sight, &move_flag);
@@ -3003,7 +2999,7 @@ int GetConditionInterrupt(W8TargetSource* source)
             srAssertFail("pSource->iMonsterID != BAD_INDEX",
                          "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp", 0x11a9, 0);
         }
-        monster_info = MonsterGetScriptPartByLocationIndex(MonsterGetIndexByLocationID(source->iMonsterID));
+        monster_info = FindMonster(source->iMonsterID);
         moving = monster_info->action_kind == W8_MONSTER_ACTION_ADVANCE;
         condition_turns = monster_info->uiCondition;
         can_attack =
@@ -3111,7 +3107,7 @@ void PointCameraAtCombatTarget(W8TargetSource* source, W8CombatSlot* target)
             srAssertFail("pTarget->iGroupID != -1",
                          "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp", 0x140c, 0);
         }
-        group = GetMonsterGroupByListIndex(GetMonsterGroupIndexByID(target->iGroupID));
+        group = FindMonsterGroup(target->iGroupID);
         location_id = group->leader_location_id;
     } else {
         if (target->iType != W8_TARGET_KIND_PLACE) {
@@ -3121,7 +3117,7 @@ void PointCameraAtCombatTarget(W8TargetSource* source, W8CombatSlot* target)
         PointCameraAtTarget(&position, false, false);
         return;
     }
-    monster_info = MonsterGetScriptPartByLocationIndex(MonsterGetIndexByLocationID(location_id));
+    monster_info = FindMonster(location_id);
     PointCameraAtMonster(monster_info, false, true);
 }
 

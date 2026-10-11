@@ -421,14 +421,13 @@ bool ArnikaMookholo(Trigger* pTrigger)
         }
         location_id = group->MemberLocationId(0);
         if (location_id != 0) {
-            info = MonsterGetScriptPartByLocationIndex(
-                MonsterGetIndexByLocationID(location_id));
+            info = FindMonster(location_id);
             if (info != 0) {
                 g_mookholo_monster = info->p3D;
                 g_npc_dialogue_closed = false;
                 g_master_functions.push_back(ArnikaMookholoWatch);
             }
-            QueueNpcScriptNotice(FindNpcBindingForMonster(MonsterGetIndexByLocationID(location_id)),
+            QueueNpcScriptNotice(FindNpcBindingForMonster(FindMonster(location_id)),
                                  0, -1, false, 0);
         }
     }
@@ -485,8 +484,7 @@ bool ArnikaYellowButton(Trigger* pTrigger)
     if (FindEntityByName("Bguards", &position, 0, 0)) {
         group = SpawnMonsters(0xc, 6, &position, 1, true, false, false);
         if (group != 0) {
-            info = MonsterGetScriptPartByLocationIndex(
-                MonsterGetIndexByLocationID(group->leader_location_id));
+            info = FindMonster(group->leader_location_id);
             info->p3D->SetScript("guard.msf", true);
         }
     }

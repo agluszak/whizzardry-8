@@ -376,8 +376,7 @@ void ReloadNpcScriptResources(W8NpcState* npc)
         if (monster != 0) {
             resource_name = fmt::format("{}.msf", script_name);
             monster->SetScript(resource_name.c_str(), true);
-            unsigned int list_index = MonsterGetIndexByLocationID(monster->location_id);
-            W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(list_index);
+            W8MonsterInfo* monster_info = FindMonster(monster->location_id);
             if (monster_info != 0) {
                 GetMonsterDataForInfo(monster_info);
             }

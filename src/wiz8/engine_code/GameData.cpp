@@ -598,7 +598,6 @@ unsigned char W8GameData::ProbeMonstersAlongMotion(srVector3T<float>* direction,
     std::vector<w8_ulong> objects;
     unsigned int count;
     unsigned int index;
-    unsigned int monster_list_index;
     W8MonsterInfo* monster_info;
     W8Monster* monster;
     srVector3T<float> lower;
@@ -631,8 +630,7 @@ unsigned char W8GameData::ProbeMonstersAlongMotion(srVector3T<float>* direction,
         if (objects[index] == 0) {
             return hit;
         }
-        monster_list_index = MonsterGetIndexByLocationID(objects[index]);
-        monster_info = MonsterGetScriptPartByLocationIndex(monster_list_index);
+        monster_info = FindMonster(objects[index]);
         if (monster_info != 0 && monster_info->p3D != 0 && monster_info->p3D->active) {
             monster = monster_info->p3D;
             time_scale = g_rate * g_game_time_accumulator->GetFrameDelta();

@@ -36,8 +36,7 @@ bool Rift1Sexspawn(Trigger* pTrigger)
             CreateLocationVar("AlSedexusSwapped", 1);
             monster_info = FindMonsterInfoBySpecies(0xd9);
             if (monster_info != 0) {
-                RemoveMonster(
-                    MonsterGetIndexByLocationID(monster_info->location_id),
+                RemoveMonster(monster_info,
                     true);
             }
             monster_info = FindMonsterInfoBySpecies(0x22b);

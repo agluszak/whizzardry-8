@@ -1029,8 +1029,7 @@ bool Trigger::HasActorWithinRadius(float radius, bool include_party)
             if (location_id == 0) {
                 break;
             }
-            unsigned int monster_index = MonsterGetIndexByLocationID(location_id);
-            W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
+            W8MonsterInfo* monster_info = FindMonster(location_id);
             if (monster_info != 0 && monster_info->p3D != 0) {
                 srVector3T<float> monster_position = monster_info->p3D->GetPosition();
                 if ((monster_position - center).Length() <= radius) {

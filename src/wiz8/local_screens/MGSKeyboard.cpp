@@ -650,7 +650,7 @@ void DispatchMGSCommand(W8MGSCommand command)
         break;
     case W8_MGS_COMMAND_DEBUG_MONSTER_SCRIPT:
         if (g_level_block->highlighted_item != -1) {
-            MonsterGetScriptPartByLocationIndex(MonsterGetIndexByLocationID(g_level_block->highlighted_item));
+            FindMonster(g_level_block->highlighted_item);
         }
         break;
     default:

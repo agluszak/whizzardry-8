@@ -658,7 +658,6 @@ try
     W8MonsterGroup* group;
     int monster_id;
     int location_id;
-    unsigned int monster_index;
     W8MonsterInfo* monster_info;
     W8Monster* monster;
     W8PathAI* path;
@@ -695,8 +694,7 @@ try
             continue;
         }
         location_id = group->MemberLocationId(0);
-        monster_index = MonsterGetIndexByLocationID(location_id);
-        monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
+        monster_info = FindMonster(location_id);
         ActivateMonster(monster_info, W8_MONSTER_LOAD_ALL_CYCLES);
         monster = monster_info->p3D;
 
