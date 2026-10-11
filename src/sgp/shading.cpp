@@ -40,9 +40,12 @@ void BuildShadeTable(void)
     for (red = 0; red < 256; red += 4)
         for (green = 0; green < 256; green += 4)
             for (blue = 0; blue < 256; blue += 4) {
-                index = Get16BPPColor(FROMRGB(red, green, blue));
-                ShadeTable[index] = Get16BPPColor(FROMRGB(
-                    red * guiShadePercent, green * guiShadePercent, blue * guiShadePercent));
+                index = Get16BPPColor(SDL_Color{static_cast<UINT8>(red), static_cast<UINT8>(green),
+                                              static_cast<UINT8>(blue), SDL_ALPHA_OPAQUE});
+                ShadeTable[index] = Get16BPPColor(SDL_Color{
+                    static_cast<UINT8>(red * guiShadePercent),
+                    static_cast<UINT8>(green * guiShadePercent),
+                    static_cast<UINT8>(blue * guiShadePercent), SDL_ALPHA_OPAQUE});
             }
 
     memset(White16BPPPalette, 65535, sizeof(White16BPPPalette));
