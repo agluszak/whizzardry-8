@@ -1,6 +1,5 @@
 #include <fmt/format.h>
 #include <string>
-#include <memory>
 #include <vector>
 
 #include "wiz8/dialog_code/SpellInfoDialog.h"

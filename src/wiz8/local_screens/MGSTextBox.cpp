@@ -1,3 +1,4 @@
+#include "himage.h"
 #include <cstddef>
 #include <cstdint>
 #include <fmt/format.h>

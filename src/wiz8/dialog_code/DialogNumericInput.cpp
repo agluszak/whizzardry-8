@@ -13,7 +13,6 @@
 #include "input.h"
 #include "line.h"
 #include "vobject.h"
-#include "Types.h"
 #include "dialog_code/DialogBase.h"
 #include "dialog_code/DialogButton.h"
 #include "local_code/ControlsRect.h"

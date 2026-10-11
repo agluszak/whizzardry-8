@@ -1,3 +1,4 @@
+#include "himage.h"
 #include <fmt/format.h>
 #include <SDL3/SDL_rect.h>
 #include <algorithm>

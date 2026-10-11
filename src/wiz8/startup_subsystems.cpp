@@ -1,9 +1,9 @@
+#include "himage.h"
 #include <utility>
 #include <tuple>
 #include <array>
 #include <cstddef>
 #include "wiz8/local_screens/PleaseWaitScreen.h"
-#include <memory>
 
 #include "wiz8/fonts.h"
 #include "wiz8/dialog_code/DialogInterface.h"
@@ -11,7 +11,6 @@
 #include "wiz8/engine_code/Video2.h"
 #include "Font.h"
 #include "vobject.h"
-#include "Types.h"
 
 /* Original translation-unit ownership is unknown; surrounding anchors do not resolve it. */
 

@@ -2,7 +2,6 @@
 #include <SDL3/SDL_rect.h>
 #include <string>
 #include <array>
-#include <memory>
 #include <vector>
 
 #include "wiz8/character_skills.h"

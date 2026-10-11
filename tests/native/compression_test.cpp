@@ -7,7 +7,6 @@
 #include <cstdio>
 #include <cstring>
 #include <vector>
-#include <memory>
 #include <span>
 
 #include "himage.h"

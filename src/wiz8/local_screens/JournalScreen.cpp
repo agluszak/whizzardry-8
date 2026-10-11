@@ -1,9 +1,9 @@
+#include "himage.h"
 #include <fmt/format.h>
 #include <SDL3/SDL_rect.h>
 #include <string_view>
 #include <string>
 #include <vector>
-#include <memory>
 
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
@@ -32,7 +32,6 @@
 #include "soundman.h"
 #include "wiz8/filesystem.h"
 #include "input.h"
-#include "Types.h"
 #include "mousesystem.h"
 #include "difficulty.h"
 #include "local_code/Controls.h"

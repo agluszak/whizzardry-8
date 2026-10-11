@@ -26,7 +26,6 @@
 #include "wiz8/xstatus.h"
 #include "wiz8/video_object_catalog.h"
 #include "Button System.h"
-#include "WCheck.h"
 #include "wiz8/dialog_code/DialogButton.h"
 #include "wiz8/dialog_code/ButtonUserData.h"
 #include "wiz8/local_code/ButtonSound.h"
@@ -773,9 +772,7 @@ void generic_button_images()
                         else first_button->Area.uiFlags &= ~MSYS_MOUSE_IN_AREA;
                         gfLeftButtonState = mouse_down;
                         DrawButton(first_button);
-                        UINT32 pitch;
-                        pitch = (target).cpu().surface->pitch;
-                        auto* pixels = reinterpret_cast<UINT16*>(static_cast<BYTE*>((target).cpu().surface->pixels));
+                        auto* pixels = static_cast<UINT16*>(target.cpu().surface->pixels);
                         REQUIRE(pixels);
                         const auto color = pixels[0];
                         const bool highlight = hover && (!checkbox || mouse_down);
