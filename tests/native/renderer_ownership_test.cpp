@@ -369,12 +369,13 @@ public:
 
 class LightingMaterial : public TestMaterial {
 public:
-    void getMaterialInfo(srVertexProcessor::MaterialInfo& info) override
+    srVertexProcessor::MaterialInfo getMaterialInfo() override
     {
-        TestMaterial::getMaterialInfo(info);
+        auto info = TestMaterial::getMaterialInfo();
         info.disabled_channels = 0;
         info.diffuse = glm::vec4(.5f); info.specular = glm::vec4(.25f);
         info.emissive = glm::vec4(.125f); info.shininess = 1;
+        return info;
     }
 };
 
