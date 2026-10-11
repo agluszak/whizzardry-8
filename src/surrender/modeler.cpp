@@ -1,7 +1,6 @@
 #include <glm/gtc/constants.hpp>
 #include <algorithm>
 #include <cmath>
-#include <limits>
 #include <bit>
 #include <array>
 #include <cstddef>
