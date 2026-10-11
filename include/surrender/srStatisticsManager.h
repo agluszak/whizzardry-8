@@ -21,7 +21,7 @@ public:
     };
 
     SR_DLL_IMPORT void reset();
-    SR_DLL_IMPORT void getStatistics(Statistics& statistics) const;
+    SR_DLL_IMPORT Statistics getStatistics() const;
     SR_DLL_IMPORT void dump(std::ostream& stream, const Statistics& statistics);
 
     /* SurRender's submission pipeline updates these counters directly. */
