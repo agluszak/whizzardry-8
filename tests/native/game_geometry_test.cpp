@@ -1,3 +1,7 @@
+#include "wiz8/engine_code/particle_modes.h"
+#include "wiz8/engine_code/stParticle.h"
+#include "wiz8/engine_code/game_timer.h"
+#include "surrender/srClock.h"
 #include "glm/ext/vector_int3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
@@ -1388,4 +1392,53 @@ TEST_CASE("Surface triangles are complete values and reject invalid vertex indic
     REQUIRE(!surfaceTriangle(std::array<int, 3>{0, -1, 2}));
     g_octree_game_data = nullptr;
     REQUIRE(!surfaceTriangle(indices));
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture, "Particle activation values and billboard ordering", "[geometry]")
+{
+    struct RestoreClock {
+        srClock* previous = g_shared_timer_base;
+        ~RestoreClock() { g_shared_timer_base = previous; }
+    } restore;
+    srClock clock;
+    g_shared_timer_base = &clock;
+    stParticle empty(nullptr, 0);
+    REQUIRE(!empty.activateParticle(true));
+    stParticle particles(nullptr, 2);
+    particles.direction_mode = W8_PARTICLE_DIRECTION_FIXED;
+    particles.speed_mode = W8_PARTICLE_SPEED_FIXED;
+    particles.initial_speed = 5;
+    const auto first = particles.activateParticle(false);
+    REQUIRE(first);
+    REQUIRE(*first == 0);
+    REQUIRE(particles.velocities[*first] == glm::vec3(0, -5, 0));
+    REQUIRE(particles.activateParticle(false));
+    REQUIRE(!particles.activateParticle(false));
+    const auto replaced = particles.activateParticle(true);
+    REQUIRE(replaced);
+    REQUIRE(*replaced == 0);
+    REQUIRE(particles.active_particle_count == 2);
+    particles.emission_limit = particles.emission_count;
+    REQUIRE(!particles.activateParticle(true));
+    particles.DeactivateParticle(0);
+    particles.DeactivateParticle(0);
+    REQUIRE(particles.active_particle_count == 1);
+
+    particles.emission_minimum = particles.emission_maximum = {1, 2, 3};
+    particles.size_scale = 2;
+    particles.setLocation(100, 200, 300);
+    REQUIRE(particles.emissionPosition() == glm::vec3(102, 204, 306));
+    particles.particle_size = 2;
+    particles.particle_positions[0] = {10, 20, 30};
+    particles.particle_positions[1] = {-10, -20, -30};
+    glm::mat4 view(1);
+    view[3] = {70, 80, 90, 1};
+    const auto originalView = view;
+    particles.PrepareRenderer(view);
+    REQUIRE(view == originalView);
+    const std::array<glm::vec3, 4> offsets{{{-2, 2, 0}, {2, 2, 0}, {2, -2, 0}, {-2, -2, 0}}};
+    for (unsigned particle = 0; particle < 2; ++particle)
+        for (unsigned corner = 0; corner < 4; ++corner)
+            REQUIRE(particles.vertex_positions[particle * 4 + corner].glmValue() ==
+                    particles.particle_positions[particle] + offsets[corner]);
 }

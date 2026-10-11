@@ -4934,7 +4934,7 @@ void W8Monster::SpawnDamageNumber(unsigned int amount)
             particle->SetRenderFlags(shader);
             particle->particle_size = 20.0;
             particle->expiry_mode = W8_PARTICLE_EXPIRY_TIMED;
-            particle->bounds_origin.SetZero();
+            particle->bounds_origin = {0, 0, 0};
             particle->cone_yaw = 1.5707963f;
             particle->cone_pitch = 1.5707963f;
             particle->emission_interval = 1;

@@ -173,7 +173,7 @@ void InitializeWorldCursor(void)
                 gp3DCursor->particle->rotateX(-1.5707963);
                 gp3DCursor->particle->particle_size = 100.0;
                 gp3DCursor->particle->emission_interval = 300;
-                gp3DCursor->particle->acceleration.Set(0.0f, -1000.0f, 0.0f);
+                gp3DCursor->particle->acceleration = {0.0f, -1000.0f, 0.0f};
                 gp3DCursor->particle->has_acceleration = 1;
                 gp3DCursor->particle->initial_speed = 500.0f;
                 gp3DCursor->particle->speed_mode = W8_PARTICLE_SPEED_RANDOM;

@@ -872,17 +872,14 @@ try
             record.bounds_origin.x = 0.0f;
         }
         if (record.bounds_mode == W8_PARTICLE_BOUNDS_BOX) {
-            srVector3T<float> center;
-            srVector3T<float> extent;
-
-            center = record.bounds_origin * g_world_scale;
-            extent = record.bounds_extent * 250.0f;
+            const auto center = record.bounds_origin.glmValue() * g_world_scale;
+            const auto extent = record.bounds_extent.glmValue() * 250.0f;
             particle->bounds_mode = W8_PARTICLE_BOUNDS_BOX;
             particle->lifetime_minimum = center - extent;
             particle->lifetime_maximum = center + extent;
         } else if (record.bounds_mode == W8_PARTICLE_BOUNDS_SPHERE && record.bounds_radius > 0.0f) {
             particle->bounds_mode = W8_PARTICLE_BOUNDS_SPHERE;
-            particle->bounds_origin = record.bounds_origin * g_world_scale;
+            particle->bounds_origin = record.bounds_origin.glmValue() * g_world_scale;
             particle->bounds_radius = record.bounds_radius * g_world_scale;
         } else {
             particle->bounds_mode = W8_PARTICLE_BOUNDS_NONE;
@@ -902,7 +899,7 @@ try
 
         if (record.has_acceleration != 0) {
             particle->has_acceleration = 1;
-            particle->acceleration = record.acceleration * g_world_scale;
+            particle->acceleration = record.acceleration.glmValue() * g_world_scale;
         }
 
         if (record.emission_mode == W8_PARTICLE_EMISSION_NONE) {
@@ -911,18 +908,15 @@ try
             particle->emission_mode = W8_PARTICLE_EMISSION_SINGLE;
         } else {
             particle->emission_mode = W8_PARTICLE_EMISSION_CATCH_UP;
-            particle->emission_minimum.Set(-record.spread.x * 250.0f, -record.spread.y * 250.0f,
-                                           0.0f);
-            particle->emission_maximum.Set(record.spread.x * 250.0f, record.spread.y * 250.0f,
-                                           record.spread.z * g_world_scale);
+            particle->emission_minimum = {-record.spread.x * 250.0f, -record.spread.y * 250.0f, 0};
+            particle->emission_maximum = {record.spread.x * 250.0f, record.spread.y * 250.0f,
+                                         record.spread.z * g_world_scale};
         }
 
         if (record.direction_mode == W8_PARTICLE_DIRECTION_STATIONARY) {
             particle->direction_mode = W8_PARTICLE_DIRECTION_STATIONARY;
         } else if (record.direction_mode == W8_PARTICLE_DIRECTION_FIXED) {
             glm::mat3 rotation;
-            srVector3T<float> direction;
-            srVector3T<float> transformed;
             double angle = -1.5707963;
 
             rotation = glm::mat3(1);
@@ -933,11 +927,8 @@ try
             }
             rotation *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(1, 0, 0)));
 
-            direction.Set(0.0, 0.0, -1.0);
-                transformed = rotation * direction.glmValue();
-                transformed.Unitize();
             particle->direction_mode = W8_PARTICLE_DIRECTION_FIXED;
-            particle->direction = transformed;
+            particle->direction = normalizedOrZero(rotation * glm::vec3(0, 0, -1));
         } else if (record.direction_mode == W8_PARTICLE_DIRECTION_NODE_FORWARD) {
             particle->direction_mode = W8_PARTICLE_DIRECTION_NODE_FORWARD;
         } else if (record.direction_mode == W8_PARTICLE_DIRECTION_CONE) {
@@ -979,8 +970,7 @@ try
         particle->SetTexture(std::move(material.texture));
 
         if (strncmp(record.name, "CLOUD", 5) == 0) {
-            srVector3T<double> current = particle->getLocation();
-            particle->camera_offset = current;
+            particle->camera_offset = glm::vec3(particle->getLocation());
             particle->camera_relative = 1;
             particle->SetActive(1);
         } else if (g_octree != 0) {
