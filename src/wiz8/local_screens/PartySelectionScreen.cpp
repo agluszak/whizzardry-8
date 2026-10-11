@@ -984,8 +984,8 @@ void W8PartySelectionCharacterSummaryPanel::Redraw()
     m_fDirty = false;
 
     DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0xfc, 0, 0, 0x7f, 0xc5);
-    BlitCatalogSurfaceRectTo16BPP(GetFrameBufferSurface(), 0x85, 0x30, 0x139, 0xbf, 0x1b6, 0, 0);
-    InvalidateRegion(0x85, 0x30, 0x139, 0xbf, 0);
+    BlitCatalogSurfaceRectTo16BPP(GetFrameBufferSurface(), 0x85, 0x30, 0x139, 0xc0, 0x1b6, 0, 0);
+    InvalidateRegion(0x85, 0x30, 0x139, 0xc0, 0);
     if (!m_character) {
         return;
     }
