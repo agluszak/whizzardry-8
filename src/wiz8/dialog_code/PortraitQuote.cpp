@@ -8,7 +8,6 @@
 #include <cstring>
 
 #include "wiz8/unicode.h"
-#include "Types.h"
 #include "Font.h"
 #include "himage.h"
 #include "vobject.h"

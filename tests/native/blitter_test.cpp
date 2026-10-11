@@ -404,9 +404,9 @@ TEST_CASE("SDL tiled backgrounds preserve clipping, phase, transparent gaps and 
     REQUIRE(sheet);
     object.sprites = std::move(sheet->frames);
     SGPVSurface actual{};
-    actual.ownedSurface = CreateCpuSurface(17, 11, 16);
+    actual.ownedSurface = CreateCpuSurface(17, 11, g_sgp_pixel_format);
     SGPVSurface expected{};
-    expected.ownedSurface = CreateCpuSurface(17, 11, 16);
+    expected.ownedSurface = CreateCpuSurface(17, 11, g_sgp_pixel_format);
     const SDL_Rect area{-2, 1, 17, 9};
     for (int offsetY : {-2, 0, 2}) {
         for (int offsetX : {-3, 0, 2}) {

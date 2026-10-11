@@ -82,7 +82,6 @@
 #include "surrender/srStatisticsManager.h"
 #include "surrender/srTexture.h"
 #include "compat/surfaces.h"
-#include "Types.h"
 #include "himage.h"
 #include "Font.h"
 #include "input.h"
@@ -342,7 +341,7 @@ void ResetVideoFrameState(void)
    original working directory. Each gate that fails returns straight out with
    the callee's own false still in AL. */
 // FUNCTION: WIZ8 0x00421bb0
-unsigned char InitializeVideoManager(void)
+bool InitializeVideoManager(void)
 {
     g_world_pick_enabled = true;
     SetPickedModelInstance(0);
@@ -611,7 +610,7 @@ unsigned char FinishVideoPresentation(void)
    startup receives the same Windows notification while the device already
    owns its configured 640x480 mode, so there is no resize operation to do. */
 // FUNCTION: WIZ8 0x00422550
-unsigned char VideoResizeWindow(void)
+bool VideoResizeWindow(void)
 {
     if (g_fullscreen || !ghWindow || !g_gerd || !g_flush_pending) {
         return 0;
@@ -628,7 +627,7 @@ unsigned char VideoResizeWindow(void)
 }
 
 // FUNCTION: WIZ8 0x00422970
-void VideoFullScreen(unsigned char enabled)
+void VideoFullScreen(bool enabled)
 {
     g_fullscreen = enabled;
     if (ghWindow && g_gerd && g_flush_pending) {
@@ -653,7 +652,7 @@ void ClearVideoDirtyBlocks(void)
 }
 
 // FUNCTION: WIZ8 0x004277e0
-unsigned char VideoInspectorIsEnabled(void)
+bool VideoInspectorIsEnabled(void)
 {
     return g_video_inspector_enabled;
 }
@@ -674,7 +673,7 @@ void SuspendVideoManager(void)
 }
 
 // FUNCTION: WIZ8 0x004220b0
-unsigned char RestoreVideoManager(void)
+bool RestoreVideoManager(void)
 {
     if (g_video_active) {
         return 1;
@@ -2260,7 +2259,7 @@ char* VideoGetConfigFile(void)
 }
 
 // FUNCTION: WIZ8 0x004229b0
-unsigned char VideoIsFullScreen(void)
+bool VideoIsFullScreen(void)
 {
     return g_fullscreen;
 }

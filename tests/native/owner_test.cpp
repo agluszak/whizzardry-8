@@ -650,7 +650,7 @@ void generic_button_images()
         const auto* sheet = std::get_if<SpriteSheet>(&*image);
         REQUIRE(sheet);
         REQUIRE(sheet->frames.size() == 3);
-        REQUIRE(sheet->frames[2].pixels == std::vector<std::uint16_t>{1});
+        REQUIRE(sheet->frames[2].paletteIndexAt(0, 0) == 1);
         REQUIRE(sheet->palette[1].r == 255);
 
         const auto pixel_offset = STCI_HEADER_SIZE + STCI_8BIT_PALETTE_SIZE + 3 * STCI_SUBIMAGE_SIZE;
@@ -671,7 +671,7 @@ void generic_button_images()
     {
         auto sprite = LoadVideoObject(long_image_path);
         REQUIRE((sprite && sprite->sprites.size() == 3));
-        REQUIRE((sprite->sprites[2].usWidth == 1 && sprite->sprites[2].pixels[0] == 1));
+        REQUIRE((sprite->sprites[2].usWidth == 1 && sprite->sprites[2].paletteIndexAt(0, 0) == 1));
         REQUIRE(sprite->pPaletteEntry[1].r == 255);
     }
     for (bool corrupt_length : {false, true}) {

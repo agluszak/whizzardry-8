@@ -1,6 +1,7 @@
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
 #include <SDL3/SDL_log.h>
+#include <new>
 #include <SDL3_image/SDL_image.h>
 #include <zlib.h>
 #include <SDL3/SDL_error.h>
@@ -453,6 +454,21 @@ std::uint16_t Get16BPPColor(SDL_Color color)
 std::optional<std::uint8_t> SpriteFrame::paletteIndexAt(int x, int y) const
 {
     if (x < 0 || y < 0 || x >= usWidth || y >= usHeight) return std::nullopt;
-    const auto value = pixels[y * usWidth + x];
+    if (!indices) return std::nullopt;
+    const auto* row = reinterpret_cast<const std::uint16_t*>(static_cast<const std::uint8_t*>(indices->pixels) + y * indices->pitch);
+    const auto value = row[x];
     return value == kTransparent ? 0 : static_cast<std::uint8_t>(value);
+}
+
+SpriteFrame::SpriteFrame(const SpriteFrame& other)
+    : indices(other.indices ? SDL_DuplicateSurface(other.indices.get()) : nullptr, SDL_DestroySurface),
+      sOffsetX(other.sOffsetX), sOffsetY(other.sOffsetY), usHeight(other.usHeight), usWidth(other.usWidth)
+{
+    if (other.indices && !indices) throw std::bad_alloc();
+}
+
+SpriteFrame& SpriteFrame::operator=(const SpriteFrame& other)
+{
+    if (this != &other) *this = SpriteFrame(other);
+    return *this;
 }

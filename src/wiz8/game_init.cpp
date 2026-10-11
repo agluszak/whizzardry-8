@@ -30,7 +30,6 @@
 #include "Button System.h"
 #include "shading.h"
 #include "wiz8/application.h"
-#include "Types.h"
 #include "mousesystem.h"
 
 /* Original translation unit is not established by the Arnika/Gameloop source anchors. */
