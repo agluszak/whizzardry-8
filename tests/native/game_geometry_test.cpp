@@ -7,6 +7,7 @@
 #include <cmath>
 #include <limits>
 #include <cstddef>
+#include <cstdlib>
 #include <memory>
 #include <span>
 #include <string>
@@ -27,6 +28,8 @@
 #include "wiz8/direction_angles.h"
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/GameData.h"
+#include "wiz8/engine_code/OctBuildPreTree.h"
+#include "wiz8/engine_code/OctPreTree.h"
 #include "wiz8/engine_code/Navigator.h"
 #include "wiz8/engine_code/SoundEvent.h"
 #include "wiz8/local_code/ItemManager.h"
@@ -598,4 +601,39 @@ TEST_CASE("navigator route growth, copying and movement")
     aliased.path_position_index = 9;
     aliased.AppendPathPosition(&aliased.path[1].position, 7);
     REQUIRE((aliased.path[9].position == end && aliased.path[9].value == 7));
+}
+
+TEST_CASE("Empty octree build geometry cleanup", "[geometry]")
+{
+    // The preprocessing arrays reserve slot zero for a sentinel. No real
+    // records exist when the count is one, so index one must not be read.
+    W8OctPreTreeGeometry geometry{};
+    geometry.vertex_count = 1;
+    geometry.m_polygon_count = 1;
+    geometry.m_vertices =
+        static_cast<W8OctPreTreeVertex*>(std::calloc(1, sizeof(W8OctPreTreeVertex)));
+    geometry.m_polygons =
+        static_cast<W8OctRegionPolygon*>(std::calloc(1, sizeof(W8OctRegionPolygon)));
+    geometry.owned = std::malloc(8);
+    REQUIRE(geometry.m_vertices);
+    REQUIRE(geometry.m_polygons);
+    REQUIRE(geometry.owned);
+
+    geometry.Release();
+    REQUIRE(geometry.m_vertices == nullptr);
+    REQUIRE(geometry.m_polygons == nullptr);
+    REQUIRE(geometry.owned == nullptr);
+    REQUIRE(geometry.vertex_count == 0);
+    REQUIRE(geometry.m_polygon_count == 0);
+    geometry.Release();
+}
+
+TEST_CASE("Octree face run rejects invalid growth capacity", "[geometry]")
+{
+    W8OctPreTreeGeometry geometry{};
+    int* faces = nullptr;
+    REQUIRE(geometry.CheckArrayLength(&faces, 0, 0) == 0);
+    REQUIRE(faces == nullptr);
+    REQUIRE(geometry.CheckArrayLength(&faces, 65535, 5) == 0);
+    REQUIRE(faces == nullptr);
 }
