@@ -1,5 +1,7 @@
 #pragma once
 
+#include "glm/ext/vector_int3.hpp"
+
 #include <memory>
 #include <vector>
 
@@ -40,8 +42,8 @@ public:
     srVector3T<float>* m_vertex_locations; /* m_psrVertLoc */
     glm::vec2* m_vertex_map;       /* m_psrMap */
     int* m_vertex_materials;               /* m_plVertMats */
-    srVector3i* m_poly_vertices;           /* m_psrPolyVertex */
-    srVector3i* m_poly_uv_index;           /* m_psrPolyUVIndex */
+    glm::ivec3* m_poly_vertices;           /* m_psrPolyVertex */
+    glm::ivec3* m_poly_uv_index;           /* m_psrPolyUVIndex */
     int* m_poly_textures;                  /* m_plPolyTextures */
     srVector3T<float>* m_vertex_normals;   /* m_pVertNorms */
     srVector3T<float>* m_vertex_lights;    /* m_pVertLights */

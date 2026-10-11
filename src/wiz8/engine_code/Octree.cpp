@@ -2366,7 +2366,7 @@ unsigned char W8Octree::TestProbeResult(W8OctreeTrace* trace)
                  trace->length, trace->hit_limit}, PlaneContactMode::Collision);
             if (contact) {
                 const auto axis = dominantPlaneAxis(glm::vec3(*plane));
-                const srVector3i* poly_vertex = model->getPolyVertex() + polygon;
+                const glm::ivec3* poly_vertex = model->getPolyVertex() + polygon;
                 const glm::vec3* vertices = model->getVertexLoc();
                 const RuntimeTriangle triangle{vertices[poly_vertex->x],
                                                vertices[poly_vertex->y],

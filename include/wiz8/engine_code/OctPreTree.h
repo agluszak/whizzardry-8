@@ -1,3 +1,4 @@
+#include "glm/ext/vector_int3.hpp"
 #ifndef WIZ8_ENGINE_CODE_OCT_PRE_TREE_H
 #define WIZ8_ENGINE_CODE_OCT_PRE_TREE_H
 
@@ -212,10 +213,10 @@ struct W8OctSubmeshBuild {
     int* m_polygon_ids;
     /* Per-corner vertex indices (three per polygon); becomes the model's
        m_psrPolyVertex. */
-    srVector3i* m_poly_vertices;
+    glm::ivec3* m_poly_vertices;
     /* Per-corner deduplicated uv indices; becomes the model's
        m_psrPolyUVIndex. */
-    srVector3i* m_poly_uv_index;
+    glm::ivec3* m_poly_uv_index;
     /* The deduplicated uv pairs SplitUVMaps emits; becomes m_psrMap. */
     glm::vec2* m_uv_map;
 };

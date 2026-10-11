@@ -1,5 +1,7 @@
 #pragma once
 
+#include "glm/ext/vector_int3.hpp"
+
 #include "srBoundingSphere.h"
 
 #include <condition_variable>
@@ -75,7 +77,7 @@ public:
             w8_ulong record_count;
             w8_ulong vertex_count;
             std::span<const w8_ulong> indices;
-            std::span<const srVector3i> triangles;
+            std::span<const glm::ivec3> triangles;
             std::span<const w8_ulong> vertices;
             const srTriMeshPipeline::Pass* passes;
             int direct_vertex_indices;
@@ -142,7 +144,7 @@ public:
         };
         /* Write pointers alloc() returns for the reserved triangle range. */
         struct IndexWrite {
-            srVector3i* triangles;
+            glm::ivec3* triangles;
             w8_ulong* texture_set;
             w8_ulong* sort_key;
             w8_ulong* aux;
@@ -150,7 +152,7 @@ public:
         /* Accumulated primitive work. alloc() reserves count entries plus 0x40 headroom across all
            four streams; reset() always clears the count and only frees when asked. */
         struct IndexBatch {
-            std::vector<srVector3i> triangles;
+            std::vector<glm::ivec3> triangles;
             std::vector<w8_ulong> texture_set;
             std::vector<w8_ulong> sort_key;
             std::vector<w8_ulong> aux;
@@ -585,7 +587,7 @@ public:
     void disable(e_enable option);
     void enable(e_enable option);
     srShader getShader() const;
-    void drawTriangle(const srVector3i& triangle);
+    void drawTriangle(const glm::ivec3& triangle);
     void setDepthRange(double minimum, double maximum);
     void setPolygonMode(e_polygonMode mode);
     e_polygonMode getPolygonMode() const;
@@ -716,7 +718,7 @@ private:
        corner to a position index, positions is the renderer's vec4 stream base. */
     struct PickInput {
         std::span<const w8_ulong> indices;
-        std::span<const srVector3i> triangles;
+        std::span<const glm::ivec3> triangles;
         // Empty means direct corner indices; otherwise this is the full vertex map.
         std::span<const w8_ulong> vertices;
         std::span<const glm::vec4> positions;

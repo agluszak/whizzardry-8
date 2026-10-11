@@ -22,6 +22,7 @@
 #include "wiz8/octree_walk.h"
 #include "surrender/srMath.h"
 #include "surrender/srBoundingBox.h"
+#include "surrender/mesh_math.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/engine_code/OctPreTree.h"
 #include "wiz8/engine_code/3d.h"
@@ -720,7 +721,7 @@ w8_ulong OctPreTree::SplitMeshes(W8OctPreTreeGeometry* geometry, W8OctSubmeshBui
         for (w8_ulong index = 1; index < m_spatial.submesh_count; ++index) {
             W8OctSubmeshBuild* record = records + index;
             record->m_poly_vertices =
-                static_cast<srVector3i*>(std::malloc(record->m_polygon_count * sizeof(srVector3i)));
+                static_cast<glm::ivec3*>(std::malloc(record->m_polygon_count * sizeof(glm::ivec3)));
             if (record->m_poly_vertices == 0) {
                 ReportBuildStatus(7, "SplitMeshes: Could not allocate psrPolyVertex.\n");
                 return 0;
@@ -741,7 +742,7 @@ w8_ulong OctPreTree::SplitMeshes(W8OctPreTreeGeometry* geometry, W8OctSubmeshBui
                     if (slot == vertex_count) {
                         vertex_ids[vertex_count] = vertex_id;
                     }
-                    (&record->m_poly_vertices[poly].x)[corner] = slot;
+                    record->m_poly_vertices[poly][corner] = slot;
                     if (slot == vertex_count) {
                         ++vertex_count;
                     }
@@ -774,10 +775,8 @@ w8_ulong OctPreTree::SplitMeshes(W8OctPreTreeGeometry* geometry, W8OctSubmeshBui
                 [](const auto& entry) { return std::get<0>(entry); });
 
             for (w8_ulong face = 0; face < record->m_polygon_count; ++face) {
-                for (int c = 0; c < 3; ++c) {
-                    int* slot = &(&record->m_poly_vertices[face].x)[c];
-                    *slot = order[*slot];
-                }
+                record->m_poly_vertices[face] = srMeshMath::remapTriangle(
+                    record->m_poly_vertices[face], {order, vertex_count});
             }
 
             record->m_vertex_ids = static_cast<int*>(malloc(vertex_count * sizeof(*record->m_vertex_ids) + sizeof(*record->m_vertex_ids)));
@@ -834,7 +833,7 @@ w8_ulong OctPreTree::SplitUVMaps(W8OctSubmeshBuild* record, W8OctPreTreeGeometry
         return 0;
     }
     memset(table, 0, record->m_polygon_count * (4 * sizeof(*table)));
-    srVector3i* uv_index = static_cast<srVector3i*>(std::malloc(record->m_polygon_count * sizeof(srVector3i)));
+    glm::ivec3* uv_index = static_cast<glm::ivec3*>(std::malloc(record->m_polygon_count * sizeof(glm::ivec3)));
     if (uv_index == 0) {
         ReportBuildStatus(7, "SplitUVMaps: Could not allocate psrPolyUVIndex.\n");
         return 0;
@@ -847,7 +846,7 @@ w8_ulong OctPreTree::SplitUVMaps(W8OctSubmeshBuild* record, W8OctPreTreeGeometry
         const glm::vec2* uvs =
             geometry->m_polygons[record->m_polygon_ids[poly]].face.texture_coordinates;
         for (w8_ulong corner = 0; corner < 3; ++corner) {
-            int vertex = (&record->m_poly_vertices[poly].x)[corner];
+            int vertex = record->m_poly_vertices[poly][corner];
             int chain = vertex + 1;
             int last = vertex;
             if (chain != 0 && table[chain - 1].link >= 0) {
@@ -865,13 +864,13 @@ w8_ulong OctPreTree::SplitUVMaps(W8OctSubmeshBuild* record, W8OctPreTreeGeometry
                     }
                 }
                 if (chain != 0) {
-                    (&uv_index[poly].x)[corner] = chain - 1;
+                    uv_index[poly][corner] = chain - 1;
                     continue;
                 }
             }
             W8OctUvPoolEntry* entry = &table[last];
             if (table[last].link < 0) {
-                (&uv_index[poly].x)[corner] = last;
+                uv_index[poly][corner] = last;
                 entry->u = uvs[corner].x;
                 entry->v = uvs[corner].y;
                 entry->link = 0;
@@ -881,7 +880,7 @@ w8_ulong OctPreTree::SplitUVMaps(W8OctSubmeshBuild* record, W8OctPreTreeGeometry
                     free(table);
                     return 0;
                 }
-                (&uv_index[poly].x)[corner] = uv_count;
+                uv_index[poly][corner] = uv_count;
                 table[uv_count].link = 0;
                 table[uv_count].u = uvs[corner].x;
                 table[uv_count].v = uvs[corner].y;

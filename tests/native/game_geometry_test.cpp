@@ -620,7 +620,7 @@ static void triangle_visibility()
                                               {0, 0.25f, 0},
                                               {2.5f, 0, 0},
                                               {0, -0.25f, 0}}};
-    const std::array<srVector3i, 3> triangles{{{0, 1, 2}, {3, 4, 5}, {6, 7, 8}}};
+    const std::array<glm::ivec3, 3> triangles{{{0, 1, 2}, {3, 4, 5}, {6, 7, 8}}};
     const std::array<glm::vec4, 6> planes{
         {{1, 0, 0, 1}, {-1, 0, 0, 1}, {0, 1, 0, 1}, {0, -1, 0, 1}, {0, 0, 1, 1}, {0, 0, -1, 1}}};
     const glm::mat4 identity(1);
@@ -1474,7 +1474,7 @@ TEST_CASE("Quad visibility owns ordered cells without a fixed capacity", "[geome
 TEST_CASE("Software backface selection preserves thresholds and active order", "[geometry]")
 {
     std::array<glm::vec3, 3> positions{{{0, 0, 0}, {0, 0, 2}, {0, 0, -2}}};
-    std::array<srVector3i, 3> triangles{{{0, 0, 0}, {1, 1, 1}, {2, 2, 2}}};
+    std::array<glm::ivec3, 3> triangles{{{0, 0, 0}, {1, 1, 1}, {2, 2, 2}}};
     const std::array<glm::vec3, 3> normals{{{0, 0, 1}, {0, 0, 1}, {0, 0, 1}}};
     srMeshModel::TriMesh mesh;
     mesh.polygon_count = triangles.size();
@@ -1520,7 +1520,7 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Empty software backface selections skip 
     stMeshModel model(1, 3);
     auto* pipeline = srTriMeshPipeline::Get(&renderer);
     std::array<glm::vec3, 3> positions{{{0, 0, 2}, {0, 0, 2}, {0, 0, 2}}};
-    std::array<srVector3i, 1> triangles{{{0, 1, 2}}};
+    std::array<glm::ivec3, 1> triangles{{{0, 1, 2}}};
     const std::array<glm::vec3, 1> normals{{{0, 0, 1}}};
     srMeshModel::TriMesh mesh;
     mesh.vertex_count = positions.size();
@@ -1553,7 +1553,7 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Failed mesh materials release renderer a
     stMeshModel extended(1, 3);
     std::array<glm::vec3, 3> positions{{{-0.5f, -0.5f, 0.5f},
                                       {0.5f, -0.5f, 0.5f}, {0, 0.5f, 0.5f}}};
-    std::array<srVector3i, 1> triangles{{{0, 1, 2}}};
+    std::array<glm::ivec3, 1> triangles{{{0, 1, 2}}};
     std::array<glm::vec4, 1> equations{{{0, 0, 1, -0.5f}}};
     const std::array<glm::vec3, 1> normals{{{0, 0, -1}}};
     srMeshModel::TriMesh mesh;
@@ -1828,7 +1828,7 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Static and frame normals share area weig
     const std::array<glm::vec3, 5> positions{{{0, 0, 0}, {2, 0, 0}, {0, 3, 0},
                                             {0, 0, 4}, {0, 0, 0}}};
     std::ranges::copy(positions, mesh.getVertexLoc());
-    const std::array<srVector3i, 3> triangles{{{0, 1, 2}, {4, 3, 1}, {2, 2, 2}}};
+    const std::array<glm::ivec3, 3> triangles{{{0, 1, 2}, {4, 3, 1}, {2, 2, 2}}};
     std::ranges::copy(triangles, mesh.getPolyVertex());
     auto* shades = mesh.getVertexShadeIndex(1);
     for (w8_ulong vertex = 0; vertex < positions.size(); ++vertex) shades[vertex] = vertex;
