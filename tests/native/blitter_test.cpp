@@ -401,16 +401,7 @@ TEST_CASE("SDL surface blits preserve equivalent legacy pixel goldens", "[blit]"
                         .shadow = static_cast<std::uint16_t>(variant % 3 ? 0x1234 : 0)});
             check("DrawSpriteMono", data * 8 + variant, true, clip, expected_index, expected);
 
-            reset_surface(*target, 337, 19);
-            REQUIRE(SDL_SetSurfaceClipRect(target.get(), &clip));
-            DrawSprite(*target, sprites, 0, x, y, {.blend = SpriteBlend::Shadow});
-            check("Blt8BPPDataTo16BPPBufferShadowClip", data * 8 + variant, true,
-                  clip, expected_index, expected);
         }
-        reset_surface(*target, 337, 19);
-        REQUIRE(SDL_SetSurfaceClipRect(target.get(), &full));
-        DrawSprite(*target, sprites, 0, 4, 4, {.blend = SpriteBlend::Shadow});
-        check("Blt8BPPDataTo16BPPBufferShadow", data, true, full, expected_index, expected);
 
         reset_surface(*target, 337, 19);
         REQUIRE(SDL_SetSurfaceClipRect(target.get(), &full));

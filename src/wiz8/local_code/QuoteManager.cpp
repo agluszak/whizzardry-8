@@ -1887,8 +1887,7 @@ int UpdateCharacterEventState(void)
 void RenderPartyPortrait(int portrait, int left, int top, SpriteDraw options, unsigned char value,
                          int party_slot)
 {
-    DrawCatalogImage(GetFrameBufferSurface(), 0x12, portrait, 0, left, top,
-                      {.blend = SpriteBlend::Shadow, .mirror = options.mirror});
+    DrawCatalogImage(GetFrameBufferSurface(), 0x12, portrait, 0, left, top, options);
     if (party_slot == -1) {
         return;
     }
@@ -1940,7 +1939,7 @@ bool BlitPartyPortraitAnimation(int portrait, int left, int top, SpriteDraw opti
             return true;
         }
         DrawCatalogImage(GetFrameBufferSurface(), 0x12, portrait, state->portrait_pose, left, top,
-                         {.blend = SpriteBlend::Shadow, .mirror = options.mirror});
+                         options);
         drawn = true;
         if (state->previous_portrait_pose != -1) {
             std::tie(width, height) = GetCatalogImageSize(0x12, portrait, state->previous_portrait_pose);

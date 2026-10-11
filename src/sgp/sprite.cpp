@@ -10,7 +10,6 @@
 
 #include "himage.h"
 #include "image.h"
-#include "shading.h"
 #include "wiz8/surface_storage.h"
 
 namespace {
@@ -65,10 +64,7 @@ void DrawSprite(SDL_Surface& target, const SpriteSheet& sprites, std::size_t fra
             }
             if (index == SpriteFrame::kTransparent)
                 continue;
-            if (options.blend == SpriteBlend::Shadow)
-                output[destination_x] = ShadeTable[output[destination_x]];
-            else
-                output[destination_x] = palette[index];
+            output[destination_x] = palette[index];
         }
     }
 }

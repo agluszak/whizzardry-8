@@ -10,7 +10,6 @@
 
 enum class SpriteBlend {
     Transparent,
-    Shadow,
     Mono,
 };
 
