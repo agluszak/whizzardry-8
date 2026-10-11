@@ -21,6 +21,7 @@
 #include "surrender/srMaterial.h"
 #include "surrender/srNode.h"
 #include "surrender/srTriMeshPipeline.h"
+#include "surrender/mesh_submission.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/Video2.h"
 #include "surrender/srMath.h"
@@ -639,11 +640,8 @@ static stMaterial& ShadowMaterial()
 void stModelInstance::RenderShadow(srGERD& renderer, srMeshModel::TriMesh& mesh)
 {
     float height = mesh.bounds_maximum.y - mesh.bounds_minimum.y;
-    renderer.pushEnable();
+    const srMeshSubmission::EnableScope enabled(renderer, true);
     renderer.setCullMode(srGERD::CULL_NONE);
-    if (!renderer.isEnabled(srGERD::ENABLE_SORTED_RENDERING)) {
-        renderer.toggle(srGERD::ENABLE_SORTED_RENDERING);
-    }
     renderer.matrixMode(srGERD::MATRIX_MODELVIEW);
     renderer.pushMatrix();
     renderer.translate(0.0, height * g_float_half, 0.0);
@@ -676,5 +674,4 @@ void stModelInstance::RenderShadow(srGERD& renderer, srMeshModel::TriMesh& mesh)
     pipeline->PrepareSlot();
     pipeline->FlushIfCurrent();
     renderer.popMatrix();
-    renderer.popEnable();
 }

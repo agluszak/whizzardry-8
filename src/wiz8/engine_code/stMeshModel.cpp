@@ -24,6 +24,7 @@
 #include "wiz8/engine_code/stMeshModel.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/mesh_math.h"
+#include "surrender/mesh_submission.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/sr_api.h"
 #include "surrender/srGERD.h"
@@ -248,51 +249,43 @@ void stMeshModel::RenderTriMeshWithEquations(srGERD& renderer, const TriMesh& me
         arg_poly_equations.size() < static_cast<std::size_t>(mesh.polygon_count))
         throw std::invalid_argument("Incomplete mesh polygon normals");
     std::vector<w8_ulong> software_polygons;
-    srShader shader;
-
     if (mesh.polygon_count != 0 && mesh.vertex_count != 0) {
-        renderer.pushEnable();
-        if ((g_inverted_depth_render ||
-             (mesh.control_flags & (1UL << srMeshModel::CONTROL_SORTED_RENDERING)) != 0) &&
-            !renderer.isEnabled(srGERD::ENABLE_SORTED_RENDERING)) {
-            renderer.toggle(srGERD::ENABLE_SORTED_RENDERING);
-        }
+        {
+            const srMeshSubmission::EnableScope enabled(renderer,
+                g_inverted_depth_render ||
+                (mesh.control_flags & (1UL << srMeshModel::CONTROL_SORTED_RENDERING)) != 0);
 
-        if (g_render_cull_front) {
-            renderer.setCullMode(srGERD::CULL_NONE);
-        } else if (!arg_poly_equations.empty()) {
-            renderer.setCullMode(srGERD::CULL_NONE);
+            if (g_render_cull_front) {
+                renderer.setCullMode(srGERD::CULL_NONE);
+            } else if (!arg_poly_equations.empty()) {
+                renderer.setCullMode(srGERD::CULL_NONE);
 
-            software_polygons = facingPolygons(mesh,
-                arg_poly_equations,
-                glm::vec3(renderer.getInverseModelViewMatrix()[3]),
-                renderer.getWinding() == srGERD::WINDING_POSITIONAL_0,
-                static_cast<float>(g_double_zero));
-        } else {
-            renderer.setCullMode(srGERD::CULL_BACK);
-        }
+                software_polygons = facingPolygons(mesh,
+                    arg_poly_equations,
+                    glm::vec3(renderer.getInverseModelViewMatrix()[3]),
+                    renderer.getWinding() == srGERD::WINDING_POSITIONAL_0,
+                    static_cast<float>(g_double_zero));
+            } else {
+                renderer.setCullMode(srGERD::CULL_BACK);
+            }
 
-        for (int side = 1; side >= 0; --side) {
-            if ((mesh.control_flags & (1u << side)) != 0 &&
-                (arg_poly_equations.empty() || !software_polygons.empty())) {
-                auto& pipeline = srTriMeshPipeline::beginMesh(renderer, mesh);
-                if (!arg_poly_equations.empty()) {
-                    pipeline.projected_vertices = nullptr;
-                    pipeline.active_triangles = std::span<const w8_ulong>(software_polygons);
-                }
-                for (w8_long pass = 0; pass < mesh.pass_count; ++pass) {
-                    shader = mesh.shaders[pass];
-                    if (g_inverted_depth_render) {
-                        shader.value = (shader.value & 0xfffffffeUL) | 6UL;
-                    }
-                    pipeline.AppendMeshPass(mesh, pass, side, shader);
-                }
-
-                pipeline.FlushIfCurrent();
+            if (arg_poly_equations.empty() || !software_polygons.empty()) {
+                srMeshSubmission::drawSides(renderer, mesh,
+                    [&](srTriMeshPipeline& pipeline, w8_long side) {
+                        if (!arg_poly_equations.empty()) {
+                            pipeline.projected_vertices = nullptr;
+                            pipeline.active_triangles = std::span<const w8_ulong>(software_polygons);
+                        }
+                        return side;
+                    },
+                    [&](w8_long pass) {
+                        auto shader = mesh.shaders[pass];
+                        if (g_inverted_depth_render)
+                            shader.value = (shader.value & 0xfffffffeUL) | 6UL;
+                        return shader;
+                    });
             }
         }
-
-        renderer.popEnable();
         last_decompress_release_tick = w8_get_ticks();
     }
 }
