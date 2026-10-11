@@ -26,6 +26,5 @@ jobs:
         run: |
           MERGE_BASE="$(git merge-base "$BASE_SHA" HEAD)"
           git diff --name-only --diff-filter=ACM -z "$MERGE_BASE" HEAD -- include src tests \
-            | grep -zE '\.(c|cc|cpp|cxx|h|hh|hpp|hxx|inc)
- \
+            | grep -zE '\.(c|cc|cpp|cxx|h|hh|hpp|hxx|inc)$' \
             | xargs -0 -r -n 32 clang-format-21 --dry-run --Werror
