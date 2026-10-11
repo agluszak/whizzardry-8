@@ -1,12 +1,14 @@
 #pragma once
 
+#include <array>
+
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/dialog_code/DialogScrollBar.h"
 #include "wiz8/dialog_code/DialogTextArea.h"
 #include "compat/compiler.h"
 
 struct W8Character;
-class W8DialogButton;
+class W8ButtonWidget;
 class W8TextBuffer;
 struct W8ItemInstance;
 
@@ -35,10 +37,10 @@ private:
     void ShowTab(bool professions);
     void ShowPrimaryTab();
     void ShowSecondaryTab();
-    static void PrimaryTabCallback(W8DialogButton* button);
-    static void SecondaryTabCallback(W8DialogButton* button);
+    static void PrimaryTabCallback(W8ButtonWidget* button);
+    static void SecondaryTabCallback(W8ButtonWidget* button);
 
-    W8DialogButton* m_buttons[W8_ASSAY_BUTTON_COUNT];
+    std::array<W8ButtonWidget, W8_ASSAY_BUTTON_COUNT> m_buttons;
     W8TextBuffer* m_text_buffers[W8_ASSAY_TEXT_BUFFER_COUNT];
     W8DialogScrollBar m_scroll_bar;
     W8ItemInstance* m_item;

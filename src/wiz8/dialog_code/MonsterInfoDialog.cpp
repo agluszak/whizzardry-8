@@ -34,7 +34,7 @@
 #include "character_skills.h"
 #include "conditions.h"
 #include "dialog_code/DialogBase.h"
-#include "dialog_code/DialogButton.h"
+#include "wiz8/local_code/ButtonWidget.h"
 #include "dialog_code/DialogScrollBar.h"
 #include "dialog_code/DialogTextArea.h"
 #include "gameplay_modifiers.h"

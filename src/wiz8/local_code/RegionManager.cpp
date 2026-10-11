@@ -906,6 +906,8 @@ static void RemoveFromScanOrder(unsigned int set_index)
 static void InsertIntoScanOrder(unsigned int set_index)
 {
     RemoveFromScanOrder(set_index);
+    std::erase_if(g_region_set_scan_order,
+                  [](unsigned int index) { return index >= g_region_sets.size(); });
     const auto& set = g_region_sets[set_index];
     const auto key = std::pair{set.order, set.sequence};
     const auto position = std::ranges::upper_bound(
@@ -1087,8 +1089,8 @@ OwnedRegion::OwnedRegion(unsigned int set, int priority, W8RegionHandler& handle
     generation_ = ++owned_region.binding_generation;
 }
 
-OwnedRegion::OwnedRegion(unsigned int set, const RegionTemplate& entry)
-    : set_(set), index_(AddRegionToSet(set, REGION_PRIORITY_LOWEST))
+OwnedRegion::OwnedRegion(unsigned int set, const RegionTemplate& entry, int priority)
+    : set_(set), index_(AddRegionToSet(set, priority))
 {
     auto& owned_region = g_regions[index_];
     owned_region.flags = entry.flags;

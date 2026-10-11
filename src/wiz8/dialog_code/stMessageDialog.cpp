@@ -8,7 +8,7 @@
 #include <utility>
 
 #include "wiz8/unicode.h"
-#include "wiz8/dialog_code/DialogButton.h"
+#include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/regions.h"
@@ -259,7 +259,7 @@ bool W8MessageDialogBase::ProcessInput()
 }
 
 // FUNCTION: WIZ8 0x005d32c0
-void MessageDialogConfirmCallback(W8DialogButton* button)
+void MessageDialogConfirmCallback(W8ButtonWidget* button)
 {
     auto* dialog = static_cast<W8MessageDialogBase*>(button->m_owner);
     dialog->accepted = true;
@@ -268,7 +268,7 @@ void MessageDialogConfirmCallback(W8DialogButton* button)
 }
 
 // FUNCTION: WIZ8 0x005d3370
-void MessageDialogCancelCallback(W8DialogButton* button)
+void MessageDialogCancelCallback(W8ButtonWidget* button)
 {
     auto* dialog = static_cast<W8MessageDialogBase*>(button->m_owner);
     dialog->accepted = false;

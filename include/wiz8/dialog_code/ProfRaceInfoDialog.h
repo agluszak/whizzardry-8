@@ -6,7 +6,7 @@
 
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/dialog_code/DialogBase.h"
-#include "wiz8/dialog_code/DialogButton.h"
+#include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/dialog_code/DialogScrollBar.h"
 #include "wiz8/dialog_code/DialogTextArea.h"
 #include "wiz8/layouts/gameplay_databases.h"
@@ -61,7 +61,7 @@ protected:
     unsigned int m_uiDetailId;  /* g_localized_strings index */
     int m_minimums[W8_DIALOG_ATTRIBUTE_COUNT];
     W8DialogScrollBar m_scroll_bar;
-    W8DialogButton m_button;
+    W8ButtonWidget m_button;
     W8DialogTextArea m_text_area;
 };
 

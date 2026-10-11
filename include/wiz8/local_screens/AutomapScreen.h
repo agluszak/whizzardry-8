@@ -27,9 +27,9 @@ extern W8MainUiMode g_ui_mode_saved;
 void SetCurrentAutomapUiMode(W8MainUiMode value);
 void SetSavedAutomapUiMode(W8MainUiMode value);
 
-class W8DialogButton;
+class W8ButtonWidget;
 
-extern std::vector<std::unique_ptr<W8DialogButton>> g_automap_buttons;
+extern std::vector<std::unique_ptr<W8ButtonWidget>> g_automap_buttons;
 extern int g_automap_zoom_mode;
 
 extern bool g_mipe_menu_active;

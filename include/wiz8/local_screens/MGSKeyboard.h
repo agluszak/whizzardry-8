@@ -55,7 +55,7 @@ class W8TextControl;
    selection the availability refresh drives. */
 /* Each keyboard-menu row's (W8SubMenuPage, entry) selection. */
 extern short g_keyboard_menu_items[12];
-extern Controls* g_keyboard_menu_panel;
+extern std::unique_ptr<Controls> g_keyboard_menu_panel;
 extern short g_keyboard_menu_pages[12];
 extern W8TextControl* g_keyboard_menu_rows[13];
 /* The (x, y) of the twelve menu rows and the trailing close row. */

@@ -687,7 +687,7 @@ srVector2i g_keyboard_row_positions[13] = {
 // GLOBAL: WIZ8 0x0069b7ec
 short g_keyboard_menu_items[12];
 // GLOBAL: WIZ8 0x0069b804
-Controls* g_keyboard_menu_panel;
+std::unique_ptr<Controls> g_keyboard_menu_panel;
 // GLOBAL: WIZ8 0x0069b808
 short g_keyboard_menu_pages[12];
 // GLOBAL: WIZ8 0x0069b820
@@ -711,7 +711,7 @@ void OpenKeyboardMenuForSlot(int slot)
 {
     memset(g_keyboard_menu_rows, 0, sizeof(g_keyboard_menu_rows));
     g_selected_party_slot = slot;
-    g_keyboard_menu_panel = 0;
+    g_keyboard_menu_panel.reset();
     g_level_block->keyboard_menu_open = true;
     SelectPartyCharacter(g_selected_party_slot);
     if (BuildKeyboardMenu() == 0) {
@@ -755,7 +755,7 @@ void CloseKeyboardMenu(void)
                          g_keyboard_menu_panel->m_bounds.left + 0x52,
                          g_keyboard_menu_panel->m_bounds.top + 0x4a, 0);
     }
-    DestroyControlPanel(g_keyboard_menu_panel);
+    g_keyboard_menu_panel.reset();
     for (auto& row : g_keyboard_menu_rows) row = nullptr;
     RequestRedraw(1 << g_selected_party_slot);
 }
@@ -777,8 +777,8 @@ unsigned char BuildKeyboardMenu(void)
     GetPartySlotMenuAnchor(g_selected_party_slot, &left, &top, &unused_4, &unused_5, &unused_6,
                            &unused_7, 0);
     left += 0x17;
-    g_keyboard_menu_panel = new Controls(left, top, left + 0x52, top + 0x4a, CatalogArtwork::Load(0xa6, 0), 0);
-    if (g_keyboard_menu_panel == 0) {
+    g_keyboard_menu_panel = std::make_unique<Controls>(left, top, left + 0x52, top + 0x4a, CatalogArtwork::Load(0xa6, 0), 0);
+    if (!g_keyboard_menu_panel) {
         return 0;
     }
     SetRegionBounds(g_keyboard_menu_regions->index(13), left, top, left + 0x52, top + 0x4a);
@@ -790,14 +790,14 @@ unsigned char BuildKeyboardMenu(void)
                 continue;
             }
             control = new W8TextControl(
-                g_keyboard_menu_panel, g_keyboard_menu_regions->index(row),
+                g_keyboard_menu_panel.get(), g_keyboard_menu_regions->index(row),
                 g_keyboard_row_positions[row].x,
                 g_keyboard_row_positions[row].y, g_keyboard_row_positions[row].x + 0x12,
                 g_keyboard_row_positions[row].y + 0x12, CatalogArtwork::Load(0x89, 0), -1, -1,
                 -1, -1, message + 6);
             g_keyboard_menu_rows[row] = control;
             if (control == 0) {
-                DestroyControlPanel(g_keyboard_menu_panel);
+                g_keyboard_menu_panel.reset();
                 for (auto& row : g_keyboard_menu_rows) row = nullptr;
                 return 0;
             }
@@ -811,7 +811,7 @@ unsigned char BuildKeyboardMenu(void)
         }
     }
     g_keyboard_menu_rows[row] = new W8TextControl(
-        g_keyboard_menu_panel, g_keyboard_menu_regions->index(row), g_keyboard_row_positions[row].x,
+        g_keyboard_menu_panel.get(), g_keyboard_menu_regions->index(row), g_keyboard_row_positions[row].x,
         g_keyboard_row_positions[row].y, g_keyboard_row_positions[row].x + 0x12,
         g_keyboard_row_positions[row].y + 0x12, CatalogArtwork::Load(0x89, 0), 0xbd, 0xbd, 0xbf,
         0xbf, -1);

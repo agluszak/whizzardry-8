@@ -8,6 +8,7 @@
 #include <new>
 #include <array>
 #include <memory>
+#include <utility>
 #include <optional>
 
 #include "compat/compiler.h"
@@ -103,7 +104,18 @@ struct W8NpcState;
    selector and from the running game. */
 
 // GLOBAL: WIZ8 0x0069c0f4
-W8CampScreenState* g_camp_screen;
+std::unique_ptr<W8CampScreenState> g_camp_screen;
+
+/* Retail freed the camp sub-objects in this order on leave. */
+W8CampScreenState::~W8CampScreenState()
+{
+    item_range.reset();
+    dialog.reset();
+    for (auto& range : spell_ranges) range.reset();
+    stats_range.reset();
+    stats_controls.reset();
+    character_info.reset();
+}
 // GLOBAL: WIZ8 0x0064cbe8
 int giReviewCharSlot = -1;
 // GLOBAL: WIZ8 0x0069c0f8
@@ -149,7 +161,7 @@ void DeactivateCampPage(void);
 void DrawCampScreen(void);
 void DrawCampRegenStats(void);
 // GLOBAL: WIZ8 0x0069c428
-Controls* g_camp_secondary_panel;
+std::unique_ptr<Controls> g_camp_secondary_panel;
 
 /* The camp screen's three panels and their controls: the top secondary panel
    carries the page tabs, help line, attribute rows and secondary labels; the
@@ -164,13 +176,13 @@ W8HelpTextControl* g_camp_help_text;
 // GLOBAL: WIZ8 0x0069c448
 W8Widget* g_camp_stat_labels[7];
 // GLOBAL: WIZ8 0x0069c464
-Controls* g_camp_action_panel;
+std::unique_ptr<Controls> g_camp_action_panel;
 // GLOBAL: WIZ8 0x0069c468
 W8TextControl* g_camp_action_buttons[2];
 // GLOBAL: WIZ8 0x0069c470
 W8TextControl* g_camp_item_filter_buttons[7];
 // GLOBAL: WIZ8 0x0069c48c
-Controls* g_camp_item_filter_panel;
+std::unique_ptr<Controls> g_camp_item_filter_panel;
 
 /* The font-state palette index selected for each load category
    while the weight line is drawn; zero leaves the default palette in place. */
@@ -334,7 +346,7 @@ void SetCampSpellRangesEnabled(bool enable)
     int second;
 
     for (realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
-        spell_range = g_camp_screen->spell_ranges[realm];
+        spell_range = g_camp_screen->spell_ranges[realm].get();
         spell_range->m_range->EnableRegionSet(enable);
         if (enable) {
             second = g_review_character->skill_unlocks[0x1c + spell_range->m_realm] - 8;
@@ -358,7 +370,7 @@ void RefreshCampSpellRanges(void)
     int second;
 
     for (realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
-        spell_range = g_camp_screen->spell_ranges[realm];
+        spell_range = g_camp_screen->spell_ranges[realm].get();
         spell_range->m_range->EnableRegionSet(true);
         second = g_review_character->skill_unlocks[0x1c + spell_range->m_realm] - 8;
         if (second < 1) {
@@ -447,7 +459,7 @@ void DrawCampSpellPages(void)
             }
             g_wiz_text_font_secondary.resetPalette();
         }
-        state = g_camp_screen;
+        state = g_camp_screen.get();
         state->spell_ranges[realm]->UpdateRange(true);
     }
     for (realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
@@ -581,9 +593,9 @@ unsigned char SpellListRegionHandler(const InputEvent* event, W8Region* region)
 // FUNCTION: WIZ8 0x005B7BB0
 void OpenSpellInfoDialog(unsigned int spell_id)
 {
-    W8SpellInfoDialog* dialog = new W8SpellInfoDialog(spell_id);
+    auto dialog = std::make_unique<W8SpellInfoDialog>(spell_id);
     dialog->SetText("");
-    DisplayCampDialog(dialog);
+    DisplayCampDialog(std::move(dialog));
 }
 
 /* The items-page redraw driver, run once per update: each pending group of
@@ -628,7 +640,7 @@ void RedrawCampItemsPage(void)
 // FUNCTION: WIZ8 0x005b7e00
 void DrawCampCharacterInfo(void)
 {
-    W8CampScreenState* state = g_camp_screen;
+    W8CampScreenState* state = g_camp_screen.get();
     W8Character* character = g_review_character;
     int index;
     int realm;
@@ -737,7 +749,7 @@ void DrawCampCharacterInfo(void)
 // FUNCTION: WIZ8 0x005b8440
 void DrawCampBackpackItems(void)
 {
-    W8CampScreenState* state = g_camp_screen;
+    W8CampScreenState* state = g_camp_screen.get();
     W8Character* character = g_review_character;
     unsigned int slot;
     int left;
@@ -791,7 +803,7 @@ void DrawCampBackpackItems(void)
 // FUNCTION: WIZ8 0x005b8690
 void DrawCampEquipmentItems(void)
 {
-    W8CampScreenState* state = g_camp_screen;
+    W8CampScreenState* state = g_camp_screen.get();
     W8Character* character = g_review_character;
     const W8CampScreenRegion* region;
     unsigned int slot;
@@ -895,7 +907,7 @@ void DrawCampEquipmentItems(void)
 // FUNCTION: WIZ8 0x005b8b20
 void DrawCampItemPool(void)
 {
-    W8CampScreenState* state = g_camp_screen;
+    W8CampScreenState* state = g_camp_screen.get();
     W8Character* character = g_review_character;
     unsigned int visible;
     unsigned int i;
@@ -979,7 +991,7 @@ void DrawCampItemPool(void)
 // FUNCTION: WIZ8 0x005b8ec0
 void DrawCampItemQuantity(W8ItemInstance* item, int left, int top, int width)
 {
-    W8CampScreenState* state = g_camp_screen;
+    W8CampScreenState* state = g_camp_screen.get();
     int height;
 
     switch (g_item_records[item->iItemNo].quantity_kind) {
@@ -1289,7 +1301,7 @@ void W8CampSpellRange::OnRangeChanged(W8RangeControl*)
 // FUNCTION: WIZ8 0x005a3500
 unsigned char CampScreenInitialize(void)
 {
-    g_camp_screen = 0;
+    g_camp_screen.reset();
     return 1;
 }
 
@@ -1359,15 +1371,7 @@ unsigned char CampScreenEnter(void)
     }
     ClearItemDrag();
     if (!g_camp_screen) {
-        g_camp_screen = new (std::nothrow) W8CampScreenState{};
-        if (!g_camp_screen) {
-            if (IsMessageBoxActive()) {
-                CloseMessageBox();
-            }
-            BeginCombatRound();
-            RequestScreenTransition();
-            return 0;
-        }
+        g_camp_screen = std::make_unique<W8CampScreenState>();
     }
     CreatePartyPortraitEventRegions();
     g_camp_main_regions.Create();
@@ -1394,17 +1398,17 @@ unsigned char CampScreenEnter(void)
     CreateRcsDismissPanel();
     g_camp_screen->page = W8_CAMP_PAGE_ITEMS;
     g_camp_screen->info_page = W8_CAMP_INFO_PAGE_ITEMS;
-    g_camp_screen->item_range = new W8CampItemRange;
+    g_camp_screen->item_range = std::make_unique<W8CampItemRange>();
     for (int range_index = 0; range_index < 6; ++range_index) {
         g_camp_screen->spell_ranges[range_index] =
-            new W8CampSpellRange(static_cast<W8SpellRealm>(range_index));
+            std::make_unique<W8CampSpellRange>(static_cast<W8SpellRealm>(range_index));
     }
     g_camp_screen->effect_list.clear();
     g_camp_screen->effect_items_only = true;
     g_camp_screen->effect_filter = W8_CAMP_EFFECT_FILTER_ALL;
-    g_camp_screen->stats_range = new W8CampStatsRange;
-    g_camp_screen->stats_controls = new W8CampStatsControls;
-    g_camp_screen->character_info = new W8CampCharacterInfo;
+    g_camp_screen->stats_range = std::make_unique<W8CampStatsRange>();
+    g_camp_screen->stats_controls = std::make_unique<W8CampStatsControls>();
+    g_camp_screen->character_info = std::make_unique<W8CampCharacterInfo>();
     g_camp_screen->item_icons_drawn = false;
     ActivateCampPage();
     g_camp_screen->animation_timer = w8_get_ticks() + (50);
@@ -1469,10 +1473,9 @@ void CampScreenFrame(void)
         ProcessMessageBoxInput();
     }
     ServiceMusicPlaylist();
-    if (g_camp_screen->dialog && !ProcessDialogInput(g_camp_screen->dialog)) {
+    if (g_camp_screen->dialog && !ProcessDialogInput(g_camp_screen->dialog.get())) {
         ReleaseInputSinkCapture();
-        delete g_camp_screen->dialog;
-        g_camp_screen->dialog = 0;
+        g_camp_screen->dialog.reset();
         g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_ALL;
     }
     if (gXStatus.level_up_notice && g_suspended_screen_id != W8_SCREEN_CHARACTER &&
@@ -1556,20 +1559,12 @@ unsigned char CampScreenLeave(int)
     ReleaseCampSecondaryPanel();
     DestroyRcsLevelUpPanel();
     DestroyRcsDismissPanel();
-    delete g_camp_screen->item_range;
     if (g_camp_screen->dialog) {
         ReleaseInputSinkCapture();
-        delete g_camp_screen->dialog;
     }
-    for (int realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
-        delete g_camp_screen->spell_ranges[realm];
-    }
-    delete g_camp_screen->stats_range;
-    delete g_camp_screen->stats_controls;
-    delete g_camp_screen->character_info;
-    delete g_camp_screen;
-    g_camp_screen = 0;
+    g_camp_screen.reset();
     g_camp_overlay_regions.Destroy();
+    g_camp_skill_regions.Destroy();
     g_camp_automap_regions.Destroy();
     g_camp_item_action_regions.Destroy();
     g_camp_page_regions.Destroy();
@@ -1616,7 +1611,7 @@ void DismissSelectedPartyCharacter(void)
 // FUNCTION: WIZ8 0x005a42a0
 void DrawCampScreen(void)
 {
-    W8CampScreenState* state = g_camp_screen;
+    W8CampScreenState* state = g_camp_screen.get();
     unsigned int index;
 
     NoOp();
@@ -1697,7 +1692,7 @@ void DrawCampScreen(void)
 done:
     RedrawPortraitQuoteBubbles();
     if (state->dialog != 0) {
-        DrawDialog(state->dialog);
+        DrawDialog(state->dialog.get());
     }
     RenderFrame();
 }
@@ -1729,7 +1724,7 @@ void SwitchCampPage(W8CampPage page)
 // FUNCTION: WIZ8 0x005a45b0
 void ActivateCampPage(void)
 {
-    W8CampScreenState* state = g_camp_screen;
+    W8CampScreenState* state = g_camp_screen.get();
     unsigned int index;
 
     g_camp_main_regions.Enable();
@@ -1789,7 +1784,7 @@ void ActivateCampPage(void)
 // FUNCTION: WIZ8 0x005a4770
 void DeactivateCampPage(void)
 {
-    W8CampScreenState* state = g_camp_screen;
+    W8CampScreenState* state = g_camp_screen.get();
     unsigned int index;
 
     switch (state->page) {
@@ -1925,9 +1920,9 @@ void SetCampHeaderMode(W8CampHeaderMode mode)
 }
 
 // FUNCTION: WIZ8 0x005a4be0
-void DisplayCampDialog(W8DialogBase* dialog)
+void DisplayCampDialog(std::unique_ptr<W8DialogBase> dialog)
 {
-    g_camp_screen->dialog = dialog;
+    g_camp_screen->dialog = std::move(dialog);
     CaptureInputSink();
 }
 
@@ -1941,7 +1936,7 @@ void ShowCampNoticeLine(std::string_view text, W8DialogDestroyCallback callback,
     dialog->SetClientExtent(0xfa, 200);
     dialog->SetMessage(text, 1, 0x32, confirmation, cancel, true, true, 0, 0x15e);
     SetDialogDestroyCallback(dialog, callback);
-    DisplayCampDialog(dialog);
+    DisplayCampDialog(std::unique_ptr<W8DialogBase>(dialog));
 }
 
 /* The shared click handler for the camp item regions: a backpack slot arrives

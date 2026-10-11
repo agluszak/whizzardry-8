@@ -14,7 +14,7 @@
 #include "wiz8/string_database.h"
 #include "wiz8/catalog_artwork.h"
 #include "Font.h"
-#include "dialog_code/DialogButton.h"
+#include "wiz8/local_code/ButtonWidget.h"
 #include "dialog_code/DialogScrollBar.h"
 #include "dialog_code/DialogTextArea.h"
 #include "dice.h"

@@ -13,7 +13,7 @@
 #include "image.h"
 #include "input.h"
 #include "dialog_code/DialogBase.h"
-#include "dialog_code/DialogButton.h"
+#include "wiz8/local_code/ButtonWidget.h"
 #include "local_code/ControlsRect.h"
 
 
@@ -28,7 +28,7 @@ static std::string g_numeric_input_text;
 
 // FUNCTION: WIZ8 0x005e1460
 W8DialogNumericInput::W8DialogNumericInput(int control_id, const W8ControlsRect* bounds, int value,
-                                           Font& font, W8DialogBase* dialog, W8DialogButton* button)
+                                           Font& font, W8DialogBase* dialog, W8ButtonWidget* button)
 {
     m_font = &font;
     m_value = value;

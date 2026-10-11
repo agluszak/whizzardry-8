@@ -1,3 +1,4 @@
+#include <memory>
 #include <cstdint>
 #include <fmt/format.h>
 #include <string>
@@ -18,7 +19,7 @@
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/Gameloop.h"
-#include "wiz8/dialog_code/DialogButton.h"
+#include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/gameplay_databases.h"
@@ -62,11 +63,11 @@ unsigned short g_action_kind_message_ids[12] = {
 // GLOBAL: WIZ8 0x0069B854
 short g_submenu_menu;
 // GLOBAL: WIZ8 0x0069B858
-W8DialogButton* g_submenu_scroll_buttons[2];
+std::array<W8ButtonWidget, 2> g_submenu_scroll_buttons;
 /* [0] closes the panel (callback 0x005978D0), [1] toggles the formation
    screen (callback 0x00597A10 -> OpenFormationPanel/CloseFormationPanel). */
 // GLOBAL: WIZ8 0x0069B860
-W8DialogButton* g_submenu_panel_buttons[2];
+std::array<W8ButtonWidget, 2> g_submenu_panel_buttons;
 // GLOBAL: WIZ8 0x0069B868
 short g_submenu_entries[6];
 // GLOBAL: WIZ8 0x0069B874
@@ -77,22 +78,22 @@ short g_submenu_entry_count;
 uint64_t g_submenu_clock;
 /* Layout arrows: [0..2] left column (radar/action/formation), [3..5] right. */
 // GLOBAL: WIZ8 0x0069B884
-W8DialogButton* g_layout_arrow_buttons[6];
+std::array<W8ButtonWidget, 6> g_layout_arrow_buttons;
 /* Combat stance: attack confirm, stop, continuous start/toggle/pending. */
 // GLOBAL: WIZ8 0x0069B89C
-W8DialogButton* g_combat_stance_buttons[5];
+std::array<W8ButtonWidget, 5> g_combat_stance_buttons;
 // GLOBAL: WIZ8 0x0069B8B0
-W8DialogButton* g_submenu_buttons[9];
+std::array<W8ButtonWidget, 9> g_submenu_buttons;
 // GLOBAL: WIZ8 0x0069B8D4
 bool g_submenu_close_pending;
 /* Roof viewpoint buttons: modes 0, 1 and 2. */
 // GLOBAL: WIZ8 0x0069B8D8
-W8DialogButton* g_roof_buttons[3];
+std::array<W8ButtonWidget, 3> g_roof_buttons;
 // GLOBAL: WIZ8 0x0069B8E4
-W8DialogButton* g_options_disk_button;
+W8ButtonWidget g_options_disk_button;
 /* The name is proven by this file's own assertion. */
 // GLOBAL: WIZ8 0x0069B8E8
-Controls* gpSubMenuPanel;
+std::unique_ptr<Controls> gpSubMenuPanel;
 /* The five caption rows; BuildSubMenuPanel news 0xb8-byte objects
    through the W8TextControl constructor. Five is the retail bound: the next
    known global starts at 0x0069B900. Menu 0 considers five actions then adds
@@ -103,17 +104,17 @@ Controls* gpSubMenuPanel;
 // GLOBAL: WIZ8 0x0069B8EC
 W8TextControl* g_submenu_rows[5];
 
-static void SubMenuPanelCloseButton(W8DialogButton* button);
-static void SubMenuPanelFormationButton(W8DialogButton* button);
-static void MainGameOptionsDiskButton(W8DialogButton* button);
-static void MainGameCombatConfirmButton(W8DialogButton* button);
-static void MainGameCombatStanceSecondary(W8DialogButton* button);
-static void MainGameRoofButton0(W8DialogButton* button);
-static void MainGameRoofButton1(W8DialogButton* button);
-static void MainGameRoofButton2(W8DialogButton* button);
-static void MainGameLayoutRadarButton(W8DialogButton* button);
-static void MainGameLayoutActionPanelButton(W8DialogButton* button);
-static void MainGameLayoutFormationButton(W8DialogButton* button);
+static void SubMenuPanelCloseButton(W8ButtonWidget* button);
+static void SubMenuPanelFormationButton(W8ButtonWidget* button);
+static void MainGameOptionsDiskButton(W8ButtonWidget* button);
+static void MainGameCombatConfirmButton(W8ButtonWidget* button);
+static void MainGameCombatStanceSecondary(W8ButtonWidget* button);
+static void MainGameRoofButton0(W8ButtonWidget* button);
+static void MainGameRoofButton1(W8ButtonWidget* button);
+static void MainGameRoofButton2(W8ButtonWidget* button);
+static void MainGameLayoutRadarButton(W8ButtonWidget* button);
+static void MainGameLayoutActionPanelButton(W8ButtonWidget* button);
+static void MainGameLayoutFormationButton(W8ButtonWidget* button);
 
 int GetAttackMenuWeaponOffset(W8Skill skill)
 {
@@ -153,7 +154,7 @@ int GetAttackMenuWeaponOffset(W8Skill skill)
 // FUNCTION: WIZ8 0x005963E0
 void RefreshSubMenuPanel(bool invalidate)
 {
-    if (gpSubMenuPanel == 0) {
+    if (!gpSubMenuPanel) {
         srAssertFail("gpSubMenuPanel", MGSBUTTONS_CPP, 0x64f, 0);
     }
     if (invalidate) {
@@ -293,33 +294,30 @@ unsigned char CreateSubMenuScrollButtons(void)
 {
     int i;
 
-    if (!AllocateDialogButtons(g_submenu_scroll_buttons, 2)) {
-        return 0;
-    }
-    g_submenu_scroll_buttons[0]->Configure("Data\\Main Interface\\main_scroll_arrows.sti", 3, 0, 1,
+    g_submenu_scroll_buttons[0].Configure("Data\\Main Interface\\main_scroll_arrows.sti", 3, 0, 1,
                                            2, 2, SubMenuScrollArrowUp, BUTTON_NO_CALLBACK, false,
                                            REGION_PRIORITY_HIGHEST, 0x4b, BUTTON_NO_CALLBACK,
                                            BUTTON_NO_CALLBACK);
-    g_submenu_scroll_buttons[1]->Configure("Data\\Main Interface\\main_scroll_arrows.sti", 7, 4, 5,
+    g_submenu_scroll_buttons[1].Configure("Data\\Main Interface\\main_scroll_arrows.sti", 7, 4, 5,
                                            6, 6, SubMenuScrollArrowDown, BUTTON_NO_CALLBACK, false,
                                            REGION_PRIORITY_HIGHEST, 0x4c, BUTTON_NO_CALLBACK,
                                            BUTTON_NO_CALLBACK);
     for (i = 0; i < 2; ++i) {
-        g_submenu_scroll_buttons[i]->SetPosition(g_scroll_button_positions[i].x,
+        g_submenu_scroll_buttons[i].SetPosition(g_scroll_button_positions[i].x,
                                                  g_scroll_button_positions[i].y);
-        g_submenu_scroll_buttons[i]->m_owner = 0;
+        g_submenu_scroll_buttons[i].m_owner = 0;
     }
     return 1;
 }
 
 // FUNCTION: WIZ8 0x005978D0
-static void SubMenuPanelCloseButton(W8DialogButton* button)
+static void SubMenuPanelCloseButton(W8ButtonWidget* button)
 {
     OpenSubMenuPanel(9);
 }
 
 // FUNCTION: WIZ8 0x00597A10
-static void SubMenuPanelFormationButton(W8DialogButton* button)
+static void SubMenuPanelFormationButton(W8ButtonWidget* button)
 {
     if (!gXStatus.fReviewCharacterMode) {
         OpenFormationPanel();
@@ -333,27 +331,24 @@ unsigned char CreateSubMenuPanelButtons(void)
 {
     int index;
 
-    if (!AllocateDialogButtons(g_submenu_panel_buttons, 2)) {
-        return 0;
-    }
-    g_submenu_panel_buttons[0]->Configure(g_submenu_icons_path, 0x21, 0x1e, 0x1f, 0x20, 0x22,
+    g_submenu_panel_buttons[0].Configure(g_submenu_icons_path, 0x21, 0x1e, 0x1f, 0x20, 0x22,
                                           SubMenuPanelCloseButton, BUTTON_NO_CALLBACK, false,
                                           REGION_PRIORITY_HIGHEST, 0x4d, BUTTON_NO_CALLBACK,
                                           BUTTON_NO_CALLBACK);
-    g_submenu_panel_buttons[1]->Configure(g_submenu_icons_path, 0x26, 0x23, 0x24, 0x25, 0x27,
+    g_submenu_panel_buttons[1].Configure(g_submenu_icons_path, 0x26, 0x23, 0x24, 0x25, 0x27,
                                           SubMenuPanelFormationButton, BUTTON_NO_CALLBACK, true,
                                           REGION_PRIORITY_HIGHEST, 0x4e, BUTTON_NO_CALLBACK,
                                           BUTTON_NO_CALLBACK);
     for (index = 0; index < 2; ++index) {
-        g_submenu_panel_buttons[index]->SetPosition(g_submenu_panel_button_positions[index].x,
+        g_submenu_panel_buttons[index].SetPosition(g_submenu_panel_button_positions[index].x,
                                                     g_submenu_panel_button_positions[index].y);
-        g_submenu_panel_buttons[index]->m_owner = 0;
+        g_submenu_panel_buttons[index].m_owner = 0;
     }
     return 1;
 }
 
 // FUNCTION: WIZ8 0x00597B70
-static void MainGameOptionsDiskButton(W8DialogButton* button)
+static void MainGameOptionsDiskButton(W8ButtonWidget* button)
 {
     if (CanInterruptLevelMovement()) {
         g_pending_screen_state.mode = 3;
@@ -364,15 +359,11 @@ static void MainGameOptionsDiskButton(W8DialogButton* button)
 // FUNCTION: WIZ8 0x00597A30
 unsigned char CreateOptionsDiskButton(void)
 {
-    g_options_disk_button = new W8DialogButton;
-    if (g_options_disk_button == 0) {
-        return 0;
-    }
-    g_options_disk_button->Configure(g_options_disk_path, 3, 0, 1, 2, 2, MainGameOptionsDiskButton,
+    g_options_disk_button.Configure(g_options_disk_path, 3, 0, 1, 2, 2, MainGameOptionsDiskButton,
                                      BUTTON_NO_CALLBACK, false, REGION_PRIORITY_HIGHEST, 0x41,
                                      BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
-    g_options_disk_button->SetPosition(g_options_disk_position.x, g_options_disk_position.y);
-    g_options_disk_button->m_owner = 0;
+    g_options_disk_button.SetPosition(g_options_disk_position.x, g_options_disk_position.y);
+    g_options_disk_button.m_owner = 0;
     return 1;
 }
 
@@ -384,15 +375,15 @@ void RedrawOptionsDiskButton(void)
     bool enabled;
 
     CatalogArtwork::Load(0x7e, 0).drawAndInvalidate(GetFrameBufferSurface(), 2, 0, 0x1c2);
-    g_options_disk_button->m_dirty = true;
+    g_options_disk_button.m_dirty = true;
     if (!gXStatus.fNpcDialogueMode && !gXStatus.fLockInteractMode && !gXStatus.fTrapInteractMode &&
         !gXStatus.fCampMode && !gXStatus.fLockInteract && !gXStatus.fTrapInteract) {
         enabled = true;
     } else {
         enabled = false;
     }
-    g_options_disk_button->SetEnabled(enabled);
-    g_options_disk_button->Draw();
+    g_options_disk_button.SetEnabled(enabled);
+    g_options_disk_button.Draw();
 }
 
 /* Pick which of the five combat-stance buttons is visible for the live combat
@@ -403,11 +394,10 @@ void UpdateCombatStanceButtons(void)
     unsigned int stance;
     unsigned char index;
     bool enabled;
-    W8DialogButton** button;
 
     if (!gXStatus.fCombatMode) {
-        for (button = g_combat_stance_buttons; button < &g_combat_stance_buttons[5]; ++button) {
-            (*button)->SetVisible(false);
+        for (auto& button : g_combat_stance_buttons) {
+            button.SetVisible(false);
         }
         return;
     }
@@ -423,15 +413,15 @@ void UpdateCombatStanceButtons(void)
     }
 
     for (index = 0; index < 5; ++index) {
-        g_combat_stance_buttons[index]->SetVisible(index == stance);
+        g_combat_stance_buttons[index].SetVisible(index == stance);
     }
     if (!gXStatus.fSpellCastMode && !gXStatus.fItemSelectMode && !gXStatus.fReviewCharacterMode) {
         enabled = true;
     } else {
         enabled = false;
     }
-    g_combat_stance_buttons[stance]->SetEnabled(enabled);
-    g_combat_stance_buttons[stance]->Draw();
+    g_combat_stance_buttons[stance].SetEnabled(enabled);
+    g_combat_stance_buttons[stance].Draw();
 }
 
 /* Dirties the five combat-stance buttons and refreshes which one is live. */
@@ -440,13 +430,13 @@ void RedrawCombatStanceButtons(void)
 {
     CatalogArtwork::Load(0x7e, 0).drawAndInvalidate(GetFrameBufferSurface(), 3, 0x262, 0x1c2);
     for (int index = 0; index < 5; ++index) {
-        g_combat_stance_buttons[index]->m_dirty = true;
+        g_combat_stance_buttons[index].m_dirty = true;
     }
     UpdateCombatStanceButtons();
 }
 
 // FUNCTION: WIZ8 0x00597E70
-static void MainGameCombatConfirmButton(W8DialogButton* button)
+static void MainGameCombatConfirmButton(W8ButtonWidget* button)
 {
     if (!gXStatus.fCombatMode) {
         return;
@@ -466,7 +456,7 @@ static void MainGameCombatConfirmButton(W8DialogButton* button)
 }
 
 // FUNCTION: WIZ8 0x00597ED0
-static void MainGameCombatStanceSecondary(W8DialogButton* button)
+static void MainGameCombatStanceSecondary(W8ButtonWidget* button)
 {
     if (gXStatus.fCombatMode) {
         TogglePartyCombatStance();
@@ -478,48 +468,45 @@ unsigned char CreateCombatStanceButtons(void)
 {
     int index;
 
-    if (!AllocateDialogButtons(g_combat_stance_buttons, 5)) {
-        return 0;
-    }
-    g_combat_stance_buttons[0]->Configure(
+    g_combat_stance_buttons[0].Configure(
         g_attack_confirm_path, 3, 0, 1, 2, 2, MainGameCombatConfirmButton, BUTTON_NO_CALLBACK,
         false, REGION_PRIORITY_HIGHEST, 0x4f, MainGameCombatStanceSecondary, BUTTON_NO_CALLBACK);
-    g_combat_stance_buttons[1]->Configure(
+    g_combat_stance_buttons[1].Configure(
         g_combat_stop_path, 3, 0, 1, 2, 2, MainGameCombatConfirmButton, BUTTON_NO_CALLBACK, false,
         REGION_PRIORITY_HIGHEST, 0x50, MainGameCombatStanceSecondary, BUTTON_NO_CALLBACK);
-    g_combat_stance_buttons[2]->Configure(
+    g_combat_stance_buttons[2].Configure(
         g_cont_start_path, 3, 0, 1, 2, 2, MainGameCombatConfirmButton, BUTTON_NO_CALLBACK, false,
         REGION_PRIORITY_HIGHEST, 0x4f, MainGameCombatStanceSecondary, BUTTON_NO_CALLBACK);
-    g_combat_stance_buttons[3]->Configure(
+    g_combat_stance_buttons[3].Configure(
         g_cont_toggle_path, 3, 0, 1, 2, 2, MainGameCombatConfirmButton, BUTTON_NO_CALLBACK, false,
         REGION_PRIORITY_HIGHEST, 0x51, MainGameCombatStanceSecondary, BUTTON_NO_CALLBACK);
-    g_combat_stance_buttons[4]->Configure(
+    g_combat_stance_buttons[4].Configure(
         g_cont_pending_path, 3, 0, 1, 2, 2, MainGameCombatConfirmButton, BUTTON_NO_CALLBACK, false,
         REGION_PRIORITY_HIGHEST, 0x50, MainGameCombatStanceSecondary, BUTTON_NO_CALLBACK);
     for (index = 0; index < 5; ++index) {
-        g_combat_stance_buttons[index]->SetPosition(g_combat_stance_positions[index].x,
+        g_combat_stance_buttons[index].SetPosition(g_combat_stance_positions[index].x,
                                                     g_combat_stance_positions[index].y);
-        g_combat_stance_buttons[index]->m_owner = 0;
+        g_combat_stance_buttons[index].m_owner = 0;
     }
     return 1;
 }
 
 // FUNCTION: WIZ8 0x00598270
-static void MainGameRoofButton0(W8DialogButton* button)
+static void MainGameRoofButton0(W8ButtonWidget* button)
 {
     ApplyMainGameModeFlag(W8_MAIN_UI_MODE_PORTRAITS, true);
     RequestRedraw(W8_MAIN_REDRAW_ROOF_AND_SPELL_ICONS | W8_MAIN_REDRAW_LAYOUT);
 }
 
 // FUNCTION: WIZ8 0x00598290
-static void MainGameRoofButton1(W8DialogButton* button)
+static void MainGameRoofButton1(W8ButtonWidget* button)
 {
     ApplyMainGameModeFlag(W8_MAIN_UI_MODE_FORMATION, true);
     RequestRedraw(W8_MAIN_REDRAW_ROOF_AND_SPELL_ICONS | W8_MAIN_REDRAW_LAYOUT);
 }
 
 // FUNCTION: WIZ8 0x005982B0
-static void MainGameRoofButton2(W8DialogButton* button)
+static void MainGameRoofButton2(W8ButtonWidget* button)
 {
     ApplyMainGameModeFlag(W8_MAIN_UI_MODE_RADAR, true);
     RequestRedraw(W8_MAIN_REDRAW_ROOF_AND_SPELL_ICONS | W8_MAIN_REDRAW_LAYOUT);
@@ -530,29 +517,26 @@ unsigned char CreateRoofButtons(void)
 {
     int index;
 
-    if (!AllocateDialogButtons(g_roof_buttons, 3)) {
-        return 0;
-    }
-    g_roof_buttons[0]->Configure(g_roof_buttons_path, 9, 0, 6, 3, 6, MainGameRoofButton0,
+    g_roof_buttons[0].Configure(g_roof_buttons_path, 9, 0, 6, 3, 6, MainGameRoofButton0,
                                  BUTTON_NO_CALLBACK, true, REGION_PRIORITY_HIGHEST, 0x38,
                                  BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
-    g_roof_buttons[1]->Configure(g_roof_buttons_path, 10, 1, 7, 4, 7, MainGameRoofButton1,
+    g_roof_buttons[1].Configure(g_roof_buttons_path, 10, 1, 7, 4, 7, MainGameRoofButton1,
                                  BUTTON_NO_CALLBACK, true, REGION_PRIORITY_HIGHEST, 0x39,
                                  BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
-    g_roof_buttons[2]->Configure(g_roof_buttons_path, 0xb, 2, 8, 5, 8, MainGameRoofButton2,
+    g_roof_buttons[2].Configure(g_roof_buttons_path, 0xb, 2, 8, 5, 8, MainGameRoofButton2,
                                  BUTTON_NO_CALLBACK, true, REGION_PRIORITY_HIGHEST, 0x3a,
                                  BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
     if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS) {
-        g_roof_buttons[0]->SetPressed(true);
+        g_roof_buttons[0].SetPressed(true);
     } else if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_FORMATION) {
-        g_roof_buttons[1]->SetPressed(true);
+        g_roof_buttons[1].SetPressed(true);
     } else if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_RADAR) {
-        g_roof_buttons[2]->SetPressed(true);
+        g_roof_buttons[2].SetPressed(true);
     }
     for (index = 0; index < 3; ++index) {
-        g_roof_buttons[index]->SetPosition(g_roof_button_positions[index].x,
+        g_roof_buttons[index].SetPosition(g_roof_button_positions[index].x,
                                            g_roof_button_positions[index].y);
-        g_roof_buttons[index]->m_owner = 0;
+        g_roof_buttons[index].m_owner = 0;
     }
     return 1;
 }
@@ -564,7 +548,7 @@ void RedrawRoofButtons(void)
 {
     CatalogArtwork::Load(0x85, 0).draw(GetFrameBufferSurface(), 0, 0, 0);
     for (int index = 0; index < 3; ++index) {
-        g_roof_buttons[index]->m_dirty = true;
+        g_roof_buttons[index].m_dirty = true;
     }
     UpdateRoofButtons();
     RequestRedraw(W8_MAIN_REDRAW_COMBAT_PROGRESS);
@@ -578,7 +562,6 @@ void UpdateRoofButtons(void)
 {
     bool visible;
     bool enabled;
-    W8DialogButton** button;
 
     if (!gXStatus.fNpcDialogueMode && !gXStatus.fSpellCastMode && !gXStatus.fItemSelectMode &&
         !gXStatus.fLockInteractMode && !gXStatus.fTrapInteractMode) {
@@ -586,18 +569,18 @@ void UpdateRoofButtons(void)
     } else {
         visible = false;
     }
-    g_roof_buttons[2]->SetVisible(visible);
+    g_roof_buttons[2].SetVisible(visible);
     if (!gXStatus.fNpcDialogueMode && !gXStatus.fCampMode) {
-        g_roof_buttons[0]->SetEnabled(true);
+        g_roof_buttons[0].SetEnabled(true);
         enabled = true;
     } else {
-        g_roof_buttons[0]->SetEnabled(false);
+        g_roof_buttons[0].SetEnabled(false);
         enabled = false;
     }
-    g_roof_buttons[1]->SetEnabled(enabled);
+    g_roof_buttons[1].SetEnabled(enabled);
     SyncRoofButtonPressedState();
-    for (button = g_roof_buttons; button < &g_roof_buttons[3]; ++button) {
-        (*button)->Draw();
+    for (auto& button : g_roof_buttons) {
+        button.Draw();
     }
 }
 
@@ -607,40 +590,40 @@ void UpdateRoofButtons(void)
 void SyncRoofButtonPressedState(void)
 {
     if (g_settings.main_ui_mode == 0) {
-        if (g_roof_buttons[0]->IsPressed() == 0) {
-            g_roof_buttons[0]->SetPressed(true);
+        if (g_roof_buttons[0].IsPressed() == 0) {
+            g_roof_buttons[0].SetPressed(true);
         }
-        if (g_roof_buttons[1]->IsPressed() != 0) {
-            g_roof_buttons[1]->SetPressed(false);
+        if (g_roof_buttons[1].IsPressed() != 0) {
+            g_roof_buttons[1].SetPressed(false);
         }
-        if (g_roof_buttons[2]->IsPressed() != 0) {
-            g_roof_buttons[2]->SetPressed(false);
+        if (g_roof_buttons[2].IsPressed() != 0) {
+            g_roof_buttons[2].SetPressed(false);
         }
     } else if (g_settings.main_ui_mode == 1) {
-        if (g_roof_buttons[1]->IsPressed() == 0) {
-            g_roof_buttons[1]->SetPressed(true);
+        if (g_roof_buttons[1].IsPressed() == 0) {
+            g_roof_buttons[1].SetPressed(true);
         }
-        if (g_roof_buttons[0]->IsPressed() != 0) {
-            g_roof_buttons[0]->SetPressed(false);
+        if (g_roof_buttons[0].IsPressed() != 0) {
+            g_roof_buttons[0].SetPressed(false);
         }
-        if (g_roof_buttons[2]->IsPressed() != 0) {
-            g_roof_buttons[2]->SetPressed(false);
+        if (g_roof_buttons[2].IsPressed() != 0) {
+            g_roof_buttons[2].SetPressed(false);
         }
     } else if (g_settings.main_ui_mode == 2) {
-        if (g_roof_buttons[2]->IsPressed() == 0) {
-            g_roof_buttons[2]->SetPressed(true);
+        if (g_roof_buttons[2].IsPressed() == 0) {
+            g_roof_buttons[2].SetPressed(true);
         }
-        if (g_roof_buttons[0]->IsPressed() != 0) {
-            g_roof_buttons[0]->SetPressed(false);
+        if (g_roof_buttons[0].IsPressed() != 0) {
+            g_roof_buttons[0].SetPressed(false);
         }
-        if (g_roof_buttons[1]->IsPressed() != 0) {
-            g_roof_buttons[1]->SetPressed(false);
+        if (g_roof_buttons[1].IsPressed() != 0) {
+            g_roof_buttons[1].SetPressed(false);
         }
     }
 }
 
 // FUNCTION: WIZ8 0x00598670
-static void MainGameLayoutRadarButton(W8DialogButton* button)
+static void MainGameLayoutRadarButton(W8ButtonWidget* button)
 {
     if (g_level_block->radar_map_visible != 0) {
         if (!g_level_block->formation_board_visible && g_level_block->action_panel_visible == 0) {
@@ -662,7 +645,7 @@ static void MainGameLayoutRadarButton(W8DialogButton* button)
 }
 
 // FUNCTION: WIZ8 0x005986E0
-static void MainGameLayoutActionPanelButton(W8DialogButton* button)
+static void MainGameLayoutActionPanelButton(W8ButtonWidget* button)
 {
     if (g_level_block->action_panel_visible != 0) {
         if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_FORMATION) {
@@ -696,7 +679,7 @@ static void MainGameLayoutActionPanelButton(W8DialogButton* button)
 }
 
 // FUNCTION: WIZ8 0x005987A0
-static void MainGameLayoutFormationButton(W8DialogButton* button)
+static void MainGameLayoutFormationButton(W8ButtonWidget* button)
 {
     if (g_level_block->formation_board_visible) {
         if (g_level_block->radar_map_visible == 0 && g_level_block->action_panel_visible == 0) {
@@ -723,61 +706,60 @@ static void MainGameLayoutFormationButton(W8DialogButton* button)
 // FUNCTION: WIZ8 0x00598490
 void RedrawLayoutArrowButtons(void)
 {
-    W8DialogButton** button;
     bool enabled;
-    W8DialogButton* draw_button;
+    W8ButtonWidget* draw_button;
 
     CatalogArtwork::Load(0x7e, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0, 0x166);
-    for (button = g_layout_arrow_buttons; button < &g_layout_arrow_buttons[6]; ++button) {
-        (*button)->m_dirty = true;
+    for (auto& button : g_layout_arrow_buttons) {
+        button.m_dirty = true;
     }
     if (gXStatus.fNpcDialogueMode || gXStatus.fSpellCastMode || gXStatus.fItemSelectMode ||
         gXStatus.fLockInteractMode || gXStatus.fTrapInteractMode) {
-        for (button = g_layout_arrow_buttons; button < &g_layout_arrow_buttons[6]; ++button) {
-            (*button)->SetVisible(false);
+        for (auto& button : g_layout_arrow_buttons) {
+            button.SetVisible(false);
         }
         return;
     }
 
     enabled = g_settings.main_ui_mode != 0;
     if (enabled) {
-        g_layout_arrow_buttons[0]->SetEnabled(true);
+        g_layout_arrow_buttons[0].SetEnabled(true);
     } else {
-        g_layout_arrow_buttons[0]->SetEnabled(false);
+        g_layout_arrow_buttons[0].SetEnabled(false);
     }
-    g_layout_arrow_buttons[2]->SetEnabled(enabled);
+    g_layout_arrow_buttons[2].SetEnabled(enabled);
 
     if (g_level_block->radar_map_visible == 0) {
-        g_layout_arrow_buttons[3]->SetVisible(true);
-        g_layout_arrow_buttons[0]->SetVisible(false);
-        draw_button = g_layout_arrow_buttons[3];
+        g_layout_arrow_buttons[3].SetVisible(true);
+        g_layout_arrow_buttons[0].SetVisible(false);
+        draw_button = &g_layout_arrow_buttons[3];
     } else {
-        g_layout_arrow_buttons[0]->SetVisible(true);
-        g_layout_arrow_buttons[3]->SetVisible(false);
-        draw_button = g_layout_arrow_buttons[0];
+        g_layout_arrow_buttons[0].SetVisible(true);
+        g_layout_arrow_buttons[3].SetVisible(false);
+        draw_button = &g_layout_arrow_buttons[0];
     }
     draw_button->Draw();
 
     if (g_level_block->action_panel_visible == 0) {
-        g_layout_arrow_buttons[4]->SetVisible(true);
-        g_layout_arrow_buttons[1]->SetVisible(false);
-        draw_button = g_layout_arrow_buttons[4];
+        g_layout_arrow_buttons[4].SetVisible(true);
+        g_layout_arrow_buttons[1].SetVisible(false);
+        draw_button = &g_layout_arrow_buttons[4];
     } else {
-        g_layout_arrow_buttons[1]->SetVisible(true);
-        g_layout_arrow_buttons[4]->SetVisible(false);
-        draw_button = g_layout_arrow_buttons[1];
+        g_layout_arrow_buttons[1].SetVisible(true);
+        g_layout_arrow_buttons[4].SetVisible(false);
+        draw_button = &g_layout_arrow_buttons[1];
     }
     draw_button->Draw();
 
     if (g_level_block->formation_board_visible) {
-        g_layout_arrow_buttons[2]->SetVisible(true);
-        g_layout_arrow_buttons[5]->SetVisible(false);
-        g_layout_arrow_buttons[2]->Draw();
+        g_layout_arrow_buttons[2].SetVisible(true);
+        g_layout_arrow_buttons[5].SetVisible(false);
+        g_layout_arrow_buttons[2].Draw();
         return;
     }
-    g_layout_arrow_buttons[5]->SetVisible(true);
-    g_layout_arrow_buttons[2]->SetVisible(false);
-    g_layout_arrow_buttons[5]->Draw();
+    g_layout_arrow_buttons[5].SetVisible(true);
+    g_layout_arrow_buttons[2].SetVisible(false);
+    g_layout_arrow_buttons[5].Draw();
 }
 
 // FUNCTION: WIZ8 0x005982D0
@@ -785,37 +767,34 @@ unsigned char CreateLayoutArrowButtons(void)
 {
     int index;
 
-    if (!AllocateDialogButtons(g_layout_arrow_buttons, 6)) {
-        return 0;
-    }
-    g_layout_arrow_buttons[0]->Configure(g_layout_arrows_path, 6, 0, 1, BUTTON_NO_IMAGE, 2,
+    g_layout_arrow_buttons[0].Configure(g_layout_arrows_path, 6, 0, 1, BUTTON_NO_IMAGE, 2,
                                          MainGameLayoutRadarButton, BUTTON_NO_CALLBACK, false,
                                          REGION_PRIORITY_HIGHEST, 0x3e, BUTTON_NO_CALLBACK,
                                          BUTTON_NO_CALLBACK);
-    g_layout_arrow_buttons[1]->Configure(g_layout_arrows_path, 0xe, 8, 9, BUTTON_NO_IMAGE, 10,
+    g_layout_arrow_buttons[1].Configure(g_layout_arrows_path, 0xe, 8, 9, BUTTON_NO_IMAGE, 10,
                                          MainGameLayoutActionPanelButton, BUTTON_NO_CALLBACK, false,
                                          REGION_PRIORITY_HIGHEST, 0x3f, BUTTON_NO_CALLBACK,
                                          BUTTON_NO_CALLBACK);
-    g_layout_arrow_buttons[2]->Configure(g_layout_arrows_path, 0x16, 0x10, 0x11, BUTTON_NO_IMAGE,
+    g_layout_arrow_buttons[2].Configure(g_layout_arrows_path, 0x16, 0x10, 0x11, BUTTON_NO_IMAGE,
                                          0x12, MainGameLayoutFormationButton, BUTTON_NO_CALLBACK,
                                          false, REGION_PRIORITY_HIGHEST, 0x40, BUTTON_NO_CALLBACK,
                                          BUTTON_NO_CALLBACK);
-    g_layout_arrow_buttons[3]->Configure(g_layout_arrows_path, 7, 3, 4, BUTTON_NO_IMAGE, 5,
+    g_layout_arrow_buttons[3].Configure(g_layout_arrows_path, 7, 3, 4, BUTTON_NO_IMAGE, 5,
                                          MainGameLayoutRadarButton, BUTTON_NO_CALLBACK, false,
                                          REGION_PRIORITY_HIGHEST, 0x3b, BUTTON_NO_CALLBACK,
                                          BUTTON_NO_CALLBACK);
-    g_layout_arrow_buttons[4]->Configure(g_layout_arrows_path, 0xf, 0xb, 0xc, BUTTON_NO_IMAGE, 0xd,
+    g_layout_arrow_buttons[4].Configure(g_layout_arrows_path, 0xf, 0xb, 0xc, BUTTON_NO_IMAGE, 0xd,
                                          MainGameLayoutActionPanelButton, BUTTON_NO_CALLBACK, false,
                                          REGION_PRIORITY_HIGHEST, 0x3c, BUTTON_NO_CALLBACK,
                                          BUTTON_NO_CALLBACK);
-    g_layout_arrow_buttons[5]->Configure(g_layout_arrows_path, 0x17, 0x13, 0x14, BUTTON_NO_IMAGE,
+    g_layout_arrow_buttons[5].Configure(g_layout_arrows_path, 0x17, 0x13, 0x14, BUTTON_NO_IMAGE,
                                          0x15, MainGameLayoutFormationButton, BUTTON_NO_CALLBACK,
                                          false, REGION_PRIORITY_HIGHEST, 0x3d, BUTTON_NO_CALLBACK,
                                          BUTTON_NO_CALLBACK);
     for (index = 0; index < 6; ++index) {
-        g_layout_arrow_buttons[index]->SetPosition(g_layout_arrow_positions[index].x,
+        g_layout_arrow_buttons[index].SetPosition(g_layout_arrow_positions[index].x,
                                                    g_layout_arrow_positions[index].y);
-        g_layout_arrow_buttons[index]->m_owner = 0;
+        g_layout_arrow_buttons[index].m_owner = 0;
     }
     return 1;
 }
@@ -838,32 +817,29 @@ void CreateMainGameInterfaceButtons(void)
 // FUNCTION: WIZ8 0x00598AE0
 void DestroyMainGameInterfaceButtons(void)
 {
-    DestroyDialogButtons(g_submenu_buttons, 9);
-    DestroyDialogButtons(g_submenu_scroll_buttons, 2);
-    DestroyDialogButtons(g_submenu_panel_buttons, 2);
-    DestroyControlPanel(gpSubMenuPanel);
+    for (auto& button : g_submenu_buttons) button.Reset();
+    for (auto& button : g_submenu_scroll_buttons) button.Reset();
+    for (auto& button : g_submenu_panel_buttons) button.Reset();
+    gpSubMenuPanel.reset();
     for (auto& row : g_submenu_rows) row = nullptr;
-    if (g_options_disk_button != 0) {
-        delete g_options_disk_button;
-        g_options_disk_button = 0;
-    }
-    DestroyDialogButtons(g_combat_stance_buttons, 5);
-    DestroyDialogButtons(g_roof_buttons, 3);
-    DestroyDialogButtons(g_layout_arrow_buttons, 6);
+    g_options_disk_button.Reset();
+    for (auto& button : g_combat_stance_buttons) button.Reset();
+    for (auto& button : g_roof_buttons) button.Reset();
+    for (auto& button : g_layout_arrow_buttons) button.Reset();
 }
 
 static void SetMenuButtonBanksEnabled(bool enabled)
 {
     int i;
     for (i = 0; i < 2; ++i) {
-        g_submenu_scroll_buttons[i]->SetEnabled(enabled);
+        g_submenu_scroll_buttons[i].SetEnabled(enabled);
     }
-    g_options_disk_button->SetEnabled(enabled);
+    g_options_disk_button.SetEnabled(enabled);
     for (i = 0; i < 3; ++i) {
-        g_roof_buttons[i]->SetEnabled(enabled);
+        g_roof_buttons[i].SetEnabled(enabled);
     }
     for (i = 0; i < 6; ++i) {
-        g_layout_arrow_buttons[i]->SetEnabled(enabled);
+        g_layout_arrow_buttons[i].SetEnabled(enabled);
     }
 }
 
@@ -1075,7 +1051,6 @@ void DrawSubMenuCharacterAction(void)
 void UpdateSubMenuPanelButtons(void)
 {
     bool enabled;
-    W8DialogButton** button;
 
     if (!gXStatus.fCombatMode || !g_combat_state->round_active || gXStatus.fSurprisePossible ||
         gXStatus.fLockInteractMode || gXStatus.fTrapInteractMode || gXStatus.fNpcDialogueMode ||
@@ -1085,44 +1060,43 @@ void UpdateSubMenuPanelButtons(void)
     } else {
         enabled = AnyCharacterEngaged();
     }
-    g_submenu_panel_buttons[0]->SetEnabled(enabled);
+    g_submenu_panel_buttons[0].SetEnabled(enabled);
 
     if (!gXStatus.fSurprisePossible && !gXStatus.fLockInteractMode && !gXStatus.fTrapInteractMode &&
         !gXStatus.fNpcDialogueMode && !gXStatus.fSpellCastMode && !gXStatus.fItemSelectMode &&
         g_level_block->combat_end_notification == -1 && AnyCharacterEngaged()) {
-        g_submenu_panel_buttons[1]->SetEnabled(true);
+        g_submenu_panel_buttons[1].SetEnabled(true);
         if (!gXStatus.fReviewCharacterMode) {
-            if (g_submenu_panel_buttons[1]->IsPressed() != 0) {
-                g_submenu_panel_buttons[1]->SetPressed(false);
+            if (g_submenu_panel_buttons[1].IsPressed() != 0) {
+                g_submenu_panel_buttons[1].SetPressed(false);
             }
-        } else if (g_submenu_panel_buttons[1]->IsPressed() == 0) {
-            g_submenu_panel_buttons[1]->SetPressed(true);
+        } else if (g_submenu_panel_buttons[1].IsPressed() == 0) {
+            g_submenu_panel_buttons[1].SetPressed(true);
         }
     } else {
-        g_submenu_panel_buttons[1]->SetEnabled(false);
+        g_submenu_panel_buttons[1].SetEnabled(false);
     }
 
-    for (button = g_submenu_panel_buttons; button < &g_submenu_panel_buttons[2]; ++button) {
-        (*button)->Draw();
+    for (auto& button : g_submenu_panel_buttons) {
+        button.Draw();
     }
 }
 
 static void UpdateSubMenuScrollButtons()
 {
-    W8DialogButton** button;
 
     if (g_level_block->combat_end_notification == -1 && !gXStatus.fNpcDialogueMode &&
         !gXStatus.fCampMode) {
-        for (button = g_submenu_scroll_buttons; button < &g_submenu_scroll_buttons[2]; ++button) {
-            (*button)->SetEnabled(true);
+        for (auto& button : g_submenu_scroll_buttons) {
+            button.SetEnabled(true);
         }
     } else {
-        for (button = g_submenu_scroll_buttons; button < &g_submenu_scroll_buttons[2]; ++button) {
-            (*button)->SetEnabled(false);
+        for (auto& button : g_submenu_scroll_buttons) {
+            button.SetEnabled(false);
         }
     }
-    for (button = g_submenu_scroll_buttons; button < &g_submenu_scroll_buttons[2]; ++button) {
-        (*button)->Draw();
+    for (auto& button : g_submenu_scroll_buttons) {
+        button.Draw();
     }
 }
 
@@ -1131,7 +1105,6 @@ static void UpdateSubMenuScrollButtons()
 // FUNCTION: WIZ8 0x00598810
 void RedrawSubMenuButtons(void)
 {
-    W8DialogButton** button;
     int index;
     int frame;
 
@@ -1139,17 +1112,18 @@ void RedrawSubMenuButtons(void)
     frame = !gXStatus.fCombatMode ? 8 : 9;
     CatalogArtwork::Load(0x7e, 0).drawAndInvalidate(GetFrameBufferSurface(), frame, 0xc4, 0x1c2);
 
-    for (button = g_submenu_buttons; button < &g_submenu_buttons[9]; ++button) {
-        (*button)->m_dirty = true;
+    for (auto& button : g_submenu_buttons) {
+        button.m_dirty = true;
     }
-    for (index = 0, button = g_submenu_buttons; button < &g_submenu_buttons[9]; ++button, ++index) {
+    for (index = 0; index < 9; ++index) {
+        auto& button = g_submenu_buttons[index];
         UpdateSubMenuButton(index);
-        (*button)->Draw();
+        button.Draw();
     }
 
     CatalogArtwork::Load(0x7e, 0).drawAndInvalidate(GetFrameBufferSurface(), 7, 0x210, 0x1c2);
-    for (button = g_submenu_panel_buttons; button < &g_submenu_panel_buttons[2]; ++button) {
-        (*button)->m_dirty = true;
+    for (auto& button : g_submenu_panel_buttons) {
+        button.m_dirty = true;
     }
     UpdateSubMenuPanelButtons();
 
@@ -1159,20 +1133,20 @@ void RedrawSubMenuButtons(void)
         DrawSubMenuCharacterAction();
     }
 
-    for (button = g_submenu_scroll_buttons; button < &g_submenu_scroll_buttons[2]; ++button) {
-        (*button)->m_dirty = true;
+    for (auto& button : g_submenu_scroll_buttons) {
+        button.m_dirty = true;
     }
     UpdateSubMenuScrollButtons();
 }
 
 // FUNCTION: WIZ8 0x00597550
-void SubMenuScrollArrowUp(W8DialogButton* button)
+void SubMenuScrollArrowUp(W8ButtonWidget* button)
 {
     ScrollSubMenuCharacter(0);
 }
 
 // FUNCTION: WIZ8 0x00597560
-void SubMenuScrollArrowDown(W8DialogButton* button)
+void SubMenuScrollArrowDown(W8ButtonWidget* button)
 {
     ScrollSubMenuCharacter(1);
 }
@@ -1238,19 +1212,19 @@ done:
 // FUNCTION: WIZ8 0x005990F0
 void SetSubMenuButtonTooltips(int enabled)
 {
-    g_submenu_buttons[0]->SetTooltipEnabled(enabled);
-    g_submenu_buttons[1]->SetTooltipEnabled(enabled);
-    g_submenu_buttons[2]->SetTooltipEnabled(enabled);
-    g_submenu_buttons[3]->SetTooltipEnabled(enabled);
-    g_submenu_buttons[4]->SetTooltipEnabled(enabled);
-    g_submenu_buttons[5]->SetTooltipEnabled(enabled);
-    g_submenu_buttons[6]->SetTooltipEnabled(enabled);
-    g_submenu_buttons[7]->SetTooltipEnabled(enabled);
-    g_submenu_buttons[8]->SetTooltipEnabled(enabled);
-    g_submenu_scroll_buttons[0]->SetTooltipEnabled(enabled);
-    g_submenu_scroll_buttons[1]->SetTooltipEnabled(enabled);
-    g_submenu_panel_buttons[0]->SetTooltipEnabled(enabled);
-    g_submenu_panel_buttons[1]->SetTooltipEnabled(enabled);
+    g_submenu_buttons[0].SetTooltipEnabled(enabled);
+    g_submenu_buttons[1].SetTooltipEnabled(enabled);
+    g_submenu_buttons[2].SetTooltipEnabled(enabled);
+    g_submenu_buttons[3].SetTooltipEnabled(enabled);
+    g_submenu_buttons[4].SetTooltipEnabled(enabled);
+    g_submenu_buttons[5].SetTooltipEnabled(enabled);
+    g_submenu_buttons[6].SetTooltipEnabled(enabled);
+    g_submenu_buttons[7].SetTooltipEnabled(enabled);
+    g_submenu_buttons[8].SetTooltipEnabled(enabled);
+    g_submenu_scroll_buttons[0].SetTooltipEnabled(enabled);
+    g_submenu_scroll_buttons[1].SetTooltipEnabled(enabled);
+    g_submenu_panel_buttons[0].SetTooltipEnabled(enabled);
+    g_submenu_panel_buttons[1].SetTooltipEnabled(enabled);
 }
 
 /* Per-frame button refresh from DrawMainGameScreen: restate and draw the nine
@@ -1260,21 +1234,21 @@ void SetSubMenuButtonTooltips(int enabled)
 // FUNCTION: WIZ8 0x005989B0
 void UpdateMainGameButtons(void)
 {
-    W8DialogButton** button;
     int index;
     bool enabled;
 
-    for (index = 0, button = g_submenu_buttons; button < &g_submenu_buttons[9]; ++button, ++index) {
+    for (index = 0; index < 9; ++index) {
+        auto& button = g_submenu_buttons[index];
         UpdateSubMenuButton(index);
-        (*button)->Draw();
+        button.Draw();
     }
     UpdateSubMenuScrollButtons();
     UpdateSubMenuPanelButtons();
     enabled = !gXStatus.fNpcDialogueMode && !gXStatus.fLockInteractMode &&
               !gXStatus.fTrapInteractMode && !gXStatus.fCampMode && !gXStatus.fLockInteract &&
               !gXStatus.fTrapInteract;
-    g_options_disk_button->SetEnabled(enabled);
-    g_options_disk_button->Draw();
+    g_options_disk_button.SetEnabled(enabled);
+    g_options_disk_button.Draw();
     UpdateCombatStanceButtons();
     UpdateRoofButtons();
 }
@@ -1351,9 +1325,7 @@ unsigned char BuildSubMenuPanel(short notification)
     short state;
     int base;
 
-    if (gpSubMenuPanel != 0) {
-        gpSubMenuPanel = 0;
-    }
+    gpSubMenuPanel.reset();
     for (index = 0; index < 5; ++index) {
         if (g_submenu_rows[index] != 0) {
             g_submenu_rows[index] = 0;
@@ -1423,7 +1395,7 @@ unsigned char BuildSubMenuPanel(short notification)
         icon_delta = notification;
         break;
     }
-    gpSubMenuPanel = new Controls(left, 0x1c3, icon_delta + left, 0x1df, CatalogArtwork::Load(0x7f, 0), base);
+    gpSubMenuPanel = std::make_unique<Controls>(left, 0x1c3, icon_delta + left, 0x1df, CatalogArtwork::Load(0x7f, 0), base);
     SetRegionBounds(g_main_submenu_regions->index(5), left, 0x1c3, icon_delta + left, 0x1df);
     for (index = 0; index < built - 1; ++index) {
         entry = g_submenu_entries[index];
@@ -1457,7 +1429,7 @@ unsigned char BuildSubMenuPanel(short notification)
             break;
         }
         g_submenu_rows[index] = new W8TextControl(
-            gpSubMenuPanel, g_main_submenu_regions->index(index), index * 19 + 5, 5, index * 19 + 0x17, 0x17,
+            gpSubMenuPanel.get(), g_main_submenu_regions->index(index), index * 19 + 5, 5, index * 19 + 0x17, 0x17,
             CatalogArtwork::Load(0x89, 0),
             message, message, message + icon_delta, message + icon_delta, -1);
         if (g_submenu_rows[index] == 0) {
@@ -1469,7 +1441,7 @@ unsigned char BuildSubMenuPanel(short notification)
         SetRegionHelp(g_main_submenu_regions->index(index), true, g_submenu_entry_help_ids[menu * 5 + entry]);
     }
     g_submenu_rows[built - 1] =
-        new W8TextControl(gpSubMenuPanel, g_main_submenu_regions->index(built - 1), built * 19 - 14, 5,
+        new W8TextControl(gpSubMenuPanel.get(), g_main_submenu_regions->index(built - 1), built * 19 - 14, 5,
                           built * 19 - 2, 0x17, CatalogArtwork::Load(0x89, 0), 0xbd, 0xbd, 0xbf, 0xbf, -1);
     if (g_submenu_rows[built - 1] == 0) {
         DestroySubMenuPanel();

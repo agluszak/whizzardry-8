@@ -5,10 +5,10 @@
 struct Controls;
 
 /* Parent strip for the top-row spell icons (0x19d,0)-(0x280,0x12). */
-extern Controls* g_spell_icon_strip;
+extern std::unique_ptr<Controls> g_spell_icon_strip;
 /* Combat-effect HUD panels flanking the center strip. */
-extern Controls* g_combat_effect_left_panel;
-extern Controls* g_combat_effect_right_panel;
+extern std::unique_ptr<Controls> g_combat_effect_left_panel;
+extern std::unique_ptr<Controls> g_combat_effect_right_panel;
 /* Live icon counts for the three panels above. */
 extern unsigned int g_spell_icon_count;
 extern unsigned int g_combat_effect_left_count;

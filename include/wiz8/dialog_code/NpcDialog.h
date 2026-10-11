@@ -8,7 +8,7 @@
 #include "compat/compiler.h"
 
 class W8TextBuffer;
-class W8DialogButton;
+class W8ButtonWidget;
 struct W8NpcQuoteEntry;
 
 /* The dialog receives the script entry itself. Its sub-entry array is the
@@ -35,10 +35,10 @@ public:
 private:
     /* Copies the pressed option's user-data index into m_selected_option and
        closes the dialog. */
-    static void OptionSelected(W8DialogButton* button);
+    static void OptionSelected(W8ButtonWidget* button);
 
     std::array<std::unique_ptr<W8TextBuffer>, 2> m_text_buffers;
-    std::array<std::unique_ptr<W8DialogButton>, 3> m_buttons;
+    std::array<std::unique_ptr<W8ButtonWidget>, 3> m_buttons;
     signed char m_selected_option;
     W8NpcQuoteEntry* m_message;
     int m_aux_data;

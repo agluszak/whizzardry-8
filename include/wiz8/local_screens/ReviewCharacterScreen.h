@@ -1,6 +1,8 @@
 #pragma once
 
 #include <string_view>
+#include <memory>
+#include <array>
 #include <cstddef>
 #include "wiz8/regions.h"
 #include <string>
@@ -169,10 +171,10 @@ struct W8CampScreenState {
        handler reads it through item_scroll. */
     unsigned int item_list_count;
     int item_list[500];
-    W8CampItemRange* item_range;
-    W8CampSpellRange* spell_ranges[6];
-    W8CampStatsRange* stats_range;
-    W8CampStatsControls* stats_controls;
+    std::unique_ptr<W8CampItemRange> item_range;
+    std::array<std::unique_ptr<W8CampSpellRange>, 6> spell_ranges;
+    std::unique_ptr<W8CampStatsRange> stats_range;
+    std::unique_ptr<W8CampStatsControls> stats_controls;
     uint64_t item_timer;
     bool item_timer_active;
     bool item_timer_expired;
@@ -201,17 +203,22 @@ struct W8CampScreenState {
     /* 0xd40[0]: mouse is over the reviewed portrait; drives the highlight
        frame and a redraw. */
     unsigned char portrait_hovered[4];
-    W8DialogBase* dialog;
+    std::unique_ptr<W8DialogBase> dialog;
     unsigned char info_page;
     unsigned char padding_d49[3];
-    W8CampCharacterInfo* character_info;
+    std::unique_ptr<W8CampCharacterInfo> character_info;
     /* The camp item icons were drawn while the monster/combat
        timer was enabled; its stop forces a full redraw to drop them. */
     bool item_icons_drawn;
     unsigned char padding_d51[3];
+
+    W8CampScreenState() = default;
+    ~W8CampScreenState();
+    W8CampScreenState(const W8CampScreenState&) = delete;
+    W8CampScreenState& operator=(const W8CampScreenState&) = delete;
 };
 
-extern W8CampScreenState* g_camp_screen;
+extern std::unique_ptr<W8CampScreenState> g_camp_screen;
 extern int giReviewCharSlot;
 extern W8Character* g_review_character;
 extern W8Character* g_camp_identifying_character; /* gpIdentifyingPC */
@@ -225,15 +232,15 @@ extern unsigned int g_camp_spell_region_sets[6];
    CreateItemsTabPanel and read here and in RCSItemsPage.cpp. The
    secondary panel owns the Items/Character info page tabs, the character-info
    help text, the seven attribute rows and the four secondary value labels. */
-extern Controls* g_camp_secondary_panel;
+extern std::unique_ptr<Controls> g_camp_secondary_panel;
 extern W8Widget* g_camp_info_labels[4];
 extern W8TextControl* g_camp_page_tabs[2];
 extern W8HelpTextControl* g_camp_help_text;
 extern W8Widget* g_camp_stat_labels[7];
-extern Controls* g_camp_action_panel;
+extern std::unique_ptr<Controls> g_camp_action_panel;
 extern W8TextControl* g_camp_action_buttons[2];
 extern W8TextControl* g_camp_item_filter_buttons[7];
-extern Controls* g_camp_item_filter_panel;
+extern std::unique_ptr<Controls> g_camp_item_filter_panel;
 extern unsigned int g_camp_secondary_region_set;
 /* One g_localized_strings id per primary attribute row; defined in
    ReviewCharacterScreen.cpp, drawn by RCSStatsPage.cpp's stats page. */
@@ -266,7 +273,7 @@ void SwitchCampPage(W8CampPage page);
 void ClearOtherCampItemGroupFilters(W8CampItemFilter filter);
 void RebuildCampItemList(void);
 void SetCampHeaderMode(W8CampHeaderMode mode);
-void DisplayCampDialog(W8DialogBase* dialog);
+void DisplayCampDialog(std::unique_ptr<W8DialogBase> dialog);
 void DismissSelectedPartyCharacter(void);
 
 /* The pending-companion swap set by MarkCampCharacterPending and

@@ -1,3 +1,4 @@
+#include <memory>
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <optional>
@@ -40,13 +41,13 @@ static W8TextControl* g_combat_effect_right_rows[6];
 // GLOBAL: WIZ8 0x0069C2AC
 unsigned int g_combat_effect_right_count;
 // GLOBAL: WIZ8 0x0069C2B0
-Controls* g_spell_icon_strip;
+std::unique_ptr<Controls> g_spell_icon_strip;
 // GLOBAL: WIZ8 0x0069C2B4
 unsigned int g_combat_effect_left_count;
 // GLOBAL: WIZ8 0x0069C2B8
-Controls* g_combat_effect_right_panel;
+std::unique_ptr<Controls> g_combat_effect_right_panel;
 // GLOBAL: WIZ8 0x0069C2BC
-Controls* g_combat_effect_left_panel;
+std::unique_ptr<Controls> g_combat_effect_left_panel;
 /* Left-side combat-effect icon rows under g_combat_effect_left_panel. */
 // GLOBAL: WIZ8 0x0069C2C0
 static W8TextControl* g_combat_effect_left_rows[9];
@@ -58,24 +59,24 @@ static void RebuildCombatEffectHudRows(void);
 // FUNCTION: WIZ8 0x005AE9D0
 unsigned char CreateSpellIconHudControls(void)
 {
-    g_spell_icon_strip = 0;
-    g_combat_effect_left_panel = 0;
-    g_combat_effect_right_panel = 0;
+    g_spell_icon_strip.reset();
+    g_combat_effect_left_panel.reset();
+    g_combat_effect_right_panel.reset();
 
-    g_spell_icon_strip = new Controls(0x19d, 0, 0x280, 0x12, std::nullopt, 0);
-    if (g_spell_icon_strip == 0) {
+    g_spell_icon_strip = std::make_unique<Controls>(0x19d, 0, 0x280, 0x12, std::nullopt, 0);
+    if (!g_spell_icon_strip) {
         return 0;
     }
 
     g_spell_icon_count = 0;
-    g_combat_effect_left_panel = new Controls(0x81, 0x14, 0x13d, 0x28, std::nullopt, 0);
-    if (g_combat_effect_left_panel == 0) {
+    g_combat_effect_left_panel = std::make_unique<Controls>(0x81, 0x14, 0x13d, 0x28, std::nullopt, 0);
+    if (!g_combat_effect_left_panel) {
         return 0;
     }
 
     g_combat_effect_left_count = 0;
-    g_combat_effect_right_panel = new Controls(0x182, 0x14, 0x1ff, 0x28, std::nullopt, 0);
-    if (g_combat_effect_right_panel == 0) {
+    g_combat_effect_right_panel = std::make_unique<Controls>(0x182, 0x14, 0x1ff, 0x28, std::nullopt, 0);
+    if (!g_combat_effect_right_panel) {
         return 0;
     }
 
@@ -85,7 +86,7 @@ unsigned char CreateSpellIconHudControls(void)
 
 /* Strip rows are detached before destruction. Destruction can change the
    live panel/count, so each iteration reads them again and clears the observer slot. */
-static void DestroyEffectIconRows(Controls*& panel, W8TextControl** rows, const unsigned int& count)
+static void DestroyEffectIconRows(const std::unique_ptr<Controls>& panel, W8TextControl** rows, const unsigned int& count)
 {
     for (unsigned int index = 0; index < count; ++index) {
         auto row = panel->TakeControl(rows[index]);
@@ -113,17 +114,11 @@ static void ClearSpellIconHudRows()
 void DestroySpellIconHudControls(void)
 {
     ClearSpellIconHudRows();
-    if (g_spell_icon_strip != 0) {
-        delete g_spell_icon_strip;
-    }
+    g_spell_icon_strip.reset();
 
     DestroyCombatEffectHudRows();
-    if (g_combat_effect_left_panel != 0) {
-        delete g_combat_effect_left_panel;
-    }
-    if (g_combat_effect_right_panel != 0) {
-        delete g_combat_effect_right_panel;
-    }
+    g_combat_effect_left_panel.reset();
+    g_combat_effect_right_panel.reset();
 }
 
 /* Drop the live spell-icon rows and rebuild them from the current party spell
@@ -161,7 +156,7 @@ void RebuildSpellIconHudRows(void)
             if (icon == -1) {
                 ReportAssertion("iSpellIcon != BAD_INDEX", MGSSPELLICONS_CPP, 0x108);
             }
-            control = new W8TextControl(g_spell_icon_strip, g_main_effect_regions->index(8 - g_spell_icon_count),
+            control = new W8TextControl(g_spell_icon_strip.get(), g_main_effect_regions->index(8 - g_spell_icon_count),
                                         left, 0, right, 0x12, CatalogArtwork::Load(icon, 0), 0, -1,
                                         -1, -1, -1);
             g_spell_icon_rows[g_spell_icon_count] = control;
@@ -225,7 +220,7 @@ static void RebuildCombatEffectHudRows(void)
                 ReportAssertion("iSpellIcon != BAD_INDEX", MGSSPELLICONS_CPP, 0x228);
             }
             control =
-                new W8TextControl(g_combat_effect_left_panel,
+                new W8TextControl(g_combat_effect_left_panel.get(),
                                   g_main_effect_regions->index(9 + g_combat_effect_left_count), left,
                                   0, right, 0x14, CatalogArtwork::Load(icon, 0), 0, -1, -1, -1,
                                   -1);
@@ -250,7 +245,7 @@ static void RebuildCombatEffectHudRows(void)
             }
             control =
                 new W8TextControl(
-                    g_combat_effect_right_panel,
+                    g_combat_effect_right_panel.get(),
                     g_main_effect_regions->index(23 - g_combat_effect_right_count), left, 0, right,
                     0x14, CatalogArtwork::Load(icon, 0), 0, -1, -1, -1, -1);
             g_combat_effect_right_rows[g_combat_effect_right_count] = control;

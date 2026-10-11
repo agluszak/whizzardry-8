@@ -84,10 +84,3 @@ struct Controls {
     void RedrawControls(bool full_redraw);
 };
 
-inline void DestroyControlPanel(Controls*& panel)
-{
-    if (panel != 0) {
-        delete panel;
-        panel = 0;
-    }
-}

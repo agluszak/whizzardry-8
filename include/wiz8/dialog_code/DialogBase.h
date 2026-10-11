@@ -7,7 +7,7 @@
 #include <string_view>
 
 #include "wiz8/dialog_code/ButtonAppearance.h"
-#include "wiz8/dialog_code/DialogButton.h"
+#include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/regions.h"
 
 enum W8DialogKind {
@@ -23,13 +23,13 @@ enum W8DialogKind {
 enum { W8_DIALOG_DIRTY_REDRAW = 1u };
 
 class W8DialogBase;
-class W8DialogButton;
+class W8ButtonWidget;
 class W8DialogTextArea;
 
 typedef void (*W8DialogDestroyCallback)(W8DialogBase* dialog);
 void SetDialogDestroyCallback(W8DialogBase* dialog, W8DialogDestroyCallback callback);
 /* Shared close-button callback used by the monster and spell info dialogs. */
-void DialogCloseButtonCallback(W8DialogButton* button);
+void DialogCloseButtonCallback(W8ButtonWidget* button);
 
 /* Modal controls own their regions and state; only visual resources and
    rendering uses the shared dialog button appearance module. */
@@ -77,12 +77,12 @@ public:
 protected:
     void BeginModalInput();
     void EndModalInput();
-    void CreateCloseButton(W8DialogButton& button, int left, int top);
+    void CreateCloseButton(W8ButtonWidget& button, int left, int top);
     void ScrollTextArea(W8DialogTextArea& area, int first_visible_line, int left, int top,
                         int width, int height);
 
     int m_error;
-    W8DialogButton m_resource;
+    W8ButtonWidget m_resource;
     std::string m_text;
     Font* m_font;
     unsigned char m_foreground;

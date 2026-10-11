@@ -2,7 +2,7 @@
 
 #include "wiz8/character_skills.h"
 #include "wiz8/dialog_code/DialogBase.h"
-#include "wiz8/dialog_code/DialogButton.h"
+#include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/dialog_code/DialogScrollBar.h"
 #include "wiz8/dialog_code/DialogTextArea.h"
 #include "compat/compiler.h"
@@ -24,7 +24,7 @@ protected:
     static void ScrollCallback(W8DialogScrollBar* scroll_bar, int first_visible_entry);
 
     W8DialogScrollBar scrollbar;
-    W8DialogButton button;
+    W8ButtonWidget button;
     W8DialogTextArea textarea;
     unsigned int m_title_id;  /* g_localized_strings index, DrawTitle */
     unsigned int m_detail_id; /* g_localized_strings index, PopulateText */

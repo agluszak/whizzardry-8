@@ -1,5 +1,8 @@
 #pragma once
 
+#include <memory>
+#include <array>
+
 #include <cstdint>
 
 #include "wiz8/character_skills.h"
@@ -15,16 +18,16 @@
 struct Controls;
 struct W8Region;
 class W8TextControl;
-class W8DialogButton;
+class W8ButtonWidget;
 
 /* Owned globals. */
-extern Controls* gpSubMenuPanel;
-extern W8DialogButton* g_submenu_scroll_buttons[2];
-extern W8DialogButton* g_submenu_panel_buttons[2];
-extern W8DialogButton* g_layout_arrow_buttons[6];
-extern W8DialogButton* g_combat_stance_buttons[5];
-extern W8DialogButton* g_roof_buttons[3];
-extern W8DialogButton* g_options_disk_button;
+extern std::unique_ptr<Controls> gpSubMenuPanel;
+extern std::array<W8ButtonWidget, 2> g_submenu_scroll_buttons;
+extern std::array<W8ButtonWidget, 2> g_submenu_panel_buttons;
+extern std::array<W8ButtonWidget, 6> g_layout_arrow_buttons;
+extern std::array<W8ButtonWidget, 5> g_combat_stance_buttons;
+extern std::array<W8ButtonWidget, 3> g_roof_buttons;
+extern W8ButtonWidget g_options_disk_button;
 extern short g_submenu_entry_count;
 extern uint64_t g_submenu_clock;
 extern bool g_submenu_close_pending;
@@ -32,7 +35,7 @@ extern bool g_submenu_close_pending;
    plus one, so five rows only suffice because Berserk (fighter trait 0x14) and
    Pray (priest trait 0x0b) can never be available together. */
 extern W8TextControl* g_submenu_rows[5];
-extern W8DialogButton* g_submenu_buttons[9];
+extern std::array<W8ButtonWidget, 9> g_submenu_buttons;
 /* The action-kind message indexes the caption draw maps through. */
 extern unsigned short g_action_kind_message_ids[12];
 /* Which menu the open sub-menu panel serves (W8SubMenuPage value), each row's
@@ -96,8 +99,8 @@ void UpdateSubMenuAutoClose(void);
 /* The scroll-arrow callbacks are one-argument thunks over the shared handler:
    up steps toward lower slots, down toward higher, both wrapping and skipping
    ineligible slots. */
-void SubMenuScrollArrowUp(W8DialogButton* button);
-void SubMenuScrollArrowDown(W8DialogButton* button);
+void SubMenuScrollArrowUp(W8ButtonWidget* button);
+void SubMenuScrollArrowDown(W8ButtonWidget* button);
 /* Move selected_character to the next eligible party slot (0 steps toward
    slot 0, 1 toward slot 7), wrapping, and raise the portrait redraw masks. */
 void ScrollSubMenuCharacter(char direction);

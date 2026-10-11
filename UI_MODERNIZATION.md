@@ -20,8 +20,11 @@ will still need to render the game's original graphics and text.
 - **Controls / W8Widget / W8TextControl**: already owns child controls through
   unique_ptr and routes region events into virtual widget methods. It backs
   game panels and many screens.
-- **W8DialogBase / W8DialogButton**: modal controls own their RegionManager
-  regions. Folding W8DialogButton into W8Widget remains future work.
+- **W8DialogBase / W8ButtonWidget**: dialog buttons are `W8Widget`s
+  (`local_code/ButtonWidget.h`); a button's region is an `OwnedRegion` member
+  and modal dispatch reaches it through the ordinary widget hooks. The
+  separate `W8DialogButton` hierarchy is gone. Camp screen state, its ranges,
+  its active dialog and every `Controls` panel are `unique_ptr`-owned.
 - **Local screens**: screen-specific state, draw code, global region callbacks
   and input queues. These should remain screen-specific *views*, not each
   maintain a distinct input framework.
@@ -64,9 +67,8 @@ Do not invent widget subclasses where simple screen input suffices.
    screens. Remove per-screen global callbacks and global region tables
    as screens migrate.
 2. **Dialogs**: migrate a small message dialog first, then text entry,
-   scrolling and complex dialogs. Make dialog buttons normal widgets with
-   sprite-backed rendering; fold W8DialogButton into W8Widget rather than
-   adding another parallel control class.
+   scrolling and complex dialogs. Dialog buttons are normal widgets
+   (`W8ButtonWidget`); do not add another parallel control class.
 3. **Single input routing**: route each SDL input event to the current
    screen/modal tree, with a single capture/focus policy. RegionManager now
    handles screen regions, dialog buttons and text fields; continue removing
