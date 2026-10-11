@@ -503,8 +503,9 @@ void CreateAutomapButtons(void)
         const int base_frame = slot.y_offset;
         if (frame.storage_kind != W8_VIDEO_STORAGE_OBJECT) continue;
         auto button = std::make_unique<W8DialogButton>();
-        auto callback = reinterpret_cast<W8DialogButtonCallback>(
-            g_automap_button_callbacks[index]); // reinterpret-ok: void() vs button*
+        const auto action = g_automap_button_callbacks[index];
+        W8DialogButtonCallback callback;
+        if (action) callback = [action](W8DialogButton*) { action(); };
         if (button->Configure(frame.path.c_str(), base_frame + 3, base_frame, base_frame + 1,
                               base_frame + 2, base_frame + 2, callback, nullptr, false,
                               BUTTON_PRIORITY_HIGHEST, g_automap_button_tooltips[index], nullptr, nullptr)) {
@@ -889,7 +890,7 @@ void AutomapScreenFrame(void)
                 DispatchRegionInput(&input);
                 break;
             default:
-                continue;
+                break;
             }
             continue;
         }

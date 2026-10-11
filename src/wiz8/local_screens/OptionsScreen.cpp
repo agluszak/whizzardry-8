@@ -2034,7 +2034,6 @@ unsigned char OptionsScreenEnter()
 void OptionsScreenFrame()
 {
     SDL_Point point;
-    SDL_Point current;
     InputAtom input;
 
     if (g_dev_mode) {
@@ -2047,8 +2046,7 @@ void OptionsScreenFrame()
 
     W8OptionsScreen* screen = g_options_screen;
     if (screen->m_text_editor != 0) {
-        SGPMouseGetPos(&current);
-        UpdateRegionMousePosition(current.x, current.y);
+        UpdateRegionMousePosition(point.x, point.y);
         screen = g_options_screen;
     }
 

@@ -193,17 +193,21 @@ void click(GUI_BUTTON* button, INT32 reason)
 }
 
 uint64_t next_mouse_timestamp = 1;
-InputAtom mouse_atom(UINT16 event, unsigned short x, unsigned short y)
+InputAtom mouse_atom(UINT16 event, unsigned short x, unsigned short y, bool left = false,
+                     bool right = false, UINT8 click_count = 0)
 {
     InputAtom input{};
     input.uiTimeStamp = next_mouse_timestamp++;
     input.usEvent = event;
     input.uiParam = (static_cast<unsigned int>(y) << 16) | x;
+    input.mouseButtons = (left ? SDL_BUTTON_LMASK : 0) | (right ? SDL_BUTTON_RMASK : 0);
+    input.clicks = click_count;
     return input;
 }
-void dispatch_mouse(UINT16 event, unsigned short x, unsigned short y)
+void dispatch_mouse(UINT16 event, unsigned short x, unsigned short y, bool left = false,
+                    bool right = false, UINT8 click_count = 0)
 {
-    const auto input = mouse_atom(event, x, y);
+    const auto input = mouse_atom(event, x, y, left, right, click_count);
     DispatchRegionInput(&input);
 }
 
@@ -481,6 +485,40 @@ void later_region_set_precedes_button_set()
     REQUIRE(clicked_button != button.get());
 }
 
+struct TestOwnedRegionHandler final : W8RegionHandler {
+    int HandleRegionInput(W8Region&, const InputAtom&) override { return 1; }
+};
+
+void owned_region_move_and_teardown()
+{
+    RegionStateSnapshot saved_state;
+    ResetRegions();
+    const auto set = new_test_region_set();
+    TestOwnedRegionHandler handler;
+    ExclusiveRegionSet scope(set);
+
+    OwnedRegion owned(set, 0, handler);
+    owned.region().flags = W8_REGION_RECTANGLE;
+    SetRegionBounds(owned.index(), 10, 10, 30, 30);
+    const auto index = owned.index();
+    UpdateRegionMousePosition(15, 15);
+    REQUIRE(g_hover_region_index == index);
+    dispatch_mouse(LEFT_BUTTON_DOWN, 15, 15, true);
+    REQUIRE(g_captured_region_index == index);
+
+    {
+        OwnedRegion moved(std::move(owned));
+        REQUIRE_FALSE(owned);
+        owned.reset();
+        REQUIRE(g_regions[index].handler == &handler);
+        REQUIRE(g_captured_region_index == index);
+        REQUIRE(g_hover_region_index == index);
+    }
+    REQUIRE(g_regions[index].handler == nullptr);
+    REQUIRE(g_captured_region_index == 0);
+    REQUIRE(g_hover_region_index == 0);
+}
+
 GUIButton nested_outer, nested_inner, removable_button;
 void nested_click(GUI_BUTTON* button, INT32 reason)
 {
@@ -589,13 +627,13 @@ void buttons_and_regions()
     REQUIRE(double_click);
     {
         ExclusiveRegionSet scope(button_set);
-        auto first_down = mouse_atom(LEFT_BUTTON_DOWN, 55, 5);
+        auto first_down = mouse_atom(LEFT_BUTTON_DOWN, 55, 5, true, false, 1);
         first_down.uiTimeStamp = 1000;
         DispatchRegionInput(&first_down);
         auto first_up = mouse_atom(LEFT_BUTTON_UP, 55, 5);
         first_up.uiTimeStamp = 1050;
         DispatchRegionInput(&first_up);
-        auto second_down = mouse_atom(LEFT_BUTTON_DOWN, 55, 5);
+        auto second_down = mouse_atom(LEFT_BUTTON_DOWN, 55, 5, true, false, 2);
         second_down.uiTimeStamp = 1200;
         DispatchRegionInput(&second_down);
         REQUIRE((click_reason & BUTTON_REASON_LBUTTON_DOUBLECLICK) != 0);
@@ -603,7 +641,7 @@ void buttons_and_regions()
         second_up.uiTimeStamp = 1250;
         DispatchRegionInput(&second_up);
         const auto reason_after_up = click_reason;
-        auto double_atom = mouse_atom(LEFT_BUTTON_DBL_CLK, 55, 5);
+        auto double_atom = mouse_atom(LEFT_BUTTON_DBL_CLK, 55, 5, false, false, 2);
         double_atom.uiTimeStamp = 1251;
         DispatchRegionInput(&double_atom);
         REQUIRE(click_reason == reason_after_up);
@@ -1263,6 +1301,7 @@ TEST_CASE("Callback reentrancy and region teardown", "[owner]")
     region_nested_input();
     nested_hover_transitions();
     release_outside_controls();
+    owned_region_move_and_teardown();
     modal_scope_persists_across_frames();
     modal_scope_preserves_capture_across_frames();
     exclusive_scopes_destroy_out_of_order();
@@ -1293,6 +1332,234 @@ TEST_CASE("Formatting contracts", "[owner]")
 TEST_CASE("Generic button image ownership", "[owner]")
 {
     generic_button_images();
+}
+
+TEST_CASE("Dialog controls own interaction without legacy GUI buttons", "[owner]")
+{
+    RegionStateSnapshot saved_state;
+    ResetRegions();
+    ExclusiveRegionSet button_scope(ButtonRegionSetIndex());
+    Font font{SGPVObject{}};
+    PushButtonSoundScheme(0, true);
+    int activations = 0;
+    {
+        W8DialogButton button;
+        REQUIRE(button.ConfigureTextButton("button", font, 0, 0, 10, 10, 40, 20,
+            [&](W8DialogButton* control) {
+                REQUIRE(control->GetUserData() == 42);
+                ++activations;
+            }, 42));
+        REQUIRE(RegisteredButtonCount() == 0);
+        gfLeftButtonState = false;
+        gusMouseXPos = gusMouseYPos = 400;
+        dispatch_mouse(LEFT_BUTTON_DOWN, 15, 15, true, false, 1);
+        REQUIRE((button.IsPressed() && activations == 0));
+        REQUIRE((button.GetMousePosition().x == 15 && button.GetMousePosition().y == 15));
+        dispatch_mouse(LEFT_BUTTON_UP, 15, 15, false, false, 1);
+        REQUIRE((!button.IsPressed() && activations == 1));
+        dispatch_mouse(LEFT_BUTTON_UP, 15, 15);
+        REQUIRE(activations == 1);
+        dispatch_mouse(LEFT_BUTTON_DOWN, 15, 15, true);
+        dispatch_mouse(MOUSE_POS, 80, 80, true);
+        dispatch_mouse(LEFT_BUTTON_UP, 15, 15);
+        REQUIRE((!button.IsPressed() && activations == 1));
+        dispatch_mouse(LEFT_BUTTON_DOWN, 15, 15, true);
+        button.SetEnabled(false);
+        button.SetEnabled(true);
+        dispatch_mouse(LEFT_BUTTON_UP, 15, 15);
+        REQUIRE((!button.IsPressed() && activations == 1));
+        dispatch_mouse(LEFT_BUTTON_DOWN, 15, 15, true);
+        button.SetVisible(false);
+        button.SetVisible(true);
+        dispatch_mouse(LEFT_BUTTON_UP, 15, 15);
+        REQUIRE(activations == 1);
+        REQUIRE(button.IsConfigured());
+        button.Resize(60, 30);
+        button.SetPosition(20, 20);
+        REQUIRE((button.GetBounds().w == 60 && button.GetBounds().h == 30));
+        dispatch_mouse(LEFT_BUTTON_DOWN, 75, 45, true);
+        REQUIRE(button.IsLeftButtonHeld());
+        dispatch_mouse(LEFT_BUTTON_UP, 75, 45);
+        REQUIRE(!button.IsLeftButtonHeld());
+        REQUIRE(activations == 2);
+        button.SetPosition(10, 10);
+        button.Resize(40, 20);
+        button.m_repeat_enabled = true;
+        dispatch_mouse(LEFT_BUTTON_DOWN, 15, 15, true);
+        dispatch_mouse(LEFT_BUTTON_REPEAT, 15, 15, true);
+        dispatch_mouse(LEFT_BUTTON_REPEAT, 15, 15, true);
+        REQUIRE(activations == 4);
+        dispatch_mouse(LEFT_BUTTON_UP, 15, 15);
+        REQUIRE((!button.IsPressed() && activations == 4));
+        button.m_repeat_enabled = false;
+        button.m_activation = DialogButtonActivation::Press;
+        dispatch_mouse(LEFT_BUTTON_DOWN, 15, 15, true);
+        REQUIRE(activations == 5);
+        dispatch_mouse(LEFT_BUTTON_UP, 15, 15);
+        REQUIRE(activations == 5);
+        button.Reset();
+        REQUIRE((!button.IsEnabled() && !button.IsPressed() && button.GetWidth() == 0));
+        dispatch_mouse(LEFT_BUTTON_DOWN, 15, 15, true);
+        dispatch_mouse(LEFT_BUTTON_UP, 15, 15);
+        REQUIRE(activations == 5);
+    }
+
+    auto closing = std::make_unique<W8DialogButton>();
+    closing->ConfigureTextButton("close", font, 0, 0, 10, 10, 40, 20,
+        [&](W8DialogButton*) { closing.reset(); }, 0);
+    dispatch_mouse(LEFT_BUTTON_DOWN, 15, 15, true);
+    dispatch_mouse(LEFT_BUTTON_UP, 15, 15);
+    REQUIRE(!closing);
+}
+
+TEST_CASE("Modal confirmations and scrollbars dispatch through their native owners", "[owner]")
+{
+    RegionStateSnapshot saved_state;
+    ResetRegions();
+    ExclusiveRegionSet button_scope(ButtonRegionSetIndex());
+    const std::filesystem::path root = make_temporary_directory("wiz8-modal-controls");
+    const auto assets = root / "assets";
+    for (const auto* image : {"DialogBorder.STI", "DialogEdge.STI", "DialogConfirmation.STI"})
+        button_image_fixture(assets / "Data" / "Dialogs", image);
+    for (const auto* image : {"DialogInlay.STI", "DialogUpArrow.STI", "DialogDownArrow.STI",
+                              "DialogSlideBar.STI", "DialogBackground_dark.STI"})
+        button_image_fixture(assets / "Data" / "Dialogs", image);
+    button_image_fixture(assets, "font.sti", 128, false, 1, 10);
+    button_image_fixture(assets, "background.sti");
+    button_image_fixture(assets, "arrows.sti", 12, false, 2, 3);
+    button_image_fixture(assets, "track.sti", 1, false, 5, 100);
+    w8_native::configure_paths({assets.string(), (root / "user").string(), {"", "", ""}});
+    PushButtonSoundScheme(0, true);
+    std::vector<int> positions;
+    {
+        W8DialogScrollBar bar;
+        const W8DialogScrollBar::Resources resources{
+            "arrows.sti", "track.sti", 0,
+            [&](W8DialogScrollBar*, int position) { positions.push_back(position); }};
+        REQUIRE(bar.CreateControls(&resources));
+        REQUIRE(RegisteredButtonCount() == 0);
+        bar.SetLayout(100, 20, 20, 5, 10, 30);
+        gusMouseYPos = 400;
+        dispatch_mouse(LEFT_BUTTON_DOWN, 101, 116, true);
+        dispatch_mouse(LEFT_BUTTON_UP, 101, 116);
+        REQUIRE(positions == std::vector<int>{17});
+        dispatch_mouse(LEFT_BUTTON_DOWN, 101, 21, true);
+        dispatch_mouse(LEFT_BUTTON_REPEAT, 101, 21, true);
+        dispatch_mouse(LEFT_BUTTON_UP, 101, 21);
+        REQUIRE(positions == std::vector<int>{17, 16, 15});
+        bar.SetLayout(100, 20, 1, 0, 10, 30);
+        dispatch_mouse(LEFT_BUTTON_DOWN, 101, 21, true);
+        dispatch_mouse(LEFT_BUTTON_UP, 101, 21);
+        REQUIRE(positions.size() == 3);
+        bar.SetLayout(100, 20, 20, 5, 10, 30);
+        dispatch_mouse(LEFT_BUTTON_DOWN, 101, 118, true);
+        dispatch_mouse(LEFT_BUTTON_UP, 101, 118);
+        REQUIRE(positions.back() == 6);
+    }
+
+    auto saved_frame = std::move(GetFrameBufferSurface());
+    auto frame = CreateVideoSurface(640, 480, 16);
+    REQUIRE(frame);
+    GetFrameBufferSurface() = std::move(*frame);
+    auto* old_target = std::exchange(ButtonDestBuffer, &GetFrameBufferSurface());
+    Font font{SGPVObject{}};
+    auto* old_font = std::exchange(g_dialog_interface_font, &font);
+    class MessageDialog final : public W8MessageDialogBase {
+    public:
+        using W8MessageDialogBase::m_confirm_button;
+        using W8MessageDialogBase::m_cancel_button;
+    };
+    for (const bool accept : {false, true}) {
+        MessageDialog dialog;
+        dialog.SetOrigin(10, 10);
+        dialog.SetExtent(100, 80);
+        dialog.SetBackground("background.sti", 0);
+        dialog.SetMessage("", 0, 0, true, true, false, false, 100, 80);
+        REQUIRE(dialog.CreateControls() == 0);
+        REQUIRE(RegisteredButtonCount() == 0);
+        auto& control = accept ? dialog.m_confirm_button : dialog.m_cancel_button;
+        dispatch_mouse(LEFT_BUTTON_DOWN, control.GetX(), control.GetY(), true);
+        REQUIRE(dialog.is_open);
+        dispatch_mouse(LEFT_BUTTON_UP, control.GetX(), control.GetY());
+        REQUIRE(!dialog.is_open);
+        REQUIRE(dialog.accepted == accept);
+    }
+
+    auto glyphs = LoadVideoObject("font.sti");
+    REQUIRE(glyphs);
+    font = Font{std::move(*glyphs)};
+    {
+        W8ListBoxDialog list;
+        list.SetOrigin(10, 10);
+        list.SetExtent(100, 80);
+        list.SetBackground("background.sti", 0);
+        for (int index = 0; index < 20; ++index) list.m_lines.emplace_back("X");
+        REQUIRE(list.CreateControls() == 0);
+        list.Draw();
+        REQUIRE(RegisteredButtonCount() == 0);
+        gusMouseYPos = 400;
+        dispatch_mouse(LEFT_BUTTON_DOWN, list.m_area_button.GetX() + 3,
+                       list.m_area_button.GetY() + 21, true);
+        dispatch_mouse(LEFT_BUTTON_UP, list.m_area_button.GetX() + 3,
+                       list.m_area_button.GetY() + 21);
+        REQUIRE(list.m_selected_line == 2);
+        dispatch_mouse(LEFT_BUTTON_DOWN, list.m_down_button.GetX(), list.m_down_button.GetY(), true);
+        dispatch_mouse(LEFT_BUTTON_REPEAT, list.m_down_button.GetX(), list.m_down_button.GetY(), true);
+        dispatch_mouse(LEFT_BUTTON_UP, list.m_down_button.GetX(), list.m_down_button.GetY());
+        REQUIRE(list.m_selected_line == 4);
+        dispatch_mouse(LEFT_BUTTON_DOWN, list.m_third_text_button.GetX() + 1,
+                       list.m_third_text_button.GetY() + 30, true);
+        REQUIRE(list.m_selected_line == 15);
+        dispatch_mouse(LEFT_BUTTON_REPEAT, list.m_third_text_button.GetX() + 1,
+                       list.m_third_text_button.GetY() + 20, true);
+        dispatch_mouse(LEFT_BUTTON_UP, list.m_third_text_button.GetX() + 1,
+                       list.m_third_text_button.GetY() + 20);
+        REQUIRE(list.m_selected_line == 10);
+    }
+    {
+        W8ListBoxDialog short_list;
+        short_list.SetOrigin(10, 10);
+        short_list.SetExtent(100, 80);
+        short_list.SetBackground("background.sti", 0);
+        short_list.m_lines.emplace_back("X");
+        REQUIRE(short_list.CreateControls() == 0);
+        short_list.Draw();
+        REQUIRE_FALSE(short_list.m_scrollable);
+        for (const auto* button : {&short_list.m_up_button, &short_list.m_down_button,
+                                   &short_list.m_slider_button,
+                                   &short_list.m_third_text_button}) {
+            const auto region = std::find_if(
+                g_regions.begin(), g_regions.end(),
+                [button](const W8Region& item) { return item.handler == button; });
+            REQUIRE(region != g_regions.end());
+            REQUIRE((region->flags & W8_REGION_INPUT_DISABLED) != 0);
+            REQUIRE_FALSE(button->m_dirty);
+        }
+    }
+    g_dialog_interface_font = old_font;
+    ButtonDestBuffer = old_target;
+    GetFrameBufferSurface() = std::move(saved_frame);
+    REQUIRE(RegisteredButtonCount() == 0);
+    std::filesystem::remove_all(root);
+}
+
+TEST_CASE("Button regions use SDL click counts", "[owner]")
+{
+    RegionStateSnapshot saved_state;
+    ResetRegions();
+    const auto button_set = ButtonRegionSetIndex();
+    Font font{SGPVObject{}};
+    auto button = CreateTextButton("clicks", font, 0, 0, {}, 0, 0, 40, 40, BUTTON_TOGGLE,
+                                   BUTTON_PRIORITY_NORMAL, click, click);
+    REQUIRE(button);
+    ExclusiveRegionSet scope(button_set);
+    for (const UINT8 click_count : {0, 1, 2, 3, 4}) {
+        dispatch_mouse(LEFT_BUTTON_DOWN, 10, 10, true, false, click_count);
+        REQUIRE((click_reason & BUTTON_REASON_LBUTTON_DWN) != 0);
+        REQUIRE(((click_reason & BUTTON_REASON_LBUTTON_DOUBLECLICK) != 0) ==
+                (click_count >= 2));
+        dispatch_mouse(LEFT_BUTTON_UP, 10, 10);
+    }
 }
 
 TEST_CASE("assert-plain", "[.death]")

@@ -7135,6 +7135,20 @@ void LoadMainGameCursorResources(void)
     }
 }
 
+// FUNCTION: WIZ8 0x00568950
+unsigned int DispatchMainGameMouseButtons(const InputAtom* input)
+{
+    switch (input->usEvent) {
+    case LEFT_BUTTON_DOWN:
+    case LEFT_BUTTON_UP:
+    case RIGHT_BUTTON_DOWN:
+    case RIGHT_BUTTON_UP:
+        DispatchRegionInput(input);
+        return 1;
+    default:
+        return 0;
+    }
+}
 /* Input routed here while mouselook is latched: the left button arms the
    look flag, and each mouse move accumulates yaw/pitch from the offset off
    the 320x240 anchor before recentering the cursor. Smoothing defers the

@@ -1,6 +1,5 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
-#include <SDL3/SDL_rect.h>
 #include <memory>
 #include <string>
 #include <vector>
@@ -20,7 +19,6 @@
 #include "Types.h"
 #include "dialog_code/DialogBase.h"
 #include "dialog_code/DialogButton.h"
-#include "Button System.h"
 #include "local_code/ControlsRect.h"
 #include "npc_script_file.h"
 
@@ -217,9 +215,7 @@ bool W8NpcDialog::ProcessInput()
         return true;
     });
     if (returned_early) return true;
-    if (!m_keep_open) {
-        EndModalInput();
-    }
+    if (!m_keep_open) EndModalInput();
     return m_keep_open;
 }
 

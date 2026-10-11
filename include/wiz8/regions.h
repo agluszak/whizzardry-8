@@ -8,6 +8,7 @@
 #include <vector>
 #include <span>
 #include <string>
+#include <SDL3/SDL_rect.h>
 
 #include "Types.h"
 #include "input.h"
@@ -41,7 +42,7 @@ private:
 
 /* Region callbacks receive SGP's input atom unchanged. Wheel rotation uses
    usParam; uiParam carries the packed cursor position. */
-W8_ABI_ASSERT(sizeof(InputAtom) == 0x10, "InputAtom_size");
+W8_ABI_ASSERT(sizeof(InputAtom) == 0x18, "InputAtom_size");
 W8_ABI_ASSERT(offsetof(InputAtom, usParam) == 0x08, "InputAtom_wheel_payload_offset");
 W8_ABI_ASSERT(offsetof(InputAtom, uiParam) == 0x0c, "InputAtom_mouse_position_offset");
 
@@ -61,6 +62,14 @@ enum W8RegionFlags {
 
 struct W8Region;
 typedef unsigned char (*W8RegionCallback)(const InputAtom* event, struct W8Region* region);
+
+class W8RegionHandler {
+public:
+    virtual int HandleRegionInput(W8Region& region, const InputAtom& input) = 0;
+
+protected:
+    ~W8RegionHandler() = default;
+};
 
 struct W8Region {
     bool CaptureButtonDown(unsigned int event)
@@ -92,6 +101,28 @@ struct W8Region {
     std::string help_text;
     _GUI_BUTTON* button = nullptr;
     TEXTINPUTNODE* text_field = nullptr;
+    W8RegionHandler* handler = nullptr;
+};
+
+class OwnedRegion {
+public:
+    OwnedRegion() = default;
+    OwnedRegion(unsigned int set, int priority, W8RegionHandler& handler);
+    ~OwnedRegion();
+    OwnedRegion(const OwnedRegion&) = delete;
+    OwnedRegion& operator=(const OwnedRegion&) = delete;
+    OwnedRegion(OwnedRegion&& other) noexcept;
+    OwnedRegion& operator=(OwnedRegion&& other) noexcept;
+
+    explicit operator bool() const;
+    W8Region& region();
+    unsigned int index() const { return index_; }
+    void reset();
+
+private:
+    unsigned int set_ = 0;
+    unsigned int index_ = 0;
+    uint64_t generation_ = 0;
 };
 
 class ExclusiveRegionSet {
@@ -137,6 +168,7 @@ extern std::string g_default_help_text;
 unsigned int GetForcedRegion(void);
 void ReleaseDefaultHelpText(void);
 unsigned int UpdateRegionMousePosition(int x, int y);
+SDL_Point GetRegionMousePosition();
 unsigned int FindRegionAtPoint(unsigned short x, unsigned short y);
 void RegionSetEnable(unsigned int region_set_index);
 void RegionSetDisable(unsigned int region_set_index);

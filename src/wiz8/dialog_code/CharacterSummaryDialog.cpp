@@ -1,4 +1,3 @@
-#include <SDL3/SDL_rect.h>
 #include <cctype>
 #include <cstring>
 
@@ -22,7 +21,6 @@
 #include "layouts/combat_state.h"
 #include "layouts/game_status.h"
 #include "local_code/ControlsRect.h"
-#include "Button System.h"
 #include "local_code/MonsterManager.h"
 
 /* The bodies from 0x005E0320 through 0x005E0C30 form one dialog lifecycle
@@ -189,17 +187,13 @@ bool W8CharacterSummaryDialog::ProcessInput()
         }
         if (!DispatchRegionInput(&input)) {
             keep_open = HandleInputEvent(&input);
-            if (!keep_open) {
-                EndModalInput();
-            }
+            if (!keep_open) EndModalInput();
             return false;
         }
         keep_open = m_keep_open;
         return true;
     });
-    if (!keep_open) {
-        EndModalInput();
-    }
+    if (!keep_open) EndModalInput();
     return keep_open;
 }
 

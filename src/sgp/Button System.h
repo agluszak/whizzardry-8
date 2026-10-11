@@ -74,13 +74,13 @@
 #define BUTTON_IGNORE_CLICKS 0x00008000 // Ignore any clicks on this button
 #define BUTTON_DISABLED_CALLBACK 0x80000000
 
-inline constexpr INT16 BUTTON_PRIORITY_LOWEST = 0;
-inline constexpr INT16 BUTTON_PRIORITY_LOW = 15;
-inline constexpr INT16 BUTTON_PRIORITY_BASE = 31;
-inline constexpr INT16 BUTTON_PRIORITY_NORMAL = 31;
-inline constexpr INT16 BUTTON_PRIORITY_HIGH = 63;
-inline constexpr INT16 BUTTON_PRIORITY_HIGHEST = 127;
-inline constexpr INT16 BUTTON_PRIORITY_AUTO = -1;
+inline constexpr int BUTTON_PRIORITY_LOWEST = 0;
+inline constexpr int BUTTON_PRIORITY_LOW = 15;
+inline constexpr int BUTTON_PRIORITY_BASE = 31;
+inline constexpr int BUTTON_PRIORITY_NORMAL = 31;
+inline constexpr int BUTTON_PRIORITY_HIGH = 63;
+inline constexpr int BUTTON_PRIORITY_HIGHEST = 127;
+inline constexpr int BUTTON_PRIORITY_AUTO = -1;
 
 enum : INT32 {
     BUTTON_REASON_NONE = 0,
@@ -126,62 +126,10 @@ struct GenericButtonImages;
 using ButtonImage = std::shared_ptr<const ButtonGraphics>;
 using GenericButtonImage = std::shared_ptr<GenericButtonImages>;
 
-struct ClickTracker {
-    static constexpr uint64_t double_click_window_ms = 400;
-
-    bool OnLeftDown(uint64_t timestamp)
-    {
-        const bool is_double_click =
-            m_left_click_released && timestamp <= m_last_left_down_time + double_click_window_ms;
-        if (is_double_click) {
-            m_double_click_atom_pending = true;
-        } else {
-            m_last_left_down_time = timestamp;
-            m_double_click_atom_pending = false;
-        }
-        m_left_click_released = false;
-        return is_double_click;
-    }
-
-    void OnLeftUp(uint64_t timestamp)
-    {
-        if (!m_double_click_atom_pending && m_last_left_down_time != 0 &&
-            timestamp <= m_last_left_down_time + double_click_window_ms) {
-            m_left_click_released = true;
-        }
-    }
-
-    bool ConsumeDoubleClickAtom()
-    {
-        if (!m_double_click_atom_pending) return false;
-        m_double_click_atom_pending = false;
-        return true;
-    }
-
-private:
-    uint64_t m_last_left_down_time = 0;
-    bool m_left_click_released = false;
-    bool m_double_click_atom_pending = false;
-};
-
-typedef struct _GUI_BUTTON {
-    ~_GUI_BUTTON();
-    _GUI_BUTTON();
-    _GUI_BUTTON(const _GUI_BUTTON&) = delete;
-    _GUI_BUTTON& operator=(const _GUI_BUTTON&) = delete;
-
+struct ButtonAppearance {
     ButtonImage quick_image;
     GenericButtonImage generic_image;
-    unsigned int region_index = 0;
-    ClickTracker click_tracker;
-    GUI_CALLBACK ClickCallback = nullptr; // Button Callback when button is clicked
-    GUI_CALLBACK MoveCallback = nullptr;  // Button Callback when mouse moved on this region
-    UINT32 uiFlags = BUTTON_DIRTY;             // Button state flags etc.( 32-bit )
-    UINT32 uiOldFlags = 0;          // Old flags from previous render loop
-    INT16 XLoc = 0;                 // Coordinates where button is on the screen
-    INT16 YLoc = 0;
-    void* callback_context = nullptr; // Non-owning; the UI owner owns this button.
-    INT32 UserData[4] = {}; // Numeric callback payloads.
+    SDL_Rect bounds{};
     INT8 bDefaultStatus = DEFAULT_STATUS_NONE;
     //Button disabled style
     INT8 bDisabledStyle = DISABLED_STYLE_DEFAULT;
@@ -202,6 +150,32 @@ typedef struct _GUI_BUTTON {
     INT8 bTextYSubOffSet = 0;
     BOOLEAN fShiftText = TRUE;
     INT16 sWrappedWidth = -1;
+};
+struct ButtonVisualState {
+    bool enabled = true;
+    bool pressed = false;
+    bool hovered = false;
+    bool checkbox = false;
+    bool mouse_down = false;
+};
+
+void DrawButtonAppearance(const ButtonAppearance& appearance, const ButtonVisualState& state);
+GenericButtonImage DefaultGenericButtonImage();
+
+typedef struct _GUI_BUTTON : ButtonAppearance {
+    ~_GUI_BUTTON();
+    _GUI_BUTTON();
+    _GUI_BUTTON(const _GUI_BUTTON&) = delete;
+    _GUI_BUTTON& operator=(const _GUI_BUTTON&) = delete;
+    unsigned int region_index = 0;
+    GUI_CALLBACK ClickCallback = nullptr;
+    GUI_CALLBACK MoveCallback = nullptr;
+    UINT32 uiFlags = BUTTON_DIRTY;
+    UINT32 uiOldFlags = 0;
+    INT16 XLoc = 0;
+    INT16 YLoc = 0;
+    void* callback_context = nullptr;
+    INT32 UserData[4] = {};
 
     bool ubToggleButtonOldState = false; // Varibles for new toggle buttons that work
     bool ubToggleButtonActivated = false;
@@ -249,6 +223,9 @@ void ShutdownButtonImageManager(void);
 BOOLEAN InitButtonSystem(void);
 void ShutdownButtonSystem(void);
 unsigned int ButtonRegionSetIndex(void);
+struct W8Region;
+struct InputAtom;
+INT32 ButtonReasonForRegionInput(const W8Region& region, const InputAtom& input);
 
 
 // Now used by Wizardry -- DB
@@ -268,7 +245,6 @@ void DrawButtonFromPtr(GUI_BUTTON* b);
 
 //Base button types
 // Text can be overlaid on generic and quick buttons.
-void DrawTextOnButton(GUI_BUTTON* b);
 
 extern BOOLEAN gfRenderHilights;
 #define EnableHilightsAndHelpText() gfRenderHilights = TRUE;

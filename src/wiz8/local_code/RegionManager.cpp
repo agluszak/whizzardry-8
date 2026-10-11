@@ -5,6 +5,7 @@
 #include <SDL3/SDL_rect.h>
 #include <string_view>
 #include <string>
+#include <stdexcept>
 #include <vector>
 
 #include "wiz8/regions.h"
@@ -493,6 +494,7 @@ unsigned int g_captured_region_index;
 unsigned int g_hover_region_index;
 // GLOBAL: WIZ8 0x00689B50
 bool g_region_help_force_enabled;
+SDL_Point g_region_mouse_position{};
 
 // GLOBAL: WIZ8 0x00689B32
 bool g_dev_mode;
@@ -606,8 +608,13 @@ namespace {
 bool DispatchUnchangedRegion(W8Region& region, const InputAtom& event)
 {
     const auto generation = region.binding_generation;
-    if (!region.callback) return false;
-    region.callback(&event, &region);
+    if (region.callback) {
+        region.callback(&event, &region);
+    } else if (region.handler) {
+        region.handler->HandleRegionInput(region, event);
+    } else {
+        return false;
+    }
     return region.binding_generation == generation;
 }
 
@@ -753,6 +760,7 @@ ExclusiveRegionSet::~ExclusiveRegionSet()
 // FUNCTION: WIZ8 0x004f1360
 unsigned int UpdateRegionMousePosition(int x, int y)
 {
+    g_region_mouse_position = {x, y};
     InputAtom event;
     unsigned int region_index;
 
@@ -810,6 +818,11 @@ unsigned int UpdateRegionMousePosition(int x, int y)
     return g_current_region_index;
 }
 
+SDL_Point GetRegionMousePosition()
+{
+    return g_region_mouse_position;
+}
+
 /* Find the first enabled region containing the mouse position.  Moving to a
    different region also sends the old region its leave transition and drops
    any help box it still owns. */
@@ -860,6 +873,8 @@ unsigned char DispatchRegionInput(const InputAtom* event)
 {
     unsigned int region_index = 0;
     int sound_id = -1;
+    g_region_mouse_position = {static_cast<short>(event->uiParam),
+                               static_cast<short>(event->uiParam >> 16)};
     const auto point = ToDispatchPoint(*event);
 #ifdef WIZ8_RUNTIME_TESTS
     if (event->usEvent == MOUSE_POS || event->usEvent == LEFT_BUTTON_DOWN ||
@@ -1230,6 +1245,61 @@ bool W8RegionSet::RemoveRegion(unsigned int region_index)
 unsigned int AddRegionToSet(unsigned int region_set_index, int priority)
 {
     return g_region_sets.at(region_set_index).AddRegion(priority);
+}
+
+OwnedRegion::OwnedRegion(unsigned int set, int priority, W8RegionHandler& handler)
+    : set_(set), index_(AddRegionToSet(set, priority))
+{
+    auto& owned_region = g_regions[index_];
+    owned_region.handler = &handler;
+    generation_ = ++owned_region.binding_generation;
+}
+
+OwnedRegion::~OwnedRegion()
+{
+    reset();
+}
+
+OwnedRegion::OwnedRegion(OwnedRegion&& other) noexcept
+    : set_(other.set_), index_(other.index_), generation_(other.generation_)
+{
+    other.set_ = 0;
+    other.index_ = 0;
+    other.generation_ = 0;
+}
+
+OwnedRegion& OwnedRegion::operator=(OwnedRegion&& other) noexcept
+{
+    if (this == &other) return *this;
+    reset();
+    set_ = other.set_;
+    index_ = other.index_;
+    generation_ = other.generation_;
+    other.set_ = 0;
+    other.index_ = 0;
+    other.generation_ = 0;
+    return *this;
+}
+
+OwnedRegion::operator bool() const
+{
+    return index_ != 0 && index_ < g_regions.size() &&
+           g_regions[index_].binding_generation == generation_ &&
+           g_regions[index_].handler != nullptr;
+}
+
+W8Region& OwnedRegion::region()
+{
+    if (!*this) throw std::logic_error("Accessing an unbound owned region");
+    return g_regions[index_];
+}
+
+void OwnedRegion::reset()
+{
+    if (*this) RemoveRegionFromSet(set_, index_);
+    set_ = 0;
+    index_ = 0;
+    generation_ = 0;
 }
 
 void RemoveRegionFromSet(unsigned int region_set_index, unsigned int region_index)

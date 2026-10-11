@@ -216,8 +216,8 @@ bool W8SplitItemDialog::CreateButtons()
         m_buttons[9]->ConfigureIcon("Data\\Dialogs\\popup_splititem.sti", BUTTON_NO_IMAGE, 3,
                                     BUTTON_PRIORITY_LOWEST, W8_DIALOG_BUTTON_NO_TOOLTIP);
     }
-    m_buttons[0]->m_fires_on_press = true;
-    m_buttons[1]->m_fires_on_press = true;
+    m_buttons[0]->m_repeat_enabled = true;
+    m_buttons[1]->m_repeat_enabled = true;
     for (index = 0; index < count; ++index) {
         m_buttons[index]->SetPosition(g_split_button_offsets[index].x + m_x,
                                       g_split_button_offsets[index].y + m_y);
@@ -618,14 +618,13 @@ void W8SplitItemDialog::OnCancel(W8DialogButton* button)
 void W8SplitItemDialog::OnCountFieldClick(W8DialogButton* button)
 {
     W8SplitItemDialog* dialog;
-    SDL_Point mouse;
     SDL_Point point;
 
     if (button == 0) {
         return;
     }
     dialog = static_cast<W8SplitItemDialog*>(button->m_owner);
-    SGPMouseGetPos(&mouse);
+    const SDL_Point mouse = button->GetMousePosition();
     if (dialog->m_count_input == 0) {
         return;
     }

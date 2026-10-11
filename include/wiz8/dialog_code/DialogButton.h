@@ -1,12 +1,10 @@
 #include "Font.h"
 #include <string_view>
+#include <functional>
 #pragma once
 
 #include "Button System.h"
-
-/* Update the non-toggle dialog arrow's pressed/hover state. The caller
-   retains its action and invalidates only when this operation reports a change. */
-bool UpdateDialogArrowState(GUI_BUTTON* button, INT32 reason);
+#include "wiz8/regions.h"
 
 /* Tooltip string-table sentinel; independent of the five frame indices. */
 enum { W8_DIALOG_BUTTON_NO_TOOLTIP = -1 };
@@ -15,22 +13,33 @@ class W8DialogBase;
 class W8DialogButton;
 
 /* Callbacks stored through Configure and dispatched by the button's own SGP
-   callback with the W8DialogButton, not the raw SGP button, as the subject. */
-typedef void (*W8DialogButtonCallback)(W8DialogButton* button);
-
-void DialogButtonCallback(GUI_BUTTON* button, INT32 reason);
+   callback with the W8DialogButton as the subject. */
+using W8DialogButtonCallback = std::function<void(W8DialogButton*)>;
+enum class DialogButtonActivation { Press, Release };
 
 // VTABLE: WIZ8 0x005efa98
-class W8DialogButton {
+class W8DialogButton : public W8RegionHandler {
 public:
     W8DialogButton();
     virtual ~W8DialogButton();
     void Draw();
+    void Reset();
+    bool IsConfigured() const { return static_cast<bool>(m_region); }
     void SetPosition(int x, int y);
+    void Resize(int width, int height);
+    void SetText(std::string_view text);
+    void SetTextOffsets(int x, int y, bool shift);
+    void SetMultiColor(bool enabled);
     int GetWidth();
     int GetHeight();
     int GetX();
     int GetY();
+    SDL_Point GetMousePosition() const { return GetRegionMousePosition(); }
+    bool IsLeftButtonHeld() const
+    {
+        return m_region && (m_region.region().flags & W8_REGION_LEFT_BUTTON_HELD) != 0;
+    }
+    SDL_Rect GetBounds() const { return m_appearance.bounds; }
     void SetEnabled(bool enabled);
     void UpdateEnabledState(bool enabled)
     {
@@ -46,16 +55,16 @@ public:
     void SetPressed(bool pressed);
     unsigned char IsPressed();
     void SetVisible(bool visible);
-    /* Installs the tooltip string on the SGP button (when one is configured
+    /* Installs the tooltip string on the mouse region (when one is configured
        and tooltips are on), or clears it. */
     void SetTooltipEnabled(bool enabled);
     int GetUserData();
-    /* Load the frame images, create the SGP button, and store the
+    /* Load the frame images, configure the owned region, and store the
        per-button callbacks, left-toggle flag, priority and tooltip index. */
     bool Configure(const char* image_path, int gray_frame, int off_normal_frame,
                    int off_hover_frame, int on_normal_frame, int on_hover_frame,
                    W8DialogButtonCallback left_callback, W8DialogButtonCallback move_callback,
-                   bool left_toggles, short priority, int tooltip_index,
+                   bool left_toggles, int priority, int tooltip_index,
                    W8DialogButtonCallback right_callback,
                    W8DialogButtonCallback double_click_callback);
     bool ConfigureIcon(const char* image_path, int disabled_frame, int normal_frame, short priority,
@@ -66,27 +75,30 @@ public:
                          tooltip_index, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
     }
 
-    /* Create an SGP text button (BUTTON_NO_TOGGLE, priority 0x7f),
-       store this in its user-data slot 0 and the payload in slot 1 (read back
-       by GetUserData), then install the left-click callback. */
+    /* Configure a text button with an owner-local numeric callback payload. */
     bool ConfigureTextButton(std::string_view text, Font& font, short fore_color,
                              short shadow_color, short x, short y, short width, short height,
-                             W8DialogButtonCallback left_callback, int user_data);
+                             W8DialogButtonCallback left_callback, int user_data,
+                             GenericButtonImage image = {}, int priority = BUTTON_PRIORITY_HIGHEST);
     /* Store the tooltip string-table index and, when tooltips are
-       enabled, push its text onto the SGP button. */
+       enabled, push its text onto the mouse region. */
     void SetTooltipIndex(int tooltip_index);
 
-    friend void DialogButtonCallback(GUI_BUTTON* button, INT32 reason);
-
 private:
-    GUIButton m_button_handle; /* owns the underlying SGP button */
+    ButtonAppearance m_appearance;
+    ButtonVisualState m_visual;
+    OwnedRegion m_region;
+    SDL_MouseButtonFlags m_armed_buttons = 0;
+    SDL_MouseButtonFlags m_repeated_buttons = 0;
+    int m_user_data = 0;
+    void ConfigureRegion(int priority);
+    void HandleMouseEvent(INT32 reason);
+    int HandleRegionInput(W8Region& region, const InputAtom& input) override;
     int m_tooltip_index; /* g_localized_strings index, or -1 */
     W8DialogButtonCallback m_left_callback;
     W8DialogButtonCallback m_right_callback;
     W8DialogButtonCallback m_move_callback;
     W8DialogButtonCallback m_double_click_callback;
-    unsigned char m_latched_press_bits; /* latched BUTTON_CLICKED_ON bit */
-    bool m_enabled;
     bool m_left_toggles; /* left down xors CLICKED_ON */
 
 public:
@@ -99,15 +111,9 @@ private:
     bool hover_silent; /* suppresses hover/exit sounds only */
 
 public:
-    /* Raised on spinner-style buttons (the split dialog's arrows); the
-       dispatch then fires the stored left/right callback on press and clears
-       the pending state on release instead of firing on release. */
-    bool m_fires_on_press;
-
-private:
-    bool press_armed; /* clicked-on and fires_on_press: release completes */
-
-public:
+    /* Spinner repeats activate while held; a repeated press does not activate again on release. */
+    bool m_repeat_enabled;
+    DialogButtonActivation m_activation = DialogButtonActivation::Release;
     /* Set by the dialog factories to the owning dialog; the per-button
        dispatch callback reads it back when a stored callback needs it. */
     W8DialogBase* m_owner;
@@ -146,5 +152,3 @@ inline bool AllocateDialogButtons(W8DialogButton** buttons, int count)
 
 /* Dialog handles keep their sentinel until release finishes. Removal,
    ordinary images and generic borders have distinct SGP resource owners. */
-
-

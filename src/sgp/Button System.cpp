@@ -88,54 +88,49 @@ void ReleaseButtonRegion(GUI_BUTTON* button)
     RemoveRegionFromSet(button_region_set, index);
 }
 
+INT32 ButtonReasonForRegionInput(const W8Region& region, const InputAtom& event)
+{
+    switch (event.usEvent) {
+    case MOUSE_POS:
+        if (region.flags & W8_REGION_MOUSE_LEAVE) return BUTTON_REASON_LOST_MOUSE;
+        if (region.flags & W8_REGION_MOUSE_ENTER) return BUTTON_REASON_GAIN_MOUSE;
+        return BUTTON_REASON_MOVE;
+    case LEFT_BUTTON_DOWN:
+        return BUTTON_REASON_LBUTTON_DWN |
+               (event.clicks >= 2 ? BUTTON_REASON_LBUTTON_DOUBLECLICK : 0);
+    case LEFT_BUTTON_UP: return BUTTON_REASON_LBUTTON_UP;
+    case LEFT_BUTTON_DBL_CLK: return BUTTON_REASON_NONE;
+    case LEFT_BUTTON_REPEAT:
+        return BUTTON_REASON_LBUTTON_REPEAT;
+    case RIGHT_BUTTON_DOWN:
+        return BUTTON_REASON_RBUTTON_DWN;
+    case RIGHT_BUTTON_UP: return BUTTON_REASON_RBUTTON_UP;
+    case RIGHT_BUTTON_REPEAT:
+        return BUTTON_REASON_RBUTTON_REPEAT;
+    }
+    return BUTTON_REASON_NONE;
+}
+
 unsigned char DispatchButtonRegionEvent(const InputAtom* event, W8Region* region)
 {
     auto* button = region->button;
     if (!button) return 0;
-    switch (event->usEvent) {
-    case MOUSE_POS:
-        if (region->flags & W8_REGION_MOUSE_LEAVE)
-            QuickButtonCallbackMMove(button, BUTTON_REASON_LOST_MOUSE);
-        else if (region->flags & W8_REGION_MOUSE_ENTER)
-            QuickButtonCallbackMMove(button, BUTTON_REASON_GAIN_MOUSE);
-        else
-            QuickButtonCallbackMMove(button, BUTTON_REASON_MOVE);
-        return 1;
-    case LEFT_BUTTON_DOWN: {
-        INT32 reason = BUTTON_REASON_LBUTTON_DWN;
-        if (button->click_tracker.OnLeftDown(event->uiTimeStamp)) {
-            reason |= BUTTON_REASON_LBUTTON_DOUBLECLICK;
-        }
+
+    const auto reason = ButtonReasonForRegionInput(*region, *event);
+    if (event->usEvent == LEFT_BUTTON_DOWN || event->usEvent == RIGHT_BUTTON_DOWN) {
         g_captured_region_index = button->region_index;
+    } else if (event->usEvent == LEFT_BUTTON_UP || event->usEvent == RIGHT_BUTTON_UP) {
+        if (g_captured_region_index == button->region_index) g_captured_region_index = 0;
+    }
+
+    if (event->usEvent == LEFT_BUTTON_DBL_CLK) return 1;
+    if (reason == BUTTON_REASON_NONE) return 0;
+    if (reason & (BUTTON_REASON_MOVE | BUTTON_REASON_GAIN_MOUSE | BUTTON_REASON_LOST_MOUSE)) {
+        QuickButtonCallbackMMove(button, reason);
+    } else {
         QuickButtonCallbackMButn(button, reason);
-        return 1;
     }
-    case LEFT_BUTTON_UP:
-        if (g_captured_region_index == button->region_index) g_captured_region_index = 0;
-        button->click_tracker.OnLeftUp(event->uiTimeStamp);
-        QuickButtonCallbackMButn(button, BUTTON_REASON_LBUTTON_UP);
-        return 1;
-    case LEFT_BUTTON_DBL_CLK:
-        if (button->click_tracker.ConsumeDoubleClickAtom()) return 1;
-        QuickButtonCallbackMButn(
-            button, BUTTON_REASON_LBUTTON_DWN | BUTTON_REASON_LBUTTON_DOUBLECLICK);
-        return 1;
-    case LEFT_BUTTON_REPEAT:
-        QuickButtonCallbackMButn(button, BUTTON_REASON_LBUTTON_REPEAT);
-        return 1;
-    case RIGHT_BUTTON_DOWN:
-        g_captured_region_index = button->region_index;
-        QuickButtonCallbackMButn(button, BUTTON_REASON_RBUTTON_DWN);
-        return 1;
-    case RIGHT_BUTTON_UP:
-        if (g_captured_region_index == button->region_index) g_captured_region_index = 0;
-        QuickButtonCallbackMButn(button, BUTTON_REASON_RBUTTON_UP);
-        return 1;
-    case RIGHT_BUTTON_REPEAT:
-        QuickButtonCallbackMButn(button, BUTTON_REASON_RBUTTON_REPEAT);
-        return 1;
-    }
-    return 0;
+    return 1;
 }
 }
 
@@ -166,9 +161,9 @@ void AssertFailIfIdenticalButtonAttributesFound(GUI_BUTTON* b)
             continue;
         if (b->MoveCallback != c->MoveCallback)
             continue;
-        if (b->XLoc != c->XLoc)
+        if (b->bounds.x != c->bounds.x)
             continue;
-        if (b->YLoc != c->YLoc)
+        if (b->bounds.y != c->bounds.y)
             continue;
         //if we get this far, it is reasonably safe to assume that the newly created
         //button already exists.  Placing a break point on the following assert will
@@ -189,9 +184,9 @@ GUI_BUTTON* gpAnchoredButton;
 GUI_BUTTON* gpPrevAnchoredButton;
 // GLOBAL: WIZ8 0x006e1880
 BOOLEAN gfAnchoredState;
-void DrawHatchOnButton(GUI_BUTTON* b);
-void DrawShadeOnButton(GUI_BUTTON* b);
-void DrawDefaultOnButton(GUI_BUTTON* b);
+void DrawHatchOnButton(const ButtonAppearance* b);
+void DrawShadeOnButton(const ButtonAppearance* b);
+void DrawDefaultOnButton(const ButtonAppearance* b);
 
 // GLOBAL: WIZ8 0x005ff824
 BOOLEAN gfRenderHilights = TRUE;
@@ -226,6 +221,8 @@ _GUI_BUTTON::~_GUI_BUTTON()
 // GLOBAL: WIZ8 0x00650ea4
 
 static GenericButtonImage default_generic_image;
+
+GenericButtonImage DefaultGenericButtonImage() { return default_generic_image; }
 
 
 
@@ -409,13 +406,15 @@ void ResizeButton(const GUIButton& button, INT16 w, INT16 h)
         return;
 
     // Get current button screen location
-    xloc = b->XLoc;
-    yloc = b->YLoc;
+    xloc = b->bounds.x;
+    yloc = b->bounds.y;
 
     SetRegionBounds(b->region_index, static_cast<unsigned short>(xloc),
                     static_cast<unsigned short>(yloc),
                     static_cast<unsigned short>(xloc + w),
                     static_cast<unsigned short>(yloc + h));
+    b->bounds.w = w;
+    b->bounds.h = h;
     b->uiFlags |= BUTTON_DIRTY;
 }
 
@@ -428,9 +427,11 @@ void SetButtonPosition(const GUIButton& button, INT16 x, INT16 y)
     GUI_BUTTON* button_ptr = button.get();
     if (!button_ptr) return;
 
-    const SDL_Rect bounds = ButtonBounds(button_ptr);
+    const auto bounds = button_ptr->bounds;
     button_ptr->XLoc = x;
     button_ptr->YLoc = y;
+    button_ptr->bounds.x = x;
+    button_ptr->bounds.y = y;
     SetRegionBounds(button_ptr->region_index, static_cast<unsigned short>(x),
                     static_cast<unsigned short>(y),
                     static_cast<unsigned short>(x + bounds.w),
@@ -442,8 +443,10 @@ namespace {
 void RegisterButton(const GUIButton& button, INT16 x, INT16 y, INT16 width, INT16 height,
                     INT32 type, INT16 priority, GUI_CALLBACK move, GUI_CALLBACK click)
 {
-    button->XLoc = x;
-    button->YLoc = y;
+    button->bounds.x = x;
+    button->bounds.y = y;
+    button->bounds.w = width;
+    button->bounds.h = height;
     button->uiFlags |= BUTTON_ENABLED | type;
     button->MoveCallback = move;
     button->ClickCallback = click;
@@ -706,16 +709,16 @@ BOOLEAN DrawButton(const GUIButton& button)
     return TRUE;
 }
 
-static INT8 DisabledOverlayStyle(const GUI_BUTTON& button)
+static INT8 DisabledOverlayStyle(const ButtonAppearance& button, const ButtonVisualState& state)
 {
     if (button.bDisabledStyle == DISABLED_STYLE_DEFAULT)
-        return !(button.uiFlags & BUTTON_CHECKBOX) && !button.string.empty()
+        return !state.checkbox && !button.string.empty()
             ? DISABLED_STYLE_SHADED : DISABLED_STYLE_HATCHED;
     return button.bDisabledStyle;
 }
 
-static INT8 DrawQuickButton(GUI_BUTTON* button);
-static INT8 DrawGenericButton(GUI_BUTTON* button);
+static INT8 DrawQuickButton(const ButtonAppearance* button, const ButtonVisualState& state);
+static INT8 DrawGenericButton(const ButtonAppearance* button, const ButtonVisualState& state);
 
 //	DrawButtonFromPtr
 //	Given a pointer to a GUI_BUTTON structure, draws the button on the
@@ -723,55 +726,45 @@ static INT8 DrawGenericButton(GUI_BUTTON* button);
 void DrawButtonFromPtr(GUI_BUTTON* b)
 {
     Assert(b);
-    // Draw the appropriate button according to button type
-    INT8 disabled_style = DISABLED_STYLE_NONE;
-    switch (b->uiFlags & BUTTON_TYPES) {
-    case BUTTON_QUICK:
-        disabled_style = DrawQuickButton(b);
-        break;
-    case BUTTON_GENERIC:
-        disabled_style = DrawGenericButton(b);
-        break;
-    case BUTTON_HOT_SPOT:
-        if (b->uiFlags & BUTTON_NO_TOGGLE)
-            b->uiFlags &= (~BUTTON_CLICKED_ON);
-        return; //hotspots don't have text, but if you want to, change this to a break!
-    case BUTTON_CHECKBOX:
-        disabled_style = DrawQuickButton(b);
-        break;
+    if ((b->uiFlags & BUTTON_TYPES) == BUTTON_HOT_SPOT) {
+        if (b->uiFlags & BUTTON_NO_TOGGLE) b->uiFlags &= ~BUTTON_CLICKED_ON;
+        return;
     }
-    //If button has text, draw it now
-    if (!b->string.empty())
-        DrawTextOnButton(b);
-    //If the button is disabled, and a style has been calculated, then
-    //draw the style last.
-    switch (disabled_style) {
-    case DISABLED_STYLE_HATCHED:
-        DrawHatchOnButton(b);
-        break;
-    case DISABLED_STYLE_SHADED:
-        DrawShadeOnButton(b);
-        break;
-    }
-    if (b->bDefaultStatus) {
-        DrawDefaultOnButton(b);
-    }
+    DrawButtonAppearance(*b, {
+        (b->uiFlags & BUTTON_ENABLED) != 0,
+        (b->uiFlags & BUTTON_CLICKED_ON) != 0,
+        ButtonIsHovered(b),
+        (b->uiFlags & BUTTON_CHECKBOX) != 0,
+        (ButtonRegion(b).flags & W8_REGION_LEFT_BUTTON_HELD) != 0});
+}
+
+static void DrawTextOnButton(const ButtonAppearance* b, const ButtonVisualState& state);
+
+void DrawButtonAppearance(const ButtonAppearance& appearance, const ButtonVisualState& state)
+{
+    FontRenderScope font_scope;
+    const auto* b = &appearance;
+    const auto disabled_style = b->quick_image ? DrawQuickButton(b, state) : DrawGenericButton(b, state);
+    if (!b->string.empty()) DrawTextOnButton(b, state);
+    if (disabled_style == DISABLED_STYLE_HATCHED) DrawHatchOnButton(b);
+    else if (disabled_style == DISABLED_STYLE_SHADED) DrawShadeOnButton(b);
+    if (b->bDefaultStatus) DrawDefaultOnButton(b);
 }
 
 //	DrawQuickButton
 //	Draws a QuickButton type button on the screen.
 // FUNCTION: WIZ8 0x0040e060
-static INT8 DrawQuickButton(GUI_BUTTON* b)
+static INT8 DrawQuickButton(const ButtonAppearance* b, const ButtonVisualState& state)
 {
     INT8 disabled_style = DISABLED_STYLE_NONE;
     if (!b->quick_image) return disabled_style;
     const auto& image = *b->quick_image;
-    const bool checkbox = (b->uiFlags & BUTTON_CHECKBOX) != 0;
-    const bool pressed = (b->uiFlags & BUTTON_CLICKED_ON) != 0;
+    const bool checkbox = state.checkbox;
+    const bool pressed = state.pressed;
     INT32 frame = 0;
-    if (b->uiFlags & BUTTON_ENABLED) {
-        const bool highlighted = (ButtonIsHovered(b)) && gfRenderHilights &&
-                                 (!checkbox || gfLeftButtonState);
+    if (state.enabled) {
+        const bool highlighted = (state.hovered) && gfRenderHilights &&
+                                 (!checkbox || state.mouse_down);
         const auto normal = pressed ? image.OnNormal : image.OffNormal;
         const auto hilite = pressed ? image.OnHilite : image.OffHilite;
         if (highlighted && hilite != BUTTON_NO_IMAGE) frame = hilite;
@@ -780,20 +773,20 @@ static INT8 DrawQuickButton(GUI_BUTTON* b)
         frame = image.Grayed;
     } else {
         frame = checkbox ? (pressed ? image.OnHilite : image.OffHilite) : image.OffNormal;
-        disabled_style = DisabledOverlayStyle(*b);
+        disabled_style = DisabledOverlayStyle(*b, state);
     }
     if (frame != BUTTON_NO_IMAGE)
         BltVideoObject(*ButtonDestBuffer, image.object(), static_cast<UINT16>(frame),
-                       b->XLoc, b->YLoc, VO_BLT_SRCTRANSPARENCY, nullptr);
+                       b->bounds.x, b->bounds.y, VO_BLT_SRCTRANSPARENCY, nullptr);
     return disabled_style;
 }
 
-void DrawHatchOnButton(GUI_BUTTON* b)
+void DrawHatchOnButton(const ButtonAppearance* b)
 {
     UINT8* destination_pixels;
     UINT32 destination_pitch;
-    const auto& area = ButtonRegion(b);
-    SDL_Rect clip_rect{area.x1, area.y1, area.x2 - 1 - area.x1, area.y2 - 1 - area.y1};
+    const auto& bounds = b->bounds;
+    SDL_Rect clip_rect{bounds.x, bounds.y, bounds.w - 1, bounds.h - 1};
     const auto& destination_storage = *ButtonDestBuffer->cpu().surface;
     destination_pitch = destination_storage.pitch;
     destination_pixels = static_cast<BYTE*>(destination_storage.pixels);
@@ -801,12 +794,12 @@ void DrawHatchOnButton(GUI_BUTTON* b)
                             &clip_rect);
 }
 
-void DrawShadeOnButton(GUI_BUTTON* b)
+void DrawShadeOnButton(const ButtonAppearance* b)
 {
     UINT8* destination_pixels;
     UINT32 destination_pitch;
-    const auto& area = ButtonRegion(b);
-    SDL_Rect clip_rect{area.x1, area.y1, area.x2 - 1 - area.x1, area.y2 - 1 - area.y1};
+    const auto& bounds = b->bounds;
+    SDL_Rect clip_rect{bounds.x, bounds.y, bounds.w - 1, bounds.h - 1};
     const auto& destination_storage = *ButtonDestBuffer->cpu().surface;
     destination_pitch = destination_storage.pitch;
     destination_pixels = static_cast<BYTE*>(destination_storage.pixels);
@@ -815,11 +808,11 @@ void DrawShadeOnButton(GUI_BUTTON* b)
 }
 
 // FUNCTION: WIZ8 0x0040e170
-void DrawDefaultOnButton(GUI_BUTTON* b)
+void DrawDefaultOnButton(const ButtonAppearance* b)
 {
     UINT8* destination_pixels;
     UINT32 destination_pitch;
-    const auto& area = ButtonRegion(b);
+    const auto& bounds = b->bounds;
     const auto& destination_storage = *ButtonDestBuffer->cpu().surface;
     destination_pitch = destination_storage.pitch;
     destination_pixels = static_cast<BYTE*>(destination_storage.pixels);
@@ -827,20 +820,25 @@ void DrawDefaultOnButton(GUI_BUTTON* b)
     if (b->bDefaultStatus == DEFAULT_STATUS_DARKBORDER ||
         b->bDefaultStatus == DEFAULT_STATUS_WINDOWS95) {
         //left (one thick)
-        LineDraw(TRUE, area.x1 - 1, area.y1 - 1, area.x1 - 1, area.y2 + 1, 0,
+        LineDraw(TRUE, bounds.x - 1, bounds.y - 1, bounds.x - 1,
+                 bounds.y + bounds.h + 1, 0,
                  (char*)destination_pixels);
         //top (one thick)
-        LineDraw(TRUE, area.x1 - 1, area.y1 - 1, area.x2 + 1, area.y1 - 1, 0,
+        LineDraw(TRUE, bounds.x - 1, bounds.y - 1, bounds.x + bounds.w + 1, bounds.y - 1, 0,
                  (char*)destination_pixels);
         //right (two thick)
-        LineDraw(TRUE, area.x2, area.y1 - 1, area.x2, area.y2 + 1, 0,
+        LineDraw(TRUE, bounds.x + bounds.w, bounds.y - 1, bounds.x + bounds.w,
+                 bounds.y + bounds.h + 1, 0,
                  (char*)destination_pixels);
-        LineDraw(TRUE, area.x2 + 1, area.y1 - 1, area.x2 + 1, area.y2 + 1, 0,
+        LineDraw(TRUE, bounds.x + bounds.w + 1, bounds.y - 1, bounds.x + bounds.w + 1,
+                 bounds.y + bounds.h + 1, 0,
                  (char*)destination_pixels);
         //bottom (two thick)
-        LineDraw(TRUE, area.x1 - 1, area.y2, area.x2 + 1, area.y2, 0,
+        LineDraw(TRUE, bounds.x - 1, bounds.y + bounds.h, bounds.x + bounds.w + 1,
+                 bounds.y + bounds.h, 0,
                  (char*)destination_pixels);
-        LineDraw(TRUE, area.x1 - 1, area.y2 + 1, area.x2 + 1, area.y2 + 1, 0,
+        LineDraw(TRUE, bounds.x - 1, bounds.y + bounds.h + 1, bounds.x + bounds.w + 1,
+                 bounds.y + bounds.h + 1, 0,
                  (char*)destination_pixels);
     }
     if (b->bDefaultStatus == DEFAULT_STATUS_DOTTEDINTERIOR ||
@@ -850,11 +848,11 @@ void DrawDefaultOnButton(GUI_BUTTON* b)
 
 //If a button has text attached to it, then it'll draw it last.
 // FUNCTION: WIZ8 0x0040e5d0
-void DrawTextOnButton(GUI_BUTTON* b)
+static void DrawTextOnButton(const ButtonAppearance* b, const ButtonVisualState& state)
 {
     INT32 text_x, text_y, button_width, button_height, text_origin_x, text_origin_y;
     SDL_Rect text_clip, previous_clip;
-    const SDL_Rect bounds = ButtonBounds(b);
+    const auto& bounds = b->bounds;
 
     // If this button actually has a string to print
     if (!b->string.empty()) {
@@ -863,7 +861,7 @@ void DrawTextOnButton(GUI_BUTTON* b)
         button_height = bounds.h;
 
         // Compute the viewable area on this button
-        text_clip = {b->XLoc + 3, b->YLoc + 2, button_width - 6, button_height - 4};
+        text_clip = {bounds.x + 3, bounds.y + 2, button_width - 6, button_height - 4};
 
         // Get the starting coordinates to print
         text_origin_x = text_clip.x;
@@ -879,10 +877,11 @@ void DrawTextOnButton(GUI_BUTTON* b)
                           text_clip.x + text_clip.w, text_clip.y + text_clip.h, FALSE);
 
         // Compute the coordinates to center the text
-        if (b->bTextYOffset == -1)
+        if (b->bTextYOffset == -1) {
             text_y = ((button_height - b->usFont->height()) / 2) + text_origin_y - 1;
-        else
+        } else {
             text_y = bounds.y + b->bTextYOffset;
+        }
         if (b->bTextXOffset == -1) {
             switch (b->bJustification) {
             case BUTTON_TEXT_LEFT:
@@ -898,8 +897,9 @@ void DrawTextOnButton(GUI_BUTTON* b)
                          text_origin_x;
                 break;
             }
-        } else
+        } else {
             text_x = bounds.x + b->bTextXOffset;
+        }
 
         // Set the printing font to the button text font
         SetFont(*b->usFont);
@@ -910,19 +910,19 @@ void DrawTextOnButton(GUI_BUTTON* b)
         if (b->sShadowColor != -1)
             SetFontShadow((UINT8)b->sShadowColor);
         //Override the colors if necessary.
-        if (b->uiFlags & BUTTON_ENABLED && ButtonIsHovered(b) &&
+        if (state.enabled && state.hovered &&
             b->sForeColorHilited != -1) {
             SetFontForeground((UINT8)b->sForeColorHilited);
-        } else if (b->uiFlags & BUTTON_CLICKED_ON && b->sForeColorDown != -1) {
+        } else if (state.pressed && b->sForeColorDown != -1) {
             SetFontForeground((UINT8)b->sForeColorDown);
         }
-        if (b->uiFlags & BUTTON_ENABLED && ButtonIsHovered(b) &&
+        if (state.enabled && state.hovered &&
             b->sShadowColorHilited != -1) {
             SetFontShadow((UINT8)b->sShadowColorHilited);
-        } else if (b->uiFlags & BUTTON_CLICKED_ON && b->sShadowColorDown != -1) {
+        } else if (state.pressed && b->sShadowColorDown != -1) {
             SetFontShadow((UINT8)b->sShadowColorDown);
         }
-        if (b->uiFlags & BUTTON_CLICKED_ON &&
+        if (state.pressed &&
             b->fShiftText) { // Was the button clicked on? if so, move the text slightly for the illusion
             // that the text moved into the screen.
             text_x++;
@@ -940,7 +940,7 @@ void DrawTextOnButton(GUI_BUTTON* b)
 //	This function is called by the DrawIconicButton and DrawTextButton
 //	routines to draw the borders and background of the buttons.
 // FUNCTION: WIZ8 0x0040e890
-static INT8 DrawGenericButton(GUI_BUTTON* b)
+static INT8 DrawGenericButton(const ButtonAppearance* b, const ButtonVisualState& state)
 {
     INT8 disabled_style = DISABLED_STYLE_NONE;
     if (!b->generic_image) return disabled_style;
@@ -954,15 +954,15 @@ static INT8 DrawGenericButton(GUI_BUTTON* b)
     SpriteFrame* pTrav;
 
     // Select the graphics to use depending on the current state of the button
-    if (b->uiFlags & BUTTON_ENABLED) {
-        if (b->uiFlags & BUTTON_CLICKED_ON) {
-            if ((ButtonIsHovered(b)) &&
+    if (state.enabled) {
+        if (state.pressed) {
+            if ((state.hovered) &&
                 (b->generic_image->frames[4] != nullptr) && gfRenderHilights)
                 picture_index = 4;
             else
                 picture_index = 1;
         } else {
-            if ((ButtonIsHovered(b)) &&
+            if ((state.hovered) &&
                 (b->generic_image->frames[3] != nullptr) && gfRenderHilights)
                 picture_index = 3;
             else
@@ -972,7 +972,7 @@ static INT8 DrawGenericButton(GUI_BUTTON* b)
         picture_index = 2;
     else {
         picture_index = 0;
-        disabled_style = DisabledOverlayStyle(*b);
+        disabled_style = DisabledOverlayStyle(*b, state);
     }
 
     auto& BPic = *b->generic_image->frames[picture_index];
@@ -989,19 +989,19 @@ static INT8 DrawGenericButton(GUI_BUTTON* b)
     iBorderWidth = (INT32)pTrav->usWidth;
 
     // Compute the number of button "chunks" needed to be blitted
-    const auto& area = ButtonRegion(b);
-    width = area.x2 - area.x1;
-    height = area.y2 - area.y1;
+    width = b->bounds.w;
+    height = b->bounds.h;
     NumChunksWide = width / iBorderWidth;
     NumChunksHigh = height / iBorderHeight;
     hremain = height % iBorderHeight;
     wremain = width % iBorderWidth;
 
-    cx = (b->XLoc + ((NumChunksWide - 1) * iBorderWidth) + wremain);
-    cy = (b->YLoc + ((NumChunksHigh - 1) * iBorderHeight) + hremain);
+    cx = (b->bounds.x + ((NumChunksWide - 1) * iBorderWidth) + wremain);
+    cy = (b->bounds.y + ((NumChunksHigh - 1) * iBorderHeight) + hremain);
 
     // Fill the button's area with the button's background color
-    ColorFillVideoSurfaceArea(*ButtonDestBuffer, area.x1, area.y1, area.x2, area.y2,
+    ColorFillVideoSurfaceArea(*ButtonDestBuffer, b->bounds.x, b->bounds.y,
+                              (b->bounds.x + b->bounds.w), (b->bounds.y + b->bounds.h),
                               b->generic_image->fill_color);
 
     // If there is a background image, fill the button's area with it
@@ -1009,12 +1009,13 @@ static INT8 DrawGenericButton(GUI_BUTTON* b)
         ox = oy = 0;
         // if the button was clicked on, adjust the background image so that we get
         // the illusion that it is sunk into the screen.
-        if (b->uiFlags & BUTTON_CLICKED_ON)
+        if (state.pressed)
             ox = oy = 1;
 
         // Fill the area with the image, tilling it if need be.
         ImageFillVideoSurfaceArea(
-            *ButtonDestBuffer, area.x1 + ox, area.y1 + oy, area.x2, area.y2,
+            *ButtonDestBuffer, b->bounds.x + ox, b->bounds.y + oy,
+            (b->bounds.x + b->bounds.w), (b->bounds.y + b->bounds.h),
             *b->generic_image->frames[5], b->generic_image->background_frame,
             b->generic_image->offset_x, b->generic_image->offset_y);
     }
@@ -1034,7 +1035,7 @@ static INT8 DrawGenericButton(GUI_BUTTON* b)
 
         BltSpriteTo16BPPBuffer((UINT16*)pDestBuf, uiDestPitchBYTES,
                                    BPic.sprites[(UINT16)ImgNum], BPic.currentPalette().data(),
-                                   (INT32)(b->XLoc + (q * iBorderWidth)), (INT32)b->YLoc, &ClipRect, false,
+                                   (INT32)(b->bounds.x + (q * iBorderWidth)), (INT32)b->bounds.y, &ClipRect, false,
                                    SpriteDrawOp::Transparent);
 
         if (q == 0)
@@ -1044,13 +1045,13 @@ static INT8 DrawGenericButton(GUI_BUTTON* b)
 
         BltSpriteTo16BPPBuffer((UINT16*)pDestBuf, uiDestPitchBYTES,
                                    BPic.sprites[(UINT16)ImgNum], BPic.currentPalette().data(),
-                                   (INT32)(b->XLoc + (q * iBorderWidth)), cy, &ClipRect, false,
+                                   (INT32)(b->bounds.x + (q * iBorderWidth)), cy, &ClipRect, false,
                                    SpriteDrawOp::Transparent);
     }
     // Blit the right side corners
     BltSpriteTo16BPPBuffer((UINT16*)pDestBuf, uiDestPitchBYTES,
                                BPic.sprites[2], BPic.currentPalette().data(),
-                               cx, (INT32)b->YLoc, &ClipRect, false,
+                               cx, (INT32)b->bounds.y, &ClipRect, false,
                                SpriteDrawOp::Transparent);
 
     BltSpriteTo16BPPBuffer((UINT16*)pDestBuf, uiDestPitchBYTES,
@@ -1064,24 +1065,24 @@ static INT8 DrawGenericButton(GUI_BUTTON* b)
         q = NumChunksHigh;
         BltSpriteTo16BPPBuffer((UINT16*)pDestBuf, uiDestPitchBYTES,
                                    BPic.sprites[3], BPic.currentPalette().data(),
-                                   (INT32)b->XLoc, (INT32)(b->YLoc + (q * iBorderHeight) - (iBorderHeight - hremain)), &ClipRect, false,
+                                   (INT32)b->bounds.x, (INT32)(b->bounds.y + (q * iBorderHeight) - (iBorderHeight - hremain)), &ClipRect, false,
                                    SpriteDrawOp::Transparent);
 
         BltSpriteTo16BPPBuffer((UINT16*)pDestBuf, uiDestPitchBYTES,
                                    BPic.sprites[4], BPic.currentPalette().data(),
-                                   cx, (INT32)(b->YLoc + (q * iBorderHeight) - (iBorderHeight - hremain)), &ClipRect, false,
+                                   cx, (INT32)(b->bounds.y + (q * iBorderHeight) - (iBorderHeight - hremain)), &ClipRect, false,
                                    SpriteDrawOp::Transparent);
     }
 
     for (q = 1; q < NumChunksHigh; q++) {
         BltSpriteTo16BPPBuffer((UINT16*)pDestBuf, uiDestPitchBYTES,
                                    BPic.sprites[3], BPic.currentPalette().data(),
-                                   (INT32)b->XLoc, (INT32)(b->YLoc + (q * iBorderHeight)), &ClipRect, false,
+                                   (INT32)b->bounds.x, (INT32)(b->bounds.y + (q * iBorderHeight)), &ClipRect, false,
                                    SpriteDrawOp::Transparent);
 
         BltSpriteTo16BPPBuffer((UINT16*)pDestBuf, uiDestPitchBYTES,
                                    BPic.sprites[4], BPic.currentPalette().data(),
-                                   cx, (INT32)(b->YLoc + (q * iBorderHeight)), &ClipRect, false,
+                                   cx, (INT32)(b->bounds.y + (q * iBorderHeight)), &ClipRect, false,
                                    SpriteDrawOp::Transparent);
     }
 

@@ -1,5 +1,6 @@
 #include "Types.h"
 #include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_mouse.h>
 #include <string>
 #include <algorithm>
 #include <memory>
@@ -68,6 +69,9 @@ struct TEXTINPUTNODE {
 };
 
 namespace {
+int g_text_field_input_x = 0;
+SDL_MouseButtonFlags g_text_field_input_buttons = 0;
+
 W8Region& TextFieldRegion(const TEXTINPUTNODE* field)
 {
     const auto index = field && field->region_index < g_regions.size()
@@ -80,6 +84,8 @@ unsigned char TextFieldRegionEvent(const InputAtom* event, W8Region* region)
 {
     auto* field = region->text_field;
     if (!field) return 0;
+    g_text_field_input_x = GETXPOS(event);
+    g_text_field_input_buttons = event->mouseButtons;
     switch (event->usEvent) {
     case MOUSE_POS: {
         int reason = BUTTON_REASON_MOVE;
@@ -90,15 +96,15 @@ unsigned char TextFieldRegionEvent(const InputAtom* event, W8Region* region)
     }
     case LEFT_BUTTON_DOWN:
         g_captured_region_index = field->region_index;
-        MouseClickedInTextRegionCallback(field, BUTTON_REASON_LBUTTON_DWN);
+        MouseClickedInTextRegionCallback(
+            field, BUTTON_REASON_LBUTTON_DWN |
+                       (event->clicks >= 2 ? BUTTON_REASON_LBUTTON_DOUBLECLICK : 0));
         return 1;
     case LEFT_BUTTON_UP:
         if (g_captured_region_index == field->region_index) g_captured_region_index = 0;
         MouseClickedInTextRegionCallback(field, BUTTON_REASON_LBUTTON_UP);
         return 1;
     case LEFT_BUTTON_DBL_CLK:
-        MouseClickedInTextRegionCallback(
-            field, BUTTON_REASON_LBUTTON_DWN | BUTTON_REASON_LBUTTON_DOUBLECLICK);
         return 1;
     }
     return 0;
@@ -874,7 +880,8 @@ void MouseMovedInTextRegionCallback(TEXTINPUTNODE* field, int reason)
     if ((reason & BUTTON_REASON_LOST_MOUSE) != 0)
         SetTargetCursor(W8_CURSOR_NONE);
 
-    if (gfLeftButtonState == 0 || gpActive == 0 || (reason & BUTTON_REASON_MOVE) == 0) {
+    if ((g_text_field_input_buttons & SDL_BUTTON_LMASK) == 0 || gpActive == 0 ||
+        (reason & BUTTON_REASON_MOVE) == 0) {
         return;
     }
 
@@ -897,11 +904,11 @@ void MouseMovedInTextRegionCallback(TEXTINPUTNODE* field, int reason)
     }
 
     TEXTINPUTNODE* current_field = gpActive;
-    if (current_field->fUserField || gfLeftButtonState == 0)
+    if (current_field->fUserField)
         return;
 
     std::size_t position = gubParkingPos;
-    int mouse_offset = gusMouseXPos - TextFieldRegion(current_field).x1;
+    int mouse_offset = g_text_field_input_x - TextFieldRegion(current_field).x1;
     position = FindTextInputMousePosition(current_field, position, mouse_offset);
 
     if (position == gubMouseDownPos) {
@@ -947,7 +954,7 @@ void MouseClickedInTextRegionCallback(TEXTINPUTNODE* field, int reason)
         if (field->fUserField) {
             position = 0;
         } else {
-            int mouse_offset = gusMouseXPos - TextFieldRegion(field).x1;
+            int mouse_offset = g_text_field_input_x - TextFieldRegion(field).x1;
             position = FindTextInputMousePosition(field, gubParkingPos, mouse_offset);
         }
         SetTextInputCursor(position);
@@ -1001,12 +1008,12 @@ void MouseClickedInTextRegionCallback(TEXTINPUTNODE* field, int reason)
     }
 
     std::size_t position = gubParkingPos;
-    if (gfLeftButtonState != 0) {
+    if ((g_text_field_input_buttons & SDL_BUTTON_LMASK) != 0) {
         if (gpActive->fUserField) {
             position = 0;
         } else {
             TEXTINPUTNODE* field = gpActive;
-            int mouse_offset = gusMouseXPos - TextFieldRegion(field).x1;
+            int mouse_offset = g_text_field_input_x - TextFieldRegion(field).x1;
             position = FindTextInputMousePosition(field, position, mouse_offset);
         }
         if (position == gubMouseDownPos)
@@ -1251,7 +1258,7 @@ void SelectAllText(void)
     if (field->fUserField) {
         position = 0;
     } else {
-        int mouse_offset = gusMouseXPos - TextFieldRegion(field).x1;
+        int mouse_offset = g_text_field_input_x - TextFieldRegion(field).x1;
         position = FindTextInputMousePosition(field, position, mouse_offset);
     }
 
