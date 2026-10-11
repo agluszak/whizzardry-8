@@ -1,5 +1,7 @@
 #pragma once
 
+#include "model_view_scope.h"
+
 #include "srModel.h"
 #include "glm/ext/vector_float3.hpp"
 #include "srNode.h"
@@ -60,13 +62,14 @@ protected:
         friend class srModelInstance;
         RenderScope(const srModelInstance& instance, srGERD& renderer, bool apply_exclusion);
         srGERD& renderer;
+        srModelViewScope transform;
         w8_ulong previous_mask = 0;
         bool restore_mask = false;
     };
     RenderScope scopedRender(srGERD& renderer, bool apply_exclusion = true) const;
 
     // Push the transform used by both ordinary and screen-facing model draws.
-    void applyRenderTransform(srGERD& renderer) const;
+    srModelViewScope scopedRenderTransform(srGERD& renderer) const;
 
     glm::vec3 align_axis;
     float align_angle;

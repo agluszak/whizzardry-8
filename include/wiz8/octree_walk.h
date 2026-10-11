@@ -2,6 +2,39 @@
 
 #include "glm/ext/vector_int3.hpp"
 #include "glm/common.hpp"
+#include "glm/vector_relational.hpp"
+
+// Inclusive x/y/z traversal; query callers choose whether to clip the range.
+// Break at the endpoint before incrementing, including at INT_MAX.
+template<class Visit>
+void visitOctreeCellBox(const glm::ivec3& first, const glm::ivec3& last, Visit visit)
+{
+    if (glm::any(glm::greaterThan(first, last))) return;
+    glm::ivec3 cell = first;
+    for (;;) {
+        cell.y = first.y;
+        for (;;) {
+            cell.z = first.z;
+            for (;;) {
+                visit(cell);
+                if (cell.z == last.z) break;
+                ++cell.z;
+            }
+            if (cell.y == last.y) break;
+            ++cell.y;
+        }
+        if (cell.x == last.x) break;
+        ++cell.x;
+    }
+}
+
+template<class Visit>
+void visitClippedOctreeCellBox(const glm::ivec3& first, const glm::ivec3& last,
+                               const glm::ivec3& dimensions, Visit visit)
+{
+    visitOctreeCellBox(glm::max(first, glm::ivec3(0)),
+                       glm::min(last, dimensions - 1), visit);
+}
 
 /* Runtime state for the fixed-point 3D Bresenham walk. Axis ties retain the
    first axis; ties between the errors visit minor_axis1 before minor_axis0. */

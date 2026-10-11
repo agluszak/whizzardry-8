@@ -1,3 +1,6 @@
+#include "surrender/srBoundingBox.h"
+#include "surrender/plane_math.h"
+#include "surrender/model_view_scope.h"
 #include "surrender/srBoundingSphere.h"
 #include <glm/ext/matrix_clip_space.hpp>
 #include <glm/ext/matrix_transform.hpp>
@@ -22,6 +25,7 @@
 #include <thread>
 #include <unordered_map>
 #include <utility>
+#include <stdexcept>
 
 #include "glm/common.hpp"
 #include "glm/geometric.hpp"
@@ -870,13 +874,15 @@ void srGERD::matrixMode(e_matrixMode mode)
 }
 
 // FUNCTION: SURRENDER 0x100235B0
-void srGERD::pushMatrix()
+bool srGERD::pushMatrix()
 {
     MatrixStack& stack = state.matrix_stacks[state.matrix_mode];
     if (stack.depth < 0x20) {
         stack.stack[stack.depth] = state.matrix_current[state.matrix_mode];
         stack.depth++;
+        return true;
     }
+    return false;
 }
 
 // FUNCTION: SURRENDER 0x10023560
@@ -2003,11 +2009,24 @@ float srGERD::getMaxModelViewScale()
     return state.max_modelview_scale;
 }
 
-// FUNCTION: SURRENDER 0x10021D20
-void srGERD::pushMultMatrix(const glm::mat4x3& matrix)
+srModelViewScope::srModelViewScope(srGERD& renderer) : renderer(&renderer)
 {
-    pushMatrix();
-    multMatrix(glm::mat4(matrix));
+    renderer.matrixMode(srGERD::MATRIX_MODELVIEW);
+    if (!renderer.pushMatrix())
+        throw std::overflow_error("Model-view matrix stack is full");
+}
+
+srModelViewScope::srModelViewScope(srModelViewScope&& other) noexcept
+    : renderer(std::exchange(other.renderer, nullptr))
+{
+}
+
+srModelViewScope::~srModelViewScope()
+{
+    if (renderer) {
+        renderer->matrixMode(srGERD::MATRIX_MODELVIEW);
+        renderer->popMatrix();
+    }
 }
 
 // FUNCTION: SURRENDER 0x10022C50
@@ -2106,11 +2125,8 @@ void srGERD::applyClipPlaneChanges()
     state.clip_planes[3] = rows[3] - rows[1];
     state.clip_planes[4] = rows[3] + rows[2];
     state.clip_planes[5] = rows[3] - rows[2];
-    for (int i = 0; i < 6; ++i) {
-        const float length = glm::length(glm::vec3(state.clip_planes[i]));
-        if (length > 0)
-            state.clip_planes[i] /= length;
-    }
+    for (int i = 0; i < 6; ++i)
+        state.clip_planes[i] = srPlaneMath::normalized(state.clip_planes[i]);
     dirty &= ~DIRTY_CLIP_PLANES;
 }
 
@@ -2121,9 +2137,8 @@ void srGERD::pushClipPlane(const glm::vec4& plane, e_clipMode mode)
         checkClipPlaneChanges();
         checkViewStateChanges();
         w8_ulong bit = 1UL << (state.clip_plane_count + 6);
-        const float length = glm::length(glm::vec3(plane));
         state.clip_planes[state.clip_plane_count + 6] =
-            glm::transpose(state.inverse_modelview) * (length > 0 ? plane / length : plane);
+            glm::transpose(state.inverse_modelview) * srPlaneMath::normalized(plane);
         state.clip_modes[state.clip_plane_count] = static_cast<unsigned char>(mode);
         state.clip_mask |= bit;
         if (mode == 1) {
@@ -4024,10 +4039,12 @@ bool srRender::testBoundingBox(const glm::mat4& matrix, const glm::vec3& minimum
                                const glm::vec3& maximum)
 {
     std::array<glm::vec4, 8> corners;
-    for (unsigned i = 0; i < corners.size(); ++i)
-        corners[i] =
-            matrix * glm::vec4(i & 1 ? maximum.x : minimum.x, i & 2 ? maximum.y : minimum.y,
-                               i & 4 ? maximum.z : minimum.z, 1);
+    const srBoundingBox box{minimum, maximum};
+    for (unsigned i = 0; i < corners.size(); ++i) {
+        // This visibility interface enumerates x in bit 0 and z in bit 2.
+        const auto corner = ((i & 1) << 2) | (i & 2) | ((i & 4) >> 2);
+        corners[i] = matrix * glm::vec4(box.corner(corner), 1);
+    }
     std::array<SRBYTE, 8> flags;
     clipFlags(flags, corners);
     SRBYTE outside = 0x3f;

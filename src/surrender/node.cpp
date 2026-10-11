@@ -1,3 +1,4 @@
+#include "surrender/model_view_scope.h"
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/ext/quaternion_trigonometric.hpp>
 #include <glm/gtc/matrix_access.hpp>
@@ -681,11 +682,12 @@ void srNode::setWorldSpaceLocation(const glm::dvec3& location)
 }
 
 // FUNCTION: SURRENDER 0x100553A0
-void srNode::applyWorldSpaceMatrix(srGERD& renderer) const
+srModelViewScope srNode::scopedWorldSpaceMatrix(srGERD& renderer) const
 {
     checkTransformation();
-    renderer.matrixMode(srGERD::MATRIX_MODELVIEW);
-    renderer.pushMultMatrix(world_transform1);
+    srModelViewScope transform(renderer);
+    renderer.multMatrix(glm::mat4(world_transform1));
+    return transform;
 }
 
 // FUNCTION: SURRENDER 0x10050A30

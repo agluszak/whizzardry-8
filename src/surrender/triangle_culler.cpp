@@ -1,3 +1,5 @@
+#include "surrender/plane_math.h"
+#include <stdexcept>
 #include <algorithm>
 #include <cmath>
 #include <ranges>
@@ -21,9 +23,13 @@
 glm::vec4 srTriangleCuller::transformClipPlane(const glm::vec4& plane,
                                                const glm::mat4& plane_matrix)
 {
-    const glm::vec4 transformed = plane_matrix * plane;
-    const float length = glm::length(glm::vec3(transformed));
-    return length == 0 ? transformed : transformed / length;
+    return srPlaneMath::normalized(plane_matrix * plane);
+}
+
+static void validateClipPlanes(std::span<const glm::vec4> planes, w8_ulong mask)
+{
+    if (planes.size() < 32 && (mask >> planes.size()) != 0)
+        throw std::invalid_argument("Incomplete clip-plane span");
 }
 
 struct ClipFlagsResult {
@@ -34,7 +40,8 @@ struct ClipFlagsResult {
 static ClipFlagsResult SetClipFlags(std::span<w8_ulong> flags,
                                     const srTriangleCuller::Input& input)
 {
-    const auto plane_matrix = glm::transpose(*input.model_view);
+    validateClipPlanes(input.clip_planes, input.clip_mask);
+    const auto plane_matrix = glm::transpose(input.model_view);
     bool first = true;
     bool clipped = false;
     for (unsigned plane = 0; plane < 32; ++plane) {
@@ -55,8 +62,9 @@ static ClipFlagsResult SetClipFlags(std::span<w8_ulong> flags,
 
 // FUNCTION: SURRENDER 0x10029FC0
 srTriangleCuller::ClipMask srTriangleCuller::getClipMask(const glm::vec3& center, float radius,
-                                                         const glm::vec4* planes, w8_ulong mask)
+                                                         std::span<const glm::vec4> planes, w8_ulong mask)
 {
+    validateClipPlanes(planes, mask);
     w8_ulong clip = 0;
     float visible = 1;
     const glm::vec4 point(center, 1);
@@ -81,11 +89,14 @@ srTriangleCuller::ClipMask srTriangleCuller::getClipMask(const glm::vec3& center
 // FUNCTION: SURRENDER 0x1002A720
 srTriangleCuller::Output srTriangleCuller::cull(const Input& input)
 {
-    if (!input.triangle_count) return {};
+    if (input.triangles.empty() || (input.active_triangles && input.active_triangles->empty()))
+        return {};
+    if (input.cull_mode != 2 && input.polygon_planes.size() < input.triangles.size())
+        throw std::invalid_argument("Incomplete polygon-plane span");
     Output output;
-    output.indices.resize(input.active_triangles ? input.active_triangle_count : input.triangle_count);
-    output.vertex_remap.resize(input.vertex_count);
-    const auto& inverse_model_view = *input.inverse_model_view;
+    output.indices.resize(input.active_triangles ? input.active_triangles->size() : input.triangles.size());
+    output.vertex_remap.resize(input.vertices.size());
+    const auto& inverse_model_view = input.inverse_model_view;
     const glm::vec4 facing = input.cull_mode == 0 ? -inverse_model_view[3] : inverse_model_view[3];
     bool clipped = false;
     // An explicit active list has already undergone clipping.
@@ -95,14 +106,20 @@ srTriangleCuller::Output srTriangleCuller::cull(const Input& input)
         clipped = flags.clipped;
     }
     const auto keep = [&](w8_ulong index) {
-        return (input.cull_mode == 2 || glm::dot(input.projected_vertices[index], facing) < 0) &&
+        if (index >= input.triangles.size())
+            throw std::invalid_argument("Active triangle index outside mesh");
+        const auto& triangle = input.triangles[index];
+        for (const auto vertex : {triangle.x, triangle.y, triangle.z})
+            if (vertex < 0 || static_cast<std::size_t>(vertex) >= input.vertices.size())
+                throw std::invalid_argument("Triangle vertex index outside mesh");
+        return (input.cull_mode == 2 || glm::dot(input.polygon_planes[index], facing) < 0) &&
                (!clipped || srRender::triangleVisible(input.triangles[index], output.vertex_remap.data()));
     };
     const auto count = input.active_triangles
         ? srRender::selectTriangles(output.indices,
-              std::span{input.active_triangles, input.active_triangle_count}, keep)
+              *input.active_triangles, keep)
         : srRender::selectTriangles(output.indices,
-              std::views::iota(w8_ulong{0}, input.triangle_count), keep);
+              std::views::iota(w8_ulong{0}, static_cast<w8_ulong>(input.triangles.size())), keep);
     output.indices.resize(count);
     if (!count) return {};
 
@@ -111,8 +128,8 @@ srTriangleCuller::Output srTriangleCuller::cull(const Input& input)
         const auto& triangle = input.triangles[index];
         output.vertex_remap[triangle.x] = output.vertex_remap[triangle.y] = output.vertex_remap[triangle.z] = 1;
     }
-    output.avt.reserve(input.vertex_count);
-    for (w8_ulong vertex = 0; vertex < input.vertex_count; ++vertex)
+    output.avt.reserve(input.vertices.size());
+    for (w8_ulong vertex = 0; vertex < input.vertices.size(); ++vertex)
         if (output.vertex_remap[vertex]) output.avt.push_back(vertex);
     for (w8_ulong vertex = 0; vertex < output.avt.size(); ++vertex)
         output.vertex_remap[output.avt[vertex]] = vertex;
