@@ -75,6 +75,7 @@
 #include "wiz8/dialog_code/DialogButton.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/local_code/TextControl.h"
+#include "wiz8/local_code/Controls.h"
 #include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/local_screens/MainMenuScreen.h"
 #include "wiz8/local_screens/PartySelectionScreen.h"
@@ -155,6 +156,16 @@ int RegionInSet(unsigned set, int help_text_id)
             RegionLive(region))
             return int(region);
     return -1;
+}
+
+int RegionInSetAt(unsigned set, size_t position)
+{
+    if (!set || set >= g_region_sets.size() || !g_region_sets[set].enabled)
+        return -1;
+    const auto regions = g_region_sets[set].Regions();
+    if (position >= regions.size() || !RegionLive(regions[position]))
+        return -1;
+    return static_cast<int>(regions[position]);
 }
 
 int ControlRegion(const W8TextControl* control)
@@ -268,6 +279,17 @@ class Game
         mouse_button((bounds.x1 + bounds.x2) / 2, (bounds.y1 + bounds.y2) / 2, true);
         frame();
         mouse_button((bounds.x1 + bounds.x2) / 2, (bounds.y1 + bounds.y2) / 2, false);
+        frame();
+    }
+
+    void release_outside(int region)
+    {
+        if (region < 0)
+            Fail("release-outside", "target region is not live");
+        const W8Region& bounds = g_regions[region];
+        mouse_button((bounds.x1 + bounds.x2) / 2, (bounds.y1 + bounds.y2) / 2, true);
+        frame();
+        mouse_button(0, 0, false);
         frame();
     }
 
@@ -408,6 +430,36 @@ void ReachMainMenu(Game& game)
     REQUIRE(g_runtime_test_hooks.movie_frames_presented == 0);
 }
 
+/* The menu's hit targets must be widget-owned, survive screen re-entry, and
+   never activate from an unpaired mouse release. */
+void MainMenuUiScenario()
+{
+    Game game(false);
+    ReachMainMenu(game);
+    const auto verify_controls = [] {
+        const auto regions = g_region_sets[1].Regions();
+        REQUIRE(regions.size() == 6);
+        for (auto region : regions) {
+            REQUIRE(RegionLive(region));
+            REQUIRE(g_regions[region].widget != nullptr);
+            REQUIRE(g_regions[region].callback == DispatchControlRegionEvent);
+        }
+    };
+    verify_controls();
+    REQUIRE(!g_main_menu_has_save_games);
+    game.click("disabled-load", RegionInSetAt(1, 2));
+    REQUIRE(g_current_screen_state.id == W8_SCREEN_MAIN_MENU);
+    REQUIRE(game.settled());
+    game.release_outside(RegionInSetAt(1, 1));
+    REQUIRE(g_current_screen_state.id == W8_SCREEN_MAIN_MENU);
+    REQUIRE(game.settled());
+    game.click("credits", RegionInSetAt(1, 3));
+    game.wait_screen("credits", W8_SCREEN_CREDITS);
+    game.key(SDLK_ESCAPE);
+    game.wait_screen("main-menu-return", W8_SCREEN_MAIN_MENU);
+    verify_controls();
+}
+
 /* --- Character creation through the real controls ------------------------ */
 
 W8CharacterStatsPage* StatsPage()
@@ -443,7 +495,7 @@ void SpendPool(Game& game, const char* step, int page_index, const bool& complet
 std::string CreateCharacter(Game& game)
 {
     ReachMainMenu(game);
-    game.click("new-game", RegionByCallback(MainMenuNewGame));
+    game.click("new-game", RegionInSetAt(1, 1));
     game.wait("party-selection", [&] {
         return g_current_screen_state.id == W8_SCREEN_PARTY_SELECTION && game.settled() &&
                RegionInSet(g_party_selection_left_action_region_set, -1) >= 0;
@@ -870,7 +922,7 @@ void LoadGameScenario(const fs::path& fixture)
     REQUIRE(fs::is_regular_file(fixture / "Fixture.SAV"));
     game.install(fixture / "Fixture.SAV", "Saves/Fixture.SAV");
     ReachMainMenu(game);
-    game.click("load-game", RegionByCallback(MainMenuLoadGame));
+    game.click("load-game", RegionInSetAt(1, 2));
     W8OptionsSaveLoadPanel* panel = nullptr;
     game.wait("load-panel", [&] {
         if (g_current_screen_state.id != W8_SCREEN_OPTIONS || !game.settled() ||
@@ -990,6 +1042,13 @@ TEST_CASE("video-seen", "[runtime]")
 {
     RequireAssets();
     VideoScenario(true);
+    CheckGameErrors();
+}
+
+TEST_CASE("main-menu-ui", "[runtime]")
+{
+    RequireAssets();
+    MainMenuUiScenario();
     CheckGameErrors();
 }
 

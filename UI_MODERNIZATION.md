@@ -49,12 +49,18 @@ regressions. The global catalog keeps its first six rectangle records, now
 without permanent callback pointers. Removing their numeric IDs is follow-up
 work, not an excuse to keep the adapter forever.
 
+## Passive screens do not need widgets
+
+Intro and Credits do not need hit testing, hover or focus. They now consume
+their own skip/dismiss events instead of retaining full-screen region callbacks.
+Do not invent widget subclasses where simple screen input suffices.
+
 ## Migration sequence
 
-1. **Screen-owned UI**: convert the remaining simple static screens to
-   Controls-owned widgets. Remove their per-screen global callback functions
-   and static catalog records as each screen migrates. Use callbacks or
-   virtual widget methods consistently, not both.
+1. **Screen-owned UI**: convert screens with interactive hit targets to
+   Controls-owned widgets. Delete redundant full-screen regions for passive
+   screens. Remove per-screen global callbacks and static catalog records
+   as screens migrate.
 2. **Dialogs**: migrate a small message dialog first, then text entry,
    scrolling and complex dialogs. Make dialog buttons normal widgets with
    sprite-backed rendering; remove W8DialogButton and its SGP GUI_BUTTON

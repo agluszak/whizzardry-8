@@ -17,7 +17,6 @@
 #include "wiz8/local_code/Gameloop.h"
 #endif
 #include "wiz8/local_screens/AutomapScreen.h"
-#include "wiz8/local_screens/CreditsScreen.h"
 #include "wiz8/local_screens/MGSButtons.h"
 #include "wiz8/local_screens/MGSSpellCasting.h"
 #include "wiz8/local_screens/MGSFormation.h"
@@ -39,7 +38,6 @@
 #include "wiz8/sr_api.h"
 #include "input.h"
 #include "timer.h"
-#include "wiz8/local_screens/IntroScreen.h"
 
 enum { W8_SCREEN_WIDTH = 640, W8_SCREEN_HEIGHT = 480, W8_HELP_MARGIN = 2 };
 enum { W8_REGION_MODE_MASK = 0xf };
@@ -79,8 +77,8 @@ std::deque<W8Region> g_regions = {
     {0x00000001, 234, 335, 408, 379, nullptr, 0, false, 0, -1, 0},
 
     {0x00000001, 279, 423, 364, 467, nullptr, 0, false, 0, -1, 0},
-    {0x00000001, 286, 382, 351, 402, IntroScreenRegionEvent, 0, false, 0, -1, 0},
-    {0x00000001, 0, 0, 639, 479, CreditsBackgroundRegionEvent, 0, false, 0, 0, 0},
+    {0x00000001, 286, 382, 351, 402, nullptr, 0, false, 0, -1, 0},
+    {0x00000001, 0, 0, 639, 479, nullptr, 0, false, 0, 0, 0},
 
     {0x00000001, 0, 0, 0, 0, DialogueTranscriptRegionEvent, 0, false, 0, -1, 0},
     {0x00000001, 24, 68, 42, 85, PartyCombatActionRegionEvent, 0, false, 0, -1, 0},
@@ -469,7 +467,7 @@ std::deque<W8Region> g_regions = {
     {0x00000001, 0, 0, 0, 0, CampItemActionRegionEvent, 7, true, 0, 2376, 0},
 
     {0x00000001, 0, 0, 639, 479, AutomapBackgroundRegionEvent, 0, false, 0, -1, 0},
-    {0x00000001, 0, 0, 639, 479, IntroScreenRegionEvent, 0, false, 0, -1, 0},
+    {0x00000001, 0, 0, 639, 479, nullptr, 0, false, 0, -1, 0},
     {0x00000001, 0, 0, 0, 0, PartyPortraitEventRegionEvent, 0, false, 0, -1, 0},
 
     {0x00000001, 0, 0, 0, 0, PartyPortraitEventRegionEvent, 1, false, 0, -1, 0},

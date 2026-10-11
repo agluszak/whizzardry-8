@@ -1,10 +1,8 @@
 #pragma once
 
-#include "input.h"
 #include "compat/compiler.h"
 
 class W8BinkVideo;
-struct W8Region;
 
 extern W8BinkVideo* gpVideo;
 
@@ -16,4 +14,3 @@ void SetIntroVideoIndex(w8_ulong value);
 /* Which intro video the intro screen shows next; the router and
    the menu paths select it through SetIntroVideoIndex. */
 extern w8_ulong g_intro_video_index;
-unsigned char IntroScreenRegionEvent(const InputAtom*, W8Region*);

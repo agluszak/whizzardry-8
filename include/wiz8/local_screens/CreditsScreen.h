@@ -3,7 +3,6 @@
 #include <optional>
 #include <string>
 
-#include "input.h"
 #include "compat/compiler.h"
 
 namespace wiz8 { class File; }
@@ -21,5 +20,3 @@ std::optional<std::string> ReadRetailTextLine(wiz8::File* handle);
 unsigned char CreditsScreenEnter(void);
 void CreditsScreenFrame(void);
 unsigned char CreditsScreenLeave(int leaving);
-/* Full-screen dismiss on left-up or right-up. */
-unsigned char CreditsBackgroundRegionEvent(const InputAtom* event, struct W8Region* region);
