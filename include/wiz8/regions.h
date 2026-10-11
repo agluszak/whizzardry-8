@@ -173,7 +173,6 @@ void SetRegionHelpForceEnabled(bool enabled);
 void EnableRegionHelpFlag(W8Region* region);
 void DisableRegionHelpFlag(W8Region* region);
 
-unsigned int DispatchMainGameMouseButtons(const InputAtom* input);
 
 void ResetRegions(void);
 

@@ -514,7 +514,8 @@ bool RegionAllowedByExclusiveSet(unsigned int region_index)
 bool RegionContainsInputPoint(unsigned int region_index, unsigned short x, unsigned short y,
                               bool dispatch_coordinates)
 {
-    if (dispatch_coordinates && g_regions[region_index].button) {
+    const auto& region = g_regions[region_index];
+    if (dispatch_coordinates && (region.button || region.text_field)) {
         return RegionContainsPoint(
             region_index, static_cast<unsigned short>(static_cast<int>(x) - g_cursor_hotspot_x),
             static_cast<unsigned short>(static_cast<int>(y) - g_cursor_hotspot_y));
