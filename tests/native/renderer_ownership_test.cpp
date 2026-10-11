@@ -346,7 +346,8 @@ class SurfaceLightProbe : public Counter {
 public:
     srLight light;
     unsigned channels = 0, ready = 0;
-    bool attenuated = false, directional = false;
+    unsigned attenuation_kind = 0;
+    bool directional = false;
     void process(srVertexPipe& pipe) override
     {
         ++calls;
@@ -365,7 +366,8 @@ public:
         light.process(pipe);
         REQUIRE(statistics.diffuse_operations - before_diffuse == (channels & 1 ? count : 0));
         REQUIRE(statistics.specular_operations - before_specular == (channels & 2 ? count : 0));
-        const float attenuation = attenuated && !directional ? .5f : 1.f;
+        const float attenuation = directional || attenuation_kind == 0 ? 1.f
+                                  : attenuation_kind == 4 ? .25f : .5f;
         if (channels & 1) {
             const auto colors = pipe.getDiffuse();
             const float expected = (ready & 1 ? .25f : .125f) + .25f * attenuation;
@@ -420,20 +422,26 @@ bool surfaceLighting()
     for (unsigned channels = 1; channels < 4; ++channels)
     for (unsigned ready = 0; ready < 4; ++ready)
     for (bool directional : {false, true})
-    for (bool attenuated : {false, true})
+    for (unsigned attenuation_kind : {0u, 1u, 2u, 3u, 4u})
     for (unsigned count : {0u, 1u, 65u}) {
-        CAPTURE(channels, ready, directional, attenuated, count);
+        CAPTURE(channels, ready, directional, attenuation_kind, count);
         probe.channels = channels; probe.ready = ready;
-        probe.directional = directional; probe.attenuated = attenuated;
+        probe.directional = directional; probe.attenuation_kind = attenuation_kind;
         auto& light = probe.light;
         light.channel_mask = (channels & 1 ? 1u << srVertexProcessor::CHANNEL_LIGHT_DIFFUSE : 0) |
                              (channels & 2 ? 1u << srVertexProcessor::CHANNEL_SPECULAR : 0);
         light.derived_flags = directional ? srLight::DERIVED_DIRECTIONAL :
-            attenuated ? srLight::DERIVED_OPENGL_ATTENUATION |
+            attenuation_kind == 1 ? srLight::DERIVED_OPENGL_ATTENUATION |
                          srLight::DERIVED_CONSTANT_ATTENUATION : 0;
         light.eye_location = directional ? glm::vec3(0, 0, 1) : glm::vec3(0);
-        light.attenuation_model = attenuated ? srLight::ATTENUATION_OPENGL :
-                                             srLight::ATTENUATION_NONE;
+        light.attenuation_model = attenuation_kind == 0 ? srLight::ATTENUATION_NONE
+            : attenuation_kind == 1 ? srLight::ATTENUATION_OPENGL : srLight::ATTENUATION_3DSTUDIO_MAX;
+        light.enable_flags = (attenuation_kind == 2 || attenuation_kind == 4
+            ? 1u << srLight::ENABLE_RANGE_NEAR : 0) |
+            (attenuation_kind == 3 || attenuation_kind == 4 ? 1u << srLight::ENABLE_RANGE_FAR : 0);
+        light.scaled_near_start = 0;
+        light.scaled_far_end = 20;
+        light.near_attenuation = light.far_attenuation = .05f;
         light.opengl_attenuation = glm::vec3(2, 0, 0);
         light.scaled_diffuse = glm::vec4(.5f); light.scaled_specular = glm::vec4(.25f);
         input.vertex_count = count;

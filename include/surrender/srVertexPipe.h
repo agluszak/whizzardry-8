@@ -48,8 +48,8 @@ public:
     srVertexPipe& operator=(const srVertexPipe&) = delete;
 
     SR_DLL_IMPORT void applyDiffuseLight(const glm::vec4& light);
-    SR_DLL_IMPORT void applyDiffuseLight(const float* values, const glm::vec4& light);
-    SR_DLL_IMPORT void applyFog(const float* values);
+    SR_DLL_IMPORT void applyDiffuseLight(std::span<const float> values, const glm::vec4& light);
+    SR_DLL_IMPORT void applyFog(std::span<const float> values);
     SR_DLL_IMPORT void copyDiffuseToSpecular();
     SR_DLL_IMPORT void copySpecularToDiffuse();
     // FUNCTION: SURRENDER 0x1002C310

@@ -1,3 +1,5 @@
+#include "surrender/lighting_math.h"
+#include <cassert>
 #include "surrender/srBoundingSphere.h"
 #include "surrender/srMaterial.h" // IWYU pragma: keep - complete type for srMaterial to srMaterialIFace conversion.
 #include <algorithm>
@@ -274,10 +276,7 @@ void srVertexPipe::finishDiffuseAlpha()
         ((current_record->flags &
           (srVertexPipe::Record::HAS_COLORS | srVertexPipe::Record::HAS_ALPHA)) == 0)) {
         srCore.getStatisticsManager()->statistics.diffuse_operations += vertex_count;
-        glm::vec4 color;
-        color.x = input->ambient_light.x * material_info.ambient.x + material_info.emissive.x;
-        color.y = input->ambient_light.y * material_info.ambient.y + material_info.emissive.y;
-        color.z = input->ambient_light.z * material_info.ambient.z + material_info.emissive.z;
+        glm::vec4 color = input->ambient_light * material_info.ambient + material_info.emissive;
         color.w = material_info.diffuse.w;
         const auto color_value = color;
         color = glm::mix(glm::clamp(color_value, 0.0f, 1.0f), glm::vec4(0),
@@ -465,8 +464,9 @@ void srVertexPipe::setupFog()
 }
 
 // FUNCTION: SURRENDER 0x1002BAB0
-void srVertexPipe::applyFog(const float* values)
+void srVertexPipe::applyFog(std::span<const float> values)
 {
+    assert(values.size() >= vertex_count);
     srCore.getStatisticsManager()->statistics.fog_operations += vertex_count;
     float* fog = scratch.fog + sub_batch_offset;
     if ((lazy_setup_mask & (1UL << srVertexProcessor::CHANNEL_FOG)) != 0) {
@@ -475,18 +475,18 @@ void srVertexPipe::applyFog(const float* values)
 
         return;
     }
-    if ((vertex_count != 0) && (fog != values)) {
-        std::copy_n(values, vertex_count, fog);
+    if ((vertex_count != 0) && (fog != values.data())) {
+        std::copy_n(values.begin(), vertex_count, fog);
     }
     lazy_setup_mask |= (1UL << srVertexProcessor::CHANNEL_FOG);
 }
 
 // FUNCTION: SURRENDER 0x1002BCC0
-void srVertexPipe::applyDiffuseLight(const float* values, const glm::vec4& light)
+void srVertexPipe::applyDiffuseLight(std::span<const float> values, const glm::vec4& light)
 {
+    assert(values.size() >= vertex_count);
     const auto diffuse = getDiffuse();
-    for (w8_ulong i = 0; i < vertex_count; ++i)
-        diffuse[i] = diffuse[i] + light * values[i];
+    srLightingMath::accumulateLight(diffuse, light, values.first(vertex_count));
 }
 
 // FUNCTION: SURRENDER 0x1002BD30
@@ -515,8 +515,7 @@ void srVertexPipe::swapDiffuseAndSpecular()
 void srVertexPipe::applyDiffuseLight(const glm::vec4& light)
 {
     const auto diffuse = getDiffuse();
-    for (std::size_t i = 0; i < vertex_count; ++i)
-        diffuse[i] = light + diffuse[i];
+    srLightingMath::accumulateLight(diffuse, light);
 }
 
 // FUNCTION: SURRENDER 0x1002BF20
@@ -554,11 +553,7 @@ void srVertexPipe::Record::ColorSource::copyDiffuseColors(glm::vec4* destination
 void srVertexPipe::setupDiffuse()
 {
     if ((lazy_setup_mask & (1UL << srVertexProcessor::CHANNEL_DIFFUSE)) == 0) {
-        glm::vec4 color;
-        color.x = input->ambient_light.x * material_info.ambient.x + material_info.emissive.x;
-        color.y = input->ambient_light.y * material_info.ambient.y + material_info.emissive.y;
-        color.z = input->ambient_light.z * material_info.ambient.z + material_info.emissive.z;
-        color.w = input->ambient_light.w * material_info.ambient.w + material_info.emissive.w;
+        const glm::vec4 color = input->ambient_light * material_info.ambient + material_info.emissive;
         glm::vec4* diffuse = vertex_array->diffuse + batch_base + sub_batch_offset;
         if ((current_record->flags & srVertexPipe::Record::HAS_COLORS) == 0) {
             if (vertex_count != 0) {
@@ -570,8 +565,7 @@ void srVertexPipe::setupDiffuse()
             if ((((color.x != 0.0f) || (color.y != 0.0f)) ||
                  ((color.z != 0.0f) || (color.w != 0.0f))) &&
                 (vertex_count != 0)) {
-                for (std::size_t i = 0; i < vertex_count; ++i)
-                    diffuse[i] = color + diffuse[i];
+                srLightingMath::accumulateLight({diffuse, vertex_count}, color);
             }
         }
         lazy_setup_mask |= (1UL << srVertexProcessor::CHANNEL_DIFFUSE);
@@ -610,22 +604,10 @@ void srVertexPipe::setupDepthCue()
             } while (count != 0);
         }
     } else {
-        if (count != 0) {
-            if (maximum == 0.0f) {
-                for (std::size_t i = 0; i < count; ++i)
-                    depth_cue[i] = -dist[i];
-            } else {
-                for (std::size_t i = 0; i < count; ++i)
-                    depth_cue[i] = maximum - dist[i];
-            }
-        }
-        float scale = 1.0f / (maximum - minimum);
-        float range = near_value - far_value;
-        srChannelMath::normalize({depth_cue, count}, scale, range);
-        if (((near_value != 1.0f) && (count != 0)) && (1.0f - near_value != 0.0f)) {
-            for (std::size_t i = 0; i < count; ++i)
-                depth_cue[i] = (1.0f - near_value) + depth_cue[i];
-        }
+        srChannelMath::distanceRamp({depth_cue, count}, {dist, count}, maximum,
+                                    1.0f / (maximum - minimum), near_value - far_value,
+                                    srChannelMath::RampDirection::decreasing);
+        srChannelMath::add({depth_cue, count}, 1.0f - near_value);
     }
     scratch.flags |= srVertexPipe::Scratch::READY_DEPTH_CUE;
 }
