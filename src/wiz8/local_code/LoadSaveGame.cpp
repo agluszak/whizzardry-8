@@ -671,7 +671,7 @@ try
     SaveAutomapNotes(chunks->m_hFile.get());
     chunks->ReleaseCurrentChunk();
 
-    if (!g_world->triggers->empty()) {
+    if (!g_world->triggers.empty()) {
         chunks->OpenChunk(0x47495254, 0); /* TRIG */
         SaveWorldTriggers(g_world, chunks->m_hFile.get());
         chunks->ReleaseCurrentChunk();

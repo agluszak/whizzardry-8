@@ -724,7 +724,7 @@ void InventoryChestScenario()
     StartPremadeGame(game);
     Settle(game, "settle-before-chest");
     Trigger* chest = nullptr;
-    for (auto* trigger : *GetWorld()->triggers)
+    for (auto* trigger : GetWorld()->triggers)
         if (trigger->initial_action == 3 && trigger->inline_action_data[0]) {
             trigger->GenerateItemGroup();
             if (trigger->world_item_group && trigger->world_item_group->next) {

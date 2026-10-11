@@ -121,10 +121,10 @@ Trigger* FindTriggerByName(const char* name)
         return 0;
     }
     for (W8World* world : {g_world, g_secondary_world}) {
-        if (world == 0 || world->triggers == 0) {
+        if (world == 0) {
             continue;
         }
-        for (Trigger* trigger : *world->triggers | std::views::reverse) {
+        for (Trigger* trigger : world->triggers | std::views::reverse) {
             if (_stricmp(trigger->name, name) == 0) {
                 return trigger;
             }
@@ -159,10 +159,10 @@ Trigger* FindTriggerForProp(W8World* world, W8Prop* prop)
             return trigger;
         }
         if (trigger->trigger_kind == 1 || trigger->trigger_kind == 2) {
-            int trigger_count = static_cast<int>(world->triggers->size());
+            int trigger_count = static_cast<int>(world->triggers.size());
 
             for (int index = 0; index < trigger_count; ++index) {
-                Trigger* other = (*world->triggers)[index];
+                Trigger* other = world->triggers[index];
                 Trigger* previous = trigger;
                 int hops = 0;
 
@@ -239,10 +239,10 @@ bool W8LockState::ConsumeCountdown()
 // FUNCTION: WIZ8 0x00445940
 bool InsideDestinationTrigger(float x, float y, float z)
 {
-    int count = static_cast<int>(g_world->triggers->size());
+    int count = static_cast<int>(g_world->triggers.size());
 
     for (int index = 0; index < count; ++index) {
-        Trigger* trigger = (*g_world->triggers)[index];
+        Trigger* trigger = g_world->triggers[index];
         if (trigger->initial_action != 0x34) {
             continue;
         }
@@ -261,14 +261,14 @@ bool InsideDestinationTrigger(float x, float y, float z)
 // FUNCTION: WIZ8 0x0043cb30
 void SaveTriggerRuntimeStates(W8World* world, wiz8::File* handle, bool restoring)
 {
-    int trigger_count = static_cast<int>(world->triggers->size());
+    int trigger_count = static_cast<int>(world->triggers.size());
     int saved_count = 0;
     int index;
     int version = 2;
     int restoring_value = restoring;
 
     for (index = 0; index < trigger_count; ++index) {
-        Trigger* trigger = (*world->triggers)[index];
+        Trigger* trigger = world->triggers[index];
         if (trigger->lock_state.lock_type != 0) {
             ++saved_count;
         }
@@ -279,7 +279,7 @@ void SaveTriggerRuntimeStates(W8World* world, wiz8::File* handle, bool restoring
     handle->write(&restoring_value, sizeof(restoring_value));
 
     for (index = 0; index < trigger_count; ++index) {
-        Trigger* trigger = (*world->triggers)[index];
+        Trigger* trigger = world->triggers[index];
         if (trigger->lock_state.lock_type != 0) {
             handle->write(trigger->name, 0x80);
             handle->write(&version, sizeof(version));
@@ -392,7 +392,7 @@ try
 bool Trigger::Save(wiz8::File* hFile)
 {
     unsigned char version = 5;
-    int trigger_count = static_cast<int>(g_world->triggers->size());
+    int trigger_count = static_cast<int>(g_world->triggers.size());
     bool header_ok;
     W8TriggerActionData* action_data;
     unsigned char has_action_data;
@@ -651,7 +651,7 @@ try
 bool LoadWorldTriggers(W8World* world, wiz8::File* hFile)
 try
 {
-    int trigger_count = static_cast<int>(world->triggers->size());
+    int trigger_count = static_cast<int>(world->triggers.size());
     int index = 0;
     bool header_ok = true;
     bool finished = false;
@@ -673,7 +673,7 @@ try
             finished = true;
             hFile->seek(-1, wiz8::SeekOrigin::current);
         } else if (tag < 5) {
-            Trigger* trigger = (*world->triggers)[index];
+            Trigger* trigger = world->triggers[index];
 
             ++index;
             if (!header_ok || !trigger->Load(hFile, tag)) {
@@ -720,7 +720,7 @@ try
 // FUNCTION: WIZ8 0x0043C810
 void SaveWorldTriggers(W8World* world, wiz8::File* hFile)
 {
-    std::vector<Trigger*>* triggers = world->triggers;
+    std::vector<Trigger*>* triggers = &world->triggers;
 
     for (int index = 0; index < static_cast<int>(triggers->size()); ++index) {
         if (!((*triggers)[index])->Save(hFile)) {
@@ -732,13 +732,13 @@ void SaveWorldTriggers(W8World* world, wiz8::File* hFile)
 // FUNCTION: WIZ8 0x0043d120
 void SaveTriggerActionData(W8World* world, wiz8::File* handle)
 {
-    int trigger_count = static_cast<int>(world->triggers->size());
+    int trigger_count = static_cast<int>(world->triggers.size());
     int saved_count = 0;
     int index;
     int version = 1;
 
     for (index = 0; index < trigger_count; ++index) {
-        Trigger* trigger = (*world->triggers)[index];
+        Trigger* trigger = world->triggers[index];
         if (trigger->inline_action_data[0] != '\0') {
             ++saved_count;
         }
@@ -748,7 +748,7 @@ void SaveTriggerActionData(W8World* world, wiz8::File* handle)
     handle->write(&saved_count, sizeof(saved_count));
 
     for (index = 0; index < trigger_count; ++index) {
-        Trigger* trigger = (*world->triggers)[index];
+        Trigger* trigger = world->triggers[index];
         if (trigger->inline_action_data[0] != '\0') {
             handle->write(trigger->name, 0x80);
             handle->write(trigger->inline_action_data, sizeof(trigger->inline_action_data));
@@ -837,9 +837,9 @@ void UpdateWorldTriggers(W8World* world)
     bool running = false;
 
     camera = cameraLocation();
-    int count = static_cast<int>(world->triggers->size());
+    int count = static_cast<int>(world->triggers.size());
     for (int index = 0; index < count; ++index) {
-        Trigger* trigger = (*world->triggers)[index];
+        Trigger* trigger = world->triggers[index];
         if ((trigger->flags & W8_TRIGGER_ITEM_PICKER) != 0 && trigger->m_pProp != 0 &&
             (trigger->m_pProp->GetAnimationState() < 2 ||
              trigger->m_pProp->Rep()->animation_playing == 0)) {
@@ -1504,7 +1504,7 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
             trigger->flags |= W8_TRIGGER_FIRE_LINKED;
         else
             trigger->flags &= ~W8_TRIGGER_FIRE_LINKED;
-        world->triggers->push_back(trigger);
+        world->triggers.push_back(trigger);
         if (trigger->name[0] != 0) {
             trigger->setName(trigger->name);
         }
@@ -1623,7 +1623,7 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
             trigger->range_minimum = 0.0f;
             trigger->range_maximum = 0.0f;
         }
-        world->triggers->push_back(trigger);
+        world->triggers.push_back(trigger);
         if (trigger->name[0] != 0) {
             trigger->setName(trigger->name);
         }
@@ -1939,7 +1939,7 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
             trigger->range_minimum = 0.0f;
             trigger->range_maximum = 0.0f;
         }
-        world->triggers->push_back(trigger);
+        world->triggers.push_back(trigger);
         if (trigger->name[0] != 0) {
             trigger->setName(trigger->name);
         }
@@ -3714,8 +3714,8 @@ Trigger::~Trigger()
         delete m_pEvent;
     }
 
-    if (m_pWorld != 0 && m_pWorld->triggers != 0) {
-        wiz8::erase_first(*m_pWorld->triggers, this);
+    if (m_pWorld != 0) {
+        wiz8::erase_first(m_pWorld->triggers, this);
     }
 
     if (world_item_group != 0) {
@@ -3739,8 +3739,8 @@ int ResetNextTriggerId(void)
 // FUNCTION: WIZ8 0x00443A60
 void DestroyAllWorldTriggers(W8World* world)
 {
-    if (world != 0 && world->triggers != 0) {
-        wiz8::remove_all_and_delete_in_order(*world->triggers);
+    if (world != 0) {
+        wiz8::remove_all_and_delete_in_order(world->triggers);
     }
 }
 
@@ -3918,7 +3918,7 @@ bool AnyPropTriggerInView(W8World* world)
         srAssertFail("pWorld", "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 0x1395, 0);
     }
     position = cameraLocation();
-    prop_count = (world->plsProps ? world->plsProps->size() : 0);
+    prop_count = world->plsProps.size();
     if (0 <= s_last_prop_index && s_last_prop_index < static_cast<int>(prop_count)) {
         W8Prop* prop = GetWorldProp(world, s_last_prop_index);
 

@@ -6,6 +6,7 @@
 #include <numeric>
 #include <stdexcept>
 #include <memory>
+#include <cstddef>
 #include <vector>
 #include <cmath>
 #include <cstdint>
@@ -445,31 +446,33 @@ static const std::vector<W8MeshMaterial>& ReadMeshMaterials(W8ReadLevelInfo* inf
 }
 
 // FUNCTION: WIZ8 0x00485B20
-unsigned char ReadSingleLevelMesh(W8ReadLevelInfo* info, srModelInstance** instance,
-                                  int unused_first, int unused_second, const char* name,
-                                  bool load_materials)
+static std::unique_ptr<stModelInstance> ReadSingleLevelMeshBody(
+    W8ReadLevelInfo* info, const char* name, bool load_materials);
+
+std::unique_ptr<stModelInstance> ReadSingleLevelMesh(W8ReadLevelInfo* info,
+                                                   const char* name, bool load_materials)
+try
 {
+    if (!info || !info->hFile) return {};
     if (name != 0) {
         if (std::shared_ptr<stMeshModel> model = g_level_meshes.find(name)) {
-            stModelInstance* duplicate = CreateModelInstance(std::move(model));
+            auto duplicate = CreateModelInstance(std::move(model));
             duplicate->setName("Read Mesh Duplicate Instance");
-            *instance = duplicate;
-            if (SkipSingleLevelMesh(info) == 0) {
-                delete duplicate;
-                *instance = nullptr;
-                return 0;
+            if (!SkipSingleLevelMesh(info)) {
+                return {};
             }
-            return 1;
+            return duplicate;
         }
     }
 
-    return ReadSingleLevelMeshBody(info, instance, unused_first, unused_second, name,
-                                   load_materials);
+    return ReadSingleLevelMeshBody(info, name, load_materials);
+} catch (const std::exception&) {
+    return {};
 }
 
 // FUNCTION: WIZ8 0x00485C10
-unsigned char ReadSingleLevelMeshBody(W8ReadLevelInfo* info, srModelInstance** instance, int, int,
-                                      const char* name, bool load_materials)
+static std::unique_ptr<stModelInstance> ReadSingleLevelMeshBody(
+    W8ReadLevelInfo* info, const char* name, bool load_materials)
 try
 {
     std::vector<short> mapped_values;
@@ -488,18 +491,18 @@ try
     std::shared_ptr<stMeshModel> first_model;
 
     if (info == 0) {
-        return 0;
+        return {};
     }
     wiz8::File* file = info->hFile;
     if (file == 0) {
-        return 0;
+        return {};
     }
 
     file->read_exact(&version, sizeof(version));
     file->read_exact(&vertex_count, sizeof(vertex_count));
     file->read_exact(&face_count, sizeof(face_count));
     if (vertex_count < 1 || vertex_count > 100000 || face_count < 1 || face_count > 200000) {
-        return 0;
+        return {};
     }
 
     srVector3T<float> location;
@@ -516,7 +519,7 @@ try
         signed char mapping_count;
         file->read_exact(&mapping_count, sizeof(mapping_count));
         if (mapping_count < 0)
-            return 0;
+            return {};
         for (short index = 0; index < mapping_count; ++index) {
             short value = 0;
             short key = 0;
@@ -526,7 +529,7 @@ try
             file->read_exact(&key, sizeof(key));
             file->read_exact(&value, sizeof(value));
             if (value < 0 || value >= vertex_count) {
-                return 0;
+                return {};
             }
             mapped_values.push_back(value);
             mapped_keys.push_back(key);
@@ -549,12 +552,12 @@ try
         if ((flags & W8_LEVEL_MESH_SHORT_LOD_VERTICES) == 0) {
             srAssertFail("FALSE", "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp", 0x131,
                          "Uncompressed mesh, please re-export level with newer plugin");
-            return 0;
+            return {};
         } else {
             if (frame_count <= 0 || !std::isfinite(compression_scale) || compression_scale <= 0 ||
                 static_cast<std::uint64_t>(frame_count) * vertex_count * 6 >
                     static_cast<std::uint64_t>(file->size() - file->tell())) {
-                return 0;
+                return {};
             }
             compressed_vertices.resize(frame_count);
             for (auto& frame : compressed_vertices) {
@@ -595,15 +598,15 @@ try
         }
     }
     if (shaders.size() > 8) {
-        return 0;
+        return {};
     }
     for (const auto& face : faces) {
         if (face.material_index < 0 || static_cast<std::size_t>(face.material_index) >= materials.size()) {
-            return 0;
+            return {};
         }
         for (int vertex : face.vertices) {
             if (vertex < 0 || vertex >= vertex_count) {
-                return 0;
+                return {};
             }
         }
     }
@@ -645,7 +648,7 @@ try
     }
     if (first_model != 0) {
         first_model->setName(name ? name : "");
-        stModelInstance* loaded_instance = CreateModelInstance(first_model);
+        auto loaded_instance = CreateModelInstance(first_model);
         loaded_instance->setName("ReadSTMeshFromFile");
         if (version > 1 && loaded_instance != 0) {
             const double angle = 3.1415926;
@@ -656,18 +659,18 @@ try
             loaded_instance->setLocation(translated);
             loaded_instance->setRotation(rotation);
         }
-        *instance = loaded_instance;
         CacheLevelMesh(name, first_model);
+        return loaded_instance;
     }
 
-    return 1;
+    return {};
 } catch (const std::exception&) {
-    return false;
+    return {};
 }
 
 // FUNCTION: WIZ8 0x00488240
-unsigned char ReadMultipleLevelMeshes(W8ReadLevelInfo* info, srModelInstance** instances,
-                                      w8_ulong count, const char* name)
+std::vector<std::unique_ptr<stModelInstance>>
+ReadMultipleLevelMeshes(W8ReadLevelInfo* info, std::size_t expected_count, const char* name)
 try
 {
     OctMeshModel reader;
@@ -676,31 +679,30 @@ try
     int terminator;
 
     if (info == 0) {
-        return 0;
+        return {};
     }
-    if (count == 0) {
-        return 0;
+    if (expected_count == 0) {
+        return {};
     }
     if (info->hFile == 0) {
-        return 0;
+        return {};
     }
 
     info->hFile->read_exact(&mesh_count, sizeof(mesh_count));
     info->hFile->read_exact(&root_count, sizeof(root_count));
-    if (mesh_count != count || root_count > mesh_count) {
+    if (mesh_count != expected_count || root_count > mesh_count) {
         throw std::runtime_error("Invalid mesh or root count");
     }
 
     const std::vector<W8MeshMaterial>& materials = ReadMeshMaterials(info);
-    if (materials.empty()) return false;
+    if (materials.empty()) return {};
 
     info->hFile->read_exact(&terminator, sizeof(terminator));
     if (terminator != -1)
-        return 0;
+        return {};
 
-    if (count != mesh_count || root_count > mesh_count ||
-        mesh_count > static_cast<std::uint64_t>(info->hFile->size() - info->hFile->tell())) {
-        return 0;
+    if (mesh_count > static_cast<std::uint64_t>(info->hFile->size() - info->hFile->tell())) {
+        return {};
     }
     std::vector<stMeshModel*> meshes(mesh_count);
     std::vector<std::shared_ptr<stMeshModel>> roots(mesh_count);
@@ -732,23 +734,24 @@ try
     }
 
     info->hFile->read_exact(&terminator, sizeof(terminator));
-    if (terminator != -1) return 0;
+    if (terminator != -1) return {};
 
+    std::vector<std::unique_ptr<stModelInstance>> pending(mesh_count);
     for (unsigned int mesh_index = 0; mesh_index < root_count; ++mesh_index) {
         stMeshModel* model = meshes[mesh_index];
         model->setName(name ? name : "");
         if (model->head == nullptr) {
-            stModelInstance* instance = CreateModelInstance(roots[mesh_index]);
+            auto instance = CreateModelInstance(roots[mesh_index]);
             instance->setName("Multi Mesh Instance");
             instance->mesh_index = mesh_index;
             CacheLevelMesh(name, roots[mesh_index]);
-            instances[mesh_index] = instance;
+            pending[mesh_index] = std::move(instance);
         }
     }
 
-    return 1;
+    return pending;
 } catch (const std::exception&) {
-    return false;
+    return {};
 }
 
 // FUNCTION: WIZ8 0x00489980

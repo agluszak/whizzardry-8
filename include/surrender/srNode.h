@@ -3,6 +3,7 @@
 #include <atomic>
 #include <type_traits>
 #include <mutex>
+#include <memory>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -64,7 +65,8 @@ public:
 
     enum e_notify { NOTIFY_BOUNDS_DIRTY = 0, NOTIFY_TRANSFORM_DIRTY = 1 };
 
-    SR_DLL_IMPORT srNode(srNode* parent = 0);
+    enum class Ownership { parent, independent };
+    SR_DLL_IMPORT srNode(srNode* parent = nullptr, Ownership ownership = Ownership::parent);
     /* Copies the transform under the default parent; links are not copied. */
     srNode(const srNode& other) : srNode(nullptr)
     {
@@ -179,6 +181,8 @@ public:
     SR_DLL_IMPORT void rotateX(double angle);
     SR_DLL_IMPORT void rotateY(double angle);
     SR_DLL_IMPORT void rotateZ(double angle);
+    // Reparenting changes scene membership and preserves the ownership mode.
+    // Independently owned nodes remain borrowed until adoptChild transfers them.
     SR_DLL_IMPORT int setParent(srNode* parent, int preserve_world_transform);
     SR_DLL_IMPORT void setLocation(const srVector3T<double>& location);
     SR_DLL_IMPORT void setLocation(double x, double y, double z);
@@ -207,7 +211,20 @@ public:
     SR_DLL_IMPORT void yawAt(const glm::dvec3& target, double amount);
     SR_DLL_IMPORT void yawAt(const srNode* target, double amount);
 
+    // Remove scene ownership without the legacy nullptr-to-global-root fallback.
+    void detach();
+
+    // Transfer an independently owned node into this owning scene subtree.
+    template<class T> T* adoptChild(std::unique_ptr<T> child, int preserve_world_transform = 0)
+    {
+        std::lock_guard access(sceneGraphCSect);
+        if (!child || !child->setParent(this, preserve_world_transform)) return nullptr;
+        static_cast<srNode*>(child.get())->parent_owns_ = true;
+        return child.release();
+    }
+
 private:
+    bool parent_owns_ = true;
     void turnWorldSpaceAxisToward(unsigned axis, const glm::dvec3& direction, double amount);
     SR_DLL_IMPORT void checkTransformation() const;
     SR_DLL_IMPORT srNode* findChildByNameAndTypeInternal(std::string_view name, w8_ulong class_id);
