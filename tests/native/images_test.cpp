@@ -11,6 +11,7 @@
 #include <filesystem>
 #include <fstream>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 #include <cstddef>
@@ -18,6 +19,7 @@
 #include <utility>
 
 #include "himage.h"
+#include "vsurface.h"
 #include "imgfmt.h"
 #include "wiz8/slf.h"
 #include "temporary_directory.h"
@@ -25,7 +27,7 @@
 
 
 using Bytes = std::vector<UINT8>;
-using Image = std::unique_ptr<image_type>;
+using Image = std::optional<image_type>;
 namespace fs = std::filesystem;
 
 static void word(Bytes& bytes, std::size_t offset, unsigned value)
@@ -153,9 +155,9 @@ static Bytes slf(const std::vector<std::pair<std::string, Bytes>>& files)
     return bytes;
 }
 
-static Image load(const char* path, UINT16 contents = IMAGE_ALLDATA)
+static Image load(const char* path)
 {
-    return CreateImage(path, contents);
+    return LoadImage(path);
 }
 
 static void rgb555()
@@ -172,7 +174,7 @@ static void rgb555()
 static void check_pcx(const image_type& image)
 {
     REQUIRE((image.usWidth == 3 && image.usHeight == 2 && image.ubBitDepth == 8));
-    REQUIRE(image.fFlags == IMAGE_ALLIMAGEDATA);
+    REQUIRE((image.pPalette && !image.etrle && !image.compressed));
     const UINT8 expected[]{0, 1, 1, 2, 3, 0xc1};
     REQUIRE(!memcmp(image.pImageData.data(), expected, sizeof(expected)));
     for (unsigned i = 0; i < 256; ++i)
@@ -185,7 +187,7 @@ static void check_pcx(const image_type& image)
     REQUIRE((*image.pui16BPPPalette)[0] == 0); // Exact black stays transparent.
     REQUIRE((*image.pui16BPPPalette)[1] == 1); // Non-black quantizing to zero is substituted.
     REQUIRE((*image.pui16BPPPalette)[2] == 0x7c00);
-    REQUIRE((image.pAppData.empty() && !image.pAppData.size() && !image.pETRLEObject.size()));
+    REQUIRE(image.pETRLEObject.empty());
 }
 
 struct ImageFixture
@@ -252,7 +254,6 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
         REQUIRE((image && image->pImageData.size() == 4 && image->usWidth == 2));
         const UINT8 expected[]{0, 0x7c, 0xe0, 3};
         REQUIRE(!memcmp(image->pImageData.data(), expected, sizeof(expected)));
-        REQUIRE(load("native-rgb.sti", 0));
         header.RGB.uiRedMask = 0xf800;
         header.RGB.uiGreenMask = 0x07e0;
         write_rgb();
@@ -276,20 +277,21 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
         auto default_image = load(extensionless);
         REQUIRE((default_image && !strcmp(extensionless, "Dotted.dir\\default")));
         check_pcx(*default_image);
-        REQUIRE(default_image->ImageFile == "Dotted.dir\\default.PCX");
+
+        // The surface factory must copy the image pixels, not merely allocate storage.
+        auto surface = LoadVideoSurface("Dotted.dir/default.PCX");
+        REQUIRE(surface);
+        const auto& pixels = *surface->cpu().surface;
+        REQUIRE((pixels.w == 3 && pixels.h == 2 && surface->ubBitDepth == 8));
+        const UINT8 expected[]{0, 1, 1, 2, 3, 0xc1};
+        for (int y = 0; y < 2; ++y)
+            REQUIRE(!memcmp(static_cast<const UINT8*>(pixels.pixels) + y * pixels.pitch,
+                            expected + y * 3, 3));
     }
     {
-        auto palette = load("Dotted.dir/default.PCX", IMAGE_PALETTE);
-        auto bitmap = load("Dotted.dir/default.PCX", IMAGE_BITMAPDATA);
-        auto metadata = load("Dotted.dir/default.PCX", 0);
-        REQUIRE((palette && bitmap && metadata));
-        REQUIRE((palette->fFlags == IMAGE_PALETTE && palette->pImageData.empty() && palette->pPalette));
-        REQUIRE((bitmap->fFlags == IMAGE_BITMAPDATA && !bitmap->pImageData.empty() && !bitmap->pPalette));
-        REQUIRE((metadata->fFlags == 0 && metadata->pImageData.empty() && !metadata->pPalette));
-        REQUIRE(LoadImageData(metadata.get(), IMAGE_ALLIMAGEDATA));
-        check_pcx(*metadata);
-        REQUIRE(LoadImageData(metadata.get(), IMAGE_ALLIMAGEDATA));
-        check_pcx(*metadata);
+        auto complete = load("Dotted.dir/default.PCX");
+        REQUIRE(complete);
+        check_pcx(*complete);
         gusAlphaMask = 0x8000;
         gusRedMask = 0x001f;
         gusBlueMask = 0x7c00;
@@ -326,7 +328,7 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
     {
         fixture(assets / "rgb.pcx", rgb_pcx(rgb));
         auto image = load("rgb.pcx");
-        REQUIRE((image && image->ubBitDepth == 24 && image->fFlags == IMAGE_BITMAPDATA));
+        REQUIRE((image && image->ubBitDepth == 24 && !image->pPalette));
         REQUIRE(!memcmp(image->pImageData.data(), rgb, sizeof(rgb)));
     }
     for (unsigned depth : {16u, 24u})
@@ -336,7 +338,7 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
                 fixture(assets / "test.tga", tga(depth, top, rle));
                 auto image = load("test.tga");
                 REQUIRE((image && image->usWidth == 3 && image->usHeight == 2));
-                REQUIRE((image->ubBitDepth == depth && image->fFlags == IMAGE_BITMAPDATA));
+                REQUIRE((image->ubBitDepth == depth && !image->pPalette));
                 REQUIRE((!image->pPalette && !image->pui16BPPPalette));
                 REQUIRE(!memcmp(image->pImageData.data(), depth == 16 ? static_cast<const void*>(packed) : rgb,
                               depth == 16 ? sizeof(packed) : sizeof(rgb)));
@@ -344,7 +346,7 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
     {
         fixture(assets / "indexed.tga", indexed_tga());
         auto image = load("indexed.tga");
-        REQUIRE((image && image->ubBitDepth == 8 && image->fFlags == IMAGE_ALLIMAGEDATA));
+        REQUIRE((image && image->ubBitDepth == 8 && image->pPalette));
         const UINT8 indices[]{2, 2, 2, 2, 1, 0};
         REQUIRE(!memcmp(image->pImageData.data(), indices, sizeof(indices)));
         REQUIRE(((*image->pPalette)[2].peRed == 255 && (*image->pPalette)[2].peBlue == 0));
@@ -395,7 +397,7 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
         REQUIRE(IMG_SaveJPG(surface.get(), wiz8::path_to_utf8(assets / "test.JpEg").c_str(), 100));
         auto image = load("test.jpeg");
         REQUIRE((image && image->usWidth == 8 && image->usHeight == 8 && image->ubBitDepth == 24));
-        REQUIRE(image->fFlags == IMAGE_BITMAPDATA);
+        REQUIRE((!image->pPalette && !image->etrle && !image->compressed));
         for (unsigned i = 0; i < 64; ++i)
         {
             CHECK(abs(int(image->pImageData[i * 3]) - 240) < 4);
@@ -434,21 +436,12 @@ TEST_CASE_METHOD(ImageFixture, "Truncated images and rollback", "[image][validat
         REQUIRE(!load("invalid.tga"));
     }
     {
-        auto image = load("Dotted.dir/default.PCX");
-        REQUIRE(image);
-        auto* data = image->pImageData.data();
-        image->ImageFile = "invalid.pcx";
-        REQUIRE((!LoadImageData(image.get(), IMAGE_ALLIMAGEDATA) && image->pImageData.data() == data));
-        check_pcx(*image);
-        auto* palette = image->pPalette->data();
-        image->ImageFile = "invalid.tga";
-        REQUIRE(!LoadImageData(image.get(), IMAGE_ALLDATA));
-        REQUIRE((image->pImageData.data() == data && image->pPalette->data() == palette));
-        check_pcx(*image);
-        image->ImageFile = "test.tga";
-        REQUIRE(LoadImageData(image.get(), IMAGE_ALLDATA));
-        REQUIRE((image->ubBitDepth == 24 && !image->pPalette && !image->pui16BPPPalette));
-        REQUIRE((image->fFlags == IMAGE_BITMAPDATA && !image->pETRLEObject.size()));
+        // Failed loads do not publish partially decoded images.
+        REQUIRE(!load("invalid.pcx"));
+        REQUIRE(!load("invalid.tga"));
+        auto image = load("test.tga");
+        REQUIRE((image && image->ubBitDepth == 24 && !image->pPalette && !image->pui16BPPPalette));
+        REQUIRE((!image->pPalette && image->pETRLEObject.empty()));
     }
     fixture(assets / "invalid.jpg", {0xff, 0xd8, 0xff});
     REQUIRE((!load("invalid.jpg") && !load("missing.pcx") && !load("unsupported.png")));
@@ -458,7 +451,7 @@ TEST_CASE_METHOD(ImageFixture, "Truncated images and rollback", "[image][validat
     REQUIRE(!load(wiz8::path_to_utf8(assets / "test.tga").c_str()));
     const std::string long_path(SGPFILENAME_LEN + 10, 'x');
     REQUIRE(!load(long_path.c_str()));
-    REQUIRE(!CreateImage(nullptr, IMAGE_ALLDATA));
+    REQUIRE(!LoadImage(""));
 
 
 }

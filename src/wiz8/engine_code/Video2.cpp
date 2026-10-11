@@ -510,7 +510,6 @@ unsigned char InitializePrimaryCpuSurface(void)
     primarySurface.usWidth = 640;
     primarySurface.usHeight = 480;
     primarySurface.ubBitDepth = 16;
-    primarySurface.fFlags = VSURFACE_SYSTEM_MEM_USAGE;
     return bool(primarySurface.ownedSurface);
 }
 
