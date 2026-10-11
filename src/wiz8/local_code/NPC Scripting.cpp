@@ -950,7 +950,7 @@ void RunNpcScriptLine(int script_line, bool force_npc_voice)
                     }
                     break;
                 case W8_NPC_ENTRY_OPTIONS:
-                    g_npc_interaction_state->script_busy = 0xff;
+                    g_npc_interaction_state->script_busy = -1;
                     QueueNpcQuoteEntry(script_line, entry_index, 0, false);
                     finished = true;
                     break;
@@ -1007,7 +1007,7 @@ void RunNpcScriptLine(int script_line, bool force_npc_voice)
                     finished = true;
                     break;
                 case W8_NPC_ENTRY_KEYWORD_INPUT:
-                    g_npc_interaction_state->script_busy = 0xff;
+                    g_npc_interaction_state->script_busy = -1;
                     QueueNpcQuoteEntry(script_line, entry_index, 0, false);
                     finished = true;
                     break;
@@ -1302,7 +1302,7 @@ void ProcessMessageBoxQueue(void)
                     (kind == W8_NPC_ENTRY_ALWAYS_PRICE_CHECK ||
                      !NpcKnowsFact(g_npc_scripting.npc, static_cast<W8FactId>(quote_index)))) {
                     RunNpcScriptLine(0x12, false);
-                    g_npc_interaction_state->script_busy = 0xff;
+                    g_npc_interaction_state->script_busy = -1;
                     QueueNpcQuoteEntry(quote_index, index, quote_index, true);
                     g_npc_scripting.message_lines.erase(current);
                     return;

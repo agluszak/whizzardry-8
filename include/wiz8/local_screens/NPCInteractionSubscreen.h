@@ -190,7 +190,7 @@ struct W8NpcInteractionState {
     /* pending_item came in through the cursor item; dialogue close returns it
        to the hand and the consume path drains its stack. */
     bool held_item_pending;
-    unsigned char script_busy; /* set 0xff during script execution */
+    signed char script_busy; /* -1 awaiting a reply, 1 while a reply dialog is open */
     /* The aux_data argument the NPC-dialog dispatch stashes when the
        request is a 0x12/0x1e price check; the reply handler runs it as the
        accepted script line, tells it as a fact, or runs its kind-0x17 decline
