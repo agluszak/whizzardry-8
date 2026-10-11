@@ -17,6 +17,7 @@
 #include "wiz8/float_constants.h"
 #include "wiz8/sr_api.h"
 #include "OctBuildTree.h"
+#include "wiz8/engine_code/oct_build_traversal.h"
 #include "OctPreTree.h"
 #include "ReadMesh.h"
 #include "compat/native.h"
@@ -420,29 +421,22 @@ unsigned char OctBuildPreTree::InsertSurfaceRecursive(W8OctSpatialState* working
     if (working->m_depth < 0x10) {
         if (working->m_depth < spatial.m_depth) {
             srVector3T<float> vertices[3];
-            short octant = 0;
-            for (int x = 0; x != 2; ++x) {
-                for (int y = 0; y != 2; ++y) {
-                    for (int z = 0; z != 2; ++z, ++octant) {
-                        child.SetChildBounds(working, x, y, z);
-                        for (int corner = 0; corner != 3; ++corner) {
-                            vertices[corner] = polygon->vertices[corner]->position;
-                        }
-                        if (TestSpatialTriangle(&child.m_minimum, vertices,
-                                                &polygon->plane.normal) != 0) {
-                            W8OctBuildNode* parent = working->m_root;
-                            if (parent->children[octant] == 0) {
-                                ++level_counts[working->m_depth];
-                                parent->children[octant] = new W8OctBuildNode;
-                            }
-                            child.m_root = parent->children[octant];
-                            if (InsertSurfaceRecursive(&child, polygon, mode) != 0) {
-                                inserted = true;
-                            }
-                        }
+            inserted = InsertBuildSurfaceChildren(
+                working, child, child.m_extent,
+                [&](W8OctSpatialState& candidate) {
+                    for (int corner = 0; corner != 3; ++corner) {
+                        vertices[corner] = polygon->vertices[corner]->position;
                     }
-                }
-            }
+                    return TestSpatialTriangle(&candidate.m_minimum, vertices,
+                                               &polygon->plane.normal) != 0;
+                },
+                [&]() {
+                    ++level_counts[working->m_depth];
+                    return new W8OctBuildNode;
+                },
+                [&](W8OctSpatialState& candidate) {
+                    return InsertSurfaceRecursive(&candidate, polygon, mode);
+                });
         } else {
             W8OctBuildNode* node = working->m_root;
             if (node->leaf_kind == 0) {
@@ -1553,6 +1547,35 @@ void OctBuildPreTree::ValidateRegionBounds(const W8BoundingBox* region_bounds)
     }
 }
 
+// The first zero-terminated run contains unassigned items. Each region then
+// contributes one run, with zero lookup offsets for regions that have no items.
+template<class Value>
+static unsigned short* PackRegionLists(
+    std::unordered_multimap<unsigned short, short>& regions, Value* values,
+    unsigned short& count, unsigned short* lookup, w8_ulong region_count)
+{
+    if (count != 0) values[count++] = 0;
+    else count = 1;
+
+    for (w8_ulong index = 1; index < region_count; ++index) {
+        unsigned short region = static_cast<unsigned short>(index);
+        lookup[index] = 0;
+        auto entry = regions.end();
+        bool first = true;
+        while ((entry = NextIndexValue(regions, region, entry)) != regions.end()) {
+            if (first) {
+                lookup[index] = count;
+                first = false;
+            }
+            values[count++] = entry->second;
+        }
+        if (!first) values[count++] = 0;
+    }
+    auto* packed = static_cast<unsigned short*>(malloc(count * sizeof(unsigned short)));
+    if (packed) memcpy(packed, values, count * sizeof(unsigned short));
+    return packed;
+}
+
 /* Associate every non-cloud particle with the regions containing its origin
    or any corner of its serialized bounds. Particles still outside the built
    regions lead the compact list, followed by one null-terminated list per
@@ -1648,36 +1671,12 @@ unsigned char OctBuildPreTree::BuildParticleRegions(const W8LevelFileParticleSys
         }
     }
 
-    if (list_count != 0) {
-        region_particles[list_count++] = 0;
-    } else {
-        list_count = 1;
-    }
-
     unsigned short region_count = static_cast<unsigned short>(spatial.submesh_count);
     mesh_particle_lookup =
         static_cast<unsigned short*>(malloc(region_count * sizeof(unsigned short)));
     memset(mesh_particle_lookup, 0, region_count * sizeof(unsigned short));
-
-    for (unsigned short region = 1; region < region_count; ++region) {
-        auto entry = inside_region_map->end();
-        bool first = true;
-        while ((entry = NextIndexValue(*inside_region_map, region, entry)) != inside_region_map->end()) {
-            if (first) {
-                mesh_particle_lookup[region] = list_count;
-                first = false;
-            }
-            region_particles[list_count++] = entry->second;
-        }
-        if (!first) {
-            region_particles[list_count++] = 0;
-        }
-    }
-
-    mesh_particles = static_cast<unsigned short*>(malloc(list_count * sizeof(unsigned short)));
-    if (mesh_particles != 0) {
-        memcpy(mesh_particles, region_particles, list_count * sizeof(unsigned short));
-    }
+    mesh_particles = PackRegionLists(*inside_region_map, region_particles, list_count,
+                                    mesh_particle_lookup, region_count);
     mesh_particle_count = list_count;
     delete inside_region_map;
     return 1;
@@ -1751,37 +1750,11 @@ unsigned char OctBuildPreTree::BuildGeometryRegions(const W8LevelFileProp* recor
     }
 
     if (finalize) {
-        if (g_region_id_count == 0) {
-            g_region_id_count = 1;
-        } else {
-            g_region_id_list[g_region_id_count++] = 0;
-        }
-
         w8_ulong region_count = spatial.submesh_count;
         mesh_prop_lookup =
             static_cast<unsigned short*>(malloc(region_count * sizeof(unsigned short)));
-        for (w8_ulong region_value = 1; region_value < region_count; ++region_value) {
-            unsigned short region = static_cast<unsigned short>(region_value);
-            mesh_prop_lookup[region_value] = 0;
-            auto entry = overlap_region_map->end();
-            bool first = true;
-            while ((entry = NextIndexValue(*overlap_region_map, region, entry)) != overlap_region_map->end()) {
-                if (first) {
-                    mesh_prop_lookup[region_value] = g_region_id_count;
-                    first = false;
-                }
-                g_region_id_list[g_region_id_count++] = entry->second;
-            }
-            if (!first) {
-                g_region_id_list[g_region_id_count++] = 0;
-            }
-        }
-
-        mesh_props =
-            static_cast<unsigned short*>(malloc(g_region_id_count * sizeof(unsigned short)));
-        if (mesh_props != 0) {
-            memcpy(mesh_props, g_region_id_list, g_region_id_count * sizeof(unsigned short));
-        }
+        mesh_props = PackRegionLists(*overlap_region_map, g_region_id_list, g_region_id_count,
+                                    mesh_prop_lookup, region_count);
         mesh_prop_count = g_region_id_count;
         prop_count = record_count + base_index;
         delete overlap_region_map;
