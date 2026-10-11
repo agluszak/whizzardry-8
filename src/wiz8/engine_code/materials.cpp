@@ -1844,7 +1844,7 @@ void W8Octree::OctBuildOptions(char* stem)
     GetWorldColour(&colour_backup);
     PublishLightDirection(&colour_saved);
     SetFont(g_smfnt_font);
-    SetRGBFontShadow(0, 0, 0);
+    SetRGBFontShadow(SDL_Color{0, 0, 0, SDL_ALPHA_OPAQUE});
     g_smfnt_font.setPalette(g_font_state_palettes[W8_FONT_PALETTE_YELLOW]);
     edit_char[0] = 0;
     edit_char[4] = 0;
