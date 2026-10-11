@@ -490,8 +490,12 @@ unsigned char InitializePrimaryCpuSurface(void)
     const auto* pixel_format = SDL_GetPixelFormatDetails(g_sgp_pixel_format);
     if (!pixel_format)
         return 0;
-    primarySurface.ownedSurface = CreateCpuSurface(640, 480, 16,
-        pixel_format->Rmask, pixel_format->Gmask, pixel_format->Bmask);
+    // The alpha marker is retained as a raw pixel bit in CPU storage.
+    const auto format = SDL_GetPixelFormatForMasks(16,
+        pixel_format->Rmask, pixel_format->Gmask, pixel_format->Bmask, 0);
+    if (format == SDL_PIXELFORMAT_UNKNOWN)
+        return 0;
+    primarySurface.ownedSurface = CreateCpuSurface(640, 480, format);
     primarySurface.usWidth = 640;
     primarySurface.usHeight = 480;
     primarySurface.ubBitDepth = 16;
