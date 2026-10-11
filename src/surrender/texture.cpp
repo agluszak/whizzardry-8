@@ -51,7 +51,7 @@ srTexture::srTexture()
 }
 
 // FUNCTION: SURRENDER 0x1005E570
-srTexture::~srTexture() {}
+srTexture::~srTexture() = default;
 
 // FUNCTION: SURRENDER 0x1005E390
 srTexture& srTexture::operator=(const srTexture& other)

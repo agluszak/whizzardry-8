@@ -10,4 +10,4 @@ srWindowOut::srWindowOut(w8_ulong, const char*, w8_long, w8_ulong)
 {
 }
 
-srWindowOut::~srWindowOut() {}
+srWindowOut::~srWindowOut() = default;
