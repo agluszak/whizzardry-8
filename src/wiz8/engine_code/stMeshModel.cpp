@@ -1,6 +1,7 @@
 #include "wiz8/engine_code/ReadLevel.h"
 #include "surrender/srModel.h"
 #include <cstddef>
+#include <stdexcept>
 #include <algorithm>
 #include <cctype>
 #include <memory>
@@ -211,7 +212,7 @@ srMeshModel::TriMesh stMeshModel::getTriMesh()
 // FUNCTION: WIZ8 0x00470360
 void stMeshModel::renderTriMesh(srGERD& renderer, const TriMesh& mesh)
 {
-    RenderTriMeshWithEquations(renderer, mesh, 0);
+    RenderTriMeshWithEquations(renderer, mesh, {});
 }
 
 std::vector<w8_ulong> stMeshModel::facingPolygons(const TriMesh& mesh,
@@ -241,8 +242,11 @@ std::vector<w8_ulong> stMeshModel::facingPolygons(const TriMesh& mesh,
    g_render_cull_front already requested front culling. */
 // FUNCTION: WIZ8 0x00470380
 void stMeshModel::RenderTriMeshWithEquations(srGERD& renderer, const TriMesh& mesh,
-                                             const glm::vec3* arg_poly_equations)
+                                             std::span<const glm::vec3> arg_poly_equations)
 {
+    if (!arg_poly_equations.empty() &&
+        arg_poly_equations.size() < static_cast<std::size_t>(mesh.polygon_count))
+        throw std::invalid_argument("Incomplete mesh polygon normals");
     std::vector<w8_ulong> software_polygons;
     srShader shader;
 
@@ -256,11 +260,11 @@ void stMeshModel::RenderTriMeshWithEquations(srGERD& renderer, const TriMesh& me
 
         if (g_render_cull_front) {
             renderer.setCullMode(srGERD::CULL_NONE);
-        } else if (arg_poly_equations != 0) {
+        } else if (!arg_poly_equations.empty()) {
             renderer.setCullMode(srGERD::CULL_NONE);
 
             software_polygons = facingPolygons(mesh,
-                {arg_poly_equations, static_cast<std::size_t>(mesh.polygon_count)},
+                arg_poly_equations,
                 glm::vec3(renderer.getInverseModelViewMatrix()[3]),
                 renderer.getWinding() == srGERD::WINDING_POSITIONAL_0,
                 static_cast<float>(g_double_zero));
@@ -270,9 +274,9 @@ void stMeshModel::RenderTriMeshWithEquations(srGERD& renderer, const TriMesh& me
 
         for (int side = 1; side >= 0; --side) {
             if ((mesh.control_flags & (1u << side)) != 0 &&
-                (arg_poly_equations == nullptr || !software_polygons.empty())) {
+                (arg_poly_equations.empty() || !software_polygons.empty())) {
                 auto& pipeline = srTriMeshPipeline::beginMesh(renderer, mesh);
-                if (arg_poly_equations != nullptr) {
+                if (!arg_poly_equations.empty()) {
                     pipeline.projected_vertices = nullptr;
                     pipeline.active_triangles = std::span<const w8_ulong>(software_polygons);
                 }
@@ -693,6 +697,17 @@ glm::vec3* stMeshModel::frameTable(unsigned int frame, bool load, unsigned char 
         if (load) DecompressFrame(frame, kind, *cache);
     }
     return cache->data();
+}
+
+stMeshModel::FrameGeometry stMeshModel::frameGeometry(unsigned int frame, float interpolation)
+{
+    if (frame >= frames.size()) throw std::out_of_range("Mesh frame index out of range");
+    auto* positions = GetVertexLocations(frame, true, interpolation);
+    auto* normals = GetVertexNormals(frame, true);
+    const auto* polygon_normals = GetPolygonNormals(frame, true);
+    return {{positions, static_cast<std::size_t>(vertex_location_count)},
+            {normals, static_cast<std::size_t>(vertex_location_count)},
+            {polygon_normals, static_cast<std::size_t>(polygon_count)}};
 }
 
 void stMeshModel::ClearVertexLights()

@@ -803,10 +803,10 @@ private:
     void accumAlloc();
     short accumConvert(float value) const;
     void accumClear();
-    static void convertPixelFormat(srDD::PixelFormat& device,
-                                   const srPixelConvert::PixelFormat& format);
-    static void convertPixelFormat(srPixelConvert::PixelFormat& format,
-                                   const srDD::PixelFormat& device);
+    static srDD::PixelFormat convertPixelFormat(const srPixelConvert::PixelFormat& format);
+    static srPixelConvert::PixelFormat convertPixelFormat(const srDD::PixelFormat& device);
+    enum class RendererDrain { immediate, sorted, reset, statistics };
+    void drainRenderers(RendererDrain action);
     RendererEntry* createRenderer(int sorted);
     void flushNonBusyRenderers();
     void flushSort();

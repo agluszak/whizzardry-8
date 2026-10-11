@@ -1387,7 +1387,10 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Empty software backface selections skip 
     mesh.poly_vertices = triangles.data();
     mesh.control_flags = (1u << srMeshModel::CONTROL_FRONT) | (1u << srMeshModel::CONTROL_BACK);
     const auto before = pipeline->triangle_count;
-    model.RenderTriMeshWithEquations(renderer, mesh, normals.data());
+    model.RenderTriMeshWithEquations(renderer, mesh, normals);
+    REQUIRE(pipeline->triangle_count == before);
+    mesh.polygon_count = 2;
+    REQUIRE_THROWS_AS(model.RenderTriMeshWithEquations(renderer, mesh, normals), std::invalid_argument);
     REQUIRE(pipeline->triangle_count == before);
 }
 
@@ -1649,6 +1652,14 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Static and frame normals share area weig
         for (int axis = 0; axis < 3; ++axis)
             compressed[vertex * 3 + axis] = static_cast<short>(positions[vertex][axis]);
     mesh.FinalizeVertexFrame(0);
+    const auto sampled = mesh.frameGeometry(0, 0.0f);
+    REQUIRE(sampled.positions.size() == positions.size());
+    REQUIRE(sampled.normals.size() == positions.size());
+    REQUIRE(sampled.polygon_normals.size() == triangles.size());
+    REQUIRE(sampled.positions[1] == positions[1]);
+    REQUIRE(sampled.normals.data() == mesh.GetVertexNormals(0, true));
+    REQUIRE(sampled.polygon_normals.data() == mesh.GetPolygonNormals(0, true));
+    REQUIRE_THROWS_AS(mesh.frameGeometry(1, 0.0f), std::out_of_range);
     const auto* frame_normals = mesh.GetVertexNormals(0, true);
     REQUIRE(frame_normals[4] == frame_normals[0]);
     for (std::size_t vertex = 0; vertex < positions.size(); ++vertex)
@@ -2070,4 +2081,190 @@ TEST_CASE("Conditional prop channels grow independently and path cells return co
     const auto negative = pathing.pathCell({6, 0, 8});
     REQUIRE(negative.coordinates == glm::ivec2(-2, -1));
     REQUIRE(negative.key == static_cast<unsigned>(-1) * 0x10000u + static_cast<unsigned>(-2));
+}
+
+TEST_CASE("Region merging rekeys every member and weights GLM centers by cell population", "[geometry][octree]")
+{
+    OctBuildPreTree tree(1, std::nullopt, 16, 8, 0);
+    tree.spatial.m_root = new W8OctBuildNode;
+    auto* first = tree.spatial.m_root->children[0] = new W8OctBuildNode;
+    auto* second = tree.spatial.m_root->children[1] = new W8OctBuildNode;
+    auto* neighbor = tree.spatial.m_root->children[4] = new W8OctBuildNode;
+    first->region = second->region = 1;
+    neighbor->region = 2;
+    first->leaf_kind = second->leaf_kind = 2;
+    neighbor->leaf_kind = 3;
+    tree.spatial.m_region_grid_cell = 10;
+    tree.region_centers = {{0, 0, 0}, {0, 3, -6}, {6, 9, 0}};
+    tree.region_path_map.emplace(1, 0x01000000u);
+    tree.region_path_map.emplace(1, 0x01000001u);
+    tree.region_path_map.emplace(2, 0x01010000u);
+    const int cell[] = {0x01000000, 1, 0, 0};
+    REQUIRE(tree.MergeRegion(first, cell));
+    REQUIRE(first->region == 2);
+    REQUIRE(second->region == 2);
+    REQUIRE(first->leaf_kind == 5);
+    REQUIRE(second->leaf_kind == 5);
+    REQUIRE(neighbor->leaf_kind == 5);
+    REQUIRE(tree.region_path_map.count(1) == 0);
+    REQUIRE(tree.region_path_map.count(2) == 3);
+    REQUIRE(tree.region_centers[2] == glm::vec3(2, 5, -4));
+    REQUIRE_FALSE(tree.MergeRegion(first, cell));
+    OctBuildPreTree independent(1, std::nullopt, 16, 8, 0);
+    REQUIRE(independent.region_path_map.empty());
+    REQUIRE(independent.region_centers.empty());
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture, "Mesh permutations keep GLM channels corners shades and active polygons aligned", "[geometry][rendering]")
+{
+    srMeshModel mesh(2, 3);
+    mesh.setPassCount(2);
+    const std::array<glm::vec3, 3> positions{{{1, 0, 0}, {0, 2, 0}, {0, 0, 3}}};
+    std::ranges::copy(positions, mesh.getVertexLoc());
+    auto* triangles = mesh.getPolyVertex();
+    triangles[0] = {0, 1, 2};
+    triangles[1] = {2, 0, 1};
+    auto* shades = mesh.getVertexShadeIndex(1);
+    shades[0] = shades[1] = 0;
+    shades[2] = 2;
+    mesh.setActivePolygonCount(1);
+    mesh.getActivePolygonTable(1)[0] = 0;
+    for (int pass = 0; pass < 2; ++pass) {
+        auto* uv = mesh.getPolyUVIndex(pass, 1);
+        uv[0] = {0, 7, 2}; // Separate UV indices outside the vertex range remain intact.
+        uv[1] = {1, 2, 0};
+        for (int i = 0; i < 3; ++i) {
+            mesh.getVertexDIG(pass, 1)[i] = glm::vec3(10 * pass + i);
+            mesh.getVertexDCG(pass, 1)[i] = glm::vec4(20 * pass + i);
+            mesh.getVertexSCG(pass, 1)[i] = glm::vec4(30 * pass + i);
+            for (int layer = 0; layer < 2; ++layer)
+                mesh.getVertexTexCoords(pass, layer, 1)[i] = glm::vec2(40 * pass + 5 * layer + i);
+        }
+    }
+    const std::array<w8_ulong, 2> polygon_order{1, 0};
+    const std::array<w8_ulong, 3> vertex_order{2, 0, 1};
+    mesh.reindexPolygons(polygon_order);
+    mesh.reindexVertices(vertex_order);
+    REQUIRE(mesh.getActivePolygonTable(0)[0] == 1);
+    REQUIRE(triangles[0].x == 0);
+    REQUIRE(triangles[0].y == 1);
+    REQUIRE(triangles[0].z == 2);
+    REQUIRE(triangles[1].x == 1);
+    REQUIRE(triangles[1].y == 2);
+    REQUIRE(triangles[1].z == 0);
+    REQUIRE(shades[0] == 0);
+    REQUIRE(shades[1] == 1);
+    REQUIRE(shades[2] == 1);
+    for (int pass = 0; pass < 2; ++pass) {
+        const auto* uv = mesh.getPolyUVIndex(pass, 0);
+        REQUIRE(uv[1].x == 1);
+        REQUIRE(uv[1].y == 7);
+        REQUIRE(uv[1].z == 0);
+        for (int i = 0; i < 3; ++i) {
+            REQUIRE(mesh.getVertexLoc()[i] == positions[vertex_order[i]]);
+            REQUIRE(mesh.getVertexDIG(pass, 0)[i] == glm::vec3(10 * pass + vertex_order[i]));
+            REQUIRE(mesh.getVertexDCG(pass, 0)[i] == glm::vec4(20 * pass + vertex_order[i]));
+            REQUIRE(mesh.getVertexSCG(pass, 0)[i] == glm::vec4(30 * pass + vertex_order[i]));
+            for (int layer = 0; layer < 2; ++layer)
+                REQUIRE(mesh.getVertexTexCoords(pass, layer, 0)[i] == glm::vec2(40 * pass + 5 * layer + vertex_order[i]));
+        }
+    }
+    const std::array<w8_ulong, 3> duplicate{0, 0, 2};
+    REQUIRE_THROWS_AS(mesh.reindexVertices(duplicate), std::invalid_argument);
+    REQUIRE_THROWS_AS(mesh.reindexVertices(polygon_order), std::invalid_argument);
+    REQUIRE_THROWS_AS(mesh.reindexPolygons(vertex_order), std::invalid_argument);
+    REQUIRE(mesh.getVertexLoc()[0] == positions[2]); // Invalid permutations change no tables.
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture, "Model render scopes restore GLM transforms and exclusions after a failed draw", "[geometry][rendering]")
+{
+    struct Probe : srModel {
+        bool fail = false;
+        w8_ulong mask = 0;
+        glm::mat4 transform{1};
+        Bounds getBounds() override { return {}; }
+        void render(srGERD& renderer) override {
+            mask = renderer.getExclusionMask();
+            transform = renderer.getMatrix(srGERD::MATRIX_MODELVIEW);
+            renderer.matrixMode(srGERD::MATRIX_PROJECTION);
+            if (fail) throw std::runtime_error("injected model draw failure");
+        }
+    };
+    srGERD renderer(srCreateSDLGPUDevice(), "render scope");
+    auto model = std::make_shared<Probe>();
+    srModelInstance instance;
+    instance.setModel(model);
+    instance.setLocation(3, 4, 5);
+    instance.setExclusionMask(4);
+    const glm::mat4 view = glm::translate(glm::mat4(1), glm::vec3(7, 8, 9));
+    for (bool aligned : {false, true}) {
+        instance.setAlignment(aligned);
+        for (bool fail : {false, true}) {
+            renderer.matrixMode(srGERD::MATRIX_MODELVIEW);
+            renderer.loadMatrix(view);
+            renderer.setExclusionMask(16);
+            model->fail = fail;
+            const srNode::ProcessInfo info{&renderer};
+            if (fail) REQUIRE_THROWS_AS(instance.process(info, srNode::PROCESS_RENDER), std::runtime_error);
+            else instance.process(info, srNode::PROCESS_RENDER);
+            REQUIRE(model->mask == 20);
+            REQUIRE(renderer.getExclusionMask() == 16);
+            REQUIRE(renderer.getMatrixMode() == srGERD::MATRIX_MODELVIEW);
+            REQUIRE(renderer.getMatrix(srGERD::MATRIX_MODELVIEW) == view);
+            REQUIRE(model->transform != view);
+        }
+    }
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture, "Material vertex splits preserve first-face attributes without a fixed scratch limit", "[geometry][rendering]")
+{
+    constexpr unsigned materials = 80;
+    constexpr unsigned faces_count = 120;
+    W8OctPreTreeGeometry geometry{};
+    geometry.vertex_count = 5; // Three used vertices and one unused vertex after the sentinel.
+    geometry.m_vertices = static_cast<W8OctPreTreeVertex*>(std::calloc(geometry.vertex_count, sizeof(W8OctPreTreeVertex)));
+    REQUIRE(geometry.m_vertices);
+    struct ReleaseVertices {
+        W8OctPreTreeGeometry& geometry;
+        ~ReleaseVertices() { std::free(geometry.m_vertices); }
+    } release{geometry};
+    std::vector<W8OctRegionPolygon> polygons(faces_count + 1);
+    std::vector<int> faces(faces_count);
+    geometry.m_polygon_count = polygons.size();
+    geometry.m_polygons = polygons.data();
+    for (unsigned source = 1; source < 5; ++source) {
+        auto& vertex = geometry.m_vertices[source];
+        vertex.m_vertex_index = source;
+        vertex.position = srVector3(float(source), 2, 3);
+        if (source < 4) {
+            vertex.face_indices = faces.data();
+            vertex.face_count = faces.size();
+        }
+    }
+    for (unsigned face = 1; face <= faces_count; ++face) {
+        faces[face - 1] = face;
+        auto& polygon = polygons[face];
+        polygon.material = (face - 1) % materials;
+        polygon.kind = face % 3;
+        for (unsigned corner = 0; corner < 3; ++corner) {
+            polygon.vertices[corner] = &geometry.m_vertices[corner + 1];
+            polygon.face.texture_coordinates[corner] = glm::vec2(face, corner);
+        }
+    }
+    REQUIRE(geometry.splitVerticesByMaterial());
+    REQUIRE(geometry.vertex_count == 3 * materials + 1);
+    REQUIRE(geometry.vertex_count > 4 * 5); // Exceeds the former four-times allocation.
+    for (unsigned face = 1; face <= faces_count; ++face) {
+        const auto& polygon = polygons[face];
+        for (unsigned corner = 0; corner < 3; ++corner) {
+            const auto index = corner * materials + polygon.material + 1;
+            const auto* vertex = polygon.vertices[corner];
+            REQUIRE(vertex == &geometry.m_vertices[index]);
+            REQUIRE(vertex->m_vertex_index == index);
+            REQUIRE(vertex->m_material == static_cast<int>(polygon.material));
+            REQUIRE(vertex->m_kind == (polygon.material + 1) % 3);
+            REQUIRE(vertex->m_uv == glm::vec2(polygon.material + 1, corner));
+            REQUIRE(vertex->position.x == float(corner + 1));
+        }
+    }
 }

@@ -77,49 +77,6 @@ struct W8OctreeTrace {
 };
 
 W8_ABI_ASSERT(sizeof(W8OctreeTrace) == 0x30, "W8OctreeTrace_must_be_0x30");
-/* Bulk .oct vector I/O. Writers stage at most 0x100 records per FileWrite;
-   the raw twelve-byte reader serves float vectors and polygon index triples. */
-bool WriteVector4Array(wiz8::File* file, const glm::vec4* values, int count);
-bool WriteVector3Array(wiz8::File* file, const srVector3T<float>* values, int count);
-bool WriteVector2Array(wiz8::File* file, const glm::vec2* values, int count);
-bool ReadVector4Array(wiz8::File* file, glm::vec4* values, int count);
-bool ReadVector3Array(wiz8::File* file, void* values, int count);
-bool ReadVector2Array(wiz8::File* file, glm::vec2* values, int count);
-inline bool ReadVectorArray(wiz8::File* file, void* values, int count)
-{
-    return ReadVector3Array(file, values, count);
-}
-inline bool ReadVectorArray(wiz8::File* file, glm::vec4* values, int count)
-{
-    return ReadVector4Array(file, values, count);
-}
-inline bool ReadVectorArray(wiz8::File* file, glm::vec2* values, int count)
-{
-    return ReadVector2Array(file, values, count);
-}
-
-/* The polygon index triples serialize through the same canonical 12-byte
-   float-vector writer. */
-inline bool WriteVectorArray(wiz8::File* file, const srVector3i* values, int count)
-{
-    return WriteVector3Array(
-        file, reinterpret_cast<const srVector3T<float>*>(values), /* reinterpret-ok: the
-            float writer's raw 12-byte record is the index-triple record */
-        count);
-}
-inline bool WriteVectorArray(wiz8::File* file, const srVector3T<float>* values, int count)
-{
-    return WriteVector3Array(file, values, count);
-}
-inline bool WriteVectorArray(wiz8::File* file, const glm::vec4* values, int count)
-{
-    return WriteVector4Array(file, values, count);
-}
-inline bool WriteVectorArray(wiz8::File* file, const glm::vec2* values, int count)
-{
-    return WriteVector2Array(file, values, count);
-}
-
 /* One 0x10-byte entry of the .oct file's submesh table. Field +4 is the index
    into W8World::psrMeshes; the visibility update and UpdateMonsterLocation both
    resolve a region through it, and the update's reset pass writes the owning
@@ -543,7 +500,7 @@ public:
 
     /* Automesh index -> packed cell (z | y<<8 | x<<16 | mask<<24) map the
        verify passes walk to bound-check each automesh's vertices. */
-    std::unordered_multimap<unsigned short, w8_ulong>* automesh_cells;
+    std::unordered_multimap<unsigned short, w8_ulong> automesh_cells;
     PrePathing* pre_pathing;
     /* The path-node scratch block BuildPathLists/PathNodeObstructed fill:
        created-node count, then the runs of registered prop ids the node

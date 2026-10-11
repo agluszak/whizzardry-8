@@ -7,6 +7,8 @@
 #include <optional>
 #include <variant>
 #include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_double3.hpp"
+#include "glm/geometric.hpp"
 #include "surrender/srMath.h"
 #include "glm/ext/vector_int3.hpp"
 #include <unordered_map>
@@ -28,7 +30,6 @@
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/LevelFile.h"
 #include "wiz8/float_constants.h"
-#include "wiz8/sr_api.h"
 #include "OctBuildTree.h"
 #include "wiz8/engine_code/oct_build_traversal.h"
 #include "OctPreTree.h"
@@ -240,11 +241,6 @@ OctBuildPreTree::OctBuildPreTree(float leaf_size, std::optional<srBoundingBox> b
     memset(level_counts, 0, sizeof(level_counts));
     this->path_capacity = path_capacity;
     selected_depth = 0;
-    m_pulRegPaths = 0;
-    region_path_count = 0;
-    m_psrvRegCenters = 0;
-    region_path_map = 0;
-    positional = 0;
     region_remap = 0;
 
     particle_count = 0;
@@ -937,7 +933,7 @@ unsigned short OctBuildPreTree::BuildRegions()
     }
     spatial.m_region_count = spatial.m_region_id_bound;
     selected_depth = spatial.m_depth;
-    region_path_count = 0;
+    region_paths.clear();
 
     while (path_capacity < level_counts[selected_depth]) {
         --selected_depth;
@@ -957,23 +953,14 @@ unsigned short OctBuildPreTree::BuildRegions()
     }
 
     w8_ulong level_count = level_counts[spatial.m_leaf_level];
-    m_pulRegPaths = static_cast<w8_ulong*>(malloc(level_count * sizeof(*m_pulRegPaths) + 2 * sizeof(*m_pulRegPaths)));
-    if (m_pulRegPaths == 0) {
-        srAssertFail("m_pulRegPaths", OCT_BUILD_PRE_TREE_CPP, 0x6f1, 0);
-    }
-
-    m_psrvRegCenters = new srVector3T<float>[level_count + 2 + spatial.m_region_id_bound];
-    if (m_psrvRegCenters == 0) {
-        srAssertFail("m_psrvRegCenters", OCT_BUILD_PRE_TREE_CPP, 0x6f3, 0);
-    }
+    region_paths.reserve(level_count + 2);
+    region_centers.resize(level_count + 2 + spatial.m_region_id_bound);
 
     spatial.m_region_grid_cell = working.m_cell_size;
-    region_path_map = new std::unordered_multimap<unsigned short, w8_ulong>;
+    region_path_map.clear();
     AssignInitialRegions(&working);
-    positional = new std::unordered_multimap<unsigned int, short>;
 
-    for (unsigned short path_index = 0; path_index < region_path_count; ++path_index) {
-        w8_ulong path = m_pulRegPaths[path_index];
+    for (const auto path : region_paths) {
         W8OctBuildNode* node = FindNode(path);
         if (node->leaf_kind != 0 && node->leaf_kind < 25) {
             MergeAdjacentRegion(node, path);
@@ -992,8 +979,7 @@ unsigned short OctBuildPreTree::BuildRegions()
     AssignRegionFromSurfaces(&working);
     ValidatePolygonRegions();
 
-    delete[] m_psrvRegCenters;
-    m_psrvRegCenters = 0;
+    region_centers.clear();
 
     if (spatial.m_region_count == 1) {
         spatial.m_region_count = 0;
@@ -1027,10 +1013,10 @@ void OctBuildPreTree::AssignInitialRegions(const W8OctSpatialState* arg_spatial)
         }
 
         if (contained_count != 0) {
-            srVector3T<float>& center = m_psrvRegCenters[this->spatial.m_region_id_bound];
-            center = (arg_spatial->m_bounds.maximum + arg_spatial->m_bounds.minimum) * g_float_half;
+            auto& center = region_centers[this->spatial.m_region_id_bound];
+            center = arg_spatial->bounds().center();
 
-            m_pulRegPaths[region_path_count++] = arg_spatial->m_node_index;
+            region_paths.push_back(arg_spatial->m_node_index);
 
             for (auto* surface : surfaces) {
                 auto* polygon = static_cast<W8OctRegionPolygon*>(surface);
@@ -1038,7 +1024,7 @@ void OctBuildPreTree::AssignInitialRegions(const W8OctSpatialState* arg_spatial)
                     for (int vertex_index = 0; vertex_index != 3; ++vertex_index) {
                         const srVector3T<float>& position =
                             polygon->vertices[vertex_index]->position;
-                        float distance = (center - position).Length();
+                        float distance = glm::distance(center, position.glmValue());
                         if (this->spatial.m_max_region_radius < distance) {
                             this->spatial.m_max_region_radius = distance;
                         }
@@ -1046,7 +1032,7 @@ void OctBuildPreTree::AssignInitialRegions(const W8OctSpatialState* arg_spatial)
                 }
             }
 
-            InsertIndexValue(*region_path_map, this->spatial.m_region_id_bound, arg_spatial->m_node_index);
+            InsertIndexValue(region_path_map, this->spatial.m_region_id_bound, arg_spatial->m_node_index);
             node->region = this->spatial.m_region_id_bound;
             node->provisional_region = node->region;
             ++this->spatial.m_region_id_bound;
@@ -1142,9 +1128,9 @@ unsigned char OctBuildPreTree::MergeRegion(W8OctBuildNode* node, const int* cell
         return 0;
     }
 
-    srVector3T<float>& node_center = m_psrvRegCenters[node_region];
-    srVector3T<float>& neighbor_center = m_psrvRegCenters[neighbor_region];
-    float distance = (node_center - neighbor_center).Length();
+    const auto& node_center = region_centers[node_region];
+    auto& neighbor_center = region_centers[neighbor_region];
+    float distance = glm::distance(node_center, neighbor_center);
     if (!(distance < spatial.m_region_grid_cell * g_float_three)) {
         return 0;
     }
@@ -1152,28 +1138,30 @@ unsigned char OctBuildPreTree::MergeRegion(W8OctBuildNode* node, const int* cell
     unsigned short combined_count = node->leaf_kind + neighbor->leaf_kind;
 
     w8_ulong neighbor_count = 0;
-    auto position = region_path_map->end();
-    while ((position = NextIndexValue(*region_path_map, neighbor_region, position)) != region_path_map->end()) {
+    auto position = region_path_map.end();
+    while ((position = NextIndexValue(region_path_map, neighbor_region, position)) != region_path_map.end()) {
         ++neighbor_count;
         W8OctBuildNode* member = FindNode(position->second);
         member->leaf_kind = combined_count;
     }
 
     w8_ulong moved_count = 0;
-    w8_ulong path = LookupIndexValue(*region_path_map, node_region);
+    w8_ulong path = LookupIndexValue(region_path_map, node_region);
     while (path != 0) {
         ++moved_count;
-        RemoveIndexValue(*region_path_map, node_region, path);
+        RemoveIndexValue(region_path_map, node_region, path);
         W8OctBuildNode* member = FindNode(path);
         member->leaf_kind = combined_count;
         member->region = neighbor_region;
-        InsertIndexValue(*region_path_map, neighbor_region, path);
-        path = LookupIndexValue(*region_path_map, node_region);
+        InsertIndexValue(region_path_map, neighbor_region, path);
+        path = LookupIndexValue(region_path_map, node_region);
     }
 
-    neighbor_center = (node_center * static_cast<double>(moved_count) +
-                       neighbor_center * static_cast<double>(neighbor_count)) /
-                      static_cast<double>(moved_count + neighbor_count);
+    // Keep float rounding after each weighted term and the sum.
+    const auto weighted = glm::vec3(glm::dvec3(node_center) * double(moved_count)) +
+                          glm::vec3(glm::dvec3(neighbor_center) * double(neighbor_count));
+    neighbor_center = glm::vec3(glm::dvec3(weighted) *
+                               (1.0 / double(moved_count + neighbor_count)));
     return 1;
 }
 
@@ -1183,13 +1171,11 @@ unsigned char OctBuildPreTree::MergeRegion(W8OctBuildNode* node, const int* cell
 // FUNCTION: WIZ8 0x004b2a20
 void OctBuildPreTree::FinalizeRegionMapping()
 {
-    unsigned short* region_map =
-        static_cast<unsigned short*>(malloc(spatial.m_region_id_bound * sizeof(unsigned short)));
-    memset(region_map, 0, spatial.m_region_id_bound * sizeof(unsigned short));
+    std::vector<unsigned short> region_map(spatial.m_region_id_bound);
 
     unsigned short next_region = spatial.m_region_count;
-    for (unsigned short mapping_index = 0; mapping_index < region_path_count; ++mapping_index) {
-        W8OctBuildNode* node = FindNode(m_pulRegPaths[mapping_index]);
+    for (const auto path : region_paths) {
+        W8OctBuildNode* node = FindNode(path);
         if (node->leaf_kind != 0) {
             unsigned short provisional = node->provisional_region;
             if (node->region == provisional) {
@@ -1209,7 +1195,7 @@ void OctBuildPreTree::FinalizeRegionMapping()
         W8OctRegionPolygon& polygon = game_data->m_polygons[polygon_index];
         unsigned short region = polygon.region;
         if (region >= spatial.m_region_count) {
-            if (LookupIndexValue(*region_path_map, region) != 0) {
+            if (LookupIndexValue(region_path_map, region) != 0) {
                 polygon.region = region_map[region];
             } else {
                 polygon.region = region_map[region_map[region]];
@@ -1228,13 +1214,12 @@ void OctBuildPreTree::FinalizeRegionMapping()
             region_bounds[region].include(vertex->position.glmValue());
     }
 
-    for (unsigned short path_index = 0; path_index < region_path_count; ++path_index) {
-        w8_ulong path = m_pulRegPaths[path_index];
+    for (const auto path : region_paths) {
         W8OctBuildNode* node = FindNode(path);
         unsigned short old_region = node->region;
-        RemoveIndexValue(*region_path_map, old_region, path);
+        RemoveIndexValue(region_path_map, old_region, path);
         node->region = region_map[old_region];
-        InsertIndexValue(*region_path_map, node->region, path);
+        InsertIndexValue(region_path_map, node->region, path);
         if (node->region >= final_region_count) {
             char message[256];
             sprintf(message, "Invalid submesh %d\n", static_cast<unsigned int>(node->region));
@@ -1245,7 +1230,6 @@ void OctBuildPreTree::FinalizeRegionMapping()
     spatial.submesh_count = final_region_count;
     ValidatePolygonRegions();
     ValidateRegionBounds(region_bounds);
-    free(region_map);
 }
 
 /* Descend to the selected region depth, collect the surfaces below each
@@ -1364,8 +1348,8 @@ void OctBuildPreTree::ValidateRegionBounds(std::span<const srBoundingBox> region
 {
     for (w8_ulong region_index = 1; region_index < spatial.submesh_count; ++region_index) {
         unsigned short region = static_cast<unsigned short>(region_index);
-        auto entry = region_path_map->end();
-        while ((entry = NextIndexValue(*region_path_map, region, entry)) != region_path_map->end()) {
+        auto entry = region_path_map.end();
+        while ((entry = NextIndexValue(region_path_map, region, entry)) != region_path_map.end()) {
             w8_ulong path = entry->second;
             const auto cell_bounds = spatial.regionCellBounds(path);
 
@@ -1601,8 +1585,7 @@ OctPreTree* OctBuildPreTree::BuildOctPreTree()
     tree->m_visited_polygon_bits.assign(spatial.m_polygon_count, false);
     tree->m_spatial.m_region_grid_cell = spatial.m_region_grid_cell;
     tree->m_spatial.m_region_cells_per_axis = spatial.m_region_cells_per_axis;
-    tree->automesh_cells = region_path_map;
-    region_path_map = 0;
+    tree->automesh_cells = std::move(region_path_map);
 
     tree->m_spatial.m_bounds = spatial.m_bounds;
     tree->m_spatial.m_clipped_bounds = spatial.m_clipped_bounds;

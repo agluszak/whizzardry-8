@@ -51,6 +51,20 @@ public:
     srFlags<int> alignment_flags;
 
 protected:
+    class RenderScope {
+    public:
+        ~RenderScope();
+        RenderScope(const RenderScope&) = delete;
+        RenderScope& operator=(const RenderScope&) = delete;
+    private:
+        friend class srModelInstance;
+        RenderScope(const srModelInstance& instance, srGERD& renderer, bool apply_exclusion);
+        srGERD& renderer;
+        w8_ulong previous_mask = 0;
+        bool restore_mask = false;
+    };
+    RenderScope scopedRender(srGERD& renderer, bool apply_exclusion = true) const;
+
     // Push the transform used by both ordinary and screen-facing model draws.
     void applyRenderTransform(srGERD& renderer) const;
 

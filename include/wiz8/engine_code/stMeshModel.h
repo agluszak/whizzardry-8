@@ -56,11 +56,11 @@ public:
     virtual TriMesh getTriMesh() override; /* 0x00472270 */
     virtual void renderTriMesh(class srGERD& renderer,
                                const TriMesh& mesh) override; /* 0x00470360 */
-    /* Shared Wizardry-extended tri-mesh submit. `poly_normals` null skips
-       the software backface pass; non-null callers supply polygon normals used
+    /* Shared Wizardry-extended tri-mesh submit. An empty `poly_normals` span skips
+       the software backface pass; other callers supply counted polygon normals used
        to select the active polygons for this submission. */
     void RenderTriMeshWithEquations(class srGERD& renderer, const TriMesh& mesh,
-                                    const glm::vec3* poly_normals); /* 0x00470380 */
+                                    std::span<const glm::vec3> poly_normals); /* 0x00470380 */
     static std::vector<w8_ulong> facingPolygons(const TriMesh& mesh,
                                                std::span<const glm::vec3> normals,
                                                const glm::vec3& eye, bool positive_winding,
@@ -80,6 +80,13 @@ public:
     PolygonSelection GetActivePolygons(int table, bool check_blanking);
     void RemoveSkinTable(int index);
     void RemoveSkinTablesForCycle(std::string_view cycle_name);
+    // Borrowed frame caches; interpolated positions reuse the model's lerp buffer.
+    struct FrameGeometry {
+        std::span<glm::vec3> positions;
+        std::span<glm::vec3> normals;
+        std::span<const glm::vec3> polygon_normals;
+    };
+    FrameGeometry frameGeometry(unsigned int frame, float interpolation);
     glm::vec3* GetVertexLocations(unsigned int frame, bool load, float interpolation);
     glm::vec3* GetVertexNormals(unsigned int frame, bool load); /* 0x00471CA0 */
     glm::vec3* GetPolygonNormals(unsigned int frame, bool load);

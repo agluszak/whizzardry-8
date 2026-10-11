@@ -171,6 +171,7 @@ struct W8OctPreTreeVertex {
    the canonical material/texture group counts; +0x10/+0x14 hold an owned
    buffer the cleanup releases. */
 struct W8OctPreTreeGeometry {
+    bool splitVerticesByMaterial();
     w8_ulong vertex_count;
     W8OctPreTreeVertex* m_vertices;
     w8_ulong m_polygon_count;
