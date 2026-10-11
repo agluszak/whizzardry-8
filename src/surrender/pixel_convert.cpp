@@ -1,6 +1,7 @@
 #include <SDL3/SDL_pixels.h>
 #include <algorithm>
 #include <iterator>
+#include <string>
 #include <cstring>
 
 #include "glm/geometric.hpp"
