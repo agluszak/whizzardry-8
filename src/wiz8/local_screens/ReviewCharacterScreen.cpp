@@ -422,7 +422,7 @@ unsigned char SpellListRegionHandler(const InputEvent* event, W8Region* region)
         g_camp_screen->selected_spell_row = row;
         g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_REALM_SPELLS_FIRST << realm;
     }
-    if (event->type > InputEventType::RightButtonUp) {
+    if (!IsLeftButtonEvent(event->type) && event->type != InputEventType::RightButtonDown && event->type != InputEventType::RightButtonUp) {
         if (event->type == InputEventType::MouseMove) {
             if ((region->flags & W8_REGION_MOUSE_TRANSITION_MASK) != 0) {
                 g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_REALM_SPELLS_FIRST << realm;

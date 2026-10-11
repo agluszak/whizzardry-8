@@ -1145,7 +1145,7 @@ unsigned char TextBoxScrollUpRegionEvent(const InputEvent* event, W8Region* regi
     }
 
     const InputEventType us_event = event->type;
-    if (us_event <= InputEventType::RightButtonDown) {
+    if (IsLeftButtonEvent(us_event) || us_event == InputEventType::RightButtonDown) {
         if (region->CaptureButtonDown(us_event)) {
             return 1;
         }
@@ -1196,7 +1196,7 @@ unsigned char TextBoxScrollDownRegionEvent(const InputEvent* event, W8Region* re
     }
 
     const InputEventType us_event = event->type;
-    if (us_event <= InputEventType::RightButtonDown) {
+    if (IsLeftButtonEvent(us_event) || us_event == InputEventType::RightButtonDown) {
         if (region->CaptureButtonDown(us_event)) {
             return 1;
         }

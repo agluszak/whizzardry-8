@@ -13,13 +13,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <deque>
-#include <stdexcept>
-#include <string>
 #include <string_view>
 
 #include "input.h"
-#include "wiz8/application.h"
-#include "wiz8/engine_code/GameData.h"
 #include "wiz8/compat/native.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/unicode.h"
@@ -112,9 +108,10 @@ void set_modifiers(SDL_Keymod mod)
 
 /* The only SDL key -> game virtual-key mapping. Keypad keys map by scancode, so
    they keep their numpad codes whether or not Num Lock is on. */
-std::uint16_t game_key(const SDL_KeyboardEvent& event)
+} // namespace
+
+std::uint16_t GameKeyFromSdl(SDL_Scancode scancode, SDL_Keycode key)
 {
-    const SDL_Scancode scancode = event.scancode;
     if (scancode >= SDL_SCANCODE_KP_1 && scancode <= SDL_SCANCODE_KP_9)
         return std::uint16_t(VK_NUMPAD0 + 1 + (scancode - SDL_SCANCODE_KP_1));
     switch (scancode) {
@@ -127,7 +124,6 @@ std::uint16_t game_key(const SDL_KeyboardEvent& event)
     case SDL_SCANCODE_KP_DIVIDE: return 0x6f;
     default: break;
     }
-    const SDL_Keycode key = event.key;
     if (key >= SDLK_A && key <= SDLK_Z)
         return std::uint16_t(key - SDLK_A + 'A');
     if (key >= SDLK_0 && key <= SDLK_9)
@@ -172,11 +168,12 @@ std::uint16_t game_key(const SDL_KeyboardEvent& event)
     }
 }
 
+namespace {
 void handle_key(const SDL_KeyboardEvent& event)
 {
     const bool down = event.type == SDL_EVENT_KEY_DOWN;
     set_modifiers(event.mod);
-    const std::uint16_t key = game_key(event);
+    const std::uint16_t key = GameKeyFromSdl(event.scancode, event.key);
     if (key == 0)
         return;
     if (key == VK_SNAPSHOT) {
@@ -427,97 +424,4 @@ std::uint16_t TranslateCharacterToKey(std::uint16_t character)
             if (TranslateKeyToCharacter(key, modifiers) == character)
                 return key;
     return 0;
-}
-
-// GLOBAL: WIZ8 0x006505a0
-bool gfLoadAtStartup = false;
-// GLOBAL: WIZ8 0x006505a1
-bool gfUsingBoundsChecker = false;
-// GLOBAL: WIZ8 0x006505a4
-std::string gzStringDataOverride;
-// GLOBAL: WIZ8 0x006505a8
-bool gfCapturingVideo = false;
-// GLOBAL: WIZ8 0x006f0630
-bool gfApplicationActive = false;
-// GLOBAL: WIZ8 0x006f0628
-bool gfProgramIsRunning = false;
-// GLOBAL: WIZ8 0x006505a9
-bool gfGameInitialized = false;
-// GLOBAL: WIZ8 0x006505ac
-std::string gzErrorMsg;
-// GLOBAL: WIZ8 0x00650dac
-bool gfIgnoreMessages = false;
-
-// FUNCTION: WIZ8 0x00401920
-[[noreturn]] void ShutdownWithErrorBox(std::string_view message)
-{
-    gzErrorMsg = message;
-    gfIgnoreMessages = true;
-    throw std::runtime_error(gzErrorMsg);
-}
-
-namespace {
-bool restore_pending = false;
-}
-
-void HandleGameEvent(const SDL_Event& event)
-{
-    if (event.type == SDL_EVENT_QUIT)
-    {
-        gfProgramIsRunning = false;
-        return;
-    }
-    if (event.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED && ghWindow &&
-        SDL_GetWindowFromEvent(&event) == reinterpret_cast<SDL_Window*>(ghWindow))
-    {
-        gfProgramIsRunning = false;
-        return;
-    }
-    if (gfIgnoreMessages)
-        return;
-    HandleInputEvent(event);
-    if (!ghWindow || SDL_GetWindowFromEvent(&event) != reinterpret_cast<SDL_Window*>(ghWindow))
-        return;
-    switch (event.type)
-    {
-    case SDL_EVENT_WINDOW_RESIZED:
-        if (event.window.data1 > 0 && event.window.data2 > 0)
-            VideoResizeWindow();
-        break;
-    case SDL_EVENT_WINDOW_FOCUS_GAINED:
-        if (restore_pending)
-        {
-            if (!VideoInspectorIsEnabled())
-            {
-                RestoreVideoManager();
-            }
-            MoveTimer(TIMER_RESUME);
-            restore_pending = false;
-        }
-        gfApplicationActive = true;
-        break;
-    case SDL_EVENT_WINDOW_FOCUS_LOST:
-        if (!VideoInspectorIsEnabled())
-            SuspendVideoManager();
-        MoveTimer(TIMER_SUSPEND);
-        gfApplicationActive = false;
-        restore_pending = true;
-        break;
-    }
-}
-bool PumpGameEvents(bool wait)
-{
-    SDL_Event event{};
-    bool received = false;
-    if (wait && SDL_WaitEventTimeout(&event, 10))
-    {
-        HandleGameEvent(event);
-        received = true;
-    }
-    while (SDL_PollEvent(&event))
-    {
-        HandleGameEvent(event);
-        received = true;
-    }
-    return received;
 }

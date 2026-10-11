@@ -307,7 +307,7 @@ unsigned char CampPortraitSlotRegionEvent(const InputEvent* event, W8Region* reg
     const InputEventType us_event = event->type;
     int target_slot = region->callback_id;
 
-    if (us_event <= InputEventType::RightButtonDown) {
+    if (IsLeftButtonEvent(us_event) || us_event == InputEventType::RightButtonDown) {
         if (region->CaptureButtonDown(us_event)) {
             return 1;
         }

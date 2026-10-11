@@ -3,7 +3,9 @@
 #include <catch2/catch_test_macros.hpp>
 #include <SDL3/SDL_events.h>
 #include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_keyboard.h>
 #include <SDL3/SDL_keycode.h>
+#include <SDL3/SDL_scancode.h>
 #include <SDL3/SDL_log.h>
 #include <SDL3/SDL_mouse.h>
 #include <SDL3/SDL_pixels.h>
@@ -28,7 +30,6 @@
 #include <memory>
 #include <string_view>
 #include <system_error>
-#include <utility>
 
 /* Runtime scenarios against installed retail assets.
 
@@ -307,14 +308,21 @@ class Game
         frame();
     }
 
-    void hold_key(SDL_Keycode code, bool down)
+    void send_key(SDL_Scancode scancode, SDL_Keycode code, bool down, SDL_Keymod mod)
     {
         SDL_Event event{};
         event.type = down ? SDL_EVENT_KEY_DOWN : SDL_EVENT_KEY_UP;
         event.key.windowID = SDL_GetWindowID(window_);
+        event.key.scancode = scancode;
         event.key.key = code;
+        event.key.mod = mod;
         event.key.down = down;
         HandleGameEvent(event);
+    }
+
+    void hold_key(SDL_Keycode code, bool down)
+    {
+        send_key(SDL_GetScancodeFromKey(code, nullptr), code, down, SDL_KMOD_NONE);
     }
 
     void key(SDL_Keycode code)
@@ -334,34 +342,40 @@ class Game
     }
 
     /* Presses or releases the key bound to a main-game command, with its
-       modifiers, through the input pipeline (bindings hold virtual-key codes). */
+       modifiers, as SDL key events (bindings hold virtual-key codes). */
     void command_key(W8MGSCommand command, bool down)
     {
         const int index = g_mgs_keyboard ? g_mgs_keyboard->FindBinding(command) : -1;
         const MGSKeyBinding* binding = index >= 0 ? g_mgs_keyboard->GetBinding(index) : nullptr;
         if (!binding || !binding->key)
             Fail("command", "no key bound to command " + std::to_string(int(command)));
-        const std::pair<unsigned short, std::uint32_t> modifiers[] = {
-            {SHIFT_DOWN, VK_SHIFT}, {CTRL_DOWN, VK_CONTROL}, {ALT_DOWN, VK_MENU}};
-        InputState& input = GetInputState();
-        if (down)
-        {
-            input.modifiers = binding->modifiers;
-            for (auto [flag, key] : modifiers)
-                input.keys[key] = (binding->modifiers & flag) != 0;
-            QueueEvent(input.keys[binding->key] ? InputEventType::KeyRepeat : InputEventType::KeyDown,
-                       input.mouse, binding->key);
-            input.keys[binding->key] = true;
-            input.received = true;
+        SDL_Scancode scancode = SDL_SCANCODE_UNKNOWN;
+        for (int candidate = 1; candidate < SDL_SCANCODE_COUNT && scancode == SDL_SCANCODE_UNKNOWN; ++candidate) {
+            const auto code = static_cast<SDL_Scancode>(candidate);
+            if (GameKeyFromSdl(code, SDL_GetKeyFromScancode(code, SDL_KMOD_NONE, false)) == binding->key)
+                scancode = code;
         }
-        else
-        {
-            if (input.keys[binding->key])
-                QueueEvent(InputEventType::KeyUp, input.mouse, binding->key);
-            input.keys[binding->key] = false;
-            input.modifiers = 0;
-            for (auto [flag, key] : modifiers)
-                input.keys[key] = false;
+        if (scancode == SDL_SCANCODE_UNKNOWN)
+            Fail("command", "no SDL key produces virtual key " + std::to_string(binding->key));
+        const struct { unsigned short flag; SDL_Scancode scancode; SDL_Keycode key; SDL_Keymod mod; } modifiers[] = {
+            {SHIFT_DOWN, SDL_SCANCODE_LSHIFT, SDLK_LSHIFT, SDL_KMOD_LSHIFT},
+            {CTRL_DOWN, SDL_SCANCODE_LCTRL, SDLK_LCTRL, SDL_KMOD_LCTRL},
+            {ALT_DOWN, SDL_SCANCODE_LALT, SDLK_LALT, SDL_KMOD_LALT}};
+        SDL_Keymod mod = SDL_KMOD_NONE;
+        for (const auto& modifier : modifiers)
+            if (binding->modifiers & modifier.flag)
+                mod |= modifier.mod;
+        const SDL_Keycode key = SDL_GetKeyFromScancode(scancode, SDL_KMOD_NONE, false);
+        if (down) {
+            for (const auto& modifier : modifiers)
+                if (binding->modifiers & modifier.flag)
+                    send_key(modifier.scancode, modifier.key, true, mod);
+            send_key(scancode, key, true, mod);
+        } else {
+            send_key(scancode, key, false, mod);
+            for (const auto& modifier : modifiers)
+                if (binding->modifiers & modifier.flag)
+                    send_key(modifier.scancode, modifier.key, false, SDL_KMOD_NONE);
         }
     }
 

@@ -5363,7 +5363,7 @@ unsigned char PortraitSelectRegionEvent(const InputEvent* event, W8Region* regio
     }
 
     us_event = event->type;
-    if (us_event <= InputEventType::LeftButtonRepeat) {
+    if (IsLeftButtonEvent(us_event)) {
         if (us_event == InputEventType::LeftButtonRepeat) {
             if (g_level_block->portrait_refresh_pending[slot] == 0 &&
                 g_settings.main_ui_mode != W8_MAIN_UI_MODE_PORTRAITS &&
@@ -5688,7 +5688,7 @@ unsigned char PortraitAssaySidebarRegionEvent(const InputEvent* event, W8Region*
     }
 
     us_event = event->type;
-    if (us_event < InputEventType::RightButtonUp) {
+    if (IsLeftButtonEvent(us_event) || us_event == InputEventType::RightButtonDown) {
         if (region->CaptureButtonDown(us_event)) {
             return 1;
         }
@@ -5876,7 +5876,7 @@ unsigned char RadarMapButtonRegionEvent(const InputEvent* event, W8Region* regio
 {
     const InputEventType us_event = event->type;
 
-    if (us_event <= InputEventType::RightButtonDown) {
+    if (IsLeftButtonEvent(us_event) || us_event == InputEventType::RightButtonDown) {
         if (region->CaptureButtonDown(us_event)) {
             return 1;
         }
@@ -5941,7 +5941,7 @@ unsigned char WorldViewRegionEvent(const InputEvent* event, W8Region* region)
     }
     needed = GetTargetNeededForCurrentAction(g_status.selected_character);
     us_event = event->type;
-    if (us_event > InputEventType::RightButtonDown) {
+    if (!IsLeftButtonEvent(us_event) && us_event != InputEventType::RightButtonDown) {
         if (us_event == InputEventType::RightButtonUp) {
             if (g_mouselook_active && g_settings.mouselook_toggle == 0) {
                 StopWorldMouseLook();
@@ -7948,7 +7948,7 @@ unsigned char DialogueTranscriptRegionEvent(const InputEvent* event, W8Region* r
     bool scrolled;
     short delta;
 
-    if (us_event <= InputEventType::LeftButtonRepeat) {
+    if (IsLeftButtonEvent(us_event)) {
         if (us_event == InputEventType::LeftButtonRepeat || us_event == InputEventType::LeftButtonDown) {
             region->flags |= W8_REGION_LEFT_BUTTON_HELD;
             return 1;
@@ -8015,7 +8015,7 @@ unsigned char CombatBarRegionEvent(const InputEvent* event, W8Region*)
 {
     const InputEventType us_event = event->type;
 
-    if (us_event <= InputEventType::RightButtonDown) {
+    if (IsLeftButtonEvent(us_event) || us_event == InputEventType::RightButtonDown) {
         if (us_event == InputEventType::RightButtonDown || us_event == InputEventType::LeftButtonDown ||
             us_event == InputEventType::LeftButtonUp) {
             goto resume_world;

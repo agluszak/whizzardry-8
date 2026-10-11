@@ -1133,7 +1133,7 @@ unsigned char SpellRealmButtonRegionEvent(const InputEvent* event, W8Region* reg
 {
     const InputEventType us_event = event->type;
 
-    if (us_event <= InputEventType::LeftButtonRepeat) {
+    if (IsLeftButtonEvent(us_event)) {
         if (us_event == InputEventType::LeftButtonRepeat || us_event == InputEventType::LeftButtonDown) {
             gpSCSV->realm_buttons[region->callback_id]->OnLeftButtonDown(0);
             gpSCSV->realm_icons[region->callback_id]->Invalidate(false);
@@ -1187,7 +1187,7 @@ unsigned char SpellPowerPipRegionEvent(const InputEvent* event, W8Region* region
     }
 
     us_event = event->type;
-    if (us_event <= InputEventType::LeftButtonRepeat) {
+    if (IsLeftButtonEvent(us_event)) {
         if (us_event == InputEventType::LeftButtonRepeat || us_event == InputEventType::LeftButtonDown) {
             gpSCSV->power_controls[region->callback_id]->OnLeftButtonDown(0);
             region->flags |= W8_REGION_LEFT_BUTTON_HELD;

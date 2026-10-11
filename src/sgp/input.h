@@ -9,8 +9,10 @@
 #include <cstdint>
 #include <string_view>
 #include <SDL3/SDL_events.h>
+#include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_mouse.h>
 #include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_scancode.h>
 #include <SDL3/SDL_video.h>
 
 /* The SDL3 input pipeline: SDL events update one InputState and queue typed
@@ -65,6 +67,12 @@ enum class InputEventType : std::uint8_t {
     Text,
 };
 
+inline bool IsLeftButtonEvent(InputEventType type)
+{
+    return type == InputEventType::LeftButtonDown || type == InputEventType::LeftButtonUp ||
+           type == InputEventType::LeftButtonDoubleClick || type == InputEventType::LeftButtonRepeat;
+}
+
 struct InputEvent {
     InputEventType type = InputEventType::MouseMove;
     std::uint64_t timestamp = 0;
@@ -113,6 +121,7 @@ bool NativeTextInputEnabled();
 
 /* Key bindings: retail key names, and the US-layout key/character table. */
 std::uint16_t KeyFromBindingName(std::string_view name);
+std::uint16_t GameKeyFromSdl(SDL_Scancode scancode, SDL_Keycode key);
 std::uint16_t TranslateKeyToCharacter(std::uint16_t key, std::uint16_t modifiers);
 std::uint16_t TranslateCharacterToKey(std::uint16_t character);
 
