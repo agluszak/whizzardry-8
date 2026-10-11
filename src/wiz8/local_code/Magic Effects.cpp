@@ -1,4 +1,6 @@
 #include <algorithm>
+#include <iterator>
+#include <utility>
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <vector>
@@ -1188,10 +1190,8 @@ void ApplyRandomAfflictionToTarget(W8SpellEffectEntry* effect)
 
 static void ReportSpellDeaths(W8SpellEffectEntry* effect)
 {
-    W8SpellDamageReport* report;
-
     while (!effect->result.reports.empty()) {
-        report = effect->result.reports[0];
+        auto report = std::move(effect->result.reports.front());
         effect->result.reports.erase(effect->result.reports.begin());
         if (report != 0) {
             if (report->kind == 1) {
@@ -1207,7 +1207,6 @@ static void ReportSpellDeaths(W8SpellEffectEntry* effect)
                         "{} {}!", report->text,
                         g_localized_strings[g_condition_notices[W8_CONDITION_DEAD].singular]));
             }
-            free(report);
         }
     }
 }
@@ -2813,9 +2812,8 @@ void TickRadiusBlastEffectSlots(W8EffectSlot* effect_slots)
                 } else {
                     AppendToLastTextLine(g_localized_strings[0x1a5], -1);
                 }
-                index = static_cast<int>(local_result.reports.size());
-                while (0 < index) {
-                    W8SpellDamageReport* report = local_result.reports[0];
+                while (!local_result.reports.empty()) {
+                    auto report = std::move(local_result.reports.front());
                     local_result.reports.erase(local_result.reports.begin());
                     if (report != 0) {
                         if (report->kind == 1) {
@@ -2833,8 +2831,6 @@ void TickRadiusBlastEffectSlots(W8EffectSlot* effect_slots)
                                     g_localized_strings[g_condition_notices[W8_CONDITION_DEAD]
                                                             .singular]));
                         }
-                        free(report);
-                        index = static_cast<int>(local_result.reports.size());
                     }
                 }
             }
@@ -3578,7 +3574,8 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
 static void QueueCombatDamageReports(W8SpellEffectResult* result)
 {
     auto& queued = g_combat_state->attack_report.reports;
-    queued.insert(queued.end(), result->reports.begin(), result->reports.end());
+    queued.insert(queued.end(), std::make_move_iterator(result->reports.begin()),
+                  std::make_move_iterator(result->reports.end()));
     result->reports.clear();
 }
 
