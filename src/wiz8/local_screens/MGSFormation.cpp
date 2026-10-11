@@ -1,6 +1,5 @@
 #include <array>
 #include <memory>
-#include <optional>
 #include <vector>
 
 #include <SDL3/SDL_rect.h>
@@ -89,31 +88,7 @@ static constexpr std::array<RegionTemplate, 19> g_formation_region_templates{{
     {0x00000001, 0, 0, 0, 0, FormationActionRegionEvent, 2, true, 1983},
     {0x00000001, 214, 60, 427, 303, FormationBackgroundRegionEvent, 0, false, -1},
 }};
-static std::optional<OwnedRegionSet> g_formation_regions;
-
-static OwnedRegionSet& FormationRegions()
-{
-    return g_formation_regions.value();
-}
-
-void InitFormationRegions()
-{
-    if (!g_formation_regions) {
-        g_formation_regions.emplace(g_formation_region_templates);
-    }
-}
-
-void ShutdownFormationRegions()
-{
-    g_formation_regions.reset();
-}
-
-void EnableFormationRegions()
-{
-    if (g_formation_regions) {
-        g_formation_regions->Enable();
-    }
-}
+ScreenRegionSet g_formation_regions{g_formation_region_templates};
 
 static void UpdateFormationCells(void);
 void ResetFormationCellControls(int cell);
@@ -304,7 +279,7 @@ static unsigned char CreateFormationPanel(void)
         int top = g_formation_cell_positions[index].y;
         W8TextControl* cell;
 
-        cell = new W8TextControl(g_formation_panel, FormationRegions().index(index), left, top,
+        cell = new W8TextControl(g_formation_panel, g_formation_regions->index(index), left, top,
                                  left + 0x20,
                                  top + 0x20, 0x9f, 0, -1, -1, -1, -1, -1);
         g_formation_cell_controls[index] = cell;
@@ -323,13 +298,13 @@ static unsigned char CreateFormationPanel(void)
         }
     }
     g_formation_action_buttons[0] = new W8TextControl(
-        g_formation_panel, FormationRegions().index(15), 0x85, 0xcb, 0xa0, 0xe6, 0x8e, 0, 0, -1, 1,
+        g_formation_panel, g_formation_regions->index(15), 0x85, 0xcb, 0xa0, 0xe6, 0x8e, 0, 0, -1, 1,
         2, 3);
     g_formation_action_buttons[1] = new W8TextControl(
-        g_formation_panel, FormationRegions().index(16), 0xa7, 0xcb, 0xc2, 0xe6, 0x8e, 0, 4, -1, 5,
+        g_formation_panel, g_formation_regions->index(16), 0xa7, 0xcb, 0xc2, 0xe6, 0x8e, 0, 4, -1, 5,
         6, 7);
     g_formation_action_buttons[2] = new W8TextControl(
-        g_formation_panel, FormationRegions().index(17), 0xf, 0xcd, 0x29, 0xe7, 0x8f, 0, 0, -1, 1,
+        g_formation_panel, g_formation_regions->index(17), 0xf, 0xcd, 0x29, 0xe7, 0x8f, 0, 0, -1, 1,
         2, 3);
     button = g_formation_action_buttons;
     while (*button != 0) {
@@ -375,7 +350,7 @@ void OpenFormationPanel(void)
         g_formation_drag_slot = -1;
         g_formation_drag_clock = w8_get_ticks() + (0);
         gXStatus.fReviewCharacterMode = true;
-        EnableFormationRegions();
+        g_formation_regions.Enable();
         RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
         CopyPartyFormationState(&gXStatus.edited_formation, &g_status.formation);
         PauseMainGameWorld();
@@ -728,9 +703,7 @@ void CloseFormationPanel(void)
     DestroyFormationPanel();
     gXStatus.fReviewCharacterMode = false;
     UpdateHeldItemCursor();
-    if (g_formation_regions) {
-        g_formation_regions->Disable();
-    }
+    g_formation_regions.Disable();
     RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
     ClearSurfaceRect(0xd6, 0x3c, 0x1ab, 0x12f);
     InvalidateRegion(0xd6, 0x3c, 0x1ab, 0x12f, 0);

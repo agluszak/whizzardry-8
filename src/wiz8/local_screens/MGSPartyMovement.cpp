@@ -3,7 +3,6 @@
 #include <SDL3/SDL_rect.h>
 #include <array>
 #include <cstdint>
-#include <optional>
 #include <vector>
 
 #include "image.h"
@@ -57,31 +56,7 @@ static constexpr std::array<RegionTemplate, 2> g_party_movement_region_templates
     {0x00000001, 0, 0, 0, 0, FreeTurnButtonRegionEvent, 0, true, 37},
     {0x00000001, 0, 0, 0, 0, FreeTurnButtonRegionEvent, 1, true, 38},
 }};
-static std::optional<OwnedRegionSet> g_party_movement_regions;
-
-static OwnedRegionSet& PartyMovementRegions()
-{
-    return g_party_movement_regions.value();
-}
-
-void InitPartyMovementRegions()
-{
-    if (!g_party_movement_regions) {
-        g_party_movement_regions.emplace(g_party_movement_region_templates);
-    }
-}
-
-void ShutdownPartyMovementRegions()
-{
-    g_party_movement_regions.reset();
-}
-
-void EnablePartyMovementRegions()
-{
-    if (g_party_movement_regions) {
-        g_party_movement_regions->Enable();
-    }
-}
+ScreenRegionSet g_party_movement_regions{g_party_movement_region_templates};
 
 // GLOBAL: WIZ8 0x005EECD0
 const float g_movement_fatigue_tick_scale = 0.0004f;
@@ -109,17 +84,17 @@ unsigned char CreatePartyMovementPanel(void)
         new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
 
     g_party_movement_buttons[0] =
-        new W8TextControl(g_party_movement_panel, PartyMovementRegions().index(0), 0x10a, 0, 0x11e,
+        new W8TextControl(g_party_movement_panel, g_party_movement_regions->index(0), 0x10a, 0, 0x11e,
                           0x14, 0x94, 0, 4, 6, 5, 6, 7);
     g_party_movement_buttons[1] =
-        new W8TextControl(g_party_movement_panel, PartyMovementRegions().index(1), 0x10a, 0, 0x11e,
+        new W8TextControl(g_party_movement_panel, g_party_movement_regions->index(1), 0x10a, 0, 0x11e,
                           0x14, 0x94, 0, 4, 6, 5, 6, 7);
 
     if (g_party_movement_panel != 0 && g_party_movement_buttons[0] != 0 &&
         g_party_movement_buttons[1] != 0) {
         g_party_movement_buttons[0]->m_primaryActivationCallback = BeginFreeTurnPhase;
         g_party_movement_buttons[1]->m_primaryActivationCallback = CancelPartyMovement;
-        EnablePartyMovementRegions();
+        g_party_movement_regions.Enable();
         g_party_movement_panel->SetEnabled(true);
         g_party_movement_buttons[0]->SetActive(false);
         gXStatus.fPartyMovementUi = true;
@@ -140,9 +115,7 @@ void ReleasePartyMovement(void)
         InvalidateRegion(0xb1, 0x13f, 0x1cf, 0x153, 0);
     }
     RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
-    if (g_party_movement_regions) {
-        g_party_movement_regions->Disable();
-    }
+    g_party_movement_regions.Disable();
     DestroyControlPanel(g_party_movement_panel);
     for (auto& button : g_party_movement_buttons) button = nullptr;
     if (g_party_movement_caption != 0) {
@@ -155,7 +128,7 @@ void ReleasePartyMovement(void)
 // FUNCTION: WIZ8 0x005A1950
 void UpdatePartyMovementPanel(void)
 {
-    EnablePartyMovementRegions();
+    g_party_movement_regions.Enable();
     if (CanPartyMove()) {
         g_party_movement_buttons[1]->SetActive(true);
         g_party_movement_buttons[0]->SetActive(false);
@@ -297,14 +270,6 @@ void DrawPartyMovementGauge(short right, short image, bool panel_live, int capti
     if (caption != -1) {
         g_party_movement_caption->RenderString(g_localized_strings[caption], g_wiz_text_font_secondary,
                                                false, GetFrameBufferSurface());
-    }
-}
-
-// FUNCTION: WIZ8 0x005A19A0
-void DisablePartyMovementRegions(void)
-{
-    if (g_party_movement_regions) {
-        g_party_movement_regions->Disable();
     }
 }
 

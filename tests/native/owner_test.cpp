@@ -623,6 +623,108 @@ void owned_region_set_templates_and_teardown()
     REQUIRE(LiveDynamicRegionCount() == baseline_region_count);
 }
 
+void region_set_views_share_owned_regions()
+{
+    RegionStateSnapshot saved_state;
+    ResetRegions();
+
+    constexpr std::array<RegionTemplate, 3> templates{{
+        {W8_REGION_RECTANGLE, 10, 10, 30, 30, record_region_event, 21, false, -1},
+        {W8_REGION_RECTANGLE, 40, 10, 60, 30, record_region_event, 22, false, -1},
+        {W8_REGION_RECTANGLE, 70, 10, 90, 30, record_region_event, 23, false, -1},
+    }};
+
+    const auto baseline_region_count = LiveDynamicRegionCount();
+    unsigned int released_view_set;
+    {
+        OwnedRegionSet source(templates);
+        source.Disable();
+        const auto source_index = source.index(0);
+        const auto baseline_with_source = LiveDynamicRegionCount();
+        {
+            RegionSetView view(source, 0, 2);
+            released_view_set = view.set();
+            REQUIRE(g_region_sets[view.set()].Regions().size() == 2);
+            REQUIRE(g_region_sets[view.set()].Regions()[0] == source.index(0));
+            REQUIRE(g_region_sets[view.set()].Regions()[1] == source.index(1));
+
+            view.Enable();
+            region_events.clear();
+            dispatch_mouse(LEFT_BUTTON_DOWN, 15, 15, true);
+            REQUIRE(g_captured_region_index == source.index(0));
+            REQUIRE(std::find(region_events.begin(), region_events.end(),
+                              std::pair<int, int>{21, LEFT_BUTTON_DOWN}) != region_events.end());
+            dispatch_mouse(LEFT_BUTTON_UP, 15, 15);
+
+            region_events.clear();
+            dispatch_mouse(LEFT_BUTTON_DOWN, 45, 15, true);
+            REQUIRE(g_captured_region_index == source.index(1));
+            REQUIRE(std::find(region_events.begin(), region_events.end(),
+                              std::pair<int, int>{22, LEFT_BUTTON_DOWN}) != region_events.end());
+            dispatch_mouse(LEFT_BUTTON_UP, 45, 15);
+
+            region_events.clear();
+            dispatch_mouse(LEFT_BUTTON_DOWN, 75, 15, true);
+            REQUIRE(std::none_of(region_events.begin(), region_events.end(),
+                                 [](const auto& event) { return event.first == 23; }));
+        }
+
+        REQUIRE(source.index(0) == source_index);
+        REQUIRE(source[0].callback == record_region_event);
+        REQUIRE(source[0].callback_id == 21);
+        REQUIRE(LiveDynamicRegionCount() == baseline_with_source);
+
+        source.Enable();
+        region_events.clear();
+        dispatch_mouse(LEFT_BUTTON_DOWN, 15, 15, true);
+        REQUIRE(std::find(region_events.begin(), region_events.end(),
+                          std::pair<int, int>{21, LEFT_BUTTON_DOWN}) != region_events.end());
+        dispatch_mouse(LEFT_BUTTON_UP, 15, 15);
+
+        {
+            RegionSetView reused_view(source, 0, 2);
+            REQUIRE(reused_view.set() == released_view_set);
+        }
+        REQUIRE(LiveDynamicRegionCount() == baseline_with_source);
+    }
+
+    REQUIRE(LiveDynamicRegionCount() == baseline_region_count);
+}
+
+void screen_region_set_lifecycle()
+{
+    RegionStateSnapshot saved_state;
+    ResetRegions();
+
+    constexpr std::array<RegionTemplate, 1> templates{{
+        {W8_REGION_RECTANGLE, 10, 10, 30, 30, record_region_event, 31, false, -1},
+    }};
+
+    const auto baseline_region_count = LiveDynamicRegionCount();
+    ScreenRegionSet regions{templates};
+    regions.Enable();
+    regions.Disable();
+    REQUIRE_FALSE(regions);
+
+    regions.Create();
+    REQUIRE(regions);
+    const auto set = regions->set();
+    const auto region_index = regions->index(0);
+    REQUIRE(LiveDynamicRegionCount() == baseline_region_count + 1);
+
+    regions.Create();
+    REQUIRE(regions->set() == set);
+    REQUIRE(regions->index(0) == region_index);
+
+    regions.Disable();
+    REQUIRE_FALSE(regions->IsEnabled());
+    regions.Enable();
+    REQUIRE(regions->IsEnabled());
+    regions.Destroy();
+    REQUIRE_FALSE(regions);
+    REQUIRE(LiveDynamicRegionCount() == baseline_region_count);
+}
+
 void region_registration_and_callback_lifetimes()
 {
     const auto set = new_test_region_set();
@@ -1682,6 +1784,16 @@ TEST_CASE("Owned regions use SDL click counts", "[owner]")
 TEST_CASE("Owned region sets copy templates and release dynamic slots", "[owner]")
 {
     owned_region_set_templates_and_teardown();
+}
+
+TEST_CASE("Region set views share owned regions", "[owner]")
+{
+    region_set_views_share_owned_regions();
+}
+
+TEST_CASE("Screen region sets follow their screen lifecycle", "[owner]")
+{
+    screen_region_set_lifecycle();
 }
 
 TEST_CASE("assert-plain", "[.death]")

@@ -91,31 +91,7 @@ static constexpr std::array<RegionTemplate, 14> g_keyboard_menu_region_templates
     {0x00000001, 0, 0, 0, 0, KeyboardMenuRowRegionEvent, 12, true, -1},
     {0x00000001, 0, 0, 0, 0, KeyboardMenuBackgroundRegionEvent, 0, false, -1},
 }};
-static std::optional<OwnedRegionSet> g_keyboard_menu_regions;
-
-static OwnedRegionSet& KeyboardMenuRegions()
-{
-    return g_keyboard_menu_regions.value();
-}
-
-void InitKeyboardMenuRegions()
-{
-    if (!g_keyboard_menu_regions) {
-        g_keyboard_menu_regions.emplace(g_keyboard_menu_region_templates);
-    }
-}
-
-void ShutdownKeyboardMenuRegions()
-{
-    g_keyboard_menu_regions.reset();
-}
-
-void EnableKeyboardMenuRegions()
-{
-    if (g_keyboard_menu_regions) {
-        g_keyboard_menu_regions->Enable();
-    }
-}
+ScreenRegionSet g_keyboard_menu_regions{g_keyboard_menu_region_templates};
 
 // FUNCTION: WIZ8 0x0055d260
 int MGSKeyboard::FindBinding(W8MGSCommand command) const
@@ -767,8 +743,8 @@ void CloseKeyboardMenu(void)
     } else {
         DisableMainRegionSet();
     }
+    g_keyboard_menu_regions.Disable();
     if (g_keyboard_menu_regions) {
-        g_keyboard_menu_regions->Disable();
         DisableRegionSetInput(g_keyboard_menu_regions->set());
     }
     if (g_level_block->portrait_refresh_pending[g_selected_party_slot] == 0) {
@@ -805,7 +781,7 @@ unsigned char BuildKeyboardMenu(void)
     if (g_keyboard_menu_panel == 0) {
         return 0;
     }
-    SetRegionBounds(KeyboardMenuRegions().index(13), left, top, left + 0x52, top + 0x4a);
+    SetRegionBounds(g_keyboard_menu_regions->index(13), left, top, left + 0x52, top + 0x4a);
     row = 0;
     for (menu = 0; menu < 4; ++menu) {
         for (item = 0; item < 5; ++item) {
@@ -814,7 +790,7 @@ unsigned char BuildKeyboardMenu(void)
                 continue;
             }
             control = new W8TextControl(
-                g_keyboard_menu_panel, KeyboardMenuRegions().index(row),
+                g_keyboard_menu_panel, g_keyboard_menu_regions->index(row),
                 g_keyboard_row_positions[row].x,
                 g_keyboard_row_positions[row].y, g_keyboard_row_positions[row].x + 0x12,
                 g_keyboard_row_positions[row].y + 0x12, 0x89, 0, -1, -1, -1, -1, message + 6);
@@ -828,18 +804,18 @@ unsigned char BuildKeyboardMenu(void)
             control->m_secondaryActivationCallback = CloseKeyboardMenu;
             g_keyboard_menu_pages[row] = menu;
             g_keyboard_menu_items[row] = item;
-            SetRegionHelp(KeyboardMenuRegions().index(row), true,
+            SetRegionHelp(g_keyboard_menu_regions->index(row), true,
                           g_submenu_entry_help_ids[menu * 5 + item]);
             ++row;
         }
     }
     g_keyboard_menu_rows[row] = new W8TextControl(
-        g_keyboard_menu_panel, KeyboardMenuRegions().index(row), g_keyboard_row_positions[row].x,
+        g_keyboard_menu_panel, g_keyboard_menu_regions->index(row), g_keyboard_row_positions[row].x,
         g_keyboard_row_positions[row].y, g_keyboard_row_positions[row].x + 0x12,
         g_keyboard_row_positions[row].y + 0x12, 0x89, 0, 0xbd, 0xbd, 0xbf, 0xbf, -1);
     g_keyboard_menu_rows[row]->m_primaryActivationCallback = CloseKeyboardMenu;
     g_keyboard_menu_rows[row]->m_secondaryActivationCallback = CloseKeyboardMenu;
-    SetRegionHelp(KeyboardMenuRegions().index(row), true, 0x11);
+    SetRegionHelp(g_keyboard_menu_regions->index(row), true, 0x11);
     g_keyboard_menu_panel->SetEnabled(true);
     RefreshKeyboardMenuRows();
     return 1;
@@ -850,10 +826,10 @@ void EnableKeyboardMenuInput(void)
 {
     int index;
 
-    EnableKeyboardMenuRegions();
-    EnableRegionInput(KeyboardMenuRegions().index(13));
+    g_keyboard_menu_regions.Enable();
+    EnableRegionInput(g_keyboard_menu_regions->index(13));
     for (index = 0; index < 13; ++index) {
-        EnableRegionInput(KeyboardMenuRegions().index(index));
+        EnableRegionInput(g_keyboard_menu_regions->index(index));
     }
 }
 

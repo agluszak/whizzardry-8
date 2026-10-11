@@ -2,6 +2,7 @@
 #include <SDL3/SDL_surface.h>
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <fmt/format.h>
 #include <string_view>
 #include <SDL3/SDL_rect.h>
@@ -62,6 +63,30 @@
 W8MainGameScreen* g_main_game_screen;
 
 #define MGS_TEXT_BOX_CPP "C:\\Projects\\Wizardry 8\\Local Screens\\MGSTextBox.cpp"
+
+namespace {
+
+// Retail set 0x14, regions 82-89.
+constexpr std::array<RegionTemplate, 8> kTextBoxRegionTemplates{{
+    {0x00000001, 457, 363, 472, 378, TextBoxScrollUpRegionEvent, 0, false, -1},
+    {0x00000001, 457, 429, 472, 444, TextBoxScrollDownRegionEvent, 0, false, -1},
+    {0x00000001, 461, 379, 468, 428, TextBoxScrollThumbRegionEvent, 0, false, -1},
+    {0x00000001, 166, 362, 456, 445, TextBoxBodyRegionEvent, 0, false, -1},
+    {0x00000001, 140, 362, 163, 377, TextBoxChannelTabRegionEvent, 0, true, 33},
+    {0x00000001, 140, 383, 163, 398, TextBoxChannelTabRegionEvent, 1, true, 34},
+    {0x00000001, 140, 404, 163, 419, TextBoxChannelTabRegionEvent, 3, true, 35},
+    {0x00000001, 128, 358, 511, 450, TextBoxMuteRegionEvent, 0, false, -1},
+}};
+
+std::size_t TextBoxRegionOffset(TextBoxRegion region)
+{
+    return static_cast<std::size_t>(region);
+}
+
+} // namespace
+
+ScreenRegionSet g_text_box_regions{kTextBoxRegionTemplates};
+std::optional<RegionSetView> g_dialogue_text_box_region_view;
 
 /* The TEXT chunk's 0x24-byte form is separate from the live message record:
    its first word is a UTF-16 unit count. The obsolete list-pointer word
@@ -179,8 +204,8 @@ void ResetEditorStatusLine(short line)
     g_level_block->text_lines[4 + line] = -1;
     g_level_block->hovered_text_lines[line] = -1;
     g_level_block->selected_text_lines[line] = -1;
-    g_level_block->text_content_region = 0x56;
-    g_level_block->dialogue_content_region = 0x59;
+    g_level_block->text_content_region = static_cast<int>(TextBoxRegion::ChannelTab1);
+    g_level_block->dialogue_content_region = static_cast<int>(TextBoxRegion::Mute);
     g_level_block->dialogue_text_input_open = false;
     RedrawTextBox();
 }
@@ -262,8 +287,49 @@ static void NoticeDialogDestroyed(W8DialogBase*)
     }
 }
 
-/* Store the dialogue text-box rectangle and re-seat region 0x55 plus the three
-   scrollbar hit regions that hang off its right edge. */
+void InitTextBoxRegions()
+{
+    g_text_box_regions.Create();
+    if (!g_dialogue_text_box_region_view) {
+        g_dialogue_text_box_region_view.emplace(*g_text_box_regions, 0, 4);
+    }
+}
+
+void ShutdownTextBoxRegions()
+{
+    g_dialogue_text_box_region_view.reset();
+    g_text_box_regions.Destroy();
+}
+
+static void SetTextBoxRegionInput(TextBoxRegion first, std::size_t count, bool enabled)
+{
+    if (!g_text_box_regions) return;
+    for (std::size_t offset = 0; offset < count; ++offset) {
+        const auto index = g_text_box_regions->index(TextBoxRegionOffset(first) + offset);
+        if (enabled) {
+            EnableRegionInput(index);
+        } else {
+            DisableRegionInput(index);
+        }
+    }
+}
+
+void SetTextBoxScrollInput(bool enabled)
+{
+    SetTextBoxRegionInput(TextBoxRegion::ScrollUp, 4, enabled);
+}
+
+void SetTextBoxChannelTabInput(bool enabled)
+{
+    SetTextBoxRegionInput(TextBoxRegion::ChannelTab1, 3, enabled);
+}
+
+void SetTextBoxMuteInput(bool enabled)
+{
+    SetTextBoxRegionInput(TextBoxRegion::Mute, 1, enabled);
+}
+
+/* Store the dialogue text-box rectangle and re-seat its body and scroll regions. */
 // FUNCTION: WIZ8 0x0058FA90
 void SetTextBoxRegionBounds(int left, int top, int right, int bottom)
 {
@@ -273,14 +339,19 @@ void SetTextBoxRegionBounds(int left, int top, int right, int bottom)
     g_level_block->text_box_top = top;
     g_level_block->text_box_right = right;
     g_level_block->text_box_bottom = bottom;
+    if (!g_text_box_regions) return;
     right_u = static_cast<unsigned short>(right);
-    SetRegionBounds(0x55, static_cast<unsigned short>(left), static_cast<unsigned short>(top),
-                    right_u, static_cast<unsigned short>(bottom));
-    SetRegionBounds(0x52, static_cast<unsigned short>(right_u + 5), 0x16b,
+    SetRegionBounds(g_text_box_regions->index(TextBoxRegionOffset(TextBoxRegion::Body)),
+                    static_cast<unsigned short>(left), static_cast<unsigned short>(top), right_u,
+                    static_cast<unsigned short>(bottom));
+    SetRegionBounds(g_text_box_regions->index(TextBoxRegionOffset(TextBoxRegion::ScrollUp)),
+                    static_cast<unsigned short>(right_u + 5), 0x16b,
                     static_cast<unsigned short>(right_u + 0x14), 0x17a);
-    SetRegionBounds(0x53, static_cast<unsigned short>(right_u + 5), 0x1ad,
+    SetRegionBounds(g_text_box_regions->index(TextBoxRegionOffset(TextBoxRegion::ScrollDown)),
+                    static_cast<unsigned short>(right_u + 5), 0x1ad,
                     static_cast<unsigned short>(right_u + 0x14), 0x1bc);
-    SetRegionBounds(0x54, static_cast<unsigned short>(right_u + 9), 0x17b,
+    SetRegionBounds(g_text_box_regions->index(TextBoxRegionOffset(TextBoxRegion::ScrollThumb)),
+                    static_cast<unsigned short>(right_u + 9), 0x17b,
                     static_cast<unsigned short>(right_u + 0x10), 0x1ac);
 }
 
@@ -835,11 +906,14 @@ void ScrollTextBoxTo(int line)
         g_level_block->text_lines[text_box] = (count - visible) + input_lines;
     }
     if (g_level_block->text_lines[text_box] != previous) {
-        g_level_block->text_content_region = (g_level_block->text_lines[text_box] != 0) + 0x56;
+        g_level_block->text_content_region = static_cast<int>(
+            g_level_block->text_lines[text_box] != 0 ? TextBoxRegion::ChannelTab2
+                                                     : TextBoxRegion::ChannelTab1);
         g_level_block->dialogue_content_region =
-            (g_level_block->text_lines[text_box] + GetTextBoxVisibleLineCount() <
-             count + input_lines) +
-            0x59;
+            g_level_block->text_lines[text_box] + GetTextBoxVisibleLineCount() <
+                    count + input_lines
+                ? 0x5a
+                : static_cast<int>(TextBoxRegion::Mute);
         RedrawTextBox();
     }
 }
@@ -868,7 +942,7 @@ void ScrollTextBoxUp(int lines)
         g_level_block->dialogue_content_region = 0x5a;
     }
     if (current == 0) {
-        g_level_block->text_content_region = 0x56;
+        g_level_block->text_content_region = static_cast<int>(TextBoxRegion::ChannelTab1);
     }
     RedrawTextBox();
 }
@@ -895,10 +969,10 @@ void ScrollTextBoxDown(int lines)
         return;
     }
     if (current != 0) {
-        g_level_block->text_content_region = 0x57;
+        g_level_block->text_content_region = static_cast<int>(TextBoxRegion::ChannelTab2);
     }
     if (current + visible >= count) {
-        g_level_block->dialogue_content_region = 0x59;
+        g_level_block->dialogue_content_region = static_cast<int>(TextBoxRegion::Mute);
     }
     RedrawTextBox();
 }
@@ -1109,11 +1183,17 @@ unsigned char TextBoxScrollThumbRegionEvent(const InputAtom* input_event, W8Regi
     }
     if (gfLeftButtonState == 0) {
         g_level_block->text_scroll_drag_idle = 1;
-        ClearActiveRegionIfMatches(0x54);
+        if (g_text_box_regions) {
+            ClearActiveRegionIfMatches(
+                g_text_box_regions->index(TextBoxRegionOffset(TextBoxRegion::ScrollThumb)));
+        }
         return 0;
     }
 
-    ActivateDialogRegion(0x54);
+    if (g_text_box_regions) {
+        ActivateDialogRegion(
+            g_text_box_regions->index(TextBoxRegionOffset(TextBoxRegion::ScrollThumb)));
+    }
     int position = GetAtomCursorY(input_event) - region->y1 - 1;
     if (position < 0) {
         position = 0;
@@ -1128,8 +1208,10 @@ unsigned char TextBoxScrollThumbRegionEvent(const InputAtom* input_event, W8Regi
     g_level_block->text_lines[text_box] = (line_count - visible_lines) * position / 0x2f;
     unsigned int current = g_level_block->text_lines[text_box];
     if (current != previous) {
-        g_level_block->text_content_region = current != 0 ? 0x57 : 0x56;
-        g_level_block->dialogue_content_region = current + visible_lines < line_count ? 0x5a : 0x59;
+        g_level_block->text_content_region =
+            static_cast<int>(current != 0 ? TextBoxRegion::ChannelTab2 : TextBoxRegion::ChannelTab1);
+        g_level_block->dialogue_content_region =
+            current + visible_lines < line_count ? 0x5a : static_cast<int>(TextBoxRegion::Mute);
         RedrawTextBox();
     }
     g_level_block->text_scroll_drag_idle = 0;
@@ -1166,11 +1248,11 @@ unsigned char TextBoxScrollUpRegionEvent(const InputAtom* event, W8Region* regio
             if ((region->flags & W8_REGION_MOUSE_LEAVE) == 0) {
                 if ((region->flags & W8_REGION_MOUSE_ENTER) != 0 &&
                     g_level_block->text_lines[text_box] != 0) {
-                    g_level_block->text_content_region = 0x58;
+                    g_level_block->text_content_region = static_cast<int>(TextBoxRegion::ChannelTab3);
                     RedrawTextBox();
                 }
             } else if (g_level_block->text_lines[text_box] != 0) {
-                g_level_block->text_content_region = 0x57;
+                g_level_block->text_content_region = static_cast<int>(TextBoxRegion::ChannelTab2);
                 RedrawTextBox();
                 return 0;
             }
@@ -1287,9 +1369,9 @@ unsigned char TextBoxChannelTabRegionEvent(const InputAtom* event, W8Region* reg
 
     short text_box = g_status.text_line_cursor;
     if (g_level_block->text_lines[text_box] == 0) {
-        g_level_block->text_content_region = 0x56;
+        g_level_block->text_content_region = static_cast<int>(TextBoxRegion::ChannelTab1);
     } else {
-        g_level_block->text_content_region = 0x57;
+        g_level_block->text_content_region = static_cast<int>(TextBoxRegion::ChannelTab2);
     }
 
     unsigned int visible = GetTextBoxVisibleLineCount();
@@ -1299,7 +1381,7 @@ unsigned char TextBoxChannelTabRegionEvent(const InputAtom* event, W8Region* reg
         g_level_block->dialogue_content_region = 0x5a;
     } else {
         if (scroll + visible >= count) {
-            g_level_block->dialogue_content_region = 0x59;
+            g_level_block->dialogue_content_region = static_cast<int>(TextBoxRegion::Mute);
         }
     }
 
@@ -1581,20 +1663,21 @@ void RedrawTextBoxScrollChrome(void)
         text_box = g_status.text_line_cursor;
         scroll = g_level_block->text_lines[text_box];
         if (scroll == 0) {
-            g_level_block->text_content_region = 0x56;
-        } else if (g_level_block->text_content_region == 0x56) {
-            g_level_block->text_content_region = 0x57;
+            g_level_block->text_content_region = static_cast<int>(TextBoxRegion::ChannelTab1);
+        } else if (g_level_block->text_content_region ==
+                   static_cast<int>(TextBoxRegion::ChannelTab1)) {
+            g_level_block->text_content_region = static_cast<int>(TextBoxRegion::ChannelTab2);
         }
 
         switch (g_level_block->text_content_region) {
-        case 0x57:
+        case static_cast<int>(TextBoxRegion::ChannelTab2):
             DrawCatalogImage(GetFrameBufferSurface(), 0x86, 0, 0, g_level_block->text_box_right + 5, 0x16b);
             break;
-        case 0x58:
+        case static_cast<int>(TextBoxRegion::ChannelTab3):
             DrawCatalogImage(GetFrameBufferSurface(), 0x86, 0, 1, g_level_block->text_box_right + 5, 0x16b);
             break;
         case -1:
-        case 0x56:
+        case static_cast<int>(TextBoxRegion::ChannelTab1):
             DrawCatalogImage(GetFrameBufferSurface(), 0x86, 0, 3, g_level_block->text_box_right + 5, 0x16b);
             g_level_block->text_content_region = -1;
             break;
@@ -1603,11 +1686,12 @@ void RedrawTextBoxScrollChrome(void)
         line_count = GetTextBoxLineCount(text_box);
         visible = GetTextBoxVisibleLineCount();
         if (scroll + static_cast<unsigned int>(visible) < line_count) {
-            if (g_level_block->dialogue_content_region == 0x59) {
+            if (g_level_block->dialogue_content_region ==
+                static_cast<int>(TextBoxRegion::Mute)) {
                 g_level_block->dialogue_content_region = 0x5a;
             }
         } else {
-            g_level_block->dialogue_content_region = 0x59;
+            g_level_block->dialogue_content_region = static_cast<int>(TextBoxRegion::Mute);
         }
 
         switch (g_level_block->dialogue_content_region) {
@@ -1618,7 +1702,7 @@ void RedrawTextBoxScrollChrome(void)
             DrawCatalogImage(GetFrameBufferSurface(), 0x86, 0, 9, g_level_block->text_box_right + 5, 0x1ad);
             break;
         case -1:
-        case 0x59:
+        case static_cast<int>(TextBoxRegion::Mute):
             DrawCatalogImage(GetFrameBufferSurface(), 0x86, 0, 0xb, g_level_block->text_box_right + 5, 0x1ad);
             g_level_block->dialogue_content_region = -1;
             break;
@@ -1738,9 +1822,9 @@ void SelectTextBox(short text_box)
     g_status.text_line_cursor = text_box;
     RedrawTextBox();
     if (g_level_block->text_lines[text_box] != 0) {
-        g_level_block->text_content_region = 0x57;
+        g_level_block->text_content_region = static_cast<int>(TextBoxRegion::ChannelTab2);
     } else {
-        g_level_block->text_content_region = 0x56;
+        g_level_block->text_content_region = static_cast<int>(TextBoxRegion::ChannelTab1);
     }
 
     bool can_scroll;
@@ -1753,7 +1837,8 @@ void SelectTextBox(short text_box)
                      g_level_block->dialogue_text_input->line_count +
                          g_status.text_box_lines_shown[text_box];
     }
-    g_level_block->dialogue_content_region = can_scroll ? 0x5a : 0x59;
+    g_level_block->dialogue_content_region =
+        can_scroll ? 0x5a : static_cast<int>(TextBoxRegion::Mute);
 }
 
 static void SelectWrappedTextLine(int line, int box, int (&selection)[4])

@@ -4,10 +4,12 @@
 #include <cstddef>
 #include <vector>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <string_view>
 
 #include "input.h"
+#include "wiz8/regions.h"
 
 struct W8MonsterInfo;
 namespace wiz8 { class File; }
@@ -51,6 +53,25 @@ struct W8MessageStorageRecord {
 
 
 extern W8MessageStorageRecord g_message_storage[4][0x15e];
+
+enum class TextBoxRegion : std::size_t {
+    ScrollUp,
+    ScrollDown,
+    ScrollThumb,
+    Body,
+    ChannelTab1,
+    ChannelTab2,
+    ChannelTab3,
+    Mute
+};
+
+void InitTextBoxRegions();
+void ShutdownTextBoxRegions();
+extern ScreenRegionSet g_text_box_regions;
+extern std::optional<RegionSetView> g_dialogue_text_box_region_view;
+void SetTextBoxScrollInput(bool enabled);
+void SetTextBoxChannelTabInput(bool enabled);
+void SetTextBoxMuteInput(bool enabled);
 
 /* Reset one editor status line; -1 selects the current line. */
 void ResetEditorStatusLine(short line);

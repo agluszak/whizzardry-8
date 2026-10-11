@@ -6,6 +6,13 @@
 #include <string>
 
 void SyncNpcDialogueTranscriptScrollButtons();
+class ScreenRegionSet;
+extern ScreenRegionSet g_npc_dialogue_transcript_panel_regions;
+extern ScreenRegionSet g_npc_dialogue_trade_panel_regions;
+extern ScreenRegionSet g_npc_dialogue_options_panel_regions;
+extern ScreenRegionSet g_npc_quote_bubble_regions;
+void ShowNpcQuoteBubbleRegion(int x1, int y1, int x2, int y2);
+void HideNpcQuoteBubbleRegion();
 
 #include "input.h"
 #include "wiz8/layouts/item_instance.h"

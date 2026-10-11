@@ -9,6 +9,7 @@
 #include "compat/compiler.h"
 
 class srVector2i;
+class ScreenRegionSet;
 namespace wiz8 { class File; }
 
 #pragma pack(push, 1)
@@ -63,9 +64,7 @@ extern W8TextControl* g_keyboard_menu_rows[13];
 extern srVector2i g_keyboard_row_positions[13];
 
 void ResetMGSKeyboardBindings();
-void InitKeyboardMenuRegions(void);
-void ShutdownKeyboardMenuRegions(void);
-void EnableKeyboardMenuRegions(void);
+extern ScreenRegionSet g_keyboard_menu_regions;
 
 /* Discard every queued input atom (screen-entry stale-input flush). */
 void DrainInputEventQueue(void);

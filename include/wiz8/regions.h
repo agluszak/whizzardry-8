@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <deque>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -58,6 +59,7 @@ struct W8RegionSet {
     std::span<const unsigned int> Regions() const { return {region_ids.data(), active_count}; }
     void Reset() { active_count = 0; }
     unsigned int AddRegion(int priority = 0);
+    void AttachRegion(unsigned int region_index);
     bool RemoveRegion(unsigned int region_index);
 
 private:
@@ -177,11 +179,48 @@ public:
     unsigned int index(std::size_t index) const { return regions_.at(index).index(); }
     void Enable();
     void Disable();
+    void EnableInput();
+    void DisableInput();
     bool IsEnabled() const;
 
 private:
     unsigned int set_ = 0;
     std::vector<OwnedRegion> regions_;
+};
+
+// An owned region set over a constexpr template table, created and destroyed with its screen.
+class ScreenRegionSet {
+public:
+    explicit ScreenRegionSet(std::span<const RegionTemplate> templates) : templates_(templates) {}
+    void Create();
+    void Destroy();
+    explicit operator bool() const { return set_.has_value(); }
+    OwnedRegionSet& operator*() { return set_.value(); }
+    OwnedRegionSet* operator->() { return &set_.value(); }
+    void Enable();
+    void Disable();
+
+private:
+    std::span<const RegionTemplate> templates_;
+    std::optional<OwnedRegionSet> set_;
+};
+
+// A second region set over regions owned by an OwnedRegionSet. It never owns or frees regions.
+// Destroy it before its source.
+class RegionSetView {
+public:
+    RegionSetView(const OwnedRegionSet& source, std::size_t first, std::size_t count);
+    ~RegionSetView();
+    RegionSetView(const RegionSetView&) = delete;
+    RegionSetView& operator=(const RegionSetView&) = delete;
+
+    unsigned int set() const { return set_; }
+    void Enable();
+    void Disable();
+    bool IsEnabled() const;
+
+private:
+    unsigned int set_ = 0;
 };
 
 class ExclusiveRegionSet {

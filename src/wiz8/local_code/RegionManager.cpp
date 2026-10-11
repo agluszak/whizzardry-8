@@ -45,7 +45,7 @@
 enum { W8_SCREEN_WIDTH = 640, W8_SCREEN_HEIGHT = 480, W8_HELP_MARGIN = 2 };
 enum { W8_REGION_MODE_MASK = 0xf };
 
-/* The retail catalog retains 51 set slots and 313 region slots, including
+/* The retail catalog retains 51 set slots and 313 region slots, with
    placeholders for screen-owned regions. Dynamic controls append after it;
    region zero is the template copied into each appended record. */
 // GLOBAL: WIZ8 0x0061f238
@@ -53,13 +53,16 @@ std::deque<W8RegionSet> g_region_sets = {
     {0, 0, 0},     {0, 1, 6},     {0, 8, 8},     {0, 9, 9},     {0, 10, 17},   {0, 18, 25},
     {0, 26, 33},   {0, 34, 39},   {0, 40, 45},   {0, 46, 51},   {0, 52, 57},   {0, 58, 63},
     {0, 64, 69},   {0, 70, 75},   {0, 76, 81},   {0, 34, 81},   {0, 90, 97},   {0, 90, 97},
-    {0, 98, 98},   {0, 99, 100},  {0, 82, 89},   {0, 82, 85},   {0, 101, 115}, {0, 116, 129},
-    {0, 130, 138},
+    {0, 98, 98},   {0, 99, 100},
+    // Sets 0x14-0x18 moved to text-box and NPC-dialogue owners.
+    {0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0},
     // Sets 0x19-0x1c moved to main-game subscreen owners.
     {0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0},
     {0, 302, 302},
     {0, 303, 303}, {0, 304, 304}, {0, 305, 305}, {0, 306, 306}, {0, 307, 307}, {0, 308, 308},
-    {0, 309, 309}, {0, 310, 310},
+    {0, 309, 309},
+    // Set 0x25 moved to the NPC quote-bubble owner.
+    {0, 0, 0},
     // Set 0x26 moved to the keyboard-menu owner.
     {0, 0, 0}, {0, 194, 199}, {0, 205, 230}, {0, 231, 243},
     {0, 244, 263}, {0, 264, 280}, {0, 281, 286}, {0, 287, 291}, {0, 292, 299}, {0, 300, 300},
@@ -185,14 +188,15 @@ std::deque<W8Region> g_regions = {
     {0x00000001, 621, 295, 635, 343, PortraitAssaySidebarRegionEvent, 7, true, 0, 28, 0},
 
     {0x00000001, 517, 295, 531, 343, PortraitOverlayHoverRegionEvent, 7, true, 0, 24, 0},
-    {0x00000001, 457, 363, 472, 378, TextBoxScrollUpRegionEvent, 0, false, 0, -1, 0},
-    {0x00000001, 457, 429, 472, 444, TextBoxScrollDownRegionEvent, 0, false, 0, -1, 0},
-    {0x00000001, 461, 379, 468, 428, TextBoxScrollThumbRegionEvent, 0, false, 0, -1, 0},
-    {0x00000001, 166, 362, 456, 445, TextBoxBodyRegionEvent, 0, false, 0, -1, 0},
-    {0x00000001, 140, 362, 163, 377, TextBoxChannelTabRegionEvent, 0, true, 0, 33, 0},
-    {0x00000001, 140, 383, 163, 398, TextBoxChannelTabRegionEvent, 1, true, 0, 34, 0},
-    {0x00000001, 140, 404, 163, 419, TextBoxChannelTabRegionEvent, 3, true, 0, 35, 0},
-    {0x00000001, 128, 358, 511, 450, TextBoxMuteRegionEvent, 0, false, 0, -1, 0},
+    // Moved to MGSTextBox.cpp (retail set 0x14, regions 82-89).
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
 
     {0x00000001, 0, 18, 21, 102, PortraitSelectRegionEvent, 0, true, 0, -1, 0},
     {0x00000001, 617, 18, 639, 102, PortraitSelectRegionEvent, 1, true, 0, -1, 0},
@@ -208,57 +212,45 @@ std::deque<W8Region> g_regions = {
 
     {0x00000002, 564, 402, 40, 0, FormationBoardRegionEvent, 0, true, 0, 32, 0},
     {0x00000001, 512, 358, 617, 450, TextBoxMuteRegionEvent, 0, false, 0, -1, 0},
-    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 9, false, 0, -1, 0},
-
-    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 10, false, 0, -1, 0},
-    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 11, false, 0, -1, 0},
-    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 12, false, 0, -1, 0},
-
-    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 13, false, 0, -1, 0},
-    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 14, false, 0, -1, 0},
-    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 15, false, 0, -1, 0},
-
-    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 16, false, 0, -1, 0},
-    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 17, false, 0, -1, 0},
-    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 18, false, 0, -1, 0},
-
-    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 19, false, 0, -1, 0},
-    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 20, false, 0, -1, 0},
-    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 21, false, 0, -1, 0},
-
-    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 22, false, 0, -1, 0},
-    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 23, false, 0, -1, 0},
-    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 24, false, 0, -1, 0},
-
-    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 25, false, 0, -1, 0},
-    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 26, false, 0, -1, 0},
-    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 27, false, 0, -1, 0},
-
-    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 28, false, 0, -1, 0},
-    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 29, false, 0, -1, 0},
-    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 30, false, 0, -1, 0},
-
-    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 31, false, 0, -1, 0},
-    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 32, false, 0, -1, 0},
-    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 33, false, 0, -1, 0},
-
-    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 34, false, 0, -1, 0},
-    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 35, false, 0, -1, 0},
-    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 36, false, 0, -1, 0},
-
-    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 37, false, 0, 0, 0},
-    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 1, false, 0, -1, 0},
-    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 2, false, 0, -1, 0},
-
-    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 3, false, 0, -1, 0},
-    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 4, false, 0, -1, 0},
-    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 5, false, 0, -1, 0},
-
-    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 6, false, 0, -1, 0},
-    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 7, false, 0, -1, 0},
-    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 8, false, 0, -1, 0},
-
-    {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 39, false, 0, 0, 0},
+    // Moved to NPCInteractionSubscreen.cpp (retail sets 0x16-0x18, regions 101-138).
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
     // Moved to MGSSpellCasting.cpp (retail set 0x19, regions 139-155).
     {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
     {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
@@ -492,7 +484,8 @@ std::deque<W8Region> g_regions = {
     {0x00000001, 0, 0, 0, 0, PartyPortraitEventRegionEvent, 6, false, 0, -1, 0},
 
     {0x00000001, 0, 0, 0, 0, PartyPortraitEventRegionEvent, 7, false, 0, -1, 0},
-    {0x00000001, 0, 0, 0, 0, NpcQuoteBubbleRegionEvent, 0, false, 0, -1, 0},
+    // Moved to NPCInteractionSubscreen.cpp (retail set 0x25, region 310).
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
     {0x00000001, 0, 0, 0, 0, CombatBarRegionEvent, 0, false, 0, -1, 0},
     {0x00000001, 0, 0, 0, 0, ConsumeRegionInput, 0, false, 0, -1, 0},
 };
@@ -1295,6 +1288,19 @@ unsigned int CreateRegionSet(void)
     return static_cast<unsigned int>(g_region_sets.size() - 1);
 }
 
+static void ReleaseRegionSetSlot(unsigned int region_set_index)
+{
+    if (region_set_index < g_static_region_set_count ||
+        region_set_index >= g_region_sets.size() || g_region_sets[region_set_index].persistent) {
+        return;
+    }
+    g_region_sets[region_set_index] = W8RegionSet{};
+    if (std::ranges::find(g_reusable_region_set_indices, region_set_index) ==
+        g_reusable_region_set_indices.end()) {
+        g_reusable_region_set_indices.push_back(region_set_index);
+    }
+}
+
 void DestroyRegionSet(unsigned int region_set_index)
 {
     if (region_set_index < g_static_region_set_count ||
@@ -1308,11 +1314,7 @@ void DestroyRegionSet(unsigned int region_set_index)
     for (const auto region_index : region_indices) {
         RemoveRegionFromSet(region_set_index, region_index);
     }
-    g_region_sets[region_set_index] = W8RegionSet{};
-    if (std::ranges::find(g_reusable_region_set_indices, region_set_index) ==
-        g_reusable_region_set_indices.end()) {
-        g_reusable_region_set_indices.push_back(region_set_index);
-    }
+    ReleaseRegionSetSlot(region_set_index);
 }
 
 unsigned int ControlRegionSetIndex(void)
@@ -1391,6 +1393,34 @@ bool W8RegionSet::RemoveRegion(unsigned int region_index)
     return true;
 }
 
+void W8RegionSet::AttachRegion(unsigned int region_index)
+{
+    if (region_index >= g_regions.size()) {
+        throw std::out_of_range("region index out of range");
+    }
+    if (std::ranges::find(region_ids.begin(), region_ids.begin() + active_count, region_index) !=
+        region_ids.begin() + active_count) {
+        return;
+    }
+
+    const auto priority = g_regions[region_index].priority;
+    auto insertion_position = active_count;
+    for (std::size_t position = 0; position < active_count; ++position) {
+        if (g_regions[region_ids[position]].priority < priority) {
+            insertion_position = position;
+            break;
+        }
+    }
+    if (active_count == region_ids.size()) {
+        region_ids.push_back(region_index);
+    } else {
+        region_ids[active_count] = region_index;
+    }
+    std::rotate(region_ids.begin() + insertion_position, region_ids.begin() + active_count,
+                region_ids.begin() + active_count + 1);
+    ++active_count;
+}
+
 // FUNCTION: WIZ8 0x004f2920
 unsigned int AddRegionToSet(unsigned int region_set_index, int priority)
 {
@@ -1460,7 +1490,83 @@ void OwnedRegionSet::Disable()
     if (set_ != 0) RegionSetDisable(set_);
 }
 
+void OwnedRegionSet::EnableInput()
+{
+    if (set_ != 0) EnableRegionSetInput(set_);
+}
+
+void OwnedRegionSet::DisableInput()
+{
+    if (set_ != 0) DisableRegionSetInput(set_);
+}
+
 bool OwnedRegionSet::IsEnabled() const
+{
+    return set_ != 0 && set_ < g_region_sets.size() && g_region_sets[set_].enabled != 0;
+}
+
+void ScreenRegionSet::Create()
+{
+    if (!set_) {
+        set_.emplace(templates_);
+    }
+}
+
+void ScreenRegionSet::Destroy()
+{
+    set_.reset();
+}
+
+void ScreenRegionSet::Enable()
+{
+    if (set_) {
+        set_->Enable();
+    }
+}
+
+void ScreenRegionSet::Disable()
+{
+    if (set_) {
+        set_->Disable();
+    }
+}
+
+RegionSetView::RegionSetView(const OwnedRegionSet& source, std::size_t first, std::size_t count)
+{
+    if (first > source.size() || count > source.size() - first) {
+        throw std::out_of_range("region set view range out of bounds");
+    }
+    set_ = CreateRegionSet();
+    try {
+        auto& view = g_region_sets.at(set_);
+        for (std::size_t index = first; index < first + count; ++index) {
+            view.AttachRegion(source.index(index));
+        }
+    } catch (...) {
+        ReleaseRegionSetSlot(set_);
+        set_ = 0;
+        throw;
+    }
+}
+
+RegionSetView::~RegionSetView()
+{
+    if (set_ == 0) return;
+    Disable();
+    ReleaseRegionSetSlot(set_);
+}
+
+void RegionSetView::Enable()
+{
+    if (set_ != 0) RegionSetEnable(set_);
+}
+
+void RegionSetView::Disable()
+{
+    if (set_ != 0) RegionSetDisable(set_);
+}
+
+bool RegionSetView::IsEnabled() const
 {
     return set_ != 0 && set_ < g_region_sets.size() && g_region_sets[set_].enabled != 0;
 }

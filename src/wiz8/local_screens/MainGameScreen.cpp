@@ -371,15 +371,10 @@ static void QueueInteractionNotice(int event_type)
 static void EnableActionPanelRegions()
 {
     if (g_level_block->action_panel_visible != 0) {
-        RegionSetEnable(0x14);
-        EnableRegionInput(0x59);
-        EnableRegionInput(0x52);
-        EnableRegionInput(0x53);
-        EnableRegionInput(0x54);
-        EnableRegionInput(0x55);
-        EnableRegionInput(0x56);
-        EnableRegionInput(0x57);
-        EnableRegionInput(0x58);
+        g_text_box_regions.Enable();
+        SetTextBoxMuteInput(true);
+        SetTextBoxScrollInput(true);
+        SetTextBoxChannelTabInput(true);
     }
 }
 
@@ -2882,11 +2877,16 @@ unsigned char MainGameScreenEnter(void)
     }
     gXStatus.level_up_notice = true;
     ResetRegions();
-    InitSpellCastingRegions();
-    InitUseItemSelectRegions();
-    InitFormationRegions();
-    InitKeyboardMenuRegions();
-    InitPartyMovementRegions();
+    InitTextBoxRegions();
+    g_npc_dialogue_transcript_panel_regions.Create();
+    g_npc_dialogue_trade_panel_regions.Create();
+    g_npc_dialogue_options_panel_regions.Create();
+    g_npc_quote_bubble_regions.Create();
+    g_spell_casting_regions.Create();
+    g_use_item_select_regions.Create();
+    g_formation_regions.Create();
+    g_keyboard_menu_regions.Create();
+    g_party_movement_regions.Create();
     CreateMainGameInterfaceButtons();
     CreateSpellIconHudControls();
     CreateLevelButtons();
@@ -3432,7 +3432,7 @@ unsigned char MainGameScreenLeave(int leaving)
     ReleasePortraitControls();
     ReleaseConditionButtons();
     if (gXStatus.fPartyMovementUi)
-        DisablePartyMovementRegions();
+        g_party_movement_regions.Disable();
     RestoreCurrentNpcQuoteBubble();
     if (IsMipeActive())
         ToggleMipePanel();
@@ -3469,11 +3469,16 @@ unsigned char MainGameScreenLeave(int leaving)
         if (gXStatus.fPartyMovementUi) {
             ReleasePartyMovement();
         }
-        ShutdownSpellCastingRegions();
-        ShutdownUseItemSelectRegions();
-        ShutdownFormationRegions();
-        ShutdownKeyboardMenuRegions();
-        ShutdownPartyMovementRegions();
+        g_npc_quote_bubble_regions.Destroy();
+        g_npc_dialogue_options_panel_regions.Destroy();
+        g_npc_dialogue_trade_panel_regions.Destroy();
+        g_npc_dialogue_transcript_panel_regions.Destroy();
+        ShutdownTextBoxRegions();
+        g_spell_casting_regions.Destroy();
+        g_use_item_select_regions.Destroy();
+        g_formation_regions.Destroy();
+        g_keyboard_menu_regions.Destroy();
+        g_party_movement_regions.Destroy();
         SoundEmptyCache();
         delete g_level_block;
         g_level_block = 0;
@@ -5289,12 +5294,12 @@ void SyncMainGameModeRegions(void)
     if (g_settings.main_ui_mode != W8_MAIN_UI_MODE_RADAR) {
         EnableActionPanelRegions();
         if (gXStatus.fSpellCastMode) {
-            EnableSpellCastingRegions();
+            g_spell_casting_regions.Enable();
             RestoreSpellCastingRegions();
         } else if (gXStatus.fNpcDialogueMode && !CanOpenNpcDialogue()) {
-            RegionSetEnable(0x18);
+            g_npc_dialogue_options_panel_regions.Enable();
         } else if (gXStatus.fItemSelectMode) {
-            EnableUseItemSelectRegions();
+            g_use_item_select_regions.Enable();
             RestoreSpellCastingRegions();
         } else if (gXStatus.fLockInteractMode) {
             EnableLockInteractionPanels();
@@ -5314,7 +5319,7 @@ void SyncMainGameModeRegions(void)
         UpdatePartyMovementPanel();
     }
     if (gXStatus.fReviewCharacterMode) {
-        EnableFormationRegions();
+        g_formation_regions.Enable();
     }
     if (g_level_block->keyboard_menu_open) {
         EnableKeyboardMenuInput();
@@ -6381,16 +6386,11 @@ bool LoadCurrentLevelData(void)
 // FUNCTION: WIZ8 0x005690c0
 void DisableCombatRegions(void)
 {
-    DisableRegionInput(0x52);
-    DisableRegionInput(0x53);
-    DisableRegionInput(0x54);
-    DisableRegionInput(0x55);
-    DisableRegionInput(0x56);
-    DisableRegionInput(0x57);
-    DisableRegionInput(0x58);
+    SetTextBoxScrollInput(false);
+    SetTextBoxChannelTabInput(false);
     if (g_level_block->action_panel_visible == 0) {
-        DisableRegionInput(0x59);
-        RegionSetDisable(0x14);
+        SetTextBoxMuteInput(false);
+        g_text_box_regions.Disable();
     }
 }
 
@@ -7177,7 +7177,7 @@ void PauseMainGameWorld(void)
 {
     gXStatus.world_update_blocked = true;
     if (gXStatus.fPartyMovementUi) {
-        DisablePartyMovementRegions();
+        g_party_movement_regions.Disable();
     }
     if (!gXStatus.fCombatMode) {
         if (gXStatus.world_paused) {
