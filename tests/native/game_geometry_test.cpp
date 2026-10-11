@@ -1212,6 +1212,40 @@ TEST_CASE("Representation transform queries preserve local and parent coordinate
     REQUIRE(local_copy == local);
 }
 
+TEST_CASE_METHOD(SurRenderTestFixture, "Navigator releases replaced and cleared paths", "[geometry][navigation]")
+{
+    struct TrackedPath : W8PathAI {
+        explicit TrackedPath(int& releases) : releases(releases) {}
+        ~TrackedPath() override { ++releases; }
+        int& releases;
+    };
+
+    int releases = 0;
+    {
+        W8Navigator navigator;
+        auto* first = new TrackedPath(releases);
+        navigator.SetPathAI(first);
+        navigator.SetPathAI(first);
+        REQUIRE(releases == 0);
+        REQUIRE(navigator.GetPathAI() == first);
+
+        navigator.SetPathAI(new TrackedPath(releases));
+        REQUIRE(releases == 1);
+        navigator.SetNavigationMode(1);
+        REQUIRE(releases == 2);
+        REQUIRE(navigator.GetPathAI()->animated);
+        navigator.SetPathAI(new TrackedPath(releases));
+        navigator.SetPathAI(nullptr);
+        REQUIRE(releases == 3);
+        REQUIRE(navigator.GetPathAI() == nullptr);
+        navigator.SetPathAI(nullptr);
+        REQUIRE(releases == 3);
+
+        navigator.SetPathAI(new TrackedPath(releases));
+    }
+    REQUIRE(releases == 4);
+}
+
 TEST_CASE_METHOD(SurRenderTestFixture, "Movement queries return velocity and waypoint snapshots", "[geometry][navigation]")
 {
     W8Navigator navigator;

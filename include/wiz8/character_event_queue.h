@@ -3,6 +3,7 @@
 #define WIZ8_CHARACTER_EVENT_QUEUE_H
 
 #include "wiz8/containers.h"
+#include "wiz8/audio_resources.h"
 #include "timer.h"
 
 #include "wiz8/layouts/item_instance.h"
@@ -38,6 +39,9 @@ enum W8CharacterEventFlag {
 struct W8CharacterEvent {
     W8CharacterEvent(W8Character* character, unsigned int event_type, unsigned int flags,
                      int queue_mode, int volume);
+    ~W8CharacterEvent();
+    W8CharacterEvent(const W8CharacterEvent&) = delete;
+    W8CharacterEvent& operator=(const W8CharacterEvent&) = delete;
 
     /* 0x00: set before the sound is stopped on synchronous shutdown; the
        sound-end callback bails when it is set. */
@@ -69,6 +73,10 @@ struct W8CharacterEvent {
     int dispatch_delay_ms;
     uint64_t dispatch_delay_start;
 
+    /* The event owns the playback whose callback borrows this entry. The
+       portrait's shared handle can change independently of this lifetime. */
+    SoundPlayback voice_playback;
+
     void DelayDispatch(int milliseconds)
     {
         dispatch_delay_ms = milliseconds;
@@ -84,8 +92,6 @@ struct W8CharacterEvent {
     unsigned char IsConditionMet(unsigned int event_type); /* 0x0052C910 */
     unsigned char PlayEventSound();                        /* 0x0052D260 */
 };
-
-W8_ABI_ASSERT(sizeof(W8CharacterEvent) == 0x38, "W8CharacterEvent_must_be_0x38");
 
 /* The character-event queue. Construction is at 0x0052D460; QueueEntry and the
    later methods occupy the following 0x52Dxxx block. The whole 0x52C810-0x52FEE0

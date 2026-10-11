@@ -241,9 +241,11 @@ bool SoundIsPlaying(SoundPlayback playback)
 // FUNCTION: WIZ8 0x00408f70
 bool SoundStop(SoundPlayback playback)
 {
-    if (!SoundIsPlaying(playback)) return false;
+    const bool was_playing = SoundIsPlaying(playback);
+    // A stopped mixer track can still own a deferred game callback. Drain it
+    // before the caller releases its callback data, even after natural EOF.
     FinishPlayback(playback);
-    return true;
+    return was_playing;
 }
 
 // FUNCTION: WIZ8 0x00409020

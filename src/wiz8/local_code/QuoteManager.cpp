@@ -403,6 +403,12 @@ W8CharacterEvent::W8CharacterEvent(W8Character* character, unsigned int event_ty
     }
 }
 
+W8CharacterEvent::~W8CharacterEvent()
+{
+    sound_end_handled = true;
+    SoundStop(voice_playback);
+}
+
 /* Format one character quote for the given event type into the
    shared wide text buffer. A party member on any screen but the character
    screen takes the text from the NPC bound to its slot; otherwise the type
@@ -565,12 +571,9 @@ void W8CharacterEvent::Complete()
     slot = &gXStatus.monster_manager_entries[party_slot];
     sound_was_active = slot->portrait_event_active;
     sound_end_handled = true;
+    SoundStop(voice_playback);
     slot->active_character_event = 0;
     if (sound_was_active) {
-        if (SoundIsPlaying(slot->voice_sound_handle) != 0) {
-            sound_end_handled = true;
-            SoundStop(slot->voice_sound_handle);
-        }
         SetPartyPortraitEventState(party_slot, false, -1, {}, 1);
     }
     FreeMouthGapTrack(&slot->mouth_gap);
@@ -726,6 +729,7 @@ unsigned char W8CharacterEvent::PlayEventSound()
     sound_parms.EOSCallback = CharacterEventSoundEndCallback;
     sound_parms.pCallbackData = this;
     sound_handle = SoundPlay(sound_path, &sound_parms);
+    voice_playback = sound_handle;
     record = &gXStatus.monster_manager_entries[party_slot];
     record->voice_sound_handle = sound_handle;
     if (sound_handle == nullptr) {

@@ -26,6 +26,7 @@
 #include "native/audio_test.h"
 #include "wiz8/slf.h"
 #include "wiz8/local_code/CombatSound.h"
+#include "wiz8/character_event_queue.h"
 #include "native/movie_audio.h"
 #include "soundman.h"
 #include "temporary_directory.h"
@@ -784,6 +785,58 @@ TEST_CASE_METHOD(AudioFixture, "Mixer tags stop only the original group before r
     REQUIRE(SoundIsPlaying(music));
     REQUIRE(SoundStopMusic());
     REQUIRE_FALSE(SoundStopMusic());
+    REQUIRE(context.calls == 1);
+}
+
+TEST_CASE_METHOD(AudioFixture, "Stopping completed playback drains its deferred callback", "[audio][ownership]")
+{
+    startOfflineAudio();
+    SOUNDPARMS options;
+    memset(&options, 0xff, sizeof(options));
+    auto callback_data = std::make_unique<unsigned>(0);
+    options.EOSCallback = ended;
+    options.pCallbackData = callback_data.get();
+    auto sound = SoundPlayStreamedFile("tone.wav", &options);
+    REQUIRE(sound);
+    mix(8192);
+    REQUIRE_FALSE(SoundIsPlaying(sound));
+    REQUIRE(*callback_data == 0);
+    REQUIRE_FALSE(SoundStop(sound));
+    REQUIRE(*callback_data == 1);
+    callback_data.reset();
+    REQUIRE_FALSE(SoundStop(sound));
+    SoundServiceStreams();
+    SoundEmptyCache();
+    REQUIRE(callbacks == 1);
+}
+
+TEST_CASE_METHOD(AudioFixture, "Character event destruction cancels its own deferred voice callback", "[audio][ownership]")
+{
+    startOfflineAudio();
+    auto event = std::make_unique<W8CharacterEvent>(nullptr, 0, 0, 0, 127);
+    struct Context {
+        W8CharacterEvent* event;
+        unsigned calls{};
+        bool completed{};
+    } context{event.get()};
+    SOUNDPARMS options;
+    memset(&options, 0xff, sizeof(options));
+    options.EOSCallback = [](void* data) {
+        auto& context = *static_cast<Context*>(data);
+        ++context.calls;
+        context.completed = context.event->sound_end_handled;
+    };
+    options.pCallbackData = &context;
+    event->voice_playback = SoundPlayStreamedFile("tone.wav", &options);
+    REQUIRE(event->voice_playback);
+    mix(8192);
+    REQUIRE_FALSE(SoundIsPlaying(event->voice_playback));
+    REQUIRE(context.calls == 0);
+    event.reset();
+    REQUIRE(context.calls == 1);
+    REQUIRE(context.completed);
+    SoundServiceStreams();
+    SoundEmptyCache();
     REQUIRE(context.calls == 1);
 }
 
