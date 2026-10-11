@@ -174,8 +174,10 @@ void W8DialogBase::DestroyControls()
     m_text.clear();
     m_background_path.clear();
     m_background_flags = 0;
-    ClearSurfaceRect(m_x, m_y, m_x + m_width + 1, m_y + m_height + 1);
-    InvalidateRegion(m_x, m_y, m_x + m_width + 1, m_y + m_height + 1, 1);
+    if (m_initialized && m_x >= 0 && m_y >= 0 && m_width >= 0 && m_height >= 0) {
+        ClearSurfaceRect(m_x, m_y, m_x + m_width + 1, m_y + m_height + 1);
+        InvalidateRegion(m_x, m_y, m_x + m_width + 1, m_y + m_height + 1, 1);
+    }
     m_initialized = false;
 }
 
