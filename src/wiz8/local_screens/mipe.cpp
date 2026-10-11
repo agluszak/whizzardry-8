@@ -260,7 +260,7 @@ void ToggleMipePanel(void)
 }
 
 // GLOBAL: WIZ8 0x0068f11c
-static std::vector<W8MipeCategoryEntry>* g_mipe_category_list;
+static std::unique_ptr<std::vector<W8MipeCategoryEntry>> g_mipe_category_list;
 
 /* 'H' in the item-create mode: spawned items get the hidden flag. */
 // GLOBAL: WIZ8 0x0068f128
@@ -634,7 +634,7 @@ void ShowMipeEncounterCategory(void)
     ResetEditorStatusLine(-1);
     ShowNotice(W8_FONT_PALETTE_PINK,
                fmt::format("Category: {}", g_encounter_names[g_mipe_category & 0xff]));
-    ShowMipeNamedTableRows<W8EncounterTableRuntime>(g_mipe_category_list);
+    ShowMipeNamedTableRows<W8EncounterTableRuntime>(g_mipe_category_list.get());
 }
 
 /* Mode-0x1d menu: current item-table category plus its six rows. */
@@ -644,7 +644,7 @@ void ShowMipeItemTableCategory(void)
     ResetEditorStatusLine(-1);
     ShowNotice(W8_FONT_PALETTE_PINK,
                fmt::format("Category: {}", g_item_table_category_names[g_mipe_category & 0xff]));
-    ShowMipeNamedTableRows<W8ItemTableRecord>(g_mipe_category_list);
+    ShowMipeNamedTableRows<W8ItemTableRecord>(g_mipe_category_list.get());
 }
 
 /* Mode-1 key handler: digit keys build the spawn count, Enter creates the
@@ -687,7 +687,7 @@ unsigned char HandleMipeMonsterCreateKey(unsigned short key)
 
     if (g_mipe_category_list == 0) {
         list = new std::vector<W8MipeCategoryEntry>;
-        g_mipe_category_list = list;
+        g_mipe_category_list.reset(list);
         if (list != 0) {
             list->clear();
             for (index = 0; index < static_cast<int>(gXStatus.uiMonstersInDatabase); ++index) {
@@ -698,7 +698,7 @@ unsigned char HandleMipeMonsterCreateKey(unsigned short key)
             }
         }
     }
-    list = g_mipe_category_list;
+    list = g_mipe_category_list.get();
     switch (key) {
     case 8:
         g_mipe_count /= 10;
@@ -880,7 +880,7 @@ void HandleMipeItemCategoryKey(unsigned short key)
     std::vector<W8MipeCategoryEntry>* list;
     unsigned int item_index;
 
-    list = g_mipe_category_list;
+    list = g_mipe_category_list.get();
     switch (key) {
     case 0xd:
         item_index = FindMipeVisibleItem(g_mipe_table_base + g_mipe_table_row);
@@ -914,7 +914,7 @@ void HandleMipeItemCategoryKey(unsigned short key)
     case 0x26:
     case 0x28:
         if (MoveMipeTableSelection(key)) {
-            ShowMipeNamedCategory(g_mipe_category_list, g_equip_class_name_ids);
+            ShowMipeNamedCategory(g_mipe_category_list.get(), g_equip_class_name_ids);
         }
         return;
     case 0x20:
@@ -922,7 +922,7 @@ void HandleMipeItemCategoryKey(unsigned short key)
     default:
         return;
     }
-    list = g_mipe_category_list;
+    list = g_mipe_category_list.get();
     ShowMipeNamedCategory(list, g_equip_class_name_ids);
 }
 
@@ -944,7 +944,7 @@ unsigned char HandleMipeItemCreateKey(unsigned short key)
 
     if (g_mipe_category_list == 0) {
         list = new std::vector<W8MipeCategoryEntry>;
-        g_mipe_category_list = list;
+        g_mipe_category_list.reset(list);
         if (list != 0) {
             list->clear();
             for (index = 0; index < static_cast<int>(gXStatus.uiItemsInDatabase); ++index) {
@@ -955,7 +955,7 @@ unsigned char HandleMipeItemCreateKey(unsigned short key)
             }
         }
     }
-    list = g_mipe_category_list;
+    list = g_mipe_category_list.get();
     switch (key) {
     case 0x20:
         ShowMipeItemStatus();
@@ -1044,7 +1044,7 @@ void HandleMipeMonsterCategoryKey(unsigned short key)
     W8MonsterRecord record;
     W8MonsterRecord selected;
 
-    list = g_mipe_category_list;
+    list = g_mipe_category_list.get();
     switch (key) {
     case 0xd:
         index = g_mipe_table_base + g_mipe_table_row;
@@ -1073,7 +1073,7 @@ void HandleMipeMonsterCategoryKey(unsigned short key)
         g_mipe_table_row = 0;
         g_mipe_table_base = 0;
         do {
-            list = g_mipe_category_list;
+            list = g_mipe_category_list.get();
             if (g_mipe_category == 0) {
                 g_mipe_category = 0x20;
                 ++wraps;
@@ -1088,7 +1088,7 @@ void HandleMipeMonsterCategoryKey(unsigned short key)
         g_mipe_table_row = 0;
         g_mipe_table_base = 0;
         do {
-            list = g_mipe_category_list;
+            list = g_mipe_category_list.get();
             if (g_mipe_category < 0x20) {
                 ++g_mipe_category;
             } else {
@@ -1111,7 +1111,7 @@ void HandleMipeMonsterCategoryKey(unsigned short key)
     default:
         return;
     }
-    list = g_mipe_category_list;
+    list = g_mipe_category_list.get();
     ShowMipeNamedCategory(list, g_special_category_name_ids);
 }
 
@@ -1388,9 +1388,9 @@ void HandleMipePropEditKey(unsigned short key)
                 trigger = prop->GetTrigger();
                 table_index = FindItemTableByName(trigger->inline_action_data);
                 if (g_mipe_category_list == 0) {
-                    g_mipe_category_list = new std::vector<W8MipeCategoryEntry>;
+                    g_mipe_category_list = std::make_unique<std::vector<W8MipeCategoryEntry>>();
                 }
-                list = g_mipe_category_list;
+                list = g_mipe_category_list.get();
                 if (table_index < 0) {
                     g_mipe_category = 0;
                     g_mipe_table_base = 0;
@@ -1420,7 +1420,7 @@ void HandleMipePropEditKey(unsigned short key)
                          index < static_cast<int>(
                                      (g_mipe_category_list ? g_mipe_category_list->size() : 0));
                          ++index) {
-                        table = MipeCategoryValue<W8ItemTableRecord>(g_mipe_category_list, index);
+                        table = MipeCategoryValue<W8ItemTableRecord>(g_mipe_category_list.get(), index);
                         if (table == &g_item_tables[table_index]) {
                             break;
                         }
@@ -1794,7 +1794,7 @@ int HandleMonsterGeneratorEditKey(unsigned short key)
 
     if (g_mipe_category_list == 0) {
         list = new std::vector<W8MipeCategoryEntry>;
-        g_mipe_category_list = list;
+        g_mipe_category_list.reset(list);
         if (list != 0) {
             RebuildMipeEncounterCategory(list);
         }
@@ -1818,7 +1818,7 @@ int HandleMonsterGeneratorEditKey(unsigned short key)
             g_mipe_table_row = 0;
         } else {
             table = GetEncounterTable(current_index);
-            list = g_mipe_category_list;
+            list = g_mipe_category_list.get();
             g_mipe_category = static_cast<unsigned char>(table->category);
             if (g_mipe_category_list != 0) {
                 RebuildMipeEncounterCategory(list);
@@ -1826,7 +1826,7 @@ int HandleMonsterGeneratorEditKey(unsigned short key)
             for (found = 0; found < static_cast<int>(
                                         (g_mipe_category_list ? g_mipe_category_list->size() : 0));
                  ++found) {
-                table = MipeCategoryValue<W8EncounterTableRuntime>(g_mipe_category_list, found);
+                table = MipeCategoryValue<W8EncounterTableRuntime>(g_mipe_category_list.get(), found);
                 entry = GetEncounterTable(current_index);
                 if (table == entry) {
                     break;
@@ -1843,7 +1843,7 @@ int HandleMonsterGeneratorEditKey(unsigned short key)
             return 1;
         }
         for (slot = 0; slot < 6; ++slot) {
-            entry = MipeCategoryValue<W8EncounterTableRuntime>(g_mipe_category_list,
+            entry = MipeCategoryValue<W8EncounterTableRuntime>(g_mipe_category_list.get(),
                                                                g_mipe_table_base + slot);
             if (entry == 0) {
                 ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "");
@@ -1982,7 +1982,7 @@ void HandleMipeGeneratorTableKey(unsigned short key)
         g_mipe_table_base = 0;
         wraps = 0;
         do {
-            list = g_mipe_category_list;
+            list = g_mipe_category_list.get();
             unsigned char category;
             if (g_mipe_category == 0) {
                 g_mipe_category = static_cast<unsigned char>(g_encounter_names.size());
@@ -2008,7 +2008,7 @@ void HandleMipeGeneratorTableKey(unsigned short key)
         g_mipe_table_base = 0;
         wraps = 0;
         do {
-            list = g_mipe_category_list;
+            list = g_mipe_category_list.get();
             if ((g_mipe_category & 0xff) < static_cast<int>(g_encounter_names.size()) - 1) {
                 ++g_mipe_category;
             } else {
@@ -2219,7 +2219,7 @@ void HandleMipeItemTableKey(unsigned short key)
         g_mipe_table_base = 0;
         do {
             unsigned char category;
-            list = g_mipe_category_list;
+            list = g_mipe_category_list.get();
             category = g_mipe_category;
             if (g_mipe_category == 0) {
                 ++wraps;
@@ -2243,7 +2243,7 @@ void HandleMipeItemTableKey(unsigned short key)
         g_mipe_table_row = 0;
         g_mipe_table_base = 0;
         do {
-            list = g_mipe_category_list;
+            list = g_mipe_category_list.get();
             if ((g_mipe_category & 0xff) < gXStatus.uiItemTableCategories - 1) {
                 ++g_mipe_category;
             } else {
@@ -2296,9 +2296,9 @@ unsigned char HandleMipeKey(const InputEvent* event)
             } else if (g_mipe_mode == 2 || g_mipe_mode == 1) {
                 g_mipe_mode = 0;
                 if (g_mipe_category_list != 0) {
-                    delete g_mipe_category_list;
+                    g_mipe_category_list.reset();
 
-                    g_mipe_category_list = 0;
+                    
                 }
             } else {
                 if (g_mipe_mode == 5) {
@@ -2354,9 +2354,9 @@ unsigned char HandleMipeKey(const InputEvent* event)
                                     }
                                     g_mipe_state->generator = 0;
                                     if (g_mipe_category_list != 0) {
-                                        delete g_mipe_category_list;
+                                        g_mipe_category_list.reset();
 
-                                        g_mipe_category_list = 0;
+                                        
                                     }
                                 } else {
                                     ShowWorldCursor();
@@ -2421,9 +2421,9 @@ unsigned char HandleMipeKey(const InputEvent* event)
                                             ShowMipePropMenu();
                                             g_mipe_menu_active = true;
                                             if (g_mipe_category_list != 0) {
-                                                delete g_mipe_category_list;
+                                                g_mipe_category_list.reset();
 
-                                                g_mipe_category_list = 0;
+                                                
                                             }
                                             return 1;
                                         }
