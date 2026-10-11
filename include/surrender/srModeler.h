@@ -2,6 +2,8 @@
 
 #include <array>
 #include <memory>
+#include <optional>
+#include <utility>
 #include <vector>
 #include "srMaterialIFace.h"
 #include "srMath.h"
@@ -110,7 +112,7 @@ public:
     void rotate(const glm::mat3& matrix);
     void rotate(w8_ulong triangle, const glm::mat3& matrix);
     double getMaxVertexDist();
-    void getAxialBounds(e_axis axis, float& minimum, float& maximum);
+    std::optional<std::pair<float, float>> getAxialBounds(e_axis axis) const;
 
     w8_long getPassCount() const;
     void setPassCount(w8_long passes);
