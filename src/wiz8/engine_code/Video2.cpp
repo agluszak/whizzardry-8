@@ -2615,7 +2615,10 @@ unsigned char CopySurfaceWithBorder(srColorSurface* surface, const W8ControlsRec
     auto destination_storage = CreateCpuStorage(static_cast<int>(surface->getWidth()),
         static_cast<int>(surface->getHeight()), SDL_PIXELFORMAT_RGB565, surface->getDataPtr(),
         static_cast<int>(surface->getPitch()));
-    auto source_storage = CreateCpuStorage(0x280, 0x1e0, SDL_PIXELFORMAT_RGB565, source, source_pitch);
+    // The source may be a backing surface smaller than the screen; borrow only
+    // the extent the rectangle covers so its pitch stays valid.
+    auto source_storage = CreateCpuStorage(rect->left + width, rect->top + height,
+        SDL_PIXELFORMAT_RGB565, source, source_pitch);
     auto destination = ShareCpuSurface(*destination_storage);
     auto source_pixels = ShareCpuSurface(*source_storage);
     const auto copy = [&](int x, int y, int source_x, int source_y, int w, int h) {
