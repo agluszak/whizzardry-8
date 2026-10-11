@@ -28,7 +28,8 @@
 #include <vector>
 
 #include "compat/compiler.h"
-#include "glm/geometric.hpp"
+#include "glm/geometric.hpp" // NOLINT(misc-include-cleaner)
+#include "himage.h"
 #include "surrender/srTypeRegistry.h"
 #include "wiz8/unicode.h"
 #include "surrender/srCore.h"
@@ -976,14 +977,16 @@ void ReportStartupMessage(std::string_view message)
     for (const unsigned char byte : message) {
         if (byte > 0x1f) line->push_back(static_cast<char>(byte));
     }
-    SetFont(g_smfnt_font);
-    SetRGBFontShadow(SDL_Color{0, 0, 0, SDL_ALPHA_OPAQUE});
     g_smfnt_font.setPalette(g_font_state_palettes[W8_FONT_PALETTE_YELLOW]);
+    const TextOptions text_options{
+        .colors = {.shadow = Get16BPPColor(SDL_Color{0, 0, 0, SDL_ALPHA_OPAQUE})}};
     if (scrolled) {
         ClearSurfaceRect(0, 400, 0x27f, 0x1df);
         index = 0x191;
         for (top = 0; top < 6; ++top) {
-            DrawFontTextDirty(1, index, fmt::sprintf(const_cast<char*>("%s"), g_status_lines[top]));
+            DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font, {1, index},
+                                  fmt::sprintf(const_cast<char*>("%s"), g_status_lines[top]),
+                                  text_options);
             index += 0xd;
         }
         InvalidateRegion(0, 400, 0x27f, 0x1df, 4);
@@ -991,7 +994,8 @@ void ReportStartupMessage(std::string_view message)
         index = (g_status_cursor - 1) * 0xd;
         top = index + 400;
         ClearSurfaceRect(0, top, 0x27f, g_status_cursor * 0xd + 400);
-        DrawFontTextDirty(1, index + 0x191, *line);
+        DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font, {1, index + 0x191}, *line,
+                              text_options);
         InvalidateRegion(0, top, 0x27f, g_status_cursor * 0xd + 400, 4);
     }
     g_status_scroll = scroll;
@@ -1207,6 +1211,7 @@ static int BuildRegionPolygons(W8LevelFile& level, W8OctPreTreeGeometry* geometr
                 for (corner = 0; corner < 3; ++corner) {
                     current = vertices + vertex_index[corner];
                     if (current->m_normal_count != 0) {
+                        // NOLINTNEXTLINE(misc-include-cleaner)
                         if (glm::dot(normalizedOrZero(current->m_normal), normal) <
                             g_material_opposed_normal_threshold) {
                             opposing = true;
@@ -1355,6 +1360,7 @@ static int AccumulateVertexLight(OctPreTree* tree, W8OctPreTreeVertex* vertex,
         const bool is_sun = sun_map && sun_map[index] != 0;
         if (light.version >= 2 && (light.create != 0 || light.visible == 0)) continue;
         const glm::vec3 delta = light.position.glmValue() - vertex->position;
+        // NOLINTNEXTLINE(misc-include-cleaner)
         const float distance = glm::length(delta);
         if (distance >= light.range && !is_sun) continue;
         ++g_light_candidates;
@@ -1679,9 +1685,9 @@ void W8Octree::OctBuildOptions(char* stem)
     colour_backup.SetZero();
     GetWorldColour(&colour_backup);
     PublishLightDirection(&colour_saved);
-    SetFont(g_smfnt_font);
-    SetRGBFontShadow(SDL_Color{0, 0, 0, SDL_ALPHA_OPAQUE});
     g_smfnt_font.setPalette(g_font_state_palettes[W8_FONT_PALETTE_YELLOW]);
+    const TextOptions text_options{
+        .colors = {.shadow = Get16BPPColor(SDL_Color{0, 0, 0, SDL_ALPHA_OPAQUE})}};
     edit_char[0] = 0;
     edit_char[4] = 0;
     strcpy(log_state, "OFF");
@@ -1747,7 +1753,8 @@ void W8Octree::OctBuildOptions(char* stem)
             for (line = 0; line < 7; ++line) {
                 auto display = lines[line].substr(0, wiz8::text::codepoint_prefix(lines[line], 90));
                 if (display.size() < 90) display.append(90 - display.size(), ' ');
-                DrawFontTextDirty(1, 0x184 + line * 0xd, display);
+                DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font,
+                                      {1, 0x184 + line * 0xd}, display, text_options);
             }
             InvalidateRegion(0, 0x183, 0x27f, 0x1df, 4);
             while (gfProgramIsRunning && DequeueEvent(&atom) == 0) {
@@ -1863,7 +1870,8 @@ accepted:
     lines[1] = fmt::format("OCTBUILD VERSION {:d} -- Preprocessing {}: ", 0x22, stem);
     auto display = lines[1].substr(0, wiz8::text::codepoint_prefix(lines[1], 90));
     if (display.size() < 90) display.append(90 - display.size(), ' ');
-    DrawFontTextDirty(1, 0x184, display);
+    DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font, {1, 0x184}, display,
+                          text_options);
     InvalidateRegion(0, 0x183, 0x27f, 0x1df, 4);
     RenderFrame();
     RenderFrame();

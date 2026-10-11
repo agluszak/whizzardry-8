@@ -11,19 +11,14 @@
 
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "Font.h"
-#include "Video2.h"
 #include "image.h"
 #include "image_assets.h"
-#include "line.h"
 #include "sprite.h"
 
 #define FONT_MCOLOR_BLACK 0
 
 // GLOBAL: WIZ8 0x005ff824
 bool gfRenderHilights = true;
-
-// GLOBAL: WIZ8 0x005ff828
-SDL_Surface* ButtonDestBuffer = nullptr;
 
 static GenericButtonImage default_generic_image;
 
@@ -36,15 +31,14 @@ GenericButtonImage DefaultGenericButtonImage()
 
 static std::int8_t DisabledOverlayStyle(const ButtonAppearance& appearance,
                                        const ButtonVisualState& state);
-static std::int8_t DrawQuickButton(const ButtonAppearance* appearance,
+static std::int8_t DrawQuickButton(SDL_Surface& target, const ButtonAppearance* appearance,
                                    const ButtonVisualState& state);
-static std::int8_t DrawGenericButton(const ButtonAppearance* appearance,
+static std::int8_t DrawGenericButton(SDL_Surface& target, const ButtonAppearance* appearance,
                                      const ButtonVisualState& state);
-static void DrawTextOnButton(const ButtonAppearance* appearance,
+static void DrawTextOnButton(SDL_Surface& target, const ButtonAppearance* appearance,
                              const ButtonVisualState& state);
-static void DrawHatchOnButton(const ButtonAppearance* appearance);
-static void DrawShadeOnButton(const ButtonAppearance* appearance);
-static void DrawDefaultOnButton(const ButtonAppearance* appearance);
+static void DrawHatchOnButton(SDL_Surface& target, const ButtonAppearance* appearance);
+static void DrawShadeOnButton(SDL_Surface& target, const ButtonAppearance* appearance);
 
 ButtonImage ButtonGraphics::Load(std::string_view filename, std::int32_t grayed, std::int32_t off_normal,
                                  std::int32_t off_hilite, std::int32_t on_normal, std::int32_t on_hilite)
@@ -121,7 +115,6 @@ GenericButtonImage LoadGenericGraphics(const std::array<std::string_view, 6>& fi
 
 bool InitializeButtonImageManager()
 {
-    ButtonDestBuffer = &GetFrameBufferSurface();
     default_generic_image = LoadGenericGraphics(
         {DEFAULT_GENERIC_BUTTON_OFF, DEFAULT_GENERIC_BUTTON_ON, {},
          DEFAULT_GENERIC_BUTTON_OFF_HI, DEFAULT_GENERIC_BUTTON_ON_HI, {}}, 0, 0, 0, true);
@@ -152,19 +145,19 @@ static std::int8_t DisabledOverlayStyle(const ButtonAppearance& button, const Bu
     return button.bDisabledStyle;
 }
 
-void DrawButtonAppearance(const ButtonAppearance& appearance, const ButtonVisualState& state)
+void DrawButtonAppearance(SDL_Surface& target, const ButtonAppearance& appearance,
+                          const ButtonVisualState& state)
 {
-    FontRenderScope font_scope;
     const auto* b = &appearance;
-    const auto disabled_style = b->quick_image ? DrawQuickButton(b, state) : DrawGenericButton(b, state);
-    if (!b->string.empty()) DrawTextOnButton(b, state);
-    if (disabled_style == DISABLED_STYLE_HATCHED) DrawHatchOnButton(b);
-    else if (disabled_style == DISABLED_STYLE_SHADED) DrawShadeOnButton(b);
-    if (b->bDefaultStatus) DrawDefaultOnButton(b);
+    const auto disabled_style = b->quick_image ? DrawQuickButton(target, b, state) : DrawGenericButton(target, b, state);
+    if (!b->string.empty()) DrawTextOnButton(target, b, state);
+    if (disabled_style == DISABLED_STYLE_HATCHED) DrawHatchOnButton(target, b);
+    else if (disabled_style == DISABLED_STYLE_SHADED) DrawShadeOnButton(target, b);
 }
 
 // FUNCTION: WIZ8 0x0040e060
-static std::int8_t DrawQuickButton(const ButtonAppearance* b, const ButtonVisualState& state)
+static std::int8_t DrawQuickButton(SDL_Surface& target, const ButtonAppearance* b,
+                                   const ButtonVisualState& state)
 {
     std::int8_t disabled_style = DISABLED_STYLE_NONE;
     if (!b->quick_image) return disabled_style;
@@ -186,58 +179,28 @@ static std::int8_t DrawQuickButton(const ButtonAppearance* b, const ButtonVisual
         disabled_style = DisabledOverlayStyle(*b, state);
     }
     if (frame != BUTTON_NO_IMAGE)
-        DrawSprite(*ButtonDestBuffer, image.object(), static_cast<std::size_t>(frame),
+        DrawSprite(target, image.object(), static_cast<std::size_t>(frame),
                    b->bounds.x, b->bounds.y);
     return disabled_style;
 }
 
-static void DrawHatchOnButton(const ButtonAppearance* b)
+static void DrawHatchOnButton(SDL_Surface& target, const ButtonAppearance* b)
 {
     const auto& bounds = b->bounds;
     const SDL_Rect area{bounds.x, bounds.y, bounds.w, bounds.h};
-    HatchRect(*ButtonDestBuffer, area);
+    HatchRect(target, area);
 }
 
-static void DrawShadeOnButton(const ButtonAppearance* b)
+static void DrawShadeOnButton(SDL_Surface& target, const ButtonAppearance* b)
 {
     const auto& bounds = b->bounds;
     const SDL_Rect area{bounds.x, bounds.y, bounds.w, bounds.h};
-    ShadowRect(*ButtonDestBuffer, area);
-}
-
-// FUNCTION: WIZ8 0x0040e170
-static void DrawDefaultOnButton(const ButtonAppearance* b)
-{
-    const auto& bounds = b->bounds;
-    auto* pixels = static_cast<char*>(ButtonDestBuffer->pixels);
-    SetClippingRegionAndImageWidth(static_cast<std::uint32_t>(ButtonDestBuffer->pitch),
-                                   0, 0, ButtonDestBuffer->w, ButtonDestBuffer->h);
-    if (b->bDefaultStatus == DEFAULT_STATUS_DARKBORDER ||
-        b->bDefaultStatus == DEFAULT_STATUS_WINDOWS95) {
-        //left (one thick)
-        LineDraw(true, bounds.x - 1, bounds.y - 1, bounds.x - 1,
-                 bounds.y + bounds.h + 1, 0, pixels);
-        //top (one thick)
-        LineDraw(true, bounds.x - 1, bounds.y - 1, bounds.x + bounds.w + 1,
-                 bounds.y - 1, 0, pixels);
-        //right (two thick)
-        LineDraw(true, bounds.x + bounds.w, bounds.y - 1, bounds.x + bounds.w,
-                 bounds.y + bounds.h + 1, 0, pixels);
-        LineDraw(true, bounds.x + bounds.w + 1, bounds.y - 1, bounds.x + bounds.w + 1,
-                 bounds.y + bounds.h + 1, 0, pixels);
-        //bottom (two thick)
-        LineDraw(true, bounds.x - 1, bounds.y + bounds.h, bounds.x + bounds.w + 1,
-                 bounds.y + bounds.h, 0, pixels);
-        LineDraw(true, bounds.x - 1, bounds.y + bounds.h + 1,
-                 bounds.x + bounds.w + 1, bounds.y + bounds.h + 1, 0, pixels);
-    }
-    if (b->bDefaultStatus == DEFAULT_STATUS_DOTTEDINTERIOR ||
-        b->bDefaultStatus == DEFAULT_STATUS_WINDOWS95) { //Draw an internal dotted rectangle.
-    }
+    ShadowRect(target, area);
 }
 
 // FUNCTION: WIZ8 0x0040e5d0
-static void DrawTextOnButton(const ButtonAppearance* b, const ButtonVisualState& state)
+static void DrawTextOnButton(SDL_Surface& target, const ButtonAppearance* b,
+                             const ButtonVisualState& state)
 {
     std::int32_t text_x, text_y, button_width, button_height, text_origin_x, text_origin_y;
     SDL_Rect text_clip, previous_clip;
@@ -257,13 +220,10 @@ static void DrawTextOnButton(const ButtonAppearance* b, const ButtonVisualState&
         text_origin_y = text_clip.y;
 
         // Get the current clipping area and clip the viewable area to it
-        SDL_GetSurfaceClipRect(ButtonDestBuffer, &previous_clip);
+        SDL_GetSurfaceClipRect(&target, &previous_clip);
         if (!SDL_GetRectIntersection(&text_clip, &previous_clip, &text_clip))
             return;
-
-        // Set the font printing settings to the buttons viewable area
-        SetFontDestBuffer(*ButtonDestBuffer, text_clip.x, text_clip.y,
-                          text_clip.x + text_clip.w, text_clip.y + text_clip.h, false);
+        ScopedClipRect clipping(target, text_clip);
 
         // Compute the coordinates to center the text
         if (b->bTextYOffset == -1) {
@@ -291,42 +251,49 @@ static void DrawTextOnButton(const ButtonAppearance* b, const ButtonVisualState&
         }
 
         // Set the printing font to the button text font
-        SetFont(*b->usFont);
-
-        // print the text
-        SetFontBackground(FONT_MCOLOR_BLACK);
-        SetFontForeground((std::uint8_t)b->sForeColor);
+        TextOptions options;
+        options.colors.background = b->usFont->color(FONT_MCOLOR_BLACK);
+        options.colors.foreground = b->usFont->color(static_cast<std::uint8_t>(b->sForeColor));
         if (b->sShadowColor != -1)
-            SetFontShadow((std::uint8_t)b->sShadowColor);
+            options.colors.shadow = b->usFont->color(static_cast<std::uint8_t>(b->sShadowColor));
+        if (options.colors.shadow == 0 && b->sShadowColor > 0)
+            options.colors.shadow = 1;
         //Override the colors if necessary.
         if (state.enabled && state.hovered &&
             b->sForeColorHilited != -1) {
-            SetFontForeground((std::uint8_t)b->sForeColorHilited);
+            options.colors.foreground =
+                b->usFont->color(static_cast<std::uint8_t>(b->sForeColorHilited));
         } else if (state.pressed && b->sForeColorDown != -1) {
-            SetFontForeground((std::uint8_t)b->sForeColorDown);
+            options.colors.foreground =
+                b->usFont->color(static_cast<std::uint8_t>(b->sForeColorDown));
         }
         if (state.enabled && state.hovered &&
             b->sShadowColorHilited != -1) {
-            SetFontShadow((std::uint8_t)b->sShadowColorHilited);
+            options.colors.shadow =
+                b->usFont->color(static_cast<std::uint8_t>(b->sShadowColorHilited));
         } else if (state.pressed && b->sShadowColorDown != -1) {
-            SetFontShadow((std::uint8_t)b->sShadowColorDown);
+            options.colors.shadow =
+                b->usFont->color(static_cast<std::uint8_t>(b->sShadowColorDown));
         }
+        if (options.colors.shadow == 0 &&
+            ((state.enabled && state.hovered && b->sShadowColorHilited > 0) ||
+             (state.pressed && b->sShadowColorDown > 0) || b->sShadowColor > 0))
+            options.colors.shadow = 1;
         if (state.pressed &&
             b->fShiftText) { // Was the button clicked on? if so, move the text slightly for the illusion
             // that the text moved into the screen.
             text_x++;
             text_y++;
         }
-        if (b->fMultiColor)
-            DrawFontText(text_x, text_y, b->string);
-        else
-            DrawMonoFontText(text_x, text_y, b->string);
+        options.mono = !b->fMultiColor;
+        DrawText(target, *b->usFont, {text_x, text_y}, b->string, options);
         // Restore the old text printing settings
     }
 }
 
 // FUNCTION: WIZ8 0x0040e890
-static std::int8_t DrawGenericButton(const ButtonAppearance* b, const ButtonVisualState& state)
+static std::int8_t DrawGenericButton(SDL_Surface& target, const ButtonAppearance* b,
+                                     const ButtonVisualState& state)
 {
     std::int8_t disabled_style = DISABLED_STYLE_NONE;
     if (!b->generic_image) return disabled_style;
@@ -374,7 +341,7 @@ static std::int8_t DrawGenericButton(const ButtonAppearance* b, const ButtonVisu
     cy = (b->bounds.y + ((NumChunksHigh - 1) * iBorderHeight) + hremain);
 
     const SDL_Rect button_area{b->bounds.x, b->bounds.y, b->bounds.w, b->bounds.h};
-    SDL_FillSurfaceRect(ButtonDestBuffer, &button_area, b->generic_image->fill_color);
+    SDL_FillSurfaceRect(&target, &button_area, b->generic_image->fill_color);
 
     // If there is a background image, fill the button's area with it
     if (b->generic_image->frames[5] != nullptr) {
@@ -386,13 +353,13 @@ static std::int8_t DrawGenericButton(const ButtonAppearance* b, const ButtonVisu
 
         const SDL_Rect background_area{b->bounds.x + ox, b->bounds.y + oy,
                                        b->bounds.w - ox, b->bounds.h - oy};
-        TileSprite(*ButtonDestBuffer, background_area, *b->generic_image->frames[5],
+        TileSprite(target, background_area, *b->generic_image->frames[5],
                    b->generic_image->background_frame,
                    {b->generic_image->offset_x, b->generic_image->offset_y});
     }
 
     const auto draw_frame = [&](std::size_t frame, int x, int y) {
-        DrawSprite(*ButtonDestBuffer, BPic, frame, x, y);
+        DrawSprite(target, BPic, frame, x, y);
     };
 
     // Draw the button's borders and corners (horizontally)

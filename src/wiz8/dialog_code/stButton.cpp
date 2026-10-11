@@ -22,7 +22,7 @@ void W8DialogButton::Draw()
         (m_region.region().flags & W8_REGION_INPUT_DISABLED) == 0) {
         m_visual.hovered = (m_region.region().flags & W8_REGION_MOUSE_ENTER) != 0 ||
                            g_hover_region_index == m_region.index();
-        DrawButtonAppearance(m_appearance, m_visual);
+        DrawButtonAppearance(GetFrameBufferSurface(), m_appearance, m_visual);
         const auto& bounds = m_appearance.bounds;
         InvalidateRegion(bounds.x, bounds.y, bounds.x + bounds.w, bounds.y + bounds.h, 0);
         m_dirty = false;
@@ -143,10 +143,11 @@ void W8DialogButton::SetVisible(bool visible)
 void W8DialogButton::SetTooltipEnabled(bool enabled)
 {
     if (!m_region) return;
-    m_region.region().help_text =
-        enabled && m_tooltip_index != W8_DIALOG_BUTTON_NO_TOOLTIP && g_settings.tooltips_enabled
-            ? g_localized_strings[m_tooltip_index]
-            : std::string{};
+    const bool show_tooltip =
+        enabled && m_tooltip_index != W8_DIALOG_BUTTON_NO_TOOLTIP && g_settings.tooltips_enabled;
+    m_region.region().help_text = show_tooltip ? g_localized_strings[m_tooltip_index] : std::string{};
+    SetRegionHelp(m_region.index(), show_tooltip,
+                  show_tooltip ? m_tooltip_index : W8_DIALOG_BUTTON_NO_TOOLTIP);
 }
 
 // FUNCTION: WIZ8 0x005dbac0

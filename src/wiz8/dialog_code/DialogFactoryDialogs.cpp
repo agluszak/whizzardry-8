@@ -9,6 +9,7 @@
 #include <string_view>
 
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
+#include "image.h"
 #include "sprite.h"
 #include "wiz8/dialog_code/DialogButton.h"
 #include "wiz8/dialog_code/DialogInterface.h"
@@ -369,12 +370,10 @@ void W8ListBoxDialog::Draw()
     if (!m_scrollable)
         m_up_button.m_dirty = m_down_button.m_dirty = m_slider_button.m_dirty =
             m_third_text_button.m_dirty = false;
-    SetFont(*g_dialog_interface_font);
     rect = m_area_button.GetBounds();
     {
-        FontRenderScope font_scope;
-        SetFontDestBuffer(GetFrameBufferSurface(), rect.x + 3, rect.y + 3, (rect.x + rect.w) - 3,
-                          (rect.y + rect.h) - 3, 0);
+        SDL_Rect text_clip{rect.x + 3, rect.y + 3, rect.w - 6, rect.h - 6};
+        ScopedClipRect clipping(GetFrameBufferSurface(), text_clip);
         if (static_cast<int>(m_lines.size()) <=
             static_cast<int>(visible_lines + m_first_visible_line)) {
             visible_lines = static_cast<int>(m_lines.size()) - m_first_visible_line;
@@ -389,10 +388,10 @@ void W8ListBoxDialog::Draw()
                 SDL_FillSurfaceRect(&GetFrameBufferSurface(), &selection,
                                     Get16BPPColor(m_fill_colour));
             }
-            DrawFontText(m_x + 3 + dx,
-                         static_cast<unsigned int>(g_dialog_interface_font->height()) * index +
-                             m_y + 2 + dy,
-                         text);
+            DrawText(GetFrameBufferSurface(), *g_dialog_interface_font,
+                     {m_x + 3 + dx,
+                      static_cast<int>(g_dialog_interface_font->height()) * index + m_y + 2 + dy},
+                     text);
         }
     }
 }
@@ -1437,18 +1436,20 @@ void W8TriggerItemPickerDialog::Draw()
         W8ItemInstance* item = &world_item->item;
         DrawSprite(GetFrameBufferSurface(), g_item_video_objects.Sprites(item->iItemNo), 0,
                    button->GetX() + 2, button->GetY() + 2);
-        SetFont(g_wiz_text_font);
         if (item->stack_count > 1) {
             auto name = GetItemDisplayName(item);
-            DrawFontText(button->GetX() + 0x3c, button->GetY() + 6,
-                         fmt::format("{}({:d})", name, item->stack_count));
+            DrawText(GetFrameBufferSurface(), g_wiz_text_font,
+                     {button->GetX() + 0x3c, button->GetY() + 6},
+                     fmt::format("{}({:d})", name, item->stack_count));
         } else {
             auto name = GetItemDisplayName(item);
-            DrawFontText(button->GetX() + 0x3c, button->GetY() + 6, name);
+            DrawText(GetFrameBufferSurface(), g_wiz_text_font,
+                     {button->GetX() + 0x3c, button->GetY() + 6}, name);
         }
         unsigned short weight = g_item_records[item->iItemNo].weight;
-        DrawFontText(button->GetX() + 0x3c, button->GetY() + g_wiz_text_font.height() + 6,
-                     fmt::format("{:4.1f} lbs", weight * 0.1f));
+        DrawText(GetFrameBufferSurface(), g_wiz_text_font,
+                 {button->GetX() + 0x3c, button->GetY() + g_wiz_text_font.height() + 6},
+                 fmt::format("{:4.1f} lbs", weight * 0.1f));
     }
 }
 

@@ -343,14 +343,14 @@ void W8PartySelectionListControl::Redraw(bool full_redraw)
 
         InvalidateRegion(left, top, right, bottom, 0);
         BlitCatalogSurfaceRectTo16BPP(GetFrameBufferSurface(), left, top, right, bottom, 0x1b6, 0, 0);
-        SetFontDestBuffer(GetFrameBufferSurface(), left, top, right, bottom, 0);
+        SDL_Rect clip{left, top, right - left, bottom - top};
+        ScopedClipRect clipping(GetFrameBufferSurface(), clip);
 
         int end = m_first_visible + m_visible_rows;
         if (static_cast<int>(g_party_selection_character_collection->names.size()) <= end) {
             end = static_cast<int>(g_party_selection_character_collection->names.size());
         }
         top += 1;
-        SetFont(g_wiz_text_font_secondary);
         for (int row = m_first_visible; row < end; ++row) {
             Palette16 colour = g_font_state_palettes[W8_FONT_PALETTE_BLUE];
             if (row != m_selection) {
@@ -360,11 +360,10 @@ void W8PartySelectionListControl::Redraw(bool full_redraw)
                 }
             }
             g_wiz_text_font_secondary.setPalette(colour);
-            DrawFontText(left + 2, top, g_party_selection_character_collection->names[row]);
+            DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {left + 2, top}, g_party_selection_character_collection->names[row]);
             top += 0x0e;
         }
         g_wiz_text_font_secondary.resetPalette();
-        SetFontDestBuffer(GetFrameBufferSurface(), 0, 0, 0x280, 0x1e0, 0);
         m_dirty = false;
     }
 }
@@ -683,14 +682,10 @@ void W8PartySelectionCharacterRow::Redraw(bool full_redraw)
     }
 
     left += 0x36;
-    SetFont(g_wiz_text_font_secondary);
-    DrawFontText(left, top + 4, character->name);
-    DrawFontText(
-        left, top + 0x0e,
-        fmt::format("{} {:d} {}", g_localized_strings[0x6b9], character->uiExpLevel,
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {left, top + 4}, character->name);
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {left, top + 0x0e}, fmt::format("{} {:d} {}", g_localized_strings[0x6b9], character->uiExpLevel,
                     g_localized_strings[g_profession_name_message_ids[character->iProfession]]));
-    DrawFontText(left, top + 0x18,
-                 fmt::format("{} {}",
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {left, top + 0x18}, fmt::format("{} {}",
                              g_localized_strings[g_gender_name_message_rows[character->gender][0]],
                              g_localized_strings[g_race_name_message_ids[character->iRace]]));
     g_wiz_text_font_secondary.setShade(Font::kNormalShade);
@@ -1007,7 +1002,6 @@ void W8PartySelectionCharacterSummaryPanel::Redraw()
         name.RenderToTarget(0, false, GetFrameBufferSurface());
     }
 
-    SetFont(g_wiz_text_font_secondary);
     g_wiz_text_font_secondary.setShade(Font::kNormalShade);
 
     std::string level_text = g_localized_strings[0x6b9];
@@ -1016,46 +1010,41 @@ void W8PartySelectionCharacterSummaryPanel::Redraw()
     std::string level_line =
         fmt::format("{} {:d} {}", level_text, character->uiExpLevel, profession);
     int width = g_wiz_text_font_secondary.textWidth(level_line);
-    DrawFontText((0xbf - width) / 2 + 0x78, 0xef,
-                 fmt::format("{} {:d} {}", level_text, character->uiExpLevel, profession));
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {(0xbf - width) / 2 + 0x78, 0xef}, fmt::format("{} {:d} {}", level_text, character->uiExpLevel, profession));
 
     std::string gender = g_localized_strings[g_gender_name_message_rows[character->gender][0]];
     std::string race = g_localized_strings[g_race_name_message_ids[character->iRace]];
     std::string race_line = fmt::format("{} {}", gender, race);
     width = g_wiz_text_font_secondary.textWidth(race_line);
-    DrawFontText((0xbf - width) / 2 + 0x7f, 0xfd, fmt::format("{} {}", gender, race));
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {(0xbf - width) / 2 + 0x7f, 0xfd}, fmt::format("{} {}", gender, race));
 
     std::string personality = g_localized_strings[g_personality_message_ids[character->personality]];
     width = g_wiz_text_font_secondary.textWidth(personality);
-    DrawFontText((0xbf - width) / 2 + 0x82, 0x10b, personality);
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {(0xbf - width) / 2 + 0x82, 0x10b}, personality);
 
-    DrawFontText(0x96, 0x127, g_localized_strings[0x6ba]);
-    DrawFontText(0xbf, 0x127,
-                 fmt::format("{:d}", character->attributes[W8_ATTRIBUTE_STRENGTH].base));
-    DrawFontText(0x96, 0x135, g_localized_strings[0x6bb]);
-    DrawFontText(0xbf, 0x135,
-                 fmt::format("{:d}", character->attributes[W8_ATTRIBUTE_INTELLIGENCE].base));
-    DrawFontText(0x96, 0x143, g_localized_strings[0x6bc]);
-    DrawFontText(0xbf, 0x143, fmt::format("{:d}", character->attributes[W8_ATTRIBUTE_PIETY].base));
-    DrawFontText(0x96, 0x151, g_localized_strings[0x6bd]);
-    DrawFontText(0xbf, 0x151,
-                 fmt::format("{:d}", character->attributes[W8_ATTRIBUTE_VITALITY].base));
-    DrawFontText(0x96, 0x15f, g_localized_strings[0x6be]);
-    DrawFontText(0xbf, 0x15f,
-                 fmt::format("{:d}", character->attributes[W8_ATTRIBUTE_DEXTERITY].base));
-    DrawFontText(0x96, 0x16d, g_localized_strings[0x6bf]);
-    DrawFontText(0xbf, 0x16d, fmt::format("{:d}", character->attributes[W8_ATTRIBUTE_SPEED].base));
-    DrawFontText(0x96, 0x17b, g_localized_strings[0x6c0]);
-    DrawFontText(0xbf, 0x17b, fmt::format("{:d}", character->attributes[W8_ATTRIBUTE_SENSES].base));
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x96, 0x127}, g_localized_strings[0x6ba]);
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0xbf, 0x127}, fmt::format("{:d}", character->attributes[W8_ATTRIBUTE_STRENGTH].base));
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x96, 0x135}, g_localized_strings[0x6bb]);
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0xbf, 0x135}, fmt::format("{:d}", character->attributes[W8_ATTRIBUTE_INTELLIGENCE].base));
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x96, 0x143}, g_localized_strings[0x6bc]);
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0xbf, 0x143}, fmt::format("{:d}", character->attributes[W8_ATTRIBUTE_PIETY].base));
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x96, 0x151}, g_localized_strings[0x6bd]);
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0xbf, 0x151}, fmt::format("{:d}", character->attributes[W8_ATTRIBUTE_VITALITY].base));
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x96, 0x15f}, g_localized_strings[0x6be]);
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0xbf, 0x15f}, fmt::format("{:d}", character->attributes[W8_ATTRIBUTE_DEXTERITY].base));
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x96, 0x16d}, g_localized_strings[0x6bf]);
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0xbf, 0x16d}, fmt::format("{:d}", character->attributes[W8_ATTRIBUTE_SPEED].base));
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x96, 0x17b}, g_localized_strings[0x6c0]);
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0xbf, 0x17b}, fmt::format("{:d}", character->attributes[W8_ATTRIBUTE_SENSES].base));
 
-    DrawFontText(0xe3, 0x127, g_localized_strings[0x6c1]);
-    DrawFontText(0x115, 0x127, fmt::format("{:d}", character->uiHPMax));
-    DrawFontText(0xe3, 0x135, g_localized_strings[0x6c2]);
-    DrawFontText(0x115, 0x135, fmt::format("{:d}", SumCharacterSpellPoints(character)));
-    DrawFontText(0xe3, 0x143, g_localized_strings[0x6c3]);
-    DrawFontText(0x115, 0x143, fmt::format("{:d}", character->uiStaminaMax));
-    DrawFontText(0xe3, 0x151, g_localized_strings[0x6c4]);
-    DrawFontText(0x115, 0x151, fmt::format("{:d}", character->carrying_capacity / 10));
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0xe3, 0x127}, g_localized_strings[0x6c1]);
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x115, 0x127}, fmt::format("{:d}", character->uiHPMax));
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0xe3, 0x135}, g_localized_strings[0x6c2]);
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x115, 0x135}, fmt::format("{:d}", SumCharacterSpellPoints(character)));
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0xe3, 0x143}, g_localized_strings[0x6c3]);
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x115, 0x143}, fmt::format("{:d}", character->uiStaminaMax));
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0xe3, 0x151}, g_localized_strings[0x6c4]);
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x115, 0x151}, fmt::format("{:d}", character->carrying_capacity / 10));
 }
 
 // GLOBAL: WIZ8 0x0069C4FC

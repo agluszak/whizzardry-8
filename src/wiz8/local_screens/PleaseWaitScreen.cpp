@@ -132,7 +132,6 @@ unsigned char PleaseWaitScreenEnter(void)
         }
     }
     ResetRegions();
-    SetFontDestBuffer(GetFrameBufferSurface(), 0, 0, 0x280, 0x1e0, 0);
     SetPrimarySurfaceTextureHint2Enabled(false);
     DisableCursorScene();
     g_load_descriptor->caption_y = 0;
@@ -182,8 +181,8 @@ static void DrawPleaseWaitScreen()
                        : 0xe4;
     DrawCatalogImage(GetFrameBufferSurface(), backdrop, 0, 0, 0, 0);
     DrawCatalogImage(GetFrameBufferSurface(), 0x1de, 0, 0, 0, 0x1be);
-    SetFont(g_level_load_font);
-    DrawFontText(0x6a, 0x1c7, g_load_descriptor->caption);
+    DrawText(GetFrameBufferSurface(), g_level_load_font, {0x6a, 0x1c7},
+             g_load_descriptor->caption);
     DrawCatalogImage(GetFrameBufferSurface(), 0x1dd, 0, g_load_descriptor->caption_y, 0, 0x185);
     ResetTransientRenderScenes();
 }

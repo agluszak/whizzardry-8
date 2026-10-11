@@ -224,10 +224,9 @@ unsigned char MainMenuScreenEnter(void)
 
     text = FormatVersionBanner(false, false, false);
     wide = text;
-    SetFont(g_wiz_text_font_secondary);
     g_wiz_text_font_secondary.setPalette(g_font_state_palettes[W8_FONT_PALETTE_WHITE]);
     measured = g_wiz_text_font_secondary.textWidth(wide);
-    DrawFontText(0x27b - measured, 5, wide);
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x27b - measured, 5}, wide);
     g_wiz_text_font_secondary.resetPalette();
     main_menu_controls.reset();
     ResetRegions();
@@ -301,9 +300,9 @@ void MainMenuScreenFrame()
             if (!DispatchRegionInput(&input) && input.type == InputEventType::KeyDown) {
                 if (HandleDeveloperModeKey(&input)) {
                     if (g_dev_mode) {
-                        SetFont(g_wiz_text_font_secondary);
                         g_wiz_text_font_secondary.resetPalette();
-                        DrawFontTextDirty(5, 5, "Developer mode enabled.");
+                        DrawTextAndInvalidate(GetFrameBufferSurface(), g_wiz_text_font_secondary,
+                                              {5, 5}, "Developer mode enabled.");
                     }
                 } else {
                     switch (input.key) {

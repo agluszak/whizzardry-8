@@ -1,4 +1,6 @@
 #include "himage.h"
+#include "image.h"
+#include <SDL3/SDL_rect.h>
 #include <fmt/format.h>
 #include <array>
 #include <string>
@@ -45,7 +47,7 @@ int W8DialogTextEntry::DrawLine(std::string_view line, int prefix_remaining, int
     if (prefix_remaining > 0) {
         if (prefix_remaining < static_cast<int>(line.size())) {
             const auto prefix = line.substr(0, prefix_remaining);
-            DrawFontText(x, y, prefix);
+            DrawText(GetFrameBufferSurface(), *m_font, {x, y}, prefix);
             x += m_font->textWidth(prefix);
             if (!m_selected) {
                 m_font->setPalette(m_text_palette < 15
@@ -56,7 +58,7 @@ int W8DialogTextEntry::DrawLine(std::string_view line, int prefix_remaining, int
         }
         prefix_remaining -= line.size();
     }
-    DrawFontText(x, y, line);
+    DrawText(GetFrameBufferSurface(), *m_font, {x, y}, line);
     return prefix_remaining;
 }
 
@@ -74,7 +76,6 @@ void W8DialogTextEntry::Draw(bool force)
         shortened = ShortenTextToWidth(m_buffer, width - 5, *m_font);
         remaining = shortened;
     }
-    SetFont(*m_font);
     Palette16 palette = g_font_state_palettes[W8_FONT_PALETTE_YELLOW];
     if (!m_entry_highlighted) {
         if (m_marked) {
@@ -93,8 +94,10 @@ void W8DialogTextEntry::Draw(bool force)
         }
     }
     m_font->setPalette(palette);
-    SetFontDestBuffer(GetFrameBufferSurface(), m_pendingBounds.left, m_pendingBounds.top,
-                      m_pendingBounds.right, m_pendingBounds.bottom, 0);
+    SDL_Rect clip{m_pendingBounds.left, m_pendingBounds.top,
+                  m_pendingBounds.right - m_pendingBounds.left,
+                  m_pendingBounds.bottom - m_pendingBounds.top};
+    ScopedClipRect clipping(GetFrameBufferSurface(), clip);
     int y = GetVerticalPosition();
     for (;;) {
         const auto end = remaining.find('\n');
@@ -106,7 +109,6 @@ void W8DialogTextEntry::Draw(bool force)
     }
     InvalidateRegion(m_layoutBounds.left, m_layoutBounds.top, m_layoutBounds.right,
                      m_layoutBounds.bottom, 0);
-    SetFontDestBuffer(GetFrameBufferSurface(), 0, 0, 640, 480, 0);
     m_geometryDirty = false;
 }
 

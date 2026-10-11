@@ -981,14 +981,14 @@ void DrawSubMenuCharacterAction(void)
     if (slot > 7) {
         return;
     }
-    SetFont(g_smfnt_font);
     row = &g_status.buffers.XChar[slot];
     g_smfnt_font.setPalette(g_font_state_palettes[row->party_order_index]);
     DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x7e, 0, 6, 0x157, 0x1c2);
     character = &g_status.buffers.Char[slot];
     text = fmt::format("{} - {}", character->name,
                        g_localized_strings[g_profession_name_message_ids[character->iProfession]]);
-    DrawFontTextDirty((0xb9 - g_smfnt_font.textWidth(text)) / 2 + 0x157, 0x1c6, text);
+    DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font,
+                          {(0xb9 - g_smfnt_font.textWidth(text)) / 2 + 0x157, 0x1c6}, text);
     if (!gXStatus.fCombatMode) {
         if (character->highest_condition == W8_CONDITION_NONE) {
             return;
@@ -1066,7 +1066,8 @@ void DrawSubMenuCharacterAction(void)
             break;
         }
     }
-    DrawFontTextDirty((0xb9 - g_smfnt_font.textWidth(text)) / 2 + 0x157, 0x1d1, text);
+    DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font,
+                          {(0xb9 - g_smfnt_font.textWidth(text)) / 2 + 0x157, 0x1d1}, text);
 }
 
 /* Enable the fight/review panel buttons from combat engagement and mode

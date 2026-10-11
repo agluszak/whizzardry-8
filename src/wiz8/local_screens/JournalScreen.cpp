@@ -1,5 +1,6 @@
 #include <tuple>
 #include "himage.h"
+#include "image.h"
 #include <fmt/format.h>
 #include <SDL3/SDL_rect.h>
 #include <string_view>
@@ -178,14 +179,14 @@ void DrawJournalLine(std::string_view text, int column, int y, int palette, bool
             x = 0;
         }
     }
-    SetFont(g_journal_font);
-    SetFontDestBuffer(GetFrameBufferSurface(), left, y, left + right, y + 0x1e, 0);
     if (palette == 0) {
         g_journal_font.resetPalette();
     } else if (palette == 1) {
         g_journal_font.setPalette(g_journal_font_palette);
     }
-    DrawFontText(left + x, y, text);
+    SDL_Rect clip{left, y, right, 0x1e};
+    ScopedClipRect clipping(GetFrameBufferSurface(), clip);
+    DrawText(GetFrameBufferSurface(), g_journal_font, {left + x, y}, text);
 }
 
 // FUNCTION: WIZ8 0x005bd860

@@ -19,7 +19,7 @@
 #include <unordered_map>
 #include <utility>
 
-#include <glm/geometric.hpp>
+#include <glm/geometric.hpp> // NOLINT(misc-include-cleaner)
 #include "glm/ext/vector_float2.hpp"
 #include "image.h"
 #include "utf8/checked.h"
@@ -1662,6 +1662,7 @@ W8AutomapNote* FindAutomapNoteUnderCursor(void)
              ++index) {
             W8AutomapNote* note = (*g_automap_notes)[index];
             if (note->layer == g_automap_layer) {
+                // NOLINTNEXTLINE(misc-include-cleaner)
                 const float distance = glm::distance(location, note->position);
                 if (distance < best && distance < g_automap_zoom * 0.05) {
                     best = distance;
@@ -1852,9 +1853,7 @@ void RenderAutomapMarkers(void)
     if (g_automap_page != 2) {
         SDL_Rect clip = {0xc, 0x20, 0x1d3 - 0xc, 0x1d3 - 0x20};
         ScopedClipRect clipped(GetFrameBufferSurface(), clip);
-        SetFont(g_wiz_text_font_secondary);
         g_wiz_text_font_secondary.setShade(Font::kNormalShade);
-        SetFontDestClip(0xc, 0x20, 0x1d3, 0x1d3);
         int font_height = g_wiz_text_font_secondary.height();
         unsigned int count = static_cast<int>(g_automap_notes->size());
         for (unsigned int index = 0; index < count; ++index) {
@@ -1889,7 +1888,8 @@ void RenderAutomapMarkers(void)
                     y += (height >> 1) - ((font_height & 0xffff) >> 1);
                     width = marker->GetScaledWidth();
                     x += width + 2;
-                    DrawFontTextDirty(x, y, note->text);
+                    DrawTextAndInvalidate(GetFrameBufferSurface(), g_wiz_text_font_secondary,
+                                          {x, y}, note->text);
                     if (note == g_automap_editing_note) {
                         marker->setScale(glm::dvec3(0.22f, 0.22f, 0.22f));
                         int color = Get16BPPColor(SDL_Color{239, 155, 86, SDL_ALPHA_OPAQUE});

@@ -284,27 +284,31 @@ void W8SpellInfoDialog::DrawLabels()
     std::int16_t width;
     W8SpellRuntimeRecord* record = &g_spell_records[m_spell];
 
-    SetFont(g_wiz_text_font_secondary);
     g_wiz_text_font_secondary.resetPalette();
     text = record->display_name;
     width = g_wiz_text_font_secondary.textWidth(text);
-    DrawFontText(m_x + 0x25 + (0xe7 - width) / 2, m_y + 0x12, text);
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary,
+             {m_x + 0x25 + (0xe7 - width) / 2, m_y + 0x12}, text);
     text = g_localized_strings[0x118];
     width = g_wiz_text_font_secondary.textWidth(text);
-    DrawFontText(m_x + 0x25 + (0x53 - width) / 2, m_y + 0x24, text);
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary,
+             {m_x + 0x25 + (0x53 - width) / 2, m_y + 0x24}, text);
     if (record->power_class == W8_SPELL_POWER_FIXED) {
         text = g_localized_strings[0x11a];
     } else {
         text = g_localized_strings[0x119];
     }
     width = g_wiz_text_font_secondary.textWidth(text);
-    DrawFontText(m_x + 0x25 + (0x7b - width) / 2, m_y + 0x33, text);
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary,
+             {m_x + 0x25 + (0x7b - width) / 2, m_y + 0x33}, text);
     text = fmt::format("{:d}", record->spell_level);
     width = g_wiz_text_font_secondary.textWidth(text);
-    DrawFontText(m_x + 0x7c + (0x16 - width) / 2, m_y + 0x24, text);
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary,
+             {m_x + 0x7c + (0x16 - width) / 2, m_y + 0x24}, text);
     text = fmt::format("{:d} {}", record->spell_point_cost, g_localized_strings[0x11b]);
     width = g_wiz_text_font_secondary.textWidth(text);
-    DrawFontText(m_x + 0xa4 + (0x25 - width) / 2, m_y + 0x33, text);
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary,
+             {m_x + 0xa4 + (0x25 - width) / 2, m_y + 0x33}, text);
 }
 
 // FUNCTION: WIZ8 0x005dc6c0

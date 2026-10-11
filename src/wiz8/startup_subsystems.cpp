@@ -109,7 +109,6 @@ unsigned char InitializeMenuFonts(void)
     for (size_t index = 0; index < fonts.size(); ++index)
         *std::get<0>(fonts[index]) = std::move(loaded[index]);
     g_font_state_palettes.swap(palettes);
-    SetFont(g_large_font);
     ConfigureDialogFont(g_wiz_dialog_font, 1, 0xff, 0);
     return 1;
 }

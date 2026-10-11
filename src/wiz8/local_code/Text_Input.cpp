@@ -1079,9 +1079,6 @@ void RenderActiveTextField(void)
     }
 
     {
-
-        FontRenderScope font_scope;
-        SetFont(*pColors->usFont);
         unsigned short font_height = pColors->usFont->height();
         unsigned int vertical_offset =
             (TextFieldRegion(field).y2 - TextFieldRegion(field).y1 - font_height) / 2;
@@ -1100,23 +1097,33 @@ void RenderActiveTextField(void)
         for (size_t index = 0; index < guiVisibleCount && visible[index];) {
             short prefix = pColors->usFont->prefixWidth(const_cast<char*>(visible), index);
             unsigned char background;
+            TextOptions options;
             if (has_selection &&
                 selection_first <= gubParkingPos + index &&
                 gubParkingPos + index < selection_last) {
-                SetFontForeground(pColors->ubHiForeColor);
-                SetFontShadow(pColors->ubHiShadowColor);
+                options.colors.foreground =
+                    pColors->usFont->color(pColors->ubHiForeColor);
+                options.colors.shadow =
+                    pColors->usFont->color(pColors->ubHiShadowColor);
+                if (options.colors.shadow == 0 && pColors->ubHiShadowColor != 0)
+                    options.colors.shadow = 1;
                 background = pColors->ubHiBackColor;
             } else {
-                SetFontForeground(pColors->ubForeColor);
-                SetFontShadow(pColors->ubShadowColor);
+                options.colors.foreground = pColors->usFont->color(pColors->ubForeColor);
+                options.colors.shadow = pColors->usFont->color(pColors->ubShadowColor);
+                if (options.colors.shadow == 0 && pColors->ubShadowColor != 0)
+                    options.colors.shadow = 1;
                 background = 0;
             }
-            SetFontBackground(background);
+            options.colors.background = pColors->usFont->color(background);
+            options.mono = true;
             std::size_t end = index;
             wiz8::text::next(visible, end);
             const std::string glyph(visible + index, end - index);
-            DrawMonoFontText(TextFieldRegion(field).x1 + prefix + 3,
-                             TextFieldRegion(field).y1 + vertical_offset, glyph);
+            DrawText(GetFrameBufferSurface(), *pColors->usFont,
+                     {TextFieldRegion(field).x1 + prefix + 3,
+                      static_cast<int>(TextFieldRegion(field).y1 + vertical_offset)},
+                     glyph, options);
             index = end;
         }
 
@@ -1139,22 +1146,24 @@ void RenderInactiveTextFieldNode(TEXTINPUTNODE* field)
 
     const bool disabled = field->fEnabled == 0 && pColors->fUseDisabledAutoShade;
     {
-
-        FontRenderScope font_scope;
-        SetFont(*pColors->usFont);
         unsigned char shadow;
+        TextOptions options;
         if (disabled) {
-            SetFontForeground(pColors->ubDisabledForeColor);
+            options.colors.foreground =
+                pColors->usFont->color(pColors->ubDisabledForeColor);
             shadow = pColors->ubDisabledShadowColor;
         } else {
-            SetFontForeground(pColors->ubForeColor);
+            options.colors.foreground = pColors->usFont->color(pColors->ubForeColor);
             shadow = pColors->ubShadowColor;
         }
-        SetFontShadow(shadow);
+        options.colors.shadow = pColors->usFont->color(shadow);
+        if (options.colors.shadow == 0 && shadow != 0)
+            options.colors.shadow = 1;
         unsigned short font_height = pColors->usFont->height();
         unsigned int vertical_offset =
             (TextFieldRegion(field).y2 - TextFieldRegion(field).y1 - font_height) / 2;
-        SetFontBackground(0);
+        options.colors.background = pColors->usFont->color(0);
+        options.mono = true;
         RenderBackgroundField(field);
 
         const char* visible = field->szString.c_str();
@@ -1164,8 +1173,10 @@ void RenderInactiveTextFieldNode(TEXTINPUTNODE* field)
             std::size_t end = index;
             wiz8::text::next(visible, end);
             const std::string glyph(visible + index, end - index);
-            DrawMonoFontText(TextFieldRegion(field).x1 + prefix + 3,
-                             TextFieldRegion(field).y1 + vertical_offset, glyph);
+            DrawText(GetFrameBufferSurface(), *pColors->usFont,
+                     {TextFieldRegion(field).x1 + prefix + 3,
+                      static_cast<int>(TextFieldRegion(field).y1 + vertical_offset)},
+                     glyph, options);
             index = end;
         }
 
