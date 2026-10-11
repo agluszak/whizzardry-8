@@ -1,5 +1,7 @@
 #pragma once
 
+#include "surrender/srBoundingBox.h"
+
 #include <queue>
 #include <memory>
 #include <vector>
@@ -444,7 +446,7 @@ public:
     /* Takes the size, two loose values, the bounds block out of the octree
        header, and the level name the octree already owns. */
     void ConfigureForLevel(int size, float grid_scale, float path_clearance,
-                           const srVector3T<float>* bounds, const char* name); /* 0x00458A50 */
+                           const srBoundingBox& bounds, const char* name); /* 0x00458A50 */
     unsigned char ReadPathNodes(wiz8::File* handle);                                   /* 0x00458CE0 */
     bool WritePathNodes(wiz8::File* handle);
     unsigned char SaveWaypointSnapshot(bool force);

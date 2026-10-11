@@ -1,6 +1,8 @@
 #ifndef WIZ8_ENGINE_CODE_OCT_BUILD_PRE_TREE_H
 #define WIZ8_ENGINE_CODE_OCT_BUILD_PRE_TREE_H
 
+#include <optional>
+
 #include <unordered_map>
 #include <variant>
 #include "glm/ext/vector_float3.hpp"
@@ -56,7 +58,7 @@ struct W8OctRegionPolygon {
     /* Tests the polygon's representative point against six frustum planes;
        inside means every plane distance is non-negative. */
     bool InsideFrustumPlanes(const W8Plane* planes) const;
-    bool ContainsPoint(const srVector3T<float>* bounds) const;
+    bool containsPoint(const srBoundingBox& bounds) const;
 };
 
 W8_ABI_ASSERT(sizeof(W8OctRegionPolygon) == 0x74, "W8OctRegionPolygon_must_be_0x74");
@@ -73,7 +75,7 @@ extern unsigned short g_region_id_count;
    "OctBuildPreTree::m_ppPolyList too long.", "m_pulRegPaths" and
    "m_psrvRegCenters" in Engine Code\OctBuildPreTree.cpp. */
 struct OctBuildPreTree : W8OctBuildTree {
-    OctBuildPreTree(float leaf_size, srVector3T<float>* minimum, srVector3T<float>* maximum,
+    OctBuildPreTree(float leaf_size, std::optional<srBoundingBox> bounds,
                     unsigned short item_limit, w8_ulong path_capacity, short extent_mode);
     OctPreTree* BuildOctPreTree();
     unsigned short BuildRegions();
@@ -108,8 +110,7 @@ struct OctBuildPreTree : W8OctBuildTree {
     void FindLeafRegions(W8OctBuildNode* node, const W8BoundingBox* bounds);
     /* Loads the .rlk region file beside the level and folds its bounds into
        the build. */
-    unsigned short LoadRegionFile(const char* stem, srVector3T<float>* minimum,
-                                  srVector3T<float>* maximum);
+    unsigned short LoadRegionFile(const char* stem);
     /* Walks the node tree remapping leaf region ids through region_remap. */
     void RemapNodeRegions(W8OctBuildNode* node, int depth);
     /* Assigns a polygon's region from the region volume containing its

@@ -453,10 +453,11 @@ static unsigned char PreprocessLevel(wiz8::File* handle, char* stem)
                 }
                 ReportBuildStatus(6, "\nBuilding OctBuildPreTree ---------------------\n");
                 build_tree =
-                    new OctBuildPreTree(g_option_min_leaf_size, &minimum, &maximum,
+                    new OctBuildPreTree(g_option_min_leaf_size,
+                                        srBoundingBox{minimum.glmValue(), maximum.glmValue()},
                                         g_option_max_path_nodes, g_option_max_leaf_count, 0);
                 if (build_tree != 0) {
-                    build_tree->LoadRegionFile(stem, &minimum, &maximum);
+                    build_tree->LoadRegionFile(stem);
                     if (!g_option_mesh_linking) {
                         build_tree->mesh_linking = false;
                     }
@@ -517,22 +518,22 @@ static unsigned char PreprocessLevel(wiz8::File* handle, char* stem)
                     g_oct_max_objects = build_tree->deepest_link_list;
                     ReportBuildStatus(3, message);
                     snprintf(message, sizeof(message), "World Minimum Corner: \t%f  \t%f  \t%f\n",
-                            build_tree->spatial.m_minimum.x, build_tree->spatial.m_minimum.y,
-                            build_tree->spatial.m_minimum.z);
+                            build_tree->spatial.m_bounds.minimum.x, build_tree->spatial.m_bounds.minimum.y,
+                            build_tree->spatial.m_bounds.minimum.z);
                     ReportBuildStatus(6, message);
                     snprintf(message, sizeof(message), "World Maximum Corner: \t%f  \t%f  \t%f\n",
-                            build_tree->spatial.m_maximum.x, build_tree->spatial.m_maximum.y,
-                            build_tree->spatial.m_maximum.z);
+                            build_tree->spatial.m_bounds.maximum.x, build_tree->spatial.m_bounds.maximum.y,
+                            build_tree->spatial.m_bounds.maximum.z);
                     ReportBuildStatus(6, message);
                     snprintf(message, sizeof(message), "World Dimensions:\n\tX: %fm  \tY: %fm  \tZ: %fm\n",
-                            ((build_tree->spatial.m_clipped_maximum.x -
-                              build_tree->spatial.m_clipped_minimum.x) *
+                            ((build_tree->spatial.m_clipped_bounds.maximum.x -
+                              build_tree->spatial.m_clipped_bounds.minimum.x) *
                              g_float_one_five_hundredth),
-                            ((build_tree->spatial.m_clipped_maximum.y -
-                              build_tree->spatial.m_clipped_minimum.y) *
+                            ((build_tree->spatial.m_clipped_bounds.maximum.y -
+                              build_tree->spatial.m_clipped_bounds.minimum.y) *
                              g_float_one_five_hundredth),
-                            ((build_tree->spatial.m_clipped_maximum.z -
-                              build_tree->spatial.m_clipped_minimum.z) *
+                            ((build_tree->spatial.m_clipped_bounds.maximum.z -
+                              build_tree->spatial.m_clipped_bounds.minimum.z) *
                              g_float_one_five_hundredth));
                     ReportBuildStatus(6, message);
                     for (i = 0; i < level->num_switch_triggers; ++i) {
@@ -602,7 +603,7 @@ static unsigned char PreprocessLevel(wiz8::File* handle, char* stem)
                         return 0;
                     }
                     tree->SetPathStem(stem);
-                    tree->m_spatial.SetWorkingBounds(&g_weld_min, &g_weld_max);
+                    tree->m_spatial.setWorkingBounds({g_weld_min.glmValue(), g_weld_max.glmValue()});
                     tree->m_alpha_polygon_count = alpha_polys;
                     value->octree = tree;
                     snprintf(message, sizeof(message), "Poly List Len: %d\n", static_cast<int>(tree->polygon_cursor));

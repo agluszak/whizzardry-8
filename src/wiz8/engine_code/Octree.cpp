@@ -400,7 +400,7 @@ int W8Octree::CollectModelsNearPoint(std::vector<stModelInstance*>& out,
     if (!(radius >= 0) || glm::any(glm::isnan(center)) || glm::any(glm::isinf(center)) ||
         m_spatial.m_region_cells_per_axis == 0 || !(m_spatial.m_region_grid_cell > 0))
         return static_cast<int>(out.size());
-    const auto relative = (center - m_spatial.m_minimum.glmValue()) / m_spatial.m_region_grid_cell;
+    const auto relative = (center - m_spatial.m_bounds.minimum) / m_spatial.m_region_grid_cell;
     const float reach = radius / m_spatial.m_region_grid_cell;
     const glm::vec3 limit(m_spatial.m_region_cells_per_axis - 1);
     const glm::ivec3 first(glm::clamp(glm::floor(relative - reach) - 1.0f, glm::vec3(0), limit));
@@ -623,7 +623,7 @@ unsigned int W8Octree::GetSectorForPosition(const srVector3T<float>* position)
     unsigned int cell[4];
     cell[0] = m_region_mask;
     for (int axis = 0; axis < 3; ++axis) {
-        int coordinate = static_cast<int>(((&position->x)[axis] - (&m_spatial.m_minimum.x)[axis]) /
+        int coordinate = static_cast<int>(((&position->x)[axis] - m_spatial.m_bounds.minimum[axis]) /
                                           m_spatial.m_region_grid_cell);
         if (coordinate < 0 || coordinate >= m_spatial.m_region_cells_per_axis) {
             return 0;
@@ -640,7 +640,7 @@ unsigned int W8Octree::GetSectorForPosition(const srVector3T<float>* position)
 
 OctreeCellCoordinates W8Octree::cellCoordinates(const glm::vec3& location) const
 {
-    const auto minimum = m_spatial.m_minimum.glmValue();
+    const auto minimum = m_spatial.m_bounds.minimum;
     auto cell = cellAt(location);
     // Retain the visibility/swept-query policy even at exact negative cell
     // multiples; it is intentionally different from truncating cellAt().
@@ -649,7 +649,7 @@ OctreeCellCoordinates W8Octree::cellCoordinates(const glm::vec3& location) const
     const auto offset = (location - (glm::vec3(cell) * m_spatial.m_node_extent + minimum)) /
                        m_spatial.m_node_extent - g_float_half;
     const bool inside = !glm::any(glm::lessThan(location, minimum)) &&
-                        !glm::any(glm::greaterThan(location, m_spatial.m_maximum.glmValue()));
+                        !glm::any(glm::greaterThan(location, m_spatial.m_bounds.maximum));
     return {cell, offset, inside};
 }
 
@@ -658,10 +658,10 @@ OctreeCellCoordinates W8Octree::projectRegionsAt(const glm::vec3& position)
 {
     const auto coordinates = cellCoordinates(position);
     if (!coordinates.inside) return coordinates;
-    const glm::ivec3 link_cell((position - m_spatial.m_minimum.glmValue()) /
+    const glm::ivec3 link_cell((position - m_spatial.m_bounds.minimum) /
                                m_spatial.m_region_grid_cell);
-    srVector3T<float> box_min = m_spatial.m_minimum;
-    srVector3T<float> box_max = m_spatial.m_maximum;
+    srVector3T<float> box_min = m_spatial.m_bounds.minimum;
+    srVector3T<float> box_max = m_spatial.m_bounds.maximum;
     srVector3T<float> location_record(position);
     auto* location = &location_record;
     float span = m_spatial.m_extent * g_float_half;
@@ -808,7 +808,7 @@ void W8Octree::CollectVisibleCells()
 
     for (int axis = 0; axis < 3; ++axis) {
         (&center.x)[axis] = static_cast<short>(
-            static_cast<int>((((&view.camera_location.x)[axis] - (&m_spatial.m_minimum.x)[axis]) /
+            static_cast<int>((((&view.camera_location.x)[axis] - m_spatial.m_bounds.minimum[axis]) /
                               m_spatial.m_region_grid_cell)));
     }
     unsigned int region_base = m_region_mask;
@@ -831,11 +831,11 @@ void W8Octree::CollectVisibleCells()
                     float offset = m_spatial.m_region_grid_cell * g_float_half;
                     srVector3T<float> point;
                     point.x =
-                        cell_x * m_spatial.m_region_grid_cell + offset + m_spatial.m_minimum.x;
+                        cell_x * m_spatial.m_region_grid_cell + offset + m_spatial.m_bounds.minimum.x;
                     point.y =
-                        cell_y * m_spatial.m_region_grid_cell + m_spatial.m_minimum.y + offset;
+                        cell_y * m_spatial.m_region_grid_cell + m_spatial.m_bounds.minimum.y + offset;
                     point.z =
-                        cell_z * m_spatial.m_region_grid_cell + m_spatial.m_minimum.z + offset;
+                        cell_z * m_spatial.m_region_grid_cell + m_spatial.m_bounds.minimum.z + offset;
                     if (!PointInsideFrustum(&point, view.frustum_planes)) {
                         continue;
                     }
@@ -1011,7 +1011,7 @@ unsigned int W8Octree::RegionKeyForPoint(const srVector3T<float>* point)
     }
     glm::ivec3 cell;
     for (int axis = 0; axis < 3; ++axis) {
-        cell[axis] = static_cast<int>(((&point->x)[axis] - (&m_spatial.m_minimum.x)[axis]) /
+        cell[axis] = static_cast<int>(((&point->x)[axis] - m_spatial.m_bounds.minimum[axis]) /
                                            m_spatial.m_region_grid_cell);
     }
     return (cell.x * 0x100 + cell.y) * 0x100 + cell.z + m_region_mask * 0x1000000;
@@ -1296,19 +1296,19 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
                 break;
             }
             srVector3T<float> point;
-            point.x = m_region_cell * g_float_half + x_index * stride + m_spatial.m_minimum.x;
+            point.x = m_region_cell * g_float_half + x_index * stride + m_spatial.m_bounds.minimum.x;
             unsigned short z_index = !rebuild_all && (x_index & 1) != 0 ? z_step : 0;
-            if (!(m_spatial.m_working_minimum.x < point.x &&
-                  point.x < m_spatial.m_working_maximum.x)) {
+            if (!(m_spatial.m_working_bounds.minimum.x < point.x &&
+                  point.x < m_spatial.m_working_bounds.maximum.x)) {
                 continue;
             }
             for (; z_index < rows; z_index += z_step) {
                 if (aborted) {
                     break;
                 }
-                point.z = m_region_cell * g_float_half + z_index * stride + m_spatial.m_minimum.z;
-                if (!(m_spatial.m_working_minimum.z < point.z &&
-                      point.z < m_spatial.m_working_maximum.z)) {
+                point.z = m_region_cell * g_float_half + z_index * stride + m_spatial.m_bounds.minimum.z;
+                if (!(m_spatial.m_working_bounds.minimum.z < point.z &&
+                      point.z < m_spatial.m_working_bounds.maximum.z)) {
                     continue;
                 }
                 const bool received_events = PumpGameEvents();
@@ -1332,7 +1332,7 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
                         }
                     }
                 }
-                point.y = m_spatial.m_minimum.y + m_spatial.m_extent;
+                point.y = m_spatial.m_bounds.minimum.y + m_spatial.m_extent;
                 while (pathing->SnapToLowerPathCell(&point, true)) {
                     point.y += g_default_world_height;
                     unsigned int key = RegionKeyForPoint(&point);
@@ -1500,9 +1500,9 @@ unsigned char W8Octree::UpdateWorldTrace()
 
     camera = cameraLocation();
     cell = cellAt(camera.glmValue());
-    minimum.Set(cell.x * m_spatial.m_node_extent + m_spatial.m_minimum.x,
-                cell.y * m_spatial.m_node_extent + m_spatial.m_minimum.y,
-                cell.z * m_spatial.m_node_extent + m_spatial.m_minimum.z);
+    minimum.Set(cell.x * m_spatial.m_node_extent + m_spatial.m_bounds.minimum.x,
+                cell.y * m_spatial.m_node_extent + m_spatial.m_bounds.minimum.y,
+                cell.z * m_spatial.m_node_extent + m_spatial.m_bounds.minimum.z);
     maximum.Set(minimum.x + m_spatial.m_node_extent, minimum.y + m_spatial.m_node_extent,
                 minimum.z + m_spatial.m_node_extent);
     w8_ulong* packed = PackColourToLong(&color, 0.0, 1.0, 0.0, 0.0);
@@ -1568,22 +1568,21 @@ int W8Octree::CountBadRegionMeshLinks(W8OctSpatialState* spatial)
                     if (auto* model = mesh->getModel()) {
                         const auto bounds = model->getBounds().box;
                         const auto world = mesh->getWorldSpaceMatrix<glm::mat4>();
-                        const srBoundingBox cell{spatial->m_minimum.glmValue(),
-                                                 spatial->m_maximum.glmValue()};
+                        const auto cell = spatial->bounds();
                         bad_links = !bounds.transformed(world).overlaps(cell);
                     }
                 }
             }
         } else {
-            const auto minimum = spatial->m_minimum.glmValue();
+            const auto minimum = spatial->m_bounds.minimum;
             for (unsigned child = 0; child < 8; ++child) {
                 local.m_node_index = m_branches[spatial->m_node_index].children[child];
                 if (!local.m_node_index)
                     continue;
                 const glm::vec3 offset((child >> 2) & 1, (child >> 1) & 1, child & 1);
                 const auto corner = minimum + offset * local.m_extent;
-                local.m_minimum = corner;
-                local.m_maximum = corner + local.m_extent;
+                local.m_bounds.minimum = corner;
+                local.m_bounds.maximum = corner + local.m_extent;
                 bad_links += CountBadRegionMeshLinks(&local);
             }
         }
@@ -1867,14 +1866,14 @@ GroundProbe W8Octree::settleToGround(const glm::vec3& input, bool test_props, fl
         current_prop = -1;
     }
     std::ranges::fill(m_visited_object_bits, false);
-    if (m_spatial.m_clipped_maximum.y < position.y) {
-        position.y = m_spatial.m_clipped_maximum.y;
+    if (m_spatial.m_clipped_bounds.maximum.y < position.y) {
+        position.y = m_spatial.m_clipped_bounds.maximum.y;
     }
     end = position;
     start = position;
     start.y = position.y + limit;
     cell = cellAt(start.glmValue());
-    end.y = ((cell.y - 1)) * m_spatial.m_node_extent + m_spatial.m_minimum.y;
+    end.y = ((cell.y - 1)) * m_spatial.m_node_extent + m_spatial.m_bounds.minimum.y;
     trace.Reseed(&start, &end);
     if (-1 < cell.y) {
         do {
@@ -1907,7 +1906,7 @@ GroundProbe W8Octree::settleToGround(const glm::vec3& input, bool test_props, fl
                 } else {
                     float level = static_cast<float>(cell.y);
                     --cell.y;
-                    start.y = level * m_spatial.m_node_extent + m_spatial.m_minimum.y;
+                    start.y = level * m_spatial.m_node_extent + m_spatial.m_bounds.minimum.y;
                     end.y -= m_spatial.m_node_extent;
                     trace.Reseed(&start, &end);
                 }
@@ -1935,8 +1934,8 @@ out:
 bool W8Octree::SnapToGround(srVector3T<float>* position, char mode)
 {
     bool hit = false;
-    if (position->y > m_spatial.m_clipped_maximum.y) {
-        position->y = m_spatial.m_clipped_maximum.y;
+    if (position->y > m_spatial.m_clipped_bounds.maximum.y) {
+        position->y = m_spatial.m_clipped_bounds.maximum.y;
     }
     srVector3T<float> probe = *position;
     probe.y = position->y - g_world_scale;
@@ -2265,12 +2264,12 @@ void W8Octree::AddCollidablePropBounds(int index, const W8BoundingBox* bounds)
 
     for (axis = 0; axis < 3; ++axis) {
         (&minimum.x)[axis] =
-            static_cast<int>(((&bounds->minimum.x)[axis] - (&m_spatial.m_minimum.x)[axis]) /
+            static_cast<int>(((&bounds->minimum.x)[axis] - m_spatial.m_bounds.minimum[axis]) /
                              m_spatial.m_node_extent);
     }
     for (axis = 0; axis < 3; ++axis) {
         (&maximum.x)[axis] =
-            static_cast<int>(((&bounds->maximum.x)[axis] - (&m_spatial.m_minimum.x)[axis]) /
+            static_cast<int>(((&bounds->maximum.x)[axis] - m_spatial.m_bounds.minimum[axis]) /
                              m_spatial.m_node_extent);
     }
 
@@ -2304,8 +2303,8 @@ W8OctreeWalk W8Octree::cellWalk(const glm::vec3& from, const glm::vec3& to) cons
     W8OctreeWalk walk{};
     const float cell_size = m_spatial.m_node_extent * g_octree_cell_scale;
     const int cell = static_cast<int>(cell_size);
-    const glm::ivec3 from_cell((from - m_spatial.m_minimum.glmValue()) * g_octree_cell_scale);
-    const glm::ivec3 to_cell((to - m_spatial.m_minimum.glmValue()) * g_octree_cell_scale);
+    const glm::ivec3 from_cell((from - m_spatial.m_bounds.minimum) * g_octree_cell_scale);
+    const glm::ivec3 to_cell((to - m_spatial.m_bounds.minimum) * g_octree_cell_scale);
     const glm::vec3 delta(to_cell - from_cell);
     glm::vec3 fraction;
     int longest = 0;
@@ -2829,7 +2828,7 @@ W8Octree::W8Octree(const char* path, W8GameData** game_data)
         if (header.m_path_nodes != 0) {
             pathing = new W8PathingService;
             pathing->ConfigureForLevel(header.m_path_nodes, header.m_region_cell,
-                                      header.m_path_clearance, header.m_bounds, m_owned_0c0);
+                                      header.m_path_clearance, m_spatial.bounds(), m_owned_0c0);
             if (!pathing->ReadPathNodes(hOctFile.get())) {
                 throw std::runtime_error("Could not read octree path nodes.");
             }
@@ -3004,12 +3003,6 @@ void W8Octree::Reset()
     m_aulGDObjs = 0;
 
     memset(&view, 0, sizeof(view));
-    /* 0x0042D1F1 then re-zeroes the four bounds inline, which
-       Reset above already did through the callee. */
-    m_spatial.m_clipped_minimum.SetZero();
-    m_spatial.m_clipped_maximum.SetZero();
-    m_spatial.m_working_minimum.SetZero();
-    m_spatial.m_working_maximum.SetZero();
     m_unknown_27c[0] = 0;
     m_unknown_27c[1] = 0;
     m_unknown_27c[2] = 0;
@@ -3047,12 +3040,12 @@ void W8Octree::Initialize(const W8OctFileHeader* header)
         m_unknown_27c[3] = 0;
         m_unknown_27c[4] = 0;
         m_unknown_27c[5] = 0;
-        m_spatial.m_minimum = header->m_bounds[0];
-        m_spatial.m_maximum = header->m_bounds[1];
-        m_spatial.m_clipped_minimum = header->m_bounds[2];
-        m_spatial.m_clipped_maximum = header->m_bounds[3];
-        m_spatial.m_working_minimum = header->m_bounds[4];
-        m_spatial.m_working_maximum = header->m_bounds[5];
+        m_spatial.m_bounds.minimum = header->m_bounds[0].glmValue();
+        m_spatial.m_bounds.maximum = header->m_bounds[1].glmValue();
+        m_spatial.m_clipped_bounds.minimum = header->m_bounds[2].glmValue();
+        m_spatial.m_clipped_bounds.maximum = header->m_bounds[3].glmValue();
+        m_spatial.m_working_bounds.minimum = header->m_bounds[4].glmValue();
+        m_spatial.m_working_bounds.maximum = header->m_bounds[5].glmValue();
         m_leaf_grid_dimensions = header->m_grid_dims;
 
         m_spatial.m_leaf_grid_stride_x = m_leaf_grid_dimensions.y * m_leaf_grid_dimensions.z;
@@ -3528,7 +3521,7 @@ void W8Octree::RegisterNavigatorCell(int id, const srVector3T<float>* position)
 // FUNCTION: WIZ8 0x00431440
 glm::ivec3 W8Octree::cellAt(const glm::vec3& position) const
 {
-    return glm::ivec3((position - m_spatial.m_minimum.glmValue()) / m_spatial.m_node_extent);
+    return glm::ivec3((position - m_spatial.m_bounds.minimum) / m_spatial.m_node_extent);
 }
 
 /* Step one navigator's movement tail towards its target.

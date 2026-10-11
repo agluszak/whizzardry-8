@@ -1,6 +1,8 @@
 #ifndef WIZ8_ENGINE_CODE_OCT_BUILD_TREE_H
 #define WIZ8_ENGINE_CODE_OCT_BUILD_TREE_H
 
+#include <optional>
+
 #include <deque>
 #include <vector>
 #include "glm/ext/vector_float3.hpp"
@@ -55,7 +57,7 @@ struct W8CountedOctBuildNode : W8OctBuildNode {
    the vtables emitted near this TU belong to vector/template material, not to
    this type. */
 struct W8OctBuildTree {
-    W8OctBuildTree(float leaf_size, srVector3T<float>* minimum, srVector3T<float>* maximum,
+    W8OctBuildTree(float leaf_size, std::optional<srBoundingBox> bounds,
                    unsigned short item_limit, short extent_mode);
     ~W8OctBuildTree();
 

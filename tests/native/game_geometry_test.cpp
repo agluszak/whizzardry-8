@@ -1,3 +1,4 @@
+#include <optional>
 #include <unordered_map>
 #include "wiz8/engine_code/ReadLevel.h"
 #include "wiz8/engine_code/Monster.h"
@@ -841,8 +842,8 @@ TEST_CASE("Octree face run rejects invalid growth capacity", "[geometry]")
 TEST_CASE("Octree queries own dense results across later queries", "[geometry][octree]")
 {
     W8Octree tree(nullptr, nullptr);
-    tree.m_spatial.m_minimum = {0, 0, 0};
-    tree.m_spatial.m_maximum = {1000, 1000, 1000};
+    tree.m_spatial.m_bounds.minimum = {0, 0, 0};
+    tree.m_spatial.m_bounds.maximum = {1000, 1000, 1000};
     tree.m_spatial.m_node_extent = 1000;
     tree.m_leaf_grid_dimensions = {1, 1, 1};
     tree.object_registry = new W8OctreeObjectRegistry;
@@ -877,7 +878,7 @@ TEST_CASE("Octree queries own dense results across later queries", "[geometry][o
 TEST_CASE("Octree walks retain ordered crossings, early exits and coordinate rounding", "[geometry][octree]")
 {
     W8Octree tree(nullptr, nullptr);
-    tree.m_spatial.m_minimum = {0, 0, 0};
+    tree.m_spatial.m_bounds.minimum = {0, 0, 0};
     tree.m_spatial.m_node_extent = 100;
     const std::vector<glm::ivec3> diagonal{
         {0, 0, 0}, {1, 0, 0}, {1, 0, 1}, {1, 1, 1},
@@ -938,10 +939,10 @@ TEST_CASE("Octree walks retain ordered crossings, early exits and coordinate rou
 
 TEST_CASE("Build-tree queries own uncapped ordered results and independent state", "[geometry][octree]")
 {
-    W8OctBuildTree tree(1000, nullptr, nullptr, 16, 0);
+    W8OctBuildTree tree(1000, std::nullopt, 16, 0);
     REQUIRE(tree.queryAlongSegment({0, 0, 0}, {0, 0, 0}, 1, 3).empty());
-    tree.spatial.m_minimum = {0, 0, 0};
-    tree.spatial.m_maximum = {100, 100, 100};
+    tree.spatial.m_bounds.minimum = {0, 0, 0};
+    tree.spatial.m_bounds.maximum = {100, 100, 100};
     tree.spatial.m_extent = 100;
     tree.spatial.m_root = new W8OctBuildNode;
     tree.spatial.m_root->leaf_kind = 1;
@@ -960,9 +961,9 @@ TEST_CASE("Build-tree queries own uncapped ordered results and independent state
         REQUIRE((surfaces[index].flags & W8_GD_SURFACE_QUERY_VISITED) == 0);
     }
 
-    W8OctBuildTree other(1000, nullptr, nullptr, 16, 0);
-    other.spatial.m_minimum = {0, 0, 0};
-    other.spatial.m_maximum = {100, 100, 100};
+    W8OctBuildTree other(1000, std::nullopt, 16, 0);
+    other.spatial.m_bounds.minimum = {0, 0, 0};
+    other.spatial.m_bounds.maximum = {100, 100, 100};
     other.spatial.m_extent = 100;
     other.spatial.m_root = new W8OctBuildNode;
     W8GDSurface separate{};
@@ -988,8 +989,8 @@ TEST_CASE("Build-tree queries own uncapped ordered results and independent state
 TEST_CASE("Swept query coordinates retain negative-cell policy and complete offsets", "[geometry][octree]")
 {
     W8Octree tree(nullptr, nullptr);
-    tree.m_spatial.m_minimum = {0, 0, 0};
-    tree.m_spatial.m_maximum = {100, 100, 100};
+    tree.m_spatial.m_bounds.minimum = {0, 0, 0};
+    tree.m_spatial.m_bounds.maximum = {100, 100, 100};
     tree.m_spatial.m_node_extent = 100;
     const auto below = tree.cellCoordinates({-99, -100, -199});
     REQUIRE(below.cell == glm::ivec3(-1, -2, -2));
@@ -1006,13 +1007,31 @@ TEST_CASE("Swept query coordinates retain negative-cell policy and complete offs
     REQUIRE(tree.projectRegionsAt({101, 50, 50}).cell == glm::ivec3(1, 0, 0));
 }
 
+TEST_CASE("Build bounds expand locally and region cells share typed boxes", "[geometry][octree]")
+{
+    const srBoundingBox level{glm::vec3(10, 20, 30), glm::vec3(1010, 2020, 3030)};
+    W8OctBuildTree tree(1000, level, 16, 0);
+    REQUIRE(level.minimum == glm::vec3(10, 20, 30));
+    REQUIRE(level.maximum == glm::vec3(1010, 2020, 3030));
+    REQUIRE(tree.spatial.GetClippedBounds().minimum == glm::vec3(-490, -480, -470));
+    REQUIRE(tree.spatial.GetClippedBounds().maximum == glm::vec3(1510, 2520, 3530));
+    REQUIRE(tree.spatial.bounds().maximum == glm::vec3(3510, 3520, 3530));
+    tree.spatial.m_region_grid_cell = 25;
+    const auto cell = tree.spatial.regionCellBounds(0xff0203);
+    REQUIRE(cell.minimum == tree.spatial.bounds().minimum + glm::vec3(255, 2, 3) * 25.0f);
+    REQUIRE(cell.maximum == cell.minimum + 25.0f);
+    W8OctSpatialState child(&tree.spatial);
+    REQUIRE(child.bounds().minimum == tree.spatial.bounds().minimum);
+    REQUIRE(child.GetClippedBounds().maximum == tree.spatial.GetClippedBounds().maximum);
+}
+
 TEST_CASE("Spatial bounds are independent snapshots of working and clipped extents", "[geometry][octree]")
 {
     W8OctSpatialState state;
     const srVector3 minimum(-30, -20, -10), maximum(10, 20, 30);
-    state.SetWorkingBounds(&minimum, &maximum);
-    state.m_clipped_minimum = {-3, -2, -1};
-    state.m_clipped_maximum = {1, 2, 3};
+    state.setWorkingBounds({minimum.glmValue(), maximum.glmValue()});
+    state.m_clipped_bounds.minimum = {-3, -2, -1};
+    state.m_clipped_bounds.maximum = {1, 2, 3};
     const auto working = state.GetWorkingBounds();
     auto clipped = state.GetClippedBounds();
     REQUIRE(working.minimum == minimum.glmValue());
@@ -1644,13 +1663,13 @@ TEST_CASE("Region geometry preserves octant order and point versus box boundarie
             g_gd_surface_list = surfaces;
         }
     } restore;
-    OctBuildPreTree tree(1, nullptr, nullptr, 16, 0, 0);
+    OctBuildPreTree tree(1, std::nullopt, 16, 0, 0);
     std::unordered_multimap<unsigned short, short> points, boxes;
     tree.inside_region_map = &points;
     tree.overlap_region_map = &boxes;
     tree.spatial.m_extent = 2;
-    tree.spatial.m_minimum = glm::vec3(0);
-    tree.spatial.m_maximum = glm::vec3(2);
+    tree.spatial.m_bounds.minimum = glm::vec3(0);
+    tree.spatial.m_bounds.maximum = glm::vec3(2);
     tree.spatial.m_depth = 1;
     tree.spatial.m_root = new W8OctBuildNode;
     for (unsigned octant = 0; octant < 8; ++octant) {
