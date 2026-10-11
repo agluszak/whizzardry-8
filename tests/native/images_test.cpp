@@ -30,6 +30,7 @@
 #include "wiz8/slf.h"
 #include "wiz8/surface_storage.h"
 #include "temporary_directory.h"
+#include "scoped_asset_roots.h"
 
 
 static std::vector<std::uint16_t> sprite_pixels(const SpriteFrame& frame)
@@ -260,6 +261,7 @@ struct ImageFixture
     fs::path root = directory.path;
     fs::path assets = root / "assets", user = root / "user", disc = root / "disc";
     Bytes truncated;
+    ScopedAssetRoots asset_roots;
 
     ImageFixture()
     {
@@ -278,8 +280,8 @@ struct ImageFixture
         truncated.resize(21);
         fixture(assets / "Data" / "Data.slf", slf({{"Packed.pcx", pcx()},
             {"Packed.tga", tga(24, false, true)}, {"Truncated.tga", truncated}}));
-        w8_native::configure_paths({wiz8::path_to_utf8(assets), wiz8::path_to_utf8(user),
-                                    {wiz8::path_to_utf8(disc), "", ""}});
+        asset_roots.configure({wiz8::path_to_utf8(assets), wiz8::path_to_utf8(user),
+                               {wiz8::path_to_utf8(disc), "", ""}});
 
         wiz8::mount_slf("Data\\Data.slf");
         rgb555();

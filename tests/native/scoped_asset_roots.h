@@ -1,18 +1,19 @@
 #pragma once
 
-#include <utility>
-
 #include "wiz8/asset_paths.h"
 
 // Keep path roots test-local, including when a REQUIRE throws.
 class ScopedAssetRoots
 {
   public:
-    explicit ScopedAssetRoots(w8_native::Roots roots)
-        : previous_(w8_native::path_roots())
+    ScopedAssetRoots() : previous_(w8_native::path_roots()) {}
+
+    explicit ScopedAssetRoots(w8_native::Roots roots) : ScopedAssetRoots()
     {
-        w8_native::configure_paths(std::move(roots));
+        configure(roots);
     }
+
+    void configure(const w8_native::Roots& roots) { w8_native::configure_paths(roots); }
 
     ~ScopedAssetRoots() { w8_native::configure_paths(previous_); }
 

@@ -72,6 +72,7 @@
 #include "wiz8/spell_ids.h"
 #include "wiz8/xstatus.h"
 #include "temporary_directory.h"
+#include "scoped_asset_roots.h"
 #include "file_faults.h"
 
 extern std::vector<W8NpcState*> g_npc_states;
@@ -1068,6 +1069,7 @@ struct SaveFixture
     std::filesystem::path root = directory.path;
     std::filesystem::path assets = root / "assets";
     std::filesystem::path user = root / "user";
+    ScopedAssetRoots asset_roots;
 
     SaveFixture()
     {
@@ -1075,7 +1077,7 @@ struct SaveFixture
         std::filesystem::create_directories(assets / "Data");
         std::filesystem::create_directories(user / "Data");
         std::filesystem::create_directories(user / "Saves");
-        w8_native::configure_paths(
+        asset_roots.configure(
             {wiz8::path_to_utf8(assets), wiz8::path_to_utf8(user), {"", "", ""}});
     }
 

@@ -36,6 +36,7 @@
 #include "wiz8/engine_code/OctBuildTree.h"
 #include "wiz8/packed_bits.h"
 #include "temporary_directory.h"
+#include "scoped_asset_roots.h"
 #include "file_faults.h"
 #include "GDFileIO.h"
 #include "float_constants.h"
@@ -478,14 +479,15 @@ static void path_tables()
 struct LoaderFixture
 {
     ScopedTemporaryDirectory directory{"wiz8-loader-records"};
+    ScopedAssetRoots asset_roots;
 
     LoaderFixture()
     {
         fixture_root = directory.path / "assets";
         std::filesystem::create_directory(fixture_root);
         std::filesystem::create_directory(directory.path / "user");
-        w8_native::configure_paths({wiz8::path_to_utf8(fixture_root),
-                                    wiz8::path_to_utf8(directory.path / "user"), {"", "", ""}});
+        asset_roots.configure({wiz8::path_to_utf8(fixture_root),
+                               wiz8::path_to_utf8(directory.path / "user"), {"", "", ""}});
     }
 
     ~LoaderFixture()
