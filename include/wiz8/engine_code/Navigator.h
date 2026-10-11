@@ -105,10 +105,10 @@ struct W8NavigatorAttachment {
     bool AdvanceAlongPathPositions(float distance, srVector3T<float>* position); /* 0x00456830 */
     /* Whether `position`'s plan-view distance to the hop leaving the current
        index stays under the path height interpolated along that segment. */
-    bool CheckPositionHopHeight(const srVector3T<float>* position); /* 0x00456CB0 */
+    bool checkPositionHopHeight(const glm::vec3& position) const; /* 0x00456CB0 */
     /* The two-segment form of the hop-height check used on predicted
        positions: the nearer of the current or following segment wins. */
-    bool CheckPredictedHopHeight(const srVector3T<float>* position); /* 0x00456DD0 */
+    bool checkPredictedHopHeight(const glm::vec3& position) const; /* 0x00456DD0 */
     /* Move `position` toward the route's next waypoint by up to `distance`,
        spilling into the following segment; returns nonzero once `distance`
        exceeded the remainder of the live segment. */
@@ -125,6 +125,9 @@ struct W8NavigatorAttachment {
        the final waypoint is reached. */
     bool AdvancePositionWithDirection(srVector3T<float>* position, float distance,
                                       srVector3T<float>* direction); /* 0x00457150 */
+
+private:
+    bool withinHopHeight(const glm::vec2& point, unsigned base, bool include_next) const;
 };
 
 /* The polymorphic object the navigator owns at +0xa0. 0x00452120 deletes it

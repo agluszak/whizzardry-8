@@ -2918,7 +2918,7 @@ unsigned int W8PathingService::StepAlongPath(W8NavigatorMovementState* movement,
         unsigned short cursor = attachment->path_cursor;
         if (((cursor == 1) && (1 < attachment->path_position_index)) &&
             (attachment->path[2].value != 0)) {
-            if (attachment->CheckPositionHopHeight(&movement->position)) {
+            if (attachment->checkPositionHopHeight(movement->position.glmValue())) {
                 ActivateMovementTrigger(movement, true);
                 ++attachment->path_cursor;
             }
@@ -6654,7 +6654,7 @@ bool W8PathParameters::SteerAlongPath(W8NavigatorMovementState* movement, bool a
         if (g_float_zero < velocity_length) {
             reach = g_path_prediction_time * velocity_length;
             ahead = this->movement->position + direction * reach;
-            if (!movement->attachment->CheckPredictedHopHeight(&ahead)) {
+            if (!movement->attachment->checkPredictedHopHeight(ahead.glmValue())) {
                 target = this->movement->position;
                 advanced = movement->attachment->AdvancePositionTowardWaypoint(&target, reach);
                 AccumulateSeekForce();

@@ -1272,84 +1272,39 @@ bool W8NavigatorAttachment::AdvanceAlongPathPositions(float distance, srVector3T
     return on_path;
 }
 
-// FUNCTION: WIZ8 0x00456CB0
-bool W8NavigatorAttachment::CheckPositionHopHeight(const srVector3T<float>* position)
+bool W8NavigatorAttachment::withinHopHeight(const glm::vec2& point, unsigned base,
+                                           bool include_next) const
 {
-    int base;
-    int end;
-    glm::vec2 point;
-    glm::vec2 from;
-    glm::vec2 to;
-    float fraction;
-    float distance;
-    float from_height;
-    float to_height;
-    W8PathSurface* surfaces;
+    auto projection = srSegmentMath::project(point, path[base].position.xz(),
+                                             path[base + 1].position.xz());
+    if (include_next && path_cursor < path_position_index && path[path_cursor + 1].value != 0) {
+        const auto next = srSegmentMath::project(point, path[path_cursor].position.xz(),
+                                                 path[path_cursor + 1].position.xz());
+        if (next.distance < projection.distance) {
+            base = path_cursor;
+            projection = next;
+        }
+    }
+    const auto* surfaces = g_octree->pathing->m_waypoints;
+    float height = (surfaces[path[base].value].flags >> 0xc) * g_world_scale;
+    const float next_height = (surfaces[path[base + 1].value].flags >> 0xc) * g_world_scale;
+    if (height != next_height)
+        height = (next_height - height) * projection.fraction + height;
+    return projection.distance <= height;
+}
 
-    base = path_cursor - 1;
-    if (base == 0) {
-        base = 1;
-    }
-    end = base + 1;
-    if (path_position_index < end) {
-        return false;
-    }
-    point = position->xz();
-    from = path[base].position.xz();
-    to = path[end].position.xz();
-    const auto projection = srSegmentMath::project(point, from, to);
-    distance = projection.distance;
-    fraction = projection.fraction;
-    surfaces = g_octree->pathing->m_waypoints;
-    from_height = (surfaces[path[base].value].flags >> 0xc) * g_world_scale;
-    to_height = (surfaces[path[end].value].flags >> 0xc) * g_world_scale;
-    if (from_height != to_height) {
-        from_height = (to_height - from_height) * fraction + from_height;
-    }
-    return distance <= from_height;
+// FUNCTION: WIZ8 0x00456CB0
+bool W8NavigatorAttachment::checkPositionHopHeight(const glm::vec3& position) const
+{
+    const unsigned base = path_cursor == 1 ? 1 : path_cursor - 1;
+    if (path_position_index < base + 1) return false;
+    return withinHopHeight({position.x, position.z}, base, false);
 }
 
 // FUNCTION: WIZ8 0x00456DD0
-bool W8NavigatorAttachment::CheckPredictedHopHeight(const srVector3T<float>* position)
+bool W8NavigatorAttachment::checkPredictedHopHeight(const glm::vec3& position) const
 {
-    glm::vec2 point;
-    glm::vec2 from;
-    glm::vec2 to;
-    float fraction;
-    float distance;
-    float other_fraction;
-    float other_distance;
-    unsigned int base;
-    float from_height;
-    float to_height;
-    W8PathSurface* surfaces;
-
-    point = position->xz();
-    from = path[path_cursor - 1].position.xz();
-    to = path[path_cursor].position.xz();
-    const auto projection = srSegmentMath::project(point, from, to);
-    distance = projection.distance;
-    fraction = projection.fraction;
-    base = path_cursor - 1;
-    if (path_cursor < path_position_index && path[path_cursor + 1].value != 0) {
-        from = to;
-        to = path[path_cursor + 1].position.xz();
-        const auto other_projection = srSegmentMath::project(point, from, to);
-        other_distance = other_projection.distance;
-        other_fraction = other_projection.fraction;
-        if (other_distance < distance) {
-            base = path_cursor;
-            fraction = other_fraction;
-            distance = other_distance;
-        }
-    }
-    surfaces = g_octree->pathing->m_waypoints;
-    from_height = (surfaces[path[base].value].flags >> 0xc) * g_world_scale;
-    to_height = (surfaces[path[base + 1].value].flags >> 0xc) * g_world_scale;
-    if (from_height != to_height) {
-        from_height = (to_height - from_height) * fraction + from_height;
-    }
-    return distance <= from_height;
+    return withinHopHeight({position.x, position.z}, path_cursor - 1, true);
 }
 
 // FUNCTION: WIZ8 0x00456F60
