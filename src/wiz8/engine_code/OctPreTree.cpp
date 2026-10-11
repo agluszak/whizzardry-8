@@ -102,11 +102,9 @@ OctPreTree::~OctPreTree()
 /* Copies the working bounds straight into the spatial state; the build tree
    conversion calls it once its clipped bounds are known. */
 // FUNCTION: WIZ8 0x00467b70
-void W8OctSpatialState::SetWorkingBounds(const srVector3T<float>* minimum,
-                                         const srVector3T<float>* maximum)
+void W8OctSpatialState::setWorkingBounds(const srBoundingBox& bounds)
 {
-    m_working_minimum = *minimum;
-    m_working_maximum = *maximum;
+    m_working_bounds = bounds;
 }
 
 /* Resets the collected-id run and appends every not-yet-seen polygon id the
@@ -215,12 +213,12 @@ try
     header.m_cell_size = m_spatial.m_cell_size;
     header.m_node_extent = m_spatial.m_node_extent;
     header.version = W8OctFileHeader::VERSION;
-    header.m_bounds[0] = m_spatial.m_minimum;
-    header.m_bounds[1] = m_spatial.m_maximum;
-    header.m_bounds[2] = m_spatial.m_clipped_minimum;
-    header.m_bounds[3] = m_spatial.m_clipped_maximum;
-    header.m_bounds[4] = m_spatial.m_working_minimum;
-    header.m_bounds[5] = m_spatial.m_working_maximum;
+    header.m_bounds[0] = m_spatial.m_bounds.minimum;
+    header.m_bounds[1] = m_spatial.m_bounds.maximum;
+    header.m_bounds[2] = m_spatial.m_clipped_bounds.minimum;
+    header.m_bounds[3] = m_spatial.m_clipped_bounds.maximum;
+    header.m_bounds[4] = m_spatial.m_working_bounds.minimum;
+    header.m_bounds[5] = m_spatial.m_working_bounds.maximum;
     header.m_grid_dims = m_leaf_grid_dimensions;
     header.m_depth = m_spatial.m_depth;
     header.m_region_id_bound = m_spatial.m_region_id_bound;
@@ -240,9 +238,9 @@ try
     header.m_region_list_len = m_region_list_len;
     header.m_region_cell = m_region_cell;
     header.m_max_region_radius = m_spatial.m_max_region_radius;
-    header.m_particle_len = m_usMeshParticlesLen;
+    header.m_particle_len = static_cast<unsigned short>(m_particle_links.records.size());
     header.m_region_grid_cell = m_spatial.m_region_grid_cell;
-    header.m_prop_len = m_usMeshPropsLen;
+    header.m_prop_len = static_cast<unsigned short>(m_prop_links.records.size());
     header.m_prop_count = m_ulNumProps;
     header.m_prop_sun_bits = !m_sunlit_props.empty();
     header.m_particle_count = m_ulNumParticles;
@@ -324,26 +322,8 @@ try
             srAssertFail("m_pAlphaBits->Save(hOctFile)", OCTPRETREE_CPP, 0x224,
                          "ReadOctFile: Failure writing Alpha Bits.");
         }
-        if (m_ulNumParticles != 0) {
-            if ((file->write(m_pusMeshParticleLookup, header.m_mesh_total * 2 + 2), true) == 0) {
-                ReportBuildStatus(7, "WriteOctFile: Couldn't write Mesh Particle Lookup Table.\n");
-                return 0;
-            }
-            if ((file->write(m_pusMeshParticles, static_cast<unsigned int>(m_usMeshParticlesLen) << 1), true) == 0) {
-                ReportBuildStatus(7, "WriteOctFile: Couldn't write Mesh Particle Link Table.\n");
-                return 0;
-            }
-        }
-        if (m_ulNumProps != 0) {
-            if ((file->write(m_pusMeshPropLookup, header.m_mesh_total * 2 + 2), true) == 0) {
-                ReportBuildStatus(7, "WriteOctFile: Couldn't write Mesh Prop Lookup Table.\n");
-                return 0;
-            }
-            if ((file->write(m_pusMeshProps, static_cast<unsigned int>(m_usMeshPropsLen) << 1), true) == 0) {
-                ReportBuildStatus(7, "WriteOctFile: Couldn't write Mesh Prop Link Table.\n");
-                return 0;
-            }
-        }
+        if (m_ulNumParticles != 0) m_particle_links.write(*file, header.m_mesh_total);
+        if (m_ulNumProps != 0) m_prop_links.write(*file, header.m_mesh_total);
     }
     /* Every section terminator is the same 0xffffffff dword: retail keeps one
        -1 local for all of them (verified at 0x468406). */
@@ -998,14 +978,7 @@ w8_ulong OctPreTree::AllocateSubMesh(W8OctSubmeshBuild* records)
         auto slot = cells->equal_range(key).first;
         while (slot != cells->end()) {
             w8_ulong cell = slot->second;
-            float cell_x =
-                ((cell >> 0x10) & 0xff) * m_spatial.m_region_grid_cell + m_spatial.m_minimum.x;
-            float cell_y =
-                ((cell >> 8) & 0xff) * m_spatial.m_region_grid_cell + m_spatial.m_minimum.y;
-            float cell_z = (cell & 0xff) * m_spatial.m_region_grid_cell + m_spatial.m_minimum.z;
-            if (cell_x + m_spatial.m_region_grid_cell < minimum.x || maximum.x < cell_x ||
-                cell_y + m_spatial.m_region_grid_cell < minimum.y || maximum.y < cell_y ||
-                cell_z + m_spatial.m_region_grid_cell < minimum.z || maximum.z < cell_z) {
+            if (!m_spatial.regionCellBounds(cell).overlaps({minimum, maximum})) {
                 ReportBuildStatus(7, "AutoMesh has no vertices inside region.");
             }
             slot = NextIndexValue(*cells, key, slot);
@@ -1029,11 +1002,11 @@ void OctPreTree::VerifyPolygonRegions()
         if (polygon->region >= m_spatial.m_region_count) {
             unsigned int cell[4];
             cell[0] = m_region_mask;
-            cell[1] = static_cast<unsigned int>((polygon->position.x - m_spatial.m_minimum.x) /
+            cell[1] = static_cast<unsigned int>((polygon->position.x - m_spatial.m_bounds.minimum.x) /
                                                 m_spatial.m_region_grid_cell);
-            cell[2] = static_cast<unsigned int>((polygon->position.y - m_spatial.m_minimum.y) /
+            cell[2] = static_cast<unsigned int>((polygon->position.y - m_spatial.m_bounds.minimum.y) /
                                                 m_spatial.m_region_grid_cell);
-            cell[3] = static_cast<unsigned int>((polygon->position.z - m_spatial.m_minimum.z) /
+            cell[3] = static_cast<unsigned int>((polygon->position.z - m_spatial.m_bounds.minimum.z) /
                                                 m_spatial.m_region_grid_cell);
             int node = DescendByMask(cell);
             if (m_branches[node].region != polygon->region) {
@@ -1061,9 +1034,9 @@ void OctPreTree::VerifyAutoMeshes(W8OctPreTreeGeometry* geometry, W8OctSubmeshBu
             cell[1] = packed >> 0x10 & 0xff;
             cell[2] = packed >> 8 & 0xff;
             cell[3] = packed & 0xff;
-            float cell_x = cell[1] * m_spatial.m_region_grid_cell + m_spatial.m_minimum.x;
-            float cell_y = cell[2] * m_spatial.m_region_grid_cell + m_spatial.m_minimum.y;
-            float cell_z = cell[3] * m_spatial.m_region_grid_cell + m_spatial.m_minimum.z;
+            float cell_x = cell[1] * m_spatial.m_region_grid_cell + m_spatial.m_bounds.minimum.x;
+            float cell_y = cell[2] * m_spatial.m_region_grid_cell + m_spatial.m_bounds.minimum.y;
+            float cell_z = cell[3] * m_spatial.m_region_grid_cell + m_spatial.m_bounds.minimum.z;
             int node = DescendByMask(cell);
             if (node != 0) {
                 if (m_branches[node].region != key) {
@@ -1115,11 +1088,11 @@ unsigned char OctPreTree::BuildPathLists(W8GameData* game_data, W8LevelFile* lev
                                     min_component_percent, this);
     ReportBuildStatus(6, "\nBuilding Path Lists:\n=======================\n");
     path_node_extent = m_region_cell + m_region_cell;
-    float level_height = (m_spatial.m_maximum.y - m_spatial.m_minimum.y) * g_path_span_scale;
+    float level_height = (m_spatial.m_bounds.maximum.y - m_spatial.m_bounds.minimum.y) * g_path_span_scale;
     int x_cells =
-        static_cast<int>((m_spatial.m_maximum.x - m_spatial.m_minimum.x) / m_region_cell) + 1;
+        static_cast<int>((m_spatial.m_bounds.maximum.x - m_spatial.m_bounds.minimum.x) / m_region_cell) + 1;
     int z_cells =
-        static_cast<int>((m_spatial.m_maximum.z - m_spatial.m_minimum.z) / m_region_cell) + 1;
+        static_cast<int>((m_spatial.m_bounds.maximum.z - m_spatial.m_bounds.minimum.z) / m_region_cell) + 1;
 
     int prop_count = CreatePathProps(level, &preprops);
     W8PrePathNode* record = pre_pathing->GetPathNode();
@@ -1137,10 +1110,10 @@ unsigned char OctPreTree::BuildPathLists(W8GameData* game_data, W8LevelFile* lev
                 ReportStartupMessage(message);
             }
             unsigned int cell = static_cast<unsigned int>(x);
-            node.x = (x + g_float_half) * m_region_cell + m_spatial.m_minimum.x;
+            node.x = (x + g_float_half) * m_region_cell + m_spatial.m_bounds.minimum.x;
             for (int z = 0; z < z_cells; ++z) {
-                node.z = (z + g_float_half) * m_region_cell + m_spatial.m_minimum.z;
-                node.y = m_spatial.m_maximum.y;
+                node.z = (z + g_float_half) * m_region_cell + m_spatial.m_bounds.minimum.z;
+                node.y = m_spatial.m_bounds.maximum.y;
                 while (SnapToGround(&node, 1)) {
                     m_lNumBlocks = 0;
                     m_lNumSupports = 0;
@@ -1161,7 +1134,7 @@ unsigned char OctPreTree::BuildPathLists(W8GameData* game_data, W8LevelFile* lev
                         record->y = node.y;
                         record->level_flags =
                             static_cast<unsigned int>(
-                                static_cast<int>((node.y - m_spatial.m_minimum.y) / level_height)) +
+                                static_cast<int>((node.y - m_spatial.m_bounds.minimum.y) / level_height)) +
                             1;
                         if (InsertConditionalNodes(&cond_map, cell, record->level_flags, preprops,
                                                    prop_count)) {
@@ -1188,7 +1161,7 @@ unsigned char OctPreTree::BuildPathLists(W8GameData* game_data, W8LevelFile* lev
             ReportBuildStatus(7, "Could not create PrePathing object\n");
         }
         pre_pathing->ConfigureForLevel(path_node_count, m_region_cell, m_path_clearance,
-                                       &m_spatial.m_minimum, m_owned_0c0);
+                                       m_spatial.bounds(), m_owned_0c0);
         /* Verified retail behavior: this early return runs only the two
            local hash-table destructors.  preprops (and its pStopMeshes
            arrays), object_registry and g_octree_game_data are all
@@ -1574,12 +1547,8 @@ W8OctSpatialState::W8OctSpatialState(const W8OctSpatialState* source)
     Reset();
     m_level_kind = 1;
     if (source != 0) {
-        for (int axis = 0; axis != 3; ++axis) {
-            (&m_minimum.x)[axis] = (&source->m_minimum.x)[axis];
-            (&m_maximum.x)[axis] = (&source->m_maximum.x)[axis];
-            (&m_clipped_minimum.x)[axis] = (&source->m_clipped_minimum.x)[axis];
-            (&m_clipped_maximum.x)[axis] = (&source->m_clipped_maximum.x)[axis];
-        }
+        m_bounds = source->m_bounds;
+        m_clipped_bounds = source->m_clipped_bounds;
         if (source->m_level_kind == 1) {
             m_extent = source->m_extent * g_float_half;
             m_depth = source->m_depth + 1;
@@ -1616,13 +1585,13 @@ void W8OctSpatialState::Reset()
 // FUNCTION: WIZ8 0x0046cdf0
 srBoundingBox W8OctSpatialState::GetWorkingBounds() const
 {
-    return {m_working_minimum.glmValue(), m_working_maximum.glmValue()};
+    return m_working_bounds;
 }
 
 // FUNCTION: WIZ8 0x0046ce30
 srBoundingBox W8OctSpatialState::GetClippedBounds() const
 {
-    return {m_clipped_minimum.glmValue(), m_clipped_maximum.glmValue()};
+    return m_clipped_bounds;
 }
 
 /* Test a triangle against an axis-aligned box.  The inexpensive containment

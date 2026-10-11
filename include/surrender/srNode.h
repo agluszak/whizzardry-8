@@ -88,6 +88,27 @@ public:
     virtual SR_DLL_IMPORT void updateBounds();
 
 protected:
+    enum class EffectTraversal { active, childrenOnly, skipSubtree };
+    void traverseEffect(TraverseInfo& info);
+
+    template<class Activity>
+    void traverseEffect(TraverseInfo& info, Activity activity)
+    {
+        if (next_sibling_) next_sibling_->traverse(info);
+        if (testFlag(FLAG_TERMINATE)) return;
+        // Evaluate activity after siblings, and preserve disabled-node descent.
+        const auto mode = testFlag(FLAG_DISABLE) ? EffectTraversal::childrenOnly : activity();
+        if (mode == EffectTraversal::skipSubtree) return;
+        if (mode == EffectTraversal::active) {
+            if (testFlag(FLAG_GLOBAL)) info.nodes.push_back(this);
+            else info.entries.push_back({this, PROCESS_PUSH});
+        }
+        if (first_child_) first_child_->traverse(info);
+        if (mode == EffectTraversal::active && !testFlag(FLAG_GLOBAL))
+            info.entries.push_back({this, PROCESS_POP});
+    }
+
+protected:
     virtual SR_DLL_IMPORT int processSignal(w8_ulong signal, void* value);
     SR_DLL_IMPORT void clearNotify(e_notify notification);
     SR_DLL_IMPORT void setNotify(e_notify notification);

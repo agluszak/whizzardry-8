@@ -1,4 +1,3 @@
-#include <vector>
 
 #include "surrender/srIlluminator.h"
 #include "surrender/srGERD.h"
@@ -47,26 +46,7 @@ void srIlluminator::process(const ProcessInfo& info, e_processType type)
 // FUNCTION: SURRENDER 0x1004C9E0
 void srIlluminator::traverse(TraverseInfo& info)
 {
-    if (next_sibling_ != 0) {
-        next_sibling_->traverse(info);
-    }
-    if (!testFlag(FLAG_TERMINATE)) {
-        if (!testFlag(FLAG_DISABLE)) {
-            if (!testFlag(FLAG_GLOBAL)) {
-                info.entries.push_back({this, 1});
-            } else {
-                info.nodes.push_back(this);
-            }
-            if (first_child_ != 0) {
-                first_child_->traverse(info);
-            }
-            if (!testFlag(FLAG_GLOBAL)) {
-                info.entries.push_back({this, 2});
-            }
-        } else if (first_child_ != 0) {
-            first_child_->traverse(info);
-        }
-    }
+    traverseEffect(info);
 }
 
 // FUNCTION: SURRENDER 0x1004CAE0

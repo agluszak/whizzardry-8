@@ -33,10 +33,10 @@ struct W8OctRegionVolume {
     srVector3T<float> m_points[9];
     W8Plane m_planes[6];
 
-    bool ContainsPoint(const srVector3T<float>* point) const;
+    bool ContainsPoint(const glm::vec3& point) const;
 };
 
-/* A reusable, non-polymorphic 0x9c spatial record.  Octree.cpp constructs one
+/* Native spatial state derived from the retail 0x9c record. Octree.cpp constructs one
    at the start of its 0x29c owner, while OctBuildTree.cpp constructs the same
    value at the start of its 0xbc build tree and uses standalone copies while
    inserting surfaces.  Same-address construction proves the common value
@@ -46,27 +46,32 @@ struct W8OctRegionVolume {
 struct W8OctSpatialState {
     explicit W8OctSpatialState(const W8OctSpatialState* source = 0);
 
-    srBoundingBox bounds() const { return {m_minimum.glmValue(), m_maximum.glmValue()}; }
+    srBoundingBox bounds() const { return m_bounds; }
     void setChildBounds(const W8OctSpatialState& parent, unsigned octant, float extent)
     {
         const glm::vec3 offset(octant >> 2, (octant >> 1) & 1, octant & 1);
-        const auto minimum = parent.m_minimum.glmValue() + offset * extent;
-        m_minimum = minimum;
-        m_maximum = minimum + extent;
+        const auto minimum = parent.m_bounds.minimum + offset * extent;
+        m_bounds.minimum = minimum;
+        m_bounds.maximum = minimum + extent;
+    }
+
+    srBoundingBox regionCellBounds(w8_ulong path) const
+    {
+        const glm::vec3 cell((path >> 16) & 0xff, (path >> 8) & 0xff, path & 0xff);
+        const auto minimum = cell * m_region_grid_cell + m_bounds.minimum;
+        return {minimum, minimum + m_region_grid_cell};
     }
 
     void Reset();
     srBoundingBox GetClippedBounds() const;
     srBoundingBox GetWorkingBounds() const;
-    void SetWorkingBounds(const srVector3T<float>* minimum, const srVector3T<float>* maximum);
+    void setWorkingBounds(const srBoundingBox& bounds);
 
     w8_ulong flags;
     float m_extent;
     float m_cell_size;
-    srVector3T<float> m_minimum;
-    srVector3T<float> m_maximum;
-    srVector3T<float> m_clipped_minimum;
-    srVector3T<float> m_clipped_maximum;
+    srBoundingBox m_bounds;
+    srBoundingBox m_clipped_bounds;
     /* Mode-2 insertions increment this once per region polygon; the build
        conversion copies it to the pre-tree and sizes m_visited_polygon_bits from it. */
     w8_ulong m_polygon_count;
@@ -98,8 +103,7 @@ struct W8OctSpatialState {
     /* Emitted submesh record bound: the build packs kind-0 then kind-1
        records beneath it. */
     w8_ulong submesh_count;
-    srVector3T<float> m_working_minimum;
-    srVector3T<float> m_working_maximum;
+    srBoundingBox m_working_bounds;
     /* The build octree root: W8OctBuildNode or the counted subclass
        when the owning build tree counts surfaces per node. */
     W8OctBuildNode* m_root;

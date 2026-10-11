@@ -1,3 +1,4 @@
+#include "surrender/srBoundingBox.h"
 #include <filesystem>
 #include <fmt/format.h>
 #include <cstdlib>
@@ -698,7 +699,7 @@ unsigned char InitializeGameData(W8GameData* game_data)
     srVector3T<float> minimum = game_data->minimum;
     srVector3T<float> maximum = game_data->maximum;
     if (game_data->geometry_index == 0) {
-        game_data->geometry_index = std::make_unique<W8OctBuildTree>(2000.0f, &minimum, &maximum, 0x40, 0);
+        game_data->geometry_index = std::make_unique<W8OctBuildTree>(2000.0f, srBoundingBox{minimum.glmValue(), maximum.glmValue()}, 0x40, 0);
     }
 
     for (int index = 0; index < game_data->SurfacesCount(); ++index) {

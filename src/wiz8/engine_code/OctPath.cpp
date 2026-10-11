@@ -1,3 +1,4 @@
+#include "surrender/srBoundingBox.h"
 #include <SDL3/SDL_pixels.h>
 #include "surrender/srScene.h" // IWYU pragma: keep - complete scene type for conversion to srNode.
 #include <fmt/format.h>
@@ -3279,13 +3280,13 @@ W8PathingService::W8PathingService()
    1.25 grid cells, plus one, and bounds the vertical band the height lookups accept. */
 // FUNCTION: WIZ8 0x00458a50
 void W8PathingService::ConfigureForLevel(int size, float grid_scale, float path_clearance,
-                                         const srVector3T<float>* bounds, const char* name)
+                                         const srBoundingBox& bounds, const char* name)
 {
     path_node_count = size;
     this->grid_scale = grid_scale;
     this->path_clearance = path_clearance;
-    level_bounds.minimum = bounds[0];
-    level_bounds.maximum = bounds[1];
+    level_bounds.minimum = bounds.minimum;
+    level_bounds.maximum = bounds.maximum;
     span = (level_bounds.maximum.y - level_bounds.minimum.y) * g_path_span_scale;
     cell_count = static_cast<short>(static_cast<int>(grid_scale * 1.25f / span) + 1);
     level_name = name;

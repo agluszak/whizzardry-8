@@ -115,32 +115,11 @@ stLight& stLight::operator=(const stLight& other)
 // FUNCTION: WIZ8 0x0049C7A0
 void stLight::traverse(srNode::TraverseInfo& info)
 {
-    if (next_sibling_ != 0) {
-        next_sibling_->traverse(info);
-    }
-
-    if (!testFlag(FLAG_TERMINATE)) {
-        if (testFlag(FLAG_DISABLE) || fabs(intensity) <= g_double_one_ten_thousandth ||
-            (g_light_update_flags & 1) == 0) {
-            if (first_child_ != 0) {
-                first_child_->traverse(info);
-            }
-        } else if (m_definition != 0) {
-            if (!testFlag(FLAG_GLOBAL)) {
-                info.entries.push_back({this, 1});
-            } else {
-                info.nodes.push_back(this);
-            }
-
-            if (first_child_ != 0) {
-                first_child_->traverse(info);
-            }
-
-            if (!testFlag(FLAG_GLOBAL)) {
-                info.entries.push_back({this, 2});
-            }
-        }
-    }
+    traverseEffect(info, [&] {
+        if (fabs(intensity) <= g_double_one_ten_thousandth || (g_light_update_flags & 1) == 0)
+            return EffectTraversal::childrenOnly;
+        return m_definition ? EffectTraversal::active : EffectTraversal::skipSubtree;
+    });
 }
 
 // FUNCTION: WIZ8 0x0049C8D0
@@ -441,7 +420,7 @@ void LoadLightStates(wiz8::File* handle)
 
 /* Test a point against the six inward-facing planes of one region volume. */
 // FUNCTION: WIZ8 0x0049e460
-bool W8OctRegionVolume::ContainsPoint(const srVector3T<float>* point) const
+bool W8OctRegionVolume::ContainsPoint(const glm::vec3& point) const
 {
     return PointInsideFrustum(point, m_planes);
 }

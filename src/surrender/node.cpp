@@ -131,6 +131,11 @@ void srNode::traverse(TraverseInfo& info)
     }
 }
 
+void srNode::traverseEffect(TraverseInfo& info)
+{
+    traverseEffect(info, [] { return EffectTraversal::active; });
+}
+
 // FUNCTION: SURRENDER 0x100504F0
 void srNode::process(const ProcessInfo& info, e_processType type) {}
 

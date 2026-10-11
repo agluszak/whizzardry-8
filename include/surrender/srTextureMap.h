@@ -25,7 +25,7 @@ public:
 
 public:
     virtual w8_ulong getTextureFrameHandle() override;
-    virtual void getMipmapData(MultiRequest& request) override;
+    virtual void getMipmapData(const MultiRequest& request) override;
     void setSurfacePtr(std::shared_ptr<srColorSurfaceIFace> surface);
     srColorSurfaceIFace* getSurfacePtr() const;
     virtual void invalidate() override;

@@ -174,8 +174,8 @@ void srMaterial::postProcess(srVertexPipe& pipe)
     const auto operations = this->operations.value;
     bool depth_cue = (operations & (1u << OPER_DEPTH_CUE)) != 0;
     const auto cueColor = [&](bool specular) {
-        const float* depth = pipe.getDepthCue();
-        glm::vec4* color = specular ? pipe.getSpecular() : pipe.getDiffuse();
+        const auto depth = pipe.getDepthCue();
+        const auto color = specular ? pipe.getSpecular() : pipe.getDiffuse();
         for (w8_ulong i = 0; i < pipe.vertex_count; ++i) {
             color[i] *= depth[i];
         }
@@ -208,8 +208,8 @@ void srMaterial::postProcess(srVertexPipe& pipe)
     }
     if ((operations & (1u << OPER_ALPHA)) != 0 &&
         (pipe.channel_mask & (1u << srVertexProcessor::CHANNEL_ALPHA)) != 0) {
-        const float* depth = pipe.getDepthCue();
-        float* alpha = pipe.getAlpha();
+        const auto depth = pipe.getDepthCue();
+        const auto alpha = pipe.getAlpha();
         for (w8_ulong i = 0; i < pipe.vertex_count; ++i) {
             alpha[i] *= depth[i];
         }
