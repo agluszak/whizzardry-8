@@ -13,7 +13,7 @@ namespace wiz8 { class File; }
 
 class W8JournalPanel : public Controls, public W8TextControl::Listener {
 public:
-    explicit W8JournalPanel(unsigned int* region_set);
+    W8JournalPanel();
     virtual ~W8JournalPanel();
     virtual void Redraw() override;
     virtual void OnPrimary(W8TextControl* control) override;

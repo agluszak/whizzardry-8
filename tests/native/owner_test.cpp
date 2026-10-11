@@ -762,16 +762,17 @@ void widget_owned_regions_release_with_widget()
     RegionStateSnapshot saved_state;
     ResetRegions();
     const auto baseline_region_count = LiveDynamicRegionCount();
-    unsigned int shared_set = 0;
+    const auto baseline_set_count = LiveRegionSetCount();
     {
         Controls panel;
-        panel.AcquireRegionSet(&shared_set);
+        panel.CreateRegionSet();
         auto widget = std::make_unique<W8Widget>();
         widget->SetPanel(panel);
         REQUIRE(LiveDynamicRegionCount() == baseline_region_count + 1);
+        REQUIRE(LiveRegionSetCount() == baseline_set_count + 1);
     }
     REQUIRE(LiveDynamicRegionCount() == baseline_region_count);
-    DestroyRegionSet(shared_set);
+    REQUIRE(LiveRegionSetCount() == baseline_set_count);
 }
 
 void input_sink_capture_can_be_released()

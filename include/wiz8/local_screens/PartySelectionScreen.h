@@ -26,14 +26,6 @@ enum W8PartyConfirmationAction {
 /* Region-set slots the party-selection party builder shares between its panels.
    A panel acquires a slot by address; an unused slot is zero, so the caller
    allocates from the static region catalog on first use. */
-extern unsigned int g_party_selection_character_region_set;
-extern unsigned int g_party_selection_party_slot_region_set;
-extern unsigned int g_party_selection_character_grid_region_set;
-extern unsigned int g_party_selection_option_region_set;
-extern unsigned int g_party_selection_range_region_set;
-extern unsigned int g_party_selection_left_action_region_set;
-extern unsigned int g_party_selection_bottom_action_region_set;
-extern unsigned int g_party_selection_import_list_region_set;
 
 /* One byte per portrait, nonzero for the portraits that carry
    animation frames. */

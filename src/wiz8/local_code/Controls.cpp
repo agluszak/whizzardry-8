@@ -64,9 +64,8 @@ unsigned char DispatchButtonRegionEvent(const InputEvent* event, W8Region* regio
 }
 
 /* Original Local Code\Controls.cpp translation unit. Keep these implementations
-   together and preserve their order. Retail assertions identify m_uiRegionSetId
+   together and preserve their order. Retail assertions identify the panel region set
    (line 399) and the widget's m_pPanel (line 1849); other role names are recovered. */
-#define REGSET_NULL 0
 
 // GLOBAL: WIZ8 0x005ED548
 extern const unsigned int g_W8TextBufferAlignLeft = 0x01;
@@ -114,7 +113,6 @@ Controls::Controls()
     m_bounds.bottom = 0;
     m_dirtyRect.left = -1;
     m_fWholeAreaDirty = true;
-    m_uiRegionSetId = 0;
 }
 
 // FUNCTION: WIZ8 0x004f2ca0
@@ -132,13 +130,13 @@ Controls::Controls(int left, int top, int right_bound, int bottom_bound,
     m_bounds.bottom = bottom_bound;
     m_dirtyRect.left = -1;
     m_fWholeAreaDirty = true;
-    m_uiRegionSetId = 0;
 }
 
 // FUNCTION: WIZ8 0x004f2d30
 Controls::~Controls()
 {
     DestroyAllControls();
+    DestroyRegionSet(m_regionSet);
 }
 
 /* 0x00562A50 takes the redraw-request mask the panel raises. */
@@ -161,14 +159,11 @@ const float g_float_thirty_five_hundredths = 0.35f;
 // FUNCTION: WIZ8 0x004f30f0
 void Controls::EnableRegionSet(bool enable)
 {
-    if (m_uiRegionSetId == REGSET_NULL) {
-        srAssertFail("m_uiRegionSetId != REGSET_NULL",
-                     "C:\\Projects\\Wizardry 8\\Local Code\\Controls.cpp", 0x18f, 0);
-    }
+    if (m_regionSet == 0) return;
     if (enable) {
-        RegionSetEnable(m_uiRegionSetId);
+        RegionSetEnable(m_regionSet);
     } else {
-        RegionSetDisable(m_uiRegionSetId);
+        RegionSetDisable(m_regionSet);
     }
 }
 
@@ -231,14 +226,16 @@ void W8Widget::SetPanel(Controls& new_panel)
     // Allocate before unlinking so failure leaves the old owner intact.
     if (panel->m_controls.size() == panel->m_controls.capacity())
         panel->m_controls.reserve(std::max(size_t{8}, panel->m_controls.capacity() * 2));
-    const bool needs_region = m_region == -1 && panel->m_uiRegionSetId != 0;
+    // A widget's region lives in its panel's set; moving panels moves the region.
+    const bool needs_region =
+        panel->m_regionSet != 0 &&
+        (m_region == -1 || (OwnsRegion() && m_owned_region.set() != panel->m_regionSet));
     OwnedRegion allocated_region;
     if (needs_region) {
-        allocated_region = OwnedRegion(panel->m_uiRegionSetId, g_widget_region_template);
+        allocated_region = OwnedRegion(panel->m_regionSet, g_widget_region_template);
     }
     const auto region = needs_region ? allocated_region.index() : 0;
     if (m_pPanel) {
-        // Reparent without releasing the live region binding.
         auto& children = m_pPanel->m_controls;
         const auto found = std::ranges::find(children, this, &std::unique_ptr<W8Widget>::get);
         auto owned = std::move(*found);
@@ -1390,14 +1387,13 @@ W8RangeButton::W8RangeButton(Controls* panel, unsigned int region, int left, int
    those same names to the base. That is original constructor style, not a
    second inherited field. */
 // FUNCTION: WIZ8 0x004f61f0
-W8RangeControl::W8RangeControl(int left, int top, int right, int bottom,
-                               unsigned int* shared_region_set)
+W8RangeControl::W8RangeControl(int left, int top, int right, int bottom)
     : Controls(left, top, right, bottom, std::nullopt, -1), m_minimum(0), m_maximum(1), m_value(0),
       m_listener(0)
 {
     int height = bottom - top;
 
-    AcquireRegionSet(shared_region_set);
+    CreateRegionSet();
 
     m_decrement =
         new W8RangeButton(this, 0xffffffff, 0, 0, 0x10, 0x10, CatalogArtwork::Load(0x86), 0, 2, 1, 2, 3, 0, this);
@@ -2053,16 +2049,14 @@ void Controls::SetBounds(int left, int top, int new_right, int new_bottom)
     }
 }
 
-/* Takes the panel's region set from a shared slot, creating it on first use,
-   and empties it so this panel can repopulate it. */
 // FUNCTION: WIZ8 0x004f30c0
-void Controls::AcquireRegionSet(unsigned int* shared_region_set)
+void Controls::CreateRegionSet()
 {
-    if (*shared_region_set == 0) {
-        *shared_region_set = CreateRegionSet();
+    if (m_regionSet == 0) {
+        m_regionSet = ::CreateRegionSet();
+    } else {
+        ResetRegionSet(m_regionSet);
     }
-    m_uiRegionSetId = *shared_region_set;
-    ResetRegionSet(m_uiRegionSetId);
 }
 
 // FUNCTION: WIZ8 0x004f4120

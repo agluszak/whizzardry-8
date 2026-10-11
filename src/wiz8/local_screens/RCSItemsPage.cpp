@@ -69,8 +69,6 @@ int giCasterCharSlot;
 // GLOBAL: WIZ8 0x0069C424
 W8ItemInstance* g_split_item_source;
 
-// GLOBAL: WIZ8 0x0069c490
-unsigned int g_camp_secondary_region_set;
 
 /* The twelve equip-slot label message ids indexed by region
    callback_id. */
@@ -1515,7 +1513,7 @@ int CreateCampSecondaryPanel(void)
     g_camp_secondary_panel =
         std::make_unique<Controls>(0x13c, 7, 0x154, 0x34, CatalogArtwork::Load(0x120, 0), 0);
     panel = g_camp_secondary_panel.get();
-    panel->AcquireRegionSet(&g_camp_secondary_region_set);
+    panel->CreateRegionSet();
     g_camp_page_tabs[0] =
         new W8TextControl(panel, -1, 2, 2, 0x16, 0x16, CatalogArtwork::Load(0x121, 0), 0, 2, 1, 4, 3);
     g_camp_page_tabs[1] =

@@ -105,8 +105,6 @@ unsigned short g_profession_level_name_message_ids[15][9] = {
 // GLOBAL: WIZ8 0x0064da9c
 static int g_character_page_title_ids[4] = {0xcf, 0xd1, 0xd0, 0xd2};
 
-// GLOBAL: WIZ8 0x0069c2e4
-static unsigned int g_character_screen_region_set;
 // GLOBAL: WIZ8 0x0069c2e8
 W8CharacterScreen* g_character_screen;
 
@@ -141,7 +139,7 @@ W8CharacterScreen::W8CharacterScreen(int mode, W8Character* character)
 void W8CharacterScreen::BuildControls()
 {
     m_controls = new Controls(0, 0x1c2, 0, 0, CatalogArtwork::Load(0x107, 0), 4);
-    m_controls->AcquireRegionSet(&g_character_screen_region_set);
+    m_controls->CreateRegionSet();
 
     m_next = new W8TextControl(m_controls, 0xffffffff, 0x254, 0, 0, 0, CatalogArtwork::Load(0x106, 0), 8, 10, 9, 10, 0xb);
     m_next->EnableRegionHelp(0xdc);

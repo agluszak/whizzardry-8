@@ -22,14 +22,6 @@
 
 #define CGS_STATS_PAGE_CPP "C:\\Projects\\Wizardry 8\\Local Screens\\CGSStatsPage.cpp"
 
-// GLOBAL: WIZ8 0x0069c550
-unsigned int g_character_stats_region_set;
-// GLOBAL: WIZ8 0x0069c554
-static unsigned int g_character_stats_profession_region_set;
-// GLOBAL: WIZ8 0x0069c558
-static unsigned int g_character_stats_race_region_set;
-// GLOBAL: WIZ8 0x0069c55c
-static unsigned int g_character_stats_gender_region_set;
 
 // GLOBAL: WIZ8 0x0064f028
 static W8CharacterStatsRecord g_character_profession_records[15] = {
@@ -251,7 +243,7 @@ void W8CharacterStatsRecordControl::OnRightButtonUp(int event)
 }
 
 // FUNCTION: WIZ8 0x005c9310
-void W8CharacterStatsRow::Initialize(Controls* owner, unsigned int* region_set, int x, int y,
+void W8CharacterStatsRow::Initialize(Controls* owner, int x, int y,
                                      int count, const W8CharacterStatsRecord* table,
                                      const W8CharacterStatsRecord* default_record, int help_first,
                                      int help_second, int help_value)
@@ -260,7 +252,6 @@ void W8CharacterStatsRow::Initialize(Controls* owner, unsigned int* region_set, 
     m_count = static_cast<unsigned short>(count);
     m_x = owner->m_bounds.left + x;
     m_y = owner->m_bounds.top + y;
-    m_region_set = region_set;
     if (count == 0) {
         srAssertFail("usItemsInList", CGS_STATS_PAGE_CPP, 0x1d6, 0);
     }
@@ -293,7 +284,7 @@ void W8CharacterStatsRow::BuildSubpanel()
         m_subpanel = std::make_unique<Controls>(m_x + 0x9e, m_y + 1, m_x + 0x11c,
                                                 m_y + 5 + static_cast<unsigned int>(m_count) * 0x16,
                                                 std::nullopt, -1);
-        m_subpanel->AcquireRegionSet(m_region_set);
+        m_subpanel->CreateRegionSet();
         m_subpanel_entries.assign(m_count, nullptr);
 
         for (unsigned int index = 0; index < m_count; ++index) {
@@ -736,14 +727,14 @@ void W8CharacterStatsPage::SetCharacter(W8Character* character,
     m_profession_row = new W8CharacterStatsRow;
     m_race_row = new W8CharacterStatsRow;
     m_gender_row = new W8CharacterStatsRow;
-    AcquireRegionSet(&g_character_stats_region_set);
-    m_profession_row->Initialize(this, &g_character_stats_profession_region_set, 0x16, 10, 0xf,
+    CreateRegionSet();
+    m_profession_row->Initialize(this, 0x16, 10, 0xf,
                                  g_character_profession_records,
                                  &g_character_profession_default_record, 0xf7, 0xf6, 0xf8);
-    m_race_row->Initialize(this, &g_character_stats_race_region_set, 0x16, 0x3d, 0xb,
+    m_race_row->Initialize(this, 0x16, 0x3d, 0xb,
                            g_character_race_records, &g_character_race_default_record, 0xfa, 0xf9,
                            0xfb);
-    m_gender_row->Initialize(this, &g_character_stats_gender_region_set, 0x16, 0x70, 2,
+    m_gender_row->Initialize(this, 0x16, 0x70, 2,
                              g_character_gender_records, &g_character_gender_default_record, 0xfd,
                              0xfc, 0xfe);
     m_profession_row->m_listener = this;

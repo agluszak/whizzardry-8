@@ -981,6 +981,11 @@ unsigned int ControlRegionSetIndex(void)
     return g_control_region_set;
 }
 
+std::size_t LiveRegionSetCount(void)
+{
+    return g_region_set_scan_order.size();
+}
+
 std::size_t LiveDynamicRegionCount(void)
 {
     std::size_t count = 0;

@@ -233,12 +233,6 @@ bool g_mouselook_left_held;
 bool g_node_cull_pending;
 
 
-// GLOBAL: WIZ8 0x0068f2c8
-static unsigned int g_main_game_text_panel_region_set;
-// GLOBAL: WIZ8 0x0068f2cc
-static unsigned int g_main_game_text_key_region_set;
-// GLOBAL: WIZ8 0x0068f2d0
-static unsigned int g_main_game_action_panel_region_set;
 
 // GLOBAL: WIZ8 0x0061e9ec
 unsigned short g_trap_name_string_ids[] = {
@@ -338,10 +332,6 @@ static char s_lock_forcing_fail[] = "Data\\Sound\\Misc\\Lock_Forcing_Fail.wav";
 static char s_lock_forcing_success[] = "Data\\Sound\\Misc\\Lock_Forcing_Successful.wav";
 // GLOBAL: WIZ8 0x0068F2B4
 static int g_lock_phase;
-// GLOBAL: WIZ8 0x0068F2B8
-static unsigned int g_lock_tumbler_region_set;
-// GLOBAL: WIZ8 0x0068F2BC
-static unsigned int g_lock_action_region_set;
 // GLOBAL: WIZ8 0x0068F2C0
 static W8LockInteraction* g_lock_interaction;
 /* The selected slot's effective power with spell 0x27. */
@@ -661,7 +651,7 @@ W8LockTumblerPanel::W8LockTumblerPanel(int tumbler_count, const unsigned char* p
     m_animating = false;
     m_phase = 0;
     m_listener = 0;
-    AcquireRegionSet(&g_lock_tumbler_region_set);
+    CreateRegionSet();
     for (i = 0, x = 0x28; x < 0x108; i++, x += 0x1c) {
         m_tumblers[i] = new W8LockTumbler(this, x, 8, x + 0x14, 0x52, pin_data[i]);
         m_tumblers[i]->m_listener = this;
@@ -895,7 +885,7 @@ W8LockInteraction::W8LockInteraction(Trigger* trigger) : m_timer()
     m_tumbler_panel->m_listener = this;
     m_info_panel = new W8LockInfoPanel(m_tumbler_count);
     m_action_panel = new Controls(0x1e7, 0x166, 0, 0, CatalogArtwork::Load(0x1af, 0), 2);
-    m_action_panel->AcquireRegionSet(&g_lock_action_region_set);
+    m_action_panel->CreateRegionSet();
     m_spell_button =
         new W8TextControl(m_action_panel, 0xffffffff, 6, 6, 0, 0, CatalogArtwork::Load(0x1b0, 0), 8, 10, 9, 10, 0xb);
     m_spell_button->m_listener = this;
@@ -1348,11 +1338,10 @@ void CastSpellAtLockInteraction(unsigned int level, int flag, int backfire)
 // FUNCTION: WIZ8 0x00587cf0
 W8MainGameTextKeyHandler::W8MainGameTextKeyHandler(Controls* panel, int left, int top, int right,
                                                    int bottom, int line_count,
-                                                   const unsigned short* line_string_ids,
-                                                   unsigned int* region_set)
+                                                   const unsigned short* line_string_ids)
     : W8Widget(panel, 0xffffffff, left, top, right - 0x13, bottom),
       m_range(panel->m_bounds.left - 0x12 + right, panel->m_bounds.top + top,
-              right + panel->m_bounds.left, panel->m_bounds.top + bottom, region_set)
+              right + panel->m_bounds.left, panel->m_bounds.top + bottom)
 {
     m_line_count = line_count;
     m_visible_lines = (bottom - top) / 0xe;
@@ -1626,14 +1615,14 @@ W8MainGameTextPanel::W8MainGameTextPanel()
     m_marker_anim_time = 0;
     m_target_changed = false;
     m_target_marker_pending = false;
-    AcquireRegionSet(&g_main_game_text_panel_region_set);
+    CreateRegionSet();
     for (index = 0; index < 8; ++index) {
         m_entries[index] = new W8MainGameTextEntry(this, index);
         m_entries[index]->m_listener = this;
         m_entries[index]->EnableRegionHelp(0x7d1);
     }
     m_key_handler = new W8MainGameTextKeyHandler(
-        this, 0x8e, 5, 0x10f, 0x59, 0xf, g_trap_name_string_ids, &g_main_game_text_key_region_set);
+        this, 0x8e, 5, 0x10f, 0x59, 0xf, g_trap_name_string_ids);
     m_key_handler->m_range_listener = this;
     m_text_bounds.left = m_bounds.left + 0xc;
     m_text_bounds.top = m_bounds.top + 0x29;
@@ -1897,7 +1886,7 @@ W8MainGameScreen::W8MainGameScreen(Trigger* owner)
     m_text_panel->m_screen = this;
     m_status_panel = new W8MainGameStatusPanel();
     m_action_panel = new Controls(0x1e7, 0x166, 0, 0, CatalogArtwork::Load(0x1b1, 0), 2);
-    m_action_panel->AcquireRegionSet(&g_main_game_action_panel_region_set);
+    m_action_panel->CreateRegionSet();
     m_action_controls[1] =
         new W8TextControl(m_action_panel, 0xffffffff, 6, 6, 0, 0, CatalogArtwork::Load(0x1b0, 0), 8, 10, 9, 10, 0xb);
     m_action_controls[1]->m_listener = this;
