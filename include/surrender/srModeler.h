@@ -93,7 +93,7 @@ public:
     w8_ulong getTriangleCount() const;
     void setTriangleCount(w8_ulong triangles);
     w8_ulong addTriangle(const Triangle& triangle);
-    int getTriangle(w8_ulong index, Triangle& triangle);
+    std::optional<Triangle> getTriangle(w8_ulong index) const;
     void setTriangle(w8_ulong index, const Triangle& triangle);
     void setTriangleVertex(w8_ulong triangle, w8_ulong vertex, const Vertex& value);
     void flipTriangle(w8_ulong triangle);
