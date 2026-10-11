@@ -386,11 +386,11 @@ public:
     float radius;
     /* Whether the navigator participates in world queries: cleared when the
        owner deactivates (monster despawn, cursor teardown), restored on
-       activation; ResolveTraceHit and GameData skip navigators with it zero. */
+       activation; traceSphereHit and GameData skip navigators with it zero. */
     bool active;
     unsigned char padding_089[3];
     void(__cdecl* movement_callback)(W8Navigator* navigator);
-    /* Trace-hit exclusion mask: ResolveTraceHit skips monsters whose
+    /* Trace-hit exclusion mask: traceSphereHit skips monsters whose
        (trace_mask & flags) is nonzero; configureStartupRange raises bit 0. */
     unsigned int trace_mask;
     unsigned int unknown_094;

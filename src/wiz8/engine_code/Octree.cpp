@@ -2075,7 +2075,6 @@ short W8Octree::TraceLineOfSight(const srVector3T<float>* from, srVector3T<float
     int index;
     int count;
     int result;
-    int hit_location;
 
     W8OctreeTrace trace(from, to);
     result = 0;
@@ -2176,83 +2175,58 @@ short W8Octree::TraceLineOfSight(const srVector3T<float>* from, srVector3T<float
     }
 resolve:
     if (from_location_id > -3) {
-        hit_location = to_location_id;
-        if (ResolveTraceHit(&trace.start, &trace.end, from_location_id, &hit_location,
-                            to_location_id, 0, trace_mode) != 0) {
-            *to = trace.end;
+        if (const auto hit = traceSphereHit(trace.start.glmValue(), trace.end.glmValue(),
+                from_location_id, to_location_id, to_location_id, 0, trace_mode)) {
+            *to = hit->position;
             return -1;
         }
     }
     return static_cast<short>(result);
 }
 
-/* Nearest ray-vs-sphere hit across the kind-12 objects in the segment box,
-   then against the camera sphere. `hit_location` carries the target's
-   location id in (a null or negative in-value skips the to-exclusion and the
-   probe set) and receives the winning id, 0 for the camera, or -1 on a miss.
-   `excluded`/`location` skip the two endpoint objects; `flags` masks each
-   monster's navigator trace_mask; `noise_adjust` applies the range-scaled
-   noise penalty. The winning offset is the last colliding candidate's, not
-   necessarily the nearest id's - the retail quirk is preserved. */
+/* Trace location spheres and then the camera. The winning location id
+   retains the historical last-collider-offset behavior. */
 // FUNCTION: WIZ8 0x004353f0
-char W8Octree::ResolveTraceHit(const srVector3T<float>* from, srVector3T<float>* to, int excluded,
-                               int* hit_location, int location, unsigned int flags,
-                               char noise_adjust)
+std::optional<W8Octree::SphereTraceHit> W8Octree::traceSphereHit(
+    const glm::vec3& from, const glm::vec3& to, int excluded, int target,
+    int excluded_location, unsigned int flags, bool noise_adjust)
 {
     unsigned int index = 0;
     w8_ulong* ids = 0;
     unsigned int best_index = 0;
     double best = -1.0;
-    float segment_length = 0.0f;
     float inflate;
-    int target;
     W8Navigator* navigator;
     float radius;
     unsigned int probe_set = 0;
-    srVector3T<float> low;
-    srVector3T<float> high;
-    srVector3T<float> offset;
-    srVector3T<float> direction;
-    srVector3T<float> center;
-    srVector3T<float> camera;
-
-    if (noise_adjust != 0) {
-        segment_length = static_cast<float>(sqrt((to->x - from->x) * (to->x - from->x) +
-                                                 (to->y - from->y) * (to->y - from->y) +
-                                                 (to->z - from->z) * (to->z - from->z)));
-    }
+    glm::vec3 offset;
+    const float segment_length = noise_adjust ? glm::distance(from, to) : 0;
+    const auto sphereDistance = [&](const glm::vec3& center) {
+        const auto projection = srSegmentMath::project(center, from, to);
+        float distance = projection.distance;
+        if (noise_adjust) {
+            distance -= (glm::distance(projection.point, from) / segment_length *
+                         g_float_fifteen_hundredths + g_float_one_tenth) * g_world_scale;
+            if (distance < g_float_zero) distance = g_float_zero;
+        }
+        return distance;
+    };
+    const auto sphereOffset = [&](float sphere_radius, float distance) {
+        const auto direction = to - from;
+        const double length2 = glm::dot(direction, direction);
+        if (length2 == g_double_zero) return direction;
+        const double length = std::sqrt(length2);
+        const double fraction = (length - std::sqrt(sphere_radius * sphere_radius -
+                                                    distance * distance)) / length;
+        return glm::vec3(glm::dvec3(direction) * fraction);
+    };
     inflate = g_position_height_epsilon;
     if (g_runtime_world_scale > inflate) {
         inflate = g_runtime_world_scale;
     }
-    if (hit_location == 0) {
-        target = -3;
-    } else {
-        target = *hit_location;
-    }
-    high = *from;
-    low = *from;
-    if (low.x > to->x) {
-        low.x = to->x;
-    } else {
-        high.x = to->x;
-    }
-    if (low.y > to->y) {
-        low.y = to->y;
-    } else {
-        high.y = to->y;
-    }
-    if (low.z > to->z) {
-        low.z = to->z;
-    } else {
-        high.z = to->z;
-    }
-    low.x -= inflate;
-    low.y -= inflate;
-    low.z -= inflate;
-    high.x += inflate;
-    high.y += inflate;
-    high.z += inflate;
+    const auto reversed = glm::greaterThan(from, to);
+    const srVector3 low(glm::mix(from, to, reversed) - inflate);
+    const srVector3 high(glm::mix(to, from, reversed) + inflate);
     if (target == -1) {
         radius = g_startup_world->movement.alternate_radius;
         navigator = g_startup_world;
@@ -2278,7 +2252,7 @@ no_probes:;
     if (count != 0) {
         do {
             int id = ids[index];
-            if (((excluded < 0) || (excluded != id)) && ((target < 0) || (location != id)) &&
+            if (((excluded < 0) || (excluded != id)) && ((target < 0) || (excluded_location != id)) &&
                 (probe_set == 0 || !pathing->MatchesPathProbe(id, 0, 0))) {
                 unsigned int monster_index =
                     MonsterGetIndexByLocationID(0x1851, OCTREE_CPP, id, true);
@@ -2286,35 +2260,13 @@ no_probes:;
                 if (info != 0) {
                     W8Monster* monster = info->p3D;
                     if (monster != 0 && monster->active && (monster->trace_mask & flags) == 0) {
-                        center.x = monster->movement.position.x;
-                        center.z = monster->movement.position.z;
-                        center.y = monster->movement.position.y + monster->movement.height_offset;
-                        const auto projection = srSegmentMath::project(center.glmValue(), from->glmValue(), to->glmValue());
-                        center = projection.point;
-                        float distance = projection.distance;
-                        if (noise_adjust != 0) {
-                            distance =
-                                distance - (static_cast<float>(
-                                                sqrt((center.x - from->x) * (center.x - from->x) +
-                                                     (center.y - from->y) * (center.y - from->y) +
-                                                     (center.z - from->z) * (center.z - from->z))) /
-                                                segment_length * g_float_fifteen_hundredths +
-                                            g_float_one_tenth) *
-                                               g_world_scale;
-                            if (distance < g_float_zero) {
-                                distance = g_float_zero;
-                            }
-                        }
+                        const glm::vec3 center(monster->movement.position.x,
+                            monster->movement.position.y + monster->movement.height_offset,
+                            monster->movement.position.z);
+                        const float distance = sphereDistance(center);
                         float monster_radius = monster->radius;
                         if (distance < monster_radius) {
-                            direction = *to - *from;
-                            double length2 = static_cast<double>((direction.LengthSquared()));
-                            offset = direction;
-                            if (length2 != g_double_zero) {
-                                offset *= (sqrt(length2) - sqrt(monster_radius * monster_radius -
-                                                                distance * distance)) /
-                                          sqrt(length2);
-                            }
+                            offset = sphereOffset(monster_radius, distance);
                             if (0.0 <= best) {
                                 float span = offset.x * offset.x;
                                 if (sqrt(offset.z * offset.z + offset.y * offset.y + span) < best) {
@@ -2322,7 +2274,7 @@ no_probes:;
                                     best_index = index;
                                 }
                             } else {
-                                best = sqrt(offset.LengthSquared());
+                                best = std::sqrt(glm::dot(offset, offset));
                                 best_index = index;
                             }
                         }
@@ -2336,53 +2288,16 @@ no_probes:;
            only on a shorter hit while `to` is written from the current
            `offset`, so the two can describe different monsters. */
         if (0.0 <= best) {
-            *to = offset + *from;
-            if (hit_location != 0) {
-                *hit_location = ids[best_index];
-            }
-            return 1;
+            return SphereTraceHit{offset + from, static_cast<int>(ids[best_index])};
         }
     }
-    if (excluded != -1 && location != -1) {
-        camera = cameraLocation();
-        center = camera;
-        const auto projection = srSegmentMath::project(center.glmValue(), from->glmValue(), to->glmValue());
-        center = projection.point;
-        float distance = projection.distance;
-        if (noise_adjust != 0) {
-            distance =
-                distance - (static_cast<float>(sqrt((center.y - from->y) * (center.y - from->y) +
-                                                    (center.z - from->z) * (center.z - from->z) +
-                                                    (center.x - from->x) * (center.x - from->x))) /
-                                segment_length * g_float_fifteen_hundredths +
-                            g_float_one_tenth) *
-                               g_world_scale;
-            if (distance < g_float_zero) {
-                distance = g_float_zero;
-            }
-        }
-        float camera_radius = g_startup_world->radius * g_camera_sphere_radius_scale;
-        if (distance < camera_radius) {
-            offset = *to - *from;
-            double length2 = static_cast<double>(
-                (offset.y * offset.y + offset.z * offset.z + offset.x * offset.x));
-            if (length2 != g_double_zero) {
-                offset *=
-                    (sqrt(length2) - sqrt(camera_radius * camera_radius - distance * distance)) /
-                    sqrt(length2);
-            }
-            *to = offset + *from;
-            if (hit_location != 0) {
-                *hit_location = 0;
-            }
-            return 1;
-        }
+    if (excluded != -1 && excluded_location != -1) {
+        const float distance = sphereDistance(cameraLocation());
+        const float camera_radius = g_startup_world->radius * g_camera_sphere_radius_scale;
+        if (distance < camera_radius)
+            return SphereTraceHit{sphereOffset(camera_radius, distance) + from, 0};
     }
-    /* Retail verified at 0x00435AEF: unlike the guarded writes above, the
-       miss path stores through `hit_location` unconditionally, so a null
-       out-pointer crashes here exactly as in retail. */
-    *hit_location = -1;
-    return 0;
+    return std::nullopt;
 }
 
 /* Second Remove emission (0x00438C90 above is the other), serving the

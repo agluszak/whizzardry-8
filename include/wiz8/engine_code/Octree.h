@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include <optional>
 #include <unordered_map>
 
 #include "surrender/srMath.h"
@@ -350,15 +351,17 @@ public:
     unsigned char TestProbeResult(W8OctreeTrace* trace); /* 0x00435F00 */
     int TraceAgainstProps(const srVector3T<float>* from, srVector3T<float>* to, int skip_flag,
                           int gate); /* 0x00436510 */
-    /* Nearest ray-vs-sphere hit across the kind-12 objects in the segment
-       box, then against the camera sphere; writes the hit position into `to`
-       and the hit location id into `hit_location` (or -1/0). `excluded`
-       skips one location id, `location` carries the in/out location id used
-       for the pathing-probe set, `flags` masks navigator trace_mask, and
-       `noise_adjust` applies the g_float_one_tenth/noise penalty. */
-    char ResolveTraceHit(const srVector3T<float>* from, srVector3T<float>* to, int excluded,
-                         int* hit_location, int location, unsigned int flags,
-                         char noise_adjust); /* 0x004353F0 */
+    struct SphereTraceHit {
+        glm::vec3 position;
+        int location_id;
+    };
+    /* Sphere contact and its location id; no value means the segment missed.
+       Target selects the probe set; excluded_location skips its endpoint.
+       The location winner and final collider offset retain the existing
+       selection behavior. */
+    std::optional<SphereTraceHit> traceSphereHit(const glm::vec3& from, const glm::vec3& to,
+        int excluded, int target, int excluded_location, unsigned int flags,
+        bool noise_adjust); /* 0x004353F0 */
     /* Navigator placement query: retail callers pass modes such as 5, 10, 20
        and 30; retail callers load the octree into ecx and the body returns
        with ret 0x28, so this is an ordinary member. `source`'s y may be

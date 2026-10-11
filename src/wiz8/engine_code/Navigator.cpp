@@ -1072,8 +1072,10 @@ W8Navigator* W8Navigator::ResolveBlockingNavigator(const srVector3T<float>* from
     if (include_target && target_navigator != 0) {
         location = target_navigator->movement.location_id;
     }
-    if (g_octree->ResolveTraceHit(from, to, movement.location_id, &hit_location, location,
-                                  trace_mask, 0) != 0) {
+    if (const auto hit = g_octree->traceSphereHit(from->glmValue(), to->glmValue(),
+            movement.location_id, hit_location, location, trace_mask, false)) {
+        *to = hit->position;
+        hit_location = hit->location_id;
         if (hit_location == 0) {
             return g_startup_world;
         }
