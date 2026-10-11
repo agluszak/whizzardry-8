@@ -1242,6 +1242,7 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
     auto frame = CreateVideoSurface(640, 480, 16);
     REQUIRE(frame);
     GetFrameBufferSurface() = std::move(*frame);
+    auto* old_target = std::exchange(ButtonDestBuffer, &GetFrameBufferSurface());
     Font font{SGPVObject{}};
     auto* old_font = std::exchange(g_dialog_interface_font, &font);
     class MessageDialog final : public W8MessageDialogBase {
@@ -1296,6 +1297,7 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
         REQUIRE(list.m_selected_line == 10);
     }
     g_dialog_interface_font = old_font;
+    ButtonDestBuffer = old_target;
     GetFrameBufferSurface() = std::move(saved_frame);
     REQUIRE(RegisteredButtonCount() == 0);
     MSYS_Shutdown();
