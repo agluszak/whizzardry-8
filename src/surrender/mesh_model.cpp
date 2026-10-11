@@ -1317,9 +1317,8 @@ void srTriMeshPipeline::FlushSlots()
 
     glm::vec3 eye_center;
     float eye_radius;
-    glm::mat4 model_view;
     this->renderer->getEyeSpaceBounds(eye_center, eye_radius, bounds_center, bounds_radius);
-    this->renderer->getMatrix(srGERD::MATRIX_MODELVIEW, model_view);
+    const auto model_view = this->renderer->getMatrix(srGERD::MATRIX_MODELVIEW);
     const auto inverse_model_view = this->renderer->getInverseModelViewMatrix();
     const auto clip_planes = this->renderer->getClipPlanes();
     const auto project_clip_near = this->renderer->getProjectClipNearMatrix();
