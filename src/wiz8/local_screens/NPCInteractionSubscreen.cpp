@@ -3832,12 +3832,8 @@ static bool IsDialoguePlaceKeyword(std::string_view name)
     return false;
 }
 
-// FUNCTION: WIZ8 0x00575070
 void ClearNpcDialogueTranscript(void)
 {
-    for (int index = 0; index < static_cast<int>(g_npc_interaction_state->dialogue_transcript.size()); ++index) {
-        delete g_npc_interaction_state->dialogue_transcript[index];
-    }
     g_npc_interaction_state->dialogue_transcript.clear();
 }
 
@@ -3881,8 +3877,7 @@ try
     transcript.reserve(record_count);
     ClearNpcDialogueTranscript();
     for (auto& record : pending) {
-        transcript.push_back(record.get());
-        (void)record.release();
+        transcript.push_back(std::move(record));
     }
     g_npc_interaction_state->dialogue_category_filter = category_filter;
     g_npc_interaction_state->transcript_sorted = sorted != 0;
@@ -3899,7 +3894,7 @@ try
     file.write(&version, sizeof(version));
     file.write(&record_count, sizeof(record_count));
     for (int index = 0; index < record_count; ++index) {
-        W8DialogueTranscriptRecord* record = g_npc_interaction_state->dialogue_transcript[index];
+        W8DialogueTranscriptRecord* record = g_npc_interaction_state->dialogue_transcript[index].get();
         const int text_length = wiz8::text::to_utf16(record->text).size();
         if (text_length >= 100) return false;
         std::vector<std::byte> bytes((std::size_t(text_length) + 1) * 2);
@@ -4820,11 +4815,10 @@ void AddDialogueTranscriptKeyword(std::string_view name, signed char category)
             return;
         }
     }
-    W8DialogueTranscriptRecord* record =
-        new W8DialogueTranscriptRecord{};
+    auto record = std::make_unique<W8DialogueTranscriptRecord>();
     record->text = keyword;
     record->category = category;
-    g_npc_interaction_state->dialogue_transcript.push_back(record);
+    g_npc_interaction_state->dialogue_transcript.push_back(std::move(record));
 }
 
 // FUNCTION: WIZ8 0x005777c0

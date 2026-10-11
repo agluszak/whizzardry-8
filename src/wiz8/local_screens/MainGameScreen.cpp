@@ -2720,7 +2720,7 @@ void W8NpcDialogueTextController::RestoreTranscriptEntries()
 
     for (index = 0; index < static_cast<int>(g_npc_interaction_state->dialogue_transcript.size());
          ++index) {
-        record = g_npc_interaction_state->dialogue_transcript[index];
+        record = g_npc_interaction_state->dialogue_transcript[index].get();
         AddTranscriptEntry(record->text, record->category, 0);
     }
     Invalidate(0);
@@ -7534,17 +7534,13 @@ void ClearHighlightOverlayRegion(void)
 // FUNCTION: WIZ8 0x0055E940
 void W8NpcDialogueTextController::SaveTranscriptEntries()
 {
-    W8DialogueTranscriptRecord* record;
-    W8DialogTextEntry* entry;
-    int index;
-
     ClearNpcDialogueTranscript();
-    for (index = 0; index < static_cast<int>(text_area.m_all_lines.size()); ++index) {
-        record = new W8DialogueTranscriptRecord{};
-        entry = text_area.GetEntry(index);
+    for (int index = 0; index < static_cast<int>(text_area.m_all_lines.size()); ++index) {
+        auto record = std::make_unique<W8DialogueTranscriptRecord>();
+        W8DialogTextEntry* entry = text_area.GetEntry(index);
         record->text = entry->GetText();
         record->category = entry->m_category;
-        g_npc_interaction_state->dialogue_transcript.push_back(record);
+        g_npc_interaction_state->dialogue_transcript.push_back(std::move(record));
     }
 }
 
