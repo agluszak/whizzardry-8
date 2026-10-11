@@ -244,9 +244,6 @@ void DrawWorldCursorNodeLabel(W8WorldCursorNode* entry)
             srAssertFail("pBuffer", ST_CUBE_CPP, 0x130, 0);
         }
         {
-            FontRenderScope font_scope;
-            SetFontDestClip(0, 0, surface->getWidth(), surface->getHeight());
-            SetFont(g_smfnt_font);
             g_smfnt_font.resetPalette();
             SDLSurfaceOwner text_surface{
                 SDL_CreateSurfaceFrom(surface->getWidth(), surface->getHeight(),
@@ -256,8 +253,7 @@ void DrawWorldCursorNodeLabel(W8WorldCursorNode* entry)
                 for (int index = 0; index < 3; ++index) {
                     std::string text;
                     text = fmt::format("{:d}", entry->parameters[index]);
-                    DrawFontTextToSurface(*text_surface, g_smfnt_font, 0,
-                                          g_smfnt_font.height() * index, text);
+                    DrawText(*text_surface, g_smfnt_font, {0, g_smfnt_font.height() * index}, text);
                 }
             }
             texture->invalidate();

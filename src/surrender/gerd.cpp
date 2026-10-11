@@ -36,6 +36,7 @@
 #include "surrender/srMath.h"
 #include "surrender/srModel.h"
 #include "surrender/srGERD.h"
+#include "surrender/picking_math.h"
 #include "surrender/srColorSurface.h"
 #include "surrender/srCore.h"
 #include "surrender/srDebug.h"
@@ -1318,85 +1319,39 @@ void srGERD::setViewPort(w8_ulong x, w8_ulong y, w8_ulong width,
 // FUNCTION: SURRENDER 0x1001D630
 void srGERD::performPickTest(const PickInput& input)
 {
-    w8_ulong depth = this->pick.pick_depth;
-    if (depth == 0) {
-        return;
+    if (pick.pick_depth == 0) return;
+    const auto vertexIndex = [&](int vertex) -> w8_ulong {
+        if (vertex < 0 || (!input.vertices.empty() &&
+                          static_cast<std::size_t>(vertex) >= input.vertices.size()))
+            throw std::invalid_argument("Invalid picking vertex index");
+        const auto mapped = input.vertices.empty() ? static_cast<w8_ulong>(vertex) : input.vertices[vertex];
+        if (mapped >= input.positions.size())
+            throw std::invalid_argument("Invalid picking position index");
+        return mapped;
+    };
+    // Validate the whole selection before any queued pick can be changed.
+    for (const auto index : input.indices) {
+        if (index >= input.triangles.size())
+            throw std::invalid_argument("Invalid picking triangle index");
+        const auto& triangle = input.triangles[index];
+        for (const auto vertex : {triangle.x, triangle.y, triangle.z}) vertexIndex(vertex);
     }
-    pick_vertices.resize(input.vertex_count);
-    glm::vec4* vertices = pick_vertices.data();
-    for (w8_ulong index = 0; index < input.vertex_count; index++) {
-        float inv_w = 1.0f / input.positions[index].w;
-        vertices[index].w = inv_w < 0.0f ? -1.0f : 1.0f;
-        inv_w = fabs(inv_w);
-        vertices[index].x = input.positions[index].x * inv_w;
-        vertices[index].y = input.positions[index].y * inv_w;
-        vertices[index].z = input.positions[index].z * inv_w;
-    }
-    Pick* pick = this->pick.pick_stack;
-    do {
-        float pick_x = pick->position.x;
-        float pick_y = pick->position.y;
-        for (w8_ulong index = 0; index < input.triangle_count; index++) {
-            w8_ulong triangle_index = input.indices[index];
-            const srVector3i& triangle = input.triangles[triangle_index];
-            const glm::vec4* corner0 = &vertices[input.vertices[triangle.x]];
-            const glm::vec4* corner1 = &vertices[input.vertices[triangle.y]];
-            const glm::vec4* corner2 = &vertices[input.vertices[triangle.z]];
-            float v0x = corner0->x;
-            float v0y = corner0->y;
-            float v0z = corner0->z;
-            float v1x = corner1->x;
-            float v1y = corner1->y;
-            float v1z = corner1->z;
-            float v2x = corner2->x;
-            float v2y = corner2->y;
-            float v2z = corner2->z;
-            char winding = (v0y - pick_y) * (v0x - v1x) - (v0y - v1y) * (v0x - pick_x) > 0.0f;
-            if ((v1y - pick_y) * (v1x - v2x) - (v1x - pick_x) * (v1y - v2y) > 0.0f) {
-                winding++;
-            }
-            if (winding == 1) {
-                continue;
-            }
-            if ((v2y - pick_y) * (v2x - v0x) - (v2y - v0y) * (v2x - pick_x) > 0.0f) {
-                winding++;
-            }
-            if (winding != 0 && winding != 3) {
-                continue;
-            }
-            /* Positions were normalized by |1/w|; undo the mirror for
-               corners behind the eye before solving the plane. */
-            if (corner0->w == -1.0f) {
-                v0x = -v0x;
-                v0y = -v0y;
-                v0z = -v0z;
-            }
-            if (corner1->w == -1.0f) {
-                v1x = -v1x;
-                v1y = -v1y;
-                v1z = -v1z;
-            }
-            if (corner2->w == -1.0f) {
-                v2x = -v2x;
-                v2y = -v2y;
-                v2z = -v2z;
-            }
-            const glm::vec3 first(v0x, v0y, v0z);
-            const glm::vec3 normal = glm::cross(glm::vec3(v1x, v1y, v1z) - first,
-                                                glm::vec3(v2x, v2y, v2z) - first);
-            float hit = -((normal.x * pick_x + normal.y * pick_y - glm::dot(normal, first)) /
-                          normal.z);
-            if (hit >= -1.0f && hit < pick->position.z) {
-                pick->position.z = hit;
-                /* reinterpret-ok: the public pick key arrives as ulong bits
-                   naming the selected model instance. */
-                pick->selected_model = reinterpret_cast<srModelInstance*>(this->pick.pick_key);
-                pick->triangle_index = triangle_index;
+    pick_vertices.resize(input.positions.size());
+    std::ranges::transform(input.positions, pick_vertices.begin(), srPickingMath::projectedPosition);
+    for (auto& queued : std::span{pick.pick_stack}.first(pick.pick_depth)) {
+        for (const auto index : input.indices) {
+            const auto& triangle = input.triangles[index];
+            const std::array corners{pick_vertices[vertexIndex(triangle.x)],
+                                     pick_vertices[vertexIndex(triangle.y)],
+                                     pick_vertices[vertexIndex(triangle.z)]};
+            if (const auto depth = srPickingMath::triangleDepth(corners, queued.position)) {
+                queued.position.z = *depth;
+                /* reinterpret-ok: the public pick key names the selected instance. */
+                queued.selected_model = reinterpret_cast<srModelInstance*>(pick.pick_key);
+                queued.triangle_index = index;
             }
         }
-        pick++;
-        depth--;
-    } while (depth != 0);
+    }
 }
 
 // FUNCTION: SURRENDER 0x1001DAA0
@@ -1409,12 +1364,10 @@ void srGERD::pushPick(const Pick& pick)
 }
 
 // FUNCTION: SURRENDER 0x1001DAE0
-void srGERD::popPick(Pick& pick)
+std::optional<srGERD::Pick> srGERD::popPick()
 {
-    if (this->pick.pick_depth != 0) {
-        this->pick.pick_depth -= 1;
-        pick = this->pick.pick_stack[this->pick.pick_depth];
-    }
+    if (pick.pick_depth == 0) return std::nullopt;
+    return pick.pick_stack[--pick.pick_depth];
 }
 
 // FUNCTION: SURRENDER 0x1001DB10

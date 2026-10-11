@@ -274,13 +274,9 @@ void RefreshLevelUpReadyNotices(void)
                         utf8::append(0xb5, std::back_inserter(text));
                         text += " ";
                         text = fmt::sprintf(g_localized_strings[0x773], text);
-                        int* extra;
                         *ready_flag = 1;
-                        extra = new int;
-                        *extra = party_slot;
-                        W8MessageBoxPayload level_up_extra;
-                        level_up_extra.level_up_slot = extra;
-                        AddTextMessageBoxLine(W8_NPC_MSG_LEVEL_UP, std::move(text), level_up_extra);
+                        AddTextMessageBoxLine(W8_NPC_MSG_LEVEL_UP, std::move(text),
+                                              W8LevelUpNotice{party_slot});
                         QueueNpcMessageLine(W8_NPC_MSG_PARTY_MEMBER_EVENT, party_slot);
                     } else {
                         *ready_flag = 1;
@@ -1214,10 +1210,7 @@ void AwardPartyExperience(int amount, int alternate_message)
         }
     }
     auto text = fmt::sprintf(g_localized_strings[alternate_message ? 0x231 : 0x232], amount);
-    W8ExperienceNoticePayload* payload = new W8ExperienceNoticePayload;
-    payload->amount = amount;
-    payload->alternate_message = static_cast<unsigned char>(alternate_message);
-    W8MessageBoxPayload portrait_extra_extra;
-    portrait_extra_extra.experience = payload;
-    AddTextMessageBoxLine(W8_NPC_MSG_PORTRAIT_EXTRA, std::move(text), portrait_extra_extra);
+    AddTextMessageBoxLine(W8_NPC_MSG_PORTRAIT_EXTRA, std::move(text),
+                          W8ExperienceNoticePayload{static_cast<unsigned int>(amount),
+                                                    static_cast<unsigned char>(alternate_message)});
 }

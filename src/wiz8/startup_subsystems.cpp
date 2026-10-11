@@ -104,12 +104,11 @@ unsigned char InitializeMenuFonts(void)
     }
     decltype(g_font_state_palettes) palettes;
     for (size_t index = 0; index < palettes.size(); ++index) {
-        palettes[index] = CopyCatalogImagePalette16BPP(0x1e5, index);
+        palettes[index] = CatalogArtwork::Load(0x1e5, index).spriteSheet()->colors;
     }
     for (size_t index = 0; index < fonts.size(); ++index)
         *std::get<0>(fonts[index]) = std::move(loaded[index]);
     g_font_state_palettes.swap(palettes);
-    SetFont(g_large_font);
     ConfigureDialogFont(g_wiz_dialog_font, 1, 0xff, 0);
     return 1;
 }

@@ -19,7 +19,7 @@
 #include <unordered_map>
 #include <utility>
 
-#include <glm/geometric.hpp>
+#include <glm/geometric.hpp> // NOLINT(misc-include-cleaner)
 #include "glm/ext/vector_float2.hpp"
 #include "image.h"
 #include "utf8/checked.h"
@@ -305,9 +305,10 @@ stModelInstance2D* CreateAutomapTextMarker(void);
 
 static void SetAutomapCursorImage(int tool)
 {
-    SetMouseCursorFromVideoObject(
-        GetCatalogVideoObject(tool + 0x14b, 0), GetCatalogVideoObjectYOffset(tool + 0x14b),
-        g_automap_cursor_offsets[tool].x, g_automap_cursor_offsets[tool].y);
+    const auto artwork = CatalogArtwork::Load(tool + 0x14b);
+    SetMouseCursorFromVideoObject(*artwork.spriteSheet(), artwork.imageOffset(),
+                                  g_automap_cursor_offsets[tool].x,
+                                  g_automap_cursor_offsets[tool].y);
     gXStatus.iCurrentCursor = W8_CURSOR_INVALID_TARGET;
     RefreshMouseCursorTexture();
 }
@@ -498,14 +499,15 @@ void CreateAutomapButtons(void)
     std::vector<std::unique_ptr<W8DialogButton>> buttons(16);
     for (size_t index = 0; index < buttons.size(); ++index) {
         const int catalog_id = g_automap_button_catalogs[index];
-        const int base_frame = GetCatalogVideoObjectYOffset(catalog_id);
-        if (GetCatalogStorageKind(catalog_id) != W8_VIDEO_STORAGE_OBJECT) continue;
+        auto artwork = CatalogArtwork::Load(catalog_id);
+        auto sprites = artwork.spriteSheet();
+        if (!sprites) continue;
+        const int base_frame = artwork.imageOffset();
         auto button = std::make_unique<W8DialogButton>();
         const auto action = g_automap_button_callbacks[index];
         W8DialogButtonCallback callback;
         if (action) callback = [action](W8DialogButton*) { action(); };
-        if (button->Configure(GetCatalogVideoObjectPath(catalog_id).data(), base_frame + 3,
-                              base_frame, base_frame + 1,
+        if (button->Configure(std::move(sprites), base_frame + 3, base_frame, base_frame + 1,
                               base_frame + 2, base_frame + 2, callback, nullptr, false,
                               REGION_PRIORITY_HIGHEST, g_automap_button_tooltips[index], nullptr, nullptr)) {
             button->SetPosition(g_automap_button_positions[index].x,
@@ -742,7 +744,7 @@ unsigned char AutomapScreenEnter(void)
     SetPrimarySurfaceTextureHint2Enabled(false);
     ClearSurfaceRect(0, 0, 640, 480);
     DisableCursorScene();
-    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x14a, 0, 0, 0, 0);
+    CatalogArtwork::Load(0x14a, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0, 0);
     UpdateAutomapPageButtons();
     for (int button = 0; button < 16; ++button) {
         if (g_automap_buttons[button]) {
@@ -1662,6 +1664,7 @@ W8AutomapNote* FindAutomapNoteUnderCursor(void)
              ++index) {
             W8AutomapNote* note = (*g_automap_notes)[index];
             if (note->layer == g_automap_layer) {
+                // NOLINTNEXTLINE(misc-include-cleaner)
                 const float distance = glm::distance(location, note->position);
                 if (distance < best && distance < g_automap_zoom * 0.05) {
                     best = distance;
@@ -1852,9 +1855,7 @@ void RenderAutomapMarkers(void)
     if (g_automap_page != 2) {
         SDL_Rect clip = {0xc, 0x20, 0x1d3 - 0xc, 0x1d3 - 0x20};
         ScopedClipRect clipped(GetFrameBufferSurface(), clip);
-        SetFont(g_wiz_text_font_secondary);
         g_wiz_text_font_secondary.setShade(Font::kNormalShade);
-        SetFontDestClip(0xc, 0x20, 0x1d3, 0x1d3);
         int font_height = g_wiz_text_font_secondary.height();
         unsigned int count = static_cast<int>(g_automap_notes->size());
         for (unsigned int index = 0; index < count; ++index) {
@@ -1889,7 +1890,8 @@ void RenderAutomapMarkers(void)
                     y += (height >> 1) - ((font_height & 0xffff) >> 1);
                     width = marker->GetScaledWidth();
                     x += width + 2;
-                    DrawFontTextDirty(x, y, note->text);
+                    DrawTextAndInvalidate(GetFrameBufferSurface(), g_wiz_text_font_secondary,
+                                          {x, y}, note->text);
                     if (note == g_automap_editing_note) {
                         marker->setScale(glm::dvec3(0.22f, 0.22f, 0.22f));
                         int color = Get16BPPColor(SDL_Color{239, 155, 86, SDL_ALPHA_OPAQUE});

@@ -2,6 +2,7 @@
 #pragma once
 
 #include <vector>
+#include <optional>
 #include <string_view>
 #include <string>
 
@@ -53,13 +54,13 @@ struct W8Region;
 
 /* The panel hosting the six option buttons. SetEnabled keeps them inactive
    unless the main-text-box dialogue layout is up, and Redraw substitutes
-   m_main_text_box_image for m_catalogImage in that layout. */
+   m_main_text_box_image for m_backgroundImage in that layout. */
 // VTABLE: WIZ8 0x005ee9f0
 class W8NpcDialogueOptionsPanel : public Controls {
 public:
-    W8NpcDialogueOptionsPanel(int left, int top, int new_right, int new_bottom, int catalog_object,
-                              int catalog_frame, int catalog_image)
-        : Controls(left, top, new_right, new_bottom, catalog_object, catalog_frame, catalog_image)
+    W8NpcDialogueOptionsPanel(int left, int top, int new_right, int new_bottom,
+                              std::optional<CatalogArtwork> background, int background_image)
+        : Controls(left, top, new_right, new_bottom, std::move(background), background_image)
     {
         m_main_text_box_image = 0x11;
     }
@@ -76,9 +77,9 @@ W8_ABI_ASSERT(sizeof(W8NpcDialogueOptionsPanel) == 0x50, "W8NpcDialogueOptionsPa
 // VTABLE: WIZ8 0x005ee9e4
 class W8NpcTypedDialoguePanel : public Controls {
 public:
-    W8NpcTypedDialoguePanel(int left, int top, int new_right, int new_bottom, int catalog_object,
-                            int catalog_frame, int catalog_image)
-        : Controls(left, top, new_right, new_bottom, catalog_object, catalog_frame, catalog_image)
+    W8NpcTypedDialoguePanel(int left, int top, int new_right, int new_bottom,
+                            std::optional<CatalogArtwork> background, int background_image)
+        : Controls(left, top, new_right, new_bottom, std::move(background), background_image)
     {
     }
     virtual void SetEnabled(bool enable) override;
@@ -170,16 +171,6 @@ enum W8NpcDialogueControlSlot {
     W8_NPC_CONTROL_TEXT_38 = 38,
 };
 
-/* Payload ownership on portrait-quote dismissal; retained as a byte. */
-typedef unsigned char W8NpcQuoteNoticeKind;
-
-enum {
-    W8_QUOTE_NOTICE_TEXT = 0,
-    W8_QUOTE_NOTICE_EXPERIENCE = 1,
-    W8_QUOTE_NOTICE_SKILL_INCREASE = 2,
-    W8_QUOTE_NOTICE_LEVEL_UP = 3
-};
-
 struct W8NpcInteractionState {
     short value_000; /* cleared while the dialogue opens */
     unsigned char unknown_002[0xee];
@@ -260,10 +251,7 @@ struct W8NpcInteractionState {
     bool camera_redirected;
     float saved_camera_pitch;
     float saved_camera_yaw;
-    W8NpcQuoteNoticeKind quote_notice_kind;
-    /* Discriminated by quote_notice_kind: 1 takes `experience`, 2
-       `skill_notices`, 3 `level_up_slot`. */
-    W8MessageBoxPayload quote_notice_payload;
+    W8QuoteNotice quote_notice;
     /* A modal W8NpcDialog is up over the dialogue; transcript word clicks,
        layout keys other than Escape and layout leave paths bail. */
     bool modal_dialog_open;
@@ -288,7 +276,6 @@ W8_ABI_ASSERT(offsetof(W8NpcInteractionState, dialogue_controls) == 0x10c,
               "W8NpcInteractionState_dialogue_controls");
 W8_ABI_ASSERT(offsetof(W8NpcInteractionState, dialogue_panels) == 0x1a8,
               "W8NpcInteractionState_dialogue_panels");
-W8_ABI_ASSERT(sizeof(W8NpcInteractionState) == 0x268, "W8NpcInteractionState_size");
 W8_ABI_ASSERT(offsetof(W8NpcInteractionState, script_busy) == 0x1fa,
               "W8NpcInteractionState_script_busy");
 W8_ABI_ASSERT(offsetof(W8NpcInteractionState, dialogue_npc) == 0x1d4,
@@ -297,18 +284,10 @@ W8_ABI_ASSERT(offsetof(W8NpcInteractionState, quote_bubble) == 0x208,
               "W8NpcInteractionState_quote_bubble");
 W8_ABI_ASSERT(offsetof(W8NpcInteractionState, quote_visible) == 0x214,
               "W8NpcInteractionState_quote_visible");
-W8_ABI_ASSERT(offsetof(W8NpcInteractionState, quote_notice_kind) == 0x248,
-              "W8NpcInteractionState_quote_notice_kind");
-W8_ABI_ASSERT(offsetof(W8NpcInteractionState, quote_notice_payload) == 0x24c,
-              "W8NpcInteractionState_quote_notice_payload");
 W8_ABI_ASSERT(offsetof(W8NpcInteractionState, pending_notice_lines) == 0x218,
               "W8NpcInteractionState_pending_notice_lines");
 W8_ABI_ASSERT(offsetof(W8NpcInteractionState, dialogue_hidden) == 0x228,
               "W8NpcInteractionState_dialogue_hidden");
-W8_ABI_ASSERT(offsetof(W8NpcInteractionState, dialogue_panel_hidden) == 0x262,
-              "W8NpcInteractionState_dialogue_panel_hidden");
-W8_ABI_ASSERT(offsetof(W8NpcInteractionState, last_notice_npc_kind) == 0x264,
-              "W8NpcInteractionState_last_notice_npc_kind");
 
 extern W8NpcInteractionState* g_npc_interaction_state;
 
@@ -346,8 +325,7 @@ void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQu
                               int quote_id, unsigned int font_palette);
 void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQuote* quote,
                               int quote_id, unsigned int font_palette,
-                              W8NpcQuoteNoticeKind notice_kind, W8MessageBoxPayload payload,
-                              int npc_kind);
+                              W8QuoteNotice notice, int npc_kind);
 void DrawNpcQuoteBubble(void);
 void LookAtDialogueNpc(void);
 void BeginNpcDialogueInternal(W8NpcState* npc, W8ItemInstance* item, int quote, unsigned char flags,

@@ -566,7 +566,7 @@ void W8AssayDialog::Draw()
                                 g_item_video_objects.Sprites(m_item->iItemNo), 0, m_x + 0x45,
                                 m_y + 0xe);
         if (!m_item->identified) {
-            DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x11b, 0, 0, m_x + 0x45, m_y + 0xe);
+            CatalogArtwork::Load(0x11b, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, m_x + 0x45, m_y + 0xe);
         }
         m_item_portrait_dirty = false;
     }

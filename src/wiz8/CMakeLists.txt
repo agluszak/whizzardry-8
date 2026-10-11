@@ -9,7 +9,6 @@ add_library(WIZ8_GAME_CORE STATIC
     ../sgp/native/video.cpp
     ../sgp/Font.cpp
     dialog_code/ButtonAppearance.cpp
-    ../sgp/line.cpp
     ../sgp/himage.cpp
     ../sgp/image_assets.cpp
     ../sgp/shading.cpp
@@ -220,6 +219,7 @@ add_library(WIZ8_GAME_CORE STATIC
     npc_script_file.cpp
     engine_code/trim_string.cpp
     ../native/application.cpp
+    ../native/game_events.cpp
     ../native/movie.cpp
     ../native/bink_video.cpp
 )

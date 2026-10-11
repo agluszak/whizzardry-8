@@ -40,11 +40,11 @@ struct Font {
     Font() = default;
     Font(Font&& other) noexcept;
     Font& operator=(Font&& other) noexcept;
-    // Failed loads preserve the resource and render selection. Successful
-    // loads, clearing, and moves invalidate its saved and active selections.
+    // Failed loads preserve the resource.
     bool load(std::string_view filename);
     void clear();
     void setPalette(const Palette16& palette);
+    std::uint16_t color(std::uint8_t index) const;
     const Palette16& palette() const;
     const Palette16& currentPalette() const;
     void resetPalette();
@@ -59,40 +59,22 @@ struct Font {
     ~Font();
 };
 
-struct FontRenderState {
-    Font* font = nullptr;
-    SDL_Surface* destination = nullptr;
-    SDL_Rect clip = {0, 0, 640, 480};
-    bool wrap = false;
+struct TextColors {
     std::uint16_t foreground = 0;
     std::uint16_t background = 0;
     std::uint16_t shadow = 2;
-    std::uint8_t foreground_index = 0;
-    std::uint8_t background_index = 0;
 };
-extern FontRenderState g_font_render_state;
-void SetFontDestClip(std::int32_t x1, std::int32_t y1, std::int32_t x2, std::int32_t y2);
 
-// functions
+struct TextOptions {
+    bool mono = false;
+    TextColors colors{};
+    bool wrap = false;
+};
 
-void SetFontForeground(std::uint8_t ubForeground);
-void SetFontBackground(std::uint8_t ubBackground);
-void SetFontShadow(std::uint8_t ubBackground);
-
-void SetRGBFontShadow(SDL_Color color);
-
-void DrawFontText(std::int32_t x, std::int32_t y, std::string_view text);
-void DrawFontTextDirty(std::int32_t x, std::int32_t y, std::string_view text);
-void DrawMonoFontText(std::int32_t x, std::int32_t y, std::string_view text);
-void DrawFontTextToSurface(SDL_Surface& target, Font& font, std::int32_t x, std::int32_t y,
-                           std::string_view text);
-void DrawMonoFontTextToSurface(SDL_Surface& target, Font& font, std::int32_t x, std::int32_t y,
-                               std::string_view text);
-
-void SetFontDestBuffer(SDL_Surface& destination, std::int32_t x1, std::int32_t y1,
-                       std::int32_t x2, std::int32_t y2,
-                       bool wrap);
-void SetFont(Font& font);
+void DrawText(SDL_Surface& target, Font& font, SDL_Point at, std::string_view text,
+              TextOptions options = {});
+void DrawTextAndInvalidate(SDL_Surface& target, Font& font, SDL_Point at,
+                           std::string_view text, TextOptions options = {});
 
 void ConfigureFontRendering(const std::vector<std::uint16_t>& translation);
 void ResetFontRendering();
@@ -100,20 +82,5 @@ void ResetFontRendering();
 std::vector<std::uint16_t> CreateEnglishTransTable();
 
 std::int16_t GetIndex(char32_t siChar);
-
-// Each scope owns its snapshot; nested UI drawing cannot overwrite an outer save.
-class FontRenderScope {
-public:
-    FontRenderScope();
-    ~FontRenderScope();
-    FontRenderScope(const FontRenderScope&) = delete;
-    FontRenderScope& operator=(const FontRenderScope&) = delete;
-private:
-    friend struct Font;
-    friend void ResetFontRendering();
-    FontRenderState saved;
-    FontRenderScope* previous;
-    static FontRenderScope* current;
-};
 
 #endif

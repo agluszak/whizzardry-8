@@ -218,15 +218,15 @@ void UpdateHeldItemCursor(void)
             g_status.item_in_cursor = true;
             auto& sprites = g_item_video_objects.Sprites(g_status.item_in_hand.iItemNo);
             SetMouseCursorFromVideoObject(sprites, 0, 0, 0);
-            BlitToMouseCursor(GetCatalogVideoObject(0, 0), GetCatalogVideoObjectYOffset(0), 0,
-                              0);
+            const auto cursor = CatalogArtwork::Load(0);
+            BlitToMouseCursor(*cursor.spriteSheet(), cursor.imageOffset(), 0, 0);
             RefreshMouseCursorTexture();
             gXStatus.iCurrentCursor = W8_CURSOR_INVALID_TARGET;
             return;
         }
     } else if (gXStatus.iCurrentCursor != W8_CURSOR_NONE) {
-        SetMouseCursorFromVideoObject(GetCatalogVideoObject(0, 0),
-                                      GetCatalogVideoObjectYOffset(0), 0, 0);
+        const auto cursor = CatalogArtwork::Load(0);
+        SetMouseCursorFromVideoObject(*cursor.spriteSheet(), cursor.imageOffset(), 0, 0);
         RefreshMouseCursorTexture();
         gXStatus.iCurrentCursor = W8_CURSOR_NONE;
         gXStatus.current_cursor_frame = 0;
@@ -270,8 +270,8 @@ void ClearHeldItemDisplay(void)
     g_status.item_in_hand.iItemNo = -1;
 
     if (gXStatus.iCurrentCursor != W8_CURSOR_NONE) {
-        SetMouseCursorFromVideoObject(GetCatalogVideoObject(0, 0),
-                                      GetCatalogVideoObjectYOffset(0), 0, 0);
+        const auto cursor = CatalogArtwork::Load(0);
+        SetMouseCursorFromVideoObject(*cursor.spriteSheet(), cursor.imageOffset(), 0, 0);
         RefreshMouseCursorTexture();
         gXStatus.iCurrentCursor = W8_CURSOR_NONE;
         gXStatus.current_cursor_frame = 0;
@@ -299,8 +299,8 @@ void SetItemCursor(int overlay_video_object)
         g_status.item_in_cursor = true;
         auto& sprites = g_item_video_objects.Sprites(g_status.item_in_hand.iItemNo);
         SetMouseCursorFromVideoObject(sprites, 0, 0, 0);
-        BlitToMouseCursor(GetCatalogVideoObject(overlay_video_object, 0),
-                          GetCatalogVideoObjectYOffset(overlay_video_object), 0, 0);
+        const auto overlay = CatalogArtwork::Load(overlay_video_object);
+        BlitToMouseCursor(*overlay.spriteSheet(), overlay.imageOffset(), 0, 0);
         RefreshMouseCursorTexture();
         gXStatus.iCurrentCursor = W8_CURSOR_INVALID_TARGET;
     }

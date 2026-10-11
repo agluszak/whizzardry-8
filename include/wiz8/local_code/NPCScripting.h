@@ -9,6 +9,7 @@ void StripNpcKeywordPunctuation(std::string& text);
 
 #include "wiz8/mouth_gap.h"
 #include "wiz8/message_box.h"
+#include <list>
 #include <vector>
 #include <algorithm>
 #include "surrender/srMath.h"
@@ -52,8 +53,8 @@ struct W8NpcScriptingState {
     wiz8::sound::Playback voice_handle;
     unsigned int message_duration_ms;
     uint64_t message_started_at;
-    std::vector<W8MessageBoxLine*> message_lines;
-    std::vector<int*> pending_script_values;
+    std::list<W8MessageBoxLine> message_lines;
+    std::vector<int> pending_script_values;
     W8MouthGapTrack gap_track;
     uint64_t last_tick;
     /* Latched by CancelNpcDialogue; the response loop checks it at
@@ -87,10 +88,6 @@ W8_ABI_ASSERT(offsetof(W8NpcScriptingState, message_duration_ms) == 0x84,
               "W8NpcScriptingState_message_duration_ms_offset");
 W8_ABI_ASSERT(offsetof(W8NpcScriptingState, message_started_at) == 0x88,
               "W8NpcScriptingState_message_started_at_offset");
-W8_ABI_ASSERT(offsetof(W8NpcScriptingState, message_lines) == 0x8c,
-              "W8NpcScriptingState_message_lines_offset");
-W8_ABI_ASSERT(offsetof(W8NpcScriptingState, pending_script_values) == 0x9c,
-              "W8NpcScriptingState_pending_script_values_offset");
 W8_ABI_ASSERT(offsetof(W8NpcScriptingState, gap_track) == 0xac,
               "W8NpcScriptingState_gap_track_offset");
 W8_ABI_ASSERT(offsetof(W8NpcScriptingState, last_tick) == 0xc0,
@@ -127,7 +124,7 @@ void ProcessMessageBoxQueue(void);
 void ProcessNpcQuoteEntry(W8NpcQuoteEntry* entry, int continuation_quote);
 /* Build a W8_NPC_MSG_QUOTE_ENTRY line for `entry` carrying
    `continuation_quote`; prepend != 0 inserts it at the queue front. */
-void QueueNpcQuoteEntry(W8NpcQuoteEntry* entry, int continuation_quote, bool prepend);
+void QueueNpcQuoteEntry(int quote_index, int entry_index, int continuation_quote, bool prepend);
 /* The first argument is a pointer into a character or party item
    slot - the slot whose address matches is the one removed. */
 void RemoveNpcScriptItem(W8ItemInstance* item, int match_item_id, int item_id);
@@ -173,5 +170,3 @@ void AuditNpcScriptQuotes(void);
 /* The NPC-side rebinding pass; reloads the NPC's .nsf script
    file and rebuilds its runtime bindings. */
 void ReloadNpcScriptResources(W8NpcState* npc);
-
-void AddTextMessageBoxLine(W8NpcMessageKind kind, std::string text, W8MessageBoxPayload extra);

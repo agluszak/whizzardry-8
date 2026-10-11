@@ -22,12 +22,6 @@ inline constexpr int BUTTON_TEXT_CENTER = 0;
 inline constexpr int BUTTON_TEXT_RIGHT = 1;
 inline constexpr int BUTTON_NO_IMAGE = -1;
 inline constexpr std::nullptr_t BUTTON_NO_CALLBACK = nullptr;
-enum {
-    DEFAULT_STATUS_NONE,
-    DEFAULT_STATUS_DARKBORDER,
-    DEFAULT_STATUS_DOTTEDINTERIOR,
-    DEFAULT_STATUS_WINDOWS95,
-};
 
 enum {
     DISABLED_STYLE_NONE,
@@ -46,7 +40,6 @@ struct ButtonAppearance {
     ButtonImage quick_image;
     GenericButtonImage generic_image;
     SDL_Rect bounds{};
-    std::int8_t bDefaultStatus = DEFAULT_STATUS_NONE;
     std::int8_t bDisabledStyle = DISABLED_STYLE_DEFAULT;
     std::string string;
     Font* usFont = nullptr;
@@ -78,6 +71,9 @@ struct ButtonGraphics {
     static ButtonImage Load(std::string_view filename, std::int32_t grayed,
                             std::int32_t off_normal, std::int32_t off_hilite,
                             std::int32_t on_normal, std::int32_t on_hilite);
+    static ButtonImage Load(std::shared_ptr<const SpriteSheet> sprites, std::int32_t grayed,
+                            std::int32_t off_normal, std::int32_t off_hilite,
+                            std::int32_t on_normal, std::int32_t on_hilite);
 
     const SpriteSheet& object() const { return *sprites; }
 
@@ -102,10 +98,10 @@ struct GenericButtonImages {
     std::int16_t offset_y = 0;
 };
 
-extern SDL_Surface* ButtonDestBuffer;
 extern bool gfRenderHilights;
 
-void DrawButtonAppearance(const ButtonAppearance& appearance, const ButtonVisualState& state);
+void DrawButtonAppearance(SDL_Surface& target, const ButtonAppearance& appearance,
+                          const ButtonVisualState& state);
 GenericButtonImage DefaultGenericButtonImage();
 bool InitializeButtonImageManager();
 void ShutdownButtonImageManager();

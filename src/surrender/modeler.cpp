@@ -18,6 +18,7 @@
 #include "glm/geometric.hpp"
 #include "glm/vector_relational.hpp"
 #include "surrender/srModeler.h"
+#include "surrender/plane_math.h"
 #include "surrender/srTriangulator.h"
 #include "compat/compiler.h"
 #include "glm/ext/matrix_float3x3.hpp"
@@ -127,7 +128,7 @@ int AutoSmoother::isSmooth(w8_ulong first, w8_ulong second, double cosine, int s
     }
     const auto normal = [](const srModeler::Triangle& triangle) {
         const auto& v = triangle.vertices;
-        return glm::cross(v[0].position - v[1].position, v[2].position - v[1].position);
+        return srPlaneMath::triangleNormal(v[1].position, v[0].position, v[2].position);
     };
     const auto first_normal = normal(*first_triangle);
     const auto second_normal = normal(*second_triangle);
@@ -406,8 +407,8 @@ void srModeler::disableDegenerateTriangles()
 {
     for (auto& triangle : triangles) {
         const auto& vertices = triangle.vertices;
-        const auto normal = glm::cross(vertices[1].position - vertices[0].position,
-                                       vertices[2].position - vertices[0].position);
+        const auto normal = srPlaneMath::triangleNormal(vertices[0].position, vertices[1].position,
+                                                         vertices[2].position);
         if (normal == glm::vec3(0))
             triangle.disabled = 1;
     }

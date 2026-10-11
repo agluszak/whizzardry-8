@@ -1,3 +1,4 @@
+#include <SDL3/SDL_rect.h>
 #include <string>
 #include <string_view>
 
@@ -32,7 +33,7 @@ void W8DialogBase::ScrollTextArea(W8DialogTextArea& area, int first_visible_line
     int right = left + width;
     int bottom = top + height;
     InvalidateRegion(left, top, right, bottom, 0);
-    BlitCatalogSurfaceRectTo16BPP(GetFrameBufferSurface(), left, top, right, bottom, 0x1b6, 0, 0);
+    CatalogArtwork::Load(0x1b6, 0).drawRect(GetFrameBufferSurface(), SDL_Rect{0, 0, (right) - (left), (bottom) - (top)}, left, top);
     area.m_dirty = true;
 }
 

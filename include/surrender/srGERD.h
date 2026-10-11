@@ -11,6 +11,7 @@
 #include <thread>
 #include <utility>
 #include <vector>
+#include <span>
 #include "glm/ext/vector_int4_sized.hpp"
 #include "glm/ext/vector_float3.hpp"
 
@@ -40,9 +41,9 @@ public:
     struct Pick {
         /* Normalized pick point the caller fills: x and y are the cursor's
            viewport-space coordinates, z is the fixed 1.0 far value. */
-        srVector3T<float> position;
-        srModelInstance* selected_model;
-        w8_ulong triangle_index;
+        glm::vec3 position{0, 0, 1};
+        srModelInstance* selected_model{};
+        w8_ulong triangle_index{};
     };
 
     struct ClipPlanes {
@@ -71,16 +72,16 @@ public:
     class Renderer {
     public:
         struct TriInput {
-            w8_ulong triangle_count;
             w8_ulong record_count;
             w8_ulong vertex_count;
-            const w8_ulong* indices;
-            const srVector3i* triangles;
-            const w8_ulong* vertices;
+            std::span<const w8_ulong> indices;
+            std::span<const srVector3i> triangles;
+            std::span<const w8_ulong> vertices;
             const srTriMeshPipeline::Pass* passes;
             int direct_vertex_indices;
             const glm::mat4* project_clip_near;
             float sort_bias;
+            w8_ulong triangleCount() const { return static_cast<w8_ulong>(indices.size()); }
         };
 
         struct Parameters {
@@ -536,7 +537,7 @@ public:
     void drawArrays(srRendererDefs::e_primitive primitive, w8_long first, w8_ulong count);
     void drawElements(srRendererDefs::e_primitive primitive, w8_ulong count,
                       srRendererDefs::e_indexType type, const void* indices);
-    void popPick(Pick& pick);
+    std::optional<Pick> popPick();
     void pushPick(const Pick& pick);
     void toggle(e_enable option);
     void invalidateResidentTextures();
@@ -714,12 +715,11 @@ private:
     /* Pick batch view: indices selects triangles out of the caller's stream, vertices remaps each
        corner to a position index, positions is the renderer's vec4 stream base. */
     struct PickInput {
-        const w8_ulong* indices;
-        const srVector3i* triangles;
-        w8_ulong triangle_count;
-        const w8_ulong* vertices;
-        const glm::vec4* positions;
-        w8_ulong vertex_count;
+        std::span<const w8_ulong> indices;
+        std::span<const srVector3i> triangles;
+        // Empty means direct corner indices; otherwise this is the full vertex map.
+        std::span<const w8_ulong> vertices;
+        std::span<const glm::vec4> positions;
     };
 
     srGERD& operator=(const srGERD& other);

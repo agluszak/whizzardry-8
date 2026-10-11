@@ -1,4 +1,7 @@
 #include <algorithm>
+#include <ranges>
+#include "surrender/plane_math.h"
+#include "surrender/triangle_projection.h"
 #include <utility>
 #include <array>
 #include <memory>
@@ -668,21 +671,8 @@ bool PointInsideFrustum(const glm::vec3& point, std::span<const W8Plane, 6> plan
 bool PointInsideTriangle(std::span<const glm::vec3, 3> vertices, unsigned axis,
                          const glm::vec3& point)
 {
-    const unsigned u = (axis + 1) % 3;
-    const unsigned v = (axis + 2) % 3;
-    bool inside = false;
-    for (unsigned i = 0; i < vertices.size(); ++i) {
-        const auto& first = vertices[i];
-        const auto& second = vertices[(i + 1) % 3];
-        if ((first[v] < point[v] && point[v] < second[v]) ||
-            (second[v] < point[v] && point[v] < first[v])) {
-            if (point[u] <= (point[v] - first[v]) * (second[u] - first[u]) /
-                                (second[v] - first[v]) + first[u]) {
-                inside = !inside;
-            }
-        }
-    }
-    return inside;
+    return srTriangleProjection::contains(vertices, axis, point,
+                                           srTriangleProjection::Boundary::visibility);
 }
 
 // FUNCTION: WIZ8 0x0046d7e0
@@ -715,9 +705,10 @@ std::array<glm::vec3, 8> sortedFrustumCorners(std::span<const glm::vec3, 8> poin
 // FUNCTION: WIZ8 0x0046d8d0
 bool SphereInsideFrustum(const glm::vec3& point, float radius, std::span<const W8Plane, 6> planes)
 {
-    return std::ranges::none_of(planes, [&](const W8Plane& plane) {
-        return glm::dot(point, plane.normal.glmValue()) + plane.w < -radius;
+    const auto coefficients = planes | std::views::transform([](const W8Plane& plane) {
+        return glm::vec4(plane.normal.glmValue(), plane.w);
     });
+    return srPlaneMath::containsSphere(coefficients, point, radius);
 }
 
 // FUNCTION: WIZ8 0x0046d920

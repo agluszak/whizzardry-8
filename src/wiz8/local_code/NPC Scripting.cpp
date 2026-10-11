@@ -10,9 +10,10 @@
 #include <cstdint>
 #include <exception>
 #include <utility>
+#include <algorithm>
+#include <variant>
 
 #include "wiz8/unicode.h"
-#include "wiz8/containers.h"
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/conditions.h"
 #include "wiz8/monster_cycles.h"
@@ -567,7 +568,7 @@ static void NpcVoiceEosCallback()
    queued QUOTE_ENTRY continuation line when operand2 is 4. Returns the
    response index, -1 when a guard fails, and -2 after queueing. */
 // FUNCTION: WIZ8 0x005251F0
-int SelectNpcQuoteResponse(W8NpcQuoteEntry* entry)
+int SelectNpcQuoteResponse(W8NpcQuoteEntry* entry, int quote_index, int entry_index)
 {
     int index;
     unsigned char expected;
@@ -586,7 +587,7 @@ int SelectNpcQuoteResponse(W8NpcQuoteEntry* entry)
         index += 2;
     }
     if (entry->operand2 == 4 && entry->operand1 != 2) {
-        QueueNpcQuoteEntry(entry, 0, false);
+        QueueNpcQuoteEntry(quote_index, entry_index, 0, false);
         return -2;
     }
     if (entry->operand1 == 2) {
@@ -695,11 +696,9 @@ static void SpeakNpcSubquote(W8NpcScriptQuote* quote, unsigned char subquote_ind
                     fmt::format("{}: {}", g_npc_scripting.npc->record->source_name, display_text);
                 display_text = prefixed_text;
             }
-            W8MessageBoxPayload payload;
-            payload.argument = 0;
             SetNpcQuoteBubbleVisible(true, display_text, 0,
-                                     g_npc_scripting.staging_restore.current_quote_index, -1, 0,
-                                     payload, g_npc_scripting.npc->partner_index);
+                                     g_npc_scripting.staging_restore.current_quote_index, -1, {},
+                                     g_npc_scripting.npc->partner_index);
         }
         g_npc_scripting.voice_handle =
             wiz8::sound::play(voice_path, {.volume = std::uint32_t(g_settings.voice_volume * 70 / 100),
@@ -900,7 +899,6 @@ int FindNpcScriptQuoteByKeyword(std::string_view keyword, short* entry_index, sh
 // FUNCTION: WIZ8 0x00525FA0
 void RunNpcScriptLine(int script_line, bool force_npc_voice)
 {
-    W8MessageBoxLine* line;
     W8NpcScriptQuote* quote;
     W8NpcQuoteEntry* entry;
     W8Monster* monster;
@@ -909,7 +907,6 @@ void RunNpcScriptLine(int script_line, bool force_npc_voice)
     char response_count;
     int response;
     int entry_index;
-    int index;
     bool finished;
 
     g_npc_scripting.staging_restore.current_quote_index = script_line;
@@ -931,7 +928,7 @@ void RunNpcScriptLine(int script_line, bool force_npc_voice)
                 case W8_NPC_ENTRY_NEXT_QUOTE:
                     if (entry->operand2 == 4) {
                         if (entry->operand1 != 2) {
-                            QueueNpcQuoteEntry(entry, 0, false);
+                            QueueNpcQuoteEntry(script_line, entry_index, 0, false);
                             response = -1;
                             finished = true;
                             break;
@@ -946,7 +943,7 @@ void RunNpcScriptLine(int script_line, bool force_npc_voice)
                     finished = true;
                     break;
                 case W8_NPC_ENTRY_FACT_CONDITIONAL_QUOTE:
-                    response = SelectNpcQuoteResponse(entry);
+                    response = SelectNpcQuoteResponse(entry, script_line, entry_index);
                     if (response != -1) {
                         finished = true;
                         break;
@@ -954,35 +951,27 @@ void RunNpcScriptLine(int script_line, bool force_npc_voice)
                     break;
                 case W8_NPC_ENTRY_OPTIONS:
                     g_npc_interaction_state->script_busy = 0xff;
-                    QueueNpcQuoteEntry(entry, 0, false);
+                    QueueNpcQuoteEntry(script_line, entry_index, 0, false);
                     finished = true;
                     break;
                 case W8_NPC_ENTRY_SET_FACT:
                     SetFact(static_cast<W8FactId>(entry->operand0), entry->operand1, false);
                     break;
-                case W8_NPC_ENTRY_CLOSE_DIALOGUE:
-                    W8MessageBoxPayload close_dialogue_payload;
-                    close_dialogue_payload.argument = 0;
-                    W8MessageBoxPayload close_dialogue_extra;
-                    close_dialogue_extra.argument = 0;
-                    AddMessageBoxLine(W8_NPC_MSG_CLOSE_DIALOGUE, close_dialogue_payload,
-                                      close_dialogue_extra);
-                    for (index = 0; index < static_cast<int>(g_npc_scripting.message_lines.size());
-                         index++) {
-                        line = g_npc_scripting.message_lines[index];
-                        if (line->type == W8_NPC_MSG_SHOW_DIALOGUE_PANEL) {
-                            delete line;
-                            g_npc_scripting.message_lines.erase(
-                                g_npc_scripting.message_lines.begin() + index);
-                            break;
-                        }
+                case W8_NPC_ENTRY_CLOSE_DIALOGUE: {
+                    QueueNpcMessageLine(W8_NPC_MSG_CLOSE_DIALOGUE, 0);
+                    auto panel = std::ranges::find(g_npc_scripting.message_lines,
+                                                   W8_NPC_MSG_SHOW_DIALOGUE_PANEL,
+                                                   GetMessageBoxLineKind);
+                    if (panel != g_npc_scripting.message_lines.end()) {
+                        g_npc_scripting.message_lines.erase(panel);
                     }
                     break;
+                }
                 case W8_NPC_ENTRY_GIVE_ITEM:
                 case W8_NPC_ENTRY_REMOVE_ITEM:
                 case W8_NPC_ENTRY_GIVE_GOLD:
                 case W8_NPC_ENTRY_GIVE_EXPERIENCE:
-                    QueueNpcQuoteEntry(entry, 0, false);
+                    QueueNpcQuoteEntry(script_line, entry_index, 0, false);
                     break;
                 case W8_NPC_ENTRY_MONSTER_SCRIPT_LABEL:
                     monster = GetNpcMonster(g_npc_scripting.npc);
@@ -1007,13 +996,8 @@ void RunNpcScriptLine(int script_line, bool force_npc_voice)
                             if (!target->is_grouped) {
                                 ClearMainGameTargetState();
                             } else {
-                                W8MessageBoxPayload group_action_payload;
-                                group_action_payload.argument =
-                                    static_cast<int>(target->group_index);
-                                W8MessageBoxPayload group_action_extra;
-                                group_action_extra.argument = 0;
-                                AddMessageBoxLine(W8_NPC_MSG_GROUP_ACTION, group_action_payload,
-                                                  group_action_extra);
+                                QueueNpcMessageLine(W8_NPC_MSG_GROUP_ACTION,
+                                                    static_cast<int>(target->group_index));
                             }
                         }
                     }
@@ -1024,7 +1008,7 @@ void RunNpcScriptLine(int script_line, bool force_npc_voice)
                     break;
                 case W8_NPC_ENTRY_KEYWORD_INPUT:
                     g_npc_interaction_state->script_busy = 0xff;
-                    QueueNpcQuoteEntry(entry, 0, false);
+                    QueueNpcQuoteEntry(script_line, entry_index, 0, false);
                     finished = true;
                     break;
                 case W8_NPC_ENTRY_SELF_GROUP_ACTION:
@@ -1033,13 +1017,8 @@ void RunNpcScriptLine(int script_line, bool force_npc_voice)
                         g_world_action_quote_max <
                             g_npc_scripting.staging_restore.current_quote_index) {
                         BeginScriptedWorldAction();
-                        W8MessageBoxPayload group_action_payload;
-                        group_action_payload.argument =
-                            static_cast<int>(g_npc_scripting.npc->group_index);
-                        W8MessageBoxPayload group_action_extra;
-                        group_action_extra.argument = 0;
-                        AddMessageBoxLine(W8_NPC_MSG_GROUP_ACTION, group_action_payload,
-                                          group_action_extra);
+                        QueueNpcMessageLine(W8_NPC_MSG_GROUP_ACTION,
+                                            static_cast<int>(g_npc_scripting.npc->group_index));
                     }
                     break;
                 case W8_NPC_ENTRY_NPC_INTERACTION: {
@@ -1265,7 +1244,6 @@ static void SetMonsterGroupScript(int species, const char* script, int caller_li
 // FUNCTION: WIZ8 0x00526E90
 void ProcessMessageBoxQueue(void)
 {
-    W8MessageBoxLine* line;
     W8NpcState* npc;
     int index;
 
@@ -1277,97 +1255,71 @@ void ProcessMessageBoxQueue(void)
         return;
     }
 
-    line = g_npc_scripting.message_lines[0];
-    npc = line->npc;
-    if (npc != 0 && npc != g_npc_scripting.npc && line->type == W8_NPC_MSG_QUOTE) {
-        BeginNpcScriptDialogue(npc, 1);
-    }
-
-    if (g_current_screen_state.id != W8_SCREEN_MAIN_GAME) {
-        index = 0;
-        while (line == 0 && line->type != W8_NPC_MSG_QUOTE) {
-            ++index;
-            if (index == static_cast<int>(g_npc_scripting.message_lines.size())) {
-                return;
-            }
-            line = g_npc_scripting.message_lines[index];
+    auto current = g_npc_scripting.message_lines.begin();
+    W8MessageBoxLine& line = *current;
+    npc = line.npc;
+    if (auto* quote_line = std::get_if<W8NpcQueuedQuote>(&line.action)) {
+        if (npc != 0 && npc != g_npc_scripting.npc) {
+            BeginNpcScriptDialogue(npc, 1);
         }
-    }
-
-    if (line->type == W8_NPC_MSG_QUOTE) {
         if (g_message_queue_idle) {
             g_message_queue_idle = false;
             if (g_npc_scripting.npc->record->voice_script == 0) {
-                for (index = 0; index < static_cast<int>(g_npc_scripting.message_lines.size());
-                     ++index) {
-                    W8MessageBoxLine* queued = g_npc_scripting.message_lines[index];
-                    if (queued->type == W8_NPC_MSG_QUOTE &&
-                        static_cast<char>(queued->suppress_entries) == 0) {
-                        for (int pending = 0;
-                             pending <
-                             static_cast<int>(g_npc_scripting.pending_script_values.size());
-                             ++pending) {
-                            if (*g_npc_scripting.pending_script_values[pending] ==
-                                queued->quote_index) {
-                                if (g_npc_scripting.npc->record->merchant == 0 &&
-                                    queued->quote_index != 0x76) {
-                                    W8NpcScriptQuote* quote = &g_npc_scripting.npc->script_file
-                                                                   ->quotes[queued->quote_index];
-                                    int entry;
-                                    for (entry = 0; entry < quote->entry_count; ++entry) {
-                                        if (quote->entries[entry].kind == 0x1d) {
-                                            break;
-                                        }
-                                    }
-                                    if (entry == quote->entry_count) {
-                                        RunNpcScriptLine(0x1f, false);
-                                        return;
-                                    }
-                                }
-                                break;
-                            }
+                for (const W8MessageBoxLine& queued_line : g_npc_scripting.message_lines) {
+                    const auto* queued = std::get_if<W8NpcQueuedQuote>(&queued_line.action);
+                    if (queued == 0 || queued->suppress_entries ||
+                        std::ranges::find(g_npc_scripting.pending_script_values,
+                                          queued->quote_index) ==
+                            g_npc_scripting.pending_script_values.end()) {
+                        continue;
+                    }
+                    if (g_npc_scripting.npc->record->merchant == 0 && queued->quote_index != 0x76) {
+                        const W8NpcScriptQuote& quote =
+                            g_npc_scripting.npc->script_file->quotes[queued->quote_index];
+                        if (std::ranges::none_of(quote.entries, [](const W8NpcQuoteEntry& entry) {
+                                return entry.kind == 0x1d;
+                            })) {
+                            RunNpcScriptLine(0x1f, false);
+                            return;
                         }
                     }
                 }
             }
-            wiz8::remove_all_and_delete_in_order(g_npc_scripting.pending_script_values);
+            g_npc_scripting.pending_script_values.clear();
         }
 
-        line = g_npc_scripting.message_lines[0];
-        if (static_cast<char>(line->mark_pending) != 0) {
-            int* script_line = new int;
-            *script_line = line->quote_index;
-            g_npc_scripting.pending_script_values.push_back(script_line);
+        const int quote_index = quote_line->quote_index;
+        if (quote_line->mark_pending) {
+            g_npc_scripting.pending_script_values.push_back(quote_index);
         }
 
         W8NpcScriptFile* script = g_npc_scripting.npc->script_file;
-        if (script != 0 && static_cast<char>(line->suppress_entries) == 0 &&
-            line->quote_index < script->quote_count) {
-            W8NpcScriptQuote* quote = &script->quotes[line->quote_index];
+        if (script != 0 && !quote_line->suppress_entries && quote_index < script->quote_count) {
+            W8NpcScriptQuote* quote = &script->quotes[quote_index];
             for (index = 0; index < quote->entry_count; ++index) {
                 W8NpcQuoteEntryKind kind = quote->entries[index].kind;
                 if ((kind == W8_NPC_ENTRY_PRICE_CHECK || kind == W8_NPC_ENTRY_ALWAYS_PRICE_CHECK) &&
                     (kind == W8_NPC_ENTRY_ALWAYS_PRICE_CHECK ||
-                     !NpcKnowsFact(g_npc_scripting.npc,
-                                   static_cast<W8FactId>(line->quote_index)))) {
+                     !NpcKnowsFact(g_npc_scripting.npc, static_cast<W8FactId>(quote_index)))) {
                     RunNpcScriptLine(0x12, false);
                     g_npc_interaction_state->script_busy = 0xff;
-                    QueueNpcQuoteEntry(&quote->entries[index], line->quote_index, true);
-                    wiz8::erase_first(g_npc_scripting.message_lines, line);
-                    delete line;
+                    QueueNpcQuoteEntry(quote_index, index, quote_index, true);
+                    g_npc_scripting.message_lines.erase(current);
                     return;
                 }
             }
         }
         if (script != 0) {
-            RunNpcScriptLine(line->quote_index, false);
+            RunNpcScriptLine(quote_index, false);
         }
-        wiz8::erase_first(g_npc_scripting.message_lines, line);
-        delete line;
+        g_npc_scripting.message_lines.erase(current);
         return;
     }
 
-    switch (static_cast<int>(line->type)) {
+    const auto* command = std::get_if<W8NpcQueuedCommand>(&line.action);
+    const int argument = command != 0 ? command->argument : 0;
+    auto* notice = std::get_if<W8NpcQueuedNotice>(&line.action);
+    switch (GetMessageBoxLineKind(line)) {
     case W8_NPC_MSG_BEGIN_ENDGAME:
         ClearMainGameTargetState();
         BeginEndgameSequence();
@@ -1382,7 +1334,7 @@ void ProcessMessageBoxQueue(void)
         }
         break;
     case W8_NPC_MSG_FOCUS_NPC: {
-        int npc_kind = line->payload.argument;
+        int npc_kind = argument;
         npc = GetNpcStateByKind(npc_kind);
         if (npc != 0) {
             RecruitNpcIntoParty(npc);
@@ -1392,7 +1344,7 @@ void ProcessMessageBoxQueue(void)
         break;
     }
     case W8_NPC_MSG_GROUP_ACTION: {
-        int group = line->payload.argument;
+        int group = argument;
         ClearMainGameTargetState();
         DismissNpcFromParty(group, 0, false, false);
         if (g_npc_interaction_state->dialogue_layout == W8_DIALOGUE_LAYOUT_TRANSCRIPT) {
@@ -1406,14 +1358,14 @@ void ProcessMessageBoxQueue(void)
         break;
     }
     case W8_NPC_MSG_PARTY_MEMBER_EVENT: {
-        int party_slot = line->payload.argument;
+        int party_slot = argument;
         QueueCharacterEvent(&g_status.buffers.Char[party_slot], g_effect1,
                             g_character_event_no_npc_defer, g_character_event_no_flags,
                             g_character_event_full_volume);
         break;
     }
     case W8_NPC_MSG_PARTY_SPEAKER_EVENT: {
-        unsigned int event_type = static_cast<unsigned int>(line->payload.argument);
+        unsigned int event_type = static_cast<unsigned int>(argument);
         int party_slot = PickRandomPartySpeaker(event_type, g_status.selected_party_member);
         if (party_slot != -1) {
             g_status.selected_party_member = static_cast<unsigned char>(party_slot);
@@ -1459,7 +1411,7 @@ void ProcessMessageBoxQueue(void)
         wiz8::sound::play("Data\\Sound\\Misc\\Journal Entry.wav");
         break;
     case W8_NPC_MSG_PORTRAIT_STRING: {
-        int string_index = line->payload.argument;
+        int string_index = argument;
         g_npc_scripting.portrait_message_active = true;
         SetNpcQuoteBubbleVisible(true, g_localized_strings[string_index], 0, -1, -1);
         g_npc_scripting.message_duration_ms =
@@ -1468,23 +1420,18 @@ void ProcessMessageBoxQueue(void)
         break;
     }
     case W8_NPC_MSG_SKILL_NOTICES: {
-        W8SkillNoticePayload* skill_changes = line->extra.skill_notices;
         if (g_settings.skill_increase_messages == 0) {
-            PostSkillIncreaseNotices(skill_changes);
-            delete skill_changes;
+            PostSkillIncreaseNotices(&std::get<W8SkillNoticePayload>(notice->notice));
         } else {
             g_npc_scripting.portrait_message_active = true;
-            SetNpcQuoteBubbleVisible(true, line->text, 0, -1, -1,
-                                     W8_QUOTE_NOTICE_SKILL_INCREASE, line->extra, -1);
-            g_npc_scripting.message_duration_ms =
-                ComputePortraitMessageDuration(line->text);
+            SetNpcQuoteBubbleVisible(true, notice->text, 0, -1, -1, std::move(notice->notice), -1);
+            g_npc_scripting.message_duration_ms = ComputePortraitMessageDuration(notice->text);
             g_npc_scripting.message_started_at = w8_get_ticks();
         }
-        line->text.clear();
         break;
     }
     case W8_NPC_MSG_SET_CONDITION_13: {
-        int party_slot = line->payload.argument;
+        int party_slot = argument;
         g_status.skip_next_condition_reaction = 1;
         SetCharacterCondition(party_slot, W8_CONDITION_MISSING, W8_CONDITION_INDEFINITE, 0, 0, 0);
         g_status.condition13_clock = 1;
@@ -1494,14 +1441,13 @@ void ProcessMessageBoxQueue(void)
     }
     case W8_NPC_MSG_PORTRAIT_MESSAGE:
         g_npc_scripting.portrait_message_active = true;
-        SetNpcQuoteBubbleVisible(true, line->text, 0, -1, -1);
-        g_npc_scripting.message_duration_ms = ComputePortraitMessageDuration(line->text);
+        SetNpcQuoteBubbleVisible(true, notice->text, 0, -1, -1);
+        g_npc_scripting.message_duration_ms = ComputePortraitMessageDuration(notice->text);
         g_npc_scripting.message_started_at = w8_get_ticks();
-        line->text.clear();
         break;
     case W8_NPC_MSG_CLEAR_NPC_COMBAT:
         if (g_combat_state != 0) {
-            int party_slot = line->payload.argument;
+            int party_slot = argument;
             if (g_combat_state->iActionChar == party_slot) {
                 g_combat_state->eCombatActionStatus = 0;
                 g_combat_state->iActionChar = -1;
@@ -1514,26 +1460,20 @@ void ProcessMessageBoxQueue(void)
         break;
     case W8_NPC_MSG_PORTRAIT_EXTRA:
         g_npc_scripting.portrait_message_active = true;
-        SetNpcQuoteBubbleVisible(true, line->text, 0, -1, -1, W8_QUOTE_NOTICE_EXPERIENCE,
-                                 line->extra, -1);
-        g_npc_scripting.message_duration_ms = ComputePortraitMessageDuration(line->text);
+        SetNpcQuoteBubbleVisible(true, notice->text, 0, -1, -1, std::move(notice->notice), -1);
+        g_npc_scripting.message_duration_ms = ComputePortraitMessageDuration(notice->text);
         g_npc_scripting.message_started_at = w8_get_ticks();
-        line->text.clear();
         break;
     case W8_NPC_MSG_LEVEL_UP: {
-        int party_slot = *line->extra.level_up_slot;
+        int party_slot = std::get<W8LevelUpNotice>(notice->notice).party_slot;
         g_status.buffers.XChar[party_slot].portrait_advance = 1;
         if (g_settings.skill_increase_messages == 0) {
             wiz8::sound::play("Data\\Sound\\Misc\\GainLevel.wav");
-            line->text.clear();
         } else {
             g_npc_scripting.portrait_message_active = true;
-            SetNpcQuoteBubbleVisible(true, line->text, 0, -1, -1, W8_QUOTE_NOTICE_LEVEL_UP,
-                                     line->extra, -1);
-            g_npc_scripting.message_duration_ms =
-                ComputePortraitMessageDuration(line->text);
+            SetNpcQuoteBubbleVisible(true, notice->text, 0, -1, -1, std::move(notice->notice), -1);
+            g_npc_scripting.message_duration_ms = ComputePortraitMessageDuration(notice->text);
             g_npc_scripting.message_started_at = w8_get_ticks();
-            line->text.clear();
         }
         break;
     }
@@ -1546,15 +1486,22 @@ void ProcessMessageBoxQueue(void)
     case W8_NPC_MSG_SHOW_DIALOGUE_PANEL:
         SetNpcDialoguePanelVisible(1);
         break;
-    case W8_NPC_MSG_QUOTE_ENTRY:
-        ProcessNpcQuoteEntry(line->quote_entry, line->continuation_quote);
+    case W8_NPC_MSG_QUOTE_ENTRY: {
+        const auto& queued = std::get<W8NpcQueuedEntry>(line.action);
+        W8NpcScriptFile* script = npc != 0 ? npc->script_file : 0;
+        if (script != 0 && queued.quote_index >= 0 &&
+            queued.quote_index < static_cast<int>(script->quotes.size()) &&
+            queued.entry_index >= 0 &&
+            queued.entry_index <
+                static_cast<int>(script->quotes[queued.quote_index].entries.size())) {
+            ProcessNpcQuoteEntry(&script->quotes[queued.quote_index].entries[queued.entry_index],
+                                 queued.continuation_quote);
+        }
         break;
+    }
     case W8_NPC_MSG_REOPEN_TRANSCRIPT:
         CloseNpcDialogueLayout();
         OpenNpcDialogueTranscriptLayout();
-        break;
-    case W8_NPC_MSG_REMOVE_SCRIPT_ITEM:
-        RemoveNpcScriptItem(line->payload.item, 0, -1);
         break;
     case W8_NPC_MSG_SPAWN_ALFIE_CHAOS:
         SpawnAlfieChaos(0);
@@ -1634,7 +1581,7 @@ void ProcessMessageBoxQueue(void)
         break;
     }
     case W8_NPC_MSG_PARTY_SLOT_EVENT_18: {
-        int party_slot = line->payload.argument;
+        int party_slot = argument;
         QueueCharacterEvent(&g_status.buffers.Char[party_slot], 0x18,
                             g_character_event_npc_script | g_character_event_no_npc_defer,
                             g_character_event_no_flags, g_character_event_full_volume);
@@ -1747,7 +1694,7 @@ void ProcessMessageBoxQueue(void)
     }
     case W8_NPC_MSG_TRAVEL_CONFIRM:
         ShowMainGameNoticeLine(g_localized_strings[0x7eb], OnNpcTravelConfirmationClosed, true, true);
-        g_pending_npc_travel_level = line->payload.argument;
+        g_pending_npc_travel_level = argument;
         break;
     case W8_NPC_MSG_MOVE_TO_BOOK: {
         EndNpcDialogueSession(false);
@@ -1878,7 +1825,7 @@ void ProcessMessageBoxQueue(void)
         break;
     }
     case W8_NPC_MSG_FINISH_ACTION:
-        if (line->payload.argument == 0) {
+        if (argument == 0) {
             ClearMainGameTargetState();
         } else {
             BeginScriptedWorldAction();
@@ -1886,7 +1833,7 @@ void ProcessMessageBoxQueue(void)
         break;
     case W8_NPC_MSG_RESET_LEVEL_STATE:
         if (!gXStatus.fCombatMode || gXStatus.fPartyMovementMode) {
-            if (line->payload.argument == 0) {
+            if (argument == 0) {
                 ClearLevelMovementStopped();
             } else {
                 ResetLevelDataVectors();
@@ -1978,10 +1925,11 @@ void ProcessMessageBoxQueue(void)
         }
         break;
     }
+    default:
+        break;
     }
 
-    wiz8::erase_first(g_npc_scripting.message_lines, line);
-    delete line;
+    g_npc_scripting.message_lines.erase(current);
 }
 
 // FUNCTION: WIZ8 0x0052a1b0
@@ -1992,64 +1940,49 @@ void OnNpcTravelConfirmationClosed(W8DialogBase* dialog)
     }
 }
 
+static void QueueMessageBoxLine(W8MessageBoxLine line, bool prepend)
+{
+    if (!prepend) {
+        g_npc_scripting.message_lines.push_back(std::move(line));
+    } else {
+        g_npc_scripting.message_lines.push_front(std::move(line));
+    }
+}
+
+W8NpcMessageKind GetMessageBoxLineKind(const W8MessageBoxLine& line)
+{
+    struct KindOf {
+        W8NpcMessageKind operator()(const W8NpcQueuedQuote&) const { return W8_NPC_MSG_QUOTE; }
+        W8NpcMessageKind operator()(const W8NpcQueuedEntry&) const
+        {
+            return W8_NPC_MSG_QUOTE_ENTRY;
+        }
+        W8NpcMessageKind operator()(const W8NpcQueuedCommand& command) const
+        {
+            return command.kind;
+        }
+        W8NpcMessageKind operator()(const W8NpcQueuedNotice& notice) const { return notice.kind; }
+    };
+    return std::visit(KindOf{}, line.action);
+}
+
 // FUNCTION: WIZ8 0x00528830
 void QueueNpcScriptLine(int quote, bool mark_pending, bool prepend, bool suppress_entries)
 {
-    W8MessageBoxLine* msg_line = new W8MessageBoxLine;
-
-    *msg_line = W8MessageBoxLine{};
-    msg_line->quote_index = quote;
-    msg_line->mark_pending = mark_pending;
-    msg_line->suppress_entries = suppress_entries;
-    msg_line->npc = g_npc_scripting.npc;
-
-    if (!prepend) {
-        g_npc_scripting.message_lines.push_back(msg_line);
-    } else {
-        g_npc_scripting.message_lines.insert(g_npc_scripting.message_lines.begin(), msg_line);
-    }
+    QueueMessageBoxLine(
+        {g_npc_scripting.npc, W8NpcQueuedQuote{quote, mark_pending, suppress_entries}}, prepend);
 }
 
 // FUNCTION: WIZ8 0x005289B0
 void QueueNpcMessageLine(W8NpcMessageKind kind, int argument)
 {
-    W8MessageBoxLine* line = new W8MessageBoxLine;
-
-    *line = W8MessageBoxLine{};
-    line->quote_index = -1;
-    line->type = kind;
-    line->payload.argument = argument;
-    line->extra.argument = 0;
-    line->npc = g_npc_scripting.npc;
-
-    g_npc_scripting.message_lines.push_back(line);
+    QueueMessageBoxLine({g_npc_scripting.npc, W8NpcQueuedCommand{kind, argument}}, false);
 }
 
-// FUNCTION: WIZ8 0x00528a80
-void AddMessageBoxLine(W8NpcMessageKind kind, W8MessageBoxPayload payload,
-                       W8MessageBoxPayload extra)
+void AddTextMessageBoxLine(W8NpcMessageKind kind, std::string text, W8QuoteNotice notice)
 {
-    W8MessageBoxLine* line = new W8MessageBoxLine;
-
-    *line = W8MessageBoxLine{};
-    line->quote_index = -1;
-    line->type = kind;
-    line->payload = payload;
-    line->extra = extra;
-    line->npc = g_npc_scripting.npc;
-
-    g_npc_scripting.message_lines.push_back(line);
-}
-
-void AddTextMessageBoxLine(W8NpcMessageKind kind, std::string text, W8MessageBoxPayload extra)
-{
-    auto* line = new W8MessageBoxLine{};
-    line->quote_index = -1;
-    line->type = kind;
-    line->text = std::move(text);
-    line->extra = extra;
-    line->npc = g_npc_scripting.npc;
-    g_npc_scripting.message_lines.push_back(line);
+    QueueMessageBoxLine(
+        {g_npc_scripting.npc, W8NpcQueuedNotice{kind, std::move(text), std::move(notice)}}, false);
 }
 
 /* Resolve the player's reply text to the script line it selects. The current
@@ -2145,22 +2078,11 @@ void RestoreCurrentNpcQuoteBubble(void)
 /* Queue a quote-entry line carrying `continuation_quote`; `prepend` inserts it
    at the front of the queue (continuation subquotes overtake pending lines). */
 // FUNCTION: WIZ8 0x00528B50
-void QueueNpcQuoteEntry(W8NpcQuoteEntry* entry, int continuation_quote, bool prepend)
+void QueueNpcQuoteEntry(int quote_index, int entry_index, int continuation_quote, bool prepend)
 {
-    W8MessageBoxLine* line = new W8MessageBoxLine;
-
-    *line = W8MessageBoxLine{};
-    line->quote_entry = entry;
-    line->type = W8_NPC_MSG_QUOTE_ENTRY;
-    line->quote_index = -1;
-    line->continuation_quote = continuation_quote;
-    line->npc = g_npc_scripting.npc;
-
-    if (!prepend) {
-        g_npc_scripting.message_lines.push_back(line);
-    } else {
-        g_npc_scripting.message_lines.insert(g_npc_scripting.message_lines.begin(), line);
-    }
+    QueueMessageBoxLine(
+        {g_npc_scripting.npc, W8NpcQueuedEntry{quote_index, entry_index, continuation_quote}},
+        prepend);
 }
 
 // FUNCTION: WIZ8 0x00529560
@@ -2295,23 +2217,11 @@ void AuditNpcScriptQuotes(void)
 void ShowString(std::string_view text)
 {
     if (!IsLevelMovementStopped()) {
-        W8MessageBoxPayload reset_level_state_payload;
-        reset_level_state_payload.argument = 1;
-        W8MessageBoxPayload reset_level_state_extra;
-        reset_level_state_extra.argument = 0;
-        AddMessageBoxLine(W8_NPC_MSG_RESET_LEVEL_STATE, reset_level_state_payload,
-                          reset_level_state_extra);
+        QueueNpcMessageLine(W8_NPC_MSG_RESET_LEVEL_STATE, 1);
     }
-    W8MessageBoxPayload portrait_message_extra;
-    portrait_message_extra.argument = 0;
-    AddTextMessageBoxLine(W8_NPC_MSG_PORTRAIT_MESSAGE, std::string(text), portrait_message_extra);
+    AddTextMessageBoxLine(W8_NPC_MSG_PORTRAIT_MESSAGE, std::string(text));
     if (!IsLevelMovementStopped()) {
-        W8MessageBoxPayload reset_level_state_payload;
-        reset_level_state_payload.argument = 0;
-        W8MessageBoxPayload reset_level_state_extra;
-        reset_level_state_extra.argument = 0;
-        AddMessageBoxLine(W8_NPC_MSG_RESET_LEVEL_STATE, reset_level_state_payload,
-                          reset_level_state_extra);
+        QueueNpcMessageLine(W8_NPC_MSG_RESET_LEVEL_STATE, 0);
     }
 }
 // FUNCTION: WIZ8 0x00529BC0
@@ -2325,8 +2235,8 @@ void ClearScriptedSceneActive(void)
     g_npc_scripting.scripted_scene_active = false;
 }
 /* Fact 0x1bf: raise the scripted-scene gate, drop the level's transient data
-   vectors, force the single-target mode, and reopen the party-member region
-   sets (7 + slot, member region 0x5a + slot) for every occupied slot. */
+   vectors, force the single-target mode, and reopen each occupied party slot's
+   portrait-event region. */
 // FUNCTION: WIZ8 0x00529BE0
 void BeginNpcScriptedScene(void)
 {

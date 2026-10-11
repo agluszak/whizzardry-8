@@ -25,6 +25,7 @@
 #include "wiz8/local_code/CombatPartyMovement.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Controls.h"
+#include "wiz8/video_object_catalog.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/GameplayTime.h"
 #include "wiz8/local_code/LoadSaveGame.h"
@@ -778,7 +779,7 @@ unsigned char BuildKeyboardMenu(void)
     GetPartySlotMenuAnchor(g_selected_party_slot, &left, &top, &unused_4, &unused_5, &unused_6,
                            &unused_7, 0);
     left += 0x17;
-    g_keyboard_menu_panel = new Controls(left, top, left + 0x52, top + 0x4a, 0xa6, 0, 0);
+    g_keyboard_menu_panel = new Controls(left, top, left + 0x52, top + 0x4a, CatalogArtwork::Load(0xa6, 0), 0);
     if (g_keyboard_menu_panel == 0) {
         return 0;
     }
@@ -794,7 +795,8 @@ unsigned char BuildKeyboardMenu(void)
                 g_keyboard_menu_panel, g_keyboard_menu_regions->index(row),
                 g_keyboard_row_positions[row].x,
                 g_keyboard_row_positions[row].y, g_keyboard_row_positions[row].x + 0x12,
-                g_keyboard_row_positions[row].y + 0x12, 0x89, 0, -1, -1, -1, -1, message + 6);
+                g_keyboard_row_positions[row].y + 0x12, CatalogArtwork::Load(0x89, 0), -1, -1,
+                -1, -1, message + 6);
             g_keyboard_menu_rows[row] = control;
             if (control == 0) {
                 DestroyControlPanel(g_keyboard_menu_panel);
@@ -813,7 +815,8 @@ unsigned char BuildKeyboardMenu(void)
     g_keyboard_menu_rows[row] = new W8TextControl(
         g_keyboard_menu_panel, g_keyboard_menu_regions->index(row), g_keyboard_row_positions[row].x,
         g_keyboard_row_positions[row].y, g_keyboard_row_positions[row].x + 0x12,
-        g_keyboard_row_positions[row].y + 0x12, 0x89, 0, 0xbd, 0xbd, 0xbf, 0xbf, -1);
+        g_keyboard_row_positions[row].y + 0x12, CatalogArtwork::Load(0x89, 0), 0xbd, 0xbd, 0xbf,
+        0xbf, -1);
     g_keyboard_menu_rows[row]->m_primaryActivationCallback = CloseKeyboardMenu;
     g_keyboard_menu_rows[row]->m_secondaryActivationCallback = CloseKeyboardMenu;
     SetRegionHelp(g_keyboard_menu_regions->index(row), true, 0x11);

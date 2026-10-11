@@ -132,7 +132,6 @@ unsigned char PleaseWaitScreenEnter(void)
         }
     }
     ResetRegions();
-    SetFontDestBuffer(GetFrameBufferSurface(), 0, 0, 0x280, 0x1e0, 0);
     SetPrimarySurfaceTextureHint2Enabled(false);
     DisableCursorScene();
     g_load_descriptor->caption_y = 0;
@@ -180,11 +179,11 @@ static void DrawPleaseWaitScreen()
     int backdrop = static_cast<unsigned int>(g_load_descriptor->parameter) < W8_LEVEL_COUNT
                        ? g_level_backdrops[g_load_descriptor->parameter]
                        : 0xe4;
-    DrawCatalogImage(GetFrameBufferSurface(), backdrop, 0, 0, 0, 0);
-    DrawCatalogImage(GetFrameBufferSurface(), 0x1de, 0, 0, 0, 0x1be);
-    SetFont(g_level_load_font);
-    DrawFontText(0x6a, 0x1c7, g_load_descriptor->caption);
-    DrawCatalogImage(GetFrameBufferSurface(), 0x1dd, 0, g_load_descriptor->caption_y, 0, 0x185);
+    CatalogArtwork::Load(backdrop, 0).draw(GetFrameBufferSurface(), 0, 0, 0);
+    CatalogArtwork::Load(0x1de, 0).draw(GetFrameBufferSurface(), 0, 0, 0x1be);
+    DrawText(GetFrameBufferSurface(), g_level_load_font, {0x6a, 0x1c7},
+             g_load_descriptor->caption);
+    CatalogArtwork::Load(0x1dd, 0).draw(GetFrameBufferSurface(), g_load_descriptor->caption_y, 0, 0x185);
     ResetTransientRenderScenes();
 }
 
@@ -365,8 +364,7 @@ void UpdatePleaseWaitLoadFrame(void)
     if (tick - g_load_descriptor->entered_tick > 499) {
         g_load_descriptor->caption_y = (g_load_descriptor->caption_y + 1) % 0x18;
         g_load_descriptor->entered_tick = tick;
-        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x1dd, 0, g_load_descriptor->caption_y, 0,
-                                      0x185);
+        CatalogArtwork::Load(0x1dd, 0).drawAndInvalidate(GetFrameBufferSurface(), g_load_descriptor->caption_y, 0, 0x185);
         RenderFrame();
     }
 }

@@ -1,5 +1,4 @@
 #include <SDL3/SDL_surface.h>
-#include <tuple>
 #include "himage.h"
 #include <fmt/format.h>
 #include <fmt/printf.h>
@@ -342,15 +341,15 @@ void W8PartySelectionListControl::Redraw(bool full_redraw)
         int bottom = m_pPanel->m_bounds.top + m_bottom;
 
         InvalidateRegion(left, top, right, bottom, 0);
-        BlitCatalogSurfaceRectTo16BPP(GetFrameBufferSurface(), left, top, right, bottom, 0x1b6, 0, 0);
-        SetFontDestBuffer(GetFrameBufferSurface(), left, top, right, bottom, 0);
+        CatalogArtwork::Load(0x1b6, 0).drawRect(GetFrameBufferSurface(), SDL_Rect{0, 0, (right) - (left), (bottom) - (top)}, left, top);
+        SDL_Rect clip{left, top, right - left, bottom - top};
+        ScopedClipRect clipping(GetFrameBufferSurface(), clip);
 
         int end = m_first_visible + m_visible_rows;
         if (static_cast<int>(g_party_selection_character_collection->names.size()) <= end) {
             end = static_cast<int>(g_party_selection_character_collection->names.size());
         }
         top += 1;
-        SetFont(g_wiz_text_font_secondary);
         for (int row = m_first_visible; row < end; ++row) {
             Palette16 colour = g_font_state_palettes[W8_FONT_PALETTE_BLUE];
             if (row != m_selection) {
@@ -360,11 +359,10 @@ void W8PartySelectionListControl::Redraw(bool full_redraw)
                 }
             }
             g_wiz_text_font_secondary.setPalette(colour);
-            DrawFontText(left + 2, top, g_party_selection_character_collection->names[row]);
+            DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {left + 2, top}, g_party_selection_character_collection->names[row]);
             top += 0x0e;
         }
         g_wiz_text_font_secondary.resetPalette();
-        SetFontDestBuffer(GetFrameBufferSurface(), 0, 0, 0x280, 0x1e0, 0);
         m_dirty = false;
     }
 }
@@ -654,7 +652,7 @@ bool PartySelectionInReviewMode(void)
 }
 
 W8PartySelectionCharacterRow::W8PartySelectionCharacterRow(Controls* panel, int top, int row)
-    : W8TextControl(panel, 0xffffffff, 0, top, 0, 0, 0xfb, 0, 0, 1, 2, 1, -1), m_row(row),
+    : W8TextControl(panel, 0xffffffff, 0, top, 0, 0, CatalogArtwork::Load(0xfb, 0), 0, 1, 2, 1, -1), m_row(row),
       m_character_index(0), m_selection_listener(0)
 {
     AddLayoutFlags(0x11);
@@ -676,21 +674,17 @@ void W8PartySelectionCharacterRow::Redraw(bool full_redraw)
         g_party_selection_character_collection->GetCharacter(m_character_index);
     int left = m_pPanel->m_bounds.left + m_left;
     int top = m_pPanel->m_bounds.top + m_top;
-    DrawCatalogImage(GetFrameBufferSurface(), 0x13, character->portrait_index, 0, left + 2, top + 2);
+    CatalogArtwork::Load(0x13, character->portrait_index).draw(GetFrameBufferSurface(), 0, left + 2, top + 2);
     if (character->fInParty) {
         ShadowRect(GetFrameBufferSurface(), {left + 2, top + 2, 0x2d, 0x24});
         g_wiz_text_font_secondary.setShade(6);
     }
 
     left += 0x36;
-    SetFont(g_wiz_text_font_secondary);
-    DrawFontText(left, top + 4, character->name);
-    DrawFontText(
-        left, top + 0x0e,
-        fmt::format("{} {:d} {}", g_localized_strings[0x6b9], character->uiExpLevel,
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {left, top + 4}, character->name);
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {left, top + 0x0e}, fmt::format("{} {:d} {}", g_localized_strings[0x6b9], character->uiExpLevel,
                     g_localized_strings[g_profession_name_message_ids[character->iProfession]]));
-    DrawFontText(left, top + 0x18,
-                 fmt::format("{} {}",
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {left, top + 0x18}, fmt::format("{} {}",
                              g_localized_strings[g_gender_name_message_rows[character->gender][0]],
                              g_localized_strings[g_race_name_message_ids[character->iRace]]));
     g_wiz_text_font_secondary.setShade(Font::kNormalShade);
@@ -841,8 +835,7 @@ void W8PartySelectionCharacterPanel::AdjustPartyMemberRange(int amount)
 
 // FUNCTION: WIZ8 0x005bf120
 W8PartySelectionPartySlotRow::W8PartySelectionPartySlotRow(Controls* panel, int row)
-    : W8TextControl(panel, 0xffffffff, (row & 1) * 0x20b + 0x0e, (row / 2) * 0x82 + 0x3a, 0, 0,
-                    0x101, 0, -1, 1, 0, 0, -1),
+    : W8TextControl(panel, 0xffffffff, (row & 1) * 0x20b + 0x0e, (row / 2) * 0x82 + 0x3a, 0, 0, CatalogArtwork::Load(0x101, 0), -1, 1, 0, 0, -1),
       m_row(row), m_redraw_partner(0)
 {
     AddLayoutFlags(0x11);
@@ -875,7 +868,7 @@ void W8PartySelectionPartySlotRow::Redraw(bool full_redraw)
         RenderPartyPortrait(portrait, left, top, draw, 1, m_row + 2);
     }
     m_textBuffer.SetText(character ? std::string_view(character->name) : std::string_view{}, g_wiz_text_font_secondary);
-    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x100, 0, 0, left - 0x0d, top - 0x0b);
+    CatalogArtwork::Load(0x100, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, left - 0x0d, top - 0x0b);
     W8TextControl::Redraw(full_redraw);
     if (m_redraw_partner) {
         m_redraw_partner->Invalidate(false);
@@ -946,7 +939,7 @@ W8PartySelectionCharacterGridPanel::W8PartySelectionCharacterGridPanel() : Contr
         int left = (index & 1) ? 0x21d : 0x52;
         int top = (index / 2) * 0x82 + 0x6c;
         W8TextControl* control =
-            new W8TextControl(this, 0xffffffff, left, top, 0, 0, 0xa7, 0, 0, 2, 1, 4, 3);
+            new W8TextControl(this, 0xffffffff, left, top, 0, 0, CatalogArtwork::Load(0xa7, 0), 0, 2, 1, 4, 3);
         control->m_listener = this;
     }
 }
@@ -983,15 +976,15 @@ void W8PartySelectionCharacterSummaryPanel::Redraw()
     }
     m_fDirty = false;
 
-    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0xfc, 0, 0, 0x7f, 0xc5);
-    BlitCatalogSurfaceRectTo16BPP(GetFrameBufferSurface(), 0x85, 0x30, 0x139, 0xc0, 0x1b6, 0, 0);
+    CatalogArtwork::Load(0xfc, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0x7f, 0xc5);
+    CatalogArtwork::Load(0x1b6, 0).drawRect(GetFrameBufferSurface(), SDL_Rect{0, 0, (0x139) - (0x85), (0xc0) - (0x30)}, 0x85, 0x30);
     InvalidateRegion(0x85, 0x30, 0x139, 0xc0, 0);
     if (!m_character) {
         return;
     }
 
     W8Character* character = m_character;
-    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x11, character->portrait_index, 0, 0x85, 0x30);
+    CatalogArtwork::Load(0x11, character->portrait_index).drawAndInvalidate(GetFrameBufferSurface(), 0, 0x85, 0x30);
     if (character->fInParty) {
         W8ControlsRect bounds = {0x85, 0x30, 0x139, 0xba};
         W8TextBuffer overlay(&bounds, g_localized_strings[0x6b8], g_options_title_font,
@@ -1007,7 +1000,6 @@ void W8PartySelectionCharacterSummaryPanel::Redraw()
         name.RenderToTarget(0, false, GetFrameBufferSurface());
     }
 
-    SetFont(g_wiz_text_font_secondary);
     g_wiz_text_font_secondary.setShade(Font::kNormalShade);
 
     std::string level_text = g_localized_strings[0x6b9];
@@ -1016,46 +1008,41 @@ void W8PartySelectionCharacterSummaryPanel::Redraw()
     std::string level_line =
         fmt::format("{} {:d} {}", level_text, character->uiExpLevel, profession);
     int width = g_wiz_text_font_secondary.textWidth(level_line);
-    DrawFontText((0xbf - width) / 2 + 0x78, 0xef,
-                 fmt::format("{} {:d} {}", level_text, character->uiExpLevel, profession));
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {(0xbf - width) / 2 + 0x78, 0xef}, fmt::format("{} {:d} {}", level_text, character->uiExpLevel, profession));
 
     std::string gender = g_localized_strings[g_gender_name_message_rows[character->gender][0]];
     std::string race = g_localized_strings[g_race_name_message_ids[character->iRace]];
     std::string race_line = fmt::format("{} {}", gender, race);
     width = g_wiz_text_font_secondary.textWidth(race_line);
-    DrawFontText((0xbf - width) / 2 + 0x7f, 0xfd, fmt::format("{} {}", gender, race));
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {(0xbf - width) / 2 + 0x7f, 0xfd}, fmt::format("{} {}", gender, race));
 
     std::string personality = g_localized_strings[g_personality_message_ids[character->personality]];
     width = g_wiz_text_font_secondary.textWidth(personality);
-    DrawFontText((0xbf - width) / 2 + 0x82, 0x10b, personality);
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {(0xbf - width) / 2 + 0x82, 0x10b}, personality);
 
-    DrawFontText(0x96, 0x127, g_localized_strings[0x6ba]);
-    DrawFontText(0xbf, 0x127,
-                 fmt::format("{:d}", character->attributes[W8_ATTRIBUTE_STRENGTH].base));
-    DrawFontText(0x96, 0x135, g_localized_strings[0x6bb]);
-    DrawFontText(0xbf, 0x135,
-                 fmt::format("{:d}", character->attributes[W8_ATTRIBUTE_INTELLIGENCE].base));
-    DrawFontText(0x96, 0x143, g_localized_strings[0x6bc]);
-    DrawFontText(0xbf, 0x143, fmt::format("{:d}", character->attributes[W8_ATTRIBUTE_PIETY].base));
-    DrawFontText(0x96, 0x151, g_localized_strings[0x6bd]);
-    DrawFontText(0xbf, 0x151,
-                 fmt::format("{:d}", character->attributes[W8_ATTRIBUTE_VITALITY].base));
-    DrawFontText(0x96, 0x15f, g_localized_strings[0x6be]);
-    DrawFontText(0xbf, 0x15f,
-                 fmt::format("{:d}", character->attributes[W8_ATTRIBUTE_DEXTERITY].base));
-    DrawFontText(0x96, 0x16d, g_localized_strings[0x6bf]);
-    DrawFontText(0xbf, 0x16d, fmt::format("{:d}", character->attributes[W8_ATTRIBUTE_SPEED].base));
-    DrawFontText(0x96, 0x17b, g_localized_strings[0x6c0]);
-    DrawFontText(0xbf, 0x17b, fmt::format("{:d}", character->attributes[W8_ATTRIBUTE_SENSES].base));
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x96, 0x127}, g_localized_strings[0x6ba]);
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0xbf, 0x127}, fmt::format("{:d}", character->attributes[W8_ATTRIBUTE_STRENGTH].base));
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x96, 0x135}, g_localized_strings[0x6bb]);
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0xbf, 0x135}, fmt::format("{:d}", character->attributes[W8_ATTRIBUTE_INTELLIGENCE].base));
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x96, 0x143}, g_localized_strings[0x6bc]);
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0xbf, 0x143}, fmt::format("{:d}", character->attributes[W8_ATTRIBUTE_PIETY].base));
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x96, 0x151}, g_localized_strings[0x6bd]);
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0xbf, 0x151}, fmt::format("{:d}", character->attributes[W8_ATTRIBUTE_VITALITY].base));
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x96, 0x15f}, g_localized_strings[0x6be]);
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0xbf, 0x15f}, fmt::format("{:d}", character->attributes[W8_ATTRIBUTE_DEXTERITY].base));
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x96, 0x16d}, g_localized_strings[0x6bf]);
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0xbf, 0x16d}, fmt::format("{:d}", character->attributes[W8_ATTRIBUTE_SPEED].base));
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x96, 0x17b}, g_localized_strings[0x6c0]);
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0xbf, 0x17b}, fmt::format("{:d}", character->attributes[W8_ATTRIBUTE_SENSES].base));
 
-    DrawFontText(0xe3, 0x127, g_localized_strings[0x6c1]);
-    DrawFontText(0x115, 0x127, fmt::format("{:d}", character->uiHPMax));
-    DrawFontText(0xe3, 0x135, g_localized_strings[0x6c2]);
-    DrawFontText(0x115, 0x135, fmt::format("{:d}", SumCharacterSpellPoints(character)));
-    DrawFontText(0xe3, 0x143, g_localized_strings[0x6c3]);
-    DrawFontText(0x115, 0x143, fmt::format("{:d}", character->uiStaminaMax));
-    DrawFontText(0xe3, 0x151, g_localized_strings[0x6c4]);
-    DrawFontText(0x115, 0x151, fmt::format("{:d}", character->carrying_capacity / 10));
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0xe3, 0x127}, g_localized_strings[0x6c1]);
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x115, 0x127}, fmt::format("{:d}", character->uiHPMax));
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0xe3, 0x135}, g_localized_strings[0x6c2]);
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x115, 0x135}, fmt::format("{:d}", SumCharacterSpellPoints(character)));
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0xe3, 0x143}, g_localized_strings[0x6c3]);
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x115, 0x143}, fmt::format("{:d}", character->uiStaminaMax));
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0xe3, 0x151}, g_localized_strings[0x6c4]);
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x115, 0x151}, fmt::format("{:d}", character->carrying_capacity / 10));
 }
 
 // GLOBAL: WIZ8 0x0069C4FC
@@ -1075,37 +1062,41 @@ unsigned int g_party_selection_import_list_region_set;
    separate: redraw walks it for the repeated option-detail render pass. */
 // FUNCTION: WIZ8 0x005c01d0
 W8PartySelectionOptionPanel::W8PartySelectionOptionPanel()
-    : Controls(0x78, 0x28, 0, 0, 0x102, 0, 0), m_options(), m_entries()
+    : Controls(0x78, 0x28, 0, 0, CatalogArtwork::Load(0x102, 0), 0), m_options(), m_entries()
 {
     AcquireRegionSet(&g_party_selection_option_region_set);
 
     short width;
     short height;
-    std::tie(width, height) = GetCatalogImageSize(0x102, 0, 0);
+    const SDL_Point _catalog_size_2 = CatalogArtwork::Load(0x102, 0).size(0);
+        width = _catalog_size_2.x;
+        height = _catalog_size_2.y;;
     m_bounds.right = m_bounds.left + static_cast<unsigned short>(width);
     m_bounds.bottom = m_bounds.top + static_cast<unsigned short>(height);
 
     int top = 0x13;
     for (int index = 0; index < 3; ++index) {
         m_options.AddEntry(
-            new W8TextControl(this, 0xffffffff, 0x15f, top, 0, 0, 0xf1, 0, 4, 6, 5, 7, -1));
+            new W8TextControl(this, 0xffffffff, 0x15f, top, 0, 0, CatalogArtwork::Load(0xf1, 0), 4, 6, 5, 7, -1));
         top += 0x16;
     }
     m_options.SetSelected(g_settings.difficulty);
 
     top += 0x16;
     npc_interact_toggle =
-        new W8TextControl(this, 0xffffffff, 0x15b, top, 0, 0, 0xf1, 0, 2, 0, 3, 1, -1);
+        new W8TextControl(this, 0xffffffff, 0x15b, top, 0, 0, CatalogArtwork::Load(0xf1, 0), 2, 0, 3, 1, -1);
     npc_interact_toggle->AddLayoutFlags(g_W8TextControlLayoutLatchedImage |
                                         g_W8TextControlLayoutToggle);
     if (g_settings.simplified_npc_interaction) {
         npc_interact_toggle->EnableSecondaryState(false);
     }
 
-    m_toggle = new W8TextControl(this, 0xffffffff, 0x15b, 0xd6, 0, 0, 0xf1, 0, 2, 0, 3, 1, -1);
+    m_toggle = new W8TextControl(this, 0xffffffff, 0x15b, 0xd6, 0, 0, CatalogArtwork::Load(0xf1, 0), 2, 0, 3, 1, -1);
     m_toggle->AddLayoutFlags(g_W8TextControlLayoutLatchedImage | g_W8TextControlLayoutToggle);
 
-    std::tie(m_image_width, m_image_height) = GetCatalogImageSize(0x102, 0, 1);
+    const SDL_Point _catalog_size_3 = CatalogArtwork::Load(0x102, 0).size(1);
+        m_image_width = _catalog_size_3.x;
+        m_image_height = _catalog_size_3.y;;
     m_render_left = m_bounds.left + 0x18 + (0x160 - static_cast<unsigned short>(m_image_width)) / 2;
     m_render_top = m_bounds.top + 0x80;
 }
@@ -1123,7 +1114,7 @@ void W8PartySelectionOptionPanel::Redraw()
         m_entries[index]->RenderToTarget(0, true, GetFrameBufferSurface());
     }
     if (m_page == W8_PARTY_CREATION_SAVE_NAME) {
-        DrawCatalogImage(GetFrameBufferSurface(), 0x102, 0, 1, m_render_left, m_render_top);
+        CatalogArtwork::Load(0x102, 0).draw(GetFrameBufferSurface(), 1, m_render_left, m_render_top);
     }
 }
 
@@ -1272,46 +1263,45 @@ void W8PartySelectionController::Setup()
         row->m_redraw_partner = m_control0->ControlAt(slot);
     }
 
-    m_left_panel = new Controls(0x145, 0x137, 0, 0, -1, -1, -1);
+    m_left_panel = new Controls(0x145, 0x137, 0, 0, std::nullopt, -1);
     m_left_panel->AcquireRegionSet(&g_party_selection_left_action_region_set);
     m_create_button =
-        new W8TextControl(m_left_panel, 0xffffffff, 0, 0, 0, 0, 0xfe, 0, 0, 2, 1, 2, 3);
+        new W8TextControl(m_left_panel, 0xffffffff, 0, 0, 0, 0, CatalogArtwork::Load(0xfe, 0), 0, 2, 1, 2, 3);
     m_create_button->m_textBuffer.SetText(g_localized_strings[0x6c5], g_wiz_text_bold_font);
     m_create_button->m_listener = this;
 
     m_add_remove_button =
-        new W8TextControl(m_left_panel, 0xffffffff, 0, 0x1a, 0, 0, 0xfe, 0, 0, 2, 1, 2, 3);
+        new W8TextControl(m_left_panel, 0xffffffff, 0, 0x1a, 0, 0, CatalogArtwork::Load(0xfe, 0), 0, 2, 1, 2, 3);
     m_add_remove_button->m_listener = this;
 
     m_delete_button =
-        new W8TextControl(m_left_panel, 0xffffffff, 0, 0x34, 0, 0, 0xfe, 0, 0, 2, 1, 2, 3);
+        new W8TextControl(m_left_panel, 0xffffffff, 0, 0x34, 0, 0, CatalogArtwork::Load(0xfe, 0), 0, 2, 1, 2, 3);
     m_delete_button->m_textBuffer.SetText(g_localized_strings[0x6c8], g_wiz_text_bold_font);
     m_delete_button->m_listener = this;
 
     m_review_button =
-        new W8TextControl(m_left_panel, 0xffffffff, 0, 0x4e, 0, 0, 0xfe, 0, 0, 2, 1, 2, 3);
+        new W8TextControl(m_left_panel, 0xffffffff, 0, 0x4e, 0, 0, CatalogArtwork::Load(0xfe, 0), 0, 2, 1, 2, 3);
     m_review_button->m_textBuffer.SetText(g_localized_strings[0x6c9], g_wiz_text_bold_font);
     m_review_button->m_listener = this;
 
-    m_import_panel = new Controls(0x148, 0x31, 0, 0, -1, -1, -1);
+    m_import_panel = new Controls(0x148, 0x31, 0, 0, std::nullopt, -1);
     m_import_panel->AcquireRegionSet(&g_party_selection_import_list_region_set);
     m_list = new W8PartySelectionListControl(m_import_panel, 0xffffffff, 0, 0, 0x9d, 0xfa);
     m_list->m_listener = this;
 
-    m_bottom_panel = new Controls(0x84, 0x1b5, 0, 0, -1, -1, -1);
+    m_bottom_panel = new Controls(0x84, 0x1b5, 0, 0, std::nullopt, -1);
     m_bottom_panel->AcquireRegionSet(&g_party_selection_bottom_action_region_set);
     m_back_button =
-        new W8TextControl(m_bottom_panel, 0xffffffff, 0x14c, 0, 0, 0, 0x106, 0, 4, 6, 5, 6, 7);
+        new W8TextControl(m_bottom_panel, 0xffffffff, 0x14c, 0, 0, 0, CatalogArtwork::Load(0x106, 0), 4, 6, 5, 6, 7);
     m_back_button->EnableRegionHelp(0x6ca);
     m_back_button->m_listener = this;
 
     m_confirm_button =
-        new W8TextControl(m_bottom_panel, 0xffffffff, 0x120, 0, 0, 0, 0x106, 0, 0, 2, 1, 2, 3);
+        new W8TextControl(m_bottom_panel, 0xffffffff, 0x120, 0, 0, 0, CatalogArtwork::Load(0x106, 0), 0, 2, 1, 2, 3);
     m_confirm_button->EnableRegionHelp(0x6cb);
     m_confirm_button->m_listener = this;
 
-    m_reset_button = new W8TextControl(m_bottom_panel, 0xffffffff, 0xf4, 0, 0, 0, 0x106, 0, 0x18,
-                                       0x1a, 0x19, 0x1c, 0x1b);
+    m_reset_button = new W8TextControl(m_bottom_panel, 0xffffffff, 0xf4, 0, 0, 0, CatalogArtwork::Load(0x106, 0), 0x18, 0x1a, 0x19, 0x1c, 0x1b);
     m_reset_button->AddLayoutFlags(g_W8TextControlLayoutLatchedImage | g_W8TextControlLayoutToggle);
     m_reset_button->EnableRegionHelp(0x6cc);
     m_reset_button->m_listener = this;
@@ -1776,9 +1766,9 @@ void W8PartySelectionController::InvalidatePartySelectionComposition()
 void W8PartySelectionController::DrawPartySelectionComposition()
 {
     if (m_redraw_backdrop) {
-        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0xfa, 0, 0, 0, 0);
+        CatalogArtwork::Load(0xfa, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0, 0);
         if (m_mode == W8_PARTY_SELECT_IMPORT) {
-            DrawCatalogImage(GetFrameBufferSurface(), 0x103, 0, 0, 0x140, 0x12e);
+            CatalogArtwork::Load(0x103, 0).draw(GetFrameBufferSurface(), 0, 0x140, 0x12e);
         }
         m_redraw_backdrop = false;
     }

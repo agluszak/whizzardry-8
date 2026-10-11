@@ -1,8 +1,10 @@
 #include "Font.h"
 #pragma once
 
+#include <optional>
 #include <string_view>
 
+#include "wiz8/video_object_catalog.h"
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/dialog_code/DialogButton.h"
 #include "wiz8/dialog_code/DialogScrollBar.h"
@@ -52,8 +54,8 @@ private:
                       std::string_view text, Font& font);
 
 protected:
-    unsigned int m_uiTitleId;   /* video object catalog id */
-    unsigned int m_uiSummaryId; /* image inside the catalog object */
+    std::optional<CatalogArtwork> m_uiArtwork;
+    unsigned int m_uiSummaryImage;
     unsigned int m_uiNameId;    /* g_localized_strings index */
     unsigned int m_uiHeadingId; /* g_localized_strings index */
     unsigned int m_uiDetailId;  /* g_localized_strings index */

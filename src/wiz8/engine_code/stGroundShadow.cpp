@@ -22,6 +22,7 @@
 #include "compat/compiler.h"
 #include "glm/ext/vector_float2.hpp"
 #include "surrender/srGERD.h"
+#include "surrender/mesh_submission.h"
 #include <optional>
 #include "surrender/srMeshModel.h"
 #include "surrender/srNode.h"
@@ -143,13 +144,7 @@ void stGroundShadow::traverse(TraverseInfo& info)
 void stGroundShadow::process(const ProcessInfo& info, e_processType)
 {
     if (g_settings.monster_shadows != 0) {
-        if (!info.renderer->isPickStackEmpty()) {
-            srGERD::Pick pick;
-            info.renderer->popPick(pick);
-            renderGroundShadow(*info.renderer);
-            info.renderer->pushPick(pick);
-            return;
-        }
+        const srMeshSubmission::PickScope picking(*info.renderer, true);
         renderGroundShadow(*info.renderer);
     }
 }

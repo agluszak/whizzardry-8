@@ -116,8 +116,8 @@ void W8ProfRaceInfoDialogBase::Draw()
         m_scroll_bar.m_dirty = true;
         m_button.m_dirty = true;
         W8DialogBase::Draw();
-        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), m_uiTitleId, 0, m_uiSummaryId, m_x + 0xd,
-                                      m_y + 0xd);
+        m_uiArtwork->drawAndInvalidate(GetFrameBufferSurface(), m_uiSummaryImage,
+                                       m_x + 0xd, m_y + 0xd);
         DrawTextLine(g_W8TextBufferAlignLeft, 0x25, 0xb, 0x147, 0x18, g_localized_strings[m_uiNameId],
                      g_options_detail_font);
         DrawTextLine(g_W8TextBufferAlignCenter, 0xd, 0x29, 0x8e, 0xc, g_localized_strings[m_uiHeadingId],
@@ -204,9 +204,9 @@ W8ProfessionInfoDialog::W8ProfessionInfoDialog(W8Profession uiIndex)
         srAssertFail("uiIndex < PROF_COUNT", PROF_RACE_INFO_DIALOG_CPP, 0x123, 0);
     }
     m_uiIndex = uiIndex;
-    m_uiTitleId = 0x10b;
+    m_uiArtwork = CatalogArtwork::Load(0x10b);
     m_uiHeadingId = 0x14c;
-    m_uiSummaryId = g_profession_info_rows[uiIndex].image_id;
+    m_uiSummaryImage = g_profession_info_rows[uiIndex].image_id;
     m_uiNameId = g_profession_info_rows[uiIndex].name_id;
     m_uiDetailId = g_profession_info_rows[uiIndex].detail_id;
     for (int attribute = 0; attribute < ATTR_COUNT; ++attribute) {
@@ -285,9 +285,9 @@ W8RaceInfoDialog::W8RaceInfoDialog(W8Race uiIndex)
         srAssertFail("uiIndex < RACE_COUNT", PROF_RACE_INFO_DIALOG_CPP, 0x199, 0);
     }
     m_uiIndex = uiIndex;
-    m_uiTitleId = 0x10c;
+    m_uiArtwork = CatalogArtwork::Load(0x10c);
     m_uiHeadingId = 0x152;
-    m_uiSummaryId = g_race_info_rows[uiIndex].image_id;
+    m_uiSummaryImage = g_race_info_rows[uiIndex].image_id;
     m_uiNameId = g_race_info_rows[uiIndex].name_id;
     m_uiDetailId = g_race_info_rows[uiIndex].detail_id;
     for (unsigned int attribute = 0; attribute < ATTR_COUNT; ++attribute) {

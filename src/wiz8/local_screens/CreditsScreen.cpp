@@ -163,18 +163,20 @@ void CreditsScreenFrame(void)
         return;
     }
 
-    DrawCatalogImage(GetFrameBufferSurface(), 0xe9, 0, 0, 0, 0);
+    CatalogArtwork::Load(0xe9, 0).draw(GetFrameBufferSurface(), 0, 0, 0, {.color_key = false});
     int y = g_credit_y;
     for (int index = g_credit_line; index < g_credit_lines.size() && y <= 0x1df; ++index) {
         const W8CreditLine* entry = &g_credit_lines[index];
         if ((entry->flags & 4) == 0) {
-            SetFont((entry->flags & 1) ? g_options_title_font : g_options_detail_font);
+            Font& font = (entry->flags & 1) ? g_options_title_font : g_options_detail_font;
             if ((entry->flags & 2) == 0) {
-                DrawFontText((0x280 - entry->pixel_width) / 2, y, entry->primary);
+                DrawText(GetFrameBufferSurface(), font,
+                         {(0x280 - entry->pixel_width) / 2, y}, entry->primary);
             } else {
-                DrawFontText(0x136 - entry->pixel_width, y, entry->primary);
+                DrawText(GetFrameBufferSurface(), font, {0x136 - entry->pixel_width, y},
+                         entry->primary);
                 if (!entry->secondary.empty()) {
-                    DrawFontText(0x14a, y, entry->secondary);
+                    DrawText(GetFrameBufferSurface(), font, {0x14a, y}, entry->secondary);
                 }
             }
         }
@@ -184,4 +186,3 @@ void CreditsScreenFrame(void)
     g_credit_redraw = false;
     RenderFrame();
 }
-

@@ -4894,18 +4894,16 @@ void W8Monster::SpawnDamageNumber(unsigned int amount)
 
         {
 
-            FontRenderScope font_scope;
-            SetFontDestClip(0, 0, surface->getWidth(), surface->getHeight());
-            SetFont(g_monster_damage_font);
             text = fmt::format("{:d}", amount);
             SDLSurfaceOwner text_surface{
                 SDL_CreateSurfaceFrom(surface->getWidth(), surface->getHeight(),
                                       SDL_PIXELFORMAT_RGB565, data, surface->getPitch()),
                 SDL_DestroySurface};
             if (text_surface)
-                DrawFontTextToSurface(*text_surface, g_monster_damage_font,
-                                      0x80 - g_monster_damage_font.textWidth(text) / 2,
-                                      0x80 - g_monster_damage_font.height() / 2, text);
+                DrawText(*text_surface, g_monster_damage_font,
+                         {0x80 - g_monster_damage_font.textWidth(text) / 2,
+                          0x80 - g_monster_damage_font.height() / 2},
+                         text);
 
         }
 

@@ -75,8 +75,7 @@ unsigned char DrawMainMenuItem(short item, short state)
 
     const auto& bounds = main_menu_item_bounds[item];
     if (state >= 0 && static_cast<std::size_t>(state) < main_menu_sprite_objects.size())
-        DrawCatalogImage(GetFrameBufferSurface(), main_menu_sprite_objects[state], 0, item, 0x98,
-                         bounds.top);
+        CatalogArtwork::Load(main_menu_sprite_objects[state], 0).draw(GetFrameBufferSurface(), item, 0x98, bounds.top);
     InvalidateRegion(0x98, bounds.top, 0x1f2, bounds.bottom, 0);
     return 1;
 }
@@ -218,16 +217,15 @@ unsigned char MainMenuScreenEnter(void)
     SDL_FillSurfaceRect(&GetFrameBufferSurface(), &bounds, colour);
     SetViewport(0, 0, 0x280, 0x1e0);
     g_main_menu_selected_item = 0;
-    DrawCatalogImage(GetFrameBufferSurface(), 0xe8, 0, 0, 0, 0);
+    CatalogArtwork::Load(0xe8, 0).draw(GetFrameBufferSurface(), 0, 0, 0);
 
     DrawMainMenuItems();
 
     text = FormatVersionBanner(false, false, false);
     wide = text;
-    SetFont(g_wiz_text_font_secondary);
     g_wiz_text_font_secondary.setPalette(g_font_state_palettes[W8_FONT_PALETTE_WHITE]);
     measured = g_wiz_text_font_secondary.textWidth(wide);
-    DrawFontText(0x27b - measured, 5, wide);
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x27b - measured, 5}, wide);
     g_wiz_text_font_secondary.resetPalette();
     main_menu_controls.reset();
     ResetRegions();
@@ -289,7 +287,7 @@ void MainMenuScreenFrame()
         if (!ProcessDialogInput(main_menu_dialog.get())) {
             main_menu_dialog.reset();
             g_main_menu_redraw = true;
-            DrawCatalogImage(GetFrameBufferSurface(), 0xe8, 0, 0, 0, 0);
+            CatalogArtwork::Load(0xe8, 0).draw(GetFrameBufferSurface(), 0, 0, 0);
             DrawMainMenuItems();
         }
     } else if (IsMessageBoxActive()) {
@@ -301,9 +299,9 @@ void MainMenuScreenFrame()
             if (!DispatchRegionInput(&input) && input.type == InputEventType::KeyDown) {
                 if (HandleDeveloperModeKey(&input)) {
                     if (g_dev_mode) {
-                        SetFont(g_wiz_text_font_secondary);
                         g_wiz_text_font_secondary.resetPalette();
-                        DrawFontTextDirty(5, 5, "Developer mode enabled.");
+                        DrawTextAndInvalidate(GetFrameBufferSurface(), g_wiz_text_font_secondary,
+                                              {5, 5}, "Developer mode enabled.");
                     }
                 } else {
                     switch (input.key) {

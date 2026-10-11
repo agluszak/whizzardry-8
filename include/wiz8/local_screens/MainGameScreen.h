@@ -172,7 +172,7 @@ W8_ABI_ASSERT(sizeof(W8MainGameStatusPanel) == 0x6c, "W8MainGameStatusPanel_size
 class W8NpcDialogueTextController : public Controls {
 public:
     W8NpcDialogueTextController(int panel_left, int panel_top, int panel_right, int panel_bottom,
-                                int catalog_object, int catalog_frame, int catalog_image,
+                                CatalogArtwork artwork, int background_image,
                                 int margin_image, int line_image);
     virtual void Redraw() override;
     bool HandleScrollDownCommand(bool check_only);

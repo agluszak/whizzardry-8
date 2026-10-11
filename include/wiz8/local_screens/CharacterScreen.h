@@ -71,7 +71,7 @@ public:
 /* Common base of the four character screen pages. */
 class W8CharacterPage : public Controls {
 public:
-    W8CharacterPage(int catalog_object);
+    W8CharacterPage(CatalogArtwork background);
     virtual ~W8CharacterPage();
     virtual void Invalidate(const W8ControlsRect* rect) override;
     virtual void Redraw() override;
@@ -102,8 +102,7 @@ class W8CharacterStatsRow;
    0x00 is the catalogue object id, 0x04/0x08 its two images, 0x0C the name
    message id and 0x0E the selectable flag. */
 struct W8CharacterStatsRecord {
-    /* The video-object catalog id handed to DrawCatalogImage's
-       `object` argument. */
+    /* Catalog object id resolved when drawing the selected row. */
     unsigned int object;
     /* Catalog image ids drawn while the control is enabled and
        disabled respectively. */
@@ -179,7 +178,7 @@ class W8CharacterStatsPage : public W8CharacterPage,
                              public W8CharacterPageEntryListener,
                              public W8TextControl::Listener {
 public:
-    W8CharacterStatsPage() : W8CharacterPage(0x104) {}
+    W8CharacterStatsPage() : W8CharacterPage(CatalogArtwork::Load(0x104)) {}
     virtual ~W8CharacterStatsPage() override;
     virtual void Redraw() override;
     virtual void SetCharacter(W8Character*, W8CharacterCreationState*, int) override;
@@ -231,7 +230,7 @@ class W8CharacterSpellList;
 
 class W8CharacterSpellsPage : public W8CharacterPage, public W8CharacterSpellListListener {
 public:
-    W8CharacterSpellsPage() : W8CharacterPage(0x109), anim_timer(0.05f, 1)
+    W8CharacterSpellsPage() : W8CharacterPage(CatalogArtwork::Load(0x109)), anim_timer(0.05f, 1)
     {
         for (int realm = 0; realm < 6; ++realm) {
             m_realms[realm] = 0;
@@ -258,7 +257,7 @@ private:
 
 class W8CharacterSkillsPage : public W8CharacterPage, public W8CharacterPageEntryListener {
 public:
-    W8CharacterSkillsPage() : W8CharacterPage(0x108) {}
+    W8CharacterSkillsPage() : W8CharacterPage(CatalogArtwork::Load(0x108)) {}
     virtual void Redraw() override;
     virtual void SetCharacter(W8Character*, W8CharacterCreationState*, int) override;
     virtual void Activate() override;
@@ -281,7 +280,7 @@ class W8CharacterPersonalityPage : public W8CharacterPage,
                                    public W8TextControl::Listener {
 public:
     W8CharacterPersonalityPage()
-        : W8CharacterPage(0x105), anim_timer(0.4f, 1), m_animation_active(0)
+        : W8CharacterPage(CatalogArtwork::Load(0x105)), anim_timer(0.4f, 1), m_animation_active(0)
     {
     }
     virtual void Redraw() override;

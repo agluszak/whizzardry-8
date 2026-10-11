@@ -80,7 +80,7 @@ void FlushDeferredSkillNotices(void)
     int count;
     bool have_line;
     std::string text;
-    W8SkillNoticePayload* extra;
+    W8SkillNoticePayload extra{};
     int slot;
     unsigned int skill_id;
     unsigned int length;
@@ -92,7 +92,6 @@ void FlushDeferredSkillNotices(void)
         return;
     }
     text.clear();
-    extra = new W8SkillNoticePayload;
     for (slot = 0; slot < 8; ++slot) {
         W8Character* character = &g_status.buffers.Char[slot];
         if (!g_status.buffers.XChar[slot].fOccupied || character->hp_current == 0 ||
@@ -103,34 +102,25 @@ void FlushDeferredSkillNotices(void)
             if (!gXStatus.monster_manager_entries[slot].skill_notice_pending[skill_id]) {
                 continue;
             }
-            extra->party_slots[count] = static_cast<signed char>(slot);
-            extra->skills[count] = static_cast<signed char>(skill_id);
+            extra.party_slots[count] = static_cast<signed char>(slot);
+            extra.skills[count] = static_cast<signed char>(skill_id);
             ++count;
             text += FormatSkillIncreaseNoticeText(slot, have_line, static_cast<W8Skill>(skill_id));
             have_line = true;
             if (count == 8) {
-                extra->count = 8;
-
-                W8MessageBoxPayload skill_notices_extra;
-                skill_notices_extra.skill_notices = extra;
-                AddTextMessageBoxLine(W8_NPC_MSG_SKILL_NOTICES, std::move(text),
-                                  skill_notices_extra);
+                extra.count = 8;
+                AddTextMessageBoxLine(W8_NPC_MSG_SKILL_NOTICES, std::move(text), extra);
                 count = 0;
                 length = 0;
                 have_line = false;
                 text.clear();
-                extra = new W8SkillNoticePayload;
+                extra = {};
             }
         }
     }
-    if (!have_line) {
-        delete extra;
-    } else {
-        extra->count = static_cast<signed char>(count);
-
-        W8MessageBoxPayload skill_notices_extra;
-        skill_notices_extra.skill_notices = extra;
-        AddTextMessageBoxLine(W8_NPC_MSG_SKILL_NOTICES, std::move(text), skill_notices_extra);
+    if (have_line) {
+        extra.count = static_cast<signed char>(count);
+        AddTextMessageBoxLine(W8_NPC_MSG_SKILL_NOTICES, std::move(text), extra);
     }
     for (slot = 0; slot < 8; ++slot) {
         memset(&gXStatus.monster_manager_entries[slot].skill_notice_pending[0], 0, W8_SKILL_COUNT);
@@ -680,15 +670,11 @@ void PracticeCharacterSkill(W8Character* character, W8Skill skill_id, int usage_
                     std::string text;
                     unsigned int length = 0;
                     text += FormatSkillIncreaseNoticeText(slot, false, skill_id);
-                    W8SkillNoticePayload* extra = new W8SkillNoticePayload;
-                    extra->count = 1;
-                    extra->party_slots[0] = static_cast<signed char>(slot);
-                    extra->skills[0] = static_cast<signed char>(skill_id);
-
-                    W8MessageBoxPayload skill_notices_extra;
-                    skill_notices_extra.skill_notices = extra;
-                    AddTextMessageBoxLine(W8_NPC_MSG_SKILL_NOTICES, std::move(text),
-                                      skill_notices_extra);
+                    W8SkillNoticePayload extra{};
+                    extra.count = 1;
+                    extra.party_slots[0] = static_cast<signed char>(slot);
+                    extra.skills[0] = static_cast<signed char>(skill_id);
+                    AddTextMessageBoxLine(W8_NPC_MSG_SKILL_NOTICES, std::move(text), extra);
                     return;
                 }
                 gXStatus.monster_manager_entries[slot].skill_notice_pending[skill_id] = true;

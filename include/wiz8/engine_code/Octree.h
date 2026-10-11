@@ -169,28 +169,24 @@ struct W8OctPreTreeLeaf {
 W8_ABI_ASSERT(sizeof(W8OctPreTreeBranch) == 0x24, "W8OctPreTreeBranch_must_be_0x24");
 W8_ABI_ASSERT(sizeof(W8OctPreTreeLeaf) == 0x28, "W8OctPreTreeLeaf_must_be_0x28");
 
-/* The camera snapshot and visibility frustum W8Octree keeps for one frame.
-   Reset (0x0042D1D6) clears the whole record with one 47-dword rep stosd,
-   from the camera location through the last frustum plane's w at +0x27B of
-   the owner. `W8OctreeView` is a provisional spelling. */
+/* Native camera snapshot and visibility frustum; level-file planes retain
+   their packed W8Plane representation independently. */
+class srCamera;
 struct W8OctreeView {
-    srVector3T<float> camera_location;
-    srVector3T<float> camera_dof;
-    srVector3T<float> rotation_column0;
-    srVector3T<float> rotation_column1;
-    float horizontal_fov;
-    float vertical_fov;
-    float horizontal_fov_cosine;
-    float vertical_fov_cosine;
-    float far_clip;
-    srVector3T<int> visible_cells;
-    unsigned char unknown_50[0xc];
-    /* The six frustum planes 0x004302E0 builds; 0x0046D880 tests a point
-       against all six. */
-    W8Plane frustum_planes[6];
-};
+    glm::vec3 camera_location{0};
+    glm::vec3 camera_dof{0};
+    glm::vec3 rotation_column0{0};
+    glm::vec3 rotation_column1{0};
+    float horizontal_fov{};
+    float vertical_fov{};
+    float horizontal_fov_cosine{};
+    float vertical_fov_cosine{};
+    float far_clip{};
+    glm::ivec3 visible_cells{0};
+    std::array<glm::vec4, 6> frustum_planes{};
 
-W8_ABI_ASSERT(sizeof(W8OctreeView) == 0xbc, "W8OctreeView_must_be_0xbc");
+    void captureCamera(const srCamera& camera);
+};
 
 class W8Octree {
 public:

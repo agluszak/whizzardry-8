@@ -15,6 +15,7 @@
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "Font.h"
 #include "dialog_code/DialogBase.h"
+#include "Video2.h"
 #include "input.h"
 
 /* Dialog Code\stMessageDialog.cpp. SetMessage and WrapMessage assert this
@@ -49,14 +50,16 @@ void W8MessageDialogBase::Draw()
     }
     if (!m_lines.empty()) {
         {
-            FontRenderScope font_scope;
-            SetFont(*g_dialog_interface_font);
-            SetFontForeground(g_dialog_font_foreground);
-            SetFontBackground(g_dialog_font_background);
+            TextOptions options;
+            options.colors.foreground =
+                g_dialog_interface_font->color(g_dialog_font_foreground);
+            options.colors.background =
+                g_dialog_interface_font->color(g_dialog_font_background);
             for (index = 0; index < m_line_count; ++index) {
                 const auto& line = m_lines[index];
                 short width = g_dialog_interface_font->textWidth(line);
-                DrawFontText(m_x + (m_width - width) / 2, y, line);
+                DrawText(GetFrameBufferSurface(), *g_dialog_interface_font,
+                         {m_x + (m_width - width) / 2, y}, line, options);
                 y += g_dialog_interface_font->height();
             }
         }

@@ -13,7 +13,6 @@
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/filesystem.h"
-#include "Font.h"
 #include "input.h"
 
 /* Local Screens\IntroScreen.cpp is named by the gpVideo assertion at line 98.
@@ -46,7 +45,6 @@ unsigned char IntroScreenEnter(void)
     std::string path;
     char gzCdDirectory[4];
 
-    SetFontDestBuffer(GetFrameBufferSurface(), 0, 0, 0x280, 0x1e0, 0);
     ClearSurfaceRect(0, 0, 0x280, 0x1e0);
     if (g_intro_video_index == 0 && g_settings.intro_seen && !g_status.intro_shown) {
         return 1;

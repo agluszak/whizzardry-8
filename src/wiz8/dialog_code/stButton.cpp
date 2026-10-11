@@ -1,6 +1,7 @@
 #include "Font.h"
 #include <cstdint>
 #include <SDL3/SDL_mouse.h>
+#include <memory>
 #include <string_view>
 #include <utility>
 #include <algorithm>
@@ -22,7 +23,7 @@ void W8DialogButton::Draw()
         (m_region.region().flags & W8_REGION_INPUT_DISABLED) == 0) {
         m_visual.hovered = (m_region.region().flags & W8_REGION_MOUSE_ENTER) != 0 ||
                            g_hover_region_index == m_region.index();
-        DrawButtonAppearance(m_appearance, m_visual);
+        DrawButtonAppearance(GetFrameBufferSurface(), m_appearance, m_visual);
         const auto& bounds = m_appearance.bounds;
         InvalidateRegion(bounds.x, bounds.y, bounds.x + bounds.w, bounds.y + bounds.h, 0);
         m_dirty = false;
@@ -143,10 +144,11 @@ void W8DialogButton::SetVisible(bool visible)
 void W8DialogButton::SetTooltipEnabled(bool enabled)
 {
     if (!m_region) return;
-    m_region.region().help_text =
-        enabled && m_tooltip_index != W8_DIALOG_BUTTON_NO_TOOLTIP && g_settings.tooltips_enabled
-            ? g_localized_strings[m_tooltip_index]
-            : std::string{};
+    const bool show_tooltip =
+        enabled && m_tooltip_index != W8_DIALOG_BUTTON_NO_TOOLTIP && g_settings.tooltips_enabled;
+    m_region.region().help_text = show_tooltip ? g_localized_strings[m_tooltip_index] : std::string{};
+    SetRegionHelp(m_region.index(), show_tooltip,
+                  show_tooltip ? m_tooltip_index : W8_DIALOG_BUTTON_NO_TOOLTIP);
 }
 
 // FUNCTION: WIZ8 0x005dbac0
@@ -240,6 +242,31 @@ bool W8DialogButton::Configure(const char* image_path, int gray_frame, int off_n
     if (!image) return false;
     m_appearance = {};
     m_appearance.bounds = {0, 0, static_cast<int>(image->MaxWidth), static_cast<int>(image->MaxHeight)};
+    m_appearance.quick_image = std::move(image);
+    m_left_callback = left_callback;
+    m_right_callback = right_callback;
+    m_move_callback = move_callback;
+    m_double_click_callback = double_click_callback;
+    m_left_toggles = left_toggles;
+    m_tooltip_index = tooltip_index;
+    ConfigureRegion(priority);
+    return true;
+}
+
+bool W8DialogButton::Configure(std::shared_ptr<const SpriteSheet> sprites, int gray_frame,
+                               int off_normal_frame, int off_hover_frame, int on_normal_frame,
+                               int on_hover_frame, W8DialogButtonCallback left_callback,
+                               W8DialogButtonCallback move_callback, bool left_toggles,
+                               int priority, int tooltip_index,
+                               W8DialogButtonCallback right_callback,
+                               W8DialogButtonCallback double_click_callback)
+{
+    auto image = ButtonGraphics::Load(std::move(sprites), gray_frame, off_normal_frame,
+                                      off_hover_frame, on_normal_frame, on_hover_frame);
+    if (!image) return false;
+    m_appearance = {};
+    m_appearance.bounds = {0, 0, static_cast<int>(image->MaxWidth),
+                           static_cast<int>(image->MaxHeight)};
     m_appearance.quick_image = std::move(image);
     m_left_callback = left_callback;
     m_right_callback = right_callback;
