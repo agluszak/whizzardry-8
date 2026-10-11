@@ -486,9 +486,9 @@ void srGERD::setAmbientLight(const glm::vec4& light)
 }
 
 // FUNCTION: SURRENDER 0x1001C410
-void srGERD::getAmbientLight(glm::vec4& light)
+glm::vec4 srGERD::getAmbientLight() const
 {
-    light = ambient_light;
+    return ambient_light;
 }
 
 // FUNCTION: SURRENDER 0x1001C480
@@ -509,17 +509,15 @@ srGERD::e_cullMode srGERD::getCullMode() const
 }
 
 // FUNCTION: SURRENDER 0x1001C4F0
-void srGERD::getEnvironmentRange(float& minimum, float& maximum) const
+std::pair<float, float> srGERD::getEnvironmentRange() const
 {
-    minimum = environment.x;
-    maximum = environment.y;
+    return {environment.x, environment.y};
 }
 
 // FUNCTION: SURRENDER 0x1001C5A0
-void srGERD::getEnvironmentScaleFactor(float& scale, float& inverse_scale)
+std::pair<float, float> srGERD::getEnvironmentScaleFactor() const
 {
-    scale = environment.z;
-    inverse_scale = environment.w;
+    return {environment.z, environment.w};
 }
 
 // FUNCTION: SURRENDER 0x1001C8A0
@@ -1462,19 +1460,20 @@ srRendererDefs::e_scaleType srGERD::getModelViewScaleType()
 }
 
 // FUNCTION: SURRENDER 0x100213C0
-void srGERD::getNormalMatrix(glm::mat4& matrix)
+glm::mat4 srGERD::getNormalMatrix()
 {
     checkViewStateChanges();
-    matrix = state.normal_matrix;
+    glm::mat4 matrix = state.normal_matrix;
     if ((enable_flags.value & (1UL << ENABLE_REVERSE_NORMALS)) != 0)
         matrix = glm::mat4(-glm::mat3(matrix));
+    return matrix;
 }
 
 // FUNCTION: SURRENDER 0x100214F0
-void srGERD::getProjectClipNearMatrix(glm::mat4& matrix)
+glm::mat4 srGERD::getProjectClipNearMatrix()
 {
     checkViewStateChanges();
-    matrix = state.project_clip_near;
+    return state.project_clip_near;
 }
 
 // FUNCTION: SURRENDER 0x10022190
@@ -1571,10 +1570,10 @@ void srGERD::getMatrix(e_matrixMode mode, glm::mat4& matrix)
 }
 
 // FUNCTION: SURRENDER 0x10023510
-void srGERD::getInverseModelViewMatrix(glm::mat4& matrix)
+glm::mat4 srGERD::getInverseModelViewMatrix()
 {
     checkViewStateChanges();
-    matrix = state.inverse_modelview;
+    return state.inverse_modelview;
 }
 
 // FUNCTION: SURRENDER 0x1001F790
@@ -2216,9 +2215,10 @@ void srGERD::popClipPlane()
 }
 
 // FUNCTION: SURRENDER 0x1001C230
-void srGERD::getClipPlanes(ClipPlanes& planes)
+srGERD::ClipPlanes srGERD::getClipPlanes()
 {
     checkClipPlaneChanges();
+    ClipPlanes planes{};
     for (int plane = 0; plane != 6; ++plane) {
         planes.planes[plane] = state.clip_planes[plane];
     }
@@ -2231,6 +2231,7 @@ void srGERD::getClipPlanes(ClipPlanes& planes)
     }
     planes.mask = state.clip_mask;
     planes.mode1_mask = state.clip_mode1_mask;
+    return planes;
 }
 
 // FUNCTION: SURRENDER 0x1001C5C0
@@ -2312,12 +2313,6 @@ void srGERD::setFogColor(const glm::vec4& color)
         fog_color = clamped;
         dirty |= DIRTY_FOG_COLOR;
     }
-}
-
-// FUNCTION: SURRENDER 0x1001C680
-void srGERD::getFogColor(glm::vec4& color) const
-{
-    color = fog_color;
 }
 
 // FUNCTION: SURRENDER 0x1001C440
@@ -3608,26 +3603,6 @@ int srGERD::isTextureResident(srTextureIFace* texture) const
     return 0;
 }
 
-// FUNCTION: SURRENDER 0x10017F70
-int srGERD::getTextureInfo(srTextureIFace* texture, TextureInfo& info)
-{
-    std::lock_guard access(state_section);
-    if (isWindowOpen() == 0) {
-        return 0;
-    }
-    w8_ulong handle = texture->getTextureFrameHandle();
-    const auto entry = texture_lookup.find(handle);
-    Texture* resident = entry == texture_lookup.end() ? nullptr : entry->second;
-    if (resident != 0) {
-        info.pixel_format = resident->pixel_format;
-        info.width = resident->device.width;
-        info.height = resident->device.height;
-        info.last_level = resident->device.last_level;
-        return 1;
-    }
-    return 0;
-}
-
 // FUNCTION: SURRENDER 0x10029600
 void srGERD::initGlobalPalette()
 {
@@ -3758,12 +3733,6 @@ srGERD::e_polygonMode srGERD::getPolygonMode() const
     return polygon_mode;
 }
 
-// FUNCTION: SURRENDER 0x1001C8F0
-void srGERD::getClearAccum(glm::vec4& color) const
-{
-    color = clear_state.clear_values.accum;
-}
-
 // FUNCTION: SURRENDER 0x1001C920
 void srGERD::setClearAccum(float red, float green, float blue, float alpha)
 {
@@ -3804,12 +3773,6 @@ void srGERD::setClearAccum(const glm::vec4& color)
     if (1.0f < clear[3]) {
         clear[3] = 1.0f;
     }
-}
-
-// FUNCTION: SURRENDER 0x1001CB40
-void srGERD::getClearColor(glm::vec4& color) const
-{
-    color = clear_state.clear_values.color;
 }
 
 // FUNCTION: SURRENDER 0x1001CBE0
@@ -3860,12 +3823,6 @@ srGERD::e_hintMode srGERD::getHint(e_hint hint) const
     return device.hints[hint];
 }
 
-// FUNCTION: SURRENDER 0x1001CFE0
-void srGERD::getGamma(srVector3T<float>& gamma) const
-{
-    gamma = display.gamma;
-}
-
 // FUNCTION: SURRENDER 0x1001D000
 srGERD::e_antiAlias srGERD::getAntiAlias() const
 {
@@ -3908,45 +3865,6 @@ srDD::e_driverID srGERD::getDriverID() const
 w8_ulong srGERD::getSwapInterval() const
 {
     return display.swap_interval;
-}
-
-// FUNCTION: SURRENDER 0x1001D210
-void srGERD::getTextureFormat(w8_ulong index, srPixelConvert::PixelFormat& format) const
-{
-    if (static_cast<w8_long>(device.texture_formats.size()) <= (w8_long)index) {
-        index = 0;
-    }
-    format = device.texture_formats[index];
-}
-
-// FUNCTION: SURRENDER 0x1001D240
-w8_ulong srGERD::getTextureFormatCount() const
-{
-    return static_cast<w8_ulong>(device.texture_formats.size());
-}
-
-// FUNCTION: SURRENDER 0x1001D250
-void srGERD::getDisplayModeInfo(w8_long index, DisplayModeInfo& info) const
-{
-    if (static_cast<w8_long>(device.display_modes.size()) <= index) {
-        index = 0;
-    }
-    info.width = device.display_modes[index].width;
-    info.height = device.display_modes[index].height;
-    info.depth = device.display_modes[index].depth;
-}
-
-// FUNCTION: SURRENDER 0x1001D290
-w8_ulong srGERD::getDisplayModeCount() const
-{
-    return static_cast<w8_ulong>(device.display_modes.size());
-}
-
-// FUNCTION: SURRENDER 0x1001D330
-void srGERD::getDepthRange(double& minimum, double& maximum) const
-{
-    minimum = state.depth_min;
-    maximum = state.depth_max;
 }
 
 // FUNCTION: SURRENDER 0x1001D360
