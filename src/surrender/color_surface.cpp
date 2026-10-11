@@ -630,7 +630,9 @@ srColorSurface::srColorSurface(const srPixelConvert::PixelFormat& format, w8_ulo
 {
     init(format, arg_width, arg_height, 0);
     allocate();
-    srPixelConvert::selectFuncs(format, pixel_write, pixel_read);
+    const auto functions = srPixelConvert::selectFuncs(format);
+    pixel_write = functions.write;
+    pixel_read = functions.read;
 }
 
 // FUNCTION: SURRENDER 0x1005B8A0
@@ -641,7 +643,9 @@ srColorSurface::srColorSurface(srPixelConvert::e_surfaceType type, w8_ulong arg_
     srPixelConvert::mapPixelFormat(type, format);
     init(format, arg_width, arg_height, 0);
     allocate();
-    srPixelConvert::selectFuncs(format, pixel_write, pixel_read);
+    const auto functions = srPixelConvert::selectFuncs(format);
+    pixel_write = functions.write;
+    pixel_read = functions.read;
 }
 
 /* The data-taking variants view caller storage, which must outlive the surface. */
@@ -654,7 +658,9 @@ srColorSurface::srColorSurface(srPixelConvert::e_surfaceType type, void* data,
     srPixelConvert::mapPixelFormat(type, format);
     init(format, arg_width, arg_height, arg_pitch);
     adopt(CreateCpuStorage(arg_width, arg_height, StorageFormat(format), data, arg_pitch).release());
-    srPixelConvert::selectFuncs(format, pixel_write, pixel_read);
+    const auto functions = srPixelConvert::selectFuncs(format);
+    pixel_write = functions.write;
+    pixel_read = functions.read;
 }
 
 // FUNCTION: SURRENDER 0x1005BAC0
@@ -664,7 +670,9 @@ srColorSurface::srColorSurface(const srPixelConvert::PixelFormat& format, void* 
 {
     init(format, arg_width, arg_height, arg_pitch);
     adopt(CreateCpuStorage(arg_width, arg_height, StorageFormat(format), data, arg_pitch).release());
-    srPixelConvert::selectFuncs(format, pixel_write, pixel_read);
+    const auto functions = srPixelConvert::selectFuncs(format);
+    pixel_write = functions.write;
+    pixel_read = functions.read;
 }
 
 srColorSurface::srColorSurface(srPixelConvert::e_surfaceType type, SDL_Surface& shared)
@@ -674,7 +682,9 @@ srColorSurface::srColorSurface(srPixelConvert::e_surfaceType type, SDL_Surface& 
     init(format, shared.w, shared.h, shared.pitch);
     ++shared.refcount;
     adopt(&shared);
-    srPixelConvert::selectFuncs(format, pixel_write, pixel_read);
+    const auto functions = srPixelConvert::selectFuncs(format);
+    pixel_write = functions.write;
+    pixel_read = functions.read;
 }
 
 // FUNCTION: SURRENDER 0x1005D520
