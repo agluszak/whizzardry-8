@@ -5,6 +5,7 @@
 #include <cstring>
 #include <vector>
 #include <memory>
+#include <variant>
 #include <string_view>
 #include <optional>
 
@@ -135,21 +136,22 @@ std::unique_ptr<SGPVSurface> CreateVideoSurface(UINT16 width, UINT16 height, UIN
 
 std::unique_ptr<SGPVSurface> LoadVideoSurface(std::string_view filename)
 {
-    auto image = LoadImage(filename);
-    if (!image || image->etrle) return nullptr;
-    auto result = CreateVideoSurface(image->usWidth, image->usHeight, image->ubBitDepth);
+    auto decoded = LoadImage(filename);
+    auto* image = decoded ? std::get_if<BitmapImage>(&*decoded) : nullptr;
+    if (!image) return nullptr;
+    auto result = CreateVideoSurface(image->width, image->height, image->bitDepth);
     if (!result) return nullptr;
-    if (image->pPalette && !SetVideoSurfacePalette(*result, *image->pPalette))
+    if (image->palette && !SetVideoSurfacePalette(*result, *image->palette))
         return nullptr;
 
     const auto& storage = *result->cpu().surface;
-    const std::size_t row_bytes = image->usWidth * (image->ubBitDepth / 8);
+    const std::size_t row_bytes = image->width * (image->bitDepth / 8);
     // FUNCTION: WIZ8 0x0040fad0
     // FUNCTION: WIZ8 0x0040ff30
     // FUNCTION: WIZ8 0x00410050
     for (int row = 0; row < storage.h; ++row)
         std::memcpy(static_cast<UINT8*>(storage.pixels) + row * storage.pitch,
-                    image->pImageData.data() + row * row_bytes, row_bytes);
+                    image->pixels.data() + row * row_bytes, row_bytes);
     return result;
 }
 // Indexed surfaces use SDL palettes; custom RGB555 blitters retain their table.

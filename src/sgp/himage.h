@@ -7,18 +7,10 @@
 #include <array>
 #include <optional>
 #include <string_view>
+#include <variant>
 #include <vector>
 
 #include "Types.h"
-
-// The HIMAGE module provides a common interface for managing image data. This module
-// includes:
-// - A set of data structures representing image data. Data can be 8 or 16 bpp and/or
-//   compressed
-// - A set of file loaders which load specific file formats into the internal data format
-// - A set of blitters which blt the data to memory
-// - A comprehensive automatic blitter which blits the appropriate type based on the
-//   image header.
 
 // Palette structure, mimics that of Win32
 typedef struct tagSGPPaletteEntry {
@@ -29,30 +21,36 @@ typedef struct tagSGPPaletteEntry {
 
 } SGPPaletteEntry;
 
-// TRLE subimage structure, mirroring that of ST(C)I
-typedef struct tagETRLEObject {
-    UINT32 uiDataOffset;
-    UINT32 uiDataLength;
-    INT16 sOffsetX;
-    INT16 sOffsetY;
-    UINT16 usHeight;
-    UINT16 usWidth;
-} ETRLEObject;
-
 using Palette8 = std::array<SGPPaletteEntry, 256>;
 using Palette16 = std::array<UINT16, 256>;
 
-// Image header structure
-struct image_type {
-    UINT16 usWidth;
-    UINT16 usHeight;
-    UINT8 ubBitDepth;
-    bool etrle = false;
-    std::optional<Palette8> pPalette;
-    std::vector<UINT8> pImageData;
-    std::vector<ETRLEObject> pETRLEObject;
-
+// Tight, top-down INDEX8, RGB555 or RGB24 pixels.
+struct BitmapImage {
+    UINT16 width = 0;
+    UINT16 height = 0;
+    UINT8 bitDepth = 0;
+    std::optional<Palette8> palette;
+    std::vector<UINT8> pixels;
 };
+
+// Palette indices 0-255 or kTransparent; opaque index 0 is not a transparent run.
+struct SpriteFrame {
+    static constexpr UINT16 kTransparent = 256;
+
+    std::vector<UINT16> pixels;
+    std::optional<UINT8> paletteIndexAt(int x, int y) const;
+    INT16 sOffsetX = 0;
+    INT16 sOffsetY = 0;
+    UINT16 usHeight = 0;
+    UINT16 usWidth = 0;
+};
+
+struct SpriteSheet {
+    Palette8 palette{};
+    std::vector<SpriteFrame> frames;
+};
+
+using DecodedImage = std::variant<BitmapImage, SpriteSheet>;
 
 #define SGPGetRValue(rgb) ((BYTE)(rgb))
 #define SGPGetBValue(rgb) ((BYTE)((rgb) >> 16))
@@ -68,10 +66,10 @@ struct image_type {
 // basename extension selects STI or SDL_image PCX/TGA/JPEG; extensionless names
 // default to PCX without changing the caller's path. Ordinary images are tight,
 // top-down INDEX8 + palettes, packed RGB555 (16-bit TGA), or RGB24.
-// STI bitmaps are also tight pixels: zlib decoding and RGB mask conversion
-// finish before a result is returned. ETRLE sheets retain their frame records
-// and run data for CreateVideoObject. Returns no image on failure.
-std::optional<image_type> LoadImage(std::string_view filename);
+// STI zlib decoding, RGB mask conversion and ETRLE frame decoding finish
+// before a result is returned. Encoded file records never escape the loader.
+// Returns no image on failure.
+std::optional<DecodedImage> LoadImage(std::string_view filename);
 
 // UTILITY FUNCTIONS
 
