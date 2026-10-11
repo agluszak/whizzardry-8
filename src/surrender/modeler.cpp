@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <iterator>
 #include <memory>
+#include <optional>
 #include <ostream>
 #include <utility>
 #include <vector>
@@ -482,16 +483,18 @@ double srModeler::getMaxVertexDist()
 }
 
 // FUNCTION: SURRENDER 0x1003AB30
-void srModeler::getAxialBounds(e_axis axis, float& minimum, float& maximum)
+std::optional<std::pair<float, float>> srModeler::getAxialBounds(e_axis axis) const
 {
     if (axis < AXIS_X || axis > AXIS_Z)
-        return;
-    minimum = maximum = triangles.empty() ? 0 : triangles.front().vertices[0].position[axis];
+        return std::nullopt;
+    float minimum = triangles.empty() ? 0 : triangles.front().vertices[0].position[axis];
+    float maximum = minimum;
     for (const auto& triangle : triangles)
         for (const auto& vertex : triangle.vertices) {
             minimum = std::min(minimum, vertex.position[axis]);
             maximum = std::max(maximum, vertex.position[axis]);
         }
+    return std::pair{minimum, maximum};
 }
 
 // FUNCTION: SURRENDER 0x1003BB00
@@ -646,9 +649,9 @@ void srModeler::planarMap(w8_long pass, w8_long layer, const MappingInfo& mappin
         mapping.axis_u < AXIS_X || mapping.axis_u > AXIS_Z || mapping.axis_v < AXIS_X ||
         mapping.axis_v > AXIS_Z)
         return;
-    glm::vec2 minimum, maximum;
-    getAxialBounds(mapping.axis_u, minimum.x, maximum.x);
-    getAxialBounds(mapping.axis_v, minimum.y, maximum.y);
+    const auto [u_min, u_max] = *getAxialBounds(mapping.axis_u);
+    const auto [v_min, v_max] = *getAxialBounds(mapping.axis_v);
+    const glm::vec2 minimum(u_min, v_min), maximum(u_max, v_max);
     const auto extent = maximum - minimum;
     const glm::vec2 scale(extent.x != 0 ? mapping.u_scale / extent.x : 0,
                           extent.y != 0 ? mapping.v_scale / extent.y : 0);
@@ -694,8 +697,7 @@ void srModeler::cylinderMap(w8_long pass, w8_long layer, const MappingInfo& mapp
     const int axis = mapping.axis_u;
     const int second = axis == AXIS_X ? AXIS_Y : AXIS_X;
     const int third = axis == AXIS_Z ? AXIS_Y : AXIS_Z;
-    float minimum, maximum;
-    getAxialBounds(mapping.axis_u, minimum, maximum);
+    const auto [minimum, maximum] = *getAxialBounds(mapping.axis_u);
     const float scale = maximum != minimum ? mapping.u_scale / (maximum - minimum) : 0;
     const int slot = pass * 2 + layer;
     for (auto& triangle : triangles) {
