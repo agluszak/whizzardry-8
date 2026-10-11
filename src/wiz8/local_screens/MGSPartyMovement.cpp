@@ -118,10 +118,7 @@ void ReleasePartyMovement(void)
     g_party_movement_regions.Disable();
     g_party_movement_panel.reset();
     for (auto& button : g_party_movement_buttons) button = nullptr;
-    if (g_party_movement_caption != 0) {
-        delete g_party_movement_caption;
-        g_party_movement_caption = 0;
-    }
+    g_party_movement_caption.reset();
     gXStatus.fPartyMovementUi = false;
 }
 
