@@ -1,3 +1,4 @@
+#include <array>
 #include <fmt/format.h>
 #include <vector>
 #include <algorithm>
@@ -568,15 +569,13 @@ void ApplyTarget(W8CombatSlot* target, bool in_combat)
 unsigned char ShowMonsterTargetMarker(W8MonsterInfo* monster_info)
 {
     srVector3T<float> eye;
-    srVector3T<float> lower;
-    srVector3T<float> upper;
 
     if (monster_info == 0) {
         srAssertFail("pMonsterInfo", TARGETING_CPP, 2040, 0);
     }
     eye = cameraLocation();
-    MonsterGetWorldAnimationBounds(monster_info->p3D, &lower, &upper);
-    return ShowTargetMarker(&eye, &lower, &upper);
+    const auto bounds = MonsterGetWorldAnimationBounds(monster_info->p3D);
+    return bounds && ShowTargetMarker(&eye, *bounds);
 }
 
 /* Whether a recorded target is of the kind a caller needs. Each needed kind
@@ -2760,8 +2759,6 @@ void RefreshAllPartyTargets(void)
 void RefreshMonsterTargetCounts(void)
 {
     srVector3T<float> camera;
-    srVector3T<float> lower;
-    srVector3T<float> upper;
     unsigned int group_index;
 
     for (group_index = 0; group_index < gXStatus.monster_groups.size(); ++group_index) {
@@ -2787,8 +2784,8 @@ void RefreshMonsterTargetCounts(void)
                 srAssertFail("pMonsterInfo", TARGETING_CPP, 0x7f8, 0);
             }
             camera = cameraLocation();
-            MonsterGetWorldAnimationBounds(monster_info->p3D, &lower, &upper);
-            if (ShowTargetMarker(&camera, &lower, &upper) != 0) {
+            const auto bounds = MonsterGetWorldAnimationBounds(monster_info->p3D);
+            if (bounds && ShowTargetMarker(&camera, *bounds) != 0) {
                 on_screen_count += 1;
             }
             if (g_status.selected_character == -1 ||
@@ -2813,32 +2810,18 @@ void RefreshMonsterTargetCounts(void)
 bool IsMonsterVisibleWithinDistance(W8Monster* monster, const srVector3T<float>* position,
                                     float max_distance)
 {
-    srVector3T<float> minimum;
-    srVector3T<float> maximum;
-    srVector3T<double> input;
-    srVector3T<float> center;
-    srVector3T<float> projected;
-
-    if (monster->GetDistanceToPlayer() < max_distance) {
-        monster->GetAnimationBounds(&minimum, &maximum);
-        center = monster->movement.position;
-        center.y += monster->movement.height_offset;
-        projected = monster->GetPosition();
-        minimum += projected;
-        maximum += projected;
-        input = glm::dvec3(center.glmValue());
-        if (g_world->camera->project(projected, input) != srCamera::PROJECTION_RESULT_ACCEPTED) {
-            input = glm::dvec3(minimum.glmValue());
-            if (g_world->camera->project(projected, input) !=
-                srCamera::PROJECTION_RESULT_ACCEPTED) {
-                input = glm::dvec3(maximum.glmValue());
-                if (g_world->camera->project(projected, input) !=
-                    srCamera::PROJECTION_RESULT_ACCEPTED) {
-                    return false;
-                }
-            }
-        }
-        return true;
+    if (!(monster->GetDistanceToPlayer() < max_distance))
+        return false;
+    const auto bounds = MonsterGetWorldAnimationBounds(monster);
+    if (!bounds)
+        return false;
+    auto center = monster->movement.position;
+    center.y += monster->movement.height_offset;
+    for (const auto& point : std::array{center.glmValue(), bounds->minimum, bounds->maximum}) {
+        srVector3T<float> projected;
+        const srVector3T<double> input{glm::dvec3(point)};
+        if (g_world->camera->project(projected, input) == srCamera::PROJECTION_RESULT_ACCEPTED)
+            return true;
     }
     return false;
 }

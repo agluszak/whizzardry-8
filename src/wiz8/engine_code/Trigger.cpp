@@ -1016,7 +1016,10 @@ bool Trigger::HasActorWithinRadius(float radius, bool include_party)
         if (m_pProp == 0) {
             center.Set(position.x, position.y, position.z);
         } else {
-            m_pProp->GetCenterPosition(&center);
+            const auto prop_center = m_pProp->GetCenterPosition();
+            if (!prop_center)
+                return false;
+            center = *prop_center;
         }
 
         srVector3T<float> lower;
@@ -1071,7 +1074,10 @@ bool Trigger::PlayActionSound(const char* sound_name, int volume)
             SoundPlay((char*)sound_name, &options);
             return false;
         }
-        m_pProp->GetCenterPosition(&position);
+        const auto center = m_pProp->GetCenterPosition();
+        if (!center)
+            return false;
+        position = *center;
     } else {
         position.Set(this->position.x, this->position.y, this->position.z);
     }

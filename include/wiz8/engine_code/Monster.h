@@ -1,6 +1,8 @@
 #ifndef WIZ8_ENGINE_CODE_MONSTER_H
 #define WIZ8_ENGINE_CODE_MONSTER_H
 
+#include <optional>
+#include "surrender/srBoundingBox.h"
 #include "wiz8/audio_resources.h"
 
 #include <string_view>
@@ -169,8 +171,7 @@ public:
     virtual signed char GetTotalAnimationCount() override;
     virtual float GetCurrentAnimationScale() override;
     virtual W8EmitterHost* GetRepresentation() override;
-    virtual unsigned char GetAnimationBounds(srVector3T<float>* minimum,
-                                             srVector3T<float>* maximum) override;
+    virtual std::optional<srBoundingBox> GetAnimationBounds() override;
     virtual unsigned char GetAnimationRadius(float* radius) override;
     virtual void SetCycle(signed char cycle) override;
     virtual W8AnimObj* GetCurrentAnimation() override;
@@ -179,7 +180,7 @@ public:
     virtual void Update();
     virtual void SetCurrentAnimationScale(float scale);
     virtual void GetMappedPosition(srVector3T<float>* position);
-    virtual bool GetAnimationCenter(srVector3T<float>* center);
+    virtual std::optional<srVector3T<float>> GetAnimationCenter();
     virtual void SetPosition(const srVector3T<float>* position) override;
 
     int Query(W8MonsterQueryKind query);         /* 0x004C4660 */
@@ -374,8 +375,7 @@ unsigned char MonsterReadAllCycles(const W8GrCycleLoadContext* context, std::str
                                    W8Monster** monster, int load_value, int location_id);
 unsigned short ChooseDifferentMonsterDirection(unsigned short previous_direction);
 
-bool MonsterGetWorldAnimationBounds(W8Monster* monster, srVector3T<float>* minimum,
-                                    srVector3T<float>* maximum);
+std::optional<srBoundingBox> MonsterGetWorldAnimationBounds(W8Monster* monster);
 unsigned char LoadMonsterCycle(const W8GrCycleLoadContext* context, const char* mon_name,
                                W8Monster** monster, int cycle, int value);
 

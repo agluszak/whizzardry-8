@@ -188,12 +188,8 @@ void W8Searchable::GetPosition(srVector3T<float>* position)
     if (trigger != 0) {
         W8Prop* prop = trigger->GetProp();
         if (prop != 0) {
-            srVector3T<float> minimum;
-            srVector3T<float> maximum;
-            prop->PlayRepAnimation(&minimum, &maximum);
-            position->Set((minimum.x + maximum.x) * g_double_half,
-                          (minimum.y + maximum.y) * g_double_half,
-                          (minimum.z + maximum.z) * g_double_half);
+            if (const auto center = prop->GetCenterPosition())
+                *position = *center;
         }
     }
 }

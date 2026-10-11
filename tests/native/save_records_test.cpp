@@ -480,9 +480,16 @@ static void animation_record_contracts()
         REQUIRE((animation->random_play == (flag != 0)));
         REQUIRE((AnimationIsRunning(animation.get()) == (flag != 0)));
         REQUIRE((animation->frame_bounds.size() == 2));
-        srVector3T<float> minimum, maximum;
-        REQUIRE((AnimObjGetBounds(animation.get(), 0, 1, &minimum, &maximum)));
-        REQUIRE((minimum.y == -1000 && maximum.z == 1500));
+        const auto bounds = AnimObjGetBounds(animation.get(), 0, 1);
+        REQUIRE(bounds);
+        REQUIRE((bounds->minimum.y == -1000 && bounds->maximum.z == 1500));
+        REQUIRE_FALSE(AnimObjGetBounds(nullptr, 0, 0));
+        REQUIRE_FALSE(AnimObjGetBounds(animation.get(), -1, 1));
+        REQUIRE_FALSE(AnimObjGetBounds(animation.get(), 3, 1));
+        const auto wrapped_bounds = AnimObjGetBounds(animation.get(), 0, 0x101);
+        REQUIRE(wrapped_bounds);
+        REQUIRE(wrapped_bounds->minimum == bounds->minimum);
+        REQUIRE(wrapped_bounds->maximum == bounds->maximum);
         animation->path = std::make_unique<W8PathAI>();
         PathAIAddPoint(*animation->path, srVector3T<float>(1, 2, 3));
         animation->paths[0].push_back(std::make_unique<W8PathAI>(*animation->path));
@@ -502,10 +509,11 @@ static void animation_record_contracts()
         REQUIRE((copy->entries[0]->filename == std::string(300, 'x')));
         REQUIRE((copy->meshes[0][0]->bitmap_directory == "Textures/"));
         REQUIRE((copy->paths[0][0]->nodes[0].z == 3));
-        REQUIRE((AnimObjGetBounds(copy.get(), 0, 0, &minimum, &maximum)));
-        REQUIRE((minimum.x == -500 && maximum.x == 500));
+        const auto copy_bounds = AnimObjGetBounds(copy.get(), 0, 0);
+        REQUIRE(copy_bounds);
+        REQUIRE((copy_bounds->minimum.x == -500 && copy_bounds->maximum.x == 500));
         copy->path_lists = true;
-        REQUIRE((!AnimObjGetBounds(copy.get(), 0, 2, &minimum, &maximum)));
+        REQUIRE((!AnimObjGetBounds(copy.get(), 0, 2)));
     }
     REQUIRE((wiz8::remove_file(filename)));
 }
@@ -515,6 +523,41 @@ static void animated_mesh_cache_contracts()
     REQUIRE((g_animesh_cache_list.empty()));
     const int old_limit = g_animesh_cache_limit;
     const int old_bytes = g_animesh_cache_bytes;
+    const int old_stamp = g_animesh_cache_stamp;
+    REQUIRE_FALSE(GetAniMeshBounds(nullptr));
+    {
+        W8AniMesh mesh;
+        mesh.flags.radius_loaded = true;
+        mesh.bounds_minimum = {-1, -2, -3};
+        mesh.bounds_maximum = {4, 5, 6};
+        auto bounds = GetAniMeshBounds(&mesh);
+        REQUIRE(bounds);
+        REQUIRE(bounds->minimum == glm::vec3(-1, -2, -3));
+        REQUIRE(bounds->maximum == glm::vec3(4, 5, 6));
+        REQUIRE(mesh.last_used == old_stamp);
+        REQUIRE(g_animesh_cache_stamp == old_stamp + 1);
+        REQUIRE_FALSE(mesh.flags.loaded);
+        bounds->minimum.x = -100;
+        const auto snapshot = GetAniMeshBounds(&mesh);
+        REQUIRE(snapshot);
+        REQUIRE(snapshot->minimum.x == -1);
+        REQUIRE(mesh.last_used == old_stamp + 1);
+    }
+    constexpr auto filename = "Data/empty-animation-mesh.dat";
+    {
+        auto file = wiz8::open_file(filename, wiz8::OpenMode::replace);
+        const unsigned char frame_count = 0;
+        file->write(&frame_count, 1);
+    }
+    {
+        W8AniMesh mesh;
+        mesh.filename = filename;
+        REQUIRE_FALSE(GetAniMeshBounds(&mesh));
+        REQUIRE_FALSE(mesh.flags.radius_loaded);
+        REQUIRE(g_animesh_cache_stamp == old_stamp + 2);
+    }
+    REQUIRE(wiz8::remove_file(filename));
+    g_animesh_cache_stamp = old_stamp;
     {
         W8AniMesh original;
         REQUIRE((original.meshes.empty() && original.filename.empty()));

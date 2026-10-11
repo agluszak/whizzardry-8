@@ -920,12 +920,10 @@ unsigned char AdjustWorldCollisionPosition(float radius, srVector3T<float>* posi
         while (info != 0) {
             W8Monster* monster = info->p3D;
             if (monster != 0) {
-                srVector3T<float> center;
+                const auto center = monster->GetAnimationCenter();
                 float other_radius;
-                monster->GetAnimationCenter(&center);
-                monster->GetAnimationRadius(&other_radius);
-                srVector3T<float> delta = center - *position;
-                if (delta.Length() < other_radius + radius) {
+                if (center && monster->GetAnimationRadius(&other_radius) &&
+                    (*center - *position).Length() < other_radius + radius) {
                     return 0;
                 }
             }
