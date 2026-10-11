@@ -117,9 +117,7 @@ Palette16 Create16BPPPaletteShaded(const Palette8& pPalette, UINT32 rscale, UINT
                                  UINT32 bscale, BOOLEAN mono);
 Palette16 Create16BPPPalette(const Palette8& pPalette);
 UINT16 Get16BPPColor(SDL_Color color);
-extern UINT16 gusAlphaMask;
-extern UINT16 gusRedMask;
-extern UINT16 gusGreenMask;
-extern UINT16 gusBlueMask;
+// Selected SDL format for native 16-bit sprite and UI pixels.
+extern SDL_PixelFormat g_sgp_pixel_format;
 
 #endif
