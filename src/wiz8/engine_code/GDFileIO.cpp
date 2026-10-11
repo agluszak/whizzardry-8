@@ -33,6 +33,7 @@
 #include "wiz8/filesystem.h"
 #include "wiz8/binary_reader.h"
 #include "wiz8/retail_geometry_records.h"
+#include "wiz8/retail_text_records.h"
 #include "wiz8/engine_code/3d.h"
 #include "compat/compiler.h"
 #include "geometry.h"

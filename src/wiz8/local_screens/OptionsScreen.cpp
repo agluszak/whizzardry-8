@@ -10,7 +10,6 @@
 #include <cctype>
 #include <cstring>
 
-#include "wiz8/containers.h"
 #include "soundman.h"
 #include "Font.h"
 #include "wiz8/engine_code/Quality.h"

@@ -2,7 +2,6 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <SDL3/SDL_filesystem.h>
-#include <SDL3/SDL_stdinc.h>
 #include <optional>
 #include <string_view>
 #include <vector>
@@ -11,6 +10,7 @@
 #include <stdexcept>
 #include <limits>
 #include <string>
+#include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
@@ -18,8 +18,8 @@
 #include <iterator>
 #include <utility>
 
-#include "compat/compiler.h"
 #include "wiz8/retail_save_records.h"
+#include "wiz8/retail_text_records.h"
 #include "wiz8/containers.h"
 #include "wiz8/compat/debug_heap.h"
 #include "wiz8/engine_code/AmbientSound.h"

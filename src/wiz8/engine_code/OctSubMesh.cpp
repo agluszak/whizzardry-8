@@ -1,6 +1,5 @@
 #include "surrender/srMath.h"
 #include <algorithm>
-#include <utility>
 #include <cstdlib>
 #include <stdexcept>
 #include <exception>

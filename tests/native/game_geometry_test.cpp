@@ -20,6 +20,7 @@
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "wiz8/octree_walk.h"
+#include "wiz8/engine_code/ReadMesh.h"
 #include "wiz8/engine_code/UpdateMesh.h"
 #include "glm/ext/vector_int2.hpp"
 #include <catch2/catch_test_macros.hpp>
