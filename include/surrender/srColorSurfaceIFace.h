@@ -94,24 +94,15 @@ public:
     {
         return pitch;
     }
-// FUNCTION: SURRENDER 0x100599F0 SYMBOL
-// RECOMP: ?getPixelFormat@srColorSurfaceIFace@@QBEXAAUPixelFormat@srPixelConvert@@@Z
-
-    void getPixelFormat(srPixelConvert::PixelFormat& format) const
+    const srPixelConvert::PixelFormat& getPixelFormat() const
     {
-        format = pixel_format;
+        return pixel_format;
     }
-// FUNCTION: SURRENDER 0x10059A10 SYMBOL
-// RECOMP: ?getSurfaceDesc@srColorSurfaceIFace@@QBEXAAUSurfaceDesc@1@@Z
 
-    void getSurfaceDesc(SurfaceDesc& description) const
+    SurfaceDesc getSurfaceDesc() const
     {
-        description.width = width;
-        description.height = height;
-        description.pitch = pitch;
-        description.clamp_modes = clamp_modes;
-        description.filter = filter;
-        description.pixel_format = pixel_format;
+        return {static_cast<w8_ulong>(width), static_cast<w8_ulong>(height),
+                static_cast<w8_ulong>(pitch), clamp_modes, filter, pixel_format};
     }
 // FUNCTION: SURRENDER 0x10059A60 SYMBOL
 // RECOMP: ?getWidth@srColorSurfaceIFace@@QBEJXZ
@@ -139,7 +130,6 @@ protected:
     virtual SR_DLL_IMPORT void minify(srColorSurfaceIFace& source);
 
     SR_DLL_IMPORT void copySurfaceParameters(const srColorSurfaceIFace& source);
-    SR_DLL_IMPORT const srPixelConvert::PixelFormat* getPixelFormat() const;
     SR_DLL_IMPORT int isPixelFormatCompatible(const srColorSurfaceIFace& source) const;
     SR_DLL_IMPORT void setSurfaceDesc(const SurfaceDesc& description);
 

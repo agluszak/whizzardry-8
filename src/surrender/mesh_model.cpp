@@ -12,7 +12,6 @@
 #include "surrender/srBoundingBox.h"
 #include "compat/compiler.h"
 #include "glm/ext/matrix_float3x3.hpp"
-#include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
@@ -1317,18 +1316,12 @@ void srTriMeshPipeline::FlushSlots()
 
     glm::vec3 eye_center;
     float eye_radius;
-    glm::mat4 model_view;
-    glm::mat4 inverse_model_view;
-    srGERD::ClipPlanes clip_planes;
-    glm::mat4 project_clip_near;
-    glm::mat4 normal_matrix;
-
     this->renderer->getEyeSpaceBounds(eye_center, eye_radius, bounds_center, bounds_radius);
-    this->renderer->getMatrix(srGERD::MATRIX_MODELVIEW, model_view);
-    this->renderer->getInverseModelViewMatrix(inverse_model_view);
-    this->renderer->getClipPlanes(clip_planes);
-    this->renderer->getProjectClipNearMatrix(project_clip_near);
-    this->renderer->getNormalMatrix(normal_matrix);
+    const auto model_view = this->renderer->getMatrix(srGERD::MATRIX_MODELVIEW);
+    const auto inverse_model_view = this->renderer->getInverseModelViewMatrix();
+    const auto clip_planes = this->renderer->getClipPlanes();
+    const auto project_clip_near = this->renderer->getProjectClipNearMatrix();
+    const auto normal_matrix = this->renderer->getNormalMatrix();
 
     srGERD::e_cullMode cull_mode = this->renderer->getCullMode();
     srGERD::e_winding winding = this->renderer->getWinding();
@@ -1351,13 +1344,12 @@ void srTriMeshPipeline::FlushSlots()
     if ((this->flags & FRUSTUM_CLIPPING) == 0) {
         culler_input.clip_mask = 0;
     } else {
-        float depth;
-        w8_ulong clip_mask = srTriangleCuller::getClipMask(
-            eye_center, eye_radius, clip_planes.planes, clip_planes.mask, depth);
-        int retain_clip_mask =
-            clip_mask != 0 && ((clip_mask & 0xffffffc0UL) != 0 ||
-                               (slot_count * triangle_count > 45 && depth > 0.23f));
-        culler_input.clip_mask = retain_clip_mask ? clip_mask : 0;
+        const auto clip = srTriangleCuller::getClipMask(
+            eye_center, eye_radius, clip_planes.planes, clip_planes.mask);
+        const bool retain_clip_mask =
+            clip.mask != 0 && ((clip.mask & 0xffffffc0UL) != 0 ||
+                               (slot_count * triangle_count > 45 && clip.depth > 0.23f));
+        culler_input.clip_mask = retain_clip_mask ? clip.mask : 0;
     }
 
     if (active_triangles == 0) {
@@ -1447,14 +1439,11 @@ void srTriMeshPipeline::FlushSlots()
                 processors = vertex_processors.data();
             }
 
-            glm::vec4 ambient_light;
-            float environment_minimum;
-            float environment_maximum;
-            float environment_scale;
-            float environment_inverse_scale;
-            this->renderer->getAmbientLight(ambient_light);
-            this->renderer->getEnvironmentRange(environment_minimum, environment_maximum);
-            this->renderer->getEnvironmentScaleFactor(environment_scale, environment_inverse_scale);
+            const auto ambient_light = this->renderer->getAmbientLight();
+            const auto [environment_minimum, environment_maximum] =
+                this->renderer->getEnvironmentRange();
+            const auto [environment_scale, environment_inverse_scale] =
+                this->renderer->getEnvironmentScaleFactor();
             w8_ulong exclusion_mask = this->renderer->getExclusionMask();
 
             srVertexPipe::Input pipe_input;

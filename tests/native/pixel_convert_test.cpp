@@ -161,6 +161,16 @@ TEST_CASE("pixel conversions")
              "custom RGB555 passed");
         }
 
+TEST_CASE("pixel format names are owned values")
+{
+    srPixelConvert::PixelFormat format;
+    srPixelConvert::mapPixelFormat(srPixelConvert::SURFACE_RGB565, format);
+    REQUIRE(format.getName() == "RGB565/16");
+
+    format.fourcc = 0x34333231;
+    REQUIRE(format.getName() == "1234");
+}
+
 TEST_CASE("SurRender uses shared packed surface operations")
 {
     REQUIRE(srInit());
@@ -221,13 +231,12 @@ TEST_CASE("generic rounded RGB conversion remains exact")
                      srPixelConvert::SURFACE_ARGB32, srPixelConvert::SURFACE_RGBA32}) {
         srPixelConvert::PixelFormat f;
         srPixelConvert::mapPixelFormat(type, f);
-        srPixelConvert::ConversionFunc write, read;
-        srPixelConvert::selectFuncs(f, write, read);
+        const auto functions = srPixelConvert::selectFuncs(f);
         for (unsigned value = 0; value < 256; ++value) {
             const w8_ulong input = value * 0x01010101u;
             unsigned char storage[6]{};
             srPixelConvert::ConversionInfo info{storage + 1, &input, 1, nullptr, &f};
-            write(info);
+            functions.write(info);
             const auto reduce = [value](unsigned bits) {
                 return unsigned((value * (1. / 255.)) * ((1u << bits) - 1) + .5);
             };
@@ -239,7 +248,7 @@ TEST_CASE("generic rounded RGB conversion remains exact")
             REQUIRE(packed == expected);
             info.source = storage + 1;
             info.dest = &output;
-            read(info);
+            functions.read(info);
             const auto expand = [packed](unsigned bits, unsigned shift) {
                 if (!bits) return 255u;
                 const unsigned max = (1u << bits) - 1;

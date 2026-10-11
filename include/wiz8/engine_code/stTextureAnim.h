@@ -27,10 +27,10 @@ public:
 
     virtual w8_ulong getTextureFrameHandle() override;               /* 0x004856F0 */
     virtual float getPriority() override;                                 /* 0x00484D60 */
-    virtual void getDimensions(Dimensions& dimensions) override;          /* 0x00484D80 */
+    Dimensions getDimensions() override;          /* 0x00484D80 */
     virtual void getMipmapData(MultiRequest& request) override;           /* 0x00484DB0 */
     virtual void getMipmapLevelPartial(PartialRequest& request) override; /* 0x00484DE0 */
-    virtual void getTextureParms(Parameters& parameters) override;        /* 0x00484E10 */
+    Parameters getParameters() override;        /* 0x00484E10 */
     virtual const char* getTextureName() override;                        /* 0x00484E40 */
     virtual void invalidate() override;                                   /* 0x004023A0 */
 
