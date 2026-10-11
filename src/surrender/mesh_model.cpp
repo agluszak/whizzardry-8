@@ -1351,13 +1351,12 @@ void srTriMeshPipeline::FlushSlots()
     if ((this->flags & FRUSTUM_CLIPPING) == 0) {
         culler_input.clip_mask = 0;
     } else {
-        float depth;
-        w8_ulong clip_mask = srTriangleCuller::getClipMask(
-            eye_center, eye_radius, clip_planes.planes, clip_planes.mask, depth);
-        int retain_clip_mask =
-            clip_mask != 0 && ((clip_mask & 0xffffffc0UL) != 0 ||
-                               (slot_count * triangle_count > 45 && depth > 0.23f));
-        culler_input.clip_mask = retain_clip_mask ? clip_mask : 0;
+        const auto clip = srTriangleCuller::getClipMask(
+            eye_center, eye_radius, clip_planes.planes, clip_planes.mask);
+        const bool retain_clip_mask =
+            clip.mask != 0 && ((clip.mask & 0xffffffc0UL) != 0 ||
+                               (slot_count * triangle_count > 45 && clip.depth > 0.23f));
+        culler_input.clip_mask = retain_clip_mask ? clip.mask : 0;
     }
 
     if (active_triangles == 0) {
