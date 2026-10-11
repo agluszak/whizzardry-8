@@ -120,7 +120,7 @@ void camp_effects()
     for (auto& image : images) { image.usWidth = 16; image.usHeight = 8; }
     image_type image{};
     image.ubBitDepth = 8;
-    image.fFlags = IMAGE_TRLECOMPRESSED;
+    image.etrle = true;
     image.pPalette.emplace();
     std::copy_n(palette.data(), palette.size(), image.pPalette->data());
     // Each frame is eight scanlines of one transparent run of 16 then the
@@ -456,7 +456,7 @@ void image_and_sprite_ownership()
 {
     image_type image{};
     image.ubBitDepth = 8;
-    image.fFlags = IMAGE_TRLECOMPRESSED | IMAGE_BITMAPDATA | IMAGE_PALETTE;
+    image.etrle = true;
     image.pPalette.emplace();
     (*image.pPalette)[1] = {255, 0, 0, 0};
     image.pImageData.resize(3);

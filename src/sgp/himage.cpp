@@ -186,7 +186,6 @@ image_type load_ordinary_image(wiz8::File& file, ImageFormat format)
     for (int y = 0; y < surface->h; ++y)
         std::copy_n(static_cast<const UINT8*>(surface->pixels) + y * surface->pitch, row_bytes,
                     decoded.pImageData.data() + y * row_bytes);
-    decoded.fFlags |= IMAGE_BITMAPDATA;
     if (indexed) {
         decoded.pPalette.emplace();
         const unsigned first_color = format == ImageFormat::tga &&
@@ -195,7 +194,6 @@ image_type load_ordinary_image(wiz8::File& file, ImageFormat format)
             decoded.pPalette->begin() + first_color, [](const SDL_Color& color) {
                 return SGPPaletteEntry{color.r, color.g, color.b, 0};
             });
-        decoded.fFlags |= IMAGE_PALETTE;
     }
     return decoded;
 }
@@ -238,7 +236,6 @@ image_type load_sti(wiz8::File& file)
             [](const STCIPaletteElement& color) {
                 return SGPPaletteEntry{color.ubRed, color.ubGreen, color.ubBlue, 0};
             });
-        decoded.fFlags |= IMAGE_PALETTE;
     }
     if (file_size < 0 || app_offset > std::uint64_t(file_size) || header.uiStoredSize > max_image_bytes)
         throw std::runtime_error("STI pixel data exceeds file bounds");
@@ -254,9 +251,8 @@ image_type load_sti(wiz8::File& file)
         if (std::uint64_t(frame.uiDataOffset) + frame.uiDataLength > decoded.pImageData.size())
             throw std::runtime_error("STI subimage exceeds pixel buffer bounds");
     }
-    decoded.fFlags |= IMAGE_BITMAPDATA;
-    if (etrle) decoded.fFlags |= IMAGE_TRLECOMPRESSED;
-    if (compressed) decoded.fFlags |= IMAGE_COMPRESSED;
+    decoded.etrle = etrle;
+    decoded.compressed = compressed;
 
     // FUNCTION: WIZ8 0x00415250
     if (rgb && header.ubDepth == 16 && !compressed &&
@@ -318,7 +314,7 @@ bool CopyImageToBuffer(const image_type& image, UINT32 buffer_type, std::span<UI
         return false;
     const std::size_t width = rect.w;
     const std::size_t height = rect.h;
-    if (width > dest_width - x || height > dest_height - y || (image.fFlags & IMAGE_TRLECOMPRESSED))
+    if (width > dest_width - x || height > dest_height - y || image.etrle)
         return false;
     const std::size_t source_depth = image.ubBitDepth / 8;
     const std::size_t target_depth = buffer_type == BUFFER_8BPP ? 1 : buffer_type == BUFFER_16BPP ? 2 : 0;
@@ -333,14 +329,14 @@ bool CopyImageToBuffer(const image_type& image, UINT32 buffer_type, std::span<UI
 
     // FUNCTION: WIZ8 0x0040fba0
     // The retail compressed INDEX8-to-INDEX8 path intentionally never copies pixels.
-    if ((image.fFlags & IMAGE_COMPRESSED) && target_depth == 1)
+    if (image.compressed && target_depth == 1)
         return true;
     if (target_depth != source_depth && !image.pui16BPPPalette)
         return false;
 
     std::span<const UINT8> source = image.pImageData;
     std::vector<UINT8> unpacked;
-    if (image.fFlags & IMAGE_COMPRESSED) {
+    if image.compressed {
         if (source_depth != 1 || source.empty())
             return false;
         // FUNCTION: WIZ8 0x0040fca0

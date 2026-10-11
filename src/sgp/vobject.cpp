@@ -56,7 +56,7 @@ BOOLEAN BltVideoObject(SGPVSurface& uiDestVSurface, SGPVObject& hSrcVObject, UIN
 // FUNCTION: WIZ8 0x00406180
 std::unique_ptr<SGPVObject> CreateVideoObject(const image_type& image)
 {
-    if (!(image.fFlags & IMAGE_TRLECOMPRESSED))
+    if (!image.etrle)
         return nullptr;
     auto owner = std::make_unique<SGPVObject>();
     owner->ubBitDepth = image.ubBitDepth;

@@ -29,11 +29,6 @@
 #define BUFFER_16BPP 0x2
 
 // Defines for image charactoristics
-#define IMAGE_COMPRESSED 0x0001
-#define IMAGE_TRLECOMPRESSED 0x0002
-#define IMAGE_PALETTE 0x0004
-#define IMAGE_BITMAPDATA 0x0008
-#define IMAGE_ALLIMAGEDATA (IMAGE_PALETTE | IMAGE_BITMAPDATA)
 
 // Palette structure, mimics that of Win32
 typedef struct tagSGPPaletteEntry {
@@ -85,7 +80,8 @@ typedef struct {
     UINT16 usWidth;
     UINT16 usHeight;
     UINT8 ubBitDepth;
-    UINT16 fFlags;
+    bool compressed = false;
+    bool etrle = false;
     std::optional<Palette8> pPalette;
     std::optional<Palette16> pui16BPPPalette;
     std::vector<UINT8> pImageData;

@@ -174,7 +174,7 @@ static void rgb555()
 static void check_pcx(const image_type& image)
 {
     REQUIRE((image.usWidth == 3 && image.usHeight == 2 && image.ubBitDepth == 8));
-    REQUIRE(image.fFlags == IMAGE_ALLIMAGEDATA);
+    REQUIRE((image.pPalette && !image.etrle && !image.compressed));
     const UINT8 expected[]{0, 1, 1, 2, 3, 0xc1};
     REQUIRE(!memcmp(image.pImageData.data(), expected, sizeof(expected)));
     for (unsigned i = 0; i < 256; ++i)
@@ -328,7 +328,7 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
     {
         fixture(assets / "rgb.pcx", rgb_pcx(rgb));
         auto image = load("rgb.pcx");
-        REQUIRE((image && image->ubBitDepth == 24 && image->fFlags == IMAGE_BITMAPDATA));
+        REQUIRE((image && image->ubBitDepth == 24 && !image->pPalette));
         REQUIRE(!memcmp(image->pImageData.data(), rgb, sizeof(rgb)));
     }
     for (unsigned depth : {16u, 24u})
@@ -338,7 +338,7 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
                 fixture(assets / "test.tga", tga(depth, top, rle));
                 auto image = load("test.tga");
                 REQUIRE((image && image->usWidth == 3 && image->usHeight == 2));
-                REQUIRE((image->ubBitDepth == depth && image->fFlags == IMAGE_BITMAPDATA));
+                REQUIRE((image->ubBitDepth == depth && !image->pPalette));
                 REQUIRE((!image->pPalette && !image->pui16BPPPalette));
                 REQUIRE(!memcmp(image->pImageData.data(), depth == 16 ? static_cast<const void*>(packed) : rgb,
                               depth == 16 ? sizeof(packed) : sizeof(rgb)));
@@ -346,7 +346,7 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
     {
         fixture(assets / "indexed.tga", indexed_tga());
         auto image = load("indexed.tga");
-        REQUIRE((image && image->ubBitDepth == 8 && image->fFlags == IMAGE_ALLIMAGEDATA));
+        REQUIRE((image && image->ubBitDepth == 8 && image->pPalette));
         const UINT8 indices[]{2, 2, 2, 2, 1, 0};
         REQUIRE(!memcmp(image->pImageData.data(), indices, sizeof(indices)));
         REQUIRE(((*image->pPalette)[2].peRed == 255 && (*image->pPalette)[2].peBlue == 0));
@@ -397,7 +397,7 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
         REQUIRE(IMG_SaveJPG(surface.get(), wiz8::path_to_utf8(assets / "test.JpEg").c_str(), 100));
         auto image = load("test.jpeg");
         REQUIRE((image && image->usWidth == 8 && image->usHeight == 8 && image->ubBitDepth == 24));
-        REQUIRE(image->fFlags == IMAGE_BITMAPDATA);
+        REQUIRE((!image->pPalette && !image->etrle && !image->compressed));
         for (unsigned i = 0; i < 64; ++i)
         {
             CHECK(abs(int(image->pImageData[i * 3]) - 240) < 4);
@@ -441,7 +441,7 @@ TEST_CASE_METHOD(ImageFixture, "Truncated images and rollback", "[image][validat
         REQUIRE(!load("invalid.tga"));
         auto image = load("test.tga");
         REQUIRE((image && image->ubBitDepth == 24 && !image->pPalette && !image->pui16BPPPalette));
-        REQUIRE((image->fFlags == IMAGE_BITMAPDATA && image->pETRLEObject.empty()));
+        REQUIRE((!image->pPalette && image->pETRLEObject.empty()));
     }
     fixture(assets / "invalid.jpg", {0xff, 0xd8, 0xff});
     REQUIRE((!load("invalid.jpg") && !load("missing.pcx") && !load("unsupported.png")));

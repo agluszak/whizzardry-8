@@ -19,7 +19,7 @@ TEST_CASE("compression_test")
     image.usWidth = 500;
     image.usHeight = 200;
     image.ubBitDepth = 8;
-    image.fFlags = IMAGE_BITMAPDATA | IMAGE_COMPRESSED;
+    image.compressed = true;
     std::vector<UINT8> original(std::size_t(image.usWidth) * image.usHeight);
     for (std::size_t i = 0; i < original.size(); ++i)
         original[i] = (i * 7) ^ (i >> 5);
@@ -72,7 +72,7 @@ TEST_CASE("compression_test")
     REQUIRE(!CopyImageToBuffer(image, BUFFER_16BPP, output16, 20, 10, 1, 1, {0, 0, 501, 1}));
     image.pImageData = original;
     --image.usHeight;
-    image.fFlags = IMAGE_BITMAPDATA;
+    image.compressed = false;
     destination16.fill(0xa5);
     REQUIRE(CopyImageToBuffer(image, BUFFER_16BPP, output16, 20, 10, 1, 1, rect));
     REQUIRE(CopyImageToBuffer(image, BUFFER_8BPP, destination8, 20, 10, 1, 1, rect));

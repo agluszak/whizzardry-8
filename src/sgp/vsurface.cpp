@@ -141,7 +141,7 @@ static std::unique_ptr<SGPVSurface> MakeVideoSurface(UINT16 width, UINT16 height
     result->ubBitDepth = bits;
     result->TransparentColor = FROMRGB(0, 0, 0);
     if (image) {
-        if (image->fFlags & IMAGE_PALETTE)
+        if (image->pPalette.has_value())
             SetVideoSurfacePalette(*result, *image->pPalette);
         const auto& storage = *result->cpu().surface;
         const auto format = bits == 8 ? BUFFER_8BPP : BUFFER_16BPP;
