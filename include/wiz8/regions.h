@@ -152,6 +152,7 @@ public:
     W8Region& region();
     const W8Region& region() const;
     unsigned int index() const { return index_; }
+    unsigned int set() const { return set_; }
     void reset();
 
 private:
@@ -300,6 +301,8 @@ void ResetRegionHelp(bool delayed);
 void SetRegionHelpDelay(int delay_ms);
 unsigned int ControlRegionSetIndex(void);
 std::size_t LiveDynamicRegionCount(void);
+// Dynamic region sets currently allocated, including empty ones.
+std::size_t LiveRegionSetCount(void);
 void CaptureInputSink(void);
 void ReleaseInputSinkCapture(void);
 bool InputSinkCaptured(void);

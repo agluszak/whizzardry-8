@@ -53,10 +53,6 @@
 static int g_camp_stats_origin_y;
 // GLOBAL: WIZ8 0x0069c518
 static int g_camp_stats_origin_x;
-// GLOBAL: WIZ8 0x0069c51c
-unsigned int g_camp_stats_range_region_set;
-// GLOBAL: WIZ8 0x0069c520
-unsigned int g_camp_stats_controls_region_set;
 /* The skills page row the cursor last hovered, kept so the help
    text only resets on a real change. */
 // GLOBAL: WIZ8 0x0069c524
@@ -89,10 +85,6 @@ static int g_camp_skill_category_rows[5] = {0xb, 5, 8, 0xa, 7};
 // GLOBAL: WIZ8 0x0064ef7c
 static int g_camp_skill_category_images[5] = {2, 3, 0, 1, 4};
 
-// GLOBAL: WIZ8 0x0069c530
-static unsigned int g_character_page2_region_set;
-// GLOBAL: WIZ8 0x0069c52c
-unsigned int g_character_page4_region_set;
 // GLOBAL: WIZ8 0x0064ef90
 static srVector2i g_character_page2_category_geometry[5] = {
     {0xf9, 0x0a}, {0xf9, 0xcd}, {0x22, 0x0a}, {0x22, 0x87}, {0xf9, 0x120},
@@ -123,7 +115,7 @@ static W8PortraitGroup g_portrait_groups[12] = {
 // FUNCTION: WIZ8 0x005c4430
 W8CampStatsRange::W8CampStatsRange()
 {
-    m_range = new W8RangeControl(0x264, 0xbe, 0x276, 0x1b5, &g_camp_stats_range_region_set);
+    m_range = new W8RangeControl(0x264, 0xbe, 0x276, 0x1b5);
     m_range->m_listener = this;
     m_range->SetEnabled(true);
 }
@@ -156,7 +148,7 @@ void W8CampRangeListener::UpdateRange(bool range_changed)
 // FUNCTION: WIZ8 0x005c4540
 W8CampStatsControls::W8CampStatsControls()
 {
-    AcquireRegionSet(&g_camp_stats_controls_region_set);
+    CreateRegionSet();
     m_buttons[0] = new W8TextControl(this, -1, 0x13c, 0xbe, 0, 0, CatalogArtwork::Load(0x145, 0), 0, 1, 2, 4, 3);
     m_buttons[0]->AddLayoutFlags(g_W8TextControlLayoutLatchedImage | g_W8TextControlLayoutToggle);
     m_buttons[0]->m_listener = this;
@@ -172,9 +164,9 @@ W8CampStatsControls::W8CampStatsControls()
     if (g_camp_screen->effect_items_only) {
         m_buttons[2]->EnableSecondaryState(false);
     }
-    unsigned int region = AddRegionToSet(g_camp_stats_controls_region_set);
-    SetRegionCallback(region, CampStatsMouseWheel, 0);
-    SetRegionBounds(region, 0x15d, 0xbe, 0x260, 0x1b5);
+    static constexpr RegionTemplate kWheelRegion{W8_REGION_RECTANGLE, 0x15d, 0xbe, 0x260, 0x1b5,
+                                                 CampStatsMouseWheel, 0, false, -1};
+    m_wheel_region = OwnedRegion(RegionSet(), kWheelRegion);
     Controls::SetEnabled(true);
 }
 
@@ -895,7 +887,7 @@ unsigned char CampSkillListRegionHandler(const InputEvent* event, W8Region* regi
 void W8CharacterPersonalityPage::SetCharacter(W8Character* character,
                                               W8CharacterCreationState* creation_state, int mode)
 {
-    AcquireRegionSet(&g_character_page4_region_set);
+    CreateRegionSet();
     W8CharacterPage::SetCharacter(character, creation_state, mode);
     W8TextControl::Listener* action_listener = this;
 
@@ -1239,7 +1231,7 @@ W8CharacterPersonalityPage* CreateCharacterPersonalityPage()
 void W8CharacterSkillsPage::SetCharacter(W8Character* character,
                                          W8CharacterCreationState* creation_state, int mode)
 {
-    AcquireRegionSet(&g_character_page2_region_set);
+    CreateRegionSet();
     W8CharacterPage::SetCharacter(character, creation_state, mode);
     int category_count[5] = {0, 0, 0, 0, 0};
     for (int skill = 0; skill < 0x29; ++skill) {

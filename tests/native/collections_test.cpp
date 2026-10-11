@@ -1,4 +1,5 @@
 #include <catch2/catch_test_macros.hpp>
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <filesystem>
@@ -119,12 +120,11 @@ TEST_CASE("widget_region_lifetimes")
     } cleanup;
     std::vector<int> events;
     auto first_panel = std::make_unique<Controls>();
-    unsigned first_set = 0;
-    first_panel->AcquireRegionSet(&first_set);
+    first_panel->CreateRegionSet();
     auto* first = new RecordingWidget(*first_panel, events, 1);
     auto* second = new RecordingWidget(*first_panel, events, 2);
     auto* third = new RecordingWidget(*first_panel, events, 3);
-    const auto third_region = third->m_region;
+    auto third_region = third->m_region;
     delete first;
     REQUIRE(first_panel->ControlCount() == 2);
     InputEvent event{};
@@ -133,9 +133,13 @@ TEST_CASE("widget_region_lifetimes")
     REQUIRE(events.back() == 3);
 
     Controls second_panel;
+    second_panel.CreateRegionSet();
     third->SetPanel(second_panel);
     third->SetPanel(second_panel);
     REQUIRE(second_panel.ControlCount() == 1);
+    third_region = third->m_region; // Reparenting moved the region into second_panel's set.
+    REQUIRE(std::ranges::contains(g_region_sets[second_panel.RegionSet()].Regions(),
+                                  unsigned(third_region)));
     REQUIRE(first_panel->ControlCount() == 1);
     const auto second_region = second->m_region;
     auto detached_second = first_panel->TakeControl(second);
@@ -152,22 +156,20 @@ TEST_CASE("widget_region_lifetimes")
         { throw std::runtime_error("incomplete widget"); }
     };
     Controls failing_panel;
-    unsigned failing_set = 0;
-    failing_panel.AcquireRegionSet(&failing_set);
+    failing_panel.CreateRegionSet();
     const auto live_before_failure = LiveDynamicRegionCount();
     REQUIRE_THROWS_AS(new FailingWidget(failing_panel), std::runtime_error);
     REQUIRE(failing_panel.ControlCount() == 0);
-    REQUIRE(g_region_sets[failing_set].Regions().empty());
+    REQUIRE(g_region_sets[failing_panel.RegionSet()].Regions().empty());
     REQUIRE(LiveDynamicRegionCount() == live_before_failure);
 
-    // An old widget may outlive a rebuilt screen using the same region slots.
-    Controls old_panel, replacement_panel;
-    unsigned reused_set = 0;
-    old_panel.AcquireRegionSet(&reused_set);
-    auto* old = new RecordingWidget(old_panel, events, 4);
+    // An old widget may outlive a rebuilt panel reusing the same region slots.
+    Controls rebuilt_panel;
+    rebuilt_panel.CreateRegionSet();
+    auto* old = new RecordingWidget(rebuilt_panel, events, 4);
     const auto reused_region = old->m_region;
-    replacement_panel.AcquireRegionSet(&reused_set);
-    auto* replacement = new RecordingWidget(replacement_panel, events, 5);
+    rebuilt_panel.CreateRegionSet();
+    auto* replacement = new RecordingWidget(rebuilt_panel, events, 5);
     REQUIRE(replacement->m_region == reused_region);
     replacement->SetActive(true);
     delete old;
@@ -181,8 +183,8 @@ TEST_CASE("widget_region_lifetimes")
         auto* victim = replacement;
         victim->on_event = [&, victim] {
             delete victim;
-            replacement_panel.AcquireRegionSet(&reused_set);
-            replacement = new RecordingWidget(replacement_panel, events, 6);
+            rebuilt_panel.CreateRegionSet();
+            replacement = new RecordingWidget(rebuilt_panel, events, 6);
             g_regions[reused_region].flags = W8_REGION_RECTANGLE;
         };
         event.type = reason;
@@ -194,12 +196,11 @@ TEST_CASE("widget_region_lifetimes")
     g_captured_region_index = g_current_region_index = g_hover_region_index = reused_region;
     delete replacement;
     REQUIRE((g_captured_region_index == 0 && g_current_region_index == 0 && g_hover_region_index == 0));
-    REQUIRE(replacement_panel.ControlCount() == 0);
+    REQUIRE(rebuilt_panel.ControlCount() == 0);
     REQUIRE(DispatchControlRegionEvent(&event, &g_regions[reused_region]) == 0);
 
     Controls hover_panel;
-    unsigned hover_set = 0;
-    hover_panel.AcquireRegionSet(&hover_set);
+    hover_panel.CreateRegionSet();
     auto* outgoing = new RecordingWidget(hover_panel, events, 7);
     auto* incoming = new RecordingWidget(hover_panel, events, 8);
     incoming->SetBounds(40, 0, 60, 20);
@@ -218,7 +219,7 @@ TEST_CASE("widget_region_lifetimes")
     // old binding and must leave the replacement's transition flags alone.
     outgoing->on_event = [&] {
         delete outgoing;
-        hover_panel.AcquireRegionSet(&hover_set);
+        hover_panel.CreateRegionSet();
         outgoing = new RecordingWidget(hover_panel, events, 9);
         outgoing->SetActive(true);
         g_regions[outgoing_region].flags |= W8_REGION_MOUSE_ENTER;

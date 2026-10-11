@@ -224,8 +224,6 @@ extern W8Character* g_review_character;
 extern W8Character* g_camp_identifying_character; /* gpIdentifyingPC */
 extern W8Character* g_camp_character;
 extern bool g_camp_character_pending;
-extern unsigned int g_camp_item_region_set;
-extern unsigned int g_camp_spell_region_sets[6];
 
 /* Panel controls owned by the camp screen, created by
    CreateCampSecondaryPanel, CreateCampActionPanel and
@@ -241,7 +239,6 @@ extern std::unique_ptr<Controls> g_camp_action_panel;
 extern W8TextControl* g_camp_action_buttons[2];
 extern W8TextControl* g_camp_item_filter_buttons[7];
 extern std::unique_ptr<Controls> g_camp_item_filter_panel;
-extern unsigned int g_camp_secondary_region_set;
 /* One g_localized_strings id per primary attribute row; defined in
    ReviewCharacterScreen.cpp, drawn by RCSStatsPage.cpp's stats page. */
 extern int g_attribute_label_ids[7];

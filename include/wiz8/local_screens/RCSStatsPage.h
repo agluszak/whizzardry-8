@@ -44,6 +44,7 @@ public:
     virtual ~W8CampStatsControls();
     virtual void OnPrimary(W8TextControl* control) override;
     W8TextControl* m_buttons[3];
+    OwnedRegion m_wheel_region;
 };
 
 /* Camp page-1 renderer - attributes, traits and the effect list trigger. */
@@ -62,6 +63,4 @@ void CreateCampSkillRegions(void);
 void DisableCampSkillRegions(void);
 unsigned char CampSkillListRegionHandler(const InputEvent* event, W8Region* region);
 
-extern unsigned int g_camp_stats_range_region_set;
-extern unsigned int g_camp_stats_controls_region_set;
 extern ScreenRegionSet g_camp_skill_regions;

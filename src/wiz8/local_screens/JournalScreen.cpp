@@ -61,8 +61,6 @@ Palette16 g_journal_font_palette;
 W8JournalPanel* g_journal_panel;
 // GLOBAL: WIZ8 0x0069C4E4
 std::vector<W8JournalEntry> g_journal_entries;
-// GLOBAL: WIZ8 0x0069C4DC
-unsigned int g_journal_region_set;
 // GLOBAL: WIZ8 0x0068de40
 std::vector<W8JournalEntry> g_fact_journal_entries;
 
@@ -278,14 +276,14 @@ void W8JournalPanel::Refresh()
 // class W8JournalPanel
 
 // FUNCTION: WIZ8 0x005bd530
-W8JournalPanel::W8JournalPanel(unsigned int* region_set)
+W8JournalPanel::W8JournalPanel()
     : Controls(0x66, 0x1bb, 0, 0, CatalogArtwork::Load(0xf3, 0), 0), m_next(0), m_previous(0), m_close(0), m_mode(0),
       m_page_text(0), m_alternate_mode(0)
 {
     short width;
     short height;
 
-    AcquireRegionSet(region_set);
+    CreateRegionSet();
     const SDL_Point _catalog_size_4 = CatalogArtwork::Load(0xf3, 0).size(0);
         width = _catalog_size_4.x;
         height = _catalog_size_4.y;;
@@ -400,7 +398,7 @@ unsigned char JournalScreenEnter(void)
     SetPrimarySurfaceTextureHint2Enabled(false);
     ResetRegions();
     UpdateHeldItemCursor();
-    g_journal_panel = new W8JournalPanel(&g_journal_region_set);
+    g_journal_panel = new W8JournalPanel();
 
     switch (g_settings.difficulty) {
     case W8_DIFFICULTY_NOVICE:

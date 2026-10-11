@@ -68,8 +68,7 @@ class W8MainGameScreen;
 class W8MainGameTextKeyHandler : public W8Widget, public W8RangeListener {
 public:
     W8MainGameTextKeyHandler(Controls* panel, int left, int top, int right, int bottom,
-                             int line_count, const unsigned short* line_string_ids,
-                             unsigned int* region_set);
+                             int line_count, const unsigned short* line_string_ids);
     virtual void Redraw(bool full_redraw) override;
     virtual void OnMouseLeave(int event) override;
     virtual void OnMouseMove(int event) override;

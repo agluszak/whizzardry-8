@@ -168,12 +168,11 @@ private:
 };
 
 std::unique_ptr<Controls> main_menu_controls;
-unsigned int main_menu_region_set;
 
 void CreateMainMenuControls()
 {
     main_menu_controls = std::make_unique<Controls>();
-    main_menu_controls->AcquireRegionSet(&main_menu_region_set);
+    main_menu_controls->CreateRegionSet();
     for (short item = 0; item < static_cast<short>(main_menu_item_bounds.size()); ++item) {
         main_menu_controls->AdoptControl(
             std::make_unique<MainMenuItemWidget>(item, main_menu_item_bounds[item]));

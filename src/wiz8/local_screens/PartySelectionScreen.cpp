@@ -82,14 +82,8 @@ struct W8PartySelectionCharacterCollection {
 // GLOBAL: WIZ8 0x0069C4EC
 W8PartySelectionCharacterCollection* g_party_selection_character_collection;
 
-// GLOBAL: WIZ8 0x0069C4F0
-unsigned int g_party_selection_character_region_set;
 
-// GLOBAL: WIZ8 0x0069C4F4
-unsigned int g_party_selection_party_slot_region_set;
 
-// GLOBAL: WIZ8 0x0069C4F8
-unsigned int g_party_selection_character_grid_region_set;
 
 /* Imported characters not installed in the active party are owned here. Name
    strings are separately owned by the second vector. Clearing the counts
@@ -722,7 +716,7 @@ void W8PartySelectionCharacterPanel::SynchronizeVisibleSelection()
 W8PartySelectionCharacterPanel::W8PartySelectionCharacterPanel()
     : Controls(), m_range(0), m_selected_row(0)
 {
-    AcquireRegionSet(&g_party_selection_character_region_set);
+    CreateRegionSet();
     m_bounds.left = 0x148;
     m_bounds.top = 0x31;
 
@@ -895,7 +889,7 @@ void W8PartySelectionPartySlotPanel::OnSelectionChanged(W8ControlSelection*, int
 // FUNCTION: WIZ8 0x005bf520
 W8PartySelectionPartySlotPanel::W8PartySelectionPartySlotPanel() : Controls()
 {
-    AcquireRegionSet(&g_party_selection_party_slot_region_set);
+    CreateRegionSet();
     for (int row = 0; row < 6; ++row) {
         m_control.AddEntry(new W8PartySelectionPartySlotRow(this, row));
     }
@@ -910,7 +904,7 @@ W8PartySelectionPartySlotPanel::W8PartySelectionPartySlotPanel() : Controls()
 // FUNCTION: WIZ8 0x005bf6d0
 W8PartySelectionCharacterGridPanel::W8PartySelectionCharacterGridPanel() : Controls()
 {
-    AcquireRegionSet(&g_party_selection_character_grid_region_set);
+    CreateRegionSet();
     for (int index = 0; index < 6; ++index) {
         int left = (index & 1) ? 0x21d : 0x52;
         int top = (index / 2) * 0x82 + 0x6c;
@@ -1021,17 +1015,7 @@ void W8PartySelectionCharacterSummaryPanel::Redraw()
     DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x115, 0x151}, fmt::format("{:d}", character->carrying_capacity / 10));
 }
 
-// GLOBAL: WIZ8 0x0069C4FC
-unsigned int g_party_selection_option_region_set;
 
-// GLOBAL: WIZ8 0x0069C500
-unsigned int g_party_selection_range_region_set;
-// GLOBAL: WIZ8 0x0069C504
-unsigned int g_party_selection_left_action_region_set;
-// GLOBAL: WIZ8 0x0069C508
-unsigned int g_party_selection_bottom_action_region_set;
-// GLOBAL: WIZ8 0x0069C50C
-unsigned int g_party_selection_import_list_region_set;
 
 /* Build the three mutually selected difficulty controls and the two
    independent toggles used by the later creation modes.  The entry vector is
@@ -1040,7 +1024,7 @@ unsigned int g_party_selection_import_list_region_set;
 W8PartySelectionOptionPanel::W8PartySelectionOptionPanel()
     : Controls(0x78, 0x28, 0, 0, CatalogArtwork::Load(0x102, 0), 0), m_options(), m_entries()
 {
-    AcquireRegionSet(&g_party_selection_option_region_set);
+    CreateRegionSet();
 
     short width;
     short height;
@@ -1226,7 +1210,7 @@ void W8PartySelectionOptionPanel::SetOptionPanelMode(W8PartyCreationPage page)
 // FUNCTION: WIZ8 0x005c0f30
 void W8PartySelectionController::Setup()
 {
-    m_range = new W8RangeControl(0x1e9, 0x31, 0x1fb, 0x12b, &g_party_selection_range_region_set);
+    m_range = new W8RangeControl(0x1e9, 0x31, 0x1fb, 0x12b);
     m_character_panel = new W8PartySelectionCharacterPanel;
     m_control0 = new W8PartySelectionCharacterGridPanel;
     m_control1 = new W8PartySelectionPartySlotPanel;
@@ -1240,7 +1224,7 @@ void W8PartySelectionController::Setup()
     }
 
     m_left_panel = new Controls(0x145, 0x137, 0, 0, std::nullopt, -1);
-    m_left_panel->AcquireRegionSet(&g_party_selection_left_action_region_set);
+    m_left_panel->CreateRegionSet();
     m_create_button =
         new W8TextControl(m_left_panel, 0xffffffff, 0, 0, 0, 0, CatalogArtwork::Load(0xfe, 0), 0, 2, 1, 2, 3);
     m_create_button->m_textBuffer.SetText(g_localized_strings[0x6c5], g_wiz_text_bold_font);
@@ -1261,12 +1245,12 @@ void W8PartySelectionController::Setup()
     m_review_button->m_listener = this;
 
     m_import_panel = new Controls(0x148, 0x31, 0, 0, std::nullopt, -1);
-    m_import_panel->AcquireRegionSet(&g_party_selection_import_list_region_set);
+    m_import_panel->CreateRegionSet();
     m_list = new W8PartySelectionListControl(m_import_panel, 0xffffffff, 0, 0, 0x9d, 0xfa);
     m_list->m_listener = this;
 
     m_bottom_panel = new Controls(0x84, 0x1b5, 0, 0, std::nullopt, -1);
-    m_bottom_panel->AcquireRegionSet(&g_party_selection_bottom_action_region_set);
+    m_bottom_panel->CreateRegionSet();
     m_back_button =
         new W8TextControl(m_bottom_panel, 0xffffffff, 0x14c, 0, 0, 0, CatalogArtwork::Load(0x106, 0), 4, 6, 5, 6, 7);
     m_back_button->EnableRegionHelp(0x6ca);

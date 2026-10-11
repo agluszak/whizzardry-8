@@ -24,10 +24,6 @@
 #include "local_code/HealthStaminaMana.h"
 #include "local_code/TextBuffer.h"
 
-// GLOBAL: WIZ8 0x0069c534
-static unsigned int g_character_spells_region_set;
-// GLOBAL: WIZ8 0x0069c538
-static unsigned int g_character_spell_list_region_sets[6];
 
 // GLOBAL: WIZ8 0x00648c90
 W8SpellRealmAnimation g_spell_realm_animations[6] = {{486, 22, 3}, {487, 18, 8},  {488, 14, 8},
@@ -39,8 +35,7 @@ W8SpellRealmAnimation g_spell_realm_animations[6] = {{486, 22, 3}, {487, 18, 8},
 // VTABLE: WIZ8 0x005ef610 W8RangeListener
 class W8CharacterSpellList : public W8Widget, public W8RangeListener {
 public:
-    W8CharacterSpellList(Controls* owner, int x, int y, W8CharacterSpellEntry* entries,
-                         unsigned int* region_set);
+    W8CharacterSpellList(Controls* owner, int x, int y, W8CharacterSpellEntry* entries);
     virtual ~W8CharacterSpellList() override;
     virtual void Redraw(bool force) override;
     virtual void OnMouseEnter(int event) override;
@@ -65,16 +60,15 @@ public:
     int m_hovered_entry;
     int m_scroll_offset;
     W8CharacterSpellListListener* m_listener;
-    unsigned int* m_region_set;
     int m_x;
     int m_y;
 };
 
 W8CharacterSpellList::W8CharacterSpellList(Controls* owner, int x, int y,
-                                           W8CharacterSpellEntry* entries, unsigned int* region_set)
+                                           W8CharacterSpellEntry* entries)
     : W8Widget(owner, 0xffffffff, x + 0x1a, y + 0x19, x + 0xb4, y + 0x79), m_range(0),
       m_entries(entries), m_hovered_entry(-1), m_scroll_offset(0), m_listener(0),
-      m_region_set(region_set), m_x(x), m_y(y)
+      m_x(x), m_y(y)
 {
 }
 
@@ -91,7 +85,7 @@ void W8CharacterSpellList::SetEntryCount(int count)
         m_range = new W8RangeControl(m_pPanel->m_bounds.left + m_x + 0xb8,
                                      m_pPanel->m_bounds.top + m_y + 0x1a,
                                      m_pPanel->m_bounds.left + m_x + 0xca,
-                                     m_pPanel->m_bounds.top + m_y + 0x78, m_region_set);
+                                     m_pPanel->m_bounds.top + m_y + 0x78);
         m_range->m_listener = this;
     }
     m_range->Invalidate(0);
@@ -240,11 +234,11 @@ void W8CharacterSpellsPage::SetCharacter(W8Character* character,
                                          W8CharacterCreationState* creation_state, int mode)
 {
     W8CharacterPage::SetCharacter(character, creation_state, mode);
-    AcquireRegionSet(&g_character_spells_region_set);
+    CreateRegionSet();
     for (int realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
         m_realms[realm] =
             new W8CharacterSpellList(this, (realm % 2) * 215 + 13, (realm / 2) * 130 + 8,
-                                     m_SpellData, &g_character_spell_list_region_sets[realm]);
+                                     m_SpellData);
         m_realms[realm]->m_listener = this;
     }
 }

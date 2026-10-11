@@ -145,7 +145,7 @@ public:
     W8CharacterStatsRow();
     virtual void OnPrimary(W8TextControl* control) override;
     virtual void OnSecondary(W8TextControl* control) override;
-    void Initialize(Controls* owner, unsigned int* region_set, int x, int y, int count,
+    void Initialize(Controls* owner, int x, int y, int count,
                     const W8CharacterStatsRecord* table,
                     const W8CharacterStatsRecord* default_record, int help_first, int help_second,
                     int help_value);
@@ -161,7 +161,6 @@ public:
     unsigned char pad_00a[2];
     int m_x;
     int m_y;
-    unsigned int* m_region_set;
     const W8CharacterStatsRecord* m_table;
     W8TextControl* m_decrement;
     W8TextControl* m_increment;
@@ -312,7 +311,6 @@ W8CharacterStatsPage* CreateCharacterStatsPage();
 W8CharacterSpellsPage* CreateCharacterSpellsPage();
 W8CharacterSkillsPage* CreateCharacterSkillsPage();
 W8CharacterPersonalityPage* CreateCharacterPersonalityPage();
-extern unsigned int g_character_page4_region_set;
 
 /* Realm animation records shared by the stats page's resistance icons and the
    spells page's realm list. The stats page reads only initial_frame, through
@@ -341,9 +339,6 @@ extern unsigned short g_gender_name_message_rows[4][4];
 /* One message id per final-page personality slot; the array's terminating zero
    keeps its ten-entry extent. */
 extern unsigned short g_personality_message_ids[10];
-
-/* Page and per-row region sets. */
-extern unsigned int g_character_stats_region_set;
 
 /* Skill-availability bookkeeping raised by RefreshCharacterSkillAvailability while the character
    screen is open: adjust the named page-2 entry and refresh that page. */

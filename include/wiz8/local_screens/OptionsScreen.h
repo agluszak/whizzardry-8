@@ -156,7 +156,7 @@ public:
 // VTABLE: WIZ8 0x005eefa8
 class W8OptionsPanel : public Controls {
 public:
-    W8OptionsPanel(int region_index);
+    W8OptionsPanel();
     virtual ~W8OptionsPanel();
     virtual void Redraw() override;
     virtual void Populate() = 0;
@@ -362,7 +362,7 @@ public:
 // VTABLE: WIZ8 0x005eefe4 W8TextControl::Listener
 class W8OptionsMenuSet : public Controls, public W8TextControl::Listener {
 public:
-    W8OptionsMenuSet(unsigned int* shared_region_set);
+    W8OptionsMenuSet();
     virtual ~W8OptionsMenuSet();
     virtual void Redraw() override;
     virtual void OnPrimary(W8TextControl* control) override;
@@ -417,8 +417,6 @@ extern std::string g_options_last_save_name;
 void SetLastSaveName(std::string_view target);
 std::string_view GetLastSaveName(void);
 
-unsigned char OptionsScreenInitialize(void);
 unsigned char OptionsScreenEnter(void);
 void OptionsScreenFrame(void);
 unsigned char OptionsScreenLeave(int leaving);
-unsigned char OptionsScreenFinalize(void);

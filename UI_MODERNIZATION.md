@@ -19,7 +19,10 @@ will still need to render the game's original graphics and text.
   the main game and camp both drive them while the other is suspended.
 - **Controls / W8Widget / W8TextControl**: already owns child controls through
   unique_ptr and routes region events into virtual widget methods. It backs
-  game panels and many screens.
+  game panels and many screens. A panel that needs hit testing creates its own
+  region set (`Controls::CreateRegionSet`) and destroys it with the panel; the
+  retail per-panel global set slots are gone, and a widget's region moves with
+  it when it is reparented.
 - **W8DialogBase / W8ButtonWidget**: dialog buttons are `W8Widget`s
   (`local_code/ButtonWidget.h`); a button's region is an `OwnedRegion` member
   and modal dispatch reaches it through the ordinary widget hooks. The
@@ -38,7 +41,6 @@ will still need to render the game's original graphics and text.
 - SDL events are normalized exactly once. Widgets receive mouse, keyboard,
   wheel and text input through the same dispatch. Rendering is separate.
 - Asset decoding and sprite/text rendering stay usable as ordinary resources.
-  The W8DialogButton-to-W8Widget migration remains.
 - Preserve the original 640x480 game-space coordinates and visual appearance.
   Avoid bolting on a new adapter or adding another parallel control class.
 

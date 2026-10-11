@@ -56,9 +56,6 @@
 #include "mgs_commands.h"
 #include "surrender/srPixelConvert.h"
 
-// GLOBAL: WIZ8 0x0069C130
-static unsigned int* g_options_panel_region_sets;
-
 
 
 /* Shared zero-initialized wide string: binary-wide DATA references read it as
@@ -80,10 +77,6 @@ std::string g_options_last_save_name;
 // GLOBAL: WIZ8 0x0064d72c
 static int g_last_options_panel = 5;
 
-// GLOBAL: WIZ8 0x0069c24c
-static unsigned int g_options_menu_region_set;
-// GLOBAL: WIZ8 0x0069c250
-static unsigned int g_options_page_region_set;
 
 // GLOBAL: WIZ8 0x0064d0b8
 static W8OptionsMenuRow g_options_menu_rows[8] = {
@@ -214,30 +207,30 @@ W8OptionsPanelSet::~W8OptionsPanelSet() = default;
    identical to W8TextControl's table except slot 0, which holds the generated
    deleting destructor 0x005A76B0 wrapping the emitted destructor 0x005A76D0. */
 
-W8OptionsGamePanel::W8OptionsGamePanel() : W8OptionsPanel(0) {}
+W8OptionsGamePanel::W8OptionsGamePanel() : W8OptionsPanel() {}
 
-W8OptionsMousePanel::W8OptionsMousePanel() : W8OptionsPanel(1) {}
+W8OptionsMousePanel::W8OptionsMousePanel() : W8OptionsPanel() {}
 
-W8OptionsInterfacePanel::W8OptionsInterfacePanel() : W8OptionsPanel(2) {}
+W8OptionsInterfacePanel::W8OptionsInterfacePanel() : W8OptionsPanel() {}
 
-W8OptionsAudioPanel::W8OptionsAudioPanel() : W8OptionsPanel(3) {}
+W8OptionsAudioPanel::W8OptionsAudioPanel() : W8OptionsPanel() {}
 
-W8OptionsGraphicsPanel::W8OptionsGraphicsPanel() : W8OptionsPanel(4) {}
+W8OptionsGraphicsPanel::W8OptionsGraphicsPanel() : W8OptionsPanel() {}
 
-W8OptionsAdvancedGraphicsPanel::W8OptionsAdvancedGraphicsPanel() : W8OptionsPanel(5) {}
+W8OptionsAdvancedGraphicsPanel::W8OptionsAdvancedGraphicsPanel() : W8OptionsPanel() {}
 
 W8OptionsKeyboardPanel::W8OptionsKeyboardPanel(int panel)
-    : W8OptionsPanel(panel), m_panel(panel), m_captured_button(0)
+    : W8OptionsPanel(), m_panel(panel), m_captured_button(0)
 {
 }
-W8OptionsSaveLoadPanel::W8OptionsSaveLoadPanel(int panel) : W8OptionsPanel(panel), m_panel(panel)
+W8OptionsSaveLoadPanel::W8OptionsSaveLoadPanel(int panel) : W8OptionsPanel(), m_panel(panel)
 {
     m_background = CatalogArtwork::Load(0xf7);
     m_backgroundImage = 0;
 }
 
 W8OptionsUnavailablePanel::W8OptionsUnavailablePanel(int message)
-    : W8OptionsPanel(13), m_message(message)
+    : W8OptionsPanel(), m_message(message)
 {
 }
 
@@ -1275,7 +1268,7 @@ void W8OptionsScreen::CreateControls()
 {
     m_controls = new Controls();
     m_menu_selection = new W8ControlSelection();
-    m_controls->AcquireRegionSet(&g_options_menu_region_set);
+    m_controls->CreateRegionSet();
     for (int index = 0; index < 8; ++index) {
         W8OptionsMenuButton* button =
             new W8OptionsMenuButton(m_controls, &g_options_menu_rows[index]);
@@ -1296,7 +1289,7 @@ void W8OptionsScreen::CreateControls()
     m_controls->SetEnabled(true);
     m_controls->EnableRegionSet(true);
     m_controls->Invalidate(0);
-    m_menu_set = new W8OptionsMenuSet(&g_options_page_region_set);
+    m_menu_set = new W8OptionsMenuSet();
     m_menu_set->SetEnabled(true);
     m_menu_set->EnableRegionSet(true);
 }
@@ -1743,12 +1736,12 @@ void W8OptionsMenuSet::Redraw()
 }
 
 /* The shared panel base sizes itself from the chrome sprite of its render
-   target and registers one region-set row per concrete panel index. */
+   target and owns one region set per concrete panel. */
 // FUNCTION: WIZ8 0x005a81e0
-W8OptionsPanel::W8OptionsPanel(int region_index)
+W8OptionsPanel::W8OptionsPanel()
     : Controls(0x104, 0, 0, 0, CatalogArtwork::Load(0xee, 0), 1), m_current(0), m_content_top(0x18)
 {
-    AcquireRegionSet(g_options_panel_region_sets + region_index);
+    CreateRegionSet();
 
     short width;
     short height;
@@ -1764,10 +1757,10 @@ W8OptionsPanel::W8OptionsPanel(int region_index)
    and registered with the listener subobject, and the page text starts as the
    shared empty wide-string global until UpdateMenuSet fills it. */
 // FUNCTION: WIZ8 0x005a8c90
-W8OptionsMenuSet::W8OptionsMenuSet(unsigned int* shared_region_set)
+W8OptionsMenuSet::W8OptionsMenuSet()
     : Controls(0x11b, 0x1a8, 0, 0, CatalogArtwork::Load(0xf3, 0), 0), m_pMenuSet(0)
 {
-    AcquireRegionSet(shared_region_set);
+    CreateRegionSet();
 
     short width;
     short height;
@@ -1942,28 +1935,6 @@ unsigned char OptionsScreenLeave(int)
     g_options_screen = 0;
     NoOp();
     ResetRegions();
-    return 1;
-}
-
-// FUNCTION: WIZ8 0x005a9b00
-unsigned char OptionsScreenInitialize(void)
-{
-    if (!g_options_panel_region_sets) {
-        g_options_panel_region_sets = new unsigned int[14];
-        memset(g_options_panel_region_sets, 0, 0x38);
-    }
-    return 1;
-}
-
-/* The finalizer half of the pair above, and the fifth dword of lifecycle record
-   10 - which is what establishes that the record's last slot is the finalizer
-   rather than a second initializer: record 10's first slot allocates this exact
-   block and its fifth releases it. The release is unguarded and leaves the
-   pointer set, so it relies on running once at shutdown. */
-// FUNCTION: WIZ8 0x005a9b30
-unsigned char OptionsScreenFinalize(void)
-{
-    delete[] g_options_panel_region_sets;
     return 1;
 }
 

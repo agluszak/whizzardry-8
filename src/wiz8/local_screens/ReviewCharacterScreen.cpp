@@ -126,8 +126,6 @@ W8Character* g_camp_identifying_character; /* gpIdentifyingPC */
 W8Character* g_camp_character;
 // GLOBAL: WIZ8 0x0069c104
 bool g_camp_character_pending;
-// GLOBAL: WIZ8 0x0069c108
-unsigned int g_camp_item_region_set;
 // GLOBAL: WIZ8 0x0069c10c
 w8_ulong g_fade_tick_base;
 // GLOBAL: WIZ8 0x0069c110
@@ -146,10 +144,6 @@ wiz8::sound::Playback g_ending_sound;
 bool g_ending_screen;
 // GLOBAL: WIZ8 0x0069c129
 bool g_ending_autosave;
-// GLOBAL: WIZ8 0x0069c40c
-unsigned int g_camp_spell_region_sets[6];
-// GLOBAL: WIZ8 0x0069c408
-unsigned int g_camp_character_info_region_set;
 
 void DrawCampCharacterInfo(void);
 void DrawCampBackpackItems(void);
@@ -1029,7 +1023,7 @@ void DrawCampItemQuantity(W8ItemInstance* item, int left, int top, int width)
 W8CampCharacterInfo::W8CampCharacterInfo()
     : Controls(0x136, 0, 0x280, 0xa5, CatalogArtwork::Load(0x122, 0), 0)
 {
-    AcquireRegionSet(&g_camp_character_info_region_set);
+    CreateRegionSet();
     m_combat_view = true;
     m_stats_tab = new W8TextControl(this, -1, 8, 0x8b, 0, 0, CatalogArtwork::Load(0x121, 0), 15, 16, 17, 19, 18);
     m_stats_tab->m_listener = this;
@@ -1254,7 +1248,7 @@ void W8CampCharacterInfo::Redraw()
 
 W8CampItemRange::W8CampItemRange()
 {
-    m_range = new W8RangeControl(0x263, 0xc1, 0x275, 0x1a1, &g_camp_item_region_set);
+    m_range = new W8RangeControl(0x263, 0xc1, 0x275, 0x1a1);
     m_range->SetEnabled(true);
     m_range->m_listener = this;
 }
@@ -1276,8 +1270,7 @@ W8CampSpellRange::W8CampSpellRange(W8SpellRealm realm)
     m_realm = realm;
     int x = (realm % 3) * 0xd5;
     int y = (realm / 3) * 0x8c;
-    m_range = new W8RangeControl(x + 0xbb, y + 0xc3, x + 0xcd, y + 0x129,
-                                 &g_camp_spell_region_sets[realm]);
+    m_range = new W8RangeControl(x + 0xbb, y + 0xc3, x + 0xcd, y + 0x129);
     m_range->m_listener = this;
     m_range->SetEnabled(true);
 }

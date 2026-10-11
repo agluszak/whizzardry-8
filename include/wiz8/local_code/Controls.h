@@ -53,8 +53,8 @@ struct Controls {
     int m_backgroundImage;
     W8ControlsRect m_dirtyRect;
     bool m_fWholeAreaDirty; /* set when a caller passes no rectangle */
-    unsigned int m_uiRegionSetId;
-
+    /* The region set this panel's widgets register in; 0 until CreateRegionSet. */
+    unsigned int RegionSet() const { return m_regionSet; }
     void EnableRegionSet(bool enable);
     void AdoptControl(std::unique_ptr<W8Widget> control);
     [[nodiscard]] std::unique_ptr<W8Widget> TakeControl(W8Widget* control);
@@ -62,7 +62,8 @@ struct Controls {
     void DestroyAllControls();
     void InvalidateLayout();
     void SetBounds(int left, int top, int right, int bottom);
-    void AcquireRegionSet(unsigned int* shared_region_set);
+    /* Creates the panel's own region set, or empties it so the panel can repopulate it. */
+    void CreateRegionSet();
 
     /* Non-owning view of a child; event dispatch does not use this index. */
     inline W8Widget* ControlAt(int index) { return m_controls[index].get(); }
@@ -70,6 +71,7 @@ struct Controls {
   private:
     friend class W8Widget;
     std::vector<std::unique_ptr<W8Widget>> m_controls;
+    unsigned int m_regionSet = 0;
 
   protected:
     void RedrawChildren(bool full_redraw)

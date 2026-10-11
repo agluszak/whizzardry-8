@@ -100,7 +100,6 @@
 #include "wiz8/local_code/Controls.h"
 #include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/local_screens/MainMenuScreen.h"
-#include "wiz8/local_screens/PartySelectionScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "catch2/catch_message.hpp"
 #include "conditions.h"
@@ -160,13 +159,18 @@ bool RegionLive(unsigned region)
     return false;
 }
 
-int RegionInSet(unsigned set, int help_text_id)
+int LiveRegionAt(int x, int y)
 {
-    if (!set || set >= g_region_sets.size() || !g_region_sets[set].enabled)
-        return -1;
-    for (auto region : g_region_sets[set].Regions())
-        if ((help_text_id < 0 || g_regions[region].help_text_id == help_text_id) &&
-            RegionLive(region))
+    for (unsigned region = 1; region < g_regions.size(); ++region)
+        if (RegionLive(region) && RegionContainsPoint(region, x, y))
+            return int(region);
+    return -1;
+}
+
+int LiveRegionWithHelp(int help_text_id)
+{
+    for (unsigned region = 1; region < g_regions.size(); ++region)
+        if (RegionLive(region) && g_regions[region].help_text_id == help_text_id)
             return int(region);
     return -1;
 }
@@ -547,17 +551,19 @@ void SpendPool(Game& game, const char* step, int page_index, const bool& complet
 
 /* Main menu -> party selection -> character screen -> saved character back on
    party selection. Returns the saved character's file name. */
+/* "Create Character" is the first control of the party selection screen's left
+   action panel at (0x145, 0x137). */
+constexpr SDL_Point kCreateCharacterButton{0x145 + 8, 0x137 + 8};
+
 std::string CreateCharacter(Game& game)
 {
     ReachMainMenu(game);
     game.click("new-game", MainMenuRegion(1));
     game.wait("party-selection", [&] {
         return g_current_screen_state.id == W8_SCREEN_PARTY_SELECTION && game.settled() &&
-               RegionInSet(g_party_selection_left_action_region_set, -1) >= 0;
+               LiveRegionAt(kCreateCharacterButton.x, kCreateCharacterButton.y) >= 0;
     });
-
-    // "Create Character" is the first control of the left action panel.
-    game.click("create-character", RegionInSet(g_party_selection_left_action_region_set, -1));
+    game.click("create-character", LiveRegionAt(kCreateCharacterButton.x, kCreateCharacterButton.y));
     game.wait("character-screen", [&] {
         return g_current_screen_state.id == W8_SCREEN_CHARACTER && game.settled() && StatsPage() &&
                g_character_screen->m_page_index == 0;
@@ -620,7 +626,7 @@ void StartGame(Game& game)
                         game.settled();
          ++press)
     {
-        game.click("start", RegionInSet(g_party_selection_bottom_action_region_set, 0x6cb));
+        game.click("start", LiveRegionWithHelp(0x6cb));
         if (InputSinkCaptured())
             game.key(SDLK_RETURN);
     }

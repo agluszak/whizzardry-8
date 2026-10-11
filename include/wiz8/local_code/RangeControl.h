@@ -47,7 +47,7 @@ class W8RangeControl : public Controls {
 public:
     friend class W8VerticalRangeThumb;
 
-    W8RangeControl(int left, int top, int right, int bottom, unsigned int* shared_region_set);
+    W8RangeControl(int left, int top, int right, int bottom);
     ~W8RangeControl();
 
     void SetRange(int first, int second);
