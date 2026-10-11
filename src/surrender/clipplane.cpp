@@ -95,12 +95,6 @@ void srClipPlane::setClipPlane(const glm::vec4& plane)
     clip_plane_ = plane;
 }
 
-// FUNCTION: SURRENDER 0x1004A0F0
-void srClipPlane::getClipPlane(glm::vec4& plane) const
-{
-    plane = clip_plane_;
-}
-
 // FUNCTION: SURRENDER 0x1004A120
 glm::vec4 srClipPlane::getClipPlane() const
 {

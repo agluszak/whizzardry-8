@@ -8,7 +8,7 @@
 #include <memory>
 #include <array>
 #include <optional>
-#include <string>
+#include <string_view>
 #include <vector>
 #include <span>
 #include <cstddef>
@@ -29,13 +29,6 @@
 #define BUFFER_16BPP 0x2
 
 // Defines for image charactoristics
-#define IMAGE_COMPRESSED 0x0001
-#define IMAGE_TRLECOMPRESSED 0x0002
-#define IMAGE_PALETTE 0x0004
-#define IMAGE_BITMAPDATA 0x0008
-#define IMAGE_APPDATA 0x0010
-#define IMAGE_ALLIMAGEDATA 0x000C
-#define IMAGE_ALLDATA 0x001C
 
 // Palette structure, mimics that of Win32
 typedef struct tagSGPPaletteEntry {
@@ -83,19 +76,18 @@ using Palette8 = std::array<SGPPaletteEntry, 256>;
 using Palette16 = std::array<UINT16, 256>;
 
 // Image header structure
-typedef struct {
+struct image_type {
     UINT16 usWidth;
     UINT16 usHeight;
     UINT8 ubBitDepth;
-    UINT16 fFlags;
-    std::string ImageFile;
+    bool compressed = false;
+    bool etrle = false;
     std::optional<Palette8> pPalette;
     std::optional<Palette16> pui16BPPPalette;
-    std::vector<UINT8> pAppData;
     std::vector<UINT8> pImageData;
     std::vector<ETRLEObject> pETRLEObject;
 
-} image_type, *HIMAGE;
+};
 
 #define SGPGetRValue(rgb) ((BYTE)(rgb))
 #define SGPGetBValue(rgb) ((BYTE)((rgb) >> 16))
@@ -111,12 +103,8 @@ typedef struct {
 // basename extension selects STI or SDL_image PCX/TGA/JPEG; extensionless names
 // default to PCX without changing the caller's path. Ordinary images are tight,
 // top-down INDEX8 + palettes, packed RGB555 (16-bit TGA), or RGB24.
-// Returns NULL on failure without retaining image allocations.
-std::unique_ptr<image_type> CreateImage(const char* ImageFile, UINT16 fContents);
-
-// This function will attept to Load data from an existing image object's filename
-// In this way, dynamic loading of image data can be done
-bool LoadImageData(HIMAGE hImage, UINT16 fContents);
+// Returns no image on failure.
+std::optional<image_type> LoadImage(std::string_view filename);
 
 bool CopyImageToBuffer(const image_type& image, UINT32 buffer_type, std::span<UINT8> destination,
                        std::size_t dest_width, std::size_t dest_height, std::size_t x, std::size_t y,

@@ -1,3 +1,4 @@
+#include <optional>
 #include <vector>
 
 #include "random.h"
@@ -189,7 +190,7 @@ bool CanPartyMove(void)
    bonus at all. Each contributing slot adds ten steps per point of power,
    adjusted by the enchantment's percentage. */
 // FUNCTION: WIZ8 0x004f0010
-unsigned char GetPartyHasteSteps(unsigned int* out_steps)
+std::optional<unsigned int> GetPartyHasteSteps()
 {
     unsigned int total = 0;
     unsigned int count = 0;
@@ -207,7 +208,7 @@ unsigned char GetPartyHasteSteps(unsigned int* out_steps)
             continue;
         }
         if (character->enchantments[W8_ENCHANTMENT_HASTE].turns == 0) {
-            return 0;
+            return std::nullopt;
         }
         steps =
             static_cast<unsigned char>(character->enchantments[W8_ENCHANTMENT_HASTE].power * 10);
@@ -215,10 +216,7 @@ unsigned char GetPartyHasteSteps(unsigned int* out_steps)
         total += steps;
         ++count;
     }
-    if (out_steps != 0) {
-        *out_steps = total / count;
-    }
-    return 1;
+    return count == 0 ? std::nullopt : std::optional<unsigned int>(total / count);
 }
 
 /* How fast the party moves. The second combat mode is half again as fast, and
@@ -227,13 +225,11 @@ unsigned char GetPartyHasteSteps(unsigned int* out_steps)
 float GetPartyMovementSpeed(void)
 {
     float speed = 1.0f;
-    unsigned int steps;
-
     if (g_combat_state->uiCurrentPartyAction == W8_PARTY_ACTION_RUN) {
         speed = 1.5f;
     }
-    if (GetPartyHasteSteps(&steps)) {
-        return (steps * g_movement_speed_step + speed) * g_float_ten_thousand;
+    if (const auto steps = GetPartyHasteSteps()) {
+        return (*steps * g_movement_speed_step + speed) * g_float_ten_thousand;
     }
     return speed * g_float_ten_thousand;
 }

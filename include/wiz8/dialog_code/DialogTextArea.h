@@ -2,6 +2,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <vector>
 #include <string>
 #include <string_view>
@@ -37,11 +38,11 @@ public:
     void SetLineHeight(unsigned int height);
     bool SelectEntry(int index);
     bool ClearSelection();
-    bool CopyEntryText(unsigned int index, std::string& output);
+    std::optional<std::string_view> GetEntryText(unsigned int index) const;
     unsigned int HitTestEntry(int x, int y);
     bool UpdateSelectionFromPoint(int x, int y);
     bool ClearPointSelection();
-    bool CopyVisibleEntryText(unsigned int index, std::string& output);
+    std::optional<std::string_view> GetVisibleEntryText(unsigned int index) const;
     bool HighlightVisibleEntry(int index);
     bool ClearEntryHighlight();
     W8DialogTextEntry* GetEntry(unsigned int index);

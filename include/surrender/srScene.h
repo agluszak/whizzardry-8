@@ -35,7 +35,7 @@ public:
     void enable(e_enable option);
     glm::vec3 getAmbientLight() const;
     glm::vec3 getFogColor() const;
-    void getStatistics(Statistics& statistics);
+    Statistics getStatistics() const;
     int isEnabled(e_enable option) const;
     void render(srGERD& renderer, class srCamera* camera);
     void resetStatistics();

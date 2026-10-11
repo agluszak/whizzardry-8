@@ -2,6 +2,8 @@
 
 #include <array>
 #include <memory>
+#include <optional>
+#include <utility>
 #include <vector>
 #include "srMaterialIFace.h"
 #include "srMath.h"
@@ -91,7 +93,7 @@ public:
     w8_ulong getTriangleCount() const;
     void setTriangleCount(w8_ulong triangles);
     w8_ulong addTriangle(const Triangle& triangle);
-    int getTriangle(w8_ulong index, Triangle& triangle);
+    std::optional<Triangle> getTriangle(w8_ulong index) const;
     void setTriangle(w8_ulong index, const Triangle& triangle);
     void setTriangleVertex(w8_ulong triangle, w8_ulong vertex, const Vertex& value);
     void flipTriangle(w8_ulong triangle);
@@ -109,11 +111,8 @@ public:
     void move(w8_ulong triangle, const glm::vec3& delta);
     void rotate(const glm::mat3& matrix);
     void rotate(w8_ulong triangle, const glm::mat3& matrix);
-    int findVertex(const glm::vec3& position, w8_ulong& triangle, w8_ulong& vertex,
-                   w8_ulong start_triangle);
-    void findClosestVertex(const glm::vec3& position, w8_ulong& triangle, w8_ulong& vertex);
     double getMaxVertexDist();
-    void getAxialBounds(e_axis axis, float& minimum, float& maximum);
+    std::optional<std::pair<float, float>> getAxialBounds(e_axis axis) const;
 
     w8_long getPassCount() const;
     void setPassCount(w8_long passes);
