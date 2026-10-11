@@ -1,5 +1,7 @@
 #pragma once
 
+#include <utility>
+
 #include "srNode.h"
 
 class srGERD;
@@ -38,8 +40,8 @@ public:
     double getAspectRatio() const;
     void setClipRange(double near_plane, double far_plane);
     void getClipRange(double& near_plane, double& far_plane) const;
-    void getEnvironmentRange(float& near_range, float& far_range) const;
-    void getEnvironmentScale(float& near_scale, float& far_scale) const;
+    std::pair<float, float> getEnvironmentRange() const;
+    std::pair<float, float> getEnvironmentScale() const;
     double getHorizontalFOV() const;
     void getNormalizedViewPlane(Rect& rectangle) const;
     e_project getProjectionType() const;
