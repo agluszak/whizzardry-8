@@ -351,8 +351,7 @@ void stMeshModel::RenderTriMeshWithEquations(srGERD& renderer, const TriMesh& me
 
             g_software_cull_active_polygons.resize(mesh.polygon_count);
 
-            glm::mat4 inverse_model_view;
-            renderer.getInverseModelViewMatrix(inverse_model_view);
+            const auto inverse_model_view = renderer.getInverseModelViewMatrix();
             srVector3T<float> eye(inverse_model_view[3][0], inverse_model_view[3][1],
                                   inverse_model_view[3][2]);
 
