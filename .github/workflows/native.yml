@@ -5,6 +5,10 @@ on:
     branches: [main]
   pull_request:
 
+concurrency:
+  group: native-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   native:
     strategy:
@@ -58,19 +62,40 @@ jobs:
           path: ${{ env.CCACHE_DIR }}
           key: linux-ccache-${{ matrix.preset }}-${{ github.run_id }}
           restore-keys: |
-            linux-ccache-
+            linux-ccache-${{ matrix.preset }}-
       - name: Reset compiler cache statistics
         run: ccache --zero-stats
       - name: Configure
-        run: cmake --preset ${{ matrix.preset }} -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=clang-21 -DCMAKE_CXX_COMPILER=clang++-21 -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+        run: |
+          build_type=Debug
+          if [[ "${{ matrix.preset }}" == "linux-asan" ]]; then
+            build_type=RelWithDebInfo
+          fi
+          cmake --preset "${{ matrix.preset }}" \
+            -DCMAKE_BUILD_TYPE="$build_type" \
+            -DCMAKE_C_COMPILER=clang-21 -DCMAKE_CXX_COMPILER=clang++-21 \
+            -DCMAKE_C_FLAGS_DEBUG="-O0 -g1" \
+            -DCMAKE_CXX_FLAGS_DEBUG="-O0 -g1" \
+            -DWIZ8_SURRENDER_UNITY_BUILD=ON \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
       - name: Build native game and fixtures
         run: cmake --build --preset ${{ matrix.preset }} --parallel "$(nproc)"
+      # Include-cleaner must analyze direct includes, not headers supplied by
+      # the game's PCH. Keep unity off here so every source is checked.
+      - name: Configure include-hygiene database
+        if: matrix.preset == 'linux'
+        run: |
+          cmake --preset linux -B build/linux-tidy \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_C_COMPILER=clang-21 -DCMAKE_CXX_COMPILER=clang++-21 \
+            -DWIZ8_PRECOMPILE_HEADERS=OFF -DWIZ8_SURRENDER_UNITY_BUILD=OFF
+          cmake --build build/linux-tidy --target surrender_shader_headers
       - name: Check first-party include hygiene
         if: matrix.preset == 'linux'
         env:
           CLANG_TIDY: clang-tidy-21
           RUN_CLANG_TIDY: run-clang-tidy-21
-        run: ./tools/run-clang-tidy.sh build/linux
+        run: ./tools/run-clang-tidy.sh build/linux-tidy
       # The canonical GOG installer is stored in the decomp project's private
       # wiz8-ci-inputs release. Never put decrypted game files in Actions cache.
       - name: Check access to licensed game assets
@@ -158,7 +183,7 @@ jobs:
             # allocations retain their real roots. Project leak checks stay on.
             export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libvulkan_lvp.so
           fi
-          ctest --preset ${{ matrix.preset }} --output-on-failure
+          ctest --preset ${{ matrix.preset }} --output-on-failure --parallel "$(nproc)"
 
       - name: Remove decrypted game assets
         if: always() && steps.game-assets.outputs.enabled == 'true'

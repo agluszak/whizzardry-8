@@ -240,3 +240,16 @@ else()
 endif()
 
 target_include_directories(WIZ8_GAME_CORE PUBLIC "${PROJECT_SOURCE_DIR}/src/sgp")
+
+if(WIZ8_PRECOMPILE_HEADERS)
+    target_precompile_headers(WIZ8_GAME_CORE PRIVATE
+        "$<$<COMPILE_LANGUAGE:CXX>:${PROJECT_SOURCE_DIR}/src/wiz8/pch.h>")
+endif()
+if(WIZ8_UNITY_BUILD)
+    # These files define identical file-local navigator constants; combining them
+    # in a unity source would introduce a duplicate definition.
+    set_source_files_properties(engine_code/OctPreTree.cpp
+        PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
+    set_target_properties(WIZ8_GAME_CORE PROPERTIES
+        UNITY_BUILD ON UNITY_BUILD_BATCH_SIZE ${WIZ8_UNITY_BATCH_SIZE})
+endif()
