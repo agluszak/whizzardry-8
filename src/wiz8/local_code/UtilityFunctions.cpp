@@ -19,13 +19,13 @@
 #include "wiz8/engine_code/Video2.h"
 #include "Button System.h"
 #include "input.h"
+#include "wiz8/regions.h"
 #include "random.h"
 #include "wiz8/layouts/game_status.h"
 #include "Font.h"
 #include "compat/native.h"
 #include "conditions.h"
 #include "dice.h"
-#include "mousesystem.h"
 #include "vobject.h"
 
 // GLOBAL: WIZ8 0x0068c0a4
@@ -599,7 +599,7 @@ void CloseMessageBox(void)
 
 static void InvalidateMessageBoxButton(const GUIButton& button, INT32 reason)
 {
-    if (reason & (MSYS_CALLBACK_REASON_GAIN_MOUSE | MSYS_CALLBACK_REASON_LOST_MOUSE)) {
+    if (reason & (BUTTON_REASON_GAIN_MOUSE | BUTTON_REASON_LOST_MOUSE)) {
         SDL_Rect rect;
         GetButtonArea(button, &rect);
         InvalidateRegion(rect.x, rect.y, (rect.x + rect.w), (rect.y + rect.h), 1);
@@ -608,9 +608,9 @@ static void InvalidateMessageBoxButton(const GUIButton& button, INT32 reason)
 
 static void ClickMessageBoxButton(GUI_BUTTON* button, INT32 reason, bool accepted)
 {
-    if (reason & MSYS_CALLBACK_REASON_LBUTTON_DWN) {
+    if (reason & BUTTON_REASON_LBUTTON_DWN) {
         button->uiFlags |= BUTTON_CLICKED_ON;
-    } else if (reason & MSYS_CALLBACK_REASON_LBUTTON_UP) {
+    } else if (reason & BUTTON_REASON_LBUTTON_UP) {
         if (button->uiFlags & BUTTON_CLICKED_ON) {
             g_message_box_state = 1;
             g_message_box_accepted = accepted;
@@ -678,16 +678,18 @@ void ProcessMessageBoxInput(void)
 {
     SDL_Point point;
     InputAtom input;
+    ExclusiveRegionSet button_scope(ButtonRegionSetIndex());
     SGPMouseGetPos(&point);
-    DispatchMouseEvent(MOUSE_POS, point.x, point.y, gfLeftButtonState, gfRightButtonState);
+    UpdateRegionMousePosition(point.x, point.y);
     while (DequeueEvent(&input) == 1) {
         switch (input.usEvent) {
         case LEFT_BUTTON_DOWN:
         case LEFT_BUTTON_UP:
+        case LEFT_BUTTON_REPEAT:
         case RIGHT_BUTTON_DOWN:
         case RIGHT_BUTTON_UP:
-            DispatchMouseEvent(input.usEvent, point.x, point.y, gfLeftButtonState,
-                                        gfRightButtonState);
+        case RIGHT_BUTTON_REPEAT:
+            DispatchRegionInput(&input);
             break;
         case KEY_DOWN:
             switch (toupper(input.usParam)) {

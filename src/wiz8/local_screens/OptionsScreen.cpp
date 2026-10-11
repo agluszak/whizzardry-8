@@ -12,7 +12,6 @@
 #include "wiz8/containers.h"
 #include "soundman.h"
 #include "Font.h"
-#include "mousesystem.h"
 #include "wiz8/engine_code/Quality.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/local_code/ControlsRect.h"
@@ -1052,7 +1051,6 @@ void W8OptionsInterfacePanel::Populate()
 void W8OptionsInterfacePanel::OnDragEnd(W8HorizontalRangeThumb* thumb)
 {
     g_settings.tooltip_delay_ms = static_cast<int>(thumb->m_position);
-    SetFastHelpDelay(static_cast<short>(g_settings.tooltip_delay_ms));
     SetRegionHelpDelay(0);
 }
 
@@ -1420,7 +1418,6 @@ unsigned char W8OptionsScreen::ProcessInput(const InputAtom* input)
             m_text_editor = 0;
             return 1;
         }
-        DispatchMainGameMouseButtons(input);
     } else if (m_key_capture != 0 && input->usEvent == KEY_DOWN) {
         return m_key_capture->OnKey(static_cast<unsigned short>(input->usParam), input->usKeyState);
     }
@@ -1960,7 +1957,6 @@ unsigned char OptionsScreenLeave(int)
     }
     g_options_screen = 0;
     NoOp();
-    MSYS_Shutdown();
     ResetRegions();
     return 1;
 }
@@ -1997,7 +1993,6 @@ unsigned char OptionsScreenEnter()
 
     SetViewport(0, 0, 0x280, 0x1e0);
     SetPrimarySurfaceTextureHint2Enabled(false);
-    MSYS_Init();
     ResetRegions();
     UpdateHeldItemCursor();
     g_wiz_text_font_secondary.resetPalette();
@@ -2053,9 +2048,7 @@ void OptionsScreenFrame()
     W8OptionsScreen* screen = g_options_screen;
     if (screen->m_text_editor != 0) {
         SGPMouseGetPos(&current);
-        DispatchMouseEvent(MOUSE_POS, static_cast<unsigned short>(current.x),
-                                    static_cast<unsigned short>(current.y), gfLeftButtonState,
-                                    gfRightButtonState);
+        UpdateRegionMousePosition(current.x, current.y);
         screen = g_options_screen;
     }
 

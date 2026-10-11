@@ -7,7 +7,6 @@
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/sr_api.h"
 #include "Font.h"
-#include "mousesystem.h"
 #include "Button System.h"
 #include "Types.h"
 #include "Video2.h"
@@ -25,7 +24,7 @@
 void W8ListBoxDialog::TextAreaButtonCallback(GUI_BUTTON* button, INT32 reason)
 {
     W8ListBoxDialog* dialog = GetButtonUserDataPointer<W8ListBoxDialog>(button);
-    if (reason & MSYS_CALLBACK_REASON_LBUTTON_DWN) {
+    if (reason & BUTTON_REASON_LBUTTON_DWN) {
         if (dialog == 0) {
             srAssertFail("pDialog", "C:\\Projects\\Wizardry 8\\Dialog Code\\stListBox.cpp", 0x2f5,
                          0);
@@ -58,7 +57,7 @@ void W8ListBoxDialog::UpButtonCallback(GUI_BUTTON* button, INT32 reason)
     if (dialog == 0) {
         srAssertFail("pDialog", "C:\\Projects\\Wizardry 8\\Dialog Code\\stListBox.cpp", 0x305, 0);
     }
-    if (reason & MSYS_CALLBACK_REASON_LBUTTON_DWN) {
+    if (reason & BUTTON_REASON_LBUTTON_DWN) {
         dialog->SetCurrentLine(dialog->m_selected_line - 1);
     }
     if (UpdateDialogArrowState(button, reason)) {
@@ -73,7 +72,7 @@ void W8ListBoxDialog::DownButtonCallback(GUI_BUTTON* button, INT32 reason)
     if (dialog == 0) {
         srAssertFail("pDialog", "C:\\Projects\\Wizardry 8\\Dialog Code\\stListBox.cpp", 0x32a, 0);
     }
-    if (reason & MSYS_CALLBACK_REASON_LBUTTON_DWN) {
+    if (reason & BUTTON_REASON_LBUTTON_DWN) {
         dialog->SetCurrentLine(dialog->m_selected_line + 1);
     }
     if (UpdateDialogArrowState(button, reason)) {
@@ -88,8 +87,8 @@ void W8ListBoxDialog::OkButtonCallback(GUI_BUTTON* button, INT32 reason)
     if (dialog == 0) {
         srAssertFail("pDialog", "C:\\Projects\\Wizardry 8\\Dialog Code\\stListBox.cpp", 0x34c, 0);
     }
-    if (!(reason & MSYS_CALLBACK_REASON_LBUTTON_DWN) &&
-        (reason & MSYS_CALLBACK_REASON_LBUTTON_UP)) {
+    if (!(reason & BUTTON_REASON_LBUTTON_DWN) &&
+        (reason & BUTTON_REASON_LBUTTON_UP)) {
         if (button->uiFlags & BUTTON_CLICKED_ON) {
             dialog->m_keep_open = false;
             button->uiFlags &= ~BUTTON_CLICKED_ON;
@@ -107,8 +106,8 @@ void W8ListBoxDialog::CancelButtonCallback(GUI_BUTTON* button, INT32 reason)
     if (dialog == 0) {
         srAssertFail("pDialog", "C:\\Projects\\Wizardry 8\\Dialog Code\\stListBox.cpp", 0x36f, 0);
     }
-    if (!(reason & MSYS_CALLBACK_REASON_LBUTTON_DWN) &&
-        (reason & MSYS_CALLBACK_REASON_LBUTTON_UP)) {
+    if (!(reason & BUTTON_REASON_LBUTTON_DWN) &&
+        (reason & BUTTON_REASON_LBUTTON_UP)) {
         if (button->uiFlags & BUTTON_CLICKED_ON) {
             dialog->m_keep_open = false;
             dialog->SetCurrentLine(-1);
@@ -124,7 +123,7 @@ void W8ListBoxDialog::CancelButtonCallback(GUI_BUTTON* button, INT32 reason)
 void W8ListBoxDialog::SliderTrackButtonCallback(GUI_BUTTON* button, INT32 reason)
 {
     W8ListBoxDialog* dialog = GetButtonUserDataPointer<W8ListBoxDialog>(button);
-    if (reason & MSYS_CALLBACK_REASON_LBUTTON_DWN) {
+    if (reason & BUTTON_REASON_LBUTTON_DWN) {
         if (dialog == 0) {
             srAssertFail("pDialog", "C:\\Projects\\Wizardry 8\\Dialog Code\\stListBox.cpp", 0x398,
                          0);

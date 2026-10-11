@@ -42,7 +42,6 @@
 #include "wiz8/fonts.h"
 #include "wiz8/video_object_catalog.h"
 #include "input.h"
-#include "mousesystem.h"
 #include "Font.h"
 #include "wiz8/filesystem.h"
 #include "dialog_code/DialogBase.h"
@@ -713,7 +712,6 @@ unsigned char CharacterScreenEnter(void)
 {
     SetViewport(0, 0, 0x280, 0x1e0);
     SetPrimarySurfaceTextureHint2Enabled(false);
-    MSYS_Init();
     ResetRegions();
     UpdateHeldItemCursor();
     g_wiz_text_font_secondary.resetPalette();
@@ -744,7 +742,6 @@ unsigned char CharacterScreenLeave(int leaving)
         g_character_screen = 0;
     }
     NoOp();
-    MSYS_Shutdown();
     ResetRegions();
     return 1;
 }
@@ -756,9 +753,6 @@ void CharacterScreenFrame(void)
     InputAtom input;
     SGPMouseGetPos(&point);
     g_character_screen->UpdateDialog();
-    DispatchMouseEvent(MOUSE_POS, static_cast<unsigned short>(point.x),
-                                static_cast<unsigned short>(point.y), gfLeftButtonState,
-                                gfRightButtonState);
     UpdateRegionMousePosition(point.x, point.y);
     while (DequeueEvent(&input) == 1) {
         W8CharacterScreen* screen = g_character_screen;

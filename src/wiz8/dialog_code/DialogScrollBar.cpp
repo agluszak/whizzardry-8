@@ -8,7 +8,6 @@
 #include "wiz8/dialog_code/ButtonUserData.h"
 #include "Video2.h"
 #include "local_code/ControlsRect.h"
-#include "mousesystem.h"
 
 /* Reconstructed logical owner; original translation-unit identity is unproven.
    Live query: 0x005E0C40 sits in the gap after StatInfoDialogs.cpp (upper
@@ -30,19 +29,19 @@ bool W8DialogScrollBar::CreateControls(const Resources* resources)
     up_image = ButtonGraphics::Load(resources->arrows_path, 3, 0, 1, 2, 2);
     if (up_image) {
         up_button =
-            QuickCreateButton(up_image, 0, 0, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST - 1,
+            QuickCreateButton(up_image, 0, 0, BUTTON_NO_TOGGLE, BUTTON_PRIORITY_HIGHEST - 1,
                               UpButtonCallback, UpButtonCallback);
     }
     down_image = ButtonGraphics::Load(resources->arrows_path, 11, 8, 9, 10, 10);
     if (down_image) {
         down_button =
-            QuickCreateButton(down_image, 0, 0, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST - 1,
+            QuickCreateButton(down_image, 0, 0, BUTTON_NO_TOGGLE, BUTTON_PRIORITY_HIGHEST - 1,
                               DownButtonCallback, DownButtonCallback);
     }
     thumb_image = ButtonGraphics::Load(resources->arrows_path, 7, 4, 5, 6, 6);
     if (thumb_image) {
         thumb_button =
-            QuickCreateButton(thumb_image, 0, 0, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST - 2,
+            QuickCreateButton(thumb_image, 0, 0, BUTTON_NO_TOGGLE, BUTTON_PRIORITY_HIGHEST - 2,
                               BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
     }
     track_image = ButtonGraphics::Load(resources->track_path, BUTTON_NO_IMAGE,
@@ -50,7 +49,7 @@ bool W8DialogScrollBar::CreateControls(const Resources* resources)
                                     BUTTON_NO_IMAGE);
     if (track_image) {
         track_button =
-            QuickCreateButton(track_image, 0, 0, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST - 2,
+            QuickCreateButton(track_image, 0, 0, BUTTON_NO_TOGGLE, BUTTON_PRIORITY_HIGHEST - 2,
                               TrackButtonCallback, TrackButtonCallback);
     }
     if (track_button && thumb_button && down_button && up_button) {
@@ -210,7 +209,7 @@ void W8DialogScrollBar::UpButtonCallback(GUI_BUTTON* button, INT32 reason)
 {
     W8DialogScrollBar* bar = GetButtonUserDataPointer<W8DialogScrollBar>(button);
     if (bar) {
-        if (reason & MSYS_CALLBACK_REASON_LBUTTON_DWN) {
+        if (reason & BUTTON_REASON_LBUTTON_DWN) {
             bar->ScrollUp();
         }
         if (UpdateDialogArrowState(button, reason)) {
@@ -224,7 +223,7 @@ void W8DialogScrollBar::DownButtonCallback(GUI_BUTTON* button, INT32 reason)
 {
     W8DialogScrollBar* bar = GetButtonUserDataPointer<W8DialogScrollBar>(button);
     if (bar) {
-        if (reason & MSYS_CALLBACK_REASON_LBUTTON_DWN) {
+        if (reason & BUTTON_REASON_LBUTTON_DWN) {
             bar->ScrollDown();
         }
         if (UpdateDialogArrowState(button, reason)) {
@@ -237,7 +236,7 @@ void W8DialogScrollBar::DownButtonCallback(GUI_BUTTON* button, INT32 reason)
 void W8DialogScrollBar::TrackButtonCallback(GUI_BUTTON* button, INT32 reason)
 {
     W8DialogScrollBar* bar = GetButtonUserDataPointer<W8DialogScrollBar>(button);
-    if (bar && (reason & MSYS_CALLBACK_REASON_LBUTTON_DWN)) {
+    if (bar && (reason & BUTTON_REASON_LBUTTON_DWN)) {
         bar->ScrollToMouse();
     }
 }

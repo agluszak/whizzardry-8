@@ -16,11 +16,11 @@
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/text_input.h"
 #include "input.h"
-#include "mousesystem.h"
 #include "Font.h"
 #include "Types.h"
 #include "dialog_code/DialogBase.h"
 #include "dialog_code/DialogButton.h"
+#include "Button System.h"
 #include "local_code/ControlsRect.h"
 #include "npc_script_file.h"
 
@@ -201,9 +201,10 @@ bool W8NpcDialog::ProcessInput()
 {
     SDL_Point mouse;
     InputAtom input;
+    ExclusiveRegionSet button_scope(ButtonRegionSetIndex());
 
     SGPMouseGetPos(&mouse);
-    DispatchMouseEvent(MOUSE_POS, mouse.x, mouse.y, gfLeftButtonState, gfRightButtonState);
+    UpdateRegionMousePosition(mouse.x, mouse.y);
     while (DequeueEvent(&input) == TRUE) {
         if ((input.usEvent != KEY_DOWN && input.usEvent != KEY_REPEAT) ||
             static_cast<char>(HandleTextInput(&input)) == 0) {
@@ -213,7 +214,7 @@ bool W8NpcDialog::ProcessInput()
                 g_npc_dialog->m_keep_open = false;
                 return true;
             }
-            DispatchDialogMouseInput(input.usEvent, mouse.x, mouse.y);
+            DispatchRegionInput(&input);
         }
     }
     return m_keep_open;

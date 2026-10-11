@@ -8,27 +8,8 @@
 #include "wiz8/engine_code/Video2.h"
 #include "input.h"
 #include "Types.h"
-#include "mousesystem.h"
-
-/* Standard dialog button events: held left clicks repeat the press. Numeric
-   dialogs forward their distinct repeat events before using this dispatcher. */
-inline bool DispatchDialogMouseInput(unsigned short event, unsigned short x, unsigned short y)
-{
-    switch (event) {
-    case LEFT_BUTTON_REPEAT:
-        event = LEFT_BUTTON_DOWN;
-        break;
-    case LEFT_BUTTON_DOWN:
-    case LEFT_BUTTON_UP:
-    case RIGHT_BUTTON_DOWN:
-    case RIGHT_BUTTON_UP:
-        break;
-    default:
-        return false;
-    }
-    DispatchMouseEvent(event, x, y, gfLeftButtonState, gfRightButtonState);
-    return true;
-}
+#include "Button System.h"
+#include "wiz8/regions.h"
 
 /* Numeric split dialogs release the active field before forwarding button-up,
    and forward repeat events unchanged. The field reference remains live across
@@ -39,17 +20,17 @@ void ProcessNumericDialogInputEvents(Dialog* dialog, Field*& active_field,
 {
     SDL_Point mouse;
     InputAtom input;
+    ExclusiveRegionSet button_scope(ButtonRegionSetIndex());
 
     SGPMouseGetPos(&mouse);
-    DispatchMouseEvent(MOUSE_POS, mouse.x, mouse.y, gfLeftButtonState, gfRightButtonState);
+    UpdateRegionMousePosition(mouse.x, mouse.y);
     while (DequeueEvent(&input) == 1) {
         if (input.usEvent == LEFT_BUTTON_UP && active_field != 0) {
             active_field->SetActive(false);
         }
         if (input.usEvent == LEFT_BUTTON_REPEAT || input.usEvent == RIGHT_BUTTON_REPEAT) {
-            DispatchMouseEvent(input.usEvent, mouse.x, mouse.y, gfLeftButtonState,
-                                        gfRightButtonState);
-        } else if (!DispatchDialogMouseInput(input.usEvent, mouse.x, mouse.y)) {
+            DispatchRegionInput(&input);
+        } else if (!DispatchRegionInput(&input)) {
             (dialog->*handle_event)(&input);
         }
     }

@@ -33,7 +33,6 @@
 #include "english.h"
 #include "Font.h"
 #include "himage.h"
-#include "mousesystem.h"
 #include "vsurface.h"
 #include "dialog_code/DialogBase.h"
 #include "vobject.h"
@@ -203,7 +202,6 @@ unsigned char MainMenuScreenEnter(void)
     short measured;
 
     ResetVideoFrameState();
-    MSYS_Init();
     g_status.game_started = false;
     g_main_menu_has_save_games = SaveGameExists();
     g_main_menu_redraw = true;
@@ -371,7 +369,6 @@ unsigned char MainMenuScreenLeave(int)
     main_menu_controls.reset();
     ReleaseLoadedVideoFrames();
     ResetRegions();
-    MSYS_Shutdown();
     return 1;
 }
 

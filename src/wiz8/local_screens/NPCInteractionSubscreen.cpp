@@ -70,7 +70,6 @@
 #include "Font.h"
 #include "input.h"
 #include "Types.h"
-#include "mousesystem.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/layouts/character.h"
@@ -4057,9 +4056,7 @@ void DrainNpcDialogueDeferralInput(void)
         return;
     }
     SGPMouseGetPos(&mouse);
-    DispatchMouseEvent(MOUSE_POS, static_cast<unsigned short>(mouse.x),
-                                static_cast<unsigned short>(mouse.y), gfLeftButtonState,
-                                gfRightButtonState);
+    UpdateRegionMousePosition(mouse.x, mouse.y);
     while (DequeueEvent(&input) == 1) {
         if (input.usEvent == KEY_DOWN) {
             if (input.usParam == VK_ESCAPE) {
@@ -4669,7 +4666,7 @@ void ClearMainGameTargetState(void)
 }
 
 /* When the world-cursor gate (world_cursor_gate) is raised, discard queued input
-   after refreshing the mouse-system position so stale events do not fire. */
+   after refreshing the region position so stale events do not fire. */
 // FUNCTION: WIZ8 0x00577560
 void FlushInputWhileWorldCursorGate(void)
 {
@@ -4680,9 +4677,7 @@ void FlushInputWhileWorldCursorGate(void)
         return;
     }
     SGPMouseGetPos(&mouse);
-    DispatchMouseEvent(MOUSE_POS, static_cast<unsigned short>(mouse.x),
-                                static_cast<unsigned short>(mouse.y), gfLeftButtonState,
-                                gfRightButtonState);
+    UpdateRegionMousePosition(mouse.x, mouse.y);
     while (DequeueEvent(&input) == 1) {
     }
 }

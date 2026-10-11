@@ -15,7 +15,6 @@
 #include "wiz8/dialog_code/ButtonUserData.h"
 #include "wiz8/sr_api.h"
 #include "english.h"
-#include "mousesystem.h"
 #include "Button System.h"
 #include "Font.h"
 #include "Video2.h"
@@ -188,20 +187,20 @@ int W8MessageDialogBase::CreateControls()
             return m_error = 3;
         }
     }
-    m_message_button = CreateTextButton({}, *g_dialog_interface_font, g_dialog_font_foreground, g_dialog_font_background, m_edge_image, static_cast<short>(m_x + 9), static_cast<short>(m_y + 9), static_cast<short>(m_width - 0x12), static_cast<short>(m_height - 0x12), BUTTON_NO_TOGGLE | BUTTON_IGNORE_CLICKS, MSYS_PRIORITY_HIGHEST - 1, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
+    m_message_button = CreateTextButton({}, *g_dialog_interface_font, g_dialog_font_foreground, g_dialog_font_background, m_edge_image, static_cast<short>(m_x + 9), static_cast<short>(m_y + 9), static_cast<short>(m_width - 0x12), static_cast<short>(m_height - 0x12), BUTTON_NO_TOGGLE | BUTTON_IGNORE_CLICKS, BUTTON_PRIORITY_HIGHEST - 1, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
 
     m_confirm_image =
         ButtonGraphics::Load("Data\\Dialogs\\DialogConfirmation.STI", 3, 0, 1, 2, 2);
     if (m_confirm_image) {
         m_confirm_button =
-            QuickCreateButton(m_confirm_image, 0, 0, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST,
+            QuickCreateButton(m_confirm_image, 0, 0, BUTTON_NO_TOGGLE, BUTTON_PRIORITY_HIGHEST,
                               MessageDialogConfirmCallback, MessageDialogConfirmCallback);
     }
     m_cancel_image =
         ButtonGraphics::Load("Data\\Dialogs\\DialogConfirmation.STI", 7, 4, 5, 6, 6);
     if (m_cancel_image) {
         m_cancel_button =
-            QuickCreateButton(m_cancel_image, 0, 0, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST,
+            QuickCreateButton(m_cancel_image, 0, 0, BUTTON_NO_TOGGLE, BUTTON_PRIORITY_HIGHEST,
                               MessageDialogCancelCallback, MessageDialogCancelCallback);
     }
     if (m_confirm_button && m_cancel_button) {
@@ -271,12 +270,13 @@ bool W8MessageDialogBase::ProcessInput()
 {
     SDL_Point mouse;
     InputAtom input;
+    ExclusiveRegionSet button_scope(ButtonRegionSetIndex());
 
     SGPMouseGetPos(&mouse);
-    DispatchMouseEvent(MOUSE_POS, mouse.x, mouse.y, gfLeftButtonState, gfRightButtonState);
+    UpdateRegionMousePosition(mouse.x, mouse.y);
 
     while (DequeueEvent(&input)) {
-        if (!DispatchDialogMouseInput(input.usEvent, mouse.x, mouse.y)) {
+        if (!DispatchRegionInput(&input)) {
             return HandleInput(&input);
         }
     }
@@ -291,8 +291,8 @@ static void FinishMessageDialog(GUI_BUTTON* button, int reason, bool accepted)
         srAssertFail("pDialog", "C:\\Projects\\Wizardry 8\\Dialog Code\\stMessageDialog.cpp", 0x267,
                      0);
     }
-    if (!(reason & MSYS_CALLBACK_REASON_LBUTTON_DWN) &&
-        (reason & MSYS_CALLBACK_REASON_LBUTTON_UP)) {
+    if (!(reason & BUTTON_REASON_LBUTTON_DWN) &&
+        (reason & BUTTON_REASON_LBUTTON_UP)) {
         if (button->uiFlags & BUTTON_CLICKED_ON) {
             dialog->accepted = accepted;
             dialog->is_open = false;

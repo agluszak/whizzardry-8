@@ -107,7 +107,6 @@
 #include "input.h"
 #include "timer.h"
 #include "Types.h"
-#include "mousesystem.h"
 #include "surrender/srTypeRegistry.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/local_code/ItemManager.h"
@@ -2889,7 +2888,6 @@ unsigned char MainGameScreenEnter(void)
         LoadMainGameCursorResources();
     }
     gXStatus.level_up_notice = true;
-    MSYS_Init();
     ResetRegions();
     CreateMainGameInterfaceButtons();
     CreateSpellIconHudControls();
@@ -3065,8 +3063,7 @@ unsigned char ProcessMainGameInput(void)
     SDL_Point mouse;
     SGPMouseGetPos(&mouse);
     if (GetForcedRegion() == 0) {
-        DispatchMouseEvent(MOUSE_POS, mouse.x, mouse.y, gfLeftButtonState,
-                                    gfRightButtonState);
+        UpdateRegionMousePosition(mouse.x, mouse.y);
     }
 
     bool handled = false;
@@ -3075,21 +3072,9 @@ unsigned char ProcessMainGameInput(void)
         handled = true;
         if ((!g_mouselook_active || HandleMouselookInput(&input) == 0) &&
             DispatchRegionInput(&input) == 0 && GetForcedRegion() == 0) {
-            SGPMouseGetPos(&mouse);
-            switch (input.usEvent) {
-            case LEFT_BUTTON_DOWN:
-            case LEFT_BUTTON_UP:
-            case RIGHT_BUTTON_DOWN:
-            case RIGHT_BUTTON_UP:
-                DispatchMouseEvent(input.usEvent, mouse.x, mouse.y, gfLeftButtonState,
-                                            gfRightButtonState);
-                break;
-            default:
-                if (HandleDialogueTextInput(&input) == 0 && HandleMainGameInputEvent(&input) == 0) {
-                    ResetMainGameMode();
-                    return 1;
-                }
-                break;
+            if (HandleDialogueTextInput(&input) == 0 && HandleMainGameInputEvent(&input) == 0) {
+                ResetMainGameMode();
+                return 1;
             }
         }
     }
@@ -3480,7 +3465,6 @@ unsigned char MainGameScreenLeave(int leaving)
         ReleaseLoadedVideoFrames();
     }
     NoOp();
-    MSYS_Shutdown();
     ResetRegions();
     g_world_render_enabled = 0;
     g_monster_shadow_updates_enabled = 0;
@@ -7138,25 +7122,6 @@ void LoadMainGameCursorResources(void)
             VideoVObjectToTextureAnim(video_object, static_cast<unsigned short>(frame),
                                       static_cast<unsigned short>(slot->frame_count), true);
         slot->object->animation_mode = W8_TEXTURE_ANIM_MANUAL;
-    }
-}
-
-// FUNCTION: WIZ8 0x00568950
-unsigned int DispatchMainGameMouseButtons(const InputAtom* input)
-{
-    SDL_Point point;
-    SGPMouseGetPos(&point);
-    switch (input->usEvent) {
-    case LEFT_BUTTON_DOWN:
-    case LEFT_BUTTON_UP:
-    case RIGHT_BUTTON_DOWN:
-    case RIGHT_BUTTON_UP:
-        DispatchMouseEvent(input->usEvent, static_cast<unsigned short>(point.x),
-                                    static_cast<unsigned short>(point.y), gfLeftButtonState,
-                                    gfRightButtonState);
-        return 1;
-    default:
-        return 0;
     }
 }
 

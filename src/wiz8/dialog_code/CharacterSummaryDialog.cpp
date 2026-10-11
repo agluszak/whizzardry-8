@@ -15,7 +15,6 @@
 #include "wiz8/xstatus.h"
 #include "input.h"
 #include "english.h"
-#include "mousesystem.h"
 #include "character_event_queue.h"
 #include "compat/native.h"
 #include "dialog_code/DialogBase.h"
@@ -23,6 +22,7 @@
 #include "layouts/combat_state.h"
 #include "layouts/game_status.h"
 #include "local_code/ControlsRect.h"
+#include "Button System.h"
 #include "local_code/MonsterManager.h"
 
 /* The bodies from 0x005E0320 through 0x005E0C30 form one dialog lifecycle
@@ -176,9 +176,10 @@ bool W8CharacterSummaryDialog::ProcessInput()
 {
     SDL_Point mouse;
     InputAtom input;
+    ExclusiveRegionSet button_scope(ButtonRegionSetIndex());
 
     SGPMouseGetPos(&mouse);
-    DispatchMouseEvent(MOUSE_POS, mouse.x, mouse.y, gfLeftButtonState, gfRightButtonState);
+    UpdateRegionMousePosition(mouse.x, mouse.y);
     if (!m_voice_started && m_portrait_clock + 750 < w8_get_ticks()) {
         m_voice_started = true;
         W8Character* character = m_use_original_character ? m_character : g_status.buffers.Char;
@@ -190,7 +191,7 @@ bool W8CharacterSummaryDialog::ProcessInput()
             input.usEvent == RIGHT_BUTTON_DOWN) {
             m_keep_open = false;
         }
-        if (!DispatchDialogMouseInput(input.usEvent, mouse.x, mouse.y)) {
+        if (!DispatchRegionInput(&input)) {
             return HandleInputEvent(&input);
         }
     }

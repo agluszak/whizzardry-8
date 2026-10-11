@@ -1066,7 +1066,6 @@ void W8CharacterPersonalityPage::HandleInput(InputAtom* input)
     if (m_screen->HasDialog())
         return;
     if (input->usEvent != KEY_DOWN && input->usEvent != KEY_REPEAT) {
-        DispatchMainGameMouseButtons(input);
         return;
     }
 

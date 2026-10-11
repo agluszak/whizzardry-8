@@ -10,7 +10,6 @@
 #include "wiz8/video_object_catalog.h"
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "input.h"
-#include "mousesystem.h"
 #include "Button System.h"
 #include "vsurface.h"
 
@@ -20,7 +19,7 @@ int g_live_dialog_count;
 void W8DialogBase::CreateCloseButton(W8DialogButton& button, int left, int top)
 {
     button.Configure("Data\\Dialogs\\popup_confirmationbuttons.sti", 3, 0, 1, 4, 2,
-                     DialogCloseButtonCallback, BUTTON_NO_CALLBACK, false, MSYS_PRIORITY_HIGHEST,
+                     DialogCloseButtonCallback, BUTTON_NO_CALLBACK, false, BUTTON_PRIORITY_HIGHEST,
                      W8_DIALOG_BUTTON_NO_TOOLTIP, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
     button.SetPosition(m_x + left, m_y + top);
     button.m_owner = this;
@@ -169,7 +168,7 @@ int W8DialogBase::CreateControls()
         }
     }
     m_resource =
-        CreateTextButton({}, *m_font, m_foreground, m_background, m_border, static_cast<short>(m_x), static_cast<short>(m_y), static_cast<short>(m_width), static_cast<short>(m_height), BUTTON_NO_TOGGLE | BUTTON_IGNORE_CLICKS, MSYS_PRIORITY_HIGHEST - 2, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
+        CreateTextButton({}, *m_font, m_foreground, m_background, m_border, static_cast<short>(m_x), static_cast<short>(m_y), static_cast<short>(m_width), static_cast<short>(m_height), BUTTON_NO_TOGGLE | BUTTON_IGNORE_CLICKS, BUTTON_PRIORITY_HIGHEST - 2, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
     if (m_resource) {
         SpecifyButtonTextOffsets(m_resource, 3, 3, 1);
         SpecifyButtonMultiColorFont(m_resource, g_dialog_font_enabled);
@@ -201,11 +200,12 @@ bool W8DialogBase::ProcessInput()
 {
     SDL_Point mouse;
     InputAtom input;
+    ExclusiveRegionSet button_scope(ButtonRegionSetIndex());
 
     SGPMouseGetPos(&mouse);
-    DispatchMouseEvent(MOUSE_POS, mouse.x, mouse.y, gfLeftButtonState, gfRightButtonState);
+    UpdateRegionMousePosition(mouse.x, mouse.y);
     while (DequeueEvent(&input)) {
-        if (DispatchDialogMouseInput(input.usEvent, mouse.x, mouse.y)) {
+        if (DispatchRegionInput(&input)) {
             if (input.usEvent == RIGHT_BUTTON_DOWN) {
                 OnRightButtonDown();
             } else if (input.usEvent == RIGHT_BUTTON_UP) {

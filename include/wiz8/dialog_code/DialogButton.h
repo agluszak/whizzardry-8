@@ -3,7 +3,6 @@
 #pragma once
 
 #include "Button System.h"
-#include "mousesystem.h"
 
 /* Update the non-toggle dialog arrow's pressed/hover state. The caller
    retains its action and invalidates only when this operation reports a change. */

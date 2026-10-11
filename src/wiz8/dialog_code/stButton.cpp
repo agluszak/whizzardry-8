@@ -2,6 +2,7 @@
 #include <string_view>
 #include <utility>
 #include <vector>
+#include <SDL3/SDL_rect.h>
 
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/dialog_code/DialogButton.h"
@@ -12,27 +13,24 @@
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/sr_api.h"
 #include "Button System.h"
-#include "input.h"
-#include "mousesystem.h"
+#include "wiz8/regions.h"
 #include "Types.h"
 
 bool UpdateDialogArrowState(GUI_BUTTON* button, INT32 reason)
 {
-    if (reason & MSYS_CALLBACK_REASON_LBUTTON_DWN) {
+    if (reason & BUTTON_REASON_LBUTTON_DWN) {
         if (!(button->uiFlags & BUTTON_CLICKED_ON)) {
             button->uiFlags |= BUTTON_CLICKED_ON;
             return true;
         }
-    } else if (reason & MSYS_CALLBACK_REASON_LBUTTON_UP) {
+    } else if (reason & BUTTON_REASON_LBUTTON_UP) {
         if (button->uiFlags & BUTTON_CLICKED_ON) {
             button->uiFlags &= ~BUTTON_CLICKED_ON;
             return true;
         }
-    } else if (reason & MSYS_CALLBACK_REASON_GAIN_MOUSE) {
-        button->Area.uiFlags |= MSYS_MOUSE_IN_AREA;
+    } else if (reason & BUTTON_REASON_GAIN_MOUSE) {
         return true;
-    } else if (reason & MSYS_CALLBACK_REASON_LOST_MOUSE) {
-        button->Area.uiFlags &= ~MSYS_MOUSE_IN_AREA;
+    } else if (reason & BUTTON_REASON_LOST_MOUSE) {
         return true;
     }
     return false;
@@ -136,15 +134,19 @@ unsigned char W8DialogButton::IsPressed()
 // FUNCTION: WIZ8 0x005db9d0
 void W8DialogButton::SetVisible(bool visible)
 {
+    if (!m_button_handle) return;
+    const bool currently_visible =
+        (g_regions[m_button_handle->region_index].flags & W8_REGION_INPUT_DISABLED) == 0;
     if (visible) {
-        if (!(m_button_handle.get()->Area.uiFlags & MSYS_REGION_ENABLED)) {
+        if (!currently_visible) {
             ShowButton(m_button_handle);
-            DispatchMouseEvent(MOUSE_POS, 0, 0, gfLeftButtonState, gfRightButtonState);
         }
-    } else if (m_button_handle.get()->Area.uiFlags & MSYS_REGION_ENABLED) {
+    } else if (currently_visible) {
         HideButton(m_button_handle);
-        DispatchMouseEvent(MOUSE_POS, 0, 0, gfLeftButtonState, gfRightButtonState);
     }
+    SDL_Point mouse;
+    SGPMouseGetPos(&mouse);
+    UpdateRegionMousePosition(mouse.x, mouse.y);
 }
 
 // FUNCTION: WIZ8 0x005dba70
@@ -152,12 +154,12 @@ void W8DialogButton::SetTooltipEnabled(bool enabled)
 {
     if (enabled) {
         if (m_tooltip_index != W8_DIALOG_BUTTON_NO_TOOLTIP && g_settings.tooltips_enabled) {
-            SetButtonFastHelpText(m_button_handle,
+            SetButtonHelpText(m_button_handle,
 
                                   g_localized_strings[m_tooltip_index]);
         }
     } else {
-        SetButtonFastHelpText(m_button_handle, {});
+        SetButtonHelpText(m_button_handle, {});
     }
 }
 
@@ -167,7 +169,7 @@ void W8DialogButton::SetTooltipIndex(int tooltip_index)
     if (m_button_handle) {
         m_tooltip_index = tooltip_index;
         if (g_settings.tooltips_enabled) {
-            SetButtonFastHelpText(m_button_handle,
+            SetButtonHelpText(m_button_handle,
 
                                   g_localized_strings[tooltip_index]);
         }
@@ -213,12 +215,12 @@ bool W8DialogButton::ConfigureTextButton(std::string_view text, Font& font, shor
                                          int user_data)
 {
     auto handle = CreateTextButton(text, font, fore_color, shadow_color, {},
-                                    x, y, width, height, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST,
+                                    x, y, width, height, BUTTON_NO_TOGGLE, BUTTON_PRIORITY_HIGHEST,
                                     DialogButtonCallback, DialogButtonCallback);
     m_button_handle = handle;
     if (handle) {
         SetButtonUserDataPointer(handle, this);
-        MSYS_SetBtnUserData(m_button_handle, 1, user_data);
+        SetButtonUserData(m_button_handle, 1, user_data);
         m_left_callback = left_callback;
         m_left_toggles = false;
         m_dirty = true;
@@ -251,7 +253,7 @@ bool W8DialogButton::Configure(const char* image_path, int gray_frame, int off_n
     m_left_toggles = left_toggles;
     m_tooltip_index = tooltip_index;
     if (tooltip_index != W8_DIALOG_BUTTON_NO_TOOLTIP && g_settings.tooltips_enabled) {
-        SetButtonFastHelpText(m_button_handle, g_localized_strings[tooltip_index]);
+        SetButtonHelpText(m_button_handle, g_localized_strings[tooltip_index]);
     }
     m_dirty = true;
     return true;
@@ -278,7 +280,7 @@ void DialogButtonCallback(GUI_BUTTON* button, INT32 reason)
     if (self->m_live_dialog_count != g_live_dialog_count) {
         return;
     }
-    if ((reason & MSYS_CALLBACK_REASON_LBUTTON_DOUBLECLICK) != 0 &&
+    if ((reason & BUTTON_REASON_LBUTTON_DOUBLECLICK) != 0 &&
         self->m_double_click_callback != 0) {
         if (self->m_left_toggles && (button->uiFlags & BUTTON_CLICKED_ON) == 0) {
             return;
@@ -286,14 +288,13 @@ void DialogButtonCallback(GUI_BUTTON* button, INT32 reason)
         self->m_double_click_callback(self);
         return;
     }
-    if ((reason & MSYS_CALLBACK_REASON_LBUTTON_DWN) == 0) {
-        if ((reason & MSYS_CALLBACK_REASON_LBUTTON_UP) == 0) {
-            if ((reason & MSYS_CALLBACK_REASON_LBUTTON_REPEAT) == 0) {
-                if ((reason & MSYS_CALLBACK_REASON_RBUTTON_DWN) == 0) {
-                    if ((reason & MSYS_CALLBACK_REASON_RBUTTON_UP) == 0) {
-                        if ((reason & MSYS_CALLBACK_REASON_RBUTTON_REPEAT) == 0) {
-                            if ((reason & MSYS_CALLBACK_REASON_GAIN_MOUSE) != 0) {
-                                button->Area.uiFlags |= MSYS_MOUSE_IN_AREA;
+    if ((reason & BUTTON_REASON_LBUTTON_DWN) == 0) {
+        if ((reason & BUTTON_REASON_LBUTTON_UP) == 0) {
+            if ((reason & BUTTON_REASON_LBUTTON_REPEAT) == 0) {
+                if ((reason & BUTTON_REASON_RBUTTON_DWN) == 0) {
+                    if ((reason & BUTTON_REASON_RBUTTON_UP) == 0) {
+                        if ((reason & BUTTON_REASON_RBUTTON_REPEAT) == 0) {
+                            if ((reason & BUTTON_REASON_GAIN_MOUSE) != 0) {
                                 self->m_dirty = true;
                                 if (self->hover_silent) {
                                     return;
@@ -304,8 +305,7 @@ void DialogButtonCallback(GUI_BUTTON* button, INT32 reason)
                                 PlayButtonSound(0);
                                 return;
                             }
-                            if ((reason & MSYS_CALLBACK_REASON_LOST_MOUSE) != 0) {
-                                button->Area.uiFlags &= ~MSYS_MOUSE_IN_AREA;
+                            if ((reason & BUTTON_REASON_LOST_MOUSE) != 0) {
                                 self->press_armed = false;
                                 self->m_dirty = true;
                                 if (!self->m_left_toggles) {
@@ -320,7 +320,7 @@ void DialogButtonCallback(GUI_BUTTON* button, INT32 reason)
                                 PlayButtonSound(1);
                                 return;
                             }
-                            if ((reason & MSYS_CALLBACK_REASON_MOVE) == 0) {
+                            if ((reason & BUTTON_REASON_MOVE) == 0) {
                                 return;
                             }
                             if (move_callback == 0) {

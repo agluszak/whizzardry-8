@@ -63,9 +63,9 @@
 #include "wiz8/fonts.h"
 #include "wiz8/local_screens/MGSKeyboard.h"
 #include "input.h"
+#include "Button System.h"
 #include "Types.h"
 #include "wiz8/filesystem.h"
-#include "mousesystem.h"
 #include "Font.h"
 #include "vobject.h"
 #include "vobject_blitters.h"
@@ -508,7 +508,7 @@ void CreateAutomapButtons(void)
             g_automap_button_callbacks[index]); // reinterpret-ok: void() vs button*
         if (button->Configure(frame.path.c_str(), base_frame + 3, base_frame, base_frame + 1,
                               base_frame + 2, base_frame + 2, callback, nullptr, false,
-                              MSYS_PRIORITY_HIGHEST, g_automap_button_tooltips[index], nullptr, nullptr)) {
+                              BUTTON_PRIORITY_HIGHEST, g_automap_button_tooltips[index], nullptr, nullptr)) {
             button->SetPosition(g_automap_button_positions[index].x,
                                 g_automap_button_positions[index].y);
         }
@@ -657,7 +657,6 @@ void AutomapExitButton(void)
 unsigned char AutomapScreenEnter(void)
 {
     stScript script;
-    MSYS_Init();
     GetLightDirection(&g_automap_saved_light_direction);
     GetWorldLightValue(g_world, &g_automap_saved_ambient_light);
     GetWorldCameraState(GetWorld(), &g_automap_saved_camera);
@@ -880,28 +879,19 @@ void AutomapScreenFrame(void)
             }
             SDL_Point point;
             SGPMouseGetPos(&point);
-            DispatchMouseEvent(MOUSE_POS, point.x, point.y, gfLeftButtonState,
-                                        gfRightButtonState);
-            unsigned short reason;
+            UpdateRegionMousePosition(point.x, point.y);
             switch (input.usEvent) {
             case LEFT_BUTTON_DOWN:
             case LEFT_BUTTON_REPEAT:
-                reason = LEFT_BUTTON_DOWN;
-                break;
             case LEFT_BUTTON_UP:
-                reason = LEFT_BUTTON_UP;
-                break;
             case RIGHT_BUTTON_DOWN:
-                reason = RIGHT_BUTTON_DOWN;
-                break;
             case RIGHT_BUTTON_UP:
-                reason = RIGHT_BUTTON_UP;
+            case RIGHT_BUTTON_REPEAT:
+                DispatchRegionInput(&input);
                 break;
             default:
                 continue;
             }
-            DispatchMouseEvent(reason, point.x, point.y, gfLeftButtonState,
-                                        gfRightButtonState);
             continue;
         }
         if (!g_automap_cursor_inside) {
@@ -1055,7 +1045,6 @@ unsigned char AutomapScreenLeave(int)
     ClearAutomapMarkers();
     g_automap_party_marker->setParent(0, 1);
     g_automap_buttons.clear();
-    MSYS_Shutdown();
     UpdateHeldItemCursor();
     EnableCursorScene();
     for (unsigned int mesh = 0; mesh < g_world->octree->m_meshCount; ++mesh) {
