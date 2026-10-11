@@ -22,5 +22,3 @@ void ClearNpcMessageQueue(void); /* 0x00524C50 */
 std::string FormatNpcVoiceSoundPath(W8NpcState* npc);
 void BeginNpcScriptDialogue(W8NpcState* npc, unsigned char preserve_state);
 void FinishNpcVoicePlayback(bool resume_script);
-int ComputePortraitMessageDuration(std::string_view text);
-void UpdateNpcDialogueVoiceIdle(void);

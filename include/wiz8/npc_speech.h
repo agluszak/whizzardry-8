@@ -27,6 +27,8 @@ struct W8NpcSpeech {
 bool PlayNpcVoice(W8NpcSpeech& speech, std::string_view path, std::function<void()> on_finished);
 /* Stop a playing voice without running its on_finished and drop its mouth-gap track. */
 void StopNpcVoice(W8NpcSpeech& speech);
+/* How long a line of unvoiced text stays on screen. */
+int ComputePortraitMessageDuration(std::string_view text);
 void HoldNpcSpeech(W8NpcSpeech& speech, unsigned int hold_ms);
 bool IsNpcSpeechHoldOver(const W8NpcSpeech& speech);
 /* Advance the mouth-gap track and open or close the speaker's mouth. */

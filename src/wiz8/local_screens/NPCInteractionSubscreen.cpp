@@ -3668,7 +3668,6 @@ void ClearNpcDialogueTranscript(void)
 unsigned char LoadNpcDialogueTranscript(wiz8::File& file)
 try
 {
-    auto read = [&](auto& value) { return file.read(&value, sizeof(value)).bytes == sizeof(value); };
     unsigned char version;
     int record_count;
     file.read_exact(&version, sizeof(version));

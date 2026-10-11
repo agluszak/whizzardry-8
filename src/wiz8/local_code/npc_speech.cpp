@@ -8,6 +8,7 @@
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/mouth_gap.h"
 #include "wiz8/npc_speech.h"
+#include "wiz8/unicode.h"
 #include "compat/native.h"
 
 bool PlayNpcVoice(W8NpcSpeech& speech, std::string_view path, std::function<void()> on_finished)
@@ -36,6 +37,12 @@ void StopNpcVoice(W8NpcSpeech& speech)
         speech.stopping = false;
     }
     FreeMouthGapTrack(&speech.gap_track);
+}
+
+// FUNCTION: WIZ8 0x00525E60
+int ComputePortraitMessageDuration(std::string_view text)
+{
+    return static_cast<int>(wiz8::text::to_utf16(text).size() * 0x3c + 2000);
 }
 
 void HoldNpcSpeech(W8NpcSpeech& speech, unsigned int hold_ms)

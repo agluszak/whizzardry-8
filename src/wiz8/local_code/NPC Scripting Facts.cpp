@@ -1043,15 +1043,10 @@ void SetFact(W8FactId fact_id, unsigned char value, bool suppress_side_effects)
     }
 }
 
-/* The whole 1001-byte fact array minus its last entry goes to the save file in
-   one write. Retail passes the handle's own dead stack slot as the
-   bytes-written out-parameter; that is VC6 reusing the slot for this local. */
 // FUNCTION: WIZ8 0x00506480
 void SaveFactState(wiz8::File& save_handle)
 {
-    unsigned int bytes_written;
-
-    (save_handle.write(g_fact_values, 1000), bytes_written = 1000, true);
+    save_handle.write(g_fact_values, sizeof(g_fact_values));
 }
 
 /* Clears every fact, then seeds the ones a fresh party starts with. A party

@@ -750,14 +750,15 @@ bool ShouldDeferCharacterEventForNpcScript(bool require_group_entry)
 // FUNCTION: WIZ8 0x00525E50
 bool IsMessageBoxLineQueueEmpty(void) { return g_npc_scripting.message_lines.empty(); }
 
-// FUNCTION: WIZ8 0x00525E60
-int ComputePortraitMessageDuration(std::string_view text)
+static void ShowNpcPortraitMessage(std::string_view text, W8QuoteNotice notice = {})
 {
-    return static_cast<int>(wiz8::text::to_utf16(text).size() * 0x3c + 2000);
+    g_npc_scripting.portrait_message_active = true;
+    SetNpcQuoteBubbleVisible(true, text, 0, -1, -1, std::move(notice), -1);
+    HoldNpcSpeech(g_npc_scripting.speech, ComputePortraitMessageDuration(text));
 }
 
 /* Execute a queued quote entry's deferred effect: switch the dialogue to the
-   named NPC (staging the current session when the target is grouped), hand
+   named NPC (suspending the current session when the target is grouped), hand
    items or gold to the party with the notice bubble and chime, or open the
    modal dialog kinds. The party slot's pending portrait event clears once the
    entry has run. */
@@ -1071,18 +1072,14 @@ void ProcessMessageBoxQueue(void)
         break;
     case W8_NPC_MSG_PORTRAIT_STRING: {
         int string_index = argument;
-        g_npc_scripting.portrait_message_active = true;
-        SetNpcQuoteBubbleVisible(true, g_localized_strings[string_index], 0, -1, -1);
-        HoldNpcSpeech(g_npc_scripting.speech, ComputePortraitMessageDuration(g_localized_strings[string_index]));
+        ShowNpcPortraitMessage(g_localized_strings[string_index]);
         break;
     }
     case W8_NPC_MSG_SKILL_NOTICES: {
         if (g_settings.skill_increase_messages == 0) {
             PostSkillIncreaseNotices(&std::get<W8SkillNoticePayload>(notice->notice));
         } else {
-            g_npc_scripting.portrait_message_active = true;
-            SetNpcQuoteBubbleVisible(true, notice->text, 0, -1, -1, std::move(notice->notice), -1);
-            HoldNpcSpeech(g_npc_scripting.speech, ComputePortraitMessageDuration(notice->text));
+            ShowNpcPortraitMessage(notice->text, std::move(notice->notice));
         }
         break;
     }
@@ -1096,9 +1093,7 @@ void ProcessMessageBoxQueue(void)
         break;
     }
     case W8_NPC_MSG_PORTRAIT_MESSAGE:
-        g_npc_scripting.portrait_message_active = true;
-        SetNpcQuoteBubbleVisible(true, notice->text, 0, -1, -1);
-        HoldNpcSpeech(g_npc_scripting.speech, ComputePortraitMessageDuration(notice->text));
+        ShowNpcPortraitMessage(notice->text);
         break;
     case W8_NPC_MSG_CLEAR_NPC_COMBAT:
         if (g_combat_state != 0) {
@@ -1114,9 +1109,7 @@ void ProcessMessageBoxQueue(void)
         }
         break;
     case W8_NPC_MSG_PORTRAIT_EXTRA:
-        g_npc_scripting.portrait_message_active = true;
-        SetNpcQuoteBubbleVisible(true, notice->text, 0, -1, -1, std::move(notice->notice), -1);
-        HoldNpcSpeech(g_npc_scripting.speech, ComputePortraitMessageDuration(notice->text));
+        ShowNpcPortraitMessage(notice->text, std::move(notice->notice));
         break;
     case W8_NPC_MSG_LEVEL_UP: {
         int party_slot = std::get<W8LevelUpNotice>(notice->notice).party_slot;
@@ -1124,9 +1117,7 @@ void ProcessMessageBoxQueue(void)
         if (g_settings.skill_increase_messages == 0) {
             wiz8::sound::play("Data\\Sound\\Misc\\GainLevel.wav");
         } else {
-            g_npc_scripting.portrait_message_active = true;
-            SetNpcQuoteBubbleVisible(true, notice->text, 0, -1, -1, std::move(notice->notice), -1);
-            HoldNpcSpeech(g_npc_scripting.speech, ComputePortraitMessageDuration(notice->text));
+            ShowNpcPortraitMessage(notice->text, std::move(notice->notice));
         }
         break;
     }
