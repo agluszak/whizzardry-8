@@ -1949,7 +1949,7 @@ bool BlitPartyPortraitAnimation(int portrait, int left, int top, unsigned int fl
             other.top = image_y + top;
             other.right = width + other.left;
             other.bottom = height + other.top;
-            UnionScreenRects(&other, &rect, &rect);
+            rect = UnionScreenRects(other, rect);
         }
         InvalidateScreenRects(&rect, 1, 0);
         state->previous_portrait_pose = state->portrait_pose;
@@ -1984,7 +1984,7 @@ bool BlitPartyPortraitAnimation(int portrait, int left, int top, unsigned int fl
             other.top = image_y + top;
             other.right = width + other.left;
             other.bottom = height + other.top;
-            UnionScreenRects(&other, &rect, &rect);
+            rect = UnionScreenRects(other, rect);
         }
         InvalidateScreenRects(&rect, 1, 0);
         state->previous_portrait_frame = state->portrait_frame;
