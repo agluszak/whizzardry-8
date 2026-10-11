@@ -1149,7 +1149,7 @@ catch (const std::exception&) { return false; }
 bool LoadMonsterGroup(W8Chunk* chunk)
 try
 {
-    auto owner = AllocateZeroed<W8MonsterGroup>();
+    auto owner = std::make_unique<W8MonsterGroup>();
     auto& group = *owner;
     wiz8::retail::read_sized(*chunk, group);
     const bool is_encounter = group.version >= 2 && chunk->ReadValue<unsigned char>() != 0;
@@ -1160,11 +1160,10 @@ try
     if (!record) return false;
     if (record->deleted) return true;
 
-    auto members = std::make_unique<std::vector<int>>();
     auto& list = is_encounter ? gXStatus.encounter_groups : gXStatus.monster_groups;
     list.reserve(list.size() + 1);
-    // The group list owns the group and the group its member list from here on.
-    group.monsters = members.release();
+    // Members re-register as their monster records load.
+    group.monsters.clear();
     group.member_count = 0;
     group.active_member_count = 0;
     group.members_active = false;
@@ -1214,7 +1213,7 @@ try
 
     auto& monsters = unborn ? gXStatus.unborn_monsters : gXStatus.monsters;
     monsters.reserve(monsters.size() + 1);
-    group->monsters->push_back(info.location_id);
+    group->monsters.push_back(info.location_id);
     monsters.push_back(owner.release());
     const auto leader = static_cast<unsigned int>(group->leader_location_id);
     if (leader == WIZ8_DEBUG_UNINITIALIZED_HEAP_PATTERN || leader < static_cast<unsigned int>(info.location_id))

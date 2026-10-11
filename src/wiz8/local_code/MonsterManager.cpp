@@ -142,7 +142,7 @@ W8MonsterInfo* CreateMonsterInfo(W8MonsterGroup* group, W8MonsterRecord* record,
     (record->unborn != 0 ? &gXStatus.unborn_monsters : &gXStatus.monsters)
         ->push_back(monster_info);
 
-    group->monsters->push_back(monster_info->location_id);
+    group->monsters.push_back(monster_info->location_id);
     ++group->member_count;
     ++group->active_member_count;
     RequestRedrawParty();
@@ -1123,7 +1123,7 @@ bool RemoveMonster(unsigned int monster_list_index, bool destroy_monster)
         W8MonsterGroup* monster_group = GetMonsterGroupByListIndex(GetMonsterGroupIndexByID(
             0x125, MONSTER_MANAGER_CPP, monster_info->monster_group_id, true));
 
-        wiz8::erase_first(*monster_group->monsters, monster_info->location_id);
+        wiz8::erase_first(monster_group->monsters, monster_info->location_id);
         --monster_group->member_count;
         RequestRedrawParty();
         if (monster_group->member_count == 0) {

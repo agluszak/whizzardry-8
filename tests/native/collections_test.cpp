@@ -266,12 +266,11 @@ static bool groupMemberLookup()
 {
     W8MonsterGroup group{};
     REQUIRE((group.MemberIds().empty() && group.MemberLocationId(0) == -1));
-    std::vector<int> members{101, 202};
-    group.monsters = &members;
+    group.monsters = {101, 202};
     REQUIRE(group.MemberIds().size() == 2);
     REQUIRE((group.MemberLocationId(0) == 101 && group.MemberLocationId(1) == 202));
     REQUIRE((group.MemberLocationId(2) == -1 && group.MemberLocationId(-1) == -1));
-    members.erase(members.begin());
+    group.monsters.erase(group.monsters.begin());
     REQUIRE(group.MemberLocationId(0) == 202);
     return true;
 }
