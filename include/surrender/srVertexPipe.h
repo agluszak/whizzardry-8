@@ -22,24 +22,25 @@ public:
     struct Record;
 
     struct Input {
-        w8_ulong vertex_count;
-        const w8_ulong* active_vertices;
-        int direct_vertex_indices;
-        const glm::vec3* positions;
-        const glm::vec3* normals;
-        glm::vec3 eye_center;
-        float eye_radius;
-        const glm::mat4* model_view;
-        const glm::mat4* normal_matrix;
+        Input(const glm::mat4& model_view, const glm::mat4& normal_matrix)
+            : model_view(model_view), normal_matrix(normal_matrix) {}
+
+        std::span<const w8_ulong> active_vertices;
+        bool direct_vertex_indices = false;
+        std::span<const glm::vec3> positions;
+        std::span<const glm::vec3> normals;
+        srBoundingSphere eye_bounds;
+        const glm::mat4& model_view;
+        const glm::mat4& normal_matrix;
         std::span<srVertexArray> vertex_arrays;
-        w8_ulong exclusion_mask;
-        glm::vec4 ambient_light;
+        w8_ulong exclusion_mask = 0;
+        glm::vec4 ambient_light{0};
         std::span<const Record> records;
         std::span<srVertexProcessor* const> processors;
-        float environment_minimum;
-        float environment_maximum;
-        float environment_scale;
-        float environment_inverse_scale;
+        float environment_minimum = 0;
+        float environment_maximum = 0;
+        float environment_scale = 0;
+        float environment_inverse_scale = 0;
 
         w8_ulong geometryIndex(w8_ulong processed_index) const
         {

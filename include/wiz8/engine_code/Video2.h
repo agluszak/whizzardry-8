@@ -275,6 +275,7 @@ unsigned char CreateWizardryWindow(void);
 unsigned char InitializePrimarySurface(void);
 void ReleasePrimarySurface(void);
 unsigned char InitializeVideoDevice(void);
+bool SetupDisablesAudio();
 unsigned char OpenRendererWindow(void);
 void InvalidateRendererTextureCache(void);
 void AssertFailureHandler(const char* expression, const char* file, w8_long line, const char* message);

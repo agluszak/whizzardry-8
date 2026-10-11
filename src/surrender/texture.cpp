@@ -1,5 +1,5 @@
+#include "surrender/stream_scope.h"
 #include <cstddef>
-#include <ios>
 #include <ostream>
 #include <memory>
 #include <string>
@@ -89,8 +89,7 @@ static const char* filterName(srTexture::e_filter filter)
 void srTexture::dump(std::ostream& stream)
 {
     srClass::dump(stream);
-    std::ios::fmtflags flags = stream.flags();
-    stream.setf(std::ios::left, std::ios::adjustfield);
+    const srDumpStreamScope formatting(stream);
     stream.width(0x20);
     stream << "  Filter: " << getFilter()->getName() << '\n';
     const char* name;
@@ -168,7 +167,6 @@ void srTexture::dump(std::ostream& stream)
     stream << "  Flags: ";
     srDumpFlags(stream, texture_flags_, s_flag_names3);
     stream << '\n';
-    stream.flags(static_cast<std::ios::fmtflags>(flags & 0x7fff));
 }
 
 // FUNCTION: SURRENDER 0x1005EEF0

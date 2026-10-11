@@ -6,7 +6,7 @@
 #include <string_view>
 
 #include "surrender/srCore.h"
-#include "surrender/srStreamFlags.h"
+#include "surrender/stream_scope.h"
 #include "surrender/srColorSurface.h"
 #include "surrender/srDebug.h"
 #include "surrender/srFilter.h"
@@ -212,8 +212,7 @@ void srCore::reset()
 // FUNCTION: SURRENDER 0x10015CF0
 void srCore::dump(std::ostream& stream)
 {
-    w8_long flags = srGetStreamFlags(stream);
-    srSetStreamFlags(stream, (flags & ~0x180L) | 0x40);
+    const srDumpStreamScope formatting(stream);
     stream << '\n' << getCopyright() << '\n';
     stream.width(0x18);
     stream << "Build time: " << getBuildTime() << '\n';
@@ -228,7 +227,6 @@ void srCore::dump(std::ostream& stream)
     stream << "  Logical CPUs: " << std::thread::hardware_concurrency() << '\n';
     stream.width(0x18);
     stream << "  Multi-thread:  " << srBoolToString(multi_thread) << '\n';
-    srSetStreamFlags(stream, flags & 0x7fff);
 }
 
 // GLOBAL: SURRENDER 0x100A4778

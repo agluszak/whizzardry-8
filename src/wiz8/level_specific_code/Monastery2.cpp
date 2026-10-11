@@ -40,12 +40,12 @@ bool Monastery2BellButton(Trigger* pTrigger)
     if (prop != 0) {
         slot = prop->Rep()->FindCurrentAnimationSlot();
         if (slot == 0) {
-            SoundPlay("Data\\Sound\\Ambients\\Mon2Bell1.wav", 0);
+            wiz8::sound::play("Data\\Sound\\Ambients\\Mon2Bell1.wav");
         } else if (slot == 1) {
-            SoundPlay("Data\\Sound\\Ambients\\Mon2Bell2.wav", 0);
+            wiz8::sound::play("Data\\Sound\\Ambients\\Mon2Bell2.wav");
             return true;
         } else if (slot == 2) {
-            SoundPlay("Data\\Sound\\Ambients\\Mon2Bell3.wav", 0);
+            wiz8::sound::play("Data\\Sound\\Ambients\\Mon2Bell3.wav");
             DisableBellTrigger("bellringswitch", 0x21);
             DisableBellTrigger("bell_button", 0x24);
             return true;

@@ -212,7 +212,7 @@ public:
     void StopTalking();
     void SetCycleCallback(int cycle, CycleCallback callback);
     bool GetPatrolPoint(srVector3T<float>* point);
-    void TrackSound(SoundPlayback playback);
+    void TrackSound(wiz8::sound::Playback playback);
     float GetDistanceToPlayer();
     float GetPointDistanceToPlayer(srVector3T<float> point);
     float GetDistanceToMonster(W8Monster* monster);
@@ -364,7 +364,7 @@ public:
     bool hostility_preserved;
     unsigned char padding_333;
     stSound3D* sound;
-    std::vector<SoundPlayback> sounds;
+    std::vector<wiz8::sound::Playback> sounds;
 };
 
 W8MonsterCycle ParseMonsterCycleName(const char* name, signed char* subcycle = 0);

@@ -1,3 +1,5 @@
+#include "surrender/bounding_radius.h"
+#include <ranges>
 #include <glm/gtc/constants.hpp>
 #include <SDL3/SDL_log.h>
 #include <algorithm>
@@ -473,13 +475,12 @@ void srModeler::rotate(w8_ulong triangle, const glm::mat3& matrix)
 // FUNCTION: SURRENDER 0x1003AA80
 double srModeler::getMaxVertexDist()
 {
-    double maximum = 0;
-    for (const auto& triangle : triangles)
-        for (const auto& vertex : triangle.vertices) {
-            const glm::dvec3 position(vertex.position);
-            maximum = std::max(maximum, glm::dot(position, position));
-        }
-    return std::sqrt(maximum);
+    auto positions = triangles | std::views::transform([](const auto& triangle) {
+        return std::span{triangle.vertices};
+    }) | std::views::join | std::views::transform([](const auto& vertex) {
+        return vertex.position;
+    });
+    return boundingRadius(positions, glm::dvec3(0));
 }
 
 // FUNCTION: SURRENDER 0x1003AB30

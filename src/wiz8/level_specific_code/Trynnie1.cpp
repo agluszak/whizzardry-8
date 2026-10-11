@@ -85,12 +85,12 @@ bool Trynnie1FountRandomFX(Trigger* pTrigger)
         slot = GetRandomCharacter(0, 0, -1, -1);
         if (slot != -1) {
             SetCharacterCondition(slot, W8_CONDITION_HEXED, Random(5) + 10, 0, 0, 1);
-            SoundPlay("Data\\Sound\\misc\\fountain_magic.wav", 0);
+            wiz8::sound::play("Data\\Sound\\misc\\fountain_magic.wav");
             return true;
         }
     } else if (roll < 50) {
         RestorePartySpellPoints(-1);
-        SoundPlay("Data\\Sound\\misc\\fountain_magic.wav", 0);
+        wiz8::sound::play("Data\\Sound\\misc\\fountain_magic.wav");
         return true;
     } else if (roll < 75) {
         for (i = 0; i < W8_PARTY_SLOT_COUNT; ++i) {
@@ -98,7 +98,7 @@ bool Trynnie1FountRandomFX(Trigger* pTrigger)
                 HealCharacter(i, 100, false);
             }
         }
-        SoundPlay("Data\\Sound\\misc\\fountain_magic.wav", 0);
+        wiz8::sound::play("Data\\Sound\\misc\\fountain_magic.wav");
         return true;
     } else {
         for (i = 0; i < W8_PARTY_SLOT_COUNT; ++i) {
@@ -107,7 +107,7 @@ bool Trynnie1FountRandomFX(Trigger* pTrigger)
             }
         }
     }
-    SoundPlay("Data\\Sound\\misc\\fountain_magic.wav", 0);
+    wiz8::sound::play("Data\\Sound\\misc\\fountain_magic.wav");
     return true;
 }
 

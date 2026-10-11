@@ -1,5 +1,7 @@
 #pragma once
 
+#include <SDL3/SDL_rect.h>
+
 #include <memory>
 
 #include "srARGB.h"
@@ -61,6 +63,7 @@ public:
     virtual SR_DLL_IMPORT int changePixelFormat(const srPixelConvert::PixelFormat& format,
                                                 int preserve);
     virtual SR_DLL_IMPORT void fill(w8_ulong pixel);
+    virtual void fillRectangle(SDL_Rect rectangle, w8_ulong pixel);
     virtual SR_DLL_IMPORT void setHLine(w8_long y, w8_long x_start, w8_long x_end, w8_ulong pixel);
     virtual SR_DLL_IMPORT void setVLine(w8_long x, w8_long y_start, w8_long y_end, w8_ulong pixel);
     virtual SR_DLL_IMPORT void setLine(w8_long x0, w8_long y0, w8_long x1, w8_long y1, w8_ulong pixel);

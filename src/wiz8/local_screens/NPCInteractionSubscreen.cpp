@@ -2371,9 +2371,8 @@ void AddNpcDialogueKeyword(std::string text, signed char category, int play_chim
                 SyncDialogueCategoryButtons();
             }
             if (play_chime != 0) {
-                SoundPlay(reinterpret_cast<char*>(const_cast<char*>( // reinterpret-ok: SGP text ABI
-                              "Data\\Sound\\Misc\\Keyword Chime.wav")),
-                          0);
+                wiz8::sound::play(reinterpret_cast<char*>(const_cast<char*>( // reinterpret-ok: SGP text ABI
+                              "Data\\Sound\\Misc\\Keyword Chime.wav")));
             }
             controller->Collapse();
             controller->Expand();
@@ -2908,7 +2907,7 @@ W8ItemInstance* ResolveNpcTradeRow(int index, bool pick, char decrement, char co
                             }
                             g_npc_interaction_state->selected_trade_row = hit;
                             if (commit != 0) {
-                                SoundPlay(g_button_click_1, 0);
+                                wiz8::sound::play(g_button_click_1);
                             }
                             ShowSelectedNpcTradeItem(&g_status.party_item_pool[i]);
                             return &g_status.party_item_pool[i];
@@ -2935,7 +2934,7 @@ W8ItemInstance* ResolveNpcTradeRow(int index, bool pick, char decrement, char co
                         }
                         g_npc_interaction_state->selected_trade_row = hit;
                         if (commit != 0) {
-                            SoundPlay(g_button_click_1, 0);
+                            wiz8::sound::play(g_button_click_1);
                         }
                         ShowSelectedNpcTradeItem(&character->backpack[i]);
                         return &character->backpack[i];
@@ -2982,7 +2981,7 @@ W8ItemInstance* ResolveNpcTradeRow(int index, bool pick, char decrement, char co
     g_npc_interaction_state->selected_trade_row = i;
     if (pick) {
         if (commit != 0) {
-            SoundPlay(g_button_click_1, 0);
+            wiz8::sound::play(g_button_click_1);
         }
         ShowSelectedNpcTradeItem(&entry->item);
     }
@@ -4314,9 +4313,8 @@ void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQu
         g_npc_interaction_state->quote_notice_kind = notice_kind;
         g_npc_interaction_state->quote_notice_payload = payload;
         if (g_npc_interaction_state->quote_notice_kind == W8_QUOTE_NOTICE_LEVEL_UP) {
-            SoundPlay(reinterpret_cast<char*>(const_cast<char*>( // reinterpret-ok: SGP text ABI
-                          "Data\\Sound\\Misc\\GainLevel.wav")),
-                      0);
+            wiz8::sound::play(reinterpret_cast<char*>(const_cast<char*>( // reinterpret-ok: SGP text ABI
+                          "Data\\Sound\\Misc\\GainLevel.wav")));
         }
         return;
     }

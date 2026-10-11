@@ -502,7 +502,7 @@ bool ArnikaVaultAlarmDoor(Trigger* pTrigger)
     W8MonsterGroup* group;
 
     g_trigger_feedback = true;
-    SoundPlay("Data\\Sound\\Ambients\\VaultAlarm.wav", 0);
+    wiz8::sound::play("Data\\Sound\\Ambients\\VaultAlarm.wav");
     group = FindNextExistingMonsterByID(0xc, 0);
     while (group != 0) {
         SetMonsterGroupHostility(group, 1, false);
@@ -564,7 +564,7 @@ bool ArnikaGenVaultDoor(Trigger* pTrigger)
         }
         CreateLocationVar("GolemSpawned", 1);
         SpawnMonsters(0x31, 1, &position, 1, true, false, false);
-        SoundPlay("Data\\Sound\\Ambients\\Temp Transporting.wav", 0);
+        wiz8::sound::play("Data\\Sound\\Ambients\\Temp Transporting.wav");
     }
     return true;
 }

@@ -116,7 +116,7 @@ bool MtGigas2Train(Trigger* pTrigger)
         return false;
     }
     if (item_id == 0x269 || item_id == 0x26c) {
-        SoundPlay("Data\\Sound\\Ambients\\Electricity 01.wav", 0);
+        wiz8::sound::play("Data\\Sound\\Ambients\\Electricity 01.wav");
         if (value == -1) {
             SetTriggerVariableByName("WirePanel", 0);
             return true;
@@ -227,7 +227,7 @@ static void MtGigas2WireShock(void)
     }
     SetDice(&dice, 2, 4, 1);
     ApplyRolledHealthChangeToParty(&dice, 0, 1);
-    SoundPlay("Data\\Sound\\Ambients\\Electricity 04.wav", 0);
+    wiz8::sound::play("Data\\Sound\\Ambients\\Electricity 04.wav");
 }
 
 /* Activation callback on _VOC_EWAXXLIFT3: queues the lift NPC notice with
@@ -359,7 +359,7 @@ static void MtGigas2UmpaniAlarm(int command)
 // FUNCTION: WIZ8 0x004DBA70
 bool MtGigas2WiringMalfunction(Trigger* pTrigger)
 {
-    SoundPlay("Data\\Sound\\Ambients\\Electricity 04.wav", 0);
+    wiz8::sound::play("Data\\Sound\\Ambients\\Electricity 04.wav");
     return true;
 }
 
@@ -367,6 +367,6 @@ bool MtGigas2WiringMalfunction(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004DBA90
 bool MtGigas2AccessHatch(Trigger* pTrigger)
 {
-    SoundPlay("Data\\Sound\\Ambients\\Sign Falling Statue.wav", 0);
+    wiz8::sound::play("Data\\Sound\\Ambients\\Sign Falling Statue.wav");
     return true;
 }

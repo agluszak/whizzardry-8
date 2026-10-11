@@ -3,7 +3,7 @@
 
 #include "wiz8/audio_resources.h"
 
-extern SoundPlayback g_music_sample_handle;
+extern wiz8::sound::Playback g_music_sample_handle;
 extern bool g_music_playlist_active;
 extern int g_music_playlist_weight_total;
 extern int g_music_playlist_track_count;

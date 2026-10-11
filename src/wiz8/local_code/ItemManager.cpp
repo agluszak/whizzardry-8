@@ -911,7 +911,7 @@ void DropHeldItem(int)
         }
         return;
     }
-    SoundPlay("Data\\Sound\\Misc\\CantDrop.WAV", 0);
+    wiz8::sound::play("Data\\Sound\\Misc\\CantDrop.WAV");
 }
 
 /* Destroy callback the item picker installs: the items still held by the

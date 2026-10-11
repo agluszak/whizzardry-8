@@ -1524,7 +1524,7 @@ void W8Monster::Update()
                     }
                     if (transition) {
                         while (!sounds.empty()) {
-                            SoundStop(sounds[0]);
+                            wiz8::sound::stop(sounds[0]);
                             sounds.erase(sounds.begin());
                         }
                         if (!IsCycleSupported(3)) {
@@ -2894,14 +2894,14 @@ std::optional<srBoundingBox> MonsterGetWorldAnimationBounds(W8Monster* monster)
 }
 
 // FUNCTION: WIZ8 0x004ca6e0
-void W8Monster::TrackSound(SoundPlayback playback)
+void W8Monster::TrackSound(wiz8::sound::Playback playback)
 {
     if (sounds.size() > 6) {
-        for (const auto& sound : sounds) SoundStop(sound);
+        for (const auto& sound : sounds) wiz8::sound::stop(sound);
         sounds.clear();
     }
     sounds.push_back(std::move(playback));
-    std::erase_if(sounds, [](const auto& sound) { return !SoundIsPlaying(sound); });
+    std::erase_if(sounds, [](const auto& sound) { return !wiz8::sound::is_playing(sound); });
 }
 
 /* Mark the closest live member of each loaded group inside the selection

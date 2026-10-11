@@ -128,7 +128,7 @@ W8CharacterScreen::W8CharacterScreen(int mode, W8Character* character)
     }
     if (m_mode == 3) {
         m_mode = 2;
-        SoundPlay("Data\\Sound\\Misc\\GainLevel.wav", 0);
+        wiz8::sound::play("Data\\Sound\\Misc\\GainLevel.wav");
         ShowMessage(fmt::sprintf(g_localized_strings[0xd9], m_character.name, 0, 0), 0, 0);
     }
     m_page_enabled[0] = m_mode != 1;
@@ -224,7 +224,7 @@ void W8CharacterScreen::UpdateNavigation(W8CharacterPage* page)
     bool exit_enabled;
     page->GetNavigationState(&next_enabled, &exit_enabled);
     if (!m_next->m_enabled && next_enabled) {
-        SoundPlay("Data\\Sound\\Misc\\Points Spent.wav", 0);
+        wiz8::sound::play("Data\\Sound\\Misc\\Points Spent.wav");
     }
     if (m_next->m_enabled != next_enabled) {
         m_next->SetEnabled(next_enabled);

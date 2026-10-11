@@ -1,3 +1,10 @@
+#include "glm/common.hpp"
+#include "glm/ext/vector_float4.hpp"
+#include "glm/vector_relational.hpp"
+#include <limits>
+#include <optional>
+#include <span>
+#include <cstddef>
 #include "surrender/pixel_math.h"
 #include <SDL3/SDL_pixels.h>
 #include "glm/ext/vector_uint4.hpp"
@@ -358,96 +365,44 @@ std::string srPixelConvert::PixelFormat::getName() const
     return name;
 }
 
-// FUNCTION: SURRENDER 0x10008020
-w8_ulong srPixelConvert::PixelFormat::match(const PixelFormat* formats,
-                                                 w8_ulong count) const
+static glm::vec4 channelBitCounts(const srPixelConvert::PixelFormat& format)
 {
-    if (count < 2) {
-        return 0;
-    }
+    return glm::vec4(format.red_bits, format.green_bits, format.blue_bits, format.alpha_bits);
+}
+
+// FUNCTION: SURRENDER 0x10008020
+std::optional<std::size_t> srPixelConvert::PixelFormat::match(
+    std::span<const PixelFormat> formats) const
+{
+    if (formats.empty()) return std::nullopt;
+    if (formats.size() == 1) return 0;
     if (fourcc != 0) {
-        for (w8_ulong i = 0; i < count; i++) {
-            if (formats[i].fourcc == fourcc) {
-                return i;
-            }
-        }
+        const auto exact = std::ranges::find(formats, fourcc, &PixelFormat::fourcc);
+        if (exact != formats.end()) return exact - formats.begin();
     }
-    w8_ulong wanted = 0;
-    if (red_bits != 0) {
-        wanted |= 1;
-    }
-    if (green_bits != 0) {
-        wanted |= 2;
-    }
-    if (blue_bits != 0) {
-        wanted |= 4;
-    }
-    if (alpha_bits != 0) {
-        wanted |= 8;
-    }
-    w8_ulong best = 0;
-    int best_distance = 0x7fffffff;
+    const auto wanted = channelBitCounts(*this);
+    const auto required = glm::min(wanted, glm::vec4(1));
+    std::optional<std::size_t> best;
+    float best_distance = std::numeric_limits<float>::infinity();
     int best_bytes = 5;
-    for (w8_ulong c = 0; c < count; c++) {
-        const PixelFormat& candidate = formats[c];
-        if (candidate.color_model != color_model) {
+    for (std::size_t index = 0; index < formats.size(); ++index) {
+        const auto& candidate = formats[index];
+        const auto bits = channelBitCounts(candidate);
+        if (candidate.color_model != color_model || glm::any(glm::lessThan(bits, required)))
             continue;
-        }
-        w8_ulong have = 0;
-        if (candidate.red_bits != 0) {
-            have |= 1;
-        }
-        if (candidate.green_bits != 0) {
-            have |= 2;
-        }
-        if (candidate.blue_bits != 0) {
-            have |= 4;
-        }
-        if (candidate.alpha_bits != 0) {
-            have |= 8;
-        }
-        if ((have & wanted) != wanted) {
-            continue;
-        }
-        /* Only channel shortfall costs distance: a candidate with extra bits
-           in a wanted channel scores the same as an exact bit count. */
-        int dr = candidate.red_bits - red_bits;
-        if (dr > 0) {
-            dr = 0;
-        }
-        int dg = candidate.green_bits - green_bits;
-        if (dg > 0) {
-            dg = 0;
-        }
-        int db = candidate.blue_bits - blue_bits;
-        if (db > 0) {
-            db = 0;
-        }
-        int da = candidate.alpha_bits - alpha_bits;
-        if (da > 0) {
-            da = 0;
-        }
-        int distance = dr * dr + dg * dg + db * db + da * da;
+        // Only shortfall costs distance; byte-sized channel counts score exactly in float.
+        const auto shortfall = glm::min(bits - wanted, glm::vec4(0));
+        const auto distance = glm::dot(shortfall, shortfall);
         if (distance < best_distance ||
             (distance == best_distance && candidate.pixel_size < best_bytes)) {
-            best = c;
+            best = index;
             best_distance = distance;
             best_bytes = candidate.pixel_size;
         }
     }
-    if (best_distance < 0x7fffffff) {
-        return best;
-    }
-    /* No class-compatible candidate: pick the widest pixel format. */
-    w8_ulong widest = 0;
-    int widest_bytes = -1;
-    for (w8_ulong w = 0; w < count; w++) {
-        if (widest_bytes < formats[w].pixel_size) {
-            widest = w;
-            widest_bytes = formats[w].pixel_size;
-        }
-    }
-    return widest;
+    if (best) return best;
+    // No compatible class: retain the first widest format.
+    return std::ranges::max_element(formats, {}, &PixelFormat::pixel_size) - formats.begin();
 }
 
 // FUNCTION: SURRENDER 0x10008240

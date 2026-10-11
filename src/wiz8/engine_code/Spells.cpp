@@ -1080,7 +1080,7 @@ stSound3D::~stSound3D()
         free(wave_name);
     }
     if (sound_handle != nullptr) {
-        SoundStop(sound_handle);
+        wiz8::sound::stop(sound_handle);
     }
     wiz8::erase_first(g_sound3d_instances, this);
 }
@@ -1088,67 +1088,35 @@ stSound3D::~stSound3D()
 // FUNCTION: WIZ8 0x004AEBF0
 unsigned char stSound3D::Play(bool loop, bool release_when_done)
 {
-    SOUND3DPARMS options;
-    srVector3T<float> listener;
-
     if (wave_name == 0) {
         return 0;
     }
-    listener = cameraLocation();
-    BuildSoundOptions(&listener, &options);
+    auto options = BuildSoundOptions(cameraLocation());
     if (loop) {
-        options.uiLoop = 0;
+        options.loops = 0;
     }
-    sound_handle = Sound3DPlay(wave_name, &options);
+    sound_handle = wiz8::sound::play(wave_name, std::move(options));
     auto_release = release_when_done;
     return sound_handle != nullptr;
 }
 
 // FUNCTION: WIZ8 0x004AECC0
-void stSound3D::BuildSoundOptions(const srVector3T<float>* listener, SOUND3DPARMS* options)
+wiz8::sound::PlayOptions stSound3D::BuildSoundOptions(const srVector3T<float>& listener)
 {
-    float angle = -GetCameraYawRadians();
-    unsigned int scaled_volume = (volume * g_settings.sound_effects_volume) / 0x7f;
-    glm::mat3 rotation;
-    srVector3T<float> node_position;
-    srVector3T<float> offset;
-
-    rotation = glm::mat3(1);
-    rotation *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(0, 1, 0)));
-
-    node_position = glm::vec3(getLocation());
-    offset = node_position - *listener;
-    srVector3T<float> transformed = rotation * offset.glmValue();
-    float x = transformed.x;
-    float y = transformed.y;
-    float z = transformed.z;
-
-    memset(options, 0xff, sizeof(*options));
-    srVector3T<float> listener_offset = *listener - node_position;
-    options->uiVolume = static_cast<unsigned int>(
-        (g_float_one - listener_offset.Length() / falloff) * scaled_volume);
-    options->uiLoop = 1;
-    options->Pos.flX = x;
-    options->Pos.flY = y;
-    options->Pos.flZ = z;
-    options->Pos.flVelX = 0.0f;
-    options->Pos.flVelY = 0.0f;
-    options->Pos.flVelZ = 0.0f;
-    options->Pos.flFaceX = -x;
-    options->Pos.flFaceY = -y;
-    options->Pos.flFaceZ = -z;
-    options->Pos.flUpX = 0.0f;
-    options->Pos.flUpY = g_float_one;
-    options->Pos.flUpZ = 0.0f;
-    options->Pos.flFalloffMin = falloff;
-    options->Pos.flFalloffMax = falloff;
-    options->Pos.uiVolume = options->uiVolume;
+    const float angle = -GetCameraYawRadians();
+    const unsigned int scaled_volume = (volume * g_settings.sound_effects_volume) / 0x7f;
+    const glm::mat3 rotation = glm::mat3_cast(glm::angleAxis(angle, glm::vec3(0, 1, 0)));
+    const srVector3T<float> node_position = glm::vec3(getLocation());
+    const srVector3T<float> offset = node_position - listener;
+    const srVector3T<float> listener_offset = listener - node_position;
+    return {.volume = static_cast<unsigned int>((g_float_one - listener_offset.Length() / falloff) * scaled_volume),
+            .position = rotation * offset.glmValue()};
 }
 
 // FUNCTION: WIZ8 0x004AEC70
 bool stSound3D::IsPlaying()
 {
-    if (sound_handle != nullptr && SoundIsPlaying(sound_handle) != 0) {
+    if (sound_handle != nullptr && wiz8::sound::is_playing(sound_handle)) {
         return true;
     }
     return false;
@@ -1158,7 +1126,7 @@ bool stSound3D::IsPlaying()
 void stSound3D::Stop()
 {
     if (sound_handle != nullptr) {
-        SoundStop(sound_handle);
+        wiz8::sound::stop(sound_handle);
         sound_handle = nullptr;
     }
 }
@@ -1179,7 +1147,7 @@ void Update3DSounds()
             stSound3D* sound = g_sound3d_instances[index];
             if (sound->sound_handle != nullptr) {
                 srVector3T<double> world = sound->getWorldSpaceLocation();
-                if (SoundIsPlaying(sound->sound_handle) == 0) {
+                if (!wiz8::sound::is_playing(sound->sound_handle)) {
                     bool dead = sound->auto_release;
                     sound->sound_handle = nullptr;
                     if (dead) {
@@ -1201,7 +1169,7 @@ void Update3DSounds()
                                     listener.z - static_cast<float>(world.z));
                     distance = static_cast<float>(sqrt(to_listener.LengthSquared()));
                     if (sound->falloff <= distance) {
-                        SoundSetVolume(sound->sound_handle, 0);
+                        wiz8::sound::set_volume(sound->sound_handle, 0);
                     } else {
                         angle = -GetCameraYawRadians();
                         rotation = glm::mat3(1);
@@ -1211,12 +1179,9 @@ void Update3DSounds()
                                    static_cast<float>(world.y) - listener.y,
                                    static_cast<float>(world.z) - listener.z);
                         transformed = rotation * offset.glmValue();
-                        Sound3DSetPosition(sound->sound_handle, transformed.x, transformed.y,
-                                           transformed.z);
-                        Sound3DSetDirection(sound->sound_handle, -transformed.x, -transformed.y,
-                                            -transformed.z, 0.0f, g_float_one, 0.0f);
+                        wiz8::sound::set_position(sound->sound_handle, transformed.glmValue());
                         volume = (sound->volume * g_settings.sound_effects_volume) / 0x7f;
-                        SoundSetVolume(sound->sound_handle,
+                        wiz8::sound::set_volume(sound->sound_handle,
                                        static_cast<std::uint32_t>(
                                            (g_float_one - distance / sound->falloff) * volume));
                     }

@@ -1913,8 +1913,8 @@ void AddPartyGold(int amount, bool announce)
     if (announce) {
         ShowNotice(8, fmt::format("{} {:d} {}.", g_localized_strings[0x15f], amount,
                                   g_localized_strings[0x160]));
-        if (!SoundFileIsPlaying(sound_path)) {
-            SoundPlay(sound_path, 0);
+        if (!wiz8::sound::is_file_playing(sound_path)) {
+            wiz8::sound::play(sound_path);
         }
     }
 }
@@ -3693,7 +3693,7 @@ int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int pow
 
     if (record->sound_name.size() != 0) {
 
-        SoundPlay(fmt::format("Data\\Spells\\Sounds\\{}.wav", record->sound_name), 0);
+        wiz8::sound::play(fmt::format("Data\\Spells\\Sounds\\{}.wav", record->sound_name));
     }
 
     {

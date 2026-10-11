@@ -1,4 +1,4 @@
-#include <ios>
+#include "surrender/stream_scope.h"
 #include <ostream>
 #include <memory>
 #include <utility>
@@ -76,9 +76,7 @@ void srTextureMap::setupDefaultValues()
 void srTextureMap::dump(std::ostream& stream)
 {
     srTexture::dump(stream);
-    std::ios::fmtflags flags = stream.flags();
-    stream.setf(std::ios::left, std::ios::adjustfield);
+    const srDumpStreamScope formatting(stream);
     stream.width(0x20);
     stream << "  Surface: " << surface->getName() << '\n';
-    stream.flags(static_cast<std::ios::fmtflags>(flags & 0x7fff));
 }

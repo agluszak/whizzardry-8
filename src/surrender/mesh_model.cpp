@@ -1,3 +1,4 @@
+#include "surrender/bounding_radius.h"
 #include <algorithm>
 #include <cmath>
 #include <vector>
@@ -8,7 +9,6 @@
 #include <utility>
 #include <stdexcept>
 
-#include "glm/common.hpp"
 #include "glm/geometric.hpp"
 #include "surrender/srBoundingBox.h"
 #include "compat/compiler.h"
@@ -34,7 +34,7 @@
 #include "surrender/srMeshModel.h"
 #include "surrender/mesh_math.h"
 #include "surrender/mesh_submission.h"
-#include "surrender/srStreamFlags.h"
+#include "surrender/stream_scope.h"
 #include "surrender/srCore.h"
 #include "surrender/srDebug.h"
 #include "surrender/srGERD.h"
@@ -423,12 +423,7 @@ void srMeshModel::calculateBounds()
         bounds_maximum = box.maximum;
         const auto center = box.center();
         bounds_center = center;
-        float radius_squared = 0;
-        for (const auto& vertex : vertices) {
-            const auto offset = vertex - center;
-            radius_squared = glm::max(radius_squared, glm::dot(offset, offset));
-        }
-        bounds_radius = std::sqrt(radius_squared) * 1.00001f;
+        bounds_radius = boundingRadius(vertices, center) * 1.00001f;
         dirty_flags.value &= ~(1UL << DIRTY_BOUNDS);
     }
 }
@@ -524,12 +519,7 @@ double srMeshModel::getAverageRadius()
 // FUNCTION: SURRENDER 0x1003EB20
 double srMeshModel::getMaxRadius()
 {
-    float maximum = 0;
-    for (const auto& vertex : std::span(getVertexLoc(), vertex_location_count)) {
-        const auto value = vertex;
-        maximum = glm::max(maximum, glm::dot(value, value));
-    }
-    return std::sqrt(maximum);
+    return boundingRadius(std::span(getVertexLoc(), vertex_location_count), glm::vec3(0));
 }
 
 // FUNCTION: SURRENDER 0x1003EBB0
@@ -890,8 +880,7 @@ void srMeshModel::dump(std::ostream& stream)
     w8_long changes;
 
     srModel::dump(stream);
-    w8_long flags = srGetStreamFlags(stream);
-    srSetStreamFlags(stream, (flags & 0xfffffe7fL) | 0x40);
+    const srDumpStreamScope formatting(stream);
     stream.width(0x20);
     stream << "  Polygons: " << polygon_count << '\n';
     stream.width(0x20);
@@ -1140,7 +1129,6 @@ void srMeshModel::dump(std::ostream& stream)
     stream.width(0x20);
     stream << "  Material changes:" << material_changes << '\n';
     stream << '\n';
-    srSetStreamFlags(stream, flags & 0x7fff);
 }
 
 // GLOBAL: SURRENDER 0x100A4790
@@ -1352,16 +1340,12 @@ void srTriMeshPipeline::FlushSlots()
                     this->renderer->getEnvironmentScaleFactor();
                 w8_ulong exclusion_mask = this->renderer->getExclusionMask();
 
-                srVertexPipe::Input pipe_input;
-                pipe_input.vertex_count = culler_output.vertexCount();
-                pipe_input.active_vertices = culler_output.avt.data();
+                srVertexPipe::Input pipe_input(model_view, normal_matrix);
+                pipe_input.active_vertices = culler_output.avt;
                 pipe_input.direct_vertex_indices = false;
-                pipe_input.positions = positions;
-                pipe_input.normals = vertex_extras;
-                pipe_input.eye_center = eye_bounds.center;
-                pipe_input.eye_radius = eye_bounds.radius;
-                pipe_input.model_view = &model_view;
-                pipe_input.normal_matrix = &normal_matrix;
+                pipe_input.positions = {positions, vertex_count};
+                if (vertex_extras) pipe_input.normals = {vertex_extras, vertex_count};
+                pipe_input.eye_bounds = eye_bounds;
                 pipe_input.vertex_arrays = std::span{this->vertex_arrays}.first(slot_count);
                 pipe_input.exclusion_mask = exclusion_mask;
                 pipe_input.ambient_light = ambient_light;

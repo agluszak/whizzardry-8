@@ -121,8 +121,8 @@ bool MtGigas1PressurePlate(Trigger* pTrigger)
         RunPlateTrigger("plate", W8_ANIMATION_FORWARD);
         g_plate_down = true;
         SetTriggerVariableByName("PPlateDown", 1);
-        SoundPlay("Data\\Sound\\Ambients\\Door Stone Open.wav", 0);
-        SoundPlay("Data\\Sound\\Ambients\\Amb Rumble Very Low.wav", 0);
+        wiz8::sound::play("Data\\Sound\\Ambients\\Door Stone Open.wav");
+        wiz8::sound::play("Data\\Sound\\Ambients\\Amb Rumble Very Low.wav");
         return false;
     }
     if (!g_plate_down) {
@@ -132,8 +132,8 @@ bool MtGigas1PressurePlate(Trigger* pTrigger)
     RunPlateTrigger("plate", W8_ANIMATION_REVERSE);
     g_plate_down = false;
     SetTriggerVariableByName("PPlateDown", 0);
-    SoundPlay("Data\\Sound\\Ambients\\Door Stone Close 01.wav", 0);
-    SoundPlay("Data\\Sound\\Ambients\\Amb Rumble Very Low.wav", 0);
+    wiz8::sound::play("Data\\Sound\\Ambients\\Door Stone Close 01.wav");
+    wiz8::sound::play("Data\\Sound\\Ambients\\Amb Rumble Very Low.wav");
     return false;
 }
 

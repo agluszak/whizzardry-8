@@ -13,7 +13,7 @@
 #include "glm/geometric.hpp"
 #include "glm/matrix.hpp"
 #include "surrender/srNode.h"
-#include "surrender/srStreamFlags.h"
+#include "surrender/stream_scope.h"
 #include "surrender/srCore.h"
 #include "surrender/srDebug.h"
 #include "surrender/srGERD.h"
@@ -365,8 +365,7 @@ void srNode::dump(std::ostream& stream)
     glm::dmat3 rotation;
     rotation = getRotation<glm::dmat3>();
     const auto [ws_rotation, ws_location, ws_scale] = getWorldSpaceCoordinates();
-    w8_long flags = srGetStreamFlags(stream);
-    srSetStreamFlags(stream, (flags & 0xfffffe7fL) | 0x40);
+    const srDumpStreamScope formatting(stream);
     stream.width(0x20);
     stream << "  FullPath: " << path << '\n';
     stream.width(0x20);
@@ -401,7 +400,6 @@ void srNode::dump(std::ostream& stream)
     stream << "  Notify: ";
     srDumpFlags(stream, notifications.value, s_notify_names);
     stream << '\n';
-    srSetStreamFlags(stream, flags & 0x7fff);
 }
 
 // FUNCTION: SURRENDER 0x10051A20

@@ -48,7 +48,7 @@ void ClearNpcMessageQueue(void)
     if (g_npc_scripting.voice_playing) {
         g_npc_scripting.voice_playing = false;
         g_npc_scripting.stopping_voice_playback = true;
-        SoundStop(g_npc_scripting.voice_handle);
+        wiz8::sound::stop(g_npc_scripting.voice_handle);
     }
     FreeMouthGapTrack(&g_npc_scripting.gap_track);
     for (auto* line : g_npc_scripting.message_lines) {

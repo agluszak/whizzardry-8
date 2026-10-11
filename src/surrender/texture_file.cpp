@@ -1,4 +1,4 @@
-#include <ios>
+#include "surrender/stream_scope.h"
 #include <ostream>
 #include <utility>
 #include <memory>
@@ -145,13 +145,11 @@ void srTextureFile::getMipmapLevelPartial(PartialRequest& request) {}
 void srTextureFile::dump(std::ostream& stream)
 {
     srTexture::dump(stream);
-    std::ios::fmtflags flags = stream.flags();
-    stream.setf(std::ios::left, std::ios::adjustfield);
+    const srDumpStreamScope formatting(stream);
     stream.width(0x20);
     stream << "  Filename: " << file_name << '\n';
     stream.width(0x20);
     stream << "  Caching enabled: " << ((cached & 1) != 0 ? "yes\n" : "no\n");
     stream.width(0x20);
     stream << "  Cached: " << (surface != 0 ? "yes\n" : "no\n");
-    stream.flags(static_cast<std::ios::fmtflags>(flags & 0x7fff));
 }

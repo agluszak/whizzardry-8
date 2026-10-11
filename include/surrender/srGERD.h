@@ -208,7 +208,8 @@ public:
         void drawSorted();
         /* point the draw state at texture set `index`,
            updating each of texture0/texture1/shader only on change. */
-        void bindTextureSet(w8_ulong index);
+        void bindTextureSet(w8_ulong index, bool force = false);
+        void drawTriangleRuns(std::span<const w8_ulong> order);
         /* repack the per-stage stq scratch streams and program
            the DD vertex arrays for the bound batch. */
         void programVertexArrays(srVertexArray* arrays, w8_ulong count);

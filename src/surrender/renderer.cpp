@@ -1,6 +1,6 @@
+#include "surrender/triangle_runs.h"
 #include <algorithm>
 #include <array>
-#include <numeric>
 #include <vector>
 #include <cassert>
 #include <cstddef>
@@ -24,12 +24,6 @@
 #include "surrender/srTriMeshPipeline.h"
 #include "surrender/srVertexProcessor.h"
 
-/* drawSorted's {order, sort_key} pair record. */
-struct SortPair {
-    w8_ulong index;
-    w8_ulong key;
-};
-
 /* Mark `bit` in output wherever the indexed table value changes between adjacent entries; when
    `initialized` is zero the output chunk is cleared first. */
 template <class Lookup>
@@ -50,36 +44,6 @@ static void markTransitions(w8_ulong* output, const w8_ulong* indices, Lookup lo
             output[index] |= bit;
             previous = value;
         }
-    }
-}
-
-static void sortPairs(SortPair* pairs, w8_ulong count)
-{
-    if (count <= 1) {
-        return;
-    }
-    std::vector<SortPair> scratch(count);
-    std::array<w8_ulong, 0x100> counts;
-    SortPair* src = pairs;
-    SortPair* dst = scratch.data();
-    // Stable least-significant-byte radix passes keep equal depth keys in
-    // submission order without depending on the host's byte representation.
-    for (unsigned pass = 0; pass < 4; ++pass) {
-        counts.fill(0);
-        const auto bucket = [pass](w8_ulong key) { return (key >> (pass * 8)) & 0xffu; };
-        for (w8_ulong index = 0; index < count; ++index) ++counts[bucket(src[index].key)];
-        w8_ulong position = 0;
-        for (auto& size : counts) {
-            const auto previous = size;
-            size = position;
-            position += previous;
-        }
-        for (w8_ulong index = 0; index < count; ++index)
-            dst[counts[bucket(src[index].key)]++] = src[index];
-        std::swap(src, dst);
-    }
-    if (src != pairs) {
-        std::copy_n(src, count, pairs);
     }
 }
 
@@ -115,30 +79,6 @@ static void gatherTriangles(std::span<srVector3i> destination, const srVector3i*
         const auto source_index = order != nullptr ? order[index] : index;
         destination[index] = remappedTriangle(source[source_index], vertices, vertex_base);
     }
-}
-
-/* Index of the first element not equal to `value`, or `count` when the whole range matches. */
-// FUNCTION: SURRENDER 0x10024100
-static w8_ulong firstMismatch(const w8_ulong* values, w8_ulong value,
-                                   w8_ulong count)
-{
-    w8_ulong index = 0;
-    while (index < count && values[index] == value) {
-        index++;
-    }
-    return index;
-}
-
-/* The count of consecutive `order` entries whose values element equals `value`. */
-// FUNCTION: SURRENDER 0x10024170
-static w8_ulong firstMismatchSorted(const w8_ulong* values, w8_ulong value,
-                                         const w8_ulong* order, w8_ulong count)
-{
-    w8_ulong index = 0;
-    while (index < count && values[order[index]] == value) {
-        index++;
-    }
-    return index;
 }
 
 // FUNCTION: SURRENDER 0x10024200
@@ -545,101 +485,42 @@ static w8_ulong attributeMask(const unsigned char* packed, w8_ulong count)
     return mask;
 }
 
+void srGERD::Renderer::drawTriangleRuns(std::span<const w8_ulong> order)
+{
+    const auto count = indices.count;
+    if (count == 0) return;
+    const auto triangles = std::span{indices.triangles}.first(count);
+    const auto texture_sets = std::span{indices.texture_set}.first(count);
+    std::array<srVector3i, 512> gathered;
+    visitTriangleRuns(texture_sets, order, order.empty() ? count : gathered.size(),
+                      [&](const srTriangleRun& run) {
+        // Refresh the first set even if another draw changed GERD's state.
+        bindTextureSet(run.texture_set, run.first == 0);
+        const srVector3i* submitted = triangles.data() + run.first;
+        if (!order.empty()) {
+            gatherTriangles(std::span{gathered}.first(run.count), triangles.data(),
+                            order.data() + run.first, 0);
+            submitted = gathered.data();
+        }
+        gerd->drawElements(srRendererDefs::PRIMITIVE_TRIANGLES,
+                           static_cast<w8_ulong>(run.count * 3),
+                           srRendererDefs::INDEX_ULONG, submitted);
+    });
+}
+
 // FUNCTION: SURRENDER 0x10025D50
 void srGERD::Renderer::drawImmediate()
 {
-    w8_ulong count = this->indices.count;
-    if (count != 0) {
-        const srVector3i* indices = this->indices.triangles.data();
-        const w8_ulong* texture_set = this->indices.texture_set.data();
-        const TextureSet& first = texture_sets.sets[texture_set[0]];
-        texture0 = first.texture0;
-        texture1 = first.texture1;
-        shader = first.shader;
-        gerd->setTexture(texture0, 0);
-        gerd->setTexture(texture1, 1);
-        gerd->setShader(shader);
-        if (std::ranges::all_of(std::span{texture_set, count},
-                                [texture_set](auto id) { return id == texture_set[0]; })) {
-            gerd->drawElements(srRendererDefs::PRIMITIVE_TRIANGLES, count * 3,
-                               static_cast<srRendererDefs::e_indexType>(2), indices);
-            return;
-        }
-        w8_ulong run = 0;
-        while (run < count) {
-            w8_ulong id = texture_set[run];
-            bindTextureSet(id);
-            w8_ulong length = 1 + firstMismatch(texture_set + run + 1, id, count - run - 1);
-            gerd->drawElements(srRendererDefs::PRIMITIVE_TRIANGLES, length * 3,
-                               static_cast<srRendererDefs::e_indexType>(2), indices + run);
-            run += length;
-        }
-    }
+    drawTriangleRuns({});
 }
 
 // FUNCTION: SURRENDER 0x10025F40
 void srGERD::Renderer::drawSorted()
 {
-    w8_ulong count = indices.count;
-    if (count != 0) {
-        const srVector3i* triangles = indices.triangles.data();
-        w8_ulong* texture_set = indices.texture_set.data();
-        w8_ulong* sort_key = indices.sort_key.data();
-        std::vector<w8_ulong> order(count);
-        std::iota(order.begin(), order.end(), 0);
-        w8_ulong index = 0;
-        if (count > 1) {
-            std::vector<SortPair> pairs(count);
-            for (index = 0; index < count; index++) {
-                pairs[index].index = order[index];
-                pairs[index].key = sort_key[index];
-            }
-            sortPairs(pairs.data(), count);
-            for (index = 0; index < count; index++) {
-                order[index] = pairs[index].index;
-                sort_key[index] = pairs[index].key;
-            }
-        }
-        const TextureSet& first = texture_sets.sets[texture_set[order[0]]];
-        texture0 = first.texture0;
-        texture1 = first.texture1;
-        shader = first.shader;
-        gerd->setTexture(texture0, 0);
-        gerd->setTexture(texture1, 1);
-        gerd->setShader(shader);
-        /* 0x200 index triples per submission chunk (0x1800 bytes). */
-        std::array<srVector3i, 0x200> batch;
-        if (std::ranges::all_of(std::span{texture_set, count},
-                                [&](auto id) { return id == texture_set[order[0]]; })) {
-            w8_ulong offset = 0;
-            do {
-                w8_ulong chunk = count - offset;
-                if (chunk > 0x200) {
-                    chunk = 0x200;
-                }
-                gatherTriangles({batch.data(), chunk}, triangles, order.data() + offset, 0);
-                gerd->drawElements(srRendererDefs::PRIMITIVE_TRIANGLES, chunk * 3,
-                                   static_cast<srRendererDefs::e_indexType>(2), batch.data());
-                offset += 0x200;
-            } while (offset < count);
-        } else {
-            w8_ulong run = 0;
-            do {
-                w8_ulong id = texture_set[order[run]];
-                bindTextureSet(id);
-                w8_ulong limit = count - run - 1;
-                if (limit > 0x1ff) {
-                    limit = 0x1ff;
-                }
-                w8_ulong length =
-                    1 + firstMismatchSorted(texture_set, id, order.data() + run + 1, limit);
-                gatherTriangles({batch.data(), length}, triangles, order.data() + run, 0);
-                gerd->drawElements(srRendererDefs::PRIMITIVE_TRIANGLES, length * 3,
-                                   static_cast<srRendererDefs::e_indexType>(2), batch.data());
-                run += length;
-            } while (run < count);
-        }
-    }
+    const auto count = indices.count;
+    if (count == 0) return;
+    const auto order = sortedTriangleOrder(std::span{indices.sort_key}.first(count));
+    drawTriangleRuns(order);
 }
 
 /* Program the GERD vertex-array slots from the bound batch: diffuse,
@@ -817,18 +698,18 @@ srVertexArray srGERD::Renderer::VertexArrays::bind(w8_ulong base)
 }
 
 // FUNCTION: SURRENDER 0x10027ED0
-void srGERD::Renderer::bindTextureSet(w8_ulong index)
+void srGERD::Renderer::bindTextureSet(w8_ulong index, bool force)
 {
     const TextureSet& set = texture_sets.sets[index];
-    if (set.texture0 != texture0) {
+    if (force || set.texture0 != texture0) {
         texture0 = set.texture0;
         gerd->setTexture(texture0, 0);
     }
-    if (set.texture1 != texture1) {
+    if (force || set.texture1 != texture1) {
         texture1 = set.texture1;
         gerd->setTexture(texture1, 1);
     }
-    if (set.shader.value != shader.value) {
+    if (force || set.shader.value != shader.value) {
         shader = set.shader;
         gerd->setShader(shader);
     }

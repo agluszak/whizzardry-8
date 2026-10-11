@@ -88,7 +88,6 @@
 #include "sprite.h"
 #include "input.h"
 #include "wiz8/application.h"
-#include "soundman.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "compat/video.h"
 #include "wiz8/engine_code/GameData.h"
@@ -498,6 +497,14 @@ unsigned char InitializePrimarySurface(void)
    audio; other historical device names use the native mixer. Driver and API names
    come from the SR export table and retail strings; the file format is the
    five-line format emitted by 3DSetup.exe. */
+// The 3DSetup configuration's audio device line; "none" disables sound.
+static bool s_setup_disables_audio = false;
+
+bool SetupDisablesAudio()
+{
+    return s_setup_disables_audio;
+}
+
 // FUNCTION: WIZ8 0x00422240
 unsigned char InitializeVideoDevice(void)
 try
@@ -559,9 +566,7 @@ try
     if (g_gerd->createContext(reinterpret_cast<w8_ulong_ptr>(ghWindow)) != srGERD::ERROR_NONE ||
         !OpenRendererWindow()) return 0;
     srAssertSetFunc(AssertFailureHandler);
-    if (_strnicmp(audio_setting, "none", 4) == 0) {
-        gfEnableStartup = false;
-    }
+    s_setup_disables_audio = _strnicmp(audio_setting, "none", 4) == 0;
     return 1;
 }
 catch (const std::exception&) { return false; }
