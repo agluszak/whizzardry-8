@@ -76,7 +76,8 @@ struct W8World {
     srScene* static_scene;
     srNode* dynamic_scene;
     srCamera* camera;
-    srModelInstance** psrMeshes;
+    // Borrowed instances owned by the scene graph; includes the retail sentinel slot.
+    std::vector<srModelInstance*> psrMeshes;
     W8GameData* game_data;
     W8Octree* octree;
     stLight* camera_light;

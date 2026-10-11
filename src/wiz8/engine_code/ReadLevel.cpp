@@ -7,6 +7,7 @@
 #include <vector>
 #include <exception>
 #include <memory>
+#include <span>
 #include <iterator>
 #include <string>
 #include <utility>
@@ -1063,23 +1064,19 @@ try
     unsigned int prop_count;
     unsigned char success;
 
-    level_mesh = 0;
-    if (world->update_mesh_source != 0) {
-        delete world->update_mesh_source;
-    }
-    if (world->psrMeshes != 0) {
-        while (world->psrMeshes[0] != 0) {
-            delete world->psrMeshes[0];
-            world->psrMeshes[0] = 0;
-        }
-        if (world->octree == 0) {
-            free(world->psrMeshes);
-            world->psrMeshes = 0;
-        }
+    if (world == nullptr || world->static_scene == nullptr || handle == nullptr) {
+        return false;
     }
 
-    if (world == 0 || world->static_scene == 0 || handle == 0) {
-        return 0;
+    level_mesh = nullptr;
+    delete std::exchange(world->update_mesh_source, nullptr);
+    // Each non-null entry is a distinct scene-owned root instance. Replacing
+    // the level must unlink all old roots, not just the first table entry.
+    for (auto*& instance : world->psrMeshes) {
+        delete std::exchange(instance, nullptr);
+    }
+    if (world->octree == nullptr) {
+        world->psrMeshes.clear();
     }
 
     info.world = world;
@@ -1087,7 +1084,7 @@ try
     info.bitmap_folder = bitmap_folder;
     w8_get_ticks();
 
-    if (world->psrMeshes == 0 || world->octree == 0) {
+    if (world->psrMeshes.empty() || world->octree == 0) {
         if (!ReadSingleLevelMesh(&info, &level_mesh, 0, 0, 0, true)) {
             return 0;
         }
@@ -1099,7 +1096,8 @@ try
         level_mesh->setParent(world->level, 1);
         SetModelInstanceChainExclusionMask(level_mesh, 1);
     } else {
-        if (!ReadMultipleLevelMeshes(&info, world->psrMeshes, world->octree->GetMeshCount(), 0)) {
+        if (!ReadMultipleLevelMeshes(&info,
+                std::span(world->psrMeshes).first(world->octree->GetMeshCount()), nullptr)) {
             ShutdownWithErrorBox("ReadLevel: Error reading multi-meshes.");
         }
         for (unsigned int mesh_index = 0; mesh_index < world->octree->m_meshCount; ++mesh_index) {

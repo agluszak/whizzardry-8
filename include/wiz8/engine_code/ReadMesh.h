@@ -3,8 +3,8 @@
 #include <glm/glm.hpp>
 #include <vector>
 #include <memory>
+#include <span>
 
-#include "compat/compiler.h"
 #include "glm/fwd.hpp"
 
 struct W8MaterialRecord;
@@ -49,8 +49,10 @@ class srMeshModel;
 unsigned char ReadSingleLevelMesh(W8ReadLevelInfo* info, srModelInstance** instance,
                                   int unused_first, int unused_second, const char* name,
                                   bool load_materials);
-unsigned char ReadMultipleLevelMeshes(W8ReadLevelInfo* info, srModelInstance** instances,
-                                      w8_ulong count, const char* name);
+// Publishes scene-owned instances only after the complete mesh set loads.
+// The caller supplies empty slots; failure leaves all slots unchanged.
+unsigned char ReadMultipleLevelMeshes(W8ReadLevelInfo* info,
+                                      std::span<srModelInstance*> instances, const char* name);
 unsigned char SkipSingleLevelMesh(W8ReadLevelInfo* info);
 void ReleaseReadMeshScratch();
 unsigned char ReadSingleLevelMeshBody(W8ReadLevelInfo* info, srModelInstance** instance, int, int,

@@ -1,4 +1,5 @@
 #include <cstdlib>
+#include <cstddef>
 #include <cstdio>
 #include <cstring>
 #include <vector>
@@ -169,19 +170,10 @@ unsigned char LoadWorld(W8World* world, char* level_file_name, const char* level
     world->camera_light->setGroupMask(2);
     ConfigureWorldLight(world->camera_light, 4000.0f);
 
-    if (world->octree == 0 || world->octree->GetMeshCount() == 0) {
-        world->psrMeshes = 0;
-    } else {
-        w8_ulong mesh_count = world->octree->GetMeshCount();
-        world->psrMeshes =
-            static_cast<srModelInstance**>(malloc((mesh_count + 1) * sizeof(srModelInstance*)));
-        if (world->psrMeshes == 0) {
-            srAssertFail("pWorld->psrMeshes", THREE_D_API_CPP, 0x1be,
-                         "LoadWorld: Couldn't allocate psrMeshes.");
-        }
-        for (w8_ulong index = 0; index <= mesh_count; ++index) {
-            world->psrMeshes[index] = 0;
-        }
+    world->psrMeshes.clear();
+    if (world->octree != nullptr && world->octree->GetMeshCount() != 0) {
+        world->psrMeshes.resize(static_cast<std::size_t>(world->octree->GetMeshCount()) + 1,
+                                nullptr);
         strcpy(level_path, pvl_path);
     }
 
@@ -411,10 +403,7 @@ void DestroyWorld(W8World* world)
     if (world == 0) {
         srAssertFail("pWorld", THREE_D_API_CPP, 0x1ff, 0);
     }
-    if (world->psrMeshes != 0) {
-        free(world->psrMeshes);
-        world->psrMeshes = 0;
-    }
+    world->psrMeshes.clear();
     if (world->update_mesh_source != 0) {
         world->update_mesh_source = 0;
     }

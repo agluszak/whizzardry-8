@@ -410,18 +410,13 @@ bool HasLineOfSightToBounds(const srVector3T<float>* origin, srVector3T<float>* 
 // FUNCTION: WIZ8 0x0046F5C0
 stModelInstance* CreateModelInstance(std::shared_ptr<stMeshModel> model)
 {
-    stModelInstance* instance;
-
-    if (model == 0) {
+    if (model == nullptr) {
         srAssertFail("pstMeshModel", THREE_D_CPP, 0x5bf, 0);
     }
-    instance = new stModelInstance(0);
-    if (instance == 0) {
-        srAssertFail("pstHeadInstance", THREE_D_CPP, 0x5c2, 0);
-    }
+    auto instance = std::make_unique<stModelInstance>(nullptr);
     instance->setName("ST_CreateInstance");
     instance->setModel(model);
-    return instance;
+    return instance.release();
 }
 
 // FUNCTION: WIZ8 0x0046F680

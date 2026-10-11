@@ -6,6 +6,7 @@
 #include <numeric>
 #include <stdexcept>
 #include <memory>
+#include <span>
 #include <vector>
 #include <cmath>
 #include <cstdint>
@@ -448,23 +449,25 @@ static const std::vector<W8MeshMaterial>& ReadMeshMaterials(W8ReadLevelInfo* inf
 unsigned char ReadSingleLevelMesh(W8ReadLevelInfo* info, srModelInstance** instance,
                                   int unused_first, int unused_second, const char* name,
                                   bool load_materials)
+try
 {
+    if (!info || !info->hFile || !instance) return false;
     if (name != 0) {
         if (std::shared_ptr<stMeshModel> model = g_level_meshes.find(name)) {
-            stModelInstance* duplicate = CreateModelInstance(std::move(model));
+            auto duplicate = std::unique_ptr<stModelInstance>(CreateModelInstance(std::move(model)));
             duplicate->setName("Read Mesh Duplicate Instance");
-            *instance = duplicate;
-            if (SkipSingleLevelMesh(info) == 0) {
-                delete duplicate;
-                *instance = nullptr;
-                return 0;
+            if (!SkipSingleLevelMesh(info)) {
+                return false;
             }
-            return 1;
+            *instance = duplicate.release();
+            return true;
         }
     }
 
     return ReadSingleLevelMeshBody(info, instance, unused_first, unused_second, name,
                                    load_materials);
+} catch (const std::exception&) {
+    return false;
 }
 
 // FUNCTION: WIZ8 0x00485C10
@@ -645,7 +648,7 @@ try
     }
     if (first_model != 0) {
         first_model->setName(name ? name : "");
-        stModelInstance* loaded_instance = CreateModelInstance(first_model);
+        auto loaded_instance = std::unique_ptr<stModelInstance>(CreateModelInstance(first_model));
         loaded_instance->setName("ReadSTMeshFromFile");
         if (version > 1 && loaded_instance != 0) {
             const double angle = 3.1415926;
@@ -656,8 +659,8 @@ try
             loaded_instance->setLocation(translated);
             loaded_instance->setRotation(rotation);
         }
-        *instance = loaded_instance;
         CacheLevelMesh(name, first_model);
+        *instance = loaded_instance.release();
     }
 
     return 1;
@@ -666,8 +669,8 @@ try
 }
 
 // FUNCTION: WIZ8 0x00488240
-unsigned char ReadMultipleLevelMeshes(W8ReadLevelInfo* info, srModelInstance** instances,
-                                      w8_ulong count, const char* name)
+unsigned char ReadMultipleLevelMeshes(W8ReadLevelInfo* info,
+                                      std::span<srModelInstance*> instances, const char* name)
 try
 {
     OctMeshModel reader;
@@ -678,7 +681,7 @@ try
     if (info == 0) {
         return 0;
     }
-    if (count == 0) {
+    if (instances.empty()) {
         return 0;
     }
     if (info->hFile == 0) {
@@ -687,7 +690,7 @@ try
 
     info->hFile->read_exact(&mesh_count, sizeof(mesh_count));
     info->hFile->read_exact(&root_count, sizeof(root_count));
-    if (mesh_count != count || root_count > mesh_count) {
+    if (mesh_count != instances.size() || root_count > mesh_count) {
         throw std::runtime_error("Invalid mesh or root count");
     }
 
@@ -698,8 +701,7 @@ try
     if (terminator != -1)
         return 0;
 
-    if (count != mesh_count || root_count > mesh_count ||
-        mesh_count > static_cast<std::uint64_t>(info->hFile->size() - info->hFile->tell())) {
+    if (mesh_count > static_cast<std::uint64_t>(info->hFile->size() - info->hFile->tell())) {
         return 0;
     }
     std::vector<stMeshModel*> meshes(mesh_count);
@@ -734,18 +736,22 @@ try
     info->hFile->read_exact(&terminator, sizeof(terminator));
     if (terminator != -1) return 0;
 
+    std::vector<std::unique_ptr<stModelInstance>> pending(mesh_count);
     for (unsigned int mesh_index = 0; mesh_index < root_count; ++mesh_index) {
         stMeshModel* model = meshes[mesh_index];
         model->setName(name ? name : "");
         if (model->head == nullptr) {
-            stModelInstance* instance = CreateModelInstance(roots[mesh_index]);
+            auto instance = std::unique_ptr<stModelInstance>(CreateModelInstance(roots[mesh_index]));
             instance->setName("Multi Mesh Instance");
             instance->mesh_index = mesh_index;
             CacheLevelMesh(name, roots[mesh_index]);
-            instances[mesh_index] = instance;
+            pending[mesh_index] = std::move(instance);
         }
     }
 
+    for (unsigned int mesh_index = 0; mesh_index < mesh_count; ++mesh_index) {
+        instances[mesh_index] = pending[mesh_index].release();
+    }
     return 1;
 } catch (const std::exception&) {
     return false;
