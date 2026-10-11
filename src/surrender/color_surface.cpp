@@ -551,9 +551,7 @@ void srColorSurfaceIFace::dump(std::ostream& stream)
     stream.width(0x20);
     stream << "  Data size: " << getDataSize() << " bytes" << '\n';
     stream.width(0x20);
-    char format_name[12];
-    pixel_format.getName(format_name);
-    stream << "  Pixel format: " << format_name << '\n';
+    stream << "  Pixel format: " << pixel_format.getName() << '\n';
     stream.flags(static_cast<std::ios::fmtflags>(flags & 0x7fff));
 }
 
