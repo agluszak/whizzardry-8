@@ -7,17 +7,16 @@ will still need to render the game's original graphics and text.
 
 ## Current layers
 
-- **SGP Button System / Mouse System**: GUI_BUTTON, MOUSE_REGION, sprite
-  resources, click state, independent hit-testing, mouse capture and fast help.
-  Dialogs and message boxes use it.
-- **W8Region / RegionManager**: another mouse hit-test and event dispatcher,
-  with a global catalog of 313 predeclared regions and 51 sets, plus dynamic
-  registrations and a second tooltip path. It backs most local screens.
+- **SGP Button System**: GUI_BUTTON sprite resources and click state. Buttons
+  register typed W8Regions; their rendering remains SGP-owned.
+- **W8Region / RegionManager**: the sole mouse hit-test and event dispatcher,
+  with a global catalog of 313 predeclared regions and 51 sets, plus reusable
+  dynamic registrations and the shared tooltip path.
 - **Controls / W8Widget / W8TextControl**: already owns child controls through
   unique_ptr and routes region events into virtual widget methods. It backs
   game panels and many screens.
 - **W8DialogBase / W8DialogButton**: a second control composition and input
-  loop, implemented on top of SGP instead of Controls.
+  loop. Its GUI_BUTTON controls now share RegionManager dispatch.
 - **Local screens**: screen-specific state, draw code, global region callbacks
   and input queues. These should remain screen-specific *views*, not each
   maintain a distinct input framework.
@@ -31,7 +30,7 @@ will still need to render the game's original graphics and text.
 - SDL events are normalized exactly once. Widgets receive mouse, keyboard,
   wheel and text input through the same dispatch. Rendering is separate.
 - Asset decoding and sprite/text rendering stay usable as ordinary resources;
-  SGP's button manager and region manager should eventually disappear.
+  GUI_BUTTON rendering remains transitional while Controls replaces it.
 - Preserve the original 640x480 game-space coordinates and visual appearance.
   Avoid bolting on a new adapter or adding another parallel control class.
 
@@ -67,9 +66,9 @@ Do not invent widget subclasses where simple screen input suffices.
    sprite-backed rendering; remove W8DialogButton and its SGP GUI_BUTTON
    intermediary rather than wrapping that intermediary once more.
 3. **Single input routing**: route each SDL input event to the current
-   screen/modal tree, with a single capture/focus policy. Eliminate the
-   duplicate MOUSE_REGION and W8Region dispatchers, global region IDs,
-   separate tooltip machinery and SGP's input-event queue.
+   screen/modal tree, with a single capture/focus policy. RegionManager now
+   handles screen regions, SGP buttons and text fields; continue removing
+   global region IDs and the SGP input-event queue.
 4. **Drawing and invalidation**: consolidate the SGP button painter,
    Controls' dirty rectangles, per-screen refresh flags and SDL texture
    uploads. Keep an explicit game-space UI canvas and minimize full-frame
@@ -91,6 +90,5 @@ Do not invent widget subclasses where simple screen input suffices.
   button, mouse-dismissed Credits, and clean re-entry.
 - Native build and existing runtime screen tests pass.
 
-The POC intentionally does not introduce a new UI framework or alter SGP
-buttons. Those are separate removal steps once the Controls dispatch path
-has demonstrated the behavior.
+The SGP Mouse System is gone; GUI_BUTTON rendering remains while dialog and
+screen composition moves onto Controls.
