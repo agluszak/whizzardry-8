@@ -1,4 +1,3 @@
-#include <tuple>
 #include "himage.h"
 #include "image.h"
 #include <fmt/format.h>
@@ -206,7 +205,7 @@ void W8JournalPanel::Refresh()
         std::string page_text;
         page_text = fmt::format("{:d} / {:d}", g_journal_page + 1, page_count);
         m_page_text->SetText(page_text, g_options_detail_font);
-        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x1b8, 0, 0, 0, 0);
+        CatalogArtwork::Load(0x1b8, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0, 0);
         DrawJournalLine(g_localized_strings[0x6db], 0, 0x19, 0, true);
         DrawJournalLine(g_localized_strings[0x6dc], 1, 0x19, 0, true);
 
@@ -241,7 +240,7 @@ void W8JournalPanel::Refresh()
         m_next->SetEnabled(false);
         m_previous->SetEnabled(false);
         m_page_text->SetText(g_journal_alternate_page, g_options_detail_font);
-        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x1b8, 0, 0, 0, 0);
+        CatalogArtwork::Load(0x1b8, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0, 0);
         DrawJournalLine(g_localized_strings[0x6de], 0, 0x19, 0, true);
         DrawJournalLine(g_localized_strings[0x6df], 1, 0x19, 0, true);
 
@@ -280,33 +279,35 @@ void W8JournalPanel::Refresh()
 
 // FUNCTION: WIZ8 0x005bd530
 W8JournalPanel::W8JournalPanel(unsigned int* region_set)
-    : Controls(0x66, 0x1bb, 0, 0, 0xf3, 0, 0), m_next(0), m_previous(0), m_close(0), m_mode(0),
+    : Controls(0x66, 0x1bb, 0, 0, CatalogArtwork::Load(0xf3, 0), 0), m_next(0), m_previous(0), m_close(0), m_mode(0),
       m_page_text(0), m_alternate_mode(0)
 {
     short width;
     short height;
 
     AcquireRegionSet(region_set);
-    std::tie(width, height) = GetCatalogImageSize(0xf3, 0, 0);
+    const SDL_Point _catalog_size_4 = CatalogArtwork::Load(0xf3, 0).size(0);
+        width = _catalog_size_4.x;
+        height = _catalog_size_4.y;;
     m_bounds.right = m_bounds.left + static_cast<unsigned short>(width);
     m_bounds.bottom = m_bounds.top + static_cast<unsigned short>(height);
 
-    m_previous = new W8TextControl(this, 0xffffffff, 3, 3, 0, 0, 0xf4, 0, 0, 2, 1, -1, 3);
+    m_previous = new W8TextControl(this, 0xffffffff, 3, 3, 0, 0, CatalogArtwork::Load(0xf4, 0), 0, 2, 1, -1, 3);
     m_previous->m_listener = this;
 
-    m_next = new W8TextControl(this, 0xffffffff, 0x11f, 3, 0, 0, 0xf4, 0, 4, 6, 5, -1, 7);
+    m_next = new W8TextControl(this, 0xffffffff, 0x11f, 3, 0, 0, CatalogArtwork::Load(0xf4, 0), 4, 6, 5, -1, 7);
     m_next->m_listener = this;
 
     W8ControlsRect bounds = {m_bounds.left, m_bounds.top, m_bounds.right, m_bounds.bottom};
     m_page_text = new W8TextBuffer(&bounds, "", g_options_detail_font,
                                    g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
 
-    m_mode = new W8TextControl(this, 0xffffffff, 0x1b0, -2, 0, 0, 0x1bb, 0, 0, 2, 1, 2, 3);
+    m_mode = new W8TextControl(this, 0xffffffff, 0x1b0, -2, 0, 0, CatalogArtwork::Load(0x1bb, 0), 0, 2, 1, 2, 3);
     m_mode->AddLayoutFlags(g_W8TextControlLayoutToggle);
     m_mode->m_listener = this;
 
     m_close =
-        new W8TextControl(this, 0xffffffff, 0x1ea, -2, 0, 0, 0x106, 0, 0x10, -1, 0x11, 0x12, 0x13);
+        new W8TextControl(this, 0xffffffff, 0x1ea, -2, 0, 0, CatalogArtwork::Load(0x106, 0), 0x10, -1, 0x11, 0x12, 0x13);
     m_close->m_listener = this;
     m_close->EnableRegionHelp(0x6ed);
     SetEnabled(true);
@@ -378,7 +379,7 @@ unsigned char JournalScreenInitialize(void)
 {
     if (!g_journal_font.load("Data\\Journal\\journal_font.sti"))
         return 0;
-    g_journal_font_palette = CopyCatalogImagePalette16BPP(0x1b9, 0);
+    g_journal_font_palette = CatalogArtwork::Load(0x1b9).spriteSheet()->colors;
     return 1;
 }
 
@@ -423,7 +424,7 @@ unsigned char JournalScreenEnter(void)
         }
     }
     g_journal_panel->Refresh();
-    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x1b7, 0, 1, 0, 0x1b4);
+    CatalogArtwork::Load(0x1b7, 0).drawAndInvalidate(GetFrameBufferSurface(), 1, 0, 0x1b4);
     return 1;
 }
 

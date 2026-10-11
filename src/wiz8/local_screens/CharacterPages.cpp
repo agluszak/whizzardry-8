@@ -2,6 +2,8 @@
 #include <string_view>
 #include <cstring>
 #include <memory>
+#include <optional>
+#include <utility>
 #include <vector>
 
 #include "image.h"
@@ -66,21 +68,18 @@ W8CharacterPageEntry::W8CharacterPageEntry(Controls* owner, int x, int y, bool c
     m_second_text->SetLayoutMode(g_W8TextBufferAlignRight);
 
     int relative_split = split - owner->m_bounds.left;
-    m_decrement = new W8TextControl(owner, 0xffffffff, relative_split + 0x1b, y + 1, 0, 0, 0x10a, 0,
-                                    0x19, 0x1b, 0x1a, 0x1d, 0x1c);
+    m_decrement = new W8TextControl(owner, 0xffffffff, relative_split + 0x1b, y + 1, 0, 0, CatalogArtwork::Load(0x10a, 0), 0x19, 0x1b, 0x1a, 0x1d, 0x1c);
     m_decrement->AddLayoutFlags(0x100);
     m_decrement->SetEnabled(false);
     m_decrement->SetActive(false);
     m_decrement->m_listener = this;
 
-    m_increment = new W8TextControl(owner, 0xffffffff, relative_split + 0x3d, y + 1, 0, 0, 0x10a, 0,
-                                    0x1e, 0x20, 0x1f, 0x22, 0x21);
+    m_increment = new W8TextControl(owner, 0xffffffff, relative_split + 0x3d, y + 1, 0, 0, CatalogArtwork::Load(0x10a, 0), 0x1e, 0x20, 0x1f, 0x22, 0x21);
     m_increment->AddLayoutFlags(0x100);
     m_increment->SetActive(false);
     m_increment->m_listener = this;
 
-    m_help = new W8TextControl(owner, 0xffffffff, x, y, relative_split, y + 0xc, -1, -1, -1, -1, -1,
-                               -1, -1);
+    m_help = new W8TextControl(owner, 0xffffffff, x, y, relative_split, y + 0xc, std::nullopt, -1, -1, -1, -1, -1);
     m_help->SetActive(false);
     m_help->m_listener = this;
 }
@@ -132,7 +131,7 @@ void W8CharacterPageEntry::Redraw()
 {
     if (m_enabled && m_dirty) {
         if (m_draw_background) {
-            DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x108, 0, 2, m_x, m_y);
+            CatalogArtwork::Load(0x108, 0).drawAndInvalidate(GetFrameBufferSurface(), 2, m_x, m_y);
         }
         m_first_text->SetText(fmt::format("{:d}", ReadStatValue<unsigned int>(m_first)), g_wiz_text_font_secondary);
         m_second_text->SetText(fmt::format("{:d}", ReadStatValue<int>(m_second)), g_wiz_text_font_secondary);
@@ -220,8 +219,8 @@ void W8CharacterPageEntry::OnSecondary(W8TextControl* control)
 
 
 // FUNCTION: WIZ8 0x005afd90
-W8CharacterPage::W8CharacterPage(int catalog_object)
-    : Controls(0xc3, 0x2b, 0x280, 0x1c1, catalog_object, 0, 0), m_screen(0)
+W8CharacterPage::W8CharacterPage(CatalogArtwork background)
+    : Controls(0xc3, 0x2b, 0x280, 0x1c1, std::move(background), 0), m_screen(0)
 {
 }
 

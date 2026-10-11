@@ -163,7 +163,7 @@ void CreditsScreenFrame(void)
         return;
     }
 
-    DrawCatalogImage(GetFrameBufferSurface(), 0xe9, 0, 0, 0, 0, {.color_key = false});
+    CatalogArtwork::Load(0xe9, 0).draw(GetFrameBufferSurface(), 0, 0, 0, {.color_key = false});
     int y = g_credit_y;
     for (int index = g_credit_line; index < g_credit_lines.size() && y <= 0x1df; ++index) {
         const W8CreditLine* entry = &g_credit_lines[index];

@@ -1,9 +1,11 @@
 #pragma once
 
 #include <vector>
+#include <optional>
 
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/Widget.h"
+#include "wiz8/video_object_catalog.h"
 #include "wiz8/regions.h"
 #include <memory>
 #include <algorithm>
@@ -33,8 +35,8 @@ unsigned char DispatchButtonRegionEvent(const InputEvent* event, W8Region* regio
 // VTABLE: WIZ8 0x005ed5a4
 struct Controls {
     Controls();
-    Controls(int left, int top, int right, int bottom, int catalog_object, int catalog_frame,
-             int catalog_image);
+    Controls(int left, int top, int right, int bottom, std::optional<CatalogArtwork> background,
+             int background_image);
     virtual ~Controls();
     Controls(const Controls&) = delete;
     Controls& operator=(const Controls&) = delete;
@@ -47,9 +49,8 @@ struct Controls {
     bool m_fDirty;
     bool m_fLayoutDirty;
     W8ControlsRect m_bounds; /* widget rectangles are relative to its origin */
-    int m_catalogObject;     /* -1 skips catalog-image drawing */
-    int m_catalogFrame;      /* frame within the catalog object */
-    int m_catalogImage;      /* subimage within the frame */
+    std::optional<CatalogArtwork> m_background;
+    int m_backgroundImage;
     W8ControlsRect m_dirtyRect;
     bool m_fWholeAreaDirty; /* set when a caller passes no rectangle */
     unsigned int m_uiRegionSetId;

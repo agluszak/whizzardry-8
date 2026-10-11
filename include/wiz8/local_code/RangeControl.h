@@ -11,7 +11,7 @@ class W8RangeControl;
 class W8RangeButton : public W8TextControl {
 public:
     W8RangeButton(Controls* panel, unsigned int region, int left, int top, int right, int bottom,
-                  int image_object, int image_frame, int normal_sprite, int pressed_sprite,
+                  std::optional<CatalogArtwork> image_artwork, int normal_sprite, int pressed_sprite,
                   int alternate_normal_sprite, int alternate_pressed_sprite, int disabled_sprite,
                   short direction, W8RangeControl* range);
 
@@ -88,7 +88,7 @@ public:
 class W8HorizontalRangeThumb : public W8Widget {
 public:
     W8HorizontalRangeThumb(Controls* panel, unsigned int region, int left, int top,
-                           int catalog_object, int catalog_frame, int background_sprite,
+                           CatalogArtwork artwork, int background_sprite,
                            int normal_thumb_sprite, int hovered_thumb_sprite,
                            int disabled_thumb_sprite);
     virtual void Redraw(bool full_redraw) override;
@@ -100,8 +100,7 @@ public:
     virtual void OnMouseMove(int event) override;
 
 protected:
-    int m_catalogObject;
-    int m_catalogFrame;
+    CatalogArtwork m_artwork;
     int m_backgroundSprite;
     int m_normalThumbSprite;
     int m_hoveredThumbSprite;

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 
@@ -8,6 +9,7 @@
 #include "local_code/ControlsRect.h"
 #include "wiz8/local_code/Widget.h"
 #include "wiz8/local_code/TextBuffer.h"
+#include "wiz8/video_object_catalog.h"
 
 struct SpriteSheet;
 
@@ -43,10 +45,10 @@ public:
 
     W8TextControl();
     W8TextControl(Controls* panel, unsigned int region, int left, int top, int right, int bottom,
-                  int image_object, int image_frame, int normal_sprite, int pressed_sprite,
+                  std::optional<CatalogArtwork> image_artwork, int normal_sprite, int pressed_sprite,
                   int alternate_normal_sprite, int alternate_pressed_sprite, int disabled_sprite);
 
-    void SetImage(int object, int frame = 0);
+    void SetImage(CatalogArtwork artwork);
     void SetItemImage(int item_id);
     void ClearImage();
 

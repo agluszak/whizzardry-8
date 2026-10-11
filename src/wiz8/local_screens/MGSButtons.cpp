@@ -383,7 +383,7 @@ void RedrawOptionsDiskButton(void)
 {
     bool enabled;
 
-    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x7e, 0, 2, 0, 0x1c2);
+    CatalogArtwork::Load(0x7e, 0).drawAndInvalidate(GetFrameBufferSurface(), 2, 0, 0x1c2);
     g_options_disk_button->m_dirty = true;
     if (!gXStatus.fNpcDialogueMode && !gXStatus.fLockInteractMode && !gXStatus.fTrapInteractMode &&
         !gXStatus.fCampMode && !gXStatus.fLockInteract && !gXStatus.fTrapInteract) {
@@ -438,7 +438,7 @@ void UpdateCombatStanceButtons(void)
 // FUNCTION: WIZ8 0x00597D30
 void RedrawCombatStanceButtons(void)
 {
-    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x7e, 0, 3, 0x262, 0x1c2);
+    CatalogArtwork::Load(0x7e, 0).drawAndInvalidate(GetFrameBufferSurface(), 3, 0x262, 0x1c2);
     for (int index = 0; index < 5; ++index) {
         g_combat_stance_buttons[index]->m_dirty = true;
     }
@@ -562,7 +562,7 @@ unsigned char CreateRoofButtons(void)
 // FUNCTION: WIZ8 0x00598060
 void RedrawRoofButtons(void)
 {
-    DrawCatalogImage(GetFrameBufferSurface(), 0x85, 0, 0, 0, 0);
+    CatalogArtwork::Load(0x85, 0).draw(GetFrameBufferSurface(), 0, 0, 0);
     for (int index = 0; index < 3; ++index) {
         g_roof_buttons[index]->m_dirty = true;
     }
@@ -727,7 +727,7 @@ void RedrawLayoutArrowButtons(void)
     bool enabled;
     W8DialogButton* draw_button;
 
-    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x7e, 0, 0, 0, 0x166);
+    CatalogArtwork::Load(0x7e, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0, 0x166);
     for (button = g_layout_arrow_buttons; button < &g_layout_arrow_buttons[6]; ++button) {
         (*button)->m_dirty = true;
     }
@@ -983,7 +983,7 @@ void DrawSubMenuCharacterAction(void)
     }
     row = &g_status.buffers.XChar[slot];
     g_smfnt_font.setPalette(g_font_state_palettes[row->party_order_index]);
-    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x7e, 0, 6, 0x157, 0x1c2);
+    CatalogArtwork::Load(0x7e, 0).drawAndInvalidate(GetFrameBufferSurface(), 6, 0x157, 0x1c2);
     character = &g_status.buffers.Char[slot];
     text = fmt::format("{} - {}", character->name,
                        g_localized_strings[g_profession_name_message_ids[character->iProfession]]);
@@ -1136,9 +1136,9 @@ void RedrawSubMenuButtons(void)
     int index;
     int frame;
 
-    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x7e, 0, 4, 0x1e, 0x1c2);
+    CatalogArtwork::Load(0x7e, 0).drawAndInvalidate(GetFrameBufferSurface(), 4, 0x1e, 0x1c2);
     frame = !gXStatus.fCombatMode ? 8 : 9;
-    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x7e, 0, frame, 0xc4, 0x1c2);
+    CatalogArtwork::Load(0x7e, 0).drawAndInvalidate(GetFrameBufferSurface(), frame, 0xc4, 0x1c2);
 
     for (button = g_submenu_buttons; button < &g_submenu_buttons[9]; ++button) {
         (*button)->m_dirty = true;
@@ -1148,14 +1148,14 @@ void RedrawSubMenuButtons(void)
         (*button)->Draw();
     }
 
-    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x7e, 0, 7, 0x210, 0x1c2);
+    CatalogArtwork::Load(0x7e, 0).drawAndInvalidate(GetFrameBufferSurface(), 7, 0x210, 0x1c2);
     for (button = g_submenu_panel_buttons; button < &g_submenu_panel_buttons[2]; ++button) {
         (*button)->m_dirty = true;
     }
     UpdateSubMenuPanelButtons();
 
-    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x7e, 0, 5, 0x124, 0x1c2);
-    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x7e, 0, 6, 0x157, 0x1c2);
+    CatalogArtwork::Load(0x7e, 0).drawAndInvalidate(GetFrameBufferSurface(), 5, 0x124, 0x1c2);
+    CatalogArtwork::Load(0x7e, 0).drawAndInvalidate(GetFrameBufferSurface(), 6, 0x157, 0x1c2);
     if (g_status.buffers.XChar[g_status.selected_character].fOccupied) {
         DrawSubMenuCharacterAction();
     }
@@ -1424,7 +1424,7 @@ unsigned char BuildSubMenuPanel(short notification)
         icon_delta = notification;
         break;
     }
-    gpSubMenuPanel = new Controls(left, 0x1c3, icon_delta + left, 0x1df, 0x7f, 0, base);
+    gpSubMenuPanel = new Controls(left, 0x1c3, icon_delta + left, 0x1df, CatalogArtwork::Load(0x7f, 0), base);
     SetRegionBounds(0xc7, left, 0x1c3, icon_delta + left, 0x1df);
     for (index = 0; index < built - 1; ++index) {
         entry = g_submenu_entries[index];
@@ -1457,9 +1457,7 @@ unsigned char BuildSubMenuPanel(short notification)
             icon_delta = 2;
             break;
         }
-        g_submenu_rows[index] = new W8TextControl(
-            gpSubMenuPanel, index + 0xc2, index * 19 + 5, 5, index * 19 + 0x17, 0x17, 0x89, 0,
-            message, message, message + icon_delta, message + icon_delta, -1);
+        g_submenu_rows[index] = new W8TextControl(gpSubMenuPanel, index + 0xc2, index * 19 + 5, 5, index * 19 + 0x17, 0x17, CatalogArtwork::Load(0x89, 0), message, message, message + icon_delta, message + icon_delta, -1);
         if (g_submenu_rows[index] == 0) {
             DestroySubMenuPanel();
             return 0;
@@ -1469,8 +1467,7 @@ unsigned char BuildSubMenuPanel(short notification)
         SetRegionHelp(index + 0xc2, true, g_submenu_entry_help_ids[menu * 5 + entry]);
     }
     g_submenu_rows[built - 1] =
-        new W8TextControl(gpSubMenuPanel, built + 0xc1, built * 19 - 14, 5, built * 19 - 2, 0x17,
-                          0x89, 0, 0xbd, 0xbd, 0xbf, 0xbf, -1);
+        new W8TextControl(gpSubMenuPanel, built + 0xc1, built * 19 - 14, 5, built * 19 - 2, 0x17, CatalogArtwork::Load(0x89, 0), 0xbd, 0xbd, 0xbf, 0xbf, -1);
     if (g_submenu_rows[built - 1] == 0) {
         DestroySubMenuPanel();
         return 0;

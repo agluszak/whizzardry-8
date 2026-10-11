@@ -8,6 +8,7 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <utility>
 
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "Font.h"
@@ -61,6 +62,39 @@ ButtonImage ButtonGraphics::Load(std::string_view filename, std::int32_t grayed,
             static_cast<std::size_t>(index) >= image->object().frames.size()) {
             SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Invalid button frame %d in %s",
                          index, std::string(filename).c_str());
+            return {};
+        }
+        const auto& frame = image->object().frames[index];
+        image->MaxWidth = std::max(image->MaxWidth,
+            static_cast<std::uint32_t>(std::max(0, frame.usWidth + frame.sOffsetX)));
+        image->MaxHeight = std::max(image->MaxHeight,
+            static_cast<std::uint32_t>(std::max(0, frame.usHeight + frame.sOffsetY)));
+    }
+    image->Grayed = grayed;
+    image->OffNormal = off_normal;
+    image->OffHilite = off_hilite;
+    image->OnNormal = on_normal;
+    image->OnHilite = on_hilite;
+    return image;
+}
+
+ButtonImage ButtonGraphics::Load(std::shared_ptr<const SpriteSheet> sprites,
+                                 std::int32_t grayed, std::int32_t off_normal,
+                                 std::int32_t off_hilite, std::int32_t on_normal,
+                                 std::int32_t on_hilite)
+{
+    const std::array frames{grayed, off_normal, off_hilite, on_normal, on_hilite};
+    if (!sprites || std::all_of(frames.begin(), frames.end(),
+                                [](int frame) { return frame == BUTTON_NO_IMAGE; }))
+        return {};
+
+    auto image = std::make_shared<ButtonGraphics>();
+    image->sprites = std::move(sprites);
+    for (const int index : frames) {
+        if (index == BUTTON_NO_IMAGE)
+            continue;
+        if (index < 0 || static_cast<std::size_t>(index) >= image->object().frames.size()) {
+            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Invalid button frame %d", index);
             return {};
         }
         const auto& frame = image->object().frames[index];
