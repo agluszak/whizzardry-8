@@ -1,22 +1,49 @@
-#include <string>
-#include <string_view>
 #ifndef WIZ8_REGIONS_H
 #define WIZ8_REGIONS_H
 
-#include <stddef.h>
+#include <cstddef>
+#include <cstdint>
 #include <deque>
-#include <vector>
 #include <span>
 #include <string>
+#include <string_view>
+#include <vector>
 #include <SDL3/SDL_rect.h>
 
 #include "input.h"
 
 class W8Widget;
-struct _GUI_BUTTON;
 struct TEXTINPUTNODE;
 
 extern bool g_dev_mode;
+
+inline constexpr int REGION_PRIORITY_BACKGROUND = -1;
+inline constexpr int REGION_PRIORITY_LOWEST = 0;
+inline constexpr int REGION_PRIORITY_LOW = 15;
+inline constexpr int REGION_PRIORITY_BASE = 31;
+inline constexpr int REGION_PRIORITY_NORMAL = REGION_PRIORITY_BASE;
+inline constexpr int REGION_PRIORITY_HIGH = 63;
+inline constexpr int REGION_PRIORITY_HIGHEST = 127;
+inline constexpr int REGION_PRIORITY_AUTO = -1;
+
+enum : std::int32_t {
+    REGION_REASON_NONE = 0,
+    REGION_REASON_INIT = 1,
+    REGION_REASON_MOVE = 2,
+    REGION_REASON_LBUTTON_DWN = 4,
+    REGION_REASON_LBUTTON_UP = 8,
+    REGION_REASON_RBUTTON_DWN = 16,
+    REGION_REASON_RBUTTON_UP = 32,
+    REGION_REASON_LOST_MOUSE = 64,
+    REGION_REASON_GAIN_MOUSE = 128,
+    REGION_REASON_LBUTTON_REPEAT = 256,
+    REGION_REASON_RBUTTON_REPEAT = 512,
+    REGION_REASON_LBUTTON_DOUBLECLICK = 1024
+};
+
+inline constexpr std::int32_t REGION_REASON_BUTTONS =
+    REGION_REASON_LBUTTON_DWN | REGION_REASON_LBUTTON_UP |
+    REGION_REASON_RBUTTON_DWN | REGION_REASON_RBUTTON_UP;
 
 struct W8RegionSet {
     W8RegionSet() = default;
@@ -36,7 +63,7 @@ struct W8RegionSet {
 private:
     // Keep slots for screen rebuilds, without assuming contiguous allocation.
     std::vector<unsigned int> region_ids;
-    size_t active_count = 0;
+    std::size_t active_count = 0;
 };
 
 /* Region callbacks receive SGP's input atom unchanged. Wheel rotation uses
@@ -95,10 +122,9 @@ struct W8Region {
     unsigned char unknown_13;
     int help_text_id;
     W8Widget* widget; // Non-owning callback target; cleared by widget teardown.
-    uint64_t binding_generation = 0; // Detect replacement during callback dispatch.
+    std::uint64_t binding_generation = 0; // Detect replacement during callback dispatch.
     int priority = 0;
-    std::string help_text;
-    _GUI_BUTTON* button = nullptr;
+    std::string help_text{};
     TEXTINPUTNODE* text_field = nullptr;
     W8RegionHandler* handler = nullptr;
 };
@@ -135,7 +161,7 @@ public:
 private:
     struct SavedRegionState {
         unsigned int index;
-        uint64_t generation;
+        std::uint64_t generation;
         unsigned int flags;
     };
     unsigned int set_;
@@ -158,7 +184,7 @@ unsigned char TextBoxMuteRegionEvent(const InputAtom*, W8Region*);        /* 0x0
 extern std::deque<W8RegionSet> g_region_sets;
 extern std::deque<W8Region> g_regions;
 extern int g_region_help_delay;
-extern uint64_t g_region_help_clock;
+extern std::uint64_t g_region_help_clock;
 extern unsigned int g_current_region_index;
 extern unsigned int g_captured_region_index;
 extern unsigned int g_hover_region_index;
@@ -193,6 +219,9 @@ void ShowRegionHelp(unsigned int region_index);
 void SetRegionHelpText(std::string_view text);
 void ResetRegionHelp(bool delayed);
 void SetRegionHelpDelay(int delay_ms);
+unsigned int ControlRegionSetIndex(void);
+std::size_t LiveDynamicRegionCount(void);
+std::int32_t RegionReasonForInput(const W8Region& region, const InputAtom& input);
 void EnableRegionHelp(unsigned int region_index);
 void DisableRegionHelp(unsigned int region_index);
 unsigned char ClearActiveRegionIfMatches(unsigned int region_index);

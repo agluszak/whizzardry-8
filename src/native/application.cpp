@@ -16,7 +16,7 @@
 #include "wiz8/engine_code/Video2.h"
 #include "input.h"
 #include "Font.h"
-#include "Button System.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
 #include "soundman.h"
 #include "random.h"
 #include "wiz8/filesystem.h"
@@ -143,7 +143,7 @@ void wiz8::Application::shutdown() noexcept
         }
     }
     ReleaseLoadedVideoFrames();
-    ShutdownButtonSystem();
+    ShutdownButtonImageManager();
     ReleaseMenuFonts();
     ResetFontRendering();
     ShutdownVideoManager();

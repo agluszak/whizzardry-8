@@ -7,7 +7,7 @@
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/engine_code/Video2.h"
 #include "input.h"
-#include "Button System.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/regions.h"
 
 /* Numeric split dialogs release the active field before forwarding button-up,

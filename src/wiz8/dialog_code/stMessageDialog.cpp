@@ -11,8 +11,9 @@
 #include "wiz8/dialog_code/DialogButton.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/dialog_code/DialogInterface.h"
+#include "wiz8/regions.h"
 #include "english.h"
-#include "Button System.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
 #include "Font.h"
 #include "dialog_code/DialogBase.h"
 #include "input.h"
@@ -177,13 +178,13 @@ int W8MessageDialogBase::CreateControls()
     m_message_button.ConfigureTextButton({}, *g_dialog_interface_font, g_dialog_font_foreground,
                                         g_dialog_font_background, m_x + 9, m_y + 9,
                                         m_width - 0x12, m_height - 0x12, nullptr, 0,
-                                        m_edge_image, BUTTON_PRIORITY_HIGHEST - 1);
+                                        m_edge_image, REGION_PRIORITY_HIGHEST - 1);
 
     if (m_confirm_button.Configure("Data\\Dialogs\\DialogConfirmation.STI", 3, 0, 1, 2, 2,
-                                   MessageDialogConfirmCallback, nullptr, false, BUTTON_PRIORITY_HIGHEST,
+                                   MessageDialogConfirmCallback, nullptr, false, REGION_PRIORITY_HIGHEST,
                                    W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr) &&
         m_cancel_button.Configure("Data\\Dialogs\\DialogConfirmation.STI", 7, 4, 5, 6, 6,
-                                  MessageDialogCancelCallback, nullptr, false, BUTTON_PRIORITY_HIGHEST,
+                                  MessageDialogCancelCallback, nullptr, false, REGION_PRIORITY_HIGHEST,
                                   W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr)) {
         m_confirm_button.m_owner = this;
         m_cancel_button.m_owner = this;

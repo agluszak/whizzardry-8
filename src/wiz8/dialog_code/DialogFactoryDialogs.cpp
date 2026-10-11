@@ -10,6 +10,7 @@
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
 #include "wiz8/dialog_code/DialogButton.h"
 #include "wiz8/dialog_code/DialogInterface.h"
+#include "wiz8/regions.h"
 #include "wiz8/utility.h"
 #include "wiz8/fonts.h"
 #include "wiz8/item_spawning.h"
@@ -22,7 +23,7 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/video_object_catalog.h"
-#include "Button System.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
 #include "Font.h"
 #include "english.h"
 #include "himage.h"
@@ -191,7 +192,7 @@ int W8ListBoxDialog::CreateControls()
     m_text_button.ConfigureTextButton(m_text, *g_dialog_interface_font, g_dialog_font_foreground,
                                      g_dialog_font_background, m_x + 9, m_y + 9, m_width - 0x12,
                                      g_dialog_interface_font->height() * 0x96 / 100, nullptr, 0,
-                                     edge_inlay, BUTTON_PRIORITY_HIGHEST - 1);
+                                     edge_inlay, REGION_PRIORITY_HIGHEST - 1);
     if (!m_text.empty()) {
         SetText(m_text);
     }
@@ -206,23 +207,23 @@ int W8ListBoxDialog::CreateControls()
                                      g_dialog_font_background, m_text_button.GetX(),
                                      m_text_button.GetY() + m_text_button.GetHeight() + 4,
                                      m_text_button.GetWidth(), 0x14, TextAreaButtonCallback, 0,
-                                     area_inlay, BUTTON_PRIORITY_HIGHEST - 1);
+                                     area_inlay, REGION_PRIORITY_HIGHEST - 1);
     m_area_button.m_owner = this;
     m_area_button.m_activation = DialogButtonActivation::Press;
     const bool configured =
         m_up_button.Configure("Data\\Dialogs\\DialogUpArrow.STI", 3, 0, 1, 2, 2,
-                              UpButtonCallback, nullptr, false, BUTTON_PRIORITY_HIGHEST - 1,
+                              UpButtonCallback, nullptr, false, REGION_PRIORITY_HIGHEST - 1,
                               W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr) &&
         m_down_button.Configure("Data\\Dialogs\\DialogDownArrow.STI", 3, 0, 1, 2, 2,
-                                DownButtonCallback, nullptr, false, BUTTON_PRIORITY_HIGHEST - 1,
+                                DownButtonCallback, nullptr, false, REGION_PRIORITY_HIGHEST - 1,
                                 W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr) &&
         m_slider_button.ConfigureIcon("Data\\Dialogs\\DialogSlideBar.STI", BUTTON_NO_IMAGE, 0,
-                                     BUTTON_PRIORITY_HIGHEST - 2, W8_DIALOG_BUTTON_NO_TOOLTIP) &&
+                                     REGION_PRIORITY_HIGHEST - 2, W8_DIALOG_BUTTON_NO_TOOLTIP) &&
         m_ok_button.Configure("Data\\Dialogs\\DialogConfirmation.STI", 3, 0, 1, 2, 2,
-                              OkButtonCallback, nullptr, false, BUTTON_PRIORITY_HIGHEST,
+                              OkButtonCallback, nullptr, false, REGION_PRIORITY_HIGHEST,
                               W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr) &&
         m_cancel_button.Configure("Data\\Dialogs\\DialogConfirmation.STI", 7, 4, 5, 6, 6,
-                                  CancelButtonCallback, nullptr, false, BUTTON_PRIORITY_HIGHEST,
+                                  CancelButtonCallback, nullptr, false, REGION_PRIORITY_HIGHEST,
                                   W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr);
     if (!configured) {
         DestroyControls();
@@ -234,7 +235,7 @@ int W8ListBoxDialog::CreateControls()
         if (third_btn_inlay) {
             m_third_text_button.ConfigureTextButton({}, *g_dialog_interface_font,
                 g_dialog_font_foreground, g_dialog_font_background, 0, 0, 1, 1,
-                SliderTrackButtonCallback, 0, third_btn_inlay, BUTTON_PRIORITY_HIGHEST - 2);
+                SliderTrackButtonCallback, 0, third_btn_inlay, REGION_PRIORITY_HIGHEST - 2);
             if (m_third_text_button.IsConfigured()) {
                 m_third_text_button.m_owner = this;
                 m_third_text_button.m_activation = DialogButtonActivation::Press;
@@ -243,7 +244,7 @@ int W8ListBoxDialog::CreateControls()
                     g_dialog_font_foreground, g_dialog_font_background, m_x + 9,
                     m_y + m_height - m_ok_button.GetHeight() * 0x96 / 100 - 9,
                     m_width - 0x12, m_ok_button.GetHeight() * 0x96 / 100, nullptr, 0,
-                    edge_inlay, BUTTON_PRIORITY_HIGHEST - 1);
+                    edge_inlay, REGION_PRIORITY_HIGHEST - 1);
                 m_cancel_button.SetPosition(
                     m_second_text_button.GetX() - m_cancel_button.GetWidth() +
                         m_second_text_button.GetWidth(),
@@ -509,22 +510,22 @@ bool W8SplitAmountDialog::CreateButtons()
 
     for (auto& button : m_buttons) button = std::make_unique<W8DialogButton>();
     if (!m_buttons[0]->Configure("Data\\Dialogs\\popup_splititem.sti", 0xc, 9, 10, 0xd, 0xb,
-                            SplitDecrementOne, BUTTON_NO_CALLBACK, false, BUTTON_PRIORITY_HIGHEST,
+                            SplitDecrementOne, BUTTON_NO_CALLBACK, false, REGION_PRIORITY_HIGHEST,
                             W8_DIALOG_BUTTON_NO_TOOLTIP, SplitDecrementFive, BUTTON_NO_CALLBACK)) return false;
     if (!m_buttons[1]->Configure("Data\\Dialogs\\popup_splititem.sti", 7, 4, 5, 8, 6, SplitIncrementOne,
-                            BUTTON_NO_CALLBACK, false, BUTTON_PRIORITY_HIGHEST,
+                            BUTTON_NO_CALLBACK, false, REGION_PRIORITY_HIGHEST,
                             W8_DIALOG_BUTTON_NO_TOOLTIP, SplitIncrementFive, BUTTON_NO_CALLBACK)) return false;
     if (!m_buttons[2]->ConfigureIcon("Data\\Dialogs\\popup_splititem.sti", BUTTON_NO_IMAGE, 3,
-                                BUTTON_PRIORITY_LOWEST, W8_DIALOG_BUTTON_NO_TOOLTIP)) return false;
+                                REGION_PRIORITY_LOWEST, W8_DIALOG_BUTTON_NO_TOOLTIP)) return false;
     if (!m_buttons[3]->Configure("Data\\Dialogs\\popup_splititem.sti", BUTTON_NO_IMAGE, 3,
                             BUTTON_NO_IMAGE, 3, BUTTON_NO_IMAGE, SplitActivateField,
-                            BUTTON_NO_CALLBACK, false, BUTTON_PRIORITY_HIGHEST,
+                            BUTTON_NO_CALLBACK, false, REGION_PRIORITY_HIGHEST,
                             W8_DIALOG_BUTTON_NO_TOOLTIP, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK)) return false;
     if (!m_buttons[4]->Configure("Data\\Dialogs\\popup_confirmationbuttons.sti", 3, 0, 1, 4, 2,
-                            SplitAccept, BUTTON_NO_CALLBACK, false, BUTTON_PRIORITY_HIGHEST,
+                            SplitAccept, BUTTON_NO_CALLBACK, false, REGION_PRIORITY_HIGHEST,
                             W8_DIALOG_BUTTON_NO_TOOLTIP, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK)) return false;
     if (!m_buttons[5]->Configure("Data\\Dialogs\\popup_confirmationbuttons.sti", 3, 5, 6, 9, 7,
-                            SplitCancel, BUTTON_NO_CALLBACK, false, BUTTON_PRIORITY_HIGHEST,
+                            SplitCancel, BUTTON_NO_CALLBACK, false, REGION_PRIORITY_HIGHEST,
                             W8_DIALOG_BUTTON_NO_TOOLTIP, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK)) return false;
     m_buttons[0]->m_repeat_enabled = true;
     m_buttons[1]->m_repeat_enabled = true;
@@ -815,49 +816,49 @@ bool W8TriggerItemPickerDialog::CreateButtons()
     }
     bool configured = true;
     configured = m_buttons[0]->Configure("Data\\Dialogs\\popup_chest_selectionbuttons.sti", 3, 0, 1, 2, 2,
-                            ToggleAllItems, BUTTON_NO_CALLBACK, false, BUTTON_PRIORITY_HIGHEST, 0x15,
+                            ToggleAllItems, BUTTON_NO_CALLBACK, false, REGION_PRIORITY_HIGHEST, 0x15,
                             BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK) && configured;
     configured = m_buttons[1]->Configure("Data\\Dialogs\\chest_confirmationbuttons.sti", 0xd, 10, 0xb, 0xc, 0xc,
-                            TakeSelectedToParty, BUTTON_NO_CALLBACK, false, BUTTON_PRIORITY_HIGHEST,
+                            TakeSelectedToParty, BUTTON_NO_CALLBACK, false, REGION_PRIORITY_HIGHEST,
                             0x13, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK) && configured;
     configured = m_buttons[2]->Configure("Data\\Dialogs\\chest_confirmationbuttons.sti", 3, 0, 1, 2, 2,
                             TakeSelectedToCharacter, BUTTON_NO_CALLBACK, false,
-                            BUTTON_PRIORITY_HIGHEST, 0x14, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK) && configured;
+                            REGION_PRIORITY_HIGHEST, 0x14, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK) && configured;
     configured = m_buttons[3]->Configure("Data\\Dialogs\\chest_confirmationbuttons.sti", 8, 5, 6, 7, 7,
-                            CloseOwningDialog, BUTTON_NO_CALLBACK, false, BUTTON_PRIORITY_HIGHEST,
+                            CloseOwningDialog, BUTTON_NO_CALLBACK, false, REGION_PRIORITY_HIGHEST,
                             0x16, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK) && configured;
     configured = m_buttons[4]->Configure("Data\\Dialogs\\popup_chest2.sti", BUTTON_NO_IMAGE, 0, BUTTON_NO_IMAGE,
                             BUTTON_NO_IMAGE, BUTTON_NO_IMAGE, BUTTON_NO_CALLBACK,
-                            BUTTON_NO_CALLBACK, false, BUTTON_PRIORITY_LOWEST,
+                            BUTTON_NO_CALLBACK, false, REGION_PRIORITY_LOWEST,
                             W8_DIALOG_BUTTON_NO_TOOLTIP, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK) && configured;
     configured = m_buttons[5]->Configure("Data\\Dialogs\\popup_chest2.sti", BUTTON_NO_IMAGE, 1, BUTTON_NO_IMAGE,
                             2, BUTTON_NO_IMAGE, ToggleVisibleItem0, BUTTON_NO_CALLBACK, true,
-                            BUTTON_PRIORITY_HIGHEST - 1, W8_DIALOG_BUTTON_NO_TOOLTIP,
+                            REGION_PRIORITY_HIGHEST - 1, W8_DIALOG_BUTTON_NO_TOOLTIP,
                             ShowVisibleItemInfo0, BUTTON_NO_CALLBACK) && configured;
     configured = m_buttons[6]->Configure("Data\\Dialogs\\popup_chest2.sti", BUTTON_NO_IMAGE, 1, BUTTON_NO_IMAGE,
                             2, BUTTON_NO_IMAGE, ToggleVisibleItem1, BUTTON_NO_CALLBACK, true,
-                            BUTTON_PRIORITY_HIGHEST - 1, W8_DIALOG_BUTTON_NO_TOOLTIP,
+                            REGION_PRIORITY_HIGHEST - 1, W8_DIALOG_BUTTON_NO_TOOLTIP,
                             ShowVisibleItemInfo1, BUTTON_NO_CALLBACK) && configured;
     configured = m_buttons[7]->Configure("Data\\Dialogs\\popup_chest2.sti", BUTTON_NO_IMAGE, 1, BUTTON_NO_IMAGE,
                             2, BUTTON_NO_IMAGE, ToggleVisibleItem2, BUTTON_NO_CALLBACK, true,
-                            BUTTON_PRIORITY_HIGHEST - 1, W8_DIALOG_BUTTON_NO_TOOLTIP,
+                            REGION_PRIORITY_HIGHEST - 1, W8_DIALOG_BUTTON_NO_TOOLTIP,
                             ShowVisibleItemInfo2, BUTTON_NO_CALLBACK) && configured;
     configured = m_buttons[8]->Configure("Data\\Dialogs\\popup_chest2.sti", BUTTON_NO_IMAGE, 1, BUTTON_NO_IMAGE,
                             2, BUTTON_NO_IMAGE, ToggleVisibleItem3, BUTTON_NO_CALLBACK, true,
-                            BUTTON_PRIORITY_HIGHEST - 1, W8_DIALOG_BUTTON_NO_TOOLTIP,
+                            REGION_PRIORITY_HIGHEST - 1, W8_DIALOG_BUTTON_NO_TOOLTIP,
                             ShowVisibleItemInfo3, BUTTON_NO_CALLBACK) && configured;
     configured = m_buttons[9]->Configure("Data\\Dialogs\\maininterface_scroll.STI", 3, 0, 1, 2, 2, ScrollItemsUp,
-                            BUTTON_NO_CALLBACK, false, BUTTON_PRIORITY_HIGHEST,
+                            BUTTON_NO_CALLBACK, false, REGION_PRIORITY_HIGHEST,
                             W8_DIALOG_BUTTON_NO_TOOLTIP, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK) && configured;
     configured = m_buttons[10]->Configure("Data\\Dialogs\\maininterface_scroll.STI", 0xb, 8, 9, 10, 10,
-                             ScrollItemsDown, BUTTON_NO_CALLBACK, false, BUTTON_PRIORITY_HIGHEST,
+                             ScrollItemsDown, BUTTON_NO_CALLBACK, false, REGION_PRIORITY_HIGHEST,
                              W8_DIALOG_BUTTON_NO_TOOLTIP, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK) && configured;
     configured = m_buttons[11]->Configure("Data\\Dialogs\\maininterface_scroll.STI", 7, 4, 5, 6, 6,
-                             BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK, false, BUTTON_PRIORITY_LOWEST,
+                             BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK, false, REGION_PRIORITY_LOWEST,
                              W8_DIALOG_BUTTON_NO_TOOLTIP, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK) && configured;
     configured = m_buttons[12]->Configure("Data\\Dialogs\\popup_chest2.sti", BUTTON_NO_IMAGE, 3, 3, 3, 3,
                              BUTTON_NO_CALLBACK, ScrollItemsToMouse, false,
-                             BUTTON_PRIORITY_HIGHEST - 1, W8_DIALOG_BUTTON_NO_TOOLTIP,
+                             REGION_PRIORITY_HIGHEST - 1, W8_DIALOG_BUTTON_NO_TOOLTIP,
                              BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK) && configured;
     m_buttons[5]->m_right_toggles = true;
     m_buttons[6]->m_right_toggles = true;

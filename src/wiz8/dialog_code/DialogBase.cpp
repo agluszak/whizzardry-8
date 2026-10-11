@@ -5,10 +5,11 @@
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/dialog_code/DialogButton.h"
 #include "wiz8/dialog_code/DialogTextArea.h"
+#include "wiz8/regions.h"
 #include "wiz8/video_object_catalog.h"
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "input.h"
-#include "Button System.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
 #include "vsurface.h"
 
 // GLOBAL: WIZ8 0x0069CA28
@@ -17,7 +18,7 @@ int g_live_dialog_count;
 void W8DialogBase::CreateCloseButton(W8DialogButton& button, int left, int top)
 {
     button.Configure("Data\\Dialogs\\popup_confirmationbuttons.sti", 3, 0, 1, 4, 2,
-                     DialogCloseButtonCallback, BUTTON_NO_CALLBACK, false, BUTTON_PRIORITY_HIGHEST,
+                     DialogCloseButtonCallback, BUTTON_NO_CALLBACK, false, REGION_PRIORITY_HIGHEST,
                      W8_DIALOG_BUTTON_NO_TOOLTIP, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
     button.SetPosition(m_x + left, m_y + top);
     button.m_owner = this;
@@ -152,7 +153,7 @@ int W8DialogBase::CreateControls()
     }
     if (m_resource.ConfigureTextButton({}, *m_font, m_foreground, m_background, m_x, m_y,
                                       m_width, m_height, nullptr, 0, m_border,
-                                      BUTTON_PRIORITY_BACKGROUND)) {
+                                      REGION_PRIORITY_BACKGROUND)) {
         m_resource.SetTextOffsets(3, 3, true);
         m_resource.SetMultiColor(g_dialog_font_enabled);
         m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
@@ -181,7 +182,7 @@ void W8DialogBase::DestroyControls()
 void W8DialogBase::BeginModalInput()
 {
     if (!m_input_scope) {
-        m_input_scope.emplace(ButtonRegionSetIndex());
+        m_input_scope.emplace(ControlRegionSetIndex());
     }
 }
 

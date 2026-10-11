@@ -1,4 +1,3 @@
-#include <cstdint>
 #include <fmt/format.h>
 #include <SDL3/SDL_rect.h>
 #include <string_view>
@@ -20,7 +19,7 @@
 #include "wiz8/fonts.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/engine_code/Video2.h"
-#include "Button System.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
 #include "input.h"
 #include "wiz8/regions.h"
 #include "random.h"
@@ -49,6 +48,29 @@ struct MessageBoxState {
 static std::optional<MessageBoxState> g_message_box;
 // GLOBAL: WIZ8 0x0068BFD0
 // GLOBAL: WIZ8 0x00689FD0
+
+static SDL_Rect MessageBoxBounds(const MessageBoxState& message_box)
+{
+    auto bounds = message_box.background.GetBounds();
+    const auto include = [&bounds](SDL_Rect control) {
+        const int left = std::min(bounds.x, control.x);
+        const int top = std::min(bounds.y, control.y);
+        const int right = std::max(bounds.x + bounds.w, control.x + control.w);
+        const int bottom = std::max(bounds.y + bounds.h, control.y + control.h);
+        bounds = {left, top, right - left, bottom - top};
+    };
+
+    if (message_box.accept.IsConfigured()) include(message_box.accept.GetBounds());
+    if (message_box.cancel.IsConfigured()) include(message_box.cancel.GetBounds());
+    return bounds;
+}
+
+static void SetMessageBoxResult(bool accepted)
+{
+    if (!g_message_box) return;
+    g_message_box->state = 1;
+    g_message_box->accepted = accepted;
+}
 
 // FUNCTION: WIZ8 0x00517950
 void SetDice(W8Dice* dice, unsigned char count, unsigned char sides, short base)
@@ -517,12 +539,8 @@ bool CreateMessageBox(std::string_view text, Font& font, unsigned int shade, boo
 
     if (!message_box.background.ConfigureTextButton(
             text, font, 0xff, 0, (0x280 - width) / 2, y, width, height,
-            [](W8DialogButton*) {
-                if (!g_message_box) return;
-                g_message_box->state = 1;
-                g_message_box->accepted = true;
-            },
-            0, background_image, BUTTON_PRIORITY_BACKGROUND)) {
+            [](W8DialogButton*) { SetMessageBoxResult(true); },
+            0, background_image, REGION_PRIORITY_BACKGROUND)) {
         return fail_creation();
     }
     message_box.background.SetMultiColor(true);
@@ -532,12 +550,8 @@ bool CreateMessageBox(std::string_view text, Font& font, unsigned int shade, boo
     if (has_accept) {
         if (!message_box.accept.Configure(
                 "Data\\Message Box\\Ok.sti", 0, 1, 2, 3, 4,
-                [](W8DialogButton*) {
-                    if (!g_message_box) return;
-                    g_message_box->state = 1;
-                    g_message_box->accepted = true;
-                },
-                nullptr, false, BUTTON_PRIORITY_HIGHEST - 1,
+                [](W8DialogButton*) { SetMessageBoxResult(true); },
+                nullptr, false, REGION_PRIORITY_HIGHEST - 1,
                 W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr)) {
             return fail_creation();
         }
@@ -546,12 +560,8 @@ bool CreateMessageBox(std::string_view text, Font& font, unsigned int shade, boo
     if (has_cancel) {
         if (!message_box.cancel.Configure(
                 "Data\\Message Box\\Cancel.sti", 0, 1, 2, 3, 4,
-                [](W8DialogButton*) {
-                    if (!g_message_box) return;
-                    g_message_box->state = 1;
-                    g_message_box->accepted = false;
-                },
-                nullptr, false, BUTTON_PRIORITY_HIGHEST - 1,
+                [](W8DialogButton*) { SetMessageBoxResult(false); },
+                nullptr, false, REGION_PRIORITY_HIGHEST - 1,
                 W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr)) {
             return fail_creation();
         }
@@ -564,9 +574,9 @@ bool CreateMessageBox(std::string_view text, Font& font, unsigned int shade, boo
     message_box.shade = shade;
     message_box.state = 2;
     message_box.callback = callback;
-    message_box.input_scope.emplace(ButtonRegionSetIndex());
-    const SDL_Rect rect = message_box.background.GetBounds();
-    InvalidateRegion(rect.x, rect.y, (rect.x + rect.w), (rect.y + rect.h), 0x11);
+    message_box.input_scope.emplace(ControlRegionSetIndex());
+    const auto bounds = MessageBoxBounds(message_box);
+    InvalidateRegion(bounds.x, bounds.y, bounds.x + bounds.w, bounds.y + bounds.h, 0x11);
     return true;
 }
 
@@ -576,13 +586,13 @@ static void ReleaseMessageBoxControls()
 
     auto& message_box = *g_message_box;
     message_box.input_scope.reset();
-    const SDL_Rect rect = message_box.background.GetBounds();
+    const auto bounds = MessageBoxBounds(message_box);
     message_box.accept.Reset();
     message_box.cancel.Reset();
     message_box.background.Reset();
-    if (rect.w > 0 && rect.h > 0) {
-        ClearSurfaceRect(rect.x, rect.y, (rect.x + rect.w), (rect.y + rect.h));
-        InvalidateRegion(rect.x, rect.y, (rect.x + rect.w), (rect.y + rect.h), 1);
+    if (bounds.w > 0 && bounds.h > 0) {
+        ClearSurfaceRect(bounds.x, bounds.y, bounds.x + bounds.w, bounds.y + bounds.h);
+        InvalidateRegion(bounds.x, bounds.y, bounds.x + bounds.w, bounds.y + bounds.h, 1);
     }
 }
 

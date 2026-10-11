@@ -12,7 +12,7 @@
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/dialog_code/DialogButton.h"
 #include "wiz8/local_code/ControlsRect.h"
-#include "Button System.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
 #include "input.h"
 #include "Types.h"
 #include "compat/compiler.h"

@@ -8,33 +8,13 @@
 
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/dialog_code/DialogButton.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/engine_code/Video2.h"
-#include "Button System.h"
 #include "wiz8/regions.h"
 #include "input.h"
-
-bool UpdateDialogArrowState(GUI_BUTTON* button, std::int32_t reason)
-{
-    if (reason & BUTTON_REASON_LBUTTON_DWN) {
-        if (!(button->uiFlags & BUTTON_CLICKED_ON)) {
-            button->uiFlags |= BUTTON_CLICKED_ON;
-            return true;
-        }
-    } else if (reason & BUTTON_REASON_LBUTTON_UP) {
-        if (button->uiFlags & BUTTON_CLICKED_ON) {
-            button->uiFlags &= ~BUTTON_CLICKED_ON;
-            return true;
-        }
-    } else if (reason & BUTTON_REASON_GAIN_MOUSE) {
-        return true;
-    } else if (reason & BUTTON_REASON_LOST_MOUSE) {
-        return true;
-    }
-    return false;
-}
 // FUNCTION: WIZ8 0x005db4e0
 void W8DialogButton::Draw()
 {
@@ -210,7 +190,7 @@ void W8DialogButton::Reset()
 void W8DialogButton::ConfigureRegion(int priority)
 {
     const auto& bounds = m_appearance.bounds;
-    m_region = OwnedRegion(ButtonRegionSetIndex(), priority, *this);
+    m_region = OwnedRegion(ControlRegionSetIndex(), priority, *this);
     auto& region = m_region.region();
     region.flags |= W8_REGION_RECTANGLE;
     SetRegionBounds(m_region.index(), static_cast<unsigned short>(bounds.x),
@@ -274,8 +254,8 @@ bool W8DialogButton::Configure(const char* image_path, int gray_frame, int off_n
 // FUNCTION: WIZ8 0x005db620
 int W8DialogButton::HandleRegionInput(W8Region& region, const InputAtom& input)
 {
-    const auto reason = ButtonReasonForRegionInput(region, input);
-    if (reason == BUTTON_REASON_NONE) return input.usEvent == LEFT_BUTTON_DBL_CLK;
+    const auto reason = RegionReasonForInput(region, input);
+    if (reason == REGION_REASON_NONE) return input.usEvent == LEFT_BUTTON_DBL_CLK;
     HandleMouseEvent(reason);
     return 1;
 }
@@ -284,7 +264,7 @@ void W8DialogButton::HandleMouseEvent(std::int32_t reason)
 {
     if (m_live_dialog_count != g_live_dialog_count) return;
     if (!m_left_callback && !m_right_callback && !m_move_callback && !m_double_click_callback) return;
-    if (reason & BUTTON_REASON_LOST_MOUSE) {
+    if (reason & REGION_REASON_LOST_MOUSE) {
         m_armed_buttons = m_repeated_buttons = 0;
         if (!m_left_toggles) SetPressed(false);
         m_dirty = true;
@@ -292,27 +272,27 @@ void W8DialogButton::HandleMouseEvent(std::int32_t reason)
         return;
     }
     if (!m_visual.enabled) return;
-    if (reason & BUTTON_REASON_GAIN_MOUSE) {
+    if (reason & REGION_REASON_GAIN_MOUSE) {
         m_dirty = true;
         if (!silent && !hover_silent) PlayButtonSound(0);
         return;
     }
-    if ((reason & BUTTON_REASON_LBUTTON_DOUBLECLICK) && m_double_click_callback) {
+    if ((reason & REGION_REASON_LBUTTON_DOUBLECLICK) && m_double_click_callback) {
         const auto callback = m_double_click_callback;
         if (!m_left_toggles || m_visual.pressed) callback(this);
         return;
     }
-    if (reason & BUTTON_REASON_MOVE) {
+    if (reason & REGION_REASON_MOVE) {
         const auto callback = m_move_callback;
         if (callback) callback(this);
         return;
     }
-    const bool right = (reason & (BUTTON_REASON_RBUTTON_DWN |
-        BUTTON_REASON_RBUTTON_UP | BUTTON_REASON_RBUTTON_REPEAT)) != 0;
+    const bool right = (reason & (REGION_REASON_RBUTTON_DWN |
+        REGION_REASON_RBUTTON_UP | REGION_REASON_RBUTTON_REPEAT)) != 0;
     const auto mask = right ? SDL_BUTTON_RMASK : SDL_BUTTON_LMASK;
-    const auto down = right ? BUTTON_REASON_RBUTTON_DWN : BUTTON_REASON_LBUTTON_DWN;
-    const auto up = right ? BUTTON_REASON_RBUTTON_UP : BUTTON_REASON_LBUTTON_UP;
-    const auto repeat = right ? BUTTON_REASON_RBUTTON_REPEAT : BUTTON_REASON_LBUTTON_REPEAT;
+    const auto down = right ? REGION_REASON_RBUTTON_DWN : REGION_REASON_LBUTTON_DWN;
+    const auto up = right ? REGION_REASON_RBUTTON_UP : REGION_REASON_LBUTTON_UP;
+    const auto repeat = right ? REGION_REASON_RBUTTON_REPEAT : REGION_REASON_LBUTTON_REPEAT;
     const bool toggles = right ? m_right_toggles : m_left_toggles;
     const auto callback = right ? m_right_callback : m_left_callback;
     // Callbacks may destroy the owning dialog and this control.
