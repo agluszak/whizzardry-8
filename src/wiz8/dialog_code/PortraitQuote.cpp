@@ -558,7 +558,7 @@ int LayoutPortraitQuoteBubble(int quote_handle, unsigned char background_index,
             const auto& destination_storage = *bubble.surface->cpu().surface;
             pitch = destination_storage.pitch;
             pixels = static_cast<UINT16*>(destination_storage.pixels);
-            fill = Get16BPPColor(0xffff);
+            fill = Get16BPPColor(SDL_Color{255, 255, 0, SDL_ALPHA_OPAQUE});
             bubble.surface->cpu().sourceKey = SurfaceColorKey{fill, fill};
             count = static_cast<unsigned short>(height * max_width);
             for (x = 0; x < count; ++x) {
