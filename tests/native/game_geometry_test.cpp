@@ -24,6 +24,7 @@
 #include "surrender/srDD_SDLGPU.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/Octree.h"
+#include "wiz8/engine_code/AnimObj.h"
 #include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/engine_code/stMeshModel.h"
 #include "wiz8/engine_code/stModelInstance.h"
@@ -71,6 +72,21 @@ static void bounds()
     const auto rotated = box.transformed(matrix);
     REQUIRE(close(rotated.minimum, {3, 22, 31}));
     REQUIRE(close(rotated.maximum, {9, 28, 34}));
+    // The animation transform scales the translated coordinates, including
+    // negative scale. It therefore differs from translating a scaled box.
+    glm::mat3 quarter_turn(0);
+    quarter_turn[0] = glm::vec3(0, 1, 0);
+    quarter_turn[1] = glm::vec3(-1, 0, 0);
+    quarter_turn[2] = glm::vec3(0, 0, 1);
+    const srVector3 translation(10, 20, 30), scale(-2, 3, .5f);
+    srVector3 minimum(-1, -2, -3), maximum(4, 5, 6);
+    TransformBounds(&quarter_turn, &translation, &scale, &minimum, &maximum);
+    REQUIRE(minimum == srVector3(-24, 57, 13.5f));
+    REQUIRE(maximum == srVector3(-10, 72, 18));
+    minimum = srVector3(0, 0, 0);
+    maximum = srVector3(0, 0, 0);
+    TransformBounds(&quarter_turn, &translation, &scale, &minimum, &maximum);
+    REQUIRE((minimum == srVector3(-20, 60, 15) && maximum == minimum));
 }
 
 static void planes_and_segments()

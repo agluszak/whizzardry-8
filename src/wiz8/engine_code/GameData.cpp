@@ -9,6 +9,7 @@
 #include "glm/common.hpp"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/geometric.hpp"
+#include "glm/gtx/projection.hpp"
 #include "glm/matrix.hpp"
 #include "glm/trigonometric.hpp"
 #include "glm/vector_relational.hpp"
@@ -2429,7 +2430,7 @@ glm::vec3 ProjectVectorOntoVector(const glm::vec3& vector, const glm::vec3& onto
     const float length_squared = glm::dot(onto, onto);
     if (!(length_squared > g_vector_length_squared_epsilon))
         return vector;
-    return onto * (glm::dot(vector, onto) / length_squared);
+    return glm::proj(vector, onto);
 }
 
 /* Apply saved yaw and pitch after a world reload. */

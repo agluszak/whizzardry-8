@@ -14,7 +14,9 @@
 
 #include "compat/compiler.h"
 #include "glm/ext/vector_float2.hpp"
+#include "glm/ext/vector_float3.hpp"
 #include "surrender/srMath.h"
+#include "surrender/srBoundingBox.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/engine_code/OctPreTree.h"
 #include "wiz8/engine_code/3d.h"
@@ -1033,13 +1035,10 @@ w8_ulong OctPreTree::AllocateSubMesh(W8OctSubmeshBuild* records)
     }
     for (w8_ulong index = 1; index < m_spatial.submesh_count; ++index) {
         W8OctSubmeshBuild* record = records + index;
-        /* Retail initialises the bounds only on this path; for empty records
-           the cell check below reads whatever the stack held. */
-        srVector3T<float> minimum;
-        srVector3T<float> maximum;
+        srBoundingBox bounds{glm::vec3(1e+06f), glm::vec3(-1e+06f)};
+        const auto& minimum = bounds.minimum;
+        const auto& maximum = bounds.maximum;
         if (record->m_polygon_count != 0) {
-            minimum = 1e+06f;
-            maximum = -1e+06f;
             record->m_polygon_ids = static_cast<int*>(malloc(record->m_polygon_count * sizeof(*record->m_polygon_ids) + 2 * sizeof(*record->m_polygon_ids)));
             if (record->m_polygon_ids == 0) {
                 ReportBuildStatus(7, "\nAllocateSubMesh: Could not allocate aulFaces.\n");
@@ -1059,24 +1058,7 @@ w8_ulong OctPreTree::AllocateSubMesh(W8OctSubmeshBuild* records)
                         for (int corner = 0; corner < 3; ++corner) {
                             const srVector3T<float>* position =
                                 &game_data->m_polygons[poly].vertices[corner]->position;
-                            if (maximum.x < position->x) {
-                                maximum.x = position->x;
-                            }
-                            if (position->x < minimum.x) {
-                                minimum.x = position->x;
-                            }
-                            if (maximum.y < position->y) {
-                                maximum.y = position->y;
-                            }
-                            if (position->y < minimum.y) {
-                                minimum.y = position->y;
-                            }
-                            if (maximum.z < position->z) {
-                                maximum.z = position->z;
-                            }
-                            if (position->z < minimum.z) {
-                                minimum.z = position->z;
-                            }
+                            bounds.include(position->glmValue());
                         }
                     }
                 }
@@ -1163,31 +1145,16 @@ void OctPreTree::VerifyAutoMeshes(W8OctPreTreeGeometry* geometry, W8OctSubmeshBu
                 if (m_branches[node].region != key) {
                     ReportBuildStatus(7, "Region has wrong automesh.");
                 }
-                srVector3T<float> minimum(g_float_one_million, 1e+06f, 1e+06f);
-                srVector3T<float> maximum(-1e+06f, -1e+06f, -1e+06f);
+                srBoundingBox bounds{glm::vec3(g_float_one_million, 1e+06f, 1e+06f),
+                                     glm::vec3(-1e+06f)};
+                const auto& minimum = bounds.minimum;
+                const auto& maximum = bounds.maximum;
                 for (w8_ulong link = mesh; link != 0; link = records[link].m_next_link) {
                     W8OctSubmeshBuild* record = records + link;
                     for (w8_ulong i = 0; i < record->vertex_count; ++i) {
                         const srVector3T<float>* position =
                             &geometry->m_vertices[record->m_vertex_ids[i]].position;
-                        if (maximum.x < position->x) {
-                            maximum.x = position->x;
-                        }
-                        if (position->x < minimum.x) {
-                            minimum.x = position->x;
-                        }
-                        if (maximum.y < position->y) {
-                            maximum.y = position->y;
-                        }
-                        if (position->y < minimum.y) {
-                            minimum.y = position->y;
-                        }
-                        if (maximum.z < position->z) {
-                            maximum.z = position->z;
-                        }
-                        if (position->z < minimum.z) {
-                            minimum.z = position->z;
-                        }
+                        bounds.include(position->glmValue());
                     }
                 }
                 if (cell_x + m_spatial.m_region_grid_cell < minimum.x || maximum.x < cell_x ||

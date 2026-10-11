@@ -4,8 +4,10 @@
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
+#include <span>
 
 #include "surrender/srMath.h"
+#include "surrender/srBoundingBox.h"
 #include "wiz8/containers.h"
 #include "wiz8/local_code/ItemManager.h"
 #include "compat/ptr32.h"
@@ -287,18 +289,10 @@ void GDProp::BindTrigger(Trigger* owner)
 // FUNCTION: WIZ8 0x004b7500
 void GDProp::ComputeBounds(srVector3T<float>* minimum, srVector3T<float>* maximum)
 {
-    m_bound_max = m_pVertices[0];
-    m_bound_min = m_pVertices[0];
-    for (int vertex = 1; vertex < m_vertex_count; ++vertex) {
-        for (int axis = 0; axis < 3; ++axis) {
-            if ((&m_bound_min.x)[axis] > (&m_pVertices[vertex].x)[axis]) {
-                (&m_bound_min.x)[axis] = (&m_pVertices[vertex].x)[axis];
-            }
-            if ((&m_bound_max.x)[axis] < (&m_pVertices[vertex].x)[axis]) {
-                (&m_bound_max.x)[axis] = (&m_pVertices[vertex].x)[axis];
-            }
-        }
-    }
+    const auto bounds = boundingBox(std::span<const srVector3T<float>>{
+        m_pVertices, static_cast<std::size_t>(m_vertex_count)});
+    m_bound_max = bounds.maximum;
+    m_bound_min = bounds.minimum;
 
     m_path_range.minimum = m_bound_min.y;
     m_path_range.maximum = m_bound_max.y;
