@@ -1,3 +1,6 @@
+#include "compat/compiler.h"
+#include "surrender/triangle_runs.h"
+#include <vector>
 #include "surrender/bounding_radius.h"
 #include "surrender/stream_scope.h"
 #include "surrender/srDebug.h"
@@ -204,4 +207,41 @@ TEST_CASE("Renderer dump formatting restores native flags on failed output")
     srDumpFlags(stream, 0b101, "first,unused,last");
     srDumpFlags(stream, 8, nullptr);
     REQUIRE(stream.str() == "[NONE][first,last][3]");
+}
+
+TEST_CASE("Triangle texture runs follow depth order and retain submission limits")
+{
+    const std::array<w8_ulong, 5> textures{7, 7, 8, 7, 7};
+    std::vector<srTriangleRun> runs;
+    const auto record = [&](const srTriangleRun& run) { runs.push_back(run); };
+    visitTriangleRuns(textures, {}, textures.size(), record);
+    REQUIRE(runs.size() == 3);
+    REQUIRE((runs[0].first == 0 && runs[0].count == 2 && runs[0].texture_set == 7));
+    REQUIRE((runs[1].first == 2 && runs[1].count == 1 && runs[1].texture_set == 8));
+    REQUIRE((runs[2].first == 3 && runs[2].count == 2 && runs[2].texture_set == 7));
+    std::array<w8_ulong, 5> keys{0xffffffffu, 0, 128, 0, 0};
+    const auto order = sortedTriangleOrder(keys);
+    REQUIRE(order == std::vector<w8_ulong>{1, 3, 4, 2, 0});
+    REQUIRE(keys == std::array<w8_ulong, 5>{0, 0, 0, 128, 0xffffffffu});
+    runs.clear();
+    visitTriangleRuns(textures, order, 512, record);
+    REQUIRE(runs.size() == 3);
+    REQUIRE((runs[0].count == 3 && runs[0].texture_set == 7));
+    REQUIRE((runs[1].count == 1 && runs[1].texture_set == 8));
+    REQUIRE((runs[2].count == 1 && runs[2].texture_set == 7));
+    std::vector<w8_ulong> uniform(1025, 7), uniform_keys(1025, 0);
+    const auto uniform_order = sortedTriangleOrder(uniform_keys);
+    runs.clear();
+    visitTriangleRuns(uniform, uniform_order, 512, record);
+    REQUIRE(runs.size() == 3);
+    REQUIRE((runs[0].first == 0 && runs[0].count == 512));
+    REQUIRE((runs[1].first == 512 && runs[1].count == 512));
+    REQUIRE((runs[2].first == 1024 && runs[2].count == 1));
+    runs.clear();
+    visitTriangleRuns(uniform, {}, uniform.size(), record);
+    REQUIRE((runs.size() == 1 && runs.front().count == 1025));
+    runs.clear();
+    visitTriangleRuns({}, {}, 512, record);
+    REQUIRE(runs.empty());
+    REQUIRE(sortedTriangleOrder({}).empty());
 }
