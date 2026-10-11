@@ -70,9 +70,6 @@ bool ImageFillVideoSurfaceArea(SGPVSurface& uiDestVSurface, std::int32_t iDestX1
 std::unique_ptr<SGPVSurface> CreateVideoSurface(std::uint16_t width, std::uint16_t height, std::uint8_t bits);
 std::unique_ptr<SGPVSurface> LoadVideoSurface(std::string_view filename);
 
-// Sets the packed source color key
-void SetVideoSurfaceTransparencyColor(SGPVSurface& surface, COLORVAL color);
-
 /////////////////////////////////////////////////////////////////////////////////////////////////////
 //
 // Blt Functions

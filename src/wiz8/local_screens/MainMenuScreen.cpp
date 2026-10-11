@@ -1,3 +1,4 @@
+#include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_rect.h>
 #include <string_view>
 #include <string>
@@ -161,7 +162,7 @@ unsigned char MainMenuScreenEnter(void)
     g_main_menu_has_save_games = SaveGameExists();
     g_main_menu_redraw = true;
     ClearPrimarySurface();
-    colour = Get16BPPColor(0x10101);
+    colour = Get16BPPColor(SDL_Color{1, 1, 1, SDL_ALPHA_OPAQUE});
     ColorFillVideoSurfaceArea(GetFrameBufferSurface(), 0, 0, 0x280, 0x1e0, colour);
     SetViewport(0, 0, 0x280, 0x1e0);
     g_main_menu_selected_item = 0;

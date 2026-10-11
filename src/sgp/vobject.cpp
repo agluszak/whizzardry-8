@@ -182,11 +182,10 @@ bool SetObjectShade(SGPVObject& pObj, std::uint32_t uiShade)
 SDL_Surface* SpriteFrame::coloredSurface(std::span<const std::uint16_t, 256> palette, bool mirror) const
 {
     if (!indices) return nullptr;
-    if (!colored || !std::equal(colors.begin(), colors.end(), palette.begin())) {
-        auto surface = CreateCpuStorage(usWidth, usHeight, SDL_PIXELFORMAT_RGB565);
+    if (!colored || colored->format != g_sgp_pixel_format || !std::equal(colors.begin(), colors.end(), palette.begin())) {
+        auto surface = CreateCpuStorage(usWidth, usHeight, g_sgp_pixel_format);
         if (!surface) return nullptr;
-        // RGB555 is stored as raw words, not converted to RGB565. A key outside
-        // the whole LUT preserves opaque index zero and every possible shade.
+        // A key outside the whole LUT preserves opaque index zero and every shade.
         std::uint16_t key = 0;
         while (std::find(palette.begin(), palette.end(), key) != palette.end()) ++key;
         for (int y = 0; y < usHeight; ++y) {
@@ -195,7 +194,8 @@ SDL_Surface* SpriteFrame::coloredSurface(std::span<const std::uint16_t, 256> pal
             for (int x = 0; x < usWidth; ++x)
                 destination[x] = source[x] == kTransparent ? key : palette[source[x]];
         }
-        if (!SDL_SetSurfaceColorKey(surface.get(), true, key) || !SDL_SetSurfaceRLE(surface.get(), true))
+        if (!SDL_SetSurfaceBlendMode(surface.get(), SDL_BLENDMODE_NONE) ||
+            !SDL_SetSurfaceColorKey(surface.get(), true, key) || !SDL_SetSurfaceRLE(surface.get(), true))
             return nullptr;
         colored = std::move(surface);
         std::copy(palette.begin(), palette.end(), colors.begin());

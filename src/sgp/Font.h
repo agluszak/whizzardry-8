@@ -4,8 +4,8 @@
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
 
-#include <cstdint>
 #include <SDL3/SDL_rect.h>
+#include <cstdint>
 #include <vector>
 #include <string_view>
 #include <cstddef>
@@ -14,6 +14,7 @@
 
 #include "himage.h"
 
+#include "Types.h"
 #include "vobject.h"
 
 // font glyphs for spell targeting types
@@ -68,7 +69,7 @@ void SetFontForeground(std::uint8_t ubForeground);
 void SetFontBackground(std::uint8_t ubBackground);
 void SetFontShadow(std::uint8_t ubBackground);
 
-void SetRGBFontShadow(std::uint32_t uiRed, std::uint32_t uiGreen, std::uint32_t uiBlue);
+void SetRGBFontShadow(SDL_Color color);
 
 void DrawFontText(std::int32_t x, std::int32_t y, std::string_view text);
 void DrawFontTextDirty(std::int32_t x, std::int32_t y, std::string_view text);

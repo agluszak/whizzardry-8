@@ -30,6 +30,7 @@
 #include "Button System.h"
 #include "shading.h"
 #include "wiz8/application.h"
+#include "Types.h"
 #include "mousesystem.h"
 
 /* Original translation unit is not established by the Arnika/Gameloop source anchors. */
@@ -63,7 +64,6 @@ unsigned char InitializeGame(size_t& initialized_screens)
         }
     }
     SetShadeTablePercent((float)0.66);
-    BuildShadeTable();
     if (!InitializeMenuFonts()) {
         return 0;
     }

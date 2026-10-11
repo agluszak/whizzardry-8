@@ -1,3 +1,4 @@
+#include <SDL3/SDL_pixels.h>
 #include <fmt/format.h>
 #include <memory>
 #include <SDL3/SDL_rect.h>
@@ -1907,7 +1908,7 @@ void RenderAutomapMarkers(void)
                         pitch = destination_storage.pitch;
                         char* buffer = static_cast<char*>(destination_storage.pixels);
                         SetClippingRegionAndImageWidth(pitch, 0xc, 0x20, 0x1c7, 0x1b3);
-                        int color = Get16BPPColor(0x569bef);
+                        int color = Get16BPPColor(SDL_Color{239, 155, 86, SDL_ALPHA_OPAQUE});
                         int length = g_wiz_text_font_secondary.textWidth(note->text);
                         RectangleDraw(true, x - 1, y, x + length + 2, y + (font_height & 0xffff),
                                       color, buffer);

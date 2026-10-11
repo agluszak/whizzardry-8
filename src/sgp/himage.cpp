@@ -1,7 +1,5 @@
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
-#include <new>
-#include "wiz8/compat/surfaces.h"
 #include <SDL3/SDL_log.h>
 #include <SDL3_image/SDL_image.h>
 #include <zlib.h>
@@ -28,6 +26,7 @@
 #include <span>
 #include <cstddef>
 
+#include "wiz8/compat/surfaces.h"
 #include "wiz8/filesystem.h"
 #include "himage.h"
 #include "imgfmt.h"
@@ -37,20 +36,7 @@
 
 #define BLACK_SUBSTITUTE 0x0001
 
-// GLOBAL: WIZ8 0x00650f48
-std::uint16_t gusAlphaMask = 0;
-// GLOBAL: WIZ8 0x00650f4a
-std::uint16_t gusRedMask = 0;
-// GLOBAL: WIZ8 0x00650f4c
-std::uint16_t gusGreenMask = 0;
-// GLOBAL: WIZ8 0x00650f4e
-std::uint16_t gusBlueMask = 0;
-// GLOBAL: WIZ8 0x00650f50
-std::int16_t gusRedShift = 0;
-// GLOBAL: WIZ8 0x00650f52
-std::int16_t gusBlueShift = 0;
-// GLOBAL: WIZ8 0x00650f54
-std::int16_t gusGreenShift = 0;
+SDL_PixelFormat g_sgp_pixel_format = SDL_PIXELFORMAT_XRGB1555;
 
 namespace
 {
@@ -191,11 +177,12 @@ BitmapImage load_ordinary_image(wiz8::File& file, ImageFormat format)
                     decoded.pixels.data() + y * row_bytes);
     if (indexed) {
         decoded.palette.emplace();
+        decoded.palette->fill({0, 0, 0, SDL_ALPHA_OPAQUE});
         const unsigned first_color = format == ImageFormat::tga &&
             (bytes[2] == 1 || bytes[2] == 9) ? little_word(bytes.data() + 3) : 0;
         std::transform(palette->colors, palette->colors + std::min(unsigned(palette->ncolors), 256 - first_color),
             decoded.palette->begin() + first_color, [](const SDL_Color& color) {
-                return SGPPaletteEntry{color.r, color.g, color.b, 0};
+                return SDL_Color{color.r, color.g, color.b, SDL_ALPHA_OPAQUE};
             });
     }
     return decoded;
@@ -306,7 +293,7 @@ DecodedImage load_sti(wiz8::File& file)
         decoded.palette.emplace();
         std::transform(palette.begin(), palette.end(), decoded.palette->begin(),
             [](const STCIPaletteElement& color) {
-                return SGPPaletteEntry{color.ubRed, color.ubGreen, color.ubBlue, 0};
+                return SDL_Color{color.ubRed, color.ubGreen, color.ubBlue, SDL_ALPHA_OPAQUE};
             });
     }
     if (file_size < 0 || app_offset > std::uint64_t(file_size) || header.uiStoredSize > max_image_bytes)
@@ -337,20 +324,28 @@ DecodedImage load_sti(wiz8::File& file)
         decoded.pixels.resize(bitmap_bytes);
     }
     // FUNCTION: WIZ8 0x00415250
+    const auto* target_details = SDL_GetPixelFormatDetails(g_sgp_pixel_format);
+    if (!target_details)
+        throw std::runtime_error("Unsupported SGP pixel format");
     if (rgb && header.ubDepth == 16 &&
-        (header.RGB.uiRedMask != gusRedMask || header.RGB.uiGreenMask != gusGreenMask || header.RGB.uiBlueMask != gusBlueMask)) {
-        const auto source_format = SDL_GetPixelFormatForMasks(16, header.RGB.uiRedMask, header.RGB.uiGreenMask, header.RGB.uiBlueMask, 0);
-        const auto target_format = SDL_GetPixelFormatForMasks(16, gusRedMask, gusGreenMask, gusBlueMask, 0);
+        (header.RGB.uiRedMask != target_details->Rmask ||
+         header.RGB.uiGreenMask != target_details->Gmask ||
+         header.RGB.uiBlueMask != target_details->Bmask)) {
+        const auto source_format = SDL_GetPixelFormatForMasks(
+            16, header.RGB.uiRedMask, header.RGB.uiGreenMask, header.RGB.uiBlueMask, 0);
+        // Keep zero transparent while encoding an opaque alpha marker on nonzero pixels.
+        const auto target_format = SDL_GetPixelFormatForMasks(
+            16, target_details->Rmask, target_details->Gmask, target_details->Bmask, 0);
         std::vector<std::uint8_t> converted(decoded.pixels.size());
         if (!SDL_ConvertPixels(header.usWidth, header.usHeight, source_format,
-            decoded.pixels.data(), header.usWidth * 2, target_format, converted.data(), header.usWidth * 2))
+                               decoded.pixels.data(), header.usWidth * 2, target_format,
+                               converted.data(), header.usWidth * 2))
             throw std::runtime_error(SDL_GetError());
-        // Zero is the game's transparent pixel, even when opaque colors use an alpha mask.
-        if (gusAlphaMask) {
+        if (target_details->Amask) {
             for (std::size_t i = 0; i < std::size_t(header.usWidth) * header.usHeight * 2; i += 2) {
                 std::uint16_t pixel;
                 std::memcpy(&pixel, converted.data() + i, sizeof(pixel));
-                if (pixel) pixel |= gusAlphaMask;
+                if (pixel) pixel |= target_details->Amask;
                 std::memcpy(converted.data() + i, &pixel, sizeof(pixel));
             }
         }
@@ -388,8 +383,8 @@ std::optional<DecodedImage> LoadImage(std::string_view filename)
 Palette16 Create16BPPPalette(const Palette8& palette)
 {
     Palette16 packed{};
-    std::transform(palette.begin(), palette.end(), packed.begin(), [](const SGPPaletteEntry& color) {
-        return Get16BPPColor(std::uint32_t(color.peRed) | (std::uint32_t(color.peGreen) << 8) | (std::uint32_t(color.peBlue) << 16));
+    std::transform(palette.begin(), palette.end(), packed.begin(), [](const SDL_Color& color) {
+        return Get16BPPColor(color);
     });
     return packed;
 }
@@ -404,16 +399,16 @@ Palette16 Create16BPPPalette(const Palette8& palette)
 				Color mode: Percentages (255=100%) of color to translate into destination palette.
 				Mono mode:  Color for monochrome palette.
 		mono:
-				true or false to create a monochrome palette. In mono mode, Luminance values for
+				TRUE or FALSE to create a monochrome palette. In mono mode, Luminance values for
 				colors are calculated, and the RGB color is shaded according to each pixel's brightness.
 
 	This can be used in several ways:
 
 	1) To "brighten" a palette, pass down RGB values that are higher than 100% ( > 255) for all
-			three. mono=false.
-	2) To "darken" a palette, do the same with less than 100% ( < 255) values. mono=false.
+			three. mono=FALSE.
+	2) To "darken" a palette, do the same with less than 100% ( < 255) values. mono=FALSE.
 
-	3) To create a "glow" palette, select mono=true, and pass the color in the RGB parameters.
+	3) To create a "glow" palette, select mono=TRUE, and pass the color in the RGB parameters.
 
 	4) For gamma correction, pass in weighted values for each color.
 
@@ -423,56 +418,31 @@ Palette16 Create16BPPPaletteShaded(const Palette8& palette, std::uint32_t rscale
                                                 std::uint32_t gscale, std::uint32_t bscale, bool mono)
 {
     Palette16 packed{};
-    std::transform(palette.begin(), palette.end(), packed.begin(), [=](const SGPPaletteEntry& color) {
-        const std::uint32_t luminance = color.peRed * 299 / 1000 + color.peGreen * 587 / 1000 + color.peBlue * 114 / 1000;
-        const auto red = std::min(rscale * (mono ? luminance : color.peRed) / 256, 255u);
-        const auto green = std::min(gscale * (mono ? luminance : color.peGreen) / 256, 255u);
-        const auto blue = std::min(bscale * (mono ? luminance : color.peBlue) / 256, 255u);
-        return Get16BPPColor(red | (green << 8) | (blue << 16));
+    std::transform(palette.begin(), palette.end(), packed.begin(), [=](const SDL_Color& color) {
+        const std::uint32_t luminance = color.r * 299 / 1000 + color.g * 587 / 1000 + color.b * 114 / 1000;
+        const auto red = std::min(rscale * (mono ? luminance : color.r) / 256, 255u);
+        const auto green = std::min(gscale * (mono ? luminance : color.g) / 256, 255u);
+        const auto blue = std::min(bscale * (mono ? luminance : color.b) / 256, 255u);
+        return Get16BPPColor(SDL_Color{static_cast<std::uint8_t>(red), static_cast<std::uint8_t>(green),
+                                       static_cast<std::uint8_t>(blue), SDL_ALPHA_OPAQUE});
     });
     return packed;
 }
 
 // Convert from RGB to 16 bit value
 // FUNCTION: WIZ8 0x004104b0
-std::uint16_t Get16BPPColor(std::uint32_t RGBValue)
+std::uint16_t Get16BPPColor(SDL_Color color)
 {
-    std::uint16_t r16, g16, b16, usColor;
-    std::uint8_t r, g, b;
-
-    r = SGPGetRValue(RGBValue);
-    g = SGPGetGValue(RGBValue);
-    b = SGPGetBValue(RGBValue);
-
-    if (gusRedShift < 0)
-        r16 = ((std::uint16_t)r >> abs(gusRedShift));
-    else
-        r16 = ((std::uint16_t)r << gusRedShift);
-
-    if (gusGreenShift < 0)
-        g16 = ((std::uint16_t)g >> abs(gusGreenShift));
-    else
-        g16 = ((std::uint16_t)g << gusGreenShift);
-
-    if (gusBlueShift < 0)
-        b16 = ((std::uint16_t)b >> abs(gusBlueShift));
-    else
-        b16 = ((std::uint16_t)b << gusBlueShift);
-
-    usColor = (r16 & gusRedMask) | (g16 & gusGreenMask) | (b16 & gusBlueMask);
-
-    // if our color worked out to absolute black, and the original wasn't
-    // absolute black, convert it to a VERY dark grey to avoid transparency
-    // problems
-
-    if (usColor == 0) {
-        if (RGBValue != 0)
-            usColor = BLACK_SUBSTITUTE | gusAlphaMask;
-    } else
-        usColor |= gusAlphaMask;
-
-    return (usColor);
+    const auto* details = SDL_GetPixelFormatDetails(g_sgp_pixel_format);
+    if (!details)
+        throw std::runtime_error("Unsupported 16-bit pixel format");
+    const std::uint16_t pixel = SDL_MapRGB(details, nullptr, color.r, color.g, color.b) &
+                         (details->Rmask | details->Gmask | details->Bmask);
+    if (!pixel)
+        return (color.r || color.g || color.b) ? (BLACK_SUBSTITUTE | details->Amask) : 0;
+    return pixel | details->Amask;
 }
+
 // ConvertToPaletteEntry
 // Parameter List : Converts from RGB to SGPPaletteEntry
 // Return Value  pointer to the SGPPaletteEntry
@@ -483,21 +453,6 @@ std::uint16_t Get16BPPColor(std::uint32_t RGBValue)
 std::optional<std::uint8_t> SpriteFrame::paletteIndexAt(int x, int y) const
 {
     if (x < 0 || y < 0 || x >= usWidth || y >= usHeight) return std::nullopt;
-    if (!indices) return std::nullopt;
-    const auto* row = reinterpret_cast<const std::uint16_t*>(static_cast<const std::uint8_t*>(indices->pixels) + y * indices->pitch);
-    const auto value = row[x];
+    const auto value = pixels[y * usWidth + x];
     return value == kTransparent ? 0 : static_cast<std::uint8_t>(value);
-}
-
-SpriteFrame::SpriteFrame(const SpriteFrame& other)
-    : indices(other.indices ? SDL_DuplicateSurface(other.indices.get()) : nullptr, SDL_DestroySurface),
-      sOffsetX(other.sOffsetX), sOffsetY(other.sOffsetY), usHeight(other.usHeight), usWidth(other.usWidth)
-{
-    if (other.indices && !indices) throw std::bad_alloc();
-}
-
-SpriteFrame& SpriteFrame::operator=(const SpriteFrame& other)
-{
-    if (this != &other) *this = SpriteFrame(other);
-    return *this;
 }

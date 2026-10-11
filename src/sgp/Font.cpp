@@ -1,5 +1,5 @@
-#include <cstdint>
 #include <utility>
+#include <cstdint>
 #include <SDL3/SDL_rect.h>
 #include <cstddef>
 #include <algorithm>
@@ -65,35 +65,25 @@ void Font::clear()
 // FUNCTION: WIZ8 0x00406c20
 void SetFontForeground(std::uint8_t ubForeground)
 {
-    std::uint32_t uiRed, uiGreen, uiBlue;
-
     if (!g_font_render_state.font)
         return;
 
     g_font_render_state.foreground_index = ubForeground;
 
-    uiRed = (std::uint32_t)g_font_render_state.font->glyphs.pPaletteEntry[ubForeground].peRed;
-    uiGreen = (std::uint32_t)g_font_render_state.font->glyphs.pPaletteEntry[ubForeground].peGreen;
-    uiBlue = (std::uint32_t)g_font_render_state.font->glyphs.pPaletteEntry[ubForeground].peBlue;
-
-    g_font_render_state.foreground = Get16BPPColor(FROMRGB(uiRed, uiGreen, uiBlue));
+    g_font_render_state.foreground =
+        Get16BPPColor(g_font_render_state.font->glyphs.pPaletteEntry[ubForeground]);
 }
 
 // FUNCTION: WIZ8 0x00406c90
 void SetFontShadow(std::uint8_t ubShadow)
 {
-    std::uint32_t uiRed, uiGreen, uiBlue;
-
     if (!g_font_render_state.font)
         return;
 
     //g_font_render_state.foreground_index=ubForeground;
 
-    uiRed = (std::uint32_t)g_font_render_state.font->glyphs.pPaletteEntry[ubShadow].peRed;
-    uiGreen = (std::uint32_t)g_font_render_state.font->glyphs.pPaletteEntry[ubShadow].peGreen;
-    uiBlue = (std::uint32_t)g_font_render_state.font->glyphs.pPaletteEntry[ubShadow].peBlue;
-
-    g_font_render_state.shadow = Get16BPPColor(FROMRGB(uiRed, uiGreen, uiBlue));
+    g_font_render_state.shadow =
+        Get16BPPColor(g_font_render_state.font->glyphs.pPaletteEntry[ubShadow]);
 
     if (ubShadow != 0) {
         if (g_font_render_state.shadow == 0) {
@@ -114,26 +104,21 @@ void SetFontShadow(std::uint8_t ubShadow)
 // FUNCTION: WIZ8 0x00406d10
 void SetFontBackground(std::uint8_t ubBackground)
 {
-    std::uint32_t uiRed, uiGreen, uiBlue;
-
     if (!g_font_render_state.font)
         return;
 
     g_font_render_state.background_index = ubBackground;
 
-    uiRed = (std::uint32_t)g_font_render_state.font->glyphs.pPaletteEntry[ubBackground].peRed;
-    uiGreen = (std::uint32_t)g_font_render_state.font->glyphs.pPaletteEntry[ubBackground].peGreen;
-    uiBlue = (std::uint32_t)g_font_render_state.font->glyphs.pPaletteEntry[ubBackground].peBlue;
-
-    g_font_render_state.background = Get16BPPColor(FROMRGB(uiRed, uiGreen, uiBlue));
+    g_font_render_state.background =
+        Get16BPPColor(g_font_render_state.font->glyphs.pPaletteEntry[ubBackground]);
 }
 
 // FUNCTION: WIZ8 0x00406d80
-void SetRGBFontShadow(std::uint32_t uiRed, std::uint32_t uiGreen, std::uint32_t uiBlue)
+void SetRGBFontShadow(SDL_Color color)
 {
     if (!g_font_render_state.font)
         return;
-    g_font_render_state.shadow = Get16BPPColor(FROMRGB(uiRed, uiGreen, uiBlue));
+    g_font_render_state.shadow = Get16BPPColor(color);
 }
 //end Kris
 

@@ -4,13 +4,14 @@
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
 
-#include <cstdint>
 #include <SDL3/SDL_rect.h>
+#include <cstdint>
 #include <string_view>
 #include <vector>
 #include <memory>
 #include <optional>
 
+#include "Types.h"
 #include "himage.h"
 
 // ************************************************************************************
@@ -18,9 +19,6 @@
 // Video Object SGP Module
 //
 // ************************************************************************************
-
-// This definition mimics what is found in WINDOWS.H ( for Direct Draw compatiblity )
-typedef std::uint32_t COLORVAL;
 
 // Defines for blitting
 #define VO_BLT_SRCTRANSPARENCY 0x000000002
@@ -45,11 +43,6 @@ typedef struct {
 
 } blt_fx;
 
-// This definition mimics what is found in WINDOWS.H ( for Direct Draw compatiblity )
-// From RGB to COLORVAL
-#define FROMRGB(r, g, b)                                                                           \
-    ((std::uint32_t)(((std::uint8_t)(r) | ((std::uint16_t)(g) << 8)) | (((std::uint32_t)(std::uint8_t)(b)) << 16)))
-
 // Owned indexed sprite frames and renderer palette tables.
 struct SGPVObject {
     SGPVObject() = default;
@@ -69,7 +62,7 @@ struct SGPVObject {
 
 // Palette generation and shade selection preserve the game's RGB555 tables.
 std::uint16_t CreateObjectPaletteTables(SGPVObject& object, std::uint32_t type);
-bool SetObjectShade(SGPVObject& object, std::uint32_t shade);
+std::uint16_t SetObjectShade(SGPVObject& object, std::uint32_t shade);
 
 struct SGPVSurface;
 bool BltVideoObject(SGPVSurface& destination, SGPVObject& source, std::uint16_t frame,

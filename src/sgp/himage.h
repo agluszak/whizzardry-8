@@ -4,6 +4,7 @@
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
 
+#include <SDL3/SDL_pixels.h>
 #include <cstdint>
 #include <array>
 #include <optional>
@@ -14,16 +15,7 @@
 #include "wiz8/compat/surfaces.h"
 #include <span>
 
-// Palette structure, mimics that of Win32
-typedef struct tagSGPPaletteEntry {
-    std::uint8_t peRed;
-    std::uint8_t peGreen;
-    std::uint8_t peBlue;
-    std::uint8_t peFlags;
-
-} SGPPaletteEntry;
-
-using Palette8 = std::array<SGPPaletteEntry, 256>;
+using Palette8 = std::array<SDL_Color, 256>;
 using Palette16 = std::array<std::uint16_t, 256>;
 
 // Tight, top-down INDEX8, RGB555 or RGB24 pixels.
@@ -91,13 +83,8 @@ std::optional<DecodedImage> LoadImage(std::string_view filename);
 Palette16 Create16BPPPaletteShaded(const Palette8& pPalette, std::uint32_t rscale, std::uint32_t gscale,
                                  std::uint32_t bscale, bool mono);
 Palette16 Create16BPPPalette(const Palette8& pPalette);
-std::uint16_t Get16BPPColor(std::uint32_t RGBValue);
-extern std::uint16_t gusAlphaMask;
-extern std::uint16_t gusRedMask;
-extern std::uint16_t gusGreenMask;
-extern std::uint16_t gusBlueMask;
-extern std::int16_t gusRedShift;
-extern std::int16_t gusBlueShift;
-extern std::int16_t gusGreenShift;
+std::uint16_t Get16BPPColor(SDL_Color color);
+// Selected SDL format for native 16-bit sprite and UI pixels.
+extern SDL_PixelFormat g_sgp_pixel_format;
 
 #endif

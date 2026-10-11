@@ -134,9 +134,11 @@ static Bytes sti_bitmap(unsigned width, unsigned height, unsigned depth, const B
     if (depth == 8)
         header.Indexed.uiNumberOfColours = 256;
     else {
-        header.RGB.uiRedMask = gusRedMask;
-        header.RGB.uiGreenMask = gusGreenMask;
-        header.RGB.uiBlueMask = gusBlueMask;
+        const auto* native_format = SDL_GetPixelFormatDetails(g_sgp_pixel_format);
+        REQUIRE(native_format != nullptr);
+        header.RGB.uiRedMask = native_format->Rmask;
+        header.RGB.uiGreenMask = native_format->Gmask;
+        header.RGB.uiBlueMask = native_format->Bmask;
     }
     header.uiOriginalSize = width * height * (depth / 8);
     Bytes stored = pixels;
@@ -228,13 +230,7 @@ static std::optional<BitmapImage> load(const char* path)
 
 static void rgb555()
 {
-    gusAlphaMask = 0;
-    gusRedMask = 0x7c00;
-    gusGreenMask = 0x03e0;
-    gusBlueMask = 0x001f;
-    gusRedShift = 7;
-    gusGreenShift = 2;
-    gusBlueShift = -3;
+    g_sgp_pixel_format = SDL_PIXELFORMAT_XRGB1555;
 }
 
 static void check_pcx(const BitmapImage& image)
@@ -245,10 +241,10 @@ static void check_pcx(const BitmapImage& image)
     REQUIRE(!memcmp(image.pixels.data(), expected, sizeof(expected)));
     for (unsigned i = 0; i < 256; ++i)
     {
-        REQUIRE((*image.palette)[i].peRed == (i == 2 ? 255 : i));
-        REQUIRE((*image.palette)[i].peGreen == (i == 2 ? 0 : i));
-        REQUIRE((*image.palette)[i].peBlue == (i == 2 ? 0 : i));
-        REQUIRE((*image.palette)[i].peFlags == 0);
+        REQUIRE((*image.palette)[i].r == (i == 2 ? 255 : i));
+        REQUIRE((*image.palette)[i].g == (i == 2 ? 0 : i));
+        REQUIRE((*image.palette)[i].b == (i == 2 ? 0 : i));
+        REQUIRE((*image.palette)[i].a == SDL_ALPHA_OPAQUE);
     }
     const auto palette = Create16BPPPalette(*image.palette);
     REQUIRE(palette[0] == 0); // Exact black stays transparent.
@@ -304,9 +300,11 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
         header.usWidth = 2;
         header.usHeight = 1;
         header.ubDepth = 16;
-        header.RGB.uiRedMask = gusRedMask;
-        header.RGB.uiGreenMask = gusGreenMask;
-        header.RGB.uiBlueMask = gusBlueMask;
+        const auto* native_format = SDL_GetPixelFormatDetails(g_sgp_pixel_format);
+        REQUIRE(native_format);
+        header.RGB.uiRedMask = native_format->Rmask;
+        header.RGB.uiGreenMask = native_format->Gmask;
+        header.RGB.uiBlueMask = native_format->Bmask;
         header.uiStoredSize = header.uiOriginalSize = 4;
         const auto write_rgb = [&] {
             Bytes bytes(STCI_HEADER_SIZE + 4);
@@ -358,11 +356,7 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
         auto complete = load("Dotted.dir/default.PCX");
         REQUIRE(complete);
         check_pcx(*complete);
-        gusAlphaMask = 0x8000;
-        gusRedMask = 0x001f;
-        gusBlueMask = 0x7c00;
-        gusRedShift = -3;
-        gusBlueShift = 7;
+        g_sgp_pixel_format = SDL_PIXELFORMAT_ABGR1555;
         auto custom = load("Dotted.dir/default.PCX");
         REQUIRE((custom && custom->palette));
         const auto palette = Create16BPPPalette(*custom->palette);
@@ -372,20 +366,26 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
     }
 
     {
-        std::array<SGPPaletteEntry, 256> palette{};
+        std::array<SDL_Color, 256> palette{};
         palette[0] = {0, 0, 0, 255};
         palette[1] = {1, 1, 1, 255};
         palette[2] = {255, 0, 0, 0};
         palette[255] = {17, 121, 244, 0};
         const auto packed_palette = Create16BPPPalette(palette);
         REQUIRE((packed_palette[0] == 0 && packed_palette[1] == 1 && packed_palette[2] == 0x7c00));
+        g_sgp_pixel_format = SDL_PIXELFORMAT_RGB565;
+        REQUIRE(Get16BPPColor(SDL_Color{255, 0, 0, 255}) == 0xf800);
+        REQUIRE(Get16BPPColor(SDL_Color{0, 255, 0, 255}) == 0x07e0);
+        REQUIRE(Get16BPPColor(SDL_Color{0, 0, 255, 255}) == 0x001f);
+        REQUIRE(Get16BPPColor(SDL_Color{1, 1, 1, 255}) == 1);
+        rgb555();
         const auto shaded = Create16BPPPaletteShaded(palette, 384, 0, 128, false);
         REQUIRE((shaded[0] == 0 && shaded[255] == 0x0c0f));
         const auto mono = Create16BPPPaletteShaded(palette, 384, 0, 128, true);
         REQUIRE((mono[0] == 0 && mono[255] == 0x4c06));
         const auto clamped = Create16BPPPaletteShaded(palette, 4096, 4096, 4096, false);
         REQUIRE(clamped[255] == 0x7fff);
-        gusAlphaMask = 0x8000;
+        g_sgp_pixel_format = SDL_PIXELFORMAT_ARGB1555;
         const auto opaque = Create16BPPPalette(palette);
         REQUIRE((opaque[0] == 0 && opaque[1] == 0x8001 && opaque[2] == 0xfc00));
         rgb555();
@@ -416,8 +416,8 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
         REQUIRE((image && image->bitDepth == 8 && image->palette));
         const std::uint8_t indices[]{2, 2, 2, 2, 1, 0};
         REQUIRE(!memcmp(image->pixels.data(), indices, sizeof(indices)));
-        REQUIRE(((*image->palette)[2].peRed == 255 && (*image->palette)[2].peBlue == 0));
-        REQUIRE(((*image->palette)[3].peRed == 0 && (*image->palette)[255].peFlags == 0));
+        REQUIRE(((*image->palette)[2].r == 255 && (*image->palette)[2].b == 0));
+        REQUIRE(((*image->palette)[3].r == 0 && (*image->palette)[255].a == SDL_ALPHA_OPAQUE));
         const auto palette = Create16BPPPalette(*image->palette);
         REQUIRE((palette[0] == 0 && palette[1] == 1));
         auto offset_palette = indexed_tga();
@@ -427,8 +427,8 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
         offset_palette[31] += 16;
         fixture(assets / "offset.tga", offset_palette);
         auto offset = load("offset.tga");
-        REQUIRE((offset && (*offset->palette)[18].peRed == 255 && (*offset->palette)[0].peRed == 0));
-        REQUIRE(((*offset->palette)[17].peRed == 1 && offset->pixels[0] == 18));
+        REQUIRE((offset && (*offset->palette)[18].r == 255 && (*offset->palette)[0].r == 0));
+        REQUIRE(((*offset->palette)[17].r == 1 && offset->pixels[0] == 18));
         auto override_image = load("override.pcx");
         REQUIRE((override_image && !memcmp(override_image->pixels.data(), indices, sizeof(indices))));
     }
@@ -529,12 +529,13 @@ TEST_CASE_METHOD(ImageFixture, "STI bitmaps decode before pitched surface initia
     auto image = load("palette.sti");
     REQUIRE((image && image->palette));
     const auto colors = *image->palette;
-    gusAlphaMask = 0x8000;
+    g_sgp_pixel_format = SDL_PIXELFORMAT_ARGB1555;
     auto surface = LoadVideoSurface("palette.sti");
     REQUIRE(surface);
     REQUIRE(!memcmp(&*image->palette, &colors, sizeof(colors)));
     REQUIRE(surface->p16BPPPalette[0] == 0);
     REQUIRE(surface->p16BPPPalette[1] == 0x8001);
+    rgb555();
 }
 
 TEST_CASE_METHOD(ImageFixture, "Raw and zlib STI RGB masks normalize identically", "[image][decoding]")
@@ -549,7 +550,7 @@ TEST_CASE_METHOD(ImageFixture, "Raw and zlib STI RGB masks normalize identically
         memcpy(bytes.data(), &header, sizeof(header));
         fixture(assets / "rgb565.sti", bytes);
         for (std::uint16_t alpha : {std::uint16_t(0), std::uint16_t(0x8000)}) {
-            gusAlphaMask = alpha;
+            g_sgp_pixel_format = alpha ? SDL_PIXELFORMAT_ARGB1555 : SDL_PIXELFORMAT_XRGB1555;
             auto image = load("rgb565.sti");
             REQUIRE(image);
             const std::array<std::uint16_t, 4> expected{0, std::uint16_t(0x7c00 | alpha),
@@ -564,6 +565,7 @@ TEST_CASE_METHOD(ImageFixture, "Raw and zlib STI RGB masks normalize identically
                                 expected.data() + row * 2, 4));
         }
     }
+    rgb555();
 }
 
 TEST_CASE_METHOD(ImageFixture, "STI sprite sheets decode and transfer ownership at loading", "[image][decoding]")
@@ -582,7 +584,7 @@ TEST_CASE_METHOD(ImageFixture, "STI sprite sheets decode and transfer ownership 
     REQUIRE(sprite_pixels(sheet->frames[0]) == expected);
     REQUIRE((sheet->frames[0].sOffsetX == -2 && sheet->frames[0].sOffsetY == 3));
     REQUIRE((sheet->frames[1].sOffsetX == 4 && sheet->frames[1].sOffsetY == -1));
-    REQUIRE(sheet->palette[2].peRed == 2);
+    REQUIRE(sheet->palette[2].r == 2);
     REQUIRE_FALSE(LoadVideoSurface("sheet.sti"));
     const auto* pixels = sheet->frames[0].indices->pixels;
     SGPVObject moved(std::move(*sheet));

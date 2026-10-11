@@ -1,8 +1,8 @@
 #ifndef WIZ8_VIDEO2_H
 #define WIZ8_VIDEO2_H
 
-#include <cstdint>
 #include <SDL3/SDL_rect.h>
+#include <cstdint>
 #include <SDL3/SDL_video.h>
 #include <string_view>
 #include <memory>
@@ -19,6 +19,7 @@
 
 struct CpuSurface; // IWYU pragma: keep - pointer declarations in this API.
 
+#include "Types.h"
 
 #define BUFFER_READY 0x00
 #define BUFFER_BUSY 0x01
@@ -38,8 +39,6 @@ extern void SuspendVideoManager(void);
 extern bool RestoreVideoManager(void);
 extern void GetCurrentVideoSettings(std::uint16_t* usWidth, std::uint16_t* usHeight, std::uint8_t* ubBitDepth);
 extern void InvalidateRegion(std::int32_t iLeft, std::int32_t iTop, std::int32_t iRight, std::int32_t iBottom, std::uint32_t uiFlags);
-extern bool GetPrimaryRGBDistributionMasks(std::uint32_t* RedBitMask, std::uint32_t* GreenBitMask,
-                                              std::uint32_t* BblueBitMask);
 extern void PrintScreen(void);
 
 void VideoCaptureToggle(void);

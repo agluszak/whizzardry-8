@@ -22,11 +22,10 @@ bool copy(const W8NativeVideo::Frame& frame, CpuSurface* target)
     if (!target || frame.pixels.empty())
         return false;
     const auto& description = *target->surface;
-    if (description.w < frame.width || description.h < frame.height ||
-        SDL_BYTESPERPIXEL(target->surface->format) != 2 ||
-        target->redMask != 0x7c00 ||
-        target->greenMask != 0x3e0 ||
-        target->blueMask != 0x1f)
+    const SDL_PixelFormatDetails* format = SDL_GetPixelFormatDetails(description.format);
+    if (!format || description.w < frame.width || description.h < frame.height ||
+        SDL_BYTESPERPIXEL(description.format) != 2 ||
+        format->Rmask != 0x7c00 || format->Gmask != 0x3e0 || format->Bmask != 0x1f)
         return false;
     if (!description.pixels)
         return false;

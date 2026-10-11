@@ -76,7 +76,7 @@ static void BlitPackedBuffers(void* destination, std::uint32_t destinationPitch,
         }
         return;
     }
-    const auto format = bytes == 1 ? SDL_PIXELFORMAT_INDEX8 : SDL_PIXELFORMAT_RGB565;
+    const auto format = bytes == 1 ? SDL_PIXELFORMAT_INDEX8 : g_sgp_pixel_format;
     auto outputStorage = CreateCpuStorage(width, height, format, destination, destinationPitch);
     auto inputStorage = CreateCpuStorage(width, height, format, source, sourcePitch);
     auto output = ShareCpuSurface(*outputStorage);
@@ -279,7 +279,7 @@ bool BltSpriteTo16BPPBuffer(std::uint16_t* pBuffer, std::uint32_t uiDestPitchBYT
     if (op == SpriteDrawOp::Transparent) {
         auto* source = frame.coloredSurface(std::span<const std::uint16_t, 256>(palette, 256), fMirror);
         auto destination = CreateCpuStorage(visible.x + visible.w, visible.y + visible.h,
-                                           SDL_PIXELFORMAT_RGB565, pBuffer, uiDestPitchBYTES);
+                                           g_sgp_pixel_format, pBuffer, uiDestPitchBYTES);
         if (!source || !destination) return false;
         SDL_Rect sourceRect{visible.x - sprite.x, visible.y - sprite.y, visible.w, visible.h};
         return SDL_BlitSurface(source, &sourceRect, destination.get(), &visible);
@@ -445,7 +445,7 @@ bool FillRect16BPP(std::uint16_t* pBuffer, std::uint32_t uiDestPitchBYTES, std::
                             std::min(479, y2) - std::max(0, y1) + 1};
     if (SDL_RectEmpty(&rectangle))
         return true;
-    auto storage = CreateCpuStorage(uiDestPitchBYTES / 2, 480, SDL_PIXELFORMAT_RGB565,
+    auto storage = CreateCpuStorage(uiDestPitchBYTES / 2, 480, g_sgp_pixel_format,
                                     pBuffer, uiDestPitchBYTES);
     auto destination = ShareCpuSurface(*storage);
     FillCpuSurface(destination, color, &rectangle);
