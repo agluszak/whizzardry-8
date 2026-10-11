@@ -161,13 +161,12 @@ void UpdateGameDataRuntime()
    rotation into `saved`. ECX is the owning W8GameData; the body reads only
    globals. */
 // FUNCTION: WIZ8 0x0041F330
-void W8GameData::ApplyCameraMotionFlags(unsigned int flags, glm::mat3* rotation, glm::mat3* saved)
+CameraRotation W8GameData::cameraRotation(unsigned int flags, const glm::mat3& rotation)
 {
+    CameraRotation result{rotation, rotation};
     float pitch_input;
     float yaw_input;
     W8GameTimer::Flags timer_flags;
-    unsigned int level_flags;
-    W8LevelDataRecord* level;
     W8EnvironRecord* environ_record;
 
     if (g_environ == 0) {
@@ -181,16 +180,16 @@ void W8GameData::ApplyCameraMotionFlags(unsigned int flags, glm::mat3* rotation,
 
     timer_flags = g_game_time_accumulator->m_flags;
     if (timer_flags.paused) {
-        return;
+        return result;
     }
     if (g_shared_timer_paused && !timer_flags.raw_time) {
-        return;
+        return result;
     }
     if (g_shared_timer_flag0) {
-        return;
+        return result;
     }
     if (timer_flags.slow_scale) {
-        return;
+        return result;
     }
 
     if ((g_gd_camera->m_orientation_flags & W8_CAMERA_ORIENTATION_SNAPPED) != 0) {
@@ -198,26 +197,9 @@ void W8GameData::ApplyCameraMotionFlags(unsigned int flags, glm::mat3* rotation,
         MarkRendererReady();
     }
 
-    if (g_level_data != 0) {
+    if (g_level_data != nullptr) {
         g_level_data->flags &= ~W8_LEVEL_FLAG_MOVED_THIS_UPDATE;
-        level = g_level_data;
-        if (!AnyCharacterEngaged() || ((level_flags = level->flags) & 0xc0) != 0) {
-            level_flags = level->flags;
-            flags &= W8_CAMERA_MOTION_HIGH_BYTE_MASK;
-            if ((level_flags & W8_LEVEL_FLAG_MOVEMENT_ACTIVE) == 0) {
-                level->flags = level_flags & ~W8_LEVEL_FLAG_FAST_MOVEMENT;
-            }
-        } else if ((level_flags & W8_LEVEL_FLAG_MOVEMENT_ACTIVE) != 0) {
-            if ((level_flags & W8_LEVEL_FLAG_FAST_MOVEMENT) != 0) {
-                flags |= W8_CAMERA_MOTION_FAST;
-            } else {
-                flags &= ~W8_CAMERA_MOTION_FAST;
-            }
-        } else if ((flags & W8_CAMERA_MOTION_FAST) != 0) {
-            level->flags = level_flags | W8_LEVEL_FLAG_FAST_MOVEMENT;
-        } else {
-            level->flags = level_flags & ~W8_LEVEL_FLAG_FAST_MOVEMENT;
-        }
+        flags = g_level_data->resolveMotionFlags(flags, AnyCharacterEngaged());
     }
 
     pitch_input = 0.0f;
@@ -250,9 +232,10 @@ void W8GameData::ApplyCameraMotionFlags(unsigned int flags, glm::mat3* rotation,
     g_gd_camera->ApplyYawInput(yaw_input);
     g_gd_camera->Update(g_game_time_accumulator->GetFrameDelta());
     if ((flags & W8_CAMERA_MOTION_KEEP_ROTATION) == 0) {
-        g_gd_camera->GetRotationMatrix(rotation);
+        result.rotation = g_gd_camera->rotationMatrix();
     }
-    *saved = g_gd_camera->m_yaw_rotation;
+    result.movement_basis = g_gd_camera->m_yaw_rotation;
+    return result;
 }
 
 // GLOBAL: WIZ8 0x00652dcd
@@ -278,18 +261,19 @@ srVector3T<float> g_world_origin;
    W8GameData; the body mostly reads globals. Zero elapsed (`camera_scale`)
    returns before the motion helpers. */
 // FUNCTION: WIZ8 0x0041F5F0
-unsigned char W8GameData::ApplyCameraMotion(unsigned int flags, srVector3T<float>* position,
-                                            srVector3T<float>* delta, glm::mat3* saved)
+CameraMotion W8GameData::cameraMotion(unsigned int flags, const glm::vec3& position,
+                                       const glm::mat3& movement_basis)
 {
+    CameraMotion result;
+    auto& delta = result.displacement;
     W8GameTimer::Flags timer_flags;
     unsigned int level_flags;
     W8LevelDataRecord* level;
     float forward_scale;
-    float component;
     bool fast_move;
     char moved;
-    srVector3T<float> new_position;
-    srVector3T<float> from_origin;
+    glm::vec3 new_position;
+    glm::vec3 from_origin;
 
     if (g_level_data == 0) {
         level = new W8LevelDataRecord;
@@ -307,10 +291,10 @@ unsigned char W8GameData::ApplyCameraMotion(unsigned int flags, srVector3T<float
     if (timer_flags.paused || (g_shared_timer_paused && !timer_flags.raw_time) ||
         g_shared_timer_flag0) {
         if (!g_level_motion_resume_pending) {
-            return 0;
+            return result;
         }
         if (timer_flags.raw_time) {
-            return 0;
+            return result;
         }
         g_level_motion_resume_pending = false;
         if (!g_shared_timer_flag0) {
@@ -324,124 +308,42 @@ unsigned char W8GameData::ApplyCameraMotion(unsigned int flags, srVector3T<float
           (level_flags & W8_LEVEL_FLAG_WALKABLE_CONTACT) != 0) &&
          ((level_flags & W8_LEVEL_FLAG_PROP_CONTACT) == 0 && !g_animated_prop_present)) ||
         g_game_time_accumulator->m_flags.slow_scale) {
-        return 0;
+        return result;
     }
 
-    if (!AnyCharacterEngaged() || ((level_flags = level->flags) & 0xc0) != 0) {
-        level_flags = level->flags;
-        flags &= W8_CAMERA_MOTION_HIGH_BYTE_MASK;
-        if ((level_flags & W8_LEVEL_FLAG_MOVEMENT_ACTIVE) == 0) {
-            level_flags &= ~W8_LEVEL_FLAG_FAST_MOVEMENT;
-            level->flags = level_flags;
-        }
-    } else if ((level_flags & W8_LEVEL_FLAG_MOVEMENT_ACTIVE) == 0) {
-        if ((flags & W8_CAMERA_MOTION_FAST) == 0) {
-            level->flags = level_flags & ~W8_LEVEL_FLAG_FAST_MOVEMENT;
-        } else {
-            level->flags = level_flags | W8_LEVEL_FLAG_FAST_MOVEMENT;
-        }
-    } else if ((level_flags & W8_LEVEL_FLAG_FAST_MOVEMENT) == 0) {
-        flags &= ~W8_CAMERA_MOTION_FAST;
-    } else {
-        flags |= W8_CAMERA_MOTION_FAST;
-    }
+    flags = level->resolveMotionFlags(flags, AnyCharacterEngaged());
 
     level = g_level_data;
     forward_scale = g_camera_level_forward_scale;
     level->flags &= ~(W8_LEVEL_FLAG_PROP_CONTACT | W8_LEVEL_FLAG_PROP_NORMAL_MISMATCH |
                       W8_LEVEL_FLAG_WALKABLE_CONTACT);
     level->camera_scale = g_game_time_accumulator->GetFrameDelta();
-    level->camera_position = *position;
-    level->motion_velocity.SetZero();
-    level->motion_displacement.SetZero();
-    level->motion_input.SetZero();
+    level->camera_position = position;
+    level->motion_velocity = glm::vec3(0);
+    level->motion_displacement = glm::vec3(0);
+    level->motion_input = glm::vec3(0);
     level->sound_environment = -1;
     level->sound_environment_alt = -1;
 
     if (g_level_data->camera_scale == g_float_zero) {
-        return 0;
+        return result;
     }
 
     if (flags == 0) {
-        g_level_data->motion_input.SetZero();
-        level->integrated_motion.SetZero();
+        g_level_data->motion_input = glm::vec3(0);
+        level->integrated_motion = glm::vec3(0);
     }
 
-    delta->SetZero();
-    level = g_level_data;
-    if ((flags & W8_CAMERA_MOTION_FORWARD) != 0) {
-        component = forward_scale + g_level_data->motion_input.z;
-        g_level_data->motion_input.z = component;
-        if (component > g_camera_motion_clamp) {
-            level->motion_input.z = g_camera_motion_clamp;
-        } else if (component < -g_camera_motion_clamp) {
-            level->motion_input.z = -g_camera_motion_clamp;
-        }
-    }
-    level = g_level_data;
-    if ((flags & W8_CAMERA_MOTION_BACKWARD) != 0) {
-        component = g_level_data->motion_input.z - forward_scale;
-        g_level_data->motion_input.z = component;
-        if (component > g_camera_motion_clamp) {
-            level->motion_input.z = g_camera_motion_clamp;
-        } else if (component < -g_camera_motion_clamp) {
-            level->motion_input.z = -g_camera_motion_clamp;
-        }
-    }
-    level = g_level_data;
-    if ((flags & W8_CAMERA_MOTION_STRAFE_LEFT) != 0) {
-        component = g_level_data->motion_input.x - forward_scale;
-        g_level_data->motion_input.x = component;
-        if (component > g_camera_motion_clamp) {
-            level->motion_input.x = g_camera_motion_clamp;
-        } else if (component < -g_camera_motion_clamp) {
-            level->motion_input.x = -g_camera_motion_clamp;
-        }
-    }
-    level = g_level_data;
-    if ((flags & W8_CAMERA_MOTION_STRAFE_RIGHT) != 0) {
-        component = forward_scale + g_level_data->motion_input.x;
-        g_level_data->motion_input.x = component;
-        if (component > g_camera_motion_clamp) {
-            level->motion_input.x = g_camera_motion_clamp;
-        } else if (component < -g_camera_motion_clamp) {
-            level->motion_input.x = -g_camera_motion_clamp;
-        }
-    }
-    level = g_level_data;
-    if ((flags & W8_CAMERA_MOTION_UP) != 0 && (g_environment_load_flag == 0 || g_environ == 0)) {
-        component = forward_scale + g_level_data->motion_input.y;
-        g_level_data->motion_input.y = component;
-        if (component > g_camera_motion_clamp) {
-            level->motion_input.y = g_camera_motion_clamp;
-        } else if (component < -g_camera_motion_clamp) {
-            level->motion_input.y = -g_camera_motion_clamp;
-        }
-    }
-    level = g_level_data;
-    if ((flags & W8_CAMERA_MOTION_DOWN) != 0 && g_environment_load_flag == 0) {
-        component = g_level_data->motion_input.y - forward_scale;
-        g_level_data->motion_input.y = component;
-        if (component > g_camera_motion_clamp) {
-            level->motion_input.y = g_camera_motion_clamp;
-        } else if (component < -g_camera_motion_clamp) {
-            level->motion_input.y = -g_camera_motion_clamp;
-        }
-    }
-
-    fast_move = false;
-    if ((flags & W8_CAMERA_MOTION_FAST) != 0) {
-        fast_move = true;
-    }
-    if (g_level_data->motion_input.Length() > g_camera_motion_clamp) {
-        g_level_data->motion_input.SetLength(g_camera_motion_clamp);
-    }
+    g_level_data->motion_input = cameraMotionInput(flags, g_level_data->motion_input,
+        forward_scale, g_camera_motion_clamp, g_environment_load_flag == 0 || g_environ == nullptr,
+        g_environment_load_flag == 0);
+    fast_move = (flags & W8_CAMERA_MOTION_FAST) != 0;
     g_level_motion_fast =
-        g_level_data->ApplySavedMotionMatrix(g_level_motion_fast, fast_move, saved);
+        g_level_data->ApplySavedMotionMatrix(g_level_motion_fast, fast_move, movement_basis);
 
     if (g_environment_load_flag == 0) {
-        *delta = g_level_data->motion_displacement;
-        moved = static_cast<float>(g_motion_delta_epsilon) < delta->Length();
+        delta = g_level_data->motion_displacement;
+        moved = static_cast<float>(g_motion_delta_epsilon) < glm::length(delta);
         g_level_data->UpdateMotionProgress(g_level_motion_fast, moved);
         if (moved == 0) {
             goto after_move;
@@ -449,8 +351,8 @@ unsigned char W8GameData::ApplyCameraMotion(unsigned int flags, srVector3T<float
     } else {
         moved = AdvanceEnvironmentMotion();
         g_level_data->UpdateMotionProgress(g_level_motion_fast, moved);
-        *delta = g_level_data->motion_displacement;
-        if (delta->Length() <= static_cast<float>(g_motion_delta_epsilon)) {
+        delta = g_level_data->motion_displacement;
+        if (glm::length(delta) <= static_cast<float>(g_motion_delta_epsilon)) {
             if (moved == 0) {
                 goto after_move;
             }
@@ -459,11 +361,11 @@ unsigned char W8GameData::ApplyCameraMotion(unsigned int flags, srVector3T<float
         }
     }
 
-    new_position = *position + *delta;
-    from_origin = new_position - g_world_origin;
-    if (from_origin.LengthSquared() != 0) {
+    new_position = position + delta;
+    from_origin = new_position - g_world_origin.glmValue();
+    if (glm::dot(from_origin, from_origin) != 0) {
         MarkRendererReady();
-        g_gd_camera->m_position = new_position.glmValue();
+        g_gd_camera->m_position = new_position;
     }
 
 after_move:
@@ -483,7 +385,8 @@ after_move:
     } else {
         g_level_data->flags |= W8_LEVEL_FLAG_MOVED_THIS_UPDATE;
     }
-    return moved;
+    result.moved = moved != 0;
+    return result;
 }
 
 // GLOBAL: WIZ8 0x005ebc48
@@ -503,11 +406,9 @@ void W8EnvironRecord::SetScaledMotion(const glm::vec3& motion)
 }
 
 // FUNCTION: WIZ8 0x00421850
-void W8EnvironRecord::AddScaledMotion(srVector3T<float>* position)
+glm::vec3 W8EnvironRecord::withScaledMotion(const glm::vec3& position) const
 {
-    position->x = vector.x * scale + position->x;
-    position->y = vector.y * scale + position->y;
-    position->z = vector.z * scale + position->z;
+    return position + vector.glmValue() * scale;
 }
 
 // FUNCTION: WIZ8 0x0041FE20
@@ -627,6 +528,7 @@ W8GDSurface* W8GameData::ProbePropsAlongMotion(srVector3T<float>* direction,
                 if (direction_zero) {
                     test_direction = surface->plane.normal;
                 }
+                if ((surface->flags & W8_GD_SURFACE_INACTIVE_MASK) != 0) continue;
                 if (const auto contact = surface->segmentContact(probe.glmValue(),
                         test_direction.glmValue(), indexedTriangle(
                             {gd_prop->m_pVertices, static_cast<std::size_t>(gd_prop->m_vertex_count)},
@@ -671,15 +573,15 @@ W8GDSurface* W8GameData::ProbePropsAlongMotion(srVector3T<float>* direction,
         if ((level->flags & W8_LEVEL_FLAG_PROP_CONTACT) == 0 ||
             level->residual_contact_length < residual_length) {
             level->flags |= W8_LEVEL_FLAG_PROP_CONTACT;
-            level->contact_motion = projected;
+            level->contact_motion = projected.glmValue();
             level->residual_contact_length = residual_length;
             *direction += along_normal - residual;
-            level->contact_displacement = residual;
-            level->contact_velocity = residual / static_cast<double>(level->camera_scale);
+            level->contact_displacement = residual.glmValue();
+            level->contact_velocity = residual.glmValue() / level->camera_scale;
         }
         if (level->contact_facing < facing) {
             level->contact_facing = facing;
-            level->contact_normal = normal;
+            level->contact_normal = normal.glmValue();
         }
         s_prop_hit_plane.w -= along_length;
         nearest_surface->hit_plane = &s_prop_hit_plane;
@@ -823,7 +725,7 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
     camera_position = level->camera_position;
     adjusted_position = camera_position;
     if (geometry_index == 0 && octree == 0) {
-        if (static_cast<float>(g_motion_delta_epsilon) < level->motion_displacement.Length()) {
+        if (static_cast<float>(g_motion_delta_epsilon) < glm::length(level->motion_displacement)) {
             return 1;
         }
         return 0;
@@ -831,7 +733,7 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
 
     g_environ_ground_latch = g_environ->ground_latch;
     g_environment_motion_active = 1;
-    if (level->motion_velocity.Length() <= static_cast<float>(g_motion_vector_epsilon)) {
+    if (glm::length(level->motion_velocity) <= static_cast<float>(g_motion_vector_epsilon)) {
         level->flags &= ~W8_LEVEL_FLAG_NEGLIGIBLE_MOTION;
     } else {
         level->flags |= W8_LEVEL_FLAG_NEGLIGIBLE_MOTION;
@@ -847,13 +749,13 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
     if (g_camera_motion_divisor < environ_record->vector.Length()) {
         environ_record->vector.SetLength(g_camera_motion_divisor);
     }
-    environ_record->AddScaledMotion(&level->motion_displacement);
+    level->motion_displacement = environ_record->withScaledMotion(level->motion_displacement);
 
     if (level->camera_scale == g_float_zero) {
-        level->motion_velocity.SetZero();
+        level->motion_velocity = glm::vec3(0);
     } else {
         level->motion_velocity =
-            level->motion_displacement / static_cast<double>(level->camera_scale);
+            level->motion_displacement / level->camera_scale;
     }
 
     environ_delta = level->motion_displacement;
@@ -877,7 +779,7 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
     level->secondary_contact_prop_id = -1;
     level->primary_contact_prop_id = -1;
     level->flags &= ~W8_LEVEL_FLAG_PROP_NORMAL_MISMATCH;
-    level->contact_normal.SetZero();
+    level->contact_normal = glm::vec3(0);
     collision_count = -1;
     level->contact_facing = 0.0f;
     first_pass = true;
@@ -944,7 +846,8 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
                         surface = &m_pSurfaces[octree_hits[index]];
                     }
                     surface->hit_plane = 0;
-                    if ((surface->flags & W8_GD_SURFACE_CROSSING_MASK) != 0) continue;
+                    if ((surface->flags & (W8_GD_SURFACE_CROSSING_MASK |
+                                           W8_GD_SURFACE_INACTIVE_MASK)) != 0) continue;
                     if (const auto contact = surface->segmentContact(probe_position.glmValue(),
                             motion_delta.glmValue(), indexedTriangle(m_pVertices, surface->vertex_indices))) {
                         if (contact->distance < nearest_distance) {
@@ -1012,6 +915,7 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
                 for (index = 0; index < hit_count; ++index) {
                     surface = &m_pSurfaces[octree_hits[index]];
                     if ((surface->flags & W8_GD_SURFACE_CROSSING_MASK) != 0 &&
+                        (surface->flags & W8_GD_SURFACE_INACTIVE_MASK) == 0 &&
                         surface->segmentContact(probe_position.glmValue(), motion_delta.glmValue(),
                             indexedTriangle(m_pVertices, surface->vertex_indices))) {
                         if (0 < crossed_count) {
@@ -1044,8 +948,8 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
             }
 
             scale = static_cast<float>(g_double_one) / g_level_data->camera_scale;
-            level->motion_velocity = environ_delta * scale;
-            level->motion_displacement = environ_delta;
+            level->motion_velocity = environ_delta.glmValue() * scale;
+            level->motion_displacement = environ_delta.glmValue();
             if (g_environment_motion_active == 0) {
                 if ((g_level_data->flags & W8_LEVEL_FLAG_NEGLIGIBLE_MOTION) != 0 && !forced_exit) {
                     g_environ_ground_latch = true;
@@ -1667,7 +1571,7 @@ bool W8GDSurface::ResolveCollision(srVector3T<float>* origin, const srVector3T<f
     float adjusted_d = plane_distance - distance;
     W8LevelDataRecord* level = g_level_data;
     if (level->primary_contact_prop_id > -1 &&
-        glm::dot(normal, (level->contact_normal).glmValue()) <
+        glm::dot(normal, level->contact_normal) <
             g_collision_contact_normal_threshold) {
         level->flags |= W8_LEVEL_FLAG_PROP_NORMAL_MISMATCH;
     }
@@ -1843,8 +1747,8 @@ bool W8GDSurface::ApplyEnvironContact(glm::vec3& direction)
 {
     W8LevelDataRecord* level = g_level_data;
     if ((flags & W8_GD_SURFACE_WALKABLE) == 0) {
-        level->motion_input = 0.0f;
-        level->integrated_motion.SetZero();
+        level->motion_input = glm::vec3(0);
+        level->integrated_motion = glm::vec3(0);
         return false;
     }
     level->flags |= W8_LEVEL_FLAG_WALKABLE_CONTACT;
@@ -1897,8 +1801,8 @@ void ResetLevelMovement(float movement_limit, bool reset, bool fast_move)
         level->real_elapsed = 0.0f;
         level->frame_elapsed = 0.0f;
         level->movement_progress = 0.0f;
-        level->camera_motion_velocity.SetZero();
-        level->camera_motion_displacement.SetZero();
+        level->camera_motion_velocity = glm::vec3(0);
+        level->camera_motion_displacement = glm::vec3(0);
         level->flags |= W8_LEVEL_FLAG_MOVEMENT_ACTIVE;
         if (reset) {
             level->flags |= W8_LEVEL_FLAG_MOVEMENT_RESET;
@@ -1919,12 +1823,12 @@ void ResetInactiveLevelDataVectors(void)
     W8LevelDataRecord* data = g_level_data;
 
     if (data != 0 && (data->flags & W8_LEVEL_FLAG_PROP_CONTACT) == 0) {
-        data->motion_input.SetZero();
-        data->camera_motion_velocity.SetZero();
-        data->camera_motion_displacement.SetZero();
-        data->motion_velocity.SetZero();
-        data->integrated_motion.SetZero();
-        data->motion_displacement.SetZero();
+        data->motion_input = glm::vec3(0);
+        data->camera_motion_velocity = glm::vec3(0);
+        data->camera_motion_displacement = glm::vec3(0);
+        data->motion_velocity = glm::vec3(0);
+        data->integrated_motion = glm::vec3(0);
+        data->motion_displacement = glm::vec3(0);
     }
 }
 
@@ -2153,12 +2057,12 @@ void ResetLevelDataVectors(void)
     if (g_level_data != 0) {
         g_level_data->flags |= W8_LEVEL_FLAG_MOVEMENT_STOPPED;
         if ((g_level_data->flags & W8_LEVEL_FLAG_PROP_CONTACT) == 0) {
-            g_level_data->motion_input.SetZero();
-            g_level_data->camera_motion_velocity.SetZero();
-            g_level_data->motion_velocity.SetZero();
-            g_level_data->integrated_motion.SetZero();
-            g_level_data->camera_motion_displacement.SetZero();
-            g_level_data->motion_displacement.SetZero();
+            g_level_data->motion_input = glm::vec3(0);
+            g_level_data->camera_motion_velocity = glm::vec3(0);
+            g_level_data->motion_velocity = glm::vec3(0);
+            g_level_data->integrated_motion = glm::vec3(0);
+            g_level_data->camera_motion_displacement = glm::vec3(0);
+            g_level_data->motion_displacement = glm::vec3(0);
         }
         g_level_data->flags &= ~W8_LEVEL_FLAG_FAST_MOVEMENT;
     }
@@ -2331,7 +2235,7 @@ void SetCameraOrientation(void* angle, void* pitch, glm::mat3* rotation)
     memcpy(angle, &g_gd_camera->m_yaw, sizeof(yaw_value));
     memcpy(pitch, &g_gd_camera->m_pitch, sizeof(pitch_value));
     if (rotation != 0) {
-        g_gd_camera->GetRotationMatrix(rotation);
+        *rotation = g_gd_camera->rotationMatrix();
     }
 }
 
@@ -2407,23 +2311,27 @@ W8LevelDataRecord::W8LevelDataRecord() : interval_gate()
     footstep_accumulator = -2000.0f;
     primary_contact_prop_id = -1;
     secondary_contact_prop_id = -1;
-    camera_position.SetZero();
-    motion_input.SetZero();
-    camera_motion_velocity.SetZero();
-    contact_velocity.SetZero();
-    motion_velocity.SetZero();
-    integrated_motion.SetZero();
-    camera_motion_displacement.SetZero();
-    contact_motion.SetZero();
-    contact_displacement.SetZero();
-    motion_displacement.SetZero();
-    contact_normal.SetZero();
     /* 0x0041FDEF clears the whole 12-byte group from contact_normal_scale
        through unknown_bc in one run before raising the scale, so the scale's own
        zero is part of that run rather than a separate dead store. */
     memset(&contact_normal_scale, 0, sizeof(contact_normal_scale) + sizeof(unknown_bc));
     contact_normal_scale = 1.0f;
     g_level_override = false;
+}
+
+unsigned int W8LevelDataRecord::resolveMotionFlags(unsigned int input, bool engaged)
+{
+    if (!engaged || (flags & (W8_LEVEL_FLAG_MOVEMENT_STOPPED | W8_LEVEL_FLAG_MOVEMENT_RESET))) {
+        input &= W8_CAMERA_MOTION_HIGH_BYTE_MASK;
+        if (!(flags & W8_LEVEL_FLAG_MOVEMENT_ACTIVE)) flags &= ~W8_LEVEL_FLAG_FAST_MOVEMENT;
+    } else if (flags & W8_LEVEL_FLAG_MOVEMENT_ACTIVE) {
+        if (flags & W8_LEVEL_FLAG_FAST_MOVEMENT) input |= W8_CAMERA_MOTION_FAST;
+        else input &= ~W8_CAMERA_MOTION_FAST;
+    } else {
+        if (input & W8_CAMERA_MOTION_FAST) flags |= W8_LEVEL_FLAG_FAST_MOVEMENT;
+        else flags &= ~W8_LEVEL_FLAG_FAST_MOVEMENT;
+    }
+    return input;
 }
 
 // FUNCTION: WIZ8 0x00420470
@@ -2434,38 +2342,38 @@ bool W8LevelDataRecord::IntegrateCameraForward()
     float delta_length;
     float scale;
     bool cleared_vector;
-    srVector3T<float> adjustment;
-    srVector3T<float> combined;
+    glm::vec3 adjustment;
+    glm::vec3 combined;
 
     cleared_vector = false;
-    forward_length = camera_motion_velocity.Length();
+    forward_length = glm::length(camera_motion_velocity);
     limit = g_environ->motion_limit * camera_scale;
-    if (limit <= motion_input.Length()) {
+    if (limit <= glm::length(motion_input)) {
         adjustment = camera_motion_velocity;
-        adjustment = ProjectVectorOntoVector(adjustment.glmValue(), integrated_motion.glmValue());
+        adjustment = ProjectVectorOntoVector(adjustment, integrated_motion);
         adjustment -= camera_motion_velocity;
-        delta_length = adjustment.Length();
+        delta_length = glm::length(adjustment);
         limit = g_environ->motion_factor * limit;
         if (delta_length <= limit) {
             if (delta_length < limit * g_camera_snap_epsilon) {
-                adjustment.SetZero();
+                adjustment = glm::vec3(0);
             }
         } else {
-            adjustment.SetLength(limit);
+            adjustment = normalizedOrZero(adjustment) * limit;
         }
         scale = g_environ->momentum_scale * g_environ->motion_factor;
         integrated_motion *= scale;
     } else {
         if (forward_length < limit) {
-            motion_velocity.SetZero();
+            motion_velocity = glm::vec3(0);
             return false;
         }
         limit = g_environ->motion_factor * limit;
         adjustment = -camera_motion_velocity;
         if (limit < forward_length) {
-            adjustment.SetLength(limit);
+            adjustment = normalizedOrZero(adjustment) * limit;
         }
-        integrated_motion.SetZero();
+        integrated_motion = glm::vec3(0);
         cleared_vector = true;
     }
 
@@ -2473,9 +2381,9 @@ bool W8LevelDataRecord::IntegrateCameraForward()
     motion_velocity = combined;
     integrated_motion = combined;
     if (cleared_vector) {
-        if (glm::dot(motion_input.glmValue(), adjustment.glmValue()) >
+        if (glm::dot(motion_input, adjustment) >
             g_camera_transition_epsilon) {
-            motion_velocity.SetZero();
+            motion_velocity = glm::vec3(0);
             return false;
         }
     }
@@ -2484,28 +2392,28 @@ bool W8LevelDataRecord::IntegrateCameraForward()
 
 // FUNCTION: WIZ8 0x00420810
 unsigned char W8LevelDataRecord::ApplySavedMotionMatrix(unsigned char prior_fast, bool fast_move,
-                                                        const glm::mat3* saved)
+                                                        const glm::mat3& saved)
 {
     float horizontal;
     float clamp_scale;
     if (prior_fast != 0 && !fast_move) {
-        motion_input.SetZero();
-        integrated_motion.SetZero();
+        motion_input = glm::vec3(0);
+        integrated_motion = glm::vec3(0);
     }
-    motion_input = (*saved) * motion_input.glmValue();
+    motion_input = saved * motion_input;
     integrated_motion = motion_input * camera_scale;
     if (!IntegrateCameraForward()) {
         return 0;
     }
 
-    horizontal = glm::length(motion_velocity.xz());
+    horizontal = glm::length(glm::vec2(motion_velocity.x, motion_velocity.z));
     if (fast_move)
         prior_fast = 1;
     else if (horizontal <= g_camera_level_forward_scale)
         prior_fast = 0;
     clamp_scale = prior_fast ? g_camera_default_forward_scale : g_camera_level_forward_scale;
     if (horizontal > clamp_scale) {
-        const auto limited = motion_velocity.xz() * (clamp_scale / horizontal);
+        const auto limited = glm::vec2(motion_velocity.x, motion_velocity.z) * (clamp_scale / horizontal);
         motion_velocity.x = limited.x;
         motion_velocity.z = limited.y;
     }
@@ -2519,26 +2427,16 @@ unsigned char W8LevelDataRecord::ApplySavedMotionMatrix(unsigned char prior_fast
 // FUNCTION: WIZ8 0x00420A60
 bool W8LevelDataRecord::UpdateFootstepFromMotion()
 {
-    float dx;
-    float dy;
-    float dz;
+    const auto movement = camera_motion_displacement -
+        ((flags & W8_LEVEL_FLAG_PROP_CONTACT) ? contact_motion : glm::vec3(0));
     float distance;
     bool large_radius;
 
-    if ((flags & W8_LEVEL_FLAG_PROP_CONTACT) == 0) {
-        dx = camera_motion_displacement.x;
-        dy = camera_motion_displacement.y;
-        dz = camera_motion_displacement.z;
-    } else {
-        dx = camera_motion_displacement.x - contact_motion.x;
-        dy = camera_motion_displacement.y - contact_motion.y;
-        dz = camera_motion_displacement.z - contact_motion.z;
-    }
     if ((flags & W8_LEVEL_FLAG_NO_SOUND_ENVIRONMENT) != 0 ||
         (flags & W8_LEVEL_FLAG_WALKABLE_CONTACT) == 0) {
         return false;
     }
-    distance = sqrtf(dx * dx + dy * dy + dz * dz) + footstep_accumulator;
+    distance = glm::length(movement) + footstep_accumulator;
     footstep_accumulator = distance;
     if (g_float_two_thousand < distance) {
         if (g_status.search_mode == 0 && (flags & W8_LEVEL_FLAG_FAST_MOVEMENT) == 0) {
@@ -2590,20 +2488,20 @@ void W8LevelDataRecord::UpdateMotionProgress(unsigned char fast_move, unsigned c
     bool allow_override;
     float length;
     float scale;
-    srVector3T<float> projected;
-    srVector3T<float> gravity;
-    srVector3T<float> environ_vector;
+    glm::vec3 projected;
+    glm::vec3 gravity;
+    glm::vec3 environ_vector;
 
     allow_override = true;
     if ((flags & W8_LEVEL_FLAG_PROP_CONTACT) == 0) {
-        contact_velocity.SetZero();
-        contact_displacement.SetZero();
+        contact_velocity = glm::vec3(0);
+        contact_displacement = glm::vec3(0);
         if (g_float_zero < motion_velocity.y) {
-            length = motion_velocity.Length();
+            length = glm::length(motion_velocity);
             const float limit =
                 fast_move ? g_camera_default_forward_scale : g_camera_level_forward_scale;
             if (length > limit) {
-                motion_velocity.SetLength(limit);
+                motion_velocity = normalizedOrZero(motion_velocity) * (limit);
                 motion_displacement = motion_velocity * camera_scale;
             }
         }
@@ -2613,49 +2511,42 @@ void W8LevelDataRecord::UpdateMotionProgress(unsigned char fast_move, unsigned c
             (flags & W8_LEVEL_FLAG_WALKABLE_CONTACT) == 0) {
             allow_override = false;
         }
-        camera_motion_velocity.SetZero();
-        camera_motion_displacement.SetZero();
+        camera_motion_velocity = glm::vec3(0);
+        camera_motion_displacement = glm::vec3(0);
         footstep_accumulator = 1800.0f;
     } else {
         camera_motion_velocity = motion_velocity - contact_velocity;
         camera_motion_displacement = camera_motion_velocity * camera_scale;
         allow_override = UpdateFootstepFromMotion();
-        camera_motion_velocity -= g_environ->vector;
+        camera_motion_velocity -= g_environ->vector.glmValue();
         projected = contact_velocity;
-        gravity.Set(g_environ->gravity_x, g_environ->gravity_y, g_environ->gravity_z);
-        projected = ProjectVectorOntoVector(projected.glmValue(), gravity.glmValue());
-        environ_vector = g_environ->vector;
-        if (environ_vector.Length() < projected.Length()) {
+        gravity = {g_environ->gravity_x, g_environ->gravity_y, g_environ->gravity_z};
+        projected = ProjectVectorOntoVector(projected, gravity);
+        environ_vector = g_environ->vector.glmValue();
+        if (glm::length(environ_vector) < glm::length(projected)) {
             g_environ->vector = projected;
         }
-        motion_input.SetZero();
-        integrated_motion.SetZero();
+        motion_input = glm::vec3(0);
+        integrated_motion = glm::vec3(0);
     }
 
     motion_velocity = motion_displacement * (static_cast<float>(g_double_one) / camera_scale);
-    speed = motion_displacement.Length();
+    speed = glm::length(motion_displacement);
     if (speed < g_camera_transition_epsilon) {
         speed = 0;
-        motion_displacement.SetZero();
-        motion_velocity.SetZero();
+        motion_displacement = glm::vec3(0);
+        motion_velocity = glm::vec3(0);
     }
-    if ((flags & W8_LEVEL_FLAG_MOVEMENT_ACTIVE) == 0) {
-        if ((flags & W8_LEVEL_FLAG_FAST_MOVEMENT) == 0) {
-            real_elapsed += speed;
-        } else {
-            frame_elapsed += speed;
-        }
-    } else if ((flags & W8_LEVEL_FLAG_WALKABLE_CONTACT) != 0) {
-        if ((flags & W8_LEVEL_FLAG_FAST_MOVEMENT) == 0) {
-            real_elapsed += speed;
-        } else {
-            frame_elapsed += speed;
-        }
+    if (!(flags & W8_LEVEL_FLAG_MOVEMENT_ACTIVE) || (flags & W8_LEVEL_FLAG_WALKABLE_CONTACT)) {
+        auto& elapsed = (flags & W8_LEVEL_FLAG_FAST_MOVEMENT) ? frame_elapsed : real_elapsed;
+        elapsed += speed;
+    }
+    if ((flags & W8_LEVEL_FLAG_MOVEMENT_ACTIVE) && (flags & W8_LEVEL_FLAG_WALKABLE_CONTACT)) {
         scale = movement_progress;
         movement_progress = speed + scale;
         if (movement_limit < speed + scale) {
-            camera_motion_velocity.SetZero();
-            camera_motion_displacement.SetZero();
+            camera_motion_velocity = glm::vec3(0);
+            camera_motion_displacement = glm::vec3(0);
             footstep_accumulator = 2000.0f;
             flags |= W8_LEVEL_FLAG_MOVEMENT_STOPPED;
             if (gXStatus.fPartyMovementMode) {

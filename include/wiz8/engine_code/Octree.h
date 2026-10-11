@@ -27,6 +27,11 @@ struct OctreeCellCoordinates {
     bool inside;
 };
 
+struct NavigatorPlacement {
+    glm::vec3 source;
+    std::vector<glm::vec3> positions;
+};
+
 class GDProp;
 class W8Prop;
 class stParticle;
@@ -281,16 +286,14 @@ public:
        and 30; retail callers load the octree into ecx and the body returns
        with ret 0x28, so this is an ordinary member. `source`'s y may be
        snapped to the settled ground height. */
-    /* Sibling scatter query to FindNavigatorPosition: walks fixed lateral
+    /* Sibling scatter query to navigatorPositions: walks fixed lateral
        columns over ten rings instead of the mode-driven cell grid, and can
        flatten every accepted position back to the source height. */
-    unsigned int FindScatterPositions(const srVector3T<float>* position, float yaw, float spacing,
-                                      unsigned int count, srVector3T<float>* positions,
-                                      bool proximity_check, bool flatten_y);
-    unsigned int FindNavigatorPosition(srVector3T<float>* source, float yaw, float radius,
-                                       unsigned int count, srVector3T<float>* positions,
-                                       bool first_only, bool settle_any_height, bool avoid_triggers,
-                                       int mode, bool require_waypoint_span); /* 0x00437F30 */
+    std::vector<glm::vec3> scatterPositions(const glm::vec3& position, float yaw, float spacing,
+                                           unsigned int count, bool proximity_check, bool flatten_y);
+    NavigatorPlacement navigatorPositions(const glm::vec3& source, float yaw, float radius,
+                                           unsigned int count, bool first_only, bool settle_any_height,
+                                           bool avoid_triggers, int mode, bool require_waypoint_span);
     unsigned int AdvanceNavigator(W8NavigatorMovementState* movement, float radius,
                                   float separation);
     unsigned char PrepareNavigatorTarget(W8NavigatorMovementState* movement, float radius,

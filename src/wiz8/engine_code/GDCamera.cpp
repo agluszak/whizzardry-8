@@ -554,10 +554,10 @@ void GDCamera::SetOrientation(float angle, float pitch)
 }
 
 // FUNCTION: WIZ8 0x00478BD0
-void GDCamera::GetRotationMatrix(glm::mat3* output)
+glm::mat3 GDCamera::rotationMatrix()
 {
     m_rotation = m_yaw_rotation * m_pitch_rotation;
-    *output = m_rotation;
+    return m_rotation;
 }
 
 // FUNCTION: WIZ8 0x00478CC0

@@ -1,3 +1,7 @@
+#include "wiz8/camera_motion.h"
+#include "wiz8/engine_code/GameTimeAccumulator.h"
+#include "wiz8/placement_math.h"
+#include "wiz8/float_constants.h"
 #include "glm/matrix.hpp"
 #include "surrender/plane_math.h"
 #include "surrender/triangle_projection.h"
@@ -2871,4 +2875,96 @@ TEST_CASE("Surface contacts return positions distances and edge limits without o
     // Reverse crossings retain the full segment when the signed span is below one.
     REQUIRE(std::abs(reverse->distance - 5) < 1e-6f);
     REQUIRE(surface.distance < 0);
+}
+
+TEST_CASE("Placement grids rotate candidate cells and retain ground height bands", "[geometry]")
+{
+    const glm::vec3 source(13, 20, -7);
+    const wiz8::placement::Grid grid(0, 10);
+    REQUIRE(grid.candidate(source, {2, 3}) == glm::vec3(-17, 20 + g_world_scale, 13));
+    const wiz8::placement::Grid rotated(glm::half_pi<float>(), 10);
+    const auto point = rotated.candidate(source, {2, 3});
+    REQUIRE(glm::length(point - glm::vec3(33, 20 + g_world_scale, 23)) < 1e-4f);
+    using wiz8::placement::grounded;
+    REQUIRE_FALSE(grounded({1, .5f, 3}, 0, false));
+    REQUIRE(grounded({1, 1, 3}, 0, false) == glm::vec3(1, 0, 3));
+    REQUIRE(grounded({1, -2500, 3}, 0, false) == glm::vec3(1, 0, 3));
+    REQUIRE_FALSE(grounded({1, 2501, 3}, 0, false));
+    REQUIRE(grounded({1, 5000, 3}, 0, true) == glm::vec3(1, 0, 3));
+    REQUIRE_FALSE(grounded({1, 5001, 3}, 0, true));
+}
+
+TEST_CASE("Camera motion inputs retain key ordering vertical gates and total speed limits", "[geometry]")
+{
+    REQUIRE(cameraMotionInput(W8_CAMERA_MOTION_FORWARD | W8_CAMERA_MOTION_BACKWARD,
+        {0, 0, 10}, 5, 10, true, true) == glm::vec3(0, 0, 5));
+    REQUIRE(cameraMotionInput(W8_CAMERA_MOTION_STRAFE_LEFT | W8_CAMERA_MOTION_STRAFE_RIGHT,
+        {-10, 0, 0}, 5, 10, true, true) == glm::vec3(-5, 0, 0));
+    REQUIRE(cameraMotionInput(W8_CAMERA_MOTION_UP, {0, 3, 0}, 5, 10, false, true) ==
+        glm::vec3(0, 3, 0));
+    REQUIRE(cameraMotionInput(W8_CAMERA_MOTION_DOWN, {0, 3, 0}, 5, 10, true, false) ==
+        glm::vec3(0, 3, 0));
+    const auto diagonal = cameraMotionInput(W8_CAMERA_MOTION_FORWARD | W8_CAMERA_MOTION_STRAFE_RIGHT,
+        {0, 0, 0}, 10, 10, true, true);
+    REQUIRE(std::abs(glm::length(diagonal) - 10) < 1e-5f);
+    REQUIRE(std::abs(diagonal.x - diagonal.z) < 1e-5f);
+}
+
+TEST_CASE("Camera rotation and movement share the level motion flag policy", "[geometry]")
+{
+    W8LevelDataRecord level;
+    level.flags = W8_LEVEL_FLAG_MOVED_THIS_UPDATE;
+    REQUIRE(level.resolveMotionFlags(W8_CAMERA_MOTION_FORWARD | W8_CAMERA_MOTION_FAST, true) ==
+        (W8_CAMERA_MOTION_FORWARD | W8_CAMERA_MOTION_FAST));
+    REQUIRE(level.flags == (W8_LEVEL_FLAG_MOVED_THIS_UPDATE | W8_LEVEL_FLAG_FAST_MOVEMENT));
+    REQUIRE(level.resolveMotionFlags(W8_CAMERA_MOTION_LOOK_UP | W8_CAMERA_MOTION_FAST, false) ==
+        W8_CAMERA_MOTION_LOOK_UP);
+    REQUIRE(level.flags == W8_LEVEL_FLAG_MOVED_THIS_UPDATE);
+    level.flags = W8_LEVEL_FLAG_MOVEMENT_ACTIVE | W8_LEVEL_FLAG_FAST_MOVEMENT;
+    REQUIRE(level.resolveMotionFlags(W8_CAMERA_MOTION_FORWARD, true) ==
+        (W8_CAMERA_MOTION_FORWARD | W8_CAMERA_MOTION_FAST));
+    level.flags = W8_LEVEL_FLAG_MOVEMENT_ACTIVE;
+    REQUIRE(level.resolveMotionFlags(W8_CAMERA_MOTION_FORWARD | W8_CAMERA_MOTION_FAST, true) ==
+        W8_CAMERA_MOTION_FORWARD);
+    level.flags = W8_LEVEL_FLAG_MOVEMENT_STOPPED;
+    REQUIRE(level.resolveMotionFlags(W8_CAMERA_MOTION_FORWARD | W8_CAMERA_MOTION_LOOK_UP, true) ==
+        W8_CAMERA_MOTION_LOOK_UP);
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture, "Paused camera APIs return complete initialized values", "[geometry]")
+{
+    const struct RestoreRuntime {
+        W8EnvironRecord* environ = g_environ;
+        W8LevelDataRecord* level = g_level_data;
+        unsigned int* flags = g_level_flags;
+        W8GameTimeAccumulator* timer = g_game_time_accumulator;
+        W8GameData* octree = g_octree_game_data;
+        bool resume = g_level_motion_resume_pending;
+        ~RestoreRuntime() {
+            g_environ = environ;
+            g_level_data = level;
+            g_level_flags = flags;
+            g_game_time_accumulator = timer;
+            g_octree_game_data = octree;
+            g_level_motion_resume_pending = resume;
+        }
+    } restore;
+    g_environ = nullptr;
+    g_level_data = nullptr;
+    g_game_time_accumulator = nullptr;
+    W8GameData data(nullptr, true);
+    g_game_time_accumulator = new W8GameTimeAccumulator;
+    g_game_time_accumulator->m_flags.paused = true;
+    g_level_data = new W8LevelDataRecord;
+    g_level_motion_resume_pending = false;
+    const auto basis = glm::mat3(glm::rotate(glm::mat4(1), .4f, glm::vec3(0, 1, 0)));
+    const auto orientation = data.cameraRotation(W8_CAMERA_MOTION_TURN_LEFT, basis);
+    REQUIRE(orientation.rotation == basis);
+    REQUIRE(orientation.movement_basis == basis);
+    const auto motion = data.cameraMotion(W8_CAMERA_MOTION_FORWARD, {1, 2, 3}, basis);
+    REQUIRE_FALSE(motion.moved);
+    REQUIRE(motion.displacement == glm::vec3(0));
+    g_level_motion_resume_pending = true;
+    g_game_time_accumulator->m_flags.raw_time = true;
+    REQUIRE(data.cameraMotion(W8_CAMERA_MOTION_FORWARD, {1, 2, 3}, basis).displacement == glm::vec3(0));
 }

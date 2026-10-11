@@ -48,6 +48,7 @@
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/geometry.h"
+#include "wiz8/placement_math.h"
 #include "wiz8/engine_code/Navigator.h"
 #include "wiz8/engine_code/GameTimeAccumulator.h"
 #include "wiz8/startup_world.h"
@@ -3441,12 +3442,11 @@ static bool OverlapsNearbyMonster(const glm::vec3& point, float reach,
 }
 
 // FUNCTION: WIZ8 0x00437980
-unsigned int W8Octree::FindScatterPositions(const srVector3T<float>* position, float yaw,
-                                            float spacing, unsigned int count,
-                                            srVector3T<float>* positions, bool proximity_check,
-                                            bool flatten_y)
+std::vector<glm::vec3> W8Octree::scatterPositions(const glm::vec3& position, float yaw,
+    float spacing, unsigned int count, bool proximity_check, bool flatten_y)
 {
-    float source_y = position->y;
+    float source_y = position.y;
+    std::vector<glm::vec3> positions;
     unsigned int found = 0;
     std::vector<w8_ulong> candidates;
     unsigned int columns = 3;
@@ -3454,15 +3454,10 @@ unsigned int W8Octree::FindScatterPositions(const srVector3T<float>* position, f
         columns = 5;
     }
     float angle = NormalizeAngle(yaw + g_monster_rotation_offset);
-    double cos_angle = cos(angle);
-    srVector3T<float> source;
-    source = *position;
-    double sin_angle = sin(angle);
-    float cos_step = spacing * cos_angle;
-    float sin_step = spacing * sin_angle;
-    float neg_cos_step = -cos_step;
+    const wiz8::placement::Grid grid(angle, spacing);
+    srVector3T<float> source = position;
     if (proximity_check) {
-        candidates = nearbyLocations(position->glmValue(), spacing);
+        candidates = nearbyLocations(position, spacing);
     }
     unsigned int ring;
     for (ring = 0; ring < 10; ++ring) {
@@ -3487,18 +3482,11 @@ unsigned int W8Octree::FindScatterPositions(const srVector3T<float>* position, f
                     jitter_column = Random(1000) * g_scatter_outer_ring_jitter_scale -
                                     g_generator_jitter_fraction;
                 }
-                srVector3T<float> candidate;
-                candidate.x = sin_step * (ring + jitter_ring) + source.x +
-                              neg_cos_step * (jitter_column + *column_offset);
-                candidate.y = source.y + g_world_scale;
-                candidate.z = (ring + jitter_ring) * cos_step + source.z +
-                              (jitter_column + *column_offset) * sin_step;
-                float ground = probeGround(candidate.glmValue()).position.y;
-                float height = candidate.y - ground;
-                if (g_double_one <= fabsf(height) &&
-                    fabsf(height) <= g_navigator_vertical_snap_limit &&
-                    (flatten_y || fabsf(height) <= g_double_twenty_five_hundred)) {
-                    candidate.y = ground;
+                const auto probe = grid.candidate(source.glmValue(),
+                    {ring + jitter_ring, jitter_column + *column_offset});
+                if (const auto settled = wiz8::placement::grounded(
+                        probe, probeGround(probe).position.y, flatten_y)) {
+                    srVector3T<float> candidate = *settled;
                     if (!proximity_check) {
                         if (pathing->SnapWaypointPosition(&candidate, false)) {
                             goto accept;
@@ -3519,12 +3507,12 @@ unsigned int W8Octree::FindScatterPositions(const srVector3T<float>* position, f
                     goto next_cell;
                 accept:
                     if (found == 0) {
-                        positions[0] = candidate;
+                        positions.push_back(candidate.glmValue());
                         source = candidate;
                         found = 1;
                     } else if (pathing == 0 ||
                                pathing->TestWaypointSpan(&candidate, &source, false, false)) {
-                        positions[found] = candidate;
+                        positions.push_back(candidate.glmValue());
                         ++found;
                     }
                 }
@@ -3539,39 +3527,32 @@ unsigned int W8Octree::FindScatterPositions(const srVector3T<float>* position, f
             positions[index].y = source_y;
         }
     }
-    return found;
+    return positions;
 }
 
 // FUNCTION: WIZ8 0x00437f30
-unsigned int W8Octree::FindNavigatorPosition(srVector3T<float>* source, float yaw, float radius,
-                                             unsigned int count, srVector3T<float>* positions,
-                                             bool first_only, bool settle_any_height,
-                                             bool avoid_triggers, int mode,
-                                             bool require_waypoint_span)
+NavigatorPlacement W8Octree::navigatorPositions(const glm::vec3& input, float yaw, float radius,
+    unsigned int count, bool first_only, bool settle_any_height, bool avoid_triggers,
+    int mode, bool require_waypoint_span)
 {
     unsigned int found = 0;
+    srVector3T<float> source = input;
+    std::vector<glm::vec3> positions;
     int found_i = 9999;
     int found_j = 9999;
-    float source_y = source->y;
+    float source_y = source.y;
     std::vector<w8_ulong> candidates;
     float camera_radius = g_startup_world->movement.alternate_radius;
     bool placed = false;
     float separation = (CalcRangeDistance(W8_RANGE_TOUCH) + radius) * g_float_half + camera_radius;
     float angle = NormalizeAngle(yaw + g_monster_rotation_offset);
-    double cos_angle = cos(angle);
-    double sin_angle = sin(angle);
-    float cos_radius = radius * cos_angle;
-    float sin_radius = radius * sin_angle;
-    float neg_cos_radius = -cos_radius;
-    source->y += g_world_scale;
-    float ground = probeGround(source->glmValue()).position.y;
-    float height = source->y - ground;
-    if (g_double_one <= fabsf(height) && fabsf(height) <= g_navigator_vertical_snap_limit &&
-        (settle_any_height || fabsf(height) <= g_double_twenty_five_hundred)) {
-        source->y = ground;
-    }
+    const wiz8::placement::Grid grid(angle, radius);
+    source.y += g_world_scale;
+    if (const auto settled = wiz8::placement::grounded(
+            source.glmValue(), probeGround(source.glmValue()).position.y, settle_any_height))
+        source = *settled;
     if (first_only) {
-        candidates = nearbyLocations(source->glmValue(), radius);
+        candidates = nearbyLocations(source.glmValue(), radius);
     }
     int ring_upper = 0;
     if (-1 < mode) {
@@ -3608,19 +3589,11 @@ unsigned int W8Octree::FindNavigatorPosition(srVector3T<float>* source, float ya
                                 jitter_j = Random(1000) * g_scatter_inner_ring_jitter_scale -
                                            g_float_one_tenth;
                             }
-                            srVector3T<float> candidate;
-                            candidate.x = sin_radius * (i + jitter_i) + source->x +
-                                          neg_cos_radius * (jitter_j + j);
-                            candidate.y = source->y + g_world_scale;
-                            candidate.z = (i + jitter_i) * cos_radius + source->z +
-                                          (jitter_j + j) * sin_radius;
-                            ground = probeGround(candidate.glmValue()).position.y;
-                            height = candidate.y - ground;
-                            if (g_double_one <= fabsf(height) &&
-                                fabsf(height) <= g_navigator_vertical_snap_limit &&
-                                (settle_any_height ||
-                                 fabsf(height) <= g_double_twenty_five_hundred)) {
-                                candidate.y = ground;
+                            const auto probe = grid.candidate(source.glmValue(),
+                                {i + jitter_i, jitter_j + j});
+                            if (const auto settled = wiz8::placement::grounded(
+                                    probe, probeGround(probe).position.y, settle_any_height)) {
+                                srVector3T<float> candidate = *settled;
                                 unsigned char clear;
                                 if (!first_only) {
                                     clear = pathing->SnapWaypointPosition(&candidate, false);
@@ -3642,28 +3615,27 @@ unsigned int W8Octree::FindNavigatorPosition(srVector3T<float>* source, float ya
                                             goto next_cell;
                                     }
                                     if (!require_waypoint_span || pathing == 0 ||
-                                        pathing->TestWaypointSpan(&candidate, source, false,
+                                        pathing->TestWaypointSpan(&candidate, &source, false,
                                                                   false)) {
                                         if (found == 0) {
                                             placed = true;
                                             found_i = i;
                                             found_j = j;
                                         }
-                                        positions[found] = candidate;
+                                        positions.push_back(candidate.glmValue());
                                         ++found;
                                     } else if (found != 0) {
-                                        unsigned int k = 0;
-                                        srVector3T<float>* existing = positions;
-                                        do {
-                                            if (pathing->TestWaypointSpan(&candidate, existing,
-                                                                          false, false)) {
-                                                positions[found] = candidate;
+                                        for (auto& point : positions) {
+                                            srVector3T<float> existing = point;
+                                            const bool reachable = pathing->TestWaypointSpan(
+                                                &candidate, &existing, false, false);
+                                            point = existing.glmValue();
+                                            if (reachable) {
+                                                positions.push_back(candidate.glmValue());
                                                 ++found;
                                                 break;
                                             }
-                                            ++k;
-                                            ++existing;
-                                        } while (k < found);
+                                        }
                                     }
                                 }
                             }
@@ -3684,16 +3656,9 @@ unsigned int W8Octree::FindNavigatorPosition(srVector3T<float>* source, float ya
             --lower;
         } while (ring_upper <= mode);
     }
-    if (settle_any_height && 0 < static_cast<int>(found)) {
-        srVector3T<float>* out = positions;
-        unsigned int remaining = found;
-        do {
-            out->y = source_y;
-            ++out;
-            --remaining;
-        } while (remaining != 0);
-    }
-    return found;
+    if (settle_any_height)
+        for (auto& point : positions) point.y = source_y;
+    return {source.glmValue(), std::move(positions)};
 }
 
 void OctreeMeshLinks::read(wiz8::File& file, std::size_t mesh_count)

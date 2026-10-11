@@ -76,7 +76,7 @@ public:
         MarkRendererReady();
     }
     void SetOrientation(float angle, float pitch);                   /* 0x004788E0 */
-    void GetRotationMatrix(glm::mat3* output);               /* 0x00478BD0 */
+    glm::mat3 rotationMatrix();               /* 0x00478BD0 */
     void BeginLeveling();                                            /* 0x00478CC0 */
     void GetForwardPoint(float distance, srVector3T<float>* output); /* 0x00478CE0 */
     void SetManualControlActive(bool enabled);                       /* 0x00478E00 */

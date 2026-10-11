@@ -58,7 +58,7 @@ extern const float g_float_twelve_thousand_five_hundred;
 extern const float g_float_twenty_five_thousand;
 extern const double g_double_twenty_five_hundred;
 /* 0x005EC038: 5000.0, the absolute vertical-snap ceiling that bounds
-   FindNavigatorPosition's candidate rejection. */
+   navigatorPositions' candidate rejection. */
 extern const double g_navigator_vertical_snap_limit;
 /* 0x005EC008: -pi/12, the fixed downward tilt applied to the sample camera by
    the region-link projector. */

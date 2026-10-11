@@ -2755,7 +2755,6 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
     W8SpellEffectDefinition block;
     W8CombatSlot point_target;
     srVector3T<float> ground_point;
-    srVector3T<float> found_point;
     srVector3T<float> forward_point;
     srVector3T<float> origin;
     srVector3T<float> direction;
@@ -2851,15 +2850,13 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
                         disposition = W8_DISPOSITION_HOSTILE;
                     }
                     heading = HeadingTowardNearestMonster(ground_point, disposition, 0);
-                    if (g_octree->FindNavigatorPosition(
-                            &ground_point, heading,
-                            static_cast<float>(
-                                g_world_cursor_extent_table
-                                    [g_spell_power_extent_index[power_level - 1] * 6 + 3]) +
-                                g_world_scale,
-                            1, &found_point, true, false, false, 5, true) != 0) {
-                        target->point = found_point;
-                    }
+                    const auto placement = g_octree->navigatorPositions(
+                        ground_point.glmValue(), heading,
+                        static_cast<float>(g_world_cursor_extent_table
+                            [g_spell_power_extent_index[power_level - 1] * 6 + 3]) + g_world_scale,
+                        1, true, false, false, 5, true);
+                    ground_point = placement.source;
+                    if (!placement.positions.empty()) target->point = placement.positions.front();
                 }
             } else {
                 monster_markers = *monster_targets;
