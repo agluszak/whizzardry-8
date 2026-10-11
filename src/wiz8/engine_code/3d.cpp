@@ -159,8 +159,8 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
         world_normals.resize(count);
         material_colors.resize(count);
         for (int i = 0; i < count; ++i) {
-            world_vertices[i] = glm::vec3(world * glm::vec4(vertices[i].glmValue(), 1));
-            world_normals[i] = normalizedOrZero(normal_matrix * normals[i].glmValue());
+            world_vertices[i] = glm::vec3(world * glm::vec4(vertices[i], 1));
+            world_normals[i] = normalizedOrZero(normal_matrix * normals[i]);
             auto* material =
                 vertex_materials ? static_cast<srMaterial*>(vertex_materials[i].get()) : nullptr;
             material_colors[i] = material ? glm::vec3(material->parms.diffuse) : base_color;

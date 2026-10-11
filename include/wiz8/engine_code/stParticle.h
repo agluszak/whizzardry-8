@@ -66,7 +66,7 @@ public:
     /* Flutter phase per particle; empty without flutter. */
     std::vector<float> flutter_angles;
     /* Billboard geometry: four vertices and two triangles per particle. */
-    std::vector<srVector3T<float>> vertex_positions;
+    std::vector<glm::vec3> vertex_positions;
     std::vector<glm::vec2> texcoords;
     std::vector<float> alphas;
     std::vector<srVector3i> triangles;

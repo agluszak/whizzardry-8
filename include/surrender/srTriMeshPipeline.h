@@ -1,5 +1,7 @@
 #pragma once
 
+#include "glm/ext/vector_float3.hpp"
+
 #include <memory>
 #include <vector>
 #include "srMaterialIFace.h"
@@ -62,8 +64,8 @@ public:
     const glm::vec4* projected_vertices;
     const srVector3i* triangles;
     /* stParticle stores its vertex positions here; Reset/Get null it. */
-    const srVector3T<float>* positions;
-    const srVector3T<float>* vertex_extras;
+    const glm::vec3* positions;
+    const glm::vec3* vertex_extras;
     float sort_bias;
     glm::vec3 bounds_minimum;
     glm::vec3 bounds_maximum;

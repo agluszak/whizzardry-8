@@ -1,5 +1,7 @@
 #pragma once
 
+#include "glm/ext/vector_float3.hpp"
+
 #include <array>
 #include <iosfwd>
 #include <optional>
@@ -57,9 +59,9 @@ public:
         srVector3i* poly_vertices = nullptr;
         glm::vec4* poly_equations = nullptr;
         glm::vec2* texcoords[4][2]{};
-        srVector3T<float>* positions = nullptr;
-        srVector3T<float>* normals = nullptr;
-        srVector3T<float>* dig[4]{};
+        glm::vec3* positions = nullptr;
+        glm::vec3* normals = nullptr;
+        glm::vec3* dig[4]{};
         glm::vec4* dcg[4]{};
         glm::vec4* scg[4]{};
         std::shared_ptr<srMaterial> materials[4][2];
@@ -81,16 +83,16 @@ public:
     srMeshModel(const srMeshModel&) = delete;
 
     SR_DLL_IMPORT void reset(w8_long polygons, w8_long vertices);
-    SR_DLL_IMPORT void scale(const srVector3T<float>& scale);
+    SR_DLL_IMPORT void scale(const glm::vec3& scale);
     void applyMatrix(const glm::mat3& matrix);
-    SR_DLL_IMPORT void relocateVertices(const srVector3T<float>& offset);
+    SR_DLL_IMPORT void relocateVertices(const glm::vec3& offset);
     void centerVertices();
     double getAverageRadius();
     double getMaxRadius();
     void scaleToAverageRadius(double radius);
     void scaleToMaxRadius(double radius);
     void flipFaces();
-    w8_long findClosestVertex(const srVector3T<float>& point);
+    w8_long findClosestVertex(const glm::vec3& point);
     srMeshModel& operator=(const srMeshModel&) = delete;
 
     // FUNCTION: SURRENDER 0x10041AF0
@@ -114,9 +116,9 @@ public:
     SR_DLL_IMPORT glm::vec2* getVertexTexCoords(w8_long vertex, w8_long layer, int table);
     SR_DLL_IMPORT std::shared_ptr<srMaterialIFace>* getVertexMaterial(w8_long vertex, e_side side, int table);
     SR_DLL_IMPORT w8_ulong* getVertexShadeIndex(int table);
-    SR_DLL_IMPORT srVector3T<float>* getVertexNormal();
+    SR_DLL_IMPORT glm::vec3* getVertexNormal();
     SR_DLL_IMPORT glm::vec4* getPolyEq();
-    SR_DLL_IMPORT srVector3T<float>* getVertexDIG(w8_long vertex, int table);
+    SR_DLL_IMPORT glm::vec3* getVertexDIG(w8_long vertex, int table);
     glm::vec4* getVertexSCG(w8_long vertex, int table);
     glm::vec4* getVertexDCG(w8_long vertex, int table);
     SR_DLL_IMPORT srMaterialIFace* getMaterial(w8_long polygon, e_side side) const;
@@ -182,7 +184,7 @@ public:
     void setDirtyBounds();
     void setDirtyNormals();
     SR_DLL_IMPORT w8_ulong* getActivePolygonTable(int table);
-    SR_DLL_IMPORT srVector3T<float>* getVertexLoc();
+    SR_DLL_IMPORT glm::vec3* getVertexLoc();
     /* Fills the cached AABB/sphere (bounds_minimum..bounds_radius)
        from the supplied box and center/radius. */
     SR_DLL_IMPORT void setBounds(const glm::vec3& minimum, const glm::vec3& maximum,
@@ -208,11 +210,11 @@ public:
     std::array<std::vector<srVector3i>, MAX_PASSES> poly_uv_indices;
     std::vector<glm::vec4> poly_equations;
     std::array<std::array<std::vector<glm::vec2>, 2>, MAX_PASSES> texcoords;
-    std::array<std::vector<srVector3T<float>>, MAX_PASSES> dig;
+    std::array<std::vector<glm::vec3>, MAX_PASSES> dig;
     std::array<std::vector<glm::vec4>, MAX_PASSES> dcg;
     std::array<std::vector<glm::vec4>, MAX_PASSES> scg;
-    std::vector<srVector3T<float>> vertex_locations;
-    std::vector<srVector3T<float>> vertex_normals;
+    std::vector<glm::vec3> vertex_locations;
+    std::vector<glm::vec3> vertex_normals;
     std::vector<w8_ulong> vertex_shade_indices;
     std::vector<w8_ulong> active_polygons;
     w8_long active_polygon_count = 0;

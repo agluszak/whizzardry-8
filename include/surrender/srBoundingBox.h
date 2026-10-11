@@ -1,5 +1,7 @@
 #pragma once
 
+#include "glm/ext/vector_float3.hpp"
+
 #include "srMath.h"
 #include <span>
 #include <array>
@@ -76,13 +78,13 @@ struct srBoundingBox {
     }
 };
 
-inline srBoundingBox boundingBox(std::span<const srVector3> points)
+template<class Point>
+inline srBoundingBox boundingBox(std::span<const Point> points)
 {
-    if (points.empty())
-        return {};
-    const auto first = points.front().glmValue();
+    if (points.empty()) return {};
+    const auto coordinates = [](const Point& point) { return glm::vec3(point.x, point.y, point.z); };
+    const auto first = coordinates(points.front());
     srBoundingBox result{first, first};
-    for (const auto& point : points.subspan(1))
-        result.include(point.glmValue());
+    for (const auto& point : points.subspan(1)) result.include(coordinates(point));
     return result;
 }

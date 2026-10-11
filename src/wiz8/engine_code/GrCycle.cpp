@@ -1137,7 +1137,7 @@ void W8GrCycle::UpdateParticleAttachments()
         if (pMeshModel == 0 || vertex == -1) {
             offset = attachment->position;
         } else {
-            srVector3T<float>* locations;
+            glm::vec3* locations;
 
             if ((pMeshModel->flags & W8_MESH_HAS_FRAME_STORAGE) == 0) {
                 locations = pMeshModel->getVertexLoc();

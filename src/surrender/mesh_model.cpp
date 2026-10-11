@@ -31,6 +31,7 @@
 #include <limits>
 
 #include "surrender/srMeshModel.h"
+#include "surrender/mesh_math.h"
 #include "surrender/srStreamFlags.h"
 #include "surrender/srCore.h"
 #include "surrender/srDebug.h"
@@ -158,26 +159,26 @@ w8_long srMeshModel::getUVCount() const
 /* Lazily grown table accessors: a table is supplied only when its governing count is nonzero; on
    first use it is resized and then cleared or seeded. */
 // FUNCTION: SURRENDER 0x1003FFD0
-srVector3T<float>* srMeshModel::getVertexLoc()
+glm::vec3* srMeshModel::getVertexLoc()
 {
     if (vertex_location_count == 0) {
         return 0;
     }
     if (vertex_locations.empty()) {
-        vertex_locations.resize(vertex_location_count, srVector3T<float>(0.0f, 0.0f, 0.0f));
+        vertex_locations.resize(vertex_location_count, glm::vec3(0.0f, 0.0f, 0.0f));
         setDirty(DIRTY_TRI_MESH);
     }
     return vertex_locations.data();
 }
 
 // FUNCTION: SURRENDER 0x100400D0
-srVector3T<float>* srMeshModel::getVertexNormal()
+glm::vec3* srMeshModel::getVertexNormal()
 {
     if (vertex_location_count == 0) {
         return 0;
     }
     if (vertex_normals.empty()) {
-        vertex_normals.resize(vertex_location_count, srVector3T<float>(0.0f, 0.0f, 0.0f));
+        vertex_normals.resize(vertex_location_count, glm::vec3(0.0f, 0.0f, 0.0f));
         setDirty(DIRTY_TRI_MESH);
     }
     if ((dirty_flags.value & (1UL << DIRTY_VERTEX_NORMALS)) != 0) {
@@ -286,13 +287,13 @@ srVector3i* srMeshModel::getPolyUVIndex(w8_long layer, int table)
 }
 
 // FUNCTION: SURRENDER 0x100407E0
-srVector3T<float>* srMeshModel::getVertexDIG(w8_long vertex, int table)
+glm::vec3* srMeshModel::getVertexDIG(w8_long vertex, int table)
 {
     if (vertex < 0 || vertex > 3) {
         return 0;
     }
     return GetLazyMeshTable(*this, dig[vertex], vertex_location_count, table,
-                            srVector3T<float>(0.0f, 0.0f, 0.0f));
+                            glm::vec3(0.0f, 0.0f, 0.0f));
 }
 
 // FUNCTION: SURRENDER 0x10040A70
@@ -343,8 +344,8 @@ void srMeshModel::reset(w8_long polygons, w8_long vertices)
     active_polygons = std::vector<w8_ulong>{};
     poly_vertices = std::vector<srVector3i>{};
     poly_equations = std::vector<glm::vec4>{};
-    vertex_locations = std::vector<srVector3T<float>>{};
-    vertex_normals = std::vector<srVector3T<float>>{};
+    vertex_locations = std::vector<glm::vec3>{};
+    vertex_normals = std::vector<glm::vec3>{};
     vertex_shade_indices = std::vector<w8_ulong>{};
     vertex_materials = {};
     poly_textures = {};
@@ -377,7 +378,7 @@ void srMeshModel::calculateBounds()
     bounds_center = glm::vec3(0);
     bounds_radius = 0.0f;
     if (vertex_location_count != 0) {
-        const std::span<const srVector3> vertices(getVertexLoc(), vertex_location_count);
+        const std::span<const glm::vec3> vertices(getVertexLoc(), vertex_location_count);
         const auto box = boundingBox(vertices);
         bounds_minimum = box.minimum;
         bounds_maximum = box.maximum;
@@ -385,7 +386,7 @@ void srMeshModel::calculateBounds()
         bounds_center = center;
         float radius_squared = 0;
         for (const auto& vertex : vertices) {
-            const auto offset = vertex.glmValue() - center;
+            const auto offset = vertex - center;
             radius_squared = glm::max(radius_squared, glm::dot(offset, offset));
         }
         bounds_radius = std::sqrt(radius_squared) * 1.00001f;
@@ -399,12 +400,11 @@ void srMeshModel::calculatePolygonNormals()
     dirty_flags.value &= ~(1UL << DIRTY_POLYGON_NORMALS);
     glm::vec4* equations = getPolyEq();
     srVector3i* polygons = getPolyVertex();
-    srVector3T<float>* vertices = getVertexLoc();
+    glm::vec3* vertices = getVertexLoc();
     for (w8_long polygon = 0; polygon < polygon_count; polygon++) {
-        const auto first = vertices[polygons[polygon].x].glmValue();
-        const auto second = vertices[polygons[polygon].y].glmValue();
-        const auto third = vertices[polygons[polygon].z].glmValue();
-        const auto normal = glm::cross(second - first, third - first);
+        const auto first = vertices[polygons[polygon].x];
+        const auto normal = srMeshMath::polygonNormal(
+            std::span<const glm::vec3>(vertices, vertex_location_count), polygons[polygon]);
         equations[polygon] = glm::vec4(normal, -glm::dot(normal, first));
     }
 }
@@ -420,21 +420,20 @@ void srMeshModel::calculateVertexNormals()
     const auto* equations = getPolyEq();
     const auto* polygons = getPolyVertex();
     const auto* shade_indices = getVertexShadeIndex(0);
-    std::vector<glm::vec3> smooth(vertex_location_count, glm::vec3(0));
-    for (w8_long polygon = 0; polygon < polygon_count; ++polygon) {
-        const glm::vec3 normal(equations[polygon]);
-        for (const auto vertex : {polygons[polygon].x, polygons[polygon].y, polygons[polygon].z})
-            smooth[shade_indices ? shade_indices[vertex] : vertex] += normal;
-    }
+    const auto smooth = srMeshMath::vertexNormalSums(
+        std::span<const srVector3i>(polygons, polygon_count),
+        std::span<const glm::vec4>(equations, polygon_count), vertex_location_count,
+        shade_indices ? std::span<const w8_ulong>(shade_indices, vertex_location_count)
+                      : std::span<const w8_ulong>{});
     auto* normals = getVertexNormal();
     for (std::size_t vertex = 0; vertex < vertex_location_count; ++vertex)
-        normals[vertex] = normalizedOrZero(smooth[shade_indices ? shade_indices[vertex] : vertex]);
+        normals[vertex] = normalizedOrZero(smooth[vertex]);
 }
 
 // FUNCTION: SURRENDER 0x1003E690
-void srMeshModel::scale(const srVector3T<float>& scale)
+void srMeshModel::scale(const glm::vec3& scale)
 {
-    srVector3T<float>* vertices = getVertexLoc();
+    glm::vec3* vertices = getVertexLoc();
     for (w8_long index = 0; index < vertex_location_count; index++) {
         vertices[index] *= scale;
     }
@@ -446,14 +445,14 @@ void srMeshModel::applyMatrix(const glm::mat3& matrix)
 {
     auto* vertices = getVertexLoc();
     for (w8_long i = 0; i < vertex_location_count; ++i)
-        vertices[i] = matrix * vertices[i].glmValue();
+        vertices[i] = matrix * vertices[i];
     setDirtyAll();
 }
 
 // FUNCTION: SURRENDER 0x1003E8C0
-void srMeshModel::relocateVertices(const srVector3T<float>& offset)
+void srMeshModel::relocateVertices(const glm::vec3& offset)
 {
-    srVector3T<float>* vertices = getVertexLoc();
+    glm::vec3* vertices = getVertexLoc();
     for (w8_long index = 0; index < vertex_location_count; index++) {
         vertices[index] += offset;
     }
@@ -467,7 +466,7 @@ void srMeshModel::centerVertices()
         return;
     glm::dvec3 sum(0);
     for (const auto& vertex : std::span(getVertexLoc(), vertex_location_count))
-        sum += glm::dvec3(vertex.glmValue());
+        sum += glm::dvec3(vertex);
     relocateVertices(glm::vec3(-sum / double(vertex_location_count)));
 }
 
@@ -479,7 +478,7 @@ double srMeshModel::getAverageRadius()
     }
     double radius = 0;
     for (const auto& vertex : std::span(getVertexLoc(), vertex_location_count))
-        radius += vertex.Length();
+        radius += glm::length(vertex);
     return radius / vertex_location_count;
 }
 
@@ -488,7 +487,7 @@ double srMeshModel::getMaxRadius()
 {
     float maximum = 0;
     for (const auto& vertex : std::span(getVertexLoc(), vertex_location_count)) {
-        const auto value = vertex.glmValue();
+        const auto value = vertex;
         maximum = glm::max(maximum, glm::dot(value, value));
     }
     return std::sqrt(maximum);
@@ -525,14 +524,14 @@ void srMeshModel::flipFaces()
 }
 
 // FUNCTION: SURRENDER 0x1003ED20
-w8_long srMeshModel::findClosestVertex(const srVector3T<float>& position)
+w8_long srMeshModel::findClosestVertex(const glm::vec3& position)
 {
-    const auto target = position.glmValue();
+    const auto target = position;
     float minimum = std::numeric_limits<float>::infinity();
     w8_long closest = 0;
     const auto* vertices = getVertexLoc();
     for (w8_long i = 0; i < vertex_location_count; ++i) {
-        const auto offset = vertices[i].glmValue() - target;
+        const auto offset = vertices[i] - target;
         const float distance = glm::dot(offset, offset);
         if (distance < minimum) {
             minimum = distance;
@@ -848,7 +847,7 @@ void srMeshModel::verify(srRuntimeClass::e_verify mode)
             srAssertFail("t.vLoc", "D:\\srsdk1x\\sources\\corelib\\srMeshModel.cpp", 0x5fa, 0);
         }
         for (i = 0; i < t.vertex_count; ++i) {
-            if (!t.positions[i].isValid()) {
+            if (!isFinite(t.positions[i])) {
                 srAssertFail("t.vLoc[i].isValid()",
                              "D:\\srsdk1x\\sources\\corelib\\srMeshModel.cpp", 0x5fe, 0);
             }
@@ -857,7 +856,7 @@ void srMeshModel::verify(srRuntimeClass::e_verify mode)
             srAssertFail("t.vNorm", "D:\\srsdk1x\\sources\\corelib\\srMeshModel.cpp", 0x602, 0);
         }
         for (i = 0; i < t.vertex_count; ++i) {
-            if (fabs(t.normals[i].Length() - 1.0) >= 0.01) {
+            if (fabs(glm::length(t.normals[i]) - 1.0) >= 0.01) {
                 srAssertFail("fabs(t.vNorm[i].length()-1.0) < 0.01",
                              "D:\\srsdk1x\\sources\\corelib\\srMeshModel.cpp", 0x606, 0);
             }
@@ -865,7 +864,7 @@ void srMeshModel::verify(srRuntimeClass::e_verify mode)
         for (p = 0; p < pass_count; ++p) {
             if (t.dig[p] != 0) {
                 for (i = 0; i < t.vertex_count; ++i) {
-                    if (!t.dig[p][i].isValid()) {
+                    if (!isFinite(t.dig[p][i])) {
                         srAssertFail("t.DIG[p][i].isValid()",
                                      "D:\\srsdk1x\\sources\\corelib\\srMeshModel.cpp", 0x611, 0);
                     }
@@ -1064,7 +1063,7 @@ void srMeshModel::dump(std::ostream& stream)
         stream << "    Vertex normal remapping indices" << '\n';
     }
     for (pass = 0; pass < 4; ++pass) {
-        srVector3T<float>* dig = getVertexDIG(pass, 0);
+        glm::vec3* dig = getVertexDIG(pass, 0);
         glm::vec4* scg = getVertexSCG(pass, 0);
         glm::vec4* dcg = getVertexDCG(pass, 0);
         glm::vec2* uvs[2];
@@ -1288,7 +1287,7 @@ void srTriMeshPipeline::FlushSlots()
 
     if (bounds_source != srTriMeshPipeline::BOUNDS_SPHERE) {
         if (bounds_source == srTriMeshPipeline::BOUNDS_FROM_VERTICES && vertex_count != 0) {
-            const auto box = boundingBox(std::span<const srVector3>(positions, vertex_count));
+            const auto box = boundingBox(std::span<const glm::vec3>(positions, vertex_count));
             bounds_minimum = box.minimum;
             bounds_maximum = box.maximum;
         }

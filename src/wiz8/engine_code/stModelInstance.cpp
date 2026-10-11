@@ -37,7 +37,7 @@ extern float g_monster_light_scale;
 /* Scratch vertex store shared by every highlight shell submission; grown
    on demand and kept between frames. */
 // GLOBAL: WIZ8 0x0065A148
-static std::vector<srVector3T<float>> g_vertex_scratch;
+static std::vector<glm::vec3> g_vertex_scratch;
 
 // VTABLE: WIZ8 0x005ec89c srClassSupport<srModelInstance, class srNode, 4352>
 // class srClassSupport<stModelInstance2D, class srModelInstance, 65541>
@@ -445,7 +445,7 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
             RenderShadow(renderer, mesh);
         }
 
-        srVector3T<float>* poly_normals;
+        glm::vec3* poly_normals;
         if ((model->flags & W8_MESH_HAS_FRAME_STORAGE) != 0) {
             mesh.positions = model->GetVertexLocations(frame_index, true, frame_interpolation);
             mesh.normals = model->GetVertexNormals(frame_index, true);
@@ -538,7 +538,7 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
                      (_strnicmp("blank", mesh.textures[0][0]->getName().c_str(), 5) != 0))) {
                     g_vertex_scratch.resize(mesh.vertex_count);
 
-                    const srVector3T<float>* poly_normals = 0;
+                    const glm::vec3* poly_normals = 0;
                     if ((model->flags & W8_MESH_HAS_FRAME_STORAGE) != 0) {
                         mesh.dig[0] =
                             model->GetVertexLocations(frame_index, true, frame_interpolation);
@@ -568,14 +568,13 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
                     double factor = g_double_one / getScale().y * g_double_fifteen_and_five_eighths;
                     float expand = static_cast<float>(
                         (bounds.sphere.radius * getScale().y * g_double_one_thousandth + g_double_one) * factor);
-                    srVector3T<float> offsets;
-                    offsets = expand;
+                    const glm::vec3 offsets(expand);
 
                     if (mesh.vertex_count != 0) {
                         if (offsets.x == g_float_zero && offsets.y == g_float_zero &&
                             offsets.z == g_float_zero) {
                             std::fill_n(g_vertex_scratch.data(), mesh.vertex_count,
-                                        srVector3T<float>(0.0f, 0.0f, 0.0f));
+                                        glm::vec3(0));
                         } else {
                             for (std::size_t i = 0; i < mesh.vertex_count; ++i)
                                 (g_vertex_scratch.data())[i] = offsets * mesh.normals[i];
@@ -623,7 +622,7 @@ const float g_shadow_extrusion_pitch_scale = 1.0f / 1500.0f;
    a dedicated material so the extruded shadow pass submits through the
    ordinary TriMesh pipeline. */
 static const srVector3i g_shadow_triangles[2] = {{0, 1, 2}, {3, 4, 5}};
-static const srVector3T<float> g_shadow_positions[6] = {
+static const glm::vec3 g_shadow_positions[6] = {
     {-250.0f, 250.0f, 0.0f}, {0.0f, -250.0f, 0.0f}, {250.0f, 250.0f, 0.0f},
     {0.0f, 250.0f, -250.0f}, {0.0f, -250.0f, 0.0f}, {0.0f, 250.0f, 250.0f}};
 

@@ -14,7 +14,6 @@
 #include "surrender/srCore.h"
 #include "surrender/srMaterialIFace.h"
 #include "surrender/srShader.h"
-#include "surrender/srMath.h"
 #include "compat/compiler.h"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
@@ -209,7 +208,7 @@ void srVertexPipe::process(const Input& input)
         for (w8_ulong i = 0; i < batch_count; ++i) {
             const auto index = input.direct_vertex_indices ? batch_base + i : avt[i];
             eye_space_locations[batch_base + i] =
-                model_view * glm::vec4(input.positions[index].glmValue(), 1.0f);
+                model_view * glm::vec4(input.positions[index], 1.0f);
         }
         w8_ulong record_index;
         for (record_index = 0; record_index < input.records.size(); ++record_index) {
@@ -409,7 +408,7 @@ void srVertexPipe::finishSpecularFog()
 // FUNCTION: SURRENDER 0x1002B860
 void srVertexPipe::setupEyeSpaceNormal()
 {
-    const srVector3T<float>* normals = input->normals;
+    const glm::vec3* normals = input->normals;
     if (normals == 0) {
         std::fill_n(scratch.normals, batch_count, glm::vec3(0, 0, -1));
     } else {
@@ -417,7 +416,7 @@ void srVertexPipe::setupEyeSpaceNormal()
         for (w8_ulong i = 0; i < batch_count; ++i) {
             const auto index = input->direct_vertex_indices ? batch_base + i : avt[i];
             scratch.normals[i] = glm::vec3(
-                normal_transform * glm::vec4(normals[index].glmValue(), 1.0f));
+                normal_transform * glm::vec4(normals[index], 1.0f));
         }
     }
     scratch.flags |= srVertexPipe::Scratch::READY_EYE_NORMALS;
@@ -562,7 +561,7 @@ void srVertexPipe::Record::ColorSource::copyDiffuseColors(glm::vec4* destination
     if (format == FORMAT_VECTOR3) {
         for (std::size_t i = 0; i < count; ++i)
             destination[i] =
-                glm::vec4((static_cast<const srVector3*>(colors))[indices[i]].glmValue(), 1.0f);
+                glm::vec4((static_cast<const glm::vec3*>(colors))[indices[i]], 1.0f);
         return;
     }
     if (format == FORMAT_VECTOR4) {

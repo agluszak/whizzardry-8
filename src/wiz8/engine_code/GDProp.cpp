@@ -163,10 +163,10 @@ void GDProp::Initialize(srModelInstance* instance, bool attach, unsigned short p
         }
         surface_total += mesh->polygon_count;
 
-        srVector3T<float>* source_vertices = mesh->getVertexLoc();
+        glm::vec3* source_vertices = mesh->getVertexLoc();
         for (int vertex = 0; vertex < mesh->vertex_location_count; ++vertex) {
             m_pVertices[vertex_base + vertex] =
-                glm::vec3(world_matrix * glm::vec4(source_vertices[vertex].glmValue(), 1));
+                glm::vec3(world_matrix * glm::vec4(source_vertices[vertex], 1));
         }
         vertex_base += mesh->vertex_location_count;
 

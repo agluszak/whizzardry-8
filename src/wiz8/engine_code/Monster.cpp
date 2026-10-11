@@ -1,3 +1,4 @@
+#include "glm/ext/vector_float3.hpp"
 #include "surrender/srBoundingBox.h"
 #include <fmt/format.h>
 #include <fmt/printf.h>
@@ -1811,7 +1812,7 @@ bool W8Monster::GetCycleMappedPosition(signed char cycle, int mapped_index,
         stMeshModel* mesh = static_cast<stMeshModel*>(model->getModel());
         int vertex = FindMappedIndexInMeshChain(&mesh, mapped_index);
         if (mesh != 0 && vertex != -1) {
-            srVector3T<float>* vertices = mesh->GetVertexLocations(dispatch_value, true, 0.0f);
+            glm::vec3* vertices = mesh->GetVertexLocations(dispatch_value, true, 0.0f);
             if (vertices != 0 && current_model != 0) {
                 auto rotation = current_model->getWorldSpaceRotation<glm::mat3>();
                 srVector3T<float> local = vertices[vertex] * m_pRep->scale;
@@ -4318,7 +4319,7 @@ void W8Monster::GetMappedPosition(srVector3T<float>* position)
             int index = mesh->FindMappedIndex(0);
 
             if (index >= 0) {
-                srVector3T<float>* vertices;
+                glm::vec3* vertices;
                 if ((mesh->flags & W8_MESH_HAS_FRAME_STORAGE) == 0) {
                     vertices = mesh->getVertexLoc();
                 } else {
@@ -5113,7 +5114,7 @@ W8Item* CreateMonsterIconItem(W8World* world, const char* path, int flag)
     texture->setWrapT(srTextureIFace::WRAP_CLAMP);
     texture->loadSurface();
     auto* instance = static_cast<stModelInstance*>(MakePosterQuad(texture, 500.0f, 0.0f, true));
-    srVector3T<float> offset(0.0f, 250.0f, 0.0f);
+    const glm::vec3 offset(0.0f, 250.0f, 0.0f);
     static_cast<srMeshModel*>(instance->getModel())->relocateVertices(offset);
     instance->setAlignment(1);
     W8Item* item = new W8Item();

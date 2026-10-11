@@ -65,7 +65,7 @@ public:
     glm::mat2 transform;
     float center_z;
     float center_x;
-    srVector3T<float>* vertices;
+    glm::vec3* vertices;
     w8_ulong polygons[0x1e];
 };
 
@@ -90,7 +90,7 @@ void W8GroundShadowMapper::process(srVertexPipe& pipe)
         return;
     }
     do {
-        const srVector3T<float>* vertex = vertices + *index;
+        const glm::vec3* vertex = vertices + *index;
         float dz = vertex->z - center_z;
         float dx = vertex->x - center_x;
         glm::vec2 coordinate;

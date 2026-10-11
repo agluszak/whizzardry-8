@@ -1,5 +1,7 @@
 #pragma once
 
+#include "glm/ext/vector_float3.hpp"
+
 #include "srMath.h"
 #include <vector>
 
@@ -22,7 +24,7 @@ public:
         const w8_ulong* active_triangles;
         const glm::vec4* projected_vertices;
         const srVector3i* triangles;
-        const srVector3T<float>* vertices;
+        const glm::vec3* vertices;
         const glm::vec4* clip_planes;
         const glm::mat4* model_view;
         const glm::mat4* inverse_model_view;

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "glm/ext/vector_float3.hpp"
+
 #include "srBoundingSphere.h"
 
 #include <span>
@@ -23,8 +25,8 @@ public:
         w8_ulong vertex_count;
         const w8_ulong* active_vertices;
         int direct_vertex_indices;
-        const srVector3T<float>* positions;
-        const srVector3T<float>* normals;
+        const glm::vec3* positions;
+        const glm::vec3* normals;
         glm::vec3 eye_center;
         float eye_radius;
         const glm::mat4* model_view;
