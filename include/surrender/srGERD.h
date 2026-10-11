@@ -427,10 +427,8 @@ public:
     void setViewPort(w8_ulong x, w8_ulong y, w8_ulong width, w8_ulong height);
     void matrixMode(e_matrixMode mode);
     e_matrixMode getMatrixMode() const;
-    void getMatrix(glm::mat4& matrix);
-    void getMatrix(glm::dmat4& matrix);
-    void getMatrix(e_matrixMode mode, glm::mat4& matrix);
-    void getMatrix(e_matrixMode mode, glm::dmat4& matrix);
+    glm::mat4 getMatrix();
+    glm::mat4 getMatrix(e_matrixMode mode);
     void getEyeSpaceBounds(glm::vec3& center, float& radius, const glm::vec3& object_center,
                            float object_radius);
     glm::vec4 getEyeSpaceLocation(const glm::vec3& object_location);
