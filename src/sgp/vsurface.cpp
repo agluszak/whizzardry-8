@@ -32,6 +32,7 @@ BOOLEAN FillSurface(SGPVSurface& hDestVSurface, blt_vs_fx* pBltFx);
 BOOLEAN FillSurfaceRect(SGPVSurface& hDestVSurface, blt_vs_fx* pBltFx);
 BOOLEAN BltVSurfaceUsingSDL(SGPVSurface& hDestVSurface, SGPVSurface& hSrcVSurface, UINT32 fBltFlags,
                            INT32 iDestX, INT32 iDestY, SDL_Rect* SrcRect);
+static BOOLEAN SetVideoSurfacePalette(SGPVSurface& surface, const Palette8& colors);
 
 // Fills an rectangular area with a specified color value.
 
@@ -139,10 +140,9 @@ static std::unique_ptr<SGPVSurface> MakeVideoSurface(UINT16 width, UINT16 height
     result->usWidth = width;
     result->usHeight = height;
     result->ubBitDepth = bits;
-    result->TransparentColor = FROMRGB(0, 0, 0);
     if (image) {
-        if (image->pPalette.has_value())
-            SetVideoSurfacePalette(*result, *image->pPalette);
+        if (image->pPalette && !SetVideoSurfacePalette(*result, *image->pPalette))
+            return nullptr;
         const auto& storage = *result->cpu().surface;
         const auto format = bits == 8 ? BUFFER_8BPP : BUFFER_16BPP;
         const SDL_Rect bounds{0, 0, width, height};
@@ -153,7 +153,7 @@ static std::unique_ptr<SGPVSurface> MakeVideoSurface(UINT16 width, UINT16 height
             return nullptr;
         }
     }
-    SetVideoSurfaceTransparencyColor(*result, result->TransparentColor);
+    SetVideoSurfaceTransparencyColor(*result, FROMRGB(0, 0, 0));
     return result;
 }
 
@@ -169,10 +169,8 @@ std::unique_ptr<SGPVSurface> LoadVideoSurface(std::string_view filename)
     return MakeVideoSurface(image->usWidth, image->usHeight, image->ubBitDepth, &*image);
 }
 // Indexed surfaces use SDL palettes; custom RGB555 blitters retain their table.
-BOOLEAN SetVideoSurfacePalette(SGPVSurface& hVSurface, const Palette8& pSrcPalette)
+static BOOLEAN SetVideoSurfacePalette(SGPVSurface& hVSurface, const Palette8& pSrcPalette)
 {
-    hVSurface.palette = pSrcPalette;
-    hVSurface.hasPalette = true;
     if (hVSurface.ubBitDepth == 8) {
         SDL_Color colors[256];
         for (unsigned i = 0; i < 256; ++i)
@@ -186,12 +184,10 @@ BOOLEAN SetVideoSurfacePalette(SGPVSurface& hVSurface, const Palette8& pSrcPalet
 
 // Transparency uses the game's packed source key.
 // colorkey value.
-BOOLEAN SetVideoSurfaceTransparencyColor(SGPVSurface& hVSurface, COLORVAL TransColor)
+void SetVideoSurfaceTransparencyColor(SGPVSurface& surface, COLORVAL color)
 {
-    hVSurface.TransparentColor = TransColor;
-    const UINT32 key = hVSurface.ubBitDepth == 16 ? Get16BPPColor(TransColor) : TransColor;
-    hVSurface.cpu().sourceKey = SurfaceColorKey{key, key};
-    return TRUE;
+    const UINT32 key = surface.ubBitDepth == 16 ? Get16BPPColor(color) : color;
+    surface.cpu().sourceKey = SurfaceColorKey{key, key};
 }
 
 // FUNCTION: WIZ8 0x00403b10

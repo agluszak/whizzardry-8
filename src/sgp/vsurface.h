@@ -49,10 +49,7 @@ struct SGPVSurface {
     UINT8 ubBitDepth; // 8 or 16 bits per pixel
     std::unique_ptr<CpuSurface> ownedSurface;
     CpuSurface& cpu() { return *ownedSurface; }
-    Palette8 palette{};
-    bool hasPalette = false;
     Palette16 p16BPPPalette{};
-    COLORVAL TransparentColor;
 
 };
 
@@ -85,10 +82,7 @@ std::unique_ptr<SGPVSurface> CreateVideoSurface(UINT16 width, UINT16 height, UIN
 std::unique_ptr<SGPVSurface> LoadVideoSurface(std::string_view filename);
 
 // Sets the packed source color key
-BOOLEAN SetVideoSurfaceTransparencyColor(SGPVSurface& hVSurface, COLORVAL TransColor);
-
-// Sets HVSurface palette, creates if nessessary. Also sets 16BPP palette
-BOOLEAN SetVideoSurfacePalette(SGPVSurface& hVSurface, const Palette8& pSrcPalette);
+void SetVideoSurfaceTransparencyColor(SGPVSurface& surface, COLORVAL color);
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////
 //
