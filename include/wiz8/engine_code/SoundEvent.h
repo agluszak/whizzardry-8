@@ -58,9 +58,13 @@ void UpdateSoundEvents(const std::vector<std::unique_ptr<W8SoundEvent>>& events,
                        int cycle, int frame, int subcycle);
 
 /* Reports the ground height, surface and material at one position through the
-   level's game data: settles a probe with SettleToGround and reads the hit
+   level's game data: settles a probe with settleToGround and reads the hit
    W8GDSurface's footstep_surface/footstep_material. Engine Code\
    GameData.cpp owns it; only this unit's player consumes it, so its seam
    lives here. */
-float GetGroundSurfaceInfo(const srVector3T<float>* position, char* surface,
-                           char* material); /* 0x00420CA0 */
+struct GroundSurfaceInfo {
+    float height;
+    char surface;
+    char material;
+};
+GroundSurfaceInfo groundSurfaceInfo(const glm::vec3& position); /* 0x00420CA0 */

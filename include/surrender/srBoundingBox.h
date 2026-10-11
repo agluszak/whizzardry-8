@@ -44,16 +44,24 @@ struct srBoundingBox {
         return (minimum + maximum) * 0.5f;
     }
 
-    srBoundingBox transformed(const glm::mat4& matrix) const
+    template<class TransformPoint>
+    srBoundingBox transformedBy(TransformPoint transform) const
     {
-        const glm::vec3 first(matrix * glm::vec4(minimum, 1));
+        const glm::vec3 first = transform(minimum);
         srBoundingBox result{first, first};
         for (unsigned corner = 1; corner < 8; ++corner) {
             const auto point =
                 glm::mix(minimum, maximum, glm::bvec3(corner & 4, corner & 2, corner & 1));
-            result.include(glm::vec3(matrix * glm::vec4(point, 1)));
+            result.include(transform(point));
         }
         return result;
+    }
+
+    srBoundingBox transformed(const glm::mat4& matrix) const
+    {
+        return transformedBy([&](const glm::vec3& point) {
+            return glm::vec3(matrix * glm::vec4(point, 1));
+        });
     }
 };
 
