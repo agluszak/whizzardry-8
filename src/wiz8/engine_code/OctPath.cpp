@@ -6196,7 +6196,7 @@ bool W8PathParameters::PredictNavigatorCollision()
         if (approach * approach > delta.LengthSquared()) {
             approach = glm::dot(delta.glmValue(), direction.glmValue());
             if (approach > g_float_zero) {
-                relative = movement->velocity - g_level_data->camera_motion_velocity;
+                relative = movement->velocity.glmValue() - g_level_data->camera_motion_velocity;
                 relative.Normalize();
                 approach = glm::dot(delta.glmValue(), relative.glmValue());
                 approach = approach - (combined * approach) / delta.Length();

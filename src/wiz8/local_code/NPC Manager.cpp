@@ -1921,16 +1921,16 @@ bool ProbeNpcPlacementNearParty(int /*party_slot*/, int /*mode*/, srVector3T<flo
     party_position = cameraLocation();
     party_position.y -= g_default_world_height;
     yaw = GetCameraYawRadians() + g_targeting_quarter_pi;
-    if (g_octree->FindNavigatorPosition(&party_position, yaw, 1000.0f, 1, position_out, true, false,
-                                        true, 10, false) > 0) {
-        return true;
+    for (const int mode : {10, 20, 30}) {
+        const auto placement = g_octree->navigatorPositions(party_position.glmValue(), yaw,
+            1000.0f, 1, true, false, true, mode, false);
+        party_position = placement.source;
+        if (!placement.positions.empty()) {
+            *position_out = placement.positions.front();
+            // The final band writes a result but does not report success.
+            return mode != 30;
+        }
     }
-    if (g_octree->FindNavigatorPosition(&party_position, yaw, 1000.0f, 1, position_out, true, false,
-                                        true, 20, false) > 0) {
-        return true;
-    }
-    g_octree->FindNavigatorPosition(&party_position, yaw, 1000.0f, 1, position_out, true, false,
-                                    true, 30, false);
     return false;
 }
 

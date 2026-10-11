@@ -2,6 +2,7 @@
 
 #include "wiz8/audio_resources.h"
 #include "wiz8/ground_probe.h"
+#include "wiz8/camera_motion.h"
 #include <memory>
 #include <optional>
 #include <span>
@@ -77,19 +78,19 @@ struct W8LevelDataRecord {
     float frame_elapsed;
     float movement_limit;
     float movement_progress;
-    srVector3T<float> camera_position;            /* 0x34 */
-    srVector3T<float> motion_input;               /* 0x40 */
-    srVector3T<float> camera_motion_velocity;     /* 0x4c */
-    srVector3T<float> contact_velocity;           /* 0x58 */
-    srVector3T<float> motion_velocity;            /* 0x64 */
-    srVector3T<float> integrated_motion;          /* 0x70 */
-    srVector3T<float> camera_motion_displacement; /* 0x7c */
-    srVector3T<float> contact_motion;             /* 0x88 */
-    srVector3T<float> contact_displacement;       /* 0x94 */
-    srVector3T<float> motion_displacement;        /* 0xa0 */
+    glm::vec3 camera_position{0};            /* 0x34 */
+    glm::vec3 motion_input{0};               /* 0x40 */
+    glm::vec3 camera_motion_velocity{0};     /* 0x4c */
+    glm::vec3 contact_velocity{0};           /* 0x58 */
+    glm::vec3 motion_velocity{0};            /* 0x64 */
+    glm::vec3 integrated_motion{0};          /* 0x70 */
+    glm::vec3 camera_motion_displacement{0}; /* 0x7c */
+    glm::vec3 contact_motion{0};             /* 0x88 */
+    glm::vec3 contact_displacement{0};       /* 0x94 */
+    glm::vec3 motion_displacement{0};        /* 0xa0 */
     /* 0xac: contact surface normal; 0xb8: scalar stored beside it (retail
        constructor writes 1.0f). Remaining 8 bytes stay unresolved. */
-    srVector3T<float> contact_normal; /* 0xac */
+    glm::vec3 contact_normal{0}; /* 0xac */
     float contact_normal_scale;       /* 0xb8 */
     unsigned char unknown_bc[8];      /* 0xbc */
     W8IntervalGate interval_gate;     /* 0xc4 */
@@ -108,11 +109,12 @@ struct W8LevelDataRecord {
      * primary_contact_prop_id/secondary_contact_prop_id. */
     unsigned char ToggleBoundProps();
     /* 0x00420470: integrate camera_motion_velocity into motion_velocity/integrated_motion. */
+    unsigned int resolveMotionFlags(unsigned int input, bool engaged);
     bool IntegrateCameraForward();
     /* 0x00420810: rotate motion_input by the saved yaw matrix and refresh
        motion_displacement; returns the updated fast-move latch. */
     unsigned char ApplySavedMotionMatrix(unsigned char prior_fast, bool fast_move,
-                                         const glm::mat3* saved);
+                                         const glm::mat3& saved);
     /* 0x0041FF90: advance movement progress / footstep state for one tick. */
     void UpdateMotionProgress(unsigned char fast_move, unsigned char moved);
     /* 0x00420A60: accumulate footstep distance and optionally play a step. */
@@ -176,7 +178,7 @@ struct W8EnvironRecord {
     /* 0x00421800: store `motion` / scale as the per-frame vector. */
     void SetScaledMotion(const glm::vec3& motion);
     /* 0x00421850: add vector * scale into `position`. */
-    void AddScaledMotion(srVector3T<float>* position);
+    glm::vec3 withScaledMotion(const glm::vec3& position) const;
 };
 
 W8_ABI_ASSERT(sizeof(W8EnvironRecord) == 0x44, "W8EnvironRecord_must_be_0x44");
@@ -233,14 +235,9 @@ struct W8GameData {
     void ProcessCrossedSurface(W8GDSurface* surface); /* 0x0041C770 */
     /* Builds the octree trace mesh and answers its model instance. */
     std::unique_ptr<stModelInstance> CreateTraceModel(); /* 0x0041c930 */
-    /* 0x0041F330: apply world-render camera-motion flags into `rotation` and
-       mirror the result into `saved`. Retail call sites pass the owning
-       W8GameData in ECX even though the body reads only globals. */
-    void ApplyCameraMotionFlags(unsigned int flags, glm::mat3* rotation, glm::mat3* saved);
-    /* 0x0041F5F0: advance the camera position under the same flag set; writes
-       the delta into `delta` and answers whether the position changed. */
-    unsigned char ApplyCameraMotion(unsigned int flags, srVector3T<float>* position,
-                                    srVector3T<float>* delta, glm::mat3* saved);
+    CameraRotation cameraRotation(unsigned int flags, const glm::mat3& rotation);
+    CameraMotion cameraMotion(unsigned int flags, const glm::vec3& position,
+                              const glm::mat3& movement_basis);
     /* 0x0041AB40: advance camera under environment-load motion, tracing
        props/octree/geometry and applying crossed surfaces. */
     unsigned char AdvanceEnvironmentMotion();

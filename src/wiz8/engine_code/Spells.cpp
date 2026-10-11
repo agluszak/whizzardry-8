@@ -270,7 +270,7 @@ void W8SpellVisual::UpdateRepresentation(W8World* world)
             camera_position = cameraLocation();
             if (location_id == 0) {
                 SetCyclePosition(&camera_position);
-                g_gd_camera->GetRotationMatrix(&rotation);
+                rotation = g_gd_camera->rotationMatrix();
                 apply_rotation = true;
             } else {
                 W8Monster* monster = GetMonsterByLocationID(location_id);
@@ -799,7 +799,7 @@ W8SpellVisual* CreateAttachedSpellEffect(std::string_view mls_name, int power_le
             glm::mat3 rotation;
 
             position = cameraLocation();
-            g_gd_camera->GetRotationMatrix(&rotation);
+            rotation = g_gd_camera->rotationMatrix();
             visual->SetCyclePosition(&position);
             visual->host->SetRotation(&rotation);
         }
