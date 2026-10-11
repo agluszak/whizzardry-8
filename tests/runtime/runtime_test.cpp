@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <array>
 #include <catch2/catch_test_macros.hpp>
 #include <SDL3/SDL_events.h>
 #include <SDL3/SDL_keycode.h>
@@ -158,14 +159,20 @@ int RegionInSet(unsigned set, int help_text_id)
     return -1;
 }
 
-int RegionInSetAt(unsigned set, size_t position)
+/* UI interactions use real screen positions, not decomp-era region numbers.
+   Check that each expected hit target is owned and enabled. */
+int MainMenuRegion(short item)
 {
-    if (!set || set >= g_region_sets.size() || !g_region_sets[set].enabled)
-        return -1;
-    const auto regions = g_region_sets[set].Regions();
-    if (position >= regions.size() || !RegionLive(regions[position]))
-        return -1;
-    return static_cast<int>(regions[position]);
+    static constexpr std::array<SDL_Point, 6> centers = {{
+        {320, 160}, {320, 209}, {320, 257},
+        {320, 306}, {320, 357}, {320, 445},
+    }};
+    if (item < 0 || static_cast<std::size_t>(item) >= centers.size()) return -1;
+    const auto point = centers[item];
+    for (unsigned region = 1; region < g_regions.size(); ++region)
+        if (RegionLive(region) && RegionContainsPoint(region, point.x, point.y))
+            return static_cast<int>(region);
+    return -1;
 }
 
 int ControlRegion(const W8TextControl* control)
@@ -442,25 +449,27 @@ void MainMenuUiScenario()
     Game game(false);
     ReachMainMenu(game);
     const auto verify_controls = [] {
-        const auto regions = g_region_sets[1].Regions();
-        REQUIRE(regions.size() == 6);
-        for (auto region : regions) {
-            REQUIRE(RegionLive(region));
+        std::array<unsigned, 6> bound{};
+        for (short item = 0; item < static_cast<short>(bound.size()); ++item) {
+            const int region = MainMenuRegion(item);
+            REQUIRE(region >= 0);
             REQUIRE(g_regions[region].widget != nullptr);
             REQUIRE(g_regions[region].callback == DispatchControlRegionEvent);
+            bound[item] = static_cast<unsigned>(region);
         }
+        return bound;
     };
-    verify_controls();
+    const auto bound = verify_controls();
     REQUIRE(!g_main_menu_has_save_games);
-    game.click("disabled-load", RegionInSetAt(1, 2));
+    game.click("disabled-load", MainMenuRegion(2));
     REQUIRE(g_current_screen_state.id == W8_SCREEN_MAIN_MENU);
     REQUIRE(game.settled());
-    game.release_outside(RegionInSetAt(1, 1));
+    game.release_outside(MainMenuRegion(1));
     REQUIRE(g_current_screen_state.id == W8_SCREEN_MAIN_MENU);
     REQUIRE(game.settled());
-    game.click("credits", RegionInSetAt(1, 3));
+    game.click("credits", MainMenuRegion(3));
     game.wait_screen("credits", W8_SCREEN_CREDITS);
-    for (auto region : g_region_sets[1].Regions()) {
+    for (auto region : bound) {
         REQUIRE(g_regions[region].widget == nullptr);
         REQUIRE(g_regions[region].callback == nullptr);
     }
@@ -504,7 +513,7 @@ void SpendPool(Game& game, const char* step, int page_index, const bool& complet
 std::string CreateCharacter(Game& game)
 {
     ReachMainMenu(game);
-    game.click("new-game", RegionInSetAt(1, 1));
+    game.click("new-game", MainMenuRegion(1));
     game.wait("party-selection", [&] {
         return g_current_screen_state.id == W8_SCREEN_PARTY_SELECTION && game.settled() &&
                RegionInSet(g_party_selection_left_action_region_set, -1) >= 0;
@@ -931,7 +940,7 @@ void LoadGameScenario(const fs::path& fixture)
     REQUIRE(fs::is_regular_file(fixture / "Fixture.SAV"));
     game.install(fixture / "Fixture.SAV", "Saves/Fixture.SAV");
     ReachMainMenu(game);
-    game.click("load-game", RegionInSetAt(1, 2));
+    game.click("load-game", MainMenuRegion(2));
     W8OptionsSaveLoadPanel* panel = nullptr;
     game.wait("load-panel", [&] {
         if (g_current_screen_state.id != W8_SCREEN_OPTIONS || !game.settled() ||

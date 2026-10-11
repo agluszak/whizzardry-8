@@ -37,18 +37,17 @@ will still need to render the game's original graphics and text.
 
 ## POC: main-menu ownership
 
-The main menu's six catalog regions used six free callbacks to handle hover,
-press and activation. The POC binds those same rectangles to six panel-owned
-W8Widget instances, uses DispatchControlRegionEvent, and shares activation
-between keyboard shortcuts and pointer clicks. The old callback functions and
-their declarations are deleted. Its sprite-state mapping is table driven, and
-both full menu-redraw paths reuse one loop rather than six calls apiece.
+The main menu previously used six catalog regions with six free callbacks.
+Now a Controls panel owns six W8Widget instances with their own rectangles,
+creates an ordinary dynamic region set, and shares activation between keyboard
+shortcuts and pointer clicks. The old callback functions, declarations and
+hard-coded catalog region IDs are no longer used. Sprite states are table
+driven, and both full-redraw paths reuse one loop.
 
-This deliberately still uses W8Region for hit testing: changing the event
-dispatcher, control ownership and region storage simultaneously would hide
-regressions. The global catalog keeps its first six rectangle records, now
-without permanent callback pointers. Removing their numeric IDs is follow-up
-work, not an excuse to keep the adapter forever.
+W8Region still provides hit testing as an intermediate step. The original
+catalog retains six now-unused slots because unrelated regions refer to
+the historic indices; those slots can be removed with the catalog itself,
+without renumbering the rest of the game in this PR.
 
 ## Passive screens do not need widgets
 

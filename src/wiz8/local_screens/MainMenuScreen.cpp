@@ -51,36 +51,31 @@ bool g_main_menu_warning_shown;
 bool g_main_menu_overlay_enabled;
 // GLOBAL: WIZ8 0x0069c4ac
 SGPVSurface* g_main_menu_overlay_surface;
-// GLOBAL: WIZ8 0x0069c4b0
 // GLOBAL: WIZ8 0x0069c4bc
 std::string g_pending_main_menu_message;
 // GLOBAL: WIZ8 0x0069c4c0
 W8MessageDialogBase* g_main_menu_dialog;
 
-/* Draws one of the six menu items. The first switch turns the item index into
-   its sprite slot and its top and bottom rows; the second turns the requested
-   state into a sprite id. Item two is forced to state three whenever the flag
-   0x005BC810 stores from 0x00512FB0 is clear, which is the only item whose
-   state the screen overrides.
+namespace {
+constexpr std::array<W8ControlsRect, 6> main_menu_item_bounds = {{
+    {174, 138, 467, 182}, {140, 187, 501, 231}, {204, 235, 436, 279},
+    {239, 284, 403, 328}, {234, 335, 408, 379}, {279, 423, 364, 467},
+}};
+constexpr std::array<int, 4> main_menu_sprite_objects = {0xea, 0xec, 0xeb, 0xed};
+}
 
-   An unrecognised state draws no sprite but
-   still redraws the row. */
+// The original six item rectangles are now screen-owned data, not global
+// region registrations. The load-game item uses the disabled sprite when
+// the party has no saves.
 // FUNCTION: WIZ8 0x005bcab0
 unsigned char DrawMainMenuItem(short item, short state)
 {
-    struct ItemBounds { int top, bottom; };
-    static constexpr std::array<ItemBounds, 6> items = {{
-        {0x8a, 0xb1}, {0xbb, 0xe1}, {0xeb, 0x112},
-        {0x11c, 0x145}, {0x14f, 0x193}, {0x1a7, 0x1d3},
-    }};
-    static constexpr std::array<int, 4> sprite_objects = {0xea, 0xec, 0xeb, 0xed};
-
-    if (item < 0 || static_cast<std::size_t>(item) >= items.size()) return 0;
+    if (item < 0 || static_cast<std::size_t>(item) >= main_menu_item_bounds.size()) return 0;
     if (item == 2 && !g_main_menu_has_save_games) state = 3;
 
-    const auto& bounds = items[item];
-    if (state >= 0 && static_cast<std::size_t>(state) < sprite_objects.size())
-        DrawCatalogImage(GetFrameBufferSurface(), sprite_objects[state], 0, item, 0x98,
+    const auto& bounds = main_menu_item_bounds[item];
+    if (state >= 0 && static_cast<std::size_t>(state) < main_menu_sprite_objects.size())
+        DrawCatalogImage(GetFrameBufferSurface(), main_menu_sprite_objects[state], 0, item, 0x98,
                          bounds.top, VO_BLT_SRCTRANSPARENCY, 0);
 
     InvalidateRegion(0x98, bounds.top, 0x1f2, bounds.bottom, 0);
@@ -101,8 +96,8 @@ static void SelectMainMenuItem(short item)
 }
 
 
-/* The catalog still supplies the six hit rectangles, but the controls own the
-   event targets and share the same dispatch as other panel widgets. */
+/* The six menu items are widgets owned by this screen. The Controls panel
+   creates their regions at runtime; the global region catalog is not involved. */
 namespace {
 void ActivateMainMenuItem(short item)
 {
@@ -136,11 +131,10 @@ void ActivateMainMenuItem(short item)
 
 class MainMenuItemWidget final : public W8Widget {
 public:
-    MainMenuItemWidget(unsigned int region, short item)
-        : W8Widget(nullptr, region, g_regions[region].x1, g_regions[region].y1,
-                   g_regions[region].x2, g_regions[region].y2),
-          item_(item)
+    MainMenuItemWidget(short item, const W8ControlsRect& bounds)
+        : item_(item)
     {
+        SetBounds(bounds.left, bounds.top, bounds.right, bounds.bottom);
     }
 
     void OnMouseEnter(int) override
@@ -172,18 +166,18 @@ private:
 };
 
 std::unique_ptr<Controls> main_menu_controls;
+unsigned int main_menu_region_set;
 
 void CreateMainMenuControls()
 {
     main_menu_controls = std::make_unique<Controls>();
-    // Set 1 has six fixed menu rectangles. Use the existing widget dispatcher
-    // rather than six custom region callbacks.
-    for (unsigned int region = 1; region <= 6; ++region) {
+    main_menu_controls->AcquireRegionSet(&main_menu_region_set);
+    for (short item = 0; item < static_cast<short>(main_menu_item_bounds.size()); ++item) {
         main_menu_controls->AdoptControl(
-            std::make_unique<MainMenuItemWidget>(region, static_cast<short>(region - 1)));
-        SetRegionCallback(region, DispatchControlRegionEvent, 0);
+            std::make_unique<MainMenuItemWidget>(item, main_menu_item_bounds[item]));
     }
     main_menu_controls->SetEnabled(true);
+    main_menu_controls->EnableRegionSet(true);
 }
 } // namespace
 
@@ -231,7 +225,6 @@ unsigned char MainMenuScreenEnter(void)
     main_menu_controls.reset();
     ResetRegions();
     CreateMainMenuControls();
-    RegionSetEnable(1);
 
     if (gXStatus.uiMonstersInDatabase > 1000) {
         srAssertFail("gXStatus.uiMonstersInDatabase <= MAX_MONSTERS_IN_DATABASE",
