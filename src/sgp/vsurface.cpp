@@ -33,17 +33,12 @@ static BOOLEAN SetVideoSurfacePalette(SGPVSurface& surface, const Palette8& colo
 BOOLEAN ColorFillVideoSurfaceArea(SGPVSurface& uiDestVSurface, INT32 iDestX1, INT32 iDestY1,
                                   INT32 iDestX2, INT32 iDestY2, UINT16 Color16BPP)
 {
-    blt_vs_fx BltFx;
-    SGPVSurface& hDestVSurface = uiDestVSurface;
-    SDL_Rect Clip;
-
-
-    GetClippingRect(&Clip);
-    BltFx.FillRect = {iDestX1, iDestY1, iDestX2 - iDestX1, iDestY2 - iDestY1};
-    if (!SDL_GetRectIntersection(&BltFx.FillRect, &Clip, &BltFx.FillRect))
+    SDL_Rect clip;
+    GetClippingRect(&clip);
+    SDL_Rect area{iDestX1, iDestY1, iDestX2 - iDestX1, iDestY2 - iDestY1};
+    if (!SDL_GetRectIntersection(&area, &clip, &area))
         return FALSE;
-    BltFx.ColorFill = Color16BPP;
-    FillCpuSurface(hDestVSurface.cpu(), BltFx.ColorFill, &BltFx.FillRect);
+    FillCpuSurface(uiDestVSurface.cpu(), Color16BPP, &area);
     return TRUE;
 }
 // Fills an rectangular area with a specified image value.
@@ -188,21 +183,6 @@ BOOLEAN BltVideoSurfaceToVideoSurface(SGPVSurface& hDestVSurface, SGPVSurface& h
     SDL_Rect SrcRect;
     UINT16 *pDestSurface16, *pSrcSurface16;
     UINT32 uiSrcPitch, uiDestPitch;
-
-    // Check for fill, if true, fill entire region with color
-    if (fBltFlags & VS_BLT_COLORFILL) {
-        CHECKF(pBltFx);
-        FillCpuSurface(hDestVSurface.cpu(), pBltFx->ColorFill);
-        return TRUE;
-    }
-
-    // Check for colorfill rectangle
-    if (fBltFlags & VS_BLT_COLORFILLRECT) {
-        CHECKF(pBltFx);
-        FillCpuSurface(hDestVSurface.cpu(), pBltFx->ColorFill, &pBltFx->FillRect);
-        return TRUE;
-    }
-
 
     if (fBltFlags & VS_BLT_SRCSUBRECT) {
         CHECKF(pBltFx != nullptr);
