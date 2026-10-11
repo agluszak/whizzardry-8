@@ -118,14 +118,11 @@ static bool queued_state_teardown()
     ClearNpcDialogueTranscript();
     ClearNpcDialogueTranscript();
     REQUIRE((g_npc_interaction_state->dialogue_transcript.size() == 0));
-    for (auto kind : {W8_NPC_MSG_PORTRAIT_MESSAGE, W8_NPC_MSG_PORTRAIT_EXTRA,
-                      W8_NPC_MSG_SKILL_NOTICES, W8_NPC_MSG_LEVEL_UP}) {
-        W8MessageBoxPayload extra{};
-        if (kind == W8_NPC_MSG_PORTRAIT_EXTRA) extra.experience = new W8ExperienceNoticePayload{};
-        if (kind == W8_NPC_MSG_SKILL_NOTICES) extra.skill_notices = new W8SkillNoticePayload{};
-        if (kind == W8_NPC_MSG_LEVEL_UP) extra.level_up_slot = new int{};
-        AddTextMessageBoxLine(kind, std::string(80, 't'), extra);
-    }
+    AddTextMessageBoxLine(W8_NPC_MSG_PORTRAIT_MESSAGE, std::string(80, 't'));
+    AddTextMessageBoxLine(W8_NPC_MSG_PORTRAIT_EXTRA, std::string(80, 't'),
+                          W8ExperienceNoticePayload{});
+    AddTextMessageBoxLine(W8_NPC_MSG_SKILL_NOTICES, std::string(80, 't'), W8SkillNoticePayload{});
+    AddTextMessageBoxLine(W8_NPC_MSG_LEVEL_UP, std::string(80, 't'), W8LevelUpNotice{});
     ClearNpcMessageQueue();
     ClearNpcMessageQueue();
     REQUIRE((IsMessageBoxLineQueueEmpty()));

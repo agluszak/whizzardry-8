@@ -4,7 +4,6 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/local_code/NPCScripting.h"
-#include "wiz8/message_box.h"
 #include "soundman.h"
 #include "conditions.h"
 #include "mouth_gap.h"
@@ -51,22 +50,5 @@ void ClearNpcMessageQueue(void)
         wiz8::sound::stop(g_npc_scripting.voice_handle);
     }
     FreeMouthGapTrack(&g_npc_scripting.gap_track);
-    for (auto* line : g_npc_scripting.message_lines) {
-        // These payloads have not been handed to a portrait bubble yet.
-        switch (line->type) {
-        case W8_NPC_MSG_SKILL_NOTICES:
-            delete line->extra.skill_notices;
-            break;
-        case W8_NPC_MSG_PORTRAIT_EXTRA:
-            delete line->extra.experience;
-            break;
-        case W8_NPC_MSG_LEVEL_UP:
-            delete line->extra.level_up_slot;
-            break;
-        default:
-            break;
-        }
-        delete line;
-    }
     g_npc_scripting = {};
 }
