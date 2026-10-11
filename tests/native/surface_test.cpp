@@ -18,7 +18,7 @@
 #include "vsurface.h"
 #include "Types.h"
 
-BOOLEAN ClipReleatedSrcAndDestRectangles(HVSURFACE, HVSURFACE, SDL_Rect*, SDL_Rect*);
+BOOLEAN ClipReleatedSrcAndDestRectangles(SGPVSurface&, SGPVSurface&, SDL_Rect*, SDL_Rect*);
 
 
 namespace
@@ -178,39 +178,44 @@ void differential()
 
 void videoSurfaceClipping()
 {
-    auto source = CreateCpuSurface(8, 7, 16, 0x7c00, 0x3e0, 0x1f);
-    auto dest = CreateCpuSurface(8, 7, 16, 0x7c00, 0x3e0, 0x1f);
-    std::unique_ptr<SGPVSurface> sourceView(CreateVideoSurfaceFromCpuSurface(source.get()));
-    std::unique_ptr<SGPVSurface> destView(CreateVideoSurfaceFromCpuSurface(dest.get()));
+    VSURFACE_DESC desc{};
+    desc.fCreateFlags = VSURFACE_CREATE_DEFAULT;
+    desc.usWidth = 8;
+    desc.usHeight = 7;
+    desc.ubBitDepth = 16;
+    auto sourceView = CreateVideoSurface(desc);
+    auto destView = CreateVideoSurface(desc);
+    auto& source = sourceView->cpu();
+    auto& dest = destView->cpu();
     SDL_Rect destination{-2, -1, 6, 5}, sample{1, 1, 6, 5};
-    REQUIRE(ClipReleatedSrcAndDestRectangles(destView.get(), sourceView.get(), &destination, &sample));
+    REQUIRE(ClipReleatedSrcAndDestRectangles(*destView, *sourceView, &destination, &sample));
     const SDL_Rect expectedDest{0, 0, 4, 4}, expectedSource{3, 2, 4, 4};
     REQUIRE(SDL_RectsEqual(&destination, &expectedDest));
     REQUIRE(SDL_RectsEqual(&sample, &expectedSource));
     destination = {1, 1, 6, 5};
     sample = {-2, -1, 6, 5};
-    REQUIRE(ClipReleatedSrcAndDestRectangles(destView.get(), sourceView.get(), &destination, &sample));
+    REQUIRE(ClipReleatedSrcAndDestRectangles(*destView, *sourceView, &destination, &sample));
     REQUIRE(SDL_RectsEqual(&destination, &expectedSource));
     REQUIRE(SDL_RectsEqual(&sample, &expectedDest));
     SDL_Rect clips[]{{2, 1, 3, 2}};
-    REQUIRE(SetClipList(destView.get(), clips, 1));
-    REQUIRE(dest->clipRegions->size() == 1);
-    REQUIRE(SDL_RectsEqual(&dest->clipRegions->front(), &clips[0]));
-    seed(*source, 5);
+    REQUIRE(SetClipList(*destView, clips, 1));
+    REQUIRE(dest.clipRegions->size() == 1);
+    REQUIRE(SDL_RectsEqual(&dest.clipRegions->front(), &clips[0]));
+    seed(source, 5);
     for (bool clipped : {false, true}) {
-        if (!clipped) dest->clipRegions.reset();
-        else REQUIRE(SetClipList(destView.get(), clips, 1));
+        if (!clipped) dest.clipRegions.reset();
+        else REQUIRE(SetClipList(*destView, clips, 1));
         for (int y : {-4, -1, 0, 3, 7})
             for (int x : {-5, -1, 0, 4, 8}) {
-                seed(*dest, 17);
+                seed(dest, 17);
                 const SDL_Rect sample{1, 1, 6, 5}, mapping{x, y, 6, 5};
-                const auto expected = reference(*dest, mapping, *source, sample);
+                const auto expected = reference(dest, mapping, source, sample);
                 blt_vs_fx effects{};
                 effects.SrcRect = sample;
-                REQUIRE((BltVideoSurfaceToVideoSurface(destView.get(), sourceView.get(), 0,
+                REQUIRE((BltVideoSurfaceToVideoSurface(*destView, *sourceView, 0,
                                                     x, y, VS_BLT_SRCSUBRECT, &effects) ||
                       x >= 8 || y >= 7));
-                REQUIRE(pixels(*dest) == expected);
+                REQUIRE(pixels(dest) == expected);
             }
     }
 }

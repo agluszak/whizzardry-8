@@ -2,7 +2,7 @@
 
 #include "Button System.h"
 
-// The UI owner outlives its button; dispatch retains only the SGP button.
+// Callback context is borrowed from the UI owner; dispatch does not retain it.
 inline void SetButtonUserDataPointer(const GUIButton& button, void* data)
 {
     if (button) button->callback_context = data;

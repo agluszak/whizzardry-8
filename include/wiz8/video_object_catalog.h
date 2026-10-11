@@ -16,28 +16,27 @@ enum W8VideoStorageKind { W8_VIDEO_STORAGE_OBJECT = 0, W8_VIDEO_STORAGE_SURFACE 
 struct W8VideoFrame {
     std::string path;
     W8VideoStorageKind storage_kind;
-    bool loaded;
-    unsigned int handle;
+    std::unique_ptr<SGPVObject> object;
+    std::unique_ptr<SGPVSurface> surface;
 };
 
 extern W8VideoObjectSlot g_video_slots[494];
 extern W8VideoFrame g_video_frames[1658];
 
-unsigned int GetCatalogVideoObjectHandle(int object, int frame);
 short GetCatalogVideoObjectYOffset(int object);
-/* 0x00549420: load the catalog frame and return its HVOBJECT; optional out
+/* 0x00549420: load the catalog frame and return its sprite object; optional out
    receives the slot y_offset. */
-HVOBJECT GetCatalogVideoObject(int object, int frame, int* y_offset_out);
+SGPVObject& GetCatalogVideoObject(int object, int frame, int* y_offset_out = nullptr);
 void GetCatalogImageSize(int object, int frame, int image, short* width, short* height);
 /* 0x00549700: the image's own offset inside its frame, read from the video object's
    ETRLE subregion table. */
 void GetCatalogImagePosition(int object, int frame, int image, short* x, short* y);
-void DrawCatalogImage(UINT32 target, int object, int frame, short image, int left, int top,
+void DrawCatalogImage(SGPVSurface& target, int object, int frame, short image, int left, int top,
                       UINT32 mode, blt_fx* effects);
 void InvalidateCatalogImageRect(int object, int frame, int image, int left, int top, int flags);
-void DrawCatalogImageAndInvalidate(UINT32 target, int object, int frame, int image, int left,
+void DrawCatalogImageAndInvalidate(SGPVSurface& target, int object, int frame, int image, int left,
                                    int top, UINT32 mode, blt_fx* effects);
-unsigned char BlitCatalogSurfaceRectTo16BPP(UINT32 target, int left, int top, int right, int bottom,
+unsigned char BlitCatalogSurfaceRectTo16BPP(SGPVSurface& target, int left, int top, int right, int bottom,
                                             int object, int source_x, int source_y);
 
 void EnsureCatalogFrameLoaded(int object, int frame);

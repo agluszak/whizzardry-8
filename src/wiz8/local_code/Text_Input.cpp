@@ -1,3 +1,4 @@
+#include "Types.h"
 #include <SDL3/SDL_rect.h>
 #include <string>
 #include <algorithm>
@@ -68,7 +69,7 @@ struct TEXTINPUTNODE {
 /* 0x005D3520 allocates this record once per active input session, and
    0x005D35E0 fills the same fixed layout for its three presentation modes. */
 struct TextInputColors {
-    short usFont;
+    Font* usFont;
     unsigned short usTextFieldColor;
     unsigned char ubForeColor;
     unsigned char ubShadowColor;
@@ -129,7 +130,7 @@ static int gsCursorX;
 static size_t guiVisibleCount;
 
 // FUNCTION: WIZ8 0x005D3470
-void InitTextInputMode(void)
+void InitTextInputMode(Font& font)
 {
     if (gpTextInputHead != 0) {
         auto session = std::make_unique<STACKTEXTINPUTNODE>();
@@ -149,6 +150,7 @@ void InitTextInputMode(void)
     gpTextInputHead.reset();
     gpTextInputTail = nullptr;
     pColors = std::make_unique<TextInputColors>();
+    pColors->usFont = &font;
     gfTextInputMode = true;
     gfEditingText = false;
     SetNativeTextInputEnabled(false);
@@ -161,7 +163,8 @@ void InitTextInputMode(void)
 // FUNCTION: WIZ8 0x005D3520
 void InitTextInputModeWithScheme(int mode)
 {
-    InitTextInputMode();
+    Assert(mode >= 0 && mode <= 2);
+    InitTextInputMode(mode == 0 ? *g_font12point1 : *g_wiz_text_mono_font);
     SetTextInputScheme(mode);
 }
 
@@ -169,7 +172,7 @@ void InitTextInputModeWithScheme(int mode)
 void SetTextInputScheme(char mode)
 {
     if (mode == 0) {
-        pColors->usFont = static_cast<short>(g_font12point1);
+        pColors->usFont = &*g_font12point1;
         pColors->usTextFieldColor = Get16BPPColor(0x00c8c8);
         pColors->usInactiveTextFieldColor = Get16BPPColor(0xffffff);
         pColors->usDarkerColor = Get16BPPColor(0x513d18);
@@ -179,7 +182,7 @@ void SetTextInputScheme(char mode)
         pColors->ubShadowColor = 0;
         pColors->ubHiForeColor = 0xd0;
     } else if (mode == 1) {
-        pColors->usFont = static_cast<short>(g_wiz_text_mono_font);
+        pColors->usFont = &*g_wiz_text_mono_font;
         pColors->usTextFieldColor = Get16BPPColor(0x632a1e);
         pColors->usInactiveTextFieldColor = Get16BPPColor(0xffffff);
         pColors->usInactiveTextFieldColor = Get16BPPColor(0x0a0a0a);
@@ -194,7 +197,7 @@ void SetTextInputScheme(char mode)
         pColors->usCursorColor = Get16BPPColor(0xffffff);
         return;
     } else if (mode == 2) {
-        pColors->usFont = static_cast<short>(g_wiz_text_mono_font);
+        pColors->usFont = &*g_wiz_text_mono_font;
         pColors->usTextFieldColor = Get16BPPColor(0xffffff);
         pColors->usInactiveTextFieldColor = Get16BPPColor(0xffffff);
         pColors->usDarkerColor = Get16BPPColor(0);
@@ -305,7 +308,7 @@ char AddTextInputField(int left, int top, int width, int height, int priority, s
     field->fUserField = false;
     field->fEnabled = 1;
     field->fBlockMouseCallbacks = false;
-    MSYS_DefineRegion(&field->region, static_cast<unsigned short>(left),
+    field->region.configure(static_cast<unsigned short>(left),
                       static_cast<unsigned short>(top), static_cast<unsigned short>(left + width),
                       static_cast<unsigned short>(top + height), static_cast<signed char>(priority),
                       MouseMovedInTextRegionCallback,
@@ -801,7 +804,7 @@ static std::size_t FindTextInputMousePosition(TEXTINPUTNODE* field, std::size_t 
     int previous_width = 0;
     for (auto position = start; position < field->szString.size();) {
         const auto end = wiz8::text::next_grapheme(field->szString, position);
-        const auto width = StringPixLength(std::string_view(field->szString).substr(start, end - start), pColors->usFont);
+        const auto width = StringPixLength(std::string_view(field->szString).substr(start, end - start), *pColors->usFont);
         if (mouse_offset < (width + previous_width) / 2) return position;
         previous_width = width;
         position = end;
@@ -983,8 +986,8 @@ void RenderBackgroundField(TEXTINPUTNODE* field)
     int bottom = field->region.RegionBottomRightY;
 
     if (style->fBevelling) {
-        ColorFillVideoSurfaceArea(FRAME_BUFFER, left, top, right, bottom, style->usDarkerColor);
-        ColorFillVideoSurfaceArea(FRAME_BUFFER, left + 1, top + 1, right, bottom,
+        ColorFillVideoSurfaceArea(GetFrameBufferSurface(), left, top, right, bottom, style->usDarkerColor);
+        ColorFillVideoSurfaceArea(GetFrameBufferSurface(), left + 1, top + 1, right, bottom,
                                   style->usBrighterColor);
     }
 
@@ -996,7 +999,7 @@ void RenderBackgroundField(TEXTINPUTNODE* field)
     if (field->fUseInactiveTextFieldColor && field != gpActive)
         colour = style->usInactiveTextFieldColor;
 
-    ColorFillVideoSurfaceArea(FRAME_BUFFER, left, top, right, bottom, colour);
+    ColorFillVideoSurfaceArea(GetFrameBufferSurface(), left, top, right, bottom, colour);
     InvalidateRegion(left, top, right, bottom, 0);
 }
 
@@ -1032,8 +1035,8 @@ void RenderActiveTextField(void)
     }
 
     SaveFontSettings();
-    SetFont(pColors->usFont);
-    unsigned short font_height = GetFontHeight(pColors->usFont);
+    SetFont(*pColors->usFont);
+    unsigned short font_height = GetFontHeight(*pColors->usFont);
     unsigned int vertical_offset =
         (field->region.RegionBottomRightY - field->region.RegionTopLeftY - font_height) / 2;
     RenderBackgroundField(field);
@@ -1049,7 +1052,7 @@ void RenderActiveTextField(void)
     }
 
     for (size_t index = 0; index < guiVisibleCount && visible[index];) {
-        short prefix = StringPrefixPixelWidth(const_cast<char*>(visible), index, pColors->usFont);
+        short prefix = StringPrefixPixelWidth(const_cast<char*>(visible), index, *pColors->usFont);
         unsigned char background;
         if (has_selection &&
             selection_first <= gubParkingPos + index &&
@@ -1075,7 +1078,7 @@ void RenderActiveTextField(void)
         w8_get_ticks() % 1000 < 500) {
         int left = field->region.RegionTopLeftX + gsCursorX;
         int top = field->region.RegionTopLeftY + vertical_offset;
-        ColorFillVideoSurfaceArea(FRAME_BUFFER, left, top, left + 1, top + font_height,
+        ColorFillVideoSurfaceArea(GetFrameBufferSurface(), left, top, left + 1, top + font_height,
                                   pColors->usCursorColor);
     }
     RestoreFontSettings();
@@ -1088,7 +1091,7 @@ void RenderInactiveTextFieldNode(TEXTINPUTNODE* field)
         return;
 
     SaveFontSettings();
-    SetFont(pColors->usFont);
+    SetFont(*pColors->usFont);
     bool disabled = field->fEnabled == 0 && pColors->fUseDisabledAutoShade;
     unsigned char shadow;
     if (disabled) {
@@ -1099,7 +1102,7 @@ void RenderInactiveTextFieldNode(TEXTINPUTNODE* field)
         shadow = pColors->ubShadowColor;
     }
     SetFontShadow(shadow);
-    unsigned short font_height = GetFontHeight(pColors->usFont);
+    unsigned short font_height = GetFontHeight(*pColors->usFont);
     unsigned int vertical_offset =
         (field->region.RegionBottomRightY - field->region.RegionTopLeftY - font_height) / 2;
     SetFontBackground(0);
@@ -1107,7 +1110,7 @@ void RenderInactiveTextFieldNode(TEXTINPUTNODE* field)
 
     const char* visible = field->szString.c_str();
     for (size_t index = 0; visible[index];) {
-        short prefix = StringPrefixPixelWidth(field->szString.c_str(), index, pColors->usFont);
+        short prefix = StringPrefixPixelWidth(field->szString.c_str(), index, *pColors->usFont);
         if (field->region.RegionBottomRightX - field->region.RegionTopLeftX - 10 < prefix + 3) break;
         std::size_t end = index;
         wiz8::text::next(visible, end);
@@ -1126,9 +1129,9 @@ void RenderInactiveTextFieldNode(TEXTINPUTNODE* field)
             field->region.RegionBottomRightY - field->region.RegionTopLeftY,
         };
         unsigned int pitch;
-        void* pixels = LockVideoSurface(FRAME_BUFFER, &pitch);
+        void* pixels = LockVideoSurfaceBuffer(GetFrameBufferSurface(), &pitch);
         Blt16BPPBufferShadowRect(static_cast<unsigned short*>(pixels), pitch, &rectangle);
-        UnLockVideoSurface(FRAME_BUFFER);
+        UnLockVideoSurfaceBuffer(GetFrameBufferSurface());
     }
 }
 
@@ -1160,16 +1163,16 @@ std::size_t CalculateCursorPos(int width, std::size_t cursor, std::string_view t
 {
     cursor = std::min(cursor, text.size());
     auto start = std::min(gubVisibleStart, cursor);
-    while (start < cursor && StringPixLength(text.substr(start, cursor - start), pColors->usFont) > width)
+    while (start < cursor && StringPixLength(text.substr(start, cursor - start), *pColors->usFont) > width)
         start = wiz8::text::next_grapheme(text, start);
     auto end = start;
     while (end < text.size()) {
         auto next = wiz8::text::next_grapheme(text, end);
-        if (StringPixLength(text.substr(start, next - start), pColors->usFont) > width) break;
+        if (StringPixLength(text.substr(start, next - start), *pColors->usFont) > width) break;
         end = next;
     }
     gubVisibleStart = start;
-    *cursor_width = StringPixLength(text.substr(start, cursor - start), pColors->usFont) + 2;
+    *cursor_width = StringPixLength(text.substr(start, cursor - start), *pColors->usFont) + 2;
     *visible_count = end - start; // Byte extent; the renderer decodes glyphs.
     return start;
 }

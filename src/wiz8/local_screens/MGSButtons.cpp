@@ -387,7 +387,7 @@ void RedrawOptionsDiskButton(void)
 {
     bool enabled;
 
-    DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x7e, 0, 2, 0, 0x1c2, VO_BLT_SRCTRANSPARENCY, 0);
+    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x7e, 0, 2, 0, 0x1c2, VO_BLT_SRCTRANSPARENCY, 0);
     g_options_disk_button->m_dirty = true;
     if (!gXStatus.fNpcDialogueMode && !gXStatus.fLockInteractMode && !gXStatus.fTrapInteractMode &&
         !gXStatus.fCampMode && !gXStatus.fLockInteract && !gXStatus.fTrapInteract) {
@@ -442,7 +442,7 @@ void UpdateCombatStanceButtons(void)
 // FUNCTION: WIZ8 0x00597D30
 void RedrawCombatStanceButtons(void)
 {
-    DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x7e, 0, 3, 0x262, 0x1c2, VO_BLT_SRCTRANSPARENCY,
+    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x7e, 0, 3, 0x262, 0x1c2, VO_BLT_SRCTRANSPARENCY,
                                   0);
     for (int index = 0; index < 5; ++index) {
         g_combat_stance_buttons[index]->m_dirty = true;
@@ -567,7 +567,7 @@ unsigned char CreateRoofButtons(void)
 // FUNCTION: WIZ8 0x00598060
 void RedrawRoofButtons(void)
 {
-    DrawCatalogImage(FRAME_BUFFER, 0x85, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY, 0);
+    DrawCatalogImage(GetFrameBufferSurface(), 0x85, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY, 0);
     for (int index = 0; index < 3; ++index) {
         g_roof_buttons[index]->m_dirty = true;
     }
@@ -732,7 +732,7 @@ void RedrawLayoutArrowButtons(void)
     bool enabled;
     W8DialogButton* draw_button;
 
-    DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x7e, 0, 0, 0, 0x166, VO_BLT_SRCTRANSPARENCY, 0);
+    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x7e, 0, 0, 0, 0x166, VO_BLT_SRCTRANSPARENCY, 0);
     for (button = g_layout_arrow_buttons; button < &g_layout_arrow_buttons[6]; ++button) {
         (*button)->m_dirty = true;
     }
@@ -984,15 +984,15 @@ void DrawSubMenuCharacterAction(void)
     if (slot > 7) {
         return;
     }
-    SetFont(g_smfnt_font);
+    SetFont(*g_smfnt_font);
     row = &g_status.buffers.XChar[slot];
-    SetFontObjectPalette16BPP(g_smfnt_font, g_font_state_palettes[row->party_order_index].get());
-    DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x7e, 0, 6, 0x157, 0x1c2, VO_BLT_SRCTRANSPARENCY,
+    SetFontObjectPalette16BPP(*g_smfnt_font, g_font_state_palettes[row->party_order_index].get());
+    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x7e, 0, 6, 0x157, 0x1c2, VO_BLT_SRCTRANSPARENCY,
                                   0);
     character = &g_status.buffers.Char[slot];
     text = fmt::format("{} - {}", character->name,
                        g_localized_strings[g_profession_name_message_ids[character->iProfession]]);
-    DrawFontTextDirty((0xb9 - StringPixLength(text, g_smfnt_font)) / 2 + 0x157, 0x1c6, text);
+    DrawFontTextDirty((0xb9 - StringPixLength(text, *g_smfnt_font)) / 2 + 0x157, 0x1c6, text);
     if (!gXStatus.fCombatMode) {
         if (character->highest_condition == W8_CONDITION_NONE) {
             return;
@@ -1037,9 +1037,9 @@ void DrawSubMenuCharacterAction(void)
                 if (!character->Hand[0].in_play) {
                     text += second;
                 } else {
-                    width = StringPixLength(text, g_smfnt_font);
-                    separator = StringPixLength("/)", g_smfnt_font);
-                    trailing = StringPixLength(second, g_smfnt_font);
+                    width = StringPixLength(text, *g_smfnt_font);
+                    separator = StringPixLength("/)", *g_smfnt_font);
+                    trailing = StringPixLength(second, *g_smfnt_font);
                     if (static_cast<unsigned int>(trailing + width + separator) < 0xb9) {
                         text += "/";
                         text += second;
@@ -1070,7 +1070,7 @@ void DrawSubMenuCharacterAction(void)
             break;
         }
     }
-    DrawFontTextDirty((0xb9 - StringPixLength(text, g_smfnt_font)) / 2 + 0x157, 0x1d1, text);
+    DrawFontTextDirty((0xb9 - StringPixLength(text, *g_smfnt_font)) / 2 + 0x157, 0x1d1, text);
 }
 
 /* Enable the fight/review panel buttons from combat engagement and mode
@@ -1139,9 +1139,9 @@ void RedrawSubMenuButtons(void)
     int index;
     int frame;
 
-    DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x7e, 0, 4, 0x1e, 0x1c2, VO_BLT_SRCTRANSPARENCY, 0);
+    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x7e, 0, 4, 0x1e, 0x1c2, VO_BLT_SRCTRANSPARENCY, 0);
     frame = !gXStatus.fCombatMode ? 8 : 9;
-    DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x7e, 0, frame, 0xc4, 0x1c2, VO_BLT_SRCTRANSPARENCY,
+    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x7e, 0, frame, 0xc4, 0x1c2, VO_BLT_SRCTRANSPARENCY,
                                   0);
 
     for (button = g_submenu_buttons; button < &g_submenu_buttons[9]; ++button) {
@@ -1152,16 +1152,16 @@ void RedrawSubMenuButtons(void)
         (*button)->Draw();
     }
 
-    DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x7e, 0, 7, 0x210, 0x1c2, VO_BLT_SRCTRANSPARENCY,
+    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x7e, 0, 7, 0x210, 0x1c2, VO_BLT_SRCTRANSPARENCY,
                                   0);
     for (button = g_submenu_panel_buttons; button < &g_submenu_panel_buttons[2]; ++button) {
         (*button)->m_dirty = true;
     }
     UpdateSubMenuPanelButtons();
 
-    DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x7e, 0, 5, 0x124, 0x1c2, VO_BLT_SRCTRANSPARENCY,
+    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x7e, 0, 5, 0x124, 0x1c2, VO_BLT_SRCTRANSPARENCY,
                                   0);
-    DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x7e, 0, 6, 0x157, 0x1c2, VO_BLT_SRCTRANSPARENCY,
+    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x7e, 0, 6, 0x157, 0x1c2, VO_BLT_SRCTRANSPARENCY,
                                   0);
     if (g_status.buffers.XChar[g_status.selected_character].fOccupied) {
         DrawSubMenuCharacterAction();

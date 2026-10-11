@@ -38,11 +38,8 @@ extern void SuspendVideoManager(void);
 extern BOOLEAN RestoreVideoManager(void);
 extern void GetCurrentVideoSettings(UINT16* usWidth, UINT16* usHeight, UINT8* ubBitDepth);
 extern void InvalidateRegion(INT32 iLeft, INT32 iTop, INT32 iRight, INT32 iBottom, UINT32 uiFlags);
-extern CpuSurface* GetFrameBufferObject(void);
 extern PTR LockPrimarySurface(UINT32* uiPitch);
 extern void UnlockPrimarySurface(void);
-extern PTR LockMouseBuffer(UINT32* uiPitch);
-extern void UnlockMouseBuffer(void);
 extern BOOLEAN GetPrimaryRGBDistributionMasks(UINT32* RedBitMask, UINT32* GreenBitMask,
                                               UINT32* BblueBitMask);
 extern void PrintScreen(void);
@@ -128,11 +125,11 @@ stModelInstance2D* CreateColoredPolygonSprite(int width, int height, const glm::
                                               bool fullscreen);
 /* 0x004253F0: the render-target sprite factory CreateSpriteFromSurface wraps; the
    radar overlay is created through it directly. */
-stModelInstance2D* CreateSpriteFromVideoSurface(int target, const W8ControlsRect* bounds,
+stModelInstance2D* CreateSpriteFromVideoSurface(SGPVSurface& surface, const W8ControlsRect* bounds,
                                                 int square, int, char overlay);
 /* 0x004255C0: wrap the sprite-surface factory - image is a video surface
    handle (or a negative target id), rect an optional source rectangle. */
-stModelInstance2D* CreateSpriteFromSurface(unsigned int image, const W8ControlsRect* rect, int mode,
+stModelInstance2D* CreateSpriteFromSurface(SGPVSurface& image, const W8ControlsRect* rect, int mode,
                                            int unused, int overlay);
 /* 0x004257D0: position a 2D node without pixel snapping. */
 void Position2DNodeUnsnapped(srNode* node, int x, int y);
@@ -163,15 +160,12 @@ srModelInstance* MakePolygonBrush(srNode* parent, std::shared_ptr<srColorSurface
                                   double height, float mapping_x, float mapping_y,
                                   float mapping_width, float mapping_height, unsigned char overlay);
 /* 0x00484A40: blit one frame of a video object into a color surface. */
-BOOLEAN BlitVideoObjectToColorSurface(UINT32 video_object, UINT16 region,
-                                      srColorSurface* destination, UINT16 x, UINT16 y);
-/* 0x00484AC0: same blit with an already-resolved HVOBJECT. */
-BOOLEAN BlitHVObjectToColorSurface(HVOBJECT object, UINT16 region, srColorSurface* destination,
-                                   int x, int y);
+BOOLEAN BlitVideoObjectToColorSurface(SGPVObject& video_object, UINT16 region,
+                                      srColorSurface& destination, int x, int y);
 class stTextureAnim;
 
 /* 0x00428E90: build an stTextureAnim whose frames are VObject subimages. */
-std::shared_ptr<stTextureAnim> VideoVObjectToTextureAnim(HVOBJECT object, unsigned short start_frame,
+std::shared_ptr<stTextureAnim> VideoVObjectToTextureAnim(SGPVObject& object, unsigned short start_frame,
                                          unsigned short frame_count, bool use_argb1555);
 /* 0x00428A90: mark the primary renderer mode word dirty. */
 void SetOverlayRenderMode(void);
@@ -220,7 +214,6 @@ extern bool g_texture_cache_enabled;
 extern srGERD* g_gerd;
 /* Secondary renderer device preferred by the offscreen world-render path. */
 extern srGERD* g_secondary_gerd;
-extern CpuSurface* g_primary_surface;
 extern stSurface2D* g_surface_node;
 extern std::shared_ptr<srMaterial> g_blit_material;
 extern std::shared_ptr<srColorSurface> g_mouse_surface;

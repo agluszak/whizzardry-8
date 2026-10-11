@@ -241,15 +241,15 @@ void DrawWorldCursorNodeLabel(W8WorldCursorNode* entry)
             srAssertFail("pBuffer", ST_CUBE_CPP, 0x130, 0);
         }
         SaveFontSettings();
-        SetFontDestBuffer(FontDestBuffer, 0, 0, surface->getWidth(), surface->getHeight(),
-                          static_cast<unsigned char>(FontDestWrap));
-        SetFont(g_smfnt_font);
-        SetFontObjectPalette16BPP(g_smfnt_font, GetFontObject(g_smfnt_font)->ownedPalette.get());
+        SetFontDestBuffer(*g_font_render_state.destination, 0, 0, surface->getWidth(), surface->getHeight(),
+                          static_cast<unsigned char>(g_font_render_state.wrap));
+        SetFont(*g_smfnt_font);
+        SetFontObjectPalette16BPP(*g_smfnt_font, GetFontObject(*g_smfnt_font).ownedPalette.get());
         for (int index = 0; index < 3; ++index) {
             std::string text;
             text = fmt::format("{:d}", entry->parameters[index]);
-            DrawFontTextToBuffer(data, surface->getPitch(), g_smfnt_font, 0,
-                                 GetFontHeight(g_smfnt_font) * index, text);
+            DrawFontTextToBuffer(data, surface->getPitch(), *g_smfnt_font, 0,
+                                 GetFontHeight(*g_smfnt_font) * index, text);
         }
         texture->invalidate();
         RestoreFontSettings();

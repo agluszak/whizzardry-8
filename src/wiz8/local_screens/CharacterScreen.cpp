@@ -47,7 +47,6 @@
 #include "wiz8/filesystem.h"
 #include "dialog_code/DialogBase.h"
 #include "local_code/Controls.h"
-#include "mousesystem_macros.h"
 #include "vobject.h"
 #include "vsurface.h"
 
@@ -492,21 +491,21 @@ void W8CharacterScreen::SyncCharacterForPage(int index)
 void W8CharacterScreen::DrawHeader()
 {
     W8TextBuffer text;
-    DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x107, 0, 0, 0xc3, 0, VO_BLT_SRCTRANSPARENCY, 0);
+    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x107, 0, 0, 0xc3, 0, VO_BLT_SRCTRANSPARENCY, 0);
     W8ControlsRect bounds = {0xc3, 0, 0x285, 0x2c};
     text.RenderString(&bounds, g_localized_strings[g_character_page_title_ids[m_page_index]],
-                      g_options_detail_font, true, FRAME_BUFFER);
-    DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x107, 0, 1, 0, 0, VO_BLT_SRCTRANSPARENCY, 0);
+                      *g_options_detail_font, true, GetFrameBufferSurface());
+    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x107, 0, 1, 0, 0, VO_BLT_SRCTRANSPARENCY, 0);
 
     if (m_mode == 0) {
-        DrawCatalogImage(FRAME_BUFFER, 0x107, 0, 2, 10, 0xc, VO_BLT_SRCTRANSPARENCY, 0);
+        DrawCatalogImage(GetFrameBufferSurface(), 0x107, 0, 2, 10, 0xc, VO_BLT_SRCTRANSPARENCY, 0);
     } else {
         int frame = m_original == 0 ? m_character.portrait_index : m_original->portrait_index;
-        DrawCatalogImage(FRAME_BUFFER, 0x11, frame, 0, 10, 0xc, VO_BLT_SRCTRANSPARENCY, 0);
+        DrawCatalogImage(GetFrameBufferSurface(), 0x11, frame, 0, 10, 0xc, VO_BLT_SRCTRANSPARENCY, 0);
     }
 
     if (m_mode == 0 && m_page_index == 0) {
-        DrawCatalogImage(FRAME_BUFFER, 0x107, 0, 3, 5, 0xa5, VO_BLT_SRCTRANSPARENCY, 0);
+        DrawCatalogImage(GetFrameBufferSurface(), 0x107, 0, 3, 5, 0xa5, VO_BLT_SRCTRANSPARENCY, 0);
     } else {
         bounds.left = 5;
         bounds.top = 0xa5;
@@ -514,8 +513,8 @@ void W8CharacterScreen::DrawHeader()
         bounds.bottom = 0xdf;
         text.SetLayoutMode(g_W8TextBufferAlignTop | g_W8TextBufferAlignCenter);
         if (m_mode != 0) {
-            text.RenderString(&bounds, m_character.name, g_wiz_text_font_secondary, true,
-                              FRAME_BUFFER);
+            text.RenderString(&bounds, m_character.name, *g_wiz_text_font_secondary, true,
+                              GetFrameBufferSurface());
         }
         bounds.top += 0xe;
         text.SetLayoutBounds(&bounds, true, true);
@@ -523,11 +522,11 @@ void W8CharacterScreen::DrawHeader()
             fmt::format("{} {}",
                         g_localized_strings[g_gender_name_message_rows[m_character.gender][0]],
                         g_localized_strings[g_race_name_message_ids[m_character.iRace]]),
-            g_wiz_text_font_secondary, true, FRAME_BUFFER);
+            *g_wiz_text_font_secondary, true, GetFrameBufferSurface());
         bounds.top += 0xe;
         text.RenderString(&bounds,
                           g_localized_strings[g_profession_name_message_ids[m_character.iProfession]],
-                          g_wiz_text_font_secondary, true, FRAME_BUFFER);
+                          *g_wiz_text_font_secondary, true, GetFrameBufferSurface());
         bounds.top += 0xe;
         text.SetLayoutBounds(&bounds, true, true);
         text.RenderString(
@@ -535,7 +534,7 @@ void W8CharacterScreen::DrawHeader()
                 "{} {:d} ({})", g_localized_strings[0x6b9], m_character.uiExpLevel,
                 g_localized_strings[g_profession_level_name_message_ids[m_character.iProfession]
                                                                        [m_character.level_band]]),
-            g_wiz_text_font_secondary, true, FRAME_BUFFER);
+            *g_wiz_text_font_secondary, true, GetFrameBufferSurface());
     }
     m_header_dirty = false;
 }
@@ -717,8 +716,8 @@ unsigned char CharacterScreenEnter(void)
     MSYS_Init();
     ResetRegions();
     UpdateHeldItemCursor();
-    SetFontObjectPalette16BPP(g_wiz_text_font_secondary, GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get());
-    SetFontObjectPalette16BPP(g_wiz_text_bold_font, GetFontObject(g_wiz_text_bold_font)->ownedPalette.get());
+    SetFontObjectPalette16BPP(*g_wiz_text_font_secondary, GetFontObject(*g_wiz_text_font_secondary).ownedPalette.get());
+    SetFontObjectPalette16BPP(*g_wiz_text_bold_font, GetFontObject(*g_wiz_text_bold_font).ownedPalette.get());
     g_character_screen = new W8CharacterScreen(
         g_current_screen_state.mode, static_cast<W8Character*>(g_current_screen_state.parameter_3));
     g_character_screen->BuildControls();
@@ -757,7 +756,7 @@ void CharacterScreenFrame(void)
     InputAtom input;
     SGPMouseGetPos(&point);
     g_character_screen->UpdateDialog();
-    MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, static_cast<unsigned short>(point.x),
+    DispatchMouseEvent(MOUSE_POS, static_cast<unsigned short>(point.x),
                                 static_cast<unsigned short>(point.y), gfLeftButtonState,
                                 gfRightButtonState);
     UpdateRegionMousePosition(point.x, point.y);

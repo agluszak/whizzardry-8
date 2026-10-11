@@ -57,7 +57,7 @@ char g_journal_alternate_page[] = "1 / 1";
 // GLOBAL: WIZ8 0x0064df3c
 int g_journal_page_count = -1;
 // GLOBAL: WIZ8 0x0069C4CC
-int g_journal_font = -1;
+std::unique_ptr<Font> g_journal_font;
 // GLOBAL: WIZ8 0x0069C4D0
 std::unique_ptr<UINT16[]> g_journal_font_palette;
 // GLOBAL: WIZ8 0x0069C4D4
@@ -176,17 +176,17 @@ void DrawJournalLine(std::string_view text, int column, int y, int palette, bool
     if (!centered) {
         x = 5;
     } else {
-        x = (right - StringPixLength(text, g_journal_font)) / 2;
+        x = (right - StringPixLength(text, *g_journal_font)) / 2;
         if (x < 0) {
             x = 0;
         }
     }
-    SetFont(g_journal_font);
-    SetFontDestBuffer(FRAME_BUFFER, left, y, left + right, y + 0x1e, 0);
+    SetFont(*g_journal_font);
+    SetFontDestBuffer(GetFrameBufferSurface(), left, y, left + right, y + 0x1e, 0);
     if (palette == 0) {
-        SetFontObjectPalette16BPP(g_journal_font, GetFontObject(g_journal_font)->ownedPalette.get());
+        SetFontObjectPalette16BPP(*g_journal_font, GetFontObject(*g_journal_font).ownedPalette.get());
     } else if (palette == 1) {
-        SetFontObjectPalette16BPP(g_journal_font, g_journal_font_palette.get());
+        SetFontObjectPalette16BPP(*g_journal_font, g_journal_font_palette.get());
     }
     DrawFontText(left + x, y, text);
 }
@@ -207,8 +207,8 @@ void W8JournalPanel::Refresh()
 
         std::string page_text;
         page_text = fmt::format("{:d} / {:d}", g_journal_page + 1, page_count);
-        m_page_text->SetText(page_text, g_options_detail_font);
-        DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x1b8, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY, 0);
+        m_page_text->SetText(page_text, *g_options_detail_font);
+        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x1b8, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY, 0);
         DrawJournalLine(g_localized_strings[0x6db], 0, 0x19, 0, true);
         DrawJournalLine(g_localized_strings[0x6dc], 1, 0x19, 0, true);
 
@@ -242,8 +242,8 @@ void W8JournalPanel::Refresh()
     } else {
         m_next->SetEnabled(false);
         m_previous->SetEnabled(false);
-        m_page_text->SetText(g_journal_alternate_page, g_options_detail_font);
-        DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x1b8, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY, 0);
+        m_page_text->SetText(g_journal_alternate_page, *g_options_detail_font);
+        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x1b8, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY, 0);
         DrawJournalLine(g_localized_strings[0x6de], 0, 0x19, 0, true);
         DrawJournalLine(g_localized_strings[0x6df], 1, 0x19, 0, true);
 
@@ -300,7 +300,7 @@ W8JournalPanel::W8JournalPanel(unsigned int* region_set)
     m_next->m_listener = this;
 
     W8ControlsRect bounds = {m_bounds.left, m_bounds.top, m_bounds.right, m_bounds.bottom};
-    m_page_text = new W8TextBuffer(&bounds, "", g_options_detail_font,
+    m_page_text = new W8TextBuffer(&bounds, "", *g_options_detail_font,
                                    g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
 
     m_mode = new W8TextControl(this, 0xffffffff, 0x1b0, -2, 0, 0, 0x1bb, 0, 0, 2, 1, 2, 3);
@@ -332,7 +332,7 @@ void W8JournalPanel::Redraw()
 {
     if (m_fEnabled && (m_fDirty || m_fLayoutDirty)) {
         Controls::Redraw();
-        m_page_text->RenderToTarget(0, true, FRAME_BUFFER);
+        m_page_text->RenderToTarget(0, true, GetFrameBufferSurface());
     }
 }
 
@@ -379,17 +379,22 @@ void W8JournalPanel::OnPrimary(W8TextControl* control)
 unsigned char JournalScreenInitialize(void)
 {
     g_journal_font = LoadFontFile("Data\\Journal\\journal_font.sti");
-    if (g_journal_font < 0)
+    if (!g_journal_font)
         return 0;
     g_journal_font_palette = CopyCatalogImagePalette16BPP(0x1b9, 0);
-    return bool(g_journal_font_palette);
+    if (!g_journal_font_palette) {
+        g_journal_font.reset();
+        return 0;
+    }
+    return 1;
 }
 
 // FUNCTION: WIZ8 0x005bde10
 unsigned char JournalScreenFinalize(void)
 {
-    if (g_journal_font >= 0)
-        SetFontObjectPalette16BPP(g_journal_font, GetFontObject(g_journal_font)->ownedPalette.get());
+    if (bool(g_journal_font))
+        SetFontObjectPalette16BPP(*g_journal_font, GetFontObject(*g_journal_font).ownedPalette.get());
+    g_journal_font.reset();
     g_journal_font_palette.reset();
     return 1;
 }
@@ -428,7 +433,7 @@ unsigned char JournalScreenEnter(void)
         }
     }
     g_journal_panel->Refresh();
-    DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x1b7, 0, 1, 0, 0x1b4, VO_BLT_SRCTRANSPARENCY, 0);
+    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x1b7, 0, 1, 0, 0x1b4, VO_BLT_SRCTRANSPARENCY, 0);
     return 1;
 }
 

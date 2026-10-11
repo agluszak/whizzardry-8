@@ -2,6 +2,7 @@
 #define __BUTTON_SYSTEM_H
 
 #include <SDL3/SDL_rect.h>
+#include "Font.h"
 #include <string>
 #include <string_view>
 #include <array>
@@ -73,7 +74,7 @@
 #define BUTTON_IGNORE_CLICKS 0x00008000 // Ignore any clicks on this button
 #define BUTTON_DISABLED_CALLBACK 0x80000000
 
-extern UINT32 ButtonDestBuffer;
+extern SGPVSurface* ButtonDestBuffer;
 
 // GUI_BUTTON callback function type
 typedef void (*GUI_CALLBACK)(struct _GUI_BUTTON*, INT32);
@@ -101,7 +102,7 @@ using GenericButtonImage = std::shared_ptr<GenericButtonImages>;
 
 typedef struct _GUI_BUTTON {
     ~_GUI_BUTTON();
-    _GUI_BUTTON() = default;
+    _GUI_BUTTON();
     _GUI_BUTTON(const _GUI_BUTTON&) = delete;
     _GUI_BUTTON& operator=(const _GUI_BUTTON&) = delete;
 
@@ -121,7 +122,7 @@ typedef struct _GUI_BUTTON {
     INT8 bDisabledStyle = DISABLED_STYLE_DEFAULT;
     //For buttons with text
     std::string string; //the string
-    UINT16 usFont = 0;       //font for text
+    Font* usFont = 0;       //font for text
     BOOLEAN fMultiColor = FALSE; //font is a multi-color font
     INT16 sForeColor = 0;    //text colors if there is text
     INT16 sShadowColor = -1;
@@ -146,7 +147,7 @@ typedef struct _GUI_BUTTON {
 using GUIButton = std::shared_ptr<GUI_BUTTON>;
 
 // The interface and screen own their buttons; only weak references are kept
-// by the renderer and mouse dispatcher.
+// by the renderer. Mouse dispatch borrows the owning control directly.
 size_t RegisteredButtonCount();
 
 // Struct definition for the QuickButton pictures.
@@ -154,7 +155,7 @@ struct ButtonGraphics {
     // Each resource owns its decoded sprite sheet. Buttons may share the resource.
     static ButtonImage Load(std::string_view filename, INT32 grayed, INT32 off_normal,
                             INT32 off_hilite, INT32 on_normal, INT32 on_hilite);
-    HVOBJECT object() const { return ownedObject.get(); }
+    SGPVObject& object() const { return *ownedObject; }
 private:
     std::unique_ptr<SGPVObject> ownedObject;
 public:
@@ -217,7 +218,7 @@ GUIButton QuickCreateButton(ButtonImage Image, INT16 xloc, INT16 yloc, INT32 Typ
 //choose also determines the type of button (toggle, notoggle, or newtoggle)
 //Same as above, but accepts specify toggle type
 //Same as above, but accepts priority specification.
-GUIButton CreateTextButton(std::string_view string, UINT32 uiFont, INT16 sForeColor, INT16 sShadowColor,
+GUIButton CreateTextButton(std::string_view string, Font& uiFont, INT16 sForeColor, INT16 sShadowColor,
                        GenericButtonImage GenImg, INT16 xloc, INT16 yloc, INT16 w, INT16 h, INT32 Type,
                        INT16 Priority, GUI_CALLBACK MoveCallback, GUI_CALLBACK ClickCallback);
 //New functions

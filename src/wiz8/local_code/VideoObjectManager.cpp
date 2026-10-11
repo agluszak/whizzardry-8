@@ -7,6 +7,7 @@
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/video_object_catalog.h"
+#include <stdexcept>
 #include "vobject.h"
 #include "vobject_blitters.h"
 #include "vsurface.h"
@@ -15,11 +16,8 @@
 
 W8_ABI_ASSERT(sizeof(W8VideoObjectSlot) == 8, "W8VideoObjectSlot_size_must_be_8");
 
-/* The retail catalog's omitted fields - the loaded flag, its alignment bytes
-   and the handle - are zero in the data image; only the path and mode are
-   explicit. clang's -Wmissing-field-initializers fires once per omitted field
-   per row, so the table is wrapped rather than spelling 1600 zero literals
-   that the original source did not write. */
+/* Asset paths and storage kinds retain their retail catalog order. Each frame
+   owns its lazily loaded resource; no secondary resource registry is needed. */
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmissing-field-initializers"
 // GLOBAL: WIZ8 0x0062c430
@@ -762,50 +760,27 @@ W8VideoObjectSlot g_video_slots[494] = {
 // FUNCTION: WIZ8 0x00549250
 void ReleaseLoadedVideoFrames(void)
 {
-    char released;
-
-    if (!gfVideoObjectsInit) {
-        srAssertFail("VideoObjectsInitialized()", VIDEO_OBJECT_MANAGER_CPP, 0x9c, 0);
-    }
-    for (W8VideoFrame* frame = g_video_frames; frame < g_video_frames + 1658; ++frame) {
-        if (frame->loaded) {
-            if (frame->storage_kind == W8_VIDEO_STORAGE_OBJECT) {
-                released = DeleteVideoObjectFromIndex(frame->handle);
-            } else {
-                released = DeleteVideoSurfaceFromIndex(frame->handle);
-            }
-            if (!released) {
-                srAssertFail("fReturnCode", VIDEO_OBJECT_MANAGER_CPP, 0x85, 0);
-            }
-            frame->handle = 0;
-            frame->loaded = false;
-        }
+    for (auto& frame : g_video_frames) {
+        frame.object.reset();
+        frame.surface.reset();
     }
 }
 
 // FUNCTION: WIZ8 0x00548f90
-void DrawCatalogImage(UINT32 target, int object, int frame, short image, int left, int top,
+void DrawCatalogImage(SGPVSurface& target, int object, int frame, short image, int left, int top,
                       UINT32 mode, blt_fx* effects)
 {
     W8VideoObjectSlot* slot;
     short row;
-    unsigned int surface;
     BOOLEAN ok;
 
-    if (!gfVideoObjectsInit) {
-        srAssertFail("VideoObjectsInitialized()", VIDEO_OBJECT_MANAGER_CPP, 0x2d, 0);
-    }
     EnsureCatalogFrameLoaded(object, frame);
     slot = &g_video_slots[object];
     row = slot->y_offset + image;
-    surface = g_video_frames[slot->first_frame + frame].handle;
-    if (!gfVideoObjectsInit) {
-        srAssertFail("VideoObjectsInitialized()", VIDEO_OBJECT_MANAGER_CPP, 0xdd, 0);
-    }
     if (g_video_frames[slot->first_frame + frame].storage_kind == W8_VIDEO_STORAGE_OBJECT) {
-        ok = BltVideoObjectFromIndex(target, surface, row, left, top, mode, effects);
+        ok = BltVideoObject(target, *g_video_frames[slot->first_frame + frame].object, row, left, top, mode, effects);
     } else {
-        ok = BltVideoSurface(target, surface, row, left, top, mode, 0);
+        ok = BltVideoSurfaceToVideoSurface(target, *g_video_frames[slot->first_frame + frame].surface, row, left, top, mode, 0);
     }
     if (!ok) {
         srAssertFail("fReturnCode", VIDEO_OBJECT_MANAGER_CPP, 0x3e, 0);
@@ -822,41 +797,26 @@ void EnsureCatalogFrameLoaded(int object, int frame)
     VOBJECT_DESC request_a;
     VSURFACE_DESC request_b;
     W8VideoFrame* record;
-    unsigned int handle;
     BOOLEAN loaded_ok;
 
-    /* Two nested checks, both in the original: the assertion does not return,
-       so the inner one is reachable only when it is compiled out. */
-    if (!gfVideoObjectsInit) {
-        srAssertFail("VideoObjectsInitialized()", VIDEO_OBJECT_MANAGER_CPP, 0x4c, 0);
-        if (!gfVideoObjectsInit) {
-            srAssertFail("VideoObjectsInitialized()", VIDEO_OBJECT_MANAGER_CPP, 0xd4, 0);
-        }
-    }
     record = &g_video_frames[g_video_slots[object].first_frame + frame];
-    if (!record->loaded) {
-        if (!gfVideoObjectsInit) {
-            srAssertFail("VideoObjectsInitialized()", VIDEO_OBJECT_MANAGER_CPP, 0xdd, 0);
-        }
+    if (!record->object && !record->surface) {
         if (record->storage_kind == W8_VIDEO_STORAGE_OBJECT) {
             request_a.fCreateFlags = VOBJECT_CREATE_FROMFILE;
             request_a.ImageFile = record->path;
-            loaded_ok = AddVideoObject(&request_a, &handle);
+            record->object = CreateVideoObject(request_a);
+            loaded_ok = record->object != nullptr;
         } else {
             request_b.fCreateFlags = VSURFACE_CREATE_FROMFILE;
             request_b.ImageFile = record->path;
-            loaded_ok = AddVideoSurface(&request_b, &handle);
+            record->surface = CreateVideoSurface(request_b);
+            loaded_ok = record->surface != nullptr;
         }
         if (loaded_ok == 0) {
-            if (!gfVideoObjectsInit) {
-                srAssertFail("VideoObjectsInitialized()", VIDEO_OBJECT_MANAGER_CPP, 0xdd, 0);
-            }
             srAssertFail("fReturnCode", VIDEO_OBJECT_MANAGER_CPP, 0x68,
                          fmt::format("LoadVideoObject: ERROR - Add {} failed, type {:d}",
                                      record->path, fmt::underlying(record->storage_kind)));
         }
-        record->handle = handle;
-        record->loaded = true;
     }
 }
 
@@ -866,67 +826,36 @@ void EnsureCatalogFrameLoaded(int object, int frame)
 // FUNCTION: WIZ8 0x005492e0
 std::unique_ptr<UINT16[]> CopyCatalogImagePalette16BPP(int object, int frame)
 {
-    if (!gfVideoObjectsInit) {
-        srAssertFail("VideoObjectsInitialized()", VIDEO_OBJECT_MANAGER_CPP, 0xaf, 0);
-    }
     auto palette = std::make_unique<UINT16[]>(256);
     EnsureCatalogFrameLoaded(object, frame);
-    if (!CopyVideoObjectPalette16BPP(GetCatalogVideoObjectHandle(object, frame), palette.get())) {
+    if (!CopyVideoObjectPalette16BPP(GetCatalogVideoObject(object, frame), palette.get())) {
         return nullptr;
     }
     return palette;
 }
 
-// FUNCTION: WIZ8 0x00549390
-unsigned int GetCatalogVideoObjectHandle(int object, int frame)
-{
-    if (!gfVideoObjectsInit) {
-        srAssertFail("VideoObjectsInitialized()", VIDEO_OBJECT_MANAGER_CPP, 0xe6, 0);
-    }
-    EnsureCatalogFrameLoaded(object, frame);
-    return g_video_frames[g_video_slots[object].first_frame + frame].handle;
-}
-
 // FUNCTION: WIZ8 0x005493e0
 short GetCatalogVideoObjectYOffset(int object)
 {
-    if (!gfVideoObjectsInit) {
-        srAssertFail("VideoObjectsInitialized()", VIDEO_OBJECT_MANAGER_CPP, 0xf2, 0);
-    }
     return g_video_slots[object].y_offset;
 }
 
 // FUNCTION: WIZ8 0x00549420
-HVOBJECT GetCatalogVideoObject(int object, int frame, int* y_offset_out)
+SGPVObject& GetCatalogVideoObject(int object, int frame, int* y_offset_out)
 {
-    W8VideoFrame* record;
-    HVOBJECT video_object;
-
-    if (!gfVideoObjectsInit) {
-        srAssertFail("VideoObjectsInitialized()", VIDEO_OBJECT_MANAGER_CPP, 0xfd, 0);
-    }
     EnsureCatalogFrameLoaded(object, frame);
-    if (!gfVideoObjectsInit) {
-        srAssertFail("VideoObjectsInitialized()", VIDEO_OBJECT_MANAGER_CPP, 0xdd, 0);
-    }
-    record = &g_video_frames[g_video_slots[object].first_frame + frame];
-    if (record->storage_kind == W8_VIDEO_STORAGE_OBJECT) {
-        if (y_offset_out != 0) {
-            if (!gfVideoObjectsInit) {
-                srAssertFail("VideoObjectsInitialized()", VIDEO_OBJECT_MANAGER_CPP, 0xf2, 0);
-            }
-            *y_offset_out = g_video_slots[object].y_offset;
-        }
-        GetVideoObject(&video_object, record->handle);
-        return video_object;
-    }
-    return 0;
+    auto& record = g_video_frames[g_video_slots[object].first_frame + frame];
+    if (!record.object)
+        throw std::logic_error("Catalog frame is not a sprite object");
+    if (y_offset_out)
+        *y_offset_out = g_video_slots[object].y_offset;
+    return *record.object;
 }
 
 /* Mark the complete rectangle covered by one catalog image. ETRLE-backed
    objects supply subimage dimensions through the canonical SGP object API;
    surface-backed objects expose the dimensions on the canonical SGP surface
-   record returned by GetVideoSurface. */
+   owned surface record. */
 // FUNCTION: WIZ8 0x005494f0
 void InvalidateCatalogImageRect(int object, int frame, int image, int left, int top, int flags)
 {
@@ -940,16 +869,12 @@ void InvalidateCatalogImageRect(int object, int frame, int image, int left, int 
     slot = &g_video_slots[object];
     subimage = slot->y_offset + image;
     record = &g_video_frames[slot->first_frame + frame];
-    if (!gfVideoObjectsInit) {
-        srAssertFail("VideoObjectsInitialized()", VIDEO_OBJECT_MANAGER_CPP, 0xdd, 0);
-    }
     if (record->storage_kind == W8_VIDEO_STORAGE_OBJECT) {
-        GetVideoObjectETRLESubregionProperties(record->handle, subimage, &width, &height);
+        GetVideoObjectETRLESubregionProperties(*record->object, subimage, &width, &height);
     } else {
-        HVSURFACE surface;
-        if (GetVideoSurface(&surface, record->handle)) {
-            height = surface->usHeight;
-            width = surface->usWidth;
+        if (record->surface) {
+            height = record->surface->usHeight;
+            width = record->surface->usWidth;
         }
     }
 
@@ -962,7 +887,7 @@ void InvalidateCatalogImageRect(int object, int frame, int image, int left, int 
    index is truncated to a short for the draw and passed whole to the mark,
    and the seventh reaches the mark only as whether it equals two. */
 // FUNCTION: WIZ8 0x00549600
-void DrawCatalogImageAndInvalidate(UINT32 target, int object, int frame, int image, int left,
+void DrawCatalogImageAndInvalidate(SGPVSurface& target, int object, int frame, int image, int left,
                                    int top, UINT32 mode, blt_fx* effects)
 {
     DrawCatalogImage(target, object, frame, static_cast<short>(image), left, top, mode, effects);
@@ -983,11 +908,8 @@ void GetCatalogImageSize(int object, int frame, int image, short* width, short* 
     slot = &g_video_slots[object];
     subimage = slot->y_offset + image;
     record = &g_video_frames[slot->first_frame + frame];
-    if (!gfVideoObjectsInit) {
-        srAssertFail("VideoObjectsInitialized()", VIDEO_OBJECT_MANAGER_CPP, 0xdd, 0);
-    }
     if (record->storage_kind == W8_VIDEO_STORAGE_OBJECT) {
-        GetVideoObjectETRLESubregionProperties(record->handle, subimage, (unsigned short*)width,
+        GetVideoObjectETRLESubregionProperties(*record->object, subimage, (unsigned short*)width,
                                                (unsigned short*)height);
     }
 }
@@ -999,20 +921,16 @@ void GetCatalogImagePosition(int object, int frame, int image, short* x, short* 
 {
     W8VideoObjectSlot* slot;
     W8VideoFrame* record;
-    HVOBJECT video_object;
     short subimage;
 
     EnsureCatalogFrameLoaded(object, frame);
     slot = &g_video_slots[object];
     subimage = slot->y_offset + image;
     record = &g_video_frames[slot->first_frame + frame];
-    if (!gfVideoObjectsInit) {
-        srAssertFail("VideoObjectsInitialized()", VIDEO_OBJECT_MANAGER_CPP, 0xdd, 0);
-    }
     if (record->storage_kind == W8_VIDEO_STORAGE_OBJECT) {
-        GetVideoObject(&video_object, record->handle);
-        *x = video_object->sprites[subimage].sOffsetX;
-        *y = video_object->sprites[subimage].sOffsetY;
+        const auto& video_object = *record->object;
+        *x = video_object.sprites[subimage].sOffsetX;
+        *y = video_object.sprites[subimage].sOffsetY;
     }
 }
 
@@ -1021,32 +939,26 @@ void GetCatalogImagePosition(int object, int frame, int image, short* x, short* 
    caller-provided source coordinates. Both surfaces remain locked for exactly
    the pinned SGP conversion call. */
 // FUNCTION: WIZ8 0x005497c0
-unsigned char BlitCatalogSurfaceRectTo16BPP(UINT32 target, int left, int top, int right, int bottom,
+unsigned char BlitCatalogSurfaceRectTo16BPP(SGPVSurface& target, int left, int top, int right, int bottom,
                                             int object, int source_x, int source_y)
 {
     SDL_Rect source_rect;
-    HVSURFACE source_surface;
     unsigned int target_pitch;
     unsigned int source_pitch;
-    unsigned int source_handle;
     unsigned char* target_pixels;
     unsigned char* source_pixels;
 
     source_rect = {source_x, source_y, right - left, bottom - top};
 
-    if (!gfVideoObjectsInit) {
-        srAssertFail("VideoObjectsInitialized()", VIDEO_OBJECT_MANAGER_CPP, 0x19d, 0);
-    }
     EnsureCatalogFrameLoaded(object, 0);
-    source_handle = g_video_frames[g_video_slots[object].first_frame].handle;
-    GetVideoSurface(&source_surface, source_handle);
-    target_pixels = LockVideoSurface(target, &target_pitch);
-    source_pixels = LockVideoSurface(source_handle, &source_pitch);
+    auto& source_surface = *g_video_frames[g_video_slots[object].first_frame].surface;
+    target_pixels = LockVideoSurfaceBuffer(target, &target_pitch);
+    source_pixels = LockVideoSurfaceBuffer(source_surface, &source_pitch);
     Blt8BPPDataSubTo16BPPBuffer(reinterpret_cast<unsigned short*>(target_pixels), target_pitch,
                                 source_surface, source_pixels, source_pitch, left, top,
                                 &source_rect);
-    UnLockVideoSurface(target);
-    UnLockVideoSurface(source_handle);
+    UnLockVideoSurfaceBuffer(target);
+    UnLockVideoSurfaceBuffer(source_surface);
     return 1;
 }
 
@@ -1055,22 +967,14 @@ unsigned char BlitCatalogSurfaceRectTo16BPP(UINT32 target, int left, int top, in
 // FUNCTION: WIZ8 0x005498a0
 void* LockCatalogFrameSurface(unsigned int object, unsigned int frame, w8_long* pitch)
 {
-    unsigned int surface;
 
-    if (!gfVideoObjectsInit) {
-        srAssertFail("VideoObjectsInitialized()", VIDEO_OBJECT_MANAGER_CPP, 0x1b9, 0);
-    }
     EnsureCatalogFrameLoaded(object, frame);
-    surface = g_video_frames[g_video_slots[object].first_frame + frame].handle;
-    if (!gfVideoObjectsInit) {
-        srAssertFail("VideoObjectsInitialized()", VIDEO_OBJECT_MANAGER_CPP, 0xdd, 0);
-    }
     if (g_video_frames[g_video_slots[object].first_frame + frame].storage_kind ==
         W8_VIDEO_STORAGE_OBJECT) {
         return 0;
     }
     // reinterpret-ok: retail forwards the same 32-bit pitch word to the SGP lock API
-    return LockVideoSurface(surface, reinterpret_cast<UINT32*>(pitch));
+    return LockVideoSurfaceBuffer(*g_video_frames[g_video_slots[object].first_frame + frame].surface, reinterpret_cast<UINT32*>(pitch));
 }
 
 /* Release a surface-backed catalog frame locked by LockCatalogFrameSurface. Video
@@ -1078,15 +982,10 @@ void* LockCatalogFrameSurface(unsigned int object, unsigned int frame, w8_long* 
 // FUNCTION: WIZ8 0x00549950
 void UnlockCatalogFrameSurface(unsigned int object, unsigned int frame)
 {
-    unsigned int surface;
 
     EnsureCatalogFrameLoaded(object, frame);
-    surface = g_video_frames[g_video_slots[object].first_frame + frame].handle;
-    if (!gfVideoObjectsInit) {
-        srAssertFail("VideoObjectsInitialized()", VIDEO_OBJECT_MANAGER_CPP, 0xdd, 0);
-    }
     if (g_video_frames[g_video_slots[object].first_frame + frame].storage_kind !=
         W8_VIDEO_STORAGE_OBJECT) {
-        UnLockVideoSurface(surface);
+        UnLockVideoSurfaceBuffer(*g_video_frames[g_video_slots[object].first_frame + frame].surface);
     }
 }

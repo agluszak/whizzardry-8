@@ -8,14 +8,14 @@
 #include <exception>
 #include <span>
 #include <string>
+#include "wiz8/fonts.h"
+#include "wiz8/video_object_catalog.h"
 #include <string_view>
 
 #include "wiz8/application.h"
 #include "wiz8/engine_code/Video2.h"
 #include "input.h"
 #include "Font.h"
-#include "vobject.h"
-#include "vsurface.h"
 #include "Button System.h"
 #include "mousesystem.h"
 #include "soundman.h"
@@ -86,10 +86,7 @@ wiz8::Application::Application(std::span<const std::string_view> arguments)
             throw std::runtime_error("Input initialization failed");
         if (!InitializeVideoManager())
             throw std::runtime_error("Video initialization failed");
-        if (!InitializeVideoObjectManager() || !InitializeVideoSurfaceManager())
-            throw std::runtime_error("Video resource initialization failed");
-        if (!InitializeFontManager(CreateEnglishTransTable()))
-            throw std::runtime_error("Font initialization failed");
+        ConfigureFontRendering(CreateEnglishTransTable());
         if (!InitializeSoundManager())
             throw std::runtime_error("Sound initialization failed");
         InitializeRandom();
@@ -147,11 +144,11 @@ void wiz8::Application::shutdown() noexcept
             SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Game shutdown: %s", failure.what());
         }
     }
+    ReleaseLoadedVideoFrames();
     ShutdownButtonSystem();
     MSYS_Shutdown();
-    ShutdownFontManager();
-    ShutdownVideoSurfaceManager();
-    ShutdownVideoObjectManager();
+    ReleaseMenuFonts();
+    ResetFontRendering();
     ShutdownVideoManager();
     wiz8::clear_asset_archives();
     SDL_ShowCursor();

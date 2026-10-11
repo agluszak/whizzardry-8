@@ -1,3 +1,4 @@
+#include "Font.h"
 #pragma once
 
 #include <vector>
@@ -416,7 +417,7 @@ void RecordLevelEntryDialogueState(void);
 unsigned char IsNpcDialogueCursorActive(void);
 /* Forward a portrait pick into an active NPC dialogue. */
 void TryNpcDialoguePickpocket(int party_slot);
-std::string ShortenTextToWidth(std::string_view text, unsigned int width, int font);
+std::string ShortenTextToWidth(std::string_view text, unsigned int width, Font& font);
 unsigned char NpcQuoteBubbleRegionEvent(const InputAtom* event, W8Region* region);
 void SetDialogueFieldKeyword(std::string keyword, bool append);
 void ActivateNpcDialoguePanels(bool active);

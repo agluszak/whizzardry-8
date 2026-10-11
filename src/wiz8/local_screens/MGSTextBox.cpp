@@ -133,9 +133,9 @@ void W8MessageStorageRecord::RebuildEntries()
         auto end = value.find(' ', start);
         if (end == value.npos)
             end = value.size();
-        const auto x = StringPrefixPixelWidth(value, start, g_level_block->text_box_font);
+        const auto x = StringPrefixPixelWidth(value, start, *g_level_block->text_box_font);
         const auto width =
-            StringPixLength(value.substr(start, end - start), g_level_block->text_box_font);
+            StringPixLength(value.substr(start, end - start), *g_level_block->text_box_font);
         entries.push_back(
             {start, end - 1, x, static_cast<short>(x + width), W8_NOTICE_WORD_NORMAL, false});
         start = end;
@@ -311,7 +311,7 @@ void ShowNotice(unsigned int font_palette, std::string_view text_view, short tex
             g_status.long_quote = 0;
         }
         g_level_block->text_lines[8 + text_box] = 0;
-        if (static_cast<unsigned int>(StringPixLength(text, g_level_block->text_box_font)) <
+        if (static_cast<unsigned int>(StringPixLength(text, *g_level_block->text_box_font)) <
             wrap_width) {
             AppendNoticeLine(static_cast<unsigned char>(font_palette), text, text_box, 0);
         } else {
@@ -321,7 +321,7 @@ void ShowNotice(unsigned int font_palette, std::string_view text_view, short tex
                 std::size_t end = 0, last_space = 0;
                 while (end < remaining.size() && remaining[end] != '\n') {
                     const auto next = wiz8::text::next_grapheme(remaining, end);
-                    if (StringPixLength(remaining.substr(0, next), g_level_block->text_box_font) >= wrap_width && end) {
+                    if (StringPixLength(remaining.substr(0, next), *g_level_block->text_box_font) >= wrap_width && end) {
                         if (last_space) end = last_space;
                         break;
                     }
@@ -505,9 +505,9 @@ void RedrawTextBox(void)
 
 /* The font the main-game text box measures and draws with. */
 // FUNCTION: WIZ8 0x0058aa10
-int GetTextBoxFont(void)
+Font& GetTextBoxFont(void)
 {
-    return g_level_block->text_box_font;
+    return *g_level_block->text_box_font;
 }
 
 /* Whether the line the cursor is on has anything on it. */
@@ -925,17 +925,17 @@ static void DrawDialogueTextCursor(int x, int y)
 
     int x_offset = 0;
     if (line == 1 && !input->first_line_prefix.empty()) {
-        x_offset = StringPixLength(input->first_line_prefix, g_level_block->text_box_font);
+        x_offset = StringPixLength(input->first_line_prefix, *g_level_block->text_box_font);
     }
     unsigned int start = input->line_offsets[line - 1];
     x_offset +=
-        StringPrefixPixelWidth(std::string_view(input->text).substr(start), input->cursor - start, g_level_block->text_box_font);
+        StringPrefixPixelWidth(std::string_view(input->text).substr(start), input->cursor - start, *g_level_block->text_box_font);
 
     int y_line = y + (line - hidden - 1) * 0xb;
     char* screen = static_cast<char*>(LockPrimarySurface(&pitch));
     if (y_line < g_level_block->text_box_bottom) {
         unsigned int bottom = g_level_block->text_box_bottom;
-        unsigned int y_end = y_line + GetFontHeight(g_level_block->text_box_font);
+        unsigned int y_end = y_line + GetFontHeight(*g_level_block->text_box_font);
         if (bottom <= y_end) {
             y_end = bottom;
         }
@@ -961,10 +961,10 @@ void DrawDialogueTextInputLines(int x, int y, unsigned int first_line)
         int draw_x = x;
         if (line == 0 && !input->first_line_prefix.empty()) {
             DrawFontText(draw_x, y, input->first_line_prefix);
-            draw_x += StringPixLength(input->first_line_prefix, g_level_block->text_box_font);
+            draw_x += StringPixLength(input->first_line_prefix, *g_level_block->text_box_font);
         }
         DrawFontText(draw_x, y, text);
-        maximum_width = std::max(maximum_width, draw_x - x + StringPixLength(text, g_level_block->text_box_font));
+        maximum_width = std::max(maximum_width, draw_x - x + StringPixLength(text, *g_level_block->text_box_font));
         y += 11;
         if (y >= g_level_block->text_box_bottom) break;
     }
@@ -983,10 +983,10 @@ void RedrawDialogueTextInput(void)
         int offset = g_status.text_box_lines_shown[text_box] - g_level_block->text_lines[text_box];
         if (offset < 7) {
             SaveFontSettings();
-            SetFontDestBuffer(0xfffffff2, g_level_block->text_box_left, g_level_block->text_box_top,
+            SetFontDestBuffer(GetFrameBufferSurface(), g_level_block->text_box_left, g_level_block->text_box_top,
                               g_level_block->text_box_right, g_level_block->text_box_bottom, 0);
-            SetFontObjectPalette16BPP(g_level_block->text_box_font, g_level_block->palette);
-            SetFont(g_level_block->text_box_font);
+            SetFontObjectPalette16BPP(*g_level_block->text_box_font, g_level_block->palette);
+            SetFont(*g_level_block->text_box_font);
 
             int y = g_level_block->text_box_top + offset * 0xb;
             if (y < g_level_block->text_box_top) {
@@ -1007,7 +1007,7 @@ void RedrawDialogueTextInput(void)
                 DrawDialogueTextCursor(g_level_block->text_box_left, y);
             }
 
-            SetFontObjectPalette16BPP(g_level_block->text_box_font, g_level_block->palette);
+            SetFontObjectPalette16BPP(*g_level_block->text_box_font, g_level_block->palette);
             RestoreFontSettings();
         }
     }
@@ -1035,9 +1035,9 @@ void InvalidateDialogueTextCursor(void)
     bounds.top = g_status.text_box_lines_shown[g_status.text_line_cursor] -
                  g_level_block->text_lines[g_status.text_line_cursor] + g_level_block->text_box_top;
     bounds.right =
-        StringPixLength(g_level_block->dialogue_text_input->text, g_level_block->text_box_font) +
+        StringPixLength(g_level_block->dialogue_text_input->text, *g_level_block->text_box_font) +
         bounds.left;
-    bounds.bottom = GetFontHeight(g_level_block->text_box_font) + bounds.top;
+    bounds.bottom = GetFontHeight(*g_level_block->text_box_font) + bounds.top;
     InvalidateMainGameActionPanelRect(&bounds);
 }
 
@@ -1050,8 +1050,8 @@ static void RewrapDialogueTextFromLine(unsigned int)
     auto last_break = std::size_t{0};
     for (std::size_t position = 0; position < input.text.size();) {
         auto end = wiz8::text::next_grapheme(input.text, position);
-        auto width = StringPixLength(std::string_view(input.text).substr(line_start, end - line_start), g_level_block->text_box_font);
-        if (line_start == 0) width += StringPixLength(input.first_line_prefix, g_level_block->text_box_font);
+        auto width = StringPixLength(std::string_view(input.text).substr(line_start, end - line_start), *g_level_block->text_box_font);
+        if (line_start == 0) width += StringPixLength(input.first_line_prefix, *g_level_block->text_box_font);
         if (width > static_cast<int>(input.wrap_width) && position > line_start) {
             line_start = last_break > line_start ? last_break : position;
             input.line_offsets.push_back(line_start);
@@ -1444,13 +1444,13 @@ static void DrawTextBoxLine(W8MessageStorageRecord* line, int x, int y, bool hov
     auto text = std::string_view(line->text);
     auto foreground = selected_line ? W8_FONT_PALETTE_BLUE : hovered_line ? W8_FONT_PALETTE_YELLOW : line->font_palette;
     auto set_palette = [&](unsigned int index) {
-        SetFontObjectPalette16BPP(g_level_block->text_box_font,
+        SetFontObjectPalette16BPP(*g_level_block->text_box_font,
             index < W8_FONT_PALETTE_TEXT_BOX ? g_font_state_palettes[index].get() : g_level_block->palette);
     };
     auto draw = [&](std::string_view span, unsigned int palette) {
         set_palette(palette);
         DrawFontTextDirty(x, y, span);
-        x += StringPixLength(span, g_level_block->text_box_font);
+        x += StringPixLength(span, *g_level_block->text_box_font);
     };
     auto end = line->length < 0 ? text.size() : wiz8::text::byte_prefix(text, line->length);
     auto visible = text.substr(0, end);
@@ -1465,7 +1465,7 @@ static void DrawTextBoxLine(W8MessageStorageRecord* line, int x, int y, bool hov
         const auto suffix = text.substr(end);
         set_palette(foreground);
         DrawFontTextDirty(g_level_block->text_box_right -
-                              StringPixLength(suffix, g_level_block->text_box_font),
+                              StringPixLength(suffix, *g_level_block->text_box_font),
                           y, suffix);
     }
     DrawNoticeWordOverlays(line, x, y);
@@ -1528,10 +1528,10 @@ void RedrawTextBoxBody(bool skip_invalidate)
     }
 
     SaveFontSettings();
-    SetFontDestBuffer(0xfffffff2, g_level_block->text_box_left, g_level_block->text_box_top,
+    SetFontDestBuffer(GetFrameBufferSurface(), g_level_block->text_box_left, g_level_block->text_box_top,
                       g_level_block->text_box_right, g_level_block->text_box_bottom, 0);
-    SetFontObjectPalette16BPP(g_level_block->text_box_font, g_level_block->palette);
-    SetFont(g_level_block->text_box_font);
+    SetFontObjectPalette16BPP(*g_level_block->text_box_font, g_level_block->palette);
+    SetFont(*g_level_block->text_box_font);
 
     y_offset = 0;
     for (row = 0; row < rows; ++row) {
@@ -1545,7 +1545,7 @@ void RedrawTextBoxBody(bool skip_invalidate)
                     x = g_level_block->text_box_left +
                         ((g_level_block->text_box_right - g_level_block->text_box_left) / 2 -
                          StringPixLength(line->text,
-                                         g_level_block->text_box_font) /
+                                         *g_level_block->text_box_font) /
                              2);
                 }
                 DrawTextBoxLine(
@@ -1558,7 +1558,7 @@ void RedrawTextBoxBody(bool skip_invalidate)
         y_offset += 0xb;
     }
 
-    SetFontObjectPalette16BPP(g_level_block->text_box_font, g_level_block->palette);
+    SetFontObjectPalette16BPP(*g_level_block->text_box_font, g_level_block->palette);
     RestoreFontSettings();
 }
 
@@ -1591,16 +1591,16 @@ void RedrawTextBoxScrollChrome(void)
 
         switch (g_level_block->text_content_region) {
         case 0x57:
-            DrawCatalogImage(FRAME_BUFFER, 0x86, 0, 0, g_level_block->text_box_right + 5, 0x16b,
+            DrawCatalogImage(GetFrameBufferSurface(), 0x86, 0, 0, g_level_block->text_box_right + 5, 0x16b,
                              VO_BLT_SRCTRANSPARENCY, 0);
             break;
         case 0x58:
-            DrawCatalogImage(FRAME_BUFFER, 0x86, 0, 1, g_level_block->text_box_right + 5, 0x16b,
+            DrawCatalogImage(GetFrameBufferSurface(), 0x86, 0, 1, g_level_block->text_box_right + 5, 0x16b,
                              VO_BLT_SRCTRANSPARENCY, 0);
             break;
         case -1:
         case 0x56:
-            DrawCatalogImage(FRAME_BUFFER, 0x86, 0, 3, g_level_block->text_box_right + 5, 0x16b,
+            DrawCatalogImage(GetFrameBufferSurface(), 0x86, 0, 3, g_level_block->text_box_right + 5, 0x16b,
                              VO_BLT_SRCTRANSPARENCY, 0);
             g_level_block->text_content_region = -1;
             break;
@@ -1618,16 +1618,16 @@ void RedrawTextBoxScrollChrome(void)
 
         switch (g_level_block->dialogue_content_region) {
         case 0x5a:
-            DrawCatalogImage(FRAME_BUFFER, 0x86, 0, 8, g_level_block->text_box_right + 5, 0x1ad,
+            DrawCatalogImage(GetFrameBufferSurface(), 0x86, 0, 8, g_level_block->text_box_right + 5, 0x1ad,
                              VO_BLT_SRCTRANSPARENCY, 0);
             break;
         case 0x5b:
-            DrawCatalogImage(FRAME_BUFFER, 0x86, 0, 9, g_level_block->text_box_right + 5, 0x1ad,
+            DrawCatalogImage(GetFrameBufferSurface(), 0x86, 0, 9, g_level_block->text_box_right + 5, 0x1ad,
                              VO_BLT_SRCTRANSPARENCY, 0);
             break;
         case -1:
         case 0x59:
-            DrawCatalogImage(FRAME_BUFFER, 0x86, 0, 0xb, g_level_block->text_box_right + 5, 0x1ad,
+            DrawCatalogImage(GetFrameBufferSurface(), 0x86, 0, 0xb, g_level_block->text_box_right + 5, 0x1ad,
                              VO_BLT_SRCTRANSPARENCY, 0);
             g_level_block->dialogue_content_region = -1;
             break;
@@ -1635,7 +1635,7 @@ void RedrawTextBoxScrollChrome(void)
 
         if (line_count > static_cast<unsigned int>(visible)) {
             thumb_y = static_cast<int>(scroll * 0x28 / (line_count - visible)) + 0x17b;
-            DrawCatalogImage(FRAME_BUFFER, 0x86, 0, 4, g_level_block->text_box_right + 5, thumb_y,
+            DrawCatalogImage(GetFrameBufferSurface(), 0x86, 0, 4, g_level_block->text_box_right + 5, thumb_y,
                              VO_BLT_SRCTRANSPARENCY, 0);
         }
     }
@@ -1826,7 +1826,7 @@ static void DrawNoticeWordOverlays(W8MessageStorageRecord* line, int x, int y)
             unsigned short* palette = word->keyword == W8_NOTICE_WORD_SELECTED
                                           ? g_font_state_palettes[W8_FONT_PALETTE_BLUE].get()
                                           : g_font_state_palettes[W8_FONT_PALETTE_YELLOW].get();
-            SetFontObjectPalette16BPP(g_level_block->text_box_font, palette);
+            SetFontObjectPalette16BPP(*g_level_block->text_box_font, palette);
             DrawNoticeWordOverlay(line, word, x, y);
         }
         if (word->redraw) {
@@ -1836,7 +1836,7 @@ static void DrawNoticeWordOverlays(W8MessageStorageRecord* line, int x, int y)
             } else {
                 palette = g_level_block->palette;
             }
-            SetFontObjectPalette16BPP(g_level_block->text_box_font, palette);
+            SetFontObjectPalette16BPP(*g_level_block->text_box_font, palette);
             DrawNoticeWordOverlay(line, word, x, y);
         }
     }
@@ -1878,7 +1878,7 @@ static int GetNoticeLineLeft(int text_box, int line)
         x_base = g_level_block->text_box_left +
                  ((g_level_block->text_box_right - g_level_block->text_box_left) / 2 -
                   StringPixLength(g_message_storage[text_box][line].text,
-                                  g_level_block->text_box_font) /
+                                  *g_level_block->text_box_font) /
                       2);
     }
     return x_base;

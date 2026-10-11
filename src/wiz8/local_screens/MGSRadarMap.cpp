@@ -132,7 +132,7 @@ void EnsureRadarMapOverlay(void)
         bounds.top = 0x166;
         bounds.right = 0x80;
         bounds.bottom = 0x1c2;
-        g_radar_backdrop = CreateSpriteFromVideoSurface(-0xe, &bounds, 0, 0, 1);
+        g_radar_backdrop = CreateSpriteFromVideoSurface(GetFrameBufferSurface(), &bounds, 0, 0, 1);
         Position2DNodeUnsnapped(g_radar_backdrop, 0x17, 0x166);
         SetModelInstance2DDisplayState(g_radar_backdrop, 4);
     }
@@ -214,57 +214,35 @@ void RefreshRadarMap(void)
     }
     ReleaseRadarMap();
 
-    unsigned int map_surface;
-    unsigned int handle;
-    if (!g_radar_zoomed) {
-        handle = GetCatalogVideoObjectHandle(0xa4, 0);
-        if (handle == 0) {
-            return;
-        }
-        MakeVSurfaceFromVObject(handle, 0, &map_surface);
-    } else {
-        handle = GetCatalogVideoObjectHandle(0xa3, 0);
-        if (handle == 0) {
-            return;
-        }
-        MakeVSurfaceFromVObject(handle, 0, &map_surface);
+    auto map_surface = MakeVSurfaceFromVObject(GetCatalogVideoObject(g_radar_zoomed ? 0xa3 : 0xa4, 0), 0);
+    if (!map_surface) return;
+    if (g_radar_zoomed) {
         for (int slot = 0; slot < 8; ++slot) {
             W8PartySlotRow* row = &g_status.buffers.XChar[slot];
             W8PartyFormationPosition* position = &g_status.formation.positions[slot];
 
             if (row->fOccupied && position->bQuadrant != -1) {
                 int cell = position->bQuadrant * 3 + position->bQuadrantSlot;
-                DrawCatalogImage(map_surface, 0xa5, 0, row->party_order_index,
+                DrawCatalogImage(*map_surface, 0xa5, 0, row->party_order_index,
                                  g_radar_cell_offsets[cell].x, g_radar_cell_offsets[cell].y,
                                  VO_BLT_SRCTRANSPARENCY, 0);
             }
         }
     }
 
-    if (g_level_block->radar_map_alternate == 0) {
-        handle = GetCatalogVideoObjectHandle(0xa1, 0);
-    } else {
-        handle = GetCatalogVideoObjectHandle(0xa2, 0);
-    }
-    if (handle == 0) {
-        return;
-    }
-    unsigned int frame_surface;
-    MakeVSurfaceFromVObject(handle, 0, &frame_surface);
-    handle = GetCatalogVideoObjectHandle(0x9b, 0);
-    if (handle == 0) {
-        return;
-    }
-    unsigned int compass_surface;
-    MakeVSurfaceFromVObject(handle, 0, &compass_surface);
+    auto frame_surface = MakeVSurfaceFromVObject(
+        GetCatalogVideoObject(g_level_block->radar_map_alternate ? 0xa2 : 0xa1, 0), 0);
+    if (!frame_surface) return;
+    auto compass_surface = MakeVSurfaceFromVObject(GetCatalogVideoObject(0x9b, 0), 0);
+    if (!compass_surface) return;
 
-    g_radar_compass = CreateSpriteFromSurface(compass_surface, 0, 1, 0, 1);
+    g_radar_compass = CreateSpriteFromSurface(*compass_surface, 0, 1, 0, 1);
     Position2DNodeUnsnapped(g_radar_compass, 0x1e, 0x167);
     SetModelInstance2DDisplayState(g_radar_compass, 4);
-    g_radar_frame = CreateSpriteFromSurface(frame_surface, 0, 1, 0, 1);
+    g_radar_frame = CreateSpriteFromSurface(*frame_surface, 0, 1, 0, 1);
     Position2DNodeUnsnapped(g_radar_frame, 0x1e, 0x167);
     SetModelInstance2DDisplayState(g_radar_frame, 4);
-    g_radar_map = CreateSpriteFromSurface(map_surface, 0, 1, 0, 1);
+    g_radar_map = CreateSpriteFromSurface(*map_surface, 0, 1, 0, 1);
     Position2DNodeUnsnapped(g_radar_map, 0x1e, 0x167);
     SetModelInstance2DDisplayState(g_radar_map, 4);
 

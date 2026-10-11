@@ -30,6 +30,7 @@
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/surface2d.h"
+#include "wiz8/cursor.h"
 #include "temporary_directory.h"
 #include "Types.h"
 #include "surrender/srColorSurfaceIFace.h"
@@ -45,7 +46,6 @@ extern unsigned char g_fullscreen;
 extern srScene* g_cursor_scene;
 unsigned char InitializeMouseCursorScene();
 void PositionMouseCursor(int, int, bool);
-BOOLEAN SetMouseCursorFromVideoObject(UINT32, UINT16, INT16, INT16);
 struct FixtureRoot
 {
     std::filesystem::path path;
@@ -86,15 +86,13 @@ TEST_CASE("game graphics")
         auto pipeline = srTriMeshPipeline::Get(g_gerd);
         REQUIRE(pipeline);
         pipeline->Flush();
-        REQUIRE(InitializeVideoSurfaceManager());
-        REQUIRE(InitializeVideoObjectManager());
         VOBJECT_DESC image{};
         image.fCreateFlags = VOBJECT_CREATE_FROMFILE;
         const char* image_path = SDL_getenv("WIZ8_GRAPHICS_IMAGE");
         image.ImageFile = image_path ? image_path : "Data\\MAIN INTERFACE\\BOTTOM.STI";
-        UINT32 image_id;
-        REQUIRE(AddVideoObject(&image, &image_id));
-        REQUIRE(BltVideoObjectFromIndex(FRAME_BUFFER, image_id, 0, 0, 0, VO_BLT_SRCTRANSPARENCY,
+        auto image_object = CreateVideoObject(image);
+        REQUIRE(image_object);
+        REQUIRE(BltVideoObject(GetFrameBufferSurface(), *image_object, 0, 0, 0, VO_BLT_SRCTRANSPARENCY,
                                       nullptr));
         UINT32 pitch;
         auto pixels = static_cast<UINT16*>(LockPrimarySurface(&pitch));
@@ -104,9 +102,9 @@ TEST_CASE("game graphics")
         UnlockPrimarySurface();
         REQUIRE(InitializeMouseCursorScene());
         image.ImageFile = "Data\\CURSORS\\2D-CURSORS.STI";
-        UINT32 cursor_id;
-        REQUIRE(AddVideoObject(&image, &cursor_id));
-        REQUIRE(SetMouseCursorFromVideoObject(cursor_id, 0, 0, 0));
+        auto cursor_object = CreateVideoObject(image);
+        REQUIRE(cursor_object);
+        REQUIRE(SetMouseCursorFromVideoObject(*cursor_object, 0, 0, 0));
         PositionMouseCursor(480, 240, true);
         unsigned colored = 0, matched = 0, cursor_pixels = 0;
         for (int frame = 0; frame < 3; ++frame)
@@ -221,9 +219,7 @@ TEST_CASE("game graphics")
         REQUIRE((screenshot && screenshot->getWidth() == 640 && screenshot->getHeight() == 480));
         puts("retail Targa import and game JPEG screenshot round-trip");
 
-        ShutdownVideoObjectManager();
-        ShutdownVideoSurfaceManager();
-        ShutdownVideoScenes();
+            ShutdownVideoScenes();
         SDL_Window* window = ghWindow;
         srExit();
         ReleasePrimaryCpuSurface();

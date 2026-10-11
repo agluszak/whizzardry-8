@@ -96,10 +96,10 @@ void W8StatInfoDialogBase::Draw()
 // FUNCTION: WIZ8 0x005dfb40
 void W8StatInfoDialogBase::DrawTitle()
 {
-    SetFont(g_wiz_text_font_secondary);
-    SetFontObjectPalette16BPP(g_wiz_text_font_secondary, GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get());
+    SetFont(*g_wiz_text_font_secondary);
+    SetFontObjectPalette16BPP(*g_wiz_text_font_secondary, GetFontObject(*g_wiz_text_font_secondary).ownedPalette.get());
     std::string title = g_localized_strings[m_title_id];
-    INT16 width = StringPixLength(title, g_wiz_text_font_secondary);
+    INT16 width = StringPixLength(title, *g_wiz_text_font_secondary);
     DrawFontText(m_x + 0xe + (0x112 - width) / 2, m_y + 0x11, title);
 }
 
@@ -141,7 +141,7 @@ bool W8StatInfoDialogBase::PopulateText()
     bounds.top = m_y + 0x26;
     bounds.right = m_x + 0x11f;
     bounds.bottom = m_y + 0xdf;
-    textarea.Configure(&bounds, g_wiz_text_font_secondary, 0);
+    textarea.Configure(&bounds, *g_wiz_text_font_secondary, 0);
     textarea.SetEntrySpacing(0);
     textarea.AddEntry(g_localized_strings[0x155], g_localized_strings[m_detail_id], 10, 0xf, 0);
     textarea.AddEntry({}, "", 10, 0xf, 0);

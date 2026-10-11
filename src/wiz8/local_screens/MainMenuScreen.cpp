@@ -49,7 +49,7 @@ bool g_main_menu_warning_shown;
 // GLOBAL: WIZ8 0x0069c4bb
 bool g_main_menu_overlay_enabled;
 // GLOBAL: WIZ8 0x0069c4ac
-unsigned int g_main_menu_overlay_surface;
+SGPVSurface* g_main_menu_overlay_surface;
 // GLOBAL: WIZ8 0x0069c4b0
 unsigned int g_main_menu_hover_region;
 // GLOBAL: WIZ8 0x0069c4bc
@@ -112,16 +112,16 @@ unsigned char DrawMainMenuItem(short item, short state)
 
     switch (state) {
     case 0:
-        DrawCatalogImage(FRAME_BUFFER, 0xea, 0, slot, 0x98, top, VO_BLT_SRCTRANSPARENCY, 0);
+        DrawCatalogImage(GetFrameBufferSurface(), 0xea, 0, slot, 0x98, top, VO_BLT_SRCTRANSPARENCY, 0);
         break;
     case 1:
-        DrawCatalogImage(FRAME_BUFFER, 0xec, 0, slot, 0x98, top, VO_BLT_SRCTRANSPARENCY, 0);
+        DrawCatalogImage(GetFrameBufferSurface(), 0xec, 0, slot, 0x98, top, VO_BLT_SRCTRANSPARENCY, 0);
         break;
     case 2:
-        DrawCatalogImage(FRAME_BUFFER, 0xeb, 0, slot, 0x98, top, VO_BLT_SRCTRANSPARENCY, 0);
+        DrawCatalogImage(GetFrameBufferSurface(), 0xeb, 0, slot, 0x98, top, VO_BLT_SRCTRANSPARENCY, 0);
         break;
     case 3:
-        DrawCatalogImage(FRAME_BUFFER, 0xed, 0, slot, 0x98, top, VO_BLT_SRCTRANSPARENCY, 0);
+        DrawCatalogImage(GetFrameBufferSurface(), 0xed, 0, slot, 0x98, top, VO_BLT_SRCTRANSPARENCY, 0);
         break;
     }
 
@@ -163,10 +163,10 @@ unsigned char MainMenuScreenEnter(void)
     g_main_menu_redraw = true;
     ClearPrimarySurface();
     colour = Get16BPPColor(0x10101);
-    ColorFillVideoSurfaceArea(FRAME_BUFFER, 0, 0, 0x280, 0x1e0, colour);
+    ColorFillVideoSurfaceArea(GetFrameBufferSurface(), 0, 0, 0x280, 0x1e0, colour);
     SetViewport(0, 0, 0x280, 0x1e0);
     g_main_menu_selected_item = 0;
-    DrawCatalogImage(FRAME_BUFFER, 0xe8, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY, 0);
+    DrawCatalogImage(GetFrameBufferSurface(), 0xe8, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY, 0);
 
     DrawMainMenuItem(0, 0);
     DrawMainMenuItem(1, 0);
@@ -178,12 +178,12 @@ unsigned char MainMenuScreenEnter(void)
 
     text = FormatVersionBanner(false, false, false);
     wide = text;
-    SetFont(g_wiz_text_font_secondary);
-    SetFontObjectPalette16BPP(g_wiz_text_font_secondary,
+    SetFont(*g_wiz_text_font_secondary);
+    SetFontObjectPalette16BPP(*g_wiz_text_font_secondary,
                               g_font_state_palettes[W8_FONT_PALETTE_WHITE].get());
-    measured = StringPixLength(wide, g_wiz_text_font_secondary);
+    measured = StringPixLength(wide, *g_wiz_text_font_secondary);
     DrawFontText(0x27b - measured, 5, wide);
-    SetFontObjectPalette16BPP(g_wiz_text_font_secondary, GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get());
+    SetFontObjectPalette16BPP(*g_wiz_text_font_secondary, GetFontObject(*g_wiz_text_font_secondary).ownedPalette.get());
     ResetRegions();
     RegionSetEnable(1);
 
@@ -244,7 +244,7 @@ void MainMenuScreenFrame()
             delete g_main_menu_dialog;
             g_main_menu_dialog = 0;
             g_main_menu_redraw = true;
-            DrawCatalogImage(FRAME_BUFFER, 0xe8, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY, 0);
+            DrawCatalogImage(GetFrameBufferSurface(), 0xe8, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY, 0);
             DrawMainMenuItem(0, 0);
             DrawMainMenuItem(1, 0);
             DrawMainMenuItem(2, 0);
@@ -262,9 +262,9 @@ void MainMenuScreenFrame()
             if (!DispatchRegionInput(&input) && input.usEvent == KEY_DOWN) {
                 if (HandleDeveloperModeKey(&input)) {
                     if (g_dev_mode) {
-                        SetFont(g_wiz_text_font_secondary);
-                        SetFontObjectPalette16BPP(g_wiz_text_font_secondary,
-                                                  GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get());
+                        SetFont(*g_wiz_text_font_secondary);
+                        SetFontObjectPalette16BPP(*g_wiz_text_font_secondary,
+                                                  GetFontObject(*g_wiz_text_font_secondary).ownedPalette.get());
                         DrawFontTextDirty(5, 5, "Developer mode enabled.");
                     }
                 } else {
@@ -355,8 +355,8 @@ void MainMenuScreenFrame()
         if (g_main_menu_dialog != 0) {
             DrawDialog(g_main_menu_dialog);
         }
-        if (g_main_menu_overlay_enabled) {
-            BltVideoSurface(FRAME_BUFFER, g_main_menu_overlay_surface, 0, 0, 0x1d1, 6, 0);
+        if (g_main_menu_overlay_enabled && g_main_menu_overlay_surface) {
+            BltVideoSurfaceToVideoSurface(GetFrameBufferSurface(), *g_main_menu_overlay_surface, 0, 0, 0x1d1, 6, 0);
         }
         RenderMessageBox();
         ResetTransientRenderScenes();

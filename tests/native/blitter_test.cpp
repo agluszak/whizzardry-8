@@ -124,7 +124,7 @@ TEST_CASE("blitter_test")
         // The single decoded representation must produce the legacy assembly
         // bytes; data 1 carries literal index 0 in opaque runs and exercises
         // the explicit opacity mask.
-        REQUIRE(DecodeVideoObjectSprites(&object, {&frame, 1}, {encoded, sizeof(encoded)}));
+        REQUIRE(DecodeVideoObjectSprites(object, {&frame, 1}, {encoded, sizeof(encoded)}));
         for (int variant = 0; variant < 8; ++variant) {
             // Whole, partial opaque/transparent runs, every clipped edge,
             // null/default clip rectangle and complete rejection.
@@ -183,7 +183,7 @@ TEST_CASE("blitter_test")
         std::copy_n(palette, 256, surface.p16BPPPalette.get());
         SDL_Rect area = {2, 3, static_cast<INT32>(width), 4};
         reset(); ok = check("Blt8BPPDataSubTo16BPPBuffer", width,
-            Blt8BPPDataSubTo16BPPBuffer(destination, pitch, &surface, reinterpret_cast<UINT8*>(source), pitch,
+            Blt8BPPDataSubTo16BPPBuffer(destination, pitch, surface, reinterpret_cast<UINT8*>(source), pitch,
                 3, 2, &area), area) && ok;
     }
     UINT8 pattern[8][8];
@@ -223,7 +223,7 @@ TEST_CASE("blitter_test")
         // opaque literal 0, transparent run of 1, opaque literal 2
         static const UINT8 probe_data[] = {1, 0, 0x81, 1, 2, 0};
         probe_frame.uiDataLength = sizeof(probe_data);
-        if (!DecodeVideoObjectSprites(&probe, {&probe_frame, 1},
+        if (!DecodeVideoObjectSprites(probe, {&probe_frame, 1},
                                       {probe_data, sizeof(probe_data)})) {
             fprintf(stderr, "probe sprite failed to decode\n");
             ok = false;
@@ -267,7 +267,7 @@ TEST_CASE("blitter_test")
         const UINT8 data[] = {0x80, 1, 2, 0};
         frame.uiDataLength = sizeof(data);
         auto rejected = [&] {
-            return !DecodeVideoObjectSprites(&object, {&frame, 1}, data) &&
+            return !DecodeVideoObjectSprites(object, {&frame, 1}, data) &&
                    object.sprites.size() == 1 && object.sprites[0].usWidth == 7;
         };
         ok = rejected() && ok; // Zero-length encoded run.
@@ -276,7 +276,6 @@ TEST_CASE("blitter_test")
         frame.usWidth = frame.usHeight = 0;
         frame.uiDataOffset = sizeof(data) + 1;
         ok = rejected() && ok; // Empty frames still need valid encoded ranges.
-        ok = !DecodeVideoObjectSprites(nullptr, {}, {}) && ok;
     }
 
     {

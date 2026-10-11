@@ -1,9 +1,8 @@
-#include <SDL3/SDL_log.h>
+#include <utility>
 #include <SDL3/SDL_rect.h>
 #include <cstddef>
 #include <string>
 #include <algorithm>
-#include <array>
 #include <memory>
 #include <string_view>
 #include <vector>
@@ -19,69 +18,18 @@
 #include "vobject.h"
 #include "vobject_blitters.h"
 #include "vsurface.h"
-//   Defines
 
-#define PALETTE_SIZE 768
-#define STRING_DELIMITER 0
-#define ID_BLACK 0
-#define MAX_FONTS 25
-//   Typedefs
 
-SGPPaletteEntry gSgpPalette[256];
 
-// GLOBAL: WIZ8 0x006eb704
 static std::vector<UINT16> g_font_translation;
-// GLOBAL: WIZ8 0x006eb6a0
-std::array<std::unique_ptr<SGPVObject>, MAX_FONTS> FontObjs;
-INT32 FontsLoaded = 0;
+FontRenderState g_font_render_state;
+static FontRenderState saved_font_state;
 
-// Destination printing parameters
-// GLOBAL: WIZ8 0x005ff5f0
-INT32 FontDefault = (-1);
-// GLOBAL: WIZ8 0x005ff5f4
-UINT32 FontDestBuffer = BACKBUFFER;
-// GLOBAL: WIZ8 0x005ff5f8
-UINT32 FontDestPitch = 640 * 2;
-// GLOBAL: WIZ8 0x005ff5fc
-UINT32 FontDestBPP = 16;
-// GLOBAL: WIZ8 0x005ff600
-SDL_Rect FontDestRegion = {0, 0, 640, 480};
-// GLOBAL: WIZ8 0x00650e38
-BOOLEAN FontDestWrap = FALSE;
-// GLOBAL: WIZ8 0x00650e3a
-UINT16 FontForeground16 = 0;
-// GLOBAL: WIZ8 0x00650e3c
-UINT16 FontBackground16 = 0;
-// GLOBAL: WIZ8 0x005ff610
-UINT16 FontShadow16 = DEFAULT_SHADOW;
-// GLOBAL: WIZ8 0x00650e3e
-UINT8 FontForeground8 = 0;
-// GLOBAL: WIZ8 0x00650e3f
-UINT8 FontBackground8 = 0;
-
-// Temp, for saving printing parameters
-// GLOBAL: WIZ8 0x005ff614
-INT32 SaveFontDefault = (-1);
-// GLOBAL: WIZ8 0x005ff618
-UINT32 SaveFontDestBuffer = BACKBUFFER;
-// GLOBAL: WIZ8 0x005ff61c
-UINT32 SaveFontDestPitch = 640 * 2;
-// GLOBAL: WIZ8 0x005ff620
-UINT32 SaveFontDestBPP = 16;
-// GLOBAL: WIZ8 0x005ff628
-SDL_Rect SaveFontDestRegion = {0, 0, 640, 480};
-// GLOBAL: WIZ8 0x00650e40
-BOOLEAN SaveFontDestWrap = FALSE;
-// GLOBAL: WIZ8 0x00650e42
-UINT16 SaveFontForeground16 = 0;
-// GLOBAL: WIZ8 0x00650e44
-UINT16 SaveFontShadow16 = 0;
-// GLOBAL: WIZ8 0x00650e46
-UINT16 SaveFontBackground16 = 0;
-// GLOBAL: WIZ8 0x00650e48
-UINT8 SaveFontForeground8 = 0;
-// GLOBAL: WIZ8 0x00650e49
-UINT8 SaveFontBackground8 = 0;
+Font::~Font()
+{
+    if (g_font_render_state.font == this) g_font_render_state.font = nullptr;
+    if (saved_font_state.font == this) saved_font_state.font = nullptr;
+}
 
 // SetFontForeground
 //	Sets the foreground color of the currently selected font. The parameter is
@@ -96,16 +44,16 @@ void SetFontForeground(UINT8 ubForeground)
 {
     UINT32 uiRed, uiGreen, uiBlue;
 
-    if ((FontDefault < 0) || (FontDefault > MAX_FONTS))
+    if (!g_font_render_state.font)
         return;
 
-    FontForeground8 = ubForeground;
+    g_font_render_state.foreground_index = ubForeground;
 
-    uiRed = (UINT32)FontObjs[FontDefault]->pPaletteEntry[ubForeground].peRed;
-    uiGreen = (UINT32)FontObjs[FontDefault]->pPaletteEntry[ubForeground].peGreen;
-    uiBlue = (UINT32)FontObjs[FontDefault]->pPaletteEntry[ubForeground].peBlue;
+    uiRed = (UINT32)g_font_render_state.font->glyphs.pPaletteEntry[ubForeground].peRed;
+    uiGreen = (UINT32)g_font_render_state.font->glyphs.pPaletteEntry[ubForeground].peGreen;
+    uiBlue = (UINT32)g_font_render_state.font->glyphs.pPaletteEntry[ubForeground].peBlue;
 
-    FontForeground16 = Get16BPPColor(FROMRGB(uiRed, uiGreen, uiBlue));
+    g_font_render_state.foreground = Get16BPPColor(FROMRGB(uiRed, uiGreen, uiBlue));
 }
 
 // FUNCTION: WIZ8 0x00406c90
@@ -113,20 +61,20 @@ void SetFontShadow(UINT8 ubShadow)
 {
     UINT32 uiRed, uiGreen, uiBlue;
 
-    if ((FontDefault < 0) || (FontDefault > MAX_FONTS))
+    if (!g_font_render_state.font)
         return;
 
-    //FontForeground8=ubForeground;
+    //g_font_render_state.foreground_index=ubForeground;
 
-    uiRed = (UINT32)FontObjs[FontDefault]->pPaletteEntry[ubShadow].peRed;
-    uiGreen = (UINT32)FontObjs[FontDefault]->pPaletteEntry[ubShadow].peGreen;
-    uiBlue = (UINT32)FontObjs[FontDefault]->pPaletteEntry[ubShadow].peBlue;
+    uiRed = (UINT32)g_font_render_state.font->glyphs.pPaletteEntry[ubShadow].peRed;
+    uiGreen = (UINT32)g_font_render_state.font->glyphs.pPaletteEntry[ubShadow].peGreen;
+    uiBlue = (UINT32)g_font_render_state.font->glyphs.pPaletteEntry[ubShadow].peBlue;
 
-    FontShadow16 = Get16BPPColor(FROMRGB(uiRed, uiGreen, uiBlue));
+    g_font_render_state.shadow = Get16BPPColor(FROMRGB(uiRed, uiGreen, uiBlue));
 
     if (ubShadow != 0) {
-        if (FontShadow16 == 0) {
-            FontShadow16 = 1;
+        if (g_font_render_state.shadow == 0) {
+            g_font_render_state.shadow = 1;
         }
     }
 }
@@ -145,24 +93,24 @@ void SetFontBackground(UINT8 ubBackground)
 {
     UINT32 uiRed, uiGreen, uiBlue;
 
-    if ((FontDefault < 0) || (FontDefault > MAX_FONTS))
+    if (!g_font_render_state.font)
         return;
 
-    FontBackground8 = ubBackground;
+    g_font_render_state.background_index = ubBackground;
 
-    uiRed = (UINT32)FontObjs[FontDefault]->pPaletteEntry[ubBackground].peRed;
-    uiGreen = (UINT32)FontObjs[FontDefault]->pPaletteEntry[ubBackground].peGreen;
-    uiBlue = (UINT32)FontObjs[FontDefault]->pPaletteEntry[ubBackground].peBlue;
+    uiRed = (UINT32)g_font_render_state.font->glyphs.pPaletteEntry[ubBackground].peRed;
+    uiGreen = (UINT32)g_font_render_state.font->glyphs.pPaletteEntry[ubBackground].peGreen;
+    uiBlue = (UINT32)g_font_render_state.font->glyphs.pPaletteEntry[ubBackground].peBlue;
 
-    FontBackground16 = Get16BPPColor(FROMRGB(uiRed, uiGreen, uiBlue));
+    g_font_render_state.background = Get16BPPColor(FROMRGB(uiRed, uiGreen, uiBlue));
 }
 
 // FUNCTION: WIZ8 0x00406d80
 void SetRGBFontShadow(UINT32 uiRed, UINT32 uiGreen, UINT32 uiBlue)
 {
-    if ((FontDefault < 0) || (FontDefault > MAX_FONTS))
+    if (!g_font_render_state.font)
         return;
-    FontShadow16 = Get16BPPColor(FROMRGB(uiRed, uiGreen, uiBlue));
+    g_font_render_state.shadow = Get16BPPColor(FROMRGB(uiRed, uiGreen, uiBlue));
 }
 //end Kris
 
@@ -170,14 +118,11 @@ void SetRGBFontShadow(UINT32 uiRed, UINT32 uiGreen, UINT32 uiBlue)
 //	Sets the palette of a font, using a 16 bit palette.
 
 // FUNCTION: WIZ8 0x00406dc0
-UINT16* SetFontObjectPalette16BPP(INT32 iFont, UINT16* pPal16)
+UINT16* SetFontObjectPalette16BPP(Font& iFont, UINT16* pPal16)
 {
-    Assert(iFont >= 0);
-    Assert(iFont <= MAX_FONTS);
-    Assert(FontObjs[iFont] != nullptr);
 
-    FontObjs[iFont]->p16BPPPalette = pPal16;
-    FontObjs[iFont]->pShadeCurrent = pPal16;
+    iFont.glyphs.p16BPPPalette = pPal16;
+    iFont.glyphs.pShadeCurrent = pPal16;
 
     return (pPal16);
 }
@@ -186,115 +131,56 @@ UINT16* SetFontObjectPalette16BPP(INT32 iFont, UINT16* pPal16)
 //	Sets the palette of a font, using a 16 bit palette.
 
 // FUNCTION: WIZ8 0x00406de0
-UINT16* GetFontObjectPalette16BPP(INT32 iFont)
+UINT16* GetFontObjectPalette16BPP(Font& iFont)
 {
-    Assert(iFont >= 0);
-    Assert(iFont <= MAX_FONTS);
-    Assert(FontObjs[iFont] != nullptr);
 
-    return (FontObjs[iFont]->p16BPPPalette);
+    return (iFont.glyphs.p16BPPPalette);
 }
 
 // GetFontObject
 //	Returns the VOBJECT pointer of a font.
 
 // FUNCTION: WIZ8 0x00406df0
-HVOBJECT GetFontObject(INT32 iFont)
+SGPVObject& GetFontObject(Font& iFont)
 {
-    Assert(iFont >= 0);
-    Assert(iFont <= MAX_FONTS);
-    Assert(FontObjs[iFont] != nullptr);
 
-    return (FontObjs[iFont].get());
+    return (iFont.glyphs);
 }
-
-// FindFreeFont
-//	Locates an empty slot in the font table.
-
-INT32 FindFreeFont(void)
-{
-    int count;
-
-    for (count = 0; count < MAX_FONTS; count++)
-        if (FontObjs[count] == nullptr)
-            return (count);
-
-    return (-1);
-}
-
-// LoadFontFile
-//	Loads a font from an ETRLE file, and inserts it into one of the font slots.
-//  This function returns (-1) if it fails, and debug msgs for a reason.
-//  Otherwise the font number is returned.
 
 // FUNCTION: WIZ8 0x00406e00
-INT32 LoadFontFile(std::string_view filename)
+std::unique_ptr<Font> LoadFontFile(std::string_view filename)
 {
-    VOBJECT_DESC vo_desc;
-    INT32 LoadIndex;
-
-    Assert(!filename.empty());
-
-    if ((LoadIndex = FindFreeFont()) == (-1)) {
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Out of font slots (%.*s)", static_cast<int>(filename.size()), filename.data());
-        return (-1);
-    }
-
-    vo_desc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
-    vo_desc.ImageFile = filename;
-
-    FontObjs[LoadIndex].reset(CreateVideoObject(&vo_desc));
-    if (!FontObjs[LoadIndex].get()) {
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Error creating VOBJECT (%.*s)", static_cast<int>(filename.size()), filename.data());
-        return (-1);
-    }
-
-    if (FontDefault == (-1))
-        FontDefault = LoadIndex;
-
-    return (LoadIndex);
-}
-
-// UnloadFont - Delete the font structure
-//	Deletes the video object of a particular font. Frees up the memory and
-// resources allocated for it.
-
-void UnloadFont(UINT32 FontIndex)
-{
-    Assert(FontIndex >= 0);
-    Assert(FontIndex < MAX_FONTS);
-    Assert(FontObjs[FontIndex] != nullptr);
-
-    FontObjs[FontIndex].reset();
-    if (FontDefault == static_cast<INT32>(FontIndex)) {
-        const auto font = std::find_if(FontObjs.begin(), FontObjs.end(),
-                                      [](const auto& candidate) { return bool(candidate); });
-        FontDefault = font == FontObjs.end() ? -1 : static_cast<INT32>(font - FontObjs.begin());
-    }
+    VOBJECT_DESC desc;
+    desc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
+    desc.ImageFile = filename;
+    auto glyphs = CreateVideoObject(desc);
+    if (!glyphs) return nullptr;
+    auto font = std::make_unique<Font>(std::move(*glyphs));
+    if (!g_font_render_state.font) SetFont(*font);
+    return font;
 }
 
 // GetWidth
 //	Returns the width of a given character in the font.
 
-UINT32 GetWidth(HVOBJECT hSrcVObject, INT16 ssIndex)
+UINT32 GetWidth(const SGPVObject& hSrcVObject, INT16 ssIndex)
 {
-    SpriteFrame* pTrav;
+    const SpriteFrame* pTrav;
 
     // Assertions
-    Assert(hSrcVObject != nullptr);
 
     if (ssIndex < 0 || ssIndex > 92) {
     }
 
     // Get Offsets from Index into structure
-    pTrav = &(hSrcVObject->sprites[ssIndex]);
+    pTrav = &(hSrcVObject.sprites[ssIndex]);
     return ((UINT32)(pTrav->usWidth + pTrav->sOffsetX));
 }
 
 // Measure a prefix counted in Unicode scalar values.
 
 // FUNCTION: WIZ8 0x00406ea0
-INT16 StringCodepointPrefixPixelWidth(INT32 usUseFont, UINT32 uiCharCount, std::string_view string)
+INT16 StringCodepointPrefixPixelWidth(Font& usUseFont, UINT32 uiCharCount, std::string_view string)
 {
 
     return StringPixLength(string.substr(0, wiz8::text::codepoint_prefix(string, uiCharCount)),
@@ -308,19 +194,19 @@ INT16 StringCodepointPrefixPixelWidth(INT32 usUseFont, UINT32 uiCharCount, std::
 //  Created on:     12/1/99
 
 // FUNCTION: WIZ8 0x00406f90
-INT16 StringPrefixPixelWidth(std::string_view string, std::size_t byte_end, INT32 UseFont)
+INT16 StringPrefixPixelWidth(std::string_view string, std::size_t byte_end, Font& UseFont)
 {
     UINT32 width = 0;
     for (std::size_t offset = 0; offset < string.size() && offset < byte_end;) {
         const auto glyph = GetIndex(wiz8::text::next(string, offset));
         if (offset > byte_end) break;
-        width += GetWidth(FontObjs[UseFont].get(), glyph);
+        width += GetWidth(UseFont.glyphs, glyph);
     }
     return static_cast<INT16>(width);
 }
 
 // FUNCTION: WIZ8 0x00407010
-INT16 StringPixLength(std::string_view string, INT32 UseFont)
+INT16 StringPixLength(std::string_view string, Font& UseFont)
 {
     return StringPrefixPixelWidth(string, string.size(), UseFont);
 }
@@ -330,17 +216,7 @@ INT16 StringPixLength(std::string_view string, INT32 UseFont)
 // FUNCTION: WIZ8 0x00407090
 void SaveFontSettings(void)
 {
-    SaveFontDefault = FontDefault;
-    SaveFontDestBuffer = FontDestBuffer;
-    SaveFontDestPitch = FontDestPitch;
-    SaveFontDestBPP = FontDestBPP;
-    SaveFontDestRegion = FontDestRegion;
-    SaveFontDestWrap = FontDestWrap;
-    SaveFontForeground16 = FontForeground16;
-    SaveFontShadow16 = FontShadow16;
-    SaveFontBackground16 = FontBackground16;
-    SaveFontForeground8 = FontForeground8;
-    SaveFontBackground8 = FontBackground8;
+    saved_font_state = g_font_render_state;
 }
 // RestoreFontSettings
 //	Restores the last saved font printing settings from the temporary lactions
@@ -348,44 +224,30 @@ void SaveFontSettings(void)
 // FUNCTION: WIZ8 0x00407140
 void RestoreFontSettings(void)
 {
-    FontDefault = SaveFontDefault;
-    FontDestBuffer = SaveFontDestBuffer;
-    FontDestPitch = SaveFontDestPitch;
-    FontDestBPP = SaveFontDestBPP;
-    FontDestRegion = SaveFontDestRegion;
-    FontDestWrap = SaveFontDestWrap;
-    FontForeground16 = SaveFontForeground16;
-    FontShadow16 = SaveFontShadow16;
-    FontBackground16 = SaveFontBackground16;
-    FontForeground8 = SaveFontForeground8;
-    FontBackground8 = SaveFontBackground8;
+    g_font_render_state = saved_font_state;
 }
 
 // GetHeight
 //	Returns the height of a given character in the font.
 
-UINT32 GetHeight(HVOBJECT hSrcVObject, INT16 ssIndex)
+UINT32 GetHeight(const SGPVObject& hSrcVObject, INT16 ssIndex)
 {
-    SpriteFrame* pTrav;
+    const SpriteFrame* pTrav;
 
     // Assertions
-    Assert(hSrcVObject != nullptr);
 
     // Get Offsets from Index into structure
-    pTrav = &(hSrcVObject->sprites[ssIndex]);
+    pTrav = &(hSrcVObject.sprites[ssIndex]);
     return ((UINT32)(pTrav->usHeight + pTrav->sOffsetY));
 }
 // GetFontHeight
 //	Returns the height of the first character in a font.
 
 // FUNCTION: WIZ8 0x004071f0
-UINT16 GetFontHeight(INT32 FontNum)
+UINT16 GetFontHeight(Font& FontNum)
 {
-    Assert(FontNum >= 0);
-    Assert(FontNum <= MAX_FONTS);
-    Assert(FontObjs[FontNum] != nullptr);
 
-    return ((UINT16)GetHeight(FontObjs[FontNum].get(), 0));
+    return ((UINT16)GetHeight(FontNum.glyphs, 0));
 }
 
 // GetIndex
@@ -403,63 +265,62 @@ INT16 GetIndex(char32_t siChar)
 }
 
 // SetFont
-//	Sets the current font number.
+//	Selects a non-owning reference to the font resource.
 
 // FUNCTION: WIZ8 0x00407210
-BOOLEAN SetFont(INT32 iFontIndex)
+BOOLEAN SetFont(Font& iFontIndex)
 {
-    Assert(iFontIndex >= 0);
-    Assert(iFontIndex <= MAX_FONTS);
-    Assert(FontObjs[iFontIndex] != nullptr);
 
-    FontDefault = iFontIndex;
+    g_font_render_state.font = &iFontIndex;
     return (TRUE);
 }
 
 // SetFontDestBuffer
 //	Sets the destination buffer for printing to, the clipping rectangle, and
-// sets the line wrap on/off. DestBuffer is a VOBJECT handle, not a pointer.
+// sets the line wrap on/off. The destination is a non-owning surface reference.
 
 // FUNCTION: WIZ8 0x00407220
-BOOLEAN SetFontDestBuffer(UINT32 DestBuffer, INT32 x1, INT32 y1, INT32 x2, INT32 y2, BOOLEAN wrap)
+BOOLEAN SetFontDestBuffer(SGPVSurface& DestBuffer, INT32 x1, INT32 y1, INT32 x2, INT32 y2, BOOLEAN wrap)
 {
     Assert(x2 > x1);
     Assert(y2 > y1);
 
-    FontDestBuffer = DestBuffer;
+    g_font_render_state.destination = &DestBuffer;
 
-    FontDestRegion = {x1, y1, x2 - x1, y2 - y1};
-    FontDestWrap = wrap;
+    g_font_render_state.clip = {x1, y1, x2 - x1, y2 - y1};
+    g_font_render_state.wrap = wrap;
 
     return (TRUE);
 }
 
 // One bounded UTF-8 traversal for surface and buffer rendering.
-static void DrawTextToBuffer(UINT8* buffer, UINT32 pitch, UINT32 font_index, INT32 x, INT32 y,
+static void DrawTextToBuffer(UINT8* buffer, UINT32 pitch, Font& font_index, INT32 x, INT32 y,
                              std::string_view text, bool mono)
 {
-    auto* font = FontObjs[font_index].get();
+    auto& font = font_index.glyphs;
+    if (!buffer) return;
     INT32 destx = x;
     for (std::size_t offset = 0; offset < text.size();) {
         const auto glyph = GetIndex(wiz8::text::next(text, offset));
-        if (FontDestWrap && BltIsClipped(font, destx, y, glyph, &FontDestRegion)) {
+        if (g_font_render_state.wrap && BltIsClipped(font, destx, y, glyph, &g_font_render_state.clip)) {
             destx = x;
             y += GetHeight(font, glyph);
         }
-        BltSpriteTo16BPPBuffer(reinterpret_cast<UINT16*>(buffer), pitch, font->sprites[glyph],
-                              font->pShadeCurrent, destx, y, &FontDestRegion, false,
+        BltSpriteTo16BPPBuffer(reinterpret_cast<UINT16*>(buffer), pitch, font.sprites[glyph],
+                              font.pShadeCurrent, destx, y, &g_font_render_state.clip, false,
                               mono ? SpriteDrawOp::MonoShadow : SpriteDrawOp::Transparent,
-                              FontForeground16, FontBackground16, FontShadow16);
+                              g_font_render_state.foreground, g_font_render_state.background, g_font_render_state.shadow);
         destx += GetWidth(font, glyph);
     }
 }
 
 static UINT32 DrawTextToSurface(INT32 x, INT32 y, std::string_view text, bool mono)
 {
+    if (!g_font_render_state.font || !g_font_render_state.destination) return 0;
     UINT32 pitch;
-    auto* buffer = LockVideoSurface(FontDestBuffer, &pitch);
-    DrawTextToBuffer(buffer, pitch, FontDefault, x, y, text, mono);
-    UnLockVideoSurface(FontDestBuffer);
+    auto* buffer = LockVideoSurfaceBuffer(*g_font_render_state.destination, &pitch);
+    DrawTextToBuffer(buffer, pitch, *g_font_render_state.font, x, y, text, mono);
+    UnLockVideoSurfaceBuffer(*g_font_render_state.destination);
     return 0;
 }
 
@@ -473,7 +334,7 @@ UINT32 DrawMonoFontText(INT32 x, INT32 y, std::string_view string)
 
 // FUNCTION: WIZ8 0x00407420
 void FindFontRightCoordinates(INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sHeight, std::string_view pStr,
-                              INT32 iFontIndex, INT16* psNewX, INT16* psNewY)
+                              Font& iFontIndex, INT16* psNewX, INT16* psNewY)
 {
     INT16 xp, yp;
 
@@ -487,7 +348,7 @@ void FindFontRightCoordinates(INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sHeig
 
 // FUNCTION: WIZ8 0x00407530
 void FindFontCenterCoordinates(INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sHeight, std::string_view pStr,
-                               INT32 iFontIndex, INT16* psNewX, INT16* psNewY)
+                               Font& iFontIndex, INT16* psNewX, INT16* psNewY)
 {
     INT16 xp, yp;
 
@@ -510,8 +371,9 @@ UINT32 DrawFontText(INT32 x, INT32 y, std::string_view string)
 // FUNCTION: WIZ8 0x004077d0
 UINT32 DrawFontTextDirty(INT32 x, INT32 y, std::string_view string)
 {
+    if (!g_font_render_state.font) return 0;
     DrawFontText(x, y, string);
-    InvalidateRegion(x, y, x + StringPixLength(string, FontDefault), y + GetFontHeight(FontDefault),
+    InvalidateRegion(x, y, x + StringPixLength(string, *g_font_render_state.font), y + GetFontHeight(*g_font_render_state.font),
                      INVAL_SRC_TRANS);
     return 0;
 }
@@ -519,7 +381,7 @@ UINT32 DrawFontTextDirty(INT32 x, INT32 y, std::string_view string)
 // Draw UTF-8 text using the current font and destination.
 
 // FUNCTION: WIZ8 0x00407a10
-UINT32 DrawFontTextToBuffer(UINT8* pDestBuf, UINT32 uiDestPitchBYTES, UINT32 FontType, INT32 x,
+UINT32 DrawFontTextToBuffer(UINT8* pDestBuf, UINT32 uiDestPitchBYTES, Font& FontType, INT32 x,
                             INT32 y, std::string_view string)
 {
     DrawTextToBuffer(pDestBuf, uiDestPitchBYTES, FontType, x, y, string, false);
@@ -527,50 +389,36 @@ UINT32 DrawFontTextToBuffer(UINT8* pDestBuf, UINT32 uiDestPitchBYTES, UINT32 Fon
 }
 
 // FUNCTION: WIZ8 0x00407b80
-UINT32 DrawMonoFontTextToBuffer(UINT8* pDestBuf, UINT32 uiDestPitchBYTES, UINT32 FontType, INT32 x,
+UINT32 DrawMonoFontTextToBuffer(UINT8* pDestBuf, UINT32 uiDestPitchBYTES, Font& FontType, INT32 x,
                                 INT32 y, std::string_view string)
 {
     DrawTextToBuffer(pDestBuf, uiDestPitchBYTES, FontType, x, y, string, true);
     return 0;
 }
 
-// InitializeFontManager
-//	Starts up the font manager system with the appropriate translation table.
-
 // FUNCTION: WIZ8 0x00407d30
-BOOLEAN InitializeFontManager(const std::vector<UINT16>& translation)
+void ConfigureFontRendering(const std::vector<UINT16>& translation)
 {
-    UINT16 uiRight, uiBottom;
-    UINT8 uiPixelDepth;
-
-    FontDefault = (-1);
-    FontDestBuffer = BACKBUFFER;
-    FontDestPitch = 0;
-
-    //	FontDestBPP=0;
-
-    GetCurrentVideoSettings(&uiRight, &uiBottom, &uiPixelDepth);
-    FontDestRegion = {0, 0, (INT32)uiRight, (INT32)uiBottom};
-    FontDestBPP = (UINT32)uiPixelDepth;
-
-    FontDestWrap = FALSE;
-
-    ShutdownFontManager();
+    ResetFontRendering();
     g_font_translation = translation;
-
-    return TRUE;
+    g_font_render_state.destination = &GetFrameBufferSurface();
+    UINT16 width, height;
+    UINT8 depth;
+    GetCurrentVideoSettings(&width, &height, &depth);
+    g_font_render_state.clip = {0, 0, width, height};
 }
 
-// ShutdownFontManager
-//	Shuts down, and deallocates all fonts.
-
 // FUNCTION: WIZ8 0x00407e30
-void ShutdownFontManager(void)
+void ResetFontRendering()
 {
-    for (auto& font : FontObjs)
-        font.reset();
+    g_font_render_state = {};
+    saved_font_state = {};
     g_font_translation.clear();
-    FontDefault = SaveFontDefault = -1;
+}
+
+void SetFontDestClip(INT32 x1, INT32 y1, INT32 x2, INT32 y2)
+{
+    SetFontDestBuffer(*g_font_render_state.destination, x1, y1, x2, y2, g_font_render_state.wrap);
 }
 
 // CreateEnglishTransTable
@@ -608,88 +456,3 @@ std::vector<UINT16> CreateEnglishTransTable()
         191, 161
     };
 }
-// LoadFontFile
-// Parameter List : filename - File created by the utility tool to open
-// Return Value  pointer to the base structure
-// Modification History :
-// Dec 15th 1996 -> modified for use by Wizardry
-// GetMaxFontWidth - Gets the maximum font width
-// Parameter List : pointer to the base structure
-// Return Value  Maximum font width
-// Modification History :
-// Dec 15th 1996 -> modified for use by Wizardry
-// ConvertToPaletteEntry
-// Parameter List : Converts from RGB to SGPPaletteEntry
-// Return Value  pointer to the SGPPaletteEntry
-// Modification History :
-// Dec 15th 1996 -> modified for use by Wizardry
-// SetFontPalette - Sets the Palette
-// Parameter List : pointer to the base structure
-//                  new pixel depth
-//                  new Palette size
-//                  pointer to palette data
-// Return Value  BOOLEAN
-// Modification History :
-// Dec 15th 1996 -> modified for use by Wizardry
-// SetFont16BitData - Sets the font structure to hold 16 bit data
-// Parameter List : pointer to the base structure
-//                  pointer to new 16 bit data
-// Return Value  BOOLEAN
-// Modification History :
-// Dec 15th 1996 -> modified for use by Wizardry
-// Blt8Imageto16Dest
-// Parameter List : Start offset
-//                  End Offset
-//                  Dest x, y
-//                  Font Width
-//                  Pointer to Base structure
-//                  Pointer to destination buffer
-//                  Destination Pitch
-//                  Height of Each element
-// Return Value  : BOOLEAN
-// Modification History :
-// Nov 26th 1996 -> modified for use by Wizardry
-// Blt8Imageto8Dest
-// Parameter List : Start offset
-//                  End Offset
-//                  Dest x, y
-//                  Font Width
-//                  Pointer to Base structure
-//                  Pointer to destination buffer
-//                  Destination Pitch
-//                  Height of Each element
-// Return Value  : BOOLEAN
-// Modification History :
-// Nov 26th 1996 -> modified for use by Wizardry
-// Blt16Imageto16Dest
-// Parameter List : Start offset
-//                  End Offset
-//                  Dest x, y
-//                  Font Width
-//                  Pointer to Base structure
-//                  Pointer to destination buffer
-//                  Destination Pitch
-//                  Height of Each element
-// Return Value  : BOOLEAN
-// Modification History :
-// Nov 26th 1996 -> modified for use by Wizardry
-// GetOffset
-// Parameter List : Given the index, gets the corresponding offset
-// Return Value  : offset
-// Modification History :
-// Nov 26th 1996 -> modified for use by Wizardry
-// GetOffLen
-// Parameter List : Given the index, gets the corresponding offset
-// length which is the number of compressed pixels
-// Return Value  : offset
-// Modification History :
-// Nov 26th 1996 -> modified for use by Wizardry
-// PrintFontString
-// Parameter List : pointer to \0 (NULL) terminated font string
-//                  x,y,TotalWidth, TotalHeight is the bounding rectangle where
-//                  the font is to be printed
-//                  Multiline if true will print on multiple lines otherwise on 1 line
-//                  Pointer to base structure
-// Return Value  : BOOLEAN
-// Modification History :
-// Nov 26th 1996 -> modified for use by Wizardry

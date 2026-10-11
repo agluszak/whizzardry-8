@@ -75,7 +75,7 @@ unsigned char CreatePartyMovementPanel(void)
     bounds.top = 0x13f;
     bounds.bottom = 0x153;
     g_party_movement_caption =
-        new W8TextBuffer(&bounds, {}, g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 0, 4);
+        new W8TextBuffer(&bounds, {}, *g_wiz_text_font_secondary, g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
 
     g_party_movement_buttons[0] = new W8TextControl(g_party_movement_panel, 200, 0x10a, 0, 0x11e,
                                                     0x14, 0x94, 0, 4, 6, 5, 6, 7);
@@ -197,7 +197,7 @@ void DrawPartyMovementPanel(void)
         GetClippingRect(&previous);
         clip = {right, 0, 0x1b9 - right, 0x1e0};
         SetClippingRect(&clip);
-        DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x96, 0, image, 0xc3, 0x144,
+        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x96, 0, image, 0xc3, 0x144,
                                       VO_BLT_SRCTRANSPARENCY, 0);
         SetClippingRect(&previous);
     }
@@ -259,13 +259,13 @@ void DrawPartyMovementGauge(short right, short image, bool panel_live, int capti
         }
         return;
     }
-    DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x95, 0,
+    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x95, 0,
                                   g_party_movement_animation_frame + frame_base + frame,
                                   right - 0xf, 0x142, VO_BLT_SRCTRANSPARENCY, 0);
     InvalidateRegion(right - 0xf, 0x142, right - 1, 0x150, 0);
     if (caption != -1) {
-        g_party_movement_caption->RenderString(g_localized_strings[caption], g_wiz_text_font_secondary,
-                                               false, FRAME_BUFFER);
+        g_party_movement_caption->RenderString(g_localized_strings[caption], *g_wiz_text_font_secondary,
+                                               false, GetFrameBufferSurface());
     }
 }
 

@@ -1,3 +1,4 @@
+#include <utility>
 #include <catch2/catch_test_macros.hpp>
 #include <fmt/format.h>
 #include <fmt/printf.h>
@@ -30,7 +31,7 @@
 #include "wiz8/local_code/ButtonSound.h"
 #include "Font.h"
 #include "input.h"
-#include "mousesystem_macros.h"
+#include "mousesystem.h"
 #include "imgfmt.h"
 #include "temporary_directory.h"
 #include "wiz8/asset_paths.h"
@@ -42,7 +43,6 @@
 #include "layouts/screen_state.h"
 #include "local_code/RangeControl.h"
 #include "local_screens/RCSStatsPage.h"
-#include "mousesystem.h"
 #include "vobject.h"
 #include "vsurface.h"
 
@@ -119,11 +119,11 @@ void surface_regions()
     desc.fCreateFlags = VSURFACE_CREATE_DEFAULT;
     desc.usWidth = desc.usHeight = 16;
     desc.ubBitDepth = 16;
-    auto* surface = CreateVideoSurface(&desc);
+    auto surface = CreateVideoSurface(desc);
     REQUIRE((surface && surface->RegionList.empty()));
     VSURFACE_REGION result{};
     result.ubHitMask = 99;
-    REQUIRE((!GetVSurfaceRegion(surface, 0, &result) && result.ubHitMask == 99));
+    REQUIRE((!GetVSurfaceRegion(*surface, 0, &result) && result.ubHitMask == 99));
     for (int index = 0; index < 80; ++index) {
         VSURFACE_REGION region{};
         region.Origin.x = index;
@@ -131,22 +131,15 @@ void surface_regions()
         region.ubHitMask = static_cast<UINT8>(index);
         surface->RegionList.push_back(region);
     }
-    REQUIRE(GetVSurfaceRegion(surface, 79, &result));
+    REQUIRE(GetVSurfaceRegion(*surface, 79, &result));
     REQUIRE((result.Origin.x == 79 && (result.RegionCoords.x + result.RegionCoords.w) == 80 && result.ubHitMask == 79));
-    REQUIRE(!GetVSurfaceRegion(surface, 80, &result));
-    REQUIRE(!GetVSurfaceRegion(surface, 1, nullptr));
-    auto* borrowed = CreateVideoSurfaceFromCpuSurface(surface->surface);
-    REQUIRE((borrowed && borrowed->RegionList.empty()));
-    borrowed->RegionList.push_back(result);
-    surface->RegionList.clear();
-    REQUIRE(GetVSurfaceRegion(borrowed, 0, &result));
-    REQUIRE(DeleteVideoSurface(borrowed));
-    REQUIRE((surface->surface && DeleteVideoSurface(surface)));
+    REQUIRE(!GetVSurfaceRegion(*surface, 80, &result));
+    REQUIRE(!GetVSurfaceRegion(*surface, 1, nullptr));
+
 }
 
 void camp_effects()
 {
-    REQUIRE(InitializeVideoObjectManager());
     std::array<SGPPaletteEntry, 256> palette{};
     std::array<ETRLEObject, 12> images{};
     for (auto& image : images) { image.usWidth = 16; image.usHeight = 8; }
@@ -172,14 +165,13 @@ void camp_effects()
     VOBJECT_DESC desc{};
     desc.fCreateFlags = VOBJECT_CREATE_FROMHIMAGE;
     desc.hImage = &image;
-    UINT32 handle;
-    REQUIRE(AddVideoObject(&desc, &handle));
+    auto object = CreateVideoObject(desc);
+    REQUIRE(object);
     const auto saved_slot = g_video_slots[0x86];
-    const auto saved_frame = g_video_frames[0];
+    auto saved_frame = std::move(g_video_frames[0]);
     g_video_slots[0x86] = {0, 0};
-    g_video_frames[0].loaded = true;
     g_video_frames[0].storage_kind = W8_VIDEO_STORAGE_OBJECT;
-    g_video_frames[0].handle = handle;
+    g_video_frames[0].object = std::move(object);
     {
         auto state = std::make_unique<W8CampScreenState>();
         REQUIRE((state->effect_list.empty() && state->stats_range == nullptr));
@@ -224,8 +216,7 @@ void camp_effects()
     }
     g_camp_screen = nullptr;
     g_video_slots[0x86] = saved_slot;
-    g_video_frames[0] = saved_frame;
-    REQUIRE(ShutdownVideoObjectManager());
+    g_video_frames[0] = std::move(saved_frame);
 }
 
 int clicks, click_reason;
@@ -237,65 +228,163 @@ GUIButton nested_outer, nested_inner, removable_button;
 void nested_click(GUI_BUTTON* button, INT32 reason)
 {
     if (button == nested_inner.get()) {
-        // The outer handler must remain alive while a nested callback destroys
-        // the last external owner.
+        // Destroy the outer control while its callback is on the stack.
         nested_outer.reset();
         return;
     }
     REQUIRE(button == nested_outer.get());
     QuickButtonCallbackMButn(&nested_inner->Area, reason);
     REQUIRE(!nested_outer);
-    REQUIRE(button->ClickCallback == nested_click);
+
     nested_inner.reset();
 }
-void remove_on_move(MOUSE_REGION* region, INT32 reason)
+std::unique_ptr<MOUSE_REGION> temporary_region;
+void remove_on_move(MOUSE_REGION*, INT32 reason)
 {
     if (reason & MSYS_CALLBACK_REASON_GAIN_MOUSE)
-        MSYS_RemoveRegion(region);
+        temporary_region.reset();
 }
 void remove_button_on_callback(GUI_BUTTON* button, INT32)
 {
     removable_button.reset();
-    // QuickButtonCallback pins the object through the callback.
-    REQUIRE(button->ClickCallback == remove_button_on_callback);
+    // Dispatch observers do not prolong the control lifetime.
+    REQUIRE(!removable_button);
+}
+
+std::vector<INT32> nested_mouse_order;
+void dispatch_nested_mouse(MOUSE_REGION* region, INT32 reason)
+{
+    nested_mouse_order.push_back(reason);
+    if (reason == MSYS_CALLBACK_REASON_LBUTTON_DWN) {
+        DispatchMouseEvent(LEFT_BUTTON_UP, 12, 13, false, false);
+        REQUIRE(nested_mouse_order.size() == 2);
+        REQUIRE(region->MouseXPos == 12);
+        REQUIRE(region->ButtonState == 0);
+    }
+}
+std::unique_ptr<MOUSE_REGION> nested_deleted_region;
+void delete_region_in_nested_input(MOUSE_REGION*, INT32 reason)
+{
+    if (reason == MSYS_CALLBACK_REASON_LBUTTON_DWN) {
+        DispatchMouseEvent(LEFT_BUTTON_UP, 12, 13, false, false);
+        REQUIRE(!nested_deleted_region);
+    } else if (reason == MSYS_CALLBACK_REASON_LBUTTON_UP) {
+        nested_deleted_region.reset();
+    }
+}
+void region_nested_input()
+{
+    REQUIRE(MSYS_Init());
+    MOUSE_REGION region;
+    region.configure(0, 0, 40, 40, MSYS_PRIORITY_NORMAL, nullptr, dispatch_nested_mouse);
+    nested_mouse_order.clear();
+    DispatchMouseEvent(LEFT_BUTTON_DOWN, 10, 10, true, false);
+    REQUIRE(nested_mouse_order == std::vector<INT32>{MSYS_CALLBACK_REASON_LBUTTON_DWN,
+                                                  MSYS_CALLBACK_REASON_LBUTTON_UP});
+    REQUIRE(region.MouseXPos == 12);
+    REQUIRE(region.MouseYPos == 13);
+    REQUIRE(region.ButtonState == 0);
+    nested_deleted_region = std::make_unique<MOUSE_REGION>();
+    nested_deleted_region->configure(0, 0, 40, 40, MSYS_PRIORITY_HIGH, nullptr,
+                                     delete_region_in_nested_input);
+    DispatchMouseEvent(LEFT_BUTTON_DOWN, 10, 10, true, false);
+    REQUIRE(!nested_deleted_region);
+    MSYS_Shutdown();
+}
+
+std::vector<std::pair<int, INT32>> hover_order;
+INT32 nested_hover_reason;
+bool nested_hover_armed;
+void nested_hover(MOUSE_REGION* region, INT32 reason)
+{
+    hover_order.emplace_back(region->UserData[0], reason);
+    if (nested_hover_armed && reason == nested_hover_reason) {
+        nested_hover_armed = false;
+        DispatchMouseEvent(MOUSE_POS, 45, 5, false, false);
+    }
+}
+void nested_hover_transitions()
+{
+    for (auto trigger : {MSYS_CALLBACK_REASON_LOST_MOUSE, MSYS_CALLBACK_REASON_GAIN_MOUSE}) {
+        REQUIRE(MSYS_Init());
+        MOUSE_REGION a, b, c;
+        a.configure(0, 0, 10, 10, MSYS_PRIORITY_NORMAL, nested_hover, nullptr);
+        b.configure(20, 0, 30, 10, MSYS_PRIORITY_NORMAL, nested_hover, nullptr);
+        c.configure(40, 0, 50, 10, MSYS_PRIORITY_NORMAL, nested_hover, nullptr);
+        a.UserData[0] = 1; b.UserData[0] = 2; c.UserData[0] = 3;
+        nested_hover_armed = false;
+        DispatchMouseEvent(MOUSE_POS, 5, 5, false, false);
+        hover_order.clear();
+        nested_hover_reason = trigger;
+        nested_hover_armed = true;
+        DispatchMouseEvent(MOUSE_POS, 25, 5, false, false);
+        std::vector<std::pair<int, INT32>> expected{{1, MSYS_CALLBACK_REASON_LOST_MOUSE}};
+        if (trigger == MSYS_CALLBACK_REASON_GAIN_MOUSE) {
+            expected.emplace_back(2, MSYS_CALLBACK_REASON_GAIN_MOUSE);
+            expected.emplace_back(2, MSYS_CALLBACK_REASON_LOST_MOUSE);
+        }
+        expected.emplace_back(3, MSYS_CALLBACK_REASON_GAIN_MOUSE);
+        expected.emplace_back(3, MSYS_CALLBACK_REASON_MOVE);
+        REQUIRE(hover_order == expected);
+        REQUIRE(!(a.uiFlags & MSYS_MOUSE_IN_AREA));
+        REQUIRE(!(b.uiFlags & MSYS_MOUSE_IN_AREA));
+        REQUIRE(c.uiFlags & MSYS_MOUSE_IN_AREA);
+        MSYS_Shutdown();
+    }
+}
+
+void release_outside_controls()
+{
+    REQUIRE(MSYS_Init());
+    MOUSE_REGION left, right;
+    left.configure(0, 0, 10, 10, MSYS_PRIORITY_NORMAL, nullptr, region_click);
+    right.configure(20, 0, 30, 10, MSYS_PRIORITY_NORMAL, nullptr, region_click);
+    DispatchMouseEvent(LEFT_BUTTON_DOWN, 5, 5, true, false);
+    REQUIRE(clicked_region == &left);
+    DispatchMouseEvent(LEFT_BUTTON_UP, 100, 100, false, false);
+    DispatchMouseEvent(LEFT_BUTTON_DOWN, 25, 5, true, false);
+    REQUIRE(clicked_region == &right);
+    MSYS_Shutdown();
 }
 
 void region_registration_and_callback_lifetimes()
 {
+    Font font{SGPVObject{}};
     REQUIRE(MSYS_Init());
-    MOUSE_REGION first{}, latest{}, temporary{};
-    MSYS_DefineRegion(&first, 0, 0, 40, 40, MSYS_PRIORITY_NORMAL, nullptr, region_click);
+    MOUSE_REGION first{}, latest{};
+    first.configure(0, 0, 40, 40, MSYS_PRIORITY_NORMAL, nullptr, region_click);
     {
         MOUSE_REGION scoped{};
-        MSYS_DefineRegion(&scoped, 0, 0, 40, 40, MSYS_PRIORITY_HIGH, nullptr, region_click);
-        MSYS_SGP_Mouse_Handler_Hook(LEFT_BUTTON_DOWN, 10, 10, true, false);
+        scoped.configure(0, 0, 40, 40, MSYS_PRIORITY_HIGH, nullptr, region_click);
+        DispatchMouseEvent(LEFT_BUTTON_DOWN, 10, 10, true, false);
         REQUIRE(clicked_region == &scoped);
     } // Registration and click capture expire with the control.
-    MSYS_SGP_Mouse_Handler_Hook(LEFT_BUTTON_UP, 10, 10, false, false);
+    DispatchMouseEvent(LEFT_BUTTON_UP, 10, 10, false, false);
     REQUIRE(clicked_region == &first);
-    MSYS_DefineRegion(&latest, 0, 0, 40, 40, MSYS_PRIORITY_NORMAL, nullptr, region_click);
-    MSYS_SGP_Mouse_Handler_Hook(LEFT_BUTTON_DOWN, 10, 10, true, false);
+    latest.configure(0, 0, 40, 40, MSYS_PRIORITY_NORMAL, nullptr, region_click);
+    DispatchMouseEvent(LEFT_BUTTON_DOWN, 10, 10, true, false);
     REQUIRE(clicked_region == &latest);
-    MSYS_SGP_Mouse_Handler_Hook(LEFT_BUTTON_UP, 10, 10, false, false);
-    MSYS_RemoveRegion(&latest);
-    MSYS_DefineRegion(&temporary, 0, 0, 40, 40, MSYS_PRIORITY_HIGH, remove_on_move, region_click);
-    MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, 11, 11, false, false);
-    REQUIRE(!(temporary.uiFlags & MSYS_REGION_EXISTS));
-    MSYS_SGP_Mouse_Handler_Hook(LEFT_BUTTON_DOWN, 11, 11, true, false);
+    DispatchMouseEvent(LEFT_BUTTON_UP, 10, 10, false, false);
+    MSYS_DisableRegion(&latest);
+    temporary_region = std::make_unique<MOUSE_REGION>();
+    temporary_region->configure(0, 0, 40, 40, MSYS_PRIORITY_HIGH, remove_on_move, region_click);
+    DispatchMouseEvent(MOUSE_POS, 11, 11, false, false);
+    REQUIRE(!temporary_region);
+    DispatchMouseEvent(LEFT_BUTTON_DOWN, 11, 11, true, false);
     REQUIRE(clicked_region == &first);
-    MSYS_SGP_Mouse_Handler_Hook(LEFT_BUTTON_UP, 11, 11, false, false);
-    MSYS_RemoveRegion(&first);
+    DispatchMouseEvent(LEFT_BUTTON_UP, 11, 11, false, false);
+    MSYS_DisableRegion(&first);
 
-    nested_outer = CreateTextButton("nested", 0, 0, 0, {}, 0, 0, 40, 20,
+    nested_outer = CreateTextButton("nested", font, 0, 0, {}, 0, 0, 40, 20,
                                     BUTTON_TOGGLE, MSYS_PRIORITY_NORMAL, nullptr, nested_click);
-    nested_inner = CreateTextButton("nested", 0, 0, 0, {}, 0, 20, 40, 20,
+    nested_inner = CreateTextButton("nested", font, 0, 0, {}, 0, 20, 40, 20,
                                     BUTTON_TOGGLE, MSYS_PRIORITY_NORMAL, nullptr, nested_click);
     REQUIRE((nested_outer && nested_inner));
     QuickButtonCallbackMButn(&nested_outer->Area, MSYS_CALLBACK_REASON_LBUTTON_DWN);
     REQUIRE((!nested_outer && !nested_inner));
 
     for (bool disabled : {false, true}) {
-        removable_button = CreateTextButton("remove", 0, 0, 0, {}, 0, 0, 40, 20,
+        removable_button = CreateTextButton("remove", font, 0, 0, {}, 0, 0, 40, 20,
                                             BUTTON_TOGGLE, MSYS_PRIORITY_NORMAL,
                                             remove_button_on_callback, remove_button_on_callback);
         REQUIRE(removable_button);
@@ -317,22 +406,23 @@ void region_registration_and_callback_lifetimes()
 
 void buttons_and_regions()
 {
+    Font font{SGPVObject{}};
     REQUIRE(MSYS_Init());
     MOUSE_REGION low{}, high{};
-    MSYS_DefineRegion(&low, 0, 0, 40, 40, MSYS_PRIORITY_LOW, nullptr, region_click);
-    MSYS_DefineRegion(&high, 0, 0, 20, 20, MSYS_PRIORITY_HIGH, nullptr, region_click);
-    MSYS_SGP_Mouse_Handler_Hook(LEFT_BUTTON_DOWN, 10, 10, true, false);
+    low.configure(0, 0, 40, 40, MSYS_PRIORITY_LOW, nullptr, region_click);
+    high.configure(0, 0, 20, 20, MSYS_PRIORITY_HIGH, nullptr, region_click);
+    DispatchMouseEvent(LEFT_BUTTON_DOWN, 10, 10, true, false);
     REQUIRE(clicked_region == &high);
-    MSYS_SGP_Mouse_Handler_Hook(LEFT_BUTTON_UP, 10, 10, false, false);
-    MSYS_SGP_Mouse_Handler_Hook(LEFT_BUTTON_DOWN, 30, 30, true, false);
+    DispatchMouseEvent(LEFT_BUTTON_UP, 10, 10, false, false);
+    DispatchMouseEvent(LEFT_BUTTON_DOWN, 30, 30, true, false);
     REQUIRE(clicked_region == &low);
-    MSYS_SGP_Mouse_Handler_Hook(LEFT_BUTTON_UP, 30, 30, false, false);
+    DispatchMouseEvent(LEFT_BUTTON_UP, 30, 30, false, false);
     MSYS_SetRegionUserData(&low, 0, 17);
     REQUIRE(MSYS_GetRegionUserData(&low, 0) == 17);
     REQUIRE(MSYS_GrabMouse(&high) == MSYS_GRABBED_OK);
     MSYS_ReleaseMouse(&high);
 
-    auto owned_button = CreateTextButton("direct", 0, 0, 0, {}, 0, 0, 40, 20,
+    auto owned_button = CreateTextButton("direct", font, 0, 0, {}, 0, 0, 40, 20,
                                          BUTTON_TOGGLE, MSYS_PRIORITY_NORMAL, nullptr, click);
     REQUIRE(owned_button);
     auto& button = *owned_button;
@@ -360,7 +450,7 @@ void buttons_and_regions()
 
     for (unsigned repeat = 0; repeat < 32; ++repeat) {
         char label[] = "owned button";
-        auto object = CreateTextButton(label, 0, 0, 0, {}, 0, 0, 40, 20,
+        auto object = CreateTextButton(label, font, 0, 0, {}, 0, 0, 40, 20,
                                        BUTTON_TOGGLE, MSYS_PRIORITY_NORMAL, nullptr, click);
         REQUIRE(object);
         auto* owned = object.get();
@@ -385,14 +475,13 @@ void buttons_and_regions()
         REQUIRE(weak.expired());
     }
     REQUIRE(RegisteredButtonCount() == 0);
-    MSYS_RemoveRegion(&high);
-    MSYS_RemoveRegion(&low);
+    MSYS_DisableRegion(&high);
+    MSYS_DisableRegion(&low);
     MSYS_Shutdown();
 }
 
 void image_and_sprite_ownership()
 {
-    REQUIRE(InitializeVideoObjectManager());
     image_type image{};
     image.ubBitDepth = 8;
     image.fFlags = IMAGE_TRLECOMPRESSED | IMAGE_BITMAPDATA | IMAGE_PALETTE;
@@ -407,94 +496,85 @@ void image_and_sprite_ownership()
     VOBJECT_DESC desc{};
     desc.fCreateFlags = VOBJECT_CREATE_FROMHIMAGE;
     desc.hImage = &image;
-    std::array<UINT32, 64> ids{};
-    std::array<HVOBJECT, 64> views{};
-    for (unsigned i = 0; i < ids.size(); ++i) {
-        REQUIRE(AddVideoObject(&desc, &ids[i]));
-        REQUIRE(GetVideoObject(&views[i], ids[i]));
-        REQUIRE((views[i]->sprites.size() == 1 && views[i]->sprites[0].pixels.size() == 1));
-        REQUIRE(reinterpret_cast<const UINT8*>(views[i]->sprites[0].pixels.data()) !=
+    std::array<std::unique_ptr<SGPVObject>, 64> objects{};
+    for (unsigned i = 0; i < objects.size(); ++i) {
+        objects[i] = CreateVideoObject(desc);
+        REQUIRE(objects[i]);
+        REQUIRE((objects[i]->sprites.size() == 1 && objects[i]->sprites[0].pixels.size() == 1));
+        REQUIRE(reinterpret_cast<const UINT8*>(objects[i]->sprites[0].pixels.data()) !=
               image.pImageData.data());
-        REQUIRE(views[i]->pPaletteEntry.get() != image.pPalette.get());
-        (void)CreateObjectPaletteTables(views[i], HVOBJECT_GLOW_GREEN);
-        REQUIRE((views[i]->pShades[0] && views[i]->pShades[15]));
-        REQUIRE(views[i]->pShades[4].get() == views[i]->ownedPalette.get());
-        REQUIRE(SetObjectShade(views[i], 6));
-        auto retained = views[i]->pShades[4];
-        REQUIRE(SetVideoObjectPalette(views[i], image.pPalette.get()));
-        REQUIRE((retained && views[i]->ownedPalette.get() != retained.get()));
-        REQUIRE(views[i]->pShades[4] == views[i]->ownedPalette);
-        REQUIRE(SetObjectShade(views[i], 4));
-        (void)CreateObjectPaletteTables(views[i], HVOBJECT_GLOW_RED);
-        REQUIRE(views[i]->pShadeCurrent == views[i]->pShades[4].get());
+        REQUIRE(objects[i]->pPaletteEntry.get() != image.pPalette.get());
+        (void)CreateObjectPaletteTables(*objects[i], HVOBJECT_GLOW_GREEN);
+        REQUIRE((objects[i]->pShades[0] && objects[i]->pShades[15]));
+        REQUIRE(objects[i]->pShades[4].get() == objects[i]->ownedPalette.get());
+        REQUIRE(SetObjectShade(*objects[i], 6));
+        auto retained = objects[i]->pShades[4];
+        REQUIRE(SetVideoObjectPalette(*objects[i], image.pPalette.get()));
+        REQUIRE((retained && objects[i]->ownedPalette.get() != retained.get()));
+        REQUIRE(objects[i]->pShades[4] == objects[i]->ownedPalette);
+        REQUIRE(SetObjectShade(*objects[i], 4));
+        (void)CreateObjectPaletteTables(*objects[i], HVOBJECT_GLOW_RED);
+        REQUIRE(objects[i]->pShadeCurrent == objects[i]->pShades[4].get());
     }
     image.pImageData[1] = 2;
     image.pETRLEObject[0].usWidth = 2;
-    REQUIRE((views[0]->sprites[0].pixels[0] == 1 && views[0]->sprites[0].usWidth == 1));
+    REQUIRE((objects[0]->sprites[0].pixels[0] == 1 && objects[0]->sprites[0].usWidth == 1));
     image.pETRLEObject[0].uiDataOffset = 0xffffffffu;
-    REQUIRE(!CreateVideoObject(&desc));
+    REQUIRE(!CreateVideoObject(desc));
     REQUIRE((image.pImageData[1] == 2 && image.pETRLEObject[0].uiDataOffset == 0xffffffffu));
     image = {};
     REQUIRE((image.pImageData.empty() && !image.pPalette && image.pETRLEObject.empty()));
-    for (auto id : {ids[0], ids[31], ids[63]}) {
-        REQUIRE(DeleteVideoObjectFromIndex(id));
-        HVOBJECT missing = nullptr;
-        REQUIRE(!GetVideoObject(&missing, id));
+    for (unsigned index : {0u, 31u, 63u}) {
+        objects[index].reset();
     }
-    HVOBJECT surviving = nullptr;
-    REQUIRE((GetVideoObject(&surviving, ids[32]) && surviving == views[32]));
-    REQUIRE((surviving->sprites[0].pixels[0] == 1 && surviving->sprites[0].usWidth == 1));
+    auto& surviving = *objects[32];
+    REQUIRE((surviving.sprites[0].pixels[0] == 1 && surviving.sprites[0].usWidth == 1));
     UINT16 borrowed[256]{};
-    surviving->p16BPPPalette = borrowed;
+    surviving.p16BPPPalette = borrowed;
     REQUIRE(DestroyObjectPaletteTables(surviving));
-    REQUIRE((!surviving->ownedPalette && !surviving->p16BPPPalette));
-    for (const auto& shade : surviving->pShades) REQUIRE(!shade);
-    REQUIRE(ShutdownVideoObjectManager());
-    REQUIRE((InitializeVideoObjectManager() && ShutdownVideoObjectManager()));
+    REQUIRE((!surviving.ownedPalette && !surviving.p16BPPPalette));
+    for (const auto& shade : surviving.pShades) REQUIRE(!shade);
 
     VSURFACE_DESC surface_desc{};
     surface_desc.fCreateFlags = VSURFACE_CREATE_DEFAULT;
     surface_desc.usWidth = 8;
     surface_desc.usHeight = 8;
     surface_desc.ubBitDepth = 16;
-    std::array<HVSURFACE, 64> surfaces{};
-    for (unsigned i = 0; i < ids.size(); ++i) {
-        REQUIRE(AddVideoSurface(&surface_desc, &ids[i]));
-        REQUIRE(GetVideoSurface(&surfaces[i], ids[i]));
+    std::array<std::unique_ptr<SGPVSurface>, 64> surfaces{};
+    for (auto& surface : surfaces) {
+        surface = CreateVideoSurface(surface_desc);
+        REQUIRE(surface);
     }
-    for (auto id : {ids[0], ids[31], ids[63]}) {
-        REQUIRE(DeleteVideoSurfaceFromIndex(id));
-        HVSURFACE missing = nullptr;
-        REQUIRE(!GetVideoSurface(&missing, id));
-    }
-    HVSURFACE surface = nullptr;
-    REQUIRE((GetVideoSurface(&surface, ids[32]) && surface == surfaces[32]));
-    REQUIRE((surface->surface && surface->usWidth == 8));
-    REQUIRE(ShutdownVideoSurfaceManager());
+    auto& surviving_surface = *surfaces[32];
+    for (unsigned index : {0u, 31u, 63u})
+        surfaces[index].reset();
+    REQUIRE((surviving_surface.ownedSurface && surviving_surface.usWidth == 8));
+
 }
 
-void font_table_ownership()
+void font_resource_ownership()
 {
     for (unsigned repeat = 0; repeat < 32; ++repeat) {
         auto translation = CreateEnglishTransTable();
         REQUIRE(translation.size() == 252);
-        REQUIRE(InitializeFontManager(translation));
+        ConfigureFontRendering(translation);
         translation[1] = '?';
         REQUIRE(GetIndex('B') == 1);
         translation = {};
         REQUIRE(GetIndex('B') == 1);
-        REQUIRE(InitializeFontManager(CreateEnglishTransTable()));
+        ConfigureFontRendering(CreateEnglishTransTable());
         REQUIRE(GetIndex('Z') == 25);
-        ShutdownFontManager();
-        ShutdownFontManager();
+        ResetFontRendering();
+        ResetFontRendering();
     }
 }
 
 void text_input_ownership()
 {
+    Font font{SGPVObject{}};
     MSYS_Init();
     for (unsigned repeat = 0; repeat < 32; ++repeat) {
-        InitTextInputMode();
+        InitTextInputMode(font);
         const auto first = AddTextInputField(0, 0, 80, 20, MSYS_PRIORITY_NORMAL,
                                              "alpha", 32, 0, 0);
         const auto middle = AddTextInputField(0, 20, 80, 20, MSYS_PRIORITY_NORMAL,
@@ -507,7 +587,7 @@ void text_input_ownership()
         REQUIRE((text[0] == 'a' && GetTextInputFieldByteLength(first) == 5));
         RemoveTextInputField(middle);
         REQUIRE(GetTextInputFieldByteLength(last) == 5);
-        InitTextInputMode();
+        InitTextInputMode(font);
         REQUIRE(AddTextInputField(0, 0, 80, 20, MSYS_PRIORITY_NORMAL,
                                 "inner", 32, 0, 0) == 0);
         KillTextInputMode();
@@ -520,7 +600,7 @@ void text_input_ownership()
         RemoveTextInputField(last);
         KillTextInputMode();
         REQUIRE(GetActiveTextInputField() == -1);
-        InitTextInputMode();
+        InitTextInputMode(font);
         KillTextInputMode();
     }
     MSYS_Shutdown();
@@ -644,7 +724,7 @@ void generic_button_images()
         VOBJECT_DESC desc{};
         desc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
         desc.ImageFile = long_image_path;
-        std::unique_ptr<SGPVObject> sprite(CreateVideoObject(&desc));
+        std::unique_ptr<SGPVObject> sprite(CreateVideoObject(desc));
         REQUIRE((sprite && sprite->sprites.size() == 3));
         REQUIRE((sprite->sprites[2].usWidth == 1 && sprite->sprites[2].pixels[0] == 1));
         REQUIRE(sprite->pPaletteEntry[1].peRed == 255);
@@ -695,21 +775,22 @@ void generic_button_images()
     REQUIRE((first_button && second_button));
     // Give each frame a distinct color and verify actual blits for both
     // button kinds, including checkbox-only mouse-down highlights.
-    auto* sprite = graphics->object();
+    auto& sprite = graphics->object();
     for (unsigned frame = 0; frame < 5; ++frame) {
-        sprite->sprites[frame].pixels[0] = frame + 1;
-        sprite->p16BPPPalette[frame + 1] = 0x1000 + frame;
+        sprite.sprites[frame].pixels[0] = frame + 1;
+        sprite.p16BPPPalette[frame + 1] = 0x1000 + frame;
     }
     VSURFACE_DESC target_desc{};
     target_desc.fCreateFlags = VSURFACE_CREATE_DEFAULT;
     target_desc.usWidth = target_desc.usHeight = 8;
     target_desc.ubBitDepth = 16;
-    UINT32 target;
-    REQUIRE(AddVideoSurface(&target_desc, &target));
+    auto target_owner = CreateVideoSurface(target_desc);
+    REQUIRE(target_owner);
+    auto& target = *target_owner;
     const auto old_target = ButtonDestBuffer;
     const auto old_hilights = gfRenderHilights;
     const auto old_left_down = gfLeftButtonState;
-    ButtonDestBuffer = target;
+    ButtonDestBuffer = &target;
     gfRenderHilights = true;
     for (bool checkbox : {false, true}) {
         for (bool enabled : {false, true}) {
@@ -723,10 +804,10 @@ void generic_button_images()
                         gfLeftButtonState = mouse_down;
                         DrawButton(first_button);
                         UINT32 pitch;
-                        auto* pixels = reinterpret_cast<UINT16*>(LockVideoSurface(target, &pitch));
+                        auto* pixels = reinterpret_cast<UINT16*>(LockVideoSurfaceBuffer(target, &pitch));
                         REQUIRE(pixels);
                         const auto color = pixels[0];
-                        UnLockVideoSurface(target);
+                        UnLockVideoSurfaceBuffer(target);
                         const bool highlight = hover && (!checkbox || mouse_down);
                         const unsigned expected_frame = !enabled ? 0 :
                             pressed ? (highlight ? 4 : 3) : (highlight ? 2 : 1);
@@ -739,12 +820,12 @@ void generic_button_images()
     ButtonDestBuffer = old_target;
     gfRenderHilights = old_hilights;
     gfLeftButtonState = old_left_down;
-    REQUIRE(DeleteVideoSurfaceFromIndex(target));
+    target_owner.reset();
     graphics.reset();
     ShutdownButtonImageManager();
     REQUIRE(!lifetime.expired());
     first_button.reset();
-    REQUIRE(second_button->quick_image->object()->sprites[4].pixels[0] == 5);
+    REQUIRE(second_button->quick_image->object().sprites[4].pixels[0] == 5);
     second_button.reset();
     REQUIRE(lifetime.expired());
     REQUIRE(RegisteredButtonCount() == 0);
@@ -849,59 +930,75 @@ void generic_button_images()
     images.clear();
 
     for (unsigned repeat = 0; repeat < 32; ++repeat) {
-        REQUIRE(InitializeFontManager(CreateEnglishTransTable()));
-        REQUIRE(LoadFontFile(std::string(filename).c_str()) == 0);
-        auto* font = GetFontObject(0);
-        REQUIRE((font && font->ownedPalette && font->sprites.size() == 9));
+        ConfigureFontRendering(CreateEnglishTransTable());
+        auto primary = LoadFontFile(filename);
+        REQUIRE(primary);
+        auto& font = GetFontObject(*primary);
+        REQUIRE((font.ownedPalette && font.sprites.size() == 9));
         UINT16 borrowed[256]{};
-        REQUIRE(SetFontObjectPalette16BPP(0, borrowed) == borrowed);
-        REQUIRE(GetFontObjectPalette16BPP(0) == borrowed);
-        REQUIRE(GetFontObject(0) == font);
-        ShutdownFontManager();
-        ShutdownFontManager();
+        REQUIRE(SetFontObjectPalette16BPP(*primary, borrowed) == borrowed);
+        REQUIRE(GetFontObjectPalette16BPP(*primary) == borrowed);
+        REQUIRE(&GetFontObject(*primary) == &font);
+        SaveFontSettings();
+        primary.reset();
+        REQUIRE(g_font_render_state.font == nullptr);
+        RestoreFontSettings();
+        REQUIRE(g_font_render_state.font == nullptr);
+        ResetFontRendering();
     }
-    REQUIRE((InitializeFontManager(std::vector<UINT16>{'?', 0x00e9, 0x4e2d, 'e', 0x0301, 'a', 'b', ' ', 'c'})));
-    REQUIRE(LoadFontFile(std::string(filename).c_str()) == 0);
-    REQUIRE(StringPixLength("é", 0) > 0);
-    REQUIRE(StringCodepointPrefixPixelWidth(0, 1, "é中") == StringPixLength("é", 0));
-    REQUIRE(StringCodepointPrefixPixelWidth(0, 2, "é中") == StringPixLength("é中", 0));
+    // Font lifetime is independent of rendering setup and has no slot limit.
+    std::vector<std::unique_ptr<Font>> many_fonts;
+    for (unsigned index = 0; index < 32; ++index) {
+        many_fonts.push_back(LoadFontFile(filename));
+        REQUIRE(many_fonts.back());
+    }
+    ResetFontRendering();
+    REQUIRE(GetFontHeight(*many_fonts.back()) > 0);
+    many_fonts.clear();
+    ConfigureFontRendering(std::vector<UINT16>{'?', 0x00e9, 0x4e2d, 'e', 0x0301, 'a', 'b', ' ', 'c'});
+    auto primary = LoadFontFile(filename);
+    REQUIRE(primary);
+    REQUIRE(StringPixLength("é", *primary) > 0);
+    REQUIRE(StringCodepointPrefixPixelWidth(*primary, 1, "é中") == StringPixLength("é", *primary));
+    REQUIRE(StringCodepointPrefixPixelWidth(*primary, 2, "é中") == StringPixLength("é中", *primary));
     // Render borrowed substrings without depending on a trailing NUL or
     // accidentally consuming the next glyph in the backing string.
-    SetFont(0);
-    FontDestRegion = {0, 0, 64, 32};
+    SetFont(*primary);
+    g_font_render_state.clip = {0, 0, 64, 32};
     std::vector<UINT16> expected_pixels(64 * 32), view_pixels(64 * 32);
-    DrawFontTextToBuffer(reinterpret_cast<UINT8*>(expected_pixels.data()), 64 * 2, 0, 0, 0, "é");
+    DrawFontTextToBuffer(reinterpret_cast<UINT8*>(expected_pixels.data()), 64 * 2, *primary, 0, 0, "é");
     const std::string backing = "é中";
-    DrawFontTextToBuffer(reinterpret_cast<UINT8*>(view_pixels.data()), 64 * 2, 0, 0, 0,
+    DrawFontTextToBuffer(reinterpret_cast<UINT8*>(view_pixels.data()), 64 * 2, *primary, 0, 0,
                          std::string_view(backing).substr(0, 2));
     REQUIRE(view_pixels == expected_pixels);
     REQUIRE(
         std::any_of(view_pixels.begin(), view_pixels.end(), [](auto pixel) { return pixel != 0; }));
     // Explicit-buffer rendering must use its font argument, even when the
     // current surface font has a different palette.
-    REQUIRE(LoadFontFile(std::string(filename).c_str()) == 1);
-    auto* alternate = GetFontObjectPalette16BPP(1);
+    auto secondary = LoadFontFile(filename);
+    REQUIRE(secondary);
+    auto* alternate = GetFontObjectPalette16BPP(*secondary);
     std::fill(alternate, alternate + 256, UINT16{0x1234});
     std::fill(expected_pixels.begin(), expected_pixels.end(), 0);
     std::fill(view_pixels.begin(), view_pixels.end(), 0);
-    SetFont(1);
-    DrawFontTextToBuffer(reinterpret_cast<UINT8*>(expected_pixels.data()), 128, 1, 0, 0, "é中");
-    SetFont(0);
-    DrawFontTextToBuffer(reinterpret_cast<UINT8*>(view_pixels.data()), 128, 1, 0, 0, "é中");
+    SetFont(*secondary);
+    DrawFontTextToBuffer(reinterpret_cast<UINT8*>(expected_pixels.data()), 128, *secondary, 0, 0, "é中");
+    SetFont(*primary);
+    DrawFontTextToBuffer(reinterpret_cast<UINT8*>(view_pixels.data()), 128, *secondary, 0, 0, "é中");
     REQUIRE(view_pixels == expected_pixels);
     // Rebuilding word ranges preserves UTF-8 byte boundaries and discards
     // old hover state, including when a line becomes empty.
     auto level = std::make_unique<W8LevelRuntimeBlock>();
     auto* previous_level = g_level_block;
     g_level_block = level.get();
-    level->text_box_font = 0;
+    level->text_box_font = &*primary;
     W8MessageStorageRecord words{};
     words.text = "  é 中  ";
     words.RebuildEntries();
     REQUIRE(words.entries.size() == 2);
     REQUIRE((words.entries[0].start == 2 && words.entries[0].end == 3));
     REQUIRE((words.entries[1].start == 5 && words.entries[1].end == 7));
-    REQUIRE(words.entries[1].x_start == StringPixLength("  é ", 0));
+    REQUIRE(words.entries[1].x_start == StringPixLength("  é ", *primary));
     words.entries[0].keyword = W8_NOTICE_WORD_SELECTED;
     words.text = "中";
     words.RebuildEntries();
@@ -910,9 +1007,9 @@ void generic_button_images()
     words.RebuildEntries();
     REQUIRE(words.entries.empty());
     g_level_block = previous_level;
-    g_font12point1 = 0;
+    g_font12point1 = LoadFontFile(filename);
     MSYS_Init();
-    InitTextInputMode();
+    InitTextInputMode(*g_font12point1);
     const auto field = AddTextInputField(0, 0, 80, 20, MSYS_PRIORITY_NORMAL, "", 1000, 0x0f, 0);
     SetActiveField(field);
     const std::string clusters = "é👩‍👩‍👧‍👦中";
@@ -955,7 +1052,8 @@ void generic_button_images()
     REQUIRE((GetTextInputByteCursor() == 297 && GetTextFromField(field).size() == 297));
     KillTextInputMode();
     MSYS_Shutdown();
-    ShutdownFontManager();
+    ResetFontRendering();
+    g_font12point1.reset();
     ShutdownButtonImageManager();
 
     std::filesystem::remove_all(root);
@@ -985,6 +1083,9 @@ TEST_CASE("Button and mouse region ownership", "[owner]")
 TEST_CASE("Callback reentrancy and region teardown", "[owner]")
 {
     region_registration_and_callback_lifetimes();
+    region_nested_input();
+    nested_hover_transitions();
+    release_outside_controls();
 }
 
 TEST_CASE("Sprite ownership", "[owner]")
@@ -992,9 +1093,9 @@ TEST_CASE("Sprite ownership", "[owner]")
     image_and_sprite_ownership();
 }
 
-TEST_CASE("Font table ownership", "[owner]")
+TEST_CASE("Font resource ownership", "[owner]")
 {
-    font_table_ownership();
+    font_resource_ownership();
 }
 
 TEST_CASE("Text input ownership", "[owner]")
@@ -1014,13 +1115,15 @@ TEST_CASE("Generic button image ownership", "[owner]")
 
 TEST_CASE("assert-plain", "[.death]")
 {
-    SetVideoObjectPalette(nullptr, nullptr);
+    SGPVObject object{};
+    SetVideoObjectPalette(object, nullptr);
     FAIL("SetVideoObjectPalette did not abort");
 }
 
 TEST_CASE("assert-message", "[.death]")
 {
-    CreateTextButton("invalid", 0, 0, 0, {}, -1, 0, 40, 20,
+    Font font{SGPVObject{}};
+    CreateTextButton("invalid", font, 0, 0, {}, -1, 0, 40, 20,
                      BUTTON_TOGGLE, MSYS_PRIORITY_NORMAL, nullptr, nullptr);
     FAIL("CreateTextButton did not abort");
 }

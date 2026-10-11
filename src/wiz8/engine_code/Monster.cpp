@@ -4918,13 +4918,13 @@ void W8Monster::SpawnDamageNumber(unsigned int amount)
         float yaw;
 
         SaveFontSettings();
-        SetFontDestBuffer(FontDestBuffer, 0, 0, surface->getWidth(), surface->getHeight(),
-                          static_cast<unsigned char>(FontDestWrap));
-        SetFont(g_monster_damage_font);
+        SetFontDestBuffer(*g_font_render_state.destination, 0, 0, surface->getWidth(), surface->getHeight(),
+                          static_cast<unsigned char>(g_font_render_state.wrap));
+        SetFont(*g_monster_damage_font);
         text = fmt::format("{:d}", amount);
-        DrawFontTextToBuffer(data, surface->getPitch(), g_monster_damage_font,
-                             0x80 - StringPixLength(text, g_monster_damage_font) / 2,
-                             0x80 - GetFontHeight(g_monster_damage_font) / 2, text);
+        DrawFontTextToBuffer(data, surface->getPitch(), *g_monster_damage_font,
+                             0x80 - StringPixLength(text, *g_monster_damage_font) / 2,
+                             0x80 - GetFontHeight(*g_monster_damage_font) / 2, text);
         RestoreFontSettings();
 
         GetMappedPosition(&position);

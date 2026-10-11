@@ -1,3 +1,4 @@
+#include "Font.h"
 #pragma once
 
 #include <cstddef>
@@ -55,7 +56,7 @@ extern W8MessageStorageRecord g_message_storage[4][0x15e];
 /* Reset one editor status line; -1 selects the current line. */
 void ResetEditorStatusLine(short line);
 /* The font currently bound to the main text box. */
-int GetTextBoxFont(void);
+Font& GetTextBoxFont(void);
 /* Repaint dirty dialogue text-input lines and the caret. */
 void RedrawDialogueTextInput(void);
 /* Clear one text_lines slot on the level block. */

@@ -21,11 +21,11 @@ unsigned int g_dialog_text_layout_mask = g_W8TextBufferNoWrap;
 // FUNCTION: WIZ8 0x005d1050
 W8DialogTextEntry::W8DialogTextEntry(std::string_view prefix, std::string_view text,
                                      unsigned int prefix_palette, unsigned int text_palette,
-                                     const W8ControlsRect* bounds, int font, unsigned char category,
+                                     const W8ControlsRect* bounds, Font& font, unsigned char category,
                                      unsigned int layout_mode, unsigned char shorten)
 {
     m_prefix_palette = prefix_palette;
-    m_font = font;
+    m_font = &font;
     m_lineCount = 0;
     m_geometryDirty = true;
     m_text_palette = text_palette;
@@ -43,18 +43,18 @@ W8DialogTextEntry::W8DialogTextEntry(std::string_view prefix, std::string_view t
 
 int W8DialogTextEntry::DrawLine(char* line, size_t span, int prefix_remaining, int y)
 {
-    int x = GetHorizontalPosition(StringPixLength(line, m_font));
+    int x = GetHorizontalPosition(StringPixLength(line, *m_font));
     if (prefix_remaining > 0) {
         if (prefix_remaining < static_cast<int>(span)) {
             char saved = line[prefix_remaining];
             line[prefix_remaining] = '\0';
             DrawFontText(x, y, line);
-            x += StringPixLength(line, m_font);
+            x += StringPixLength(line, *m_font);
             line[prefix_remaining] = saved;
             if (!m_selected) {
-                SetFontObjectPalette16BPP(m_font, m_text_palette < 15
+                SetFontObjectPalette16BPP(*m_font, m_text_palette < 15
                                                       ? g_font_state_palettes[m_text_palette].get()
-                                                      : GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get());
+                                                      : GetFontObject(*g_wiz_text_font_secondary).ownedPalette.get());
             }
             line += prefix_remaining;
             span -= prefix_remaining;
@@ -75,9 +75,9 @@ void W8DialogTextEntry::Draw(bool force)
     }
     std::string copy = m_buffer;
     if (m_shorten_mask) {
-        copy = ShortenTextToWidth(m_buffer, width - 5, m_font);
+        copy = ShortenTextToWidth(m_buffer, width - 5, *m_font);
     }
-    SetFont(m_font);
+    SetFont(*m_font);
     unsigned short* palette = g_font_state_palettes[W8_FONT_PALETTE_YELLOW].get();
     if (!m_entry_highlighted) {
         if (m_marked) {
@@ -85,7 +85,7 @@ void W8DialogTextEntry::Draw(bool force)
         } else if (m_selected) {
             palette = g_font_state_palettes[W8_FONT_PALETTE_WHITE].get();
         } else {
-            palette = GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get();
+            palette = GetFontObject(*g_wiz_text_font_secondary).ownedPalette.get();
             if (m_prefix_length == 0) {
                 if (m_text_palette < 15) {
                     palette = g_font_state_palettes[m_text_palette].get();
@@ -95,8 +95,8 @@ void W8DialogTextEntry::Draw(bool force)
             }
         }
     }
-    SetFontObjectPalette16BPP(m_font, palette);
-    SetFontDestBuffer(FRAME_BUFFER, m_pendingBounds.left, m_pendingBounds.top,
+    SetFontObjectPalette16BPP(*m_font, palette);
+    SetFontDestBuffer(GetFrameBufferSurface(), m_pendingBounds.left, m_pendingBounds.top,
                       m_pendingBounds.right, m_pendingBounds.bottom, 0);
     int y = GetVerticalPosition();
     char* line = copy.data();
@@ -116,7 +116,7 @@ void W8DialogTextEntry::Draw(bool force)
 done:
     InvalidateRegion(m_layoutBounds.left, m_layoutBounds.top, m_layoutBounds.right,
                      m_layoutBounds.bottom, 0);
-    SetFontDestBuffer(FRAME_BUFFER, 0, 0, 640, 480, 0);
+    SetFontDestBuffer(GetFrameBufferSurface(), 0, 0, 640, 480, 0);
     m_geometryDirty = false;
 }
 

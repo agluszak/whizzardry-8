@@ -20,7 +20,6 @@
 #include "Video2.h"
 #include "Types.h"
 #include "compat/native.h"
-#include "vsurface.h"
 
 
 SDL_Window* ghWindow = nullptr;
@@ -32,7 +31,6 @@ void VideoCaptureToggle() { ++captures; }
 BOOLEAN VideoInspectorIsEnabled() { return FALSE; }
 void SuspendVideoManager() { ++suspensions; }
 BOOLEAN RestoreVideoManager() { ++restorations; return TRUE; }
-BOOLEAN RestoreVideoSurfaces() { return TRUE; }
 BOOLEAN VideoResizeWindow() { ++resizes; return TRUE; }
 float MoveTimer(int action) { clock_actions.push_back(action); return 0; }
 static SDL_WindowID id;

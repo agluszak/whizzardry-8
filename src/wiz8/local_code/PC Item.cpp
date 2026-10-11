@@ -432,8 +432,8 @@ int W8ItemVideoObjectCache::GetOrCreateVideoObject(int item_id)
         g_video_frames[object].path += ".sti";
     }
     g_video_frames[object].storage_kind = W8_VIDEO_STORAGE_OBJECT;
-    g_video_frames[object].loaded = false;
-    g_video_frames[object].handle = 0;
+    g_video_frames[object].object.reset();
+    g_video_frames[object].surface.reset();
     g_video_slots[frame].first_frame = object;
     g_video_slots[frame].y_offset = 0;
     EnsureCatalogFrameLoaded(frame, 0);

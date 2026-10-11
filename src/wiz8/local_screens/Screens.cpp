@@ -219,16 +219,16 @@ void UpdateHeldItemCursor(void)
         if (g_status.item_in_hand.iItemNo != -1) {
             g_status.item_in_cursor = true;
             object = g_item_video_objects.GetOrCreateVideoObject(g_status.item_in_hand.iItemNo);
-            SetMouseCursorFromVideoObject(GetCatalogVideoObjectHandle(object, 0),
+            SetMouseCursorFromVideoObject(GetCatalogVideoObject(object, 0),
                                           GetCatalogVideoObjectYOffset(object), 0, 0);
-            BlitToMouseCursor(GetCatalogVideoObjectHandle(0, 0), GetCatalogVideoObjectYOffset(0), 0,
+            BlitToMouseCursor(GetCatalogVideoObject(0, 0), GetCatalogVideoObjectYOffset(0), 0,
                               0);
             RefreshMouseCursorTexture();
             gXStatus.iCurrentCursor = W8_CURSOR_INVALID_TARGET;
             return;
         }
     } else if (gXStatus.iCurrentCursor != W8_CURSOR_NONE) {
-        SetMouseCursorFromVideoObject(GetCatalogVideoObjectHandle(0, 0),
+        SetMouseCursorFromVideoObject(GetCatalogVideoObject(0, 0),
                                       GetCatalogVideoObjectYOffset(0), 0, 0);
         RefreshMouseCursorTexture();
         gXStatus.iCurrentCursor = W8_CURSOR_NONE;
@@ -273,7 +273,7 @@ void ClearHeldItemDisplay(void)
     g_status.item_in_hand.iItemNo = -1;
 
     if (gXStatus.iCurrentCursor != W8_CURSOR_NONE) {
-        SetMouseCursorFromVideoObject(GetCatalogVideoObjectHandle(0, 0),
+        SetMouseCursorFromVideoObject(GetCatalogVideoObject(0, 0),
                                       GetCatalogVideoObjectYOffset(0), 0, 0);
         RefreshMouseCursorTexture();
         gXStatus.iCurrentCursor = W8_CURSOR_NONE;
@@ -300,17 +300,14 @@ void SetItemCursor(int overlay_video_object)
 {
     int object;
     unsigned short y_offset;
-    unsigned int handle;
 
     if (g_status.item_in_hand.iItemNo != -1) {
         g_status.item_in_cursor = true;
         object = g_item_video_objects.GetOrCreateVideoObject(g_status.item_in_hand.iItemNo);
         y_offset = GetCatalogVideoObjectYOffset(object);
-        handle = GetCatalogVideoObjectHandle(object, 0);
-        SetMouseCursorFromVideoObject(handle, y_offset, 0, 0);
+        SetMouseCursorFromVideoObject(GetCatalogVideoObject(object, 0), y_offset, 0, 0);
         y_offset = GetCatalogVideoObjectYOffset(overlay_video_object);
-        handle = GetCatalogVideoObjectHandle(overlay_video_object, 0);
-        BlitToMouseCursor(handle, y_offset, 0, 0);
+        BlitToMouseCursor(GetCatalogVideoObject(overlay_video_object, 0), y_offset, 0, 0);
         RefreshMouseCursorTexture();
         gXStatus.iCurrentCursor = W8_CURSOR_INVALID_TARGET;
     }
@@ -417,8 +414,8 @@ void InitializeMainGameLevelBlock(void)
         g_level_block->selected_text_lines[slot_index] = -1;
     }
     g_level_block->unknown_2e4[0] = 0;
-    g_level_block->text_box_font = g_wiz_text_font_secondary;
-    g_level_block->palette = GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get();
+    g_level_block->text_box_font = &*g_wiz_text_font_secondary;
+    g_level_block->palette = GetFontObject(*g_wiz_text_font_secondary).ownedPalette.get();
     g_level_block->selection_kind = W8_ACTION_NONE;
     g_level_block->pending_action = -1;
     g_level_block->selection_settled = false;

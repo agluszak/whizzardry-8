@@ -1,3 +1,4 @@
+#include "Font.h"
 #pragma once
 
 #include <SDL3/SDL_rect.h>
@@ -27,7 +28,7 @@ enum W8SplitDialogResult {
 /* The small numeric entry field embedded by the split dialogs. */
 class W8DialogNumericInput {
 public:
-    W8DialogNumericInput(int control_id, const W8ControlsRect* bounds, int value, int font,
+    W8DialogNumericInput(int control_id, const W8ControlsRect* bounds, int value, Font& font,
                          W8DialogBase* dialog, W8DialogButton* button);
     void SetValue(int value);
     void SetActive(bool active);
@@ -50,7 +51,7 @@ public:
     /* -1 while inactive; otherwise the count of characters to the right
        of the caret. */
     int m_caret;
-    int m_font;
+    Font* m_font;
     int m_value;
     bool m_dirty;
     bool m_active;

@@ -51,7 +51,7 @@ unsigned char IntroScreenEnter(void)
     char gzCdDirectory[4];
 
     SetClippingRegionAndImageWidth(0x500, 0, 0, 0x280, 0x1e0);
-    SetFontDestBuffer(FRAME_BUFFER, 0, 0, 0x280, 0x1e0, 0);
+    SetFontDestBuffer(GetFrameBufferSurface(), 0, 0, 0x280, 0x1e0, 0);
     ClearSurfaceRect(0, 0, 0x280, 0x1e0);
     if (g_intro_video_index == 0 && g_settings.intro_seen && !g_status.intro_shown) {
         return 1;

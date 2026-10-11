@@ -54,15 +54,13 @@
 #include "local_code/Controls.h"
 #include "local_code/RangeControl.h"
 #include "mgs_commands.h"
-#include "mousesystem_macros.h"
 #include "surrender/srPixelConvert.h"
 #include "vobject.h"
 
 // GLOBAL: WIZ8 0x0069C130
 static unsigned int* g_options_panel_region_sets;
 
-void MSYS_SGP_Mouse_Handler_Hook(unsigned short event, unsigned short x, unsigned short y,
-                                 char right_button, char left_button);
+
 
 /* Shared zero-initialized wide string: binary-wide DATA references read it as
    empty text and as a sprintf format argument. No recovered writer exists. */
@@ -573,7 +571,7 @@ W8OptionsButton::W8OptionsButton(Controls* owner, int left, int top, int right, 
     : W8TextControl(owner, 0xffffffff, left, top, right, bottom, -1, -1, -1, -1, -1, -1, -1)
 {
     m_textBuffer.SetLayoutMode(g_W8TextBufferAlignTop);
-    m_textBuffer.SetText(text, g_options_detail_font);
+    m_textBuffer.SetText(text, *g_options_detail_font);
 }
 
 W8OptionsKeyButton::W8OptionsKeyButton(Controls* owner, int top, W8MGSCommand primary_binding,
@@ -619,7 +617,7 @@ void W8OptionsSaveRow::Redraw(bool full_redraw)
     int x = m_pPanel->m_bounds.left + m_left;
     int y = m_pPanel->m_bounds.top + m_top;
     if (m_save->screenshot.capture_result == 0) {
-        DrawCatalogImage(FRAME_BUFFER, 0xf6, 0, 0, x + 6, y + 6, VO_BLT_SRCTRANSPARENCY, 0);
+        DrawCatalogImage(GetFrameBufferSurface(), 0xf6, 0, 0, x + 6, y + 6, VO_BLT_SRCTRANSPARENCY, 0);
     } else {
         auto portrait = std::make_unique<srColorSurface>(srPixelConvert::SURFACE_ARGB1555,
                                                       m_save->screenshot.pixels, 0x50, 0x3c, 0xa0);
@@ -634,7 +632,7 @@ void W8OptionsSaveRow::Redraw(bool full_redraw)
                             m_save->timestamp.month, m_save->timestamp.day, m_save->timestamp.hour,
                             m_save->timestamp.minute);
 
-    SetFont(g_wiz_text_font_secondary);
+    SetFont(*g_wiz_text_font_secondary);
     int text_x = x + 0x5e;
     if (m_save->version_major + m_save->version_minor * 0.1f + m_save->version_patch * 0.01f <=
         1.24f) {
@@ -705,7 +703,7 @@ void W8OptionsButton::Redraw(bool full_redraw)
             }
             m_textBuffer.SetFontStateIndex(font_state);
         }
-        m_textBuffer.RenderToTarget(0, full_redraw, FRAME_BUFFER);
+        m_textBuffer.RenderToTarget(0, full_redraw, GetFrameBufferSurface());
         m_dirty = false;
     }
 }
@@ -774,7 +772,7 @@ void W8OptionsKeyButton::SetKeyText(unsigned short key)
     translate_key:
         character[0] = TranslateKeyToCharacter(key, 0);
         if (character[0] == 0) {
-            m_textBuffer.SetText(g_localized_strings[0x86d], g_options_detail_font);
+            m_textBuffer.SetText(g_localized_strings[0x86d], *g_options_detail_font);
             return;
         }
         character[0] = static_cast<char>(toupper(character[0]));
@@ -784,7 +782,7 @@ void W8OptionsKeyButton::SetKeyText(unsigned short key)
     if (m_secondary_binding != W8_MGS_COMMAND_NONE && key != 0) {
         text = fmt::format("({}) {}", g_localized_strings[0x89d], text);
     }
-    m_textBuffer.SetText(text, g_options_detail_font);
+    m_textBuffer.SetText(text, *g_options_detail_font);
 }
 
 // FUNCTION: WIZ8 0x005ab930
@@ -796,7 +794,7 @@ void W8OptionsKeyboardPanel::Populate()
     W8ControlsRect title_bounds = {m_bounds.left + 30, m_bounds.top + m_content_top,
                                    m_bounds.right - 30, m_bounds.top + m_content_top + 22};
     W8TextBuffer* title =
-        new W8TextBuffer(&title_bounds, g_localized_strings[page.title], g_options_detail_font,
+        new W8TextBuffer(&title_bounds, g_localized_strings[page.title], *g_options_detail_font,
                          g_W8TextBufferAlignTop | g_W8TextBufferAlignCenter, 4);
     m_text_buffers.emplace_back(title);
     m_content_top += 44;
@@ -811,7 +809,7 @@ void W8OptionsKeyboardPanel::Populate()
         W8ControlsRect label_bounds = {m_bounds.left + 20, m_bounds.top + m_content_top,
                                        m_bounds.right, m_bounds.top + m_content_top + 22};
         W8TextBuffer* label =
-            new W8TextBuffer(&label_bounds, g_localized_strings[row->label], g_options_detail_font,
+            new W8TextBuffer(&label_bounds, g_localized_strings[row->label], *g_options_detail_font,
                              g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4);
         m_text_buffers.emplace_back(label);
 
@@ -824,7 +822,7 @@ void W8OptionsKeyboardPanel::Populate()
         ++row;
         if (binding == page.last_binding) {
             std::string reset_text = g_localized_strings[0x833];
-            short text_width = StringPixLength(reset_text, g_options_detail_font);
+            short text_width = StringPixLength(reset_text, *g_options_detail_font);
             int left = (m_bounds.right - (text_width + 20) - m_bounds.left) / 2;
             W8OptionsButton* reset =
                 new W8OptionsButton(this, left, 0x18e, left + text_width + 20, 0x1a4, reset_text);
@@ -1269,7 +1267,7 @@ void W8OptionsUnavailablePanel::Populate()
     m_content_top += 44;
     W8ControlsRect bounds = {m_bounds.left + 30, m_bounds.top + m_content_top, m_bounds.right - 30,
                              m_bounds.bottom};
-    W8TextBuffer* text = new W8TextBuffer(&bounds, g_localized_strings[m_message], g_options_detail_font,
+    W8TextBuffer* text = new W8TextBuffer(&bounds, g_localized_strings[m_message], *g_options_detail_font,
                                           g_W8TextBufferAlignTop | g_W8TextBufferAlignCenter, 4);
     m_text_buffers.emplace_back(text);
     m_text_buffers[0]->SetLineHeight(22);
@@ -1440,7 +1438,7 @@ void W8OptionsScreen::Redraw()
     if (m_redraw_pending) {
         ClearPrimarySurface();
         ClearSurfaceRect(0, 0, 640, 480);
-        DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0xee, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY, 0);
+        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0xee, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY, 0);
         m_redraw_pending = false;
     }
     if (m_selected_panel != -1) {
@@ -1642,9 +1640,9 @@ void W8OptionsSlider::Redraw(bool full_redraw)
             int top = m_pPanel->m_bounds.top + m_top;
             unsigned short color = Get16BPPColor(0x00ff00);
             int end = m_pixelPosition < 74 ? m_pixelPosition - 1 : 73;
-            ColorFillVideoSurfaceArea(FRAME_BUFFER, left + 13, top + 7, left + end, top + 9, color);
+            ColorFillVideoSurfaceArea(GetFrameBufferSurface(), left + 13, top + 7, left + end, top + 9, color);
             if (m_pixelPosition > 83) {
-                ColorFillVideoSurfaceArea(FRAME_BUFFER, left + 83, top + 7,
+                ColorFillVideoSurfaceArea(GetFrameBufferSurface(), left + 83, top + 7,
                                           left + m_pixelPosition - 1, top + 9, color);
             }
         }
@@ -1683,7 +1681,7 @@ static void AddOptionsLabel(W8OptionsPanel& panel, int label)
                              panel.m_bounds.right,
                              panel.m_bounds.top + panel.m_content_top + 22};
     panel.m_text_buffers.emplace_back(
-        new W8TextBuffer(&bounds, g_localized_strings[label], g_options_detail_font,
+        new W8TextBuffer(&bounds, g_localized_strings[label], *g_options_detail_font,
                          g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4));
 }
 
@@ -1701,7 +1699,7 @@ W8TextControl* W8OptionsPanel::AddChoiceButton(int label)
 {
     W8ControlsRect bounds = {m_bounds.left, m_bounds.top + m_content_top, m_bounds.left + 0x147,
                              m_bounds.top + m_content_top + 22};
-    W8TextBuffer* text = new W8TextBuffer(&bounds, g_localized_strings[label], g_options_detail_font,
+    W8TextBuffer* text = new W8TextBuffer(&bounds, g_localized_strings[label], *g_options_detail_font,
                                           g_W8TextBufferAlignTop | g_W8TextBufferAlignRight, 4);
     m_text_buffers.emplace_back(text);
     W8TextControl* button = new W8TextControl(this, 0xffffffff, 0x151, m_content_top + 1, 0, 0,
@@ -1738,7 +1736,7 @@ void W8OptionsMenuButton::Redraw(bool full_redraw)
 {
     if ((full_redraw || m_dirty) && (m_stateFlags & g_W8TextControlStateSecondary) != 0 &&
         m_item_id != -1) {
-        DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0xf0, 0, m_item_id, 12, 15,
+        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0xf0, 0, m_item_id, 12, 15,
                                       VO_BLT_SRCTRANSPARENCY, 0);
     }
     W8TextControl::Redraw(full_redraw);
@@ -1758,7 +1756,7 @@ void W8OptionsPanel::Redraw()
     Controls::Redraw();
     if (redraw_text) {
         for (int index = 0; index < static_cast<int>(m_text_buffers.size()); ++index) {
-            m_text_buffers[index]->RenderToTarget(0, true, FRAME_BUFFER);
+            m_text_buffers[index]->RenderToTarget(0, true, GetFrameBufferSurface());
         }
     }
 }
@@ -1768,7 +1766,7 @@ void W8OptionsMenuSet::Redraw()
 {
     if (m_fEnabled && (m_fDirty || m_fLayoutDirty)) {
         Controls::Redraw();
-        m_page_text->RenderToTarget(0, true, FRAME_BUFFER);
+        m_page_text->RenderToTarget(0, true, GetFrameBufferSurface());
     }
 }
 
@@ -1809,7 +1807,7 @@ W8OptionsMenuSet::W8OptionsMenuSet(unsigned int* shared_region_set)
     m_next = new W8TextControl(this, 0xffffffff, 0x11f, 3, 0, 0, 0xf4, 0, 4, 6, 5, -1, 7);
     m_next->m_listener = this;
 
-    m_page_text = new W8TextBuffer(&m_bounds, "", g_options_detail_font,
+    m_page_text = new W8TextBuffer(&m_bounds, "", *g_options_detail_font,
                                    g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle, 4);
 }
 
@@ -1911,7 +1909,7 @@ void W8OptionsMenuSet::UpdateMenuSet()
         std::string text;
 
         text = fmt::format("{:d} / {:d}", current + 1, count);
-        m_page_text->SetText(text, g_options_detail_font);
+        m_page_text->SetText(text, *g_options_detail_font);
     }
     Invalidate(0);
 }
@@ -2007,7 +2005,7 @@ unsigned char OptionsScreenEnter()
     MSYS_Init();
     ResetRegions();
     UpdateHeldItemCursor();
-    SetFontObjectPalette16BPP(g_wiz_text_font_secondary, GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get());
+    SetFontObjectPalette16BPP(*g_wiz_text_font_secondary, GetFontObject(*g_wiz_text_font_secondary).ownedPalette.get());
     g_options_values.applying = 0;
     g_options_values.TransferSettings();
     g_options_screen = new W8OptionsScreen();
@@ -2060,7 +2058,7 @@ void OptionsScreenFrame()
     W8OptionsScreen* screen = g_options_screen;
     if (screen->m_text_editor != 0) {
         SGPMouseGetPos(&current);
-        MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, static_cast<unsigned short>(current.x),
+        DispatchMouseEvent(MOUSE_POS, static_cast<unsigned short>(current.x),
                                     static_cast<unsigned short>(current.y), gfLeftButtonState,
                                     gfRightButtonState);
         screen = g_options_screen;
