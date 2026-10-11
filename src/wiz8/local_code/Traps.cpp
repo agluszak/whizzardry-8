@@ -1,5 +1,4 @@
 #include <fmt/format.h>
-#include <bit>
 #include <vector>
 #include <cctype>
 #include <cstdint>
@@ -93,18 +92,19 @@ void WriteRecordModeEntry(void)
     if (file != 0) {
         file->seek(-static_cast<std::int64_t>(0), wiz8::SeekOrigin::end);
         GetWorldCameraState(GetWorld(), &state);
+        // GetCameraOrientation zeroes every angle-record slot after the first.
         line =
             fmt::format("{:f} {:f} {:f}\n", state.position.x, state.position.y, state.position.z);
         file->write(line.data(), line.size());
         line = fmt::format(
             "{:f} {:f} {:f} {:f} {:f} {:d}\n", state.pitch[0], state.pitch[1], state.pitch[2],
             state.pitch[3],
-            state.pitch[4], std::bit_cast<std::uint32_t>(state.pitch[5]) & 0xffu);
+            state.pitch[4], 0);
         file->write(line.data(), line.size());
         line = fmt::format(
             "{:f} {:f} {:f} {:f} {:f} {:d}\n", state.yaw[0], state.yaw[1], state.yaw[2],
             state.yaw[3],
-            state.yaw[4], std::bit_cast<std::uint32_t>(state.yaw[5]) & 0xffu);
+            state.yaw[4], 0);
         file->write(line.data(), line.size());
         if (GetLevelLocationCode(g_status.current_level, location_code) == 0) {
             strcpy(location_code, s_record_mode_default_location);
