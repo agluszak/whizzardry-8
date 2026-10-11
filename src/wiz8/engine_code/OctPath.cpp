@@ -1,3 +1,4 @@
+#include "wiz8/navigation_math.h"
 #include "surrender/srBoundingBox.h"
 #include <SDL3/SDL_pixels.h>
 #include "surrender/srScene.h" // IWYU pragma: keep - complete scene type for conversion to srNode.
@@ -2709,74 +2710,12 @@ bool W8PathingService::ResolvePathCell(unsigned int key, bool allow_dynamic, uns
     return found;
 }
 
-/* Unit X/Z components of the eight path directions, indexed by direction bit:
-   0 north, 1 north-west, 2 west, 3 south-west, 4 south, 5 south-east, 6 east,
-   7 north-east. */
-// GLOBAL: WIZ8 0x00608280
-static float s_path_direction_x[8] = {0.0f, -0.7071070075035095f, -1.0f, -0.7071070075035095f,
-                                      0.0f, 0.7071070075035095f,  1.0f,  0.7071070075035095f};
-// GLOBAL: WIZ8 0x006082a0
-static float s_path_direction_z[8] = {-1.0f, -0.7071070075035095f, 0.0f, 0.7071070075035095f,
-                                      1.0f,  0.7071070075035095f,  0.0f, -0.7071070075035095f};
-
-/* Sum the blocked-direction unit vectors among the directions `delta` points
-   toward; the normalized sum is the slide direction. `mask` uses the
-   neighbor-mask encoding: a set bit is a walkable direction and an all-open
-   set is zero, which reads as "no obstacle" here. */
-// FUNCTION: WIZ8 0x004664f0
-bool W8PathingService::ComputeFreeDirection(unsigned int mask, const srVector3T<float>* delta,
-                                            srVector3T<float>* direction)
-{
-    unsigned int wanted;
-    unsigned int bit;
-    float length_squared;
-
-    if (mask == 0) {
-        return false;
-    }
-    wanted = 0;
-    if (g_double_zero <= delta->x) {
-        if (g_double_zero < delta->x) {
-            wanted = 0xe;
-        }
-    } else {
-        wanted = 0xe0;
-    }
-    if (g_double_zero <= delta->z) {
-        if (g_double_zero < delta->z) {
-            wanted |= 0x83;
-        }
-    } else {
-        wanted |= 0x38;
-    }
-    if ((~mask & wanted) == 0) {
-        return false;
-    }
-    direction->x = g_float_zero;
-    direction->z = g_float_zero;
-    for (bit = 0; bit < 8; ++bit) {
-        if ((~mask & wanted & 1 << (bit & 0x1f)) != 0) {
-            direction->x += s_path_direction_x[bit];
-            direction->z += s_path_direction_z[bit];
-        }
-    }
-    direction->y = 0.0f;
-    length_squared = direction->x * direction->x + direction->z * direction->z;
-    if (length_squared != g_double_zero) {
-        direction->y = 0.0f;
-        direction->x = direction->x * (g_double_one / sqrt(length_squared));
-        direction->z = direction->z * (g_double_one / sqrt(length_squared));
-    }
-    return true;
-}
-
 /* Resolve the path cell under `position` through the path-value hash, pick the
    entry whose height is within two cell spans, and compute the slide
    direction for `delta` from its neighbor mask. */
 // FUNCTION: WIZ8 0x00466600
-bool W8PathingService::GetNeighborSlideDirection(const srVector3T<float>* position,
-                                                 const srVector3T<float>* delta,
-                                                 srVector3T<float>* direction)
+std::optional<glm::vec3> W8PathingService::neighborSlideDirection(
+    const glm::vec3& position, const glm::vec3& delta)
 {
     std::unordered_multimap<unsigned int, unsigned int>* index;
     int range;
@@ -2789,8 +2728,8 @@ bool W8PathingService::GetNeighborSlideDirection(const srVector3T<float>* positi
 
     range = cell_count * 2;
     in_range = false;
-    height = static_cast<int>((position->y - level_bounds.minimum.y) / span) + 1;
-    const auto converted_cell = pathCell(position->glmValue());
+    height = static_cast<int>((position.y - level_bounds.minimum.y) / span) + 1;
+    const auto converted_cell = pathCell(position);
     cell = {converted_cell.coordinates.x, converted_cell.coordinates.y};
     key = converted_cell.key;
     index = m_pPathValues;
@@ -2799,7 +2738,7 @@ bool W8PathingService::GetNeighborSlideDirection(const srVector3T<float>* positi
     while (slot != index->end()) {
         if (in_range) {
             unsigned int mask = ComputeWaypointNeighborMask(&cell, value);
-            return ComputeFreeDirection(mask, delta, direction);
+            return slideDirection(mask, delta);
         }
         value = slot->second;
         int difference = height - static_cast<int>(value & W8_PATH_CELL_HEIGHT_MASK);
@@ -2809,14 +2748,13 @@ bool W8PathingService::GetNeighborSlideDirection(const srVector3T<float>* positi
             slot = NextIndexValue(*index, key, slot);
         }
     }
-    return false;
+    return std::nullopt;
 }
 
 // FUNCTION: WIZ8 0x00466990
-bool W8PathingService::GetObstacleDirection(const srVector3T<float>* delta,
-                                            srVector3T<float>* direction)
+std::optional<glm::vec3> W8PathingService::obstacleDirection(const glm::vec3& delta)
 {
-    return ComputeFreeDirection(m_waypoint_neighbor_mask, delta, direction);
+    return slideDirection(m_waypoint_neighbor_mask, delta);
 }
 
 /* One movement step for a navigator walking an attachment path. The 0x10000
@@ -6109,7 +6047,6 @@ void W8PathParameters::IntegrateSteering()
     srVector3T<float> slide;
     float scale;
     bool snapped;
-    bool direction;
 
     step = g_rate * g_game_time_accumulator->GetFrameDelta();
     if (!blocked) {
@@ -6142,13 +6079,13 @@ void W8PathParameters::IntegrateSteering()
         snapped = g_octree->pathing->SnapWaypointPosition(&position, false);
         if (!snapped) {
             delta = position - movement->position;
-            slide = delta;
-            direction =
-                g_octree->pathing->GetNeighborSlideDirection(&movement->position, &delta, &slide);
-            if (!direction) {
+            const auto slide_direction = g_octree->pathing->neighborSlideDirection(
+                movement->position.glmValue(), delta.glmValue());
+            if (!slide_direction) {
                 blocked = true;
             } else {
-                scale = glm::dot(slide.glmValue(), delta.glmValue());
+                slide = *slide_direction;
+                scale = glm::dot(*slide_direction, delta.glmValue());
                 delta += slide * scale;
                 position = movement->position + delta;
                 snapped = g_octree->pathing->SnapWaypointPosition(&position, false);
@@ -6321,8 +6258,9 @@ bool W8PathParameters::HandleObstacleAhead()
     float side;
 
     if (velocity_length == g_float_zero) {
-        if (g_octree->pathing->GetNeighborSlideDirection(&movement->position, &direction,
-                                                         &escape)) {
+        if (const auto slide = g_octree->pathing->neighborSlideDirection(
+                movement->position.glmValue(), direction.glmValue())) {
+            escape = *slide;
             waypoint = movement->attachment->GetNextPosition();
             waypoint -= movement->position;
             waypoint.y = 0.0f;
@@ -6350,7 +6288,8 @@ bool W8PathParameters::HandleObstacleAhead()
                     steer = (g_float_one - distance / reach) * acceleration;
                     brake = g_path_obstacle_braking_factor * steer;
                     steer = g_path_obstacle_steering_factor * steer;
-                    if (g_octree->pathing->GetObstacleDirection(&direction, &escape)) {
+                    if (const auto slide = g_octree->pathing->obstacleDirection(direction.glmValue())) {
+                        escape = *slide;
                         side = glm::dot(escape.glmValue(), perpendicular.glmValue());
                         if (g_obstacle_slide_side_threshold <= fabs(side)) {
                             if (side < g_float_zero) {

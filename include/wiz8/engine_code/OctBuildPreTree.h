@@ -62,7 +62,7 @@ struct W8OctRegionPolygon {
 
     /* Tests the polygon's representative point against six frustum planes;
        inside means every plane distance is non-negative. */
-    bool InsideFrustumPlanes(const W8Plane* planes) const;
+    bool InsideFrustumPlanes(std::span<const W8Plane, 6> planes) const;
     bool containsPoint(const srBoundingBox& bounds) const;
 };
 

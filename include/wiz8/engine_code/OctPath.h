@@ -1,3 +1,4 @@
+#include <optional>
 #pragma once
 
 #include "surrender/srBoundingBox.h"
@@ -397,19 +398,10 @@ public:
     void BuildPathGridWalk(const glm::vec2* from, const glm::vec2* to, const glm::vec2* origin, W8PathGridWalk* walk);
     bool ProbeWaypointSegment(const srVector3T<float>* from, const srVector3T<float>* to);
     unsigned int ComputeWaypointNeighborMask(const srVector2i* cell, unsigned int path_value);
-    /* Sums the blocked-direction unit vectors among the directions `delta`
-       points toward and normalizes the result into `direction`; zero when
-       `mask` is fully open or nothing wanted is blocked. */
-    bool ComputeFreeDirection(unsigned int mask, const srVector3T<float>* delta,
-                              srVector3T<float>* direction);
-    /* Resolves the path cell under `position`, reads its neighbor mask and
-       computes the free-direction vector away from `delta`; zero when the
-       heading has no free neighbor. */
-    bool GetNeighborSlideDirection(const srVector3T<float>* position,
-                                   const srVector3T<float>* delta, srVector3T<float>* direction);
-    /* The same free-direction query against the stored waypoint neighbor mask
-       rather than a live cell lookup. */
-    bool GetObstacleDirection(const srVector3T<float>* delta, srVector3T<float>* direction);
+    // Return a blocked-neighbor slide direction from a live cell or the stored mask.
+    std::optional<glm::vec3> neighborSlideDirection(const glm::vec3& position,
+                                                   const glm::vec3& delta);
+    std::optional<glm::vec3> obstacleDirection(const glm::vec3& delta);
     /* A* from the attachment's start to its destination over the surface
        graph; returns the destination surface index, zero when unreachable. */
     unsigned short FindPath(W8NavigatorAttachment* attachment, unsigned int flags);

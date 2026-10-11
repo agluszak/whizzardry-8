@@ -2746,3 +2746,26 @@ TEST_CASE("Prop surface geometry preserves walkable slope while clearing steep s
     REQUIRE(surface.flags == (W8_GD_SURFACE_PROP_GEOMETRY | 1));
     REQUIRE(surface.slope == 0);
 }
+
+TEST_CASE("Octree build cleanup frees shared runs and retains the reserved record")
+{
+    W8OctPreTreeGeometry geometry{};
+    geometry.vertex_count = geometry.m_polygon_count = 4;
+    geometry.m_vertices = static_cast<W8OctPreTreeVertex*>(std::calloc(4, sizeof(W8OctPreTreeVertex)));
+    geometry.m_polygons = static_cast<W8OctRegionPolygon*>(std::calloc(4, sizeof(W8OctRegionPolygon)));
+    REQUIRE(geometry.m_vertices); REQUIRE(geometry.m_polygons);
+    int sentinel = 0;
+    geometry.m_vertices[0].face_indices = geometry.m_vertices[0].owned = &sentinel;
+    geometry.m_polygons[0].face_indices = &sentinel;
+    const auto run = [] { return static_cast<int*>(std::malloc(sizeof(int))); };
+    geometry.m_vertices[1].face_indices = geometry.m_vertices[2].face_indices = run();
+    geometry.m_vertices[3].face_indices = run();
+    geometry.m_vertices[1].owned = run();
+    geometry.m_vertices[3].owned = run();
+    geometry.m_polygons[1].face_indices = geometry.m_polygons[2].face_indices = run();
+    geometry.m_polygons[3].face_indices = run();
+    geometry.Release();
+    REQUIRE(geometry.vertex_count == 0); REQUIRE(geometry.m_polygon_count == 0);
+    REQUIRE_FALSE(geometry.m_vertices); REQUIRE_FALSE(geometry.m_polygons);
+    geometry.Release();
+}

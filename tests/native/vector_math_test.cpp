@@ -1,3 +1,4 @@
+#include "wiz8/navigation_math.h"
 #include "compat/compiler.h"
 #include "surrender/triangle_runs.h"
 #include <vector>
@@ -244,4 +245,24 @@ TEST_CASE("Triangle texture runs follow depth order and retain submission limits
     visitTriangleRuns({}, {}, 512, record);
     REQUIRE(runs.empty());
     REQUIRE(sortedTriangleOrder({}).empty());
+}
+
+TEST_CASE("Navigation slide math returns complete values for blocked headings")
+{
+    REQUIRE_FALSE(slideDirection(0, {1, 0, 1}));
+    REQUIRE_FALSE(slideDirection(255, {1, 0, 1}));
+    REQUIRE_FALSE(slideDirection(1, {0, 0, 0}));
+    const std::array<glm::vec3, 8> directions{{
+        {0, 0, -1}, {-1, 0, -1}, {-1, 0, 0}, {-1, 0, 1},
+        {0, 0, 1}, {1, 0, 1}, {1, 0, 0}, {1, 0, -1}}};
+    for (unsigned bit = 0; bit < directions.size(); ++bit) {
+        const auto slide = slideDirection(255u & ~(1u << bit), -directions[bit]);
+        REQUIRE(slide);
+        REQUIRE(glm::length(*slide - glm::normalize(directions[bit])) < 1e-6f);
+        REQUIRE(slide->y == 0);
+    }
+    // Opposing blocked neighbors still yield an engaged zero direction.
+    const auto cancelled = slideDirection(255u & ~((1u << 3) | (1u << 7)), {1, 0, 1});
+    REQUIRE(cancelled);
+    REQUIRE(*cancelled == glm::vec3(0));
 }
