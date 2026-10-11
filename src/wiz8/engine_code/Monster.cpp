@@ -1,3 +1,4 @@
+#include "wiz8/unicode.h"
 #include "glm/ext/vector_float3.hpp"
 #include "surrender/srBoundingBox.h"
 #include <SDL3/SDL_surface.h>
@@ -1593,7 +1594,7 @@ void W8Monster::Update()
 
     UpdateAttachedObjects();
     cycle = Query(W8_MONSTER_QUERY_CYCLE);
-    if (gfKeyState[VK_CONTROL] && g_combat_state != 0 &&
+    if (IsKeyHeld(VK_CONTROL) && g_combat_state != 0 &&
         (g_combat_state->round_active || gXStatus.fPartyMovementMode) &&
         (cycle == W8_MONSTER_CYCLE_IDLE || cycle == W8_MONSTER_CYCLE_SPICE) &&
         (m_pRep->pending_cycle == -1 || m_pRep->pending_cycle == 1 || m_pRep->pending_cycle == 2) &&

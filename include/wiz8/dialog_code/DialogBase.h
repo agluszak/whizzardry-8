@@ -55,7 +55,7 @@ public:
     template <class HandleInput>
     static void DrainModalInput(HandleInput&& handle_input)
     {
-        InputAtom input;
+        InputEvent input;
 
         const auto mouse = GetRegionMousePosition();
         UpdateRegionMousePosition(mouse.x, mouse.y);
@@ -68,7 +68,7 @@ public:
     friend class W8DialogNumericInput;
     template <class Dialog, class Field>
     friend void ProcessNumericDialogInputEvents(Dialog* dialog, Field*& active_field,
-                                                bool (Dialog::*handle_event)(const InputAtom*));
+                                                bool (Dialog::*handle_event)(const InputEvent*));
 
 public:
     /* Main Game raises the redraw bit when promoting its pending dialog. */

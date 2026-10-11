@@ -1089,10 +1089,10 @@ void DeleteDialogueTextCharacter(unsigned int key)
 }
 
 // FUNCTION: WIZ8 0x0058E9F0
-unsigned char TextBoxScrollThumbRegionEvent(const InputAtom* input_event, W8Region* region)
+unsigned char TextBoxScrollThumbRegionEvent(const InputEvent* input_event, W8Region* region)
 {
     PushButtonSoundScheme(0, true);
-    if (input_event->usEvent != MOUSE_POS) {
+    if (input_event->type != InputEventType::MouseMove) {
         return 0;
     }
 
@@ -1107,14 +1107,14 @@ unsigned char TextBoxScrollThumbRegionEvent(const InputAtom* input_event, W8Regi
         g_level_block->text_scroll_drag_idle = 1;
         return 0;
     }
-    if (gfLeftButtonState == 0) {
+    if (!IsLeftButtonHeld()) {
         g_level_block->text_scroll_drag_idle = 1;
         ClearActiveRegionIfMatches(0x54);
         return 0;
     }
 
     ActivateDialogRegion(0x54);
-    int position = GetAtomCursorY(input_event) - region->y1 - 1;
+    int position = GetEventCursorY(input_event) - region->y1 - 1;
     if (position < 0) {
         position = 0;
     } else {
@@ -1137,19 +1137,19 @@ unsigned char TextBoxScrollThumbRegionEvent(const InputAtom* input_event, W8Regi
 }
 
 // FUNCTION: WIZ8 0x0058E2A0
-unsigned char TextBoxScrollUpRegionEvent(const InputAtom* event, W8Region* region)
+unsigned char TextBoxScrollUpRegionEvent(const InputEvent* event, W8Region* region)
 {
     short text_box = g_status.text_line_cursor;
     if (g_level_block->text_lines[text_box] == 0) {
         PushButtonSoundScheme(0, true);
     }
 
-    unsigned short us_event = event->usEvent;
-    if (us_event < RIGHT_BUTTON_DOWN + 1) {
+    const InputEventType us_event = event->type;
+    if (us_event <= InputEventType::RightButtonDown) {
         if (region->CaptureButtonDown(us_event)) {
             return 1;
         }
-        if (us_event != LEFT_BUTTON_UP && us_event != LEFT_BUTTON_REPEAT) {
+        if (us_event != InputEventType::LeftButtonUp && us_event != InputEventType::LeftButtonRepeat) {
             return 0;
         }
         if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) == 0) {
@@ -1159,8 +1159,8 @@ unsigned char TextBoxScrollUpRegionEvent(const InputAtom* event, W8Region* regio
         ScrollTextBoxUp(1);
         return 1;
     } else {
-        if (us_event != RIGHT_BUTTON_UP && us_event != RIGHT_BUTTON_REPEAT) {
-            if (us_event != MOUSE_POS) {
+        if (us_event != InputEventType::RightButtonUp && us_event != InputEventType::RightButtonRepeat) {
+            if (us_event != InputEventType::MouseMove) {
                 return 0;
             }
             if ((region->flags & W8_REGION_MOUSE_LEAVE) == 0) {
@@ -1186,7 +1186,7 @@ unsigned char TextBoxScrollUpRegionEvent(const InputAtom* event, W8Region* regio
 }
 
 // FUNCTION: WIZ8 0x0058E650
-unsigned char TextBoxScrollDownRegionEvent(const InputAtom* event, W8Region* region)
+unsigned char TextBoxScrollDownRegionEvent(const InputEvent* event, W8Region* region)
 {
     short text_box = g_status.text_line_cursor;
     unsigned int visible = GetTextBoxVisibleLineCount();
@@ -1195,12 +1195,12 @@ unsigned char TextBoxScrollDownRegionEvent(const InputAtom* event, W8Region* reg
         PushButtonSoundScheme(0, true);
     }
 
-    unsigned short us_event = event->usEvent;
-    if (us_event < RIGHT_BUTTON_DOWN + 1) {
+    const InputEventType us_event = event->type;
+    if (us_event <= InputEventType::RightButtonDown) {
         if (region->CaptureButtonDown(us_event)) {
             return 1;
         }
-        if (us_event != LEFT_BUTTON_UP && us_event != LEFT_BUTTON_REPEAT) {
+        if (us_event != InputEventType::LeftButtonUp && us_event != InputEventType::LeftButtonRepeat) {
             return 0;
         }
         if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
@@ -1208,8 +1208,8 @@ unsigned char TextBoxScrollDownRegionEvent(const InputAtom* event, W8Region* reg
             return 1;
         }
     } else {
-        if (us_event != RIGHT_BUTTON_UP && us_event != RIGHT_BUTTON_REPEAT) {
-            if (us_event != MOUSE_POS) {
+        if (us_event != InputEventType::RightButtonUp && us_event != InputEventType::RightButtonRepeat) {
+            if (us_event != InputEventType::MouseMove) {
                 return 0;
             }
             if ((region->flags & W8_REGION_MOUSE_LEAVE) == 0) {
@@ -1236,11 +1236,11 @@ unsigned char TextBoxScrollDownRegionEvent(const InputAtom* event, W8Region* reg
 }
 
 // FUNCTION: WIZ8 0x0058ED90
-unsigned char TextBoxBodyRegionEvent(const InputAtom* event, W8Region* region)
+unsigned char TextBoxBodyRegionEvent(const InputEvent* event, W8Region* region)
 {
     PushButtonSoundScheme(0, true);
-    if (event->usEvent == MOUSE_WHEEL) {
-        short delta = GetMouseWheelDeltaValue(event->usParam);
+    if (event->type == InputEventType::MouseWheel) {
+        short delta = event->wheel;
         if (delta < 0) {
             ScrollTextBoxDown(-delta);
         } else {
@@ -1248,14 +1248,14 @@ unsigned char TextBoxBodyRegionEvent(const InputAtom* event, W8Region* region)
         }
         if (!gXStatus.fNpcDialogueMode) {
             if (gXStatus.fItemSelectMode) {
-                UseItemSelectTextBoxWheelAt(static_cast<short>(event->uiParam),
-                                            static_cast<unsigned short>(event->uiParam >> 16),
+                UseItemSelectTextBoxWheelAt(event->position.x,
+                                            event->position.y,
                                             true);
             }
             return 1;
         }
-        NpcDialogueTextBoxWheelAt(static_cast<short>(event->uiParam),
-                                  static_cast<unsigned short>(event->uiParam >> 16), true);
+        NpcDialogueTextBoxWheelAt(event->position.x,
+                                  event->position.y, true);
         return 1;
     }
     if (gXStatus.fNpcDialogueMode) {
@@ -1271,13 +1271,13 @@ unsigned char TextBoxBodyRegionEvent(const InputAtom* event, W8Region* region)
 }
 
 // FUNCTION: WIZ8 0x0058EFD0
-unsigned char TextBoxChannelTabRegionEvent(const InputAtom* event, W8Region* region)
+unsigned char TextBoxChannelTabRegionEvent(const InputEvent* event, W8Region* region)
 {
     SDL_Point mouse_pos;
 
     PushButtonSoundScheme(0, true);
     SGPMouseGetPos(&mouse_pos);
-    if (event->usEvent != LEFT_BUTTON_UP) {
+    if (event->type != InputEventType::LeftButtonUp) {
         return 0;
     }
 
@@ -1316,29 +1316,28 @@ unsigned char TextBoxChannelTabRegionEvent(const InputAtom* event, W8Region* reg
 /* Background mute for the message/text-box plates that share this catalog
    callback - suppress the default region click sound and swallow the event. */
 // FUNCTION: WIZ8 0x0058F240
-unsigned char TextBoxMuteRegionEvent(const InputAtom*, W8Region*)
+unsigned char TextBoxMuteRegionEvent(const InputEvent*, W8Region*)
 {
     PushButtonSoundScheme(0, true);
     return 0;
 }
 
 // FUNCTION: WIZ8 0x0058F250
-unsigned char HandleDialogueTextInput(const InputAtom* input_event)
+unsigned char HandleDialogueTextInput(const InputEvent* input_event)
 {
     if (!g_level_block->dialogue_text_input_open ||
-        (input_event->usKeyState & (CTRL_DOWN | ALT_DOWN)) != 0) {
+        (input_event->modifiers & (CTRL_DOWN | ALT_DOWN)) != 0) {
         return 0;
     }
-    if (input_event->usEvent != KEY_DOWN && input_event->usEvent != KEY_REPEAT) {
-        return 1;
-    }
-
     W8DialogueTextState* input = g_level_block->dialogue_text_input;
-    if ((input_event->uiParam & NATIVE_TEXT_INPUT_FLAG) != 0) {
-        if (input_event->usParam >= 32) InsertDialogueTextCharacter(input_event->usParam);
+    if (input_event->type == InputEventType::Text) {
+        if (input_event->text >= 32) InsertDialogueTextCharacter(input_event->text);
         return 1;
     }
-    unsigned int key = input_event->usParam;
+    if (input_event->type != InputEventType::KeyDown && input_event->type != InputEventType::KeyRepeat) {
+        return 1;
+    }
+    unsigned int key = input_event->key;
     switch (key) {
     case 8:
     case 0x2e:
@@ -1391,7 +1390,7 @@ unsigned char HandleDialogueTextInput(const InputAtom* input_event)
     }
 
     char character = TranslateKeyToCharacter(
-        static_cast<unsigned short>(key), static_cast<unsigned char>(input_event->usKeyState));
+        static_cast<unsigned short>(key), static_cast<unsigned char>(input_event->modifiers));
     if ((character >= '0' && character <= '9') || (character >= 'A' && character <= 'Z') ||
         (character >= 'a' && character <= 'z') || (character >= '!' && character <= '/') ||
         (character >= ':' && character <= '@') || (character >= '[' && character <= '_') ||
@@ -1671,13 +1670,13 @@ int FindStoppedTextLine(void)
 /* Hand one key to the text box's own handler. A key that moved the selection
    is followed by the two calls that settle it; a key that did not is not. */
 // FUNCTION: WIZ8 0x0058a8f0
-char TextBoxHandleKey(const InputAtom* event)
+char TextBoxHandleKey(const InputEvent* event)
 {
     W8MainGameTextPanel* panel = g_main_game_screen->m_text_panel;
     int before = panel->m_selection;
     char handled;
 
-    handled = panel->m_key_handler->HandleKey(event->usParam);
+    handled = panel->m_key_handler->HandleKey(event->key);
 
     if (handled != 0 && panel->m_selection != before) {
         ResetButtonSoundScheme();

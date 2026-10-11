@@ -30,7 +30,6 @@
 #include "wiz8/surface_storage.h"
 #include "surrender/srMath.h"
 #include "wiz8/xstatus.h"
-#include "native/input_events.h"
 #include "AnimRep.hpp"
 #include "environment_colour.h"
 #include "layouts/world.h"
@@ -1439,9 +1438,7 @@ glm::vec2 GetCursorScaledPosition()
 // FUNCTION: WIZ8 0x00428340
 void SyncSystemCursor(void)
 {
-    SDL_Point cursor;
-
-    GetGameMousePosition(&cursor);
+    SDL_Point cursor = GetGameMousePosition();
     if (!g_fullscreen) {
         /* GetGameMousePosition already returns design-space coordinates. */
         if (cursor.x != g_cursor_width || cursor.y != g_cursor_height) {
@@ -1489,15 +1486,15 @@ bool IsCursorInRectangle(int left, int top, int right, int bottom)
 /* The atom's packed mouse position plus the cursor hotspot, split into the
    screen-space x and y region input works in. */
 // FUNCTION: WIZ8 0x00428580
-int GetAtomCursorX(const InputAtom* atom)
+int GetEventCursorX(const InputEvent* atom)
 {
-    return static_cast<unsigned short>(atom->uiParam) + g_cursor_hotspot_x;
+    return atom->position.x + g_cursor_hotspot_x;
 }
 
 // FUNCTION: WIZ8 0x004285a0
-int GetAtomCursorY(const InputAtom* atom)
+int GetEventCursorY(const InputEvent* atom)
 {
-    return static_cast<int>(atom->uiParam >> 16) + g_cursor_hotspot_y;
+    return atom->position.y + g_cursor_hotspot_y;
 }
 
 /* Creates the shipped 128x128 mouse polygon inside its dedicated scene. */
@@ -1883,7 +1880,7 @@ void DrawVideoInspector(int left, unsigned int top)
             float scaled;
 
             position = cameraLocation();
-            if (gfKeyState[0x70] != 0) {
+            if (IsKeyHeld(0x70)) {
                 position.x *= g_world_cursor_scale;
                 scaled = position.y * g_world_cursor_scale;
                 position.y = position.z * g_world_cursor_scale;

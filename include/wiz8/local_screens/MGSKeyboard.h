@@ -29,8 +29,8 @@ public:
     virtual ~MGSKeyboard() = default;
 
     int FindBinding(W8MGSCommand command) const;
-    /* Match a live InputAtom against the binding table; returns command or -1. */
-    W8MGSCommand FindCommandForEvent(const InputAtom* event) const;
+    /* Match a live InputEvent against the binding table; returns command or -1. */
+    W8MGSCommand FindCommandForEvent(const InputEvent* event) const;
     MGSKeyBinding* GetBinding(int index) const;
     bool IsCommandPressed(W8MGSCommand command) const;
     void Clear();
@@ -84,14 +84,14 @@ void AssignKeyboardMenuCallback(short menu, short item, W8TextControl* row);
 /* Invalidate (when asked) then redraw the menu panel. */
 void RedrawKeyboardMenuPanel(bool invalidate);
 /* Region callback the thirteen keyboard-menu rows share. */
-unsigned char KeyboardMenuRowRegionEvent(const InputAtom* event, W8Region* region);
+unsigned char KeyboardMenuRowRegionEvent(const InputEvent* event, W8Region* region);
 /* Region callback for the keyboard-menu background: right-up closes the menu. */
-unsigned char KeyboardMenuBackgroundRegionEvent(const InputAtom* event, W8Region* region);
+unsigned char KeyboardMenuBackgroundRegionEvent(const InputEvent* event, W8Region* region);
 /* Dispatch a bound MGS command number through the keyboard system. */
 void DispatchMGSCommand(W8MGSCommand command);
 /* Route one non-mouse input atom to text entry, dialogue, the trap text box,
    the MIPE editor, the record-mode console or a bound MGS command. */
-unsigned char HandleMainGameInputEvent(const InputAtom* input);
+unsigned char HandleMainGameInputEvent(const InputEvent* input);
 /* Poll the camera/movement command bindings and set the world-render flags. */
 void HandleManualCameraHotkeys(void);
 void ApplyCameraMotionHotkeys(void);

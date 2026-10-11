@@ -74,7 +74,6 @@
 #include "equipment_slots.h"
 #include "float_constants.h"
 #include "gameplay_modifiers.h"
-#include "input.h"
 #include "layouts/main_game_screen.h"
 #include "message_box.h"
 #include "retail_records.h"

@@ -66,7 +66,7 @@ void AutomapScreenFrame(void);
 unsigned char AutomapScreenLeave(int leaving);
 unsigned char AutomapScreenFinalize(void);
 /* Full-screen dismiss: left-up after a held press leaves the automap. */
-unsigned char AutomapBackgroundRegionEvent(const InputAtom* event, struct W8Region* region);
+unsigned char AutomapBackgroundRegionEvent(const InputEvent* event, struct W8Region* region);
 float GetAutomapGridCellSize(void);
 void SetAutomapGridCellSize(float value);
 /* Packs a world position into an automap cell key. */

@@ -23,7 +23,7 @@ std::string GetTextFromField(unsigned char field);
 void ClearActiveField(void);
 void SelectNextField(void);
 bool EditingText(void); /* 0x005D5A00 */
-unsigned int HandleTextInput(const InputAtom* input);
+unsigned int HandleTextInput(const InputEvent* input);
 void RenderActiveTextField(void);
 void RenderAllTextFields(void);
 

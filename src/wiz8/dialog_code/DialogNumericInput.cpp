@@ -196,12 +196,12 @@ void W8DialogNumericInput::Backspace()
 }
 
 // FUNCTION: WIZ8 0x005e19a0
-bool W8DialogNumericInput::HandleInput(const InputAtom* input)
+bool W8DialogNumericInput::HandleInput(const InputEvent* input)
 {
-    if (input->usEvent != KEY_DOWN && input->usEvent != KEY_REPEAT) {
+    if (input->type != InputEventType::KeyDown && input->type != InputEventType::KeyRepeat) {
         return false;
     }
-    switch (input->usParam) {
+    switch (input->key) {
     case 0x30:
     case 0x31:
     case 0x32:
@@ -213,7 +213,7 @@ bool W8DialogNumericInput::HandleInput(const InputAtom* input)
     case 0x38:
     case 0x39:
         if (m_active && m_caret != -1) {
-            TypeDigit(static_cast<char>(input->usParam));
+            TypeDigit(static_cast<char>(input->key));
             return true;
         }
         break;
@@ -228,7 +228,7 @@ bool W8DialogNumericInput::HandleInput(const InputAtom* input)
     case 0x68:
     case 0x69:
         if (m_active && m_caret != -1) {
-            TypeDigit(static_cast<char>(input->usParam - 0x30));
+            TypeDigit(static_cast<char>(input->key - 0x30));
             return true;
         }
         break;

@@ -32,11 +32,11 @@ void SetUseItemSelectReturnMode(W8MainUiMode value);
 void InvalidateUseItemSelectPanel(void);
 void CloseUseItemSelection(void);
 /* Scroll-button region callback for use-item select (ids 0 and 1). */
-unsigned char UseItemSelectScrollRegionEvent(const InputAtom* event, W8Region* region);
+unsigned char UseItemSelectScrollRegionEvent(const InputEvent* event, W8Region* region);
 /* Action/icon control region callback (catalog ids 0, 3, 8). */
-unsigned char UseItemSelectControlRegionEvent(const InputAtom* event, W8Region* region);
+unsigned char UseItemSelectControlRegionEvent(const InputEvent* event, W8Region* region);
 /* Text-box body callback while use-item select is active. */
-unsigned char UseItemSelectTextBoxRegionEvent(const InputAtom* event, W8Region* region);
+unsigned char UseItemSelectTextBoxRegionEvent(const InputEvent* event, W8Region* region);
 /* Text-box wheel helper while use-item select is active. */
 void UseItemSelectTextBoxWheelAt(short x, unsigned short y, bool flag);
 W8ItemInstance* GetSelectedOrFallbackValue(void);

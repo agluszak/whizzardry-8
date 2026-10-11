@@ -234,7 +234,7 @@ W8World* CreateWorld()
 // FUNCTION: WIZ8 0x0044F400
 void UpdateWorlds(void)
 {
-    g_navigator_vertical_enabled = !(gfKeyState[VK_CONTROL] != 0 && g_combat_state != 0 &&
+    g_navigator_vertical_enabled = !(IsKeyHeld(VK_CONTROL) && g_combat_state != 0 &&
                                      (g_combat_state->round_active || gXStatus.fPartyMovementMode));
 
     {

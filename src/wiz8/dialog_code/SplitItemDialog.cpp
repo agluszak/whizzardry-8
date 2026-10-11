@@ -495,7 +495,7 @@ void W8SplitItemDialog::OnNumericInputChanged(int value)
 }
 
 // FUNCTION: WIZ8 0x005DE120
-bool W8SplitItemDialog::HandleInputEvent(const InputAtom* input)
+bool W8SplitItemDialog::HandleInputEvent(const InputEvent* input)
 {
     int index;
     W8DialogNumericInput** field;
@@ -507,8 +507,8 @@ bool W8SplitItemDialog::HandleInputEvent(const InputAtom* input)
         }
         ++field;
     }
-    if (input->usEvent == KEY_DOWN || input->usEvent == KEY_REPEAT) {
-        int key = toupper(input->usParam);
+    if (input->type == InputEventType::KeyDown || input->type == InputEventType::KeyRepeat) {
+        int key = toupper(input->key);
         if (key == '\r') {
             split_result = W8_SPLIT_RESULT_CONFIRMED;
             m_keep_open = false;

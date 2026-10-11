@@ -65,8 +65,8 @@ void ReleaseMessageStorage(void);
 /* The TEXT section pair - the four message-storage
    runs persisted around the game-status record. */
 unsigned char SaveTextBoxState(wiz8::File* file);
-unsigned char HandleDialogueTextInput(const InputAtom* input);
-char TextBoxHandleKey(const InputAtom* event);
+unsigned char HandleDialogueTextInput(const InputEvent* input);
+char TextBoxHandleKey(const InputEvent* event);
 int GetSelectedTextLine(int index);
 void ClearSelectedTextLine(int index);
 /* Hover and selection track one wrapped-line start per box. Set operations

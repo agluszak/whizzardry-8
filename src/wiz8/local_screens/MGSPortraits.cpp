@@ -904,7 +904,7 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
             int highlight_y;
             int highlight_catalog;
 
-            if (!highlighted || gfLeftButtonState != 0 || g_level_block->portrait_flash != 0) {
+            if (!highlighted || IsLeftButtonHeld() || g_level_block->portrait_flash != 0) {
                 if (g_status.selected_character != static_cast<int>(party_slot)) {
                     goto draw_condition_icons;
                 }
@@ -923,7 +923,7 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
             int highlight_catalog;
 
             highlight_y = menu_y;
-            if (!highlighted || (gfLeftButtonState != 0 && !gXStatus.fReviewCharacterMode) ||
+            if (!highlighted || (IsLeftButtonHeld() && !gXStatus.fReviewCharacterMode) ||
                 (g_current_screen_state.id == W8_SCREEN_MAIN_GAME &&
                  g_level_block->portrait_flash != 0)) {
                 if (g_status.selected_character != static_cast<int>(party_slot)) {
@@ -1326,25 +1326,25 @@ void CreateConditionButtons(void)
 }
 
 // FUNCTION: WIZ8 0x0059BD20
-unsigned char PortraitControlRegionEvent(const InputAtom* event, W8Region* region)
+unsigned char PortraitControlRegionEvent(const InputEvent* event, W8Region* region)
 {
     W8TextControl* control = g_portrait_controls[region->callback_id];
     if (control == 0) {
         return 0;
     }
-    switch (event->usEvent) {
-    case LEFT_BUTTON_DOWN:
+    switch (event->type) {
+    case InputEventType::LeftButtonDown:
         control->OnLeftButtonDown(0);
         region->flags |= W8_REGION_LEFT_BUTTON_HELD;
         return 1;
-    case LEFT_BUTTON_UP:
+    case InputEventType::LeftButtonUp:
         if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
             giLevelUpChar = region->callback_id;
             control->OnLeftButtonUp(0);
             region->flags &= ~W8_REGION_LEFT_BUTTON_HELD;
         }
         return 1;
-    case MOUSE_POS:
+    case InputEventType::MouseMove:
         if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
             giLevelUpChar = -1;
             control->OnMouseLeave(0);
@@ -1354,6 +1354,8 @@ unsigned char PortraitControlRegionEvent(const InputAtom* event, W8Region* regio
             control->OnMouseEnter(0);
             return 1;
         }
+        break;
+    default:
         break;
     }
     return 0;
@@ -1419,12 +1421,12 @@ void UpdateConditionButtons(void)
 }
 
 // FUNCTION: WIZ8 0x0059C260
-unsigned char ConditionButtonRegionEvent(const InputAtom* event, W8Region* region)
+unsigned char ConditionButtonRegionEvent(const InputEvent* event, W8Region* region)
 {
-    switch (event->usEvent) {
-    case LEFT_BUTTON_DOWN:
-    case LEFT_BUTTON_UP:
-    case MOUSE_POS:
+    switch (event->type) {
+    case InputEventType::LeftButtonDown:
+    case InputEventType::LeftButtonUp:
+    case InputEventType::MouseMove:
         return DispatchButtonRegionEvent(event, region, g_condition_buttons[region->callback_id]);
     default:
         return 0;

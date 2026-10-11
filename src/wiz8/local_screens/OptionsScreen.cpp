@@ -1397,15 +1397,14 @@ void W8OptionsScreen::OnPrimary(W8TextControl*)
 }
 
 // FUNCTION: WIZ8 0x005a9720
-unsigned char W8OptionsScreen::ProcessInput(const InputAtom* input)
+unsigned char W8OptionsScreen::ProcessInput(const InputEvent* input)
 {
     W8OptionsTextEditor* editor = m_text_editor;
     if (editor != 0) {
-        if (input->usEvent == KEY_DOWN || input->usEvent == KEY_REPEAT) {
-            if (input->usParam != VK_ESCAPE && input->usParam != VK_RETURN) {
-                unsigned short character = TranslateKeyToCharacter(
-                    static_cast<unsigned short>(input->usParam), input->usKeyState);
-                if (character != 0 && strchr("\\/:*?\"<>|", character) != 0) {
+        if (IsTypingEvent(*input)) {
+            if (input->key != VK_ESCAPE && input->key != VK_RETURN) {
+                const char32_t character = TypedCharacter(*input);
+                if (character != 0 && character < 0x80 && strchr("\\/:*?\"<>|", int(character)) != 0) {
                     return 0;
                 }
                 HandleTextInput(input);
@@ -1413,14 +1412,14 @@ unsigned char W8OptionsScreen::ProcessInput(const InputAtom* input)
             }
             SetTargetCursor(W8_CURSOR_NONE);
             if (editor->m_listener != 0) {
-                editor->m_listener->OnTextEditComplete(editor, input->usParam == VK_ESCAPE);
+                editor->m_listener->OnTextEditComplete(editor, input->key == VK_ESCAPE);
             }
             delete m_text_editor;
             m_text_editor = 0;
             return 1;
         }
-    } else if (m_key_capture != 0 && input->usEvent == KEY_DOWN) {
-        return m_key_capture->OnKey(static_cast<unsigned short>(input->usParam), input->usKeyState);
+    } else if (m_key_capture != 0 && input->type == InputEventType::KeyDown) {
+        return m_key_capture->OnKey(static_cast<unsigned short>(input->key), input->modifiers);
     }
     return 0;
 }
@@ -2035,7 +2034,7 @@ unsigned char OptionsScreenEnter()
 void OptionsScreenFrame()
 {
     SDL_Point point;
-    InputAtom input;
+    InputEvent input;
 
     if (g_dev_mode) {
         RequestExitScreen();
@@ -2074,7 +2073,7 @@ void OptionsScreenFrame()
     UpdateRegionMousePosition(point.x, point.y);
     while (DequeueEvent(&input) == 1) {
         if (!screen->ProcessInput(&input) && !DispatchRegionInput(&input) &&
-            input.usEvent == KEY_DOWN && input.usParam == VK_ESCAPE) {
+            input.type == InputEventType::KeyDown && input.key == VK_ESCAPE) {
             RequestScreenTransition();
         }
     }

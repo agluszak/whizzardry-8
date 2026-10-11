@@ -402,7 +402,7 @@ public:
     ~W8OptionsScreen();
     void SelectPanel(int selected, bool notify);
     void CreateControls();
-    unsigned char ProcessInput(const InputAtom* input);
+    unsigned char ProcessInput(const InputEvent* input);
     void Redraw();
     void ShowNotification(W8DialogCloseListener* listener, bool allow_cancel, int message,
                           int value);

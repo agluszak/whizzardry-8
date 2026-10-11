@@ -134,12 +134,12 @@ unsigned char CreditsScreenLeave(int)
 // FUNCTION: WIZ8 0x005bc530
 void CreditsScreenFrame(void)
 {
-    InputAtom input;
+    InputEvent input;
 
     // No clickable controls: dismiss directly on a key or mouse release.
     while (DequeueEvent(&input) == 1) {
-        if (input.usEvent == KEY_DOWN || input.usEvent == LEFT_BUTTON_UP ||
-            input.usEvent == RIGHT_BUTTON_UP)
+        if (input.type == InputEventType::KeyDown || input.type == InputEventType::LeftButtonUp ||
+            input.type == InputEventType::RightButtonUp)
             RequestScreenTransition();
     }
 

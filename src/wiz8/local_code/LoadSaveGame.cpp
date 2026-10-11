@@ -1,3 +1,4 @@
+#include "wiz8/unicode.h"
 #include "wiz8/engine_code/stScript.h" // IWYU pragma: keep - complete script type used through the owned pointer.
 #include <fmt/format.h>
 #include <fmt/printf.h>
@@ -89,7 +90,6 @@
 #include "compat/native.h"
 #include "conditions.h"
 #include "gameplay_modifiers.h"
-#include "input.h"
 #include "item_spawning.h"
 #include "layouts/character.h"
 #include "layouts/gameplay_databases.h"

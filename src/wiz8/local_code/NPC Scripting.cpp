@@ -20,7 +20,6 @@
 #include "wiz8/fonts.h"
 #include "wiz8/integer_constants.h"
 #include "cursor.h"
-#include "input.h"
 #include "random.h"
 #include "soundman.h"
 #include "wiz8/layouts/character.h"

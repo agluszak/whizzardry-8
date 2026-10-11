@@ -66,12 +66,6 @@ private:
     std::size_t active_count = 0;
 };
 
-/* Region callbacks receive SGP's input atom unchanged. Wheel rotation uses
-   usParam; uiParam carries the packed cursor position. */
-W8_ABI_ASSERT(sizeof(InputAtom) == 0x18, "InputAtom_size");
-W8_ABI_ASSERT(offsetof(InputAtom, usParam) == 0x08, "InputAtom_wheel_payload_offset");
-W8_ABI_ASSERT(offsetof(InputAtom, uiParam) == 0x0c, "InputAtom_mouse_position_offset");
-
 enum W8RegionFlags {
     W8_REGION_RECTANGLE = 0x01,
     W8_REGION_CIRCLE = 0x02,
@@ -87,24 +81,24 @@ enum W8RegionFlags {
 };
 
 struct W8Region;
-typedef unsigned char (*W8RegionCallback)(const InputAtom* event, struct W8Region* region);
+typedef unsigned char (*W8RegionCallback)(const InputEvent* event, struct W8Region* region);
 
 class W8RegionHandler {
 public:
-    virtual int HandleRegionInput(W8Region& region, const InputAtom& input) = 0;
+    virtual int HandleRegionInput(W8Region& region, const InputEvent& input) = 0;
 
 protected:
     ~W8RegionHandler() = default;
 };
 
 struct W8Region {
-    bool CaptureButtonDown(unsigned int event)
+    bool CaptureButtonDown(InputEventType event)
     {
-        if (event == RIGHT_BUTTON_DOWN) {
+        if (event == InputEventType::RightButtonDown) {
             flags |= W8_REGION_RIGHT_BUTTON_HELD;
             return true;
         }
-        if (event == LEFT_BUTTON_DOWN) {
+        if (event == InputEventType::LeftButtonDown) {
             flags |= W8_REGION_LEFT_BUTTON_HELD;
             return true;
         }
@@ -174,12 +168,12 @@ unsigned char InitializeRegionHelpState(void);
 
 /* Text-box static-catalog callbacks, implemented in Local
    Screens\MGSTextBox.cpp. */
-unsigned char TextBoxScrollUpRegionEvent(const InputAtom*, W8Region*);    /* 0x0058E2A0 */
-unsigned char TextBoxScrollDownRegionEvent(const InputAtom*, W8Region*);  /* 0x0058E650 */
-unsigned char TextBoxScrollThumbRegionEvent(const InputAtom*, W8Region*); /* 0x0058E9F0 */
-unsigned char TextBoxBodyRegionEvent(const InputAtom*, W8Region*);        /* 0x0058ED90 */
-unsigned char TextBoxChannelTabRegionEvent(const InputAtom*, W8Region*);  /* 0x0058EFD0 */
-unsigned char TextBoxMuteRegionEvent(const InputAtom*, W8Region*);        /* 0x0058F240 */
+unsigned char TextBoxScrollUpRegionEvent(const InputEvent*, W8Region*);    /* 0x0058E2A0 */
+unsigned char TextBoxScrollDownRegionEvent(const InputEvent*, W8Region*);  /* 0x0058E650 */
+unsigned char TextBoxScrollThumbRegionEvent(const InputEvent*, W8Region*); /* 0x0058E9F0 */
+unsigned char TextBoxBodyRegionEvent(const InputEvent*, W8Region*);        /* 0x0058ED90 */
+unsigned char TextBoxChannelTabRegionEvent(const InputEvent*, W8Region*);  /* 0x0058EFD0 */
+unsigned char TextBoxMuteRegionEvent(const InputEvent*, W8Region*);        /* 0x0058F240 */
 
 extern std::deque<W8RegionSet> g_region_sets;
 extern std::deque<W8Region> g_regions;
@@ -221,13 +215,13 @@ void ResetRegionHelp(bool delayed);
 void SetRegionHelpDelay(int delay_ms);
 unsigned int ControlRegionSetIndex(void);
 std::size_t LiveDynamicRegionCount(void);
-std::int32_t RegionReasonForInput(const W8Region& region, const InputAtom& input);
+std::int32_t RegionReasonForInput(const W8Region& region, const InputEvent& input);
 void EnableRegionHelp(unsigned int region_index);
 void DisableRegionHelp(unsigned int region_index);
 unsigned char ClearActiveRegionIfMatches(unsigned int region_index);
 void ActivateDialogRegion(unsigned int region_index); /* 0x004F2040 */
 /* 0x004F1910 returns the byte produced by the selected region callback. */
-unsigned char DispatchRegionInput(const InputAtom* event);
+unsigned char DispatchRegionInput(const InputEvent* event);
 
 void SetRegionHelpForceEnabled(bool enabled);
 void EnableRegionHelpFlag(W8Region* region);

@@ -45,8 +45,8 @@ extern int g_cursor_hotspot_y;
 
 /* 0x00428580 and 0x004285A0: the packed atom mouse position projected into
    screen space by the current cursor hotspot. */
-int GetAtomCursorX(const InputAtom* atom);
-int GetAtomCursorY(const InputAtom* atom);
+int GetEventCursorX(const InputEvent* atom);
+int GetEventCursorY(const InputEvent* atom);
 
 void PositionMouseCursor(int x, int y, bool reset_tick);
 /* 0x00428220: milliseconds since PositionMouseCursor last stamped the move

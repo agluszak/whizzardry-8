@@ -8,7 +8,7 @@
 #include <cstddef>
 #include <exception>
 
-#include "input.h"
+#include "wiz8/unicode.h"
 #include "wiz8/engine_code/stScript.h"
 #include "wiz8/virtual_file.h"
 #include "filesystem.h"

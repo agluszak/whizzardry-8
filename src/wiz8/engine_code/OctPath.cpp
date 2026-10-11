@@ -5685,7 +5685,7 @@ unsigned int W8PathingService::EditWaypointLinkFlags(const char* title, unsigned
 {
     EnvironmentColour colour_saved;
     EnvironmentColour colour_backup;
-    InputAtom atom;
+    InputEvent atom;
     char* lines[9];
     char* wide[9];
     char groups[32];
@@ -5821,10 +5821,10 @@ unsigned int W8PathingService::EditWaypointLinkFlags(const char* title, unsigned
             direction = 0;
             break;
         }
-        if (atom.usEvent != KEY_DOWN) {
+        if (atom.type != InputEventType::KeyDown) {
             continue;
         }
-        if (atom.usParam == VK_ESCAPE) {
+        if (atom.key == VK_ESCAPE) {
             if (pending == 0) {
                 direction = 0;
                 break;
@@ -5833,7 +5833,7 @@ unsigned int W8PathingService::EditWaypointLinkFlags(const char* title, unsigned
             pending = 0;
             continue;
         }
-        if (atom.usParam == VK_RETURN) {
+        if (atom.key == VK_RETURN) {
             if (pending == 0) {
                 break;
             }
@@ -5841,7 +5841,7 @@ unsigned int W8PathingService::EditWaypointLinkFlags(const char* title, unsigned
             continue;
         }
         if (pending != 0) {
-            key = toupper(atom.usParam);
+            key = toupper(atom.key);
             switch (pending) {
             case 'D':
                 if (key == 'B') {
@@ -5895,7 +5895,7 @@ unsigned int W8PathingService::EditWaypointLinkFlags(const char* title, unsigned
                 break;
             }
         } else {
-            switch (toupper(atom.usParam)) {
+            switch (toupper(atom.key)) {
             case 'D':
                 if ((waypoint_editor_flags & 2) != 0) {
                     sprintf(lines[1], " Can only set flags in both directions in this link mode");

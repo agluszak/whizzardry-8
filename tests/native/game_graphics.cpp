@@ -20,7 +20,6 @@
 #include <system_error>
 
 #include "compat/video.h"
-#include "native/input_events.h"
 #include "input.h"
 #include "surrender/srGERD.h"
 #include "surrender/srImageIO.h"
