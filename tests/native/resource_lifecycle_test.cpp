@@ -8,6 +8,7 @@
 #include "surrender/srColorSurface.h"
 #include "surrender/srCore.h"
 #include "surrender/srScene.h"
+#include "surrender/srClock.h"
 #include "wiz8/engine_code/stMeshModel.h"
 #include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/character_event_queue.h"
@@ -19,6 +20,8 @@
 #include "wiz8/engine_code/AnimObj.h"
 #include "wiz8/engine_code/Spells.h"
 #include "wiz8/engine_code/World.h"
+#include "wiz8/engine_code/Octree.h"
+#include "wiz8/engine_code/game_timer.h"
 #include "temporary_directory.h"
 #include "local_code/NPCScripting.h"
 #include "surrender/srPixelConvert.h"
@@ -135,12 +138,19 @@ struct SpellVisualFixture
     ScopedTemporaryDirectory directory{"wiz8-spell-visuals"};
     w8_native::Roots previous_roots = w8_native::path_roots();
     W8World* previous_world = GetWorld();
+    srClock* previous_clock = g_shared_timer_base;
+    srClock clock;
+    W8Octree* previous_octree = g_octree;
+    std::unique_ptr<W8Octree> octree;
     W8World world{};
     std::vector<W8SpellVisual*> visuals;
 
     SpellVisualFixture()
     {
         REQUIRE(srInit());
+        g_shared_timer_base = &clock;
+        octree = std::make_unique<W8Octree>(nullptr, nullptr);
+        g_octree = octree.get();
         std::filesystem::create_directory(directory.path / "assets");
         std::filesystem::create_directory(directory.path / "user");
         w8_native::configure_paths({(directory.path / "assets").string(),
@@ -152,6 +162,9 @@ struct SpellVisualFixture
     ~SpellVisualFixture()
     {
         DestroyAllSpellVisuals(&world);
+        octree.reset();
+        g_octree = previous_octree;
+        g_shared_timer_base = previous_clock;
         SetCurrentWorld(previous_world);
         w8_native::configure_paths(previous_roots);
         srExit();
