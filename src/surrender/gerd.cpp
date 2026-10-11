@@ -2315,6 +2315,12 @@ void srGERD::setFogColor(const glm::vec4& color)
     }
 }
 
+// FUNCTION: SURRENDER 0x1001C680
+glm::vec4 srGERD::getFogColor() const
+{
+    return fog_color;
+}
+
 // FUNCTION: SURRENDER 0x1001C440
 void srGERD::setAmbientLight(const srVector3T<float>& light)
 {
