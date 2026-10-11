@@ -244,7 +244,6 @@ static void ApplyModelViewMatrix(srModelInstance* instance, srGERD* renderer, fl
     if ((instance->alignment_flags.value & 1) == 0) {
         instance->applyWorldSpaceMatrix(*renderer);
     } else {
-        glm::mat4 view;
         srVector3T<double> world_location;
         srVector3T<double> world_scale;
         glm::vec4 transformed_location;
@@ -255,7 +254,7 @@ static void ApplyModelViewMatrix(srModelInstance* instance, srGERD* renderer, fl
 
         renderer->matrixMode(srGERD::MATRIX_MODELVIEW);
         renderer->pushMatrix();
-        renderer->getMatrix(srGERD::MATRIX_MODELVIEW, view);
+        const auto view = renderer->getMatrix(srGERD::MATRIX_MODELVIEW);
         world_location = instance->getWorldSpaceLocation();
         world_scale = instance->getWorldSpaceScale();
 
