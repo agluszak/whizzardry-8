@@ -1217,10 +1217,11 @@ char OctPreTree::PathNodeObstructed(const srVector3T<float>* node)
             }
             corner.y = bounds_min.y + g_world_scale;
             out = SnapToGround(&corner, 1);
-            if (out == 0) {
+            if (out == 0 ||
+                !(current_prop != -1 ||
+                  fabsf(node->y - corner.y) <= clearance * static_cast<float>(g_double_half))) {
                 out = 1;
-            } else if (current_prop != -1 ||
-                       fabsf(node->y - corner.y) <= clearance * static_cast<float>(g_double_half)) {
+            } else {
                 out = result;
                 if (current_prop >= 0) {
                     corner.y = bounds_min.y + g_world_scale;
@@ -1246,8 +1247,6 @@ char OctPreTree::PathNodeObstructed(const srVector3T<float>* node)
                         }
                     }
                 }
-            } else {
-                out = 1;
             }
             result = out;
         }

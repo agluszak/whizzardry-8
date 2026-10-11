@@ -2497,14 +2497,11 @@ int ResolveCharacterAttackDamage(int party_slot, int hand, W8AttackMode attack_m
     }
 
     int rolled = RollDice(&dice, dice_count);
-    if (dice.count == 0) {
-        *out_hit = 0;
-    } else if (rolled <
-               (g_float_one - dice.count * g_facing_tolerance0) * dice.Maximum() * dice_count) {
-        *out_hit = 0;
-    } else {
-        *out_hit = 1;
-    }
+    *out_hit = (dice.count != 0 &&
+                rolled >= (g_float_one - dice.count * g_facing_tolerance0) *
+                              dice.Maximum() * dice_count)
+                   ? 1
+                   : 0;
     if (dice_count > 1 && Random(100) < dice_count * 20 - 20) {
         QueueCharacterEvent(pPC, g_learn_sound, 0, g_character_event_no_flags,
                             g_character_event_full_volume);

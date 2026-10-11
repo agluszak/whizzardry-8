@@ -6,7 +6,6 @@
 #include <memory>
 #include <optional>
 #include <string>
-#include <utility>
 #include "wiz8/unicode.h"
 #include "wiz8/fonts.h"
 #include "cursor.h"
@@ -295,7 +294,7 @@ void TryFinishNpcVoicePlayback(bool force)
 void ShowNpcPortraitMessage(std::string_view text, W8QuoteNotice notice)
 {
     g_npc_scripting.portrait_message_active = true;
-    SetNpcQuoteBubbleVisible(true, text, 0, -1, -1, std::move(notice), -1);
+    SetNpcQuoteBubbleVisible(true, text, 0, -1, -1, notice, -1);
     HoldNpcSpeech(g_npc_scripting.speech, ComputePortraitMessageDuration(text));
 }
 

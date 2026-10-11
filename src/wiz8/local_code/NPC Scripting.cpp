@@ -8,7 +8,6 @@
 #include <optional>
 #include <string>
 #include <exception>
-#include <utility>
 #include <algorithm>
 #include <variant>
 
@@ -746,7 +745,7 @@ static void ProcessMessageBoxQueue(void)
         if (g_settings.skill_increase_messages == 0) {
             PostSkillIncreaseNotices(&std::get<W8SkillNoticePayload>(notice->notice));
         } else {
-            ShowNpcPortraitMessage(notice->text, std::move(notice->notice));
+            ShowNpcPortraitMessage(notice->text, notice->notice);
         }
         break;
     }
@@ -776,7 +775,7 @@ static void ProcessMessageBoxQueue(void)
         }
         break;
     case W8_NPC_MSG_PORTRAIT_EXTRA:
-        ShowNpcPortraitMessage(notice->text, std::move(notice->notice));
+        ShowNpcPortraitMessage(notice->text, notice->notice);
         break;
     case W8_NPC_MSG_LEVEL_UP: {
         int party_slot = std::get<W8LevelUpNotice>(notice->notice).party_slot;
@@ -784,7 +783,7 @@ static void ProcessMessageBoxQueue(void)
         if (g_settings.skill_increase_messages == 0) {
             wiz8::sound::play("Data\\Sound\\Misc\\GainLevel.wav");
         } else {
-            ShowNpcPortraitMessage(notice->text, std::move(notice->notice));
+            ShowNpcPortraitMessage(notice->text, notice->notice);
         }
         break;
     }

@@ -3246,9 +3246,7 @@ void UpdateCombat(void)
         }
         W8ActionKind pending_action = g_status.buffers.XChar[slot].pending_action;
         int result;
-        if (pending_action < W8_ACTION_ATTACK) {
-            result = 3;
-        } else if (pending_action < W8_ACTION_BREATHE) {
+        if (pending_action >= W8_ACTION_ATTACK && pending_action < W8_ACTION_BREATHE) {
             result = ResolveCharacterAttack(slot);
         } else if (pending_action == W8_ACTION_BREATHE) {
             result = ExecuteCharacterSpecialAttack(slot);

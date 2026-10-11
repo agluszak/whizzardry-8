@@ -4212,7 +4212,7 @@ void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQu
             g_npc_interaction_state->pending_notice_lines.push_back(line);
         }
         bool level_up = std::holds_alternative<W8LevelUpNotice>(notice);
-        g_npc_interaction_state->quote_notice = std::move(notice);
+        g_npc_interaction_state->quote_notice = notice;
         if (level_up) {
             wiz8::sound::play(reinterpret_cast<char*>(const_cast<char*>( // reinterpret-ok: SGP text ABI
                           "Data\\Sound\\Misc\\GainLevel.wav")));
