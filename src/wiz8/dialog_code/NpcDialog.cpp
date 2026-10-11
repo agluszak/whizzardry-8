@@ -1,6 +1,5 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
-#include <SDL3/SDL_rect.h>
 #include <memory>
 #include <string>
 #include <vector>
@@ -199,11 +198,9 @@ void W8NpcDialog::Draw()
 // FUNCTION: WIZ8 0x005DAE90
 bool W8NpcDialog::ProcessInput()
 {
-    SDL_Point mouse;
     InputAtom input;
 
-    SGPMouseGetPos(&mouse);
-    DispatchMouseEvent(MOUSE_POS, mouse.x, mouse.y, gfLeftButtonState, gfRightButtonState);
+    RefreshMouseRegions();
     while (DequeueEvent(&input) == TRUE) {
         if ((input.usEvent != KEY_DOWN && input.usEvent != KEY_REPEAT) ||
             static_cast<char>(HandleTextInput(&input)) == 0) {
@@ -213,7 +210,7 @@ bool W8NpcDialog::ProcessInput()
                 g_npc_dialog->m_keep_open = false;
                 return true;
             }
-            DispatchDialogMouseInput(input.usEvent, mouse.x, mouse.y);
+            DispatchDialogMouseInput(input);
         }
     }
     return m_keep_open;

@@ -3062,11 +3062,8 @@ void SetMainGameMode(W8MainGameMode mode)
 // FUNCTION: WIZ8 0x005684E0
 unsigned char ProcessMainGameInput(void)
 {
-    SDL_Point mouse;
-    SGPMouseGetPos(&mouse);
     if (GetForcedRegion() == 0) {
-        DispatchMouseEvent(MOUSE_POS, mouse.x, mouse.y, gfLeftButtonState,
-                                    gfRightButtonState);
+        RefreshMouseRegions();
     }
 
     bool handled = false;
@@ -3075,14 +3072,12 @@ unsigned char ProcessMainGameInput(void)
         handled = true;
         if ((!g_mouselook_active || HandleMouselookInput(&input) == 0) &&
             DispatchRegionInput(&input) == 0 && GetForcedRegion() == 0) {
-            SGPMouseGetPos(&mouse);
             switch (input.usEvent) {
             case LEFT_BUTTON_DOWN:
             case LEFT_BUTTON_UP:
             case RIGHT_BUTTON_DOWN:
             case RIGHT_BUTTON_UP:
-                DispatchMouseEvent(input.usEvent, mouse.x, mouse.y, gfLeftButtonState,
-                                            gfRightButtonState);
+                DispatchMouseEvent(input);
                 break;
             default:
                 if (HandleDialogueTextInput(&input) == 0 && HandleMainGameInputEvent(&input) == 0) {
@@ -7143,16 +7138,12 @@ void LoadMainGameCursorResources(void)
 // FUNCTION: WIZ8 0x00568950
 unsigned int DispatchMainGameMouseButtons(const InputAtom* input)
 {
-    SDL_Point point;
-    SGPMouseGetPos(&point);
     switch (input->usEvent) {
     case LEFT_BUTTON_DOWN:
     case LEFT_BUTTON_UP:
     case RIGHT_BUTTON_DOWN:
     case RIGHT_BUTTON_UP:
-        DispatchMouseEvent(input->usEvent, static_cast<unsigned short>(point.x),
-                                    static_cast<unsigned short>(point.y), gfLeftButtonState,
-                                    gfRightButtonState);
+        DispatchMouseEvent(*input);
         return 1;
     default:
         return 0;

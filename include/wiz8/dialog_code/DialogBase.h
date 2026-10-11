@@ -5,6 +5,7 @@
 #include <string_view>
 
 #include "Button System.h"
+#include "wiz8/dialog_code/DialogButton.h"
 
 enum W8DialogKind {
     W8_DIALOG_BASIC = 0,
@@ -27,9 +28,8 @@ void SetDialogDestroyCallback(W8DialogBase* dialog, W8DialogDestroyCallback call
 /* Shared close-button callback used by the monster and spell info dialogs. */
 void DialogCloseButtonCallback(W8DialogButton* button);
 
-/* The modal dialog shell. It uses SGP Button System resources rather than
-   Controls panels; concrete dialogs contain their own button/text/scroll
-   helpers. */
+/* Modal controls own their regions and state; only visual resources and
+   rendering are shared with the SGP Button System. */
 // VTABLE: WIZ8 0x005efaf8
 class W8DialogBase {
 public:
@@ -62,7 +62,7 @@ protected:
                         int width, int height);
 
     int m_error;
-    GUIButton m_resource;
+    W8DialogButton m_resource;
     std::string m_text;
     Font* m_font;
     unsigned char m_foreground;
