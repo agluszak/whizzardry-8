@@ -2,6 +2,7 @@
 #include <glm/ext/vector_float3.hpp>
 #include <cmath>
 #include <memory>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -218,15 +219,15 @@ void stGroundShadow::renderGroundShadow(srGERD* renderer)
         mesh = model->getTriMesh();
         /* Only the collected polygons (up to 30 per mesh) receive the shadow:
            the selection list is the TriMesh's active-polygon list. */
-        mesh.active_polygons = g_ground_shadow_material_parameters.polygons;
-        mesh.active_polygon_count = 0;
+        w8_ulong active_count = 0;
         while (*polygons != 0 && (*polygons >> 0x10) == mesh_index) {
-            if (mesh.active_polygon_count < 0x1e) {
-                mesh.active_polygons[mesh.active_polygon_count] = *polygons & 0xffff;
-                ++mesh.active_polygon_count;
+            if (active_count < 0x1e) {
+                g_ground_shadow_material_parameters.polygons[active_count++] = *polygons & 0xffff;
             }
             ++polygons;
         }
+        mesh.active_polygons = std::span<const w8_ulong>(
+            g_ground_shadow_material_parameters.polygons, active_count);
         mesh.materials[0][0] = g_ground_shadow_material;
         mesh.poly_textures[0][0] = 0;
         mesh.textures[0][0] = g_ground_shadow_texture;

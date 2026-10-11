@@ -2,6 +2,8 @@
 
 #include <array>
 #include <iosfwd>
+#include <optional>
+#include <span>
 #include <vector>
 
 #include "srFlags.h"
@@ -19,6 +21,7 @@
 // VTABLE: SURRENDER 0x10076D48 srMeshModel
 class srMeshModel : public srClassSupport<srMeshModel, srModel, 0x2010> {
 public:
+    using PolygonSelection = std::optional<std::span<const w8_ulong>>;
     /* Front/back table indices: dump labels materials[pass][0/1] and
        renderTriMesh uses the corresponding CONTROL_FRONT/BACK bits. */
     enum e_side : int { SIDE_FRONT = 0, SIDE_BACK = 1 };
@@ -71,8 +74,7 @@ public:
         glm::vec3 bounds_center{0.0f, 0.0f, 0.0f};
         float bounds_radius = 0.0f;
         float sort_bias = 0.0f;
-        w8_ulong* active_polygons = nullptr;
-        w8_long active_polygon_count = 0;
+        PolygonSelection active_polygons;
     };
 
     SR_DLL_IMPORT srMeshModel(w8_long polygons = 0, w8_long vertices = 0);

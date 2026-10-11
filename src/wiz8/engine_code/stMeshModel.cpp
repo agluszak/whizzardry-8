@@ -346,7 +346,7 @@ void stMeshModel::RenderTriMeshWithEquations(srGERD& renderer, const TriMesh& me
             srVector3T<float> eye(inverse_model_view[3][0], inverse_model_view[3][1],
                                   inverse_model_view[3][2]);
 
-            if (mesh.active_polygons == 0) {
+            if (!mesh.active_polygons) {
                 if (renderer.getWinding() == srGERD::WINDING_POSITIONAL_0) {
                     for (w8_long polygon = 0; polygon < mesh.polygon_count; ++polygon) {
                         int vertex = mesh.poly_vertices[polygon].y;
@@ -377,8 +377,7 @@ void stMeshModel::RenderTriMeshWithEquations(srGERD& renderer, const TriMesh& me
                     }
                 }
             } else if (renderer.getWinding() == srGERD::WINDING_POSITIONAL_0) {
-                for (w8_long index = 0; index < mesh.active_polygon_count; ++index) {
-                    w8_ulong polygon = mesh.active_polygons[index];
+                for (const auto polygon : *mesh.active_polygons) {
                     int vertex = mesh.poly_vertices[polygon].y;
                     const srVector3T<float>& position = mesh.positions[vertex];
                     const srVector3T<float>& equation = arg_poly_equations[polygon];
@@ -391,8 +390,7 @@ void stMeshModel::RenderTriMeshWithEquations(srGERD& renderer, const TriMesh& me
                     }
                 }
             } else {
-                for (w8_long index = 0; index < mesh.active_polygon_count; ++index) {
-                    w8_ulong polygon = mesh.active_polygons[index];
+                for (const auto polygon : *mesh.active_polygons) {
                     int vertex = mesh.poly_vertices[polygon].y;
                     const srVector3T<float>& position = mesh.positions[vertex];
                     const srVector3T<float>& equation = arg_poly_equations[polygon];
@@ -426,11 +424,10 @@ void stMeshModel::RenderTriMeshWithEquations(srGERD& renderer, const TriMesh& me
                 }
 
                 if (arg_poly_equations != 0) {
-                    pipeline->active_triangles = g_software_cull_active_polygons.data();
-                    pipeline->active_triangle_count = active_count;
-                } else if (mesh.active_polygons != 0) {
+                    pipeline->active_triangles =
+                        std::span<const w8_ulong>(g_software_cull_active_polygons).first(active_count);
+                } else if (mesh.active_polygons) {
                     pipeline->active_triangles = mesh.active_polygons;
-                    pipeline->active_triangle_count = mesh.active_polygon_count;
                 }
 
                 pipeline->SetMeshBounds(mesh);
@@ -514,13 +511,13 @@ void stMeshModel::ClearAutomapPolygonFilter()
    submits. Skin scans drop textures whose name starts with "blank"; a table
    not found among the skins uses the base/automap selection. */
 // FUNCTION: WIZ8 0x00473CD0
-w8_ulong* stMeshModel::GetActivePolygons(w8_long* count_out, int table, bool flag)
+srMeshModel::PolygonSelection stMeshModel::GetActivePolygons(int table, bool check_blanking)
 {
     auto skin = std::find_if(skins.begin(), skins.end(),
                             [table](const auto& skin) { return skin.id == table; });
     auto& selection = skin != skins.end() ? skin->active_polygons : automap_polygons;
     auto& checked = skin != skins.end() ? skin->blanking_checked : automap_filter_active;
-    if (!checked && flag) {
+    if (!checked && check_blanking) {
         std::vector<w8_ulong> active;
         active.reserve(polygon_count);
         auto* textures = skin != skins.end() ? skin->textures.data() : getPolyTexture(0, 0, 0);
@@ -537,15 +534,10 @@ w8_ulong* stMeshModel::GetActivePolygons(w8_long* count_out, int table, bool fla
         }
         checked = true;
     }
-    *count_out = selection ? static_cast<w8_long>(selection->size()) : 0;
     if (!selection) {
-        return nullptr; // No selection means the renderer submits every polygon.
+        return std::nullopt;
     }
-    // The TriMesh consumer uses a non-null pointer to recognize filtering.
-    // An engaged empty vector therefore needs a non-null, never-dereferenced
-    // sentinel so "none selected" cannot accidentally turn into "draw all".
-    static w8_ulong empty_selection;
-    return selection->empty() ? &empty_selection : selection->data();
+    return std::span<const w8_ulong>(*selection);
 }
 
 // FUNCTION: WIZ8 0x00471160

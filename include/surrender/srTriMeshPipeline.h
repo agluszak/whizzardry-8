@@ -56,11 +56,10 @@ public:
     Pass* current_pass;
     w8_ulong triangle_count;
     w8_ulong vertex_count;
-    w8_ulong active_triangle_count;
     /* Bit 0: run getClipMask (frustum 0x3f plus user planes in bits 6+).
        Bit 1: vertex/triangle batch-limit path. Reset/Get always set both. */
     w8_ulong flags;
-    const w8_ulong* active_triangles;
+    srMeshModel::PolygonSelection active_triangles;
     const glm::vec4* projected_vertices;
     const srVector3i* triangles;
     /* stParticle stores its vertex positions here; Reset/Get null it. */
@@ -94,4 +93,3 @@ protected:
 private:
     srTriMeshPipeline();
 };
-

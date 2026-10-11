@@ -33,9 +33,9 @@ static bool defaults()
     storage.fill(std::byte{0xa5});
     auto* mesh = std::construct_at(reinterpret_cast<srMeshModel::TriMesh*>(storage.data()));
     REQUIRE((mesh->vertex_count == 0 && mesh->polygon_count == 0 && mesh->pass_count == 0));
-    REQUIRE((mesh->control_flags == 0 && mesh->active_polygon_count == 0));
+    REQUIRE((mesh->control_flags == 0 && !mesh->active_polygons));
     REQUIRE((mesh->poly_vertices == nullptr && mesh->poly_equations == nullptr));
-    REQUIRE((mesh->positions == nullptr && mesh->normals == nullptr && mesh->active_polygons == nullptr));
+    REQUIRE((mesh->positions == nullptr && mesh->normals == nullptr && !mesh->active_polygons));
     REQUIRE(mesh->bounds_minimum == srVector3T<float>(0, 0, 0));
     REQUIRE(mesh->bounds_maximum == srVector3T<float>(0, 0, 0));
     REQUIRE(mesh->bounds_center == srVector3T<float>(0, 0, 0));
@@ -108,9 +108,9 @@ static bool lazyTables()
     REQUIRE(mesh.getPolyUVIndex(0, 0) == nullptr);
     auto* active = mesh.getActivePolygonTable(1);
     REQUIRE((active[0] == 0 && active[1] == 1));
-    REQUIRE(mesh.getTriMesh().active_polygons == active);
+    REQUIRE(mesh.getTriMesh().active_polygons->data() == active);
     mesh.setActivePolygonCount(1);
-    REQUIRE(mesh.getTriMesh().active_polygon_count == 1);
+    REQUIRE(mesh.getTriMesh().active_polygons->size() == 1);
     auto* dig = mesh.getVertexDIG(0, 1);
     REQUIRE(mesh.getTriMesh().dig[0] == dig);
     for (int index = 0; index < 3; ++index) {
@@ -198,7 +198,13 @@ static bool pipelineSlots()
     // Metadata-only GERD/device construction: no window, GPU context or rendering is requested.
     srGERD renderer(srCreateSDLGPUDevice(), "SDLGPU");
     auto* pipeline = srTriMeshPipeline::Get(&renderer);
-    REQUIRE((pipeline && pipeline->vertex_pipe && pipeline->active_triangle_count == 0));
+    REQUIRE((pipeline && pipeline->vertex_pipe && !pipeline->active_triangles));
+    pipeline->triangle_count = 1;
+    pipeline->active_triangles.emplace();
+    pipeline->FlushSlots();
+    REQUIRE(pipeline->active_triangles->empty());
+    pipeline->Reset(&renderer);
+    REQUIRE_FALSE(pipeline->active_triangles);
     srMeshModel mesh(1, 3);
     auto* uv = mesh.getVertexTexCoords(0, 0, 1);
     auto* textures = mesh.getPolyTexture(0, 0, 1);

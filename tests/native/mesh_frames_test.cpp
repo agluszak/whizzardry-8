@@ -17,7 +17,6 @@
 #include "wiz8/engine_code/ReadMesh.h"
 #include "wiz8/engine_code/materials.h"
 #include "surrender/srModelInstance.h"
-#include "compat/compiler.h"
 #include "surrender/srMath.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srShader.h"
@@ -319,15 +318,14 @@ static bool skins_and_automap()
             auto* second_textures = mesh.GetTextureTable(second);
             REQUIRE((second == 1 && second_textures[0] == blank));
             const int third = mesh.CreateSkinTable("third2", second);
-            w8_long count = -1;
-            REQUIRE((mesh.GetActivePolygons(&count, second, false) == nullptr && count == 0));
-            auto* selection = mesh.GetActivePolygons(&count, second, true);
-            REQUIRE((selection != nullptr && count == 2 && selection[0] == 1 && selection[1] == 2));
-            REQUIRE(mesh.GetActivePolygons(&count, second, true) == selection);
+            REQUIRE(!mesh.GetActivePolygons(second, false));
+            auto selection = mesh.GetActivePolygons(second, true);
+            REQUIRE((selection && selection->size() == 2 && (*selection)[0] == 1 && (*selection)[1] == 2));
+            REQUIRE(mesh.GetActivePolygons(second, true)->data() == selection->data());
             mesh.RemoveSkinTable(0);
             REQUIRE(mesh.FindSkinTable("SECOND1") == second); // ID is no longer its vector position.
             REQUIRE(mesh.GetTextureTable(second) == second_textures);
-            REQUIRE(mesh.GetActivePolygons(&count, second, true) == selection);
+            REQUIRE(mesh.GetActivePolygons(second, true)->data() == selection->data());
             const std::array<char, 9> bounded_name{'t', 'h', 'i', 'r', 'd', '2', 'X', 'X', 'X'};
             REQUIRE(mesh.FindSkinTable(std::string_view(bounded_name.data(), 6)) == third);
             REQUIRE(mesh.CreateSkinTable("reused3", -1) == 0);
@@ -342,25 +340,29 @@ static bool skins_and_automap()
 
             const std::array<std::string_view, 1> excluded{visible->getName()};
             mesh.ApplyAutomapPolygonFilter(excluded);
-            selection = mesh.GetActivePolygons(&count, -1, false);
-            REQUIRE((selection != nullptr && count == 2 && selection[0] == 0 && selection[1] == 2));
+            selection = mesh.GetActivePolygons(-1, false);
+            REQUIRE((selection && selection->size() == 2 && (*selection)[0] == 0 && (*selection)[1] == 2));
             mesh.ApplyAutomapPolygonFilter({});
-            REQUIRE((mesh.GetActivePolygons(&count, -1, true) == nullptr && count == 0)); // All selected.
+            REQUIRE(!mesh.GetActivePolygons(-1, true)); // All selected.
             mesh.ClearAutomapPolygonFilter();
-            REQUIRE((mesh.GetActivePolygons(&count, -1, false) == nullptr && count == 0));
-            selection = mesh.GetActivePolygons(&count, -1, true);
-            REQUIRE((selection != nullptr && count == 2 && selection[0] == 1 && selection[1] == 2));
+            REQUIRE(!mesh.GetActivePolygons(-1, false));
+            selection = mesh.GetActivePolygons(-1, true);
+            REQUIRE((selection && selection->size() == 2 && (*selection)[0] == 1 && (*selection)[1] == 2));
             base[1] = blank;
             base[2] = blank;
             const std::array<std::string_view, 1> exclude_all{"BLANK-BODY"};
             mesh.ApplyAutomapPolygonFilter(exclude_all);
-            selection = mesh.GetActivePolygons(&count, -1, true);
-            REQUIRE((selection != nullptr && count == 0)); // None selected is NOT the unfiltered null case.
+            selection = mesh.GetActivePolygons(-1, true);
+            REQUIRE((selection && selection->empty())); // None selected is NOT the unfiltered null case.
             REQUIRE((mesh.automap_polygons && mesh.automap_polygons->empty()));
             mesh.ClearAutomapPolygonFilter();
-            REQUIRE((mesh.GetActivePolygons(&count, -1, true) != nullptr && count == 0));
+            const auto empty_automap = mesh.GetActivePolygons(-1, true);
+            REQUIRE(empty_automap);
+            REQUIRE(empty_automap->empty());
             const int all_blank = mesh.CreateSkinTable("all-blank", -1);
-            REQUIRE((mesh.GetActivePolygons(&count, all_blank, true) != nullptr && count == 0));
+            const auto empty_skin = mesh.GetActivePolygons(all_blank, true);
+            REQUIRE(empty_skin);
+            REQUIRE(empty_skin->empty());
             mesh.SetMappedVertex(7, 10);
             mesh.SetMappedVertex(9, 10);
             REQUIRE((mesh.FindMappedIndex(10) == 9 && mesh.mapped_vertices.size() == 1));

@@ -592,8 +592,10 @@ void srMeshModel::updateTriMesh()
         tri_mesh.bounds_center = sphere.center;
         tri_mesh.bounds_radius = sphere.radius;
     }
-    tri_mesh.active_polygons = getActivePolygonTable(0);
-    tri_mesh.active_polygon_count = active_polygon_count;
+    tri_mesh.active_polygons.reset();
+    if (const auto* active = getActivePolygonTable(0)) {
+        tri_mesh.active_polygons = std::span<const w8_ulong>(active, active_polygon_count);
+    }
     dirty_flags.value &= ~(1UL << DIRTY_TRI_MESH);
 }
 
@@ -802,21 +804,22 @@ void srMeshModel::verify(srRuntimeClass::e_verify mode)
             srAssertFail("srFinite(t.sortBias)", "D:\\srsdk1x\\sources\\corelib\\srMeshModel.cpp",
                          0x5d2, 0);
         }
-        if (t.active_polygons != 0) {
-            if (t.polygon_count < t.active_polygon_count) {
+        if (t.active_polygons) {
+            const auto active_count = static_cast<w8_long>(t.active_polygons->size());
+            if (t.polygon_count < active_count) {
                 srAssertFail("t.aPnum <= t.pnum", "D:\\srsdk1x\\sources\\corelib\\srMeshModel.cpp",
                              0x5da, 0);
             }
-            for (i = 0; i < t.active_polygon_count; ++i) {
+            for (i = 0; i < active_count; ++i) {
                 /* c-style-cast-ok: the assert text spells (SRDWORD)(t.pnum). */
-                if ((SRDWORD)t.polygon_count <= t.active_polygons[i]) {
+                if ((SRDWORD)t.polygon_count <= (*t.active_polygons)[i]) {
                     srAssertFail("t.APT[i] < (SRDWORD)(t.pnum)",
                                  "D:\\srsdk1x\\sources\\corelib\\srMeshModel.cpp", 0x5dd, 0);
                 }
             }
-            for (i = 0; i < t.active_polygon_count; ++i) {
-                for (j = i + 1; j < t.active_polygon_count; ++j) {
-                    if (t.active_polygons[i] == t.active_polygons[j]) {
+            for (i = 0; i < active_count; ++i) {
+                for (j = i + 1; j < active_count; ++j) {
+                    if ((*t.active_polygons)[i] == (*t.active_polygons)[j]) {
                         srAssertFail("t.APT[i] != t.APT[j]",
                                      "D:\\srsdk1x\\sources\\corelib\\srMeshModel.cpp", 0x5e1, 0);
                     }
@@ -1227,8 +1230,7 @@ void srTriMeshPipeline::Reset(srGERD* renderer)
     flags |= FRUSTUM_CLIPPING;
     flags |= LIMIT_VERTEX_BATCHES;
     triangle_count = 0;
-    active_triangle_count = 0;
-    active_triangles = 0;
+    active_triangles.reset();
     projected_vertices = 0;
     triangles = 0;
     vertex_count = 0;
@@ -1283,7 +1285,7 @@ void srTriMeshPipeline::PrepareSlot()
 // FUNCTION: SURRENDER 0x100443A0
 void srTriMeshPipeline::FlushSlots()
 {
-    if (triangle_count == 0 || (active_triangles != 0 && active_triangle_count == 0)) {
+    if (triangle_count == 0 || (active_triangles && active_triangles->empty())) {
         return;
     }
 
@@ -1335,17 +1337,18 @@ void srTriMeshPipeline::FlushSlots()
         culler_input.clip_mask = retain_clip_mask ? clip.mask : 0;
     }
 
-    if (active_triangles == 0) {
+    if (!active_triangles) {
         srCore.getStatisticsManager()->statistics.triangles_submitted +=
             slot_count * triangle_count;
     } else {
         srCore.getStatisticsManager()->statistics.triangles_submitted +=
-            slot_count * active_triangle_count;
+            slot_count * active_triangles->size();
     }
     ++srCore.getStatisticsManager()->statistics.meshes_submitted;
     srCore.getStatisticsManager()->statistics.vertices_submitted += slot_count * vertex_count;
 
-    w8_ulong total = active_triangles == 0 ? triangle_count : active_triangle_count;
+    const auto total = active_triangles ? static_cast<w8_ulong>(active_triangles->size())
+                                       : triangle_count;
     w8_ulong batch_limit = total;
     if ((this->flags & LIMIT_VERTEX_BATCHES) != 0) {
         double ratio = static_cast<double>(vertex_count) / triangle_count;
@@ -1375,7 +1378,7 @@ void srTriMeshPipeline::FlushSlots()
             batch_count = batch_limit;
         }
 
-        if (active_triangles == 0) {
+        if (!active_triangles) {
             culler_input.triangle_count = batch_count;
             culler_input.active_triangle_count = 0;
             culler_input.active_triangles = 0;
@@ -1384,7 +1387,7 @@ void srTriMeshPipeline::FlushSlots()
         } else {
             culler_input.triangle_count = triangle_count;
             culler_input.active_triangle_count = batch_count;
-            culler_input.active_triangles = active_triangles + processed;
+            culler_input.active_triangles = active_triangles->data() + processed;
             culler_input.projected_vertices = projected_vertices;
             culler_input.triangles = triangles;
         }
@@ -1450,7 +1453,7 @@ void srTriMeshPipeline::FlushSlots()
             pipe_input.environment_scale = environment_scale;
             pipe_input.environment_inverse_scale = environment_inverse_scale;
 
-            if (active_triangles == 0 && processed != 0) {
+            if (!active_triangles && processed != 0) {
                 for (w8_ulong index = 0; index < batch_count; ++index) {
                     culler_output.indices[index] += processed;
                 }
@@ -1630,10 +1633,8 @@ void srMeshModel::renderTriMesh(srGERD& renderer, const TriMesh& mesh)
                 pipeline->vertex_extras = mesh.normals;
                 pipeline->projected_vertices = mesh.poly_equations;
 
-                if (mesh.active_polygons != 0) {
+                if (mesh.active_polygons) {
                     pipeline->active_triangles = mesh.active_polygons;
-                    pipeline->active_triangle_count =
-                        static_cast<w8_ulong>(mesh.active_polygon_count);
                 }
 
                 pipeline->SetMeshBounds(mesh);
