@@ -345,18 +345,16 @@ public:
     bool SaveRegionLinks(char* path);
     unsigned char ValidateRegionMeshLinks();
     /* Collect the live (mesh<<16)|polygon keys whose triangles overlap the
-       (x±radius, y-height..y, z±radius) box, sorted and zero-terminated in
-       the shared query buffer. */
-    w8_ulong* CollectPolygonsNearPoint(srVector3T<float>* center, float radius,
-                                            float height); /* 0x00438780 */
+       (x±radius, y-height..y, z±radius) box, sorted in an owned result. */
+    std::vector<w8_ulong> polygonsNearPoint(const glm::vec3& center, float radius,
+                                             float height); /* 0x00438780 */
     int CountBadRegionMeshLinks(W8OctSpatialState* spatial);
     void ToggleUpdateSuspension(W8World* world);
     void MarkMeshLinksVisible(unsigned int mesh);
     /* Collect the model instances whose bounds reach within `radius` of
        `point`, through the region cells and volumes the sphere touches. */
-    int CollectModelsNearPoint(std::vector<stModelInstance*>& out, const srVector3T<float>* point,
-                               float radius, unsigned int flags,
-                               bool only_accumulated); /* 0x0042F9A0 */
+    std::vector<stModelInstance*> modelsNearPoint(const glm::vec3& center, float radius,
+                                                  unsigned int flags, bool only_accumulated); /* 0x0042F9A0 */
     OctreeCellCoordinates cellCoordinates(const glm::vec3& location) const;
     OctreeCellCoordinates projectRegionsAt(const glm::vec3& location);
     void CollectVisibleCells();

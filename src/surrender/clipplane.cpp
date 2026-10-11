@@ -24,10 +24,8 @@ void srClipPlane::process(const ProcessInfo& info, e_processType type)
 {
     srGERD* renderer = info.renderer;
     if (type == PROCESS_PUSH || type == PROCESS_PUSH_GLOBAL) {
-        applyWorldSpaceMatrix(*renderer);
-        renderer->matrixMode(srGERD::MATRIX_MODELVIEW);
+        const auto transform = scopedWorldSpaceMatrix(*renderer);
         renderer->pushClipPlane(clip_plane_, static_cast<srGERD::e_clipMode>(clip_type_));
-        renderer->popMatrix();
     } else if (type == PROCESS_POP || type == PROCESS_POP_GLOBAL) {
         renderer->popClipPlane();
     }
