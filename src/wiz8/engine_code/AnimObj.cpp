@@ -583,7 +583,7 @@ W8AniMesh* AnimObjEntry(W8AnimObj* animation, signed char list_index, unsigned i
 }
 
 // FUNCTION: WIZ8 0x004A2220
-stLightDefinition::~stLightDefinition() {}
+stLightDefinition::~stLightDefinition() = default;
 
 /* Type-two light definitions own four synchronized keyframe vectors.  The
    clone iterates the second vector's count, which is the retail authority for

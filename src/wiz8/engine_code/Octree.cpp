@@ -2393,12 +2393,6 @@ W8OctreeObjectRegistry::W8OctreeObjectRegistry()
 }
 
 // FUNCTION: WIZ8 0x00436b20
-W8OctreeObjectRegistry::~W8OctreeObjectRegistry()
-{
-    delete by_cell;
-    delete by_object;
-}
-
 // FUNCTION: WIZ8 0x00436b90
 unsigned char W8OctreeObjectRegistry::MoveObjectToCell(W8OctreeObjectKind kind, int id,
                                                        const srVector3T<int>* point)

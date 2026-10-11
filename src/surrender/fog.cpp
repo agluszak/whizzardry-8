@@ -163,4 +163,4 @@ void srFog::dump(std::ostream& stream)
 }
 
 // FUNCTION: SURRENDER 0x1004C350
-srFog::~srFog() {}
+srFog::~srFog() = default;

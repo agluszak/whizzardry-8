@@ -1,4 +1,5 @@
 #pragma once
+#include <memory>
 
 #include <vector>
 #include <unordered_map>
@@ -192,10 +193,10 @@ public:
     /* Retail emits both lifecycle bodies out of line in the Octree TU: the
        constructor at 0x00436840 and the destructor at 0x00436B20. */
     W8OctreeObjectRegistry();
-    ~W8OctreeObjectRegistry();
+    ~W8OctreeObjectRegistry() = default;
 
-    W8OctreeIndex* by_cell;
-    W8OctreeIndex* by_object;
+    std::unique_ptr<W8OctreeIndex> by_cell;
+    std::unique_ptr<W8OctreeIndex> by_object;
 
     /* Returns whether the pairing ended up recorded; every recovered caller
        discards it. */

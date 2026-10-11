@@ -240,23 +240,18 @@ W8ItemVideoObjectCache g_item_video_objects;
 // FUNCTION: WIZ8 0x0055cdb0
 W8ItemVideoObjectEntry::W8ItemVideoObjectEntry() : initialized(0), video_object(0) {}
 
-W8ItemVideoObjectEntry::~W8ItemVideoObjectEntry() {}
-
 // FUNCTION: WIZ8 0x0055cdc0
 void W8ItemVideoObjectCache::Initialize(int new_capacity)
 {
     capacity = new_capacity;
-    data = new W8ItemVideoObjectEntry[new_capacity];
+    data = std::make_unique<W8ItemVideoObjectEntry[]>(new_capacity);
     loaded_count = 0;
 }
 
 // FUNCTION: WIZ8 0x0055ce40
 void W8ItemVideoObjectCache::Clear()
 {
-    if (data) {
-        delete[] data;
-        data = 0;
-    }
+    data.reset();
     loaded_count = 0;
 }
 
