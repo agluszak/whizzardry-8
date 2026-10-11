@@ -2970,11 +2970,9 @@ void srGERD::dumpTextureCache(std::ostream& stream)
                    "--------------\n");
     w8_long index = 0;
     for (Texture* entry = texture_head; entry != 0; entry = entry->next) {
-        char format_name[64];
-        format_name[0] = '\0';
-        entry->pixel_format.getName(format_name);
+        const auto format_name = entry->pixel_format.getName();
         srStreamPrintf(stream, "%04d  %03dx%03d     %-11s  ", index, entry->device.width,
-                       entry->device.height, format_name);
+                       entry->device.height, format_name.c_str());
         index++;
         float kb = (entry->device.size + 0x3ff) * 0.0009765625f;
         if (kb >= 10.0f) {
