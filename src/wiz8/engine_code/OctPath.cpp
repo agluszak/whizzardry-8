@@ -2346,9 +2346,8 @@ unsigned short W8PathingService::PlanMovement(W8NavigatorMovementState* movement
 
         unsigned short next = node->parent_node;
         if (m_trace_configured) {
-            if ((node->flags & W8_PATH_SEARCH_EXPANDED) != 0) {
-                node->flags |= 8;
-            } else if (!TestSearchPositionVisibility(&node->position, movement)) {
+            if ((node->flags & W8_PATH_SEARCH_EXPANDED) != 0 ||
+                !TestSearchPositionVisibility(&node->position, movement)) {
                 node->flags |= 8;
             } else {
                 next = 0;
@@ -5763,34 +5762,7 @@ unsigned int W8PathingService::EditWaypointLinkFlags(const char* title, unsigned
                 }
                 break;
             case 'M':
-                break;
             case 'S':
-                if (0 <= key - 'A' && key - 'A' <= 0x13) {
-                    switch (key) {
-                    case 'A':
-                    case 'H':
-                    case 'K':
-                    case 'L':
-                    case 'R':
-                    case 'S':
-                    case 'T':
-                        break;
-                    case 'B':
-                    case 'C':
-                    case 'D':
-                    case 'E':
-                    case 'F':
-                    case 'G':
-                    case 'I':
-                    case 'J':
-                    case 'M':
-                    case 'N':
-                    case 'O':
-                    case 'P':
-                    case 'Q':
-                        break;
-                    }
-                }
                 break;
             case 'G':
                 if ('A' <= key && key <= 'P') {
