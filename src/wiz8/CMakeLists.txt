@@ -186,6 +186,7 @@ add_library(WIZ8_GAME_CORE STATIC
     local_code/Search.cpp
     local_code/npc_interaction.cpp
     local_code/npc_dialogue.cpp
+    local_code/npc_dialogue_view.cpp
     local_code/npc_speech.cpp
     local_code/npc_story_events.cpp
     "local_code/NPC Scripting.cpp"
