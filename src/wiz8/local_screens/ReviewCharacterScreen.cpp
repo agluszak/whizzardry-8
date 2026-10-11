@@ -79,7 +79,7 @@
 #include "wiz8/local_screens/RCSItemsPage.h"
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/item_video_object_vector.h"
-#include "wiz8/video_object_catalog.h"
+#include "wiz8/catalog_artwork.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "compat/native.h"

@@ -1,5 +1,4 @@
-#ifndef __FONT_H_
-#define __FONT_H_
+#pragma once
 
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
@@ -83,4 +82,3 @@ std::vector<std::uint16_t> CreateEnglishTransTable();
 
 std::int16_t GetIndex(char32_t siChar);
 
-#endif

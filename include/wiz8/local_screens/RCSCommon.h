@@ -4,7 +4,7 @@
 #include <string_view>
 
 #include "image.h"
-#include "wiz8/video_object_catalog.h"
+#include "wiz8/catalog_artwork.h"
 #include "input.h"
 
 struct Controls;

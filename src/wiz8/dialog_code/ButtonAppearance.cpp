@@ -66,9 +66,9 @@ ButtonImage ButtonGraphics::Load(std::string_view filename, std::int32_t grayed,
         }
         const auto& frame = image->object().frames[index];
         image->MaxWidth = std::max(image->MaxWidth,
-            static_cast<std::uint32_t>(std::max(0, frame.usWidth + frame.sOffsetX)));
+            static_cast<std::uint32_t>(std::max(0, frame.width + frame.offset.x)));
         image->MaxHeight = std::max(image->MaxHeight,
-            static_cast<std::uint32_t>(std::max(0, frame.usHeight + frame.sOffsetY)));
+            static_cast<std::uint32_t>(std::max(0, frame.height + frame.offset.y)));
     }
     image->Grayed = grayed;
     image->OffNormal = off_normal;
@@ -99,9 +99,9 @@ ButtonImage ButtonGraphics::Load(std::shared_ptr<const SpriteSheet> sprites,
         }
         const auto& frame = image->object().frames[index];
         image->MaxWidth = std::max(image->MaxWidth,
-            static_cast<std::uint32_t>(std::max(0, frame.usWidth + frame.sOffsetX)));
+            static_cast<std::uint32_t>(std::max(0, frame.width + frame.offset.x)));
         image->MaxHeight = std::max(image->MaxHeight,
-            static_cast<std::uint32_t>(std::max(0, frame.usHeight + frame.sOffsetY)));
+            static_cast<std::uint32_t>(std::max(0, frame.height + frame.offset.y)));
     }
     image->Grayed = grayed;
     image->OffNormal = off_normal;
@@ -125,8 +125,8 @@ GenericButtonImage LoadGenericGraphics(const std::array<std::string_view, 6>& fi
         const bool valid = object && (index == 5
             ? background_frame >= 0 &&
                   static_cast<std::size_t>(background_frame) < object->frames.size()
-            : object->frames.size() >= 9 && object->frames[0].usWidth > 0 &&
-              object->frames[0].usHeight > 0);
+            : object->frames.size() >= 9 && object->frames[0].width > 0 &&
+              object->frames[0].height > 0);
         if (!valid) {
             if (optional_highlights && (index == 3 || index == 4)) {
                 object.reset();
@@ -360,8 +360,8 @@ static std::int8_t DrawGenericButton(SDL_Surface& target, const ButtonAppearance
 
     const auto& BPic = *b->generic_image->frames[picture_index];
     const auto& first_frame = BPic.frames[0];
-    iBorderHeight = first_frame.usHeight;
-    iBorderWidth = first_frame.usWidth;
+    iBorderHeight = first_frame.height;
+    iBorderWidth = first_frame.width;
 
     // Compute the number of button "chunks" needed to be blitted
     width = b->bounds.w;

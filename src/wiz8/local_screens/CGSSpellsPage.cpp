@@ -13,7 +13,7 @@
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/fonts.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/video_object_catalog.h"
+#include "wiz8/catalog_artwork.h"
 #include "Font.h"
 #include "Video2.h"
 #include "compat/compiler.h"

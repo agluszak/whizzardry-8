@@ -4,14 +4,17 @@
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
 #include <cstdint>
+#include <optional>
 #include <span>
 
 #include "wiz8/surface_storage.h"
 
-struct BitmapImage;
+// Decoded bitmaps convert transparent pixels to this value and every other pixel to nonzero RGB.
+inline constexpr std::uint32_t kBitmapTransparentPixel = 0;
 
 struct ImageBlit {
-    bool color_key = false;
+    // Source pixels whose RGB matches this value are skipped; surface colour-key state is ignored.
+    std::optional<std::uint32_t> color_key;
     bool mirror = false;
 };
 
@@ -28,8 +31,9 @@ private:
 };
 
 SDL_Surface& GetFrameBufferSurface();
+// Surfaces in g_sgp_pixel_format without blending.
 SDLSurfaceOwner CreateFrameSurface(int width, int height);
-SDLSurfaceOwner ConvertIndexedBitmapToSurface(const BitmapImage& bitmap, SDL_PixelFormat format);
+SDLSurfaceOwner ConvertBitmapToFrameSurface(const SDL_Surface& bitmap);
 void BlitImage(SDL_Surface& destination, int x, int y, SDL_Surface& source,
                const SDL_Rect* source_rect = nullptr, ImageBlit options = {});
 void PixelateRect(SDL_Surface& surface, const SDL_Rect& area,

@@ -18,7 +18,6 @@
 #include "wiz8/engine_code/ReadMesh.h"
 #include "wiz8/engine_code/materials.h"
 #include "surrender/srModelInstance.h"
-#include "surrender/srMath.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srShader.h"
 #include "surrender/srTexture.h"

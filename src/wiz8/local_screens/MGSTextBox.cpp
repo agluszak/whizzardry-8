@@ -44,7 +44,7 @@
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/layouts/combat_state.h"
-#include "wiz8/video_object_catalog.h"
+#include "wiz8/catalog_artwork.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/OctPath.h"
 #include "wiz8/fonts.h"

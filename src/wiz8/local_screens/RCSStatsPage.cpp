@@ -27,7 +27,7 @@
 #include "wiz8/fonts.h"
 #include "wiz8/regions.h"
 #include "wiz8/text_input.h"
-#include "wiz8/video_object_catalog.h"
+#include "wiz8/catalog_artwork.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/CharGeneration.h"
@@ -1134,7 +1134,7 @@ void W8CharacterPersonalityPage::Redraw()
     }
 
     if (m_portrait_dirty) {
-        CatalogArtwork::Load(0x11, m_character->portrait_index).drawAndInvalidate(GetFrameBufferSurface(), 0, m_bounds.left + 0x86, m_bounds.top + 5, {.color_key = false});
+        CatalogArtwork::Load(0x11, m_character->portrait_index).drawAndInvalidate(GetFrameBufferSurface(), 0, m_bounds.left + 0x86, m_bounds.top + 5, {}, BitmapKey::Opaque);
         m_portrait_dirty = false;
     }
 

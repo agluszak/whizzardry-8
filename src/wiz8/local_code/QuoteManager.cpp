@@ -67,7 +67,7 @@
 #include "wiz8/filesystem.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_screens/PartySelectionScreen.h"
-#include "wiz8/video_object_catalog.h"
+#include "wiz8/catalog_artwork.h"
 
 /* TU attribution follows the demo __FILE__ and quote-personality strings. */
 
@@ -89,7 +89,8 @@ void RedrawPortraitQuoteBubbles(void)
             !slot->portrait_event_active) {
             continue;
         }
-        DrawPortraitQuoteBubble(slot->quote.quote_handle, slot->quote.x, slot->quote.y, GetFrameBufferSurface());
+        if (slot->quote.bubble)
+            slot->quote.bubble->draw(GetFrameBufferSurface(), slot->quote.x, slot->quote.y);
     }
 }
 
@@ -887,7 +888,7 @@ void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned i
         } else {
             record->target_portrait_pose = 2;
         }
-        if (quote->quote_handle == -1) {
+        if (!quote->bubble) {
             record->portrait_event_active = active;
             return;
         }
@@ -903,7 +904,7 @@ void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned i
             /* Retail 0x0052fc82..0x0052fc9b: the quote line follows the
                speaker's name into the dialogue box (3) with the same scroll
                width, not the mode-selected box. */
-            ShowNotice(W8_FONT_PALETTE_TEXT_BOX, GetPortraitQuoteText(quote->quote_handle), 3,
+            ShowNotice(W8_FONT_PALETTE_TEXT_BOX, quote->bubble->text(), 3,
                        GetTextBoxScrollRange());
         } else {
             if (g_first_remapped_event <= mapped_event) {
@@ -913,7 +914,7 @@ void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned i
                 goto show_deactivate_quote;
             }
         }
-        ReleasePortraitQuoteBubble(quote->quote_handle);
+        quote->bubble.reset();
         if (g_current_screen_state.id == W8_SCREEN_CAMP ||
             (g_current_screen_state.id == W8_SCREEN_MAIN_GAME &&
              !g_level_block->review_transition_active)) {
@@ -965,7 +966,7 @@ void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned i
         record->target_portrait_pose = 2;
     }
     if (quote_text.empty() || show_quote == 0) {
-        quote->quote_handle = -1;
+        quote->bubble.reset();
     } else {
         bool layout_quote = false;
         bool use_modal_gate = false;
@@ -988,14 +989,11 @@ void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned i
             layout_quote = true;
         }
         if (!layout_quote || g_settings.pc_subtitles == 0) {
-            quote->quote_handle = -1;
+            quote->bubble.reset();
         } else {
-            unsigned short width;
-            unsigned short height;
-            quote->quote_handle = LayoutPortraitQuoteBubble(-1, 0, 0, quote_text, 200, 0, 0, 0,
-                                                            &width, &height, 0xffffffff);
-            quote->width = width;
-            quote->height = height;
+            quote->bubble = QuoteBubble::layout(quote_text, 200, std::nullopt);
+            quote->width = static_cast<unsigned short>(quote->bubble ? quote->bubble->width() : 0);
+            quote->height = static_cast<unsigned short>(quote->bubble ? quote->bubble->height() : 0);
             if (g_current_screen_state.id == W8_SCREEN_CAMP) {
                 if (static_cast<int>(party_slot) == giReviewCharSlot) {
                     quote->x = 10;

@@ -12,7 +12,7 @@
 #include "wiz8/engine_code/Spells.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/string_database.h"
-#include "wiz8/video_object_catalog.h"
+#include "wiz8/catalog_artwork.h"
 #include "Font.h"
 #include "dialog_code/DialogButton.h"
 #include "dialog_code/DialogScrollBar.h"

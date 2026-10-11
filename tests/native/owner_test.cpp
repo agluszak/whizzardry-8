@@ -40,7 +40,7 @@
 #include "wiz8/character_event_queue.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/xstatus.h"
-#include "wiz8/video_object_catalog.h"
+#include "wiz8/catalog_artwork.h"
 #include "image_assets.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/dialog_code/DialogButton.h"
@@ -605,28 +605,25 @@ void image_and_sprite_ownership()
     image.palette[1] = {255, 0, 0, 0};
     image.colors = Create16BPPPalette(image.palette);
     image.frames.resize(1);
-    image.frames[0].indices = CreateCpuStorage(1, 1, SDL_PIXELFORMAT_RGB565);
-    REQUIRE(image.frames[0].indices);
-    REQUIRE(SDL_FillSurfaceRect(image.frames[0].indices.get(), nullptr, 1));
-    image.frames[0].usWidth = image.frames[0].usHeight = 1;
+    image.frames[0].indices = {1};
+    image.frames[0].width = image.frames[0].height = 1;
 
     std::array<std::unique_ptr<SpriteSheet>, 64> objects{};
     for (unsigned i = 0; i < objects.size(); ++i) {
         objects[i] = std::make_unique<SpriteSheet>(image);
         REQUIRE(objects[i]);
-        REQUIRE((objects[i]->frames.size() == 1 && objects[i]->frames[0].indices->w == 1 &&
-                 objects[i]->frames[0].indices->h == 1));
-        REQUIRE(objects[i]->frames[0].indices->pixels != image.frames[0].indices->pixels);
+        REQUIRE((objects[i]->frames.size() == 1 && objects[i]->frames[0].indices.size() == 1));
+        REQUIRE(objects[i]->frames[0].indices.data() != image.frames[0].indices.data());
         REQUIRE(objects[i]->palette.data() != image.palette.data());
         REQUIRE(objects[i]->colors.data() != image.colors.data());
     }
-    REQUIRE(SDL_FillSurfaceRect(image.frames[0].indices.get(), nullptr, 2));
-    image.frames[0].usWidth = 2;
+    image.frames[0].indices[0] = 2;
+    image.frames[0].width = 2;
     REQUIRE((objects[0]->frames[0].paletteIndexAt(0, 0) == 1 &&
-             objects[0]->frames[0].usWidth == 1));
-    const auto* owned_pixels = image.frames[0].indices->pixels;
+             objects[0]->frames[0].width == 1));
+    const auto* owned_pixels = image.frames[0].indices.data();
     SpriteSheet moved(std::move(image));
-    REQUIRE(moved.frames[0].indices->pixels == owned_pixels);
+    REQUIRE(moved.frames[0].indices.data() == owned_pixels);
     REQUIRE(moved.frames[0].paletteIndexAt(0, 0) == 2);
     image = {};
     REQUIRE(image.frames.empty());
@@ -635,7 +632,7 @@ void image_and_sprite_ownership()
     }
     auto& surviving = *objects[32];
     REQUIRE((surviving.frames[0].paletteIndexAt(0, 0) == 1 &&
-             surviving.frames[0].usWidth == 1));
+             surviving.frames[0].width == 1));
     std::vector<SDLSurfaceOwner> surfaces;
     surfaces.reserve(64);
     for (unsigned index = 0; index < 64; ++index) {
@@ -879,7 +876,7 @@ void generic_button_images()
         REQUIRE(sheet->palette[1].r == 255);
 
         const auto pixel_offset = STCI_HEADER_SIZE + STCI_8BIT_PALETTE_SIZE + 3 * STCI_SUBIMAGE_SIZE;
-        for (std::uintmax_t cut : {0u, STCI_HEADER_SIZE - 1u,
+        for (std::uintmax_t cut : {std::size_t{0}, STCI_HEADER_SIZE - 1u,
              STCI_HEADER_SIZE + STCI_8BIT_PALETTE_SIZE - 1u,
              pixel_offset - 1u, pixel_offset + 8u, pixel_offset + 12u}) {
             button_image_fixture(assets, "metadata.sti", 3, true);
@@ -896,7 +893,7 @@ void generic_button_images()
     {
         auto sprite = g_image_assets.sprites(long_image_path);
         REQUIRE((sprite && sprite->frames.size() == 3));
-        REQUIRE((sprite->frames[2].usWidth == 1 && sprite->frames[2].paletteIndexAt(0, 0) == 1));
+        REQUIRE((sprite->frames[2].width == 1 && sprite->frames[2].paletteIndexAt(0, 0) == 1));
         REQUIRE(sprite->palette[1].r == 255);
     }
     for (bool corrupt_length : {false, true}) {
@@ -1846,7 +1843,7 @@ TEST_CASE("CatalogArtwork renders bitmap storage with mirror key semantics", "[o
     REQUIRE(g_dirty_tile_count > bitmap_dirty_before);
 
     REQUIRE(SDL_FillSurfaceRect(&framebuffer, nullptr, 0x07e0));
-    bitmap.draw(framebuffer, 0, 70, 70, {.mirror = true, .color_key = true});
+    bitmap.draw(framebuffer, 0, 70, 70, {.mirror = true});
     REQUIRE(surface_pixel(framebuffer, 70, 70) == red);
     REQUIRE(surface_pixel(framebuffer, 71, 70) == 0);
     bitmap.drawRect(framebuffer, {0, 0, 1, 1}, 80, 80);

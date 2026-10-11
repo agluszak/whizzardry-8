@@ -49,7 +49,7 @@
 #include "wiz8/regions.h"
 #include "wiz8/fonts.h"
 #include "wiz8/text_input.h"
-#include "wiz8/video_object_catalog.h"
+#include "wiz8/catalog_artwork.h"
 #include "wiz8/filesystem.h"
 #include "Font.h"
 #include "compat/compiler.h"

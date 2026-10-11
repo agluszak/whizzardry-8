@@ -9,7 +9,7 @@
 #include <span>
 #include <string>
 #include "wiz8/fonts.h"
-#include "wiz8/video_object_catalog.h"
+#include "wiz8/catalog_artwork.h"
 #include <string_view>
 
 #include "wiz8/application.h"
@@ -161,7 +161,7 @@ void wiz8::Application::shutdown() noexcept
             SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Game shutdown: %s", failure.what());
         }
     }
-    ReleaseLoadedVideoFrames();
+    ReleaseCatalogArtwork();
     ShutdownButtonImageManager();
     ReleaseMenuFonts();
     ResetFontRendering();
