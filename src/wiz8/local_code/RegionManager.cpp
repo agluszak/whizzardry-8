@@ -28,7 +28,6 @@
 #include "wiz8/local_screens/MGSUseItemSelect.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
-#include "wiz8/local_screens/MainMenuScreen.h"
 #include "wiz8/local_screens/RCSCommon.h"
 #include "wiz8/local_screens/RCSItemsPage.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
@@ -72,14 +71,14 @@ static unsigned char ConsumeRegionInput(const InputAtom*, W8Region*)
 std::deque<W8Region> g_regions = {
 
     {0x00000001, 0, 0, 0, 0, 0, 0, false, 0, -1, 0},
-    {0x00000001, 174, 138, 467, 182, MainMenuIntroduction, 0, false, 0, -1, 0},
-    {0x00000001, 140, 187, 501, 231, MainMenuNewGame, 0, false, 0, -1, 0},
+    {0x00000001, 174, 138, 467, 182, nullptr, 0, false, 0, -1, 0},
+    {0x00000001, 140, 187, 501, 231, nullptr, 0, false, 0, -1, 0},
 
-    {0x00000001, 204, 235, 436, 279, MainMenuLoadGame, 0, false, 0, -1, 0},
-    {0x00000001, 239, 284, 403, 328, MainMenuCredits, 0, false, 0, -1, 0},
-    {0x00000001, 234, 335, 408, 379, MainMenuOptions, 0, false, 0, -1, 0},
+    {0x00000001, 204, 235, 436, 279, nullptr, 0, false, 0, -1, 0},
+    {0x00000001, 239, 284, 403, 328, nullptr, 0, false, 0, -1, 0},
+    {0x00000001, 234, 335, 408, 379, nullptr, 0, false, 0, -1, 0},
 
-    {0x00000001, 279, 423, 364, 467, MainMenuExit, 0, false, 0, -1, 0},
+    {0x00000001, 279, 423, 364, 467, nullptr, 0, false, 0, -1, 0},
     {0x00000001, 286, 382, 351, 402, IntroScreenRegionEvent, 0, false, 0, -1, 0},
     {0x00000001, 0, 0, 639, 479, CreditsBackgroundRegionEvent, 0, false, 0, 0, 0},
 

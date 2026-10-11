@@ -2,11 +2,13 @@
 #include <string_view>
 #include <string>
 #include <array>
+#include <memory>
 #include <vector>
 
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/regions.h"
+#include "wiz8/local_code/Controls.h"
 #include "wiz8/local_screens/MainMenuScreen.h"
 #include "wiz8/cursor.h"
 #include "wiz8/layouts/screen_state.h"
@@ -135,6 +137,93 @@ static void SelectMainMenuItem(short item)
     DrawMainMenuItem(item, 1);
 }
 
+
+/* The catalog still supplies the six hit rectangles, but the controls own the
+   event targets and share the same dispatch as other panel widgets. */
+namespace {
+void ActivateMainMenuItem(short item)
+{
+    switch (item) {
+    case 0:
+        RequestScreenTransition();
+        g_settings.intro_seen = false;
+        SetIntroVideoIndex(0);
+        SetPendingScreenState(W8_SCREEN_INTRO);
+        break;
+    case 1:
+        SetPendingScreenState(W8_SCREEN_PARTY_SELECTION);
+        break;
+    case 2:
+        if (g_main_menu_has_save_games) {
+            g_pending_screen_state.mode = 1;
+            SetPendingScreenState(W8_SCREEN_OPTIONS);
+        }
+        break;
+    case 3:
+        SetPendingScreenState(W8_SCREEN_CREDITS);
+        break;
+    case 4:
+        ClearScreenWait();
+        break;
+    case 5:
+        RequestExitScreen();
+        break;
+    }
+}
+
+class MainMenuItemWidget final : public W8Widget {
+public:
+    MainMenuItemWidget(unsigned int region, short item)
+        : W8Widget(nullptr, region, g_regions[region].x1, g_regions[region].y1,
+                   g_regions[region].x2, g_regions[region].y2),
+          item_(item)
+    {
+    }
+
+    void OnMouseEnter(int) override
+    {
+        if (Available()) SelectMainMenuItem(item_);
+    }
+
+    void OnMouseLeave(int) override
+    {
+        DrawMainMenuItem(g_main_menu_selected_item, 0);
+        g_main_menu_selected_item = static_cast<unsigned short>(-1);
+    }
+
+    void OnLeftButtonDown(int) override
+    {
+        if (Available()) DrawMainMenuItem(g_main_menu_selected_item, 2);
+    }
+
+    void OnLeftButtonUp(int) override
+    {
+        if (!Available()) return;
+        DrawMainMenuItem(g_main_menu_selected_item, 1);
+        ActivateMainMenuItem(item_);
+    }
+
+private:
+    bool Available() const { return item_ != 2 || g_main_menu_has_save_games; }
+    short item_;
+};
+
+std::unique_ptr<Controls> main_menu_controls;
+
+void CreateMainMenuControls()
+{
+    main_menu_controls = std::make_unique<Controls>();
+    // Set 1 has six fixed menu rectangles. Use the existing widget dispatcher
+    // rather than six custom region callbacks.
+    for (unsigned int region = 1; region <= 6; ++region) {
+        main_menu_controls->AdoptControl(
+            std::make_unique<MainMenuItemWidget>(region, static_cast<short>(region - 1)));
+        SetRegionCallback(region, DispatchControlRegionEvent, 0);
+    }
+    main_menu_controls->SetEnabled(true);
+}
+} // namespace
+
 /* Zero is the retail BSS state. The first screen synchronization replaces it
    with the default cursor and then records the normal -1 state. */
 
@@ -182,7 +271,9 @@ unsigned char MainMenuScreenEnter(void)
     measured = g_wiz_text_font_secondary.textWidth(wide);
     DrawFontText(0x27b - measured, 5, wide);
     g_wiz_text_font_secondary.resetPalette();
+    main_menu_controls.reset();
     ResetRegions();
+    CreateMainMenuControls();
     RegionSetEnable(1);
 
     if (gXStatus.uiMonstersInDatabase > 1000) {
@@ -267,38 +358,8 @@ void MainMenuScreenFrame()
                 } else {
                     switch (input.usParam) {
                     case ENTER:
-                        switch (g_main_menu_selected_item) {
-                        case 0:
-                            DrawMainMenuItem(g_main_menu_selected_item, 2);
-                            RequestScreenTransition();
-                            g_settings.intro_seen = false;
-                            SetIntroVideoIndex(0);
-                            SetPendingScreenState(W8_SCREEN_INTRO);
-                            break;
-                        case 1:
-                            DrawMainMenuItem(g_main_menu_selected_item, 2);
-                            SetPendingScreenState(W8_SCREEN_PARTY_SELECTION);
-                            break;
-                        case 2:
-                            DrawMainMenuItem(g_main_menu_selected_item, 2);
-                            if (g_main_menu_has_save_games) {
-                                g_pending_screen_state.mode = 1;
-                                SetPendingScreenState(W8_SCREEN_OPTIONS);
-                            }
-                            break;
-                        case 3:
-                            DrawMainMenuItem(g_main_menu_selected_item, 2);
-                            SetPendingScreenState(W8_SCREEN_CREDITS);
-                            break;
-                        case 4:
-                            DrawMainMenuItem(g_main_menu_selected_item, 2);
-                            SetPendingScreenState(W8_SCREEN_OPTIONS);
-                            break;
-                        case 5:
-                            DrawMainMenuItem(g_main_menu_selected_item, 2);
-                            RequestExitScreen();
-                            break;
-                        }
+                        DrawMainMenuItem(g_main_menu_selected_item, 2);
+                        ActivateMainMenuItem(static_cast<short>(g_main_menu_selected_item));
                         break;
                     case ESC:
                     case 'E':
@@ -330,16 +391,13 @@ void MainMenuScreenFrame()
                         DrawMainMenuItem(g_main_menu_selected_item, 1);
                         break;
                     case 'L':
-                        if (g_main_menu_has_save_games) {
-                            g_pending_screen_state.mode = 1;
-                            SetPendingScreenState(W8_SCREEN_OPTIONS);
-                        }
+                        ActivateMainMenuItem(2);
                         break;
                     case 'O':
-                        SetPendingScreenState(W8_SCREEN_OPTIONS);
+                        ActivateMainMenuItem(4);
                         break;
                     case 'S':
-                        SetPendingScreenState(W8_SCREEN_PARTY_SELECTION);
+                        ActivateMainMenuItem(1);
                         break;
                     }
                 }
@@ -365,6 +423,7 @@ void MainMenuScreenFrame()
 // FUNCTION: WIZ8 0x00591870
 unsigned char MainMenuScreenLeave(int)
 {
+    main_menu_controls.reset();
     ReleaseLoadedVideoFrames();
     ResetRegions();
     MSYS_Shutdown();
@@ -375,93 +434,4 @@ unsigned char MainMenuScreenLeave(int)
 void SetMainMenuMessage(std::string_view message)
 {
     g_pending_main_menu_message = message;
-}
-
-static void UpdateMainMenuItem(const InputAtom* event, W8Region* region, short item)
-{
-    switch (event->usEvent) {
-    case LEFT_BUTTON_DOWN:
-        region->flags |= W8_REGION_LEFT_BUTTON_HELD;
-        DrawMainMenuItem(g_main_menu_selected_item, 2);
-        break;
-    case LEFT_BUTTON_UP:
-        DrawMainMenuItem(g_main_menu_selected_item, 1);
-        break;
-    case MOUSE_POS:
-        if (region->flags & W8_REGION_MOUSE_LEAVE) {
-            DrawMainMenuItem(g_main_menu_selected_item, 0);
-            g_main_menu_selected_item = static_cast<unsigned short>(-1);
-        } else if (region->flags & W8_REGION_MOUSE_ENTER) {
-            SelectMainMenuItem(item);
-        }
-        break;
-    }
-}
-
-// FUNCTION: WIZ8 0x005bd040
-unsigned char MainMenuNewGame(const InputAtom* event, W8Region* region)
-{
-    UpdateMainMenuItem(event, region, 1);
-    if (event->usEvent == LEFT_BUTTON_UP && (region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
-        SetPendingScreenState(W8_SCREEN_PARTY_SELECTION);
-    }
-    return event->usEvent == LEFT_BUTTON_DOWN || event->usEvent == LEFT_BUTTON_UP;
-}
-
-// FUNCTION: WIZ8 0x005bd110
-unsigned char MainMenuLoadGame(const InputAtom* event, W8Region* region)
-{
-    if (!g_main_menu_has_save_games) {
-        return 0;
-    }
-    UpdateMainMenuItem(event, region, 2);
-    if (event->usEvent == LEFT_BUTTON_UP && (region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0 &&
-        g_main_menu_has_save_games) {
-        g_pending_screen_state.mode = 1;
-        SetPendingScreenState(W8_SCREEN_OPTIONS);
-    }
-    return event->usEvent == LEFT_BUTTON_DOWN || event->usEvent == LEFT_BUTTON_UP;
-}
-
-// FUNCTION: WIZ8 0x005bd1f0
-unsigned char MainMenuExit(const InputAtom* event, W8Region* region)
-{
-    UpdateMainMenuItem(event, region, 5);
-    if (event->usEvent == LEFT_BUTTON_UP && (region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
-        RequestExitScreen();
-    }
-    return event->usEvent == LEFT_BUTTON_DOWN || event->usEvent == LEFT_BUTTON_UP;
-}
-
-// FUNCTION: WIZ8 0x005bd2b0
-unsigned char MainMenuOptions(const InputAtom* event, W8Region* region)
-{
-    UpdateMainMenuItem(event, region, 4);
-    if (event->usEvent == LEFT_BUTTON_UP && (region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
-        ClearScreenWait();
-    }
-    return event->usEvent == LEFT_BUTTON_DOWN || event->usEvent == LEFT_BUTTON_UP;
-}
-
-// FUNCTION: WIZ8 0x005bd380
-unsigned char MainMenuIntroduction(const InputAtom* event, W8Region* region)
-{
-    UpdateMainMenuItem(event, region, 0);
-    if (event->usEvent == LEFT_BUTTON_UP && (region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
-        RequestScreenTransition();
-        g_settings.intro_seen = false;
-        SetIntroVideoIndex(0);
-        SetPendingScreenState(W8_SCREEN_INTRO);
-    }
-    return event->usEvent == LEFT_BUTTON_DOWN || event->usEvent == LEFT_BUTTON_UP;
-}
-
-// FUNCTION: WIZ8 0x005bd460
-unsigned char MainMenuCredits(const InputAtom* event, W8Region* region)
-{
-    UpdateMainMenuItem(event, region, 3);
-    if (event->usEvent == LEFT_BUTTON_UP && (region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
-        SetPendingScreenState(W8_SCREEN_CREDITS);
-    }
-    return event->usEvent == LEFT_BUTTON_DOWN || event->usEvent == LEFT_BUTTON_UP;
 }
