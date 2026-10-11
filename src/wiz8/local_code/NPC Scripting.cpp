@@ -8,7 +8,6 @@
 #include <optional>
 #include <string>
 #include <exception>
-#include <utility>
 #include <algorithm>
 #include <variant>
 
@@ -746,7 +745,7 @@ static void ProcessMessageBoxQueue(void)
         if (g_settings.skill_increase_messages == 0) {
             PostSkillIncreaseNotices(&std::get<W8SkillNoticePayload>(notice->notice));
         } else {
-            ShowNpcPortraitMessage(notice->text, std::move(notice->notice));
+            ShowNpcPortraitMessage(notice->text, notice->notice);
         }
         break;
     }
