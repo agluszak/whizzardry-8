@@ -2301,19 +2301,6 @@ SGPVSurface& GetFrameBufferSurface()
     return primarySurface;
 }
 
-// FUNCTION: WIZ8 0x00421f40
-unsigned char GetPrimaryRGBDistributionMasks(unsigned int* red, unsigned int* green,
-                                             unsigned int* blue)
-{
-    const auto* format = SDL_GetPixelFormatDetails(g_sgp_pixel_format);
-    if (!format)
-        return 0;
-    *red = format->Rmask;
-    *green = format->Gmask;
-    *blue = format->Bmask;
-    return 1;
-}
-
 /* The retail empty video-capture entry folds with the shared 0x4023a0 ret. */
 void VideoCaptureToggle(void) {}
 
