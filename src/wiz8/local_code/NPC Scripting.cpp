@@ -1494,8 +1494,8 @@ void ProcessMessageBoxQueue(void)
             queued.entry_index >= 0 &&
             queued.entry_index <
                 static_cast<int>(script->quotes[queued.quote_index].entries.size())) {
-            W8NpcQuoteEntry entry = script->quotes[queued.quote_index].entries[queued.entry_index];
-            ProcessNpcQuoteEntry(&entry, queued.continuation_quote);
+            ProcessNpcQuoteEntry(&script->quotes[queued.quote_index].entries[queued.entry_index],
+                                 queued.continuation_quote);
         }
         break;
     }
