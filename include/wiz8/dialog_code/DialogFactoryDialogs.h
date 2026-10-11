@@ -3,6 +3,8 @@
 
 #include <SDL3/SDL_rect.h>
 #include <vector>
+#include <array>
+#include <memory>
 #include <string>
 #include <string_view>
 
@@ -175,11 +177,11 @@ private:
     static void SplitActivateField(W8DialogButton* button);
 
 private:
-    W8DialogButton* m_buttons[6];
+    std::array<std::unique_ptr<W8DialogButton>, 6> m_buttons;
     /* The labels named by g_split_amount_string_ids; [2] shows the
        amount still remaining. */
-    W8TextBuffer* m_text_buffers[3];
-    W8DialogNumericInput* m_split_input;
+    std::array<std::unique_ptr<W8TextBuffer>, 3> m_text_buffers;
+    std::unique_ptr<W8DialogNumericInput> m_split_input;
     /* The numeric field while the cursor or keyboard owns it. */
     W8DialogNumericInput* m_active_field;
     int m_remaining; /* total minus the field value */

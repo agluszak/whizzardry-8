@@ -488,64 +488,31 @@ static int g_split_amount_string_ids[3] = {265, 266, 267};
 
 // FUNCTION: WIZ8 0x005d97d0
 W8SplitAmountDialog::W8SplitAmountDialog()
+    : W8SplitAmountDialog(0)
 {
-    int index;
-
-    SetExtent(322, 111);
-    SetBackground("Data\\Dialogs\\popup_splititem.sti", 2);
-    for (index = 0; index < 6; ++index) {
-        m_buttons[index] = 0;
-    }
-    m_text_buffers[0] = 0;
-    m_text_buffers[1] = 0;
-    m_text_buffers[2] = 0;
-    m_split_input = 0;
-    m_remaining = 0;
-    m_taken = 0;
-    m_total = 0;
-    m_result = W8_SPLIT_RESULT_PENDING;
-    m_active_field = 0;
 }
 
 // FUNCTION: WIZ8 0x005d9890
 W8SplitAmountDialog::W8SplitAmountDialog(int total)
+    : m_active_field(nullptr), m_remaining(total), m_taken(0), m_total(total),
+      m_result(W8_SPLIT_RESULT_PENDING)
 {
-    int index;
-
     SetExtent(322, 111);
     SetBackground("Data\\Dialogs\\popup_splititem.sti", 2);
-    for (index = 0; index < 6; ++index) {
-        m_buttons[index] = 0;
-    }
-    m_text_buffers[0] = 0;
-    m_text_buffers[1] = 0;
-    m_text_buffers[2] = 0;
-    m_split_input = 0;
-    m_remaining = total;
-    m_total = total;
-    m_taken = 0;
-    m_result = W8_SPLIT_RESULT_PENDING;
-    m_active_field = 0;
 }
 
 // FUNCTION: WIZ8 0x005d9ac0
 void W8SplitAmountDialog::DestroyControls()
 {
+    m_active_field = nullptr;
+    m_split_input.reset();
+    for (auto& text : m_text_buffers) text.reset();
+    for (auto& button : m_buttons) button.reset();
     W8DialogBase::DestroyControls();
-    DestroyDialogButtons(m_buttons, 6);
-    DestroyDialogTextBuffers(m_text_buffers, 3);
-    if (m_split_input != 0) {
-        NoOp();
-        delete m_split_input;
-        m_split_input = 0;
-    }
 }
 
 // FUNCTION: WIZ8 0x005d9930
-W8SplitAmountDialog::~W8SplitAmountDialog()
-{
-    DestroyControls();
-}
+W8SplitAmountDialog::~W8SplitAmountDialog() = default;
 
 /* The split-item dialog. Three text buffers show the running totals, the
    numeric field edits the taken amount, and the buttons step it. */
@@ -559,13 +526,12 @@ int W8SplitAmountDialog::CreateControls()
         return 7;
     }
     if (!CreateTextBuffers()) {
-        DestroyDialogButtons(m_buttons, 6);
+        DestroyControls();
         m_error = 7;
         return 7;
     }
     if (!CreateNumericInput()) {
-        DestroyDialogButtons(m_buttons, 6);
-        DestroyDialogTextBuffers(m_text_buffers, 3);
+        DestroyControls();
         m_error = 7;
         return 7;
     }
@@ -579,9 +545,7 @@ bool W8SplitAmountDialog::CreateButtons()
 {
     int index;
 
-    if (!AllocateDialogButtons(m_buttons, 6)) {
-        return false;
-    }
+    for (auto& button : m_buttons) button = std::make_unique<W8DialogButton>();
     m_buttons[0]->Configure("Data\\Dialogs\\popup_splititem.sti", 0xc, 9, 10, 0xd, 0xb,
                             SplitDecrementOne, BUTTON_NO_CALLBACK, false, MSYS_PRIORITY_HIGHEST,
                             W8_DIALOG_BUTTON_NO_TOOLTIP, SplitDecrementFive, BUTTON_NO_CALLBACK);
@@ -621,13 +585,9 @@ bool W8SplitAmountDialog::CreateTextBuffers()
         bounds.top = g_split_amount_text_bounds[index].top + m_y;
         bounds.right = g_split_amount_text_bounds[index].right + m_x;
         bounds.bottom = g_split_amount_text_bounds[index].bottom + m_y;
-        m_text_buffers[index] = new W8TextBuffer(
+        m_text_buffers[index] = std::make_unique<W8TextBuffer>(
             &bounds, g_localized_strings[g_split_amount_string_ids[index]], g_wiz_text_font_secondary,
             g_W8TextBufferAlignMiddle | g_W8TextBufferAlignRight, 4);
-        if (m_text_buffers[index] == 0) {
-            DestroyDialogTextBuffers(m_text_buffers, 3);
-            return false;
-        }
     }
     return true;
 }
@@ -642,14 +602,8 @@ bool W8SplitAmountDialog::CreateNumericInput()
     bounds.top = g_split_amount_field_bounds.top + m_y;
     bounds.right = g_split_amount_field_bounds.right + m_x;
     bounds.bottom = g_split_amount_field_bounds.bottom + m_y;
-    m_split_input = new W8DialogNumericInput(0, &bounds, m_taken, g_wiz_text_font_secondary, this,
-                                             m_buttons[3]);
-    if (m_split_input == 0) {
-        NoOp();
-        delete m_split_input;
-        m_split_input = 0;
-        return false;
-    }
+    m_split_input = std::make_unique<W8DialogNumericInput>(
+        0, &bounds, m_taken, g_wiz_text_font_secondary, this, m_buttons[3].get());
     m_split_input->m_maximum = 1000000;
     return true;
 }
@@ -669,7 +623,7 @@ void W8SplitAmountDialog::Draw()
         for (index = 0; index < 3; ++index) {
             m_text_buffers[index]->SetGeometryDirty();
         }
-        W8DialogNumericInput* numeric = m_split_input;
+        W8DialogNumericInput* numeric = m_split_input.get();
         numeric->m_dirty = true;
         numeric->m_button->m_dirty = true;
         W8DialogBase::Draw();
@@ -677,7 +631,7 @@ void W8SplitAmountDialog::Draw()
                          0);
     }
     if (m_buttons[3]->m_dirty) {
-        W8DialogNumericInput* numeric = m_split_input;
+        W8DialogNumericInput* numeric = m_split_input.get();
         numeric->m_dirty = true;
         numeric->m_button->m_dirty = true;
     }
@@ -773,16 +727,8 @@ void W8SplitAmountDialog::IncreaseAmount(int amount)
 // FUNCTION: WIZ8 0x005da180
 bool W8SplitAmountDialog::HandleInputEvent(const InputAtom* input)
 {
-    int index;
-    W8DialogNumericInput** field;
-
-    field = &m_split_input;
-    for (index = 0; index < 1; ++index) {
-        if (*field != 0 && (*field)->m_active != 0 && (*field)->HandleInput(input)) {
-            return true;
-        }
-        ++field;
-    }
+    if (m_split_input && m_split_input->m_active && m_split_input->HandleInput(input))
+        return true;
     if (input->usEvent == KEY_DOWN || input->usEvent == KEY_REPEAT) {
         int key = toupper(input->usParam);
         if (key == 0x1b) {
@@ -875,7 +821,7 @@ void W8SplitAmountDialog::SplitActivateField(W8DialogButton* button)
             point.x -= g_split_amount_field_bounds.left;
             point.y -= g_split_amount_field_bounds.top;
             dialog->m_split_input->SetActive(true, &point);
-            dialog->m_active_field = dialog->m_split_input;
+            dialog->m_active_field = dialog->m_split_input.get();
         }
     }
 }
