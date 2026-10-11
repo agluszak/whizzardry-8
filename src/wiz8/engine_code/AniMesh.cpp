@@ -125,8 +125,7 @@ float GetAniMeshFrameRadius(W8AniMesh* mesh, unsigned char frame)
     auto* instance = GetAniMeshFrame(mesh, frame);
     if (!instance || !instance->getModel())
         return g_float_zero;
-    srBoundingBox bounds;
-    instance->getModel()->getBoundingBox(bounds.minimum, bounds.maximum);
+    const auto bounds = instance->getModel()->getBoundingBox();
     return static_cast<float>(glm::distance(bounds.minimum, bounds.maximum) * g_double_half);
 }
 
@@ -240,8 +239,7 @@ try
         auto* instance = GetAniMeshFrame(mesh, frame_index);
         if (!instance || !instance->getModel())
             continue;
-        srBoundingBox frame_bounds;
-        instance->getModel()->getBoundingBox(frame_bounds.minimum, frame_bounds.maximum);
+        const auto frame_bounds = instance->getModel()->getBoundingBox();
         if (has_bounds)
             bounds.include(frame_bounds);
         else

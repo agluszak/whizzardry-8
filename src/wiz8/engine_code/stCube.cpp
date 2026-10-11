@@ -317,11 +317,9 @@ void DrawWorldBox(W8World* world, srVector3T<float> minimum, srVector3T<float> m
     corners[6].Set(maximum.x, maximum.y, maximum.z);
     corners[7].Set(maximum.x, maximum.y, minimum.z);
 
-    glm::vec2 viewport_minimum;
-    glm::vec2 viewport_maximum;
-    GetScaledViewportBounds(&viewport_minimum, &viewport_maximum);
-    float viewport_width = viewport_maximum.x - viewport_minimum.x;
-    float viewport_height = viewport_maximum.y - viewport_minimum.y;
+    const auto viewport = GetScaledViewportBounds();
+    float viewport_width = viewport.maximum.x - viewport.minimum.x;
+    float viewport_height = viewport.maximum.y - viewport.minimum.y;
 
     w8_long screen[8][2];
     for (int index = 0; index < 8; ++index) {
@@ -332,9 +330,9 @@ void DrawWorldBox(W8World* world, srVector3T<float> minimum, srVector3T<float> m
             return;
         }
         screen[index][0] =
-            static_cast<w8_long>((projected.x * viewport_width + viewport_minimum.x) * 640.0f);
+            static_cast<w8_long>((projected.x * viewport_width + viewport.minimum.x) * 640.0f);
         screen[index][1] =
-            static_cast<w8_long>((projected.y * viewport_height + viewport_minimum.y) * 480.0f);
+            static_cast<w8_long>((projected.y * viewport_height + viewport.minimum.y) * 480.0f);
         if (screen[index][0] < 0 || screen[index][0] > 640 || screen[index][1] < 0 ||
             screen[index][1] > 480) {
             return;
@@ -637,7 +635,6 @@ unsigned char SaveWorldCursorNodes(wiz8::File* handle)
     int component;
     srVector3T<float> location;
     W8WorldCursorNode* node;
-    srNode::BoundInfo bounds;
 
     if (!(handle->write(&version, 4), true)) {
         return 0;
@@ -653,7 +650,7 @@ unsigned char SaveWorldCursorNodes(wiz8::File* handle)
         for (component = 0; component < 3 && ok; ++component) {
             ok = (handle->write(&node->parameters[component], 4), true);
         }
-        node->node->getLocalBounds(bounds);
+        const auto bounds = node->node->getLocalBounds();
         location = glm::vec3(node->node->getLocation());
         ok = ok && (handle->write(&bounds.minimum.x, 4), true) &&
              (handle->write(&bounds.minimum.y, 4), true) &&
@@ -738,8 +735,7 @@ W8WorldCursorNode* FindWorldCursorNodeAtPoint(W8WorldCursorNode* after, srVector
     while (index < count) {
         W8WorldCursorNode* entry = g_world_cursor_nodes[index];
         if (entry->node != 0) {
-            srNode::BoundInfo bounds;
-            entry->node->getLocalBounds(bounds);
+            const auto bounds = entry->node->getLocalBounds();
             const auto location = glm::vec3(entry->node->getLocation());
             const srBoundingBox box{bounds.minimum + location, bounds.maximum + location};
             if (box.contains(point->glmValue())) {

@@ -56,8 +56,8 @@ struct W8OctSpatialState {
     }
 
     void Reset();
-    void GetClippedBounds(srVector3T<float>* minimum, srVector3T<float>* maximum);
-    void GetWorkingBounds(srVector3T<float>* minimum, srVector3T<float>* maximum);
+    srBoundingBox GetClippedBounds() const;
+    srBoundingBox GetWorkingBounds() const;
     void SetWorkingBounds(const srVector3T<float>* minimum, const srVector3T<float>* maximum);
 
     w8_ulong flags;

@@ -294,11 +294,9 @@ void UpdateRadarBlips(void)
         if (item != 0) {
             W8ItemRep* rep = static_cast<W8ItemRep*>(item->m_pRep);
             if ((rep->flags & W8_ITEM_ENTITY_NO_PICKUP) == 0) {
-                rep->GetLocation(&position);
-                item->GetCachedLocalBounds(&bounds_min, &bounds_max);
-                center.Set((bounds_min.x + bounds_max.x) * g_double_half,
-                           (bounds_min.y + bounds_max.y) * g_double_half,
-                           (bounds_min.z + bounds_max.z) * g_double_half);
+                position = rep->GetLocation();
+                const auto bounds = item->GetCachedLocalBounds();
+                center = bounds.center();
                 position += center;
                 party = g_startup_world->GetPosition();
                 delta = position - party;

@@ -129,14 +129,12 @@ TEST_CASE("world graphics")
         // Same scene and UI, with only the actual world pass switched off.
         REQUIRE((g_world_render_enabled && !g_world_blacked_out));
         RenderFrame();
-        srGERD::Statistics with_world{};
-        g_gerd->getStatistics(with_world);
+        const auto with_world = g_gerd->getStatistics();
         unsigned polygons = world->level->m_submitted_polygons;
         auto visible = ReadFrame();
         g_world_render_enabled = 0;
         RenderFrame();
-        srGERD::Statistics without_world{};
-        g_gerd->getStatistics(without_world);
+        const auto without_world = g_gerd->getStatistics();
         auto control = ReadFrame();
         g_world_render_enabled = 1;
         RenderFrame();

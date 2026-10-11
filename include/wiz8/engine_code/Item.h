@@ -2,6 +2,8 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
+#include "surrender/srBoundingBox.h"
 
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/engine_code/GrObject.h"
@@ -64,11 +66,11 @@ struct W8Item : public W8GrObject {
     srNode* GetMesh();
     /* Model-local cached bounds. GetItemWorldBounds translates them by the
        representation's location without rotating them. */
-    unsigned char GetCachedLocalBounds(srVector3T<float>* lower, srVector3T<float>* upper);
-    bool GetBoundsRadius(float* radius);
+    srBoundingBox GetCachedLocalBounds() const;
+    float GetBoundsRadius() const;
     /* Live search/interaction point: representation location raised by 0.66 of
        the cached local Y extent. */
-    unsigned char GetSearchPosition(srVector3T<float>* location);
+    srVector3T<float> GetSearchPosition() const;
     void SetYaw(float angle);
     void SetHighlight(bool enabled);
     bool IsSelected();
@@ -86,7 +88,7 @@ W8_ABI_ASSERT(offsetof(W8Item, countdown) == 0x1c, "W8Item_countdown_01c_offset"
 bool ReadItemFromFile(W8ReadLevelInfo* info, W8Item** item, bool anonymous_mesh);
 /* Run the item's trigger, if any, and report its action state. */
 unsigned char RunItemTrigger(W8Item* item); /* 0x004A0070 */
-bool GetItemWorldBounds(W8Item* item, srVector3T<float>* lower, srVector3T<float>* upper);
+std::optional<srBoundingBox> GetItemWorldBounds(const W8Item* item);
 
 bool LoadItemFromFile(const W8ReadLevelInfo* context, const char* name, W8Item** item,
                       bool anonymous_mesh);

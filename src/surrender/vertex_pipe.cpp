@@ -174,7 +174,7 @@ void srVertexPipe::setMaterial(srMaterialIFace* material)
     if (material != this->material) {
         srCore.getStatisticsManager()->statistics.material_processing_stalls += 1;
         this->material = material;
-        material->getMaterialInfo(material_info);
+        material_info = material->getMaterialInfo();
     }
 }
 

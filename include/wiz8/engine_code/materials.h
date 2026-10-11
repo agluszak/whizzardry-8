@@ -45,7 +45,7 @@ public:
     }
 
     stMaterial();
-    virtual void getMaterialInfo(srVertexProcessor::MaterialInfo& info) override;
+    virtual srVertexProcessor::MaterialInfo getMaterialInfo() override;
 
 public:
     stMaterial& operator=(const stMaterial&) = default;

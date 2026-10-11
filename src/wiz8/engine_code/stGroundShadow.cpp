@@ -215,7 +215,7 @@ void stGroundShadow::renderGroundShadow(srGERD* renderer)
     while (*polygons != 0) {
         mesh_index = *polygons >> 0x10;
         model = static_cast<stMeshModel*>(g_world->psrMeshes[mesh_index]->getModel());
-        model->getTriMesh(mesh);
+        mesh = model->getTriMesh();
         /* Only the collected polygons (up to 30 per mesh) receive the shadow:
            the selection list is the TriMesh's active-polygon list. */
         mesh.active_polygons = g_ground_shadow_material_parameters.polygons;

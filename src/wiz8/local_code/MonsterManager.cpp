@@ -1172,7 +1172,7 @@ void DeactivateMonster(W8MonsterInfo* monster_info)
         monster_info->p3D->flags = 0x200000;
         ClearMonsterSpellIcons(monster_info->p3D);
         ReleaseMonToMonVisibilityList(monster_info);
-        MonsterGetLocalLocation(monster_info->p3D, &position);
+        position = MonsterGetLocalLocation(monster_info->p3D);
         monster_info->position = position;
         monster_info->fActive = false;
         --gXStatus.active_monster_count;

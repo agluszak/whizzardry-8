@@ -930,7 +930,7 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
         srVector3T<float> last_seen;
         srVector3T<float> delta;
 
-        MonsterGetLocation(monster, &location);
+        location = MonsterGetLocation(monster);
         if (monster->formation.x == g_float_zero && monster->formation.y == g_float_zero &&
             monster->formation.z == g_float_zero) {
             monster->formation = monster->GetPosition();
@@ -975,7 +975,7 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
         srVector3T<float> delta;
         unsigned char cycle;
 
-        MonsterGetLocation(monster, &location);
+        location = MonsterGetLocation(monster);
         previous = monster_info->movement_watch_position;
         monster_info->position.y = location.y;
         cycle = monster_info->movement_stall_ticks;
@@ -1000,7 +1000,7 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
                         !monster_info->party_threat.visible_to_player) {
                         srVector3T<float> next_position;
 
-                        monster->movement.attachment->GetNextPosition(&next_position);
+                        next_position = monster->movement.attachment->GetNextPosition();
                         if (next_position.Length() == static_cast<float>(g_double_zero)) {
                             next_position = monster->GetPosition();
                         }

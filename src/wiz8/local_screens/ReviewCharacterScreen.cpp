@@ -679,8 +679,8 @@ void DrawCampBackpackItems(void)
             DrawCatalogImage(GetFrameBufferSurface(), 0x11a, 0, 0, left, top, VO_BLT_SRCTRANSPARENCY, 0);
         }
         if (item_id != -1) {
-            DrawCatalogImage(GetFrameBufferSurface(), g_item_video_objects.GetOrCreateVideoObject(item_id), 0,
-                             0, left + 1, top + 1, VO_BLT_SRCTRANSPARENCY, 0);
+            DrawSprite(GetFrameBufferSurface(), g_item_video_objects.Sprites(item_id), 0, left + 1,
+                       top + 1, VO_BLT_SRCTRANSPARENCY, 0);
             DrawCampItemQuantity(&character->backpack[slot], left + 1, top + 0x28, 0x2c);
             if (!character->backpack[slot].identified) {
                 DrawCatalogImage(GetFrameBufferSurface(), 0x11b, 0, 0, left, top, VO_BLT_SRCTRANSPARENCY, 0);
@@ -740,9 +740,8 @@ void DrawCampEquipmentItems(void)
                 }
             }
         } else {
-            DrawCatalogImageAndInvalidate(GetFrameBufferSurface(),
-                                          g_item_video_objects.GetOrCreateVideoObject(item_id), 0,
-                                          1, region->x, region->y, VO_BLT_SRCTRANSPARENCY, 0);
+            DrawSpriteAndInvalidate(GetFrameBufferSurface(), g_item_video_objects.Sprites(item_id),
+                                    1, region->x, region->y, VO_BLT_SRCTRANSPARENCY, 0);
             DrawCampItemQuantity(&character->EquippedItem[slot], region->x + 2,
                                  region->y + region->height - 0xd, region->width - 4);
             if (!character->EquippedItem[slot].identified) {
@@ -869,8 +868,8 @@ void DrawCampItemPool(void)
         } else {
             BlitCatalogSurfaceRectTo16BPP(GetFrameBufferSurface(), left, top, right, bottom, 0x1b6, 0, 0);
         }
-        DrawCatalogImage(GetFrameBufferSurface(), g_item_video_objects.GetOrCreateVideoObject(item->iItemNo),
-                         0, 0, left + 1, top + 1, VO_BLT_SRCTRANSPARENCY, 0);
+        DrawSprite(GetFrameBufferSurface(), g_item_video_objects.Sprites(item->iItemNo), 0,
+                   left + 1, top + 1, VO_BLT_SRCTRANSPARENCY, 0);
         DrawCampItemQuantity(item, left + 1, top + 0x28, 0x2c);
         if (!item->identified) {
             DrawCatalogImage(GetFrameBufferSurface(), 0x11b, 0, 0, left, top, VO_BLT_SRCTRANSPARENCY, 0);

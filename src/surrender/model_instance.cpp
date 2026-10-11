@@ -67,16 +67,15 @@ void srModelInstance::traverse(TraverseInfo& info)
 }
 
 // FUNCTION: SURRENDER 0x1004F350
-void srModelInstance::getLocalBounds(BoundInfo& bounds)
+srNode::BoundInfo srModelInstance::getLocalBounds()
 {
     srModel* model = getModel();
-    if (model == 0) {
-        bounds.state = 0;
-        return;
+    if (model == nullptr) {
+        return {glm::vec3(0), glm::vec3(0), glm::vec3(0), 0.0f, 0};
     }
-    bounds.state = 1;
-    model->getBoundingBox(bounds.minimum, bounds.maximum);
-    model->getBoundingSphere(bounds.center, bounds.radius);
+    const auto box = model->getBoundingBox();
+    const auto sphere = model->getBoundingSphere();
+    return {box.minimum, box.maximum, sphere.center, sphere.radius, 1};
 }
 
 // FUNCTION: SURRENDER 0x1004F4B0

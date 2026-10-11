@@ -407,9 +407,8 @@ int W8Octree::CollectModelsNearPoint(std::vector<stModelInstance*>& out,
     const auto intersects = [&](srModelInstance* instance) {
         if (!instance || !instance->getModel())
             return false;
-        srBoundingBox bounds;
-        instance->getModel()->getBoundingBox(bounds.minimum, bounds.maximum);
-        auto world = instance->getWorldSpaceMatrix<glm::mat4>();
+        const auto bounds = instance->getModel()->getBoundingBox();
+        const auto world = instance->getWorldSpaceMatrix<glm::mat4>();
         return bounds.transformed(world).intersectsSphere(center, radius);
     };
     const unsigned int level_mask = m_region_mask;
@@ -1562,9 +1561,8 @@ int W8Octree::CountBadRegionMeshLinks(W8OctSpatialState* spatial)
                     static_cast<stModelInstance*>(g_world->psrMeshes[m_pSubmeshes[link].mesh]);
                 if (mesh != 0) {
                     if (auto* model = mesh->getModel()) {
-                        srBoundingBox bounds;
-                        model->getBoundingBox(bounds.minimum, bounds.maximum);
-                        auto world = mesh->getWorldSpaceMatrix<glm::mat4>();
+                        const auto bounds = model->getBoundingBox();
+                        const auto world = mesh->getWorldSpaceMatrix<glm::mat4>();
                         const srBoundingBox cell{spatial->m_minimum.glmValue(),
                                                  spatial->m_maximum.glmValue()};
                         bad_links = !bounds.transformed(world).overlaps(cell);
@@ -1666,7 +1664,7 @@ unsigned char W8Octree::PrepareNavigatorTarget(W8NavigatorMovementState* movemen
                     attachment->path_destination =
                         attachment->path[attachment->path_position_index].position;
                     pathing->AdvanceAttachmentWaypoint(&movement->position, attachment);
-                    movement->attachment->GetNextPosition(&movement->target_position);
+                    movement->target_position = movement->attachment->GetNextPosition();
                     return result;
                 }
                 result = pathing->ProbeAttachmentPath(movement->attachment.get());
@@ -1714,7 +1712,7 @@ bool __stdcall IsNavigatorAtTarget(W8NavigatorMovementState* movement)
             (attachment->flags & W8_NAV_ATTACHMENT_START_WAYPOINT) != 0) {
             return false;
         }
-        attachment->GetNextPosition(&target);
+        target = attachment->GetNextPosition();
     } else {
         target = movement->target_position;
     }
@@ -1738,7 +1736,7 @@ unsigned char W8Octree::PrepareNavigatorPatrol(W8NavigatorMovementState* movemen
             return 0;
         }
         double step = movement->movement_scale * g_world_scale;
-        movement->attachment->GetNextPosition(&movement->target_position);
+        movement->target_position = movement->attachment->GetNextPosition();
         srVector3T<float> delta;
         delta = movement->target_position - movement->position;
         if (step < delta.Length()) {

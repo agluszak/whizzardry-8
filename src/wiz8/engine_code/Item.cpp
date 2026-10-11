@@ -4,7 +4,9 @@
 #include <cstring>
 #include <exception>
 #include <memory>
+#include <optional>
 #include <utility>
+#include "surrender/srBoundingBox.h"
 #include <string>
 
 #include "wiz8/engine_code/Item.h"
@@ -79,10 +81,10 @@ void W8Item::ApplyRepTransform()
                      0);
     }
     mesh = static_cast<W8ItemRep*>(m_pRep)->m_psrMesh.get();
-    m_pRep->GetLocation(&location);
+    location = m_pRep->GetLocation();
     widened = glm::dvec3(location.glmValue());
     mesh->setLocation(widened);
-    m_pRep->GetRotation(&rotation);
+    rotation = m_pRep->GetRotation();
     mesh->setRotation(rotation);
 }
 
@@ -109,8 +111,8 @@ void W8Item::AttachMesh(W8World* world)
         mesh->clearFlag(srNode::FLAG_DISABLE);
     }
     mesh->setParent(world->dynamic_scene, 0);
-    m_pRep->GetLocation(&location);
-    m_pRep->GetRotation(&rotation);
+    location = m_pRep->GetLocation();
+    rotation = m_pRep->GetRotation();
     child = mesh->first_child_;
     if (child == 0) {
         widened = glm::dvec3(location.glmValue());
@@ -190,7 +192,9 @@ bool W8ItemRep::ReadFromFile(W8ReadLevelInfo* info, W8Item* item, bool anonymous
 // FUNCTION: WIZ8 0x0049F2B0
 void W8ItemRep::RefreshBounds()
 {
-    m_psrMesh->getModel()->getBoundingBox(bounds_minimum, bounds_maximum);
+    const auto bounds = m_psrMesh->getModel()->getBoundingBox();
+    bounds_minimum = bounds.minimum;
+    bounds_maximum = bounds.maximum;
     bounds_radius = static_cast<float>(glm::distance(bounds_maximum, bounds_minimum) * 0.5);
 }
 
@@ -274,7 +278,7 @@ void W8Item::UpdateAnimation()
     }
     if ((rep->flags & W8_ITEM_ENTITY_ROTATE) != 0 && gfKeyState[VK_CONTROL] == 0) {
         glm::mat3 rotation;
-        m_pRep->GetRotation(&rotation);
+        rotation = m_pRep->GetRotation();
         rotation *= glm::mat3(glm::eulerAngleY(-0.1963495375f));
         srNode* mesh = rep->m_psrMesh.get();
         m_pRep->SetRotation(&rotation);
@@ -307,19 +311,16 @@ void W8Item::UpdateAnimation()
 }
 
 // FUNCTION: WIZ8 0x0049FB30
-unsigned char W8Item::GetCachedLocalBounds(srVector3T<float>* lower, srVector3T<float>* upper)
+srBoundingBox W8Item::GetCachedLocalBounds() const
 {
-    W8ItemRep* rep = static_cast<W8ItemRep*>(m_pRep);
-    *lower = rep->bounds_minimum;
-    *upper = rep->bounds_maximum;
-    return true;
+    const auto* rep = static_cast<W8ItemRep*>(m_pRep);
+    return {rep->bounds_minimum, rep->bounds_maximum};
 }
 
 // FUNCTION: WIZ8 0x0049FB80
-bool W8Item::GetBoundsRadius(float* radius)
+float W8Item::GetBoundsRadius() const
 {
-    *radius = static_cast<W8ItemRep*>(m_pRep)->bounds_radius;
-    return true;
+    return static_cast<W8ItemRep*>(m_pRep)->bounds_radius;
 }
 
 /* Raise the representation location by two thirds of the cached local height.
@@ -327,17 +328,12 @@ bool W8Item::GetBoundsRadius(float* radius)
 static const float g_item_bounds_vertical_factor = 0.66f;
 
 // FUNCTION: WIZ8 0x0049FBA0
-unsigned char W8Item::GetSearchPosition(srVector3T<float>* location)
+srVector3T<float> W8Item::GetSearchPosition() const
 {
-    srVector3T<float> lower;
-    srVector3T<float> upper;
-
-    if (GetCachedLocalBounds(&lower, &upper) == 0) {
-        return 0;
-    }
-    m_pRep->GetLocation(location);
-    location->y += (upper.y - lower.y) * g_item_bounds_vertical_factor;
-    return 1;
+    const auto bounds = GetCachedLocalBounds();
+    auto location = m_pRep->GetLocation();
+    location.y += (bounds.maximum.y - bounds.minimum.y) * g_item_bounds_vertical_factor;
+    return location;
 }
 
 // FUNCTION: WIZ8 0x0049FBF0
@@ -383,28 +379,20 @@ void W8Item::SetHighlight(bool enabled)
 bool W8Item::IsSelected()
 {
     srModelInstance* selected = GetPickedModelInstance();
-    srVector3T<float> location;
-    /* The selection-point helper is inlined here even though its result is
-       not used by the final mesh-identity test. */
-    GetSearchPosition(&location);
     return selected == static_cast<W8ItemRep*>(m_pRep)->m_psrMesh.get();
 }
 
 // FUNCTION: WIZ8 0x0049FFA0
 float W8Item::DistanceToCamera(W8World* world)
 {
-    srVector3T<float> lower;
-    srVector3T<float> upper;
-    if (!GetCachedLocalBounds(&lower, &upper)) {
-        return -1.0f;
-    }
+    const auto bounds = GetCachedLocalBounds();
     srVector3T<double> camera = world->camera->getLocation();
     srVector3T<float> camera_location;
     camera_location = glm::vec3(camera.glmValue());
     srVector3T<float> center = m_pRep->location;
     /* Unlike the selection-point helper, retail offsets Z by half the Z
        extent here, not Y by 0.66 of the Y extent. */
-    center.z += (upper.z - lower.z) * 0.5f;
+    center.z += (bounds.maximum.z - bounds.minimum.z) * 0.5f;
     return (camera_location - center).Length();
 }
 
@@ -436,15 +424,14 @@ unsigned char RunItemTrigger(W8Item* item)
 }
 
 // FUNCTION: WIZ8 0x004A00C0
-bool GetItemWorldBounds(W8Item* item, srVector3T<float>* lower, srVector3T<float>* upper)
+std::optional<srBoundingBox> GetItemWorldBounds(const W8Item* item)
 {
     if (item == 0) {
-        return false;
+        return std::nullopt;
     }
-    item->GetCachedLocalBounds(lower, upper);
-    srVector3T<float> location;
-    item->m_pRep->GetLocation(&location);
-    *lower += location;
-    *upper += location;
-    return true;
+    auto bounds = item->GetCachedLocalBounds();
+    const auto location = item->m_pRep->GetLocation();
+    bounds.minimum += location.glmValue();
+    bounds.maximum += location.glmValue();
+    return bounds;
 }

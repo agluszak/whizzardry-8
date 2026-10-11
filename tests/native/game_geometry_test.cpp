@@ -19,12 +19,18 @@
 #include <utility>
 
 #include "glm/geometric.hpp"
+#include "glm/ext/vector_float2.hpp"
 #include "surrender_test_fixture.h"
 #include "surrender/srBoundingBox.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srModeler.h"
 #include "surrender/srGERD.h"
 #include "surrender/srCamera.h"
+#include "surrender/srClock.h"
+#include "glm/ext/matrix_float3x3.hpp"
+#include "wiz8/engine_code/AnimRep.hpp"
+#include "wiz8/engine_code/Prop.h"
+#include "wiz8/engine_code/game_timer.h"
 #include "wiz8/engine_code/World.h"
 #include "surrender/srTriangleCuller.h"
 #include "surrender/srDD_SDLGPU.h"
@@ -34,12 +40,17 @@
 #include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/engine_code/stMeshModel.h"
 #include "wiz8/engine_code/stModelInstance.h"
+#include "wiz8/engine_code/materials.h"
+#include "surrender/srNode.h"
+#include "surrender/srModel.h"
+#include "surrender/srModelInstance.h"
 #include "wiz8/direction_angles.h"
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/GameData.h"
+#include "wiz8/engine_code/Item.h"
+#include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/OctBuildPreTree.h"
 #include "wiz8/engine_code/OctBuildTree.h"
-#include "wiz8/engine_code/materials.h"
 #include "wiz8/engine_code/OctPreTree.h"
 #include "wiz8/engine_code/Navigator.h"
 #include "wiz8/engine_code/SoundEvent.h"
@@ -630,6 +641,91 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Linked mesh bounds", "[geometry]")
     linked_mesh_bounds();
 }
 
+TEST_CASE_METHOD(SurRenderTestFixture, "Model bounds are independent values", "[geometry]")
+{
+    auto mesh = std::make_shared<srMeshModel>(0, 2);
+    mesh->getVertexLoc()[0] = srVector3(-4, -3, -2);
+    mesh->getVertexLoc()[1] = srVector3(2, 3, 4);
+    srModel& model = *mesh;
+    auto box = model.getBoundingBox();
+    const auto sphere = model.getBoundingSphere();
+    REQUIRE(box.minimum == glm::vec3(-4, -3, -2));
+    REQUIRE(box.maximum == glm::vec3(2, 3, 4));
+    REQUIRE(sphere.center == glm::vec3(-1, 0, 1));
+    REQUIRE(std::abs(sphere.radius - std::sqrt(27.0f) * 1.00001f) < 1e-5f);
+    box.minimum = glm::vec3(99);
+    REQUIRE(model.getBoundingBox().minimum == glm::vec3(-4, -3, -2));
+
+    srModelInstance instance;
+    instance.setModel(mesh);
+    srNode& node = instance;
+    const auto local = node.getLocalBounds();
+    REQUIRE(local.state == 1);
+    REQUIRE(local.minimum == model.getBoundingBox().minimum);
+    REQUIRE(local.maximum == model.getBoundingBox().maximum);
+    REQUIRE(local.center == sphere.center);
+    REQUIRE(local.radius == sphere.radius);
+
+    auto draw = mesh->getTriMesh();
+    draw.bounds_radius = 99;
+    REQUIRE(mesh->getTriMesh().bounds_radius == sphere.radius);
+    mesh->getVertexLoc()[1] = srVector3(4, 5, 6);
+    mesh->setDirtyAll();
+    REQUIRE(model.getBoundingBox().maximum == glm::vec3(4, 5, 6));
+    REQUIRE(node.getLocalBounds().maximum == glm::vec3(4, 5, 6));
+
+    srNode empty;
+    REQUIRE(empty.getLocalBounds().state == 0);
+    empty.setFlag(srNode::FLAG_GLOBAL);
+    const auto global = empty.getLocalBounds();
+    REQUIRE(global.state == 2);
+    REQUIRE(global.minimum == glm::vec3(0));
+    REQUIRE(global.maximum == glm::vec3(0));
+    REQUIRE(global.center == glm::vec3(0));
+    REQUIRE(global.radius == 0);
+    instance.setModel(nullptr);
+    instance.setFlag(srNode::FLAG_GLOBAL);
+    const auto missing = node.getLocalBounds();
+    REQUIRE(missing.state == 0);
+    REQUIRE(missing.minimum == glm::vec3(0));
+    REQUIRE(missing.maximum == glm::vec3(0));
+    REQUIRE(missing.center == glm::vec3(0));
+    REQUIRE(missing.radius == 0);
+
+    stMeshModel linked(0, 1);
+    linked.getVertexLoc()[0] = srVector3(-2, -4, -6);
+    auto part = std::make_unique<stMeshModel>(0, 1);
+    part->getVertexLoc()[0] = srVector3(2, 4, 6);
+    linked.AddPart(std::move(part));
+    srModel& linked_model = linked;
+    REQUIRE(linked_model.getBoundingBox().minimum == glm::vec3(-2, -4, -6));
+    REQUIRE(linked_model.getBoundingBox().maximum == glm::vec3(2, 4, 6));
+    REQUIRE(linked_model.getBoundingSphere().center == glm::vec3(0));
+    REQUIRE(std::abs(linked_model.getBoundingSphere().radius - std::sqrt(56.0f)) < 1e-5f);
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture, "Material query overrides do not mutate the cache", "[geometry]")
+{
+    stMaterial material;
+    material.setDiffuse(glm::vec4(.2f, .3f, .4f, .8f));
+    material.setEmissive(glm::vec4(.1f, .2f, .3f, 1));
+    const auto original = material.getMaterialInfo();
+    g_material_diffuse_scale_enabled = true;
+    g_material_diffuse_scale = .5f;
+    g_material_emissive_override_enabled = true;
+    g_material_emissive_override = .75f;
+    const auto overridden = material.getMaterialInfo();
+    g_material_diffuse_scale_enabled = false;
+    g_material_emissive_override_enabled = false;
+    REQUIRE(overridden.diffuse == glm::vec4(.2f, .3f, .4f, .4f));
+    REQUIRE(overridden.emissive == glm::vec4(.75f, .75f, .75f, 1));
+    REQUIRE(material.getMaterialInfo().diffuse == original.diffuse);
+    REQUIRE(material.getMaterialInfo().emissive == original.emissive);
+    material.setDiffuse(glm::vec4(.5f));
+    REQUIRE(material.getMaterialInfo().diffuse == glm::vec4(.5f));
+    REQUIRE(original.diffuse == glm::vec4(.2f, .3f, .4f, .8f));
+}
+
 TEST_CASE_METHOD(SurRenderTestFixture, "Baked lighting", "[geometry]")
 {
     baked_lighting();
@@ -880,4 +976,166 @@ TEST_CASE("Swept query coordinates retain negative-cell policy and complete offs
     REQUIRE(lower.offset == glm::vec3(-0.5f));
     REQUIRE(lower.inside);
     REQUIRE(tree.projectRegionsAt({101, 50, 50}).cell == glm::ivec3(1, 0, 0));
+}
+
+TEST_CASE("Spatial bounds are independent snapshots of working and clipped extents", "[geometry][octree]")
+{
+    W8OctSpatialState state;
+    const srVector3 minimum(-30, -20, -10), maximum(10, 20, 30);
+    state.SetWorkingBounds(&minimum, &maximum);
+    state.m_clipped_minimum = {-3, -2, -1};
+    state.m_clipped_maximum = {1, 2, 3};
+    const auto working = state.GetWorkingBounds();
+    auto clipped = state.GetClippedBounds();
+    REQUIRE(working.minimum == minimum.glmValue());
+    REQUIRE(working.maximum == maximum.glmValue());
+    REQUIRE(clipped.minimum == glm::vec3(-3, -2, -1));
+    REQUIRE(clipped.maximum == glm::vec3(1, 2, 3));
+    clipped.minimum = glm::vec3(0);
+    REQUIRE(state.GetClippedBounds().minimum == glm::vec3(-3, -2, -1));
+    state.Reset();
+    REQUIRE(state.GetWorkingBounds().minimum == glm::vec3(0));
+    REQUIRE(state.GetClippedBounds().maximum == glm::vec3(0));
+    REQUIRE(working.minimum == minimum.glmValue());
+}
+
+TEST_CASE("Item bounds preserve local extents and report absent world items", "[geometry][item]")
+{
+    W8Item item;
+    auto* rep = static_cast<W8ItemRep*>(item.m_pRep);
+    rep->m_psrMesh = nullptr;
+    rep->bounds_minimum = {-5, -3, -1};
+    rep->bounds_maximum = {7, 9, 11};
+    rep->bounds_radius = 12;
+    rep->location = {100, 200, 300};
+
+    const auto local = item.GetCachedLocalBounds();
+    const auto radius = item.GetBoundsRadius();
+    auto world = GetItemWorldBounds(&item);
+    REQUIRE(world);
+    REQUIRE(local.minimum == glm::vec3(-5, -3, -1));
+    REQUIRE(local.maximum == glm::vec3(7, 9, 11));
+    REQUIRE(radius == 12);
+    REQUIRE(world->minimum == glm::vec3(95, 197, 299));
+    REQUIRE(world->maximum == glm::vec3(107, 209, 311));
+    world->minimum = glm::vec3(0);
+    REQUIRE(item.GetCachedLocalBounds().minimum == local.minimum);
+    REQUIRE(GetItemWorldBounds(&item)->minimum == glm::vec3(95, 197, 299));
+
+    const auto search = item.GetSearchPosition();
+    REQUIRE(close(search.glmValue(), {100, 207.92f, 300}));
+    rep->bounds_minimum = glm::vec3(0);
+    rep->bounds_radius = 0;
+    REQUIRE(item.GetCachedLocalBounds().minimum == glm::vec3(0));
+    REQUIRE(item.GetBoundsRadius() == 0);
+    REQUIRE(local.minimum == glm::vec3(-5, -3, -1));
+    REQUIRE(radius == 12);
+    REQUIRE_FALSE(GetItemWorldBounds(nullptr));
+}
+
+TEST_CASE("Viewport bounds normalize each edge into an independent value", "[geometry][viewport]")
+{
+    struct RestoreViewport {
+        W8ViewportRect saved = g_viewport;
+        ~RestoreViewport() { g_viewport = saved; }
+    } restore;
+    g_viewport = {80, 60, 560, 420};
+    const auto bounds = GetScaledViewportBounds();
+    REQUIRE(glm::length(bounds.minimum - glm::vec2(0.125f)) < 1e-6f);
+    REQUIRE(glm::length(bounds.maximum - glm::vec2(0.875f)) < 1e-6f);
+    g_viewport = {-80, -60, 720, 540};
+    const auto outside = GetScaledViewportBounds();
+    REQUIRE(glm::length(outside.minimum - glm::vec2(-0.125f)) < 1e-6f);
+    REQUIRE(glm::length(outside.maximum - glm::vec2(1.125f)) < 1e-6f);
+    REQUIRE(glm::length(bounds.minimum - glm::vec2(0.125f)) < 1e-6f);
+    REQUIRE(glm::length(bounds.maximum - glm::vec2(0.875f)) < 1e-6f);
+}
+
+TEST_CASE("Representation transform queries preserve local and parent coordinates", "[geometry][transform]")
+{
+    W8AnimRepBase rep;
+    rep.parent_location = {10, 20, 30};
+    const srVector3 local(1, 2, 3);
+    rep.SetLocation(&local);
+    const auto world = rep.GetLocation();
+    const auto local_copy = rep.GetLocalLocation();
+    auto rotation = rep.GetRotation();
+    REQUIRE(world == srVector3(11, 22, 33));
+    REQUIRE(local_copy == local);
+    REQUIRE(rotation == glm::mat3(1));
+    rotation[0][0] = 2;
+    REQUIRE(rep.GetRotation() == glm::mat3(1));
+    rep.SetRotation(&rotation);
+    REQUIRE(rep.GetRotation() == rotation);
+    const srVector3 next(-1, -2, -3);
+    rep.SetLocation(&next);
+    REQUIRE(rep.GetLocation() == srVector3(9, 18, 27));
+    REQUIRE(world == srVector3(11, 22, 33));
+    REQUIRE(local_copy == local);
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture, "Movement queries return velocity and waypoint snapshots", "[geometry][navigation]")
+{
+    W8Navigator navigator;
+    navigator.movement.velocity = {1, 2, 3};
+    const auto velocity = navigator.GetVelocity();
+    navigator.movement.velocity = {4, 5, 6};
+    REQUIRE(navigator.GetVelocity() == srVector3(4, 5, 6));
+    REQUIRE(velocity == srVector3(1, 2, 3));
+
+    W8NavigatorAttachment route;
+    route.start_waypoint = {1, 2, 3};
+    route.path_destination = {7, 8, 9};
+    route.flags = W8_NAV_ATTACHMENT_START_WAYPOINT;
+    const auto start = route.GetNextPosition();
+    REQUIRE(start == route.start_waypoint);
+    route.flags = 0;
+    route.path_cursor = 0;
+    route.path_position_index = 1;
+    route.path[0].position = {4, 5, 6};
+    const auto waypoint = route.GetNextPosition();
+    REQUIRE(waypoint == srVector3(4, 5, 6));
+    route.path[0].position = {10, 11, 12};
+    REQUIRE(waypoint == srVector3(4, 5, 6));
+    route.path_cursor = route.path_position_index;
+    REQUIRE(route.GetNextPosition() == route.path_destination);
+    REQUIRE(start == srVector3(1, 2, 3));
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture, "Prop position and delta queries preserve animation stepping", "[geometry][animation]")
+{
+    struct SharedClock {
+        srClock clock;
+        srClock* saved = std::exchange(g_shared_timer_base, &clock);
+        ~SharedClock() { g_shared_timer_base = saved; }
+    } shared_clock;
+    W8Prop prop;
+    prop.Rep()->animation = std::make_unique<W8AnimObj>().release();
+    auto& animation = *prop.Rep()->animation;
+    prop.m_pRep->location = {10, 20, 30};
+    prop.animation_position = {3, 5, 7};
+    prop.previous_animation_position = {1, 2, 3};
+    const auto static_position = prop.GetPosition();
+    REQUIRE(static_position == srVector3(10, 20, 30));
+    animation.path_lists = true;
+    REQUIRE(prop.GetPosition() == prop.animation_position);
+    REQUIRE(static_position == srVector3(10, 20, 30));
+    prop.Rep()->animation_behaviour = W8_ANIMATION_PLAY_ONCE;
+    prop.Rep()->frame_direction = W8_ANIMATION_FORWARD;
+    prop.Rep()->first_frame = 0;
+    prop.Rep()->last_frame = 3;
+    prop.Rep()->subcycle = 1;
+    const auto delta = prop.GetDelta();
+    REQUIRE(delta == srVector3(2, 3, 4));
+    REQUIRE(prop.Rep()->subcycle == 1);
+    prop.Rep()->subcycle = 3;
+    REQUIRE(prop.GetDelta() == srVector3(0, 0, 0));
+    prop.Rep()->animation_behaviour = W8_ANIMATION_REPEAT;
+    prop.Rep()->frame_method = W8_ANIMATION_WRAP;
+    REQUIRE(prop.GetDelta() == srVector3(0, 0, 0));
+    prop.Rep()->frame_method = W8_ANIMATION_PING_PONG;
+    REQUIRE(prop.GetDelta() == delta);
+    prop.Rep()->frame_direction = W8_ANIMATION_REVERSE;
+    prop.Rep()->subcycle = 1;
+    REQUIRE(prop.GetDelta() == delta);
 }

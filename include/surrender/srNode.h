@@ -83,7 +83,7 @@ public:
 public:
     virtual SR_DLL_IMPORT void traverse(TraverseInfo& info);
     virtual SR_DLL_IMPORT void process(const ProcessInfo& info, e_processType type);
-    virtual SR_DLL_IMPORT void getLocalBounds(BoundInfo& bounds);
+    virtual SR_DLL_IMPORT BoundInfo getLocalBounds();
     virtual SR_DLL_IMPORT void updateBounds();
 
 protected:
@@ -256,4 +256,3 @@ public:
     srNode* parent_;           /* 0x130 */
     srNode* first_child_;      /* 0x134 */
 };
-

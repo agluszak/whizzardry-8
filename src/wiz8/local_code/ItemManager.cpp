@@ -756,7 +756,7 @@ void DeactivateWorldItem(W8WorldItem* item)
         g_level_block->selected_item = -1;
     }
 
-    item->p3D->m_pRep->GetLocation(&position);
+    position = item->p3D->m_pRep->GetLocation();
     item->position = position;
     item->entity_flags = static_cast<W8ItemRep*>(item->p3D->m_pRep)->flags;
 
@@ -859,7 +859,7 @@ void UpdateNearbyWorldItems(void)
         } else {
             srVector3T<float> location;
 
-            item->p3D->m_pRep->GetLocation(&location);
+            location = item->p3D->m_pRep->GetLocation();
             if (DistanceBetweenPoints(&location, &camera) > g_float_twenty_five_thousand) {
                 DeactivateWorldItem(item);
             }
@@ -1021,18 +1021,16 @@ unsigned char ReleaseItemLists(void)
 bool IsWorldItemWithinReach(W8Item* owner, const srVector3T<float>* from, float radius)
 {
     srVector3T<float> position;
-    srVector3T<float> lower;
-    srVector3T<float> upper;
     srVector3T<float> eye;
 
-    owner->m_pRep->GetLocation(&position);
+    position = owner->m_pRep->GetLocation();
     eye = cameraLocation();
 
     srVector3T<float> delta = position - *from;
     if (delta.Length() < radius) {
-        owner->GetCachedLocalBounds(&lower, &upper);
-        lower += position;
-        upper += position;
+        const auto bounds = owner->GetCachedLocalBounds();
+        const srVector3T<float> lower(bounds.minimum + position.glmValue());
+        const srVector3T<float> upper(bounds.maximum + position.glmValue());
         if (ShowTargetMarker(&eye, &lower, &upper)) {
             return true;
         }
@@ -1049,15 +1047,13 @@ static bool IsWorldItemMarkerVisible(W8WorldItem* item, const srVector3T<float>&
     if (item->p3D != 0) {
         srVector3T<float> position;
         srVector3T<float> eye;
-        srVector3T<float> lower;
-        srVector3T<float> upper;
-        item->p3D->m_pRep->GetLocation(&position);
+        position = item->p3D->m_pRep->GetLocation();
         eye = cameraLocation();
         srVector3T<float> delta = position - camera;
         if (delta.Length() < static_cast<float>(g_double_twenty_five_hundred)) {
-            item->p3D->GetCachedLocalBounds(&lower, &upper);
-            lower += position;
-            upper += position;
+            const auto bounds = item->p3D->GetCachedLocalBounds();
+            const srVector3T<float> lower(bounds.minimum + position.glmValue());
+            const srVector3T<float> upper(bounds.maximum + position.glmValue());
             return ShowTargetMarker(&eye, &lower, &upper) != 0;
         }
     }

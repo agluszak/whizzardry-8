@@ -117,17 +117,13 @@ void stLevel::process(const ProcessInfo& info, e_processType)
         }
 
         if ((model->render_control.value & 0x20) == 0) {
-            glm::vec3 center;
-            float radius;
-            model->getBoundingSphere(center, radius);
+            const auto [center, radius] = model->getBoundingSphere();
             if (renderer.testBoundingSphere(center, radius) == srGERD::VISIBILITY_OUTSIDE) {
                 continue;
             }
         }
         if ((model->render_control.value & 0x10) == 0 && model->vertex_location_count >= 8) {
-            glm::vec3 minimum;
-            glm::vec3 maximum;
-            model->getBoundingBox(minimum, maximum);
+            const auto [minimum, maximum] = model->getBoundingBox();
             if (renderer.testBoundingBox(minimum, maximum) == srGERD::VISIBILITY_OUTSIDE) {
                 continue;
             }
@@ -148,8 +144,7 @@ void stLevel::process(const ProcessInfo& info, e_processType)
                 model->SetAmbientColor(ambient_color);
             }
 
-            srMeshModel::TriMesh mesh;
-            model->getTriMesh(mesh);
+            auto mesh = model->getTriMesh();
             if (g_render_untextured) {
                 mesh.shaders[0].value &= 0xffff7fff;
                 mesh.poly_shaders[0] = 0;
@@ -1051,8 +1046,6 @@ try
 {
     W8ReadLevelInfo info;
     std::unique_ptr<stModelInstance> level_mesh;
-    glm::vec3 minimum;
-    glm::vec3 maximum;
     srVector3T<float> environment_offset;
     char error_message[512];
     int section_end;
@@ -1172,7 +1165,7 @@ try
 
     if (use_octree) {
         srMeshModel* model = static_cast<srMeshModel*>(world->update_mesh_source->getModel());
-        model->getBoundingBox(minimum, maximum);
+        const auto [minimum, maximum] = model->getBoundingBox();
         world->quads = BuildWorldQuad(world->update_mesh_source, minimum, maximum);
     }
     RefreshEnvironment();

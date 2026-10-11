@@ -642,9 +642,7 @@ try
     }
 
     if (first_model != 0) {
-        glm::vec3 minimum;
-        glm::vec3 maximum;
-        first_model->getBoundingBox(minimum, maximum);
+        first_model->getBoundingBox();
     }
     if (first_model != 0) {
         first_model->setName(name ? name : "");
@@ -706,8 +704,6 @@ try
     }
     std::vector<stMeshModel*> meshes(mesh_count);
     std::vector<std::shared_ptr<stMeshModel>> roots(mesh_count);
-    glm::vec3 minimum;
-    glm::vec3 maximum;
     for (unsigned int mesh_index = 0; mesh_index < mesh_count; ++mesh_index) {
         if (g_current_screen_state.id == W8_SCREEN_PLEASE_WAIT) {
             UpdatePleaseWaitLoadFrame();
@@ -730,7 +726,7 @@ try
         }
         meshes[mesh_index] = model;
         model->setDirty(srMeshModel::DIRTY_BOUNDS);
-        model->getBoundingBox(minimum, maximum);
+        model->getBoundingBox();
     }
 
     info->hFile->read_exact(&terminator, sizeof(terminator));
