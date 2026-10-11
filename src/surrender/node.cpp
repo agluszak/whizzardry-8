@@ -676,7 +676,7 @@ void srNode::setWorldSpaceLocation(const glm::dvec3& location)
 }
 
 // FUNCTION: SURRENDER 0x100553A0
-void srNode::applyWorldSpaceMatrix(srGERD& renderer)
+void srNode::applyWorldSpaceMatrix(srGERD& renderer) const
 {
     checkTransformation();
     renderer.matrixMode(srGERD::MATRIX_MODELVIEW);

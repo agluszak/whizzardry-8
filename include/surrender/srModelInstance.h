@@ -1,6 +1,7 @@
 #pragma once
 
 #include "srModel.h"
+#include "glm/ext/vector_float3.hpp"
 #include "srNode.h"
 
 #include <math.h>
@@ -39,19 +40,21 @@ public:
     }
 
     double getAlignAngle() const;
-    srVector3T<float> getAlignAxis() const;
+    glm::vec3 getAlignAxis() const;
     w8_ulong getExclusionMask() const;
     int isAligned() const;
     void setAlignAngle(double angle);
-    void setAlignAxis(srVector3T<float> axis);
+    void setAlignAxis(const glm::vec3& axis);
     void setAlignment(int enabled);
     void setExclusionMask(w8_ulong mask);
 
     srFlags<int> alignment_flags;
 
 protected:
+    // Push the transform used by both ordinary and screen-facing model draws.
+    void applyRenderTransform(srGERD& renderer) const;
 
-    srVector3T<float> align_axis;
+    glm::vec3 align_axis;
     float align_angle;
     w8_ulong exclusion_mask;
 

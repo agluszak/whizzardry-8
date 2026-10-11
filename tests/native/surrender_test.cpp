@@ -224,15 +224,15 @@ static bool interfaces()
 
         ModelInstance model;
         REQUIRE(!model.isAligned());
-        model.setAlignAxis(srVector3T<float>(3, 0, 4));
+        model.setAlignAxis(glm::vec3(3, 0, 4));
         REQUIRE(model.isAligned());
-        REQUIRE(model.getAlignAxis() == srVector3T<float>(0.6f, 0, 0.8f));
+        REQUIRE(model.getAlignAxis() == glm::vec3(0.6f, 0, 0.8f));
         model.setAlignment(0);
         REQUIRE(!model.isAligned());
         model.setAlignment(2);
         REQUIRE(model.isAligned());
-        model.setAlignAxis(srVector3T<float>(0, 0, 0));
-        REQUIRE(model.getAlignAxis() == srVector3T<float>(0, 0, 0));
+        model.setAlignAxis(glm::vec3(0, 0, 0));
+        REQUIRE(model.getAlignAxis() == glm::vec3(0, 0, 0));
         REQUIRE(model.isAligned());
         model.setExclusionMask(0x12345678);
         REQUIRE(model.getExclusionMask() == 0x12345678);

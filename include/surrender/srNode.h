@@ -117,7 +117,7 @@ public:
     static SR_DLL_IMPORT void lockSceneGraph();
     static SR_DLL_IMPORT void unlockSceneGraph();
 
-    SR_DLL_IMPORT void applyWorldSpaceMatrix(class srGERD& renderer);
+    SR_DLL_IMPORT void applyWorldSpaceMatrix(class srGERD& renderer) const;
     SR_DLL_IMPORT double getDistance(const srNode& node) const;
     SR_DLL_IMPORT glm::dvec3 getLocation() const;
     SR_DLL_IMPORT double getLocationX() const;

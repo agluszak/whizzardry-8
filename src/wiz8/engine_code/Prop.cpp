@@ -1530,9 +1530,7 @@ try
             }
             if (option_byte != 0) {
                 srNode* child;
-                srVector3T<float> axis;
-
-                axis.Set(0.0f, 1.0f, 0.0f);
+                const glm::vec3 axis(0, 1, 0);
                 instance->setAlignment(1);
                 instance->setAlignAxis(axis);
                 child = instance->first_child_;

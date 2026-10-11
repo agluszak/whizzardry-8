@@ -1,5 +1,4 @@
 #include <ostream>
-#include <cmath>
 #include <memory>
 #include <string>
 #include <vector>
@@ -28,7 +27,7 @@ srModelInstance::srModelInstance(srNode* parent, Ownership ownership)
 {
     alignment_flags.value = 0;
     align_angle = 0.0f;
-    align_axis.Set(0.0f, 0.0f, 1.0f);
+    align_axis = glm::vec3(0, 0, 1);
     exclusion_mask = 0;
     if (parent != 0) {
         setParent(parent, 0);
@@ -78,32 +77,36 @@ srNode::BoundInfo srModelInstance::getLocalBounds()
     return {box.minimum, box.maximum, sphere.center, sphere.radius, 1};
 }
 
-// FUNCTION: SURRENDER 0x1004F4B0
-void srModelInstance::process(const ProcessInfo& info, e_processType type)
+void srModelInstance::applyRenderTransform(srGERD& renderer) const
 {
-    srGERD* renderer = info.renderer;
-    ++srCore.getStatisticsManager()->statistics.meshes_traversed;
     if ((alignment_flags.value & 1) == 0) {
-        applyWorldSpaceMatrix(*renderer);
+        applyWorldSpaceMatrix(renderer);
     } else {
-        renderer->matrixMode(srGERD::MATRIX_MODELVIEW);
-        renderer->pushMatrix();
-        const auto matrix = renderer->getMatrix(srGERD::MATRIX_MODELVIEW);
+        renderer.matrixMode(srGERD::MATRIX_MODELVIEW);
+        renderer.pushMatrix();
+        const auto matrix = renderer.getMatrix(srGERD::MATRIX_MODELVIEW);
         const glm::vec4 position = matrix * glm::vec4(glm::vec3(getWorldSpaceLocation()), 1);
         const auto world_scale = glm::vec3(getWorldSpaceScale());
         glm::vec3 scale(glm::length(glm::vec3(matrix[0])), glm::length(glm::vec3(matrix[1])),
                         glm::length(glm::vec3(matrix[2])));
         if (glm::determinant(glm::mat3(matrix)) > 0)
             scale = -scale;
-        renderer->loadIdentity();
-        srVector3T<float> translation = glm::vec3(position);
-        renderer->translate(translation);
+        renderer.loadIdentity();
+        renderer.translate(glm::vec3(position));
         if (align_angle != 0.0f) {
-            renderer->rotate(align_angle, align_axis);
+            renderer.rotate(align_angle, align_axis);
         }
         scale *= world_scale;
-        renderer->scale(scale.x, scale.y, -scale.z);
+        renderer.scale(scale.x, scale.y, -scale.z);
     }
+}
+
+// FUNCTION: SURRENDER 0x1004F4B0
+void srModelInstance::process(const ProcessInfo& info, e_processType type)
+{
+    srGERD* renderer = info.renderer;
+    ++srCore.getStatisticsManager()->statistics.meshes_traversed;
+    applyRenderTransform(*renderer);
     if (exclusion_mask != 0) {
         w8_ulong mask = renderer->getExclusionMask();
         renderer->setExclusionMask(mask | exclusion_mask);
@@ -146,7 +149,7 @@ double srModelInstance::getAlignAngle() const
 }
 
 // FUNCTION: SURRENDER 0x1004FF50
-srVector3T<float> srModelInstance::getAlignAxis() const
+glm::vec3 srModelInstance::getAlignAxis() const
 {
     return align_axis;
 }
@@ -181,15 +184,9 @@ void srModelInstance::setAlignAngle(double angle)
 }
 
 // FUNCTION: SURRENDER 0x1004FEC0
-void srModelInstance::setAlignAxis(srVector3T<float> axis)
+void srModelInstance::setAlignAxis(const glm::vec3& axis)
 {
-    align_axis = axis;
-    float length_squared =
-        align_axis.z * align_axis.z + align_axis.y * align_axis.y + align_axis.x * align_axis.x;
-    if (length_squared != 0.0) {
-        float scale = (float)(1.0 / sqrt(length_squared));
-        align_axis *= scale;
-    }
+    align_axis = normalizedOrZero(axis);
     alignment_flags.value |= 1;
 }
 
