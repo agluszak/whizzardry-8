@@ -55,7 +55,6 @@
 #include "compat/ptr32.h"
 #include "conditions.h"
 #include "equipment_slots.h"
-#include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "layouts/item_instance.h"
 #include "layouts/main_game_screen.h"
@@ -2817,13 +2816,8 @@ bool IsMonsterVisibleWithinDistance(W8Monster* monster, const srVector3T<float>*
         return false;
     auto center = monster->movement.position;
     center.y += monster->movement.height_offset;
-    for (const auto& point : std::array{center.glmValue(), bounds->minimum, bounds->maximum}) {
-        srVector3T<float> projected;
-        const srVector3T<double> input{glm::dvec3(point)};
-        if (g_world->camera->project(projected, input) == srCamera::PROJECTION_RESULT_ACCEPTED)
-            return true;
-    }
-    return false;
+    const std::array points{center.glmValue(), bounds->minimum, bounds->maximum};
+    return g_world->camera->projectsAny(points);
 }
 
 /* Any live monster visible to the camera within the far-clip range, resuming

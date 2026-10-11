@@ -1,3 +1,4 @@
+#include "glm/ext/vector_double3.hpp"
 
 #include "wiz8/direction_angles.h"
 #include "wiz8/engine_code/PolyPick.h"
@@ -108,9 +109,6 @@ bool PointInsideBounds(const srVector3T<float>* point, const srVector3T<float>* 
 // FUNCTION: WIZ8 0x004BE940
 unsigned char ProjectPointThroughCamera(const srVector3T<float>* position)
 {
-    srVector3T<float> projected;
-    srVector3T<double> input(static_cast<double>(position->x), static_cast<double>(position->y),
-                             static_cast<double>(position->z));
-
-    return g_world->camera->project(projected, input) == srCamera::PROJECTION_RESULT_ACCEPTED;
+    return g_world->camera->project(glm::dvec3(position->glmValue())).result ==
+           srCamera::PROJECTION_RESULT_ACCEPTED;
 }

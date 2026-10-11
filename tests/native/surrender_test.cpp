@@ -1,6 +1,8 @@
+#include <array>
+#include "glm/ext/vector_double3.hpp"
+#include "glm/ext/vector_float3.hpp"
 #include <catch2/catch_test_macros.hpp>
 #include <glm/ext/matrix_transform.hpp>
-#include <array>
 #include <cmath>
 #include <limits>
 #include <numbers>
@@ -178,23 +180,26 @@ static bool interfaces()
         camera.setViewPlane(srCamera::Rect{-1, -1, 1, 1}, 1);
         camera.setLocation(3, 4, 5);
         camera.setRotation(0, std::numbers::pi / 2, 0);
-        srVector3 projected;
-        REQUIRE(camera.project(projected, srVector3T<double>(13, 4, 5)) ==
-              srCamera::PROJECTION_RESULT_ACCEPTED);
-        REQUIRE(glm::length(projected.glmValue() - glm::vec3(0.5f, 0.5f, 10)) < 1e-5f);
-        srVector3 restored;
-        REQUIRE(camera.unproject(restored, srVector3T<double>(0.5, 0.5, 10)));
-        REQUIRE(glm::length(restored.glmValue() - glm::vec3(13, 4, 5)) < 1e-5f);
-        REQUIRE(camera.project(projected, srVector3T<double>(13, 4, -15)) ==
-              srCamera::PROJECTION_RESULT_OUTSIDE_VIEW);
-        REQUIRE(camera.project(projected, srVector3T<double>(203, 4, 5)) ==
-              srCamera::PROJECTION_RESULT_OUTSIDE_CLIP_RANGE);
-        REQUIRE(!camera.unproject(restored, srVector3T<double>(2, 0.5, 10)));
+        const auto projected = camera.project({13, 4, 5});
+        REQUIRE(projected.result == srCamera::PROJECTION_RESULT_ACCEPTED);
+        REQUIRE(glm::length(projected.position - glm::vec3(0.5f, 0.5f, 10)) < 1e-5f);
+        const auto restored = camera.unproject({0.5, 0.5, 10});
+        REQUIRE(restored.has_value());
+        REQUIRE(glm::length(*restored - glm::vec3(13, 4, 5)) < 1e-5f);
+        REQUIRE(camera.project({13, 4, -15}).result == srCamera::PROJECTION_RESULT_OUTSIDE_VIEW);
+        const auto clipped = camera.project({203, 4, 5});
+        REQUIRE(clipped.result == srCamera::PROJECTION_RESULT_OUTSIDE_CLIP_RANGE);
+        REQUIRE(clipped.position == glm::vec3(0));
+        REQUIRE(!camera.unproject({2, 0.5, 10}));
         camera.flipHorizontal();
-        REQUIRE(camera.unproject(restored, srVector3T<double>(0.25, 0.5, 10)));
-        REQUIRE(camera.project(projected, srVector3T<double>(restored.glmValue())) ==
-              srCamera::PROJECTION_RESULT_ACCEPTED);
-        REQUIRE(std::abs(projected.x - 0.25f) < 1e-5f);
+        const auto mirrored = camera.unproject({0.25, 0.5, 10});
+        REQUIRE(mirrored.has_value());
+        const auto roundtrip = camera.project(glm::dvec3(*mirrored));
+        REQUIRE(roundtrip.result == srCamera::PROJECTION_RESULT_ACCEPTED);
+        REQUIRE(std::abs(roundtrip.position.x - 0.25f) < 1e-5f);
+        REQUIRE(!camera.projectsAny({}));
+        const std::array points{glm::vec3(203, 4, 5), glm::vec3(13, 4, 5)};
+        REQUIRE(camera.projectsAny(points));
 
         ModelInstance model;
         REQUIRE(!model.isAligned());

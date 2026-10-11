@@ -2,6 +2,10 @@
 
 #include "srNode.h"
 #include <utility>
+#include <optional>
+#include <span>
+#include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_double3.hpp"
 
 class srGERD;
 
@@ -20,6 +24,11 @@ public:
         PROJECTION_RESULT_ACCEPTED = 0,
         PROJECTION_RESULT_OUTSIDE_VIEW = 1,
         PROJECTION_RESULT_OUTSIDE_CLIP_RANGE = 2
+    };
+
+    struct Projection {
+        glm::vec3 position;
+        e_projectionResult result;
     };
 
     struct Rect {
@@ -50,7 +59,8 @@ public:
     Rect getNormalizedViewPlane() const;
     e_project getProjectionType() const;
     double getVerticalFOV() const;
-    e_projectionResult project(srVector3T<float>& output, const srVector3T<double>& input);
+    Projection project(const glm::dvec3& input);
+    bool projectsAny(std::span<const glm::vec3> points);
     void setProjectionType(e_project projection);
     void normalizeViewPlane();
     // FUNCTION: SURRENDER 0x10048020
@@ -65,7 +75,7 @@ public:
     void setViewPlane(double width, double height);
     ViewPlane getViewPlane() const;
     void setEnvironmentRange(float near_range, float far_range);
-    int unproject(srVector3T<float>& output, const srVector3T<double>& input);
+    std::optional<glm::vec3> unproject(const glm::dvec3& input);
 
 protected:
     void processPop(srGERD* renderer);

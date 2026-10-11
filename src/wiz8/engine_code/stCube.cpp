@@ -1,3 +1,4 @@
+#include "glm/ext/vector_double3.hpp"
 #include "glm/geometric.hpp"
 #include <fmt/format.h>
 #include <string>
@@ -34,7 +35,6 @@
 #include "Font.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/filesystem.h"
-#include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
@@ -323,12 +323,9 @@ void DrawWorldBox(W8World* world, srVector3T<float> minimum, srVector3T<float> m
 
     w8_long screen[8][2];
     for (int index = 0; index < 8; ++index) {
-        srVector3T<float> projected;
-        srVector3T<double> position(corners[index].x, corners[index].y, corners[index].z);
-        if (world->camera->project(projected, position) ==
-            static_cast<srCamera::e_projectionResult>(-1)) {
-            return;
-        }
+        const auto projection = world->camera->project(glm::dvec3(corners[index].glmValue()));
+        if (projection.result == srCamera::PROJECTION_RESULT_OUTSIDE_CLIP_RANGE) return;
+        const auto projected = projection.position;
         screen[index][0] =
             static_cast<w8_long>((projected.x * viewport_width + viewport.minimum.x) * 640.0f);
         screen[index][1] =
