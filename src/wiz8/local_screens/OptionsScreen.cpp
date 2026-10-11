@@ -401,15 +401,9 @@ void W8OptionsSaveLoadPanel::OnDialogClosed(bool accepted, int value)
         case 1:
             DeleteSelectedSave();
             return;
-        case 3: {
-            std::string path;
-            path = fmt::format("{}\\{}.{}", "Saves", m_previous_name, g_save_extension);
-            if (wiz8::remove_file(path) == 0) {
-                g_options_screen->ShowNotification(this, false, 0x82e, 0);
-                return;
-            }
-            [[fallthrough]];
-        }
+        case 3:
+            SaveSelectedSave(m_previous_name);
+            return;
         case 2:
             SaveSelectedSave();
             return;
@@ -543,7 +537,7 @@ void W8OptionsSaveLoadPanel::LoadSelectedSave()
 }
 
 // FUNCTION: WIZ8 0x005ab590
-void W8OptionsSaveLoadPanel::SaveSelectedSave()
+void W8OptionsSaveLoadPanel::SaveSelectedSave(std::string_view previous_name)
 {
     int selected_slot = m_current * 5 + m_selection.m_selectedIndex;
     W8SaveSlot* slot = g_options_screen->m_save_slots[selected_slot];
@@ -552,16 +546,12 @@ void W8OptionsSaveLoadPanel::SaveSelectedSave()
         return;
     }
 
-    std::string path;
-    path = fmt::format("{}\\{}.{}", "Saves", slot->name, g_save_extension);
-    if ([&]() { const auto status = wiz8::file_status(path); return status && status->info.type == SDL_PATHTYPE_FILE; }() != 0 && wiz8::remove_file(path) == 0) {
-        g_options_screen->ShowNotification(this, false, 0x82e, 0);
-        return;
-    }
     SetLastSaveName(slot->name);
     RequestScreenTransition();
     g_pending_screen_state.mode = 2;
     g_pending_screen_state.name = slot->name;
+    g_pending_screen_state.previous_save_name =
+        previous_name != slot->name ? std::string(previous_name) : std::string();
     g_pending_screen_state.parameter_3 =
         new W8SaveScreenshot(g_options_screen->m_save_slots[0]->screenshot);
     SetPendingScreenState(W8_SCREEN_PLEASE_WAIT);
