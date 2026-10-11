@@ -28,6 +28,19 @@ struct srBoundingBox {
                glm::all(glm::lessThanEqual(point, maximum));
     }
 
+    // Octree point ownership excludes the maximum face.
+    bool containsHalfOpen(const glm::vec3& point) const
+    {
+        return glm::all(glm::greaterThanEqual(point, minimum)) &&
+               glm::all(glm::lessThan(point, maximum));
+    }
+
+    bool overlapsStrict(const srBoundingBox& box) const
+    {
+        return glm::all(glm::greaterThan(maximum, box.minimum)) &&
+               glm::all(glm::greaterThan(box.maximum, minimum));
+    }
+
     bool overlaps(const srBoundingBox& box) const
     {
         return glm::all(glm::greaterThanEqual(maximum, box.minimum)) &&

@@ -1,3 +1,4 @@
+#include <unordered_map>
 #include "wiz8/engine_code/ReadLevel.h"
 #include "wiz8/engine_code/Monster.h"
 #include "glm/ext/vector_double3.hpp"
@@ -63,6 +64,7 @@
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/OctBuildPreTree.h"
 #include "wiz8/engine_code/OctBuildTree.h"
+#include "wiz8/engine_code/oct_build_traversal.h"
 #include "wiz8/engine_code/OctPreTree.h"
 #include "wiz8/engine_code/Navigator.h"
 #include "wiz8/engine_code/SoundEvent.h"
@@ -1627,4 +1629,59 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Static and frame normals share area weig
     std::array<glm::vec3, 1> short_destination{glm::vec3(99)};
     REQUIRE_FALSE(mesh.DecompressFrame(0, W8_MESH_FRAME_LOCATIONS, short_destination));
     REQUIRE(short_destination[0] == glm::vec3(99));
+}
+
+TEST_CASE("Region geometry preserves octant order and point versus box boundaries", "[geometry][octree]")
+{
+    struct RestoreBuildScratch {
+        void** polygons = g_poly_list;
+        W8GDSurface** surfaces = g_gd_surface_list;
+        ~RestoreBuildScratch()
+        {
+            std::free(g_poly_list);
+            std::free(g_gd_surface_list);
+            g_poly_list = polygons;
+            g_gd_surface_list = surfaces;
+        }
+    } restore;
+    OctBuildPreTree tree(1, nullptr, nullptr, 16, 0, 0);
+    std::unordered_multimap<unsigned short, short> points, boxes;
+    tree.inside_region_map = &points;
+    tree.overlap_region_map = &boxes;
+    tree.spatial.m_extent = 2;
+    tree.spatial.m_minimum = glm::vec3(0);
+    tree.spatial.m_maximum = glm::vec3(2);
+    tree.spatial.m_depth = 1;
+    tree.spatial.m_root = new W8OctBuildNode;
+    for (unsigned octant = 0; octant < 8; ++octant) {
+        auto* node = new W8OctBuildNode;
+        node->region = octant + 1;
+        tree.spatial.m_root->children[octant] = node;
+    }
+    REQUIRE(tree.updateRegionForGeometry(glm::vec3(1), 10));
+    REQUIRE(points.count(8) == 1);
+    REQUIRE(points.size() == 1);
+    REQUIRE_FALSE(tree.updateRegionForGeometry(glm::vec3(2, 1, 1), 20));
+    REQUIRE(tree.updateRegionForGeometry(glm::vec3(0), 30));
+    REQUIRE(points.count(1) == 1);
+    REQUIRE(boxes.empty());
+    REQUIRE(tree.updateRegionForGeometry(srBoundingBox{{1, 0, 0}, {2, 1, 1}}, 40));
+    REQUIRE(boxes.count(5) == 1);
+    REQUIRE(boxes.size() == 1);
+    REQUIRE_FALSE(tree.updateRegionForGeometry(srBoundingBox{{2, 0, 0}, {3, 1, 1}}, 50));
+    REQUIRE(tree.updateRegionForGeometry(srBoundingBox{glm::vec3(0.5f), glm::vec3(1.5f)}, 60));
+    REQUIRE(tree.updateRegionForGeometry(srBoundingBox{glm::vec3(0.5f), glm::vec3(1.5f)}, 60));
+    REQUIRE(boxes.size() == 9); // Repeated updates refresh existing entries.
+
+    tree.spatial.m_level_kind = 1;
+    W8OctSpatialState child(&tree.spatial);
+    std::vector<unsigned> order;
+    visitBuildChildren(tree.spatial, child, [&](const W8OctSpatialState& candidate, unsigned octant) {
+        order.push_back(octant);
+        REQUIRE(candidate.m_root->region == octant + 1);
+        const glm::vec3 minimum(octant >> 2, (octant >> 1) & 1, octant & 1);
+        REQUIRE(candidate.bounds().minimum == minimum);
+        REQUIRE(candidate.bounds().maximum == minimum + 1.0f);
+    });
+    REQUIRE(order == std::vector<unsigned>{0, 1, 2, 3, 4, 5, 6, 7});
 }

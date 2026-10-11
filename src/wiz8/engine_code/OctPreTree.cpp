@@ -1625,22 +1625,6 @@ srBoundingBox W8OctSpatialState::GetClippedBounds() const
     return {m_clipped_minimum.glmValue(), m_clipped_maximum.glmValue()};
 }
 
-/* Strict axis-aligned overlap: touching faces are not an intersection. */
-// FUNCTION: WIZ8 0x0046d470
-bool BoundsOverlapStrict(const srVector3T<float>* first, const srVector3T<float>* second)
-{
-    return first[1].x > second[0].x && first[0].x < second[1].x && first[1].y > second[0].y &&
-           first[0].y < second[1].y && first[1].z > second[0].z && first[0].z < second[1].z;
-}
-
-/* A point on the minimum face is inside; the maximum face is excluded. */
-// FUNCTION: WIZ8 0x0046d4d0
-bool PointInsideBoxBounds(const srVector3T<float>* bounds, const srVector3T<float>* point)
-{
-    return bounds[0].x <= point->x && point->x < bounds[1].x && bounds[0].y <= point->y &&
-           point->y < bounds[1].y && bounds[0].z <= point->z && point->z < bounds[1].z;
-}
-
 /* Test a triangle against an axis-aligned box.  The inexpensive containment
    and separating-axis checks precede explicit triangle-edge intersections
    with all six box faces. */

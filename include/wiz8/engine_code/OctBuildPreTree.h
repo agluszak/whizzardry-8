@@ -2,6 +2,9 @@
 #define WIZ8_ENGINE_CODE_OCT_BUILD_PRE_TREE_H
 
 #include <unordered_map>
+#include <variant>
+#include "glm/ext/vector_float3.hpp"
+#include "surrender/srBoundingBox.h"
 
 #include "wiz8/engine_code/OctBuildTree.h"
 #include "wiz8/engine_code/ReadMesh.h"
@@ -80,10 +83,9 @@ struct OctBuildPreTree : W8OctBuildTree {
                                        int base_index, bool finalize);
 
     void AssignInitialRegions(const W8OctSpatialState* spatial);
-    unsigned char UpdateRegionForGeometry(const srVector3T<float>* geometry, short value,
-                                          short mode);
-    unsigned char UpdateRegionMap(const W8OctSpatialState* spatial,
-                                  const srVector3T<float>* geometry, short value, short mode);
+    using RegionGeometry = std::variant<glm::vec3, srBoundingBox>;
+    bool updateRegionForGeometry(const RegionGeometry& geometry, short value);
+    bool updateRegionMap(const W8OctSpatialState& state, const RegionGeometry& geometry, short value);
     W8OctBuildNode* FindNode(unsigned int path);
     unsigned char MergeAdjacentRegion(W8OctBuildNode* node, unsigned int path);
     unsigned char MergeRegion(W8OctBuildNode* node, const int* cell);
