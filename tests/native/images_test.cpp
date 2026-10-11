@@ -160,10 +160,7 @@ static Image load(const char* path, UINT16 contents = IMAGE_ALLDATA)
 
 static void rgb555()
 {
-    gusAlphaMask = 0;
-    gusRedMask = 0x7c00;
-    gusGreenMask = 0x03e0;
-    gusBlueMask = 0x001f;
+    g_sgp_pixel_format = SDL_PIXELFORMAT_XRGB1555;
 }
 
 static void check_pcx(const image_type& image)
@@ -233,9 +230,11 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
         header.usWidth = 2;
         header.usHeight = 1;
         header.ubDepth = 16;
-        header.RGB.uiRedMask = gusRedMask;
-        header.RGB.uiGreenMask = gusGreenMask;
-        header.RGB.uiBlueMask = gusBlueMask;
+        const auto* native_format = SDL_GetPixelFormatDetails(g_sgp_pixel_format);
+        REQUIRE(native_format != nullptr);
+        header.RGB.uiRedMask = native_format->Rmask;
+        header.RGB.uiGreenMask = native_format->Gmask;
+        header.RGB.uiBlueMask = native_format->Bmask;
         header.uiStoredSize = header.uiOriginalSize = 4;
         const auto write_rgb = [&] {
             Bytes bytes(STCI_HEADER_SIZE + 4);
@@ -287,9 +286,7 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
         check_pcx(*metadata);
         REQUIRE(LoadImageData(metadata.get(), IMAGE_ALLIMAGEDATA));
         check_pcx(*metadata);
-        gusAlphaMask = 0x8000;
-        gusRedMask = 0x001f;
-        gusBlueMask = 0x7c00;
+        g_sgp_pixel_format = SDL_PIXELFORMAT_ABGR1555;
         auto custom = load("Dotted.dir/default.PCX");
         REQUIRE((custom && (*custom->pui16BPPPalette)[0] == 0));
         REQUIRE(((*custom->pui16BPPPalette)[1] == 0x8001 && (*custom->pui16BPPPalette)[2] == 0x801f));
@@ -305,8 +302,7 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
         const auto packed_palette = Create16BPPPalette(palette);
         REQUIRE((packed_palette[0] == 0 && packed_palette[1] == 1 && packed_palette[2] == 0x7c00));
         // SDL maps the supported native 16-bit channel layouts, including RGB565.
-        gusRedMask = 0xf800;
-        gusGreenMask = 0x07e0;
+        g_sgp_pixel_format = SDL_PIXELFORMAT_RGB565;
         REQUIRE(Get16BPPColor(SDL_Color{255, 0, 0, 255}) == 0xf800);
         REQUIRE(Get16BPPColor(SDL_Color{0, 255, 0, 255}) == 0x07e0);
         REQUIRE(Get16BPPColor(SDL_Color{0, 0, 255, 255}) == 0x001f);
@@ -318,7 +314,7 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
         REQUIRE((mono[0] == 0 && mono[255] == 0x4c06));
         const auto clamped = Create16BPPPaletteShaded(palette, 4096, 4096, 4096, FALSE);
         REQUIRE(clamped[255] == 0x7fff);
-        gusAlphaMask = 0x8000;
+        g_sgp_pixel_format = SDL_PIXELFORMAT_ARGB1555;
         const auto opaque = Create16BPPPalette(palette);
         REQUIRE((opaque[0] == 0 && opaque[1] == 0x8001 && opaque[2] == 0xfc00));
         rgb555();
