@@ -8,6 +8,7 @@
 #include <iterator>
 #include <memory>
 #include <optional>
+#include <span>
 #include <utility>
 #include <vector>
 
@@ -419,52 +420,54 @@ void srModeler::addFromModeler(srModeler& other)
     triangle_count = static_cast<w8_ulong>(triangles.size());
 }
 
-// FUNCTION: SURRENDER 0x10039E10
-void srModeler::scale(const glm::vec3& scale)
+template<class Transform>
+static void TransformModelerPositions(std::span<srModeler::Triangle> triangles, Transform transform)
 {
     for (auto& triangle : triangles)
         for (auto& vertex : triangle.vertices)
-            vertex.position *= scale;
+            vertex.position = transform(vertex.position);
+}
+
+// FUNCTION: SURRENDER 0x10039E10
+void srModeler::scale(const glm::vec3& scale)
+{
+    TransformModelerPositions(triangles, [&](const glm::vec3& position) { return position * scale; });
 }
 
 // FUNCTION: SURRENDER 0x10039F90
 void srModeler::scale(w8_ulong triangle, const glm::vec3& scale)
 {
     if (triangle < triangles.size())
-        for (auto& vertex : triangles[triangle].vertices)
-            vertex.position *= scale;
+        TransformModelerPositions({&triangles[triangle], 1},
+                                  [&](const glm::vec3& position) { return position * scale; });
 }
 
 // FUNCTION: SURRENDER 0x10039E90
 void srModeler::move(const glm::vec3& delta)
 {
-    for (auto& triangle : triangles)
-        for (auto& vertex : triangle.vertices)
-            vertex.position += delta;
+    TransformModelerPositions(triangles, [&](const glm::vec3& position) { return position + delta; });
 }
 
 // FUNCTION: SURRENDER 0x10039F10
 void srModeler::move(w8_ulong triangle, const glm::vec3& delta)
 {
     if (triangle < triangles.size())
-        for (auto& vertex : triangles[triangle].vertices)
-            vertex.position += delta;
+        TransformModelerPositions({&triangles[triangle], 1},
+                                  [&](const glm::vec3& position) { return position + delta; });
 }
 
 // FUNCTION: SURRENDER 0x10039D20
 void srModeler::rotate(const glm::mat3& matrix)
 {
-    for (auto& triangle : triangles)
-        for (auto& vertex : triangle.vertices)
-            vertex.position = matrix * vertex.position;
+    TransformModelerPositions(triangles, [&](const glm::vec3& position) { return matrix * position; });
 }
 
 // FUNCTION: SURRENDER 0x1003A010
 void srModeler::rotate(w8_ulong triangle, const glm::mat3& matrix)
 {
     if (triangle < triangle_count)
-        for (auto& vertex : triangles[triangle].vertices)
-            vertex.position = matrix * vertex.position;
+        TransformModelerPositions({&triangles[triangle], 1},
+                                  [&](const glm::vec3& position) { return matrix * position; });
 }
 
 // FUNCTION: SURRENDER 0x1003AA80
@@ -639,41 +642,43 @@ void srModeler::addPolygon(const Polygon& polygon)
     }
 }
 
+static bool ValidPlanarMapping(w8_long pass, w8_long layer, const srModeler::MappingInfo& mapping)
+{
+    return pass >= 0 && pass < 4 && layer >= 0 && layer < 2 &&
+           mapping.axis_u >= srModeler::AXIS_X && mapping.axis_u <= srModeler::AXIS_Z &&
+           mapping.axis_v >= srModeler::AXIS_X && mapping.axis_v <= srModeler::AXIS_Z;
+}
+
+static void MapModelerPlane(std::span<srModeler::Triangle> triangles, int slot,
+                            const srModeler::MappingInfo& mapping, const glm::vec2& minimum,
+                            const glm::vec2& scale)
+{
+    for (auto& triangle : triangles)
+        for (auto& vertex : triangle.vertices)
+            vertex.uv[slot] =
+                (glm::vec2(vertex.position[mapping.axis_u], -vertex.position[mapping.axis_v]) -
+                 minimum) * scale + glm::vec2(mapping.u_offset, mapping.v_offset);
+}
+
 // FUNCTION: SURRENDER 0x1003AC00
 void srModeler::planarMap(w8_long pass, w8_long layer, const MappingInfo& mapping)
 {
-    if (pass < 0 || pass >= 4 || layer < 0 || layer >= 2 || triangles.empty() ||
-        mapping.axis_u < AXIS_X || mapping.axis_u > AXIS_Z || mapping.axis_v < AXIS_X ||
-        mapping.axis_v > AXIS_Z)
-        return;
+    if (!ValidPlanarMapping(pass, layer, mapping) || triangles.empty()) return;
     const auto [u_min, u_max] = *getAxialBounds(mapping.axis_u);
     const auto [v_min, v_max] = *getAxialBounds(mapping.axis_v);
     const glm::vec2 minimum(u_min, v_min), maximum(u_max, v_max);
     const auto extent = maximum - minimum;
     const glm::vec2 scale(extent.x != 0 ? mapping.u_scale / extent.x : 0,
                           extent.y != 0 ? mapping.v_scale / extent.y : 0);
-    for (auto& triangle : triangles)
-        for (auto& vertex : triangle.vertices)
-            vertex.uv[pass * 2 + layer] =
-                (glm::vec2(vertex.position[mapping.axis_u], -vertex.position[mapping.axis_v]) -
-                 minimum) *
-                    scale +
-                glm::vec2(mapping.u_offset, mapping.v_offset);
+    MapModelerPlane(triangles, pass * 2 + layer, mapping, minimum, scale);
 }
 
 // FUNCTION: SURRENDER 0x1003AD60
 void srModeler::planarMapAbsolute(w8_long pass, w8_long layer, const MappingInfo& mapping)
 {
-    if (pass < 0 || pass >= 4 || layer < 0 || layer >= 2 || mapping.axis_u < AXIS_X ||
-        mapping.axis_u > AXIS_Z || mapping.axis_v < AXIS_X || mapping.axis_v > AXIS_Z)
-        return;
+    if (!ValidPlanarMapping(pass, layer, mapping)) return;
     // Absolute mapping historically uses u_scale for both axes.
-    for (auto& triangle : triangles)
-        for (auto& vertex : triangle.vertices)
-            vertex.uv[pass * 2 + layer] =
-                glm::vec2(vertex.position[mapping.axis_u], -vertex.position[mapping.axis_v]) *
-                    mapping.u_scale +
-                glm::vec2(mapping.u_offset, mapping.v_offset);
+    MapModelerPlane(triangles, pass * 2 + layer, mapping, glm::vec2(0), glm::vec2(mapping.u_scale));
 }
 
 // FUNCTION: SURRENDER 0x1003AE30
@@ -715,6 +720,21 @@ void srModeler::cylinderMap(w8_long pass, w8_long layer, const MappingInfo& mapp
     }
 }
 
+/* Preserve each generator's vertex order and diagonal. Grid replaces corner
+   1; curved surfaces replace corner 0. The lower sphere reverses the first
+   triangle, then the second triangle reverses again around the same split. */
+static void AppendModelerQuad(srModeler& modeler, const std::array<glm::vec3, 3>& corners,
+                              const glm::vec3& opposite, int replaced_corner, bool reverse = false)
+{
+    srModeler::Triangle triangle;
+    for (int corner = 0; corner < 3; ++corner) triangle.vertices[corner].position = corners[corner];
+    if (reverse) triangle.flipFacing();
+    modeler.addTriangle(triangle);
+    triangle.vertices[replaced_corner].position = opposite;
+    triangle.flipFacing();
+    modeler.addTriangle(triangle);
+}
+
 // FUNCTION: SURRENDER 0x100398E0
 void srModeler::createGrid(w8_long columns, w8_long rows)
 {
@@ -727,14 +747,8 @@ void srModeler::createGrid(w8_long columns, w8_long rows)
             const float right = float(column + 1) / columns - 0.5f;
             const float bottom = float(row) / rows - 0.5f;
             const float top = float(row + 1) / rows - 0.5f;
-            Triangle triangle;
-            triangle.vertices[0].position = {left, bottom, 0};
-            triangle.vertices[1].position = {left, top, 0};
-            triangle.vertices[2].position = {right, top, 0};
-            addTriangle(triangle);
-            triangle.vertices[1].position = {right, bottom, 0};
-            triangle.flipFacing();
-            addTriangle(triangle);
+            AppendModelerQuad(*this, {{{left, bottom, 0}, {left, top, 0}, {right, top, 0}}},
+                               {right, bottom, 0}, 1);
         }
 }
 
@@ -757,16 +771,10 @@ void srModeler::createSphere(w8_long detail)
     for (int band = 0; band < bands; ++band)
         for (int segment = 0; segment < detail; ++segment)
             for (float hemisphere : {1.0f, -1.0f}) {
-                Triangle triangle;
-                triangle.vertices[0].position = point(band, segment, hemisphere);
-                triangle.vertices[1].position = point(band, segment + 1, hemisphere);
-                triangle.vertices[2].position = point(band + 1, segment, hemisphere);
-                if (hemisphere < 0)
-                    triangle.flipFacing();
-                addTriangle(triangle);
-                triangle.vertices[0].position = point(band + 1, segment + 1, hemisphere);
-                triangle.flipFacing();
-                addTriangle(triangle);
+                AppendModelerQuad(*this,
+                    {point(band, segment, hemisphere), point(band, segment + 1, hemisphere),
+                     point(band + 1, segment, hemisphere)},
+                    point(band + 1, segment + 1, hemisphere), 0, hemisphere < 0);
             }
 }
 
@@ -787,14 +795,9 @@ void srModeler::createTorus(w8_long major_segments, w8_long minor_segments, doub
     };
     for (int major = 0; major < major_segments; ++major)
         for (int minor = 0; minor < minor_segments; ++minor) {
-            Triangle triangle;
-            triangle.vertices[0].position = point(major, minor);
-            triangle.vertices[1].position = point(major + 1, minor);
-            triangle.vertices[2].position = point(major, minor + 1);
-            addTriangle(triangle);
-            triangle.vertices[0].position = point(major + 1, minor + 1);
-            triangle.flipFacing();
-            addTriangle(triangle);
+            AppendModelerQuad(*this,
+                {point(major, minor), point(major + 1, minor), point(major, minor + 1)},
+                point(major + 1, minor + 1), 0);
         }
 }
 

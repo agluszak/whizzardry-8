@@ -26,6 +26,8 @@
 #include "glm/geometric.hpp"
 #include "glm/matrix.hpp"
 #include "glm/vector_relational.hpp"
+#include "glm/ext/vector_uint4_sized.hpp"
+#include "glm/ext/vector_float4.hpp"
 #include "surrender/srMath.h"
 #include "surrender/srModel.h"
 #include "surrender/srGERD.h"
@@ -36,7 +38,6 @@
 #include "surrender/srPalette.h"
 #include "surrender/srClip.h"
 #include "compat/compiler.h"
-#include "compat/native.h"
 #include "surrender/srARGB.h"
 #include "surrender/srClock.h"
 #include "surrender/srColorSurfaceIFace.h"
@@ -1588,7 +1589,7 @@ short srGERD::accumConvert(float value) const
 void srGERD::accumAlloc()
 {
     if (getWidth() != 0 && getHeight() != 0) {
-        accum_buffer.resize(static_cast<std::size_t>(getWidth()) * getHeight());
+        accum_buffer.resize(static_cast<std::size_t>(getWidth()) * getHeight(), AccumPixel(0));
         accum_scratch.resize(getWidth());
         accumClear();
     }
@@ -3305,12 +3306,11 @@ void srGERD::evaluateTexturePixelFormat(Texture& texture,
     w8_ulong flags = dimensions.hints;
     srPixelConvert::PixelFormat format = dimensions.format;
     if ((flags & (1UL << srTextureIFace::HINT_INTENSITY)) != 0) {
-        srPixelConvert::mapPixelFormat(format.alpha_bits != 0 ? srPixelConvert::SURFACE_AL88
-                                                              : srPixelConvert::SURFACE_L8,
-                                       format);
+        format = srPixelConvert::pixelFormat(format.alpha_bits != 0 ? srPixelConvert::SURFACE_AL88
+                                                                  : srPixelConvert::SURFACE_L8);
     }
     if ((dimensions.hints & (1UL << srTextureIFace::HINT_ALPHA_ONLY)) != 0) {
-        srPixelConvert::mapPixelFormat(srPixelConvert::SURFACE_A8, format);
+        format = srPixelConvert::pixelFormat(srPixelConvert::SURFACE_A8);
     }
     flags = dimensions.hints;
     if ((flags & (1UL << srTextureIFace::HINT_NO_ALPHA)) == 0) {
@@ -3656,32 +3656,7 @@ void srGERD::setClearAccum(float red, float green, float blue, float alpha)
 // FUNCTION: SURRENDER 0x1001C960
 void srGERD::setClearAccum(const glm::vec4& color)
 {
-    clear_state.clear_values.accum = color;
-    float* clear = &clear_state.clear_values.accum.x;
-    if (clear[0] < -1.0f) {
-        clear[0] = -1.0f;
-    }
-    if (clear[1] < -1.0f) {
-        clear[1] = -1.0f;
-    }
-    if (clear[2] < -1.0f) {
-        clear[2] = -1.0f;
-    }
-    if (clear[3] < -1.0f) {
-        clear[3] = -1.0f;
-    }
-    if (1.0f < clear[0]) {
-        clear[0] = 1.0f;
-    }
-    if (1.0f < clear[1]) {
-        clear[1] = 1.0f;
-    }
-    if (1.0f < clear[2]) {
-        clear[2] = 1.0f;
-    }
-    if (1.0f < clear[3]) {
-        clear[3] = 1.0f;
-    }
+    clear_state.clear_values.accum = glm::clamp(color, -1.0f, 1.0f);
 }
 
 // FUNCTION: SURRENDER 0x1001CBE0
@@ -3974,37 +3949,6 @@ w8_ulong srGERD::getClassID() const
     return sGetClassID();
 }
 
-// FUNCTION: SURRENDER 0x1001FA30
-void __cdecl srGERD::accumAccum_MMX(AccumPixel* accum, const srARGB* pixels, w8_long scale, w8_long count)
-{
-    std::abort(); /* MMX workers are never selected natively */
-}
-
-// FUNCTION: SURRENDER 0x1001FA90
-void __cdecl srGERD::accumLoad_MMX(AccumPixel* accum, const srARGB* pixels, w8_long scale, w8_long count)
-{
-    abort(); /* MMX workers are never selected natively */
-}
-
-// FUNCTION: SURRENDER 0x1001FB70
-void __cdecl srGERD::accumReturn_MMX(srARGB* pixels, const AccumPixel* accum, w8_long scale,
-                                     w8_long count)
-{
-    abort(); /* MMX workers are never selected natively */
-}
-
-// FUNCTION: SURRENDER 0x1001FAF0
-void __cdecl srGERD::accumAdd_MMX(AccumPixel* accum, w8_long value, w8_long count)
-{
-    abort(); /* MMX workers are never selected natively */
-}
-
-// FUNCTION: SURRENDER 0x1001FB20
-void __cdecl srGERD::accumMult_MMX(AccumPixel* accum, w8_long value, w8_long count)
-{
-    abort(); /* MMX workers are never selected natively */
-}
-
 // FUNCTION: SURRENDER 0x1001FBD0
 void srGERD::accumulate(e_accum operation, float scale)
 {
@@ -4044,17 +3988,9 @@ void srGERD::accumulate(e_accum operation, float scale)
                     reinterpret_cast<w8_ulong*>(pixels), // reinterpret-ok: packed ARGB row
                     state.scissor.top + y, state.scissor.left, state.scissor.right);
                 for (w8_long x = 0; x < width; ++x) {
-                    if (operation == ACCUM_LOAD) {
-                        row[x].red += table[pixels[x].blue];
-                        row[x].green += table[pixels[x].green];
-                        row[x].blue += table[pixels[x].red];
-                        row[x].alpha += table[pixels[x].alpha];
-                    } else {
-                        row[x].red = table[pixels[x].blue];
-                        row[x].green = table[pixels[x].green];
-                        row[x].blue = table[pixels[x].red];
-                        row[x].alpha = table[pixels[x].alpha];
-                    }
+                    const AccumPixel value{table[pixels[x].blue], table[pixels[x].green],
+                                           table[pixels[x].red], table[pixels[x].alpha]};
+                    row[x] = operation == ACCUM_LOAD ? row[x] + value : value;
                 }
                 row += getWidth();
             }
@@ -4063,10 +3999,7 @@ void srGERD::accumulate(e_accum operation, float scale)
         case ACCUM_MULTIPLY: {
             for (w8_long y = 0; y < height; y++) {
                 for (w8_long x = 0; x < width; x++) {
-                    row[x].red = row[x].red + addend;
-                    row[x].green = row[x].green + addend;
-                    row[x].blue = row[x].blue + addend;
-                    row[x].alpha = row[x].alpha + addend;
+                    row[x] += addend;
                 }
                 row += getWidth();
             }
@@ -4075,10 +4008,8 @@ void srGERD::accumulate(e_accum operation, float scale)
         case ACCUM_ADD: {
             for (w8_long y = 0; y < height; y++) {
                 for (w8_long x = 0; x < width; x++) {
-                    row[x].red = (short)srFloatToInt(row[x].red * scale);
-                    row[x].green = (short)srFloatToInt(row[x].green * scale);
-                    row[x].blue = (short)srFloatToInt(row[x].blue * scale);
-                    row[x].alpha = (short)srFloatToInt(row[x].alpha * scale);
+                    for (unsigned channel = 0; channel < 4; ++channel)
+                        row[x][channel] = static_cast<short>(srFloatToInt(row[x][channel] * scale));
                 }
                 row += getWidth();
             }
@@ -4097,10 +4028,11 @@ void srGERD::accumulate(e_accum operation, float scale)
             }
             for (w8_long y = 0; y < height; y++) {
                 for (w8_long x = 0; x < width; x++) {
-                    pixels[x].blue = table[((unsigned short)row[x].red) >> 7];
-                    pixels[x].green = table[((unsigned short)row[x].green) >> 7];
-                    pixels[x].red = table[((unsigned short)row[x].blue) >> 7];
-                    pixels[x].alpha = table[((unsigned short)row[x].alpha) >> 7];
+                    const auto indices = glm::u16vec4(row[x]) >> static_cast<unsigned short>(7);
+                    const glm::u8vec4 color{table[indices.x], table[indices.y],
+                                            table[indices.z], table[indices.w]};
+                    // The device row interface consumes four packed BGRA bytes.
+                    std::memcpy(&pixels[x], &color, sizeof(srARGB));
                 }
                 surface->setPixelRow(
                     reinterpret_cast<const w8_ulong*>(pixels), // reinterpret-ok: ARGB row buffer

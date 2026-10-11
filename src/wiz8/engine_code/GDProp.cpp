@@ -172,19 +172,10 @@ void GDProp::Initialize(srModelInstance* instance, bool attach, unsigned short p
 
         for (int surface_index = 0; surface_index < surface_total; ++surface_index) {
             W8GDSurface* surface = &m_pGDSurfaces[surface_index];
-            BuildTrianglePlane(&surface->plane, &m_pVertices[surface->vertex_indices[0]],
-                               &m_pVertices[surface->vertex_indices[1]],
-                               &m_pVertices[surface->vertex_indices[2]]);
+            surface->plane = trianglePlane(m_pVertices[surface->vertex_indices[0]].glmValue(),
+                m_pVertices[surface->vertex_indices[1]].glmValue(), m_pVertices[surface->vertex_indices[2]].glmValue());
 
-            int dominant_axis;
-            float largest = 0.0f;
-            for (int axis = 0; axis < 3; ++axis) {
-                float magnitude = static_cast<float>(fabs((&surface->plane.normal.x)[axis]));
-                if (largest < magnitude) {
-                    largest = magnitude;
-                    dominant_axis = axis;
-                }
-            }
+            const auto dominant_axis = dominantPlaneAxis(surface->plane.normal.glmValue());
             surface->flags = dominant_axis + W8_GD_SURFACE_PROP_GEOMETRY;
             surface->footstep_surface = footstep_surface;
             surface->footstep_material = footstep_material;
@@ -633,19 +624,10 @@ void GDProp::TransformMeshGeometry(const W8LevelFileScaledPathNode* node, W8Leve
 
     for (int index = surface_base; index < m_surface_count; ++index) {
         W8GDSurface* surface = &m_pGDSurfaces[index];
-        BuildTrianglePlane(&surface->plane, &m_pVertices[surface->vertex_indices[0]],
-                           &m_pVertices[surface->vertex_indices[1]],
-                           &m_pVertices[surface->vertex_indices[2]]);
+        surface->plane = trianglePlane(m_pVertices[surface->vertex_indices[0]].glmValue(),
+            m_pVertices[surface->vertex_indices[1]].glmValue(), m_pVertices[surface->vertex_indices[2]].glmValue());
 
-        int dominant_axis;
-        float largest = g_float_zero;
-        for (int axis = 0; axis < 3; ++axis) {
-            float magnitude = static_cast<float>(fabs((&surface->plane.normal.x)[axis]));
-            if (largest < magnitude) {
-                largest = magnitude;
-                dominant_axis = axis;
-            }
-        }
+        const auto dominant_axis = dominantPlaneAxis(surface->plane.normal.glmValue());
         surface->flags = dominant_axis + W8_GD_SURFACE_PROP_GEOMETRY;
         surface->hit_plane = 0;
         if (g_float_half <= surface->plane.normal.y) {

@@ -109,8 +109,7 @@ static int surface_storage()
         borrowed.setPalette(palette);
         REQUIRE((borrowed.getDataPtr() == pixels.data() && borrowed.getDataSize() == 40));
         REQUIRE((!borrowed.resize(4, 3) && !borrowed.rescale(4, 3)));
-        srPixelConvert::PixelFormat format;
-        srPixelConvert::mapPixelFormat(srPixelConvert::SURFACE_RGB24, format);
+        const auto format = srPixelConvert::pixelFormat(srPixelConvert::SURFACE_RGB24);
         REQUIRE(!borrowed.changePixelFormat(format, 1));
 
         srColorSurface copied(borrowed);

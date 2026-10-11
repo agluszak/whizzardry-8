@@ -16,6 +16,13 @@
 #include <utility>
 
 #include "glm/matrix.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_float4.hpp"
+#include "glm/ext/vector_int4.hpp"
+#include "glm/ext/vector_float1.hpp"
+#include "glm/ext/vector_int2.hpp"
+#include "glm/common.hpp"
+#include "glm/vector_relational.hpp"
 #include "surrender/srDD_SDLGPU.h"
 #include "sr_fragment.spv.h"
 #include "sr_vertex.spv.h"
@@ -36,23 +43,32 @@ namespace {
 
 /* One interleaved vertex in the device's own stream. */
 struct Vertex {
-    float position[4];
-    float diffuse[4];
-    float specular[4];
-    float texcoord0[3];
-    float texcoord1[3];
+    glm::vec4 position;
+    glm::vec4 diffuse;
+    glm::vec4 specular;
+    glm::vec3 texcoord0;
+    glm::vec3 texcoord1;
     float fog;
 };
+
+// SDL vertex attributes below consume this exact packed GPU layout.
+static_assert(sizeof(Vertex) == 76);
+static_assert(offsetof(Vertex, diffuse) == 16 && offsetof(Vertex, specular) == 32);
+static_assert(offsetof(Vertex, texcoord0) == 48 && offsetof(Vertex, texcoord1) == 60);
+static_assert(offsetof(Vertex, fog) == 72);
 
 struct VertexUniforms {
     glm::mat4 projection;
 };
 
 struct FragmentUniforms {
-    float fog_color[4];
-    int32_t mode[4];
-    float alpha[4];
+    glm::vec4 fog_color;
+    glm::ivec4 mode;
+    glm::vec4 alpha;
 };
+
+static_assert(sizeof(FragmentUniforms) == 48);
+static_assert(offsetof(FragmentUniforms, mode) == 16 && offsetof(FragmentUniforms, alpha) == 32);
 
 enum PrimitiveClass { PRIMITIVE_CLASS_TRIANGLES, PRIMITIVE_CLASS_LINES, PRIMITIVE_CLASS_POINTS };
 
@@ -170,7 +186,7 @@ public:
         {
         projection.projection = glm::mat4(1);
             memset(&clear_values, 0, sizeof(clear_values));
-            memset(fog_color, 0, sizeof(fog_color));
+            fog_color = glm::vec4(0);
             memset(&scissor, 0, sizeof(scissor));
             memset(&viewport, 0, sizeof(viewport));
             bound[0] = bound[1] = 0;
@@ -327,11 +343,11 @@ public:
         case 2:
         case 3:
         case 4:
-            row(command);
+            transferPixels(command, false);
             break;
         case 6:
         case 7:
-            column(command);
+            transferPixels(command, true);
             break;
         }
         return ERROR_NONE;
@@ -378,10 +394,7 @@ public:
 
     void setFogColor(const glm::vec4& color) override
     {
-        fog_color[0] = color.x;
-        fog_color[1] = color.y;
-        fog_color[2] = color.z;
-        fog_color[3] = color.w;
+        fog_color = color;
     }
 
     void setShader(const srShader& value) override
@@ -676,42 +689,30 @@ private:
         uploads.push_back(upload);
     }
 
-    void fetch(float* out, const srRendererDefs::VertexArrayInfo& arrays, int slot, uint32_t index,
-               int size, const float* fallback) const
+    template<class Vector>
+    Vector fetch(srRendererDefs::e_vertexArray slot, uint32_t index,
+                 Vector fallback) const
     {
-        memcpy(out, fallback, size * sizeof(float));
-        if (((arrays.mask.value >> slot) & 1) == 0 && slot != 0) {
-            return;
-        }
-        const int components = SDL_min((int)arrays.components[slot], size);
-        const uint32_t stride =
-            arrays.strides[slot] != 0 ? arrays.strides[slot] : arrays.components[slot] * 4;
-        const float* source = reinterpret_cast<const float*>(
-            static_cast<const char*>(arrays.arrays[slot]) + (size_t)index * stride);
-        if (arrays.arrays[slot] != 0) {
-            memcpy(out, source, components * sizeof(float));
-        }
+        if (((vertex_arrays.mask.value >> slot) & 1) == 0 &&
+            slot != srRendererDefs::VERTEX_ARRAY_POSITIONS) return fallback;
+        if (vertex_arrays.arrays[slot] == nullptr) return fallback;
+        const int components = SDL_min(static_cast<int>(vertex_arrays.components[slot]), Vector::length());
+        const uint32_t stride = vertex_arrays.strides[slot] != 0
+            ? vertex_arrays.strides[slot] : vertex_arrays.components[slot] * sizeof(float);
+        const auto* source = static_cast<const char*>(vertex_arrays.arrays[slot]) + size_t(index) * stride;
+        std::memcpy(glm::value_ptr(fallback), source, components * sizeof(float));
+        return fallback;
     }
 
     void appendVertex(uint32_t index)
     {
-        static const float origin[4] = {0.0f, 0.0f, 0.0f, 1.0f};
-        static const float white[4] = {1.0f, 1.0f, 1.0f, 1.0f};
-        static const float black[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-        static const float texcoord[3] = {0.0f, 0.0f, 1.0f};
-        static const float no_fog[1] = {0.0f};
-        Vertex vertex;
-        fetch(vertex.position, vertex_arrays, srRendererDefs::VERTEX_ARRAY_POSITIONS, index, 4,
-              origin);
-        fetch(vertex.diffuse, vertex_arrays, srRendererDefs::VERTEX_ARRAY_DIFFUSE, index, 4, white);
-        fetch(vertex.specular, vertex_arrays, srRendererDefs::VERTEX_ARRAY_SPECULAR, index, 4, black);
-        fetch(&vertex.fog, vertex_arrays, srRendererDefs::VERTEX_ARRAY_SPECULAR_ALPHA, index, 1,
-              no_fog);
-        fetch(vertex.texcoord0, vertex_arrays, srRendererDefs::VERTEX_ARRAY_TEXCOORD0, index, 3,
-              texcoord);
-        fetch(vertex.texcoord1, vertex_arrays, srRendererDefs::VERTEX_ARRAY_TEXCOORD1, index, 3,
-              texcoord);
-        vertices.push_back(vertex);
+        using enum srRendererDefs::e_vertexArray;
+        vertices.push_back({fetch(VERTEX_ARRAY_POSITIONS, index, glm::vec4(0, 0, 0, 1)),
+                            fetch(VERTEX_ARRAY_DIFFUSE, index, glm::vec4(1)),
+                            fetch(VERTEX_ARRAY_SPECULAR, index, glm::vec4(0)),
+                            fetch(VERTEX_ARRAY_TEXCOORD0, index, glm::vec3(0, 0, 1)),
+                            fetch(VERTEX_ARRAY_TEXCOORD1, index, glm::vec3(0, 0, 1)),
+                            fetch(VERTEX_ARRAY_SPECULAR_ALPHA, index, glm::vec1(0)).x});
     }
 
     /* Expands every primitive to a list: SDL GPU has no fans, and lists let
@@ -808,13 +809,13 @@ private:
         }
         command.vertex_uniforms = projection;
         FragmentUniforms& fragment = command.fragment_uniforms;
-        memcpy(fragment.fog_color, fog_color, sizeof(fog_color));
-        fragment.mode[0] = texturing ? 1 : 0;
-        fragment.mode[1] = (shader.value & srShader::MASK_GRADIENT) >> srShader::GRADIENT_SHIFT;
-        fragment.mode[2] = (shader.value & srShader::MASK_SECONDARY_GRADIENT) != 0;
-        fragment.mode[3] = (shader.value & srShader::MASK_FOG) >> srShader::FOG_SHIFT;
-        fragment.alpha[0] = (shader.value & srShader::MASK_ALPHATEST) != 0 ? 1.0f : 0.0f;
-        fragment.alpha[1] = 0.0f;
+        fragment.fog_color = fog_color;
+        fragment.mode = glm::ivec4(texturing ? 1 : 0,
+            (shader.value & srShader::MASK_GRADIENT) >> srShader::GRADIENT_SHIFT,
+            (shader.value & srShader::MASK_SECONDARY_GRADIENT) != 0,
+            (shader.value & srShader::MASK_FOG) >> srShader::FOG_SHIFT);
+        fragment.alpha = glm::vec4((shader.value & srShader::MASK_ALPHATEST) != 0 ? 1.0f : 0.0f,
+                                  0, 0, 0);
         command.scissor = scissor;
         command.viewport = viewport;
         commands.push_back(command);
@@ -1167,40 +1168,25 @@ private:
         readback_dirty = 0;
     }
 
-    void row(const BufferCommand& command)
+    void transferPixels(const BufferCommand& command, bool vertical)
     {
-        if (command.y < 0 || command.y >= (w8_long)height || command.x < 0) {
-            return;
-        }
-        const w8_long count = SDL_min(command.count, (w8_long)width - command.x);
-        uint32_t* line = &readback[(size_t)command.y * width + command.x];
-        uint32_t* data = static_cast<uint32_t*>(command.data);
+        const glm::ivec2 position(command.x, command.y);
+        const glm::ivec2 dimensions(width, height);
+        if (glm::any(glm::lessThan(position, glm::ivec2(0))) ||
+            glm::any(glm::greaterThanEqual(position, dimensions))) return;
+        const unsigned axis = vertical ? 1 : 0;
+        const auto count = glm::min(command.count, dimensions[axis] - position[axis]);
+        if (count <= 0) return;
+        const bool read = command.opcode == 2 || command.opcode == 6;
+        const bool fill = command.opcode == 4;
+        const size_t stride = vertical ? width : 1;
+        auto* line = readback.data() + size_t(command.y) * width + command.x;
+        auto* data = static_cast<uint32_t*>(command.data);
         for (w8_long index = 0; index < count; ++index) {
-            if (command.opcode == 2) {
-                data[index] = line[index];
-            } else {
-                line[index] = command.opcode == 3 ? data[index] : data[0];
-            }
+            if (read) data[index] = line[size_t(index) * stride];
+            else line[size_t(index) * stride] = data[fill ? 0 : index];
         }
-        readback_dirty |= command.opcode != 2;
-    }
-
-    void column(const BufferCommand& command)
-    {
-        if (command.x < 0 || command.x >= (w8_long)width || command.y < 0) {
-            return;
-        }
-        const w8_long count = SDL_min(command.count, (w8_long)height - command.y);
-        uint32_t* data = static_cast<uint32_t*>(command.data);
-        for (w8_long index = 0; index < count; ++index) {
-            uint32_t& pixel = readback[(size_t)(command.y + index) * width + command.x];
-            if (command.opcode == 6) {
-                data[index] = pixel;
-            } else {
-                pixel = data[index];
-            }
-        }
-        readback_dirty |= command.opcode != 6;
+        readback_dirty |= !read;
     }
 
     SDL_GPUDevice* device;
@@ -1223,7 +1209,7 @@ private:
     w8_long polygon_offset;
     VertexUniforms projection;
     ClearValues clear_values;
-    float fog_color[4];
+    glm::vec4 fog_color;
     SDL_Rect scissor;
     SDL_GPUViewport viewport;
     srRendererDefs::VertexArrayInfo vertex_arrays;

@@ -660,10 +660,8 @@ bool rendererOwnership()
     contender.join();
     REQUIRE((waited && resumed == renderer));
 
-    srGERD::Renderer::IndexWrite write;
-    renderer->indices.alloc(write, 2);
-    srVertexArray arrays{};
-    renderer->vertices.alloc(arrays, 3);
+    renderer->indices.alloc(2);
+    renderer->vertices.alloc(3);
     const auto index_capacity = renderer->indices.triangles.capacity();
     const auto vertex_capacity = renderer->vertices.positions.capacity();
     renderer->reset(0);
@@ -681,8 +679,7 @@ bool rendererTextureStages()
     srGERD gerd(srCreateSDLGPUDevice(), "texture stage fixture");
     for (unsigned stages : {1u, 2u}) {
         srGERD::Renderer renderer({&gerd, 0, 256, stages});
-        srVertexArray arrays{};
-        renderer.allocVertexArray(arrays, 3);
+        auto arrays = renderer.allocVertexArray(3);
         for (unsigned stage = 0; stage < 2; ++stage)
             for (unsigned i = 0; i < 3; ++i) {
                 renderer.vertices.st[stage][i] = glm::vec2(10 * stage + i, 20 + i);
@@ -718,9 +715,8 @@ bool rendererCornerRemapping()
     for (unsigned changed = 0; changed < 8; ++changed) {
         for (int sorted : {0, 1}) {
             srGERD::Renderer renderer({nullptr, sorted, 256, 2});
-            srVertexArray arrays{};
-            renderer.vertices.alloc(arrays, 5);
-            renderer.allocVertexArray(arrays, 6);
+            renderer.vertices.alloc(5);
+            renderer.allocVertexArray(6);
             for (unsigned i = 5; i < 11; ++i) {
                 renderer.vertices.positions[i] = glm::vec4(float(i), 2, 3, 1);
                 renderer.vertices.diffuse[i] = glm::vec4(float(i) / 20);

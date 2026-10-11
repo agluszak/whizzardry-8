@@ -1,5 +1,7 @@
 #include "glm/ext/vector_int3.hpp"
 #include <unordered_map>
+#include <span>
+#include <algorithm>
 #include <wiz8/filesystem.h>
 #include <cmath>
 #include <cstdio>
@@ -658,7 +660,9 @@ unsigned short OctBuildPreTree::LoadRegionFile(const char* stem, srVector3T<floa
         }
         volume->value_18 = record.value_06;
         SortFrustumCorners(&volume->m_points[1]);
-        BuildFrustumPlanes(&volume->m_points[1], volume->m_planes);
+        const auto planes =
+            BuildFrustumPlanes(std::span<const srVector3T<float>, 8>{volume->m_points + 1, 8});
+        std::ranges::copy(planes, volume->m_planes);
     }
     if (file) file->close();
     file.reset();

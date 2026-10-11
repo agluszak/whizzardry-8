@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <cmath>
 #include <utility>
+#include <optional>
+#include <span>
 
 #include "glm/common.hpp"
 #include "glm/matrix.hpp"
@@ -17,7 +19,6 @@
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "surrender/srFlags.h"
-#include "surrender/srMath.h"
 #include "surrender/srNode.h"
 #include "surrender/srTypeRegistry.h"
 
@@ -363,42 +364,41 @@ void srCamera::dump(std::ostream& stream)
 }
 
 // FUNCTION: SURRENDER 0x10048E30
-srCamera::e_projectionResult srCamera::project(srVector3T<float>& output,
-                                               const srVector3T<double>& input)
+srCamera::Projection srCamera::project(const glm::dvec3& input)
 {
-    glm::dmat3 rotation;
-    rotation = getWorldSpaceRotation<glm::dmat3>();
-    const auto point = glm::transpose(rotation) * (input.glmValue() - getWorldSpaceLocation());
+    const auto rotation = getWorldSpaceRotation<glm::dmat3>();
+    const auto point = glm::transpose(rotation) * (input - getWorldSpaceLocation());
     if (point.z < std::min(near_clip, far_clip) || point.z > std::max(near_clip, far_clip) ||
-        point.z == 0) {
-        output.SetZero();
-        return PROJECTION_RESULT_OUTSIDE_CLIP_RANGE;
-    }
+        point.z == 0)
+        return {glm::vec3(0), PROJECTION_RESULT_OUTSIDE_CLIP_RANGE};
     const glm::dvec2 start(view_plane.left, view_plane.top);
     const glm::dvec2 end(view_plane.right, view_plane.bottom);
     const auto uv = (glm::dvec2(point) * (view_plane_distance / point.z) - start) / (end - start);
-    output = glm::vec3(uv, point.z);
-    return glm::all(glm::greaterThanEqual(uv, glm::dvec2(0))) &&
-                   glm::all(glm::lessThanEqual(uv, glm::dvec2(1)))
-               ? PROJECTION_RESULT_ACCEPTED
-               : PROJECTION_RESULT_OUTSIDE_VIEW;
+    const bool inside = glm::all(glm::greaterThanEqual(uv, glm::dvec2(0))) &&
+                        glm::all(glm::lessThanEqual(uv, glm::dvec2(1)));
+    return {glm::vec3(uv, point.z), inside ? PROJECTION_RESULT_ACCEPTED : PROJECTION_RESULT_OUTSIDE_VIEW};
+}
+
+bool srCamera::projectsAny(std::span<const glm::vec3> points)
+{
+    return std::any_of(points.begin(), points.end(), [&](const glm::vec3& point) {
+        return project(glm::dvec3(point)).result == PROJECTION_RESULT_ACCEPTED;
+    });
 }
 
 // FUNCTION: SURRENDER 0x100490B0
-int srCamera::unproject(srVector3T<float>& output, const srVector3T<double>& input)
+std::optional<glm::vec3> srCamera::unproject(const glm::dvec3& input)
 {
-    output.SetZero();
     const glm::dvec2 uv(input.x, input.y);
     if (input.z < std::min(near_clip, far_clip) || input.z > std::max(near_clip, far_clip) ||
         !glm::all(glm::greaterThanEqual(uv, glm::dvec2(0))) ||
         !glm::all(glm::lessThanEqual(uv, glm::dvec2(1))))
-        return 0;
+        return std::nullopt;
 
     const glm::dvec2 start(view_plane.left, view_plane.top);
     const glm::dvec2 end(view_plane.right, view_plane.bottom);
     const glm::dvec3 point(glm::mix(start, end, uv) * (input.z / view_plane_distance), input.z);
     glm::dmat3 rotation;
     rotation = getWorldSpaceRotation<glm::dmat3>();
-    output = glm::vec3(rotation * point + getWorldSpaceLocation());
-    return 1;
+    return glm::vec3(rotation * point + getWorldSpaceLocation());
 }

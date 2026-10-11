@@ -58,9 +58,13 @@ public:
                                const TriMesh& mesh) override; /* 0x00470360 */
     /* Shared Wizardry-extended tri-mesh submit. `poly_normals` null skips
        the software backface pass; non-null callers supply polygon normals used
-       to build the active-polygon scratch at 0x00659ce0. */
+       to select the active polygons for this submission. */
     void RenderTriMeshWithEquations(class srGERD& renderer, const TriMesh& mesh,
                                     const srVector3T<float>* poly_normals); /* 0x00470380 */
+    static std::vector<w8_ulong> facingPolygons(const TriMesh& mesh,
+                                               std::span<const srVector3T<float>> normals,
+                                               const glm::vec3& eye, bool positive_winding,
+                                               float threshold);
 
     int FindMappedIndex(short key); /* 0x004712D0 */
     void SetMappedVertex(short vertex, short key);
@@ -133,17 +137,6 @@ public:
     private:
         stMeshModel* first;
     };
-    unsigned int flags;
-    srVector3T<float> ambient_color;
-    int vertex_light_table;
-    /* m_pVertLights: per-vertex static lighting, zero-filled on demand; table
-       -1 selects vertex_light_table. */
-    std::vector<srVector3T<float> > vertex_lights[2];
-    /* Per-vertex sunlight intensity, filled with 1.0f on demand. */
-    std::vector<float> vertex_sunlight;
-    /* Set once both vertex lights and sunlight exist. */
-    bool vertex_lighting_ready;
-    unsigned char padding_3ce[2];
     struct Frame {
         // m_psCompVertexLoc / m_pbCompVertexNormal / m_pbCompPolyNormal:
         // three shorts per location and three signed-byte components per normal.
@@ -157,7 +150,6 @@ public:
         std::optional<std::vector<srVector3T<float>>> vertex_normals;
         std::optional<std::vector<srVector3T<float>>> polygon_normals;
     };
-    std::vector<Frame> frames; // Empty for a static base-class mesh.
 
     struct Skin {
         int id;
@@ -168,6 +160,18 @@ public:
         std::optional<std::vector<w8_ulong>> active_polygons;
         bool blanking_checked = false;
     };
+    unsigned int flags;
+    srVector3T<float> ambient_color;
+    int vertex_light_table;
+    /* m_pVertLights: per-vertex static lighting, zero-filled on demand; table
+       -1 selects vertex_light_table. */
+    std::vector<srVector3T<float> > vertex_lights[2];
+    /* Per-vertex sunlight intensity, filled with 1.0f on demand. */
+    std::vector<float> vertex_sunlight;
+    /* Set once both vertex lights and sunlight exist. */
+    bool vertex_lighting_ready;
+    unsigned char padding_3ce[2];
+    std::vector<Frame> frames; // Empty for a static base-class mesh.
     std::vector<Skin> skins;
     std::unordered_map<short, short> mapped_vertices; // key -> vertex
     w8_ulong last_decompress_release_tick;
@@ -183,9 +187,6 @@ public:
 extern std::vector<stMeshModel*> g_mesh_models; /* 0x00659CB8 */
 /* Bytes currently held by decompressed per-frame float caches. */
 extern int g_decompressed_mesh_bytes; /* 0x0065A0E8 */
-/* Scratch active-polygon indices filled by software backface cull in
-   RenderTriMeshWithEquations when an equation table is supplied. */
-extern std::vector<w8_ulong> g_software_cull_active_polygons; /* 0x00659CE0 */
 
 /* True when all three components of the vector are zero. */
 int __fastcall IsZeroVector(const srVector3T<float>* vector);

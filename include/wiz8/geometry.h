@@ -2,10 +2,14 @@
 #define WIZ8_GEOMETRY_H
 
 #include "compat/ptr32.h"
+#include "glm/common.hpp"
+#include "glm/geometric.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_float4.hpp"
 #include "surrender/srMath.h"
 #include "wiz8/float_constants.h"
 
-#include <math.h>
+#include <optional>
 
 /* Physical-surface masks recovered from retail collision/build consumers.
    WALKABLE/PATHFINDING also agree with Cosmic Forge's face editor. */
@@ -96,15 +100,67 @@ struct W8GDSurface {
 
 W8_ABI_ASSERT(sizeof(W8GDSurface) == 0x4c, "W8GDSurface_must_be_0x4c");
 
-/* Unit plane through three vertices. Degenerate triangles have a zero normal. */
-inline void SetPlaneFromThreePoints(W8Plane* plane, const srVector3T<float>* first,
-                                    const srVector3T<float>* second, const srVector3T<float>* third)
+/* Unit plane through three vertices. The result is also the plane record
+   stored in level geometry; degenerate triangles have a zero normal. */
+inline W8Plane trianglePlane(const glm::vec3& first, const glm::vec3& second,
+                            const glm::vec3& third)
 {
-    const auto origin = first->glmValue();
-    const auto normal =
-        normalizedOrZero(glm::cross(second->glmValue() - origin, third->glmValue() - origin));
-    plane->normal = normal;
-    plane->w = -glm::dot(normal, origin);
+    const auto normal = normalizedOrZero(glm::cross(second - first, third - first));
+    return {normal, -glm::dot(normal, first)};
+}
+
+// Prefer x, then y, then z on ties, including a completely degenerate plane.
+inline unsigned dominantPlaneAxis(const glm::vec3& normal)
+{
+    const auto magnitude = glm::abs(normal);
+    unsigned result = 0;
+    float largest = 0;
+    for (unsigned axis = 0; axis < 3; ++axis) {
+        if (largest < magnitude[axis]) {
+            largest = magnitude[axis];
+            result = axis;
+        }
+    }
+    return result;
+}
+
+struct PlaneSegment {
+    glm::vec3 start;
+    glm::vec3 end;
+    glm::vec3 direction;
+    float length;
+    float limit;
+};
+
+struct PlaneContact {
+    glm::vec3 point;
+    float distance;
+};
+
+enum class PlaneContactMode { Collision, Occlusion };
+
+// Occlusion requires a full five-unit exit behind a plane. Collision accepts
+// the endpoint within its one-unit skin, unless a closer hit already exists.
+inline std::optional<PlaneContact> planeContact(const glm::vec4& plane,
+                                               const PlaneSegment& segment,
+                                               PlaneContactMode mode)
+{
+    const glm::vec3 normal(plane);
+    if (!(glm::dot(normal, segment.direction) <= 0)) return std::nullopt;
+    const float front = glm::dot(normal, segment.start) + plane.w;
+    if (!(front > 0 && front <= segment.limit)) return std::nullopt;
+    if (front < 1) return PlaneContact{segment.start, 0};
+    const float clearance = mode == PlaneContactMode::Occlusion ? 5.0f : 1.0f;
+    const float back = glm::dot(normal, segment.end) + plane.w;
+    if (back >= clearance) return std::nullopt;
+    const float exit = -back;
+    if (mode == PlaneContactMode::Occlusion) {
+        if (exit < clearance) return std::nullopt;
+    } else if (!(exit >= clearance || segment.limit < segment.length)) {
+        return PlaneContact{segment.end, segment.length};
+    }
+    const float distance = front / (exit + front) * segment.length;
+    return PlaneContact{segment.start + segment.direction * distance, distance};
 }
 
 /* Signed plane distance n·p + w. Independent TUs: 3d.cpp PointInsideFrustum
@@ -115,8 +171,6 @@ inline float SignedPlaneDistance(const W8Plane& plane, const srVector3T<float>& 
 }
 
 void ClassifySurfacePlane(const srVector3T<float>* vertices, W8GDSurface* surface);
-void BuildTrianglePlane(W8Plane* plane, const srVector3T<float>* first,
-                        const srVector3T<float>* second, const srVector3T<float>* third);
 /* Segment intersection projected onto the plane perpendicular to axis. */
 bool SegmentCrossesEdge(const glm::vec3& seg_start, const glm::vec3& seg_end,
                         const glm::vec3& edge_a, const glm::vec3& edge_b, unsigned int axis);

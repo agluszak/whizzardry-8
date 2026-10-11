@@ -1,6 +1,9 @@
 #include "glm/ext/vector_int3.hpp"
 #include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_float4.hpp"
 #include "wiz8/octree_walk.h"
+#include "wiz8/engine_code/UpdateMesh.h"
+#include "glm/ext/vector_int2.hpp"
 #include <catch2/catch_test_macros.hpp>
 #include <glm/gtc/constants.hpp>
 #include <glm/ext/matrix_clip_space.hpp>
@@ -24,6 +27,7 @@
 #include "surrender/srBoundingBox.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srModeler.h"
+#include "surrender/srTriMeshPipeline.h"
 #include "surrender/srGERD.h"
 #include "surrender/srCamera.h"
 #include "surrender/srClock.h"
@@ -122,10 +126,10 @@ static void planes_and_segments()
     REQUIRE(surface.height == 2);
     REQUIRE((surface.surface == 0 && surface.material == 0));
     W8Plane plane{};
-    SetPlaneFromThreePoints(&plane, &a, &b, &c);
+    plane = trianglePlane(a.glmValue(), b.glmValue(), c.glmValue());
     REQUIRE(close(plane.normal.glmValue(), {0, 1, 0}));
     REQUIRE(std::abs(SignedPlaneDistance(plane, {5, 4, 7}) - 2) < 1e-5f);
-    SetPlaneFromThreePoints(&plane, &a, &a, &a);
+    plane = trianglePlane(a.glmValue(), a.glmValue(), a.glmValue());
     REQUIRE((plane.normal == srVector3(0, 0, 0) && plane.w == 0));
 
     const glm::vec3 start(0, 0, 0), end(2, 0, 2);
@@ -543,22 +547,6 @@ static void renderer_bounds()
 
 static void triangle_visibility()
 {
-    std::array<srVector3, 513> vertices;
-    std::array<float, 513> distances;
-    std::array<w8_ulong, 513> flags{};
-    for (std::size_t i = 0; i < vertices.size(); ++i) {
-        vertices[i] = srVector3(i % 3 ? 1 : -1, 0, 0);
-        flags[i] = 1u << 2;
-    }
-    REQUIRE((srTriangleCuller::setClipFlags(flags.data(), distances.data(), vertices.data(),
-                                         {1, 0, 0, 0}, 31, vertices.size(), 0)));
-    for (std::size_t i = 0; i < vertices.size(); ++i)
-        REQUIRE((flags[i] == ((1u << 2) | (i % 3 ? 0 : 1u << 31))));
-    REQUIRE((srTriangleCuller::setClipFlags(flags.data(), distances.data(), vertices.data(),
-                                         {1, 0, 0, 0}, 5, vertices.size(), 1)));
-    for (std::size_t i = 0; i < vertices.size(); ++i)
-        REQUIRE((flags[i] == (i % 3 ? 0 : 1u << 5)));
-
     const std::array<srVector3, 9> positions{{{-0.5f, -0.5f, 0},
                                               {0.5f, -0.5f, 0},
                                               {0, 0.5f, 0},
@@ -573,7 +561,6 @@ static void triangle_visibility()
         {{1, 0, 0, 1}, {-1, 0, 0, 1}, {0, 1, 0, 1}, {0, -1, 0, 1}, {0, 0, 1, 1}, {0, 0, -1, 1}}};
     const glm::mat4 identity(1);
     std::array<w8_ulong, 3> indices;
-    std::array<w8_ulong, 9> active, remap;
     srTriangleCuller::Input input{};
     input.triangle_count = 3;
     input.vertex_count = positions.size();
@@ -583,17 +570,13 @@ static void triangle_visibility()
     input.clip_planes = planes.data();
     input.model_view = input.inverse_model_view = &identity;
     input.clip_mask = 0x3f;
-    srTriangleCuller::Output output{};
-    output.indices = indices.data();
-    output.avt = active.data();
-    output.vertex_remap = remap.data();
-    REQUIRE((srTriangleCuller::cull(output, input)));
-    REQUIRE((output.triangle_count == 2 && indices[0] == 0 && indices[1] == 2));
-    REQUIRE((output.vertex_count == 6));
+    auto output = srTriangleCuller::cull(input);
+    REQUIRE((output.indices == std::vector<w8_ulong>{0, 2}));
+    REQUIRE((output.vertexCount() == 6));
     const std::array<w8_ulong, 6> expected{{0, 1, 2, 6, 7, 8}};
     for (unsigned i = 0; i < expected.size(); ++i)
-        REQUIRE((active[i] == expected[i] && remap[expected[i]] == i));
-    // Active triangle filtering must keep source order and allow in-place compaction.
+        REQUIRE((output.avt[i] == expected[i] && output.vertex_remap[expected[i]] == i));
+    // Active triangle filtering must keep source order without changing the input list.
     indices = {2, 1, 0};
     const std::array<glm::vec4, 3> facing{{{0, 0, 0, 1}, {0, 0, 0, -1}, {0, 0, 0, 1}}};
     input.active_triangles = indices.data();
@@ -601,11 +584,12 @@ static void triangle_visibility()
     input.projected_vertices = facing.data();
     input.cull_mode = 0;
     input.clip_mask = 0;
-    REQUIRE((srTriangleCuller::cull(output, input)));
-    REQUIRE((output.triangle_count == 2 && indices[0] == 2 && indices[1] == 0));
+    output = srTriangleCuller::cull(input);
+    REQUIRE((output.indices == std::vector<w8_ulong>{2, 0}));
+    REQUIRE((indices == std::array<w8_ulong, 3>{2, 1, 0}));
     input.active_triangle_count = 0;
-    REQUIRE((!srTriangleCuller::cull(output, input)));
-    REQUIRE((output.triangle_count == 0 && output.vertex_count == 0));
+    output = srTriangleCuller::cull(input);
+    REQUIRE((output.indices.empty() && output.avt.empty() && output.vertex_remap.empty()));
     const auto clip = srTriangleCuller::getClipMask({1, 0, 0}, 0, planes.data(), 0x3f);
     REQUIRE((clip.mask == (1u << 1) && std::isfinite(clip.depth)));
 }
@@ -1265,4 +1249,120 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Monster bounds scale and translate indep
     REQUIRE_FALSE(MonsterGetWorldAnimationBounds(nullptr));
     REQUIRE(bounds->minimum == glm::vec3(-2, -4, -6));
     REQUIRE(animation.frame_bounds[0].minimum == srVector3(-1, -2, -3));
+}
+
+TEST_CASE("Quad visibility owns ordered cells without a fixed capacity", "[geometry]")
+{
+    const auto cells = rasterizeQuadTriangle({256, 256}, {{{0, 0}, {255, 0}, {128, 255}}});
+    REQUIRE(cells.size() > 20000);
+    for (std::size_t index = 0; index < cells.size(); ++index) {
+        REQUIRE(cells[index].x >= 0);
+        REQUIRE(cells[index].x < 256);
+        REQUIRE(cells[index].y >= 0);
+        REQUIRE(cells[index].y < 256);
+        if (index) {
+            REQUIRE(cells[index].y >= cells[index - 1].y);
+            if (cells[index].y == cells[index - 1].y)
+                REQUIRE(cells[index].x == cells[index - 1].x + 1);
+        }
+    }
+    REQUIRE(rasterizeQuadTriangle({256, 256}, {{{128, 255}, {255, 0}, {0, 0}}}) == cells);
+    const auto clipped = rasterizeQuadTriangle({8, 8}, {{{-10, -10}, {15, 2}, {3, 20}}});
+    REQUIRE_FALSE(clipped.empty());
+    for (const auto& cell : clipped) {
+        REQUIRE(cell.x >= 0);
+        REQUIRE(cell.x < 8);
+        REQUIRE(cell.y >= 0);
+        REQUIRE(cell.y < 8);
+    }
+    REQUIRE(rasterizeQuadTriangle({8, 8}, {{{1, 1}, {2, 1}, {3, 1}}}).empty());
+    REQUIRE(rasterizeQuadTriangle({8, 8}, {{{1, 1}, {1, 2}, {1, 3}}}).empty());
+    REQUIRE(rasterizeQuadTriangle({0, 0}, {{{0, 0}, {10, 2}, {3, 20}}}).empty());
+}
+
+TEST_CASE("Software backface selection preserves thresholds and active order", "[geometry]")
+{
+    std::array<srVector3, 3> positions{{{0, 0, 0}, {0, 0, 2}, {0, 0, -2}}};
+    std::array<srVector3i, 3> triangles{{{0, 0, 0}, {1, 1, 1}, {2, 2, 2}}};
+    const std::array<srVector3, 3> normals{{{0, 0, 1}, {0, 0, 1}, {0, 0, 1}}};
+    srMeshModel::TriMesh mesh;
+    mesh.polygon_count = triangles.size();
+    mesh.positions = positions.data();
+    mesh.poly_vertices = triangles.data();
+    const auto positive = stMeshModel::facingPolygons(mesh, normals, glm::vec3(0), true, 0);
+    REQUIRE(positive == std::vector<w8_ulong>{0, 2});
+    REQUIRE(stMeshModel::facingPolygons(mesh, normals, glm::vec3(0), false, 0) ==
+            std::vector<w8_ulong>{0, 1});
+    REQUIRE(stMeshModel::facingPolygons(mesh, normals, glm::vec3(0), true, 1) ==
+            std::vector<w8_ulong>{2});
+    std::array<w8_ulong, 4> active{2, 1, 0, 2};
+    mesh.active_polygons = std::span<const w8_ulong>(active);
+    REQUIRE(stMeshModel::facingPolygons(mesh, normals, glm::vec3(0), true, 0) ==
+            std::vector<w8_ulong>{2, 0, 2});
+    REQUIRE(positive == std::vector<w8_ulong>{0, 2});
+    mesh.active_polygons = std::span<const w8_ulong>{};
+    REQUIRE(stMeshModel::facingPolygons(mesh, normals, glm::vec3(0), true, 0).empty());
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture, "Empty software backface selections skip mesh submission", "[geometry]")
+{
+    srGERD renderer(srCreateSDLGPUDevice(), "empty software selection");
+    renderer.setWinding(srGERD::WINDING_POSITIONAL_0);
+    stMeshModel model(1, 3);
+    auto* pipeline = srTriMeshPipeline::Get(&renderer);
+    std::array<srVector3, 3> positions{{{0, 0, 2}, {0, 0, 2}, {0, 0, 2}}};
+    std::array<srVector3i, 1> triangles{{{0, 1, 2}}};
+    const std::array<srVector3, 1> normals{{{0, 0, 1}}};
+    srMeshModel::TriMesh mesh;
+    mesh.vertex_count = positions.size();
+    mesh.polygon_count = triangles.size();
+    mesh.positions = positions.data();
+    mesh.poly_vertices = triangles.data();
+    mesh.control_flags = (1u << srMeshModel::CONTROL_FRONT) | (1u << srMeshModel::CONTROL_BACK);
+    const auto before = pipeline->triangle_count;
+    model.RenderTriMeshWithEquations(renderer, mesh, normals.data());
+    REQUIRE(pipeline->triangle_count == before);
+}
+
+TEST_CASE("Plane contacts retain collision skin and occluder clearance", "[geometry]")
+{
+    const glm::vec4 plane(1, 0, 0, 0);
+    const PlaneSegment crossing{{3, 4, 5}, {-7, 4, 5}, {-1, 0, 0}, 10, 10};
+    for (auto mode : {PlaneContactMode::Collision, PlaneContactMode::Occlusion}) {
+        const auto hit = planeContact(plane, crossing, mode);
+        REQUIRE(hit.has_value());
+        REQUIRE(hit->point == glm::vec3(0, 4, 5));
+        REQUIRE(hit->distance == 3);
+    }
+    const PlaneSegment skin{{3, 4, 5}, {0.5f, 4, 5}, {-1, 0, 0}, 2.5f, 4};
+    const auto endpoint = planeContact(plane, skin, PlaneContactMode::Collision);
+    REQUIRE(endpoint.has_value());
+    REQUIRE(endpoint->point == skin.end);
+    REQUIRE(endpoint->distance == skin.length);
+    REQUIRE_FALSE(planeContact(plane, skin, PlaneContactMode::Occlusion));
+    const PlaneSegment nearer{{1.1f, 0, 0}, {-0.1f, 0, 0}, {-1, 0, 0}, 1.2f, 1.15f};
+    const auto closest = planeContact(plane, nearer, PlaneContactMode::Collision);
+    REQUIRE(closest.has_value());
+    REQUIRE(std::abs(closest->distance - 1.1f) < 1e-6f);
+    auto exit = crossing;
+    exit.end.x = -5;
+    exit.length = 8;
+    REQUIRE(planeContact(plane, exit, PlaneContactMode::Occlusion));
+    exit.end.x = -4.99f;
+    REQUIRE_FALSE(planeContact(plane, exit, PlaneContactMode::Occlusion));
+    auto inside_skin = crossing;
+    inside_skin.start.x = 0.5f;
+    const auto start = planeContact(plane, inside_skin, PlaneContactMode::Collision);
+    REQUIRE(start.has_value());
+    REQUIRE(start->point == inside_skin.start);
+    REQUIRE(start->distance == 0);
+    inside_skin.start.x = 0;
+    REQUIRE_FALSE(planeContact(plane, inside_skin, PlaneContactMode::Collision));
+    REQUIRE_FALSE(planeContact(-plane, crossing, PlaneContactMode::Collision));
+    auto limited = crossing;
+    limited.limit = 2;
+    REQUIRE_FALSE(planeContact(plane, limited, PlaneContactMode::Collision));
+    REQUIRE(dominantPlaneAxis({-2, 2, 2}) == 0);
+    REQUIRE(dominantPlaneAxis({0, -3, 3}) == 1);
+    REQUIRE(dominantPlaneAxis({0, 0, 0}) == 0);
 }

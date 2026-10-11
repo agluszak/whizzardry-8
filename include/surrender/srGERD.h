@@ -9,6 +9,7 @@
 #include <thread>
 #include <utility>
 #include <vector>
+#include "glm/ext/vector_int4_sized.hpp"
 
 #include <unordered_map>
 #include "srTexture.h"
@@ -152,7 +153,7 @@ public:
             w8_ulong count;
 
             IndexBatch() : count(0) {}
-            void alloc(IndexWrite& write, w8_ulong count);
+            IndexWrite alloc(w8_ulong count);
             void reset(int release);
         };
         /* Accumulated vertex streams. alloc() grows all streams and default-fills the new range
@@ -169,13 +170,13 @@ public:
             w8_long count;
 
             VertexArrays() : count(0) {}
-            void alloc(srVertexArray& arrays, w8_ulong count);
-            void bind(srVertexArray& arrays, w8_ulong base);
+            srVertexArray alloc(w8_ulong count);
+            srVertexArray bind(w8_ulong base);
             void reset(int release);
         };
 
         Renderer(const Parameters& parameters);
-        void allocVertexArray(srVertexArray& arrays, w8_ulong count);
+        srVertexArray allocVertexArray(w8_ulong count);
         /* intern the pass's {texture0,texture1,shader} key into
            texture_set, folding per-vertex texture/shader table transitions
            into the output ids. */
@@ -307,13 +308,9 @@ public:
         ACCUM_RETURN = 4
     };
     enum e_depthBuffer {};
-    /* accumulate()'s signed 16-bit accum-buffer pixel. */
-    struct AccumPixel {
-        short red;
-        short green;
-        short blue;
-        short alpha;
-    };
+    // Native accumulator channels retain the existing four signed 16-bit lanes.
+    using AccumPixel = glm::i16vec4;
+    static_assert(sizeof(AccumPixel) == 8);
 
     static const char* sGetClassName();
     static srRegistry::ClassNode* sGetClassNode();
@@ -807,15 +804,6 @@ private:
     void accumAlloc();
     short accumConvert(float value) const;
     void accumClear();
-    /* MMX row kernels for accumulate(). */
-    static void __cdecl accumAccum_MMX(AccumPixel* accum, const srARGB* pixels, w8_long scale,
-                                       w8_long count);
-    static void __cdecl accumLoad_MMX(AccumPixel* accum, const srARGB* pixels, w8_long scale,
-                                      w8_long count);
-    static void __cdecl accumReturn_MMX(srARGB* pixels, const AccumPixel* accum, w8_long scale,
-                                        w8_long count);
-    static void __cdecl accumAdd_MMX(AccumPixel* accum, w8_long value, w8_long count);
-    static void __cdecl accumMult_MMX(AccumPixel* accum, w8_long value, w8_long count);
     static void convertPixelFormat(srDD::PixelFormat& device,
                                    const srPixelConvert::PixelFormat& format);
     static void convertPixelFormat(srPixelConvert::PixelFormat& format,

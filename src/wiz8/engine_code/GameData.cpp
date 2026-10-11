@@ -1219,7 +1219,7 @@ bool W8GameData::TestGeometryTrace(std::span<W8GDSurface> surfaces,
                     vertices[1] = vertices_bank[surface->vertex_indices[1]];
                     vertices[2] = vertices_bank[surface->vertex_indices[2]];
                     if (PointInsideTriangle(vertices, surface->flags & W8_GD_SURFACE_AXIS_MASK,
-                                            &contact) &&
+                                            contact.glmValue()) &&
                         hit_distance < trace->hit_limit) {
                         last_hit_surface = surface->index;
                         hit = true;

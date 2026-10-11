@@ -79,7 +79,7 @@ public:
     typedef void(__cdecl* ConversionFunc)(const ConversionInfo& info);
 
     static e_surfaceType mapPixelFormat(const PixelFormat& format);
-    static SR_DLL_IMPORT void mapPixelFormat(e_surfaceType type, PixelFormat& format);
+    static SR_DLL_IMPORT PixelFormat pixelFormat(e_surfaceType type);
     struct ConversionFunctions {
         ConversionFunc write = nullptr;
         ConversionFunc read = nullptr;

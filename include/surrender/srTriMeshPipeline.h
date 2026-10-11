@@ -51,7 +51,6 @@ public:
     virtual ~srTriMeshPipeline() = default;
 
     std::vector<srVertexProcessor*> vertex_processors;
-    std::vector<w8_ulong> culler_scratch;
     Record* current_record;
     Pass* current_pass;
     w8_ulong triangle_count;

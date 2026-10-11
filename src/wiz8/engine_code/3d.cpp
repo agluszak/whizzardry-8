@@ -1,5 +1,6 @@
 #include <array>
 #include <memory>
+#include <span>
 #include <vector>
 #include <string>
 
@@ -8,7 +9,6 @@
 #include "glm/matrix.hpp"
 #include "wiz8/containers.h"
 #include "surrender/srBoundingBox.h"
-#include "wiz8/compat/unaligned.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/Item.h"
 #include "wiz8/engine_code/Monster.h"
@@ -678,35 +678,25 @@ bool PointInsideFrustum(const srVector3T<float>* point, const W8Plane* planes)
     return true;
 }
 
-/* Header-visible SetPlaneFromThreePoints. This TU lowers the three-point
-   copy as a component countdown; 0x00449A40 unrolls the same assignments. */
-// FUNCTION: WIZ8 0x0046d660
-void BuildPlaneFromPoints(W8Plane* plane, const srVector3T<float>* first,
-                          const srVector3T<float>* second, const srVector3T<float>* third)
-{
-    SetPlaneFromThreePoints(plane, first, second, third);
-}
-
 /* Point-in-triangle test by even-odd crossing on the plane perpendicular to
    `axis`: the two remaining components (axis+1, axis+2 mod 3) project the
    triangle and query point, and each edge straddling the point's second
    coordinate toggles the inside flag when its interpolation crosses the
    first. */
 // FUNCTION: WIZ8 0x0046d530
-bool PointInsideTriangle(const srVector3T<float>* vertices, short axis,
-                         const srVector3T<float>* point)
+bool PointInsideTriangle(std::span<const srVector3T<float>, 3> vertices, unsigned axis,
+                         const glm::vec3& point)
 {
-    const w8_unaligned_float* p = &point->x;
-    short u = static_cast<short>(axis + 1) % 3;
-    short v = static_cast<short>(axis + 2) % 3;
+    const unsigned u = (axis + 1) % 3;
+    const unsigned v = (axis + 2) % 3;
     bool inside = false;
-
-    for (int i = 0; i < 3; ++i) {
-        const w8_unaligned_float* first = &vertices[i].x;
-        const w8_unaligned_float* second = &vertices[(i + 1) % 3].x;
-        if ((first[v] < p[v] && p[v] < second[v]) || (second[v] < p[v] && p[v] < first[v])) {
-            if (p[u] <=
-                (p[v] - first[v]) * (second[u] - first[u]) / (second[v] - first[v]) + first[u]) {
+    for (unsigned i = 0; i < vertices.size(); ++i) {
+        const auto first = vertices[i].glmValue();
+        const auto second = vertices[(i + 1) % 3].glmValue();
+        if ((first[v] < point[v] && point[v] < second[v]) ||
+            (second[v] < point[v] && point[v] < first[v])) {
+            if (point[u] <= (point[v] - first[v]) * (second[u] - first[u]) /
+                                (second[v] - first[v]) + first[u]) {
                 inside = !inside;
             }
         }
@@ -715,14 +705,17 @@ bool PointInsideTriangle(const srVector3T<float>* vertices, short axis,
 }
 
 // FUNCTION: WIZ8 0x0046d7e0
-void BuildFrustumPlanes(const srVector3T<float>* points, W8Plane* planes)
+std::array<W8Plane, 6> BuildFrustumPlanes(std::span<const srVector3T<float>, 8> points)
 {
-    BuildPlaneFromPoints(&planes[0], &points[1], &points[5], &points[4]);
-    BuildPlaneFromPoints(&planes[1], &points[6], &points[7], &points[3]);
-    BuildPlaneFromPoints(&planes[2], &points[0], &points[2], &points[3]);
-    BuildPlaneFromPoints(&planes[3], &points[4], &points[5], &points[7]);
-    BuildPlaneFromPoints(&planes[4], &points[4], &points[6], &points[2]);
-    BuildPlaneFromPoints(&planes[5], &points[1], &points[3], &points[7]);
+    constexpr std::array<std::array<unsigned, 3>, 6> corners{{
+        {1, 5, 4}, {6, 7, 3}, {0, 2, 3}, {4, 5, 7}, {4, 6, 2}, {1, 3, 7}}};
+    std::array<W8Plane, 6> planes;
+    for (unsigned plane = 0; plane < planes.size(); ++plane) {
+        const auto& indices = corners[plane];
+        planes[plane] = trianglePlane(points[indices[0]].glmValue(), points[indices[1]].glmValue(),
+                                      points[indices[2]].glmValue());
+    }
+    return planes;
 }
 
 /* Sort `points` in place into the canonical corner order: an index array is

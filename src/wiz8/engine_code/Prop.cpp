@@ -1316,13 +1316,8 @@ bool W8Prop::IsTriggerInView(srVector3T<float>* position)
     const float distance = (center - *position).Length();
     if (!(distance < trigger->range_maximum && trigger->range_minimum <= distance))
         return false;
-    for (const auto& point : std::array{bounds->center(), bounds->minimum, bounds->maximum}) {
-        srVector3T<float> projected;
-        const srVector3T<double> input{glm::dvec3(point)};
-        if (g_world->camera->project(projected, input) == srCamera::PROJECTION_RESULT_ACCEPTED)
-            return true;
-    }
-    return false;
+    const std::array points{bounds->center(), bounds->minimum, bounds->maximum};
+    return g_world->camera->projectsAny(points);
 }
 
 // FUNCTION: WIZ8 0x0044bf50
