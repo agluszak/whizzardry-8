@@ -104,10 +104,10 @@ public:
     /* srTextureFile's vftable is this interface exactly. */
     virtual w8_ulong getTextureFrameHandle() = 0;
     virtual float getPriority() = 0;
-    virtual void getDimensions(Dimensions& dimensions) = 0;
+    virtual Dimensions getDimensions() = 0;
     virtual void getMipmapData(MultiRequest& request) = 0;
     virtual void getMipmapLevelPartial(PartialRequest& request) = 0;
-    virtual void getTextureParms(Parameters& parameters) = 0;
+    virtual Parameters getParameters() = 0;
     virtual const char* getTextureName();
     virtual void invalidate() = 0;
     ~srTextureIFace() override;
