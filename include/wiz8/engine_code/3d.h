@@ -1,5 +1,7 @@
 #pragma once
 
+struct srBoundingBox;
+
 #include <memory>
 
 #include "compat/native.h"
@@ -70,12 +72,9 @@ void SortFrustumCorners(srVector3T<float>* points);
    region volume's frustum: true when a bounds corner satisfies all six
    planes or a volume corner lands inside the bounds. */
 bool BoundsInsideFrustum(const W8OctRegionVolume* volume, const W8BoundingBox* bounds);
-char TraceLineOfSightToBounds(const srVector3T<float>* origin, srVector3T<float>* minimum,
-                              srVector3T<float>* maximum);
-bool HasLineOfSightToBounds(const srVector3T<float>* origin, srVector3T<float>* minimum,
-                            srVector3T<float>* maximum);
-unsigned char ShowTargetMarker(const srVector3T<float>* eye, const srVector3T<float>* lower,
-                               const srVector3T<float>* upper); /* 0x0046F820 */
+char TraceLineOfSightToBounds(const srVector3T<float>* origin, const srBoundingBox& bounds);
+bool HasLineOfSightToBounds(const srVector3T<float>* origin, const srBoundingBox& bounds);
+unsigned char ShowTargetMarker(const srVector3T<float>* eye, const srBoundingBox& bounds); /* 0x0046F820 */
 
 void WorldUpdateLights(W8World* world);
 float WorldGetRenderRange(W8World* world);

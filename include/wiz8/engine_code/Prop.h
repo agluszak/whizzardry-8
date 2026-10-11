@@ -1,5 +1,7 @@
 #pragma once
 
+#include <optional>
+#include "surrender/srBoundingBox.h"
 #include <vector>
 
 #include "wiz8/engine_code/AnimRep.hpp"
@@ -138,7 +140,7 @@ public:
     unsigned char GetActivationState();
     srModelInstance* ToggleRepAnimation(int argument);
     srModelInstance* ToggleRepAnimationDefault();
-    unsigned char PlayRepAnimation(srVector3T<float>* minimum, srVector3T<float>* maximum);
+    std::optional<srBoundingBox> GetFrameBounds();
     void SetAnimationDirection(W8AnimationDirection direction);
     void SetRepresentationActive(unsigned char active, bool update_animation);
     bool CanBeUsedFrom(int path_x, int path_z, bool notify);
@@ -151,12 +153,12 @@ public:
     Trigger* GetTrigger();
     bool IsTriggerInView(srVector3T<float>* position);
     Trigger* GetGDPropOwnerTrigger();
-    void GetCenterPosition(srVector3T<float>* position);
+    std::optional<srVector3T<float>> GetCenterPosition();
     /* Whether the renderer's currently selected model instance is dispatched
        by this prop's animation - the prop half of ResolvePickedProp's test.
        `world` is accepted but never read. */
     bool IsPickedProp(W8World* world); /* 0x0044D680 */
-    void GetBounds(srVector3T<float>* minimum, srVector3T<float>* maximum);
+    std::optional<srBoundingBox> GetBounds();
     void CollectModelInstances(std::vector<stModelInstance*>& instances);
     /* Run trigger when its action is one of the missile-impact kinds
        (0x3a..0x3c); the record hands Run the missile's table index. */

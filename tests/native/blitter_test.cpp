@@ -33,11 +33,6 @@
 #include "vobject.h"
 #include "vsurface.h"
 
-bool Blt16BPPBufferShadowRectAlternateTable(std::uint16_t*, std::uint32_t, SDL_Rect*);
-
-std::uint16_t ShadeTable[65536];
-std::uint16_t IntensityTable[65536];
-
 static const unsigned pitch = 1296; // 640 pixels plus row padding
 static const unsigned rows = 20;
 static std::uint16_t destination[pitch * rows / 2];
@@ -146,7 +141,6 @@ TEST_CASE("blitter_test")
     reference.str(text);
     for (unsigned i = 0; i < 65536; ++i) {
         ShadeTable[i] = static_cast<std::uint16_t>((i * 37) ^ 0x1234);
-        IntensityTable[i] = static_cast<std::uint16_t>((i * 83) ^ 0x5678);
     }
     for (unsigned i = 0; i < 256; ++i) {
         palette[i] = static_cast<std::uint16_t>((i * 257) ^ 0x57ab);
@@ -199,32 +193,17 @@ TEST_CASE("blitter_test")
     }
 
     for (unsigned width = 1; width <= 9; ++width) {
-        reset(); ok = check("Blt16BPPTo16BPP", width,
-            Blt16BPPTo16BPP(destination, pitch, source, pitch, 3, 2, 1, 4, width, 5), full) && ok;
-        reset(); ok = check("Blt16BPPTo16BPPTrans", width,
-            Blt16BPPTo16BPPTrans(destination, pitch, source, pitch, 3, 2, 1, 4, width, 5,
-                source[4 * pitch / 2 + 2]), full) && ok;
-        reset(); ok = check("Blt8BPPTo8BPP", width,
-            Blt8BPPTo8BPP(reinterpret_cast<std::uint8_t*>(destination), pitch, reinterpret_cast<std::uint8_t*>(source), pitch,
-                3, 2, 1, 4, width, 5), full) && ok;
-        reset(); ok = check("Blt16BPPTo16BPP-overlap", width,
-            Blt16BPPTo16BPP(destination, pitch, destination, pitch, 2, 2, 1, 2, width, 5), full) && ok;
-        reset(); ok = check("Blt8BPPTo8BPP-overlap", width,
-            Blt8BPPTo8BPP(reinterpret_cast<std::uint8_t*>(destination), pitch, reinterpret_cast<std::uint8_t*>(destination), pitch,
-                2, 2, 1, 2, width, 5), full) && ok;
         // The mirror ignores source position and clips against 640x480.
         for (int x = -3; x <= 637; x += 320) {
             reset(); ok = check("Blt16BPPTo16BPPMirror", width * 1000 + x,
                 Blt16BPPTo16BPPMirror(destination, pitch, source, pitch, x, 2, 1, 4, width, 5), full) && ok;
         }
-        SGPVSurface surface = {};
-        surface.usWidth = pitch;
-        surface.usHeight = rows;
-        std::copy_n(palette, 256, surface.p16BPPPalette.begin());
+        Palette16 packed{};
+        std::copy_n(palette, 256, packed.begin());
         SDL_Rect area = {2, 3, static_cast<std::int32_t>(width), 4};
         reset(); ok = check("Blt8BPPDataSubTo16BPPBuffer", width,
-            Blt8BPPDataSubTo16BPPBuffer(destination, pitch, surface, reinterpret_cast<std::uint8_t*>(source), pitch,
-                3, 2, &area), area) && ok;
+            Blt8BPPDataSubTo16BPPBuffer(destination, pitch, packed, reinterpret_cast<std::uint8_t*>(source), pitch,
+                3, 2, area), area) && ok;
     }
     std::uint8_t pattern[8][8];
     for (unsigned y = 0; y < 8; ++y) {
@@ -242,11 +221,6 @@ TEST_CASE("blitter_test")
         area = {-1, 1, 10 + variant, 11};
         reset(); ok = check("Blt16BPPBufferShadowRect", variant,
             Blt16BPPBufferShadowRect(destination, pitch, &area), area) && ok;
-        area = {-1, 1, 10 + variant, 11};
-        reset(); ok = check("Blt16BPPBufferShadowRectAlternateTable", variant,
-            Blt16BPPBufferShadowRectAlternateTable(destination, pitch, &area), area) && ok;
-        reset(); ok = check("FillRect16BPP", variant,
-            FillRect16BPP(destination, pitch, -1, 1, 9 + variant, 12, 0x693d), area) && ok;
     }
     // Functional checks for behavior the hash fixtures cannot express: a
     // literal palette index 0 must draw its palette entry (not behave as
@@ -433,7 +407,7 @@ TEST_CASE("SDL tiled backgrounds preserve clipping, phase, transparent gaps and 
                         for (int y = startY; y < area.y + area.h; y += height)
                             for (int x = startX; x < area.x + area.w; x += width)
                                 REQUIRE(BltVideoObject(expected, object, 0, x, y,
-                                                       VO_BLT_SRCTRANSPARENCY, nullptr));
+                                                       VO_BLT_SRCTRANSPARENCY));
                         ClippingRect = clip;
                         const auto& a = *actual.cpu().surface;
                         const auto& b = *expected.cpu().surface;

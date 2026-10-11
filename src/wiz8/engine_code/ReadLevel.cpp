@@ -150,12 +150,10 @@ void stLevel::process(const ProcessInfo& info, e_processType)
                 mesh.poly_shaders[0] = 0;
             }
             std::shared_ptr<srTextureIFace>*(*poly_textures)[2] = mesh.poly_textures;
-            if (poly_textures != 0 && mesh.active_polygons == 0) {
-                w8_long active_count;
-                w8_ulong* active = model->GetActivePolygons(&active_count, -1, false);
-                if (active != 0) {
+            if (poly_textures != 0 && !mesh.active_polygons) {
+                const auto active = model->GetActivePolygons(-1, false);
+                if (active) {
                     mesh.active_polygons = active;
-                    mesh.active_polygon_count = active_count;
                 }
             }
 
@@ -522,7 +520,6 @@ try
        this one vector across the complete prop loop. */
     std::vector<stModelInstance*> model_instances;
     W8Prop* prop;
-    W8BoundingBox bounds;
     int count;
     int index;
     int collidable_index;
@@ -555,7 +552,10 @@ try
             }
             pWorld->plsProps.push_back(prop);
             if ((prop->flags & W8_PROP_COLLIDABLE) != 0) {
-                prop->GetBounds(&bounds.minimum, &bounds.maximum);
+                const auto prop_bounds = prop->GetBounds();
+                if (!prop_bounds)
+                    return false;
+                const W8BoundingBox bounds{prop_bounds->minimum, prop_bounds->maximum};
                 pWorld->collidable_props.push_back(prop);
                 if (pWorld->octree != 0) {
                     pWorld->octree->AddCollidablePropBounds(collidable_index, &bounds);

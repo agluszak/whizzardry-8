@@ -240,6 +240,7 @@ void dispatch_mouse(std::uint16_t event, std::uint16_t x, std::uint16_t y, bool 
                     bool right = false, std::uint8_t click_count = 0)
 {
     const auto input = mouse_atom(event, x, y, left, right, click_count);
+    if (event == MOUSE_POS) UpdateRegionMousePosition(x, y);
     DispatchRegionInput(&input);
 }
 
@@ -758,7 +759,7 @@ void image_and_sprite_ownership()
     auto& surviving_surface = *surfaces[32];
     for (unsigned index : {0u, 31u, 63u})
         surfaces[index].reset();
-    REQUIRE((surviving_surface.ownedSurface && surviving_surface.usWidth == 8));
+    REQUIRE((surviving_surface.ownedSurface && surviving_surface.width() == 8));
 
 }
 
@@ -1693,7 +1694,7 @@ TEST_CASE("Image assets share normalized paths and retain resources across clear
     REQUIRE(reloaded != original);
     REQUIRE(bitmap_reloaded != bitmap);
     REQUIRE(original->sprites.size() == 1);
-    REQUIRE(bitmap->usWidth == 1);
+    REQUIRE(bitmap->width() == 1);
 }
 
 TEST_CASE("Item image cache owns shared sprite sheets", "[owner][catalog]")

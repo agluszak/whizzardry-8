@@ -1,24 +1,16 @@
 #ifndef _SHADING_H_
 #define _SHADING_H_
 
-/* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
+/* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07, 2026-10-11.
    Distributed under the accompanying SFI Source Code license agreement. */
 
-#include "Types.h"
+#include <array>
 #include <cstdint>
-#ifdef __cplusplus
-extern "C" {
-#endif
 
-void BuildShadeTable(void);
-void SetShadeTablePercent(float uiShadePercent);
+// Maps every packed g_sgp_pixel_format pixel to its darkened pixel.
+extern std::array<std::uint16_t, 65536> ShadeTable;
 
-extern std::uint16_t IntensityTable[65536];
-extern std::uint16_t ShadeTable[65536];
-extern float guiShadePercent;
-
-#ifdef __cplusplus
-}
-#endif
+// Rebuilds ShadeTable for the current pixel format; call after it is selected.
+void SetShadeTablePercent(float percent);
 
 #endif

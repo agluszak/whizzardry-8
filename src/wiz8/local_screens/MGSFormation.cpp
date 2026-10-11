@@ -91,8 +91,8 @@ void DrawFormationSlotMarkers(SGPVSurface& target)
             image += 1;
             order_image += 1;
         }
-        DrawCatalogImage(target, 0x9c, 0, image, left, top, VO_BLT_SRCTRANSPARENCY, 0);
-        DrawCatalogImage(target, 0x9d, 0, order_image, left, top, VO_BLT_SRCTRANSPARENCY, 0);
+        DrawCatalogImage(target, 0x9c, 0, image, left, top, VO_BLT_SRCTRANSPARENCY);
+        DrawCatalogImage(target, 0x9d, 0, order_image, left, top, VO_BLT_SRCTRANSPARENCY);
     }
 }
 

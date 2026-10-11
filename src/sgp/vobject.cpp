@@ -46,13 +46,13 @@
 // clipping lists
 // FUNCTION: WIZ8 0x00406110
 bool BltVideoObject(SGPVSurface& uiDestVSurface, SGPVObject& hSrcVObject, std::uint16_t usRegionIndex,
-                       std::int32_t iDestX, std::int32_t iDestY, std::uint32_t fBltFlags, blt_fx* pBltFx)
+                       std::int32_t iDestX, std::int32_t iDestY, std::uint32_t fBltFlags)
 {
     const auto& storage = *uiDestVSurface.cpu().surface;
     if (!storage.pixels)
         return false;
     return BltVideoObjectToBuffer(static_cast<std::uint16_t*>(storage.pixels), storage.pitch,
-                                  hSrcVObject, usRegionIndex, iDestX, iDestY, fBltFlags, pBltFx);
+                                  hSrcVObject, usRegionIndex, iDestX, iDestY, fBltFlags);
 }
 
 // *******************************************************************************
@@ -76,7 +76,7 @@ void SGPVObject::setPalette(const Palette8& colors)
 {
     pPaletteEntry = colors;
     palette = Create16BPPPalette(colors);
-    currentShade = 4;
+    currentShade = SGPVObject::normalShade;
 }
 
 /**********************************************************************************************
@@ -84,20 +84,17 @@ void SGPVObject::setPalette(const Palette8& colors)
 
 		Creates the shading tables for 8-bit brushes. One highlight table is created, based on
 	the object-type, 3 brightening tables, 1 normal, and 11 darkening tables. The entries are
-	created iteratively, rather than in a loop to allow hand-tweaking of the values. If you
-	change the HVOBJECT_SHADE_TABLES symbol, remember to add/delete entries here, it won't
-	adjust automagically.
+	created iteratively, rather than in a loop to allow hand-tweaking of the values.
 
 **********************************************************************************************/
 
 // FUNCTION: WIZ8 0x00406460
-std::uint16_t CreateObjectPaletteTables(SGPVObject& pObj, std::uint32_t uiType)
+void CreateObjectPaletteTables(SGPVObject& pObj, std::uint32_t uiType)
 {
 
     // this creates the highlight table. Specify the glow-type when creating the tables
     // through uiType, symbols are from VOBJECT.H
-    pObj.pShades.clear();
-    pObj.pShades.resize(16);
+    pObj.pShades = {};
 
     switch (uiType) {
     case HVOBJECT_GLOW_GREEN: // green glow
@@ -134,8 +131,7 @@ std::uint16_t CreateObjectPaletteTables(SGPVObject& pObj, std::uint32_t uiType)
     pObj.pShades[14] = Create16BPPPaletteShaded(pObj.pPaletteEntry, 9, 9, 9, false);
     pObj.pShades[15] = Create16BPPPaletteShaded(pObj.pPaletteEntry, 0, 0, 0, false);
 
-    pObj.currentShade = 4;
-    return true;
+    pObj.currentShade = SGPVObject::normalShade;
 }
 
 // *******************************************************************
@@ -145,8 +141,7 @@ std::uint16_t CreateObjectPaletteTables(SGPVObject& pObj, std::uint32_t uiType)
 // High level blit function encapsolates ALL effects and BPP
 // FUNCTION: WIZ8 0x004066b0
 bool BltVideoObjectToBuffer(std::uint16_t* pBuffer, std::uint32_t uiDestPitchBYTES, SGPVObject& hSrcVObject,
-                               std::uint16_t usIndex, std::int32_t iDestX, std::int32_t iDestY, std::int32_t fBltFlags,
-                               blt_fx* pBltFx)
+                               std::uint16_t usIndex, std::int32_t iDestX, std::int32_t iDestY, std::int32_t fBltFlags)
 {
 
     // Assertions
@@ -167,16 +162,14 @@ bool BltVideoObjectToBuffer(std::uint16_t* pBuffer, std::uint32_t uiDestPitchBYT
 // FUNCTION: WIZ8 0x004068e0
 bool SetObjectShade(SGPVObject& pObj, std::uint32_t uiShade)
 {
-    Assert(uiShade >= 0);
-    Assert(uiShade < HVOBJECT_SHADE_TABLES);
-
-    if (uiShade != 4 && (uiShade >= pObj.pShades.size() || !pObj.pShades[uiShade])) {
+    if (uiShade != SGPVObject::normalShade &&
+        (uiShade >= pObj.pShades.size() || !pObj.pShades[uiShade])) {
         SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "Attempt to set shade level to nullptr table");
-        return (false);
+        return false;
     }
 
     pObj.currentShade = uiShade;
-    return (true);
+    return true;
 }
 
 SDL_Surface* SpriteFrame::coloredSurface(std::span<const std::uint16_t, 256> palette, bool mirror) const

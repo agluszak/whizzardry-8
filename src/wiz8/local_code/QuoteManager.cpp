@@ -1887,7 +1887,7 @@ int UpdateCharacterEventState(void)
 void RenderPartyPortrait(int portrait, int left, int top, unsigned int flags, unsigned char value,
                          int party_slot)
 {
-    DrawCatalogImage(GetFrameBufferSurface(), 0x12, portrait, 0, left, top, flags | VO_BLT_SHADOW, 0);
+    DrawCatalogImage(GetFrameBufferSurface(), 0x12, portrait, 0, left, top, flags | VO_BLT_SHADOW);
     if (party_slot == -1) {
         return;
     }
@@ -1939,7 +1939,7 @@ bool BlitPartyPortraitAnimation(int portrait, int left, int top, unsigned int fl
             return true;
         }
         DrawCatalogImage(GetFrameBufferSurface(), 0x12, portrait, state->portrait_pose, left, top,
-                         flags | VO_BLT_SHADOW, 0);
+                         flags | VO_BLT_SHADOW);
         drawn = true;
         if (state->previous_portrait_pose != -1) {
             std::tie(width, height) = GetCatalogImageSize(0x12, portrait, state->previous_portrait_pose);
@@ -1967,7 +1967,7 @@ bool BlitPartyPortraitAnimation(int portrait, int left, int top, unsigned int fl
             g_combat_state->characters[party_slot].dead) {
             RenderPartyPortrait(portrait, left, top, flags, 0, party_slot);
         }
-        DrawCatalogImage(GetFrameBufferSurface(), 0x12, portrait, state->portrait_frame, left, top, flags, 0);
+        DrawCatalogImage(GetFrameBufferSurface(), 0x12, portrait, state->portrait_frame, left, top, flags);
 #ifdef WIZ8_RUNTIME_TESTS
         RuntimeObserve(RUNTIME_PORTRAIT_BLIT, party_slot, state->portrait_frame, portrait);
 #endif

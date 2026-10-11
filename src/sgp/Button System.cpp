@@ -764,7 +764,7 @@ static std::int8_t DrawQuickButton(const ButtonAppearance* b, const ButtonVisual
     }
     if (frame != BUTTON_NO_IMAGE)
         BltVideoObject(*ButtonDestBuffer, image.object(), static_cast<std::uint16_t>(frame),
-                       b->bounds.x, b->bounds.y, VO_BLT_SRCTRANSPARENCY, nullptr);
+                       b->bounds.x, b->bounds.y, VO_BLT_SRCTRANSPARENCY);
     return disabled_style;
 }
 

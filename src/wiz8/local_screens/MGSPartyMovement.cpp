@@ -198,7 +198,7 @@ void DrawPartyMovementPanel(void)
         clip = {right, 0, 0x1b9 - right, 0x1e0};
         SetClippingRect(&clip);
         DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x96, 0, image, 0xc3, 0x144,
-                                      VO_BLT_SRCTRANSPARENCY, 0);
+                                      VO_BLT_SRCTRANSPARENCY);
         SetClippingRect(&previous);
     }
     DrawPartyMovementGauge(right, image, panel_live, caption);
@@ -261,7 +261,7 @@ void DrawPartyMovementGauge(short right, short image, bool panel_live, int capti
     }
     DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x95, 0,
                                   g_party_movement_animation_frame + frame_base + frame,
-                                  right - 0xf, 0x142, VO_BLT_SRCTRANSPARENCY, 0);
+                                  right - 0xf, 0x142, VO_BLT_SRCTRANSPARENCY);
     InvalidateRegion(right - 0xf, 0x142, right - 1, 0x150, 0);
     if (caption != -1) {
         g_party_movement_caption->RenderString(g_localized_strings[caption], g_wiz_text_font_secondary,

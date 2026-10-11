@@ -658,13 +658,6 @@ W8Region* FindDispatchRegion(const DispatchPoint& point, unsigned int& region_in
         RegionAllowedByExclusiveSet(g_captured_region_index) ? g_captured_region_index : 0;
     if (region_index != 0) return &g_regions[region_index];
 
-    region_index =
-        RegionAllowedByExclusiveSet(g_current_region_index) ? g_current_region_index : 0;
-    if (region_index != 0 &&
-        RegionContainsInputPoint(region_index, point.x, point.y, true)) {
-        return &g_regions[region_index];
-    }
-
     if (FindEnabledRegionAtPoint(point.x, point.y, &region_index, true)) {
         return &g_regions[region_index];
     }
@@ -781,7 +774,7 @@ ExclusiveRegionSet::~ExclusiveRegionSet()
 unsigned int UpdateRegionMousePosition(int x, int y)
 {
     g_region_mouse_position = {x, y};
-    InputAtom event;
+    InputAtom event{};
     unsigned int region_index;
 
     event.uiTimeStamp = w8_get_ticks();
@@ -792,7 +785,35 @@ unsigned int UpdateRegionMousePosition(int x, int y)
 
     if (g_captured_region_index != 0 &&
         RegionAllowedByExclusiveSet(g_captured_region_index)) {
-        W8Region* forced = &g_regions[g_captured_region_index];
+        const auto captured_index = g_captured_region_index;
+        W8Region* forced = &g_regions[captured_index];
+        const bool inside = RegionContainsInputPoint(
+            captured_index, static_cast<unsigned short>(x), static_cast<unsigned short>(y), true);
+        const bool was_hovered = g_hover_region_index == captured_index;
+        if (!inside && was_hovered) {
+            const auto held_buttons =
+                forced->flags & (W8_REGION_LEFT_BUTTON_HELD | W8_REGION_RIGHT_BUTTON_HELD);
+            g_hover_region_index = 0;
+            if (!LeaveRegion(*forced, event)) return g_current_region_index;
+            forced->flags |= held_buttons;
+            PlayButtonSound(1);
+            return g_current_region_index;
+        }
+        if (inside && !was_hovered) {
+            g_hover_region_index = captured_index;
+            forced->flags = (forced->flags & ~W8_REGION_MOUSE_TRANSITION_MASK) |
+                            W8_REGION_MOUSE_ENTER;
+            SetRegionHelpText(fmt::format("Region {:d}", captured_index));
+            if (!DispatchUnchangedRegion(*forced, event)) return g_current_region_index;
+            if (forced->help_enabled &&
+                (g_settings.tooltips_enabled || g_region_help_force_enabled)) {
+                g_region_help_clock = w8_get_ticks() + g_region_help_delay;
+            }
+            forced->flags &= ~W8_REGION_MOUSE_TRANSITION_MASK;
+            PlayButtonSound(0);
+            return g_current_region_index;
+        }
+        forced->flags &= ~W8_REGION_MOUSE_TRANSITION_MASK;
         DispatchUnchangedRegion(*forced, event);
         return g_current_region_index;
     }
@@ -925,6 +946,7 @@ unsigned char DispatchRegionInput(const InputAtom* event)
         region->CaptureButtonDown(event->usEvent);
         g_captured_region_index = region_index;
         g_current_region_index = region_index;
+        g_hover_region_index = region_index;
         sound_id = 2;
         break;
     case LEFT_BUTTON_UP:

@@ -336,7 +336,7 @@ void W8SplitItemDialog::Draw()
     if (m_first_draw) {
         DrawSpriteAndInvalidate(GetFrameBufferSurface(),
                                 g_item_video_objects.Sprites(m_item->iItemNo), 0, m_x + 0x18,
-                                m_y + 0xe, VO_BLT_SRCTRANSPARENCY, 0);
+                                m_y + 0xe, VO_BLT_SRCTRANSPARENCY);
         m_first_draw = false;
     }
     if (m_buttons[3]->m_dirty) {

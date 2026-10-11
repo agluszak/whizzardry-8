@@ -1,3 +1,6 @@
+#include <array>
+#include "surrender/srBoundingBox.h"
+#include <optional>
 #include <fmt/format.h>
 #include <glm/gtc/quaternion.hpp>
 #include <glm/ext/quaternion_common.hpp>
@@ -248,13 +251,11 @@ void W8Prop::SetActivationState(unsigned char value)
 }
 
 // FUNCTION: WIZ8 0x0044d5f0
-void W8Prop::GetCenterPosition(srVector3T<float>* position)
+std::optional<srVector3T<float>> W8Prop::GetCenterPosition()
 {
-    srVector3T<float> first;
-    srVector3T<float> second;
-
-    AnimObjGetBounds(Rep()->animation, 2, Rep()->subcycle, &first, &second);
-    *position = (first + second) * 0.5;
+    return GetFrameBounds().transform([](const auto& bounds) {
+        return srVector3T<float>(bounds.center());
+    });
 }
 
 // GLOBAL: WIZ8 0x00659A60
@@ -368,17 +369,12 @@ bool ResolvePickedProp(W8World* world)
                   trigger->m_pActionData->type == W8_TRIGGER_PAYLOAD_DOOR &&
                   !static_cast<W8DoorTriggerActionData*>(trigger->m_pActionData)->open)) &&
                 representation->active != 0) {
-                srVector3T<float> minimum;
-                srVector3T<float> maximum;
-                float distance;
-
-                AnimObjGetBounds(representation->animation, 2, representation->subcycle, &minimum,
-                                 &maximum);
-                distance = ((((minimum + maximum) * 0.5 - camera_position))).Length();
-                if (trigger->range_minimum <= distance) {
-                    g_selected_prop_index = prop_index;
-                    if (distance <= trigger->range_maximum) {
-                        continue;
+                if (const auto bounds = prop->GetFrameBounds()) {
+                    const float distance = (srVector3T<float>(bounds->center()) - camera_position).Length();
+                    if (trigger->range_minimum <= distance) {
+                        g_selected_prop_index = prop_index;
+                        if (distance <= trigger->range_maximum)
+                            continue;
                     }
                 }
             }
@@ -514,10 +510,9 @@ srModelInstance* W8Prop::ToggleRepAnimationDefault()
 
 /* Resolve the bounds of the prop's current animation frame. */
 // FUNCTION: WIZ8 0x0044d5c0
-unsigned char W8Prop::PlayRepAnimation(srVector3T<float>* minimum, srVector3T<float>* maximum)
+std::optional<srBoundingBox> W8Prop::GetFrameBounds()
 {
-    AnimObjGetBounds(Rep()->animation, 2, Rep()->subcycle, minimum, maximum);
-    return 1;
+    return AnimObjGetBounds(Rep()->animation, 2, Rep()->subcycle);
 }
 
 /* Set the running direction or completed endpoint state of the animation. */
@@ -1209,41 +1204,20 @@ try
    The rep's current frame is saved, the bounds for frame zero seed the merge,
    and each remaining frame expands the result before the frame is restored. */
 // FUNCTION: WIZ8 0x0044dd60
-void W8Prop::GetBounds(srVector3T<float>* minimum, srVector3T<float>* maximum)
+std::optional<srBoundingBox> W8Prop::GetBounds()
 {
-    srVector3T<float> local_minimum;
-    srVector3T<float> local_maximum;
-    unsigned char saved_frame;
-    int frame;
-    int total;
-
-    total = static_cast<int>(AnimObjValue(Rep()->animation, 2));
-    saved_frame = Rep()->subcycle;
-    Rep()->subcycle = 0;
-    AnimObjGetBounds(Rep()->animation, 2, Rep()->subcycle, minimum, maximum);
-    for (frame = 1; frame < total; ++frame) {
-        Rep()->subcycle = static_cast<unsigned char>(frame);
-        AnimObjGetBounds(Rep()->animation, 2, Rep()->subcycle, &local_minimum, &local_maximum);
-        if (local_minimum.x < minimum->x) {
-            minimum->x = local_minimum.x;
-        }
-        if (local_minimum.y < minimum->y) {
-            minimum->y = local_minimum.y;
-        }
-        if (local_minimum.z < minimum->z) {
-            minimum->z = local_minimum.z;
-        }
-        if (local_maximum.x > maximum->x) {
-            maximum->x = local_maximum.x;
-        }
-        if (local_maximum.y > maximum->y) {
-            maximum->y = local_maximum.y;
-        }
-        if (local_maximum.z > maximum->z) {
-            maximum->z = local_maximum.z;
-        }
+    auto* animation = Rep()->animation;
+    auto bounds = AnimObjGetBounds(animation, 2, 0);
+    if (!bounds)
+        return std::nullopt;
+    const auto total = AnimObjValue(animation, 2);
+    for (unsigned int frame = 1; frame < total; ++frame) {
+        const auto frame_bounds = AnimObjGetBounds(animation, 2, frame);
+        if (!frame_bounds)
+            return std::nullopt;
+        bounds->include(*frame_bounds);
     }
-    Rep()->subcycle = saved_frame;
+    return bounds;
 }
 
 /* Build or refresh the pathing representation for a collidable Prop.  Retail
@@ -1331,51 +1305,22 @@ bool W8Prop::TriggerRequiresItem()
 // FUNCTION: WIZ8 0x0044e3a0
 bool W8Prop::IsTriggerInView(srVector3T<float>* position)
 {
-    Trigger* trigger = this->trigger;
-    srVector3T<float> minimum;
-    srVector3T<float> maximum;
-    srVector3T<float> center;
-    srVector3T<float> projected;
-    float distance;
-
-    if (trigger != 0 && (trigger->flags & W8_TRIGGER_ENABLED) != 0 &&
-        ((trigger->flags & W8_TRIGGER_ONCE) == 0 || (trigger->flags & W8_TRIGGER_FIRED) == 0)) {
-        AnimObjGetBounds(Rep()->animation, 2, Rep()->subcycle, &minimum, &maximum);
-        center.Set((minimum.x + maximum.x) * g_double_half, (minimum.y + maximum.y) * g_double_half,
-                   (minimum.z + maximum.z) * g_double_half);
-        distance = (center - *position).Length();
-        if (distance < trigger->range_maximum && trigger->range_minimum <= distance) {
-            {
-                srVector3T<double> input(static_cast<double>(center.x),
-                                         static_cast<double>(center.y),
-                                         static_cast<double>(center.z));
-
-                if (g_world->camera->project(projected, input) ==
-                    srCamera::PROJECTION_RESULT_ACCEPTED) {
-                    return true;
-                }
-            }
-            {
-                srVector3T<double> input(static_cast<double>(minimum.x),
-                                         static_cast<double>(minimum.y),
-                                         static_cast<double>(minimum.z));
-
-                if (g_world->camera->project(projected, input) ==
-                    srCamera::PROJECTION_RESULT_ACCEPTED) {
-                    return true;
-                }
-            }
-            {
-                srVector3T<double> input(static_cast<double>(maximum.x),
-                                         static_cast<double>(maximum.y),
-                                         static_cast<double>(maximum.z));
-
-                if (g_world->camera->project(projected, input) ==
-                    srCamera::PROJECTION_RESULT_ACCEPTED) {
-                    return true;
-                }
-            }
-        }
+    const auto* trigger = this->trigger;
+    if (!trigger || (trigger->flags & W8_TRIGGER_ENABLED) == 0 ||
+        ((trigger->flags & W8_TRIGGER_ONCE) != 0 && (trigger->flags & W8_TRIGGER_FIRED) != 0))
+        return false;
+    const auto bounds = GetFrameBounds();
+    if (!bounds)
+        return false;
+    const srVector3T<float> center(bounds->center());
+    const float distance = (center - *position).Length();
+    if (!(distance < trigger->range_maximum && trigger->range_minimum <= distance))
+        return false;
+    for (const auto& point : std::array{bounds->center(), bounds->minimum, bounds->maximum}) {
+        srVector3T<float> projected;
+        const srVector3T<double> input{glm::dvec3(point)};
+        if (g_world->camera->project(projected, input) == srCamera::PROJECTION_RESULT_ACCEPTED)
+            return true;
     }
     return false;
 }

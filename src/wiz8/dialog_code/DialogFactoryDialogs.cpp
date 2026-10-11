@@ -587,8 +587,7 @@ void W8SplitAmountDialog::Draw()
         numeric->m_dirty = true;
         numeric->m_button->m_dirty = true;
         W8DialogBase::Draw();
-        DrawCatalogImage(GetFrameBufferSurface(), 0x1ac, 0, 0, m_x + 0x18, m_y + 0x1a, VO_BLT_SRCTRANSPARENCY,
-                         0);
+        DrawCatalogImage(GetFrameBufferSurface(), 0x1ac, 0, 0, m_x + 0x18, m_y + 0x1a, VO_BLT_SRCTRANSPARENCY);
     }
     if (m_buttons[3]->m_dirty) {
         W8DialogNumericInput* numeric = m_split_input.get();
@@ -1439,7 +1438,7 @@ void W8TriggerItemPickerDialog::Draw()
         W8WorldItem* world_item = items[item_index];
         W8ItemInstance* item = &world_item->item;
         DrawSprite(GetFrameBufferSurface(), g_item_video_objects.Sprites(item->iItemNo), 0,
-                   button->GetX() + 2, button->GetY() + 2, VO_BLT_SRCTRANSPARENCY, 0);
+                   button->GetX() + 2, button->GetY() + 2, VO_BLT_SRCTRANSPARENCY);
         SetFont(g_wiz_text_font);
         if (item->stack_count > 1) {
             auto name = GetItemDisplayName(item);

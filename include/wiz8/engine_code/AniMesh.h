@@ -1,5 +1,7 @@
 #pragma once
 
+#include <optional>
+#include "surrender/srBoundingBox.h"
 #include <memory>
 #include <string>
 #include <vector>
@@ -52,8 +54,7 @@ void InitializeAniMeshCache(int primary_limit, int secondary_limit);
 void FreeAniMeshCache(void);
 
 float GetAniMeshFrameRadius(W8AniMesh* mesh, unsigned char frame);
-bool GetAniMeshBounds(W8AniMesh* mesh, srVector3T<float>* minimum,
-                               srVector3T<float>* maximum);
+std::optional<srBoundingBox> GetAniMeshBounds(W8AniMesh* mesh);
 bool LoadAniMesh(wiz8::File* file, W8AniMesh* mesh, bool load_all);
 bool LoadAniMeshFromInfo(W8ReadLevelInfo* info, W8AniMesh* mesh, bool load_all);
 bool UnloadAniMesh(W8AniMesh* mesh, bool force);

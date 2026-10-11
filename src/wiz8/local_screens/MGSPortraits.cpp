@@ -253,7 +253,7 @@ static void DrawDamageSplatOverlay(unsigned int party_slot)
         unsigned int object =
             !entry->damage_splat_death_variant ? entry->damage_splat_catalog : 0x92;
         DrawCatalogImage(GetFrameBufferSurface(), object, 0, static_cast<short>(frame), left, top,
-                         VO_BLT_SRCTRANSPARENCY, 0);
+                         VO_BLT_SRCTRANSPARENCY);
         if (entry->damage_splat_frame < 6) {
             W8ControlsRect bounds;
             bounds.left = left;
@@ -297,7 +297,7 @@ void DrawPortraitEffectIcon(unsigned int party_slot)
             g_level_block->portrait_refresh_pending[party_slot] != 0) {
             DrawCatalogImageAndInvalidate(
                 GetFrameBufferSurface(), gXStatus.monster_manager_entries[party_slot].effect_icon_catalog, 0,
-                image, (party_slot & 1) << 9 | 0x17, top, VO_BLT_SRCTRANSPARENCY, 0);
+                image, (party_slot & 1) << 9 | 0x17, top, VO_BLT_SRCTRANSPARENCY);
         }
     }
 }
@@ -418,15 +418,15 @@ void RedrawCombatPortraits(void)
             portrait_image = combat_row->portrait_image_alternate;
         }
         DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x8a, 0, portrait_image, portrait_x,
-                                      row_y + 0x44, VO_BLT_SRCTRANSPARENCY, 0);
+                                      row_y + 0x44, VO_BLT_SRCTRANSPARENCY);
         if (!CharacterCanSwitchTo(slot, W8_TARGETING_CONTEXT_IN_COMBAT, false, false)) {
             DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x8b, 0, 0, badge_x, row_y + 0x37,
-                                          VO_BLT_SRCTRANSPARENCY, 0);
+                                          VO_BLT_SRCTRANSPARENCY);
         } else if (party_row->target_in_combat.iType == W8_TARGET_KIND_CHARACTER) {
             DrawCatalogImageAndInvalidate(
                 GetFrameBufferSurface(), 0x8c, 0,
                 g_status.buffers.XChar[party_row->target_in_combat.iChar].party_order_index,
-                badge_x, row_y + 0x38, VO_BLT_SRCTRANSPARENCY, 0);
+                badge_x, row_y + 0x38, VO_BLT_SRCTRANSPARENCY);
         }
         entry->combat_portrait_dirty = false;
     }
@@ -583,18 +583,18 @@ void RedrawPartyPortraitBars(unsigned int party_slot, bool slot_enabled)
         numeric_hp_mode = g_settings.numeric_hit_points != 0;
 
         DrawCatalogImage(GetFrameBufferSurface(), hp_catalog, 0, 0, band_portrait_edge + hp_bar_x,
-                         bar_y + menu_y, VO_BLT_SRCTRANSPARENCY, 0);
+                         bar_y + menu_y, VO_BLT_SRCTRANSPARENCY);
         ShadeStatusBarGap(0x2d - entry->cached_hp_bar, hp_bar_x + band_portrait_edge,
                           bar_y - numeric_hp_mode + menu_y);
 
         DrawCatalogImage(GetFrameBufferSurface(), stamina_catalog, 0, 0, band_portrait_edge + stamina_bar_x,
-                         bar_y + menu_y, VO_BLT_SRCTRANSPARENCY, 0);
+                         bar_y + menu_y, VO_BLT_SRCTRANSPARENCY);
         ShadeStatusBarGap(0x2d - entry->cached_stamina_bar, stamina_bar_x + band_portrait_edge,
                           bar_y - numeric_hp_mode + menu_y);
 
         if (SumCharacterSpellPoints(character) != 0) {
             DrawCatalogImage(GetFrameBufferSurface(), spell_catalog, 0, 0, band_portrait_edge + spell_bar_x,
-                             bar_y + menu_y, VO_BLT_SRCTRANSPARENCY, 0);
+                             bar_y + menu_y, VO_BLT_SRCTRANSPARENCY);
             ShadeStatusBarGap(0x2d - entry->cached_spell_bar, spell_bar_x + band_portrait_edge,
                               bar_y - numeric_hp_mode + menu_y);
         }
@@ -751,8 +751,7 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
     entry = &gXStatus.monster_manager_entries[party_slot];
 
     if (!party_row->fOccupied) {
-        DrawCatalogImage(GetFrameBufferSurface(), 0x31, 0, 0, menu_x + 0x14, menu_y, VO_BLT_SRCTRANSPARENCY,
-                         0);
+        DrawCatalogImage(GetFrameBufferSurface(), 0x31, 0, 0, menu_x + 0x14, menu_y, VO_BLT_SRCTRANSPARENCY);
     }
 
     if (overlay_ready) {
@@ -760,14 +759,14 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
             portrait_catalog = 0x34;
             portrait_flags = VO_BLT_SRCTRANSPARENCY;
             DrawCatalogImage(GetFrameBufferSurface(), portrait_catalog, 0, 0, menu_x + 0x14, menu_y,
-                             portrait_flags, 0);
+                             portrait_flags);
         } else if (character->hp_current == 0 &&
                    (!entry->damage_splat_death_variant || entry->dead_portrait_revealed)) {
             portrait_catalog = g_dead_portrait_catalog_ids[character->iRace][1];
             portrait_flags = (party_slot & 1) == 0 ? VO_BLT_SRCTRANSPARENCY
                                                    : VO_BLT_SRCTRANSPARENCY | VO_BLT_MIRROR_Y;
             DrawCatalogImage(GetFrameBufferSurface(), portrait_catalog, 0, 0, menu_x + 0x14, menu_y,
-                             portrait_flags, 0);
+                             portrait_flags);
         } else {
             portrait_catalog = character->portrait_index;
             portrait_flags = VO_BLT_SRCTRANSPARENCY;
@@ -781,10 +780,10 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
                                 party_slot);
         }
         DrawCatalogImage(GetFrameBufferSurface(), 0x82, 0, static_cast<short>(grid_row), column_x, menu_y,
-                         VO_BLT_SRCTRANSPARENCY, 0);
+                         VO_BLT_SRCTRANSPARENCY);
     }
 
-    DrawCatalogImage(GetFrameBufferSurface(), 0x82, 0, 0x10, menu_x + 0x17, menu_y, VO_BLT_SRCTRANSPARENCY, 0);
+    DrawCatalogImage(GetFrameBufferSurface(), 0x82, 0, 0x10, menu_x + 0x17, menu_y, VO_BLT_SRCTRANSPARENCY);
 
     if (party_row->fOccupied) {
         if (overlay_ready) {
@@ -800,16 +799,16 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
                     hp_bar_frame = 2;
                 }
                 DrawCatalogImage(GetFrameBufferSurface(), 0x80, 0, static_cast<short>(hp_bar_frame),
-                                 band_menu_edge, menu_y, VO_BLT_SRCTRANSPARENCY, 0);
+                                 band_menu_edge, menu_y, VO_BLT_SRCTRANSPARENCY);
 
                 if (main_hand_item_id == -1) {
                     DrawCatalogImage(
                         GetFrameBufferSurface(), g_empty_hand_catalog_ids[character->iRace * W8_RACE_DWARF], 0,
-                        0, band_menu_edge + 4, menu_y + 0x17, VO_BLT_SRCTRANSPARENCY, 0);
+                        0, band_menu_edge + 4, menu_y + 0x17, VO_BLT_SRCTRANSPARENCY);
                 } else {
                     DrawSprite(GetFrameBufferSurface(),
                                g_item_video_objects.Sprites(main_hand_item_id), 2,
-                               band_menu_edge + 3, menu_y + 0x17, VO_BLT_SRCTRANSPARENCY, 0);
+                               band_menu_edge + 3, menu_y + 0x17, VO_BLT_SRCTRANSPARENCY);
                     if (character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].stack_count != 0) {
                         text = fmt::format(
                             "{:d}",
@@ -830,11 +829,11 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
                         DrawCatalogImage(
                             GetFrameBufferSurface(),
                             g_empty_hand_catalog_ids[character->iRace * W8_RACE_DWARF + 1], 0, 0,
-                            band_menu_edge + 4, menu_y + 0x2f, VO_BLT_SRCTRANSPARENCY, 0);
+                            band_menu_edge + 4, menu_y + 0x2f, VO_BLT_SRCTRANSPARENCY);
                     } else {
                         DrawSprite(GetFrameBufferSurface(),
                                    g_item_video_objects.Sprites(off_hand_item_id), 2,
-                                   band_menu_edge + 3, menu_y + 0x2f, VO_BLT_SRCTRANSPARENCY, 0);
+                                   band_menu_edge + 3, menu_y + 0x2f, VO_BLT_SRCTRANSPARENCY);
                         if (character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].stack_count !=
                             0) {
                             text = fmt::format(
@@ -853,7 +852,7 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
 
             hp_bar_frame = g_settings.numeric_hit_points == 0 ? 1 : 3;
             DrawCatalogImage(GetFrameBufferSurface(), 0x80, 0, static_cast<short>(hp_bar_frame),
-                             band_portrait_edge, menu_y, VO_BLT_SRCTRANSPARENCY, 0);
+                             band_portrait_edge, menu_y, VO_BLT_SRCTRANSPARENCY);
             RedrawPartyPortraitBars(party_slot, slot_enabled);
 
             SetFont(g_smfnt_font);
@@ -919,7 +918,7 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
                 highlight_y = menu_y + 2;
             }
             DrawCatalogImage(GetFrameBufferSurface(), highlight_catalog, 0, 0, highlight_x, highlight_y,
-                             VO_BLT_SRCTRANSPARENCY, 0);
+                             VO_BLT_SRCTRANSPARENCY);
         } else {
             int highlight_x;
             int highlight_y;
@@ -939,7 +938,7 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
                 highlight_catalog = 0x32;
             }
             DrawCatalogImage(GetFrameBufferSurface(), highlight_catalog, 0, 0, highlight_x, highlight_y,
-                             VO_BLT_SRCTRANSPARENCY, 0);
+                             VO_BLT_SRCTRANSPARENCY);
         }
     }
 
@@ -960,36 +959,36 @@ draw_condition_icons:
         condition_frame = static_cast<int>(character->highest_condition) + 0xb6;
     }
     DrawCatalogImage(GetFrameBufferSurface(), condition_frame, 0, 0, left_condition_x, menu_y + 3,
-                     VO_BLT_SRCTRANSPARENCY, 0);
+                     VO_BLT_SRCTRANSPARENCY);
 
     if (character->enchantment_top != W8_ENCHANTMENT_NONE) {
         enchantment_frame = character->enchantment_top + 0xc9;
     }
     DrawCatalogImage(GetFrameBufferSurface(), enchantment_frame, 0, 0, right_condition_x, menu_y + 3,
-                     VO_BLT_SRCTRANSPARENCY, 0);
+                     VO_BLT_SRCTRANSPARENCY);
 
     if (party_row->fOccupied && g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
         if (g_level_block->condition_hover_party_slot == static_cast<int>(party_slot)) {
             DrawCatalogImage(GetFrameBufferSurface(), 0x60, 0, 0, left_condition_x - 1, menu_y + 2,
-                             VO_BLT_SRCTRANSPARENCY, 0);
+                             VO_BLT_SRCTRANSPARENCY);
         } else if (character->highest_condition != W8_CONDITION_NONE) {
             DrawCatalogImage(GetFrameBufferSurface(), 0x61, 0, 0, left_condition_x - 1, menu_y + 2,
-                             VO_BLT_SRCTRANSPARENCY, 0);
+                             VO_BLT_SRCTRANSPARENCY);
         }
 
         if (g_level_block->enchantment_hover_party_slot == static_cast<int>(party_slot)) {
             DrawCatalogImage(GetFrameBufferSurface(), 0x60, 0, 0, right_condition_x - 1, menu_y + 2,
-                             VO_BLT_SRCTRANSPARENCY, 0);
+                             VO_BLT_SRCTRANSPARENCY);
         } else if (character->highest_condition != W8_CONDITION_NONE) {
             DrawCatalogImage(GetFrameBufferSurface(), 0x61, 0, 0, right_condition_x - 1, menu_y + 2,
-                             VO_BLT_SRCTRANSPARENCY, 0);
+                             VO_BLT_SRCTRANSPARENCY);
         }
 
         if (g_level_block->name_hover_party_slot == static_cast<int>(party_slot) &&
             (g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS ||
              g_level_block->portrait_refresh_pending[party_slot] != 0)) {
             DrawCatalogImage(GetFrameBufferSurface(), 0x62, 0, 0, menu_x + 0x13, menu_y + 0x48,
-                             VO_BLT_SRCTRANSPARENCY, 0);
+                             VO_BLT_SRCTRANSPARENCY);
         }
 
         if ((g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS ||
@@ -1011,7 +1010,7 @@ draw_condition_icons:
                 goto portrait_fx;
             }
             DrawCatalogImage(GetFrameBufferSurface(), assay_catalog, 0, 0, band_menu_edge + 1, assay_y,
-                             VO_BLT_SRCTRANSPARENCY, 0);
+                             VO_BLT_SRCTRANSPARENCY);
         }
     }
 
@@ -1038,7 +1037,7 @@ portrait_fx:
             hp_overlay_x = band_portrait_edge;
         }
         DrawCatalogImage(GetFrameBufferSurface(), hp_overlay_catalog, 0, 0, hp_overlay_x, hp_overlay_y,
-                         VO_BLT_SRCTRANSPARENCY, 0);
+                         VO_BLT_SRCTRANSPARENCY);
     }
 
     if (!gXStatus.fCombatMode && party_slot < 8 && party_row->fOccupied) {
@@ -1277,10 +1276,10 @@ void W8ConditionButton::Redraw(bool full_redraw)
     top += 2;
     if (m_condition == 0) {
         DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), m_image_object + 0xb6, 0, 0, left, top,
-                                      VO_BLT_SRCTRANSPARENCY, 0);
+                                      VO_BLT_SRCTRANSPARENCY);
     } else if (m_condition == 1) {
         DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), m_image_object + 0xc9, 0, 0, left, top,
-                                      VO_BLT_SRCTRANSPARENCY, 0);
+                                      VO_BLT_SRCTRANSPARENCY);
     }
 }
 

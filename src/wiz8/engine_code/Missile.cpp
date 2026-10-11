@@ -380,8 +380,6 @@ W8Missile* AllocateMissile(int missile_table_index)
 {
     W8GrCycleLoadContext context;
     W8Missile* missile;
-    srVector3T<float> minimum;
-    srVector3T<float> maximum;
 
     context.world = g_world;
     context.directory = "Data\\Spells\\Bitmaps";
@@ -405,9 +403,7 @@ W8Missile* AllocateMissile(int missile_table_index)
     }
     missile->impacting = false;
     g_world->missiles.push_back(missile);
-    minimum = -125.0;
-    maximum = 125.0;
-    missile->SetBounds(&minimum, &maximum);
+    missile->SetBounds({{-125.0f, -125.0f, -125.0f}, {125.0f, 125.0f, 125.0f}});
     missile->active = true;
     return missile;
 }

@@ -5,6 +5,7 @@
    Distributed under the accompanying SFI Source Code license agreement. */
 
 #include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_surface.h>
 #include <cstdint>
 #include <array>
 #include <optional>
@@ -57,10 +58,6 @@ struct SpriteSheet {
 };
 
 using DecodedImage = std::variant<BitmapImage, SpriteSheet>;
-
-#define SGPGetRValue(rgb) ((std::uint8_t)(rgb))
-#define SGPGetBValue(rgb) ((std::uint8_t)((rgb) >> 16))
-#define SGPGetGValue(rgb) ((std::uint8_t)(((std::uint16_t)(rgb)) >> 8))
 
 // *****************************************************************************
 //

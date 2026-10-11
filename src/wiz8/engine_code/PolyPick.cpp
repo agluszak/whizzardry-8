@@ -69,16 +69,15 @@ float DistanceBetweenPoints(const srVector3T<float>* first, const srVector3T<flo
 // FUNCTION: WIZ8 0x004BE710
 float MonsterDistanceToCamera(W8World* world, W8Monster* monster)
 {
-    srVector3T<float> minimum;
-    srVector3T<float> maximum;
-    if (!monster->GetAnimationBounds(&minimum, &maximum)) {
+    const auto bounds = monster->GetAnimationBounds();
+    if (!bounds) {
         return -1.0f;
     }
     srVector3T<double> camera = world->camera->getLocation();
     srVector3T<float> camera_location;
     camera_location = glm::vec3(camera.glmValue());
     srVector3T<float> center = monster->m_pRep->location;
-    center.z += (maximum.z - minimum.z) * 0.5f;
+    center.z += (bounds->maximum.z - bounds->minimum.z) * 0.5f;
     return (camera_location - center).Length();
 }
 

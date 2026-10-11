@@ -184,12 +184,12 @@ static void DrawPleaseWaitScreen()
     int backdrop = static_cast<unsigned int>(g_load_descriptor->parameter) < W8_LEVEL_COUNT
                        ? g_level_backdrops[g_load_descriptor->parameter]
                        : 0xe4;
-    DrawCatalogImage(GetFrameBufferSurface(), backdrop, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY, 0);
-    DrawCatalogImage(GetFrameBufferSurface(), 0x1de, 0, 0, 0, 0x1be, VO_BLT_SRCTRANSPARENCY, 0);
+    DrawCatalogImage(GetFrameBufferSurface(), backdrop, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY);
+    DrawCatalogImage(GetFrameBufferSurface(), 0x1de, 0, 0, 0, 0x1be, VO_BLT_SRCTRANSPARENCY);
     SetFont(g_level_load_font);
     DrawFontText(0x6a, 0x1c7, g_load_descriptor->caption);
     DrawCatalogImage(GetFrameBufferSurface(), 0x1dd, 0, g_load_descriptor->caption_y, 0, 0x185,
-                     VO_BLT_SRCTRANSPARENCY, 0);
+                     VO_BLT_SRCTRANSPARENCY);
     ResetTransientRenderScenes();
 }
 
@@ -371,7 +371,7 @@ void UpdatePleaseWaitLoadFrame(void)
         g_load_descriptor->caption_y = (g_load_descriptor->caption_y + 1) % 0x18;
         g_load_descriptor->entered_tick = tick;
         DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x1dd, 0, g_load_descriptor->caption_y, 0,
-                                      0x185, VO_BLT_SRCTRANSPARENCY, 0);
+                                      0x185, VO_BLT_SRCTRANSPARENCY);
         RenderFrame();
     }
 }

@@ -225,7 +225,7 @@ void RefreshRadarMap(void)
                 int cell = position->bQuadrant * 3 + position->bQuadrantSlot;
                 DrawCatalogImage(*map_surface, 0xa5, 0, row->party_order_index,
                                  g_radar_cell_offsets[cell].x, g_radar_cell_offsets[cell].y,
-                                 VO_BLT_SRCTRANSPARENCY, 0);
+                                 VO_BLT_SRCTRANSPARENCY);
             }
         }
     }
@@ -269,8 +269,6 @@ void UpdateRadarBlips(void)
     srVector3T<float> delta;
     srVector3T<float> center;
     srVector3T<float> party;
-    srVector3T<float> bounds_min;
-    srVector3T<float> bounds_max;
     bool detect_all;
 
     ResetRadarBlips();
@@ -328,10 +326,12 @@ void UpdateRadarBlips(void)
             }
             if (!monster->IsRenderable(true) && !detect_all) {
                 if (info->party_threat.sight_state == W8_SIGHT_RECENT) {
-                    monster->GetAnimationBounds(&bounds_min, &bounds_max);
-                    center.Set((bounds_min.x + bounds_max.x) * g_double_half,
-                               (bounds_min.y + bounds_max.y) * g_double_half,
-                               (bounds_min.z + bounds_max.z) * g_double_half);
+                    const auto bounds = monster->GetAnimationBounds();
+                    if (!bounds) {
+                        info = GetNextMonsterInfo(false);
+                        continue;
+                    }
+                    center = bounds->center();
                     position = center + info->party_threat.own_position;
                     party = g_startup_world->GetPosition();
                     delta = position - party;
@@ -353,10 +353,12 @@ void UpdateRadarBlips(void)
                     }
                 }
             } else {
-                monster->GetAnimationBounds(&bounds_min, &bounds_max);
-                center.Set((bounds_min.x + bounds_max.x) * g_double_half,
-                           (bounds_min.y + bounds_max.y) * g_double_half,
-                           (bounds_min.z + bounds_max.z) * g_double_half);
+                const auto bounds = monster->GetAnimationBounds();
+                if (!bounds) {
+                    info = GetNextMonsterInfo(false);
+                    continue;
+                }
+                center = bounds->center();
                 party = monster->GetPosition();
                 position = center + party;
                 party = g_startup_world->GetPosition();
@@ -386,10 +388,12 @@ void UpdateRadarBlips(void)
     W8Missile* missile = NextMissile(true);
     while (missile != 0) {
         if (!missile->impacting) {
-            missile->GetAnimationBounds(&bounds_min, &bounds_max);
-            center.Set((bounds_min.x + bounds_max.x) * g_double_half,
-                       (bounds_min.y + bounds_max.y) * g_double_half,
-                       (bounds_min.z + bounds_max.z) * g_double_half);
+            const auto bounds = missile->GetAnimationBounds();
+            if (!bounds) {
+                missile = NextMissile(false);
+                continue;
+            }
+            center = bounds->center();
             party = missile->GetPosition();
             position = center + party;
             party = g_startup_world->GetPosition();

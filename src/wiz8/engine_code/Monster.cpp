@@ -1,3 +1,4 @@
+#include "surrender/srBoundingBox.h"
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <glm/ext/matrix_transform.hpp>
@@ -802,10 +803,10 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
     representation->current_subcycle = 0;
     (*monster)->SetCycle(1);
     (*monster)->SetSubCycle(0);
-    srVector3T<float> minimum;
-    srVector3T<float> maximum;
-    (*monster)->GetAnimationBounds(&minimum, &maximum);
-    (*monster)->SetBounds(&minimum, &maximum);
+    const auto bounds = (*monster)->GetAnimationBounds();
+    if (!bounds)
+        return false;
+    (*monster)->SetBounds(*bounds);
     if (movement_rate < 0.1f)
         movement_rate = 2.0f;
     (*monster)->SetMovementScale(movement_rate);
@@ -1798,7 +1799,11 @@ bool W8Monster::GetCycleMappedPosition(signed char cycle, int mapped_index,
         return false;
     }
     if (AnimationIsRunning(animation) != 0) {
-        return GetAnimationCenter(position);
+        const auto center = GetAnimationCenter();
+        if (!center)
+            return false;
+        *position = *center;
+        return true;
     }
 
     srModelInstance* model = AnimObjDispatch(animation, 2, dispatch_value);
@@ -2568,23 +2573,8 @@ bool W8Monster::IsVisibleToPlayer(bool use_bounds)
 {
     srVector3T<float> player_position = cameraLocation();
     if (use_bounds) {
-        srVector3T<float> minimum;
-        srVector3T<float> maximum;
-
-        /* VC6 member functions can be invoked with a null this. */
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wtautological-compare"
-        if (this != 0) {
-#pragma clang diagnostic pop
-            srVector3T<float> position;
-
-            GetAnimationBounds(&minimum, &maximum);
-            position = GetPosition();
-            minimum += position;
-            position = GetPosition();
-            maximum += position;
-        }
-        return HasLineOfSightToBounds(&player_position, &minimum, &maximum);
+        const auto bounds = MonsterGetWorldAnimationBounds(this);
+        return bounds && HasLineOfSightToBounds(&player_position, *bounds);
     }
 
     srVector3T<float> monster_position = movement.position;
@@ -2888,20 +2878,17 @@ bool W8Monster::GetPatrolPoint(srVector3T<float>* point)
 }
 
 // FUNCTION: WIZ8 0x004ca4f0
-bool MonsterGetWorldAnimationBounds(W8Monster* monster, srVector3T<float>* minimum,
-                                    srVector3T<float>* maximum)
+std::optional<srBoundingBox> MonsterGetWorldAnimationBounds(W8Monster* monster)
 {
-    if (monster != 0) {
-        srVector3T<float> position;
-
-        monster->GetAnimationBounds(minimum, maximum);
-        position = monster->GetPosition();
-        *minimum += position;
-        position = monster->GetPosition();
-        *maximum += position;
-        return true;
+    if (!monster)
+        return std::nullopt;
+    auto bounds = monster->GetAnimationBounds();
+    if (bounds) {
+        const auto position = monster->GetPosition().glmValue();
+        bounds->minimum += position;
+        bounds->maximum += position;
     }
-    return false;
+    return bounds;
 }
 
 // FUNCTION: WIZ8 0x004ca6e0
@@ -3535,18 +3522,14 @@ W8EmitterHost* W8Monster::GetRepresentation()
 }
 
 // FUNCTION: WIZ8 0x004c3df0
-unsigned char W8Monster::GetAnimationBounds(srVector3T<float>* arg_minimum,
-                                            srVector3T<float>* arg_maximum)
+std::optional<srBoundingBox> W8Monster::GetAnimationBounds()
 {
-    unsigned char result;
-    float scale;
-
-    result = W8GrCycle::GetAnimationBounds(arg_minimum, arg_maximum);
-    scale = m_pRep->scale;
-    *arg_minimum *= scale;
-    scale = m_pRep->scale;
-    *arg_maximum *= scale;
-    return result;
+    auto bounds = W8GrCycle::GetAnimationBounds();
+    if (bounds) {
+        bounds->minimum *= m_pRep->scale;
+        bounds->maximum *= m_pRep->scale;
+    }
+    return bounds;
 }
 
 // FUNCTION: WIZ8 0x004c3ed0
@@ -3561,19 +3544,13 @@ unsigned char W8Monster::GetAnimationRadius(float* arg_radius)
 static const float g_monster_bounds_vertical_factor = 0.66f;
 
 // FUNCTION: WIZ8 0x004c3e60
-bool W8Monster::GetAnimationCenter(srVector3T<float>* center)
+std::optional<srVector3T<float>> W8Monster::GetAnimationCenter()
 {
-    srVector3T<float> minimum;
-    srVector3T<float> maximum;
-
-    if (GetAnimationBounds(&minimum, &maximum) != 0) {
-        srVector3T<float> position = GetPosition();
-
-        *center = position;
-        center->y += (maximum.y - minimum.y) * g_monster_bounds_vertical_factor;
-        return true;
-    }
-    return false;
+    return GetAnimationBounds().transform([this](const auto& bounds) {
+        auto center = GetPosition();
+        center.y += (bounds.maximum.y - bounds.minimum.y) * g_monster_bounds_vertical_factor;
+        return center;
+    });
 }
 
 /* Keep equipped items, spell icons, and temporary poster model instances in
@@ -5068,10 +5045,8 @@ void W8Monster::RefreshStandingHeight()
     srVector3T<float> camera_location;
     camera_location = glm::vec3(g_world->camera->getLocation());
     SelectLOD(&camera_location);
-    srVector3T<float> minimum;
-    srVector3T<float> maximum;
-    GetAnimationBounds(&minimum, &maximum);
-    representation->standing_height = maximum.y;
+    if (const auto bounds = GetAnimationBounds())
+        representation->standing_height = bounds->maximum.y;
     if (previous_cycle != -1) {
         SetCycle(previous_cycle);
     }
