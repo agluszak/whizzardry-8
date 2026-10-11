@@ -7,12 +7,17 @@
 
 #include <algorithm>
 #include <array>
-#include <cstdlib>
-#include <filesystem>
+#include <cctype>
 #include <memory>
+#include <string>
+#include <string_view>
+#include <vector>
 
 #include "RmlUi_Renderer_SDL.h"
 #include "wiz8/engine_code/Video2.h"
+#include "wiz8/dialog_code/DialogInterface.h"
+#include "Font.h"
+#include "vobject.h"
 #include "vsurface.h"
 
 // An experimental, game-embedded RmlUi dialog. The framebuffer is an SDL CPU
@@ -21,60 +26,172 @@
 namespace wiz8::ui_poc {
 namespace {
 
-constexpr SDL_Rect dialog_bounds{96, 80, 448, 336};
+// Original Wizardry dialog dimensions and sprite placements are in 640x480
+// coordinates. Only layout is specified in RCSS; all visual assets are retail.
+constexpr SDL_Rect dialog_bounds{160, 145, 320, 190};
+constexpr int border_inset = 9;
+constexpr std::string_view message_text = "This is a Wizardry 8 dialog rendered by RmlUi.";
+
 constexpr auto document_markup = R"rml(
 <rml>
 <head>
-<title>RmlUi evaluation</title>
+<title>Wizardry 8 dialog</title>
 <style>
-body {
-    margin: 0;
-    font-family: PocFont;
-    color: #e9dcc2;
-    font-size: 17px;
-}
+body { margin: 0; }
 #dialog {
     position: absolute;
-    left: 145px;
-    top: 128px;
-    width: 350px;
-    padding: 20px;
-    background-color: #20242d;
-    border: 2px solid #aa9068;
+    left: 160px;
+    top: 145px;
+    width: 320px;
+    height: 190px;
+    decorator: tiled-box(
+        "wiz8-border-0.sti", "wiz8-border-1.sti", "wiz8-border-2.sti",
+        "wiz8-border-3.sti", "wiz8-background-0.sti", "wiz8-border-4.sti",
+        "wiz8-border-5.sti", "wiz8-border-6.sti", "wiz8-border-7.sti"
+    );
 }
-h1 {
-    font-size: 21px;
-    margin: 0 0 12px 0;
-    color: #f5d99a;
+#inner {
+    position: absolute;
+    left: 9px;
+    top: 9px;
+    width: 302px;
+    height: 172px;
+    decorator: tiled-box(
+        "wiz8-edge-0.sti", "wiz8-edge-1.sti", "wiz8-edge-2.sti",
+        "wiz8-edge-3.sti", "wiz8-background-0.sti", "wiz8-edge-4.sti",
+        "wiz8-edge-5.sti", "wiz8-edge-6.sti", "wiz8-edge-7.sti"
+    );
 }
-p { margin: 0 0 16px 0; }
-#actions { display: flex; justify-content: flex-end; gap: 12px; }
+#message {
+    position: absolute;
+    left: 14px;
+    top: 36px;
+    width: 274px;
+    height: 80px;
+}
+#actions {
+    position: absolute;
+    bottom: 6px;
+    display: flex;
+    justify-content: space-between;
+}
 button {
-    min-width: 100px;
-    padding: 8px 12px;
-    background-color: #373e4c;
-    border: 1px solid #bcaa86;
-    color: #f5e9d0;
-    font-family: PocFont;
-    font-size: 16px;
+    margin: 0;
+    padding: 0;
+    border-width: 0;
+    background-color: transparent;
 }
-button:hover { background-color: #596273; }
-button:focus { border-color: #ffe1a1; }
-button:active { background-color: #806643; }
+#accept { decorator: image("wiz8-confirmation-0.sti" scale-none 0% 0%); }
+#accept:hover, #accept:focus { decorator: image("wiz8-confirmation-1.sti" scale-none 0% 0%); }
+#accept:active { decorator: image("wiz8-confirmation-2.sti" scale-none 0% 0%); }
+#cancel { decorator: image("wiz8-confirmation-4.sti" scale-none 0% 0%); }
+#cancel:hover, #cancel:focus { decorator: image("wiz8-confirmation-5.sti" scale-none 0% 0%); }
+#cancel:active { decorator: image("wiz8-confirmation-6.sti" scale-none 0% 0%); }
 </style>
 </head>
 <body>
 <div id="dialog">
-    <h1>RmlUi proof of concept</h1>
-    <p>This dialog is laid out and driven by RmlUi, rendered through the existing game framebuffer.</p>
-    <div id="actions">
-        <button id="cancel">Cancel</button>
-        <button id="accept" autofocus>Confirm</button>
+    <div id="inner">
+        <div id="message"></div>
+        <div id="actions">
+            <button id="accept" autofocus title="Confirm"></button>
+            <button id="cancel" title="Cancel"></button>
+        </div>
     </div>
 </div>
 </body>
 </rml>
 )rml";
+
+// These are not PNG copies. RmlUi's virtual filenames resolve through
+// CreateVideoObject to the original STI assets inside the installed game data.
+class GameArtRenderer final : public RenderInterface_SDL {
+public:
+    explicit GameArtRenderer(SDL_Renderer* renderer) : RenderInterface_SDL(renderer) {}
+
+    bool LoadArtwork()
+    {
+        for (size_t i = 0; i < artwork.size(); ++i) {
+            VOBJECT_DESC descriptor{};
+            descriptor.fCreateFlags = VOBJECT_CREATE_FROMFILE;
+            descriptor.ImageFile = paths[i];
+            artwork[i] = CreateVideoObject(descriptor);
+            const size_t required = i == 2 ? 1 : i == 3 ? 8 : 9;
+            if (!artwork[i] || artwork[i]->sprites.size() < required) {
+                SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
+                             "RmlUi POC: cannot load Wizardry art: %s", paths[i]);
+                return false;
+            }
+        }
+        for (size_t i = 0; i < 8; ++i) {
+            const auto& sprite = artwork[3]->sprites[i];
+            button_width = std::max(button_width, int(sprite.usWidth) + sprite.sOffsetX);
+            button_height = std::max(button_height, int(sprite.usHeight) + sprite.sOffsetY);
+        }
+        return button_width > 0 && button_height > 0;
+    }
+
+    int ButtonWidth() const { return button_width; }
+    int ButtonHeight() const { return button_height; }
+
+    Rml::TextureHandle LoadTexture(Rml::Vector2i& dimensions, const Rml::String& source) override
+    {
+        // RmlUi may prepend the RML source directory to the virtual filename.
+        const std::string_view filename(source);
+        for (size_t i = 0; i < names.size(); ++i) {
+            const std::string marker = "wiz8-" + std::string(names[i]) + "-";
+            const auto begin = filename.rfind(marker);
+            if (begin == std::string_view::npos)
+                continue;
+            const auto digit = begin + marker.size();
+            if (digit >= filename.size() || !std::isdigit(static_cast<unsigned char>(filename[digit])))
+                return {};
+            const size_t frame = filename[digit] - '0';
+            if (frame >= artwork[i]->sprites.size() || filename.substr(digit + 1, 4) != ".sti")
+                return {};
+            const auto& sprite = artwork[i]->sprites[frame];
+            const int width = i == 3 ? button_width : int(sprite.usWidth) + std::max(0, int(sprite.sOffsetX));
+            const int height = i == 3 ? button_height : int(sprite.usHeight) + std::max(0, int(sprite.sOffsetY));
+            if (width <= 0 || height <= 0)
+                return {};
+            dimensions = {width, height};
+            std::vector<Rml::byte> pixels(size_t(width) * height * 4, 0);
+            for (int y = 0; y < sprite.usHeight; ++y) {
+                for (int x = 0; x < sprite.usWidth; ++x) {
+                    const auto color_index = sprite.pixels[size_t(y) * sprite.usWidth + x];
+                    if (color_index == SpriteFrame::kTransparent)
+                        continue;
+                    const int dx = x + sprite.sOffsetX, dy = y + sprite.sOffsetY;
+                    if (dx < 0 || dy < 0 || dx >= width || dy >= height)
+                        continue;
+                    const auto& color = artwork[i]->pPaletteEntry[color_index];
+                    const size_t offset = (size_t(dy) * width + dx) * 4;
+                    pixels[offset + 0] = color.peRed;
+                    pixels[offset + 1] = color.peGreen;
+                    pixels[offset + 2] = color.peBlue;
+                    pixels[offset + 3] = 255;
+                }
+            }
+            // Opaque palette entries need no premultiplication. Transparent
+            // ETRLE runs remain RGBA zero for RmlUi's premultiplied blend.
+            return GenerateTexture(pixels, dimensions);
+        }
+        return RenderInterface_SDL::LoadTexture(dimensions, source);
+    }
+
+private:
+    inline static constexpr std::array<const char*, 4> paths{
+        "Data\\Dialogs\\DialogBorder.STI",
+        "Data\\Dialogs\\DialogEdge.STI",
+        "Data\\Dialogs\\DialogBackground.sti",
+        "Data\\Dialogs\\DialogConfirmation.STI"
+    };
+    inline static constexpr std::array<std::string_view, 4> names{
+        "border", "edge", "background", "confirmation"
+    };
+    std::array<std::unique_ptr<SGPVObject>, 4> artwork;
+    int button_width = 0, button_height = 0;
+};
 
 class GameSystemInterface final : public Rml::SystemInterface {
 public:
@@ -106,7 +223,7 @@ struct Dialog {
     GameSystemInterface system;
     std::unique_ptr<SDL_Renderer, decltype(&SDL_DestroyRenderer)> renderer{nullptr, SDL_DestroyRenderer};
     std::unique_ptr<SDL_Surface, decltype(&SDL_DestroySurface)> background{nullptr, SDL_DestroySurface};
-    std::unique_ptr<RenderInterface_SDL> render_interface;
+    std::unique_ptr<GameArtRenderer> render_interface;
     Rml::Context* context = nullptr;
     ClickListener confirm{*this, true};
     ClickListener cancel{*this, false};
@@ -144,21 +261,24 @@ void destroy_dialog()
     Rml::SetSystemInterface(nullptr);
 }
 
-bool load_font()
+void draw_dialog_text()
 {
-    const std::array<const char*, 5> candidates{
-        std::getenv("WIZ8_RMLUI_FONT"),
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
-        "/System/Library/Fonts/Supplemental/Arial.ttf",
-        "C:/Windows/Fonts/arial.ttf"
-    };
-    for (const char* font : candidates) {
-        if (font && std::filesystem::is_regular_file(font) &&
-            Rml::LoadFontFace(font, "PocFont", Rml::Style::FontStyle::Normal))
-            return true;
-    }
-    return false;
+    if (!dialog || !dialog->context || !g_dialog_interface_font)
+        return;
+    auto* document = dialog->context->GetDocument(0);
+    auto* message = document ? document->GetElementById("message") : nullptr;
+    if (!message)
+        return;
+    auto& font = *g_dialog_interface_font;
+    const int x = int(message->GetAbsoluteLeft()) +
+                  (int(message->GetClientWidth()) - font.textWidth(message_text)) / 2;
+    const int y = int(message->GetAbsoluteTop()) +
+                  (int(message->GetClientHeight()) - font.height()) / 2;
+    FontRenderScope saved;
+    SetFont(font);
+    SetFontForeground(g_dialog_font_foreground);
+    SetFontBackground(g_dialog_font_background);
+    DrawFontText(x, y, message_text);
 }
 
 Rml::Input::KeyIdentifier key_identifier(SDL_Keycode key)
@@ -229,7 +349,16 @@ bool open()
     }
     SDL_SetSurfaceBlendMode(dialog->background.get(), SDL_BLENDMODE_NONE);
 
-    dialog->render_interface = std::make_unique<RenderInterface_SDL>(dialog->renderer.get());
+    dialog->render_interface = std::make_unique<GameArtRenderer>(dialog->renderer.get());
+    if (!dialog->render_interface->LoadArtwork()) {
+        destroy_dialog();
+        return false;
+    }
+    if (!g_dialog_interface_font) {
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "RmlUi POC: Wizardry dialog font not initialized");
+        destroy_dialog();
+        return false;
+    }
     Rml::SetSystemInterface(&dialog->system);
     Rml::SetRenderInterface(dialog->render_interface.get());
 
@@ -239,12 +368,6 @@ bool open()
         return false;
     }
     dialog->initialized = true;
-    if (!load_font()) {
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
-                     "RmlUi POC: set WIZ8_RMLUI_FONT to a TrueType font");
-        destroy_dialog();
-        return false;
-    }
 
     dialog->context = Rml::CreateContext("whizzardry-poc", {640, 480});
     if (!dialog->context) {
@@ -253,9 +376,23 @@ bool open()
     }
     auto* document = dialog->context->LoadDocumentFromMemory(document_markup);
     if (!document || !document->GetElementById("accept") ||
-        !document->GetElementById("cancel")) {
+        !document->GetElementById("cancel") || !document->GetElementById("actions") ||
+        !document->GetElementById("message")) {
         destroy_dialog();
         return false;
+    }
+    // The original message dialog places its two buttons with one
+    // button-width of space between them, 15 pixels above the bottom.
+    const int width = dialog->render_interface->ButtonWidth();
+    const int height = dialog->render_interface->ButtonHeight();
+    auto* actions = document->GetElementById("actions");
+    actions->SetProperty("left", std::to_string((dialog_bounds.w - 3 * width) / 2 - border_inset) + "px");
+    actions->SetProperty("width", std::to_string(3 * width) + "px");
+    actions->SetProperty("height", std::to_string(height) + "px");
+    for (const char* id : {"accept", "cancel"}) {
+        auto* button = document->GetElementById(id);
+        button->SetProperty("width", std::to_string(width) + "px");
+        button->SetProperty("height", std::to_string(height) + "px");
     }
     document->GetElementById("accept")->AddEventListener("click", &dialog->confirm);
     document->GetElementById("cancel")->AddEventListener("click", &dialog->cancel);
@@ -338,6 +475,7 @@ bool frame()
     dialog->context->Update();
     dialog->context->Render();
     SDL_RenderPresent(dialog->renderer.get());
+    draw_dialog_text();
     return true;
 }
 

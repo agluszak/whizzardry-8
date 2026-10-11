@@ -1,56 +1,55 @@
-# RmlUi experiment
+# Wizardry 8 artwork in the RmlUi experiment
 
-This is an **opt-in native UI experiment**, not a replacement for the production
-menu or dialog infrastructure. It lives in the real game's main menu, not in a
-second application/window.
-
-Build with:
+Build the opt-in proof of concept:
 
 ```sh
 cmake --preset linux -DWIZ8_RMLUI_POC=ON
 cmake --build --preset linux
 ```
 
-Press **F9** on the main menu to open an RmlUi modal with working mouse hover,
-click handling, keyboard focus, Enter, Tab, Escape and cancellation. It uses
-RmlUi's element hierarchy, CSS layout, event listeners and FreeType fonts. The
-modal maps native SDL window coordinates to 640×480, and the renderer targets
-the *existing* 640×480 CPU framebuffer before the SurRender SDL GPU upload.
-There is no second window, GPU device or independent event pump.
+Run the native game with the installed retail assets, then press **F9** in the
+main menu. Confirm, Cancel, Enter, Tab, Escape, hover and pressed button
+states are handled by RmlUi. Closing returns to the underlying menu.
 
-A system TrueType font is needed for this experiment. On Linux the DejaVu Sans
-or Liberation Sans locations are tried; on macOS and Windows, common Arial
-locations are tried. Set `WIZ8_RMLUI_FONT=/path/to/font.ttf` to override.
+## Actual game artwork, not placeholder CSS
 
-Dependencies are only fetched when `WIZ8_RMLUI_POC` is enabled. The
-RmlUi version is pinned to its 6.3 release commit. The upstream SDL renderer
-is compiled from that same version; it is not copied into the repository.
+The demo loads these resources **directly from the installed Wizardry 8 game
+archives**, using the existing `CreateVideoObject` STI decoder:
 
-## What this proves
+- `Data\Dialogs\DialogBorder.STI` — nine-slice outer border
+- `Data\Dialogs\DialogEdge.STI` — nine-slice inset frame
+- `Data\Dialogs\DialogBackground.sti` — dialog interior
+- `Data\Dialogs\DialogConfirmation.STI` — original normal,
+  hover and pressed confirmation/cancel button sprite frames (0-2 and 4-6)
 
-- A real modal can own its controls and click events without SGP `GUI_BUTTON`,
-  mouse regions, W8Region IDs or a parallel window.
-- RmlUi can be composited into Whizzardry's original coordinate system using
-  SDL3 and the existing frame presentation.
-- Closing the modal returns control to the original main menu with its
-  previous screen pixels restored.
+RmlUi's built-in `tiled-box` and `image` decorators consume these STI
+sprites through a subclass of the upstream SDL render interface. No extracted
+art, generated PNGs, recolored CSS surfaces, or bundled font files are added
+to the repository. The static style rules only specify geometry, asset
+selection and input states. Rendering still takes place on the original
+640×480 SDL CPU framebuffer presented by SurRender.
 
-## What this deliberately does not prove
+The dialog text is rendered with the game's initialized bitmap dialog font
+(`g_dialog_interface_font`) at coordinates provided by RmlUi layout. There
+is **no fallback to a system TrueType font**.
 
-- Visual fidelity to retail: the demo uses placeholder CSS colors, not the
-  original STI graphics and bitmap fonts.
-- GPU efficiency: the current renderer uses SDL's **software renderer** on
-  the existing game framebuffer, taking and restoring a snapshot of the small
-  dialog rectangle. It must eventually be replaced with an SDL GPU pass
-  integrated with SurRender before adopting RmlUi for frequent UI redraws.
-- Complete input coverage: this POC maps only the keys needed for the modal.
-  A full migration should route normalized SDL3 input to RmlUi centrally.
-- Replacement of the full dialog taxonomy, especially scroll areas, numeric
-  input, keyboard composition, sprite animation and screen-specific state.
+## Purpose and limitations
 
-## Decision criteria
+This tests RmlUi widget layout, keyboard focus, modal input routing, asset
+loading and visual state decorators in the actual game, against PR #124's
+`Controls` / `W8Widget` path. It deliberately does not create a second
+window, event pump or production UI framework.
 
-Compare the deletion possible with RmlUi against the `Controls` / `W8Widget`
-consolidation in PR #124. Do not add a lasting adapter that retains SGP
-button IDs underneath RmlUi. Either adopt a single RmlUi-owned widget tree
-and delete old systems, or discard this experiment.
+The POC currently uses the upstream SDL software renderer and restores a
+small CPU framebuffer rectangle between frames. Its decorators stretch the
+middle of the tiled-box sprites, while the old button system tiled its
+background and edges. If RmlUi is adopted, validate that difference against
+retail and move the UI draw pass onto the existing SDL GPU pipeline.
+
+The bitmap text renderer is used for the message as a POC; a comprehensive
+migration should implement a RmlUi font engine backed by Wizardry's glyphs
+rather than manually drawing arbitrary labels. In particular this experiment
+does **not** imply keeping the SGP button registry as a rendering backend.
+
+Missing retail STI artwork or the initialized Wizardry font is a failure,
+not a reason to display a made-up substitute.
