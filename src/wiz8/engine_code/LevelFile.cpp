@@ -1672,6 +1672,60 @@ BOOLEAN WritePathAIFile(wiz8::File* hFile, W8LevelFilePathAI* pPathAI)
     return TRUE;
 }
 
+enum class AnimationFrameKind { morph, transform };
+
+static bool ReadAnimationFrames(wiz8::File* file, W8LevelFileFrame*& frames, int count,
+                                AnimationFrameKind kind)
+{
+    ValidateRecordCount(count, sizeof(W8LevelFileFrame), file->size() - file->tell());
+    if (count == 0) return true;
+    AllocateLevelRecords(frames, count);
+    for (int index = 0; index < count; ++index) {
+        W8LevelFileFrame& frame = frames[index];
+        file->read_exact(&frame.flags, 1);
+        if (!ReadMeshFile(file, &frame.mesh)) return false;
+        file->read_exact(&frame.num_textures, 2);
+        ValidateRecordCount(frame.num_textures, sizeof(W8MaterialRecord), file->size() - file->tell());
+        if (kind == AnimationFrameKind::transform && frame.num_textures > 500) {
+            sprintf(g_level_file_error, "Invalid number of materials in mesh (%d materials).\n",
+                    static_cast<int>(frame.num_textures));
+            ReportBuildStatus(7, g_level_file_error);
+            return false;
+        }
+        if (frame.num_textures != 0) {
+            AllocateLevelRecords(frame.pTextures, frame.num_textures);
+            for (int texture = 0; texture < frame.num_textures; ++texture) {
+                if (!ReadMaterialRecord(file, frame.pTextures + texture)) return false;
+            }
+        }
+        // A morph's first LOD mesh contains all vertex frames; transforms serialize every frame.
+        if (kind == AnimationFrameKind::morph && index == 0 &&
+            (frame.mesh.flags & W8_LEVEL_MESH_LOD_VERTICES) != 0) break;
+    }
+    return true;
+}
+
+static bool WriteAnimationFrames(wiz8::File* file, W8LevelFileFrame* frames, int count,
+                                 AnimationFrameKind kind)
+{
+    if (count != 0 && frames == nullptr) throw std::bad_alloc();
+    for (int index = 0; index < count; ++index) {
+        W8LevelFileFrame& frame = frames[index];
+        file->write(&frame.flags, 1);
+        if (!WriteMeshFile(file, &frame.mesh)) return false;
+        file->write(&frame.num_textures, 2);
+        if (frame.num_textures != 0) {
+            if (frame.pTextures == nullptr) throw std::bad_alloc();
+            for (int texture = 0; texture < frame.num_textures; ++texture) {
+                if (!WriteMaterialRecord(file, frame.pTextures + texture)) return false;
+            }
+        }
+        if (kind == AnimationFrameKind::morph && index == 0 &&
+            (frame.mesh.flags & W8_LEVEL_MESH_LOD_VERTICES) != 0) break;
+    }
+    return true;
+}
+
 // FUNCTION: WIZ8 0x004D3A10
 BOOLEAN ReadAnimObjFile(wiz8::File* hFile, W8LevelFileAnimObj* pAnimObj)
 try {
@@ -1680,9 +1734,7 @@ try {
     const auto cleanup = [](W8LevelFileAnimObj* record) { ReleaseLevelRecord(*record); };
     std::unique_ptr<W8LevelFileAnimObj, decltype(cleanup)> owner(pAnimObj, cleanup);
 
-    unsigned short usFrame;
     short i;
-    short j;
 
     hFile->read_exact(&pAnimObj->version, 1);
     hFile->read_exact(&pAnimObj->num_anims, 1);
@@ -1768,44 +1820,8 @@ try {
                 W8LevelFileMorph* pMorph = pAnimObj->pMorphs + i;
                 hFile->read_exact(&pMorph->channel, 1);
                 hFile->read_exact(&pMorph->num_frames, 1);
-                ValidateRecordCount(pMorph->num_frames, sizeof(W8LevelFileFrame),
-                                    hFile->size() - hFile->tell());
-                if (pMorph->num_frames != 0) {
-                    pMorph->LODMesh.pFrames = static_cast<W8LevelFileFrame*>(
-                        calloc(1, pMorph->num_frames * sizeof(W8LevelFileFrame)));
-                    if (pMorph->LODMesh.pFrames == 0) {
-                        throw std::bad_alloc();
-                    }
-                    memset(pMorph->LODMesh.pFrames, 0,
-                           pMorph->num_frames * sizeof(W8LevelFileFrame));
-                    if (pMorph->num_frames != 0) {
-                        usFrame = 0;
-                        do {
-                            W8LevelFileFrame* pFrame =
-                                pMorph->LODMesh.pFrames + static_cast<short>(usFrame);
-                            hFile->read_exact(&pFrame->flags, 1);
-                            if (!ReadMeshFile(hFile, &pFrame->mesh))
-                                return FALSE;
-                            hFile->read_exact(&pFrame->num_textures, 2);
-                            ValidateRecordCount(pFrame->num_textures, sizeof(W8MaterialRecord),
-                                                hFile->size() - hFile->tell());
-                            if (pFrame->num_textures != 0) {
-                                AllocateLevelRecords(pFrame->pTextures, pFrame->num_textures);
-                                for (j = 0; j < pFrame->num_textures; ++j) {
-                                    W8MaterialRecord* pTexture = pFrame->pTextures + j;
-                                    if (!ReadMaterialRecord(hFile, pTexture))
-                                        return FALSE;
-                                }
-                            }
-                            if ((usFrame == 0) && ((pMorph->LODMesh.pFrames->mesh.flags &
-                                                    W8_LEVEL_MESH_LOD_VERTICES) != 0)) {
-                                usFrame = pMorph->num_frames;
-                            }
-                            ++usFrame;
-                        } while (static_cast<short>(usFrame) <
-                                 static_cast<short>(pMorph->num_frames));
-                    }
-                }
+                if (!ReadAnimationFrames(hFile, pMorph->LODMesh.pFrames, pMorph->num_frames,
+                                         AnimationFrameKind::morph)) return FALSE;
             }
         }
     } else {
@@ -1818,45 +1834,8 @@ try {
                 W8LevelFileTransform* pTransform = pAnimObj->pTransforms + i;
                 hFile->read_exact(&pTransform->channel, 1);
                 hFile->read_exact(&pTransform->num_frames, 1);
-                ValidateRecordCount(pTransform->num_frames, sizeof(W8LevelFileFrame),
-                                    hFile->size() - hFile->tell());
-                if (pTransform->num_frames != 0) {
-                    pTransform->LODMesh.pFrames = static_cast<W8LevelFileFrame*>(
-                        calloc(1, pTransform->num_frames * sizeof(W8LevelFileFrame)));
-                    if (pTransform->LODMesh.pFrames == 0) {
-                        throw std::bad_alloc();
-                    }
-                    memset(pTransform->LODMesh.pFrames, 0,
-                           pTransform->num_frames * sizeof(W8LevelFileFrame));
-                    if (pTransform->num_frames != 0) {
-                        short iFrame = 0;
-                        do {
-                            W8LevelFileFrame* pFrame = pTransform->LODMesh.pFrames + iFrame;
-                            hFile->read_exact(&pFrame->flags, 1);
-                            if (!ReadMeshFile(hFile, &pFrame->mesh))
-                                return FALSE;
-                            hFile->read_exact(&pFrame->num_textures, 2);
-                            ValidateRecordCount(pFrame->num_textures, sizeof(W8MaterialRecord),
-                                                hFile->size() - hFile->tell());
-                            if ((pFrame->num_textures < 0) || (pFrame->num_textures > 500)) {
-                                sprintf(g_level_file_error,
-                                        "Invalid number of materials in mesh (%d materials).\n",
-                                        static_cast<int>(pFrame->num_textures));
-                                ReportBuildStatus(7, g_level_file_error);
-                                return FALSE;
-                            }
-                            if (pFrame->num_textures != 0) {
-                                AllocateLevelRecords(pFrame->pTextures, pFrame->num_textures);
-                                for (j = 0; j < pFrame->num_textures; ++j) {
-                                    W8MaterialRecord* pTexture = pFrame->pTextures + j;
-                                    if (!ReadMaterialRecord(hFile, pTexture))
-                                        return FALSE;
-                                }
-                            }
-                            ++iFrame;
-                        } while (iFrame < static_cast<short>(pTransform->num_frames));
-                    }
-                }
+                if (!ReadAnimationFrames(hFile, pTransform->LODMesh.pFrames, pTransform->num_frames,
+                                         AnimationFrameKind::transform)) return FALSE;
                 if (!ReadPathAIFile(hFile, &pTransform->pathAI))
                     return FALSE;
             }
@@ -1874,9 +1853,7 @@ BOOLEAN WriteAnimObjFile(wiz8::File* hFile, W8LevelFileAnimObj* pAnimObj)
     const auto cleanup = [](W8LevelFileAnimObj* record) { ReleaseLevelRecord(*record); };
     std::unique_ptr<W8LevelFileAnimObj, decltype(cleanup)> owner(pAnimObj, cleanup);
 
-    unsigned short usFrame;
     short i;
-    short j;
 
     hFile->write(&pAnimObj->version, 1);
     hFile->write(&pAnimObj->num_anims, 1);
@@ -1936,36 +1913,8 @@ BOOLEAN WriteAnimObjFile(wiz8::File* hFile, W8LevelFileAnimObj* pAnimObj)
                 W8LevelFileMorph* pMorph = pAnimObj->pMorphs + i;
                 hFile->write(&pMorph->channel, 1);
                 hFile->write(&pMorph->num_frames, 1);
-                if (pMorph->num_frames != 0) {
-                    if (pMorph->LODMesh.pFrames == 0) {
-                        throw std::bad_alloc();
-                    }
-                    usFrame = 0;
-                    do {
-                        W8LevelFileFrame* pFrame =
-                            pMorph->LODMesh.pFrames + static_cast<short>(usFrame);
-                        hFile->write(&pFrame->flags, 1);
-                        if (!WriteMeshFile(hFile, &pFrame->mesh))
-                            return FALSE;
-                        hFile->write(&pFrame->num_textures, 2);
-                        if (pFrame->num_textures != 0) {
-                            if (pFrame->pTextures == 0) {
-                                throw std::bad_alloc();
-                            }
-
-                            for (j = 0; j < pFrame->num_textures; ++j) {
-                                W8MaterialRecord* pTexture = pFrame->pTextures + j;
-                                if (!WriteMaterialRecord(hFile, pTexture))
-                                    return FALSE;
-                            }
-                        }
-                        if ((usFrame == 0) && ((pMorph->LODMesh.pFrames->mesh.flags &
-                                                W8_LEVEL_MESH_LOD_VERTICES) != 0)) {
-                            usFrame = pMorph->num_frames;
-                        }
-                        ++usFrame;
-                    } while (static_cast<short>(usFrame) < static_cast<short>(pMorph->num_frames));
-                }
+                if (!WriteAnimationFrames(hFile, pMorph->LODMesh.pFrames, pMorph->num_frames,
+                                         AnimationFrameKind::morph)) return FALSE;
             }
 
             return TRUE;
@@ -1980,31 +1929,8 @@ BOOLEAN WriteAnimObjFile(wiz8::File* hFile, W8LevelFileAnimObj* pAnimObj)
                 W8LevelFileTransform* pTransform = pAnimObj->pTransforms + i;
                 hFile->write(&pTransform->channel, 1);
                 hFile->write(&pTransform->num_frames, 1);
-                if (pTransform->num_frames != 0) {
-                    if (pTransform->LODMesh.pFrames == 0) {
-                        throw std::bad_alloc();
-                    }
-                    short iFrame = 0;
-                    do {
-                        W8LevelFileFrame* pFrame = pTransform->LODMesh.pFrames + iFrame;
-                        hFile->write(&pFrame->flags, 1);
-                        if (!WriteMeshFile(hFile, &pFrame->mesh))
-                            return FALSE;
-                        hFile->write(&pFrame->num_textures, 2);
-                        if (pFrame->num_textures != 0) {
-                            if (pFrame->pTextures == 0) {
-                                throw std::bad_alloc();
-                            }
-
-                            for (j = 0; j < pFrame->num_textures; ++j) {
-                                W8MaterialRecord* pTexture = pFrame->pTextures + j;
-                                if (!WriteMaterialRecord(hFile, pTexture))
-                                    return FALSE;
-                            }
-                        }
-                        ++iFrame;
-                    } while (iFrame < static_cast<short>(pTransform->num_frames));
-                }
+                if (!WriteAnimationFrames(hFile, pTransform->LODMesh.pFrames, pTransform->num_frames,
+                                         AnimationFrameKind::transform)) return FALSE;
                 if (!WritePathAIFile(hFile, &pTransform->pathAI))
                     return FALSE;
             }
