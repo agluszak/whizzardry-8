@@ -3,8 +3,9 @@
 #include <glm/ext/quaternion_trigonometric.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <string>
+#include <iterator>
+#include <utility>
 #include <vector>
-#include <cstdlib>
 #include <cmath>
 #include <cstring>
 #include <span>
@@ -581,8 +582,9 @@ void AbsorbMissileDamage(W8Missile* missile)
                 }
                 auto& source_reports = missile->result.reports;
                 auto& destination_reports = effect->result.reports;
-                destination_reports.insert(destination_reports.end(), source_reports.begin(),
-                                           source_reports.end());
+                destination_reports.insert(destination_reports.end(),
+                                           std::make_move_iterator(source_reports.begin()),
+                                           std::make_move_iterator(source_reports.end()));
                 source_reports.clear();
                 return;
             }
@@ -2112,7 +2114,7 @@ void ReportSpellResult(W8SpellEffectEntry* effect)
     }
 
     while (!effect->result.reports.empty()) {
-        W8SpellDamageReport* report = effect->result.reports[0];
+        auto report = std::move(effect->result.reports.front());
         effect->result.reports.erase(effect->result.reports.begin());
         if (report != 0) {
             if (report->kind == 1) {
@@ -2132,7 +2134,6 @@ void ReportSpellResult(W8SpellEffectEntry* effect)
                         g_localized_strings[g_condition_notices[W8_CONDITION_DEAD].singular]));
                 effect->reported = true;
             }
-            free(report);
         }
     }
     if (!effect->reported) {

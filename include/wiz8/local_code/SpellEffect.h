@@ -1,4 +1,5 @@
 #include <string>
+#include <memory>
 #ifndef WIZ8_LOCAL_CODE_SPELL_EFFECT_H
 #define WIZ8_LOCAL_CODE_SPELL_EFFECT_H
 
@@ -17,7 +18,7 @@ class W8Missile;
 
 /* One pending condition report. Kind 1 names a character by party slot and
    carries no text; kind 3 carries its own inline text. The message pass
-   frees it after posting. */
+   owns it until posting. */
 struct W8SpellDamageReport {
     int kind;
     int value;
@@ -54,7 +55,7 @@ struct W8SpellEffectResult {
     unsigned int amount;
     unsigned int count;
     unsigned int condition_counts[W8_CONDITION_COUNT];
-    std::vector<W8SpellDamageReport*> reports;
+    std::vector<std::unique_ptr<W8SpellDamageReport>> reports;
     /* The per-kind totals the notice pass folds into its messages;
        [3] and [4] are the running damage totals the character and monster
        damage paths add to. */

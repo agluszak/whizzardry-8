@@ -79,6 +79,19 @@ The runner accepts a build directory followed by `run-clang-tidy` options.
 `CLANG_TIDY_JOBS` controls concurrency; `CLANG_TIDY` and `RUN_CLANG_TIDY`
 select the executables for other installations.
 
+The normal `.clang-tidy` scan also reports a focused set of lifetime and
+memory-safety diagnostics. For a broader, non-blocking audit of C++23
+modernization opportunities, run:
+
+```sh
+CLANG_TIDY_CONFIG=.clang-tidy-modernization \
+  CLANG_TIDY=clang-tidy-21 RUN_CLANG_TIDY=run-clang-tidy-21 \
+  ./tools/run-clang-tidy.sh build/linux-tidy
+```
+
+Review suggested fixes in context; a diagnostic is not, by itself, a reason to
+preserve a decomp-era class or abstraction.
+
 ## Run
 
 Point the launcher to your installed game assets:
