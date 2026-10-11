@@ -53,7 +53,7 @@ static void key(Uint32 kind, SDL_Keycode code, SDL_Keymod modifiers = SDL_KMOD_N
     event.key.repeat = repeat;
     push(event);
 }
-static void mouse(Uint32 kind, Uint8 button, float x, float y)
+static void mouse(Uint32 kind, Uint8 button, float x, float y, Uint8 clicks = 1)
 {
     SDL_Event event{};
     event.type = kind;
@@ -67,6 +67,7 @@ static void mouse(Uint32 kind, Uint8 button, float x, float y)
     {
         event.button.windowID = id;
         event.button.button = button;
+        event.button.clicks = clicks;
         event.button.x = x;
         event.button.y = y;
     }
@@ -224,20 +225,28 @@ TEST_CASE("events_test")
     REQUIRE(events.size() == 1);
     expect(events[0], LEFT_BUTTON_REPEAT, 0);
     REQUIRE(events[0].uiParam == ((240u << 16) | 320u));
-    guiSingleClickTimer = w8_get_ticks() - 1000;
     mouse(SDL_EVENT_MOUSE_BUTTON_UP, SDL_BUTTON_LEFT, 640, 480);
     drain_events();
     events = input();
     REQUIRE((events.size() == 1 && !gfLeftButtonState));
     expect(events[0], LEFT_BUTTON_UP, 0);
-    mouse(SDL_EVENT_MOUSE_BUTTON_DOWN, SDL_BUTTON_LEFT, 640, 480);
-    mouse(SDL_EVENT_MOUSE_BUTTON_UP, SDL_BUTTON_LEFT, 640, 480);
+    mouse(SDL_EVENT_MOUSE_BUTTON_DOWN, SDL_BUTTON_LEFT, 640, 480, 2);
+    mouse(SDL_EVENT_MOUSE_BUTTON_UP, SDL_BUTTON_LEFT, 640, 480, 2);
     drain_events();
     events = input();
     REQUIRE(events.size() == 3);
     expect(events[0], LEFT_BUTTON_DOWN, 0);
     expect(events[1], LEFT_BUTTON_UP, 0);
     expect(events[2], LEFT_BUTTON_DBL_CLK, 0);
+
+    // Closely spaced clicks are not double-clicks unless SDL identifies them.
+    mouse(SDL_EVENT_MOUSE_BUTTON_DOWN, SDL_BUTTON_LEFT, 640, 480);
+    mouse(SDL_EVENT_MOUSE_BUTTON_UP, SDL_BUTTON_LEFT, 640, 480);
+    drain_events();
+    events = input();
+    REQUIRE(events.size() == 2);
+    expect(events[0], LEFT_BUTTON_DOWN, 0);
+    expect(events[1], LEFT_BUTTON_UP, 0);
 
     wheel(0.25f);
     wheel(0.5f);
