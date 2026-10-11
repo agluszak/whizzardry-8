@@ -1,3 +1,4 @@
+#include <SDL3/SDL_log.h>
 #include <glm/ext/matrix_clip_space.hpp>
 #include <glm/ext/matrix_transform.hpp>
 #include <cstdlib>
@@ -220,7 +221,10 @@ srGERD::srGERD(srDD* device, const char* device_name)
     initTextureParameterMatrix();
     this->device.driver_info.api_version = 0x128;
     this->device.driver_info.dd_api_version = 0;
-    this->device.driver_info.debug_write = debugWrite;
+    this->device.driver_info.debug_write = [](const char* message) {
+        if (message && *message)
+            SDL_LogDebug(SDL_LOG_CATEGORY_RENDER, "%s", message);
+    };
     this->device.driver_info.flags = 0;
     getDD()->getDriverInfo(this->device.driver_info);
     initClearColors();
