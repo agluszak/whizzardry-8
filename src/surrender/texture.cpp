@@ -198,7 +198,7 @@ void srTexture::setupDefaultValuesFromSurface(srColorSurfaceIFace* surface)
     if (surface != 0) {
         texture_dimensions_.width = surface->getWidth();
         texture_dimensions_.height = surface->getHeight();
-        surface->getPixelFormat(texture_dimensions_.format);
+        texture_dimensions_.format = surface->getPixelFormat();
         texture_dimensions_.palette = surface->getPalette();
     } else {
         texture_dimensions_.width = 1;
