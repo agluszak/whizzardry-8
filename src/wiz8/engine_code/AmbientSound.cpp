@@ -378,7 +378,7 @@ void W8AmbientSound::Service(bool entered)
         }
         return;
     }
-    if (wiz8::sound::is_file_playing(config.wave_name) != 0) {
+    if (wiz8::sound::is_file_playing(config.wave_name)) {
         return;
     }
     {
