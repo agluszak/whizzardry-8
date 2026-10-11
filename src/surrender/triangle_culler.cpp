@@ -62,8 +62,8 @@ int srTriangleCuller::setClipFlagsObjectSpace(w8_ulong* clip_flags, const srVect
 }
 
 // FUNCTION: SURRENDER 0x10029FC0
-w8_ulong srTriangleCuller::getClipMask(const glm::vec3& center, float radius,
-                                       const glm::vec4* planes, w8_ulong mask, float& depth)
+srTriangleCuller::ClipMask srTriangleCuller::getClipMask(const glm::vec3& center, float radius,
+                                                         const glm::vec4* planes, w8_ulong mask)
 {
     w8_ulong clip = 0;
     float visible = 1;
@@ -83,8 +83,7 @@ w8_ulong srTriangleCuller::getClipMask(const glm::vec3& center, float radius,
             visible *= std::clamp(fraction, 0.0f, 1.0f);
         }
     }
-    depth = 1 - visible;
-    return clip;
+    return {clip, 1 - visible};
 }
 
 // FUNCTION: SURRENDER 0x1002A260
