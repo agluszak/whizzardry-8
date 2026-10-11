@@ -14,7 +14,12 @@
 
 #include "compat/compiler.h"
 #include "glm/ext/vector_float2.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_int3.hpp"
+#include "glm/common.hpp"
+#include "wiz8/octree_walk.h"
 #include "surrender/srMath.h"
+#include "surrender/srBoundingBox.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/engine_code/OctPreTree.h"
 #include "wiz8/engine_code/3d.h"
@@ -105,7 +110,7 @@ void W8OctSpatialState::SetWorkingBounds(const srVector3T<float>* minimum,
 /* Resets the collected-id run and appends every not-yet-seen polygon id the
    leaf under `cell` lists.  The trace walk inlines this sequence at each of
    the six cells it probes. */
-void OctPreTree::CollectLeafPolygons(const srVector3T<int>* cell)
+void OctPreTree::CollectLeafPolygons(const glm::ivec3& cell)
 {
     m_gd_result_count = 0;
     unsigned int leaf_index = LeafIndexForCell(cell);
@@ -129,85 +134,32 @@ void OctPreTree::CollectLeafPolygons(const srVector3T<int>* cell)
 bool OctPreTree::SegmentClear(const srVector3T<float>* from, const srVector3T<float>* to)
 {
     W8OctreeTrace trace;
-    W8OctreeWalk walk;
-    srVector3T<int> cell;
-    srVector3T<int> end_cell;
-    int span = 0;
+    const auto cell = cellAt(from->glmValue());
+    const auto end_cell = cellAt(to->glmValue());
+    const auto difference = glm::abs(cell - end_cell);
+    const int span = difference.x + difference.y + difference.z;
     bool blocked = false;
 
     trace.Seed(from, to);
     m_gd_result_count = 0;
     std::ranges::fill(m_visited_polygon_bits, false);
-    for (int axis = 0; axis < 3; ++axis) {
-        (&cell.x)[axis] = static_cast<int>(((&from->x)[axis] - (&m_spatial.m_minimum.x)[axis]) /
-                                           m_spatial.m_node_extent);
-        (&end_cell.x)[axis] = static_cast<int>(((&to->x)[axis] - (&m_spatial.m_minimum.x)[axis]) /
-                                               m_spatial.m_node_extent);
-        int difference = (&cell.x)[axis] - (&end_cell.x)[axis];
-        if (difference < 0) {
-            span -= difference;
-        } else {
-            span += difference;
-        }
-    }
     if (span < 2) {
-        CollectLeafPolygons(&cell);
+        CollectLeafPolygons(cell);
         blocked = TestCollectedPolygons(&trace);
         if (!blocked && span != 0) {
-            CollectLeafPolygons(&end_cell);
+            CollectLeafPolygons(end_cell);
             blocked = TestCollectedPolygons(&trace);
         }
     } else {
-        BuildCellWalk(*from, *to, &walk);
-        int error_a = walk.error0;
-        int error_b = walk.error1;
-        for (int index = 0; index < walk.count; ++index) {
-            if (blocked) {
-                break;
-            }
-            CollectLeafPolygons(&cell);
-            if (m_gd_result_count != 0) {
-                blocked = TestCollectedPolygons(&trace);
-            }
-            if (error_a < error_b) {
-                if (error_a < 0 && !blocked) {
-                    (&cell.x)[walk.minor_axis0] += (&walk.step.x)[walk.minor_axis0];
-                    error_a += walk.error_reset0;
-                    CollectLeafPolygons(&cell);
-                    if (m_gd_result_count != 0) {
-                        blocked = TestCollectedPolygons(&trace);
-                    }
-                    if (error_b < 0 && !blocked) {
-                        (&cell.x)[walk.minor_axis1] += (&walk.step.x)[walk.minor_axis1];
-                        error_b += walk.error_reset1;
-                        CollectLeafPolygons(&cell);
-                        if (m_gd_result_count != 0) {
-                            blocked = TestCollectedPolygons(&trace);
-                        }
-                    }
-                }
-            } else {
-                if (error_b < 0 && !blocked) {
-                    (&cell.x)[walk.minor_axis1] += (&walk.step.x)[walk.minor_axis1];
-                    error_b += walk.error_reset1;
-                    CollectLeafPolygons(&cell);
-                    if (m_gd_result_count != 0) {
-                        blocked = TestCollectedPolygons(&trace);
-                    }
-                    if (error_a < 0 && !blocked) {
-                        (&cell.x)[walk.minor_axis0] += (&walk.step.x)[walk.minor_axis0];
-                        error_a += walk.error_reset0;
-                        CollectLeafPolygons(&cell);
-                        if (m_gd_result_count != 0) {
-                            blocked = TestCollectedPolygons(&trace);
-                        }
-                    }
-                }
-            }
-            (&cell.x)[walk.major_axis] += (&walk.step.x)[walk.major_axis];
-            error_a -= walk.error_delta0;
-            error_b -= walk.error_delta1;
-        }
+        auto walk = cellWalk(from->glmValue(), to->glmValue());
+        // Preprocessing starts at the world-quantized cell, which can differ
+        // from the fixed-point cursor near a cell boundary.
+        walk.cell = cell;
+        walk.visitCells([&](const glm::ivec3& current) {
+            CollectLeafPolygons(current);
+            if (m_gd_result_count != 0) blocked = TestCollectedPolygons(&trace);
+            return !blocked;
+        });
     }
     return !blocked;
 }
@@ -1033,13 +985,10 @@ w8_ulong OctPreTree::AllocateSubMesh(W8OctSubmeshBuild* records)
     }
     for (w8_ulong index = 1; index < m_spatial.submesh_count; ++index) {
         W8OctSubmeshBuild* record = records + index;
-        /* Retail initialises the bounds only on this path; for empty records
-           the cell check below reads whatever the stack held. */
-        srVector3T<float> minimum;
-        srVector3T<float> maximum;
+        srBoundingBox bounds{glm::vec3(1e+06f), glm::vec3(-1e+06f)};
+        const auto& minimum = bounds.minimum;
+        const auto& maximum = bounds.maximum;
         if (record->m_polygon_count != 0) {
-            minimum = 1e+06f;
-            maximum = -1e+06f;
             record->m_polygon_ids = static_cast<int*>(malloc(record->m_polygon_count * sizeof(*record->m_polygon_ids) + 2 * sizeof(*record->m_polygon_ids)));
             if (record->m_polygon_ids == 0) {
                 ReportBuildStatus(7, "\nAllocateSubMesh: Could not allocate aulFaces.\n");
@@ -1059,24 +1008,7 @@ w8_ulong OctPreTree::AllocateSubMesh(W8OctSubmeshBuild* records)
                         for (int corner = 0; corner < 3; ++corner) {
                             const srVector3T<float>* position =
                                 &game_data->m_polygons[poly].vertices[corner]->position;
-                            if (maximum.x < position->x) {
-                                maximum.x = position->x;
-                            }
-                            if (position->x < minimum.x) {
-                                minimum.x = position->x;
-                            }
-                            if (maximum.y < position->y) {
-                                maximum.y = position->y;
-                            }
-                            if (position->y < minimum.y) {
-                                minimum.y = position->y;
-                            }
-                            if (maximum.z < position->z) {
-                                maximum.z = position->z;
-                            }
-                            if (position->z < minimum.z) {
-                                minimum.z = position->z;
-                            }
+                            bounds.include(position->glmValue());
                         }
                     }
                 }
@@ -1163,31 +1095,16 @@ void OctPreTree::VerifyAutoMeshes(W8OctPreTreeGeometry* geometry, W8OctSubmeshBu
                 if (m_branches[node].region != key) {
                     ReportBuildStatus(7, "Region has wrong automesh.");
                 }
-                srVector3T<float> minimum(g_float_one_million, 1e+06f, 1e+06f);
-                srVector3T<float> maximum(-1e+06f, -1e+06f, -1e+06f);
+                srBoundingBox bounds{glm::vec3(g_float_one_million, 1e+06f, 1e+06f),
+                                     glm::vec3(-1e+06f)};
+                const auto& minimum = bounds.minimum;
+                const auto& maximum = bounds.maximum;
                 for (w8_ulong link = mesh; link != 0; link = records[link].m_next_link) {
                     W8OctSubmeshBuild* record = records + link;
                     for (w8_ulong i = 0; i < record->vertex_count; ++i) {
                         const srVector3T<float>* position =
                             &geometry->m_vertices[record->m_vertex_ids[i]].position;
-                        if (maximum.x < position->x) {
-                            maximum.x = position->x;
-                        }
-                        if (position->x < minimum.x) {
-                            minimum.x = position->x;
-                        }
-                        if (maximum.y < position->y) {
-                            maximum.y = position->y;
-                        }
-                        if (position->y < minimum.y) {
-                            minimum.y = position->y;
-                        }
-                        if (maximum.z < position->z) {
-                            maximum.z = position->z;
-                        }
-                        if (position->z < minimum.z) {
-                            minimum.z = position->z;
-                        }
+                        bounds.include(position->glmValue());
                     }
                 }
                 if (cell_x + m_spatial.m_region_grid_cell < minimum.x || maximum.x < cell_x ||
@@ -1492,28 +1409,24 @@ unsigned char OctPreTree::InsertConditionalNodes(std::unordered_multimap<unsigne
 char OctPreTree::TestPathPropBounds(const srVector3T<float>* minimum,
                                     const srVector3T<float>* maximum)
 {
-    w8_ulong* ids = 0;
-    srVector3T<float> bounds[2];
-    srVector3T<float> triangle[3];
+    std::vector<w8_ulong> ids;
+    const srBoundingBox bounds{minimum->glmValue(), maximum->glmValue()};
     unsigned char hit = 0;
 
-    bounds[0] = *minimum;
-    bounds[1] = *maximum;
-    int count = QueryObjects(&ids, minimum, maximum, 3, -1);
+    ids = queryObjects({minimum->glmValue(), maximum->glmValue()}, 3, -1);
+    int count = ids.size();
     for (int i = 0; i < count && hit == 0; ++i) {
         W8GDSurface* surface = g_octree_game_data->m_pSurfaces.data() + ids[i];
         if ((surface->flags & W8_GD_SURFACE_CROSSING_MASK) == 0) {
-            triangle[0] = g_octree_game_data->m_pVertices[surface->vertex_indices[0]];
-            triangle[1] = g_octree_game_data->m_pVertices[surface->vertex_indices[1]];
-            triangle[2] = g_octree_game_data->m_pVertices[surface->vertex_indices[2]];
-            hit = TestSpatialTriangle(bounds, triangle, surface->Normal());
+            hit = SurfaceIntersectsBox(*surface, g_octree_game_data->m_pVertices, bounds);
         }
     }
     current_prop = -1;
     if (hit != 0)
         return 1;
 
-    count = QueryObjects(&ids, minimum, maximum, 8, -1);
+    ids = queryObjects({minimum->glmValue(), maximum->glmValue()}, 8, -1);
+    count = ids.size();
     bool prop_hit = false;
     for (int k = 0; k < count; ++k) {
         int id = ids[k];
@@ -1759,6 +1672,16 @@ bool PointInsideBoxBounds(const srVector3T<float>* bounds, const srVector3T<floa
 /* Test a triangle against an axis-aligned box.  The inexpensive containment
    and separating-axis checks precede explicit triangle-edge intersections
    with all six box faces. */
+bool SurfaceIntersectsBox(const W8GDSurface& surface, std::span<const srVector3> vertices,
+                          const srBoundingBox& box)
+{
+    const srVector3 bounds[]{srVector3(box.minimum), srVector3(box.maximum)};
+    const srVector3 triangle[]{vertices[surface.vertex_indices[0]],
+                               vertices[surface.vertex_indices[1]],
+                               vertices[surface.vertex_indices[2]]};
+    return TestSpatialTriangle(bounds, triangle, surface.Normal()) != 0;
+}
+
 // FUNCTION: WIZ8 0x0046ce60
 unsigned char TestSpatialTriangle(const srVector3T<float>* bounds,
                                   const srVector3T<float>* vertices,

@@ -169,7 +169,7 @@ int GetQuadrantForPosition(srVector3T<float> position)
     srVector3T<float> party;
     int bearing;
 
-    GetCameraPosition(&party);
+    party = cameraLocation();
     /* The heading comes back in radians; the party facing is kept in degrees. */
     bearing = static_cast<int>(NormalizeAngle(GetHeadingAngle(&party, &position)) * 57.295776f);
     bearing -= g_status.party_facing;

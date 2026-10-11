@@ -832,7 +832,7 @@ void UpdateNearbyWorldItems(void)
     unsigned int index;
     unsigned int count;
 
-    WorldGetCameraLocation(GetWorld(), &camera);
+    camera = cameraLocation(*GetWorld());
     count = gXStatus.world_items.size();
     for (index = 0; index < count; ++index) {
         W8WorldItem* item = ItemInfo(index);
@@ -887,11 +887,10 @@ glm::vec3 ItemThrowDirection(const glm::vec2& cursor, const glm::mat3& camera_ro
 void DropHeldItem(int)
 {
     glm::mat3 rotation;
-    WorldGetCameraRotation(g_world, &rotation);
+    rotation = cameraRotation(*g_world);
     srVector3 direction = ItemThrowDirection(GetCursorScaledPosition(), rotation);
 
-    srVector3T<float> camera;
-    GetCameraPosition(&camera);
+    srVector3T<float> camera = cameraLocation();
     direction += camera;
     g_octree->TraceLineOfSight(&camera, &direction, true, -3, -3, true, 0);
 
@@ -900,7 +899,7 @@ void DropHeldItem(int)
 
     srVector3T<float> position = camera + delta;
     position.y =
-        g_octree->SettleToGround(&position, 0, 1, 250.0f) + g_float_one_hundred_twenty_five;
+        g_octree->settleToGround(position.glmValue(), true, 250).position.y + g_float_one_hundred_twenty_five;
     if (FindNearbyFreePosition(250.0f, &position, true, true) != 0) {
         W8WorldItem* item = CreateWorldItem(&g_status.item_in_hand, &position,
                                             W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE, true);
@@ -1027,7 +1026,7 @@ bool IsWorldItemWithinReach(W8Item* owner, const srVector3T<float>* from, float 
     srVector3T<float> eye;
 
     owner->m_pRep->GetLocation(&position);
-    GetCameraPosition(&eye);
+    eye = cameraLocation();
 
     srVector3T<float> delta = position - *from;
     if (delta.Length() < radius) {
@@ -1053,7 +1052,7 @@ static bool IsWorldItemMarkerVisible(W8WorldItem* item, const srVector3T<float>&
         srVector3T<float> lower;
         srVector3T<float> upper;
         item->p3D->m_pRep->GetLocation(&position);
-        GetCameraPosition(&eye);
+        eye = cameraLocation();
         srVector3T<float> delta = position - camera;
         if (delta.Length() < static_cast<float>(g_double_twenty_five_hundred)) {
             item->p3D->GetCachedLocalBounds(&lower, &upper);
@@ -1077,7 +1076,7 @@ bool AnyWorldItemVisible(void)
     if (g_world == 0 || g_world->camera == 0) {
         return false;
     }
-    GetCameraPosition(&camera);
+    camera = cameraLocation();
     count = gXStatus.world_items.size();
     if (0 <= g_last_visible_world_item && g_last_visible_world_item < count) {
         W8WorldItem* item = GetWorldItemListEntry(g_last_visible_world_item);
@@ -1119,7 +1118,10 @@ unsigned char AdvanceFallingWorldItem(W8WorldItem* item)
         probe.y = dt * item->vertical_velocity + probe.y;
     }
 
-    ground = g_octree->SettleToGround(&probe, &hit, 1, 250.0f);
+    const auto ground_probe = g_octree->settleToGround(probe.glmValue(), 1, 250.0f);
+    probe = ground_probe.position;
+    hit = ground_probe.hit;
+    ground = ground_probe.position.y;
     if (!hit || fabs(ground - previous_y) < g_camera_snap_epsilon) {
         item->flags &= ~W8_WORLD_ITEM_FALLING;
         item->vertical_velocity = 0.0f;
@@ -1170,7 +1172,9 @@ unsigned char SettleWorldItem(W8WorldItem* item)
     item->flags &= ~W8_WORLD_ITEM_FALLING;
     item->vertical_velocity = 0.0f;
 
-    g_octree->SettleToGround(&start, &hit, 1, 250.0f);
+    const auto ground_probe = g_octree->settleToGround(start.glmValue(), 1, 250.0f);
+    start = ground_probe.position;
+    hit = ground_probe.hit;
     if (!hit) {
         return 0;
     }

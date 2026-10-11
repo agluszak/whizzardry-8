@@ -54,8 +54,7 @@ void CollectViewQuadCells(W8World* world, w8_long* x_list, w8_long* y_list, w8_l
     w8_long cam_x = static_cast<w8_long>((world->camera->getLocationX() - quad.origin.x) / cell_size);
     w8_long cam_y = static_cast<w8_long>((world->camera->getLocationZ() - quad.origin.y) / cell_size);
 
-    glm::mat3 rotation;
-    world->camera->getRotation(rotation);
+    auto rotation = world->camera->getRotation<glm::mat3>();
 
     srVector3T<float> direction(0.0f, 0.0f, world->render_range);
     glm::mat3 work = rotation;

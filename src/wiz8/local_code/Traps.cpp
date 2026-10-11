@@ -91,7 +91,7 @@ void WriteRecordModeEntry(void)
     file = [&]() { try { return wiz8::open_file(s_data_notes_txt, wiz8::OpenMode::replace); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (file != 0) {
         file->seek(-static_cast<std::int64_t>(0), wiz8::SeekOrigin::end);
-        GetWorldCameraState(GetWorld(), &state);
+        state = cameraState(*GetWorld());
         // GetCameraOrientation zeroes every angle-record slot after the first.
         line =
             fmt::format("{:f} {:f} {:f}\n", state.position.x, state.position.y, state.position.z);
@@ -358,7 +358,7 @@ void ResolveSprungTrap(Trigger* trigger)
         point.Set((minimum.x + maximum.x) * g_double_half, (minimum.y + maximum.y) * g_double_half,
                   (minimum.z + maximum.z) * g_double_half);
     }
-    GetCameraPosition(&camera);
+    camera = cameraLocation();
     g_octree->TraceLineOfSight(&camera, &point, true, -3, -3, true, 0);
     DischargeTrapSpell(point, g_table2[type + 11], power, count);
 }
