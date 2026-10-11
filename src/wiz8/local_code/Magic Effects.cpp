@@ -1337,196 +1337,110 @@ void FatigueTargets(W8SpellEffectEntry* effect)
     }
 }
 
-/* Put stamina back into the listed targets, capped at what each one is
-   missing. In quiet mode the totals are gathered and reported at the end;
-   the answer is whether every affected target is now full. */
-// FUNCTION: WIZ8 0x0054f520
-char RestoreTargetsStamina(W8SpellEffectEntry* effect)
-{
-    W8MonsterInfo* monster_info;
-    bool verbose;
-    unsigned int restored;
-    unsigned int missing;
-    unsigned int total;
-    unsigned int count;
-    int character_index;
-    int target_id;
-    bool target_is_character;
-    bool all_full;
-    int index;
+enum class RestoredResource { health, stamina };
 
-    verbose = g_settings.verbose_combat_messages != 0;
-    all_full = true;
-    total = 0;
-    count = 0;
-    for (index = 0; index < static_cast<int>(effect->target_indices.size()); ++index) {
-        character_index = effect->target_indices[index];
+static char RestoreTargetResource(W8SpellEffectEntry* effect, RestoredResource resource)
+{
+    const bool stamina = resource == RestoredResource::stamina;
+    const bool verbose = g_settings.verbose_combat_messages != 0;
+    bool all_full = true;
+    unsigned int total = 0;
+    unsigned int count = 0;
+    int target_id = 0;
+    bool target_is_character = false;
+    const auto record = [&](unsigned int restored, int id, bool character) {
+        if (!verbose) {
+            total += restored;
+            ++count;
+            target_id = id;
+            target_is_character = character;
+        }
+    };
+
+    for (int character_index : effect->target_indices) {
         if (character_index == -1) {
-            srAssertFail("iChar != -1", MAGIC_EFFECTS_CPP, 0x7e1, 0);
+            srAssertFail("iChar != -1", MAGIC_EFFECTS_CPP, stamina ? 0x7e1 : 0x75e, 0);
         }
         W8Character* character = &g_status.buffers.Char[character_index];
-        if (character->stamina != character->uiStaminaMax) {
-            restored = RollEffectMagnitude(&effect->definition);
-            if (restored != 0) {
-                missing = character->uiStaminaMax - character->stamina;
-                if (missing <= restored) {
-                    restored = missing;
-                }
-                RestoreCharacterStamina(character_index, restored, verbose);
-                if (character->stamina < character->uiStaminaMax) {
-                    all_full = false;
-                }
-                if (!verbose) {
-                    total += restored;
-                    ++count;
-                    target_is_character = true;
-                    target_id = character_index;
-                }
-            }
+        unsigned int missing = stamina ? 0 : character->uiHPMax - character->hp_current;
+        if (stamina ? character->stamina == character->uiStaminaMax : missing == 0) {
+            continue;
         }
+        unsigned int restored = RollEffectMagnitude(&effect->definition);
+        // Stamina ignores zero rolls; healing still applies and counts a zero roll.
+        if (stamina && restored == 0) {
+            continue;
+        }
+        if (stamina) missing = character->uiStaminaMax - character->stamina;
+        restored = std::min(missing, restored);
+        if (stamina) {
+            RestoreCharacterStamina(character_index, restored, verbose);
+            if (character->stamina < character->uiStaminaMax) all_full = false;
+        } else {
+            HealCharacter(character_index, restored, verbose);
+            if (character->hp_current < static_cast<unsigned int>(character->uiHPMax)) all_full = false;
+        }
+        record(restored, character_index, true);
     }
-    for (index = 0; index < static_cast<int>(effect->monster_ids.size()); ++index) {
-        monster_info = GetEffectMonsterTarget(effect->monster_ids[index], 0x800, 0x801);
-        if (monster_info->stamina != monster_info->stamina_max) {
-            restored = RollEffectMagnitude(&effect->definition);
-            if (restored != 0) {
-                missing = monster_info->stamina_max - monster_info->stamina;
-                if (missing <= restored) {
-                    restored = missing;
-                }
-                RestoreMonsterStamina(monster_info, restored, true);
-                if (static_cast<unsigned int>(monster_info->stamina) <
-                    static_cast<unsigned int>(monster_info->stamina_max)) {
-                    all_full = false;
-                }
-                if (!verbose) {
-                    total += restored;
-                    ++count;
-                    target_id = monster_info->location_id;
-                    target_is_character = false;
-                }
-            }
+    for (int id : effect->monster_ids) {
+        W8MonsterInfo* monster = GetEffectMonsterTarget(id, stamina ? 0x800 : 0x77d,
+                                                       stamina ? 0x801 : 0x77e);
+        unsigned int missing = stamina ? 0 : monster->uiHPMax - monster->hp_current;
+        if (stamina ? monster->stamina == monster->stamina_max : missing == 0) {
+            continue;
         }
+        unsigned int restored = RollEffectMagnitude(&effect->definition);
+        if (stamina && restored == 0) {
+            continue;
+        }
+        if (stamina) missing = monster->stamina_max - monster->stamina;
+        restored = std::min(missing, restored);
+        if (stamina) {
+            RestoreMonsterStamina(monster, restored, true);
+            if (static_cast<unsigned int>(monster->stamina) <
+                static_cast<unsigned int>(monster->stamina_max)) all_full = false;
+        } else {
+            HealMonster(monster, restored, verbose);
+            if (monster->hp_current < static_cast<unsigned int>(monster->uiHPMax)) all_full = false;
+        }
+        record(restored, monster->location_id, false);
     }
     if (!verbose && count != 0) {
-        effect->applied = true;
+        if (stamina) effect->applied = true;
         if (GetTextBoxMode() != 0) {
             AppendToLastTextLine(" -- ", -1);
             SetTextBoxMode(1, -1);
         }
         if (count == 1) {
-            std::string name;
-            std::string format;
-            if (!target_is_character) {
-                monster_info = MonsterInfoFromID(0x83b, MAGIC_EFFECTS_CPP, target_id, true);
-                name = GetMonsterName(monster_info, 0, 0);
-                format = g_localized_strings[0x1a2];
-            } else {
-                name = g_status.buffers.Char[target_id].name;
-                format = g_localized_strings[(total != 1) + 0x1a1];
-            }
-            AppendToLastTextLine(fmt::sprintf(format, name, total, -1), -1);
+            const std::string name = target_is_character ? g_status.buffers.Char[target_id].name
+                : GetMonsterName(MonsterInfoFromID(stamina ? 0x83b : 0x7b2, MAGIC_EFFECTS_CPP,
+                                                  target_id, true), 0, 0);
+            const int format = stamina ? (target_is_character ? (total != 1) + 0x1a1 : 0x1a2)
+                                       : (total != 1) + 0x19d;
+            AppendToLastTextLine(fmt::sprintf(g_localized_strings[format], name, total, -1), -1);
         } else {
-            AppendToLastTextLine(
-                fmt::sprintf(g_localized_strings[(total != 1) + 0x19f], count, total / count, -1),
-                -1);
+            const int format = stamina ? (total != 1) + 0x19f : (total / count != 1) + 0x19b;
+            AppendToLastTextLine(fmt::sprintf(g_localized_strings[format], count, total / count, -1), -1);
         }
         SetTextBoxMode(1, -1);
         effect->reported = true;
+        if (!stamina) effect->applied = true;
     }
     return all_full;
 }
 
-/* Heal the listed targets, capped at what each one is missing, with the same
-   quiet-mode tally and "everyone full" answer as the stamina version. */
+/* Put stamina back into the listed targets, capped at what each one is missing. */
+// FUNCTION: WIZ8 0x0054f520
+char RestoreTargetsStamina(W8SpellEffectEntry* effect)
+{
+    return RestoreTargetResource(effect, RestoredResource::stamina);
+}
+
+/* Heal the listed targets, capped at what each one is missing. */
 // FUNCTION: WIZ8 0x0054f190
 char HealTargets(W8SpellEffectEntry* effect)
 {
-    W8MonsterInfo* monster_info;
-    bool verbose;
-    unsigned int healed;
-    unsigned int missing;
-    unsigned int total;
-    unsigned int count;
-    int character_index;
-    int target_id;
-    bool target_is_character;
-    bool all_full;
-    int index;
-
-    verbose = g_settings.verbose_combat_messages != 0;
-    all_full = true;
-    count = 0;
-    total = 0;
-    for (index = 0; index < static_cast<int>(effect->target_indices.size()); ++index) {
-        character_index = effect->target_indices[index];
-        if (character_index == -1) {
-            srAssertFail("iChar != -1", MAGIC_EFFECTS_CPP, 0x75e, 0);
-        }
-        W8Character* character = &g_status.buffers.Char[character_index];
-        missing = character->uiHPMax - character->hp_current;
-        if (missing != 0) {
-            healed = RollEffectMagnitude(&effect->definition);
-            if (missing <= healed) {
-                healed = missing;
-            }
-            HealCharacter(character_index, healed, verbose);
-            if (character->hp_current < static_cast<unsigned int>(character->uiHPMax)) {
-                all_full = false;
-            }
-            if (!verbose) {
-                total += healed;
-                ++count;
-                target_is_character = true;
-                target_id = character_index;
-            }
-        }
-    }
-    for (index = 0; index < static_cast<int>(effect->monster_ids.size()); ++index) {
-        monster_info = GetEffectMonsterTarget(effect->monster_ids[index], 0x77d, 0x77e);
-        missing = monster_info->uiHPMax - monster_info->hp_current;
-        if (missing != 0) {
-            healed = RollEffectMagnitude(&effect->definition);
-            if (missing <= healed) {
-                healed = missing;
-            }
-            HealMonster(monster_info, healed, verbose);
-            if (monster_info->hp_current < static_cast<unsigned int>(monster_info->uiHPMax)) {
-                all_full = false;
-            }
-            if (!verbose) {
-                total += healed;
-                ++count;
-                target_id = monster_info->location_id;
-                target_is_character = false;
-            }
-        }
-    }
-    if (!verbose && count != 0) {
-        if (GetTextBoxMode() != 0) {
-            AppendToLastTextLine(" -- ", -1);
-            SetTextBoxMode(1, -1);
-        }
-        if (count == 1) {
-            std::string name;
-            if (!target_is_character) {
-                monster_info = MonsterInfoFromID(0x7b2, MAGIC_EFFECTS_CPP, target_id, true);
-                name = GetMonsterName(monster_info, 0, 0);
-            } else {
-                name = g_status.buffers.Char[target_id].name;
-            }
-            AppendToLastTextLine(
-                fmt::sprintf(g_localized_strings[(total != 1) + 0x19d], name, total, -1), -1);
-        } else {
-            AppendToLastTextLine(fmt::sprintf(g_localized_strings[(total / count != 1) + 0x19b],
-                                              count, total / count, -1),
-                                 -1);
-        }
-        SetTextBoxMode(1, -1);
-        effect->reported = true;
-        effect->applied = true;
-    }
-    return all_full;
+    return RestoreTargetResource(effect, RestoredResource::health);
 }
 
 /* Roll a magnitude per listed target, cut it by the target's resistance in
