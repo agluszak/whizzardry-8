@@ -1,3 +1,4 @@
+#include "glm/matrix.hpp"
 #include "wiz8/ground_shadow.h"
 #include "wiz8/layouts/world.h"
 #include "wiz8/engine_code/Camera.h"
@@ -617,14 +618,11 @@ static void triangle_visibility()
         {{1, 0, 0, 1}, {-1, 0, 0, 1}, {0, 1, 0, 1}, {0, -1, 0, 1}, {0, 0, 1, 1}, {0, 0, -1, 1}}};
     const glm::mat4 identity(1);
     std::array<w8_ulong, 3> indices;
-    srTriangleCuller::Input input{};
-    input.triangle_count = 3;
-    input.vertex_count = positions.size();
+    srTriangleCuller::Input input(identity, identity);
     input.cull_mode = 2;
-    input.triangles = triangles.data();
-    input.vertices = positions.data();
-    input.clip_planes = planes.data();
-    input.model_view = input.inverse_model_view = &identity;
+    input.triangles = triangles;
+    input.vertices = positions;
+    input.clip_planes = planes;
     input.clip_mask = 0x3f;
     auto output = srTriangleCuller::cull(input);
     REQUIRE((output.indices == std::vector<w8_ulong>{0, 2}));
@@ -635,18 +633,17 @@ static void triangle_visibility()
     // Active triangle filtering must keep source order without changing the input list.
     indices = {2, 1, 0};
     const std::array<glm::vec4, 3> facing{{{0, 0, 0, 1}, {0, 0, 0, -1}, {0, 0, 0, 1}}};
-    input.active_triangles = indices.data();
-    input.active_triangle_count = 3;
-    input.projected_vertices = facing.data();
+    input.active_triangles = indices;
+    input.polygon_planes = facing;
     input.cull_mode = 0;
     input.clip_mask = 0;
     output = srTriangleCuller::cull(input);
     REQUIRE((output.indices == std::vector<w8_ulong>{2, 0}));
     REQUIRE((indices == std::array<w8_ulong, 3>{2, 1, 0}));
-    input.active_triangle_count = 0;
+    input.active_triangles = std::span<const w8_ulong>{};
     output = srTriangleCuller::cull(input);
     REQUIRE((output.indices.empty() && output.avt.empty() && output.vertex_remap.empty()));
-    const auto clip = srTriangleCuller::getClipMask({1, 0, 0}, 0, planes.data(), 0x3f);
+    const auto clip = srTriangleCuller::getClipMask({1, 0, 0}, 0, planes, 0x3f);
     REQUIRE((clip.mask == (1u << 1) && std::isfinite(clip.depth)));
 }
 
@@ -1455,6 +1452,24 @@ TEST_CASE("Software backface selection preserves thresholds and active order", "
     REQUIRE(positive == std::vector<w8_ulong>{0, 2});
     mesh.active_polygons = std::span<const w8_ulong>{};
     REQUIRE(stMeshModel::facingPolygons(mesh, normals, glm::vec3(0), true, 0).empty());
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture, "Clip plane normalization preserves consumer transform ordering and degenerate planes", "[geometry][rendering]")
+{
+    srGERD renderer(srCreateSDLGPUDevice(), "clip plane ordering");
+    renderer.matrixMode(srGERD::MATRIX_MODELVIEW);
+    const auto scale = glm::scale(glm::mat4(1), glm::vec3(2, 3, 4));
+    renderer.loadMatrix(scale);
+    renderer.pushClipPlane({2, 0, 0, -2}, srGERD::CLIPMODE_POSITIONAL_0);
+    // GERD normalizes in object space before the inverse-transpose transform.
+    REQUIRE(renderer.getClipPlanes().planes[6] == glm::vec4(0.5f, 0, 0, -1));
+    renderer.popClipPlane();
+    // The CPU culler normalizes after its supplied covector transform.
+    const auto plane = srTriangleCuller::transformClipPlane({2, 0, 0, -2},
+                                                           glm::transpose(glm::inverse(scale)));
+    REQUIRE(plane == glm::vec4(1, 0, 0, -2));
+    REQUIRE(srTriangleCuller::transformClipPlane({0, 0, 0, 4}, glm::mat4(1)) ==
+            glm::vec4(0, 0, 0, 4));
 }
 
 TEST_CASE_METHOD(SurRenderTestFixture, "Empty software backface selections skip mesh submission", "[geometry]")

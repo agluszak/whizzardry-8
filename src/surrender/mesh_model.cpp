@@ -1249,7 +1249,7 @@ void srTriMeshPipeline::FlushSlots()
     srGERD::e_cullMode cull_mode = this->renderer->getCullMode();
     srGERD::e_winding winding = this->renderer->getWinding();
 
-    srTriangleCuller::Input culler_input;
+    srTriangleCuller::Input culler_input(model_view, inverse_model_view);
     if (cull_mode == srGERD::CULL_NONE) {
         culler_input.cull_mode = 2;
     } else if (cull_mode == srGERD::CULL_FRONT) {
@@ -1258,11 +1258,8 @@ void srTriMeshPipeline::FlushSlots()
         culler_input.cull_mode = winding != srGERD::WINDING_POSITIONAL_0;
     }
 
-    culler_input.vertex_count = vertex_count;
-    culler_input.vertices = positions;
+    culler_input.vertices = {positions, vertex_count};
     culler_input.clip_planes = clip_planes.planes;
-    culler_input.model_view = &model_view;
-    culler_input.inverse_model_view = &inverse_model_view;
 
     if ((this->flags & FRUSTUM_CLIPPING) == 0) {
         culler_input.clip_mask = 0;
@@ -1310,17 +1307,17 @@ void srTriMeshPipeline::FlushSlots()
         }
 
         if (!active_triangles) {
-            culler_input.triangle_count = batch_count;
-            culler_input.active_triangle_count = 0;
-            culler_input.active_triangles = 0;
-            culler_input.projected_vertices = projected_vertices + processed;
-            culler_input.triangles = triangles + processed;
+            culler_input.active_triangles.reset();
+            culler_input.polygon_planes = projected_vertices
+                ? std::span<const glm::vec4>(projected_vertices + processed, batch_count)
+                : std::span<const glm::vec4>{};
+            culler_input.triangles = {triangles + processed, batch_count};
         } else {
-            culler_input.triangle_count = triangle_count;
-            culler_input.active_triangle_count = batch_count;
-            culler_input.active_triangles = active_triangles->data() + processed;
-            culler_input.projected_vertices = projected_vertices;
-            culler_input.triangles = triangles;
+            culler_input.active_triangles = active_triangles->subspan(processed, batch_count);
+            culler_input.polygon_planes = projected_vertices
+                ? std::span<const glm::vec4>(projected_vertices, triangle_count)
+                : std::span<const glm::vec4>{};
+            culler_input.triangles = {triangles, triangle_count};
         }
 
         auto culler_output = srTriangleCuller::cull(culler_input);

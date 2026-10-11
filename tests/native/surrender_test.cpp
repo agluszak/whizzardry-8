@@ -1,3 +1,4 @@
+#include <stdexcept>
 #include <array>
 #include <vector>
 #include <span>
@@ -272,15 +273,11 @@ TEST_CASE("Triangle culling owns ordered indices and vertex remapping", "[surren
     std::array<glm::vec4, 32> planes{};
     planes[7] = {1, 0, 0, 0};
     const glm::mat4 identity(1);
-    srTriangleCuller::Input input{};
-    input.triangle_count = triangles.size();
-    input.vertex_count = vertices.size();
-    input.triangles = triangles.data();
-    input.vertices = vertices.data();
-    input.projected_vertices = equations.data();
-    input.clip_planes = planes.data();
-    input.model_view = &identity;
-    input.inverse_model_view = &identity;
+    srTriangleCuller::Input input(identity, identity);
+    input.triangles = triangles;
+    input.vertices = vertices;
+    input.polygon_planes = equations;
+    input.clip_planes = planes;
     input.cull_mode = 0;
     input.clip_mask = 1u << 7;
     auto result = srTriangleCuller::cull(input);
@@ -290,21 +287,20 @@ TEST_CASE("Triangle culling owns ordered indices and vertex remapping", "[surren
 
     // Active lists retain their order and bypass the already-applied clip test.
     const std::array<w8_ulong, 3> active{3, 1, 3};
-    input.active_triangles = active.data();
-    input.active_triangle_count = active.size();
+    input.active_triangles = active;
     input.cull_mode = 2;
     const auto active_result = srTriangleCuller::cull(input);
     REQUIRE(active_result.indices == std::vector<w8_ulong>{3, 1, 3});
     REQUIRE(active_result.avt == std::vector<w8_ulong>{0, 2, 4, 5});
     REQUIRE(result.indices == std::vector<w8_ulong>{0, 2});
 
-    input.active_triangles = nullptr;
+    input.active_triangles.reset();
     input.cull_mode = 1;
     const auto opposite = srTriangleCuller::cull(input);
     REQUIRE(opposite.indices == std::vector<w8_ulong>{3});
     input.clip_mask = 0;
     REQUIRE(srTriangleCuller::cull(input).indices == std::vector<w8_ulong>{1, 3});
-    input.triangle_count = 0;
+    input.triangles = {};
     const auto empty = srTriangleCuller::cull(input);
     REQUIRE(empty.indices.empty());
     REQUIRE(empty.avt.empty());
@@ -326,6 +322,42 @@ TEST_CASE("Renderer triangle clipping uses direct and remapped vertices", "[surr
     REQUIRE(srRender::triangleVisible(triangles[1], flags.data()));
 }
 
+TEST_CASE("Triangle culling rejects inconsistent spans and retains empty selection semantics", "[surrender][culling]")
+{
+    std::array<srVector3i, 1> triangles{{{0, 1, 2}}};
+    const std::array<glm::vec3, 3> vertices{{{0, 0, 0}, {1, 0, 0}, {0, 1, 0}}};
+    const std::array<glm::vec4, 1> planes{{{1, 0, 0, 1}}};
+    const glm::mat4 identity(1);
+    srTriangleCuller::Input input(identity, identity);
+    input.triangles = triangles;
+    input.vertices = vertices;
+    input.clip_planes = planes;
+    input.cull_mode = 2;
+    input.clip_mask = 1u << 31;
+    REQUIRE_THROWS_AS(srTriangleCuller::cull(input), std::invalid_argument);
+    REQUIRE_THROWS_AS(srTriangleCuller::getClipMask({0, 0, 0}, 1, planes, 1u << 31),
+                      std::invalid_argument);
+    const std::array<w8_ulong, 1> active{0};
+    input.active_triangles = active;
+    // Explicit selections have already been clipped, so the unused plane mask is ignored.
+    REQUIRE(srTriangleCuller::cull(input).indices == std::vector<w8_ulong>{0});
+    const std::array<w8_ulong, 1> invalid{1};
+    input.active_triangles = invalid;
+    REQUIRE_THROWS_AS(srTriangleCuller::cull(input), std::invalid_argument);
+    input.active_triangles = active;
+    triangles[0].x = -1;
+    REQUIRE_THROWS_AS(srTriangleCuller::cull(input), std::invalid_argument);
+    triangles[0].x = 0;
+    input.cull_mode = 0;
+    REQUIRE_THROWS_AS(srTriangleCuller::cull(input), std::invalid_argument);
+    input.active_triangles = std::span<const w8_ulong>{};
+    REQUIRE(srTriangleCuller::cull(input).indices.empty());
+    input.active_triangles.reset();
+    input.clip_mask = 0;
+    input.cull_mode = 2;
+    REQUIRE(srTriangleCuller::cull(input).indices == std::vector<w8_ulong>{0});
+}
+
 TEST_CASE("Triangle clipping retains high plane bits across large meshes", "[surrender][culling]")
 {
     std::array<glm::vec3, 513> vertices;
@@ -338,13 +370,10 @@ TEST_CASE("Triangle clipping retains high plane bits across large meshes", "[sur
     planes[31] = {1, 0, 0, 0};
     planes[5] = {0, 1, 0, 1};
     const glm::mat4 identity(1);
-    srTriangleCuller::Input input{};
-    input.triangle_count = triangles.size();
-    input.vertex_count = vertices.size();
-    input.triangles = triangles.data();
-    input.vertices = vertices.data();
-    input.clip_planes = planes.data();
-    input.model_view = input.inverse_model_view = &identity;
+    srTriangleCuller::Input input(identity, identity);
+    input.triangles = triangles;
+    input.vertices = vertices;
+    input.clip_planes = planes;
     input.cull_mode = 2;
     input.clip_mask = (1u << 31) | (1u << 5);
     const auto result = srTriangleCuller::cull(input);
