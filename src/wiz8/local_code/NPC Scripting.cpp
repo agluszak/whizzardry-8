@@ -5,6 +5,7 @@
 #include <vector>
 #include <ctime>
 #include <memory>
+#include <optional>
 #include <string>
 #include <cstdint>
 #include <cstring>
