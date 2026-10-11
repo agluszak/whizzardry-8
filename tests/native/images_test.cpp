@@ -19,6 +19,7 @@
 #include <utility>
 
 #include "himage.h"
+#include "vsurface.h"
 #include "imgfmt.h"
 #include "wiz8/slf.h"
 #include "temporary_directory.h"
@@ -276,6 +277,16 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
         auto default_image = load(extensionless);
         REQUIRE((default_image && !strcmp(extensionless, "Dotted.dir\\default")));
         check_pcx(*default_image);
+
+        // The surface factory must copy the image pixels, not merely allocate storage.
+        auto surface = LoadVideoSurface("Dotted.dir/default.PCX");
+        REQUIRE(surface);
+        const auto& pixels = *surface->cpu().surface;
+        REQUIRE((pixels.w == 3 && pixels.h == 2 && surface->ubBitDepth == 8));
+        const UINT8 expected[]{0, 1, 1, 2, 3, 0xc1};
+        for (int y = 0; y < 2; ++y)
+            REQUIRE(!memcmp(static_cast<const UINT8*>(pixels.pixels) + y * pixels.pitch,
+                            expected + y * 3, 3));
     }
     {
         auto complete = load("Dotted.dir/default.PCX");
