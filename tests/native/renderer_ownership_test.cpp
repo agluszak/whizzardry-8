@@ -234,6 +234,92 @@ public:
     }
 };
 
+class CoverageMaterial : public TestMaterial {
+public:
+    float scale = 1;
+    void getMaterialInfo(srVertexProcessor::MaterialInfo& info) override
+    {
+        TestMaterial::getMaterialInfo(info);
+        info.diffuse.w = info.fog_scale = scale;
+    }
+};
+
+class SeedCoverage : public srVertexProcessor {
+public:
+    int isActive(srVertexPipe&) override { return 1; }
+    void process(srVertexPipe& pipe) override
+    {
+        auto* diffuse = pipe.getDiffuse();
+        auto* specular = pipe.getSpecular();
+        auto* alpha = pipe.getAlpha();
+        auto* fog = pipe.getFog();
+        const auto* indices = pipe.getAVT();
+        const float values[] = {-2.f, 0.f, .25f, 1.f, 2.f};
+        for (w8_ulong index = 0; index < pipe.getVertexCount(); ++index) {
+            diffuse[index] = specular[index] = glm::vec4(.5f);
+            alpha[index] = fog[index] = values[indices[index] % 5];
+        }
+    }
+};
+
+bool coverageFinalization()
+{
+    std::array<srVector3, 65> positions;
+    std::array<w8_ulong, 65> indices;
+    std::array<glm::vec4, 65> eye, diffuse, specular;
+    std::array<unsigned char, 65> attributes{};
+    for (unsigned index = 0; index < positions.size(); ++index) {
+        positions[index].Set(0, 0, float(index + 1));
+        indices[index] = index;
+    }
+    srVertexArray arrays{};
+    arrays.eye_locations = eye.data(); arrays.diffuse = diffuse.data();
+    arrays.specular = specular.data(); arrays.attributes = attributes.data();
+    glm::mat4 identity(1);
+    SeedCoverage seed;
+    srVertexProcessor* processor = &seed;
+    CoverageMaterial material;
+    srVertexPipe::Record record{};
+    record.material = &material;
+    srVertexPipe::Input input{};
+    input.vertex_count = positions.size(); input.active_vertices = indices.data();
+    input.direct_vertex_indices = 1; input.positions = positions.data();
+    input.model_view = input.normal_matrix = &identity;
+    input.vertex_arrays = &arrays; input.records = {&record, 1};
+    input.processors = &processor; input.processor_count = 1;
+    input.environment_maximum = input.environment_inverse_scale = 1;
+    const float values[] = {-2.f, 0.f, .25f, 1.f, 2.f};
+    for (unsigned channels = 1; channels < 16; ++channels) {
+        unsigned enabled = 0;
+        const srVertexProcessor::e_channel kinds[] = {
+            srVertexProcessor::CHANNEL_DIFFUSE, srVertexProcessor::CHANNEL_ALPHA,
+            srVertexProcessor::CHANNEL_SPECULAR, srVertexProcessor::CHANNEL_FOG};
+        for (unsigned bit = 0; bit < 4; ++bit)
+            if (channels & (1u << bit)) enabled |= 1u << kinds[bit];
+        record.channels = ~enabled;
+        for (float scale : {-2.f, 0.f, .5f, 1.f, 2.f}) {
+            material.scale = scale;
+            srVertexPipe pipe;
+            pipe.process(input);
+            for (unsigned index = 0; index < positions.size(); ++index) {
+                const float source = values[index % 5];
+                // With colour enabled, clamp the final scaled component; without
+                // it, clamp coverage first and retain the scaled alpha as-is.
+                const float clamped = source < 0 ? 0 : source > 1 ? 1 : source;
+                auto clamp = [](float value) { return value < 0 ? 0 : value > 1 ? 1 : value; };
+                const float expected_alpha = channels & 2
+                    ? channels & 1 ? clamp(scale * source) : scale * clamped : .5f;
+                const float expected_fog = channels & 8
+                    ? channels & 4 ? clamp(scale * source) : scale * clamped : .5f;
+                CAPTURE(channels, scale, index);
+                REQUIRE(diffuse[index].w == expected_alpha);
+                REQUIRE(specular[index].w == expected_fog);
+            }
+        }
+    }
+    return true;
+}
+
 bool materialChannelOperations()
 {
     // Cross the 64-vertex batch boundary for every combination of material operations.
@@ -454,6 +540,7 @@ TEST_CASE("renderer_ownership_test")
         REQUIRE(processorOwnership());
         REQUIRE(rendererOwnership());
         REQUIRE(materialChannelOperations());
+        REQUIRE(coverageFinalization());
         REQUIRE(pipelineRecordTexcoords());
         REQUIRE(srExit());
         REQUIRE(srGERD::getFirst() == nullptr);

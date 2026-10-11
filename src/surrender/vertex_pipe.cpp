@@ -22,6 +22,21 @@
 #include "surrender/srStatisticsManager.h"
 #include "surrender/srVertexProcessor.h"
 
+// Opacity and fog coverage occupy colour alpha after their own channel setup.
+// Some paths clamp coverage before scaling; others clamp the completed colour.
+static void ScaleAndStoreCoverage(std::span<float> values, glm::vec4* colors,
+                                  float scale, bool clamp_values)
+{
+    if (clamp_values) {
+        for (float& value : values) value = glm::clamp(value, 0.0f, 1.0f);
+    }
+    if (!values.empty() && scale != 1.0f) {
+        if (scale == 0.0f) std::ranges::fill(values, 0.0f);
+        else for (float& value : values) value = scale * value;
+    }
+    for (std::size_t index = 0; index < values.size(); ++index) colors[index].w = values[index];
+}
+
 // FUNCTION: SURRENDER 0x1002AA50
 srFlags<srVertexProcessor::e_channel> srVertexPipe::getShaderDisableMask(const srShader& shader)
 {
@@ -343,21 +358,8 @@ void srVertexPipe::finishDiffuseAlpha()
                 setupAlpha();
             }
             alpha = scratch.alpha + sub_batch_offset;
-            if ((channel_mask & (1UL << srVertexProcessor::CHANNEL_DIFFUSE)) == 0) {
-                for (std::size_t i = 0; i < vertex_count; ++i)
-                    alpha[i] = glm::clamp(alpha[i], 0.0f, 1.0f);
-            }
-            float opacity = material_info.diffuse.w;
-            if ((vertex_count != 0) && (opacity != 1.0f)) {
-                if (opacity == 0.0f) {
-                    std::fill_n(alpha, vertex_count, 0.0f);
-                } else {
-                    for (std::size_t i = 0; i < vertex_count; ++i)
-                        alpha[i] = opacity * alpha[i];
-                }
-            }
-            for (std::size_t i = 0; i < vertex_count; ++i)
-                diffuse[i].w = alpha[i];
+            ScaleAndStoreCoverage({alpha, vertex_count}, diffuse, material_info.diffuse.w,
+                                  (channel_mask & (1UL << srVertexProcessor::CHANNEL_DIFFUSE)) == 0);
         }
     }
     if (((channel_mask & (1UL << srVertexProcessor::CHANNEL_DIFFUSE)) != 0) &&
@@ -398,19 +400,7 @@ void srVertexPipe::finishSpecularFog()
                 setupFog();
             }
             float* fog = scratch.fog + sub_batch_offset;
-            for (std::size_t i = 0; i < vertex_count; ++i)
-                fog[i] = glm::clamp(fog[i], 0.0f, 1.0f);
-            float scale = material_info.fog_scale;
-            if ((vertex_count != 0) && (scale != 1.0f)) {
-                if (scale == 0.0f) {
-                    std::fill_n(fog, vertex_count, 0.0f);
-                } else {
-                    for (std::size_t i = 0; i < vertex_count; ++i)
-                        fog[i] = scale * fog[i];
-                }
-            }
-            for (std::size_t i = 0; i < vertex_count; ++i)
-                destination[i].w = fog[i];
+            ScaleAndStoreCoverage({fog, vertex_count}, destination, material_info.fog_scale, true);
         }
     } else {
         srCore.getStatisticsManager()->statistics.specular_operations += vertex_count;
@@ -423,17 +413,7 @@ void srVertexPipe::finishSpecularFog()
                 setupFog();
             }
             float* fog = scratch.fog + sub_batch_offset;
-            float scale = material_info.fog_scale;
-            if ((vertex_count != 0) && (scale != 1.0f)) {
-                if (scale == 0.0f) {
-                    std::fill_n(fog, vertex_count, 0.0f);
-                } else {
-                    for (std::size_t i = 0; i < vertex_count; ++i)
-                        fog[i] = scale * fog[i];
-                }
-            }
-            for (std::size_t i = 0; i < vertex_count; ++i)
-                destination[i].w = fog[i];
+            ScaleAndStoreCoverage({fog, vertex_count}, destination, material_info.fog_scale, false);
         }
         if (vertex_count != 0) {
             for (std::size_t i = 0; i < vertex_count; ++i)
