@@ -132,9 +132,9 @@ float stTextureAnim::getPriority()
 }
 
 // FUNCTION: WIZ8 0x00484D80
-void stTextureAnim::getDimensions(Dimensions& dimensions)
+srTextureIFace::Dimensions stTextureAnim::getDimensions()
 {
-    current().getDimensions(dimensions);
+    return current().getDimensions();
 }
 
 // FUNCTION: WIZ8 0x00484DB0
@@ -150,9 +150,9 @@ void stTextureAnim::getMipmapLevelPartial(PartialRequest& request)
 }
 
 // FUNCTION: WIZ8 0x00484E10
-void stTextureAnim::getTextureParms(Parameters& parameters)
+srTextureIFace::Parameters stTextureAnim::getParameters()
 {
-    current().getTextureParms(parameters);
+    return current().getParameters();
 }
 
 // FUNCTION: WIZ8 0x00484E40
@@ -169,7 +169,7 @@ void stTextureAnim::setupDefaultValues()
     srTextureIFace* texture = textures.empty() ? nullptr : textures[0].get();
 
     if (texture != 0) {
-        texture->getDimensions(texture_dimensions_);
+        texture_dimensions_ = texture->getDimensions();
         texture_flags_ &= ~2U; /* FLAG_DIRTY_DEFAULTS */
     } else {
         texture_dimensions_.width = 1;
