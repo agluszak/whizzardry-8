@@ -192,77 +192,78 @@ void srLight::process(const ProcessInfo& info, e_processType type)
         renderer->popVertexProcessor();
         return;
     }
-    applyWorldSpaceMatrix(*renderer);
-    const auto model_view = renderer->getMatrix();
-    derived_flags = 0;
-    derived_flags = srLight::DERIVED_ACTIVE;
-    channel_mask = 0;
-    if (ambient.x != 0.0f || ambient.y != 0.0f || ambient.z != 0.0f) {
-        channel_mask |= (1UL << srVertexProcessor::CHANNEL_LIGHT_AMBIENT);
-        scaled_ambient = glm::vec4(ambient * intensity, 0.0f);
-    }
-    if (diffuse.x != 0.0f || diffuse.y != 0.0f || diffuse.z != 0.0f) {
-        channel_mask |= (1UL << srVertexProcessor::CHANNEL_LIGHT_DIFFUSE);
-        scaled_diffuse = glm::vec4(diffuse * intensity, 0.0f);
-    }
-    if (specular.x != 0.0f || specular.y != 0.0f || specular.z != 0.0f) {
-        channel_mask |= (1UL << srVertexProcessor::CHANNEL_SPECULAR);
-        scaled_specular = glm::vec4(specular * intensity, 0.0f);
-    }
-    if (channel_mask == 0) {
-        derived_flags &= ~srLight::DERIVED_ACTIVE;
-    }
-    if ((enable_flags & (1UL << srLight::ENABLE_DIRECTIONAL)) != 0) {
-        derived_flags |= srLight::DERIVED_DIRECTIONAL;
-        eye_location = normalizedOrZero(-glm::vec3(model_view[2]));
-    } else {
-        if ((enable_flags & (1UL << srLight::ENABLE_SPOT)) != 0 && spot_angle > 0.0f &&
-            spot_exponent != 0.0f) {
-            const auto inverse = renderer->getInverseModelViewMatrix();
-            derived_flags |= srLight::DERIVED_SPOT;
-            spot_cutoff = (float)cos(spot_angle);
-            spot_direction_eye =
-                normalizedOrZero(glm::transpose(glm::mat3(inverse)) * spot_direction);
+    {
+        const auto transform = scopedWorldSpaceMatrix(*renderer);
+        const auto model_view = renderer->getMatrix();
+        derived_flags = 0;
+        derived_flags = srLight::DERIVED_ACTIVE;
+        channel_mask = 0;
+        if (ambient.x != 0.0f || ambient.y != 0.0f || ambient.z != 0.0f) {
+            channel_mask |= (1UL << srVertexProcessor::CHANNEL_LIGHT_AMBIENT);
+            scaled_ambient = glm::vec4(ambient * intensity, 0.0f);
         }
-        if (attenuation_model != ATTENUATION_NONE) {
-            if (attenuation_model == ATTENUATION_OPENGL) {
-                derived_flags |= srLight::DERIVED_OPENGL_ATTENUATION;
-                if (fabsf(opengl_attenuation.y) < 5.9604645e-08f &&
-                    fabsf(opengl_attenuation.z) < 5.9604645e-08f) {
-                    if (opengl_attenuation.x == 1.0f ||
-                        fabsf(opengl_attenuation.x) < 5.9604645e-08f) {
-                        derived_flags &= ~srLight::DERIVED_OPENGL_ATTENUATION;
-                    }
-                    derived_flags |= srLight::DERIVED_CONSTANT_ATTENUATION;
-                }
-            } else {
-                float scale = renderer->getMaxModelViewScale();
-                scaled_near_start = scale * (float)near_start;
-                scaled_far_end = scale * (float)far_end;
-                if (near_start == near_end) {
-                    near_attenuation = 1.0f;
-                } else {
-                    near_attenuation = (float)(1.0 / (scale * (near_end - near_start)));
-                }
-                if (far_start == far_end) {
-                    far_attenuation = 1.0f;
-                } else {
-                    far_attenuation = (float)(1.0 / (scale * (far_end - far_start)));
-                }
-                if ((enable_flags & (1UL << srLight::ENABLE_RANGE_FAR)) != 0) {
-                    if ((enable_flags & (1UL << srLight::ENABLE_BOUNDING_SPHERE)) != 0) {
-                        if (renderer->testBoundingSphere(glm::vec3(0), safe_range + far_end) == 0) {
-                            derived_flags &= ~srLight::DERIVED_ACTIVE;
+        if (diffuse.x != 0.0f || diffuse.y != 0.0f || diffuse.z != 0.0f) {
+            channel_mask |= (1UL << srVertexProcessor::CHANNEL_LIGHT_DIFFUSE);
+            scaled_diffuse = glm::vec4(diffuse * intensity, 0.0f);
+        }
+        if (specular.x != 0.0f || specular.y != 0.0f || specular.z != 0.0f) {
+            channel_mask |= (1UL << srVertexProcessor::CHANNEL_SPECULAR);
+            scaled_specular = glm::vec4(specular * intensity, 0.0f);
+        }
+        if (channel_mask == 0) {
+            derived_flags &= ~srLight::DERIVED_ACTIVE;
+        }
+        if ((enable_flags & (1UL << srLight::ENABLE_DIRECTIONAL)) != 0) {
+            derived_flags |= srLight::DERIVED_DIRECTIONAL;
+            eye_location = normalizedOrZero(-glm::vec3(model_view[2]));
+        } else {
+            if ((enable_flags & (1UL << srLight::ENABLE_SPOT)) != 0 && spot_angle > 0.0f &&
+                spot_exponent != 0.0f) {
+                const auto inverse = renderer->getInverseModelViewMatrix();
+                derived_flags |= srLight::DERIVED_SPOT;
+                spot_cutoff = (float)cos(spot_angle);
+                spot_direction_eye =
+                    normalizedOrZero(glm::transpose(glm::mat3(inverse)) * spot_direction);
+            }
+            if (attenuation_model != ATTENUATION_NONE) {
+                if (attenuation_model == ATTENUATION_OPENGL) {
+                    derived_flags |= srLight::DERIVED_OPENGL_ATTENUATION;
+                    if (fabsf(opengl_attenuation.y) < 5.9604645e-08f &&
+                        fabsf(opengl_attenuation.z) < 5.9604645e-08f) {
+                        if (opengl_attenuation.x == 1.0f ||
+                            fabsf(opengl_attenuation.x) < 5.9604645e-08f) {
+                            derived_flags &= ~srLight::DERIVED_OPENGL_ATTENUATION;
                         }
+                        derived_flags |= srLight::DERIVED_CONSTANT_ATTENUATION;
                     }
-                    attenuation_range = scaled_far_end;
-                    derived_flags |= srLight::DERIVED_RANGE_CULL;
+                } else {
+                    float scale = renderer->getMaxModelViewScale();
+                    scaled_near_start = scale * (float)near_start;
+                    scaled_far_end = scale * (float)far_end;
+                    if (near_start == near_end) {
+                        near_attenuation = 1.0f;
+                    } else {
+                        near_attenuation = (float)(1.0 / (scale * (near_end - near_start)));
+                    }
+                    if (far_start == far_end) {
+                        far_attenuation = 1.0f;
+                    } else {
+                        far_attenuation = (float)(1.0 / (scale * (far_end - far_start)));
+                    }
+                    if ((enable_flags & (1UL << srLight::ENABLE_RANGE_FAR)) != 0) {
+                        if ((enable_flags & (1UL << srLight::ENABLE_BOUNDING_SPHERE)) != 0) {
+                            if (renderer->testBoundingSphere(glm::vec3(0), safe_range + far_end) == 0) {
+                                derived_flags &= ~srLight::DERIVED_ACTIVE;
+                            }
+                        }
+                        attenuation_range = scaled_far_end;
+                        derived_flags |= srLight::DERIVED_RANGE_CULL;
+                    }
                 }
             }
+            eye_location = glm::vec3(model_view[3]);
         }
-        eye_location = glm::vec3(model_view[3]);
     }
-    renderer->popMatrix();
     if ((derived_flags & srLight::DERIVED_ACTIVE) != 0) {
         renderer->pushVertexProcessor(*this);
     }

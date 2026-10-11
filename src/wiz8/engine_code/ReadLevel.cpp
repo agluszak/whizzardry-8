@@ -95,7 +95,7 @@ void stLevel::traverse(TraverseInfo& info)
 void stLevel::process(const ProcessInfo& info, e_processType)
 {
     srGERD& renderer = *info.renderer;
-    applyWorldSpaceMatrix(renderer);
+    const auto transform = scopedWorldSpaceMatrix(renderer);
 
     w8_ulong old_exclusion_mask = 0;
     if (m_render_exclusion_mask != 0) {
@@ -170,7 +170,6 @@ void stLevel::process(const ProcessInfo& info, e_processType)
     if (m_render_exclusion_mask != 0) {
         renderer.setExclusionMask(old_exclusion_mask);
     }
-    renderer.popMatrix();
 }
 
 namespace {

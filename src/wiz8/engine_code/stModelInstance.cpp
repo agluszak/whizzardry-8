@@ -22,6 +22,7 @@
 #include "surrender/srNode.h"
 #include "surrender/srTriMeshPipeline.h"
 #include "surrender/mesh_submission.h"
+#include "surrender/model_view_scope.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/Video2.h"
 #include "surrender/srMath.h"
@@ -642,8 +643,7 @@ void stModelInstance::RenderShadow(srGERD& renderer, srMeshModel::TriMesh& mesh)
     float height = mesh.bounds_maximum.y - mesh.bounds_minimum.y;
     const srMeshSubmission::EnableScope enabled(renderer, true);
     renderer.setCullMode(srGERD::CULL_NONE);
-    renderer.matrixMode(srGERD::MATRIX_MODELVIEW);
-    renderer.pushMatrix();
+    const srModelViewScope transform(renderer);
     renderer.translate(0.0, height * g_float_half, 0.0);
     height *= g_shadow_extrusion_pitch_scale;
     if (height < g_float_half) {
@@ -673,5 +673,4 @@ void stModelInstance::RenderShadow(srGERD& renderer, srMeshModel::TriMesh& mesh)
     ++pipeline->slot_count;
     pipeline->PrepareSlot();
     pipeline->FlushIfCurrent();
-    renderer.popMatrix();
 }

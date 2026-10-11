@@ -1,3 +1,4 @@
+#include "surrender/model_view_scope.h"
 #include "surrender/srBoundingSphere.h"
 #include <glm/ext/matrix_clip_space.hpp>
 #include <glm/ext/matrix_transform.hpp>
@@ -22,6 +23,7 @@
 #include <thread>
 #include <unordered_map>
 #include <utility>
+#include <stdexcept>
 
 #include "glm/common.hpp"
 #include "glm/geometric.hpp"
@@ -870,13 +872,15 @@ void srGERD::matrixMode(e_matrixMode mode)
 }
 
 // FUNCTION: SURRENDER 0x100235B0
-void srGERD::pushMatrix()
+bool srGERD::pushMatrix()
 {
     MatrixStack& stack = state.matrix_stacks[state.matrix_mode];
     if (stack.depth < 0x20) {
         stack.stack[stack.depth] = state.matrix_current[state.matrix_mode];
         stack.depth++;
+        return true;
     }
+    return false;
 }
 
 // FUNCTION: SURRENDER 0x10023560
@@ -2003,11 +2007,24 @@ float srGERD::getMaxModelViewScale()
     return state.max_modelview_scale;
 }
 
-// FUNCTION: SURRENDER 0x10021D20
-void srGERD::pushMultMatrix(const glm::mat4x3& matrix)
+srModelViewScope::srModelViewScope(srGERD& renderer) : renderer(&renderer)
 {
-    pushMatrix();
-    multMatrix(glm::mat4(matrix));
+    renderer.matrixMode(srGERD::MATRIX_MODELVIEW);
+    if (!renderer.pushMatrix())
+        throw std::overflow_error("Model-view matrix stack is full");
+}
+
+srModelViewScope::srModelViewScope(srModelViewScope&& other) noexcept
+    : renderer(std::exchange(other.renderer, nullptr))
+{
+}
+
+srModelViewScope::~srModelViewScope()
+{
+    if (renderer) {
+        renderer->matrixMode(srGERD::MATRIX_MODELVIEW);
+        renderer->popMatrix();
+    }
 }
 
 // FUNCTION: SURRENDER 0x10022C50

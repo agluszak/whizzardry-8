@@ -104,21 +104,15 @@ void srBounder::traverse(TraverseInfo& info)
                 return;
             }
             if (bounds.state == 1) {
-                applyWorldSpaceMatrix(*renderer);
+                const auto transform = scopedWorldSpaceMatrix(*renderer);
                 if (renderer->testBoundingSphere(bounds.center, bounds.radius) ==
                     srGERD::VISIBILITY_OUTSIDE) {
-                    renderer->matrixMode(srGERD::MATRIX_MODELVIEW);
-                    renderer->popMatrix();
                     return;
                 }
                 if (renderer->testBoundingBox(bounds.minimum, bounds.maximum) ==
                     srGERD::VISIBILITY_OUTSIDE) {
-                    renderer->matrixMode(srGERD::MATRIX_MODELVIEW);
-                    renderer->popMatrix();
                     return;
                 }
-                renderer->matrixMode(srGERD::MATRIX_MODELVIEW);
-                renderer->popMatrix();
             }
         }
         if (first_child_ != 0) {

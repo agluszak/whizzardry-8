@@ -1,3 +1,4 @@
+#include "surrender/model_view_scope.h"
 #include <ostream>
 #include <memory>
 #include <string>
@@ -76,13 +77,12 @@ srNode::BoundInfo srModelInstance::getLocalBounds()
     return {bounds.box.minimum, bounds.box.maximum, bounds.sphere.center, bounds.sphere.radius, 1};
 }
 
-void srModelInstance::applyRenderTransform(srGERD& renderer) const
+srModelViewScope srModelInstance::scopedRenderTransform(srGERD& renderer) const
 {
     if ((alignment_flags.value & 1) == 0) {
-        applyWorldSpaceMatrix(renderer);
+        return scopedWorldSpaceMatrix(renderer);
     } else {
-        renderer.matrixMode(srGERD::MATRIX_MODELVIEW);
-        renderer.pushMatrix();
+        srModelViewScope transform(renderer);
         const auto matrix = renderer.getMatrix(srGERD::MATRIX_MODELVIEW);
         const glm::vec4 position = matrix * glm::vec4(glm::vec3(getWorldSpaceLocation()), 1);
         const auto world_scale = glm::vec3(getWorldSpaceScale());
@@ -97,13 +97,14 @@ void srModelInstance::applyRenderTransform(srGERD& renderer) const
         }
         scale *= world_scale;
         renderer.scale(scale.x, scale.y, -scale.z);
+        return transform;
     }
 }
 
 srModelInstance::RenderScope::RenderScope(const srModelInstance& instance, srGERD& renderer,
-                                          bool apply_exclusion) : renderer(renderer)
+                                          bool apply_exclusion)
+    : renderer(renderer), transform(instance.scopedRenderTransform(renderer))
 {
-    instance.applyRenderTransform(renderer);
     restore_mask = apply_exclusion && instance.exclusion_mask != 0;
     if (restore_mask) {
         previous_mask = renderer.getExclusionMask();
@@ -114,8 +115,6 @@ srModelInstance::RenderScope::RenderScope(const srModelInstance& instance, srGER
 srModelInstance::RenderScope::~RenderScope()
 {
     if (restore_mask) renderer.setExclusionMask(previous_mask);
-    renderer.matrixMode(srGERD::MATRIX_MODELVIEW);
-    renderer.popMatrix();
 }
 
 srModelInstance::RenderScope srModelInstance::scopedRender(srGERD& renderer, bool apply_exclusion) const

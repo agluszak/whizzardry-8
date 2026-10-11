@@ -631,7 +631,7 @@ bool rendererOwnership()
     // and the renderer's owner-thread submission bookkeeping.
     srGERD gerd(srCreateSDLGPUDevice(), "ownership fixture");
     struct TransformInstance : srModelInstance {
-        using srModelInstance::applyRenderTransform;
+        using srModelInstance::scopedRenderTransform;
     };
     TransformInstance instance;
     instance.setLocation(3, 4, 5);
@@ -645,20 +645,21 @@ bool rendererOwnership()
             instance.setAlignment(aligned);
             gerd.matrixMode(srGERD::MATRIX_MODELVIEW);
             gerd.loadMatrix(view);
-            instance.applyRenderTransform(gerd);
-            glm::mat4 expected;
-            if (aligned) {
-                expected = glm::translate(glm::mat4(1), glm::vec3(view * glm::vec4(3, 4, 5, 1)));
-                expected = glm::rotate(expected, 0.5f, glm::vec3(0, 0, 1));
-                const float sign = handedness > 0 ? -1 : 1;
-                expected = glm::scale(expected, sign * glm::vec3(4, 9, -16));
-            } else {
-                expected = view * instance.getWorldSpaceMatrix<glm::mat4>();
+            {
+                const auto transform = instance.scopedRenderTransform(gerd);
+                glm::mat4 expected;
+                if (aligned) {
+                    expected = glm::translate(glm::mat4(1), glm::vec3(view * glm::vec4(3, 4, 5, 1)));
+                    expected = glm::rotate(expected, 0.5f, glm::vec3(0, 0, 1));
+                    const float sign = handedness > 0 ? -1 : 1;
+                    expected = glm::scale(expected, sign * glm::vec3(4, 9, -16));
+                } else {
+                    expected = view * instance.getWorldSpaceMatrix<glm::mat4>();
+                }
+                const auto actual = gerd.getMatrix(srGERD::MATRIX_MODELVIEW);
+                for (int column = 0; column < 4; ++column)
+                    REQUIRE(glm::length(actual[column] - expected[column]) < 1e-5f);
             }
-            const auto actual = gerd.getMatrix(srGERD::MATRIX_MODELVIEW);
-            for (int column = 0; column < 4; ++column)
-                REQUIRE(glm::length(actual[column] - expected[column]) < 1e-5f);
-            gerd.popMatrix();
             REQUIRE(gerd.getMatrix(srGERD::MATRIX_MODELVIEW) == view);
         }
     }

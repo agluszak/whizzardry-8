@@ -43,6 +43,8 @@
 #include "glm/ext/vector_float2.hpp"
 #include "surrender_test_fixture.h"
 #include "surrender/srBoundingBox.h"
+#include "surrender/srBounder.h"
+#include "surrender/model_view_scope.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srVertexPipe.h"
 #include "surrender/srModeler.h"
@@ -2229,6 +2231,63 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Mesh permutations keep GLM channels corn
     REQUIRE_THROWS_AS(mesh.reindexVertices(polygon_order), std::invalid_argument);
     REQUIRE_THROWS_AS(mesh.reindexPolygons(vertex_order), std::invalid_argument);
     REQUIRE(mesh.getVertexLoc()[0] == positions[2]); // Invalid permutations change no tables.
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture, "Model-view scopes reject overflow without taking another scope's stack entry", "[geometry][rendering]")
+{
+    srGERD renderer(srCreateSDLGPUDevice(), "matrix scope overflow");
+    renderer.matrixMode(srGERD::MATRIX_MODELVIEW);
+    renderer.loadIdentity();
+    std::vector<srModelViewScope> transforms;
+    transforms.reserve(32);
+    for (int i = 0; i < 32; ++i) {
+        transforms.emplace_back(renderer);
+        renderer.translate(1, 0, 0);
+    }
+    REQUIRE_THROWS_AS(srModelViewScope(renderer), std::overflow_error);
+    REQUIRE(renderer.getMatrix()[3].x == 32);
+    while (!transforms.empty()) {
+        transforms.pop_back();
+        REQUIRE(renderer.getMatrix()[3].x == static_cast<float>(transforms.size()));
+    }
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture, "Bounds rejection restores transforms before returning or traversing children", "[geometry][rendering]")
+{
+    struct Child : srNode {
+        explicit Child(srNode& parent) : srNode(&parent, Ownership::independent) {}
+        bool visited = false;
+        glm::mat4 view{0};
+        void traverse(TraverseInfo& info) override {
+            visited = true;
+            view = info.renderer->getMatrix(srGERD::MATRIX_MODELVIEW);
+        }
+    };
+    srGERD renderer(srCreateSDLGPUDevice(), "bounder scope");
+    renderer.matrixMode(srGERD::MATRIX_PROJECTION);
+    renderer.loadIdentity();
+    renderer.matrixMode(srGERD::MATRIX_MODELVIEW);
+    renderer.loadIdentity();
+    srBounder bounder;
+    bounder.setLocation(0.25, 0, 0);
+    Child child(bounder);
+    renderer.pushClipPlane({1, 0, 0, 0}, srGERD::CLIPMODE_POSITIONAL_0);
+    srNode::TraverseInfo info;
+    info.renderer = &renderer;
+    const auto view = renderer.getMatrix(srGERD::MATRIX_MODELVIEW);
+    const std::array<srNode::BoundInfo, 3> bounds{{
+        {{-3, -1, -1}, {-2, 1, 1}, {-3, 0, 0}, 0.1f, 1}, // Sphere rejection.
+        {{-3, -1, -1}, {-2, 1, 1}, {0, 0, 0}, 4, 1},    // Box rejection.
+        {{0, -1, -1}, {1, 1, 1}, {0.5f, 0, 0}, 1, 1}}};
+    for (std::size_t i = 0; i < bounds.size(); ++i) {
+        bounder.setBounds(bounds[i]);
+        child.visited = false;
+        bounder.traverse(info);
+        REQUIRE(renderer.getMatrix(srGERD::MATRIX_MODELVIEW) == view);
+        REQUIRE(child.visited == (i == 2));
+        if (child.visited) REQUIRE(child.view == view);
+    }
+    renderer.popClipPlane();
 }
 
 TEST_CASE_METHOD(SurRenderTestFixture, "Model render scopes restore GLM transforms and exclusions after a failed draw", "[geometry][rendering]")
