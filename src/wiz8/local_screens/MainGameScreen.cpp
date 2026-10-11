@@ -5767,8 +5767,8 @@ static unsigned char DispatchPortraitOrbRegionEvent(const InputEvent* event, W8R
             }
             if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
                 SetTooltipSubject(tooltip_kind, -1);
-                if ((g_level_block->*selection) != -1) {
-                    (g_level_block->*selection) = -1;
+                if ((g_level_block.get()->*selection) != -1) {
+                    (g_level_block.get()->*selection) = -1;
                     DismissHighlightOverlay();
                     RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
                 }
@@ -5777,7 +5777,7 @@ static unsigned char DispatchPortraitOrbRegionEvent(const InputEvent* event, W8R
                     if ((character->*effect) != none) {
                         SetTooltipSubject(tooltip_kind, slot);
                         if (IsLeftButtonHeld() && (character->*effect) != none) {
-                            (g_level_block->*selection) = slot;
+                            (g_level_block.get()->*selection) = slot;
                             if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME &&
                                 g_level_block != 0) {
                                 RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
@@ -5793,10 +5793,10 @@ static unsigned char DispatchPortraitOrbRegionEvent(const InputEvent* event, W8R
             DisableRegionHelpFlag(region);
             return 0;
         }
-        if ((g_level_block->*selection) == -1) {
+        if ((g_level_block.get()->*selection) == -1) {
             return 1;
         }
-        (g_level_block->*selection) = -1;
+        (g_level_block.get()->*selection) = -1;
         DismissHighlightOverlay();
         RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
         return 1;
@@ -5805,7 +5805,7 @@ static unsigned char DispatchPortraitOrbRegionEvent(const InputEvent* event, W8R
     if ((character->*effect) == none) {
         return 1;
     }
-    (g_level_block->*selection) = slot;
+    (g_level_block.get()->*selection) = slot;
     RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
     return 1;
 }
