@@ -7,7 +7,6 @@
 #include <string_view>
 #include <vector>
 #include <SDL3/SDL_surface.h>
-#include <cstdint>
 
 #include "wiz8/unicode.h"
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07, 2026-10-09.
