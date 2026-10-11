@@ -13,6 +13,7 @@
 #include "wiz8/compat/compiler.h"
 #include "wiz8/engine_code/game_timer.h"
 #include "wiz8/local_code/Controls.h"
+#include "wiz8/local_code/ControlsRect.h"
 #include "input.h"
 #include "layouts/gameplay_databases.h"
 
@@ -143,16 +144,6 @@ public:
 class W8CharacterStatsRow final : public W8TextControl::Listener {
 public:
     W8CharacterStatsRow();
-    ~W8CharacterStatsRow()
-    {
-        delete m_subpanel;
-        if (m_subpanel_entries != 0) {
-            for (unsigned short index = 0; index < m_count; ++index) {
-                delete m_subpanel_entries[index];
-            }
-            delete[] m_subpanel_entries;
-        }
-    }
     virtual void OnPrimary(W8TextControl* control) override;
     virtual void OnSecondary(W8TextControl* control) override;
     void Initialize(Controls* owner, unsigned int* region_set, int x, int y, int count,
@@ -176,8 +167,9 @@ public:
     W8TextControl* m_decrement;
     W8TextControl* m_increment;
     W8CharacterStatsValue* m_value_control;
-    Controls* m_subpanel;
-    W8TextControl** m_subpanel_entries;
+    std::unique_ptr<Controls> m_subpanel;
+    // Owned by m_subpanel.
+    std::vector<W8TextControl*> m_subpanel_entries;
     W8CharacterStatsRowListener* m_listener;
 };
 

@@ -7,7 +7,6 @@
 #include <cstdint>
 #include <SDL3/SDL_rect.h>
 
-#include "vsurface.h"
 #include "vobject.h"
 #include "himage.h"
 
@@ -40,15 +39,6 @@ bool BltSpriteTo16BPPBuffer(std::uint16_t* pBuffer, std::uint32_t uiDestPitchBYT
 
 
 
-bool Blt8BPPTo8BPP(std::uint8_t* pDest, std::uint32_t uiDestPitch, std::uint8_t* pSrc, std::uint32_t uiSrcPitch,
-                      std::int32_t iDestXPos, std::int32_t iDestYPos, std::int32_t iSrcXPos, std::int32_t iSrcYPos,
-                      std::uint32_t uiWidth, std::uint32_t uiHeight);
-bool Blt16BPPTo16BPP(std::uint16_t* pDest, std::uint32_t uiDestPitch, std::uint16_t* pSrc, std::uint32_t uiSrcPitch,
-                        std::int32_t iDestXPos, std::int32_t iDestYPos, std::int32_t iSrcXPos, std::int32_t iSrcYPos,
-                        std::uint32_t uiWidth, std::uint32_t uiHeight);
-bool Blt16BPPTo16BPPTrans(std::uint16_t* pDest, std::uint32_t uiDestPitch, std::uint16_t* pSrc, std::uint32_t uiSrcPitch,
-                             std::int32_t iDestXPos, std::int32_t iDestYPos, std::int32_t iSrcXPos, std::int32_t iSrcYPos,
-                             std::uint32_t uiWidth, std::uint32_t uiHeight, std::uint16_t usTrans);
 bool Blt16BPPTo16BPPMirror(std::uint16_t* pDest, std::uint32_t uiDestPitch, std::uint16_t* pSrc, std::uint32_t uiSrcPitch,
                               std::int32_t iDestXPos, std::int32_t iDestYPos, std::int32_t iSrcXPos, std::int32_t iSrcYPos,
                               std::uint32_t uiWidth, std::uint32_t uiHeight);
@@ -59,15 +49,11 @@ bool Blt16BPPBufferPixelateRectWithColor(std::uint16_t* pBuffer, std::uint32_t u
 bool Blt16BPPBufferHatchRect(std::uint16_t* pBuffer, std::uint32_t uiDestPitchBYTES, SDL_Rect* area);
 bool Blt16BPPBufferShadowRect(std::uint16_t* pBuffer, std::uint32_t uiDestPitchBYTES, SDL_Rect* area);
 
+// Converts the source rectangle of 8-bit indices through palette into the
+// destination at (iX, iY). Neither side is clipped.
 bool Blt8BPPDataSubTo16BPPBuffer(std::uint16_t* pBuffer, std::uint32_t uiDestPitchBYTES,
-                                    SGPVSurface& hSrcVSurface, std::uint8_t* pSrcBuffer, std::uint32_t uiSrcPitch,
-                                    std::int32_t iX, std::int32_t iY, SDL_Rect* pRect);
-
-// ATE: New blitters for showing an outline at color 254
-
-// ATE: New blitter for included shadow, but pixellate if obscured by z
-bool FillRect16BPP(std::uint16_t* pBuffer, std::uint32_t uiDestPitchBYTES, std::int32_t x1, std::int32_t y1, std::int32_t x2,
-                      std::int32_t y2, std::uint16_t color);
+                                    const Palette16& palette, const std::uint8_t* pSrcBuffer,
+                                    std::uint32_t uiSrcPitch, std::int32_t iX, std::int32_t iY, const SDL_Rect& source);
 
 #ifdef __cplusplus
 }

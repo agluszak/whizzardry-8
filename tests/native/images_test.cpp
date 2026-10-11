@@ -348,7 +348,7 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
         auto surface = LoadVideoSurface("Dotted.dir/default.PCX");
         REQUIRE(surface);
         const auto& pixels = *surface->cpu().surface;
-        REQUIRE((pixels.w == 3 && pixels.h == 2 && surface->ubBitDepth == 8));
+        REQUIRE((pixels.w == 3 && pixels.h == 2 && surface->bitDepth() == 8));
         const std::uint8_t expected[]{0, 1, 1, 2, 3, 0xc1};
         for (int y = 0; y < 2; ++y)
             REQUIRE(!memcmp(static_cast<const std::uint8_t*>(pixels.pixels) + y * pixels.pitch,
@@ -520,7 +520,7 @@ TEST_CASE_METHOD(ImageFixture, "STI bitmaps decode before pitched surface initia
                         REQUIRE(palette->colors[i].b == i);
                         REQUIRE(palette->colors[i].a == 255);
                     }
-                    REQUIRE(surface->p16BPPPalette == Create16BPPPalette(*image->palette));
+                    REQUIRE(surface->packedPalette() == Create16BPPPalette(*image->palette));
                 }
             }
         }
@@ -535,8 +535,8 @@ TEST_CASE_METHOD(ImageFixture, "STI bitmaps decode before pitched surface initia
     auto surface = LoadVideoSurface("palette.sti");
     REQUIRE(surface);
     REQUIRE(!memcmp(&*image->palette, &colors, sizeof(colors)));
-    REQUIRE(surface->p16BPPPalette[0] == 0);
-    REQUIRE(surface->p16BPPPalette[1] == 0x8001);
+    REQUIRE(surface->packedPalette()[0] == 0);
+    REQUIRE(surface->packedPalette()[1] == 0x8001);
     rgb555();
 }
 

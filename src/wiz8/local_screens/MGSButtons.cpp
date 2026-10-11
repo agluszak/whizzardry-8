@@ -386,7 +386,7 @@ void RedrawOptionsDiskButton(void)
 {
     bool enabled;
 
-    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x7e, 0, 2, 0, 0x1c2, VO_BLT_SRCTRANSPARENCY, 0);
+    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x7e, 0, 2, 0, 0x1c2, VO_BLT_SRCTRANSPARENCY);
     g_options_disk_button->m_dirty = true;
     if (!gXStatus.fNpcDialogueMode && !gXStatus.fLockInteractMode && !gXStatus.fTrapInteractMode &&
         !gXStatus.fCampMode && !gXStatus.fLockInteract && !gXStatus.fTrapInteract) {
@@ -441,8 +441,7 @@ void UpdateCombatStanceButtons(void)
 // FUNCTION: WIZ8 0x00597D30
 void RedrawCombatStanceButtons(void)
 {
-    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x7e, 0, 3, 0x262, 0x1c2, VO_BLT_SRCTRANSPARENCY,
-                                  0);
+    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x7e, 0, 3, 0x262, 0x1c2, VO_BLT_SRCTRANSPARENCY);
     for (int index = 0; index < 5; ++index) {
         g_combat_stance_buttons[index]->m_dirty = true;
     }
@@ -566,7 +565,7 @@ unsigned char CreateRoofButtons(void)
 // FUNCTION: WIZ8 0x00598060
 void RedrawRoofButtons(void)
 {
-    DrawCatalogImage(GetFrameBufferSurface(), 0x85, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY, 0);
+    DrawCatalogImage(GetFrameBufferSurface(), 0x85, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY);
     for (int index = 0; index < 3; ++index) {
         g_roof_buttons[index]->m_dirty = true;
     }
@@ -731,7 +730,7 @@ void RedrawLayoutArrowButtons(void)
     bool enabled;
     W8DialogButton* draw_button;
 
-    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x7e, 0, 0, 0, 0x166, VO_BLT_SRCTRANSPARENCY, 0);
+    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x7e, 0, 0, 0, 0x166, VO_BLT_SRCTRANSPARENCY);
     for (button = g_layout_arrow_buttons; button < &g_layout_arrow_buttons[6]; ++button) {
         (*button)->m_dirty = true;
     }
@@ -986,8 +985,7 @@ void DrawSubMenuCharacterAction(void)
     SetFont(g_smfnt_font);
     row = &g_status.buffers.XChar[slot];
     g_smfnt_font.setPalette(g_font_state_palettes[row->party_order_index]);
-    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x7e, 0, 6, 0x157, 0x1c2, VO_BLT_SRCTRANSPARENCY,
-                                  0);
+    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x7e, 0, 6, 0x157, 0x1c2, VO_BLT_SRCTRANSPARENCY);
     character = &g_status.buffers.Char[slot];
     text = fmt::format("{} - {}", character->name,
                        g_localized_strings[g_profession_name_message_ids[character->iProfession]]);
@@ -1138,10 +1136,9 @@ void RedrawSubMenuButtons(void)
     int index;
     int frame;
 
-    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x7e, 0, 4, 0x1e, 0x1c2, VO_BLT_SRCTRANSPARENCY, 0);
+    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x7e, 0, 4, 0x1e, 0x1c2, VO_BLT_SRCTRANSPARENCY);
     frame = !gXStatus.fCombatMode ? 8 : 9;
-    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x7e, 0, frame, 0xc4, 0x1c2, VO_BLT_SRCTRANSPARENCY,
-                                  0);
+    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x7e, 0, frame, 0xc4, 0x1c2, VO_BLT_SRCTRANSPARENCY);
 
     for (button = g_submenu_buttons; button < &g_submenu_buttons[9]; ++button) {
         (*button)->m_dirty = true;
@@ -1151,17 +1148,14 @@ void RedrawSubMenuButtons(void)
         (*button)->Draw();
     }
 
-    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x7e, 0, 7, 0x210, 0x1c2, VO_BLT_SRCTRANSPARENCY,
-                                  0);
+    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x7e, 0, 7, 0x210, 0x1c2, VO_BLT_SRCTRANSPARENCY);
     for (button = g_submenu_panel_buttons; button < &g_submenu_panel_buttons[2]; ++button) {
         (*button)->m_dirty = true;
     }
     UpdateSubMenuPanelButtons();
 
-    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x7e, 0, 5, 0x124, 0x1c2, VO_BLT_SRCTRANSPARENCY,
-                                  0);
-    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x7e, 0, 6, 0x157, 0x1c2, VO_BLT_SRCTRANSPARENCY,
-                                  0);
+    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x7e, 0, 5, 0x124, 0x1c2, VO_BLT_SRCTRANSPARENCY);
+    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x7e, 0, 6, 0x157, 0x1c2, VO_BLT_SRCTRANSPARENCY);
     if (g_status.buffers.XChar[g_status.selected_character].fOccupied) {
         DrawSubMenuCharacterAction();
     }

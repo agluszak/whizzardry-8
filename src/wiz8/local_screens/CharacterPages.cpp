@@ -134,7 +134,7 @@ void W8CharacterPageEntry::Redraw()
     if (m_enabled && m_dirty) {
         if (m_draw_background) {
             DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x108, 0, 2, m_x, m_y,
-                                          VO_BLT_SRCTRANSPARENCY, 0);
+                                          VO_BLT_SRCTRANSPARENCY);
         }
         m_first_text->SetText(fmt::format("{:d}", ReadStatValue<unsigned int>(m_first)), g_wiz_text_font_secondary);
         m_second_text->SetText(fmt::format("{:d}", ReadStatValue<int>(m_second)), g_wiz_text_font_secondary);

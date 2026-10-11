@@ -491,21 +491,21 @@ void W8CharacterScreen::SyncCharacterForPage(int index)
 void W8CharacterScreen::DrawHeader()
 {
     W8TextBuffer text;
-    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x107, 0, 0, 0xc3, 0, VO_BLT_SRCTRANSPARENCY, 0);
+    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x107, 0, 0, 0xc3, 0, VO_BLT_SRCTRANSPARENCY);
     W8ControlsRect bounds = {0xc3, 0, 0x285, 0x2c};
     text.RenderString(&bounds, g_localized_strings[g_character_page_title_ids[m_page_index]],
                       g_options_detail_font, true, GetFrameBufferSurface());
-    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x107, 0, 1, 0, 0, VO_BLT_SRCTRANSPARENCY, 0);
+    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x107, 0, 1, 0, 0, VO_BLT_SRCTRANSPARENCY);
 
     if (m_mode == 0) {
-        DrawCatalogImage(GetFrameBufferSurface(), 0x107, 0, 2, 10, 0xc, VO_BLT_SRCTRANSPARENCY, 0);
+        DrawCatalogImage(GetFrameBufferSurface(), 0x107, 0, 2, 10, 0xc, VO_BLT_SRCTRANSPARENCY);
     } else {
         int frame = m_original == 0 ? m_character.portrait_index : m_original->portrait_index;
-        DrawCatalogImage(GetFrameBufferSurface(), 0x11, frame, 0, 10, 0xc, VO_BLT_SRCTRANSPARENCY, 0);
+        DrawCatalogImage(GetFrameBufferSurface(), 0x11, frame, 0, 10, 0xc, VO_BLT_SRCTRANSPARENCY);
     }
 
     if (m_mode == 0 && m_page_index == 0) {
-        DrawCatalogImage(GetFrameBufferSurface(), 0x107, 0, 3, 5, 0xa5, VO_BLT_SRCTRANSPARENCY, 0);
+        DrawCatalogImage(GetFrameBufferSurface(), 0x107, 0, 3, 5, 0xa5, VO_BLT_SRCTRANSPARENCY);
     } else {
         bounds.left = 5;
         bounds.top = 0xa5;

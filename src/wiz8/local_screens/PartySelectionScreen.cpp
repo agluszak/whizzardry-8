@@ -677,7 +677,7 @@ void W8PartySelectionCharacterRow::Redraw(bool full_redraw)
     int left = m_pPanel->m_bounds.left + m_left;
     int top = m_pPanel->m_bounds.top + m_top;
     DrawCatalogImage(GetFrameBufferSurface(), 0x13, character->portrait_index, 0, left + 2, top + 2,
-                     VO_BLT_SRCTRANSPARENCY, 0);
+                     VO_BLT_SRCTRANSPARENCY);
     if (character->fInParty) {
         ShadowVideoSurfaceRect(GetFrameBufferSurface(), left + 2, top + 2, left + 0x2e, top + 0x25);
         SetObjectShade(g_wiz_text_font_secondary.glyphs, 6);
@@ -875,7 +875,7 @@ void W8PartySelectionPartySlotRow::Redraw(bool full_redraw)
     }
     m_textBuffer.SetText(character ? std::string_view(character->name) : std::string_view{}, g_wiz_text_font_secondary);
     DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x100, 0, 0, left - 0x0d, top - 0x0b,
-                                  VO_BLT_SRCTRANSPARENCY, 0);
+                                  VO_BLT_SRCTRANSPARENCY);
     W8TextControl::Redraw(full_redraw);
     if (m_redraw_partner) {
         m_redraw_partner->Invalidate(false);
@@ -983,7 +983,7 @@ void W8PartySelectionCharacterSummaryPanel::Redraw()
     }
     m_fDirty = false;
 
-    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0xfc, 0, 0, 0x7f, 0xc5, VO_BLT_SRCTRANSPARENCY, 0);
+    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0xfc, 0, 0, 0x7f, 0xc5, VO_BLT_SRCTRANSPARENCY);
     if (!m_character) {
         BlitCatalogSurfaceRectTo16BPP(GetFrameBufferSurface(), 0x85, 0x30, 0x139, 0xbf, 0x1b6, 0, 0);
         InvalidateRegion(0x85, 0x30, 0x139, 0xbf, 0);
@@ -992,7 +992,7 @@ void W8PartySelectionCharacterSummaryPanel::Redraw()
 
     W8Character* character = m_character;
     DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x11, character->portrait_index, 0, 0x85, 0x30,
-                                  VO_BLT_SRCTRANSPARENCY, 0);
+                                  VO_BLT_SRCTRANSPARENCY);
     if (character->fInParty) {
         W8ControlsRect bounds = {0x85, 0x30, 0x139, 0xba};
         W8TextBuffer overlay(&bounds, g_localized_strings[0x6b8], g_options_title_font,
@@ -1125,7 +1125,7 @@ void W8PartySelectionOptionPanel::Redraw()
     }
     if (m_page == W8_PARTY_CREATION_SAVE_NAME) {
         DrawCatalogImage(GetFrameBufferSurface(), 0x102, 0, 1, m_render_left, m_render_top,
-                         VO_BLT_SRCTRANSPARENCY, 0);
+                         VO_BLT_SRCTRANSPARENCY);
     }
 }
 
@@ -1780,9 +1780,9 @@ void W8PartySelectionController::InvalidatePartySelectionComposition()
 void W8PartySelectionController::DrawPartySelectionComposition()
 {
     if (m_redraw_backdrop) {
-        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0xfa, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY, 0);
+        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0xfa, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY);
         if (m_mode == W8_PARTY_SELECT_IMPORT) {
-            DrawCatalogImage(GetFrameBufferSurface(), 0x103, 0, 0, 0x140, 0x12e, VO_BLT_SRCTRANSPARENCY, 0);
+            DrawCatalogImage(GetFrameBufferSurface(), 0x103, 0, 0, 0x140, 0x12e, VO_BLT_SRCTRANSPARENCY);
         }
         m_redraw_backdrop = false;
     }

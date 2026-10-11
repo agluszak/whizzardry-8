@@ -89,7 +89,6 @@
 #include "wiz8/application.h"
 #include "soundman.h"
 #include "vobject.h"
-#include "vobject_blitters.h"
 #include "vsurface.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "compat/video.h"
@@ -495,9 +494,6 @@ unsigned char InitializePrimaryCpuSurface(void)
     if (format == SDL_PIXELFORMAT_UNKNOWN)
         return 0;
     primarySurface.ownedSurface = CreateCpuSurface(640, 480, format);
-    primarySurface.usWidth = 640;
-    primarySurface.usHeight = 480;
-    primarySurface.ubBitDepth = 16;
     return bool(primarySurface.ownedSurface);
 }
 
@@ -1227,7 +1223,7 @@ bool BlitVideoObjectToColorSurface(SGPVObject& video_object, std::uint16_t regio
         return false;
     }
     BltVideoObjectToBuffer(static_cast<std::uint16_t*>(destination.getDataPtr()), destination.getPitch(),
-                           object, region, x, y, VO_BLT_SRCTRANSPARENCY, 0);
+                           object, region, x, y, VO_BLT_SRCTRANSPARENCY);
     return true;
 }
 
@@ -2458,10 +2454,10 @@ stModelInstance2D* CreateSpriteFromVideoSurface(SGPVSurface& surface, const W8Co
     if (bounds == 0) {
         source_rect.left = 0;
         source_rect.top = 0;
-        source_rect.right = surface.usWidth;
-        source_rect.bottom = surface.usHeight;
-        width = surface.usWidth;
-        height = surface.usHeight;
+        source_rect.right = surface.width();
+        source_rect.bottom = surface.height();
+        width = surface.width();
+        height = surface.height();
     } else {
         width = static_cast<unsigned short>(static_cast<short>(bounds->right) -
                                             static_cast<short>(bounds->left));
@@ -2471,10 +2467,10 @@ stModelInstance2D* CreateSpriteFromVideoSurface(SGPVSurface& surface, const W8Co
         source_rect.top = bounds->top;
         source_rect.right = bounds->right;
         source_rect.bottom = bounds->bottom;
-        if (width > surface.usWidth) {
+        if (width > surface.width()) {
             return 0;
         }
-        if (height > surface.usHeight) {
+        if (height > surface.height()) {
             return 0;
         }
     }
@@ -2614,27 +2610,37 @@ unsigned char CopySurfaceWithBorder(srColorSurface* surface, const W8ControlsRec
     }
     int width = (rect->right > 0x27f ? 0x280 : rect->right) - rect->left;
     int height = (rect->bottom > 0x1df ? 0x1e0 : rect->bottom) - rect->top;
-    std::uint16_t* dest = (std::uint16_t*)surface->getDataPtr();
-    std::uint32_t dest_pitch = static_cast<std::uint32_t>(surface->getPitch());
-    std::uint16_t* src = (std::uint16_t*)source;
-    std::uint32_t src_pitch = static_cast<std::uint32_t>(source_pitch);
-    int right = width + 1;
-    int bottom = height + 1;
+    // Both sides hold raw 16-bit words; tag them alike so SDL copies verbatim.
+    auto destination_storage = CreateCpuStorage(static_cast<int>(surface->getWidth()),
+        static_cast<int>(surface->getHeight()), SDL_PIXELFORMAT_RGB565, surface->getDataPtr(),
+        static_cast<int>(surface->getPitch()));
+    // The source may be a backing surface smaller than the screen; borrow only
+    // the extent the rectangle covers so its pitch stays valid.
+    auto source_storage = CreateCpuStorage(rect->left + width, rect->top + height,
+        SDL_PIXELFORMAT_RGB565, source, source_pitch);
+    auto destination = ShareCpuSurface(*destination_storage);
+    auto source_pixels = ShareCpuSurface(*source_storage);
+    const auto copy = [&](int x, int y, int source_x, int source_y, int w, int h) {
+        const SDL_Rect to{x, y, w, h};
+        const SDL_Rect from{source_x, source_y, w, h};
+        BlitCpuSurface(destination, &to, source_pixels, &from);
+    };
+    const int left = rect->left;
+    const int top = rect->top;
+    const int last_x = left - 1 + width;
+    const int last_y = top - 1 + height;
+    const int right = width + 1;
+    const int bottom = height + 1;
 
-    Blt16BPPTo16BPP(dest, dest_pitch, src, src_pitch, 1, 1, rect->left, rect->top, width, height);
-    Blt16BPPTo16BPP(dest, dest_pitch, src, src_pitch, 1, 0, rect->left, rect->top, width, 1);
-    Blt16BPPTo16BPP(dest, dest_pitch, src, src_pitch, 1, bottom, rect->left, rect->top - 1 + height,
-                    width, 1);
-    Blt16BPPTo16BPP(dest, dest_pitch, src, src_pitch, 0, 1, rect->left, rect->top, 1, height);
-    Blt16BPPTo16BPP(dest, dest_pitch, src, src_pitch, right, 1, rect->left - 1 + width, rect->top,
-                    1, height);
-    Blt16BPPTo16BPP(dest, dest_pitch, src, src_pitch, 0, 0, rect->left, rect->top, 1, 1);
-    Blt16BPPTo16BPP(dest, dest_pitch, src, src_pitch, right, 0, rect->left - 1 + width, rect->top,
-                    1, 1);
-    Blt16BPPTo16BPP(dest, dest_pitch, src, src_pitch, 0, bottom, rect->left, rect->top - 1 + height,
-                    1, 1);
-    Blt16BPPTo16BPP(dest, dest_pitch, src, src_pitch, right, bottom, rect->left - 1 + width,
-                    rect->top - 1 + height, 1, 1);
+    copy(1, 1, left, top, width, height);
+    copy(1, 0, left, top, width, 1);
+    copy(1, bottom, left, last_y, width, 1);
+    copy(0, 1, left, top, 1, height);
+    copy(right, 1, last_x, top, 1, height);
+    copy(0, 0, left, top, 1, 1);
+    copy(right, 0, last_x, top, 1, 1);
+    copy(0, bottom, left, last_y, 1, 1);
+    copy(right, bottom, last_x, last_y, 1, 1);
 
     float scale = 1.0f / surface->getWidth();
     *scale_x = scale;

@@ -88,8 +88,7 @@ TEST_CASE("game graphics")
         const char* image_path = SDL_getenv("WIZ8_GRAPHICS_IMAGE");
         auto image_object = LoadVideoObject(image_path ? image_path : "Data\\MAIN INTERFACE\\BOTTOM.STI");
         REQUIRE(image_object);
-        REQUIRE(BltVideoObject(GetFrameBufferSurface(), *image_object, 0, 0, 0, VO_BLT_SRCTRANSPARENCY,
-                                      nullptr));
+        REQUIRE(BltVideoObject(GetFrameBufferSurface(), *image_object, 0, 0, 0, VO_BLT_SRCTRANSPARENCY));
         const auto& framebuffer = *GetFrameBufferSurface().cpu().surface;
         const auto pitch = framebuffer.pitch;
         const auto* pixels = static_cast<const std::uint8_t*>(framebuffer.pixels);
