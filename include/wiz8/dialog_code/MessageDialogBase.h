@@ -43,7 +43,7 @@ public:
 
 protected:
     GenericButtonImage m_edge_image; /* 0x56 generic-button-image resource */
-    GUIButton m_message_button;
+    W8DialogButton m_message_button;
     W8DialogButton m_confirm_button;
     unsigned char unknown_064[0x10];
     W8DialogButton m_cancel_button;

@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <array>
 #include <cstring>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <ios>
@@ -30,6 +31,7 @@
 #include "wiz8/dialog_code/DialogButton.h"
 #include "wiz8/dialog_code/DialogScrollBar.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
+#include "wiz8/dialog_code/DialogFactoryDialogs.h"
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "Font.h"
@@ -1154,25 +1156,36 @@ TEST_CASE("Dialog controls own interaction without legacy GUI buttons", "[owner]
         button.SetVisible(true);
         dispatch_mouse(LEFT_BUTTON_UP, 15, 15, false, false);
         REQUIRE(activations == 1);
+        REQUIRE(button.IsConfigured());
+        button.Resize(60, 30);
+        button.SetPosition(20, 20);
+        REQUIRE((button.GetBounds().w == 60 && button.GetBounds().h == 30));
+        dispatch_mouse(LEFT_BUTTON_DOWN, 75, 45, true, false);
+        REQUIRE(button.IsLeftButtonHeld());
+        dispatch_mouse(LEFT_BUTTON_UP, 75, 45, false, false);
+        REQUIRE(!button.IsLeftButtonHeld());
+        REQUIRE(activations == 2);
+        button.SetPosition(10, 10);
+        button.Resize(40, 20);
         // A spinner's repeated action is not duplicated on release.
         button.m_repeat_enabled = true;
         dispatch_mouse(LEFT_BUTTON_DOWN, 15, 15, true, false);
         dispatch_mouse(LEFT_BUTTON_REPEAT, 15, 15, true, false);
         dispatch_mouse(LEFT_BUTTON_REPEAT, 15, 15, true, false);
-        REQUIRE(activations == 3);
+        REQUIRE(activations == 4);
         dispatch_mouse(LEFT_BUTTON_UP, 15, 15, false, false);
-        REQUIRE((!button.IsPressed() && activations == 3));
+        REQUIRE((!button.IsPressed() && activations == 4));
         button.m_repeat_enabled = false;
         button.m_activation = DialogButtonActivation::Press;
         dispatch_mouse(LEFT_BUTTON_DOWN, 15, 15, true, false);
-        REQUIRE(activations == 4);
+        REQUIRE(activations == 5);
         dispatch_mouse(LEFT_BUTTON_UP, 15, 15, false, false);
-        REQUIRE(activations == 4);
+        REQUIRE(activations == 5);
         button.Reset();
         REQUIRE((!button.IsEnabled() && !button.IsPressed() && button.GetWidth() == 0));
         dispatch_mouse(LEFT_BUTTON_DOWN, 15, 15, true, false);
         dispatch_mouse(LEFT_BUTTON_UP, 15, 15, false, false);
-        REQUIRE(activations == 4);
+        REQUIRE(activations == 5);
     }
     // Copy the owner-local closure before invoking it: it can delete itself.
     auto closing = std::make_unique<W8DialogButton>();
@@ -1190,6 +1203,10 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
     const auto assets = root / "assets";
     for (const auto* image : {"DialogBorder.STI", "DialogEdge.STI", "DialogConfirmation.STI"})
         button_image_fixture(assets / "Data" / "Dialogs", image);
+    for (const auto* image : {"DialogInlay.STI", "DialogUpArrow.STI", "DialogDownArrow.STI",
+                              "DialogSlideBar.STI", "DialogBackground_dark.STI"})
+        button_image_fixture(assets / "Data" / "Dialogs", image);
+    button_image_fixture(assets, "font.sti", 128, false, 1, 10);
     button_image_fixture(assets, "background.sti");
     button_image_fixture(assets, "arrows.sti", 12, false, 2, 3);
     button_image_fixture(assets, "track.sti", 1, false, 5, 100);
@@ -1240,12 +1257,50 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
         dialog.SetBackground("background.sti", 0);
         dialog.SetMessage("", 0, 0, true, true, false, false, 100, 80);
         REQUIRE(dialog.CreateControls() == 0);
+        REQUIRE(RegisteredButtonCount() == 0);
         auto& control = accept ? dialog.m_confirm_button : dialog.m_cancel_button;
         dispatch_mouse(LEFT_BUTTON_DOWN, control.GetX(), control.GetY(), true, false);
         REQUIRE(dialog.is_open);
         dispatch_mouse(LEFT_BUTTON_UP, control.GetX(), control.GetY(), false, false);
         REQUIRE(!dialog.is_open);
         REQUIRE(dialog.accepted == accept);
+    }
+    auto glyphs = LoadVideoObject("font.sti");
+    REQUIRE(glyphs);
+    font = Font{std::move(*glyphs)};
+    {
+        W8ListBoxDialog list;
+        list.SetOrigin(10, 10);
+        list.SetExtent(100, 80);
+        list.SetBackground("background.sti", 0);
+        for (int index = 0; index < 20; ++index) {
+            auto* line = static_cast<char*>(std::malloc(2));
+            REQUIRE(line);
+            line[0] = 'X';
+            line[1] = 0;
+            list.m_lines.push_back(line);
+        }
+        REQUIRE(list.CreateControls() == 0);
+        list.Draw();
+        REQUIRE(RegisteredButtonCount() == 0);
+        gusMouseYPos = 400;
+        dispatch_mouse(LEFT_BUTTON_DOWN, list.m_area_button.GetX() + 3,
+                        list.m_area_button.GetY() + 21, true, false);
+        dispatch_mouse(LEFT_BUTTON_UP, list.m_area_button.GetX() + 3,
+                        list.m_area_button.GetY() + 21, false, false);
+        REQUIRE(list.m_selected_line == 2);
+        dispatch_mouse(LEFT_BUTTON_DOWN, list.m_down_button.GetX(), list.m_down_button.GetY(), true, false);
+        dispatch_mouse(LEFT_BUTTON_REPEAT, list.m_down_button.GetX(), list.m_down_button.GetY(), true, false);
+        dispatch_mouse(LEFT_BUTTON_UP, list.m_down_button.GetX(), list.m_down_button.GetY(), false, false);
+        REQUIRE(list.m_selected_line == 4);
+        dispatch_mouse(LEFT_BUTTON_DOWN, list.m_third_text_button.GetX() + 1,
+                        list.m_third_text_button.GetY() + 30, true, false);
+        REQUIRE(list.m_selected_line == 15);
+        dispatch_mouse(LEFT_BUTTON_REPEAT, list.m_third_text_button.GetX() + 1,
+                        list.m_third_text_button.GetY() + 20, true, false);
+        dispatch_mouse(LEFT_BUTTON_UP, list.m_third_text_button.GetX() + 1,
+                        list.m_third_text_button.GetY() + 20, false, false);
+        REQUIRE(list.m_selected_line == 10);
     }
     g_dialog_interface_font = old_font;
     GetFrameBufferSurface() = std::move(saved_frame);

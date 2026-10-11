@@ -43,7 +43,7 @@ bool W8DialogScrollBar::CreateControls(const Resources* resources)
     }
     m_up_button.m_activation = m_down_button.m_activation = m_track_button.m_activation =
         DialogButtonActivation::Press;
-    m_up_button.m_repeat_enabled = m_down_button.m_repeat_enabled = true;
+    m_up_button.m_repeat_enabled = m_down_button.m_repeat_enabled = m_track_button.m_repeat_enabled = true;
     m_on_scroll = resources->on_scroll;
     m_initialized = true;
     m_visible = false;

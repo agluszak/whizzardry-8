@@ -40,6 +40,36 @@ void W8DialogButton::SetPosition(int x, int y)
     m_dirty = true;
 }
 
+void W8DialogButton::Resize(int width, int height)
+{
+    auto& bounds = m_appearance.bounds;
+    bounds.w = std::max(width, 4);
+    bounds.h = std::max(height, 3);
+    m_mouse_region.RegionBottomRightX = bounds.x + bounds.w;
+    m_mouse_region.RegionBottomRightY = bounds.y + bounds.h;
+    m_dirty = true;
+}
+
+void W8DialogButton::SetText(std::string_view text)
+{
+    m_appearance.string = text;
+    m_dirty = true;
+}
+
+void W8DialogButton::SetTextOffsets(int x, int y, bool shift)
+{
+    m_appearance.bTextXOffset = x;
+    m_appearance.bTextYOffset = y;
+    m_appearance.fShiftText = shift;
+    m_dirty = true;
+}
+
+void W8DialogButton::SetMultiColor(bool enabled)
+{
+    m_appearance.fMultiColor = enabled;
+    m_dirty = true;
+}
+
 // FUNCTION: WIZ8 0x005db5a0
 int W8DialogButton::GetWidth() { return m_appearance.bounds.w; }
 
@@ -163,10 +193,10 @@ void W8DialogButton::ConfigureRegion(short priority)
 bool W8DialogButton::ConfigureTextButton(std::string_view text, Font& font, short fore_color,
                                        short shadow_color, short x, short y, short width,
                                        short height, W8DialogButtonCallback left_callback,
-                                       int user_data)
+                                       int user_data, GenericButtonImage image, short priority)
 {
     m_appearance = {};
-    m_appearance.generic_image = DefaultGenericButtonImage();
+    m_appearance.generic_image = image ? std::move(image) : DefaultGenericButtonImage();
     m_appearance.string = text;
     m_appearance.usFont = &font;
     m_appearance.sForeColor = fore_color;
@@ -178,7 +208,7 @@ bool W8DialogButton::ConfigureTextButton(std::string_view text, Font& font, shor
     m_left_toggles = m_right_toggles = m_repeat_enabled = false;
     m_activation = DialogButtonActivation::Release;
     m_tooltip_index = W8_DIALOG_BUTTON_NO_TOOLTIP;
-    ConfigureRegion(MSYS_PRIORITY_HIGHEST);
+    ConfigureRegion(priority);
     return true;
 }
 

@@ -41,7 +41,7 @@ void W8DialogBase::ScrollTextArea(W8DialogTextArea& area, int first_visible_line
 // FUNCTION: WIZ8 0x005dc7a0
 W8DialogBase::W8DialogBase()
 {
-    m_resource.reset();
+    m_resource.Reset();
     m_dirty_flags = 0;
     m_error = 0;
     m_text.clear();
@@ -83,15 +83,12 @@ void W8DialogBase::Draw()
     if (!m_initialized) {
         CreateControls();
     }
-    if (m_error == 0 && m_resource) {
-        if (m_width != GetButtonWidth(m_resource) || m_height != GetButtonHeight(m_resource)) {
-            ResizeButton(m_resource, static_cast<short>(m_width), static_cast<short>(m_height));
+    if (m_error == 0 && m_resource.IsConfigured()) {
+        if (m_width != m_resource.GetWidth() || m_height != m_resource.GetHeight()) {
+            m_resource.Resize(m_width, m_height);
         }
-        if (!DrawButton(m_resource)) {
-            m_error = 9;
-            m_dirty_flags &= ~W8_DIALOG_DIRTY_REDRAW;
-            return;
-        }
+        m_resource.m_dirty = true;
+        m_resource.Draw();
         InvalidateRegion(m_x, m_y, m_x + m_width, m_y + m_height, 1);
     }
     m_dirty_flags &= ~W8_DIALOG_DIRTY_REDRAW;
@@ -109,8 +106,8 @@ void W8DialogBase::SetOrigin(int x, int y)
 {
     m_x = x;
     m_y = y;
-    if (m_resource) {
-        SetButtonPosition(m_resource, static_cast<short>(x), static_cast<short>(y));
+    if (m_resource.IsConfigured()) {
+        m_resource.SetPosition(x, y);
     }
     m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
 }
@@ -167,11 +164,11 @@ int W8DialogBase::CreateControls()
             return m_error = 4;
         }
     }
-    m_resource =
-        CreateTextButton({}, *m_font, m_foreground, m_background, m_border, static_cast<short>(m_x), static_cast<short>(m_y), static_cast<short>(m_width), static_cast<short>(m_height), BUTTON_NO_TOGGLE | BUTTON_IGNORE_CLICKS, MSYS_PRIORITY_HIGHEST - 2, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
-    if (m_resource) {
-        SpecifyButtonTextOffsets(m_resource, 3, 3, 1);
-        SpecifyButtonMultiColorFont(m_resource, g_dialog_font_enabled);
+    if (m_resource.ConfigureTextButton({}, *m_font, m_foreground, m_background, m_x, m_y,
+                                      m_width, m_height, nullptr, 0, m_border,
+                                      MSYS_PRIORITY_HIGHEST - 2)) {
+        m_resource.SetTextOffsets(3, 3, true);
+        m_resource.SetMultiColor(g_dialog_font_enabled);
         m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
         m_initialized = true;
         return 0;
@@ -182,7 +179,7 @@ int W8DialogBase::CreateControls()
 // FUNCTION: WIZ8 0x005dcc30
 void W8DialogBase::DestroyControls()
 {
-    m_resource.reset();
+    m_resource.Reset();
     m_border.reset();
     m_text.clear();
     if (m_background_path) {

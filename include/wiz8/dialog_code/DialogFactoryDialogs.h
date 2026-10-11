@@ -87,14 +87,14 @@ private:
     /* Keyboard handling for the visible text list. */
     bool HandleInputEvent(const InputAtom* input);
 
-    /* SGP move/click callbacks for the text area, the scroll arrow buttons and
+    /* Owner-local activation callbacks for the text area, scroll arrows and
        the confirmation buttons. */
-    static void TextAreaButtonCallback(GUI_BUTTON* button, INT32 reason);
+    static void TextAreaButtonCallback(W8DialogButton* button);
     static void UpButtonCallback(W8DialogButton* button);
     static void DownButtonCallback(W8DialogButton* button);
     static void OkButtonCallback(W8DialogButton* button);
     static void CancelButtonCallback(W8DialogButton* button);
-    static void SliderTrackButtonCallback(GUI_BUTTON* button, INT32 reason);
+    static void SliderTrackButtonCallback(W8DialogButton* button);
 
 public:
     /* The displayed text lines; the dialog owns and frees each one. */
@@ -106,15 +106,15 @@ public:
     float m_field_080; /* 0.9 */
     float m_field_084; /* 0.75 */
     int m_fill_colour; /* highlight fill colour */
-    GUIButton m_text_button;
-    GUIButton m_second_text_button;
+    W8DialogButton m_text_button;
+    W8DialogButton m_second_text_button;
     GenericButtonImage area_inlay;  /* DialogInlay inlay for m_area_button */
-    GUIButton m_area_button; /* scrolling text area */
+    W8DialogButton m_area_button; /* scrolling text area */
     W8DialogButton m_up_button;
     W8DialogButton m_down_button;
     W8DialogButton m_slider_button;
     GenericButtonImage third_btn_inlay; /* DialogInlay inlay for m_third_text_button */
-    GUIButton m_third_text_button;
+    W8DialogButton m_third_text_button;
     W8DialogButton m_ok_button;
     W8DialogButton m_cancel_button;
     bool m_scrollable; /* scrolling area is scrollable */

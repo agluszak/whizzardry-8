@@ -7,7 +7,6 @@
 
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
 #include "compat/compiler.h"
-#include "wiz8/dialog_code/ButtonUserData.h"
 #include "wiz8/dialog_code/DialogButton.h"
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/local_screens/Screens.h"
@@ -65,14 +64,14 @@ W8ListBoxDialog::W8ListBoxDialog()
     m_field_084 = 0.75f;
     m_field_074 = 0;
     m_fill_colour = 0x6000;
-    m_text_button.reset();
-    m_second_text_button.reset();
+    m_text_button.Reset();
+    m_second_text_button.Reset();
     area_inlay.reset();
-    m_area_button.reset();
+    m_area_button.Reset();
     m_up_button.Reset();
     m_down_button.Reset();
     third_btn_inlay.reset();
-    m_third_text_button.reset();
+    m_third_text_button.Reset();
     m_slider_button.Reset();
     m_ok_button.Reset();
     m_cancel_button.Reset();
@@ -93,8 +92,8 @@ W8ListBoxDialog::~W8ListBoxDialog()
 // FUNCTION: WIZ8 0x005cbd70
 void W8ListBoxDialog::SetText(std::string_view text)
 {
-    if (m_text_button) {
-        SpecifyButtonText(m_text_button, text);
+    if (m_text_button.IsConfigured()) {
+        m_text_button.SetText(text);
         W8DialogBase::SetText({});
         return;
     }
@@ -104,10 +103,10 @@ void W8ListBoxDialog::SetText(std::string_view text)
 // FUNCTION: WIZ8 0x005CC650
 int W8ListBoxDialog::GetVisibleLineCount()
 {
-    if (!m_area_button) {
+    if (!m_area_button.IsConfigured()) {
         return 0;
     }
-    return GetButtonHeight(m_area_button) /
+    return m_area_button.GetHeight() /
            static_cast<int>(static_cast<unsigned int>(g_dialog_interface_font->height()));
 }
 
@@ -115,7 +114,7 @@ int W8ListBoxDialog::GetVisibleLineCount()
    the selected row. */
 void W8ListBoxDialog::SetFirstVisibleLine(int requested)
 {
-    if (m_area_button) {
+    if (m_area_button.IsConfigured()) {
         int first = requested;
         if (static_cast<int>(m_lines.size()) - GetVisibleLineCount() < requested) {
             first = static_cast<int>(m_lines.size()) - GetVisibleLineCount();
@@ -208,38 +207,28 @@ int W8ListBoxDialog::CreateControls()
         return m_error;
     }
     edge_inlay = LoadGenericButtonImages({}, "Data\\Dialogs\\DialogEdge.STI", {}, "Data\\Dialogs\\DialogEdge.STI", {}, m_background_path, static_cast<short>(m_background_flags), 0, 0);
-    m_text_button =
-        CreateTextButton(m_text, *g_dialog_interface_font, g_dialog_font_foreground,
-                         g_dialog_font_background, edge_inlay, static_cast<short>(m_x) + 9,
-                         static_cast<short>(m_y) + 9, static_cast<short>(m_width) - 0x12,
-                         static_cast<short>(g_dialog_interface_font->height() * 0x96 / 100),
-                         BUTTON_NO_TOGGLE | BUTTON_IGNORE_CLICKS, MSYS_PRIORITY_HIGHEST - 1,
-                         BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
-    if (!m_text_button) {
-        m_error = 7;
-        return 7;
-    }
+    if (!edge_inlay) return m_error = 4;
+    m_text_button.ConfigureTextButton(m_text, *g_dialog_interface_font, g_dialog_font_foreground,
+                                     g_dialog_font_background, m_x + 9, m_y + 9, m_width - 0x12,
+                                     g_dialog_interface_font->height() * 0x96 / 100, nullptr, 0,
+                                     edge_inlay, MSYS_PRIORITY_HIGHEST - 1);
     if (!m_text.empty()) {
         SetText(m_text);
     }
-    if (!m_text_button) {
-        m_error = 7;
-        return 7;
-    }
-    SpecifyButtonMultiColorFont(m_text_button, g_dialog_font_enabled);
+    m_text_button.SetMultiColor(g_dialog_font_enabled);
     area_inlay =
         LoadGenericButtonImages({}, "Data\\Dialogs\\DialogInlay.STI", {}, "Data\\Dialogs\\DialogInlay.STI", {}, "Data\\Dialogs\\DialogBackground_dark.STI", 0, 3, 3);
     if (!area_inlay) {
         m_error = 4;
         return 4;
     }
-    m_area_button = CreateTextButton({}, *g_dialog_interface_font, g_dialog_font_foreground, g_dialog_font_background, area_inlay, static_cast<short>(m_x + (GetButtonX(m_text_button) - m_x)), static_cast<short>(m_y +
-                           (GetButtonY(m_text_button) + GetButtonHeight(m_text_button) + 4 - m_y)), static_cast<short>(GetButtonWidth(m_text_button)), 0x14, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST - 1, TextAreaButtonCallback, TextAreaButtonCallback);
-    if (!m_area_button) {
-        m_error = 7;
-        return 7;
-    }
-    SetButtonUserDataPointer(m_area_button, this);
+    m_area_button.ConfigureTextButton({}, *g_dialog_interface_font, g_dialog_font_foreground,
+                                     g_dialog_font_background, m_text_button.GetX(),
+                                     m_text_button.GetY() + m_text_button.GetHeight() + 4,
+                                     m_text_button.GetWidth(), 0x14, TextAreaButtonCallback, 0,
+                                     area_inlay, MSYS_PRIORITY_HIGHEST - 1);
+    m_area_button.m_owner = this;
+    m_area_button.m_activation = DialogButtonActivation::Press;
     const bool configured =
         m_up_button.Configure("Data\\Dialogs\\DialogUpArrow.STI", 3, 0, 1, 2, 2,
                               UpButtonCallback, nullptr, false, MSYS_PRIORITY_HIGHEST - 1,
@@ -263,25 +252,31 @@ int W8ListBoxDialog::CreateControls()
         m_up_button.m_repeat_enabled = m_down_button.m_repeat_enabled = true;
         third_btn_inlay = LoadGenericButtonImages({}, "Data\\Dialogs\\DialogInlay.STI", {}, "Data\\Dialogs\\DialogInlay.STI", {}, "Data\\Dialogs\\DialogBackground_dark.STI", 0, 3, 3);
         if (third_btn_inlay) {
-            m_third_text_button = CreateTextButton({}, *g_dialog_interface_font, g_dialog_font_foreground, g_dialog_font_background, third_btn_inlay, 0, 0, 1, 1, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST - 2, SliderTrackButtonCallback, SliderTrackButtonCallback);
-            if (m_third_text_button) {
-                SetButtonUserDataPointer(m_third_text_button, this);
-                m_second_text_button = CreateTextButton({}, *g_dialog_interface_font, g_dialog_font_foreground, g_dialog_font_background, edge_inlay, static_cast<short>(m_x + 9), static_cast<short>((m_height - m_ok_button.GetHeight() * 0x96 / 100) - 9 +
-                                       m_y), static_cast<short>(m_width - 0x12), static_cast<short>(m_ok_button.GetHeight() * 0x96 / 100), BUTTON_NO_TOGGLE | BUTTON_IGNORE_CLICKS, MSYS_PRIORITY_HIGHEST - 1, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
+            m_third_text_button.ConfigureTextButton({}, *g_dialog_interface_font,
+                g_dialog_font_foreground, g_dialog_font_background, 0, 0, 1, 1,
+                SliderTrackButtonCallback, 0, third_btn_inlay, MSYS_PRIORITY_HIGHEST - 2);
+            if (m_third_text_button.IsConfigured()) {
+                m_third_text_button.m_owner = this;
+                m_third_text_button.m_activation = DialogButtonActivation::Press;
+                m_third_text_button.m_repeat_enabled = true;
+                m_second_text_button.ConfigureTextButton({}, *g_dialog_interface_font,
+                    g_dialog_font_foreground, g_dialog_font_background, m_x + 9,
+                    m_y + m_height - m_ok_button.GetHeight() * 0x96 / 100 - 9,
+                    m_width - 0x12, m_ok_button.GetHeight() * 0x96 / 100, nullptr, 0,
+                    edge_inlay, MSYS_PRIORITY_HIGHEST - 1);
                 m_cancel_button.SetPosition(
-                    GetButtonX(m_second_text_button) - m_cancel_button.GetWidth() +
-                        GetButtonWidth(m_second_text_button),
-                    GetButtonHeight(m_second_text_button) / 2 -
-                        m_cancel_button.GetHeight() / 2 + GetButtonY(m_second_text_button));
+                    m_second_text_button.GetX() - m_cancel_button.GetWidth() +
+                        m_second_text_button.GetWidth(),
+                    m_second_text_button.GetHeight() / 2 -
+                        m_cancel_button.GetHeight() / 2 + m_second_text_button.GetY());
                 m_ok_button.SetPosition(
                                   m_cancel_button.GetX() -
                                       m_cancel_button.GetWidth() / 2 -
                                       m_ok_button.GetWidth(),
                                   m_cancel_button.GetY());
-                ResizeButton(m_area_button, static_cast<short>(GetButtonWidth(m_text_button)),
-                             static_cast<short>(-6 - GetButtonY(m_text_button) -
-                                                GetButtonHeight(m_text_button) +
-                                                GetButtonY(m_second_text_button)));
+                m_area_button.Resize(m_text_button.GetWidth(),
+                    -6 - m_text_button.GetY() - m_text_button.GetHeight() +
+                    m_second_text_button.GetY());
                 int selected = m_selected_line;
                 m_selected_line = 0;
                 SetCurrentLine(selected);
@@ -297,13 +292,13 @@ int W8ListBoxDialog::CreateControls()
 void W8ListBoxDialog::DestroyControls()
 {
     W8DialogBase::DestroyControls();
-    m_text_button.reset();
-    m_second_text_button.reset();
-    m_area_button.reset();
+    m_text_button.Reset();
+    m_second_text_button.Reset();
+    m_area_button.Reset();
     m_up_button.Reset();
     m_down_button.Reset();
     m_slider_button.Reset();
-    m_third_text_button.reset();
+    m_third_text_button.Reset();
     m_ok_button.Reset();
     m_cancel_button.Reset();
     area_inlay.reset();
@@ -321,18 +316,20 @@ void W8ListBoxDialog::Draw()
     int index;
     int line;
 
-    if (m_up_button.m_dirty || m_down_button.m_dirty || m_slider_button.m_dirty ||
+    if (m_area_button.m_dirty || m_third_text_button.m_dirty ||
+        m_up_button.m_dirty || m_down_button.m_dirty || m_slider_button.m_dirty ||
         m_ok_button.m_dirty || m_cancel_button.m_dirty)
         m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
     if ((m_dirty_flags & W8_DIALOG_DIRTY_REDRAW) == 0) return;
     W8DialogBase::Draw();
-    DrawButton(m_text_button);
-    DrawButton(m_second_text_button);
-    int dx = GetButtonX(m_text_button) - m_x;
-    int dy = GetButtonY(m_text_button) + GetButtonHeight(m_text_button) + 4 - m_y;
-    int width = GetButtonWidth(m_text_button);
-    int height = -6 - GetButtonY(m_text_button) - GetButtonHeight(m_text_button) +
-                 GetButtonY(m_second_text_button);
+    m_text_button.m_dirty = m_second_text_button.m_dirty = true;
+    m_text_button.Draw();
+    m_second_text_button.Draw();
+    int dx = m_text_button.GetX() - m_x;
+    int dy = m_text_button.GetY() + m_text_button.GetHeight() + 4 - m_y;
+    int width = m_text_button.GetWidth();
+    int height = -6 - m_text_button.GetY() - m_text_button.GetHeight() +
+                 m_second_text_button.GetY();
     unsigned int visible_lines;
     if (static_cast<int>(m_lines.size()) < height / static_cast<int>(static_cast<unsigned int>(
                                                         g_dialog_interface_font->height()))) {
@@ -350,17 +347,18 @@ void W8ListBoxDialog::Draw()
             visible_lines = static_cast<int>(m_lines.size());
         }
     }
-    ResizeButton(m_area_button, static_cast<short>(width), static_cast<short>(height));
-    DrawButton(m_area_button);
+    m_area_button.Resize(width, height);
+    m_area_button.Draw();
     m_up_button.SetVisible(m_scrollable);
     m_down_button.SetVisible(m_scrollable);
     m_slider_button.SetVisible(m_scrollable);
+    m_third_text_button.SetVisible(m_scrollable);
     if (m_scrollable) {
         m_up_button.SetPosition( m_x + dx + 4 + width, m_y + 4 + dy);
         m_down_button.SetPosition( m_x + dx + 4 + width,
                           m_y + dy + height - m_down_button.GetHeight() - 4);
         m_slider_button.SetPosition( m_x + dx + 4 + width,
-            GetButtonHeight(m_area_button) +
+            m_area_button.GetHeight() +
                 ((height - m_up_button.GetHeight() - m_down_button.GetHeight() - 7) *
                  m_selected_line) /
                     static_cast<int>(m_lines.size()) +
@@ -369,10 +367,9 @@ void W8ListBoxDialog::Draw()
             GetFrameBufferSurface(), m_x + width + dx, m_y + dy + m_up_button.GetHeight(),
             m_x + width + dx + m_up_button.GetWidth(),
             m_y + height + dy - m_down_button.GetHeight(), Get16BPPColor(m_fill_colour));
-        SetButtonPosition(m_third_text_button, m_x + dx + width, m_y + dy);
-        ResizeButton(m_third_text_button, static_cast<short>(m_up_button.GetWidth() + 7),
-                     static_cast<short>(height));
-        DrawButton(m_third_text_button);
+        m_third_text_button.SetPosition(m_x + dx + width, m_y + dy);
+        m_third_text_button.Resize(m_up_button.GetWidth() + 7, height);
+        m_third_text_button.Draw();
         m_up_button.m_dirty = true;
         m_up_button.Draw();
         m_down_button.m_dirty = true;
@@ -391,7 +388,7 @@ void W8ListBoxDialog::Draw()
     if (!m_scrollable)
         m_up_button.m_dirty = m_down_button.m_dirty = m_slider_button.m_dirty = false;
     SetFont(*g_dialog_interface_font);
-    GetButtonArea(m_area_button, &rect);
+    rect = m_area_button.GetBounds();
     {
         FontRenderScope font_scope;
         SetFontDestBuffer(GetFrameBufferSurface(), rect.x + 3, rect.y + 3, (rect.x + rect.w) - 3,
@@ -845,12 +842,11 @@ void W8SplitAmountDialog::SplitCancel(W8DialogButton* button)
 // FUNCTION: WIZ8 0x005da5c0
 void W8SplitAmountDialog::SplitActivateField(W8DialogButton* button)
 {
-    SDL_Point mouse;
     SDL_Point point;
 
     if (button != 0) {
         W8SplitAmountDialog* dialog = static_cast<W8SplitAmountDialog*>(button->m_owner);
-        SGPMouseGetPos(&mouse);
+        const SDL_Point mouse = button->GetMousePosition();
         if (dialog->m_split_input != 0) {
             point.x = mouse.x - dialog->m_x;
             point.y = mouse.y - dialog->m_y;
@@ -1241,28 +1237,18 @@ void W8TriggerItemPickerDialog::ScrollItemsDown(W8DialogButton* button)
 // FUNCTION: WIZ8 0x005ceaf0
 void W8TriggerItemPickerDialog::ScrollItemsToMouse(W8DialogButton* button)
 {
-    SDL_Point point;
     int top;
     int bottom;
     int index;
 
-    if (button != 0 && gfLeftButtonState != 0) {
+    if (button != 0 && button->IsLeftButtonHeld()) {
         W8TriggerItemPickerDialog* dialog =
             static_cast<W8TriggerItemPickerDialog*>(button->m_owner);
-        SGPMouseGetPos(&point);
-        if (dialog->m_buttons[12] != 0) {
-            dialog->m_buttons[12]->GetX();
-            dialog->m_buttons[12]->GetWidth();
-            bottom = dialog->m_buttons[9]->GetHeight() + dialog->m_buttons[12]->GetY();
-            top = bottom - dialog->m_buttons[10]->GetHeight() + dialog->m_buttons[12]->GetHeight();
-        } else {
-            bottom = top =
-                static_cast< // reinterpret-ok: retail uses the button address as the fallback coordinate
-                    int>(reinterpret_cast<w8_ulong_ptr>(button));
-        }
-        bottom += dialog->m_buttons[9] != 0 ? dialog->m_buttons[9]->GetHeight() : -1;
-        top -= (dialog->m_buttons[10] != 0 ? dialog->m_buttons[10]->GetHeight() : -1) +
-               (dialog->m_buttons[11] != 0 ? dialog->m_buttons[11]->GetHeight() : -1);
+        SDL_Point point = button->GetMousePosition();
+        bottom = button->GetY() + 2 * dialog->m_buttons[9]->GetHeight();
+        top = button->GetY() + dialog->m_buttons[9]->GetHeight() + button->GetHeight() -
+              2 * dialog->m_buttons[10]->GetHeight() - dialog->m_buttons[11]->GetHeight();
+        if (top <= bottom) return;
         if (point.y < bottom) {
             point.y = bottom;
         }

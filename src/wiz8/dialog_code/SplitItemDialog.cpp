@@ -615,14 +615,13 @@ void W8SplitItemDialog::OnCancel(W8DialogButton* button)
 void W8SplitItemDialog::OnCountFieldClick(W8DialogButton* button)
 {
     W8SplitItemDialog* dialog;
-    SDL_Point mouse;
     SDL_Point point;
 
     if (button == 0) {
         return;
     }
     dialog = static_cast<W8SplitItemDialog*>(button->m_owner);
-    SGPMouseGetPos(&mouse);
+    const SDL_Point mouse = button->GetMousePosition();
     if (dialog->m_count_input == 0) {
         return;
     }

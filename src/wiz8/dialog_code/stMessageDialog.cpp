@@ -50,7 +50,8 @@ void W8MessageDialogBase::Draw()
     unsigned int index;
 
     W8DialogBase::Draw();
-    DrawButton(m_message_button);
+    m_message_button.m_dirty = true;
+    m_message_button.Draw();
     if (!m_show_confirm && !allow_cancel) {
         y = m_y + m_height / 2 - (g_dialog_interface_font->height() * m_line_count >> 1);
     } else {
@@ -184,7 +185,10 @@ int W8MessageDialogBase::CreateControls()
             return m_error = 3;
         }
     }
-    m_message_button = CreateTextButton({}, *g_dialog_interface_font, g_dialog_font_foreground, g_dialog_font_background, m_edge_image, static_cast<short>(m_x + 9), static_cast<short>(m_y + 9), static_cast<short>(m_width - 0x12), static_cast<short>(m_height - 0x12), BUTTON_NO_TOGGLE | BUTTON_IGNORE_CLICKS, MSYS_PRIORITY_HIGHEST - 1, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
+    m_message_button.ConfigureTextButton({}, *g_dialog_interface_font, g_dialog_font_foreground,
+                                        g_dialog_font_background, m_x + 9, m_y + 9,
+                                        m_width - 0x12, m_height - 0x12, nullptr, 0,
+                                        m_edge_image, MSYS_PRIORITY_HIGHEST - 1);
 
     if (m_confirm_button.Configure("Data\\Dialogs\\DialogConfirmation.STI", 3, 0, 1, 2, 2,
                                    MessageDialogConfirmCallback, nullptr, false, MSYS_PRIORITY_HIGHEST,
@@ -214,7 +218,7 @@ void W8MessageDialogBase::DestroyControls()
 
     W8DialogBase::DestroyControls();
     m_edge_image.reset();
-    m_message_button.reset();
+    m_message_button.Reset();
     m_confirm_button.Reset();
     m_cancel_button.Reset();
     m_lines.clear();

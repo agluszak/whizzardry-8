@@ -26,12 +26,19 @@ public:
     virtual ~W8DialogButton();
     void Draw();
     void Reset();
+    bool IsConfigured() const { return (m_mouse_region.uiFlags & MSYS_REGION_EXISTS) != 0; }
     void SetPosition(int x, int y);
+    void Resize(int width, int height);
+    void SetText(std::string_view text);
+    void SetTextOffsets(int x, int y, bool shift);
+    void SetMultiColor(bool enabled);
     int GetWidth();
     int GetHeight();
     int GetX();
     int GetY();
     SDL_Point GetMousePosition() const { return {m_mouse_region.MouseXPos, m_mouse_region.MouseYPos}; }
+    bool IsLeftButtonHeld() const { return (m_mouse_region.ButtonState & MSYS_LEFT_BUTTON) != 0; }
+    SDL_Rect GetBounds() const { return m_appearance.bounds; }
     void SetEnabled(bool enabled);
     void UpdateEnabledState(bool enabled)
     {
@@ -70,7 +77,8 @@ public:
     /* Configure a text button with an owner-local numeric callback payload. */
     bool ConfigureTextButton(std::string_view text, Font& font, short fore_color,
                              short shadow_color, short x, short y, short width, short height,
-                             W8DialogButtonCallback left_callback, int user_data);
+                             W8DialogButtonCallback left_callback, int user_data,
+                             GenericButtonImage image = {}, short priority = MSYS_PRIORITY_HIGHEST);
     /* Store the tooltip string-table index and, when tooltips are
        enabled, push its text onto the mouse region. */
     void SetTooltipIndex(int tooltip_index);
