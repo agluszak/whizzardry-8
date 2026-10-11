@@ -12,8 +12,6 @@
 #include "himage.h"
 
 #ifdef __cplusplus
-#include <span>
-
 extern "C" {
 #endif
 
@@ -74,13 +72,6 @@ BOOLEAN FillRect16BPP(UINT16* pBuffer, UINT32 uiDestPitchBYTES, INT32 x1, INT32 
 #ifdef __cplusplus
 }
 
-// Decode every ETRLE frame once from the compressed source into SpriteFrame
-// pixels (transparent runs become SpriteFrame::kTransparent, literal index 0
-// stays opaque). The object keeps only the decoded representation; decoding
-// is transactional, so hVObject.sprites is replaced only on success.
-// Returns FALSE on malformed or truncated data.
-BOOLEAN DecodeVideoObjectSprites(SGPVObject& hVObject, std::span<const ETRLEObject> frames,
-                                 std::span<const UINT8> data);
 #endif
 
 #endif
