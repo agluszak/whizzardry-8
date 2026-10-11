@@ -7,7 +7,6 @@
 #include <cstdint>
 #include <optional>
 
-#include "compat/compiler.h"
 #include "conditions.h"
 #include "layouts/targeting.h"
 

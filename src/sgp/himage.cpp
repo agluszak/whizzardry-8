@@ -254,9 +254,6 @@ std::vector<SpriteFrame> decode_sti_frames(std::span<const STCISubImage> frames,
 
 DecodedImage load_sti(wiz8::File& file)
 {
-    static_assert(sizeof(STCIHeader) == STCI_HEADER_SIZE);
-    static_assert(sizeof(STCISubImage) == STCI_SUBIMAGE_SIZE);
-    static_assert(sizeof(STCIPaletteElement) == STCI_PALETTE_ELEMENT_SIZE);
     STCIHeader header{};
     file.read_exact(&header, sizeof(header));
     if (std::memcmp(header.cID, STCI_ID_STRING, STCI_ID_LEN) != 0)

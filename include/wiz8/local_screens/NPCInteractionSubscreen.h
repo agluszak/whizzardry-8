@@ -15,7 +15,6 @@ void SyncNpcDialogueTranscriptScrollButtons();
 #include "wiz8/message_box.h"
 #include "wiz8/local_code/Controls.h"
 #include "wiz8/xstatus.h"
-#include "compat/compiler.h"
 #include "wiz8/dialog_code/PortraitQuote.h"
 
 namespace wiz8 { class File; }

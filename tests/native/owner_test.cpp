@@ -876,7 +876,7 @@ void generic_button_images()
         REQUIRE(sheet->palette[1].r == 255);
 
         const auto pixel_offset = STCI_HEADER_SIZE + STCI_8BIT_PALETTE_SIZE + 3 * STCI_SUBIMAGE_SIZE;
-        for (std::uintmax_t cut : {0u, STCI_HEADER_SIZE - 1u,
+        for (std::uintmax_t cut : {std::size_t{0}, STCI_HEADER_SIZE - 1u,
              STCI_HEADER_SIZE + STCI_8BIT_PALETTE_SIZE - 1u,
              pixel_offset - 1u, pixel_offset + 8u, pixel_offset + 12u}) {
             button_image_fixture(assets, "metadata.sti", 3, true);
