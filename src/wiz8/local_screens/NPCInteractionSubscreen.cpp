@@ -1,8 +1,8 @@
-#include <algorithm>
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <wiz8/filesystem.h>
 #include <SDL3/SDL_rect.h>
+#include <algorithm>
 #include <string_view>
 #include <string>
 #include <sstream>
