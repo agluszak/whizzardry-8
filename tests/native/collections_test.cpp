@@ -27,7 +27,6 @@
 #include "wiz8/local_screens/JournalScreen.h"
 #include "wiz8/local_screens/MGSKeyboard.h"
 #include "temporary_directory.h"
-#include "compat/ptr32.h"
 #include "fact_state.h"
 #include "input.h"
 #include "layouts/item_instance.h"
@@ -123,8 +122,8 @@ TEST_CASE("widget_region_lifetimes")
     const auto third_region = third->m_region;
     delete first;
     REQUIRE(first_panel->ControlCount() == 2);
-    InputAtom event{};
-    event.usEvent = LEFT_BUTTON_DOWN;
+    InputEvent event{};
+    event.type = InputEventType::LeftButtonDown;
     REQUIRE(DispatchControlRegionEvent(&event, &g_regions[third_region]) == 1);
     REQUIRE(events.back() == 3);
 
@@ -173,7 +172,7 @@ TEST_CASE("widget_region_lifetimes")
     REQUIRE(events.back() == 5);
 
     // Post-callback latch writes must not corrupt a replacement's state.
-    for (auto reason : {LEFT_BUTTON_DOWN, LEFT_BUTTON_UP, RIGHT_BUTTON_DOWN, RIGHT_BUTTON_UP}) {
+    for (auto reason : {InputEventType::LeftButtonDown, InputEventType::LeftButtonUp, InputEventType::RightButtonDown, InputEventType::RightButtonUp}) {
         auto* victim = replacement;
         victim->on_event = [&, victim] {
             delete victim;
@@ -181,7 +180,7 @@ TEST_CASE("widget_region_lifetimes")
             replacement = new RecordingWidget(replacement_panel, events, 6);
             g_regions[reused_region].flags = W8_REGION_RECTANGLE;
         };
-        event.usEvent = reason;
+        event.type = reason;
         g_regions[reused_region].flags |= W8_REGION_LEFT_BUTTON_HELD | W8_REGION_RIGHT_BUTTON_HELD;
         REQUIRE(DispatchControlRegionEvent(&event, &g_regions[reused_region]) == 1);
         REQUIRE(g_regions[reused_region].flags == W8_REGION_RECTANGLE);
@@ -348,7 +347,7 @@ static bool keyboardBindingReplacement()
     REQUIRE(keyboard.GetBinding(0) == nullptr);
     {
         auto file = wiz8::open_host_file(path);
-        REQUIRE(keyboard.Load(file.get(), true));
+        REQUIRE(keyboard.Load(*file, true));
     }
     // A duplicate command replaces its record and moves to the end of the
     // ordered bindings. The command index must refer to that replacement.
@@ -357,12 +356,12 @@ static bool keyboardBindingReplacement()
     REQUIRE((keyboard.GetBinding(0)->key == 'B' && keyboard.GetBinding(1)->key == 'C'));
     REQUIRE(keyboard.GetBinding(-1) == nullptr);
     REQUIRE(keyboard.GetBinding(2) == keyboard.GetBinding(0));
-    gfKeyState['A'] = true;
+    GetInputState().keys['A'] = true;
     REQUIRE(!keyboard.IsCommandPressed(W8_MGS_COMMAND_CANCEL));
-    gfKeyState['A'] = false;
-    gfKeyState['C'] = true;
+    GetInputState().keys['A'] = false;
+    GetInputState().keys['C'] = true;
     REQUIRE(keyboard.IsCommandPressed(W8_MGS_COMMAND_CANCEL));
-    gfKeyState['C'] = false;
+    GetInputState().keys['C'] = false;
     keyboard.Clear();
     REQUIRE(keyboard.GetBinding(0) == nullptr);
     REQUIRE(!keyboard.IsCommandPressed(W8_MGS_COMMAND_CANCEL));
@@ -392,7 +391,7 @@ static bool journalSerialization()
     }
     {
         auto file = wiz8::open_host_file(input_path);
-        LoadJournalEntries(file.get());
+        LoadJournalEntries(*file);
     }
     REQUIRE(g_fact_journal_entries.size() == count);
     for (int i = 0; i < count; ++i) {
@@ -402,7 +401,7 @@ static bool journalSerialization()
     }
     {
         auto file = wiz8::open_host_file(output_path, wiz8::OpenMode::replace);
-        SaveFactJournal(file.get());
+        SaveFactJournal(*file);
     }
     std::ifstream input(input_path, std::ios::binary), output(output_path, std::ios::binary);
     const std::vector<char> original{std::istreambuf_iterator<char>(input),
@@ -419,7 +418,7 @@ static bool journalSerialization()
     }
     {
         auto file = wiz8::open_host_file(input_path);
-        LoadJournalEntries(file.get());
+        LoadJournalEntries(*file);
     }
     REQUIRE(g_fact_journal_entries.empty());
     std::filesystem::remove_all(root);

@@ -194,16 +194,16 @@ void W8DialogBase::EndModalInput()
 bool W8DialogBase::ProcessInput()
 {
     BeginModalInput();
-    DrainModalInput([this](const InputAtom& input) {
+    DrainModalInput([this](const InputEvent& input) {
         if (DispatchRegionInput(&input)) {
-            if (input.usEvent == RIGHT_BUTTON_DOWN) {
+            if (input.type == InputEventType::RightButtonDown) {
                 OnRightButtonDown();
-            } else if (input.usEvent == RIGHT_BUTTON_UP) {
+            } else if (input.type == InputEventType::RightButtonUp) {
                 OnRightButtonUp();
             }
-        } else if (input.usEvent == MOUSE_WHEEL) {
-            OnMouseWheel(GetMouseWheelDeltaValue(input.usParam));
-        } else if (input.usEvent == KEY_DOWN && input.usParam == VK_ESCAPE) {
+        } else if (input.type == InputEventType::MouseWheel) {
+            OnMouseWheel(input.wheel);
+        } else if (input.type == InputEventType::KeyDown && input.key == VK_ESCAPE) {
             m_keep_open = false;
         }
         return true;

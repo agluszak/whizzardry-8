@@ -26,7 +26,6 @@
 #include "wiz8/layouts/game_status.h"
 #include "surrender/srMath.h"
 #include "soundman.h"
-#include "compat/ptr32.h"
 #include "layouts/item_instance.h"
 #include "monster_actions.h"
 

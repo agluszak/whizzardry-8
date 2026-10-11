@@ -1,3 +1,4 @@
+#include <span>
 #include <vector>
 #include <algorithm>
 #include <cmath>
@@ -150,13 +151,13 @@ PrePathing::~PrePathing()
 }
 
 // FUNCTION: WIZ8 0x004CD130
-int PrePathing::SnapNamedPositions(W8LevelFileNamedPosition* positions, int count,
+int PrePathing::SnapNamedPositions(std::span<const W8LevelFileNamedPosition> positions,
                                    unsigned int min_component_percent, OctPreTree* octree)
 {
     this->min_component_percent = min_component_percent;
-    named_position_count = count;
-    if (count != 0) {
-        named_positions = new srVector3T<float>[count];
+    named_position_count = static_cast<int>(positions.size());
+    if (named_position_count != 0) {
+        named_positions = new srVector3T<float>[named_position_count];
         for (int i = 0; i < named_position_count; ++i) {
             named_positions[i].Set(positions[i].position.x * g_world_scale,
                                    positions[i].position.y * g_world_scale,
@@ -523,7 +524,7 @@ int PrePathing::CreatePathNodeArray()
 }
 
 // FUNCTION: WIZ8 0x004CE070
-unsigned char PrePathing::CreateAutomapNodes(W8LevelFile* level)
+unsigned char PrePathing::CreateAutomapNodes(W8LevelFile& level)
 {
     int last_percent = 0;
     std::vector<int> node_keys;
@@ -558,21 +559,13 @@ unsigned char PrePathing::CreateAutomapNodes(W8LevelFile* level)
         }
     }
     used_keys.clear();
-    level->num_automap_nodes = static_cast<int>(node_keys.size());
     sprintf(message, "Creating Automap Nodes:  100%% Complete:  %d Automap Nodes created  \n",
             static_cast<int>(node_keys.size()));
     ReportStartupMessage(message);
-    sprintf(message, "  %d Total Automap Nodes.\n", level->num_automap_nodes);
+    sprintf(message, "  %d Total Automap Nodes.\n", static_cast<int>(node_keys.size()));
     ReportBuildStatus(6, message);
-    level->automap_nodes = static_cast<w8_ulong*>(malloc(level->num_automap_nodes * sizeof(*level->automap_nodes)));
-    if (level->automap_nodes == 0) {
-        level->num_automap_nodes = 0;
-    } else {
-        for (i = 0; i < static_cast<unsigned int>(level->num_automap_nodes); ++i) {
-            level->automap_nodes[i] = node_keys[i];
-        }
-        std::sort(level->automap_nodes, level->automap_nodes + level->num_automap_nodes);
-    }
+    level.automap_nodes.assign(node_keys.begin(), node_keys.end());
+    std::ranges::sort(level.automap_nodes);
     for (i = 1; i < static_cast<unsigned int>(path_node_count); ++i) {
         path_node_list[i] = 0;
     }

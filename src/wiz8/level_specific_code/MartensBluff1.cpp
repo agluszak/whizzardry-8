@@ -29,7 +29,6 @@
 #include "surrender/srCamera.h"
 #include "soundman.h"
 #include "random.h"
-#include "compat/ptr32.h"
 #include "glm/ext/vector_float3.hpp"
 #include "layouts/world.h"
 

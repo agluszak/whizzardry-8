@@ -41,7 +41,6 @@
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/PolyPick.h"
 #include "wiz8/local_screens/MGSTextBox.h"
-#include "compat/ptr32.h"
 #include "conditions.h"
 #include "gameplay_modifiers.h"
 #include "layouts/levels.h"

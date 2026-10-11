@@ -594,9 +594,9 @@ void W8CharacterStatsPage::GetNavigationState(bool* next_enabled, bool* exit_ena
 
 /* A click anywhere closes an expanded row's record list. */
 // FUNCTION: WIZ8 0x005ca5e0
-void W8CharacterStatsPage::HandleInput(InputAtom* input)
+void W8CharacterStatsPage::HandleInput(InputEvent* input)
 {
-    if (input->usEvent != LEFT_BUTTON_DOWN && input->usEvent != RIGHT_BUTTON_DOWN) {
+    if (input->type != InputEventType::LeftButtonDown && input->type != InputEventType::RightButtonDown) {
         return;
     }
     m_profession_row->CollapseIfNotHovered();

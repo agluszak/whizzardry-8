@@ -197,10 +197,9 @@ bool W8NpcDialog::ProcessInput()
 {
     BeginModalInput();
     bool returned_early = false;
-    DrainModalInput([this, &returned_early](const InputAtom& input) {
-        if ((input.usEvent != KEY_DOWN && input.usEvent != KEY_REPEAT) ||
-            static_cast<char>(HandleTextInput(&input)) == 0) {
-            if (input.usEvent == KEY_DOWN && input.usParam == VK_RETURN &&
+    DrainModalInput([this, &returned_early](const InputEvent& input) {
+        if (!IsTypingEvent(input) || static_cast<char>(HandleTextInput(&input)) == 0) {
+            if (input.type == InputEventType::KeyDown && input.key == VK_RETURN &&
                 m_message->kind == W8_NPC_ENTRY_KEYWORD_INPUT) {
                 m_input_text = GetTextFromField(m_input_field);
                 g_npc_dialog->m_keep_open = false;

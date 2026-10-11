@@ -60,7 +60,6 @@
 #include "wiz8/engine_code/3d.h"
 #include "application.h"
 #include "camera_motion.h"
-#include "compat/ptr32.h"
 #include "geometry.h"
 #include "glm/ext/matrix_float2x2.hpp"
 #include "glm/ext/vector_float2.hpp"

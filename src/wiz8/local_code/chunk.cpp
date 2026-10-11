@@ -54,6 +54,27 @@ unsigned char W8Chunk::Write(const void* buffer, unsigned int size, unsigned int
     return true;
 }
 
+std::int64_t W8Chunk::RemainingBytes() const
+{
+    if (!m_hFile) throw std::logic_error("closed RIFF");
+    return CurrentChunkEnd() - m_hFile->tell();
+}
+
+void W8Chunk::ReadBytes(void* buffer, std::size_t size)
+{
+    if (m_fWriting) throw std::logic_error("read from RIFF writer");
+    const auto remaining = RemainingBytes();
+    if (remaining < 0 || size > static_cast<std::uint64_t>(remaining))
+        throw std::runtime_error("read past RIFF chunk");
+    m_hFile->read_exact(buffer, size);
+}
+
+void W8Chunk::WriteBytes(const void* buffer, std::size_t size)
+{
+    if (!m_hFile || !m_fWriting || m_heads.empty()) throw std::logic_error("write outside RIFF chunk");
+    m_hFile->write(buffer, size);
+}
+
 bool W8Chunk::OpenExistingRiff(std::string_view path, wiz8::OpenMode mode)
 try
 {

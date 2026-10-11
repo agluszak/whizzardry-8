@@ -22,7 +22,6 @@
 #include <glm/geometric.hpp>
 #include "glm/ext/vector_float2.hpp"
 #include "image.h"
-#include "native/input_events.h"
 #include "utf8/checked.h"
 #include "wiz8/unicode.h"
 #include "wiz8/containers.h"
@@ -77,7 +76,6 @@
 #include "OctPreTree.h"
 #include "compat/compiler.h"
 #include "compat/native.h"
-#include "compat/ptr32.h"
 #include "environment_colour.h"
 #include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/vector_float3.hpp"
@@ -282,8 +280,8 @@ W8AutomapNote* g_automap_editing_note;
 // GLOBAL: WIZ8 0x0068f298
 W8AutomapNote* g_automap_hovered_note;
 
-unsigned char HandleAutomapKey(const InputAtom* input);
-unsigned char HandleAutomapNoteInput(const InputAtom* input);
+unsigned char HandleAutomapKey(const InputEvent* input);
+unsigned char HandleAutomapNoteInput(const InputEvent* input);
 unsigned char ShowAutomapNoteTooltip(W8AutomapNote* note);
 unsigned char ZoomAutomapIn(const glm::vec2* point);
 
@@ -353,13 +351,13 @@ static void ClearAutomapMarkers()
 
 /* Full-screen automap background: arm on left-down, dismiss on left-up. */
 // FUNCTION: WIZ8 0x00581790
-unsigned char AutomapBackgroundRegionEvent(const InputAtom* event, W8Region* region)
+unsigned char AutomapBackgroundRegionEvent(const InputEvent* event, W8Region* region)
 {
-    switch (event->usEvent) {
-    case LEFT_BUTTON_DOWN:
+    switch (event->type) {
+    case InputEventType::LeftButtonDown:
         region->flags |= W8_REGION_LEFT_BUTTON_HELD;
         break;
-    case LEFT_BUTTON_UP:
+    case InputEventType::LeftButtonUp:
         if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
             RequestScreenTransition();
             return 1;
@@ -721,7 +719,7 @@ unsigned char AutomapScreenEnter(void)
         if (item->p3D)
             item->p3D->DetachMesh(g_world);
     }
-    gfTrackMousePos = 1;
+    SetMouseMoveEventsEnabled(1);
     g_automap_cursor_inside = IsCursorInsideViewport();
     g_automap_tool = 0;
     SetAutomapToolCursor(0);
@@ -865,7 +863,7 @@ W8AutomapNote* CreateAutomapNote(const glm::vec2* position, int layer, std::stri
 // FUNCTION: WIZ8 0x0057f1f0
 void AutomapScreenFrame(void)
 {
-    InputAtom input;
+    InputEvent input;
     while (DequeueEvent(&input) == 1) {
         if (g_automap_editing_note) {
             HandleAutomapNoteInput(&input);
@@ -881,13 +879,13 @@ void AutomapScreenFrame(void)
             SDL_Point point;
             SGPMouseGetPos(&point);
             UpdateRegionMousePosition(point.x, point.y);
-            switch (input.usEvent) {
-            case LEFT_BUTTON_DOWN:
-            case LEFT_BUTTON_REPEAT:
-            case LEFT_BUTTON_UP:
-            case RIGHT_BUTTON_DOWN:
-            case RIGHT_BUTTON_UP:
-            case RIGHT_BUTTON_REPEAT:
+            switch (input.type) {
+            case InputEventType::LeftButtonDown:
+            case InputEventType::LeftButtonRepeat:
+            case InputEventType::LeftButtonUp:
+            case InputEventType::RightButtonDown:
+            case InputEventType::RightButtonUp:
+            case InputEventType::RightButtonRepeat:
                 DispatchRegionInput(&input);
                 break;
             default:
@@ -899,7 +897,7 @@ void AutomapScreenFrame(void)
             g_automap_cursor_inside = true;
             SetAutomapToolCursor(g_automap_tool);
         }
-        if (input.usEvent == LEFT_BUTTON_UP) {
+        if (input.type == InputEventType::LeftButtonUp) {
             glm::vec2 point;
             if (g_automap_tool == 2) {
                 if (GetCursorPositionInViewport(&point)) {
@@ -926,7 +924,7 @@ void AutomapScreenFrame(void)
             } else if (GetCursorPositionInViewport(&point)) {
                 ZoomAutomapIn(&point);
             }
-        } else if (input.usEvent == RIGHT_BUTTON_UP) {
+        } else if (input.type == InputEventType::RightButtonUp) {
             if (g_automap_tool == 0) {
                 if (g_automap_position.y < g_automap_top_y) {
                     if (g_automap_zoom_mode == 1) {
@@ -955,7 +953,7 @@ void AutomapScreenFrame(void)
                 g_automap_tool = 0;
                 SetAutomapToolCursor(0);
             }
-        } else if (input.usEvent == MOUSE_POS) {
+        } else if (input.type == InputEventType::MouseMove) {
             W8AutomapNote* previous = g_automap_hovered_note;
             g_automap_hovered_note = FindAutomapNoteUnderCursor();
             if (previous != g_automap_hovered_note) {
@@ -983,19 +981,19 @@ void AutomapScreenFrame(void)
         }
     }
     bool moved = false;
-    if (gfKeyState[VK_LEFT]) {
+    if (IsKeyHeld(VK_LEFT)) {
         g_automap_position.x -= g_float_thirty_five_hundredths * g_automap_zoom;
         moved = true;
     }
-    if (gfKeyState[VK_RIGHT]) {
+    if (IsKeyHeld(VK_RIGHT)) {
         g_automap_position.x += g_float_thirty_five_hundredths * g_automap_zoom;
         moved = true;
     }
-    if (gfKeyState[VK_UP]) {
+    if (IsKeyHeld(VK_UP)) {
         g_automap_position.z += g_float_thirty_five_hundredths * g_automap_zoom;
         moved = true;
     }
-    if (gfKeyState[VK_DOWN]) {
+    if (IsKeyHeld(VK_DOWN)) {
         g_automap_position.z -= g_float_thirty_five_hundredths * g_automap_zoom;
         moved = true;
     }
@@ -1041,7 +1039,7 @@ unsigned char AutomapScreenLeave(int)
     MarkRendererReady();
     SetOverlayViewport(0);
     ResumeMainGameWorld();
-    gfTrackMousePos = 0;
+    SetMouseMoveEventsEnabled(0);
     g_automap_surface.reset();
     ClearAutomapMarkers();
     g_automap_party_marker->setParent(0, 1);
@@ -1537,52 +1535,52 @@ unsigned char ShowAutomapNoteTooltip(W8AutomapNote* note)
 /* Persist the visited-cell bitmap and every note's position, layer and text.
    A 0xF00DF00D signature brackets the note records. */
 // FUNCTION: WIZ8 0x00581CE0
-bool SaveAutomapNotes(wiz8::File* handle)
+bool SaveAutomapNotes(wiz8::File& handle)
 {
     int signature = 0xf00df00d;
     unsigned char saved;
     if (!g_automap_visited_cells.empty()) {
         saved = SavePackedBits(handle, g_automap_visited_cells);
     } else {
-        saved = handle != nullptr;
+        saved = true;
     }
     if (saved == 0) {
         return false;
     }
-    if ((handle->write(&signature, 4), true) == 0) {
+    if ((handle.write(&signature, 4), true) == 0) {
         return false;
     }
     unsigned int count = static_cast<int>(g_automap_notes->size());
-    if ((handle->write(&count, 4), true) == 0) {
+    if ((handle.write(&count, 4), true) == 0) {
         return false;
     }
     for (unsigned int index = 0; index < count; ++index) {
         W8AutomapNote* note = (*g_automap_notes)[index];
         if (note != 0) {
-            bool ok = (handle->write(&note->position.x, 4), true) != 0 &&
-                      (handle->write(&note->position.y, 4), true) != 0 &&
-                      (handle->write(&note->layer, 4), true) != 0;
+            bool ok = (handle.write(&note->position.x, 4), true) != 0 &&
+                      (handle.write(&note->position.y, 4), true) != 0 &&
+                      (handle.write(&note->layer, 4), true) != 0;
             const std::uint32_t length = wiz8::text::to_utf16(note->text).size() + 1;
             std::vector<std::byte> bytes(length * 2);
             wiz8::text::to_utf16le(note->text, bytes);
             if (!ok) {
                 return false;
             }
-            if ((handle->write(&length, 4), true) == 0) {
+            if ((handle.write(&length, 4), true) == 0) {
                 return false;
             }
-            if ((handle->write(bytes.data(), bytes.size()), true) == 0) {
+            if ((handle.write(bytes.data(), bytes.size()), true) == 0) {
                 return false;
             }
         }
     }
-    return (handle->write(&signature, 4), true) != 0;
+    return (handle.write(&signature, 4), true) != 0;
 }
 
 /* Release every note, restore the visited-cell bitmap for the loaded level,
    then rebuild the notes from the saved records. */
 // FUNCTION: WIZ8 0x00581E60
-bool LoadAutomapNotes(wiz8::File* handle)
+bool LoadAutomapNotes(wiz8::File& handle)
 try
 {
     int signature = 0;
@@ -1597,24 +1595,24 @@ try
         }
         g_automap_bounds_dirty = true;
         unsigned int count;
-        if ((handle->read(&signature, 4).bytes == static_cast<std::size_t>(4)) != 0 && signature == static_cast<int>(0xf00df00d) &&
-            (handle->read(&count, 4).bytes == static_cast<std::size_t>(4)) != 0) {
+        if ((handle.read(&signature, 4).bytes == static_cast<std::size_t>(4)) != 0 && signature == static_cast<int>(0xf00df00d) &&
+            (handle.read(&count, 4).bytes == static_cast<std::size_t>(4)) != 0) {
             for (unsigned int index = 0; index < count; ++index) {
                 glm::vec2 position;
                 int layer = 0;
                 int length = 0;
                 /* Retail fed `length` to malloc even when the FileRead chain
                    short-circuited before filling it; natively it starts at zero. */
-                bool ok = (handle->read(&position.x, 4).bytes == static_cast<std::size_t>(4)) != 0 &&
-                          (handle->read(&position.y, 4).bytes == static_cast<std::size_t>(4)) != 0 &&
-                          (handle->read(&layer, 4).bytes == static_cast<std::size_t>(4)) != 0 &&
-                          (handle->read(&length, 4).bytes == static_cast<std::size_t>(4)) != 0;
+                bool ok = (handle.read(&position.x, 4).bytes == static_cast<std::size_t>(4)) != 0 &&
+                          (handle.read(&position.y, 4).bytes == static_cast<std::size_t>(4)) != 0 &&
+                          (handle.read(&layer, 4).bytes == static_cast<std::size_t>(4)) != 0 &&
+                          (handle.read(&length, 4).bytes == static_cast<std::size_t>(4)) != 0;
                 if (!ok || length < 1 || length > 40) return false;
                 std::vector<std::byte> bytes(static_cast<std::size_t>(length) * 2);
-                if (handle->read(bytes.data(), bytes.size()).bytes != bytes.size()) return false;
+                if (handle.read(bytes.data(), bytes.size()).bytes != bytes.size()) return false;
                 CreateAutomapNote(&position, layer, wiz8::text::from_utf16le(bytes));
             }
-            return (handle->read(&signature, 4).bytes == static_cast<std::size_t>(4)) != 0;
+            return (handle.read(&signature, 4).bytes == static_cast<std::size_t>(4)) != 0;
         }
     }
     return false;
@@ -2033,10 +2031,11 @@ stModelInstance2D* CreateAutomapTextMarker(void)
 /* While a note is being edited, forward key events into its text buffer and
    let left-button-up drop the note at the cursor. */
 // FUNCTION: WIZ8 0x00584250
-unsigned char HandleAutomapNoteInput(const InputAtom* input)
+unsigned char HandleAutomapNoteInput(const InputEvent* input)
 {
-    if (input->usEvent != KEY_DOWN && input->usEvent != KEY_REPEAT) {
-        if (input->usEvent == LEFT_BUTTON_UP && IsCursorInsideViewport()) {
+    if (input->type != InputEventType::KeyDown && input->type != InputEventType::KeyRepeat &&
+        input->type != InputEventType::Text) {
+        if (input->type == InputEventType::LeftButtonUp && IsCursorInsideViewport()) {
             glm::vec2 point;
             if (GetCursorPositionInViewport(&point) != 0) {
                 int layer = g_automap_layer + 1;
@@ -2049,10 +2048,10 @@ unsigned char HandleAutomapNoteInput(const InputAtom* input)
         }
         return 0;
     }
-    const bool committed = (input->uiParam & NATIVE_TEXT_INPUT_FLAG) != 0;
-    const char32_t key = committed ? input->usParam : 0;
-    InputAtom normalized = *input;
-    if (committed) { normalized.usParam = 0; input = &normalized; }
+    const bool committed = input->type == InputEventType::Text;
+    const char32_t key = committed ? input->text : 0;
+    InputEvent normalized = *input;
+    if (committed) { normalized.type = InputEventType::KeyDown; normalized.key = 0; input = &normalized; }
     ShowAutomapNoteTooltip(g_automap_editing_note);
     auto& text = g_automap_editing_note->text;
     const auto last = text.empty() ? 0 : text.size() - 1; // Trailing cursor marker.
@@ -2063,10 +2062,10 @@ unsigned char HandleAutomapNoteInput(const InputAtom* input)
         text.insert(last, inserted);
         g_automap_redraw = true;
     } else {
-        if (input->usParam == VK_BACK) {
+        if (input->key == VK_BACK) {
             if (last) text.erase(wiz8::text::previous_grapheme(text, last), last - wiz8::text::previous_grapheme(text, last));
             g_automap_redraw = true;
-        } else if (input->usParam == VK_RETURN) {
+        } else if (input->key == VK_RETURN) {
             text.resize(last);
             if (text.empty()) {
                 wiz8::erase_first(*g_automap_notes, g_automap_editing_note);
@@ -2078,7 +2077,7 @@ unsigned char HandleAutomapNoteInput(const InputAtom* input)
             if (g_automap_tool != 0) { g_automap_tool = 0; SetAutomapCursorImage(0); }
             g_automap_editing_note = 0;
             g_automap_redraw = true;
-        } else if (input->usParam == VK_ESCAPE) {
+        } else if (input->key == VK_ESCAPE) {
             wiz8::erase_first(*g_automap_notes, g_automap_editing_note);
 
             delete g_automap_editing_note;
@@ -2108,18 +2107,18 @@ unsigned char HandleAutomapNoteInput(const InputAtom* input)
 /* Automap key handling: screen exit, zoom keys, page cycling and the
    per-tool and cheat-gated bindings. */
 // FUNCTION: WIZ8 0x00584690
-unsigned char HandleAutomapKey(const InputAtom* input)
+unsigned char HandleAutomapKey(const InputEvent* input)
 {
-    if (input->usEvent != KEY_DOWN) {
+    if (input->type != InputEventType::KeyDown) {
         return 0;
     }
     MGSKeyBinding* binding =
         g_mgs_keyboard->GetBinding(g_mgs_keyboard->FindBinding(W8_MGS_COMMAND_AUTOMAP));
-    if (input->usParam == binding->key && input->usKeyState == binding->modifiers) {
+    if (input->key == binding->key && input->modifiers == binding->modifiers) {
         RequestScreenTransition();
         return 1;
     }
-    switch (input->usParam) {
+    switch (input->key) {
     case 8:
         /* Backspace zooms out one step, or all the way from the full view. */
         if (g_automap_position.y < g_automap_top_y) {
@@ -2197,7 +2196,7 @@ unsigned char HandleAutomapKey(const InputAtom* input)
     case 0x32:
     case 0x33:
     case 0x34:
-        SetAutomapLayer(input->usParam - 0x31);
+        SetAutomapLayer(input->key - 0x31);
         return 1;
     case 0x41:
         /* Developer: reveal the whole map. */

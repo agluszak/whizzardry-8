@@ -1,3 +1,4 @@
+#include <SDL3/SDL_rect.h>
 #include <fmt/format.h>
 #include <array>
 #include <memory>
@@ -108,14 +109,15 @@ int MGSKeyboard::FindBinding(W8MGSCommand command) const
 }
 
 // FUNCTION: WIZ8 0x0055d2a0
-W8MGSCommand MGSKeyboard::FindCommandForEvent(const InputAtom* event) const
+W8MGSCommand MGSKeyboard::FindCommandForEvent(const InputEvent* event) const
 {
     int count = static_cast<int>(m_bindings.size());
     int index;
     for (index = 0; index < count; ++index) {
         MGSKeyBinding* binding = m_bindings[index].get();
-        if (binding->active == event->usEvent && binding->modifiers == event->usKeyState &&
-            binding->key == event->usParam) {
+        if (binding->active != 0 && event->type == InputEventType::KeyDown &&
+            binding->modifiers == event->modifiers &&
+            binding->key == event->key) {
             return binding->command;
         }
     }
@@ -143,15 +145,15 @@ bool MGSKeyboard::IsCommandPressed(W8MGSCommand command) const
         return false;
     }
     const auto* binding = found->second;
-    if (gfKeyState[binding->key] != 0) {
+    if (IsKeyHeld(binding->key)) {
         unsigned short modifiers = 0;
-        if (gfKeyState[VK_SHIFT] != 0) {
+        if (IsKeyHeld(VK_SHIFT)) {
             modifiers |= SHIFT_DOWN;
         }
-        if (gfKeyState[VK_MENU] != 0) {
+        if (IsKeyHeld(VK_MENU)) {
             modifiers |= ALT_DOWN;
         }
-        if (gfKeyState[VK_CONTROL] != 0) {
+        if (IsKeyHeld(VK_CONTROL)) {
             modifiers |= CTRL_DOWN;
         }
         if (modifiers == binding->modifiers) {
@@ -166,7 +168,7 @@ bool MGSKeyboard::IsCommandPressed(W8MGSCommand command) const
 // FUNCTION: WIZ8 0x0055D3C0
 void DrainInputEventQueue(void)
 {
-    InputAtom event;
+    InputEvent event;
 
     while (DequeueEvent(&event)) {
     }
@@ -180,7 +182,7 @@ void MGSKeyboard::Clear()
 }
 
 // FUNCTION: WIZ8 0x0055d590
-unsigned char MGSKeyboard::Load(wiz8::File* handle, bool clear)
+unsigned char MGSKeyboard::Load(wiz8::File& handle, bool clear)
 try
 {
     int count;
@@ -188,10 +190,10 @@ try
     if (clear) {
         Clear();
     }
-    handle->read_exact(&count, sizeof(count));
+    handle.read_exact(&count, sizeof(count));
     for (int index = 0; index < count; ++index) {
         auto binding = std::make_unique<MGSKeyBinding>();
-        handle->read_exact(binding.get(), sizeof(*binding));
+        handle.read_exact(binding.get(), sizeof(*binding));
 
         int old_index = FindBinding(binding->command);
         if (old_index != -1) {
@@ -208,12 +210,12 @@ try
 catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x0055d7a0
-unsigned char MGSKeyboard::Save(wiz8::File* handle) const
+unsigned char MGSKeyboard::Save(wiz8::File& handle) const
 {
     int count = static_cast<int>(m_bindings.size());
-    handle->write(&count, sizeof(count));
+    handle.write(&count, sizeof(count));
     for (int index = 0; index < count; ++index) {
-        handle->write(m_bindings[index].get(), sizeof(MGSKeyBinding));
+        handle.write(m_bindings[index].get(), sizeof(MGSKeyBinding));
     }
     return 1;
 }
@@ -236,17 +238,16 @@ void ResetMGSKeyboardBindings()
    gate on their flags; everything else resolves to a bound MGS command.
    Attribution-gap body leading the MGSKeyboard.cpp hull at 0x00591960. */
 // FUNCTION: WIZ8 0x00591890
-unsigned char HandleMainGameInputEvent(const InputAtom* input)
+unsigned char HandleMainGameInputEvent(const InputEvent* input)
 {
-    if ((input->usEvent == KEY_DOWN || input->usEvent == KEY_REPEAT) &&
-        static_cast<char>(HandleTextInput(input)) != 0) {
+    if (IsTypingEvent(*input) && static_cast<char>(HandleTextInput(input)) != 0) {
         return 1;
     }
-    if ((input->usEvent == KEY_DOWN || input->usEvent == KEY_REPEAT) && gXStatus.fNpcDialogueMode) {
+    if ((input->type == InputEventType::KeyDown || input->type == InputEventType::KeyRepeat) && gXStatus.fNpcDialogueMode) {
         HandleNpcDialogueKeyEvent(input);
         return 1;
     }
-    if ((input->usEvent == KEY_DOWN || input->usEvent == KEY_REPEAT) &&
+    if ((input->type == InputEventType::KeyDown || input->type == InputEventType::KeyRepeat) &&
         gXStatus.fTrapInteractMode && TextBoxHandleKey(input) != 0) {
         return 1;
     }
@@ -254,7 +255,7 @@ unsigned char HandleMainGameInputEvent(const InputAtom* input)
         return 1;
     }
     if (IsRecordModeActive()) {
-        if (gfKeyState[VK_CONTROL] == 0 && HandleRecordModeKey(input, PromptRecordModeEntry) == 1) {
+        if (!IsKeyHeld(VK_CONTROL) && HandleRecordModeKey(input, PromptRecordModeEntry) == 1) {
             ApplyRecordModeLine();
             return 1;
         }
@@ -647,10 +648,9 @@ void DispatchMGSCommand(W8MGSCommand command)
         break;
     case W8_MGS_COMMAND_DEBUG_INJECT_CLICK:
         if (IsCursorImageInsideViewport()) {
-            unsigned int position = (static_cast<unsigned int>(gusMouseYPos) << 16) | gusMouseXPos;
-            QueueEvent(LEFT_BUTTON_DOWN, 0, position);
-            QueueEvent(LEFT_BUTTON_UP, 0, position);
-            gfLeftButtonState = 0;
+            const SDL_Point position = GetGameMousePosition();
+            QueueEvent(InputEventType::LeftButtonDown, position);
+            QueueEvent(InputEventType::LeftButtonUp, position);
         }
         break;
     case W8_MGS_COMMAND_TOGGLE_AUTO_ADVANCE:
@@ -1077,7 +1077,7 @@ static void KeyboardMenuUseRecordedItem(void)
 }
 
 // FUNCTION: WIZ8 0x00594760
-unsigned char KeyboardMenuRowRegionEvent(const InputAtom* event, W8Region* region)
+unsigned char KeyboardMenuRowRegionEvent(const InputEvent* event, W8Region* region)
 {
     W8TextControl* row = g_keyboard_menu_rows[region->callback_id];
     unsigned short row_id;
@@ -1089,22 +1089,22 @@ unsigned char KeyboardMenuRowRegionEvent(const InputAtom* event, W8Region* regio
     if (row == 0) {
         return 0;
     }
-    switch (event->usEvent) {
-    case RIGHT_BUTTON_DOWN:
+    switch (event->type) {
+    case InputEventType::RightButtonDown:
         row->OnRightButtonDown(0);
         region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
         return 1;
-    case LEFT_BUTTON_DOWN:
-    case LEFT_BUTTON_REPEAT:
-    case LEFT_BUTTON_UP:
+    case InputEventType::LeftButtonDown:
+    case InputEventType::LeftButtonRepeat:
+    case InputEventType::LeftButtonUp:
         return DispatchButtonRegionEvent(event, region, row);
-    case RIGHT_BUTTON_UP:
+    case InputEventType::RightButtonUp:
         row->OnRightButtonUp(0);
         if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) != 0) {
             region->flags &= ~W8_REGION_RIGHT_BUTTON_HELD;
         }
         return 1;
-    case MOUSE_POS:
+    case InputEventType::MouseMove:
         if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
             row->OnMouseLeave(0);
             return 1;
@@ -1144,17 +1144,19 @@ unsigned char KeyboardMenuRowRegionEvent(const InputAtom* event, W8Region* regio
         name = FormatItemDisplayName(item, false);
         SetRegionHelpText(fmt::format("{}: {}", g_localized_strings[0x5d], name));
         return 1;
+    default:
+        break;
     }
     return 0;
 }
 
 // FUNCTION: WIZ8 0x005949A0
-unsigned char KeyboardMenuBackgroundRegionEvent(const InputAtom* event, W8Region*)
+unsigned char KeyboardMenuBackgroundRegionEvent(const InputEvent* event, W8Region*)
 {
     if (!g_level_block->keyboard_menu_open) {
         return 0;
     }
-    if (event->usEvent != RIGHT_BUTTON_UP) {
+    if (event->type != InputEventType::RightButtonUp) {
         return 0;
     }
     CloseKeyboardMenu();

@@ -19,7 +19,6 @@
 #include "wiz8/local_code/NPCManager.h"
 #include "Navigator.h"
 #include "compat/native.h"
-#include "compat/ptr32.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "layouts/targeting.h"
 #include "layouts/world.h"

@@ -95,46 +95,46 @@ void stParticle::SetParticleScale(float scale)
 }
 
 // FUNCTION: WIZ8 0x0049B150
-void SaveParticleStates(wiz8::File* handle)
+void SaveParticleStates(wiz8::File& handle)
 {
     unsigned char version = 1;
     char name[0x80] = "";
     int count = 0;
 
-    handle->write(&version, sizeof(version));
+    handle.write(&version, sizeof(version));
 
     if (g_world != 0) {
         for (stParticle* particle : g_world->particles) {
             count += particle->persisted;
         }
     }
-    handle->write(&count, sizeof(count));
+    handle.write(&count, sizeof(count));
 
     if (g_world != 0) {
         for (stParticle* particle : g_world->particles) {
             if (particle->persisted) {
                 strcpy(name, particle->getName().c_str());
-                handle->write(name, sizeof(name));
-                handle->write(&particle->emitting, sizeof(particle->emitting));
+                handle.write(name, sizeof(name));
+                handle.write(&particle->emitting, sizeof(particle->emitting));
             }
         }
     }
 }
 
 // FUNCTION: WIZ8 0x0049B3B0
-void LoadParticleStates(wiz8::File* handle)
+void LoadParticleStates(wiz8::File& handle)
 {
     unsigned char version;
     int count = 0;
     char name[0x80] = "";
 
-    handle->read_exact(&version, sizeof(version));
-    handle->read_exact(&count, sizeof(count));
+    handle.read_exact(&version, sizeof(version));
+    handle.read_exact(&count, sizeof(count));
 
     for (int index = 0; index < count; ++index) {
         unsigned char active;
-        handle->read_exact(name, sizeof(name));
-        handle->read_exact(&active, sizeof(active));
+        handle.read_exact(name, sizeof(name));
+        handle.read_exact(&active, sizeof(active));
 
         stParticle* particle = FindParticleByName(g_world, name);
         if (particle != 0) {

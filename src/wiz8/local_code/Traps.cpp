@@ -171,16 +171,16 @@ bool IsRecordModeActive(void)
    g_record_mode_line. Returns 1 on ENTER (the caller then runs the
    apply callback), -1 on ESC, 0 otherwise. */
 // FUNCTION: WIZ8 0x005E3610
-char HandleRecordModeKey(const InputAtom* input, void (*prompt)(void))
+char HandleRecordModeKey(const InputEvent* input, void (*prompt)(void))
 {
     char character;
     std::string text;
 
-    if (gfKeyState[VK_CONTROL] != 0) {
+    if (IsKeyHeld(VK_CONTROL)) {
         return 0;
     }
-    character = static_cast<char>(toupper(input->usParam));
-    if (input->usEvent != KEY_UP) {
+    character = static_cast<char>(toupper(input->key));
+    if (input->type != InputEventType::KeyUp) {
         return 0;
     }
     if (character == 8) {
@@ -202,7 +202,7 @@ char HandleRecordModeKey(const InputAtom* input, void (*prompt)(void))
         return -1;
     } else {
         text = &character;
-        if (gfKeyState[VK_SHIFT] == 0 && gfKeyState[0x14] == 0 && text[0] >= 'A' && text[0] <= 'Z') {
+        if (!IsKeyHeld(VK_SHIFT) && !IsKeyHeld(0x14) && text[0] >= 'A' && text[0] <= 'Z') {
             text[0] += 0x20;
         }
         g_record_mode_line[g_record_mode_length] = text[0];

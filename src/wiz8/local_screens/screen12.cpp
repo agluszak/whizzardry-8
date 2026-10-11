@@ -57,19 +57,21 @@ unsigned char ExitScreenEnter(void)
 // FUNCTION: WIZ8 0x005917e0
 void ExitScreenFrame(void)
 {
-    InputAtom input;
+    InputEvent input;
 
     RenderFrame();
     while (DequeueEvent(&input) == 1) {
         if (!DispatchRegionInput(&input)) {
-            switch (input.usEvent) {
-            case KEY_DOWN:
+            switch (input.type) {
+            case InputEventType::KeyDown:
                 gfProgramIsRunning = 0;
+                break;
+            default:
                 break;
             }
         }
     }
-    if (gfLeftButtonState == 0 && gfRightButtonState == 0) {
+    if (!IsLeftButtonHeld() && !IsRightButtonHeld()) {
         if (gfProgramIsRunning != 0) {
             return;
         }

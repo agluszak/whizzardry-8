@@ -3,7 +3,7 @@
 #include <string_view>
 #include <utility>
 
-#include "input.h"
+#include "wiz8/unicode.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/dialog_code/DialogTextArea.h"

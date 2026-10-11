@@ -14,7 +14,6 @@
 #include "wiz8/sr_api.h"
 #include "wiz8/filesystem.h"
 #include "Font.h"
-#include "english.h"
 #include "input.h"
 
 /* Local Screens\IntroScreen.cpp is named by the gpVideo assertion at line 98.
@@ -85,18 +84,20 @@ static void AdvanceIntroScreen(void);
 // FUNCTION: WIZ8 0x005ae6f0
 void IntroScreenFrame(void)
 {
-    InputAtom input;
+    InputEvent input;
 
     while (DequeueEvent(&input) == 1) {
-        switch (input.usEvent) {
-        case KEY_DOWN:
-            if (input.usParam != ESC) break;
+        switch (input.type) {
+        case InputEventType::KeyDown:
+            if (input.key != VK_ESCAPE) break;
             AdvanceIntroScreen();
             return;
-        case LEFT_BUTTON_UP:
-        case RIGHT_BUTTON_UP:
+        case InputEventType::LeftButtonUp:
+        case InputEventType::RightButtonUp:
             AdvanceIntroScreen();
             return;
+        default:
+            break;
         }
     }
     if (gpVideo == 0 || gpVideo->UpdateFrame()) {

@@ -23,6 +23,8 @@
 #include "wiz8/xstatus.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/LevelFile.h"
+#include <variant>
+#include "wiz8/retail_geometry_records.h"
 #include "wiz8/engine_code/ReadMesh.h"
 #include "wiz8/engine_code/ReadLevel.h"
 #include "wiz8/engine_code/Camera.h"
@@ -142,33 +144,31 @@ static void level_records()
     store("mesh.bin", bytes);
     auto file = wiz8::open_file("mesh.bin");
     W8LevelFileMesh mesh{};
-    REQUIRE((ReadMeshFile(file.get(), &mesh)));
+    REQUIRE((ReadMeshFile(*file, mesh)));
     file->seek(0, wiz8::SeekOrigin::begin);
-    std::free(mesh.pstVertices); std::free(mesh.pstFaces); mesh = {};
+    mesh = {};
     std::size_t mesh_operations;
-    { FileFaults trace; REQUIRE((ReadMeshFile(file.get(), &mesh))); mesh_operations = trace.operations; }
-    REQUIRE((mesh.num_vertices == 3 && mesh.num_faces == 1 && mesh.pstVertices[1].x == 1));
-    std::free(mesh.pstVertices);
-    std::free(mesh.pstFaces);
+    { FileFaults trace; REQUIRE((ReadMeshFile(*file, mesh))); mesh_operations = trace.operations; }
+    REQUIRE((mesh.num_vertices == 3 && mesh.num_faces == 1 && mesh.vertices[1].x == 1));
     for (std::size_t operation = 1; operation <= mesh_operations; ++operation) {
         file = wiz8::open_file("mesh.bin"); mesh = {};
-        { FileFaults fault(operation); REQUIRE((!ReadMeshFile(file.get(), &mesh))); REQUIRE((fault.fired)); }
-        REQUIRE((!mesh.pstVertices && !mesh.pstFaces && !mesh.lods && !mesh.lod_shorts));
+        { FileFaults fault(operation); REQUIRE((!ReadMeshFile(*file, mesh))); REQUIRE((fault.fired)); }
+        REQUIRE((mesh.vertices.empty() && mesh.faces.empty() && mesh.lods.empty() && mesh.lod_shorts.empty()));
     }
 
     for (std::size_t end = 0; end < bytes.size(); ++end) {
         store("mesh.bin", bytes.substr(0, end));
         file = wiz8::open_file("mesh.bin");
         mesh = {};
-        REQUIRE((!ReadMeshFile(file.get(), &mesh)));
-        REQUIRE((!mesh.pstVertices && !mesh.pstFaces && !mesh.lods && !mesh.lod_shorts));
+        REQUIRE((!ReadMeshFile(*file, mesh)));
+        REQUIRE((mesh.vertices.empty() && mesh.faces.empty() && mesh.lods.empty() && mesh.lod_shorts.empty()));
     }
     for (int count : {-1, INT32_MAX}) {
         auto bad = bytes;
         std::memcpy(bad.data() + 4, &count, sizeof(count));
         store("mesh.bin", bad);
         file = wiz8::open_file("mesh.bin");
-        REQUIRE((!ReadMeshFile(file.get(), &mesh) && !mesh.pstVertices));
+        REQUIRE((!ReadMeshFile(*file, mesh) && mesh.vertices.empty()));
     }
 
     bytes.clear();
@@ -191,15 +191,14 @@ static void level_records()
     store("mesh.bin", bytes);
     file = wiz8::open_file("mesh.bin");
     mesh = {};
-    REQUIRE((ReadMeshFile(file.get(), &mesh)));
-    REQUIRE((mesh.num_lods == 1 && mesh.lod_shorts[0][3] == 1 && mesh.pstCompFaces[0].vertex_indices[2] == 2));
-    std::free(mesh.lod_shorts[0]); std::free(mesh.lod_shorts); std::free(mesh.pstCompFaces);
+    REQUIRE((ReadMeshFile(*file, mesh)));
+    REQUIRE((mesh.LodCount() == 1 && mesh.lod_shorts[0][3] == 1 && mesh.compressed_faces[0].vertex_indices[2] == 2));
     for (std::size_t end = 0; end < bytes.size(); ++end) {
         store("mesh.bin", bytes.substr(0, end));
         file = wiz8::open_file("mesh.bin");
         mesh = {};
-        REQUIRE((!ReadMeshFile(file.get(), &mesh)));
-        REQUIRE((!mesh.lod_shorts && !mesh.pstCompFaces));
+        REQUIRE((!ReadMeshFile(*file, mesh)));
+        REQUIRE((mesh.lod_shorts.empty() && mesh.compressed_faces.empty()));
     }
     for (int malformed = 0; malformed < 3; ++malformed) {
         auto bad = bytes;
@@ -214,8 +213,8 @@ static void level_records()
         store("mesh.bin", bad);
         file = wiz8::open_file("mesh.bin");
         mesh = {};
-        REQUIRE((!ReadMeshFile(file.get(), &mesh)));
-        REQUIRE((!mesh.lod_shorts && !mesh.pstCompFaces));
+        REQUIRE((!ReadMeshFile(*file, mesh)));
+        REQUIRE((mesh.lod_shorts.empty() && mesh.compressed_faces.empty()));
     }
 
     bytes.clear();
@@ -230,15 +229,14 @@ static void level_records()
     store("path.bin", bytes);
     file = wiz8::open_file("path.bin");
     W8LevelFilePathAI path{};
-    REQUIRE((ReadPathAIFile(file.get(), &path)));
-    REQUIRE((path.path_count == 1 && path.pScaledPaths[0].path.position.x == 42));
-    std::free(path.pScaledPaths);
+    REQUIRE((ReadPathAIFile(*file, path)));
+    REQUIRE((path.PathCount() == 1 && path.scaled_paths[0].path.position.x == 42));
     for (std::size_t end = 0; end < bytes.size(); ++end) {
         store("path.bin", bytes.substr(0, end));
         file = wiz8::open_file("path.bin");
         path = {};
-        REQUIRE((!ReadPathAIFile(file.get(), &path)));
-        REQUIRE((!path.pPaths && !path.pScaledPaths));
+        REQUIRE((!ReadPathAIFile(*file, path)));
+        REQUIRE((path.paths.empty() && path.scaled_paths.empty()));
     }
 }
 
@@ -341,7 +339,7 @@ static void geometry()
     append(bytes, header);
     const std::array<srVector3, 3> vertices{srVector3(0, 0, 0), srVector3(1, 0, 0), srVector3(0, 1, 0)};
     append(bytes, vertices);
-    W8GDSurface surface{};
+    wiz8::retail::GDSurface surface{};
     surface.vertex_indices[0] = 0; surface.vertex_indices[1] = 1; surface.vertex_indices[2] = 2;
     surface.plane.normal.Set(0, 0, 1);
     surface.flags = 2; // dominant Z axis for the spatial query
@@ -405,7 +403,7 @@ static void geometry()
     }
     auto bad = bytes;
     int invalid = 3;
-    std::memcpy(bad.data() + header.size() + sizeof(vertices) + offsetof(W8GDSurface, vertex_indices),
+    std::memcpy(bad.data() + header.size() + sizeof(vertices) + offsetof(wiz8::retail::GDSurface, vertex_indices),
                 &invalid, 4);
     store("geometry.bin", bad);
     file = wiz8::open_file("geometry.bin");
@@ -574,23 +572,23 @@ TEST_CASE_METHOD(LoaderFixture, "Versioned level record layouts", "[loader][reco
         store("super.bin", bytes);
         auto file = wiz8::open_file("super.bin");
         W8LevelFileTrigger trigger{};
-        REQUIRE(ReadSuperTriggerFile(file.get(), &trigger));
-        auto* record = static_cast<W8LevelFileSuperTrigger*>(trigger.pData);
+        REQUIRE(ReadSuperTriggerFile(*file, trigger));
+        auto* record = std::get_if<W8LevelFileSuperTrigger>(&trigger.data);
+        REQUIRE(record);
         REQUIRE(record->trigger_off == 41);
         REQUIRE(record->normal_scale == 9.f);
         REQUIRE(record->speed == (version >= 2 ? 5.f : 0.f));
         REQUIRE(record->unknown_4b3[2] == (version >= 2 ? 8.f : 0.f));
         auto output = wiz8::open_file("roundtrip.bin", wiz8::OpenMode::replace);
-        REQUIRE(WriteSuperTriggerFile(output.get(), &trigger));
+        REQUIRE(WriteSuperTriggerFile(*output, trigger));
         output->close();
-        REQUIRE(trigger.pData == nullptr); // Writer consumes the record.
         REQUIRE(written_bytes("roundtrip.bin") == bytes);
         for (std::size_t end = 0; end < bytes.size(); ++end) {
             store("super.bin", bytes.substr(0, end));
             file = wiz8::open_file("super.bin");
             trigger = {};
-            REQUIRE_FALSE(ReadSuperTriggerFile(file.get(), &trigger));
-            REQUIRE(trigger.pData == nullptr);
+            REQUIRE_FALSE(ReadSuperTriggerFile(*file, trigger));
+            REQUIRE(std::holds_alternative<std::monostate>(trigger.data));
         }
         for (std::size_t offset : {std::size_t(1), std::size_t(148)}) {
             auto invalid = bytes;
@@ -598,8 +596,8 @@ TEST_CASE_METHOD(LoaderFixture, "Versioned level record layouts", "[loader][reco
             store("super.bin", invalid);
             file = wiz8::open_file("super.bin");
             trigger = {};
-            REQUIRE_FALSE(ReadSuperTriggerFile(file.get(), &trigger));
-            REQUIRE(trigger.pData == nullptr);
+            REQUIRE_FALSE(ReadSuperTriggerFile(*file, trigger));
+            REQUIRE(std::holds_alternative<std::monostate>(trigger.data));
         }
     }
     for (unsigned char mode : {0, 1, 2}) {
@@ -616,18 +614,18 @@ TEST_CASE_METHOD(LoaderFixture, "Versioned level record layouts", "[loader][reco
             store("block.bin", bytes);
             auto file = wiz8::open_file("block.bin");
             W8LevelFileBlock block{};
-            REQUIRE(ReadLevelFileBlock(file.get(), &block));
+            REQUIRE(ReadLevelFileBlock(*file, block));
             REQUIRE(block.view_distance == 5.f);
             REQUIRE(block.camera_angle == (mode >= 2 ? 9.f : 0.f));
             auto output = wiz8::open_file("roundtrip.bin", wiz8::OpenMode::replace);
-            REQUIRE(WriteLevelFileBlock(output.get(), &block));
+            REQUIRE(WriteLevelFileBlock(*output, block));
             output->close();
             REQUIRE(written_bytes("roundtrip.bin") == bytes);
             for (std::size_t end = 0; end < bytes.size(); ++end) {
                 store("block.bin", bytes.substr(0, end));
                 file = wiz8::open_file("block.bin");
                 block = {};
-                REQUIRE_FALSE(ReadLevelFileBlock(file.get(), &block));
+                REQUIRE_FALSE(ReadLevelFileBlock(*file, block));
             }
         }
     }
@@ -886,28 +884,25 @@ TEST_CASE_METHOD(LoaderFixture, "Trigger layouts retain version gates and cleanu
             store("trigger.bin", bytes);
             auto file = wiz8::open_file("trigger.bin");
             W8LevelFileTrigger trigger{};
-            REQUIRE(ReadTriggerFile(file.get(), &trigger));
+            REQUIRE(ReadTriggerFile(*file, trigger));
             REQUIRE(trigger.type == type);
-            REQUIRE(trigger.pData);
+            REQUIRE(!std::holds_alternative<std::monostate>(trigger.data));
             if (type == 1) {
-                auto* record = static_cast<W8LevelFileSwitch*>(trigger.pData);
+                auto* record = std::get_if<W8LevelFileSwitch>(&trigger.data);
                 REQUIRE(record->state_count == 11);
-                REQUIRE((record->door.door != nullptr) == (version > 2));
+                REQUIRE(record->door.door.has_value() == (version > 2));
             } else if (type == 2) {
-                auto* record = static_cast<W8LevelFileInvisible*>(trigger.pData);
+                auto* record = std::get_if<W8LevelFileInvisible>(&trigger.data);
                 REQUIRE(record->searchable == 31);
-                REQUIRE((record->pPlane != nullptr) == (version > 1));
-                REQUIRE(record->pRecord == nullptr);
-                REQUIRE(record->linked_record_kind_gate == 0);
+                REQUIRE(record->plane.has_value() == (version > 1));
             } else {
-                auto* record = static_cast<W8LevelFileSound*>(trigger.pData);
+                auto* record = std::get_if<W8LevelFileSound>(&trigger.data);
                 REQUIRE(record->unbounded == 17);
                 REQUIRE(record->shared == (version > 4));
             }
             auto output = wiz8::open_file("roundtrip.bin", wiz8::OpenMode::replace);
-            REQUIRE(WriteTriggerFile(output.get(), &trigger));
+            REQUIRE(WriteTriggerFile(*output, trigger));
             output->close();
-            REQUIRE(trigger.pData == nullptr);
             output = wiz8::open_file("roundtrip.bin");
             std::string written(output->size(), '\0');
             output->read_exact(written.data(), written.size());
@@ -916,8 +911,8 @@ TEST_CASE_METHOD(LoaderFixture, "Trigger layouts retain version gates and cleanu
                 store("trigger.bin", bytes.substr(0, end));
                 file = wiz8::open_file("trigger.bin");
                 trigger = {};
-                REQUIRE_FALSE(ReadTriggerFile(file.get(), &trigger));
-                REQUIRE(trigger.pData == nullptr);
+                REQUIRE_FALSE(ReadTriggerFile(*file, trigger));
+                REQUIRE(std::holds_alternative<std::monostate>(trigger.data));
             }
             for (auto [offset, length] : validated_strings) {
                 auto invalid = bytes;
@@ -925,8 +920,8 @@ TEST_CASE_METHOD(LoaderFixture, "Trigger layouts retain version gates and cleanu
                 store("trigger.bin", invalid);
                 file = wiz8::open_file("trigger.bin");
                 trigger = {};
-                REQUIRE_FALSE(ReadTriggerFile(file.get(), &trigger));
-                REQUIRE(trigger.pData == nullptr);
+                REQUIRE_FALSE(ReadTriggerFile(*file, trigger));
+                REQUIRE(std::holds_alternative<std::monostate>(trigger.data));
             }
         }
     }

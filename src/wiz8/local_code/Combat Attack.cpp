@@ -63,7 +63,6 @@
 #include "wiz8/regions.h"
 #include "Navigator.h"
 #include "attack_modes.h"
-#include "compat/ptr32.h"
 #include "dice.h"
 #include "equipment_slots.h"
 #include "gameplay_modifiers.h"
@@ -587,7 +586,7 @@ int ResolveGuardianInterception(W8TargetSource* source, W8CombatSlot* target)
             row->interception_count < character->Hand[0].attacks) {
             W8CombatSlot* guarded =
                 !row->dead ? &party_row->target_in_combat : &party_row->target_out_of_combat;
-            if (memcmp(target, guarded, sizeof(W8CombatSlot)) == 0 &&
+            if ((*target == *guarded) &&
                 CharacterHasAttackOn(slot, target)) {
                 SetTargetSourceToCharacter(slot, &guardian);
                 candidates.push_back(guardian);
@@ -606,7 +605,7 @@ int ResolveGuardianInterception(W8TargetSource* source, W8CombatSlot* target)
             record->attacks[0].fHasAttack != 0 &&
             monster_info->action_kind == W8_MONSTER_ACTION_PROTECT &&
             monster_info->pCombat->interception_count < record->attacks_per_round &&
-            memcmp(target, &monster_info->Target, sizeof(W8CombatSlot)) == 0 &&
+            (*target == monster_info->Target) &&
             CanMonsterProtectCombatant(monster_info, target)) {
             SetTargetSourceToMonster(monster_info, &guardian);
             candidates.push_back(guardian);
@@ -1812,7 +1811,7 @@ int ContinueMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record)
         ResetCombatSlot(&g_combat_state->TargetHit);
     } else {
         source.target_diverted =
-            memcmp(&g_combat_state->TargetHit, &monster_info->Target, sizeof(W8CombatSlot)) != 0;
+            (g_combat_state->TargetHit != monster_info->Target);
         if (!IsTargetStillPresent(&g_combat_state->TargetHit)) {
             goto invalid_target;
         }
@@ -1989,7 +1988,7 @@ int ContinueMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record)
                 combat->uiSwingsRemaining = 0;
             } else {
                 repicked = true;
-                if (memcmp(&repick_target, &monster_info->Target, sizeof(W8CombatSlot)) != 0) {
+                if ((repick_target != monster_info->Target)) {
                     ReportMonsterAttackResult(monster_info, report);
                     if (fumbled && g_combat_state->attack_report.deferred) {
                         ReportMonsterAttackResult(monster_info, &g_combat_state->attack_report);
@@ -2000,7 +1999,7 @@ int ContinueMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record)
             }
         }
         if (combat->uiSwingsRemaining != 0) {
-            if ((memcmp(&entry_target, &monster_info->Target, sizeof(W8CombatSlot)) == 0 ||
+            if (((entry_target == monster_info->Target) ||
                  repicked) &&
                 TargetMatchesNeeded(&monster_info->Target, W8_TARGET_NEED_ENEMY)) {
                 if (!repicked) {
@@ -3894,7 +3893,7 @@ int ResolveCharacterAttack(int party_slot)
             ResetCombatSlot(&g_combat_state->TargetHit);
         } else if (!staged_miss) {
             source.target_diverted =
-                memcmp(&target, &g_combat_state->TargetHit, sizeof(W8CombatSlot)) != 0;
+                (target != g_combat_state->TargetHit);
             if (!IsTargetStillPresent(&g_combat_state->TargetHit)) {
                 ReportInvalidAttackTarget(g_combat_state->TargetHit, source);
                 return 3;
@@ -4246,7 +4245,7 @@ int ResolveCharacterAttack(int party_slot)
             srAssertFail("uiHand < HAND_COUNT", COMBAT_ATTACK_CPP, 0x66, 0);
         }
         if (character->Hand[hand].in_play && GetCharAttackRange(character, hand) != W8_RANGE_NONE &&
-            memcmp(&target, &party_row->target_out_of_combat, sizeof(W8CombatSlot)) == 0 &&
+            (target == party_row->target_out_of_combat) &&
             TargetIsInPlay(party_slot, hand, W8_TARGETING_CONTEXT_OUT_OF_COMBAT)) {
             if (!verbose && (fumbled || source.target_diverted != 0)) {
                 ReportCharacterAttackResult(party_slot, report);

@@ -229,22 +229,22 @@ void camp_effects()
 }
 
 std::uint64_t next_mouse_timestamp = 1;
-InputAtom mouse_atom(std::uint16_t event, std::uint16_t x, std::uint16_t y, bool left = false,
+InputEvent mouse_atom(InputEventType event, std::uint16_t x, std::uint16_t y, bool left = false,
                      bool right = false, std::uint8_t click_count = 0)
 {
-    InputAtom input{};
-    input.uiTimeStamp = next_mouse_timestamp++;
-    input.usEvent = event;
-    input.uiParam = (static_cast<std::uint32_t>(y) << 16) | x;
-    input.mouseButtons = (left ? SDL_BUTTON_LMASK : 0) | (right ? SDL_BUTTON_RMASK : 0);
+    InputEvent input{};
+    input.timestamp = next_mouse_timestamp++;
+    input.type = event;
+    input.position = {x, y};
+    input.buttons = (left ? SDL_BUTTON_LMASK : 0) | (right ? SDL_BUTTON_RMASK : 0);
     input.clicks = click_count;
     return input;
 }
-void dispatch_mouse(std::uint16_t event, std::uint16_t x, std::uint16_t y, bool left = false,
+void dispatch_mouse(InputEventType event, std::uint16_t x, std::uint16_t y, bool left = false,
                     bool right = false, std::uint8_t click_count = 0)
 {
     const auto input = mouse_atom(event, x, y, left, right, click_count);
-    if (event == MOUSE_POS) UpdateRegionMousePosition(x, y);
+    if (event == InputEventType::MouseMove) UpdateRegionMousePosition(x, y);
     DispatchRegionInput(&input);
 }
 
@@ -306,19 +306,19 @@ std::vector<std::pair<int, int>> region_events;
 struct TestOwnedRegionHandler final : W8RegionHandler {
     std::vector<std::int32_t> reasons;
 
-    int HandleRegionInput(W8Region& region, const InputAtom& input) override
+    int HandleRegionInput(W8Region& region, const InputEvent& input) override
     {
         reasons.push_back(RegionReasonForInput(region, input));
         return 1;
     }
 };
 
-unsigned char record_region_event(const InputAtom* event, W8Region* region)
+unsigned char record_region_event(const InputEvent* event, W8Region* region)
 {
-    region_events.emplace_back(region->callback_id, event->usEvent);
+    region_events.emplace_back(region->callback_id, static_cast<int>(event->type));
     return 1;
 }
-unsigned char hover_region(const InputAtom*, W8Region* region)
+unsigned char hover_region(const InputEvent*, W8Region* region)
 {
     if (region->flags & W8_REGION_MOUSE_LEAVE)
         region_events.emplace_back(region->callback_id, REGION_REASON_LOST_MOUSE);
@@ -332,16 +332,16 @@ unsigned char hover_region(const InputAtom*, W8Region* region)
 unsigned int nested_region_set = 0;
 unsigned int nested_region_index = 0;
 bool remove_nested_region = false;
-std::vector<int> nested_region_events;
-unsigned char nested_region_callback(const InputAtom* event, W8Region*)
+std::vector<InputEventType> nested_region_events;
+unsigned char nested_region_callback(const InputEvent* event, W8Region*)
 {
-    if (event->usEvent == LEFT_BUTTON_DOWN) {
-        nested_region_events.push_back(LEFT_BUTTON_DOWN);
+    if (event->type == InputEventType::LeftButtonDown) {
+        nested_region_events.push_back(InputEventType::LeftButtonDown);
         g_captured_region_index = nested_region_index;
-        const auto up = mouse_atom(LEFT_BUTTON_UP, 100, 100);
+        const auto up = mouse_atom(InputEventType::LeftButtonUp, 100, 100);
         DispatchRegionInput(&up);
-    } else if (event->usEvent == LEFT_BUTTON_UP) {
-        nested_region_events.push_back(LEFT_BUTTON_UP);
+    } else if (event->type == InputEventType::LeftButtonUp) {
+        nested_region_events.push_back(InputEventType::LeftButtonUp);
         if (remove_nested_region) {
             remove_nested_region = false;
             RemoveRegionFromSet(nested_region_set, nested_region_index);
@@ -358,9 +358,9 @@ void region_nested_input()
     remove_nested_region = true;
     {
         ExclusiveRegionSet scope(nested_region_set);
-        dispatch_mouse(LEFT_BUTTON_DOWN, 10, 10);
+        dispatch_mouse(InputEventType::LeftButtonDown, 10, 10);
     }
-    REQUIRE((nested_region_events == std::vector<int>{LEFT_BUTTON_DOWN, LEFT_BUTTON_UP}));
+    REQUIRE((nested_region_events == std::vector<InputEventType>{InputEventType::LeftButtonDown, InputEventType::LeftButtonUp}));
     REQUIRE(g_captured_region_index == 0);
 
     const auto region_count = g_regions.size();
@@ -398,11 +398,11 @@ void owned_region_captures_across_frames()
     SetRegionBounds(region.index(), 10, 10, 30, 30);
     ExclusiveRegionSet scope(set);
 
-    dispatch_mouse(LEFT_BUTTON_DOWN, 15, 15, true);
+    dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
     REQUIRE(g_captured_region_index == region.index());
     UpdateRegionMousePosition(100, 100);
     REQUIRE(g_captured_region_index == region.index());
-    dispatch_mouse(LEFT_BUTTON_UP, 100, 100);
+    dispatch_mouse(InputEventType::LeftButtonUp, 100, 100);
 
     REQUIRE(g_captured_region_index == 0);
     REQUIRE(std::find(handler.reasons.begin(), handler.reasons.end(),
@@ -442,11 +442,11 @@ void modal_scope_preserves_capture_across_frames()
 
     std::optional<ExclusiveRegionSet> scope;
     scope.emplace(button_set);
-    dispatch_mouse(LEFT_BUTTON_DOWN, 15, 15);
+    dispatch_mouse(InputEventType::LeftButtonDown, 15, 15);
     REQUIRE(g_captured_region_index == region.index());
     UpdateRegionMousePosition(100, 100);
     REQUIRE(g_captured_region_index == region.index());
-    dispatch_mouse(LEFT_BUTTON_UP, 100, 100);
+    dispatch_mouse(InputEventType::LeftButtonUp, 100, 100);
 
     REQUIRE(std::find(handler.reasons.begin(), handler.reasons.end(),
                       REGION_REASON_LBUTTON_UP) != handler.reasons.end());
@@ -518,10 +518,10 @@ void later_region_set_precedes_button_set()
 
     UpdateRegionMousePosition(105, 105);
     REQUIRE(g_hover_region_index == screen_region);
-    dispatch_mouse(LEFT_BUTTON_DOWN, 105, 105);
+    dispatch_mouse(InputEventType::LeftButtonDown, 105, 105);
 
     REQUIRE(std::find(region_events.begin(), region_events.end(),
-                      std::pair<int, int>{7, LEFT_BUTTON_DOWN}) != region_events.end());
+                      std::pair<int, int>{7, static_cast<int>(InputEventType::LeftButtonDown)}) != region_events.end());
     REQUIRE(handler.reasons.empty());
 }
 
@@ -539,7 +539,7 @@ void owned_region_move_and_teardown()
     const auto index = owned.index();
     UpdateRegionMousePosition(15, 15);
     REQUIRE(g_hover_region_index == index);
-    dispatch_mouse(LEFT_BUTTON_DOWN, 15, 15, true);
+    dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
     REQUIRE(g_captured_region_index == index);
 
     {
@@ -556,6 +556,7 @@ void owned_region_move_and_teardown()
 }
 void owned_region_set_templates_and_teardown()
 {
+    constexpr int left_button_down = static_cast<int>(InputEventType::LeftButtonDown);
     RegionStateSnapshot saved_state;
     ResetRegions();
 
@@ -593,21 +594,21 @@ void owned_region_set_templates_and_teardown()
         scope.emplace(regions->set());
         regions->Enable();
         region_events.clear();
-        dispatch_mouse(LEFT_BUTTON_DOWN, 45, 15, true);
+        dispatch_mouse(InputEventType::LeftButtonDown, 45, 15, true);
         REQUIRE(g_captured_region_index == regions->index(1));
         REQUIRE(std::find(region_events.begin(), region_events.end(),
-                          std::pair<int, int>{12, LEFT_BUTTON_DOWN}) != region_events.end());
-        dispatch_mouse(LEFT_BUTTON_UP, 45, 15);
+                          std::pair<int, int>{12, left_button_down}) != region_events.end());
+        dispatch_mouse(InputEventType::LeftButtonUp, 45, 15);
 
         regions->Disable();
         region_events.clear();
-        dispatch_mouse(LEFT_BUTTON_DOWN, 45, 15, true);
+        dispatch_mouse(InputEventType::LeftButtonDown, 45, 15, true);
         REQUIRE(region_events.empty());
 
         regions->Enable();
         UpdateRegionMousePosition(45, 15);
         REQUIRE(g_hover_region_index == regions->index(1));
-        dispatch_mouse(LEFT_BUTTON_DOWN, 45, 15, true);
+        dispatch_mouse(InputEventType::LeftButtonDown, 45, 15, true);
         REQUIRE(g_captured_region_index == regions->index(1));
         regions.reset();
         REQUIRE(g_hover_region_index == 0);
@@ -625,6 +626,7 @@ void owned_region_set_templates_and_teardown()
 
 void region_set_views_share_owned_regions()
 {
+    constexpr int left_button_down = static_cast<int>(InputEventType::LeftButtonDown);
     RegionStateSnapshot saved_state;
     ResetRegions();
 
@@ -650,21 +652,21 @@ void region_set_views_share_owned_regions()
 
             view.Enable();
             region_events.clear();
-            dispatch_mouse(LEFT_BUTTON_DOWN, 15, 15, true);
+            dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
             REQUIRE(g_captured_region_index == source.index(0));
             REQUIRE(std::find(region_events.begin(), region_events.end(),
-                              std::pair<int, int>{21, LEFT_BUTTON_DOWN}) != region_events.end());
-            dispatch_mouse(LEFT_BUTTON_UP, 15, 15);
+                              std::pair<int, int>{21, left_button_down}) != region_events.end());
+            dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
 
             region_events.clear();
-            dispatch_mouse(LEFT_BUTTON_DOWN, 45, 15, true);
+            dispatch_mouse(InputEventType::LeftButtonDown, 45, 15, true);
             REQUIRE(g_captured_region_index == source.index(1));
             REQUIRE(std::find(region_events.begin(), region_events.end(),
-                              std::pair<int, int>{22, LEFT_BUTTON_DOWN}) != region_events.end());
-            dispatch_mouse(LEFT_BUTTON_UP, 45, 15);
+                              std::pair<int, int>{22, left_button_down}) != region_events.end());
+            dispatch_mouse(InputEventType::LeftButtonUp, 45, 15);
 
             region_events.clear();
-            dispatch_mouse(LEFT_BUTTON_DOWN, 75, 15, true);
+            dispatch_mouse(InputEventType::LeftButtonDown, 75, 15, true);
             REQUIRE(std::none_of(region_events.begin(), region_events.end(),
                                  [](const auto& event) { return event.first == 23; }));
         }
@@ -677,19 +679,19 @@ void region_set_views_share_owned_regions()
 
             view.Enable();
             region_events.clear();
-            dispatch_mouse(LEFT_BUTTON_DOWN, 45, 15, true);
+            dispatch_mouse(InputEventType::LeftButtonDown, 45, 15, true);
             REQUIRE(std::find(region_events.begin(), region_events.end(),
-                              std::pair<int, int>{22, LEFT_BUTTON_DOWN}) != region_events.end());
-            dispatch_mouse(LEFT_BUTTON_UP, 45, 15);
+                              std::pair<int, int>{22, left_button_down}) != region_events.end());
+            dispatch_mouse(InputEventType::LeftButtonUp, 45, 15);
 
             region_events.clear();
-            dispatch_mouse(LEFT_BUTTON_DOWN, 75, 15, true);
+            dispatch_mouse(InputEventType::LeftButtonDown, 75, 15, true);
             REQUIRE(std::find(region_events.begin(), region_events.end(),
-                              std::pair<int, int>{23, LEFT_BUTTON_DOWN}) != region_events.end());
-            dispatch_mouse(LEFT_BUTTON_UP, 75, 15);
+                              std::pair<int, int>{23, left_button_down}) != region_events.end());
+            dispatch_mouse(InputEventType::LeftButtonUp, 75, 15);
 
             region_events.clear();
-            dispatch_mouse(LEFT_BUTTON_DOWN, 15, 15, true);
+            dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
             REQUIRE(std::none_of(region_events.begin(), region_events.end(),
                                  [](const auto& event) { return event.first == 21; }));
         }
@@ -702,10 +704,10 @@ void region_set_views_share_owned_regions()
 
         source.Enable();
         region_events.clear();
-        dispatch_mouse(LEFT_BUTTON_DOWN, 15, 15, true);
+        dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
         REQUIRE(std::find(region_events.begin(), region_events.end(),
-                          std::pair<int, int>{21, LEFT_BUTTON_DOWN}) != region_events.end());
-        dispatch_mouse(LEFT_BUTTON_UP, 15, 15);
+                          std::pair<int, int>{21, left_button_down}) != region_events.end());
+        dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
 
         {
             RegionSetView reused_view(source, 0, 2);
@@ -759,14 +761,14 @@ void region_registration_and_callback_lifetimes()
     {
         ExclusiveRegionSet scope(set);
         region_events.clear();
-        dispatch_mouse(LEFT_BUTTON_DOWN, 10, 10);
+        dispatch_mouse(InputEventType::LeftButtonDown, 10, 10);
     }
     REQUIRE(region_events.front().first == 1);
     RemoveRegionFromSet(set, first);
     region_events.clear();
     {
         ExclusiveRegionSet scope(set);
-        dispatch_mouse(LEFT_BUTTON_DOWN, 10, 10);
+        dispatch_mouse(InputEventType::LeftButtonDown, 10, 10);
     }
     REQUIRE(region_events.front().first == 2);
     RemoveRegionFromSet(set, latest);
@@ -785,13 +787,13 @@ void owned_regions_honor_priority()
     SetRegionBounds(high.index(), 0, 0, 20, 20);
 
     ExclusiveRegionSet scope(set);
-    dispatch_mouse(MOUSE_POS, 10, 10);
+    dispatch_mouse(InputEventType::MouseMove, 10, 10);
     REQUIRE(g_hover_region_index == high.index());
-    dispatch_mouse(LEFT_BUTTON_DOWN, 10, 10, true);
+    dispatch_mouse(InputEventType::LeftButtonDown, 10, 10, true);
     REQUIRE(g_captured_region_index == high.index());
     REQUIRE(high_handler.reasons.back() == REGION_REASON_LBUTTON_DWN);
     REQUIRE(low_handler.reasons.empty());
-    dispatch_mouse(LEFT_BUTTON_UP, 10, 10);
+    dispatch_mouse(InputEventType::LeftButtonUp, 10, 10);
     REQUIRE(g_captured_region_index == 0);
 }
 
@@ -886,9 +888,9 @@ void text_input_ownership()
             const auto region_index =
                 static_cast<unsigned int>(field_region - g_regions.begin());
             ExclusiveRegionSet scope(ControlRegionSetIndex());
-            dispatch_mouse(LEFT_BUTTON_DOWN, 5, 5);
+            dispatch_mouse(InputEventType::LeftButtonDown, 5, 5);
             REQUIRE(g_captured_region_index == region_index);
-            dispatch_mouse(LEFT_BUTTON_UP, 100, 100);
+            dispatch_mouse(InputEventType::LeftButtonUp, 100, 100);
             REQUIRE(g_captured_region_index == 0);
         }
         RemoveTextInputField(middle);
@@ -1165,8 +1167,8 @@ void generic_button_images()
     PushButtonSoundScheme(0, true);
     {
         ExclusiveRegionSet scope(ControlRegionSetIndex());
-        dispatch_mouse(LEFT_BUTTON_DOWN, 12, 13, true, false, 1);
-        dispatch_mouse(LEFT_BUTTON_UP, 12, 13, false, false, 1);
+        dispatch_mouse(InputEventType::LeftButtonDown, 12, 13, true, false, 1);
+        dispatch_mouse(InputEventType::LeftButtonUp, 12, 13, false, false, 1);
     }
     REQUIRE_FALSE(closing_dialog);
 
@@ -1411,28 +1413,27 @@ void generic_button_images()
     const std::string clusters = "é👩‍👩‍👧‍👦中";
     SetInputFieldText(field, clusters);
     SetTextInputCursor(clusters.size());
-    InputAtom backspace{};
-    backspace.usEvent = KEY_DOWN;
-    backspace.usParam = 8;
+    InputEvent backspace{};
+    backspace.type = InputEventType::KeyDown;
+    backspace.key = 8;
     REQUIRE(HandleTextInput(&backspace));
     REQUIRE(GetTextFromField(field) == "é👩‍👩‍👧‍👦");
     REQUIRE(HandleTextInput(&backspace));
     REQUIRE(GetTextFromField(field) == "é");
     REQUIRE(HandleTextInput(&backspace));
     REQUIRE(GetTextFromField(field).empty());
-    InputAtom committed{};
-    committed.usEvent = KEY_DOWN;
-    committed.usParam = 0x4e2d;
-    committed.uiParam = NATIVE_TEXT_INPUT_FLAG;
+    InputEvent committed{};
+    committed.type = InputEventType::Text;
+    committed.text = 0x4e2d;
     REQUIRE(HandleTextInput(&committed));
     REQUIRE(GetTextFromField(field) == "中");
-    committed.usParam = 0x1f600;
+    committed.text = 0x1f600;
     REQUIRE(HandleTextInput(&committed));
     REQUIRE(GetTextFromField(field) == "中😀");
     SetInputFieldText(field, "");
     const std::array<char32_t, 7> family = {0x1f469, 0x200d, 0x1f469, 0x200d, 0x1f467, 0x200d, 0x1f466};
     for (const auto scalar : family) {
-        committed.usParam = scalar;
+        committed.text = scalar;
         REQUIRE(HandleTextInput(&committed));
     }
     REQUIRE(GetTextFromField(field) == "👩‍👩‍👧‍👦");
@@ -1525,66 +1526,66 @@ TEST_CASE("Dialog controls own interaction without legacy GUI buttons", "[owner]
                 REQUIRE(control->GetUserData() == 42);
                 ++activations;
             }, 42));
-        gfLeftButtonState = false;
-        gusMouseXPos = gusMouseYPos = 400;
-        dispatch_mouse(LEFT_BUTTON_DOWN, 15, 15, true, false, 1);
+        GetInputState().left_button = false;
+        GetInputState().mouse = {400, 400};
+        dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true, false, 1);
         REQUIRE((button.IsPressed() && activations == 0));
         REQUIRE((button.GetMousePosition().x == 15 && button.GetMousePosition().y == 15));
-        dispatch_mouse(LEFT_BUTTON_UP, 15, 15, false, false, 1);
+        dispatch_mouse(InputEventType::LeftButtonUp, 15, 15, false, false, 1);
         REQUIRE(!button.IsPressed());
         REQUIRE(activations == 1);
-        dispatch_mouse(LEFT_BUTTON_UP, 15, 15);
+        dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
         REQUIRE(activations == 1);
-        dispatch_mouse(LEFT_BUTTON_DOWN, 15, 15, true);
-        dispatch_mouse(MOUSE_POS, 80, 80, true);
-        dispatch_mouse(LEFT_BUTTON_UP, 15, 15);
+        dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
+        dispatch_mouse(InputEventType::MouseMove, 80, 80, true);
+        dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
         REQUIRE((!button.IsPressed() && activations == 1));
-        dispatch_mouse(LEFT_BUTTON_DOWN, 15, 15, true);
+        dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
         button.SetEnabled(false);
         button.SetEnabled(true);
-        dispatch_mouse(LEFT_BUTTON_UP, 15, 15);
+        dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
         REQUIRE((!button.IsPressed() && activations == 1));
-        dispatch_mouse(LEFT_BUTTON_DOWN, 15, 15, true);
+        dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
         button.SetVisible(false);
         button.SetVisible(true);
-        dispatch_mouse(LEFT_BUTTON_UP, 15, 15);
+        dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
         REQUIRE(activations == 1);
         REQUIRE(button.IsConfigured());
         button.Resize(60, 30);
         button.SetPosition(20, 20);
         REQUIRE((button.GetBounds().w == 60 && button.GetBounds().h == 30));
-        dispatch_mouse(LEFT_BUTTON_DOWN, 75, 45, true);
+        dispatch_mouse(InputEventType::LeftButtonDown, 75, 45, true);
         REQUIRE(button.IsLeftButtonHeld());
-        dispatch_mouse(LEFT_BUTTON_UP, 75, 45);
+        dispatch_mouse(InputEventType::LeftButtonUp, 75, 45);
         REQUIRE(!button.IsLeftButtonHeld());
         REQUIRE(activations == 2);
         button.SetPosition(10, 10);
         button.Resize(40, 20);
         button.m_repeat_enabled = true;
-        dispatch_mouse(LEFT_BUTTON_DOWN, 15, 15, true);
-        dispatch_mouse(LEFT_BUTTON_REPEAT, 15, 15, true);
-        dispatch_mouse(LEFT_BUTTON_REPEAT, 15, 15, true);
+        dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
+        dispatch_mouse(InputEventType::LeftButtonRepeat, 15, 15, true);
+        dispatch_mouse(InputEventType::LeftButtonRepeat, 15, 15, true);
         REQUIRE(activations == 4);
-        dispatch_mouse(LEFT_BUTTON_UP, 15, 15);
+        dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
         REQUIRE((!button.IsPressed() && activations == 4));
         button.m_repeat_enabled = false;
         button.m_activation = DialogButtonActivation::Press;
-        dispatch_mouse(LEFT_BUTTON_DOWN, 15, 15, true);
+        dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
         REQUIRE(activations == 5);
-        dispatch_mouse(LEFT_BUTTON_UP, 15, 15);
+        dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
         REQUIRE(activations == 5);
         button.Reset();
         REQUIRE((!button.IsEnabled() && !button.IsPressed() && button.GetWidth() == 0));
-        dispatch_mouse(LEFT_BUTTON_DOWN, 15, 15, true);
-        dispatch_mouse(LEFT_BUTTON_UP, 15, 15);
+        dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
+        dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
         REQUIRE(activations == 5);
     }
 
     auto closing = std::make_unique<W8DialogButton>();
     closing->ConfigureTextButton("close", font, 0, 0, 10, 10, 40, 20,
         [&](W8DialogButton*) { closing.reset(); }, 0);
-    dispatch_mouse(LEFT_BUTTON_DOWN, 15, 15, true);
-    dispatch_mouse(LEFT_BUTTON_UP, 15, 15);
+    dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
+    dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
     REQUIRE(!closing);
 }
 
@@ -1616,21 +1617,21 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
             "arrows.sti", "track.sti", 0, RecordScrollPosition};
         REQUIRE(bar.CreateControls(&resources));
         bar.SetLayout(100, 20, 20, 5, 10, 30);
-        gusMouseYPos = 400;
-        dispatch_mouse(LEFT_BUTTON_DOWN, 101, 116, true);
-        dispatch_mouse(LEFT_BUTTON_UP, 101, 116);
+        GetInputState().mouse.y = 400;
+        dispatch_mouse(InputEventType::LeftButtonDown, 101, 116, true);
+        dispatch_mouse(InputEventType::LeftButtonUp, 101, 116);
         REQUIRE(positions == std::vector<int>{17});
-        dispatch_mouse(LEFT_BUTTON_DOWN, 101, 21, true);
-        dispatch_mouse(LEFT_BUTTON_REPEAT, 101, 21, true);
-        dispatch_mouse(LEFT_BUTTON_UP, 101, 21);
+        dispatch_mouse(InputEventType::LeftButtonDown, 101, 21, true);
+        dispatch_mouse(InputEventType::LeftButtonRepeat, 101, 21, true);
+        dispatch_mouse(InputEventType::LeftButtonUp, 101, 21);
         REQUIRE(positions == std::vector<int>{17, 16, 15});
         bar.SetLayout(100, 20, 1, 0, 10, 30);
-        dispatch_mouse(LEFT_BUTTON_DOWN, 101, 21, true);
-        dispatch_mouse(LEFT_BUTTON_UP, 101, 21);
+        dispatch_mouse(InputEventType::LeftButtonDown, 101, 21, true);
+        dispatch_mouse(InputEventType::LeftButtonUp, 101, 21);
         REQUIRE(positions.size() == 3);
         bar.SetLayout(100, 20, 20, 5, 10, 30);
-        dispatch_mouse(LEFT_BUTTON_DOWN, 101, 118, true);
-        dispatch_mouse(LEFT_BUTTON_UP, 101, 118);
+        dispatch_mouse(InputEventType::LeftButtonDown, 101, 118, true);
+        dispatch_mouse(InputEventType::LeftButtonUp, 101, 118);
         REQUIRE(positions.back() == 6);
     }
 
@@ -1650,9 +1651,9 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
         dialog.SetMessage("", 0, 0, true, true, false, false, 100, 80);
         REQUIRE(dialog.CreateControls() == 0);
         auto& control = accept ? dialog.m_confirm_button : dialog.m_cancel_button;
-        dispatch_mouse(LEFT_BUTTON_DOWN, control.GetX(), control.GetY(), true);
+        dispatch_mouse(InputEventType::LeftButtonDown, control.GetX(), control.GetY(), true);
         REQUIRE(dialog.is_open);
-        dispatch_mouse(LEFT_BUTTON_UP, control.GetX(), control.GetY());
+        dispatch_mouse(InputEventType::LeftButtonUp, control.GetX(), control.GetY());
         REQUIRE(!dialog.is_open);
         REQUIRE(dialog.accepted == accept);
     }
@@ -1666,22 +1667,22 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
         for (int index = 0; index < 20; ++index) list.m_lines.emplace_back("X");
         REQUIRE(list.CreateControls() == 0);
         list.Draw();
-        gusMouseYPos = 400;
-        dispatch_mouse(LEFT_BUTTON_DOWN, list.m_area_button.GetX() + 3,
+        GetInputState().mouse.y = 400;
+        dispatch_mouse(InputEventType::LeftButtonDown, list.m_area_button.GetX() + 3,
                        list.m_area_button.GetY() + 21, true);
-        dispatch_mouse(LEFT_BUTTON_UP, list.m_area_button.GetX() + 3,
+        dispatch_mouse(InputEventType::LeftButtonUp, list.m_area_button.GetX() + 3,
                        list.m_area_button.GetY() + 21);
         REQUIRE(list.m_selected_line == 2);
-        dispatch_mouse(LEFT_BUTTON_DOWN, list.m_down_button.GetX(), list.m_down_button.GetY(), true);
-        dispatch_mouse(LEFT_BUTTON_REPEAT, list.m_down_button.GetX(), list.m_down_button.GetY(), true);
-        dispatch_mouse(LEFT_BUTTON_UP, list.m_down_button.GetX(), list.m_down_button.GetY());
+        dispatch_mouse(InputEventType::LeftButtonDown, list.m_down_button.GetX(), list.m_down_button.GetY(), true);
+        dispatch_mouse(InputEventType::LeftButtonRepeat, list.m_down_button.GetX(), list.m_down_button.GetY(), true);
+        dispatch_mouse(InputEventType::LeftButtonUp, list.m_down_button.GetX(), list.m_down_button.GetY());
         REQUIRE(list.m_selected_line == 4);
-        dispatch_mouse(LEFT_BUTTON_DOWN, list.m_third_text_button.GetX() + 1,
+        dispatch_mouse(InputEventType::LeftButtonDown, list.m_third_text_button.GetX() + 1,
                        list.m_third_text_button.GetY() + 30, true);
         REQUIRE(list.m_selected_line == 15);
-        dispatch_mouse(LEFT_BUTTON_REPEAT, list.m_third_text_button.GetX() + 1,
+        dispatch_mouse(InputEventType::LeftButtonRepeat, list.m_third_text_button.GetX() + 1,
                        list.m_third_text_button.GetY() + 20, true);
-        dispatch_mouse(LEFT_BUTTON_UP, list.m_third_text_button.GetX() + 1,
+        dispatch_mouse(InputEventType::LeftButtonUp, list.m_third_text_button.GetX() + 1,
                        list.m_third_text_button.GetY() + 20);
         REQUIRE(list.m_selected_line == 10);
     }
@@ -1774,8 +1775,8 @@ TEST_CASE("Message box owns its buttons and isolates modal input", "[owner]")
         REQUIRE(LiveDynamicRegionCount() > baseline_regions);
 
         const auto x = accepted ? 280 : 340;
-        dispatch_mouse(LEFT_BUTTON_DOWN, x, 260, true);
-        dispatch_mouse(LEFT_BUTTON_UP, x, 260);
+        dispatch_mouse(InputEventType::LeftButtonDown, x, 260, true);
+        dispatch_mouse(InputEventType::LeftButtonUp, x, 260);
         REQUIRE(screen_handler.reasons.empty());
 
         RenderMessageBox();
@@ -1797,12 +1798,12 @@ TEST_CASE("Owned regions use SDL click counts", "[owner]")
     SetRegionBounds(region.index(), 0, 0, 40, 40);
     ExclusiveRegionSet scope(set);
     for (const std::uint8_t click_count : {0, 1, 2, 3, 4}) {
-        const auto down = mouse_atom(LEFT_BUTTON_DOWN, 10, 10, true, false, click_count);
+        const auto down = mouse_atom(InputEventType::LeftButtonDown, 10, 10, true, false, click_count);
         DispatchRegionInput(&down);
         const auto reason = handler.reasons.back();
         REQUIRE((reason & REGION_REASON_LBUTTON_DWN) != 0);
         REQUIRE(((reason & REGION_REASON_LBUTTON_DOUBLECLICK) != 0) == (click_count >= 2));
-        const auto up = mouse_atom(LEFT_BUTTON_UP, 10, 10);
+        const auto up = mouse_atom(InputEventType::LeftButtonUp, 10, 10);
         DispatchRegionInput(&up);
     }
 }

@@ -31,7 +31,6 @@
 #include "wiz8/utility.h"
 #include "Font.h"
 #include "character_skills.h"
-#include "compat/ptr32.h"
 #include "conditions.h"
 #include "dialog_code/DialogBase.h"
 #include "dialog_code/DialogButton.h"

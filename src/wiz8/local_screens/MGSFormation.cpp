@@ -184,28 +184,28 @@ void CreateFormationBoardOverlay(void)
     }
 }
 
-unsigned char FormationBoardHoverRegionEvent(const InputAtom*, W8Region* region);
+unsigned char FormationBoardHoverRegionEvent(const InputEvent*, W8Region* region);
 
 /* Board callback: opens the formation panel on release, hit-tests the cell
    markers for tooltips, and switches board art on hover transitions. */
 // FUNCTION: WIZ8 0x005b2020
-unsigned char FormationBoardRegionEvent(const InputAtom* event, W8Region* region)
+unsigned char FormationBoardRegionEvent(const InputEvent* event, W8Region* region)
 {
-    switch (event->usEvent) {
-    case LEFT_BUTTON_DOWN:
+    switch (event->type) {
+    case InputEventType::LeftButtonDown:
         region->flags |= W8_REGION_LEFT_BUTTON_HELD;
         return 1;
-    case LEFT_BUTTON_UP:
+    case InputEventType::LeftButtonUp:
         if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0 && !gXStatus.fReviewCharacterMode) {
             OpenFormationPanel();
         }
         return 1;
-    case RIGHT_BUTTON_DOWN:
+    case InputEventType::RightButtonDown:
         region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
         return 1;
-    case RIGHT_BUTTON_UP:
+    case InputEventType::RightButtonUp:
         return 1;
-    case MOUSE_POS:
+    case InputEventType::MouseMove:
         break;
     default:
         return 0;
@@ -219,7 +219,7 @@ unsigned char FormationBoardRegionEvent(const InputAtom* event, W8Region* region
    enter/leave. Retail emits it as a separate function right after the full
    handler. */
 // FUNCTION: WIZ8 0x005B207F
-unsigned char FormationBoardHoverRegionEvent(const InputAtom*, W8Region* region)
+unsigned char FormationBoardHoverRegionEvent(const InputEvent*, W8Region* region)
 {
     int slot;
     int hit;
@@ -478,7 +478,7 @@ static void ResetFormationPanel(void)
     UpdateFormationCells();
 }
 
-static void BeginFormationDrag(const InputAtom* event);
+static void BeginFormationDrag(const InputEvent* event);
 static void DropFormationSlot(int cell);
 
 /* Region callback the fifteen formation cells share: left press arms the
@@ -486,22 +486,22 @@ static void DropFormationSlot(int cell);
    activates the cell or completes the drop, and mouse transitions drive the
    hover art and tooltip. */
 // FUNCTION: WIZ8 0x005b29d0
-unsigned char FormationCellRegionEvent(const InputAtom* event, W8Region* region)
+unsigned char FormationCellRegionEvent(const InputEvent* event, W8Region* region)
 {
     if (!gXStatus.fReviewCharacterMode) {
         return 0;
     }
     if (g_formation_cell_slots[region->callback_id] == -1) {
         PushButtonSoundScheme(0, true);
-        if (event->usEvent != LEFT_BUTTON_UP) {
+        if (event->type != InputEventType::LeftButtonUp) {
             return 1;
         }
         if (g_formation_drag_cell == -1) {
             return 1;
         }
     }
-    if (event->usEvent < (LEFT_BUTTON_REPEAT + 1)) {
-        if (event->usEvent == LEFT_BUTTON_REPEAT) {
+    if (event->type <= InputEventType::LeftButtonRepeat) {
+        if (event->type == InputEventType::LeftButtonRepeat) {
             if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0 &&
                 TimeUntilDeadline(g_formation_drag_clock) == 0 && g_formation_drag_cell == -1 &&
                 g_formation_active_cell != -1) {
@@ -514,14 +514,14 @@ unsigned char FormationCellRegionEvent(const InputAtom* event, W8Region* region)
                 return 1;
             }
         } else {
-            if (event->usEvent == LEFT_BUTTON_DOWN) {
+            if (event->type == InputEventType::LeftButtonDown) {
                 g_formation_cell_controls[region->callback_id]->OnLeftButtonDown(0);
                 g_formation_cell_overlays[region->callback_id]->Invalidate(false);
                 region->flags |= W8_REGION_LEFT_BUTTON_HELD;
                 g_formation_drag_clock = w8_get_ticks() + (0xfa);
                 return 1;
             }
-            if (event->usEvent != LEFT_BUTTON_UP) {
+            if (event->type != InputEventType::LeftButtonUp) {
                 return 0;
             }
             if (g_formation_cell_slots[region->callback_id] != -1) {
@@ -538,14 +538,14 @@ unsigned char FormationCellRegionEvent(const InputAtom* event, W8Region* region)
             }
         }
     } else {
-        if (event->usEvent != MOUSE_POS) {
+        if (event->type != InputEventType::MouseMove) {
             return 0;
         }
         if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
             g_formation_cell_controls[region->callback_id]->OnMouseLeave(0);
             g_formation_cell_overlays[region->callback_id]->OnMouseLeave(0);
             g_formation_cell_overlays[region->callback_id]->Invalidate(false);
-            if (gfLeftButtonState != 0 && g_formation_drag_cell == -1 &&
+            if (IsLeftButtonHeld() && g_formation_drag_cell == -1 &&
                 CanHoldFormationPlace(g_formation_cell_slots[region->callback_id])) {
                 g_formation_active_cell = region->callback_id;
                 BeginFormationDrag(event);
@@ -568,7 +568,7 @@ unsigned char FormationCellRegionEvent(const InputAtom* event, W8Region* region)
 }
 
 // FUNCTION: WIZ8 0x005b2cb0
-unsigned char FormationActionRegionEvent(const InputAtom* event, W8Region* region)
+unsigned char FormationActionRegionEvent(const InputEvent* event, W8Region* region)
 {
     if (!gXStatus.fReviewCharacterMode) {
         return 0;
@@ -578,7 +578,7 @@ unsigned char FormationActionRegionEvent(const InputAtom* event, W8Region* regio
 }
 
 // FUNCTION: WIZ8 0x005b2d70
-unsigned char FormationBackgroundRegionEvent(const InputAtom* event, W8Region*)
+unsigned char FormationBackgroundRegionEvent(const InputEvent* event, W8Region*)
 {
     SDL_Point point;
     if (!gXStatus.fReviewCharacterMode) {
@@ -586,17 +586,19 @@ unsigned char FormationBackgroundRegionEvent(const InputAtom* event, W8Region*)
     }
     PushButtonSoundScheme(0, true);
     SGPMouseGetPos(&point);
-    switch (event->usEvent) {
-    case LEFT_BUTTON_UP:
+    switch (event->type) {
+    case InputEventType::LeftButtonUp:
         if (g_formation_drag_cell != -1) {
             DropFormationSlot(-1);
         }
         return 1;
-    case MOUSE_POS:
+    case InputEventType::MouseMove:
         if ((point.x < 234 || point.x > 406 || point.y < 80 || point.y > 252) &&
             g_formation_drag_cell != -1) {
             DropFormationSlot(-1);
         }
+        break;
+    default:
         break;
     }
     return 0;
@@ -605,7 +607,7 @@ unsigned char FormationBackgroundRegionEvent(const InputAtom* event, W8Region*)
 /* Pick up the active cell's character: clear the cell, switch the mouse
    cursor to the dragged chip and blank both controls' sprites. */
 // FUNCTION: WIZ8 0x005b2e10
-static void BeginFormationDrag(const InputAtom*)
+static void BeginFormationDrag(const InputEvent*)
 {
     SDL_Point point;
     unsigned short region;

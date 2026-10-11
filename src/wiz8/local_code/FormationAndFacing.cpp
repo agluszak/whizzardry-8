@@ -25,7 +25,6 @@
 #include "wiz8/engine_code/GameData.h"
 #include "Monster.h"
 #include "Navigator.h"
-#include "compat/ptr32.h"
 #include "conditions.h"
 #include "layouts/main_game_screen.h"
 #include "layouts/party_formation.h"

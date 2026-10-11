@@ -70,7 +70,6 @@
 #include "SpellEmitterHost.h"
 #include "Video2.h"
 #include "compat/native.h"
-#include "compat/ptr32.h"
 #include "dice.h"
 #include "difficulty.h"
 #include "gameplay_modifiers.h"

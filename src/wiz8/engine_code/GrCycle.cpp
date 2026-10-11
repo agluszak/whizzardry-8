@@ -1,4 +1,5 @@
 #include <optional>
+#include "wiz8/unicode.h"
 #include "surrender/srBoundingBox.h"
 #include <fmt/format.h>
 #include <string_view>
@@ -11,7 +12,6 @@
 #include <memory>
 #include <string>
 
-#include "input.h"
 #include "wiz8/containers.h"
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/engine_code/SoundEvent.h"

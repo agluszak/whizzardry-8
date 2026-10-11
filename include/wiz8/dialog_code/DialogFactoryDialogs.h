@@ -39,7 +39,7 @@ public:
     void SetActive(bool active);
     void SetActive(bool active, const SDL_Point* point);
     void Draw(bool force);
-    bool HandleInput(const InputAtom* input);
+    bool HandleInput(const InputEvent* input);
 
 private:
     /* Write a digit character at the caret position and re-parse
@@ -89,7 +89,7 @@ private:
     void SetFirstVisibleLine(int line);
     void ClearLines();
     /* Keyboard handling for the visible text list. */
-    bool HandleInputEvent(const InputAtom* input);
+    bool HandleInputEvent(const InputEvent* input);
 
     /* Owner-local activation callbacks for the text area, scroll arrows and
        the confirmation buttons. */
@@ -159,7 +159,7 @@ private:
     /* Keyboard handling for the plus/minus buttons and the field. */
     void DecreaseAmount(int amount);
     void IncreaseAmount(int amount);
-    bool HandleInputEvent(const InputAtom* input);
+    bool HandleInputEvent(const InputEvent* input);
 
     /* Per-button callbacks stored through W8DialogButton::Configure. */
     static void SplitDecrementOne(W8DialogButton* button);
@@ -222,7 +222,7 @@ private:
        the beep. An emptied picker closes itself. */
     void TransferSelectedItems(int destination);
     /* Handle one event the picker owns: keyboard list navigation and clicks. */
-    bool HandleInputEvent(const InputAtom* input);
+    bool HandleInputEvent(const InputEvent* input);
 
     /* Per-button callbacks stored through W8DialogButton::Configure.
        CloseOwningDialog is public because AssayDialog also stores it
@@ -289,7 +289,7 @@ private:
     /* Shared refresh for the numeric-field and split-count callbacks. */
     void UpdateTotals();
     /* Numeric-field and Enter/Escape handling for ProcessInput. */
-    bool HandleInputEvent(const InputAtom* input);
+    bool HandleInputEvent(const InputEvent* input);
 
     /* Per-button callbacks stored through W8DialogButton::Configure. */
     static void OnSplitDecrement(W8DialogButton* button);

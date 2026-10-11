@@ -70,7 +70,6 @@
 #include "wiz8/local_code/GameplayTime.h"
 #include "wiz8/local_code/Configuration.h"
 #include "Font.h"
-#include "english.h"
 #include "input.h"
 #include "random.h"
 #include "timer.h"
@@ -85,7 +84,6 @@
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "compat/native.h"
-#include "compat/ptr32.h"
 #include "dialog_code/DialogBase.h"
 #include "dice.h"
 #include "equipment_slots.h"
@@ -514,7 +512,7 @@ void DrawCampResistances(void)
    ones, wheel input scrolls the realm's range control, and activating a valid
    row opens its spell info dialog. */
 // FUNCTION: WIZ8 0x005B79F0
-unsigned char SpellListRegionHandler(const InputAtom* event, W8Region* region)
+unsigned char SpellListRegionHandler(const InputEvent* event, W8Region* region)
 {
     unsigned short realm;
     int row;
@@ -524,7 +522,7 @@ unsigned char SpellListRegionHandler(const InputAtom* event, W8Region* region)
 
     PushButtonSoundScheme(0, true);
     realm = region->callback_id;
-    row = (GetAtomCursorY(event) - region->y1 - 1) / 0xd;
+    row = (GetEventCursorY(event) - region->y1 - 1) / 0xd;
     visible = g_review_character->skill_unlocks[0x1c + realm] -
               g_camp_screen->learned_spells.scroll[realm];
     if (visible >= 8) {
@@ -537,15 +535,15 @@ unsigned char SpellListRegionHandler(const InputAtom* event, W8Region* region)
         g_camp_screen->selected_spell_row = row;
         g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_REALM_SPELLS_FIRST << realm;
     }
-    if (event->usEvent > RIGHT_BUTTON_UP) {
-        if (event->usEvent == MOUSE_POS) {
+    if (event->type > InputEventType::RightButtonUp) {
+        if (event->type == InputEventType::MouseMove) {
             if ((region->flags & W8_REGION_MOUSE_TRANSITION_MASK) != 0) {
                 g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_REALM_SPELLS_FIRST << realm;
             }
             return 0;
         }
-        if (event->usEvent == MOUSE_WHEEL) {
-            delta = GetMouseWheelDeltaValue(event->usParam);
+        if (event->type == InputEventType::MouseWheel) {
+            delta = event->wheel;
             if (delta > 0) {
                 for (count = delta; count != 0; --count) {
                     g_camp_screen->spell_ranges[realm]->m_range->Decrement();
@@ -561,7 +559,7 @@ unsigned char SpellListRegionHandler(const InputAtom* event, W8Region* region)
         }
         return 0;
     }
-    if (event->usEvent == RIGHT_BUTTON_UP) {
+    if (event->type == InputEventType::RightButtonUp) {
         if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) != 0 && row != -1) {
             OpenSpellInfoDialog(
                 g_camp_screen->learned_spells
@@ -569,12 +567,12 @@ unsigned char SpellListRegionHandler(const InputAtom* event, W8Region* region)
         }
         return 1;
     }
-    if (event->usEvent == LEFT_BUTTON_DOWN) {
+    if (event->type == InputEventType::LeftButtonDown) {
         region->flags |= W8_REGION_LEFT_BUTTON_HELD;
         return 1;
     }
-    if (event->usEvent != LEFT_BUTTON_UP) {
-        if (event->usEvent != RIGHT_BUTTON_DOWN) {
+    if (event->type != InputEventType::LeftButtonUp) {
+        if (event->type != InputEventType::RightButtonDown) {
             return 0;
         }
         region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
@@ -1270,7 +1268,7 @@ W8CampItemRange::W8CampItemRange()
 void W8CampItemRange::OnRangeChanged(W8RangeControl*)
 {
     g_camp_screen->item_scroll = m_range->m_value << 1;
-    if (gfKeyState[VK_CONTROL]) {
+    if (IsKeyHeld(VK_CONTROL)) {
         g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_ALL;
         return;
     }
@@ -1498,10 +1496,10 @@ void CampScreenFrame(void)
     SDL_Point point;
     SGPMouseGetPos(&point);
     g_camp_screen->hover_region = UpdateRegionMousePosition(point.x, point.y);
-    InputAtom input;
+    InputEvent input;
     while (DequeueEvent(&input) == 1) {
-        if (!DispatchRegionInput(&input) && input.usEvent == KEY_DOWN) {
-            if (input.usParam == ESC) {
+        if (!DispatchRegionInput(&input) && input.type == InputEventType::KeyDown) {
+            if (input.key == VK_ESCAPE) {
                 if (g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_NONE ||
                     g_camp_screen->page != W8_CAMP_PAGE_ITEMS) {
                     if (!g_camp_character_pending) {
@@ -1524,12 +1522,12 @@ void CampScreenFrame(void)
                 } else {
                     SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
                 }
-            } else if (input.usParam == 'P') {
+            } else if (input.key == 'P') {
                 if (g_status.game_started) {
                     SortPartyItemPool();
                 }
-            } else if (input.usParam == 'X' && gfKeyState[VK_MENU] && !gfKeyState[VK_CONTROL] &&
-                       !gfKeyState[VK_SHIFT]) {
+            } else if (input.key == 'X' && IsKeyHeld(VK_MENU) && !IsKeyHeld(VK_CONTROL) &&
+                       !IsKeyHeld(VK_SHIFT)) {
                 ShowCampNoticeLine(g_localized_strings[0x832], OnQuitGameDialogClosed, true, true);
             }
         }
@@ -1637,7 +1635,7 @@ void DrawCampScreen(void)
     unsigned int index;
 
     NoOp();
-    if (!gfKeyState[VK_CONTROL] && state->item_icons_drawn) {
+    if (!IsKeyHeld(VK_CONTROL) && state->item_icons_drawn) {
         state->redraw_flags |= W8_CAMP_REDRAW_ALL;
         state->item_icons_drawn = false;
     }
@@ -1685,7 +1683,7 @@ void DrawCampScreen(void)
         RefreshItemsTabPanel(false);
         RefreshCampSecondaryPanel(false);
         state->item_range->m_range->Redraw();
-        if (gfKeyState[VK_CONTROL] && state->dialog == 0) {
+        if (IsKeyHeld(VK_CONTROL) && state->dialog == 0) {
             DrawCampItemIcons();
             state->item_icons_drawn = true;
         }
@@ -2110,7 +2108,7 @@ void HandleCampItemClick(W8ItemInstance* item, unsigned int slot_index, W8ItemOr
     if (gated && !IsCampActionAllowed(giReviewCharSlot)) {
         return;
     }
-    if (gfKeyState[VK_SHIFT] != 0) {
+    if (IsKeyHeld(VK_SHIFT)) {
         TakeItemUnitToHand(item, slot_index, origin);
         return;
     }
@@ -2370,7 +2368,7 @@ void HandleCampItemClick(W8ItemInstance* item, unsigned int slot_index, W8ItemOr
         return;
     }
     g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_ITEM_ACTIONS;
-    if (gfKeyState[VK_CONTROL]) {
+    if (IsKeyHeld(VK_CONTROL)) {
         g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_ALL;
     } else {
         if (origin == W8_ITEM_ORIGIN_BACKPACK) {
@@ -2773,7 +2771,7 @@ void BeginPartyDeath(void)
 // FUNCTION: WIZ8 0x005A6970
 void PumpReviewTransition(void)
 {
-    InputAtom input;
+    InputEvent input;
     bool exit_review;
 
     if (!g_level_block->review_transition_active || g_level_block->review_transition_done) {
@@ -2792,11 +2790,13 @@ void PumpReviewTransition(void)
     }
     exit_review = false;
     while (DequeueEvent(&input) == 1) {
-        switch (input.usEvent) {
-        case KEY_DOWN:
-        case LEFT_BUTTON_UP:
-        case RIGHT_BUTTON_UP:
+        switch (input.type) {
+        case InputEventType::KeyDown:
+        case InputEventType::LeftButtonUp:
+        case InputEventType::RightButtonUp:
             exit_review = true;
+            break;
+        default:
             break;
         }
     }

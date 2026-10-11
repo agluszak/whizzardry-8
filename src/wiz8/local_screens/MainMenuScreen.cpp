@@ -32,7 +32,6 @@
 #include "wiz8/utility.h"
 #include "wiz8/version.h"
 #include "input.h"
-#include "english.h"
 #include "Font.h"
 #include "himage.h"
 #include "image.h"
@@ -267,7 +266,7 @@ unsigned char MainMenuScreenEnter(void)
 /* The main menu's developer-mode key hook. Retail never consumes the key: its
    linker folded this body into IgnoreSpellCastingInput, which compiles to the
    same bytes. */
-static bool HandleDeveloperModeKey(const InputAtom* input)
+static bool HandleDeveloperModeKey(const InputEvent* input)
 {
     return false;
 }
@@ -280,7 +279,7 @@ static bool HandleDeveloperModeKey(const InputAtom* input)
 void MainMenuScreenFrame()
 {
     SDL_Point point;
-    InputAtom input;
+    InputEvent input;
 
     if (g_dev_mode) {
         RequestExitScreen();
@@ -299,7 +298,7 @@ void MainMenuScreenFrame()
         SGPMouseGetPos(&point);
         UpdateRegionMousePosition(point.x, point.y);
         while (DequeueEvent(&input) == 1) {
-            if (!DispatchRegionInput(&input) && input.usEvent == KEY_DOWN) {
+            if (!DispatchRegionInput(&input) && input.type == InputEventType::KeyDown) {
                 if (HandleDeveloperModeKey(&input)) {
                     if (g_dev_mode) {
                         SetFont(g_wiz_text_font_secondary);
@@ -307,12 +306,12 @@ void MainMenuScreenFrame()
                         DrawFontTextDirty(5, 5, "Developer mode enabled.");
                     }
                 } else {
-                    switch (input.usParam) {
-                    case ENTER:
+                    switch (input.key) {
+                    case VK_RETURN:
                         DrawMainMenuItem(g_main_menu_selected_item, 2);
                         ActivateMainMenuItem(static_cast<short>(g_main_menu_selected_item));
                         break;
-                    case ESC:
+                    case VK_ESCAPE:
                     case 'E':
                     case 'X':
                         RequestExitScreen();

@@ -81,7 +81,6 @@
 #include "input.h"
 #include "surrender/srModelInstance.h"
 #include "OctPreTree.h"
-#include "compat/ptr32.h"
 #include "file_time.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
@@ -1254,12 +1253,12 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
                     break;
                 }
                 if (received_events) {
-                    InputAtom input;
-                    if (DequeueEvent(&input) != 0 && input.usEvent == KEY_DOWN) {
-                        if (input.usParam == VK_RETURN) {
+                    InputEvent input;
+                    if (DequeueEvent(&input) != 0 && input.type == InputEventType::KeyDown) {
+                        if (input.key == VK_RETURN) {
                             x_index += 2;
                             z_index = 0;
-                        } else if (input.usParam == VK_ESCAPE) {
+                        } else if (input.key == VK_ESCAPE) {
                             aborted = true;
                             if (g_build_level_links) {
                                 g_build_level_links = false;
@@ -2678,7 +2677,7 @@ W8Octree::W8Octree(const char* path, W8GameData** game_data)
                 g_octree_storage_[index] = index;
             }
             if (m_meshCount != 0) {
-                    if (!LoadPackedBits(hOctFile.get(), m_alpha_bits)) {
+                    if (!LoadPackedBits(*hOctFile, m_alpha_bits)) {
                     throw std::runtime_error("Could not read octree alpha bits.");
                 }
             }
@@ -2699,7 +2698,7 @@ W8Octree::W8Octree(const char* path, W8GameData** game_data)
             }
         }
         if (m_ulNumProps != 0 && header.m_prop_sun_bits != 0) {
-            if (!LoadPackedBits(hOctFile.get(), m_sunlit_props)) {
+            if (!LoadPackedBits(*hOctFile, m_sunlit_props)) {
                 throw std::runtime_error("Could not read octree prop sun bits.");
             }
         }

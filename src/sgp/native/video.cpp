@@ -16,7 +16,7 @@
 #include <string>
 #include <system_error>
 
-#include "native/input_events.h"
+#include "input.h"
 #include "surrender/srDD_SDLGPU.h"
 #include "compat/native.h"
 

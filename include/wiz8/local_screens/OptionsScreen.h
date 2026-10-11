@@ -55,7 +55,8 @@ public:
 class W8OptionsSaveRow : public W8TextControl {
 public:
     W8OptionsSaveRow(Controls* owner, int top, unsigned char save_mode);
-    void SetSave(W8SaveSlot* save);
+    void SetSave(W8SaveSlot& save);
+    void ClearSave();
     virtual void Redraw(bool full_redraw) override;
     virtual void OnLeftButtonUp(int event) override;
     virtual void OnLeftButtonDoubleClick(int event) override;
@@ -401,7 +402,7 @@ public:
     ~W8OptionsScreen();
     void SelectPanel(int selected, bool notify);
     void CreateControls();
-    unsigned char ProcessInput(const InputAtom* input);
+    unsigned char ProcessInput(const InputEvent* input);
     void Redraw();
     void ShowNotification(W8DialogCloseListener* listener, bool allow_cancel, int message,
                           int value);
@@ -411,7 +412,7 @@ public:
     virtual void OnSecondary(W8TextControl*) override {}
     virtual void OnDialogClosed(bool accepted, int value) override;
 
-    std::vector<W8SaveSlot*> m_save_slots;
+    std::vector<std::unique_ptr<W8SaveSlot>> m_save_slots;
     bool m_redraw_pending;
     bool m_modal_closing;
     unsigned char padding_01e[2];

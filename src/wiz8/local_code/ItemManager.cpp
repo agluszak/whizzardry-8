@@ -1,3 +1,4 @@
+#include "wiz8/unicode.h"
 #include "surrender/srBoundingBox.h"
 #include <fmt/format.h>
 #include <glm/gtx/rotate_vector.hpp>
@@ -49,8 +50,6 @@
 #include "AnimRep.hpp"
 #include "Monster.h"
 #include "compat/native.h"
-#include "compat/ptr32.h"
-#include "input.h"
 #include "layouts/gameplay_databases.h"
 #include "layouts/item_instance.h"
 #include "layouts/item_tables.h"
@@ -110,7 +109,7 @@ bool InitializeItemManagerState()
 }
 
 // FUNCTION: WIZ8 0x004f8130
-bool ItemHasFlags(W8WorldItem* item, unsigned int mask)
+bool ItemHasFlags(const W8WorldItem* item, unsigned int mask)
 {
     if (item == 0) {
         srAssertFail("pItemInfo", ITEM_MANAGER_CPP, 998, 0);

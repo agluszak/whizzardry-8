@@ -12,7 +12,6 @@
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/regions.h"
-#include "english.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "Font.h"
 #include "dialog_code/DialogBase.h"
@@ -215,15 +214,15 @@ void W8MessageDialogBase::DestroyControls()
 }
 
 // FUNCTION: WIZ8 0x005d3020
-bool W8MessageDialogBase::HandleInput(const InputAtom* input)
+bool W8MessageDialogBase::HandleInput(const InputEvent* input)
 {
-    if (input->usEvent != KEY_DOWN) {
+    if (input->type != InputEventType::KeyDown) {
         return is_open;
     }
 
     if (allow_cancel) {
-        int key = toupper(input->usParam);
-        if (key == ESC) {
+        int key = toupper(input->key);
+        if (key == VK_ESCAPE) {
             accepted = false;
             is_open = false;
             return false;
@@ -243,7 +242,7 @@ bool W8MessageDialogBase::ProcessInput()
 {
     BeginModalInput();
     bool keep_open = is_open;
-    DrainModalInput([this, &keep_open](const InputAtom& input) {
+    DrainModalInput([this, &keep_open](const InputEvent& input) {
         if (DispatchRegionInput(&input)) {
             keep_open = is_open;
             return true;

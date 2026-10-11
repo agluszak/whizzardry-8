@@ -4,6 +4,7 @@
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <stdexcept>
@@ -113,10 +114,18 @@ SDLSurfaceOwner RenderSpriteToImage(const SpriteSheet& sprites, std::size_t fram
     if (!frame.indices || frame.usWidth == 0 || frame.usHeight == 0)
         return {nullptr, SDL_DestroySurface};
     auto image = CreateFrameSurface(frame.usWidth, frame.usHeight);
-    if (!SDL_FillSurfaceRect(image.get(), nullptr, 0))
+    // SDL color keys compare RGB only. A zero key aliases opaque black
+    // (0x8000 in ARGB1555), so reserve an RGB value absent from the palette.
+    const auto* format = SDL_GetPixelFormatDetails(image->format);
+    const auto rgb_mask = format->Rmask | format->Gmask | format->Bmask;
+    std::uint16_t key = 0;
+    while (std::any_of(sprites.colors.begin(), sprites.colors.end(), [key, rgb_mask](auto color) {
+        return (color & rgb_mask) == (key & rgb_mask);
+    })) ++key;
+    if (!SDL_FillSurfaceRect(image.get(), nullptr, key))
         throw std::runtime_error(SDL_GetError());
     DrawSprite(*image, sprites, frame_index, 0, 0);
-    if (!SDL_SetSurfaceColorKey(image.get(), true, 0))
+    if (!SDL_SetSurfaceColorKey(image.get(), true, key))
         throw std::runtime_error(SDL_GetError());
     return image;
 }

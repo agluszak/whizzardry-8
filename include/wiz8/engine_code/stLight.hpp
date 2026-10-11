@@ -250,8 +250,8 @@ public:
 
 W8_ABI_ASSERT(sizeof(stLight) == 0x258, "stLight_must_be_0x258");
 
-void SaveLightStates(wiz8::File* handle);
-void LoadLightStates(wiz8::File* handle);
+void SaveLightStates(wiz8::File& handle);
+void LoadLightStates(wiz8::File& handle);
 
 /* Animation copies retain per-light position before assignment, detach the new
    light and register it with the world before adding it to the owned list. */

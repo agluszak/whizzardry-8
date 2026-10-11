@@ -769,7 +769,7 @@ void ToggleCampItemFilter(W8CampItemFilterButton tab)
     }
     g_camp_screen->item_scroll = 0;
     RebuildCampItemList();
-    if (!gfKeyState[VK_CONTROL]) {
+    if (!IsKeyHeld(VK_CONTROL)) {
         g_camp_screen->item_redraw_flags |= W8_CAMP_ITEM_REDRAW_POOL;
         return;
     }
@@ -794,7 +794,7 @@ static void ShowCampItemInfo(W8ItemInstance* item)
 }
 
 // FUNCTION: WIZ8 0x005BB350
-unsigned char BackpackRegionHandler(const InputAtom* event, W8Region* region)
+unsigned char BackpackRegionHandler(const InputEvent* event, W8Region* region)
 {
     int slot;
     W8ItemInstance* item;
@@ -804,15 +804,15 @@ unsigned char BackpackRegionHandler(const InputAtom* event, W8Region* region)
     if (item->iItemNo == -1 && !g_status.item_in_cursor) {
         PushButtonSoundScheme(0, true);
     }
-    if (event->usEvent < (RIGHT_BUTTON_DOWN + 1)) {
-        if (event->usEvent == RIGHT_BUTTON_DOWN) {
+    if (event->type <= InputEventType::RightButtonDown) {
+        if (event->type == InputEventType::RightButtonDown) {
             region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
             return 1;
         }
-        if (event->usEvent == LEFT_BUTTON_DOWN) {
+        if (event->type == InputEventType::LeftButtonDown) {
             region->flags |= W8_REGION_LEFT_BUTTON_HELD;
         } else {
-            if (event->usEvent != LEFT_BUTTON_UP) {
+            if (event->type != InputEventType::LeftButtonUp) {
                 return 0;
             }
             if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) == 0) {
@@ -828,14 +828,14 @@ unsigned char BackpackRegionHandler(const InputAtom* event, W8Region* region)
         DisableRegionHelpFlag(region);
         return 1;
     }
-    if (event->usEvent == RIGHT_BUTTON_UP) {
+    if (event->type == InputEventType::RightButtonUp) {
         if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) != 0 && item->iItemNo != -1 &&
             g_camp_screen->item_action != W8_CAMP_ITEM_ACTION_IDENTIFY) {
             ShowCampItemInfo(item);
         }
         return 1;
     }
-    if (event->usEvent == MOUSE_POS) {
+    if (event->type == InputEventType::MouseMove) {
         if ((region->flags & W8_REGION_MOUSE_TRANSITION_MASK) != 0) {
             if (item->iItemNo != -1 || g_status.item_in_cursor) {
                 g_camp_screen->item_redraw_flags |= W8_CAMP_ITEM_REDRAW_BACKPACK_CELL_FIRST
@@ -859,7 +859,7 @@ unsigned char BackpackRegionHandler(const InputAtom* event, W8Region* region)
 }
 
 // FUNCTION: WIZ8 0x005BB560
-unsigned char EquipSlotRegionHandler(const InputAtom* event, W8Region* region)
+unsigned char EquipSlotRegionHandler(const InputEvent* event, W8Region* region)
 {
     int slot;
     int delay;
@@ -875,17 +875,17 @@ unsigned char EquipSlotRegionHandler(const InputAtom* event, W8Region* region)
          !CanCharacterUseItem(g_review_character, g_status.item_in_hand.iItemNo))) {
         PushButtonSoundScheme(0, true);
     }
-    if (event->usEvent < (RIGHT_BUTTON_DOWN + 1)) {
-        if (event->usEvent == RIGHT_BUTTON_DOWN) {
+    if (event->type <= InputEventType::RightButtonDown) {
+        if (event->type == InputEventType::RightButtonDown) {
             region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
             return 1;
         }
-        if (event->usEvent == LEFT_BUTTON_DOWN) {
+        if (event->type == InputEventType::LeftButtonDown) {
             region->flags |= W8_REGION_LEFT_BUTTON_HELD;
             DisableRegionHelpFlag(region);
             return 1;
         }
-        if (event->usEvent != LEFT_BUTTON_UP) {
+        if (event->type != InputEventType::LeftButtonUp) {
             return 0;
         }
         if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
@@ -910,8 +910,8 @@ unsigned char EquipSlotRegionHandler(const InputAtom* event, W8Region* region)
             return 1;
         }
     } else {
-        if (event->usEvent != RIGHT_BUTTON_UP) {
-            if (event->usEvent != MOUSE_POS) {
+        if (event->type != InputEventType::RightButtonUp) {
+            if (event->type != InputEventType::MouseMove) {
                 return 0;
             }
             if ((region->flags & W8_REGION_MOUSE_ENTER) != 0) {
@@ -956,7 +956,7 @@ unsigned char EquipSlotRegionHandler(const InputAtom* event, W8Region* region)
 }
 
 // FUNCTION: WIZ8 0x005BB900
-unsigned char ItemPoolRegionHandler(const InputAtom* event, W8Region* region)
+unsigned char ItemPoolRegionHandler(const InputEvent* event, W8Region* region)
 {
     unsigned int slot;
     unsigned int pool_index;
@@ -976,8 +976,8 @@ unsigned char ItemPoolRegionHandler(const InputAtom* event, W8Region* region)
     if (item->iItemNo == -1 && !g_status.item_in_cursor) {
         PushButtonSoundScheme(0, true);
     }
-    if (event->usEvent < 0x101) {
-        if (event->usEvent == RIGHT_BUTTON_UP) {
+    if (event->type <= InputEventType::RightButtonUp) {
+        if (event->type == InputEventType::RightButtonUp) {
             if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) != 0 &&
                 pool_index < g_status.party_item_count &&
                 g_camp_screen->item_action != W8_CAMP_ITEM_ACTION_IDENTIFY) {
@@ -985,13 +985,13 @@ unsigned char ItemPoolRegionHandler(const InputAtom* event, W8Region* region)
             }
             return 1;
         }
-        if (event->usEvent == LEFT_BUTTON_DOWN) {
+        if (event->type == InputEventType::LeftButtonDown) {
             region->flags |= W8_REGION_LEFT_BUTTON_HELD;
             DisableRegionHelpFlag(region);
             return 1;
         }
-        if (event->usEvent != LEFT_BUTTON_UP) {
-            if (event->usEvent != RIGHT_BUTTON_DOWN) {
+        if (event->type != InputEventType::LeftButtonUp) {
+            if (event->type != InputEventType::RightButtonDown) {
                 return 0;
             }
             region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
@@ -1006,7 +1006,7 @@ unsigned char ItemPoolRegionHandler(const InputAtom* event, W8Region* region)
             return 1;
         }
     } else {
-        if (event->usEvent == MOUSE_POS) {
+        if (event->type == InputEventType::MouseMove) {
             if ((region->flags & W8_REGION_MOUSE_TRANSITION_MASK) != 0) {
                 if (item->iItemNo != -1 || g_status.item_in_cursor) {
                     g_camp_screen->item_redraw_flags |= W8_CAMP_ITEM_REDRAW_POOL_CELL_FIRST
@@ -1025,10 +1025,10 @@ unsigned char ItemPoolRegionHandler(const InputAtom* event, W8Region* region)
             }
             return 0;
         }
-        if (event->usEvent != MOUSE_WHEEL) {
+        if (event->type != InputEventType::MouseWheel) {
             return 0;
         }
-        delta = GetMouseWheelDeltaValue(event->usParam);
+        delta = event->wheel;
         count = delta;
         if (delta > 0) {
             do {
@@ -1062,14 +1062,14 @@ unsigned char ItemPoolRegionHandler(const InputAtom* event, W8Region* region)
 /* Reason 0x40/0x8 press the tab control, 0x10 releases it, and the 0x400
    enter/leave transition forwards the matching mouse events. */
 // FUNCTION: WIZ8 0x005BBBB0
-unsigned char RealmTabRegionHandler(const InputAtom* event, W8Region* region)
+unsigned char RealmTabRegionHandler(const InputEvent* event, W8Region* region)
 {
     return DispatchButtonRegionEvent(event, region,
                                      g_camp_item_filter_buttons[region->callback_id]);
 }
 
 // FUNCTION: WIZ8 0x005BBC70
-unsigned char PanelTabRegionHandler(const InputAtom* event, W8Region* region)
+unsigned char PanelTabRegionHandler(const InputEvent* event, W8Region* region)
 {
     return DispatchButtonRegionEvent(event, region, g_camp_action_buttons[region->callback_id]);
 }

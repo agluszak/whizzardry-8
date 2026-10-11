@@ -88,7 +88,6 @@
 #include "wiz8/layouts/game_status.h"
 #include "attack_modes.h"
 #include "compat/native.h"
-#include "compat/ptr32.h"
 #include "equipment_slots.h"
 #include "gameplay_modifiers.h"
 #include "glm/ext/matrix_float3x3.hpp"

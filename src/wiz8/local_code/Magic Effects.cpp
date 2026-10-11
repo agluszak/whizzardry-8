@@ -63,7 +63,6 @@
 #include "wiz8/local_code/Noise.h"
 #include "soundman.h"
 #include "compat/compiler.h"
-#include "compat/ptr32.h"
 #include "dice.h"
 #include "layouts/character.h"
 #include "layouts/item_instance.h"

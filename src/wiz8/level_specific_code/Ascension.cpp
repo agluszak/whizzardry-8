@@ -22,7 +22,6 @@
 #include "wiz8/xstatus.h"
 #include "soundman.h"
 #include "surrender/srCamera.h"
-#include "compat/ptr32.h"
 #include "glm/ext/vector_float3.hpp"
 #include "layouts/npc_state.h"
 #include "layouts/world.h"

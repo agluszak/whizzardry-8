@@ -111,13 +111,13 @@ bool nodes(const std::filesystem::path& directory)
     const auto path = directory / "lights.bin";
     {
         auto file = wiz8::open_host_file(path, wiz8::OpenMode::replace);
-        SaveLightStates(file.get());
+        SaveLightStates(*file);
     }
     lamp->clearFlag(srNode::FLAG_DISABLE);
     torch->setFlag(srNode::FLAG_DISABLE);
     {
         auto file = wiz8::open_host_file(path);
-        LoadLightStates(file.get());
+        LoadLightStates(*file);
     }
     REQUIRE((lamp->testFlag(srNode::FLAG_DISABLE)));
     REQUIRE((torch->testFlag(srNode::FLAG_DISABLE)));
@@ -134,12 +134,12 @@ bool nodes(const std::filesystem::path& directory)
     gas->SetActive(0);
     {
         auto file = wiz8::open_host_file(path, wiz8::OpenMode::replace);
-        SaveParticleStates(file.get());
+        SaveParticleStates(*file);
     }
     gas->emitting = 1;
     {
         auto file = wiz8::open_host_file(path);
-        LoadParticleStates(file.get());
+        LoadParticleStates(*file);
     }
     REQUIRE((!gas->emitting && idle->emitting));
     // Particles are owned by the world list, not the scene.

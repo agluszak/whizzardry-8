@@ -18,7 +18,7 @@ public:
     virtual void Draw() override;
     virtual W8DialogKind GetDialogType() override;
     virtual bool ProcessInput() override;
-    virtual bool HandleInput(const InputAtom* input);
+    virtual bool HandleInput(const InputEvent* input);
 
     /* Called on this object from outside the class by the Please Wait screen,
        which is what puts it here rather than under protected. */

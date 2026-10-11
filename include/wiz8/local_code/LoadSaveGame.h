@@ -4,6 +4,7 @@
 #include <string>
 #include <optional>
 
+#include <memory>
 #include <vector>
 
 #include "wiz8/file_time.h"
@@ -47,9 +48,9 @@ struct W8SaveSlot {
 W8_ABI_ASSERT(sizeof(W8SaveSlot) == 0x2640, "W8SaveSlot_size");
 W8_ABI_ASSERT(offsetof(W8SaveSlot, screenshot) == 0xa8, "W8SaveSlot_screenshot_offset");
 
-void CaptureSaveScreenshot(W8SaveScreenshot* screenshot);
-void FillCurrentSaveSlot(W8SaveSlot* slot);
-bool EnumerateSaveSlots(std::vector<W8SaveSlot*>& slots);
+void CaptureSaveScreenshot(W8SaveScreenshot& screenshot);
+void FillCurrentSaveSlot(W8SaveSlot& slot);
+bool EnumerateSaveSlots(std::vector<std::unique_ptr<W8SaveSlot>>& slots);
 
 bool SaveGame(std::string_view name, W8SaveScreenshot* screenshot);
 
@@ -71,6 +72,7 @@ std::string BuildCharacterFilePath(std::string_view filename, int slot);
 std::string BuildCharacterPath(std::string_view name, int slot);
 bool SaveGameExists(void);
 void LoadGameStatus(W8Chunk* chunks, W8GlobalStatus* status);
+void SaveGlobalStatus(W8Chunk* chunks, W8GlobalStatus* status);
 /* Load a save slot by name; the Please Wait screen drives it. */
 bool LoadGame(std::string_view slot_name);
 

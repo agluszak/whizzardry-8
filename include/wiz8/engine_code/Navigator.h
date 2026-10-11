@@ -221,6 +221,8 @@ public:
     W8Navigator();                         /* 0x00451EC0 */
     W8Navigator(const W8Navigator& other); /* 0x00452220 */
     virtual ~W8Navigator();                /* 0x00452120 */
+    /* Takes ownership, releasing the previous path. Null clears it;
+       assigning the current path preserves it. GetPathAI only borrows. */
     virtual void SetPathAI(W8PathAI* path_ai);
     virtual W8PathAI* GetPathAI();
     void ResetPathAI();

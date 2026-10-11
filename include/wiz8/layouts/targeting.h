@@ -1,7 +1,6 @@
 #ifndef WIZ8_LAYOUTS_TARGETING_H
 #define WIZ8_LAYOUTS_TARGETING_H
 
-#include "compat/ptr32.h"
 #include "surrender/srMath.h"
 
 struct W8ItemInstance;
@@ -98,19 +97,18 @@ enum W8TargetHighlight {
 };
 
 /* The shorter form a combatant carries inline, with one more field reset to
-   -1 and no room for the tail. */
-#pragma pack(push, 1)
+   -1 and no room for the tail. Its disk form is wiz8::retail::CombatTarget. */
 struct W8CombatSlot {
-    W8TargetKind iType;      /* 0x00 */
-    int iChar;               /* 0x04, -1 when empty */
-    int iMonsterID;          /* 0x08, -1 when empty */
-    int iGroupID;            /* 0x0c, -1 when empty */
-    srVector3T<float> point; /* 0x10 */
-    /* 0x1c: the item aimed at, for the one kind that aims at one. */
-    W8_PTR32(W8ItemInstance) pPCItem;
-}; /* 0x20 */
-#pragma pack(pop)
-static_assert(sizeof(W8CombatSlot) == 0x20);
+    W8TargetKind iType;
+    int iChar;      /* -1 when empty */
+    int iMonsterID; /* -1 when empty */
+    int iGroupID;   /* -1 when empty */
+    srVector3T<float> point;
+    /* The item aimed at, for the one kind that aims at one. */
+    W8ItemInstance* pPCItem;
+
+    bool operator==(const W8CombatSlot&) const = default;
+};
 /* Party movement is distinct from an individual character's action. */
 enum W8PartyAction { W8_PARTY_ACTION_NONE = 0, W8_PARTY_ACTION_WALK = 1, W8_PARTY_ACTION_RUN = 2 };
 
@@ -127,7 +125,6 @@ enum W8PartyActionStatus {
    power level and a spare word; an item use's holds the use kind and the item.
    It is the party slot row's own pair in both cases rather than a copy, which
    is why every reader takes a pointer to it. */
-#pragma pack(push, 1)
 union W8ActionDetailBlock {
     struct {
         int power_level;
@@ -135,12 +132,9 @@ union W8ActionDetailBlock {
     } spell;
     struct {
         int kind;
-        W8_PTR32(W8ItemInstance) item;
+        W8ItemInstance* item;
     } item_use;
-}; /* 0x08 */
-#pragma pack(pop)
-static_assert(sizeof(W8ActionDetailBlock) == 0x08);
-W8_ABI_ASSERT(sizeof(W8ActionDetailBlock) == 0x08, "W8ActionDetailBlock_size");
+};
 
 /* The combat actions a party slot row's action and the level block's
    selection_kind carry; ChooseCombatAction picks one and ChooseAction applies

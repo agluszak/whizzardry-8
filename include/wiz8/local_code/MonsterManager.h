@@ -18,7 +18,6 @@ struct W8MonsterRecord;
 #include <unordered_map>
 #include <vector>
 
-#include "compat/ptr32.h"
 #include "wiz8/monster_actions.h"
 #include "wiz8/sight_state.h"
 #include "surrender/srMath.h"
@@ -48,16 +47,17 @@ struct W8MonsterManagerEntry {
     W8PortraitQuoteState quote;
     unsigned char unknown_025[0x4c];
     W8CharacterEvent* active_character_event;
-    int previous_portrait_frame;
+    // These are the frames last painted, not the preceding animation states.
+    int rendered_portrait_frame;
     int portrait_frame;
     uint64_t portrait_frame_clock;
     unsigned int voice_time_remaining_ms;
-    int previous_portrait_pose;
+    int rendered_portrait_pose;
     int portrait_pose;
     int target_portrait_pose;
     uint64_t portrait_pose_clock;
     uint64_t portrait_idle_clock;
-    bool portrait_pose_animation_active;
+    bool portrait_blink_closing;
     bool portrait_pose_dirty;
     bool portrait_frame_dirty;
     /* The floating damage-number splat animation. Posting a hit opens it with
@@ -335,13 +335,16 @@ W8_ABI_ASSERT(sizeof(W8VisibilityRecord) == 0x31, "W8VisibilityRecord_size");
 
 using W8MonsterVisibility = std::unordered_map<int, W8VisibilityRecord>;
 
+#pragma pack(pop)
+
+/* A live monster. Saves store it as wiz8::retail::MonsterInfo. */
 struct W8MonsterInfo {
     int location_id;
     int monster_group_id;
     unsigned int monster_species;
-    W8_PTR32(W8Monster) p3D;
+    W8Monster* p3D;
     /* Allocated while the monster is in combat. */
-    W8_PTR32(W8MonsterCombatState) pCombat;
+    W8MonsterCombatState* pCombat;
     bool fActive;
     bool fInCombat;
     /* Copied from the group's ubDisposition when the entry is created. */
@@ -401,7 +404,7 @@ struct W8MonsterInfo {
        other monster. The two release paths own it: one drops every record
        about a departing monster, the other empties and destroys the whole
        list. */
-    W8_PTR32(W8MonsterVisibility) monster_visibility;
+    W8MonsterVisibility* monster_visibility;
     W8CombatSlot Target;
     /* Summon marker - 0 ordinary, 1 friendly summon, 2 hostile summon;
        nonzero raises the summoned spell icon and feeds the slain cleanup. */
@@ -453,13 +456,6 @@ struct W8MonsterInfo {
     bool has_spell_origin;
     unsigned char unknown_37d[0xa8];
 };
-#pragma pack(pop)
-
-W8_ABI_ASSERT(sizeof(W8MonsterInfo) == 0x425, "W8MonsterInfo_size_must_be_0x425");
-W8_ABI_ASSERT(offsetof(W8MonsterInfo, modifiers) == 0x1db, "W8MonsterInfo_modifiers_offset");
-W8_ABI_ASSERT(offsetof(W8MonsterInfo, heard_noise_margin) == 0x2f5,
-              "W8MonsterInfo_heard_noise_margin_offset");
-W8_ABI_ASSERT(offsetof(W8MonsterInfo, spell_points) == 0x2f9, "W8MonsterInfo_spell_points_offset");
 
 W8MonsterInfo* MonsterGetScriptPartByLocationIndex(unsigned int monster_list_index);
 bool InitializeMonsterManagerState(void);

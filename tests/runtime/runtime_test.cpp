@@ -45,7 +45,6 @@
    Run under SDL's offscreen video driver (no window, no host input) with
    movies skipped through WIZ8_TEST_HOOK. Exit code 77 means assets are absent. */
 #include "wiz8/application.h"
-#include "native/input_events.h"
 #include "temporary_directory.h"
 #include "surrender/srGERD.h"
 #include "surrender/srModelInstance.h"
@@ -242,7 +241,7 @@ class Game
         PumpGameEvents(false);
         REQUIRE(gfProgramIsRunning);
         GameLoop();
-        gfSGPInputReceived = false;
+        GetInputState().received = false;
         ++frames_;
         g_runtime_test_hooks.clock_us += frame_us;
     }
@@ -335,7 +334,7 @@ class Game
     }
 
     /* Presses or releases the key bound to a main-game command, with its
-       modifiers, at SGP's keyboard layer (bindings hold Windows key codes). */
+       modifiers, through the input pipeline (bindings hold virtual-key codes). */
     void command_key(W8MGSCommand command, bool down)
     {
         const int index = g_mgs_keyboard ? g_mgs_keyboard->FindBinding(command) : -1;
@@ -344,20 +343,25 @@ class Game
             Fail("command", "no key bound to command " + std::to_string(int(command)));
         const std::pair<unsigned short, std::uint32_t> modifiers[] = {
             {SHIFT_DOWN, VK_SHIFT}, {CTRL_DOWN, VK_CONTROL}, {ALT_DOWN, VK_MENU}};
+        InputState& input = GetInputState();
         if (down)
         {
+            input.modifiers = binding->modifiers;
             for (auto [flag, key] : modifiers)
-                if (binding->modifiers & flag)
-                    KeyDown(key, 1);
-            KeyDown(binding->key, 1);
-            gfSGPInputReceived = true;
+                input.keys[key] = (binding->modifiers & flag) != 0;
+            QueueEvent(input.keys[binding->key] ? InputEventType::KeyRepeat : InputEventType::KeyDown,
+                       input.mouse, binding->key);
+            input.keys[binding->key] = true;
+            input.received = true;
         }
         else
         {
-            KeyUp(binding->key, 0xc0000001u);
+            if (input.keys[binding->key])
+                QueueEvent(InputEventType::KeyUp, input.mouse, binding->key);
+            input.keys[binding->key] = false;
+            input.modifiers = 0;
             for (auto [flag, key] : modifiers)
-                if (binding->modifiers & flag)
-                    KeyUp(key, 0xc0000001u);
+                input.keys[key] = false;
         }
     }
 

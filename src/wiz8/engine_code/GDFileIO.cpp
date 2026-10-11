@@ -32,9 +32,10 @@
 #include "wiz8/engine_code/materials.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/binary_reader.h"
+#include "wiz8/retail_geometry_records.h"
+#include "wiz8/retail_text_records.h"
 #include "wiz8/engine_code/3d.h"
 #include "compat/compiler.h"
-#include "compat/ptr32.h"
 #include "geometry.h"
 #include "surrender/srMath.h"
 
@@ -358,10 +359,10 @@ void W8GameData::AddTriggerPlane(const srVector3T<float>* trigger_vertices, Trig
 /* Registers a level-file plane's two triangles (vertices 0,1,2 and 2,3,0) as
    a trigger-surface pair under the auto-numbered trigger index. */
 // FUNCTION: WIZ8 0x004485F0
-void W8GameData::AddLevelPlane(W8LevelFilePlane* plane)
+void W8GameData::AddLevelPlane(const W8LevelFilePlane& plane)
 {
     int index;
-    const srVector3T<float>* vertices = plane->vertices;
+    const srVector3T<float>* vertices = plane.vertices;
 
     if (TrigSurfacesCount() >= 500) {
         srAssertFail("(TrigSurfacesCount() < MAX_TRIG_SURFACES)",
@@ -563,7 +564,7 @@ void W8GameData::ReadProcessedGameData(wiz8::File* handle)
         bytes += static_cast<std::uint64_t>(count) * stride;
     };
     count_bytes(header.vertex_count, sizeof(srVector3T<float>));
-    count_bytes(header.surface_count, sizeof(W8GDSurface));
+    count_bytes(header.surface_count, sizeof(wiz8::retail::GDSurface));
     count_bytes(header.interface_count, sizeof(W8GDInterface));
     count_bytes(header.state_count, sizeof(W8GDInterfaceState));
     count_bytes(header.cond_poly_count, sizeof(int));
@@ -580,7 +581,10 @@ void W8GameData::ReadProcessedGameData(wiz8::File* handle)
     }
 
     auto vertices = reader.array<srVector3T<float>>(header.vertex_count);
-    auto surfaces = reader.array<W8GDSurface>(header.surface_count);
+    std::vector<W8GDSurface> surfaces;
+    surfaces.reserve(header.surface_count);
+    for (const auto& image : reader.array<wiz8::retail::GDSurface>(header.surface_count))
+        wiz8::retail::decode_image(image, surfaces.emplace_back());
     auto interfaces = reader.array<W8GDInterface>(header.interface_count);
     auto states = reader.array<W8GDInterfaceState>(header.state_count);
     auto cond_polys = reader.array<int>(header.cond_poly_count);
@@ -1043,7 +1047,7 @@ unsigned char W8GameData::WriteGameData(wiz8::File* handle)
     handle->write(&header, sizeof(header));
     handle->write(m_pVertices.data(),
                   static_cast<std::size_t>(VerticesCount()) * sizeof(srVector3T<float>));
-    handle->write(m_pSurfaces.data(), static_cast<std::size_t>(SurfacesCount()) * sizeof(W8GDSurface));
+    for (const auto& surface : m_pSurfaces) wiz8::retail::write(*handle, surface);
     handle->write(m_pInterfaces.data(),
                   static_cast<std::size_t>(InterfacesCount()) * sizeof(W8GDInterface));
     handle->write(m_pStates.data(), static_cast<std::size_t>(StatesCount()) * sizeof(W8GDInterfaceState));

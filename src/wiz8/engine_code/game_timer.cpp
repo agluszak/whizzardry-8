@@ -228,13 +228,13 @@ void W8GameTimer::SetProgress(float progress)
 }
 
 // FUNCTION: WIZ8 0x0043a330
-bool W8GameTimer::Load(wiz8::File* handle)
+bool W8GameTimer::Load(wiz8::File& handle)
 try
 {
     float progress;
     // Retail performs both reads and combines their results with bitwise OR.
-    bool loaded = (handle->read(&progress, sizeof(progress)).bytes == static_cast<std::size_t>(sizeof(progress)));
-    loaded |= (handle->read(&m_duration_scale, sizeof(m_duration_scale)).bytes == static_cast<std::size_t>(sizeof(m_duration_scale)));
+    bool loaded = (handle.read(&progress, sizeof(progress)).bytes == static_cast<std::size_t>(sizeof(progress)));
+    loaded |= (handle.read(&m_duration_scale, sizeof(m_duration_scale)).bytes == static_cast<std::size_t>(sizeof(m_duration_scale)));
     if (loaded != 0) {
         m_duration = static_cast<int>(m_duration_seconds * m_duration_scale * 10000.0f);
         m_end = m_start + m_duration;

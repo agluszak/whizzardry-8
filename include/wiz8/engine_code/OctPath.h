@@ -617,7 +617,7 @@ public:
 
     /* Copies each named position (scaled to world units) into +0x250 and
        snaps it to the ground through `octree`. */
-    int SnapNamedPositions(W8LevelFileNamedPosition* positions, int count,
+    int SnapNamedPositions(std::span<const W8LevelFileNamedPosition> positions,
                            unsigned int min_component_percent, OctPreTree* octree);
     /* Hands out the next path-node record, allocating a new chunk when the
        current one fills. */
@@ -628,7 +628,7 @@ public:
     void PropagatePathNodeClearance(W8PrePathNode* node, unsigned int depth);
     unsigned int DeleteUnreachableAreas();
     int CreatePathNodeArray();
-    unsigned char CreateAutomapNodes(W8LevelFile* level);
+    unsigned char CreateAutomapNodes(W8LevelFile& level);
 
     W8PrePathNode** path_node_list; /* path_node_count entries */
     OctPrePathLog* path_log;

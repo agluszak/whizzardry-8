@@ -78,7 +78,6 @@
 #include "random.h"
 #include "wiz8/layouts/game_status.h"
 #include "compat/native.h"
-#include "compat/ptr32.h"
 #include "dialog_code/DialogBase.h"
 #include "layouts/main_game_screen.h"
 #include "layouts/npc_dialogue.h"
@@ -1062,7 +1061,7 @@ void ServiceNpcDialogue(void)
     if (g_npc_interaction_state->scripted_dialogue) {
         return;
     }
-    if (g_npc_interaction_state->dialogue_hidden != 0 && gfRightButtonState != 0) {
+    if (g_npc_interaction_state->dialogue_hidden != 0 && IsRightButtonHeld()) {
         SetNpcDialogueHidden(0);
     }
     field_text = GetTextFromField(0);
@@ -1414,7 +1413,7 @@ void TryNpcDialoguePickpocket(int party_slot)
    is the panel slot at +0x1a8 and is ignored. Ids 1..6 and 0x16/0x17 pass 1
    into the widget hooks; every other id passes 0. Mouse-enter always passes 0. */
 // FUNCTION: WIZ8 0x0056F020
-unsigned char MainScreenControlRegionEvent(const InputAtom* event, W8Region* region)
+unsigned char MainScreenControlRegionEvent(const InputEvent* event, W8Region* region)
 {
     unsigned int callback_id = region->callback_id;
     W8Widget* control;
@@ -1428,31 +1427,31 @@ unsigned char MainScreenControlRegionEvent(const InputAtom* event, W8Region* reg
     if (control == 0) {
         return 0;
     }
-    switch (event->usEvent) {
-    case LEFT_BUTTON_DOWN:
-    case LEFT_BUTTON_REPEAT:
+    switch (event->type) {
+    case InputEventType::LeftButtonDown:
+    case InputEventType::LeftButtonRepeat:
         control->OnLeftButtonDown(arg);
         region->flags |= W8_REGION_LEFT_BUTTON_HELD;
         return 1;
-    case LEFT_BUTTON_UP:
+    case InputEventType::LeftButtonUp:
         control->OnLeftButtonUp(arg);
         if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) == 0) {
             return 1;
         }
         region->flags &= ~W8_REGION_LEFT_BUTTON_HELD;
         return 1;
-    case RIGHT_BUTTON_DOWN:
-    case RIGHT_BUTTON_REPEAT:
+    case InputEventType::RightButtonDown:
+    case InputEventType::RightButtonRepeat:
         control->OnRightButtonDown(arg);
         region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
         return 1;
-    case RIGHT_BUTTON_UP:
+    case InputEventType::RightButtonUp:
         control->OnRightButtonUp(arg);
         if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) != 0) {
             region->flags &= ~W8_REGION_RIGHT_BUTTON_HELD;
         }
         return 1;
-    case MOUSE_POS:
+    case InputEventType::MouseMove:
         if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
             control->OnMouseLeave(arg);
             return 1;
@@ -1462,46 +1461,48 @@ unsigned char MainScreenControlRegionEvent(const InputAtom* event, W8Region* reg
             return 1;
         }
         break;
+    default:
+        break;
     }
     return 0;
 }
 
 /* Region callback on the NPC-dialogue notice text boxes: the left button
    routes through the keyword/slot click helpers, the right button through the
-   assay/keyword lookup helpers, and MOUSE_POS tracks the hovered line or
-   notice word. Left release falls through into RIGHT_BUTTON_DOWN and also
+   assay/keyword lookup helpers, and InputEventType::MouseMove tracks the hovered line or
+   notice word. Left release falls through into InputEventType::RightButtonDown and also
    raises the right-held flag (retail bug). */
 // FUNCTION: WIZ8 0x0056F1D0
-unsigned char NpcDialogueTextBoxRegionEvent(const InputAtom* event, W8Region* region)
+unsigned char NpcDialogueTextBoxRegionEvent(const InputEvent* event, W8Region* region)
 {
     int line;
     int y;
 
-    switch (event->usEvent) {
-    case LEFT_BUTTON_DBL_CLK:
-        NpcDialogueTextBoxDoubleClick(static_cast<unsigned short>(event->uiParam),
-                                      event->uiParam >> 16);
+    switch (event->type) {
+    case InputEventType::LeftButtonDoubleClick:
+        NpcDialogueTextBoxDoubleClick(event->position.x,
+                                      event->position.y);
         return 1;
-    case LEFT_BUTTON_UP:
+    case InputEventType::LeftButtonUp:
         if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
             region->flags &= ~W8_REGION_LEFT_BUTTON_HELD;
-            NpcDialogueTextBoxLeftUp(static_cast<unsigned short>(event->uiParam),
-                                     event->uiParam >> 16);
+            NpcDialogueTextBoxLeftUp(event->position.x,
+                                     event->position.y);
         }
         [[fallthrough]];
-    case RIGHT_BUTTON_DOWN:
+    case InputEventType::RightButtonDown:
         region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
         return 1;
-    case LEFT_BUTTON_DOWN:
+    case InputEventType::LeftButtonDown:
         region->flags |= W8_REGION_LEFT_BUTTON_HELD;
         return 1;
-    case MOUSE_POS:
+    case InputEventType::MouseMove:
         break;
-    case RIGHT_BUTTON_UP:
+    case InputEventType::RightButtonUp:
         if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) != 0) {
             region->flags &= ~W8_REGION_RIGHT_BUTTON_HELD;
-            NpcDialogueTextBoxRightUp(static_cast<unsigned short>(event->uiParam),
-                                      event->uiParam >> 16);
+            NpcDialogueTextBoxRightUp(event->position.x,
+                                      event->position.y);
         }
         return 1;
     default:
@@ -1514,11 +1515,11 @@ unsigned char NpcDialogueTextBoxRegionEvent(const InputAtom* event, W8Region* re
         return 1;
     }
     if ((region->flags & W8_REGION_MOUSE_ENTER) != 0) {
-        g_npc_interaction_state->last_mouse_x = static_cast<unsigned short>(event->uiParam);
-        g_npc_interaction_state->last_mouse_y = event->uiParam >> 16;
+        g_npc_interaction_state->last_mouse_x = event->position.x;
+        g_npc_interaction_state->last_mouse_y = event->position.y;
         NoOp();
         if (g_npc_interaction_state->dialogue_layout == W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX) {
-            y = (event->uiParam >> 16) & 0xffff;
+            y = event->position.y;
             if (y >= g_level_block->text_box_top && y <= g_level_block->text_box_bottom) {
                 line = (y - g_level_block->text_box_top) / 11;
                 HighlightNoticeRow(line);
@@ -1527,19 +1528,19 @@ unsigned char NpcDialogueTextBoxRegionEvent(const InputAtom* event, W8Region* re
         }
         return 1;
     }
-    if (static_cast<unsigned short>(event->uiParam) == g_npc_interaction_state->last_mouse_x &&
-        static_cast<int>(event->uiParam >> 16) == g_npc_interaction_state->last_mouse_y) {
+    if (event->position.x == g_npc_interaction_state->last_mouse_x &&
+        event->position.y == g_npc_interaction_state->last_mouse_y) {
         return 1;
     }
-    g_npc_interaction_state->last_mouse_x = static_cast<unsigned short>(event->uiParam);
-    g_npc_interaction_state->last_mouse_y = event->uiParam >> 16;
+    g_npc_interaction_state->last_mouse_x = event->position.x;
+    g_npc_interaction_state->last_mouse_y = event->position.y;
     if (g_npc_interaction_state->dialogue_layout == W8_DIALOGUE_LAYOUT_TRANSCRIPT) {
-        HighlightNoticeWordAt(3, static_cast<unsigned short>(event->uiParam),
-                              static_cast<unsigned short>(event->uiParam >> 16));
+        HighlightNoticeWordAt(3, event->position.x,
+                              event->position.y);
         return 1;
     }
     if (g_npc_interaction_state->dialogue_layout == W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX) {
-        y = (event->uiParam >> 16) & 0xffff;
+        y = event->position.y;
         if (y >= g_level_block->text_box_top && y <= g_level_block->text_box_bottom) {
             line = (y - g_level_block->text_box_top) / 11;
             if (line != g_npc_interaction_state->hovered_text_line) {
@@ -1607,7 +1608,7 @@ void NpcDialogueTextBoxLeftUp(int x, int y)
         if (word == 0 || word->keyword != W8_NOTICE_WORD_HOVERED) {
             return;
         }
-        if (gfKeyState[VK_SHIFT] == 0) {
+        if (!IsKeyHeld(VK_SHIFT)) {
             ResetUsedNoticeWords(3, true);
             word_text.clear();
             SetInputFieldText(0, word_text);
@@ -1620,7 +1621,7 @@ void NpcDialogueTextBoxLeftUp(int x, int y)
         if (slot == -1) {
             return;
         }
-        UpdateNpcTradeSelection(slot, gfKeyState[VK_SHIFT] != 0 ? 1 : 0, 1);
+        UpdateNpcTradeSelection(slot, IsKeyHeld(VK_SHIFT) ? 1 : 0, 1);
         return;
     default:
         break;
@@ -1646,7 +1647,7 @@ void NpcDialogueTextBoxRightUp(int x, int y)
         if (slot == -1) {
             return;
         }
-        UpdateNpcTradeSelection(slot, gfKeyState[VK_SHIFT] != 0 ? 1 : 0, 1);
+        UpdateNpcTradeSelection(slot, IsKeyHeld(VK_SHIFT) ? 1 : 0, 1);
         item = ResolveNpcTradeRow(slot, false, 0, 1);
         if (item == 0) {
             return;
@@ -1692,7 +1693,7 @@ void NpcDialogueTextBoxDoubleClick(int x, int y)
         if (word == 0) {
             return;
         }
-        if (gfKeyState[VK_SHIFT] == 0) {
+        if (!IsKeyHeld(VK_SHIFT)) {
             ResetUsedNoticeWords(3, true);
             word_text.clear();
             SetInputFieldText(0, word_text);
@@ -3662,7 +3663,7 @@ void HandleNpcDialogueInput(void)
 }
 
 // FUNCTION: WIZ8 0x00574BB0
-void HandleNpcDialogueKeyEvent(const InputAtom* event)
+void HandleNpcDialogueKeyEvent(const InputEvent* event)
 {
     W8NpcInteractionState* state;
     W8MGSCommand command;
@@ -3671,23 +3672,23 @@ void HandleNpcDialogueKeyEvent(const InputAtom* event)
         return;
     }
     state = g_npc_interaction_state;
-    if (state->modal_dialog_open && event->usParam != VK_ESCAPE) {
+    if (state->modal_dialog_open && event->key != VK_ESCAPE) {
         return;
     }
-    switch (event->usParam) {
+    switch (event->key) {
     case 0x26:
         if (state->dialogue_layout != W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX) {
             return;
         }
         ScrollTextBoxUp(1);
-        NpcDialogueTextBoxWheelAt(0, static_cast<unsigned short>(event->uiParam >> 16), true);
+        NpcDialogueTextBoxWheelAt(0, event->position.y, true);
         return;
     case 0x28:
         if (state->dialogue_layout != W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX) {
             return;
         }
         ScrollTextBoxDown(1);
-        NpcDialogueTextBoxWheelAt(0, static_cast<unsigned short>(event->uiParam >> 16), true);
+        NpcDialogueTextBoxWheelAt(0, event->position.y, true);
         return;
     case 0x1b:
         if (state->dialogue_hidden != 0) {
@@ -3811,16 +3812,16 @@ void ClearNpcDialogueTranscript(void)
 }
 
 // FUNCTION: WIZ8 0x005750D0
-unsigned char LoadNpcDialogueTranscript(wiz8::File* file)
+unsigned char LoadNpcDialogueTranscript(wiz8::File& file)
 try
 {
-    auto read = [&](auto& value) { return file->read(&value, sizeof(value)).bytes == sizeof(value); };
+    auto read = [&](auto& value) { return file.read(&value, sizeof(value)).bytes == sizeof(value); };
     unsigned char version;
     int record_count;
-    file->read_exact(&version, sizeof(version));
-    file->read_exact(&record_count, sizeof(record_count));
+    file.read_exact(&version, sizeof(version));
+    file.read_exact(&record_count, sizeof(record_count));
     if (version < 1 || version > 2 || record_count < 0 ||
-        record_count > (file->size() - file->tell() - (version > 1 ? 2 : 0)) / 7) {
+        record_count > (file.size() - file.tell() - (version > 1 ? 2 : 0)) / 7) {
         return 0;
     }
     using RecordOwner = std::unique_ptr<W8DialogueTranscriptRecord>;
@@ -3828,22 +3829,22 @@ try
     pending.reserve(record_count);
     for (int index = 0; index < record_count; ++index) {
         int text_length;
-        file->read_exact(&text_length, sizeof(text_length));
+        file.read_exact(&text_length, sizeof(text_length));
         if (text_length < 0 || text_length >= 100) return 0;
         auto record = std::make_unique<W8DialogueTranscriptRecord>();
         std::vector<std::byte> bytes((std::size_t(text_length) + 1) * 2);
-        file->read_exact(bytes.data(), bytes.size());
+        file.read_exact(bytes.data(), bytes.size());
         record->text = wiz8::text::from_utf16le(bytes);
         if (bytes[bytes.size()-1] != std::byte{} || bytes[bytes.size()-2] != std::byte{} ||
             wiz8::text::to_utf16(record->text).size() != std::size_t(text_length)) return false;
-        file->read_exact(&record->category, sizeof(record->category));
+        file.read_exact(&record->category, sizeof(record->category));
         pending.push_back(std::move(record));
     }
     signed char category_filter = g_npc_interaction_state->dialogue_category_filter;
     unsigned char sorted = g_npc_interaction_state->transcript_sorted;
     if (version > 1) {
-        file->read_exact(&category_filter, sizeof(category_filter));
-        file->read_exact(&sorted, sizeof(sorted));
+        file.read_exact(&category_filter, sizeof(category_filter));
+        file.read_exact(&sorted, sizeof(sorted));
         if (category_filter < W8_DIALOGUE_CATEGORY_ALL || category_filter > W8_DIALOGUE_CATEGORY_MISC ||
             sorted > 1) return 0;
     }
@@ -3861,26 +3862,26 @@ try
 catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x00575290
-unsigned char SaveNpcDialogueTranscript(wiz8::File* file)
+unsigned char SaveNpcDialogueTranscript(wiz8::File& file)
 try
 {
     const unsigned char version = 2;
     const int record_count = static_cast<int>(g_npc_interaction_state->dialogue_transcript.size());
-    file->write(&version, sizeof(version));
-    file->write(&record_count, sizeof(record_count));
+    file.write(&version, sizeof(version));
+    file.write(&record_count, sizeof(record_count));
     for (int index = 0; index < record_count; ++index) {
         W8DialogueTranscriptRecord* record = g_npc_interaction_state->dialogue_transcript[index];
         const int text_length = wiz8::text::to_utf16(record->text).size();
         if (text_length >= 100) return false;
         std::vector<std::byte> bytes((std::size_t(text_length) + 1) * 2);
         wiz8::text::to_utf16le(record->text, bytes);
-        file->write(&text_length, sizeof(text_length));
-        file->write(bytes.data(), bytes.size());
-        file->write(&record->category, sizeof(record->category));
+        file.write(&text_length, sizeof(text_length));
+        file.write(bytes.data(), bytes.size());
+        file.write(&record->category, sizeof(record->category));
     }
-    file->write(&g_npc_interaction_state->dialogue_category_filter, 1);
+    file.write(&g_npc_interaction_state->dialogue_category_filter, 1);
     const unsigned char sorted = g_npc_interaction_state->transcript_sorted;
-    file->write(&sorted, sizeof(sorted));
+    file.write(&sorted, sizeof(sorted));
     return 1;
 }
 catch (const std::exception&) { return false; }
@@ -4143,7 +4144,7 @@ void RefreshNpcTradePrice(void)
 void DrainNpcDialogueDeferralInput(void)
 {
     SDL_Point mouse;
-    InputAtom input;
+    InputEvent input;
     W8NpcDialogueLayout prior_layout;
     bool reopen_topics;
 
@@ -4153,8 +4154,8 @@ void DrainNpcDialogueDeferralInput(void)
     SGPMouseGetPos(&mouse);
     UpdateRegionMousePosition(mouse.x, mouse.y);
     while (DequeueEvent(&input) == 1) {
-        if (input.usEvent == KEY_DOWN) {
-            if (input.usParam == VK_ESCAPE) {
+        if (input.type == InputEventType::KeyDown) {
+            if (input.key == VK_ESCAPE) {
                 if (g_npc_interaction_state->dialogue_hidden == 0) {
                     if (!IsNpcScriptSessionActive()) {
                         switch (g_npc_interaction_state->dialogue_layout) {
@@ -4194,7 +4195,7 @@ void DrainNpcDialogueDeferralInput(void)
                     SetNpcDialogueHidden(0);
                 }
             }
-        } else if (input.usEvent == LEFT_BUTTON_DOWN) {
+        } else if (input.type == InputEventType::LeftButtonDown) {
             TryFinishNpcVoicePlayback(false);
         }
     }
@@ -4388,9 +4389,9 @@ void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQu
 }
 
 // FUNCTION: WIZ8 0x00576650
-unsigned char NpcQuoteBubbleRegionEvent(const InputAtom* event, W8Region*)
+unsigned char NpcQuoteBubbleRegionEvent(const InputEvent* event, W8Region*)
 {
-    if (event->usEvent != LEFT_BUTTON_DOWN) {
+    if (event->type != InputEventType::LeftButtonDown) {
         return 0;
     }
     TryFinishNpcVoicePlayback(true);
@@ -4761,7 +4762,7 @@ void ClearMainGameTargetState(void)
 void FlushInputWhileWorldCursorGate(void)
 {
     SDL_Point mouse;
-    InputAtom input;
+    InputEvent input;
 
     if (g_status.world_cursor_gate == 0) {
         return;

@@ -94,7 +94,7 @@ private:
     int m_user_data = 0;
     void ConfigureRegion(int priority);
     void HandleMouseEvent(std::int32_t reason);
-    int HandleRegionInput(W8Region& region, const InputAtom& input) override;
+    int HandleRegionInput(W8Region& region, const InputEvent& input) override;
     int m_tooltip_index; /* g_localized_strings index, or -1 */
     W8DialogButtonCallback m_left_callback;
     W8DialogButtonCallback m_right_callback;
