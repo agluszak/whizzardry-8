@@ -128,7 +128,6 @@ add_library(WIZ8_GAME_CORE STATIC
     local_code/RegionManager.cpp
     local_code/chunk.cpp
     local_code/DifficultyScaling.cpp
-    "local_code/Game Difficulty.cpp"
     engine_code/GrCycle.cpp
     engine_code/UpdateMesh.cpp
     engine_code/stGroundShadow.cpp

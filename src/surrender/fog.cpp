@@ -1,10 +1,11 @@
 #include <algorithm>
 #include <ostream>
 #include <cstddef>
+#include <span>
 
-#include "glm/common.hpp"
 #include "glm/geometric.hpp"
 #include "surrender/srFog.h"
+#include "surrender/channel_math.h"
 #include "surrender/srStreamFlags.h"
 #include "surrender/srDebug.h"
 #include "surrender/srVertexPipe.h"
@@ -115,26 +116,9 @@ void srFog::process(srVertexPipe& pipe)
                     for (std::size_t i = 0; i < count; ++i)
                         values[i] = (-start) + distances[i];
                 }
-                if (scale != 1.0f) {
-                    if (scale == 0.0f) {
-                        std::fill_n(values, count, 0.0f);
-                    } else {
-                        for (std::size_t i = 0; i < count; ++i)
-                            values[i] = scale * values[i];
-                    }
-                }
-                for (std::size_t i = 0; i < count; ++i)
-                    values[i] = glm::clamp(values[i], 0.0f, 1.0f);
             }
             density = this->density;
-            if ((count != 0) && (density != 1.0f)) {
-                if (density == 0.0f) {
-                    std::fill_n(values, count, 0.0f);
-                } else {
-                    for (std::size_t i = 0; i < count; ++i)
-                        values[i] = density * values[i];
-                }
-            }
+            srChannelMath::normalize({values, static_cast<std::size_t>(count)}, scale, density);
             pipe.applyFog(values);
         } else {
             float* fog = pipe.getFog();
@@ -143,14 +127,7 @@ void srFog::process(srVertexPipe& pipe)
                 return;
             }
             density = 1.0f - this->density;
-            if ((count != 0) && (density != 1.0f)) {
-                if (density == 0.0f) {
-                    std::fill_n(fog, count, 0.0f);
-                } else {
-                    for (std::size_t i = 0; i < count; ++i)
-                        fog[i] = density * fog[i];
-                }
-            }
+            srChannelMath::scale({fog, static_cast<std::size_t>(count)}, density);
             if ((count != 0) && (this->density != 0.0f)) {
                 for (std::size_t i = 0; i < count; ++i)
                     fog[i] = (this->density) + fog[i];

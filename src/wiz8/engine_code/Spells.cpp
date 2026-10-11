@@ -1,3 +1,4 @@
+#include "wiz8/engine_code/emitter_cycles.h"
 #include <fmt/format.h>
 #include <glm/ext/quaternion_trigonometric.hpp>
 #include <glm/gtc/quaternion.hpp>
@@ -52,7 +53,6 @@
 #include "monster_spell_icons.h"
 #include "retail_records.h"
 #include "spell_ids.h"
-#include "surrender/srClock.h"
 #include "surrender/srMath.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
@@ -199,7 +199,6 @@ void W8SpellVisual::AdvanceAnimationFrame(int value, int arg_flags)
 void W8SpellVisual::SetCycle(signed char cycle)
 {
     std::vector<stLight*>* lights;
-    W8AnimObj* animation;
 
     if (cycle < SPELL_CYCLE_FIRST || cycle > SPELL_CYCLE_LAST) {
         srAssertFail("bCycle >= SPELL_CYCLE_FIRST && bCycle <= SPELL_CYCLE_LAST",
@@ -209,21 +208,7 @@ void W8SpellVisual::SetCycle(signed char cycle)
     lights = host->light_lists[host->current_cycle][0];
     DetachCycleLights(lights);
 
-    host->current_cycle = cycle;
-    animation = host->emitters[cycle];
-    host->active = 1;
-    host->frame_direction = W8_ANIMATION_FORWARD;
-    if (host->SetCycleFrameLod(cycle, 0, 2) != 0) {
-        host->m_bLOD = 2;
-    } else if (host->SetCycleFrameLod(cycle, 0, 1) != 0) {
-        host->m_bLOD = 1;
-    } else {
-        host->m_bLOD = 0;
-    }
-    host->timer = g_shared_timer_base->milliseconds();
-    host->frame_method = animation->frame_method;
-    host->animation_playing = animation->animation_playing;
-    host->subcycle = 0;
+    StartEmitterCycle(*host, cycle);
 
     lights = host->light_lists[cycle][0];
     SetLights(lights);
@@ -381,12 +366,7 @@ void UpdateWorldSpellVisuals(W8World* world)
    flag_378 before the vptr store) and emitter/scale loop match this body. */
 W8SpellEmitterHost::W8SpellEmitterHost() : value_0ac(0), value_0b0(0), billboard(0)
 {
-    int emitter;
-
-    for (emitter = 0; emitter < SPELL_NUM_CYCLES; ++emitter) {
-        emitters[emitter] = 0;
-        emitter_playback_scales[emitter] = 15.0f;
-    }
+    ResetEmitterAnimations(*this);
 }
 
 /* Copy the two proven host values and the billboard flag, clone every
@@ -397,82 +377,21 @@ W8SpellEmitterHost::W8SpellEmitterHost(const W8SpellEmitterHost& other)
     : W8EmitterHost(other), value_0ac(other.value_0ac), value_0b0(other.value_0b0),
       billboard(other.billboard)
 {
-    int emitter;
-
-    for (emitter = 0; emitter < SPELL_NUM_CYCLES; ++emitter) {
-        if (other.emitters[emitter] == 0) {
-            emitters[emitter] = 0;
-            emitter_playback_scales[emitter] = 15.0f;
-        } else {
-            emitters[emitter] = new W8AnimObj(*other.emitters[emitter]);
-            emitter_playback_scales[emitter] = other.emitter_playback_scales[emitter];
-        }
-    }
-
+    CloneEmitterAnimations(*this, other);
     active = 1;
     current_cycle = other.current_cycle;
-
-    for (emitter = 0; emitter < SPELL_NUM_CYCLES; ++emitter) {
-        int list_index;
-
-        for (list_index = 0; list_index < static_cast<int>(other.light_lists[emitter].size());
-             ++list_index) {
-            std::vector<stLight*>* source_lights = other.light_lists[emitter][list_index];
-            std::vector<stLight*>* copied_lights = CloneAnimationLightList(
-                source_lights, "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x198, 0x1a0);
-            light_lists[emitter].push_back(copied_lights);
-        }
-    }
+    CloneEmitterLightLists(*this, other);
 }
 
 // FUNCTION: WIZ8 0x004AB340
 unsigned char W8SpellEmitterHost::ReadCycleData(W8ReadLevelInfo* info, W8SpellVisual* visual, int,
                                                 int emitter_index)
 {
-    std::vector<stLight*>* lights = new std::vector<stLight*>;
-    W8AnimObj* animation;
-    unsigned char success;
-    signed char emitter;
-
     if (info == 0 || info->hFile == 0 || visual == 0) {
         srAssertFail("pInfo && pInfo->hFile && pSpell",
                      "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x25a, 0);
     }
-    animation = new W8AnimObj;
-    success = AnimObjReadFromFile(info, animation, 1, lights, 1);
-    emitter = static_cast<signed char>(animation->cycle);
-
-    if (lights->empty()) {
-        delete lights;
-        lights = 0;
-    } else {
-        visual->SetLights(lights);
-    }
-    light_lists[emitter_index].push_back(lights);
-
-    if (emitter_index != -1) {
-        emitter = static_cast<signed char>(emitter_index);
-        current_cycle = emitter;
-    }
-    emitter_playback_scales[emitter] = animation->playback_scale;
-    active = 1;
-    frame_direction = W8_ANIMATION_FORWARD;
-    timer = g_shared_timer_base->milliseconds();
-    animation_behaviour = animation->behaviour;
-    frame_method = animation->frame_method;
-    animation_playing = animation->animation_playing;
-    emitters[emitter] = animation;
-
-    if (visual != 0) {
-        if (SetCycleFrameLod(current_cycle, 0, 2) != 0) {
-            m_bLOD = 2;
-        } else if (SetCycleFrameLod(current_cycle, 0, 1) != 0) {
-            m_bLOD = 1;
-        } else {
-            m_bLOD = 0;
-        }
-    }
-    return success;
+    return ReadEmitterCycle(*this, info, *visual, emitter_index, true);
 }
 
 static int FindSpellCycleByName(const char* name)
@@ -708,6 +627,45 @@ int W8SpellVisual::QueryHostStateByKind(int arg_kind)
     }
 }
 
+static W8SpellVisual* CreateSpellVisual(std::string_view name, W8SpellVisualMode mode,
+                                       int power_level, int value, int flags)
+{
+    W8GrCycleLoadContext context;
+    context.world = g_world;
+    context.directory = "Data\\Spells\\Bitmaps";
+    const auto load = [&](std::string_view resource) -> W8SpellVisual* {
+        W8SpellVisual* visual = nullptr;
+        if (!LoadSpellVisualResource(&context, std::string(resource).c_str(), mode, &visual, 1)) {
+            return nullptr;
+        }
+        visual->SetNavigationMode(4);
+        visual->active = false;
+        visual->SetPitchRollEnabled(true, true);
+        g_world->spell_visuals->push_back(visual);
+        return visual;
+    };
+
+    W8SpellVisual* visual = name.empty() ? nullptr : load(name);
+    int cycle = visual ? visual->FindSupportedCycle(mode, power_level - 1) : -1;
+    if (visual && cycle == -1) {
+        delete visual;
+        visual = nullptr;
+    }
+    if (!visual) {
+        visual = load("Generic");
+        if (visual) {
+            cycle = visual->FindSupportedCycle(mode, power_level - 1);
+        }
+    }
+    if (visual) {
+        visual->mode = mode;
+        visual->host->pending_cycle = static_cast<signed char>(cycle);
+        visual->effect_value = value;
+        visual->flags0 = flags;
+    }
+    return visual;
+}
+
 /* Create one spell visual from a named bitmap resource, falling back to the
    Generic visual when the named one is missing or has no supported cycle.
    The visual joins the world's list, is positioned, and carries the caller's
@@ -720,45 +678,10 @@ W8SpellVisual* SpawnSpellEffect(const srVector3T<float>* position, std::string_v
         srAssertFail("pMLS && strlen(pMLS)", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp",
                      0x8b4, 0);
     }
-    W8GrCycleLoadContext context;
-    context.world = g_world;
-    context.directory = "Data\\Spells\\Bitmaps";
-    W8SpellVisual* visual = 0;
-    bool loaded = false;
-    int cycle = -1;
-
-    if (!resource_name.empty()) {
-        loaded =
-            LoadSpellVisualResource(&context, std::string(resource_name).c_str(), W8_SPELL_VISUAL_EXPLOSION, &visual, 1);
-    }
-    if (loaded) {
-        visual->SetNavigationMode(4);
-        visual->active = false;
-        visual->SetPitchRollEnabled(true, true);
-        g_world->spell_visuals->push_back(visual);
-        cycle = visual->FindSupportedCycle(W8_SPELL_VISUAL_EXPLOSION, power_level - 1);
-        if (cycle == -1) {
-            delete visual;
-            loaded = false;
-        }
-    }
-    if (!loaded) {
-        loaded =
-            LoadSpellVisualResource(&context, "Generic", W8_SPELL_VISUAL_EXPLOSION, &visual, 1);
-        if (loaded) {
-            visual->SetNavigationMode(4);
-            visual->active = false;
-            visual->SetPitchRollEnabled(true, true);
-            g_world->spell_visuals->push_back(visual);
-            cycle = visual->FindSupportedCycle(W8_SPELL_VISUAL_EXPLOSION, power_level - 1);
-        }
-    }
+    W8SpellVisual* visual = CreateSpellVisual(resource_name, W8_SPELL_VISUAL_EXPLOSION,
+                                              power_level, value, flags);
     if (visual != 0) {
-        visual->mode = W8_SPELL_VISUAL_EXPLOSION;
-        visual->host->pending_cycle = static_cast<signed char>(cycle);
         visual->host->billboard = true;
-        visual->effect_value = value;
-        visual->flags0 = flags;
         visual->SetPositionInternal(position);
     }
     return visual;
@@ -775,50 +698,14 @@ W8SpellVisual* SpawnCameraSpellEffect(std::string_view name, int power_level, in
         srAssertFail("pMLS && strlen(pMLS)", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp",
                      0x879, 0);
     }
-    W8GrCycleLoadContext context;
-    context.world = g_world;
-    context.directory = "Data\\Spells\\Bitmaps";
-    W8SpellVisual* visual = 0;
-    W8SpellVisual* generic;
-    int cycle = -1;
-
-    if (!name.empty()) {
-        if (LoadSpellVisualResource(&context, std::string(name).c_str(), W8_SPELL_VISUAL_FLASH, &visual, 1)) {
-            visual->SetNavigationMode(4);
-            visual->active = false;
-            visual->SetPitchRollEnabled(true, true);
-            g_world->spell_visuals->push_back(visual);
-        }
-    }
-    if (visual != 0) {
-        cycle = visual->FindSupportedCycle(W8_SPELL_VISUAL_FLASH, power_level - 1);
-        if (cycle != -1) {
-            goto placed;
-        }
-        delete visual;
-    }
-    generic = 0;
-    if (LoadSpellVisualResource(&context, "Generic", W8_SPELL_VISUAL_FLASH, &generic, 1)) {
-        generic->SetNavigationMode(4);
-        generic->active = false;
-        generic->SetPitchRollEnabled(true, true);
-        g_world->spell_visuals->push_back(generic);
-        visual = generic;
-    } else {
-        visual = 0;
-    }
-    cycle = visual->FindSupportedCycle(W8_SPELL_VISUAL_FLASH, power_level - 1);
-placed:
+    W8SpellVisual* visual = CreateSpellVisual(name, W8_SPELL_VISUAL_FLASH,
+                                              power_level, value, flags);
     if (visual != 0) {
         srVector3T<float> position;
         glm::mat3 rotation;
         float angle;
         float pitch;
 
-        visual->mode = W8_SPELL_VISUAL_FLASH;
-        visual->host->pending_cycle = static_cast<signed char>(cycle);
-        visual->effect_value = value;
-        visual->flags0 = flags;
         GetCameraPosition(&position);
         visual->SetCyclePosition(&position);
         rotation = glm::mat3(1);
@@ -846,40 +733,8 @@ W8SpellVisual* CreateMonsterSpellEffect(std::string_view mls_name, int power_lev
     if (monster == 0) {
         srAssertFail("pMonster", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x8ea, 0);
     }
-    W8GrCycleLoadContext context;
-    context.world = g_world;
-    context.directory = "Data\\Spells\\Bitmaps";
-    W8SpellVisual* visual = 0;
-    W8SpellVisual* generic;
-    int cycle = -1;
-
-    if (!mls_name.empty()) {
-        if (LoadSpellVisualResource(&context, std::string(mls_name).c_str(), W8_SPELL_VISUAL_TARGET, &visual, 1)) {
-            visual->SetNavigationMode(4);
-            visual->active = false;
-            visual->SetPitchRollEnabled(true, true);
-            g_world->spell_visuals->push_back(visual);
-        }
-    }
-    if (visual != 0) {
-        cycle = visual->FindSupportedCycle(W8_SPELL_VISUAL_TARGET, power_level - 1);
-        if (cycle != -1) {
-            goto placed;
-        }
-        delete visual;
-    }
-    generic = 0;
-    if (LoadSpellVisualResource(&context, "Generic", W8_SPELL_VISUAL_TARGET, &generic, 1)) {
-        generic->SetNavigationMode(4);
-        generic->active = false;
-        generic->SetPitchRollEnabled(true, true);
-        g_world->spell_visuals->push_back(generic);
-        visual = generic;
-    } else {
-        visual = 0;
-    }
-    cycle = visual->FindSupportedCycle(W8_SPELL_VISUAL_TARGET, power_level - 1);
-placed:
+    W8SpellVisual* visual = CreateSpellVisual(mls_name, W8_SPELL_VISUAL_TARGET,
+                                              power_level, value, flags);
     if (visual != 0) {
         srVector3T<float> minimum;
         srVector3T<float> maximum;
@@ -887,11 +742,7 @@ placed:
         float height;
         float width;
 
-        visual->mode = W8_SPELL_VISUAL_TARGET;
-        visual->host->pending_cycle = static_cast<signed char>(cycle);
         visual->host->billboard = true;
-        visual->effect_value = value;
-        visual->flags0 = flags;
         visual->location_id = monster->location_id;
         monster->GetAnimationBounds(&minimum, &maximum);
         position = monster->GetPosition();
@@ -907,51 +758,6 @@ placed:
     return visual;
 }
 
-static W8SpellVisual* CreateConeSpellVisual(std::string_view mls_name, int power_level, int value,
-                                            int flags)
-{
-    W8GrCycleLoadContext context;
-    context.world = g_world;
-    context.directory = "Data\\Spells\\Bitmaps";
-    W8SpellVisual* visual = 0;
-    W8SpellVisual* generic;
-    int cycle = -1;
-
-    if (!mls_name.empty()) {
-        if (LoadSpellVisualResource(&context, std::string(mls_name).c_str(), W8_SPELL_VISUAL_CONE, &visual, 1)) {
-            visual->SetNavigationMode(4);
-            visual->active = false;
-            visual->SetPitchRollEnabled(true, true);
-            g_world->spell_visuals->push_back(visual);
-        }
-    }
-    if (visual != 0) {
-        cycle = visual->FindSupportedCycle(W8_SPELL_VISUAL_CONE, power_level - 1);
-        if (cycle != -1) {
-            goto selected;
-        }
-        delete visual;
-    }
-    generic = 0;
-    if (LoadSpellVisualResource(&context, "Generic", W8_SPELL_VISUAL_CONE, &generic, 1)) {
-        generic->SetNavigationMode(4);
-        generic->active = false;
-        generic->SetPitchRollEnabled(true, true);
-        g_world->spell_visuals->push_back(generic);
-        visual = generic;
-    } else {
-        visual = 0;
-    }
-    cycle = visual->FindSupportedCycle(W8_SPELL_VISUAL_CONE, power_level - 1);
-selected:
-    if (visual != 0) {
-        visual->mode = W8_SPELL_VISUAL_CONE;
-        visual->host->pending_cycle = static_cast<signed char>(cycle);
-        visual->effect_value = value;
-        visual->flags0 = flags;
-    }
-    return visual;
-}
 
 /* Create a CONE spell visual attached to a monster — its position comes from
    the monster's spell socket (or mapped position) and its scale from the
@@ -966,7 +772,7 @@ W8SpellVisual* CreateAttachedSpellEffect(std::string_view mls_name, int power_le
         srAssertFail("pMLS && strlen(pMLS)", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp",
                      0x93f, 0);
     }
-    W8SpellVisual* visual = CreateConeSpellVisual(mls_name, power_level, value, flags);
+    W8SpellVisual* visual = CreateSpellVisual(mls_name, W8_SPELL_VISUAL_CONE, power_level, value, flags);
     if (visual != 0) {
         srVector3T<float> position;
 
@@ -1013,7 +819,7 @@ W8SpellVisual* CreateAimedSpellEffect(std::string_view mls_name, int power_level
         srAssertFail("pMLS && strlen(pMLS)", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp",
                      0x991, 0);
     }
-    W8SpellVisual* visual = CreateConeSpellVisual(mls_name, power_level, value, flags);
+    W8SpellVisual* visual = CreateSpellVisual(mls_name, W8_SPELL_VISUAL_CONE, power_level, value, flags);
     if (visual != 0) {
         visual->SetCyclePosition(position);
         visual->host->SetRotation(rotation);

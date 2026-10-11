@@ -78,6 +78,58 @@
 
 #define COMBAT_ATTACK_CPP "C:\\Projects\\Wizardry 8\\Local Code\\Combat Attack.cpp"
 
+/* Shared combat attribute differential used by pre-hit and hit-location rolls. */
+static int SumCharacterCombatAttributes(const W8Character& character)
+{
+    return character.attributes[W8_ATTRIBUTE_SENSES].effective +
+           character.attributes[W8_ATTRIBUTE_SPEED].effective +
+           character.attributes[W8_ATTRIBUTE_DEXTERITY].effective +
+           character.attributes[W8_ATTRIBUTE_INTELLIGENCE].effective;
+}
+
+static int SumMonsterCombatAttributes(const W8MonsterInfo& monster)
+{
+    return monster.attributes[W8_MONSTER_ATTRIBUTE_SENSES] +
+           monster.attributes[W8_MONSTER_ATTRIBUTE_SPEED] +
+           monster.attributes[W8_MONSTER_ATTRIBUTE_DEXTERITY] +
+           monster.attributes[W8_MONSTER_ATTRIBUTE_INTELLIGENCE];
+}
+
+static int SumTargetCombatAttributes(const W8CombatSlot& target)
+{
+    if (target.iType == W8_TARGET_KIND_MONSTER) {
+        const unsigned int index =
+            MonsterGetIndexByLocationID(0xf2b, COMBAT_ATTACK_CPP, target.iMonsterID, true);
+        W8MonsterInfo* monster = MonsterGetScriptPartByLocationIndex(index);
+        return SumMonsterCombatAttributes(*monster);
+    }
+    if (target.iType == W8_TARGET_KIND_CHARACTER)
+        return SumCharacterCombatAttributes(g_status.buffers.Char[target.iChar]);
+    DebugMessage(1, fmt::format(
+        "GetTargetAttackAttributes: Invalid Target Type {:d}(char {:d}, ID {:d})",
+        fmt::underlying(target.iType), target.iChar, target.iMonsterID));
+    return 0;
+}
+
+// Retaliation spends one Razor Cloak charge after damage, even if it was a zero-damage hit.
+static void ApplyRazorCloakBacklash(const W8CombatSlot& target, W8MonsterInfo* monster,
+                                  auto&& apply_damage)
+{
+    const bool is_monster = target.iType == W8_TARGET_KIND_MONSTER;
+    W8Enchantment* enchantment = is_monster
+        ? &monster->enchantments[W8_ENCHANTMENT_RAZOR_CLOAK]
+        : &g_status.buffers.Char[target.iChar].enchantments[W8_ENCHANTMENT_RAZOR_CLOAK];
+    if (enchantment->turns == 0) return;
+    W8TargetSource source;
+    if (is_monster) SetTargetSourceToMonster(monster, &source);
+    else SetTargetSourceToCharacter(target.iChar, &source);
+    apply_damage(&source, enchantment);
+    if (--enchantment->power == 0) {
+        if (is_monster) ClearMonsterEnchantmentSlot(monster->location_id, W8_ENCHANTMENT_RAZOR_CLOAK);
+        else ClearCharacterEnchantmentSlot(target.iChar, W8_ENCHANTMENT_RAZOR_CLOAK);
+    }
+}
+
 // FUNCTION: WIZ8 0x00546a70
 void GetCharacterHandDamageDice(const W8Character* character, int hand, W8Dice* dice)
 {
@@ -1853,41 +1905,8 @@ int ContinueMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record)
             penetration -= TargetArmorClassAtLocation(&g_combat_state->TargetHit, action_detail,
                                                       hit_location) *
                            5;
-            int target_sum;
-            if (g_combat_state->TargetHit.iType == W8_TARGET_KIND_MONSTER) {
-                unsigned int target_index = MonsterGetIndexByLocationID(
-                    0xf2b, COMBAT_ATTACK_CPP, g_combat_state->TargetHit.iMonsterID, true);
-                W8MonsterInfo* target = MonsterGetScriptPartByLocationIndex(target_index);
-                target_sum = target->attributes[W8_MONSTER_ATTRIBUTE_SENSES] +
-                             target->attributes[W8_MONSTER_ATTRIBUTE_SPEED] +
-                             target->attributes[W8_MONSTER_ATTRIBUTE_DEXTERITY] +
-                             target->attributes[W8_MONSTER_ATTRIBUTE_INTELLIGENCE];
-            } else if (g_combat_state->TargetHit.iType == W8_TARGET_KIND_CHARACTER) {
-                int target_char = g_combat_state->TargetHit.iChar;
-                target_sum =
-                    g_status.buffers.Char[target_char].attributes[W8_ATTRIBUTE_SENSES].effective +
-                    g_status.buffers.Char[target_char].attributes[W8_ATTRIBUTE_SPEED].effective +
-                    g_status.buffers.Char[target_char]
-                        .attributes[W8_ATTRIBUTE_DEXTERITY]
-                        .effective +
-                    g_status.buffers.Char[target_char]
-                        .attributes[W8_ATTRIBUTE_INTELLIGENCE]
-                        .effective;
-            } else {
-                DebugMessage(
-                    1,
-                    fmt::format(
-                        "GetTargetAttackAttributes: Invalid Target Type {:d}(char {:d}, ID {:d})",
-                        fmt::underlying(g_combat_state->TargetHit.iType),
-                        g_combat_state->TargetHit.iChar, g_combat_state->TargetHit.iMonsterID));
-                target_sum = 0;
-            }
-            penetration +=
-                (monster_info->attributes[W8_MONSTER_ATTRIBUTE_SENSES] +
-                 monster_info->attributes[W8_MONSTER_ATTRIBUTE_SPEED] +
-                 monster_info->attributes[W8_MONSTER_ATTRIBUTE_DEXTERITY] +
-                 monster_info->attributes[W8_MONSTER_ATTRIBUTE_INTELLIGENCE] - target_sum) /
-                10;
+            const int target_sum = SumTargetCombatAttributes(g_combat_state->TargetHit);
+            penetration += (SumMonsterCombatAttributes(*monster_info) - target_sum) / 10;
             ScaleValueForMonsterDifficulty(monster_info, &penetration);
             CombatLog(fmt::format("TO PENETRATE: Chance {:d}, Rolled was {:d}", penetration, roll));
             if (!guaranteed_penetration && penetration < roll) {
@@ -1947,30 +1966,10 @@ int ContinueMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record)
                 }
             }
             if (range < W8_RANGE_LONG) {
-                if (g_combat_state->TargetHit.iType == W8_TARGET_KIND_MONSTER) {
-                    W8Enchantment* enchantment =
-                        &target_info->enchantments[W8_ENCHANTMENT_RAZOR_CLOAK];
-                    if (enchantment->turns != 0) {
-                        SetTargetSourceToMonster(target_info, &victim_source);
-                        ApplyDiceDamageToMonster(monster_info, &victim_source, enchantment);
-                        if (--enchantment->power == 0) {
-                            ClearMonsterEnchantmentSlot(target_info->location_id,
-                                                        W8_ENCHANTMENT_RAZOR_CLOAK);
-                        }
-                    }
-                } else {
-                    W8Enchantment* enchantment =
-                        &g_status.buffers.Char[g_combat_state->TargetHit.iChar]
-                             .enchantments[W8_ENCHANTMENT_RAZOR_CLOAK];
-                    if (enchantment->turns != 0) {
-                        SetTargetSourceToCharacter(g_combat_state->TargetHit.iChar, &victim_source);
-                        ApplyDiceDamageToMonster(monster_info, &victim_source, enchantment);
-                        if (--enchantment->power == 0) {
-                            ClearCharacterEnchantmentSlot(g_combat_state->TargetHit.iChar,
-                                                          W8_ENCHANTMENT_RAZOR_CLOAK);
-                        }
-                    }
-                }
+                ApplyRazorCloakBacklash(g_combat_state->TargetHit, target_info,
+                    [&](W8TargetSource* backlash_source, W8Enchantment* enchantment) {
+                        ApplyDiceDamageToMonster(monster_info, backlash_source, enchantment);
+                    });
             }
         }
         ApplyQueuedFatigue(&g_combat_state->TargetHit, queued_fatigue, 1);
@@ -2303,34 +2302,6 @@ void AnnounceMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record,
         HighlightTextBoxRange(palette, highlight_start, highlight_end, -1);
     }
     OrientMonsterTowardTarget(monster_info, false);
-}
-
-/* Shared combat attribute differential used by pre-hit and hit-location rolls. */
-static int SumCharacterCombatAttributes(const W8Character& character)
-{
-    return character.attributes[W8_ATTRIBUTE_SENSES].effective +
-           character.attributes[W8_ATTRIBUTE_SPEED].effective +
-           character.attributes[W8_ATTRIBUTE_DEXTERITY].effective +
-           character.attributes[W8_ATTRIBUTE_INTELLIGENCE].effective;
-}
-
-static int SumTargetCombatAttributes(const W8CombatSlot& target)
-{
-    if (target.iType == W8_TARGET_KIND_MONSTER) {
-        const unsigned int index =
-            MonsterGetIndexByLocationID(0xf2b, COMBAT_ATTACK_CPP, target.iMonsterID, true);
-        W8MonsterInfo* monster = MonsterGetScriptPartByLocationIndex(index);
-        return monster->attributes[W8_MONSTER_ATTRIBUTE_SENSES] +
-               monster->attributes[W8_MONSTER_ATTRIBUTE_SPEED] +
-               monster->attributes[W8_MONSTER_ATTRIBUTE_DEXTERITY] +
-               monster->attributes[W8_MONSTER_ATTRIBUTE_INTELLIGENCE];
-    }
-    if (target.iType == W8_TARGET_KIND_CHARACTER)
-        return SumCharacterCombatAttributes(g_status.buffers.Char[target.iChar]);
-    DebugMessage(1, fmt::format(
-        "GetTargetAttackAttributes: Invalid Target Type {:d}(char {:d}, ID {:d})",
-        fmt::underlying(target.iType), target.iChar, target.iMonsterID));
-    return 0;
 }
 
 /* The character-side attack score against the pending action's target: the
@@ -4175,31 +4146,10 @@ int ResolveCharacterAttack(int party_slot)
                     }
                 }
                 if (range < W8_RANGE_LONG) {
-                    if (g_combat_state->TargetHit.iType == W8_TARGET_KIND_MONSTER) {
-                        W8Enchantment* enchantment =
-                            &monster_info->enchantments[W8_ENCHANTMENT_RAZOR_CLOAK];
-                        if (enchantment->turns != 0) {
-                            SetTargetSourceToMonster(monster_info, &target_source);
-                            ApplyDiceDamageToCharacter(party_slot, &target_source, enchantment);
-                            if (--enchantment->power == 0) {
-                                ClearMonsterEnchantmentSlot(monster_info->location_id,
-                                                            W8_ENCHANTMENT_RAZOR_CLOAK);
-                            }
-                        }
-                    } else {
-                        W8Enchantment* enchantment =
-                            &g_status.buffers.Char[g_combat_state->TargetHit.iChar]
-                                 .enchantments[W8_ENCHANTMENT_RAZOR_CLOAK];
-                        if (enchantment->turns != 0) {
-                            SetTargetSourceToCharacter(g_combat_state->TargetHit.iChar,
-                                                       &target_source);
-                            ApplyDiceDamageToCharacter(party_slot, &target_source, enchantment);
-                            if (--enchantment->power == 0) {
-                                ClearCharacterEnchantmentSlot(g_combat_state->TargetHit.iChar,
-                                                              W8_ENCHANTMENT_RAZOR_CLOAK);
-                            }
-                        }
-                    }
+                    ApplyRazorCloakBacklash(g_combat_state->TargetHit, monster_info,
+                        [&](W8TargetSource* backlash_source, W8Enchantment* enchantment) {
+                            ApplyDiceDamageToCharacter(party_slot, backlash_source, enchantment);
+                        });
                 }
             }
             ApplyQueuedFatigue(&g_combat_state->TargetHit, queued_fatigue, 1);

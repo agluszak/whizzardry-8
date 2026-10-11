@@ -23,8 +23,7 @@ int giClipYMin = 0;
 // GLOBAL: WIZ8 0x00650fac
 int giClipYMax = 0;
 
-void DrawHorizontalRun(char** ScreenPtr, int XAdvance, int RunLength, int Color, int ScreenWidth);
-void DrawVerticalRun(char** ScreenPtr, int XAdvance, int RunLength, int Color, int ScreenWidth);
+static void DrawPixelRun(char** screen, int length, int color, int pixel_step, int next_run_step);
 
 // FUNCTION: WIZ8 0x00413fd0
 void SetClippingRegionAndImageWidth(int iImageWidth, int iClipStartX, int iClipStartY,
@@ -122,7 +121,6 @@ void LineDraw(bool fClip, int XStart, int YStart, int XEnd, int YEnd, short Colo
 {
     int Temp, AdjUp, AdjDown, ErrorTerm, XAdvance, XDelta, YDelta;
     int WholeStep, InitialPixelCount, FinalPixelCount, i, RunLength;
-    int ScreenWidth = giImageWidth / 2;
     char col2 = Color >> 8;
     char col1 = Color & 0x00FF;
 
@@ -186,155 +184,52 @@ void LineDraw(bool fClip, int XStart, int YStart, int XEnd, int YEnd, short Colo
         return;
     }
 
-    /* Determine whether the line is X or Y major, and handle accordingly */
-    if (XDelta >= YDelta) {
-        /* X major line */
-        /* Minimum # of pixels in a run in this line */
-        WholeStep = XDelta / YDelta;
+    const bool x_major = XDelta >= YDelta;
+    const int major_delta = x_major ? XDelta : YDelta;
+    const int minor_delta = x_major ? YDelta : XDelta;
+    const int pixel_step = x_major ? XAdvance * 2 : giImageWidth;
+    const int next_run_step = x_major ? giImageWidth : XAdvance * 2;
+    const auto draw_run = [&](int length) {
+        DrawPixelRun(&ScreenPtr, length, Color, pixel_step, next_run_step);
+    };
 
-        /* Error term adjust each time Y steps by 1; used to tell when one
-         extra pixel should be drawn as part of a run, to account for
-         fractional steps along the X axis per 1-pixel steps along Y */
-        AdjUp = (XDelta % YDelta) * 2;
-
-        /* Error term adjust when the error term turns over, used to factor
-         out the X step made at that time */
-        AdjDown = YDelta * 2;
-
-        /* Initial error term; reflects an initial step of 0.5 along the Y
-         axis */
-        ErrorTerm = (XDelta % YDelta) - (YDelta * 2);
-
-        /* The initial and last runs are partial, because Y advances only 0.5
-         for these runs, rather than 1. Divide one full run, plus the
-         initial pixel, between the initial and last runs */
-        InitialPixelCount = (WholeStep / 2) + 1;
-        FinalPixelCount = InitialPixelCount;
-
-        /* If the basic run length is even and there's no fractional
-         advance, we have one pixel that could go to either the initial
-         or last partial run, which we'll arbitrarily allocate to the
-         last run */
-        if ((AdjUp == 0) && ((WholeStep & 0x01) == 0)) {
-            InitialPixelCount--;
-        }
-        /* If there're an odd number of pixels per run, we have 1 pixel that can't
-         be allocated to either the initial or last partial run, so we'll add 0.5
-         to error term so this pixel will be handled by the normal full-run loop */
-        if ((WholeStep & 0x01) != 0) {
-            ErrorTerm += YDelta;
-        }
-        /* Draw the first, partial run of pixels */
-        DrawHorizontalRun(&ScreenPtr, XAdvance, InitialPixelCount, Color, ScreenWidth);
-        /* Draw all full runs */
-        for (i = 0; i < (YDelta - 1); i++) {
-            RunLength = WholeStep; /* run is at least this long */
-            /* Advance the error term and add an extra pixel if the error
-            term so indicates */
-            if ((ErrorTerm += AdjUp) > 0) {
-                RunLength++;
-                ErrorTerm -= AdjDown; /* reset the error term */
-            }
-            /* Draw this scan line's run */
-            DrawHorizontalRun(&ScreenPtr, XAdvance, RunLength, Color, ScreenWidth);
-        }
-        /* Draw the final run of pixels */
-        DrawHorizontalRun(&ScreenPtr, XAdvance, FinalPixelCount, Color, ScreenWidth);
-        return;
-    } else {
-        /* Y major line */
-
-        /* Minimum # of pixels in a run in this line */
-        WholeStep = YDelta / XDelta;
-
-        /* Error term adjust each time X steps by 1; used to tell when 1 extra
-         pixel should be drawn as part of a run, to account for
-         fractional steps along the Y axis per 1-pixel steps along X */
-        AdjUp = (YDelta % XDelta) * 2;
-
-        /* Error term adjust when the error term turns over, used to factor
-         out the Y step made at that time */
-        AdjDown = XDelta * 2;
-
-        /* Initial error term; reflects initial step of 0.5 along the X axis */
-        ErrorTerm = (YDelta % XDelta) - (XDelta * 2);
-
-        /* The initial and last runs are partial, because X advances only 0.5
-         for these runs, rather than 1. Divide one full run, plus the
-         initial pixel, between the initial and last runs */
-        InitialPixelCount = (WholeStep / 2) + 1;
-        FinalPixelCount = InitialPixelCount;
-
-        /* If the basic run length is even and there's no fractional advance, we
-         have 1 pixel that could go to either the initial or last partial run,
-         which we'll arbitrarily allocate to the last run */
-        if ((AdjUp == 0) && ((WholeStep & 0x01) == 0)) {
-            InitialPixelCount--;
-        }
-        /* If there are an odd number of pixels per run, we have one pixel
-         that can't be allocated to either the initial or last partial
-         run, so we'll add 0.5 to the error term so this pixel will be
-         handled by the normal full-run loop */
-        if ((WholeStep & 0x01) != 0) {
-            ErrorTerm += XDelta;
-        }
-        /* Draw the first, partial run of pixels */
-        DrawVerticalRun(&ScreenPtr, XAdvance, InitialPixelCount, Color, ScreenWidth);
-
-        /* Draw all full runs */
-        for (i = 0; i < (XDelta - 1); i++) {
-            RunLength = WholeStep; /* run is at least this long */
-            /* Advance the error term and add an extra pixel if the error
-            term so indicates */
-            if ((ErrorTerm += AdjUp) > 0) {
-                RunLength++;
-                ErrorTerm -= AdjDown; /* reset the error term */
-            }
-            /* Draw this scan line's run */
-            DrawVerticalRun(&ScreenPtr, XAdvance, RunLength, Color, ScreenWidth);
-        }
-        /* Draw the final run of pixels */
-        DrawVerticalRun(&ScreenPtr, XAdvance, FinalPixelCount, Color, ScreenWidth);
-        return;
+    WholeStep = major_delta / minor_delta;
+    AdjUp = (major_delta % minor_delta) * 2;
+    AdjDown = minor_delta * 2;
+    ErrorTerm = (major_delta % minor_delta) - AdjDown;
+    // Split a full run plus the initial pixel between the two partial endpoint runs.
+    InitialPixelCount = (WholeStep / 2) + 1;
+    FinalPixelCount = InitialPixelCount;
+    // Allocate an even-length tie to the final run; carry an odd half-pixel into the error.
+    if (AdjUp == 0 && (WholeStep & 1) == 0) {
+        --InitialPixelCount;
     }
+    if ((WholeStep & 1) != 0) {
+        ErrorTerm += minor_delta;
+    }
+    draw_run(InitialPixelCount);
+    for (i = 0; i < minor_delta - 1; ++i) {
+        RunLength = WholeStep;
+        if ((ErrorTerm += AdjUp) > 0) {
+            ++RunLength;
+            ErrorTerm -= AdjDown;
+        }
+        draw_run(RunLength);
+    }
+    draw_run(FinalPixelCount);
 }
 
-/* Draws a horizontal run of pixels, then advances the bitmap pointer to
-   the first pixel of the next run. */
-void DrawHorizontalRun(char** ScreenPtr, int XAdvance, int RunLength, int Color, int ScreenWidth)
+static void DrawPixelRun(char** screen, int length, int color, int pixel_step, int next_run_step)
 {
-    int i;
-    char* WorkingScreenPtr = *ScreenPtr;
-    char col2 = Color >> 8;
-    char col1 = Color & 0x00FF;
-
-    for (i = 0; i < RunLength; i++) {
-        WorkingScreenPtr[0] = col1;
-        WorkingScreenPtr[1] = col2;
-        WorkingScreenPtr += XAdvance * 2;
+    char* pixel = *screen;
+    const char high = color >> 8;
+    const char low = color & 0x00ff;
+    for (int i = 0; i < length; ++i) {
+        pixel[0] = low;
+        pixel[1] = high;
+        pixel += pixel_step;
     }
-    /* Advance to the next scan line */
-    WorkingScreenPtr += giImageWidth;
-    *ScreenPtr = WorkingScreenPtr;
-}
-
-/* Draws a vertical run of pixels, then advances the bitmap pointer to
-   the first pixel of the next run. */
-void DrawVerticalRun(char** ScreenPtr, int XAdvance, int RunLength, int Color, int ScreenWidth)
-{
-    int i;
-    char* WorkingScreenPtr = *ScreenPtr;
-    char col2 = Color >> 8;
-    char col1 = Color & 0x00FF;
-
-    for (i = 0; i < RunLength; i++) {
-        WorkingScreenPtr[0] = col1;
-        WorkingScreenPtr[1] = col2;
-        WorkingScreenPtr += giImageWidth;
-    }
-    /* Advance to the next column */
-    WorkingScreenPtr += XAdvance * 2;
-    *ScreenPtr = WorkingScreenPtr;
+    *screen = pixel + next_run_step;
 }
 
 /* Draws a rectangle between the specified endpoints in color Color. */

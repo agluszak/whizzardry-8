@@ -233,18 +233,24 @@ srVector3i* srMeshModel::getPolyVertex()
     return poly_vertices.data();
 }
 
+template<class T>
+static T* GetLazyMeshTable(srMeshModel& mesh, std::vector<T>& slot, w8_long count,
+                           int create, const T& initial = T{})
+{
+    if (slot.empty() && create != 0 && count != 0) {
+        slot.resize(count, initial);
+        mesh.setDirty(srMeshModel::DIRTY_TRI_MESH);
+    }
+    return slot.empty() ? nullptr : slot.data();
+}
+
 // FUNCTION: SURRENDER 0x10040430
 std::shared_ptr<srMaterialIFace>* srMeshModel::getVertexMaterial(w8_long vertex, e_side side, int table)
 {
     if (vertex < 0 || vertex > 3 || (int)side < 0 || (int)side > 1) {
         return 0;
     }
-    auto& slot = vertex_materials[vertex][side];
-    if (slot.empty() && table != 0 && vertex_location_count != 0) {
-        slot.resize(vertex_location_count);
-        setDirty(DIRTY_TRI_MESH);
-    }
-    return slot.empty() ? nullptr : slot.data();
+    return GetLazyMeshTable(*this, vertex_materials[vertex][side], vertex_location_count, table);
 }
 
 // FUNCTION: SURRENDER 0x10040560
@@ -253,12 +259,7 @@ std::shared_ptr<srTextureIFace>* srMeshModel::getPolyTexture(w8_long polygon, w8
     if (polygon < 0 || polygon > 3 || layer < 0 || layer > 1) {
         return 0;
     }
-    auto& slot = poly_textures[polygon][layer];
-    if (slot.empty() && table != 0 && polygon_count != 0) {
-        slot.resize(polygon_count);
-        setDirty(DIRTY_TRI_MESH);
-    }
-    return slot.empty() ? nullptr : slot.data();
+    return GetLazyMeshTable(*this, poly_textures[polygon][layer], polygon_count, table);
 }
 
 // FUNCTION: SURRENDER 0x10040690
@@ -267,12 +268,7 @@ srShader* srMeshModel::getPolyShader(w8_long polygon, int layer)
     if (polygon < 0 || polygon > 3) {
         return 0;
     }
-    auto& slot = poly_shaders[polygon];
-    if (slot.empty() && layer != 0 && polygon_count != 0) {
-        slot.resize(polygon_count);
-        setDirty(DIRTY_TRI_MESH);
-    }
-    return slot.empty() ? nullptr : slot.data();
+    return GetLazyMeshTable(*this, poly_shaders[polygon], polygon_count, layer);
 }
 
 // FUNCTION: SURRENDER 0x10040720
@@ -296,12 +292,8 @@ srVector3T<float>* srMeshModel::getVertexDIG(w8_long vertex, int table)
     if (vertex < 0 || vertex > 3) {
         return 0;
     }
-    auto& slot = dig[vertex];
-    if (slot.empty() && table != 0 && vertex_location_count != 0) {
-        slot.resize(vertex_location_count, srVector3T<float>(0.0f, 0.0f, 0.0f));
-        setDirty(DIRTY_TRI_MESH);
-    }
-    return slot.empty() ? nullptr : slot.data();
+    return GetLazyMeshTable(*this, dig[vertex], vertex_location_count, table,
+                            srVector3T<float>(0.0f, 0.0f, 0.0f));
 }
 
 // FUNCTION: SURRENDER 0x10040A70
@@ -310,12 +302,7 @@ glm::vec2* srMeshModel::getVertexTexCoords(w8_long vertex, w8_long layer, int ta
     if (vertex < 0 || vertex > 3 || layer < 0 || layer > 1) {
         return 0;
     }
-    auto& slot = texcoords[vertex][layer];
-    if (slot.empty() && table != 0 && uv_count != 0) {
-        slot.resize(uv_count, glm::vec2(0.0f, 0.0f));
-        setDirty(DIRTY_TRI_MESH);
-    }
-    return slot.empty() ? nullptr : slot.data();
+    return GetLazyMeshTable(*this, texcoords[vertex][layer], uv_count, table, glm::vec2(0.0f));
 }
 
 // FUNCTION: SURRENDER 0x10040B80
@@ -647,36 +634,26 @@ int srMeshModel::getBoundingSphere(glm::vec3& center, float& radius)
     return 1;
 }
 
+static glm::vec4* GetVertexColorTable(srMeshModel& mesh,
+    std::array<std::vector<glm::vec4>, srMeshModel::MAX_PASSES>& colors,
+    w8_long pass, int create)
+{
+    if (pass < 0 || pass >= srMeshModel::MAX_PASSES) {
+        return nullptr;
+    }
+    return GetLazyMeshTable(mesh, colors[pass], mesh.vertex_location_count, create, glm::vec4(1));
+}
+
 // FUNCTION: SURRENDER 0x100408B0
 glm::vec4* srMeshModel::getVertexSCG(w8_long vertex, int table)
 {
-    if (vertex < 0 || vertex > 3) {
-        return 0;
-    }
-    auto& slot = scg[vertex];
-    if (slot.empty() && table != 0 && vertex_location_count != 0) {
-        glm::vec4 white;
-        white = glm::vec4(1);
-        slot.resize(vertex_location_count, white);
-        setDirty(DIRTY_TRI_MESH);
-    }
-    return slot.empty() ? nullptr : slot.data();
+    return GetVertexColorTable(*this, scg, vertex, table);
 }
 
 // FUNCTION: SURRENDER 0x10040990
 glm::vec4* srMeshModel::getVertexDCG(w8_long vertex, int table)
 {
-    if (vertex < 0 || vertex > 3) {
-        return 0;
-    }
-    auto& slot = dcg[vertex];
-    if (slot.empty() && table != 0 && vertex_location_count != 0) {
-        glm::vec4 white;
-        white = glm::vec4(1);
-        slot.resize(vertex_location_count, white);
-        setDirty(DIRTY_TRI_MESH);
-    }
-    return slot.empty() ? nullptr : slot.data();
+    return GetVertexColorTable(*this, dcg, vertex, table);
 }
 
 // FUNCTION: SURRENDER 0x1003CEA0
@@ -1013,85 +990,11 @@ void srMeshModel::dump(std::ostream& stream)
     stream << "  Sort bias: " << sort_bias << '\n';
     stream.width(0x20);
     stream << "  Flags: ";
-    if (dirty_flags.value == 0) {
-        stream << "[NONE]";
-    } else {
-        stream << '[';
-        bool first = true;
-        const char* names = s_flag_names0;
-        const char* name = names;
-        for (w8_ulong bit = 0; bit < 0x20; ++bit) {
-            if ((dirty_flags.value & (1 << bit)) == 0) {
-                if (name != 0) {
-                    while (*name != 0 && *name != ',') {
-                        ++name;
-                    }
-                    if (*name == ',') {
-                        ++name;
-                    }
-                }
-            } else {
-                if (first) {
-                    first = false;
-                } else {
-                    stream << ',';
-                }
-                if (name == 0 || *name == 0) {
-                    stream << bit;
-                } else {
-                    while (*name != 0 && *name != ',') {
-                        stream << *name;
-                        ++name;
-                    }
-                    if (*name == ',') {
-                        ++name;
-                    }
-                }
-            }
-        }
-        stream << ']';
-    }
+    srDumpFlags(stream, dirty_flags.value, s_flag_names0);
     stream << '\n';
     stream.width(0x20);
     stream << "  Control flags: ";
-    if (render_control.value == 0) {
-        stream << "[NONE]";
-    } else {
-        stream << '[';
-        bool first = true;
-        const char* names = s_control_names;
-        const char* name = names;
-        for (w8_ulong bit = 0; bit < 0x20; ++bit) {
-            if ((render_control.value & (1 << bit)) == 0) {
-                if (name != 0) {
-                    while (*name != 0 && *name != ',') {
-                        ++name;
-                    }
-                    if (*name == ',') {
-                        ++name;
-                    }
-                }
-            } else {
-                if (first) {
-                    first = false;
-                } else {
-                    stream << ',';
-                }
-                if (name == 0 || *name == 0) {
-                    stream << bit;
-                } else {
-                    while (*name != 0 && *name != ',') {
-                        stream << *name;
-                        ++name;
-                    }
-                    if (*name == ',') {
-                        ++name;
-                    }
-                }
-            }
-        }
-        stream << ']';
-    }
+    srDumpFlags(stream, render_control.value, s_control_names);
     stream << "\n\n";
     stream << "  Materials, textures, shaders\n";
     stream << "  ----------------------------\n";
@@ -1644,6 +1547,91 @@ srTriMeshPipeline* srTriMeshPipeline::Get(srGERD* renderer)
     return pipe;
 }
 
+void srTriMeshPipeline::SetMeshBounds(const srMeshModel::TriMesh& mesh)
+{
+    if ((mesh.control_flags & (1UL << srMeshModel::CONTROL_SKIP_AUTO_BOX)) == 0) {
+        bounds_minimum = mesh.bounds_minimum;
+        bounds_maximum = mesh.bounds_maximum;
+        if (bounds_source == srTriMeshPipeline::BOUNDS_FROM_VERTICES) {
+            bounds_source = srTriMeshPipeline::BOUNDS_BOX;
+        }
+    }
+    if ((mesh.control_flags & (1UL << srMeshModel::CONTROL_SKIP_AUTO_SPHERE)) == 0) {
+        bounds_center = mesh.bounds_center;
+        bounds_radius = mesh.bounds_radius;
+        bounds_source = srTriMeshPipeline::BOUNDS_SPHERE;
+    }
+}
+
+void srTriMeshPipeline::AppendMeshPass(const srMeshModel::TriMesh& mesh, w8_long pass,
+                                       w8_long material_side, srShader pass_shader)
+{
+    current_record->flags = 0;
+    current_pass->shaders = 0;
+    current_pass->texture_tables[0] = 0;
+    current_pass->texture_tables[1] = 0;
+
+    if (mesh.dig[pass] != 0) {
+        current_record->color_source.colors = mesh.dig[pass];
+        current_record->color_source.format =
+            srVertexPipe::Record::ColorSource::FORMAT_VECTOR3;
+        current_record->flags |= srVertexPipe::Record::HAS_COLORS;
+    }
+    if (mesh.dcg[pass] != 0) {
+        current_record->spec_for_diffuse = mesh.dcg[pass];
+        current_record->flags |=
+            srVertexPipe::Record::HAS_DIFFUSE_MULTIPLIERS;
+    }
+    if (mesh.scg[pass] != 0) {
+        current_record->spec_for_specular = mesh.scg[pass];
+        current_record->flags |=
+            srVertexPipe::Record::HAS_SPECULAR_MULTIPLIERS;
+    }
+
+    if (mesh.vertex_materials[pass][material_side] == 0) {
+        material = mesh.materials[pass][material_side].get();
+        current_record->material = material;
+    } else {
+        current_record->materials =
+            mesh.vertex_materials[pass][material_side];
+        current_record->flags |=
+            srVertexPipe::Record::HAS_VERTEX_MATERIALS;
+    }
+
+    if (mesh.poly_uv[pass] != 0) {
+        current_pass->poly_uv = mesh.poly_uv[pass];
+    }
+
+    if (mesh.poly_shaders[pass] == 0) {
+        SetFlags(pass_shader);
+    } else {
+        current_pass->shaders = mesh.poly_shaders[pass];
+    }
+
+    if (mesh.texcoords[pass][0] != 0) {
+        current_record->st_source[0] = mesh.texcoords[pass][0];
+        current_record->flags |= srVertexPipe::Record::HAS_TEXCOORD0;
+    }
+    if (mesh.texcoords[pass][1] != 0) {
+        current_record->flags |= srVertexPipe::Record::HAS_TEXCOORD1;
+        current_record->st_source[1] = mesh.texcoords[pass][1];
+    }
+
+    for (w8_long layer = 0; layer < 2; ++layer) {
+        if (mesh.poly_textures[pass][layer] == 0) {
+            srTextureIFace* texture = mesh.textures[pass][layer].get();
+            (layer == 0 ? texture0 : texture1) = texture;
+            current_pass->textures[layer] = texture;
+        } else {
+            current_pass->texture_tables[layer] =
+                mesh.poly_textures[pass][layer];
+        }
+    }
+
+    ++slot_count;
+    PrepareSlot();
+}
+
 // FUNCTION: SURRENDER 0x1003CA80
 void srMeshModel::renderTriMesh(srGERD& renderer, const TriMesh& mesh)
 {
@@ -1676,18 +1664,7 @@ void srMeshModel::renderTriMesh(srGERD& renderer, const TriMesh& mesh)
                         static_cast<w8_ulong>(mesh.active_polygon_count);
                 }
 
-                if ((mesh.control_flags & (1UL << srMeshModel::CONTROL_SKIP_AUTO_BOX)) == 0) {
-                    pipeline->bounds_minimum = mesh.bounds_minimum;
-                    pipeline->bounds_maximum = mesh.bounds_maximum;
-                    if (pipeline->bounds_source == srTriMeshPipeline::BOUNDS_FROM_VERTICES) {
-                        pipeline->bounds_source = srTriMeshPipeline::BOUNDS_BOX;
-                    }
-                }
-                if ((mesh.control_flags & (1UL << srMeshModel::CONTROL_SKIP_AUTO_SPHERE)) == 0) {
-                    pipeline->bounds_center = mesh.bounds_center;
-                    pipeline->bounds_radius = mesh.bounds_radius;
-                    pipeline->bounds_source = srTriMeshPipeline::BOUNDS_SPHERE;
-                }
+                pipeline->SetMeshBounds(mesh);
 
                 material_side = side;
                 if (side == 1) {
@@ -1711,71 +1688,7 @@ void srMeshModel::renderTriMesh(srGERD& renderer, const TriMesh& mesh)
                 }
 
                 for (w8_long pass = 0; pass < mesh.pass_count; ++pass) {
-                    pipeline->current_record->flags = 0;
-                    pipeline->current_pass->shaders = 0;
-                    pipeline->current_pass->texture_tables[0] = 0;
-                    pipeline->current_pass->texture_tables[1] = 0;
-
-                    if (mesh.dig[pass] != 0) {
-                        pipeline->current_record->color_source.colors = mesh.dig[pass];
-                        pipeline->current_record->color_source.format =
-                            srVertexPipe::Record::ColorSource::FORMAT_VECTOR3;
-                        pipeline->current_record->flags |= srVertexPipe::Record::HAS_COLORS;
-                    }
-                    if (mesh.dcg[pass] != 0) {
-                        pipeline->current_record->spec_for_diffuse = mesh.dcg[pass];
-                        pipeline->current_record->flags |=
-                            srVertexPipe::Record::HAS_DIFFUSE_MULTIPLIERS;
-                    }
-                    if (mesh.scg[pass] != 0) {
-                        pipeline->current_record->spec_for_specular = mesh.scg[pass];
-                        pipeline->current_record->flags |=
-                            srVertexPipe::Record::HAS_SPECULAR_MULTIPLIERS;
-                    }
-
-                    if (mesh.vertex_materials[pass][material_side] == 0) {
-                        srMaterialIFace* material = mesh.materials[pass][material_side].get();
-                        pipeline->material = material;
-                        pipeline->current_record->material = material;
-                    } else {
-                        pipeline->current_record->materials =
-                            mesh.vertex_materials[pass][material_side];
-                        pipeline->current_record->flags |=
-                            srVertexPipe::Record::HAS_VERTEX_MATERIALS;
-                    }
-
-                    if (mesh.poly_uv[pass] != 0) {
-                        pipeline->current_pass->poly_uv = mesh.poly_uv[pass];
-                    }
-
-                    if (mesh.poly_shaders[pass] == 0) {
-                        pipeline->SetFlags(mesh.shaders[pass]);
-                    } else {
-                        pipeline->current_pass->shaders = mesh.poly_shaders[pass];
-                    }
-
-                    if (mesh.texcoords[pass][0] != 0) {
-                        pipeline->current_record->st_source[0] = mesh.texcoords[pass][0];
-                        pipeline->current_record->flags |= srVertexPipe::Record::HAS_TEXCOORD0;
-                    }
-                    if (mesh.texcoords[pass][1] != 0) {
-                        pipeline->current_record->flags |= srVertexPipe::Record::HAS_TEXCOORD1;
-                        pipeline->current_record->st_source[1] = mesh.texcoords[pass][1];
-                    }
-
-                    for (w8_long layer = 0; layer < 2; ++layer) {
-                        if (mesh.poly_textures[pass][layer] == 0) {
-                            srTextureIFace* texture = mesh.textures[pass][layer].get();
-                            (&pipeline->texture0)[layer] = texture;
-                            pipeline->current_pass->textures[layer] = texture;
-                        } else {
-                            pipeline->current_pass->texture_tables[layer] =
-                                mesh.poly_textures[pass][layer];
-                        }
-                    }
-
-                    ++pipeline->slot_count;
-                    pipeline->PrepareSlot();
+                    pipeline->AppendMeshPass(mesh, pass, material_side, mesh.shaders[pass]);
                 }
 
                 pipeline->FlushIfCurrent();

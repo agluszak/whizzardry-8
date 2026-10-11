@@ -284,8 +284,7 @@ bool W8MessageDialogBase::ProcessInput()
     return is_open;
 }
 
-// FUNCTION: WIZ8 0x005d32c0
-void MessageDialogConfirmCallback(GUI_BUTTON* button, int reason)
+static void FinishMessageDialog(GUI_BUTTON* button, int reason, bool accepted)
 {
     W8MessageDialogBase* dialog = GetButtonUserDataPointer<W8MessageDialogBase>(button);
     if (!dialog) {
@@ -295,7 +294,7 @@ void MessageDialogConfirmCallback(GUI_BUTTON* button, int reason)
     if (!(reason & MSYS_CALLBACK_REASON_LBUTTON_DWN) &&
         (reason & MSYS_CALLBACK_REASON_LBUTTON_UP)) {
         if (button->uiFlags & BUTTON_CLICKED_ON) {
-            dialog->accepted = true;
+            dialog->accepted = accepted;
             dialog->is_open = false;
             button->uiFlags &= ~BUTTON_CLICKED_ON;
             dialog->m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
@@ -305,23 +304,14 @@ void MessageDialogConfirmCallback(GUI_BUTTON* button, int reason)
     }
 }
 
+// FUNCTION: WIZ8 0x005d32c0
+void MessageDialogConfirmCallback(GUI_BUTTON* button, int reason)
+{
+    FinishMessageDialog(button, reason, true);
+}
+
 // FUNCTION: WIZ8 0x005d3370
 void MessageDialogCancelCallback(GUI_BUTTON* button, int reason)
 {
-    W8MessageDialogBase* dialog = GetButtonUserDataPointer<W8MessageDialogBase>(button);
-    if (!dialog) {
-        srAssertFail("pDialog", "C:\\Projects\\Wizardry 8\\Dialog Code\\stMessageDialog.cpp", 0x28c,
-                     0);
-    }
-    if (!(reason & MSYS_CALLBACK_REASON_LBUTTON_DWN) &&
-        (reason & MSYS_CALLBACK_REASON_LBUTTON_UP)) {
-        if (button->uiFlags & BUTTON_CLICKED_ON) {
-            dialog->accepted = false;
-            dialog->is_open = false;
-            button->uiFlags &= ~BUTTON_CLICKED_ON;
-            dialog->m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
-        }
-    } else if (UpdateDialogArrowState(button, reason)) {
-        dialog->m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
-    }
+    FinishMessageDialog(button, reason, false);
 }

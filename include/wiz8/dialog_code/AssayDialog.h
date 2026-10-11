@@ -32,6 +32,7 @@ private:
     bool CreateTextBuffers();
     void SetProfessionIconsVisible(bool show);
     void SetRaceIconsVisible(bool show);
+    void ShowTab(bool professions);
     void ShowPrimaryTab();
     void ShowSecondaryTab();
     static void PrimaryTabCallback(W8DialogButton* button);

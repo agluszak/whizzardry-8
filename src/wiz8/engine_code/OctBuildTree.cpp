@@ -4,6 +4,7 @@
 #include "compat/compiler.h"
 #include "wiz8/compat/unaligned.h"
 #include "wiz8/engine_code/OctBuildTree.h"
+#include "wiz8/engine_code/oct_build_traversal.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/materials.h"
 #include "wiz8/float_constants.h"
@@ -266,36 +267,20 @@ unsigned char W8OctBuildTree::InsertSurfaceRecursive(W8OctSpatialState* working,
         child.m_cell_size = working->m_cell_size;
         child.m_depth = working->m_depth + 1;
 
-        short octant = 0;
-        for (int x = 0; x != 2; ++x) {
-            for (int y = 0; y != 2; ++y) {
-                for (int z = 0; z != 2; ++z, ++octant) {
-                    child.m_minimum.x = working->m_minimum.x + x * half_extent;
-                    child.m_maximum.x = child.m_minimum.x + half_extent;
-                    child.m_minimum.y = working->m_minimum.y + y * half_extent;
-                    child.m_maximum.y = child.m_minimum.y + half_extent;
-                    child.m_minimum.z = working->m_minimum.z + z * half_extent;
-                    child.m_maximum.z = child.m_minimum.z + half_extent;
-
-                    if (TestSpatialTriangle(&child.m_minimum, working->m_triangle_vertices,
-                                            plane_point) != 0) {
-                        W8OctBuildNode* node = working->m_root;
-                        if (node->children[octant] == 0) {
-                            if (!use_owned_nodes) {
-                                node->children[octant] = new W8OctBuildNode;
-                            } else {
-                                node->children[octant] = new W8CountedOctBuildNode;
-                            }
-                        }
-                        child.m_root = node->children[octant];
-                        child.m_triangle_vertices = working->m_triangle_vertices;
-                        if (InsertSurfaceRecursive(&child, surface, plane_point, mode) != 0) {
-                            inserted = true;
-                        }
-                    }
-                }
-            }
-        }
+        inserted = InsertBuildSurfaceChildren(
+            working, child, half_extent,
+            [&](W8OctSpatialState& candidate) {
+                return TestSpatialTriangle(&candidate.m_minimum, working->m_triangle_vertices,
+                                           plane_point) != 0;
+            },
+            [&]() -> W8OctBuildNode* {
+                if (use_owned_nodes) return new W8CountedOctBuildNode;
+                return new W8OctBuildNode;
+            },
+            [&](W8OctSpatialState& candidate) {
+                candidate.m_triangle_vertices = working->m_triangle_vertices;
+                return InsertSurfaceRecursive(&candidate, surface, plane_point, mode);
+            });
     }
     return inserted;
 }

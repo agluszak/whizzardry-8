@@ -6,6 +6,8 @@
 #include "wiz8/chunk.h"
 #include <cstring>
 #include <stdexcept>
+#include <limits>
+#include <memory>
 
 namespace wiz8::retail {
 enum class Encoding { utf8, utf16 };
@@ -549,6 +551,23 @@ template<class T> void read_exact(File& file, T& runtime,
     file.read_exact(image.data(), bytes);
     decode<T>(std::span(image).first(bytes), runtime);
 }
+// Read a count-prefixed table without publishing partially decoded records.
+template<class T> std::unique_ptr<T[]> read_database(File& file, unsigned int& count,
+    std::size_t maximum = std::numeric_limits<unsigned int>::max())
+{
+    file.read_exact(&count, sizeof(count));
+    const auto remaining = file.size() - file.tell();
+    if (count > maximum || remaining < 0 ||
+        count > static_cast<std::uint64_t>(remaining) / sizeof(typename Record<T>::Disk)) {
+        throw std::runtime_error("Invalid retail database record count");
+    }
+    auto records = count ? std::make_unique<T[]>(count) : nullptr;
+    for (unsigned int i = 0; i < count; ++i) {
+        read_exact(file, records[i]);
+    }
+    return records;
+}
+
 template<class T> ReadResult read(File& file, T& runtime)
 {
     std::array<std::byte, sizeof(typename Record<T>::Disk)> image{};

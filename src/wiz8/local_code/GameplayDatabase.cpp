@@ -67,12 +67,7 @@ try
 {
     auto handle = wiz8::open_file("Data\\Databases\\Items.DBS", wiz8::OpenMode::read);
     unsigned int count;
-    handle->read_exact(&count, sizeof(count));
-    if (count > (handle->size() - handle->tell()) / std::int64_t(wiz8::retail::kItemDatabaseRecordBytes)) {
-        return false;
-    }
-    auto records = count ? std::make_unique<W8ItemDatabaseRecord[]>(count) : nullptr;
-    for (unsigned i = 0; i < count; ++i) wiz8::retail::read_exact(*handle, records[i]);
+    auto records = wiz8::retail::read_database<W8ItemDatabaseRecord>(*handle, count);
     item_records = std::move(records);
     g_item_records = item_records.get();
     gXStatus.uiItemsInDatabase = count;

@@ -2,6 +2,7 @@
 #include <glm/ext/quaternion_trigonometric.hpp>
 #include <glm/gtc/matrix_access.hpp>
 #include <glm/gtc/quaternion.hpp>
+#include <source_location>
 #include <string>
 #include <vector>
 #include <algorithm>
@@ -131,6 +132,16 @@ Trigger* FindTriggerByName(const char* name)
         }
     }
     return 0;
+}
+
+Trigger* FindRequiredTriggerByName(const char* name, std::source_location caller)
+{
+    Trigger* trigger = FindTriggerByName(name);
+    if (trigger == nullptr) {
+        srAssertFail("required trigger", caller.file_name(), caller.line(),
+                     fmt::format("Missing trigger '{}'! It's not in the LVL file!", name));
+    }
+    return trigger;
 }
 
 /* Resolve the trigger that drives a prop's use action. A kind-one or kind-two

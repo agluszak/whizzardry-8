@@ -22,7 +22,6 @@
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/location_variables.h"
-#include "wiz8/sr_api.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/layouts/game_status.h"
 #include "surrender/srMath.h"
@@ -88,6 +87,129 @@ static stSound3D* g_warning_oneshot;
 static W8IntervalGate* g_warning_gate;
 // GLOBAL: WIZ8 0x006835E8
 static W8Monster* g_mookholo_monster;
+
+struct ElevatorStateBindings {
+    int which;
+    int initial_state;
+    const char* state_variable;
+    const char* moving_variable;
+    const char* button_variable;
+    void (*moving_master)(int);
+    void (*button_master)(int);
+    bool open_bottom_on_first_load;
+};
+
+static constexpr ElevatorStateBindings g_el01_bindings{
+    1, 1, "El01State", "El01Moving", "RedButtonDown", ArnikaEl1Moving, ArnikaEl1Button, false};
+static constexpr ElevatorStateBindings g_el02_bindings{
+    2, 7, "El02State", "El02Moving", "GreenButtonDown", ArnikaEl2Moving, ArnikaEl2Button, true};
+
+static void RestoreArnikaElevator(W8Elevator& elevator, const ElevatorStateBindings& bindings)
+{
+    elevator.state = bindings.initial_state;
+    elevator.moving = 0;
+    elevator.button_down = 0;
+    if (GetLocationVarIDByName(bindings.state_variable) == -1) {
+        CreateLocationVar(bindings.state_variable, elevator.state);
+        if (bindings.open_bottom_on_first_load) {
+            elevator.pBottomDoor->Run(-1);
+            elevator.pBottomDoorCollide->Run(-1);
+        }
+    } else {
+        elevator.state = GetLocationVarValueByName(bindings.state_variable);
+    }
+    if (GetLocationVarIDByName(bindings.moving_variable) == -1) {
+        CreateLocationVar(bindings.moving_variable, elevator.moving);
+    } else {
+        elevator.moving = GetLocationVarValueByName(bindings.moving_variable);
+    }
+    SetTriggerVariableByName(bindings.moving_variable, 0);
+    if (GetLocationVarIDByName(bindings.button_variable) == -1) {
+        CreateLocationVar(bindings.button_variable, elevator.button_down);
+    } else {
+        elevator.button_down = GetLocationVarValueByName(bindings.button_variable);
+    }
+    if (elevator.moving != 0) {
+        switch (elevator.state) {
+        case 1:
+        case 5:
+            elevator.pProp = elevator.pLift->GetProp();
+            break;
+        case 2:
+        case 4:
+            elevator.pProp = elevator.pTopDoor->GetProp();
+            break;
+        case 6:
+        case 8:
+            elevator.pProp = elevator.pBottomDoor->GetProp();
+            break;
+        }
+        g_master_functions.push_back(bindings.moving_master);
+    }
+    if (elevator.button_down != 0) {
+        bindings.button_master(elevator.button_down);
+    }
+}
+
+static void RunArnikaElevatorButton(W8Elevator& elevator, W8Prop*& button_prop,
+                                   const ElevatorStateBindings& bindings, int command)
+{
+    if (command != 0) {
+        if (command == -1) {
+            SetTriggerVariableByName(bindings.button_variable, elevator.button_down);
+            return;
+        }
+        button_prop = elevator.pButton->GetProp();
+        if (button_prop == 0) {
+            return;
+        }
+        g_master_functions.push_back(bindings.button_master);
+        if (command != static_cast<int>(0xEFFFFFFF)) {
+            elevator.button_down = command;
+        } else {
+            elevator.button_down = 1;
+        }
+        return;
+    }
+    g_remove_current_master_function = false;
+    if (button_prop == 0) {
+        g_remove_current_master_function = true;
+        return;
+    }
+    if (button_prop->Rep()->animation_playing != 0) {
+        return;
+    }
+    if (elevator.button_down == 1) {
+        elevator.button_down = 2;
+        elevator.pButton->Run(-1);
+        elevator.button_down = 3;
+        return;
+    }
+    elevator.button_down = 0;
+    SetTriggerVariableByName(bindings.button_variable, 0);
+    g_remove_current_master_function = true;
+}
+
+static void RunArnikaElevatorMoving(W8Elevator& elevator, const ElevatorStateBindings& bindings,
+                                   int command)
+{
+    if (command != 0) {
+        if (command == -1) {
+            SetTriggerVariableByName(bindings.moving_variable, 1);
+            return;
+        }
+    }
+    g_remove_current_master_function = false;
+    if (elevator.pProp == 0) {
+        g_remove_current_master_function = true;
+        return;
+    }
+    if (elevator.pProp->Rep()->animation_playing != 0) {
+        return;
+    }
+    g_remove_current_master_function = true;
+    ArnikaElevatorAdvance(bindings.which);
+}
 
 /* Level init: clears the laser-scanner and exit-door caches, runs both
    elevator setups, then restores the laser scan, the warning sound, the
@@ -343,12 +465,7 @@ void ArnikaMookholoWatch(int command)
 // FUNCTION: WIZ8 0x004E1040
 bool ArnikaMookFrontDoor(Trigger* pTrigger)
 {
-    Trigger* pMookHolo = FindTriggerByName("Mookholo");
-
-    if (pMookHolo == 0) {
-        srAssertFail("pMookHolo", ARNIKA_CPP, 0x1ee,
-                     "Missing trigger 'Mookholo'! It's not in the LVL file!");
-    }
+    Trigger* pMookHolo = FindRequiredTriggerByName("Mookholo");
     if (GetLocationVarIDByName("MookDoorOpen") != -1) {
         SetTriggerVariableByName("MookDoorOpen", 1);
     } else {
@@ -460,80 +577,14 @@ bool ArnikaGenVaultDoor(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004E13B0
 void ArnikaElevator1Setup(void)
 {
-    gEl01.pElevator = FindTriggerByName("Elevator-1");
-    if (gEl01.pElevator == 0) {
-        srAssertFail("gEl01.pElevator", ARNIKA_CPP, 0x2f0,
-                     "Missing trigger 'Elevator-1'! It's not in the LVL file!");
-    }
-    gEl01.pLift = FindTriggerByName("El1-Lift");
-    if (gEl01.pLift == 0) {
-        srAssertFail("gEl01.pLift", ARNIKA_CPP, 0x2f2,
-                     "Missing trigger 'El1-Lift'! It's not in the LVL file!");
-    }
-    gEl01.pTopDoor = FindTriggerByName("El1-TopGate");
-    if (gEl01.pTopDoor == 0) {
-        srAssertFail("gEl01.pTopDoor", ARNIKA_CPP, 0x2f4,
-                     "Missing trigger 'El1-TopGate'! It's not in the LVL file!");
-    }
-    gEl01.pBottomDoor = FindTriggerByName("El1-BottomGate");
-    if (gEl01.pBottomDoor == 0) {
-        srAssertFail("gEl01.pBottomDoor", ARNIKA_CPP, 0x2f6,
-                     "Missing trigger 'El1-BottomGate'! It's not in the LVL file!");
-    }
-    gEl01.pTopDoorCollide = FindTriggerByName("El1-TopGateC");
-    if (gEl01.pTopDoorCollide == 0) {
-        srAssertFail("gEl01.pTopDoorCollide", ARNIKA_CPP, 0x2f8,
-                     "Missing trigger 'El1-TopGateC'! It's not in the LVL file!");
-    }
-    gEl01.pBottomDoorCollide = FindTriggerByName("El1-BottomGateC");
-    if (gEl01.pBottomDoorCollide == 0) {
-        srAssertFail("gEl01.pBottomDoorCollide", ARNIKA_CPP, 0x2fa,
-                     "Missing trigger 'El1-BottomGateC'! It's not in the LVL file!");
-    }
-    gEl01.pButton = FindTriggerByName("RedButton");
-    if (gEl01.pButton == 0) {
-        srAssertFail("gEl01.pButton", ARNIKA_CPP, 0x2fc,
-                     "Missing trigger 'RedButton'! It's not in the LVL file!");
-    }
-    gEl01.state = 1;
-    gEl01.moving = 0;
-    gEl01.button_down = 0;
-    if (GetLocationVarIDByName("El01State") == -1) {
-        CreateLocationVar("El01State", gEl01.state);
-    } else {
-        gEl01.state = GetLocationVarValueByName("El01State");
-    }
-    if (GetLocationVarIDByName("El01Moving") == -1) {
-        CreateLocationVar("El01Moving", gEl01.moving);
-    } else {
-        gEl01.moving = GetLocationVarValueByName("El01Moving");
-    }
-    SetTriggerVariableByName("El01Moving", 0);
-    if (GetLocationVarIDByName("RedButtonDown") == -1) {
-        CreateLocationVar("RedButtonDown", gEl01.button_down);
-    } else {
-        gEl01.button_down = GetLocationVarValueByName("RedButtonDown");
-    }
-    if (gEl01.moving != 0) {
-        switch (gEl01.state) {
-        case 1:
-        case 5:
-            gEl01.pProp = gEl01.pLift->GetProp();
-            break;
-        case 2:
-        case 4:
-            gEl01.pProp = gEl01.pTopDoor->GetProp();
-            break;
-        case 6:
-        case 8:
-            gEl01.pProp = gEl01.pBottomDoor->GetProp();
-            break;
-        }
-        g_master_functions.push_back(ArnikaEl1Moving);
-    }
-    if (gEl01.button_down != 0) {
-        ArnikaEl1Button(gEl01.button_down);
-    }
+    gEl01.pElevator = FindRequiredTriggerByName("Elevator-1");
+    gEl01.pLift = FindRequiredTriggerByName("El1-Lift");
+    gEl01.pTopDoor = FindRequiredTriggerByName("El1-TopGate");
+    gEl01.pBottomDoor = FindRequiredTriggerByName("El1-BottomGate");
+    gEl01.pTopDoorCollide = FindRequiredTriggerByName("El1-TopGateC");
+    gEl01.pBottomDoorCollide = FindRequiredTriggerByName("El1-BottomGateC");
+    gEl01.pButton = FindRequiredTriggerByName("RedButton");
+    RestoreArnikaElevator(gEl01, g_el01_bindings);
 }
 
 /* "RedButton": while the button press is armed it stamps the pressed fact,
@@ -578,40 +629,7 @@ bool ArnikaRedButton(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004E17C0
 void ArnikaEl1Button(int command)
 {
-    if (command != 0) {
-        if (command == -1) {
-            SetTriggerVariableByName("RedButtonDown", gEl01.button_down);
-            return;
-        }
-        g_el01_button_prop = gEl01.pButton->GetProp();
-        if (g_el01_button_prop == 0) {
-            return;
-        }
-        g_master_functions.push_back(ArnikaEl1Button);
-        if (command != static_cast<int>(0xEFFFFFFF)) {
-            gEl01.button_down = command;
-        } else {
-            gEl01.button_down = 1;
-        }
-        return;
-    }
-    g_remove_current_master_function = false;
-    if (g_el01_button_prop == 0) {
-        g_remove_current_master_function = true;
-        return;
-    }
-    if (g_el01_button_prop->Rep()->animation_playing != 0) {
-        return;
-    }
-    if (gEl01.button_down == 1) {
-        gEl01.button_down = 2;
-        gEl01.pButton->Run(-1);
-        gEl01.button_down = 3;
-        return;
-    }
-    gEl01.button_down = 0;
-    SetTriggerVariableByName("RedButtonDown", 0);
-    g_remove_current_master_function = true;
+    RunArnikaElevatorButton(gEl01, g_el01_button_prop, g_el01_bindings, command);
 }
 
 /* "El1-TopButtons": advances the lift while no button run is pending and the
@@ -630,11 +648,7 @@ bool ArnikaEl1TopButtons(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004E1970
 bool ArnikaEl1BottomButtons(Trigger* pTrigger)
 {
-    g_trigger_feedback = true;
-    if (gEl01.button_down != 2 && (gEl01.state == 1 || gEl01.state == 3 || gEl01.state == 7)) {
-        ArnikaElevatorAdvance(1);
-    }
-    return true;
+    return ArnikaEl1TopButtons(pTrigger);
 }
 
 /* The El01Moving master function: -1 stamps the location variable, and the
@@ -643,22 +657,7 @@ bool ArnikaEl1BottomButtons(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004E19B0
 void ArnikaEl1Moving(int command)
 {
-    if (command != 0) {
-        if (command == -1) {
-            SetTriggerVariableByName("El01Moving", 1);
-            return;
-        }
-    }
-    g_remove_current_master_function = false;
-    if (gEl01.pProp == 0) {
-        g_remove_current_master_function = true;
-        return;
-    }
-    if (gEl01.pProp->Rep()->animation_playing != 0) {
-        return;
-    }
-    g_remove_current_master_function = true;
-    ArnikaElevatorAdvance(1);
+    RunArnikaElevatorMoving(gEl01, g_el01_bindings, command);
 }
 
 /* Elevator-02 setup: resolves its triggers, restores El02State, El02Moving
@@ -667,83 +666,15 @@ void ArnikaEl1Moving(int command)
 // FUNCTION: WIZ8 0x004E1A10
 void ArnikaElevator2Setup(void)
 {
-    gEl02.pElevator = FindTriggerByName("Elevator-02");
-    if (gEl02.pElevator == 0) {
-        srAssertFail("gEl02.pElevator", ARNIKA_CPP, 0x402,
-                     "Missing trigger 'Elevator-02'! It's not in the LVL file!");
-    }
-    gEl02.pLift = FindTriggerByName("El-02Lift");
-    if (gEl02.pLift == 0) {
-        srAssertFail("gEl02.pLift", ARNIKA_CPP, 0x404,
-                     "Missing trigger 'El-02Lift'! It's not in the LVL file!");
-    }
-    gEl02.pTopDoor = FindTriggerByName("El-02TopDoor");
-    if (gEl02.pTopDoor == 0) {
-        srAssertFail("gEl02.pTopDoor", ARNIKA_CPP, 0x406,
-                     "Missing trigger 'El-02TopDoor'! It's not in the LVL file!");
-    }
-    gEl02.pBottomDoor = FindTriggerByName("El-02BottomDoor");
-    if (gEl02.pBottomDoor == 0) {
-        srAssertFail("gEl02.pBottomDoor", ARNIKA_CPP, 0x408,
-                     "Missing trigger 'El-02BottomDoor'! It's not in the LVL file!");
-    }
-    gEl02.pTopDoorCollide = FindTriggerByName("El-02TopDoorCollide");
-    if (gEl02.pTopDoorCollide == 0) {
-        srAssertFail("gEl02.pTopDoorCollide", ARNIKA_CPP, 0x40a,
-                     "Missing trigger 'El-02TopDoorCollide'! It's not in the LVL file!");
-    }
-    gEl02.pBottomDoorCollide = FindTriggerByName("El-02BottomDoorCollide");
-    if (gEl02.pBottomDoorCollide == 0) {
-        srAssertFail("gEl02.pBottomDoorCollide", ARNIKA_CPP, 0x40c,
-                     "Missing trigger 'El-02BottomDoorCollide'! It's not in the LVL file!");
-    }
-    gEl02.pButton = FindTriggerByName("GreenButton");
-    if (gEl02.pButton == 0) {
-        srAssertFail("gEl02.pButton", ARNIKA_CPP, 0x40e,
-                     "Missing trigger 'GreenButton'! It's not in the LVL file!");
-    }
+    gEl02.pElevator = FindRequiredTriggerByName("Elevator-02");
+    gEl02.pLift = FindRequiredTriggerByName("El-02Lift");
+    gEl02.pTopDoor = FindRequiredTriggerByName("El-02TopDoor");
+    gEl02.pBottomDoor = FindRequiredTriggerByName("El-02BottomDoor");
+    gEl02.pTopDoorCollide = FindRequiredTriggerByName("El-02TopDoorCollide");
+    gEl02.pBottomDoorCollide = FindRequiredTriggerByName("El-02BottomDoorCollide");
+    gEl02.pButton = FindRequiredTriggerByName("GreenButton");
     gEl02.pProp = 0;
-    gEl02.state = 7;
-    gEl02.moving = 0;
-    gEl02.button_down = 0;
-    if (GetLocationVarIDByName("El02State") == -1) {
-        CreateLocationVar("El02State", gEl02.state);
-        gEl02.pBottomDoor->Run(-1);
-        gEl02.pBottomDoorCollide->Run(-1);
-    } else {
-        gEl02.state = GetLocationVarValueByName("El02State");
-    }
-    if (GetLocationVarIDByName("El02Moving") == -1) {
-        CreateLocationVar("El02Moving", gEl02.moving);
-    } else {
-        gEl02.moving = GetLocationVarValueByName("El02Moving");
-    }
-    SetTriggerVariableByName("El02Moving", 0);
-    if (GetLocationVarIDByName("GreenButtonDown") == -1) {
-        CreateLocationVar("GreenButtonDown", gEl02.button_down);
-    } else {
-        gEl02.button_down = GetLocationVarValueByName("GreenButtonDown");
-    }
-    if (gEl02.moving != 0) {
-        switch (gEl02.state) {
-        case 1:
-        case 5:
-            gEl02.pProp = gEl02.pLift->GetProp();
-            break;
-        case 2:
-        case 4:
-            gEl02.pProp = gEl02.pTopDoor->GetProp();
-            break;
-        case 6:
-        case 8:
-            gEl02.pProp = gEl02.pBottomDoor->GetProp();
-            break;
-        }
-        g_master_functions.push_back(ArnikaEl2Moving);
-    }
-    if (gEl02.button_down != 0) {
-        ArnikaEl2Button(gEl02.button_down);
-    }
+    RestoreArnikaElevator(gEl02, g_el02_bindings);
 }
 
 /* "GreenButton": while no press is pending it plays the acknowledgement,
@@ -772,40 +703,7 @@ bool ArnikaGreenButton(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004E1E10
 void ArnikaEl2Button(int command)
 {
-    if (command != 0) {
-        if (command == -1) {
-            SetTriggerVariableByName("GreenButtonDown", gEl02.button_down);
-            return;
-        }
-        g_el02_button_prop = gEl02.pButton->GetProp();
-        if (g_el02_button_prop == 0) {
-            return;
-        }
-        g_master_functions.push_back(ArnikaEl2Button);
-        if (command != static_cast<int>(0xEFFFFFFF)) {
-            gEl02.button_down = command;
-        } else {
-            gEl02.button_down = 1;
-        }
-        return;
-    }
-    g_remove_current_master_function = false;
-    if (g_el02_button_prop == 0) {
-        g_remove_current_master_function = true;
-        return;
-    }
-    if (g_el02_button_prop->Rep()->animation_playing != 0) {
-        return;
-    }
-    if (gEl02.button_down == 1) {
-        gEl02.button_down = 2;
-        gEl02.pButton->Run(-1);
-        gEl02.button_down = 3;
-        return;
-    }
-    gEl02.button_down = 0;
-    SetTriggerVariableByName("GreenButtonDown", 0);
-    g_remove_current_master_function = true;
+    RunArnikaElevatorButton(gEl02, g_el02_button_prop, g_el02_bindings, command);
 }
 
 /* "Elevator-02": steps the lift while no button run is pending and the
@@ -827,22 +725,7 @@ bool ArnikaElevator02Trigger(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004E1FB0
 void ArnikaEl2Moving(int command)
 {
-    if (command != 0) {
-        if (command == -1) {
-            SetTriggerVariableByName("El02Moving", 1);
-            return;
-        }
-    }
-    g_remove_current_master_function = false;
-    if (gEl02.pProp == 0) {
-        g_remove_current_master_function = true;
-        return;
-    }
-    if (gEl02.pProp->Rep()->animation_playing != 0) {
-        return;
-    }
-    g_remove_current_master_function = true;
-    ArnikaElevatorAdvance(2);
+    RunArnikaElevatorMoving(gEl02, g_el02_bindings, command);
 }
 
 /* Shared elevator step: advances the selected elevator one state, running
@@ -958,11 +841,7 @@ bool ArnikaAstralDominae(Trigger* pTrigger)
     if (!g_running_trigger_from_script && g_status.item_in_cursor) {
         return false;
     }
-    pTrigger = FindTriggerByName("CMBox");
-    if (pTrigger == 0) {
-        srAssertFail("pTrigger", ARNIKA_CPP, 0x5bd,
-                     "Missing trigger 'CMBox'! It's not in the LVL file!");
-    }
+    pTrigger = FindRequiredTriggerByName("CMBox");
     pTrigger->Run(-1);
     return true;
 }
@@ -984,17 +863,9 @@ bool ArnikaCMbox(Trigger* pTrigger)
         return false;
     }
     if (item == 0x244) {
-        pTrigger = FindTriggerByName("ChaosMolori");
-        if (pTrigger == 0) {
-            srAssertFail("pTrigger", ARNIKA_CPP, 0x5e8,
-                         "Missing trigger 'ChaosMolori'! It's not in the LVL file!");
-        }
+        pTrigger = FindRequiredTriggerByName("ChaosMolori");
     } else if (item == 0x242 || item == 0x264) {
-        pTrigger = FindTriggerByName("AstralDominae");
-        if (pTrigger == 0) {
-            srAssertFail("pTrigger", ARNIKA_CPP, 0x5f0,
-                         "Missing trigger 'AstralDominae'! It's not in the LVL file!");
-        }
+        pTrigger = FindRequiredTriggerByName("AstralDominae");
     } else {
         return previous != -1;
     }
@@ -1025,11 +896,7 @@ int ArnikaPedestalItem(int* previous_item)
             return -2;
         }
     }
-    pTrigger = FindTriggerByName("ChaosMolori");
-    if (pTrigger == 0) {
-        srAssertFail("pTrigger", ARNIKA_CPP, 0x607,
-                     "Missing trigger 'ChaosMolori'! It's not in the LVL file!");
-    }
+    pTrigger = FindRequiredTriggerByName("ChaosMolori");
     if (item > -1) {
         ClearHeldItemDisplay();
     }

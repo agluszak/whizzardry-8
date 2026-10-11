@@ -702,11 +702,7 @@ void InitializeLevelMasterFunctions(int level)
                          "Missing trigger 'Elevator-02'! It's not in the LVL file!");
         BindLevelTrigger("LazerScanner", ArnikaLazerScanner, 0xd8,
                          "Missing trigger 'LazerScanner'! It's not in the LVL file!");
-        pTrigger = FindTriggerByName("ScannerDoor");
-        if (pTrigger == 0) {
-            srAssertFail("pTrigger", MASTER_FUNCTION_CPP, 0xdc,
-                         "Missing trigger 'ScannerDoor'! It's not in the LVL file!");
-        }
+        pTrigger = FindRequiredTriggerByName("ScannerDoor");
         pTrigger->m_lData1 = 0;
         pTrigger->activation_callback = ArnikaScannerDoor;
         ArnikaLevelSetup();
@@ -964,54 +960,19 @@ void InitializeLevelMasterFunctions(int level)
                          "Missing trigger 'oil_pool'! It's not in the LVL file!");
         BindLevelTrigger("onelid", SwampOnelid, 0x2ea,
                          "Missing trigger 'onelid'! It's not in the LVL file!");
-        pTrigger = FindTriggerByName("fire_trig_plane01");
-        if (pTrigger == 0) {
-            srAssertFail("pTrigger", MASTER_FUNCTION_CPP, 0x5ee,
-                         fmt::format("Missing trigger '{}'! It's not in the LVL file!",
-                                     "fire_trig_plane01"));
-        }
+        pTrigger = FindRequiredTriggerByName("fire_trig_plane01");
         pTrigger->activation_callback = SwampFirePlane;
-        pTrigger = FindTriggerByName("fire_trig_plane02");
-        if (pTrigger == 0) {
-            srAssertFail("pTrigger", MASTER_FUNCTION_CPP, 0x5ee,
-                         fmt::format("Missing trigger '{}'! It's not in the LVL file!",
-                                     "fire_trig_plane02"));
-        }
+        pTrigger = FindRequiredTriggerByName("fire_trig_plane02");
         pTrigger->activation_callback = SwampFirePlane;
-        pTrigger = FindTriggerByName("fire_trig_plane03");
-        if (pTrigger == 0) {
-            srAssertFail("pTrigger", MASTER_FUNCTION_CPP, 0x5ee,
-                         fmt::format("Missing trigger '{}'! It's not in the LVL file!",
-                                     "fire_trig_plane03"));
-        }
+        pTrigger = FindRequiredTriggerByName("fire_trig_plane03");
         pTrigger->activation_callback = SwampFirePlane;
-        pTrigger = FindTriggerByName("fire_trig_plane04");
-        if (pTrigger == 0) {
-            srAssertFail("pTrigger", MASTER_FUNCTION_CPP, 0x5ee,
-                         fmt::format("Missing trigger '{}'! It's not in the LVL file!",
-                                     "fire_trig_plane04"));
-        }
+        pTrigger = FindRequiredTriggerByName("fire_trig_plane04");
         pTrigger->activation_callback = SwampFirePlane;
-        pTrigger = FindTriggerByName("fire_trig_plane05");
-        if (pTrigger == 0) {
-            srAssertFail("pTrigger", MASTER_FUNCTION_CPP, 0x5ee,
-                         fmt::format("Missing trigger '{}'! It's not in the LVL file!",
-                                     "fire_trig_plane05"));
-        }
+        pTrigger = FindRequiredTriggerByName("fire_trig_plane05");
         pTrigger->activation_callback = SwampFirePlane;
-        pTrigger = FindTriggerByName("fire_trig_plane06");
-        if (pTrigger == 0) {
-            srAssertFail("pTrigger", MASTER_FUNCTION_CPP, 0x5ee,
-                         fmt::format("Missing trigger '{}'! It's not in the LVL file!",
-                                     "fire_trig_plane06"));
-        }
+        pTrigger = FindRequiredTriggerByName("fire_trig_plane06");
         pTrigger->activation_callback = SwampFirePlane;
-        pTrigger = FindTriggerByName("fire_trig_plane07");
-        if (pTrigger == 0) {
-            srAssertFail("pTrigger", MASTER_FUNCTION_CPP, 0x5ee,
-                         fmt::format("Missing trigger '{}'! It's not in the LVL file!",
-                                     "fire_trig_plane07"));
-        }
+        pTrigger = FindRequiredTriggerByName("fire_trig_plane07");
         pTrigger->activation_callback = SwampFirePlane;
         return;
     case 0x19:

@@ -6,14 +6,18 @@
 #include <future>
 #include <memory>
 #include <thread>
+#include <utility>
 #include <vector>
 #include <cstddef>
 #include <span>
 
+#include "catch2/catch_message.hpp"
 #include "surrender/srCore.h"
 #include "surrender/srDD_SDLGPU.h"
 #include "surrender/srGERD.h"
+#include "surrender/srFog.h"
 #include "surrender/srMaterialIFace.h"
+#include "surrender/srMaterial.h"
 #include "surrender/srNode.h"
 #include "surrender/srVertexPipe.h"
 #include "surrender/srMath.h"
@@ -215,6 +219,265 @@ bool processorOwnership()
     return true;
 }
 
+class SeedMaterialChannels : public srVertexProcessor {
+public:
+    int isActive(srVertexPipe&) override { return 1; }
+    void process(srVertexPipe& pipe) override
+    {
+        auto* diffuse = pipe.getDiffuse();
+        auto* specular = pipe.getSpecular();
+        auto* alpha = pipe.getAlpha();
+        for (w8_ulong i = 0; i < pipe.getVertexCount(); ++i) {
+            diffuse[i] = glm::vec4(0.25f);
+            specular[i] = glm::vec4(0.5f);
+            alpha[i] = 0.8f;
+        }
+    }
+};
+
+class CoverageMaterial : public TestMaterial {
+public:
+    float scale = 1;
+    void getMaterialInfo(srVertexProcessor::MaterialInfo& info) override
+    {
+        TestMaterial::getMaterialInfo(info);
+        info.diffuse.w = info.fog_scale = scale;
+    }
+};
+
+class SeedCoverage : public srVertexProcessor {
+public:
+    int isActive(srVertexPipe&) override { return 1; }
+    void process(srVertexPipe& pipe) override
+    {
+        auto* diffuse = pipe.getDiffuse();
+        auto* specular = pipe.getSpecular();
+        auto* alpha = pipe.getAlpha();
+        auto* fog = pipe.getFog();
+        const auto* indices = pipe.getAVT();
+        const float values[] = {-2.f, 0.f, .25f, 1.f, 2.f};
+        for (w8_ulong index = 0; index < pipe.getVertexCount(); ++index) {
+            diffuse[index] = specular[index] = glm::vec4(.5f);
+            alpha[index] = fog[index] = values[indices[index] % 5];
+        }
+    }
+};
+
+bool coverageFinalization()
+{
+    std::array<srVector3, 65> positions;
+    std::array<w8_ulong, 65> indices;
+    std::array<glm::vec4, 65> eye, diffuse, specular;
+    std::array<unsigned char, 65> attributes{};
+    for (unsigned index = 0; index < positions.size(); ++index) {
+        positions[index].Set(0, 0, float(index + 1));
+        indices[index] = index;
+    }
+    srVertexArray arrays{};
+    arrays.eye_locations = eye.data(); arrays.diffuse = diffuse.data();
+    arrays.specular = specular.data(); arrays.attributes = attributes.data();
+    glm::mat4 identity(1);
+    SeedCoverage seed;
+    srVertexProcessor* processor = &seed;
+    CoverageMaterial material;
+    srVertexPipe::Record record{};
+    record.material = &material;
+    srVertexPipe::Input input{};
+    input.vertex_count = positions.size(); input.active_vertices = indices.data();
+    input.direct_vertex_indices = 1; input.positions = positions.data();
+    input.model_view = input.normal_matrix = &identity;
+    input.vertex_arrays = &arrays; input.records = {&record, 1};
+    input.processors = &processor; input.processor_count = 1;
+    input.environment_maximum = input.environment_inverse_scale = 1;
+    const float values[] = {-2.f, 0.f, .25f, 1.f, 2.f};
+    for (unsigned channels = 1; channels < 16; ++channels) {
+        unsigned enabled = 0;
+        const srVertexProcessor::e_channel kinds[] = {
+            srVertexProcessor::CHANNEL_DIFFUSE, srVertexProcessor::CHANNEL_ALPHA,
+            srVertexProcessor::CHANNEL_SPECULAR, srVertexProcessor::CHANNEL_FOG};
+        for (unsigned bit = 0; bit < 4; ++bit)
+            if (channels & (1u << bit)) enabled |= 1u << kinds[bit];
+        record.channels = ~enabled;
+        for (float scale : {-2.f, 0.f, .5f, 1.f, 2.f}) {
+            material.scale = scale;
+            srVertexPipe pipe;
+            pipe.process(input);
+            for (unsigned index = 0; index < positions.size(); ++index) {
+                const float source = values[index % 5];
+                // With colour enabled, clamp the final scaled component; without
+                // it, clamp coverage first and retain the scaled alpha as-is.
+                const float clamped = source < 0 ? 0 : source > 1 ? 1 : source;
+                auto clamp = [](float value) { return value < 0 ? 0 : value > 1 ? 1 : value; };
+                const float expected_alpha = channels & 2
+                    ? channels & 1 ? clamp(scale * source) : scale * clamped : .5f;
+                const float expected_fog = channels & 8
+                    ? channels & 4 ? clamp(scale * source) : scale * clamped : .5f;
+                CAPTURE(channels, scale, index);
+                REQUIRE(diffuse[index].w == expected_alpha);
+                REQUIRE(specular[index].w == expected_fog);
+            }
+        }
+    }
+    return true;
+}
+
+class ProfileMaterial : public TestMaterial {
+public:
+    void getMaterialInfo(srVertexProcessor::MaterialInfo& info) override
+    {
+        TestMaterial::getMaterialInfo(info);
+        info.disabled_channels = 0;
+        info.fog_scale = 1;
+    }
+};
+
+class DistanceProfileProbe : public Counter {
+public:
+    srFog* fog = nullptr;
+    float minimum = 0, maximum = 100, low = .2f, high = .8f;
+    bool valid = true;
+    void process(srVertexPipe& pipe) override
+    {
+        ++calls;
+        const auto* indices = pipe.getAVT();
+        const auto* cue = pipe.getDepthCue();
+        for (unsigned index = 0; index < pipe.getVertexCount(); ++index) {
+            const float distance = float(indices[index] + 1);
+            float expected;
+            if (minimum == maximum) expected = distance < minimum ? 1 - low : 1 - high;
+            else {
+                float normalized = (maximum - distance) / (maximum - minimum);
+                normalized = normalized < 0 ? 0 : normalized > 1 ? 1 : normalized;
+                expected = low + (high - low) * normalized;
+            }
+            valid &= std::abs(cue[index] - expected) < 1e-6f;
+        }
+        fog->process(pipe);
+    }
+};
+
+bool distanceProfiles()
+{
+    std::array<srVector3, 65> positions;
+    std::array<w8_ulong, 65> indices;
+    std::array<glm::vec4, 65> eye, specular;
+    std::array<unsigned char, 65> attributes{};
+    for (unsigned index = 0; index < positions.size(); ++index) {
+        positions[index].Set(0, 0, float(index + 1));
+        indices[index] = index;
+    }
+    srVertexArray arrays{};
+    arrays.eye_locations = eye.data(); arrays.specular = specular.data();
+    arrays.attributes = attributes.data();
+    glm::mat4 identity(1);
+    ProfileMaterial material;
+    srVertexPipe::Record record{};
+    record.material = &material;
+    record.channels = ~(1u << srVertexProcessor::CHANNEL_FOG);
+    srVertexPipe::Input input{};
+    input.vertex_count = positions.size(); input.active_vertices = indices.data();
+    input.direct_vertex_indices = 1; input.positions = positions.data();
+    input.model_view = input.normal_matrix = &identity;
+    input.vertex_arrays = &arrays; input.records = {&record, 1};
+    input.eye_center = glm::vec3(0, 0, 33); input.eye_radius = 33;
+    input.environment_scale = .2f; input.environment_inverse_scale = .8f;
+    DistanceProfileProbe probe;
+    srVertexProcessor* processor = &probe;
+    input.processors = &processor; input.processor_count = 1;
+    srFog fog;
+    probe.fog = &fog;
+    for (auto range : {std::pair{0.f, 100.f}, std::pair{17.f, 43.f}, std::pair{32.f, 32.f}}) {
+        input.environment_minimum = probe.minimum = range.first;
+        input.environment_maximum = probe.maximum = range.second;
+        fog.setRange(range.first, range.second);
+        for (float density : {0.f, .5f, 1.f}) {
+            fog.setDensity(density);
+            srVertexPipe pipe;
+            pipe.process(input);
+            REQUIRE(probe.valid);
+            for (unsigned index = 0; index < positions.size(); ++index) {
+                const float distance = float(index + 1);
+                float normalized = range.first == range.second
+                    ? distance <= range.first ? 0 : 1
+                    : (distance - range.first) / (range.second - range.first);
+                normalized = normalized < 0 ? 0 : normalized > 1 ? 1 : normalized;
+                REQUIRE(std::abs(specular[index].w - density * normalized) < 1e-6f);
+            }
+        }
+    }
+    REQUIRE(probe.calls == 18); // Two batches for each range/density combination.
+    return true;
+}
+
+bool materialChannelOperations()
+{
+    // Cross the 64-vertex batch boundary for every combination of material operations.
+    std::array<srVector3, 65> positions;
+    std::array<w8_ulong, 65> indices;
+    std::array<glm::vec4, 65> eye, diffuse, specular;
+    std::array<unsigned char, 65> attributes{};
+    for (unsigned i = 0; i < positions.size(); ++i) {
+        positions[i].Set(0, 0, float(i + 1));
+        indices[i] = i;
+    }
+    srVertexArray arrays{};
+    arrays.eye_locations = eye.data();
+    arrays.diffuse = diffuse.data();
+    arrays.specular = specular.data();
+    arrays.attributes = attributes.data();
+    glm::mat4 identity(1);
+    SeedMaterialChannels seed;
+    srVertexProcessor* processor = &seed;
+    srMaterial material;
+    material.setSpecular(glm::vec4(1));
+    srVertexPipe::Record record{};
+    record.material = &material;
+    record.channels = ~((1u << srVertexProcessor::CHANNEL_DIFFUSE) |
+                        (1u << srVertexProcessor::CHANNEL_SPECULAR) |
+                        (1u << srVertexProcessor::CHANNEL_ALPHA) |
+                        (1u << srVertexProcessor::CHANNEL_LIGHT_DIFFUSE) |
+                        (1u << srVertexProcessor::CHANNEL_LIGHT_AMBIENT));
+    srVertexPipe::Input input{};
+    input.vertex_count = positions.size();
+    input.active_vertices = indices.data();
+    input.direct_vertex_indices = 1;
+    input.positions = positions.data();
+    input.model_view = input.normal_matrix = &identity;
+    input.vertex_arrays = &arrays;
+    input.records = {&record, 1};
+    input.processors = &processor;
+    input.processor_count = 1;
+    input.environment_maximum = 100;
+    input.environment_inverse_scale = 1;
+    srVertexPipe pipe;
+    for (unsigned operations = 0; operations < 32; ++operations) {
+        for (unsigned bit = 0; bit < 5; ++bit) {
+            auto operation = static_cast<srMaterial::e_oper>(bit);
+            if (operations & (1u << bit)) material.enable(operation);
+            else material.disable(operation);
+        }
+        pipe.process(input);
+        float diffuse_value = 0.25f, specular_value = 0.5f;
+        if (operations & (1u << srMaterial::OPER_DIFFUSE_SPECULAR)) {
+            std::swap(diffuse_value, specular_value);
+        } else if (operations & (1u << srMaterial::OPER_DIFFUSE)) {
+            specular_value = diffuse_value;
+        } else if (operations & (1u << srMaterial::OPER_SPECULAR)) {
+            diffuse_value = specular_value;
+        }
+        for (unsigned i = 0; i < positions.size(); ++i) {
+            CAPTURE(operations, i);
+            const float depth = 1 - float(i + 1) / 100;
+            const float color_scale = operations & (1u << srMaterial::OPER_DEPTH_CUE) ? depth : 1;
+            const float alpha_scale = operations & (1u << srMaterial::OPER_ALPHA) ? depth : 1;
+            REQUIRE(std::abs(diffuse[i].x - diffuse_value * color_scale) < 1e-6f);
+            REQUIRE(std::abs(specular[i].x - specular_value * color_scale) < 1e-6f);
+            REQUIRE(std::abs(diffuse[i].w - 0.8f * alpha_scale) < 1e-6f);
+        }
+    }
+    return true;
+}
+
 bool rendererOwnership()
 {
     {
@@ -365,6 +628,9 @@ TEST_CASE("renderer_ownership_test")
         REQUIRE(recursiveSceneGraph());
         REQUIRE(processorOwnership());
         REQUIRE(rendererOwnership());
+        REQUIRE(materialChannelOperations());
+        REQUIRE(coverageFinalization());
+        REQUIRE(distanceProfiles());
         REQUIRE(pipelineRecordTexcoords());
         REQUIRE(srExit());
         REQUIRE(srGERD::getFirst() == nullptr);

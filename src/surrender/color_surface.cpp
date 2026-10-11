@@ -210,106 +210,56 @@ void srColorSurfaceIFace::setLine(w8_long x0, w8_long y0, w8_long x1, w8_long y1
         setHLine(y0, x0, x1, pixel);
         return;
     }
-    w8_long width = this->width;
-    w8_long height = this->height;
-    if ((dy < 0 ? -dy : dy) < (dx < 0 ? -dx : dx)) {
-        w8_long last_x = x1;
-        w8_long last_y = y1;
-        if (dx < 0) {
-            last_x = x0;
-            last_y = y0;
-            y0 = y1;
-            x0 = x1;
+    const bool x_major = std::abs(dy) < std::abs(dx);
+    w8_long major = x_major ? x0 : y0;
+    w8_long minor = x_major ? y0 : x0;
+    w8_long last_major = x_major ? x1 : y1;
+    w8_long last_minor = x_major ? y1 : x1;
+    const w8_long major_delta = x_major ? dx : dy;
+    const w8_long minor_delta = x_major ? dy : dx;
+    if (major_delta < 0) {
+        std::swap(major, last_major);
+        std::swap(minor, last_minor);
+    }
+    const w8_long major_limit = x_major ? width : height;
+    const w8_long minor_limit = (x_major ? height : width) - 1;
+    const w8_long high_minor = std::max(minor, last_minor);
+    const w8_long low_minor = std::min(minor, last_minor);
+    // The vertical-major path requires both minor endpoints inside the surface;
+    // the horizontal-major path accepts an intersecting minor range.
+    const bool minor_visible = x_major ? high_minor >= 0 && low_minor <= minor_limit
+                                       : low_minor >= 0 && high_minor <= minor_limit;
+    if (last_major < 0 || major >= major_limit || !minor_visible) return;
+
+    const float gradient = static_cast<float>(minor_delta) / major_delta;
+    const w8_long step = static_cast<w8_long>(gradient * 65536.0);
+    if (major < 0) {
+        minor = static_cast<w8_long>(minor - major * gradient);
+        major = 0;
+    }
+    if (minor < last_minor) {
+        if (minor < 0) {
+            major -= static_cast<w8_long>(minor / gradient);
+            minor = 0;
         }
-        w8_long high_y = last_y;
-        w8_long low_y = y0;
-        if (last_y <= y0) {
-            high_y = y0;
-            low_y = last_y;
-        }
-        height = height - 1;
-        if ((-1 < last_x) && (x0 < width) && (-1 < high_y) && (low_y <= height)) {
-            float gradient = (float)dy / dx;
-            w8_long step = (w8_long)(gradient * 65536.0);
-            if (x0 < 0) {
-                y0 = (w8_long)(y0 - x0 * gradient);
-                x0 = 0;
-            }
-            if (y0 < last_y) {
-                if (y0 < 0) {
-                    x0 = x0 - (w8_long)(y0 / gradient);
-                    y0 = 0;
-                }
-                if (height <= last_y) {
-                    last_x = (w8_long)(last_x - (last_y - (float)height) / gradient);
-                }
-            } else {
-                if (last_y < 0) {
-                    last_x = last_x - (w8_long)(last_y / gradient);
-                }
-                if (height <= y0) {
-                    x0 = (w8_long)(x0 - (y0 - (float)height) / gradient);
-                    y0 = height;
-                }
-            }
-            if (width < last_x) {
-                last_x = width;
-            }
-            w8_long y_fixed = y0 << 0x10;
-            for (; x0 < last_x; x0 = x0 + 1) {
-                setPixel(x0, (y_fixed + (y_fixed >> 0x1f & 0xffff)) >> 0x10, pixel);
-                y_fixed = y_fixed + step;
-            }
+        if (minor_limit <= last_minor) {
+            last_major = static_cast<w8_long>(last_major -
+                (last_minor - static_cast<float>(minor_limit)) / gradient);
         }
     } else {
-        w8_long last_y = x1;
-        w8_long last_x = y1;
-        if (dy < 0) {
-            last_y = x0;
-            last_x = y0;
-            y0 = y1;
-            x0 = x1;
+        if (last_minor < 0) last_major -= static_cast<w8_long>(last_minor / gradient);
+        if (minor_limit <= minor) {
+            major = static_cast<w8_long>(major -
+                (minor - static_cast<float>(minor_limit)) / gradient);
+            minor = minor_limit;
         }
-        w8_long high_x = last_y;
-        w8_long low_x = x0;
-        if (last_y <= x0) {
-            high_x = x0;
-            low_x = last_y;
-        }
-        width = width - 1;
-        if (((-1 < low_x) && (high_x <= width) && (-1 < last_x)) && (y0 < height)) {
-            float gradient = dx / (float)dy;
-            w8_long step = (w8_long)(gradient * 65536.0);
-            if (y0 < 0) {
-                x0 = (w8_long)(x0 - y0 * gradient);
-                y0 = 0;
-            }
-            if (x0 < last_y) {
-                if (x0 < 0) {
-                    y0 = y0 - (w8_long)(x0 / gradient);
-                    x0 = 0;
-                }
-                if (width <= last_y) {
-                    last_x = (w8_long)(last_x - (last_y - (float)width) / gradient);
-                }
-            } else {
-                if (last_y < 0) {
-                    last_x = last_x - (w8_long)(last_y / gradient);
-                }
-                if (width <= x0) {
-                    y0 = (w8_long)(y0 - (x0 - (float)width) / gradient);
-                    x0 = width;
-                }
-            }
-            if (height < last_x) {
-                last_x = height;
-            }
-            w8_long x_fixed = x0 << 0x10;
-            for (; y0 < last_x; y0 = y0 + 1) {
-                setPixel((x_fixed + (x_fixed >> 0x1f & 0xffff)) >> 0x10, y0, pixel);
-                x_fixed = x_fixed + step;
-            }
-        }
+    }
+    last_major = std::min(last_major, major_limit);
+    w8_long minor_fixed = minor << 16;
+    for (; major < last_major; ++major) {
+        const w8_long coordinate = (minor_fixed + (minor_fixed >> 31 & 0xffff)) >> 16;
+        setPixel(x_major ? major : coordinate, x_major ? coordinate : major, pixel);
+        minor_fixed += step;
     }
 }
 

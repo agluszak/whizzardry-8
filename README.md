@@ -257,3 +257,27 @@ packed NPC/group pointer codecs retain their four-byte format fields.
 
 Third-party source licenses, including the SGP license, remain with
 their respective sources.
+
+## Duplication scans
+
+Use jscpd 5.4.1 or newer. `.jscpd.json` scans first-party source, ignores comments,
+normalizes identifiers and literals, joins gaps of up to two lines, and compares
+function structure at 0.8 similarity. Findings are review candidates; repeated
+tables and similar code with different behavior should be triaged before merging.
+
+```sh
+jscpd
+```
+
+The experimental semantic matcher runs CodeRankEmbed locally. Download its model
+once, then start with a subsystem to keep the first embedding pass bounded.
+Unchanged functions reuse cached embeddings on subsequent scans. The configuration
+uses the model's calibrated 0.6375 threshold for comparisons within one language.
+
+```sh
+jscpd --semantic-download
+jscpd --semantic src/surrender/material.cpp src/surrender/vertex_pipe.cpp
+```
+
+AI and JSON reports go to `build/jscpd`. Semantic matching is opt-in so ordinary
+scans remain fast.

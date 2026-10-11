@@ -347,43 +347,6 @@ static std::ostream& operator<<(std::ostream& stream, const srVector3T<double>& 
     return stream << '{' << vector.x << ',' << vector.y << ',' << vector.z << '}';
 }
 
-static void dumpFlags(std::ostream& stream, w8_ulong flags, const char* names)
-{
-    if (flags == 0) {
-        stream << "[NONE]";
-        return;
-    }
-    stream << '[';
-    bool first = true;
-    for (w8_ulong bit = 0; bit < 0x20; ++bit) {
-        if ((flags & (1 << bit)) != 0) {
-            if (first) {
-                first = false;
-            } else {
-                stream << ',';
-            }
-            if (names == 0 || *names == 0) {
-                stream << bit;
-            } else {
-                while (*names != 0 && *names != ',') {
-                    stream << *names++;
-                }
-                if (*names == ',') {
-                    ++names;
-                }
-            }
-        } else if (names != 0) {
-            while (*names != 0 && *names != ',') {
-                ++names;
-            }
-            if (*names == ',') {
-                ++names;
-            }
-        }
-    }
-    stream << ']';
-}
-
 // FUNCTION: SURRENDER 0x100513C0
 void srNode::dump(std::ostream& stream)
 {
@@ -425,11 +388,11 @@ void srNode::dump(std::ostream& stream)
            << '\n';
     stream.width(0x20);
     stream << "  Flags: ";
-    dumpFlags(stream, this->flags.value, s_flag_names1);
+    srDumpFlags(stream, this->flags.value, s_flag_names1);
     stream << '\n';
     stream.width(0x20);
     stream << "  Notify: ";
-    dumpFlags(stream, notifications.value, s_notify_names);
+    srDumpFlags(stream, notifications.value, s_notify_names);
     stream << '\n';
     srSetStreamFlags(stream, flags & 0x7fff);
 }

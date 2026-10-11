@@ -51,14 +51,8 @@ static int FindNpcStockItem(W8NpcState* npc, int item_id)
 
 static unsigned char GetNpcStockQuantity(W8NpcState* npc, int item_id)
 {
-    unsigned int count = (npc->items ? npc->items->size() : 0);
-    for (unsigned int index = 0; index < count; ++index) {
-        W8NpcItemEntry* entry = (*npc->items)[index];
-        if (entry != 0 && entry->item.iItemNo == item_id) {
-            return entry->quantity;
-        }
-    }
-    return 0;
+    const int index = FindNpcStockItem(npc, item_id);
+    return index >= 0 ? (*npc->items)[index]->quantity : 0;
 }
 
 static unsigned char GetNpcConfiguredStockQuantity(W8NpcState* npc, int item_id)

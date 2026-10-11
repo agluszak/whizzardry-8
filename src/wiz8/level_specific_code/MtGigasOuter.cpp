@@ -17,7 +17,6 @@
 #include "wiz8/cursor.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/float_constants.h"
-#include "wiz8/sr_api.h"
 #include "surrender/srCamera.h"
 #include "glm/ext/vector_float3.hpp"
 #include "layouts/world.h"
@@ -103,11 +102,7 @@ bool OnCrankTriggerActivated(Trigger* trigger)
         return true;
     }
     if (value >= 100 && value < 1000) {
-        pFlagTrigger = FindTriggerByName("flag");
-        if (pFlagTrigger == 0) {
-            srAssertFail("pFlagTrigger", MTGIGASOUTER_CPP, 0x54,
-                         "Missing trigger 'flag'! It's not in the LVL file!");
-        }
+        pFlagTrigger = FindRequiredTriggerByName("flag");
         prop = pFlagTrigger->GetProp();
         prop->GetPosition(&position);
         position.y = LIFT_PARKED_Y;
@@ -157,11 +152,7 @@ void ControlLiftGate(int command)
         if (command != static_cast<int>(0xEFFFFFFF)) {
             value = command;
         }
-        pFlagTrigger = FindTriggerByName("flag");
-        if (pFlagTrigger == 0) {
-            srAssertFail("pFlagTrigger", MTGIGASOUTER_CPP, 0x95,
-                         "Missing trigger 'flag'! It's not in the LVL file!");
-        }
+        pFlagTrigger = FindRequiredTriggerByName("flag");
         g_lift_prop = pFlagTrigger->GetProp();
         g_lift_prop->GetPosition(&position);
         if (value < 100) {
@@ -218,6 +209,23 @@ bool OnSecurityButtonActivated(Trigger* trigger)
     return true;
 }
 
+
+bool PrepareUmpaniAlarmCommand(int command, const char* variable, W8IntervalGate* gate)
+{
+    g_remove_current_master_function = false;
+    if (command == 0) {
+        return false;
+    }
+    if (GetLocationVarIDByName(variable) == -1) {
+        CreateLocationVar(variable, 30);
+    }
+    if (command != -1) {
+        return false;
+    }
+    SetTriggerVariableByName(variable, gate ? static_cast<int>(gate->GetElapsedSeconds()) : 0);
+    return true;
+}
+
 /* The camp alarm's master function, same shape as ControlLiftGate: command
    zero ticks the alarm gate while registered, -1 writes the remaining
    seconds into UmpaniCampAlarm, and any other command plays Alarm1.wav at
@@ -228,21 +236,10 @@ void ControlCampAlarm(int command)
 {
     srVector3T<float> position;
 
-    g_remove_current_master_function = false;
+    if (PrepareUmpaniAlarmCommand(command, "UmpaniCampAlarm", g_mt_gigas_outer_alarm_gate)) {
+        return;
+    }
     if (command != 0) {
-        if (GetLocationVarIDByName("UmpaniCampAlarm") == -1) {
-            CreateLocationVar("UmpaniCampAlarm", 0x1e);
-        }
-        if (command == -1) {
-            if (g_mt_gigas_outer_alarm_gate == 0) {
-                SetTriggerVariableByName("UmpaniCampAlarm", 0);
-            } else {
-                SetTriggerVariableByName(
-                    "UmpaniCampAlarm",
-                    static_cast<int>(g_mt_gigas_outer_alarm_gate->GetElapsedSeconds()));
-            }
-            return;
-        }
         position = glm::vec3(GetWorld()->camera->getLocation());
         if (static_cast<unsigned int>(command) > 0x1e) {
             command = 0x1e;
@@ -277,13 +274,7 @@ void ControlCampAlarm(int command)
 // FUNCTION: WIZ8 0x004DC600
 bool OnSentryTriggerActivated(Trigger* trigger)
 {
-    W8NpcState* npc = GetNpcStateByKind(0x59);
-    W8ItemInstance* item = 0;
-
-    if (g_status.item_in_cursor) {
-        item = &g_status.item_in_hand;
-    }
-    QueueNpcScriptNotice(npc, item, -1, false, 0);
+    QueueNpcHeldItemNotice(0x59);
     g_trigger_feedback = true;
     return true;
 }

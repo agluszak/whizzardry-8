@@ -7,8 +7,6 @@
 #include "wiz8/engine_code/GDProp.h"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_screens/NPCInteractionSubscreen.h"
-#include "wiz8/layouts/game_status.h"
 #include "wiz8/xstatus.h"
 #include "surrender/srCamera.h"
 #include "soundman.h"
@@ -78,13 +76,7 @@ bool MtGigas1Lift1(Trigger* pTrigger)
     if (gXStatus.fNpcDialogueMode) {
         return false;
     }
-    W8NpcState* npc = GetNpcStateByKind(0x5d);
-    W8ItemInstance* item = 0;
-
-    if (g_status.item_in_cursor) {
-        item = &g_status.item_in_hand;
-    }
-    QueueNpcScriptNotice(npc, item, -1, false, 0);
+    QueueNpcHeldItemNotice(0x5d);
     g_trigger_feedback = true;
     return false;
 }
@@ -97,13 +89,7 @@ bool MtGigas1Lift2(Trigger* pTrigger)
     if (gXStatus.fNpcDialogueMode) {
         return false;
     }
-    W8NpcState* npc = GetNpcStateByKind(0x5e);
-    W8ItemInstance* item = 0;
-
-    if (g_status.item_in_cursor) {
-        item = &g_status.item_in_hand;
-    }
-    QueueNpcScriptNotice(npc, item, -1, false, 0);
+    QueueNpcHeldItemNotice(0x5e);
     g_trigger_feedback = true;
     return false;
 }

@@ -9,6 +9,7 @@
 #include "glm/geometric.hpp"
 #include "glm/vector_relational.hpp"
 #include "surrender/srVertexPipe.h"
+#include "surrender/channel_math.h"
 #include "surrender/srCore.h"
 #include "surrender/srMaterialIFace.h"
 #include "surrender/srShader.h"
@@ -21,6 +22,16 @@
 #include "surrender/srFlags.h"
 #include "surrender/srStatisticsManager.h"
 #include "surrender/srVertexProcessor.h"
+
+// Opacity and fog coverage occupy colour alpha after their own channel setup.
+// Some paths clamp coverage before scaling; others clamp the completed colour.
+static void ScaleAndStoreCoverage(std::span<float> values, glm::vec4* colors,
+                                  float scale, bool clamp_values)
+{
+    if (clamp_values) srChannelMath::clamp(values);
+    srChannelMath::scale(values, scale);
+    for (std::size_t index = 0; index < values.size(); ++index) colors[index].w = values[index];
+}
 
 // FUNCTION: SURRENDER 0x1002AA50
 srFlags<srVertexProcessor::e_channel> srVertexPipe::getShaderDisableMask(const srShader& shader)
@@ -343,21 +354,8 @@ void srVertexPipe::finishDiffuseAlpha()
                 setupAlpha();
             }
             alpha = scratch.alpha + sub_batch_offset;
-            if ((channel_mask & (1UL << srVertexProcessor::CHANNEL_DIFFUSE)) == 0) {
-                for (std::size_t i = 0; i < vertex_count; ++i)
-                    alpha[i] = glm::clamp(alpha[i], 0.0f, 1.0f);
-            }
-            float opacity = material_info.diffuse.w;
-            if ((vertex_count != 0) && (opacity != 1.0f)) {
-                if (opacity == 0.0f) {
-                    std::fill_n(alpha, vertex_count, 0.0f);
-                } else {
-                    for (std::size_t i = 0; i < vertex_count; ++i)
-                        alpha[i] = opacity * alpha[i];
-                }
-            }
-            for (std::size_t i = 0; i < vertex_count; ++i)
-                diffuse[i].w = alpha[i];
+            ScaleAndStoreCoverage({alpha, vertex_count}, diffuse, material_info.diffuse.w,
+                                  (channel_mask & (1UL << srVertexProcessor::CHANNEL_DIFFUSE)) == 0);
         }
     }
     if (((channel_mask & (1UL << srVertexProcessor::CHANNEL_DIFFUSE)) != 0) &&
@@ -398,19 +396,7 @@ void srVertexPipe::finishSpecularFog()
                 setupFog();
             }
             float* fog = scratch.fog + sub_batch_offset;
-            for (std::size_t i = 0; i < vertex_count; ++i)
-                fog[i] = glm::clamp(fog[i], 0.0f, 1.0f);
-            float scale = material_info.fog_scale;
-            if ((vertex_count != 0) && (scale != 1.0f)) {
-                if (scale == 0.0f) {
-                    std::fill_n(fog, vertex_count, 0.0f);
-                } else {
-                    for (std::size_t i = 0; i < vertex_count; ++i)
-                        fog[i] = scale * fog[i];
-                }
-            }
-            for (std::size_t i = 0; i < vertex_count; ++i)
-                destination[i].w = fog[i];
+            ScaleAndStoreCoverage({fog, vertex_count}, destination, material_info.fog_scale, true);
         }
     } else {
         srCore.getStatisticsManager()->statistics.specular_operations += vertex_count;
@@ -423,17 +409,7 @@ void srVertexPipe::finishSpecularFog()
                 setupFog();
             }
             float* fog = scratch.fog + sub_batch_offset;
-            float scale = material_info.fog_scale;
-            if ((vertex_count != 0) && (scale != 1.0f)) {
-                if (scale == 0.0f) {
-                    std::fill_n(fog, vertex_count, 0.0f);
-                } else {
-                    for (std::size_t i = 0; i < vertex_count; ++i)
-                        fog[i] = scale * fog[i];
-                }
-            }
-            for (std::size_t i = 0; i < vertex_count; ++i)
-                destination[i].w = fog[i];
+            ScaleAndStoreCoverage({fog, vertex_count}, destination, material_info.fog_scale, false);
         }
         if (vertex_count != 0) {
             for (std::size_t i = 0; i < vertex_count; ++i)
@@ -527,11 +503,7 @@ void srVertexPipe::applyFog(const float* values)
 // FUNCTION: SURRENDER 0x1002BCC0
 void srVertexPipe::applyDiffuseLight(const float* values, const glm::vec4& light)
 {
-    srCore.getStatisticsManager()->statistics.diffuse_operations += vertex_count;
-    if ((lazy_setup_mask & (1UL << srVertexProcessor::CHANNEL_DIFFUSE)) == 0) {
-        setupDiffuse();
-    }
-    glm::vec4* diffuse = vertex_array->diffuse + batch_base + sub_batch_offset;
+    glm::vec4* diffuse = getDiffuse();
     for (w8_ulong i = 0; i < vertex_count; ++i)
         diffuse[i] = diffuse[i] + light * values[i];
 }
@@ -539,37 +511,23 @@ void srVertexPipe::applyDiffuseLight(const float* values, const glm::vec4& light
 // FUNCTION: SURRENDER 0x1002BD30
 void srVertexPipe::copySpecularToDiffuse()
 {
-    srCore.getStatisticsManager()->statistics.specular_operations += vertex_count;
-    if ((lazy_setup_mask & (1UL << srVertexProcessor::CHANNEL_SPECULAR)) == 0) {
-        setupSpecular();
+    glm::vec4* source = getSpecular();
+    glm::vec4* destination = vertex_array->diffuse + batch_base + sub_batch_offset;
+    if (source != destination) {
+        std::copy_n(source, vertex_count, destination);
     }
-    w8_ulong offset = batch_base + sub_batch_offset;
-    glm::vec4* specular = vertex_array->specular + offset;
-    glm::vec4* diffuse = vertex_array->diffuse + offset;
-    if (((vertex_count * 4) != 0) && (diffuse != specular)) {
-        std::copy_n(specular, vertex_count, diffuse);
-        lazy_setup_mask |= (1UL << srVertexProcessor::CHANNEL_DIFFUSE);
-        return;
-    }
-    lazy_setup_mask |= (1UL << srVertexProcessor::CHANNEL_DIFFUSE);
+    lazy_setup_mask |= 1u << srVertexProcessor::CHANNEL_DIFFUSE;
 }
 
 // FUNCTION: SURRENDER 0x1002BDB0
 void srVertexPipe::copyDiffuseToSpecular()
 {
-    srCore.getStatisticsManager()->statistics.diffuse_operations += vertex_count;
-    if ((lazy_setup_mask & (1UL << srVertexProcessor::CHANNEL_DIFFUSE)) == 0) {
-        setupDiffuse();
+    glm::vec4* source = getDiffuse();
+    glm::vec4* destination = vertex_array->specular + batch_base + sub_batch_offset;
+    if (source != destination) {
+        std::copy_n(source, vertex_count, destination);
     }
-    w8_ulong offset = batch_base + sub_batch_offset;
-    glm::vec4* diffuse = vertex_array->diffuse + offset;
-    glm::vec4* specular = vertex_array->specular + offset;
-    if (((vertex_count * 4) != 0) && (specular != diffuse)) {
-        std::copy_n(diffuse, vertex_count, specular);
-        lazy_setup_mask |= (1UL << srVertexProcessor::CHANNEL_SPECULAR);
-        return;
-    }
-    lazy_setup_mask |= (1UL << srVertexProcessor::CHANNEL_SPECULAR);
+    lazy_setup_mask |= 1u << srVertexProcessor::CHANNEL_SPECULAR;
 }
 
 // FUNCTION: SURRENDER 0x1002BE30
@@ -595,11 +553,7 @@ void srVertexPipe::swapDiffuseAndSpecular()
 // FUNCTION: SURRENDER 0x1002BEC0
 void srVertexPipe::applyDiffuseLight(const glm::vec4& light)
 {
-    srCore.getStatisticsManager()->statistics.diffuse_operations += vertex_count;
-    if ((lazy_setup_mask & (1UL << srVertexProcessor::CHANNEL_DIFFUSE)) == 0) {
-        setupDiffuse();
-    }
-    glm::vec4* diffuse = vertex_array->diffuse + batch_base + sub_batch_offset;
+    glm::vec4* diffuse = getDiffuse();
     for (std::size_t i = 0; i < vertex_count; ++i)
         diffuse[i] = light + diffuse[i];
 }
@@ -705,27 +659,8 @@ void srVertexPipe::setupDepthCue()
             }
         }
         float scale = 1.0f / (maximum - minimum);
-        if (count != 0) {
-            if (scale != 1.0f) {
-                if (scale == 0.0f) {
-                    std::fill_n(depth_cue, count, 0.0f);
-                } else {
-                    for (std::size_t i = 0; i < count; ++i)
-                        depth_cue[i] = scale * depth_cue[i];
-                }
-            }
-            for (std::size_t i = 0; i < count; ++i)
-                depth_cue[i] = glm::clamp(depth_cue[i], 0.0f, 1.0f);
-        }
         float range = near_value - far_value;
-        if (((range != 1.0f) && (count != 0)) && (range != 1.0f)) {
-            if (range == 0.0f) {
-                std::fill_n(depth_cue, count, 0.0f);
-            } else {
-                for (std::size_t i = 0; i < count; ++i)
-                    depth_cue[i] = range * depth_cue[i];
-            }
-        }
+        srChannelMath::normalize({depth_cue, count}, scale, range);
         if (((near_value != 1.0f) && (count != 0)) && (1.0f - near_value != 0.0f)) {
             for (std::size_t i = 0; i < count; ++i)
                 depth_cue[i] = (1.0f - near_value) + depth_cue[i];

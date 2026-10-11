@@ -1,5 +1,7 @@
+#include <algorithm>
 #include <glm/ext/quaternion_trigonometric.hpp>
 #include <glm/gtc/quaternion.hpp>
+#include <utility>
 #include <vector>
 #include <memory>
 
@@ -93,137 +95,82 @@ static bool AppendQuadRow(w8_long left, w8_long right, w8_long max_x, w8_long ro
     return left <= right;
 }
 
-/* Scans the upper half of a cell-space triangle: a flat top edge between
-   (x1,y1) and (x2,y2) converging to the apex (x3,y3). Each emitted row is
-   padded one cell outward on both sides. skip_boundary suppresses the first
-   row when the lower half already emitted it. */
+struct QuadRowEdges {
+    float left;
+    float right;
+    float left_step;
+    float right_step;
+};
+
+static int ScanQuadTriangleRows(W8World* world, w8_long first_row, w8_long last_row,
+                                QuadRowEdges edges, bool clip_x, bool skip_boundary,
+                                w8_long* x_list, w8_long* y_list, w8_long* count)
+{
+    if (first_row < 0) {
+        edges.left -= first_row * edges.left_step;
+        edges.right -= first_row * edges.right_step;
+        first_row = 0;
+    }
+    last_row = std::min(last_row, static_cast<w8_long>(world->quads->column_count) - 1);
+    const w8_long max_x = static_cast<w8_long>(world->quads->row_count) - 1;
+    int emitted = 0;
+    for (w8_long row = first_row; row <= last_row; ++row) {
+        if (!clip_x && skip_boundary && row == first_row) {
+            edges.left += edges.left_step;
+            edges.right += edges.right_step;
+            continue;
+        }
+        w8_long left = static_cast<w8_long>(edges.left);
+        w8_long right = static_cast<w8_long>(edges.right);
+        if (clip_x) {
+            edges.left += edges.left_step;
+            edges.right += edges.right_step;
+            if (left < 0) {
+                left = 0;
+                if (right < 0) continue;
+            }
+            if (right > max_x) {
+                right = max_x;
+                if (left > max_x) continue;
+            }
+            if (skip_boundary && row == first_row) continue;
+            if (AppendQuadRow(left, right, max_x, row, x_list, y_list, count)) emitted = 1;
+        } else {
+            AppendQuadRow(left, right, max_x, row, x_list, y_list, count);
+            edges.left += edges.left_step;
+            edges.right += edges.right_step;
+            emitted = 1;
+        }
+    }
+    return emitted;
+}
+
+/* Scan a flat top edge converging to the apex, optionally skipping its first row. */
 // FUNCTION: WIZ8 0x004BA800
 static void ScanQuadTriangleTop(W8World* world, w8_long x1, w8_long y1, w8_long x2, w8_long y2, w8_long x3,
                                 w8_long y3, w8_long* x_list, w8_long* y_list, w8_long* count, int skip_boundary)
 {
-    if (x2 < x1) {
-        w8_long temp = x1;
-        x1 = x2;
-        x2 = temp;
-    }
-    w8_long row = y1;
-    float left_step = (x3 - x1) / static_cast<float>(y3 - y1);
-    float right_step = (x3 - x2) / static_cast<float>(y3 - y1);
-    float left_edge = x1;
-    float right_edge = x2 + 0.5f;
-    if (row < 0) {
-        left_edge -= row * left_step;
-        right_edge -= row * right_step;
-        row = y1 = 0;
-    }
-    w8_long max_row = static_cast<w8_long>(world->quads->column_count) - 1;
-    if (y3 > max_row) {
-        y3 = max_row;
-    }
-    w8_long max_x = static_cast<w8_long>(world->quads->row_count) - 1;
-
-    if (x1 < 0 || x1 > max_x || x2 < 0 || x2 > max_x || x3 < 0 || x3 > max_x) {
-        for (; row <= y3; ++row) {
-            w8_long left = static_cast<w8_long>(left_edge);
-            w8_long right = static_cast<w8_long>(right_edge);
-            left_edge += left_step;
-            right_edge += right_step;
-            if (left < 0) {
-                left = 0;
-                if (right < 0) {
-                    continue;
-                }
-            }
-            if (right > max_x) {
-                right = max_x;
-                if (left > max_x) {
-                    continue;
-                }
-            }
-            if (row < 0) {
-                continue;
-            }
-            if (skip_boundary && row == y1) {
-                continue;
-            }
-            AppendQuadRow(left, right, max_x, row, x_list, y_list, count);
-        }
-        return;
-    }
-    for (; row <= y3; ++row) {
-        if (!skip_boundary || row != y1) {
-            w8_long right = static_cast<w8_long>(right_edge);
-            w8_long left = static_cast<w8_long>(left_edge);
-            AppendQuadRow(left, right, max_x, row, x_list, y_list, count);
-        }
-        left_edge += left_step;
-        right_edge += right_step;
-    }
+    if (x2 < x1) std::swap(x1, x2);
+    const float height = static_cast<float>(y3 - y1);
+    const w8_long max_x = static_cast<w8_long>(world->quads->row_count) - 1;
+    const bool clip_x = x1 < 0 || x1 > max_x || x2 < 0 || x2 > max_x || x3 < 0 || x3 > max_x;
+    ScanQuadTriangleRows(world, y1, y3,
+        {static_cast<float>(x1), x2 + 0.5f, (x3 - x1) / height, (x3 - x2) / height},
+        clip_x, skip_boundary != 0, x_list, y_list, count);
 }
 
-/* Scans the lower half of a cell-space triangle: the apex (x1,y1) fanning out
-   to the flat base between (x2,y2) and (x3,y3). Each emitted row is padded one
-   cell outward on both sides. Returns whether any row survived clipping. */
+/* Scan an apex fanning out to a flat base, returning whether a row survived clipping. */
 // FUNCTION: WIZ8 0x004BAA00
 static int ScanQuadTriangleBase(W8World* world, w8_long x1, w8_long y1, w8_long x2, w8_long y2, w8_long x3,
                                 w8_long y3, w8_long* x_list, w8_long* y_list, w8_long* count)
 {
-    int emitted = 0;
-    w8_long x_left = x2;
-    w8_long x_right = x3;
-    if (x_right < x_left) {
-        x_left = x3;
-        x_right = x2;
-    }
-    w8_long row = y1;
-    float left_step = (x_left - x1) / static_cast<float>(y3 - y1);
-    float right_step = (x_right - x1) / static_cast<float>(y3 - y1);
-    float left_edge = x1;
-    float right_edge = x1 + 0.5f;
-    if (row < 0) {
-        left_edge -= row * left_step;
-        right_edge -= row * right_step;
-        row = 0;
-    }
-    w8_long max_row = static_cast<w8_long>(world->quads->column_count) - 1;
-    if (y3 > max_row) {
-        y3 = max_row;
-    }
-    w8_long max_x = static_cast<w8_long>(world->quads->row_count) - 1;
-
-    if (x1 < 0 || x1 > max_x || x_left < 0 || x_left > max_x || x_right < 0 || x_right > max_x) {
-        for (; row <= y3; ++row) {
-            w8_long left = static_cast<w8_long>(left_edge);
-            w8_long right = static_cast<w8_long>(right_edge);
-            left_edge += left_step;
-            right_edge += right_step;
-            if (left < 0) {
-                left = 0;
-                if (right < 0) {
-                    continue;
-                }
-            }
-            if (right > max_x) {
-                right = max_x;
-                if (left > max_x) {
-                    continue;
-                }
-            }
-            if (AppendQuadRow(left, right, max_x, row, x_list, y_list, count)) {
-                emitted = 1;
-            }
-        }
-        return emitted;
-    }
-    for (; row <= y3; ++row) {
-        w8_long right = static_cast<w8_long>(right_edge);
-        w8_long left = static_cast<w8_long>(left_edge);
-        AppendQuadRow(left, right, max_x, row, x_list, y_list, count);
-        left_edge += left_step;
-        right_edge += right_step;
-        emitted = 1;
-    }
-    return emitted;
+    if (x3 < x2) std::swap(x2, x3);
+    const float height = static_cast<float>(y3 - y1);
+    const w8_long max_x = static_cast<w8_long>(world->quads->row_count) - 1;
+    const bool clip_x = x1 < 0 || x1 > max_x || x2 < 0 || x2 > max_x || x3 < 0 || x3 > max_x;
+    return ScanQuadTriangleRows(world, y1, y3,
+        {static_cast<float>(x1), x1 + 0.5f, (x2 - x1) / height, (x3 - x1) / height},
+        clip_x, false, x_list, y_list, count);
 }
 
 /* Rasterizes a cell-space triangle into (x,y) coordinate pairs: sorts the

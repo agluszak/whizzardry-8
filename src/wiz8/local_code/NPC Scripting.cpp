@@ -66,7 +66,6 @@
 #include "wiz8/regions.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/xstatus.h"
-#include "wiz8/sr_api.h"
 #include "Types.h"
 #include "compat/native.h"
 #include "compat/ptr32.h"
@@ -1464,11 +1463,7 @@ void ProcessMessageBoxQueue(void)
         break;
     }
     case W8_NPC_MSG_MILANO_RAT_DOOR: {
-        Trigger* door = FindTriggerByName("RatDoor02");
-        if (door == 0) {
-            srAssertFail("pDoor", "C:\\Projects\\Wizardry 8\\Local Code\\NPC Scripting.cpp", 0x7b6,
-                         0);
-        }
+        Trigger* door = FindRequiredTriggerByName("RatDoor02");
         door->CompleteItemInteraction();
         EndNpcDialogueSession(false);
         SetMonsterGroupScript(0xcf, "Milano.msf", 0x7c1);

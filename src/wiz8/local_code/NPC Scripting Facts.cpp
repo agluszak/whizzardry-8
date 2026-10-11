@@ -180,10 +180,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         }
         return;
     case W8_FACT_ALIGNMENT_TRANG:
-        trigger = FindTriggerByName("ZaHealthDoor");
-        if (trigger == 0) {
-            srAssertFail("pTrigger", NPC_SCRIPTING_FACTS_CPP, 0x640, 0);
-        }
+        trigger = FindRequiredTriggerByName("ZaHealthDoor");
         trigger->Run(-1);
         return;
     case W8_FACT_RFS81_HAS_BEEN_FIXED:

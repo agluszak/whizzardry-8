@@ -1,6 +1,7 @@
 #include <SDL3/SDL_rect.h>
 #include <fmt/format.h>
 #include <string>
+#include <initializer_list>
 #include <vector>
 #include <algorithm>
 #include <variant>
@@ -127,16 +128,24 @@ static void ShowMipeNamedCategory(std::vector<W8MipeCategoryEntry>* list,
    state and tears the editor state down; entering it clears combat flags,
    prints the mode menu and builds the monster entry list. */
 // FUNCTION: WIZ8 0x0057d740
-static void ShowMipeMainMenu()
+static void ShowMipeMenu(std::string_view title, std::initializer_list<std::string_view> rows)
 {
     ResetEditorStatusLine(-1);
-    ShowNotice(W8_FONT_PALETTE_PINK, "What would you like to do?");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "1) Create a monster.");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "2) Create an item.");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "3) Edit object(s).");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "4) Monster Generators.");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "5) Select object(s).");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "6) Handle triggers.");
+    ShowNotice(W8_FONT_PALETTE_PINK, title);
+    for (auto row : rows) {
+        ShowNotice(W8_FONT_PALETTE_TEXT_BOX, row);
+    }
+}
+
+static void ShowMipeMainMenu()
+{
+    ShowMipeMenu("What would you like to do?", {
+        "1) Create a monster.",
+        "2) Create an item.",
+        "3) Edit object(s).",
+        "4) Monster Generators.",
+        "5) Select object(s).",
+        "6) Handle triggers."});
 }
 
 void ToggleMipePanel(void)
@@ -397,38 +406,35 @@ void ShowMipeChooseMenu(void)
 // FUNCTION: WIZ8 0x00577e60
 void ShowMipeEditMenu(void)
 {
-    ResetEditorStatusLine(-1);
-    ShowNotice(W8_FONT_PALETTE_PINK, "What do you want to edit?.");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "1) Monster");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "2) Prop");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "3) Item");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "4) Move object(s)");
+    ShowMipeMenu("What do you want to edit?.", {
+        "1) Monster",
+        "2) Prop",
+        "3) Item",
+        "4) Move object(s)"});
 }
 
 static void ShowMipeMonsterEditMenu()
 {
-    ResetEditorStatusLine(-1);
-    ShowNotice(W8_FONT_PALETTE_PINK, "Edit Monster");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "1) Slow <<");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "2) Fast >>");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "3) Set Speed");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "4) Assign Path");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "5) Next Cycle");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "6) Direction");
+    ShowMipeMenu("Edit Monster", {
+        "1) Slow <<",
+        "2) Fast >>",
+        "3) Set Speed",
+        "4) Assign Path",
+        "5) Next Cycle",
+        "6) Direction"});
 }
 
 /* Mode-0xd menu: prop field-editing choices (locks & traps, treasure table). */
 // FUNCTION: WIZ8 0x00577eb0
 void ShowMipePropMenu(void)
 {
-    ResetEditorStatusLine(-1);
-    ShowNotice(W8_FONT_PALETTE_PINK, "Choose how you want to edit prop.");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "1) Locks & Traps");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "2) Treasure Table");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "3) .");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "4) .");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "5) .");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "6) .");
+    ShowMipeMenu("Choose how you want to edit prop.", {
+        "1) Locks & Traps",
+        "2) Treasure Table",
+        "3) .",
+        "4) .",
+        "5) .",
+        "6) ."});
 }
 
 /* Mode-0xc menu: trigger actions plus the selected trigger's kind and the
@@ -439,12 +445,11 @@ static void ShowMipeTriggerMenu(void)
     const char* status;
     int kind;
 
-    ResetEditorStatusLine(-1);
-    ShowNotice(W8_FONT_PALETTE_PINK, "Select what you want to do.");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "1) Create trigger.");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "2) Delete trigger.");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "3) ");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "4) Select trigger.");
+    ShowMipeMenu("Select what you want to do.", {
+        "1) Create trigger.",
+        "2) Delete trigger.",
+        "3) ",
+        "4) Select trigger."});
     ShowNotice(W8_FONT_PALETTE_TEXT_BOX, !g_mipe_trigger_display
                                              ? "5) Toggle trigger display [now off]."
                                              : "5) Toggle trigger display [now on].");
@@ -1454,14 +1459,13 @@ void HandleMipePropEditKey(unsigned short key)
    helper name is descriptive; no original standalone spelling survives. */
 static void ShowMipeCubeMenu()
 {
-    ResetEditorStatusLine(-1);
-    ShowNotice(W8_FONT_PALETTE_PINK, "Choose an action:");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "1) Create cube.");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "2) Delete cube.");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "3) Edit cube parameters.");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "4) Move cube.");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "5) Scale cube.");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "6) Select cube.");
+    ShowMipeMenu("Choose an action:", {
+        "1) Create cube.",
+        "2) Delete cube.",
+        "3) Edit cube parameters.",
+        "4) Move cube.",
+        "5) Scale cube.",
+        "6) Select cube."});
 }
 
 /* The volume cube top menu: create, delete, edit parameters, move, scale and
