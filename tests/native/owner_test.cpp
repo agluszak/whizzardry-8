@@ -1486,14 +1486,16 @@ TEST_CASE("Message box owns its buttons and isolates modal input", "[owner]")
     button_image_fixture(assets / "Data" / "Message Box", "GENBUTN4.STI");
     button_image_fixture(assets / "Data" / "Message Box", "Ok.sti", 5, false, 40, 20);
     button_image_fixture(assets / "Data" / "Message Box", "Cancel.sti", 5, false, 40, 20);
-    button_image_fixture(assets / "Data" / "Dialogs", "DialogBackground_dark.STI");
+    button_image_fixture(assets / "Data" / "Dialogs", "DialogBackground.STI");
     g_image_assets.clear();
     w8_native::configure_paths({assets.string(), (directory.path / "user").string(), {}});
     auto* const previous_destination = ButtonDestBuffer;
+    auto saved_frame = std::move(GetFrameBufferSurface());
 
     struct Restore {
         w8_native::Roots roots;
         SGPVSurface* destination;
+        SGPVSurface frame_buffer;
         ~Restore()
         {
             if (IsMessageBoxActive()) {
@@ -1503,10 +1505,16 @@ TEST_CASE("Message box owns its buttons and isolates modal input", "[owner]")
             }
             ShutdownButtonImageManager();
             ButtonDestBuffer = destination;
+            GetFrameBufferSurface() = std::move(frame_buffer);
             g_image_assets.clear();
             w8_native::configure_paths(roots);
         }
-    } restore{previous_roots, previous_destination};
+    } restore{previous_roots, previous_destination, std::move(saved_frame)};
+
+    auto frame = CreateVideoSurface(640, 480, 16);
+    REQUIRE(frame);
+    GetFrameBufferSurface() = std::move(*frame);
+    ButtonDestBuffer = &GetFrameBufferSurface();
 
     REQUIRE(InitializeButtonImageManager());
     TestOwnedRegionHandler screen_handler;
