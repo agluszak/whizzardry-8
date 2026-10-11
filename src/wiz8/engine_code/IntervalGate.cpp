@@ -3,7 +3,6 @@
 #include <cstddef>
 #include <exception>
 
-#include "Types.h"
 #include "wiz8/filesystem.h"
 #include "game_timer.h"
 
@@ -47,13 +46,13 @@ unsigned int W8IntervalGate::PollElapsedIntervals()
 }
 
 // FUNCTION: WIZ8 0x0043a690
-BOOLEAN W8IntervalGate::Load(wiz8::File* handle)
+bool W8IntervalGate::Load(wiz8::File* handle)
 try
 {
     if (!m_flags.one_shot) {
         return W8GameTimer::Load(handle);
     }
-    BOOLEAN loaded = (handle->read(&m_duration_seconds, sizeof(m_duration_seconds)).bytes == static_cast<std::size_t>(sizeof(m_duration_seconds)));
+    bool loaded = (handle->read(&m_duration_seconds, sizeof(m_duration_seconds)).bytes == static_cast<std::size_t>(sizeof(m_duration_seconds)));
     if (loaded != 0) {
         m_start = ReadClock();
         m_duration = static_cast<int>(m_duration_seconds * m_duration_scale * 10000.0f);
@@ -64,7 +63,7 @@ try
 catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x0043a770
-BOOLEAN W8IntervalGate::Save(wiz8::File* handle)
+bool W8IntervalGate::Save(wiz8::File* handle)
 {
     float elapsed;
     if (!m_flags.one_shot) {
@@ -72,7 +71,7 @@ BOOLEAN W8IntervalGate::Save(wiz8::File* handle)
         float progress = static_cast<unsigned int>(sample - m_start) /
                          static_cast<float>(static_cast<unsigned int>(m_end - m_start));
         // The on-disk pair and its OR-combined result mirror W8GameTimer::Load.
-        BOOLEAN saved = (handle->write(&progress, sizeof(progress)), true);
+        bool saved = (handle->write(&progress, sizeof(progress)), true);
         saved |= (handle->write(&m_duration_scale, sizeof(m_duration_scale)), true);
         return saved;
     }

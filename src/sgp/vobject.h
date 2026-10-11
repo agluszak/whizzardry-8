@@ -5,6 +5,7 @@
    Distributed under the accompanying SFI Source Code license agreement. */
 
 #include <SDL3/SDL_rect.h>
+#include <cstdint>
 #include <string_view>
 #include <vector>
 #include <memory>
@@ -37,7 +38,7 @@
 
 // Effects structure for specialized blitting
 typedef struct {
-    UINT32 uiShadowLevel;
+    std::uint32_t uiShadowLevel;
     SDL_Rect ClipRect;
 
 } blt_fx;
@@ -60,14 +61,14 @@ struct SGPVObject {
 };
 
 // Palette generation and shade selection preserve the game's RGB555 tables.
-UINT16 CreateObjectPaletteTables(SGPVObject& object, UINT32 type);
-UINT16 SetObjectShade(SGPVObject& object, UINT32 shade);
+std::uint16_t CreateObjectPaletteTables(SGPVObject& object, std::uint32_t type);
+bool SetObjectShade(SGPVObject& object, std::uint32_t shade);
 
 struct SGPVSurface;
-BOOLEAN BltVideoObject(SGPVSurface& destination, SGPVObject& source, UINT16 frame,
-                       INT32 x, INT32 y, UINT32 flags, blt_fx* effects);
-BOOLEAN BltVideoObjectToBuffer(UINT16* pixels, UINT32 pitch, SGPVObject& source,
-                               UINT16 frame, INT32 x, INT32 y, INT32 flags, blt_fx* effects);
+bool BltVideoObject(SGPVSurface& destination, SGPVObject& source, std::uint16_t frame,
+                       std::int32_t x, std::int32_t y, std::uint32_t flags, blt_fx* effects);
+bool BltVideoObjectToBuffer(std::uint16_t* pixels, std::uint32_t pitch, SGPVObject& source,
+                               std::uint16_t frame, std::int32_t x, std::int32_t y, std::int32_t flags, blt_fx* effects);
 
 // Load an STI sprite sheet from the virtual filesystem.
 std::unique_ptr<SGPVObject> LoadVideoObject(std::string_view filename);

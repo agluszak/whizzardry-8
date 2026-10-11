@@ -1,4 +1,5 @@
 #include "Font.h"
+#include <cstdint>
 #include <SDL3/SDL_mouse.h>
 #include <string_view>
 #include <utility>
@@ -13,10 +14,9 @@
 #include "wiz8/engine_code/Video2.h"
 #include "Button System.h"
 #include "wiz8/regions.h"
-#include "Types.h"
 #include "input.h"
 
-bool UpdateDialogArrowState(GUI_BUTTON* button, INT32 reason)
+bool UpdateDialogArrowState(GUI_BUTTON* button, std::int32_t reason)
 {
     if (reason & BUTTON_REASON_LBUTTON_DWN) {
         if (!(button->uiFlags & BUTTON_CLICKED_ON)) {
@@ -280,7 +280,7 @@ int W8DialogButton::HandleRegionInput(W8Region& region, const InputAtom& input)
     return 1;
 }
 
-void W8DialogButton::HandleMouseEvent(INT32 reason)
+void W8DialogButton::HandleMouseEvent(std::int32_t reason)
 {
     if (m_live_dialog_count != g_live_dialog_count) return;
     if (!m_left_callback && !m_right_callback && !m_move_callback && !m_double_click_callback) return;

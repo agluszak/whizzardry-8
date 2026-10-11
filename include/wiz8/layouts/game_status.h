@@ -5,7 +5,6 @@
 
 #include "compat/ptr32.h"
 #include "wiz8/difficulty.h"
-#include "Types.h"
 
 #include "wiz8/gameplay_modifiers.h"
 #include "wiz8/layouts/gameplay_databases.h"

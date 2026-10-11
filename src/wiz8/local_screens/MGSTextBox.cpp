@@ -14,7 +14,6 @@
 #include <iterator>
 #include <utility>
 
-#include "Types.h"
 #include "input.h"
 #include "random.h"
 #include "utf8/checked.h"
@@ -76,7 +75,7 @@ struct W8MessageStorageDiskRecord {
     unsigned char highlight_start;
     unsigned char highlight_stop;
     std::uint32_t clock; // Retail stores 32 bits; live deadlines use the native 64-bit clock.
-    UINT32 saved_remaining_ms;
+    std::uint32_t saved_remaining_ms;
     int link;
     int length;
     w8_ulong serialized_entries_18_bits;

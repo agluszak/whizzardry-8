@@ -23,7 +23,6 @@
 #include "wiz8/game_init.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/engine_code/Octree.h"
-#include "Types.h"
 
 namespace {
 
@@ -33,17 +32,17 @@ void ParseArguments(std::span<const std::string_view> arguments)
         const auto separator = arguments[index].find('=');
         const std::string option(arguments[index].substr(0, separator));
         if (SDL_strcasecmp(option.c_str(), "/NOSOUND") == 0)
-            SoundEnableSound(FALSE);
+            SoundEnableSound(false);
         else if (SDL_strcasecmp(option.c_str(), "/INSPECTOR") == 0)
             VideoInspectorEnable();
         else if (SDL_strcasecmp(option.c_str(), "/LOAD") == 0)
-            gfLoadAtStartup = TRUE;
+            gfLoadAtStartup = true;
         else if (SDL_strcasecmp(option.c_str(), "/WINDOW") == 0)
-            VideoFullScreen(FALSE);
+            VideoFullScreen(false);
         else if (SDL_strcasecmp(option.c_str(), "/BC") == 0)
-            gfUsingBoundsChecker = TRUE;
+            gfUsingBoundsChecker = true;
         else if (SDL_strcasecmp(option.c_str(), "/CAPTURE") == 0)
-            gfCapturingVideo = TRUE;
+            gfCapturingVideo = true;
         else if (SDL_strcasecmp(option.c_str(), "/NOOCT") == 0)
             NoOct();
         else if (SDL_strcasecmp(option.c_str(), "/VIDEOCFG") == 0 ||
@@ -74,11 +73,11 @@ wiz8::Application::Application(std::span<const std::string_view> arguments)
             throw std::runtime_error(failure);
         }
         sdl_initialized_ = true;
-        gfIgnoreMessages = FALSE;
-        gfLoadAtStartup = gfUsingBoundsChecker = gfCapturingVideo = FALSE;
+        gfIgnoreMessages = false;
+        gfLoadAtStartup = gfUsingBoundsChecker = gfCapturingVideo = false;
         gzStringDataOverride.clear();
         gzErrorMsg.clear();
-        SoundEnableSound(TRUE);
+        SoundEnableSound(true);
         ParseArguments(arguments);
         wiz8::refresh_asset_archives();
         if (!InitializeInputManager())
@@ -92,7 +91,7 @@ wiz8::Application::Application(std::span<const std::string_view> arguments)
         game_started_ = true;
         if (!InitializeGame(initialized_screens_))
             throw std::runtime_error("Game initialization failed");
-        gfGameInitialized = gfApplicationActive = gfProgramIsRunning = TRUE;
+        gfGameInitialized = gfApplicationActive = gfProgramIsRunning = true;
     } catch (...) {
         shutdown();
         throw;
@@ -112,7 +111,7 @@ void wiz8::Application::run()
             break;
         if (gfApplicationActive) {
             GameLoop();
-            gfSGPInputReceived = FALSE;
+            gfSGPInputReceived = false;
         }
     }
 }
@@ -121,7 +120,7 @@ void wiz8::Application::shutdown() noexcept
 {
     if (!sdl_initialized_)
         return;
-    gfProgramIsRunning = FALSE;
+    gfProgramIsRunning = false;
     const bool complete = gfGameInitialized;
     if (complete) {
         try {
@@ -134,7 +133,7 @@ void wiz8::Application::shutdown() noexcept
             SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Leaving game: %s", failure.what());
         }
     }
-    gfGameInitialized = FALSE;
+    gfGameInitialized = false;
     ShutdownSoundManager();
     if (game_started_) {
         try {
@@ -151,7 +150,7 @@ void wiz8::Application::shutdown() noexcept
     wiz8::clear_asset_archives();
     SDL_ShowCursor();
     VideoDumpMemoryLeaks();
-    gfApplicationActive = FALSE;
+    gfApplicationActive = false;
     SDL_Quit();
     sdl_initialized_ = false;
 }

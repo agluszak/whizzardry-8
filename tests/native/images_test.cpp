@@ -1,3 +1,6 @@
+#include <SDL3/SDL_rect.h>
+#include "wiz8/compat/surfaces.h"
+#include <cstdint>
 #include <catch2/catch_test_macros.hpp>
 #include <ios>
 #include <wiz8/asset_paths.h>
@@ -27,10 +30,19 @@
 #include "imgfmt.h"
 #include "wiz8/slf.h"
 #include "temporary_directory.h"
-#include "Types.h"
 
 
-using Bytes = std::vector<UINT8>;
+static std::vector<std::uint16_t> sprite_pixels(const SpriteFrame& frame)
+{
+    std::vector<std::uint16_t> pixels;
+    for (int y = 0; y < frame.usHeight; ++y) {
+        const auto* row = reinterpret_cast<const std::uint16_t*>(static_cast<const std::uint8_t*>(frame.indices->pixels) + y * frame.indices->pitch);
+        pixels.insert(pixels.end(), row, row + frame.usWidth);
+    }
+    return pixels;
+}
+
+using Bytes = std::vector<std::uint8_t>;
 namespace fs = std::filesystem;
 
 static void word(Bytes& bytes, std::size_t offset, unsigned value)
@@ -76,8 +88,8 @@ static Bytes tga(unsigned depth, bool top, bool rle)
     word(bytes, 14, 2);
     bytes[16] = depth;
     bytes[17] = top ? 0x20 : 0;
-    const std::array<UINT16, 6> packed{0, 1, 0x7c00, 0x03e0, 0x001f, 0x8000};
-    const std::array<std::array<UINT8, 3>, 6> colors{{
+    const std::array<std::uint16_t, 6> packed{0, 1, 0x7c00, 0x03e0, 0x001f, 0x8000};
+    const std::array<std::array<std::uint8_t, 3>, 6> colors{{
         {0, 0, 0}, {1, 1, 1}, {255, 0, 0}, {0, 255, 0}, {0, 0, 255}, {23, 45, 67}}};
     if (rle)
         bytes.push_back(5); // One raw RLE packet crossing the scan-line boundary.
@@ -144,12 +156,12 @@ static Bytes sti_bitmap(unsigned width, unsigned height, unsigned depth, const B
     memcpy(bytes.data(), &header, sizeof(header));
     if (depth == 8)
         for (unsigned i = 0; i < 256; ++i)
-            bytes.insert(bytes.end(), {UINT8(i), UINT8(i), UINT8(i)});
+            bytes.insert(bytes.end(), {std::uint8_t(i), std::uint8_t(i), std::uint8_t(i)});
     bytes.insert(bytes.end(), stored.begin(), stored.end());
     return bytes;
 }
 
-static Bytes rgb_pcx(const UINT8* rgb)
+static Bytes rgb_pcx(const std::uint8_t* rgb)
 {
     auto bytes = pcx();
     bytes.resize(128);
@@ -178,7 +190,7 @@ static Bytes sti_sheet(const std::vector<STCISubImage>& frames, const Bytes& pix
     header.Indexed.usNumberOfSubImages = frames.size();
     memcpy(bytes.data(), &header, sizeof(header));
     if (!frames.empty()) {
-        const auto* records = reinterpret_cast<const UINT8*>(frames.data());
+        const auto* records = reinterpret_cast<const std::uint8_t*>(frames.data());
         bytes.insert(bytes.begin() + STCI_HEADER_SIZE + STCI_8BIT_PALETTE_SIZE,
                      records, records + frames.size() * sizeof(STCISubImage));
     }
@@ -193,8 +205,8 @@ static Bytes slf(const std::vector<std::pair<std::string, Bytes>>& files)
     strcpy(header.sPathToLibrary, "Data\\");
     header.iEntries = header.iUsed = files.size();
     header.iVersion = 0x200;
-    Bytes bytes(reinterpret_cast<const UINT8*>(&header),
-                reinterpret_cast<const UINT8*>(&header) + sizeof(header));
+    Bytes bytes(reinterpret_cast<const std::uint8_t*>(&header),
+                reinterpret_cast<const std::uint8_t*>(&header) + sizeof(header));
     std::vector<wiz8::SlfEntry> entries;
     for (const auto& [name, data] : files)
     {
@@ -206,7 +218,7 @@ static Bytes slf(const std::vector<std::pair<std::string, Bytes>>& files)
         entries.push_back(entry);
         bytes.insert(bytes.end(), data.begin(), data.end());
     }
-    const auto* directory = reinterpret_cast<const UINT8*>(entries.data());
+    const auto* directory = reinterpret_cast<const std::uint8_t*>(entries.data());
     bytes.insert(bytes.end(), directory, directory + entries.size() * sizeof(wiz8::SlfEntry));
     return bytes;
 }
@@ -227,7 +239,7 @@ static void check_pcx(const BitmapImage& image)
 {
     REQUIRE((image.width == 3 && image.height == 2 && image.bitDepth == 8));
     REQUIRE(image.palette);
-    const UINT8 expected[]{0, 1, 1, 2, 3, 0xc1};
+    const std::uint8_t expected[]{0, 1, 1, 2, 3, 0xc1};
     REQUIRE(!memcmp(image.pixels.data(), expected, sizeof(expected)));
     for (unsigned i = 0; i < 256; ++i)
     {
@@ -306,7 +318,7 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
         write_rgb();
         auto image = load("native-rgb.sti");
         REQUIRE((image && image->pixels.size() == 4 && image->width == 2));
-        const UINT8 expected[]{0, 0x7c, 0xe0, 3};
+        const std::uint8_t expected[]{0, 0x7c, 0xe0, 3};
         REQUIRE(!memcmp(image->pixels.data(), expected, sizeof(expected)));
         header.RGB.uiRedMask = 0xf800;
         header.RGB.uiGreenMask = 0x07e0;
@@ -337,9 +349,9 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
         REQUIRE(surface);
         const auto& pixels = *surface->cpu().surface;
         REQUIRE((pixels.w == 3 && pixels.h == 2 && surface->ubBitDepth == 8));
-        const UINT8 expected[]{0, 1, 1, 2, 3, 0xc1};
+        const std::uint8_t expected[]{0, 1, 1, 2, 3, 0xc1};
         for (int y = 0; y < 2; ++y)
-            REQUIRE(!memcmp(static_cast<const UINT8*>(pixels.pixels) + y * pixels.pitch,
+            REQUIRE(!memcmp(static_cast<const std::uint8_t*>(pixels.pixels) + y * pixels.pitch,
                             expected + y * 3, 3));
     }
     {
@@ -369,11 +381,11 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
         REQUIRE(Get16BPPColor(SDL_Color{0, 0, 255, 255}) == 0x001f);
         REQUIRE(Get16BPPColor(SDL_Color{1, 1, 1, 255}) == 1);
         rgb555();
-        const auto shaded = Create16BPPPaletteShaded(palette, 384, 0, 128, FALSE);
+        const auto shaded = Create16BPPPaletteShaded(palette, 384, 0, 128, false);
         REQUIRE((shaded[0] == 0 && shaded[255] == 0x0c0f));
-        const auto mono = Create16BPPPaletteShaded(palette, 384, 0, 128, TRUE);
+        const auto mono = Create16BPPPaletteShaded(palette, 384, 0, 128, true);
         REQUIRE((mono[0] == 0 && mono[255] == 0x4c06));
-        const auto clamped = Create16BPPPaletteShaded(palette, 4096, 4096, 4096, FALSE);
+        const auto clamped = Create16BPPPaletteShaded(palette, 4096, 4096, 4096, false);
         REQUIRE(clamped[255] == 0x7fff);
         g_sgp_pixel_format = SDL_PIXELFORMAT_ARGB1555;
         const auto opaque = Create16BPPPalette(palette);
@@ -381,8 +393,8 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
         rgb555();
     }
 
-    const UINT16 packed[]{0, 1, 0x7c00, 0x03e0, 0x001f, 0x8000};
-    const UINT8 rgb[]{0, 0, 0, 1, 1, 1, 255, 0, 0, 0, 255, 0, 0, 0, 255, 23, 45, 67};
+    const std::uint16_t packed[]{0, 1, 0x7c00, 0x03e0, 0x001f, 0x8000};
+    const std::uint8_t rgb[]{0, 0, 0, 1, 1, 1, 255, 0, 0, 0, 255, 0, 0, 0, 255, 23, 45, 67};
     {
         fixture(assets / "rgb.pcx", rgb_pcx(rgb));
         auto image = load("rgb.pcx");
@@ -404,7 +416,7 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
         fixture(assets / "indexed.tga", indexed_tga());
         auto image = load("indexed.tga");
         REQUIRE((image && image->bitDepth == 8 && image->palette));
-        const UINT8 indices[]{2, 2, 2, 2, 1, 0};
+        const std::uint8_t indices[]{2, 2, 2, 2, 1, 0};
         REQUIRE(!memcmp(image->pixels.data(), indices, sizeof(indices)));
         REQUIRE(((*image->palette)[2].r == 255 && (*image->palette)[2].b == 0));
         REQUIRE(((*image->palette)[3].r == 0 && (*image->palette)[255].a == SDL_ALPHA_OPAQUE));
@@ -447,7 +459,7 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
         for (int y = 0; y < 8; ++y)
             for (int x = 0; x < 8; ++x)
             {
-                auto* pixel = static_cast<UINT8*>(surface->pixels) + y * surface->pitch + x * 3;
+                auto* pixel = static_cast<std::uint8_t*>(surface->pixels) + y * surface->pitch + x * 3;
                 pixel[0] = 240;
                 pixel[1] = 20;
                 pixel[2] = 40;
@@ -492,7 +504,7 @@ TEST_CASE_METHOD(ImageFixture, "STI bitmaps decode before pitched surface initia
                 const unsigned row_bytes = width * (depth / 8);
                 REQUIRE(storage.pitch > int(row_bytes)); // Odd widths exercise SDL's padded rows.
                 for (unsigned row = 0; row < height; ++row) {
-                    const auto* pixels = static_cast<const UINT8*>(storage.pixels) + row * storage.pitch;
+                    const auto* pixels = static_cast<const std::uint8_t*>(storage.pixels) + row * storage.pitch;
                     REQUIRE(!memcmp(pixels, expected.data() + row * row_bytes, row_bytes));
                     for (unsigned padding = row_bytes; padding < unsigned(storage.pitch); ++padding)
                         REQUIRE(pixels[padding] == 0);
@@ -539,19 +551,19 @@ TEST_CASE_METHOD(ImageFixture, "Raw and zlib STI RGB masks normalize identically
         header.RGB.uiGreenMask = 0x07e0;
         memcpy(bytes.data(), &header, sizeof(header));
         fixture(assets / "rgb565.sti", bytes);
-        for (UINT16 alpha : {UINT16(0), UINT16(0x8000)}) {
+        for (std::uint16_t alpha : {std::uint16_t(0), std::uint16_t(0x8000)}) {
             g_sgp_pixel_format = alpha ? SDL_PIXELFORMAT_ARGB1555 : SDL_PIXELFORMAT_XRGB1555;
             auto image = load("rgb565.sti");
             REQUIRE(image);
-            const std::array<UINT16, 4> expected{0, UINT16(0x7c00 | alpha),
-                                               UINT16(0x03e0 | alpha), UINT16(0x001f | alpha)};
+            const std::array<std::uint16_t, 4> expected{0, std::uint16_t(0x7c00 | alpha),
+                                               std::uint16_t(0x03e0 | alpha), std::uint16_t(0x001f | alpha)};
             REQUIRE(image->pixels.size() == sizeof(expected));
             REQUIRE(!memcmp(image->pixels.data(), expected.data(), sizeof(expected)));
             auto surface = LoadVideoSurface("rgb565.sti");
             REQUIRE(surface);
             const auto& storage = *surface->cpu().surface;
             for (int row = 0; row < 2; ++row)
-                REQUIRE(!memcmp(static_cast<const UINT8*>(storage.pixels) + row * storage.pitch,
+                REQUIRE(!memcmp(static_cast<const std::uint8_t*>(storage.pixels) + row * storage.pitch,
                                 expected.data() + row * 2, 4));
         }
     }
@@ -569,28 +581,28 @@ TEST_CASE_METHOD(ImageFixture, "STI sprite sheets decode and transfer ownership 
     auto* sheet = std::get_if<SpriteSheet>(&*image);
     REQUIRE(sheet);
     REQUIRE(sheet->frames.size() == 2);
-    const std::vector<UINT16> expected{0, SpriteFrame::kTransparent, 2,
+    const std::vector<std::uint16_t> expected{0, SpriteFrame::kTransparent, 2,
                                       SpriteFrame::kTransparent, SpriteFrame::kTransparent, 3};
-    REQUIRE(sheet->frames[0].pixels == expected);
+    REQUIRE(sprite_pixels(sheet->frames[0]) == expected);
     REQUIRE((sheet->frames[0].sOffsetX == -2 && sheet->frames[0].sOffsetY == 3));
     REQUIRE((sheet->frames[1].sOffsetX == 4 && sheet->frames[1].sOffsetY == -1));
     REQUIRE(sheet->palette[2].r == 2);
     REQUIRE_FALSE(LoadVideoSurface("sheet.sti"));
-    const auto* pixels = sheet->frames[0].pixels.data();
+    const auto* pixels = sheet->frames[0].indices->pixels;
     SGPVObject moved(std::move(*sheet));
-    REQUIRE(moved.sprites[0].pixels.data() == pixels);
-    REQUIRE(moved.sprites[0].pixels == expected);
+    REQUIRE(moved.sprites[0].indices->pixels == pixels);
+    REQUIRE(sprite_pixels(moved.sprites[0]) == expected);
     auto object = LoadVideoObject("sheet.sti");
     REQUIRE(object);
     image.reset();
-    REQUIRE(object->sprites[0].pixels == expected);
+    REQUIRE(sprite_pixels(object->sprites[0]) == expected);
     REQUIRE(object->currentPalette() == Create16BPPPalette(object->pPaletteEntry));
 
     fixture(assets / "Data" / "Sprites.slf", slf({{"Sheet.sti", bytes}}));
     wiz8::mount_slf("Data\\Sprites.slf");
     auto archived = LoadVideoObject("Data\\Sheet.sti");
     REQUIRE(archived);
-    REQUIRE(archived->sprites[0].pixels == expected);
+    REQUIRE(sprite_pixels(archived->sprites[0]) == expected);
 
     fixture(assets / "empty.sti", sti_sheet({}, {}));
     auto empty = LoadImage("empty.sti");
@@ -625,7 +637,7 @@ TEST_CASE_METHOD(ImageFixture, "Malformed ETRLE fails before any image is expose
         auto good = LoadVideoObject("good-sheet.sti");
         REQUIRE(good);
         REQUIRE(good->sprites.size() == 2);
-        REQUIRE(good->sprites[0].pixels[0] == 0);
+        REQUIRE(good->sprites[0].paletteIndexAt(0, 0) == 0);
     }
 }
 
@@ -653,7 +665,7 @@ TEST_CASE_METHOD(ImageFixture, "STI zlib decoding respects SLF entry bounds and 
         REQUIRE(surface);
         const auto& storage = *surface->cpu().surface;
         for (int row = 0; row < 200; ++row)
-            REQUIRE(!memcmp(static_cast<const UINT8*>(storage.pixels) + row * storage.pitch,
+            REQUIRE(!memcmp(static_cast<const std::uint8_t*>(storage.pixels) + row * storage.pitch,
                             expected.data() + row * 500, 500));
         REQUIRE(first->tell() == 9);
         REQUIRE(second->tell() == 0);
@@ -737,9 +749,41 @@ TEST_CASE_METHOD(ImageFixture, "Truncated images and rollback", "[image][validat
         0xff, 0xff, 3, 1, 0x11, 0, 2, 0x11, 1, 3, 0x11, 1});
     REQUIRE(!load("oversized.jpg"));
     REQUIRE(!load(wiz8::path_to_utf8(assets / "test.tga").c_str()));
-    const std::string long_path(SGPFILENAME_LEN + 10, 'x');
+    const std::string long_path(256, 'x');
     REQUIRE(!load(long_path.c_str()));
     REQUIRE(!LoadImage(""));
 
 
+}
+
+TEST_CASE("SDL sprite cache preserves opaque pixels across native formats")
+{
+    const auto previous_format = g_sgp_pixel_format;
+    struct RestoreFormat {
+        SDL_PixelFormat format;
+        ~RestoreFormat() { g_sgp_pixel_format = format; }
+    } restore{previous_format};
+    SpriteFrame frame;
+    frame.usWidth = 2;
+    frame.usHeight = 1;
+    frame.indices = CreateCpuStorage(2, 1, SDL_PIXELFORMAT_RGB565);
+    REQUIRE(frame.indices);
+    REQUIRE(SDL_FillSurfaceRect(frame.indices.get(), nullptr, 0));
+    const SDL_Rect second{1, 0, 1, 1};
+    REQUIRE(SDL_FillSurfaceRect(frame.indices.get(), &second, 1));
+    Palette16 palette{};
+    palette[1] = 0xffff;
+    for (auto format : {SDL_PIXELFORMAT_XRGB1555, SDL_PIXELFORMAT_ARGB1555, SDL_PIXELFORMAT_RGB565}) {
+        g_sgp_pixel_format = format;
+        auto* source = frame.coloredSurface(palette);
+        REQUIRE(source);
+        REQUIRE(source->format == format);
+        auto target = CreateCpuStorage(2, 1, format);
+        REQUIRE(target);
+        REQUIRE(SDL_FillSurfaceRect(target.get(), nullptr, 0x1234));
+        REQUIRE(SDL_BlitSurface(source, nullptr, target.get(), nullptr));
+        const auto* pixels = static_cast<const std::uint16_t*>(target->pixels);
+        REQUIRE(pixels[0] == 0);
+        REQUIRE(pixels[1] == 0xffff);
+    }
 }

@@ -5,7 +5,6 @@
 
 #ifdef __cplusplus
 #include <SDL3/SDL_log.h>
-#include <SDL3/SDL_rect.h>
 #include <cstdlib>
 
 #define Assert(condition) AssertMsg(condition, "Assertion failed: " #condition)
@@ -19,80 +18,6 @@
     } while (false)
 #endif
 
-#ifndef _SIRTECH_TYPES_
-#define _SIRTECH_TYPES_
-
-#include <wchar.h> // for wide-character strings
-
-// *** SIR-TECH TYPE DEFINITIONS ***
-
-typedef unsigned int UINT32;
-typedef int INT32;
-
-// integers
-typedef unsigned char UINT8;
-typedef signed char INT8;
-typedef unsigned short UINT16;
-typedef signed short INT16;
-// floats
-typedef float FLOAT;
-typedef double DOUBLE;
-// strings
-typedef char CHAR8;
-typedef char* STR;
-typedef char* STR8;
-// flags (individual bits used)
-typedef unsigned char FLAGS8;
-typedef unsigned short FLAGS16;
-typedef w8_ulong FLAGS32;
-// other
-typedef unsigned char BOOLEAN;
-typedef void* PTR;
-typedef unsigned short HNDL;
-typedef UINT8 BYTE;
-typedef CHAR8 STRING512[512];
-
-#define SGPFILENAME_LEN 100
-typedef CHAR8 SGPFILENAME[SGPFILENAME_LEN];
-
-// *** SIR-TECH TYPE DEFINITIONS ***
-
-#endif
-
-#ifndef TRUE
-#define TRUE 1
-#endif
-
-#ifndef FALSE
-#define FALSE 0
-#endif
-
 #define BAD_INDEX -1
-
-#define NULL_HANDLE 65535
-
-#define PI 3.1415926
-
-#define ST_EPSILON 0.00001 // define a sir-tech epsilon value
-
-typedef struct {
-    INT32 Min;
-    INT32 Max;
-
-} SGPRange;
-
-typedef FLOAT VECTOR2[2]; // 2d vector (2x1 matrix)
-typedef FLOAT VECTOR3[3]; // 3d vector (3x1 matrix)
-typedef FLOAT VECTOR4[4]; // 4d vector (4x1 matrix)
-
-typedef INT32 IVECTOR2[2]; // 2d vector (2x1 matrix)
-typedef INT32 IVECTOR3[3]; // 3d vector (3x1 matrix)
-typedef INT32 IVECTOR4[4]; // 4d vector (4x1 matrix)
-
-typedef VECTOR3 MATRIX3[3]; // 3x3 matrix
-typedef VECTOR4 MATRIX4[4]; // 4x4 matrix
-
-typedef VECTOR3 ANGLE; // angle return array
-typedef VECTOR4 COLOR; // rgba color array
 
 #endif

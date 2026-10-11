@@ -94,7 +94,6 @@
 #include "wiz8/local_screens/MainMenuScreen.h"
 #include "wiz8/local_screens/PartySelectionScreen.h"
 #include "wiz8/local_screens/Screens.h"
-#include "Types.h"
 #include "catch2/catch_message.hpp"
 #include "conditions.h"
 #include "layouts/gameplay_databases.h"
@@ -244,7 +243,7 @@ class Game
         PumpGameEvents(false);
         REQUIRE(gfProgramIsRunning);
         GameLoop();
-        gfSGPInputReceived = FALSE;
+        gfSGPInputReceived = false;
         ++frames_;
         g_runtime_test_hooks.clock_us += frame_us;
     }
@@ -344,7 +343,7 @@ class Game
         const MGSKeyBinding* binding = index >= 0 ? g_mgs_keyboard->GetBinding(index) : nullptr;
         if (!binding || !binding->key)
             Fail("command", "no key bound to command " + std::to_string(int(command)));
-        const std::pair<unsigned short, UINT32> modifiers[] = {
+        const std::pair<unsigned short, std::uint32_t> modifiers[] = {
             {SHIFT_DOWN, VK_SHIFT}, {CTRL_DOWN, VK_CONTROL}, {ALT_DOWN, VK_MENU}};
         if (down)
         {
@@ -352,7 +351,7 @@ class Game
                 if (binding->modifiers & flag)
                     KeyDown(key, 1);
             KeyDown(binding->key, 1);
-            gfSGPInputReceived = TRUE;
+            gfSGPInputReceived = true;
         }
         else
         {

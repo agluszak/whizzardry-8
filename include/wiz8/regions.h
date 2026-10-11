@@ -10,7 +10,6 @@
 #include <string>
 #include <SDL3/SDL_rect.h>
 
-#include "Types.h"
 #include "input.h"
 
 class W8Widget;

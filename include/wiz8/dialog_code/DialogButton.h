@@ -1,4 +1,5 @@
 #include "Font.h"
+#include <cstdint>
 #include <string_view>
 #include <functional>
 #pragma once
@@ -66,8 +67,8 @@ public:
                    W8DialogButtonCallback left_callback, W8DialogButtonCallback move_callback,
                    bool left_toggles, int priority, int tooltip_index,
                    W8DialogButtonCallback right_callback,
-                   W8DialogButtonCallback double_click_callback);
-    bool ConfigureIcon(const char* image_path, int disabled_frame, int normal_frame, short priority,
+                             W8DialogButtonCallback double_click_callback);
+    bool ConfigureIcon(const char* image_path, int disabled_frame, int normal_frame, int priority,
                        int tooltip_index)
     {
         return Configure(image_path, disabled_frame, normal_frame, BUTTON_NO_IMAGE, normal_frame,
@@ -92,7 +93,7 @@ private:
     SDL_MouseButtonFlags m_repeated_buttons = 0;
     int m_user_data = 0;
     void ConfigureRegion(int priority);
-    void HandleMouseEvent(INT32 reason);
+    void HandleMouseEvent(std::int32_t reason);
     int HandleRegionInput(W8Region& region, const InputAtom& input) override;
     int m_tooltip_index; /* g_localized_strings index, or -1 */
     W8DialogButtonCallback m_left_callback;

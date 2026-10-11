@@ -1,3 +1,6 @@
+#include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_surface.h>
+#include "wiz8/compat/surfaces.h"
 #include <utility>
 #include <stdexcept>
 #include <limits>
@@ -214,27 +217,27 @@ void camp_effects()
 int clicks = 0;
 int click_reason = 0;
 GUI_BUTTON* clicked_button = nullptr;
-void click(GUI_BUTTON* button, INT32 reason)
+void click(GUI_BUTTON* button, std::int32_t reason)
 {
     ++clicks;
     click_reason = reason;
     clicked_button = button;
 }
 
-uint64_t next_mouse_timestamp = 1;
-InputAtom mouse_atom(UINT16 event, unsigned short x, unsigned short y, bool left = false,
-                     bool right = false, UINT8 click_count = 0)
+std::uint64_t next_mouse_timestamp = 1;
+InputAtom mouse_atom(std::uint16_t event, std::uint16_t x, std::uint16_t y, bool left = false,
+                     bool right = false, std::uint8_t click_count = 0)
 {
     InputAtom input{};
     input.uiTimeStamp = next_mouse_timestamp++;
     input.usEvent = event;
-    input.uiParam = (static_cast<unsigned int>(y) << 16) | x;
+    input.uiParam = (static_cast<std::uint32_t>(y) << 16) | x;
     input.mouseButtons = (left ? SDL_BUTTON_LMASK : 0) | (right ? SDL_BUTTON_RMASK : 0);
     input.clicks = click_count;
     return input;
 }
-void dispatch_mouse(UINT16 event, unsigned short x, unsigned short y, bool left = false,
-                    bool right = false, UINT8 click_count = 0)
+void dispatch_mouse(std::uint16_t event, std::uint16_t x, std::uint16_t y, bool left = false,
+                    bool right = false, std::uint8_t click_count = 0)
 {
     const auto input = mouse_atom(event, x, y, left, right, click_count);
     DispatchRegionInput(&input);
@@ -547,9 +550,8 @@ void owned_region_move_and_teardown()
     REQUIRE(g_captured_region_index == 0);
     REQUIRE(g_hover_region_index == 0);
 }
-
 GUIButton nested_outer, nested_inner, removable_button;
-void nested_click(GUI_BUTTON* button, INT32 reason)
+void nested_click(GUI_BUTTON* button, std::int32_t reason)
 {
     if (button == nested_inner.get()) {
         nested_outer.reset();
@@ -560,7 +562,7 @@ void nested_click(GUI_BUTTON* button, INT32 reason)
     REQUIRE(!nested_outer);
     nested_inner.reset();
 }
-void remove_button_on_callback(GUI_BUTTON*, INT32)
+void remove_button_on_callback(GUI_BUTTON*, std::int32_t)
 {
     removable_button.reset();
     REQUIRE(!removable_button);
@@ -710,15 +712,17 @@ void image_and_sprite_ownership()
     SpriteSheet image;
     image.palette[1] = {255, 0, 0, 0};
     image.frames.resize(1);
-    image.frames[0].pixels = {1};
+    image.frames[0].indices = CreateCpuStorage(1, 1, SDL_PIXELFORMAT_RGB565);
+    REQUIRE(image.frames[0].indices);
+    REQUIRE(SDL_FillSurfaceRect(image.frames[0].indices.get(), nullptr, 1));
     image.frames[0].usWidth = image.frames[0].usHeight = 1;
 
     std::array<std::unique_ptr<SGPVObject>, 64> objects{};
     for (unsigned i = 0; i < objects.size(); ++i) {
         objects[i] = std::make_unique<SGPVObject>(image);
         REQUIRE(objects[i]);
-        REQUIRE((objects[i]->sprites.size() == 1 && objects[i]->sprites[0].pixels.size() == 1));
-        REQUIRE(objects[i]->sprites[0].pixels.data() != image.frames[0].pixels.data());
+        REQUIRE((objects[i]->sprites.size() == 1 && objects[i]->sprites[0].indices->w == 1 && objects[i]->sprites[0].indices->h == 1));
+        REQUIRE(objects[i]->sprites[0].indices->pixels != image.frames[0].indices->pixels);
         REQUIRE(objects[i]->pPaletteEntry.data() != image.palette.data());
         (void)CreateObjectPaletteTables(*objects[i], HVOBJECT_GLOW_GREEN);
         REQUIRE((objects[i]->pShades[0] && objects[i]->pShades[15]));
@@ -732,20 +736,20 @@ void image_and_sprite_ownership()
         (void)CreateObjectPaletteTables(*objects[i], HVOBJECT_GLOW_RED);
         REQUIRE(objects[i]->currentPalette() == objects[i]->palette);
     }
-    image.frames[0].pixels[0] = 2;
+    REQUIRE(SDL_FillSurfaceRect(image.frames[0].indices.get(), nullptr, 2));
     image.frames[0].usWidth = 2;
-    REQUIRE((objects[0]->sprites[0].pixels[0] == 1 && objects[0]->sprites[0].usWidth == 1));
-    const auto* owned_pixels = image.frames[0].pixels.data();
+    REQUIRE((objects[0]->sprites[0].paletteIndexAt(0, 0) == 1 && objects[0]->sprites[0].usWidth == 1));
+    const auto* owned_pixels = image.frames[0].indices->pixels;
     SGPVObject moved(std::move(image));
-    REQUIRE(moved.sprites[0].pixels.data() == owned_pixels);
-    REQUIRE(moved.sprites[0].pixels[0] == 2);
+    REQUIRE(moved.sprites[0].indices->pixels == owned_pixels);
+    REQUIRE(moved.sprites[0].paletteIndexAt(0, 0) == 2);
     image = {};
     REQUIRE(image.frames.empty());
     for (unsigned index : {0u, 31u, 63u}) {
         objects[index].reset();
     }
     auto& surviving = *objects[32];
-    REQUIRE((surviving.sprites[0].pixels[0] == 1 && surviving.sprites[0].usWidth == 1));
+    REQUIRE((surviving.sprites[0].paletteIndexAt(0, 0) == 1 && surviving.sprites[0].usWidth == 1));
     std::array<std::unique_ptr<SGPVSurface>, 64> surfaces{};
     for (auto& surface : surfaces) {
         surface = CreateVideoSurface(8, 8, 16);
@@ -871,14 +875,14 @@ void button_image_fixture(const std::filesystem::path& root, std::string name, u
         regions[index].usHeight = height;
     }
     write(regions.data(), regions.size() * sizeof(STCISubImage));
-    std::vector<UINT8> pixels(width + 2, 1);
+    std::vector<std::uint8_t> pixels(width + 2, 1);
     pixels.front() = width;
     pixels.back() = 0;
     for (unsigned index = 0; index < count; ++index)
         for (unsigned row = 0; row < height; ++row)
             write(pixels.data(), pixels.size());
     if (app_data) {
-        const UINT8 bytes[]{7, 8, 9, 10};
+        const std::uint8_t bytes[]{7, 8, 9, 10};
         write(bytes, sizeof(bytes));
     }
 }
@@ -902,7 +906,7 @@ void generic_button_images()
         const auto* sheet = std::get_if<SpriteSheet>(&*image);
         REQUIRE(sheet);
         REQUIRE(sheet->frames.size() == 3);
-        REQUIRE(sheet->frames[2].pixels == std::vector<UINT16>{1});
+        REQUIRE(sheet->frames[2].paletteIndexAt(0, 0) == 1);
         REQUIRE(sheet->palette[1].r == 255);
 
         const auto pixel_offset = STCI_HEADER_SIZE + STCI_8BIT_PALETTE_SIZE + 3 * STCI_SUBIMAGE_SIZE;
@@ -923,7 +927,7 @@ void generic_button_images()
     {
         auto sprite = LoadVideoObject(long_image_path);
         REQUIRE((sprite && sprite->sprites.size() == 3));
-        REQUIRE((sprite->sprites[2].usWidth == 1 && sprite->sprites[2].pixels[0] == 1));
+        REQUIRE((sprite->sprites[2].usWidth == 1 && sprite->sprites[2].paletteIndexAt(0, 0) == 1));
         REQUIRE(sprite->pPaletteEntry[1].r == 255);
     }
     for (bool corrupt_length : {false, true}) {
@@ -971,7 +975,7 @@ void generic_button_images()
     // button kinds, including checkbox-only mouse-down highlights.
     auto& sprite = graphics->object();
     for (unsigned frame = 0; frame < 5; ++frame) {
-        sprite.sprites[frame].pixels[0] = frame + 1;
+        REQUIRE(SDL_FillSurfaceRect(sprite.sprites[frame].indices.get(), nullptr, frame + 1));
         sprite.palette[frame + 1] = 0x1000 + frame;
     }
     auto target_owner = CreateVideoSurface(8, 8, 16);
@@ -1000,7 +1004,7 @@ void generic_button_images()
                         else
                             first_region.flags &= ~W8_REGION_LEFT_BUTTON_HELD;
                         DrawButton(first_button);
-                        auto* pixels = static_cast<UINT16*>(target.cpu().surface->pixels);
+                        auto* pixels = static_cast<std::uint16_t*>(target.cpu().surface->pixels);
                         REQUIRE(pixels);
                         const auto color = pixels[0];
                         const bool highlight = hover && (!checkbox || mouse_down);
@@ -1022,7 +1026,7 @@ void generic_button_images()
     ShutdownButtonImageManager();
     REQUIRE(!lifetime.expired());
     first_button.reset();
-    REQUIRE(second_button->quick_image->object().sprites[4].pixels[0] == 5);
+    REQUIRE(second_button->quick_image->object().sprites[4].paletteIndexAt(0, 0) == 5);
     second_button.reset();
     REQUIRE(lifetime.expired());
     REQUIRE(RegisteredButtonCount() == 0);
@@ -1224,7 +1228,7 @@ void generic_button_images()
         }
     }
     REQUIRE(g_font_render_state.font == nullptr);
-    ConfigureFontRendering(std::vector<UINT16>{'?', 0x00e9, 0x4e2d, 'e', 0x0301, 'a', 'b', ' ', 'c'});
+    ConfigureFontRendering(std::vector<std::uint16_t>{'?', 0x00e9, 0x4e2d, 'e', 0x0301, 'a', 'b', ' ', 'c'});
     Font primary;
     REQUIRE(primary.load(filename));
     REQUIRE(primary.textWidth("é") > 0);
@@ -1234,10 +1238,10 @@ void generic_button_images()
     // accidentally consuming the next glyph in the backing string.
     SetFont(primary);
     g_font_render_state.clip = {0, 0, 64, 32};
-    std::vector<UINT16> expected_pixels(64 * 32), view_pixels(64 * 32);
-    DrawFontTextToBuffer(reinterpret_cast<UINT8*>(expected_pixels.data()), 64 * 2, primary, 0, 0, "é");
+    std::vector<std::uint16_t> expected_pixels(64 * 32), view_pixels(64 * 32);
+    DrawFontTextToBuffer(reinterpret_cast<std::uint8_t*>(expected_pixels.data()), 64 * 2, primary, 0, 0, "é");
     const std::string backing = "é中";
-    DrawFontTextToBuffer(reinterpret_cast<UINT8*>(view_pixels.data()), 64 * 2, primary, 0, 0,
+    DrawFontTextToBuffer(reinterpret_cast<std::uint8_t*>(view_pixels.data()), 64 * 2, primary, 0, 0,
                          std::string_view(backing).substr(0, 2));
     REQUIRE(view_pixels == expected_pixels);
     REQUIRE(
@@ -1252,9 +1256,9 @@ void generic_button_images()
     std::fill(expected_pixels.begin(), expected_pixels.end(), 0);
     std::fill(view_pixels.begin(), view_pixels.end(), 0);
     SetFont(secondary);
-    DrawFontTextToBuffer(reinterpret_cast<UINT8*>(expected_pixels.data()), 128, secondary, 0, 0, "é中");
+    DrawFontTextToBuffer(reinterpret_cast<std::uint8_t*>(expected_pixels.data()), 128, secondary, 0, 0, "é中");
     SetFont(primary);
-    DrawFontTextToBuffer(reinterpret_cast<UINT8*>(view_pixels.data()), 128, secondary, 0, 0, "é中");
+    DrawFontTextToBuffer(reinterpret_cast<std::uint8_t*>(view_pixels.data()), 128, secondary, 0, 0, "é中");
     REQUIRE(view_pixels == expected_pixels);
     // Rebuilding word ranges preserves UTF-8 byte boundaries and discards
     // old hover state, including when a line becomes empty.
@@ -1605,7 +1609,7 @@ TEST_CASE("Button regions use SDL click counts", "[owner]")
                                    BUTTON_PRIORITY_NORMAL, click, click);
     REQUIRE(button);
     ExclusiveRegionSet scope(button_set);
-    for (const UINT8 click_count : {0, 1, 2, 3, 4}) {
+    for (const std::uint8_t click_count : {0, 1, 2, 3, 4}) {
         dispatch_mouse(LEFT_BUTTON_DOWN, 10, 10, true, false, click_count);
         REQUIRE((click_reason & BUTTON_REASON_LBUTTON_DWN) != 0);
         REQUIRE(((click_reason & BUTTON_REASON_LBUTTON_DOUBLECLICK) != 0) ==
@@ -1638,7 +1642,7 @@ TEST_CASE("Image assets share normalized paths and retain resources across clear
 
     const auto bitmap_path = assets / "Data" / "Items" / "screen.pcx";
     std::filesystem::create_directories(bitmap_path.parent_path());
-    std::vector<UINT8> pcx(128);
+    std::vector<std::uint8_t> pcx(128);
     pcx[0] = 10;
     pcx[1] = 5;
     pcx[2] = 1;

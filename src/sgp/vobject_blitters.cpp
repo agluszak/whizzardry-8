@@ -2,11 +2,13 @@
    Distributed under the accompanying SFI Source Code license agreement. */
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_surface.h>
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <memory>
 #include <optional>
+#include <span>
 
 #include "Types.h"
 #include "vsurface.h"
@@ -20,13 +22,13 @@
 namespace {
 // The assembly permits unaligned 16-bit pixels (including in the routines
 // named "8BPP ... Shadow"). Keep byte addressing and word loads explicit.
-UINT16 NativeReadWord(const UINT8* data)
+std::uint16_t NativeReadWord(const std::uint8_t* data)
 {
-    UINT16 value;
+    std::uint16_t value;
     memcpy(&value, data, sizeof(value));
     return value;
 }
-void NativeWriteWord(UINT8* data, UINT16 value)
+void NativeWriteWord(std::uint8_t* data, std::uint16_t value)
 {
     memcpy(data, &value, sizeof(value));
 }
@@ -40,9 +42,9 @@ SDL_Rect ClippingRect = {0, 0, 640, 480};
 // Ordinary buffer copies share the CPU surface backend. The legacy entry points
 // deliberately propagate writes through overlapping input; SDL snapshots instead,
 // so only that unsupported case uses the shared forward-copy loop below.
-static void BlitPackedBuffers(void* destination, UINT32 destinationPitch,
-                              void* source, UINT32 sourcePitch, UINT32 width,
-                              UINT32 height, unsigned bytes,
+static void BlitPackedBuffers(void* destination, std::uint32_t destinationPitch,
+                              void* source, std::uint32_t sourcePitch, std::uint32_t width,
+                              std::uint32_t height, unsigned bytes,
                               std::optional<SurfaceColorKey> key = std::nullopt)
 {
     if (!width || !height)
@@ -51,8 +53,8 @@ static void BlitPackedBuffers(void* destination, UINT32 destinationPitch,
     const auto src = reinterpret_cast<uintptr_t>(source);
     if (dest < src + size_t(height - 1) * sourcePitch + width * bytes &&
         src < dest + size_t(height - 1) * destinationPitch + width * bytes) {
-        auto* output = static_cast<UINT8*>(destination);
-        const auto* input = static_cast<const UINT8*>(source);
+        auto* output = static_cast<std::uint8_t*>(destination);
+        const auto* input = static_cast<const std::uint8_t*>(source);
         const unsigned rowBytes = width * bytes;
         for (unsigned y = 0; y < height; ++y, output += destinationPitch, input += sourcePitch) {
             if (key) {
@@ -65,7 +67,7 @@ static void BlitPackedBuffers(void* destination, UINT32 destinationPitch,
                 for (unsigned chunk : {1u, 2u, 4u}) {
                     const unsigned end = chunk == 4 ? rowBytes : offset + (rowBytes & chunk);
                     for (; offset < end; offset += chunk) {
-                        UINT32 value;
+                        std::uint32_t value;
                         memcpy(&value, input + offset, chunk);
                         memcpy(output + offset, &value, chunk);
                     }
@@ -74,7 +76,7 @@ static void BlitPackedBuffers(void* destination, UINT32 destinationPitch,
         }
         return;
     }
-    const auto format = bytes == 1 ? SDL_PIXELFORMAT_INDEX8 : SDL_PIXELFORMAT_RGB565;
+    const auto format = bytes == 1 ? SDL_PIXELFORMAT_INDEX8 : g_sgp_pixel_format;
     auto outputStorage = CreateCpuStorage(width, height, format, destination, destinationPitch);
     auto inputStorage = CreateCpuStorage(width, height, format, source, sourcePitch);
     auto output = ShareCpuSurface(*outputStorage);
@@ -84,16 +86,16 @@ static void BlitPackedBuffers(void* destination, UINT32 destinationPitch,
 }
 
 // FUNCTION: WIZ8 0x00411430
-BOOLEAN Blt16BPPTo16BPP(UINT16* pDest, UINT32 uiDestPitch, UINT16* pSrc, UINT32 uiSrcPitch,
-                        INT32 iDestXPos, INT32 iDestYPos, INT32 iSrcXPos, INT32 iSrcYPos,
-                        UINT32 uiWidth, UINT32 uiHeight)
+bool Blt16BPPTo16BPP(std::uint16_t* pDest, std::uint32_t uiDestPitch, std::uint16_t* pSrc, std::uint32_t uiSrcPitch,
+                        std::int32_t iDestXPos, std::int32_t iDestYPos, std::int32_t iSrcXPos, std::int32_t iSrcYPos,
+                        std::uint32_t uiWidth, std::uint32_t uiHeight)
 {
     Assert(pDest != nullptr);
     Assert(pSrc != nullptr);
-    auto* source = reinterpret_cast<UINT8*>(pSrc) + iSrcYPos * uiSrcPitch + iSrcXPos * 2;
-    auto* destination = reinterpret_cast<UINT8*>(pDest) + iDestYPos * uiDestPitch + iDestXPos * 2;
+    auto* source = reinterpret_cast<std::uint8_t*>(pSrc) + iSrcYPos * uiSrcPitch + iSrcXPos * 2;
+    auto* destination = reinterpret_cast<std::uint8_t*>(pDest) + iDestYPos * uiDestPitch + iDestXPos * 2;
     BlitPackedBuffers(destination, uiDestPitch, source, uiSrcPitch, uiWidth, uiHeight, 2);
-    return TRUE;
+    return true;
 }
 
 /**********************************************************************************************
@@ -106,16 +108,16 @@ BOOLEAN Blt16BPPTo16BPP(UINT16* pDest, UINT32 uiDestPitch, UINT16* pSrc, UINT32 
 
 **********************************************************************************************/
 // FUNCTION: WIZ8 0x004114c0
-BOOLEAN Blt16BPPTo16BPPTrans(UINT16* pDest, UINT32 uiDestPitch, UINT16* pSrc, UINT32 uiSrcPitch,
-                             INT32 iDestXPos, INT32 iDestYPos, INT32 iSrcXPos, INT32 iSrcYPos,
-                             UINT32 uiWidth, UINT32 uiHeight, UINT16 usTrans)
+bool Blt16BPPTo16BPPTrans(std::uint16_t* pDest, std::uint32_t uiDestPitch, std::uint16_t* pSrc, std::uint32_t uiSrcPitch,
+                             std::int32_t iDestXPos, std::int32_t iDestYPos, std::int32_t iSrcXPos, std::int32_t iSrcYPos,
+                             std::uint32_t uiWidth, std::uint32_t uiHeight, std::uint16_t usTrans)
 {
     Assert(pDest != nullptr);
     Assert(pSrc != nullptr);
-    auto* source = reinterpret_cast<UINT8*>(pSrc) + iSrcYPos * uiSrcPitch + iSrcXPos * 2;
-    auto* destination = reinterpret_cast<UINT8*>(pDest) + iDestYPos * uiDestPitch + iDestXPos * 2;
+    auto* source = reinterpret_cast<std::uint8_t*>(pSrc) + iSrcYPos * uiSrcPitch + iSrcXPos * 2;
+    auto* destination = reinterpret_cast<std::uint8_t*>(pDest) + iDestYPos * uiDestPitch + iDestXPos * 2;
     BlitPackedBuffers(destination, uiDestPitch, source, uiSrcPitch, uiWidth, uiHeight, 2, SurfaceColorKey{usTrans, usTrans});
-    return TRUE;
+    return true;
 }
 
 /**********************************************************************************************
@@ -127,9 +129,9 @@ BOOLEAN Blt16BPPTo16BPPTrans(UINT16* pDest, UINT32 uiDestPitch, UINT16* pSrc, UI
 
 **********************************************************************************************/
 // FUNCTION: WIZ8 0x00411540
-BOOLEAN Blt16BPPTo16BPPMirror(UINT16* pDest, UINT32 uiDestPitch, UINT16* pSrc, UINT32 uiSrcPitch,
-                              INT32 iDestXPos, INT32 iDestYPos, INT32 iSrcXPos, INT32 iSrcYPos,
-                              UINT32 uiWidth, UINT32 uiHeight)
+bool Blt16BPPTo16BPPMirror(std::uint16_t* pDest, std::uint32_t uiDestPitch, std::uint16_t* pSrc, std::uint32_t uiSrcPitch,
+                              std::int32_t iDestXPos, std::int32_t iDestYPos, std::int32_t iSrcXPos, std::int32_t iSrcYPos,
+                              std::uint32_t uiWidth, std::uint32_t uiHeight)
 {
     Assert(pDest != nullptr);
     Assert(pSrc != nullptr);
@@ -137,18 +139,18 @@ BOOLEAN Blt16BPPTo16BPPMirror(UINT16* pDest, UINT32 uiDestPitch, UINT16* pSrc, U
     const SDL_Rect bounds{0, 0, 640, 480};
     SDL_Rect visible;
     if (!SDL_GetRectIntersection(&destination, &bounds, &visible))
-        return TRUE;
+        return true;
     // This entry point ignores the source origin and propagates overlapping writes
     // from left to right while writing the destination from right to left.
     const int topSkip = visible.y - destination.y;
     const int rightSkip = destination.x + destination.w - visible.x - visible.w;
-    const auto* source = reinterpret_cast<const UINT8*>(pSrc) + topSkip * uiSrcPitch + rightSkip * 2;
-    auto* dest = reinterpret_cast<UINT8*>(pDest) + visible.y * uiDestPitch +
+    const auto* source = reinterpret_cast<const std::uint8_t*>(pSrc) + topSkip * uiSrcPitch + rightSkip * 2;
+    auto* dest = reinterpret_cast<std::uint8_t*>(pDest) + visible.y * uiDestPitch +
                  (visible.x + visible.w - 1) * 2;
     for (int y = 0; y < visible.h; ++y, source += uiSrcPitch, dest += uiDestPitch)
         for (int x = 0; x < visible.w; ++x)
             NativeWriteWord(dest - x * 2, NativeReadWord(source + x * 2));
-    return TRUE;
+    return true;
 }
 
 /***********************************************************************************************
@@ -160,16 +162,16 @@ BOOLEAN Blt16BPPTo16BPPMirror(UINT16* pDest, UINT32 uiDestPitch, UINT16* pSrc, U
 
 **********************************************************************************************/
 // FUNCTION: WIZ8 0x004116c0
-BOOLEAN Blt8BPPTo8BPP(UINT8* pDest, UINT32 uiDestPitch, UINT8* pSrc, UINT32 uiSrcPitch,
-                      INT32 iDestXPos, INT32 iDestYPos, INT32 iSrcXPos, INT32 iSrcYPos,
-                      UINT32 uiWidth, UINT32 uiHeight)
+bool Blt8BPPTo8BPP(std::uint8_t* pDest, std::uint32_t uiDestPitch, std::uint8_t* pSrc, std::uint32_t uiSrcPitch,
+                      std::int32_t iDestXPos, std::int32_t iDestYPos, std::int32_t iSrcXPos, std::int32_t iSrcYPos,
+                      std::uint32_t uiWidth, std::uint32_t uiHeight)
 {
     Assert(pDest != nullptr);
     Assert(pSrc != nullptr);
-    auto* source = reinterpret_cast<UINT8*>(pSrc) + iSrcYPos * uiSrcPitch + iSrcXPos * 1;
-    auto* destination = reinterpret_cast<UINT8*>(pDest) + iDestYPos * uiDestPitch + iDestXPos * 1;
+    auto* source = reinterpret_cast<std::uint8_t*>(pSrc) + iSrcYPos * uiSrcPitch + iSrcXPos * 1;
+    auto* destination = reinterpret_cast<std::uint8_t*>(pDest) + iDestYPos * uiDestPitch + iDestXPos * 1;
     BlitPackedBuffers(destination, uiDestPitch, source, uiSrcPitch, uiWidth, uiHeight, 1);
-    return TRUE;
+    return true;
 }
 
 
@@ -181,14 +183,14 @@ BOOLEAN Blt8BPPTo8BPP(UINT8* pDest, UINT32 uiDestPitch, UINT8* pSrc, UINT32 uiSr
 
 **********************************************************************************************/
 // FUNCTION: WIZ8 0x00411730
-BOOLEAN Blt8BPPDataSubTo16BPPBuffer(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
-                                    SGPVSurface& hSrcVSurface, UINT8* pSrcBuffer, UINT32 uiSrcPitch,
-                                    INT32 iX, INT32 iY, SDL_Rect* pRect)
+bool Blt8BPPDataSubTo16BPPBuffer(std::uint16_t* pBuffer, std::uint32_t uiDestPitchBYTES,
+                                    SGPVSurface& hSrcVSurface, std::uint8_t* pSrcBuffer, std::uint32_t uiSrcPitch,
+                                    std::int32_t iX, std::int32_t iY, SDL_Rect* pRect)
 {
-    UINT16* p16BPPPalette;
-    UINT8 *SrcPtr, *DestPtr;
-    UINT32 LeftSkip, TopSkip, BlitLength, BlitHeight;
-    INT32 iTempX, iTempY;
+    std::uint16_t* p16BPPPalette;
+    std::uint8_t *SrcPtr, *DestPtr;
+    std::uint32_t LeftSkip, TopSkip, BlitLength, BlitHeight;
+    std::int32_t iTempX, iTempY;
 
     // Assertions
     Assert(pSrcBuffer != nullptr);
@@ -207,20 +209,20 @@ BOOLEAN Blt8BPPDataSubTo16BPPBuffer(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
     BlitLength = pRect->w;
     BlitHeight = pRect->h;
 
-    SrcPtr = (UINT8*)(pSrcBuffer + TopSkip + LeftSkip);
-    DestPtr = ((UINT8*)pBuffer + (uiDestPitchBYTES * iTempY) + (iTempX * 2));
+    SrcPtr = (std::uint8_t*)(pSrcBuffer + TopSkip + LeftSkip);
+    DestPtr = ((std::uint8_t*)pBuffer + (uiDestPitchBYTES * iTempY) + (iTempX * 2));
     p16BPPPalette = hSrcVSurface.p16BPPPalette.data();
 
     // Every index writes its LUT word.
-    for (UINT32 y = 0; y < BlitHeight; ++y) {
-        for (UINT32 x = 0; x < BlitLength; ++x) {
+    for (std::uint32_t y = 0; y < BlitHeight; ++y) {
+        for (std::uint32_t x = 0; x < BlitLength; ++x) {
             NativeWriteWord(DestPtr + x * 2, p16BPPPalette[SrcPtr[x]]);
         }
         SrcPtr += uiSrcPitch;
         DestPtr += uiDestPitchBYTES;
     }
 
-    return (TRUE);
+    return (true);
 }
 
 /****************************INCOMPLETE***********************************************/
@@ -257,10 +259,10 @@ void GetClippingRect(SDL_Rect* clip)
 	indices = foreground, transparent = background when nonzero).
 
 **********************************************************************************************/
-BOOLEAN BltSpriteTo16BPPBuffer(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
-                               const SpriteFrame& frame, const UINT16* palette, INT32 iX, INT32 iY,
+bool BltSpriteTo16BPPBuffer(std::uint16_t* pBuffer, std::uint32_t uiDestPitchBYTES,
+                               const SpriteFrame& frame, const std::uint16_t* palette, std::int32_t iX, std::int32_t iY,
                                const SDL_Rect* clipregion, bool fMirror, SpriteDrawOp op,
-                               UINT16 mono_foreground, UINT16 mono_background, UINT16 mono_shadow)
+                               std::uint16_t mono_foreground, std::uint16_t mono_background, std::uint16_t mono_shadow)
 {
     Assert(pBuffer != nullptr);
 
@@ -271,21 +273,27 @@ BOOLEAN BltSpriteTo16BPPBuffer(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
                           iY + frame.sOffsetY, frame.usWidth, frame.usHeight};
     SDL_Rect visible;
     if (!SDL_GetRectIntersection(&sprite, clip, &visible)) {
-        return (TRUE);
+        return (true);
     }
 
-    const UINT16* const pixels = frame.pixels.data();
-    for (INT32 dy = visible.y; dy < visible.y + visible.h; ++dy) {
-        const UINT16* row = pixels + (dy - sprite.y) * frame.usWidth;
-        UINT8* dest = reinterpret_cast<UINT8*>(pBuffer) + dy * uiDestPitchBYTES + visible.x * 2;
-        const INT32 left = visible.x - sprite.x;
-        for (INT32 dx = 0; dx < visible.w; ++dx, dest += 2) {
-            const INT32 sx = fMirror ? frame.usWidth - 1 - left - dx : left + dx;
-            const UINT16 index = row[sx];
+    if (op == SpriteDrawOp::Transparent) {
+        auto* source = frame.coloredSurface(std::span<const std::uint16_t, 256>(palette, 256), fMirror);
+        auto destination = CreateCpuStorage(visible.x + visible.w, visible.y + visible.h,
+                                           g_sgp_pixel_format, pBuffer, uiDestPitchBYTES);
+        if (!source || !destination) return false;
+        SDL_Rect sourceRect{visible.x - sprite.x, visible.y - sprite.y, visible.w, visible.h};
+        return SDL_BlitSurface(source, &sourceRect, destination.get(), &visible);
+    }
+
+    for (std::int32_t dy = visible.y; dy < visible.y + visible.h; ++dy) {
+        const auto* row = reinterpret_cast<const std::uint16_t*>(static_cast<const std::uint8_t*>(frame.indices->pixels) + (dy - sprite.y) * frame.indices->pitch);
+        std::uint8_t* dest = reinterpret_cast<std::uint8_t*>(pBuffer) + dy * uiDestPitchBYTES + visible.x * 2;
+        const std::int32_t left = visible.x - sprite.x;
+        for (std::int32_t dx = 0; dx < visible.w; ++dx, dest += 2) {
+            const std::int32_t sx = fMirror ? frame.usWidth - 1 - left - dx : left + dx;
+            const std::uint16_t index = row[sx];
             switch (op) {
             case SpriteDrawOp::Transparent:
-                if (index != SpriteFrame::kTransparent)
-                    NativeWriteWord(dest, palette[index]);
                 break;
             case SpriteDrawOp::Shadow:
                 if (index != SpriteFrame::kTransparent)
@@ -303,7 +311,7 @@ BOOLEAN BltSpriteTo16BPPBuffer(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
             }
         }
     }
-    return (TRUE);
+    return (true);
 }
 
 /**********************************************************************************************
@@ -327,8 +335,8 @@ BOOLEAN BltSpriteTo16BPPBuffer(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
 
 *********************************************************************************************/
 // FUNCTION: WIZ8 0x00411850
-BOOLEAN Blt16BPPBufferPixelateRectWithColor(UINT16* pBuffer, UINT32 uiDestPitchBYTES, SDL_Rect* area,
-                                            UINT8 Pattern[8][8], UINT16 usColor)
+bool Blt16BPPBufferPixelateRectWithColor(std::uint16_t* pBuffer, std::uint32_t uiDestPitchBYTES, SDL_Rect* area,
+                                            std::uint8_t Pattern[8][8], std::uint16_t usColor)
 {
     Assert(pBuffer != nullptr);
     Assert(Pattern != nullptr);
@@ -337,9 +345,9 @@ BOOLEAN Blt16BPPBufferPixelateRectWithColor(UINT16* pBuffer, UINT32 uiDestPitchB
     const SDL_Rect requested{area->x, area->y, area->w + 1, area->h + 1};
     SDL_Rect visible;
     if (!SDL_GetRectIntersection(&requested, &ClippingRect, &visible))
-        return FALSE;
+        return false;
 
-    auto* dest = reinterpret_cast<UINT8*>(pBuffer) + visible.y * uiDestPitchBYTES + visible.x * 2;
+    auto* dest = reinterpret_cast<std::uint8_t*>(pBuffer) + visible.y * uiDestPitchBYTES + visible.x * 2;
     for (int y = 0; y < visible.h; ++y) {
         for (int x = 0; x < visible.w; ++x) {
             // The first column of every row uses pattern[0][0].
@@ -348,25 +356,25 @@ BOOLEAN Blt16BPPBufferPixelateRectWithColor(UINT16* pBuffer, UINT32 uiDestPitchB
         }
         dest += uiDestPitchBYTES;
     }
-    return TRUE;
+    return true;
 }
 
 //Uses black hatch color
 // FUNCTION: WIZ8 0x00411930
-BOOLEAN Blt16BPPBufferHatchRect(UINT16* pBuffer, UINT32 uiDestPitchBYTES, SDL_Rect* area)
+bool Blt16BPPBufferHatchRect(std::uint16_t* pBuffer, std::uint32_t uiDestPitchBYTES, SDL_Rect* area)
 {
-    UINT8 Pattern[8][8] = {
+    std::uint8_t Pattern[8][8] = {
         {1, 0, 1, 0, 1, 0, 1, 0}, {0, 1, 0, 1, 0, 1, 0, 1}, {1, 0, 1, 0, 1, 0, 1, 0},
         {0, 1, 0, 1, 0, 1, 0, 1}, {1, 0, 1, 0, 1, 0, 1, 0}, {0, 1, 0, 1, 0, 1, 0, 1},
         {1, 0, 1, 0, 1, 0, 1, 0}, {0, 1, 0, 1, 0, 1, 0, 1}};
     return Blt16BPPBufferPixelateRectWithColor(pBuffer, uiDestPitchBYTES, area, Pattern, 0);
 }
 // FUNCTION: WIZ8 0x004120b0
-BOOLEAN BltIsClipped(SGPVObject& object, INT32 x, INT32 y, UINT16 index, SDL_Rect* clipregion)
+bool BltIsClipped(SGPVObject& object, std::int32_t x, std::int32_t y, std::uint16_t index, SDL_Rect* clipregion)
 {
     const SpriteFrame& frame = object.sprites[index];
     if (frame.usWidth == 0 || frame.usHeight == 0)
-        return FALSE;
+        return false;
 
     const SDL_Rect sprite{x + frame.sOffsetX, y + frame.sOffsetY,
                           frame.usWidth, frame.usHeight};
@@ -377,8 +385,8 @@ BOOLEAN BltIsClipped(SGPVObject& object, INT32 x, INT32 y, UINT16 index, SDL_Rec
 }
 // FUNCTION: WIZ8 0x004124a0
 /* Keep the legacy inclusive rectangle and palette transforms in one place. */
-static BOOLEAN Blt16BPPBufferShadowRectWithTable(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
-                                                 SDL_Rect* area, const UINT16* table)
+static bool Blt16BPPBufferShadowRectWithTable(std::uint16_t* pBuffer, std::uint32_t uiDestPitchBYTES,
+                                                 SDL_Rect* area, const std::uint16_t* table)
 {
     Assert(pBuffer != nullptr);
 
@@ -387,21 +395,21 @@ static BOOLEAN Blt16BPPBufferShadowRectWithTable(UINT16* pBuffer, UINT32 uiDestP
     const SDL_Rect requested{area->x, area->y, area->w + 1, area->h + 1};
     SDL_Rect visible;
     if (!SDL_GetRectIntersection(&requested, &ClippingRect, &visible))
-        return FALSE;
+        return false;
     *area = {visible.x, visible.y, visible.w - 1, visible.h - 1};
 
-    auto* dest = reinterpret_cast<UINT8*>(pBuffer) + visible.y * uiDestPitchBYTES + visible.x * 2;
+    auto* dest = reinterpret_cast<std::uint8_t*>(pBuffer) + visible.y * uiDestPitchBYTES + visible.x * 2;
     for (int y = 0; y < visible.h; ++y) {
         for (int x = 0; x < visible.w; ++x) {
-            UINT8* pixel = dest + x * 2;
+            std::uint8_t* pixel = dest + x * 2;
             NativeWriteWord(pixel, table[NativeReadWord(pixel)]);
         }
         dest += uiDestPitchBYTES;
     }
-    return TRUE;
+    return true;
 }
 
-BOOLEAN Blt16BPPBufferShadowRect(UINT16* pBuffer, UINT32 uiDestPitchBYTES, SDL_Rect* area)
+bool Blt16BPPBufferShadowRect(std::uint16_t* pBuffer, std::uint32_t uiDestPitchBYTES, SDL_Rect* area)
 {
     return Blt16BPPBufferShadowRectWithTable(pBuffer, uiDestPitchBYTES, area, ShadeTable);
 }
@@ -417,7 +425,7 @@ BOOLEAN Blt16BPPBufferShadowRect(UINT16* pBuffer, UINT32 uiDestPitchBYTES, SDL_R
 
 *********************************************************************************************/
 // FUNCTION: WIZ8 0x00412570
-BOOLEAN Blt16BPPBufferShadowRectAlternateTable(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
+bool Blt16BPPBufferShadowRectAlternateTable(std::uint16_t* pBuffer, std::uint32_t uiDestPitchBYTES,
                                                SDL_Rect* area)
 {
     return Blt16BPPBufferShadowRectWithTable(pBuffer, uiDestPitchBYTES, area, IntensityTable);
@@ -426,8 +434,8 @@ BOOLEAN Blt16BPPBufferShadowRectAlternateTable(UINT16* pBuffer, UINT32 uiDestPit
 // UTILITY FUNCTIONS FOR BLITTING
 
 // FUNCTION: WIZ8 0x00412640
-BOOLEAN FillRect16BPP(UINT16* pBuffer, UINT32 uiDestPitchBYTES, INT32 x1, INT32 y1, INT32 x2,
-                      INT32 y2, UINT16 color)
+bool FillRect16BPP(std::uint16_t* pBuffer, std::uint32_t uiDestPitchBYTES, std::int32_t x1, std::int32_t y1, std::int32_t x2,
+                      std::int32_t y2, std::uint16_t color)
 {
     Assert(pBuffer != nullptr);
     Assert(uiDestPitchBYTES > 0);
@@ -436,10 +444,10 @@ BOOLEAN FillRect16BPP(UINT16* pBuffer, UINT32 uiDestPitchBYTES, INT32 x1, INT32 
                             std::min(639, x2) - std::max(0, x1) + 1,
                             std::min(479, y2) - std::max(0, y1) + 1};
     if (SDL_RectEmpty(&rectangle))
-        return TRUE;
-    auto storage = CreateCpuStorage(uiDestPitchBYTES / 2, 480, SDL_PIXELFORMAT_RGB565,
+        return true;
+    auto storage = CreateCpuStorage(uiDestPitchBYTES / 2, 480, g_sgp_pixel_format,
                                     pBuffer, uiDestPitchBYTES);
     auto destination = ShareCpuSurface(*storage);
     FillCpuSurface(destination, color, &rectangle);
-    return TRUE;
+    return true;
 }

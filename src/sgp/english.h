@@ -3,7 +3,7 @@
 #ifndef __ENGLISH_
 #define __ENGLISH_
 
-#include "Types.h"
+#include <cstdint>
 
 inline constexpr int SHIFT = 16;
 #define CTRL 17
@@ -133,7 +133,7 @@ extern "C" {
 #endif
 
 /* Unmodified and Shift banks only. */
-extern UINT16 gsKeyTranslationTable[512];
+extern std::uint16_t gsKeyTranslationTable[512];
 
 #ifdef __cplusplus
 }
