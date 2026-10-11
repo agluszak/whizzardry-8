@@ -825,8 +825,7 @@ void W8SplitAmountDialog::SplitActivateField(W8DialogButton* button)
     }
 }
 
-/* The trigger-owned item picker. The thirteen same-sized button slots are
-   allocated by CreateControls; the constructor only clears them. */
+/* The trigger-owned item picker allocates its buttons in CreateControls. */
 // FUNCTION: WIZ8 0x005cd710
 W8TriggerItemPickerDialog::W8TriggerItemPickerDialog()
 {
@@ -846,14 +845,11 @@ W8TriggerItemPickerDialog::~W8TriggerItemPickerDialog()
     }
 }
 
-/* Allocate the thirteen button slots, then configure their frame images,
-   callbacks and tooltips. Buttons 5..8 are the four item rows, 9..12 the
-   scroll bar. A nil allocation clears every slot and reports failure. */
+/* Configure the thirteen owned buttons. Buttons 5..8 are item rows and
+   9..12 are the scroll bar. */
 // FUNCTION: WIZ8 0x005cd8d0
 bool W8TriggerItemPickerDialog::CreateButtons()
 {
-    int index;
-
     for (auto& button : m_buttons) {
         button = std::make_unique<W8DialogButton>();
         button->m_owner = this;
@@ -1509,8 +1505,7 @@ void W8TriggerItemPickerDialog::Draw()
     }
 }
 
-/* Create the base controls first, then the thirteen button slots. A failed
-   button allocation is reported as the dialog's own error 7. */
+/* Create the base controls first, then the picker buttons. */
 // FUNCTION: WIZ8 0x005cdc10
 int W8TriggerItemPickerDialog::CreateControls()
 {
@@ -1524,7 +1519,7 @@ int W8TriggerItemPickerDialog::CreateControls()
     return 0;
 }
 
-/* Release the base controls and every allocated button slot. */
+/* Release base graphics and owned picker buttons. */
 // FUNCTION: WIZ8 0x005cdc40
 void W8TriggerItemPickerDialog::DestroyControls()
 {
