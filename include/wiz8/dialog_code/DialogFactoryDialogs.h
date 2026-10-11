@@ -256,7 +256,7 @@ private:
 public:
   std::vector<W8WorldItem*> items;
   std::vector<unsigned char> flags;
-  W8DialogButton* m_buttons[13];
+  std::array<std::unique_ptr<W8DialogButton>, 13> m_buttons;
   int m_first_item;
   W8WorldItem* m_item_group;
 };
