@@ -3038,9 +3038,7 @@ void Trigger::Run(int source)
             group = gXStatus.monster_groups[index];
             if (group->monster_id == monster_id) {
                 int location_id = group->MemberLocationId(0);
-                unsigned int monster_index = MonsterGetIndexByLocationID(location_id);
-
-                monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
+                monster_info = FindMonster(location_id);
                 break;
             }
         }

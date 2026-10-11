@@ -1956,10 +1956,8 @@ unsigned int W8PathingService::CollectPathProbes(W8NavigatorMovementState* movem
     for (unsigned int index = 0; index < m_path_candidates.size() && m_path_probe_count < 5;
          ++index) {
         int location_id = m_path_candidates[index];
-        unsigned int monster_index = MonsterGetIndexByLocationID(location_id, false);
-        if (monster_index != static_cast<unsigned int>(-1)) {
-            monster_index = MonsterGetIndexByLocationID(location_id);
-            W8MonsterInfo* info = MonsterGetScriptPartByLocationIndex(monster_index);
+        W8MonsterInfo* info = FindMonster(location_id, false);
+        if (info != 0) {
             if (info != 0 && info->p3D != 0 && info->p3D->active) {
                 W8Monster* monster = info->p3D;
                 srVector3T<float> monster_position = monster->GetPosition();
@@ -2484,8 +2482,8 @@ unsigned short W8PathingService::ResolveSearchNodeCollisions(W8NavigatorMovement
 
     for (unsigned int candidate = 0; candidate < m_path_candidates.size(); ++candidate) {
         int location_id = m_path_candidates[candidate];
-        unsigned int monster_index = MonsterGetIndexByLocationID(location_id, false);
-        if (monster_index == static_cast<unsigned int>(-1)) {
+        W8MonsterInfo* info = FindMonster(location_id, false);
+        if (info == 0) {
             continue;
         }
 
@@ -2504,10 +2502,7 @@ unsigned short W8PathingService::ResolveSearchNodeCollisions(W8NavigatorMovement
         if (probe_index < m_path_probe_count) {
             continue;
         }
-
-        monster_index = MonsterGetIndexByLocationID(location_id);
-        W8MonsterInfo* info = MonsterGetScriptPartByLocationIndex(monster_index);
-        if (info == 0 || info->p3D == 0 || !info->p3D->active) {
+        if (info->p3D == 0 || !info->p3D->active) {
             continue;
         }
 

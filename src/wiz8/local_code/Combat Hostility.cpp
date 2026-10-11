@@ -212,8 +212,7 @@ void MakeTargetGroupHostile(W8TargetSource* source, W8CombatSlot* target)
         if (target->iMonsterID == -1) {
             return;
         }
-        unsigned int monster_list_index = MonsterGetIndexByLocationID(target->iMonsterID);
-        W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_list_index);
+        W8MonsterInfo* monster_info = FindMonster(target->iMonsterID);
         if (monster_info->uiCondition[W8_CONDITION_TURNCOAT] != 0) {
             return;
         }
@@ -222,16 +221,14 @@ void MakeTargetGroupHostile(W8TargetSource* source, W8CombatSlot* target)
         if (target->iGroupID == -1) {
             return;
         }
-        unsigned int group_list_index = GetMonsterGroupIndexByID(target->iGroupID);
-        group = GetMonsterGroupByListIndex(group_list_index);
+        group = FindMonsterGroup(target->iGroupID);
         unsigned int index = 0;
         if (group->MemberIds().empty()) {
             return;
         }
         while (true) {
             int monster_id = group->MemberLocationId(index);
-            unsigned int monster_list_index = MonsterGetIndexByLocationID(monster_id);
-            W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_list_index);
+            W8MonsterInfo* monster_info = FindMonster(monster_id);
             if (monster_info->uiCondition[W8_CONDITION_TURNCOAT] == 0) {
                 break;
             }
@@ -244,8 +241,7 @@ void MakeTargetGroupHostile(W8TargetSource* source, W8CombatSlot* target)
         return;
     }
     if (group_id != -1) {
-        unsigned int group_list_index = GetMonsterGroupIndexByID(group_id);
-        group = GetMonsterGroupByListIndex(group_list_index);
+        group = FindMonsterGroup(group_id);
         SetMonsterGroupHostility(group, hostility, true);
         if (!group->fInCombat) {
             MonsterGroupEnterCombat(group);

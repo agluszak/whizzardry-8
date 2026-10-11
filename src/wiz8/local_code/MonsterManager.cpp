@@ -592,16 +592,9 @@ W8MonsterRecord* GetMonsterDataByLocationID(int location_id)
 // FUNCTION: WIZ8 0x004e5950
 W8Monster* GetMonsterByLocationID(int location_id)
 {
-    W8MonsterInfo* monster_info;
-    unsigned int index;
-
     if (location_id != -1) {
-        index = MonsterGetIndexByLocationID(location_id, false);
-        if (index != 0xffffffff) {
-            monster_info = MonsterGetScriptPartByLocationIndex(index);
-            if (monster_info != 0) {
-                return monster_info->p3D;
-            }
+        if (W8MonsterInfo* monster_info = FindMonster(location_id, false)) {
+            return monster_info->p3D;
         }
     }
     return 0;

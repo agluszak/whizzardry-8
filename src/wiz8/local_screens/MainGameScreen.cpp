@@ -3912,7 +3912,6 @@ void RedrawCombatMonsterList(void)
     int context_slot;
     W8CombatSlot* target;
     Palette16 palette;
-    unsigned int monster_index;
     W8MonsterInfo* monster_info;
     std::string scratch_text;
 
@@ -3956,9 +3955,8 @@ void RedrawCombatMonsterList(void)
                         monster_group->group_id == target->iGroupID) {
                         is_target_group = true;
                     } else if (target->iType == W8_TARGET_KIND_MONSTER) {
-                        monster_index = MonsterGetIndexByLocationID(target->iMonsterID, false);
-                        if (monster_index != 0xffffffff) {
-                            monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
+                        monster_info = FindMonster(target->iMonsterID, false);
+                        if (monster_info != 0) {
                             is_target_group =
                                 monster_group->group_id == monster_info->monster_group_id;
                         }

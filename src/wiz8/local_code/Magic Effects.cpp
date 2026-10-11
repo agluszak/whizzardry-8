@@ -1102,7 +1102,6 @@ void ApplyConditionToTargets(W8SpellEffectEntry* effect, W8EnchantmentSlot slot)
     W8MonsterInfo* monster_info;
     unsigned int duration;
     int character_index;
-    int location_id;
     int remaining;
     int index;
 
@@ -1128,8 +1127,7 @@ void ApplyConditionToTargets(W8SpellEffectEntry* effect, W8EnchantmentSlot slot)
         }
     }
     for (index = 0; index < static_cast<int>(effect->monster_ids.size()); ++index) {
-        location_id = MonsterGetIndexByLocationID(effect->monster_ids[index]);
-        monster_info = MonsterGetScriptPartByLocationIndex(location_id);
+        monster_info = FindMonster(effect->monster_ids[index]);
         if (monster_info == 0) {
             srAssertFail("pMonsterInfo", MAGIC_EFFECTS_CPP, 0x5c9, 0);
         }
@@ -2655,7 +2653,6 @@ void FinishSpellEffectTargets(W8SpellEffectEntry* effect)
     W8TargetSource source_copy;
     W8CombatSlot target_copy;
     int index;
-    unsigned int monster_index;
 
     character = 0;
     monster_info = 0;

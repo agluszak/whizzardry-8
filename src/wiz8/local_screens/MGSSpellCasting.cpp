@@ -314,7 +314,6 @@ void CloseSpellCastingView(void)
 {
     int location_id;
     W8NpcDialogueLayout interact_id;
-    unsigned int monster_index;
     W8NpcState* npc;
 
     if (!gpSCSV->closing) {

@@ -397,7 +397,6 @@ bool IsSlotInRangeOfGroup(int party_slot, int group_id, W8TargetingContext conte
 {
     W8TargetSource source;
     W8MonsterGroup* group;
-    unsigned int index;
 
     group = FindMonsterGroup(group_id, false);
     if (group == nullptr) {
@@ -1133,8 +1132,7 @@ bool MonsterActionReachesTarget(W8MonsterInfo* monster_info, W8MonsterRecord* re
             return false;
         }
     } else if (target->iType == W8_TARGET_KIND_MONSTER) {
-        unsigned int index = MonsterGetIndexByLocationID(target->iMonsterID);
-        W8MonsterInfo* target_monster = MonsterGetScriptPartByLocationIndex(index);
+        W8MonsterInfo* target_monster = FindMonster(target->iMonsterID);
         return MonsterAttackReachesMonster(monster_info, record, attack, target_monster);
     } else if (target->iType == W8_TARGET_KIND_PARTY) {
         int party_slot = GetRandomCharacter(1, 1, -1, -1);
@@ -1148,8 +1146,7 @@ bool MonsterActionReachesTarget(W8MonsterInfo* monster_info, W8MonsterRecord* re
     } else if (target->iType == W8_TARGET_KIND_GROUP) {
         W8TargetSource source;
         SetTargetSourceToMonster(monster_info, &source);
-        unsigned int index = GetMonsterGroupIndexByID(target->iGroupID);
-        W8MonsterGroup* group = GetMonsterGroupByListIndex(index);
+        W8MonsterGroup* group = FindMonsterGroup(target->iGroupID);
         return IsTargetSourceInRangeOfGroup(&source, group, W8_TARGETING_CONTEXT_CURRENT);
     }
     return true;
@@ -1160,9 +1157,8 @@ int FindNearestVisibleGroupMonster(W8MonsterInfo* monster_info, int group_id, in
 {
     int best_id = -1;
     float best = 999999.0f;
-    unsigned int index = GetMonsterGroupIndexByID(group_id);
-    W8MonsterGroup* group = GetMonsterGroupByListIndex(index);
-    for (index = 0; index < group->MemberIds().size(); ++index) {
+    W8MonsterGroup* group = FindMonsterGroup(group_id);
+    for (unsigned int index = 0; index < group->MemberIds().size(); ++index) {
         int location_id = group->MemberLocationId(index);
         W8MonsterInfo* target = FindMonster(location_id);
         if (target->fActive && target->hp_current != 0 && target->fInCombat) {

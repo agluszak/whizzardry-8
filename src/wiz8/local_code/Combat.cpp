@@ -638,8 +638,7 @@ void BeginCombatExecution(void)
                         fmt::sprintf(g_localized_strings[0x229],
                                      g_status.buffers.Char[party->target_in_combat.iChar].name));
                 } else if (party->target_in_combat.iType == W8_TARGET_KIND_MONSTER) {
-                    unsigned int index = MonsterGetIndexByLocationID(party->target_in_combat.iMonsterID);
-                    W8MonsterInfo* target = MonsterGetScriptPartByLocationIndex(index);
+                    W8MonsterInfo* target = FindMonster(party->target_in_combat.iMonsterID);
                     PostCharacterNotice(slot, fmt::sprintf(g_localized_strings[0x229],
                                                            GetMonsterName(target, 0, 0)));
                 } else {
@@ -1582,7 +1581,6 @@ bool CharacterCanSwitchTo(int party_slot, W8TargetingContext context, bool allow
 void OrientMonsterTowardTarget(W8MonsterInfo* monster_info, bool alternate)
 {
     W8MonsterInfo* target;
-    unsigned int index;
     int location_id;
     srVector3T<float> point;
 

@@ -455,7 +455,6 @@ void BindCursorMonsterToGroup(void)
     srVector3T<float> position;
     W8MonsterGroup* monster_group;
     W8MonsterInfo* monster_info;
-    unsigned int index;
 
     if (gp3DCursor->group_bind_pending && gp3DCursor->light != 0) {
         gp3DCursor->group_bind_pending = false;
@@ -470,23 +469,19 @@ void BindCursorMonsterToGroup(void)
         } else {
             position = gp3DCursor->position;
         }
-        index = GetMonsterGroupIndexByID(gp3DCursor->monster_group_id, false);
-        if (index == 0xffffffff) {
-            index = gXStatus.monster_groups.size();
-            if (index == 0) {
+        monster_group = FindMonsterGroup(gp3DCursor->monster_group_id, false);
+        if (monster_group == 0) {
+            if (gXStatus.monster_groups.empty()) {
                 return;
             }
-            index = 0;
+            monster_group = GetMonsterGroupByListIndex(0);
         }
-        monster_group = GetMonsterGroupByListIndex(index);
         gp3DCursor->monster_group_id = monster_group->group_id;
         if (monster_group != 0) {
             if (monster_group->leader_group_id != 0) {
-                index = GetMonsterGroupIndexByID(monster_group->leader_group_id);
-                monster_group = GetMonsterGroupByListIndex(index);
+                monster_group = FindMonsterGroup(monster_group->leader_group_id);
             }
-            index = MonsterGetIndexByLocationID(monster_group->leader_location_id);
-            monster_info = MonsterGetScriptPartByLocationIndex(index);
+            monster_info = FindMonster(monster_group->leader_location_id);
             if (monster_info != 0 && monster_info->p3D != 0 &&
                 !monster_info->p3D->SetScript("Test.msf", true)) {
                 ApplyToMonsterGroupLeader(monster_group, &position, true);

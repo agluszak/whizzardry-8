@@ -2000,8 +2000,7 @@ std::optional<W8Octree::SphereTraceHit> W8Octree::traceSphereHit(
         if (target < 1) {
             goto no_probes;
         }
-        unsigned int monster_index = MonsterGetIndexByLocationID(target);
-        W8MonsterInfo* info = MonsterGetScriptPartByLocationIndex(monster_index);
+        W8MonsterInfo* info = FindMonster(target);
         if (info == 0 || info->p3D == 0) {
             goto no_probes;
         }
@@ -2020,8 +2019,7 @@ no_probes:;
             int id = ids[index];
             if (((excluded < 0) || (excluded != id)) && ((target < 0) || (excluded_location != id)) &&
                 (probe_set == 0 || !pathing->MatchesPathProbe(id, 0, 0))) {
-                unsigned int monster_index = MonsterGetIndexByLocationID(id);
-                W8MonsterInfo* info = MonsterGetScriptPartByLocationIndex(monster_index);
+                W8MonsterInfo* info = FindMonster(id);
                 if (info != 0) {
                     W8Monster* monster = info->p3D;
                     if (monster != 0 && monster->active && (monster->trace_mask & flags) == 0) {

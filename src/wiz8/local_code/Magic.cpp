@@ -681,9 +681,7 @@ void UpdateSpellEffects(void)
                     if (effect->OrigSource.iMonsterID == -1) {
                         srAssertFail("pOrigSource->iMonsterID != -1", MAGIC_CPP, 0x1504, 0);
                     }
-                    unsigned int monster_list_index = MonsterGetIndexByLocationID(effect->OrigSource.iMonsterID);
-                    W8MonsterInfo* monster_info =
-                        MonsterGetScriptPartByLocationIndex(monster_list_index);
+                    W8MonsterInfo* monster_info = FindMonster(effect->OrigSource.iMonsterID);
                     if (gXStatus.fCombatMode && g_combat_state->eCombatActionStatus != 0 &&
                         g_combat_state->pActionMonsterInfo != 0 &&
                         g_combat_state->pActionMonsterInfo->location_id ==
@@ -2762,7 +2760,6 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
     W8Disposition disposition;
     float heading;
     unsigned int caster_figure;
-    unsigned int monster_index;
     unsigned int adjusted_power;
 
     fizzled = false;
@@ -3244,7 +3241,6 @@ void RedirectBackfiredSpellTarget(W8TargetSource* source, W8CombatSlot* target)
     W8CombatSlot target_copy;
     W8MonsterInfo* monster_info;
     W8MonsterGroup* group;
-    unsigned int list_index;
     int slot;
 
     if (source->fBackfire) {
@@ -3286,8 +3282,7 @@ void RedirectBackfiredSpellTarget(W8TargetSource* source, W8CombatSlot* target)
         return;
     case W8_TARGET_KIND_GROUP:
         group = FindMonsterGroup(target_copy.iGroupID);
-        list_index = MonsterGetIndexByLocationID(group->leader_location_id);
-        monster_info = MonsterGetScriptPartByLocationIndex(list_index);
+        monster_info = FindMonster(group->leader_location_id);
         SetTargetSourceToMonster(monster_info, source);
         ResetCombatSlot(target);
         if (source_copy.iType == W8_TARGET_SOURCE_CHARACTER) {

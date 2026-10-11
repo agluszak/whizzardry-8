@@ -1441,11 +1441,8 @@ void W8Monster::Update()
                            fade_state == W8_MONSTER_FADE_IDLE &&
                            (runtime_flags & W8_MONSTER_FADED_OUT) == 0);
 
-    {
-        unsigned int monster_index = MonsterGetIndexByLocationID(location_id, false);
-        if (monster_index != 0xffffffff) {
-            monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
-        }
+    if (W8MonsterInfo* found = FindMonster(location_id, false)) {
+        monster_info = found;
     }
 
     if (!IsMipeActive()) {
@@ -2127,12 +2124,9 @@ void W8Monster::ProcessScript()
                         disposition = 2;
                     monster_info = FindMonster(location_id);
                     if (monster_info != 0) {
-                        unsigned int group_index = GetMonsterGroupIndexByID(monster_info->monster_group_id, false);
-                        if (group_index != static_cast<unsigned int>(-1)) {
-                            W8MonsterGroup* group = GetMonsterGroupByListIndex(group_index);
-                            if (group != 0) {
-                                SetMonsterGroupHostility(group, disposition, false);
-                            }
+                        W8MonsterGroup* group = FindMonsterGroup(monster_info->monster_group_id, false);
+                        if (group != 0) {
+                            SetMonsterGroupHostility(group, disposition, false);
                         }
                     }
                 }
