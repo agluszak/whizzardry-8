@@ -22,6 +22,7 @@
 #include <string>
 #include <vector>
 #include <cstdint>
+#include <cstddef>
 #include <iterator>
 #include <memory>
 #include <string_view>
@@ -138,14 +139,6 @@ bool RegionLive(unsigned region)
                 g_region_sets[set].Regions().end())
             return true;
     return false;
-}
-
-int RegionByCallback(W8RegionCallback callback)
-{
-    for (unsigned region = 0; region < g_regions.size(); ++region)
-        if (g_regions[region].callback == callback && RegionLive(region))
-            return int(region);
-    return -1;
 }
 
 int RegionInSet(unsigned set, int help_text_id)
