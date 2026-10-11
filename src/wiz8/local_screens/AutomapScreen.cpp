@@ -95,7 +95,7 @@
    unknown, so the existing compilation boundary is retained. */
 
 // GLOBAL: WIZ8 0x0068F258
-static std::vector<W8AutomapNote*> g_automap_notes;
+static std::vector<std::unique_ptr<W8AutomapNote>> g_automap_notes;
 
 // FUNCTION: WIZ8 0x0057e5d0
 // GLOBAL: WIZ8 0x0068f104
@@ -259,7 +259,7 @@ int g_automap_cell_count;
 // GLOBAL: WIZ8 0x0068f290
 bool g_automap_position_initialized;
 // GLOBAL: WIZ8 0x0068f294
-W8AutomapNote* g_automap_editing_note;
+W8AutomapNote* g_automap_editing_note; // Non-owning; g_automap_notes owns the note.
 // GLOBAL: WIZ8 0x0068f298
 W8AutomapNote* g_automap_hovered_note;
 
@@ -355,9 +355,16 @@ unsigned char AutomapBackgroundRegionEvent(const InputEvent* event, W8Region* re
 
 static void ClearAutomapNotes()
 {
-    wiz8::clear_and_dispose(g_automap_notes, [](W8AutomapNote* note) {
-        delete note;
-    });
+    g_automap_editing_note = nullptr;
+    g_automap_hovered_note = nullptr;
+    g_automap_notes.clear();
+}
+
+static void EraseAutomapNote(W8AutomapNote* note)
+{
+    if (g_automap_editing_note == note) g_automap_editing_note = nullptr;
+    if (g_automap_hovered_note == note) g_automap_hovered_note = nullptr;
+    std::erase_if(g_automap_notes, [note](const auto& owned) { return owned.get() == note; });
 }
 
 /* Rebuild the automap view for the level that just loaded: release every
@@ -824,15 +831,14 @@ void EnvironmentColour::Set(double red_value, double green_value, double blue_va
 W8AutomapNote* CreateAutomapNote(const glm::vec2* position, int layer, std::string_view text)
 {
     if (wiz8::text::to_utf16(text).size() < 40 && static_cast<int>(g_automap_notes.size()) < 200) {
-        W8AutomapNote* note = new W8AutomapNote;
-        if (note) {
-            note->position = *position;
-            note->layer = layer;
-            note->text = text;
-            g_automap_notes.push_back(note);
-            g_automap_redraw = true;
-            return note;
-        }
+        auto note = std::make_unique<W8AutomapNote>();
+        note->position = *position;
+        note->layer = layer;
+        note->text = text;
+        auto* result = note.get();
+        g_automap_notes.push_back(std::move(note));
+        g_automap_redraw = true;
+        return result;
     }
     return 0;
 }
@@ -889,13 +895,7 @@ void AutomapScreenFrame(void)
             } else if (g_automap_tool == 3) {
                 W8AutomapNote* note = FindAutomapNoteUnderCursor();
                 if (note) {
-                    wiz8::erase_first(g_automap_notes, note);
-
-                    delete note;
-                    if (g_automap_hovered_note == note)
-                        g_automap_hovered_note = 0;
-                    if (g_automap_editing_note == note)
-                        g_automap_editing_note = 0;
+                    EraseAutomapNote(note);
                     g_automap_redraw = true;
                 }
             } else if (GetCursorPositionInViewport(&point)) {
@@ -1516,7 +1516,7 @@ bool SaveAutomapNotes(wiz8::File& handle)
         return false;
     }
     for (unsigned int index = 0; index < count; ++index) {
-        W8AutomapNote* note = g_automap_notes[index];
+        W8AutomapNote* note = g_automap_notes[index].get();
         if (note != 0) {
             bool ok = (handle.write(&note->position.x, 4), true) != 0 &&
                       (handle.write(&note->position.y, 4), true) != 0 &&
@@ -1621,7 +1621,7 @@ W8AutomapNote* FindAutomapNoteUnderCursor(void)
         const auto location = AutomapWorldPosition(point);
         for (unsigned int index = 0; index < static_cast<unsigned int>(g_automap_notes.size());
              ++index) {
-            W8AutomapNote* note = g_automap_notes[index];
+            W8AutomapNote* note = g_automap_notes[index].get();
             if (note->layer == g_automap_layer) {
                 // NOLINTNEXTLINE(misc-include-cleaner)
                 const float distance = glm::distance(location, note->position);
@@ -1815,7 +1815,7 @@ void RenderAutomapMarkers(void)
         int font_height = g_wiz_text_font_secondary.height();
         unsigned int count = static_cast<int>(g_automap_notes.size());
         for (unsigned int index = 0; index < count; ++index) {
-            W8AutomapNote* note = g_automap_notes[index];
+            W8AutomapNote* note = g_automap_notes[index].get();
             int layer = note->layer + 1;
             if (HasAutomapLayer(layer)) {
                 g_automap_layers[layer]->getLocationY();
@@ -2026,23 +2026,14 @@ unsigned char HandleAutomapNoteInput(const InputEvent* input)
         } else if (input->key == VK_RETURN) {
             text.resize(last);
             if (text.empty()) {
-                wiz8::erase_first(g_automap_notes, g_automap_editing_note);
-                delete g_automap_editing_note;
-                if (g_automap_hovered_note == g_automap_editing_note) g_automap_hovered_note = 0;
-                g_automap_editing_note = 0;
+                EraseAutomapNote(g_automap_editing_note);
                 g_automap_redraw = true;
             }
             if (g_automap_tool != 0) { g_automap_tool = 0; SetAutomapCursorImage(0); }
             g_automap_editing_note = 0;
             g_automap_redraw = true;
         } else if (input->key == VK_ESCAPE) {
-            wiz8::erase_first(g_automap_notes, g_automap_editing_note);
-
-            delete g_automap_editing_note;
-            if (g_automap_hovered_note == g_automap_editing_note) {
-                g_automap_hovered_note = 0;
-            }
-            g_automap_editing_note = 0;
+            EraseAutomapNote(g_automap_editing_note);
             g_automap_redraw = true;
             if (g_automap_tool != 0) {
                 g_automap_tool = 0;
