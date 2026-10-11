@@ -197,13 +197,8 @@ void W8DialogBase::EndModalInput()
 // FUNCTION: WIZ8 0x005dcce0
 bool W8DialogBase::ProcessInput()
 {
-    SDL_Point mouse;
-    InputAtom input;
-
     BeginModalInput();
-    SGPMouseGetPos(&mouse);
-    UpdateRegionMousePosition(mouse.x, mouse.y);
-    while (DequeueEvent(&input)) {
+    DrainModalInput([this](const InputAtom& input) {
         if (DispatchRegionInput(&input)) {
             if (input.usEvent == RIGHT_BUTTON_DOWN) {
                 OnRightButtonDown();
@@ -215,7 +210,8 @@ bool W8DialogBase::ProcessInput()
         } else if (input.usEvent == KEY_DOWN && input.usParam == VK_ESCAPE) {
             m_keep_open = false;
         }
-    }
+        return true;
+    });
     if (!m_keep_open) {
         EndModalInput();
     }

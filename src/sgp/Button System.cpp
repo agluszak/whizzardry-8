@@ -47,6 +47,12 @@ W8Region& ButtonRegion(const GUI_BUTTON* button)
     return g_regions[index];
 }
 
+SDL_Rect ButtonBounds(const GUI_BUTTON* button)
+{
+    const auto& region = ButtonRegion(button);
+    return {region.x1, region.y1, region.x2 - region.x1, region.y2 - region.y1};
+}
+
 bool ButtonRegionIsLive(const GUI_BUTTON* button)
 {
     return button && button->region_index != 0 && button->region_index < g_regions.size() &&
@@ -97,32 +103,20 @@ unsigned char DispatchButtonRegionEvent(const InputAtom* event, W8Region* region
         return 1;
     case LEFT_BUTTON_DOWN: {
         INT32 reason = BUTTON_REASON_LBUTTON_DWN;
-        if (button->last_left_click_released &&
-            event->uiTimeStamp <= button->last_left_down_time + 400) {
+        if (button->click_tracker.OnLeftDown(event->uiTimeStamp)) {
             reason |= BUTTON_REASON_LBUTTON_DOUBLECLICK;
-            button->double_click_atom_pending = true;
-        } else {
-            button->last_left_down_time = event->uiTimeStamp;
-            button->double_click_atom_pending = false;
         }
-        button->last_left_click_released = false;
         g_captured_region_index = button->region_index;
         QuickButtonCallbackMButn(button, reason);
         return 1;
     }
     case LEFT_BUTTON_UP:
         if (g_captured_region_index == button->region_index) g_captured_region_index = 0;
-        if (!button->double_click_atom_pending && button->last_left_down_time != 0 &&
-            event->uiTimeStamp <= button->last_left_down_time + 400) {
-            button->last_left_click_released = true;
-        }
+        button->click_tracker.OnLeftUp(event->uiTimeStamp);
         QuickButtonCallbackMButn(button, BUTTON_REASON_LBUTTON_UP);
         return 1;
     case LEFT_BUTTON_DBL_CLK:
-        if (button->double_click_atom_pending) {
-            button->double_click_atom_pending = false;
-            return 1;
-        }
+        if (button->click_tracker.ConsumeDoubleClickAtom()) return 1;
         QuickButtonCallbackMButn(
             button, BUTTON_REASON_LBUTTON_DWN | BUTTON_REASON_LBUTTON_DOUBLECLICK);
         return 1;
@@ -154,17 +148,19 @@ void AssertFailIfIdenticalButtonAttributesFound(GUI_BUTTON* b)
         GUI_BUTTON* c = retained.get();
         if (!c)
             continue;
+        const auto& button_area = ButtonRegion(b);
+        const auto& candidate_area = ButtonRegion(c);
         if (c->UserData[3] == 0xffffffff)
             continue;
-        if (ButtonRegion(b).priority != ButtonRegion(c).priority)
+        if (button_area.priority != candidate_area.priority)
             continue;
-        if (ButtonRegion(b).x1 != ButtonRegion(c).x1)
+        if (button_area.x1 != candidate_area.x1)
             continue;
-        if (ButtonRegion(b).y1 != ButtonRegion(c).y1)
+        if (button_area.y1 != candidate_area.y1)
             continue;
-        if (ButtonRegion(b).x2 != ButtonRegion(c).x2)
+        if (button_area.x2 != candidate_area.x2)
             continue;
-        if (ButtonRegion(b).y2 != ButtonRegion(c).y2)
+        if (button_area.y2 != candidate_area.y2)
             continue;
         if (b->ClickCallback != c->ClickCallback)
             continue;
@@ -429,28 +425,17 @@ void ResizeButton(const GUIButton& button, INT16 w, INT16 h)
 // FUNCTION: WIZ8 0x0040d2b0
 void SetButtonPosition(const GUIButton& button, INT16 x, INT16 y)
 {
-    GUI_BUTTON* b;
-    INT32 xloc, yloc, w, h;
+    GUI_BUTTON* button_ptr = button.get();
+    if (!button_ptr) return;
 
-    b = button.get();
-    if (!b) return;
-
-    // Get new screen position
-    xloc = (INT16)x;
-    yloc = (INT16)y;
-    // Compute current width and height of this button
-    w = ButtonRegion(b).x2 - ButtonRegion(b).x1;
-    h = ButtonRegion(b).y2 - ButtonRegion(b).y1;
-
-    // Set button to new location
-    b->XLoc = x;
-    b->YLoc = y;
-    // Set the buttons region to appropriate area
-    SetRegionBounds(b->region_index, static_cast<unsigned short>(xloc),
-                    static_cast<unsigned short>(yloc),
-                    static_cast<unsigned short>(xloc + w),
-                    static_cast<unsigned short>(yloc + h));
-    b->uiFlags |= BUTTON_DIRTY;
+    const SDL_Rect bounds = ButtonBounds(button_ptr);
+    button_ptr->XLoc = x;
+    button_ptr->YLoc = y;
+    SetRegionBounds(button_ptr->region_index, static_cast<unsigned short>(x),
+                    static_cast<unsigned short>(y),
+                    static_cast<unsigned short>(x + bounds.w),
+                    static_cast<unsigned short>(y + bounds.h));
+    button_ptr->uiFlags |= BUTTON_DIRTY;
 }
 
 namespace {
@@ -805,59 +790,58 @@ static INT8 DrawQuickButton(GUI_BUTTON* b)
 
 void DrawHatchOnButton(GUI_BUTTON* b)
 {
-    UINT8* pDestBuf;
-    UINT32 uiDestPitchBYTES;
-    SDL_Rect ClipRect{ButtonRegion(b).x1, ButtonRegion(b).y1,
-                            ButtonRegion(b).x2 - 1 - ButtonRegion(b).x1,
-                            ButtonRegion(b).y2 - 1 - ButtonRegion(b).y1};
+    UINT8* destination_pixels;
+    UINT32 destination_pitch;
+    const auto& area = ButtonRegion(b);
+    SDL_Rect clip_rect{area.x1, area.y1, area.x2 - 1 - area.x1, area.y2 - 1 - area.y1};
     const auto& destination_storage = *ButtonDestBuffer->cpu().surface;
-    uiDestPitchBYTES = destination_storage.pitch;
-    pDestBuf = static_cast<BYTE*>(destination_storage.pixels);
-    Blt16BPPBufferHatchRect((UINT16*)pDestBuf, uiDestPitchBYTES, &ClipRect);
+    destination_pitch = destination_storage.pitch;
+    destination_pixels = static_cast<BYTE*>(destination_storage.pixels);
+    Blt16BPPBufferHatchRect(reinterpret_cast<UINT16*>(destination_pixels), destination_pitch,
+                            &clip_rect);
 }
 
 void DrawShadeOnButton(GUI_BUTTON* b)
 {
-    UINT8* pDestBuf;
-    UINT32 uiDestPitchBYTES;
-    SDL_Rect ClipRect{ButtonRegion(b).x1, ButtonRegion(b).y1,
-                            ButtonRegion(b).x2 - 1 - ButtonRegion(b).x1,
-                            ButtonRegion(b).y2 - 1 - ButtonRegion(b).y1};
+    UINT8* destination_pixels;
+    UINT32 destination_pitch;
+    const auto& area = ButtonRegion(b);
+    SDL_Rect clip_rect{area.x1, area.y1, area.x2 - 1 - area.x1, area.y2 - 1 - area.y1};
     const auto& destination_storage = *ButtonDestBuffer->cpu().surface;
-    uiDestPitchBYTES = destination_storage.pitch;
-    pDestBuf = static_cast<BYTE*>(destination_storage.pixels);
-    Blt16BPPBufferShadowRect((UINT16*)pDestBuf, uiDestPitchBYTES, &ClipRect);
+    destination_pitch = destination_storage.pitch;
+    destination_pixels = static_cast<BYTE*>(destination_storage.pixels);
+    Blt16BPPBufferShadowRect(reinterpret_cast<UINT16*>(destination_pixels), destination_pitch,
+                             &clip_rect);
 }
 
 // FUNCTION: WIZ8 0x0040e170
 void DrawDefaultOnButton(GUI_BUTTON* b)
 {
-    UINT8* pDestBuf;
-    UINT32 uiDestPitchBYTES;
+    UINT8* destination_pixels;
+    UINT32 destination_pitch;
+    const auto& area = ButtonRegion(b);
     const auto& destination_storage = *ButtonDestBuffer->cpu().surface;
-    uiDestPitchBYTES = destination_storage.pitch;
-    pDestBuf = static_cast<BYTE*>(destination_storage.pixels);
-    SetClippingRegionAndImageWidth(uiDestPitchBYTES, 0, 0, 640, 480);
+    destination_pitch = destination_storage.pitch;
+    destination_pixels = static_cast<BYTE*>(destination_storage.pixels);
+    SetClippingRegionAndImageWidth(destination_pitch, 0, 0, 640, 480);
     if (b->bDefaultStatus == DEFAULT_STATUS_DARKBORDER ||
         b->bDefaultStatus == DEFAULT_STATUS_WINDOWS95) {
         //left (one thick)
-        LineDraw(TRUE, ButtonRegion(b).x1 - 1, ButtonRegion(b).y1 - 1,
-                 ButtonRegion(b).x1 - 1, ButtonRegion(b).y2 + 1, 0, (char*)pDestBuf);
+        LineDraw(TRUE, area.x1 - 1, area.y1 - 1, area.x1 - 1, area.y2 + 1, 0,
+                 (char*)destination_pixels);
         //top (one thick)
-        LineDraw(TRUE, ButtonRegion(b).x1 - 1, ButtonRegion(b).y1 - 1,
-                 ButtonRegion(b).x2 + 1, ButtonRegion(b).y1 - 1, 0, (char*)pDestBuf);
+        LineDraw(TRUE, area.x1 - 1, area.y1 - 1, area.x2 + 1, area.y1 - 1, 0,
+                 (char*)destination_pixels);
         //right (two thick)
-        LineDraw(TRUE, ButtonRegion(b).x2, ButtonRegion(b).y1 - 1,
-                 ButtonRegion(b).x2, ButtonRegion(b).y2 + 1, 0, (char*)pDestBuf);
-        LineDraw(TRUE, ButtonRegion(b).x2 + 1, ButtonRegion(b).y1 - 1,
-                 ButtonRegion(b).x2 + 1, ButtonRegion(b).y2 + 1, 0,
-                 (char*)pDestBuf);
+        LineDraw(TRUE, area.x2, area.y1 - 1, area.x2, area.y2 + 1, 0,
+                 (char*)destination_pixels);
+        LineDraw(TRUE, area.x2 + 1, area.y1 - 1, area.x2 + 1, area.y2 + 1, 0,
+                 (char*)destination_pixels);
         //bottom (two thick)
-        LineDraw(TRUE, ButtonRegion(b).x1 - 1, ButtonRegion(b).y2,
-                 ButtonRegion(b).x2 + 1, ButtonRegion(b).y2, 0, (char*)pDestBuf);
-        LineDraw(TRUE, ButtonRegion(b).x1 - 1, ButtonRegion(b).y2 + 1,
-                 ButtonRegion(b).x2 + 1, ButtonRegion(b).y2 + 1, 0,
-                 (char*)pDestBuf);
+        LineDraw(TRUE, area.x1 - 1, area.y2, area.x2 + 1, area.y2, 0,
+                 (char*)destination_pixels);
+        LineDraw(TRUE, area.x1 - 1, area.y2 + 1, area.x2 + 1, area.y2 + 1, 0,
+                 (char*)destination_pixels);
     }
     if (b->bDefaultStatus == DEFAULT_STATUS_DOTTEDINTERIOR ||
         b->bDefaultStatus == DEFAULT_STATUS_WINDOWS95) { //Draw an internal dotted rectangle.
@@ -868,51 +852,54 @@ void DrawDefaultOnButton(GUI_BUTTON* b)
 // FUNCTION: WIZ8 0x0040e5d0
 void DrawTextOnButton(GUI_BUTTON* b)
 {
-    INT32 xp, yp, width, height, TextX, TextY;
-    SDL_Rect NewClip, OldClip;
+    INT32 text_x, text_y, button_width, button_height, text_origin_x, text_origin_y;
+    SDL_Rect text_clip, previous_clip;
+    const SDL_Rect bounds = ButtonBounds(b);
 
     // If this button actually has a string to print
     if (!b->string.empty()) {
         // Get the width and height of this button
-        width = ButtonRegion(b).x2 - ButtonRegion(b).x1;
-        height = ButtonRegion(b).y2 - ButtonRegion(b).y1;
+        button_width = bounds.w;
+        button_height = bounds.h;
 
         // Compute the viewable area on this button
-        NewClip = {b->XLoc + 3, b->YLoc + 2, width - 6, height - 4};
+        text_clip = {b->XLoc + 3, b->YLoc + 2, button_width - 6, button_height - 4};
 
         // Get the starting coordinates to print
-        TextX = NewClip.x;
-        TextY = NewClip.y;
+        text_origin_x = text_clip.x;
+        text_origin_y = text_clip.y;
 
         // Get the current clipping area and clip the viewable area to it
-        GetClippingRect(&OldClip);
-        if (!SDL_GetRectIntersection(&NewClip, &OldClip, &NewClip))
+        GetClippingRect(&previous_clip);
+        if (!SDL_GetRectIntersection(&text_clip, &previous_clip, &text_clip))
             return;
 
         // Set the font printing settings to the buttons viewable area
-        SetFontDestBuffer(*ButtonDestBuffer, NewClip.x, NewClip.y, (NewClip.x + NewClip.w),
-                          (NewClip.y + NewClip.h), FALSE);
+        SetFontDestBuffer(*ButtonDestBuffer, text_clip.x, text_clip.y,
+                          text_clip.x + text_clip.w, text_clip.y + text_clip.h, FALSE);
 
         // Compute the coordinates to center the text
         if (b->bTextYOffset == -1)
-            yp = (((height)-b->usFont->height()) / 2) + TextY - 1;
+            text_y = ((button_height - b->usFont->height()) / 2) + text_origin_y - 1;
         else
-            yp = ButtonRegion(b).y1 + b->bTextYOffset;
+            text_y = bounds.y + b->bTextYOffset;
         if (b->bTextXOffset == -1) {
             switch (b->bJustification) {
             case BUTTON_TEXT_LEFT:
-                xp = TextX + 3;
+                text_x = text_origin_x + 3;
                 break;
             case BUTTON_TEXT_RIGHT:
-                xp = (NewClip.x + NewClip.w) - b->usFont->textWidth(b->string) - 3;
+                text_x =
+                    (text_clip.x + text_clip.w) - b->usFont->textWidth(b->string) - 3;
                 break;
             case BUTTON_TEXT_CENTER:
             default:
-                xp = (((width - 6) - b->usFont->textWidth(b->string)) / 2) + TextX;
+                text_x = (((button_width - 6) - b->usFont->textWidth(b->string)) / 2) +
+                         text_origin_x;
                 break;
             }
         } else
-            xp = ButtonRegion(b).x1 + b->bTextXOffset;
+            text_x = bounds.x + b->bTextXOffset;
 
         // Set the printing font to the button text font
         SetFont(*b->usFont);
@@ -938,13 +925,13 @@ void DrawTextOnButton(GUI_BUTTON* b)
         if (b->uiFlags & BUTTON_CLICKED_ON &&
             b->fShiftText) { // Was the button clicked on? if so, move the text slightly for the illusion
             // that the text moved into the screen.
-            xp++;
-            yp++;
+            text_x++;
+            text_y++;
         }
         if (b->fMultiColor)
-            DrawFontText(xp, yp, b->string);
+            DrawFontText(text_x, text_y, b->string);
         else
-            DrawMonoFontText(xp, yp, b->string);
+            DrawMonoFontText(text_x, text_y, b->string);
         // Restore the old text printing settings
     }
 }
@@ -1002,8 +989,9 @@ static INT8 DrawGenericButton(GUI_BUTTON* b)
     iBorderWidth = (INT32)pTrav->usWidth;
 
     // Compute the number of button "chunks" needed to be blitted
-    width = ButtonRegion(b).x2 - ButtonRegion(b).x1;
-    height = ButtonRegion(b).y2 - ButtonRegion(b).y1;
+    const auto& area = ButtonRegion(b);
+    width = area.x2 - area.x1;
+    height = area.y2 - area.y1;
     NumChunksWide = width / iBorderWidth;
     NumChunksHigh = height / iBorderHeight;
     hremain = height % iBorderHeight;
@@ -1013,8 +1001,7 @@ static INT8 DrawGenericButton(GUI_BUTTON* b)
     cy = (b->YLoc + ((NumChunksHigh - 1) * iBorderHeight) + hremain);
 
     // Fill the button's area with the button's background color
-    ColorFillVideoSurfaceArea(*ButtonDestBuffer, ButtonRegion(b).x1, ButtonRegion(b).y1,
-                              ButtonRegion(b).x2, ButtonRegion(b).y2,
+    ColorFillVideoSurfaceArea(*ButtonDestBuffer, area.x1, area.y1, area.x2, area.y2,
                               b->generic_image->fill_color);
 
     // If there is a background image, fill the button's area with it
@@ -1027,8 +1014,7 @@ static INT8 DrawGenericButton(GUI_BUTTON* b)
 
         // Fill the area with the image, tilling it if need be.
         ImageFillVideoSurfaceArea(
-            *ButtonDestBuffer, ButtonRegion(b).x1 + ox, ButtonRegion(b).y1 + oy,
-            ButtonRegion(b).x2, ButtonRegion(b).y2,
+            *ButtonDestBuffer, area.x1 + ox, area.y1 + oy, area.x2, area.y2,
             *b->generic_image->frames[5], b->generic_image->background_frame,
             b->generic_image->offset_x, b->generic_image->offset_y);
     }

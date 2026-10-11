@@ -1,6 +1,7 @@
 #include "Font.h"
 #pragma once
 
+#include <SDL3/SDL_rect.h>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -50,6 +51,19 @@ public:
     virtual void OnRightButtonDown();
     virtual void OnRightButtonUp();
     virtual void OnMouseWheel(int delta);
+
+    template <class HandleInput>
+    static void DrainModalInput(HandleInput&& handle_input)
+    {
+        SDL_Point mouse;
+        InputAtom input;
+
+        SGPMouseGetPos(&mouse);
+        UpdateRegionMousePosition(mouse.x, mouse.y);
+        while (DequeueEvent(&input) == 1) {
+            if (!handle_input(input)) break;
+        }
+    }
 
     friend void SetDialogDestroyCallback(W8DialogBase* dialog, W8DialogDestroyCallback callback);
     friend class W8DialogNumericInput;

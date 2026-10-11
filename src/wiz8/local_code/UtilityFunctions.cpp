@@ -9,6 +9,7 @@
 
 #include "Types.h"
 #include "wiz8/utility.h"
+#include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/local_code/UtilityFunctions.h"
@@ -680,11 +681,7 @@ void RenderMessageBox(void)
 // FUNCTION: WIZ8 0x00518b30
 void ProcessMessageBoxInput(void)
 {
-    SDL_Point point;
-    InputAtom input;
-    SGPMouseGetPos(&point);
-    UpdateRegionMousePosition(point.x, point.y);
-    while (DequeueEvent(&input) == 1) {
+    W8DialogBase::DrainModalInput([](const InputAtom& input) {
         switch (input.usEvent) {
         case LEFT_BUTTON_DOWN:
         case LEFT_BUTTON_UP:
@@ -710,5 +707,6 @@ void ProcessMessageBoxInput(void)
             }
             break;
         }
-    }
+        return true;
+    });
 }

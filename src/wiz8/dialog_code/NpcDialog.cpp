@@ -199,13 +199,9 @@ void W8NpcDialog::Draw()
 // FUNCTION: WIZ8 0x005DAE90
 bool W8NpcDialog::ProcessInput()
 {
-    SDL_Point mouse;
-    InputAtom input;
-
     BeginModalInput();
-    SGPMouseGetPos(&mouse);
-    UpdateRegionMousePosition(mouse.x, mouse.y);
-    while (DequeueEvent(&input) == TRUE) {
+    bool returned_early = false;
+    DrainModalInput([this, &returned_early](const InputAtom& input) {
         if ((input.usEvent != KEY_DOWN && input.usEvent != KEY_REPEAT) ||
             static_cast<char>(HandleTextInput(&input)) == 0) {
             if (input.usEvent == KEY_DOWN && input.usParam == VK_RETURN &&
@@ -213,11 +209,14 @@ bool W8NpcDialog::ProcessInput()
                 m_input_text = GetTextFromField(m_input_field);
                 g_npc_dialog->m_keep_open = false;
                 EndModalInput();
-                return true;
+                returned_early = true;
+                return false;
             }
             DispatchRegionInput(&input);
         }
-    }
+        return true;
+    });
+    if (returned_early) return true;
     if (!m_keep_open) {
         EndModalInput();
     }

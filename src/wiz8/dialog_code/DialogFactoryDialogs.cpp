@@ -423,9 +423,6 @@ void W8ListBoxDialog::Draw()
 // FUNCTION: WIZ8 0x005cd470
 bool W8ListBoxDialog::ProcessInput()
 {
-    SDL_Point mouse;
-    InputAtom input;
-
     BeginModalInput();
     if (gfLeftButtonState != 0) {
         if (m_selected_line != -1 &&
@@ -442,18 +439,17 @@ bool W8ListBoxDialog::ProcessInput()
             return false;
         }
     }
-    SGPMouseGetPos(&mouse);
-    UpdateRegionMousePosition(mouse.x, mouse.y);
-    while (DequeueEvent(&input) == 1) {
+    DrainModalInput([this](const InputAtom& input) {
         if (DispatchRegionInput(&input)) {
-            continue;
+            return true;
         }
         if (input.usEvent == MOUSE_WHEEL) {
             SetCurrentLine(m_selected_line - GetMouseWheelDeltaValue(input.usParam));
         } else {
             HandleInputEvent(&input);
         }
-    }
+        return true;
+    });
     if (!m_keep_open) {
         EndModalInput();
     }
@@ -1368,29 +1364,25 @@ int W8TriggerItemPickerDialog::AddItem(W8WorldItem* item)
 // FUNCTION: WIZ8 0x005cef00
 bool W8TriggerItemPickerDialog::ProcessInput()
 {
-    SDL_Point mouse;
-    InputAtom input;
-
     BeginModalInput();
-    SGPMouseGetPos(&mouse);
-    UpdateRegionMousePosition(mouse.x, mouse.y);
-    while (DequeueEvent(&input) == 1) {
+    DrainModalInput([this](const InputAtom& input) {
         if ((input.usEvent == LEFT_BUTTON_DOWN || input.usEvent == RIGHT_BUTTON_DOWN) &&
             ProcessPendingEvent()) {
-            continue;
+            return true;
         }
         if (HitTestPartyPortrait(&input) != 0) {
-            continue;
+            return true;
         }
         if (DispatchRegionInput(&input)) {
-            continue;
+            return true;
         }
         if (input.usEvent == MOUSE_WHEEL) {
             SetFirstVisible(m_first_item - GetMouseWheelDeltaValue(input.usParam));
         } else {
             HandleInputEvent(&input);
         }
-    }
+        return true;
+    });
     if (!m_keep_open) {
         EndModalInput();
     }

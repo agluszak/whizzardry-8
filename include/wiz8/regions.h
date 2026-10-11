@@ -4,7 +4,6 @@
 #define WIZ8_REGIONS_H
 
 #include <stddef.h>
-#include <array>
 #include <deque>
 #include <vector>
 #include <span>
@@ -103,16 +102,15 @@ public:
     ExclusiveRegionSet& operator=(const ExclusiveRegionSet&) = delete;
 
 private:
-    struct RegionState {
+    struct SavedRegionState {
         unsigned int index;
         uint64_t generation;
         unsigned int flags;
     };
     unsigned int set_;
-    std::array<RegionState, 3> saved_regions_{};
-    unsigned int saved_current_ = 0;
-    unsigned int saved_captured_ = 0;
-    unsigned int saved_hover_ = 0;
+    SavedRegionState saved_current_{};
+    SavedRegionState saved_captured_{};
+    SavedRegionState saved_hover_{};
 };
 
 unsigned char InitializeRegionHelpState(void);

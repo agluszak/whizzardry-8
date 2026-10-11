@@ -74,15 +74,15 @@
 #define BUTTON_IGNORE_CLICKS 0x00008000 // Ignore any clicks on this button
 #define BUTTON_DISABLED_CALLBACK 0x80000000
 
-#define BUTTON_PRIORITY_LOWEST 0
-#define BUTTON_PRIORITY_LOW 15
-#define BUTTON_PRIORITY_BASE 31
-#define BUTTON_PRIORITY_NORMAL 31
-#define BUTTON_PRIORITY_HIGH 63
-#define BUTTON_PRIORITY_HIGHEST 127
-#define BUTTON_PRIORITY_AUTO -1
+inline constexpr INT16 BUTTON_PRIORITY_LOWEST = 0;
+inline constexpr INT16 BUTTON_PRIORITY_LOW = 15;
+inline constexpr INT16 BUTTON_PRIORITY_BASE = 31;
+inline constexpr INT16 BUTTON_PRIORITY_NORMAL = 31;
+inline constexpr INT16 BUTTON_PRIORITY_HIGH = 63;
+inline constexpr INT16 BUTTON_PRIORITY_HIGHEST = 127;
+inline constexpr INT16 BUTTON_PRIORITY_AUTO = -1;
 
-enum {
+enum : INT32 {
     BUTTON_REASON_NONE = 0,
     BUTTON_REASON_INIT = 1,
     BUTTON_REASON_MOVE = 2,
@@ -126,6 +126,44 @@ struct GenericButtonImages;
 using ButtonImage = std::shared_ptr<const ButtonGraphics>;
 using GenericButtonImage = std::shared_ptr<GenericButtonImages>;
 
+struct ClickTracker {
+    static constexpr uint64_t double_click_window_ms = 400;
+
+    bool OnLeftDown(uint64_t timestamp)
+    {
+        const bool is_double_click =
+            m_left_click_released && timestamp <= m_last_left_down_time + double_click_window_ms;
+        if (is_double_click) {
+            m_double_click_atom_pending = true;
+        } else {
+            m_last_left_down_time = timestamp;
+            m_double_click_atom_pending = false;
+        }
+        m_left_click_released = false;
+        return is_double_click;
+    }
+
+    void OnLeftUp(uint64_t timestamp)
+    {
+        if (!m_double_click_atom_pending && m_last_left_down_time != 0 &&
+            timestamp <= m_last_left_down_time + double_click_window_ms) {
+            m_left_click_released = true;
+        }
+    }
+
+    bool ConsumeDoubleClickAtom()
+    {
+        if (!m_double_click_atom_pending) return false;
+        m_double_click_atom_pending = false;
+        return true;
+    }
+
+private:
+    uint64_t m_last_left_down_time = 0;
+    bool m_left_click_released = false;
+    bool m_double_click_atom_pending = false;
+};
+
 typedef struct _GUI_BUTTON {
     ~_GUI_BUTTON();
     _GUI_BUTTON();
@@ -135,9 +173,7 @@ typedef struct _GUI_BUTTON {
     ButtonImage quick_image;
     GenericButtonImage generic_image;
     unsigned int region_index = 0;
-    uint64_t last_left_down_time = 0;
-    bool last_left_click_released = false;
-    bool double_click_atom_pending = false;
+    ClickTracker click_tracker;
     GUI_CALLBACK ClickCallback = nullptr; // Button Callback when button is clicked
     GUI_CALLBACK MoveCallback = nullptr;  // Button Callback when mouse moved on this region
     UINT32 uiFlags = BUTTON_DIRTY;             // Button state flags etc.( 32-bit )

@@ -262,18 +262,14 @@ bool W8DialogButton::Configure(const char* image_path, int gray_frame, int off_n
 // FUNCTION: WIZ8 0x005db620
 void DialogButtonCallback(GUI_BUTTON* button, INT32 reason)
 {
-    W8DialogButtonCallback left_callback;
-    W8DialogButtonCallback right_callback;
-    W8DialogButtonCallback move_callback;
-
     if (button == 0) {
         srAssertFail("pButton", STBUTTON_CPP, 0x197, 0);
     }
     W8DialogButton* self = GetButtonUserDataPointer<W8DialogButton>(button);
     const bool silent = self->silent; // A click callback may destroy the dialog.
-    left_callback = self->m_left_callback;
-    right_callback = self->m_right_callback;
-    move_callback = self->m_move_callback;
+    const auto left_callback = self->m_left_callback;
+    const auto right_callback = self->m_right_callback;
+    const auto move_callback = self->m_move_callback;
     if (left_callback == 0 && right_callback == 0 && move_callback == 0) {
         return;
     }
@@ -288,100 +284,22 @@ void DialogButtonCallback(GUI_BUTTON* button, INT32 reason)
         self->m_double_click_callback(self);
         return;
     }
-    if ((reason & BUTTON_REASON_LBUTTON_DWN) == 0) {
-        if ((reason & BUTTON_REASON_LBUTTON_UP) == 0) {
-            if ((reason & BUTTON_REASON_LBUTTON_REPEAT) == 0) {
-                if ((reason & BUTTON_REASON_RBUTTON_DWN) == 0) {
-                    if ((reason & BUTTON_REASON_RBUTTON_UP) == 0) {
-                        if ((reason & BUTTON_REASON_RBUTTON_REPEAT) == 0) {
-                            if ((reason & BUTTON_REASON_GAIN_MOUSE) != 0) {
-                                self->m_dirty = true;
-                                if (self->hover_silent) {
-                                    return;
-                                }
-                                if (self->silent) {
-                                    return;
-                                }
-                                PlayButtonSound(0);
-                                return;
-                            }
-                            if ((reason & BUTTON_REASON_LOST_MOUSE) != 0) {
-                                self->press_armed = false;
-                                self->m_dirty = true;
-                                if (!self->m_left_toggles) {
-                                    self->SetPressed(false);
-                                }
-                                if (self->hover_silent) {
-                                    return;
-                                }
-                                if (self->silent) {
-                                    return;
-                                }
-                                PlayButtonSound(1);
-                                return;
-                            }
-                            if ((reason & BUTTON_REASON_MOVE) == 0) {
-                                return;
-                            }
-                            if (move_callback == 0) {
-                                return;
-                            }
-                            move_callback(self);
-                            return;
-                        }
-                        if (!self->m_fires_on_press) {
-                            return;
-                        }
-                        if (self->m_right_toggles) {
-                            return;
-                        }
-                        if ((button->uiFlags & BUTTON_CLICKED_ON) == 0) {
-                            return;
-                        }
-                        self->press_armed = true;
-                    } else {
-                        if (self->m_right_toggles) {
-                            return;
-                        }
-                        if ((button->uiFlags & BUTTON_CLICKED_ON) == 0) {
-                            return;
-                        }
-                        button->uiFlags &= ~BUTTON_CLICKED_ON;
-                        self->m_dirty = true;
-                        if (self->m_fires_on_press && self->press_armed) {
-                            self->press_armed = false;
-                            return;
-                        }
-                    }
-                } else {
-                    if (!self->m_right_toggles) {
-                        goto press_down;
-                    }
-                    button->uiFlags ^= BUTTON_CLICKED_ON;
-                    self->m_dirty = true;
-                    self->m_latched_press_bits =
-                        static_cast<unsigned char>(button->uiFlags & BUTTON_CLICKED_ON);
-                }
-                if (right_callback != 0) {
-                    right_callback(self);
-                }
-            } else {
-                if (!self->m_fires_on_press) {
-                    return;
-                }
-                if (self->m_left_toggles) {
-                    return;
-                }
-                if ((button->uiFlags & BUTTON_CLICKED_ON) == 0) {
-                    return;
-                }
-                self->press_armed = true;
-                if (left_callback != 0) {
-                    left_callback(self);
-                }
-            }
-            goto play_click;
+
+    if (reason & BUTTON_REASON_LBUTTON_DWN) {
+        if (!self->m_left_toggles) {
+            if (button->uiFlags & BUTTON_CLICKED_ON) return;
+            button->uiFlags |= BUTTON_CLICKED_ON;
+            self->m_dirty = true;
+            if (self->silent) return;
+            PlayButtonSound(2);
+            return;
         }
+        button->uiFlags ^= BUTTON_CLICKED_ON;
+        self->m_dirty = true;
+        self->m_latched_press_bits =
+            static_cast<unsigned char>(button->uiFlags & BUTTON_CLICKED_ON);
+        if (left_callback) left_callback(self);
+    } else if (reason & BUTTON_REASON_LBUTTON_UP) {
         if (self->m_left_toggles) {
             return;
         }
@@ -394,17 +312,20 @@ void DialogButtonCallback(GUI_BUTTON* button, INT32 reason)
             self->press_armed = false;
             return;
         }
-    } else {
-        if (!self->m_left_toggles) {
-        press_down:
-            if ((button->uiFlags & BUTTON_CLICKED_ON) != 0) {
-                return;
-            }
+        if (left_callback) left_callback(self);
+    } else if (reason & BUTTON_REASON_LBUTTON_REPEAT) {
+        if (!self->m_fires_on_press || self->m_left_toggles ||
+            (button->uiFlags & BUTTON_CLICKED_ON) == 0) {
+            return;
+        }
+        self->press_armed = true;
+        if (left_callback) left_callback(self);
+    } else if (reason & BUTTON_REASON_RBUTTON_DWN) {
+        if (!self->m_right_toggles) {
+            if (button->uiFlags & BUTTON_CLICKED_ON) return;
             button->uiFlags |= BUTTON_CLICKED_ON;
             self->m_dirty = true;
-            if (self->silent) {
-                return;
-            }
+            if (self->silent) return;
             PlayButtonSound(2);
             return;
         }
@@ -412,13 +333,43 @@ void DialogButtonCallback(GUI_BUTTON* button, INT32 reason)
         self->m_dirty = true;
         self->m_latched_press_bits =
             static_cast<unsigned char>(button->uiFlags & BUTTON_CLICKED_ON);
-    }
-    if (left_callback != 0) {
-        left_callback(self);
-    }
-play_click:
-    if (silent) {
+        if (right_callback) right_callback(self);
+    } else if (reason & BUTTON_REASON_RBUTTON_UP) {
+        if (self->m_right_toggles ||
+            (button->uiFlags & BUTTON_CLICKED_ON) == 0) {
+            return;
+        }
+        button->uiFlags &= ~BUTTON_CLICKED_ON;
+        self->m_dirty = true;
+        if (self->m_fires_on_press && self->press_armed) {
+            self->press_armed = false;
+            return;
+        }
+        if (right_callback) right_callback(self);
+    } else if (reason & BUTTON_REASON_RBUTTON_REPEAT) {
+        if (!self->m_fires_on_press || self->m_right_toggles ||
+            (button->uiFlags & BUTTON_CLICKED_ON) == 0) {
+            return;
+        }
+        self->press_armed = true;
+        if (right_callback) right_callback(self);
+    } else if (reason & BUTTON_REASON_GAIN_MOUSE) {
+        self->m_dirty = true;
+        if (self->hover_silent || self->silent) return;
+        PlayButtonSound(0);
+        return;
+    } else if (reason & BUTTON_REASON_LOST_MOUSE) {
+        self->press_armed = false;
+        self->m_dirty = true;
+        if (!self->m_left_toggles) self->SetPressed(false);
+        if (self->hover_silent || self->silent) return;
+        PlayButtonSound(1);
+        return;
+    } else if (reason & BUTTON_REASON_MOVE) {
+        if (move_callback) move_callback(self);
+        return;
+    } else {
         return;
     }
-    PlayButtonSound(3);
+    if (!silent) PlayButtonSound(3);
 }

@@ -258,27 +258,24 @@ bool W8MessageDialogBase::HandleInput(const InputAtom* input)
 // FUNCTION: WIZ8 0x005d3080
 bool W8MessageDialogBase::ProcessInput()
 {
-    SDL_Point mouse;
-    InputAtom input;
-
     BeginModalInput();
-    SGPMouseGetPos(&mouse);
-    UpdateRegionMousePosition(mouse.x, mouse.y);
-
-    while (DequeueEvent(&input)) {
-        if (!DispatchRegionInput(&input)) {
-            const bool keep_open = HandleInput(&input);
-            if (!keep_open) {
-                EndModalInput();
-            }
-            return keep_open;
+    bool keep_open = is_open;
+    DrainModalInput([this, &keep_open](const InputAtom& input) {
+        if (DispatchRegionInput(&input)) {
+            keep_open = is_open;
+            return true;
         }
-    }
+        keep_open = HandleInput(&input);
+        if (!keep_open) {
+            EndModalInput();
+        }
+        return false;
+    });
 
-    if (!is_open) {
+    if (!keep_open) {
         EndModalInput();
     }
-    return is_open;
+    return keep_open;
 }
 
 static void FinishMessageDialog(GUI_BUTTON* button, int reason, bool accepted)

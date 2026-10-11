@@ -18,13 +18,8 @@ template <class Dialog, class Field>
 void ProcessNumericDialogInputEvents(Dialog* dialog, Field*& active_field,
                                      bool (Dialog::*handle_event)(const InputAtom*))
 {
-    SDL_Point mouse;
-    InputAtom input;
-
     dialog->BeginModalInput();
-    SGPMouseGetPos(&mouse);
-    UpdateRegionMousePosition(mouse.x, mouse.y);
-    while (DequeueEvent(&input) == 1) {
+    W8DialogBase::DrainModalInput([&](const InputAtom& input) {
         if (input.usEvent == LEFT_BUTTON_UP && active_field != 0) {
             active_field->SetActive(false);
         }
@@ -33,7 +28,8 @@ void ProcessNumericDialogInputEvents(Dialog* dialog, Field*& active_field,
         } else if (!DispatchRegionInput(&input)) {
             (dialog->*handle_event)(&input);
         }
-    }
+        return true;
+    });
 }
 
 class W8MessageDialogBase;

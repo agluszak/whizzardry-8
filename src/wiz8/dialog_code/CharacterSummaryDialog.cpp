@@ -174,35 +174,33 @@ bool W8CharacterSummaryDialog::HandleInputEvent(const InputAtom* input)
 // FUNCTION: WIZ8 0x005e0920
 bool W8CharacterSummaryDialog::ProcessInput()
 {
-    SDL_Point mouse;
-    InputAtom input;
-
     BeginModalInput();
-    SGPMouseGetPos(&mouse);
-    UpdateRegionMousePosition(mouse.x, mouse.y);
     if (!m_voice_started && m_portrait_clock + 750 < w8_get_ticks()) {
         m_voice_started = true;
         W8Character* character = m_use_original_character ? m_character : g_status.buffers.Char;
         QueueCharacterEvent(character, g_effect0, 0, g_character_event_no_flags,
                             g_character_event_full_volume);
     }
-    while (DequeueEvent(&input) == 1) {
+    bool keep_open = m_keep_open;
+    DrainModalInput([this, &keep_open](const InputAtom& input) {
         if (input.usEvent == LEFT_BUTTON_DOWN || input.usEvent == LEFT_BUTTON_REPEAT ||
             input.usEvent == RIGHT_BUTTON_DOWN) {
             m_keep_open = false;
         }
         if (!DispatchRegionInput(&input)) {
-            const bool keep_open = HandleInputEvent(&input);
+            keep_open = HandleInputEvent(&input);
             if (!keep_open) {
                 EndModalInput();
             }
-            return keep_open;
+            return false;
         }
-    }
-    if (!m_keep_open) {
+        keep_open = m_keep_open;
+        return true;
+    });
+    if (!keep_open) {
         EndModalInput();
     }
-    return m_keep_open;
+    return keep_open;
 }
 
 // FUNCTION: WIZ8 0x005e0c30
