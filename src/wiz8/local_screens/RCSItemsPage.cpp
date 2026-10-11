@@ -804,7 +804,7 @@ unsigned char BackpackRegionHandler(const InputEvent* event, W8Region* region)
     if (item->iItemNo == -1 && !g_status.item_in_cursor) {
         PushButtonSoundScheme(0, true);
     }
-    if (event->type <= InputEventType::RightButtonDown) {
+    if (IsLeftButtonEvent(event->type) || event->type == InputEventType::RightButtonDown) {
         if (event->type == InputEventType::RightButtonDown) {
             region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
             return 1;
@@ -875,7 +875,7 @@ unsigned char EquipSlotRegionHandler(const InputEvent* event, W8Region* region)
          !CanCharacterUseItem(g_review_character, g_status.item_in_hand.iItemNo))) {
         PushButtonSoundScheme(0, true);
     }
-    if (event->type <= InputEventType::RightButtonDown) {
+    if (IsLeftButtonEvent(event->type) || event->type == InputEventType::RightButtonDown) {
         if (event->type == InputEventType::RightButtonDown) {
             region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
             return 1;
@@ -976,7 +976,7 @@ unsigned char ItemPoolRegionHandler(const InputEvent* event, W8Region* region)
     if (item->iItemNo == -1 && !g_status.item_in_cursor) {
         PushButtonSoundScheme(0, true);
     }
-    if (event->type <= InputEventType::RightButtonUp) {
+    if (IsLeftButtonEvent(event->type) || event->type == InputEventType::RightButtonDown || event->type == InputEventType::RightButtonUp) {
         if (event->type == InputEventType::RightButtonUp) {
             if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) != 0 &&
                 pool_index < g_status.party_item_count &&

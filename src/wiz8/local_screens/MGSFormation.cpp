@@ -469,7 +469,7 @@ unsigned char FormationCellRegionEvent(const InputEvent* event, W8Region* region
             return 1;
         }
     }
-    if (event->type <= InputEventType::LeftButtonRepeat) {
+    if (IsLeftButtonEvent(event->type)) {
         if (event->type == InputEventType::LeftButtonRepeat) {
             if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0 &&
                 TimeUntilDeadline(g_formation_drag_clock) == 0 && g_formation_drag_cell == -1 &&

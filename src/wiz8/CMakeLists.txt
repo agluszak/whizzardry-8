@@ -220,6 +220,7 @@ add_library(WIZ8_GAME_CORE STATIC
     npc_script_file.cpp
     engine_code/trim_string.cpp
     ../native/application.cpp
+    ../native/game_events.cpp
     ../native/movie.cpp
     ../native/bink_video.cpp
 )
