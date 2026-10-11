@@ -29,6 +29,11 @@ public:
         double top;
     };
 
+    struct ViewPlane {
+        Rect rectangle;
+        double distance;
+    };
+
     srCamera(srNode* parent = 0);
 
     virtual void dump(std::ostream& stream) override;
@@ -58,7 +63,7 @@ public:
     void setFOV(double field_of_view, double aspect_ratio);
     void setViewPlane(const Rect& rectangle, double distance);
     void setViewPlane(double width, double height);
-    void getViewPlane(Rect& rectangle, double& distance) const;
+    ViewPlane getViewPlane() const;
     void setEnvironmentRange(float near_range, float far_range);
     int unproject(srVector3T<float>& output, const srVector3T<double>& input);
 
