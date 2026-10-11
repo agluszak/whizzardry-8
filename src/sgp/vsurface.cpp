@@ -127,8 +127,7 @@ BOOLEAN ImageFillVideoSurfaceArea(SGPVSurface& uiDestVSurface, INT32 iDestX1, IN
 // Video Surface Manipulation Functions
 
 // FUNCTION: WIZ8 0x004033d0
-static std::unique_ptr<SGPVSurface> MakeVideoSurface(UINT16 width, UINT16 height, UINT8 bits,
-                                                       const image_type* image)
+std::unique_ptr<SGPVSurface> CreateVideoSurface(UINT16 width, UINT16 height, UINT8 bits)
 {
     CHECKN(width && height && (bits == 8 || bits == 16));
     UINT32 red = 0, green = 0, blue = 0;
@@ -140,33 +139,30 @@ static std::unique_ptr<SGPVSurface> MakeVideoSurface(UINT16 width, UINT16 height
     result->usWidth = width;
     result->usHeight = height;
     result->ubBitDepth = bits;
-    if (image) {
-        if (image->pPalette && !SetVideoSurfacePalette(*result, *image->pPalette))
-            return nullptr;
-        const auto& storage = *result->cpu().surface;
-        const auto format = bits == 8 ? BUFFER_8BPP : BUFFER_16BPP;
-        const SDL_Rect bounds{0, 0, width, height};
-        if (!CopyImageToBuffer(*image, format,
-                {static_cast<UINT8*>(storage.pixels), std::size_t(storage.pitch) * height},
-                storage.pitch / (bits / 8), height, 0, 0, bounds)) {
-            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Error copying image data to video surface");
-            return nullptr;
-        }
-    }
     SetVideoSurfaceTransparencyColor(*result, FROMRGB(0, 0, 0));
     return result;
-}
-
-std::unique_ptr<SGPVSurface> CreateVideoSurface(UINT16 width, UINT16 height, UINT8 bits)
-{
-    return MakeVideoSurface(width, height, bits, nullptr);
 }
 
 std::unique_ptr<SGPVSurface> LoadVideoSurface(std::string_view filename)
 {
     auto image = LoadImage(filename);
     if (!image) return nullptr;
-    return MakeVideoSurface(image->usWidth, image->usHeight, image->ubBitDepth, &*image);
+    auto result = CreateVideoSurface(image->usWidth, image->usHeight, image->ubBitDepth);
+    if (!result) return nullptr;
+    if (image->pPalette && !SetVideoSurfacePalette(*result, *image->pPalette))
+        return nullptr;
+
+    const auto& storage = *result->cpu().surface;
+    const auto bits = result->ubBitDepth;
+    const auto format = bits == 8 ? BUFFER_8BPP : BUFFER_16BPP;
+    const SDL_Rect bounds{0, 0, result->usWidth, result->usHeight};
+    if (!CopyImageToBuffer(*image, format,
+            {static_cast<UINT8*>(storage.pixels), std::size_t(storage.pitch) * result->usHeight},
+            storage.pitch / (bits / 8), result->usHeight, 0, 0, bounds)) {
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Error copying image data to video surface");
+        return nullptr;
+    }
+    return result;
 }
 // Indexed surfaces use SDL palettes; custom RGB555 blitters retain their table.
 static BOOLEAN SetVideoSurfacePalette(SGPVSurface& hVSurface, const Palette8& pSrcPalette)
