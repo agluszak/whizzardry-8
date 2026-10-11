@@ -11,6 +11,7 @@
 #include <span>
 #include <string>
 #include <vector>
+#include <utility>
 
 #include "glm/geometric.hpp"
 #include "surrender_test_fixture.h"
