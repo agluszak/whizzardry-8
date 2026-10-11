@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string>
+
 class srPalette;
 
 class srPixelConvert {
@@ -51,7 +53,7 @@ public:
 
         PixelFormat() : fourcc(0) {}
 
-        void getName(char* const name);
+        std::string getName() const;
         int isValid() const;
         w8_ulong match(const PixelFormat* formats, w8_ulong count) const;
 
