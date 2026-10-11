@@ -169,11 +169,9 @@ static int g_npc_region_quotes[15][0x12] = {
     {-1, 118, 118, 118, 118, 118, 118, 118, 118, 118, 118, 118, 118, 118, 118, 118, 212, 212},
 };
 
-/* Find the quote index of the entry that consumes `item_id`: kind 0x0b takes
-   the item, kind 0x0f merely names it; `grants_item` reports which when given.
-   Both out-pointers are optional. */
+/* Kind 0x0b consumes the item; kind 0x0f only mentions it. */
 // FUNCTION: WIZ8 0x00528CD0
-int FindNpcScriptItemQuote(int item_id, short* index, unsigned char* grants_item)
+std::optional<W8NpcScriptItemQuote> FindNpcScriptItemQuote(int item_id)
 {
     int entry_index;
     int quote_index;
@@ -187,18 +185,11 @@ int FindNpcScriptItemQuote(int item_id, short* index, unsigned char* grants_item
             if ((entry->kind == W8_NPC_ENTRY_ITEM_REQUEST ||
                  entry->kind == W8_NPC_ENTRY_ITEM_MENTION) &&
                 entry->operand0 == item_id) {
-                if (index != 0) {
-                    *index = static_cast<short>(entry_index);
-                }
-                if (grants_item == 0) {
-                    return quote_index;
-                }
-                *grants_item = entry->kind != W8_NPC_ENTRY_ITEM_MENTION;
-                return quote_index;
+                return W8NpcScriptItemQuote{quote_index, entry->kind != W8_NPC_ENTRY_ITEM_MENTION};
             }
         }
     }
-    return -1;
+    return std::nullopt;
 }
 
 static void ShowNpcScriptNoticeBubble(std::string_view text)
