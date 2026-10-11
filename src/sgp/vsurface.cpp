@@ -27,7 +27,6 @@ extern void GetClippingRect(SDL_Rect* clip);
 // Defines
 // LOCAL functions
 
-static BOOLEAN SetVideoSurfacePalette(SGPVSurface& surface, const Palette8& colors);
 
 // Fills an rectangular area with a specified color value.
 
@@ -121,16 +120,18 @@ BOOLEAN ImageFillVideoSurfaceArea(SGPVSurface& uiDestVSurface, INT32 iDestX1, IN
 std::unique_ptr<SGPVSurface> CreateVideoSurface(UINT16 width, UINT16 height, UINT8 bits)
 {
     CHECKN(width && height && (bits == 8 || bits == 16));
-    UINT32 red = 0, green = 0, blue = 0;
-    if (bits == 16)
-        CHECKN(GetPrimaryRGBDistributionMasks(&red, &green, &blue));
+    const auto* details = bits == 16 ? SDL_GetPixelFormatDetails(g_sgp_pixel_format) : nullptr;
+    CHECKN(bits != 16 || details);
+    const SDL_PixelFormat format = bits == 8 ? SDL_PIXELFORMAT_INDEX8 :
+        SDL_GetPixelFormatForMasks(16, details->Rmask, details->Gmask, details->Bmask, 0);
+    CHECKN(format != SDL_PIXELFORMAT_UNKNOWN);
     auto result = std::make_unique<SGPVSurface>();
-    result->ownedSurface = CreateCpuSurface(width, height, bits, red, green, blue);
+    result->ownedSurface = CreateCpuSurface(width, height, format);
     CHECKN(result->ownedSurface != nullptr);
     result->usWidth = width;
     result->usHeight = height;
     result->ubBitDepth = bits;
-    SetVideoSurfaceTransparencyColor(*result, FROMRGB(0, 0, 0));
+    result->cpu().sourceKey = SurfaceColorKey{0, 0};
     return result;
 }
 
@@ -141,8 +142,12 @@ std::unique_ptr<SGPVSurface> LoadVideoSurface(std::string_view filename)
     if (!image) return nullptr;
     auto result = CreateVideoSurface(image->width, image->height, image->bitDepth);
     if (!result) return nullptr;
-    if (image->palette && !SetVideoSurfacePalette(*result, *image->palette))
-        return nullptr;
+    if (image->palette) {
+        CHECKN(image->bitDepth == 8);
+        CHECKN(SDL_SetPaletteColors(SDL_GetSurfacePalette(result->cpu().surface.get()),
+                                    image->palette->data(), 0, 256));
+        result->p16BPPPalette = Create16BPPPalette(*image->palette);
+    }
 
     const auto& storage = *result->cpu().surface;
     const std::size_t row_bytes = image->width * (image->bitDepth / 8);
@@ -154,28 +159,6 @@ std::unique_ptr<SGPVSurface> LoadVideoSurface(std::string_view filename)
                     image->pixels.data() + row * row_bytes, row_bytes);
     return result;
 }
-// Indexed surfaces use SDL palettes; custom RGB555 blitters retain their table.
-static BOOLEAN SetVideoSurfacePalette(SGPVSurface& hVSurface, const Palette8& pSrcPalette)
-{
-    if (hVSurface.ubBitDepth == 8) {
-        SDL_Color colors[256];
-        for (unsigned i = 0; i < 256; ++i)
-            colors[i] = {pSrcPalette[i].peRed, pSrcPalette[i].peGreen, pSrcPalette[i].peBlue, 255};
-        CHECKF(SDL_SetPaletteColors(SDL_GetSurfacePalette(hVSurface.cpu().surface.get()),
-                                   colors, 0, 256));
-    }
-    hVSurface.p16BPPPalette = Create16BPPPalette(pSrcPalette);
-    return TRUE;
-}
-
-// Transparency uses the game's packed source key.
-// colorkey value.
-void SetVideoSurfaceTransparencyColor(SGPVSurface& surface, COLORVAL color)
-{
-    const UINT32 key = surface.ubBitDepth == 16 ? Get16BPPColor(color) : color;
-    surface.cpu().sourceKey = SurfaceColorKey{key, key};
-}
-
 // FUNCTION: WIZ8 0x00403b10
 BOOLEAN BltVideoSurfaceToVideoSurface(SGPVSurface& hDestVSurface, SGPVSurface& hSrcVSurface,
                                       INT32 iDestX, INT32 iDestY, INT32 fBltFlags,

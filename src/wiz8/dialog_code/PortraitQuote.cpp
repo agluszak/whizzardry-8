@@ -1,3 +1,4 @@
+#include <SDL3/SDL_pixels.h>
 #include <memory>
 #include <SDL3/SDL_rect.h>
 #include <string_view>
@@ -11,6 +12,7 @@
 #include "himage.h"
 #include "vobject.h"
 #include "vobject_blitters.h"
+#include "wiz8/compat/surfaces.h"
 #include "vsurface.h"
 #include "wiz8/dialog_code/PortraitQuote.h"
 #include "wiz8/engine_code/Video2.h"
@@ -542,11 +544,11 @@ int LayoutPortraitQuoteBubble(int quote_handle, unsigned char background_index,
         *out_height = static_cast<unsigned short>(height);
         rect = {0, 0, width_px, height_px};
         if (bubble.flags & QUOTE_BUBBLE_FLAT_BACKGROUND) {
-            SetVideoSurfaceTransparencyColor(*bubble.surface, 0xffff);
             const auto& destination_storage = *bubble.surface->cpu().surface;
             pitch = destination_storage.pitch;
             pixels = static_cast<UINT16*>(destination_storage.pixels);
-            fill = Get16BPPColor(0xffff);
+            fill = Get16BPPColor(SDL_Color{255, 255, 0, SDL_ALPHA_OPAQUE});
+            bubble.surface->cpu().sourceKey = SurfaceColorKey{fill, fill};
             count = static_cast<unsigned short>(height * max_width);
             for (x = 0; x < count; ++x) {
                 pixels[x] = fill;

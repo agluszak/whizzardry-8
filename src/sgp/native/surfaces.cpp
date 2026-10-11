@@ -79,34 +79,23 @@ void packedBlit(SDL_Surface& dest, const SDL_Rect& region, const SDL_Rect& mappi
 }
 } // namespace
 
-std::unique_ptr<CpuSurface> CreateCpuSurface(uint16_t width, uint16_t height, uint8_t bits,
-    uint32_t red, uint32_t green, uint32_t blue, uint32_t alpha)
+std::unique_ptr<CpuSurface> CreateCpuSurface(uint16_t width, uint16_t height,
+                                              SDL_PixelFormat format)
 {
-    require(width && height && (bits == 8 || bits == 16 || bits == 24 || bits == 32),
+    require(width && height && format != SDL_PIXELFORMAT_UNKNOWN &&
+            !SDL_ISPIXELFORMAT_FOURCC(format) &&
+            SDL_BYTESPERPIXEL(format) >= 1 && SDL_BYTESPERPIXEL(format) <= 4,
             "CPU surface dimensions/format");
     auto result = std::make_unique<CpuSurface>();
-    auto format = bits == 8 ? SDL_PIXELFORMAT_INDEX8 :
-        SDL_GetPixelFormatForMasks(bits, red, green, blue, alpha);
-    // Unknown packed masks still need raw storage, never SDL color conversion.
-    if (format == SDL_PIXELFORMAT_UNKNOWN)
-        format = bits == 16 ? SDL_PIXELFORMAT_RGB565 :
-                 bits == 24 ? SDL_PIXELFORMAT_RGB24 : SDL_PIXELFORMAT_ARGB8888;
     result->surface = CreateCpuStorage(width, height, format);
-    sdl(bool(result->surface));
     sdl(SDL_SetSurfaceBlendMode(result->surface.get(), SDL_BLENDMODE_NONE));
-    if (bits == 8)
-    {
-        auto* palette = SDL_CreateSurfacePalette(result->surface.get());
-        sdl(palette != nullptr);
+    if (SDL_ISPIXELFORMAT_INDEXED(format)) {
         SDL_Color colors[256]{};
         for (auto& color : colors)
             color.a = SDL_ALPHA_OPAQUE;
-        sdl(SDL_SetPaletteColors(palette, colors, 0, 256));
+        sdl(SDL_SetPaletteColors(SDL_GetSurfacePalette(result->surface.get()),
+                                 colors, 0, 256));
     }
-    result->redMask = red;
-    result->greenMask = green;
-    result->blueMask = blue;
-    result->alphaMask = alpha;
     return result;
 }
 
@@ -174,8 +163,9 @@ void BlitCpuSurface(CpuSurface& output, const SDL_Rect* destRect, CpuSurface& in
         sdl(SDL_SetSurfacePalette(view.get(), SDL_GetSurfacePalette(&dest)));
     const unsigned bytes = SDL_BYTESPERPIXEL(dest.format);
     const uint32_t wordMask = bytes == 4 ? UINT32_MAX : (1u << (bytes * 8)) - 1;
-    const bool unusedBits = !SDL_ISPIXELFORMAT_INDEXED(dest.format) &&
-        (output.redMask | output.greenMask | output.blueMask | output.alphaMask) != wordMask;
+    const auto* details = SDL_GetPixelFormatDetails(dest.format);
+    const bool unusedBits = !SDL_ISPIXELFORMAT_INDEXED(dest.format) && details &&
+        (details->Rmask | details->Gmask | details->Bmask | details->Amask) != wordMask;
     const bool rawKey = sourceKey && (sourceKey->low != sourceKey->high ||
                                      SDL_ISPIXELFORMAT_ALPHA(dest.format) || unusedBits);
     if (sourceKey && !rawKey)
@@ -270,9 +260,6 @@ CpuSurface ShareCpuSurface(SDL_Surface& surface)
     CpuSurface result;
     ++surface.refcount;
     result.surface.reset(&surface);
-    int bits;
-    SDL_GetMasksForPixelFormat(surface.format, &bits, &result.redMask, &result.greenMask,
-                              &result.blueMask, &result.alphaMask);
     return result;
 }
 

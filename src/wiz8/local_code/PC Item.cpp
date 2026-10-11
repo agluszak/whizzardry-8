@@ -3,9 +3,9 @@
 #include <string>
 #include <algorithm>
 #include <array>
-#include <utility>
 #include <cstdlib>
 #include <cstring>
+#include <stdexcept>
 #include <string_view>
 #include <vector>
 
@@ -45,8 +45,8 @@
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/item_video_object_vector.h"
+#include "image_assets.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/video_object_catalog.h"
 #include "wiz8/local_code/ItemManager.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/MonsterManager.h"
@@ -247,13 +247,12 @@ void W8ItemVideoObjectCache::Initialize(std::size_t item_count)
 void W8ItemVideoObjectCache::Clear()
 {
     images_.clear();
-    ReleaseItemVideoImages();
 }
 
 std::size_t W8ItemVideoObjectCache::LoadedImageCount() const
 {
     return std::count_if(images_.begin(), images_.end(),
-                         [](const auto& image) { return image.has_value(); });
+                         [](const auto& image) { return image != nullptr; });
 }
 
 // GLOBAL: WIZ8 0x0062a88c
@@ -404,21 +403,21 @@ static const std::array<std::string_view, 145> g_item_video_object_fallback_name
                                                              "rocketlauncher.sti"};
 
 // FUNCTION: WIZ8 0x0055ce80
-int W8ItemVideoObjectCache::GetOrCreateVideoObject(int item_id)
+SGPVObject& W8ItemVideoObjectCache::Sprites(int item_id)
 {
     auto& image = images_.at(item_id);
-    if (image) {
-        EnsureCatalogFrameLoaded(*image, 0);
-        return *image;
+    if (!image) {
+        const auto& record = g_item_records[item_id];
+        std::string_view name = record.video_object_name;
+        if (name.empty())
+            name = g_item_video_object_fallback_names.at(record.unidentified_name_index);
+        std::string path = fmt::format("Data\\Items\\{}", name);
+        if (path.find(".sti") == std::string::npos)
+            path += ".sti";
+        image = g_image_assets.sprites(path);
+        if (!image)
+            throw std::runtime_error(fmt::format("Cannot load item image {}", path));
     }
-    const auto& record = g_item_records[item_id];
-    std::string_view name = record.video_object_name;
-    if (name.empty())
-        name = g_item_video_object_fallback_names.at(record.unidentified_name_index);
-    std::string path = fmt::format("Data\\Items\\{}", name);
-    if (path.find(".sti") == std::string::npos)
-        path += ".sti";
-    image = RegisterItemVideoImage(std::move(path));
     return *image;
 }
 

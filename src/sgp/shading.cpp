@@ -1,23 +1,17 @@
+#include <SDL3/SDL_pixels.h>
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
-#include <cstring>
 
 #include "Types.h"
 #include "himage.h"
-#include "vobject.h"
 #include "shading.h"
-
-void FindMaskIndecies(UINT8*, UINT8*, UINT8*);
 
 // GLOBAL: WIZ8 0x0069da80
 UINT16 IntensityTable[65536];
 // GLOBAL: WIZ8 0x006c0da0
 UINT16 ShadeTable[65536];
-// GLOBAL: WIZ8 0x006e0da0
-UINT16 White16BPPPalette[256];
 // GLOBAL: WIZ8 0x006000ac
 FLOAT guiShadePercent = (FLOAT)0.48;
-FLOAT guiBrightPercent = (FLOAT)1.1;
 
 /**********************************************************************************************
  BuildShadeTable
@@ -40,12 +34,14 @@ void BuildShadeTable(void)
     for (red = 0; red < 256; red += 4)
         for (green = 0; green < 256; green += 4)
             for (blue = 0; blue < 256; blue += 4) {
-                index = Get16BPPColor(FROMRGB(red, green, blue));
-                ShadeTable[index] = Get16BPPColor(FROMRGB(
-                    red * guiShadePercent, green * guiShadePercent, blue * guiShadePercent));
+                index = Get16BPPColor(SDL_Color{static_cast<UINT8>(red), static_cast<UINT8>(green),
+                                              static_cast<UINT8>(blue), SDL_ALPHA_OPAQUE});
+                ShadeTable[index] = Get16BPPColor(SDL_Color{
+                    static_cast<UINT8>(red * guiShadePercent),
+                    static_cast<UINT8>(green * guiShadePercent),
+                    static_cast<UINT8>(blue * guiShadePercent), SDL_ALPHA_OPAQUE});
             }
 
-    memset(White16BPPPalette, 65535, sizeof(White16BPPPalette));
 }
 
 // FUNCTION: WIZ8 0x00413e80

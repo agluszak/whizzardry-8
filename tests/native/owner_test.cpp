@@ -31,6 +31,7 @@
 #include "wiz8/layouts/character.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/video_object_catalog.h"
+#include "image_assets.h"
 #include "Button System.h"
 #include "wiz8/dialog_code/DialogButton.h"
 #include "wiz8/dialog_code/DialogScrollBar.h"
@@ -64,6 +65,9 @@ int screen_entries, screen_frames;
 unsigned char enter() { ++screen_entries; return 1; }
 unsigned char leave(int discard) { screen_leaves.push_back(discard); return 1; }
 void frame() { ++screen_frames; }
+
+void button_image_fixture(const std::filesystem::path& root, std::string name, unsigned count,
+                          bool app_data, unsigned width, unsigned height);
 
 void screen_stack()
 {
@@ -124,20 +128,24 @@ void screen_stack()
 
 void camp_effects()
 {
-    SpriteSheet image;
-    image.frames.resize(12);
-    for (auto& frame : image.frames) {
-        frame.usWidth = 16;
-        frame.usHeight = 8;
-        frame.pixels.assign(16 * 8, SpriteFrame::kTransparent);
-    }
-    auto object = std::make_unique<SGPVObject>(std::move(image));
-    REQUIRE(object);
-    const auto saved_slot = g_video_slots[0x86];
-    auto saved_frame = std::move(g_video_frames[0]);
-    g_video_slots[0x86] = {0, 0};
-    g_video_frames[0].storage_kind = W8_VIDEO_STORAGE_OBJECT;
-    g_video_frames[0].object = std::move(object);
+    ScopedTemporaryDirectory directory{"wiz8-camp-effects"};
+    const auto assets = directory.path / "assets";
+    const auto previous_roots = w8_native::path_roots();
+    const auto catalog_path = GetCatalogVideoObjectPath(0x86);
+    const auto frame_count = static_cast<unsigned>(
+        std::max(12, GetCatalogVideoObjectYOffset(0x86) + 12));
+    button_image_fixture(assets, std::string(catalog_path), frame_count, false, 16, 8);
+    g_image_assets.clear();
+    w8_native::configure_paths({assets.string(), (directory.path / "user").string(), {}});
+    struct Restore {
+        w8_native::Roots roots;
+        ~Restore()
+        {
+            g_camp_screen = nullptr;
+            g_image_assets.clear();
+            w8_native::configure_paths(roots);
+        }
+    } restore{previous_roots};
     {
         auto state = std::make_unique<W8CampScreenState>();
         REQUIRE((state->effect_list.empty() && state->stats_range == nullptr));
@@ -180,9 +188,6 @@ void camp_effects()
         REQUIRE((state->effect_beneficial_count == 0 && !range.m_range->m_enabled));
         g_review_character = nullptr;
     }
-    g_camp_screen = nullptr;
-    g_video_slots[0x86] = saved_slot;
-    g_video_frames[0] = std::move(saved_frame);
 }
 
 void dispatch_mouse(UINT16 type, UINT16 x, UINT16 y, bool left, bool right, UINT8 clicks = 0)
@@ -630,6 +635,7 @@ void generic_button_images()
     button_image_fixture(assets, DEFAULT_GENERIC_BUTTON_OFF);
     button_image_fixture(assets, "button.sti");
     button_image_fixture(assets, "short.sti", 8);
+    g_image_assets.clear();
     w8_native::configure_paths({assets.string(), (root / "user").string(), {"", "", ""}});
 
     button_image_fixture(assets, "metadata.sti", 3, true);
@@ -640,7 +646,7 @@ void generic_button_images()
         REQUIRE(sheet);
         REQUIRE(sheet->frames.size() == 3);
         REQUIRE(sheet->frames[2].pixels == std::vector<UINT16>{1});
-        REQUIRE(sheet->palette[1].peRed == 255);
+        REQUIRE(sheet->palette[1].r == 255);
 
         const auto pixel_offset = STCI_HEADER_SIZE + STCI_8BIT_PALETTE_SIZE + 3 * STCI_SUBIMAGE_SIZE;
         for (std::uintmax_t cut : {0u, STCI_HEADER_SIZE - 1u,
@@ -661,7 +667,7 @@ void generic_button_images()
         auto sprite = LoadVideoObject(long_image_path);
         REQUIRE((sprite && sprite->sprites.size() == 3));
         REQUIRE((sprite->sprites[2].usWidth == 1 && sprite->sprites[2].pixels[0] == 1));
-        REQUIRE(sprite->pPaletteEntry[1].peRed == 255);
+        REQUIRE(sprite->pPaletteEntry[1].r == 255);
     }
     for (bool corrupt_length : {false, true}) {
         button_image_fixture(assets, "bad-extent.sti", 3);
@@ -1052,6 +1058,7 @@ void generic_button_images()
     g_font12point1.clear();
     ShutdownButtonImageManager();
 
+    g_image_assets.clear();
     std::filesystem::remove_all(root);
 }
 }
@@ -1198,6 +1205,7 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
     button_image_fixture(assets, "background.sti");
     button_image_fixture(assets, "arrows.sti", 12, false, 2, 3);
     button_image_fixture(assets, "track.sti", 1, false, 5, 100);
+    g_image_assets.clear();
     w8_native::configure_paths({assets.string(), (root / "user").string(), {"", "", ""}});
     REQUIRE(MSYS_Init());
     PushButtonSoundScheme(0, true);
@@ -1290,6 +1298,7 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
     GetFrameBufferSurface() = std::move(saved_frame);
     REQUIRE(RegisteredButtonCount() == 0);
     MSYS_Shutdown();
+    g_image_assets.clear();
     std::filesystem::remove_all(root);
 }
 
@@ -1325,62 +1334,133 @@ TEST_CASE("assert-message", "[.death]")
     FAIL("CreateTextButton did not abort");
 }
 
-TEST_CASE("Item image cache grows, reloads and rolls back failed loads", "[owner][catalog]")
+TEST_CASE("Image assets share normalized paths and retain resources across clearing", "[owner][image]")
+{
+    ScopedTemporaryDirectory directory{"wiz8-image-assets"};
+    const auto assets = directory.path / "assets";
+    const auto previous_roots = w8_native::path_roots();
+    button_image_fixture(assets, "Data/Items/X.sti", 1);
+    button_image_fixture(assets, "Data/Items/late.sti", 1);
+
+    const auto bitmap_path = assets / "Data" / "Items" / "screen.pcx";
+    std::filesystem::create_directories(bitmap_path.parent_path());
+    std::vector<UINT8> pcx(128);
+    pcx[0] = 10;
+    pcx[1] = 5;
+    pcx[2] = 1;
+    pcx[3] = 8;
+    pcx[65] = 1;
+    pcx[66] = 1;
+    pcx.push_back(1);
+    pcx.push_back(12);
+    pcx.resize(pcx.size() + 256 * 3);
+    {
+        std::ofstream file(bitmap_path, std::ios::binary);
+        file.write(reinterpret_cast<const char*>(pcx.data()),
+                   static_cast<std::streamsize>(pcx.size()));
+        REQUIRE(file.good());
+    }
+
+    g_image_assets.clear();
+    w8_native::configure_paths({assets.string(), (directory.path / "user").string(), {}});
+    struct Restore {
+        w8_native::Roots roots;
+        ~Restore()
+        {
+            g_image_assets.clear();
+            w8_native::configure_paths(roots);
+        }
+    } restore{previous_roots};
+
+    const auto original = g_image_assets.sprites("Data\\Items\\X.sti");
+    REQUIRE(original);
+    REQUIRE(g_image_assets.sprites("data/items/x.STI") == original);
+    REQUIRE_FALSE(g_image_assets.bitmap("Data/Items/X.sti"));
+    REQUIRE(g_image_assets.sprites("Data/Items/X.sti") == original);
+    REQUIRE_FALSE(g_image_assets.sprites("Data/Items/missing.sti"));
+    button_image_fixture(assets, "Data/Items/missing.sti", 1);
+    const auto retried = g_image_assets.sprites("Data/Items/missing.sti");
+    REQUIRE(retried);
+
+    const auto bitmap = g_image_assets.bitmap("Data\\Items\\screen.pcx");
+    REQUIRE(bitmap);
+    REQUIRE(g_image_assets.bitmap("data/items/screen.PCX") == bitmap);
+    REQUIRE_FALSE(g_image_assets.sprites("Data/Items/screen.pcx"));
+
+    g_image_assets.clear();
+    const auto reloaded = g_image_assets.sprites("Data/Items/X.sti");
+    const auto bitmap_reloaded = g_image_assets.bitmap("Data/Items/screen.pcx");
+    REQUIRE(reloaded);
+    REQUIRE(bitmap_reloaded);
+    REQUIRE(reloaded != original);
+    REQUIRE(bitmap_reloaded != bitmap);
+    REQUIRE(original->sprites.size() == 1);
+    REQUIRE(bitmap->usWidth == 1);
+}
+
+TEST_CASE("Item image cache owns shared sprite sheets", "[owner][catalog]")
 {
     ScopedTemporaryDirectory directory{"wiz8-item-cache"};
     const auto assets = directory.path / "assets";
+    const auto previous_roots = w8_native::path_roots();
     button_image_fixture(assets, "Data/Items/icon.sti", 1);
-    button_image_fixture(assets, "Data/Items/Dagger.sti", 1);
-    w8_native::configure_paths({assets.string(), (directory.path / "user").string(), {}});
-    const auto slot_count = g_video_slots.size();
-    const auto frame_count = g_video_frames.size();
-    const auto fixed_tail = g_video_slots.back();
     std::vector<W8ItemDatabaseRecord> records(1005);
     for (auto& record : records)
         record.video_object_name = "icon.sti";
     struct Restore {
-        W8ItemDatabaseRecord* previous = g_item_records;
-        ~Restore() { g_item_video_objects.Clear(); g_item_records = previous; }
-    } restore;
+        W8ItemDatabaseRecord* records;
+        w8_native::Roots roots;
+        ~Restore()
+        {
+            g_item_video_objects.Clear();
+            g_image_assets.clear();
+            g_item_records = records;
+            w8_native::configure_paths(roots);
+        }
+    } restore{g_item_records, previous_roots};
+
+    g_image_assets.clear();
+    w8_native::configure_paths({assets.string(), (directory.path / "user").string(), {}});
     g_item_records = records.data();
     g_item_video_objects.Initialize(records.size());
-    REQUIRE_THROWS_AS(g_item_video_objects.GetOrCreateVideoObject(-1), std::out_of_range);
-    REQUIRE_THROWS_AS(g_item_video_objects.GetOrCreateVideoObject(records.size()), std::out_of_range);
+    REQUIRE_THROWS_AS(g_item_video_objects.Sprites(-1), std::out_of_range);
+    REQUIRE_THROWS_AS(g_item_video_objects.Sprites(records.size()), std::out_of_range);
     records[0].video_object_name = "missing.sti";
-    REQUIRE_THROWS_AS(g_item_video_objects.GetOrCreateVideoObject(0), std::runtime_error);
+    REQUIRE_THROWS_AS(g_item_video_objects.Sprites(0), std::runtime_error);
     REQUIRE(g_item_video_objects.LoadedImageCount() == 0);
-    REQUIRE(g_video_slots.size() == slot_count);
-    REQUIRE(g_video_frames.size() == frame_count);
-    records[0].video_object_name.clear(); // Checked fallback table.
+    records[0].video_object_name.clear();
     records[0].unidentified_name_index = 145;
-    REQUIRE_THROWS_AS(g_item_video_objects.GetOrCreateVideoObject(0), std::out_of_range);
+    REQUIRE_THROWS_AS(g_item_video_objects.Sprites(0), std::out_of_range);
+    records[0].video_object_name = "icon.sti";
     records[0].unidentified_name_index = 0;
-    for (unsigned i = 0; i < records.size(); ++i) {
-        const auto id = g_item_video_objects.GetOrCreateVideoObject(i);
-        REQUIRE(id == slot_count + i);
-        REQUIRE(GetCatalogVideoObject(id, 0).sprites.size() == 1);
-        REQUIRE(g_item_video_objects.GetOrCreateVideoObject(i) == id);
+
+    for (std::size_t index = 0; index < records.size(); ++index) {
+        auto& sprites = g_item_video_objects.Sprites(index);
+        REQUIRE(sprites.sprites.size() == 1);
+        REQUIRE(&g_item_video_objects.Sprites(index) == &sprites);
     }
     REQUIRE(g_item_video_objects.LoadedImageCount() == records.size());
-    REQUIRE(g_video_slots.size() == slot_count + records.size());
-    REQUIRE(g_video_frames.size() == frame_count + records.size());
-    REQUIRE(g_video_slots.at(slot_count - 1).first_frame == fixed_tail.first_frame);
-    REQUIRE_THROWS_AS(GetCatalogVideoObject(slot_count, -1), std::out_of_range);
-    REQUIRE_THROWS_AS(GetCatalogVideoObject(slot_count, std::numeric_limits<int>::max()),
+    REQUIRE(&g_item_video_objects.Sprites(0) == &g_item_video_objects.Sprites(1));
+    auto held = g_image_assets.sprites("Data\\Items\\icon.sti");
+    REQUIRE(held);
+    g_image_assets.clear();
+    REQUIRE(held->sprites.size() == 1);
+    REQUIRE(&g_item_video_objects.Sprites(0) == held.get());
+    REQUIRE_THROWS_AS(GetCatalogVideoObject(-1, 0), std::out_of_range);
+    REQUIRE_THROWS_AS(GetCatalogVideoObject(0, -1), std::out_of_range);
+    REQUIRE_THROWS_AS(GetCatalogVideoObject(0x86, std::numeric_limits<int>::max()),
                       std::out_of_range);
-    ReleaseLoadedVideoFrames();
-    REQUIRE_FALSE(g_video_frames.at(frame_count).object);
-    REQUIRE(g_item_video_objects.GetOrCreateVideoObject(0) == slot_count);
-    REQUIRE(g_video_frames.at(frame_count).object);
-    // Reinitialization must release the prior images and remove their IDs.
+
     g_item_video_objects.Initialize(records.size());
     REQUIRE(g_item_video_objects.LoadedImageCount() == 0);
-    REQUIRE(g_video_slots.size() == slot_count);
-    REQUIRE(g_video_frames.size() == frame_count);
-    REQUIRE(g_item_video_objects.GetOrCreateVideoObject(1004) == slot_count);
+    g_image_assets.clear();
+    g_item_video_objects.Clear();
+    g_item_video_objects.Initialize(records.size());
+    auto& reloaded = g_item_video_objects.Sprites(1004);
+    REQUIRE(&reloaded != held.get());
+    REQUIRE(g_item_video_objects.LoadedImageCount() == 1);
     g_item_video_objects.Clear();
     g_item_video_objects.Clear();
-    REQUIRE(g_video_slots.size() == slot_count);
-    REQUIRE(g_video_frames.size() == frame_count);
-    REQUIRE_THROWS_AS(GetCatalogVideoObject(slot_count, 0), std::out_of_range);
+    REQUIRE(g_item_video_objects.LoadedImageCount() == 0);
+    REQUIRE_THROWS_AS(g_item_video_objects.Sprites(0), std::out_of_range);
 }

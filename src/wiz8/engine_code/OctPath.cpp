@@ -1,3 +1,4 @@
+#include <SDL3/SDL_pixels.h>
 #include "surrender/srScene.h" // IWYU pragma: keep - complete scene type for conversion to srNode.
 #include <fmt/format.h>
 #include <unordered_map>
@@ -5718,7 +5719,7 @@ unsigned int W8PathingService::EditWaypointLinkFlags(const char* title, unsigned
     GetWorldColour(&colour_backup);
     PublishLightDirection(&colour_saved);
     SetFont(g_smfnt_font);
-    SetRGBFontShadow(0, 0, 0);
+    SetRGBFontShadow(SDL_Color{0, 0, 0, SDL_ALPHA_OPAQUE});
     g_smfnt_font.setPalette(g_font_state_palettes[W8_FONT_PALETTE_YELLOW]);
     if (direction == 0 || (waypoint_editor_flags & 2) != 0) {
         direction = 3;

@@ -1,3 +1,4 @@
+#include <SDL3/SDL_pixels.h>
 #include <fmt/format.h>
 #include <string>
 #include <array>
@@ -806,10 +807,9 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
                         GetFrameBufferSurface(), g_empty_hand_catalog_ids[character->iRace * W8_RACE_DWARF], 0,
                         0, band_menu_edge + 4, menu_y + 0x17, VO_BLT_SRCTRANSPARENCY, 0);
                 } else {
-                    DrawCatalogImage(GetFrameBufferSurface(),
-                                     g_item_video_objects.GetOrCreateVideoObject(main_hand_item_id),
-                                     0, 2, band_menu_edge + 3, menu_y + 0x17,
-                                     VO_BLT_SRCTRANSPARENCY, 0);
+                    DrawSprite(GetFrameBufferSurface(),
+                               g_item_video_objects.Sprites(main_hand_item_id), 2,
+                               band_menu_edge + 3, menu_y + 0x17, VO_BLT_SRCTRANSPARENCY, 0);
                     if (character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].stack_count != 0) {
                         text = fmt::format(
                             "{:d}",
@@ -832,10 +832,9 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
                             g_empty_hand_catalog_ids[character->iRace * W8_RACE_DWARF + 1], 0, 0,
                             band_menu_edge + 4, menu_y + 0x2f, VO_BLT_SRCTRANSPARENCY, 0);
                     } else {
-                        DrawCatalogImage(
-                            GetFrameBufferSurface(),
-                            g_item_video_objects.GetOrCreateVideoObject(off_hand_item_id), 0, 2,
-                            band_menu_edge + 3, menu_y + 0x2f, VO_BLT_SRCTRANSPARENCY, 0);
+                        DrawSprite(GetFrameBufferSurface(),
+                                   g_item_video_objects.Sprites(off_hand_item_id), 2,
+                                   band_menu_edge + 3, menu_y + 0x2f, VO_BLT_SRCTRANSPARENCY, 0);
                         if (character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].stack_count !=
                             0) {
                             text = fmt::format(
@@ -1083,7 +1082,7 @@ void ShadeStatusBarGap(int length, int left, int top)
         int rows = (g_settings.numeric_hit_points != 0 ? 2 : 0) + 3;
         char* screen = static_cast<char*>(GetFrameBufferSurface().cpu().surface->pixels);
         while (rows != 0) {
-            short color = Get16BPPColor(0x10101);
+            short color = Get16BPPColor(SDL_Color{1, 1, 1, SDL_ALPHA_OPAQUE});
             LineDraw(1, left, top, left, top + length, color, screen);
             ++left;
             --rows;
