@@ -20,7 +20,7 @@
 static std::vector<std::uint16_t> g_font_translation;
 
 Font::Font(Font&& other) noexcept
-    : glyphs(std::move(other.glyphs)), customPalette(std::move(other.customPalette)),
+    : glyphs(std::move(other.glyphs)), customPalette(other.customPalette),
       shades(std::move(other.shades)), currentShade(other.currentShade)
 {
     other.clear();
@@ -31,7 +31,7 @@ Font& Font::operator=(Font&& other) noexcept
     if (this != &other) {
         clear();
         glyphs = std::move(other.glyphs);
-        customPalette = std::move(other.customPalette);
+        customPalette = other.customPalette;
         shades = std::move(other.shades);
         currentShade = other.currentShade;
         other.clear();
