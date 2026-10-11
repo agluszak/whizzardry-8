@@ -120,6 +120,8 @@ struct W8MonsterGroup {
 unsigned int GetMonsterGroupIndexByID(int group_id, bool assert_on_failure = true,
                                       std::source_location caller = std::source_location::current());
 W8MonsterGroup* GetMonsterGroupByListIndex(unsigned int group_list_index);
+W8MonsterGroup* FindMonsterGroup(int group_id, bool assert_on_failure = true,
+                                 std::source_location caller = std::source_location::current());
 bool GetMonsterGroupEngagementState(int group_id);
 unsigned char ApplyToMonsterGroupLeader(W8MonsterGroup* monster_group,
                                         const srVector3T<float>* position, bool follow_leader);

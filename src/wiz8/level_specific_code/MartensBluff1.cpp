@@ -308,8 +308,7 @@ bool MartensBluff1TransportSpawn(void)
     group = SpawnMonsters(0x177, 1, &position_a, 0, true, false, false);
     location_id = group->MemberLocationId(0);
     if (location_id != 0) {
-        info = MonsterGetScriptPartByLocationIndex(
-            MonsterGetIndexByLocationID(location_id));
+        info = FindMonster(location_id);
         if (info != 0 && info->p3D != 0) {
             info->p3D->SetScript("M1_Trang_trans.MSF", true);
         }

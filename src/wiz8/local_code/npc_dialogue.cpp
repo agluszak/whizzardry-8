@@ -287,6 +287,12 @@ void RunNpcScriptLine(int script_line, bool force_npc_voice)
     }
 }
 
+static int SessionNpcKind()
+{
+    const W8NpcState* npc = g_npc_scripting.session.npc;
+    return npc != 0 ? npc->record->kind : -1;
+}
+
 static void QueueMessageBoxLine(W8MessageBoxLine line, bool prepend)
 {
     if (!prepend) {
@@ -317,19 +323,19 @@ W8NpcMessageKind GetMessageBoxLineKind(const W8MessageBoxLine& line)
 void QueueNpcScriptLine(int quote, bool mark_pending, bool prepend, bool suppress_entries)
 {
     QueueMessageBoxLine(
-        {g_npc_scripting.session.npc, W8NpcQueuedQuote{quote, mark_pending, suppress_entries}}, prepend);
+        {SessionNpcKind(), W8NpcQueuedQuote{quote, mark_pending, suppress_entries}}, prepend);
 }
 
 // FUNCTION: WIZ8 0x005289B0
 void QueueNpcMessageLine(W8NpcMessageKind kind, int argument)
 {
-    QueueMessageBoxLine({g_npc_scripting.session.npc, W8NpcQueuedCommand{kind, argument}}, false);
+    QueueMessageBoxLine({SessionNpcKind(), W8NpcQueuedCommand{kind, argument}}, false);
 }
 
 void AddTextMessageBoxLine(W8NpcMessageKind kind, std::string text, W8QuoteNotice notice)
 {
     QueueMessageBoxLine(
-        {g_npc_scripting.session.npc, W8NpcQueuedNotice{kind, std::move(text), std::move(notice)}}, false);
+        {SessionNpcKind(), W8NpcQueuedNotice{kind, std::move(text), std::move(notice)}}, false);
 }
 
 /* Resolve the player's reply text to the script line it selects. The current
@@ -412,7 +418,7 @@ std::string GetNpcQuoteText(W8NpcState* npc, int type)
 void QueueNpcQuoteEntry(int quote_index, int entry_index, int continuation_quote, bool prepend)
 {
     QueueMessageBoxLine(
-        {g_npc_scripting.session.npc, W8NpcQueuedEntry{quote_index, entry_index, continuation_quote}},
+        {SessionNpcKind(), W8NpcQueuedEntry{quote_index, entry_index, continuation_quote}},
         prepend);
 }
 

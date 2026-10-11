@@ -1208,8 +1208,7 @@ try
     const auto* record = MonsterDBFromSpecies(info.monster_species);
     if (!record) return false;
     if (record->deleted) return true;
-    auto* group = GetMonsterGroupByListIndex(
-        GetMonsterGroupIndexByID(info.monster_group_id));
+    auto* group = FindMonsterGroup(info.monster_group_id);
     if (!group) return false;
 
     auto& monsters = unborn ? gXStatus.unborn_monsters : gXStatus.monsters;

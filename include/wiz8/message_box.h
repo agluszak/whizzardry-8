@@ -134,7 +134,7 @@ struct W8NpcQueuedNotice {
 
 /* Queue record consumed by ProcessMessageBoxQueue. */
 struct W8MessageBoxLine {
-    W8NpcState* npc; /* speaking NPC, copied from g_npc_scripting.session.npc */
+    int npc_kind; /* record kind of the speaking NPC, or -1; resolved when the line runs */
     std::variant<W8NpcQueuedQuote, W8NpcQueuedEntry, W8NpcQueuedCommand, W8NpcQueuedNotice> action;
 };
 

@@ -87,8 +87,7 @@ unsigned char AscensionPeakInit(void)
             if (FindEntityByName("NP_Rapax04", &position, 0, 0)) {
                 SpawnMonsters(0xf, 4, &position, 1, true, false, false);
             }
-            info = MonsterGetScriptPartByLocationIndex(
-                MonsterGetIndexByLocationID(group->leader_location_id));
+            info = FindMonster(group->leader_location_id);
             info->p3D->SetScript("proximitylandslide.msf", true);
             SpawnAscensionAmbush();
             CreateLocationVar("AP_AtLeast2of3Items", 1);
@@ -442,8 +441,7 @@ void RemoveAletheides(void)
     if (npc != 0) {
         info = GetNpcMonsterInfo(npc);
         if (info != 0) {
-            RemoveMonster(
-                MonsterGetIndexByLocationID(info->location_id), true);
+            RemoveMonster(info, true);
             return;
         }
     }
@@ -451,8 +449,7 @@ void RemoveAletheides(void)
     if (npc != 0) {
         info = GetNpcMonsterInfo(npc);
         if (info != 0) {
-            RemoveMonster(
-                MonsterGetIndexByLocationID(info->location_id), true);
+            RemoveMonster(info, true);
             return;
         }
     }
@@ -460,8 +457,7 @@ void RemoveAletheides(void)
     if (npc != 0) {
         info = GetNpcMonsterInfo(npc);
         if (info != 0) {
-            RemoveMonster(
-                MonsterGetIndexByLocationID(info->location_id), true);
+            RemoveMonster(info, true);
         }
     }
 }

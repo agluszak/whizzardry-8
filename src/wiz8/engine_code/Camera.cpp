@@ -107,8 +107,7 @@ void UpdateCameraPathState(W8World* world, W8CameraPath* path, int active)
             }
             group = FindFirstMonsterByID(0x18c);
             if (group != 0) {
-                index = MonsterGetIndexByLocationID(group->leader_location_id);
-                monster_info = MonsterGetScriptPartByLocationIndex(index);
+                monster_info = FindMonster(group->leader_location_id);
                 PointCameraAtMonster(monster_info, true, true);
                 position = monster_info->p3D->GetPosition();
                 target = position;
@@ -137,8 +136,7 @@ void UpdateCameraPathState(W8World* world, W8CameraPath* path, int active)
             ClearMainGameTargetState();
             group = FindFirstMonsterByID(0x1b4);
             if (group != 0) {
-                index = MonsterGetIndexByLocationID(group->leader_location_id);
-                monster_info = MonsterGetScriptPartByLocationIndex(index);
+                monster_info = FindMonster(group->leader_location_id);
                 MonsterForwardReferencePosition(monster_info->p3D, 0);
                 return;
             }

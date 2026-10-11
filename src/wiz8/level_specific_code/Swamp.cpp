@@ -129,8 +129,7 @@ static bool SwampGasFireSpawn(Trigger* pTrigger)
     group = SpawnMonsters(0x1b5, 1, &position, 0, true, false, false);
     index = group->MemberLocationId(0);
     if (index != 0) {
-        monster_info = MonsterGetScriptPartByLocationIndex(
-            MonsterGetIndexByLocationID(index));
+        monster_info = FindMonster(index);
         if (monster_info != 0) {
             g_swamp_spawned_monster = monster_info->p3D;
             monster_info->p3D->m_pRep->instance_scale = 1.0f;
@@ -144,7 +143,7 @@ static bool SwampGasFireSpawn(Trigger* pTrigger)
             g_master_functions.push_back(SwampGasFireItemDrop);
         }
     }
-    npc = FindNpcBindingForMonster(MonsterGetIndexByLocationID(index));
+    npc = FindNpcBindingForMonster(FindMonster(index));
     QueueNpcScriptNotice(npc, 0, -1, false, 0);
     return true;
 }

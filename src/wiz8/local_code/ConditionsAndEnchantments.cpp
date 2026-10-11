@@ -470,8 +470,7 @@ static void RefreshMonsterConditionState(W8MonsterInfo* monster_info)
         --slot;
     }
     monster_info->highest_condition = static_cast<W8Condition>(slot);
-    unsigned int list_index = GetMonsterGroupIndexByID(monster_info->monster_group_id);
-    W8MonsterGroup* monster_group = GetMonsterGroupByListIndex(list_index);
+    W8MonsterGroup* monster_group = FindMonsterGroup(monster_info->monster_group_id);
     RecountActiveMonsterGroupMembers(monster_group);
     if (monster_info->fActive) {
         MonsterInfoSetMotionless(monster_info,
@@ -483,7 +482,6 @@ static void RefreshMonsterConditionState(W8MonsterInfo* monster_info)
 void SetMonsterCondition(int location_id, W8Condition condition, int duration, int poison_strength,
                          W8TargetSource* target, bool announce)
 {
-    unsigned int list_index;
     W8MonsterInfo* monster_info;
     W8MonsterRecord* record;
     W8ConditionImmunity* immunity;
@@ -513,8 +511,7 @@ void SetMonsterCondition(int location_id, W8Condition condition, int duration, i
         }
         break;
     }
-    list_index = MonsterGetIndexByLocationID(location_id);
-    monster_info = MonsterGetScriptPartByLocationIndex(list_index);
+    monster_info = FindMonster(location_id);
     record = GetMonsterDataForInfo(monster_info);
     if (monster_info->hp_current == 0) {
         return;
@@ -602,8 +599,7 @@ void ClearMonsterCondition(int location_id, W8Condition condition)
     W8MonsterInfo* monster_info;
     W8MonsterGroup* monster_group;
 
-    list_index = MonsterGetIndexByLocationID(location_id);
-    monster_info = MonsterGetScriptPartByLocationIndex(list_index);
+    monster_info = FindMonster(location_id);
     if (monster_info->hp_current != 0) {
         if (monster_info->uiCondition[condition] == 0) {
             srAssertFail("pMonsterInfo->uiCondition[uiCondition] > 0",
@@ -612,8 +608,7 @@ void ClearMonsterCondition(int location_id, W8Condition condition)
         }
         if (condition == W8_CONDITION_TURNCOAT &&
             monster_info->uiCondition[W8_CONDITION_TURNCOAT] != 0) {
-            list_index = GetMonsterGroupIndexByID(monster_info->monster_group_id);
-            monster_group = GetMonsterGroupByListIndex(list_index);
+            monster_group = FindMonsterGroup(monster_info->monster_group_id);
             SetMonsterHostility(monster_info, monster_group->ubDisposition);
         }
         if (gXStatus.fCombatMode || monster_info->party_threat.visible_to_player) {
@@ -655,8 +650,7 @@ void ClearMonsterCondition(int location_id, W8Condition condition)
 // FUNCTION: WIZ8 0x00524110
 void TickMonsterCondition(int location_id, W8Condition condition, unsigned int minutes)
 {
-    W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(
-        MonsterGetIndexByLocationID(location_id));
+    W8MonsterInfo* monster_info = FindMonster(location_id);
 
     if (monster_info->hp_current == 0) {
         return;
@@ -914,9 +908,7 @@ void TickCharacterEnchantmentSlot(int party_slot, W8EnchantmentSlot slot, unsign
 void ApplyMonsterCondition(int location_id, W8EnchantmentSlot slot, int argument,
                            unsigned int duration, unsigned int percent)
 {
-    unsigned int monster_list_index =
-        MonsterGetIndexByLocationID(location_id);
-    W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_list_index);
+    W8MonsterInfo* monster_info = FindMonster(location_id);
     W8Enchantment* enchantment = &monster_info->enchantments[slot];
     if (enchantment->power <= static_cast<unsigned int>(argument)) {
         unsigned int previous = enchantment->turns;
@@ -948,8 +940,7 @@ void ApplyMonsterCondition(int location_id, W8EnchantmentSlot slot, int argument
 // FUNCTION: WIZ8 0x00524390
 void ClearMonsterEnchantmentSlot(int location_id, W8EnchantmentSlot slot)
 {
-    W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(
-        MonsterGetIndexByLocationID(location_id));
+    W8MonsterInfo* monster_info = FindMonster(location_id);
 
     memset(&monster_info->enchantments[slot], 0, sizeof(W8Enchantment));
     SetMonsterSpellIcon(monster_info->p3D, static_cast<W8MonsterSpellIconId>(slot + 0x10), false);
@@ -965,8 +956,7 @@ void ClearMonsterEnchantmentSlot(int location_id, W8EnchantmentSlot slot)
 // FUNCTION: WIZ8 0x00524400
 void TickMonsterEnchantmentSlot(int location_id, W8EnchantmentSlot slot, unsigned int turns)
 {
-    W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(
-        MonsterGetIndexByLocationID(location_id));
+    W8MonsterInfo* monster_info = FindMonster(location_id);
     unsigned int remaining = monster_info->enchantments[slot].turns;
 
     if (turns < remaining) {
@@ -1075,13 +1065,11 @@ void BindMonsterToCharacterDependence(unsigned int party_slot, unsigned int depe
         srAssertFail("iMonsterID != -1", CONDITIONS_CPP, 0x449, 0);
     }
 
-    monster_info = MonsterGetScriptPartByLocationIndex(
-        MonsterGetIndexByLocationID(monster_id));
+    monster_info = FindMonster(monster_id);
     monster_info->condition_binding_mask =
         static_cast<unsigned char>(monster_info->condition_binding_mask | (1 << dependence_slot));
     if (dependence_slot == W8_DEPENDENCE_SWALLOWED) {
-        RetireMonsterGroupAndAllies(GetMonsterGroupByListIndex(
-            GetMonsterGroupIndexByID(monster_info->monster_group_id)));
+        RetireMonsterGroupAndAllies(FindMonsterGroup(monster_info->monster_group_id));
     }
 
     g_status.buffers.Char[party_slot].conditions[dependence_slot].level_acquired =

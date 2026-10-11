@@ -1337,10 +1337,7 @@ void CombatScenario()
     CAPTURE(monster_id, round, game.frames());
     ApplyDamageToMonster(monster, monster->hp_current, &attacker, false, 1, 0, nullptr, false);
     // Resolve by ID after death/cleanup rather than relying on a retained pointer.
-    const unsigned dead_index =
-        MonsterGetIndexByLocationID(monster_id, false);
-    REQUIRE(dead_index != 0xffffffffu);
-    const W8MonsterInfo* dead = MonsterGetScriptPartByLocationIndex(dead_index);
+    const W8MonsterInfo* dead = FindMonster(monster_id, false);
     REQUIRE((dead && !dead->fActive && dead->hp_current == 0 &&
                                 dead->uiCondition[W8_CONDITION_DEAD] != 0));
 

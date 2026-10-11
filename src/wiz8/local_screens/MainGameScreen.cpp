@@ -4122,7 +4122,6 @@ void RedrawCombatMonsterList(void)
     int context_slot;
     W8CombatSlot* target;
     Palette16 palette;
-    unsigned int monster_index;
     W8MonsterInfo* monster_info;
     std::string scratch_text;
 
@@ -4153,8 +4152,7 @@ void RedrawCombatMonsterList(void)
                     if (monster_group->group_id == g_level_block->action_group) {
                         is_action_group = true;
                     } else if (g_level_block->highlighted_item != -1) {
-                        monster_index = MonsterGetIndexByLocationID(g_level_block->highlighted_item);
-                        monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
+                        monster_info = FindMonster(g_level_block->highlighted_item);
                         is_action_group = monster_group->group_id == monster_info->monster_group_id;
                     }
                     is_target_group = false;
@@ -4167,9 +4165,8 @@ void RedrawCombatMonsterList(void)
                         monster_group->group_id == target->iGroupID) {
                         is_target_group = true;
                     } else if (target->iType == W8_TARGET_KIND_MONSTER) {
-                        monster_index = MonsterGetIndexByLocationID(target->iMonsterID, false);
-                        if (monster_index != 0xffffffff) {
-                            monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
+                        monster_info = FindMonster(target->iMonsterID, false);
+                        if (monster_info != 0) {
                             is_target_group =
                                 monster_group->group_id == monster_info->monster_group_id;
                         }
@@ -6308,8 +6305,7 @@ unsigned char WorldViewRegionEvent(const InputEvent* event, W8Region* region)
                                         GetEventCursorY(event));
         }
     } else {
-        unsigned int monster_index = MonsterGetIndexByLocationID(g_level_block->highlighted_item);
-        W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
+        W8MonsterInfo* monster_info = FindMonster(g_level_block->highlighted_item);
         bool assign = true;
         if (!gXStatus.fCombatMode) {
             if (needed != W8_TARGET_NEED_ENEMY && needed != W8_TARGET_NEED_ALLY &&
@@ -6328,8 +6324,7 @@ unsigned char WorldViewRegionEvent(const InputEvent* event, W8Region* region)
                             item = &g_status.item_in_hand;
                         }
                         if (monster_info->highest_condition < W8_CONDITION_ASLEEP) {
-                            W8NpcState* npc = FindNpcBindingForMonster(
-                                MonsterGetIndexByLocationID(g_level_block->highlighted_item));
+                            W8NpcState* npc = FindNpcBindingForMonster(FindMonster(g_level_block->highlighted_item));
                             QueueNpcScriptNotice(npc, item, -1, false, 0);
                             SetCombatSelection(-1);
                         } else {
@@ -6470,8 +6465,7 @@ void UpdateWorldViewCursor(const InputEvent* event, W8TargetNeed target_needed)
         }
         cursor = 0;
     } else {
-        unsigned int monster_index = MonsterGetIndexByLocationID(g_level_block->highlighted_item);
-        MonsterGetScriptPartByLocationIndex(monster_index);
+        FindMonster(g_level_block->highlighted_item);
         if (!CanTargetMonster(g_status.selected_character, g_level_block->highlighted_item, true,
                               false)) {
             SetTargetCursor(cursor);
@@ -6743,8 +6737,7 @@ void SetCombatSelection(int value)
             std::string health;
 
             SGPMouseGetPos(&point);
-            unsigned int monster_index = MonsterGetIndexByLocationID(g_level_block->highlighted_item);
-            W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
+            W8MonsterInfo* monster_info = FindMonster(g_level_block->highlighted_item);
             if (monster_info != 0) {
                 text = GetMonsterName(monster_info, 0, 0);
                 text += " (";
@@ -6759,7 +6752,7 @@ void SetCombatSelection(int value)
     }
     if (current != -1) {
         if (GetTargetNeededForCurrentAction(g_status.selected_character) == W8_TARGET_NEED_GROUP) {
-            W8MonsterInfo* monster_info = MonsterInfoFromID(g_level_block->highlighted_item);
+            W8MonsterInfo* monster_info = FindMonster(g_level_block->highlighted_item);
             ModifyGroupColor(monster_info->monster_group_id, W8_TARGET_HIGHLIGHT_NONE);
         } else {
             HighlightMonsterAsTarget(g_level_block->highlighted_item, g_status.selected_character,
@@ -6786,7 +6779,7 @@ void SetCombatSelection(int value)
             if (GetTargetNeededForCurrentAction(g_status.selected_character) ==
                 W8_TARGET_NEED_GROUP) {
                 W8MonsterInfo* monster_info =
-                    MonsterInfoFromID(value);
+                    FindMonster(value);
                 ModifyGroupColor(monster_info->monster_group_id,
                                  g_level_block->target_highlight_ok[0] == 0
                                      ? W8_TARGET_HIGHLIGHT_RED
@@ -6875,9 +6868,7 @@ void SetCombatAction(int value)
     if (value == -1) {
         g_level_block->target_highlight_ok[0] = 0;
     } else {
-        unsigned int group_index =
-            GetMonsterGroupIndexByID(value);
-        W8MonsterGroup* group = GetMonsterGroupByListIndex(group_index);
+        W8MonsterGroup* group = FindMonsterGroup(value);
 
         g_level_block->target_highlight_ok[0] =
             CanTargetMonsterGroup(g_status.selected_character, group);
@@ -7432,9 +7423,7 @@ static void InvalidateMainGameScreen(W8DialogBase* dialog)
 // FUNCTION: WIZ8 0x0056ad60
 void OpenMonsterInfoDialog(int location_id)
 {
-    unsigned int monster_index =
-        MonsterGetIndexByLocationID(location_id);
-    W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
+    W8MonsterInfo* monster_info = FindMonster(location_id);
     if (!monster_info->fActive || monster_info->p3D->IsDying() || monster_info->hp_current == 0) {
         return;
     }

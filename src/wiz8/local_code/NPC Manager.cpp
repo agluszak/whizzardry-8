@@ -137,8 +137,7 @@ static char GetNpcDisposition(W8NpcState* npc)
     unsigned int slot;
 
     if (npc->has_monster && npc->is_present) {
-        monster_info = MonsterGetScriptPartByLocationIndex(
-            MonsterGetIndexByLocationID(npc->location_id));
+        monster_info = FindMonster(npc->location_id);
         if (monster_info != 0) {
             disposition += monster_info->charm_strength;
             if (monster_info->uiCondition[W8_CONDITION_TURNCOAT] > 0) {
@@ -295,8 +294,7 @@ W8MonsterInfo* GetNpcMonsterInfo(W8NpcState* npc)
     if (!npc->has_monster || !npc->is_present) {
         return 0;
     }
-    return MonsterGetScriptPartByLocationIndex(
-        MonsterGetIndexByLocationID(npc->location_id));
+    return FindMonster(npc->location_id);
 }
 
 /* The monster manager entry this NPC's group occupies, if its database entry
@@ -504,8 +502,7 @@ int DismissNpcFromParty(int party_slot, int /*unused*/, bool skip_spawn, bool ne
             return 0;
         }
         W8MonsterGroup* group = CreateGroup(species, 1, &position, true, false, true);
-        W8MonsterInfo* monster = MonsterGetScriptPartByLocationIndex(
-            MonsterGetIndexByLocationID(group->leader_location_id));
+        W8MonsterInfo* monster = FindMonster(group->leader_location_id);
         if (monster != 0) {
             CopyCharacterConditionsToTarget(npc->character, &monster->location_id);
             if (monster->uiCondition[W8_CONDITION_UNCONSCIOUS] == W8_CONDITION_INDEFINITE) {
@@ -590,12 +587,10 @@ bool RecruitNpcIntoParty(W8NpcState* npc)
     }
     RefreshCharacterSkillAvailability(&g_status.buffers.Char[party_slot]);
     if (npc->has_monster && npc->is_present) {
-        W8MonsterInfo* monster = MonsterGetScriptPartByLocationIndex(
-            MonsterGetIndexByLocationID(npc->location_id));
+        W8MonsterInfo* monster = FindMonster(npc->location_id);
         if (monster != 0) {
             CopyMonsterConditionsToCharacter(&g_status.buffers.Char[party_slot], monster);
-            RemoveMonster(
-                MonsterGetIndexByLocationID(monster->location_id),
+            RemoveMonster(monster,
                 true);
         }
     }
@@ -652,8 +647,7 @@ W8Monster* GetNpcMonster(W8NpcState* npc)
     if (!npc->has_monster || !npc->is_present) {
         return 0;
     }
-    monster_info = MonsterGetScriptPartByLocationIndex(
-        MonsterGetIndexByLocationID(npc->location_id));
+    monster_info = FindMonster(npc->location_id);
     if (monster_info == 0) {
         return 0;
     }
@@ -1278,9 +1272,7 @@ void BindNpcToMonster(unsigned char npc_id, bool has_monster, int location_id)
     W8MonsterInfo* monster_info = 0;
 
     if (has_monster) {
-        unsigned int monster_list_index =
-            MonsterGetIndexByLocationID(location_id);
-        monster_info = MonsterGetScriptPartByLocationIndex(monster_list_index);
+        monster_info = FindMonster(location_id);
         W8MonsterRecord* monster_record = GetMonsterDataForInfo(monster_info);
         if (monster_record == 0 || (monster_record->flags & W8_MONSTER_FLAG_NPC) == 0) {
             monster_info->bound_npc_index = -1;
@@ -1581,9 +1573,8 @@ catch (const std::exception&) { return false; }
    the monster's record is missing, is not NPC-routed, binds no NPC, or the
    binding has been released. */
 // FUNCTION: WIZ8 0x0050A440
-W8NpcState* FindNpcBindingForMonster(unsigned int monster_list_index)
+W8NpcState* FindNpcBindingForMonster(W8MonsterInfo* monster_info)
 {
-    W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_list_index);
     W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
     W8NpcState* npc;
 
@@ -1703,8 +1694,7 @@ void ApplyNpcInteraction(W8NpcState* npc, int kind, int value, W8ItemInstance* i
         if (!npc->has_monster || !npc->is_present) {
             monster_info = 0;
         } else {
-            monster_info = MonsterGetScriptPartByLocationIndex(
-                MonsterGetIndexByLocationID(npc->location_id));
+            monster_info = FindMonster(npc->location_id);
         }
         monster_record = GetMonsterDataForInfo(monster_info);
         monster_level = monster_record->effective_level;
@@ -1992,8 +1982,7 @@ void UpdateNpcEvents(void)
         int32_t(uint32_t(w8_get_ticks()) - uint32_t(g_status.savant_hack_tick)) > 0x32) {
         group = FindFirstMonsterByID(0x1b3);
         if (group != 0) {
-            index = MonsterGetIndexByLocationID(group->leader_location_id);
-            monster_info = MonsterGetScriptPartByLocationIndex(index);
+            monster_info = FindMonster(group->leader_location_id);
             MonsterStartsDying(monster_info, true);
         }
         g_status.savant_hack_tick = 0;
@@ -2003,8 +1992,7 @@ void UpdateNpcEvents(void)
         int32_t(uint32_t(w8_get_ticks()) - uint32_t(g_status.bela_cycle_tick)) > 0x1388) {
         group = FindFirstMonsterByID(0x1b6);
         if (group != 0) {
-            index = MonsterGetIndexByLocationID(group->leader_location_id);
-            monster_info = MonsterGetScriptPartByLocationIndex(index);
+            monster_info = FindMonster(group->leader_location_id);
             StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_ATTACK_LASH, W8_ANIMATION_PLAY_ONCE);
             monster_info->p3D->SetCycleCallback(0x10, TriggerBelaVoice);
         }
@@ -2034,12 +2022,9 @@ void UpdateNpcEvents(void)
                 continue;
             }
             if (partner->is_present) {
-                index =
-                    MonsterGetIndexByLocationID(partner->location_id);
-                monster_info = MonsterGetScriptPartByLocationIndex(index);
+                monster_info = FindMonster(partner->location_id);
                 if (monster_info != 0) {
-                    index = MonsterGetIndexByLocationID(monster_info->location_id);
-                    RemoveMonster(index, true);
+                    RemoveMonster(monster_info, true);
                 }
             }
             ReleaseNpcBinding(partner->partner_index);
@@ -2189,12 +2174,9 @@ static void ReleaseNpcCompanionMonster(W8NpcState* npc)
 {
     if (npc->has_monster) {
         if (npc->is_present) {
-            unsigned int index =
-                MonsterGetIndexByLocationID(npc->location_id);
-            W8MonsterInfo* monster = MonsterGetScriptPartByLocationIndex(index);
+            W8MonsterInfo* monster = FindMonster(npc->location_id);
             if (monster != 0) {
-                RemoveMonster(
-                    MonsterGetIndexByLocationID(monster->location_id),
+                RemoveMonster(monster,
                     true);
             }
         }
@@ -2282,9 +2264,7 @@ static bool RestoreNpcMonster(W8NpcState* npc, const char* entity_name)
         return false;
     }
     {
-        unsigned int monster_index =
-            MonsterGetIndexByLocationID(npc->location_id);
-        W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
+        W8MonsterInfo* monster_info = FindMonster(npc->location_id);
 
         if (monster_info == 0) {
             return false;

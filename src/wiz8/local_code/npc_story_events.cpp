@@ -61,8 +61,7 @@ static void NpcScriptSavantHackDone(W8Monster* monster);
 
 static W8MonsterInfo* FindMonsterByLocation(int location_id)
 {
-    return MonsterGetScriptPartByLocationIndex(
-        MonsterGetIndexByLocationID(location_id));
+    return FindMonster(location_id);
 }
 
 static W8MonsterInfo* FindMonsterGroupLeader(int species)
@@ -77,9 +76,9 @@ static W8MonsterInfo* FindNpcKindMonster(int npc_kind)
     return npc == 0 ? 0 : GetNpcMonsterInfo(npc);
 }
 
-static void RemoveMonsterNow(const W8MonsterInfo* monster_info)
+static void RemoveMonsterNow(W8MonsterInfo* monster_info)
 {
-    RemoveMonster(MonsterGetIndexByLocationID(monster_info->location_id), true);
+    RemoveMonster(monster_info, true);
 }
 
 /* Fade an active NPC monster out of the world; one that is not active is

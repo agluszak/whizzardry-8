@@ -116,7 +116,6 @@ bool Trynnie2MeatBox(Trigger* pTrigger)
 {
     W8MonsterGroup* group;
     W8MonsterInfo* info;
-    unsigned int index;
     int item_id;
 
     group = FindFirstMonsterByID(0x1d4);
@@ -129,8 +128,7 @@ bool Trynnie2MeatBox(Trigger* pTrigger)
         ShowNotice(W8_FONT_PALETTE_TEXT_BOX, g_localized_strings[0x964]);
         return true;
     }
-    index = MonsterGetIndexByLocationID(group->leader_location_id);
-    info = MonsterGetScriptPartByLocationIndex(index);
+    info = FindMonster(group->leader_location_id);
     if (info->highest_condition >= W8_CONDITION_ASLEEP) {
         return true;
     }

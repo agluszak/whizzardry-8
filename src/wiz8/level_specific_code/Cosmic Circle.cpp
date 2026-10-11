@@ -82,8 +82,7 @@ void CosmicCircleSetup(void)
                 srAssertFail("uiMonsterID", COSMIC_CIRCLE_CPP, 0x41,
                              "Invalid Monster ID for CC end");
             } else {
-                index = MonsterGetIndexByLocationID(uiMonsterID);
-                pMonsterInfoAltheides = MonsterGetScriptPartByLocationIndex(index);
+                pMonsterInfoAltheides = FindMonster(uiMonsterID);
             }
         }
         if (FindEntityByName("NP_DSARENA", &positionDs, 0, 0)) {
@@ -93,8 +92,7 @@ void CosmicCircleSetup(void)
                 srAssertFail("uiMonsterID", COSMIC_CIRCLE_CPP, 0x53,
                              "Invalid Monster ID for CC end");
             } else {
-                index = MonsterGetIndexByLocationID(uiMonsterID);
-                pMonsterInfoDs = MonsterGetScriptPartByLocationIndex(index);
+                pMonsterInfoDs = FindMonster(uiMonsterID);
             }
         }
         if (FindEntityByName("NP_BELASTART", &positionBela, 0, 0)) {
