@@ -406,8 +406,8 @@ public:
     std::unique_ptr<W8ControlSelection> m_menu_selection;
     unsigned char unknown_030[8];
     std::unique_ptr<W8OptionsPanelSet> m_panel[8];
-    W8MessageDialogBase* m_active_modal; /* frame/leave own and clear it */
-    W8OptionsTextEditor* m_text_editor;
+    std::unique_ptr<W8MessageDialogBase> m_active_modal;
+    std::unique_ptr<W8OptionsTextEditor> m_text_editor;
     W8OptionsKeyCapture* m_key_capture;
 };
 

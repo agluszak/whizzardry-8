@@ -289,7 +289,6 @@ void TakeItemUnitToHand(W8ItemInstance* item, unsigned short slot, W8ItemOrigin 
 
 void CampScreenInitializeRegions(void);
 void LayoutCampSecondaryRegions(void);
-unsigned char CampScreenInitialize(void);
 unsigned char CampScreenEnter(void);
 void CampScreenFrame(void);
 unsigned char CampScreenLeave(int leaving);

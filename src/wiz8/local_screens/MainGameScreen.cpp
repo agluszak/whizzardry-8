@@ -170,7 +170,7 @@ class srColorSurfaceIFace;
 
 /* The region set the two enable/disable wrappers below own. */
 // GLOBAL: WIZ8 0x0068edcc
-W8LevelRuntimeBlock* g_level_block;
+std::unique_ptr<W8LevelRuntimeBlock> g_level_block;
 // GLOBAL: WIZ8 0x0068edd0
 W8DialogBase* g_modal_owner;
 // GLOBAL: WIZ8 0x0068edd4
@@ -368,7 +368,6 @@ static void EnableActionPanelRegions()
     }
 }
 
-// FUNCTION: WIZ8 0x00587510
 int OpenLockInteraction(Trigger* trigger)
 {
     W8Character* character;
@@ -444,14 +443,12 @@ int OpenLockInteraction(Trigger* trigger)
     return 1;
 }
 
-// FUNCTION: WIZ8 0x00587960
 void ProcessLockInteractMode(void)
 {
     g_lock_interaction->Process();
 }
 
 /* Redraw the lock interaction's tumbler, info and action panels. */
-// FUNCTION: WIZ8 0x00587970
 void RedrawLockInteractionPanels(void)
 {
     g_lock_interaction->m_tumbler_panel->Redraw();
@@ -463,7 +460,6 @@ void RedrawLockInteractionPanels(void)
    destroyed outright; otherwise its panels go inactive while fLockInteract
    stays set so the session can resume. Either path re-syncs the text box and
    UI mode and repaints the portrait, status and action regions. */
-// FUNCTION: WIZ8 0x005879A0
 void EndLockInteractMode(char suspend)
 {
     W8LockInteraction* interaction = g_lock_interaction.get();
@@ -504,7 +500,6 @@ static unsigned int CanSelectedCharacterCastKnockKnock(W8Character* character)
    skill, the spell button needs a castable knock-knock, and the force button
    needs enough strength to roll. The info text and action panel repaint
    either way. */
-// FUNCTION: WIZ8 0x00587A30
 void RefreshLockInteractionControls(void)
 {
     W8LockInteraction* interaction = g_lock_interaction.get();
@@ -541,7 +536,6 @@ void RefreshLockInteractionControls(void)
 }
 
 /* Re-arm the lock tumbler and action region sets while lock interact is up. */
-// FUNCTION: WIZ8 0x00587C20
 void EnableLockInteractionPanels(void)
 {
     if (g_lock_interaction) {
@@ -552,7 +546,6 @@ void EnableLockInteractionPanels(void)
 /* Mark the lock interaction's tumbler and action panels dirty and rebuild the
    info text; run from the redraw sweep when flag 0x200 is raised while lock
    interact mode is up. */
-// FUNCTION: WIZ8 0x00587C50
 void InvalidateLockInteractionPanels(void)
 {
     W8LockInteraction* interaction = g_lock_interaction.get();
@@ -562,7 +555,6 @@ void InvalidateLockInteractionPanels(void)
     interaction->m_action_panel->Invalidate(0);
 }
 
-// FUNCTION: WIZ8 0x005854B0
 void W8LockTumbler::Redraw(bool full_redraw)
 {
     int left;
@@ -600,7 +592,6 @@ void W8LockTumbler::Redraw(bool full_redraw)
     m_dirty = false;
 }
 
-// FUNCTION: WIZ8 0x00585610
 void W8LockTumbler::OnMouseEnter(int event)
 {
     PushButtonSoundScheme(0, true);
@@ -610,7 +601,6 @@ void W8LockTumbler::OnMouseEnter(int event)
     }
 }
 
-// FUNCTION: WIZ8 0x00585650
 void W8LockTumbler::OnMouseLeave(int event)
 {
     PushButtonSoundScheme(0, true);
@@ -627,7 +617,6 @@ void W8LockTumbler::OnLeftButtonDown(int)
     PushButtonSoundScheme(0, true);
 }
 
-// FUNCTION: WIZ8 0x00585690
 void W8LockTumbler::OnLeftButtonUp(int event)
 {
     PushButtonSoundScheme(0, true);
@@ -636,7 +625,6 @@ void W8LockTumbler::OnLeftButtonUp(int event)
     }
 }
 
-// FUNCTION: WIZ8 0x005856E0
 W8LockTumblerPanel::W8LockTumblerPanel(int tumbler_count, const unsigned char* pin_data)
     : Controls(0xd3, 0x166, 0, 0, CatalogArtwork::Load(0x1af, 0), 1), m_phase_timer(0.04f, 0), m_rise_timer(0.03f, 0),
       m_fall_timer(0.01f, 0)
@@ -663,14 +651,12 @@ W8LockTumblerPanel::W8LockTumblerPanel(int tumbler_count, const unsigned char* p
     }
 }
 
-// FUNCTION: WIZ8 0x005858C0
 W8LockTumblerPanel::~W8LockTumblerPanel()
 {
     EnableRegionSet(false);
     DestroyAllControls();
 }
 
-// FUNCTION: WIZ8 0x00585950
 void W8LockTumblerPanel::OnTumblerReleased(W8LockTumbler* tumbler)
 {
     int index;
@@ -688,7 +674,6 @@ void W8LockTumblerPanel::OnTumblerReleased(W8LockTumbler* tumbler)
     }
 }
 
-// FUNCTION: WIZ8 0x00585990
 void W8LockTumblerPanel::UpdateTumblerAnimation()
 {
     W8LockTumbler* tumbler;
@@ -740,7 +725,6 @@ void W8LockTumblerPanel::UpdateTumblerAnimation()
     }
 }
 
-// FUNCTION: WIZ8 0x00585B00
 W8LockInfoPanel::W8LockInfoPanel(int tumbler_count)
     : Controls(0x17, 0x166, 0, 0, CatalogArtwork::Load(0x1af, 0), 0)
 {
@@ -779,7 +763,6 @@ W8LockInfoPanel::W8LockInfoPanel(int tumbler_count)
     Invalidate(0);
 }
 
-// FUNCTION: WIZ8 0x00585ED0
 void W8LockInfoPanel::RefreshInfo()
 {
     W8Character* character = &g_status.buffers.Char[g_status.selected_character];
@@ -833,7 +816,6 @@ done:
     Invalidate(0);
 }
 
-// FUNCTION: WIZ8 0x00586120
 void W8LockInfoPanel::Redraw()
 {
     if (m_fEnabled && m_fDirty) {
@@ -848,7 +830,6 @@ void W8LockInfoPanel::Redraw()
     }
 }
 
-// FUNCTION: WIZ8 0x005861A0
 W8LockInteraction::W8LockInteraction(Trigger* trigger) : m_timer()
 {
     W8Character* character;
@@ -936,7 +917,6 @@ int W8LockInteraction::ReleaseOwnedTumblers(int slot)
     return dropped;
 }
 
-// FUNCTION: WIZ8 0x00586740
 void W8LockInteraction::Process()
 {
     int slot;
@@ -1009,7 +989,6 @@ void W8LockInteraction::Process()
     }
 }
 
-// FUNCTION: WIZ8 0x00586A70
 int GetKnockKnockSpellPower(int slot)
 {
     W8Character* character = &g_status.buffers.Char[slot];
@@ -1025,14 +1004,12 @@ int GetKnockKnockSpellPower(int slot)
     return GetSpellCastingSkillLevel(character, book, g_spell_records[W8_SPELL_KNOCK_KNOCK].realm);
 }
 
-// FUNCTION: WIZ8 0x00586AF0
 void W8LockInteraction::EnablePanels(int enable)
 {
     m_tumbler_panel->EnableRegionSet(enable);
     m_action_panel->EnableRegionSet(enable);
 }
 
-// FUNCTION: WIZ8 0x00586B10
 void W8LockInteraction::OnTumblerPicked(int index)
 {
     W8Character* character;
@@ -1070,7 +1047,6 @@ void W8LockInteraction::OnTumblerPicked(int index)
     wiz8::sound::play(s_lock_pin_rising);
 }
 
-// FUNCTION: WIZ8 0x00586C00
 void W8LockInteraction::OnPrimary(W8TextControl* control)
 {
     if (control == m_done_button) {
@@ -1089,7 +1065,6 @@ void W8LockInteraction::OnPrimary(W8TextControl* control)
     }
 }
 
-// FUNCTION: WIZ8 0x00586C60
 void W8LockInteraction::ResolvePick()
 {
     W8Character* character;
@@ -1136,7 +1111,6 @@ void W8LockInteraction::ResolvePick()
     BeginUnlock();
 }
 
-// FUNCTION: WIZ8 0x00586E40
 void W8LockInteraction::AttemptForce()
 {
     W8Character* character;
@@ -1210,7 +1184,6 @@ void W8LockInteraction::AttemptForce()
    backfire, drops a raised one) and animates the tumbler. The control enables
    are then re-derived exactly as RefreshLockInteractionControls does and the
    interaction enters state 7. */
-// FUNCTION: WIZ8 0x005871A0
 void W8LockInteraction::ApplyKnockKnock(int level, int /*flag*/, char backfire)
 {
     int order[8];
@@ -1286,7 +1259,6 @@ void W8LockInteraction::ApplyKnockKnock(int level, int /*flag*/, char backfire)
     m_state = 7;
 }
 
-// FUNCTION: WIZ8 0x005874D0
 void W8LockInteraction::BeginUnlock()
 {
     EnablePanels(0);
@@ -1295,7 +1267,6 @@ void W8LockInteraction::BeginUnlock()
     m_timer.Restart();
 }
 
-// FUNCTION: WIZ8 0x00587C80
 void CastSpellAtLockInteraction(unsigned int level, int flag, int backfire)
 {
     if (gXStatus.fTrapInteractMode) {
@@ -1309,7 +1280,6 @@ void CastSpellAtLockInteraction(unsigned int level, int flag, int backfire)
     g_lock_interaction->ApplyKnockKnock(level, flag, backfire);
 }
 
-// FUNCTION: WIZ8 0x00587cf0
 W8MainGameTextKeyHandler::W8MainGameTextKeyHandler(Controls* panel, int left, int top, int right,
                                                    int bottom, int line_count,
                                                    const unsigned short* line_string_ids)
@@ -1331,7 +1301,6 @@ W8MainGameTextKeyHandler::W8MainGameTextKeyHandler(Controls* panel, int left, in
     m_range.SetRangeEnabled(true);
 }
 
-// FUNCTION: WIZ8 0x00587ea0
 void W8MainGameTextKeyHandler::Redraw(bool full_redraw)
 {
     int left;
@@ -1374,14 +1343,12 @@ void W8MainGameTextKeyHandler::Redraw(bool full_redraw)
     m_dirty = false;
 }
 
-// FUNCTION: WIZ8 0x00587ff0
 void W8MainGameTextKeyHandler::OnMouseLeave(int event)
 {
     m_hover_line = -1;
     Invalidate(static_cast<unsigned char>(event));
 }
 
-// FUNCTION: WIZ8 0x00588010
 void W8MainGameTextKeyHandler::OnMouseMove(int)
 {
     SDL_Point point;
@@ -1395,13 +1362,11 @@ void W8MainGameTextKeyHandler::OnMouseMove(int)
     }
 }
 
-// FUNCTION: WIZ8 0x00588070
 void W8MainGameTextKeyHandler::AdjustValue(int steps)
 {
     m_range.AdjustValue(steps);
 }
 
-// FUNCTION: WIZ8 0x005880b0
 void W8MainGameTextKeyHandler::OnLeftButtonUp(int)
 {
     SDL_Point point;
@@ -1410,7 +1375,6 @@ void W8MainGameTextKeyHandler::OnLeftButtonUp(int)
     SetSelectedLine((point.y - m_pPanel->m_bounds.top - m_top) / 0xe + m_first_visible_line);
 }
 
-// FUNCTION: WIZ8 0x00588100
 void W8MainGameTextKeyHandler::SetSelectedLine(int line)
 {
     if (line == m_selected_line) {
@@ -1431,7 +1395,6 @@ void W8MainGameTextKeyHandler::SetSelectedLine(int line)
     }
 }
 
-// FUNCTION: WIZ8 0x00588170
 char W8MainGameTextKeyHandler::HandleKey(unsigned short key)
 {
     int line;
@@ -1472,14 +1435,12 @@ char W8MainGameTextKeyHandler::HandleKey(unsigned short key)
     }
 }
 
-// FUNCTION: WIZ8 0x00588240
 void W8MainGameTextKeyHandler::OnRangeChanged(W8RangeControl* control)
 {
     m_first_visible_line = control->m_value;
     Invalidate(false);
 }
 
-// FUNCTION: WIZ8 0x00588260
 W8MainGameTextEntry::W8MainGameTextEntry(Controls* panel, int index)
 {
     int sprites = index * 4;
@@ -1505,7 +1466,6 @@ W8MainGameTextEntry::W8MainGameTextEntry(Controls* panel, int index)
     AddLayoutFlags(g_W8TextControlLayoutLatchedImage | g_W8TextControlLayoutToggle);
 }
 
-// FUNCTION: WIZ8 0x005883c0
 void W8MainGameTextEntry::Redraw(bool full_redraw)
 {
     bool dirty = m_dirty;
@@ -1549,7 +1509,6 @@ void W8MainGameTextPanel::BeginProgress(std::string_view text, float duration, f
     }
 }
 
-// FUNCTION: WIZ8 0x00588440
 void W8MainGameTextEntry::OnLeftButtonDown(int event)
 {
     if (m_input_blocked) {
@@ -1559,7 +1518,6 @@ void W8MainGameTextEntry::OnLeftButtonDown(int event)
     W8TextControl::OnLeftButtonDown(event);
 }
 
-// FUNCTION: WIZ8 0x00588470
 void W8MainGameTextEntry::OnLeftButtonUp(int event)
 {
     if (m_input_blocked) {
@@ -1569,7 +1527,6 @@ void W8MainGameTextEntry::OnLeftButtonUp(int event)
     W8TextControl::OnLeftButtonUp(event);
 }
 
-// FUNCTION: WIZ8 0x005884a0
 void W8MainGameTextEntry::OnMouseEnter(int event)
 {
     if (m_input_blocked) {
@@ -1579,7 +1536,6 @@ void W8MainGameTextEntry::OnMouseEnter(int event)
     W8TextControl::OnMouseEnter(event);
 }
 
-// FUNCTION: WIZ8 0x005884d0
 W8MainGameTextPanel::W8MainGameTextPanel()
     : Controls(0xd3, 0x166, 0, 0, CatalogArtwork::Load(0x1b1, 0), 1), m_selection(0), m_screen(0), m_values(0),
       m_progress_display(0), m_timer1(0.04f, 0)
@@ -1625,14 +1581,12 @@ W8MainGameTextPanel::W8MainGameTextPanel()
     }
 }
 
-// FUNCTION: WIZ8 0x00588790
 W8MainGameTextPanel::~W8MainGameTextPanel()
 {
     EnableRegionSet(false);
     DestroyAllControls();
 }
 
-// FUNCTION: WIZ8 0x00588830
 void W8MainGameTextPanel::Redraw()
 {
     SDL_Rect clip;
@@ -1670,7 +1624,6 @@ void W8MainGameTextPanel::Redraw()
     }
 }
 
-// FUNCTION: WIZ8 0x005889a0
 void W8MainGameTextPanel::OnPrimary(W8TextControl* control)
 {
     int index;
@@ -1686,7 +1639,6 @@ void W8MainGameTextPanel::OnPrimary(W8TextControl* control)
     }
 }
 
-// FUNCTION: WIZ8 0x005889e0
 void W8MainGameTextPanel::OnRangeChanged(W8RangeControl* control)
 {
     int column;
@@ -1713,7 +1665,6 @@ void W8MainGameTextPanel::OnRangeChanged(W8RangeControl* control)
     }
 }
 
-// FUNCTION: WIZ8 0x00588a90
 W8MainGameStatusPanel::W8MainGameStatusPanel()
     : Controls(0x17, 0x166, 0, 0, CatalogArtwork::Load(0x1b1, 0), 0)
 {
@@ -1752,7 +1703,6 @@ W8MainGameStatusPanel::W8MainGameStatusPanel()
     Invalidate(0);
 }
 
-// FUNCTION: WIZ8 0x00588e60
 void W8MainGameStatusPanel::RefreshStatusTexts()
 {
     W8Character* character = &g_status.buffers.Char[g_status.selected_character];
@@ -1807,7 +1757,6 @@ void W8MainGameStatusPanel::RefreshStatusTexts()
     Invalidate(0);
 }
 
-// FUNCTION: WIZ8 0x00589090
 int GetPartySlotLocksTrapsLevel(int slot)
 {
     W8Character* character;
@@ -1823,7 +1772,6 @@ int GetPartySlotLocksTrapsLevel(int slot)
     return static_cast<int>(character->skills[W8_SKILL_LOCKS_TRAPS].level);
 }
 
-// FUNCTION: WIZ8 0x005890e0
 void W8MainGameStatusPanel::Redraw()
 {
     if (m_fEnabled && m_fDirty) {
@@ -1838,7 +1786,6 @@ void W8MainGameStatusPanel::Redraw()
     }
 }
 
-// FUNCTION: WIZ8 0x00589160
 W8MainGameScreen::W8MainGameScreen(Trigger* owner)
     : m_owner(owner), m_disarm_state(0), m_target_difficulty(0), m_sound_handle()
 {
@@ -1877,7 +1824,6 @@ W8MainGameScreen::W8MainGameScreen(Trigger* owner)
     RefreshActionPanel();
 }
 
-// FUNCTION: WIZ8 0x00589550
 void W8MainGameScreen::SelectTextEntry(int index)
 {
     int slot = g_status.selected_character;
@@ -1951,7 +1897,6 @@ int W8MainGameScreen::GetTrapInteractionChance() const
     return chance;
 }
 
-// FUNCTION: WIZ8 0x005897f0
 void W8MainGameScreen::OnPrimary(W8TextControl* control)
 {
     int slot;
@@ -2001,7 +1946,6 @@ void W8MainGameScreen::OnPrimary(W8TextControl* control)
     m_sound_handle = wiz8::sound::stream(g_trap_inspection_sound);
 }
 
-// FUNCTION: WIZ8 0x00589a80
 void W8MainGameScreen::Update()
 {
     W8MainGameTextPanel* panel;
@@ -2101,7 +2045,6 @@ void W8MainGameScreen::Update()
     }
 }
 
-// FUNCTION: WIZ8 0x00589d90
 void W8MainGameScreen::RefreshActionPanel()
 {
     int slot = g_status.selected_character;
@@ -2157,7 +2100,6 @@ void W8MainGameScreen::RefreshActionPanel()
     m_action_panel->Invalidate(0);
 }
 
-// FUNCTION: WIZ8 0x0058a030
 void W8MainGameScreen::EnablePanelRegionSets(bool enable)
 {
     W8MainGameTextPanel* panel = m_text_panel.get();
@@ -2168,7 +2110,6 @@ void W8MainGameScreen::EnablePanelRegionSets(bool enable)
 }
 
 /* Re-arm the trap text/action panel region sets while trap interact is up. */
-// FUNCTION: WIZ8 0x0058A880
 void EnableTrapInteractionPanelRegions(void)
 {
     if (g_main_game_screen) {
@@ -2176,7 +2117,6 @@ void EnableTrapInteractionPanelRegions(void)
     }
 }
 
-// FUNCTION: WIZ8 0x0058a060
 void W8MainGameScreen::ApplyInspectSuccess()
 {
     int chance;
@@ -2229,7 +2169,6 @@ static void BeginTrapTargetAction()
     RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
 }
 
-// FUNCTION: WIZ8 0x0058a200
 void W8MainGameScreen::CastTrapSpell()
 {
     int slot = g_status.selected_character;
@@ -2269,7 +2208,6 @@ void W8MainGameScreen::CastTrapSpell()
     BeginSpellCast(spell, -1, W8_DIALOGUE_LAYOUT_UNSET);
 }
 
-// FUNCTION: WIZ8 0x0058a3e0
 void W8MainGameScreen::UseTrapItem()
 {
 
@@ -2281,7 +2219,6 @@ void W8MainGameScreen::UseTrapItem()
 /* Open the trap interaction over a trigger, or re-raise its panels while one
    is suspended; a trigger in state 9 is already open. Outside those paths a
    random party member eats the detection event and the detect sound plays. */
-// FUNCTION: WIZ8 0x0058A470
 int OpenTrapInteraction(Trigger* trigger)
 {
     W8MainGameScreen* screen;
@@ -2350,14 +2287,12 @@ int OpenTrapInteraction(Trigger* trigger)
     return 1;
 }
 
-// FUNCTION: WIZ8 0x0058A750
 void UpdateMainGameScreen(void)
 {
     g_main_game_screen->Update();
 }
 
 /* Redraw the trap interaction's text, status and action panels. */
-// FUNCTION: WIZ8 0x0058A760
 void RedrawTrapInteractionPanels(void)
 {
     g_main_game_screen->m_text_panel->Redraw();
@@ -2369,7 +2304,6 @@ void RedrawTrapInteractionPanels(void)
    is destroyed outright; otherwise its text/key-handler/action panels go
    inactive while fTrapInteract stays set so the session can resume. Either
    path re-syncs the text box and UI mode and repaints the affected regions. */
-// FUNCTION: WIZ8 0x0058A790
 void EndTrapInteractMode(char suspend)
 {
     gXStatus.fTrapInteractMode = false;
@@ -2392,13 +2326,11 @@ void EndTrapInteractMode(char suspend)
 }
 
 /* Per-frame trap interact service: repaint the screen's action panel. */
-// FUNCTION: WIZ8 0x0058A860
 void RefreshMainGameActionPanel(void)
 {
     g_main_game_screen->RefreshActionPanel();
 }
 
-// FUNCTION: WIZ8 0x0055DE40
 W8NpcDialogueTextController::W8NpcDialogueTextController(int panel_left, int panel_top,
                                                          int panel_right, int panel_bottom,
                                                          CatalogArtwork artwork,
@@ -2437,7 +2369,6 @@ W8NpcDialogueTextController::W8NpcDialogueTextController(int panel_left, int pan
 /* Expanded transcript paint: when dirty, redraw the panel backdrop, optionally
    tile the line/margin catalog images for the open layout, then forward to
    active children and the embedded text area. */
-// FUNCTION: WIZ8 0x0055DF80
 void W8NpcDialogueTextController::Redraw()
 {
     bool was_dirty;
@@ -2478,7 +2409,6 @@ void W8NpcDialogueTextController::Redraw()
     }
 }
 
-// FUNCTION: WIZ8 0x0055E0C0
 unsigned char W8NpcDialogueTextController::AddTranscriptEntry(std::string_view text,
                                                               signed char category, char mark)
 {
@@ -2507,7 +2437,6 @@ unsigned char W8NpcDialogueTextController::AddTranscriptEntry(std::string_view t
     return 1;
 }
 
-// FUNCTION: WIZ8 0x0055E410
 bool W8NpcDialogueTextController::IsSlotPortraitTranscriptCovered(unsigned int party_slot)
 {
     int top;
@@ -2537,7 +2466,6 @@ bool W8NpcDialogueTextController::IsSlotPortraitTranscriptCovered(unsigned int p
     return false;
 }
 
-// FUNCTION: WIZ8 0x0055E2C0
 void W8NpcDialogueTextController::Collapse()
 {
     W8ControlsRect bounds;
@@ -2576,7 +2504,6 @@ void W8NpcDialogueTextController::Collapse()
     g_npc_interaction_state->dialogue_panels[3]->Invalidate(0);
 }
 
-// FUNCTION: WIZ8 0x0055E1E0
 void W8NpcDialogueTextController::Expand()
 {
     W8ControlsRect bounds;
@@ -2609,7 +2536,6 @@ void W8NpcDialogueTextController::Expand()
     Invalidate(0);
 }
 
-// FUNCTION: WIZ8 0x0055EAE0
 void W8NpcDialogueTextController::ClearBackground()
 {
     int top;
@@ -2638,7 +2564,6 @@ void W8NpcDialogueTextController::ClearBackground()
     RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_7);
 }
 
-// FUNCTION: WIZ8 0x0055E2B0
 bool W8NpcDialogueTextController::IsExpanded()
 {
     return scroll_height == 0xff;
@@ -2647,7 +2572,6 @@ bool W8NpcDialogueTextController::IsExpanded()
 /* Standalone JMP thunk onto W8Widget::~W8Widget; the vtable slot of
    W8NpcDialogueScrollWidget reaches it. */
 
-// FUNCTION: WIZ8 0x0055E570
 W8NpcDialogueScrollWidget::W8NpcDialogueScrollWidget(Controls* panel, unsigned int region, int left,
                                                      int top, int right, int bottom)
     : W8Widget(panel, region, left, top, right, bottom)
@@ -2655,7 +2579,6 @@ W8NpcDialogueScrollWidget::W8NpcDialogueScrollWidget(Controls* panel, unsigned i
     m_flags = 0;
 }
 
-// FUNCTION: WIZ8 0x0055E5E0
 void W8NpcDialogueScrollWidget::OnMouseEnter(int event)
 {
     W8NpcDialogueTextController* controller;
@@ -2667,7 +2590,6 @@ void W8NpcDialogueScrollWidget::OnMouseEnter(int event)
     }
 }
 
-// FUNCTION: WIZ8 0x0055E610
 void W8NpcDialogueScrollWidget::OnMouseLeave(int event)
 {
     W8NpcDialogueTextController* controller;
@@ -2679,7 +2601,6 @@ void W8NpcDialogueScrollWidget::OnMouseLeave(int event)
     }
 }
 
-// FUNCTION: WIZ8 0x0055E640
 void W8NpcDialogueScrollWidget::OnLeftButtonDown(int event)
 {
     if (m_active && m_enabled) {
@@ -2690,7 +2611,6 @@ void W8NpcDialogueScrollWidget::OnLeftButtonDown(int event)
     }
 }
 
-// FUNCTION: WIZ8 0x0055E660
 void W8NpcDialogueScrollWidget::OnLeftButtonUp(int event)
 {
     if (m_active && m_enabled && (m_flags & 1)) {
@@ -2701,7 +2621,6 @@ void W8NpcDialogueScrollWidget::OnLeftButtonUp(int event)
     }
 }
 
-// FUNCTION: WIZ8 0x0055E7C0
 void W8NpcDialogueTextController::SetTranscriptCategoryFilter(signed char category)
 {
     text_area.SetCategoryFilter(category);
@@ -2710,7 +2629,6 @@ void W8NpcDialogueTextController::SetTranscriptCategoryFilter(signed char catego
     SyncNpcDialogueTranscriptScrollButtons();
 }
 
-// FUNCTION: WIZ8 0x0055E840
 void W8NpcDialogueTextController::RestoreTranscriptEntries()
 {
     W8DialogueTranscriptRecord* record;
@@ -2719,7 +2637,7 @@ void W8NpcDialogueTextController::RestoreTranscriptEntries()
 
     for (index = 0; index < static_cast<int>(g_npc_interaction_state->dialogue_transcript.size());
          ++index) {
-        record = g_npc_interaction_state->dialogue_transcript[index];
+        record = g_npc_interaction_state->dialogue_transcript[index].get();
         AddTranscriptEntry(record->text, record->category, 0);
     }
     Invalidate(0);
@@ -2733,7 +2651,6 @@ void W8NpcDialogueTextController::RestoreTranscriptEntries()
     }
 }
 
-// FUNCTION: WIZ8 0x00593330
 void RefreshFlaggedMainGameState(void)
 {
     if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME && g_level_block != 0 &&
@@ -2757,22 +2674,7 @@ struct W8MainGameInvalidateRect {
 
 extern W8MainGameInvalidateRect g_main_game_invalidate_rects[23];
 
-// FUNCTION: WIZ8 0x0055f7b0
-unsigned char MainGameScreenInitialize(void)
-{
-    unsigned int index;
-    for (index = 0; index != 8; ++index) {
-        W8MainGameInvalidateRect& row = g_main_game_invalidate_rects[index];
-        row.left = (index & 1) << 9;
-        row.top = (index >> 1) * 0x55 + 0x12;
-        row.right = row.left + 0x7f;
-        row.bottom = row.top + 0x55;
-    }
-    return 1;
-}
-
 /* Reset the owned Main Game state and its coupled UI/selection state. */
-// FUNCTION: WIZ8 0x0055f800
 void ResetMainGameScreenState(void)
 {
     int unset;
@@ -3024,17 +2926,13 @@ void DisableMainGamePortraitSlot(unsigned int slot) {
 }
 
 /* Enter the live game screen, constructing its owned native state on first entry. */
-// FUNCTION: WIZ8 0x0055f8c0
 unsigned char MainGameScreenEnter(void)
 {
     int display_mode;
     W8Difficulty difficulty = g_status.difficulty;
 
     if (!g_level_block) {
-        g_level_block = new W8LevelRuntimeBlock{};
-        if (!g_level_block) {
-            return 0;
-        }
+        g_level_block = std::make_unique<W8LevelRuntimeBlock>();
         ResetMainGameScreenState();
         LoadMainGameCursorResources();
     }
@@ -3148,7 +3046,6 @@ unsigned char MainGameScreenEnter(void)
 /* The "Enter <level>?" confirmation's destroy callback: a cancelled dialog
    restores the camera the trigger cached, a confirmed one runs the pending
    transition teardown. */
-// FUNCTION: WIZ8 0x00561000
 static void OnEnterLevelDialogClosed(W8DialogBase* dialog)
 {
     if (GetDialogResult(dialog)) {
@@ -3162,7 +3059,6 @@ static void OnEnterLevelDialogClosed(W8DialogBase* dialog)
    modes 3/5/6, then hand the please-wait transition to the state machine.
    Retail never calls this out-of-line; the same teardown is emitted inline at
    the dialog callback and at RequestLevelTransition's unconfirmed path. */
-// FUNCTION: WIZ8 0x005611A0
 void BeginLevelTransition(void)
 {
     g_pending_screen_state.mode = 3;
@@ -3172,7 +3068,6 @@ void BeginLevelTransition(void)
     SetPendingScreenState(W8_SCREEN_PLEASE_WAIT);
 }
 
-// FUNCTION: WIZ8 0x00561330
 void TickAmbientFollowUpIdle(unsigned char input_handled)
 {
     if (!gXStatus.fCombatMode && !gXStatus.fSpellCastMode && !gXStatus.fItemSelectMode &&
@@ -3205,7 +3100,6 @@ void TickAmbientFollowUpIdle(unsigned char input_handled)
    session, mode 5 releases its screen state, and mode 6 releases the dialogue
    highlight sprite then clears and dirties the dialogue rectangle when it
    crosses the viewport band. The new mode is stored last. */
-// FUNCTION: WIZ8 0x00568390
 void SetMainGameMode(W8MainGameMode mode)
 {
     switch (g_main_game_mode) {
@@ -3231,7 +3125,6 @@ void SetMainGameMode(W8MainGameMode mode)
     g_main_game_mode = mode;
 }
 
-// FUNCTION: WIZ8 0x005684E0
 unsigned char ProcessMainGameInput(void)
 {
     SDL_Point mouse;
@@ -3266,7 +3159,6 @@ unsigned char ProcessMainGameInput(void)
 }
 
 /* The active screen's frame, including modal input and pending transitions. */
-// FUNCTION: WIZ8 0x0055fb30
 void MainGameScreenFrame(void)
 {
     if (g_dev_mode) {
@@ -3569,7 +3461,7 @@ render_world:
             int next = GetNextCharacter(1, 1, -1);
             if (next == -1) {
                 srAssertFail("iNextChar != BAD_INDEX",
-                             "C:\\Projects\\Wizardry 8\\Local Screens\\MainGameScreen.cpp", 0x1047,
+                             __FILE__, 0x1047,
                              0);
             }
             SelectPartyCharacter(next);
@@ -3580,7 +3472,6 @@ render_world:
 
 /* Suspension retains the allocation and resource strip. A full leave also
    unloads the level and releases the per-screen block. */
-// FUNCTION: WIZ8 0x00560660
 unsigned char MainGameScreenLeave(int leaving)
 {
     int index;
@@ -3671,8 +3562,7 @@ unsigned char MainGameScreenLeave(int leaving)
         g_keyboard_menu_regions.Destroy();
         g_party_movement_regions.Destroy();
         wiz8::sound::release_cache();
-        delete g_level_block;
-        g_level_block = 0;
+        g_level_block.reset();
         ReleaseCatalogArtwork();
     }
     NoOp();
@@ -3690,7 +3580,6 @@ unsigned char MainGameScreenLeave(int leaving)
    overlay), then runs the leave tail - dismiss a live message box, end or
    autosave the game, restore the surprise view, and hand off to the
    transition. */
-// FUNCTION: WIZ8 0x00560A70
 void OnLeaveGameConfirmClosed(W8DialogBase* dialog)
 {
     if (!GetDialogResult(dialog)) {
@@ -3699,7 +3588,6 @@ void OnLeaveGameConfirmClosed(W8DialogBase* dialog)
     ResetMainGameMode();
 }
 
-// FUNCTION: WIZ8 0x00560c30
 void OnQuitGameDialogClosed(W8DialogBase* dialog)
 {
     if (GetDialogResult(dialog)) {
@@ -3713,7 +3601,6 @@ void OnQuitGameDialogClosed(W8DialogBase* dialog)
 /* Ask for part of the screen to be redrawn. A request made while another
    screen is up, or before the level block exists, is dropped rather than
    queued - which is what makes the block the only place redraw state lives. */
-// FUNCTION: WIZ8 0x00562a50
 void RequestRedraw(unsigned int mask)
 {
     if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME && g_level_block != 0) {
@@ -3724,7 +3611,6 @@ void RequestRedraw(unsigned int mask)
 
 /* Consume the live redraw_flags word: clear the primary surface, refresh the
    chrome panels the current UI mode owns, and repaint any dirty party slots. */
-// FUNCTION: WIZ8 0x00562E40
 void ApplyMainGameRedrawFlags(void)
 {
     unsigned int redraw_flags;
@@ -3948,7 +3834,6 @@ finish_mode_overlays:
    0x0055ff1e (early exit on pending transition) and 0x00560649 (normal end).
    The assert path that can fire just before the normal call is
    "iNextChar != BAD_INDEX" in MainGameScreenFrame (retail line 0x1047). */
-// FUNCTION: WIZ8 0x00562A80
 void DrawMainGameScreen(void)
 {
     int stopped_line;
@@ -4070,7 +3955,6 @@ void DrawMainGameScreen(void)
    checked in priority order, the highlight sprite and the mode-6 hover overlay
    are torn down first, then the matching launcher runs for that slot. The same
    sequence is inlined inside the mode-6 block of the redraw orchestrator. */
-// FUNCTION: WIZ8 0x00563890
 void RefreshTrackedPortraitOverlay(void)
 {
     if (g_level_block->condition_orb_party_slot != -1) {
@@ -4095,18 +3979,16 @@ void RefreshTrackedPortraitOverlay(void)
 }
 
 /* Request the party portion of the main-game redraw. */
-// FUNCTION: WIZ8 0x00565420
 void RequestRedrawParty(void)
 {
     RequestRedraw(W8_MAIN_REDRAW_MONSTER_LIST);
 }
 
-#define MAIN_GAME_SCREEN_CPP "C:\\Projects\\Wizardry 8\\Local Screens\\MainGameScreen.cpp"
+#define MAIN_GAME_SCREEN_CPP __FILE__
 
 /* Redraw the combat monster-group list at the left edge of the main screen:
    clear the previous rows, walk live groups, format each line, tint the
    hovered action group and current target, and resize input region 0xe5. */
-// FUNCTION: WIZ8 0x00565440
 void RedrawCombatMonsterList(void)
 {
     unsigned int group_list_index;
@@ -4219,7 +4101,6 @@ void RedrawCombatMonsterList(void)
    only re-aims the camera; a real change redraws both slots, hands the new
    slot to each open mode, drops the submenu and keyboard menu state and
    queues the slot's pick quote when not in combat. */
-// FUNCTION: WIZ8 0x00565740
 void SelectPartyCharacter(int party_slot)
 {
     W8Character* character;
@@ -4227,7 +4108,7 @@ void SelectPartyCharacter(int party_slot)
 
     if (!g_status.buffers.XChar[party_slot].fOccupied) {
         ReportAssertion("gStatus.XChar[uiChar].fOccupied",
-                        "C:\\Projects\\Wizardry 8\\Local Screens\\MainGameScreen.cpp", 0x1053);
+                        __FILE__, 0x1053);
     }
     character = &g_status.buffers.Char[party_slot];
     if (character->highest_condition >= W8_CONDITION_MISSING) {
@@ -4289,7 +4170,6 @@ void SelectPartyCharacter(int party_slot)
     g_level_block->pick_changed = true;
 }
 
-// FUNCTION: WIZ8 0x00561a20
 void RefreshSelectedPartyPortrait(unsigned int party_slot)
 {
     if (g_level_block->main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS ||
@@ -4357,7 +4237,6 @@ void RefreshSelectedPartyPortrait(unsigned int party_slot)
    released, the dialogue-area rectangle it drew over is cleared and
    invalidated, the rectangle's position against the viewport decides the
    extra redraw flags, and the mode resets to the default. */
-// FUNCTION: WIZ8 0x00563EB0
 void DismissHighlightOverlay(void)
 {
     if (g_level_block->highlight_graphic != 0) {
@@ -4385,7 +4264,6 @@ static void DrawHighlightFrameRow(int left, int right, int y, unsigned int tiles
    mode-5 panel or previous overlay is torn down first; the panel is anchored
    off the slot's portrait column and clamped inside the viewport. The retail
    assertion names the sprite gpMGSV->pHighlightGraphic. */
-// FUNCTION: WIZ8 0x00563FC0
 void DrawHighlightOverlay(unsigned int party_slot, int row_count, unsigned int min_width)
 {
     SetMainGameMode(W8_MAIN_GAME_HIGHLIGHT_OVERLAY);
@@ -4504,7 +4382,7 @@ void DrawHighlightOverlay(unsigned int party_slot, int row_count, unsigned int m
     }
     if (g_level_block->highlight_graphic == 0) {
         ReportAssertion("gpMGSV->pHighlightGraphic",
-                        "C:\\Projects\\Wizardry 8\\Local Screens\\MainGameScreen.cpp", 0xd84);
+                        __FILE__, 0xd84);
     }
     SetModelInstance2DDisplayState(g_level_block->highlight_graphic, 4);
     Position2DNodeUnsnapped(g_level_block->highlight_graphic, g_level_block->dialogue_x + 7,
@@ -4553,7 +4431,6 @@ static void DrawPortraitEnchantmentRow(const W8Character* character, int slot, i
    of the labels. Retail seeds the value-column width from the HP/stamina
    strings; the realm pass widens it only when a realm string beats the label
    width rather than the running value width. */
-// FUNCTION: WIZ8 0x00564710
 void DrawPortraitVitalsOverlay(int party_slot)
 {
     int realm_icons[6] = {0x193, 0x194, 0x195, 0x196, 0x197, 0x198};
@@ -4687,7 +4564,6 @@ static int MeasurePortraitEnchantments(const W8Character* character, unsigned in
    twenty condition slots while the measure and draw passes visit 0x13 down to
    1 only, paired with the g_condition_notices
    row names. */
-// FUNCTION: WIZ8 0x00564BA0
 void DrawPortraitConditionOverlay(int party_slot)
 {
     W8Character* character = &g_status.buffers.Char[party_slot];
@@ -4712,7 +4588,6 @@ void DrawPortraitConditionOverlay(int party_slot)
    followed by the active enchantments, capped at 0x14 rows. When the lists
    overflow, the last row instead prints the "more" notice (0x7d8) - the extra
    enchantment power argument it pushes is dead, "%s" never consumes it. */
-// FUNCTION: WIZ8 0x00564D80
 void DrawPortraitStatusOverlay(int party_slot)
 {
     W8Character* character = &g_status.buffers.Char[party_slot];
@@ -4769,7 +4644,6 @@ void DrawPortraitStatusOverlay(int party_slot)
    its icon and "name (power)" text. The count covers all eight slots while the
    measure and draw passes visit 7 down to 1 - slot 0's row is counted but
    never drawn. */
-// FUNCTION: WIZ8 0x005651F0
 void DrawPortraitEnchantmentOverlay(int party_slot)
 {
     W8Character* character = &g_status.buffers.Char[party_slot];
@@ -4790,7 +4664,6 @@ void DrawPortraitEnchantmentOverlay(int party_slot)
     }
 }
 
-// FUNCTION: WIZ8 0x005699b0
 void RequestRedrawCombatBar(void)
 {
     RequestRedraw(W8_MAIN_REDRAW_ROOF_AND_SPELL_ICONS);
@@ -4800,7 +4673,6 @@ void RequestRedrawCombatBar(void)
    whichever of the NPC-dialogue, message-box, or dialogue-highlight modes was
    current), then create the kind-1 message dialog, size it, and install the
    caller's destroy callback as the modal owner. */
-// FUNCTION: WIZ8 0x00569A50
 void ShowMainGameNoticeLine(std::string_view text, W8DialogDestroyCallback callback, bool confirmation,
                             bool cancel)
 {
@@ -4817,7 +4689,6 @@ void ShowMainGameNoticeLine(std::string_view text, W8DialogDestroyCallback callb
 
 /* Note that the party's state changed. The combat half is only asked for while
    a fight is on; the party half always. */
-// FUNCTION: WIZ8 0x005653f0
 void RequestRefreshPartyState(void)
 {
     if (g_level_block == 0) {
@@ -4832,7 +4703,6 @@ void RequestRefreshPartyState(void)
 /* The party slot's chosen action turned out unreachable: re-arm the matching
    targeting mode or view so the player can pick a fresh target instead of
    silently dropping the action. */
-// FUNCTION: WIZ8 0x0056A770
 void FallbackFromUnreachableAction(int party_slot)
 {
     W8PartySlotRow* row = &g_status.buffers.XChar[party_slot];
@@ -4910,7 +4780,6 @@ void FallbackFromUnreachableAction(int party_slot)
 }
 
 /* Whether a modal owner has the screen. */
-// FUNCTION: WIZ8 0x0056aa20
 bool IsModalOpen(void)
 {
     return g_modal_owner != 0;
@@ -4927,10 +4796,10 @@ W8ScreenRect g_viewport_modes[7] = {
 
 // GLOBAL: WIZ8 0x00647DA0
 W8MainGameInvalidateRect g_main_game_invalidate_rects[23] = {
-    {0, 0, 0, 0, -1, 0, 0},          {0, 0, 0, 0, 1, 0, 1},
-    {0, 0, 0, 0, -1, 0, 2},          {0, 0, 0, 0, 1, 0, 3},
-    {0, 0, 0, 0, -1, 0, 4},          {0, 0, 0, 0, 1, 0, 5},
-    {0, 0, 0, 0, -1, 0, 6},          {0, 0, 0, 0, 1, 0, 7},
+    {0, 18, 127, 103, -1, 0, 0},   {512, 18, 639, 103, 1, 0, 1},
+    {0, 103, 127, 188, -1, 0, 2},  {512, 103, 639, 188, 1, 0, 3},
+    {0, 188, 127, 273, -1, 0, 4},  {512, 188, 639, 273, 1, 0, 5},
+    {0, 273, 127, 358, -1, 0, 6},  {512, 273, 639, 358, 1, 0, 7},
     {0, 0, 639, 16, 0, 0, ~0u},      {0, 358, 639, 449, 0, 1, ~0u},
     {23, 360, 127, 449, 0, 1, ~0u},  {129, 358, 510, 449, 0, 1, ~0u},
     {31, 450, 606, 476, 0, 1, ~0u},  {469, 382, 500, 461, 0, 1, ~0u},
@@ -4943,7 +4812,6 @@ W8MainGameInvalidateRect g_main_game_invalidate_rects[23] = {
 
 /* Second redraw pass: invalidate each rectangle whose bit is set in
    saved_redraw_flags, applying the mode-6 portrait layout offsets. */
-// FUNCTION: WIZ8 0x00563D00
 void ApplySavedRedrawInvalidates(void)
 {
     unsigned char bit;
@@ -4995,7 +4863,6 @@ void ApplySavedRedrawInvalidates(void)
    simply snapped to the trigger location or the dialog owns the modal region
    until OnEnterLevelDialogClosed runs. With it clear the transition is staged
    straight into the pending screen state and modes 3/5/6 are torn down. */
-// FUNCTION: WIZ8 0x005615F0
 void RequestLevelTransition(int level, int entry, unsigned char flag)
 {
     unsigned int normalized = NormalizeMasterFunctionValue(level);
@@ -5033,7 +4900,6 @@ void RequestLevelTransition(int level, int entry, unsigned char flag)
 
 /* Switch the 3D view to another viewport mode: resize the view region to the
    inclusive rectangle and hand the renderer the exclusive one. */
-// FUNCTION: WIZ8 0x005618f0
 void SetViewportMode(int mode)
 {
     W8ScreenRect* rect;
@@ -5056,7 +4922,6 @@ void SetViewportMode(int mode)
 /* True when the cursor hotspot lies in the formation-mode portrait rect for
    `party_slot`, accounting for the hover panel's x origin and the slot's
    mirrored even/odd layout. */
-// FUNCTION: WIZ8 0x00561980
 static bool IsPartyPortraitUnderCursor(unsigned int party_slot)
 {
     W8MainGameInvalidateRect& row = g_main_game_invalidate_rects[party_slot];
@@ -5084,7 +4949,6 @@ static bool IsPartyPortraitUnderCursor(unsigned int party_slot)
    party slot's status (-1 empty/dead, 0 ready, 1 cannot switch, 2 ineligible,
    3 acting), refresh the portrait catalog images, and pulse the acting
    combatant's portrait while the action pacing clock holds. */
-// FUNCTION: WIZ8 0x0059B4C0
 void UpdateCombatPortraitStatus(void)
 {
     for (int slot = 0; slot < 8; ++slot) {
@@ -5153,7 +5017,6 @@ void UpdateCombatPortraitStatus(void)
    its party slot becomes ineligible, or the selected slot empties. While the
    cursor sits outside the menu a 600 ms countdown runs; drifting back in
    re-arms the slot from the cursor row, and expiry closes the menu. */
-// FUNCTION: WIZ8 0x0059B390
 void UpdateKeyboardMenu(void)
 {
     RequestRedraw(W8_MAIN_REDRAW_FRAME);
@@ -5191,7 +5054,6 @@ void UpdateKeyboardMenu(void)
 
 /* While the main UI is not in portrait mode, keep each party slot's formation
    portrait refresh latch in sync with dirty flags, occupancy, and hover. */
-// FUNCTION: WIZ8 0x0059B2D0
 void UpdateFormationPortraitRefresh(void)
 {
     unsigned int party_slot;
@@ -5223,7 +5085,6 @@ void UpdateFormationPortraitRefresh(void)
    portrait mode: drop the pending latch and cached image/mode, wipe the
    startup-grid portrait rect, re-enable the portrait input region and disable
    the slot's region set. */
-// FUNCTION: WIZ8 0x00561DB0
 void ClearPortraitRefreshSlot(int slot)
 {
     W8MainGameInvalidateRect* row;
@@ -5249,7 +5110,6 @@ void ClearPortraitRefreshSlot(int slot)
 /* Note what the pointer is hovering over. Moving to anything else restarts the
    tooltip clock; staying put leaves it running, which is what makes the four
    fields one tooltip rather than four settings. */
-// FUNCTION: WIZ8 0x00569c60
 void SetTooltipSubject(int kind, int subject)
 {
     if (g_level_block->tooltip_kind != kind || g_level_block->tooltip_subject != subject) {
@@ -5263,7 +5123,6 @@ void SetTooltipSubject(int kind, int subject)
 /* Apply a main-game UI mode: drop any raised formation/radar/action panels,
    optionally re-raise them from settings prefs, clear portrait refresh when
    entering portrait mode, refresh tooltip kind, and sync region/layout state. */
-// FUNCTION: WIZ8 0x00562580
 void ApplyMainGameModeFlag(W8MainUiMode mode, bool enable)
 {
     unsigned int slot;
@@ -5368,7 +5227,6 @@ apply_mode_tail:
 }
 
 /* Take the screen for a modal owner and put its region up. */
-// FUNCTION: WIZ8 0x005698a0
 void OpenModal(W8DialogBase* owner)
 {
     g_modal_owner = owner;
@@ -5379,7 +5237,6 @@ void OpenModal(W8DialogBase* owner)
    slot's occupancy, its monster-entry flag and the display mode - the party
    add/remove entries and the keyboard menu's close run it after slot state
    changes. */
-// FUNCTION: WIZ8 0x00561ec0
 void RefreshPartySlotRegions(void)
 {
     int slot;
@@ -5427,7 +5284,6 @@ void RefreshPartySlotRegions(void)
    layout band from the current mode, then re-enable whichever overlays are
    up (combat portraits, condition buttons, spell/NPC/lock/trap/formation/
    radar, party movement, review, keyboard menu, combat submenu). */
-// FUNCTION: WIZ8 0x00561FD0
 void SyncMainGameModeRegions(void)
 {
     SetMouseCursorHotspot(0, 0);
@@ -5513,7 +5369,6 @@ void SyncMainGameModeRegions(void)
 /* Party portrait hit region: left-click selects / aims, right-hold opens camp,
    drag-hover arms the mode-6 overlay, and InputEventType::MouseMove drives help plus targeting
    cursor. Skips the slot parked in gXStatus.review_character_slot. */
-// FUNCTION: WIZ8 0x00565990
 unsigned char PortraitSelectRegionEvent(const InputEvent* event, W8Region* region)
 {
     int slot = region->callback_id;
@@ -5784,8 +5639,8 @@ static unsigned char DispatchPortraitOrbRegionEvent(const InputEvent* event, W8R
             }
             if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
                 SetTooltipSubject(tooltip_kind, -1);
-                if ((g_level_block->*selection) != -1) {
-                    (g_level_block->*selection) = -1;
+                if ((g_level_block.get()->*selection) != -1) {
+                    (g_level_block.get()->*selection) = -1;
                     DismissHighlightOverlay();
                     RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
                 }
@@ -5794,7 +5649,7 @@ static unsigned char DispatchPortraitOrbRegionEvent(const InputEvent* event, W8R
                     if ((character->*effect) != none) {
                         SetTooltipSubject(tooltip_kind, slot);
                         if (IsLeftButtonHeld() && (character->*effect) != none) {
-                            (g_level_block->*selection) = slot;
+                            (g_level_block.get()->*selection) = slot;
                             if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME &&
                                 g_level_block != 0) {
                                 RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
@@ -5810,10 +5665,10 @@ static unsigned char DispatchPortraitOrbRegionEvent(const InputEvent* event, W8R
             DisableRegionHelpFlag(region);
             return 0;
         }
-        if ((g_level_block->*selection) == -1) {
+        if ((g_level_block.get()->*selection) == -1) {
             return 1;
         }
-        (g_level_block->*selection) = -1;
+        (g_level_block.get()->*selection) = -1;
         DismissHighlightOverlay();
         RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
         return 1;
@@ -5822,7 +5677,7 @@ static unsigned char DispatchPortraitOrbRegionEvent(const InputEvent* event, W8R
     if ((character->*effect) == none) {
         return 1;
     }
-    (g_level_block->*selection) = slot;
+    (g_level_block.get()->*selection) = slot;
     RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
     return 1;
 }
@@ -5830,7 +5685,6 @@ static unsigned char DispatchPortraitOrbRegionEvent(const InputEvent* event, W8R
 /* Condition orb on a party portrait (help 25): press while highest_condition
    is set arms the overlay slot; release and leave dismiss the hover plate;
    enter drives tooltip kind 1 and region help. */
-// FUNCTION: WIZ8 0x005667A0
 unsigned char PortraitConditionOrbRegionEvent(const InputEvent* event, W8Region* region)
 {
     return DispatchPortraitOrbRegionEvent(event, region, &W8Character::highest_condition,
@@ -5840,7 +5694,6 @@ unsigned char PortraitConditionOrbRegionEvent(const InputEvent* event, W8Region*
 
 /* Enchantment orb on a party portrait (help 26): near-clone of the condition
    orb against enchantment_top and tooltip kind 2. */
-// FUNCTION: WIZ8 0x00566AE0
 unsigned char PortraitEnchantmentOrbRegionEvent(const InputEvent* event, W8Region* region)
 {
     return DispatchPortraitOrbRegionEvent(event, region, &W8Character::enchantment_top,
@@ -5850,7 +5703,6 @@ unsigned char PortraitEnchantmentOrbRegionEvent(const InputEvent* event, W8Regio
 
 /* Help 28: portrait side bar — hover picks upper/lower weapon or assayable
    item; click opens Assay or binds items with Shift. */
-// FUNCTION: WIZ8 0x00566E20
 unsigned char PortraitAssaySidebarRegionEvent(const InputEvent* event, W8Region* region)
 {
     int previous_mode = g_level_block->portrait_assay_hover_mode;
@@ -5938,7 +5790,6 @@ unsigned char PortraitAssaySidebarRegionEvent(const InputEvent* event, W8Region*
 
 /* Help 24: portrait overlay hover strip; left-down and enter (while held)
    set portrait_overlay_party_slot, leave and up dismiss the mode-6 plate. */
-// FUNCTION: WIZ8 0x005670C0
 unsigned char PortraitOverlayHoverRegionEvent(const InputEvent* event, W8Region* region)
 {
     const InputEventType us_event = event->type;
@@ -5983,7 +5834,6 @@ unsigned char PortraitOverlayHoverRegionEvent(const InputEvent* event, W8Region*
    open the keyboard menu on release while combat input is live, drive hover
    help for a queued spell/item, and right-click falls back when an action is
    unreachable. */
-// FUNCTION: WIZ8 0x005673B0
 unsigned char PartyCombatActionRegionEvent(const InputEvent* event, W8Region* region)
 {
     int slot = region->callback_id;
@@ -6064,7 +5914,6 @@ unsigned char PartyCombatActionRegionEvent(const InputEvent* event, W8Region* re
 /* Help 31: radar-map button near the text area — left-up opens automap after
    tearing down mode 3/5/6 overlays; right-up toggles zoom; enter/leave hover
    the map button art. */
-// FUNCTION: WIZ8 0x00567600
 unsigned char RadarMapButtonRegionEvent(const InputEvent* event, W8Region* region)
 {
     const InputEventType us_event = event->type;
@@ -6118,7 +5967,6 @@ static void StopWorldMouseLook()
    world-item hover and the portrait strip; left-up runs the targeting, item
    and monster dispatch; right-down opens monster info or the assay dialog or
    toggles the mouselook latch. */
-// FUNCTION: WIZ8 0x00567800
 unsigned char WorldViewRegionEvent(const InputEvent* event, W8Region* region)
 {
     SDL_Point cursor_pos;
@@ -6362,7 +6210,6 @@ unsigned char WorldViewRegionEvent(const InputEvent* event, W8Region* region)
 
 /* Help 36: combat monster-list rows. Hit-test by 11-pixel row, hover via
    SetCombatAction, left-up aims, right-up posts the group info notice. */
-// FUNCTION: WIZ8 0x00568100
 unsigned char MonsterListRegionEvent(const InputEvent* event, W8Region* region)
 {
     int row = -1;
@@ -6411,7 +6258,6 @@ unsigned char MonsterListRegionEvent(const InputEvent* event, W8Region* region)
 
 /* Forget the whole combat selection - what is picked, what it is aimed at, and
    what is going to be done - and then re-derive who is acting. */
-// FUNCTION: WIZ8 0x0056a5a0
 void ClearCombatSelection(void)
 {
     SetCombatSelection(-1);
@@ -6424,7 +6270,6 @@ void ClearCombatSelection(void)
    highlighted monster checks targetability and the mode flags; a picked prop
    checks whether its trigger takes the in-cursor item or shows a message;
    otherwise the cursor comes from the current targeting state. */
-// FUNCTION: WIZ8 0x0056a5d0
 void UpdateWorldViewCursor(const InputEvent* event, W8TargetNeed target_needed)
 {
     int cursor = gXStatus.iCurrentCursor;
@@ -6482,7 +6327,6 @@ void UpdateWorldViewCursor(const InputEvent* event, W8TargetNeed target_needed)
 }
 
 /* Drop the highlight when the thing being highlighted is the one going away. */
-// FUNCTION: WIZ8 0x0056a2a0
 void ClearHighlightIfItIs(const int* item)
 {
     if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME && g_level_block != 0 &&
@@ -6494,7 +6338,6 @@ void ClearHighlightIfItIs(const int* item)
 /* Whether the screen is in one of the states that takes the player's input
    away. The first flag settles it outright; otherwise one state only counts
    while a further check disagrees, and three more count on their own. */
-// FUNCTION: WIZ8 0x00562540
 int IsScreenInputBlocked(void)
 {
     if (gXStatus.fSpellCastMode) {
@@ -6511,7 +6354,6 @@ int IsScreenInputBlocked(void)
 
 /* Whether the screen is idle - none of the six overlays is up. The same six
    flags the input block reads, but all of them and unconditionally. */
-// FUNCTION: WIZ8 0x00561440
 bool IsScreenIdle(void)
 {
     if (!gXStatus.fCombatMode && !gXStatus.fSpellCastMode && !gXStatus.fItemSelectMode &&
@@ -6525,7 +6367,6 @@ bool IsScreenIdle(void)
    mode-3 NPC dialogue pane, the mode-5 spell panel or the mode-6
    portrait-hover overlay - reset the mode and transition to the automap
    screen. */
-// FUNCTION: WIZ8 0x00561480
 void OpenAutomapScreen(void)
 {
     SetMainGameMode(W8_MAIN_GAME_DEFAULT);
@@ -6535,7 +6376,6 @@ void OpenAutomapScreen(void)
 /* Load the level the party is on. With no level yet there is nothing to load
    and the answer is yes; otherwise the loading flag is up for the duration so
    whatever watches it knows. */
-// FUNCTION: WIZ8 0x00560a20
 bool LoadCurrentLevelData(void)
 {
     bool loaded = true;
@@ -6553,7 +6393,6 @@ bool LoadCurrentLevelData(void)
 
 /* Put the seven combat regions into their inactive mode, and the eighth with
    its whole set only when the screen says it is not needed. */
-// FUNCTION: WIZ8 0x005690c0
 void DisableCombatRegions(void)
 {
     SetTextBoxScrollInput(false);
@@ -6566,7 +6405,6 @@ void DisableCombatRegions(void)
 
 /* Drain the pending mouselook yaw/pitch into the camera, optionally scaling
    mid-range deltas by frame time when mouselook smoothing is enabled. */
-// FUNCTION: WIZ8 0x00568C40
 static void ApplyPendingMouselook(void)
 {
     uint64_t now;
@@ -6620,7 +6458,6 @@ static void ApplyPendingMouselook(void)
 
 /* After the tooltip delay elapses, clear any previous highlight slots (and
    redraw them), then park the pending subject on the slot its kind selects. */
-// FUNCTION: WIZ8 0x00569CC0
 void ApplyPendingTooltip(void)
 {
     bool refresh_formation = false;
@@ -6723,7 +6560,6 @@ static void PositionSelectionToolTip(SDL_Point point)
    monster's group or target highlight, and a valid new pick relights it in
    the colour CanTargetMonster just judged, so the group tint always agrees
    with the selection marker. */
-// FUNCTION: WIZ8 0x00569F70
 void SetCombatSelection(int value)
 {
     int current = g_level_block->highlighted_item;
@@ -6801,7 +6637,6 @@ void SetCombatSelection(int value)
 /* The world-item twin of SetCombatSelection: a pick change drops the old
    item's highlight and lights a visible new one; re-picking the same item
    while its tooltip clock is idle pops its display name at the cursor. */
-// FUNCTION: WIZ8 0x0056A2D0
 void SetCombatTarget(int value)
 {
     int current = g_level_block->selected_item;
@@ -6852,7 +6687,6 @@ void SetCombatTarget(int value)
    the old group's tint, then either empties the selection or re-tints the new
    group - its lead member when the action picks monsters individually, the
    whole group when it wants the group. The cursor follows the result. */
-// FUNCTION: WIZ8 0x0056A480
 void SetCombatAction(int value)
 {
     int current = g_level_block->action_group;
@@ -6887,7 +6721,6 @@ void SetCombatAction(int value)
 /* With no modal or NPC dialogue up, draw the bottom prompt strip: the catalog
    backdrop plus the "choose action" line - the combat variant while combat
    mode is on. */
-// FUNCTION: WIZ8 0x0056AC80
 static void DrawMainGamePrompt(void)
 {
     W8ControlsRect bounds;
@@ -6908,7 +6741,6 @@ static void DrawMainGamePrompt(void)
 
 /* Raise or drop the radar map panel and restore the viewport mode when the
    raise latch changes. */
-// FUNCTION: WIZ8 0x00568EB0
 void SetRadarMapVisible(bool visible)
 {
     if (visible) {
@@ -6939,7 +6771,6 @@ void SetRadarMapVisible(bool visible)
 
 /* Raise or drop the combat action panel and restore the viewport mode when the
    raise latch changes. */
-// FUNCTION: WIZ8 0x00569120
 void SetActionPanelVisible(bool visible)
 {
     if (visible) {
@@ -6959,7 +6790,6 @@ void SetActionPanelVisible(bool visible)
 
 /* Raise or drop the formation board and restore the viewport mode when the
    raise latch changes. */
-// FUNCTION: WIZ8 0x00569390
 void SetFormationBoardVisible(bool visible)
 {
     if (visible) {
@@ -6981,7 +6811,6 @@ void SetFormationBoardVisible(bool visible)
 
 /* Hand one frame to whichever overlays are up. Each is independent, so more
    than one can take the same frame. */
-// FUNCTION: WIZ8 0x0056af20
 void UpdateScreenOverlays(int frame)
 {
     if (gXStatus.fLockInteractMode) {
@@ -7006,7 +6835,6 @@ void UpdateScreenOverlays(int frame)
    and spell views admit only their own toggle, and combat commands check the
    entry's submenu state. Command 0x10 re-checks the slot's queued action's
    own command. */
-// FUNCTION: WIZ8 0x0056af80
 bool IsMGSActionKeyEnabled(unsigned short command)
 {
     short state;
@@ -7101,14 +6929,14 @@ bool IsMGSActionKeyEnabled(unsigned short command)
                 return false;
             }
         default:
-            srAssertFail("FALSE", "C:\\Projects\\Wizardry 8\\Local Screens\\MainGameScreen.cpp",
+            srAssertFail("FALSE", __FILE__,
                          0x207d, "Error with handling main game action keyboard equivalent");
             break;
         }
     }
     if (state == -1) {
         srAssertFail("iActionState != -1",
-                     "C:\\Projects\\Wizardry 8\\Local Screens\\MainGameScreen.cpp", 0x20aa,
+                     __FILE__, 0x20aa,
                      "Error with handling main game action keyboard equivalent");
     }
     if (!IsPartySlotEligible(g_status.selected_character)) {
@@ -7120,7 +6948,6 @@ bool IsMGSActionKeyEnabled(unsigned short command)
 /* Run the numbered action-key command: dismiss the transient menu first, then
    act - toggle the item or spell view, fire the recorded spell/item, choose
    the combat action, or dispatch the slot's queued action's own command. */
-// FUNCTION: WIZ8 0x0056b270
 void RunMGSActionKey(unsigned short command)
 {
     if (g_level_block->combat_end_notification != -1) {
@@ -7222,14 +7049,13 @@ void RunMGSActionKey(unsigned short command)
         }
         break;
     default:
-        srAssertFail("FALSE", "C:\\Projects\\Wizardry 8\\Local Screens\\MainGameScreen.cpp", 0x2151,
+        srAssertFail("FALSE", __FILE__, 0x2151,
                      "Error executing main game screen action");
         break;
     }
 }
 
 /* Fire the numbered action-key command when the current UI mode allows it. */
-// FUNCTION: WIZ8 0x0056b4c0
 void TryMGSActionKey(W8MGSAction command)
 {
     if (IsMGSActionKeyEnabled(command)) {
@@ -7240,7 +7066,6 @@ void TryMGSActionKey(W8MGSAction command)
 /* Which party portrait the pointer is over, if any. The slots are walked
    against two runs of region numbers at once - one starting at 0x24 six apart
    and one at 0x5a one apart - and only two event kinds are answered. */
-// FUNCTION: WIZ8 0x00569c00
 unsigned char HitTestPartyPortrait(const InputEvent* event)
 {
     unsigned int region = 0x24;
@@ -7268,7 +7093,6 @@ unsigned char HitTestPartyPortrait(const InputEvent* event)
 /* Load each main-game cursor catalog entry into an stTextureAnim and record the
    ETRLE frame size onto the slot. Called once when the level block is first
    allocated. */
-// FUNCTION: WIZ8 0x00568E10
 void LoadMainGameCursorResources(void)
 {
     W8MainGameResourceSlot* slot = g_main_game_resource_slots;
@@ -7289,7 +7113,6 @@ void LoadMainGameCursorResources(void)
     }
 }
 
-// FUNCTION: WIZ8 0x00568950
 unsigned int DispatchMainGameMouseButtons(const InputEvent* input)
 {
     switch (input->type) {
@@ -7307,7 +7130,6 @@ unsigned int DispatchMainGameMouseButtons(const InputEvent* input)
    look flag, and each mouse move accumulates yaw/pitch from the offset off
    the 320x240 anchor before recentering the cursor. Smoothing defers the
    apply to the frame tick; otherwise it applies immediately. */
-// FUNCTION: WIZ8 0x00568B50
 unsigned char HandleMouselookInput(const InputEvent* input)
 {
     if (!g_camera_path_active && (!gXStatus.world_paused || gXStatus.fCombatMode)) {
@@ -7339,7 +7161,6 @@ unsigned char HandleMouselookInput(const InputEvent* input)
     return 0;
 }
 
-// FUNCTION: WIZ8 0x0056aa30
 void PauseMainGameWorld(void)
 {
     gXStatus.world_update_blocked = true;
@@ -7359,7 +7180,6 @@ void PauseMainGameWorld(void)
     RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
 }
 
-// FUNCTION: WIZ8 0x0056aab0
 void ResumeMainGameWorld(void)
 {
     if (!gXStatus.fSpellCastMode && !gXStatus.fNpcDialogueMode && !gXStatus.fItemSelectMode &&
@@ -7393,7 +7213,6 @@ void ResumeMainGameWorld(void)
 
 /* The pause-key command: resume the world when it was paused this way,
    otherwise mark the pause and freeze the world. */
-// FUNCTION: WIZ8 0x0056abe0
 void ToggleMainGamePause(void)
 {
     if (gXStatus.world_paused) {
@@ -7409,7 +7228,6 @@ void ToggleMainGamePause(void)
 
 /* Assay dialog destroy callback: closing the dialog leaves the main game
    screen fully dirty so every region repaints. */
-// FUNCTION: WIZ8 0x005670a0
 static void InvalidateMainGameScreen(W8DialogBase* dialog)
 {
     RequestRedraw(W8_MAIN_REDRAW_ALL);
@@ -7419,7 +7237,6 @@ static void InvalidateMainGameScreen(W8DialogBase* dialog)
    highlighted monster: only while the entry is live, not dying and still has
    hit points. Closing leaves the whole screen dirty via the destroy
    callback. */
-// FUNCTION: WIZ8 0x0056ad60
 void OpenMonsterInfoDialog(int location_id)
 {
     W8MonsterInfo* monster_info = FindMonster(location_id);
@@ -7435,7 +7252,6 @@ void OpenMonsterInfoDialog(int location_id)
 
 /* Open the assay dialog over the main game screen. A live modal dialog is
    parked in the pending slot so it resumes when this one closes. */
-// FUNCTION: WIZ8 0x0056ae20
 void OpenAssayDialog(W8ItemInstance* item, int character_slot)
 {
     W8DialogBase* dialog;
@@ -7460,7 +7276,6 @@ void OpenAssayDialog(W8ItemInstance* item, int character_slot)
    mode is live - dialogue, review screen or the mode-6 highlight overlay -
    before handing off. The flag decides whether the pending payload carries
    the slot's character pointer. */
-// FUNCTION: WIZ8 0x00560E10
 void OpenCharacterScreenForPartySlot(unsigned int party_slot, bool flag)
 {
     if (gXStatus.fNpcDialogueMode) {
@@ -7483,7 +7298,6 @@ void OpenCharacterScreenForPartySlot(unsigned int party_slot, bool flag)
    Retail expands this body (sign-extending the short result) in the
    radar/action-panel/formation-board setters and in SyncMainGameModeRegions
    and calls it elsewhere in this unit. All consumers use this canonical helper. */
-// FUNCTION: WIZ8 0x005698C0
 short GetMainGameViewportMode(void)
 {
     if (!gXStatus.fSpellCastMode && (!gXStatus.fNpcDialogueMode || CanOpenNpcDialogue()) &&
@@ -7512,7 +7326,6 @@ short GetMainGameViewportMode(void)
 
 /* Drop whichever of the formation board, the radar map and the combat bar is
    up, restoring the viewport mode that was in effect when each was raised. */
-// FUNCTION: WIZ8 0x00569570
 void CloseMainGameOverlays(void)
 {
     if (g_level_block->formation_board_visible) {
@@ -7526,7 +7339,6 @@ void CloseMainGameOverlays(void)
     }
 }
 
-// FUNCTION: WIZ8 0x00563DD0
 void ClearHighlightOverlayRegion(void)
 {
     if (g_main_game_mode == W8_MAIN_GAME_HIGHLIGHT_OVERLAY) {
@@ -7548,24 +7360,18 @@ void ClearHighlightOverlayRegion(void)
 
 /* Remove the transcript entry that owns the selected visible line, then
    redraw the controller. */
-// FUNCTION: WIZ8 0x0055E940
 void W8NpcDialogueTextController::SaveTranscriptEntries()
 {
-    W8DialogueTranscriptRecord* record;
-    W8DialogTextEntry* entry;
-    int index;
-
     ClearNpcDialogueTranscript();
-    for (index = 0; index < static_cast<int>(text_area.m_all_lines.size()); ++index) {
-        record = new W8DialogueTranscriptRecord{};
-        entry = text_area.GetEntry(index);
+    for (int index = 0; index < static_cast<int>(text_area.m_all_lines.size()); ++index) {
+        auto record = std::make_unique<W8DialogueTranscriptRecord>();
+        W8DialogTextEntry* entry = text_area.GetEntry(index);
         record->text = entry->GetText();
         record->category = entry->m_category;
-        g_npc_interaction_state->dialogue_transcript.push_back(record);
+        g_npc_interaction_state->dialogue_transcript.push_back(std::move(record));
     }
 }
 
-// FUNCTION: WIZ8 0x0055EA40
 void W8NpcDialogueTextController::ClearTranscriptEntries()
 {
     while (0u < static_cast<int>((unsigned)text_area.m_all_lines.size())) {
@@ -7574,7 +7380,6 @@ void W8NpcDialogueTextController::ClearTranscriptEntries()
     Invalidate(0);
 }
 
-// FUNCTION: WIZ8 0x0055EA70
 void W8NpcDialogueTextController::RemoveSelectedTranscriptEntry()
 {
     if (text_area.m_highlighted_entry != -1) {
@@ -7586,13 +7391,11 @@ void W8NpcDialogueTextController::RemoveSelectedTranscriptEntry()
     }
 }
 
-// FUNCTION: WIZ8 0x0055EAB0
 int W8NpcDialogueTextController::GetSelectedTranscriptEntryIndex()
 {
     return text_area.m_highlighted_entry;
 }
 
-// FUNCTION: WIZ8 0x0055EAC0
 void W8NpcDialogueTextController::SetTranscriptSorted(bool sorted)
 {
     text_area.SetSorted(sorted);
@@ -7603,7 +7406,6 @@ void W8NpcDialogueTextController::SetTranscriptSorted(bool sorted)
    the selected stack outright when the NPC's wanted list matches it; the
    per-mode cases then move stock between the NPC list and the backpack or
    party pool, and every exit repaints the purse and price readouts. */
-// FUNCTION: WIZ8 0x005AD290
 void ConfirmNpcTradeItem(void)
 {
     W8NpcItemEntry* entry;
@@ -7751,7 +7553,6 @@ void ConfirmNpcTradeItem(void)
     RefreshNpcTradePrice();
 }
 
-// FUNCTION: WIZ8 0x005AD950
 void ShowNpcTradeItemNotice(W8ItemInstance* item)
 {
     W8NpcTradeMode mode = g_npc_interaction_state->trade_mode;
@@ -7790,7 +7591,6 @@ void ShowNpcTradeItemNotice(W8ItemInstance* item)
     AppendTextBoxLine(g_level_block->text_paint_scratch, 2);
 }
 
-// FUNCTION: WIZ8 0x005ADAA0
 int ResolveNpcTradeStockIndex(int index)
 {
     unsigned int count = GetNpcItemCount(g_npc_interaction_state->dialogue_npc);
@@ -7808,7 +7608,6 @@ int ResolveNpcTradeStockIndex(int index)
     return -1;
 }
 
-// FUNCTION: WIZ8 0x005ADB10
 void RebuildNpcTradeItemList(bool scroll_to_top)
 {
     ResetEditorStatusLine(2);
@@ -7864,7 +7663,6 @@ static void ShowNpcPlayerTradeItem(W8ItemInstance* item, bool acceptable, unsign
     }
 }
 
-// FUNCTION: WIZ8 0x005ADBE0
 void PopulateNpcTradeList(void)
 {
     W8Character* trading = &g_status.buffers.Char[g_status.selected_character];
@@ -7941,7 +7739,6 @@ void PopulateNpcTradeList(void)
     g_npc_interaction_state->dialogue_panels[1]->Invalidate(0);
 }
 
-// FUNCTION: WIZ8 0x005AE040
 void OpenNpcTradeQuantityDialog(void)
 {
     W8SplitItemDialog* dialog;
@@ -7968,20 +7765,17 @@ void OpenNpcTradeQuantityDialog(void)
     OpenModal(dialog);
 }
 
-// FUNCTION: WIZ8 0x005AE000
 void SelectNpcBuyMode(void)
 {
     g_npc_interaction_state->trade_mode = W8_NPC_TRADE_BUY;
     UpdateNpcDialogueSubMode();
 }
 
-// FUNCTION: WIZ8 0x005AE020
 void RestockNpcTradeStock(void)
 {
     RestockNpcInventory(g_npc_interaction_state->dialogue_npc);
 }
 
-// FUNCTION: WIZ8 0x005AE1A0
 void NpcTradeSplitDialogResult(W8DialogBase* dialog)
 {
     W8SplitItemDialog* split = static_cast<W8SplitItemDialog*>(dialog);
@@ -7997,7 +7791,6 @@ void NpcTradeSplitDialogResult(W8DialogBase* dialog)
     }
 }
 
-// FUNCTION: WIZ8 0x005AE1F0
 bool ValidateNpcTradeSelection(void)
 {
     bool accepted = true;
@@ -8027,7 +7820,6 @@ bool ValidateNpcTradeSelection(void)
     return accepted;
 }
 
-// FUNCTION: WIZ8 0x005AE2A0
 bool AttemptNpcItemTrade(W8ItemInstance* item, unsigned char quantity, int index)
 {
     std::string text;
@@ -8084,7 +7876,6 @@ bool AttemptNpcItemTrade(W8ItemInstance* item, unsigned char quantity, int index
 /* Highlight a clicked transcript keyword; clicking it again submits it to
    the dialogue input handler and clears its marked-entry palette. */
 
-// FUNCTION: WIZ8 0x0055E490
 void W8NpcDialogueTextController::SelectTranscriptKeywordAtPoint(int x, int y)
 {
     unsigned int hit;
@@ -8117,7 +7908,6 @@ void W8NpcDialogueTextController::SelectTranscriptKeywordAtPoint(int x, int y)
     InvalidateLayout();
 }
 
-// FUNCTION: WIZ8 0x0055E690
 unsigned char DialogueTranscriptRegionEvent(const InputEvent* event, W8Region* region)
 {
     const InputEventType us_event = event->type;
@@ -8187,7 +7977,6 @@ unsigned char DialogueTranscriptRegionEvent(const InputEvent* event, W8Region* r
     return 1;
 }
 
-// FUNCTION: WIZ8 0x005699D0
 unsigned char CombatBarRegionEvent(const InputEvent* event, W8Region*)
 {
     const InputEventType us_event = event->type;
@@ -8237,7 +8026,6 @@ static stSurface2D* g_surprise_snapshot_overlay;
 // GLOBAL: WIZ8 0x0068edf8
 static stModelInstance2D* g_surprise_fade_node;
 
-// FUNCTION: WIZ8 0x00560C60
 void ResetMainGameMode(void)
 {
     SetMainGameMode(W8_MAIN_GAME_DEFAULT);
@@ -8258,7 +8046,6 @@ void ResetMainGameMode(void)
     SetPrimarySurfaceTextureHint2Enabled(false);
 }
 
-// FUNCTION: WIZ8 0x0056b4e0
 void CreateSurpriseFade(void)
 {
     srShader shader;
@@ -8278,7 +8065,6 @@ void CreateSurpriseFade(void)
     g_surprise_fade_in = true;
 }
 
-// FUNCTION: WIZ8 0x0056b5f0
 void ReverseSurpriseFade(void)
 {
     if (gXStatus.surprise_phase == 0) {
@@ -8301,7 +8087,6 @@ void ReverseSurpriseFade(void)
     }
 }
 
-// FUNCTION: WIZ8 0x0056b690
 void DestroySurpriseFade(void)
 {
     ReleaseRendererObject(g_surprise_snapshot_overlay);
@@ -8311,7 +8096,6 @@ void DestroySurpriseFade(void)
     g_world_render_enabled = 1;
 }
 
-// FUNCTION: WIZ8 0x0056b6f0
 unsigned char UpdateSurpriseFade(void)
 {
     bool done = false;

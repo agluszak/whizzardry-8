@@ -306,10 +306,10 @@ static void transcript_contracts()
     W8NpcInteractionState state{};
     auto* previous = g_npc_interaction_state;
     g_npc_interaction_state = &state;
-    auto* entry = new W8DialogueTranscriptRecord{};
+    auto entry = std::make_unique<W8DialogueTranscriptRecord>();
     entry->text = "é中😀";
     entry->category = 2;
-    state.dialogue_transcript.push_back(entry);
+    state.dialogue_transcript.push_back(std::move(entry));
     state.dialogue_category_filter = 3;
     state.transcript_sorted = true;
     auto file = wiz8::open_file("Saves/transcript.bin", wiz8::OpenMode::replace);

@@ -95,9 +95,8 @@
    unknown, so the existing compilation boundary is retained. */
 
 // GLOBAL: WIZ8 0x0068F258
-static std::vector<W8AutomapNote*> g_automap_notes;
+static std::vector<std::unique_ptr<W8AutomapNote>> g_automap_notes;
 
-// FUNCTION: WIZ8 0x0057e5d0
 // GLOBAL: WIZ8 0x0068f104
 bool g_mipe_menu_active;
 // GLOBAL: WIZ8 0x0068f105
@@ -259,7 +258,7 @@ int g_automap_cell_count;
 // GLOBAL: WIZ8 0x0068f290
 bool g_automap_position_initialized;
 // GLOBAL: WIZ8 0x0068f294
-W8AutomapNote* g_automap_editing_note;
+W8AutomapNote* g_automap_editing_note; // Non-owning; g_automap_notes owns the note.
 // GLOBAL: WIZ8 0x0068f298
 W8AutomapNote* g_automap_hovered_note;
 
@@ -298,7 +297,6 @@ static void SetAutomapCursorImage(int tool)
 
 /* With no tool selected inside the map, use zoom-in only above the threshold.
    Retail's FNSTSW/TEST 0x41 also selects zoom-out for an unordered zoom. */
-// FUNCTION: WIZ8 0x005820F0
 void SetAutomapToolCursor(int tool)
 {
     if (g_automap_tool == 0 && g_automap_cursor_inside) {
@@ -307,7 +305,6 @@ void SetAutomapToolCursor(int tool)
     SetAutomapCursorImage(tool);
 }
 
-// FUNCTION: WIZ8 0x00581000
 bool HasAutomapLayer(int layer)
 {
     return static_cast<std::size_t>(layer) < g_automap_layers.size() &&
@@ -334,7 +331,6 @@ static void ClearAutomapMarkers()
 }
 
 /* Full-screen automap background: arm on left-down, dismiss on left-up. */
-// FUNCTION: WIZ8 0x00581790
 unsigned char AutomapBackgroundRegionEvent(const InputEvent* event, W8Region* region)
 {
     switch (event->type) {
@@ -355,9 +351,16 @@ unsigned char AutomapBackgroundRegionEvent(const InputEvent* event, W8Region* re
 
 static void ClearAutomapNotes()
 {
-    wiz8::clear_and_dispose(g_automap_notes, [](W8AutomapNote* note) {
-        delete note;
-    });
+    g_automap_editing_note = nullptr;
+    g_automap_hovered_note = nullptr;
+    g_automap_notes.clear();
+}
+
+static void EraseAutomapNote(W8AutomapNote* note)
+{
+    if (g_automap_editing_note == note) g_automap_editing_note = nullptr;
+    if (g_automap_hovered_note == note) g_automap_hovered_note = nullptr;
+    std::erase_if(g_automap_notes, [note](const auto& owned) { return owned.get() == note; });
 }
 
 /* Rebuild the automap view for the level that just loaded: release every
@@ -365,7 +368,6 @@ static void ClearAutomapNotes()
    octree bounds (or a fixed cube when there is no octree), and mark the
    camera's own cell in the visited bitmap, retrying one cell higher when the
    packed cell misses the record table. */
-// FUNCTION: WIZ8 0x005817d0
 void ResetAutomapView(void)
 {
     if (!g_automap_state) {
@@ -421,7 +423,6 @@ void ResetAutomapView(void)
 /* Pack `position` into a cell key (retrying one cell higher on miss). When the
    record table knows the cell, mark it visited and return 1 only if that bit
    was newly raised — used by the world camera update to gate automap lighting. */
-// FUNCTION: WIZ8 0x00581B30
 bool AutomapHasCellAt(const srVector3T<float>* position)
 {
     srVector3T<float> relative = *position - g_automap_grid_origin;
@@ -444,7 +445,6 @@ bool AutomapHasCellAt(const srVector3T<float>* position)
     return false;
 }
 
-// FUNCTION: WIZ8 0x0057E490
 bool CanUseCurrentAutomapTool(void)
 {
     if (g_mipe_active) {
@@ -461,7 +461,6 @@ bool CanUseCurrentAutomapTool(void)
     return true;
 }
 
-// FUNCTION: WIZ8 0x00584210
 void RestoreAutomapCameraPosition(void)
 {
     g_automap_position.x = g_automap_saved_camera.position.x;
@@ -471,7 +470,6 @@ void RestoreAutomapCameraPosition(void)
 
 /* Build the sixteen chrome buttons from the adjacent catalog / callback /
    tooltip / position tables. */
-// FUNCTION: WIZ8 0x00583BC0
 void CreateAutomapButtons(void)
 {
     std::vector<std::unique_ptr<W8ButtonWidget>> buttons(16);
@@ -496,7 +494,6 @@ void CreateAutomapButtons(void)
     g_automap_buttons = std::move(buttons);
 }
 
-// FUNCTION: WIZ8 0x00583CE0
 void AutomapZoomInButton(void)
 {
     const glm::vec2 center(0.5f);
@@ -506,7 +503,6 @@ void AutomapZoomInButton(void)
 /* Mirror of the right-click zoom-out path: one step when the camera is below
    the full top height, otherwise restore the full explored span. The one-step
    arm inlines SetAutomapToolCursor the same way retail does. */
-// FUNCTION: WIZ8 0x00583D10
 void AutomapZoomOutButton(void)
 {
     if (g_automap_position.y < g_automap_top_y) {
@@ -552,7 +548,6 @@ void AutomapZoomOutButton(void)
     }
 }
 
-// FUNCTION: WIZ8 0x00583FC0
 void AutomapSelectNoteToolButton(void)
 {
     if (g_automap_tool == 2) {
@@ -562,7 +557,6 @@ void AutomapSelectNoteToolButton(void)
     SetAutomapToolCursor(2);
 }
 
-// FUNCTION: WIZ8 0x00584020
 void AutomapSelectEraseToolButton(void)
 {
     if (g_automap_tool == 3) {
@@ -572,7 +566,6 @@ void AutomapSelectEraseToolButton(void)
     SetAutomapToolCursor(3);
 }
 
-// FUNCTION: WIZ8 0x00584080
 void AutomapCyclePageButton(void)
 {
     g_automap_page = (g_automap_page + 1) % 3;
@@ -580,7 +573,6 @@ void AutomapCyclePageButton(void)
     g_automap_redraw = true;
 }
 
-// FUNCTION: WIZ8 0x00584110
 void AutomapLayerDownButton(void)
 {
     if (g_automap_layer > 0) {
@@ -588,7 +580,6 @@ void AutomapLayerDownButton(void)
     }
 }
 
-// FUNCTION: WIZ8 0x00584130
 void AutomapLayerUpButton(void)
 {
     if (g_automap_layer < static_cast<int>(g_automap_layers.size())) {
@@ -596,35 +587,30 @@ void AutomapLayerUpButton(void)
     }
 }
 
-// FUNCTION: WIZ8 0x00584150
 void AutomapPanNorthButton(void)
 {
     g_automap_position.z += g_float_thirty_five_hundredths * g_automap_zoom;
     SetAutomapCameraPoint(&g_automap_position);
 }
 
-// FUNCTION: WIZ8 0x00584180
 void AutomapPanSouthButton(void)
 {
     g_automap_position.z -= g_float_thirty_five_hundredths * g_automap_zoom;
     SetAutomapCameraPoint(&g_automap_position);
 }
 
-// FUNCTION: WIZ8 0x005841B0
 void AutomapPanWestButton(void)
 {
     g_automap_position.x -= g_float_thirty_five_hundredths * g_automap_zoom;
     SetAutomapCameraPoint(&g_automap_position);
 }
 
-// FUNCTION: WIZ8 0x005841E0
 void AutomapPanEastButton(void)
 {
     g_automap_position.x += g_float_thirty_five_hundredths * g_automap_zoom;
     SetAutomapCameraPoint(&g_automap_position);
 }
 
-// FUNCTION: WIZ8 0x00584240
 void AutomapExitButton(void)
 {
     if (g_automap_editing_note == 0) {
@@ -632,7 +618,6 @@ void AutomapExitButton(void)
     }
 }
 
-// FUNCTION: WIZ8 0x0057e660
 unsigned char AutomapScreenEnter(void)
 {
     stScript script;
@@ -788,13 +773,11 @@ unsigned char AutomapScreenEnter(void)
     return 1;
 }
 
-// FUNCTION: WIZ8 0x005806b0
 EnvironmentColour::EnvironmentColour(double red_value, double green_value, double blue_value)
 {
     Set(red_value, green_value, blue_value);
 }
 
-// FUNCTION: WIZ8 0x00580940
 void EnvironmentColour::Set(double red_value, double green_value, double blue_value)
 {
     x = static_cast<float>(red_value);
@@ -820,24 +803,21 @@ void EnvironmentColour::Set(double red_value, double green_value, double blue_va
     }
 }
 
-// FUNCTION: WIZ8 0x00581360
 W8AutomapNote* CreateAutomapNote(const glm::vec2* position, int layer, std::string_view text)
 {
     if (wiz8::text::to_utf16(text).size() < 40 && static_cast<int>(g_automap_notes.size()) < 200) {
-        W8AutomapNote* note = new W8AutomapNote;
-        if (note) {
-            note->position = *position;
-            note->layer = layer;
-            note->text = text;
-            g_automap_notes.push_back(note);
-            g_automap_redraw = true;
-            return note;
-        }
+        auto note = std::make_unique<W8AutomapNote>();
+        note->position = *position;
+        note->layer = layer;
+        note->text = text;
+        auto* result = note.get();
+        g_automap_notes.push_back(std::move(note));
+        g_automap_redraw = true;
+        return result;
     }
     return 0;
 }
 
-// FUNCTION: WIZ8 0x0057f1f0
 void AutomapScreenFrame(void)
 {
     InputEvent input;
@@ -889,13 +869,7 @@ void AutomapScreenFrame(void)
             } else if (g_automap_tool == 3) {
                 W8AutomapNote* note = FindAutomapNoteUnderCursor();
                 if (note) {
-                    wiz8::erase_first(g_automap_notes, note);
-
-                    delete note;
-                    if (g_automap_hovered_note == note)
-                        g_automap_hovered_note = 0;
-                    if (g_automap_editing_note == note)
-                        g_automap_editing_note = 0;
+                    EraseAutomapNote(note);
                     g_automap_redraw = true;
                 }
             } else if (GetCursorPositionInViewport(&point)) {
@@ -984,7 +958,6 @@ void AutomapScreenFrame(void)
     RenderAutomapFrame();
 }
 
-// FUNCTION: WIZ8 0x0057fb40
 void RestoreAutomapWorldSettings(void)
 {
     SetWorldEnvironmentColour(g_world, g_automap_saved_ambient_light);
@@ -1006,7 +979,6 @@ void RestoreAutomapWorldSettings(void)
     SetWorldModelPickingEnabled(true);
 }
 
-// FUNCTION: WIZ8 0x0057efe0
 unsigned char AutomapScreenLeave(int)
 {
     SetNativeTextInputEnabled(false);
@@ -1034,7 +1006,6 @@ unsigned char AutomapScreenLeave(int)
 /* Lifecycle record 8's finalizer, the fifth slot of its record and the third
    allocate/release pair that establishes what that slot is for. Every guard is
    the original's own, and each pointer is cleared after its release. */
-// FUNCTION: WIZ8 0x0057fa20
 unsigned char AutomapScreenFinalize(void)
 {
     g_automap_visited_cells.clear();
@@ -1050,7 +1021,6 @@ unsigned char AutomapScreenFinalize(void)
 
 /* Select which automap buttons are enabled for the update mode, then dirty
    and redraw both and remember the mode. */
-// FUNCTION: WIZ8 0x0057FD90
 void SetAutomapButtonMode(int update)
 {
     if (g_automap_buttons.empty()) {
@@ -1081,32 +1051,27 @@ W8MainUiMode g_ui_mode_current;
 // GLOBAL: WIZ8 0x0068f2c4
 W8MainUiMode g_ui_mode_saved;
 
-// FUNCTION: WIZ8 0x00585300
 void SetAutomapGridCellSize(float value)
 {
     g_automap_grid_cell_size = value;
 }
 
-// FUNCTION: WIZ8 0x00585310
 float GetAutomapGridCellSize(void)
 {
     return g_automap_grid_cell_size;
 }
 
-// FUNCTION: WIZ8 0x00587C10
 void SetCurrentAutomapUiMode(W8MainUiMode value)
 {
     g_ui_mode_current = value;
 }
 
-// FUNCTION: WIZ8 0x0058A870
 void SetSavedAutomapUiMode(W8MainUiMode value)
 {
     g_ui_mode_saved = value;
 }
 /* Park the automap camera over the requested point with its xz clamped into
    the explored bounds, reselect the layer underneath and refresh the mesh. */
-// FUNCTION: WIZ8 0x0057FC70
 void SetAutomapCameraPoint(srVector3T<float>* position)
 {
     srVector3T<float> clamped;
@@ -1132,7 +1097,6 @@ void SetAutomapCameraPoint(srVector3T<float>* position)
 
 /* Select the automap layer, remember how far above it the camera floats and
    refresh the layer-up/layer-down buttons. */
-// FUNCTION: WIZ8 0x00580F20
 void SetAutomapLayer(int layer)
 {
     if (!HasAutomapLayer(layer)) {
@@ -1162,7 +1126,6 @@ void SetAutomapLayer(int layer)
 
 /* Reset the zoom to the full explored span, recenter over the bounds and
    restore the neutral button mode and cursor. */
-// FUNCTION: WIZ8 0x0057FE40
 void ResetAutomapZoom(void)
 {
     g_automap_zoom = g_automap_top_y - g_automap_bounds_min.y;
@@ -1178,7 +1141,6 @@ void ResetAutomapZoom(void)
 
 /* Left-click zoom: drop a sight line onto the clicked point, halve the
    remaining height above ground and move the camera there. */
-// FUNCTION: WIZ8 0x0057FFC0
 unsigned char ZoomAutomapIn(const glm::vec2* point)
 {
     const auto location = AutomapWorldPosition(*point);
@@ -1215,7 +1177,6 @@ unsigned char ZoomAutomapIn(const glm::vec2* point)
 /* Zero every world mesh's vertex-light table and flag it dirty, then clear
    the cell-processed bitmap so UpdateAutomapBounds rebuilds the lighting for
    every visited cell. */
-// FUNCTION: WIZ8 0x00580270
 void ResetAutomapLighting(void)
 {
     if (g_world->octree != 0) {
@@ -1252,7 +1213,6 @@ static srVector3T<float> GetAutomapCellPosition(unsigned int index)
 /* Light up to `max_count` visited cells that have not yet been processed into
    vertex lights. Returns how many cells were lit; a zero answer means the
    pending set is empty. */
-// FUNCTION: WIZ8 0x005807B0
 unsigned int LightPendingAutomapCells(unsigned int max_count)
 {
     unsigned int lit = 0;
@@ -1276,7 +1236,6 @@ unsigned int LightPendingAutomapCells(unsigned int max_count)
     return lit;
 }
 
-// FUNCTION: WIZ8 0x00580760
 void RefreshDirtyAutomap(void)
 {
     if (g_automap_state != 0 && g_automap_state->pending_cell_lighting != 0) {
@@ -1291,7 +1250,6 @@ void RefreshDirtyAutomap(void)
 
 /* Recompute the explored-bounds box from the visited-cell bitmap: mark new
    cells for the node builder and grow the box to cover each visited cell. */
-// FUNCTION: WIZ8 0x00580380
 void UpdateAutomapBounds(void)
 {
     std::vector<stModelInstance*> models;
@@ -1348,7 +1306,6 @@ void UpdateAutomapBounds(void)
    near the cell position, then for every linked mesh either flood its
    vertex-light table with 1.0 when the whole bounding box is inside the query
    range, or compute per-vertex distances and fill only the in-range runs. */
-// FUNCTION: WIZ8 0x005809F0
 void LightAutomapCell(const srVector3T<float>* position)
 {
     const auto center = position->glmValue();
@@ -1364,7 +1321,6 @@ void LightAutomapCell(const srVector3T<float>* position)
 
 /* Per-frame automap refresh: re-render the world into the automap surface
    when it is dirty, blit it into the primary surface and redraw buttons. */
-// FUNCTION: WIZ8 0x00581030
 void RenderAutomapFrame(void)
 {
     if (g_automap_redraw) {
@@ -1405,7 +1361,6 @@ void RenderAutomapFrame(void)
     RenderFrame();
 }
 
-// FUNCTION: WIZ8 0x00581200
 void UpdateAutomapPageButtons(void)
 {
     g_automap_buttons[5]->SetVisible(g_automap_page == 0);
@@ -1417,7 +1372,6 @@ void UpdateAutomapPageButtons(void)
 
 /* Blit the saved automap surface back over a screen rect to erase whatever
    was drawn there. */
-// FUNCTION: WIZ8 0x00581280
 int RestoreAutomapRect(W8ScreenRect* rect)
 {
     if (g_automap_surface != 0) {
@@ -1431,7 +1385,6 @@ int RestoreAutomapRect(W8ScreenRect* rect)
 
 /* When the cursor leaves a hovered note, erase its tooltip rectangle and
    invalidate it for redraw. Returns nonzero when a tooltip was dismissed. */
-// FUNCTION: WIZ8 0x00581460
 unsigned char ShowAutomapNoteTooltip(W8AutomapNote* note)
 {
     if (note == 0) {
@@ -1495,7 +1448,6 @@ unsigned char ShowAutomapNoteTooltip(W8AutomapNote* note)
 
 /* Persist the visited-cell bitmap and every note's position, layer and text.
    A 0xF00DF00D signature brackets the note records. */
-// FUNCTION: WIZ8 0x00581CE0
 bool SaveAutomapNotes(wiz8::File& handle)
 {
     int signature = 0xf00df00d;
@@ -1516,7 +1468,7 @@ bool SaveAutomapNotes(wiz8::File& handle)
         return false;
     }
     for (unsigned int index = 0; index < count; ++index) {
-        W8AutomapNote* note = g_automap_notes[index];
+        W8AutomapNote* note = g_automap_notes[index].get();
         if (note != 0) {
             bool ok = (handle.write(&note->position.x, 4), true) != 0 &&
                       (handle.write(&note->position.y, 4), true) != 0 &&
@@ -1540,7 +1492,6 @@ bool SaveAutomapNotes(wiz8::File& handle)
 
 /* Release every note, restore the visited-cell bitmap for the loaded level,
    then rebuild the notes from the saved records. */
-// FUNCTION: WIZ8 0x00581E60
 bool LoadAutomapNotes(wiz8::File& handle)
 try
 {
@@ -1584,7 +1535,6 @@ try
 /* Convert the cursor position to an automap world position on the layer
    below the current one, defaulting the height to the grid minimum when no
    clip plane exists there. */
-// FUNCTION: WIZ8 0x00582050
 unsigned char GetAutomapPositionUnderCursor(srVector3T<float>* position)
 {
     glm::vec2 point;
@@ -1606,7 +1556,6 @@ unsigned char GetAutomapPositionUnderCursor(srVector3T<float>* position)
 
 /* Find the note on the current layer nearest the cursor, limited to a
    zoom-scaled pick radius. */
-// FUNCTION: WIZ8 0x00582180
 W8AutomapNote* FindAutomapNoteUnderCursor(void)
 {
     W8AutomapNote* result = 0;
@@ -1621,7 +1570,7 @@ W8AutomapNote* FindAutomapNoteUnderCursor(void)
         const auto location = AutomapWorldPosition(point);
         for (unsigned int index = 0; index < static_cast<unsigned int>(g_automap_notes.size());
              ++index) {
-            W8AutomapNote* note = g_automap_notes[index];
+            W8AutomapNote* note = g_automap_notes[index].get();
             if (note->layer == g_automap_layer) {
                 // NOLINTNEXTLINE(misc-include-cleaner)
                 const float distance = glm::distance(location, note->position);
@@ -1664,7 +1613,6 @@ static void CreateAutomapMarkerSprite(const char* path, stModelInstance2D*& mark
 
 /* Load the automap marker textures and build the party, monster and text
    marker sprites over them. */
-// FUNCTION: WIZ8 0x005822C0
 void CreateAutomapMarkerSprites(void)
 {
     if (g_automap_party_marker == 0) {
@@ -1707,7 +1655,6 @@ void CreateAutomapMarkerSprites(void)
 
 /* Redraw the transient party, monster, item and note markers over the automap
    surface. */
-// FUNCTION: WIZ8 0x00582930
 void RenderAutomapMarkers(void)
 {
     bool detect_all = PartyHasCondition(0x40);
@@ -1815,7 +1762,7 @@ void RenderAutomapMarkers(void)
         int font_height = g_wiz_text_font_secondary.height();
         unsigned int count = static_cast<int>(g_automap_notes.size());
         for (unsigned int index = 0; index < count; ++index) {
-            W8AutomapNote* note = g_automap_notes[index];
+            W8AutomapNote* note = g_automap_notes[index].get();
             int layer = note->layer + 1;
             if (HasAutomapLayer(layer)) {
                 g_automap_layers[layer]->getLocationY();
@@ -1881,7 +1828,6 @@ static void ScaleAutomapMarker(stModelInstance2D* marker, float factor)
 
 /* Create a scaled automap blip for a world item by blitting its inventory icon
    into a scratch surface and wrapping it in a 2D brush. */
-// FUNCTION: WIZ8 0x005833E0
 stModelInstance2D* CreateAutomapItemMarker(int item_id)
 {
     auto& video_object = g_item_video_objects.Sprites(item_id);
@@ -1917,7 +1863,6 @@ stModelInstance2D* CreateAutomapItemMarker(int item_id)
 
 /* Clone the friendly, neutral or hostile blip sprite for one monster entry and
    register the clone for release after the pass. */
-// FUNCTION: WIZ8 0x00583710
 stModelInstance2D* CreateAutomapMonsterMarker(int type)
 {
     stModelInstance2D* marker = new stModelInstance2D(0);
@@ -1966,7 +1911,6 @@ stModelInstance2D* CreateAutomapMonsterMarker(int type)
 
 /* Clone the text blip sprite and register the clone for release after the
    pass. */
-// FUNCTION: WIZ8 0x005839D0
 stModelInstance2D* CreateAutomapTextMarker(void)
 {
     stModelInstance2D* marker = new stModelInstance2D(0);
@@ -1988,7 +1932,6 @@ stModelInstance2D* CreateAutomapTextMarker(void)
 }
 /* While a note is being edited, forward key events into its text buffer and
    let left-button-up drop the note at the cursor. */
-// FUNCTION: WIZ8 0x00584250
 unsigned char HandleAutomapNoteInput(const InputEvent* input)
 {
     if (input->type != InputEventType::KeyDown && input->type != InputEventType::KeyRepeat &&
@@ -2026,23 +1969,14 @@ unsigned char HandleAutomapNoteInput(const InputEvent* input)
         } else if (input->key == VK_RETURN) {
             text.resize(last);
             if (text.empty()) {
-                wiz8::erase_first(g_automap_notes, g_automap_editing_note);
-                delete g_automap_editing_note;
-                if (g_automap_hovered_note == g_automap_editing_note) g_automap_hovered_note = 0;
-                g_automap_editing_note = 0;
+                EraseAutomapNote(g_automap_editing_note);
                 g_automap_redraw = true;
             }
             if (g_automap_tool != 0) { g_automap_tool = 0; SetAutomapCursorImage(0); }
             g_automap_editing_note = 0;
             g_automap_redraw = true;
         } else if (input->key == VK_ESCAPE) {
-            wiz8::erase_first(g_automap_notes, g_automap_editing_note);
-
-            delete g_automap_editing_note;
-            if (g_automap_hovered_note == g_automap_editing_note) {
-                g_automap_hovered_note = 0;
-            }
-            g_automap_editing_note = 0;
+            EraseAutomapNote(g_automap_editing_note);
             g_automap_redraw = true;
             if (g_automap_tool != 0) {
                 g_automap_tool = 0;
@@ -2064,7 +1998,6 @@ unsigned char HandleAutomapNoteInput(const InputEvent* input)
 
 /* Automap key handling: screen exit, zoom keys, page cycling and the
    per-tool and cheat-gated bindings. */
-// FUNCTION: WIZ8 0x00584690
 unsigned char HandleAutomapKey(const InputEvent* input)
 {
     if (input->type != InputEventType::KeyDown) {
@@ -2224,7 +2157,6 @@ unsigned char HandleAutomapKey(const InputEvent* input)
    and record count. A level with no records still gets one zero cell so the
    visited-bit arrays and record table stay valid; otherwise the key list is
    read whole and every cell key is inserted with its one-based index. */
-// FUNCTION: WIZ8 0x00584DD0
 unsigned char ReadAutomapNodes(wiz8::File* hFile)
 try
 {
@@ -2262,7 +2194,6 @@ try
 
 /* Pack a world position into an automap node key: eleven bits of z, then
    eleven of x, then ten of y, each scaled to grid cells. */
-// FUNCTION: WIZ8 0x005852B0
 unsigned int AutomapNodeKey(const srVector3T<float>* position)
 {
     return ((static_cast<unsigned int>(position->z / g_automap_grid_cell_size) & 0x7ff) |
@@ -2273,7 +2204,6 @@ unsigned int AutomapNodeKey(const srVector3T<float>* position)
 
 /* The large-map level set: the same levels that get the 30000-unit automap
    range in ResetAutomapView also get 4000-unit cells instead of 2000. */
-// FUNCTION: WIZ8 0x00585320
 bool AutomapLevelIsLarge(void)
 {
     if (g_status.current_level == 0x18 ||

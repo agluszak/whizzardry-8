@@ -63,7 +63,6 @@ constexpr std::array<int, 4> main_menu_sprite_objects = {0xea, 0xec, 0xeb, 0xed}
 // The original six item rectangles are now screen-owned data, not global
 // region registrations. The load-game item uses the disabled sprite when
 // the party has no saves.
-// FUNCTION: WIZ8 0x005bcab0
 unsigned char DrawMainMenuItem(short item, short state)
 {
     if (item < 0 || static_cast<std::size_t>(item) >= main_menu_item_bounds.size()) return 0;
@@ -182,17 +181,6 @@ void CreateMainMenuControls()
 }
 } // namespace
 
-/* Zero is the retail BSS state. The first screen synchronization replaces it
-   with the default cursor and then records the normal -1 state. */
-
-// FUNCTION: WIZ8 0x005bc800
-unsigned char MainMenuScreenInitialize(void)
-{
-    g_main_menu_selected_item = 0;
-    return 1;
-}
-
-// FUNCTION: WIZ8 0x005bc810
 unsigned char MainMenuScreenEnter(void)
 {
     std::string text;
@@ -228,7 +216,7 @@ unsigned char MainMenuScreenEnter(void)
 
     if (gXStatus.uiMonstersInDatabase > 1000) {
         srAssertFail("gXStatus.uiMonstersInDatabase <= MAX_MONSTERS_IN_DATABASE",
-                     "C:\\Projects\\Wizardry 8\\Local Screens\\MainMenuScreen.cpp", 0x87, 0);
+                     __FILE__, 0x87, 0);
     }
     if (g_previous_screen_id != W8_SCREEN_OPTIONS) {
         StartMusicResource("MainMenu.MPL", 0, 1);
@@ -268,7 +256,6 @@ static bool HandleDeveloperModeKey(const InputEvent* input)
    dispatches queued region and keyboard input, including the direct New Game,
    Load, Options and exit shortcuts, then completes the shared 2D redraw and
    renderer transaction. */
-// FUNCTION: WIZ8 0x005bcbf0
 void MainMenuScreenFrame()
 {
     SDL_Point point;
@@ -360,7 +347,6 @@ void MainMenuScreenFrame()
     RenderFrame();
 }
 
-// FUNCTION: WIZ8 0x00591870
 unsigned char MainMenuScreenLeave(int)
 {
     main_menu_dialog.reset();
@@ -370,7 +356,6 @@ unsigned char MainMenuScreenLeave(int)
     return 1;
 }
 
-// FUNCTION: WIZ8 0x005bd010
 void SetMainMenuMessage(std::string_view message)
 {
     g_pending_main_menu_message = message;

@@ -293,7 +293,6 @@ static void DisableNpcTradeActions()
 /* Enabling starts text-input scheme 1 and installs the typed-dialogue field;
    disabling removes it. An already-enabled panel does none of this. */
 
-// FUNCTION: WIZ8 0x0056BAC0
 void W8NpcTypedDialoguePanel::SetEnabled(bool enable)
 {
     if (!enable || !m_fEnabled) {
@@ -309,7 +308,6 @@ void W8NpcTypedDialoguePanel::SetEnabled(bool enable)
 
 /* Base redraw plus the input-frame image: drawn at y 0x19b while where_is_query is
    raised, else 0x18b. */
-// FUNCTION: WIZ8 0x0056BB20
 void W8NpcTypedDialoguePanel::Redraw()
 {
     int redrawn = 0;
@@ -331,7 +329,6 @@ void W8NpcTypedDialoguePanel::Redraw()
 }
 /* Unlike the base, the six option buttons stay inactive while the expanded
    NPC dialogue layout (dialogue_layout == W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX) is not up. */
-// FUNCTION: WIZ8 0x0056BC50
 void W8NpcDialogueOptionsPanel::SetEnabled(bool enable)
 {
     int index;
@@ -360,7 +357,6 @@ void W8NpcDialogueOptionsPanel::SetEnabled(bool enable)
 
 /* Base redraw except the foreground catalog image is m_main_text_box_image rather than
    m_backgroundImage while the expanded dialogue layout is up. */
-// FUNCTION: WIZ8 0x0056BD30
 void W8NpcDialogueOptionsPanel::Redraw()
 {
     int redrawn = 0;
@@ -384,7 +380,6 @@ void W8NpcDialogueOptionsPanel::Redraw()
     RedrawControls(redrawn != 0);
 }
 
-// FUNCTION: WIZ8 0x0056be40
 static std::optional<std::string> ParseKeywordToken(std::string_view& line)
 {
     const auto start = line.find_first_not_of(' ');
@@ -400,7 +395,6 @@ static std::optional<std::string> ParseKeywordToken(std::string_view& line)
 }
 
 /* Load one keyword file into a file list. */
-// FUNCTION: WIZ8 0x0056bed0
 static bool LoadKeywordFile(std::string_view path, KeywordFile& file)
 try
 {
@@ -426,14 +420,12 @@ try
 }
 catch (const std::exception&) { return false; }
 
-// FUNCTION: WIZ8 0x0056c130
 void ClearKeywordLists(void)
 {
     g_keyword_lists.clear();
     g_keyword_lists_loaded = false;
 }
 
-// FUNCTION: WIZ8 0x0056c200
 void ReloadKeywordLists(void)
 {
     ClearKeywordLists();
@@ -445,7 +437,6 @@ void ReloadKeywordLists(void)
     g_keyword_lists_loaded = true;
 }
 
-// FUNCTION: WIZ8 0x0056c440
 std::string TranslateDialogueKeyword(std::string_view source)
 {
     if (g_keyword_lists_loaded) {
@@ -462,7 +453,6 @@ std::string TranslateDialogueKeyword(std::string_view source)
 
 /* Reset the screen state block: zero its 0x268 bytes, write its reset values,
    clear the keyword status byte, and reload the keyword lists. */
-// FUNCTION: WIZ8 0x0056c520
 void ResetMainScreenStateBlock(void)
 {
     int unset = -1;
@@ -481,7 +471,6 @@ void ResetMainScreenStateBlock(void)
 
 /* Forward a monster-script notice to the targeting layer unless the screen is
    busy or this NPC kind suppresses it. */
-// FUNCTION: WIZ8 0x0056C590
 void ForwardNpcScriptNotice(W8NpcState* npc, W8ItemInstance* item, int line, bool suppress)
 {
     if (!gXStatus.fNpcDialogueMode && !gXStatus.fCombatMode &&
@@ -496,7 +485,6 @@ void ForwardNpcScriptNotice(W8NpcState* npc, W8ItemInstance* item, int line, boo
    takes none, and a pending notice blocks the next until it drains. Kind
    0x10/0x11 NPCs with fact 0xbf substitute their own notice line and raise
    the flag byte. */
-// FUNCTION: WIZ8 0x0056C5E0
 void QueueNpcScriptNotice(W8NpcState* npc, W8ItemInstance* item, int line, bool suppress,
                           unsigned char arg)
 {
@@ -541,7 +529,6 @@ void QueueNpcScriptNotice(W8NpcState* npc, W8ItemInstance* item, int line, bool 
    between the item/quote branch and the plain quote branch; both end by
    pausing the world, raising the dialogue flags and pointing the camera at
    the NPC's monster. */
-// FUNCTION: WIZ8 0x0056C6D0
 static void BeginNpcDialogueInternal(W8NpcState* npc, W8ItemInstance* item, int quote, unsigned char flags,
                               unsigned char force)
 {
@@ -636,7 +623,6 @@ static void BeginNpcDialogueInternal(W8NpcState* npc, W8ItemInstance* item, int 
     g_gd_camera->LookAt(&position, false);
 }
 
-// FUNCTION: WIZ8 0x0056CA60
 void BeginNpcDialogue(W8NpcState* npc, W8ItemInstance* item, int quote, unsigned char flags,
                       unsigned char force)
 {
@@ -645,7 +631,6 @@ void BeginNpcDialogue(W8NpcState* npc, W8ItemInstance* item, int quote, unsigned
 
 /* Dispatch the queued NPC script notice: the item goes across only while it
    still carries an id. The two notice flags remain independent byte values. */
-// FUNCTION: WIZ8 0x0056CA90
 void DispatchPendingNpcScriptNotice(void)
 {
     W8ItemInstance* item;
@@ -666,7 +651,6 @@ void DispatchPendingNpcScriptNotice(void)
    disposition band picks the hostile or friendly entry. */
 static void CloseActiveNpcDialogueLayout();
 
-// FUNCTION: WIZ8 0x0056CAD0
 static unsigned char OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item, bool force)
 {
     W8NpcInteractionState* state;
@@ -799,7 +783,6 @@ static unsigned char OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item,
    occupied row. The retail unsigned skill comparison starts at 0xffffffff,
    so later rows do not replace it. Every occupied portrait then takes target pose 1.
    A stale disposition snapshot on the NPC drops its 0x1c flag. */
-// FUNCTION: WIZ8 0x0056D030
 void SelectNpcDialogueSpeaker(W8NpcState* npc, int flags)
 {
     W8NpcInteractionState* state;
@@ -863,7 +846,6 @@ void SelectNpcDialogueSpeaker(W8NpcState* npc, int flags)
    right-hand panels and the text-input panel, then every text control each
    of them hosts. Buttons get their option masks, help ids and activation
    callbacks as they are created. */
-// FUNCTION: WIZ8 0x0056D1D0
 static void CreateNpcDialogueControls(void)
 {
     Controls* panel;
@@ -1117,7 +1099,6 @@ static void OpenNpcDialogueLayout(W8NpcDialogueLayout layout)
    fresh, services the pending layout switch, mirrors the transcript controls'
    enabled state to the field text and selection, and clears the 500ms trade
    highlight flash once it lapses. */
-// FUNCTION: WIZ8 0x0056E510
 void ServiceNpcDialogue(void)
 {
     std::string field_text;
@@ -1236,7 +1217,6 @@ static void CloseActiveNpcDialogueLayout()
     }
 }
 
-// FUNCTION: WIZ8 0x0056E800
 void EndNpcDialogueSession(bool skip_exit_actions)
 {
     if (!gXStatus.fNpcDialogueMode) {
@@ -1324,7 +1304,6 @@ void EndNpcDialogueSession(bool skip_exit_actions)
    portrait: dialogue mode up, panel invalidation not suppressed and the
    controller enabled, then the slot's band check. Portrait and
    character-update paths skip the covered rows through this. */
-// FUNCTION: WIZ8 0x0056EC90
 bool IsPortraitObscuredByNpcDialogue(unsigned int party_slot)
 {
     if (gXStatus.fNpcDialogueMode && !g_npc_interaction_state->scripted_dialogue &&
@@ -1338,7 +1317,6 @@ bool IsPortraitObscuredByNpcDialogue(unsigned int party_slot)
 
 /* Forward one text/cursor rectangle to the action panel while the dialogue
    screen is not suppressing panel invalidation. */
-// FUNCTION: WIZ8 0x0056ECD0
 void InvalidateMainGameActionPanelRect(const W8ControlsRect* rect)
 {
     if (!g_npc_interaction_state->scripted_dialogue) {
@@ -1349,7 +1327,6 @@ void InvalidateMainGameActionPanelRect(const W8ControlsRect* rect)
 /* Redraw each enabled dialogue panel, optionally forcing it disabled first.
    The panel_1ac dirty check snapshots its state before Redraw consumes it and
    repaints the shared text-box scroll chrome alongside. */
-// FUNCTION: WIZ8 0x0056ECF0
 void ActivateNpcDialoguePanels(bool active)
 {
     bool redraw_scroll = false;
@@ -1376,7 +1353,6 @@ void ActivateNpcDialoguePanels(bool active)
 
 /* Whether any of the seven dialogue panels is enabled with a redraw or
    layout pass still pending. */
-// FUNCTION: WIZ8 0x0056ED80
 bool HasNpcDialogueDirtyPanels(void)
 {
     if (!g_npc_interaction_state->scripted_dialogue) {
@@ -1393,7 +1369,6 @@ bool HasNpcDialogueDirtyPanels(void)
 /* Retire the current dialogue layout mode into previous_dialogue_layout and, when nonzero,
    install `value` as the new one; either way the dialogue cursor helper gets
    re-run while the flag is set. */
-// FUNCTION: WIZ8 0x0056EDD0
 static void SetNpcDialogueLayoutMode(W8NpcDialogueLayout value)
 {
     if (value == W8_DIALOGUE_LAYOUT_NONE) {
@@ -1427,7 +1402,6 @@ static void RefreshNpcServiceAvailability(int party_slot)
    slot that entered the dialogue. Mode 1 enables the heal/cure/service rows
    from what the character can actually use; mode 4 resets the editor and
    re-arms the trade prompt. */
-// FUNCTION: WIZ8 0x0056EE20
 void SyncNpcServiceButtons(int party_slot)
 {
     if (gXStatus.fNpcDialogueMode) {
@@ -1440,7 +1414,6 @@ void SyncNpcServiceButtons(int party_slot)
     }
 }
 
-// FUNCTION: WIZ8 0x0056efb0
 unsigned char IsNpcDialogueCursorActive(void)
 {
     if (!gXStatus.fNpcDialogueMode) {
@@ -1451,7 +1424,6 @@ unsigned char IsNpcDialogueCursorActive(void)
 
 /* Whether an NPC dialogue is up in the layout that posts to the main text
    box (mode 4) rather than to the dialogue's own pane. */
-// FUNCTION: WIZ8 0x0056efd0
 bool IsNpcDialogueTextBoxActive(void)
 {
     if (!gXStatus.fNpcDialogueMode) {
@@ -1460,7 +1432,6 @@ bool IsNpcDialogueTextBoxActive(void)
     return g_npc_interaction_state->dialogue_layout == W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX;
 }
 
-// FUNCTION: WIZ8 0x0056EFF0
 void TryNpcDialoguePickpocket(int party_slot)
 {
     if (gXStatus.fNpcDialogueMode && g_npc_interaction_state->dialogue_hidden != 0) {
@@ -1473,7 +1444,6 @@ void TryNpcDialoguePickpocket(int party_slot)
    pointer sits at W8NpcInteractionState::dialogue_controls[callback_id]. Id 0x27
    is the panel slot at +0x1a8 and is ignored. Ids 1..6 and 0x16/0x17 pass 1
    into the widget hooks; every other id passes 0. Mouse-enter always passes 0. */
-// FUNCTION: WIZ8 0x0056F020
 unsigned char MainScreenControlRegionEvent(const InputEvent* event, W8Region* region)
 {
     unsigned int callback_id = region->callback_id;
@@ -1533,7 +1503,6 @@ unsigned char MainScreenControlRegionEvent(const InputEvent* event, W8Region* re
    assay/keyword lookup helpers, and InputEventType::MouseMove tracks the hovered line or
    notice word. Left release falls through into InputEventType::RightButtonDown and also
    raises the right-held flag (retail bug). */
-// FUNCTION: WIZ8 0x0056F1D0
 unsigned char NpcDialogueTextBoxRegionEvent(const InputEvent* event, W8Region* region)
 {
     int line;
@@ -1615,7 +1584,6 @@ unsigned char NpcDialogueTextBoxRegionEvent(const InputEvent* event, W8Region* r
 
 /* Mouse-wheel line tracking on the main NPC text box: flag forces the redraw
    even when the hovered line has not changed. */
-// FUNCTION: WIZ8 0x0056F490
 void NpcDialogueTextBoxWheelAt(short x, unsigned short y, bool flag)
 {
     int line;
@@ -1655,7 +1623,6 @@ static void SelectNpcDialogueKeyword(W8NoticeWord* word, int line)
 /* Left release inside the NPC text box: in the transcript layout a hovered
    notice word becomes the selected keyword and is appended to the input field;
    in the item layouts the hovered slot is selected. */
-// FUNCTION: WIZ8 0x0056F530
 static void NpcDialogueTextBoxLeftUp(int x, int y)
 {
     std::string word_text;
@@ -1692,7 +1659,6 @@ static void NpcDialogueTextBoxLeftUp(int x, int y)
 /* Right release inside the NPC text box: transcript layout adds the clicked
    keyword to the dialogue transcript; the item layouts select the slot and
    open the item assay dialog. */
-// FUNCTION: WIZ8 0x0056F6B0
 static void NpcDialogueTextBoxRightUp(int x, int y)
 {
     std::string word_text;
@@ -1735,7 +1701,6 @@ static void NpcDialogueTextBoxRightUp(int x, int y)
 /* Left double-click inside the NPC text box: transcript layout selects the
    keyword and submits the input line; the item layout picks the hovered line's
    slot and uses the selected item. */
-// FUNCTION: WIZ8 0x0056F840
 static void NpcDialogueTextBoxDoubleClick(int x, int y)
 {
     std::string word_text;
@@ -1805,7 +1770,6 @@ static void ShowNpcTradeGold()
 /* Select the item slot under the text-box cursor and refresh the item preview
    controls: layout 1 pulls from the equipment/backpack picker, layout 4 from
    the trade lists; the mode-2 row zero additionally fills in the purse readout. */
-// FUNCTION: WIZ8 0x0056FAC0
 void UpdateNpcTradeSelection(int index, int increment, int commit)
 {
     W8ItemInstance* item;
@@ -1909,7 +1873,6 @@ void UpdateNpcTradeSelection(int index, int increment, int commit)
 
 /* Reset the secondary dialogue editor: drop the pending item, clear the item
    notice control and both secondary labels, and restore the option row. */
-// FUNCTION: WIZ8 0x0056FED0
 void ResetNpcDialogueItemEditor(void)
 {
     ClearSelectedTextLine(2);
@@ -1940,7 +1903,6 @@ void ResetNpcDialogueItemEditor(void)
    back to the remembered previous_dialogue_layout layout, the option layout returns to the
    topic menu or the transcript by reopen_topics, and mode 5 always lands on the
    transcript. */
-// FUNCTION: WIZ8 0x00570000
 static void BackOutNpcDialogue(void)
 {
     switch (g_npc_interaction_state->dialogue_layout) {
@@ -1976,14 +1938,12 @@ static void BackOutNpcDialogue(void)
     }
 }
 
-// FUNCTION: WIZ8 0x00570120
 void SwitchNpcDialogueLayout(W8NpcDialogueLayout layout)
 {
     CloseActiveNpcDialogueLayout();
     OpenNpcDialogueLayout(layout);
 }
 
-// FUNCTION: WIZ8 0x00570310
 static void LeaveNpcDialogueLayout(void)
 {
     if (!g_npc_interaction_state->modal_dialog_open) {
@@ -1998,7 +1958,6 @@ static void LeaveNpcDialogueLayout(void)
     EndNpcDialogueSession(false);
 }
 
-// FUNCTION: WIZ8 0x00570530
 static void PromptNpcDispositionChange(void)
 {
     W8MessageDialogBase* dialog =
@@ -2009,7 +1968,6 @@ static void PromptNpcDispositionChange(void)
     OpenModal(dialog);
 }
 
-// FUNCTION: WIZ8 0x00570570
 static void OnNpcDispositionPromptClosed(W8DialogBase* dialog)
 {
     if (GetDialogResult(dialog)) {
@@ -2019,7 +1977,6 @@ static void OnNpcDispositionPromptClosed(W8DialogBase* dialog)
     }
 }
 
-// FUNCTION: WIZ8 0x005705B0
 static void EnterNpcServiceLayout(void)
 {
     SwitchNpcDialogueLayout(W8_DIALOGUE_LAYOUT_NONE);
@@ -2037,7 +1994,6 @@ static void SetNpcDialogueAction(W8NpcDialogueControlSlot slot, int text_id,
 
 /* Bring up the mode-2 dialogue layout: the option panels come up, the caption
    takes the NPC's name, and the five topics get their strings and callbacks. */
-// FUNCTION: WIZ8 0x00570760
 void ShowNpcDialogueTopicMenu(void)
 {
     g_npc_interaction_state->dialogue_layout = W8_DIALOGUE_LAYOUT_TOPIC_MENU;
@@ -2081,7 +2037,6 @@ void ShowNpcDialogueTopicMenu(void)
    parked for the duration. */
 /* Fold the mode-2 menu panels away: clear the option row, drop the caption
    text, remember the layout being left and unhide the dialogue window. */
-// FUNCTION: WIZ8 0x00570A20
 void CloseNpcDialogueLayout(void)
 {
     g_npc_dialogue_options_panel_regions.Disable();
@@ -2098,7 +2053,6 @@ void CloseNpcDialogueLayout(void)
    then react to the disposition band - friendly queues the trade quote and
    returns to the transcript, neutral queues the neutral answer, hostile sets
    the hostile band and queues the refusal. */
-// FUNCTION: WIZ8 0x00570AD0
 static void SelectNpcDialogueService(void)
 {
     unsigned char band;
@@ -2124,7 +2078,6 @@ static void SelectNpcDialogueService(void)
 /* The "Talk" option button: friendly NPCs leave the dialogue outright,
    neutral ones queue the talk quote, hostile ones set the hostile band and
    queue the refusal. */
-// FUNCTION: WIZ8 0x00570B80
 static void SelectNpcDialogueTalk(void)
 {
     unsigned char band;
@@ -2149,7 +2102,6 @@ static void SelectNpcDialogueTalk(void)
 
 /* The "Exit" option button: close the option row, mark the dialogue as leaving
    through the transcript and open the option layout for the farewell. */
-// FUNCTION: WIZ8 0x00570C20
 static void SelectNpcDialogueExit(void)
 {
     CloseNpcDialogueLayout();
@@ -2174,7 +2126,6 @@ void SyncNpcDialogueTranscriptScrollButtons()
     }
 }
 
-// FUNCTION: WIZ8 0x00570CF0
 void OpenNpcDialogueTranscriptLayout(void)
 {
     int index;
@@ -2270,7 +2221,6 @@ void OpenNpcDialogueTranscriptLayout(void)
 /* Tear down the mode-3 transcript layout: fold the dialogue text controller
    back up, drop the panels, then re-enable whichever occupied party rows
    still own region slots. */
-// FUNCTION: WIZ8 0x00571370
 static void CloseNpcDialogueTranscriptLayout(void)
 {
     int index;
@@ -2302,7 +2252,6 @@ static void CloseNpcDialogueTranscriptLayout(void)
     }
 }
 
-// FUNCTION: WIZ8 0x005714D0
 static void RequestNpcJoinParty(void)
 {
     unsigned int slot;
@@ -2327,14 +2276,12 @@ static void RequestNpcJoinParty(void)
     QueueNpcScriptLine(0xb, false, false, false);
 }
 
-// FUNCTION: WIZ8 0x005715A0
 static void ShowNpcDialogueNotice(void)
 {
     ShowNotice(W8_FONT_PALETTE_BRONZE, g_localized_strings[0x749], 3, GetTextBoxScrollRange());
     SetNpcDialogueHidden(1);
 }
 
-// FUNCTION: WIZ8 0x005715D0
 static void EnterNpcTradeOptions(void)
 {
     CloseNpcDialogueTranscriptLayout();
@@ -2342,21 +2289,18 @@ static void EnterNpcTradeOptions(void)
     OpenNpcDialogueOptionLayout();
 }
 
-// FUNCTION: WIZ8 0x005715F0
 static void ScrollNpcDialogueUp(void)
 {
     static_cast<W8NpcDialogueTextController*>(g_npc_interaction_state->dialogue_panels[2])
         ->HandleScrollUpCommand(false);
 }
 
-// FUNCTION: WIZ8 0x00571610
 static void ScrollNpcDialogueDown(void)
 {
     static_cast<W8NpcDialogueTextController*>(g_npc_interaction_state->dialogue_panels[2])
         ->HandleScrollDownCommand(false);
 }
 
-// FUNCTION: WIZ8 0x00571630
 static void SubmitNpcDialogueKeyword(void)
 {
     std::string keyword;
@@ -2365,7 +2309,6 @@ static void SubmitNpcDialogueKeyword(void)
     AddNpcDialogueKeyword(keyword, -1, 0);
 }
 
-// FUNCTION: WIZ8 0x00571660
 void AddNpcDialogueKeyword(std::string text, signed char category, int play_chime)
 {
     W8NpcDialogueTextController* controller;
@@ -2443,7 +2386,6 @@ void AddNpcDialogueKeyword(std::string text, signed char category, int play_chim
     }
 }
 
-// FUNCTION: WIZ8 0x00571880
 static void RefreshNpcDialogueTranscript(void)
 {
     static_cast<W8NpcDialogueTextController*>(g_npc_interaction_state->dialogue_panels[2])
@@ -2455,7 +2397,6 @@ static void RefreshNpcDialogueTranscript(void)
     SyncNpcDialogueTranscriptScrollButtons();
 }
 
-// FUNCTION: WIZ8 0x00571920
 static void SyncNpcDialogueListFilter(void)
 {
     if (static_cast<unsigned char>(
@@ -2484,31 +2425,26 @@ static void SelectNpcDialogueTopics(W8NpcDialogueControlSlot button, W8DialogueC
         ->SetTranscriptCategoryFilter(category);
 }
 
-// FUNCTION: WIZ8 0x00571960
 static void SelectNpcPeopleTopics(void)
 {
     SelectNpcDialogueTopics(W8_NPC_CONTROL_PEOPLE_BUTTON, W8_DIALOGUE_CATEGORY_PEOPLE);
 }
 
-// FUNCTION: WIZ8 0x005719A0
 static void SelectNpcPlaceTopics(void)
 {
     SelectNpcDialogueTopics(W8_NPC_CONTROL_PLACES_BUTTON, W8_DIALOGUE_CATEGORY_PLACES);
 }
 
-// FUNCTION: WIZ8 0x005719E0
 static void SelectNpcItemTopics(void)
 {
     SelectNpcDialogueTopics(W8_NPC_CONTROL_ITEMS_BUTTON, W8_DIALOGUE_CATEGORY_ITEMS);
 }
 
-// FUNCTION: WIZ8 0x00571A20
 static void SelectNpcDialogueCategoryAll(void)
 {
     SelectNpcDialogueTopics(W8_NPC_CONTROL_ALL_BUTTON, W8_DIALOGUE_CATEGORY_ALL);
 }
 
-// FUNCTION: WIZ8 0x00571A60
 static void SelectNpcMiscTopics(void)
 {
     SelectNpcDialogueTopics(W8_NPC_CONTROL_MISC_BUTTON, W8_DIALOGUE_CATEGORY_MISC);
@@ -2522,7 +2458,6 @@ static void ConfigureNpcTradeCommands()
     SetNpcDialogueAction(W8_NPC_CONTROL_TEXT_4, 0x72e, SelectNpcShopliftMode);
 }
 
-// FUNCTION: WIZ8 0x00571AA0
 static void OpenNpcDialogueOptionLayout(void)
 {
     std::string buffer;
@@ -2644,7 +2579,6 @@ static void SetNpcTradeTitle(int text_id)
         ->m_textBuffer.SetText(g_localized_strings[text_id], g_wiz_text_bold_font);
 }
 
-// FUNCTION: WIZ8 0x00571F60
 void UpdateNpcDialogueSubMode(void)
 {
     switch (g_npc_interaction_state->trade_mode) {
@@ -2694,7 +2628,6 @@ void UpdateNpcDialogueSubMode(void)
 
 /* Tear down the mode-4 option layout: the six option controls lose their
    secondary state and layout flags before everything is disabled. */
-// FUNCTION: WIZ8 0x00572320
 void CloseNpcDialogueOptionLayout(void)
 {
     W8TextControl* text;
@@ -2753,7 +2686,6 @@ void CloseNpcDialogueOptionLayout(void)
     ScrollDialogueTextBoxToLine();
 }
 
-// FUNCTION: WIZ8 0x00572590
 static void OpenNpcItemAssay(void)
 {
     W8AssayDialog* dialog;
@@ -2772,13 +2704,11 @@ static void OpenNpcItemAssay(void)
     }
 }
 
-// FUNCTION: WIZ8 0x00572670
 static void OnNpcAssayDialogClosed(W8DialogBase*)
 {
     RequestRedraw(W8_MAIN_REDRAW_ALL);
 }
 
-// FUNCTION: WIZ8 0x00572680
 static void SelectNpcPartyItems(void)
 {
     ResetNpcDialogueItemEditor();
@@ -2787,7 +2717,6 @@ static void SelectNpcPartyItems(void)
     g_npc_interaction_state->trade_pc_items = true;
 }
 
-// FUNCTION: WIZ8 0x00572700
 static void SelectNpcStockItems(void)
 {
     ResetNpcDialogueItemEditor();
@@ -2796,7 +2725,6 @@ static void SelectNpcStockItems(void)
     g_npc_interaction_state->trade_pc_items = false;
 }
 
-// FUNCTION: WIZ8 0x00572960
 static void ConfirmNpcTradeSlot(void)
 {
     int slot;
@@ -2820,7 +2748,6 @@ static void ConfirmNpcTradeSlot(void)
 /* The "Gold" split-amount entry: reset the item editor, dim the six option
    buttons and open the W8SplitAmountDialog seeded with the party purse. The
    result lands back through OnNpcTradeSplitDialogDestroy. */
-// FUNCTION: WIZ8 0x00572780
 static void OpenNpcGoldAmountDialog(void)
 {
     W8SplitAmountDialog* dialog;
@@ -2844,7 +2771,6 @@ static void OpenNpcGoldAmountDialog(void)
 
 /* Destroy callback for the trade split-amount dialog: on confirm it takes the
    entered share into trade_gold and refreshes the purse readout. */
-// FUNCTION: WIZ8 0x00572870
 void OnNpcTradeSplitDialogDestroy(W8DialogBase* dialog)
 {
     if (static_cast<W8SplitAmountDialog*>(dialog)->m_result != g_amount_split_confirm_result) {
@@ -2917,7 +2843,6 @@ static void UpdatePartyTradeQuantity(const W8ItemInstance* item, int row, bool d
     }
 }
 
-// FUNCTION: WIZ8 0x005729C0
 static W8ItemInstance* ResolveNpcTradeRow(int index, bool pick, char decrement, char commit)
 {
     W8NpcItemEntry* entry;
@@ -3052,7 +2977,6 @@ static W8ItemInstance* ResolveNpcTradeRow(int index, bool pick, char decrement, 
 /* Whether the current trade filter rejects `item`: the Zant NPC hides item
    0x290 until fact 0x3c, the trade_filter low bits gate character/party
    usability, and bits 0x3c select the accepted equipment slot group. */
-// FUNCTION: WIZ8 0x00573190
 bool NpcTradeItemAllowed(W8ItemInstance* item)
 {
     W8ItemEquipSlotGroup group;
@@ -3099,7 +3023,6 @@ bool NpcTradeItemAllowed(W8ItemInstance* item)
     return true;
 }
 
-// FUNCTION: WIZ8 0x005732A0
 static void OpenNpcDialogueMode5Layout(void)
 {
     std::string buffer;
@@ -3146,7 +3069,6 @@ static void OpenNpcDialogueMode5Layout(void)
 }
 
 /* Tear down the mode-5 dialogue layout and retire the current mode. */
-// FUNCTION: WIZ8 0x00573570
 static void CloseNpcDialogueMode5Layout(void)
 {
     g_npc_dialogue_options_panel_regions.Disable();
@@ -3162,7 +3084,6 @@ static void CloseNpcDialogueMode5Layout(void)
 
 /* Re-arm the six trade-filter option buttons after the list contents were
    rebuilt. */
-// FUNCTION: WIZ8 0x00573630
 void EnableNpcTradeFilterButtons(void)
 {
     for (unsigned int index = 0; index <= 5; ++index) {
@@ -3215,25 +3136,21 @@ static void ToggleNpcTradeCategory(int button, W8NpcTradeFilter filter)
     RebuildNpcTradeItemList(true);
 }
 
-// FUNCTION: WIZ8 0x00573660
 static void ToggleNpcHandItemFilter(void)
 {
     ToggleNpcTradeCategory(0, W8_NPC_TRADE_HAND);
 }
 
-// FUNCTION: WIZ8 0x00573730
 static void ToggleNpcAccessoryItemFilter(void)
 {
     ToggleNpcTradeCategory(1, W8_NPC_TRADE_ACCESSORY);
 }
 
-// FUNCTION: WIZ8 0x00573800
 static void ToggleNpcBodyItemFilter(void)
 {
     ToggleNpcTradeCategory(3, W8_NPC_TRADE_BODY);
 }
 
-// FUNCTION: WIZ8 0x005738D0
 static void ToggleNpcOtherItemFilter(void)
 {
     ToggleNpcTradeCategory(4, W8_NPC_TRADE_OTHER);
@@ -3242,7 +3159,6 @@ static void ToggleNpcOtherItemFilter(void)
 /* The "usable by the selected character" toggle is exclusive with the
    "usable by anyone" toggle: option control 2 lowers bit 0x40 and raises
    bit 1 while pressed, and drops bit 1 when released. */
-// FUNCTION: WIZ8 0x005739A0
 static void ToggleNpcCharacterUsabilityFilter(void)
 {
     if (static_cast<unsigned char>(
@@ -3262,7 +3178,6 @@ static void ToggleNpcCharacterUsabilityFilter(void)
     RebuildNpcTradeItemList(true);
 }
 
-// FUNCTION: WIZ8 0x00573A10
 static void ToggleNpcPartyUsabilityFilter(void)
 {
     if (static_cast<unsigned char>(
@@ -3282,21 +3197,18 @@ static void ToggleNpcPartyUsabilityFilter(void)
     RebuildNpcTradeItemList(true);
 }
 
-// FUNCTION: WIZ8 0x00573A80
 static void SelectNpcSellMode(void)
 {
     g_npc_interaction_state->trade_mode = W8_NPC_TRADE_SELL;
     UpdateNpcDialogueSubMode();
 }
 
-// FUNCTION: WIZ8 0x00573AA0
 static void SelectNpcGiveMode(void)
 {
     g_npc_interaction_state->trade_mode = W8_NPC_TRADE_GIVE;
     UpdateNpcDialogueSubMode();
 }
 
-// FUNCTION: WIZ8 0x00573AC0
 static void SelectNpcShopliftMode(void)
 {
     g_npc_interaction_state->trade_mode = W8_NPC_TRADE_SHOPLIFT;
@@ -3306,7 +3218,6 @@ static void SelectNpcShopliftMode(void)
 /* Open the mode-1 service layout: the caption and three service options, the
    mode-4-only controls parked, and each option enabled from what the selected
    character can actually cast or use. */
-// FUNCTION: WIZ8 0x00573AE0
 static void OpenNpcDialogueMode1Layout(void)
 {
     g_npc_interaction_state->dialogue_layout = W8_DIALOGUE_LAYOUT_SERVICES;
@@ -3343,7 +3254,6 @@ static void OpenNpcDialogueMode1Layout(void)
 
 /* Tear down the mode-1 dialogue layout; outside camp the mode is retired as
    well. */
-// FUNCTION: WIZ8 0x00573DD0
 static void CloseNpcDialogueMode1Layout(void)
 {
     g_npc_dialogue_options_panel_regions.Disable();
@@ -3363,7 +3273,6 @@ static void CloseNpcDialogueMode1Layout(void)
     }
 }
 
-// FUNCTION: WIZ8 0x00573ED0
 static void RequestNpcSpellService3(void)
 {
     int location = g_npc_interaction_state->target_location_id;
@@ -3375,7 +3284,6 @@ static void RequestNpcSpellService3(void)
     BeginSpellCast(W8_SPELL_CHARM, location, mode);
 }
 
-// FUNCTION: WIZ8 0x00573F10
 static void RequestNpcSpellService41(void)
 {
     int location = g_npc_interaction_state->target_location_id;
@@ -3387,7 +3295,6 @@ static void RequestNpcSpellService41(void)
     BeginSpellCast(W8_SPELL_MINDREAD, location, mode);
 }
 
-// FUNCTION: WIZ8 0x00573F50
 static void RequestNpcCharacterService(void)
 {
     gXStatus.fCampMode = true;
@@ -3399,7 +3306,6 @@ static void RequestNpcCharacterService(void)
 /* Pick the index-th activatable item on the dialogue character: the twelve
    equipment slots first, then the eight backpack slots. The hit refreshes the
    dialogue_text_16c preview image and its stack-count text. */
-// FUNCTION: WIZ8 0x00573F80
 static W8ItemInstance* GetNpcTradeSlotItem(int index)
 {
     std::string count_text;
@@ -3470,7 +3376,6 @@ static W8ItemInstance* GetNpcTradeSlotItem(int index)
 
 /* Hand the player's reply to the dialogue while one is pending (AnswerNpcReply
    resolves it); a nonzero echo posts the reply text back as a notice. */
-// FUNCTION: WIZ8 0x00574250
 static void HandleNpcDialogueReply(std::string_view text, bool echo)
 {
     std::string notice;
@@ -3506,7 +3411,6 @@ static bool ReadNextWord(std::string_view& text, std::string& word)
    then every single word is tried through FindNpcScriptQuoteByKeyword. Unresolved input
    shows a fallback notice built from the random reply tables; resolved input
    queues the script line(s). */
-// FUNCTION: WIZ8 0x005743B0
 void HandleNpcDialogueInput(void)
 {
     std::string field_text;
@@ -3692,7 +3596,6 @@ void HandleNpcDialogueInput(void)
     QueueNpcScriptLine(second_quote_id, true, false, false);
 }
 
-// FUNCTION: WIZ8 0x00574BB0
 void HandleNpcDialogueKeyEvent(const InputEvent* event)
 {
     W8NpcInteractionState* state;
@@ -3804,7 +3707,6 @@ void HandleNpcDialogueKeyEvent(const InputEvent* event)
     }
 }
 
-// FUNCTION: WIZ8 0x00574F90
 void SetDialogueFieldKeyword(std::string keyword, bool append)
 {
     std::string field_text;
@@ -3820,7 +3722,6 @@ void SetDialogueFieldKeyword(std::string keyword, bool append)
     }
 }
 
-// FUNCTION: WIZ8 0x00575020
 static bool IsDialoguePlaceKeyword(std::string_view name)
 {
     for (int index = 0; index < g_dialogue_place_keyword_count; ++index) {
@@ -3832,16 +3733,11 @@ static bool IsDialoguePlaceKeyword(std::string_view name)
     return false;
 }
 
-// FUNCTION: WIZ8 0x00575070
 void ClearNpcDialogueTranscript(void)
 {
-    for (int index = 0; index < static_cast<int>(g_npc_interaction_state->dialogue_transcript.size()); ++index) {
-        delete g_npc_interaction_state->dialogue_transcript[index];
-    }
     g_npc_interaction_state->dialogue_transcript.clear();
 }
 
-// FUNCTION: WIZ8 0x005750D0
 unsigned char LoadNpcDialogueTranscript(wiz8::File& file)
 try
 {
@@ -3881,8 +3777,7 @@ try
     transcript.reserve(record_count);
     ClearNpcDialogueTranscript();
     for (auto& record : pending) {
-        transcript.push_back(record.get());
-        (void)record.release();
+        transcript.push_back(std::move(record));
     }
     g_npc_interaction_state->dialogue_category_filter = category_filter;
     g_npc_interaction_state->transcript_sorted = sorted != 0;
@@ -3890,7 +3785,6 @@ try
 }
 catch (const std::exception&) { return false; }
 
-// FUNCTION: WIZ8 0x00575290
 unsigned char SaveNpcDialogueTranscript(wiz8::File& file)
 try
 {
@@ -3899,7 +3793,7 @@ try
     file.write(&version, sizeof(version));
     file.write(&record_count, sizeof(record_count));
     for (int index = 0; index < record_count; ++index) {
-        W8DialogueTranscriptRecord* record = g_npc_interaction_state->dialogue_transcript[index];
+        W8DialogueTranscriptRecord* record = g_npc_interaction_state->dialogue_transcript[index].get();
         const int text_length = wiz8::text::to_utf16(record->text).size();
         if (text_length >= 100) return false;
         std::vector<std::byte> bytes((std::size_t(text_length) + 1) * 2);
@@ -3917,7 +3811,6 @@ catch (const std::exception&) { return false; }
 
 /* Restate the five transcript category buttons so only the active
    dialogue_category_filter's button shows its secondary state. */
-// FUNCTION: WIZ8 0x00575390
 void SyncDialogueCategoryButtons(void)
 {
     int category = g_npc_interaction_state->dialogue_category_filter;
@@ -3980,7 +3873,6 @@ void SyncDialogueCategoryButtons(void)
 
 /* A confirmed purchase returns the NPC dialogue to the layout appropriate
    for the NPC's disposition. A cancelled dialog leaves the layout alone. */
-// FUNCTION: WIZ8 0x00575520
 static void OnNpcTradeDialogClosed(W8DialogBase* dialog)
 {
     if (!GetDialogResult(dialog)) {
@@ -3995,7 +3887,6 @@ static void OnNpcTradeDialogClosed(W8DialogBase* dialog)
     }
 }
 
-// FUNCTION: WIZ8 0x00575710
 static void ConfirmNpcTradePurchase(void)
 {
     if (GetNpcDispositionBand(g_npc_interaction_state->dialogue_npc) == W8_NPC_BAND_FRIENDLY) {
@@ -4025,7 +3916,6 @@ static void ConfirmNpcTradePurchase(void)
     QueueNpcScriptLine(7, false, false, false);
 }
 
-// FUNCTION: WIZ8 0x00575810
 static unsigned char HandleNpcDialogueItem(W8ItemInstance* item)
 {
     W8MessageDialogBase* dialog;
@@ -4117,7 +4007,6 @@ static unsigned char AcceptNpcDialogueItem(W8NpcState*, W8ItemInstance*, int)
 
 /* While NPC script deferral holds character events during an open dialogue,
    pump Escape and left-click so layout dismissals still run. */
-// FUNCTION: WIZ8 0x00575B00
 static void SubmitNpcWhereIsQuery(void)
 {
     g_npc_interaction_state->where_is_query = true;
@@ -4126,7 +4015,6 @@ static void SubmitNpcWhereIsQuery(void)
     g_npc_interaction_state->where_is_query = false;
 }
 
-// FUNCTION: WIZ8 0x00575B40
 static void SubmitNpcDialogueInput(void)
 {
     g_npc_interaction_state->where_is_query = false;
@@ -4134,7 +4022,6 @@ static void SubmitNpcDialogueInput(void)
     HandleNpcDialogueInput();
 }
 
-// FUNCTION: WIZ8 0x00575B70
 void HandleNpcDialogueItemChoice(void)
 {
     HandleNpcDialogueItem(g_npc_interaction_state->trade_item);
@@ -4146,7 +4033,6 @@ void HandleNpcDialogueItemChoice(void)
     }
 }
 
-// FUNCTION: WIZ8 0x00575BC0
 void RefreshNpcTradePartyGold(void)
 {
     std::string text;
@@ -4156,7 +4042,6 @@ void RefreshNpcTradePartyGold(void)
         ->m_textBuffer.SetText(text, g_wiz_text_font_secondary);
 }
 
-// FUNCTION: WIZ8 0x00575C00
 void RefreshNpcTradePrice(void)
 {
     std::string text;
@@ -4169,7 +4054,6 @@ void RefreshNpcTradePrice(void)
     }
 }
 
-// FUNCTION: WIZ8 0x00575C50
 void DrainNpcDialogueDeferralInput(void)
 {
     SDL_Point mouse;
@@ -4235,7 +4119,6 @@ void DrainNpcDialogueDeferralInput(void)
    suspended while the modal is up unless the dialogue stays live; for the
    price-check opcodes the base price in the request is discounted by the
    NPC's effect percentage and the party's best haggle skill. */
-// FUNCTION: WIZ8 0x00575E60
 void OpenNpcDialog(W8NpcQuoteEntry* request, int aux_data)
 {
     W8MonsterInfo* monster_info;
@@ -4272,14 +4155,12 @@ void OpenNpcDialog(W8NpcQuoteEntry* request, int aux_data)
     SetTargetCursor(W8_CURSOR_NONE);
 }
 
-// FUNCTION: WIZ8 0x00576030
 void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQuote* quote,
                               int quote_id, unsigned int font_palette)
 {
     SetNpcQuoteBubbleVisible(visible, text, quote, quote_id, font_palette, {}, -1);
 }
 
-// FUNCTION: WIZ8 0x00576060
 void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQuote* quote,
                               int quote_id, unsigned int font_palette,
                               W8QuoteNotice notice, int npc_kind)
@@ -4392,7 +4273,6 @@ void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQu
     }
 }
 
-// FUNCTION: WIZ8 0x00576650
 unsigned char NpcQuoteBubbleRegionEvent(const InputEvent* event, W8Region*)
 {
     if (event->type != InputEventType::LeftButtonDown) {
@@ -4402,7 +4282,6 @@ unsigned char NpcQuoteBubbleRegionEvent(const InputEvent* event, W8Region*)
     return 1;
 }
 
-// FUNCTION: WIZ8 0x00576670
 void DrawNpcQuoteBubble(void)
 {
     IsModalOpen();
@@ -4413,7 +4292,6 @@ void DrawNpcQuoteBubble(void)
     }
 }
 
-// FUNCTION: WIZ8 0x005766B0
 void FlushPendingNoticeLines(void)
 {
     std::string npc_name;
@@ -4436,7 +4314,6 @@ void FlushPendingNoticeLines(void)
     wiz8::remove_all_and_delete_in_order(g_npc_interaction_state->pending_notice_lines);
 }
 
-// FUNCTION: WIZ8 0x005767f0
 void LookAtDialogueNpc(void)
 {
     W8MonsterInfo* info = GetNpcMonsterInfo(g_npc_interaction_state->dialogue_npc);
@@ -4452,7 +4329,6 @@ void LookAtDialogueNpc(void)
    the transcript expands; on hide the party sets come back, the transcript
    collapses, its background is cleared and the rectangle invalidated. The new
    state lands in dialogue_hidden. */
-// FUNCTION: WIZ8 0x00576850
 static void SetNpcDialogueHidden(char value)
 {
     int index;
@@ -4519,7 +4395,6 @@ static void SetNpcDialogueHidden(char value)
    yes/no string, or the typed keyword text. Inside a live dialogue the text is
    injected into input field 0 and processed as if typed; otherwise it is
    submitted to the script line queue directly. */
-// FUNCTION: WIZ8 0x00576BA0
 static void ResolveNpcPickpocket(int party_slot)
 {
     W8Character* character = &g_status.buffers.Char[party_slot];
@@ -4565,7 +4440,6 @@ static void ResolveNpcPickpocket(int party_slot)
     }
 }
 
-// FUNCTION: WIZ8 0x00576DA0
 void QueueDialogueNpcRefusal(void)
 {
     unsigned int flags = g_npc_interaction_state->dialogue_npc->refusal_flags;
@@ -4582,7 +4456,6 @@ void QueueDialogueNpcRefusal(void)
     QueueNpcScriptLine(0x69, false, false, false);
 }
 
-// FUNCTION: WIZ8 0x00576E20
 void OnNpcDialogClosed(W8DialogBase* dialog)
 {
     W8NpcDialog* npc_dialog = static_cast<W8NpcDialog*>(dialog);
@@ -4650,7 +4523,6 @@ void OnNpcDialogClosed(W8DialogBase* dialog)
 /* The camp-side mirror of SwitchNpcDialogueLayout: camp mode is raised, the current
    dialogue layout is retired, and a still-pending item goes back onto the
    item cursor. */
-// FUNCTION: WIZ8 0x00577020
 void CloseNpcDialogueForCamp(void)
 {
     gXStatus.fCampMode = true;
@@ -4664,14 +4536,12 @@ void CloseNpcDialogueForCamp(void)
     SetTargetCursor(W8_CURSOR_NONE);
 }
 
-// FUNCTION: WIZ8 0x00577220
 void SyncDialogueNpcStateAndMarkPending(void)
 {
     SyncDialogueNpcState();
     g_npc_interaction_state->pending_trade_toggle = true;
 }
 
-// FUNCTION: WIZ8 0x00577260
 void SyncDialogueNpcState(void)
 {
     BeginNpcDialogueInternal(g_npc_interaction_state->dialogue_npc, 0, -1, 0, 1);
@@ -4684,7 +4554,6 @@ void SyncDialogueNpcState(void)
    the named-action queue hands the speaker's name to 0x00571660 instead.
    Every occupied living character without a maxed condition practices
    communication (skill 0x16). */
-// FUNCTION: WIZ8 0x00577290
 static void HandleNpcDialogueDeparture(unsigned char value)
 {
     W8MonsterInfo* info;
@@ -4731,7 +4600,6 @@ static void HandleNpcDialogueDeparture(unsigned char value)
 
 /* Shared by the main-game screen and dialog text entries; it lives with the
    main-game text helpers, not with UtilityFunctions.cpp. */
-// FUNCTION: WIZ8 0x00577410
 std::string ShortenTextToWidth(std::string_view text, unsigned int width, Font& font)
 {
     std::string shortened(text);
@@ -4744,7 +4612,6 @@ std::string ShortenTextToWidth(std::string_view text, unsigned int width, Font& 
     return {};
 }
 
-// FUNCTION: WIZ8 0x00577520
 void BeginScriptedWorldAction(void)
 {
     g_status.world_cursor_gate = 1;
@@ -4752,7 +4619,6 @@ void BeginScriptedWorldAction(void)
     SetTargetCursor(W8_CURSOR_MAP_LOAD);
 }
 
-// FUNCTION: WIZ8 0x00577540
 void ClearMainGameTargetState(void)
 {
     g_status.world_cursor_gate = 0;
@@ -4762,7 +4628,6 @@ void ClearMainGameTargetState(void)
 
 /* When the world-cursor gate (world_cursor_gate) is raised, discard queued input
    after refreshing the region position so stale events do not fire. */
-// FUNCTION: WIZ8 0x00577560
 void FlushInputWhileWorldCursorGate(void)
 {
     SDL_Point mouse;
@@ -4777,7 +4642,6 @@ void FlushInputWhileWorldCursorGate(void)
     }
 }
 
-// FUNCTION: WIZ8 0x005775d0
 void AddDialogueTranscriptKeyword(std::string_view name, signed char category)
 {
     std::string keyword;
@@ -4820,14 +4684,12 @@ void AddDialogueTranscriptKeyword(std::string_view name, signed char category)
             return;
         }
     }
-    W8DialogueTranscriptRecord* record =
-        new W8DialogueTranscriptRecord{};
+    auto record = std::make_unique<W8DialogueTranscriptRecord>();
     record->text = keyword;
     record->category = category;
-    g_npc_interaction_state->dialogue_transcript.push_back(record);
+    g_npc_interaction_state->dialogue_transcript.push_back(std::move(record));
 }
 
-// FUNCTION: WIZ8 0x005777c0
 void RecordLevelEntryDialogueState(void)
 {
     std::string region_name;
@@ -4846,20 +4708,17 @@ void RecordLevelEntryDialogueState(void)
 
 /* Same NPC-dialogue text-box-layout predicate as IsNpcDialogueTextBoxActive,
    emitted as a second copy for the dialogue text input callers. */
-// FUNCTION: WIZ8 0x00577830
 bool IsNpcDialogueTextInputActive(void)
 {
     return gXStatus.fNpcDialogueMode &&
            g_npc_interaction_state->dialogue_layout == W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX;
 }
 
-// FUNCTION: WIZ8 0x00577850
 bool CanOpenNpcDialogue(void)
 {
     return gXStatus.fNpcDialogueMode && g_npc_interaction_state->scripted_dialogue;
 }
 
-// FUNCTION: WIZ8 0x00577880
 unsigned char SetNpcDialoguePanelVisible(unsigned char value)
 {
     W8NpcDialogueTextController* controller;
@@ -4902,7 +4761,6 @@ unsigned char SetNpcDialoguePanelVisible(unsigned char value)
     }
     return 0;
 }
-// FUNCTION: WIZ8 0x00577A20
 bool FinishNpcVoiceIfSessionActive(void)
 {
     if (!IsNpcScriptSessionActive()) {
@@ -4912,7 +4770,6 @@ bool FinishNpcVoiceIfSessionActive(void)
     return true;
 }
 
-// FUNCTION: WIZ8 0x00577A40
 bool ProcessPendingEvent(void)
 {
     if (IsNpcScriptSessionActive()) {

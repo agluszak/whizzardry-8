@@ -28,6 +28,12 @@ will still need to render the game's original graphics and text.
   and modal dispatch reaches it through the ordinary widget hooks. The
   separate `W8DialogButton` hierarchy is gone. Camp screen state, its ranges,
   its active dialog and every `Controls` panel are `unique_ptr`-owned.
+- **Screen and panel ownership (#192–#197)**: `Controls::AcquireRegionSet` and the
+  process-lifetime per-panel set slots have been deleted. Options, character
+  creation, main-game, party-selection and other screen objects are
+  `unique_ptr`-owned and reset on leave; their child panels and text buffers
+  are owned by their containing screens. Automap screen state and the cell
+  and marker metadata collections are also directly owned.
 - **Local screens**: screen-specific state, draw code, global region callbacks
   and input queues. These should remain screen-specific *views*, not each
   maintain a distinct input framework.
@@ -61,6 +67,14 @@ W8Region still provides hit testing as an intermediate step.
 Intro and Credits do not need hit testing, hover or focus. They now consume
 their own skip/dismiss events instead of retaining full-screen region callbacks.
 Do not invent widget subclasses where simple screen input suffices.
+
+## Remaining work
+
+The region-set migration and first screen/panel ownership passes are complete.
+Next, finish screen-local resource lifetimes, remove recovery-only initialization
+and manual teardown, and consolidate event routing, focus and redraw. Renderer
+objects (`g_fade_overlay`, surprise effects and automap 2D markers) still use
+`ReleaseRendererObject` and belong to a separate renderer ownership audit.
 
 ## Migration sequence
 

@@ -2,6 +2,7 @@
 #pragma once
 
 #include <vector>
+#include <memory>
 #include <optional>
 #include <string_view>
 #include <string>
@@ -195,7 +196,7 @@ struct W8NpcInteractionState {
     /* Raised while the "Where Is" submit path runs, so the typed text is
        wrapped in the "Where is %s" template instead of a plain keyword lookup. */
     bool where_is_query;
-    std::vector<W8DialogueTranscriptRecord*> dialogue_transcript;
+    std::vector<std::unique_ptr<W8DialogueTranscriptRecord>> dialogue_transcript;
     bool transcript_sorted;
     /* The item a pending NPC notice carries; copied from g_pending_notice
        when the dialogue opens. */

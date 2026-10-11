@@ -332,7 +332,6 @@ ScreenRegionSet g_camp_automap_regions{g_camp_automap_templates, 0x2f};
 ScreenRegionSet g_camp_overlay_regions{g_camp_overlay_templates, 0x30};
 /* Enable or disable the six spell-realm scrollbars together. While enabling, a
    realm whose learned spells fit the eight visible rows keeps its bar off. */
-// FUNCTION: WIZ8 0x005B71C0
 void SetCampSpellRangesEnabled(bool enable)
 {
     W8CampSpellRange* spell_range;
@@ -356,7 +355,6 @@ void SetCampSpellRangesEnabled(bool enable)
 
 /* Re-enable all six spell-realm scrollbars after the learned-spell lists were
    rebuilt for a new character. */
-// FUNCTION: WIZ8 0x005B7290
 void RefreshCampSpellRanges(void)
 {
     W8CampSpellRange* spell_range;
@@ -380,7 +378,6 @@ void RefreshCampSpellRanges(void)
    skill level, the spell-point pool and up to eight learned spell rows; the
    row under the cursor gets the highlight palette and unaffordable or
    unusable spells dim. */
-// FUNCTION: WIZ8 0x005B7300
 void DrawCampSpellPages(void)
 {
     W8CampScreenState* state;
@@ -476,7 +473,6 @@ void DrawCampSpellPages(void)
 /* The six resistance bars along the spell page's top strip: each bar clips its
    fill to the learned portion, the overflow to the bonus band or the shortfall
    to the gap, then right-aligns the value inside the bar. */
-// FUNCTION: WIZ8 0x005B7790
 void DrawCampResistances(void)
 {
     W8Character* character = g_review_character;
@@ -507,7 +503,6 @@ void DrawCampResistances(void)
    event's cursor position picks the highlighted row within the eight visible
    ones, wheel input scrolls the realm's range control, and activating a valid
    row opens its spell info dialog. */
-// FUNCTION: WIZ8 0x005B79F0
 unsigned char SpellListRegionHandler(const InputEvent* event, W8Region* region)
 {
     unsigned short realm;
@@ -584,7 +579,6 @@ unsigned char SpellListRegionHandler(const InputEvent* event, W8Region* region)
 }
 
 /* Open the spell info dialog for one spell id off the camp spell lists. */
-// FUNCTION: WIZ8 0x005B7BB0
 void OpenSpellInfoDialog(unsigned int spell_id)
 {
     auto dialog = std::make_unique<W8SpellInfoDialog>(spell_id);
@@ -595,7 +589,6 @@ void OpenSpellInfoDialog(unsigned int spell_id)
 /* The items-page redraw driver, run once per update: each pending group of
    redraw flags is cleared by repainting that block, and the two bottom/right
    panels repaint when their own bits are raised. */
-// FUNCTION: WIZ8 0x005b7d10
 void RedrawCampItemsPage(void)
 {
     g_wiz_text_font_secondary.setShade(Font::kNormalShade);
@@ -631,7 +624,6 @@ void RedrawCampItemsPage(void)
 /* The character block of the items page: name-free value fields, the
    experience bar, the six realm icons with their point pools, the attribute
    rows and the armor summaries. */
-// FUNCTION: WIZ8 0x005b7e00
 void DrawCampCharacterInfo(void)
 {
     W8CampScreenState* state = g_camp_screen.get();
@@ -740,7 +732,6 @@ void DrawCampCharacterInfo(void)
 
 /* The eight backpack cells under the character block, flag bits 1..8 of
    item_redraw_flags; bit 0 repaints the header strip and caption. */
-// FUNCTION: WIZ8 0x005b8440
 void DrawCampBackpackItems(void)
 {
     W8CampScreenState* state = g_camp_screen.get();
@@ -794,7 +785,6 @@ void DrawCampBackpackItems(void)
 
 /* The twelve equipment cells; bit 9 of item_redraw_flags repaints the paper
    doll backdrop and race/gender portrait, bits 10..21 the slots. */
-// FUNCTION: WIZ8 0x005b8690
 void DrawCampEquipmentItems(void)
 {
     W8CampScreenState* state = g_camp_screen.get();
@@ -898,7 +888,6 @@ void DrawCampEquipmentItems(void)
 
 /* The shared party item pool: the bottom-right grid of up to eight visible
    cells, plus the header strip and the gold counter when bit 22 is raised. */
-// FUNCTION: WIZ8 0x005b8b20
 void DrawCampItemPool(void)
 {
     W8CampScreenState* state = g_camp_screen.get();
@@ -982,7 +971,6 @@ void DrawCampItemPool(void)
 /* The stack count or charge figure in a cell's bottom-right corner, keyed off
    the item record's quantity kind; charge figures ride the alternate font
    palettes and restore the default afterwards. */
-// FUNCTION: WIZ8 0x005b8ec0
 void DrawCampItemQuantity(W8ItemInstance* item, int left, int top, int width)
 {
     W8CampScreenState* state = g_camp_screen.get();
@@ -1019,7 +1007,6 @@ void DrawCampItemQuantity(W8ItemInstance* item, int left, int top, int width)
     g_wiz_text_font_secondary.resetPalette();
 }
 
-// FUNCTION: WIZ8 0x005b3150
 W8CampCharacterInfo::W8CampCharacterInfo()
     : Controls(0x136, 0, 0x280, 0xa5, CatalogArtwork::Load(0x122, 0), 0)
 {
@@ -1037,7 +1024,6 @@ W8CampCharacterInfo::W8CampCharacterInfo()
     m_values[3] = new W8HelpTextControl(this, -1, 0x122, 0x3e, 0x142, 0x4a);
 }
 
-// FUNCTION: WIZ8 0x005b33a0
 void W8CampCharacterInfo::SetEnabled(bool enabled)
 {
     EnableRegionSet(enabled);
@@ -1046,7 +1032,6 @@ void W8CampCharacterInfo::SetEnabled(bool enabled)
         SetCombatView(m_combat_view);
 }
 
-// FUNCTION: WIZ8 0x005b33d0
 void W8CampCharacterInfo::SetCombatView(bool enabled)
 {
     m_combat_view = enabled;
@@ -1066,7 +1051,6 @@ void W8CampCharacterInfo::SetCombatView(bool enabled)
     Invalidate(0);
 }
 
-// FUNCTION: WIZ8 0x005b3470
 void W8CampCharacterInfo::OnPrimary(W8TextControl* control)
 {
     SetCombatView(control == m_combat_tab);
@@ -1076,7 +1060,6 @@ void W8CampCharacterInfo::OnPrimary(W8TextControl* control)
 unsigned short g_camp_armor_class_labels[12] = {1052, 1053, 1054, 1055, 1056, 1057,
                                                 1058, 1059, 1060, 1061, 1062, 1063};
 
-// FUNCTION: WIZ8 0x005b34a0
 void W8CampCharacterInfo::Redraw()
 {
     bool redraw = m_fEnabled && m_fDirty;
@@ -1253,7 +1236,6 @@ W8CampItemRange::W8CampItemRange()
     m_range->m_listener = this;
 }
 
-// FUNCTION: WIZ8 0x005a34c0
 void W8CampItemRange::OnRangeChanged(W8RangeControl*)
 {
     g_camp_screen->item_scroll = m_range->m_value << 1;
@@ -1264,7 +1246,6 @@ void W8CampItemRange::OnRangeChanged(W8RangeControl*)
     g_camp_screen->item_redraw_flags |= W8_CAMP_ITEM_REDRAW_POOL;
 }
 
-// FUNCTION: WIZ8 0x005b7090
 W8CampSpellRange::W8CampSpellRange(W8SpellRealm realm)
 {
     m_realm = realm;
@@ -1275,33 +1256,20 @@ W8CampSpellRange::W8CampSpellRange(W8SpellRealm realm)
     m_range->SetEnabled(true);
 }
 
-// FUNCTION: WIZ8 0x005b7160
 W8CampSpellRange::~W8CampSpellRange()
 {
     delete m_range;
 }
 
-// FUNCTION: WIZ8 0x005b7180
 void W8CampSpellRange::OnRangeChanged(W8RangeControl*)
 {
     g_camp_screen->learned_spells.scroll[m_realm] = m_range->m_value;
     g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_REALM_SPELLS_FIRST << m_realm;
 }
 
-/* Lifecycle record 6's initializer - the camp record, which is what
-   W8_SCREEN_CAMP selects. It drops the camp screen's state pointer rather than
-   releasing it; the block is owned by the enter/leave pair. */
-// FUNCTION: WIZ8 0x005a3500
-unsigned char CampScreenInitialize(void)
-{
-    g_camp_screen.reset();
-    return 1;
-}
-
 /* The four region blocks the camp screen lays out by rule, and the twelve it
    lays out from the explicit table below. Only the leading four fields of each
    record are read here, so the remaining five stay positional. */
-// FUNCTION: WIZ8 0x005a4090
 void CampScreenInitializeRegions(void)
 {
     unsigned int index;
@@ -1335,7 +1303,6 @@ void CampScreenInitializeRegions(void)
    entry calls this immediately after the block above, once the region sets
    exist; nothing else reaches it, and nothing here names what the six cells
    hold. */
-// FUNCTION: WIZ8 0x005b7230
 void LayoutCampSecondaryRegions(void)
 {
     unsigned int index;
@@ -1346,7 +1313,6 @@ void LayoutCampSecondaryRegions(void)
     }
 }
 
-// FUNCTION: WIZ8 0x005a3520
 unsigned char CampScreenEnter(void)
 {
     ClearPrimarySurface();
@@ -1442,7 +1408,7 @@ unsigned char CampScreenEnter(void)
             }
         }
         srAssertFail("fFoundEquipChar",
-                     "C:\\Projects\\Wizardry 8\\Local Screens\\ReviewCharacterScreen.cpp", 0x16f,
+                     __FILE__, 0x16f,
                      0);
     show_equip_message:
         ShowCampNoticeLine(g_camp_screen->text_buffer, 0, true, false);
@@ -1456,7 +1422,6 @@ unsigned char CampScreenEnter(void)
     return 1;
 }
 
-// FUNCTION: WIZ8 0x005a3ae0
 void CampScreenFrame(void)
 {
     if (g_dev_mode) {
@@ -1538,7 +1503,6 @@ void CampScreenFrame(void)
     DrawCampScreen();
 }
 
-// FUNCTION: WIZ8 0x005a3ee0
 unsigned char CampScreenLeave(int)
 {
     DeactivateCampPage();
@@ -1576,7 +1540,6 @@ unsigned char CampScreenLeave(int)
    that character if the selected slot can carry it and the refusal dialog
    opens otherwise; with no pending character the camp simply closes into a
    fresh combat round. */
-// FUNCTION: WIZ8 0x005a41b0
 void DismissSelectedPartyCharacter(void)
 {
     if (g_camp_character_pending) {
@@ -1601,7 +1564,6 @@ void DismissSelectedPartyCharacter(void)
    ends it re-raises every redraw flag, then repaints whichever page is active
    together with the message box, the level-up/dismissal panels and the dialog
    on top of the frame. */
-// FUNCTION: WIZ8 0x005a42a0
 void DrawCampScreen(void)
 {
     W8CampScreenState* state = g_camp_screen.get();
@@ -1690,7 +1652,6 @@ done:
     RenderFrame();
 }
 
-// FUNCTION: WIZ8 0x005A4570
 void SyncReviewCharInputRegion(void)
 {
     if (giReviewCharSlot != -1 && g_status.buffers.XChar[giReviewCharSlot].npc_index != -1) {
@@ -1702,7 +1663,6 @@ void SyncReviewCharInputRegion(void)
 
 /* Switch the active camp page: tear the old page down, record the new index,
    bring it up and repaint the whole character block. */
-// FUNCTION: WIZ8 0x005a4540
 void SwitchCampPage(W8CampPage page)
 {
     DeactivateCampPage();
@@ -1714,7 +1674,6 @@ void SwitchCampPage(W8CampPage page)
 /* Enter the active camp page: resets the item action mode when leaving the
    items page, gates the party-portrait regions on whether a character is being
    reviewed, then enables the page's own region sets and controls. */
-// FUNCTION: WIZ8 0x005a45b0
 void ActivateCampPage(void)
 {
     W8CampScreenState* state = g_camp_screen.get();
@@ -1774,7 +1733,6 @@ void ActivateCampPage(void)
 /* Leave the active camp page: disables the page's region sets and controls and
    releases the page's rebuilt state - the effect list on the stats page, the
    skill-improvement flags on the skills page. */
-// FUNCTION: WIZ8 0x005a4770
 void DeactivateCampPage(void)
 {
     W8CampScreenState* state = g_camp_screen.get();
@@ -1816,7 +1774,6 @@ void DeactivateCampPage(void)
 
 /* Camp page 4: the reviewed character's health, stamina and per-realm spell
    point regeneration rates. */
-// FUNCTION: WIZ8 0x005a4890
 void DrawCampRegenStats(void)
 {
     unsigned int index;
@@ -1841,7 +1798,6 @@ void DrawCampRegenStats(void)
 }
 
 /* Equip-slot-group item filters are exclusive: selecting one clears the others. */
-// FUNCTION: WIZ8 0x005a49d0
 void ClearOtherCampItemGroupFilters(W8CampItemFilter filter)
 {
     unsigned int index;
@@ -1858,7 +1814,6 @@ void ClearOtherCampItemGroupFilters(W8CampItemFilter filter)
    unidentified items, and flags 2-5 each admit one equip-slot group. The
    scrollbar's range and value track the count; the scroll position snaps back
    inside an emptied or shrunken list. */
-// FUNCTION: WIZ8 0x005a4a00
 void RebuildCampItemList(void)
 {
     unsigned int index;
@@ -1905,21 +1860,18 @@ void RebuildCampItemList(void)
     }
 }
 
-// FUNCTION: WIZ8 0x005a4bc0
 void SetCampHeaderMode(W8CampHeaderMode mode)
 {
     g_camp_screen->header_mode = mode;
     g_camp_screen->redraw_flags |= 0x7ff;
 }
 
-// FUNCTION: WIZ8 0x005a4be0
 void DisplayCampDialog(std::unique_ptr<W8DialogBase> dialog)
 {
     g_camp_screen->dialog = std::move(dialog);
     CaptureInputSink();
 }
 
-// FUNCTION: WIZ8 0x005a4c00
 void ShowCampNoticeLine(std::string_view text, W8DialogDestroyCallback callback, bool confirmation,
                         bool cancel)
 {
@@ -1964,7 +1916,6 @@ static void RefreshCampItemOrigin(W8ItemOrigin origin, W8EquipSlot equip_slot)
     }
 }
 
-// FUNCTION: WIZ8 0x005a4c70
 void HandleCampItemClick(W8ItemInstance* item, unsigned int slot_index, W8ItemOrigin origin)
 {
     W8CombatSlot target;
@@ -1989,12 +1940,12 @@ void HandleCampItemClick(W8ItemInstance* item, unsigned int slot_index, W8ItemOr
 
     if (item == 0) {
         srAssertFail("pPCItem != NULL",
-                     "C:\\Projects\\Wizardry 8\\Local Screens\\ReviewCharacterScreen.cpp", 0x4e5,
+                     __FILE__, 0x4e5,
                      0);
     }
     if (static_cast<unsigned int>(origin) >= W8_ITEM_ORIGIN_COUNT) {
         srAssertFail("uiSlotType < SLOT_TYPE_COUNT",
-                     "C:\\Projects\\Wizardry 8\\Local Screens\\ReviewCharacterScreen.cpp", 0x4e6,
+                     __FILE__, 0x4e6,
                      0);
     }
 
@@ -2092,7 +2043,7 @@ void HandleCampItemClick(W8ItemInstance* item, unsigned int slot_index, W8ItemOr
         }
         if (g_camp_identifying_character == 0) {
             srAssertFail("gpIdentifyingPC != NULL",
-                         "C:\\Projects\\Wizardry 8\\Local Screens\\ReviewCharacterScreen.cpp",
+                         __FILE__,
                          0x553, 0);
         }
         old_pool_count = g_status.party_item_count;
@@ -2368,7 +2319,6 @@ void HandleCampItemClick(W8ItemInstance* item, unsigned int slot_index, W8ItemOr
     g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_PORTRAIT;
 }
 
-// FUNCTION: WIZ8 0x005a5da0
 void TakeItemUnitToHand(W8ItemInstance* item, unsigned short slot, W8ItemOrigin origin)
 {
     W8ItemInstance single;
@@ -2420,7 +2370,6 @@ void TakeItemUnitToHand(W8ItemInstance* item, unsigned short slot, W8ItemOrigin 
    selects the new character and either queues its join event or opens the
    refusal dialog. Returns zero when a swap was pending and consumed, one when
    the caller may proceed. force ignores the same-character early out. */
-// FUNCTION: WIZ8 0x005A5F30
 bool ResolvePendingCampCharacter(bool force)
 {
     unsigned int slot;
@@ -2444,7 +2393,6 @@ bool ResolvePendingCampCharacter(bool force)
 /* When the reviewed slot is one of the two companion slots and its bound NPC
    wants the item being used, the current character is remembered as pending a
    swap (cleared first so a failed attempt leaves none). */
-// FUNCTION: WIZ8 0x005A6020
 void MarkCampCharacterPending(W8ItemInstance* item)
 {
     W8NpcState* npc;
@@ -2462,7 +2410,6 @@ void MarkCampCharacterPending(W8ItemInstance* item)
 /* Whether the camp item action may proceed for the reviewed slot: outside
    combat always; in combat the sleeping/paralyzed/unconscious/dead conditions
    and the equip-in-progress actions each carry their own refusal message. */
-// FUNCTION: WIZ8 0x005A6090
 bool IsCampActionAllowed(int party_slot)
 {
     std::string message;
@@ -2512,7 +2459,6 @@ bool IsCampActionAllowed(int party_slot)
     return false;
 }
 
-// FUNCTION: WIZ8 0x005A6310
 bool IsEquippableItemClass(W8ItemInstance* item)
 {
     char equip_class = g_item_records[item->iItemNo].equip_class;
@@ -2526,7 +2472,6 @@ bool IsEquippableItemClass(W8ItemInstance* item)
 /* Books a party slot's spell cast: stamps the row's cast-spell action with
    the spell id, power level and target, spends the spell points and fatigues
    the caster, then plays fizzle/learned/general-cast audio for the result. */
-// FUNCTION: WIZ8 0x005A6340
 int CommitPartySlotSpell(int party_slot, int spell_id, int power_level, W8CombatSlot* target)
 {
     int cost;
@@ -2562,7 +2507,6 @@ int CommitPartySlotSpell(int party_slot, int spell_id, int power_level, W8Combat
    cost (or the standard use-item cost when no use happened). The audio cues
    mirror the spell path: fizzle, learned for a successful identify, general
    magic otherwise. */
-// FUNCTION: WIZ8 0x005A6440
 int CommitPartySlotItemUse(int party_slot, W8ItemInstance* item, W8CombatSlot* target)
 {
     int uses;
@@ -2597,7 +2541,6 @@ int CommitPartySlotItemUse(int party_slot, W8ItemInstance* item, W8CombatSlot* t
     return result;
 }
 
-// FUNCTION: WIZ8 0x005A6580
 void BeginEndgameSequence(void)
 {
     int fade_to_black = 0;
@@ -2625,7 +2568,6 @@ void BeginEndgameSequence(void)
    fade state. `callback` runs from UpdateScreenFade once the ramp
    finishes. `fade_to_black` selects the subtractive ramp (white quad
    darkening to black); `fade_out` selects the direction the opacity runs. */
-// FUNCTION: WIZ8 0x005A6620
 void BeginScreenFade(int fade_to_black, int fade_out, int duration, void (*callback)(void),
                      bool fullscreen_scene_last, char render_each_tick)
 {
@@ -2670,7 +2612,6 @@ void BeginScreenFade(int fade_to_black, int fade_out, int duration, void (*callb
    frame per tick while g_fade_flag is set. On completion a
    fade-in snaps the quad opaque and renders twice, then the overlay is
    released and the stored callback runs. Returns g_fade_flag. */
-// FUNCTION: WIZ8 0x005A6790
 unsigned char UpdateScreenFade(void)
 {
     if (!g_level_block->review_transition_done) {
@@ -2712,7 +2653,6 @@ unsigned char UpdateScreenFade(void)
    first, then the death sting and CombatLose playlist start while the input
    regions collapse to the modal review region and the fade carries the
    screen to DrawPartyDeathScreen. */
-// FUNCTION: WIZ8 0x005A68C0
 void BeginPartyDeath(void)
 {
     if (g_level_block->review_transition_active) {
@@ -2739,7 +2679,6 @@ void BeginPartyDeath(void)
    autosave writes the next free Ending slot and reports it on the main-menu
    message line; a dirty level reloads; any queued key-down or button-up
    schedules the closing fade back through EndReviewTransition. */
-// FUNCTION: WIZ8 0x005A6970
 void PumpReviewTransition(void)
 {
     InputEvent input;
@@ -2780,7 +2719,6 @@ void PumpReviewTransition(void)
 /* Fade-completion callback for party death: draw the review backdrop and
    the centered party-death line over it, drop the radar/formation panels,
    then schedule the holding fade that waits for input. */
-// FUNCTION: WIZ8 0x005A6A70
 void DrawPartyDeathScreen(void)
 {
     std::string text;
@@ -2803,7 +2741,6 @@ void DrawPartyDeathScreen(void)
    modal region, stop the ending voice-over, reset the main-game mode and
    leave the transition. The endgame path continues to the credits screen;
    party death just stops the playlist. */
-// FUNCTION: WIZ8 0x005A6B20
 void EndReviewTransition(void)
 {
     ReleaseInputSinkCapture();
@@ -2827,7 +2764,6 @@ void EndReviewTransition(void)
    them over a cleared screen and schedule the holding fade. Fact 0x1a2 is
    the losing ending - it swaps in the CombatLose playlist and skips the
    credits-screen handoff and autosave arming. */
-// FUNCTION: WIZ8 0x005A6B90
 void ShowEndingScreen(void)
 {
     int fade_to_black;

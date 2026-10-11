@@ -15,7 +15,7 @@ extern W8TextControl* g_free_turn_button;
 extern W8TextControl* g_cancel_party_movement_button;
 extern uint64_t g_party_movement_animation_clock;
 extern std::unique_ptr<Controls> g_party_movement_panel;
-extern W8TextBuffer* g_party_movement_caption;
+extern std::unique_ptr<W8TextBuffer> g_party_movement_caption;
 extern unsigned int g_party_movement_animation_frame;
 
 /* Creates the combat party-movement panel and its two buttons; returns zero

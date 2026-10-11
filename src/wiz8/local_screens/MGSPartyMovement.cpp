@@ -37,7 +37,7 @@
 #include "layouts/main_game_screen.h"
 #include "layouts/targeting.h"
 
-#define PARTY_MOVEMENT_CPP "C:\\Projects\\Wizardry 8\\Local Screens\\MGSPartyMovement.cpp"
+#define PARTY_MOVEMENT_CPP __FILE__
 
 /* Retail callback IDs 0 and 1 index this base, and ReleasePartyMovement walks
    the two-pointer span. */
@@ -48,7 +48,7 @@ uint64_t g_party_movement_animation_clock;
 // GLOBAL: WIZ8 0x0069BF4C
 std::unique_ptr<Controls> g_party_movement_panel;
 // GLOBAL: WIZ8 0x0069BF50
-W8TextBuffer* g_party_movement_caption;
+std::unique_ptr<W8TextBuffer> g_party_movement_caption;
 // GLOBAL: WIZ8 0x0069BF54
 unsigned int g_party_movement_animation_frame;
 
@@ -64,14 +64,13 @@ const float g_movement_fatigue_tick_scale = 0.0004f;
 
 void DrawPartyMovementGauge(short right, short image, bool panel_live, int caption);
 
-// FUNCTION: WIZ8 0x005A1640
 unsigned char CreatePartyMovementPanel(void)
 {
     W8ControlsRect bounds;
 
     g_party_movement_animation_frame = 0;
     g_party_movement_panel.reset();
-    g_party_movement_caption = 0;
+    g_party_movement_caption.reset();
     g_party_movement_buttons[0] = 0;
     g_party_movement_buttons[1] = 0;
 
@@ -82,7 +81,8 @@ unsigned char CreatePartyMovementPanel(void)
     bounds.top = 0x13f;
     bounds.bottom = 0x153;
     g_party_movement_caption =
-        new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
+        std::make_unique<W8TextBuffer>(&bounds, std::string_view{}, g_wiz_text_font_secondary,
+                                       g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
 
     g_party_movement_buttons[0] =
         new W8TextControl(g_party_movement_panel.get(), g_party_movement_regions->index(0), 0x10a, 0, 0x11e,
@@ -108,7 +108,6 @@ unsigned char CreatePartyMovementPanel(void)
     return 0;
 }
 
-// FUNCTION: WIZ8 0x005A1890
 void ReleasePartyMovement(void)
 {
     if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
@@ -119,14 +118,10 @@ void ReleasePartyMovement(void)
     g_party_movement_regions.Disable();
     g_party_movement_panel.reset();
     for (auto& button : g_party_movement_buttons) button = nullptr;
-    if (g_party_movement_caption != 0) {
-        delete g_party_movement_caption;
-        g_party_movement_caption = 0;
-    }
+    g_party_movement_caption.reset();
     gXStatus.fPartyMovementUi = false;
 }
 
-// FUNCTION: WIZ8 0x005A1950
 void UpdatePartyMovementPanel(void)
 {
     g_party_movement_regions.Enable();
@@ -139,13 +134,11 @@ void UpdatePartyMovementPanel(void)
     g_party_movement_buttons[1]->SetActive(false);
 }
 
-// FUNCTION: WIZ8 0x005A19A0
 void DisablePartyMovementRegions(void)
 {
     g_party_movement_regions.Disable();
 }
 
-// FUNCTION: WIZ8 0x005A19B0
 void DrawPartyMovementPanel(void)
 {
     SDL_Rect clip;
@@ -220,7 +213,6 @@ void DrawPartyMovementPanel(void)
 
 /* The movement gauge: a static end frame for the empty/full states and the
    twelve-frame animated bar otherwise, rearming its own countdown each tick. */
-// FUNCTION: WIZ8 0x005A1C40
 void DrawPartyMovementGauge(short right, short image, bool panel_live, int caption)
 {
     bool rearm;
@@ -278,13 +270,11 @@ void DrawPartyMovementGauge(short right, short image, bool panel_live, int capti
     }
 }
 
-// FUNCTION: WIZ8 0x005A1DD0
 void InvalidatePartyMovementPanel(void)
 {
     g_party_movement_panel->Invalidate(0);
 }
 
-// FUNCTION: WIZ8 0x005A1DE0
 unsigned char FreeTurnButtonRegionEvent(const InputEvent* event, W8Region* region)
 {
     if (!gXStatus.fPartyMovementUi) {
@@ -293,13 +283,11 @@ unsigned char FreeTurnButtonRegionEvent(const InputEvent* event, W8Region* regio
     return DispatchButtonRegionEvent(event, region, g_party_movement_buttons[region->callback_id]);
 }
 
-// FUNCTION: WIZ8 0x005A1E90
 void DisableFreeTurnButton(void)
 {
     g_party_movement_buttons[0]->SetEnabled(false);
 }
 
-// FUNCTION: WIZ8 0x005A1EA0
 void EnableFreeTurnButton(void)
 {
     g_party_movement_buttons[0]->SetEnabled(true);
@@ -309,7 +297,6 @@ void EnableFreeTurnButton(void)
    and a bearable load accumulates distance scaled by load, doubled in combat
    and raised again while the second condition runs, until the accumulator
    crosses 2500 and converts into real fatigue. */
-// FUNCTION: WIZ8 0x005A1EB0
 unsigned char HandlePartyMovement(float* real_elapsed, float* frame_elapsed)
 {
     int party_slot;
