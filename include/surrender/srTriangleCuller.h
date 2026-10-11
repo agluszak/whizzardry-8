@@ -42,10 +42,14 @@ public:
                                           const glm::vec4& plane, w8_ulong shift,
                                           w8_ulong count, int first);
 
-    /* Sphere-vs-plane-mask test over the active clip planes. depth becomes the 0..1 penetration
-       fraction when the sphere crosses a side plane. */
-    static SR_DLL_IMPORT w8_ulong getClipMask(const glm::vec3& center, float radius,
-                                              const glm::vec4* planes, w8_ulong mask, float& depth);
+    struct ClipMask {
+        w8_ulong mask;
+        float depth;
+    };
+    /* Sphere-vs-plane-mask test over active clip planes, including the
+       0..1 penetration fraction across side planes. */
+    static SR_DLL_IMPORT ClipMask getClipMask(const glm::vec3& center, float radius,
+                                              const glm::vec4* planes, w8_ulong mask);
     /* Builds the active-vertex table: marks the vertices referenced by the
        surviving triangle indices, collects their indices into avt, then
        rewrites vertex_scratch as the vertex->avt inverse remap. Returns the
