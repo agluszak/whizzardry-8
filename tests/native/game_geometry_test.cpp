@@ -509,9 +509,8 @@ static void triangle_visibility()
     input.active_triangle_count = 0;
     REQUIRE((!srTriangleCuller::cull(output, input)));
     REQUIRE((output.triangle_count == 0 && output.vertex_count == 0));
-    float depth;
-    const auto mask = srTriangleCuller::getClipMask({1, 0, 0}, 0, planes.data(), 0x3f, depth);
-    REQUIRE((mask == (1u << 1) && std::isfinite(depth)));
+    const auto clip = srTriangleCuller::getClipMask({1, 0, 0}, 0, planes.data(), 0x3f);
+    REQUIRE((clip.mask == (1u << 1) && std::isfinite(clip.depth)));
 }
 
 TEST_CASE_METHOD(SurRenderTestFixture, "Procedural meshes", "[geometry]")
