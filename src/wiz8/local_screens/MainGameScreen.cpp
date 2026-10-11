@@ -2758,20 +2758,6 @@ struct W8MainGameInvalidateRect {
 
 extern W8MainGameInvalidateRect g_main_game_invalidate_rects[23];
 
-// FUNCTION: WIZ8 0x0055f7b0
-unsigned char MainGameScreenInitialize(void)
-{
-    unsigned int index;
-    for (index = 0; index != 8; ++index) {
-        W8MainGameInvalidateRect& row = g_main_game_invalidate_rects[index];
-        row.left = (index & 1) << 9;
-        row.top = (index >> 1) * 0x55 + 0x12;
-        row.right = row.left + 0x7f;
-        row.bottom = row.top + 0x55;
-    }
-    return 1;
-}
-
 /* Reset the owned Main Game state and its coupled UI/selection state. */
 // FUNCTION: WIZ8 0x0055f800
 void ResetMainGameScreenState(void)
@@ -4928,10 +4914,10 @@ W8ScreenRect g_viewport_modes[7] = {
 
 // GLOBAL: WIZ8 0x00647DA0
 W8MainGameInvalidateRect g_main_game_invalidate_rects[23] = {
-    {0, 0, 0, 0, -1, 0, 0},          {0, 0, 0, 0, 1, 0, 1},
-    {0, 0, 0, 0, -1, 0, 2},          {0, 0, 0, 0, 1, 0, 3},
-    {0, 0, 0, 0, -1, 0, 4},          {0, 0, 0, 0, 1, 0, 5},
-    {0, 0, 0, 0, -1, 0, 6},          {0, 0, 0, 0, 1, 0, 7},
+    {0, 18, 127, 103, -1, 0, 0},   {512, 18, 639, 103, 1, 0, 1},
+    {0, 103, 127, 188, -1, 0, 2},  {512, 103, 639, 188, 1, 0, 3},
+    {0, 188, 127, 273, -1, 0, 4},  {512, 188, 639, 273, 1, 0, 5},
+    {0, 273, 127, 358, -1, 0, 6},  {512, 273, 639, 358, 1, 0, 7},
     {0, 0, 639, 16, 0, 0, ~0u},      {0, 358, 639, 449, 0, 1, ~0u},
     {23, 360, 127, 449, 0, 1, ~0u},  {129, 358, 510, 449, 0, 1, ~0u},
     {31, 450, 606, 476, 0, 1, ~0u},  {469, 382, 500, 461, 0, 1, ~0u},

@@ -182,16 +182,6 @@ void CreateMainMenuControls()
 }
 } // namespace
 
-/* Zero is the retail BSS state. The first screen synchronization replaces it
-   with the default cursor and then records the normal -1 state. */
-
-// FUNCTION: WIZ8 0x005bc800
-unsigned char MainMenuScreenInitialize(void)
-{
-    g_main_menu_selected_item = 0;
-    return 1;
-}
-
 // FUNCTION: WIZ8 0x005bc810
 unsigned char MainMenuScreenEnter(void)
 {

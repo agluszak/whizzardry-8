@@ -1288,16 +1288,6 @@ void W8CampSpellRange::OnRangeChanged(W8RangeControl*)
     g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_REALM_SPELLS_FIRST << m_realm;
 }
 
-/* Lifecycle record 6's initializer - the camp record, which is what
-   W8_SCREEN_CAMP selects. It drops the camp screen's state pointer rather than
-   releasing it; the block is owned by the enter/leave pair. */
-// FUNCTION: WIZ8 0x005a3500
-unsigned char CampScreenInitialize(void)
-{
-    g_camp_screen.reset();
-    return 1;
-}
-
 /* The four region blocks the camp screen lays out by rule, and the twelve it
    lays out from the explicit table below. Only the leading four fields of each
    record are read here, so the remaining five stay positional. */

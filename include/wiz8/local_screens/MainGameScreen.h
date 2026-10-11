@@ -610,7 +610,6 @@ void DestroySurpriseFade(void);
 unsigned char UpdateSurpriseFade(void);
 unsigned char OpenUseItemSelectView(int slot);
 
-unsigned char MainGameScreenInitialize(void);
 unsigned char MainGameScreenEnter(void);
 void MainGameScreenFrame(void);
 unsigned char MainGameScreenLeave(int leaving);
