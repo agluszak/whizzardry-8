@@ -16,7 +16,6 @@
 #include <utility>
 
 #include "wiz8/retail_text_records.h"
-#include "wiz8/asset_paths.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/layouts/item_tables.h"

@@ -22,7 +22,6 @@
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/npc_items.h"
-#include "wiz8/asset_paths.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/local_screens/JournalScreen.h"
 #include "wiz8/local_screens/MGSKeyboard.h"

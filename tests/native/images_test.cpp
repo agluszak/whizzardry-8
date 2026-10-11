@@ -2,7 +2,6 @@
 #include <cstdint>
 #include <catch2/catch_test_macros.hpp>
 #include <ios>
-#include <wiz8/asset_paths.h>
 #include <wiz8/filesystem.h>
 #include <SDL3_image/SDL_image.h>
 #include <SDL3/SDL_pixels.h>

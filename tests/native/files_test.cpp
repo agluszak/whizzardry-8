@@ -90,7 +90,7 @@ struct FileFixture
     fs::path root = directory.path;
     fs::path assets = root / "assets", user = root / "user", disc = root / "disc";
     std::string archive_bytes = slf_bytes();
-    ScopedAssetRoots asset_roots;
+    std::optional<ScopedAssetRoots> asset_roots;
 
     FileFixture()
     {
@@ -110,9 +110,9 @@ struct FileFixture
         const auto configured = w8_native::path_roots();
         REQUIRE(fs::equivalent(wiz8::path_from_utf8(configured.assets), assets));
         REQUIRE(fs::equivalent(wiz8::path_from_utf8(configured.user), user));
-        asset_roots.configure({wiz8::path_to_utf8(assets), wiz8::path_to_utf8(user),
-                              {wiz8::path_to_utf8(disc), wiz8::path_to_utf8(disc),
-                               wiz8::path_to_utf8(disc)}});
+        asset_roots.emplace(w8_native::Roots{wiz8::path_to_utf8(assets), wiz8::path_to_utf8(user),
+                             {wiz8::path_to_utf8(disc), wiz8::path_to_utf8(disc),
+                              wiz8::path_to_utf8(disc)}});
         wiz8::mount_slf("Data/DATA.SLF");
     }
 

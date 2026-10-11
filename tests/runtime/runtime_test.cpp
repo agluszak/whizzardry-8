@@ -196,7 +196,7 @@ class Game
         auto roots = w8_native::path_roots();
         roots.assets = assets;
         roots.user = user_.path.string();
-        roots_.emplace(std::move(roots));
+        roots_.emplace(roots);
         auto config = wiz8::open_file("C:\\3DVideo.CFG", wiz8::OpenMode::replace);
         const std::string settings = "SDLGPU\n640\n480\n16\nSDL mixer spatial\n";
         config->write(settings.data(), settings.size());

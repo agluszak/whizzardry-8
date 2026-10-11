@@ -1,6 +1,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <SDL3/SDL_iostream.h>
 #include <SDL3/SDL_stdinc.h>
+#include <cstddef>
 #include <fstream>
 #include <ios>
 #include <vector>
