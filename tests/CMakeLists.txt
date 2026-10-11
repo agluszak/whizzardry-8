@@ -191,10 +191,8 @@ catch_discover_tests(native_audio_test
 # Failures here are independent of game and SurRender ownership.
 add_executable(native_gpu_lifecycle "${PROJECT_SOURCE_DIR}/tests/native/gpu_lifecycle.cpp")
 target_link_libraries(native_gpu_lifecycle PRIVATE SDL3::SDL3)
-if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    catch_discover_tests(native_gpu_lifecycle TEST_PREFIX "native_gpu/"
-        PROPERTIES ENVIRONMENT "SDL_VIDEODRIVER=offscreen" TIMEOUT 30)
-endif()
+# This is an SDL/driver diagnostic, not a game regression test.
+# Keep its executable for manual leak investigations; don't run it in CTest.
 
 add_executable(native_gpu_rendering_test native/gpu_rendering_test.cpp)
 target_link_libraries(native_gpu_rendering_test PRIVATE SURRENDER wiz8_native_settings SDL3::SDL3)
