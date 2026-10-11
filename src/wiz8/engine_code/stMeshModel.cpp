@@ -271,40 +271,20 @@ void stMeshModel::RenderTriMeshWithEquations(srGERD& renderer, const TriMesh& me
         for (int side = 1; side >= 0; --side) {
             if ((mesh.control_flags & (1u << side)) != 0 &&
                 (arg_poly_equations == nullptr || !software_polygons.empty())) {
-                srTriMeshPipeline* pipeline = srTriMeshPipeline::Get(&renderer);
-                pipeline->sort_bias = mesh.sort_bias;
-                pipeline->triangles = mesh.poly_vertices;
-                pipeline->triangle_count = static_cast<w8_ulong>(mesh.polygon_count);
-                pipeline->positions = mesh.positions;
-                pipeline->vertex_count = static_cast<w8_ulong>(mesh.vertex_count);
-                pipeline->vertex_extras = mesh.normals;
-
-                if (arg_poly_equations != 0) {
-                    pipeline->projected_vertices = 0;
-                } else {
-                    pipeline->projected_vertices = mesh.poly_equations;
+                auto& pipeline = srTriMeshPipeline::beginMesh(renderer, mesh);
+                if (arg_poly_equations != nullptr) {
+                    pipeline.projected_vertices = nullptr;
+                    pipeline.active_triangles = std::span<const w8_ulong>(software_polygons);
                 }
-
-                if (arg_poly_equations != 0) {
-                    pipeline->active_triangles = std::span<const w8_ulong>(software_polygons);
-                } else if (mesh.active_polygons.has_value()) {
-                    pipeline->active_triangles = mesh.active_polygons;
-                }
-
-                pipeline->SetMeshBounds(mesh);
-
-                pipeline->records.resize(mesh.pass_count + 1);
-                pipeline->passes.resize(mesh.pass_count + 1);
-                pipeline->PrepareSlot();
                 for (w8_long pass = 0; pass < mesh.pass_count; ++pass) {
                     shader = mesh.shaders[pass];
                     if (g_inverted_depth_render) {
                         shader.value = (shader.value & 0xfffffffeUL) | 6UL;
                     }
-                    pipeline->AppendMeshPass(mesh, pass, side, shader);
+                    pipeline.AppendMeshPass(mesh, pass, side, shader);
                 }
 
-                pipeline->FlushIfCurrent();
+                pipeline.FlushIfCurrent();
             }
         }
 

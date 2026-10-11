@@ -1500,6 +1500,24 @@ srTriMeshPipeline* srTriMeshPipeline::Get(srGERD* renderer)
     return pipe;
 }
 
+srTriMeshPipeline& srTriMeshPipeline::beginMesh(srGERD& renderer, const srMeshModel::TriMesh& mesh)
+{
+    auto& pipeline = *Get(&renderer);
+    pipeline.records.resize(static_cast<std::size_t>(mesh.pass_count) + 1);
+    pipeline.passes.resize(static_cast<std::size_t>(mesh.pass_count) + 1);
+    pipeline.PrepareSlot();
+    pipeline.sort_bias = mesh.sort_bias;
+    pipeline.triangles = mesh.poly_vertices;
+    pipeline.triangle_count = static_cast<w8_ulong>(mesh.polygon_count);
+    pipeline.positions = mesh.positions;
+    pipeline.vertex_count = static_cast<w8_ulong>(mesh.vertex_count);
+    pipeline.vertex_extras = mesh.normals;
+    pipeline.projected_vertices = mesh.poly_equations;
+    pipeline.active_triangles = mesh.active_polygons;
+    pipeline.SetMeshBounds(mesh);
+    return pipeline;
+}
+
 void srTriMeshPipeline::SetMeshBounds(const srMeshModel::TriMesh& mesh)
 {
     if ((mesh.control_flags & (1UL << srMeshModel::CONTROL_SKIP_AUTO_BOX)) == 0) {
@@ -1599,23 +1617,7 @@ void srMeshModel::renderTriMesh(srGERD& renderer, const TriMesh& mesh)
         w8_long material_side;
         for (w8_long side = 1; side >= 0; --side) {
             if ((mesh.control_flags & (1u << side)) != 0) {
-                srTriMeshPipeline* pipeline = srTriMeshPipeline::Get(&renderer);
-                pipeline->records.resize(static_cast<std::size_t>(mesh.pass_count) + 1);
-                pipeline->passes.resize(static_cast<std::size_t>(mesh.pass_count) + 1);
-                pipeline->PrepareSlot();
-                pipeline->sort_bias = mesh.sort_bias;
-                pipeline->triangles = mesh.poly_vertices;
-                pipeline->triangle_count = static_cast<w8_ulong>(mesh.polygon_count);
-                pipeline->positions = mesh.positions;
-                pipeline->vertex_count = static_cast<w8_ulong>(mesh.vertex_count);
-                pipeline->vertex_extras = mesh.normals;
-                pipeline->projected_vertices = mesh.poly_equations;
-
-                if (mesh.active_polygons) {
-                    pipeline->active_triangles = mesh.active_polygons;
-                }
-
-                pipeline->SetMeshBounds(mesh);
+                auto& pipeline = srTriMeshPipeline::beginMesh(renderer, mesh);
 
                 material_side = side;
                 if (side == 1) {
@@ -1639,10 +1641,10 @@ void srMeshModel::renderTriMesh(srGERD& renderer, const TriMesh& mesh)
                 }
 
                 for (w8_long pass = 0; pass < mesh.pass_count; ++pass) {
-                    pipeline->AppendMeshPass(mesh, pass, material_side, mesh.shaders[pass]);
+                    pipeline.AppendMeshPass(mesh, pass, material_side, mesh.shaders[pass]);
                 }
 
-                pipeline->FlushIfCurrent();
+                pipeline.FlushIfCurrent();
             }
         }
 

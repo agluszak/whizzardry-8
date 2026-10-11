@@ -34,6 +34,7 @@ public:
     using Record = srVertexPipe::Record;
 
     static srTriMeshPipeline* Get(srGERD* renderer);
+    static srTriMeshPipeline& beginMesh(srGERD& renderer, const srMeshModel::TriMesh& mesh);
     void SetFlags(srShader shader);
     void Reset(srGERD* renderer);
     void Flush();
