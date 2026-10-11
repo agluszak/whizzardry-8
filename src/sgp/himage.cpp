@@ -473,11 +473,6 @@ UINT16 Get16BPPColor(SDL_Color color)
     return pixel | gusAlphaMask;
 }
 
-UINT16 Get16BPPColor(UINT32 rgb)
-{
-    return Get16BPPColor(SDL_Color{static_cast<UINT8>(rgb), static_cast<UINT8>(rgb >> 8),
-                                   static_cast<UINT8>(rgb >> 16), SDL_ALPHA_OPAQUE});
-}
 
 // ConvertToPaletteEntry
 // Parameter List : Converts from RGB to SDL_Color
