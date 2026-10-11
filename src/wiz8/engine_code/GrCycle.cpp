@@ -392,7 +392,7 @@ try
             for (index = 0; index < static_cast<int>(particles.size()); ++index) {
                 stParticle* particle = particles[index];
                 W8GrCycleParticleAttachment* event = new W8GrCycleParticleAttachment;
-                srVector3T<double> location;
+                glm::dvec3 location;
 
                 if (event == 0) {
                     srAssertFail("pPartSys", "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp",
@@ -402,7 +402,7 @@ try
                 event->subcycle = -1;
                 event->m_pstParticles = particle;
                 location = particle->getLocation();
-                event->position = location;
+                event->position = glm::vec3(location);
                 event->rotation = particle->getRotation<glm::mat3>();
                 (*cycle)->m_plsParticles->push_back(event);
             }
@@ -884,7 +884,7 @@ void W8GrCycle::UpdateRepresentation(W8World* pWorld)
     W8EmitterHost* pRep = GetRepresentation();
     W8AnimObj* animation;
     glm::mat3 rotation;
-    srVector3T<double> location;
+    glm::dvec3 location;
     srVector3T<float> vecPos;
     int index;
 
@@ -1064,10 +1064,10 @@ void W8GrCycle::UpdateParticleAttachments()
     W8EmitterHost* pRep;
     stMeshModel* pMeshModel;
     glm::mat3 rotation;
-    srVector3T<double> scale;
-    srVector3T<double> location;
-    srVector3T<double> target;
-    srVector3T<double> axis;
+    glm::dvec3 scale;
+    glm::dvec3 location;
+    glm::dvec3 target;
+    glm::dvec3 axis;
     glm::mat3 combined;
     glm::dmat3 world;
     srVector3T<float> offset;
@@ -1155,7 +1155,7 @@ void W8GrCycle::UpdateParticleAttachments()
         placed = rotation * offset.glmValue();
         location = current_model_instance->getLocation();
         srVector3T<float> anchor;
-        anchor = glm::vec3(location.glmValue());
+        anchor = glm::vec3(location);
         placed += anchor;
 
         if (aim_set && particle->direction_mode == W8_PARTICLE_DIRECTION_CONE) {

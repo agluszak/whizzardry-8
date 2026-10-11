@@ -53,7 +53,7 @@ template <class T> static bool rotations()
                                                           int(random() % 2000001) - 1000000));
         for (double angle : angles) {
             Node node;
-            node.setRotation(angle, srVector3T<double>(axis));
+            node.setRotation(angle, glm::dvec3(axis));
             // Include-cleaner attributes this public template to GLM's private qualifier.hpp.
             glm::mat<3, 3, T> actual; // NOLINT(misc-include-cleaner)
             actual = node.getRotation<glm::mat<3, 3, T>>();
@@ -86,7 +86,7 @@ static bool transforms()
 {
     Node parent;
     parent.setLocation(4, -2, 1);
-    parent.setScale(srVector3T<double>(2, 3, 4));
+    parent.setScale(glm::dvec3(2, 3, 4));
     parent.setRotation(0, 0, std::numbers::pi / 2);
     Node child(&parent);
     child.setLocation(1, 2, 3);
@@ -109,6 +109,23 @@ static bool transforms()
         REQUIRE(glm::length(float_coordinates.rotation[column] -
                             glm::normalize(glm::vec3(world[column]))) < 1e-6f);
     }
+
+    // Each axis operation must invalidate the already-cached child transform.
+    const std::array movements{&srNode::moveRight, &srNode::moveLeft,
+                               &srNode::moveUp, &srNode::moveDown,
+                               &srNode::moveForward, &srNode::moveBackward};
+    for (unsigned index = 0; index < movements.size(); ++index) {
+        const auto before = child.getWorldSpaceLocation();
+        const auto axis = parent.getRotation()[index / 2];
+        const double distance = index % 2 == 0 ? 2 : -2;
+        (parent.*movements[index])(2);
+        REQUIRE(glm::length(child.getWorldSpaceLocation() - before - axis * distance) < 1e-12);
+    }
+    parent.setLocationX(8);
+    parent.setLocationY(5);
+    parent.setLocationZ(-3);
+    REQUIRE(glm::length(child.getWorldSpaceLocation() - glm::dvec3(2, 7, 9)) < 1e-12);
+    parent.setLocation(4, -2, 1);
 
     const glm::dmat4 desired = glm::translate(glm::dmat4(1), glm::dvec3(7, 8, 9));
     child.setWorldSpaceMatrix(desired);
@@ -137,10 +154,10 @@ static bool transforms()
     REQUIRE(glm::length(plane - glm::vec4(1, 0, 0, -5)) < 1e-6f);
     REQUIRE(glm::dot(plane, glm::vec4(6, 0, 0, 1)) > 0);
     REQUIRE(glm::dot(plane, glm::vec4(4, 0, 0, 1)) < 0);
-    parent.setRotation(0.3, srVector3T<double>(0, 0, 0));
+    parent.setRotation(0.3, glm::dvec3(0, 0, 0));
     auto rotation = parent.getRotation<glm::dmat3>();
     REQUIRE(rotation == glm::dmat3(1));
-    child.setScale(srVector3T<double>(0, 2, 3));
+    child.setScale(glm::dvec3(0, 2, 3));
     REQUIRE(child.getWorldSpaceRotation<glm::mat3>()[0] == glm::vec3(0));
     REQUIRE(child.getWorldSpaceRotation<glm::dmat3>()[0] == glm::dvec3(0));
 
@@ -151,7 +168,7 @@ static bool interfaces()
 {
     {
         Node rotated;
-        rotated.setRotation(0.71, srVector3T<double>{3, 4, 0});
+        rotated.setRotation(0.71, glm::dvec3{3, 4, 0});
         const auto reference =
             glm::dmat3(glm::rotate(glm::dmat4(1), 0.71, glm::dvec3(0.6, 0.8, 0)));
         auto actual_rotation = rotated.getRotation<glm::dmat3>();

@@ -1,3 +1,4 @@
+#include "glm/ext/vector_double3.hpp"
 #include <cstdint>
 #include <glm/gtc/quaternion.hpp>
 #include <glm/ext/quaternion_common.hpp>
@@ -412,7 +413,7 @@ void PathAIApply(W8PathAI* path, srNode* target)
     srNode* node;
     srVector3T<float>* scale_vector;
     srVector3T<float> position;
-    srVector3T<double> location;
+    glm::dvec3 location;
     glm::mat3 rotation;
     glm::mat3 next;
 

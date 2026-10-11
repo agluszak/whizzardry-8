@@ -1080,7 +1080,7 @@ unsigned int W8Octree::SampleRegionLinks(const srVector3T<float>* point, bool de
     char text[104];
     sprintf(text, "Sample point: %f, %f, %f, Links Found: ", point->x, point->y, point->z);
     NoOp();
-    srVector3T<double> location;
+    glm::dvec3 location;
     location = glm::dvec3(point->glmValue());
     world->camera->setLocation(location);
     view.horizontal_fov = static_cast<float>(world->camera->getHorizontalFOV());
@@ -1390,7 +1390,7 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
             }
         }
     }
-    srVector3T<double> restore_location;
+    glm::dvec3 restore_location;
     restore_location = glm::dvec3(saved_location.glmValue());
     world->camera->setLocation(restore_location);
     world->camera->setRotation(saved_rotation);

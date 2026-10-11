@@ -457,7 +457,7 @@ try
     std::vector<srClipPlane*> clip_planes;
     glm::vec4 plane;
     glm::vec4 serialized_position;
-    srVector3T<double> position;
+    glm::dvec3 position;
     srClipPlane* clip_plane;
     char name[64];
     int count;
@@ -499,8 +499,8 @@ try
         clip_plane->setName(name);
         clip_plane->setClipPlane(plane);
 
-        position.Set(serialized_position.x * g_world_scale, serialized_position.y * g_world_scale,
-                     serialized_position.z * g_world_scale);
+        position = glm::dvec3(serialized_position.x * g_world_scale, serialized_position.y * g_world_scale,
+                              serialized_position.z * g_world_scale);
         clip_plane->setLocation(position);
         clip_plane->setFlag(srNode::FLAG_GLOBAL);
         clip_plane->setClipType(srClipPlane::CLIP_POSITIONAL_0);
@@ -825,8 +825,8 @@ try
     for (index = 0; index < count; ++index) {
         unsigned char version;
         stParticle* particle;
-        srVector3T<double> axis;
-        srVector3T<double> location;
+        glm::dvec3 axis;
+        glm::dvec3 location;
 
         (pInfo->hFile->read(&version, sizeof(version)).bytes == static_cast<std::size_t>(sizeof(version)));
         if (version == 4) {

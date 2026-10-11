@@ -72,7 +72,7 @@ void W8Item::DetachMesh(W8World* world)
 void W8Item::ApplyRepTransform()
 {
     srVector3T<float> location;
-    srVector3T<double> widened;
+    glm::dvec3 widened;
     glm::mat3 rotation;
     srNode* mesh;
 
@@ -94,7 +94,7 @@ void W8Item::AttachMesh(W8World* world)
     srNode* mesh;
     srNode* child;
     srVector3T<float> location;
-    srVector3T<double> widened;
+    glm::dvec3 widened;
     glm::mat3 rotation;
 
     if (world == 0) {

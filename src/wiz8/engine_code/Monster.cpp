@@ -1614,7 +1614,7 @@ void W8Monster::Update()
 
     if (sound != 0) {
         srVector3T<float> position = GetPosition();
-        srVector3T<double> location;
+        glm::dvec3 location;
         location = glm::dvec3(position.glmValue());
         sound->setLocation(location);
     }
@@ -3184,10 +3184,10 @@ void W8Monster::UpdateRepresentation(W8World* world)
 
     if ((runtime_flags & W8_MONSTER_SCALING_Y) != 0) {
         model = GetCurrentModelInstance();
-        srVector3T<double> source_scale = model->getScale();
+        const auto source_scale = model->getScale();
         float scale_y = static_cast<float>(source_scale.y) * this->scale_y;
         float scale_z = static_cast<float>(source_scale.z);
-        srVector3T<double> scale;
+        glm::dvec3 scale;
         scale.x = source_scale.x;
         scale.y = static_cast<double>(scale_y);
         scale.z = static_cast<double>(scale_z);
@@ -3604,7 +3604,7 @@ void W8Monster::UpdateAttachedObjects()
                 srVector3T<float> location;
                 srNode* mesh;
                 float mesh_scale;
-                srVector3T<double> widened_scale;
+                glm::dvec3 widened_scale;
 
                 offset = source * distance_scale;
                 srVector3T<float> rotated = camera_rotation * offset.glmValue();
@@ -3615,7 +3615,7 @@ void W8Monster::UpdateAttachedObjects()
                 item->SetLocation(&location);
                 mesh = item->GetMesh();
                 mesh_scale = distance_scale * g_monster_attachment_scales[attachment_layout - 1];
-                widened_scale = mesh_scale;
+                widened_scale = glm::dvec3(mesh_scale);
                 mesh->setScale(widened_scale);
                 if ((runtime_flags & W8_MONSTER_FADED_OUT) == 0) {
                     mesh->clearFlag(srNode::FLAG_DISABLE);
@@ -3652,7 +3652,7 @@ void W8Monster::UpdateAttachedObjects()
                 srVector3T<float> location;
                 srNode* mesh;
                 float mesh_scale;
-                srVector3T<double> widened;
+                glm::dvec3 widened;
 
                 offset = source * distance_scale;
                 offset.y += group_height * distance_scale;
@@ -3664,7 +3664,7 @@ void W8Monster::UpdateAttachedObjects()
                 item->SetLocation(&location);
                 mesh = item->GetMesh();
                 mesh_scale = distance_scale * g_monster_attachment_scales[chunk_count - 1];
-                widened = mesh_scale;
+                widened = glm::dvec3(mesh_scale);
                 mesh->setScale(widened);
                 widened = glm::dvec3(location.glmValue());
                 mesh->setLocation(widened);
@@ -3686,7 +3686,7 @@ void W8Monster::UpdateAttachedObjects()
         GetMappedPosition(&mapped_position);
         while (poster_index < poster_count) {
             stModelInstance* poster = representation->linked_runtime_objects[poster_index];
-            srVector3T<double> location = poster->getLocation();
+            glm::dvec3 location = poster->getLocation();
             srVector3T<float> poster_position(static_cast<float>(location.x),
                                               static_cast<float>(location.y) + vertical_offset,
                                               static_cast<float>(location.z));
@@ -4878,7 +4878,7 @@ void W8Monster::SpawnDamageNumber(unsigned int amount)
         srVector3T<float> position;
         srVector3T<float> camera_position;
         srVector3T<float> facing;
-        srVector3T<double> location;
+        glm::dvec3 location;
         glm::vec4 colour;
         glm::mat3 rotation;
         glm::dmat3 world;
@@ -5075,7 +5075,7 @@ void W8Monster::ApplyRepresentationScale()
                 for (int frame = 0; frame < frame_count; ++frame) {
                     srModelInstance* instance =
                         AnimObjDispatch(animation, 2, static_cast<unsigned char>(frame));
-                    instance->setScale(srVector3T<double>(x_scale, scale, scale));
+                    instance->setScale(glm::dvec3(x_scale, scale, scale));
                 }
             }
         }
@@ -5086,7 +5086,7 @@ void W8Monster::ApplyRepresentationScale()
             particle->SetParticleScale(m_pRep->scale);
             if (mirror_x) {
                 ((*m_plsParticles)[index])->position.x *= -1.0f;
-                particle->setScale(srVector3T<double>(-1.0, 1.0, 1.0));
+                particle->setScale(glm::dvec3(-1.0, 1.0, 1.0));
             }
         }
     }

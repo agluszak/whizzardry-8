@@ -1726,7 +1726,7 @@ void W8Navigator::SetPosition(const srVector3T<float>* position)
 // FUNCTION: WIZ8 0x00453590
 void W8Navigator::SetPositionInternal(const srVector3T<float>* position)
 {
-    srVector3T<double> widened;
+    glm::dvec3 widened;
 
     if (position->x != movement.position.x || position->y != movement.position.y ||
         position->z != movement.position.z) {

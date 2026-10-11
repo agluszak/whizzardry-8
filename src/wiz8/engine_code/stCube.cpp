@@ -205,7 +205,7 @@ void MoveWorldCursorNode(W8WorldCursorNode* entry, srVector3T<float>* position)
         srAssertFail("pCube", ST_CUBE_CPP, 0x10b, 0);
     }
     if (entry->node != 0) {
-        entry->node->setLocation(srVector3T<double>(static_cast<double>(location.x),
+        entry->node->setLocation(glm::dvec3(static_cast<double>(location.x),
                                                     static_cast<double>(location.y),
                                                     static_cast<double>(location.z)));
     }
@@ -607,7 +607,7 @@ unsigned int LoadWorldCursorNodes(wiz8::File* handle)
             srAssertFail("pCube", ST_CUBE_CPP, 0x10b, 0);
         }
         if (cube->node != 0) {
-            srVector3T<double> node_location(static_cast<double>(location.x),
+            glm::dvec3 node_location(static_cast<double>(location.x),
                                              static_cast<double>(location.y),
                                              static_cast<double>(location.z));
             cube->node->setLocation(node_location);

@@ -1,3 +1,4 @@
+#include "glm/ext/vector_double3.hpp"
 #include <array>
 #include "surrender/srBoundingBox.h"
 #include <optional>
@@ -968,8 +969,8 @@ void W8Prop::AttachAnimationInstances(W8World* world)
     srVector3T<float> next_scale;
     srVector3T<float> scale_vector;
     srVector3T<float> rep_position;
-    srVector3T<double> location;
-    srVector3T<double> scale_location;
+    glm::dvec3 location;
+    glm::dvec3 scale_location;
     glm::mat3 rotation;
     glm::mat3 next;
     glm::mat3 rep_rotation;

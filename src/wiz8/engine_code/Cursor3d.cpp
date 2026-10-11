@@ -335,7 +335,7 @@ void GetWorldCursorAnchor(srVector3T<float>* position)
 void ApplyWorldCursorInput(void)
 {
     glm::mat3 rotation;
-    srVector3T<double> node_location;
+    glm::dvec3 node_location;
     srVector3T<float> camera;
     srVector3T<float> delta;
     srVector3T<float> lifted;
@@ -375,7 +375,7 @@ void ApplyWorldCursorInput(void)
         gp3DCursor->position = rotation * (gp3DCursor->cam_rel_offset).glmValue();
         node_location = g_world->dynamic_scene->getLocation();
         srVector3T<float> scene_location;
-        scene_location = glm::vec3(node_location.glmValue());
+        scene_location = glm::vec3(node_location);
         gp3DCursor->position += scene_location;
         if (gp3DCursor->track_ground) {
             if (gp3DCursor->position.y < saved_y) {

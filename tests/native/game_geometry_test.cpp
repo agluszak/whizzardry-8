@@ -1,3 +1,4 @@
+#include "glm/ext/vector_double3.hpp"
 #include "wiz8/engine_code/particle_modes.h"
 #include "wiz8/engine_code/stParticle.h"
 #include "wiz8/engine_code/game_timer.h"
@@ -308,7 +309,7 @@ static void baked_lighting()
     stModelInstance instance(nullptr);
     instance.setModel(model);
     instance.setLocation(10, 0, 0);
-    instance.setScale(srVector3T<double>(2, 1, 1));
+    instance.setScale(glm::dvec3(2, 1, 1));
     instance.setRotation(0, glm::half_pi<double>(), 0);
     struct TestLight : stLight {
         using stLight::stLight;
@@ -339,7 +340,7 @@ static void baked_lighting()
     colors[1].SetZero();
     const auto world_normal = glm::normalize(glm::vec3(0, 2, -1));
     const auto position = glm::dvec3(glm::vec3(10, 0, -2) + world_normal * 0.5f);
-    light.setLocation(srVector3T<double>(position));
+    light.setLocation(glm::dvec3(position));
     light.setLinearAttenuation(1, 1.0f / 511);
     REQUIRE(BakeInstanceVertexLighting(&instance, &light, false));
     REQUIRE(close(colors[0].glmValue(), glm::vec3(0.25f, 0.25f, 0.125f)));
@@ -350,7 +351,7 @@ static void baked_lighting()
     REQUIRE(BakeInstanceVertexLighting(&instance, &light, false));
     REQUIRE(colors[0] == srVector3(0, 0, 0));
     light.setName("Sun");
-    light.setLocation(srVector3T<double>(position));
+    light.setLocation(glm::dvec3(position));
     REQUIRE(BakeInstanceVertexLighting(&instance, &light, true));
     REQUIRE(colors[0] == srVector3(0, 0, 0));
     auto world = instance.getWorldSpaceMatrix<glm::mat4>();
