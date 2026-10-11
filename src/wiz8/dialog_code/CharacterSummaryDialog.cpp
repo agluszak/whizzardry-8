@@ -14,7 +14,6 @@
 #include "wiz8/xstatus.h"
 #include "input.h"
 #include "english.h"
-#include "mousesystem.h"
 #include "character_event_queue.h"
 #include "compat/native.h"
 #include "dialog_code/DialogBase.h"
@@ -23,6 +22,7 @@
 #include "layouts/game_status.h"
 #include "local_code/ControlsRect.h"
 #include "local_code/MonsterManager.h"
+#include "wiz8/regions.h"
 
 /* The bodies from 0x005E0320 through 0x005E0C30 form one dialog lifecycle
    cluster immediately after StatInfoDialogs.cpp.  Retail does not expose its
@@ -173,25 +173,29 @@ bool W8CharacterSummaryDialog::HandleInputEvent(const InputAtom* input)
 // FUNCTION: WIZ8 0x005e0920
 bool W8CharacterSummaryDialog::ProcessInput()
 {
-    InputAtom input;
-
-    RefreshMouseRegions();
+    BeginModalInput();
     if (!m_voice_started && m_portrait_clock + 750 < w8_get_ticks()) {
         m_voice_started = true;
         W8Character* character = m_use_original_character ? m_character : g_status.buffers.Char;
         QueueCharacterEvent(character, g_effect0, 0, g_character_event_no_flags,
                             g_character_event_full_volume);
     }
-    while (DequeueEvent(&input) == 1) {
+    bool keep_open = m_keep_open;
+    DrainModalInput([this, &keep_open](const InputAtom& input) {
         if (input.usEvent == LEFT_BUTTON_DOWN || input.usEvent == LEFT_BUTTON_REPEAT ||
             input.usEvent == RIGHT_BUTTON_DOWN) {
             m_keep_open = false;
         }
-        if (!DispatchDialogMouseInput(input)) {
-            return HandleInputEvent(&input);
+        if (!DispatchRegionInput(&input)) {
+            keep_open = HandleInputEvent(&input);
+            if (!keep_open) EndModalInput();
+            return false;
         }
-    }
-    return m_keep_open;
+        keep_open = m_keep_open;
+        return true;
+    });
+    if (!keep_open) EndModalInput();
+    return keep_open;
 }
 
 // FUNCTION: WIZ8 0x005e0c30

@@ -14,7 +14,6 @@
 #include <exception>
 #include <optional>
 
-#include "mousesystem.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/GameplayCode.h"
@@ -1136,7 +1135,6 @@ void W8PartySelectionOptionPanel::Redraw()
 unsigned char W8PartySelectionInputHandler::HandleInput(const InputAtom* input)
 {
     if (input->usEvent != KEY_DOWN && input->usEvent != KEY_REPEAT) {
-        DispatchMainGameMouseButtons(input);
         return 0;
     }
 
@@ -2006,7 +2004,6 @@ unsigned char PartySelectionScreenEnter(void)
 {
     SetViewport(0, 0, 0x280, 0x1e0);
     SetPrimarySurfaceTextureHint2Enabled(false);
-    MSYS_Init();
     ResetRegions();
     UpdateHeldItemCursor();
     g_wiz_text_font_secondary.resetPalette();
@@ -2053,7 +2050,6 @@ unsigned char PartySelectionScreenLeave(int leaving)
         g_party_selection_controller = 0;
     }
     NoOp();
-    MSYS_Shutdown();
     ResetRegions();
     return 1;
 }
@@ -2085,7 +2081,7 @@ void PartySelectionScreenFrame(void)
         }
     }
     if (controller->m_input_handler) {
-        RefreshMouseRegions();
+        UpdateRegionMousePosition(point.x, point.y);
     }
     UpdateRegionMousePosition(point.x, point.y);
     while (DequeueEvent(&input) == 1) {

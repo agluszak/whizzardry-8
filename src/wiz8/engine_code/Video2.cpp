@@ -85,7 +85,6 @@
 #include "himage.h"
 #include "Font.h"
 #include "input.h"
-#include "mousesystem.h"
 #include "wiz8/application.h"
 #include "soundman.h"
 #include "vobject.h"
@@ -853,7 +852,6 @@ void RenderFrame(void)
 
     g_gerd->setClearColor(clear_color.x, clear_color.y, clear_color.z, 1.0f);
     SyncSystemCursor();
-    RenderFastHelp();
     UpdateRegionHelp();
     FlushDirtyTiles();
     if (g_gerd != 0) {

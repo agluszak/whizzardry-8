@@ -9,7 +9,6 @@
 #include <array>
 #include <cstddef>
 
-#include "Types.h"
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
 //*****************************************************************************************************
@@ -22,7 +21,6 @@
 #include <memory>
 
 #include "vobject.h"
-#include "mousesystem.h"
 
 
 // Moved here from Button System.c by DB 99/01/07
@@ -74,6 +72,33 @@
     0x00004000 // no matter what happens this buttons does NOT get marked dirty
 #define BUTTON_IGNORE_CLICKS 0x00008000 // Ignore any clicks on this button
 #define BUTTON_DISABLED_CALLBACK 0x80000000
+
+inline constexpr int BUTTON_PRIORITY_LOWEST = 0;
+inline constexpr int BUTTON_PRIORITY_BACKGROUND = BUTTON_PRIORITY_LOWEST - 1;
+inline constexpr int BUTTON_PRIORITY_LOW = 15;
+inline constexpr int BUTTON_PRIORITY_BASE = 31;
+inline constexpr int BUTTON_PRIORITY_NORMAL = 31;
+inline constexpr int BUTTON_PRIORITY_HIGH = 63;
+inline constexpr int BUTTON_PRIORITY_HIGHEST = 127;
+inline constexpr int BUTTON_PRIORITY_AUTO = -1;
+
+enum : std::int32_t {
+    BUTTON_REASON_NONE = 0,
+    BUTTON_REASON_INIT = 1,
+    BUTTON_REASON_MOVE = 2,
+    BUTTON_REASON_LBUTTON_DWN = 4,
+    BUTTON_REASON_LBUTTON_UP = 8,
+    BUTTON_REASON_RBUTTON_DWN = 16,
+    BUTTON_REASON_RBUTTON_UP = 32,
+    BUTTON_REASON_LOST_MOUSE = 64,
+    BUTTON_REASON_GAIN_MOUSE = 128,
+    BUTTON_REASON_LBUTTON_REPEAT = 256,
+    BUTTON_REASON_RBUTTON_REPEAT = 512,
+    BUTTON_REASON_LBUTTON_DOUBLECLICK = 1024
+};
+#define BUTTON_REASON_BUTTONS                                                                     \
+    (BUTTON_REASON_LBUTTON_DWN | BUTTON_REASON_LBUTTON_UP | BUTTON_REASON_RBUTTON_DWN |           \
+     BUTTON_REASON_RBUTTON_UP)
 
 extern SGPVSurface* ButtonDestBuffer;
 
@@ -142,7 +167,7 @@ typedef struct _GUI_BUTTON : ButtonAppearance {
     _GUI_BUTTON();
     _GUI_BUTTON(const _GUI_BUTTON&) = delete;
     _GUI_BUTTON& operator=(const _GUI_BUTTON&) = delete;
-    MOUSE_REGION Area = {};
+    unsigned int region_index = 0;
     GUI_CALLBACK ClickCallback = nullptr;
     GUI_CALLBACK MoveCallback = nullptr;
     std::uint32_t uiFlags = BUTTON_DIRTY;
@@ -159,8 +184,8 @@ typedef struct _GUI_BUTTON : ButtonAppearance {
 using GUIButton = std::shared_ptr<GUI_BUTTON>;
 
 // The interface and screen own their buttons; only weak references are kept
-// by the renderer. Mouse dispatch borrows the owning control directly.
-size_t RegisteredButtonCount();
+// by the renderer. Region dispatch borrows the owning control directly.
+std::size_t RegisteredButtonCount();
 
 // Struct definition for the QuickButton pictures.
 struct ButtonGraphics {
@@ -195,10 +220,14 @@ bool InitializeButtonImageManager();
 void ShutdownButtonImageManager(void);
 bool InitButtonSystem(void);
 void ShutdownButtonSystem(void);
+unsigned int ButtonRegionSetIndex(void);
+struct W8Region;
+struct InputAtom;
+std::int32_t ButtonReasonForRegionInput(const W8Region& region, const InputAtom& input);
 
 
 // Now used by Wizardry -- DB
-void SetButtonFastHelpText(const GUIButton& button, std::string_view Text);
+void SetButtonHelpText(const GUIButton& button, std::string_view Text);
 
 GenericButtonImage LoadGenericButtonImages(std::string_view GrayName, std::string_view OffNormName, std::string_view OffHiliteName,
                               std::string_view OnNormName, std::string_view OnHiliteName, std::string_view BkGrndName,
@@ -242,11 +271,10 @@ void SpecifyButtonTextOffsets(const GUIButton& button, std::int8_t bTextXOffset,
 void SetButtonPosition(const GUIButton& button, std::int16_t x, std::int16_t y);
 void ResizeButton(const GUIButton& button, std::int16_t w, std::int16_t h);
 
-void QuickButtonCallbackMMove(MOUSE_REGION* reg, std::int32_t reason);
-void QuickButtonCallbackMButn(MOUSE_REGION* reg, std::int32_t reason);
-
-void MSYS_SetBtnUserData(const GUIButton& button, std::int32_t index, std::int32_t userdata);
-std::int32_t MSYS_GetBtnUserData(GUI_BUTTON* b, std::int32_t index);
+void QuickButtonCallbackMMove(GUI_BUTTON* button, std::int32_t reason);
+void QuickButtonCallbackMButn(GUI_BUTTON* button, std::int32_t reason);
+void SetButtonUserData(const GUIButton& button, std::int32_t index, std::int32_t userdata);
+std::int32_t GetButtonUserData(GUI_BUTTON* button, std::int32_t index);
 void MarkButtonsDirty(
     void); // Function to mark buttons dirty ( all will redraw at next RenderButtons )
 // DB 98-05-05

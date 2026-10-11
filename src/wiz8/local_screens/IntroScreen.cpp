@@ -7,7 +7,6 @@
 #include "vsurface.h"
 #include "wiz8/bink_video.h"
 #include "wiz8/music_playlist.h"
-#include "wiz8/regions.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/Gameloop.h"
@@ -92,19 +91,15 @@ void IntroScreenFrame(void)
     InputAtom input;
 
     while (DequeueEvent(&input) == 1) {
-        if (!DispatchRegionInput(&input)) {
-            switch (input.usEvent) {
-            case KEY_DOWN:
-                if (input.usParam != ESC) {
-                    break;
-                }
-                AdvanceIntroScreen();
-                return;
-            case LEFT_BUTTON_UP:
-            case RIGHT_BUTTON_UP:
-                AdvanceIntroScreen();
-                return;
-            }
+        switch (input.usEvent) {
+        case KEY_DOWN:
+            if (input.usParam != ESC) break;
+            AdvanceIntroScreen();
+            return;
+        case LEFT_BUTTON_UP:
+        case RIGHT_BUTTON_UP:
+            AdvanceIntroScreen();
+            return;
         }
     }
     if (gpVideo == 0 || gpVideo->UpdateFrame()) {
@@ -174,24 +169,6 @@ unsigned char IntroScreenLeave(int)
         delete gpVideo;
     }
     gpVideo = 0;
-    return 1;
-}
-
-// FUNCTION: WIZ8 0x005ae980
-unsigned char IntroScreenRegionEvent(const InputAtom* event, W8Region* region)
-{
-    switch (event->usEvent) {
-    case LEFT_BUTTON_DOWN:
-        region->flags |= W8_REGION_LEFT_BUTTON_HELD;
-        break;
-    case LEFT_BUTTON_UP:
-        if (region->flags & W8_REGION_LEFT_BUTTON_HELD) {
-            AdvanceIntroScreen();
-        }
-        break;
-    default:
-        return 0;
-    }
     return 1;
 }
 

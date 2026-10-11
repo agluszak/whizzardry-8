@@ -7,24 +7,8 @@
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/engine_code/Video2.h"
 #include "input.h"
-#include "mousesystem.h"
-
-/* The SDL-backed event retains its position, held buttons and click count. */
-inline bool DispatchDialogMouseInput(const InputAtom& event)
-{
-    switch (event.usEvent) {
-    case LEFT_BUTTON_REPEAT:
-    case RIGHT_BUTTON_REPEAT:
-    case LEFT_BUTTON_DOWN:
-    case LEFT_BUTTON_UP:
-    case RIGHT_BUTTON_DOWN:
-    case RIGHT_BUTTON_UP:
-        DispatchMouseEvent(event);
-        return true;
-    default:
-        return false;
-    }
-}
+#include "Button System.h"
+#include "wiz8/regions.h"
 
 /* Numeric split dialogs release the active field before forwarding button-up,
    and forward repeat events unchanged. The field reference remains live across
@@ -33,19 +17,18 @@ template <class Dialog, class Field>
 void ProcessNumericDialogInputEvents(Dialog* dialog, Field*& active_field,
                                      bool (Dialog::*handle_event)(const InputAtom*))
 {
-    InputAtom input;
-
-    RefreshMouseRegions();
-    while (DequeueEvent(&input) == 1) {
+    dialog->BeginModalInput();
+    W8DialogBase::DrainModalInput([&](const InputAtom& input) {
         if (input.usEvent == LEFT_BUTTON_UP && active_field != 0) {
             active_field->SetActive(false);
         }
         if (input.usEvent == LEFT_BUTTON_REPEAT || input.usEvent == RIGHT_BUTTON_REPEAT) {
-            DispatchMouseEvent(input);
-        } else if (!DispatchDialogMouseInput(input)) {
+            DispatchRegionInput(&input);
+        } else if (!DispatchRegionInput(&input)) {
             (dialog->*handle_event)(&input);
         }
-    }
+        return true;
+    });
 }
 
 class W8MessageDialogBase;

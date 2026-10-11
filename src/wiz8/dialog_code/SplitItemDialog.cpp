@@ -27,7 +27,6 @@
 #include "Button System.h"
 #include "Video2.h"
 #include "dialog_code/DialogBase.h"
-#include "mousesystem.h"
 #include "npc_trade_price.h"
 #include "vobject.h"
 #include "vsurface.h"
@@ -190,32 +189,32 @@ bool W8SplitItemDialog::CreateButtons()
         return false;
     }
     m_buttons[0]->Configure("Data\\Dialogs\\popup_splititem.sti", 0xc, 9, 10, 0xd, 0xb,
-                            OnSplitDecrement, BUTTON_NO_CALLBACK, false, MSYS_PRIORITY_HIGHEST,
+                            OnSplitDecrement, BUTTON_NO_CALLBACK, false, BUTTON_PRIORITY_HIGHEST,
                             W8_DIALOG_BUTTON_NO_TOOLTIP, OnSplitDecrementMany, BUTTON_NO_CALLBACK);
     m_buttons[1]->Configure("Data\\Dialogs\\popup_splititem.sti", 7, 4, 5, 8, 6, OnSplitIncrement,
-                            BUTTON_NO_CALLBACK, false, MSYS_PRIORITY_HIGHEST,
+                            BUTTON_NO_CALLBACK, false, BUTTON_PRIORITY_HIGHEST,
                             W8_DIALOG_BUTTON_NO_TOOLTIP, OnSplitIncrementMany, BUTTON_NO_CALLBACK);
     m_buttons[2]->ConfigureIcon("Data\\Dialogs\\popup_splititem.sti", BUTTON_NO_IMAGE, 3,
-                                MSYS_PRIORITY_LOWEST, W8_DIALOG_BUTTON_NO_TOOLTIP);
+                                BUTTON_PRIORITY_LOWEST, W8_DIALOG_BUTTON_NO_TOOLTIP);
     m_buttons[3]->Configure("Data\\Dialogs\\popup_splititem.sti", BUTTON_NO_IMAGE, 3,
                             BUTTON_NO_IMAGE, 3, BUTTON_NO_IMAGE, OnCountFieldClick,
-                            BUTTON_NO_CALLBACK, false, MSYS_PRIORITY_HIGHEST,
+                            BUTTON_NO_CALLBACK, false, BUTTON_PRIORITY_HIGHEST,
                             W8_DIALOG_BUTTON_NO_TOOLTIP, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
     m_buttons[4]->ConfigureIcon("Data\\Dialogs\\popup_splititem.sti", BUTTON_NO_IMAGE, 3,
-                                MSYS_PRIORITY_LOWEST, W8_DIALOG_BUTTON_NO_TOOLTIP);
+                                BUTTON_PRIORITY_LOWEST, W8_DIALOG_BUTTON_NO_TOOLTIP);
     m_buttons[5]->ConfigureIcon("Data\\Dialogs\\popup_splititem.sti", BUTTON_NO_IMAGE, 3,
-                                MSYS_PRIORITY_LOWEST, W8_DIALOG_BUTTON_NO_TOOLTIP);
+                                BUTTON_PRIORITY_LOWEST, W8_DIALOG_BUTTON_NO_TOOLTIP);
     m_buttons[6]->Configure("Data\\Dialogs\\popup_confirmationbuttons.sti", 3, 0, 1, 4, 2, OnAccept,
-                            BUTTON_NO_CALLBACK, false, MSYS_PRIORITY_HIGHEST,
+                            BUTTON_NO_CALLBACK, false, BUTTON_PRIORITY_HIGHEST,
                             W8_DIALOG_BUTTON_NO_TOOLTIP, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
     m_buttons[7]->Configure("Data\\Dialogs\\popup_confirmationbuttons.sti", 3, 5, 6, 9, 7, OnCancel,
-                            BUTTON_NO_CALLBACK, false, MSYS_PRIORITY_HIGHEST,
+                            BUTTON_NO_CALLBACK, false, BUTTON_PRIORITY_HIGHEST,
                             W8_DIALOG_BUTTON_NO_TOOLTIP, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
     if (m_mode == W8_ITEM_SPLIT_SELL || m_mode == W8_ITEM_SPLIT_BUY) {
         m_buttons[8]->ConfigureIcon("Data\\Dialogs\\popup_splititem.sti", BUTTON_NO_IMAGE, 3,
-                                    MSYS_PRIORITY_LOWEST, W8_DIALOG_BUTTON_NO_TOOLTIP);
+                                    BUTTON_PRIORITY_LOWEST, W8_DIALOG_BUTTON_NO_TOOLTIP);
         m_buttons[9]->ConfigureIcon("Data\\Dialogs\\popup_splititem.sti", BUTTON_NO_IMAGE, 3,
-                                    MSYS_PRIORITY_LOWEST, W8_DIALOG_BUTTON_NO_TOOLTIP);
+                                    BUTTON_PRIORITY_LOWEST, W8_DIALOG_BUTTON_NO_TOOLTIP);
     }
     m_buttons[0]->m_repeat_enabled = true;
     m_buttons[1]->m_repeat_enabled = true;
@@ -525,7 +524,11 @@ bool W8SplitItemDialog::HandleInputEvent(const InputAtom* input)
 // FUNCTION: WIZ8 0x005DE1B0
 bool W8SplitItemDialog::ProcessInput()
 {
+    BeginModalInput();
     ProcessNumericDialogInputEvents(this, m_active_input, &W8SplitItemDialog::HandleInputEvent);
+    if (!m_keep_open) {
+        EndModalInput();
+    }
     return m_keep_open;
 }
 

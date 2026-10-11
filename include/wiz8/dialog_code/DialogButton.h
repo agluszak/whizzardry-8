@@ -5,7 +5,7 @@
 #pragma once
 
 #include "Button System.h"
-#include "mousesystem.h"
+#include "wiz8/regions.h"
 
 /* Tooltip string-table sentinel; independent of the five frame indices. */
 enum { W8_DIALOG_BUTTON_NO_TOOLTIP = -1 };
@@ -18,16 +18,14 @@ class W8DialogButton;
 using W8DialogButtonCallback = std::function<void(W8DialogButton*)>;
 enum class DialogButtonActivation { Press, Release };
 
-void DialogButtonCallback(MOUSE_REGION* region, std::int32_t reason);
-
 // VTABLE: WIZ8 0x005efa98
-class W8DialogButton {
+class W8DialogButton : public W8RegionHandler {
 public:
     W8DialogButton();
     virtual ~W8DialogButton();
     void Draw();
     void Reset();
-    bool IsConfigured() const { return (m_mouse_region.uiFlags & MSYS_REGION_EXISTS) != 0; }
+    bool IsConfigured() const { return static_cast<bool>(m_region); }
     void SetPosition(int x, int y);
     void Resize(int width, int height);
     void SetText(std::string_view text);
@@ -37,8 +35,11 @@ public:
     int GetHeight();
     int GetX();
     int GetY();
-    SDL_Point GetMousePosition() const { return {m_mouse_region.MouseXPos, m_mouse_region.MouseYPos}; }
-    bool IsLeftButtonHeld() const { return (m_mouse_region.ButtonState & MSYS_LEFT_BUTTON) != 0; }
+    SDL_Point GetMousePosition() const { return GetRegionMousePosition(); }
+    bool IsLeftButtonHeld() const
+    {
+        return m_region && (m_region.region().flags & W8_REGION_LEFT_BUTTON_HELD) != 0;
+    }
     SDL_Rect GetBounds() const { return m_appearance.bounds; }
     void SetEnabled(bool enabled);
     void UpdateEnabledState(bool enabled)
@@ -59,15 +60,15 @@ public:
        and tooltips are on), or clears it. */
     void SetTooltipEnabled(bool enabled);
     int GetUserData();
-    /* Load the frame images, configure the owned mouse region, and store the
+    /* Load the frame images, configure the owned region, and store the
        per-button callbacks, left-toggle flag, priority and tooltip index. */
     bool Configure(const char* image_path, int gray_frame, int off_normal_frame,
                    int off_hover_frame, int on_normal_frame, int on_hover_frame,
                    W8DialogButtonCallback left_callback, W8DialogButtonCallback move_callback,
-                   bool left_toggles, short priority, int tooltip_index,
+                   bool left_toggles, int priority, int tooltip_index,
                    W8DialogButtonCallback right_callback,
-                   W8DialogButtonCallback double_click_callback);
-    bool ConfigureIcon(const char* image_path, int disabled_frame, int normal_frame, short priority,
+                             W8DialogButtonCallback double_click_callback);
+    bool ConfigureIcon(const char* image_path, int disabled_frame, int normal_frame, int priority,
                        int tooltip_index)
     {
         return Configure(image_path, disabled_frame, normal_frame, BUTTON_NO_IMAGE, normal_frame,
@@ -79,22 +80,21 @@ public:
     bool ConfigureTextButton(std::string_view text, Font& font, short fore_color,
                              short shadow_color, short x, short y, short width, short height,
                              W8DialogButtonCallback left_callback, int user_data,
-                             GenericButtonImage image = {}, short priority = MSYS_PRIORITY_HIGHEST);
+                             GenericButtonImage image = {}, int priority = BUTTON_PRIORITY_HIGHEST);
     /* Store the tooltip string-table index and, when tooltips are
        enabled, push its text onto the mouse region. */
     void SetTooltipIndex(int tooltip_index);
 
-    friend void DialogButtonCallback(MOUSE_REGION* region, std::int32_t reason);
-
 private:
     ButtonAppearance m_appearance;
     ButtonVisualState m_visual;
-    MOUSE_REGION m_mouse_region;
+    OwnedRegion m_region;
     SDL_MouseButtonFlags m_armed_buttons = 0;
     SDL_MouseButtonFlags m_repeated_buttons = 0;
     int m_user_data = 0;
-    void ConfigureRegion(short priority);
+    void ConfigureRegion(int priority);
     void HandleMouseEvent(std::int32_t reason);
+    int HandleRegionInput(W8Region& region, const InputAtom& input) override;
     int m_tooltip_index; /* g_localized_strings index, or -1 */
     W8DialogButtonCallback m_left_callback;
     W8DialogButtonCallback m_right_callback;

@@ -1,4 +1,3 @@
-#include <SDL3/SDL_rect.h>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -70,7 +69,6 @@ try
 
     SetViewport(0, 0, 0x280, 0x1e0);
     ResetRegions();
-    RegionSetEnable(2);
     DisableCursorScene();
     std::vector<W8CreditLine> pending;
 
@@ -138,15 +136,13 @@ unsigned char CreditsScreenLeave(int)
 // FUNCTION: WIZ8 0x005bc530
 void CreditsScreenFrame(void)
 {
-    SDL_Point point;
     InputAtom input;
 
-    SGPMouseGetPos(&point);
-    UpdateRegionMousePosition(point.x, point.y);
+    // No clickable controls: dismiss directly on a key or mouse release.
     while (DequeueEvent(&input) == 1) {
-        if (!DispatchRegionInput(&input) && input.usEvent == KEY_DOWN) {
+        if (input.usEvent == KEY_DOWN || input.usEvent == LEFT_BUTTON_UP ||
+            input.usEvent == RIGHT_BUTTON_UP)
             RequestScreenTransition();
-        }
     }
 
     int steps = (w8_get_ticks() - g_credit_started_at) / 35 - g_credit_elapsed_steps;
@@ -191,14 +187,3 @@ void CreditsScreenFrame(void)
     RenderFrame();
 }
 
-/* Full-screen credits background: left-up or right-up leaves the screen. */
-// FUNCTION: WIZ8 0x005BC7A0
-unsigned char CreditsBackgroundRegionEvent(const InputAtom* event, W8Region*)
-{
-    int us_event = event->usEvent;
-    if (us_event != LEFT_BUTTON_UP && us_event != RIGHT_BUTTON_UP) {
-        return 0;
-    }
-    RequestScreenTransition();
-    return 1;
-}

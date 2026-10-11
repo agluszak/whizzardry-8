@@ -1,11 +1,14 @@
 #include "Font.h"
 #pragma once
 
+#include <SDL3/SDL_rect.h>
+#include <optional>
 #include <string>
 #include <string_view>
 
 #include "Button System.h"
 #include "wiz8/dialog_code/DialogButton.h"
+#include "wiz8/regions.h"
 
 enum W8DialogKind {
     W8_DIALOG_BASIC = 0,
@@ -49,14 +52,31 @@ public:
     virtual void OnRightButtonUp();
     virtual void OnMouseWheel(int delta);
 
+    template <class HandleInput>
+    static void DrainModalInput(HandleInput&& handle_input)
+    {
+        InputAtom input;
+
+        const auto mouse = GetRegionMousePosition();
+        UpdateRegionMousePosition(mouse.x, mouse.y);
+        while (DequeueEvent(&input) == 1) {
+            if (!handle_input(input)) break;
+        }
+    }
+
     friend void SetDialogDestroyCallback(W8DialogBase* dialog, W8DialogDestroyCallback callback);
     friend class W8DialogNumericInput;
+    template <class Dialog, class Field>
+    friend void ProcessNumericDialogInputEvents(Dialog* dialog, Field*& active_field,
+                                                bool (Dialog::*handle_event)(const InputAtom*));
 
 public:
     /* Main Game raises the redraw bit when promoting its pending dialog. */
     unsigned int m_dirty_flags;
 
 protected:
+    void BeginModalInput();
+    void EndModalInput();
     void CreateCloseButton(W8DialogButton& button, int left, int top);
     void ScrollTextArea(W8DialogTextArea& area, int first_visible_line, int left, int top,
                         int width, int height);
@@ -97,6 +117,7 @@ protected:
     int m_field_4c;
     bool m_right_button_down;
     unsigned char padding_051[3];
+    std::optional<ExclusiveRegionSet> m_input_scope;
 };
 
 

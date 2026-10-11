@@ -7,7 +7,6 @@
 #include <vector>
 
 #include "wiz8/fonts.h"
-#include "mousesystem.h"
 #include "wiz8/regions.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/engine_code/Video2.h"
@@ -135,7 +134,6 @@ unsigned char PleaseWaitScreenEnter(void)
             break;
         }
     }
-    MSYS_Init();
     ResetRegions();
     SetClippingRegionAndImageWidth(0x500, 0, 0, 0x280, 0x1e0);
     SetFontDestBuffer(GetFrameBufferSurface(), 0, 0, 0x280, 0x1e0, 0);
@@ -353,7 +351,6 @@ unsigned char PleaseWaitScreenLeave(int leaving)
         g_load_descriptor = 0;
     }
     NoOp();
-    MSYS_Shutdown();
     ResetRegions();
     EnableCursorScene();
     return 1;

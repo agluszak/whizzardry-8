@@ -9,7 +9,6 @@ add_library(WIZ8_GAME_CORE STATIC
     ../sgp/native/video.cpp
     ../sgp/vsurface.cpp
     ../sgp/Font.cpp
-    ../sgp/mousesystem.cpp
     "../sgp/Button System.cpp"
     ../sgp/line.cpp
     ../sgp/himage.cpp

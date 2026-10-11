@@ -3,7 +3,6 @@
 #include <string_view>
 
 #include "input.h"
-#include "mousesystem.h"
 #include <stddef.h>
 
 struct TEXTINPUTNODE;
@@ -30,8 +29,8 @@ void RenderAllTextFields(void);
 
 int GetTextInputCursor(void); /* 0x0055EF80: mouse cursor image */
 std::size_t GetTextInputByteCursor(void);
-void MouseMovedInTextRegionCallback(MOUSE_REGION* region, int reason);
-void MouseClickedInTextRegionCallback(MOUSE_REGION* region, int reason);
+void MouseMovedInTextRegionCallback(TEXTINPUTNODE* field, int reason);
+void MouseClickedInTextRegionCallback(TEXTINPUTNODE* field, int reason);
 void SetTextInputScheme(char mode);
 std::size_t CalculateCursorPos(int width, std::size_t cursor, std::string_view text, int* cursor_width,
                                 size_t* visible_count);

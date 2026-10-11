@@ -69,7 +69,6 @@
 #include "Font.h"
 #include "english.h"
 #include "input.h"
-#include "mousesystem.h"
 #include "random.h"
 #include "timer.h"
 #include "line.h"
@@ -1290,7 +1289,6 @@ unsigned char CampScreenEnter(void)
     }
     SetClippingRegionAndImageWidth(0x500, 0, 0, 0x280, 0x1e0);
     g_camp_screen->item_action = initial_item_action;
-    MSYS_Init();
     for (unsigned int filter = 0; filter < W8_CAMP_ITEM_FILTER_COUNT; ++filter) {
         g_camp_screen->item_filters[filter] = 0;
     }
@@ -1479,7 +1477,6 @@ unsigned char CampScreenLeave(int)
     delete g_camp_screen->character_info;
     delete g_camp_screen;
     g_camp_screen = 0;
-    MSYS_Shutdown();
     ResetRegions();
     if (gXStatus.fCampMode) {
         gXStatus.dialogue_sync_pending = true;
@@ -2529,7 +2526,6 @@ void BeginEndgameSequence(void)
         fade_code = 1;
         endgame_variant = true;
     }
-    MSYS_Init();
     ResetRegions();
     ActivateDialogRegion(0x138);
     VideoRemoveToolTip();
@@ -2645,7 +2641,6 @@ void BeginPartyDeath(void)
     UpdateHeldItemCursor();
     SoundPlay("Data\\Sound\\Misc\\PartyDead.wav", 0);
     StartMusicResource("CombatLose.MPL", 0, 1);
-    MSYS_Init();
     ResetRegions();
     ActivateDialogRegion(0x138);
     VideoRemoveToolTip();

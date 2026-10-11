@@ -1,6 +1,8 @@
 #include <algorithm>
+#include <array>
 #include <catch2/catch_test_macros.hpp>
 #include <SDL3/SDL_events.h>
+#include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_log.h>
 #include <SDL3/SDL_mouse.h>
@@ -87,6 +89,7 @@
 #include "wiz8/dialog_code/DialogButton.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/local_code/TextControl.h"
+#include "wiz8/local_code/Controls.h"
 #include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/local_screens/MainMenuScreen.h"
 #include "wiz8/local_screens/PartySelectionScreen.h"
@@ -149,14 +152,6 @@ bool RegionLive(unsigned region)
     return false;
 }
 
-int RegionByCallback(W8RegionCallback callback)
-{
-    for (unsigned region = 0; region < g_regions.size(); ++region)
-        if (g_regions[region].callback == callback && RegionLive(region))
-            return int(region);
-    return -1;
-}
-
 int RegionInSet(unsigned set, int help_text_id)
 {
     if (!set || set >= g_region_sets.size() || !g_region_sets[set].enabled)
@@ -165,6 +160,22 @@ int RegionInSet(unsigned set, int help_text_id)
         if ((help_text_id < 0 || g_regions[region].help_text_id == help_text_id) &&
             RegionLive(region))
             return int(region);
+    return -1;
+}
+
+/* UI interactions use real screen positions, not decomp-era region numbers.
+   Check that each expected hit target is owned and enabled. */
+int MainMenuRegion(short item)
+{
+    static constexpr std::array<SDL_Point, 6> centers = {{
+        {320, 160}, {320, 209}, {320, 257},
+        {320, 306}, {320, 357}, {320, 445},
+    }};
+    if (item < 0 || static_cast<std::size_t>(item) >= centers.size()) return -1;
+    const auto point = centers[item];
+    for (unsigned region = 1; region < g_regions.size(); ++region)
+        if (RegionLive(region) && RegionContainsPoint(region, point.x, point.y))
+            return static_cast<int>(region);
     return -1;
 }
 
@@ -284,6 +295,17 @@ class Game
         mouse_button(x, y, true);
         frame();
         mouse_button(x, y, false);
+        frame();
+    }
+
+    void release_outside(int region)
+    {
+        if (region < 0)
+            Fail("release-outside", "target region is not live");
+        const W8Region& bounds = g_regions[region];
+        mouse_button((bounds.x1 + bounds.x2) / 2, (bounds.y1 + bounds.y2) / 2, true);
+        frame();
+        mouse_button(0, 0, false);
         frame();
     }
 
@@ -433,6 +455,42 @@ void ReachMainMenu(Game& game)
     REQUIRE(g_runtime_test_hooks.movie_frames_presented == 0);
 }
 
+/* The menu's hit targets must be widget-owned, survive screen re-entry, and
+   never activate from an unpaired mouse release. */
+void MainMenuUiScenario()
+{
+    Game game(false);
+    ReachMainMenu(game);
+    const auto verify_controls = [] {
+        std::array<unsigned, 6> bound{};
+        for (short item = 0; item < static_cast<short>(bound.size()); ++item) {
+            const int region = MainMenuRegion(item);
+            REQUIRE(region >= 0);
+            REQUIRE(g_regions[region].widget != nullptr);
+            REQUIRE(g_regions[region].callback == DispatchControlRegionEvent);
+            bound[item] = static_cast<unsigned>(region);
+        }
+        return bound;
+    };
+    const auto bound = verify_controls();
+    REQUIRE(!g_main_menu_has_save_games);
+    game.click("disabled-load", MainMenuRegion(2));
+    REQUIRE(g_current_screen_state.id == W8_SCREEN_MAIN_MENU);
+    REQUIRE(game.settled());
+    game.release_outside(MainMenuRegion(1));
+    REQUIRE(g_current_screen_state.id == W8_SCREEN_MAIN_MENU);
+    REQUIRE(game.settled());
+    game.click("credits", MainMenuRegion(3));
+    game.wait_screen("credits", W8_SCREEN_CREDITS);
+    for (auto region : bound) {
+        REQUIRE(g_regions[region].widget == nullptr);
+        REQUIRE(g_regions[region].callback == nullptr);
+    }
+    game.click_at(320, 240);
+    game.wait_screen("main-menu-return", W8_SCREEN_MAIN_MENU);
+    verify_controls();
+}
+
 /* --- Character creation through the real controls ------------------------ */
 
 W8CharacterStatsPage* StatsPage()
@@ -468,7 +526,7 @@ void SpendPool(Game& game, const char* step, int page_index, const bool& complet
 std::string CreateCharacter(Game& game)
 {
     ReachMainMenu(game);
-    game.click("new-game", RegionByCallback(MainMenuNewGame));
+    game.click("new-game", MainMenuRegion(1));
     game.wait("party-selection", [&] {
         return g_current_screen_state.id == W8_SCREEN_PARTY_SELECTION && game.settled() &&
                RegionInSet(g_party_selection_left_action_region_set, -1) >= 0;
@@ -1045,7 +1103,7 @@ void LoadGameScenario(const fs::path& fixture)
     REQUIRE(fs::is_regular_file(fixture / "Fixture.SAV"));
     game.install(fixture / "Fixture.SAV", "Saves/Fixture.SAV");
     ReachMainMenu(game);
-    game.click("load-game", RegionByCallback(MainMenuLoadGame));
+    game.click("load-game", MainMenuRegion(2));
     W8OptionsSaveLoadPanel* panel = nullptr;
     game.wait("load-panel", [&] {
         if (g_current_screen_state.id != W8_SCREEN_OPTIONS || !game.settled() ||
@@ -1153,6 +1211,13 @@ static void CheckGameErrors()
     for (const auto& message : g_logged_errors)
         UNSCOPED_INFO(message);
     REQUIRE(g_logged_errors.empty());
+}
+
+TEST_CASE("main-menu-ui", "[runtime]")
+{
+    RequireAssets();
+    MainMenuUiScenario();
+    CheckGameErrors();
 }
 
 TEST_CASE("video", "[runtime]")

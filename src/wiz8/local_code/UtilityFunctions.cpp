@@ -6,8 +6,10 @@
 #include <algorithm>
 #include <cctype>
 #include <cstring>
+#include <optional>
 
 #include "wiz8/utility.h"
+#include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/local_code/UtilityFunctions.h"
@@ -19,13 +21,13 @@
 #include "wiz8/engine_code/Video2.h"
 #include "Button System.h"
 #include "input.h"
+#include "wiz8/regions.h"
 #include "random.h"
 #include "wiz8/layouts/game_status.h"
 #include "Font.h"
 #include "compat/native.h"
 #include "conditions.h"
 #include "dice.h"
-#include "mousesystem.h"
 #include "vobject.h"
 
 // GLOBAL: WIZ8 0x0068c0a4
@@ -50,6 +52,7 @@ static Font* g_message_box_font;
 static unsigned int g_message_box_shade;
 // GLOBAL: WIZ8 0x0068c0b0
 static bool g_message_box_accepted;
+static std::optional<ExclusiveRegionSet> g_message_box_input_scope;
 // GLOBAL: WIZ8 0x0068BFD0
 // GLOBAL: WIZ8 0x00689FD0
 
@@ -557,6 +560,7 @@ bool CreateMessageBox(std::string_view text, Font& font, unsigned int shade, boo
     g_message_box_shade = shade;
     g_message_box_state = 2;
     g_message_box_callback = callback;
+    g_message_box_input_scope.emplace(ButtonRegionSetIndex());
     GetButtonArea(g_message_box_background_button, &rect);
     InvalidateRegion(rect.x, rect.y, (rect.x + rect.w), (rect.y + rect.h), 0x11);
     return true;
@@ -565,6 +569,7 @@ bool CreateMessageBox(std::string_view text, Font& font, unsigned int shade, boo
 static void ReleaseMessageBoxControls()
 {
     SDL_Rect rect;
+    g_message_box_input_scope.reset();
     if (g_message_box_accept_button) {
         g_message_box_accept_button.reset();
         g_message_box_accept_image.reset();
@@ -599,7 +604,7 @@ void CloseMessageBox(void)
 
 static void InvalidateMessageBoxButton(const GUIButton& button, std::int32_t reason)
 {
-    if (reason & (MSYS_CALLBACK_REASON_GAIN_MOUSE | MSYS_CALLBACK_REASON_LOST_MOUSE)) {
+    if (reason & (BUTTON_REASON_GAIN_MOUSE | BUTTON_REASON_LOST_MOUSE)) {
         SDL_Rect rect;
         GetButtonArea(button, &rect);
         InvalidateRegion(rect.x, rect.y, (rect.x + rect.w), (rect.y + rect.h), 1);
@@ -608,9 +613,9 @@ static void InvalidateMessageBoxButton(const GUIButton& button, std::int32_t rea
 
 static void ClickMessageBoxButton(GUI_BUTTON* button, std::int32_t reason, bool accepted)
 {
-    if (reason & MSYS_CALLBACK_REASON_LBUTTON_DWN) {
+    if (reason & BUTTON_REASON_LBUTTON_DWN) {
         button->uiFlags |= BUTTON_CLICKED_ON;
-    } else if (reason & MSYS_CALLBACK_REASON_LBUTTON_UP) {
+    } else if (reason & BUTTON_REASON_LBUTTON_UP) {
         if (button->uiFlags & BUTTON_CLICKED_ON) {
             g_message_box_state = 1;
             g_message_box_accepted = accepted;
@@ -676,15 +681,15 @@ void RenderMessageBox(void)
 // FUNCTION: WIZ8 0x00518b30
 void ProcessMessageBoxInput(void)
 {
-    InputAtom input;
-    RefreshMouseRegions();
-    while (DequeueEvent(&input) == 1) {
+    W8DialogBase::DrainModalInput([](const InputAtom& input) {
         switch (input.usEvent) {
         case LEFT_BUTTON_DOWN:
         case LEFT_BUTTON_UP:
+        case LEFT_BUTTON_REPEAT:
         case RIGHT_BUTTON_DOWN:
         case RIGHT_BUTTON_UP:
-            DispatchMouseEvent(input);
+        case RIGHT_BUTTON_REPEAT:
+            DispatchRegionInput(&input);
             break;
         case KEY_DOWN:
             switch (toupper(input.usParam)) {
@@ -702,5 +707,6 @@ void ProcessMessageBoxInput(void)
             }
             break;
         }
-    }
+        return true;
+    });
 }

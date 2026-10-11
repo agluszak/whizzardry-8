@@ -30,7 +30,6 @@
 #include "Button System.h"
 #include "shading.h"
 #include "wiz8/application.h"
-#include "mousesystem.h"
 
 /* Original translation unit is not established by the Arnika/Gameloop source anchors. */
 
@@ -68,12 +67,6 @@ unsigned char InitializeGame(size_t& initialized_screens)
     }
     InitButtonSystem();
     InitializeRegionHelpState();
-    if (g_settings.tooltips_enabled) {
-        EnableMouseFastHelp();
-    } else {
-        DisableMouseFastHelp();
-    }
-    SetFastHelpDelay(static_cast<unsigned short>(g_settings.tooltip_delay_ms));
     ResetGameStatus(false);
     InitializeGameplayRuntimeObjects();
     UpdateHeldItemCursor();

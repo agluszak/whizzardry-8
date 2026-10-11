@@ -58,8 +58,7 @@ void VideoGetClientRect(SDL_Rect* rect);
 void VideoToolTip(std::string_view text);
 extern std::int32_t g_help_box_width;
 extern std::int32_t g_help_box_height;
-/* DisplayFastHelp in mousesystem.cpp and the product region code both access
-   these fields inline; no separate getter bodies occur at those call sites. */
+/* Region code accesses these fields inline. */
 static __inline std::int32_t VideoGetToolTipWidth(void)
 {
     return g_help_box_width;

@@ -7,10 +7,14 @@
 #include <deque>
 #include <vector>
 #include <span>
+#include <string>
+#include <SDL3/SDL_rect.h>
 
 #include "input.h"
 
 class W8Widget;
+struct _GUI_BUTTON;
+struct TEXTINPUTNODE;
 
 extern bool g_dev_mode;
 
@@ -23,9 +27,11 @@ struct W8RegionSet {
         active_count = region_ids.size();
     }
     unsigned int enabled = 0;
+    bool persistent = false;
     std::span<const unsigned int> Regions() const { return {region_ids.data(), active_count}; }
     void Reset() { active_count = 0; }
-    unsigned int AddRegion();
+    unsigned int AddRegion(int priority = 0);
+    bool RemoveRegion(unsigned int region_index);
 
 private:
     // Keep slots for screen rebuilds, without assuming contiguous allocation.
@@ -35,7 +41,7 @@ private:
 
 /* Region callbacks receive SGP's input atom unchanged. Wheel rotation uses
    usParam; uiParam carries the packed cursor position. */
-W8_ABI_ASSERT(sizeof(InputAtom) == 0x10, "InputAtom_size");
+W8_ABI_ASSERT(sizeof(InputAtom) == 0x18, "InputAtom_size");
 W8_ABI_ASSERT(offsetof(InputAtom, usParam) == 0x08, "InputAtom_wheel_payload_offset");
 W8_ABI_ASSERT(offsetof(InputAtom, uiParam) == 0x0c, "InputAtom_mouse_position_offset");
 
@@ -55,6 +61,14 @@ enum W8RegionFlags {
 
 struct W8Region;
 typedef unsigned char (*W8RegionCallback)(const InputAtom* event, struct W8Region* region);
+
+class W8RegionHandler {
+public:
+    virtual int HandleRegionInput(W8Region& region, const InputAtom& input) = 0;
+
+protected:
+    ~W8RegionHandler() = default;
+};
 
 struct W8Region {
     bool CaptureButtonDown(unsigned int event)
@@ -82,6 +96,52 @@ struct W8Region {
     int help_text_id;
     W8Widget* widget; // Non-owning callback target; cleared by widget teardown.
     uint64_t binding_generation = 0; // Detect replacement during callback dispatch.
+    int priority = 0;
+    std::string help_text;
+    _GUI_BUTTON* button = nullptr;
+    TEXTINPUTNODE* text_field = nullptr;
+    W8RegionHandler* handler = nullptr;
+};
+
+class OwnedRegion {
+public:
+    OwnedRegion() = default;
+    OwnedRegion(unsigned int set, int priority, W8RegionHandler& handler);
+    ~OwnedRegion();
+    OwnedRegion(const OwnedRegion&) = delete;
+    OwnedRegion& operator=(const OwnedRegion&) = delete;
+    OwnedRegion(OwnedRegion&& other) noexcept;
+    OwnedRegion& operator=(OwnedRegion&& other) noexcept;
+
+    explicit operator bool() const;
+    W8Region& region();
+    const W8Region& region() const;
+    unsigned int index() const { return index_; }
+    void reset();
+
+private:
+    unsigned int set_ = 0;
+    unsigned int index_ = 0;
+    uint64_t generation_ = 0;
+};
+
+class ExclusiveRegionSet {
+public:
+    explicit ExclusiveRegionSet(unsigned int set);
+    ~ExclusiveRegionSet();
+    ExclusiveRegionSet(const ExclusiveRegionSet&) = delete;
+    ExclusiveRegionSet& operator=(const ExclusiveRegionSet&) = delete;
+
+private:
+    struct SavedRegionState {
+        unsigned int index;
+        uint64_t generation;
+        unsigned int flags;
+    };
+    unsigned int set_;
+    SavedRegionState saved_current_{};
+    SavedRegionState saved_captured_{};
+    SavedRegionState saved_hover_{};
 };
 
 unsigned char InitializeRegionHelpState(void);
@@ -108,6 +168,7 @@ extern std::string g_default_help_text;
 unsigned int GetForcedRegion(void);
 void ReleaseDefaultHelpText(void);
 unsigned int UpdateRegionMousePosition(int x, int y);
+SDL_Point GetRegionMousePosition();
 unsigned int FindRegionAtPoint(unsigned short x, unsigned short y);
 void RegionSetEnable(unsigned int region_set_index);
 void RegionSetDisable(unsigned int region_set_index);
@@ -121,7 +182,8 @@ bool RegionContainsPoint(unsigned int region_index, unsigned short x, unsigned s
 bool RegionHasFlags(unsigned int region_index, unsigned int flags);
 unsigned int CreateRegionSet(void);
 void ResetRegionSet(unsigned int region_set_index);
-unsigned int AddRegionToSet(unsigned int region_set_index);
+unsigned int AddRegionToSet(unsigned int region_set_index, int priority = 0);
+void RemoveRegionFromSet(unsigned int region_set_index, unsigned int region_index);
 void SetRegionCallback(unsigned int region_index, W8RegionCallback callback,
                        unsigned short callback_id);
 void SetRegionHelp(unsigned int region_index, bool enabled, int help_text_id);
@@ -142,7 +204,6 @@ void SetRegionHelpForceEnabled(bool enabled);
 void EnableRegionHelpFlag(W8Region* region);
 void DisableRegionHelpFlag(W8Region* region);
 
-unsigned int DispatchMainGameMouseButtons(const InputAtom* input);
 
 void ResetRegions(void);
 

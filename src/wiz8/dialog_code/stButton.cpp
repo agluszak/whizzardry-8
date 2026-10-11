@@ -4,6 +4,7 @@
 #include <string_view>
 #include <utility>
 #include <algorithm>
+#include <SDL3/SDL_rect.h>
 
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/dialog_code/DialogButton.h"
@@ -12,13 +13,35 @@
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/engine_code/Video2.h"
 #include "Button System.h"
-#include "mousesystem.h"
+#include "wiz8/regions.h"
+#include "input.h"
 
+bool UpdateDialogArrowState(GUI_BUTTON* button, std::int32_t reason)
+{
+    if (reason & BUTTON_REASON_LBUTTON_DWN) {
+        if (!(button->uiFlags & BUTTON_CLICKED_ON)) {
+            button->uiFlags |= BUTTON_CLICKED_ON;
+            return true;
+        }
+    } else if (reason & BUTTON_REASON_LBUTTON_UP) {
+        if (button->uiFlags & BUTTON_CLICKED_ON) {
+            button->uiFlags &= ~BUTTON_CLICKED_ON;
+            return true;
+        }
+    } else if (reason & BUTTON_REASON_GAIN_MOUSE) {
+        return true;
+    } else if (reason & BUTTON_REASON_LOST_MOUSE) {
+        return true;
+    }
+    return false;
+}
 // FUNCTION: WIZ8 0x005db4e0
 void W8DialogButton::Draw()
 {
-    if (m_dirty && (m_mouse_region.uiFlags & MSYS_REGION_ENABLED)) {
-        m_visual.hovered = (m_mouse_region.uiFlags & MSYS_MOUSE_IN_AREA) != 0;
+    if (m_dirty && m_region &&
+        (m_region.region().flags & W8_REGION_INPUT_DISABLED) == 0) {
+        m_visual.hovered = (m_region.region().flags & W8_REGION_MOUSE_ENTER) != 0 ||
+                           g_hover_region_index == m_region.index();
         DrawButtonAppearance(m_appearance, m_visual);
         const auto& bounds = m_appearance.bounds;
         InvalidateRegion(bounds.x, bounds.y, bounds.x + bounds.w, bounds.y + bounds.h, 0);
@@ -33,10 +56,12 @@ void W8DialogButton::SetPosition(int x, int y)
     if (bounds.x == x && bounds.y == y) return;
     bounds.x = x;
     bounds.y = y;
-    m_mouse_region.RegionTopLeftX = x;
-    m_mouse_region.RegionTopLeftY = y;
-    m_mouse_region.RegionBottomRightX = x + bounds.w;
-    m_mouse_region.RegionBottomRightY = y + bounds.h;
+    if (m_region) {
+        SetRegionBounds(m_region.index(), static_cast<unsigned short>(x),
+                        static_cast<unsigned short>(y),
+                        static_cast<unsigned short>(x + bounds.w),
+                        static_cast<unsigned short>(y + bounds.h));
+    }
     m_dirty = true;
 }
 
@@ -45,8 +70,12 @@ void W8DialogButton::Resize(int width, int height)
     auto& bounds = m_appearance.bounds;
     bounds.w = std::max(width, 4);
     bounds.h = std::max(height, 3);
-    m_mouse_region.RegionBottomRightX = bounds.x + bounds.w;
-    m_mouse_region.RegionBottomRightY = bounds.y + bounds.h;
+    if (m_region) {
+        SetRegionBounds(m_region.index(), static_cast<unsigned short>(bounds.x),
+                        static_cast<unsigned short>(bounds.y),
+                        static_cast<unsigned short>(bounds.x + bounds.w),
+                        static_cast<unsigned short>(bounds.y + bounds.h));
+    }
     m_dirty = true;
 }
 
@@ -97,7 +126,7 @@ void W8DialogButton::SetEnabled(bool enabled)
 // FUNCTION: WIZ8 0x005db920
 bool W8DialogButton::IsEnabled()
 {
-    return (m_mouse_region.uiFlags & MSYS_REGION_EXISTS) && m_visual.enabled;
+    return static_cast<bool>(m_region) && m_visual.enabled;
 }
 
 // FUNCTION: WIZ8 0x005db950
@@ -115,24 +144,29 @@ unsigned char W8DialogButton::IsPressed() { return m_visual.pressed; }
 // FUNCTION: WIZ8 0x005db9d0
 void W8DialogButton::SetVisible(bool visible)
 {
-    if (!(m_mouse_region.uiFlags & MSYS_REGION_EXISTS)) return;
-    if (visible == ((m_mouse_region.uiFlags & MSYS_REGION_ENABLED) != 0)) return;
-    if (visible) MSYS_EnableRegion(&m_mouse_region);
-    else {
-        MSYS_DisableRegion(&m_mouse_region);
+    if (!m_region) return;
+    const bool currently_visible = (m_region.region().flags & W8_REGION_INPUT_DISABLED) == 0;
+    if (visible == currently_visible) return;
+    if (visible) {
+        EnableRegionInput(m_region.index());
+    } else {
+        DisableRegionInput(m_region.index());
         m_armed_buttons = m_repeated_buttons = 0;
         if (!m_left_toggles && !m_right_toggles) m_visual.pressed = false;
     }
     m_dirty = true;
-    RefreshMouseRegions();
+    const auto mouse = GetRegionMousePosition();
+    UpdateRegionMousePosition(mouse.x, mouse.y);
 }
 
 // FUNCTION: WIZ8 0x005dba70
 void W8DialogButton::SetTooltipEnabled(bool enabled)
 {
-    SetRegionFastHelpText(&m_mouse_region,
+    if (!m_region) return;
+    m_region.region().help_text =
         enabled && m_tooltip_index != W8_DIALOG_BUTTON_NO_TOOLTIP && g_settings.tooltips_enabled
-            ? std::string_view(g_localized_strings[m_tooltip_index]) : std::string_view{});
+            ? g_localized_strings[m_tooltip_index]
+            : std::string{};
 }
 
 // FUNCTION: WIZ8 0x005dbac0
@@ -153,19 +187,14 @@ W8DialogButton::W8DialogButton()
       hover_silent(false), m_repeat_enabled(false), m_owner(nullptr),
       m_live_dialog_count(g_live_dialog_count)
 {
-    m_mouse_region.dialog_button = this;
 }
 
 // FUNCTION: WIZ8 0x005db260
-W8DialogButton::~W8DialogButton()
-{
-    m_mouse_region.reset();
-    m_mouse_region.dialog_button = nullptr;
-}
+W8DialogButton::~W8DialogButton() = default;
 
 void W8DialogButton::Reset()
 {
-    m_mouse_region.reset();
+    m_region.reset();
     m_appearance = {};
     m_visual = {};
     m_armed_buttons = m_repeated_buttons = 0;
@@ -178,11 +207,16 @@ void W8DialogButton::Reset()
     m_dirty = true;
 }
 
-void W8DialogButton::ConfigureRegion(short priority)
+void W8DialogButton::ConfigureRegion(int priority)
 {
     const auto& bounds = m_appearance.bounds;
-    m_mouse_region.configure(bounds.x, bounds.y, bounds.x + bounds.w, bounds.y + bounds.h,
-                             priority, DialogButtonCallback, DialogButtonCallback);
+    m_region = OwnedRegion(ButtonRegionSetIndex(), priority, *this);
+    auto& region = m_region.region();
+    region.flags |= W8_REGION_RECTANGLE;
+    SetRegionBounds(m_region.index(), static_cast<unsigned short>(bounds.x),
+                    static_cast<unsigned short>(bounds.y),
+                    static_cast<unsigned short>(bounds.x + bounds.w),
+                    static_cast<unsigned short>(bounds.y + bounds.h));
     m_visual = {};
     m_armed_buttons = m_repeated_buttons = 0;
     m_dirty = true;
@@ -193,7 +227,7 @@ void W8DialogButton::ConfigureRegion(short priority)
 bool W8DialogButton::ConfigureTextButton(std::string_view text, Font& font, short fore_color,
                                        short shadow_color, short x, short y, short width,
                                        short height, W8DialogButtonCallback left_callback,
-                                       int user_data, GenericButtonImage image, short priority)
+                                       int user_data, GenericButtonImage image, int priority)
 {
     m_appearance = {};
     m_appearance.generic_image = image ? std::move(image) : DefaultGenericButtonImage();
@@ -217,7 +251,7 @@ bool W8DialogButton::Configure(const char* image_path, int gray_frame, int off_n
                               int off_hover_frame, int on_normal_frame, int on_hover_frame,
                               W8DialogButtonCallback left_callback,
                               W8DialogButtonCallback move_callback, bool left_toggles,
-                              short priority, int tooltip_index,
+                              int priority, int tooltip_index,
                               W8DialogButtonCallback right_callback,
                               W8DialogButtonCallback double_click_callback)
 {
@@ -238,16 +272,19 @@ bool W8DialogButton::Configure(const char* image_path, int gray_frame, int off_n
 }
 
 // FUNCTION: WIZ8 0x005db620
-void DialogButtonCallback(MOUSE_REGION* region, std::int32_t reason)
+int W8DialogButton::HandleRegionInput(W8Region& region, const InputAtom& input)
 {
-    if (region && region->dialog_button) region->dialog_button->HandleMouseEvent(reason);
+    const auto reason = ButtonReasonForRegionInput(region, input);
+    if (reason == BUTTON_REASON_NONE) return input.usEvent == LEFT_BUTTON_DBL_CLK;
+    HandleMouseEvent(reason);
+    return 1;
 }
 
 void W8DialogButton::HandleMouseEvent(std::int32_t reason)
 {
     if (m_live_dialog_count != g_live_dialog_count) return;
     if (!m_left_callback && !m_right_callback && !m_move_callback && !m_double_click_callback) return;
-    if (reason & MSYS_CALLBACK_REASON_LOST_MOUSE) {
+    if (reason & BUTTON_REASON_LOST_MOUSE) {
         m_armed_buttons = m_repeated_buttons = 0;
         if (!m_left_toggles) SetPressed(false);
         m_dirty = true;
@@ -255,27 +292,27 @@ void W8DialogButton::HandleMouseEvent(std::int32_t reason)
         return;
     }
     if (!m_visual.enabled) return;
-    if (reason & MSYS_CALLBACK_REASON_GAIN_MOUSE) {
+    if (reason & BUTTON_REASON_GAIN_MOUSE) {
         m_dirty = true;
         if (!silent && !hover_silent) PlayButtonSound(0);
         return;
     }
-    if ((reason & MSYS_CALLBACK_REASON_LBUTTON_DOUBLECLICK) && m_double_click_callback) {
+    if ((reason & BUTTON_REASON_LBUTTON_DOUBLECLICK) && m_double_click_callback) {
         const auto callback = m_double_click_callback;
         if (!m_left_toggles || m_visual.pressed) callback(this);
         return;
     }
-    if (reason & MSYS_CALLBACK_REASON_MOVE) {
+    if (reason & BUTTON_REASON_MOVE) {
         const auto callback = m_move_callback;
         if (callback) callback(this);
         return;
     }
-    const bool right = (reason & (MSYS_CALLBACK_REASON_RBUTTON_DWN |
-        MSYS_CALLBACK_REASON_RBUTTON_UP | MSYS_CALLBACK_REASON_RBUTTON_REPEAT)) != 0;
+    const bool right = (reason & (BUTTON_REASON_RBUTTON_DWN |
+        BUTTON_REASON_RBUTTON_UP | BUTTON_REASON_RBUTTON_REPEAT)) != 0;
     const auto mask = right ? SDL_BUTTON_RMASK : SDL_BUTTON_LMASK;
-    const auto down = right ? MSYS_CALLBACK_REASON_RBUTTON_DWN : MSYS_CALLBACK_REASON_LBUTTON_DWN;
-    const auto up = right ? MSYS_CALLBACK_REASON_RBUTTON_UP : MSYS_CALLBACK_REASON_LBUTTON_UP;
-    const auto repeat = right ? MSYS_CALLBACK_REASON_RBUTTON_REPEAT : MSYS_CALLBACK_REASON_LBUTTON_REPEAT;
+    const auto down = right ? BUTTON_REASON_RBUTTON_DWN : BUTTON_REASON_LBUTTON_DWN;
+    const auto up = right ? BUTTON_REASON_RBUTTON_UP : BUTTON_REASON_LBUTTON_UP;
+    const auto repeat = right ? BUTTON_REASON_RBUTTON_REPEAT : BUTTON_REASON_LBUTTON_REPEAT;
     const bool toggles = right ? m_right_toggles : m_left_toggles;
     const auto callback = right ? m_right_callback : m_left_callback;
     // Callbacks may destroy the owning dialog and this control.

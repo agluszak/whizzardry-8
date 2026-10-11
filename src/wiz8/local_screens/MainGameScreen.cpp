@@ -106,7 +106,6 @@
 #include "wiz8/filesystem.h"
 #include "input.h"
 #include "timer.h"
-#include "mousesystem.h"
 #include "surrender/srTypeRegistry.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/local_code/ItemManager.h"
@@ -2888,7 +2887,6 @@ unsigned char MainGameScreenEnter(void)
         LoadMainGameCursorResources();
     }
     gXStatus.level_up_notice = true;
-    MSYS_Init();
     ResetRegions();
     CreateMainGameInterfaceButtons();
     CreateSpellIconHudControls();
@@ -3061,8 +3059,10 @@ void SetMainGameMode(W8MainGameMode mode)
 // FUNCTION: WIZ8 0x005684E0
 unsigned char ProcessMainGameInput(void)
 {
+    SDL_Point mouse;
+    SGPMouseGetPos(&mouse);
     if (GetForcedRegion() == 0) {
-        RefreshMouseRegions();
+        UpdateRegionMousePosition(mouse.x, mouse.y);
     }
 
     bool handled = false;
@@ -3076,10 +3076,10 @@ unsigned char ProcessMainGameInput(void)
             case LEFT_BUTTON_UP:
             case RIGHT_BUTTON_DOWN:
             case RIGHT_BUTTON_UP:
-                DispatchMouseEvent(input);
                 break;
             default:
-                if (HandleDialogueTextInput(&input) == 0 && HandleMainGameInputEvent(&input) == 0) {
+                if (HandleDialogueTextInput(&input) == 0 &&
+                    HandleMainGameInputEvent(&input) == 0) {
                     ResetMainGameMode();
                     return 1;
                 }
@@ -3474,7 +3474,6 @@ unsigned char MainGameScreenLeave(int leaving)
         ReleaseLoadedVideoFrames();
     }
     NoOp();
-    MSYS_Shutdown();
     ResetRegions();
     g_world_render_enabled = 0;
     g_monster_shadow_updates_enabled = 0;
@@ -7135,13 +7134,12 @@ unsigned int DispatchMainGameMouseButtons(const InputAtom* input)
     case LEFT_BUTTON_UP:
     case RIGHT_BUTTON_DOWN:
     case RIGHT_BUTTON_UP:
-        DispatchMouseEvent(*input);
+        DispatchRegionInput(input);
         return 1;
     default:
         return 0;
     }
 }
-
 /* Input routed here while mouselook is latched: the left button arms the
    look flag, and each mouse move accumulates yaw/pitch from the offset off
    the 320x240 anchor before recentering the cursor. Smoothing defers the

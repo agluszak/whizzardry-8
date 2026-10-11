@@ -12,7 +12,6 @@
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "english.h"
-#include "mousesystem.h"
 #include "Button System.h"
 #include "Font.h"
 #include "dialog_code/DialogBase.h"
@@ -178,13 +177,13 @@ int W8MessageDialogBase::CreateControls()
     m_message_button.ConfigureTextButton({}, *g_dialog_interface_font, g_dialog_font_foreground,
                                         g_dialog_font_background, m_x + 9, m_y + 9,
                                         m_width - 0x12, m_height - 0x12, nullptr, 0,
-                                        m_edge_image, MSYS_PRIORITY_HIGHEST - 1);
+                                        m_edge_image, BUTTON_PRIORITY_HIGHEST - 1);
 
     if (m_confirm_button.Configure("Data\\Dialogs\\DialogConfirmation.STI", 3, 0, 1, 2, 2,
-                                   MessageDialogConfirmCallback, nullptr, false, MSYS_PRIORITY_HIGHEST,
+                                   MessageDialogConfirmCallback, nullptr, false, BUTTON_PRIORITY_HIGHEST,
                                    W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr) &&
         m_cancel_button.Configure("Data\\Dialogs\\DialogConfirmation.STI", 7, 4, 5, 6, 6,
-                                  MessageDialogCancelCallback, nullptr, false, MSYS_PRIORITY_HIGHEST,
+                                  MessageDialogCancelCallback, nullptr, false, BUTTON_PRIORITY_HIGHEST,
                                   W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr)) {
         m_confirm_button.m_owner = this;
         m_cancel_button.m_owner = this;
@@ -241,17 +240,19 @@ bool W8MessageDialogBase::HandleInput(const InputAtom* input)
 // FUNCTION: WIZ8 0x005d3080
 bool W8MessageDialogBase::ProcessInput()
 {
-    InputAtom input;
-
-    RefreshMouseRegions();
-
-    while (DequeueEvent(&input)) {
-        if (!DispatchDialogMouseInput(input)) {
-            return HandleInput(&input);
+    BeginModalInput();
+    bool keep_open = is_open;
+    DrainModalInput([this, &keep_open](const InputAtom& input) {
+        if (DispatchRegionInput(&input)) {
+            keep_open = is_open;
+            return true;
         }
-    }
-
-    return is_open;
+        keep_open = HandleInput(&input);
+        if (!keep_open) EndModalInput();
+        return false;
+    });
+    if (!keep_open) EndModalInput();
+    return keep_open;
 }
 
 // FUNCTION: WIZ8 0x005d32c0

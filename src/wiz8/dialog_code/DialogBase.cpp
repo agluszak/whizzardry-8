@@ -8,7 +8,6 @@
 #include "wiz8/video_object_catalog.h"
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "input.h"
-#include "mousesystem.h"
 #include "Button System.h"
 #include "vsurface.h"
 
@@ -18,7 +17,7 @@ int g_live_dialog_count;
 void W8DialogBase::CreateCloseButton(W8DialogButton& button, int left, int top)
 {
     button.Configure("Data\\Dialogs\\popup_confirmationbuttons.sti", 3, 0, 1, 4, 2,
-                     DialogCloseButtonCallback, BUTTON_NO_CALLBACK, false, MSYS_PRIORITY_HIGHEST,
+                     DialogCloseButtonCallback, BUTTON_NO_CALLBACK, false, BUTTON_PRIORITY_HIGHEST,
                      W8_DIALOG_BUTTON_NO_TOOLTIP, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
     button.SetPosition(m_x + left, m_y + top);
     button.m_owner = this;
@@ -62,6 +61,7 @@ W8DialogBase::W8DialogBase()
 // FUNCTION: WIZ8 0x005dc860
 W8DialogBase::~W8DialogBase()
 {
+    EndModalInput();
     if (m_destroy_callback) {
         m_destroy_callback(this);
     }
@@ -152,7 +152,7 @@ int W8DialogBase::CreateControls()
     }
     if (m_resource.ConfigureTextButton({}, *m_font, m_foreground, m_background, m_x, m_y,
                                       m_width, m_height, nullptr, 0, m_border,
-                                      MSYS_PRIORITY_HIGHEST - 2)) {
+                                      BUTTON_PRIORITY_BACKGROUND)) {
         m_resource.SetTextOffsets(3, 3, true);
         m_resource.SetMultiColor(g_dialog_font_enabled);
         m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
@@ -165,6 +165,7 @@ int W8DialogBase::CreateControls()
 // FUNCTION: WIZ8 0x005dcc30
 void W8DialogBase::DestroyControls()
 {
+    EndModalInput();
     m_resource.Reset();
     m_border.reset();
     m_text.clear();
@@ -177,14 +178,24 @@ void W8DialogBase::DestroyControls()
     m_initialized = false;
 }
 
+void W8DialogBase::BeginModalInput()
+{
+    if (!m_input_scope) {
+        m_input_scope.emplace(ButtonRegionSetIndex());
+    }
+}
+
+void W8DialogBase::EndModalInput()
+{
+    m_input_scope.reset();
+}
+
 // FUNCTION: WIZ8 0x005dcce0
 bool W8DialogBase::ProcessInput()
 {
-    InputAtom input;
-
-    RefreshMouseRegions();
-    while (DequeueEvent(&input)) {
-        if (DispatchDialogMouseInput(input)) {
+    BeginModalInput();
+    DrainModalInput([this](const InputAtom& input) {
+        if (DispatchRegionInput(&input)) {
             if (input.usEvent == RIGHT_BUTTON_DOWN) {
                 OnRightButtonDown();
             } else if (input.usEvent == RIGHT_BUTTON_UP) {
@@ -195,7 +206,9 @@ bool W8DialogBase::ProcessInput()
         } else if (input.usEvent == KEY_DOWN && input.usParam == VK_ESCAPE) {
             m_keep_open = false;
         }
-    }
+        return true;
+    });
+    if (!m_keep_open) EndModalInput();
     return m_keep_open;
 }
 

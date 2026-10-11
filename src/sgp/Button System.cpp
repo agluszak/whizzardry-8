@@ -19,10 +19,11 @@
 #include <algorithm>
 
 #include "Types.h"
-#include "mousesystem.h"
+#include "input.h"
 #include "vobject.h"
 #include "vobject_blitters.h"
 #include "Button System.h"
+#include "wiz8/regions.h"
 #include "image_assets.h"
 #include "Font.h"
 #include "line.h"
@@ -37,6 +38,106 @@
 //TO REMOVE ALL DEBUG FUNCTIONALITY:  simply comment out BUTTONSYSTEM_DEBUGGING definition
 
 static std::vector<std::weak_ptr<GUI_BUTTON>> active_buttons;
+static unsigned int button_region_set = 0;
+
+namespace {
+W8Region& ButtonRegion(const GUI_BUTTON* button)
+{
+    const auto index = button && button->region_index < g_regions.size()
+                           ? button->region_index
+                           : 0;
+    return g_regions[index];
+}
+
+SDL_Rect ButtonBounds(const GUI_BUTTON* button)
+{
+    const auto& region = ButtonRegion(button);
+    return {region.x1, region.y1, region.x2 - region.x1, region.y2 - region.y1};
+}
+
+bool ButtonRegionIsLive(const GUI_BUTTON* button)
+{
+    return button && button->region_index != 0 && button->region_index < g_regions.size() &&
+           g_regions[button->region_index].button == button;
+}
+
+bool ButtonRegionIsVisible(const GUI_BUTTON* button)
+{
+    return ButtonRegionIsLive(button) &&
+           (ButtonRegion(button).flags & W8_REGION_INPUT_DISABLED) == 0;
+}
+
+bool ButtonIsHovered(const GUI_BUTTON* button)
+{
+    return ButtonRegionIsLive(button) &&
+           g_hover_region_index == button->region_index;
+}
+
+int ButtonPriority(int priority)
+{
+    if (priority == BUTTON_PRIORITY_AUTO) return BUTTON_PRIORITY_BASE;
+    return std::clamp(priority, BUTTON_PRIORITY_LOWEST, BUTTON_PRIORITY_HIGHEST);
+}
+
+void ReleaseButtonRegion(GUI_BUTTON* button)
+{
+    if (!ButtonRegionIsLive(button)) {
+        if (button) button->region_index = 0;
+        return;
+    }
+    const auto index = button->region_index;
+    button->region_index = 0;
+    RemoveRegionFromSet(button_region_set, index);
+}
+
+}
+
+std::int32_t ButtonReasonForRegionInput(const W8Region& region, const InputAtom& event)
+{
+    switch (event.usEvent) {
+    case MOUSE_POS:
+        if (region.flags & W8_REGION_MOUSE_LEAVE) return BUTTON_REASON_LOST_MOUSE;
+        if (region.flags & W8_REGION_MOUSE_ENTER) return BUTTON_REASON_GAIN_MOUSE;
+        return BUTTON_REASON_MOVE;
+    case LEFT_BUTTON_DOWN:
+        return BUTTON_REASON_LBUTTON_DWN |
+               (event.clicks >= 2 ? BUTTON_REASON_LBUTTON_DOUBLECLICK : 0);
+    case LEFT_BUTTON_UP: return BUTTON_REASON_LBUTTON_UP;
+    case LEFT_BUTTON_DBL_CLK: return BUTTON_REASON_NONE;
+    case LEFT_BUTTON_REPEAT:
+        return BUTTON_REASON_LBUTTON_REPEAT;
+    case RIGHT_BUTTON_DOWN:
+        return BUTTON_REASON_RBUTTON_DWN;
+    case RIGHT_BUTTON_UP: return BUTTON_REASON_RBUTTON_UP;
+    case RIGHT_BUTTON_REPEAT:
+        return BUTTON_REASON_RBUTTON_REPEAT;
+    }
+    return BUTTON_REASON_NONE;
+}
+
+namespace {
+unsigned char DispatchButtonRegionEvent(const InputAtom* event, W8Region* region)
+{
+    auto* button = region->button;
+    if (!button) return 0;
+
+    const auto reason = ButtonReasonForRegionInput(*region, *event);
+    if (event->usEvent == LEFT_BUTTON_DOWN || event->usEvent == RIGHT_BUTTON_DOWN) {
+        g_captured_region_index = button->region_index;
+    } else if (event->usEvent == LEFT_BUTTON_UP || event->usEvent == RIGHT_BUTTON_UP) {
+        if (g_captured_region_index == button->region_index) g_captured_region_index = 0;
+    }
+
+    if (event->usEvent == LEFT_BUTTON_DBL_CLK) return 1;
+    if (reason == BUTTON_REASON_NONE) return 0;
+    if (reason & (BUTTON_REASON_MOVE | BUTTON_REASON_GAIN_MOUSE | BUTTON_REASON_LOST_MOUSE)) {
+        QuickButtonCallbackMMove(button, reason);
+    } else {
+        QuickButtonCallbackMButn(button, reason);
+    }
+    return 1;
+}
+}
 
 #ifdef BUTTONSYSTEM_DEBUGGING
 //Called immediately before assigning the button to the button list.
@@ -47,17 +148,19 @@ void AssertFailIfIdenticalButtonAttributesFound(GUI_BUTTON* b)
         GUI_BUTTON* c = retained.get();
         if (!c)
             continue;
+        const auto& button_area = ButtonRegion(b);
+        const auto& candidate_area = ButtonRegion(c);
         if (c->UserData[3] == 0xffffffff)
             continue;
-        if (b->Area.PriorityLevel != c->Area.PriorityLevel)
+        if (button_area.priority != candidate_area.priority)
             continue;
-        if (b->Area.RegionTopLeftX != c->Area.RegionTopLeftX)
+        if (button_area.x1 != candidate_area.x1)
             continue;
-        if (b->Area.RegionTopLeftY != c->Area.RegionTopLeftY)
+        if (button_area.y1 != candidate_area.y1)
             continue;
-        if (b->Area.RegionBottomRightX != c->Area.RegionBottomRightX)
+        if (button_area.x2 != candidate_area.x2)
             continue;
-        if (b->Area.RegionBottomRightY != c->Area.RegionBottomRightY)
+        if (button_area.y2 != candidate_area.y2)
             continue;
         if (b->ClickCallback != c->ClickCallback)
             continue;
@@ -111,11 +214,11 @@ size_t RegisteredButtonCount()
 
 _GUI_BUTTON::_GUI_BUTTON()
 {
-    Area.button = this;
 }
 
 _GUI_BUTTON::~_GUI_BUTTON()
 {
+    ReleaseButtonRegion(this);
     if (gpAnchoredButton == this) gpAnchoredButton = nullptr;
     if (gpPrevAnchoredButton == this) gpPrevAnchoredButton = nullptr;
 }
@@ -245,6 +348,16 @@ void ShutdownButtonImageManager(void)
     default_generic_image.reset();
 }
 
+unsigned int ButtonRegionSetIndex(void)
+{
+    if (button_region_set == 0) {
+        button_region_set = CreateRegionSet();
+        g_region_sets[button_region_set].persistent = true;
+    }
+    RegionSetEnable(button_region_set);
+    return button_region_set;
+}
+
 //	InitButtonSystem
 //	Initializes the GUI button system for use. Must be called before using
 //	any other button functions.
@@ -252,8 +365,7 @@ void ShutdownButtonImageManager(void)
 bool InitButtonSystem(void)
 {
     ShutdownButtonSystem();
-
-
+    ButtonRegionSetIndex();
 
     // Initialize the button image manager sub-system
     if (InitializeButtonImageManager() == false) {
@@ -269,12 +381,8 @@ bool InitButtonSystem(void)
 // FUNCTION: WIZ8 0x0040cf90
 void ShutdownButtonSystem(void)
 {
-    for (auto& weak : active_buttons) {
-        if (auto button = weak.lock()) {
-            if (button->Area.uiFlags & MSYS_REGION_EXISTS)
-                MSYS_DisableRegion(&button->Area);
-        }
-    }
+    for (auto& weak : active_buttons)
+        if (auto button = weak.lock()) ReleaseButtonRegion(button.get());
     active_buttons.clear();
     ShutdownButtonImageManager();
 }
@@ -286,34 +394,18 @@ void ShutdownButtonSystem(void)
 // FUNCTION: WIZ8 0x0040d210
 void ResizeButton(const GUIButton& button, std::int16_t w, std::int16_t h)
 {
-    GUI_BUTTON* b;
-    std::int32_t xloc, yloc;
+    if (!button || (button->uiFlags & BUTTON_TYPES) == BUTTON_QUICK) return;
 
-    // if button size is too small, adjust it.
-    if (w < 4)
-        w = 4;
-    if (h < 3)
-        h = 3;
-
-    b = button.get();
-    if (!b) return;
-
-    // If this is a QuickButton, ignore this call
-    if ((b->uiFlags & BUTTON_TYPES) == BUTTON_QUICK)
-        return;
-
-    // Get current button screen location
-    xloc = b->bounds.x;
-    yloc = b->bounds.y;
-
-    // Set the new MOUSE_REGION area values to reflect change in size.
-    b->Area.RegionTopLeftX = (std::uint16_t)xloc;
-    b->Area.RegionTopLeftY = (std::uint16_t)yloc;
-    b->Area.RegionBottomRightX = (std::uint16_t)(xloc + w);
-    b->Area.RegionBottomRightY = (std::uint16_t)(yloc + h);
-    b->bounds.w = w;
-    b->bounds.h = h;
-    b->uiFlags |= BUTTON_DIRTY;
+    const auto bounds = button->bounds;
+    const int width = std::max<int>(w, 4);
+    const int height = std::max<int>(h, 3);
+    SetRegionBounds(button->region_index, static_cast<std::uint16_t>(bounds.x),
+                    static_cast<std::uint16_t>(bounds.y),
+                    static_cast<std::uint16_t>(bounds.x + width),
+                    static_cast<std::uint16_t>(bounds.y + height));
+    button->bounds.w = width;
+    button->bounds.h = height;
+    button->uiFlags |= BUTTON_DIRTY;
 }
 
 //	SetButtonPosition
@@ -322,28 +414,16 @@ void ResizeButton(const GUIButton& button, std::int16_t w, std::int16_t h)
 // FUNCTION: WIZ8 0x0040d2b0
 void SetButtonPosition(const GUIButton& button, std::int16_t x, std::int16_t y)
 {
-    GUI_BUTTON* b;
-    std::int32_t xloc, yloc, w, h;
+    if (!button) return;
 
-    b = button.get();
-    if (!b) return;
-
-    // Get new screen position
-    xloc = (std::int16_t)x;
-    yloc = (std::int16_t)y;
-    // Compute current width and height of this button
-    w = b->Area.RegionBottomRightX - b->Area.RegionTopLeftX;
-    h = b->Area.RegionBottomRightY - b->Area.RegionTopLeftY;
-
-    // Set button to new location
-    b->bounds.x = x;
-    b->bounds.y = y;
-    // Set the buttons MOUSE_REGION to appropriate area
-    b->Area.RegionTopLeftX = (std::uint16_t)xloc;
-    b->Area.RegionTopLeftY = (std::uint16_t)yloc;
-    b->Area.RegionBottomRightX = (std::uint16_t)(xloc + w);
-    b->Area.RegionBottomRightY = (std::uint16_t)(yloc + h);
-    b->uiFlags |= BUTTON_DIRTY;
+    const auto bounds = button->bounds;
+    button->bounds.x = x;
+    button->bounds.y = y;
+    SetRegionBounds(button->region_index, static_cast<std::uint16_t>(x),
+                    static_cast<std::uint16_t>(y),
+                    static_cast<std::uint16_t>(x + bounds.w),
+                    static_cast<std::uint16_t>(y + bounds.h));
+    button->uiFlags |= BUTTON_DIRTY;
 }
 
 namespace {
@@ -359,8 +439,14 @@ void RegisterButton(const GUIButton& button, std::int16_t x, std::int16_t y, std
     button->ClickCallback = click;
     if (move) button->uiFlags |= BUTTON_MOVE_CALLBACK;
     if (click) button->uiFlags |= BUTTON_CLICK_CALLBACK;
-    button->Area.configure(x, y, x + width, y + height,
-                      static_cast<std::int8_t>(priority), QuickButtonCallbackMMove, QuickButtonCallbackMButn);
+    button->region_index =
+        AddRegionToSet(ButtonRegionSetIndex(), ButtonPriority(priority));
+    auto& region = g_regions[button->region_index];
+    region.button = button.get();
+    SetRegionBounds(button->region_index, static_cast<unsigned short>(x),
+                    static_cast<unsigned short>(y), static_cast<unsigned short>(x + width),
+                    static_cast<unsigned short>(y + height));
+    SetRegionCallback(button->region_index, DispatchButtonRegionEvent, 0);
 #ifdef BUTTONSYSTEM_DEBUGGING
     AssertFailIfIdenticalButtonAttributesFound(button.get());
 #endif
@@ -434,31 +520,33 @@ void SpecifyButtonTextOffsets(const GUIButton& button, std::int8_t x, std::int8_
     button->fShiftText = shift;
 }
 
-//	SetButtonFastHelpText
-//	Set the text that will be displayed as the FastHelp
+//	SetButtonHelpText
+//	Set the text that will be displayed as help text
 // FUNCTION: WIZ8 0x0040d910
-void SetButtonFastHelpText(const GUIButton& button, std::string_view text)
+void SetButtonHelpText(const GUIButton& button, std::string_view text)
 {
-    if (button) SetRegionFastHelpText(&button->Area, text);
+    if (!button || !ButtonRegionIsLive(button.get())) return;
+    auto& region = ButtonRegion(button.get());
+    region.help_text = text;
+    region.help_enabled = !text.empty();
 }
 
 //	QuickButtonCallbackMMove
 //	Dispatches all button callbacks for mouse movement. This function gets
-//	called by the Mouse System. *DO NOT CALL DIRECTLY*
+//	called by RegionManager. *DO NOT CALL DIRECTLY*
 // FUNCTION: WIZ8 0x0040d940
-void QuickButtonCallbackMMove(MOUSE_REGION* reg, std::int32_t reason)
+void QuickButtonCallbackMMove(GUI_BUTTON* b, std::int32_t reason)
 {
-    GUI_BUTTON* b = reg ? reg->button : nullptr;
     if (!b) return;
 
     if (b->uiFlags & BUTTON_ENABLED &&
-        reason & (MSYS_CALLBACK_REASON_LOST_MOUSE | MSYS_CALLBACK_REASON_GAIN_MOUSE)) {
+        reason & (BUTTON_REASON_LOST_MOUSE | BUTTON_REASON_GAIN_MOUSE)) {
         b->uiFlags |= BUTTON_DIRTY;
     }
 
     // ATE: New stuff for toggle buttons that work with new Win95 paridigm
     if ((b->uiFlags & BUTTON_NEWTOGGLE)) {
-        if (reason & MSYS_CALLBACK_REASON_LOST_MOUSE) {
+        if (reason & BUTTON_REASON_LOST_MOUSE) {
             if (b->ubToggleButtonActivated) {
                 b->ubToggleButtonActivated = false;
 
@@ -480,11 +568,10 @@ void QuickButtonCallbackMMove(MOUSE_REGION* reg, std::int32_t reason)
 
 //	QuickButtonCallbackMButn
 //	Dispatches all button callbacks for button presses. This function is
-//	called by the Mouse System. *DO NOT CALL DIRECTLY*
+//	called by RegionManager. *DO NOT CALL DIRECTLY*
 // FUNCTION: WIZ8 0x0040da50
-void QuickButtonCallbackMButn(MOUSE_REGION* reg, std::int32_t reason)
+void QuickButtonCallbackMButn(GUI_BUTTON* b, std::int32_t reason)
 {
-    GUI_BUTTON* b = reg ? reg->button : nullptr;
     if (!b) return;
     bool StateBefore;
 
@@ -492,7 +579,7 @@ void QuickButtonCallbackMButn(MOUSE_REGION* reg, std::int32_t reason)
 
     // ATE: New stuff for toggle buttons that work with new Win95 paridigm
     if (b->uiFlags & BUTTON_NEWTOGGLE && b->uiFlags & BUTTON_ENABLED) {
-        if (reason & MSYS_CALLBACK_REASON_LBUTTON_DWN) {
+        if (reason & BUTTON_REASON_LBUTTON_DWN) {
             if (!b->ubToggleButtonActivated) {
                 if (!(b->uiFlags & BUTTON_CLICKED_ON)) {
                     b->ubToggleButtonOldState = false;
@@ -503,7 +590,7 @@ void QuickButtonCallbackMButn(MOUSE_REGION* reg, std::int32_t reason)
                 }
                 b->ubToggleButtonActivated = true;
             }
-        } else if (reason & MSYS_CALLBACK_REASON_LBUTTON_UP) {
+        } else if (reason & BUTTON_REASON_LBUTTON_UP) {
             b->ubToggleButtonActivated = false;
         }
     }
@@ -514,22 +601,22 @@ void QuickButtonCallbackMButn(MOUSE_REGION* reg, std::int32_t reason)
     //down, and anchored never change state, unless you release the mouse in the button area.
 
     if (b->MoveCallback == DEFAULT_MOVE_CALLBACK && b->uiFlags & BUTTON_ENABLED) {
-        if (reason & MSYS_CALLBACK_REASON_LBUTTON_DWN) {
+        if (reason & BUTTON_REASON_LBUTTON_DWN) {
             gpAnchoredButton = b;
             gfAnchoredState = StateBefore;
             b->uiFlags |= BUTTON_CLICKED_ON;
-        } else if (reason & MSYS_CALLBACK_REASON_LBUTTON_UP && b->uiFlags & BUTTON_NO_TOGGLE) {
+        } else if (reason & BUTTON_REASON_LBUTTON_UP && b->uiFlags & BUTTON_NO_TOGGLE) {
             b->uiFlags &= (~BUTTON_CLICKED_ON);
         }
     } else if (b->uiFlags & BUTTON_CHECKBOX) {
         if (reason &
-            MSYS_CALLBACK_REASON_LBUTTON_DWN) { //the check box button gets anchored, though it doesn't actually use the anchoring move callback.
+            BUTTON_REASON_LBUTTON_DWN) { //the check box button gets anchored, though it doesn't actually use the anchoring move callback.
             //The effect is different, we don't want to toggle the button state, but we do want to anchor this
             //button so that we don't effect any other buttons while we move the mouse around in anchor mode.
             gpAnchoredButton = b;
             gfAnchoredState = StateBefore;
 
-        } else if (reason & MSYS_CALLBACK_REASON_LBUTTON_UP) {
+        } else if (reason & BUTTON_REASON_LBUTTON_UP) {
             b->uiFlags ^=
                 BUTTON_CLICKED_ON; //toggle the checkbox state upon release inside button area.
         }
@@ -553,10 +640,10 @@ void QuickButtonCallbackMButn(MOUSE_REGION* reg, std::int32_t reason)
         //Kris:  January 6, 1998
         //Added these checks to avoid a case where it was possible to process a leftbuttonup message when
         //the button wasn't anchored, and should have been.
-        if (!(reason & MSYS_CALLBACK_REASON_LBUTTON_UP) ||
+        if (!(reason & BUTTON_REASON_LBUTTON_UP) ||
             b->MoveCallback != DEFAULT_MOVE_CALLBACK || gpPrevAnchoredButton == b)
             (b->ClickCallback)(b, reason);
-    } else if ((reason & MSYS_CALLBACK_REASON_LBUTTON_DWN) &&
+    } else if ((reason & BUTTON_REASON_LBUTTON_DWN) &&
                !(b->uiFlags & BUTTON_IGNORE_CLICKS)) {
         // Otherwise, do default action with this button.
         b->uiFlags ^= BUTTON_CLICKED_ON;
@@ -572,7 +659,7 @@ void RenderButtons(void)
         std::erase_if(active_buttons, [](const auto& entry) { return entry.expired(); });
         for (const auto& weak : active_buttons) {
             auto button = weak.lock();
-            if (!button || !(button->Area.uiFlags & MSYS_REGION_ENABLED)) continue;
+            if (!button || !(ButtonRegionIsVisible(button.get()))) continue;
             auto& flags = button->uiFlags;
             if (((flags ^ button->uiOldFlags) & (BUTTON_CLICKED_ON | BUTTON_ENABLED)) ||
                 (flags & BUTTON_SAVEBACKGROUND))
@@ -605,7 +692,7 @@ bool DrawButton(const GUIButton& button)
 {
     if (!button) return false;
     FontRenderScope font_scope;
-    if (button->Area.uiFlags & MSYS_REGION_ENABLED) DrawButtonFromPtr(button.get());
+    if (ButtonRegionIsVisible(button.get())) DrawButtonFromPtr(button.get());
     return true;
 }
 
@@ -633,9 +720,9 @@ void DrawButtonFromPtr(GUI_BUTTON* b)
     DrawButtonAppearance(*b, {
         (b->uiFlags & BUTTON_ENABLED) != 0,
         (b->uiFlags & BUTTON_CLICKED_ON) != 0,
-        (b->Area.uiFlags & MSYS_MOUSE_IN_AREA) != 0,
+        ButtonIsHovered(b),
         (b->uiFlags & BUTTON_CHECKBOX) != 0,
-        (b->Area.ButtonState & MSYS_LEFT_BUTTON) != 0});
+        (ButtonRegion(b).flags & W8_REGION_LEFT_BUTTON_HELD) != 0});
 }
 
 static void DrawTextOnButton(const ButtonAppearance* b, const ButtonVisualState& state);
@@ -683,59 +770,50 @@ static std::int8_t DrawQuickButton(const ButtonAppearance* b, const ButtonVisual
 
 void DrawHatchOnButton(const ButtonAppearance* b)
 {
-    std::uint8_t* pDestBuf;
-    std::uint32_t uiDestPitchBYTES;
-    SDL_Rect ClipRect{b->bounds.x, b->bounds.y,
-                            (b->bounds.x + b->bounds.w) - 1 - b->bounds.x,
-                            (b->bounds.y + b->bounds.h) - 1 - b->bounds.y};
+    const auto& bounds = b->bounds;
+    SDL_Rect clip_rect{bounds.x, bounds.y, bounds.w - 1, bounds.h - 1};
     const auto& destination_storage = *ButtonDestBuffer->cpu().surface;
-    uiDestPitchBYTES = destination_storage.pitch;
-    pDestBuf = static_cast<std::uint8_t*>(destination_storage.pixels);
-    Blt16BPPBufferHatchRect((std::uint16_t*)pDestBuf, uiDestPitchBYTES, &ClipRect);
+    auto* pixel_bytes = static_cast<std::uint8_t*>(destination_storage.pixels);
+    Blt16BPPBufferHatchRect(reinterpret_cast<std::uint16_t*>(pixel_bytes),
+                            static_cast<std::uint32_t>(destination_storage.pitch), &clip_rect);
 }
 
 void DrawShadeOnButton(const ButtonAppearance* b)
 {
-    std::uint8_t* pDestBuf;
-    std::uint32_t uiDestPitchBYTES;
-    SDL_Rect ClipRect{b->bounds.x, b->bounds.y,
-                            (b->bounds.x + b->bounds.w) - 1 - b->bounds.x,
-                            (b->bounds.y + b->bounds.h) - 1 - b->bounds.y};
+    const auto& bounds = b->bounds;
+    SDL_Rect clip_rect{bounds.x, bounds.y, bounds.w - 1, bounds.h - 1};
     const auto& destination_storage = *ButtonDestBuffer->cpu().surface;
-    uiDestPitchBYTES = destination_storage.pitch;
-    pDestBuf = static_cast<std::uint8_t*>(destination_storage.pixels);
-    Blt16BPPBufferShadowRect((std::uint16_t*)pDestBuf, uiDestPitchBYTES, &ClipRect);
+    auto* pixel_bytes = static_cast<std::uint8_t*>(destination_storage.pixels);
+    Blt16BPPBufferShadowRect(reinterpret_cast<std::uint16_t*>(pixel_bytes),
+                             static_cast<std::uint32_t>(destination_storage.pitch), &clip_rect);
 }
 
 // FUNCTION: WIZ8 0x0040e170
 void DrawDefaultOnButton(const ButtonAppearance* b)
 {
-    std::uint8_t* pDestBuf;
-    std::uint32_t uiDestPitchBYTES;
+    const auto& bounds = b->bounds;
     const auto& destination_storage = *ButtonDestBuffer->cpu().surface;
-    uiDestPitchBYTES = destination_storage.pitch;
-    pDestBuf = static_cast<std::uint8_t*>(destination_storage.pixels);
-    SetClippingRegionAndImageWidth(uiDestPitchBYTES, 0, 0, 640, 480);
+    auto* pixels = static_cast<char*>(destination_storage.pixels);
+    SetClippingRegionAndImageWidth(static_cast<std::uint32_t>(destination_storage.pitch),
+                                   0, 0, 640, 480);
     if (b->bDefaultStatus == DEFAULT_STATUS_DARKBORDER ||
         b->bDefaultStatus == DEFAULT_STATUS_WINDOWS95) {
         //left (one thick)
-        LineDraw(true, b->bounds.x - 1, b->bounds.y - 1,
-                 b->bounds.x - 1, (b->bounds.y + b->bounds.h) + 1, 0, (char*)pDestBuf);
+        LineDraw(true, bounds.x - 1, bounds.y - 1, bounds.x - 1,
+                 bounds.y + bounds.h + 1, 0, pixels);
         //top (one thick)
-        LineDraw(true, b->bounds.x - 1, b->bounds.y - 1,
-                 (b->bounds.x + b->bounds.w) + 1, b->bounds.y - 1, 0, (char*)pDestBuf);
+        LineDraw(true, bounds.x - 1, bounds.y - 1, bounds.x + bounds.w + 1,
+                 bounds.y - 1, 0, pixels);
         //right (two thick)
-        LineDraw(true, (b->bounds.x + b->bounds.w), b->bounds.y - 1,
-                 (b->bounds.x + b->bounds.w), (b->bounds.y + b->bounds.h) + 1, 0, (char*)pDestBuf);
-        LineDraw(true, (b->bounds.x + b->bounds.w) + 1, b->bounds.y - 1,
-                 (b->bounds.x + b->bounds.w) + 1, (b->bounds.y + b->bounds.h) + 1, 0,
-                 (char*)pDestBuf);
+        LineDraw(true, bounds.x + bounds.w, bounds.y - 1, bounds.x + bounds.w,
+                 bounds.y + bounds.h + 1, 0, pixels);
+        LineDraw(true, bounds.x + bounds.w + 1, bounds.y - 1, bounds.x + bounds.w + 1,
+                 bounds.y + bounds.h + 1, 0, pixels);
         //bottom (two thick)
-        LineDraw(true, b->bounds.x - 1, (b->bounds.y + b->bounds.h),
-                 (b->bounds.x + b->bounds.w) + 1, (b->bounds.y + b->bounds.h), 0, (char*)pDestBuf);
-        LineDraw(true, b->bounds.x - 1, (b->bounds.y + b->bounds.h) + 1,
-                 (b->bounds.x + b->bounds.w) + 1, (b->bounds.y + b->bounds.h) + 1, 0,
-                 (char*)pDestBuf);
+        LineDraw(true, bounds.x - 1, bounds.y + bounds.h, bounds.x + bounds.w + 1,
+                 bounds.y + bounds.h, 0, pixels);
+        LineDraw(true, bounds.x - 1, bounds.y + bounds.h + 1,
+                 bounds.x + bounds.w + 1, bounds.y + bounds.h + 1, 0, pixels);
     }
     if (b->bDefaultStatus == DEFAULT_STATUS_DOTTEDINTERIOR ||
         b->bDefaultStatus == DEFAULT_STATUS_WINDOWS95) { //Draw an internal dotted rectangle.
@@ -746,51 +824,56 @@ void DrawDefaultOnButton(const ButtonAppearance* b)
 // FUNCTION: WIZ8 0x0040e5d0
 static void DrawTextOnButton(const ButtonAppearance* b, const ButtonVisualState& state)
 {
-    std::int32_t xp, yp, width, height, TextX, TextY;
-    SDL_Rect NewClip, OldClip;
+    std::int32_t text_x, text_y, button_width, button_height, text_origin_x, text_origin_y;
+    SDL_Rect text_clip, previous_clip;
+    const auto& bounds = b->bounds;
 
     // If this button actually has a string to print
     if (!b->string.empty()) {
         // Get the width and height of this button
-        width = b->bounds.w;
-        height = b->bounds.h;
+        button_width = bounds.w;
+        button_height = bounds.h;
 
         // Compute the viewable area on this button
-        NewClip = {b->bounds.x + 3, b->bounds.y + 2, width - 6, height - 4};
+        text_clip = {bounds.x + 3, bounds.y + 2, button_width - 6, button_height - 4};
 
         // Get the starting coordinates to print
-        TextX = NewClip.x;
-        TextY = NewClip.y;
+        text_origin_x = text_clip.x;
+        text_origin_y = text_clip.y;
 
         // Get the current clipping area and clip the viewable area to it
-        GetClippingRect(&OldClip);
-        if (!SDL_GetRectIntersection(&NewClip, &OldClip, &NewClip))
+        GetClippingRect(&previous_clip);
+        if (!SDL_GetRectIntersection(&text_clip, &previous_clip, &text_clip))
             return;
 
         // Set the font printing settings to the buttons viewable area
-        SetFontDestBuffer(*ButtonDestBuffer, NewClip.x, NewClip.y, (NewClip.x + NewClip.w),
-                          (NewClip.y + NewClip.h), false);
+        SetFontDestBuffer(*ButtonDestBuffer, text_clip.x, text_clip.y,
+                          text_clip.x + text_clip.w, text_clip.y + text_clip.h, false);
 
         // Compute the coordinates to center the text
-        if (b->bTextYOffset == -1)
-            yp = (((height)-b->usFont->height()) / 2) + TextY - 1;
-        else
-            yp = b->bounds.y + b->bTextYOffset;
+        if (b->bTextYOffset == -1) {
+            text_y = ((button_height - b->usFont->height()) / 2) + text_origin_y - 1;
+        } else {
+            text_y = bounds.y + b->bTextYOffset;
+        }
         if (b->bTextXOffset == -1) {
             switch (b->bJustification) {
             case BUTTON_TEXT_LEFT:
-                xp = TextX + 3;
+                text_x = text_origin_x + 3;
                 break;
             case BUTTON_TEXT_RIGHT:
-                xp = (NewClip.x + NewClip.w) - b->usFont->textWidth(b->string) - 3;
+                text_x =
+                    (text_clip.x + text_clip.w) - b->usFont->textWidth(b->string) - 3;
                 break;
             case BUTTON_TEXT_CENTER:
             default:
-                xp = (((width - 6) - b->usFont->textWidth(b->string)) / 2) + TextX;
+                text_x = (((button_width - 6) - b->usFont->textWidth(b->string)) / 2) +
+                         text_origin_x;
                 break;
             }
-        } else
-            xp = b->bounds.x + b->bTextXOffset;
+        } else {
+            text_x = bounds.x + b->bTextXOffset;
+        }
 
         // Set the printing font to the button text font
         SetFont(*b->usFont);
@@ -816,13 +899,13 @@ static void DrawTextOnButton(const ButtonAppearance* b, const ButtonVisualState&
         if (state.pressed &&
             b->fShiftText) { // Was the button clicked on? if so, move the text slightly for the illusion
             // that the text moved into the screen.
-            xp++;
-            yp++;
+            text_x++;
+            text_y++;
         }
         if (b->fMultiColor)
-            DrawFontText(xp, yp, b->string);
+            DrawFontText(text_x, text_y, b->string);
         else
-            DrawMonoFontText(xp, yp, b->string);
+            DrawMonoFontText(text_x, text_y, b->string);
         // Restore the old text printing settings
     }
 }
@@ -982,13 +1065,13 @@ static std::int8_t DrawGenericButton(const ButtonAppearance* b, const ButtonVisu
 
 // Added Oct17, 97 Carter - kind of mindless, but might as well have it
 // FUNCTION: WIZ8 0x0040edc0
-void MSYS_SetBtnUserData(const GUIButton& button, std::int32_t index, std::int32_t userdata)
+void SetButtonUserData(const GUIButton& button, std::int32_t index, std::int32_t userdata)
 {
     if (button && index >= 0 && index < 4) button->UserData[index] = userdata;
 }
 
 // FUNCTION: WIZ8 0x0040edf0
-std::int32_t MSYS_GetBtnUserData(GUI_BUTTON* b, std::int32_t index)
+std::int32_t GetButtonUserData(GUI_BUTTON* b, std::int32_t index)
 {
 
     if (index < 0 || index > 3)
@@ -1005,11 +1088,11 @@ void BtnGenericMouseMoveButtonCallback(GUI_BUTTON* btn, std::int32_t reason)
     //If the button isn't the anchored button, then we don't want to modify the button state.
     if (btn != gpAnchoredButton)
         return;
-    if (reason & MSYS_CALLBACK_REASON_LOST_MOUSE) {
+    if (reason & BUTTON_REASON_LOST_MOUSE) {
         if (!gfAnchoredState) {
             btn->uiFlags &= (~BUTTON_CLICKED_ON);
         }
-    } else if (reason & MSYS_CALLBACK_REASON_GAIN_MOUSE) {
+    } else if (reason & BUTTON_REASON_GAIN_MOUSE) {
         btn->uiFlags |= BUTTON_CLICKED_ON;
     }
 }
@@ -1020,7 +1103,7 @@ void BtnGenericMouseMoveButtonCallback(GUI_BUTTON* btn, std::int32_t reason)
 void HideButton(const GUIButton& button)
 {
     if (!button) return;
-    button->Area.uiFlags &= ~MSYS_REGION_ENABLED;
+    DisableRegionInput(button->region_index);
     button->uiFlags |= BUTTON_DIRTY;
 }
 
@@ -1028,7 +1111,7 @@ void HideButton(const GUIButton& button)
 void ShowButton(const GUIButton& button)
 {
     if (!button) return;
-    button->Area.uiFlags |= MSYS_REGION_ENABLED;
+    EnableRegionInput(button->region_index);
     button->uiFlags |= BUTTON_DIRTY;
 }
 
@@ -1036,32 +1119,30 @@ void ShowButton(const GUIButton& button)
 bool GetButtonArea(const GUIButton& button, SDL_Rect* rect)
 {
     if (!button || !rect) return false;
-    *rect = {button->Area.RegionTopLeftX, button->Area.RegionTopLeftY,
-             button->Area.RegionBottomRightX - button->Area.RegionTopLeftX,
-             button->Area.RegionBottomRightY - button->Area.RegionTopLeftY};
+    *rect = ButtonBounds(button.get());
     return true;
 }
 
 // FUNCTION: WIZ8 0x0040ef00
 std::int32_t GetButtonWidth(const GUIButton& button)
 {
-    return button ? button->Area.RegionBottomRightX - button->Area.RegionTopLeftX : -1;
+    return button ? ButtonRegion(button.get()).x2 - ButtonRegion(button.get()).x1 : -1;
 }
 
 // FUNCTION: WIZ8 0x0040ef20
 std::int32_t GetButtonHeight(const GUIButton& button)
 {
-    return button ? button->Area.RegionBottomRightY - button->Area.RegionTopLeftY : -1;
+    return button ? ButtonRegion(button.get()).y2 - ButtonRegion(button.get()).y1 : -1;
 }
 
 // FUNCTION: WIZ8 0x0040ef40
 std::int32_t GetButtonX(const GUIButton& button)
 {
-    return button ? button->Area.RegionTopLeftX : 0;
+    return button ? ButtonRegion(button.get()).x1 : 0;
 }
 
 // FUNCTION: WIZ8 0x0040ef60
 std::int32_t GetButtonY(const GUIButton& button)
 {
-    return button ? button->Area.RegionTopLeftY : 0;
+    return button ? ButtonRegion(button.get()).y1 : 0;
 }

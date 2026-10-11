@@ -1,6 +1,7 @@
 #include <SDL3/SDL_pixels.h>
 #include "Types.h"
 #include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_mouse.h>
 #include <string>
 #include <algorithm>
 #include <memory>
@@ -15,13 +16,14 @@
 #include "wiz8/cursor.h"
 #include "Font.h"
 #include "input.h"
+#include "Button System.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/engine_code/Video2.h"
+#include "wiz8/regions.h"
 #include "wiz8/fonts.h"
 #include "wiz8/text_input.h"
 #include "wiz8/local_screens/Screens.h"
 #include "himage.h"
-#include "mousesystem.h"
 #include "vobject_blitters.h"
 #include "vsurface.h"
 #include "compat/native.h"
@@ -57,7 +59,7 @@ struct TEXTINPUTNODE {
     unsigned char fEnabled;
     bool fUserField;
     unsigned char _padding0f;
-    MOUSE_REGION region;
+    unsigned int region_index = 0;
     INPUT_CALLBACK InputCallback;
     bool fUseInactiveTextFieldColor; /* Wizardry extension at +0x60 */
     bool fBlockMouseCallbacks;       /* Wizardry extension at +0x61 */
@@ -66,6 +68,49 @@ struct TEXTINPUTNODE {
     TEXTINPUTNODE* prev;
 
 };
+
+namespace {
+int g_text_field_input_x = 0;
+SDL_MouseButtonFlags g_text_field_input_buttons = 0;
+
+W8Region& TextFieldRegion(const TEXTINPUTNODE* field)
+{
+    const auto index = field && field->region_index < g_regions.size()
+                           ? field->region_index
+                           : 0;
+    return g_regions[index];
+}
+
+unsigned char TextFieldRegionEvent(const InputAtom* event, W8Region* region)
+{
+    auto* field = region->text_field;
+    if (!field) return 0;
+    g_text_field_input_x = GETXPOS(event);
+    g_text_field_input_buttons = event->mouseButtons;
+    switch (event->usEvent) {
+    case MOUSE_POS: {
+        int reason = BUTTON_REASON_MOVE;
+        if (region->flags & W8_REGION_MOUSE_LEAVE) reason = BUTTON_REASON_LOST_MOUSE;
+        else if (region->flags & W8_REGION_MOUSE_ENTER) reason = BUTTON_REASON_GAIN_MOUSE;
+        MouseMovedInTextRegionCallback(field, reason);
+        return 1;
+    }
+    case LEFT_BUTTON_DOWN:
+        g_captured_region_index = field->region_index;
+        MouseClickedInTextRegionCallback(
+            field, BUTTON_REASON_LBUTTON_DWN |
+                       (event->clicks >= 2 ? BUTTON_REASON_LBUTTON_DOUBLECLICK : 0));
+        return 1;
+    case LEFT_BUTTON_UP:
+        if (g_captured_region_index == field->region_index) g_captured_region_index = 0;
+        MouseClickedInTextRegionCallback(field, BUTTON_REASON_LBUTTON_UP);
+        return 1;
+    case LEFT_BUTTON_DBL_CLK:
+        return 1;
+    }
+    return 0;
+}
+}
 
 /* 0x005D3520 allocates this record once per active input session, and
    0x005D35E0 fills the same fixed layout for its three presentation modes. */
@@ -142,7 +187,7 @@ void InitTextInputMode(Font& font)
         pInputStack = std::move(session);
         for (TEXTINPUTNODE* field = head; field != 0; field = field->next.get()) {
             if (field->fEnabled != 0) {
-                MSYS_DisableRegion(&field->region);
+                DisableRegionInput(field->region_index);
                 field->fEnabled = 0;
             }
         }
@@ -220,6 +265,10 @@ void KillTextInputMode(void)
 {
     gpActive = nullptr;
     gpTextInputTail = nullptr;
+    for (auto* field = gpTextInputHead.get(); field != nullptr; field = field->next.get()) {
+        RemoveRegionFromSet(ButtonRegionSetIndex(), field->region_index);
+        field->region_index = 0;
+    }
     gpTextInputHead.reset();
     pColors.reset();
     auto session = std::move(pInputStack);
@@ -238,7 +287,7 @@ void KillTextInputMode(void)
     for (field = gpTextInputHead.get(); field != 0; field = field->next.get()) {
         gpTextInputTail = field;
         if (field->fEnabled == 0) {
-            MSYS_EnableRegion(&field->region);
+            EnableRegionInput(field->region_index);
             field->fEnabled = 1;
         }
     }
@@ -260,7 +309,7 @@ void KillTextInputMode(void)
             gubEndHilite = field->szString.size();
             gubCursorPos = field->szString.size();
             gubParkingPos = CalculateCursorPos(
-                field->region.RegionBottomRightX - field->region.RegionTopLeftX - 10, gubCursorPos,
+                TextFieldRegion(field).x2 - TextFieldRegion(field).x1 - 10, gubCursorPos,
                 field->szString.c_str(), &gsCursorX, &guiVisibleCount);
             gubCursorPos = gpActive->szString.size();
             gfHiliteMode = true;
@@ -301,7 +350,7 @@ char AddTextInputField(int left, int top, int width, int height, int priority, s
         gubCursorPos = field->szString.size();
         if (gpActive != 0) {
             gubParkingPos = CalculateCursorPos(
-                gpActive->region.RegionBottomRightX - gpActive->region.RegionTopLeftX - 10,
+                TextFieldRegion(gpActive).x2 - TextFieldRegion(gpActive).x1 - 10,
                 gubCursorPos, gpActive->szString, &gsCursorX, &guiVisibleCount);
         }
         gfHiliteMode = true;
@@ -309,12 +358,13 @@ char AddTextInputField(int left, int top, int width, int height, int priority, s
     field->fUserField = false;
     field->fEnabled = 1;
     field->fBlockMouseCallbacks = false;
-    field->region.configure(static_cast<unsigned short>(left),
-                      static_cast<unsigned short>(top), static_cast<unsigned short>(left + width),
-                      static_cast<unsigned short>(top + height), static_cast<signed char>(priority),
-                      MouseMovedInTextRegionCallback,
-                      MouseClickedInTextRegionCallback);
-    MSYS_SetRegionUserData(&field->region, 0, field->ubID);
+    field->region_index = AddRegionToSet(ButtonRegionSetIndex(), priority);
+    auto& region = g_regions[field->region_index];
+    region.text_field = field;
+    SetRegionBounds(field->region_index, static_cast<unsigned short>(left),
+                    static_cast<unsigned short>(top), static_cast<unsigned short>(left + width),
+                    static_cast<unsigned short>(top + height));
+    SetRegionCallback(field->region_index, TextFieldRegionEvent, field->ubID);
     field->fUseInactiveTextFieldColor = use_inactive_text_field_color;
     return field->ubID;
 }
@@ -327,6 +377,9 @@ void RemoveTextInputField(int index)
         field = field->next.get();
     if (field == 0)
         return;
+    if (g_captured_region_index == field->region_index) g_captured_region_index = 0;
+    RemoveRegionFromSet(ButtonRegionSetIndex(), field->region_index);
+    field->region_index = 0;
     if (field == gpTextInputTail)
         gpTextInputTail = field->prev;
     if (field->next)
@@ -399,7 +452,7 @@ void SetActiveField(char index)
         gubEndHilite = field->szString.size();
         gubCursorPos = field->szString.size();
         gubParkingPos =
-            CalculateCursorPos(field->region.RegionBottomRightX - field->region.RegionTopLeftX - 10,
+            CalculateCursorPos(TextFieldRegion(field).x2 - TextFieldRegion(field).x1 - 10,
                                gubCursorPos, field->szString.c_str(), &gsCursorX, &guiVisibleCount);
         gubCursorPos = gpActive->szString.size();
         gfHiliteMode = true;
@@ -445,7 +498,7 @@ void SelectNextField(void)
                 gubEndHilite = gpActive->szString.size();
                 gubCursorPos = gpActive->szString.size();
                 gubParkingPos = CalculateCursorPos(
-                    gpActive->region.RegionBottomRightX - gpActive->region.RegionTopLeftX - 10,
+                    TextFieldRegion(gpActive).x2 - TextFieldRegion(gpActive).x1 - 10,
                     gubCursorPos, gpActive->szString, &gsCursorX, &guiVisibleCount);
                 gfHiliteMode = true;
                 gfEditingText = true;
@@ -518,7 +571,7 @@ unsigned int HandleTextInput(const InputAtom* input)
             if (gubCursorPos != 0) {
                 gubCursorPos = wiz8::text::previous_grapheme(gpActive->szString, gubCursorPos);
                 gubParkingPos = CalculateCursorPos(
-                    gpActive->region.RegionBottomRightX - gpActive->region.RegionTopLeftX - 10,
+                    TextFieldRegion(gpActive).x2 - TextFieldRegion(gpActive).x1 - 10,
                     gubCursorPos, gpActive->szString, &gsCursorX, &guiVisibleCount);
             }
             gubEndHilite = gubCursorPos;
@@ -528,14 +581,14 @@ unsigned int HandleTextInput(const InputAtom* input)
             gubCursorPos = gubStartHilite;
             gfHiliteMode = false;
             gubParkingPos = CalculateCursorPos(
-                gpActive->region.RegionBottomRightX - gpActive->region.RegionTopLeftX - 10,
+                TextFieldRegion(gpActive).x2 - TextFieldRegion(gpActive).x1 - 10,
                 gubCursorPos, gpActive->szString, &gsCursorX, &guiVisibleCount);
             return 1;
         }
         if (gubCursorPos != 0) {
             gubCursorPos = wiz8::text::previous_grapheme(gpActive->szString, gubCursorPos);
             gubParkingPos = CalculateCursorPos(
-                gpActive->region.RegionBottomRightX - gpActive->region.RegionTopLeftX - 10,
+                TextFieldRegion(gpActive).x2 - TextFieldRegion(gpActive).x1 - 10,
                 gubCursorPos, gpActive->szString, &gsCursorX, &guiVisibleCount);
         }
         return 1;
@@ -551,7 +604,7 @@ unsigned int HandleTextInput(const InputAtom* input)
                 next = wiz8::text::next_grapheme(gpActive->szString, next);
                 gubCursorPos = next; }
                 gubParkingPos = CalculateCursorPos(
-                    gpActive->region.RegionBottomRightX - gpActive->region.RegionTopLeftX - 10,
+                    TextFieldRegion(gpActive).x2 - TextFieldRegion(gpActive).x1 - 10,
                     gubCursorPos, gpActive->szString, &gsCursorX, &guiVisibleCount);
             }
             gubEndHilite = gubCursorPos;
@@ -561,7 +614,7 @@ unsigned int HandleTextInput(const InputAtom* input)
             gubCursorPos = selection_end;
             gfHiliteMode = false;
             gubParkingPos = CalculateCursorPos(
-                gpActive->region.RegionBottomRightX - gpActive->region.RegionTopLeftX - 10,
+                TextFieldRegion(gpActive).x2 - TextFieldRegion(gpActive).x1 - 10,
                 gubCursorPos, gpActive->szString, &gsCursorX, &guiVisibleCount);
             return 1;
         }
@@ -570,7 +623,7 @@ unsigned int HandleTextInput(const InputAtom* input)
                 next = wiz8::text::next_grapheme(gpActive->szString, next);
                 gubCursorPos = next; }
             gubParkingPos = CalculateCursorPos(
-                gpActive->region.RegionBottomRightX - gpActive->region.RegionTopLeftX - 10,
+                TextFieldRegion(gpActive).x2 - TextFieldRegion(gpActive).x1 - 10,
                 gubCursorPos, gpActive->szString, &gsCursorX, &guiVisibleCount);
         }
         return 1;
@@ -588,7 +641,7 @@ unsigned int HandleTextInput(const InputAtom* input)
             gubCursorPos = gpActive->szString.size();
         }
         gubParkingPos = CalculateCursorPos(
-            gpActive->region.RegionBottomRightX - gpActive->region.RegionTopLeftX - 10,
+            TextFieldRegion(gpActive).x2 - TextFieldRegion(gpActive).x1 - 10,
             gubCursorPos, gpActive->szString, &gsCursorX, &guiVisibleCount);
         return 1;
 
@@ -604,8 +657,8 @@ unsigned int HandleTextInput(const InputAtom* input)
             gubCursorPos = 0;
             gfHiliteMode = false;
         }
-        gubParkingPos = CalculateCursorPos(gpActive->region.RegionBottomRightX -
-                                               gpActive->region.RegionTopLeftX - 10,
+        gubParkingPos = CalculateCursorPos(TextFieldRegion(gpActive).x2 -
+                                               TextFieldRegion(gpActive).x1 - 10,
                                            0, gpActive->szString, &gsCursorX, &guiVisibleCount);
         return 1;
 
@@ -645,7 +698,7 @@ unsigned int HandleTextInput(const InputAtom* input)
                 gubCursorPos = wiz8::text::previous_grapheme(gpActive->szString, gubCursorPos);
                 gpActive->szString.erase(gubCursorPos, old_position - gubCursorPos);
                 gubParkingPos = CalculateCursorPos(
-                    gpActive->region.RegionBottomRightX - gpActive->region.RegionTopLeftX - 10,
+                    TextFieldRegion(gpActive).x2 - TextFieldRegion(gpActive).x1 - 10,
                     gubCursorPos, gpActive->szString, &gsCursorX, &guiVisibleCount);
                 return 1;
             }
@@ -795,7 +848,7 @@ void AddChar(char32_t character)
     gpActive->szString.insert(gubCursorPos, bytes);
     gubCursorPos += bytes.size();
     gubParkingPos = CalculateCursorPos(
-        gpActive->region.RegionBottomRightX - gpActive->region.RegionTopLeftX - 10, gubCursorPos,
+        TextFieldRegion(gpActive).x2 - TextFieldRegion(gpActive).x1 - 10, gubCursorPos,
         gpActive->szString, &gsCursorX, &guiVisibleCount);
 }
 
@@ -814,29 +867,26 @@ static std::size_t FindTextInputMousePosition(TEXTINPUTNODE* field, std::size_t 
 }
 
 // FUNCTION: WIZ8 0x005D4CB0
-void MouseMovedInTextRegionCallback(MOUSE_REGION* region, int reason)
+void MouseMovedInTextRegionCallback(TEXTINPUTNODE* field, int reason)
 {
+    if (!field) return;
     if (IsModalOpen())
         return;
 
-    int field_index = MSYS_GetRegionUserData(region, 0);
-    for (TEXTINPUTNODE* field = gpTextInputHead.get(); field != 0; field = field->next.get()) {
-        if (field->ubID == field_index && field->fBlockMouseCallbacks)
-            return;
-    }
+    if (field->fBlockMouseCallbacks) return;
+    int field_index = field->ubID;
 
-    if ((reason & MSYS_CALLBACK_REASON_GAIN_MOUSE) != 0)
+    if ((reason & BUTTON_REASON_GAIN_MOUSE) != 0)
         SetTargetCursor(GetTextInputCursor());
-    if ((reason & MSYS_CALLBACK_REASON_LOST_MOUSE) != 0)
+    if ((reason & BUTTON_REASON_LOST_MOUSE) != 0)
         SetTargetCursor(W8_CURSOR_NONE);
 
-    if ((region->ButtonState & MSYS_LEFT_BUTTON) == 0 || gpActive == 0 ||
-        (reason & MSYS_CALLBACK_REASON_MOVE) == 0) {
+    if ((g_text_field_input_buttons & SDL_BUTTON_LMASK) == 0 || gpActive == 0 ||
+        (reason & BUTTON_REASON_MOVE) == 0) {
         return;
     }
 
-    field_index = MSYS_GetRegionUserData(region, 0);
-    if (field_index != gpActive->ubID) {
+    if (field->ubID != gpActive->ubID) {
         RenderInactiveTextFieldNode(gpActive);
         for (TEXTINPUTNODE* field = gpTextInputHead.get(); field != 0; field = field->next.get()) {
             if (field->ubID == field_index) {
@@ -844,7 +894,7 @@ void MouseMovedInTextRegionCallback(MOUSE_REGION* region, int reason)
                 gubCursorPos = 0;
                 gpActive = field;
                 gubParkingPos = CalculateCursorPos(
-                    field->region.RegionBottomRightX - field->region.RegionTopLeftX - 10, 0,
+                    TextFieldRegion(field).x2 - TextFieldRegion(field).x1 - 10, 0,
                     field->szString.c_str(), &gsCursorX, &guiVisibleCount);
                 gfHiliteMode = false;
                 gubStartHilite = 0;
@@ -855,11 +905,11 @@ void MouseMovedInTextRegionCallback(MOUSE_REGION* region, int reason)
     }
 
     TEXTINPUTNODE* current_field = gpActive;
-    if (current_field->fUserField || (region->ButtonState & MSYS_LEFT_BUTTON) == 0)
+    if (current_field->fUserField)
         return;
 
     std::size_t position = gubParkingPos;
-    int mouse_offset = region->RelativeXPos;
+    int mouse_offset = g_text_field_input_x - TextFieldRegion(current_field).x1;
     position = FindTextInputMousePosition(current_field, position, mouse_offset);
 
     if (position == gubMouseDownPos) {
@@ -876,29 +926,27 @@ void MouseMovedInTextRegionCallback(MOUSE_REGION* region, int reason)
     gfHiliteMode = true;
     gubCursorPos = position;
     gubParkingPos = CalculateCursorPos(
-        current_field->region.RegionBottomRightX - current_field->region.RegionTopLeftX - 10,
+        TextFieldRegion(current_field).x2 - TextFieldRegion(current_field).x1 - 10,
         position, current_field->szString.c_str(), &gsCursorX, &guiVisibleCount);
 }
 
 // FUNCTION: WIZ8 0x005D4F10
-void MouseClickedInTextRegionCallback(MOUSE_REGION* region, int reason)
+void MouseClickedInTextRegionCallback(TEXTINPUTNODE* field, int reason)
 {
-    int field_index = MSYS_GetRegionUserData(region, 0);
+    if (!field) return;
+    int field_index = field->ubID;
     if (IsModalOpen())
         return;
 
-    for (TEXTINPUTNODE* field = gpTextInputHead.get(); field != 0; field = field->next.get()) {
-        if (field->ubID == field_index && field->fBlockMouseCallbacks)
-            return;
-    }
+    if (field->fBlockMouseCallbacks) return;
 
-    if ((reason & MSYS_CALLBACK_REASON_LBUTTON_DOUBLECLICK) != 0) {
+    if ((reason & BUTTON_REASON_LBUTTON_DOUBLECLICK) != 0) {
         if (gpActive != 0)
             SelectAllText();
         return;
     }
 
-    if ((reason & MSYS_CALLBACK_REASON_LBUTTON_DWN) != 0) {
+    if ((reason & BUTTON_REASON_LBUTTON_DWN) != 0) {
         TEXTINPUTNODE* field = gpActive;
         if (field == 0 || field_index != field->ubID)
             return;
@@ -907,19 +955,16 @@ void MouseClickedInTextRegionCallback(MOUSE_REGION* region, int reason)
         if (field->fUserField) {
             position = 0;
         } else {
-            int mouse_offset = region->RelativeXPos;
+            int mouse_offset = g_text_field_input_x - TextFieldRegion(field).x1;
             position = FindTextInputMousePosition(field, gubParkingPos, mouse_offset);
         }
         SetTextInputCursor(position);
         gubMouseDownPos = gubCursorPos;
-        MSYS_GrabMouse(region);
         return;
     }
 
-    if ((reason & MSYS_CALLBACK_REASON_LBUTTON_UP) == 0)
+    if ((reason & BUTTON_REASON_LBUTTON_UP) == 0)
         return;
-    MSYS_ReleaseMouse(region);
-
     TEXTINPUTNODE* clicked = gpTextInputHead.get();
     if (gpActive != 0) {
         if (field_index != gpActive->ubID)
@@ -964,12 +1009,12 @@ void MouseClickedInTextRegionCallback(MOUSE_REGION* region, int reason)
     }
 
     std::size_t position = gubParkingPos;
-    if (gfLeftButtonState != 0) {
+    if ((g_text_field_input_buttons & SDL_BUTTON_LMASK) != 0) {
         if (gpActive->fUserField) {
             position = 0;
         } else {
             TEXTINPUTNODE* field = gpActive;
-            int mouse_offset = region->RelativeXPos;
+            int mouse_offset = g_text_field_input_x - TextFieldRegion(field).x1;
             position = FindTextInputMousePosition(field, position, mouse_offset);
         }
         if (position == gubMouseDownPos)
@@ -982,10 +1027,10 @@ void MouseClickedInTextRegionCallback(MOUSE_REGION* region, int reason)
 void RenderBackgroundField(TEXTINPUTNODE* field)
 {
     TextInputColors* style = pColors.get();
-    int left = field->region.RegionTopLeftX;
-    int top = field->region.RegionTopLeftY;
-    int right = field->region.RegionBottomRightX;
-    int bottom = field->region.RegionBottomRightY;
+    int left = TextFieldRegion(field).x1;
+    int top = TextFieldRegion(field).y1;
+    int right = TextFieldRegion(field).x2;
+    int bottom = TextFieldRegion(field).y2;
 
     if (style->fBevelling) {
         ColorFillVideoSurfaceArea(GetFrameBufferSurface(), left, top, right, bottom, style->usDarkerColor);
@@ -1013,22 +1058,22 @@ void RenderActiveTextField(void)
         return;
 
     if (gfLeftButtonState != 0) {
-        if (static_cast<int>(gusMouseXPos) < field->region.RegionTopLeftX) {
+        if (static_cast<int>(gusMouseXPos) < TextFieldRegion(field).x1) {
             if (gubCursorPos != 0) {
                 gubCursorPos = wiz8::text::previous_grapheme(gpActive->szString, gubCursorPos);
                 gubParkingPos = CalculateCursorPos(
-                    field->region.RegionBottomRightX - field->region.RegionTopLeftX - 10,
+                    TextFieldRegion(field).x2 - TextFieldRegion(field).x1 - 10,
                     gubCursorPos, field->szString.c_str(), &gsCursorX, &guiVisibleCount);
             }
             if (gfHiliteMode)
                 gubStartHilite = gubVisibleStart;
-        } else if (field->region.RegionBottomRightX < static_cast<int>(gusMouseXPos)) {
+        } else if (TextFieldRegion(field).x2 < static_cast<int>(gusMouseXPos)) {
             if (gubCursorPos < field->szString.size()) {
                 { std::size_t next = gubCursorPos;
                 next = wiz8::text::next_grapheme(gpActive->szString, next);
                 gubCursorPos = next; }
                 gubParkingPos = CalculateCursorPos(
-                    field->region.RegionBottomRightX - field->region.RegionTopLeftX - 10,
+                    TextFieldRegion(field).x2 - TextFieldRegion(field).x1 - 10,
                     gubCursorPos, field->szString.c_str(), &gsCursorX, &guiVisibleCount);
             }
             if (gfHiliteMode)
@@ -1042,7 +1087,7 @@ void RenderActiveTextField(void)
         SetFont(*pColors->usFont);
         unsigned short font_height = pColors->usFont->height();
         unsigned int vertical_offset =
-            (field->region.RegionBottomRightY - field->region.RegionTopLeftY - font_height) / 2;
+            (TextFieldRegion(field).y2 - TextFieldRegion(field).y1 - font_height) / 2;
         RenderBackgroundField(field);
 
         const char* visible = field->szString.c_str() + gubParkingPos;
@@ -1073,15 +1118,15 @@ void RenderActiveTextField(void)
             std::size_t end = index;
             wiz8::text::next(visible, end);
             const std::string glyph(visible + index, end - index);
-            DrawMonoFontText(field->region.RegionTopLeftX + prefix + 3,
-                             field->region.RegionTopLeftY + vertical_offset, glyph);
+            DrawMonoFontText(TextFieldRegion(field).x1 + prefix + 3,
+                             TextFieldRegion(field).y1 + vertical_offset, glyph);
             index = end;
         }
 
         if (gfEditingText && !field->fUserField && gfLeftButtonState == 0 &&
             w8_get_ticks() % 1000 < 500) {
-            int left = field->region.RegionTopLeftX + gsCursorX;
-            int top = field->region.RegionTopLeftY + vertical_offset;
+            int left = TextFieldRegion(field).x1 + gsCursorX;
+            int top = TextFieldRegion(field).y1 + vertical_offset;
             ColorFillVideoSurfaceArea(GetFrameBufferSurface(), left, top, left + 1, top + font_height,
                                       pColors->usCursorColor);
         }
@@ -1111,19 +1156,19 @@ void RenderInactiveTextFieldNode(TEXTINPUTNODE* field)
         SetFontShadow(shadow);
         unsigned short font_height = pColors->usFont->height();
         unsigned int vertical_offset =
-            (field->region.RegionBottomRightY - field->region.RegionTopLeftY - font_height) / 2;
+            (TextFieldRegion(field).y2 - TextFieldRegion(field).y1 - font_height) / 2;
         SetFontBackground(0);
         RenderBackgroundField(field);
 
         const char* visible = field->szString.c_str();
         for (size_t index = 0; visible[index];) {
             short prefix = pColors->usFont->prefixWidth(field->szString.c_str(), index);
-            if (field->region.RegionBottomRightX - field->region.RegionTopLeftX - 10 < prefix + 3) break;
+            if (TextFieldRegion(field).x2 - TextFieldRegion(field).x1 - 10 < prefix + 3) break;
             std::size_t end = index;
             wiz8::text::next(visible, end);
             const std::string glyph(visible + index, end - index);
-            DrawMonoFontText(field->region.RegionTopLeftX + prefix + 3,
-                             field->region.RegionTopLeftY + vertical_offset, glyph);
+            DrawMonoFontText(TextFieldRegion(field).x1 + prefix + 3,
+                             TextFieldRegion(field).y1 + vertical_offset, glyph);
             index = end;
         }
 
@@ -1131,10 +1176,10 @@ void RenderInactiveTextFieldNode(TEXTINPUTNODE* field)
 
     if (disabled) {
         SDL_Rect rectangle = {
-            field->region.RegionTopLeftX,
-            field->region.RegionTopLeftY,
-            field->region.RegionBottomRightX - field->region.RegionTopLeftX,
-            field->region.RegionBottomRightY - field->region.RegionTopLeftY,
+            TextFieldRegion(field).x1,
+            TextFieldRegion(field).y1,
+            TextFieldRegion(field).x2 - TextFieldRegion(field).x1,
+            TextFieldRegion(field).y2 - TextFieldRegion(field).y1,
         };
         const auto& surface = *GetFrameBufferSurface().cpu().surface;
         Blt16BPPBufferShadowRect(static_cast<unsigned short*>(surface.pixels), surface.pitch, &rectangle);
@@ -1201,7 +1246,7 @@ void SetTextInputCursor(std::size_t cursor)
     gubCursorPos = cursor;
     if (gpActive != 0) {
         gubParkingPos = CalculateCursorPos(
-            gpActive->region.RegionBottomRightX - gpActive->region.RegionTopLeftX - 10, cursor,
+            TextFieldRegion(gpActive).x2 - TextFieldRegion(gpActive).x1 - 10, cursor,
             gpActive->szString, &gsCursorX, &guiVisibleCount);
     }
 }
@@ -1214,7 +1259,7 @@ void SelectAllText(void)
     if (field->fUserField) {
         position = 0;
     } else {
-        int mouse_offset = field->region.RelativeXPos;
+        int mouse_offset = g_text_field_input_x - TextFieldRegion(field).x1;
         position = FindTextInputMousePosition(field, position, mouse_offset);
     }
 

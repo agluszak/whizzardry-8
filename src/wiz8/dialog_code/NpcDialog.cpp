@@ -4,7 +4,6 @@
 #include <string>
 #include <vector>
 
-#include "wiz8/dialog_code/DialogInterface.h"
 #include "vsurface.h"
 #include "wiz8/dialog_code/NpcDialog.h"
 #include "wiz8/engine_code/Video2.h"
@@ -15,7 +14,6 @@
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/text_input.h"
 #include "input.h"
-#include "mousesystem.h"
 #include "Font.h"
 #include "dialog_code/DialogBase.h"
 #include "dialog_code/DialogButton.h"
@@ -197,21 +195,25 @@ void W8NpcDialog::Draw()
 // FUNCTION: WIZ8 0x005DAE90
 bool W8NpcDialog::ProcessInput()
 {
-    InputAtom input;
-
-    RefreshMouseRegions();
-    while (DequeueEvent(&input) == true) {
+    BeginModalInput();
+    bool returned_early = false;
+    DrainModalInput([this, &returned_early](const InputAtom& input) {
         if ((input.usEvent != KEY_DOWN && input.usEvent != KEY_REPEAT) ||
             static_cast<char>(HandleTextInput(&input)) == 0) {
             if (input.usEvent == KEY_DOWN && input.usParam == VK_RETURN &&
                 m_message->kind == W8_NPC_ENTRY_KEYWORD_INPUT) {
                 m_input_text = GetTextFromField(m_input_field);
                 g_npc_dialog->m_keep_open = false;
-                return true;
+                EndModalInput();
+                returned_early = true;
+                return false;
             }
-            DispatchDialogMouseInput(input);
+            DispatchRegionInput(&input);
         }
-    }
+        return true;
+    });
+    if (returned_early) return true;
+    if (!m_keep_open) EndModalInput();
     return m_keep_open;
 }
 

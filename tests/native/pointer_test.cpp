@@ -4,11 +4,9 @@
 #include "compat/ptr32.h"
 #include "Font.h"
 #include "vobject.h"
-#include "mousesystem.h"
 
 TEST_CASE("pointer_test")
 {
-    REQUIRE(MSYS_Init());
     {
         W8DialogBase first_owner, second_owner;
         W8DialogButton button;
@@ -23,7 +21,6 @@ TEST_CASE("pointer_test")
         REQUIRE(button.m_owner == nullptr);
         REQUIRE(button.GetUserData() == 0);
     }
-    MSYS_Shutdown();
 
     // Disk pointer representations remain independent of UI callback storage.
     static_assert(sizeof(W8_PTR32(int)) == 4);

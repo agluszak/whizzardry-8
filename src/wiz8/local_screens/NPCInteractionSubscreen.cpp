@@ -1,6 +1,7 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <wiz8/filesystem.h>
+#include <SDL3/SDL_rect.h>
 #include <string_view>
 #include <string>
 #include <sstream>
@@ -67,7 +68,6 @@
 #include "wiz8/xstatus.h"
 #include "Font.h"
 #include "input.h"
-#include "mousesystem.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/layouts/character.h"
@@ -4042,6 +4042,7 @@ void RefreshNpcTradePrice(void)
 // FUNCTION: WIZ8 0x00575C50
 void DrainNpcDialogueDeferralInput(void)
 {
+    SDL_Point mouse;
     InputAtom input;
     W8NpcDialogueLayout prior_layout;
     bool reopen_topics;
@@ -4049,7 +4050,8 @@ void DrainNpcDialogueDeferralInput(void)
     if (!ShouldDeferCharacterEventForNpcScript(true) || !gXStatus.fNpcDialogueMode) {
         return;
     }
-    RefreshMouseRegions();
+    SGPMouseGetPos(&mouse);
+    UpdateRegionMousePosition(mouse.x, mouse.y);
     while (DequeueEvent(&input) == 1) {
         if (input.usEvent == KEY_DOWN) {
             if (input.usParam == VK_ESCAPE) {
@@ -4659,16 +4661,18 @@ void ClearMainGameTargetState(void)
 }
 
 /* When the world-cursor gate (world_cursor_gate) is raised, discard queued input
-   after refreshing the mouse-system position so stale events do not fire. */
+   after refreshing the region position so stale events do not fire. */
 // FUNCTION: WIZ8 0x00577560
 void FlushInputWhileWorldCursorGate(void)
 {
+    SDL_Point mouse;
     InputAtom input;
 
     if (g_status.world_cursor_gate == 0) {
         return;
     }
-    RefreshMouseRegions();
+    SGPMouseGetPos(&mouse);
+    UpdateRegionMousePosition(mouse.x, mouse.y);
     while (DequeueEvent(&input) == 1) {
     }
 }

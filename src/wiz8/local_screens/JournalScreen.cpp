@@ -33,7 +33,6 @@
 #include "soundman.h"
 #include "wiz8/filesystem.h"
 #include "input.h"
-#include "mousesystem.h"
 #include "difficulty.h"
 #include "local_code/Controls.h"
 #include "message_box.h"
@@ -399,7 +398,6 @@ unsigned char JournalScreenEnter(void)
 
     SetViewport(0, 0, 0x280, 0x1e0);
     SetPrimarySurfaceTextureHint2Enabled(false);
-    MSYS_Init();
     ResetRegions();
     UpdateHeldItemCursor();
     g_journal_panel = new W8JournalPanel(&g_journal_region_set);
@@ -433,7 +431,6 @@ unsigned char JournalScreenEnter(void)
 // FUNCTION: WIZ8 0x005be0b0
 unsigned char JournalScreenLeave(int)
 {
-    MSYS_Shutdown();
     ResetRegions();
     delete g_journal_panel;
     g_journal_panel = 0;

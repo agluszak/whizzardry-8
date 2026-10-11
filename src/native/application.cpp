@@ -17,7 +17,6 @@
 #include "input.h"
 #include "Font.h"
 #include "Button System.h"
-#include "mousesystem.h"
 #include "soundman.h"
 #include "random.h"
 #include "wiz8/filesystem.h"
@@ -145,7 +144,6 @@ void wiz8::Application::shutdown() noexcept
     }
     ReleaseLoadedVideoFrames();
     ShutdownButtonSystem();
-    MSYS_Shutdown();
     ReleaseMenuFonts();
     ResetFontRendering();
     ShutdownVideoManager();
