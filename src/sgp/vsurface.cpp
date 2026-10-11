@@ -166,7 +166,7 @@ std::unique_ptr<SGPVSurface> LoadVideoSurface(std::string_view filename)
 {
     auto image = CreateImage(std::string(filename).c_str(), IMAGE_ALLIMAGEDATA);
     if (!image) return nullptr;
-    return MakeVideoSurface(image->usWidth, image->usHeight, image->ubBitDepth, image.get());
+    return MakeVideoSurface(image->usWidth, image->usHeight, image->ubBitDepth, &*image);
 }
 // Indexed surfaces use SDL palettes; custom RGB555 blitters retain their table.
 BOOLEAN SetVideoSurfacePalette(SGPVSurface& hVSurface, const Palette8& pSrcPalette)

@@ -112,7 +112,7 @@ typedef struct {
 // default to PCX without changing the caller's path. Ordinary images are tight,
 // top-down INDEX8 + palettes, packed RGB555 (16-bit TGA), or RGB24.
 // Returns NULL on failure without retaining image allocations.
-std::unique_ptr<image_type> CreateImage(const char* ImageFile, UINT16 fContents);
+std::optional<image_type> CreateImage(const char* ImageFile, UINT16 fContents);
 
 bool CopyImageToBuffer(const image_type& image, UINT32 buffer_type, std::span<UINT8> destination,
                        std::size_t dest_width, std::size_t dest_height, std::size_t x, std::size_t y,

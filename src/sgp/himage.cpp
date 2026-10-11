@@ -295,10 +295,10 @@ image_type load_sti(wiz8::File& file, UINT16 contents)
 }
 
 // FUNCTION: WIZ8 0x0040f850
-std::unique_ptr<image_type> CreateImage(const char* filename, UINT16 contents)
+std::optional<image_type> CreateImage(const char* filename, UINT16 contents)
 {
     if (!filename || (contents & ~IMAGE_ALLDATA))
-        return nullptr;
+        return std::nullopt;
     try {
         std::string path = filename;
         const auto slash = path.find_last_of("/\\");
@@ -313,11 +313,11 @@ std::unique_ptr<image_type> CreateImage(const char* filename, UINT16 contents)
         if (decoded.pPalette)
             decoded.pui16BPPPalette = Create16BPPPalette(*decoded.pPalette);
         decoded.ImageFile = std::move(path);
-        return std::make_unique<image_type>(std::move(decoded));
+        return decoded;
     } catch (const std::exception& error) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Loading image %s: %s",
                      filename, error.what());
-        return nullptr;
+        return std::nullopt;
     }
 }
 

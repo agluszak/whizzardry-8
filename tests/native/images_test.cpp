@@ -11,6 +11,7 @@
 #include <filesystem>
 #include <fstream>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 #include <cstddef>
@@ -25,7 +26,7 @@
 
 
 using Bytes = std::vector<UINT8>;
-using Image = std::unique_ptr<image_type>;
+using Image = std::optional<image_type>;
 namespace fs = std::filesystem;
 
 static void word(Bytes& bytes, std::size_t offset, unsigned value)
