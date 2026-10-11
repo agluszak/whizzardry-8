@@ -234,13 +234,10 @@ TEST_CASE("imports_test")
                     glm::vec3(row * 10 + vertex, row * 20 + vertex, -vertex);
             modeler.addTriangle(triangle);
         }
-        float minimum, maximum;
-        modeler.getAxialBounds(srModeler::AXIS_X, minimum, maximum);
-        REQUIRE((minimum == 0 && maximum == 12));
-        modeler.getAxialBounds(srModeler::AXIS_Y, minimum, maximum);
-        REQUIRE((minimum == 0 && maximum == 22));
-        modeler.getAxialBounds(srModeler::AXIS_Z, minimum, maximum);
-        REQUIRE((minimum == -2 && maximum == 0));
+        REQUIRE((modeler.getAxialBounds(srModeler::AXIS_X) == std::pair{0.f, 12.f}));
+        REQUIRE((modeler.getAxialBounds(srModeler::AXIS_Y) == std::pair{0.f, 22.f}));
+        REQUIRE((modeler.getAxialBounds(srModeler::AXIS_Z) == std::pair{-2.f, 0.f}));
+        REQUIRE_FALSE(modeler.getAxialBounds(static_cast<srModeler::e_axis>(-1)));
     }
     struct alignas(8) WordPair
     {
