@@ -72,7 +72,7 @@ std::unique_ptr<SGPVObject> CreateVideoObject(const image_type& image)
 
 std::unique_ptr<SGPVObject> LoadVideoObject(std::string_view filename)
 {
-    auto image = CreateImage(std::string(filename).c_str(), IMAGE_ALLIMAGEDATA);
+    auto image = LoadImage(filename);
     return image ? CreateVideoObject(*image) : nullptr;
 }
 

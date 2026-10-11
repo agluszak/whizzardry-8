@@ -629,15 +629,9 @@ void generic_button_images()
 
     button_image_fixture(assets, "metadata.sti", 3, true);
     {
-        auto image = CreateImage("metadata.sti", IMAGE_ALLDATA);
+        auto image = LoadImage("metadata.sti");
         REQUIRE((image && image->pImageData.size() == 9 && image->pETRLEObject.size() == 3));
-        REQUIRE((image->pAppData.size() == 4 && image->pAppData[0] == 7 && image->pAppData[3] == 10));
         REQUIRE((image->pPalette && (*image->pPalette)[1].peRed == 255));
-
-        auto palette = CreateImage("metadata.sti", IMAGE_PALETTE);
-        REQUIRE((palette && palette->pPalette && palette->pImageData.empty()));
-        auto bitmap = CreateImage("metadata.sti", IMAGE_BITMAPDATA);
-        REQUIRE((bitmap && !bitmap->pPalette && bitmap->pImageData.size() == 9));
 
         const auto pixel_offset = STCI_HEADER_SIZE + STCI_8BIT_PALETTE_SIZE + 3 * STCI_SUBIMAGE_SIZE;
         for (std::uintmax_t cut : {0u, STCI_HEADER_SIZE - 1u,
@@ -645,12 +639,8 @@ void generic_button_images()
              pixel_offset - 1u, pixel_offset + 8u, pixel_offset + 12u}) {
             button_image_fixture(assets, "metadata.sti", 3, true);
             std::filesystem::resize_file(assets / "metadata.sti", cut);
-            REQUIRE(!CreateImage("metadata.sti", IMAGE_ALLDATA));
+            REQUIRE(!LoadImage("metadata.sti"));
         }
-        button_image_fixture(assets, "metadata.sti", 3, true);
-        std::filesystem::resize_file(assets / "metadata.sti", pixel_offset);
-        REQUIRE(CreateImage("metadata.sti", IMAGE_PALETTE));
-        REQUIRE(!CreateImage("metadata.sti", IMAGE_BITMAPDATA));
     }
     std::string long_image_path;
     for (int i = 0; i < 8; ++i)
@@ -676,8 +666,7 @@ void generic_button_images()
             file.write(reinterpret_cast<const char*>(&region), STCI_SUBIMAGE_SIZE);
             REQUIRE(file.good());
         }
-        REQUIRE(!CreateImage("bad-extent.sti", IMAGE_ALLIMAGEDATA));
-        REQUIRE(CreateImage("bad-extent.sti", IMAGE_PALETTE));
+        REQUIRE(!LoadImage("bad-extent.sti"));
     }
     for (bool corrupt_app_data : {false, true}) {
         button_image_fixture(assets, "bad-size.sti", 3, true);
@@ -693,8 +682,7 @@ void generic_button_images()
             file.write(reinterpret_cast<const char*>(&header), STCI_HEADER_SIZE);
             REQUIRE(file.good());
         }
-        REQUIRE(!CreateImage("bad-size.sti", IMAGE_ALLDATA));
-        REQUIRE(CreateImage("bad-size.sti", IMAGE_PALETTE));
+        REQUIRE(!LoadImage("bad-size.sti"));
     }
     // A button retains its graphics after the loader's reference and the
     // image manager are released; the last button releases the resource.

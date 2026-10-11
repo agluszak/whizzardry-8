@@ -164,7 +164,7 @@ std::unique_ptr<SGPVSurface> CreateVideoSurface(UINT16 width, UINT16 height, UIN
 
 std::unique_ptr<SGPVSurface> LoadVideoSurface(std::string_view filename)
 {
-    auto image = CreateImage(std::string(filename).c_str(), IMAGE_ALLIMAGEDATA);
+    auto image = LoadImage(filename);
     if (!image) return nullptr;
     return MakeVideoSurface(image->usWidth, image->usHeight, image->ubBitDepth, &*image);
 }

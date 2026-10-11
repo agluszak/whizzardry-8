@@ -8,7 +8,7 @@
 #include <memory>
 #include <array>
 #include <optional>
-#include <string>
+#include <string_view>
 #include <vector>
 #include <span>
 #include <cstddef>
@@ -33,9 +33,7 @@
 #define IMAGE_TRLECOMPRESSED 0x0002
 #define IMAGE_PALETTE 0x0004
 #define IMAGE_BITMAPDATA 0x0008
-#define IMAGE_APPDATA 0x0010
-#define IMAGE_ALLIMAGEDATA 0x000C
-#define IMAGE_ALLDATA 0x001C
+#define IMAGE_ALLIMAGEDATA (IMAGE_PALETTE | IMAGE_BITMAPDATA)
 
 // Palette structure, mimics that of Win32
 typedef struct tagSGPPaletteEntry {
@@ -88,14 +86,12 @@ typedef struct {
     UINT16 usHeight;
     UINT8 ubBitDepth;
     UINT16 fFlags;
-    std::string ImageFile;
     std::optional<Palette8> pPalette;
     std::optional<Palette16> pui16BPPPalette;
-    std::vector<UINT8> pAppData;
     std::vector<UINT8> pImageData;
     std::vector<ETRLEObject> pETRLEObject;
 
-} image_type, *HIMAGE;
+} image_type;
 
 #define SGPGetRValue(rgb) ((BYTE)(rgb))
 #define SGPGetBValue(rgb) ((BYTE)((rgb) >> 16))
@@ -111,8 +107,8 @@ typedef struct {
 // basename extension selects STI or SDL_image PCX/TGA/JPEG; extensionless names
 // default to PCX without changing the caller's path. Ordinary images are tight,
 // top-down INDEX8 + palettes, packed RGB555 (16-bit TGA), or RGB24.
-// Returns NULL on failure without retaining image allocations.
-std::optional<image_type> CreateImage(const char* ImageFile, UINT16 fContents);
+// Returns no image on failure.
+std::optional<image_type> LoadImage(std::string_view filename);
 
 bool CopyImageToBuffer(const image_type& image, UINT32 buffer_type, std::span<UINT8> destination,
                        std::size_t dest_width, std::size_t dest_height, std::size_t x, std::size_t y,

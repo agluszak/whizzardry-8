@@ -154,9 +154,9 @@ static Bytes slf(const std::vector<std::pair<std::string, Bytes>>& files)
     return bytes;
 }
 
-static Image load(const char* path, UINT16 contents = IMAGE_ALLDATA)
+static Image load(const char* path)
 {
-    return CreateImage(path, contents);
+    return LoadImage(path);
 }
 
 static void rgb555()
@@ -186,7 +186,7 @@ static void check_pcx(const image_type& image)
     REQUIRE((*image.pui16BPPPalette)[0] == 0); // Exact black stays transparent.
     REQUIRE((*image.pui16BPPPalette)[1] == 1); // Non-black quantizing to zero is substituted.
     REQUIRE((*image.pui16BPPPalette)[2] == 0x7c00);
-    REQUIRE((image.pAppData.empty() && !image.pAppData.size() && !image.pETRLEObject.size()));
+    REQUIRE(image.pETRLEObject.empty());
 }
 
 struct ImageFixture
@@ -253,7 +253,6 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
         REQUIRE((image && image->pImageData.size() == 4 && image->usWidth == 2));
         const UINT8 expected[]{0, 0x7c, 0xe0, 3};
         REQUIRE(!memcmp(image->pImageData.data(), expected, sizeof(expected)));
-        REQUIRE(load("native-rgb.sti", 0));
         header.RGB.uiRedMask = 0xf800;
         header.RGB.uiGreenMask = 0x07e0;
         write_rgb();
@@ -277,17 +276,9 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
         auto default_image = load(extensionless);
         REQUIRE((default_image && !strcmp(extensionless, "Dotted.dir\\default")));
         check_pcx(*default_image);
-        REQUIRE(default_image->ImageFile == "Dotted.dir\\default.PCX");
     }
     {
-        auto palette = load("Dotted.dir/default.PCX", IMAGE_PALETTE);
-        auto bitmap = load("Dotted.dir/default.PCX", IMAGE_BITMAPDATA);
-        auto metadata = load("Dotted.dir/default.PCX", 0);
-        REQUIRE((palette && bitmap && metadata));
-        REQUIRE((palette->fFlags == IMAGE_PALETTE && palette->pImageData.empty() && palette->pPalette));
-        REQUIRE((bitmap->fFlags == IMAGE_BITMAPDATA && !bitmap->pImageData.empty() && !bitmap->pPalette));
-        REQUIRE((metadata->fFlags == 0 && metadata->pImageData.empty() && !metadata->pPalette));
-        auto complete = load("Dotted.dir/default.PCX", IMAGE_ALLIMAGEDATA);
+        auto complete = load("Dotted.dir/default.PCX");
         REQUIRE(complete);
         check_pcx(*complete);
         gusAlphaMask = 0x8000;
@@ -449,7 +440,7 @@ TEST_CASE_METHOD(ImageFixture, "Truncated images and rollback", "[image][validat
     REQUIRE(!load(wiz8::path_to_utf8(assets / "test.tga").c_str()));
     const std::string long_path(SGPFILENAME_LEN + 10, 'x');
     REQUIRE(!load(long_path.c_str()));
-    REQUIRE(!CreateImage(nullptr, IMAGE_ALLDATA));
+    REQUIRE(!LoadImage(""));
 
 
 }
