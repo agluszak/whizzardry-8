@@ -80,7 +80,11 @@ public:
 
     static e_surfaceType mapPixelFormat(const PixelFormat& format);
     static SR_DLL_IMPORT void mapPixelFormat(e_surfaceType type, PixelFormat& format);
-    static void selectFuncs(const PixelFormat& format, ConversionFunc& write, ConversionFunc& read);
+    struct ConversionFunctions {
+        ConversionFunc write = nullptr;
+        ConversionFunc read = nullptr;
+    };
+    static ConversionFunctions selectFuncs(const PixelFormat& format);
 };
 
 /* Builds the conversion lookup tables (channel expansion/reduction ramps,
