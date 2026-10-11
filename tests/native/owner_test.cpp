@@ -1,3 +1,4 @@
+#include <SDL3/SDL_pixels.h>
 #include <utility>
 #include <catch2/catch_test_macros.hpp>
 #include <fmt/format.h>
