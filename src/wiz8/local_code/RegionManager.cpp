@@ -44,18 +44,23 @@
 enum { W8_SCREEN_WIDTH = 640, W8_SCREEN_HEIGHT = 480, W8_HELP_MARGIN = 2 };
 enum { W8_REGION_MODE_MASK = 0xf };
 
-/* The retail catalog contains 51 statically declared sets and 313 statically
-   declared regions.  Dynamically constructed controls append after that
-   catalog; region zero is the template copied into each appended record. */
+/* The retail catalog retains 51 set slots and 313 region slots, including
+   placeholders for screen-owned regions. Dynamic controls append after it;
+   region zero is the template copied into each appended record. */
 // GLOBAL: WIZ8 0x0061f238
 std::deque<W8RegionSet> g_region_sets = {
     {0, 0, 0},     {0, 1, 6},     {0, 8, 8},     {0, 9, 9},     {0, 10, 17},   {0, 18, 25},
     {0, 26, 33},   {0, 34, 39},   {0, 40, 45},   {0, 46, 51},   {0, 52, 57},   {0, 58, 63},
     {0, 64, 69},   {0, 70, 75},   {0, 76, 81},   {0, 34, 81},   {0, 90, 97},   {0, 90, 97},
     {0, 98, 98},   {0, 99, 100},  {0, 82, 89},   {0, 82, 85},   {0, 101, 115}, {0, 116, 129},
-    {0, 130, 138}, {0, 139, 155}, {0, 156, 160}, {0, 161, 179}, {0, 200, 201}, {0, 302, 302},
+    {0, 130, 138},
+    // Sets 0x19-0x1c moved to main-game subscreen owners.
+    {0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0},
+    {0, 302, 302},
     {0, 303, 303}, {0, 304, 304}, {0, 305, 305}, {0, 306, 306}, {0, 307, 307}, {0, 308, 308},
-    {0, 309, 309}, {0, 310, 310}, {0, 180, 193}, {0, 194, 199}, {0, 205, 230}, {0, 231, 243},
+    {0, 309, 309}, {0, 310, 310},
+    // Set 0x26 moved to the keyboard-menu owner.
+    {0, 0, 0}, {0, 194, 199}, {0, 205, 230}, {0, 231, 243},
     {0, 244, 263}, {0, 264, 280}, {0, 281, 286}, {0, 287, 291}, {0, 292, 299}, {0, 300, 300},
     {0, 301, 301}, {0, 0, 0},     {0, 0, 0}};
 /* The last catalog region reports every event as handled. Retail's linker
@@ -253,79 +258,83 @@ std::deque<W8Region> g_regions = {
     {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 8, false, 0, -1, 0},
 
     {0x00000001, 0, 0, 0, 0, MainScreenControlRegionEvent, 39, false, 0, 0, 0},
-    {0x00000001, 0, 0, 0, 0, SpellRealmButtonRegionEvent, 0, true, 0, -1, 0},
-    {0x00000001, 0, 0, 0, 0, SpellRealmButtonRegionEvent, 1, true, 0, -1, 0},
+    // Moved to MGSSpellCasting.cpp (retail set 0x19, regions 139-155).
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
 
-    {0x00000001, 0, 0, 0, 0, SpellRealmButtonRegionEvent, 2, true, 0, -1, 0},
-    {0x00000001, 0, 0, 0, 0, SpellRealmButtonRegionEvent, 3, true, 0, -1, 0},
-    {0x00000001, 0, 0, 0, 0, SpellRealmButtonRegionEvent, 4, true, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
 
-    {0x00000001, 0, 0, 0, 0, SpellRealmButtonRegionEvent, 5, true, 0, -1, 0},
-    {0x00000002, 0, 0, 0, 0, SpellPowerPipRegionEvent, 0, true, 0, 46, 0},
-    {0x00000002, 0, 0, 0, 0, SpellPowerPipRegionEvent, 1, true, 0, 47, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
 
-    {0x00000002, 0, 0, 0, 0, SpellPowerPipRegionEvent, 2, true, 0, 48, 0},
-    {0x00000002, 0, 0, 0, 0, SpellPowerPipRegionEvent, 3, true, 0, 49, 0},
-    {0x00000002, 0, 0, 0, 0, SpellPowerPipRegionEvent, 4, true, 0, 50, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
 
-    {0x00000002, 0, 0, 0, 0, SpellPowerPipRegionEvent, 5, true, 0, 51, 0},
-    {0x00000002, 0, 0, 0, 0, SpellPowerPipRegionEvent, 6, true, 0, 52, 0},
-    {0x00000002, 0, 0, 0, 0, SpellPowerPipRegionEvent, 7, true, 0, 53, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
 
-    {0x00000002, 0, 0, 0, 0, SpellPowerPipRegionEvent, 8, true, 0, 54, 0},
-    {0x00000001, 0, 0, 0, 0, IgnoreSpellCastingInput, 0, true, 0, 55, 0},
-    {0x00000001, 0, 0, 0, 0, SpellPowerPipRegionEvent, 10, true, 0, 17, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
 
-    {0x00000001, 0, 0, 0, 0, UseItemSelectScrollRegionEvent, 0, true, 0, 96, 0},
-    {0x00000001, 0, 0, 0, 0, UseItemSelectScrollRegionEvent, 1, true, 0, 97, 0},
-    {0x00000001, 0, 0, 0, 0, UseItemSelectControlRegionEvent, 0, true, 0, 98, 0},
+    // Moved to MGSUseItemSelect.cpp (retail set 0x1a, regions 156-160).
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
 
-    {0x00000001, 0, 0, 0, 0, UseItemSelectControlRegionEvent, 3, true, 0, 99, 0},
-    {0x00000001, 0, 0, 0, 0, UseItemSelectControlRegionEvent, 8, true, 0, 17, 0},
-    {0x00000001, 0, 0, 0, 0, FormationCellRegionEvent, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    // Moved to MGSFormation.cpp (retail set 0x1b, regions 161-179).
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
 
-    {0x00000001, 0, 0, 0, 0, FormationCellRegionEvent, 1, false, 0, -1, 0},
-    {0x00000001, 0, 0, 0, 0, FormationCellRegionEvent, 2, false, 0, -1, 0},
-    {0x00000001, 0, 0, 0, 0, FormationCellRegionEvent, 3, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
 
-    {0x00000001, 0, 0, 0, 0, FormationCellRegionEvent, 4, false, 0, -1, 0},
-    {0x00000001, 0, 0, 0, 0, FormationCellRegionEvent, 5, false, 0, -1, 0},
-    {0x00000001, 0, 0, 0, 0, FormationCellRegionEvent, 6, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
 
-    {0x00000001, 0, 0, 0, 0, FormationCellRegionEvent, 7, false, 0, -1, 0},
-    {0x00000001, 0, 0, 0, 0, FormationCellRegionEvent, 8, false, 0, -1, 0},
-    {0x00000001, 0, 0, 0, 0, FormationCellRegionEvent, 9, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
 
-    {0x00000001, 0, 0, 0, 0, FormationCellRegionEvent, 10, false, 0, -1, 0},
-    {0x00000001, 0, 0, 0, 0, FormationCellRegionEvent, 11, false, 0, -1, 0},
-    {0x00000001, 0, 0, 0, 0, FormationCellRegionEvent, 12, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
 
-    {0x00000001, 0, 0, 0, 0, FormationCellRegionEvent, 13, false, 0, -1, 0},
-    {0x00000001, 0, 0, 0, 0, FormationCellRegionEvent, 14, false, 0, -1, 0},
-    {0x00000001, 0, 0, 0, 0, FormationActionRegionEvent, 0, true, 0, 1981, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
 
-    {0x00000001, 0, 0, 0, 0, FormationActionRegionEvent, 1, true, 0, 1982, 0},
-    {0x00000001, 0, 0, 0, 0, FormationActionRegionEvent, 2, true, 0, 1983, 0},
-    {0x00000001, 214, 60, 427, 303, FormationBackgroundRegionEvent, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
 
-    {0x00000001, 0, 0, 0, 0, KeyboardMenuRowRegionEvent, 0, true, 0, -1, 0},
-    {0x00000001, 0, 0, 0, 0, KeyboardMenuRowRegionEvent, 1, true, 0, -1, 0},
-    {0x00000001, 0, 0, 0, 0, KeyboardMenuRowRegionEvent, 2, true, 0, -1, 0},
+    // Moved to MGSKeyboard.cpp (retail set 0x26, regions 180-193).
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
 
-    {0x00000001, 0, 0, 0, 0, KeyboardMenuRowRegionEvent, 3, true, 0, -1, 0},
-    {0x00000001, 0, 0, 0, 0, KeyboardMenuRowRegionEvent, 4, true, 0, -1, 0},
-    {0x00000001, 0, 0, 0, 0, KeyboardMenuRowRegionEvent, 5, true, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
 
-    {0x00000001, 0, 0, 0, 0, KeyboardMenuRowRegionEvent, 6, true, 0, -1, 0},
-    {0x00000001, 0, 0, 0, 0, KeyboardMenuRowRegionEvent, 7, true, 0, -1, 0},
-    {0x00000001, 0, 0, 0, 0, KeyboardMenuRowRegionEvent, 8, true, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
 
-    {0x00000001, 0, 0, 0, 0, KeyboardMenuRowRegionEvent, 9, true, 0, -1, 0},
-    {0x00000001, 0, 0, 0, 0, KeyboardMenuRowRegionEvent, 10, true, 0, -1, 0},
-    {0x00000001, 0, 0, 0, 0, KeyboardMenuRowRegionEvent, 11, true, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
 
-    {0x00000001, 0, 0, 0, 0, KeyboardMenuRowRegionEvent, 12, true, 0, -1, 0},
-    {0x00000001, 0, 0, 0, 0, KeyboardMenuBackgroundRegionEvent, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
     {0x00000001, 0, 0, 0, 0, SubMenuRowRegionEvent, 0, true, 0, -1, 0},
 
     {0x00000001, 0, 0, 0, 0, SubMenuRowRegionEvent, 1, true, 0, -1, 0},
@@ -334,9 +343,10 @@ std::deque<W8Region> g_regions = {
 
     {0x00000001, 0, 0, 0, 0, SubMenuRowRegionEvent, 4, true, 0, -1, 0},
     {0x00000001, 0, 0, 0, 0, SubMenuBackgroundRegionEvent, 0, false, 0, -1, 0},
-    {0x00000001, 0, 0, 0, 0, FreeTurnButtonRegionEvent, 0, true, 0, 37, 0},
+    // Moved to MGSPartyMovement.cpp (retail set 0x1c, regions 200-201).
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
 
-    {0x00000001, 0, 0, 0, 0, FreeTurnButtonRegionEvent, 1, true, 0, 38, 0},
+    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
     {0x00000001, 0, 0, 0, 0, PartyEffectIconRegionEvent, 11, true, 0, -1, 0},
     {0x00000001, 0, 0, 0, 0, PartyEffectIconRegionEvent, 10, true, 0, -1, 0},
 
