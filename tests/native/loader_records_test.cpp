@@ -357,8 +357,8 @@ static void geometry()
         srVector3 start(0.25f, 0.25f, 2), end(0.25f, 0.25f, -2);
         if (!data.geometry_index) REQUIRE((InitializeGameData(&data)));
         auto delta = end - start;
-        W8GDSurface** hits = nullptr;
-        REQUIRE((data.geometry_index->CollectObjectsAlongSegment(&hits, &start, &delta, 0, 0, 3) == 1));
+        const auto hits = data.geometry_index->queryAlongSegment(start.glmValue(), delta.glmValue(), 0, 3);
+        REQUIRE(hits.size() == 1);
         REQUIRE((hits[0] == data.m_pSurfaces.data()));
         W8OctreeTrace trace(&start, &end);
         REQUIRE((data.TestTraceResult(1, nullptr, &trace, 0, 0)));
@@ -628,127 +628,6 @@ TEST_CASE_METHOD(LoaderFixture, "Versioned level record layouts", "[loader][reco
     }
 }
 
-
-TEST_CASE_METHOD(LoaderFixture, "Trigger layouts retain version gates and cleanup", "[loader][records]")
-{
-    auto text = []<std::size_t N>(std::string& bytes, const char* name) {
-        std::array<char, N> value{};
-        std::strcpy(value.data(), name);
-        append(bytes, value);
-    };
-    for (char type : {1, 2, 3}) {
-        for (char version = 1; version <= (type == 1 ? 4 : 5); ++version) {
-            std::string bytes;
-            append(bytes, char{1}); append(bytes, type); append(bytes, version);
-            std::vector<std::pair<std::size_t, std::size_t>> validated_strings;
-            auto checked_text = [&]<std::size_t N>(const char* value) {
-                validated_strings.emplace_back(bytes.size(), N);
-                text.template operator()<N>(bytes, value);
-            };
-            if (type == 1) {
-                for (int value : {9, 11, 13, 15, 17, 19, 21}) append(bytes, value);
-                append(bytes, char{1}); append(bytes, char{1});
-                checked_text.template operator()<128>("switch");
-                checked_text.template operator()<256>("recipient");
-                text.template operator()<128>(bytes, "switch.wav");
-                if (version > 1) {
-                    append(bytes, 2.f);
-                    checked_text.template operator()<64>("surface");
-                }
-                if (version > 2) {
-                    append(bytes, char{1}); append(bytes, char{1}); // Owned door, kind 1.
-                    append(bytes, char{1}); // Door version.
-                    bytes.append(9, '\x34');
-                    append(bytes, short{23}); append(bytes, char{1});
-                    for (float value : {3.f, 5.f, 7.f}) append(bytes, value);
-                    text.template operator()<128>(bytes, "linked");
-                }
-                if (version > 3) append(bytes, 29);
-            } else if (type == 2) {
-                append(bytes, 2.5f);
-                for (float value : {1.f, 2.f, 3.f}) append(bytes, value);
-                append(bytes, 29); append(bytes, 31);
-                append(bytes, char{1}); append(bytes, char{1});
-                checked_text.template operator()<128>("invisible");
-                checked_text.template operator()<256>("recipient");
-                if (version > 1) {
-                    append(bytes, char{1});
-                    for (int index = 0; index < 12; ++index) append(bytes, static_cast<float>(index));
-                }
-                if (version > 2) {
-                    append(bytes, 1.25f);
-                    for (float value : {5.f, 7.f, 11.f}) append(bytes, value);
-                    append(bytes, char{1});
-                    text.template operator()<128>(bytes, "action");
-                }
-                if (version > 3) { append(bytes, char{1}); append(bytes, 37); }
-                if (version > 4) {
-                    append(bytes, char{1}); append(bytes, char{2});
-                    // The serialized kind does not set the distinct legacy kind gate.
-                }
-            } else {
-                for (int value : {2, 3, 5, 7, 11, 13, 17}) append(bytes, value);
-                append(bytes, 2.5f);
-                for (int index = 0; index < 9; ++index) append(bytes, static_cast<float>(index));
-                text.template operator()<128>(bytes, "ambient.wav");
-                if (version > 1) { append(bytes, char{1}); append(bytes, char{2}); }
-                if (version > 2) {
-                    for (float value : {19.f, 23.f, 29.f}) append(bytes, value);
-                    append(bytes, 1.25f);
-                    for (int index = 0; index < 6; ++index) append(bytes, static_cast<float>(index));
-                }
-                if (version > 3) text.template operator()<128>(bytes, "sound");
-                if (version > 4) append(bytes, char{1});
-            }
-            store("trigger.bin", bytes);
-            auto file = wiz8::open_file("trigger.bin");
-            W8LevelFileTrigger trigger{};
-            REQUIRE(ReadTriggerFile(file.get(), &trigger));
-            REQUIRE(trigger.type == type);
-            REQUIRE(trigger.pData);
-            if (type == 1) {
-                auto* record = static_cast<W8LevelFileSwitch*>(trigger.pData);
-                REQUIRE(record->state_count == 11);
-                REQUIRE((record->door.door != nullptr) == (version > 2));
-            } else if (type == 2) {
-                auto* record = static_cast<W8LevelFileInvisible*>(trigger.pData);
-                REQUIRE(record->searchable == 31);
-                REQUIRE((record->pPlane != nullptr) == (version > 1));
-                REQUIRE(record->pRecord == nullptr);
-                REQUIRE(record->linked_record_kind_gate == 0);
-            } else {
-                auto* record = static_cast<W8LevelFileSound*>(trigger.pData);
-                REQUIRE(record->unbounded == 17);
-                REQUIRE(record->shared == (version > 4));
-            }
-            auto output = wiz8::open_file("roundtrip.bin", wiz8::OpenMode::replace);
-            REQUIRE(WriteTriggerFile(output.get(), &trigger));
-            output->close();
-            REQUIRE(trigger.pData == nullptr);
-            output = wiz8::open_file("roundtrip.bin");
-            std::string written(output->size(), '\0');
-            output->read_exact(written.data(), written.size());
-            REQUIRE(written == bytes);
-            for (std::size_t end = 0; end < bytes.size(); ++end) {
-                store("trigger.bin", bytes.substr(0, end));
-                file = wiz8::open_file("trigger.bin");
-                trigger = {};
-                REQUIRE_FALSE(ReadTriggerFile(file.get(), &trigger));
-                REQUIRE(trigger.pData == nullptr);
-            }
-            for (auto [offset, length] : validated_strings) {
-                auto invalid = bytes;
-                std::memset(invalid.data() + offset, 'x', length);
-                store("trigger.bin", invalid);
-                file = wiz8::open_file("trigger.bin");
-                trigger = {};
-                REQUIRE_FALSE(ReadTriggerFile(file.get(), &trigger));
-                REQUIRE(trigger.pData == nullptr);
-            }
-        }
-    }
-}
-
 TEST_CASE_METHOD(LoaderFixture, "Named positions commit only complete sections", "[loader][records]")
 {
     // The disk payload is one version byte, a 128-byte name and seven floats.
@@ -924,5 +803,126 @@ TEST_CASE_METHOD(LoaderFixture, "World camera paths commit only complete tables"
         auto file = wiz8::open_file("cameras.bin");
         REQUIRE(static_cast<bool>(read(file.get())) == (count == 0));
         unchanged();
+    }
+}
+
+
+TEST_CASE_METHOD(LoaderFixture, "Trigger layouts retain version gates and cleanup", "[loader][records]")
+{
+    auto text = []<std::size_t N>(std::string& bytes, const char* name) {
+        std::array<char, N> value{};
+        std::strcpy(value.data(), name);
+        append(bytes, value);
+    };
+    for (char type : {1, 2, 3}) {
+        for (char version = 1; version <= (type == 1 ? 4 : 5); ++version) {
+            std::string bytes;
+            append(bytes, char{1}); append(bytes, type); append(bytes, version);
+            std::vector<std::pair<std::size_t, std::size_t>> validated_strings;
+            auto checked_text = [&]<std::size_t N>(const char* value) {
+                validated_strings.emplace_back(bytes.size(), N);
+                text.template operator()<N>(bytes, value);
+            };
+            if (type == 1) {
+                for (int value : {9, 11, 13, 15, 17, 19, 21}) append(bytes, value);
+                append(bytes, char{1}); append(bytes, char{1});
+                checked_text.template operator()<128>("switch");
+                checked_text.template operator()<256>("recipient");
+                text.template operator()<128>(bytes, "switch.wav");
+                if (version > 1) {
+                    append(bytes, 2.f);
+                    checked_text.template operator()<64>("surface");
+                }
+                if (version > 2) {
+                    append(bytes, char{1}); append(bytes, char{1}); // Owned door, kind 1.
+                    append(bytes, char{1}); // Door version.
+                    bytes.append(9, '\x34');
+                    append(bytes, short{23}); append(bytes, char{1});
+                    for (float value : {3.f, 5.f, 7.f}) append(bytes, value);
+                    text.template operator()<128>(bytes, "linked");
+                }
+                if (version > 3) append(bytes, 29);
+            } else if (type == 2) {
+                append(bytes, 2.5f);
+                for (float value : {1.f, 2.f, 3.f}) append(bytes, value);
+                append(bytes, 29); append(bytes, 31);
+                append(bytes, char{1}); append(bytes, char{1});
+                checked_text.template operator()<128>("invisible");
+                checked_text.template operator()<256>("recipient");
+                if (version > 1) {
+                    append(bytes, char{1});
+                    for (int index = 0; index < 12; ++index) append(bytes, static_cast<float>(index));
+                }
+                if (version > 2) {
+                    append(bytes, 1.25f);
+                    for (float value : {5.f, 7.f, 11.f}) append(bytes, value);
+                    append(bytes, char{1});
+                    text.template operator()<128>(bytes, "action");
+                }
+                if (version > 3) { append(bytes, char{1}); append(bytes, 37); }
+                if (version > 4) {
+                    append(bytes, char{1}); append(bytes, char{2});
+                    // The serialized kind does not set the distinct legacy kind gate.
+                }
+            } else {
+                for (int value : {2, 3, 5, 7, 11, 13, 17}) append(bytes, value);
+                append(bytes, 2.5f);
+                for (int index = 0; index < 9; ++index) append(bytes, static_cast<float>(index));
+                text.template operator()<128>(bytes, "ambient.wav");
+                if (version > 1) { append(bytes, char{1}); append(bytes, char{2}); }
+                if (version > 2) {
+                    for (float value : {19.f, 23.f, 29.f}) append(bytes, value);
+                    append(bytes, 1.25f);
+                    for (int index = 0; index < 6; ++index) append(bytes, static_cast<float>(index));
+                }
+                if (version > 3) text.template operator()<128>(bytes, "sound");
+                if (version > 4) append(bytes, char{1});
+            }
+            store("trigger.bin", bytes);
+            auto file = wiz8::open_file("trigger.bin");
+            W8LevelFileTrigger trigger{};
+            REQUIRE(ReadTriggerFile(file.get(), &trigger));
+            REQUIRE(trigger.type == type);
+            REQUIRE(trigger.pData);
+            if (type == 1) {
+                auto* record = static_cast<W8LevelFileSwitch*>(trigger.pData);
+                REQUIRE(record->state_count == 11);
+                REQUIRE((record->door.door != nullptr) == (version > 2));
+            } else if (type == 2) {
+                auto* record = static_cast<W8LevelFileInvisible*>(trigger.pData);
+                REQUIRE(record->searchable == 31);
+                REQUIRE((record->pPlane != nullptr) == (version > 1));
+                REQUIRE(record->pRecord == nullptr);
+                REQUIRE(record->linked_record_kind_gate == 0);
+            } else {
+                auto* record = static_cast<W8LevelFileSound*>(trigger.pData);
+                REQUIRE(record->unbounded == 17);
+                REQUIRE(record->shared == (version > 4));
+            }
+            auto output = wiz8::open_file("roundtrip.bin", wiz8::OpenMode::replace);
+            REQUIRE(WriteTriggerFile(output.get(), &trigger));
+            output->close();
+            REQUIRE(trigger.pData == nullptr);
+            output = wiz8::open_file("roundtrip.bin");
+            std::string written(output->size(), '\0');
+            output->read_exact(written.data(), written.size());
+            REQUIRE(written == bytes);
+            for (std::size_t end = 0; end < bytes.size(); ++end) {
+                store("trigger.bin", bytes.substr(0, end));
+                file = wiz8::open_file("trigger.bin");
+                trigger = {};
+                REQUIRE_FALSE(ReadTriggerFile(file.get(), &trigger));
+                REQUIRE(trigger.pData == nullptr);
+            }
+            for (auto [offset, length] : validated_strings) {
+                auto invalid = bytes;
+                std::memset(invalid.data() + offset, 'x', length);
+                store("trigger.bin", invalid);
+                file = wiz8::open_file("trigger.bin");
+                trigger = {};
+                REQUIRE_FALSE(ReadTriggerFile(file.get(), &trigger));
+                REQUIRE(trigger.pData == nullptr);
+            }
+        }
     }
 }

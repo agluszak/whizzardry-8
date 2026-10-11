@@ -12,8 +12,6 @@
 #include "himage.h"
 
 #ifdef __cplusplus
-#include <span>
-
 extern "C" {
 #endif
 
@@ -22,7 +20,7 @@ extern SDL_Rect ClippingRect;
 extern void SetClippingRect(SDL_Rect* clip);
 void GetClippingRect(SDL_Rect* clip);
 
-BOOLEAN BltIsClipped(HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, SDL_Rect* clipregion);
+BOOLEAN BltIsClipped(SGPVObject& hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, SDL_Rect* clipregion);
 
 // Per-pixel operation applied by BltSpriteTo16BPPBuffer to each opaque sprite
 // pixel. MonoShadow additionally paints mono_background into transparent
@@ -62,7 +60,7 @@ BOOLEAN Blt16BPPBufferHatchRect(UINT16* pBuffer, UINT32 uiDestPitchBYTES, SDL_Re
 BOOLEAN Blt16BPPBufferShadowRect(UINT16* pBuffer, UINT32 uiDestPitchBYTES, SDL_Rect* area);
 
 BOOLEAN Blt8BPPDataSubTo16BPPBuffer(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
-                                    HVSURFACE hSrcVSurface, UINT8* pSrcBuffer, UINT32 uiSrcPitch,
+                                    SGPVSurface& hSrcVSurface, UINT8* pSrcBuffer, UINT32 uiSrcPitch,
                                     INT32 iX, INT32 iY, SDL_Rect* pRect);
 
 // ATE: New blitters for showing an outline at color 254
@@ -74,13 +72,6 @@ BOOLEAN FillRect16BPP(UINT16* pBuffer, UINT32 uiDestPitchBYTES, INT32 x1, INT32 
 #ifdef __cplusplus
 }
 
-// Decode every ETRLE frame once from the compressed source into SpriteFrame
-// pixels (transparent runs become SpriteFrame::kTransparent, literal index 0
-// stays opaque). The object keeps only the decoded representation; decoding
-// is transactional, so hVObject->sprites is replaced only on success.
-// Returns FALSE on malformed or truncated data.
-BOOLEAN DecodeVideoObjectSprites(HVOBJECT hVObject, std::span<const ETRLEObject> frames,
-                                 std::span<const UINT8> data);
 #endif
 
 #endif

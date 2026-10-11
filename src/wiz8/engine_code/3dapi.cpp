@@ -457,7 +457,7 @@ void UpdateWorldCameraAndPaths(W8World* world, unsigned int flags)
     float dz;
 
     RefreshDirtyAutomap();
-    GetCameraPosition(&camera_position);
+    camera_position = cameraLocation();
     if (g_game_data_runtime_pending != 0 && world->game_data != 0) {
         UpdateGameDataRuntime();
         g_game_data_runtime_pending = 0;
@@ -467,7 +467,7 @@ void UpdateWorldCameraAndPaths(W8World* world, unsigned int flags)
             *g_level_flags &= ~W8_LEVEL_FLAG_MOVED_THIS_UPDATE;
         }
         if (world->game_data != 0 && (flags & W8_CAMERA_MOTION_SKIP) == 0) {
-            world->camera->getRotation(rotation);
+            rotation = world->camera->getRotation<glm::mat3>();
             world->game_data->ApplyCameraMotionFlags(flags, &rotation, &motion_saved);
             world->camera->setRotation(rotation);
             s_saved_camera_rotation = rotation;
@@ -527,7 +527,7 @@ void UpdateWorldCameraAndPaths(W8World* world, unsigned int flags)
                     party_point = glm::vec3(location.glmValue());
                     PlacePartyAtPoint(&party_point);
                 }
-                world->camera->getRotation(path_rotation);
+                path_rotation = world->camera->getRotation<glm::mat3>();
                 if (g_secondary_world != 0 && g_secondary_world->camera != 0) {
                     g_secondary_world->camera->setRotation(path_rotation);
                 }
@@ -581,16 +581,9 @@ void ForwardDestroyWorld(W8World* world)
    caller preserves this value across a level reload, so a world without a
    camera contributes the zero position. */
 // FUNCTION: WIZ8 0x00451160
-void WorldGetCameraLocationOrZero(W8World* world, srVector3T<float>* location)
+glm::vec3 cameraLocationOrZero(const W8World& world)
 {
-    if (!world) {
-        srAssertFail("pWorld", THREE_D_API_CPP, 1014, 0);
-    }
-    if (world->camera != 0) {
-        WorldGetCameraLocation(world, location);
-        return;
-    }
-    location->SetZero();
+    return world.camera ? cameraLocation(world) : glm::vec3(0);
 }
 
 /* Set the view position after loading or traversing a portal. The camera light
@@ -653,15 +646,12 @@ void ReportAssertion(const char* expression, const char* source_path, w8_long li
    3dapi.cpp:976 names its camera member pWorld->psrCamera, which is what puts
    the camera at 0x44 rather than anywhere else. */
 // FUNCTION: WIZ8 0x004503c0
-void WorldGetCameraRotation(W8World* world, glm::mat3* rotation)
+glm::mat3 cameraRotation(const W8World& world)
 {
-    if (!world) {
-        srAssertFail("pWorld", THREE_D_API_CPP, 0x3cf, 0);
-    }
-    if (!world->camera) {
+    if (!world.camera) {
         srAssertFail("pWorld->psrCamera", THREE_D_API_CPP, 0x3d0, 0);
     }
-    world->camera->getRotation(*rotation);
+    return world.camera->getRotation<glm::mat3>();
 }
 
 /* Moves the camera and its camera light together. Only the camera's move
@@ -711,7 +701,7 @@ void SetWorldCameraState(W8World* world, W8World* source_world, W8WorldCameraSta
             position = glm::dvec3(location.glmValue());
             ((srNode*)world->camera_light)->setLocation(position);
         }
-        world->camera->getRotation(rotation);
+        rotation = world->camera->getRotation<glm::mat3>();
         SetCameraOrientation(state->yaw, state->pitch, &rotation);
         world->camera->setRotation(rotation);
     }
@@ -719,7 +709,7 @@ void SetWorldCameraState(W8World* world, W8World* source_world, W8WorldCameraSta
         if (state == 0) {
             srAssertFail("CamPos", THREE_D_API_CPP, 0x44e, 0);
         }
-        world->camera->getRotation(rotation);
+        rotation = world->camera->getRotation<glm::mat3>();
         SetCameraOrientation(state->yaw, state->pitch, &rotation);
         world->camera->setRotation(rotation);
     }
@@ -730,15 +720,13 @@ void SetWorldCameraState(W8World* world, W8World* source_world, W8WorldCameraSta
 // FUNCTION: WIZ8 0x00450610
 void RestoreWorldCameraState(W8World* world, W8World* source_world, W8WorldCameraState* state)
 {
-    srVector3T<double> camera_location;
     srVector3T<float> navigator_position;
 
     if (world == 0) {
         srAssertFail("pWorld", THREE_D_API_CPP, 0x46b, 0);
     }
     SetWorldCameraState(world, source_world, state);
-    world->camera->getLocation(camera_location);
-    navigator_position = glm::vec3(camera_location.glmValue());
+    navigator_position = glm::vec3(world->camera->getLocation());
     g_startup_world->SetAngles(GetCameraYawInDegrees());
     g_startup_world->SetPitch(GetCameraPitchInDegrees());
     navigator_position.y -= g_default_world_height;
@@ -746,33 +734,22 @@ void RestoreWorldCameraState(W8World* world, W8World* source_world, W8WorldCamer
 }
 
 /* Snapshot the world's camera location and the live yaw/pitch into a CamPos
-   record. A null world is a no-op; a world without a camera zeros the point. */
+   record. A world without a camera contributes the zero position. */
 // FUNCTION: WIZ8 0x004506C0
-void GetWorldCameraState(W8World* world, W8WorldCameraState* state)
+W8WorldCameraState cameraState(const W8World& world)
 {
-    if (world != 0) {
-        if (state == 0) {
-            srAssertFail("CamPos", THREE_D_API_CPP, 0x488, 0);
-        }
-        if (world->camera != 0) {
-            state->position.x = static_cast<float>(world->camera->getLocationX());
-            state->position.y = static_cast<float>(world->camera->getLocationY());
-            state->position.z = static_cast<float>(world->camera->getLocationZ());
-        } else {
-            state->position.SetZero();
-        }
-        GetCameraOrientation(state->yaw, state->pitch);
-    }
+    W8WorldCameraState state{};
+    state.position = cameraLocationOrZero(world);
+    GetCameraOrientation(state.yaw, state.pitch);
+    return state;
 }
 
 /* Read the camera node's double-precision renderer position back into the
    world's float position type. */
 // FUNCTION: WIZ8 0x00450750
-void WorldGetCameraLocation(W8World* world, srVector3T<float>* location)
+glm::vec3 cameraLocation(const W8World& world)
 {
-    location->x = static_cast<float>(world->camera->getLocationX());
-    location->y = static_cast<float>(world->camera->getLocationY());
-    location->z = static_cast<float>(world->camera->getLocationZ());
+    return glm::vec3(world.camera->getLocation());
 }
 
 /* The second world, read straight out of the global with no guard. Its type is
@@ -862,7 +839,7 @@ bool FindEntityByName(const char* name, srVector3T<float>* position, float* angl
         return false;
     }
     if (_stricmp("PARTY", name) == 0) {
-        GetCameraPosition(position);
+        *position = cameraLocation();
         return true;
     }
 

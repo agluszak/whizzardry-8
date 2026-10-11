@@ -1,3 +1,4 @@
+#include <tuple>
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <SDL3/SDL_filesystem.h>
@@ -87,7 +88,7 @@ void RedrawPortraitQuoteBubbles(void)
             !slot->portrait_event_active) {
             continue;
         }
-        DrawPortraitQuoteBubble(slot->quote.quote_handle, slot->quote.x, slot->quote.y, -0xe);
+        DrawPortraitQuoteBubble(slot->quote.quote_handle, slot->quote.x, slot->quote.y, GetFrameBufferSurface());
     }
 }
 
@@ -697,8 +698,6 @@ unsigned char W8CharacterEvent::PlayEventSound()
     std::string npc_sound_name;
     SOUNDPARMS sound_parms;
     SoundPlayback sound_handle;
-    unsigned int total_ms;
-    unsigned int current_ms;
     W8MonsterManagerEntry* record;
     W8NpcState* npc;
 
@@ -738,12 +737,13 @@ unsigned char W8CharacterEvent::PlayEventSound()
         }
         return 1;
     }
-    SoundGetMilliSecondPosition(sound_handle, &total_ms, &current_ms);
-    record->voice_time_remaining_ms = total_ms;
+    const auto playback_time = SoundGetMilliSecondPosition(sound_handle).value_or(SoundPlaybackTime{});
+    record->voice_time_remaining_ms = playback_time.total_ms;
     LoadMouthGapTrack(sound_path, &record->mouth_gap);
 #ifdef WIZ8_RUNTIME_TESTS
     RuntimeObserve(RUNTIME_VOICE_STARTED, party_slot, bool(sound_handle), record->mouth_gap.range_count);
-    RuntimeObserve(RUNTIME_VOICE_TIMING, party_slot, total_ms, current_ms);
+    RuntimeObserve(RUNTIME_VOICE_TIMING, party_slot, playback_time.total_ms,
+                   playback_time.current_ms);
 #endif
     return 1;
 }
@@ -1887,7 +1887,7 @@ int UpdateCharacterEventState(void)
 void RenderPartyPortrait(int portrait, int left, int top, unsigned int flags, unsigned char value,
                          int party_slot)
 {
-    DrawCatalogImage(FRAME_BUFFER, 0x12, portrait, 0, left, top, flags | VO_BLT_SHADOW, 0);
+    DrawCatalogImage(GetFrameBufferSurface(), 0x12, portrait, 0, left, top, flags | VO_BLT_SHADOW, 0);
     if (party_slot == -1) {
         return;
     }
@@ -1899,7 +1899,7 @@ void RenderPartyPortrait(int portrait, int left, int top, unsigned int flags, un
           gXStatus.fSurprisePossible) ||
          g_status.buffers.Char[party_slot].highest_condition == W8_CONDITION_MISSING) &&
         value != 0) {
-        ShadowVideoSurfaceRect(FRAME_BUFFER, left, top, left + 0x59, top + 0x47);
+        ShadowVideoSurfaceRect(GetFrameBufferSurface(), left, top, left + 0x59, top + 0x47);
     }
 }
 
@@ -1925,7 +1925,7 @@ bool BlitPartyPortraitAnimation(int portrait, int left, int top, unsigned int fl
     }
     if (state->portrait_pose_dirty || state->portrait_pose != state->previous_portrait_pose ||
         (animate && state->portrait_pose != 1)) {
-        GetCatalogImageSize(0x12, portrait, state->portrait_pose, &width, &height);
+        std::tie(width, height) = GetCatalogImageSize(0x12, portrait, state->portrait_pose);
         GetCatalogImagePosition(0x12, portrait, state->portrait_pose, &image_x, &image_y);
         rect.left = image_x + left;
         rect.top = image_y + top;
@@ -1938,18 +1938,18 @@ bool BlitPartyPortraitAnimation(int portrait, int left, int top, unsigned int fl
         if (g_status.buffers.Char[party_slot].hp_current == 0) {
             return true;
         }
-        DrawCatalogImage(FRAME_BUFFER, 0x12, portrait, state->portrait_pose, left, top,
+        DrawCatalogImage(GetFrameBufferSurface(), 0x12, portrait, state->portrait_pose, left, top,
                          flags | VO_BLT_SHADOW, 0);
         drawn = true;
         if (state->previous_portrait_pose != -1) {
-            GetCatalogImageSize(0x12, portrait, state->previous_portrait_pose, &width, &height);
+            std::tie(width, height) = GetCatalogImageSize(0x12, portrait, state->previous_portrait_pose);
             GetCatalogImagePosition(0x12, portrait, state->previous_portrait_pose, &image_x,
                                     &image_y);
             other.left = image_x + left;
             other.top = image_y + top;
             other.right = width + other.left;
             other.bottom = height + other.top;
-            UnionScreenRects(&other, &rect, &rect);
+            rect = UnionScreenRects(other, rect);
         }
         InvalidateScreenRects(&rect, 1, 0);
         state->previous_portrait_pose = state->portrait_pose;
@@ -1961,13 +1961,13 @@ bool BlitPartyPortraitAnimation(int portrait, int left, int top, unsigned int fl
             return false;
         }
     } else {
-        GetCatalogImageSize(0x12, portrait, state->portrait_frame, &width, &height);
+        std::tie(width, height) = GetCatalogImageSize(0x12, portrait, state->portrait_frame);
         GetCatalogImagePosition(0x12, portrait, state->portrait_frame, &image_x, &image_y);
         if (!animate && !drawn && gXStatus.fCombatMode &&
             g_combat_state->characters[party_slot].dead) {
             RenderPartyPortrait(portrait, left, top, flags, 0, party_slot);
         }
-        DrawCatalogImage(FRAME_BUFFER, 0x12, portrait, state->portrait_frame, left, top, flags, 0);
+        DrawCatalogImage(GetFrameBufferSurface(), 0x12, portrait, state->portrait_frame, left, top, flags, 0);
 #ifdef WIZ8_RUNTIME_TESTS
         RuntimeObserve(RUNTIME_PORTRAIT_BLIT, party_slot, state->portrait_frame, portrait);
 #endif
@@ -1977,14 +1977,14 @@ bool BlitPartyPortraitAnimation(int portrait, int left, int top, unsigned int fl
         rect.bottom = height + rect.top;
         drawn = true;
         if (state->previous_portrait_frame != -1) {
-            GetCatalogImageSize(0x12, portrait, state->previous_portrait_frame, &width, &height);
+            std::tie(width, height) = GetCatalogImageSize(0x12, portrait, state->previous_portrait_frame);
             GetCatalogImagePosition(0x12, portrait, state->previous_portrait_frame, &image_x,
                                     &image_y);
             other.left = image_x + left;
             other.top = image_y + top;
             other.right = width + other.left;
             other.bottom = height + other.top;
-            UnionScreenRects(&other, &rect, &rect);
+            rect = UnionScreenRects(other, rect);
         }
         InvalidateScreenRects(&rect, 1, 0);
         state->previous_portrait_frame = state->portrait_frame;
@@ -1993,7 +1993,7 @@ bool BlitPartyPortraitAnimation(int portrait, int left, int top, unsigned int fl
     if (((gXStatus.fCombatMode && g_combat_state->characters[party_slot].dead) ||
          gXStatus.fSurprisePossible) ||
         g_status.buffers.Char[party_slot].highest_condition == W8_CONDITION_MISSING) {
-        ShadowVideoSurfaceRect(FRAME_BUFFER, left, top, left + 0x59, top + 0x47);
+        ShadowVideoSurfaceRect(GetFrameBufferSurface(), left, top, left + 0x59, top + 0x47);
     }
     return drawn;
 }

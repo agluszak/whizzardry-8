@@ -1,3 +1,4 @@
+#include <SDL3/SDL_log.h>
 #include <glm/ext/matrix_clip_space.hpp>
 #include <glm/ext/matrix_transform.hpp>
 #include <cstdlib>
@@ -220,7 +221,10 @@ srGERD::srGERD(srDD* device, const char* device_name)
     initTextureParameterMatrix();
     this->device.driver_info.api_version = 0x128;
     this->device.driver_info.dd_api_version = 0;
-    this->device.driver_info.debug_write = debugWrite;
+    this->device.driver_info.debug_write = [](const char* message) {
+        if (message && *message)
+            SDL_LogDebug(SDL_LOG_CATEGORY_RENDER, "%s", message);
+    };
     this->device.driver_info.flags = 0;
     getDD()->getDriverInfo(this->device.driver_info);
     initClearColors();
@@ -486,9 +490,9 @@ void srGERD::setAmbientLight(const glm::vec4& light)
 }
 
 // FUNCTION: SURRENDER 0x1001C410
-void srGERD::getAmbientLight(glm::vec4& light)
+glm::vec4 srGERD::getAmbientLight() const
 {
-    light = ambient_light;
+    return ambient_light;
 }
 
 // FUNCTION: SURRENDER 0x1001C480
@@ -509,17 +513,15 @@ srGERD::e_cullMode srGERD::getCullMode() const
 }
 
 // FUNCTION: SURRENDER 0x1001C4F0
-void srGERD::getEnvironmentRange(float& minimum, float& maximum) const
+std::pair<float, float> srGERD::getEnvironmentRange() const
 {
-    minimum = environment.x;
-    maximum = environment.y;
+    return {environment.x, environment.y};
 }
 
 // FUNCTION: SURRENDER 0x1001C5A0
-void srGERD::getEnvironmentScaleFactor(float& scale, float& inverse_scale)
+std::pair<float, float> srGERD::getEnvironmentScaleFactor() const
 {
-    scale = environment.z;
-    inverse_scale = environment.w;
+    return {environment.z, environment.w};
 }
 
 // FUNCTION: SURRENDER 0x1001C8A0
@@ -1394,10 +1396,11 @@ void srGERD::performPickTest(const PickInput& input)
                 v2y = -v2y;
                 v2z = -v2z;
             }
-            float a = (v1y - v0y) * (v2z - v0z) - (v1z - v0z) * (v2y - v0y);
-            float b = (v1z - v0z) * (v2x - v0x) - (v2z - v0z) * (v1x - v0x);
-            float c = (v2y - v0y) * (v1x - v0x) - (v1y - v0y) * (v2x - v0x);
-            float hit = -((a * pick_x + b * pick_y - (a * v0x + b * v0y + c * v0z)) / c);
+            const glm::vec3 first(v0x, v0y, v0z);
+            const glm::vec3 normal = glm::cross(glm::vec3(v1x, v1y, v1z) - first,
+                                                glm::vec3(v2x, v2y, v2z) - first);
+            float hit = -((normal.x * pick_x + normal.y * pick_y - glm::dot(normal, first)) /
+                          normal.z);
             if (hit >= -1.0f && hit < pick->position.z) {
                 pick->position.z = hit;
                 /* reinterpret-ok: the public pick key arrives as ulong bits
@@ -1462,19 +1465,20 @@ srRendererDefs::e_scaleType srGERD::getModelViewScaleType()
 }
 
 // FUNCTION: SURRENDER 0x100213C0
-void srGERD::getNormalMatrix(glm::mat4& matrix)
+glm::mat4 srGERD::getNormalMatrix()
 {
     checkViewStateChanges();
-    matrix = state.normal_matrix;
+    glm::mat4 matrix = state.normal_matrix;
     if ((enable_flags.value & (1UL << ENABLE_REVERSE_NORMALS)) != 0)
         matrix = glm::mat4(-glm::mat3(matrix));
+    return matrix;
 }
 
 // FUNCTION: SURRENDER 0x100214F0
-void srGERD::getProjectClipNearMatrix(glm::mat4& matrix)
+glm::mat4 srGERD::getProjectClipNearMatrix()
 {
     checkViewStateChanges();
-    matrix = state.project_clip_near;
+    return state.project_clip_near;
 }
 
 // FUNCTION: SURRENDER 0x10022190
@@ -1564,17 +1568,17 @@ void srGERD::loadIdentity()
 }
 
 // FUNCTION: SURRENDER 0x10023320
-void srGERD::getMatrix(e_matrixMode mode, glm::mat4& matrix)
+glm::mat4 srGERD::getMatrix(e_matrixMode mode)
 {
     checkViewStateChanges();
-    matrix = state.matrix_current[mode];
+    return state.matrix_current[mode];
 }
 
 // FUNCTION: SURRENDER 0x10023510
-void srGERD::getInverseModelViewMatrix(glm::mat4& matrix)
+glm::mat4 srGERD::getInverseModelViewMatrix()
 {
     checkViewStateChanges();
-    matrix = state.inverse_modelview;
+    return state.inverse_modelview;
 }
 
 // FUNCTION: SURRENDER 0x1001F790
@@ -2020,23 +2024,9 @@ srGERD::e_matrixMode srGERD::getMatrixMode() const
 }
 
 // FUNCTION: SURRENDER 0x10023350
-void srGERD::getMatrix(glm::mat4& matrix)
+glm::mat4 srGERD::getMatrix()
 {
-    checkViewStateChanges();
-    matrix = state.matrix_current[state.matrix_mode];
-}
-
-// FUNCTION: SURRENDER 0x10023390
-void srGERD::getMatrix(e_matrixMode mode, glm::dmat4& matrix)
-{
-    checkViewStateChanges();
-    matrix = glm::dmat4(state.matrix_current[mode]);
-}
-
-// FUNCTION: SURRENDER 0x10023450
-void srGERD::getMatrix(glm::dmat4& matrix)
-{
-    getMatrix(state.matrix_mode, matrix);
+    return getMatrix(state.matrix_mode);
 }
 
 // FUNCTION: SURRENDER 0x10021380
@@ -2216,9 +2206,10 @@ void srGERD::popClipPlane()
 }
 
 // FUNCTION: SURRENDER 0x1001C230
-void srGERD::getClipPlanes(ClipPlanes& planes)
+srGERD::ClipPlanes srGERD::getClipPlanes()
 {
     checkClipPlaneChanges();
+    ClipPlanes planes{};
     for (int plane = 0; plane != 6; ++plane) {
         planes.planes[plane] = state.clip_planes[plane];
     }
@@ -2231,6 +2222,7 @@ void srGERD::getClipPlanes(ClipPlanes& planes)
     }
     planes.mask = state.clip_mask;
     planes.mode1_mask = state.clip_mode1_mask;
+    return planes;
 }
 
 // FUNCTION: SURRENDER 0x1001C5C0
@@ -2315,9 +2307,9 @@ void srGERD::setFogColor(const glm::vec4& color)
 }
 
 // FUNCTION: SURRENDER 0x1001C680
-void srGERD::getFogColor(glm::vec4& color) const
+glm::vec4 srGERD::getFogColor() const
 {
-    color = fog_color;
+    return fog_color;
 }
 
 // FUNCTION: SURRENDER 0x1001C440
@@ -2640,9 +2632,7 @@ bound:
         }
         ++statistics.texture_binds;
     }
-    srTextureIFace::Parameters parameters;
-    texture->getTextureParms(parameters);
-    setTextureParameters(stage, parameters);
+    setTextureParameters(stage, texture->getParameters());
 }
 
 namespace {
@@ -2985,11 +2975,9 @@ void srGERD::dumpTextureCache(std::ostream& stream)
                    "--------------\n");
     w8_long index = 0;
     for (Texture* entry = texture_head; entry != 0; entry = entry->next) {
-        char format_name[64];
-        format_name[0] = '\0';
-        entry->pixel_format.getName(format_name);
+        const auto format_name = entry->pixel_format.getName();
         srStreamPrintf(stream, "%04d  %03dx%03d     %-11s  ", index, entry->device.width,
-                       entry->device.height, format_name);
+                       entry->device.height, format_name.c_str());
         index++;
         float kb = (entry->device.size + 0x3ff) * 0.0009765625f;
         if (kb >= 10.0f) {
@@ -3481,22 +3469,9 @@ void srGERD::allocTextureData(Texture& texture)
 // FUNCTION: SURRENDER 0x10029090
 srGERD::Texture* srGERD::createNewTexture(srTextureIFace* texture)
 {
-    srTextureIFace::Dimensions dimensions;
-    dimensions.palette = srCore.getPalette();
-    dimensions.filter = srCore.getFilter();
-    dimensions.hints = 0;
-    dimensions.compression = srTextureIFace::COMPRESSION_DEFAULT;
-    srPixelConvert::mapPixelFormat(srPixelConvert::SURFACE_ARGB4444, dimensions.format);
     Texture* result = allocTexture(texture->getTextureFrameHandle());
     result->name = texture->getName();
-    dimensions.compression = texture_state.default_compression;
-    dimensions.width = 1;
-    dimensions.height = 1;
-    dimensions.palette = 0;
-    dimensions.format = device.texture_formats.front();
-    dimensions.filter = 0;
-    dimensions.hints = 0;
-    texture->getDimensions(dimensions);
+    const auto dimensions = texture->getDimensions();
     evaluateTextureDimensions(result->device, dimensions);
     evaluateTexturePixelFormat(*result, dimensions);
     allocTextureData(*result);
@@ -3608,26 +3583,6 @@ int srGERD::isTextureResident(srTextureIFace* texture) const
     return 0;
 }
 
-// FUNCTION: SURRENDER 0x10017F70
-int srGERD::getTextureInfo(srTextureIFace* texture, TextureInfo& info)
-{
-    std::lock_guard access(state_section);
-    if (isWindowOpen() == 0) {
-        return 0;
-    }
-    w8_ulong handle = texture->getTextureFrameHandle();
-    const auto entry = texture_lookup.find(handle);
-    Texture* resident = entry == texture_lookup.end() ? nullptr : entry->second;
-    if (resident != 0) {
-        info.pixel_format = resident->pixel_format;
-        info.width = resident->device.width;
-        info.height = resident->device.height;
-        info.last_level = resident->device.last_level;
-        return 1;
-    }
-    return 0;
-}
-
 // FUNCTION: SURRENDER 0x10029600
 void srGERD::initGlobalPalette()
 {
@@ -3642,14 +3597,6 @@ void srGERD::initGlobalPalette()
     }
     /* reinterpret-ok: the DD receives the palette entries as raw dwords. */
     getDD()->setGlobalPalette(reinterpret_cast<w8_ulong*>(global_palette), 0x100);
-}
-
-// FUNCTION: SURRENDER 0x10018E40
-void srGERD::debugWrite(const char* text)
-{
-    if (text != 0 && *text != '\0') {
-        srOut << text;
-    }
 }
 
 // FUNCTION: SURRENDER 0x10018E60
@@ -3758,12 +3705,6 @@ srGERD::e_polygonMode srGERD::getPolygonMode() const
     return polygon_mode;
 }
 
-// FUNCTION: SURRENDER 0x1001C8F0
-void srGERD::getClearAccum(glm::vec4& color) const
-{
-    color = clear_state.clear_values.accum;
-}
-
 // FUNCTION: SURRENDER 0x1001C920
 void srGERD::setClearAccum(float red, float green, float blue, float alpha)
 {
@@ -3804,12 +3745,6 @@ void srGERD::setClearAccum(const glm::vec4& color)
     if (1.0f < clear[3]) {
         clear[3] = 1.0f;
     }
-}
-
-// FUNCTION: SURRENDER 0x1001CB40
-void srGERD::getClearColor(glm::vec4& color) const
-{
-    color = clear_state.clear_values.color;
 }
 
 // FUNCTION: SURRENDER 0x1001CBE0
@@ -3860,12 +3795,6 @@ srGERD::e_hintMode srGERD::getHint(e_hint hint) const
     return device.hints[hint];
 }
 
-// FUNCTION: SURRENDER 0x1001CFE0
-void srGERD::getGamma(srVector3T<float>& gamma) const
-{
-    gamma = display.gamma;
-}
-
 // FUNCTION: SURRENDER 0x1001D000
 srGERD::e_antiAlias srGERD::getAntiAlias() const
 {
@@ -3908,45 +3837,6 @@ srDD::e_driverID srGERD::getDriverID() const
 w8_ulong srGERD::getSwapInterval() const
 {
     return display.swap_interval;
-}
-
-// FUNCTION: SURRENDER 0x1001D210
-void srGERD::getTextureFormat(w8_ulong index, srPixelConvert::PixelFormat& format) const
-{
-    if (static_cast<w8_long>(device.texture_formats.size()) <= (w8_long)index) {
-        index = 0;
-    }
-    format = device.texture_formats[index];
-}
-
-// FUNCTION: SURRENDER 0x1001D240
-w8_ulong srGERD::getTextureFormatCount() const
-{
-    return static_cast<w8_ulong>(device.texture_formats.size());
-}
-
-// FUNCTION: SURRENDER 0x1001D250
-void srGERD::getDisplayModeInfo(w8_long index, DisplayModeInfo& info) const
-{
-    if (static_cast<w8_long>(device.display_modes.size()) <= index) {
-        index = 0;
-    }
-    info.width = device.display_modes[index].width;
-    info.height = device.display_modes[index].height;
-    info.depth = device.display_modes[index].depth;
-}
-
-// FUNCTION: SURRENDER 0x1001D290
-w8_ulong srGERD::getDisplayModeCount() const
-{
-    return static_cast<w8_ulong>(device.display_modes.size());
-}
-
-// FUNCTION: SURRENDER 0x1001D330
-void srGERD::getDepthRange(double& minimum, double& maximum) const
-{
-    minimum = state.depth_min;
-    maximum = state.depth_max;
 }
 
 // FUNCTION: SURRENDER 0x1001D360

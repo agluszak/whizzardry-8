@@ -14,4 +14,4 @@ srModel& srModel::operator=(const srModel& other)
 }
 
 // FUNCTION: SURRENDER 0x1003C470
-srModel::~srModel() {}
+srModel::~srModel() = default;

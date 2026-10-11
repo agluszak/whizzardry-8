@@ -1,3 +1,4 @@
+#include "Font.h"
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <string_view>
@@ -116,7 +117,7 @@ void W8ProfRaceInfoDialogBase::Draw()
         m_scroll_bar.m_dirty = true;
         m_button.m_dirty = true;
         W8DialogBase::Draw();
-        DrawCatalogImageAndInvalidate(FRAME_BUFFER, m_uiTitleId, 0, m_uiSummaryId, m_x + 0xd,
+        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), m_uiTitleId, 0, m_uiSummaryId, m_x + 0xd,
                                       m_y + 0xd, VO_BLT_SRCTRANSPARENCY, 0);
         DrawTextLine(g_W8TextBufferAlignLeft, 0x25, 0xb, 0x147, 0x18, g_localized_strings[m_uiNameId],
                      g_options_detail_font);
@@ -145,7 +146,7 @@ void W8ProfRaceInfoDialogBase::Draw()
 
 // FUNCTION: WIZ8 0x005DEEE0
 void W8ProfRaceInfoDialogBase::DrawTextLine(unsigned int layout_mode, int left, int top, int width,
-                                            int height, std::string_view text, int font)
+                                            int height, std::string_view text, Font& font)
 {
     W8TextBuffer buffer;
     buffer.SetLayoutMode(g_W8TextBufferAlignMiddle | layout_mode);
@@ -154,7 +155,7 @@ void W8ProfRaceInfoDialogBase::DrawTextLine(unsigned int layout_mode, int left, 
     bounds.right = bounds.left + width;
     bounds.top = m_y + top;
     bounds.bottom = bounds.top + height;
-    buffer.RenderString(&bounds, text, font, false, FRAME_BUFFER);
+    buffer.RenderString(&bounds, text, font, false, GetFrameBufferSurface());
 }
 
 // FUNCTION: WIZ8 0x005DEFB0

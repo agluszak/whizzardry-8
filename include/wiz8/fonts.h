@@ -1,32 +1,33 @@
 #pragma once
 
 unsigned char InitializeMenuFonts(void);
+void ReleaseMenuFonts();
 
 #include "Font.h"
 #include "Types.h"
 
 /* Game-specific bitmap font roles and owned notice palettes. */
-extern int ghTinyMonoFont;
-extern int g_calligraphy_shadow_font;
-extern int g_calligraphy_font;
-extern int g_engraved_font;
-extern int g_monster_damage_font;
-extern int g_options_detail_font;
-extern int g_wiz_text_mono_font;
-extern int g_wiz_text_font;
-extern int g_embossed_font;
-extern int g_font12point1;
-extern int g_wiz_dialog_font;
-extern int g_profession_font;
-extern int g_wiz_text_font_secondary;
-extern int g_wiz_text_bold_font;
-extern int g_font10arial;
-extern int g_small_font_secondary;
-extern int g_button_font;
-extern int g_large_font;
-extern int g_small_font;
-extern int g_options_title_font;
-extern int g_smfnt_font;
+extern Font ghTinyMonoFont;
+extern Font g_calligraphy_shadow_font;
+extern Font g_calligraphy_font;
+extern Font g_engraved_font;
+extern Font g_monster_damage_font;
+extern Font g_options_detail_font;
+extern Font g_wiz_text_mono_font;
+extern Font g_wiz_text_font;
+extern Font g_embossed_font;
+extern Font g_font12point1;
+extern Font g_wiz_dialog_font;
+extern Font g_profession_font;
+extern Font g_wiz_text_font_secondary;
+extern Font g_wiz_text_bold_font;
+extern Font g_font10arial;
+extern Font g_small_font_secondary;
+extern Font g_button_font;
+extern Font g_large_font;
+extern Font g_small_font;
+extern Font g_options_title_font;
+extern Font g_smfnt_font;
 /* Frames of the notice palette catalog (Data\Fonts\Palette*.sti). */
 enum W8FontPaletteIndex {
     W8_FONT_PALETTE_RED = 0,
@@ -48,4 +49,4 @@ enum W8FontPaletteIndex {
     W8_FONT_PALETTE_COUNT = 16
 };
 
-extern std::array<std::unique_ptr<UINT16[]>, 15> g_font_state_palettes;
+extern std::array<Palette16, 15> g_font_state_palettes;

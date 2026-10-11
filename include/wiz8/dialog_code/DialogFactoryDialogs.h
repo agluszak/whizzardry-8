@@ -1,7 +1,11 @@
+#include "Font.h"
 #pragma once
 
 #include <SDL3/SDL_rect.h>
 #include <vector>
+#include <array>
+#include <memory>
+#include <string>
 #include <string_view>
 
 #include "wiz8/dialog_code/DialogBase.h"
@@ -27,7 +31,7 @@ enum W8SplitDialogResult {
 /* The small numeric entry field embedded by the split dialogs. */
 class W8DialogNumericInput {
 public:
-    W8DialogNumericInput(int control_id, const W8ControlsRect* bounds, int value, int font,
+    W8DialogNumericInput(int control_id, const W8ControlsRect* bounds, int value, Font& font,
                          W8DialogBase* dialog, W8DialogButton* button);
     void SetValue(int value);
     void SetActive(bool active);
@@ -50,7 +54,7 @@ public:
     /* -1 while inactive; otherwise the count of characters to the right
        of the caret. */
     int m_caret;
-    int m_font;
+    Font* m_font;
     int m_value;
     bool m_dirty;
     bool m_active;
@@ -95,8 +99,7 @@ private:
     static void SliderTrackButtonCallback(GUI_BUTTON* button, INT32 reason);
 
 public:
-    /* The displayed text lines; the dialog owns and frees each one. */
-    std::vector<char*> m_lines;
+    std::vector<std::string> m_lines;
     std::vector<void (*)(int)> m_field_064;
     int m_field_074;
     float m_field_078; /* 0.05 */
@@ -174,11 +177,11 @@ private:
     static void SplitActivateField(W8DialogButton* button);
 
 private:
-    W8DialogButton* m_buttons[6];
+    std::array<std::unique_ptr<W8DialogButton>, 6> m_buttons;
     /* The labels named by g_split_amount_string_ids; [2] shows the
        amount still remaining. */
-    W8TextBuffer* m_text_buffers[3];
-    W8DialogNumericInput* m_split_input;
+    std::array<std::unique_ptr<W8TextBuffer>, 3> m_text_buffers;
+    std::unique_ptr<W8DialogNumericInput> m_split_input;
     /* The numeric field while the cursor or keyboard owns it. */
     W8DialogNumericInput* m_active_field;
     int m_remaining; /* total minus the field value */
@@ -253,7 +256,7 @@ private:
 public:
   std::vector<W8WorldItem*> items;
   std::vector<unsigned char> flags;
-  W8DialogButton* m_buttons[13];
+  std::array<std::unique_ptr<W8DialogButton>, 13> m_buttons;
   int m_first_item;
   W8WorldItem* m_item_group;
 };

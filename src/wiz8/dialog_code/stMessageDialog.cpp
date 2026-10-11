@@ -15,13 +15,12 @@
 #include "wiz8/dialog_code/ButtonUserData.h"
 #include "wiz8/sr_api.h"
 #include "english.h"
-#include "mousesystem_macros.h"
+#include "mousesystem.h"
 #include "Button System.h"
 #include "Font.h"
 #include "Video2.h"
 #include "dialog_code/DialogBase.h"
 #include "input.h"
-#include "mousesystem.h"
 
 /* Dialog Code\stMessageDialog.cpp. SetMessage and WrapMessage assert this
    unit (lines 131 and 213); the two button callbacks are proven by their
@@ -29,23 +28,13 @@
    destructor, draw and input bodies are the surrounding attribution gaps
    placed with them provisionally. */
 
-/* Dialog Code. The shared dialog base at vtable 0x005EF8B0. Its lifetime
-   bodies are what every derived dialog runs before and after its own. */
+/* Dialog Code. The base dialog releases its graphics in its destructor;
+   the message dialog's shared button and sprite resources are RAII members. */
 
 // FUNCTION: WIZ8 0x005d25b0
 W8MessageDialogBase::W8MessageDialogBase()
-    : accepted(false), is_open(true), m_edge_image(), m_message_button(), m_confirm_button(),
-      m_confirm_image(), m_cancel_button(), m_cancel_image(), m_line_count(0)
+    : accepted(false), is_open(true), m_line_count(0), m_show_confirm(false), allow_cancel(false)
 {
-}
-
-/* A virtual called from a destructor has a fixed dynamic type, so the
-   compiler dispatches it directly; that direct call is slot 2. */
-
-// FUNCTION: WIZ8 0x005d2610
-W8MessageDialogBase::~W8MessageDialogBase()
-{
-    DestroyControls();
 }
 
 // FUNCTION: WIZ8 0x005d2660
@@ -57,23 +46,24 @@ void W8MessageDialogBase::Draw()
     W8DialogBase::Draw();
     DrawButton(m_message_button);
     if (!m_show_confirm && !allow_cancel) {
-        y = m_y + m_height / 2 - (GetFontHeight(g_dialog_interface_font) * m_line_count >> 1);
+        y = m_y + m_height / 2 - (g_dialog_interface_font->height() * m_line_count >> 1);
     } else {
         y = m_y + (m_height - 0x21) / 2 -
-            (GetFontHeight(g_dialog_interface_font) * m_line_count >> 1);
+            (g_dialog_interface_font->height() * m_line_count >> 1);
     }
     if (!m_lines.empty()) {
-        SaveFontSettings();
-        SetFont(g_dialog_interface_font);
-        SetFontForeground(g_dialog_font_foreground);
-        SetFontBackground(g_dialog_font_background);
-        for (index = 0; index < m_line_count; ++index) {
-            const auto& line = m_lines[index];
-            short width = StringPixLength(line, g_dialog_interface_font);
-            DrawFontText(m_x + (m_width - width) / 2, y, line);
-            y += GetFontHeight(g_dialog_interface_font);
+        {
+            FontRenderScope font_scope;
+            SetFont(*g_dialog_interface_font);
+            SetFontForeground(g_dialog_font_foreground);
+            SetFontBackground(g_dialog_font_background);
+            for (index = 0; index < m_line_count; ++index) {
+                const auto& line = m_lines[index];
+                short width = g_dialog_interface_font->textWidth(line);
+                DrawFontText(m_x + (m_width - width) / 2, y, line);
+                y += g_dialog_interface_font->height();
+            }
         }
-        RestoreFontSettings();
     }
     if (m_show_confirm) {
         if (m_confirm_button) {
@@ -114,7 +104,7 @@ void W8MessageDialogBase::SetMessage(std::string_view message, int line_count,
         int height;
 
         for (index = 0; index < m_line_count; ++index) {
-            short line_width = StringPixLength(m_lines[index], g_dialog_interface_font);
+            short line_width = g_dialog_interface_font->textWidth(m_lines[index]);
             if (width < line_width) {
                 width = line_width;
             }
@@ -123,13 +113,13 @@ void W8MessageDialogBase::SetMessage(std::string_view message, int line_count,
         if (width < 0xaa) {
             width = 0xaa;
         }
-        GetFontHeight(g_dialog_interface_font);
-        height = GetFontHeight(g_dialog_interface_font) * m_line_count + 0x1e;
+        g_dialog_interface_font->height();
+        height = g_dialog_interface_font->height() * m_line_count + 0x1e;
         if (m_show_confirm || allow_cancel) {
-            height = GetFontHeight(g_dialog_interface_font) * m_line_count + 0x3f;
+            height = g_dialog_interface_font->height() * m_line_count + 0x3f;
         }
-        if (height < GetFontHeight(g_dialog_interface_font) * 7) {
-            height = GetFontHeight(g_dialog_interface_font) * 7;
+        if (height < g_dialog_interface_font->height() * 7) {
+            height = g_dialog_interface_font->height() * 7;
         }
         if (maximum_width && maximum_width < width) {
             width = maximum_width;
@@ -157,7 +147,7 @@ unsigned int W8MessageDialogBase::WrapMessage(std::string_view message)
         const auto stop = end == std::string_view::npos ? message.size() : end;
         const auto word = message.substr(start, stop - start);
         auto candidate = line.empty() ? std::string(word) : fmt::format("{} {}", line, word);
-        if (!line.empty() && StringPixLength(candidate, g_dialog_interface_font) > maximum_width) {
+        if (!line.empty() && g_dialog_interface_font->textWidth(candidate) > maximum_width) {
             m_lines.push_back(std::move(line));
             line.assign(word);
         } else line = std::move(candidate);
@@ -181,14 +171,14 @@ void W8MessageDialogBase::SetClientExtent(int width, int height)
 // FUNCTION: WIZ8 0x005d2d00
 int W8MessageDialogBase::CreateControls()
 {
-    W8DialogBase::CreateControls();
+    if (int error = W8DialogBase::CreateControls(); error != 0) return error;
     if (!m_edge_image) {
         m_edge_image = LoadGenericButtonImages({}, "Data\\Dialogs\\DialogEdge.STI", {}, "Data\\Dialogs\\DialogEdge.STI", {}, m_background_path, static_cast<short>(m_background_flags), 0, 0);
         if (!m_edge_image) {
             return m_error = 3;
         }
     }
-    m_message_button = CreateTextButton({}, g_dialog_interface_font, g_dialog_font_foreground, g_dialog_font_background, m_edge_image, static_cast<short>(m_x + 9), static_cast<short>(m_y + 9), static_cast<short>(m_width - 0x12), static_cast<short>(m_height - 0x12), BUTTON_NO_TOGGLE | BUTTON_IGNORE_CLICKS, MSYS_PRIORITY_HIGHEST - 1, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
+    m_message_button = CreateTextButton({}, *g_dialog_interface_font, g_dialog_font_foreground, g_dialog_font_background, m_edge_image, static_cast<short>(m_x + 9), static_cast<short>(m_y + 9), static_cast<short>(m_width - 0x12), static_cast<short>(m_height - 0x12), BUTTON_NO_TOGGLE | BUTTON_IGNORE_CLICKS, MSYS_PRIORITY_HIGHEST - 1, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
 
     m_confirm_image =
         ButtonGraphics::Load("Data\\Dialogs\\DialogConfirmation.STI", 3, 0, 1, 2, 2);
@@ -273,7 +263,7 @@ bool W8MessageDialogBase::ProcessInput()
     InputAtom input;
 
     SGPMouseGetPos(&mouse);
-    MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, mouse.x, mouse.y, gfLeftButtonState, gfRightButtonState);
+    DispatchMouseEvent(MOUSE_POS, mouse.x, mouse.y, gfLeftButtonState, gfRightButtonState);
 
     while (DequeueEvent(&input)) {
         if (!DispatchDialogMouseInput(input.usEvent, mouse.x, mouse.y)) {

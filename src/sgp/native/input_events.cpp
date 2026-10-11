@@ -19,7 +19,6 @@
 #include "native/input_events.h"
 #include "input.h"
 #include "Types.h"
-#include "vsurface.h"
 
 namespace
 {
@@ -322,6 +321,10 @@ void HandleInputEvent(const SDL_Event& event)
         {
             gfLeftButtonState = down;
             QueueEvent(down ? LEFT_BUTTON_DOWN : LEFT_BUTTON_UP, 0, packed_mouse_position());
+            // SDL already applies the platform's double-click timing and motion
+            // threshold. Keep the game's separate double-click event on release.
+            if (!down && event.button.clicks != 0 && (event.button.clicks & 1) == 0)
+                QueueEvent(LEFT_BUTTON_DBL_CLK, 0, packed_mouse_position());
         }
         else if (event.button.button == SDL_BUTTON_RIGHT)
         {
@@ -405,7 +408,6 @@ void HandleGameEvent(const SDL_Event& event)
             if (!VideoInspectorIsEnabled())
             {
                 RestoreVideoManager();
-                RestoreVideoSurfaces();
             }
             MoveTimer(TIMER_RESUME);
             restore_pending = false;

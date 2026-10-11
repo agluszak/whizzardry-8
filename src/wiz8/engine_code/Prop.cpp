@@ -319,7 +319,7 @@ bool ResolvePickedProp(W8World* world)
     }
 
     valid = true;
-    GetCameraPosition(&camera_position);
+    camera_position = cameraLocation();
     prop_count = world->plsProps.size();
     for (prop_index = 0; prop_index < static_cast<int>(prop_count); ++prop_index) {
         W8Prop* prop;
@@ -666,7 +666,7 @@ void W8Prop::ApplyAnimationPaths(W8World* world)
                 srVector3T<float> location;
 
                 PathAIApply(path, mesh);
-                static_cast<srNode*>(mesh)->getLocation(location);
+                location = glm::vec3(static_cast<srNode*>(mesh)->getLocation());
                 previous_animation_position = animation_position;
                 animation_position = location;
             }
@@ -944,7 +944,7 @@ void W8Prop::ApplyAnimationFrame()
             PathAISetValue(
                 path, static_cast<float>(static_cast<W8PropRepresentation*>(m_pRep)->subcycle));
             PathAIApply(path, mesh);
-            static_cast<srNode*>(mesh)->getLocation(location);
+            location = glm::vec3(static_cast<srNode*>(mesh)->getLocation());
             animation_position = location;
             previous_animation_position = location;
         }
@@ -1024,7 +1024,7 @@ void W8Prop::AttachAnimationInstances(W8World* world)
             }
             rotation = path->rotations[Rep()->subcycle];
             next = path->rotations[next_frame];
-            instance->getRotation(previous_animation_rotation);
+            previous_animation_rotation = instance->getRotation<glm::mat3>();
             if (!(rotation == next)) {
                 const auto first_rotation = glm::dquat(glm::quat_cast(rotation));
                 auto next_rotation = glm::dquat(glm::quat_cast(next));

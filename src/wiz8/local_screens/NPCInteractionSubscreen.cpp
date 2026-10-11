@@ -70,7 +70,7 @@
 #include "Font.h"
 #include "input.h"
 #include "Types.h"
-#include "mousesystem_macros.h"
+#include "mousesystem.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/layouts/character.h"
@@ -177,10 +177,10 @@ void W8NpcTypedDialoguePanel::Redraw()
     }
     if (m_fDirty) {
         if (m_catalogObject != -1) {
-            DrawCatalogImage(FRAME_BUFFER, m_catalogObject, m_catalogFrame, m_catalogImage,
+            DrawCatalogImage(GetFrameBufferSurface(), m_catalogObject, m_catalogFrame, m_catalogImage,
                              m_bounds.left, m_bounds.top, VO_BLT_SRCTRANSPARENCY, 0);
         }
-        DrawCatalogImage(FRAME_BUFFER, 0x1a9, 0, 0x10, 0x1df,
+        DrawCatalogImage(GetFrameBufferSurface(), 0x1a9, 0, 0x10, 0x1df,
                          g_npc_interaction_state->where_is_query ? 0x19b : 0x18b,
                          VO_BLT_SRCTRANSPARENCY, 0);
         redrawn = 1;
@@ -230,7 +230,7 @@ void W8NpcDialogueOptionsPanel::Redraw()
     }
     if (m_fDirty) {
         if (m_catalogObject != -1) {
-            DrawCatalogImage(FRAME_BUFFER, m_catalogObject, m_catalogFrame,
+            DrawCatalogImage(GetFrameBufferSurface(), m_catalogObject, m_catalogFrame,
                              g_npc_interaction_state->dialogue_layout ==
                                      W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX
                                  ? m_main_text_box_image
@@ -1754,7 +1754,7 @@ void ResetNpcDialogueItemEditor(void)
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_24])
         ->ClearImage();
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_24])
-        ->m_textBuffer.SetText("", 0);
+        ->m_textBuffer.SetText("", g_large_font);
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_24])
         ->Invalidate(true);
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_35])
@@ -3907,8 +3907,6 @@ unsigned char HandleNpcDialogueItem(W8ItemInstance* item)
     W8MessageDialogBase* dialog;
     std::string message;
     bool result;
-    unsigned char flag;
-    int fact_result;
 
     result = true;
     if (g_npc_interaction_state->trade_gold != 0 && item == 0) {
@@ -3927,8 +3925,8 @@ unsigned char HandleNpcDialogueItem(W8ItemInstance* item)
     if (GetNpcDispositionBand(g_npc_interaction_state->dialogue_npc) == W8_NPC_BAND_FRIENDLY ||
         g_npc_interaction_state->dialogue_npc->record->voice_script != 0) {
         if (item != 0) {
-            fact_result = FindNpcScriptItemQuote(item->iItemNo, 0, &flag);
-            if (fact_result == -1) {
+            const auto match = FindNpcScriptItemQuote(item->iItemNo);
+            if (!match) {
                 if (g_npc_interaction_state->dialogue_npc->record->voice_script != 0) {
                     return 1;
                 }
@@ -3943,9 +3941,9 @@ unsigned char HandleNpcDialogueItem(W8ItemInstance* item)
                 }
                 QueueNpcScriptLine(0x11, false, false, false);
             } else {
-                QueueNpcScriptLine(fact_result, false, false, false);
+                QueueNpcScriptLine(match->quote_index, false, false, false);
                 result = false;
-                if (flag != 0) {
+                if (match->consumes_item) {
                     RemoveNpcScriptItem(item, 0, -1);
                     return result;
                 }
@@ -3964,8 +3962,8 @@ unsigned char HandleNpcDialogueItem(W8ItemInstance* item)
                 QueueNpcScriptLine(7, false, false, false);
                 return 1;
             }
-            fact_result = FindNpcScriptItemQuote(item->iItemNo, 0, &flag);
-            if (fact_result == -1) {
+            const auto match = FindNpcScriptItemQuote(item->iItemNo);
+            if (!match) {
                 ApplyNpcInteraction(g_npc_interaction_state->dialogue_npc, 3,
                                     g_npc_interaction_state->dialogue_speaker, item, 0);
                 QueueNpcScriptLine(GetNpcDispositionBand(g_npc_interaction_state->dialogue_npc) ==
@@ -3974,7 +3972,7 @@ unsigned char HandleNpcDialogueItem(W8ItemInstance* item)
                                        : 7,
                                    false, false, false);
             } else {
-                QueueNpcScriptLine(fact_result, false, false, false);
+                QueueNpcScriptLine(match->quote_index, false, false, false);
                 result = false;
             }
             RemoveNpcScriptItem(item, 0, -1);
@@ -4059,7 +4057,7 @@ void DrainNpcDialogueDeferralInput(void)
         return;
     }
     SGPMouseGetPos(&mouse);
-    MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, static_cast<unsigned short>(mouse.x),
+    DispatchMouseEvent(MOUSE_POS, static_cast<unsigned short>(mouse.x),
                                 static_cast<unsigned short>(mouse.y), gfLeftButtonState,
                                 gfRightButtonState);
     while (DequeueEvent(&input) == 1) {
@@ -4122,7 +4120,7 @@ void OpenNpcDialog(W8NpcQuoteEntry* request, int aux_data)
     W8NpcDialog* dialog;
 
     if (!gXStatus.fNpcDialogueMode || g_npc_interaction_state->scripted_dialogue) {
-        InitTextInputMode();
+        InitTextInputMode(g_wiz_text_mono_font);
     } else {
         SetNpcDialoguePanelVisible(0);
     }
@@ -4316,7 +4314,7 @@ void DrawNpcQuoteBubble(void)
     if (g_npc_interaction_state->quote_visible) {
         DrawPortraitQuoteBubble(g_npc_interaction_state->quote_bubble,
                                 g_npc_interaction_state->quote_x, g_npc_interaction_state->quote_y,
-                                -14);
+                                GetFrameBufferSurface());
     }
 }
 
@@ -4642,14 +4640,14 @@ void HandleNpcDialogueDeparture(unsigned char value)
 /* Shared by the main-game screen and dialog text entries; it lives with the
    main-game text helpers, not with UtilityFunctions.cpp. */
 // FUNCTION: WIZ8 0x00577410
-std::string ShortenTextToWidth(std::string_view text, unsigned int width, int font)
+std::string ShortenTextToWidth(std::string_view text, unsigned int width, Font& font)
 {
     std::string shortened(text);
-    if (static_cast<unsigned int>(StringPixLength(shortened, font)) <= width) return shortened;
+    if (static_cast<unsigned int>(font.textWidth(shortened)) <= width) return shortened;
     while (!shortened.empty()) {
         shortened.resize(wiz8::text::previous_grapheme(shortened, shortened.size()));
         const auto candidate = shortened + "...";
-        if (static_cast<unsigned int>(StringPixLength(candidate, font)) <= width) return candidate;
+        if (static_cast<unsigned int>(font.textWidth(candidate)) <= width) return candidate;
     }
     return {};
 }
@@ -4682,7 +4680,7 @@ void FlushInputWhileWorldCursorGate(void)
         return;
     }
     SGPMouseGetPos(&mouse);
-    MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, static_cast<unsigned short>(mouse.x),
+    DispatchMouseEvent(MOUSE_POS, static_cast<unsigned short>(mouse.x),
                                 static_cast<unsigned short>(mouse.y), gfLeftButtonState,
                                 gfRightButtonState);
     while (DequeueEvent(&input) == 1) {

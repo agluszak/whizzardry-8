@@ -110,27 +110,9 @@ std::unique_ptr<CpuSurface> CreateCpuSurface(uint16_t width, uint16_t height, ui
     return result;
 }
 
-SurfaceLock LockCpuSurface(CpuSurface& owner, const SDL_Rect* rect)
-{
-    auto& surface = *owner.surface;
-    const SDL_Rect region = rect ? *rect : bounds(surface);
-    require(!owner.locked && !(surface.flags & SDL_SURFACE_LOCKED) && valid(region, surface), "CPU surface lock state/rectangle");
-    sdl(SDL_LockSurface(&surface));
-    owner.locked = true;
-    return {static_cast<uint8_t*>(surface.pixels) + size_t(region.y) * surface.pitch +
-            region.x * SDL_BYTESPERPIXEL(surface.format), surface.pitch,
-            region.w, region.h};
-}
-void UnlockCpuSurface(CpuSurface& surface)
-{
-    require(surface.locked, "CPU surface unlock state");
-    SDL_UnlockSurface(surface.surface.get());
-    surface.locked = false;
-}
-
 void FillCpuSurface(CpuSurface& owner, uint32_t color, const SDL_Rect* rect)
 {
-    require(!owner.locked && !(owner.surface->flags & SDL_SURFACE_LOCKED),
+    require(!(owner.surface->flags & SDL_SURFACE_LOCKED),
             "CPU surface fill while locked");
     auto& dest = *owner.surface;
     const SDL_Rect d = rect ? *rect : bounds(dest);
@@ -152,8 +134,7 @@ void BlitCpuSurface(CpuSurface& output, const SDL_Rect* destRect, CpuSurface& in
 {
     auto& dest = *output.surface;
     auto& source = *input.surface;
-    require(!output.locked && !input.locked &&
-            !(dest.flags & SDL_SURFACE_LOCKED) && !(source.flags & SDL_SURFACE_LOCKED) &&
+    require(!(dest.flags & SDL_SURFACE_LOCKED) && !(source.flags & SDL_SURFACE_LOCKED) &&
             SDL_BYTESPERPIXEL(dest.format) == SDL_BYTESPERPIXEL(source.format),
             "CPU surface blit state/format");
     const SDL_Rect d = destRect ? *destRect : bounds(dest);
@@ -284,6 +265,8 @@ void SetSurfaceClipRegions(CpuSurface& surface, std::span<const SDL_Rect> input)
 
 CpuSurface ShareCpuSurface(SDL_Surface& surface)
 {
+    require(!SDL_MUSTLOCK(&surface) && !(surface.flags & SDL_SURFACE_LOCKED),
+            "CPU storage must allow direct pixel access");
     CpuSurface result;
     ++surface.refcount;
     result.surface.reset(&surface);
@@ -347,7 +330,7 @@ void FlipCpuSurface(CpuSurface& owner, SDL_FlipMode flip, const SDL_Rect* rectan
 {
     auto& surface = *owner.surface;
     const SDL_Rect region = rectangle ? *rectangle : bounds(surface);
-    require(!owner.locked && !(surface.flags & SDL_SURFACE_LOCKED) && valid(region, surface),
+    require(!(surface.flags & SDL_SURFACE_LOCKED) && valid(region, surface),
             "CPU surface flip state/rectangle");
     auto* pixels = static_cast<uint8_t*>(surface.pixels) + size_t(region.y) * surface.pitch +
                    region.x * SDL_BYTESPERPIXEL(surface.format);

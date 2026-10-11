@@ -291,6 +291,41 @@ TEST_CASE_METHOD(FileFixture, "Host paths, overlays and streams", "[filesystem][
 
 }
 
+TEST_CASE_METHOD(FileFixture, "Transactional save overwrite respects the asset overlay",
+                 "[filesystem][save]")
+{
+    const char* path = "Saves/Installed.SAV";
+    // The installed file is readable, but only the user-owned overlay may be deleted.
+    REQUIRE(!wiz8::remove_file(path));
+    REQUIRE(contents(assets / "Saves" / "Installed.SAV") == "installed save");
+
+    {
+        wiz8::StagedFile abandoned(path);
+        abandoned.file()->write("aborted", 7);
+        REQUIRE(read_bytes(*wiz8::open_file(path), 14) == "installed save");
+    }
+    REQUIRE(!fs::exists(user / "Saves" / "Installed.SAV"));
+
+    {
+        wiz8::StagedFile save(path);
+        save.file()->write("first save", 10);
+        save.commit();
+    }
+    REQUIRE(read_bytes(*wiz8::open_file(path), 10) == "first save");
+    REQUIRE(contents(assets / "Saves" / "Installed.SAV") == "installed save");
+
+    {
+        wiz8::StagedFile save(path);
+        save.file()->write("replacement", 11);
+        save.commit();
+    }
+    REQUIRE(read_bytes(*wiz8::open_file(path), 11) == "replacement");
+    REQUIRE(contents(user / "Saves" / "Installed.SAV") == "replacement");
+    REQUIRE(wiz8::remove_file(path));
+    REQUIRE(read_bytes(*wiz8::open_file(path), 14) == "installed save");
+    REQUIRE(!wiz8::remove_file(path));
+}
+
 TEST_CASE_METHOD(FileFixture, "SLF archives and invalid records", "[filesystem][slf]")
 {
     std::unique_ptr<wiz8::File> file;

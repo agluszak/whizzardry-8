@@ -8,11 +8,15 @@
 #include "compat/compiler.h"
 #include "glm/common.hpp"
 #include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "wiz8/ground_probe.h"
 #include "glm/geometric.hpp"
+#include "glm/gtx/projection.hpp"
 #include "glm/matrix.hpp"
 #include "glm/trigonometric.hpp"
 #include "glm/vector_relational.hpp"
 #include "surrender/srMath.h"
+#include "surrender/segment_math.h"
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/OctMeshModel.h"
@@ -75,39 +79,26 @@ W8LevelDataRecord* g_level_data;
 bool g_mouselook_manual;
 
 // FUNCTION: WIZ8 0x00420bd0
-float SettlePositionToGround(const srVector3T<float>* position, bool* hit)
+GroundProbe probeGround(const glm::vec3& position)
 {
-    srVector3T<float> candidate = *position;
-    if (g_octree_game_data != 0 && g_octree_game_data->octree != 0) {
-        return g_octree_game_data->octree->SettleToGround(&candidate, hit, 1, 500.0f);
-    }
-    float height = position->y;
-    if (hit != 0) {
-        *hit = false;
-    }
-    return height;
-}
-
-// FUNCTION: WIZ8 0x00420C30
-float SettlePositionToGroundMutable(srVector3T<float>* position, bool* hit)
-{
-    return SettlePositionToGround(position, hit);
+    if (g_octree_game_data && g_octree_game_data->octree)
+        return g_octree_game_data->octree->settleToGround(position, true, 500);
+    return {position, false};
 }
 
 /* The ground height under `position` plus the footstep surface/material of
    the surface the last trace selected; both outputs stay zero when no
    surface was recorded. */
 // FUNCTION: WIZ8 0x00420CA0
-float GetGroundSurfaceInfo(const srVector3T<float>* position, char* surface, char* material)
+GroundSurfaceInfo groundSurfaceInfo(const glm::vec3& position)
 {
-    const float height = SettlePositionToGround(position, nullptr);
-    *surface = *material = 0;
+    GroundSurfaceInfo result{probeGround(position).position.y, 0, 0};
     if (g_octree_game_data && g_octree_game_data->last_hit_surface != 0) {
         const auto& hit = g_octree_game_data->m_pSurfaces[g_octree_game_data->last_hit_surface];
-        *surface = hit.footstep_surface;
-        *material = hit.footstep_material;
+        result.surface = hit.footstep_surface;
+        result.material = hit.footstep_material;
     }
-    return height;
+    return result;
 }
 
 // GLOBAL: WIZ8 0x00652dba
@@ -583,8 +574,6 @@ W8GDSurface* W8GameData::ProbePropsAlongMotion(srVector3T<float>* direction,
     W8Prop* prop;
     GDProp* gd_prop;
     W8LevelDataRecord* level;
-    w8_ulong* objects;
-    unsigned int count;
     unsigned int index;
     int surface_index;
     int hit_prop_id;
@@ -612,10 +601,8 @@ W8GDSurface* W8GameData::ProbePropsAlongMotion(srVector3T<float>* direction,
        atexit thunk at 0x0041BD50. Declared after the early-out so the guard
        matches retail control flow. */
     static W8Plane s_prop_hit_plane;
-    objects = 0;
-    count = static_cast<unsigned int>(
-        octree->CollectObjectsAlongSegment(&objects, position, direction, 504.0f, 8));
-    for (index = 0; index < count; ++index) {
+    const auto objects = octree->queryAlongSegment(position->glmValue(), direction->glmValue(), 504.0f, 8);
+    for (index = 0; index < objects.size(); ++index) {
         prop = g_world->collidable_props[objects[index]];
         if (prop->GetActivationState() != 0) {
             gd_prop = prop->m_gd_prop;
@@ -706,7 +693,7 @@ W8GDSurface* W8GameData::ProbePropsAlongMotion(srVector3T<float>* direction,
 unsigned char W8GameData::ProbeMonstersAlongMotion(srVector3T<float>* direction,
                                                    srVector3T<float>* position, int)
 {
-    w8_ulong* objects;
+    std::vector<w8_ulong> objects;
     unsigned int count;
     unsigned int index;
     unsigned int monster_list_index;
@@ -729,13 +716,12 @@ unsigned char W8GameData::ProbeMonstersAlongMotion(srVector3T<float>* direction,
     double time_scale;
     bool hit;
 
-    objects = 0;
     hit = false;
     extent = direction->Length() + g_runtime_world_scale + g_world_scale;
     lower = position->glmValue() - extent;
     upper = position->glmValue() + extent;
-    count = static_cast<unsigned int>(
-        g_octree->QueryObjects(&objects, &lower, &upper, W8_OCTREE_KIND_LOCATION, -1));
+    objects = g_octree->queryObjects({lower.glmValue(), upper.glmValue()}, W8_OCTREE_KIND_LOCATION, -1);
+    count = objects.size();
     if (count == 0) {
         return 0;
     }
@@ -762,9 +748,7 @@ unsigned char W8GameData::ProbeMonstersAlongMotion(srVector3T<float>* direction,
             if (monster_info->fInCombat) {
                 radius += g_world_scale;
             }
-            float abs_dy = delta.y;
-            // reinterpret-ok: retail clears the sign bit of the spilled delta.y float
-            *reinterpret_cast<unsigned int*>(&abs_dy) &= 0x7fffffffu;
+            const float abs_dy = std::abs(delta.y);
             if (abs_dy < g_float_one_thousand && planar < radius + g_world_scale) {
                 push = g_monster_motion_push - (planar - radius) * g_float_one_five_hundredth;
                 if (g_monster_motion_push < push) {
@@ -805,9 +789,9 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
     W8GDSurface* nearest_surface;
     W8GDSurface* surface;
     W8GDSurface* collisions[101];
-    w8_ulong* octree_hits;
-    W8GDSurface** geometry_hits;
-    int hit_count;
+    std::vector<w8_ulong> octree_hits;
+    std::vector<W8GDSurface*> geometry_hits;
+    int hit_count = 0;
     int collision_count;
     int attempt;
     int index;
@@ -824,8 +808,6 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
     srVector3T<float> geometry_from;
     srVector3T<float> geometry_to;
 
-    octree_hits = 0;
-    geometry_hits = 0;
     prop_hit = false;
     if (g_level_data->ClampCameraToBounds(&minimum, &maximum) != 0) {
         return 0;
@@ -906,6 +888,18 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
     exhausted = false;
     attempt = 0;
 
+    const auto probe_octree_motion = [&] {
+        if (attempt < 3) ProbeMonstersAlongMotion(&motion_delta, &probe_position, 1);
+        nearest_surface = ProbePropsAlongMotion(&motion_delta, &probe_position,
+                                                &scratch, &nearest_distance);
+        prop_hit = nearest_surface != nullptr;
+        if (prop_hit) hit_position = probe_position;
+        probe_position = camera_position;
+        octree_hits = octree->queryAlongSegment(camera_position.glmValue(),
+                                                motion_delta.glmValue(), 1000.0f, 3);
+        hit_count = octree_hits.size();
+    };
+
     for (;;) {
         ++attempt;
         if (attempt < 6) {
@@ -916,18 +910,7 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
             nearest_distance = 1.0e8f;
             if (geometry_index == 0) {
                 if (octree != 0) {
-                    if (attempt < 3) {
-                        ProbeMonstersAlongMotion(&motion_delta, &probe_position, 1);
-                    }
-                    nearest_surface = ProbePropsAlongMotion(&motion_delta, &probe_position,
-                                                            &scratch, &nearest_distance);
-                    prop_hit = nearest_surface != 0;
-                    if (prop_hit) {
-                        hit_position = probe_position;
-                    }
-                    probe_position = camera_position;
-                    hit_count = octree->CollectObjectsAlongSegment(&octree_hits, &camera_position,
-                                                                   &motion_delta, 1000.0f, 3);
+                    probe_octree_motion();
                 } else {
                     hit_count = 0;
                 }
@@ -935,8 +918,9 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
                 geometry_to = motion_delta;
                 geometry_from = camera_position;
                 nearest_surface = 0;
-                hit_count = geometry_index->CollectObjectsAlongSegment(
-                    &geometry_hits, &geometry_from, &geometry_to, 1.57079637f, 2000.0f, 3);
+                geometry_hits = geometry_index->queryAlongSegment(
+                    geometry_from.glmValue(), geometry_to.glmValue(), 2000.0f, 3);
+                hit_count = geometry_hits.size();
             }
             if (((hit_count == 0 && !prop_hit) || g_environment_motion_active == 0)) {
                 exhausted = true;
@@ -1006,26 +990,14 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
                     nearest_distance = 1.0e8f;
                     if (octree == 0) {
                         if (geometry_index != 0) {
-                            geometry_hits = 0;
-                            hit_count = geometry_index->CollectObjectsAlongSegment(
-                                &geometry_hits, &geometry_from, &geometry_to, 1.57079637f, 2000.0f,
-                                3);
+                            geometry_hits = geometry_index->queryAlongSegment(
+                                geometry_from.glmValue(), geometry_to.glmValue(), 2000.0f, 3);
+                            hit_count = geometry_hits.size();
                         } else {
                             hit_count = 0;
                         }
                     } else {
-                        if (attempt < 3) {
-                            ProbeMonstersAlongMotion(&motion_delta, &probe_position, 1);
-                        }
-                        nearest_surface = ProbePropsAlongMotion(&motion_delta, &probe_position,
-                                                                &scratch, &nearest_distance);
-                        prop_hit = nearest_surface != 0;
-                        if (prop_hit) {
-                            hit_position = probe_position;
-                        }
-                        probe_position = camera_position;
-                        hit_count = octree->CollectObjectsAlongSegment(
-                            &octree_hits, &camera_position, &motion_delta, 1000.0f, 3);
+                        probe_octree_motion();
                     }
                 }
             }
@@ -1035,8 +1007,9 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
             if (octree != 0) {
                 probe_position = adjusted_position;
                 motion_delta = environ_delta;
-                hit_count = octree->CollectObjectsAlongSegment(&octree_hits, &adjusted_position,
-                                                               &environ_delta, 1000.0f, 3);
+                octree_hits = octree->queryAlongSegment(
+                    adjusted_position.glmValue(), environ_delta.glmValue(), 1000.0f, 3);
+                hit_count = octree_hits.size();
                 crossed_count = 0;
                 for (index = 0; index < hit_count; ++index) {
                     surface = &m_pSurfaces[octree_hits[index]];
@@ -1664,9 +1637,9 @@ bool W8GDSurface::ClampHitToEdge(const srVector3T<float>* point, const srVector3
     float nearest_dist = 10000000.0f;
     short nearest_edge = 0;
     for (short edge = 0; edge < 3; ++edge) {
-        srVector3T<float> probe = *point;
-        float dist = PointToSegmentDistance(&probe, vertices + vertex_indices[edge],
-                                            vertices + vertex_indices[(edge + 1) % 3], false, 0);
+        const float dist = srSegmentMath::project(point->glmValue(),
+            vertices[vertex_indices[edge]].glmValue(),
+            vertices[vertex_indices[(edge + 1) % 3]].glmValue()).distance;
         if (dist < nearest_dist) {
             nearest_edge = edge;
             nearest_dist = dist;
@@ -1678,8 +1651,9 @@ bool W8GDSurface::ClampHitToEdge(const srVector3T<float>* point, const srVector3
     float offset = -(SignedPlaneDistance(plane, *point));
     srVector3 projected = *point + plane.normal * offset;
     float edge_dist =
-        PointToSegmentDistance(&projected, vertices + vertex_indices[nearest_edge],
-                               vertices + vertex_indices[(nearest_edge + 1) % 3], false, 0);
+        srSegmentMath::project(projected.glmValue(),
+            vertices[vertex_indices[nearest_edge]].glmValue(),
+            vertices[vertex_indices[(nearest_edge + 1) % 3]].glmValue()).distance;
     if ((flags & W8_GD_SURFACE_WALKABLE) != 0) {
         float threshold = *limit * g_float_half;
         if (threshold < offset) {
@@ -2391,13 +2365,13 @@ void ApplyCameraRotation(glm::mat3* rotation)
 }
 
 // FUNCTION: WIZ8 0x00421070
-void GetCameraPosition(srVector3T<float>* position)
+glm::vec3 cameraLocation()
 {
-    *position = g_gd_camera->m_position;
+    return g_gd_camera->m_position;
 }
 
 /* Zero the two six-float CamPos angle records, then store the live yaw in the
-   first and the live pitch in the second. GetWorldCameraState passes the yaw
+   first and the live pitch in the second. cameraState passes the yaw
    record at +0x24 as angle and the pitch record at +0x0c as pitch. */
 // FUNCTION: WIZ8 0x004213A0
 void GetCameraOrientation(void* angle, void* pitch)
@@ -2431,7 +2405,7 @@ glm::vec3 ProjectVectorOntoVector(const glm::vec3& vector, const glm::vec3& onto
     const float length_squared = glm::dot(onto, onto);
     if (!(length_squared > g_vector_length_squared_epsilon))
         return vector;
-    return onto * (glm::dot(vector, onto) / length_squared);
+    return glm::proj(vector, onto);
 }
 
 /* Apply saved yaw and pitch after a world reload. */
@@ -2457,8 +2431,7 @@ bool HasCameraLineOfSight(const srVector3T<float>* position)
     if (g_world == 0) {
         return false;
     }
-    srVector3T<float> from;
-    GetCameraPosition(&from);
+    srVector3T<float> from = cameraLocation();
     if (g_world->octree != 0) {
         return g_world->octree->HasLineOfSight(&from, &to, true);
     }

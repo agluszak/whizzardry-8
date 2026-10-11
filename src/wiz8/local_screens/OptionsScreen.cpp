@@ -1,13 +1,13 @@
+#include <tuple>
 #include <fmt/format.h>
 #include <memory>
 #include <wiz8/filesystem.h>
-#include <SDL3/SDL_filesystem.h>
 #include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_stdinc.h>
 #include <string_view>
 #include <string>
 #include <cctype>
 #include <cstring>
-#include <optional>
 
 #include "wiz8/containers.h"
 #include "soundman.h"
@@ -54,15 +54,13 @@
 #include "local_code/Controls.h"
 #include "local_code/RangeControl.h"
 #include "mgs_commands.h"
-#include "mousesystem_macros.h"
 #include "surrender/srPixelConvert.h"
 #include "vobject.h"
 
 // GLOBAL: WIZ8 0x0069C130
 static unsigned int* g_options_panel_region_sets;
 
-void MSYS_SGP_Mouse_Handler_Hook(unsigned short event, unsigned short x, unsigned short y,
-                                 char right_button, char left_button);
+
 
 /* Shared zero-initialized wide string: binary-wide DATA references read it as
    empty text and as a sprintf format argument. No recovered writer exists. */
@@ -402,15 +400,9 @@ void W8OptionsSaveLoadPanel::OnDialogClosed(bool accepted, int value)
         case 1:
             DeleteSelectedSave();
             return;
-        case 3: {
-            std::string path;
-            path = fmt::format("{}\\{}.{}", "Saves", m_previous_name, g_save_extension);
-            if (wiz8::remove_file(path) == 0) {
-                g_options_screen->ShowNotification(this, false, 0x82e, 0);
-                return;
-            }
-            [[fallthrough]];
-        }
+        case 3:
+            SaveSelectedSave(m_previous_name);
+            return;
         case 2:
             SaveSelectedSave();
             return;
@@ -544,7 +536,7 @@ void W8OptionsSaveLoadPanel::LoadSelectedSave()
 }
 
 // FUNCTION: WIZ8 0x005ab590
-void W8OptionsSaveLoadPanel::SaveSelectedSave()
+void W8OptionsSaveLoadPanel::SaveSelectedSave(std::string_view previous_name)
 {
     int selected_slot = m_current * 5 + m_selection.m_selectedIndex;
     W8SaveSlot* slot = g_options_screen->m_save_slots[selected_slot];
@@ -553,16 +545,17 @@ void W8OptionsSaveLoadPanel::SaveSelectedSave()
         return;
     }
 
-    std::string path;
-    path = fmt::format("{}\\{}.{}", "Saves", slot->name, g_save_extension);
-    if ([&]() { const auto status = wiz8::file_status(path); return status && status->info.type == SDL_PATHTYPE_FILE; }() != 0 && wiz8::remove_file(path) == 0) {
-        g_options_screen->ShowNotification(this, false, 0x82e, 0);
-        return;
-    }
     SetLastSaveName(slot->name);
     RequestScreenTransition();
     g_pending_screen_state.mode = 2;
     g_pending_screen_state.name = slot->name;
+    const std::string old_name(previous_name);
+    // Game save paths resolve ASCII names case-insensitively. Never remove the
+    // new file when a rename changes only capitalization.
+    g_pending_screen_state.previous_save_name =
+        SDL_strcasecmp(old_name.c_str(), slot->name.c_str()) == 0
+            ? std::string()
+            : old_name;
     g_pending_screen_state.parameter_3 =
         new W8SaveScreenshot(g_options_screen->m_save_slots[0]->screenshot);
     SetPendingScreenState(W8_SCREEN_PLEASE_WAIT);
@@ -619,7 +612,7 @@ void W8OptionsSaveRow::Redraw(bool full_redraw)
     int x = m_pPanel->m_bounds.left + m_left;
     int y = m_pPanel->m_bounds.top + m_top;
     if (m_save->screenshot.capture_result == 0) {
-        DrawCatalogImage(FRAME_BUFFER, 0xf6, 0, 0, x + 6, y + 6, VO_BLT_SRCTRANSPARENCY, 0);
+        DrawCatalogImage(GetFrameBufferSurface(), 0xf6, 0, 0, x + 6, y + 6, VO_BLT_SRCTRANSPARENCY, 0);
     } else {
         auto portrait = std::make_unique<srColorSurface>(srPixelConvert::SURFACE_ARGB1555,
                                                       m_save->screenshot.pixels, 0x50, 0x3c, 0xa0);
@@ -705,7 +698,7 @@ void W8OptionsButton::Redraw(bool full_redraw)
             }
             m_textBuffer.SetFontStateIndex(font_state);
         }
-        m_textBuffer.RenderToTarget(0, full_redraw, FRAME_BUFFER);
+        m_textBuffer.RenderToTarget(0, full_redraw, GetFrameBufferSurface());
         m_dirty = false;
     }
 }
@@ -824,7 +817,7 @@ void W8OptionsKeyboardPanel::Populate()
         ++row;
         if (binding == page.last_binding) {
             std::string reset_text = g_localized_strings[0x833];
-            short text_width = StringPixLength(reset_text, g_options_detail_font);
+            short text_width = g_options_detail_font.textWidth(reset_text);
             int left = (m_bounds.right - (text_width + 20) - m_bounds.left) / 2;
             W8OptionsButton* reset =
                 new W8OptionsButton(this, left, 0x18e, left + text_width + 20, 0x1a4, reset_text);
@@ -1440,7 +1433,7 @@ void W8OptionsScreen::Redraw()
     if (m_redraw_pending) {
         ClearPrimarySurface();
         ClearSurfaceRect(0, 0, 640, 480);
-        DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0xee, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY, 0);
+        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0xee, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY, 0);
         m_redraw_pending = false;
     }
     if (m_selected_panel != -1) {
@@ -1642,9 +1635,9 @@ void W8OptionsSlider::Redraw(bool full_redraw)
             int top = m_pPanel->m_bounds.top + m_top;
             unsigned short color = Get16BPPColor(0x00ff00);
             int end = m_pixelPosition < 74 ? m_pixelPosition - 1 : 73;
-            ColorFillVideoSurfaceArea(FRAME_BUFFER, left + 13, top + 7, left + end, top + 9, color);
+            ColorFillVideoSurfaceArea(GetFrameBufferSurface(), left + 13, top + 7, left + end, top + 9, color);
             if (m_pixelPosition > 83) {
-                ColorFillVideoSurfaceArea(FRAME_BUFFER, left + 83, top + 7,
+                ColorFillVideoSurfaceArea(GetFrameBufferSurface(), left + 83, top + 7,
                                           left + m_pixelPosition - 1, top + 9, color);
             }
         }
@@ -1659,7 +1652,7 @@ W8OptionsSelection::W8OptionsSelection(int* value) : m_value(value) {}
 /* The empty body still emits the m_lsButtons vector teardown over the
    W8ControlSelection base. */
 // FUNCTION: WIZ8 0x005A8B50
-W8OptionsSelection::~W8OptionsSelection() {}
+W8OptionsSelection::~W8OptionsSelection() = default;
 
 // FUNCTION: WIZ8 0x005a8080
 void W8OptionsSelection::OnPrimary(W8TextControl* control)
@@ -1738,7 +1731,7 @@ void W8OptionsMenuButton::Redraw(bool full_redraw)
 {
     if ((full_redraw || m_dirty) && (m_stateFlags & g_W8TextControlStateSecondary) != 0 &&
         m_item_id != -1) {
-        DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0xf0, 0, m_item_id, 12, 15,
+        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0xf0, 0, m_item_id, 12, 15,
                                       VO_BLT_SRCTRANSPARENCY, 0);
     }
     W8TextControl::Redraw(full_redraw);
@@ -1758,7 +1751,7 @@ void W8OptionsPanel::Redraw()
     Controls::Redraw();
     if (redraw_text) {
         for (int index = 0; index < static_cast<int>(m_text_buffers.size()); ++index) {
-            m_text_buffers[index]->RenderToTarget(0, true, FRAME_BUFFER);
+            m_text_buffers[index]->RenderToTarget(0, true, GetFrameBufferSurface());
         }
     }
 }
@@ -1768,7 +1761,7 @@ void W8OptionsMenuSet::Redraw()
 {
     if (m_fEnabled && (m_fDirty || m_fLayoutDirty)) {
         Controls::Redraw();
-        m_page_text->RenderToTarget(0, true, FRAME_BUFFER);
+        m_page_text->RenderToTarget(0, true, GetFrameBufferSurface());
     }
 }
 
@@ -1782,7 +1775,7 @@ W8OptionsPanel::W8OptionsPanel(int region_index)
 
     short width;
     short height;
-    GetCatalogImageSize(0xf2, 0, 0, &width, &height);
+    std::tie(width, height) = GetCatalogImageSize(0xf2, 0, 0);
     m_bounds.right = m_bounds.left + static_cast<unsigned short>(width);
     m_bounds.bottom = m_bounds.top + static_cast<unsigned short>(height);
 }
@@ -1799,7 +1792,7 @@ W8OptionsMenuSet::W8OptionsMenuSet(unsigned int* shared_region_set)
 
     short width;
     short height;
-    GetCatalogImageSize(0xf3, 0, 0, &width, &height);
+    std::tie(width, height) = GetCatalogImageSize(0xf3, 0, 0);
     m_bounds.right = m_bounds.left + static_cast<unsigned short>(width);
     m_bounds.bottom = m_bounds.top + static_cast<unsigned short>(height);
 
@@ -2007,7 +2000,7 @@ unsigned char OptionsScreenEnter()
     MSYS_Init();
     ResetRegions();
     UpdateHeldItemCursor();
-    SetFontObjectPalette16BPP(g_wiz_text_font_secondary, GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get());
+    g_wiz_text_font_secondary.resetPalette();
     g_options_values.applying = 0;
     g_options_values.TransferSettings();
     g_options_screen = new W8OptionsScreen();
@@ -2060,7 +2053,7 @@ void OptionsScreenFrame()
     W8OptionsScreen* screen = g_options_screen;
     if (screen->m_text_editor != 0) {
         SGPMouseGetPos(&current);
-        MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, static_cast<unsigned short>(current.x),
+        DispatchMouseEvent(MOUSE_POS, static_cast<unsigned short>(current.x),
                                     static_cast<unsigned short>(current.y), gfLeftButtonState,
                                     gfRightButtonState);
         screen = g_options_screen;

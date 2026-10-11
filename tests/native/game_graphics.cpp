@@ -30,6 +30,7 @@
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/surface2d.h"
+#include "wiz8/cursor.h"
 #include "temporary_directory.h"
 #include "Types.h"
 #include "surrender/srColorSurfaceIFace.h"
@@ -45,7 +46,6 @@ extern unsigned char g_fullscreen;
 extern srScene* g_cursor_scene;
 unsigned char InitializeMouseCursorScene();
 void PositionMouseCursor(int, int, bool);
-BOOLEAN SetMouseCursorFromVideoObject(UINT32, UINT16, INT16, INT16);
 struct FixtureRoot
 {
     std::filesystem::path path;
@@ -86,27 +86,21 @@ TEST_CASE("game graphics")
         auto pipeline = srTriMeshPipeline::Get(g_gerd);
         REQUIRE(pipeline);
         pipeline->Flush();
-        REQUIRE(InitializeVideoSurfaceManager());
-        REQUIRE(InitializeVideoObjectManager());
-        VOBJECT_DESC image{};
-        image.fCreateFlags = VOBJECT_CREATE_FROMFILE;
         const char* image_path = SDL_getenv("WIZ8_GRAPHICS_IMAGE");
-        image.ImageFile = image_path ? image_path : "Data\\MAIN INTERFACE\\BOTTOM.STI";
-        UINT32 image_id;
-        REQUIRE(AddVideoObject(&image, &image_id));
-        REQUIRE(BltVideoObjectFromIndex(FRAME_BUFFER, image_id, 0, 0, 0, VO_BLT_SRCTRANSPARENCY,
+        auto image_object = LoadVideoObject(image_path ? image_path : "Data\\MAIN INTERFACE\\BOTTOM.STI");
+        REQUIRE(image_object);
+        REQUIRE(BltVideoObject(GetFrameBufferSurface(), *image_object, 0, 0, 0, VO_BLT_SRCTRANSPARENCY,
                                       nullptr));
-        UINT32 pitch;
-        auto pixels = static_cast<UINT16*>(LockPrimarySurface(&pitch));
+        const auto& framebuffer = *GetFrameBufferSurface().cpu().surface;
+        const auto pitch = framebuffer.pitch;
+        const auto* pixels = static_cast<const BYTE*>(framebuffer.pixels);
         std::vector<UINT16> expected(640 * 480);
         for (int y = 0; y < 480; ++y)
-            memcpy(expected.data() + y * 640, reinterpret_cast<BYTE*>(pixels) + y * pitch, 1280);
-        UnlockPrimarySurface();
+            memcpy(expected.data() + y * 640, pixels + y * pitch, 1280);
         REQUIRE(InitializeMouseCursorScene());
-        image.ImageFile = "Data\\CURSORS\\2D-CURSORS.STI";
-        UINT32 cursor_id;
-        REQUIRE(AddVideoObject(&image, &cursor_id));
-        REQUIRE(SetMouseCursorFromVideoObject(cursor_id, 0, 0, 0));
+        auto cursor_object = LoadVideoObject("Data\\CURSORS\\2D-CURSORS.STI");
+        REQUIRE(cursor_object);
+        REQUIRE(SetMouseCursorFromVideoObject(*cursor_object, 0, 0, 0));
         PositionMouseCursor(480, 240, true);
         unsigned colored = 0, matched = 0, cursor_pixels = 0;
         for (int frame = 0; frame < 3; ++frame)
@@ -207,12 +201,12 @@ TEST_CASE("game graphics")
             printf("movie GPU: %u RGB555 pixels and black background match\n", movie_matches);
             REQUIRE((FinishVideoPresentation() && ghWindow == persistent_window));
         }
-        pixels = static_cast<UINT16*>(LockPrimarySurface(&pitch));
-        REQUIRE(pixels);
+        const auto& restored_framebuffer = *GetFrameBufferSurface().cpu().surface;
+        const auto* restored_pixels = static_cast<const BYTE*>(restored_framebuffer.pixels);
+        REQUIRE(restored_pixels);
         for (int y = 0; y < 480; ++y)
-            REQUIRE(memcmp(reinterpret_cast<BYTE*>(pixels) + y * pitch, expected.data() + y * 640,
+            REQUIRE(memcmp(restored_pixels + y * restored_framebuffer.pitch, expected.data() + y * 640,
                          1280) == 0);
-        UnlockPrimarySurface();
         PresentMenuOverlayFrame();
 
         g_screenshot_index = 0;
@@ -221,9 +215,7 @@ TEST_CASE("game graphics")
         REQUIRE((screenshot && screenshot->getWidth() == 640 && screenshot->getHeight() == 480));
         puts("retail Targa import and game JPEG screenshot round-trip");
 
-        ShutdownVideoObjectManager();
-        ShutdownVideoSurfaceManager();
-        ShutdownVideoScenes();
+            ShutdownVideoScenes();
         SDL_Window* window = ghWindow;
         srExit();
         ReleasePrimaryCpuSurface();

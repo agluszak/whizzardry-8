@@ -1,6 +1,7 @@
 #pragma once
 
-#include <cstddef>
+#include "Font.h"
+
 #include <string_view>
 
 #include "wiz8/local_code/TextBuffer.h"
@@ -14,13 +15,13 @@ extern unsigned int g_dialog_text_layout_mask;
 class W8DialogTextEntry : public W8TextBuffer {
 public:
     W8DialogTextEntry(std::string_view prefix, std::string_view text, unsigned int prefix_palette,
-                      unsigned int text_palette, const W8ControlsRect* bounds, int font,
+                      unsigned int text_palette, const W8ControlsRect* bounds, Font& font,
                       unsigned char category, unsigned int layout_mode, unsigned char shorten);
     void Draw(bool force);
     void SetSelected(bool selected);
 
 private:
-    int DrawLine(char* line, size_t span, int prefix_remaining, int y);
+    int DrawLine(std::string_view line, int prefix_remaining, int y);
     friend class W8DialogTextArea;
     /* The controller reads m_category when it snapshots the transcript. */
     friend class W8NpcDialogueTextController;

@@ -117,7 +117,7 @@ TEST_CASE("world graphics")
         auto world = GetWorld();
         REQUIRE((world && world->octree && world->camera && world->level && !world->psrMeshes.empty()));
         W8WorldCameraState state{};
-        GetWorldCameraState(world, &state);
+        state = cameraState(*world);
         fprintf(stderr, "world: camera (%g %g %g) yaw %g pitch %g\n", state.position.x,
                 state.position.y, state.position.z, state.yaw[0], state.pitch[0]);
         unsigned enabled = 0;

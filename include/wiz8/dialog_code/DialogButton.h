@@ -1,8 +1,9 @@
+#include "Font.h"
 #include <string_view>
 #pragma once
 
 #include "Button System.h"
-#include "mousesystem_macros.h"
+#include "mousesystem.h"
 
 /* Update the non-toggle dialog arrow's pressed/hover state. The caller
    retains its action and invalidates only when this operation reports a change. */
@@ -69,7 +70,7 @@ public:
     /* Create an SGP text button (BUTTON_NO_TOGGLE, priority 0x7f),
        store this in its user-data slot 0 and the payload in slot 1 (read back
        by GetUserData), then install the left-click callback. */
-    bool ConfigureTextButton(std::string_view text, unsigned int font, short fore_color,
+    bool ConfigureTextButton(std::string_view text, Font& font, short fore_color,
                              short shadow_color, short x, short y, short width, short height,
                              W8DialogButtonCallback left_callback, int user_data);
     /* Store the tooltip string-table index and, when tooltips are

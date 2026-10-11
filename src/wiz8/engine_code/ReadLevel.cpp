@@ -105,8 +105,7 @@ void stLevel::process(const ProcessInfo& info, e_processType)
         renderer.setExclusionMask(m_render_exclusion_mask | old_exclusion_mask);
     }
 
-    glm::vec4 ambient;
-    renderer.getAmbientLight(ambient);
+    const auto ambient = renderer.getAmbientLight();
     srVector3T<float> ambient_color(ambient.x, ambient.y, ambient.z);
     m_submitted_polygons = 0;
 

@@ -76,7 +76,7 @@ public:
        normalized velocity or a yaw-derived default direction, the right-hand
        perpendicular, and cleared force/query state. */
     void InitializeSteeringContext(W8NavigatorMovementState* movement); /* 0x004CAE50 */
-    /* Lazily fills nearby_locations/nearby_count with the location ids
+    /* Lazily fills nearby_locations with the location ids
        inside a radius-scaled box around the movement position; the cached
        result is returned on repeat calls. */
     bool QueryNearbyNavigators(); /* 0x004CAFC0 */
@@ -131,8 +131,7 @@ private:
     float radius;
     bool nearby_queried;
     bool blocked;
-    unsigned int nearby_count;
-    w8_ulong* nearby_locations;
+    std::vector<w8_ulong> nearby_locations;
     W8Monster* monster;
 };
 
@@ -363,7 +362,7 @@ public:
     void BuildSearchVisualization();
     stModelInstance* BuildPathVisualization();
     stModelInstance* EnsurePathVisualization();
-    void GetWaypointVisualizationColor(unsigned short waypoint, srVector3T<float>* color);
+    glm::vec3 waypointVisualizationColor(unsigned short waypoint) const;
     short CollectPathVisualization(const srVector3T<float>* position);
     bool PreparePathVisualization(const srVector3T<float>* source,
                                   const srVector3T<float>* direction);
@@ -509,8 +508,7 @@ public:
     bool m_probe_bounded;                                   /* 0x8c */
     unsigned char m_padding_08d[3];
     unsigned int planner_location;
-    unsigned int m_path_candidate_count;
-    w8_ulong* m_path_candidates;
+    std::vector<w8_ulong> m_path_candidates;
     bool explicit_target; /* 0x9c */
     unsigned char m_padding_09d[3];
     unsigned int m_waypoint_neighbor_mask; /* 0xa0 */

@@ -1,6 +1,8 @@
+#include "Font.h"
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <vector>
 #include <string>
 #include <string_view>
@@ -27,7 +29,7 @@ class W8DialogTextArea {
 public:
     W8DialogTextArea();
     ~W8DialogTextArea() = default;
-    void Configure(const W8ControlsRect* bounds, int font, unsigned int flags);
+    void Configure(const W8ControlsRect* bounds, Font& font, unsigned int flags);
     void Draw(bool force);
     void SetFirstVisibleLine(int line);
     int GetTotalLineCount();
@@ -36,11 +38,11 @@ public:
     void SetLineHeight(unsigned int height);
     bool SelectEntry(int index);
     bool ClearSelection();
-    bool CopyEntryText(unsigned int index, std::string& output);
+    std::optional<std::string_view> GetEntryText(unsigned int index) const;
     unsigned int HitTestEntry(int x, int y);
     bool UpdateSelectionFromPoint(int x, int y);
     bool ClearPointSelection();
-    bool CopyVisibleEntryText(unsigned int index, std::string& output);
+    std::optional<std::string_view> GetVisibleEntryText(unsigned int index) const;
     bool HighlightVisibleEntry(int index);
     bool ClearEntryHighlight();
     W8DialogTextEntry* GetEntry(unsigned int index);
@@ -60,7 +62,7 @@ private:
     unsigned int FindVisibleEntryAtLine(unsigned int target, unsigned int spacing);
 
     W8ControlsRect m_bounds; /* passed to entry construction */
-    int m_font;
+    Font* m_font;
     int m_first_visible_entry;
     int m_first_visible_line;
     std::vector<std::unique_ptr<W8DialogTextEntry>> m_all_lines; /* owns entries */

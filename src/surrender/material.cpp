@@ -298,30 +298,6 @@ glm::vec4 srMaterial::getSpecular() const
     return parms.specular;
 }
 
-// FUNCTION: SURRENDER 0x10034830
-void srMaterial::getAmbient(glm::vec4& ambient) const
-{
-    ambient = parms.ambient;
-}
-
-// FUNCTION: SURRENDER 0x10034850
-void srMaterial::getDiffuse(glm::vec4& diffuse) const
-{
-    diffuse = parms.diffuse;
-}
-
-// FUNCTION: SURRENDER 0x10034870
-void srMaterial::getEmissive(glm::vec4& emissive) const
-{
-    emissive = parms.emissive;
-}
-
-// FUNCTION: SURRENDER 0x10034890
-void srMaterial::getSpecular(glm::vec4& specular) const
-{
-    specular = parms.specular;
-}
-
 // FUNCTION: SURRENDER 0x100348B0
 float srMaterial::getShininess() const
 {

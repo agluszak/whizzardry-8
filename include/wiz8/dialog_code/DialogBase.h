@@ -1,3 +1,4 @@
+#include "Font.h"
 #pragma once
 
 #include <string>
@@ -63,11 +64,11 @@ protected:
     int m_error;
     GUIButton m_resource;
     std::string m_text;
-    int m_font;
+    Font* m_font;
     unsigned char m_foreground;
     unsigned char m_background;
     unsigned char padding_01a[2];
-    char* m_background_path;
+    std::string m_background_path;
     int m_background_flags;
     GenericButtonImage m_border;
     unsigned char padding_026[2];

@@ -52,20 +52,20 @@ inline void DrawCampValueBar(unsigned int value, unsigned int base, int left, in
         clip.x = left;
         clip.w = filled;
         SetClippingRect(&clip);
-        DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x143, 0, 0, left, top, VO_BLT_SRCTRANSPARENCY,
+        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x143, 0, 0, left, top, VO_BLT_SRCTRANSPARENCY,
                                       0);
     }
     if (extra != 0) {
         clip.x = left + filled;
         clip.w = extra;
         SetClippingRect(&clip);
-        DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x143, 0, 1, left, top, VO_BLT_SRCTRANSPARENCY,
+        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x143, 0, 1, left, top, VO_BLT_SRCTRANSPARENCY,
                                       0);
     } else if (missing != 0) {
         clip.x = left + filled;
         clip.w = missing;
         SetClippingRect(&clip);
-        DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x143, 0, 2, left, top, VO_BLT_SRCTRANSPARENCY,
+        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x143, 0, 2, left, top, VO_BLT_SRCTRANSPARENCY,
                                       0);
     }
     SetClippingRect(&saved_clip);

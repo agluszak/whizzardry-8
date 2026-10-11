@@ -1,6 +1,9 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <string>
+#include <algorithm>
+#include <array>
+#include <utility>
 #include <cstdlib>
 #include <cstring>
 #include <string_view>
@@ -54,7 +57,6 @@
 #include "wiz8/local_screens/MGSUseItemSelect.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_screens/Screens.h"
-#include "compat/compiler.h"
 #include "compat/native.h"
 #include "compat/ptr32.h"
 #include "dialog_code/DialogBase.h"
@@ -231,37 +233,31 @@ unsigned short g_generic_item_name_notice[W8_GENERIC_ITEM_NAME_COUNT] = {
 /* Shared scratch returned by the item-name formatter. */
 // GLOBAL: WIZ8 0x0068C0B4
 
-W8_ABI_ASSERT(sizeof(W8ItemVideoObjectEntry) == 8, "W8ItemVideoObjectEntry_must_be_8");
-W8_ABI_ASSERT(sizeof(W8ItemVideoObjectCache) == 0x0c, "W8ItemVideoObjectCache_must_be_0x0c");
-
 // GLOBAL: WIZ8 0x0068EC68
 W8ItemVideoObjectCache g_item_video_objects;
 
-// FUNCTION: WIZ8 0x0055cdb0
-W8ItemVideoObjectEntry::W8ItemVideoObjectEntry() : initialized(0), video_object(0) {}
-
-W8ItemVideoObjectEntry::~W8ItemVideoObjectEntry() {}
-
 // FUNCTION: WIZ8 0x0055cdc0
-void W8ItemVideoObjectCache::Initialize(int new_capacity)
+void W8ItemVideoObjectCache::Initialize(std::size_t item_count)
 {
-    capacity = new_capacity;
-    data = new W8ItemVideoObjectEntry[new_capacity];
-    loaded_count = 0;
+    Clear();
+    images_.resize(item_count);
 }
 
 // FUNCTION: WIZ8 0x0055ce40
 void W8ItemVideoObjectCache::Clear()
 {
-    if (data) {
-        delete[] data;
-        data = 0;
-    }
-    loaded_count = 0;
+    images_.clear();
+    ReleaseItemVideoImages();
+}
+
+std::size_t W8ItemVideoObjectCache::LoadedImageCount() const
+{
+    return std::count_if(images_.begin(), images_.end(),
+                         [](const auto& image) { return image.has_value(); });
 }
 
 // GLOBAL: WIZ8 0x0062a88c
-static char g_item_video_object_fallback_names[145][0x30] = {"Dagger.sti",
+static const std::array<std::string_view, 145> g_item_video_object_fallback_names = {"Dagger.sti",
                                                              "LongSword.sti",
                                                              "Bipennis.sti",
                                                              "BattleAxe.sti",
@@ -410,37 +406,20 @@ static char g_item_video_object_fallback_names[145][0x30] = {"Dagger.sti",
 // FUNCTION: WIZ8 0x0055ce80
 int W8ItemVideoObjectCache::GetOrCreateVideoObject(int item_id)
 {
-    W8ItemVideoObjectEntry* entry = data + item_id;
-    const W8ItemDatabaseRecord* record = &g_item_records[item_id];
-    std::string_view name = record->video_object_name;
-    int object;
-    int frame;
-
-    if (entry->initialized) {
-        return entry->video_object;
+    auto& image = images_.at(item_id);
+    if (image) {
+        EnsureCatalogFrameLoaded(*image, 0);
+        return *image;
     }
-    if (loaded_count == capacity || loaded_count == 1000) {
-        return 0;
-    }
-    object = loaded_count + 0x291;
-    frame = loaded_count + 0x1ec;
-    if (name.empty()) {
-        name = g_item_video_object_fallback_names[record->unidentified_name_index];
-    }
-    g_video_frames[object].path = fmt::format("{}\\{}", "Data\\Items", name);
-    if (g_video_frames[object].path.find(".sti") == std::string::npos) {
-        g_video_frames[object].path += ".sti";
-    }
-    g_video_frames[object].storage_kind = W8_VIDEO_STORAGE_OBJECT;
-    g_video_frames[object].loaded = false;
-    g_video_frames[object].handle = 0;
-    g_video_slots[frame].first_frame = object;
-    g_video_slots[frame].y_offset = 0;
-    EnsureCatalogFrameLoaded(frame, 0);
-    ++loaded_count;
-    entry->video_object = frame;
-    entry->initialized = true;
-    return frame;
+    const auto& record = g_item_records[item_id];
+    std::string_view name = record.video_object_name;
+    if (name.empty())
+        name = g_item_video_object_fallback_names.at(record.unidentified_name_index);
+    std::string path = fmt::format("Data\\Items\\{}", name);
+    if (path.find(".sti") == std::string::npos)
+        path += ".sti";
+    image = RegisterItemVideoImage(std::move(path));
+    return *image;
 }
 
 // GLOBAL: WIZ8 0x00652da6

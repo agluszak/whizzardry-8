@@ -394,7 +394,7 @@ try
         ReadSaveChunks(&current_game, &chunks);
         current_game.Close();
     }
-    GetWorldCameraState(GetWorld(), &g_status.pending_move_location);
+    g_status.pending_move_location = cameraState(*GetWorld());
     for (region = 0; region != 4; ++region) {
         for (index = 0; index < g_status.text_box_lines_shown[region]; ++index) {
             g_message_storage[region][index].saved_remaining_ms =
@@ -804,7 +804,7 @@ try
     const unsigned int record_size = sizeof(*info);
     if (info->fActive) {
         MonsterGetLocation(monster, &info->position);
-        info->position.y = SettlePositionToGround(&info->position, 0);
+        info->position.y = probeGround(info->position.glmValue()).position.y;
         info->derived = MonsterGetYaw(monster);
     }
     chunks->m_hFile->write(&record_version, sizeof(record_version));

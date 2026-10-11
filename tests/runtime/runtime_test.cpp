@@ -21,6 +21,7 @@
 #include <string>
 #include <vector>
 #include <cstdint>
+#include <cstddef>
 #include <iterator>
 #include <memory>
 #include <string_view>
@@ -53,11 +54,22 @@
 #include "wiz8/regions.h"
 #include "wiz8/runtime_test_hooks.h"
 #include "wiz8/engine_code/Level.h"
+#include "wiz8/engine_code/GameData.h"
+#include "wiz8/engine_code/Trigger.hpp"
+#include "wiz8/dialog_code/DialogFactoryDialogs.h"
+#include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/item_video_object_vector.h"
+#include "wiz8/item_spawning.h"
+#include "wiz8/layouts/item_tables.h"
+#include "wiz8/local_code/PC_Item.h"
+#include "wiz8/local_code/party_encumbrance.h"
+#include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/layouts/screen_state.h"
 #include "input.h"
+#include "vsurface.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -265,9 +277,14 @@ class Game
         if (region < 0)
             Fail(step, "target region is not live");
         const W8Region& bounds = g_regions[region];
-        mouse_button((bounds.x1 + bounds.x2) / 2, (bounds.y1 + bounds.y2) / 2, true);
+        click_at((bounds.x1 + bounds.x2) / 2, (bounds.y1 + bounds.y2) / 2);
+    }
+
+    void click_at(int x, int y)
+    {
+        mouse_button(x, y, true);
         frame();
-        mouse_button((bounds.x1 + bounds.x2) / 2, (bounds.y1 + bounds.y2) / 2, false);
+        mouse_button(x, y, false);
         frame();
     }
 
@@ -340,9 +357,18 @@ class Game
         fs::copy_file(source, target, fs::copy_options::overwrite_existing);
     }
 
-    /* Pixels of the last rendered frame, read back from the GPU target. */
+    /* Pixels of the last rendered frame, or the CPU frame before renderer setup. */
     std::vector<unsigned> read_frame()
     {
+        if (!g_gerd) {
+            // Camp renders through SGP's CPU surface, without a world renderer.
+            const auto& surface = *GetFrameBufferSurface().cpu().surface;
+            std::vector<unsigned> pixels(SCREEN_WIDTH * SCREEN_HEIGHT);
+            REQUIRE(SDL_ConvertPixels(SCREEN_WIDTH, SCREEN_HEIGHT, surface.format,
+                                      surface.pixels, surface.pitch, SDL_PIXELFORMAT_XRGB8888,
+                                      pixels.data(), SCREEN_WIDTH * sizeof(unsigned)));
+            return pixels;
+        }
         auto* surface = g_gerd->lockBuffer();
         REQUIRE(surface);
         std::vector<unsigned> pixels(SCREEN_WIDTH * SCREEN_HEIGHT);
@@ -528,7 +554,7 @@ void StartGame(Game& game)
 srVector3T<float> PartyPosition()
 {
     W8WorldCameraState state{};
-    GetWorldCameraState(GetWorld(), &state);
+    state = cameraState(*GetWorld());
     return state.position;
 }
 
@@ -672,24 +698,17 @@ void VideoScenario(bool intro_seen)
     std::printf("video: %u movie frames presented\n", g_runtime_test_hooks.movie_frames_presented);
 }
 
-void CharacterScenario()
-{
-    Game game(false);
-    const std::string name = CreateCharacter(game);
-    std::printf("character: saved %s.CHR after %lu frames\n", name.c_str(), game.frames());
-}
-
 void GameStartScenario()
 {
     Game game(false);
     StartGame(game);
     W8WorldCameraState start{};
-    GetWorldCameraState(GetWorld(), &start);
+    start = cameraState(*GetWorld());
     // Hold the forward key until the camera has moved, through the real binding.
     game.hold_key(SDLK_UP, true);
     W8WorldCameraState now{};
     game.wait("walk", [&] {
-        GetWorldCameraState(GetWorld(), &now);
+        now = cameraState(*GetWorld());
         const float dx = now.position.x - start.position.x, dz = now.position.z - start.position.z;
         return std::sqrt(dx * dx + dz * dz) > 1.0f;
     }, 20);
@@ -698,11 +717,152 @@ void GameStartScenario()
                 now.position.x, now.position.y, now.position.z);
 }
 
-void WorldRenderScenario()
+void InventoryChestScenario()
 {
+    const float motion_clamp = g_camera_motion_clamp;
+    const float motion_divisor = g_camera_motion_divisor;
     Game game(false);
-    // Rendering does not need to repeat character creation and party UI.
     StartPremadeGame(game);
+    Settle(game, "settle-before-chest");
+    Trigger* chest = nullptr;
+    for (auto* trigger : *GetWorld()->triggers)
+        if (trigger->initial_action == 3 && trigger->inline_action_data[0]) {
+            trigger->GenerateItemGroup();
+            if (trigger->world_item_group && trigger->world_item_group->next) {
+                chest = trigger;
+                break;
+            }
+        }
+    REQUIRE(chest);
+    // Request the same picker that an opened chest raises. This isolates loot
+    // handling from the chest's lock/trap skill rolls and prop animation.
+    chest->flags |= W8_TRIGGER_ITEM_PICKER;
+    game.wait("chest-picker", [] { return g_modal_owner != nullptr; });
+    game.frame();
+    REQUIRE(gXStatus.world_update_blocked);
+    auto* picker = static_cast<W8TriggerItemPickerDialog*>(g_modal_owner);
+    REQUIRE_FALSE(picker->items.empty());
+    const auto click_button = [&](int index) {
+        auto& button = *picker->m_buttons[index];
+        game.click_at(button.GetX() + button.GetWidth() / 2,
+                      button.GetY() + button.GetHeight() / 2);
+    };
+    // A full pool can still absorb part of an ammunition stack. The picker
+    // must retain only the remainder, including after a second failed attempt.
+    const auto pool = std::vector<W8ItemInstance>(std::begin(g_status.party_item_pool),
+                                                 std::end(g_status.party_item_pool));
+    const auto pool_count = g_status.party_item_count;
+    const auto original_item = picker->items.front()->item;
+    const auto picker_count = picker->items.size();
+    int stack_id = -1, nonstack_id = -1;
+    for (unsigned i = 0; i < gXStatus.uiItemsInDatabase; ++i) {
+        const auto& record = g_item_records[i];
+        if (record.quantity_kind == W8_ITEM_QUANTITY_STACK && record.maximum_quantity >= 5)
+            stack_id = i;
+        else if (record.quantity_kind != W8_ITEM_QUANTITY_STACK)
+            nonstack_id = i;
+        if (stack_id >= 0 && nonstack_id >= 0)
+            break;
+    }
+    REQUIRE(stack_id >= 0);
+    REQUIRE(nonstack_id >= 0);
+    auto& remainder = picker->items.front()->item;
+    ReplaceOrCreateItem(&remainder, stack_id, true, false, false);
+    remainder.stack_count = 5;
+    W8ItemInstance filler{};
+    ReplaceOrCreateItem(&filler, nonstack_id, true, false, false);
+    std::fill(std::begin(g_status.party_item_pool), std::end(g_status.party_item_pool), filler);
+    g_status.party_item_count = 500;
+    g_status.party_item_pool[0] = remainder;
+    const auto maximum = g_item_records[stack_id].maximum_quantity;
+    g_status.party_item_pool[0].stack_count = maximum - 2;
+    std::fill(picker->flags.begin(), picker->flags.end(), 0);
+    picker->flags.front() = 1;
+    click_button(1);
+    REQUIRE(picker->items.size() == picker_count);
+    REQUIRE(g_status.party_item_count == 500);
+    REQUIRE(g_status.party_item_pool[0].stack_count == maximum);
+    REQUIRE(remainder.stack_count == 3);
+    click_button(1);
+    REQUIRE(remainder.stack_count == 3);
+    remainder = original_item;
+    std::copy(pool.begin(), pool.end(), std::begin(g_status.party_item_pool));
+    g_status.party_item_count = pool_count;
+    RedistributePartyEncumbrance();
+    std::fill(picker->flags.begin(), picker->flags.end(), 0);
+    click_button(0); // Select all.
+    click_button(1); // Take selected items into the party pool.
+    game.wait("close-chest-picker", [] { return g_modal_owner == nullptr; });
+    REQUIRE(g_modal_owner == nullptr);
+    REQUIRE_FALSE(gXStatus.world_update_blocked);
+    REQUIRE((chest->flags & W8_TRIGGER_ITEM_PICKER) == 0);
+    REQUIRE(g_camera_motion_clamp == motion_clamp);
+    REQUIRE(g_camera_motion_divisor == motion_divisor);
+    Walk(game, "walk-after-chest", 5);
+    int potion_slot = -1;
+    for (int i = 0; i < 500; ++i)
+        if (g_status.party_item_pool[i].iItemNo >= 0 &&
+            g_item_records[g_status.party_item_pool[i].iItemNo].unidentified_name_index == 102) {
+            potion_slot = i;
+            break;
+        }
+    REQUIRE(potion_slot >= 0);
+    // Exercise the purple-potion icon with the unidentified overlay as well.
+    g_status.party_item_pool[potion_slot].identified = false;
+    game.command(W8_MGS_COMMAND_INVENTORY);
+    game.wait_screen("inventory", W8_SCREEN_CAMP);
+    REQUIRE(g_item_video_objects.LoadedImageCount() > 2);
+    REQUIRE(g_camera_motion_clamp == motion_clamp);
+    REQUIRE(g_camera_motion_divisor == motion_divisor);
+    REQUIRE(g_pending_main_menu_message.empty());
+    int potion_cell = -1;
+    for (unsigned i = 0; i < std::min(8u, g_camp_screen->item_list_count); ++i)
+        if (g_camp_screen->item_list[i] == potion_slot)
+            potion_cell = i;
+    REQUIRE(potion_cell >= 0);
+    game.click_at(535 + (potion_cell & 1) * 49, 219 + (potion_cell >> 1) * 57);
+    REQUIRE(g_status.item_in_cursor);
+    game.click_at(34, 219);
+    REQUIRE_FALSE(g_status.item_in_cursor);
+    game.click_at(320, 170); // Keep the cursor outside the grids for pixel comparisons.
+    const auto rendered = game.read_frame();
+    const auto& surface = *GetFrameBufferSurface().cpu().surface;
+    std::vector<unsigned> expected(SCREEN_WIDTH * SCREEN_HEIGHT);
+    REQUIRE(SDL_ConvertPixels(SCREEN_WIDTH, SCREEN_HEIGHT, surface.format,
+                              surface.pixels, surface.pitch, SDL_PIXELFORMAT_XRGB8888,
+                              expected.data(), SCREEN_WIDTH * sizeof(unsigned)));
+    unsigned mismatches = 0;
+    for (int y = 192; y < 417; ++y)
+        for (int x : {11, 60, 512, 561})
+            for (int column = x; column < x + 46; ++column)
+                for (unsigned shift : {0u, 8u, 16u}) {
+                    const auto index = y * SCREEN_WIDTH + column;
+                    mismatches += std::abs(int(rendered[index] >> shift & 255) -
+                                           int(expected[index] >> shift & 255)) > 1;
+                }
+    REQUIRE(mismatches == 0);
+    Snapshot("inventory", rendered);
+    game.key(SDLK_ESCAPE);
+    game.wait_screen("close-inventory", W8_SCREEN_MAIN_GAME);
+    Walk(game, "walk-after-inventory", 5);
+    const auto start = PartyPosition();
+    game.hold_key(SDLK_DOWN, true);
+    game.wait("walk-back-after-inventory", [&] {
+        return HorizontalDistance(PartyPosition(), start) > 5;
+    }, 20);
+    game.hold_key(SDLK_DOWN, false);
+    W8WorldCameraState before{}, after{};
+    before = cameraState(*GetWorld());
+    game.hold_key(SDLK_LEFT, true);
+    game.wait("turn-left-after-inventory", [&] {
+        after = cameraState(*GetWorld());
+        return std::abs(after.yaw[0] - before.yaw[0]) > 0.1f;
+    }, 20);
+    game.hold_key(SDLK_LEFT, false);
+}
+
+void CheckWorldRender(Game& game)
+{
     W8World* world = GetWorld();
     unsigned enabled = 0;
     for (unsigned i = 0; i <= world->octree->GetMeshCount(); ++i)
@@ -749,6 +909,8 @@ void ResourceLifecycleScenario()
 {
     Game game(false);
     StartPremadeGame(game);
+    // Rendering and resource recycling use the same live world and GPU session.
+    CheckWorldRender(game);
     // Automap buttons own their sprite sheets. Re-entering the screen must
     // rebuild all sixteen controls after the previous owners are destroyed.
     for (int visit = 0; visit != 2; ++visit) {
@@ -766,6 +928,17 @@ void ResourceLifecycleScenario()
         game.wait_screen("automap-buttons-released", W8_SCREEN_MAIN_GAME);
         REQUIRE(g_automap_buttons.empty());
     }
+    // Exercise a second screen's input, teardown and return-stack lifecycle.
+    const std::size_t return_depth = g_screen_return_stack.size();
+    game.command(W8_MGS_COMMAND_JOURNAL);
+    game.wait_screen("journal", W8_SCREEN_JOURNAL);
+    REQUIRE(g_screen_return_stack.size() == return_depth + 1);
+    REQUIRE(g_screen_return_stack.back().id == W8_SCREEN_MAIN_GAME);
+    game.key(SDLK_ESCAPE);
+    game.wait_screen("journal-return", W8_SCREEN_MAIN_GAME);
+    REQUIRE(g_screen_return_stack.size() == return_depth);
+    REQUIRE((GetWorld() && GetWorld()->level));
+
     const int level = g_status.current_level;
     const auto anchor = Walk(game, "settle-before-save", 2.0f);
     QuickSave(game);
@@ -806,6 +979,24 @@ void ResourceLifecycleScenario()
     REQUIRE(g_gerd->getTextureCacheUsed() > 0);
 }
 
+/* The UI load test consumes the save written by the quick-save regression.
+   Reusing that real saved game avoids another full runtime startup. */
+void WriteSaveFixture(const fs::path& output, const fs::path& save,
+                      const srVector3T<float>& anchor)
+{
+    fs::create_directories(output);
+    fs::copy_file(save, output / "Fixture.SAV", fs::copy_options::overwrite_existing);
+    std::ofstream metadata(output / "Fixture.txt");
+    metadata << std::setprecision(std::numeric_limits<float>::max_digits10)
+             << anchor.x << ' ' << anchor.y << ' ' << anchor.z << ' '
+             << g_status.current_level << ' ' << g_status.buffers.Char[PremadeSlot()].experience << ' '
+             << g_status.buffers.Char[PremadeSlot()].hp_current << '\n';
+    metadata.close();
+    REQUIRE(metadata);
+    std::printf("save-fixture: wrote %s (%ju bytes)\n", (output / "Fixture.SAV").string().c_str(),
+                std::uintmax_t(fs::file_size(output / "Fixture.SAV")));
+}
+
 /* Quick save, walk away, quick load: the party is back where it saved. */
 void QuickSaveScenario()
 {
@@ -814,12 +1005,16 @@ void QuickSaveScenario()
     const srVector3T<float> anchor = Walk(game, "walk", 2.0f);
     const int level = g_status.current_level;
     const unsigned experience = g_status.buffers.Char[PremadeSlot()].experience;
+    const int health = g_status.buffers.Char[PremadeSlot()].hp_current;
+    REQUIRE(health > 1);
     const fs::path save = QuickSave(game);
+    WriteSaveFixture(WIZ8_RUNTIME_SAVE_FIXTURE, save, anchor);
     Walk(game, "walk-away", 4.0f);
     REQUIRE(HorizontalDistance(PartyPosition(), anchor) > 2.0f);
     // Change a persistent field as well as the camera: loading must replace
     // the character record, not just reposition the party.
     g_status.buffers.Char[PremadeSlot()].experience = experience + 123;
+    g_status.buffers.Char[PremadeSlot()].hp_current = health - 1;
 
     game.command(W8_MGS_COMMAND_QUICK_LOAD);
     bool loading = false;
@@ -832,27 +1027,9 @@ void QuickSaveScenario()
     REQUIRE(CountActiveCharacters() == 1);
     REQUIRE(g_status.current_level == level);
     REQUIRE(g_status.buffers.Char[PremadeSlot()].experience == experience);
+    REQUIRE(g_status.buffers.Char[PremadeSlot()].hp_current == health);
     std::printf("quick-save: %s round-tripped after %lu frames\n",
                 save.filename().string().c_str(), game.frames());
-}
-
-/* Writes the shared save fixture: a game saved a few steps from the start. */
-void SaveFixtureScenario(const fs::path& output)
-{
-    Game game(false);
-    StartPremadeGame(game);
-    const srVector3T<float> anchor = Walk(game, "walk", 2.0f);
-    const fs::path save = QuickSave(game);
-    fs::create_directories(output);
-    fs::copy_file(save, output / "Fixture.SAV", fs::copy_options::overwrite_existing);
-    std::ofstream metadata(output / "Fixture.txt");
-    metadata << std::setprecision(std::numeric_limits<float>::max_digits10)
-             << anchor.x << ' ' << anchor.y << ' ' << anchor.z << ' '
-             << g_status.current_level << ' ' << g_status.buffers.Char[PremadeSlot()].experience << '\n';
-    metadata.close();
-    REQUIRE(metadata);
-    std::printf("save-fixture: wrote %s (%ju bytes)\n", (output / "Fixture.SAV").string().c_str(),
-                std::uintmax_t(fs::file_size(output / "Fixture.SAV")));
 }
 
 /* Main menu -> Load Game -> the fixture save -> its party and position. */
@@ -864,8 +1041,9 @@ void LoadGameScenario(const fs::path& fixture)
     srVector3T<float> anchor{};
     int level = -1;
     unsigned experience = 0;
+    unsigned health = 0;
     std::ifstream metadata(fixture / "Fixture.txt");
-    REQUIRE(metadata >> anchor.x >> anchor.y >> anchor.z >> level >> experience);
+    REQUIRE(metadata >> anchor.x >> anchor.y >> anchor.z >> level >> experience >> health);
     REQUIRE((std::isfinite(anchor.x) && std::isfinite(anchor.y) && std::isfinite(anchor.z)));
     REQUIRE(fs::is_regular_file(fixture / "Fixture.SAV"));
     game.install(fixture / "Fixture.SAV", "Saves/Fixture.SAV");
@@ -894,6 +1072,7 @@ void LoadGameScenario(const fs::path& fixture)
     REQUIRE(CountActiveCharacters() == 1);
     REQUIRE(g_status.current_level == level);
     REQUIRE(g_status.buffers.Char[PremadeSlot()].experience == experience);
+    REQUIRE(g_status.buffers.Char[PremadeSlot()].hp_current == health);
     std::printf("load-game: loaded the fixture after %lu frames\n", game.frames());
 }
 
@@ -993,24 +1172,10 @@ TEST_CASE("video-seen", "[runtime]")
     CheckGameErrors();
 }
 
-TEST_CASE("character", "[runtime]")
-{
-    RequireAssets();
-    CharacterScenario();
-    CheckGameErrors();
-}
-
 TEST_CASE("game-start", "[runtime]")
 {
     RequireAssets();
     GameStartScenario();
-    CheckGameErrors();
-}
-
-TEST_CASE("world", "[runtime]")
-{
-    RequireAssets();
-    WorldRenderScenario();
     CheckGameErrors();
 }
 
@@ -1035,10 +1200,10 @@ TEST_CASE("combat", "[runtime]")
     CheckGameErrors();
 }
 
-TEST_CASE("save-fixture", "[runtime]")
+TEST_CASE("inventory-chest", "[runtime]")
 {
     RequireAssets();
-    SaveFixtureScenario(WIZ8_RUNTIME_SAVE_FIXTURE);
+    InventoryChestScenario();
     CheckGameErrors();
 }
 

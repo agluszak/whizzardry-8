@@ -15,7 +15,11 @@
 #include "surrender/srCore.h"
 #include "surrender/srDD_SDLGPU.h"
 #include "surrender/srGERD.h"
+#include "surrender/srRendererDefs.h"
 #include "surrender/srFog.h"
+#include "surrender/srLight.h"
+#include "surrender/srStatisticsManager.h"
+#include "glm/ext/vector_float3.hpp"
 #include "surrender/srMaterialIFace.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srNode.h"
@@ -322,6 +326,109 @@ bool coverageFinalization()
     return true;
 }
 
+class SurfaceLightProbe : public Counter {
+public:
+    srLight light;
+    unsigned channels = 0, ready = 0;
+    bool attenuated = false, directional = false;
+    void process(srVertexPipe& pipe) override
+    {
+        ++calls;
+        const unsigned count = pipe.getVertexCount();
+        if (ready & 1) {
+            auto* colors = pipe.getDiffuse();
+            for (unsigned i = 0; i < count; ++i) colors[i] = glm::vec4(.25f);
+        }
+        if (ready & 2) {
+            auto* colors = pipe.getSpecular();
+            for (unsigned i = 0; i < count; ++i) colors[i] = glm::vec4(.5f);
+        }
+        auto& statistics = srCore.getStatisticsManager()->statistics;
+        const auto before_diffuse = statistics.diffuse_operations;
+        const auto before_specular = statistics.specular_operations;
+        light.process(pipe);
+        REQUIRE(statistics.diffuse_operations - before_diffuse == (channels & 1 ? count : 0));
+        REQUIRE(statistics.specular_operations - before_specular == (channels & 2 ? count : 0));
+        const float attenuation = attenuated && !directional ? .5f : 1.f;
+        if (channels & 1) {
+            const auto* colors = pipe.getDiffuse();
+            const float expected = (ready & 1 ? .25f : .125f) + .25f * attenuation;
+            for (unsigned i = 0; i < count; ++i)
+                for (unsigned c = 0; c < 4; ++c) REQUIRE(colors[i][c] == expected);
+        }
+        if (channels & 2) {
+            const auto* colors = pipe.getSpecular();
+            const float expected = (ready & 2 ? .5f : 0.f) + .0625f * attenuation;
+            for (unsigned i = 0; i < count; ++i)
+                for (unsigned c = 0; c < 4; ++c) REQUIRE(colors[i][c] == expected);
+        }
+    }
+};
+
+class LightingMaterial : public TestMaterial {
+public:
+    void getMaterialInfo(srVertexProcessor::MaterialInfo& info) override
+    {
+        TestMaterial::getMaterialInfo(info);
+        info.disabled_channels = 0;
+        info.diffuse = glm::vec4(.5f); info.specular = glm::vec4(.25f);
+        info.emissive = glm::vec4(.125f); info.shininess = 1;
+    }
+};
+
+bool surfaceLighting()
+{
+    std::array<srVector3, 65> positions, normals;
+    std::array<w8_ulong, 65> indices;
+    std::array<glm::vec4, 65> diffuse, specular, eye;
+    std::array<unsigned char, 65> attributes{};
+    for (unsigned i = 0; i < 65; ++i) {
+        positions[i].Set(0, 0, -10); normals[i].Set(0, 0, 1); indices[i] = i;
+    }
+    srVertexArray arrays{};
+    arrays.diffuse = diffuse.data(); arrays.specular = specular.data();
+    arrays.eye_locations = eye.data(); arrays.attributes = attributes.data();
+    LightingMaterial material;
+    srVertexPipe::Record record{}; record.material = &material;
+    glm::mat4 identity(1);
+    SurfaceLightProbe probe;
+    srVertexProcessor* processor = &probe;
+    srVertexPipe::Input input{};
+    input.positions = positions.data(); input.normals = normals.data();
+    input.active_vertices = indices.data(); input.direct_vertex_indices = 1;
+    input.vertex_arrays = &arrays; input.records = {&record, 1};
+    input.model_view = input.normal_matrix = &identity;
+    input.processors = &processor; input.processor_count = 1;
+    input.ambient_light = glm::vec4(0);
+    for (unsigned channels = 1; channels < 4; ++channels)
+    for (unsigned ready = 0; ready < 4; ++ready)
+    for (bool directional : {false, true})
+    for (bool attenuated : {false, true})
+    for (unsigned count : {0u, 1u, 65u}) {
+        CAPTURE(channels, ready, directional, attenuated, count);
+        probe.channels = channels; probe.ready = ready;
+        probe.directional = directional; probe.attenuated = attenuated;
+        auto& light = probe.light;
+        light.channel_mask = (channels & 1 ? 1u << srVertexProcessor::CHANNEL_LIGHT_DIFFUSE : 0) |
+                             (channels & 2 ? 1u << srVertexProcessor::CHANNEL_SPECULAR : 0);
+        light.derived_flags = directional ? srLight::DERIVED_DIRECTIONAL :
+            attenuated ? srLight::DERIVED_OPENGL_ATTENUATION |
+                         srLight::DERIVED_CONSTANT_ATTENUATION : 0;
+        light.eye_location = directional ? glm::vec3(0, 0, 1) : glm::vec3(0);
+        light.attenuation_model = attenuated ? srLight::ATTENUATION_OPENGL :
+                                             srLight::ATTENUATION_NONE;
+        light.opengl_attenuation = glm::vec3(2, 0, 0);
+        light.scaled_diffuse = glm::vec4(.5f); light.scaled_specular = glm::vec4(.25f);
+        input.vertex_count = count;
+        record.channels = ~(light.channel_mask | (1u << srVertexProcessor::CHANNEL_DIFFUSE));
+        const int before = probe.calls;
+        srVertexPipe pipe;
+        pipe.process(input);
+        REQUIRE(probe.calls - before == (count == 0 ? 0 : count == 65 ? 2 : 1));
+    }
+    return true;
+}
+
 class ProfileMaterial : public TestMaterial {
 public:
     void getMaterialInfo(srVertexProcessor::MaterialInfo& info) override
@@ -565,6 +672,109 @@ bool rendererOwnership()
     return true;
 }
 
+bool rendererTextureStages()
+{
+    srGERD gerd(srCreateSDLGPUDevice(), "texture stage fixture");
+    for (unsigned stages : {1u, 2u}) {
+        srGERD::Renderer renderer({&gerd, 0, 256, stages});
+        srVertexArray arrays{};
+        renderer.allocVertexArray(arrays, 3);
+        for (unsigned stage = 0; stage < 2; ++stage)
+            for (unsigned i = 0; i < 3; ++i) {
+                renderer.vertices.st[stage][i] = glm::vec2(10 * stage + i, 20 + i);
+                renderer.vertices.q[stage][i] = 0.25f * (stage + i + 1);
+            }
+        for (unsigned attributes = 0; attributes < 128; ++attributes) {
+            for (auto& stream : renderer.stq) stream.clear();
+            renderer.vertices.attributes[0] = attributes;
+            renderer.programVertexArrays(&arrays, 3);
+            const auto mask = gerd.getVertexArrayMask().value;
+            for (unsigned stage = 0; stage < 2; ++stage) {
+                const bool enabled = stage < stages &&
+                    (attributes & (srVertexArray::ATTRIBUTE_ST0 << stage));
+                REQUIRE(bool(mask & (1u << (srRendererDefs::VERTEX_ARRAY_TEXCOORD0 + stage))) == enabled);
+                const bool combined = enabled &&
+                    (attributes & (srVertexArray::ATTRIBUTE_Q0 << stage));
+                REQUIRE(renderer.stq[stage].size() == (combined ? 3u : 0u));
+                if (combined)
+                    for (unsigned i = 0; i < 3; ++i) {
+                        REQUIRE(renderer.stq[stage][i].st == renderer.vertices.st[stage][i]);
+                        REQUIRE(renderer.stq[stage][i].q == renderer.vertices.q[stage][i]);
+                    }
+            }
+        }
+    }
+    return true;
+}
+
+bool rendererCornerRemapping()
+{
+    // All combinations of reused/new corners, mixed UV and flat passes, and
+    // a nonzero batch base exercise allocation order and copied vertex streams.
+    for (unsigned changed = 0; changed < 8; ++changed) {
+        for (int sorted : {0, 1}) {
+            srGERD::Renderer renderer({nullptr, sorted, 256, 2});
+            srVertexArray arrays{};
+            renderer.vertices.alloc(arrays, 5);
+            renderer.allocVertexArray(arrays, 6);
+            for (unsigned i = 5; i < 11; ++i) {
+                renderer.vertices.positions[i] = glm::vec4(float(i), 2, 3, 1);
+                renderer.vertices.diffuse[i] = glm::vec4(float(i) / 20);
+                renderer.vertices.specular[i] = glm::vec4(float(i) / 30);
+                renderer.vertices.st[1][i] = glm::vec2(float(i), 4);
+                renderer.vertices.q[1][i] = float(i) / 10;
+                renderer.vertices.attributes[i] = i;
+            }
+            std::array<w8_ulong, 1> indices{0};
+            std::array<w8_ulong, 3> vertices{2, 0, 1};
+            std::array<srVector3i, 1> triangles{{{0, 1, 2}}};
+            std::array<int, 3> uv;
+            for (unsigned corner = 0; corner < 3; ++corner)
+                uv[corner] = corner + ((changed & (1u << corner)) ? 3 : 0);
+            std::array<srVector3i, 1> poly_uv{{{uv[0], uv[1], uv[2]}}};
+            std::array<glm::vec2, 6> texcoords;
+            for (unsigned i = 0; i < texcoords.size(); ++i) texcoords[i] = glm::vec2(i, i + 10);
+            std::array<srTriMeshPipeline::Pass, 2> passes{};
+            passes[0].poly_uv = poly_uv.data();
+            passes[0].texcoords = texcoords.data();
+            srGERD::Renderer::TriInput input{};
+            input.triangle_count = 1;
+            input.record_count = 2;
+            input.vertex_count = 3;
+            input.indices = indices.data();
+            input.vertices = vertices.data();
+            input.triangles = triangles.data();
+            input.passes = passes.data();
+            renderer.expandTriangles(input, sorted);
+            const auto& result = renderer.indices.triangles[0];
+            const std::array corners{result.x, result.y, result.z};
+            int next = 11;
+            for (unsigned corner = 0; corner < 3; ++corner) {
+                const int source = 5 + static_cast<int>(vertices[corner]);
+                if ((changed & (1u << corner)) == 0) {
+                    REQUIRE(corners[corner] == source);
+                    continue;
+                }
+                REQUIRE(corners[corner] == next);
+                REQUIRE(renderer.vertices.positions[next] == renderer.vertices.positions[source]);
+                REQUIRE(renderer.vertices.diffuse[next] == renderer.vertices.diffuse[source]);
+                REQUIRE(renderer.vertices.specular[next] == renderer.vertices.specular[source]);
+                REQUIRE(renderer.vertices.st[1][next] == renderer.vertices.st[1][source]);
+                REQUIRE(renderer.vertices.q[1][next] == renderer.vertices.q[1][source]);
+                REQUIRE(renderer.vertices.attributes[next] == renderer.vertices.attributes[source]);
+                REQUIRE(renderer.vertices.st[0][next] == texcoords[uv[corner]]);
+                REQUIRE(renderer.vertices.q[0][next] == 1.0f);
+                ++next;
+            }
+            REQUIRE(renderer.vertices.count == next);
+            const auto& flat = renderer.indices.triangles[1];
+            REQUIRE((flat.x == 10 && flat.y == 8 && flat.z == 9));
+            if (sorted) REQUIRE(renderer.indices.sort_key[0] == renderer.indices.sort_key[1]);
+        }
+    }
+    return true;
+}
+
 bool pipelineRecordTexcoords()
 {
     // Consume the producer's actual records, including a second record and
@@ -667,7 +877,10 @@ TEST_CASE("renderer_ownership_test")
         REQUIRE(materialChannelOperations());
         REQUIRE(coverageFinalization());
         REQUIRE(distanceProfiles());
+        REQUIRE(surfaceLighting());
         REQUIRE(pipelineRecordTexcoords());
+        REQUIRE(rendererTextureStages());
+        REQUIRE(rendererCornerRemapping());
         REQUIRE(srExit());
         REQUIRE(srGERD::getFirst() == nullptr);
     }

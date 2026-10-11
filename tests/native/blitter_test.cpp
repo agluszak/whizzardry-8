@@ -9,6 +9,17 @@
 #include <span>
 #include <string>
 #include <vector>
+#include <optional>
+#include <utility>
+#include <variant>
+#include <fstream>
+#include <ios>
+#include <array>
+#include <cstring>
+
+#include "imgfmt.h"
+#include "temporary_directory.h"
+#include "wiz8/asset_paths.h"
 
 // The same inputs run against the legacy assembly and the native C++ paths.
 // --capture emits per-case hashes of every destination byte, the return value
@@ -64,7 +75,7 @@ static bool check(const char* name, int variant, BOOLEAN result, const SDL_Rect&
     return true;
 }
 
-static void sprite_data(ETRLEObject& frame, int variant)
+static void sprite_data(STCISubImage& frame, int variant)
 {
     frame.usWidth = variant == 2 ? 140 : 15;
     frame.usHeight = 5;
@@ -99,6 +110,32 @@ static void sprite_data(ETRLEObject& frame, int variant)
     frame.uiDataLength = out - frame.uiDataOffset;
 }
 
+static std::optional<SpriteSheet> load_sprite(const STCISubImage& frame, std::span<const UINT8> data)
+{
+    ScopedTemporaryDirectory directory{"wiz8-blitter-image"};
+    w8_native::configure_paths({wiz8::path_to_utf8(directory.path),
+                                wiz8::path_to_utf8(directory.path / "user"), {"", "", ""}});
+    STCIHeader header{};
+    memcpy(header.cID, STCI_ID_STRING, STCI_ID_LEN);
+    header.fFlags = STCI_INDEXED | STCI_ETRLE_COMPRESSED;
+    header.ubDepth = 8;
+    header.Indexed.uiNumberOfColours = 256;
+    header.Indexed.usNumberOfSubImages = 1;
+    header.uiStoredSize = data.size();
+    const std::array<STCIPaletteElement, 256> colors{};
+    {
+        std::ofstream file(directory.path / "frame.sti", std::ios::binary);
+        file.write(reinterpret_cast<const char*>(&header), sizeof(header));
+        file.write(reinterpret_cast<const char*>(colors.data()), sizeof(colors));
+        file.write(reinterpret_cast<const char*>(&frame), sizeof(frame));
+        file.write(reinterpret_cast<const char*>(data.data()), data.size());
+        REQUIRE(file.good());
+    }
+    auto image = LoadImage("frame.sti");
+    auto* sheet = image ? std::get_if<SpriteSheet>(&*image) : nullptr;
+    return sheet ? std::optional<SpriteSheet>(std::move(*sheet)) : std::nullopt;
+}
+
 TEST_CASE("blitter_test")
 {
     auto file = wiz8::open_host_file(wiz8::path_from_utf8(WIZ8_BLITTER_EXPECTED));
@@ -113,8 +150,8 @@ TEST_CASE("blitter_test")
         palette[i] = static_cast<UINT16>((i * 257) ^ 0x57ab);
     }
     SGPVObject object = {};
-    ETRLEObject frame{};
-    object.pShadeCurrent = palette;
+    STCISubImage frame{};
+    std::copy_n(palette, 256, object.palette.begin());
     ClippingRect = {0, 0, 640, static_cast<INT32>(rows)};
     SDL_Rect full = ClippingRect;
     bool ok = true;
@@ -124,7 +161,9 @@ TEST_CASE("blitter_test")
         // The single decoded representation must produce the legacy assembly
         // bytes; data 1 carries literal index 0 in opaque runs and exercises
         // the explicit opacity mask.
-        REQUIRE(DecodeVideoObjectSprites(&object, {&frame, 1}, {encoded, sizeof(encoded)}));
+        auto sheet = load_sprite(frame, encoded);
+        REQUIRE(sheet);
+        object.sprites = std::move(sheet->frames);
         for (int variant = 0; variant < 8; ++variant) {
             // Whole, partial opaque/transparent runs, every clipped edge,
             // null/default clip rectangle and complete rejection.
@@ -139,7 +178,7 @@ TEST_CASE("blitter_test")
             const SpriteFrame& sprite = object.sprites[0];
 #define SPRITE(name, ...) \
             reset(); ok = check(#name, id, \
-                BltSpriteTo16BPPBuffer(destination, pitch, sprite, object.pShadeCurrent, \
+                BltSpriteTo16BPPBuffer(destination, pitch, sprite, object.currentPalette().data(), \
                                        x, y, selected, __VA_ARGS__), clip) && ok
             SPRITE(Blt8BPPDataTo16BPPBufferMonoShadowClip, false, SpriteDrawOp::MonoShadow,
                    0xa351, variant % 2 ? 0 : 0x2f14, variant % 3 ? 0x1234 : 0);
@@ -150,7 +189,7 @@ TEST_CASE("blitter_test")
 #define UNCLIPPED(name, ...) \
             reset(); ok = check(#name, data, \
                 BltSpriteTo16BPPBuffer(destination, pitch, object.sprites[0], \
-                                       object.pShadeCurrent, 4, 4, nullptr, __VA_ARGS__), full) && ok
+                                       object.currentPalette().data(), 4, 4, nullptr, __VA_ARGS__), full) && ok
         UNCLIPPED(Blt8BPPDataTo16BPPBufferShadow, false, SpriteDrawOp::Shadow);
         UNCLIPPED(Blt8BPPDataTo16BPPBufferTransparent, false, SpriteDrawOp::Transparent);
         UNCLIPPED(Blt8BPPDataTo16BPPBufferTransMirror, true, SpriteDrawOp::Transparent);
@@ -179,11 +218,10 @@ TEST_CASE("blitter_test")
         SGPVSurface surface = {};
         surface.usWidth = pitch;
         surface.usHeight = rows;
-        surface.p16BPPPalette = std::make_unique<UINT16[]>(256);
-        std::copy_n(palette, 256, surface.p16BPPPalette.get());
+        std::copy_n(palette, 256, surface.p16BPPPalette.begin());
         SDL_Rect area = {2, 3, static_cast<INT32>(width), 4};
         reset(); ok = check("Blt8BPPDataSubTo16BPPBuffer", width,
-            Blt8BPPDataSubTo16BPPBuffer(destination, pitch, &surface, reinterpret_cast<UINT8*>(source), pitch,
+            Blt8BPPDataSubTo16BPPBuffer(destination, pitch, surface, reinterpret_cast<UINT8*>(source), pitch,
                 3, 2, &area), area) && ok;
     }
     UINT8 pattern[8][8];
@@ -215,22 +253,23 @@ TEST_CASE("blitter_test")
     {
         ClippingRect = full;
         SGPVObject probe = {};
-        probe.pShadeCurrent = palette;
-        ETRLEObject probe_frame{};
+        std::copy_n(palette, 256, probe.palette.begin());
+        STCISubImage probe_frame{};
         probe_frame.usWidth = 3;
         probe_frame.usHeight = 1;
         probe_frame.uiDataOffset = 0;
         // opaque literal 0, transparent run of 1, opaque literal 2
         static const UINT8 probe_data[] = {1, 0, 0x81, 1, 2, 0};
         probe_frame.uiDataLength = sizeof(probe_data);
-        if (!DecodeVideoObjectSprites(&probe, {&probe_frame, 1},
-                                      {probe_data, sizeof(probe_data)})) {
+        auto sheet = load_sprite(probe_frame, probe_data);
+        if (!sheet) {
             fprintf(stderr, "probe sprite failed to decode\n");
             ok = false;
         } else {
+            probe.sprites = std::move(sheet->frames);
             const SpriteFrame& sprite = probe.sprites[0];
             reset();
-            BltSpriteTo16BPPBuffer(destination, pitch, sprite, probe.pShadeCurrent, 4, 4,
+            BltSpriteTo16BPPBuffer(destination, pitch, sprite, probe.currentPalette().data(), 4, 4,
                                    nullptr, false, SpriteDrawOp::Transparent);
             auto untouched = [](unsigned i) {
                 return static_cast<UINT16>(i * 337 + 19);
@@ -246,7 +285,7 @@ TEST_CASE("blitter_test")
             // reversed onto destination columns 0 and 1. The transparent
             // source column leaves the destination, the literal zero draws.
             reset();
-            BltSpriteTo16BPPBuffer(destination, pitch, sprite, probe.pShadeCurrent, -1, 4,
+            BltSpriteTo16BPPBuffer(destination, pitch, sprite, probe.currentPalette().data(), -1, 4,
                                    nullptr, true, SpriteDrawOp::Transparent);
             if (destination[base] != untouched(base) ||
                 destination[base + 1] != palette[0] ||
@@ -257,18 +296,15 @@ TEST_CASE("blitter_test")
         }
     }
 
-    // Malformed frames must fail without replacing previously decoded sprites.
+    // Malformed frames fail at the image-loading boundary.
     {
-        SGPVObject object{};
-        object.sprites.emplace_back().usWidth = 7;
-        ETRLEObject frame{};
+        STCISubImage frame{};
         frame.usWidth = 1;
         frame.usHeight = 1;
         const UINT8 data[] = {0x80, 1, 2, 0};
         frame.uiDataLength = sizeof(data);
         auto rejected = [&] {
-            return !DecodeVideoObjectSprites(&object, {&frame, 1}, data) &&
-                   object.sprites.size() == 1 && object.sprites[0].usWidth == 7;
+            return !load_sprite(frame, data);
         };
         ok = rejected() && ok; // Zero-length encoded run.
         frame.usWidth = frame.usHeight = 65535;
@@ -276,7 +312,6 @@ TEST_CASE("blitter_test")
         frame.usWidth = frame.usHeight = 0;
         frame.uiDataOffset = sizeof(data) + 1;
         ok = rejected() && ok; // Empty frames still need valid encoded ranges.
-        ok = !DecodeVideoObjectSprites(nullptr, {}, {}) && ok;
     }
 
     {
@@ -288,4 +323,25 @@ TEST_CASE("blitter_test")
         printf("%u blitter cases checked against legacy assembly output\n", cases);
     }
     REQUIRE(ok);
+}
+
+TEST_CASE("SGP sprite clipping preserves inclusive frame bounds")
+{
+    SGPVObject object{};
+    SpriteFrame& frame = object.sprites.emplace_back();
+    frame.usWidth = 6;
+    frame.usHeight = 4;
+    frame.sOffsetX = -2;
+    frame.sOffsetY = 1;
+
+    SDL_Rect clip{0, 0, 10, 10};
+    REQUIRE_FALSE(BltIsClipped(object, 2, 1, 0, &clip));
+    REQUIRE_FALSE(BltIsClipped(object, 6, 1, 0, &clip));
+    REQUIRE(BltIsClipped(object, 1, 1, 0, &clip));
+    REQUIRE(BltIsClipped(object, 7, 1, 0, &clip));
+    REQUIRE(BltIsClipped(object, 25, 1, 0, &clip));
+    REQUIRE(BltIsClipped(object, 2, -2, 0, &clip));
+
+    frame.usWidth = 0;
+    REQUIRE_FALSE(BltIsClipped(object, 25, 1, 0, &clip));
 }

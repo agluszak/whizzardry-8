@@ -1,3 +1,4 @@
+#include <tuple>
 #include <SDL3/SDL_rect.h>
 #include <algorithm>
 #include <memory>
@@ -62,9 +63,6 @@ unsigned char DispatchButtonRegionEvent(const InputAtom* event, W8Region* region
    together and preserve their order. Retail assertions identify m_uiRegionSetId
    (line 399) and the widget's m_pPanel (line 1849); other role names are recovered. */
 #define REGSET_NULL 0
-
-// GLOBAL: WIZ8 0x00617C90
-char g_W8LineBreakCharacters[] = "\n";
 
 // GLOBAL: WIZ8 0x005ED548
 extern const unsigned int g_W8TextBufferAlignLeft = 0x01;
@@ -380,16 +378,16 @@ W8TextBuffer::W8TextBuffer()
 }
 
 // FUNCTION: WIZ8 0x004f34d0
-void W8TextBuffer::SetText(std::string_view text, int font)
+void W8TextBuffer::SetText(std::string_view text, Font& font)
 {
-    m_font = font;
+    m_font = &font;
     m_text.assign(text);
     UpdateLayout();
     m_geometryDirty = true;
 }
 
 // FUNCTION: WIZ8 0x004f33a0
-W8TextBuffer::W8TextBuffer(const W8ControlsRect* bounds, std::string_view text, int font,
+W8TextBuffer::W8TextBuffer(const W8ControlsRect* bounds, std::string_view text, Font& font,
                            unsigned int layout_mode, int render_mode)
 {
     m_buffer.clear();
@@ -442,7 +440,7 @@ void W8TextBuffer::UpdateLayout()
     char* line = m_buffer.data();
     unsigned int accumulated_width = 0;
     char* previous_break = 0;
-    short separator_width = StringPixLength(const_cast<char*>(g_W8TextSeparator), m_font);
+    short separator_width = m_font->textWidth(const_cast<char*>(g_W8TextSeparator));
 
     m_lineCount = 1;
     if ((m_layoutMode & 0x40) == 0) {
@@ -452,7 +450,7 @@ void W8TextBuffer::UpdateLayout()
         while (*break_at != '\0') {
             const char separator = *break_at;
             *break_at = '\0';
-            short word_width = StringPixLength(line, m_font);
+            short word_width = m_font->textWidth(line);
             if (static_cast<unsigned int>(static_cast<int>(word_width) + accumulated_width) <
                 available_width) {
                 accumulated_width +=
@@ -487,7 +485,7 @@ void W8TextBuffer::UpdateLayout()
             span = strcspn(line, g_W8TextBreakCharacters);
             break_at = line + span;
         }
-        short final_width = StringPixLength(line, m_font);
+        short final_width = m_font->textWidth(line);
         unsigned int total_width = static_cast<int>(final_width) + accumulated_width;
         if (available_width <= total_width) {
             if (previous_break != 0) {
@@ -534,7 +532,7 @@ int W8TextBuffer::GetHorizontalPosition(int width)
 int W8TextBuffer::GetVerticalPosition()
 {
     unsigned int line_height = m_lineHeight;
-    unsigned int font_height = GetFontHeight(m_font);
+    unsigned int font_height = m_font->height();
     unsigned int first_line_inset;
     if (line_height == 0) {
         line_height = font_height;
@@ -560,7 +558,7 @@ int W8TextBuffer::GetVerticalPosition()
 // FUNCTION: WIZ8 0x004f3cf0
 void W8TextBuffer::SetLineHeight(unsigned int height)
 {
-    if (height < GetFontHeight(m_font)) {
+    if (height < m_font->height()) {
         m_lineHeight = 0;
         return;
     }
@@ -572,62 +570,55 @@ void W8TextBuffer::SetLineHeight(unsigned int height)
 // FUNCTION: WIZ8 0x004f3d50
 void W8TextBuffer::FillBounds(int colour)
 {
-    ColorFillVideoSurfaceArea(FRAME_BUFFER, m_layoutBounds.left, m_layoutBounds.top,
+    ColorFillVideoSurfaceArea(GetFrameBufferSurface(), m_layoutBounds.left, m_layoutBounds.top,
                               m_layoutBounds.right, m_layoutBounds.bottom, colour);
     InvalidateRegion(m_layoutBounds.left, m_layoutBounds.top, m_layoutBounds.right,
                      m_layoutBounds.bottom, 0);
 }
 
-/* Draws each newline-delimited line through the active font context. The
-   temporary terminators are restored before advancing to the next line. */
+/* Draw each newline-delimited view without modifying the owned text. */
 // FUNCTION: WIZ8 0x004f3710
 void W8TextBuffer::RenderText(unsigned char* buffer, unsigned int pitch, int x_offset, int y_offset,
                               bool force)
 {
-    char* line = m_buffer.data();
+    std::string_view remaining = m_buffer;
     if (m_buffer.empty() || (!force && !m_geometryDirty)) {
         return;
     }
 
-    SetFont(m_font);
-    HVOBJECT font_object = GetFontObject(m_font);
-    if (font_object == 0) {
-        return;
-    }
+    SetFont(*m_font);
+    auto& font_object = m_font->glyphs;
     SetObjectShade(font_object, m_renderMode);
-    unsigned short* previous_state = GetFontObjectPalette16BPP(m_font);
+    const auto previous_state = m_font->palette();
     if (m_fontStateIndex != -1) {
-        SetFontObjectPalette16BPP(m_font, g_font_state_palettes[m_fontStateIndex].get());
+        m_font->setPalette(g_font_state_palettes[m_fontStateIndex]);
     }
-    SaveFontSettings();
-    SetFontDestBuffer(FontDestBuffer, m_pendingBounds.left, m_pendingBounds.top,
-                      m_pendingBounds.right, m_pendingBounds.bottom, FontDestWrap);
+    {
+        FontRenderScope font_scope;
+        SetFontDestClip(m_pendingBounds.left, m_pendingBounds.top,
+                          m_pendingBounds.right, m_pendingBounds.bottom);
 
-    int y = GetVerticalPosition();
-    size_t span = strcspn(line, g_W8LineBreakCharacters);
-    for (;;) {
-        const bool has_next_line = line[span] != '\0';
-        if (has_next_line)
-            line[span] = '\0';
+        int y = GetVerticalPosition();
+        for (;;) {
+            const auto end = remaining.find('\n');
+            const auto line = remaining.substr(0, end);
 
-        const int x = GetHorizontalPosition(StringPixLength(line, m_font));
-        if (m_alternateRenderer == 0)
-            DrawFontTextToBuffer(buffer, pitch, m_font, x + x_offset, y + y_offset, line);
-        else
-            DrawMonoFontTextToBuffer(buffer, pitch, m_font, x + x_offset, y + y_offset, line);
+            const int x = GetHorizontalPosition(m_font->textWidth(line));
+            if (m_alternateRenderer == 0)
+                DrawFontTextToBuffer(buffer, pitch, *m_font, x + x_offset, y + y_offset, line);
+            else
+                DrawMonoFontTextToBuffer(buffer, pitch, *m_font, x + x_offset, y + y_offset, line);
 
-        if (!has_next_line)
-            break;
-        y += GetLineHeight();
-        line[span] = '\n';
-        if (m_layoutBounds.bottom <= y)
-            break;
-        line += span + 1;
-        span = strcspn(line, g_W8LineBreakCharacters);
+            if (end == std::string_view::npos)
+                break;
+            y += GetLineHeight();
+            if (m_layoutBounds.bottom <= y)
+                break;
+            remaining.remove_prefix(end + 1);
+        }
+
+        m_font->setPalette(previous_state);
     }
-
-    SetFontObjectPalette16BPP(m_font, previous_state);
-    RestoreFontSettings();
     m_geometryDirty = false;
 }
 
@@ -635,53 +626,46 @@ void W8TextBuffer::RenderText(unsigned char* buffer, unsigned int pitch, int x_o
    shares the buffer's layout and palette state but prints directly to the
    selected target, then restores the full-screen clip. */
 // FUNCTION: WIZ8 0x004f39b0
-void W8TextBuffer::RenderToTarget(int offset, bool force, unsigned int target)
+void W8TextBuffer::RenderToTarget(int offset, bool force, SGPVSurface& target)
 {
-    char* line = m_buffer.data();
+    std::string_view remaining = m_buffer;
     if (m_buffer.empty() || (!force && !m_geometryDirty)) {
         return;
     }
 
-    SetFont(m_font);
-    HVOBJECT font_object = GetFontObject(m_font);
-    if (font_object == 0) {
-        return;
-    }
+    SetFont(*m_font);
+    auto& font_object = m_font->glyphs;
     SetObjectShade(font_object, m_renderMode);
     SetFontDestBuffer(target, m_pendingBounds.left, m_pendingBounds.top, m_pendingBounds.right,
                       m_pendingBounds.bottom, 0);
-    unsigned short* previous_state = GetFontObjectPalette16BPP(m_font);
+    const auto previous_state = m_font->palette();
     if (m_fontStateIndex != -1) {
-        SetFontObjectPalette16BPP(m_font, g_font_state_palettes[m_fontStateIndex].get());
+        m_font->setPalette(g_font_state_palettes[m_fontStateIndex]);
     }
     if (m_highlighted) {
-        SetFontObjectPalette16BPP(m_font, g_font_state_palettes[W8_FONT_PALETTE_GREEN].get());
+        m_font->setPalette(g_font_state_palettes[W8_FONT_PALETTE_GREEN]);
     }
 
     int y = GetVerticalPosition();
-    size_t span = strcspn(line, g_W8LineBreakCharacters);
     for (;;) {
-        const bool has_next_line = line[span] != '\0';
-        if (has_next_line)
-            line[span] = '\0';
+        const auto end = remaining.find('\n');
+        const auto line = remaining.substr(0, end);
 
-        const int x = GetHorizontalPosition(StringPixLength(line, m_font));
+        const int x = GetHorizontalPosition(m_font->textWidth(line));
         DrawFontText(x + offset, y + offset, line);
 
-        if (!has_next_line)
+        if (end == std::string_view::npos)
             break;
         y += GetLineHeight();
-        line[span] = '\n';
         if (m_layoutBounds.bottom <= y)
             break;
-        line += span + 1;
-        span = strcspn(line, g_W8LineBreakCharacters);
+        remaining.remove_prefix(end + 1);
     }
 
-    SetFontObjectPalette16BPP(m_font, previous_state);
+    m_font->setPalette(previous_state);
     InvalidateRegion(m_layoutBounds.left, m_layoutBounds.top, m_layoutBounds.right,
                      m_layoutBounds.bottom, 0);
-    SetFontDestBuffer(FRAME_BUFFER, 0, 0, 640, 480, 0);
+    SetFontDestBuffer(GetFrameBufferSurface(), 0, 0, 640, 480, 0);
     m_geometryDirty = false;
 }
 
@@ -693,7 +677,7 @@ unsigned int W8TextBuffer::GetLineHeight()
 {
     unsigned int height = m_lineHeight;
     if (height == 0) {
-        height = GetFontHeight(m_font);
+        height = m_font->height();
     }
     return height;
 }
@@ -751,7 +735,7 @@ bool W8TextControl::MeasureText()
 
     if (m_imageObject != -1 && m_imageFrame != -1 &&
         ((handle = m_normalSprite) != -1 || (handle = m_pressedSprite) != -1)) {
-        GetCatalogImageSize(m_imageObject, m_imageFrame, handle, &m_measured_w, &m_measured_h);
+        std::tie(m_measured_w, m_measured_h) = GetCatalogImageSize(m_imageObject, m_imageFrame, handle);
         return true;
     }
     m_measured_w = -1;
@@ -842,14 +826,14 @@ void W8TextControl::Redraw(bool full_redraw)
 
     if (!full_redraw && !m_dirty) {
         if (m_textBuffer.HasBuffer()) {
-            m_textBuffer.RenderToTarget(text_state, false, FRAME_BUFFER);
+            m_textBuffer.RenderToTarget(text_state, false, GetFrameBufferSurface());
         }
         return;
     }
 
     if (m_imageObject == -1 || m_imageFrame == -1) {
         if (m_textBuffer.HasBuffer()) {
-            m_textBuffer.RenderToTarget(text_state, full_redraw, FRAME_BUFFER);
+            m_textBuffer.RenderToTarget(text_state, full_redraw, GetFrameBufferSurface());
         }
         return;
     }
@@ -859,10 +843,10 @@ void W8TextControl::Redraw(bool full_redraw)
         sprite = m_disabledSprite;
         if (sprite == -1) {
             if (m_textBuffer.HasBuffer()) {
-                m_textBuffer.RenderToTarget(text_state, full_redraw, FRAME_BUFFER);
+                m_textBuffer.RenderToTarget(text_state, full_redraw, GetFrameBufferSurface());
             }
             ShadowVideoSurfaceRect(
-                FRAME_BUFFER, m_pPanel->m_bounds.left + m_left, m_pPanel->m_bounds.top + m_top,
+                GetFrameBufferSurface(), m_pPanel->m_bounds.left + m_left, m_pPanel->m_bounds.top + m_top,
                 m_pPanel->m_bounds.left + m_right, m_pPanel->m_bounds.top + m_bottom);
             m_dirty = false;
             return;
@@ -882,7 +866,7 @@ void W8TextControl::Redraw(bool full_redraw)
         if (m_alternateTextEnabled) {
             short width;
             short height;
-            GetCatalogImageSize(m_imageObject, m_imageFrame, sprite, &width, &height);
+            std::tie(width, height) = GetCatalogImageSize(m_imageObject, m_imageFrame, sprite);
             int x_inset = m_left - m_right + static_cast<unsigned short>(width);
             int y_inset = m_top - m_bottom + static_cast<unsigned short>(height);
             if (x_inset > 0) {
@@ -892,12 +876,12 @@ void W8TextControl::Redraw(bool full_redraw)
                 y += y_inset / 2;
             }
         }
-        DrawCatalogImageAndInvalidate(FRAME_BUFFER, m_imageObject, m_imageFrame, sprite, x, y,
+        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), m_imageObject, m_imageFrame, sprite, x, y,
                                       VO_BLT_SRCTRANSPARENCY, 0);
     }
 
     if (m_textBuffer.HasBuffer()) {
-        m_textBuffer.RenderToTarget(text_state, full_redraw, FRAME_BUFFER);
+        m_textBuffer.RenderToTarget(text_state, full_redraw, GetFrameBufferSurface());
     }
     m_dirty = false;
 }
@@ -920,8 +904,7 @@ void W8TextControl::UpdateTextLayout()
     int absolute_right = m_pPanel->m_bounds.left + m_right;
     int absolute_bottom = m_pPanel->m_bounds.top + m_bottom;
     if (m_imageObject != -1 && m_imageFrame != -1) {
-        GetCatalogImageSize(m_imageObject, m_imageFrame, m_normalSprite, &measured_width,
-                            &measured_height);
+        std::tie(measured_width, measured_height) = GetCatalogImageSize(m_imageObject, m_imageFrame, m_normalSprite);
         if ((m_layoutFlags & g_W8TextControlLayoutImageLeft) != 0) {
             absolute_left += 2 + static_cast<unsigned short>(measured_width);
         } else {
@@ -1513,7 +1496,7 @@ W8VerticalRangeThumb::W8VerticalRangeThumb(W8RangeControl* range, int left, int 
     m_minimumPosition = 0.0f;
     m_maximumPosition = 1.0f;
     m_position = 0.0f;
-    GetCatalogImageSize(render_arg, 0, normal_sprite, &width, &height);
+    std::tie(width, height) = GetCatalogImageSize(render_arg, 0, normal_sprite);
     if (right - left < static_cast<unsigned short>(width)) {
         m_right = m_left + static_cast<unsigned short>(width);
         m_drawOffsetX = 0;
@@ -1610,7 +1593,7 @@ void W8VerticalRangeThumb::Redraw(bool full_redraw)
     int right = m_pPanel->m_bounds.left + m_right;
     int bottom = m_pPanel->m_bounds.top + m_bottom;
     InvalidateRegion(left, top, right, bottom, 0);
-    ColorFillVideoSurfaceArea(FRAME_BUFFER, left, top, right, bottom, 0x8000);
+    ColorFillVideoSurfaceArea(GetFrameBufferSurface(), left, top, right, bottom, 0x8000);
 
     int sprite;
     if (!m_enabled) {
@@ -1621,7 +1604,7 @@ void W8VerticalRangeThumb::Redraw(bool full_redraw)
     } else if (!m_hovered || (sprite = m_hoveredSprite) == -1) {
         sprite = m_normalSprite;
     }
-    DrawCatalogImage(FRAME_BUFFER, m_catalogObject, m_catalogFrame, sprite,
+    DrawCatalogImage(GetFrameBufferSurface(), m_catalogObject, m_catalogFrame, sprite,
                      m_pPanel->m_bounds.left + m_drawOffsetX + m_left,
                      m_pPanel->m_bounds.top + m_pixelPosition + m_top, VO_BLT_SRCTRANSPARENCY, 0);
 }
@@ -1756,11 +1739,11 @@ W8HorizontalRangeThumb::W8HorizontalRangeThumb(Controls* panel, unsigned int reg
     m_maximumPosition = 1.0f;
     m_position = 0.0f;
     m_listener = 0;
-    GetCatalogImageSize(catalog_object, catalog_frame, background_sprite, &width, &height);
+    std::tie(width, height) = GetCatalogImageSize(catalog_object, catalog_frame, background_sprite);
     m_right = static_cast<unsigned short>(width) + m_left;
     m_bottom = m_top + static_cast<unsigned short>(height);
     SetRegion(m_region);
-    GetCatalogImageSize(m_catalogObject, m_catalogFrame, m_normalThumbSprite, &width, &height);
+    std::tie(width, height) = GetCatalogImageSize(m_catalogObject, m_catalogFrame, m_normalThumbSprite);
     m_thumbWidth = static_cast<unsigned short>(width);
     m_trackLength = (m_right - m_left) - static_cast<unsigned short>(width);
 }
@@ -1881,7 +1864,7 @@ void W8HorizontalRangeThumb::Redraw(bool full_redraw)
 
     int x = m_pPanel->m_bounds.left + m_left;
     int y = m_pPanel->m_bounds.top + m_top;
-    DrawCatalogImageAndInvalidate(FRAME_BUFFER, m_catalogObject, m_catalogFrame, m_backgroundSprite,
+    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), m_catalogObject, m_catalogFrame, m_backgroundSprite,
                                   x, y, VO_BLT_SRCTRANSPARENCY, 0);
 
     int sprite;
@@ -1892,7 +1875,7 @@ void W8HorizontalRangeThumb::Redraw(bool full_redraw)
     } else {
         sprite = m_normalThumbSprite;
     }
-    DrawCatalogImage(FRAME_BUFFER, m_catalogObject, m_catalogFrame, sprite, x + m_pixelPosition, y,
+    DrawCatalogImage(GetFrameBufferSurface(), m_catalogObject, m_catalogFrame, sprite, x + m_pixelPosition, y,
                      VO_BLT_SRCTRANSPARENCY, 0);
 }
 
@@ -1947,40 +1930,27 @@ void Controls::DestroyAllControls()
 // FUNCTION: WIZ8 0x004f2e50
 void Controls::Invalidate(const W8ControlsRect* rect)
 {
-    int edge;
-
     m_fDirty = true;
-    if (rect == 0) {
+    if (!rect) {
         m_fWholeAreaDirty = true;
         RequestRedraw(W8_MAIN_REDRAW_FRAME);
         return;
     }
-    edge = m_dirtyRect.left;
+
     m_fWholeAreaDirty = false;
-    if (edge == -1) {
+    if (m_dirtyRect.left == -1) {
         m_dirtyRect = *rect;
-        RequestRedraw(W8_MAIN_REDRAW_FRAME);
-        return;
+    } else {
+        const SDL_Rect dirty{m_dirtyRect.left, m_dirtyRect.top,
+                             m_dirtyRect.right - m_dirtyRect.left,
+                             m_dirtyRect.bottom - m_dirtyRect.top};
+        const SDL_Rect requested{rect->left, rect->top,
+                                 rect->right - rect->left, rect->bottom - rect->top};
+        SDL_Rect combined{};
+        SDL_GetRectUnion(&dirty, &requested, &combined);
+        m_dirtyRect = {combined.x, combined.y, combined.x + combined.w,
+                       combined.y + combined.h};
     }
-    if (rect->left <= edge) {
-        edge = rect->left;
-    }
-    m_dirtyRect.left = edge;
-    edge = m_dirtyRect.top;
-    if (rect->top <= m_dirtyRect.top) {
-        edge = rect->top;
-    }
-    m_dirtyRect.top = edge;
-    edge = m_dirtyRect.right;
-    if (m_dirtyRect.right <= rect->right) {
-        edge = rect->right;
-    }
-    m_dirtyRect.right = edge;
-    edge = rect->bottom;
-    if (rect->bottom < m_dirtyRect.bottom) {
-        edge = m_dirtyRect.bottom;
-    }
-    m_dirtyRect.bottom = edge;
     RequestRedraw(W8_MAIN_REDRAW_FRAME);
 }
 
@@ -2022,7 +1992,7 @@ void Controls::Redraw()
     }
     if (m_fDirty) {
         if (m_catalogObject != -1) {
-            DrawCatalogImage(FRAME_BUFFER, m_catalogObject, m_catalogFrame, m_catalogImage,
+            DrawCatalogImage(GetFrameBufferSurface(), m_catalogObject, m_catalogFrame, m_catalogImage,
                              m_bounds.left, m_bounds.top, VO_BLT_SRCTRANSPARENCY, 0);
         }
         redrawn = true;

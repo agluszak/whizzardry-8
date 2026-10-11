@@ -20,7 +20,6 @@
 #include "Video2.h"
 #include "Types.h"
 #include "compat/native.h"
-#include "vsurface.h"
 
 
 SDL_Window* ghWindow = nullptr;
@@ -32,7 +31,6 @@ void VideoCaptureToggle() { ++captures; }
 BOOLEAN VideoInspectorIsEnabled() { return FALSE; }
 void SuspendVideoManager() { ++suspensions; }
 BOOLEAN RestoreVideoManager() { ++restorations; return TRUE; }
-BOOLEAN RestoreVideoSurfaces() { return TRUE; }
 BOOLEAN VideoResizeWindow() { ++resizes; return TRUE; }
 float MoveTimer(int action) { clock_actions.push_back(action); return 0; }
 static SDL_WindowID id;
@@ -55,7 +53,7 @@ static void key(Uint32 kind, SDL_Keycode code, SDL_Keymod modifiers = SDL_KMOD_N
     event.key.repeat = repeat;
     push(event);
 }
-static void mouse(Uint32 kind, Uint8 button, float x, float y)
+static void mouse(Uint32 kind, Uint8 button, float x, float y, Uint8 clicks = 1)
 {
     SDL_Event event{};
     event.type = kind;
@@ -69,6 +67,7 @@ static void mouse(Uint32 kind, Uint8 button, float x, float y)
     {
         event.button.windowID = id;
         event.button.button = button;
+        event.button.clicks = clicks;
         event.button.x = x;
         event.button.y = y;
     }
@@ -226,20 +225,28 @@ TEST_CASE("events_test")
     REQUIRE(events.size() == 1);
     expect(events[0], LEFT_BUTTON_REPEAT, 0);
     REQUIRE(events[0].uiParam == ((240u << 16) | 320u));
-    guiSingleClickTimer = w8_get_ticks() - 1000;
     mouse(SDL_EVENT_MOUSE_BUTTON_UP, SDL_BUTTON_LEFT, 640, 480);
     drain_events();
     events = input();
     REQUIRE((events.size() == 1 && !gfLeftButtonState));
     expect(events[0], LEFT_BUTTON_UP, 0);
-    mouse(SDL_EVENT_MOUSE_BUTTON_DOWN, SDL_BUTTON_LEFT, 640, 480);
-    mouse(SDL_EVENT_MOUSE_BUTTON_UP, SDL_BUTTON_LEFT, 640, 480);
+    mouse(SDL_EVENT_MOUSE_BUTTON_DOWN, SDL_BUTTON_LEFT, 640, 480, 2);
+    mouse(SDL_EVENT_MOUSE_BUTTON_UP, SDL_BUTTON_LEFT, 640, 480, 2);
     drain_events();
     events = input();
     REQUIRE(events.size() == 3);
     expect(events[0], LEFT_BUTTON_DOWN, 0);
     expect(events[1], LEFT_BUTTON_UP, 0);
     expect(events[2], LEFT_BUTTON_DBL_CLK, 0);
+
+    // Closely spaced clicks are not double-clicks unless SDL identifies them.
+    mouse(SDL_EVENT_MOUSE_BUTTON_DOWN, SDL_BUTTON_LEFT, 640, 480);
+    mouse(SDL_EVENT_MOUSE_BUTTON_UP, SDL_BUTTON_LEFT, 640, 480);
+    drain_events();
+    events = input();
+    REQUIRE(events.size() == 2);
+    expect(events[0], LEFT_BUTTON_DOWN, 0);
+    expect(events[1], LEFT_BUTTON_UP, 0);
 
     wheel(0.25f);
     wheel(0.5f);
@@ -361,19 +368,20 @@ TEST_CASE("events_test")
         REQUIRE(InitializeInputManager());
         for (unsigned i = 0; i < queued; ++i)
             QueueEvent(KEY_DOWN, i, 0);
-        guiSingleClickTimer = w8_get_ticks();
-        gusRecordedKeyState = SHIFT_DOWN;
-        QueueEvent(LEFT_BUTTON_UP, 17, 23);
+        gfShiftState = SHIFT_DOWN;
+        mouse(SDL_EVENT_MOUSE_BUTTON_UP, SDL_BUTTON_LEFT, 640, 480, 2);
+        drain_events();
         events = input();
         REQUIRE(events.size() == 256);
         for (unsigned i = 0; i < queued; ++i)
             expect(events[i], KEY_DOWN, i);
         if (queued < 256) {
-            expect(events[queued], LEFT_BUTTON_UP, 17, SHIFT_DOWN);
-            REQUIRE(events[queued].uiParam == 23);
+            expect(events[queued], LEFT_BUTTON_UP, 0, SHIFT_DOWN);
+            REQUIRE(events[queued].uiParam == ((240u << 16) | 320u));
         }
         if (queued == 254)
-            expect(events.back(), LEFT_BUTTON_DBL_CLK, 17, SHIFT_DOWN);
+            expect(events.back(), LEFT_BUTTON_DBL_CLK, 0, SHIFT_DOWN);
+        gfShiftState = 0;
         QueueEvent(KEY_UP, 999, 0);
         events = input();
         REQUIRE(events.size() == 1);

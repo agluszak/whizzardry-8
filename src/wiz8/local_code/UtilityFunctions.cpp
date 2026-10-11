@@ -2,6 +2,7 @@
 #include <SDL3/SDL_rect.h>
 #include <string_view>
 #include <string>
+#include <algorithm>
 #include <cctype>
 #include <cstring>
 
@@ -25,7 +26,6 @@
 #include "conditions.h"
 #include "dice.h"
 #include "mousesystem.h"
-#include "mousesystem_macros.h"
 #include "vobject.h"
 
 // GLOBAL: WIZ8 0x0068c0a4
@@ -45,7 +45,7 @@ static ButtonImage g_message_box_cancel_image;
 // GLOBAL: WIZ8 0x0068c0a0
 void (*g_message_box_callback)(void);
 // GLOBAL: WIZ8 0x0068c0a8
-static int g_message_box_font;
+static Font* g_message_box_font;
 // GLOBAL: WIZ8 0x0068c0ac
 static unsigned int g_message_box_shade;
 // GLOBAL: WIZ8 0x0068c0b0
@@ -231,12 +231,10 @@ float ShortestAngleDistance(float first, float second)
 }
 
 // FUNCTION: WIZ8 0x00517e20
-void UnionScreenRects(const W8ScreenRect* first, const W8ScreenRect* second, W8ScreenRect* result)
+W8ScreenRect UnionScreenRects(const W8ScreenRect& first, const W8ScreenRect& second)
 {
-    result->left = first->left < second->left ? first->left : second->left;
-    result->top = first->top < second->top ? first->top : second->top;
-    result->right = first->right > second->right ? first->right : second->right;
-    result->bottom = first->bottom > second->bottom ? first->bottom : second->bottom;
+    return {std::min(first.left, second.left), std::min(first.top, second.top),
+            std::max(first.right, second.right), std::max(first.bottom, second.bottom)};
 }
 
 // FUNCTION: WIZ8 0x00517e70
@@ -495,7 +493,7 @@ void FreeStringTable(void)
 }
 
 // FUNCTION: WIZ8 0x00518510
-bool CreateMessageBox(std::string_view text, int font, unsigned int shade, bool has_accept, bool has_cancel,
+bool CreateMessageBox(std::string_view text, Font& font, unsigned int shade, bool has_accept, bool has_cancel,
                       void (*callback)(void))
 {
     SDL_Rect rect;
@@ -507,7 +505,7 @@ bool CreateMessageBox(std::string_view text, int font, unsigned int shade, bool 
     if (has_accept || has_cancel) {
         height = 0x6c;
     }
-    unsigned short width = StringPixLength(text, font) + 10;
+    unsigned short width = font.textWidth(text) + 10;
     if (width > 0x258) {
         width = 0x258;
     } else if (width < 0x64) {
@@ -516,7 +514,7 @@ bool CreateMessageBox(std::string_view text, int font, unsigned int shade, bool 
     g_message_box_background_image = LoadGenericButtonImages({}, DEFAULT_GENERIC_BUTTON_OFF, {}, DEFAULT_GENERIC_BUTTON_ON, {}, "Data\\Dialogs\\DialogBackground.STI", 0, 0, 0);
     int yloc = (0x1e0 - height) / 2;
     g_message_box_background_button = CreateTextButton(
-        text, static_cast<unsigned short>(font), 0xff, 0, g_message_box_background_image,
+        text, font, 0xff, 0, g_message_box_background_image,
         (0x280 - width) / 2, yloc, width, height, 4, 0x7d, 0, MessageBoxAcceptClickCallback);
     if (!g_message_box_background_button) {
         return false;
@@ -555,7 +553,7 @@ bool CreateMessageBox(std::string_view text, int font, unsigned int shade, bool 
     if (has_accept || has_cancel) {
         DisableButton(g_message_box_background_button);
     }
-    g_message_box_font = font;
+    g_message_box_font = &font;
     g_message_box_shade = shade;
     g_message_box_state = 2;
     g_message_box_callback = callback;
@@ -657,19 +655,12 @@ void RenderMessageBox(void)
         ReleaseMessageBoxControls();
         g_message_box_state = 3;
     } else if (g_message_box_state == 2) {
-        HVOBJECT font;
-        if (g_message_box_font == g_large_font) {
-            font = GetFontObject(g_large_font);
-        } else if (g_message_box_font == g_small_font) {
-            font = GetFontObject(g_small_font);
-        } else if (g_message_box_font == g_small_font_secondary) {
-            font = GetFontObject(g_small_font_secondary);
-        } else if (g_message_box_font == g_wiz_text_font) {
-            font = GetFontObject(g_wiz_text_font);
-        } else {
-            font = GetFontObject(g_wiz_text_font_secondary);
-        }
-        SetObjectShade(font, g_message_box_shade);
+        Font& shade_font = g_message_box_font == &g_large_font ? g_large_font
+            : g_message_box_font == &g_small_font ? g_small_font
+            : g_message_box_font == &g_small_font_secondary ? g_small_font_secondary
+            : g_message_box_font == &g_wiz_text_font ? g_wiz_text_font
+            : g_wiz_text_font_secondary;
+        SetObjectShade(shade_font.glyphs, g_message_box_shade);
         MarkButtonsDirty();
         RenderButtons();
     } else if (g_message_box_state == 3) {
@@ -688,14 +679,14 @@ void ProcessMessageBoxInput(void)
     SDL_Point point;
     InputAtom input;
     SGPMouseGetPos(&point);
-    MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, point.x, point.y, gfLeftButtonState, gfRightButtonState);
+    DispatchMouseEvent(MOUSE_POS, point.x, point.y, gfLeftButtonState, gfRightButtonState);
     while (DequeueEvent(&input) == 1) {
         switch (input.usEvent) {
         case LEFT_BUTTON_DOWN:
         case LEFT_BUTTON_UP:
         case RIGHT_BUTTON_DOWN:
         case RIGHT_BUTTON_UP:
-            MSYS_SGP_Mouse_Handler_Hook(input.usEvent, point.x, point.y, gfLeftButtonState,
+            DispatchMouseEvent(input.usEvent, point.x, point.y, gfLeftButtonState,
                                         gfRightButtonState);
             break;
         case KEY_DOWN:

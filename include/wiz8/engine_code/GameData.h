@@ -1,6 +1,7 @@
 #pragma once
 
 #include "wiz8/audio_resources.h"
+#include "wiz8/ground_probe.h"
 #include <memory>
 #include <span>
 #include <string>
@@ -283,7 +284,7 @@ struct W8GameData {
     int EnvironsCount() const noexcept { return int(m_ppEnvirons.size()); }
     std::vector<std::string> interface_names;
     std::vector<std::unique_ptr<W8EnvironRecord>> m_ppEnvirons;
-    /* Set by W8Octree::SettleToGround around its TestTraceResult calls: while
+    /* Set by W8Octree::settleToGround around its TestTraceResult calls: while
        set, only flag-4 surfaces are admitted by the surface trace. */
     bool trace_flag4_gate;
     unsigned char pad_89[3];
@@ -383,12 +384,9 @@ unsigned char ConsumeLevelElapsedTime(float* real_elapsed, float* frame_elapsed)
 void GetLevelSoundEnvironment(char* environment, char* secondary);
 
 /* 0x00420BD0: settle a world point onto the octree ground through the
-   GameData geometry index; the false branch reports the input height and
-   clears the caller's hit byte. */
-float SettlePositionToGround(const srVector3T<float>* position, bool* hit);
-/* 0x00420C30: same ground-settle query with a fixed 500-unit probe range,
-   returning the resulting height. */
-float SettlePositionToGroundMutable(srVector3T<float>* position, bool* hit);
+   GameData geometry index. Without an octree, return the original position
+   with a false hit flag. */
+GroundProbe probeGround(const glm::vec3& position);
 
 void ClearLevelMovementState(void); /* 0x0041F0C0 */
 srCamera* CreateOrSetGameCamera(srNode* parent, srCamera* camera);
@@ -417,7 +415,7 @@ glm::vec3 ProjectVectorOntoVector(const glm::vec3& vector, const glm::vec3& onto
    (both into the same dead local in retail). */
 void RestoreWorldCameraOrientation(void* angle, void* pitch,
                                    W8World* world);
-void GetCameraPosition(srVector3T<float>* position);
+glm::vec3 cameraLocation();
 int GetCameraYawDegrees(void);
 /* 0x004215E0: point-visibility query through the world octree; false with no
    world, true for a loaded world without an octree. */

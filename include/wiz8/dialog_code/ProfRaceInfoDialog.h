@@ -1,3 +1,4 @@
+#include "Font.h"
 #pragma once
 
 #include <string_view>
@@ -48,7 +49,7 @@ private:
     /* Renders one text line at a dialog-relative rectangle through a scratch
        W8TextBuffer. */
     void DrawTextLine(unsigned int layout_mode, int left, int top, int width, int height,
-                      std::string_view text, int font);
+                      std::string_view text, Font& font);
 
 protected:
     unsigned int m_uiTitleId;   /* video object catalog id */

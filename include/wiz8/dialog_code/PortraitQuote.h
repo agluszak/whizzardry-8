@@ -1,3 +1,4 @@
+struct SGPVSurface;
 #include <string_view>
 #pragma once
 
@@ -8,6 +9,6 @@ int LayoutPortraitQuoteBubble(int quote_handle, unsigned char background_index,
                               unsigned short* out_width, unsigned short* out_height,
                               unsigned int font_palette);
 /* Blit the bubble's rendered surface to `surface` at (x, y). */
-unsigned char DrawPortraitQuoteBubble(int quote_handle, short x, short y, unsigned int surface);
+unsigned char DrawPortraitQuoteBubble(int quote_handle, short x, short y, SGPVSurface& surface);
 unsigned char ReleasePortraitQuoteBubble(int quote_handle);
 const char* GetPortraitQuoteText(int quote_handle);

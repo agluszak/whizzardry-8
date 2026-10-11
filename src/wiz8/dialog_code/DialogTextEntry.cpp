@@ -1,7 +1,6 @@
+#include "himage.h"
 #include <fmt/format.h>
 #include <array>
-#include <cstring>
-#include <memory>
 #include <string>
 #include <string_view>
 
@@ -21,11 +20,11 @@ unsigned int g_dialog_text_layout_mask = g_W8TextBufferNoWrap;
 // FUNCTION: WIZ8 0x005d1050
 W8DialogTextEntry::W8DialogTextEntry(std::string_view prefix, std::string_view text,
                                      unsigned int prefix_palette, unsigned int text_palette,
-                                     const W8ControlsRect* bounds, int font, unsigned char category,
+                                     const W8ControlsRect* bounds, Font& font, unsigned char category,
                                      unsigned int layout_mode, unsigned char shorten)
 {
     m_prefix_palette = prefix_palette;
-    m_font = font;
+    m_font = &font;
     m_lineCount = 0;
     m_geometryDirty = true;
     m_text_palette = text_palette;
@@ -41,25 +40,22 @@ W8DialogTextEntry::W8DialogTextEntry(std::string_view prefix, std::string_view t
     UpdateLayout();
 }
 
-int W8DialogTextEntry::DrawLine(char* line, size_t span, int prefix_remaining, int y)
+int W8DialogTextEntry::DrawLine(std::string_view line, int prefix_remaining, int y)
 {
-    int x = GetHorizontalPosition(StringPixLength(line, m_font));
+    int x = GetHorizontalPosition(m_font->textWidth(line));
     if (prefix_remaining > 0) {
-        if (prefix_remaining < static_cast<int>(span)) {
-            char saved = line[prefix_remaining];
-            line[prefix_remaining] = '\0';
-            DrawFontText(x, y, line);
-            x += StringPixLength(line, m_font);
-            line[prefix_remaining] = saved;
+        if (prefix_remaining < static_cast<int>(line.size())) {
+            const auto prefix = line.substr(0, prefix_remaining);
+            DrawFontText(x, y, prefix);
+            x += m_font->textWidth(prefix);
             if (!m_selected) {
-                SetFontObjectPalette16BPP(m_font, m_text_palette < 15
-                                                      ? g_font_state_palettes[m_text_palette].get()
-                                                      : GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get());
+                m_font->setPalette(m_text_palette < 15
+                                      ? g_font_state_palettes[m_text_palette]
+                                      : g_wiz_text_font_secondary.glyphs.palette);
             }
-            line += prefix_remaining;
-            span -= prefix_remaining;
+            line.remove_prefix(prefix_remaining);
         }
-        prefix_remaining -= span;
+        prefix_remaining -= line.size();
     }
     DrawFontText(x, y, line);
     return prefix_remaining;
@@ -73,50 +69,45 @@ void W8DialogTextEntry::Draw(bool force)
     if (m_buffer.empty() || (!force && !m_geometryDirty)) {
         return;
     }
-    std::string copy = m_buffer;
+    std::string shortened;
+    std::string_view remaining = m_buffer;
     if (m_shorten_mask) {
-        copy = ShortenTextToWidth(m_buffer, width - 5, m_font);
+        shortened = ShortenTextToWidth(m_buffer, width - 5, *m_font);
+        remaining = shortened;
     }
-    SetFont(m_font);
-    unsigned short* palette = g_font_state_palettes[W8_FONT_PALETTE_YELLOW].get();
+    SetFont(*m_font);
+    Palette16 palette = g_font_state_palettes[W8_FONT_PALETTE_YELLOW];
     if (!m_entry_highlighted) {
         if (m_marked) {
-            palette = g_font_state_palettes[W8_FONT_PALETTE_GREEN].get();
+            palette = g_font_state_palettes[W8_FONT_PALETTE_GREEN];
         } else if (m_selected) {
-            palette = g_font_state_palettes[W8_FONT_PALETTE_WHITE].get();
+            palette = g_font_state_palettes[W8_FONT_PALETTE_WHITE];
         } else {
-            palette = GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get();
+            palette = g_wiz_text_font_secondary.glyphs.palette;
             if (m_prefix_length == 0) {
                 if (m_text_palette < 15) {
-                    palette = g_font_state_palettes[m_text_palette].get();
+                    palette = g_font_state_palettes[m_text_palette];
                 }
             } else if (m_prefix_palette < 15) {
-                palette = g_font_state_palettes[m_prefix_palette].get();
+                palette = g_font_state_palettes[m_prefix_palette];
             }
         }
     }
-    SetFontObjectPalette16BPP(m_font, palette);
-    SetFontDestBuffer(FRAME_BUFFER, m_pendingBounds.left, m_pendingBounds.top,
+    m_font->setPalette(palette);
+    SetFontDestBuffer(GetFrameBufferSurface(), m_pendingBounds.left, m_pendingBounds.top,
                       m_pendingBounds.right, m_pendingBounds.bottom, 0);
     int y = GetVerticalPosition();
-    char* line = copy.data();
-    size_t span = strcspn(line, g_W8LineBreakCharacters);
-    while (line[span] != '\0') {
-        line[span] = '\0';
-        prefix_remaining = DrawLine(line, span, prefix_remaining, y);
+    for (;;) {
+        const auto end = remaining.find('\n');
+        prefix_remaining = DrawLine(remaining.substr(0, end), prefix_remaining, y);
+        if (end == std::string_view::npos) break;
         y += GetLineHeight();
-        line[span] = '\n';
-        if (m_layoutBounds.bottom <= y) {
-            goto done;
-        }
-        line += span + 1;
-        span = strcspn(line, g_W8LineBreakCharacters);
+        if (m_layoutBounds.bottom <= y) break;
+        remaining.remove_prefix(end + 1);
     }
-    DrawLine(line, span, prefix_remaining, y);
-done:
     InvalidateRegion(m_layoutBounds.left, m_layoutBounds.top, m_layoutBounds.right,
                      m_layoutBounds.bottom, 0);
-    SetFontDestBuffer(FRAME_BUFFER, 0, 0, 640, 480, 0);
+    SetFontDestBuffer(GetFrameBufferSurface(), 0, 0, 640, 480, 0);
     m_geometryDirty = false;
 }
 

@@ -1,5 +1,7 @@
 #include <fmt/format.h>
 #include <SDL3/SDL_filesystem.h>
+#include <SDL3/SDL_log.h>
+#include <exception>
 #include <string>
 #include <optional>
 #include <vector>
@@ -47,13 +49,14 @@ struct W8LevelLoadDescriptor {
     int parameter_2;
     bool waiting;    /* 0x0fc, gates the polling path */
     std::string name; /* 0x0fd, bounded only by the next field */
+    std::string previous_save_name;
     W8SaveScreenshot* save_payload;
     w8_ulong entered_tick;
     int caption_y;
 };
 
 // GLOBAL: WIZ8 0x0069B7C0
-int g_level_load_font;
+Font g_level_load_font;
 // GLOBAL: WIZ8 0x0069B7C4
 static int g_swap_disc_dialog_poll_count;
 // GLOBAL: WIZ8 0x0069B7C8
@@ -88,9 +91,7 @@ unsigned char PleaseWaitScreenInitialize(void)
     if ([&]() { const auto status = wiz8::file_status("CD.ROM"); return status && !status->archived && status->info.type == SDL_PATHTYPE_FILE; }()) {
         g_cd_marker_present = true;
     }
-    g_level_load_font =
-        LoadFontFile("Data\\Level Load\\levelload_font.sti");
-    return 1;
+    return g_level_load_font.load("Data\\Level Load\\levelload_font.sti");
 }
 
 /* The entry handler. It builds the descriptor once and fills the tail from the
@@ -124,6 +125,7 @@ unsigned char PleaseWaitScreenEnter(void)
         case 2:
             g_load_descriptor->parameter = g_status.current_level;
             g_load_descriptor->name = g_current_screen_state.name;
+            g_load_descriptor->previous_save_name = g_current_screen_state.previous_save_name;
             g_load_descriptor->save_payload =
                 static_cast<W8SaveScreenshot*>(g_current_screen_state.parameter_3);
             break;
@@ -136,7 +138,7 @@ unsigned char PleaseWaitScreenEnter(void)
     MSYS_Init();
     ResetRegions();
     SetClippingRegionAndImageWidth(0x500, 0, 0, 0x280, 0x1e0);
-    SetFontDestBuffer(FRAME_BUFFER, 0, 0, 0x280, 0x1e0, 0);
+    SetFontDestBuffer(GetFrameBufferSurface(), 0, 0, 0x280, 0x1e0, 0);
     SetPrimarySurfaceTextureHint2Enabled(false);
     DisableCursorScene();
     g_load_descriptor->caption_y = 0;
@@ -184,11 +186,11 @@ static void DrawPleaseWaitScreen()
     int backdrop = static_cast<unsigned int>(g_load_descriptor->parameter) < W8_LEVEL_COUNT
                        ? g_level_backdrops[g_load_descriptor->parameter]
                        : 0xe4;
-    DrawCatalogImage(FRAME_BUFFER, backdrop, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY, 0);
-    DrawCatalogImage(FRAME_BUFFER, 0x1de, 0, 0, 0, 0x1be, VO_BLT_SRCTRANSPARENCY, 0);
+    DrawCatalogImage(GetFrameBufferSurface(), backdrop, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY, 0);
+    DrawCatalogImage(GetFrameBufferSurface(), 0x1de, 0, 0, 0, 0x1be, VO_BLT_SRCTRANSPARENCY, 0);
     SetFont(g_level_load_font);
     DrawFontText(0x6a, 0x1c7, g_load_descriptor->caption);
-    DrawCatalogImage(FRAME_BUFFER, 0x1dd, 0, g_load_descriptor->caption_y, 0, 0x185,
+    DrawCatalogImage(GetFrameBufferSurface(), 0x1dd, 0, g_load_descriptor->caption_y, 0, 0x185,
                      VO_BLT_SRCTRANSPARENCY, 0);
     ResetTransientRenderScenes();
 }
@@ -288,6 +290,21 @@ void PleaseWaitScreenFrame(void)
         break;
     case 2: {
         bool saved = SaveGame(g_load_descriptor->name, g_load_descriptor->save_payload);
+        // Do not destroy the previous save until the new one has been committed.
+        // An asset-only save has no writable overlay to remove and is left intact.
+        if (saved && !g_load_descriptor->previous_save_name.empty() &&
+            g_load_descriptor->previous_save_name != g_load_descriptor->name) {
+            const std::string previous_path =
+                fmt::format("Saves\\{}.{}", g_load_descriptor->previous_save_name,
+                            g_save_extension);
+            try {
+                wiz8::remove_file(previous_path);
+            } catch (const std::exception& error) {
+                SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+                            "Saved %s but could not remove previous save %s: %s",
+                            g_load_descriptor->name.c_str(), previous_path.c_str(), error.what());
+            }
+        }
         ShowNotice(W8_FONT_PALETTE_BEIGE, saved ? g_localized_strings[0x6f4] : g_localized_strings[0x6f6]);
         if (g_load_descriptor->save_payload) {
             delete g_load_descriptor->save_payload;
@@ -356,7 +373,7 @@ void UpdatePleaseWaitLoadFrame(void)
     if (tick - g_load_descriptor->entered_tick > 499) {
         g_load_descriptor->caption_y = (g_load_descriptor->caption_y + 1) % 0x18;
         g_load_descriptor->entered_tick = tick;
-        DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x1dd, 0, g_load_descriptor->caption_y, 0,
+        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x1dd, 0, g_load_descriptor->caption_y, 0,
                                       0x185, VO_BLT_SRCTRANSPARENCY, 0);
         RenderFrame();
     }

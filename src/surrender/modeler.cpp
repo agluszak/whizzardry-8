@@ -1,13 +1,13 @@
 #include <glm/gtc/constants.hpp>
+#include <SDL3/SDL_log.h>
 #include <algorithm>
 #include <cmath>
-#include <limits>
 #include <bit>
 #include <array>
 #include <cstddef>
 #include <iterator>
 #include <memory>
-#include <ostream>
+#include <optional>
 #include <utility>
 #include <vector>
 
@@ -15,7 +15,6 @@
 #include "glm/geometric.hpp"
 #include "glm/vector_relational.hpp"
 #include "surrender/srModeler.h"
-#include "surrender/srDebug.h"
 #include "surrender/srTriangulator.h"
 #include "compat/compiler.h"
 #include "glm/ext/matrix_float3x3.hpp"
@@ -152,7 +151,7 @@ void AutoSmoother::markEdge(Edge* edge, w8_long group)
 void AutoSmoother::assignGroups(w8_long group)
 {
     if (group >= 0x1f) {
-        srErr << "Warning: srModeler::autoSmooth() ran out of groups." << std::endl;
+        SDL_LogWarn(SDL_LOG_CATEGORY_RENDER, "%s", "srModeler::autoSmooth() ran out of groups.");
         for (w8_ulong index = 0; index < edges.size(); ++index) {
             if (edges[index].group == -1) {
                 entries[edges[index].first].groups |= 0x80000000;
@@ -331,13 +330,11 @@ w8_ulong srModeler::addTriangle(const Triangle& triangle)
 }
 
 // FUNCTION: SURRENDER 0x1003A330
-int srModeler::getTriangle(w8_ulong index, Triangle& triangle)
+std::optional<srModeler::Triangle> srModeler::getTriangle(w8_ulong index) const
 {
-    if (triangle_count <= index) {
-        return 0;
-    }
-    triangle = triangles[index];
-    return 1;
+    if (triangle_count <= index)
+        return std::nullopt;
+    return triangles[index];
 }
 
 // FUNCTION: SURRENDER 0x1003B0B0
@@ -470,38 +467,6 @@ void srModeler::rotate(w8_ulong triangle, const glm::mat3& matrix)
             vertex.position = matrix * vertex.position;
 }
 
-// FUNCTION: SURRENDER 0x10039A90
-int srModeler::findVertex(const glm::vec3& position, w8_ulong& triangle, w8_ulong& vertex,
-                          w8_ulong start_triangle)
-{
-    for (w8_ulong index = start_triangle; index < triangles.size(); ++index)
-        for (w8_ulong slot = 0; slot < 3; ++slot)
-            if (triangles[index].vertices[slot].position == position) {
-                triangle = index;
-                vertex = slot;
-                return true;
-            }
-    return false;
-}
-
-// FUNCTION: SURRENDER 0x10039B40
-void srModeler::findClosestVertex(const glm::vec3& position, w8_ulong& triangle, w8_ulong& vertex)
-{
-    triangle = vertex = 0;
-    double best = std::numeric_limits<double>::infinity();
-    for (w8_ulong index = 0; index < triangles.size(); ++index)
-        for (w8_ulong slot = 0; slot < 3; ++slot) {
-            const auto offset =
-                glm::dvec3(triangles[index].vertices[slot].position) - glm::dvec3(position);
-            const double distance = glm::dot(offset, offset);
-            if (distance < best) {
-                triangle = index;
-                vertex = slot;
-                best = distance;
-            }
-        }
-}
-
 // FUNCTION: SURRENDER 0x1003AA80
 double srModeler::getMaxVertexDist()
 {
@@ -515,16 +480,18 @@ double srModeler::getMaxVertexDist()
 }
 
 // FUNCTION: SURRENDER 0x1003AB30
-void srModeler::getAxialBounds(e_axis axis, float& minimum, float& maximum)
+std::optional<std::pair<float, float>> srModeler::getAxialBounds(e_axis axis) const
 {
     if (axis < AXIS_X || axis > AXIS_Z)
-        return;
-    minimum = maximum = triangles.empty() ? 0 : triangles.front().vertices[0].position[axis];
+        return std::nullopt;
+    float minimum = triangles.empty() ? 0 : triangles.front().vertices[0].position[axis];
+    float maximum = minimum;
     for (const auto& triangle : triangles)
         for (const auto& vertex : triangle.vertices) {
             minimum = std::min(minimum, vertex.position[axis]);
             maximum = std::max(maximum, vertex.position[axis]);
         }
+    return std::pair{minimum, maximum};
 }
 
 // FUNCTION: SURRENDER 0x1003BB00
@@ -679,9 +646,9 @@ void srModeler::planarMap(w8_long pass, w8_long layer, const MappingInfo& mappin
         mapping.axis_u < AXIS_X || mapping.axis_u > AXIS_Z || mapping.axis_v < AXIS_X ||
         mapping.axis_v > AXIS_Z)
         return;
-    glm::vec2 minimum, maximum;
-    getAxialBounds(mapping.axis_u, minimum.x, maximum.x);
-    getAxialBounds(mapping.axis_v, minimum.y, maximum.y);
+    const auto [u_min, u_max] = *getAxialBounds(mapping.axis_u);
+    const auto [v_min, v_max] = *getAxialBounds(mapping.axis_v);
+    const glm::vec2 minimum(u_min, v_min), maximum(u_max, v_max);
     const auto extent = maximum - minimum;
     const glm::vec2 scale(extent.x != 0 ? mapping.u_scale / extent.x : 0,
                           extent.y != 0 ? mapping.v_scale / extent.y : 0);
@@ -727,8 +694,7 @@ void srModeler::cylinderMap(w8_long pass, w8_long layer, const MappingInfo& mapp
     const int axis = mapping.axis_u;
     const int second = axis == AXIS_X ? AXIS_Y : AXIS_X;
     const int third = axis == AXIS_Z ? AXIS_Y : AXIS_Z;
-    float minimum, maximum;
-    getAxialBounds(mapping.axis_u, minimum, maximum);
+    const auto [minimum, maximum] = *getAxialBounds(mapping.axis_u);
     const float scale = maximum != minimum ? mapping.u_scale / (maximum - minimum) : 0;
     const int slot = pass * 2 + layer;
     for (auto& triangle : triangles) {

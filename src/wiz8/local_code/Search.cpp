@@ -95,8 +95,7 @@ void W8Searchable::Reveal()
 W8SearchableView* CollectSearchablesInView(void)
 {
     int total = static_cast<int>(g_searchables.size());
-    srVector3T<float> camera;
-    GetCameraPosition(&camera);
+    srVector3T<float> camera = cameraLocation();
     g_search_view.items.clear();
     g_search_view.cursor = -1;
     for (int index = 0; index < total; ++index) {
@@ -369,8 +368,7 @@ int W8Searchable::PickBestSearcher()
         }
     }
     float range = best_score * g_search_radius * g_movement_speed_step;
-    srVector3T<float> camera;
-    GetCameraPosition(&camera);
+    srVector3T<float> camera = cameraLocation();
     srVector3T<float> position;
     GetPosition(&position);
     srVector3T<float> delta = camera - position;
