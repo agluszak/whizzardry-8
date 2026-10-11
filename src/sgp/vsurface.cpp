@@ -143,8 +143,15 @@ static std::unique_ptr<SGPVSurface> MakeVideoSurface(UINT16 width, UINT16 height
     if (image) {
         if (image->fFlags & IMAGE_PALETTE)
             SetVideoSurfacePalette(*result, *image->pPalette);
-        SDL_Rect region{0, 0, width, height};
-        SetVideoSurfaceDataFromHImage(*result, *image, 0, 0, &region);
+        const auto& storage = *result->cpu().surface;
+        const auto format = bits == 8 ? BUFFER_8BPP : BUFFER_16BPP;
+        const SDL_Rect bounds{0, 0, width, height};
+        if (!CopyImageToBuffer(*image, format,
+                {static_cast<UINT8*>(storage.pixels), std::size_t(storage.pitch) * height},
+                storage.pitch / (bits / 8), height, 0, 0, bounds)) {
+            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Error copying image data to video surface");
+            return nullptr;
+        }
     }
     SetVideoSurfaceTransparencyColor(*result, result->TransparentColor);
     return result;
@@ -161,70 +168,6 @@ std::unique_ptr<SGPVSurface> LoadVideoSurface(std::string_view filename)
     if (!image) return nullptr;
     return MakeVideoSurface(image->usWidth, image->usHeight, image->ubBitDepth, image.get());
 }
-// Given an HIMAGE object, blit imagery into existing Video Surface. Can be from 8->16 BPP
-// FUNCTION: WIZ8 0x00403780
-BOOLEAN SetVideoSurfaceDataFromHImage(SGPVSurface& hVSurface, const image_type& hImage, UINT16 usX, UINT16 usY,
-                                      SDL_Rect* pSrcRect)
-{
-    BYTE* pDest;
-    UINT32 fBufferBPP = 0;
-    UINT32 uiPitch;
-    std::size_t usEffectiveWidth;
-    SDL_Rect aRect;
-
-    // Assertions
-
-    // Get Size of hImage and determine if it can fit
-    CHECKF(hImage.usWidth >= hVSurface.usWidth);
-    CHECKF(hImage.usHeight >= hVSurface.usHeight);
-
-    // Check BPP and see if they are the same
-    if (hImage.ubBitDepth != hVSurface.ubBitDepth) {
-        // They are not the same, but we can go from 8->16 without much cost
-        if (hImage.ubBitDepth == 8 && hVSurface.ubBitDepth == 16) {
-            fBufferBPP = BUFFER_16BPP;
-        }
-    } else {
-        // Set buffer BPP
-        switch (hImage.ubBitDepth) {
-        case 8:
-
-            fBufferBPP = BUFFER_8BPP;
-            break;
-
-        case 16:
-
-            fBufferBPP = BUFFER_16BPP;
-            break;
-        }
-    }
-
-    Assert(fBufferBPP != 0);
-
-    // Get surface buffer data
-    const auto& destination_storage = *hVSurface.cpu().surface;
-    uiPitch = destination_storage.pitch;
-    pDest = static_cast<BYTE*>(destination_storage.pixels);
-
-    // Effective width ( in PIXELS ) is Pitch ( in bytes ) converted to pitch ( IN PIXELS )
-    usEffectiveWidth = uiPitch / (hVSurface.ubBitDepth / 8);
-
-    CHECKF(pDest != nullptr);
-
-    // Blit Surface
-    // If rect is NULL, use entrie image size
-    aRect = pSrcRect ? *pSrcRect : SDL_Rect{0, 0, hImage.usWidth, hImage.usHeight};
-
-    // This HIMAGE function will transparently copy buffer
-    if (!CopyImageToBuffer(hImage, fBufferBPP, {pDest, std::size_t(uiPitch) * hVSurface.usHeight},
-                           usEffectiveWidth, hVSurface.usHeight, usX, usY, aRect)) {
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Error copying image data to video surface");
-        return (FALSE);
-    }
-
-    return (TRUE);
-}
-
 // Indexed surfaces use SDL palettes; custom RGB555 blitters retain their table.
 BOOLEAN SetVideoSurfacePalette(SGPVSurface& hVSurface, const Palette8& pSrcPalette)
 {

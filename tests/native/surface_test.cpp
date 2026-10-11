@@ -175,6 +175,9 @@ void differential()
 
 void videoSurfaceClipping()
 {
+    REQUIRE(!CreateVideoSurface(0, 7, 16));
+    REQUIRE(!CreateVideoSurface(8, 0, 16));
+    REQUIRE(!CreateVideoSurface(8, 7, 24));
     auto sourceView = CreateVideoSurface(8, 7, 16);
     auto destView = CreateVideoSurface(8, 7, 16);
     auto& source = sourceView->cpu();

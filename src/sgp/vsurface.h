@@ -84,10 +84,6 @@ BOOLEAN ImageFillVideoSurfaceArea(SGPVSurface& uiDestVSurface, INT32 iDestX1, IN
 std::unique_ptr<SGPVSurface> CreateVideoSurface(UINT16 width, UINT16 height, UINT8 bits);
 std::unique_ptr<SGPVSurface> LoadVideoSurface(std::string_view filename);
 
-// Set data from HIMAGE.
-BOOLEAN SetVideoSurfaceDataFromHImage(SGPVSurface& hVSurface, const image_type& hImage, UINT16 usX, UINT16 usY,
-                                      SDL_Rect* pSrcRect);
-
 // Sets the packed source color key
 BOOLEAN SetVideoSurfaceTransparencyColor(SGPVSurface& hVSurface, COLORVAL TransColor);
 
