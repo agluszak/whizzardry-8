@@ -28,6 +28,8 @@
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_uint2.hpp"
 #include "glm/geometric.hpp"
+#include "glm/common.hpp"
+#include "glm/vector_relational.hpp"
 #include "surrender/srMath.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_code/CombatRange.h"
@@ -4612,25 +4614,38 @@ void W8PathingService::UpdatePathVisualization(const srVector3T<float>* source,
 // FUNCTION: WIZ8 0x0045BE30
 stModelInstance* W8PathingService::BuildPathVisualization()
 {
-    static srVector3T<float> marker_offsets[5];
+    if (m_path_visualization == nullptr) EnsurePathVisualization();
+    const std::array<glm::vec3, 5> marker_offsets{
+        glm::vec3(0, 0.5f, 0) * static_cast<float>(g_double_five_hundred),
+        glm::vec3(-0.25f, 0, -0.25f) * static_cast<float>(g_double_five_hundred),
+        glm::vec3(-0.25f, 0, 0.25f) * static_cast<float>(g_double_five_hundred),
+        glm::vec3(0.25f, 0, 0.25f) * static_cast<float>(g_double_five_hundred),
+        glm::vec3(0.25f, 0, -0.25f) * static_cast<float>(g_double_five_hundred)};
     int index;
-
-    if (m_path_visualization == 0) {
-        EnsurePathVisualization();
-    }
-    marker_offsets[0].Set(0.0, 0.5, 0.0);
-    marker_offsets[1].Set(-0.25, 0.0, -0.25);
-    marker_offsets[2].Set(-0.25, 0.0, 0.25);
-    marker_offsets[3].Set(0.25, 0.0, 0.25);
-    marker_offsets[4].Set(0.25, 0.0, -0.25);
-    for (index = 0; index < 5; ++index) {
-        marker_offsets[index] *= g_double_five_hundred;
-    }
 
     stMeshModel* model = static_cast<stMeshModel*>(m_path_visualization->getModel());
     srVector3T<float>* colors = model->getVertexDIG(0, 1);
     srVector3T<float>* vertices = model->getVertexLoc();
     srVector3i* polygons = model->getPolyVertex();
+    const auto write_marker = [&](unsigned short waypoint, int base, unsigned appearance_flags) {
+        const auto& surface = m_waypoints[waypoint];
+        const glm::vec3 scale((surface.flags >> 12) * g_waypoint_marker_scale,
+                              (surface.flags >> 12) * 0.5,
+                              (surface.flags >> 12) * g_waypoint_marker_scale);
+        const auto color = waypointVisualizationColor(waypoint);
+        for (unsigned corner = 0; corner < marker_offsets.size(); ++corner) {
+            auto offset = scale * marker_offsets[corner];
+            offset.y = static_cast<float>(offset.y + g_double_five_hundred);
+            vertices[base + corner] = offset + surface.position.glmValue();
+            colors[base + corner] = color;
+        }
+        if ((appearance_flags & 2) != 0) {
+            colors[base] = glm::mix(glm::vec3(0), glm::vec3(1),
+                glm::lessThanEqual(color, glm::vec3(g_float_zero)));
+        } else if ((appearance_flags & W8_WAYPOINT_CONDITIONAL) != 0) {
+            colors[base] = glm::vec3(0);
+        }
+    };
     int marker_count = 0;
     int link_count = 0;
     std::ranges::fill(m_visited_path_nodes, false);
@@ -4641,28 +4656,8 @@ stModelInstance* W8PathingService::BuildPathVisualization()
         }
         unsigned short source_index = static_cast<unsigned short>(marked);
         W8PathSurface* source = &m_waypoints[source_index];
-        srVector3T<float> marker_color;
-        srVector3T<float> marker_scale((source->flags >> 12) * g_waypoint_marker_scale,
-                                       (source->flags >> 12) * 0.5,
-                                       (source->flags >> 12) * g_waypoint_marker_scale);
-        int marker_vertex = marker_count * 5;
-
         SetGrowing(m_visited_path_nodes, source_index);
-        GetWaypointVisualizationColor(source_index, &marker_color);
-        for (index = 0; index < 5; ++index) {
-            srVector3T<float> offset = marker_offsets[index];
-            offset *= marker_scale;
-            offset.y += g_double_five_hundred;
-            vertices[marker_vertex + index] = offset + source->position;
-            colors[marker_vertex + index] = marker_color;
-        }
-        if ((source->flags & 2) != 0) {
-            colors[marker_vertex].x = colors[marker_vertex].x <= g_float_zero ? 1.0f : 0.0f;
-            colors[marker_vertex].y = colors[marker_vertex].y <= g_float_zero ? 1.0f : 0.0f;
-            colors[marker_vertex].z = colors[marker_vertex].z <= g_float_zero ? 1.0f : 0.0f;
-        } else if ((source->flags & W8_WAYPOINT_CONDITIONAL) != 0) {
-            colors[marker_vertex].SetZero();
-        }
+        write_marker(source_index, marker_count * 5, source->flags);
 
         unsigned short edge_index = source->first_edge;
         while (edge_index != 0 && link_count * 6 + 504 <= 0x30d1) {
@@ -4682,31 +4677,8 @@ stModelInstance* W8PathingService::BuildPathVisualization()
 
             if (!TestBit(m_visited_path_nodes, destination_index) &&
                 !TestBit(m_marked_path_nodes, destination_index)) {
-                srVector3T<float> destination_color;
-                srVector3T<float> destination_scale(
-                    (destination->flags >> 12) * g_waypoint_marker_scale,
-                    (destination->flags >> 12) * 0.5,
-                    (destination->flags >> 12) * g_waypoint_marker_scale);
-                int destination_vertex = (marker_count + 1) * 5;
-
-                GetWaypointVisualizationColor(destination_index, &destination_color);
-                for (index = 0; index < 5; ++index) {
-                    srVector3T<float> offset = marker_offsets[index];
-                    offset *= destination_scale;
-                    offset.y += g_double_five_hundred;
-                    vertices[destination_vertex + index] = offset + destination->position;
-                    colors[destination_vertex + index] = destination_color;
-                }
-                if ((source->flags & 2) != 0) {
-                    colors[destination_vertex].x =
-                        colors[destination_vertex].x <= g_float_zero ? 1.0f : 0.0f;
-                    colors[destination_vertex].y =
-                        colors[destination_vertex].y <= g_float_zero ? 1.0f : 0.0f;
-                    colors[destination_vertex].z =
-                        colors[destination_vertex].z <= g_float_zero ? 1.0f : 0.0f;
-                } else if ((source->flags & W8_WAYPOINT_CONDITIONAL) != 0) {
-                    colors[destination_vertex].SetZero();
-                }
+                // Neighbor markers inherit the source's highlight state.
+                write_marker(destination_index, (marker_count + 1) * 5, source->flags);
                 SetGrowing(m_visited_path_nodes, destination_index);
                 ++marker_count;
             }
@@ -5007,34 +4979,12 @@ void W8PathingService::BuildSearchVisualization()
    two current selection slots take yellow and either green or red; every other
    surface is blue. */
 // FUNCTION: WIZ8 0x0045d490
-void W8PathingService::GetWaypointVisualizationColor(unsigned short waypoint,
-                                                     srVector3T<float>* color)
+glm::vec3 W8PathingService::waypointVisualizationColor(unsigned short waypoint) const
 {
-    if ((m_waypoints[waypoint].flags & W8_WAYPOINT_DISABLED) != 0) {
-        color->SetZero();
-        return;
-    }
-    if (waypoint == start_waypoint) {
-        color->x = 1.0f;
-        color->y = 1.0f;
-        color->z = 0.0f;
-        return;
-    }
-    if (waypoint != destination_waypoint) {
-        color->x = 0.0f;
-        color->y = 0.0f;
-        color->z = 1.0f;
-        return;
-    }
-    if (path_direction_valid) {
-        color->x = 0.0f;
-        color->y = 1.0f;
-        color->z = 0.0f;
-        return;
-    }
-    color->x = 1.0f;
-    color->y = 0.0f;
-    color->z = 0.0f;
+    if ((m_waypoints[waypoint].flags & W8_WAYPOINT_DISABLED) != 0) return glm::vec3(0);
+    if (waypoint == start_waypoint) return {1, 1, 0};
+    if (waypoint != destination_waypoint) return {0, 0, 1};
+    return path_direction_valid ? glm::vec3(0, 1, 0) : glm::vec3(1, 0, 0);
 }
 
 /* Create the fixed-capacity editor mesh shared by waypoint and edge drawing.

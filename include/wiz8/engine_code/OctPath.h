@@ -362,7 +362,7 @@ public:
     void BuildSearchVisualization();
     stModelInstance* BuildPathVisualization();
     stModelInstance* EnsurePathVisualization();
-    void GetWaypointVisualizationColor(unsigned short waypoint, srVector3T<float>* color);
+    glm::vec3 waypointVisualizationColor(unsigned short waypoint) const;
     short CollectPathVisualization(const srVector3T<float>* position);
     bool PreparePathVisualization(const srVector3T<float>* source,
                                   const srVector3T<float>* direction);
