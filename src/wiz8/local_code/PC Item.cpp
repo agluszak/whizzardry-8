@@ -3,9 +3,9 @@
 #include <string>
 #include <algorithm>
 #include <array>
-#include <utility>
 #include <cstdlib>
 #include <cstring>
+#include <stdexcept>
 #include <string_view>
 #include <vector>
 
@@ -47,7 +47,6 @@
 #include "wiz8/item_video_object_vector.h"
 #include "image_assets.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/video_object_catalog.h"
 #include "wiz8/local_code/ItemManager.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/MonsterManager.h"

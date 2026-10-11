@@ -39,7 +39,6 @@
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/npc_script_file.h"
 #include "wiz8/npc_items.h"
-#include "wiz8/item_video_object_vector.h"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/layouts/item_tables.h"

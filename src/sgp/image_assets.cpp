@@ -1,9 +1,12 @@
 #include "image_assets.h"
 
+#include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 
-#include "himage.h"
+#include "vobject.h"
+#include "vsurface.h"
 
 namespace {
 std::string cache_key(std::string_view path)

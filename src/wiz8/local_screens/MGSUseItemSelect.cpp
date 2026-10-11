@@ -11,7 +11,6 @@
 #include "wiz8/local_screens/MGSUseItemSelect.h"
 #include "wiz8/dialog_code/AssayDialog.h"
 #include "wiz8/engine_code/Spells.h"
-#include "wiz8/item_video_object_vector.h"
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_code/Configuration.h"
