@@ -37,7 +37,7 @@
 //
 
 typedef struct {
-    COLORVAL ColorFill; // Used for fill effect
+    UINT16 ColorFill; // Used for fill effect
     SDL_Rect SrcRect;    // Given SRC subrect instead of srcregion
     SDL_Rect FillRect;   // Given SRC subrect instead of srcregion
 
@@ -76,7 +76,6 @@ struct SGPVSurface {
     Palette8 palette{};
     bool hasPalette = false;
     Palette16 p16BPPPalette{};
-    COLORVAL TransparentColor;
 
 };
 
@@ -123,9 +122,6 @@ std::unique_ptr<SGPVSurface> CreateVideoSurface(const VSURFACE_DESC& VSurfaceDes
 // Set data from HIMAGE.
 BOOLEAN SetVideoSurfaceDataFromHImage(SGPVSurface& hVSurface, const image_type& hImage, UINT16 usX, UINT16 usY,
                                       SDL_Rect* pSrcRect);
-
-// Sets the packed source color key
-BOOLEAN SetVideoSurfaceTransparencyColor(SGPVSurface& hVSurface, COLORVAL TransColor);
 
 // Sets HVSurface palette, creates if nessessary. Also sets 16BPP palette
 BOOLEAN SetVideoSurfacePalette(SGPVSurface& hVSurface, const Palette8& pSrcPalette);
