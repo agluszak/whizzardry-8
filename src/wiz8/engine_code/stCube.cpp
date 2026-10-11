@@ -1,5 +1,4 @@
 #include "glm/ext/vector_double3.hpp"
-#include "glm/geometric.hpp"
 #include <fmt/format.h>
 #include <string>
 #include <array>
