@@ -1,7 +1,6 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <wiz8/filesystem.h>
-#include <SDL3/SDL_rect.h>
 #include <string_view>
 #include <string>
 #include <sstream>
@@ -4048,7 +4047,6 @@ void RefreshNpcTradePrice(void)
 // FUNCTION: WIZ8 0x00575C50
 void DrainNpcDialogueDeferralInput(void)
 {
-    SDL_Point mouse;
     InputAtom input;
     W8NpcDialogueLayout prior_layout;
     bool reopen_topics;
@@ -4056,10 +4054,7 @@ void DrainNpcDialogueDeferralInput(void)
     if (!ShouldDeferCharacterEventForNpcScript(true) || !gXStatus.fNpcDialogueMode) {
         return;
     }
-    SGPMouseGetPos(&mouse);
-    DispatchMouseEvent(MOUSE_POS, static_cast<unsigned short>(mouse.x),
-                                static_cast<unsigned short>(mouse.y), gfLeftButtonState,
-                                gfRightButtonState);
+    RefreshMouseRegions();
     while (DequeueEvent(&input) == 1) {
         if (input.usEvent == KEY_DOWN) {
             if (input.usParam == VK_ESCAPE) {
@@ -4673,16 +4668,12 @@ void ClearMainGameTargetState(void)
 // FUNCTION: WIZ8 0x00577560
 void FlushInputWhileWorldCursorGate(void)
 {
-    SDL_Point mouse;
     InputAtom input;
 
     if (g_status.world_cursor_gate == 0) {
         return;
     }
-    SGPMouseGetPos(&mouse);
-    DispatchMouseEvent(MOUSE_POS, static_cast<unsigned short>(mouse.x),
-                                static_cast<unsigned short>(mouse.y), gfLeftButtonState,
-                                gfRightButtonState);
+    RefreshMouseRegions();
     while (DequeueEvent(&input) == 1) {
     }
 }

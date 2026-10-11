@@ -9,6 +9,7 @@
 #include <string_view>
 
 #include "wiz8/dialog_code/DialogBase.h"
+#include "wiz8/dialog_code/DialogButton.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "Button System.h"
 #include "input.h"
@@ -89,14 +90,14 @@ private:
     /* Keyboard handling for the visible text list. */
     bool HandleInputEvent(const InputAtom* input);
 
-    /* SGP move/click callbacks for the text area, the scroll arrow buttons and
+    /* Owner-local activation callbacks for the text area, scroll arrows and
        the confirmation buttons. */
-    static void TextAreaButtonCallback(GUI_BUTTON* button, INT32 reason);
-    static void UpButtonCallback(GUI_BUTTON* button, INT32 reason);
-    static void DownButtonCallback(GUI_BUTTON* button, INT32 reason);
-    static void OkButtonCallback(GUI_BUTTON* button, INT32 reason);
-    static void CancelButtonCallback(GUI_BUTTON* button, INT32 reason);
-    static void SliderTrackButtonCallback(GUI_BUTTON* button, INT32 reason);
+    static void TextAreaButtonCallback(W8DialogButton* button);
+    static void UpButtonCallback(W8DialogButton* button);
+    static void DownButtonCallback(W8DialogButton* button);
+    static void OkButtonCallback(W8DialogButton* button);
+    static void CancelButtonCallback(W8DialogButton* button);
+    static void SliderTrackButtonCallback(W8DialogButton* button);
 
 public:
     std::vector<std::string> m_lines;
@@ -107,25 +108,17 @@ public:
     float m_field_080; /* 0.9 */
     float m_field_084; /* 0.75 */
     int m_fill_colour; /* highlight fill colour */
-    GUIButton m_text_button;
-    GUIButton m_second_text_button;
+    W8DialogButton m_text_button;
+    W8DialogButton m_second_text_button;
     GenericButtonImage area_inlay;  /* DialogInlay inlay for m_area_button */
-    GUIButton m_area_button; /* scrolling text area */
-    GUIButton m_up_button;
-    ButtonImage m_up_image;
-    GUIButton m_down_button;
-    ButtonImage m_down_image;
-    GUIButton m_slider_button;
-    ButtonImage m_slider_image;
+    W8DialogButton m_area_button; /* scrolling text area */
+    W8DialogButton m_up_button;
+    W8DialogButton m_down_button;
+    W8DialogButton m_slider_button;
     GenericButtonImage third_btn_inlay; /* DialogInlay inlay for m_third_text_button */
-    GUIButton m_third_text_button;
-    GUIButton m_ok_button;
-    ButtonImage m_ok_image;
-    /* Click rectangles read by ProcessInput; nothing writes them. */
-    W8ControlsRect m_ok_rect;
-    GUIButton m_cancel_button;
-    ButtonImage m_cancel_image;
-    W8ControlsRect m_cancel_rect;
+    W8DialogButton m_third_text_button;
+    W8DialogButton m_ok_button;
+    W8DialogButton m_cancel_button;
     bool m_scrollable; /* scrolling area is scrollable */
     int m_first_visible_line;
     int m_selected_line;

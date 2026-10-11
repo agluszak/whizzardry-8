@@ -2065,9 +2065,8 @@ unsigned char PartySelectionScreenLeave(int leaving)
 // FUNCTION: WIZ8 0x005c3120
 void PartySelectionScreenFrame(void)
 {
-    SDL_Point point;
-    SDL_Point current;
     InputAtom input;
+    SDL_Point point;
 
     if (g_dev_mode) {
         RequestExitScreen();
@@ -2086,10 +2085,7 @@ void PartySelectionScreenFrame(void)
         }
     }
     if (controller->m_input_handler) {
-        SGPMouseGetPos(&current);
-        DispatchMouseEvent(MOUSE_POS, static_cast<unsigned short>(current.x),
-                                    static_cast<unsigned short>(current.y), gfLeftButtonState,
-                                    gfRightButtonState);
+        RefreshMouseRegions();
     }
     UpdateRegionMousePosition(point.x, point.y);
     while (DequeueEvent(&input) == 1) {

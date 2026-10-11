@@ -3,6 +3,7 @@
 #include <memory>
 #include <utility>
 #include <string>
+#include <vector>
 
 #include "vobject.h"
 #include "vsurface.h"
@@ -21,8 +22,12 @@ struct W8VideoFrame {
     std::unique_ptr<SGPVSurface> surface;
 };
 
-extern W8VideoObjectSlot g_video_slots[494];
-extern W8VideoFrame g_video_frames[1658];
+extern std::vector<W8VideoObjectSlot> g_video_slots;
+extern std::vector<W8VideoFrame> g_video_frames;
+
+// Load first, then publish an item image without changing the fixed UI catalog.
+int RegisterItemVideoImage(std::string path);
+void ReleaseItemVideoImages();
 
 short GetCatalogVideoObjectYOffset(int object);
 /* 0x00549420: load the catalog frame and return its sprite object; optional out
