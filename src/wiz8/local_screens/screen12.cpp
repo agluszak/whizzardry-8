@@ -40,7 +40,7 @@ unsigned char ExitScreenEnter(void)
 
     ResetVideoFrameState();
     UpdateHeldItemCursor();
-    colour = Get16BPPColor(0x10101);
+    colour = Get16BPPColor(SDL_Color{1, 1, 1, SDL_ALPHA_OPAQUE});
     ColorFillVideoSurfaceArea(GetFrameBufferSurface(), 0, 0, 0x280, 0x1e0, colour);
     DrawCatalogImage(GetFrameBufferSurface(), 0x1e4, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY, 0);
     ResetTransientRenderScenes();
