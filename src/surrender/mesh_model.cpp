@@ -33,6 +33,7 @@
 
 #include "surrender/srMeshModel.h"
 #include "surrender/mesh_math.h"
+#include "surrender/mesh_submission.h"
 #include "surrender/srStreamFlags.h"
 #include "surrender/srCore.h"
 #include "surrender/srDebug.h"
@@ -1331,91 +1332,96 @@ void srTriMeshPipeline::FlushSlots()
 
             srGERD::Renderer* renderer = this->renderer->lockRenderer();
 
-            this->vertex_arrays.resize(slot_count);
-            srVertexArray* vertex_arrays = this->vertex_arrays.data();
-            vertex_arrays[0] = renderer->allocVertexArray(slot_count * culler_output.vertexCount());
-            for (w8_ulong slot = 1; slot < slot_count; ++slot) {
-                const auto offset = renderer->first_vertex + slot * culler_output.vertexCount();
-                vertex_arrays[slot] = renderer->vertices.bind(offset);
-            }
-
-            w8_ulong processor_count = this->renderer->getVertexProcessorCount();
-            srVertexProcessor** processors = 0;
-            if (processor_count != 0) {
-                vertex_processors = this->renderer->getVertexProcessors();
-                processors = vertex_processors.data();
-            }
-
-            const auto ambient_light = this->renderer->getAmbientLight();
-            const auto [environment_minimum, environment_maximum] =
-                this->renderer->getEnvironmentRange();
-            const auto [environment_scale, environment_inverse_scale] =
-                this->renderer->getEnvironmentScaleFactor();
-            w8_ulong exclusion_mask = this->renderer->getExclusionMask();
-
-            srVertexPipe::Input pipe_input;
-            pipe_input.vertex_count = culler_output.vertexCount();
-            pipe_input.active_vertices = culler_output.avt.data();
-            pipe_input.direct_vertex_indices = false;
-            pipe_input.positions = positions;
-            pipe_input.normals = vertex_extras;
-            pipe_input.eye_center = eye_bounds.center;
-            pipe_input.eye_radius = eye_bounds.radius;
-            pipe_input.model_view = &model_view;
-            pipe_input.normal_matrix = &normal_matrix;
-            pipe_input.vertex_arrays = &this->vertex_arrays[0];
-            pipe_input.exclusion_mask = exclusion_mask;
-            pipe_input.ambient_light = ambient_light;
-            pipe_input.records = std::span{records}.first(slot_count);
-            pipe_input.processors = processors;
-            pipe_input.processor_count = processor_count;
-            pipe_input.environment_minimum = environment_minimum;
-            pipe_input.environment_maximum = environment_maximum;
-            pipe_input.environment_scale = environment_scale;
-            pipe_input.environment_inverse_scale = environment_inverse_scale;
-
-            if (!active_triangles && processed != 0) {
-                for (auto& index : culler_output.indices) index += processed;
-            }
-
-            w8_ulong renderer_disable_mask = 0;
-            if (this->renderer->getMaxTextureStages() == 1) {
-                renderer_disable_mask = (1UL << srVertexProcessor::CHANNEL_ST1) |
-                                        (1UL << srVertexProcessor::CHANNEL_Q1);
-            }
-
-            for (w8_ulong pass_index = 0; pass_index < slot_count; ++pass_index) {
-                passes[pass_index].texcoords = records[pass_index].st_source[0];
-
-                w8_ulong disable_mask;
-                if (passes[pass_index].shaders != 0) {
-                    srFlags<srVertexProcessor::e_channel> flags =
-                        srVertexPipe::getShaderDisableMask(passes[pass_index].shaders,
-                                                           culler_output.indices.data(),
-                                                           culler_output.triangleCount());
-                    disable_mask = flags.value;
-                } else {
-                    srFlags<srVertexProcessor::e_channel> flags =
-                        srVertexPipe::getShaderDisableMask(passes[pass_index].shader);
-                    disable_mask = flags.value;
+            try {
+                this->vertex_arrays.resize(slot_count);
+                srVertexArray* vertex_arrays = this->vertex_arrays.data();
+                vertex_arrays[0] = renderer->allocVertexArray(slot_count * culler_output.vertexCount());
+                for (w8_ulong slot = 1; slot < slot_count; ++slot) {
+                    const auto offset = renderer->first_vertex + slot * culler_output.vertexCount();
+                    vertex_arrays[slot] = renderer->vertices.bind(offset);
                 }
-                records[pass_index].channels = disable_mask | renderer_disable_mask;
+
+                w8_ulong processor_count = this->renderer->getVertexProcessorCount();
+                srVertexProcessor** processors = 0;
+                if (processor_count != 0) {
+                    vertex_processors = this->renderer->getVertexProcessors();
+                    processors = vertex_processors.data();
+                }
+
+                const auto ambient_light = this->renderer->getAmbientLight();
+                const auto [environment_minimum, environment_maximum] =
+                    this->renderer->getEnvironmentRange();
+                const auto [environment_scale, environment_inverse_scale] =
+                    this->renderer->getEnvironmentScaleFactor();
+                w8_ulong exclusion_mask = this->renderer->getExclusionMask();
+
+                srVertexPipe::Input pipe_input;
+                pipe_input.vertex_count = culler_output.vertexCount();
+                pipe_input.active_vertices = culler_output.avt.data();
+                pipe_input.direct_vertex_indices = false;
+                pipe_input.positions = positions;
+                pipe_input.normals = vertex_extras;
+                pipe_input.eye_center = eye_bounds.center;
+                pipe_input.eye_radius = eye_bounds.radius;
+                pipe_input.model_view = &model_view;
+                pipe_input.normal_matrix = &normal_matrix;
+                pipe_input.vertex_arrays = &this->vertex_arrays[0];
+                pipe_input.exclusion_mask = exclusion_mask;
+                pipe_input.ambient_light = ambient_light;
+                pipe_input.records = std::span{records}.first(slot_count);
+                pipe_input.processors = processors;
+                pipe_input.processor_count = processor_count;
+                pipe_input.environment_minimum = environment_minimum;
+                pipe_input.environment_maximum = environment_maximum;
+                pipe_input.environment_scale = environment_scale;
+                pipe_input.environment_inverse_scale = environment_inverse_scale;
+
+                if (!active_triangles && processed != 0) {
+                    for (auto& index : culler_output.indices) index += processed;
+                }
+
+                w8_ulong renderer_disable_mask = 0;
+                if (this->renderer->getMaxTextureStages() == 1) {
+                    renderer_disable_mask = (1UL << srVertexProcessor::CHANNEL_ST1) |
+                                            (1UL << srVertexProcessor::CHANNEL_Q1);
+                }
+
+                for (w8_ulong pass_index = 0; pass_index < slot_count; ++pass_index) {
+                    passes[pass_index].texcoords = records[pass_index].st_source[0];
+
+                    w8_ulong disable_mask;
+                    if (passes[pass_index].shaders != 0) {
+                        srFlags<srVertexProcessor::e_channel> flags =
+                            srVertexPipe::getShaderDisableMask(passes[pass_index].shaders,
+                                                               culler_output.indices.data(),
+                                                               culler_output.triangleCount());
+                        disable_mask = flags.value;
+                    } else {
+                        srFlags<srVertexProcessor::e_channel> flags =
+                            srVertexPipe::getShaderDisableMask(passes[pass_index].shader);
+                        disable_mask = flags.value;
+                    }
+                    records[pass_index].channels = disable_mask | renderer_disable_mask;
+                }
+
+                vertex_pipe->process(pipe_input);
+
+                srGERD::Renderer::TriInput render_input;
+                render_input.triangle_count = culler_output.triangleCount();
+                render_input.record_count = slot_count;
+                render_input.vertex_count = culler_output.vertexCount();
+                render_input.indices = culler_output.indices.data();
+                render_input.triangles = triangles;
+                render_input.vertices = culler_output.vertex_remap.data();
+                render_input.passes = &passes[0];
+                render_input.direct_vertex_indices = false;
+                render_input.project_clip_near = &project_clip_near;
+                render_input.sort_bias = sort_bias;
+                renderer->render(render_input);
+            } catch (...) {
+                this->renderer->unlockRenderer(renderer, 0);
+                throw;
             }
-
-            vertex_pipe->process(pipe_input);
-
-            srGERD::Renderer::TriInput render_input;
-            render_input.triangle_count = culler_output.triangleCount();
-            render_input.record_count = slot_count;
-            render_input.vertex_count = culler_output.vertexCount();
-            render_input.indices = culler_output.indices.data();
-            render_input.triangles = triangles;
-            render_input.vertices = culler_output.vertex_remap.data();
-            render_input.passes = &passes[0];
-            render_input.direct_vertex_indices = false;
-            render_input.project_clip_near = &project_clip_near;
-            render_input.sort_bias = sort_bias;
-            renderer->render(render_input);
             this->renderer->unlockRenderer(renderer, 0);
         }
 
@@ -1548,48 +1554,27 @@ void srTriMeshPipeline::AppendMeshPass(const srMeshModel::TriMesh& mesh, w8_long
 void srMeshModel::renderTriMesh(srGERD& renderer, const TriMesh& mesh)
 {
     if (mesh.polygon_count != 0 && mesh.vertex_count != 0) {
-        renderer.pushEnable();
-
-        if ((mesh.control_flags & (1UL << srMeshModel::CONTROL_SORTED_RENDERING)) != 0 &&
-            !renderer.isEnabled(srGERD::ENABLE_SORTED_RENDERING)) {
-            renderer.toggle(srGERD::ENABLE_SORTED_RENDERING);
-        }
-
-        w8_long material_side;
-        for (w8_long side = 1; side >= 0; --side) {
-            if ((mesh.control_flags & (1u << side)) != 0) {
-                auto& pipeline = srTriMeshPipeline::beginMesh(renderer, mesh);
-
-                material_side = side;
+        const srMeshSubmission::EnableScope enabled(renderer,
+            (mesh.control_flags & (1UL << CONTROL_SORTED_RENDERING)) != 0);
+        srMeshSubmission::drawSides(renderer, mesh,
+            [&](srTriMeshPipeline&, w8_long side) {
+                w8_long material_side = side;
                 if (side == 1) {
                     renderer.setCullMode(srGERD::CULL_FRONT);
-                    if (!renderer.isEnabled(srGERD::ENABLE_REVERSE_NORMALS)) {
+                    if (!renderer.isEnabled(srGERD::ENABLE_REVERSE_NORMALS))
                         renderer.toggle(srGERD::ENABLE_REVERSE_NORMALS);
-                    }
-                    if ((mesh.control_flags & (1UL << srMeshModel::CONTROL_REUSE_FRONT_MATERIAL)) !=
-                        0) {
+                    if ((mesh.control_flags & (1UL << CONTROL_REUSE_FRONT_MATERIAL)) != 0)
                         material_side = 0;
-                    }
                 } else {
-                    if ((mesh.control_flags & (1UL << srMeshModel::CONTROL_NO_FRONT_CULL)) == 0) {
-                        renderer.setCullMode(srGERD::CULL_BACK);
-                    } else {
-                        renderer.setCullMode(srGERD::CULL_NONE);
-                    }
-                    if (renderer.isEnabled(srGERD::ENABLE_REVERSE_NORMALS)) {
+                    renderer.setCullMode(
+                        (mesh.control_flags & (1UL << CONTROL_NO_FRONT_CULL)) != 0
+                            ? srGERD::CULL_NONE : srGERD::CULL_BACK);
+                    if (renderer.isEnabled(srGERD::ENABLE_REVERSE_NORMALS))
                         renderer.toggle(srGERD::ENABLE_REVERSE_NORMALS);
-                    }
                 }
-
-                for (w8_long pass = 0; pass < mesh.pass_count; ++pass) {
-                    pipeline.AppendMeshPass(mesh, pass, material_side, mesh.shaders[pass]);
-                }
-
-                pipeline.FlushIfCurrent();
-            }
-        }
-
-        renderer.popEnable();
+                return material_side;
+            },
+            [&](w8_long pass) { return mesh.shaders[pass]; });
     }
 }
 

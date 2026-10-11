@@ -44,6 +44,7 @@
 #include "surrender_test_fixture.h"
 #include "surrender/srBoundingBox.h"
 #include "surrender/srMaterial.h"
+#include "surrender/srVertexPipe.h"
 #include "surrender/srModeler.h"
 #include "surrender/srTriMeshPipeline.h"
 #include "surrender/srGERD.h"
@@ -1393,6 +1394,55 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Empty software backface selections skip 
     mesh.polygon_count = 2;
     REQUIRE_THROWS_AS(model.RenderTriMeshWithEquations(renderer, mesh, normals), std::invalid_argument);
     REQUIRE(pipeline->triangle_count == before);
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture, "Failed mesh materials release renderer and restore enable flags", "[geometry]")
+{
+    class FailingMaterial : public srMaterial {
+    public:
+        void preProcess(srVertexPipe&) override { throw std::runtime_error("material failed"); }
+    };
+    srGERD renderer(srCreateSDLGPUDevice(), "failed mesh submission");
+    renderer.setWinding(srGERD::WINDING_POSITIONAL_0);
+    // Reuse a CPU batch as sorted without requiring a window or GPU context.
+    auto* batch = renderer.lockRenderer();
+    batch->sorted = 1;
+    renderer.unlockRenderer(batch, 0);
+    renderer.toggle(srGERD::ENABLE_REVERSE_NORMALS);
+    srMeshModel native(1, 3);
+    stMeshModel extended(1, 3);
+    std::array<glm::vec3, 3> positions{{{-0.5f, -0.5f, 0.5f},
+                                      {0.5f, -0.5f, 0.5f}, {0, 0.5f, 0.5f}}};
+    std::array<srVector3i, 1> triangles{{{0, 1, 2}}};
+    std::array<glm::vec4, 1> equations{{{0, 0, 1, -0.5f}}};
+    const std::array<glm::vec3, 1> normals{{{0, 0, -1}}};
+    srMeshModel::TriMesh mesh;
+    mesh.vertex_count = positions.size();
+    mesh.polygon_count = triangles.size();
+    mesh.pass_count = 1;
+    mesh.positions = positions.data();
+    mesh.poly_vertices = triangles.data();
+    mesh.poly_equations = equations.data();
+    mesh.bounds_center = {0, 0, 0.5f};
+    mesh.bounds_radius = 1;
+    mesh.control_flags = (1u << srMeshModel::CONTROL_FRONT) |
+                         (1u << srMeshModel::CONTROL_NO_FRONT_CULL) |
+                         (1u << srMeshModel::CONTROL_SORTED_RENDERING);
+    mesh.materials[0][0] = std::make_shared<FailingMaterial>();
+    for (bool software : {false, true}) {
+        if (software)
+            REQUIRE_THROWS_AS(extended.RenderTriMeshWithEquations(renderer, mesh, normals),
+                              std::runtime_error);
+        else
+            REQUIRE_THROWS_AS(native.renderTriMesh(renderer, mesh), std::runtime_error);
+        REQUIRE_FALSE(renderer.isEnabled(srGERD::ENABLE_SORTED_RENDERING));
+        REQUIRE(renderer.isEnabled(srGERD::ENABLE_REVERSE_NORMALS));
+        renderer.toggle(srGERD::ENABLE_SORTED_RENDERING);
+        auto* resumed = renderer.lockRenderer();
+        renderer.unlockRenderer(resumed, 0);
+        REQUIRE(resumed == batch);
+        renderer.toggle(srGERD::ENABLE_SORTED_RENDERING);
+    }
 }
 
 TEST_CASE("Plane contacts retain collision skin and occluder clearance", "[geometry]")
