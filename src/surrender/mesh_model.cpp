@@ -1396,20 +1396,10 @@ void srTriMeshPipeline::FlushSlots()
 
             this->vertex_arrays.resize(slot_count);
             srVertexArray* vertex_arrays = this->vertex_arrays.data();
-            renderer->allocVertexArray(vertex_arrays[0], slot_count * culler_output.vertexCount());
-
-            /* The left side re-reads vertex_arrays[slot] while the right side keeps the snapshot
-               taken before the loop. */
+            vertex_arrays[0] = renderer->allocVertexArray(slot_count * culler_output.vertexCount());
             for (w8_ulong slot = 1; slot < slot_count; ++slot) {
-                w8_ulong offset = slot * culler_output.vertexCount();
-                this->vertex_arrays[slot].eye_locations = vertex_arrays[0].eye_locations + offset;
-                this->vertex_arrays[slot].diffuse = vertex_arrays[0].diffuse + offset;
-                this->vertex_arrays[slot].specular = vertex_arrays[0].specular + offset;
-                this->vertex_arrays[slot].st0 = vertex_arrays[0].st0 + offset;
-                this->vertex_arrays[slot].st1 = vertex_arrays[0].st1 + offset;
-                this->vertex_arrays[slot].q0 = vertex_arrays[0].q0 + offset;
-                this->vertex_arrays[slot].q1 = vertex_arrays[0].q1 + offset;
-                this->vertex_arrays[slot].attributes = vertex_arrays[0].attributes + offset;
+                const auto offset = renderer->first_vertex + slot * culler_output.vertexCount();
+                vertex_arrays[slot] = renderer->vertices.bind(offset);
             }
 
             w8_ulong processor_count = this->renderer->getVertexProcessorCount();

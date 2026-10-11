@@ -152,7 +152,7 @@ public:
             w8_ulong count;
 
             IndexBatch() : count(0) {}
-            void alloc(IndexWrite& write, w8_ulong count);
+            IndexWrite alloc(w8_ulong count);
             void reset(int release);
         };
         /* Accumulated vertex streams. alloc() grows all streams and default-fills the new range
@@ -169,13 +169,13 @@ public:
             w8_long count;
 
             VertexArrays() : count(0) {}
-            void alloc(srVertexArray& arrays, w8_ulong count);
-            void bind(srVertexArray& arrays, w8_ulong base);
+            srVertexArray alloc(w8_ulong count);
+            srVertexArray bind(w8_ulong base);
             void reset(int release);
         };
 
         Renderer(const Parameters& parameters);
-        void allocVertexArray(srVertexArray& arrays, w8_ulong count);
+        srVertexArray allocVertexArray(w8_ulong count);
         /* intern the pass's {texture0,texture1,shader} key into
            texture_set, folding per-vertex texture/shader table transitions
            into the output ids. */
