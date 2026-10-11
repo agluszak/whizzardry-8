@@ -351,6 +351,21 @@ class Game
         frame();
     }
 
+    // SDL text input may commit a whole word (paste or input method), not just
+    // one ASCII character per key press. The dialogue test cares about the
+    // submitted keyword, not the number of intermediate redraws.
+    void enter_text(std::string_view text)
+    {
+        REQUIRE(NativeTextInputEnabled());
+        const std::string committed(text);
+        SDL_Event event{};
+        event.type = SDL_EVENT_TEXT_INPUT;
+        event.text.windowID = SDL_GetWindowID(window_);
+        event.text.text = committed.c_str();
+        HandleGameEvent(event);
+        frame();
+    }
+
     /* Presses or releases the key bound to a main-game command, with its
        modifiers, as SDL key events (bindings hold virtual-key codes). */
     void command_key(W8MGSCommand command, bool down)
@@ -1199,8 +1214,7 @@ void Ask(Game& game, std::string_view keyword)
     REQUIRE(DialogueAwaitingPlayer());
     game.key(SDLK_RETURN);
     REQUIRE(EditingText());
-    for (char letter : keyword)
-        game.key(static_cast<SDL_Keycode>(letter));
+    game.enter_text(keyword);
     REQUIRE(GetTextFromField(0) == keyword);
     game.key(SDLK_RETURN);
 }
@@ -1424,9 +1438,7 @@ TEST_CASE("inventory-chest", "[runtime]")
 
 TEST_CASE("npc-dialogue", "[runtime]")
 {
-    RequireAssets();
-    NpcDialogueScenario();
-    CheckGameErrors();
+    RunScenario(NpcDialogueScenario);
 }
 
 TEST_CASE("load-game", "[runtime]")
