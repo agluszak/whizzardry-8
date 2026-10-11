@@ -14,6 +14,7 @@
 #include "Button System.h"
 #include "wiz8/regions.h"
 #include "Types.h"
+#include "input.h"
 
 bool UpdateDialogArrowState(GUI_BUTTON* button, INT32 reason)
 {

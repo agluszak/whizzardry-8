@@ -4,7 +4,6 @@
 #include <string>
 #include <vector>
 
-#include "wiz8/dialog_code/DialogInterface.h"
 #include "vsurface.h"
 #include "wiz8/dialog_code/NpcDialog.h"
 #include "wiz8/engine_code/Video2.h"
@@ -16,7 +15,6 @@
 #include "wiz8/text_input.h"
 #include "input.h"
 #include "Font.h"
-#include "Types.h"
 #include "dialog_code/DialogBase.h"
 #include "dialog_code/DialogButton.h"
 #include "local_code/ControlsRect.h"

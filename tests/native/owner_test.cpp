@@ -1000,6 +1000,10 @@ void generic_button_images()
                         const bool highlight = hover && (!checkbox || mouse_down);
                         const unsigned expected_frame = !enabled ? 0 :
                             pressed ? (highlight ? 4 : 3) : (highlight ? 2 : 1);
+                        CAPTURE(checkbox, enabled, pressed, hover, mouse_down,
+                                first_button->region_index, g_hover_region_index,
+                                g_regions[first_button->region_index].button == first_button.get(),
+                                g_regions[first_button->region_index].flags, gfRenderHilights);
                         REQUIRE(color == 0x1000 + expected_frame);
                     }
                 }

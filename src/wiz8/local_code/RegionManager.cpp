@@ -604,18 +604,29 @@ static bool FindEnabledRegionAtPoint(unsigned short x, unsigned short y, unsigne
 }
 
 namespace {
+struct RegionDispatchResult {
+    unsigned char handled;
+    bool binding_unchanged;
+};
+
 // Region storage is stable, but a callback may destroy/rebind its widget.
-bool DispatchUnchangedRegion(W8Region& region, const InputAtom& event)
+RegionDispatchResult DispatchRegionEvent(W8Region& region, const InputAtom& event)
 {
     const auto generation = region.binding_generation;
+    unsigned char handled = 0;
     if (region.callback) {
-        region.callback(&event, &region);
+        handled = region.callback(&event, &region);
     } else if (region.handler) {
-        region.handler->HandleRegionInput(region, event);
+        handled = static_cast<unsigned char>(region.handler->HandleRegionInput(region, event));
     } else {
-        return false;
+        return {0, false};
     }
-    return region.binding_generation == generation;
+    return {handled, region.binding_generation == generation};
+}
+
+bool DispatchUnchangedRegion(W8Region& region, const InputAtom& event)
+{
+    return DispatchRegionEvent(region, event).binding_unchanged;
 }
 
 bool LeaveRegion(W8Region& region, const InputAtom& event)
@@ -902,15 +913,18 @@ unsigned char DispatchRegionInput(const InputAtom* event)
     switch (event->usEvent) {
     case LEFT_BUTTON_DOWN:
     case RIGHT_BUTTON_DOWN:
+        region->CaptureButtonDown(event->usEvent);
+        g_captured_region_index = region_index;
+        g_current_region_index = region_index;
         sound_id = 2;
         break;
     case LEFT_BUTTON_UP:
-        if ((g_regions[g_current_region_index].flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
+        if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
             sound_id = 3;
         }
         break;
     case RIGHT_BUTTON_UP:
-        if ((g_regions[g_current_region_index].flags & W8_REGION_RIGHT_BUTTON_HELD) != 0) {
+        if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) != 0) {
             sound_id = 3;
         }
         break;
@@ -921,11 +935,21 @@ unsigned char DispatchRegionInput(const InputAtom* event)
     memcpy(&callback_address, &region->callback, sizeof(callback_address));
     RuntimeObserve(RUNTIME_REGION_ACTIVATED, region_index, callback_address, region->callback_id);
 #endif
-    unsigned char handled = region->callback ? region->callback(event, region) : 0;
+    const auto generation = region->binding_generation;
+    const auto dispatch = DispatchRegionEvent(*region, *event);
+    if (region->binding_generation == generation) {
+        if (event->usEvent == LEFT_BUTTON_UP) {
+            region->flags &= ~W8_REGION_LEFT_BUTTON_HELD;
+            if (g_captured_region_index == region_index) g_captured_region_index = 0;
+        } else if (event->usEvent == RIGHT_BUTTON_UP) {
+            region->flags &= ~W8_REGION_RIGHT_BUTTON_HELD;
+            if (g_captured_region_index == region_index) g_captured_region_index = 0;
+        }
+    }
     if (sound_id != -1) {
         PlayButtonSound(sound_id);
     }
-    return handled;
+    return dispatch.handled;
 }
 
 /* Raises the help box for one region, taking a stale one down first. The
