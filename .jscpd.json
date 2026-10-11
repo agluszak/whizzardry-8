@@ -25,5 +25,8 @@
     "json"
   ],
   "output": "build/jscpd",
-  "noColors": true
+  "noColors": true,
+  "ignorePattern": [
+    "#\\s*include[^\\n]*"
+  ]
 }

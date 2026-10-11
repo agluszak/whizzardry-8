@@ -1,4 +1,5 @@
 #include "wiz8/engine_code/LevelFile.h"
+#include "wiz8/surface_geometry.h"
 #include "wiz8/navigation_flags.h"
 #include "wiz8/engine_code/GDProp.h"
 #include <stdexcept>
@@ -2350,4 +2351,72 @@ TEST_CASE("Geometry compaction preserves weld chains, stable faces and normalize
             REQUIRE(polygon.face.texture_coordinates[corner] == glm::vec2(original, corner));
         }
     }
+}
+
+TEST_CASE("Surface compilation keeps stable walkable runs and drops welded degeneracies", "[geometry]")
+{
+    std::array<W8GDSurface, 6> surfaces{};
+    for (int index = 0; index < 6; ++index) {
+        auto& surface = surfaces[index];
+        surface.index = 100 + index;
+        for (int corner = 0; corner < 3; ++corner) surface.vertex_indices[corner] = index * 3 + corner;
+    }
+    for (auto index : {0, 3, 5}) surfaces[index].flags = W8_GD_SURFACE_WALKABLE;
+    surfaces[2].vertex_indices[2] = surfaces[2].vertex_indices[0];
+    const auto order = surfaceGeometry::compilationOrder(surfaces);
+    REQUIRE(order.indices == std::vector<int>{0, 3, 5, 1, 4});
+    REQUIRE(order.walkable_count == 3);
+    REQUIRE(surfaces[3].index == 103);
+    const auto empty = surfaceGeometry::compilationOrder({});
+    REQUIRE(empty.indices.empty());
+    REQUIRE(empty.walkable_count == 0);
+}
+
+TEST_CASE("Animated prop affine geometry uses scaled paths and rotated native bounds", "[geometry]")
+{
+    std::array<srVector3, 3> positions{{{0, 0, 0}, {0, 0, 2}, {2, 0, 0}}};
+    W8SerializedMeshFace face{};
+    for (int corner = 0; corner < 3; ++corner) face.vertices[corner] = corner;
+    W8LevelFileFrame frame{};
+    frame.mesh.num_vertices = 3;
+    frame.mesh.num_faces = 1;
+    frame.mesh.pstVertices = positions.data();
+    frame.mesh.pstFaces = &face;
+    W8LevelFileScaledPathNode node{};
+    node.path.position.Set(1, -2, 3);
+    node.path.axis.Set(0, 2, 0);
+    node.path.angle = 1.5707963267948966f;
+    node.scale.Set(2, 3, 4);
+    W8LevelFileTransform transform{};
+    transform.LODMesh.pFrames = &frame;
+    transform.pathAI.scaled = 2;
+    transform.pathAI.path_count = 1;
+    transform.pathAI.pScaledPaths = &node;
+    W8LevelFileAnimObj animation{};
+    animation.num_transforms = 1;
+    animation.pTransforms = &transform;
+    GDProp prop;
+    prop.ApplyAnimFrame(0, &animation);
+    const auto bounds = prop.computeBounds();
+    REQUIRE(glm::length(bounds.minimum - glm::vec3(500, -1000, -500)) < 0.01f);
+    REQUIRE(glm::length(bounds.maximum - glm::vec3(4500, -1000, 1500)) < 0.01f);
+}
+
+TEST_CASE("Prop surface geometry preserves walkable slope while clearing steep slope", "[geometry]")
+{
+    std::array<srVector3, 3> positions{{{0, -2, 0}, {0, -2, 2}, {2, -2, 0}}};
+    W8GDSurface surface{};
+    for (int corner = 0; corner < 3; ++corner) surface.vertex_indices[corner] = corner;
+    surface.slope = 0.3f;
+    surfaceGeometry::initializePropSurface(surface, positions);
+    REQUIRE(surface.plane.normal.glmValue() == glm::vec3(0, 1, 0));
+    REQUIRE(surface.plane.w == 2);
+    REQUIRE(surface.flags == (W8_GD_SURFACE_PROP_GEOMETRY | W8_GD_SURFACE_WALKABLE | 1));
+    REQUIRE(surface.slope == 0.3f);
+    REQUIRE(surface.contact_margin == 500);
+    std::swap(surface.vertex_indices[1], surface.vertex_indices[2]);
+    surfaceGeometry::initializePropSurface(surface, positions);
+    REQUIRE(surface.plane.normal.glmValue() == glm::vec3(0, -1, 0));
+    REQUIRE(surface.flags == (W8_GD_SURFACE_PROP_GEOMETRY | 1));
+    REQUIRE(surface.slope == 0);
 }

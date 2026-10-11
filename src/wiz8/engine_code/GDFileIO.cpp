@@ -1,4 +1,5 @@
 #include "surrender/srBoundingBox.h"
+#include "wiz8/surface_geometry.h"
 #include <filesystem>
 #include <fmt/format.h>
 #include <cstdlib>
@@ -921,53 +922,19 @@ void W8GameData::CompileGameData()
     auto* new_surfaces = compiled_surfaces.data();
 
     int polygon_count = 0;
-    int old_index;
-    int old_surface_count;
-    for (old_index = 0; old_index < SurfacesCount(); ++old_index) {
-        W8GDSurface* surface = m_pSurfaces.data() + old_index;
-        if (surface->vertex_indices[0] != surface->vertex_indices[1] &&
-            surface->vertex_indices[0] != surface->vertex_indices[2] &&
-            surface->vertex_indices[1] != surface->vertex_indices[2] &&
-            (surface->flags & W8_GD_SURFACE_WALKABLE) != 0) {
-            surface->index = polygon_count;
-            W8GDSurface* compiled = new_surfaces + polygon_count;
-            InitializeCompiledSurface(compiled, surface, polygon_count);
-            for (j = 0; j < 3; ++j) {
-                LinkSurfaceEdge(polygon_count, j, &edge_table, new_surfaces, multiplier,
-                                new_vertices);
-            }
-            for (j = 0; j < CondPolysCount(); ++j) {
-                if (m_piCondPolys[j] == old_index) {
-                    cond_polys[j] = polygon_count;
-                }
-            }
-            ++polygon_count;
-        }
+    const auto order = surfaceGeometry::compilationOrder(m_pSurfaces);
+    for (const auto old_index : order.indices) {
+        auto& surface = m_pSurfaces[old_index];
+        surface.index = polygon_count;
+        if (!(surface.flags & W8_GD_SURFACE_WALKABLE)) surface.slope = 0;
+        InitializeCompiledSurface(new_surfaces + polygon_count, &surface, polygon_count);
+        for (int edge = 0; edge < 3; ++edge)
+            LinkSurfaceEdge(polygon_count, edge, &edge_table, new_surfaces, multiplier, new_vertices);
+        for (int conditional = 0; conditional < CondPolysCount(); ++conditional)
+            if (m_piCondPolys[conditional] == old_index) cond_polys[conditional] = polygon_count;
+        ++polygon_count;
     }
-    old_surface_count = SurfacesCount();
-    const int walkable_count = polygon_count;
-    for (old_index = 0; old_index < old_surface_count; ++old_index) {
-        W8GDSurface* surface = m_pSurfaces.data() + old_index;
-        if (surface->vertex_indices[0] != surface->vertex_indices[1] &&
-            surface->vertex_indices[0] != surface->vertex_indices[2] &&
-            surface->vertex_indices[1] != surface->vertex_indices[2] &&
-            (surface->flags & W8_GD_SURFACE_WALKABLE) == 0) {
-            surface->index = polygon_count;
-            surface->slope = 0;
-            W8GDSurface* compiled = new_surfaces + polygon_count;
-            InitializeCompiledSurface(compiled, surface, polygon_count);
-            for (j = 0; j < 3; ++j) {
-                LinkSurfaceEdge(polygon_count, j, &edge_table, new_surfaces, multiplier,
-                                new_vertices);
-            }
-            for (j = 0; j < CondPolysCount(); ++j) {
-                if (m_piCondPolys[j] == old_index) {
-                    cond_polys[j] = polygon_count;
-                }
-            }
-            ++polygon_count;
-        }
-    }
+    const int walkable_count = order.walkable_count;
     trigger_surface_count = polygon_count - walkable_count;
     trigger_surface_base = walkable_count;
     compiled_surfaces.resize(polygon_count);

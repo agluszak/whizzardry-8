@@ -93,11 +93,11 @@ private:
                     unsigned char footstep_surface,
                     unsigned char footstep_material); /* 0x004B7060 */
     void PrepareGeometry(srModelInstance* instance);
-    void AppendMeshFaces(W8LevelFileMesh* mesh, int vertex_base);
+    void AppendMeshFaces(const W8LevelFileMesh& mesh, int vertex_base);
     /* Appends the mesh's vertices/faces transformed by one animation path
        record (position/angle/axis/scale floats); called once per transform
        channel by ApplyAnimFrame. */
-    void TransformMeshGeometry(const W8LevelFileScaledPathNode* node, W8LevelFileMesh* mesh);
+    void appendMeshGeometry(const W8LevelFileScaledPathNode& node, const W8LevelFileMesh& mesh);
 
     Flags m_flags;                        /* 0x00 */
     unsigned short m_prop_number;         /* 0x02 */
