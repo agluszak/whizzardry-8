@@ -31,12 +31,12 @@ void DetachAllWorldItems(void);
 void UpdateWorlds(void);
 void UpdateWorldMeshAfterLoad(void);
 void UpdateWorld(W8World* world);
-void GetWorldCameraState(W8World* world, W8WorldCameraState* state);
+W8WorldCameraState cameraState(const W8World& world);
 void SetWorldCameraState(W8World* world, W8World* source_world, W8WorldCameraState* state);
 void RestoreWorldCameraState(W8World* world, W8World* source_world, W8WorldCameraState* state);
-void WorldGetCameraRotation(W8World* world, glm::mat3* rotation);
-void WorldGetCameraLocation(W8World* world, srVector3T<float>* location);
-void WorldGetCameraLocationOrZero(W8World* world, srVector3T<float>* location);
+glm::mat3 cameraRotation(const W8World& world);
+glm::vec3 cameraLocation(const W8World& world);
+glm::vec3 cameraLocationOrZero(const W8World& world);
 void SetWorldScenePosition(W8World* world, const srVector3T<float>* position);
 stParticle* FindParticleByName(W8World* world, const char* name);
 bool FindEntityByName(const char* name, srVector3T<float>* position, float* angle,

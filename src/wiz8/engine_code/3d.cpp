@@ -135,8 +135,7 @@ void FinalizeStaticScene(srScene* scene)
 // FUNCTION: WIZ8 0x0046E8A0
 unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* lights, bool walk_chain)
 {
-    glm::mat4 world;
-    instance->getWorldSpaceMatrix(world);
+    auto world = instance->getWorldSpaceMatrix<glm::mat4>();
     const auto normal_matrix = glm::transpose(glm::inverse(glm::mat3(world)));
     std::vector<glm::vec3> world_vertices, world_normals, material_colors;
 

@@ -213,7 +213,7 @@ void UpdateMonsterGroups(bool staggered)
     if (!staggered) {
         UpdateMonsterSight();
     }
-    WorldGetCameraLocation(GetWorld(), &camera_position);
+    camera_position = cameraLocation(*GetWorld());
     for (group_list_index = 0;
          group_list_index <
          gXStatus.monster_groups.size();
@@ -466,7 +466,7 @@ bool ChooseMonsterRTAIMode(W8MonsterInfo* monster_info, unsigned char* decision)
             srVector3T<float> camera;
             srVector3T<float> position;
 
-            GetCameraPosition(&camera);
+            camera = cameraLocation();
             position = monster->GetPosition();
             *decision = W8_RT_AI_FACE_DIRECTION;
             monster->move_direction = camera - position;

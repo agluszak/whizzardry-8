@@ -1,4 +1,5 @@
 #include <memory>
+#include <glm/ext/vector_float3.hpp>
 
 #include "wiz8/surface2d.h"
 #include "compat/compiler.h"
@@ -138,7 +139,7 @@ void stSurface2D::DrawTiles(srGERD* renderer)
     int column;
     int index = 0;
 
-    getLocation(location);
+    location = glm::vec3(getLocation());
     renderer->matrixMode(srGERD::MATRIX_PROJECTION);
     renderer->pushMatrix();
     renderer->loadIdentity();

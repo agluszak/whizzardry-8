@@ -574,7 +574,7 @@ unsigned char ShowMonsterTargetMarker(W8MonsterInfo* monster_info)
     if (monster_info == 0) {
         srAssertFail("pMonsterInfo", TARGETING_CPP, 2040, 0);
     }
-    GetCameraPosition(&eye);
+    eye = cameraLocation();
     MonsterGetWorldAnimationBounds(monster_info->p3D, &lower, &upper);
     return ShowTargetMarker(&eye, &lower, &upper);
 }
@@ -962,7 +962,7 @@ bool ResolveTargetPoint(W8CombatSlot* target, bool sight_probe)
         if (sight_probe) {
             point = g_startup_world->GetPosition();
         } else {
-            GetCameraPosition(&point);
+            point = cameraLocation();
         }
     } else if (target->iType == W8_TARGET_KIND_MONSTER) {
         monster = GetMonsterByLocationID(target->iMonsterID);
@@ -2428,7 +2428,7 @@ static int SelectNextGroupMemberByAngle(const std::vector<int>& candidates, int 
     if (count == 0) {
         return BAD_INDEX;
     }
-    GetCameraPosition(&party);
+    party = cameraLocation();
 
 
     for (index = 0; index < count; ++index) {
@@ -2786,7 +2786,7 @@ void RefreshMonsterTargetCounts(void)
             if (monster_info == 0) {
                 srAssertFail("pMonsterInfo", TARGETING_CPP, 0x7f8, 0);
             }
-            GetCameraPosition(&camera);
+            camera = cameraLocation();
             MonsterGetWorldAnimationBounds(monster_info->p3D, &lower, &upper);
             if (ShowTargetMarker(&camera, &lower, &upper) != 0) {
                 on_screen_count += 1;
@@ -2857,7 +2857,7 @@ bool AnyMonsterVisible(void)
     if (g_world == 0 || g_world->camera == 0) {
         return false;
     }
-    GetCameraPosition(&camera);
+    camera = cameraLocation();
     count = gXStatus.monsters.size();
     if (0 <= g_last_visible_monster && g_last_visible_monster < count) {
         W8MonsterInfo* monster_info = GetMonsterListEntry(g_last_visible_monster);
