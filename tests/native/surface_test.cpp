@@ -103,25 +103,24 @@ std::vector<BYTE> reference(CpuSurface& dest, const SDL_Rect& d, CpuSurface& sou
 
 void differential()
 {
-    const std::array<std::array<UINT32, 5>, 8> formats{{
-        {8, 0, 0, 0, 0}, {24, 0xff0000, 0xff00, 0xff, 0}, {16, 0x7c00, 0x3e0, 0x1f, 0},
-        {16, 0xf800, 0x7e0, 0x1f, 0}, {16, 0x1f, 0x3e0, 0x7c00, 0},
-        {16, 0x3f, 0xfc0, 0xf000, 0},
-        {32, 0xff0000, 0xff00, 0xff, 0xff000000}, {32, 0xff, 0xff00, 0xff0000, 0}
-    }};
-    for (const auto& f : formats)
+    const std::array formats{
+        SDL_PIXELFORMAT_INDEX8, SDL_PIXELFORMAT_BGR24, SDL_PIXELFORMAT_XRGB1555,
+        SDL_PIXELFORMAT_RGB565, SDL_PIXELFORMAT_XBGR1555, SDL_PIXELFORMAT_ARGB1555,
+        SDL_PIXELFORMAT_ARGB8888, SDL_PIXELFORMAT_XRGB8888
+    };
+    for (SDL_PixelFormat format : formats)
     {
-        auto src = CreateCpuSurface(7, 5, f[0], f[1], f[2], f[3], f[4]);
-        auto dest = CreateCpuSurface(17, 13, f[0], f[1], f[2], f[3], f[4]);
+        auto src = CreateCpuSurface(7, 5, format);
+        auto dest = CreateCpuSurface(17, 13, format);
         seed(*src, 11);
-        if (f[0] == 8)
+        if (SDL_ISPIXELFORMAT_INDEXED(format))
         {
             const SDL_Color colors[2]{{255, 1, 2, 255}, {3, 255, 4, 255}};
             REQUIRE(SDL_SetPaletteColors(SDL_GetSurfacePalette(src->surface.get()), colors, 0, 2));
             REQUIRE(SDL_GetSurfacePalette(src->surface.get())->colors[1].g == 255);
         }
         const auto input = pixels(*src);
-        const unsigned bytes = f[0] / 8;
+        const unsigned bytes = SDL_BYTESPERPIXEL(format);
         const auto key = read(input.data() + bytes * 3, bytes);
         const auto high = bytes == 4 ? UINT32_MAX : (1u << (bytes * 8)) - 1;
         for (unsigned clipped = 0; clipped < 3; ++clipped)
@@ -153,13 +152,14 @@ void differential()
                         {
                             const auto offset = std::mismatch(actual.begin(), actual.end(), expected.begin()).first - actual.begin();
                             fprintf(stderr, "format %u/%x, clip %u, %dx%d, keys %u, byte %td: %02x != %02x\n",
-                                    f[0], f[1], clipped, width, height, keys, offset, actual[offset], expected[offset]);
+                                    SDL_BITSPERPIXEL(format), static_cast<unsigned>(format), clipped,
+                                    width, height, keys, offset, actual[offset], expected[offset]);
                             REQUIRE(actual == expected);
                         }
                     }
         }
         dest->clipRegions.reset();
-        if (f[0] == 8)
+        if (SDL_ISPIXELFORMAT_INDEXED(format))
         {
             std::array<SDL_Color, 256> white;
             white.fill({255, 255, 255, 255});
