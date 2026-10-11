@@ -109,7 +109,6 @@ float g_material_emissive_override;
 // FUNCTION: WIZ8 0x004B89B0
 void W8NormalTexcoordMapper::process(srVertexPipe& pipe)
 {
-    const glm::vec3* normals;
     glm::vec2* coordinates;
     w8_ulong count;
     w8_ulong index;
@@ -117,7 +116,7 @@ void W8NormalTexcoordMapper::process(srVertexPipe& pipe)
     if (!pipe.isChannelAvailable(srVertexProcessor::CHANNEL_ST0)) {
         return;
     }
-    normals = pipe.getEyeSpaceNormal();
+    const auto normals = pipe.getEyeSpaceNormal();
     coordinates = pipe.getST(0, 1);
     count = pipe.getVertexCount();
     srCore.getStatisticsManager()->statistics.texture_coordinate_operations += count;

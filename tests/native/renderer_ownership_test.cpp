@@ -125,21 +125,25 @@ public:
     void process(srVertexPipe& pipe) override
     {
         ++calls;
-        const auto* indices = pipe.getAVT();
-        const auto* normals = pipe.getEyeSpaceNormal();
-        const auto* directions = pipe.getEyeSpaceDir();
-        const auto* distances = pipe.getEyeSpaceDist();
-        const auto* z_distances = pipe.getEyeSpaceZDist();
-        float* alpha = pipe.getAlpha();
-        float* fog = pipe.getFog();
+        const auto indices = pipe.getAVT();
+        const auto normals = pipe.getEyeSpaceNormal();
+        const auto directions = pipe.getEyeSpaceDir();
+        const auto distances = pipe.getEyeSpaceDist();
+        const auto z_distances = pipe.getEyeSpaceZDist();
+        const auto alpha = pipe.getAlpha();
+        const auto fog = pipe.getFog();
+        valid &= directions.size() == pipe.getVertexCount() && distances.size() == directions.size() &&
+                 z_distances.size() == directions.size() && normals.size() == directions.size() &&
+                 alpha.size() == directions.size() && fog.size() == directions.size() &&
+                 indices.size() == directions.size();
         if (indices[0] == 0) {
-            first_alpha = alpha;
-            valid &= reinterpret_cast<std::uintptr_t>(alpha) % 16 == 0;
-            valid &= reinterpret_cast<std::uintptr_t>(normals) % 16 == 0;
+            first_alpha = alpha.data();
+            valid &= reinterpret_cast<std::uintptr_t>(alpha.data()) % 16 == 0;
+            valid &= reinterpret_cast<std::uintptr_t>(normals.data()) % 16 == 0;
         }
         // First request is deliberately in a later material sub-batch. The
         // cache must fill the whole batch, not overread from that offset.
-        const float* depth = indices[0] == 0 ? nullptr : pipe.getDepthCue();
+        const auto depth = indices[0] == 0 ? std::span<const float>{} : pipe.getDepthCue();
         for (w8_ulong i = 0; i < pipe.getVertexCount(); ++i) {
             const float z = static_cast<float>(indices[i] + 1) + z_bias;
             valid &= normals[i].x == 0 && normals[i].y == 0 && normals[i].z == -1;
@@ -147,7 +151,7 @@ public:
             valid &= std::abs(distances[i] - z) < 1e-5f;
             valid &= z_distances[i] == z;
             valid &= alpha[i] == 1 && fog[i] == 0;
-            if (depth) {
+            if (!depth.empty()) {
                 valid &= std::abs(depth[i] - (1 - z / 100)) < 1e-5f;
             }
             alpha[i] = 0.25f;
@@ -234,9 +238,9 @@ public:
     int isActive(srVertexPipe&) override { return 1; }
     void process(srVertexPipe& pipe) override
     {
-        auto* diffuse = pipe.getDiffuse();
-        auto* specular = pipe.getSpecular();
-        auto* alpha = pipe.getAlpha();
+        const auto diffuse = pipe.getDiffuse();
+        const auto specular = pipe.getSpecular();
+        const auto alpha = pipe.getAlpha();
         for (w8_ulong i = 0; i < pipe.getVertexCount(); ++i) {
             diffuse[i] = glm::vec4(0.25f);
             specular[i] = glm::vec4(0.5f);
@@ -261,11 +265,11 @@ public:
     int isActive(srVertexPipe&) override { return 1; }
     void process(srVertexPipe& pipe) override
     {
-        auto* diffuse = pipe.getDiffuse();
-        auto* specular = pipe.getSpecular();
-        auto* alpha = pipe.getAlpha();
-        auto* fog = pipe.getFog();
-        const auto* indices = pipe.getAVT();
+        const auto diffuse = pipe.getDiffuse();
+        const auto specular = pipe.getSpecular();
+        const auto alpha = pipe.getAlpha();
+        const auto fog = pipe.getFog();
+        const auto indices = pipe.getAVT();
         const float values[] = {-2.f, 0.f, .25f, 1.f, 2.f};
         for (w8_ulong index = 0; index < pipe.getVertexCount(); ++index) {
             diffuse[index] = specular[index] = glm::vec4(.5f);
@@ -342,11 +346,11 @@ public:
         ++calls;
         const unsigned count = pipe.getVertexCount();
         if (ready & 1) {
-            auto* colors = pipe.getDiffuse();
+            const auto colors = pipe.getDiffuse();
             for (unsigned i = 0; i < count; ++i) colors[i] = glm::vec4(.25f);
         }
         if (ready & 2) {
-            auto* colors = pipe.getSpecular();
+            const auto colors = pipe.getSpecular();
             for (unsigned i = 0; i < count; ++i) colors[i] = glm::vec4(.5f);
         }
         auto& statistics = srCore.getStatisticsManager()->statistics;
@@ -357,13 +361,13 @@ public:
         REQUIRE(statistics.specular_operations - before_specular == (channels & 2 ? count : 0));
         const float attenuation = attenuated && !directional ? .5f : 1.f;
         if (channels & 1) {
-            const auto* colors = pipe.getDiffuse();
+            const auto colors = pipe.getDiffuse();
             const float expected = (ready & 1 ? .25f : .125f) + .25f * attenuation;
             for (unsigned i = 0; i < count; ++i)
                 for (unsigned c = 0; c < 4; ++c) REQUIRE(colors[i][c] == expected);
         }
         if (channels & 2) {
-            const auto* colors = pipe.getSpecular();
+            const auto colors = pipe.getSpecular();
             const float expected = (ready & 2 ? .5f : 0.f) + .0625f * attenuation;
             for (unsigned i = 0; i < count; ++i)
                 for (unsigned c = 0; c < 4; ++c) REQUIRE(colors[i][c] == expected);
@@ -455,8 +459,8 @@ public:
     void process(srVertexPipe& pipe) override
     {
         ++calls;
-        const auto* indices = pipe.getAVT();
-        const auto* cue = pipe.getDepthCue();
+        const auto indices = pipe.getAVT();
+        const auto cue = pipe.getDepthCue();
         for (unsigned index = 0; index < pipe.getVertexCount(); ++index) {
             const float distance = float(indices[index] + 1);
             float expected;

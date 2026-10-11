@@ -330,7 +330,6 @@ void srLight::process(srVertexPipe& pipe)
     float distances[0x40];
     glm::vec3 directions[0x40];
     const auto light_position = eye_location;
-    srVertexPipe::Scratch* scratch = &pipe.scratch;
     float* attenuation = 0;
 
     if ((derived_flags & srLight::DERIVED_DIRECTIONAL) == 0) {
@@ -404,22 +403,18 @@ void srLight::process(srVertexPipe& pipe)
             }
         }
         if (need_normals) {
-            if ((scratch->flags & srVertexPipe::Scratch::READY_EYE_NORMALS) == 0) {
-                pipe.setupEyeSpaceNormal();
-            }
+            const auto normals = pipe.getEyeSpaceNormal();
             for (SRDWORD i = 0; i < count; ++i) {
                 const float dot =
-                    glm::dot(scratch->normals[pipe.sub_batch_offset + i], directions[i]);
+                    glm::dot(normals[i], directions[i]);
                 dots[i] = dot <= 0.0f ? 0.0f : dot;
             }
         }
     } else if (need_normals) {
-        if ((scratch->flags & srVertexPipe::Scratch::READY_EYE_NORMALS) == 0) {
-            pipe.setupEyeSpaceNormal();
-        }
+        const auto normals = pipe.getEyeSpaceNormal();
         for (std::size_t i = 0; i < count; ++i)
             dots[i] =
-                glm::dot(scratch->normals[pipe.sub_batch_offset + i], light_position);
+                glm::dot(normals[i], light_position);
         for (std::size_t i = 0; i < count; ++i)
             dots[i] = glm::clamp(dots[i], 0.0f, 1.0f);
     }
@@ -442,7 +437,7 @@ void srLight::process(srVertexPipe& pipe)
     }
     if ((channels & (1UL << srVertexProcessor::CHANNEL_LIGHT_DIFFUSE)) != 0) {
         const glm::vec4 color = scaled_diffuse * pipe.material_info.diffuse;
-        AccumulateSurfaceLight({pipe.getDiffuse(), count}, color, dots, attenuation);
+        AccumulateSurfaceLight(pipe.getDiffuse(), color, dots, attenuation);
     }
     if ((channels & (1UL << srVertexProcessor::CHANNEL_SPECULAR)) == 0) {
         return;
@@ -450,19 +445,15 @@ void srLight::process(srVertexPipe& pipe)
     if ((derived_flags & srLight::DERIVED_DIRECTIONAL) != 0 && count != 0) {
         std::fill_n(directions, count, light_position);
     }
-    if ((scratch->flags & srVertexPipe::Scratch::READY_EYE_DIRECTION) == 0) {
-        pipe.setupEyeSpaceDirAndDist();
-    }
+    const auto eye_directions = pipe.getEyeSpaceDir();
     for (std::size_t i = 0; i < count; ++i)
-        directions[i] = directions[i] - scratch->dir[pipe.sub_batch_offset + i];
+        directions[i] = directions[i] - eye_directions[i];
     for (std::size_t i = 0; i < count; ++i)
         directions[i] = normalizedOrZero(directions[i]);
-    if ((scratch->flags & srVertexPipe::Scratch::READY_EYE_NORMALS) == 0) {
-        pipe.setupEyeSpaceNormal();
-    }
+    const auto normals = pipe.getEyeSpaceNormal();
     for (SRDWORD i = 0; i < count; ++i) {
         const float dot =
-            glm::dot(scratch->normals[pipe.sub_batch_offset + i], directions[i]);
+            glm::dot(normals[i], directions[i]);
         distances[i] = dot <= 0.0f ? 0.0f : dot;
     }
     if (pipe.material_info.shininess > 1.0f) {
@@ -472,7 +463,7 @@ void srLight::process(srVertexPipe& pipe)
     for (std::size_t i = 0; i < count; ++i)
         distances[i] = distances[i] * dots[i];
     const glm::vec4 color = scaled_specular * pipe.material_info.specular;
-    AccumulateSurfaceLight({pipe.getSpecular(), count}, color, distances, attenuation);
+    AccumulateSurfaceLight(pipe.getSpecular(), color, distances, attenuation);
 }
 
 // FUNCTION: SURRENDER 0x1004DC80
