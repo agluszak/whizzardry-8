@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <string_view>
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07, 2026-10-09.
    Distributed under the accompanying SFI Source Code license agreement. */
@@ -6,10 +7,9 @@
 
 #include <optional>
 
-#include "Types.h"
 #include "wiz8/audio_resources.h"
 
-extern BOOLEAN gfEnableStartup;
+extern bool gfEnableStartup;
 
 // Sample status flags
 #define SAMPLE_LOCKED 0x00000002
@@ -26,23 +26,23 @@ extern BOOLEAN gfEnableStartup;
 // Structure definition for 3D sound positional information used by
 // various other structs and functions
 typedef struct {
-    FLOAT flX, flY, flZ;
-    FLOAT flVelX, flVelY, flVelZ;
-    FLOAT flFaceX, flFaceY, flFaceZ;
-    FLOAT flUpX, flUpY, flUpZ;
-    FLOAT flFalloffMin, flFalloffMax;
-    UINT32 uiVolume;
+    float flX, flY, flZ;
+    float flVelX, flVelY, flVelZ;
+    float flFaceX, flFaceY, flFaceZ;
+    float flUpX, flUpY, flUpZ;
+    float flFalloffMin, flFalloffMax;
+    std::uint32_t uiVolume;
 } SOUND3DPOS;
 
 // Structure definition for sound parameters being passed down to
 //		the sample playing function
 typedef struct {
-    UINT32 uiSpeed;
-    UINT32 uiPitchBend; // Random pitch bend range +/-
-    UINT32 uiVolume;
-    UINT32 uiPan;
-    UINT32 uiLoop;
-    UINT32 uiPriority;
+    std::uint32_t uiSpeed;
+    std::uint32_t uiPitchBend; // Random pitch bend range +/-
+    std::uint32_t uiVolume;
+    std::uint32_t uiPan;
+    std::uint32_t uiLoop;
+    std::uint32_t uiPriority;
     void (*EOSCallback)(void*);
     void* pCallbackData;
 } SOUNDPARMS;
@@ -50,11 +50,11 @@ typedef struct {
 // Structure definition for 3D sound parameters being passed down to
 //		the sample playing function
 typedef struct {
-    UINT32 uiSpeed;
-    UINT32 uiPitchBend; // Random pitch bend range +/-
-    UINT32 uiVolume;    // volume at distance zero
-    UINT32 uiLoop;
-    UINT32 uiPriority;
+    std::uint32_t uiSpeed;
+    std::uint32_t uiPitchBend; // Random pitch bend range +/-
+    std::uint32_t uiVolume;    // volume at distance zero
+    std::uint32_t uiLoop;
+    std::uint32_t uiPriority;
     void (*EOSCallback)(void*);
     void* pCallbackData;
 
@@ -64,72 +64,72 @@ typedef struct {
 // Structure definition for parameters to the random sample playing
 //		function
 typedef struct {
-    UINT32 uiTimeMin, uiTimeMax;
-    UINT32 uiSpeedMin, uiSpeedMax;
-    UINT32 uiVolMin, uiVolMax;
-    UINT32 uiPanMin, uiPanMax;
-    UINT32 uiPriority;
-    UINT32 uiMaxInstances;
+    std::uint32_t uiTimeMin, uiTimeMax;
+    std::uint32_t uiSpeedMin, uiSpeedMax;
+    std::uint32_t uiVolMin, uiVolMax;
+    std::uint32_t uiPanMin, uiPanMax;
+    std::uint32_t uiPriority;
+    std::uint32_t uiMaxInstances;
 } RANDOMPARMS;
 
 // Global startup/shutdown functions
-extern BOOLEAN InitializeSoundManager(void);
+extern bool InitializeSoundManager(void);
 extern void ShutdownSoundManager(void);
 
 // Configuration functions
-extern BOOLEAN SoundSetCacheThreshhold(UINT32 uiThreshold);
+extern bool SoundSetCacheThreshhold(std::uint32_t uiThreshold);
 
 // Master volume control functions
-extern void SoundSetDefaultVolume(UINT32 uiVolume);
+extern void SoundSetDefaultVolume(std::uint32_t uiVolume);
 
 // Cache control functions
-extern SoundClip SoundLoadSample(STR pFilename);
-extern BOOLEAN SoundEmptyCache(void);
+extern SoundClip SoundLoadSample(char* pFilename);
+extern bool SoundEmptyCache(void);
 
 // Play/service sample functions
 extern SoundPlayback SoundPlay(std::string_view pFilename, SOUNDPARMS* pParms);
 extern SoundPlayback SoundPlayStreamedFile(std::string_view pFilename, SOUNDPARMS* pParms);
 
-extern SoundClip SoundPlayRandom(STR pFilename, RANDOMPARMS* pParms);
-extern BOOLEAN SoundRandomShouldPlay(SoundClip uiSample);
+extern SoundClip SoundPlayRandom(char* pFilename, RANDOMPARMS* pParms);
+extern bool SoundRandomShouldPlay(SoundClip uiSample);
 extern SoundPlayback SoundStartRandom(SoundClip uiSample);
-extern BOOLEAN SoundServiceStreams(void);
-extern BOOLEAN SoundServiceRandom(void);
+extern bool SoundServiceStreams(void);
+extern bool SoundServiceRandom(void);
 // Sound instance manipulation functions
 extern void SoundSetMusic(SoundPlayback playback);
-extern BOOLEAN SoundStopMusic(void);
-extern BOOLEAN SoundStopAllRandom(void);
-extern BOOLEAN SoundStop(SoundPlayback playback);
-extern BOOLEAN SoundIsPlaying(SoundPlayback playback);
-extern BOOLEAN SoundFileIsPlaying(std::string_view filename);
-extern BOOLEAN SoundSetFadeVolume(SoundPlayback playback, UINT32 uiVolume, UINT32 uiRate,
-                                  BOOLEAN fStopAtZero);
-extern BOOLEAN SoundSetVolume(SoundPlayback playback, UINT32 uiVolume);
-extern UINT32 SoundGetVolume(SoundPlayback playback);
-extern UINT32 SoundGetPosition(SoundPlayback playback);
+extern bool SoundStopMusic(void);
+extern bool SoundStopAllRandom(void);
+extern bool SoundStop(SoundPlayback playback);
+extern bool SoundIsPlaying(SoundPlayback playback);
+extern bool SoundFileIsPlaying(std::string_view filename);
+extern bool SoundSetFadeVolume(SoundPlayback playback, std::uint32_t uiVolume, std::uint32_t uiRate,
+                                  bool fStopAtZero);
+extern bool SoundSetVolume(SoundPlayback playback, std::uint32_t uiVolume);
+extern std::uint32_t SoundGetVolume(SoundPlayback playback);
+extern std::uint32_t SoundGetPosition(SoundPlayback playback);
 struct SoundPlaybackTime {
-    UINT32 total_ms;
-    UINT32 current_ms;
+    std::uint32_t total_ms;
+    std::uint32_t current_ms;
 };
 extern std::optional<SoundPlaybackTime> SoundGetMilliSecondPosition(SoundPlayback playback);
 
 // Sound instance group functions
-extern BOOLEAN SoundStopGroup(UINT32 uiPriority);
-extern void SoundSetSampleFlags(SoundClip uiSample, UINT32 uiFlags);
-extern void SoundRemoveSampleFlags(SoundClip uiSample, UINT32 uiFlags);
+extern bool SoundStopGroup(std::uint32_t uiPriority);
+extern void SoundSetSampleFlags(SoundClip uiSample, std::uint32_t uiFlags);
+extern void SoundRemoveSampleFlags(SoundClip uiSample, std::uint32_t uiFlags);
 
-extern void SoundEnableSound(BOOLEAN fEnable);
+extern void SoundEnableSound(bool fEnable);
 
 // 3D sound control
-extern void Sound3DSetPosition(SoundPlayback playback, FLOAT flX, FLOAT flY, FLOAT flZ);
-extern void Sound3DSetListener(FLOAT flX, FLOAT flY, FLOAT flZ);
-extern void Sound3DSetDirection(SoundPlayback playback, FLOAT flXFace, FLOAT flYFace, FLOAT flZFace,
-                                FLOAT flXUp, FLOAT flYUp, FLOAT flZUp);
-extern void Sound3DSetListenerOrientation(FLOAT faceX, FLOAT faceY, FLOAT faceZ,
-                                         FLOAT upX, FLOAT upY, FLOAT upZ);
-extern void Sound3DSetListenerVelocity(FLOAT x, FLOAT y, FLOAT z);
-extern void Sound3DSetEnvironment(INT32 iEnvironment);
-extern SoundPlayback Sound3DPlay(STR pFilename, SOUND3DPARMS* pParms);
+extern void Sound3DSetPosition(SoundPlayback playback, float flX, float flY, float flZ);
+extern void Sound3DSetListener(float flX, float flY, float flZ);
+extern void Sound3DSetDirection(SoundPlayback playback, float flXFace, float flYFace, float flZFace,
+                                float flXUp, float flYUp, float flZUp);
+extern void Sound3DSetListenerOrientation(float faceX, float faceY, float faceZ,
+                                         float upX, float upY, float upZ);
+extern void Sound3DSetListenerVelocity(float x, float y, float z);
+extern void Sound3DSetEnvironment(std::int32_t iEnvironment);
+extern SoundPlayback Sound3DPlay(char* pFilename, SOUND3DPARMS* pParms);
 extern SoundPlayback Sound3DStartRandom(SoundClip uiSample, SOUND3DPOS* Pos);
 
 #endif

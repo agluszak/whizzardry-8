@@ -1,7 +1,6 @@
 #include "Font.h"
 #include <string_view>
 
-#include "Types.h"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
 #include "wiz8/dialog_code/CharacterSummaryDialog.h"
 #include "wiz8/dialog_code/DialogInterface.h"
@@ -22,7 +21,7 @@
 // GLOBAL: WIZ8 0x0064fde8
 Font* g_dialog_interface_font = nullptr;
 // GLOBAL: WIZ8 0x0069ca32
-BOOLEAN g_dialog_font_enabled;
+bool g_dialog_font_enabled;
 // GLOBAL: WIZ8 0x0064fdec
 unsigned char g_dialog_font_foreground = 255;
 // GLOBAL: WIZ8 0x0064fded
@@ -74,7 +73,7 @@ W8DialogBase* CreateDialogByKind(W8DialogKind kind)
 }
 
 // FUNCTION: WIZ8 0x005cf250
-void ConfigureDialogFont(Font& font, BOOLEAN enabled, unsigned char foreground,
+void ConfigureDialogFont(Font& font, bool enabled, unsigned char foreground,
                          unsigned char background)
 {
     g_dialog_interface_font = &font;

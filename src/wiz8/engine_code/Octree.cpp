@@ -22,7 +22,6 @@
 #include <optional>
 #include <utility>
 
-#include "Types.h"
 #include "compat/compiler.h"
 #include "compat/native.h"
 #include "glm/common.hpp"
@@ -930,7 +929,7 @@ catch (const std::exception&) { return false; }
 
 /* Write the octree's point count and records to the mutable overlay. */
 // FUNCTION: WIZ8 0x00432d60
-BOOLEAN W8Octree::SavePoints(char* path)
+bool W8Octree::SavePoints(char* path)
 try
 {
     if (m_point_count == 0 || m_sample_points == 0) {
@@ -1435,7 +1434,7 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
    Each key's table values are appended in chain order; the count is written
    first, then the keys and their short values. */
 // FUNCTION: WIZ8 0x004331f0
-BOOLEAN W8Octree::SaveRegionLinks(char* path)
+bool W8Octree::SaveRegionLinks(char* path)
 try
 {
     if (m_pRegionLinks == 0 || path == 0 || m_pRegionLinks->empty()) {
@@ -3673,7 +3672,7 @@ void W8Octree::AdjustPortalDestination(srVector3T<float>* destination,
    level vectors. Trigger.cpp creates the names as copied character arrays. */
 
 // FUNCTION: WIZ8 0x004372E0
-BOOLEAN WriteVector4Array(wiz8::File* file, const glm::vec4* values, int count)
+bool WriteVector4Array(wiz8::File* file, const glm::vec4* values, int count)
 try
 {
     if (count < 0) {
@@ -3685,7 +3684,7 @@ try
 catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x00437390
-BOOLEAN WriteVector3Array(wiz8::File* file, const srVector3T<float>* values, int count)
+bool WriteVector3Array(wiz8::File* file, const srVector3T<float>* values, int count)
 try
 {
     if (count < 0) {
@@ -3697,7 +3696,7 @@ try
 catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x00437430
-BOOLEAN WriteVector2Array(wiz8::File* file, const glm::vec2* values, int count)
+bool WriteVector2Array(wiz8::File* file, const glm::vec2* values, int count)
 try
 {
     if (count < 0) {

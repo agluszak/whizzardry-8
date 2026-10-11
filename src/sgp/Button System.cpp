@@ -1,4 +1,5 @@
 #include <SDL3/SDL_rect.h>
+#include <cstdint>
 #include <cstddef>
 #include <fmt/format.h>
 #include <SDL3/SDL_log.h>
@@ -84,13 +85,13 @@ GUI_BUTTON* gpAnchoredButton;
 // GLOBAL: WIZ8 0x006E10C0
 GUI_BUTTON* gpPrevAnchoredButton;
 // GLOBAL: WIZ8 0x006e1880
-BOOLEAN gfAnchoredState;
+bool gfAnchoredState;
 void DrawHatchOnButton(const ButtonAppearance* b);
 void DrawShadeOnButton(const ButtonAppearance* b);
 void DrawDefaultOnButton(const ButtonAppearance* b);
 
 // GLOBAL: WIZ8 0x005ff824
-BOOLEAN gfRenderHilights = TRUE;
+bool gfRenderHilights = true;
 
 // GLOBAL: WIZ8 0x006e1bc0
 // GLOBAL: WIZ8 0x006e1194
@@ -129,8 +130,8 @@ GenericButtonImage DefaultGenericButtonImage() { return default_generic_image; }
 
 
 // Load and validate all state frames before publishing the graphics resource.
-ButtonImage ButtonGraphics::Load(std::string_view filename, INT32 grayed, INT32 off_normal,
-                                 INT32 off_hilite, INT32 on_normal, INT32 on_hilite)
+ButtonImage ButtonGraphics::Load(std::string_view filename, std::int32_t grayed, std::int32_t off_normal,
+                                 std::int32_t off_hilite, std::int32_t on_normal, std::int32_t on_hilite)
 {
     const std::array frames{grayed, off_normal, off_hilite, on_normal, on_hilite};
     if (filename.empty() || std::all_of(frames.begin(), frames.end(),
@@ -153,9 +154,9 @@ ButtonImage ButtonGraphics::Load(std::string_view filename, INT32 grayed, INT32 
         }
         const auto& frame = image->object().sprites[index];
         image->MaxWidth = std::max(image->MaxWidth,
-            static_cast<UINT32>(std::max(0, frame.usWidth + frame.sOffsetX)));
+            static_cast<std::uint32_t>(std::max(0, frame.usWidth + frame.sOffsetX)));
         image->MaxHeight = std::max(image->MaxHeight,
-            static_cast<UINT32>(std::max(0, frame.usHeight + frame.sOffsetY)));
+            static_cast<std::uint32_t>(std::max(0, frame.usHeight + frame.sOffsetY)));
     }
     image->Grayed = grayed;
     image->OffNormal = off_normal;
@@ -171,18 +172,18 @@ ButtonImage ButtonGraphics::Load(std::string_view filename, INT32 grayed, INT32 
 //	Diabled buttons will appear "grayed out" on the screen (unless the
 //	graphics for such are not available).
 // FUNCTION: WIZ8 0x0040c7e0
-BOOLEAN DisableButton(const GUIButton& button)
+bool DisableButton(const GUIButton& button)
 {
-    if (!button) return FALSE;
+    if (!button) return false;
     bool was_enabled = (button->uiFlags & BUTTON_ENABLED) != 0;
     button->uiFlags &= ~BUTTON_ENABLED;
     button->uiFlags |= BUTTON_DIRTY;
-    return was_enabled ? TRUE : FALSE;
+    return was_enabled ? true : false;
 }
 
 namespace {
 GenericButtonImage LoadGenericGraphics(const std::array<std::string_view, 6>& filenames,
-                                       INT16 background_frame, INT16 offset_x, INT16 offset_y,
+                                       std::int16_t background_frame, std::int16_t offset_x, std::int16_t offset_y,
                                        bool optional_highlights = false)
 {
     if (filenames[0].empty() || filenames[1].empty()) return {};
@@ -216,7 +217,7 @@ GenericButtonImage LoadGenericGraphics(const std::array<std::string_view, 6>& fi
 }
 
 // Default highlights may be absent. Explicitly requested custom states must load.
-BOOLEAN InitializeButtonImageManager()
+bool InitializeButtonImageManager()
 {
     ButtonDestBuffer = &GetFrameBufferSurface();
     default_generic_image = LoadGenericGraphics(
@@ -229,7 +230,7 @@ BOOLEAN InitializeButtonImageManager()
 GenericButtonImage LoadGenericButtonImages(std::string_view gray, std::string_view off_normal,
                                           std::string_view off_hilite, std::string_view on_normal,
                                           std::string_view on_hilite, std::string_view background,
-                                          INT16 index, INT16 offset_x, INT16 offset_y)
+                                          std::int16_t index, std::int16_t offset_x, std::int16_t offset_y)
 {
     return LoadGenericGraphics({off_normal, on_normal, gray, off_hilite, on_hilite, background},
                                 index, offset_x, offset_y);
@@ -248,20 +249,20 @@ void ShutdownButtonImageManager(void)
 //	Initializes the GUI button system for use. Must be called before using
 //	any other button functions.
 // FUNCTION: WIZ8 0x0040cf60
-BOOLEAN InitButtonSystem(void)
+bool InitButtonSystem(void)
 {
     ShutdownButtonSystem();
 
 
 
     // Initialize the button image manager sub-system
-    if (InitializeButtonImageManager() == FALSE) {
+    if (InitializeButtonImageManager() == false) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", "Failed button image manager init\n");
-        return (FALSE);
+        return (false);
     }
 
 
-    return (TRUE);
+    return (true);
 }
 
 // Stop receiving events before the surrounding screens release their buttons.
@@ -283,10 +284,10 @@ void ShutdownButtonSystem(void)
 //	QuickButtons cannot be resized, therefore this function ignores the
 //	call if a QuickButton is given.
 // FUNCTION: WIZ8 0x0040d210
-void ResizeButton(const GUIButton& button, INT16 w, INT16 h)
+void ResizeButton(const GUIButton& button, std::int16_t w, std::int16_t h)
 {
     GUI_BUTTON* b;
-    INT32 xloc, yloc;
+    std::int32_t xloc, yloc;
 
     // if button size is too small, adjust it.
     if (w < 4)
@@ -306,10 +307,10 @@ void ResizeButton(const GUIButton& button, INT16 w, INT16 h)
     yloc = b->bounds.y;
 
     // Set the new MOUSE_REGION area values to reflect change in size.
-    b->Area.RegionTopLeftX = (UINT16)xloc;
-    b->Area.RegionTopLeftY = (UINT16)yloc;
-    b->Area.RegionBottomRightX = (UINT16)(xloc + w);
-    b->Area.RegionBottomRightY = (UINT16)(yloc + h);
+    b->Area.RegionTopLeftX = (std::uint16_t)xloc;
+    b->Area.RegionTopLeftY = (std::uint16_t)yloc;
+    b->Area.RegionBottomRightX = (std::uint16_t)(xloc + w);
+    b->Area.RegionBottomRightY = (std::uint16_t)(yloc + h);
     b->bounds.w = w;
     b->bounds.h = h;
     b->uiFlags |= BUTTON_DIRTY;
@@ -319,17 +320,17 @@ void ResizeButton(const GUIButton& button, INT16 w, INT16 h)
 //	Sets the position of a button on the screen. The position is relative
 //	to the top left corner of the button.
 // FUNCTION: WIZ8 0x0040d2b0
-void SetButtonPosition(const GUIButton& button, INT16 x, INT16 y)
+void SetButtonPosition(const GUIButton& button, std::int16_t x, std::int16_t y)
 {
     GUI_BUTTON* b;
-    INT32 xloc, yloc, w, h;
+    std::int32_t xloc, yloc, w, h;
 
     b = button.get();
     if (!b) return;
 
     // Get new screen position
-    xloc = (INT16)x;
-    yloc = (INT16)y;
+    xloc = (std::int16_t)x;
+    yloc = (std::int16_t)y;
     // Compute current width and height of this button
     w = b->Area.RegionBottomRightX - b->Area.RegionTopLeftX;
     h = b->Area.RegionBottomRightY - b->Area.RegionTopLeftY;
@@ -338,16 +339,16 @@ void SetButtonPosition(const GUIButton& button, INT16 x, INT16 y)
     b->bounds.x = x;
     b->bounds.y = y;
     // Set the buttons MOUSE_REGION to appropriate area
-    b->Area.RegionTopLeftX = (UINT16)xloc;
-    b->Area.RegionTopLeftY = (UINT16)yloc;
-    b->Area.RegionBottomRightX = (UINT16)(xloc + w);
-    b->Area.RegionBottomRightY = (UINT16)(yloc + h);
+    b->Area.RegionTopLeftX = (std::uint16_t)xloc;
+    b->Area.RegionTopLeftY = (std::uint16_t)yloc;
+    b->Area.RegionBottomRightX = (std::uint16_t)(xloc + w);
+    b->Area.RegionBottomRightY = (std::uint16_t)(yloc + h);
     b->uiFlags |= BUTTON_DIRTY;
 }
 
 namespace {
-void RegisterButton(const GUIButton& button, INT16 x, INT16 y, INT16 width, INT16 height,
-                    INT32 type, INT16 priority, GUI_CALLBACK move, GUI_CALLBACK click)
+void RegisterButton(const GUIButton& button, std::int16_t x, std::int16_t y, std::int16_t width, std::int16_t height,
+                    std::int32_t type, std::int16_t priority, GUI_CALLBACK move, GUI_CALLBACK click)
 {
     button->bounds.x = x;
     button->bounds.y = y;
@@ -359,7 +360,7 @@ void RegisterButton(const GUIButton& button, INT16 x, INT16 y, INT16 width, INT1
     if (move) button->uiFlags |= BUTTON_MOVE_CALLBACK;
     if (click) button->uiFlags |= BUTTON_CLICK_CALLBACK;
     button->Area.configure(x, y, x + width, y + height,
-                      static_cast<INT8>(priority), QuickButtonCallbackMMove, QuickButtonCallbackMButn);
+                      static_cast<std::int8_t>(priority), QuickButtonCallbackMMove, QuickButtonCallbackMButn);
 #ifdef BUTTONSYSTEM_DEBUGGING
     AssertFailIfIdenticalButtonAttributesFound(button.get());
 #endif
@@ -370,9 +371,9 @@ void RegisterButton(const GUIButton& button, INT16 x, INT16 y, INT16 width, INT1
 }
 
 // FUNCTION: WIZ8 0x0040d350
-GUIButton CreateTextButton(std::string_view text, Font& font, INT16 fore_color, INT16 shadow_color,
-                           GenericButtonImage image, INT16 x, INT16 y, INT16 width, INT16 height,
-                           INT32 type, INT16 priority, GUI_CALLBACK move, GUI_CALLBACK click)
+GUIButton CreateTextButton(std::string_view text, Font& font, std::int16_t fore_color, std::int16_t shadow_color,
+                           GenericButtonImage image, std::int16_t x, std::int16_t y, std::int16_t width, std::int16_t height,
+                           std::int32_t type, std::int16_t priority, GUI_CALLBACK move, GUI_CALLBACK click)
 {
     if (x < 0 || y < 0) {
         const auto message = fmt::format("Attempting to CreateTextButton with invalid position of {},{}", x, y);
@@ -384,14 +385,14 @@ GUIButton CreateTextButton(std::string_view text, Font& font, INT16 fore_color, 
     button->sForeColor = fore_color;
     button->sShadowColor = shadow_color;
     button->generic_image = image ? std::move(image) : default_generic_image;
-    RegisterButton(button, x, y, std::max<INT16>(width, 4), std::max<INT16>(height, 3),
+    RegisterButton(button, x, y, std::max<std::int16_t>(width, 4), std::max<std::int16_t>(height, 3),
                    (type & (BUTTON_TYPE_MASK | BUTTON_NEWTOGGLE)) | BUTTON_GENERIC,
                    priority, move, click);
     return button;
 }
 
 // FUNCTION: WIZ8 0x0040d5e0
-GUIButton QuickCreateButton(ButtonImage image, INT16 x, INT16 y, INT32 type, INT16 priority,
+GUIButton QuickCreateButton(ButtonImage image, std::int16_t x, std::int16_t y, std::int32_t type, std::int16_t priority,
                             GUI_CALLBACK move, GUI_CALLBACK click)
 {
     if (x < 0 || y < 0) {
@@ -401,8 +402,8 @@ GUIButton QuickCreateButton(ButtonImage image, INT16 x, INT16 y, INT32 type, INT
     if (!image) return {};
     auto button = std::make_shared<GUI_BUTTON>();
     button->quick_image = std::move(image);
-    RegisterButton(button, x, y, static_cast<INT16>(button->quick_image->MaxWidth),
-                   static_cast<INT16>(button->quick_image->MaxHeight),
+    RegisterButton(button, x, y, static_cast<std::int16_t>(button->quick_image->MaxWidth),
+                   static_cast<std::int16_t>(button->quick_image->MaxHeight),
                    type & (BUTTON_TYPE_MASK | BUTTON_NEWTOGGLE), priority, move, click);
     return button;
 }
@@ -417,7 +418,7 @@ void SpecifyButtonText(const GUIButton& button, std::string_view string)
 }
 
 // FUNCTION: WIZ8 0x0040d8c0
-void SpecifyButtonMultiColorFont(const GUIButton& button, BOOLEAN enabled)
+void SpecifyButtonMultiColorFont(const GUIButton& button, bool enabled)
 {
     if (!button) return;
     button->fMultiColor = enabled;
@@ -425,7 +426,7 @@ void SpecifyButtonMultiColorFont(const GUIButton& button, BOOLEAN enabled)
 }
 
 // FUNCTION: WIZ8 0x0040d8e0
-void SpecifyButtonTextOffsets(const GUIButton& button, INT8 x, INT8 y, BOOLEAN shift)
+void SpecifyButtonTextOffsets(const GUIButton& button, std::int8_t x, std::int8_t y, bool shift)
 {
     if (!button) return;
     button->bTextXOffset = x;
@@ -445,7 +446,7 @@ void SetButtonFastHelpText(const GUIButton& button, std::string_view text)
 //	Dispatches all button callbacks for mouse movement. This function gets
 //	called by the Mouse System. *DO NOT CALL DIRECTLY*
 // FUNCTION: WIZ8 0x0040d940
-void QuickButtonCallbackMMove(MOUSE_REGION* reg, INT32 reason)
+void QuickButtonCallbackMMove(MOUSE_REGION* reg, std::int32_t reason)
 {
     GUI_BUTTON* b = reg ? reg->button : nullptr;
     if (!b) return;
@@ -459,7 +460,7 @@ void QuickButtonCallbackMMove(MOUSE_REGION* reg, INT32 reason)
     if ((b->uiFlags & BUTTON_NEWTOGGLE)) {
         if (reason & MSYS_CALLBACK_REASON_LOST_MOUSE) {
             if (b->ubToggleButtonActivated) {
-                b->ubToggleButtonActivated = FALSE;
+                b->ubToggleButtonActivated = false;
 
                 if (!b->ubToggleButtonOldState) {
                     b->uiFlags &= (~BUTTON_CLICKED_ON);
@@ -481,29 +482,29 @@ void QuickButtonCallbackMMove(MOUSE_REGION* reg, INT32 reason)
 //	Dispatches all button callbacks for button presses. This function is
 //	called by the Mouse System. *DO NOT CALL DIRECTLY*
 // FUNCTION: WIZ8 0x0040da50
-void QuickButtonCallbackMButn(MOUSE_REGION* reg, INT32 reason)
+void QuickButtonCallbackMButn(MOUSE_REGION* reg, std::int32_t reason)
 {
     GUI_BUTTON* b = reg ? reg->button : nullptr;
     if (!b) return;
     bool StateBefore;
 
-    StateBefore = (b->uiFlags & BUTTON_CLICKED_ON) ? (TRUE) : (FALSE);
+    StateBefore = (b->uiFlags & BUTTON_CLICKED_ON) ? (true) : (false);
 
     // ATE: New stuff for toggle buttons that work with new Win95 paridigm
     if (b->uiFlags & BUTTON_NEWTOGGLE && b->uiFlags & BUTTON_ENABLED) {
         if (reason & MSYS_CALLBACK_REASON_LBUTTON_DWN) {
             if (!b->ubToggleButtonActivated) {
                 if (!(b->uiFlags & BUTTON_CLICKED_ON)) {
-                    b->ubToggleButtonOldState = FALSE;
+                    b->ubToggleButtonOldState = false;
                     b->uiFlags |= BUTTON_CLICKED_ON;
                 } else {
-                    b->ubToggleButtonOldState = TRUE;
+                    b->ubToggleButtonOldState = true;
                     b->uiFlags &= (~BUTTON_CLICKED_ON);
                 }
-                b->ubToggleButtonActivated = TRUE;
+                b->ubToggleButtonActivated = true;
             }
         } else if (reason & MSYS_CALLBACK_REASON_LBUTTON_UP) {
-            b->ubToggleButtonActivated = FALSE;
+            b->ubToggleButtonActivated = false;
         }
     }
 
@@ -600,15 +601,15 @@ void MarkButtonsDirty(void)
 //	DrawButton
 //	Draws a single button on the screen.
 // FUNCTION: WIZ8 0x0040deb0
-BOOLEAN DrawButton(const GUIButton& button)
+bool DrawButton(const GUIButton& button)
 {
-    if (!button) return FALSE;
+    if (!button) return false;
     FontRenderScope font_scope;
     if (button->Area.uiFlags & MSYS_REGION_ENABLED) DrawButtonFromPtr(button.get());
-    return TRUE;
+    return true;
 }
 
-static INT8 DisabledOverlayStyle(const ButtonAppearance& button, const ButtonVisualState& state)
+static std::int8_t DisabledOverlayStyle(const ButtonAppearance& button, const ButtonVisualState& state)
 {
     if (button.bDisabledStyle == DISABLED_STYLE_DEFAULT)
         return !state.checkbox && !button.string.empty()
@@ -616,8 +617,8 @@ static INT8 DisabledOverlayStyle(const ButtonAppearance& button, const ButtonVis
     return button.bDisabledStyle;
 }
 
-static INT8 DrawQuickButton(const ButtonAppearance* button, const ButtonVisualState& state);
-static INT8 DrawGenericButton(const ButtonAppearance* button, const ButtonVisualState& state);
+static std::int8_t DrawQuickButton(const ButtonAppearance* button, const ButtonVisualState& state);
+static std::int8_t DrawGenericButton(const ButtonAppearance* button, const ButtonVisualState& state);
 
 //	DrawButtonFromPtr
 //	Given a pointer to a GUI_BUTTON structure, draws the button on the
@@ -653,14 +654,14 @@ void DrawButtonAppearance(const ButtonAppearance& appearance, const ButtonVisual
 //	DrawQuickButton
 //	Draws a QuickButton type button on the screen.
 // FUNCTION: WIZ8 0x0040e060
-static INT8 DrawQuickButton(const ButtonAppearance* b, const ButtonVisualState& state)
+static std::int8_t DrawQuickButton(const ButtonAppearance* b, const ButtonVisualState& state)
 {
-    INT8 disabled_style = DISABLED_STYLE_NONE;
+    std::int8_t disabled_style = DISABLED_STYLE_NONE;
     if (!b->quick_image) return disabled_style;
     const auto& image = *b->quick_image;
     const bool checkbox = state.checkbox;
     const bool pressed = state.pressed;
-    INT32 frame = 0;
+    std::int32_t frame = 0;
     if (state.enabled) {
         const bool highlighted = (state.hovered) && gfRenderHilights &&
                                  (!checkbox || state.mouse_down);
@@ -675,64 +676,64 @@ static INT8 DrawQuickButton(const ButtonAppearance* b, const ButtonVisualState& 
         disabled_style = DisabledOverlayStyle(*b, state);
     }
     if (frame != BUTTON_NO_IMAGE)
-        BltVideoObject(*ButtonDestBuffer, image.object(), static_cast<UINT16>(frame),
+        BltVideoObject(*ButtonDestBuffer, image.object(), static_cast<std::uint16_t>(frame),
                        b->bounds.x, b->bounds.y, VO_BLT_SRCTRANSPARENCY, nullptr);
     return disabled_style;
 }
 
 void DrawHatchOnButton(const ButtonAppearance* b)
 {
-    UINT8* pDestBuf;
-    UINT32 uiDestPitchBYTES;
+    std::uint8_t* pDestBuf;
+    std::uint32_t uiDestPitchBYTES;
     SDL_Rect ClipRect{b->bounds.x, b->bounds.y,
                             (b->bounds.x + b->bounds.w) - 1 - b->bounds.x,
                             (b->bounds.y + b->bounds.h) - 1 - b->bounds.y};
     const auto& destination_storage = *ButtonDestBuffer->cpu().surface;
     uiDestPitchBYTES = destination_storage.pitch;
-    pDestBuf = static_cast<BYTE*>(destination_storage.pixels);
-    Blt16BPPBufferHatchRect((UINT16*)pDestBuf, uiDestPitchBYTES, &ClipRect);
+    pDestBuf = static_cast<std::uint8_t*>(destination_storage.pixels);
+    Blt16BPPBufferHatchRect((std::uint16_t*)pDestBuf, uiDestPitchBYTES, &ClipRect);
 }
 
 void DrawShadeOnButton(const ButtonAppearance* b)
 {
-    UINT8* pDestBuf;
-    UINT32 uiDestPitchBYTES;
+    std::uint8_t* pDestBuf;
+    std::uint32_t uiDestPitchBYTES;
     SDL_Rect ClipRect{b->bounds.x, b->bounds.y,
                             (b->bounds.x + b->bounds.w) - 1 - b->bounds.x,
                             (b->bounds.y + b->bounds.h) - 1 - b->bounds.y};
     const auto& destination_storage = *ButtonDestBuffer->cpu().surface;
     uiDestPitchBYTES = destination_storage.pitch;
-    pDestBuf = static_cast<BYTE*>(destination_storage.pixels);
-    Blt16BPPBufferShadowRect((UINT16*)pDestBuf, uiDestPitchBYTES, &ClipRect);
+    pDestBuf = static_cast<std::uint8_t*>(destination_storage.pixels);
+    Blt16BPPBufferShadowRect((std::uint16_t*)pDestBuf, uiDestPitchBYTES, &ClipRect);
 }
 
 // FUNCTION: WIZ8 0x0040e170
 void DrawDefaultOnButton(const ButtonAppearance* b)
 {
-    UINT8* pDestBuf;
-    UINT32 uiDestPitchBYTES;
+    std::uint8_t* pDestBuf;
+    std::uint32_t uiDestPitchBYTES;
     const auto& destination_storage = *ButtonDestBuffer->cpu().surface;
     uiDestPitchBYTES = destination_storage.pitch;
-    pDestBuf = static_cast<BYTE*>(destination_storage.pixels);
+    pDestBuf = static_cast<std::uint8_t*>(destination_storage.pixels);
     SetClippingRegionAndImageWidth(uiDestPitchBYTES, 0, 0, 640, 480);
     if (b->bDefaultStatus == DEFAULT_STATUS_DARKBORDER ||
         b->bDefaultStatus == DEFAULT_STATUS_WINDOWS95) {
         //left (one thick)
-        LineDraw(TRUE, b->bounds.x - 1, b->bounds.y - 1,
+        LineDraw(true, b->bounds.x - 1, b->bounds.y - 1,
                  b->bounds.x - 1, (b->bounds.y + b->bounds.h) + 1, 0, (char*)pDestBuf);
         //top (one thick)
-        LineDraw(TRUE, b->bounds.x - 1, b->bounds.y - 1,
+        LineDraw(true, b->bounds.x - 1, b->bounds.y - 1,
                  (b->bounds.x + b->bounds.w) + 1, b->bounds.y - 1, 0, (char*)pDestBuf);
         //right (two thick)
-        LineDraw(TRUE, (b->bounds.x + b->bounds.w), b->bounds.y - 1,
+        LineDraw(true, (b->bounds.x + b->bounds.w), b->bounds.y - 1,
                  (b->bounds.x + b->bounds.w), (b->bounds.y + b->bounds.h) + 1, 0, (char*)pDestBuf);
-        LineDraw(TRUE, (b->bounds.x + b->bounds.w) + 1, b->bounds.y - 1,
+        LineDraw(true, (b->bounds.x + b->bounds.w) + 1, b->bounds.y - 1,
                  (b->bounds.x + b->bounds.w) + 1, (b->bounds.y + b->bounds.h) + 1, 0,
                  (char*)pDestBuf);
         //bottom (two thick)
-        LineDraw(TRUE, b->bounds.x - 1, (b->bounds.y + b->bounds.h),
+        LineDraw(true, b->bounds.x - 1, (b->bounds.y + b->bounds.h),
                  (b->bounds.x + b->bounds.w) + 1, (b->bounds.y + b->bounds.h), 0, (char*)pDestBuf);
-        LineDraw(TRUE, b->bounds.x - 1, (b->bounds.y + b->bounds.h) + 1,
+        LineDraw(true, b->bounds.x - 1, (b->bounds.y + b->bounds.h) + 1,
                  (b->bounds.x + b->bounds.w) + 1, (b->bounds.y + b->bounds.h) + 1, 0,
                  (char*)pDestBuf);
     }
@@ -745,7 +746,7 @@ void DrawDefaultOnButton(const ButtonAppearance* b)
 // FUNCTION: WIZ8 0x0040e5d0
 static void DrawTextOnButton(const ButtonAppearance* b, const ButtonVisualState& state)
 {
-    INT32 xp, yp, width, height, TextX, TextY;
+    std::int32_t xp, yp, width, height, TextX, TextY;
     SDL_Rect NewClip, OldClip;
 
     // If this button actually has a string to print
@@ -768,7 +769,7 @@ static void DrawTextOnButton(const ButtonAppearance* b, const ButtonVisualState&
 
         // Set the font printing settings to the buttons viewable area
         SetFontDestBuffer(*ButtonDestBuffer, NewClip.x, NewClip.y, (NewClip.x + NewClip.w),
-                          (NewClip.y + NewClip.h), FALSE);
+                          (NewClip.y + NewClip.h), false);
 
         // Compute the coordinates to center the text
         if (b->bTextYOffset == -1)
@@ -796,21 +797,21 @@ static void DrawTextOnButton(const ButtonAppearance* b, const ButtonVisualState&
 
         // print the text
         SetFontBackground(FONT_MCOLOR_BLACK);
-        SetFontForeground((UINT8)b->sForeColor);
+        SetFontForeground((std::uint8_t)b->sForeColor);
         if (b->sShadowColor != -1)
-            SetFontShadow((UINT8)b->sShadowColor);
+            SetFontShadow((std::uint8_t)b->sShadowColor);
         //Override the colors if necessary.
         if (state.enabled && state.hovered &&
             b->sForeColorHilited != -1) {
-            SetFontForeground((UINT8)b->sForeColorHilited);
+            SetFontForeground((std::uint8_t)b->sForeColorHilited);
         } else if (state.pressed && b->sForeColorDown != -1) {
-            SetFontForeground((UINT8)b->sForeColorDown);
+            SetFontForeground((std::uint8_t)b->sForeColorDown);
         }
         if (state.enabled && state.hovered &&
             b->sShadowColorHilited != -1) {
-            SetFontShadow((UINT8)b->sShadowColorHilited);
+            SetFontShadow((std::uint8_t)b->sShadowColorHilited);
         } else if (state.pressed && b->sShadowColorDown != -1) {
-            SetFontShadow((UINT8)b->sShadowColorDown);
+            SetFontShadow((std::uint8_t)b->sShadowColorDown);
         }
         if (state.pressed &&
             b->fShiftText) { // Was the button clicked on? if so, move the text slightly for the illusion
@@ -830,16 +831,16 @@ static void DrawTextOnButton(const ButtonAppearance* b, const ButtonVisualState&
 //	This function is called by the DrawIconicButton and DrawTextButton
 //	routines to draw the borders and background of the buttons.
 // FUNCTION: WIZ8 0x0040e890
-static INT8 DrawGenericButton(const ButtonAppearance* b, const ButtonVisualState& state)
+static std::int8_t DrawGenericButton(const ButtonAppearance* b, const ButtonVisualState& state)
 {
-    INT8 disabled_style = DISABLED_STYLE_NONE;
+    std::int8_t disabled_style = DISABLED_STYLE_NONE;
     if (!b->generic_image) return disabled_style;
-    INT32 NumChunksWide, NumChunksHigh, cx, cy, width, height, hremain, wremain;
-    INT32 q, ImgNum, ox, oy;
-    INT32 iBorderHeight, iBorderWidth;
+    std::int32_t NumChunksWide, NumChunksHigh, cx, cy, width, height, hremain, wremain;
+    std::int32_t q, ImgNum, ox, oy;
+    std::int32_t iBorderHeight, iBorderWidth;
     size_t picture_index = 0;
-    UINT32 uiDestPitchBYTES;
-    UINT8* pDestBuf;
+    std::uint32_t uiDestPitchBYTES;
+    std::uint8_t* pDestBuf;
     SDL_Rect ClipRect;
     SpriteFrame* pTrav;
 
@@ -875,8 +876,8 @@ static INT8 DrawGenericButton(const ButtonAppearance* b, const ButtonVisualState
     // size, unchanged
 
     pTrav = &(BPic.sprites[0]);
-    iBorderHeight = (INT32)pTrav->usHeight;
-    iBorderWidth = (INT32)pTrav->usWidth;
+    iBorderHeight = (std::int32_t)pTrav->usHeight;
+    iBorderWidth = (std::int32_t)pTrav->usWidth;
 
     // Compute the number of button "chunks" needed to be blitted
     width = b->bounds.w;
@@ -912,7 +913,7 @@ static INT8 DrawGenericButton(const ButtonAppearance* b, const ButtonVisualState
 
     const auto& destination_storage = *ButtonDestBuffer->cpu().surface;
     uiDestPitchBYTES = destination_storage.pitch;
-    pDestBuf = static_cast<BYTE*>(destination_storage.pixels);
+    pDestBuf = static_cast<std::uint8_t*>(destination_storage.pixels);
 
     GetClippingRect(&ClipRect);
 
@@ -923,9 +924,9 @@ static INT8 DrawGenericButton(const ButtonAppearance* b, const ButtonVisualState
         else
             ImgNum = 1;
 
-        BltSpriteTo16BPPBuffer((UINT16*)pDestBuf, uiDestPitchBYTES,
-                                   BPic.sprites[(UINT16)ImgNum], BPic.currentPalette().data(),
-                                   (INT32)(b->bounds.x + (q * iBorderWidth)), (INT32)b->bounds.y, &ClipRect, false,
+        BltSpriteTo16BPPBuffer((std::uint16_t*)pDestBuf, uiDestPitchBYTES,
+                                   BPic.sprites[(std::uint16_t)ImgNum], BPic.currentPalette().data(),
+                                   (std::int32_t)(b->bounds.x + (q * iBorderWidth)), (std::int32_t)b->bounds.y, &ClipRect, false,
                                    SpriteDrawOp::Transparent);
 
         if (q == 0)
@@ -933,18 +934,18 @@ static INT8 DrawGenericButton(const ButtonAppearance* b, const ButtonVisualState
         else
             ImgNum = 6;
 
-        BltSpriteTo16BPPBuffer((UINT16*)pDestBuf, uiDestPitchBYTES,
-                                   BPic.sprites[(UINT16)ImgNum], BPic.currentPalette().data(),
-                                   (INT32)(b->bounds.x + (q * iBorderWidth)), cy, &ClipRect, false,
+        BltSpriteTo16BPPBuffer((std::uint16_t*)pDestBuf, uiDestPitchBYTES,
+                                   BPic.sprites[(std::uint16_t)ImgNum], BPic.currentPalette().data(),
+                                   (std::int32_t)(b->bounds.x + (q * iBorderWidth)), cy, &ClipRect, false,
                                    SpriteDrawOp::Transparent);
     }
     // Blit the right side corners
-    BltSpriteTo16BPPBuffer((UINT16*)pDestBuf, uiDestPitchBYTES,
+    BltSpriteTo16BPPBuffer((std::uint16_t*)pDestBuf, uiDestPitchBYTES,
                                BPic.sprites[2], BPic.currentPalette().data(),
-                               cx, (INT32)b->bounds.y, &ClipRect, false,
+                               cx, (std::int32_t)b->bounds.y, &ClipRect, false,
                                SpriteDrawOp::Transparent);
 
-    BltSpriteTo16BPPBuffer((UINT16*)pDestBuf, uiDestPitchBYTES,
+    BltSpriteTo16BPPBuffer((std::uint16_t*)pDestBuf, uiDestPitchBYTES,
                                BPic.sprites[7], BPic.currentPalette().data(),
                                cx, cy, &ClipRect, false,
                                SpriteDrawOp::Transparent);
@@ -953,26 +954,26 @@ static INT8 DrawGenericButton(const ButtonAppearance* b, const ButtonVisualState
 
     if (hremain != 0) {
         q = NumChunksHigh;
-        BltSpriteTo16BPPBuffer((UINT16*)pDestBuf, uiDestPitchBYTES,
+        BltSpriteTo16BPPBuffer((std::uint16_t*)pDestBuf, uiDestPitchBYTES,
                                    BPic.sprites[3], BPic.currentPalette().data(),
-                                   (INT32)b->bounds.x, (INT32)(b->bounds.y + (q * iBorderHeight) - (iBorderHeight - hremain)), &ClipRect, false,
+                                   (std::int32_t)b->bounds.x, (std::int32_t)(b->bounds.y + (q * iBorderHeight) - (iBorderHeight - hremain)), &ClipRect, false,
                                    SpriteDrawOp::Transparent);
 
-        BltSpriteTo16BPPBuffer((UINT16*)pDestBuf, uiDestPitchBYTES,
+        BltSpriteTo16BPPBuffer((std::uint16_t*)pDestBuf, uiDestPitchBYTES,
                                    BPic.sprites[4], BPic.currentPalette().data(),
-                                   cx, (INT32)(b->bounds.y + (q * iBorderHeight) - (iBorderHeight - hremain)), &ClipRect, false,
+                                   cx, (std::int32_t)(b->bounds.y + (q * iBorderHeight) - (iBorderHeight - hremain)), &ClipRect, false,
                                    SpriteDrawOp::Transparent);
     }
 
     for (q = 1; q < NumChunksHigh; q++) {
-        BltSpriteTo16BPPBuffer((UINT16*)pDestBuf, uiDestPitchBYTES,
+        BltSpriteTo16BPPBuffer((std::uint16_t*)pDestBuf, uiDestPitchBYTES,
                                    BPic.sprites[3], BPic.currentPalette().data(),
-                                   (INT32)b->bounds.x, (INT32)(b->bounds.y + (q * iBorderHeight)), &ClipRect, false,
+                                   (std::int32_t)b->bounds.x, (std::int32_t)(b->bounds.y + (q * iBorderHeight)), &ClipRect, false,
                                    SpriteDrawOp::Transparent);
 
-        BltSpriteTo16BPPBuffer((UINT16*)pDestBuf, uiDestPitchBYTES,
+        BltSpriteTo16BPPBuffer((std::uint16_t*)pDestBuf, uiDestPitchBYTES,
                                    BPic.sprites[4], BPic.currentPalette().data(),
-                                   cx, (INT32)(b->bounds.y + (q * iBorderHeight)), &ClipRect, false,
+                                   cx, (std::int32_t)(b->bounds.y + (q * iBorderHeight)), &ClipRect, false,
                                    SpriteDrawOp::Transparent);
     }
 
@@ -981,13 +982,13 @@ static INT8 DrawGenericButton(const ButtonAppearance* b, const ButtonVisualState
 
 // Added Oct17, 97 Carter - kind of mindless, but might as well have it
 // FUNCTION: WIZ8 0x0040edc0
-void MSYS_SetBtnUserData(const GUIButton& button, INT32 index, INT32 userdata)
+void MSYS_SetBtnUserData(const GUIButton& button, std::int32_t index, std::int32_t userdata)
 {
     if (button && index >= 0 && index < 4) button->UserData[index] = userdata;
 }
 
 // FUNCTION: WIZ8 0x0040edf0
-INT32 MSYS_GetBtnUserData(GUI_BUTTON* b, INT32 index)
+std::int32_t MSYS_GetBtnUserData(GUI_BUTTON* b, std::int32_t index)
 {
 
     if (index < 0 || index > 3)
@@ -999,7 +1000,7 @@ INT32 MSYS_GetBtnUserData(GUI_BUTTON* b, INT32 index)
 //Generic Button Movement Callback to reset the mouse button if the mouse is no longer
 //in the button region.
 // FUNCTION: WIZ8 0x0040ee10
-void BtnGenericMouseMoveButtonCallback(GUI_BUTTON* btn, INT32 reason)
+void BtnGenericMouseMoveButtonCallback(GUI_BUTTON* btn, std::int32_t reason)
 {
     //If the button isn't the anchored button, then we don't want to modify the button state.
     if (btn != gpAnchoredButton)
@@ -1032,35 +1033,35 @@ void ShowButton(const GUIButton& button)
 }
 
 // FUNCTION: WIZ8 0x0040eec0
-BOOLEAN GetButtonArea(const GUIButton& button, SDL_Rect* rect)
+bool GetButtonArea(const GUIButton& button, SDL_Rect* rect)
 {
-    if (!button || !rect) return FALSE;
+    if (!button || !rect) return false;
     *rect = {button->Area.RegionTopLeftX, button->Area.RegionTopLeftY,
              button->Area.RegionBottomRightX - button->Area.RegionTopLeftX,
              button->Area.RegionBottomRightY - button->Area.RegionTopLeftY};
-    return TRUE;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x0040ef00
-INT32 GetButtonWidth(const GUIButton& button)
+std::int32_t GetButtonWidth(const GUIButton& button)
 {
     return button ? button->Area.RegionBottomRightX - button->Area.RegionTopLeftX : -1;
 }
 
 // FUNCTION: WIZ8 0x0040ef20
-INT32 GetButtonHeight(const GUIButton& button)
+std::int32_t GetButtonHeight(const GUIButton& button)
 {
     return button ? button->Area.RegionBottomRightY - button->Area.RegionTopLeftY : -1;
 }
 
 // FUNCTION: WIZ8 0x0040ef40
-INT32 GetButtonX(const GUIButton& button)
+std::int32_t GetButtonX(const GUIButton& button)
 {
     return button ? button->Area.RegionTopLeftX : 0;
 }
 
 // FUNCTION: WIZ8 0x0040ef60
-INT32 GetButtonY(const GUIButton& button)
+std::int32_t GetButtonY(const GUIButton& button)
 {
     return button ? button->Area.RegionTopLeftY : 0;
 }

@@ -42,7 +42,6 @@
 #include "Font.h"
 #include "timer.h"
 #include "Button System.h"
-#include "Types.h"
 #include "compat/native.h"
 #include "compat/ptr32.h"
 #include "conditions.h"
@@ -976,9 +975,9 @@ void DrawSubMenuCharacterAction(void)
     std::string name;
     std::string text;
     std::string second;
-    INT16 width;
-    INT16 separator;
-    INT16 trailing;
+    std::int16_t width;
+    std::int16_t separator;
+    std::int16_t trailing;
 
     slot = static_cast<unsigned short>(g_status.selected_character);
     if (slot > 7) {
