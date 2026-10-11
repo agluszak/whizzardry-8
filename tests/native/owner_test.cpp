@@ -31,6 +31,8 @@
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_code/Gameloop.h"
+#include "wiz8/local_code/Configuration.h"
+#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
@@ -1348,6 +1350,17 @@ TEST_CASE("Dialog controls own interaction without legacy GUI buttons", "[owner]
     RegionStateSnapshot saved_state;
     ResetRegions();
     ExclusiveRegionSet button_scope(ControlRegionSetIndex());
+    struct TooltipStateSnapshot {
+        bool tooltips_enabled = g_settings.tooltips_enabled;
+        std::vector<std::string> localized_strings = std::move(g_localized_strings);
+        ~TooltipStateSnapshot()
+        {
+            g_settings.tooltips_enabled = tooltips_enabled;
+            g_localized_strings = std::move(localized_strings);
+        }
+    } tooltip_state;
+    g_settings.tooltips_enabled = true;
+    g_localized_strings.emplace_back("Button tooltip");
     Font font{};
     PushButtonSoundScheme(0, true);
     int activations = 0;
@@ -1358,6 +1371,18 @@ TEST_CASE("Dialog controls own interaction without legacy GUI buttons", "[owner]
                 REQUIRE(control->GetUserData() == 42);
                 ++activations;
             }, 42));
+        button.SetTooltipIndex(0);
+        button.SetTooltipEnabled(true);
+        auto region = std::find_if(g_regions.begin(), g_regions.end(),
+                                   [&button](const W8Region& item) {
+                                       return item.handler == &button;
+                                   });
+        REQUIRE(region != g_regions.end());
+        REQUIRE(region->help_enabled);
+        REQUIRE(region->help_text == "Button tooltip");
+        button.SetTooltipEnabled(false);
+        REQUIRE_FALSE(region->help_enabled);
+        REQUIRE(region->help_text.empty());
         GetInputState().left_button = false;
         GetInputState().mouse = {400, 400};
         dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true, false, 1);

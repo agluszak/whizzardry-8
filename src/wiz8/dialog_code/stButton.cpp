@@ -143,10 +143,11 @@ void W8DialogButton::SetVisible(bool visible)
 void W8DialogButton::SetTooltipEnabled(bool enabled)
 {
     if (!m_region) return;
-    m_region.region().help_text =
-        enabled && m_tooltip_index != W8_DIALOG_BUTTON_NO_TOOLTIP && g_settings.tooltips_enabled
-            ? g_localized_strings[m_tooltip_index]
-            : std::string{};
+    const bool show_tooltip =
+        enabled && m_tooltip_index != W8_DIALOG_BUTTON_NO_TOOLTIP && g_settings.tooltips_enabled;
+    m_region.region().help_text = show_tooltip ? g_localized_strings[m_tooltip_index] : std::string{};
+    SetRegionHelp(m_region.index(), show_tooltip,
+                  show_tooltip ? m_tooltip_index : W8_DIALOG_BUTTON_NO_TOOLTIP);
 }
 
 // FUNCTION: WIZ8 0x005dbac0
