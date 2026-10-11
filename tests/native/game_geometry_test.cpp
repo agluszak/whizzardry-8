@@ -4,6 +4,7 @@
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/gtx/euler_angles.hpp>
 #include <array>
+#include <algorithm>
 #include <cmath>
 #include <limits>
 #include <cstddef>
@@ -706,4 +707,40 @@ TEST_CASE("Octree face run rejects invalid growth capacity", "[geometry]")
     REQUIRE(faces == nullptr);
     REQUIRE(geometry.CheckArrayLength(&faces, 65535, 5) == 0);
     REQUIRE(faces == nullptr);
+}
+
+TEST_CASE("Octree queries own dense results across later queries", "[geometry][octree]")
+{
+    W8Octree tree(nullptr, nullptr);
+    tree.m_spatial.m_minimum = {0, 0, 0};
+    tree.m_spatial.m_maximum = {1000, 1000, 1000};
+    tree.m_spatial.m_node_extent = 1000;
+    tree.m_leaf_grid_dimensions = {1, 1, 1};
+    tree.object_registry = new W8OctreeObjectRegistry;
+    tree.m_visited_object_bits.assign(11000, false);
+    const srVector3T<int> cell(0, 0, 0);
+    for (int id = 1; id <= 10500; ++id)
+        tree.object_registry->RegisterObjectCell(W8_OCTREE_KIND_LOCATION, id, &cell);
+    const srBoundingBox bounds{{0, 0, 0}, {999, 999, 999}};
+    const auto dense = tree.queryObjects(bounds, W8_OCTREE_KIND_LOCATION, -1);
+    REQUIRE(dense.size() == 10000);
+    const auto original = dense;
+    const auto nearby = tree.nearbyLocations({500, 500, 500}, 1);
+    REQUIRE(nearby.size() == 10000);
+    REQUIRE(nearby == dense);
+    const auto absent = tree.queryObjects(bounds, W8_OCTREE_KIND_PROP, -1);
+    REQUIRE(absent.empty());
+    REQUIRE(dense == original);
+    REQUIRE(nearby == original);
+
+    tree.object_registry->by_cell->clear();
+    tree.object_registry->by_object->clear();
+    for (int id = 1; id <= 512; ++id)
+        tree.object_registry->RegisterObjectCell(W8_OCTREE_KIND_LOCATION, id, &cell);
+    const auto locations = tree.locationsInBox(bounds, 7);
+    REQUIRE(locations.size() == 511);
+    REQUIRE(std::ranges::find(locations, 7u) == locations.end());
+    REQUIRE(tree.locationsInBox(bounds, 0).size() == 512);
+    REQUIRE(tree.locationsInBox({{2000, 2000, 2000}, {3000, 3000, 3000}}, 0).empty());
+    REQUIRE(tree.locationsInBox({{999, 999, 999}, {0, 0, 0}}, 0).size() == 512);
 }

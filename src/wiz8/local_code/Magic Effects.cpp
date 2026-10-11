@@ -664,7 +664,7 @@ float HeadingTowardNearestMonster(srVector3T<float> point, W8Disposition disposi
     srVector3T<float> lower;
     srVector3T<float> upper;
     srVector3T<float> position;
-    w8_ulong* location_ids;
+    std::vector<w8_ulong> location_ids;
     double nearest_distance;
     float distance;
     float range;
@@ -685,11 +685,10 @@ float HeadingTowardNearestMonster(srVector3T<float> point, W8Disposition disposi
     upper.x += range;
     upper.y += range;
     upper.z += range;
-    location_ids = static_cast<w8_ulong*>(operator new(0x100 * sizeof(*location_ids)));
-    count = g_octree->QueryLocationsInBox(&location_ids, &lower, &upper,
-                                          static_cast<unsigned short>(exclusion));
+
+    location_ids = g_octree->locationsInBox({lower.glmValue(), upper.glmValue()}, static_cast<unsigned short>(exclusion));
+    count = location_ids.size();
     if (count == 0) {
-        operator delete(location_ids);
         return HeadingToTargetCPP(&point);
     }
     for (index = 0; index < count; ++index) {
@@ -703,7 +702,6 @@ float HeadingTowardNearestMonster(srVector3T<float> point, W8Disposition disposi
             nearest = monster;
         }
     }
-    operator delete(location_ids);
     position = nearest->GetPosition();
     return GetHeadingAngle(&point, &position);
 }
@@ -2383,7 +2381,7 @@ void ApplyMonsterControlToNearbyMonsters(W8SpellEffectEntry* effect)
     srVector3T<float> lower;
     srVector3T<float> upper;
     srVector3T<float> eye;
-    w8_ulong* location_ids;
+    std::vector<w8_ulong> location_ids;
     unsigned int count;
     unsigned int index;
     float far_clip;
@@ -2393,8 +2391,9 @@ void ApplyMonsterControlToNearbyMonsters(W8SpellEffectEntry* effect)
     center.y += g_default_world_height * g_float_half;
     lower.Set(center.x - far_clip, center.y - far_clip, center.z - far_clip);
     upper.Set(center.x + far_clip, center.y + far_clip, center.z + far_clip);
-    location_ids = static_cast<w8_ulong*>(operator new(0x100 * sizeof(*location_ids)));
-    count = g_octree->QueryLocationsInBox(&location_ids, &lower, &upper, 0);
+
+    location_ids = g_octree->locationsInBox({lower.glmValue(), upper.glmValue()}, 0);
+    count = location_ids.size();
     for (index = 0; index < count; ++index) {
         monster_info = MonsterInfoFromID(0xc7c, MAGIC_EFFECTS_CPP, location_ids[index], true);
         if (monster_info->p3D->IsDying()) {

@@ -13,6 +13,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <span>
 #include <cmath>
 #include <cstdint>
 #include <ctime>
@@ -2184,7 +2185,7 @@ std::optional<W8Octree::SphereTraceHit> W8Octree::traceSphereHit(
     int excluded_location, unsigned int flags, bool noise_adjust)
 {
     unsigned int index = 0;
-    w8_ulong* ids = 0;
+    std::vector<w8_ulong> ids;
     unsigned int best_index = 0;
     double best = -1.0;
     float inflate;
@@ -2238,8 +2239,8 @@ std::optional<W8Octree::SphereTraceHit> W8Octree::traceSphereHit(
         probe_set = pathing->CollectPathProbes(&navigator->movement, radius);
     }
 no_probes:;
-    unsigned int count = static_cast<unsigned int>(
-        g_octree->QueryObjects(&ids, &low, &high, W8_OCTREE_KIND_LOCATION, -1)); /* c-style-cast-ok:
+    ids = g_octree->queryObjects({low.glmValue(), high.glmValue()}, W8_OCTREE_KIND_LOCATION, -1);
+    unsigned int count = ids.size(); /* c-style-cast-ok:
             the shared query count field is stored unsigned */
     if (count != 0) {
         do {
@@ -3531,7 +3532,6 @@ W8Octree::~W8Octree()
         free(m_papParticles);
     }
 
-
     m_point_count = 0;
     if (m_sample_points != 0) {
         delete[] m_sample_points;
@@ -3541,7 +3541,6 @@ W8Octree::~W8Octree()
     }
 
     delete object_registry;
-
 
     if (m_pSubmeshes != 0) {
         free(m_pSubmeshes);
@@ -3630,6 +3629,19 @@ void W8Octree::UnregisterLocationObject(unsigned int location_id, W8OctreeObject
     object_registry->UnregisterObject(kind, location_id + 1);
 }
 
+template<class Visit>
+static void ForEachQueryCell(const glm::ivec3& start, const glm::ivec3& end,
+                             const glm::ivec3& dimensions, Visit visit)
+{
+    const auto lower = glm::max(start, glm::ivec3(0));
+    const auto upper = glm::min(end, dimensions - 1);
+    srVector3T<int> cell;
+    for (cell.x = lower.x; cell.x <= upper.x; ++cell.x)
+        for (cell.y = lower.y; cell.y <= upper.y; ++cell.y)
+            for (cell.z = lower.z; cell.z <= upper.z; ++cell.z)
+                visit(cell);
+}
+
 /* Collect object ids of `kind` from every cell under the `origin`-swept
    `delta` segment grown by `extent`; the extent takes the segment length as a
    floor. `*results` carries the destination buffer in and out. */
@@ -3642,8 +3654,6 @@ int W8Octree::CollectObjectsAlongSegment(w8_ulong** results, const srVector3T<fl
     srVector3T<float> high;
     srVector3T<int> low_cell;
     srVector3T<int> high_cell;
-    srVector3T<int> cell;
-
     g_octree_state = *results;
     if (g_octree_state == 0) {
         g_octree_state = m_aulGDObjs;
@@ -3668,28 +3678,9 @@ int W8Octree::CollectObjectsAlongSegment(w8_ulong** results, const srVector3T<fl
     std::ranges::fill(m_visited_object_bits, false);
     CollectVisibleRegions(&low, &low_cell, 0, 0);
     CollectVisibleRegions(&high, &high_cell, 0, 0);
-    if (low_cell.x <= high_cell.x) {
-        cell.x = low_cell.x;
-        do {
-            if (cell.x >= 0 && cell.x < static_cast<int>(m_leaf_grid_dimensions.x) /* c-style-cast-ok:
-                    cell coordinate vs grid dimension */) {
-                cell.y = low_cell.y;
-                while (cell.y <= high_cell.y) {
-                    if (cell.y >= 0 && cell.y < static_cast<int>(m_leaf_grid_dimensions.y) /* c-style-cast-ok:
-                            cell coordinate vs grid dimension */) {
-                        for (cell.z = low_cell.z; cell.z <= high_cell.z; ++cell.z) {
-                            if (cell.z >= 0 && cell.z < static_cast<int>(m_leaf_grid_dimensions.z)
-                                /* c-style-cast-ok: cell coordinate vs grid dimension */) {
-                                CollectObjectsInCell(&cell, kind);
-                            }
-                        }
-                    }
-                    ++cell.y;
-                }
-            }
-            ++cell.x;
-        } while (cell.x <= high_cell.x);
-    }
+    ForEachQueryCell(low_cell.glmValue(), high_cell.glmValue(),
+        glm::ivec3(m_leaf_grid_dimensions.glmValue()),
+        [&](const srVector3T<int>& cell) { CollectObjectsInCell(&cell, kind); });
     g_octree_state = 0;
     return static_cast<int>(m_gd_result_count); /* c-style-cast-ok: the shared count field is
         stored unsigned */
@@ -3699,14 +3690,10 @@ int W8Octree::CollectObjectsAlongSegment(w8_ulong** results, const srVector3T<fl
    uses it to list the location ids near a mover. */
 
 // FUNCTION: WIZ8 0x0042ef00
-int W8Octree::QueryLocationsInBox(w8_ulong** results, const srVector3T<float>* lower,
-                                  const srVector3T<float>* upper, unsigned short exclusion)
+std::vector<w8_ulong> W8Octree::locationsInBox(const srBoundingBox& bounds,
+                                              unsigned short exclusion)
 {
-    int excluded = -1;
-    if (exclusion != 0) {
-        excluded = exclusion;
-    }
-    return QueryObjects(results, lower, upper, W8_OCTREE_KIND_LOCATION, excluded);
+    return queryObjects(bounds, W8_OCTREE_KIND_LOCATION, exclusion == 0 ? -1 : exclusion);
 }
 
 /* AABB occupancy test: GD triangles, kind-12 location objects (each
@@ -3716,25 +3703,18 @@ int W8Octree::QueryLocationsInBox(w8_ulong** results, const srVector3T<float>* l
 unsigned char W8Octree::TestBoxOccupied(const srVector3T<float>* lower,
                                         const srVector3T<float>* upper)
 {
-    w8_ulong* objects = 0;
-    unsigned int count =
-        static_cast<unsigned int>(QueryObjects(&objects, lower, upper, W8_OCTREE_KIND_SURFACE, -1));
+    auto objects = queryObjects({lower->glmValue(), upper->glmValue()}, W8_OCTREE_KIND_SURFACE, -1);
+    unsigned int count = objects.size();
     unsigned int index;
     for (index = 0; index < count; ++index) {
         W8GDSurface* surface = g_octree_game_data->m_pSurfaces.data() + objects[index];
-        srVector3T<float> bounds[2];
-        srVector3T<float> triangle[3];
-        bounds[0] = *lower;
-        bounds[1] = *upper;
-        triangle[0] = g_octree_game_data->m_pVertices[surface->vertex_indices[0]];
-        triangle[1] = g_octree_game_data->m_pVertices[surface->vertex_indices[1]];
-        triangle[2] = g_octree_game_data->m_pVertices[surface->vertex_indices[2]];
-        if (TestSpatialTriangle(bounds, triangle, surface->Normal()) != 0) {
+        if (SurfaceIntersectsBox(*surface, g_octree_game_data->m_pVertices,
+                                  {lower->glmValue(), upper->glmValue()})) {
             return 1;
         }
     }
-    count = static_cast<unsigned int>(
-        QueryObjects(&objects, lower, upper, W8_OCTREE_KIND_LOCATION, -1));
+    objects = queryObjects({lower->glmValue(), upper->glmValue()}, W8_OCTREE_KIND_LOCATION, -1);
+    count = objects.size();
     for (index = 0; index < count; ++index) {
         unsigned int monster_index = MonsterGetIndexByLocationID(
             0x62d, "C:\\Projects\\Wizardry 8\\Engine Code\\Octree.cpp", objects[index], true);
@@ -3749,22 +3729,17 @@ unsigned char W8Octree::TestBoxOccupied(const srVector3T<float>* lower,
             }
         }
     }
-    count =
-        static_cast<unsigned int>(QueryObjects(&objects, lower, upper, W8_OCTREE_KIND_PROP, -1));
+    objects = queryObjects({lower->glmValue(), upper->glmValue()}, W8_OCTREE_KIND_PROP, -1);
+    count = objects.size();
     for (index = 0; index < count; ++index) {
         W8Prop* prop = (*g_world->collidable_props)[objects[index]];
         if (prop->GetActivationState() != 0 && prop->m_gd_prop != 0) {
             GDProp* gd_prop = prop->m_gd_prop;
             for (int surface_index = 0; surface_index < gd_prop->m_surface_count; ++surface_index) {
                 W8GDSurface* surface = gd_prop->m_pGDSurfaces + surface_index;
-                srVector3T<float> bounds[2];
-                srVector3T<float> triangle[3];
-                bounds[0] = *lower;
-                bounds[1] = *upper;
-                triangle[0] = gd_prop->m_pVertices[surface->vertex_indices[0]];
-                triangle[1] = gd_prop->m_pVertices[surface->vertex_indices[1]];
-                triangle[2] = gd_prop->m_pVertices[surface->vertex_indices[2]];
-                if (TestSpatialTriangle(bounds, triangle, surface->Normal()) != 0) {
+                if (SurfaceIntersectsBox(*surface,
+                        {gd_prop->m_pVertices, static_cast<std::size_t>(gd_prop->m_vertex_count)},
+                        {lower->glmValue(), upper->glmValue()})) {
                     return 1;
                 }
             }
@@ -3773,51 +3748,24 @@ unsigned char W8Octree::TestBoxOccupied(const srVector3T<float>* lower,
     return 0;
 }
 
-/* Box query over the shared query buffer: `*objects` carries the destination
-   buffer in and out (null selects m_aulGDObjs), `excluded` is an object id
-   pre-marked in the dedupe set (-1 = none). The world bounds convert to cell
-   coordinates and the inclusive cell box is clipped against the three grid
-   dimensions. Returns the collected entry count. */
+/* Query the inclusive cell box and copy the deduplicated IDs out of the
+   scratch buffer before any subsequent query can overwrite them. */
 // FUNCTION: WIZ8 0x0042f280
-int W8Octree::QueryObjects(w8_ulong** objects, const srVector3T<float>* lower,
-                           const srVector3T<float>* upper, unsigned short kind, int excluded)
+std::vector<w8_ulong> W8Octree::queryObjects(const srBoundingBox& bounds,
+                                           unsigned short kind, int excluded)
 {
-    srVector3T<int> start;
-    srVector3T<int> end;
-    srVector3T<int> cell;
-
-    g_octree_state = *objects;
-    if (g_octree_state == 0) {
-        g_octree_state = m_aulGDObjs;
-        *objects = g_octree_state;
-    }
+    const srVector3 lower(bounds.minimum), upper(bounds.maximum);
+    srVector3T<int> start, end;
+    g_octree_state = m_aulGDObjs;
     m_gd_result_count = 0;
     std::ranges::fill(m_visited_object_bits, false);
-    if (excluded >= 0) {
-        SetBit(m_visited_object_bits, excluded);
-    }
-    WorldPositionToCell(lower, &start);
-    WorldPositionToCell(upper, &end);
-    for (cell.x = start.x; cell.x <= end.x; ++cell.x) {
-        if (cell.x < 0 || static_cast<int>(m_leaf_grid_dimensions.x) <= cell.x /* c-style-cast-ok:
-                cell coordinate vs grid dimension */) {
-            continue;
-        }
-        for (cell.y = start.y; cell.y <= end.y; ++cell.y) {
-            if (cell.y < 0 || static_cast<int>(m_leaf_grid_dimensions.y) <= cell.y /* c-style-cast-ok:
-                    cell coordinate vs grid dimension */) {
-                continue;
-            }
-            for (cell.z = start.z; cell.z <= end.z; ++cell.z) {
-                if (cell.z >= 0 && cell.z < static_cast<int>(m_leaf_grid_dimensions.z) /* c-style-cast-ok:
-                        cell coordinate vs grid dimension */) {
-                    CollectObjectsInCell(&cell, kind);
-                }
-            }
-        }
-    }
-    g_octree_state = 0;
-    return m_gd_result_count;
+    if (excluded >= 0) SetBit(m_visited_object_bits, excluded);
+    WorldPositionToCell(&lower, &start);
+    WorldPositionToCell(&upper, &end);
+    ForEachQueryCell(start.glmValue(), end.glmValue(), glm::ivec3(m_leaf_grid_dimensions.glmValue()),
+        [&](const srVector3T<int>& cell) { CollectObjectsInCell(&cell, kind); });
+    g_octree_state = nullptr;
+    return {m_aulGDObjs, m_aulGDObjs + m_gd_result_count};
 }
 
 /* Append the objects of `kind` inside one cell to the shared query buffer.
@@ -3832,7 +3780,6 @@ unsigned int W8Octree::CollectObjectsInCell(const srVector3T<int>* cell, unsigne
     unsigned int found = 0;
     unsigned int leaf_index;
     W8OctreeIndex::iterator slot;
-
 
     switch (kind) {
     case W8_OCTREE_KIND_SURFACE:
@@ -4094,17 +4041,10 @@ char GrowBoundsByPoint(const srVector3T<float>* point, srVector3T<float>* minimu
     return changed;
 }
 
-unsigned int W8Octree::QueryNearbyLocations(const srVector3T<float>* position, float spacing,
-                                            w8_ulong** candidates)
+std::vector<w8_ulong> W8Octree::nearbyLocations(const glm::vec3& position, float spacing)
 {
-    float expand = spacing * g_monster_proximity_radius_scale;
-    srVector3T<float> low;
-    low.Set(position->x - expand, position->y - expand, position->z - expand);
-    srVector3T<float> high;
-    high.Set(expand + position->x, expand + position->y, expand + position->z);
-    *candidates = static_cast<w8_ulong*>(operator new(0x100 * sizeof(**candidates)));
-    return static_cast<unsigned int>(
-        QueryObjects(candidates, &low, &high, W8_OCTREE_KIND_LOCATION, -1));
+    const float expand = spacing * g_monster_proximity_radius_scale;
+    return queryObjects({position - expand, position + expand}, W8_OCTREE_KIND_LOCATION, -1);
 }
 
 /* Lateral column offsets for the scatter search below: the inner loop walks
@@ -4121,6 +4061,19 @@ static float g_scatter_column_offsets[5] = {0.0f, 1.0f, -1.0f, 2.0f, -2.0f};
    inside the startup navigator's or any nearby monster's radius. `flatten_y`
    relaxes the tight vertical bound during search and rewrites every accepted
    y to the original source height afterwards. */
+static bool OverlapsNearbyMonster(const glm::vec3& point, float reach,
+                                   std::span<const w8_ulong> locations, bool alternate_radius)
+{
+    for (const auto id : locations) {
+        auto* monster = GetMonsterByLocationID(id);
+        const auto delta = monster->GetPosition().glmValue() - point;
+        const float clearance =
+            (alternate_radius ? monster->movement.alternate_radius : monster->radius) + reach;
+        if (glm::dot(delta, delta) < clearance * clearance) return true;
+    }
+    return false;
+}
+
 // FUNCTION: WIZ8 0x00437980
 unsigned int W8Octree::FindScatterPositions(const srVector3T<float>* position, float yaw,
                                             float spacing, unsigned int count,
@@ -4129,7 +4082,7 @@ unsigned int W8Octree::FindScatterPositions(const srVector3T<float>* position, f
 {
     float source_y = position->y;
     unsigned int found = 0;
-    w8_ulong* candidates = 0;
+    std::vector<w8_ulong> candidates;
     unsigned int columns = 3;
     if (count > 10) {
         columns = 5;
@@ -4142,9 +4095,8 @@ unsigned int W8Octree::FindScatterPositions(const srVector3T<float>* position, f
     float cos_step = spacing * cos_angle;
     float sin_step = spacing * sin_angle;
     float neg_cos_step = -cos_step;
-    unsigned int monsters = 0;
     if (proximity_check) {
-        monsters = QueryNearbyLocations(position, spacing, &candidates);
+        candidates = nearbyLocations(position->glmValue(), spacing);
     }
     unsigned int ring;
     for (ring = 0; ring < 10; ++ring) {
@@ -4189,23 +4141,11 @@ unsigned int W8Octree::FindScatterPositions(const srVector3T<float>* position, f
                         float reach = spacing * g_float_half;
                         if (pathing->TestPathCellClearance(&candidate, reach, false)) {
                             srVector3T<float> navigator = g_startup_world->GetPosition();
-                            float dx = navigator.x - candidate.x;
-                            float dy = navigator.y - candidate.y;
-                            float dz = navigator.z - candidate.z;
+                            const auto delta = navigator.glmValue() - candidate.glmValue();
                             float separation = g_startup_world->radius + reach;
-                            if (separation * separation <= dx * dx + dy * dy + dz * dz) {
-                                unsigned int m;
-                                for (m = 0; m < monsters; ++m) {
-                                    W8Monster* monster = GetMonsterByLocationID(candidates[m]);
-                                    srVector3T<float> monster_position = monster->GetPosition();
-                                    float mdx = monster_position.x - candidate.x;
-                                    float mdy = monster_position.y - candidate.y;
-                                    float mdz = monster_position.z - candidate.z;
-                                    float clearance = monster->radius + reach;
-                                    if (mdx * mdx + mdy * mdy + mdz * mdz < clearance * clearance) {
-                                        goto next_cell;
-                                    }
-                                }
+                            if (separation * separation <= glm::dot(delta, delta)) {
+                                if (OverlapsNearbyMonster(candidate.glmValue(), reach, candidates, false))
+                                    goto next_cell;
                                 goto accept;
                             }
                         }
@@ -4228,9 +4168,6 @@ unsigned int W8Octree::FindScatterPositions(const srVector3T<float>* position, f
             } while (column < columns);
         }
     }
-    if (candidates != 0) {
-        operator delete(candidates);
-    }
     if (flatten_y && found != 0) {
         for (unsigned int index = 0; index < found; ++index) {
             positions[index].y = source_y;
@@ -4250,7 +4187,7 @@ unsigned int W8Octree::FindNavigatorPosition(srVector3T<float>* source, float ya
     int found_i = 9999;
     int found_j = 9999;
     float source_y = source->y;
-    w8_ulong* candidates = 0;
+    std::vector<w8_ulong> candidates;
     float camera_radius = g_startup_world->movement.alternate_radius;
     bool placed = false;
     float separation = (CalcRangeDistance(W8_RANGE_TOUCH) + radius) * g_float_half + camera_radius;
@@ -4267,9 +4204,8 @@ unsigned int W8Octree::FindNavigatorPosition(srVector3T<float>* source, float ya
         (settle_any_height || fabsf(height) <= g_double_twenty_five_hundred)) {
         source->y = ground;
     }
-    unsigned int monsters = 0;
     if (first_only) {
-        monsters = QueryNearbyLocations(source, radius, &candidates);
+        candidates = nearbyLocations(source->glmValue(), radius);
     }
     int ring_upper = 0;
     if (-1 < mode) {
@@ -4331,35 +4267,13 @@ unsigned int W8Octree::FindNavigatorPosition(srVector3T<float>* source, float ya
                                                        candidate.x, candidate.y, candidate.z))) {
                                     if (first_only) {
                                         srVector3T<float> camera = g_startup_world->GetPosition();
-                                        float camera_dx = camera.x - candidate.x;
-                                        float camera_dy = camera.y - candidate.y;
-                                        float camera_dz = camera.z - candidate.z;
-                                        if (camera_dx * camera_dx + camera_dy * camera_dy +
-                                                camera_dz * camera_dz <
-                                            separation * separation) {
+                                        const auto delta = camera.glmValue() - candidate.glmValue();
+                                        if (glm::dot(delta, delta) < separation * separation) {
                                             goto next_cell;
                                         }
-                                        unsigned int m = 0;
-                                        if (monsters != 0) {
-                                            float reach = radius * g_float_half;
-                                            do {
-                                                W8Monster* monster =
-                                                    GetMonsterByLocationID(candidates[m]);
-                                                srVector3T<float> position = monster->GetPosition();
-                                                float monster_dx = position.x - candidate.x;
-                                                float monster_dy = position.y - candidate.y;
-                                                float monster_dz = position.z - candidate.z;
-                                                float clearance =
-                                                    monster->movement.alternate_radius + reach;
-                                                if (monster_dx * monster_dx +
-                                                        monster_dy * monster_dy +
-                                                        monster_dz * monster_dz <
-                                                    clearance * clearance) {
-                                                    goto next_cell;
-                                                }
-                                                ++m;
-                                            } while (m < monsters);
-                                        }
+                                        if (OverlapsNearbyMonster(candidate.glmValue(), radius * g_float_half,
+                                                                  candidates, true))
+                                            goto next_cell;
                                     }
                                     if (!require_waypoint_span || pathing == 0 ||
                                         pathing->TestWaypointSpan(&candidate, source, false,
@@ -4403,9 +4317,6 @@ unsigned int W8Octree::FindNavigatorPosition(srVector3T<float>* source, float ya
             ring_upper = upper + 1;
             --lower;
         } while (ring_upper <= mode);
-    }
-    if (candidates != 0) {
-        operator delete(candidates);
     }
     if (settle_any_height && 0 < static_cast<int>(found)) {
         srVector3T<float>* out = positions;

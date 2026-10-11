@@ -697,7 +697,7 @@ W8GDSurface* W8GameData::ProbePropsAlongMotion(srVector3T<float>* direction,
 unsigned char W8GameData::ProbeMonstersAlongMotion(srVector3T<float>* direction,
                                                    srVector3T<float>* position, int)
 {
-    w8_ulong* objects;
+    std::vector<w8_ulong> objects;
     unsigned int count;
     unsigned int index;
     unsigned int monster_list_index;
@@ -720,13 +720,12 @@ unsigned char W8GameData::ProbeMonstersAlongMotion(srVector3T<float>* direction,
     double time_scale;
     bool hit;
 
-    objects = 0;
     hit = false;
     extent = direction->Length() + g_runtime_world_scale + g_world_scale;
     lower = position->glmValue() - extent;
     upper = position->glmValue() + extent;
-    count = static_cast<unsigned int>(
-        g_octree->QueryObjects(&objects, &lower, &upper, W8_OCTREE_KIND_LOCATION, -1));
+    objects = g_octree->queryObjects({lower.glmValue(), upper.glmValue()}, W8_OCTREE_KIND_LOCATION, -1);
+    count = objects.size();
     if (count == 0) {
         return 0;
     }

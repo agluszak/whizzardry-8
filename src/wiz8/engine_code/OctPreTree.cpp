@@ -1459,28 +1459,24 @@ unsigned char OctPreTree::InsertConditionalNodes(std::unordered_multimap<unsigne
 char OctPreTree::TestPathPropBounds(const srVector3T<float>* minimum,
                                     const srVector3T<float>* maximum)
 {
-    w8_ulong* ids = 0;
-    srVector3T<float> bounds[2];
-    srVector3T<float> triangle[3];
+    std::vector<w8_ulong> ids;
+    const srBoundingBox bounds{minimum->glmValue(), maximum->glmValue()};
     unsigned char hit = 0;
 
-    bounds[0] = *minimum;
-    bounds[1] = *maximum;
-    int count = QueryObjects(&ids, minimum, maximum, 3, -1);
+    ids = queryObjects({minimum->glmValue(), maximum->glmValue()}, 3, -1);
+    int count = ids.size();
     for (int i = 0; i < count && hit == 0; ++i) {
         W8GDSurface* surface = g_octree_game_data->m_pSurfaces.data() + ids[i];
         if ((surface->flags & W8_GD_SURFACE_CROSSING_MASK) == 0) {
-            triangle[0] = g_octree_game_data->m_pVertices[surface->vertex_indices[0]];
-            triangle[1] = g_octree_game_data->m_pVertices[surface->vertex_indices[1]];
-            triangle[2] = g_octree_game_data->m_pVertices[surface->vertex_indices[2]];
-            hit = TestSpatialTriangle(bounds, triangle, surface->Normal());
+            hit = SurfaceIntersectsBox(*surface, g_octree_game_data->m_pVertices, bounds);
         }
     }
     current_prop = -1;
     if (hit != 0)
         return 1;
 
-    count = QueryObjects(&ids, minimum, maximum, 8, -1);
+    ids = queryObjects({minimum->glmValue(), maximum->glmValue()}, 8, -1);
+    count = ids.size();
     bool prop_hit = false;
     for (int k = 0; k < count; ++k) {
         int id = ids[k];
@@ -1726,6 +1722,16 @@ bool PointInsideBoxBounds(const srVector3T<float>* bounds, const srVector3T<floa
 /* Test a triangle against an axis-aligned box.  The inexpensive containment
    and separating-axis checks precede explicit triangle-edge intersections
    with all six box faces. */
+bool SurfaceIntersectsBox(const W8GDSurface& surface, std::span<const srVector3> vertices,
+                          const srBoundingBox& box)
+{
+    const srVector3 bounds[]{srVector3(box.minimum), srVector3(box.maximum)};
+    const srVector3 triangle[]{vertices[surface.vertex_indices[0]],
+                               vertices[surface.vertex_indices[1]],
+                               vertices[surface.vertex_indices[2]]};
+    return TestSpatialTriangle(bounds, triangle, surface.Normal()) != 0;
+}
+
 // FUNCTION: WIZ8 0x0046ce60
 unsigned char TestSpatialTriangle(const srVector3T<float>* bounds,
                                   const srVector3T<float>* vertices,

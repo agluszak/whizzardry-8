@@ -2,7 +2,6 @@
 
 
 
-
 /* Engine Code\Navigator.cpp owns these declarations. */
 
 #include <vector>
@@ -152,7 +151,7 @@ struct W8NavigatorMovementState {
     /* -1 means no resolved target. Navigation and OctPath use this as the
        location id of the tracked target; OctPath's single-candidate path
        search aliases the slot itself as its one-element candidate array
-       (LEA [movement+0x10]) — see TargetLocationAsCandidate(). */
+       (LEA [movement+0x10]); native path queries copy this ID into their owned candidate vector. */
     int target_location_id;
     float yaw;
     float target_yaw;
@@ -207,16 +206,6 @@ struct W8NavigatorMovementState {
        movement tail and invalidates target_location_id. It returns nothing, so it is a
        named member rather than an assignment operator. */
     void CopySettingsFrom(const W8NavigatorMovementState& other);
-
-    /* OctPath's single-candidate path search points its unsigned-long
-       candidate array at this slot rather than allocating a one-element
-       list (PlanMovement emits LEA [movement+0x10]); this accessor
-       keeps the int/unsigned-long reinterpretation inside the type. */
-    w8_ulong* TargetLocationAsCandidate()
-    {
-        // reinterpret-ok: candidate array aliases the one target-location slot
-        return reinterpret_cast<w8_ulong*>(&target_location_id);
-    }
 };
 
 /* 0x004572C0 allocates one with operator new(0x60) before running its

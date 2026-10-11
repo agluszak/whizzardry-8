@@ -36,7 +36,6 @@
 #include "IntervalGate.h"
 #include "Monster.h"
 #include "Octree.h"
-#include "compat/compiler.h"
 #include "compat/native.h"
 #include "dice.h"
 #include "difficulty.h"
@@ -455,8 +454,8 @@ bool MonGen::CanGenerateEncounter(bool force)
                                 spawn_position.z - 5000.0f);
         srVector3T<float> upper(spawn_position.x + 5000.0f, spawn_position.y + 5000.0f,
                                 spawn_position.z + 5000.0f);
-        w8_ulong* locations = 0;
-        if (g_octree->QueryLocationsInBox(&locations, &lower, &upper, 0) > 0) {
+        const auto locations = g_octree->locationsInBox({lower.glmValue(), upper.glmValue()}, 0);
+        if (!locations.empty()) {
             return false;
         }
     }

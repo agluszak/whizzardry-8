@@ -1027,10 +1027,10 @@ bool W8PathingService::TestAttachmentHopDoor(W8NavigatorAttachment* attachment)
             srVector3T<float> lower = source_surface->position;
             srVector3T<float> upper = source_surface->position;
             GrowBoundsByPoint(&m_waypoints[destination].position, &lower, &upper);
-            w8_ulong* candidates = 0;
+            std::vector<w8_ulong> candidates;
             Trigger* selected = 0;
-            int count =
-                g_octree->QueryObjects(&candidates, &lower, &upper, W8_OCTREE_KIND_PROP, -1);
+            candidates = g_octree->queryObjects({lower.glmValue(), upper.glmValue()}, W8_OCTREE_KIND_PROP, -1);
+            int count = candidates.size();
             if (count > 0) {
                 if (count == 1) {
                     W8Prop* prop = (*g_world->collidable_props)[candidates[0]];
@@ -1936,9 +1936,8 @@ int W8PathingService::ProcessSearchNodeProps(unsigned short node_index, bool fir
     lower = node->position - lower_extent;
     upper = node->position + upper_extent;
 
-    w8_ulong* candidates = 0;
-    unsigned int count =
-        g_octree->QueryObjects(&candidates, &lower, &upper, W8_OCTREE_KIND_PROP, -1);
+    const auto candidates = g_octree->queryObjects({lower.glmValue(), upper.glmValue()}, W8_OCTREE_KIND_PROP, -1);
+    unsigned int count = candidates.size();
     for (unsigned int index = 0; index < count; ++index) {
         W8Prop* prop = (*g_world->collidable_props)[candidates[index]];
         prop->CanBeUsedFrom(node->cell_x, node->cell_z, true);
@@ -1967,9 +1966,7 @@ unsigned int W8PathingService::CollectPathProbes(W8NavigatorMovementState* movem
     lower = movement->position - half_extent;
     upper = movement->position + half_extent;
 
-    m_path_candidates = 0;
-    m_path_candidate_count =
-        g_octree->QueryLocationsInBox(&m_path_candidates, &lower, &upper, movement->location_id);
+    m_path_candidates = g_octree->locationsInBox({lower.glmValue(), upper.glmValue()}, movement->location_id);
 
     srVector3T<float> player_position = g_startup_world->GetPosition();
     srVector3T<float> delta = player_position - movement->position;
@@ -1987,7 +1984,7 @@ unsigned int W8PathingService::CollectPathProbes(W8NavigatorMovementState* movem
         ++m_path_probe_count;
     }
 
-    for (unsigned int index = 0; index < m_path_candidate_count && m_path_probe_count < 5;
+    for (unsigned int index = 0; index < m_path_candidates.size() && m_path_probe_count < 5;
          ++index) {
         int location_id = m_path_candidates[index];
         unsigned int monster_index =
@@ -2101,16 +2098,14 @@ unsigned short W8PathingService::PlanMovement(W8NavigatorMovementState* movement
         lower = start - half_extent;
         upper = start + half_extent;
         CollectPathProbes(movement, radius);
-        m_path_candidates = 0;
-        m_path_candidate_count = g_octree->QueryLocationsInBox(&m_path_candidates, &lower, &upper,
-                                                               movement->location_id);
+        m_path_candidates = g_octree->locationsInBox({lower.glmValue(), upper.glmValue()}, movement->location_id);
+
     } else {
         m_path_probe_count = 0;
         if (movement->target_location_id < 1) {
-            m_path_candidate_count = 0;
+            m_path_candidates.clear();
         } else {
-            m_path_candidate_count = 1;
-            m_path_candidates = movement->TargetLocationAsCandidate();
+            m_path_candidates = {static_cast<w8_ulong>(movement->target_location_id)};
         }
     }
 
@@ -2517,7 +2512,7 @@ unsigned short W8PathingService::ResolveSearchNodeCollisions(W8NavigatorMovement
         result = 3;
     }
 
-    for (unsigned int candidate = 0; candidate < m_path_candidate_count; ++candidate) {
+    for (unsigned int candidate = 0; candidate < m_path_candidates.size(); ++candidate) {
         int location_id = m_path_candidates[candidate];
         unsigned int monster_index =
             MonsterGetIndexByLocationID(0x2622, OCTPATH_CPP, location_id, false);
@@ -4276,8 +4271,8 @@ unsigned short W8PathingService::FindWaypoint(const srVector3T<float>* position,
     lower = query - half_extent;
     upper = query + half_extent;
 
-    w8_ulong* candidates = 0;
-    int count = g_octree->QueryObjects(&candidates, &lower, &upper, W8_OCTREE_KIND_WAYPOINT, -1);
+    auto candidates = g_octree->queryObjects({lower.glmValue(), upper.glmValue()}, W8_OCTREE_KIND_WAYPOINT, -1);
+    int count = candidates.size();
     if (count == 0) {
         return result;
     }
@@ -4489,8 +4484,8 @@ void W8PathingService::ActivateMovementTrigger(W8NavigatorMovementState* movemen
         upper.z = temporary;
     }
 
-    w8_ulong* candidates = 0;
-    int count = g_octree->QueryObjects(&candidates, &lower, &upper, W8_OCTREE_KIND_PROP, -1);
+    const auto candidates = g_octree->queryObjects({lower.glmValue(), upper.glmValue()}, W8_OCTREE_KIND_PROP, -1);
+    int count = candidates.size();
     if (count <= 0) {
         return;
     }
@@ -5096,7 +5091,7 @@ short W8PathingService::CollectPathVisualization(const srVector3T<float>* positi
     unsigned short waypoints[500];
     w8_ulong distances[500];
     unsigned short waypoint_count = 0;
-    w8_ulong* query_results = 0;
+    std::vector<w8_ulong> query_results;
     int query_count;
     int index;
 
@@ -5119,8 +5114,8 @@ short W8PathingService::CollectPathVisualization(const srVector3T<float>* positi
     upper.Set(position->x + g_float_twelve_thousand_five_hundred,
               position->y + g_float_five_thousand,
               position->z + g_float_twelve_thousand_five_hundred);
-    query_count =
-        g_octree->QueryObjects(&query_results, &lower, &upper, W8_OCTREE_KIND_WAYPOINT, -1);
+    query_results = g_octree->queryObjects({lower.glmValue(), upper.glmValue()}, W8_OCTREE_KIND_WAYPOINT, -1);
+    query_count = query_results.size();
 
     for (index = 0; index < query_count; ++index) {
         unsigned short waypoint = static_cast<unsigned short>(query_results[index]);
@@ -5141,15 +5136,15 @@ short W8PathingService::CollectPathVisualization(const srVector3T<float>* positi
         }
     }
 
-    query_results = 0;
+    query_results.clear();
     lower.Set(position->x - g_waypoint_fallback_query_half_extent,
               position->y - g_float_twelve_thousand_five_hundred,
               position->z - g_waypoint_fallback_query_half_extent);
     upper.Set(position->x + g_waypoint_fallback_query_half_extent,
               position->y + g_float_twelve_thousand_five_hundred,
               position->z + g_waypoint_fallback_query_half_extent);
-    query_count =
-        g_octree->QueryObjects(&query_results, &lower, &upper, W8_OCTREE_KIND_WAYPOINT, -1);
+    query_results = g_octree->queryObjects({lower.glmValue(), upper.glmValue()}, W8_OCTREE_KIND_WAYPOINT, -1);
+    query_count = query_results.size();
 
     for (index = 0; index < query_count; ++index) {
         unsigned short waypoint = static_cast<unsigned short>(query_results[index]);
@@ -5240,7 +5235,7 @@ void W8PathingService::AddWaypoint(const srVector3T<float>* position)
 // FUNCTION: WIZ8 0x0045e030
 void W8PathingService::SetWaypointLinkFlags(unsigned short waypoint, unsigned int direction)
 {
-    w8_ulong* objects = 0;
+    std::vector<w8_ulong> objects;
     unsigned int link_flags[2];
     unsigned int index;
     unsigned int count;
@@ -5265,8 +5260,8 @@ void W8PathingService::SetWaypointLinkFlags(unsigned short waypoint, unsigned in
             upper.Set(surface->position.x + g_path_surface_query_half_extent,
                       surface->position.y + g_float_fifty_thousand,
                       surface->position.z + g_path_surface_query_half_extent);
-            count =
-                g_octree->QueryObjects(&objects, &lower, &upper, W8_OCTREE_KIND_WAYPOINT, waypoint);
+            objects = g_octree->queryObjects({lower.glmValue(), upper.glmValue()}, W8_OCTREE_KIND_WAYPOINT, waypoint);
+            count = objects.size();
             if (count != 0) {
                 distances = static_cast<w8_ulong*>(malloc(count * sizeof(w8_ulong)));
                 for (index = 0; index < count; ++index) {
@@ -5284,7 +5279,7 @@ void W8PathingService::SetWaypointLinkFlags(unsigned short waypoint, unsigned in
                     }
                 }
                 std::ranges::sort(
-                    std::views::zip(std::span(distances, count), std::span(objects, count)), {},
+                    std::views::zip(std::span(distances, count), std::span(objects).first(count)), {},
                     [](const auto& entry) { return std::get<0>(entry); });
                 for (index = 0; index < count; ++index) {
                     if (distances[index] == 0xffffffff) {
@@ -6109,7 +6104,7 @@ bool W8PathParameters::QueryNearbyNavigators()
     float extent;
 
     if (nearby_queried) {
-        return nearby_count != 0;
+        return !nearby_locations.empty();
     }
     extent = radius * g_float_five;
     nearby_queried = true;
@@ -6117,10 +6112,9 @@ bool W8PathParameters::QueryNearbyNavigators()
               movement->position.z - extent);
     upper.Set(extent + movement->position.x, extent + movement->position.y,
               extent + movement->position.z);
-    nearby_locations = 0;
-    nearby_count =
-        g_octree->QueryLocationsInBox(&nearby_locations, &lower, &upper, movement->location_id);
-    return nearby_count != 0;
+    nearby_locations = g_octree->locationsInBox({lower.glmValue(), upper.glmValue()}, movement->location_id);
+
+    return !nearby_locations.empty();
 }
 
 // FUNCTION: WIZ8 0x004cb090
@@ -6260,7 +6254,7 @@ bool W8PathParameters::PredictNavigatorCollision()
     lookahead = g_path_prediction_time * velocity_length + radius;
     nearest = lookahead + g_camera_snap_epsilon;
     if (QueryNearbyNavigators()) {
-        for (index = 0; index < nearby_count; ++index) {
+        for (index = 0; index < nearby_locations.size(); ++index) {
             monster = GetMonsterByLocationID(nearby_locations[index]);
             if (monster == 0) {
                 navigator = 0;
@@ -6470,7 +6464,7 @@ void W8PathParameters::AccumulateGroupRepulsion()
     float falloff;
 
     if (QueryNearbyNavigators()) {
-        for (index = 0; index < nearby_count; ++index) {
+        for (index = 0; index < nearby_locations.size(); ++index) {
             monster = GetMonsterByLocationID(nearby_locations[index]);
             if (monster == 0) {
                 navigator = 0;

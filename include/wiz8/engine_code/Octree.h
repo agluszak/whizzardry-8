@@ -1,6 +1,7 @@
 #pragma once
 
 #include "wiz8/ground_probe.h"
+#include "surrender/srBoundingBox.h"
 
 #include <vector>
 #include <optional>
@@ -308,9 +309,8 @@ public:
                                    const srVector3T<float>* delta, float extent,
                                    unsigned short kind); /* 0x0042ED60 */
     /* Kind-12 box query; `exclusion` 0 maps to none. */
-    int QueryLocationsInBox(w8_ulong** results, const srVector3T<float>* lower,
-                            const srVector3T<float>* upper,
-                            unsigned short exclusion); /* 0x0042EF00 */
+    std::vector<w8_ulong> locationsInBox(const srBoundingBox& bounds,
+                                       unsigned short exclusion); /* 0x0042EF00 */
     /* AABB occupancy test: GD triangles, kind-12 location objects (with each
        monster's navigator radius) and collidable-prop surfaces. */
     unsigned char TestBoxOccupied(const srVector3T<float>* lower,
@@ -393,15 +393,11 @@ public:
     /* Returns the ground-hit flag in AL; pathing callers test it. */
     bool SnapToGround(srVector3T<float>* position, char mode); /* 0x00431D20 */
     void RegisterNavigatorCell(int id, const srVector3T<float>* position);
-    /* Box query over the shared query buffer: `*objects` carries the
-       destination buffer in and out (null selects m_aulGDObjs), `excluded`
-       is an object id pre-marked in the dedupe set (-1 = none). Returns the
-       entry count. */
-    int QueryObjects(w8_ulong** objects, const srVector3T<float>* lower,
-                     const srVector3T<float>* upper, unsigned short kind,
-                     int excluded); /* 0x0042F280 */
-    unsigned int QueryNearbyLocations(const srVector3T<float>* position, float spacing,
-                                      w8_ulong** candidates);
+    /* Owned query results remain valid across subsequent octree queries.
+       IDs retain cell traversal order and the existing 10,000-entry limit. */
+    std::vector<w8_ulong> queryObjects(const srBoundingBox& bounds, unsigned short kind,
+                                      int excluded); /* 0x0042F280 */
+    std::vector<w8_ulong> nearbyLocations(const glm::vec3& position, float spacing);
     /* Refresh the pathing service's debug preview from the world cursor,
        falling back to the camera eye when the cursor is unset. */
     void UpdatePathVisualization(); /* 0x00434170 */

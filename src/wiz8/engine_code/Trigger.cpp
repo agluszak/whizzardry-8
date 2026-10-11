@@ -1023,13 +1023,13 @@ bool Trigger::HasActorWithinRadius(float radius, bool include_party)
         srVector3T<float> lower;
         srVector3T<float> upper;
         srVector3T<float> extent;
-        w8_ulong* locations = 0;
+        std::vector<w8_ulong> locations;
         extent.Set(radius, radius, radius);
         lower = center - extent;
         upper = center + extent;
 
-        unsigned int count =
-            g_octree->QueryObjects(&locations, &lower, &upper, W8_OCTREE_KIND_LOCATION, -1);
+        locations = g_octree->queryObjects({lower.glmValue(), upper.glmValue()}, W8_OCTREE_KIND_LOCATION, -1);
+        unsigned int count = locations.size();
         for (unsigned int index = 0; index < count; ++index) {
             int location_id = locations[index];
             if (location_id == 0) {
