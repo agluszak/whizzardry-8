@@ -1,4 +1,5 @@
 #include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_video.h>
 #include <fmt/format.h>
 #include <ios>
@@ -450,26 +451,20 @@ void ShutdownVideoScenes(void)
 // FUNCTION: WIZ8 0x004265c0
 void Initialize16BitPixelFormatMasks(void)
 {
-    if (g_pixel_format == 7) {
-        gusAlphaMask = 0;
-        gusRedMask = 0xf800;
-        gusGreenMask = 0x07e0;
+    switch (g_pixel_format) {
+    case 7:
+        g_sgp_pixel_format = SDL_PIXELFORMAT_RGB565;
         g_color_key = 0x7bef;
-    } else if (g_pixel_format == 8) {
-        gusAlphaMask = 0;
-        gusRedMask = 0x7c00;
-        gusGreenMask = 0x03e0;
+        break;
+    case 8:
+        g_sgp_pixel_format = SDL_PIXELFORMAT_XRGB1555;
         g_color_key = 0x3def;
-    } else if (g_pixel_format == 9) {
-        gusAlphaMask = 0x8000;
-        gusRedMask = 0x7c00;
-        gusGreenMask = 0x03e0;
+        break;
+    case 9:
+        g_sgp_pixel_format = SDL_PIXELFORMAT_ARGB1555;
         g_color_key = 0x3def;
-    } else {
-        return;
+        break;
     }
-
-    gusBlueMask = 0x001f;
 }
 
 /* Registers and creates the real top-level Wizardry window.  The odd use of
@@ -492,7 +487,11 @@ void ReleasePrimaryCpuSurface(void)
 
 unsigned char InitializePrimaryCpuSurface(void)
 {
-    primarySurface.ownedSurface = CreateCpuSurface(640, 480, 16, gusRedMask, gusGreenMask, gusBlueMask);
+    const auto* pixel_format = SDL_GetPixelFormatDetails(g_sgp_pixel_format);
+    if (!pixel_format)
+        return 0;
+    primarySurface.ownedSurface = CreateCpuSurface(640, 480, 16,
+        pixel_format->Rmask, pixel_format->Gmask, pixel_format->Bmask);
     primarySurface.usWidth = 640;
     primarySurface.usHeight = 480;
     primarySurface.ubBitDepth = 16;
@@ -2306,9 +2305,12 @@ SGPVSurface& GetFrameBufferSurface()
 unsigned char GetPrimaryRGBDistributionMasks(unsigned int* red, unsigned int* green,
                                              unsigned int* blue)
 {
-    *red = gusRedMask;
-    *green = gusGreenMask;
-    *blue = gusBlueMask;
+    const auto* format = SDL_GetPixelFormatDetails(g_sgp_pixel_format);
+    if (!format)
+        return 0;
+    *red = format->Rmask;
+    *green = format->Gmask;
+    *blue = format->Bmask;
     return 1;
 }
 
