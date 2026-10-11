@@ -32,11 +32,17 @@ class ScopedTemporaryDirectory
     ~ScopedTemporaryDirectory()
     {
         std::error_code ignored;
-        std::filesystem::remove_all(path, ignored);
+        if (cleanup_)
+            std::filesystem::remove_all(path, ignored);
     }
+
+    void keep() noexcept { cleanup_ = false; }
 
     ScopedTemporaryDirectory(const ScopedTemporaryDirectory&) = delete;
     ScopedTemporaryDirectory& operator=(const ScopedTemporaryDirectory&) = delete;
 
     std::filesystem::path path;
+
+  private:
+    bool cleanup_ = true;
 };

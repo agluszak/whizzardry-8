@@ -12,6 +12,7 @@
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/asset_paths.h"
 #include "temporary_directory.h"
+#include "scoped_asset_roots.h"
 #include "wiz8/regions.h"
 
 
@@ -25,11 +26,11 @@ static void CheckStopped()
 
 TEST_CASE("application_test")
 {
-    const auto temporary = make_temporary_directory("wiz8-application");
+    ScopedTemporaryDirectory directory{"wiz8-application"};
     auto roots = w8_native::path_roots();
-    roots.assets = temporary + "/missing-assets";
-    roots.user = temporary;
-    w8_native::configure_paths(roots);
+    roots.assets = (directory.path / "missing-assets").string();
+    roots.user = directory.path.string();
+    ScopedAssetRoots scoped_roots{roots};
 
     for (const auto option : {"/VIDEOCFG", "/STRINGDATA", "/VIDEOCFG="}) {
         const std::array<std::string_view, 1> arguments{option};
@@ -79,7 +80,6 @@ TEST_CASE("application_test")
     }
     REQUIRE((reported && gfIgnoreMessages));
     CheckStopped();
-    std::filesystem::remove_all(temporary);
 
 
 }

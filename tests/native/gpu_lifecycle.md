@@ -1,6 +1,6 @@
 # NVIDIA D-Bus reply leak
 
-The standalone `native_gpu_lifecycle` executable links SDL and Catch2 only. It
+The standalone, manually run `native_gpu_lifecycle` executable links SDL and Catch2 only. It
 contains no game, asset, audio, or SurRender code. Its three cases separate video
 initialization, GPU device creation, and window attachment. Every resource is
 released before `SDL_Quit()`, including on assertion failures.
@@ -24,11 +24,12 @@ SDL_VIDEODRIVER=offscreen \
   build/linux-asan/native_gpu_lifecycle 'SDL video startup*'
 
 # The software-driver control exercises all three cases:
-VK_DRIVER_FILES=/usr/share/vulkan/icd.d/lvp_icd.json \
-  ctest --test-dir build/linux-asan -R 'native_gpu/' --output-on-failure
+SDL_VIDEODRIVER=offscreen \
+  VK_DRIVER_FILES=/usr/share/vulkan/icd.d/lvp_icd.json \
+  build/linux-asan/native_gpu_lifecycle
 ```
 
-The executable prints the selected device and driver. ICD filenames vary between
+The executable is deliberately not registered with CTest: testing the SDL/Vulkan driver in isolation does not validate game behavior and can introduce host-dependent failures into otherwise meaningful CI runs. Run it explicitly when investigating a driver leak. The executable prints the selected device and driver. ICD filenames vary between
 installations. No suppression file, `detect_leaks=0`, preload, or disabled D-Bus
 connection is required for these controls. The isolated test sets
 `SDL_HINT_SHUTDOWN_DBUS_ON_QUIT` to release D-Bus caches, following SDL's documented

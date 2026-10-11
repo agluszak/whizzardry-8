@@ -22,11 +22,11 @@
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/npc_items.h"
-#include "wiz8/asset_paths.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/local_screens/JournalScreen.h"
 #include "wiz8/local_screens/MGSKeyboard.h"
 #include "temporary_directory.h"
+#include "scoped_asset_roots.h"
 #include "fact_state.h"
 #include "input.h"
 #include "layouts/item_instance.h"
@@ -330,7 +330,8 @@ static bool npcStockOrdering()
 
 static bool keyboardBindingReplacement()
 {
-    const auto root = wiz8::path_from_utf8(make_temporary_directory("wiz8-keyboard"));
+    ScopedTemporaryDirectory temporary{"wiz8-keyboard"};
+    const auto& root = temporary.path;
     const auto path = root / "bindings.bin";
     const std::array<MGSKeyBinding, 3> bindings{{
         {'A', 0, 1, W8_MGS_COMMAND_CANCEL},
@@ -365,18 +366,18 @@ static bool keyboardBindingReplacement()
     keyboard.Clear();
     REQUIRE(keyboard.GetBinding(0) == nullptr);
     REQUIRE(!keyboard.IsCommandPressed(W8_MGS_COMMAND_CANCEL));
-    std::filesystem::remove_all(root);
     return true;
 }
 
 static bool journalSerialization()
 {
-    const auto root = wiz8::path_from_utf8(make_temporary_directory("wiz8-collections"));
+    ScopedTemporaryDirectory temporary{"wiz8-collections"};
+    const auto& root = temporary.path;
     const auto assets = root / "assets", user = root / "user";
     std::filesystem::create_directories(assets);
     std::filesystem::create_directories(user);
-    w8_native::configure_paths(
-        {wiz8::path_to_utf8(assets), wiz8::path_to_utf8(user), {"", "", ""}});
+    ScopedAssetRoots roots{{wiz8::path_to_utf8(assets), wiz8::path_to_utf8(user),
+                            {"", "", ""}}};
     const auto input_path = root / "journal.bin", output_path = root / "journal-copy.bin";
     const int format = 1, count = 3;
     const std::array<W8JournalEntry, count> expected{{{1, static_cast<W8FactId>(10), 0},
@@ -421,7 +422,6 @@ static bool journalSerialization()
         LoadJournalEntries(*file);
     }
     REQUIRE(g_fact_journal_entries.empty());
-    std::filesystem::remove_all(root);
     return true;
 }
 

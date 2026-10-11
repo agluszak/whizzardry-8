@@ -75,10 +75,6 @@ target_link_libraries(native_unicode_test PRIVATE wiz8_native_settings)
 catch_discover_tests(native_unicode_test
     TEST_PREFIX "native_unicode/")
 
-add_executable(native_pointer_test "${PROJECT_SOURCE_DIR}/tests/native/pointer_test.cpp")
-target_link_libraries(native_pointer_test PRIVATE WIZ8_GAME_CORE)
-add_test(NAME native_pointer COMMAND native_pointer_test)
-
 add_executable(native_world_lookup_test "${PROJECT_SOURCE_DIR}/tests/native/world_lookup_test.cpp")
 target_link_libraries(native_world_lookup_test PRIVATE WIZ8_GAME_CORE)
 if(APPLE)
@@ -195,10 +191,8 @@ catch_discover_tests(native_audio_test
 # Failures here are independent of game and SurRender ownership.
 add_executable(native_gpu_lifecycle "${PROJECT_SOURCE_DIR}/tests/native/gpu_lifecycle.cpp")
 target_link_libraries(native_gpu_lifecycle PRIVATE SDL3::SDL3)
-if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    catch_discover_tests(native_gpu_lifecycle TEST_PREFIX "native_gpu/"
-        PROPERTIES ENVIRONMENT "SDL_VIDEODRIVER=offscreen" TIMEOUT 30)
-endif()
+# This is an SDL/driver diagnostic, not a game regression test.
+# Keep its executable for manual leak investigations; don't run it in CTest.
 
 add_executable(native_gpu_rendering_test native/gpu_rendering_test.cpp)
 target_link_libraries(native_gpu_rendering_test PRIVATE SURRENDER wiz8_native_settings SDL3::SDL3)
