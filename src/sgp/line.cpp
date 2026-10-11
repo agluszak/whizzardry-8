@@ -4,7 +4,6 @@
 
 #include <SDL3/SDL_rect.h>
 
-#include "Types.h"
 //				Example Usage
 
 //	SEND THE PITCH IN BYTES
