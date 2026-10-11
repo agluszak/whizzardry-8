@@ -1,3 +1,4 @@
+#include <SDL3/SDL_pixels.h>
 #include "wiz8/regions.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_screens/Screens.h"
