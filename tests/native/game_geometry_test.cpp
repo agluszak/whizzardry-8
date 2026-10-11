@@ -1366,3 +1366,26 @@ TEST_CASE("Plane contacts retain collision skin and occluder clearance", "[geome
     REQUIRE(dominantPlaneAxis({0, -3, 3}) == 1);
     REQUIRE(dominantPlaneAxis({0, 0, 0}) == 0);
 }
+
+TEST_CASE("Surface triangles are complete values and reject invalid vertex indices", "[geometry]")
+{
+    struct RestoreGameData {
+        W8GameData* previous = g_octree_game_data;
+        ~RestoreGameData() { g_octree_game_data = previous; }
+    } restore;
+    W8GameData data(nullptr, true);
+    data.m_pVertices = {{0, 0, 0}, {0, 2, 0}, {0, 0, 2}};
+    g_octree_game_data = &data;
+    const std::array<int, 3> indices{2, 0, 1};
+    const auto triangle = surfaceTriangle(indices);
+    REQUIRE(triangle);
+    REQUIRE((*triangle)[0] == glm::vec3(0, 0, 2));
+    REQUIRE((*triangle)[1] == glm::vec3(0));
+    REQUIRE((*triangle)[2] == glm::vec3(0, 2, 0));
+    data.m_pVertices[2] = {99, 99, 99};
+    REQUIRE((*triangle)[0] == glm::vec3(0, 0, 2));
+    REQUIRE(!surfaceTriangle(std::array<int, 3>{0, 1, 3}));
+    REQUIRE(!surfaceTriangle(std::array<int, 3>{0, -1, 2}));
+    g_octree_game_data = nullptr;
+    REQUIRE(!surfaceTriangle(indices));
+}

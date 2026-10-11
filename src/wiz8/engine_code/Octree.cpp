@@ -2503,10 +2503,9 @@ unsigned char W8Octree::TestProbeResult(W8OctreeTrace* trace)
                 const auto axis = dominantPlaneAxis(glm::vec3(*plane));
                 const srVector3i* poly_vertex = model->getPolyVertex() + polygon;
                 const srVector3T<float>* vertices = model->getVertexLoc();
-                srVector3T<float> triangle[3];
-                triangle[0] = vertices[poly_vertex->x];
-                triangle[1] = vertices[poly_vertex->y];
-                triangle[2] = vertices[poly_vertex->z];
+                const RuntimeTriangle triangle{vertices[poly_vertex->x].glmValue(),
+                                               vertices[poly_vertex->y].glmValue(),
+                                               vertices[poly_vertex->z].glmValue()};
                 if (PointInsideTriangle(triangle, axis, contact->point) &&
                     contact->distance < trace->hit_limit) {
                     trace->hit_limit = contact->distance;
@@ -2536,16 +2535,11 @@ w8_ulong* W8Octree::CollectPolygonsNearPoint(srVector3T<float>* center, float ra
     std::ranges::fill(m_visited_polygon_bits, false);
     std::ranges::fill(m_current_regions, false);
 
-    srVector3T<float> bounds[2];
-    bounds[0].x = center->x - radius;
-    bounds[0].z = center->z - radius;
-    bounds[1].y = center->y;
-    bounds[0].y = center->y - height;
-    bounds[1].x = center->x + radius;
-    bounds[1].z = center->z + radius;
-
-    const auto start = cellAt(bounds[0].glmValue());
-    const auto end = cellAt(bounds[1].glmValue());
+    const auto position = center->glmValue();
+    const srBoundingBox box{position - glm::vec3(radius, height, radius),
+                            position + glm::vec3(radius, 0, radius)};
+    const auto start = cellAt(box.minimum);
+    const auto end = cellAt(box.maximum);
     glm::ivec3 cell;
     for (cell.x = start.x; cell.x <= end.x; ++cell.x) {
         for (cell.y = start.y; cell.y <= end.y; ++cell.y) {
@@ -2572,15 +2566,13 @@ w8_ulong* W8Octree::CollectPolygonsNearPoint(srVector3T<float>* center, float ra
             m_aulGDObjs[index] = 0;
         }
         if (m_aulGDObjs[index] != 0) {
-            srVector3T<float> normal;
-            normal = glm::vec3((*plane));
+            const auto normal = glm::vec3(*plane);
             const srVector3i* poly_vertex = model->getPolyVertex() + (m_aulGDObjs[index] & 0xffff);
             const srVector3T<float>* vertices = model->getVertexLoc();
-            srVector3T<float> triangle[3];
-            triangle[0] = vertices[poly_vertex->x];
-            triangle[1] = vertices[poly_vertex->y];
-            triangle[2] = vertices[poly_vertex->z];
-            if (TestSpatialTriangle(bounds, triangle, &normal) == 0) {
+            const RuntimeTriangle triangle{vertices[poly_vertex->x].glmValue(),
+                                           vertices[poly_vertex->y].glmValue(),
+                                           vertices[poly_vertex->z].glmValue()};
+            if (!triangleIntersectsBox(box, triangle, normal)) {
                 m_aulGDObjs[index] = 0;
             }
         }

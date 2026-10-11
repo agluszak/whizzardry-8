@@ -61,7 +61,7 @@ struct W8OctBuildTree {
 
     unsigned char InsertSurface(W8GDSurface* surface, w8_ulong mode);
     unsigned char InsertSurfaceRecursive(W8OctSpatialState* working, W8GDSurface* surface,
-                                         srVector3T<float>* plane_point, w8_ulong mode);
+                                         const glm::vec3& planeNormal, w8_ulong mode);
     std::vector<W8GDSurface*> queryAlongSegment(const glm::vec3& origin,
                                                const glm::vec3& delta, float extent,
                                                unsigned short kind);

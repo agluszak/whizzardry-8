@@ -9,6 +9,8 @@
 #include "surrender/srMath.h"
 #include "wiz8/float_constants.h"
 
+#include <array>
+#include <span>
 #include <optional>
 
 /* Physical-surface masks recovered from retail collision/build consumers.
@@ -99,6 +101,22 @@ struct W8GDSurface {
 };
 
 W8_ABI_ASSERT(sizeof(W8GDSurface) == 0x4c, "W8GDSurface_must_be_0x4c");
+
+using RuntimeTriangle = std::array<glm::vec3, 3>;
+
+// Copy packed level storage into aligned runtime math values at the boundary.
+inline RuntimeTriangle runtimeTriangle(std::span<const srVector3, 3> vertices)
+{
+    return {vertices[0].glmValue(), vertices[1].glmValue(), vertices[2].glmValue()};
+}
+
+template<class Indices>
+inline RuntimeTriangle indexedTriangle(std::span<const srVector3> vertices,
+                                       const Indices& indices)
+{
+    return {vertices[indices[0]].glmValue(), vertices[indices[1]].glmValue(),
+            vertices[indices[2]].glmValue()};
+}
 
 /* Unit plane through three vertices. The result is also the plane record
    stored in level geometry; degenerate triangles have a zero normal. */

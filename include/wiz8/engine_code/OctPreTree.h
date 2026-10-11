@@ -3,6 +3,7 @@
 
 #include "surrender/srMath.h"
 #include "surrender/srBoundingBox.h"
+#include "glm/ext/vector_float3.hpp"
 #include <span>
 #include "wiz8/geometry.h"
 #include "compat/compiler.h"
@@ -106,12 +107,11 @@ struct W8OctSpatialState {
     w8_ulong m_node_index;
     /* The working triangle's three vertices, borrowed from the inserter's
        stack for the recursion's bounds tests. */
-    const srVector3T<float>* m_triangle_vertices;
+    const glm::vec3* m_triangle_vertices;
 };
 
-unsigned char TestSpatialTriangle(const srVector3T<float>* bounds,
-                                  const srVector3T<float>* vertices,
-                                  const srVector3T<float>* plane_normal);
+bool triangleIntersectsBox(const srBoundingBox& box, std::span<const glm::vec3, 3> vertices,
+                           const glm::vec3& normal);
 bool SurfaceIntersectsBox(const W8GDSurface& surface, std::span<const srVector3> vertices,
                           const srBoundingBox& box);
 bool BoundsOverlapStrict(const srVector3T<float>* first, const srVector3T<float>* second);

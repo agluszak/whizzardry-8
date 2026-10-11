@@ -62,7 +62,7 @@ bool PointInsideFrustum(const srVector3T<float>* point, const W8Plane* planes);
 bool SphereInsideFrustum(const srVector3T<float>* point, float radius, const W8Plane* planes);
 /* Point-in-triangle test via dominant-axis projection: `axis` selects the two
    planar components used. */
-bool PointInsideTriangle(std::span<const srVector3T<float>, 3> vertices, unsigned axis,
+bool PointInsideTriangle(std::span<const glm::vec3, 3> vertices, unsigned axis,
                          const glm::vec3& point);
 /* Build the six frustum planes from the eight sorted corner points. */
 std::array<W8Plane, 6> BuildFrustumPlanes(std::span<const srVector3T<float>, 8> points);

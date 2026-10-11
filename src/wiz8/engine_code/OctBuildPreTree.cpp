@@ -423,15 +423,14 @@ unsigned char OctBuildPreTree::InsertSurfaceRecursive(W8OctSpatialState* working
 
     if (working->m_depth < 0x10) {
         if (working->m_depth < spatial.m_depth) {
-            srVector3T<float> vertices[3];
+            const RuntimeTriangle vertices{polygon->vertices[0]->position.glmValue(),
+                                           polygon->vertices[1]->position.glmValue(),
+                                           polygon->vertices[2]->position.glmValue()};
             inserted = InsertBuildSurfaceChildren(
                 working, child, child.m_extent,
                 [&](W8OctSpatialState& candidate) {
-                    for (int corner = 0; corner != 3; ++corner) {
-                        vertices[corner] = polygon->vertices[corner]->position;
-                    }
-                    return TestSpatialTriangle(&candidate.m_minimum, vertices,
-                                               &polygon->plane.normal) != 0;
+                    return triangleIntersectsBox({candidate.m_minimum.glmValue(), candidate.m_maximum.glmValue()},
+                                                 vertices, polygon->plane.normal.glmValue());
                 },
                 [&]() {
                     ++level_counts[working->m_depth];

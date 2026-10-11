@@ -1,3 +1,4 @@
+#include <optional>
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -106,20 +107,16 @@ static bool g_level_override;
 // GLOBAL: WIZ8 0x00652dce
 bool g_shared_timers_paused;
 
-/* Resolve one surface's three vertex indices through the active processed
-   GameData vertex table.  The retail comparison is signed and accepts an index
-   equal to vertex_count, so that historical boundary behavior is preserved. */
+/* Resolve a complete triangle from the active processed vertex table. */
 // FUNCTION: WIZ8 0x004214d0
-unsigned char LoadSurfaceVertices(srVector3T<float>* output, const int* vertex_indices)
+std::optional<RuntimeTriangle> surfaceTriangle(std::span<const int, 3> vertexIndices)
 {
-    short index;
-    for (index = 0; index < 3; ++index) {
-        if (g_octree_game_data->VerticesCount() < vertex_indices[index]) {
-            return 0;
-        }
-        output[index] = g_octree_game_data->m_pVertices[vertex_indices[index]];
-    }
-    return 1;
+    if (!g_octree_game_data) return std::nullopt;
+    const auto& vertices = g_octree_game_data->m_pVertices;
+    for (const int index : vertexIndices)
+        if (index < 0 || static_cast<std::size_t>(index) >= vertices.size())
+            return std::nullopt;
+    return indexedTriangle(vertices, vertexIndices);
 }
 
 /* Ensure the shared game-data object exists, then run its update. */
@@ -1214,10 +1211,7 @@ bool W8GameData::TestGeometryTrace(std::span<W8GDSurface> surfaces,
                     } else {
                         contact = trace->start;
                     }
-                    srVector3T<float> vertices[3];
-                    vertices[0] = vertices_bank[surface->vertex_indices[0]];
-                    vertices[1] = vertices_bank[surface->vertex_indices[1]];
-                    vertices[2] = vertices_bank[surface->vertex_indices[2]];
+                    const auto vertices = indexedTriangle(vertices_bank, surface->vertex_indices);
                     if (PointInsideTriangle(vertices, surface->flags & W8_GD_SURFACE_AXIS_MASK,
                                             contact.glmValue()) &&
                         hit_distance < trace->hit_limit) {
