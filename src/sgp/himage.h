@@ -1,5 +1,4 @@
-#ifndef __IMAGE_H
-#define __IMAGE_H
+#pragma once
 
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
@@ -69,4 +68,3 @@ std::uint16_t Get16BPPColor(SDL_Color color);
 // images and every packed palette or colour use it.
 extern SDL_PixelFormat g_sgp_pixel_format;
 
-#endif
