@@ -158,12 +158,6 @@ void srColorSurfaceIFace::setVClampMode(int enabled)
     clamp_modes = clamp_modes & ~CLAMP_VERTICAL;
 }
 
-// FUNCTION: SURRENDER 0x1005A0D0
-const srPixelConvert::PixelFormat* srColorSurfaceIFace::getPixelFormat() const
-{
-    return &pixel_format;
-}
-
 // FUNCTION: SURRENDER 0x1005A0E0
 int srColorSurfaceIFace::isPixelFormatCompatible(const srColorSurfaceIFace& source) const
 {
