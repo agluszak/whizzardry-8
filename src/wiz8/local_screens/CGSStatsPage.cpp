@@ -291,11 +291,11 @@ void W8CharacterStatsRow::Initialize(Controls* owner, unsigned int* region_set, 
 // FUNCTION: WIZ8 0x005c94e0
 void W8CharacterStatsRow::BuildSubpanel()
 {
-    if (m_subpanel == 0) {
-        m_subpanel = new Controls(m_x + 0x9e, m_y + 1, m_x + 0x11c,
+    if (!m_subpanel) {
+        m_subpanel = std::make_unique<Controls>(m_x + 0x9e, m_y + 1, m_x + 0x11c,
                                   m_y + 5 + static_cast<unsigned int>(m_count) * 0x16, -1, 0, -1);
         m_subpanel->AcquireRegionSet(m_region_set);
-        m_subpanel_entries = new W8TextControl*[m_count];
+        m_subpanel_entries.assign(m_count, nullptr);
 
         for (unsigned int index = 0; index < m_count; ++index) {
             int variant;
@@ -314,7 +314,7 @@ void W8CharacterStatsRow::BuildSubpanel()
                 top = index * 0x16 + 2;
                 height = 0x16;
             }
-            m_subpanel_entries[index] = new W8CharacterStatsRecordControl(m_subpanel, top, height,
+            m_subpanel_entries[index] = new W8CharacterStatsRecordControl(m_subpanel.get(), top, height,
                                                                           &m_table[index], variant);
             m_subpanel_entries[index]->m_listener = this;
         }
@@ -331,7 +331,7 @@ void W8CharacterStatsRow::Invalidate()
     m_decrement->Invalidate(false);
     m_increment->Invalidate(false);
     m_value_control->Invalidate(false);
-    if (m_subpanel != 0) {
+    if (m_subpanel) {
         m_subpanel->Invalidate(0);
     }
 }
@@ -473,7 +473,7 @@ void W8CharacterStatsRow::OnSecondary(W8TextControl* control)
 /* The row's default state: no selection, no table, no child controls. */
 W8CharacterStatsRow::W8CharacterStatsRow()
     : m_index(-1), m_count(0), m_table(0), m_decrement(0), m_increment(0), m_value_control(0),
-      m_subpanel(0), m_subpanel_entries(0), m_listener(0)
+      m_listener(0)
 {
 }
 
