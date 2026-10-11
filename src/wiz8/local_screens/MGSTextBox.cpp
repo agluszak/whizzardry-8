@@ -631,7 +631,6 @@ void HighlightTextBoxRange(unsigned char color, std::size_t start, std::size_t s
 // FUNCTION: WIZ8 0x005905F0
 void AppendToLastTextLine(std::string_view text, short text_box)
 {
-    size_t length = text.size();
     if (g_current_screen_state.id != W8_SCREEN_MAIN_GAME &&
         g_current_screen_state.id != W8_SCREEN_CAMP) {
         return;
