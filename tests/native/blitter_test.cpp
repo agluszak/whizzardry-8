@@ -21,6 +21,15 @@
 #include "shading.h"
 #include "sprite.h"
 #include "wiz8/surface_storage.h"
+#include "wiz8/engine_code/Video2.h"
+#include "wiz8/local_code/ControlsRect.h"
+#include "surrender/srColorSurface.h"
+#include "surrender/srPixelConvert.h"
+#include "surrender_test_fixture.h"
+
+// Recovered helper used by UI overlays; retain its destination-first copy contract.
+unsigned char CopySurfaceWithBorder(srColorSurface*, const W8ControlsRect*, SDL_Surface&,
+                                    float*, float*, float*, float*);
 
 namespace {
 using Surface = SDLSurfaceOwner;
@@ -331,6 +340,63 @@ TEST_CASE("shadow rectangles preserve inclusive legacy endpoints", "[blit]")
     REQUIRE(pixel(*target, 3, 3) == 0x5678);
     REQUIRE(pixel(*target, 4, 3) == 0x1234);
     REQUIRE(pixel(*target, 3, 4) == 0x1234);
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture, "Overlay border copies preserve offset source coordinates", "[blit]")
+{
+    auto source = surface(6, 5);
+    for (int y = 0; y < source->h; ++y)
+        for (int x = 0; x < source->w; ++x)
+            pixel(*source, x, y) = 0x8000 + y * 16 + x;
+    srColorSurface target(srPixelConvert::SURFACE_ARGB1555, 8, 8);
+    for (int y = 0; y < 8; ++y)
+        for (int x = 0; x < 8; ++x) target.setPixelRaw(x, y, 0xeeee);
+    const W8ControlsRect rect{2, 1, 5, 3};
+    float scale_x, scale_y, mapping_x, mapping_y;
+    REQUIRE(CopySurfaceWithBorder(&target, &rect, *source,
+                                  &scale_x, &scale_y, &mapping_x, &mapping_y));
+    for (int y = 0; y < 8; ++y)
+        for (int x = 0; x < 8; ++x) {
+            const unsigned expected = x < 5 && y < 4
+                ? pixel(*source, 2 + std::clamp(x - 1, 0, 2), 1 + std::clamp(y - 1, 0, 1))
+                : 0xeeee;
+            REQUIRE(target.getPixelRaw(x, y) == expected);
+        }
+}
+
+TEST_CASE("Sprite transparency preserves opaque RGB regardless of alpha bits", "[blit]")
+{
+    struct RestoreFormat {
+        SDL_PixelFormat original = g_sgp_pixel_format;
+        ~RestoreFormat() { ReleasePrimarySurface(); g_sgp_pixel_format = original; }
+    } restore;
+    for (auto format : {SDL_PIXELFORMAT_RGB565, SDL_PIXELFORMAT_ARGB1555,
+                        SDL_PIXELFORMAT_XRGB1555}) {
+        g_sgp_pixel_format = format;
+        REQUIRE(InitializePrimarySurface());
+        auto sprites = sprite_sheet(4, 1, {0, 1, SpriteFrame::kTransparent, 2});
+        for (unsigned i = 0; i < sprites.colors.size(); ++i)
+            sprites.colors[i] = 0x8000 | i;
+        const auto image = RenderSpriteToImage(sprites, 0);
+        REQUIRE(image);
+        auto target = CreateCpuStorage(5, 1, format);
+        REQUIRE(target);
+        for (bool mirrored : {false, true, false}) {
+            REQUIRE(SDL_FillSurfaceRect(target.get(), nullptr, 0x1234));
+            DrawSprite(*target, sprites, 0, 0, 0, {.mirror = mirrored});
+            const std::uint16_t expected[]{0x8000, 0x8001, 0x1234, 0x8002};
+            for (int x = 0; x < 4; ++x)
+                REQUIRE(pixel(*target, x, 0) == expected[mirrored ? 3 - x : x]);
+            REQUIRE(pixel(*target, 4, 0) == 0x1234);
+        }
+        // Surface consumers must also preserve opaque black when SDL blits it.
+        REQUIRE(SDL_FillSurfaceRect(target.get(), nullptr, 0x1234));
+        REQUIRE(SDL_BlitSurface(image.get(), nullptr, target.get(), nullptr));
+        REQUIRE(pixel(*target, 0, 0) == 0x8000);
+        REQUIRE(pixel(*target, 1, 0) == 0x8001);
+        REQUIRE(pixel(*target, 2, 0) == 0x1234);
+        REQUIRE(pixel(*target, 3, 0) == 0x8002);
+    }
 }
 
 TEST_CASE("tiled sprite fills keep half-open rectangle edges", "[blit]")
