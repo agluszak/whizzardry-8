@@ -21,7 +21,7 @@
 // A catalog object names a run of entries; its image offset selects the first sprite frame.
 struct CatalogSlot {
     int first_entry;
-    short image_offset;
+    int image_offset;
 };
 
 enum class CatalogStorage { Sprites = 0, Bitmap = 1 };
@@ -794,12 +794,12 @@ std::pair<int, int> GetSpriteSize(const SpriteSheet& sprites, int image)
     return {sprite.width, sprite.height};
 }
 
-CatalogArtwork::CatalogArtwork(std::shared_ptr<const SpriteSheet> sprites, short image_offset)
+CatalogArtwork::CatalogArtwork(std::shared_ptr<const SpriteSheet> sprites, int image_offset)
     : image_(std::move(sprites)), image_offset_(image_offset)
 {
 }
 
-CatalogArtwork::CatalogArtwork(std::shared_ptr<SDL_Surface> bitmap, short image_offset)
+CatalogArtwork::CatalogArtwork(std::shared_ptr<SDL_Surface> bitmap, int image_offset)
     : image_(std::move(bitmap)), image_offset_(image_offset)
 {
 }
@@ -807,7 +807,7 @@ CatalogArtwork::CatalogArtwork(std::shared_ptr<SDL_Surface> bitmap, short image_
 CatalogArtwork CatalogArtwork::Load(int object, int frame)
 {
     const auto& record = CatalogEntryFor(object, frame);
-    const short image_offset = g_catalog_slots.at(object).image_offset;
+    const int image_offset = g_catalog_slots.at(object).image_offset;
     if (record.storage == CatalogStorage::Sprites) {
         auto sprites = g_image_assets.sprites(record.path);
         if (!sprites)
@@ -820,13 +820,13 @@ CatalogArtwork CatalogArtwork::Load(int object, int frame)
     return CatalogArtwork(std::move(bitmap), image_offset);
 }
 
-short CatalogArtwork::imageOffset() const { return image_offset_; }
+int CatalogArtwork::imageOffset() const { return image_offset_; }
 
 void CatalogArtwork::draw(SDL_Surface& target, int image, int x, int y, SpriteDraw options,
                           BitmapKey key) const
 {
     if (const auto sprites = spriteSheet()) {
-        const int sprite = image_offset_ + static_cast<short>(image);
+        const int sprite = image_offset_ + image;
         if (sprite >= 0)
             DrawSprite(target, *sprites, static_cast<std::size_t>(sprite), x, y, options);
         return;
@@ -896,6 +896,6 @@ void CatalogArtwork::drawAndInvalidate(SDL_Surface& target, int image, int x, in
         DrawSpriteAndInvalidate(target, *sprites, image_offset_ + image, x, y, options);
         return;
     }
-    draw(target, static_cast<short>(image), x, y, options, key);
+    draw(target, image, x, y, options, key);
     invalidate(image, x, y, key == BitmapKey::Transparent && !options.mirror);
 }

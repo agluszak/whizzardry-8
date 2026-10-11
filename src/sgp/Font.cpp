@@ -11,7 +11,6 @@
 #include "wiz8/unicode.h"
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07, 2026-10-09.
    Distributed under the accompanying SFI Source Code license agreement. */
-// font.c
 #include "Font.h"
 #include "Video2.h"
 #include "himage.h"
@@ -138,8 +137,6 @@ bool Font::load(std::string_view filename)
     return true;
 }
 
-// GetWidth
-//	Returns the width of a given character in the font.
 
 static std::uint32_t GetWidth(const SpriteSheet& sprites, std::int16_t ssIndex)
 {
@@ -156,12 +153,6 @@ std::int16_t Font::codepointPrefixWidth(std::string_view string, std::uint32_t u
 
     return textWidth(string.substr(0, wiz8::text::codepoint_prefix(string, uiCharCount)));
 }
-//  StringNPixLength
-//  Return the length of the of the string or count characters in the
-//  string, which ever comes first.
-//  Returns INT16
-//  Created by:     Gilles Beauparlant
-//  Created on:     12/1/99
 
 std::int16_t Font::prefixWidth(std::string_view string, std::size_t byte_end) const
 {
@@ -179,8 +170,6 @@ std::int16_t Font::textWidth(std::string_view string) const
 {
     return prefixWidth(string, string.size());
 }
-// GetHeight
-//	Returns the height of a given character in the font.
 
 static std::uint32_t GetHeight(const SpriteSheet& sprites, std::int16_t ssIndex)
 {
@@ -189,8 +178,6 @@ static std::uint32_t GetHeight(const SpriteSheet& sprites, std::int16_t ssIndex)
     const auto& glyph = sprites.frames[ssIndex];
     return glyph.height + glyph.offset.y;
 }
-// GetFontHeight
-//	Returns the height of the first character in a font.
 
 std::uint16_t Font::height() const
 {
@@ -198,10 +185,7 @@ std::uint16_t Font::height() const
     return static_cast<std::uint16_t>(GetHeight(*glyphs, 0));
 }
 
-// GetIndex
-//		Given a word-sized character, this function returns the index of the
-//	cell in the font to print to the screen. The conversion table is built by
-//	CreateEnglishTransTable()
+// Maps a character to its glyph frame using the table from CreateEnglishTransTable().
 
 std::int16_t GetIndex(char32_t siChar)
 {
@@ -270,8 +254,7 @@ void ResetFontRendering()
     g_font_translation.clear();
 }
 
-// CreateEnglishTransTable
-// Creates the English text->font map table.
+// Builds the English character-to-glyph table.
 
 std::vector<std::uint16_t> CreateEnglishTransTable()
 {

@@ -21,17 +21,17 @@ public:
     void invalidate(int image, int x, int y, int flags) const;
     SDL_Point size(int image) const;
     SDL_Point position(int image) const;
-    short imageOffset() const;
+    int imageOffset() const;
     void drawRect(SDL_Surface& target, const SDL_Rect& source, int x, int y) const;
     std::shared_ptr<const SpriteSheet> spriteSheet() const;
     std::shared_ptr<SDL_Surface> bitmap() const;
 
 private:
-    CatalogArtwork(std::shared_ptr<const SpriteSheet> sprites, short image_offset);
-    CatalogArtwork(std::shared_ptr<SDL_Surface> bitmap, short image_offset);
+    CatalogArtwork(std::shared_ptr<const SpriteSheet> sprites, int image_offset);
+    CatalogArtwork(std::shared_ptr<SDL_Surface> bitmap, int image_offset);
 
     std::variant<std::shared_ptr<const SpriteSheet>, std::shared_ptr<SDL_Surface>> image_;
-    short image_offset_ = 0;
+    int image_offset_ = 0;
 };
 
 std::pair<int, int> GetSpriteSize(const SpriteSheet& sprites, int image);
