@@ -68,10 +68,8 @@ void srScene::process(const ProcessInfo& info, e_processType type)
     const auto entry_count = static_cast<w8_long>(traversal.entries.size());
     srGERD* renderer = info.renderer;
     w8_ulong_ptr pick_key = renderer->getPickKey();
-    glm::vec4 fog_color;
-    glm::vec4 ambient_light;
-    renderer->getFogColor(fog_color);
-    renderer->getAmbientLight(ambient_light);
+    const auto fog_color = renderer->getFogColor();
+    const auto ambient_light = renderer->getAmbientLight();
     renderer->setFogColor(glm::vec4(this->fog_color, 0));
     renderer->setAmbientLight(glm::vec4(this->ambient_light, 0));
     ProcessInfo process_info = info;
