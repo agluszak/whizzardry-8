@@ -63,9 +63,6 @@ unsigned char DispatchButtonRegionEvent(const InputAtom* event, W8Region* region
    (line 399) and the widget's m_pPanel (line 1849); other role names are recovered. */
 #define REGSET_NULL 0
 
-// GLOBAL: WIZ8 0x00617C90
-char g_W8LineBreakCharacters[] = "\n";
-
 // GLOBAL: WIZ8 0x005ED548
 extern const unsigned int g_W8TextBufferAlignLeft = 0x01;
 // GLOBAL: WIZ8 0x005ED54C
@@ -578,13 +575,12 @@ void W8TextBuffer::FillBounds(int colour)
                      m_layoutBounds.bottom, 0);
 }
 
-/* Draws each newline-delimited line through the active font context. The
-   temporary terminators are restored before advancing to the next line. */
+/* Draw each newline-delimited view without modifying the owned text. */
 // FUNCTION: WIZ8 0x004f3710
 void W8TextBuffer::RenderText(unsigned char* buffer, unsigned int pitch, int x_offset, int y_offset,
                               bool force)
 {
-    char* line = m_buffer.data();
+    std::string_view remaining = m_buffer;
     if (m_buffer.empty() || (!force && !m_geometryDirty)) {
         return;
     }
@@ -602,11 +598,9 @@ void W8TextBuffer::RenderText(unsigned char* buffer, unsigned int pitch, int x_o
                           m_pendingBounds.right, m_pendingBounds.bottom);
 
         int y = GetVerticalPosition();
-        size_t span = strcspn(line, g_W8LineBreakCharacters);
         for (;;) {
-            const bool has_next_line = line[span] != '\0';
-            if (has_next_line)
-                line[span] = '\0';
+            const auto end = remaining.find('\n');
+            const auto line = remaining.substr(0, end);
 
             const int x = GetHorizontalPosition(m_font->textWidth(line));
             if (m_alternateRenderer == 0)
@@ -614,14 +608,12 @@ void W8TextBuffer::RenderText(unsigned char* buffer, unsigned int pitch, int x_o
             else
                 DrawMonoFontTextToBuffer(buffer, pitch, *m_font, x + x_offset, y + y_offset, line);
 
-            if (!has_next_line)
+            if (end == std::string_view::npos)
                 break;
             y += GetLineHeight();
-            line[span] = '\n';
             if (m_layoutBounds.bottom <= y)
                 break;
-            line += span + 1;
-            span = strcspn(line, g_W8LineBreakCharacters);
+            remaining.remove_prefix(end + 1);
         }
 
         m_font->setPalette(previous_state);
@@ -635,7 +627,7 @@ void W8TextBuffer::RenderText(unsigned char* buffer, unsigned int pitch, int x_o
 // FUNCTION: WIZ8 0x004f39b0
 void W8TextBuffer::RenderToTarget(int offset, bool force, SGPVSurface& target)
 {
-    char* line = m_buffer.data();
+    std::string_view remaining = m_buffer;
     if (m_buffer.empty() || (!force && !m_geometryDirty)) {
         return;
     }
@@ -654,23 +646,19 @@ void W8TextBuffer::RenderToTarget(int offset, bool force, SGPVSurface& target)
     }
 
     int y = GetVerticalPosition();
-    size_t span = strcspn(line, g_W8LineBreakCharacters);
     for (;;) {
-        const bool has_next_line = line[span] != '\0';
-        if (has_next_line)
-            line[span] = '\0';
+        const auto end = remaining.find('\n');
+        const auto line = remaining.substr(0, end);
 
         const int x = GetHorizontalPosition(m_font->textWidth(line));
         DrawFontText(x + offset, y + offset, line);
 
-        if (!has_next_line)
+        if (end == std::string_view::npos)
             break;
         y += GetLineHeight();
-        line[span] = '\n';
         if (m_layoutBounds.bottom <= y)
             break;
-        line += span + 1;
-        span = strcspn(line, g_W8LineBreakCharacters);
+        remaining.remove_prefix(end + 1);
     }
 
     m_font->setPalette(previous_state);

@@ -1,8 +1,10 @@
-struct SGPVSurface;
-#include "Font.h"
+#pragma once
+
 #include <string>
 #include <string_view>
-#pragma once
+#include "Font.h"
+
+struct SGPVSurface;
 
 #include "wiz8/local_code/ControlsRect.h"
 
@@ -15,7 +17,6 @@ extern const unsigned int g_W8TextBufferAlignMiddle;
 extern const unsigned int g_W8TextBufferAlignTop;
 extern const unsigned int g_W8TextBufferAlignBottom;
 extern const unsigned int g_W8TextBufferNoWrap;
-extern char g_W8LineBreakCharacters[];
 
 // VTABLE: WIZ8 0x005ed5b8
 class W8TextBuffer {

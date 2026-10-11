@@ -41,25 +41,22 @@ W8DialogTextEntry::W8DialogTextEntry(std::string_view prefix, std::string_view t
     UpdateLayout();
 }
 
-int W8DialogTextEntry::DrawLine(char* line, size_t span, int prefix_remaining, int y)
+int W8DialogTextEntry::DrawLine(std::string_view line, int prefix_remaining, int y)
 {
     int x = GetHorizontalPosition(m_font->textWidth(line));
     if (prefix_remaining > 0) {
-        if (prefix_remaining < static_cast<int>(span)) {
-            char saved = line[prefix_remaining];
-            line[prefix_remaining] = '\0';
-            DrawFontText(x, y, line);
-            x += m_font->textWidth(line);
-            line[prefix_remaining] = saved;
+        if (prefix_remaining < static_cast<int>(line.size())) {
+            const auto prefix = line.substr(0, prefix_remaining);
+            DrawFontText(x, y, prefix);
+            x += m_font->textWidth(prefix);
             if (!m_selected) {
                 m_font->setPalette(m_text_palette < 15
-                                                      ? g_font_state_palettes[m_text_palette]
-                                                      : g_wiz_text_font_secondary.glyphs.palette);
+                                      ? g_font_state_palettes[m_text_palette]
+                                      : g_wiz_text_font_secondary.glyphs.palette);
             }
-            line += prefix_remaining;
-            span -= prefix_remaining;
+            line.remove_prefix(prefix_remaining);
         }
-        prefix_remaining -= span;
+        prefix_remaining -= line.size();
     }
     DrawFontText(x, y, line);
     return prefix_remaining;
@@ -73,9 +70,11 @@ void W8DialogTextEntry::Draw(bool force)
     if (m_buffer.empty() || (!force && !m_geometryDirty)) {
         return;
     }
-    std::string copy = m_buffer;
+    std::string shortened;
+    std::string_view remaining = m_buffer;
     if (m_shorten_mask) {
-        copy = ShortenTextToWidth(m_buffer, width - 5, *m_font);
+        shortened = ShortenTextToWidth(m_buffer, width - 5, *m_font);
+        remaining = shortened;
     }
     SetFont(*m_font);
     Palette16 palette = g_font_state_palettes[W8_FONT_PALETTE_YELLOW];
@@ -99,21 +98,14 @@ void W8DialogTextEntry::Draw(bool force)
     SetFontDestBuffer(GetFrameBufferSurface(), m_pendingBounds.left, m_pendingBounds.top,
                       m_pendingBounds.right, m_pendingBounds.bottom, 0);
     int y = GetVerticalPosition();
-    char* line = copy.data();
-    size_t span = strcspn(line, g_W8LineBreakCharacters);
-    while (line[span] != '\0') {
-        line[span] = '\0';
-        prefix_remaining = DrawLine(line, span, prefix_remaining, y);
+    for (;;) {
+        const auto end = remaining.find('\n');
+        prefix_remaining = DrawLine(remaining.substr(0, end), prefix_remaining, y);
+        if (end == std::string_view::npos) break;
         y += GetLineHeight();
-        line[span] = '\n';
-        if (m_layoutBounds.bottom <= y) {
-            goto done;
-        }
-        line += span + 1;
-        span = strcspn(line, g_W8LineBreakCharacters);
+        if (m_layoutBounds.bottom <= y) break;
+        remaining.remove_prefix(end + 1);
     }
-    DrawLine(line, span, prefix_remaining, y);
-done:
     InvalidateRegion(m_layoutBounds.left, m_layoutBounds.top, m_layoutBounds.right,
                      m_layoutBounds.bottom, 0);
     SetFontDestBuffer(GetFrameBufferSurface(), 0, 0, 640, 480, 0);

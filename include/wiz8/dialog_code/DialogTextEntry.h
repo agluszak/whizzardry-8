@@ -1,7 +1,7 @@
-#include "Font.h"
 #pragma once
 
-#include <cstddef>
+#include "Font.h"
+
 #include <string_view>
 
 #include "wiz8/local_code/TextBuffer.h"
@@ -21,7 +21,7 @@ public:
     void SetSelected(bool selected);
 
 private:
-    int DrawLine(char* line, size_t span, int prefix_remaining, int y);
+    int DrawLine(std::string_view line, int prefix_remaining, int y);
     friend class W8DialogTextArea;
     /* The controller reads m_category when it snapshots the transcript. */
     friend class W8NpcDialogueTextController;
