@@ -981,6 +981,8 @@ void generic_button_images()
     const auto old_hilights = gfRenderHilights;
     const auto old_left_down = gfLeftButtonState;
     const auto old_hover_region = g_hover_region_index;
+    auto& first_region = g_regions[first_button->region_index];
+    const auto old_region_flags = first_region.flags;
     ButtonDestBuffer = &target;
     gfRenderHilights = true;
     for (bool checkbox : {false, true}) {
@@ -993,6 +995,10 @@ void generic_button_images()
                         g_hover_region_index =
                             hover ? first_button->region_index : 0;
                         gfLeftButtonState = mouse_down;
+                        if (mouse_down)
+                            first_region.flags |= W8_REGION_LEFT_BUTTON_HELD;
+                        else
+                            first_region.flags &= ~W8_REGION_LEFT_BUTTON_HELD;
                         DrawButton(first_button);
                         auto* pixels = static_cast<UINT16*>(target.cpu().surface->pixels);
                         REQUIRE(pixels);
@@ -1000,10 +1006,6 @@ void generic_button_images()
                         const bool highlight = hover && (!checkbox || mouse_down);
                         const unsigned expected_frame = !enabled ? 0 :
                             pressed ? (highlight ? 4 : 3) : (highlight ? 2 : 1);
-                        CAPTURE(checkbox, enabled, pressed, hover, mouse_down,
-                                first_button->region_index, g_hover_region_index,
-                                g_regions[first_button->region_index].button == first_button.get(),
-                                g_regions[first_button->region_index].flags, gfRenderHilights);
                         REQUIRE(color == 0x1000 + expected_frame);
                     }
                 }
@@ -1014,6 +1016,7 @@ void generic_button_images()
     gfRenderHilights = old_hilights;
     gfLeftButtonState = old_left_down;
     g_hover_region_index = old_hover_region;
+    first_region.flags = old_region_flags;
     target_owner.reset();
     graphics.reset();
     ShutdownButtonImageManager();
@@ -1402,7 +1405,8 @@ TEST_CASE("Dialog controls own interaction without legacy GUI buttons", "[owner]
         REQUIRE((button.IsPressed() && activations == 0));
         REQUIRE((button.GetMousePosition().x == 15 && button.GetMousePosition().y == 15));
         dispatch_mouse(LEFT_BUTTON_UP, 15, 15, false, false, 1);
-        REQUIRE((!button.IsPressed() && activations == 1));
+        REQUIRE(!button.IsPressed());
+        REQUIRE(activations == 1);
         dispatch_mouse(LEFT_BUTTON_UP, 15, 15);
         REQUIRE(activations == 1);
         dispatch_mouse(LEFT_BUTTON_DOWN, 15, 15, true);

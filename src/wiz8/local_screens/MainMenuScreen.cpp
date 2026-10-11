@@ -157,7 +157,15 @@ public:
     void OnLeftButtonUp(int) override
     {
         if (!Available()) return;
-        DrawMainMenuItem(g_main_menu_selected_item, 1);
+        const auto mouse = GetRegionMousePosition();
+        const auto& bounds = main_menu_item_bounds[item_];
+        const bool released_inside = mouse.x >= bounds.left && mouse.x <= bounds.right &&
+                                     mouse.y >= bounds.top && mouse.y <= bounds.bottom;
+        DrawMainMenuItem(g_main_menu_selected_item, released_inside ? 1 : 0);
+        if (!released_inside) {
+            if (g_main_menu_selected_item == item_) g_main_menu_selected_item = -1;
+            return;
+        }
         ActivateMainMenuItem(item_);
     }
 

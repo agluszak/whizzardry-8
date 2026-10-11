@@ -592,11 +592,20 @@ static bool FindEnabledRegionAtPoint(unsigned short x, unsigned short y, unsigne
             if (set_index >= g_region_sets.size()) break;
             const auto& set = g_region_sets[set_index];
             if (set.enabled != 1 || (!exclusive && set.persistent != persistent)) continue;
+            bool found_in_set = false;
+            unsigned int best_region = 0;
+            int best_priority = 0;
             for (const auto region_index : set.Regions()) {
-                if (RegionContainsInputPoint(region_index, x, y, dispatch_coordinates)) {
-                    *found_region = region_index;
-                    return true;
-                }
+                if (!RegionContainsInputPoint(region_index, x, y, dispatch_coordinates)) continue;
+                const int priority = g_regions[region_index].priority;
+                if (found_in_set && priority <= best_priority) continue;
+                found_in_set = true;
+                best_region = region_index;
+                best_priority = priority;
+            }
+            if (found_in_set) {
+                *found_region = best_region;
+                return true;
             }
         }
     }
