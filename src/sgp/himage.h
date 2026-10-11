@@ -4,31 +4,13 @@
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
 
-#include <SDL3/SDL_rect.h>
-#include <memory>
 #include <array>
 #include <optional>
 #include <string_view>
+#include <variant>
 #include <vector>
-#include <span>
-#include <cstddef>
 
 #include "Types.h"
-
-// The HIMAGE module provides a common interface for managing image data. This module
-// includes:
-// - A set of data structures representing image data. Data can be 8 or 16 bpp and/or
-//   compressed
-// - A set of file loaders which load specific file formats into the internal data format
-// - A set of blitters which blt the data to memory
-// - A comprehensive automatic blitter which blits the appropriate type based on the
-//   image header.
-
-// Defines for buffer bit depth
-#define BUFFER_8BPP 0x1
-#define BUFFER_16BPP 0x2
-
-// Defines for image charactoristics
 
 // Palette structure, mimics that of Win32
 typedef struct tagSGPPaletteEntry {
@@ -39,55 +21,36 @@ typedef struct tagSGPPaletteEntry {
 
 } SGPPaletteEntry;
 
-#define AUX_FULL_TILE 0x01
-#define AUX_ANIMATED_TILE 0x02
-#define AUX_DYNAMIC_TILE 0x04
-#define AUX_INTERACTIVE_TILE 0x08
-#define AUX_IGNORES_HEIGHT 0x10
-#define AUX_USES_LAND_Z 0x20
-
-typedef struct {
-    UINT8 ubWallOrientation;
-    UINT8 ubNumberOfTiles;
-    UINT16 usTileLocIndex;
-    UINT8 ubUnused1[3];
-    UINT8 ubCurrentFrame;
-    UINT8 ubNumberOfFrames;
-    UINT8 fFlags;
-    UINT8 ubUnused[6];
-} AuxObjectData;
-
-typedef struct {
-    INT8 bTileOffsetX;
-    INT8 bTileOffsetY;
-} RelTileLoc; // relative tile location
-
-// TRLE subimage structure, mirroring that of ST(C)I
-typedef struct tagETRLEObject {
-    UINT32 uiDataOffset;
-    UINT32 uiDataLength;
-    INT16 sOffsetX;
-    INT16 sOffsetY;
-    UINT16 usHeight;
-    UINT16 usWidth;
-} ETRLEObject;
-
 using Palette8 = std::array<SGPPaletteEntry, 256>;
 using Palette16 = std::array<UINT16, 256>;
 
-// Image header structure
-struct image_type {
-    UINT16 usWidth;
-    UINT16 usHeight;
-    UINT8 ubBitDepth;
-    bool compressed = false;
-    bool etrle = false;
-    std::optional<Palette8> pPalette;
-    std::optional<Palette16> pui16BPPPalette;
-    std::vector<UINT8> pImageData;
-    std::vector<ETRLEObject> pETRLEObject;
-
+// Tight, top-down INDEX8, RGB555 or RGB24 pixels.
+struct BitmapImage {
+    UINT16 width = 0;
+    UINT16 height = 0;
+    UINT8 bitDepth = 0;
+    std::optional<Palette8> palette;
+    std::vector<UINT8> pixels;
 };
+
+// Palette indices 0-255 or kTransparent; opaque index 0 is not a transparent run.
+struct SpriteFrame {
+    static constexpr UINT16 kTransparent = 256;
+
+    std::vector<UINT16> pixels;
+    std::optional<UINT8> paletteIndexAt(int x, int y) const;
+    INT16 sOffsetX = 0;
+    INT16 sOffsetY = 0;
+    UINT16 usHeight = 0;
+    UINT16 usWidth = 0;
+};
+
+struct SpriteSheet {
+    Palette8 palette{};
+    std::vector<SpriteFrame> frames;
+};
+
+using DecodedImage = std::variant<BitmapImage, SpriteSheet>;
 
 #define SGPGetRValue(rgb) ((BYTE)(rgb))
 #define SGPGetBValue(rgb) ((BYTE)((rgb) >> 16))
@@ -103,12 +66,10 @@ struct image_type {
 // basename extension selects STI or SDL_image PCX/TGA/JPEG; extensionless names
 // default to PCX without changing the caller's path. Ordinary images are tight,
 // top-down INDEX8 + palettes, packed RGB555 (16-bit TGA), or RGB24.
+// STI zlib decoding, RGB mask conversion and ETRLE frame decoding finish
+// before a result is returned. Encoded file records never escape the loader.
 // Returns no image on failure.
-std::optional<image_type> LoadImage(std::string_view filename);
-
-bool CopyImageToBuffer(const image_type& image, UINT32 buffer_type, std::span<UINT8> destination,
-                       std::size_t dest_width, std::size_t dest_height, std::size_t x, std::size_t y,
-                       const SDL_Rect& source_rect);
+std::optional<DecodedImage> LoadImage(std::string_view filename);
 
 // UTILITY FUNCTIONS
 
