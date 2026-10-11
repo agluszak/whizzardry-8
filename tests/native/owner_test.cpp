@@ -1128,7 +1128,7 @@ void generic_button_images()
     // moved-from state is part of the contract rather than an accidental use.
     {
         Font source, moved;
-        REQUIRE(source.height() == 0); // NOLINT(bugprone-use-after-move)
+        REQUIRE(source.height() == 0);
         REQUIRE(source.textWidth("empty") == 0);
         REQUIRE(source.load(filename));
         const auto height = source.height();
@@ -1136,7 +1136,7 @@ void generic_button_images()
         REQUIRE(source.height() == height);
         Font temporary(std::move(source));
         REQUIRE(temporary.height() == height);
-        REQUIRE(source.height() == 0);
+        REQUIRE(source.height() == 0); // NOLINT(bugprone-use-after-move)
         moved = std::move(temporary);
         REQUIRE(moved.height() == height);
         REQUIRE(temporary.height() == 0); // NOLINT(bugprone-use-after-move)
