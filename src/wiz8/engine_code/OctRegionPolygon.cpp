@@ -70,8 +70,8 @@ unsigned char W8OctPreTreeGeometry::CheckArrayLength(int** run, unsigned short c
 void W8OctPreTreeGeometry::Release()
 {
     if (m_vertices != 0) {
-        int* last_faces = m_vertices[1].face_indices;
-        int* last_owned = m_vertices[1].owned;
+        int* last_faces = vertex_count > 1 ? m_vertices[1].face_indices : nullptr;
+        int* last_owned = vertex_count > 1 ? m_vertices[1].owned : nullptr;
         for (w8_ulong index = 1; index < vertex_count; ++index) {
             W8OctPreTreeVertex* vertex = &m_vertices[index];
             if (vertex->face_indices != 0 && vertex->face_indices != last_faces) {
@@ -96,9 +96,11 @@ void W8OctPreTreeGeometry::Release()
             free(last_owned);
         }
         free(m_vertices);
+        m_vertices = nullptr;
     }
+    vertex_count = 0;
     if (m_polygons != 0) {
-        int* last_faces = m_polygons[1].face_indices;
+        int* last_faces = m_polygon_count > 1 ? m_polygons[1].face_indices : nullptr;
         for (w8_ulong index = 1; index < m_polygon_count; ++index) {
             W8OctRegionPolygon* polygon = &m_polygons[index];
             if (polygon->face_indices != 0 && polygon->face_indices != last_faces) {
@@ -113,8 +115,9 @@ void W8OctPreTreeGeometry::Release()
             free(last_faces);
         }
         free(m_polygons);
+        m_polygons = nullptr;
     }
-    if (owned != 0) {
-        free(owned);
-    }
+    m_polygon_count = 0;
+    free(owned);
+    owned = nullptr;
 }
