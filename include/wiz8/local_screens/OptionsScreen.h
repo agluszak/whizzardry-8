@@ -411,7 +411,7 @@ public:
     W8OptionsKeyCapture* m_key_capture;
 };
 
-extern W8OptionsScreen* g_options_screen;
+extern std::unique_ptr<W8OptionsScreen> g_options_screen;
 extern std::string g_options_last_save_name;
 
 void SetLastSaveName(std::string_view target);

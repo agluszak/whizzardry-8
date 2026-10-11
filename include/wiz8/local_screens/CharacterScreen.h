@@ -365,6 +365,7 @@ public:
 class W8CharacterScreen final : public W8CharacterPageHost, public W8TextControl::Listener {
 public:
     W8CharacterScreen(int mode, W8Character* character);
+    ~W8CharacterScreen();
     void BuildControls();
     void UpdateDialog();
     void AdvancePage(bool forward);
@@ -402,21 +403,21 @@ public:
     bool m_confirm_profession;
     bool m_force_transition;
     unsigned char pad_1aef;
-    Controls* m_controls;
+    std::unique_ptr<Controls> m_controls;
     W8TextControl* m_previous;
     W8TextControl* m_next;
     W8TextControl* m_exit;
     W8TextControl* m_accept;
     W8TextControl* m_reset;
     bool m_page_enabled[4];
-    W8CharacterPage* m_pages[4];
+    std::unique_ptr<W8CharacterPage> m_pages[4];
     W8DialogBase* m_dialog;
     unsigned int m_dialog_response;
     bool m_capture_dialog_result;
     unsigned char pad_1b25[3];
 };
 
-extern W8CharacterScreen* g_character_screen;
+extern std::unique_ptr<W8CharacterScreen> g_character_screen;
 
 /* Per-profession message indexes. */
 extern unsigned short g_profession_name_message_ids[32];

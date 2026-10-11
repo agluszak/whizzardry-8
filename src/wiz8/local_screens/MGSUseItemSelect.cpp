@@ -1,3 +1,5 @@
+#include <algorithm>
+#include <memory>
 #include <fmt/format.h>
 #include <array>
 #include <optional>
@@ -69,7 +71,7 @@ W8ItemInstance* g_use_item_select_override_item;
 // GLOBAL: WIZ8 0x0069B990
 static int g_use_item_list_count;
 // GLOBAL: WIZ8 0x0069B994
-Controls* g_use_item_select_panels[3];
+static std::unique_ptr<Controls> g_use_item_select_panels[3];
 // GLOBAL: WIZ8 0x0069B9A8
 static int g_use_item_cursor_x;
 // GLOBAL: WIZ8 0x0069B9AC
@@ -118,12 +120,11 @@ static void CreateUseItemSelectControls(void);
 static void CreateUseItemSelectControls(void)
 {
     Controls* panel;
-    Controls** panel_iter;
 
-    g_use_item_select_panels[0] = new Controls(0x17, 0x166, 0xa4, 0x1c2, CatalogArtwork::Load(0x97, 0), 0);
-    g_use_item_select_panels[1] = new Controls(0xa4, 0x166, 0x1dc, 0x1c2, CatalogArtwork::Load(0x97, 0), 1);
-    g_use_item_select_panels[2] = new Controls(0x1dc, 0x166, 0x269, 0x1c2, CatalogArtwork::Load(0x97, 0), 2);
-    panel = g_use_item_select_panels[0];
+    g_use_item_select_panels[0] = std::make_unique<Controls>(0x17, 0x166, 0xa4, 0x1c2, CatalogArtwork::Load(0x97, 0), 0);
+    g_use_item_select_panels[1] = std::make_unique<Controls>(0xa4, 0x166, 0x1dc, 0x1c2, CatalogArtwork::Load(0x97, 0), 1);
+    g_use_item_select_panels[2] = std::make_unique<Controls>(0x1dc, 0x166, 0x269, 0x1c2, CatalogArtwork::Load(0x97, 0), 2);
+    panel = g_use_item_select_panels[0].get();
     g_use_item_select_scroll_buttons[0] =
         new W8TextControl(panel, g_use_item_select_regions->index(0), 0x24, 0x1d, 0x44, 0x3d,
                           CatalogArtwork::Load(0x98, 0), 0, 2, 1, 4, 3);
@@ -140,7 +141,7 @@ static void CreateUseItemSelectControls(void)
                                                                     g_W8TextBufferAlignCenter);
     g_use_item_select_scroll_buttons[2]->m_textBuffer.SetText(g_localized_strings[0x77a],
                                                               g_wiz_text_font_secondary);
-    panel = g_use_item_select_panels[2];
+    panel = g_use_item_select_panels[2].get();
     g_use_item_select_controls[0] =
         new W8TextControl(panel, g_use_item_select_regions->index(2), 5, 5, 0x31, 0x39, std::nullopt,
                           -1, -1, -1, -1, -1);
@@ -183,9 +184,8 @@ static void CreateUseItemSelectControls(void)
     g_use_item_select_controls[5]->m_primaryActivationCallback = NoOp;
     g_use_item_select_controls[6]->m_primaryActivationCallback = NoOp;
     g_use_item_select_controls[8]->m_primaryActivationCallback = CloseUseItemSelection;
-    for (panel_iter = g_use_item_select_panels; panel_iter < g_use_item_select_panels + 3;
-         panel_iter++) {
-        (*panel_iter)->SetEnabled(true);
+    for (auto& select_panel : g_use_item_select_panels) {
+        select_panel->SetEnabled(true);
     }
 }
 
@@ -239,9 +239,6 @@ unsigned char OpenUseItemSelectView(int slot)
 // FUNCTION: WIZ8 0x0059CAC0
 void CloseUseItemSelectView(void)
 {
-    W8TextControl** control;
-    Controls** panel;
-
     if (!g_use_item_commit_active) {
         g_use_item_select_regions.Disable();
         SetTextBoxScrollInput(false);
@@ -251,23 +248,11 @@ void CloseUseItemSelectView(void)
         ResetEditorStatusLine(-1);
         g_level_block->text_box_visible = true;
         SelectTextBox(gXStatus.fCombatMode);
-        for (control = g_use_item_select_scroll_buttons;
-             control < g_use_item_select_scroll_buttons + 3; control++) {
-            if (*control != 0) {
-                delete *control;
-            }
+        for (auto& select_panel : g_use_item_select_panels) {
+            select_panel.reset();
         }
-        for (control = g_use_item_select_controls; control < g_use_item_select_controls + 9;
-             control++) {
-            if (*control != 0) {
-                delete *control;
-            }
-        }
-        for (panel = g_use_item_select_panels; panel < g_use_item_select_panels + 3; panel++) {
-            if (*panel != 0) {
-                delete *panel;
-            }
-        }
+        std::ranges::fill(g_use_item_select_scroll_buttons, nullptr);
+        std::ranges::fill(g_use_item_select_controls, nullptr);
         gXStatus.fItemSelectMode = false;
         ApplyMainGameModeFlag(g_use_item_select_return_mode, true);
         RequestRedraw(W8_MAIN_REDRAW_LAYOUT);

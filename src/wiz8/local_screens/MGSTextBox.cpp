@@ -1,4 +1,5 @@
 #include "himage.h"
+#include <memory>
 #include <SDL3/SDL_surface.h>
 #include <cstddef>
 #include <cstdint>
@@ -60,7 +61,7 @@
 #include "local_code/RangeControl.h"
 
 // GLOBAL: WIZ8 0x0068f2d4
-W8MainGameScreen* g_main_game_screen;
+std::unique_ptr<W8MainGameScreen> g_main_game_screen;
 
 #define MGS_TEXT_BOX_CPP "C:\\Projects\\Wizardry 8\\Local Screens\\MGSTextBox.cpp"
 
@@ -1727,7 +1728,7 @@ void RedrawTextBoxScrollChrome(void)
 // FUNCTION: WIZ8 0x0058a8c0
 void RedrawTextBoxComplete(void)
 {
-    W8MainGameScreen* screen = g_main_game_screen;
+    W8MainGameScreen* screen = g_main_game_screen.get();
 
     screen->m_text_panel->Invalidate(0);
     screen->m_status_panel->RefreshStatusTexts();
@@ -1783,7 +1784,7 @@ char TextBoxHandleKey(const InputEvent* event)
 // FUNCTION: WIZ8 0x0058A930
 void AttemptTrapDisarm(int level, int /*flag*/, char backfire)
 {
-    W8MainGameScreen* screen = g_main_game_screen;
+    W8MainGameScreen* screen = g_main_game_screen.get();
     int chance;
 
     if (backfire != 0) {
@@ -1806,7 +1807,7 @@ void AttemptTrapDisarm(int level, int /*flag*/, char backfire)
 // FUNCTION: WIZ8 0x0058a9c0
 void SetKnockKnockTarget(int target, int /*flag*/, int /*backfire*/)
 {
-    W8MainGameScreen* screen = g_main_game_screen;
+    W8MainGameScreen* screen = g_main_game_screen.get();
 
     if (!gXStatus.fTrapInteractMode) {
         ShowNotice(W8_FONT_PALETTE_BEIGE, "You can't cast Knock Knock here!");

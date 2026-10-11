@@ -21,7 +21,6 @@ struct W8AutomapNote {
     std::string text;
 };
 
-extern std::vector<W8AutomapNote*>* g_automap_notes;
 extern W8MainUiMode g_ui_mode_current;
 extern W8MainUiMode g_ui_mode_saved;
 void SetCurrentAutomapUiMode(W8MainUiMode value);
@@ -60,7 +59,6 @@ void RenderAutomapMarkers(void);
 void CreateAutomapButtons(void);
 
 unsigned char ReadAutomapNodes(wiz8::File* hFile);
-unsigned char AutomapScreenInitialize(void);
 unsigned char AutomapScreenEnter(void);
 void AutomapScreenFrame(void);
 unsigned char AutomapScreenLeave(int leaving);

@@ -523,7 +523,7 @@ void MainMenuUiScenario()
 
 W8CharacterStatsPage* StatsPage()
 {
-    return g_character_screen ? static_cast<W8CharacterStatsPage*>(g_character_screen->m_pages[0])
+    return g_character_screen ? static_cast<W8CharacterStatsPage*>(g_character_screen->m_pages[0].get())
                               : nullptr;
 }
 
@@ -531,7 +531,7 @@ W8CharacterStatsPage* StatsPage()
    page reports the allocation complete. */
 void SpendPool(Game& game, const char* step, int page_index, const bool& complete)
 {
-    W8CharacterPage* page = g_character_screen->m_pages[page_index];
+    W8CharacterPage* page = g_character_screen->m_pages[page_index].get();
     REQUIRE((page && !page->m_entries.empty()));
     for (int index = 0; index < static_cast<int>(page->m_entries.size()) && !complete; ++index) {
         W8CharacterPageEntry* entry = page->m_entries[index].get();
@@ -585,14 +585,14 @@ std::string CreateCharacter(Game& game)
     // The first profession is a non-caster, so Next skips the spell page.
     game.click("to-skills", ControlRegion(g_character_screen->m_next));
     game.wait("skills", [&] {
-        W8CharacterPage* page = g_character_screen->m_pages[2];
+        W8CharacterPage* page = g_character_screen->m_pages[2].get();
         return g_character_screen->m_page_index == 2 && page && !page->m_entries.empty();
     });
     SpendPool(game, "skills", 2, g_character_screen->m_creation_state.skills_complete);
 
     game.click("to-personality", ControlRegion(g_character_screen->m_next));
     game.wait("personality", [&] {
-        W8CharacterPage* page = g_character_screen->m_pages[3];
+        W8CharacterPage* page = g_character_screen->m_pages[3].get();
         return g_character_screen->m_page_index == 3 && page && !page->m_prepared;
     });
     // The page focuses its first (full name) field; Tab moves to the short

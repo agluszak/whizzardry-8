@@ -3,7 +3,6 @@
 #include "input.h"
 #include "wiz8/layouts/main_game_screen.h"
 
-struct Controls;
 struct W8Region;
 class W8TextControl;
 class W8DialogBase;
@@ -12,7 +11,6 @@ struct W8ItemInstance;
 
 /* The three use-item select panels; element 1 is the list panel
    iterated together with its siblings by the per-frame update. */
-extern Controls* g_use_item_select_panels[3];
 
 /* Up/down scroll buttons for the use-item select list plus the
    caption label at index 2; CloseUseItemSelectView deletes all three in one

@@ -1,3 +1,4 @@
+#include <memory>
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <SDL3/SDL_filesystem.h>
@@ -106,7 +107,7 @@ unsigned short g_profession_level_name_message_ids[15][9] = {
 static int g_character_page_title_ids[4] = {0xcf, 0xd1, 0xd0, 0xd2};
 
 // GLOBAL: WIZ8 0x0069c2e8
-W8CharacterScreen* g_character_screen;
+std::unique_ptr<W8CharacterScreen> g_character_screen;
 
 // VTABLE: WIZ8 0x005ef224 W8CharacterPageHost
 // VTABLE: WIZ8 0x005ef21c W8TextControl::Listener
@@ -121,9 +122,6 @@ W8CharacterScreen::W8CharacterScreen(int mode, W8Character* character)
         m_character = *character;
         m_character.fInParty = false;
     }
-    for (int index = 0; index < 4; ++index) {
-        m_pages[index] = 0;
-    }
     if (m_mode == 3) {
         m_mode = 2;
         wiz8::sound::play("Data\\Sound\\Misc\\GainLevel.wav");
@@ -135,29 +133,34 @@ W8CharacterScreen::W8CharacterScreen(int mode, W8Character* character)
     m_page_enabled[3] = m_mode != 2;
 }
 
+W8CharacterScreen::~W8CharacterScreen()
+{
+    if (m_pages[m_page_index]) m_pages[m_page_index]->Deactivate();
+}
+
 // FUNCTION: WIZ8 0x005b0140
 void W8CharacterScreen::BuildControls()
 {
-    m_controls = new Controls(0, 0x1c2, 0, 0, CatalogArtwork::Load(0x107, 0), 4);
+    m_controls = std::make_unique<Controls>(0, 0x1c2, 0, 0, CatalogArtwork::Load(0x107, 0), 4);
     m_controls->CreateRegionSet();
 
-    m_next = new W8TextControl(m_controls, 0xffffffff, 0x254, 0, 0, 0, CatalogArtwork::Load(0x106, 0), 8, 10, 9, 10, 0xb);
+    m_next = new W8TextControl(m_controls.get(), 0xffffffff, 0x254, 0, 0, 0, CatalogArtwork::Load(0x106, 0), 8, 10, 9, 10, 0xb);
     m_next->EnableRegionHelp(0xdc);
     m_next->m_listener = this;
 
-    m_previous = new W8TextControl(m_controls, 0xffffffff, 0x228, 0, 0, 0, CatalogArtwork::Load(0x106, 0), 0xc, 0xe, 0xd, 0xe, 0xf);
+    m_previous = new W8TextControl(m_controls.get(), 0xffffffff, 0x228, 0, 0, 0, CatalogArtwork::Load(0x106, 0), 0xc, 0xe, 0xd, 0xe, 0xf);
     m_previous->EnableRegionHelp(0xdd);
     m_previous->m_listener = this;
 
-    m_exit = new W8TextControl(m_controls, 0xffffffff, 0x1fc, 0, 0, 0, CatalogArtwork::Load(0x106, 0), 0x14, 0x16, 0x15, 0x16, 0x17);
+    m_exit = new W8TextControl(m_controls.get(), 0xffffffff, 0x1fc, 0, 0, 0, CatalogArtwork::Load(0x106, 0), 0x14, 0x16, 0x15, 0x16, 0x17);
     m_exit->EnableRegionHelp(0xde);
     m_exit->m_listener = this;
 
-    m_accept = new W8TextControl(m_controls, 0xffffffff, 0x1d0, 0, 0, 0, CatalogArtwork::Load(0x106, 0), 4, 6, 5, 6, 7);
+    m_accept = new W8TextControl(m_controls.get(), 0xffffffff, 0x1d0, 0, 0, 0, CatalogArtwork::Load(0x106, 0), 4, 6, 5, 6, 7);
     m_accept->EnableRegionHelp(0xdf);
     m_accept->m_listener = this;
 
-    m_reset = new W8TextControl(m_controls, 0xffffffff, 0, 0, 0, 0, CatalogArtwork::Load(0x106, 0), 0x1d, 0x1f, 0x1e, 0x1f, 0x20);
+    m_reset = new W8TextControl(m_controls.get(), 0xffffffff, 0, 0, 0, 0, CatalogArtwork::Load(0x106, 0), 0x1d, 0x1f, 0x1e, 0x1f, 0x20);
     m_reset->EnableRegionHelp(0xe1);
     m_reset->m_listener = this;
 
@@ -406,7 +409,7 @@ void W8CharacterScreen::SelectPage(int index)
         m_pages[m_page_index]->Deactivate();
     }
     SyncCharacterForPage(index);
-    if (m_pages[index] == 0) {
+    if (!m_pages[index]) {
         W8CharacterPage* page = 0;
         switch (index) {
         case 0:
@@ -424,10 +427,10 @@ void W8CharacterScreen::SelectPage(int index)
         }
         page->m_screen = this;
         page->SetCharacter(&m_character, &m_creation_state, m_mode);
-        m_pages[index] = page;
+        m_pages[index].reset(page);
     }
     m_page_index = index;
-    W8CharacterPage* page = m_pages[index];
+    W8CharacterPage* page = m_pages[index].get();
     page->Activate();
     page->SetEnabled(true);
 
@@ -575,7 +578,7 @@ bool W8CharacterScreen::CommitCharacter()
 // FUNCTION: WIZ8 0x005b1af0
 void ResetCharacterScreenSkill(W8Skill skill_id)
 {
-    W8CharacterScreen* screen = g_character_screen;
+    W8CharacterScreen* screen = g_character_screen.get();
     ResetSkillContribution(&screen->m_character, &screen->m_creation_state, skill_id);
     if (screen->m_pages[2] != 0) {
         screen->m_pages[2]->Refresh();
@@ -585,7 +588,7 @@ void ResetCharacterScreenSkill(W8Skill skill_id)
 // FUNCTION: WIZ8 0x005b1b30
 void RefundCharacterScreenSkill(W8Skill skill_id)
 {
-    W8CharacterScreen* screen = g_character_screen;
+    W8CharacterScreen* screen = g_character_screen.get();
     RefundSkillAllocation(&screen->m_character, &screen->m_creation_state, skill_id);
     if (screen->m_pages[2] != 0) {
         screen->m_pages[2]->Refresh();
@@ -709,7 +712,7 @@ unsigned char CharacterScreenEnter(void)
     UpdateHeldItemCursor();
     g_wiz_text_font_secondary.resetPalette();
     g_wiz_text_bold_font.resetPalette();
-    g_character_screen = new W8CharacterScreen(
+    g_character_screen = std::make_unique<W8CharacterScreen>(
         g_current_screen_state.mode, static_cast<W8Character*>(g_current_screen_state.parameter_3));
     g_character_screen->BuildControls();
     if (!g_status.game_started &&
@@ -722,18 +725,7 @@ unsigned char CharacterScreenEnter(void)
 // FUNCTION: WIZ8 0x005b1840
 unsigned char CharacterScreenLeave(int leaving)
 {
-    if (leaving) {
-        W8CharacterScreen* screen = g_character_screen;
-        if (screen != 0) {
-            screen->m_pages[screen->m_page_index]->Deactivate();
-            for (int index = 0; index < 4; ++index) {
-                delete screen->m_pages[index];
-            }
-            delete screen->m_controls;
-            delete screen;
-        }
-        g_character_screen = 0;
-    }
+    if (leaving) g_character_screen.reset();
     NoOp();
     ResetRegions();
     return 1;
@@ -748,7 +740,7 @@ void CharacterScreenFrame(void)
     g_character_screen->UpdateDialog();
     UpdateRegionMousePosition(point.x, point.y);
     while (DequeueEvent(&input) == 1) {
-        W8CharacterScreen* screen = g_character_screen;
+        W8CharacterScreen* screen = g_character_screen.get();
         screen->m_pages[screen->m_page_index]->HandleInput(&input);
         if (!DispatchRegionInput(&input) && input.type == InputEventType::KeyDown) {
             if (input.key == VK_RETURN || input.key == VK_RIGHT || input.key == 0x4e) {
@@ -769,7 +761,7 @@ void CharacterScreenFrame(void)
             }
         }
     }
-    W8CharacterScreen* screen = g_character_screen;
+    W8CharacterScreen* screen = g_character_screen.get();
     if (screen->m_header_dirty)
         screen->DrawHeader();
     screen->m_pages[screen->m_page_index]->Redraw();
