@@ -1,4 +1,5 @@
 #include <glm/gtc/constants.hpp>
+#include <SDL3/SDL_log.h>
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -7,7 +8,6 @@
 #include <cstddef>
 #include <iterator>
 #include <memory>
-#include <ostream>
 #include <utility>
 #include <vector>
 
@@ -152,7 +152,7 @@ void AutoSmoother::markEdge(Edge* edge, w8_long group)
 void AutoSmoother::assignGroups(w8_long group)
 {
     if (group >= 0x1f) {
-        srErr << "Warning: srModeler::autoSmooth() ran out of groups." << std::endl;
+        SDL_LogWarn(SDL_LOG_CATEGORY_RENDER, "%s", "srModeler::autoSmooth() ran out of groups.");
         for (w8_ulong index = 0; index < edges.size(); ++index) {
             if (edges[index].group == -1) {
                 entries[edges[index].first].groups |= 0x80000000;
