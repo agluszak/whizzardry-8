@@ -8,7 +8,6 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <SDL3/SDL_rect.h>
-#include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_mouse.h>
 #include <algorithm>
 #include <array>
