@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <array>
 #include <type_traits>
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <ios>
@@ -1108,9 +1109,19 @@ void srColorSurface::scaleFast(srColorSurfaceIFace& source)
     if (width <= 0 || height <= 0 || source.width <= 0 || source.height <= 0)
         return;
     auto& input = *static_cast<srColorSurface&>(source).storage;
-    const SDL_Rect destination{0, 0, width, height};
-    if (!SDL_BlitSurfaceScaled(&input, nullptr, storage.get(), &destination, SDL_SCALEMODE_NEAREST))
-        throw std::runtime_error(SDL_GetError());
+    const int bytes_per_pixel = SDL_BYTESPERPIXEL(storage->format);
+    const auto* source_pixels = static_cast<const std::uint8_t*>(input.pixels);
+    auto* destination_pixels = static_cast<std::uint8_t*>(storage->pixels);
+    for (int y = 0; y < height; ++y) {
+        const int source_y = static_cast<int>(std::int64_t(y) * source.height / height);
+        const auto* source_row = source_pixels + source_y * input.pitch;
+        auto* destination_row = destination_pixels + y * storage->pitch;
+        for (int x = 0; x < width; ++x) {
+            const int source_x = static_cast<int>(std::int64_t(x) * source.width / width);
+            std::memcpy(destination_row + x * bytes_per_pixel,
+                        source_row + source_x * bytes_per_pixel, bytes_per_pixel);
+        }
+    }
 }
 
 // SDL does not implement SurRender's filter kernels, wrapping, or asymmetric
