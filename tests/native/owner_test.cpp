@@ -1,9 +1,15 @@
-#include <SDL3/SDL_pixels.h>
 #include <utility>
+#include <stdexcept>
+#include <limits>
+#include "wiz8/item_video_object_vector.h"
+#include "wiz8/layouts/item_tables.h"
+#include <variant>
 #include <catch2/catch_test_macros.hpp>
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_mouse.h>
 #include <algorithm>
 #include <array>
 #include <cstring>
@@ -28,7 +34,10 @@
 #include "wiz8/video_object_catalog.h"
 #include "Button System.h"
 #include "wiz8/dialog_code/DialogButton.h"
-#include "wiz8/dialog_code/ButtonUserData.h"
+#include "wiz8/dialog_code/DialogScrollBar.h"
+#include "wiz8/dialog_code/MessageDialogBase.h"
+#include "wiz8/dialog_code/DialogFactoryDialogs.h"
+#include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "Font.h"
 #include "input.h"
@@ -116,32 +125,14 @@ void screen_stack()
 
 void camp_effects()
 {
-    std::array<SDL_Color, 256> palette{};
-    std::array<ETRLEObject, 12> images{};
-    for (auto& image : images) { image.usWidth = 16; image.usHeight = 8; }
-    image_type image{};
-    image.ubBitDepth = 8;
-    image.fFlags = IMAGE_TRLECOMPRESSED;
-    image.pPalette.emplace();
-    std::copy_n(palette.data(), palette.size(), image.pPalette->data());
-    // Each frame is eight scanlines of one transparent run of 16 then the
-    // row terminator: 0x90 0x00 repeated.
-    image.pImageData.resize(images.size() * 16);
-
-    image.pETRLEObject.resize(images.size());
-    std::copy_n(images.data(), images.size(), image.pETRLEObject.data());
-    for (std::size_t i = 0; i < images.size(); ++i) {
-        image.pETRLEObject[i].uiDataOffset = i * 16;
-        image.pETRLEObject[i].uiDataLength = 16;
-        for (unsigned row = 0; row < 8; ++row) {
-            image.pImageData[i * 16 + row * 2] = 0x90;
-        }
+    SpriteSheet image;
+    image.frames.resize(12);
+    for (auto& frame : image.frames) {
+        frame.usWidth = 16;
+        frame.usHeight = 8;
+        frame.pixels.assign(16 * 8, SpriteFrame::kTransparent);
     }
-
-    VOBJECT_DESC desc{};
-    desc.fCreateFlags = VOBJECT_CREATE_FROMHIMAGE;
-    desc.hImage = &image;
-    auto object = CreateVideoObject(desc);
+    auto object = std::make_unique<SGPVObject>(std::move(image));
     REQUIRE(object);
     const auto saved_slot = g_video_slots[0x86];
     auto saved_frame = std::move(g_video_frames[0]);
@@ -195,6 +186,16 @@ void camp_effects()
     g_video_frames[0] = std::move(saved_frame);
 }
 
+void dispatch_mouse(UINT16 type, UINT16 x, UINT16 y, bool left, bool right, UINT8 clicks = 0)
+{
+    InputAtom event{};
+    event.usEvent = type;
+    event.uiParam = static_cast<UINT32>(x) | (static_cast<UINT32>(y) << 16);
+    event.mouseButtons = (left ? SDL_BUTTON_LMASK : 0) | (right ? SDL_BUTTON_RMASK : 0);
+    event.clicks = clicks;
+    DispatchMouseEvent(event);
+}
+
 int clicks, click_reason;
 MOUSE_REGION* clicked_region;
 void region_click(MOUSE_REGION* region, INT32) { clicked_region = region; }
@@ -232,7 +233,7 @@ void dispatch_nested_mouse(MOUSE_REGION* region, INT32 reason)
 {
     nested_mouse_order.push_back(reason);
     if (reason == MSYS_CALLBACK_REASON_LBUTTON_DWN) {
-        DispatchMouseEvent(LEFT_BUTTON_UP, 12, 13, false, false);
+        dispatch_mouse(LEFT_BUTTON_UP, 12, 13, false, false);
         REQUIRE(nested_mouse_order.size() == 2);
         REQUIRE(region->MouseXPos == 12);
         REQUIRE(region->ButtonState == 0);
@@ -242,7 +243,7 @@ std::unique_ptr<MOUSE_REGION> nested_deleted_region;
 void delete_region_in_nested_input(MOUSE_REGION*, INT32 reason)
 {
     if (reason == MSYS_CALLBACK_REASON_LBUTTON_DWN) {
-        DispatchMouseEvent(LEFT_BUTTON_UP, 12, 13, false, false);
+        dispatch_mouse(LEFT_BUTTON_UP, 12, 13, false, false);
         REQUIRE(!nested_deleted_region);
     } else if (reason == MSYS_CALLBACK_REASON_LBUTTON_UP) {
         nested_deleted_region.reset();
@@ -254,7 +255,7 @@ void region_nested_input()
     MOUSE_REGION region;
     region.configure(0, 0, 40, 40, MSYS_PRIORITY_NORMAL, nullptr, dispatch_nested_mouse);
     nested_mouse_order.clear();
-    DispatchMouseEvent(LEFT_BUTTON_DOWN, 10, 10, true, false);
+    dispatch_mouse(LEFT_BUTTON_DOWN, 10, 10, true, false);
     REQUIRE(nested_mouse_order == std::vector<INT32>{MSYS_CALLBACK_REASON_LBUTTON_DWN,
                                                   MSYS_CALLBACK_REASON_LBUTTON_UP});
     REQUIRE(region.MouseXPos == 12);
@@ -263,7 +264,7 @@ void region_nested_input()
     nested_deleted_region = std::make_unique<MOUSE_REGION>();
     nested_deleted_region->configure(0, 0, 40, 40, MSYS_PRIORITY_HIGH, nullptr,
                                      delete_region_in_nested_input);
-    DispatchMouseEvent(LEFT_BUTTON_DOWN, 10, 10, true, false);
+    dispatch_mouse(LEFT_BUTTON_DOWN, 10, 10, true, false);
     REQUIRE(!nested_deleted_region);
     MSYS_Shutdown();
 }
@@ -276,7 +277,7 @@ void nested_hover(MOUSE_REGION* region, INT32 reason)
     hover_order.emplace_back(region->UserData[0], reason);
     if (nested_hover_armed && reason == nested_hover_reason) {
         nested_hover_armed = false;
-        DispatchMouseEvent(MOUSE_POS, 45, 5, false, false);
+        dispatch_mouse(MOUSE_POS, 45, 5, false, false);
     }
 }
 void nested_hover_transitions()
@@ -289,11 +290,11 @@ void nested_hover_transitions()
         c.configure(40, 0, 50, 10, MSYS_PRIORITY_NORMAL, nested_hover, nullptr);
         a.UserData[0] = 1; b.UserData[0] = 2; c.UserData[0] = 3;
         nested_hover_armed = false;
-        DispatchMouseEvent(MOUSE_POS, 5, 5, false, false);
+        dispatch_mouse(MOUSE_POS, 5, 5, false, false);
         hover_order.clear();
         nested_hover_reason = trigger;
         nested_hover_armed = true;
-        DispatchMouseEvent(MOUSE_POS, 25, 5, false, false);
+        dispatch_mouse(MOUSE_POS, 25, 5, false, false);
         std::vector<std::pair<int, INT32>> expected{{1, MSYS_CALLBACK_REASON_LOST_MOUSE}};
         if (trigger == MSYS_CALLBACK_REASON_GAIN_MOUSE) {
             expected.emplace_back(2, MSYS_CALLBACK_REASON_GAIN_MOUSE);
@@ -315,10 +316,10 @@ void release_outside_controls()
     MOUSE_REGION left, right;
     left.configure(0, 0, 10, 10, MSYS_PRIORITY_NORMAL, nullptr, region_click);
     right.configure(20, 0, 30, 10, MSYS_PRIORITY_NORMAL, nullptr, region_click);
-    DispatchMouseEvent(LEFT_BUTTON_DOWN, 5, 5, true, false);
+    dispatch_mouse(LEFT_BUTTON_DOWN, 5, 5, true, false);
     REQUIRE(clicked_region == &left);
-    DispatchMouseEvent(LEFT_BUTTON_UP, 100, 100, false, false);
-    DispatchMouseEvent(LEFT_BUTTON_DOWN, 25, 5, true, false);
+    dispatch_mouse(LEFT_BUTTON_UP, 100, 100, false, false);
+    dispatch_mouse(LEFT_BUTTON_DOWN, 25, 5, true, false);
     REQUIRE(clicked_region == &right);
     MSYS_Shutdown();
 }
@@ -332,23 +333,23 @@ void region_registration_and_callback_lifetimes()
     {
         MOUSE_REGION scoped{};
         scoped.configure(0, 0, 40, 40, MSYS_PRIORITY_HIGH, nullptr, region_click);
-        DispatchMouseEvent(LEFT_BUTTON_DOWN, 10, 10, true, false);
+        dispatch_mouse(LEFT_BUTTON_DOWN, 10, 10, true, false);
         REQUIRE(clicked_region == &scoped);
     } // Registration and click capture expire with the control.
-    DispatchMouseEvent(LEFT_BUTTON_UP, 10, 10, false, false);
+    dispatch_mouse(LEFT_BUTTON_UP, 10, 10, false, false);
     REQUIRE(clicked_region == &first);
     latest.configure(0, 0, 40, 40, MSYS_PRIORITY_NORMAL, nullptr, region_click);
-    DispatchMouseEvent(LEFT_BUTTON_DOWN, 10, 10, true, false);
+    dispatch_mouse(LEFT_BUTTON_DOWN, 10, 10, true, false);
     REQUIRE(clicked_region == &latest);
-    DispatchMouseEvent(LEFT_BUTTON_UP, 10, 10, false, false);
+    dispatch_mouse(LEFT_BUTTON_UP, 10, 10, false, false);
     MSYS_DisableRegion(&latest);
     temporary_region = std::make_unique<MOUSE_REGION>();
     temporary_region->configure(0, 0, 40, 40, MSYS_PRIORITY_HIGH, remove_on_move, region_click);
-    DispatchMouseEvent(MOUSE_POS, 11, 11, false, false);
+    dispatch_mouse(MOUSE_POS, 11, 11, false, false);
     REQUIRE(!temporary_region);
-    DispatchMouseEvent(LEFT_BUTTON_DOWN, 11, 11, true, false);
+    dispatch_mouse(LEFT_BUTTON_DOWN, 11, 11, true, false);
     REQUIRE(clicked_region == &first);
-    DispatchMouseEvent(LEFT_BUTTON_UP, 11, 11, false, false);
+    dispatch_mouse(LEFT_BUTTON_UP, 11, 11, false, false);
     MSYS_DisableRegion(&first);
 
     nested_outer = CreateTextButton("nested", font, 0, 0, {}, 0, 0, 40, 20,
@@ -387,12 +388,12 @@ void buttons_and_regions()
     MOUSE_REGION low{}, high{};
     low.configure(0, 0, 40, 40, MSYS_PRIORITY_LOW, nullptr, region_click);
     high.configure(0, 0, 20, 20, MSYS_PRIORITY_HIGH, nullptr, region_click);
-    DispatchMouseEvent(LEFT_BUTTON_DOWN, 10, 10, true, false);
+    dispatch_mouse(LEFT_BUTTON_DOWN, 10, 10, true, false);
     REQUIRE(clicked_region == &high);
-    DispatchMouseEvent(LEFT_BUTTON_UP, 10, 10, false, false);
-    DispatchMouseEvent(LEFT_BUTTON_DOWN, 30, 30, true, false);
+    dispatch_mouse(LEFT_BUTTON_UP, 10, 10, false, false);
+    dispatch_mouse(LEFT_BUTTON_DOWN, 30, 30, true, false);
     REQUIRE(clicked_region == &low);
-    DispatchMouseEvent(LEFT_BUTTON_UP, 30, 30, false, false);
+    dispatch_mouse(LEFT_BUTTON_UP, 30, 30, false, false);
     MSYS_SetRegionUserData(&low, 0, 17);
     REQUIRE(MSYS_GetRegionUserData(&low, 0) == 17);
     REQUIRE(MSYS_GrabMouse(&high) == MSYS_GRABBED_OK);
@@ -458,61 +459,48 @@ void buttons_and_regions()
 
 void image_and_sprite_ownership()
 {
-    image_type image{};
-    image.ubBitDepth = 8;
-    image.fFlags = IMAGE_TRLECOMPRESSED | IMAGE_BITMAPDATA | IMAGE_PALETTE;
-    image.pPalette.emplace();
-    (*image.pPalette)[1] = {255, 0, 0, 0};
-    image.pImageData.resize(3);
-    image.pImageData[0] = 1;
-    image.pImageData[1] = 1;
-    image.pETRLEObject.resize(1);
-    image.pETRLEObject[0] = {0, 3, 0, 0, 1, 1};
+    SpriteSheet image;
+    image.palette[1] = {255, 0, 0, 0};
+    image.frames.resize(1);
+    image.frames[0].pixels = {1};
+    image.frames[0].usWidth = image.frames[0].usHeight = 1;
 
-    VOBJECT_DESC desc{};
-    desc.fCreateFlags = VOBJECT_CREATE_FROMHIMAGE;
-    desc.hImage = &image;
     std::array<std::unique_ptr<SGPVObject>, 64> objects{};
     for (unsigned i = 0; i < objects.size(); ++i) {
-        objects[i] = CreateVideoObject(desc);
+        objects[i] = std::make_unique<SGPVObject>(image);
         REQUIRE(objects[i]);
         REQUIRE((objects[i]->sprites.size() == 1 && objects[i]->sprites[0].pixels.size() == 1));
-        REQUIRE(reinterpret_cast<const UINT8*>(objects[i]->sprites[0].pixels.data()) !=
-              image.pImageData.data());
-        REQUIRE(objects[i]->pPaletteEntry.data() != image.pPalette->data());
+        REQUIRE(objects[i]->sprites[0].pixels.data() != image.frames[0].pixels.data());
+        REQUIRE(objects[i]->pPaletteEntry.data() != image.palette.data());
         (void)CreateObjectPaletteTables(*objects[i], HVOBJECT_GLOW_GREEN);
         REQUIRE((objects[i]->pShades[0] && objects[i]->pShades[15]));
         REQUIRE(objects[i]->currentPalette() == objects[i]->palette);
         REQUIRE(SetObjectShade(*objects[i], 6));
         auto retained = objects[i]->palette;
-        objects[i]->setPalette(*image.pPalette);
+        objects[i]->setPalette(image.palette);
         REQUIRE(objects[i]->palette == retained);
         REQUIRE(objects[i]->currentPalette() == objects[i]->palette);
         REQUIRE(SetObjectShade(*objects[i], 4));
         (void)CreateObjectPaletteTables(*objects[i], HVOBJECT_GLOW_RED);
         REQUIRE(objects[i]->currentPalette() == objects[i]->palette);
     }
-    image.pImageData[1] = 2;
-    image.pETRLEObject[0].usWidth = 2;
+    image.frames[0].pixels[0] = 2;
+    image.frames[0].usWidth = 2;
     REQUIRE((objects[0]->sprites[0].pixels[0] == 1 && objects[0]->sprites[0].usWidth == 1));
-    image.pETRLEObject[0].uiDataOffset = 0xffffffffu;
-    REQUIRE(!CreateVideoObject(desc));
-    REQUIRE((image.pImageData[1] == 2 && image.pETRLEObject[0].uiDataOffset == 0xffffffffu));
+    const auto* owned_pixels = image.frames[0].pixels.data();
+    SGPVObject moved(std::move(image));
+    REQUIRE(moved.sprites[0].pixels.data() == owned_pixels);
+    REQUIRE(moved.sprites[0].pixels[0] == 2);
     image = {};
-    REQUIRE((image.pImageData.empty() && !image.pPalette && image.pETRLEObject.empty()));
+    REQUIRE(image.frames.empty());
     for (unsigned index : {0u, 31u, 63u}) {
         objects[index].reset();
     }
     auto& surviving = *objects[32];
     REQUIRE((surviving.sprites[0].pixels[0] == 1 && surviving.sprites[0].usWidth == 1));
-    VSURFACE_DESC surface_desc{};
-    surface_desc.fCreateFlags = VSURFACE_CREATE_DEFAULT;
-    surface_desc.usWidth = 8;
-    surface_desc.usHeight = 8;
-    surface_desc.ubBitDepth = 16;
     std::array<std::unique_ptr<SGPVSurface>, 64> surfaces{};
     for (auto& surface : surfaces) {
-        surface = CreateVideoSurface(surface_desc);
+        surface = CreateVideoSurface(8, 8, 16);
         REQUIRE(surface);
     }
     auto& surviving_surface = *surfaces[32];
@@ -589,8 +577,9 @@ void formatted_strings()
 }
 
 void button_image_fixture(const std::filesystem::path& root, std::string name, unsigned count = 9,
-                           bool app_data = false)
+                           bool app_data = false, unsigned width = 1, unsigned height = 1)
 {
+    REQUIRE((width > 0 && width < 128 && height > 0));
     std::replace(name.begin(), name.end(), '\\', '/');
     const auto path = root / name;
     std::filesystem::create_directories(path.parent_path());
@@ -601,10 +590,12 @@ void button_image_fixture(const std::filesystem::path& root, std::string name, u
     };
     STCIHeader header{};
     memcpy(header.cID, STCI_ID_STRING, STCI_ID_LEN);
-    header.uiOriginalSize = count;
-    header.uiStoredSize = count * 3;
+    const unsigned image_size = (width + 2) * height;
+    header.uiOriginalSize = count * width * height;
+    header.uiStoredSize = count * image_size;
     header.fFlags = STCI_INDEXED | STCI_ETRLE_COMPRESSED;
-    header.usWidth = header.usHeight = 1;
+    header.usWidth = width;
+    header.usHeight = height;
     header.Indexed.uiNumberOfColours = 256;
     header.Indexed.usNumberOfSubImages = count;
     header.ubDepth = 8;
@@ -615,15 +606,18 @@ void button_image_fixture(const std::filesystem::path& root, std::string name, u
     write(palette.data(), STCI_8BIT_PALETTE_SIZE);
     std::vector<STCISubImage> regions(count);
     for (unsigned index = 0; index < count; ++index) {
-        regions[index].uiDataOffset = index * 3;
-        regions[index].uiDataLength = 3;
-        regions[index].usWidth = regions[index].usHeight = 1;
+        regions[index].uiDataOffset = index * image_size;
+        regions[index].uiDataLength = image_size;
+        regions[index].usWidth = width;
+        regions[index].usHeight = height;
     }
     write(regions.data(), regions.size() * sizeof(STCISubImage));
-    for (unsigned index = 0; index < count; ++index) {
-        const UINT8 pixels[]{1, 1, 0};
-        write(pixels, sizeof(pixels));
-    }
+    std::vector<UINT8> pixels(width + 2, 1);
+    pixels.front() = width;
+    pixels.back() = 0;
+    for (unsigned index = 0; index < count; ++index)
+        for (unsigned row = 0; row < height; ++row)
+            write(pixels.data(), pixels.size());
     if (app_data) {
         const UINT8 bytes[]{7, 8, 9, 10};
         write(bytes, sizeof(bytes));
@@ -641,31 +635,13 @@ void generic_button_images()
 
     button_image_fixture(assets, "metadata.sti", 3, true);
     {
-        char filename[] = "metadata.sti";
-        std::unique_ptr<image_type> image(CreateImage(filename, IMAGE_ALLDATA));
-        REQUIRE((image && image->pImageData.size() == 9 && image->pETRLEObject.size() == 3));
-        auto* pixels = image->pImageData.data();
-        auto* palette = image->pPalette->data();
-        REQUIRE(LoadImageData(image.get(), IMAGE_APPDATA));
-        REQUIRE((image->pImageData.data() == pixels && image->pPalette->data() == palette));
-        REQUIRE((image->pAppData.size() == 4 && image->pAppData[0] == 7 && image->pAppData[3] == 10));
-        auto* app = image->pAppData.data();
-        REQUIRE(LoadImageData(image.get(), IMAGE_PALETTE));
-        REQUIRE((image->pImageData.data() == pixels && image->pAppData.data() == app));
-        REQUIRE(((*image->pPalette)[1].r == 255));
-        palette = image->pPalette->data();
-        REQUIRE(LoadImageData(image.get(), IMAGE_BITMAPDATA));
-        REQUIRE((image->pPalette->data() == palette && image->pAppData.data() == app));
-        REQUIRE((image->pImageData[1] == 1 && image->pETRLEObject.size() == 3));
-        pixels = image->pImageData.data();
-        auto* objects = image->pETRLEObject.data();
-        const auto flags = image->fFlags;
-        std::filesystem::resize_file(assets / "metadata.sti",
-            STCI_HEADER_SIZE + STCI_8BIT_PALETTE_SIZE + 3 * STCI_SUBIMAGE_SIZE + 7);
-        REQUIRE(!LoadImageData(image.get(), IMAGE_ALLDATA));
-        REQUIRE((image->pImageData.data() == pixels && image->pETRLEObject.data() == objects));
-        REQUIRE((image->pPalette->data() == palette && image->pAppData.data() == app));
-        REQUIRE((image->fFlags == flags && image->pAppData.size() == 4 && image->pImageData.size() == 9));
+        auto image = LoadImage("metadata.sti");
+        REQUIRE(image);
+        const auto* sheet = std::get_if<SpriteSheet>(&*image);
+        REQUIRE(sheet);
+        REQUIRE(sheet->frames.size() == 3);
+        REQUIRE(sheet->frames[2].pixels == std::vector<UINT16>{1});
+        REQUIRE(sheet->palette[1].r == 255);
 
         const auto pixel_offset = STCI_HEADER_SIZE + STCI_8BIT_PALETTE_SIZE + 3 * STCI_SUBIMAGE_SIZE;
         for (std::uintmax_t cut : {0u, STCI_HEADER_SIZE - 1u,
@@ -673,16 +649,8 @@ void generic_button_images()
              pixel_offset - 1u, pixel_offset + 8u, pixel_offset + 12u}) {
             button_image_fixture(assets, "metadata.sti", 3, true);
             std::filesystem::resize_file(assets / "metadata.sti", cut);
-            REQUIRE(!LoadImageData(image.get(), IMAGE_ALLDATA));
-            REQUIRE((image->pImageData.data() == pixels && image->pETRLEObject.data() == objects));
-            REQUIRE((image->pPalette->data() == palette && image->pAppData.data() == app));
-            REQUIRE((image->fFlags == flags && image->pAppData.size() == 4 && image->pImageData[1] == 1));
+            REQUIRE(!LoadImage("metadata.sti"));
         }
-        button_image_fixture(assets, "metadata.sti", 3, true);
-        std::filesystem::resize_file(assets / "metadata.sti", pixel_offset);
-        REQUIRE(LoadImageData(image.get(), IMAGE_PALETTE));
-        REQUIRE((image->pImageData.data() == pixels && image->pAppData.data() == app));
-        REQUIRE(!LoadImageData(image.get(), IMAGE_BITMAPDATA));
     }
     std::string long_image_path;
     for (int i = 0; i < 8; ++i)
@@ -691,10 +659,7 @@ void generic_button_images()
     REQUIRE(long_image_path.size() > 260);
     button_image_fixture(assets, long_image_path, 3);
     {
-        VOBJECT_DESC desc{};
-        desc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
-        desc.ImageFile = long_image_path;
-        std::unique_ptr<SGPVObject> sprite(CreateVideoObject(desc));
+        auto sprite = LoadVideoObject(long_image_path);
         REQUIRE((sprite && sprite->sprites.size() == 3));
         REQUIRE((sprite->sprites[2].usWidth == 1 && sprite->sprites[2].pixels[0] == 1));
         REQUIRE(sprite->pPaletteEntry[1].r == 255);
@@ -711,8 +676,7 @@ void generic_button_images()
             file.write(reinterpret_cast<const char*>(&region), STCI_SUBIMAGE_SIZE);
             REQUIRE(file.good());
         }
-        REQUIRE(!CreateImage("bad-extent.sti", IMAGE_ALLIMAGEDATA));
-        REQUIRE(CreateImage("bad-extent.sti", IMAGE_PALETTE));
+        REQUIRE(!LoadImage("bad-extent.sti"));
     }
     for (bool corrupt_app_data : {false, true}) {
         button_image_fixture(assets, "bad-size.sti", 3, true);
@@ -728,8 +692,7 @@ void generic_button_images()
             file.write(reinterpret_cast<const char*>(&header), STCI_HEADER_SIZE);
             REQUIRE(file.good());
         }
-        REQUIRE(!CreateImage("bad-size.sti", IMAGE_ALLDATA));
-        REQUIRE(CreateImage("bad-size.sti", IMAGE_PALETTE));
+        REQUIRE(!LoadImage("bad-size.sti"));
     }
     // A button retains its graphics after the loader's reference and the
     // image manager are released; the last button releases the resource.
@@ -750,11 +713,7 @@ void generic_button_images()
         sprite.sprites[frame].pixels[0] = frame + 1;
         sprite.palette[frame + 1] = 0x1000 + frame;
     }
-    VSURFACE_DESC target_desc{};
-    target_desc.fCreateFlags = VSURFACE_CREATE_DEFAULT;
-    target_desc.usWidth = target_desc.usHeight = 8;
-    target_desc.ubBitDepth = 16;
-    auto target_owner = CreateVideoSurface(target_desc);
+    auto target_owner = CreateVideoSurface(8, 8, 16);
     REQUIRE(target_owner);
     auto& target = *target_owner;
     const auto old_target = ButtonDestBuffer;
@@ -771,7 +730,8 @@ void generic_button_images()
                             (enabled ? BUTTON_ENABLED : 0) | (pressed ? BUTTON_CLICKED_ON : 0);
                         if (hover) first_button->Area.uiFlags |= MSYS_MOUSE_IN_AREA;
                         else first_button->Area.uiFlags &= ~MSYS_MOUSE_IN_AREA;
-                        gfLeftButtonState = mouse_down;
+                        first_button->Area.ButtonState = mouse_down ? MSYS_LEFT_BUTTON : 0;
+                        gfLeftButtonState = !mouse_down;
                         DrawButton(first_button);
                         auto* pixels = static_cast<UINT16*>(target.cpu().surface->pixels);
                         REQUIRE(pixels);
@@ -823,7 +783,7 @@ void generic_button_images()
         REQUIRE(!dialog->ConfigureIcon("missing.sti", 0, 1, MSYS_PRIORITY_NORMAL,
                                        W8_DIALOG_BUTTON_NO_TOOLTIP));
         REQUIRE((dialog->GetX() == 12 && dialog->GetY() == 13 && dialog->GetWidth() == 1));
-        REQUIRE(RegisteredButtonCount() == 1);
+        REQUIRE(RegisteredButtonCount() == 0);
     }
     REQUIRE(RegisteredButtonCount() == 0);
     // A dialog's click callback can close it. The dispatcher must not read
@@ -832,11 +792,9 @@ void generic_button_images()
     REQUIRE(closing_dialog->Configure("button.sti", 0, 1, 2, 3, 4,
         [](W8DialogButton* dialog) { delete dialog; }, nullptr, false,
         MSYS_PRIORITY_NORMAL, W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr));
-    auto dispatch_button = std::make_shared<GUI_BUTTON>();
-    SetButtonUserDataPointer(dispatch_button, closing_dialog);
-    dispatch_button->uiFlags = BUTTON_CLICKED_ON;
     PushButtonSoundScheme(0, true);
-    DialogButtonCallback(dispatch_button.get(), MSYS_CALLBACK_REASON_LBUTTON_UP);
+    dispatch_mouse(LEFT_BUTTON_DOWN, 0, 0, true, false);
+    dispatch_mouse(LEFT_BUTTON_UP, 0, 0, false, false);
     REQUIRE(RegisteredButtonCount() == 0);
     MSYS_Shutdown();
 
@@ -1147,6 +1105,213 @@ TEST_CASE("Generic button image ownership", "[owner]")
     generic_button_images();
 }
 
+TEST_CASE("Dialog controls own interaction without legacy GUI buttons", "[owner]")
+{
+    REQUIRE(MSYS_Init());
+    Font font{SGPVObject{}};
+    PushButtonSoundScheme(0, true);
+    int activations = 0;
+    {
+        W8DialogButton button;
+        REQUIRE(button.ConfigureTextButton("button", font, 0, 0, 10, 10, 40, 20,
+            [&](W8DialogButton* control) {
+                REQUIRE(control->GetUserData() == 42);
+                ++activations;
+            }, 42));
+        REQUIRE(RegisteredButtonCount() == 0);
+        // The event snapshot wins over contradictory current global state.
+        gfLeftButtonState = false;
+        gusMouseXPos = gusMouseYPos = 400;
+        dispatch_mouse(LEFT_BUTTON_DOWN, 15, 15, true, false, 1);
+        REQUIRE((button.IsPressed() && activations == 0));
+        REQUIRE((button.GetMousePosition().x == 15 && button.GetMousePosition().y == 15));
+        dispatch_mouse(LEFT_BUTTON_UP, 15, 15, false, false, 1);
+        REQUIRE((!button.IsPressed() && activations == 1));
+        // A release alone cannot activate an unarmed control.
+        dispatch_mouse(LEFT_BUTTON_UP, 15, 15, false, false);
+        REQUIRE(activations == 1);
+        // Drag-out and disable both cancel an armed release.
+        dispatch_mouse(LEFT_BUTTON_DOWN, 15, 15, true, false);
+        dispatch_mouse(MOUSE_POS, 80, 80, true, false);
+        dispatch_mouse(LEFT_BUTTON_UP, 15, 15, false, false);
+        REQUIRE((!button.IsPressed() && activations == 1));
+        dispatch_mouse(LEFT_BUTTON_DOWN, 15, 15, true, false);
+        button.SetEnabled(false);
+        button.SetEnabled(true);
+        dispatch_mouse(LEFT_BUTTON_UP, 15, 15, false, false);
+        REQUIRE((!button.IsPressed() && activations == 1));
+        dispatch_mouse(LEFT_BUTTON_DOWN, 15, 15, true, false);
+        button.SetVisible(false);
+        button.SetVisible(true);
+        dispatch_mouse(LEFT_BUTTON_UP, 15, 15, false, false);
+        REQUIRE(activations == 1);
+        REQUIRE(button.IsConfigured());
+        button.Resize(60, 30);
+        button.SetPosition(20, 20);
+        REQUIRE((button.GetBounds().w == 60 && button.GetBounds().h == 30));
+        dispatch_mouse(LEFT_BUTTON_DOWN, 75, 45, true, false);
+        REQUIRE(button.IsLeftButtonHeld());
+        dispatch_mouse(LEFT_BUTTON_UP, 75, 45, false, false);
+        REQUIRE(!button.IsLeftButtonHeld());
+        REQUIRE(activations == 2);
+        button.SetPosition(10, 10);
+        button.Resize(40, 20);
+        // A spinner's repeated action is not duplicated on release.
+        button.m_repeat_enabled = true;
+        dispatch_mouse(LEFT_BUTTON_DOWN, 15, 15, true, false);
+        dispatch_mouse(LEFT_BUTTON_REPEAT, 15, 15, true, false);
+        dispatch_mouse(LEFT_BUTTON_REPEAT, 15, 15, true, false);
+        REQUIRE(activations == 4);
+        dispatch_mouse(LEFT_BUTTON_UP, 15, 15, false, false);
+        REQUIRE((!button.IsPressed() && activations == 4));
+        button.m_repeat_enabled = false;
+        button.m_activation = DialogButtonActivation::Press;
+        dispatch_mouse(LEFT_BUTTON_DOWN, 15, 15, true, false);
+        REQUIRE(activations == 5);
+        dispatch_mouse(LEFT_BUTTON_UP, 15, 15, false, false);
+        REQUIRE(activations == 5);
+        button.Reset();
+        REQUIRE((!button.IsEnabled() && !button.IsPressed() && button.GetWidth() == 0));
+        dispatch_mouse(LEFT_BUTTON_DOWN, 15, 15, true, false);
+        dispatch_mouse(LEFT_BUTTON_UP, 15, 15, false, false);
+        REQUIRE(activations == 5);
+    }
+    // Copy the owner-local closure before invoking it: it can delete itself.
+    auto closing = std::make_unique<W8DialogButton>();
+    closing->ConfigureTextButton("close", font, 0, 0, 10, 10, 40, 20,
+        [&](W8DialogButton*) { closing.reset(); }, 0);
+    dispatch_mouse(LEFT_BUTTON_DOWN, 15, 15, true, false);
+    dispatch_mouse(LEFT_BUTTON_UP, 15, 15, false, false);
+    REQUIRE(!closing);
+    MSYS_Shutdown();
+}
+
+TEST_CASE("Modal confirmations and scrollbars dispatch through their native owners", "[owner]")
+{
+    const std::filesystem::path root = make_temporary_directory("wiz8-modal-controls");
+    const auto assets = root / "assets";
+    for (const auto* image : {"DialogBorder.STI", "DialogEdge.STI", "DialogConfirmation.STI"})
+        button_image_fixture(assets / "Data" / "Dialogs", image);
+    for (const auto* image : {"DialogInlay.STI", "DialogUpArrow.STI", "DialogDownArrow.STI",
+                              "DialogSlideBar.STI", "DialogBackground_dark.STI"})
+        button_image_fixture(assets / "Data" / "Dialogs", image);
+    button_image_fixture(assets, "font.sti", 128, false, 1, 10);
+    button_image_fixture(assets, "background.sti");
+    button_image_fixture(assets, "arrows.sti", 12, false, 2, 3);
+    button_image_fixture(assets, "track.sti", 1, false, 5, 100);
+    w8_native::configure_paths({assets.string(), (root / "user").string(), {"", "", ""}});
+    REQUIRE(MSYS_Init());
+    PushButtonSoundScheme(0, true);
+    static std::vector<int> positions;
+    positions.clear();
+    {
+        W8DialogScrollBar bar;
+        const W8DialogScrollBar::Resources resources{"arrows.sti", "track.sti", 0,
+            [](W8DialogScrollBar*, int position) { positions.push_back(position); }};
+        REQUIRE(bar.CreateControls(&resources));
+        REQUIRE(RegisteredButtonCount() == 0);
+        bar.SetLayout(100, 20, 20, 5, 10, 30);
+        gusMouseYPos = 400;
+        dispatch_mouse(LEFT_BUTTON_DOWN, 101, 116, true, false);
+        dispatch_mouse(LEFT_BUTTON_UP, 101, 116, false, false);
+        REQUIRE(positions == std::vector<int>{17});
+        dispatch_mouse(LEFT_BUTTON_DOWN, 101, 21, true, false);
+        dispatch_mouse(LEFT_BUTTON_REPEAT, 101, 21, true, false);
+        dispatch_mouse(LEFT_BUTTON_UP, 101, 21, false, false);
+        REQUIRE(positions == std::vector<int>{17, 16, 15});
+        bar.SetLayout(100, 20, 1, 0, 10, 30);
+        dispatch_mouse(LEFT_BUTTON_DOWN, 101, 21, true, false);
+        dispatch_mouse(LEFT_BUTTON_UP, 101, 21, false, false);
+        REQUIRE(positions.size() == 3);
+        bar.SetLayout(100, 20, 20, 5, 10, 30);
+        dispatch_mouse(LEFT_BUTTON_DOWN, 101, 118, true, false);
+        dispatch_mouse(LEFT_BUTTON_UP, 101, 118, false, false);
+        REQUIRE(positions.back() == 6);
+    }
+    auto saved_frame = std::move(GetFrameBufferSurface());
+    auto frame = CreateVideoSurface(640, 480, 16);
+    REQUIRE(frame);
+    GetFrameBufferSurface() = std::move(*frame);
+    auto* old_target = std::exchange(ButtonDestBuffer, &GetFrameBufferSurface());
+    Font font{SGPVObject{}};
+    auto* old_font = std::exchange(g_dialog_interface_font, &font);
+    class MessageDialog final : public W8MessageDialogBase {
+    public:
+        using W8MessageDialogBase::m_confirm_button;
+        using W8MessageDialogBase::m_cancel_button;
+    };
+    for (const bool accept : {false, true}) {
+        MessageDialog dialog;
+        dialog.SetOrigin(10, 10);
+        dialog.SetExtent(100, 80);
+        dialog.SetBackground("background.sti", 0);
+        dialog.SetMessage("", 0, 0, true, true, false, false, 100, 80);
+        REQUIRE(dialog.CreateControls() == 0);
+        REQUIRE(RegisteredButtonCount() == 0);
+        auto& control = accept ? dialog.m_confirm_button : dialog.m_cancel_button;
+        dispatch_mouse(LEFT_BUTTON_DOWN, control.GetX(), control.GetY(), true, false);
+        REQUIRE(dialog.is_open);
+        dispatch_mouse(LEFT_BUTTON_UP, control.GetX(), control.GetY(), false, false);
+        REQUIRE(!dialog.is_open);
+        REQUIRE(dialog.accepted == accept);
+    }
+    auto glyphs = LoadVideoObject("font.sti");
+    REQUIRE(glyphs);
+    font = Font{std::move(*glyphs)};
+    {
+        W8ListBoxDialog list;
+        list.SetOrigin(10, 10);
+        list.SetExtent(100, 80);
+        list.SetBackground("background.sti", 0);
+        for (int index = 0; index < 20; ++index) list.m_lines.emplace_back("X");
+        REQUIRE(list.CreateControls() == 0);
+        list.Draw();
+        REQUIRE(RegisteredButtonCount() == 0);
+        gusMouseYPos = 400;
+        dispatch_mouse(LEFT_BUTTON_DOWN, list.m_area_button.GetX() + 3,
+                        list.m_area_button.GetY() + 21, true, false);
+        dispatch_mouse(LEFT_BUTTON_UP, list.m_area_button.GetX() + 3,
+                        list.m_area_button.GetY() + 21, false, false);
+        REQUIRE(list.m_selected_line == 2);
+        dispatch_mouse(LEFT_BUTTON_DOWN, list.m_down_button.GetX(), list.m_down_button.GetY(), true, false);
+        dispatch_mouse(LEFT_BUTTON_REPEAT, list.m_down_button.GetX(), list.m_down_button.GetY(), true, false);
+        dispatch_mouse(LEFT_BUTTON_UP, list.m_down_button.GetX(), list.m_down_button.GetY(), false, false);
+        REQUIRE(list.m_selected_line == 4);
+        dispatch_mouse(LEFT_BUTTON_DOWN, list.m_third_text_button.GetX() + 1,
+                        list.m_third_text_button.GetY() + 30, true, false);
+        REQUIRE(list.m_selected_line == 15);
+        dispatch_mouse(LEFT_BUTTON_REPEAT, list.m_third_text_button.GetX() + 1,
+                        list.m_third_text_button.GetY() + 20, true, false);
+        dispatch_mouse(LEFT_BUTTON_UP, list.m_third_text_button.GetX() + 1,
+                        list.m_third_text_button.GetY() + 20, false, false);
+        REQUIRE(list.m_selected_line == 10);
+    }
+    g_dialog_interface_font = old_font;
+    ButtonDestBuffer = old_target;
+    GetFrameBufferSurface() = std::move(saved_frame);
+    REQUIRE(RegisteredButtonCount() == 0);
+    MSYS_Shutdown();
+    std::filesystem::remove_all(root);
+}
+
+TEST_CASE("Mouse regions use SDL click counts, not a local timer", "[owner]")
+{
+    REQUIRE(MSYS_Init());
+    MOUSE_REGION region;
+    region.configure(0, 0, 40, 40, MSYS_PRIORITY_NORMAL, nullptr,
+        [](MOUSE_REGION* target, INT32 reason) { target->UserData[0] = reason; });
+    for (UINT8 count : {0, 1, 2, 3, 4}) {
+        dispatch_mouse(LEFT_BUTTON_DOWN, 10, 10, true, false, count);
+        REQUIRE((region.UserData[0] & MSYS_CALLBACK_REASON_LBUTTON_DWN) != 0);
+        REQUIRE(((region.UserData[0] & MSYS_CALLBACK_REASON_LBUTTON_DOUBLECLICK) != 0) ==
+            (count != 0 && count % 2 == 0));
+        REQUIRE(region.ButtonState == MSYS_LEFT_BUTTON);
+        dispatch_mouse(LEFT_BUTTON_UP, 10, 10, false, false, count);
+        REQUIRE(region.ButtonState == 0);
+    }
+    MSYS_Shutdown();
+}
+
 TEST_CASE("assert-plain", "[.death]")
 {
     Assert(false);
@@ -1159,4 +1324,64 @@ TEST_CASE("assert-message", "[.death]")
     CreateTextButton("invalid", font, 0, 0, {}, -1, 0, 40, 20,
                      BUTTON_TOGGLE, MSYS_PRIORITY_NORMAL, nullptr, nullptr);
     FAIL("CreateTextButton did not abort");
+}
+
+TEST_CASE("Item image cache grows, reloads and rolls back failed loads", "[owner][catalog]")
+{
+    ScopedTemporaryDirectory directory{"wiz8-item-cache"};
+    const auto assets = directory.path / "assets";
+    button_image_fixture(assets, "Data/Items/icon.sti", 1);
+    button_image_fixture(assets, "Data/Items/Dagger.sti", 1);
+    w8_native::configure_paths({assets.string(), (directory.path / "user").string(), {}});
+    const auto slot_count = g_video_slots.size();
+    const auto frame_count = g_video_frames.size();
+    const auto fixed_tail = g_video_slots.back();
+    std::vector<W8ItemDatabaseRecord> records(1005);
+    for (auto& record : records)
+        record.video_object_name = "icon.sti";
+    struct Restore {
+        W8ItemDatabaseRecord* previous = g_item_records;
+        ~Restore() { g_item_video_objects.Clear(); g_item_records = previous; }
+    } restore;
+    g_item_records = records.data();
+    g_item_video_objects.Initialize(records.size());
+    REQUIRE_THROWS_AS(g_item_video_objects.GetOrCreateVideoObject(-1), std::out_of_range);
+    REQUIRE_THROWS_AS(g_item_video_objects.GetOrCreateVideoObject(records.size()), std::out_of_range);
+    records[0].video_object_name = "missing.sti";
+    REQUIRE_THROWS_AS(g_item_video_objects.GetOrCreateVideoObject(0), std::runtime_error);
+    REQUIRE(g_item_video_objects.LoadedImageCount() == 0);
+    REQUIRE(g_video_slots.size() == slot_count);
+    REQUIRE(g_video_frames.size() == frame_count);
+    records[0].video_object_name.clear(); // Checked fallback table.
+    records[0].unidentified_name_index = 145;
+    REQUIRE_THROWS_AS(g_item_video_objects.GetOrCreateVideoObject(0), std::out_of_range);
+    records[0].unidentified_name_index = 0;
+    for (unsigned i = 0; i < records.size(); ++i) {
+        const auto id = g_item_video_objects.GetOrCreateVideoObject(i);
+        REQUIRE(id == slot_count + i);
+        REQUIRE(GetCatalogVideoObject(id, 0).sprites.size() == 1);
+        REQUIRE(g_item_video_objects.GetOrCreateVideoObject(i) == id);
+    }
+    REQUIRE(g_item_video_objects.LoadedImageCount() == records.size());
+    REQUIRE(g_video_slots.size() == slot_count + records.size());
+    REQUIRE(g_video_frames.size() == frame_count + records.size());
+    REQUIRE(g_video_slots.at(slot_count - 1).first_frame == fixed_tail.first_frame);
+    REQUIRE_THROWS_AS(GetCatalogVideoObject(slot_count, -1), std::out_of_range);
+    REQUIRE_THROWS_AS(GetCatalogVideoObject(slot_count, std::numeric_limits<int>::max()),
+                      std::out_of_range);
+    ReleaseLoadedVideoFrames();
+    REQUIRE_FALSE(g_video_frames.at(frame_count).object);
+    REQUIRE(g_item_video_objects.GetOrCreateVideoObject(0) == slot_count);
+    REQUIRE(g_video_frames.at(frame_count).object);
+    // Reinitialization must release the prior images and remove their IDs.
+    g_item_video_objects.Initialize(records.size());
+    REQUIRE(g_item_video_objects.LoadedImageCount() == 0);
+    REQUIRE(g_video_slots.size() == slot_count);
+    REQUIRE(g_video_frames.size() == frame_count);
+    REQUIRE(g_item_video_objects.GetOrCreateVideoObject(1004) == slot_count);
+    g_item_video_objects.Clear();
+    g_item_video_objects.Clear();
+    REQUIRE(g_video_slots.size() == slot_count);
+    REQUIRE(g_video_frames.size() == frame_count);
+    REQUIRE_THROWS_AS(GetCatalogVideoObject(slot_count, 0), std::out_of_range);
 }

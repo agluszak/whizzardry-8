@@ -59,6 +59,9 @@ public:
     // Borrowed SDL stream; shares this File's cursor and lifetime. Do not close it.
     // Archive entries expose a bounded, read-only SDL stream.
     SDL_IOStream* io() const;
+    // Transfers the SDL stream and its close responsibility to the caller.
+    // The File becomes closed; this also transfers the bounded SLF entry backend.
+    SDL_IOStream* release_io() noexcept;
 
     ReadResult read(void* data, std::size_t bytes);
     void read_exact(void* data, std::size_t bytes);

@@ -145,35 +145,16 @@ void srVertexPipe::processVertexBuffer()
     finishDiffuseAlpha();
     finishSpecularFog();
     w8_ulong mask = channel_mask;
-    if ((mask & (1 << srVertexProcessor::CHANNEL_ST0)) != 0) {
-        if ((lazy_setup_mask & (1 << srVertexProcessor::CHANNEL_Q0)) == 0) {
-            mask &= 0xffffff7f;
-        }
+    for (unsigned stage = 0; stage < 2; ++stage) {
+        const w8_ulong st_bit = 1u << (srVertexProcessor::CHANNEL_ST0 + stage);
+        const w8_ulong q_bit = 1u << (srVertexProcessor::CHANNEL_Q0 + stage);
+        if ((channel_mask & st_bit) == 0) continue;
+        if ((lazy_setup_mask & q_bit) == 0) mask &= ~q_bit;
         srCore.getStatisticsManager()->statistics.texture_coordinate_operations += vertex_count;
-        if ((lazy_setup_mask & (1 << srVertexProcessor::CHANNEL_ST0)) == 0) {
-            setupST(0);
-        }
-        w8_ulong lazy = lazy_setup_mask | (1 << srVertexProcessor::CHANNEL_ST0);
-        lazy_setup_mask = lazy;
-        if ((lazy & (1 << srVertexProcessor::CHANNEL_Q0)) == 0) {
-            setupQ(0);
-        }
-        lazy_setup_mask |= 1 << srVertexProcessor::CHANNEL_Q0;
-    }
-    if ((channel_mask & (1 << srVertexProcessor::CHANNEL_ST1)) != 0) {
-        if ((lazy_setup_mask & (1 << srVertexProcessor::CHANNEL_Q1)) == 0) {
-            mask &= 0xfffffeff;
-        }
-        srCore.getStatisticsManager()->statistics.texture_coordinate_operations += vertex_count;
-        if ((lazy_setup_mask & (1 << srVertexProcessor::CHANNEL_ST1)) == 0) {
-            setupST(1);
-        }
-        w8_ulong lazy = lazy_setup_mask | (1 << srVertexProcessor::CHANNEL_ST1);
-        lazy_setup_mask = lazy;
-        if ((lazy & (1 << srVertexProcessor::CHANNEL_Q1)) == 0) {
-            setupQ(1);
-        }
-        lazy_setup_mask |= 1 << srVertexProcessor::CHANNEL_Q1;
+        if ((lazy_setup_mask & st_bit) == 0) setupST(stage);
+        lazy_setup_mask |= st_bit;
+        if ((lazy_setup_mask & q_bit) == 0) setupQ(stage);
+        lazy_setup_mask |= q_bit;
     }
     w8_ulong packed = (mask >> 2) & 0xffffff7c;
     packed |= ((mask >> 1) & srVertexArray::ATTRIBUTE_SPECULAR) |
@@ -708,10 +689,9 @@ void srVertexPipe::setupST(w8_ulong index)
 }
 
 // FUNCTION: SURRENDER 0x1002C480
-void srVertexPipe::getEyeSpaceBoundingSphere(glm::vec3& center, float& radius) const
+srVertexPipe::BoundingSphere srVertexPipe::getEyeSpaceBoundingSphere() const
 {
-    center = input->eye_center;
-    radius = input->eye_radius;
+    return {input->eye_center, input->eye_radius};
 }
 
 // FUNCTION: SURRENDER 0x1002C4C0

@@ -1,6 +1,4 @@
-#include <SDL3/SDL_rect.h>
-#include <cstdlib>
-#include <cstring>
+#include <string>
 #include <string_view>
 
 #include "wiz8/engine_code/Video2.h"
@@ -42,19 +40,15 @@ void W8DialogBase::ScrollTextArea(W8DialogTextArea& area, int first_visible_line
 // FUNCTION: WIZ8 0x005dc7a0
 W8DialogBase::W8DialogBase()
 {
-    m_resource.reset();
     m_dirty_flags = 0;
     m_error = 0;
-    m_text.clear();
     m_font = g_dialog_interface_font;
     m_foreground = g_dialog_font_foreground;
     m_background = g_dialog_font_background;
-    m_border.reset();
     m_x = -1;
     m_y = -1;
     m_width = -1;
     m_height = -1;
-    m_background_path = 0;
     m_background_flags = 0;
     m_field_4c = 0;
     m_initialized = false;
@@ -84,15 +78,12 @@ void W8DialogBase::Draw()
     if (!m_initialized) {
         CreateControls();
     }
-    if (m_error == 0 && m_resource) {
-        if (m_width != GetButtonWidth(m_resource) || m_height != GetButtonHeight(m_resource)) {
-            ResizeButton(m_resource, static_cast<short>(m_width), static_cast<short>(m_height));
+    if (m_error == 0 && m_resource.IsConfigured()) {
+        if (m_width != m_resource.GetWidth() || m_height != m_resource.GetHeight()) {
+            m_resource.Resize(m_width, m_height);
         }
-        if (!DrawButton(m_resource)) {
-            m_error = 9;
-            m_dirty_flags &= ~W8_DIALOG_DIRTY_REDRAW;
-            return;
-        }
+        m_resource.m_dirty = true;
+        m_resource.Draw();
         InvalidateRegion(m_x, m_y, m_x + m_width, m_y + m_height, 1);
     }
     m_dirty_flags &= ~W8_DIALOG_DIRTY_REDRAW;
@@ -110,8 +101,8 @@ void W8DialogBase::SetOrigin(int x, int y)
 {
     m_x = x;
     m_y = y;
-    if (m_resource) {
-        SetButtonPosition(m_resource, static_cast<short>(x), static_cast<short>(y));
+    if (m_resource.IsConfigured()) {
+        m_resource.SetPosition(x, y);
     }
     m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
 }
@@ -133,16 +124,7 @@ void W8DialogBase::SetExtent(int width, int height)
 // FUNCTION: WIZ8 0x005dca70
 void W8DialogBase::SetBackground(const char* path, int flags)
 {
-    if (m_background_path) {
-        free(m_background_path);
-        m_background_path = 0;
-    }
-    if (path) {
-        if (strlen(path) != 0) {
-            m_background_path = static_cast<char*>(malloc(strlen(path) + 1));
-            strcpy(m_background_path, path);
-        }
-    }
+    m_background_path = path ? path : "";
     m_background_flags = flags;
     m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
 }
@@ -159,7 +141,7 @@ int W8DialogBase::CreateControls()
     if (!m_font) {
         return m_error = 2;
     }
-    if (!m_background_path) {
+    if (m_background_path.empty()) {
         return m_error = 4;
     }
     if (!m_border) {
@@ -168,11 +150,11 @@ int W8DialogBase::CreateControls()
             return m_error = 4;
         }
     }
-    m_resource =
-        CreateTextButton({}, *m_font, m_foreground, m_background, m_border, static_cast<short>(m_x), static_cast<short>(m_y), static_cast<short>(m_width), static_cast<short>(m_height), BUTTON_NO_TOGGLE | BUTTON_IGNORE_CLICKS, MSYS_PRIORITY_HIGHEST - 2, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
-    if (m_resource) {
-        SpecifyButtonTextOffsets(m_resource, 3, 3, 1);
-        SpecifyButtonMultiColorFont(m_resource, g_dialog_font_enabled);
+    if (m_resource.ConfigureTextButton({}, *m_font, m_foreground, m_background, m_x, m_y,
+                                      m_width, m_height, nullptr, 0, m_border,
+                                      MSYS_PRIORITY_HIGHEST - 2)) {
+        m_resource.SetTextOffsets(3, 3, true);
+        m_resource.SetMultiColor(g_dialog_font_enabled);
         m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
         m_initialized = true;
         return 0;
@@ -183,29 +165,26 @@ int W8DialogBase::CreateControls()
 // FUNCTION: WIZ8 0x005dcc30
 void W8DialogBase::DestroyControls()
 {
-    m_resource.reset();
+    m_resource.Reset();
     m_border.reset();
     m_text.clear();
-    if (m_background_path) {
-        free(m_background_path);
-        m_background_path = 0;
-        m_background_flags = 0;
+    m_background_path.clear();
+    m_background_flags = 0;
+    if (m_initialized && m_x >= 0 && m_y >= 0 && m_width >= 0 && m_height >= 0) {
+        ClearSurfaceRect(m_x, m_y, m_x + m_width + 1, m_y + m_height + 1);
+        InvalidateRegion(m_x, m_y, m_x + m_width + 1, m_y + m_height + 1, 1);
     }
-    ClearSurfaceRect(m_x, m_y, m_x + m_width + 1, m_y + m_height + 1);
-    InvalidateRegion(m_x, m_y, m_x + m_width + 1, m_y + m_height + 1, 1);
     m_initialized = false;
 }
 
 // FUNCTION: WIZ8 0x005dcce0
 bool W8DialogBase::ProcessInput()
 {
-    SDL_Point mouse;
     InputAtom input;
 
-    SGPMouseGetPos(&mouse);
-    DispatchMouseEvent(MOUSE_POS, mouse.x, mouse.y, gfLeftButtonState, gfRightButtonState);
+    RefreshMouseRegions();
     while (DequeueEvent(&input)) {
-        if (DispatchDialogMouseInput(input.usEvent, mouse.x, mouse.y)) {
+        if (DispatchDialogMouseInput(input)) {
             if (input.usEvent == RIGHT_BUTTON_DOWN) {
                 OnRightButtonDown();
             } else if (input.usEvent == RIGHT_BUTTON_UP) {

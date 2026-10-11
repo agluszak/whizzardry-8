@@ -357,16 +357,14 @@ UINT32 SoundGetPosition(SoundPlayback playback)
 }
 
 // FUNCTION: WIZ8 0x00409840
-BOOLEAN SoundGetMilliSecondPosition(SoundPlayback playback, UINT32* total, UINT32* current)
+std::optional<SoundPlaybackTime> SoundGetMilliSecondPosition(SoundPlayback playback)
 {
-    if (!total || !current) return FALSE;
-    *total = *current = 0;
-    if (!fSoundSystemInit || !playback || !playback->track) return FALSE;
+    if (!fSoundSystemInit || !playback || !playback->track) return std::nullopt;
     const auto& channel = *playback;
     const auto position = MIX_GetTrackPlaybackPosition(channel.track.get());
-    *total = UINT32(std::max<Sint64>(0, MIX_TrackFramesToMS(channel.track.get(), channel.duration)));
-    *current = UINT32(std::max<Sint64>(0, MIX_TrackFramesToMS(channel.track.get(), position)));
-    return TRUE;
+    return SoundPlaybackTime{
+        UINT32(std::max<Sint64>(0, MIX_TrackFramesToMS(channel.track.get(), channel.duration))),
+        UINT32(std::max<Sint64>(0, MIX_TrackFramesToMS(channel.track.get(), position)))};
 }
 
 // FUNCTION: WIZ8 0x004098d0

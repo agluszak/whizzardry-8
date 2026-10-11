@@ -1223,7 +1223,7 @@ void HandleMonsterDebugKey(unsigned short key)
             monster->SetSubCycle(0);
             monster->m_pRep->pending_subcycle = 0;
             world = GetWorld();
-            WorldGetCameraLocation(world, &location);
+            location = cameraLocation(*world);
             position = location;
             monster->SelectLOD(&position);
             monster->ReplacePath(0);
@@ -1489,7 +1489,7 @@ int HandleCubeMenuKey(unsigned int key)
     case 0x31:
         g_mipe_cube = CreateWorldCursorCube();
         GetCameraForwardPointCopy(2500.0f, &position);
-        position.y = SettlePositionToGroundMutable(&position, 0);
+        position.y = probeGround(position.glmValue()).position.y;
         MoveWorldCursorNode(g_mipe_cube, &position);
         AttachWorldCursorNode(g_mipe_cube, true);
         SetWorldCursorNodeColorComponents(g_mipe_cube, 0.0f, 1.0f, 0.0f);
@@ -3079,7 +3079,7 @@ bool AnyMonsterGeneratorMarkerWithinReach(void)
     if (g_world == 0 || g_world->camera == 0) {
         return false;
     }
-    GetCameraPosition(&camera);
+    camera = cameraLocation();
     count = GetMonsterGeneratorCount();
     if (0 <= g_last_reachable_mongen_marker && g_last_reachable_mongen_marker < count) {
         generator = GetMonsterGenerator(g_last_reachable_mongen_marker);

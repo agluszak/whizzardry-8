@@ -425,8 +425,7 @@ void ResetAutomapView(void)
     g_automap_position_initialized = false;
     g_automap_layer = 0;
 
-    srVector3T<float> camera;
-    GetCameraPosition(&camera);
+    srVector3T<float> camera = cameraLocation();
     srVector3T<float> relative = camera - g_automap_grid_origin;
     unsigned int key = AutomapNodeKey(&relative);
     int cell = LookupIndexValue(*g_automap_cell_index, key);
@@ -500,13 +499,14 @@ void CreateAutomapButtons(void)
 {
     std::vector<std::unique_ptr<W8DialogButton>> buttons(16);
     for (size_t index = 0; index < buttons.size(); ++index) {
-        const auto& slot = g_video_slots[g_automap_button_catalogs[index]];
-        const auto& frame = g_video_frames[slot.first_frame];
+        const auto& slot = g_video_slots.at(g_automap_button_catalogs[index]);
+        const auto& frame = g_video_frames.at(slot.first_frame);
         const int base_frame = slot.y_offset;
         if (frame.storage_kind != W8_VIDEO_STORAGE_OBJECT) continue;
         auto button = std::make_unique<W8DialogButton>();
-        auto callback = reinterpret_cast<W8DialogButtonCallback>(
-            g_automap_button_callbacks[index]); // reinterpret-ok: void() vs button*
+        const auto action = g_automap_button_callbacks[index];
+        W8DialogButtonCallback callback;
+        if (action) callback = [action](W8DialogButton*) { action(); };
         if (button->Configure(frame.path.c_str(), base_frame + 3, base_frame, base_frame + 1,
                               base_frame + 2, base_frame + 2, callback, nullptr, false,
                               MSYS_PRIORITY_HIGHEST, g_automap_button_tooltips[index], nullptr, nullptr)) {
@@ -661,7 +661,7 @@ unsigned char AutomapScreenEnter(void)
     MSYS_Init();
     GetLightDirection(&g_automap_saved_light_direction);
     GetWorldLightValue(g_world, &g_automap_saved_ambient_light);
-    GetWorldCameraState(GetWorld(), &g_automap_saved_camera);
+    g_automap_saved_camera = cameraState(*GetWorld());
     g_automap_saved_far_clip = static_cast<float>(WorldGetFarClip(g_world));
     g_automap_saved_world_value = WorldGetRenderRange(g_world);
     g_automap_saved_sky = g_sky_enabled;
@@ -879,30 +879,18 @@ void AutomapScreenFrame(void)
                 g_automap_cursor_inside = false;
                 SetAutomapToolCursor(g_automap_tool);
             }
-            SDL_Point point;
-            SGPMouseGetPos(&point);
-            DispatchMouseEvent(MOUSE_POS, point.x, point.y, gfLeftButtonState,
-                                        gfRightButtonState);
-            unsigned short reason;
+            RefreshMouseRegions();
             switch (input.usEvent) {
             case LEFT_BUTTON_DOWN:
             case LEFT_BUTTON_REPEAT:
-                reason = LEFT_BUTTON_DOWN;
-                break;
             case LEFT_BUTTON_UP:
-                reason = LEFT_BUTTON_UP;
-                break;
             case RIGHT_BUTTON_DOWN:
-                reason = RIGHT_BUTTON_DOWN;
-                break;
             case RIGHT_BUTTON_UP:
-                reason = RIGHT_BUTTON_UP;
+                DispatchMouseEvent(input);
                 break;
             default:
-                continue;
+                break;
             }
-            DispatchMouseEvent(reason, point.x, point.y, gfLeftButtonState,
-                                        gfRightButtonState);
             continue;
         }
         if (!g_automap_cursor_inside) {
@@ -1410,8 +1398,7 @@ void LightAutomapCell(const srVector3T<float>* position)
     for (auto* instance : instances) {
         if (!instance)
             continue;
-        glm::mat4 world;
-        instance->getWorldSpaceMatrix(world);
+        auto world = instance->getWorldSpaceMatrix<glm::mat4>();
         for (auto* mesh = static_cast<stMeshModel*>(instance->getModel()); mesh; mesh = mesh->Next())
             mesh->RevealVerticesNear(center, g_automap_range, world);
     }

@@ -1,3 +1,4 @@
+#include <SDL3/SDL_mouse.h>
 #include <cstdint>
 #include <utf8proc.h>
 #include <SDL3/SDL_rect.h>
@@ -41,19 +42,6 @@ UINT16 gfCtrlState; // TRUE = Pressed, FALSE = Not Pressed
 
 // These data structure are used to track the mouse while polling
 
-// GLOBAL: WIZ8 0x006f04f4
-BOOLEAN gfTrackDblClick;
-// GLOBAL: WIZ8 0x006f04e4
-UINT32 guiDoubleClkDelay; // Current delay in milliseconds for a delay
-// GLOBAL: WIZ8 0x006f0504
-uint64_t guiSingleClickTimer;
-UINT32 guiRecordedWParam;
-UINT32 guiRecordedLParam;
-// GLOBAL: WIZ8 0x006f0514
-UINT16 gusRecordedKeyState;
-// GLOBAL: WIZ8 0x006f04e9
-BOOLEAN gfRecordedLeftButtonUp;
-
 // GLOBAL: WIZ8 0x006f0518
 uint64_t guiLeftButtonRepeatTimer;
 // GLOBAL: WIZ8 0x006f04f0
@@ -78,7 +66,7 @@ static constexpr std::size_t max_input_events = 256;
 // GLOBAL: WIZ8 0x00650db9
 BOOLEAN gfSGPInputReceived = FALSE;
 
-void HandleSingleClicksAndButtonRepeats(void);
+void HandleButtonRepeats(void);
 
 // These are the hook functions for both keyboard and mouse
 
@@ -94,11 +82,6 @@ BOOLEAN InitializeInputManager(void)
     gfShiftState = FALSE;
     gfAltState = FALSE;
     gfCtrlState = FALSE;
-    // Initialize variables pertaining to DOUBLE CLIK stuff
-    gfTrackDblClick = TRUE;
-    guiDoubleClkDelay = DBL_CLK_TIME;
-    guiSingleClickTimer = 0;
-    gfRecordedLeftButtonUp = FALSE;
     // Initialize variables pertaining to the button states
     gfLeftButtonState = FALSE;
     gfRightButtonState = FALSE;
@@ -113,7 +96,7 @@ BOOLEAN InitializeInputManager(void)
 }
 
 // FUNCTION: WIZ8 0x00401f90
-void QueueEvent(UINT16 ubInputEvent, UINT32 usParam, UINT32 uiParam)
+void QueueEvent(UINT16 ubInputEvent, UINT32 usParam, UINT32 uiParam, UINT8 clicks)
 {
     if (gEventQueue.size() == max_input_events)
         return;
@@ -128,26 +111,20 @@ void QueueEvent(UINT16 ubInputEvent, UINT32 usParam, UINT32 uiParam)
         break;
     case LEFT_BUTTON_UP:
         guiLeftButtonRepeatTimer = 0;
-        if ((uiTimer - guiSingleClickTimer) < DBL_CLK_TIME) {
-            guiSingleClickTimer = 0;
-            gEventQueue.push({uiTimer, gusRecordedKeyState, LEFT_BUTTON_UP, usParam, uiParam});
-            if (gEventQueue.size() < max_input_events)
-                gEventQueue.push({uiTimer, gusRecordedKeyState, LEFT_BUTTON_DBL_CLK, usParam, uiParam});
-            return;
-        }
-        guiSingleClickTimer = uiTimer;
         break;
     case RIGHT_BUTTON_UP:
         guiRightButtonRepeatTimer = 0;
         break;
     }
-    gEventQueue.push({uiTimer, usKeyState, ubInputEvent, usParam, uiParam});
+    const SDL_MouseButtonFlags buttons = (gfLeftButtonState ? SDL_BUTTON_LMASK : 0) |
+                                         (gfRightButtonState ? SDL_BUTTON_RMASK : 0);
+    gEventQueue.push({uiTimer, usKeyState, ubInputEvent, usParam, uiParam, buttons, clicks});
 }
 
 // FUNCTION: WIZ8 0x00402140
 BOOLEAN DequeueEvent(InputAtom* Event)
 {
-    HandleSingleClicksAndButtonRepeats();
+    HandleButtonRepeats();
     if (gEventQueue.empty())
         return FALSE;
     *Event = gEventQueue.front();
@@ -268,7 +245,7 @@ void FreeMouseCursor(void)
     fCursorWasClipped = FALSE;
 }
 
-void HandleSingleClicksAndButtonRepeats(void)
+void HandleButtonRepeats(void)
 {
     uint64_t uiTimer;
 

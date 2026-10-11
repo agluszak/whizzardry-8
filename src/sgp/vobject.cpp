@@ -2,7 +2,9 @@
    Distributed under the accompanying SFI Source Code license agreement. */
 #include <SDL3/SDL_log.h>
 #include <memory>
-#include <optional>
+#include <string_view>
+#include <utility>
+#include <variant>
 
 #include "Types.h"
 #include "himage.h"
@@ -52,30 +54,16 @@ BOOLEAN BltVideoObject(SGPVSurface& uiDestVSurface, SGPVObject& hSrcVObject, UIN
 // *******************************************************************************
 
 // FUNCTION: WIZ8 0x00406180
-std::unique_ptr<SGPVObject> CreateVideoObject(const VOBJECT_DESC& VObjectDesc)
+SGPVObject::SGPVObject(SpriteSheet image) : sprites(std::move(image.frames))
 {
-    std::unique_ptr<image_type> imageOwner;
-    if (VObjectDesc.fCreateFlags & VOBJECT_CREATE_FROMFILE) {
-        imageOwner = CreateImage(VObjectDesc.ImageFile.c_str(), IMAGE_ALLIMAGEDATA);
-        if (!imageOwner) return nullptr;
-    } else if (!(VObjectDesc.fCreateFlags & VOBJECT_CREATE_FROMHIMAGE) || !VObjectDesc.hImage) {
-        return nullptr;
-    }
-    const auto& image = imageOwner ? *imageOwner : *VObjectDesc.hImage;
-    if (!(image.fFlags & IMAGE_TRLECOMPRESSED))
-        return nullptr;
-    auto owner = std::make_unique<SGPVObject>();
-    owner->ubBitDepth = image.ubBitDepth;
-    if (image.ubBitDepth == 8) {
-        if (!image.pPalette) return nullptr;
-        owner->setPalette(*image.pPalette);
-    }
-    // ETRLE data decodes once here; the compressed bytes are never kept
-    // on the video object.
-    if (!DecodeVideoObjectSprites(*owner, image.pETRLEObject, image.pImageData)) {
-        return nullptr;
-    }
-    return owner;
+    setPalette(image.palette);
+}
+
+std::unique_ptr<SGPVObject> LoadVideoObject(std::string_view filename)
+{
+    auto image = LoadImage(filename);
+    auto* sheet = image ? std::get_if<SpriteSheet>(&*image) : nullptr;
+    return sheet ? std::make_unique<SGPVObject>(std::move(*sheet)) : nullptr;
 }
 
 void SGPVObject::setPalette(const Palette8& colors)
@@ -158,7 +146,7 @@ BOOLEAN BltVideoObjectToBuffer(UINT16* pBuffer, UINT32 uiDestPitchBYTES, SGPVObj
     // Assertions
     Assert(pBuffer != nullptr);
 
-    if (hSrcVObject.ubBitDepth != 8 || usIndex >= hSrcVObject.sprites.size())
+    if (usIndex >= hSrcVObject.sprites.size())
         return TRUE;
     const bool mirror = (fBltFlags & VO_BLT_MIRROR_Y) != 0;
     const bool transparent = mirror || (fBltFlags & VO_BLT_SRCTRANSPARENCY);
@@ -183,12 +171,4 @@ UINT16 SetObjectShade(SGPVObject& pObj, UINT32 uiShade)
 
     pObj.currentShade = uiShade;
     return (TRUE);
-}
-
-// FUNCTION: WIZ8 0x00406900
-std::optional<UINT8> SpriteFrame::paletteIndexAt(int x, int y) const
-{
-    if (x < 0 || y < 0 || x >= usWidth || y >= usHeight) return std::nullopt;
-    const auto value = pixels[y * usWidth + x];
-    return value == kTransparent ? 0 : static_cast<UINT8>(value);
 }

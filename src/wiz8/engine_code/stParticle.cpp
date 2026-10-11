@@ -236,12 +236,10 @@ stParticle::stParticle(const stParticle& other)
     attachment_key = other.attachment_key;
 
     setLocation(other.getLocation());
-    glm::mat3 rotation;
-    other.getRotation(rotation);
+    auto rotation = other.getRotation<glm::mat3>();
     setRotation(rotation);
 
-    glm::mat4 source_world;
-    other.getWorldSpaceMatrix(source_world);
+    auto source_world = other.getWorldSpaceMatrix<glm::mat4>();
     const glm::dmat4 world(source_world);
     setWorldSpaceMatrix(world);
 }
@@ -313,7 +311,7 @@ unsigned char stParticle::ActivateParticle(unsigned int* out_index, bool replace
         direction.RotateAboutY(sin(angle), cos(angle));
 
             glm::mat3 rotation;
-        getWorldSpaceRotation(rotation);
+        rotation = getWorldSpaceRotation<glm::mat3>();
         velocity = rotation * direction.glmValue();
         break;
     }
@@ -380,13 +378,13 @@ void stParticle::Update()
         unsigned int elapsed_ticks = now - last_integration_tick;
 
         glm::mat3 rotation;
-        getRotation(rotation);
+        rotation = getRotation<glm::mat3>();
 
         glm::mat4 transform(rotation);
         transform = glm::inverse(transform);
 
         srVector3T<float> node_location;
-        getLocation(node_location);
+        node_location = glm::vec3(getLocation());
 
         double elapsed = static_cast<double>(elapsed_ticks);
         srVector3T<float> acceleration_step =
@@ -550,7 +548,7 @@ void stParticle::InitializeParticlePosition(srVector3T<float>* output)
     *output *= size_scale;
 
     glm::mat3 rotation;
-    getRotation(rotation);
+    rotation = getRotation<glm::mat3>();
     (*output) = rotation * (*output).glmValue();
 
     srVector3T<double> location = getLocation();
@@ -686,8 +684,7 @@ void stParticle::SubmitToRenderer(srGERD* renderer)
     glm::vec3 position;
 
     if (camera_relative == 1) {
-        srVector3T<float> camera_position;
-        GetCameraPosition(&camera_position);
+        srVector3T<float> camera_position = cameraLocation();
         position = camera_position.glmValue() + camera_offset.glmValue();
 
         setLocation(srVector3T<double>(glm::dvec3(position)));
@@ -721,7 +718,7 @@ void stParticle::SubmitToRenderer(srGERD* renderer)
         if (extent.x == g_float_zero && extent.y == g_float_zero && extent.z == g_float_zero) {
             visibility = renderer->testBoundingSphere(position, size_scale * bounds_radius);
         } else {
-            getRotation(rotation);
+            rotation = getRotation<glm::mat3>();
             glm::vec3 center = rotation * extent.glmValue() + position;
             visibility = renderer->testBoundingSphere(center, size_scale * bounds_radius);
         }
@@ -731,7 +728,7 @@ void stParticle::SubmitToRenderer(srGERD* renderer)
     }
 
     if (bounds_mode == W8_PARTICLE_BOUNDS_BOX) {
-        getRotation(rotation);
+        rotation = getRotation<glm::mat3>();
         glm::mat4 world(rotation);
         world[3] = glm::vec4(position, 1);
         const auto bounds =
@@ -759,9 +756,7 @@ void stParticle::SubmitToRenderer(srGERD* renderer)
     renderer->pushEnable();
     renderer->matrixMode(srGERD::MATRIX_MODELVIEW);
 
-    glm::mat4 view;
-    renderer->getMatrix(srGERD::MATRIX_MODELVIEW, view);
-    view = glm::inverse(view);
+    auto view = glm::inverse(renderer->getMatrix(srGERD::MATRIX_MODELVIEW));
     PrepareRenderer(view);
 
     if (requires_sorted_renderer != 0 && !renderer->isEnabled(srGERD::ENABLE_SORTED_RENDERING)) {

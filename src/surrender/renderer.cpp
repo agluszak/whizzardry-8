@@ -540,32 +540,21 @@ void srGERD::Renderer::expandTriangles(const TriInput& input, int sorted)
                     const srVector3i& triangle = input.triangles[input.indices[index]];
                     const srVector3i& uv = poly_uv[input.indices[index]];
                     srVector3i& out = write.triangles[written + index];
-                    w8_ulong mapped = input.vertices[triangle.x] + vertex_base;
-                    if (triangle.x == uv.x) {
-                        out.x = mapped;
-                    } else {
-                        *remap_out++ = mapped;
-                        *corner_out++ = uv.x;
-                        out.x = next++;
-                        new_count++;
-                    }
-                    mapped = input.vertices[triangle.y] + vertex_base;
-                    if (triangle.y == uv.y) {
-                        out.y = mapped;
-                    } else {
-                        *remap_out++ = mapped;
-                        *corner_out++ = uv.y;
-                        out.y = next++;
-                        new_count++;
-                    }
-                    mapped = input.vertices[triangle.z] + vertex_base;
-                    if (triangle.z == uv.z) {
-                        out.z = mapped;
-                    } else {
-                        *remap_out++ = mapped;
-                        *corner_out++ = uv.z;
-                        out.z = next++;
-                        new_count++;
+                    const std::array vertex_indices{triangle.x, triangle.y, triangle.z};
+                    const std::array uv_indices{uv.x, uv.y, uv.z};
+                    const std::array corners{&out.x, &out.y, &out.z};
+                    for (unsigned corner = 0; corner < corners.size(); ++corner) {
+                        const auto vertex = vertex_indices[corner];
+                        const auto texcoord = uv_indices[corner];
+                        const w8_ulong mapped = input.vertices[vertex] + vertex_base;
+                        if (vertex == texcoord) {
+                            *corners[corner] = mapped;
+                        } else {
+                            *remap_out++ = mapped;
+                            *corner_out++ = texcoord;
+                            *corners[corner] = next++;
+                            ++new_count;
+                        }
                     }
                 }
                 if (new_count != 0) {
@@ -800,36 +789,24 @@ void srGERD::Renderer::programVertexArrays(srVertexArray* arrays, w8_ulong count
         gerd->setDataPtr(srRendererDefs::VERTEX_ARRAY_SPECULAR_ALPHA, 1, srRendererDefs::TYPE_FLOAT,
                          0x10, &arrays->specular->w);
     }
-    if ((attributes & srVertexArray::ATTRIBUTE_ST0) != 0) {
-        mask.set(srRendererDefs::VERTEX_ARRAY_TEXCOORD0, 1);
-        if ((attributes & srVertexArray::ATTRIBUTE_Q0) == 0) {
-            gerd->setDataPtr(srRendererDefs::VERTEX_ARRAY_TEXCOORD0, 2, srRendererDefs::TYPE_FLOAT,
-                             8, arrays->st0);
+    const std::array coordinates{arrays->st0, arrays->st1};
+    const std::array weights{arrays->q0, arrays->q1};
+    for (unsigned stage = 0; stage < coordinates.size(); ++stage) {
+        const w8_ulong st_bit = srVertexArray::ATTRIBUTE_ST0 << stage;
+        const w8_ulong q_bit = srVertexArray::ATTRIBUTE_Q0 << stage;
+        if ((attributes & st_bit) == 0) continue;
+        const auto array = static_cast<srRendererDefs::e_vertexArray>(
+            srRendererDefs::VERTEX_ARRAY_TEXCOORD0 + stage);
+        mask.set(array, 1);
+        if ((attributes & q_bit) == 0) {
+            gerd->setDataPtr(array, 2, srRendererDefs::TYPE_FLOAT, sizeof(glm::vec2),
+                             coordinates[stage]);
         } else {
-            this->stq[0].resize(count);
-            TexCoordQ* stq = this->stq[0].data();
-            for (w8_ulong i = 0; i < count; i++) {
-                stq[i].st = arrays->st0[i];
-                stq[i].q = arrays->q0[i];
-            }
-            gerd->setDataPtr(srRendererDefs::VERTEX_ARRAY_TEXCOORD0, 3, srRendererDefs::TYPE_FLOAT,
-                             0xc, stq);
-        }
-    }
-    if ((attributes & srVertexArray::ATTRIBUTE_ST1) != 0) {
-        mask.set(srRendererDefs::VERTEX_ARRAY_TEXCOORD1, 1);
-        if ((attributes & srVertexArray::ATTRIBUTE_Q1) == 0) {
-            gerd->setDataPtr(srRendererDefs::VERTEX_ARRAY_TEXCOORD1, 2, srRendererDefs::TYPE_FLOAT,
-                             8, arrays->st1);
-        } else {
-            this->stq[1].resize(count);
-            TexCoordQ* stq = this->stq[1].data();
-            for (w8_ulong i = 0; i < count; i++) {
-                stq[i].st = arrays->st1[i];
-                stq[i].q = arrays->q1[i];
-            }
-            gerd->setDataPtr(srRendererDefs::VERTEX_ARRAY_TEXCOORD1, 3, srRendererDefs::TYPE_FLOAT,
-                             0xc, stq);
+            stq[stage].resize(count);
+            auto* combined = stq[stage].data();
+            for (w8_ulong i = 0; i < count; ++i)
+                combined[i] = {coordinates[stage][i], weights[stage][i]};
+            gerd->setDataPtr(array, 3, srRendererDefs::TYPE_FLOAT, sizeof(TexCoordQ), combined);
         }
     }
     gerd->setVertexArrayMask(mask);

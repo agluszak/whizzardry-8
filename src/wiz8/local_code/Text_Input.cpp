@@ -830,7 +830,8 @@ void MouseMovedInTextRegionCallback(MOUSE_REGION* region, int reason)
     if ((reason & MSYS_CALLBACK_REASON_LOST_MOUSE) != 0)
         SetTargetCursor(W8_CURSOR_NONE);
 
-    if (gfLeftButtonState == 0 || gpActive == 0 || (reason & MSYS_CALLBACK_REASON_MOVE) == 0) {
+    if ((region->ButtonState & MSYS_LEFT_BUTTON) == 0 || gpActive == 0 ||
+        (reason & MSYS_CALLBACK_REASON_MOVE) == 0) {
         return;
     }
 
@@ -854,11 +855,11 @@ void MouseMovedInTextRegionCallback(MOUSE_REGION* region, int reason)
     }
 
     TEXTINPUTNODE* current_field = gpActive;
-    if (current_field->fUserField || gfLeftButtonState == 0)
+    if (current_field->fUserField || (region->ButtonState & MSYS_LEFT_BUTTON) == 0)
         return;
 
     std::size_t position = gubParkingPos;
-    int mouse_offset = gusMouseXPos - current_field->region.RegionTopLeftX;
+    int mouse_offset = region->RelativeXPos;
     position = FindTextInputMousePosition(current_field, position, mouse_offset);
 
     if (position == gubMouseDownPos) {
@@ -906,7 +907,7 @@ void MouseClickedInTextRegionCallback(MOUSE_REGION* region, int reason)
         if (field->fUserField) {
             position = 0;
         } else {
-            int mouse_offset = gusMouseXPos - field->region.RegionTopLeftX;
+            int mouse_offset = region->RelativeXPos;
             position = FindTextInputMousePosition(field, gubParkingPos, mouse_offset);
         }
         SetTextInputCursor(position);
@@ -968,7 +969,7 @@ void MouseClickedInTextRegionCallback(MOUSE_REGION* region, int reason)
             position = 0;
         } else {
             TEXTINPUTNODE* field = gpActive;
-            int mouse_offset = gusMouseXPos - field->region.RegionTopLeftX;
+            int mouse_offset = region->RelativeXPos;
             position = FindTextInputMousePosition(field, position, mouse_offset);
         }
         if (position == gubMouseDownPos)
@@ -1213,7 +1214,7 @@ void SelectAllText(void)
     if (field->fUserField) {
         position = 0;
     } else {
-        int mouse_offset = gusMouseXPos - field->region.RegionTopLeftX;
+        int mouse_offset = field->region.RelativeXPos;
         position = FindTextInputMousePosition(field, position, mouse_offset);
     }
 

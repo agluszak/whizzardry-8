@@ -6,6 +6,7 @@
 #include <mutex>
 #include <string>
 #include <thread>
+#include <utility>
 #include <vector>
 
 #include <unordered_map>
@@ -298,20 +299,6 @@ public:
         ACCUM_RETURN = 4
     };
     enum e_depthBuffer {};
-    /* getDisplayModeInfo output triple. */
-    struct DisplayModeInfo {
-        w8_long width;
-        w8_long height;
-        w8_long depth;
-    };
-    /* getTextureInfo output: the device pixel format plus the device's
-       width/height and last mip level. */
-    struct TextureInfo {
-        srPixelConvert::PixelFormat pixel_format;
-        w8_ulong width;
-        w8_ulong height;
-        w8_ulong last_level;
-    };
     /* accumulate()'s signed 16-bit accum-buffer pixel. */
     struct AccumPixel {
         short red;
@@ -440,21 +427,19 @@ public:
     void setViewPort(w8_ulong x, w8_ulong y, w8_ulong width, w8_ulong height);
     void matrixMode(e_matrixMode mode);
     e_matrixMode getMatrixMode() const;
-    void getMatrix(glm::mat4& matrix);
-    void getMatrix(glm::dmat4& matrix);
-    void getMatrix(e_matrixMode mode, glm::mat4& matrix);
-    void getMatrix(e_matrixMode mode, glm::dmat4& matrix);
+    glm::mat4 getMatrix();
+    glm::mat4 getMatrix(e_matrixMode mode);
     void getEyeSpaceBounds(glm::vec3& center, float& radius, const glm::vec3& object_center,
                            float object_radius);
     glm::vec4 getEyeSpaceLocation(const glm::vec3& object_location);
     void pushVertexProcessor(srVertexProcessor& processor);
     void popVertexProcessor();
-    void getInverseModelViewMatrix(glm::mat4& matrix);
-    void getClipPlanes(ClipPlanes& planes);
+    glm::mat4 getInverseModelViewMatrix();
+    ClipPlanes getClipPlanes();
     void pushClipPlane(const glm::vec4& plane, e_clipMode mode);
     void popClipPlane();
-    void getProjectClipNearMatrix(glm::mat4& matrix);
-    void getNormalMatrix(glm::mat4& matrix);
+    glm::mat4 getProjectClipNearMatrix();
+    glm::mat4 getNormalMatrix();
     srRendererDefs::e_scaleType getModelViewScaleType();
 
     float getMaxModelViewScale();
@@ -467,10 +452,10 @@ public:
     void unlockBuffer();
     w8_ulong getVertexProcessorCount() const;
     const std::vector<srVertexProcessor*>& getVertexProcessors() const;
-    void getAmbientLight(glm::vec4& light);
-    void getFogColor(glm::vec4& color) const;
-    void getEnvironmentRange(float& minimum, float& maximum) const;
-    void getEnvironmentScaleFactor(float& scale, float& inverse_scale);
+    glm::vec4 getAmbientLight() const;
+    glm::vec4 getFogColor() const;
+    std::pair<float, float> getEnvironmentRange() const;
+    std::pair<float, float> getEnvironmentScaleFactor() const;
     w8_ulong getExclusionMask() const;
     void setExclusionMask(w8_ulong mask);
     // FUNCTION: SURRENDER 0x1001BB70 SYMBOL
@@ -592,13 +577,8 @@ public:
     srDD::e_hardwareID getHardwareID() const;
     e_depthBuffer getDepthBufferType() const;
     w8_ulong getSwapInterval() const;
-    void getTextureFormat(w8_ulong index, srPixelConvert::PixelFormat& format) const;
-    w8_ulong getTextureFormatCount() const;
-    void getDisplayModeInfo(w8_long index, DisplayModeInfo& info) const;
-    w8_ulong getDisplayModeCount() const;
     e_hintMode getHint(e_hint hint) const;
     void setHint(e_hint hint, e_hintMode mode);
-    void getGamma(srVector3T<float>& gamma) const;
     e_antiAlias getAntiAlias() const;
     void extCommand(w8_ulong command, void* data, w8_ulong size);
     void disable(e_enable option);
@@ -606,11 +586,8 @@ public:
     srShader getShader() const;
     void drawTriangle(const srVector3i& triangle);
     void setDepthRange(double minimum, double maximum);
-    void getDepthRange(double& minimum, double& maximum) const;
     void setPolygonMode(e_polygonMode mode);
     e_polygonMode getPolygonMode() const;
-    void getClearColor(glm::vec4& color) const;
-    void getClearAccum(glm::vec4& color) const;
     void setClearAccum(const glm::vec4& color);
     void setClearAccum(float red, float green, float blue, float alpha);
     double getClearDepth() const;
@@ -623,7 +600,6 @@ public:
     void accumulate(e_accum operation, float scale);
     int isTextureCached(srTextureIFace* texture) const;
     int isTextureResident(srTextureIFace* texture) const;
-    int getTextureInfo(srTextureIFace* texture, TextureInfo& info);
     srTextureIFace::e_compression getTextureDefaultCompression() const;
     srTextureIFace::e_correction getTextureDefaultCorrection() const;
     srTextureIFace::e_filter getTextureDefaultMagFilter() const;
@@ -749,7 +725,6 @@ private:
     srGERD& operator=(const srGERD& other);
     srDD* getDD() const;
 
-    static void debugWrite(const char* text);
     void fenceVertexArrays();
     void dumpTextureCache(std::ostream& stream);
     void setDataPtr(srRendererDefs::e_vertexArray index, w8_long components,

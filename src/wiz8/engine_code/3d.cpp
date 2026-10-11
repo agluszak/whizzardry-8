@@ -135,8 +135,7 @@ void FinalizeStaticScene(srScene* scene)
 // FUNCTION: WIZ8 0x0046E8A0
 unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* lights, bool walk_chain)
 {
-    glm::mat4 world;
-    instance->getWorldSpaceMatrix(world);
+    auto world = instance->getWorldSpaceMatrix<glm::mat4>();
     const auto normal_matrix = glm::transpose(glm::inverse(glm::mat3(world)));
     std::vector<glm::vec3> world_vertices, world_normals, material_colors;
 
@@ -759,13 +758,9 @@ void WorldSetFarClip(W8World* world, float distance)
 // FUNCTION: WIZ8 0x0046e440
 double WorldGetFarClip(W8World* world)
 {
-    double near_plane = 0;
-    double far_plane = 0;
-
-    if (world != 0 && world->camera != 0) {
-        world->camera->getClipRange(near_plane, far_plane);
-    }
-    return far_plane;
+    if (world != nullptr && world->camera != nullptr)
+        return world->camera->getClipRange().second;
+    return 0;
 }
 
 // FUNCTION: WIZ8 0x0046E5A0

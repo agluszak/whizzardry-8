@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Button System.h"
+#include "wiz8/dialog_code/DialogButton.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "Types.h"
 #include "compat/compiler.h"
@@ -26,12 +26,9 @@ public:
     void ScrollUp();
     void ScrollBy(int delta);
     void ScrollDown();
-    void ScrollToMouse();
+    void ScrollToMouse(int mouse_y);
 
 private:
-    static void UpButtonCallback(GUI_BUTTON* button, INT32 reason);
-    static void DownButtonCallback(GUI_BUTTON* button, INT32 reason);
-    static void TrackButtonCallback(GUI_BUTTON* button, INT32 reason);
     bool m_initialized;
     bool m_visible;
 
@@ -49,10 +46,10 @@ public:
     W8DialogBase* m_owner;
 
 private:
-    GUIButton m_up_button;
-    GUIButton m_down_button;
-    GUIButton m_thumb_button;
-    GUIButton m_track_button;
+    W8DialogButton m_up_button;
+    W8DialogButton m_down_button;
+    W8DialogButton m_thumb_button;
+    W8DialogButton m_track_button;
     void (*m_on_scroll)(W8DialogScrollBar* scroll_bar, int first_visible_entry);
 };
 W8_ABI_ASSERT(sizeof(W8DialogScrollBar::Resources) == 0x10, "W8DialogScrollBar_Resources_size");

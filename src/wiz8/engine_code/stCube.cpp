@@ -1,3 +1,4 @@
+#include "glm/geometric.hpp"
 #include <fmt/format.h>
 #include <string>
 #include <array>
@@ -51,7 +52,7 @@
 unsigned char W8WorldCursorNode::GetLocation(srVector3T<float>* position)
 {
     if (node != 0) {
-        node->getLocation(*position);
+        *position = glm::vec3(node->getLocation());
         return 1;
     }
     return 0;
@@ -393,11 +394,9 @@ W8WorldCursorNode* FindNearestWorldCursorNode(int x, int y)
     for (int index = 0; index < count; ++index) {
         W8WorldCursorNode* entry = g_world_cursor_nodes[index];
         if (entry != 0 && entry->node != 0 && entry->node == GetPickedModelInstance()) {
-            srVector3T<double> camera;
-            g_world->camera->getLocation(camera);
-            srVector3T<double> node;
-            entry->node->getLocation(node);
-            float distance = static_cast<float>((node - camera).Length());
+            const auto camera = g_world->camera->getLocation();
+            const auto node = entry->node->getLocation();
+            float distance = static_cast<float>(glm::distance(node, camera));
             if (distance < nearest) {
                 nearest = distance;
                 result = entry;
@@ -752,28 +751,6 @@ W8WorldCursorNode* FindWorldCursorNodeAtPoint(W8WorldCursorNode* after, srVector
     return 0;
 }
 
-/* Copy the node's userdata pointer and size into the caller's slots; either
-   out pointer may be null. */
-// FUNCTION: WIZ8 0x0048EF00
-void GetWorldCursorNodeUserdata(W8WorldCursorNode* entry, char** buffer, int* size)
-{
-    if (entry != 0) {
-        if (buffer != 0) {
-            *buffer = static_cast<char*>(entry->pUserdata);
-        }
-        if (size != 0) {
-            *size = entry->userdata_size;
-        }
-    } else {
-        if (buffer != 0) {
-            *buffer = 0;
-        }
-        if (size != 0) {
-            *size = 0;
-        }
-    }
-}
-
 /* Allocate the node's userdata scratch, or release it when `size` is zero.
    Retail overwrites an existing allocation without freeing it first. */
 // FUNCTION: WIZ8 0x0048EF40
@@ -808,7 +785,7 @@ bool SelectWorldCursorNode(void)
         srVector3T<float> camera_position;
         srVector3T<double> camera_location;
 
-        GetCameraPosition(&camera_position);
+        camera_position = cameraLocation();
         camera_location = glm::dvec3(camera_position.glmValue());
         int selected = g_cursor_node_index;
         if (static_cast<std::size_t>(selected) < g_world_cursor_nodes.size()) {

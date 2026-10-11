@@ -1,3 +1,4 @@
+#include "glm/ext/vector_int3.hpp"
 #include <catch2/catch_test_macros.hpp>
 #include <unordered_map>
 #include <vector>
@@ -7,7 +8,6 @@
 #include "wiz8/engine_code/Octree.h"
 #include "surrender/srGERD.h"
 #include "surrender/srHuffman.h"
-#include "surrender/srMath.h"
 #include "surrender/srShader.h"
 
 
@@ -49,13 +49,13 @@ static bool candidateOrdering()
 static bool mirroredOctreeIndexes()
 {
     W8OctreeObjectRegistry registry;
-    const srVector3T<int> first(1, 2, 3), second(4, 5, 6);
-    REQUIRE(registry.MoveObjectToCell(W8_OCTREE_KIND_PROP, 5, &first));
-    REQUIRE(registry.MoveObjectToCell(W8_OCTREE_KIND_PROP, 5, &first));
+    const glm::ivec3 first(1, 2, 3), second(4, 5, 6);
+    REQUIRE(registry.MoveObjectToCell(W8_OCTREE_KIND_PROP, 5, first));
+    REQUIRE(registry.MoveObjectToCell(W8_OCTREE_KIND_PROP, 5, first));
     const auto object = PackOctreeObjectKey(W8_OCTREE_KIND_PROP, 5);
     REQUIRE(registry.by_object->count(object) == 1);
     REQUIRE(registry.by_cell->size() == 1);
-    REQUIRE(registry.MoveObjectToCell(W8_OCTREE_KIND_PROP, 5, &second));
+    REQUIRE(registry.MoveObjectToCell(W8_OCTREE_KIND_PROP, 5, second));
     REQUIRE(registry.by_object->count(object) == 2);
     REQUIRE(registry.UnregisterObject(W8_OCTREE_KIND_PROP, 5));
     REQUIRE(registry.by_object->count(object) == 1);

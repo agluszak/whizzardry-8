@@ -4,9 +4,13 @@
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_pixels.h>
 #include <vector>
+#include <array>
+#include <memory>
+#include <string>
 #include <string_view>
 
 #include "wiz8/dialog_code/DialogBase.h"
+#include "wiz8/dialog_code/DialogButton.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "Button System.h"
 #include "input.h"
@@ -87,18 +91,17 @@ private:
     /* Keyboard handling for the visible text list. */
     bool HandleInputEvent(const InputAtom* input);
 
-    /* SGP move/click callbacks for the text area, the scroll arrow buttons and
+    /* Owner-local activation callbacks for the text area, scroll arrows and
        the confirmation buttons. */
-    static void TextAreaButtonCallback(GUI_BUTTON* button, INT32 reason);
-    static void UpButtonCallback(GUI_BUTTON* button, INT32 reason);
-    static void DownButtonCallback(GUI_BUTTON* button, INT32 reason);
-    static void OkButtonCallback(GUI_BUTTON* button, INT32 reason);
-    static void CancelButtonCallback(GUI_BUTTON* button, INT32 reason);
-    static void SliderTrackButtonCallback(GUI_BUTTON* button, INT32 reason);
+    static void TextAreaButtonCallback(W8DialogButton* button);
+    static void UpButtonCallback(W8DialogButton* button);
+    static void DownButtonCallback(W8DialogButton* button);
+    static void OkButtonCallback(W8DialogButton* button);
+    static void CancelButtonCallback(W8DialogButton* button);
+    static void SliderTrackButtonCallback(W8DialogButton* button);
 
 public:
-    /* The displayed text lines; the dialog owns and frees each one. */
-    std::vector<char*> m_lines;
+    std::vector<std::string> m_lines;
     std::vector<void (*)(int)> m_field_064;
     int m_field_074;
     float m_field_078; /* 0.05 */
@@ -106,25 +109,17 @@ public:
     float m_field_080; /* 0.9 */
     float m_field_084; /* 0.75 */
     SDL_Color m_fill_colour; /* highlight fill colour */
-    GUIButton m_text_button;
-    GUIButton m_second_text_button;
+    W8DialogButton m_text_button;
+    W8DialogButton m_second_text_button;
     GenericButtonImage area_inlay;  /* DialogInlay inlay for m_area_button */
-    GUIButton m_area_button; /* scrolling text area */
-    GUIButton m_up_button;
-    ButtonImage m_up_image;
-    GUIButton m_down_button;
-    ButtonImage m_down_image;
-    GUIButton m_slider_button;
-    ButtonImage m_slider_image;
+    W8DialogButton m_area_button; /* scrolling text area */
+    W8DialogButton m_up_button;
+    W8DialogButton m_down_button;
+    W8DialogButton m_slider_button;
     GenericButtonImage third_btn_inlay; /* DialogInlay inlay for m_third_text_button */
-    GUIButton m_third_text_button;
-    GUIButton m_ok_button;
-    ButtonImage m_ok_image;
-    /* Click rectangles read by ProcessInput; nothing writes them. */
-    W8ControlsRect m_ok_rect;
-    GUIButton m_cancel_button;
-    ButtonImage m_cancel_image;
-    W8ControlsRect m_cancel_rect;
+    W8DialogButton m_third_text_button;
+    W8DialogButton m_ok_button;
+    W8DialogButton m_cancel_button;
     bool m_scrollable; /* scrolling area is scrollable */
     int m_first_visible_line;
     int m_selected_line;
@@ -176,11 +171,11 @@ private:
     static void SplitActivateField(W8DialogButton* button);
 
 private:
-    W8DialogButton* m_buttons[6];
+    std::array<std::unique_ptr<W8DialogButton>, 6> m_buttons;
     /* The labels named by g_split_amount_string_ids; [2] shows the
        amount still remaining. */
-    W8TextBuffer* m_text_buffers[3];
-    W8DialogNumericInput* m_split_input;
+    std::array<std::unique_ptr<W8TextBuffer>, 3> m_text_buffers;
+    std::unique_ptr<W8DialogNumericInput> m_split_input;
     /* The numeric field while the cursor or keyboard owns it. */
     W8DialogNumericInput* m_active_field;
     int m_remaining; /* total minus the field value */
@@ -255,7 +250,7 @@ private:
 public:
   std::vector<W8WorldItem*> items;
   std::vector<unsigned char> flags;
-  W8DialogButton* m_buttons[13];
+  std::array<std::unique_ptr<W8DialogButton>, 13> m_buttons;
   int m_first_item;
   W8WorldItem* m_item_group;
 };

@@ -28,7 +28,6 @@
 #include "AnimRep.hpp"
 #include "compat/native.h"
 #include "glm/ext/matrix_float3x3.hpp"
-#include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "surrender/srFlags.h"
 #include "surrender/srShader.h"
@@ -244,7 +243,6 @@ static void ApplyModelViewMatrix(srModelInstance* instance, srGERD* renderer, fl
     if ((instance->alignment_flags.value & 1) == 0) {
         instance->applyWorldSpaceMatrix(*renderer);
     } else {
-        glm::mat4 view;
         srVector3T<double> world_location;
         srVector3T<double> world_scale;
         glm::vec4 transformed_location;
@@ -255,7 +253,7 @@ static void ApplyModelViewMatrix(srModelInstance* instance, srGERD* renderer, fl
 
         renderer->matrixMode(srGERD::MATRIX_MODELVIEW);
         renderer->pushMatrix();
-        renderer->getMatrix(srGERD::MATRIX_MODELVIEW, view);
+        const auto view = renderer->getMatrix(srGERD::MATRIX_MODELVIEW);
         world_location = instance->getWorldSpaceLocation();
         world_scale = instance->getWorldSpaceScale();
 
@@ -471,8 +469,7 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
     // c-style-cast-ok: the pick key is an opaque void* token
     SetPickKey((render_flags & RENDER_NO_PICK) != 0 ? (void*)0 : (void*)this);
 
-    glm::vec4 ambient;
-    renderer.getAmbientLight(ambient);
+    const auto ambient = renderer.getAmbientLight();
     srVector3T<float> ambient_color;
     ambient_color = glm::vec3(ambient);
 

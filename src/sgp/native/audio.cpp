@@ -2,13 +2,9 @@
 #include <wiz8/native_audio.h>
 #include <wiz8/filesystem.h>
 #include <SDL3/SDL_audio.h>
-#include <SDL3/SDL_begin_code.h>
 #include <SDL3/SDL_error.h>
-#include <SDL3/SDL_iostream.h>
 #include <SDL3/SDL_properties.h>
-#include <SDL3/SDL_stdinc.h>
 #include <SDL3_mixer/SDL_mixer.h>
-#include <algorithm>
 #include <climits>
 #include <stdexcept>
 #include <cstdint>
@@ -24,53 +20,6 @@ std::shared_ptr<MIX_Mixer> mixer;
 std::weak_ptr<MIX_Mixer> retained_mixer;
 bool offline = false;
 
-struct Input
-{
-    std::unique_ptr<wiz8::File> file;
-    Sint64 start = 0, length = 0, position = 0;
-
-    static Sint64 SDLCALL size(void* data) { return static_cast<Input*>(data)->length; }
-    static Sint64 SDLCALL seek(void* data, Sint64 offset, SDL_IOWhence whence)
-    {
-        auto& input = *static_cast<Input*>(data);
-        const Sint64 base = whence == SDL_IO_SEEK_SET ? 0 :
-                            whence == SDL_IO_SEEK_CUR ? input.position :
-                            whence == SDL_IO_SEEK_END ? input.length : -1;
-        if (base < 0 || offset < -base || offset > input.length - base)
-        {
-            SDL_SetError("Audio seek outside input extent");
-            return -1;
-        }
-        try
-        {
-            input.position = input.file->seek(input.start + base + offset,
-                                               wiz8::SeekOrigin::begin) - input.start;
-            return input.position;
-        }
-        catch (const std::exception& error) { SDL_SetError("%s", error.what()); return -1; }
-    }
-    static size_t SDLCALL read(void* data, void* bytes, size_t count, SDL_IOStatus* status)
-    {
-        auto& input = *static_cast<Input*>(data);
-        const auto request = std::min<uint64_t>(count, input.length - input.position);
-        try
-        {
-            const auto result = input.file->read(bytes, request);
-            input.position += result.bytes;
-            *status = result.bytes == count ? SDL_IO_STATUS_READY :
-                      input.position == input.length ? SDL_IO_STATUS_EOF : SDL_IO_STATUS_ERROR;
-            if (*status == SDL_IO_STATUS_ERROR) SDL_SetError("Truncated audio input");
-            return result.bytes;
-        }
-        catch (const std::exception& error)
-        {
-            SDL_SetError("%s", error.what());
-            *status = SDL_IO_STATUS_ERROR;
-            return 0;
-        }
-    }
-    static bool SDLCALL close(void* data) { delete static_cast<Input*>(data); return true; }
-};
 } // namespace
 
 namespace w8_native
@@ -105,27 +54,10 @@ AudioInput open_audio_input(const char* path)
     if (!path) { SDL_SetError("Null audio path"); return {}; }
     try
     {
-        auto input = std::make_unique<Input>();
-        input->file = wiz8::open_file(path);
-        input->length = input->file->size();
-        if (!input->file) { SDL_SetError("Cannot open audio stream: %s", path); return {}; }
-        input->start = input->file->tell();
-        const auto size = input->file->size();
-        if (input->start < 0 || input->length <= 0 || input->start > size ||
-            input->length > size - input->start)
-        {
-            SDL_SetError("Audio input exceeds its file");
-            return {};
-        }
-        SDL_IOStreamInterface interface{};
-        SDL_INIT_INTERFACE(&interface);
-        interface.size = Input::size;
-        interface.seek = Input::seek;
-        interface.read = Input::read;
-        interface.close = Input::close;
-        AudioInput stream(SDL_OpenIO(&interface, input.get()));
-        if (stream) (void)input.release();
-        return stream;
+        auto file = wiz8::open_file(path);
+        if (file->size() <= 0) { SDL_SetError("Empty audio stream: %s", path); return {}; }
+        // Loose files and SLF entries already own independent, seekable streams.
+        return AudioInput(file->release_io());
     }
     catch (const std::exception& error) { SDL_SetError("Audio input: %s", error.what()); return {}; }
 }

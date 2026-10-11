@@ -3,13 +3,12 @@
 #include <fmt/format.h>
 #include <memory>
 #include <wiz8/filesystem.h>
-#include <SDL3/SDL_filesystem.h>
 #include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_stdinc.h>
 #include <string_view>
 #include <string>
 #include <cctype>
 #include <cstring>
-#include <optional>
 
 #include "wiz8/containers.h"
 #include "soundman.h"
@@ -402,15 +401,9 @@ void W8OptionsSaveLoadPanel::OnDialogClosed(bool accepted, int value)
         case 1:
             DeleteSelectedSave();
             return;
-        case 3: {
-            std::string path;
-            path = fmt::format("{}\\{}.{}", "Saves", m_previous_name, g_save_extension);
-            if (wiz8::remove_file(path) == 0) {
-                g_options_screen->ShowNotification(this, false, 0x82e, 0);
-                return;
-            }
-            [[fallthrough]];
-        }
+        case 3:
+            SaveSelectedSave(m_previous_name);
+            return;
         case 2:
             SaveSelectedSave();
             return;
@@ -544,7 +537,7 @@ void W8OptionsSaveLoadPanel::LoadSelectedSave()
 }
 
 // FUNCTION: WIZ8 0x005ab590
-void W8OptionsSaveLoadPanel::SaveSelectedSave()
+void W8OptionsSaveLoadPanel::SaveSelectedSave(std::string_view previous_name)
 {
     int selected_slot = m_current * 5 + m_selection.m_selectedIndex;
     W8SaveSlot* slot = g_options_screen->m_save_slots[selected_slot];
@@ -553,16 +546,17 @@ void W8OptionsSaveLoadPanel::SaveSelectedSave()
         return;
     }
 
-    std::string path;
-    path = fmt::format("{}\\{}.{}", "Saves", slot->name, g_save_extension);
-    if ([&]() { const auto status = wiz8::file_status(path); return status && status->info.type == SDL_PATHTYPE_FILE; }() != 0 && wiz8::remove_file(path) == 0) {
-        g_options_screen->ShowNotification(this, false, 0x82e, 0);
-        return;
-    }
     SetLastSaveName(slot->name);
     RequestScreenTransition();
     g_pending_screen_state.mode = 2;
     g_pending_screen_state.name = slot->name;
+    const std::string old_name(previous_name);
+    // Game save paths resolve ASCII names case-insensitively. Never remove the
+    // new file when a rename changes only capitalization.
+    g_pending_screen_state.previous_save_name =
+        SDL_strcasecmp(old_name.c_str(), slot->name.c_str()) == 0
+            ? std::string()
+            : old_name;
     g_pending_screen_state.parameter_3 =
         new W8SaveScreenshot(g_options_screen->m_save_slots[0]->screenshot);
     SetPendingScreenState(W8_SCREEN_PLEASE_WAIT);
@@ -1659,7 +1653,7 @@ W8OptionsSelection::W8OptionsSelection(int* value) : m_value(value) {}
 /* The empty body still emits the m_lsButtons vector teardown over the
    W8ControlSelection base. */
 // FUNCTION: WIZ8 0x005A8B50
-W8OptionsSelection::~W8OptionsSelection() {}
+W8OptionsSelection::~W8OptionsSelection() = default;
 
 // FUNCTION: WIZ8 0x005a8080
 void W8OptionsSelection::OnPrimary(W8TextControl* control)
@@ -2046,7 +2040,6 @@ unsigned char OptionsScreenEnter()
 void OptionsScreenFrame()
 {
     SDL_Point point;
-    SDL_Point current;
     InputAtom input;
 
     if (g_dev_mode) {
@@ -2059,10 +2052,7 @@ void OptionsScreenFrame()
 
     W8OptionsScreen* screen = g_options_screen;
     if (screen->m_text_editor != 0) {
-        SGPMouseGetPos(&current);
-        DispatchMouseEvent(MOUSE_POS, static_cast<unsigned short>(current.x),
-                                    static_cast<unsigned short>(current.y), gfLeftButtonState,
-                                    gfRightButtonState);
+        RefreshMouseRegions();
         screen = g_options_screen;
     }
 

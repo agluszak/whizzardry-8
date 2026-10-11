@@ -405,6 +405,7 @@ void File::close()
         sdl_failure("close file");
 }
 SDL_IOStream* File::io() const { return require_stream(); }
+SDL_IOStream* File::release_io() noexcept { return std::exchange(stream_, nullptr); }
 bool File::is_open() const noexcept { return stream_ != nullptr; }
 const fs::path& File::physical_path() const noexcept { return path_; }
 FileStatus File::status() const

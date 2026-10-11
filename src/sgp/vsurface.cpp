@@ -1,9 +1,12 @@
-#include <SDL3/SDL_log.h>
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
 #include <cstddef>
+#include <cstring>
+#include <vector>
 #include <memory>
+#include <variant>
+#include <string_view>
 #include <optional>
 
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07, 2026-10-09.
@@ -24,12 +27,6 @@ extern void GetClippingRect(SDL_Rect* clip);
 // Defines
 // LOCAL functions
 
-BOOLEAN ClipReleatedSrcAndDestRectangles(SGPVSurface& hDestVSurface, SGPVSurface& hSrcVSurface,
-                                         SDL_Rect* DestRect, SDL_Rect* SrcRect);
-BOOLEAN FillSurface(SGPVSurface& hDestVSurface, blt_vs_fx* pBltFx);
-BOOLEAN FillSurfaceRect(SGPVSurface& hDestVSurface, blt_vs_fx* pBltFx);
-BOOLEAN BltVSurfaceUsingSDL(SGPVSurface& hDestVSurface, SGPVSurface& hSrcVSurface, UINT32 fBltFlags,
-                           INT32 iDestX, INT32 iDestY, SDL_Rect* SrcRect);
 
 // Fills an rectangular area with a specified color value.
 
@@ -37,17 +34,13 @@ BOOLEAN BltVSurfaceUsingSDL(SGPVSurface& hDestVSurface, SGPVSurface& hSrcVSurfac
 BOOLEAN ColorFillVideoSurfaceArea(SGPVSurface& uiDestVSurface, INT32 iDestX1, INT32 iDestY1,
                                   INT32 iDestX2, INT32 iDestY2, UINT16 Color16BPP)
 {
-    blt_vs_fx BltFx;
-    SGPVSurface& hDestVSurface = uiDestVSurface;
-    SDL_Rect Clip;
-
-
-    GetClippingRect(&Clip);
-    BltFx.FillRect = {iDestX1, iDestY1, iDestX2 - iDestX1, iDestY2 - iDestY1};
-    if (!SDL_GetRectIntersection(&BltFx.FillRect, &Clip, &BltFx.FillRect))
+    SDL_Rect clip;
+    GetClippingRect(&clip);
+    SDL_Rect area{iDestX1, iDestY1, iDestX2 - iDestX1, iDestY2 - iDestY1};
+    if (!SDL_GetRectIntersection(&area, &clip, &area))
         return FALSE;
-    BltFx.ColorFill = Color16BPP;
-    return FillSurfaceRect(hDestVSurface, &BltFx);
+    FillCpuSurface(uiDestVSurface.cpu(), Color16BPP, &area);
+    return TRUE;
 }
 // Fills an rectangular area with a specified image value.
 
@@ -124,136 +117,59 @@ BOOLEAN ImageFillVideoSurfaceArea(SGPVSurface& uiDestVSurface, INT32 iDestX1, IN
 // Video Surface Manipulation Functions
 
 // FUNCTION: WIZ8 0x004033d0
-std::unique_ptr<SGPVSurface> CreateVideoSurface(const VSURFACE_DESC& VSurfaceDesc)
+std::unique_ptr<SGPVSurface> CreateVideoSurface(UINT16 width, UINT16 height, UINT8 bits)
 {
-    std::unique_ptr<image_type> image;
-    UINT16 width = VSurfaceDesc.usWidth;
-    UINT16 height = VSurfaceDesc.usHeight;
-    UINT8 bits = VSurfaceDesc.ubBitDepth;
-    if (VSurfaceDesc.fCreateFlags & VSURFACE_CREATE_FROMFILE) {
-        image = CreateImage(VSurfaceDesc.ImageFile.c_str(), IMAGE_ALLIMAGEDATA);
-        CHECKN(image != nullptr);
-        width = image->usWidth;
-        height = image->usHeight;
-        bits = image->ubBitDepth;
-    }
     CHECKN(width && height && (bits == 8 || bits == 16));
     const auto* details = bits == 16 ? SDL_GetPixelFormatDetails(g_sgp_pixel_format) : nullptr;
     CHECKN(bits != 16 || details);
-    // CPU storage treats every bit as raw pixels; the SGP opaque marker is
-    // not an SDL alpha channel.
-    const auto format = bits == 8 ? SDL_PIXELFORMAT_INDEX8 :
+    const SDL_PixelFormat format = bits == 8 ? SDL_PIXELFORMAT_INDEX8 :
         SDL_GetPixelFormatForMasks(16, details->Rmask, details->Gmask, details->Bmask, 0);
     CHECKN(format != SDL_PIXELFORMAT_UNKNOWN);
     auto result = std::make_unique<SGPVSurface>();
     result->ownedSurface = CreateCpuSurface(width, height, format);
+    CHECKN(result->ownedSurface != nullptr);
     result->usWidth = width;
     result->usHeight = height;
     result->ubBitDepth = bits;
-    result->fFlags = VSURFACE_SYSTEM_MEM_USAGE;
-    if (image) {
-        if (image->pPalette) {
-            // SDL owns the indexed palette. Software 8-to-16-bit blitters
-            // still require the packed lookup table.
-            CHECKN(bits == 8);
-            CHECKN(SDL_SetPaletteColors(SDL_GetSurfacePalette(result->cpu().surface.get()),
-                                        image->pPalette->data(), 0, 256));
-            result->p16BPPPalette = Create16BPPPalette(*image->pPalette);
-        }
-        SDL_Rect region{0, 0, width, height};
-        SetVideoSurfaceDataFromHImage(*result, *image, 0, 0, &region);
-    }
     result->cpu().sourceKey = SurfaceColorKey{0, 0};
-
     return result;
 }
-// Given an HIMAGE object, blit imagery into existing Video Surface. Can be from 8->16 BPP
-// FUNCTION: WIZ8 0x00403780
-BOOLEAN SetVideoSurfaceDataFromHImage(SGPVSurface& hVSurface, const image_type& hImage, UINT16 usX, UINT16 usY,
-                                      SDL_Rect* pSrcRect)
+
+std::unique_ptr<SGPVSurface> LoadVideoSurface(std::string_view filename)
 {
-    BYTE* pDest;
-    UINT32 fBufferBPP = 0;
-    UINT32 uiPitch;
-    std::size_t usEffectiveWidth;
-    SDL_Rect aRect;
-
-    // Assertions
-
-    // Get Size of hImage and determine if it can fit
-    CHECKF(hImage.usWidth >= hVSurface.usWidth);
-    CHECKF(hImage.usHeight >= hVSurface.usHeight);
-
-    // Check BPP and see if they are the same
-    if (hImage.ubBitDepth != hVSurface.ubBitDepth) {
-        // They are not the same, but we can go from 8->16 without much cost
-        if (hImage.ubBitDepth == 8 && hVSurface.ubBitDepth == 16) {
-            fBufferBPP = BUFFER_16BPP;
-        }
-    } else {
-        // Set buffer BPP
-        switch (hImage.ubBitDepth) {
-        case 8:
-
-            fBufferBPP = BUFFER_8BPP;
-            break;
-
-        case 16:
-
-            fBufferBPP = BUFFER_16BPP;
-            break;
-        }
+    auto decoded = LoadImage(filename);
+    auto* image = decoded ? std::get_if<BitmapImage>(&*decoded) : nullptr;
+    if (!image) return nullptr;
+    auto result = CreateVideoSurface(image->width, image->height, image->bitDepth);
+    if (!result) return nullptr;
+    if (image->palette) {
+        CHECKN(image->bitDepth == 8);
+        CHECKN(SDL_SetPaletteColors(SDL_GetSurfacePalette(result->cpu().surface.get()),
+                                    image->palette->data(), 0, 256));
+        result->p16BPPPalette = Create16BPPPalette(*image->palette);
     }
 
-    Assert(fBufferBPP != 0);
-
-    // Get surface buffer data
-    const auto& destination_storage = *hVSurface.cpu().surface;
-    uiPitch = destination_storage.pitch;
-    pDest = static_cast<BYTE*>(destination_storage.pixels);
-
-    // Effective width ( in PIXELS ) is Pitch ( in bytes ) converted to pitch ( IN PIXELS )
-    usEffectiveWidth = uiPitch / (hVSurface.ubBitDepth / 8);
-
-    CHECKF(pDest != nullptr);
-
-    // Blit Surface
-    // If rect is NULL, use entrie image size
-    aRect = pSrcRect ? *pSrcRect : SDL_Rect{0, 0, hImage.usWidth, hImage.usHeight};
-
-    // This HIMAGE function will transparently copy buffer
-    if (!CopyImageToBuffer(hImage, fBufferBPP, {pDest, std::size_t(uiPitch) * hVSurface.usHeight},
-                           usEffectiveWidth, hVSurface.usHeight, usX, usY, aRect)) {
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Error copying image data to video surface");
-        return (FALSE);
-    }
-
-    return (TRUE);
+    const auto& storage = *result->cpu().surface;
+    const std::size_t row_bytes = image->width * (image->bitDepth / 8);
+    // FUNCTION: WIZ8 0x0040fad0
+    // FUNCTION: WIZ8 0x0040ff30
+    // FUNCTION: WIZ8 0x00410050
+    for (int row = 0; row < storage.h; ++row)
+        std::memcpy(static_cast<UINT8*>(storage.pixels) + row * storage.pitch,
+                    image->pixels.data() + row * row_bytes, row_bytes);
+    return result;
 }
-
 // FUNCTION: WIZ8 0x00403b10
 BOOLEAN BltVideoSurfaceToVideoSurface(SGPVSurface& hDestVSurface, SGPVSurface& hSrcVSurface,
                                       INT32 iDestX, INT32 iDestY, INT32 fBltFlags,
-                                      blt_vs_fx* pBltFx)
+                                      const SDL_Rect* sourceRect)
 {
     SDL_Rect SrcRect;
     UINT16 *pDestSurface16, *pSrcSurface16;
     UINT32 uiSrcPitch, uiDestPitch;
 
-    // Check for fill, if true, fill entire region with color
-    if (fBltFlags & VS_BLT_COLORFILL) {
-        return (FillSurface(hDestVSurface, pBltFx));
-    }
-
-    // Check for colorfill rectangle
-    if (fBltFlags & VS_BLT_COLORFILLRECT) {
-        return (FillSurfaceRect(hDestVSurface, pBltFx));
-    }
-
-
-    if (fBltFlags & VS_BLT_SRCSUBRECT) {
-        CHECKF(pBltFx != nullptr);
-        SrcRect = pBltFx->SrcRect;
+    if (sourceRect) {
+        SrcRect = *sourceRect;
     } else {
         CHECKF(hDestVSurface.usHeight >= hSrcVSurface.usHeight);
         CHECKF(hDestVSurface.usWidth >= hSrcVSurface.usWidth);
@@ -284,51 +200,20 @@ BOOLEAN BltVideoSurfaceToVideoSurface(SGPVSurface& hDestVSurface, SGPVSurface& h
                              iDestX, iDestY, SrcRect.x, SrcRect.y, SrcRect.w, SrcRect.h);
         return TRUE;
     }
-    return BltVSurfaceUsingSDL(hDestVSurface, hSrcVSurface, fBltFlags, iDestX, iDestY, &SrcRect);
-}
-
-// UTILITY FUNCTIONS FOR BLITTING
-
-// Clip an unscaled blit while keeping source and destination pixels aligned.
-BOOLEAN ClipReleatedSrcAndDestRectangles(SGPVSurface& hDestVSurface, SGPVSurface& hSrcVSurface,
-                                         SDL_Rect* DestRect, SDL_Rect* SrcRect)
-{
-
-    return ClipCpuBlit(*DestRect, *SrcRect,
-                       {0, 0, hDestVSurface.usWidth, hDestVSurface.usHeight},
-                       {0, 0, hSrcVSurface.usWidth, hSrcVSurface.usHeight});
-}
-
-BOOLEAN FillSurface(SGPVSurface& hDestVSurface, blt_vs_fx* pBltFx)
-{
-    CHECKF(pBltFx);
-    FillCpuSurface(hDestVSurface.cpu(), pBltFx->ColorFill);
-    return TRUE;
-}
-
-BOOLEAN FillSurfaceRect(SGPVSurface& hDestVSurface, blt_vs_fx* pBltFx)
-{
-    CHECKF(pBltFx);
-    FillCpuSurface(hDestVSurface.cpu(), pBltFx->ColorFill, &pBltFx->FillRect);
-    return TRUE;
-}
-
-BOOLEAN BltVSurfaceUsingSDL(SGPVSurface& hDestVSurface, SGPVSurface& hSrcVSurface, UINT32 fBltFlags,
-                           INT32 iDestX, INT32 iDestY, SDL_Rect* SrcRect)
-{
-    SDL_Rect destination{iDestX, iDestY, SrcRect->w, SrcRect->h};
+    SDL_Rect clippedDestination = destination;
     if (fBltFlags & VS_BLT_FAST) {
         CHECKF(iDestX >= 0 && iDestY >= 0);
         CHECKF(!hDestVSurface.cpu().clipRegions);
         CHECKF((destination.x + destination.w) <= hDestVSurface.usWidth &&
                (destination.y + destination.h) <= hDestVSurface.usHeight);
-    } else if (!ClipReleatedSrcAndDestRectangles(hDestVSurface, hSrcVSurface,
-                                               &destination, SrcRect)) {
+    } else if (!ClipCpuBlit(clippedDestination, SrcRect,
+                            {0, 0, hDestVSurface.usWidth, hDestVSurface.usHeight},
+                            {0, 0, hSrcVSurface.usWidth, hSrcVSurface.usHeight})) {
         return TRUE;
     }
-    if (destination.w == 0 || destination.h == 0)
+    if (clippedDestination.w == 0 || clippedDestination.h == 0)
         return TRUE;
-    BlitCpuSurface(hDestVSurface.cpu(), &destination, hSrcVSurface.cpu(), SrcRect,
+    BlitCpuSurface(hDestVSurface.cpu(), &clippedDestination, hSrcVSurface.cpu(), &SrcRect,
                    fBltFlags & VS_BLT_USECOLORKEY, fBltFlags & VS_BLT_USEDESTCOLORKEY);
     return TRUE;
 }
@@ -383,12 +268,8 @@ std::unique_ptr<SGPVSurface> MakeVSurfaceFromVObject(SGPVObject& object, UINT16 
 {
     if (subIndex >= object.sprites.size())
         return nullptr;
-    VSURFACE_DESC desc{};
-    desc.fCreateFlags = VSURFACE_CREATE_DEFAULT;
-    desc.usWidth = object.sprites[subIndex].usWidth;
-    desc.usHeight = object.sprites[subIndex].usHeight;
-    desc.ubBitDepth = PIXEL_DEPTH;
-    auto surface = CreateVideoSurface(desc);
+    auto surface = CreateVideoSurface(object.sprites[subIndex].usWidth,
+                                      object.sprites[subIndex].usHeight, PIXEL_DEPTH);
     if (!surface || !BltVideoObject(*surface, object, subIndex, 0, 0,
                                     VO_BLT_SRCTRANSPARENCY, nullptr))
         return nullptr;

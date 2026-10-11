@@ -86,7 +86,7 @@ void UpdateCameraPathState(W8World* world, W8CameraPath* path, int active)
     g_camera_path_active = false;
     rotation = glm::mat3(1);
     target.Set(0.0f, 0.0f, 1.0f);
-    world->camera->getRotation(rotation);
+    rotation = world->camera->getRotation<glm::mat3>();
     ApplyCameraRotation(&rotation);
     path->active = false;
     SetEnvironmentLoadFlag(g_saved_environment_flag);

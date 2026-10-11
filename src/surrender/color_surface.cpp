@@ -158,12 +158,6 @@ void srColorSurfaceIFace::setVClampMode(int enabled)
     clamp_modes = clamp_modes & ~CLAMP_VERTICAL;
 }
 
-// FUNCTION: SURRENDER 0x1005A0D0
-const srPixelConvert::PixelFormat* srColorSurfaceIFace::getPixelFormat() const
-{
-    return &pixel_format;
-}
-
 // FUNCTION: SURRENDER 0x1005A0E0
 int srColorSurfaceIFace::isPixelFormatCompatible(const srColorSurfaceIFace& source) const
 {
@@ -557,9 +551,7 @@ void srColorSurfaceIFace::dump(std::ostream& stream)
     stream.width(0x20);
     stream << "  Data size: " << getDataSize() << " bytes" << '\n';
     stream.width(0x20);
-    char format_name[12];
-    pixel_format.getName(format_name);
-    stream << "  Pixel format: " << format_name << '\n';
+    stream << "  Pixel format: " << pixel_format.getName() << '\n';
     stream.flags(static_cast<std::ios::fmtflags>(flags & 0x7fff));
 }
 
@@ -638,7 +630,9 @@ srColorSurface::srColorSurface(const srPixelConvert::PixelFormat& format, w8_ulo
 {
     init(format, arg_width, arg_height, 0);
     allocate();
-    srPixelConvert::selectFuncs(format, pixel_write, pixel_read);
+    const auto functions = srPixelConvert::selectFuncs(format);
+    pixel_write = functions.write;
+    pixel_read = functions.read;
 }
 
 // FUNCTION: SURRENDER 0x1005B8A0
@@ -649,7 +643,9 @@ srColorSurface::srColorSurface(srPixelConvert::e_surfaceType type, w8_ulong arg_
     srPixelConvert::mapPixelFormat(type, format);
     init(format, arg_width, arg_height, 0);
     allocate();
-    srPixelConvert::selectFuncs(format, pixel_write, pixel_read);
+    const auto functions = srPixelConvert::selectFuncs(format);
+    pixel_write = functions.write;
+    pixel_read = functions.read;
 }
 
 /* The data-taking variants view caller storage, which must outlive the surface. */
@@ -662,7 +658,9 @@ srColorSurface::srColorSurface(srPixelConvert::e_surfaceType type, void* data,
     srPixelConvert::mapPixelFormat(type, format);
     init(format, arg_width, arg_height, arg_pitch);
     adopt(CreateCpuStorage(arg_width, arg_height, StorageFormat(format), data, arg_pitch).release());
-    srPixelConvert::selectFuncs(format, pixel_write, pixel_read);
+    const auto functions = srPixelConvert::selectFuncs(format);
+    pixel_write = functions.write;
+    pixel_read = functions.read;
 }
 
 // FUNCTION: SURRENDER 0x1005BAC0
@@ -672,7 +670,9 @@ srColorSurface::srColorSurface(const srPixelConvert::PixelFormat& format, void* 
 {
     init(format, arg_width, arg_height, arg_pitch);
     adopt(CreateCpuStorage(arg_width, arg_height, StorageFormat(format), data, arg_pitch).release());
-    srPixelConvert::selectFuncs(format, pixel_write, pixel_read);
+    const auto functions = srPixelConvert::selectFuncs(format);
+    pixel_write = functions.write;
+    pixel_read = functions.read;
 }
 
 srColorSurface::srColorSurface(srPixelConvert::e_surfaceType type, SDL_Surface& shared)
@@ -682,7 +682,9 @@ srColorSurface::srColorSurface(srPixelConvert::e_surfaceType type, SDL_Surface& 
     init(format, shared.w, shared.h, shared.pitch);
     ++shared.refcount;
     adopt(&shared);
-    srPixelConvert::selectFuncs(format, pixel_write, pixel_read);
+    const auto functions = srPixelConvert::selectFuncs(format);
+    pixel_write = functions.write;
+    pixel_read = functions.read;
 }
 
 // FUNCTION: SURRENDER 0x1005D520

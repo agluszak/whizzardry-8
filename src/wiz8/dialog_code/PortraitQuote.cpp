@@ -432,9 +432,6 @@ int LayoutPortraitQuoteBubble(int quote_handle, unsigned char background_index,
                               unsigned short* out_width, unsigned short* out_height,
                               unsigned int font_palette)
 {
-    VSURFACE_DESC surface_desc{};
-    VSURFACE_DESC text_desc{};
-    VOBJECT_DESC object_desc{};
     std::string line;
     const char* read;
     size_t remaining;
@@ -473,14 +470,10 @@ int LayoutPortraitQuoteBubble(int quote_handle, unsigned char background_index,
     auto& bubble = pending ? *pending : *g_portrait_quotes[quote_handle];
     if (quote_handle == -1) {
         g_current_portrait_quote = &bubble;
-        surface_desc.fCreateFlags = VSURFACE_CREATE_FROMFILE | VSURFACE_SYSTEM_MEM_USAGE;
-        surface_desc.ImageFile = g_quote_bubble_backgrounds[background_index];
-        if (!(bubble.background_surface = CreateVideoSurface(surface_desc))) {
+        if (!(bubble.background_surface = LoadVideoSurface(g_quote_bubble_backgrounds[background_index]))) {
             return -1;
         }
-        object_desc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
-        object_desc.ImageFile = g_quote_bubble_edges[edge_index];
-        if (!(g_current_portrait_quote->object = CreateVideoObject(object_desc))) {
+        if (!(g_current_portrait_quote->object = LoadVideoObject(g_quote_bubble_edges[edge_index]))) {
             return -1;
         }
         g_current_portrait_quote->has_resources = true;
@@ -495,14 +488,11 @@ int LayoutPortraitQuoteBubble(int quote_handle, unsigned char background_index,
                 g_current_portrait_quote->object.reset();
                 g_current_portrait_quote->has_resources = false;
             }
-            surface_desc.fCreateFlags = VSURFACE_CREATE_FROMFILE | VSURFACE_SYSTEM_MEM_USAGE;
-            surface_desc.ImageFile = g_quote_bubble_backgrounds[background_index];
-            if (!(g_current_portrait_quote->background_surface = CreateVideoSurface(surface_desc))) {
+            if (!(g_current_portrait_quote->background_surface =
+                      LoadVideoSurface(g_quote_bubble_backgrounds[background_index]))) {
                 return -1;
             }
-            object_desc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
-            object_desc.ImageFile = g_quote_bubble_edges[edge_index];
-            if (!(g_current_portrait_quote->object = CreateVideoObject(object_desc))) {
+            if (!(g_current_portrait_quote->object = LoadVideoObject(g_quote_bubble_edges[edge_index]))) {
                 return -1;
             }
             g_current_portrait_quote->has_resources = true;
@@ -540,11 +530,8 @@ int LayoutPortraitQuoteBubble(int quote_handle, unsigned char background_index,
         max_width = 0x15d;
     }
     if (static_cast<unsigned short>(height) < 200) {
-        text_desc.fCreateFlags = VSURFACE_CREATE_DEFAULT | VSURFACE_SYSTEM_MEM_USAGE;
-        text_desc.usWidth = static_cast<unsigned short>(max_width);
-        text_desc.usHeight = static_cast<unsigned short>(height);
-        text_desc.ubBitDepth = 0x10;
-        if (!(bubble.surface = CreateVideoSurface(text_desc))) {
+        if (!(bubble.surface = CreateVideoSurface(static_cast<UINT16>(max_width),
+                                                   static_cast<UINT16>(height), 16))) {
             return 0;
         }
         bubble.palette = font_palette;
