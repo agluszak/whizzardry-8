@@ -672,13 +672,6 @@ void VideoScenario(bool intro_seen)
     std::printf("video: %u movie frames presented\n", g_runtime_test_hooks.movie_frames_presented);
 }
 
-void CharacterScenario()
-{
-    Game game(false);
-    const std::string name = CreateCharacter(game);
-    std::printf("character: saved %s.CHR after %lu frames\n", name.c_str(), game.frames());
-}
-
 void GameStartScenario()
 {
     Game game(false);
@@ -698,12 +691,8 @@ void GameStartScenario()
                 now.position.x, now.position.y, now.position.z);
 }
 
-void WorldRenderScenario()
-{
-    Game game(false);
-    // Rendering does not need to repeat character creation and party UI.
-    StartPremadeGame(game);
-    W8World* world = GetWorld();
+void CheckWorldRender(Game& game)
+{    W8World* world = GetWorld();
     unsigned enabled = 0;
     for (unsigned i = 0; i <= world->octree->GetMeshCount(); ++i)
         if (world->psrMeshes[i] && !world->psrMeshes[i]->testFlag(srNode::FLAG_DISABLE))
@@ -749,6 +738,8 @@ void ResourceLifecycleScenario()
 {
     Game game(false);
     StartPremadeGame(game);
+    // Rendering and resource recycling use the same live world and GPU session.
+    CheckWorldRender(game);
     // Automap buttons own their sprite sheets. Re-entering the screen must
     // rebuild all sixteen controls after the previous owners are destroyed.
     for (int visit = 0; visit != 2; ++visit) {
@@ -766,6 +757,17 @@ void ResourceLifecycleScenario()
         game.wait_screen("automap-buttons-released", W8_SCREEN_MAIN_GAME);
         REQUIRE(g_automap_buttons.empty());
     }
+    // Exercise a second screen's input, teardown and return-stack lifecycle.
+    const std::size_t return_depth = g_screen_return_stack.size();
+    game.command(W8_MGS_COMMAND_JOURNAL);
+    game.wait_screen("journal", W8_SCREEN_JOURNAL);
+    REQUIRE(g_screen_return_stack.size() == return_depth + 1);
+    REQUIRE(g_screen_return_stack.back().id == W8_SCREEN_MAIN_GAME);
+    game.key(SDLK_ESCAPE);
+    game.wait_screen("journal-return", W8_SCREEN_MAIN_GAME);
+    REQUIRE(g_screen_return_stack.size() == return_depth);
+    REQUIRE((GetWorld() && GetWorld()->level));
+
     const int level = g_status.current_level;
     const auto anchor = Walk(game, "settle-before-save", 2.0f);
     QuickSave(game);
@@ -806,6 +808,23 @@ void ResourceLifecycleScenario()
     REQUIRE(g_gerd->getTextureCacheUsed() > 0);
 }
 
+/* The UI load test consumes the save written by the quick-save regression.
+   Reusing that real saved game avoids another full runtime startup. */
+void WriteSaveFixture(const fs::path& output, const fs::path& save,
+                      const srVector3T<float>& anchor)
+{
+    fs::create_directories(output);
+    fs::copy_file(save, output / "Fixture.SAV", fs::copy_options::overwrite_existing);
+    std::ofstream metadata(output / "Fixture.txt");
+    metadata << std::setprecision(std::numeric_limits<float>::max_digits10)
+             << anchor.x << ' ' << anchor.y << ' ' << anchor.z << ' '
+             << g_status.current_level << ' ' << g_status.buffers.Char[PremadeSlot()].experience << '\n';
+    metadata.close();
+    REQUIRE(metadata);
+    std::printf("save-fixture: wrote %s (%ju bytes)\n", (output / "Fixture.SAV").string().c_str(),
+                std::uintmax_t(fs::file_size(output / "Fixture.SAV")));
+}
+
 /* Quick save, walk away, quick load: the party is back where it saved. */
 void QuickSaveScenario()
 {
@@ -814,12 +833,16 @@ void QuickSaveScenario()
     const srVector3T<float> anchor = Walk(game, "walk", 2.0f);
     const int level = g_status.current_level;
     const unsigned experience = g_status.buffers.Char[PremadeSlot()].experience;
+    const int health = g_status.buffers.Char[PremadeSlot()].hp_current;
+    REQUIRE(health > 1);
     const fs::path save = QuickSave(game);
+    WriteSaveFixture(WIZ8_RUNTIME_SAVE_FIXTURE, save, anchor);
     Walk(game, "walk-away", 4.0f);
     REQUIRE(HorizontalDistance(PartyPosition(), anchor) > 2.0f);
     // Change a persistent field as well as the camera: loading must replace
     // the character record, not just reposition the party.
     g_status.buffers.Char[PremadeSlot()].experience = experience + 123;
+    g_status.buffers.Char[PremadeSlot()].hp_current = health - 1;
 
     game.command(W8_MGS_COMMAND_QUICK_LOAD);
     bool loading = false;
@@ -832,27 +855,9 @@ void QuickSaveScenario()
     REQUIRE(CountActiveCharacters() == 1);
     REQUIRE(g_status.current_level == level);
     REQUIRE(g_status.buffers.Char[PremadeSlot()].experience == experience);
+    REQUIRE(g_status.buffers.Char[PremadeSlot()].hp_current == health);
     std::printf("quick-save: %s round-tripped after %lu frames\n",
                 save.filename().string().c_str(), game.frames());
-}
-
-/* Writes the shared save fixture: a game saved a few steps from the start. */
-void SaveFixtureScenario(const fs::path& output)
-{
-    Game game(false);
-    StartPremadeGame(game);
-    const srVector3T<float> anchor = Walk(game, "walk", 2.0f);
-    const fs::path save = QuickSave(game);
-    fs::create_directories(output);
-    fs::copy_file(save, output / "Fixture.SAV", fs::copy_options::overwrite_existing);
-    std::ofstream metadata(output / "Fixture.txt");
-    metadata << std::setprecision(std::numeric_limits<float>::max_digits10)
-             << anchor.x << ' ' << anchor.y << ' ' << anchor.z << ' '
-             << g_status.current_level << ' ' << g_status.buffers.Char[PremadeSlot()].experience << '\n';
-    metadata.close();
-    REQUIRE(metadata);
-    std::printf("save-fixture: wrote %s (%ju bytes)\n", (output / "Fixture.SAV").string().c_str(),
-                std::uintmax_t(fs::file_size(output / "Fixture.SAV")));
 }
 
 /* Main menu -> Load Game -> the fixture save -> its party and position. */
@@ -993,24 +998,10 @@ TEST_CASE("video-seen", "[runtime]")
     CheckGameErrors();
 }
 
-TEST_CASE("character", "[runtime]")
-{
-    RequireAssets();
-    CharacterScenario();
-    CheckGameErrors();
-}
-
 TEST_CASE("game-start", "[runtime]")
 {
     RequireAssets();
     GameStartScenario();
-    CheckGameErrors();
-}
-
-TEST_CASE("world", "[runtime]")
-{
-    RequireAssets();
-    WorldRenderScenario();
     CheckGameErrors();
 }
 
@@ -1032,13 +1023,6 @@ TEST_CASE("combat", "[runtime]")
 {
     RequireAssets();
     CombatScenario();
-    CheckGameErrors();
-}
-
-TEST_CASE("save-fixture", "[runtime]")
-{
-    RequireAssets();
-    SaveFixtureScenario(WIZ8_RUNTIME_SAVE_FIXTURE);
     CheckGameErrors();
 }
 
