@@ -1,3 +1,4 @@
+#include "wiz8/engine_code/emitter_cycles.h"
 #include <fmt/format.h>
 #include <glm/gtx/rotate_vector.hpp>
 #include <glm/ext/quaternion_trigonometric.hpp>
@@ -722,10 +723,7 @@ unsigned int W8MissileRep::ApplyEmitterSetting(signed char emitter)
    construction and precedes these assignments in the retail body. */
 W8MissileRep::W8MissileRep()
 {
-    emitters[0] = 0;
-    emitters[1] = 0;
-    emitter_playback_scales[0] = 15.0f;
-    emitter_playback_scales[1] = 15.0f;
+    ResetEmitterAnimations(*this);
 }
 
 /* Copy the two proven representation values, clone each animation, and deep
@@ -736,29 +734,8 @@ W8MissileRep::W8MissileRep()
 W8MissileRep::W8MissileRep(const W8MissileRep& other)
     : W8EmitterHost(other), value_0ac(other.value_0ac), value_0b0(other.value_0b0)
 {
-    int emitter;
-
-    for (emitter = 0; emitter < 2; ++emitter) {
-        if (other.emitters[emitter] == 0) {
-            emitters[emitter] = 0;
-            emitter_playback_scales[emitter] = 15.0f;
-        } else {
-            emitters[emitter] = new W8AnimObj(*other.emitters[emitter]);
-            emitter_playback_scales[emitter] = other.emitter_playback_scales[emitter];
-        }
-    }
-
-    for (emitter = 0; emitter < 2; ++emitter) {
-        int list_index;
-
-        for (list_index = 0; list_index < static_cast<int>(other.light_lists[emitter].size());
-             ++list_index) {
-            std::vector<stLight*>* source_lights = other.light_lists[emitter][list_index];
-            std::vector<stLight*>* copied_lights =
-                CloneAnimationLightList(source_lights, MISSILE_CPP, 0x184, 0x18c);
-            light_lists[emitter].push_back(copied_lights);
-        }
-    }
+    CloneEmitterAnimations(*this, other);
+    CloneEmitterLightLists(*this, other);
 }
 
 // FUNCTION: WIZ8 0x004a5d40
@@ -771,49 +748,10 @@ W8AnimRepBase* W8MissileRep::Clone()
 unsigned char W8MissileRep::ReadCycleData(W8ReadLevelInfo* info, W8Missile* missile,
                                           int cycle_index, int)
 {
-    std::vector<stLight*>* lights = new std::vector<stLight*>;
-    W8AnimObj* animation;
-    unsigned char success;
-    signed char emitter;
-
     if (info == 0 || info->hFile == 0 || missile == 0) {
         srAssertFail("pInfo && pInfo->hFile && pMissile", MISSILE_CPP, 0x1df, 0);
     }
-    animation = new W8AnimObj;
-    success = AnimObjReadFromFile(info, animation, 1, lights, 1);
-    emitter = static_cast<signed char>(animation->cycle);
-
-    if (lights->empty()) {
-        delete lights;
-        lights = 0;
-    } else {
-        missile->SetLights(lights);
-    }
-    light_lists[cycle_index].push_back(lights);
-
-    if (cycle_index != -1) {
-        emitter = static_cast<signed char>(cycle_index);
-        current_cycle = emitter;
-    }
-    emitter_playback_scales[emitter] = animation->playback_scale;
-    active = 1;
-    frame_direction = W8_ANIMATION_FORWARD;
-    timer = g_shared_timer_base->milliseconds();
-    animation_behaviour = animation->behaviour;
-    frame_method = animation->frame_method;
-    animation_playing = animation->animation_playing;
-    emitters[emitter] = animation;
-
-    if (missile->m_pRep != 0) {
-        if (SetCycleFrameLod(current_cycle, 0, 2) != 0) {
-            m_bLOD = 2;
-        } else if (SetCycleFrameLod(current_cycle, 0, 1) != 0) {
-            m_bLOD = 1;
-        } else {
-            m_bLOD = 0;
-        }
-    }
-    return success;
+    return ReadEmitterCycle(*this, info, *missile, cycle_index, missile->m_pRep != nullptr);
 }
 
 /* Retail constructs the +0x2d8 growable vector normally, then clears the
@@ -1082,7 +1020,6 @@ bool W8Missile::IsCycleSupported(signed char cycle)
 void W8Missile::SetCycle(signed char cycle)
 {
     std::vector<stLight*>* lights;
-    W8AnimObj* animation;
 
     if (cycle < 0 || cycle >= 2) {
         srAssertFail("bCycle >= MISSILE_CYCLE_FIRST && bCycle <= MISSILE_CYCLE_LAST", MISSILE_CPP,
@@ -1092,21 +1029,7 @@ void W8Missile::SetCycle(signed char cycle)
     lights = m_pRep->light_lists[m_pRep->current_cycle][0];
     DetachCycleLights(lights);
 
-    m_pRep->current_cycle = cycle;
-    animation = m_pRep->emitters[cycle];
-    m_pRep->active = 1;
-    m_pRep->frame_direction = W8_ANIMATION_FORWARD;
-    if (m_pRep->SetCycleFrameLod(cycle, 0, 2) != 0) {
-        m_pRep->m_bLOD = 2;
-    } else if (m_pRep->SetCycleFrameLod(cycle, 0, 1) != 0) {
-        m_pRep->m_bLOD = 1;
-    } else {
-        m_pRep->m_bLOD = 0;
-    }
-    m_pRep->timer = g_shared_timer_base->milliseconds();
-    m_pRep->frame_method = animation->frame_method;
-    m_pRep->animation_playing = animation->animation_playing;
-    m_pRep->subcycle = 0;
+    StartEmitterCycle(*m_pRep, cycle);
 
     lights = m_pRep->light_lists[cycle][0];
     SetLights(lights);

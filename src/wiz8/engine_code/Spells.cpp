@@ -1,3 +1,4 @@
+#include "wiz8/engine_code/emitter_cycles.h"
 #include <fmt/format.h>
 #include <glm/ext/quaternion_trigonometric.hpp>
 #include <glm/gtc/quaternion.hpp>
@@ -199,7 +200,6 @@ void W8SpellVisual::AdvanceAnimationFrame(int value, int arg_flags)
 void W8SpellVisual::SetCycle(signed char cycle)
 {
     std::vector<stLight*>* lights;
-    W8AnimObj* animation;
 
     if (cycle < SPELL_CYCLE_FIRST || cycle > SPELL_CYCLE_LAST) {
         srAssertFail("bCycle >= SPELL_CYCLE_FIRST && bCycle <= SPELL_CYCLE_LAST",
@@ -209,21 +209,7 @@ void W8SpellVisual::SetCycle(signed char cycle)
     lights = host->light_lists[host->current_cycle][0];
     DetachCycleLights(lights);
 
-    host->current_cycle = cycle;
-    animation = host->emitters[cycle];
-    host->active = 1;
-    host->frame_direction = W8_ANIMATION_FORWARD;
-    if (host->SetCycleFrameLod(cycle, 0, 2) != 0) {
-        host->m_bLOD = 2;
-    } else if (host->SetCycleFrameLod(cycle, 0, 1) != 0) {
-        host->m_bLOD = 1;
-    } else {
-        host->m_bLOD = 0;
-    }
-    host->timer = g_shared_timer_base->milliseconds();
-    host->frame_method = animation->frame_method;
-    host->animation_playing = animation->animation_playing;
-    host->subcycle = 0;
+    StartEmitterCycle(*host, cycle);
 
     lights = host->light_lists[cycle][0];
     SetLights(lights);
@@ -381,12 +367,7 @@ void UpdateWorldSpellVisuals(W8World* world)
    flag_378 before the vptr store) and emitter/scale loop match this body. */
 W8SpellEmitterHost::W8SpellEmitterHost() : value_0ac(0), value_0b0(0), billboard(0)
 {
-    int emitter;
-
-    for (emitter = 0; emitter < SPELL_NUM_CYCLES; ++emitter) {
-        emitters[emitter] = 0;
-        emitter_playback_scales[emitter] = 15.0f;
-    }
+    ResetEmitterAnimations(*this);
 }
 
 /* Copy the two proven host values and the billboard flag, clone every
@@ -397,82 +378,21 @@ W8SpellEmitterHost::W8SpellEmitterHost(const W8SpellEmitterHost& other)
     : W8EmitterHost(other), value_0ac(other.value_0ac), value_0b0(other.value_0b0),
       billboard(other.billboard)
 {
-    int emitter;
-
-    for (emitter = 0; emitter < SPELL_NUM_CYCLES; ++emitter) {
-        if (other.emitters[emitter] == 0) {
-            emitters[emitter] = 0;
-            emitter_playback_scales[emitter] = 15.0f;
-        } else {
-            emitters[emitter] = new W8AnimObj(*other.emitters[emitter]);
-            emitter_playback_scales[emitter] = other.emitter_playback_scales[emitter];
-        }
-    }
-
+    CloneEmitterAnimations(*this, other);
     active = 1;
     current_cycle = other.current_cycle;
-
-    for (emitter = 0; emitter < SPELL_NUM_CYCLES; ++emitter) {
-        int list_index;
-
-        for (list_index = 0; list_index < static_cast<int>(other.light_lists[emitter].size());
-             ++list_index) {
-            std::vector<stLight*>* source_lights = other.light_lists[emitter][list_index];
-            std::vector<stLight*>* copied_lights = CloneAnimationLightList(
-                source_lights, "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x198, 0x1a0);
-            light_lists[emitter].push_back(copied_lights);
-        }
-    }
+    CloneEmitterLightLists(*this, other);
 }
 
 // FUNCTION: WIZ8 0x004AB340
 unsigned char W8SpellEmitterHost::ReadCycleData(W8ReadLevelInfo* info, W8SpellVisual* visual, int,
                                                 int emitter_index)
 {
-    std::vector<stLight*>* lights = new std::vector<stLight*>;
-    W8AnimObj* animation;
-    unsigned char success;
-    signed char emitter;
-
     if (info == 0 || info->hFile == 0 || visual == 0) {
         srAssertFail("pInfo && pInfo->hFile && pSpell",
                      "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x25a, 0);
     }
-    animation = new W8AnimObj;
-    success = AnimObjReadFromFile(info, animation, 1, lights, 1);
-    emitter = static_cast<signed char>(animation->cycle);
-
-    if (lights->empty()) {
-        delete lights;
-        lights = 0;
-    } else {
-        visual->SetLights(lights);
-    }
-    light_lists[emitter_index].push_back(lights);
-
-    if (emitter_index != -1) {
-        emitter = static_cast<signed char>(emitter_index);
-        current_cycle = emitter;
-    }
-    emitter_playback_scales[emitter] = animation->playback_scale;
-    active = 1;
-    frame_direction = W8_ANIMATION_FORWARD;
-    timer = g_shared_timer_base->milliseconds();
-    animation_behaviour = animation->behaviour;
-    frame_method = animation->frame_method;
-    animation_playing = animation->animation_playing;
-    emitters[emitter] = animation;
-
-    if (visual != 0) {
-        if (SetCycleFrameLod(current_cycle, 0, 2) != 0) {
-            m_bLOD = 2;
-        } else if (SetCycleFrameLod(current_cycle, 0, 1) != 0) {
-            m_bLOD = 1;
-        } else {
-            m_bLOD = 0;
-        }
-    }
-    return success;
+    return ReadEmitterCycle(*this, info, *visual, emitter_index, true);
 }
 
 static int FindSpellCycleByName(const char* name)

@@ -19,6 +19,7 @@
 #include "wiz8/asset_paths.h"
 #include "wiz8/engine_code/AnimObj.h"
 #include "wiz8/engine_code/Spells.h"
+#include "wiz8/engine_code/Missile.h"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/game_timer.h"
@@ -213,4 +214,35 @@ TEST_CASE_METHOD(SpellVisualFixture, "Missing spell visual fallback", "[resource
     REQUIRE(CreateAttachedSpellEffect("Missing", 1, nullptr, 0, 0) == nullptr);
     REQUIRE(CreateAimedSpellEffect("Missing", 1, &position, &rotation, 0, 0) == nullptr);
     REQUIRE(visuals.empty());
+}
+
+// A cloned resource must own its animations and light vectors after its source is released.
+template<class Host>
+static void CheckEmitterCloneLifetime()
+{
+    auto source = std::make_unique<Host>();
+    source->value_0ac = 11;
+    source->value_0b0 = 22;
+    const int cycle = static_cast<int>(std::size(source->emitters)) - 1;
+    source->emitters[cycle] = new W8AnimObj;
+    source->emitters[cycle]->playback_scale = 3.5f;
+    source->emitter_playback_scales[cycle] = 7.25f;
+    source->light_lists[cycle].push_back(nullptr);
+    source->light_lists[cycle].push_back(new std::vector<stLight*>);
+    auto copy = std::make_unique<Host>(*source);
+    REQUIRE(copy->emitters[cycle] != source->emitters[cycle]);
+    REQUIRE(copy->light_lists[cycle][1] != source->light_lists[cycle][1]);
+    source.reset();
+    REQUIRE(copy->emitters[cycle]->playback_scale == 3.5f);
+    REQUIRE(copy->emitter_playback_scales[cycle] == 7.25f);
+    REQUIRE(copy->value_0ac == 11);
+    REQUIRE(copy->value_0b0 == 22);
+    REQUIRE(copy->light_lists[cycle][0] == nullptr);
+    REQUIRE(copy->light_lists[cycle][1]->empty());
+}
+
+TEST_CASE_METHOD(SpellVisualFixture, "Emitter clones outlive their source", "[resources][spell]")
+{
+    CheckEmitterCloneLifetime<W8MissileRep>();
+    CheckEmitterCloneLifetime<W8SpellEmitterHost>();
 }
