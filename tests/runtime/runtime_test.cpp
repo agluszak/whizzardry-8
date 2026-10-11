@@ -1140,7 +1140,7 @@ void LoadGameScenario(const fs::path& fixture)
             !g_options_screen || g_options_screen->m_selected_panel != 4)
             return false;
         // Panel set 4 holds the single load panel (W8OptionsSaveLoadPanel 11).
-        W8OptionsPanelSet* set = g_options_screen->m_panel[4];
+        W8OptionsPanelSet* set = g_options_screen->m_panel[4].get();
         if (!set || set->m_current < 0 ||
             static_cast<std::size_t>(set->m_current) >= set->m_panels.size())
             return false;

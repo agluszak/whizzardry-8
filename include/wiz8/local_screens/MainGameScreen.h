@@ -143,17 +143,16 @@ public:
 class W8MainGameStatusPanel : public Controls {
 public:
     W8MainGameStatusPanel();
-    virtual ~W8MainGameStatusPanel();
     virtual void Redraw() override;
     void RefreshStatusTexts();
 
-    W8TextBuffer* m_text;
-    W8TextBuffer* m_text0;
-    W8TextBuffer* m_text1;
-    W8TextBuffer* m_text2;
-    W8TextBuffer* m_text3;
-    W8TextBuffer* m_text4;
-    W8TextBuffer* m_text5;
+    std::unique_ptr<W8TextBuffer> m_text;
+    std::unique_ptr<W8TextBuffer> m_text0;
+    std::unique_ptr<W8TextBuffer> m_text1;
+    std::unique_ptr<W8TextBuffer> m_text2;
+    std::unique_ptr<W8TextBuffer> m_text3;
+    std::unique_ptr<W8TextBuffer> m_text4;
+    std::unique_ptr<W8TextBuffer> m_text5;
     int m_target;
 };
 
@@ -302,18 +301,17 @@ class W8LockInfoPanel : public Controls {
 public:
     W8LockInfoPanel(int tumbler_count);
 
-    virtual ~W8LockInfoPanel();
     virtual void Redraw() override;
     void RefreshInfo();
 
     int m_tumbler_count;
-    W8TextBuffer* m_text0; /* character name */
-    W8TextBuffer* m_text1;
-    W8TextBuffer* m_text2; /* lockpick skill */
-    W8TextBuffer* m_text3;
-    W8TextBuffer* m_text4; /* spell power */
-    W8TextBuffer* m_text5;
-    W8TextBuffer* m_text; /* force chance */
+    std::unique_ptr<W8TextBuffer> m_text0; /* character name */
+    std::unique_ptr<W8TextBuffer> m_text1;
+    std::unique_ptr<W8TextBuffer> m_text2; /* lockpick skill */
+    std::unique_ptr<W8TextBuffer> m_text3;
+    std::unique_ptr<W8TextBuffer> m_text4; /* spell power */
+    std::unique_ptr<W8TextBuffer> m_text5;
+    std::unique_ptr<W8TextBuffer> m_text; /* force chance */
 };
 
 /* The lock-picking interaction. It answers the tumbler panel's "released
@@ -325,7 +323,6 @@ class W8LockInteraction : public W8LockTumblerPanelListener, public W8TextContro
 public:
     W8LockInteraction(Trigger* trigger);
 
-    virtual ~W8LockInteraction();
     virtual void OnTumblerPicked(int index) override;
     virtual void OnPrimary(W8TextControl* control) override;
     int ReleaseOwnedTumblers(int slot);
@@ -341,9 +338,9 @@ public:
 
     Trigger* m_trigger;
     int m_tumbler_count; /* trigger->lock_state.difficulty clamped to [2,8] */
-    W8LockTumblerPanel* m_tumbler_panel;
-    W8LockInfoPanel* m_info_panel;
-    Controls* m_action_panel;
+    std::unique_ptr<W8LockTumblerPanel> m_tumbler_panel;
+    std::unique_ptr<W8LockInfoPanel> m_info_panel;
+    std::unique_ptr<Controls> m_action_panel;
     W8TextControl* m_done_button;      /* OnPrimary target, state 9 */
     W8TextControl* m_spell_button;     /* gated by spell-0x27 power */
     W8TextControl* m_force_button;     /* gated by the force chance */
@@ -368,7 +365,6 @@ public:
 class W8MainGameScreen final : public W8MainGameTextSelectionListener, public W8TextControl::Listener {
 public:
     W8MainGameScreen(Trigger* owner);
-    ~W8MainGameScreen();
     virtual void SelectTextEntry(int index) override;
     virtual void OnPrimary(W8TextControl* control) override;
     virtual void OnSecondary(W8TextControl*) override {}
@@ -381,9 +377,9 @@ public:
     void UseTrapItem();
 
     Trigger* m_owner;
-    W8MainGameTextPanel* m_text_panel;
-    W8MainGameStatusPanel* m_status_panel;
-    Controls* m_action_panel;
+    std::unique_ptr<W8MainGameTextPanel> m_text_panel;
+    std::unique_ptr<W8MainGameStatusPanel> m_status_panel;
+    std::unique_ptr<Controls> m_action_panel;
     int m_disarm_state;
     int m_selected_character;
     W8TextControl* m_action_controls[5];

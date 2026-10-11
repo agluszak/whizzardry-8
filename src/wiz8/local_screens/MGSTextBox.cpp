@@ -1759,7 +1759,7 @@ int FindStoppedTextLine(void)
 // FUNCTION: WIZ8 0x0058a8f0
 char TextBoxHandleKey(const InputEvent* event)
 {
-    W8MainGameTextPanel* panel = g_main_game_screen->m_text_panel;
+    W8MainGameTextPanel* panel = g_main_game_screen->m_text_panel.get();
     int before = panel->m_selection;
     char handled;
 

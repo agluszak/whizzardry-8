@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <memory>
 
 #include "input.h"
 #include "wiz8/layouts/learned_spells.h"
@@ -37,7 +38,7 @@ struct W8SpellCastingView {
     int uiSpellIndex; /* clicked list row */
     int selected_spell_index;
     int field_500;
-    Controls* panels[3];
+    std::unique_ptr<Controls> panels[3];
     W8TextControl* realm_buttons[6];
     W8TextControl* realm_icons[6];
     /* Indexed by region callback id. */
@@ -84,6 +85,6 @@ unsigned char IgnoreSpellCastingInput(const InputEvent* event, W8Region* region)
 unsigned char SpellCastTextBoxRegionEvent(const InputEvent* event, W8Region* region);
 
 /* Live spell-casting view, or null when the panel is closed. */
-extern W8SpellCastingView* gpSCSV;
+extern std::unique_ptr<W8SpellCastingView> gpSCSV;
 /* gpSCSV->iSpellPower, or -1 when the view is closed. */
 int GetSpellCastingPowerIndex(void);

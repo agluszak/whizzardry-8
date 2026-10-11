@@ -539,8 +539,7 @@ class W8PartySelectionController final : public W8TextControl::Listener,
                                    public W8PartySelectionListSelectionListener,
                                    public W8PartySelectionDecisionListener {
 public:
-    W8PartySelectionController() : m_character(0), m_input_handler(0) {}
-    ~W8PartySelectionController();
+    W8PartySelectionController() : m_character(0) {}
 
     virtual void OnPrimary(W8TextControl* control) override;
     virtual void OnSecondary(W8TextControl*) override {}
@@ -564,15 +563,15 @@ public:
     bool m_redraw_backdrop;
     unsigned char pad_15[3];
     W8Character* m_character;
-    W8RangeControl* m_range;
-    W8PartySelectionCharacterPanel* m_character_panel;
-    W8PartySelectionCharacterGridPanel* m_control0;
-    W8PartySelectionPartySlotPanel* m_control1;
-    W8PartySelectionCharacterSummaryPanel* m_control2;
-    W8PartySelectionOptionPanel* m_control3;
-    Controls* m_left_panel;
-    Controls* m_import_panel;
-    Controls* m_bottom_panel;
+    std::unique_ptr<W8RangeControl> m_range;
+    std::unique_ptr<W8PartySelectionCharacterPanel> m_character_panel;
+    std::unique_ptr<W8PartySelectionCharacterGridPanel> m_control0;
+    std::unique_ptr<W8PartySelectionPartySlotPanel> m_control1;
+    std::unique_ptr<W8PartySelectionCharacterSummaryPanel> m_control2;
+    std::unique_ptr<W8PartySelectionOptionPanel> m_control3;
+    std::unique_ptr<Controls> m_left_panel;
+    std::unique_ptr<Controls> m_import_panel;
+    std::unique_ptr<Controls> m_bottom_panel;
     W8TextControl* m_create_button;
     W8TextControl* m_add_remove_button;
     W8TextControl* m_delete_button;
@@ -581,8 +580,8 @@ public:
     W8TextControl* m_confirm_button;
     W8TextControl* m_back_button;
     W8PartySelectionListControl* m_list;
-    W8TextBuffer* m_text_buffer;
-    W8PartySelectionInputHandler* m_input_handler;
+    std::unique_ptr<W8TextBuffer> m_text_buffer;
+    std::unique_ptr<W8PartySelectionInputHandler> m_input_handler;
     std::unique_ptr<W8MessageDialogBase> m_dialog;
     W8PartyConfirmationAction m_confirmation_action;
 };
@@ -1198,7 +1197,7 @@ void W8PartySelectionOptionPanel::SetOptionPanelMode(W8PartyCreationPage page)
                       static_cast<unsigned short>(m_image_width) - 4,
                       static_cast<unsigned short>(m_image_height) - 4, 0x7f, "", 0x28, 0x0f, 1);
     SetActiveField(0);
-    controller->m_input_handler = input_handler;
+    controller->m_input_handler.reset(input_handler);
     input_handler->m_listener = controller;
     input_handler->m_listener->OnToggle(0);
 }
@@ -1210,12 +1209,12 @@ void W8PartySelectionOptionPanel::SetOptionPanelMode(W8PartyCreationPage page)
 // FUNCTION: WIZ8 0x005c0f30
 void W8PartySelectionController::Setup()
 {
-    m_range = new W8RangeControl(0x1e9, 0x31, 0x1fb, 0x12b);
-    m_character_panel = new W8PartySelectionCharacterPanel;
-    m_control0 = new W8PartySelectionCharacterGridPanel;
-    m_control1 = new W8PartySelectionPartySlotPanel;
-    m_control2 = new W8PartySelectionCharacterSummaryPanel;
-    m_control3 = new W8PartySelectionOptionPanel;
+    m_range = std::make_unique<W8RangeControl>(0x1e9, 0x31, 0x1fb, 0x12b);
+    m_character_panel = std::make_unique<W8PartySelectionCharacterPanel>();
+    m_control0 = std::make_unique<W8PartySelectionCharacterGridPanel>();
+    m_control1 = std::make_unique<W8PartySelectionPartySlotPanel>();
+    m_control2 = std::make_unique<W8PartySelectionCharacterSummaryPanel>();
+    m_control3 = std::make_unique<W8PartySelectionOptionPanel>();
 
     for (int slot = 0; slot < 6; ++slot) {
         W8PartySelectionPartySlotRow* row =
@@ -1223,51 +1222,51 @@ void W8PartySelectionController::Setup()
         row->m_redraw_partner = m_control0->ControlAt(slot);
     }
 
-    m_left_panel = new Controls(0x145, 0x137, 0, 0, std::nullopt, -1);
+    m_left_panel = std::make_unique<Controls>(0x145, 0x137, 0, 0, std::nullopt, -1);
     m_left_panel->CreateRegionSet();
     m_create_button =
-        new W8TextControl(m_left_panel, 0xffffffff, 0, 0, 0, 0, CatalogArtwork::Load(0xfe, 0), 0, 2, 1, 2, 3);
+        new W8TextControl(m_left_panel.get(), 0xffffffff, 0, 0, 0, 0, CatalogArtwork::Load(0xfe, 0), 0, 2, 1, 2, 3);
     m_create_button->m_textBuffer.SetText(g_localized_strings[0x6c5], g_wiz_text_bold_font);
     m_create_button->m_listener = this;
 
     m_add_remove_button =
-        new W8TextControl(m_left_panel, 0xffffffff, 0, 0x1a, 0, 0, CatalogArtwork::Load(0xfe, 0), 0, 2, 1, 2, 3);
+        new W8TextControl(m_left_panel.get(), 0xffffffff, 0, 0x1a, 0, 0, CatalogArtwork::Load(0xfe, 0), 0, 2, 1, 2, 3);
     m_add_remove_button->m_listener = this;
 
     m_delete_button =
-        new W8TextControl(m_left_panel, 0xffffffff, 0, 0x34, 0, 0, CatalogArtwork::Load(0xfe, 0), 0, 2, 1, 2, 3);
+        new W8TextControl(m_left_panel.get(), 0xffffffff, 0, 0x34, 0, 0, CatalogArtwork::Load(0xfe, 0), 0, 2, 1, 2, 3);
     m_delete_button->m_textBuffer.SetText(g_localized_strings[0x6c8], g_wiz_text_bold_font);
     m_delete_button->m_listener = this;
 
     m_review_button =
-        new W8TextControl(m_left_panel, 0xffffffff, 0, 0x4e, 0, 0, CatalogArtwork::Load(0xfe, 0), 0, 2, 1, 2, 3);
+        new W8TextControl(m_left_panel.get(), 0xffffffff, 0, 0x4e, 0, 0, CatalogArtwork::Load(0xfe, 0), 0, 2, 1, 2, 3);
     m_review_button->m_textBuffer.SetText(g_localized_strings[0x6c9], g_wiz_text_bold_font);
     m_review_button->m_listener = this;
 
-    m_import_panel = new Controls(0x148, 0x31, 0, 0, std::nullopt, -1);
+    m_import_panel = std::make_unique<Controls>(0x148, 0x31, 0, 0, std::nullopt, -1);
     m_import_panel->CreateRegionSet();
-    m_list = new W8PartySelectionListControl(m_import_panel, 0xffffffff, 0, 0, 0x9d, 0xfa);
+    m_list = new W8PartySelectionListControl(m_import_panel.get(), 0xffffffff, 0, 0, 0x9d, 0xfa);
     m_list->m_listener = this;
 
-    m_bottom_panel = new Controls(0x84, 0x1b5, 0, 0, std::nullopt, -1);
+    m_bottom_panel = std::make_unique<Controls>(0x84, 0x1b5, 0, 0, std::nullopt, -1);
     m_bottom_panel->CreateRegionSet();
     m_back_button =
-        new W8TextControl(m_bottom_panel, 0xffffffff, 0x14c, 0, 0, 0, CatalogArtwork::Load(0x106, 0), 4, 6, 5, 6, 7);
+        new W8TextControl(m_bottom_panel.get(), 0xffffffff, 0x14c, 0, 0, 0, CatalogArtwork::Load(0x106, 0), 4, 6, 5, 6, 7);
     m_back_button->EnableRegionHelp(0x6ca);
     m_back_button->m_listener = this;
 
     m_confirm_button =
-        new W8TextControl(m_bottom_panel, 0xffffffff, 0x120, 0, 0, 0, CatalogArtwork::Load(0x106, 0), 0, 2, 1, 2, 3);
+        new W8TextControl(m_bottom_panel.get(), 0xffffffff, 0x120, 0, 0, 0, CatalogArtwork::Load(0x106, 0), 0, 2, 1, 2, 3);
     m_confirm_button->EnableRegionHelp(0x6cb);
     m_confirm_button->m_listener = this;
 
-    m_reset_button = new W8TextControl(m_bottom_panel, 0xffffffff, 0xf4, 0, 0, 0, CatalogArtwork::Load(0x106, 0), 0x18, 0x1a, 0x19, 0x1c, 0x1b);
+    m_reset_button = new W8TextControl(m_bottom_panel.get(), 0xffffffff, 0xf4, 0, 0, 0, CatalogArtwork::Load(0x106, 0), 0x18, 0x1a, 0x19, 0x1c, 0x1b);
     m_reset_button->AddLayoutFlags(g_W8TextControlLayoutLatchedImage | g_W8TextControlLayoutToggle);
     m_reset_button->EnableRegionHelp(0x6cc);
     m_reset_button->m_listener = this;
 
     W8ControlsRect bounds = {0x7b, 6, 0x205, 0x23};
-    m_text_buffer = new W8TextBuffer;
+    m_text_buffer = std::make_unique<W8TextBuffer>();
     m_text_buffer->SetLayoutBounds(&bounds, true, true);
 
     SetMode(W8_PARTY_SELECT_CHARACTERS);
@@ -1278,29 +1277,6 @@ void W8PartySelectionController::Setup()
 W8PartySelectionOptionPanel::~W8PartySelectionOptionPanel()
 {
     m_entries.clear();
-}
-
-// FUNCTION: WIZ8 0x005c1590
-W8PartySelectionController::~W8PartySelectionController()
-{
-    delete m_text_buffer;
-
-    if (m_bottom_panel) {
-        delete m_bottom_panel;
-    }
-    if (m_left_panel) {
-        delete m_left_panel;
-    }
-    if (m_import_panel) {
-        delete m_import_panel;
-    }
-
-    delete m_control0;
-    delete m_control1;
-    delete m_character_panel;
-    delete m_range;
-    delete m_control2;
-    delete m_control3;
 }
 
 /* Switch the party-builder as a complete screen mode.  Mode zero presents the
@@ -1327,8 +1303,8 @@ void W8PartySelectionController::SetMode(W8PartySelectionMode mode)
         m_character_panel->SetEnabled(true);
         m_character_panel->EnableRegionSet(true);
 
-        m_character_panel->m_range = m_range;
-        m_range->m_listener = m_character_panel;
+        m_character_panel->m_range = m_range.get();
+        m_range->m_listener = m_character_panel.get();
         int maximum =
             static_cast<int>(g_party_selection_character_collection->characters.size()) - 6;
         if (maximum < 0) {
@@ -1345,7 +1321,7 @@ void W8PartySelectionController::SetMode(W8PartySelectionMode mode)
             selected = -1;
         }
         m_character_panel->m_control.SetSelected(selected);
-        m_character_panel->m_control.m_selectionListener = m_character_panel;
+        m_character_panel->m_control.m_selectionListener = m_character_panel.get();
         for (int index = 0; index < static_cast<int>(m_character_panel->ControlCount());
              ++index) {
             W8PartySelectionCharacterRow* row =
@@ -1474,7 +1450,7 @@ void W8PartySelectionController::SetSelection(int selection, bool party_slot, bo
             }
             m_control1->m_control.m_selectionListener = 0;
             m_control1->m_control.SetSelected(selected_slot);
-            m_control1->m_control.m_selectionListener = m_control1;
+            m_control1->m_control.m_selectionListener = m_control1.get();
             if (refresh_other) {
                 m_character_panel->SetSelectedRow(selection);
             }
@@ -1504,7 +1480,7 @@ void W8PartySelectionController::SetSelection(int selection, bool party_slot, bo
         if (refresh_other) {
             m_control1->m_control.m_selectionListener = 0;
             m_control1->m_control.SetSelected(selection);
-            m_control1->m_control.m_selectionListener = m_control1;
+            m_control1->m_control.m_selectionListener = m_control1.get();
         }
     }
 
@@ -1533,7 +1509,7 @@ void W8PartySelectionController::OnPrimary(W8TextControl* control)
 {
     if (control == m_back_button) {
         if (m_input_handler) {
-            OnDecision(m_input_handler, 1);
+            OnDecision(m_input_handler.get(), 1);
             return;
         }
         switch (m_mode) {
@@ -1615,7 +1591,7 @@ void W8PartySelectionController::OnPrimary(W8TextControl* control)
             SetMode(W8_PARTY_SELECT_SAVE_NAME);
             return;
         case W8_PARTY_SELECT_SAVE_NAME:
-            OnDecision(m_input_handler, 0);
+            OnDecision(m_input_handler.get(), 0);
             return;
         default:
             return;
@@ -1665,16 +1641,10 @@ void W8PartySelectionController::OnDecision(W8PartySelectionInputHandler*, unsig
             OpenNotification(g_localized_strings[0x829], true, W8_PARTY_CONFIRM_START_WITH_SAVE_NAME);
             return;
         }
-        if (m_input_handler) {
-            delete m_input_handler;
-        }
-        m_input_handler = 0;
+        m_input_handler.reset();
         RunNewGameOpeningSequence(true, slot_name);
     } else {
-        if (m_input_handler) {
-            delete m_input_handler;
-        }
-        m_input_handler = 0;
+        m_input_handler.reset();
         switch (m_mode) {
         case W8_PARTY_SELECT_CHARACTERS:
         case W8_PARTY_SELECT_IMPORT:
@@ -1796,8 +1766,8 @@ void W8PartySelectionController::ApplyPartySelectionConfirmation(W8PartyConfirma
         wiz8::remove_file(path);
         collection->DeleteAt(selected);
 
-        m_character_panel->m_range = m_range;
-        m_range->m_listener = m_character_panel;
+        m_character_panel->m_range = m_range.get();
+        m_range->m_listener = m_character_panel.get();
         int maximum = static_cast<int>(collection->characters.size()) - 6;
         if (maximum < 0) {
             maximum = 0;
@@ -1814,10 +1784,7 @@ void W8PartySelectionController::ApplyPartySelectionConfirmation(W8PartyConfirma
     case W8_PARTY_CONFIRM_START_WITH_SAVE_NAME: {
         std::string slot_name;
         slot_name = GetTextFromField(0);
-        if (m_input_handler) {
-            delete m_input_handler;
-        }
-        m_input_handler = 0;
+        m_input_handler.reset();
         RunNewGameOpeningSequence(true, slot_name);
         return;
     }
