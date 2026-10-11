@@ -3,7 +3,6 @@
 #include <wiz8/filesystem.h>
 #include <SDL3/SDL_audio.h>
 #include <SDL3/SDL_error.h>
-#include <SDL3/SDL_iostream.h>
 #include <SDL3/SDL_properties.h>
 #include <SDL3_mixer/SDL_mixer.h>
 #include <climits>
