@@ -20,15 +20,21 @@ enum { W8_RIFF_CHUNK_ID = 0x46464952 };
 
 W8ChunkHead& W8Chunk::CurrentHead()
 {
-    if (m_heads.empty()) throw std::logic_error("no current RIFF chunk");
+    if (m_heads.empty()) {
+        throw std::logic_error("no current RIFF chunk");
+    }
     return m_heads.back();
 }
 
 // FUNCTION: WIZ8 0x0055ca20
 unsigned char W8Chunk::Read(void* buffer, unsigned int size, unsigned int* transferred)
 {
-    if (transferred) *transferred = 0;
-    if (!m_hFile) throw std::logic_error("read closed RIFF");
+    if (transferred) {
+        *transferred = 0;
+    }
+    if (!m_hFile) {
+        throw std::logic_error("read closed RIFF");
+    }
     if (m_fWriting) {
         srAssertFail("!m_fWriting", CHUNK_CPP, 0x280, 0);
     }
@@ -42,8 +48,12 @@ unsigned char W8Chunk::Read(void* buffer, unsigned int size, unsigned int* trans
 // FUNCTION: WIZ8 0x0055ca80
 unsigned char W8Chunk::Write(const void* buffer, unsigned int size, unsigned int* transferred)
 {
-    if (transferred) *transferred = 0;
-    if (!m_hFile) throw std::logic_error("write closed RIFF");
+    if (transferred) {
+        *transferred = 0;
+    }
+    if (!m_hFile) {
+        throw std::logic_error("write closed RIFF");
+    }
     if (!m_fWriting) {
         srAssertFail("m_fWriting", CHUNK_CPP, 0x29d, 0);
     }
@@ -56,28 +66,34 @@ unsigned char W8Chunk::Write(const void* buffer, unsigned int size, unsigned int
 
 std::int64_t W8Chunk::RemainingBytes() const
 {
-    if (!m_hFile) throw std::logic_error("closed RIFF");
+    if (!m_hFile) {
+        throw std::logic_error("closed RIFF");
+    }
     return CurrentChunkEnd() - m_hFile->tell();
 }
 
 void W8Chunk::ReadBytes(void* buffer, std::size_t size)
 {
-    if (m_fWriting) throw std::logic_error("read from RIFF writer");
+    if (m_fWriting) {
+        throw std::logic_error("read from RIFF writer");
+    }
     const auto remaining = RemainingBytes();
-    if (remaining < 0 || size > static_cast<std::uint64_t>(remaining))
+    if (remaining < 0 || size > static_cast<std::uint64_t>(remaining)) {
         throw std::runtime_error("read past RIFF chunk");
+    }
     m_hFile->read_exact(buffer, size);
 }
 
 void W8Chunk::WriteBytes(const void* buffer, std::size_t size)
 {
-    if (!m_hFile || !m_fWriting || m_heads.empty()) throw std::logic_error("write outside RIFF chunk");
+    if (!m_hFile || !m_fWriting || m_heads.empty()) {
+        throw std::logic_error("write outside RIFF chunk");
+    }
     m_hFile->write(buffer, size);
 }
 
 bool W8Chunk::OpenExistingRiff(std::string_view path, wiz8::OpenMode mode)
-try
-{
+try {
     if (m_hFile != 0) {
         return false;
     }
@@ -85,16 +101,18 @@ try
     m_fWriting = false;
     OpenChunk(0, 0);
     W8ChunkHead* head = &CurrentHead();
-    if (head->chunk_id != W8_RIFF_CHUNK_ID)
+    if (head->chunk_id != W8_RIFF_CHUNK_ID) {
         throw std::runtime_error("invalid RIFF identifier");
+    }
     OpenGroup();
     return true;
-}
-catch (const std::exception&)
-{
+} catch (const std::exception&) {
     m_heads.clear();
-    m_group_counts.clear(); m_offsets.clear(); m_group_progress.clear();
-    m_hFile.reset(); m_fWriting = false;
+    m_group_counts.clear();
+    m_offsets.clear();
+    m_group_progress.clear();
+    m_hFile.reset();
+    m_fWriting = false;
     return false;
 }
 
@@ -106,27 +124,32 @@ bool W8Chunk::OpenRead(std::string_view path)
 
 // FUNCTION: WIZ8 0x0055be30
 bool W8Chunk::OpenWrite(std::string_view path)
-try
-{
-    if (m_hFile) return false;
+try {
+    if (m_hFile) {
+        return false;
+    }
     return OpenWrite(wiz8::open_file(path, wiz8::OpenMode::replace));
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 bool W8Chunk::OpenWrite(std::shared_ptr<wiz8::File> file)
-try
-{
-    if (m_hFile || !file) return false;
+try {
+    if (m_hFile || !file) {
+        return false;
+    }
     m_hFile = std::move(file);
     m_fWriting = true;
     OpenChunk(W8_RIFF_CHUNK_ID, 0);
     OpenGroup();
     return true;
-}
-catch (const std::exception&)
-{
-    m_heads.clear(); m_group_counts.clear(); m_offsets.clear(); m_group_progress.clear();
-    m_hFile.reset(); m_fWriting = false;
+} catch (const std::exception&) {
+    m_heads.clear();
+    m_group_counts.clear();
+    m_offsets.clear();
+    m_group_progress.clear();
+    m_hFile.reset();
+    m_fWriting = false;
     return false;
 }
 
@@ -179,8 +202,9 @@ void W8Chunk::Close()
 {
     if (m_hFile != 0) {
         if (m_fWriting) {
-            if (m_heads.size() != 1 || m_offsets.size() != 1 || m_group_progress.size() != 1)
+            if (m_heads.size() != 1 || m_offsets.size() != 1 || m_group_progress.size() != 1) {
                 throw std::logic_error("unfinalized RIFF children");
+            }
             const auto position = m_hFile->tell();
             int count;
 
@@ -194,7 +218,9 @@ void W8Chunk::Close()
         }
         ReleaseCurrentChunk();
         if (m_hFile != 0) {
-            if (m_fWriting) m_hFile->flush();
+            if (m_fWriting) {
+                m_hFile->flush();
+            }
             m_hFile->close();
             m_hFile.reset();
             m_hFile = 0;
@@ -258,8 +284,9 @@ bool W8Chunk::OpenGroup()
         Read(&count, sizeof(count), &transferred);
         const int extent = CurrentHead().extent;
         if (count < 0 || extent < static_cast<int>(sizeof(count)) ||
-            static_cast<unsigned>(count) > (extent - sizeof(count)) / 10)
+            static_cast<unsigned>(count) > (extent - sizeof(count)) / 10) {
             throw std::runtime_error("invalid RIFF group count");
+        }
         m_group_counts.push_back(count);
         return true;
     } else {
@@ -292,7 +319,7 @@ bool W8Chunk::ReleaseGroup()
 
         RewindCurrentChunk();
         count = m_group_progress.back();
-            m_group_progress.pop_back();
+        m_group_progress.pop_back();
         Write(&count, sizeof(count), &transferred);
         m_hFile->seek(position, wiz8::SeekOrigin::begin);
         return true;
@@ -317,7 +344,9 @@ int W8Chunk::CurrentChunkExtent()
 
 std::int64_t W8Chunk::CurrentChunkEnd() const
 {
-    if (m_heads.empty() || m_offsets.empty()) throw std::logic_error("no current RIFF chunk");
+    if (m_heads.empty() || m_offsets.empty()) {
+        throw std::logic_error("no current RIFF chunk");
+    }
     return m_offsets.back() + m_heads.back().extent;
 }
 
@@ -351,8 +380,9 @@ bool W8Chunk::OpenChunk(unsigned int chunk_id, unsigned char grouped)
         m_hFile->read_exact(&head.grouped, 1);
         m_hFile->read_exact(&head.at_end, 1);
         m_hFile->read_exact(&head.extent, 4);
-        if (head.extent < 0 || head.extent > m_hFile->size() - m_hFile->tell())
+        if (head.extent < 0 || head.extent > m_hFile->size() - m_hFile->tell()) {
             throw std::runtime_error("invalid RIFF chunk extent");
+        }
     }
     m_offsets.push_back(m_hFile->tell());
     m_heads.push_back(head);
@@ -370,8 +400,9 @@ bool W8Chunk::ReleaseCurrentChunk()
         const auto end = m_hFile->tell();
         const auto payload = m_offsets.back();
         m_offsets.pop_back();
-        if (end < payload || end - payload > std::numeric_limits<int>::max())
+        if (end < payload || end - payload > std::numeric_limits<int>::max()) {
             throw std::runtime_error("RIFF chunk too large");
+        }
         const int extent = int(end - payload);
 
         m_hFile->seek(payload - 4, wiz8::SeekOrigin::begin);

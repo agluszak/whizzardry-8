@@ -24,7 +24,10 @@ public:
     W8TextBuffer();
     W8TextBuffer(const W8ControlsRect* bounds, std::string_view text, Font& font,
                  unsigned int layout_mode, int render_mode);
-    std::string_view GetText() const { return m_text; }
+    std::string_view GetText() const
+    {
+        return m_text;
+    }
     unsigned int GetLineHeight();
     int GetHorizontalPosition(int width);
     int GetVerticalPosition();
@@ -87,15 +90,15 @@ protected:
     W8ControlsRect m_layoutBounds;  /* current absolute layout bounds */
     W8ControlsRect m_pendingBounds; /* mirrored pending bounds */
     int m_field_24;                 /* the constructor steps over this one */
-    Font* m_font;                     /* font used for uncached line height */
+    Font* m_font;                   /* font used for uncached line height */
 public:
     /* The tooltip builder in Video2.cpp reads the finished layout directly. */
     int m_lineCount;
 
 protected:
     unsigned int m_lineHeight; /* cached height, zero means query font */
-    std::string m_text; // Original text; wrapping never modifies it.
-    std::string m_buffer; // Rebuilt layout text, owned by this control.
+    std::string m_text;        // Original text; wrapping never modifies it.
+    std::string m_buffer;      // Rebuilt layout text, owned by this control.
     unsigned int m_layoutMode; /* 10 initially */
 public:
     unsigned int m_maxLineWidth;

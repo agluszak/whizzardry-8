@@ -187,8 +187,9 @@ void W8Searchable::GetPosition(srVector3T<float>* position)
     if (trigger != 0) {
         W8Prop* prop = trigger->GetProp();
         if (prop != 0) {
-            if (const auto center = prop->GetCenterPosition())
+            if (const auto center = prop->GetCenterPosition()) {
                 *position = *center;
+            }
         }
     }
 }
@@ -214,7 +215,8 @@ void RunSearchPulse(void)
             !gXStatus.fTrapInteractMode && !gXStatus.fTrapInteract) {
             if ((g_level_data->flags & W8_LEVEL_FLAG_FAST_MOVEMENT) != 0 &&
                 g_status.search_mode != 0) {
-                ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[W8_NOTICE_SEARCH_SPECIAL_LEVEL]);
+                ShowNotice(W8_FONT_PALETTE_BEIGE,
+                           g_localized_strings[W8_NOTICE_SEARCH_SPECIAL_LEVEL]);
             }
             W8SearchableView* view = CollectSearchablesInView();
             bool found = false;
@@ -250,8 +252,8 @@ void RunSearchPulse(void)
                                     std::string path;
                                     path = fmt::format("Data\\Messages\\{}.msg", folder);
                                     std::string text;
-                                    if ((!(text = GetStringFromStringDatabase(path, message, 0, 0)).empty()) !=
-                                        0) {
+                                    if ((!(text = GetStringFromStringDatabase(path, message, 0, 0))
+                                              .empty()) != 0) {
                                         ShowString(text);
                                     }
                                 }

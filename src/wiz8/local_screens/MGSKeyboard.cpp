@@ -117,8 +117,7 @@ W8MGSCommand MGSKeyboard::FindCommandForEvent(const InputEvent* event) const
     for (index = 0; index < count; ++index) {
         MGSKeyBinding* binding = m_bindings[index].get();
         if (binding->active != 0 && event->type == InputEventType::KeyDown &&
-            binding->modifiers == event->modifiers &&
-            binding->key == event->key) {
+            binding->modifiers == event->modifiers && binding->key == event->key) {
             return binding->command;
         }
     }
@@ -184,8 +183,7 @@ void MGSKeyboard::Clear()
 
 // FUNCTION: WIZ8 0x0055d590
 unsigned char MGSKeyboard::Load(wiz8::File& handle, bool clear)
-try
-{
+try {
     int count;
 
     if (clear) {
@@ -207,8 +205,9 @@ try
         m_command_index.emplace(static_cast<unsigned int>(borrowed->command), borrowed);
     }
     return 1;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x0055d7a0
 unsigned char MGSKeyboard::Save(wiz8::File& handle) const
@@ -232,7 +231,6 @@ void ResetMGSKeyboardBindings()
     g_mgs_keyboard->LoadDefaults("Data\\Strings\\MGSKeyboard.ini");
 }
 
-
 /* Route one non-mouse input atom: text entry, NPC dialogue and the trap text
    box consume key presses first; the MIPE editor and the record-mode console
    gate on their flags; everything else resolves to a bound MGS command.
@@ -243,7 +241,8 @@ unsigned char HandleMainGameInputEvent(const InputEvent* input)
     if (IsTypingEvent(*input) && static_cast<char>(HandleTextInput(input)) != 0) {
         return 1;
     }
-    if ((input->type == InputEventType::KeyDown || input->type == InputEventType::KeyRepeat) && gXStatus.fNpcDialogueMode) {
+    if ((input->type == InputEventType::KeyDown || input->type == InputEventType::KeyRepeat) &&
+        gXStatus.fNpcDialogueMode) {
         HandleNpcDialogueKeyEvent(input);
         return 1;
     }
@@ -296,7 +295,8 @@ void DispatchMGSCommand(W8MGSCommand command)
                     return;
                 }
             }
-            ShowMainGameNoticeLine(g_localized_strings[0x779], OnLeaveGameConfirmClosed, true, true);
+            ShowMainGameNoticeLine(g_localized_strings[0x779], OnLeaveGameConfirmClosed, true,
+                                   true);
         }
         InvalidateRegion(0xa8, 0x16e, 0x1c4, 0x1ba, 0);
         break;
@@ -655,8 +655,9 @@ void DispatchMGSCommand(W8MGSCommand command)
         break;
     case W8_MGS_COMMAND_TOGGLE_AUTO_ADVANCE:
         g_settings.auto_advance_character ^= 1;
-        ShowNotice(W8_FONT_PALETTE_BEIGE,
-                   g_localized_strings[g_settings.auto_advance_character != 0 ? 0x1f68 / 4 : 0x1f6c / 4]);
+        ShowNotice(
+            W8_FONT_PALETTE_BEIGE,
+            g_localized_strings[g_settings.auto_advance_character != 0 ? 0x1f68 / 4 : 0x1f6c / 4]);
         break;
     case W8_MGS_COMMAND_TEXTBOX_SCROLL_UP:
         ScrollTextBoxUp(1);
@@ -756,7 +757,9 @@ void CloseKeyboardMenu(void)
                          g_keyboard_menu_panel->m_bounds.top + 0x4a, 0);
     }
     g_keyboard_menu_panel.reset();
-    for (auto& row : g_keyboard_menu_rows) row = nullptr;
+    for (auto& row : g_keyboard_menu_rows) {
+        row = nullptr;
+    }
     RequestRedraw(1 << g_selected_party_slot);
 }
 
@@ -777,7 +780,8 @@ unsigned char BuildKeyboardMenu(void)
     GetPartySlotMenuAnchor(g_selected_party_slot, &left, &top, &unused_4, &unused_5, &unused_6,
                            &unused_7, 0);
     left += 0x17;
-    g_keyboard_menu_panel = std::make_unique<Controls>(left, top, left + 0x52, top + 0x4a, CatalogArtwork::Load(0xa6, 0), 0);
+    g_keyboard_menu_panel = std::make_unique<Controls>(left, top, left + 0x52, top + 0x4a,
+                                                       CatalogArtwork::Load(0xa6, 0), 0);
     if (!g_keyboard_menu_panel) {
         return 0;
     }
@@ -791,14 +795,15 @@ unsigned char BuildKeyboardMenu(void)
             }
             control = new W8TextControl(
                 g_keyboard_menu_panel.get(), g_keyboard_menu_regions->index(row),
-                g_keyboard_row_positions[row].x,
-                g_keyboard_row_positions[row].y, g_keyboard_row_positions[row].x + 0x12,
-                g_keyboard_row_positions[row].y + 0x12, CatalogArtwork::Load(0x89, 0), -1, -1,
-                -1, -1, message + 6);
+                g_keyboard_row_positions[row].x, g_keyboard_row_positions[row].y,
+                g_keyboard_row_positions[row].x + 0x12, g_keyboard_row_positions[row].y + 0x12,
+                CatalogArtwork::Load(0x89, 0), -1, -1, -1, -1, message + 6);
             g_keyboard_menu_rows[row] = control;
             if (control == 0) {
                 g_keyboard_menu_panel.reset();
-                for (auto& row : g_keyboard_menu_rows) row = nullptr;
+                for (auto& row : g_keyboard_menu_rows) {
+                    row = nullptr;
+                }
                 return 0;
             }
             AssignKeyboardMenuCallback(menu, item, control);
@@ -811,10 +816,10 @@ unsigned char BuildKeyboardMenu(void)
         }
     }
     g_keyboard_menu_rows[row] = new W8TextControl(
-        g_keyboard_menu_panel.get(), g_keyboard_menu_regions->index(row), g_keyboard_row_positions[row].x,
-        g_keyboard_row_positions[row].y, g_keyboard_row_positions[row].x + 0x12,
-        g_keyboard_row_positions[row].y + 0x12, CatalogArtwork::Load(0x89, 0), 0xbd, 0xbd, 0xbf,
-        0xbf, -1);
+        g_keyboard_menu_panel.get(), g_keyboard_menu_regions->index(row),
+        g_keyboard_row_positions[row].x, g_keyboard_row_positions[row].y,
+        g_keyboard_row_positions[row].x + 0x12, g_keyboard_row_positions[row].y + 0x12,
+        CatalogArtwork::Load(0x89, 0), 0xbd, 0xbd, 0xbf, 0xbf, -1);
     g_keyboard_menu_rows[row]->m_primaryActivationCallback = CloseKeyboardMenu;
     g_keyboard_menu_rows[row]->m_secondaryActivationCallback = CloseKeyboardMenu;
     SetRegionHelp(g_keyboard_menu_regions->index(row), true, 0x11);

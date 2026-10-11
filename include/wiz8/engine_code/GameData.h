@@ -19,7 +19,9 @@
 #include "glm/ext/vector_float3.hpp"
 #include "surrender/srMath.h"
 
-namespace wiz8 { class File; }
+namespace wiz8 {
+class File;
+}
 
 /* Current-level movement state. Contact is refreshed by walkable-surface
    response; movement can stop at its distance limit or through a reset.
@@ -90,12 +92,12 @@ struct W8LevelDataRecord {
     glm::vec3 motion_displacement{0};        /* 0xa0 */
     /* 0xac: contact surface normal; 0xb8: scalar stored beside it (retail
        constructor writes 1.0f). Remaining 8 bytes stay unresolved. */
-    glm::vec3 contact_normal{0}; /* 0xac */
-    float contact_normal_scale;       /* 0xb8 */
-    unsigned char unknown_bc[8];      /* 0xbc */
-    W8IntervalGate interval_gate;     /* 0xc4 */
-    bool flag5;                       /* 0xec */
-    bool flag6;                       /* 0xed */
+    glm::vec3 contact_normal{0};  /* 0xac */
+    float contact_normal_scale;   /* 0xb8 */
+    unsigned char unknown_bc[8];  /* 0xbc */
+    W8IntervalGate interval_gate; /* 0xc4 */
+    bool flag5;                   /* 0xec */
+    bool flag6;                   /* 0xed */
     unsigned char pad_ee[2];
     float vertical_motion; /* 0xf0 */
 
@@ -207,7 +209,7 @@ struct W8GDInterfaceState {
    flag. Only straightforward storage is claimed past the prefix. */
 struct W8GameData {
     W8GameData(wiz8::File* handle, bool secondary); /* 0x00449010 */
-    ~W8GameData();                          /* 0x00449BB0 */
+    ~W8GameData();                                  /* 0x00449BB0 */
     void ReadProcessedGameData(wiz8::File* handle); /* 0x00449240 */
     /* Writes the game-data block WriteOctFile appends after the terminator. */
     unsigned char WriteGameData(wiz8::File* handle); /* 0x0044AA40 */
@@ -260,8 +262,14 @@ struct W8GameData {
     int trigger_surface_count;
     int integrated_surface_count;
     std::vector<W8GDSurface> m_pSurfaces;
-    int TrigSurfacesCount() const noexcept { return int(m_pTrigSurfaces.size()); }
-    int TrigVerticesCount() const noexcept { return int(m_pTrigVertices.size()); }
+    int TrigSurfacesCount() const noexcept
+    {
+        return int(m_pTrigSurfaces.size());
+    }
+    int TrigVerticesCount() const noexcept
+    {
+        return int(m_pTrigVertices.size());
+    }
     int m_iNumTriggers;
     std::vector<W8GDSurface> m_pTrigSurfaces;
     std::vector<srVector3T<float>> m_pTrigVertices;
@@ -272,12 +280,30 @@ struct W8GameData {
     std::vector<W8GDInterface> m_pInterfaces;
     std::vector<W8GDInterfaceState> m_pStates;
     std::vector<int> m_piCondPolys;
-    int VerticesCount() const noexcept { return int(m_pVertices.size()); }
-    int SurfacesCount() const noexcept { return int(m_pSurfaces.size()); }
-    int InterfacesCount() const noexcept { return int(m_pInterfaces.size()); }
-    int StatesCount() const noexcept { return int(m_pStates.size()); }
-    int CondPolysCount() const noexcept { return int(m_piCondPolys.size()); }
-    int EnvironsCount() const noexcept { return int(m_ppEnvirons.size()); }
+    int VerticesCount() const noexcept
+    {
+        return int(m_pVertices.size());
+    }
+    int SurfacesCount() const noexcept
+    {
+        return int(m_pSurfaces.size());
+    }
+    int InterfacesCount() const noexcept
+    {
+        return int(m_pInterfaces.size());
+    }
+    int StatesCount() const noexcept
+    {
+        return int(m_pStates.size());
+    }
+    int CondPolysCount() const noexcept
+    {
+        return int(m_piCondPolys.size());
+    }
+    int EnvironsCount() const noexcept
+    {
+        return int(m_ppEnvirons.size());
+    }
     std::vector<std::string> interface_names;
     std::vector<std::unique_ptr<W8EnvironRecord>> m_ppEnvirons;
     /* Set by W8Octree::settleToGround around its TestTraceResult calls: while
@@ -328,10 +354,11 @@ struct W8GameData {
        trace_flag4_gate, flag and mode filters apply; a closer hit stores index
        into last_hit_surface, the contact into the record's end and the distance
        into hit_limit. */
-    bool TestGeometryTrace(std::span<W8GDSurface> surfaces, std::span<const srVector3T<float>> vertices,
-                           int count, w8_ulong* surface_ids, W8OctreeTrace* trace, char skip_flag, int mode);
-    bool TestTraceResult(int count, w8_ulong* surface_ids, W8OctreeTrace* trace,
-                         char skip_flag, int mode); /* 0x0041C330 */
+    bool TestGeometryTrace(std::span<W8GDSurface> surfaces,
+                           std::span<const srVector3T<float>> vertices, int count,
+                           w8_ulong* surface_ids, W8OctreeTrace* trace, char skip_flag, int mode);
+    bool TestTraceResult(int count, w8_ulong* surface_ids, W8OctreeTrace* trace, char skip_flag,
+                         int mode); /* 0x0041C330 */
 };
 
 extern W8LevelDataRecord* g_level_data;
@@ -387,8 +414,7 @@ void CameraSnapToTarget(const srVector3T<float>* target); /* 0x00420FB0 */
 void TurnCameraToDegrees(float degrees);
 void SetCameraYawDegrees(float degrees);
 void ApplyCameraRotation(glm::mat3* rotation);
-void SetCameraOrientation(void* angle, void* pitch,
-                          glm::mat3* rotation);
+void SetCameraOrientation(void* angle, void* pitch, glm::mat3* rotation);
 /* 0x00420F40: camera yaw in whole degrees plus an optional yaw-rotation
    matrix copy. */
 int GetCameraYawAndRotation(glm::mat3* rotation);
@@ -398,8 +424,7 @@ glm::vec3 ProjectVectorOntoVector(const glm::vec3& vector, const glm::vec3& onto
 /* 0x00421570: restore a saved yaw/pitch into the game camera, reading the
    world camera node's current rotation first and fetching the updated matrix
    (both into the same dead local in retail). */
-void RestoreWorldCameraOrientation(void* angle, void* pitch,
-                                   W8World* world);
+void RestoreWorldCameraOrientation(void* angle, void* pitch, W8World* world);
 glm::vec3 cameraLocation();
 int GetCameraYawDegrees(void);
 /* 0x004215E0: point-visibility query through the world octree; false with no

@@ -1019,7 +1019,8 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
                             if (projectsToCamera(probe.glmValue()) == 0 &&
                                 !g_octree->HasLineOfSight(&camera, &probe, true)) {
                                 srVector3T<float> notify_position = next_position;
-                                W8MonsterGroup* group = FindMonsterGroup(monster_info->monster_group_id);
+                                W8MonsterGroup* group =
+                                    FindMonsterGroup(monster_info->monster_group_id);
 
                                 MoveMonsterGroupToPosition(group, &notify_position,
                                                            monster->GetYaw(), false, false, false,
@@ -1067,7 +1068,8 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
                         }
                         {
                             srVector3T<float> notify_position = monster->formation;
-                            W8MonsterGroup* group = FindMonsterGroup(monster_info->monster_group_id);
+                            W8MonsterGroup* group =
+                                FindMonsterGroup(monster_info->monster_group_id);
 
                             MoveMonsterGroupToPosition(group, &notify_position, monster->GetYaw(),
                                                        false, false, false, false);

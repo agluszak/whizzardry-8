@@ -52,7 +52,9 @@ void ReadMeshArray(wiz8::File& file, std::span<T> values, const char* get_messag
                    const char* read_message)
 {
     static_assert(std::is_trivially_copyable_v<T>);
-    if (!values.data()) ShutdownWithErrorBox(get_message);
+    if (!values.data()) {
+        ShutdownWithErrorBox(get_message);
+    }
     try {
         if constexpr (std::is_same_v<T, glm::ivec3>) {
             std::vector<std::array<std::int32_t, 3>> records(values.size());
@@ -69,18 +71,19 @@ void ReadMeshArray(wiz8::File& file, std::span<T> values, const char* get_messag
 }
 
 // Native mesh streams convert from the explicit three-float asset record.
-static void ReadMeshVectors(wiz8::File& file, std::span<glm::vec3> values,
-                            const char* get_message, const char* read_message)
+static void ReadMeshVectors(wiz8::File& file, std::span<glm::vec3> values, const char* get_message,
+                            const char* read_message)
 {
-    if (!values.data()) ShutdownWithErrorBox(get_message);
+    if (!values.data()) {
+        ShutdownWithErrorBox(get_message);
+    }
     std::vector<srVector3> records(values.size());
     ReadMeshArray(file, std::span(records), get_message, read_message);
     std::ranges::transform(records, values.begin(),
                            [](const srVector3& value) { return value.glmValue(); });
 }
 
-template<class T>
-static void ReleaseMeshArray(T*& values)
+template <class T> static void ReleaseMeshArray(T*& values)
 {
     std::free(values);
     values = nullptr;
@@ -88,20 +91,26 @@ static void ReleaseMeshArray(T*& values)
 
 static void ReleaseMeshSunLights(float**& banks, short count)
 {
-    if (!banks) return;
-    for (short index = 0; index < count; ++index) ReleaseMeshArray(banks[index]);
+    if (!banks) {
+        return;
+    }
+    for (short index = 0; index < count; ++index) {
+        ReleaseMeshArray(banks[index]);
+    }
     ReleaseMeshArray(banks);
 }
 
 // Keep raw integer write exceptions and vector diagnostics distinct. Both
 // release their source only after successful I/O, in the field's disk order.
-template<class T>
-static void WriteAndConsumeMeshArray(wiz8::File& file, T*& values, int count,
-                                    int line, const char* message)
+template <class T>
+static void WriteAndConsumeMeshArray(wiz8::File& file, T*& values, int count, int line,
+                                     const char* message)
 {
     static_assert(std::is_trivially_copyable_v<T>);
     const auto write = [&] {
-        if (count < 0) throw std::runtime_error("Negative mesh record count");
+        if (count < 0) {
+            throw std::runtime_error("Negative mesh record count");
+        }
         const auto records = std::span<const T>(values, static_cast<std::size_t>(count));
         if constexpr (std::is_same_v<T, glm::ivec3>) {
             std::vector<std::array<std::int32_t, 3>> packed(records.size());
@@ -119,7 +128,8 @@ static void WriteAndConsumeMeshArray(wiz8::File& file, T*& values, int count,
         try {
             write();
         } catch (const std::exception&) {
-            srAssertFail("fSuccess", "C:\\Projects\\Wizardry 8\\Engine Code\\OctSubMesh.cpp", line, message);
+            srAssertFail("fSuccess", "C:\\Projects\\Wizardry 8\\Engine Code\\OctSubMesh.cpp", line,
+                         message);
         }
     }
     ReleaseMeshArray(values);
@@ -228,7 +238,9 @@ std::unique_ptr<stMeshModel> OctMeshModel::Read(wiz8::File* file,
                                                 const std::vector<W8MeshMaterial>& materials)
 {
     const int material_count = static_cast<int>(materials.size());
-    if (materials.empty()) throw std::runtime_error("Missing mesh materials");
+    if (materials.empty()) {
+        throw std::runtime_error("Missing mesh materials");
+    }
     wiz8::BinaryReader input(*file);
     m_packed_header = input.record<unsigned int>();
     m_vertex_count = input.record<int>();
@@ -243,14 +255,15 @@ std::unique_ptr<stMeshModel> OctMeshModel::Read(wiz8::File* file,
     m_packed_header = header & 0xff;
     version = static_cast<short>((header >> 8) & 0xff);
 
-    if (m_vertex_count < 0 || m_map_count < 0 || m_polygon_count < 0 ||
-        m_material_index < -1 || m_material_index >= material_count) {
+    if (m_vertex_count < 0 || m_map_count < 0 || m_polygon_count < 0 || m_material_index < -1 ||
+        m_material_index >= material_count) {
         throw std::runtime_error("Invalid mesh counts or material index");
     }
-    if (m_vertex_count == 0 && m_material_index < 0)
+    if (m_vertex_count == 0 && m_material_index < 0) {
         throw std::runtime_error("Missing mesh vertex material");
+    }
     const auto vertex_bytes = static_cast<std::uint64_t>(m_vertex_count) *
-        (36 + (m_material_index < 0 ? 4 : 0) + (version != 0 ? 4 : 0));
+                              (36 + (m_material_index < 0 ? 4 : 0) + (version != 0 ? 4 : 0));
     const auto polygon_bytes = static_cast<std::uint64_t>(m_polygon_count) * 44;
     input.require(vertex_bytes + static_cast<std::uint64_t>(m_map_count) * 8 + polygon_bytes + 4);
     // Read destinations borrow the model's buffers. They must never become
@@ -273,8 +286,8 @@ std::unique_ptr<stMeshModel> OctMeshModel::Read(wiz8::File* file,
 
     vertex_locations = model->getVertexLoc();
     ReadMeshVectors(*file, std::span(vertex_locations, m_vertex_count),
-                  "OctMeshModel::Read -- Could not get vertex location array.\n",
-                  "OctMeshModel::Read -- Could not read Integer fields.\n");
+                    "OctMeshModel::Read -- Could not get vertex location array.\n",
+                    "OctMeshModel::Read -- Could not read Integer fields.\n");
 
     model->setUVCount(m_map_count);
     vertex_map = model->getVertexTexCoords(0, 0, 1);
@@ -290,7 +303,8 @@ std::unique_ptr<stMeshModel> OctMeshModel::Read(wiz8::File* file,
         if (vertex_materials == 0) {
             ShutdownWithErrorBox("OctMeshModel::Read -- Could not get vertex material array.\n");
         }
-        if (!(file->read(indices, m_vertex_count * sizeof(int)).bytes == static_cast<std::size_t>(m_vertex_count * sizeof(int)))) {
+        if (!(file->read(indices, m_vertex_count * sizeof(int)).bytes ==
+              static_cast<std::size_t>(m_vertex_count * sizeof(int)))) {
             ShutdownWithErrorBox("OctMeshModel::Read -- Could not read m_plVertMats.\n");
         }
         selected_material = indices[0];
@@ -319,7 +333,8 @@ std::unique_ptr<stMeshModel> OctMeshModel::Read(wiz8::File* file,
     if (polygon_textures == 0) {
         ShutdownWithErrorBox("OctMeshModel::Read -- Could not get poly texture array.\n");
     }
-    if (!(file->read(indices, m_polygon_count * sizeof(int)).bytes == static_cast<std::size_t>(m_polygon_count * sizeof(int)))) {
+    if (!(file->read(indices, m_polygon_count * sizeof(int)).bytes ==
+          static_cast<std::size_t>(m_polygon_count * sizeof(int)))) {
         ShutdownWithErrorBox("OctMeshModel::Read -- Could not read m_plPolyTextures.\n");
     }
     for (index = 0; index < m_polygon_count; ++index) {
@@ -332,8 +347,8 @@ std::unique_ptr<stMeshModel> OctMeshModel::Read(wiz8::File* file,
 
     vertex_normals = model->getVertexNormal();
     ReadMeshVectors(*file, std::span(vertex_normals, m_vertex_count),
-                  "OctMeshModel::Read -- Could not get vertex normal array.\n",
-                  "OctMeshModel::Read -- Could not read m_pVertNorms.\n");
+                    "OctMeshModel::Read -- Could not get vertex normal array.\n",
+                    "OctMeshModel::Read -- Could not read m_pVertNorms.\n");
 
     ReadMeshVectors(*file, model->GetVertexLights(true, -1),
                     "OctMeshModel::Read -- Could not get static lighting array.\n",
@@ -348,7 +363,8 @@ std::unique_ptr<stMeshModel> OctMeshModel::Read(wiz8::File* file,
     if (weights.empty()) {
         ShutdownWithErrorBox("OctMeshModel::Read -- Could not allocate intensity array.\n");
     }
-    if (version != 0 && !(file->read(weights.data(), weights.size_bytes()).bytes == static_cast<std::size_t>(m_vertex_count * sizeof(float)))) {
+    if (version != 0 && !(file->read(weights.data(), weights.size_bytes()).bytes ==
+                          static_cast<std::size_t>(m_vertex_count * sizeof(float)))) {
         ShutdownWithErrorBox("OctMeshModel::Read -- Could not read Sunlight array.\n");
     }
 

@@ -179,11 +179,12 @@ bool W8SkillInfoDialog::PopulateText()
     W8StatInfoDialogBase::PopulateText();
     textarea.AddEntry(g_localized_strings[0x156], "", 10, 0xf, 0);
     W8SkillAttributes* skill = &g_skill_attributes[m_skill];
-    textarea.AddEntry({}, g_localized_strings[g_character_description_first_ids[skill->attribute_1]], 10,
-                      0xf, 0);
+    textarea.AddEntry(
+        {}, g_localized_strings[g_character_description_first_ids[skill->attribute_1]], 10, 0xf, 0);
     if (skill->attribute_1 != skill->attribute_2) {
-        textarea.AddEntry({}, g_localized_strings[g_character_description_first_ids[skill->attribute_2]],
-                          10, 0xf, 0);
+        textarea.AddEntry(
+            {}, g_localized_strings[g_character_description_first_ids[skill->attribute_2]], 10, 0xf,
+            0);
     }
     if (m_first) {
         textarea.AddEntry({}, "", 10, 0xf, 0);

@@ -33,9 +33,7 @@
 #include "input.h"
 #include "layouts/main_game_screen.h"
 
-
-unsigned char DispatchButtonRegionEvent(const InputEvent* event, W8Region* region,
-                                               W8Widget* button)
+unsigned char DispatchButtonRegionEvent(const InputEvent* event, W8Region* region, W8Widget* button)
 {
     switch (event->type) {
     case InputEventType::LeftButtonDown:
@@ -159,7 +157,9 @@ const float g_float_thirty_five_hundredths = 0.35f;
 // FUNCTION: WIZ8 0x004f30f0
 void Controls::EnableRegionSet(bool enable)
 {
-    if (m_regionSet == 0) return;
+    if (m_regionSet == 0) {
+        return;
+    }
     if (enable) {
         RegionSetEnable(m_regionSet);
     } else {
@@ -173,16 +173,19 @@ bool W8Widget::OwnsRegion() const
            g_regions[m_region].widget == this;
 }
 
-static constexpr RegionTemplate g_widget_region_template{
-    W8_REGION_RECTANGLE, 0, 0, 0, 0, DispatchControlRegionEvent, 0, false, -1};
+static constexpr RegionTemplate g_widget_region_template{W8_REGION_RECTANGLE,        0, 0,     0, 0,
+                                                         DispatchControlRegionEvent, 0, false, -1};
 
 // FUNCTION: WIZ8 0x004f40f0
 void W8Widget::SetActive(bool active)
 {
     m_active = active;
     if (OwnsRegion()) {
-        if (active) EnableRegionInput(m_region);
-        else DisableRegionInput(m_region);
+        if (active) {
+            EnableRegionInput(m_region);
+        } else {
+            DisableRegionInput(m_region);
+        }
     }
 }
 
@@ -199,12 +202,16 @@ void W8Widget::ReleaseRegion()
 W8Widget::~W8Widget()
 {
     ReleaseRegion();
-    if (m_pPanel) m_pPanel->TakeControl(this).release();
+    if (m_pPanel) {
+        m_pPanel->TakeControl(this).release();
+    }
 }
 
 void W8Widget::UpdateRegionBounds(int left, int top, int right, int bottom)
 {
-    if (!OwnsRegion() || !m_pPanel) return;
+    if (!OwnsRegion() || !m_pPanel) {
+        return;
+    }
     SetRegionBounds(m_region,
                     static_cast<unsigned short>(static_cast<short>(left) +
                                                 static_cast<short>(m_pPanel->m_bounds.left)),
@@ -222,10 +229,13 @@ void W8Widget::UpdateRegionBounds(int left, int top, int right, int bottom)
 void W8Widget::SetPanel(Controls& new_panel)
 {
     auto* panel = &new_panel;
-    if (panel == m_pPanel) return;
+    if (panel == m_pPanel) {
+        return;
+    }
     // Allocate before unlinking so failure leaves the old owner intact.
-    if (panel->m_controls.size() == panel->m_controls.capacity())
+    if (panel->m_controls.size() == panel->m_controls.capacity()) {
         panel->m_controls.reserve(std::max(size_t{8}, panel->m_controls.capacity() * 2));
+    }
     // A widget's region lives in its panel's set; moving panels moves the region.
     const bool needs_region =
         panel->m_regionSet != 0 &&
@@ -262,7 +272,9 @@ W8Widget::W8Widget(Controls* owner, unsigned int region, int left, int top, int 
     m_right = right;
     m_bottom = bottom;
     m_region = static_cast<int>(region);
-    if (owner) SetPanel(*owner);
+    if (owner) {
+        SetPanel(*owner);
+    }
 }
 
 // Dynamic regions bind directly to a widget. Removing or moving another
@@ -271,7 +283,9 @@ W8Widget::W8Widget(Controls* owner, unsigned int region, int left, int top, int 
 unsigned char DispatchControlRegionEvent(const InputEvent* event, W8Region* region)
 {
     W8Widget* widget = region->widget;
-    if (!widget) return 0;
+    if (!widget) {
+        return 0;
+    }
     const auto reason = event->type;
     switch (reason) {
     case InputEventType::LeftButtonDown:
@@ -332,9 +346,13 @@ unsigned char DispatchControlRegionEvent(const InputEvent* event, W8Region* regi
 // FUNCTION: WIZ8 0x004f4020
 void W8Widget::SetRegion(unsigned int region)
 {
-    if (m_region != static_cast<int>(region)) ReleaseRegion();
+    if (m_region != static_cast<int>(region)) {
+        ReleaseRegion();
+    }
     m_region = static_cast<int>(region);
-    if (m_region == -1) return;
+    if (m_region == -1) {
+        return;
+    }
     g_regions[m_region].widget = this;
     ++g_regions[m_region].binding_generation;
     UpdateRegionBounds(m_left, m_top, m_right, m_bottom);
@@ -568,7 +586,8 @@ void W8TextBuffer::SetLineHeight(unsigned int height)
 // FUNCTION: WIZ8 0x004f3d50
 void W8TextBuffer::FillBounds(int colour)
 {
-    const SDL_Rect area{m_layoutBounds.left, m_layoutBounds.top, m_layoutBounds.right - m_layoutBounds.left,
+    const SDL_Rect area{m_layoutBounds.left, m_layoutBounds.top,
+                        m_layoutBounds.right - m_layoutBounds.left,
                         m_layoutBounds.bottom - m_layoutBounds.top};
     SDL_FillSurfaceRect(&GetFrameBufferSurface(), &area, colour);
     InvalidateRegion(m_layoutBounds.left, m_layoutBounds.top, m_layoutBounds.right,
@@ -604,11 +623,13 @@ void W8TextBuffer::RenderText(SDL_Surface& target, int x_offset, int y_offset, b
             DrawText(target, *m_font, {x + x_offset, y + y_offset}, line,
                      {.mono = m_alternateRenderer != 0});
 
-            if (end == std::string_view::npos)
+            if (end == std::string_view::npos) {
                 break;
+            }
             y += GetLineHeight();
-            if (m_layoutBounds.bottom <= y)
+            if (m_layoutBounds.bottom <= y) {
                 break;
+            }
             remaining.remove_prefix(end + 1);
         }
 
@@ -649,11 +670,13 @@ void W8TextBuffer::RenderToTarget(int offset, bool force, SDL_Surface& target)
         const int x = GetHorizontalPosition(m_font->textWidth(line));
         DrawText(target, *m_font, {x + offset, y + offset}, line);
 
-        if (end == std::string_view::npos)
+        if (end == std::string_view::npos) {
             break;
+        }
         y += GetLineHeight();
-        if (m_layoutBounds.bottom <= y)
+        if (m_layoutBounds.bottom <= y) {
             break;
+        }
         remaining.remove_prefix(end + 1);
     }
 
@@ -756,8 +779,7 @@ bool W8TextControl::MeasureText()
 {
     int handle;
 
-    if (m_imageSprites &&
-        ((handle = m_normalSprite) != -1 || (handle = m_pressedSprite) != -1)) {
+    if (m_imageSprites && ((handle = m_normalSprite) != -1 || (handle = m_pressedSprite) != -1)) {
         std::tie(m_measured_w, m_measured_h) =
             GetSpriteSize(*m_imageSprites, m_imageYOffset + handle);
         return true;
@@ -776,8 +798,8 @@ bool W8TextControl::MeasureText()
    establish overloads or default arguments. */
 // FUNCTION: WIZ8 0x004f4250
 W8TextControl::W8TextControl(Controls* panel, unsigned int region, int left, int top, int right,
-                             int bottom, std::optional<CatalogArtwork> image_artwork, int normal_sprite,
-                             int pressed_sprite, int alternate_normal_sprite,
+                             int bottom, std::optional<CatalogArtwork> image_artwork,
+                             int normal_sprite, int pressed_sprite, int alternate_normal_sprite,
                              int alternate_pressed_sprite, int disabled_sprite)
     : W8Widget(panel, region, left, top, right, bottom)
 {
@@ -894,8 +916,7 @@ void W8TextControl::Redraw(bool full_redraw)
         if (m_alternateTextEnabled) {
             short width;
             short height;
-            std::tie(width, height) =
-                GetSpriteSize(*m_imageSprites, m_imageYOffset + sprite);
+            std::tie(width, height) = GetSpriteSize(*m_imageSprites, m_imageYOffset + sprite);
             int x_inset = m_left - m_right + static_cast<unsigned short>(width);
             int y_inset = m_top - m_bottom + static_cast<unsigned short>(height);
             if (x_inset > 0) {
@@ -905,8 +926,8 @@ void W8TextControl::Redraw(bool full_redraw)
                 y += y_inset / 2;
             }
         }
-        DrawSpriteAndInvalidate(GetFrameBufferSurface(), *m_imageSprites,
-                                m_imageYOffset + sprite, x, y);
+        DrawSpriteAndInvalidate(GetFrameBufferSurface(), *m_imageSprites, m_imageYOffset + sprite,
+                                x, y);
     }
 
     if (m_textBuffer.HasBuffer()) {
@@ -1366,8 +1387,7 @@ protected:
 
 W8RangeButton::W8RangeButton(Controls* panel, unsigned int region, int left, int top, int right,
                              int bottom, std::optional<CatalogArtwork> image_artwork,
-                             int normal_sprite,
-                             int pressed_sprite, int alternate_normal_sprite,
+                             int normal_sprite, int pressed_sprite, int alternate_normal_sprite,
                              int alternate_pressed_sprite, int disabled_sprite, short direction,
                              W8RangeControl* range)
     : W8TextControl(panel, region, left, top, right, bottom, std::move(image_artwork),
@@ -1395,10 +1415,10 @@ W8RangeControl::W8RangeControl(int left, int top, int right, int bottom)
 
     CreateRegionSet();
 
-    m_decrement =
-        new W8RangeButton(this, 0xffffffff, 0, 0, 0x10, 0x10, CatalogArtwork::Load(0x86), 0, 2, 1, 2, 3, 0, this);
-    m_increment = new W8RangeButton(this, 0xffffffff, 0, height - 0x10, 0x10, height, CatalogArtwork::Load(0x86), 8,
-                                    10, 9, 10, 0xb, 1, this);
+    m_decrement = new W8RangeButton(this, 0xffffffff, 0, 0, 0x10, 0x10, CatalogArtwork::Load(0x86),
+                                    0, 2, 1, 2, 3, 0, this);
+    m_increment = new W8RangeButton(this, 0xffffffff, 0, height - 0x10, 0x10, height,
+                                    CatalogArtwork::Load(0x86), 8, 10, 9, 10, 0xb, 1, this);
     m_thumb = new W8VerticalRangeThumb(this, 0, 0x10, 0x10, height - 0x10,
                                        CatalogArtwork::Load(0x86), 4, 5, -1);
     m_enabled = false;
@@ -1476,17 +1496,19 @@ void W8RangeControl::SetRangeEnabled(bool enabled)
 /* Both thumb orientations use the same normalized track coordinate. */
 static int ClampThumbToTrack(float& position, float minimum, float maximum, int track_length)
 {
-    if (position < minimum)
+    if (position < minimum) {
         position = minimum;
-    if (maximum < position)
+    }
+    if (maximum < position) {
         position = maximum;
+    }
     return static_cast<int>(((position - minimum) / (maximum - minimum)) * track_length);
 }
 
 void W8VerticalRangeThumb::ClampPositionAndInvalidate()
 {
-    m_pixelPosition = ClampThumbToTrack(m_position, m_minimumPosition, m_maximumPosition,
-                                        m_trackLength);
+    m_pixelPosition =
+        ClampThumbToTrack(m_position, m_minimumPosition, m_maximumPosition, m_trackLength);
     Invalidate(false);
 }
 
@@ -1742,8 +1764,8 @@ void W8HelpTextControl::OnLeftButtonDoubleClick(int event)
 
 void W8HorizontalRangeThumb::ClampPositionAndInvalidate()
 {
-    m_pixelPosition = ClampThumbToTrack(m_position, m_minimumPosition, m_maximumPosition,
-                                        m_trackLength);
+    m_pixelPosition =
+        ClampThumbToTrack(m_position, m_minimumPosition, m_maximumPosition, m_trackLength);
     Invalidate(false);
 }
 
@@ -1928,7 +1950,9 @@ void Controls::SetEnabled(bool enable)
 
 void Controls::AdoptControl(std::unique_ptr<W8Widget> control)
 {
-    if (!control) return;
+    if (!control) {
+        return;
+    }
     control->SetPanel(*this);
     control.release(); // SetPanel transferred ownership to this panel.
 }
@@ -1937,7 +1961,9 @@ void Controls::AdoptControl(std::unique_ptr<W8Widget> control)
 std::unique_ptr<W8Widget> Controls::TakeControl(W8Widget* control)
 {
     const auto found = std::ranges::find(m_controls, control, &std::unique_ptr<W8Widget>::get);
-    if (found == m_controls.end()) return {};
+    if (found == m_controls.end()) {
+        return {};
+    }
     auto owned = std::move(*found);
     m_controls.erase(found);
     owned->ReleaseRegion();
@@ -1975,12 +2001,11 @@ void Controls::Invalidate(const W8ControlsRect* rect)
         const SDL_Rect dirty{m_dirtyRect.left, m_dirtyRect.top,
                              m_dirtyRect.right - m_dirtyRect.left,
                              m_dirtyRect.bottom - m_dirtyRect.top};
-        const SDL_Rect requested{rect->left, rect->top,
-                                 rect->right - rect->left, rect->bottom - rect->top};
+        const SDL_Rect requested{rect->left, rect->top, rect->right - rect->left,
+                                 rect->bottom - rect->top};
         SDL_Rect combined{};
         SDL_GetRectUnion(&dirty, &requested, &combined);
-        m_dirtyRect = {combined.x, combined.y, combined.x + combined.w,
-                       combined.y + combined.h};
+        m_dirtyRect = {combined.x, combined.y, combined.x + combined.w, combined.y + combined.h};
     }
     RequestRedraw(W8_MAIN_REDRAW_FRAME);
 }

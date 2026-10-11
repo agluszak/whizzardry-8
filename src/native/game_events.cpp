@@ -42,33 +42,31 @@ bool restore_pending = false;
 
 void HandleGameEvent(const SDL_Event& event)
 {
-    if (event.type == SDL_EVENT_QUIT)
-    {
+    if (event.type == SDL_EVENT_QUIT) {
         gfProgramIsRunning = false;
         return;
     }
     if (event.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED && ghWindow &&
-        SDL_GetWindowFromEvent(&event) == reinterpret_cast<SDL_Window*>(ghWindow))
-    {
+        SDL_GetWindowFromEvent(&event) == reinterpret_cast<SDL_Window*>(ghWindow)) {
         gfProgramIsRunning = false;
         return;
     }
-    if (gfIgnoreMessages)
+    if (gfIgnoreMessages) {
         return;
+    }
     HandleInputEvent(event);
-    if (!ghWindow || SDL_GetWindowFromEvent(&event) != reinterpret_cast<SDL_Window*>(ghWindow))
+    if (!ghWindow || SDL_GetWindowFromEvent(&event) != reinterpret_cast<SDL_Window*>(ghWindow)) {
         return;
-    switch (event.type)
-    {
+    }
+    switch (event.type) {
     case SDL_EVENT_WINDOW_RESIZED:
-        if (event.window.data1 > 0 && event.window.data2 > 0)
+        if (event.window.data1 > 0 && event.window.data2 > 0) {
             VideoResizeWindow();
+        }
         break;
     case SDL_EVENT_WINDOW_FOCUS_GAINED:
-        if (restore_pending)
-        {
-            if (!VideoInspectorIsEnabled())
-            {
+        if (restore_pending) {
+            if (!VideoInspectorIsEnabled()) {
                 RestoreVideoManager();
             }
             MoveTimer(TIMER_RESUME);
@@ -77,8 +75,9 @@ void HandleGameEvent(const SDL_Event& event)
         gfApplicationActive = true;
         break;
     case SDL_EVENT_WINDOW_FOCUS_LOST:
-        if (!VideoInspectorIsEnabled())
+        if (!VideoInspectorIsEnabled()) {
             SuspendVideoManager();
+        }
         MoveTimer(TIMER_SUSPEND);
         gfApplicationActive = false;
         restore_pending = true;
@@ -89,13 +88,11 @@ bool PumpGameEvents(bool wait)
 {
     SDL_Event event{};
     bool received = false;
-    if (wait && SDL_WaitEventTimeout(&event, 10))
-    {
+    if (wait && SDL_WaitEventTimeout(&event, 10)) {
         HandleGameEvent(event);
         received = true;
     }
-    while (SDL_PollEvent(&event))
-    {
+    while (SDL_PollEvent(&event)) {
         HandleGameEvent(event);
         received = true;
     }

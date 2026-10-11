@@ -121,9 +121,12 @@ static void CreateUseItemSelectControls(void)
 {
     Controls* panel;
 
-    g_use_item_select_panels[0] = std::make_unique<Controls>(0x17, 0x166, 0xa4, 0x1c2, CatalogArtwork::Load(0x97, 0), 0);
-    g_use_item_select_panels[1] = std::make_unique<Controls>(0xa4, 0x166, 0x1dc, 0x1c2, CatalogArtwork::Load(0x97, 0), 1);
-    g_use_item_select_panels[2] = std::make_unique<Controls>(0x1dc, 0x166, 0x269, 0x1c2, CatalogArtwork::Load(0x97, 0), 2);
+    g_use_item_select_panels[0] =
+        std::make_unique<Controls>(0x17, 0x166, 0xa4, 0x1c2, CatalogArtwork::Load(0x97, 0), 0);
+    g_use_item_select_panels[1] =
+        std::make_unique<Controls>(0xa4, 0x166, 0x1dc, 0x1c2, CatalogArtwork::Load(0x97, 0), 1);
+    g_use_item_select_panels[2] =
+        std::make_unique<Controls>(0x1dc, 0x166, 0x269, 0x1c2, CatalogArtwork::Load(0x97, 0), 2);
     panel = g_use_item_select_panels[0].get();
     g_use_item_select_scroll_buttons[0] =
         new W8TextControl(panel, g_use_item_select_regions->index(0), 0x24, 0x1d, 0x44, 0x3d,
@@ -143,30 +146,30 @@ static void CreateUseItemSelectControls(void)
                                                               g_wiz_text_font_secondary);
     panel = g_use_item_select_panels[2].get();
     g_use_item_select_controls[0] =
-        new W8TextControl(panel, g_use_item_select_regions->index(2), 5, 5, 0x31, 0x39, std::nullopt,
-                          -1, -1, -1, -1, -1);
+        new W8TextControl(panel, g_use_item_select_regions->index(2), 5, 5, 0x31, 0x39,
+                          std::nullopt, -1, -1, -1, -1, -1);
     g_use_item_select_controls[0]->m_textBuffer.SetLayoutMode(g_W8TextBufferAlignBottom |
                                                               g_W8TextBufferAlignRight);
     g_use_item_select_controls[0]->AddLayoutFlags(g_W8TextControlLayoutImageAtOrigin);
-    g_use_item_select_controls[1] =
-        new W8TextControl(panel, 0xffffffff, 0x36, 6, 0x44, 0x14, CatalogArtwork::Load(0x1ab, 0), 0, 1, 2, 4, 3);
-    g_use_item_select_controls[2] =
-        new W8TextControl(panel, 0xffffffff, 0x47, 6, 0x55, 0x14, CatalogArtwork::Load(0x1ab, 0), 5, 6, 7, 9, 8);
+    g_use_item_select_controls[1] = new W8TextControl(
+        panel, 0xffffffff, 0x36, 6, 0x44, 0x14, CatalogArtwork::Load(0x1ab, 0), 0, 1, 2, 4, 3);
+    g_use_item_select_controls[2] = new W8TextControl(
+        panel, 0xffffffff, 0x47, 6, 0x55, 0x14, CatalogArtwork::Load(0x1ab, 0), 5, 6, 7, 9, 8);
     g_use_item_select_controls[3] =
         new W8TextControl(panel, g_use_item_select_regions->index(3), 0x58, 6, 0x66, 0x14,
                           CatalogArtwork::Load(0x1ab, 0), 0xa, 0xb, 0xc, 0xe, 0xd);
-    g_use_item_select_controls[4] = new W8TextControl(
-        panel, 0xffffffff, 0x36, 0x17, 0x44, 0x25, CatalogArtwork::Load(0x1ab, 0), 0xf, 0x10,
-        0x11, 0x13, 0x12);
-    g_use_item_select_controls[5] = new W8TextControl(
-        panel, 0xffffffff, 0x47, 0x17, 0x55, 0x25, CatalogArtwork::Load(0x1ab, 0), 0x14, 0x15,
-        0x16, 0x18, 0x17);
-    g_use_item_select_controls[6] = new W8TextControl(
-        panel, 0xffffffff, 0x58, 0x17, 0x66, 0x25, CatalogArtwork::Load(0x1ab, 0), 0x19, 0x1a,
-        0x1b, 0x1d, 0x1c);
-    g_use_item_select_controls[7] = new W8TextControl(
-        panel, 0xffffffff, 0x35, 0x27, 0x56, 0x39, CatalogArtwork::Load(0x1aa, 0), 0x1e, 0x22,
-        0x1f, 0x20, 0x21);
+    g_use_item_select_controls[4] =
+        new W8TextControl(panel, 0xffffffff, 0x36, 0x17, 0x44, 0x25, CatalogArtwork::Load(0x1ab, 0),
+                          0xf, 0x10, 0x11, 0x13, 0x12);
+    g_use_item_select_controls[5] =
+        new W8TextControl(panel, 0xffffffff, 0x47, 0x17, 0x55, 0x25, CatalogArtwork::Load(0x1ab, 0),
+                          0x14, 0x15, 0x16, 0x18, 0x17);
+    g_use_item_select_controls[6] =
+        new W8TextControl(panel, 0xffffffff, 0x58, 0x17, 0x66, 0x25, CatalogArtwork::Load(0x1ab, 0),
+                          0x19, 0x1a, 0x1b, 0x1d, 0x1c);
+    g_use_item_select_controls[7] =
+        new W8TextControl(panel, 0xffffffff, 0x35, 0x27, 0x56, 0x39, CatalogArtwork::Load(0x1aa, 0),
+                          0x1e, 0x22, 0x1f, 0x20, 0x21);
     g_use_item_select_controls[8] =
         new W8TextControl(panel, g_use_item_select_regions->index(4), 0x6c, 6, 0x87, 0x21,
                           CatalogArtwork::Load(0x8e, 0), 4, -1, 5, 6, 7);
@@ -291,8 +294,9 @@ void RefreshUseItemSelectionForSlot(int party_slot)
     if (gXStatus.item_drag_active) {
         if (!g_status.item_in_cursor) {
             const bool party_pool = gXStatus.dragged_item_origin == W8_ITEM_ORIGIN_PARTY_POOL;
-            if (party_pool && gXStatus.fCombatMode)
+            if (party_pool && gXStatus.fCombatMode) {
                 srAssertFail("!gXStatus.fCombatMode", MGSUSEITEMSELECT_CPP, 0x1f0, 0);
+            }
             g_use_item_select_scroll_buttons[party_pool ? 1 : 0]->EnableSecondaryState(false);
             g_use_item_select_scroll_buttons[party_pool ? 0 : 1]->DisableSecondaryState(false);
             RebuildUseItemSelectList(party_pool ? 1 : 0, gXStatus.dragged_item);
@@ -317,9 +321,11 @@ void RefreshUseItemSelectionForSlot(int party_slot)
         item = FindCharacterItemAt(party_slot, g_status.buffers.XChar[party_slot].item_origin,
                                    g_status.buffers.XChar[party_slot].item_slot);
         if (CanUseItemForAction(g_use_item_owner_index, item)) {
-            const bool party_pool = g_status.buffers.XChar[party_slot].item_origin == W8_ITEM_ORIGIN_PARTY_POOL;
-            if (party_pool && gXStatus.fCombatMode)
+            const bool party_pool =
+                g_status.buffers.XChar[party_slot].item_origin == W8_ITEM_ORIGIN_PARTY_POOL;
+            if (party_pool && gXStatus.fCombatMode) {
                 srAssertFail("!gXStatus.fCombatMode", MGSUSEITEMSELECT_CPP, 0x216, 0);
+            }
             g_use_item_select_scroll_buttons[party_pool ? 1 : 0]->EnableSecondaryState(false);
             g_use_item_select_scroll_buttons[party_pool ? 0 : 1]->DisableSecondaryState(false);
             RebuildUseItemSelectList(party_pool ? 1 : 0, item);
@@ -796,8 +802,7 @@ unsigned char UseItemSelectTextBoxRegionEvent(const InputEvent* event, W8Region*
             g_use_item_cursor_y = event->position.y;
             return 1;
         }
-        if (event->position.x == g_use_item_cursor_x &&
-            event->position.y == g_use_item_cursor_y) {
+        if (event->position.x == g_use_item_cursor_x && event->position.y == g_use_item_cursor_y) {
             return 1;
         }
         g_use_item_cursor_x = event->position.x;

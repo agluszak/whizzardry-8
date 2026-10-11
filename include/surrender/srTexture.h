@@ -3,8 +3,7 @@
 #include "srPixelConvert.h"
 #include "srTextureIFace.h"
 
-class SR_DLL_IMPORT srTexture
-    : public srClassSupport<srTexture, srTextureIFace, 0x2110> {
+class SR_DLL_IMPORT srTexture : public srClassSupport<srTexture, srTextureIFace, 0x2110> {
 public:
     virtual ~srTexture() override;
     static const char* sGetClassName();
@@ -60,10 +59,9 @@ protected:
     void invalidateFrameHandle(w8_ulong handle);
     void setupDefaultValuesFromSurface(srColorSurfaceIFace* surface);
 
-    w8_ulong packed_state;     /* 0x18: correction/mag/min/mipmap/wrap bits */
+    w8_ulong packed_state;          /* 0x18: correction/mag/min/mipmap/wrap bits */
     float mipmap_bias;              /* 0x1c */
     Dimensions texture_dimensions_; /* 0x20 */
     float texture_priority;         /* 0x4c: getPriority; the ctor seeds 0.5f */
-    w8_ulong texture_flags_;   /* 0x50 */
+    w8_ulong texture_flags_;        /* 0x50 */
 };
-

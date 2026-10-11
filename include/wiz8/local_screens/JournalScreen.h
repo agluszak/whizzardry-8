@@ -9,7 +9,9 @@ extern char g_default_level[];
 #include "compat/compiler.h"
 
 class W8TextBuffer;
-namespace wiz8 { class File; }
+namespace wiz8 {
+class File;
+}
 
 class W8JournalPanel : public Controls, public W8TextControl::Listener {
 public:

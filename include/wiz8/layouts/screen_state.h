@@ -28,7 +28,6 @@ struct W8ScreenStateHandlers {
     unsigned char (*finalize)(void);
 };
 
-
 /* The current and pending screen records begin at the two globals whose first
    dwords the reviewed setters address directly. One storage object preserves
    that identity instead of mirroring the id into a synthetic runtime record. */
@@ -53,6 +52,5 @@ struct W8ScreenStateRuntime {
     /* Previous user save slot, removed only after a successful renamed save. */
     std::string previous_save_name;
 };
-
 
 #endif

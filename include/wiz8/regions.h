@@ -43,8 +43,8 @@ enum : std::int32_t {
 };
 
 inline constexpr std::int32_t REGION_REASON_BUTTONS =
-    REGION_REASON_LBUTTON_DWN | REGION_REASON_LBUTTON_UP |
-    REGION_REASON_RBUTTON_DWN | REGION_REASON_RBUTTON_UP;
+    REGION_REASON_LBUTTON_DWN | REGION_REASON_LBUTTON_UP | REGION_REASON_RBUTTON_DWN |
+    REGION_REASON_RBUTTON_UP;
 
 // Hit-test precedence between region sets: lower orders win, and sets with the
 // same order resolve by creation sequence. Screen sets pass the retail catalog
@@ -56,8 +56,14 @@ struct W8RegionSet {
     unsigned int enabled = 0;
     int order = kDynamicRegionSetOrder;
     std::uint64_t sequence = 0;
-    std::span<const unsigned int> Regions() const { return {region_ids.data(), active_count}; }
-    void Reset() { active_count = 0; }
+    std::span<const unsigned int> Regions() const
+    {
+        return {region_ids.data(), active_count};
+    }
+    void Reset()
+    {
+        active_count = 0;
+    }
     unsigned int AddRegion(int priority = 0);
     void AttachRegion(unsigned int region_index);
     bool RemoveRegion(unsigned int region_index);
@@ -129,7 +135,7 @@ struct W8Region {
     bool help_enabled;
     unsigned char unknown_13;
     int help_text_id;
-    W8Widget* widget; // Non-owning callback target; cleared by widget teardown.
+    W8Widget* widget;                     // Non-owning callback target; cleared by widget teardown.
     std::uint64_t binding_generation = 0; // Detect replacement during callback dispatch.
     int priority = 0;
     std::string help_text{};
@@ -141,7 +147,8 @@ class OwnedRegion {
 public:
     OwnedRegion() = default;
     OwnedRegion(unsigned int set, int priority, W8RegionHandler& handler);
-    OwnedRegion(unsigned int set, const RegionTemplate& entry, int priority = REGION_PRIORITY_LOWEST);
+    OwnedRegion(unsigned int set, const RegionTemplate& entry,
+                int priority = REGION_PRIORITY_LOWEST);
     ~OwnedRegion();
     OwnedRegion(const OwnedRegion&) = delete;
     OwnedRegion& operator=(const OwnedRegion&) = delete;
@@ -151,8 +158,14 @@ public:
     explicit operator bool() const;
     W8Region& region();
     const W8Region& region() const;
-    unsigned int index() const { return index_; }
-    unsigned int set() const { return set_; }
+    unsigned int index() const
+    {
+        return index_;
+    }
+    unsigned int set() const
+    {
+        return set_;
+    }
     void reset();
 
 private:
@@ -171,10 +184,22 @@ public:
     OwnedRegionSet(const OwnedRegionSet&) = delete;
     OwnedRegionSet& operator=(const OwnedRegionSet&) = delete;
 
-    unsigned int set() const { return set_; }
-    std::size_t size() const { return regions_.size(); }
-    W8Region& operator[](std::size_t index) { return regions_.at(index).region(); }
-    unsigned int index(std::size_t index) const { return regions_.at(index).index(); }
+    unsigned int set() const
+    {
+        return set_;
+    }
+    std::size_t size() const
+    {
+        return regions_.size();
+    }
+    W8Region& operator[](std::size_t index)
+    {
+        return regions_.at(index).region();
+    }
+    unsigned int index(std::size_t index) const
+    {
+        return regions_.at(index).index();
+    }
     void Enable();
     void Disable();
     void EnableInput();
@@ -196,9 +221,18 @@ public:
     }
     void Create();
     void Destroy();
-    explicit operator bool() const { return set_.has_value(); }
-    OwnedRegionSet& operator*() { return set_.value(); }
-    OwnedRegionSet* operator->() { return &set_.value(); }
+    explicit operator bool() const
+    {
+        return set_.has_value();
+    }
+    OwnedRegionSet& operator*()
+    {
+        return set_.value();
+    }
+    OwnedRegionSet* operator->()
+    {
+        return &set_.value();
+    }
     void Enable();
     void Disable();
     void EnableInput();
@@ -220,7 +254,10 @@ public:
     RegionSetView(const RegionSetView&) = delete;
     RegionSetView& operator=(const RegionSetView&) = delete;
 
-    unsigned int set() const { return set_; }
+    unsigned int set() const
+    {
+        return set_;
+    }
     void Enable();
     void Disable();
     bool IsEnabled() const;
@@ -318,7 +355,6 @@ unsigned char DispatchRegionInput(const InputEvent* event);
 void SetRegionHelpForceEnabled(bool enabled);
 void EnableRegionHelpFlag(W8Region* region);
 void DisableRegionHelpFlag(W8Region* region);
-
 
 void ResetRegions(void);
 

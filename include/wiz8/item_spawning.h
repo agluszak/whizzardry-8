@@ -18,7 +18,7 @@ enum {
 /* A world item. Saves store it as wiz8::retail::WorldItem. */
 struct W8WorldItem {
     int runtime_id;      /* 0x00 */
-    W8Item* p3D; /* 0x04: assertion-proven pItemInfo->p3D; owns the live world entity */
+    W8Item* p3D;         /* 0x04: assertion-proven pItemInfo->p3D; owns the live world entity */
     bool fActive;        /* 0x08: assertion-proven pItemInfo->fActive */
     W8ItemInstance item; /* 0x09 */
     srVector3T<float> position; /* 0x15 */

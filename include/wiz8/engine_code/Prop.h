@@ -20,7 +20,9 @@ class Trigger;
 class W8Prop;
 struct W8AIMissile;
 class W8GameTimer;
-namespace wiz8 { class File; }
+namespace wiz8 {
+class File;
+}
 
 extern bool g_animated_prop_present;
 
@@ -40,12 +42,12 @@ struct W8PropAnimationSegment {
 class W8PropRepresentation : public W8AnimRep {
 public:
     /* Default construction is inlined at Prop::Prop. */
-  W8PropRepresentation()
-      : animation(0), animation_speed(0.0f), frame_index(0), animation_running(0), random_play(0),
-        play_chance(0.5f), saved_subcycle(0), frame_steps(0), slots(), footstep_surface(0xff),
-        footstep_material(0xff)
-  {
-  }
+    W8PropRepresentation()
+        : animation(0), animation_speed(0.0f), frame_index(0), animation_running(0), random_play(0),
+          play_chance(0.5f), saved_subcycle(0), frame_steps(0), slots(), footstep_surface(0xff),
+          footstep_material(0xff)
+    {
+    }
     W8PropRepresentation(const W8PropRepresentation& other);
     virtual ~W8PropRepresentation() override;
     virtual W8AnimRepBase* Clone() override;
@@ -71,8 +73,8 @@ public:
     unsigned char frame_steps;    /* 0xad */
     unsigned char padding_0ae[2];
     std::vector<W8PropAnimationSegment*> slots; /* 0xb0 */
-    unsigned char footstep_surface;          /* 0xc0 */
-    unsigned char footstep_material;         /* 0xc1 */
+    unsigned char footstep_surface;             /* 0xc0 */
+    unsigned char footstep_material;            /* 0xc1 */
     unsigned char padding_0c2[2];
 }; /* 0xc4 */
 
@@ -116,8 +118,8 @@ public:
     /* Restore the rep's persisted animation state: five saved bytes plus one
        discarded byte, clamped to the loaded animation's frame count, with
        path values re-synced while a running animation is active. */
-    bool LoadAnimationState(wiz8::File& hFile);        /* 0x0044DBD0 */
-    int BuildOrRefreshPathingRepresentation(); /* 0x0044DEA0 */
+    bool LoadAnimationState(wiz8::File& hFile); /* 0x0044DBD0 */
+    int BuildOrRefreshPathingRepresentation();  /* 0x0044DEA0 */
     /* Current minus previous position when the animation advances exactly
        one frame; otherwise zero. */
     srVector3T<float> GetDelta(); /* 0x0044E130 */

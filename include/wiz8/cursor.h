@@ -22,10 +22,10 @@ bool SetMouseCursorFromVideoObject(const SpriteSheet& sprites, std::uint16_t reg
 void BlitToMouseCursor(const SpriteSheet& sprites, std::uint16_t region, std::uint16_t x,
                        std::uint16_t y);
 void RefreshMouseCursorTexture(void);
-bool ResizeMouseCursorSurface(int width, int height);      /* 0x00427c90 */
-void SetMouseCursorHotspot(short hotspot_x, short hotspot_y); /* 0x00427f00 */
-void SetMouseCursorTexture(std::shared_ptr<srTextureIFace> texture);          /* 0x00429170 */
-void SyncSystemCursor(void);                                  /* 0x00428340 */
+bool ResizeMouseCursorSurface(int width, int height);                /* 0x00427c90 */
+void SetMouseCursorHotspot(short hotspot_x, short hotspot_y);        /* 0x00427f00 */
+void SetMouseCursorTexture(std::shared_ptr<srTextureIFace> texture); /* 0x00429170 */
+void SyncSystemCursor(void);                                         /* 0x00428340 */
 
 /* Indices into the 17-slot main-game cursor table that SetTargetCursor takes.
    The parameter stays int because retail mangles it as `H`. Only slots with

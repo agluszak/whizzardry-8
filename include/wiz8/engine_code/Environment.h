@@ -17,7 +17,9 @@ unsigned char GetEnvironmentFlag(void); /* 0x00482A10 */
 
 class stTextureAnim;
 class W8Prop;
-namespace wiz8 { class File; }
+namespace wiz8 {
+class File;
+}
 struct EnvironmentColour;
 struct W8World;
 template <class T> class srVector3T;

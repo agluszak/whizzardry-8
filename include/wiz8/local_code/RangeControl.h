@@ -11,9 +11,9 @@ class W8RangeControl;
 class W8RangeButton : public W8TextControl {
 public:
     W8RangeButton(Controls* panel, unsigned int region, int left, int top, int right, int bottom,
-                  std::optional<CatalogArtwork> image_artwork, int normal_sprite, int pressed_sprite,
-                  int alternate_normal_sprite, int alternate_pressed_sprite, int disabled_sprite,
-                  short direction, W8RangeControl* range);
+                  std::optional<CatalogArtwork> image_artwork, int normal_sprite,
+                  int pressed_sprite, int alternate_normal_sprite, int alternate_pressed_sprite,
+                  int disabled_sprite, short direction, W8RangeControl* range);
 
     virtual void OnLeftButtonDown(int event) override;
     virtual void ActivatePrimary(int event) override;
@@ -58,10 +58,12 @@ public:
 
     void AdjustValue(int steps)
     {
-        for (; steps > 0; --steps)
+        for (; steps > 0; --steps) {
             Decrement();
-        for (; steps < 0; ++steps)
+        }
+        for (; steps < 0; ++steps) {
             Increment();
+        }
     }
 
     int m_minimum;
@@ -86,9 +88,8 @@ public:
 class W8HorizontalRangeThumb : public W8Widget {
 public:
     W8HorizontalRangeThumb(Controls* panel, unsigned int region, int left, int top,
-                           CatalogArtwork artwork, int background_sprite,
-                           int normal_thumb_sprite, int hovered_thumb_sprite,
-                           int disabled_thumb_sprite);
+                           CatalogArtwork artwork, int background_sprite, int normal_thumb_sprite,
+                           int hovered_thumb_sprite, int disabled_thumb_sprite);
     virtual void Redraw(bool full_redraw) override;
     void UpdatePixelPosition();
     virtual void OnLeftButtonDown(int event) override;

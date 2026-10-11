@@ -6,7 +6,6 @@
 
 #include "surrender/srIO.h"
 
-
 TEST_CASE("strings_test")
 {
 

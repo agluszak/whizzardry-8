@@ -153,17 +153,17 @@ constexpr std::array<RegionTemplate, 1> kNpcQuoteBubbleRegionTemplates{{
 
 } // namespace
 
-ScreenRegionSet g_npc_dialogue_transcript_panel_regions{
-    kNpcDialogueTranscriptPanelRegionTemplates, 0x16};
-ScreenRegionSet g_npc_dialogue_trade_panel_regions{kNpcDialogueTradePanelRegionTemplates,
-                                                   0x17};
-ScreenRegionSet g_npc_dialogue_options_panel_regions{kNpcDialogueOptionsPanelRegionTemplates,
-                                                     0x18};
+ScreenRegionSet g_npc_dialogue_transcript_panel_regions{kNpcDialogueTranscriptPanelRegionTemplates,
+                                                        0x16};
+ScreenRegionSet g_npc_dialogue_trade_panel_regions{kNpcDialogueTradePanelRegionTemplates, 0x17};
+ScreenRegionSet g_npc_dialogue_options_panel_regions{kNpcDialogueOptionsPanelRegionTemplates, 0x18};
 ScreenRegionSet g_npc_quote_bubble_regions{kNpcQuoteBubbleRegionTemplates, 0x25};
 
 void ShowNpcQuoteBubbleRegion(int x1, int y1, int x2, int y2)
 {
-    if (!g_npc_quote_bubble_regions) return;
+    if (!g_npc_quote_bubble_regions) {
+        return;
+    }
     const auto region_index = g_npc_quote_bubble_regions->index(0);
     SetRegionBounds(region_index, static_cast<unsigned short>(x1), static_cast<unsigned short>(y1),
                     static_cast<unsigned short>(x2), static_cast<unsigned short>(y2));
@@ -173,7 +173,9 @@ void ShowNpcQuoteBubbleRegion(int x1, int y1, int x2, int y2)
 
 void HideNpcQuoteBubbleRegion()
 {
-    if (!g_npc_quote_bubble_regions) return;
+    if (!g_npc_quote_bubble_regions) {
+        return;
+    }
     g_npc_quote_bubble_regions->Disable();
     g_npc_quote_bubble_regions.DisableInput();
 }
@@ -279,8 +281,8 @@ static int g_dialogue_fallback_ids0[5] = {0x760, 0x761, 0x762, 0x763, 0x764};
 static int g_dialogue_fallback_ids1[5] = {0x765, 0x766, 0x767, 0x768, 0x769};
 // GLOBAL: WIZ8 0x00649f8c
 const char* g_dialogue_person_keywords[] = {"BALBRAK", "BILDUBLU", "EWAXX",  "KUNAR",
-                                               "PANRACK", "RODAN",    "RUBBLE", "SAXX",
-                                               "SPARKLE", "YAMIR",    ""};
+                                            "PANRACK", "RODAN",    "RUBBLE", "SAXX",
+                                            "SPARKLE", "YAMIR",    ""};
 
 static void DisableNpcTradeActions()
 {
@@ -322,7 +324,9 @@ void W8NpcTypedDialoguePanel::Redraw()
             m_background->draw(GetFrameBufferSurface(), m_backgroundImage, m_bounds.left,
                                m_bounds.top);
         }
-        CatalogArtwork::Load(0x1a9, 0).draw(GetFrameBufferSurface(), 0x10, 0x1df, g_npc_interaction_state->where_is_query ? 0x19b : 0x18b);
+        CatalogArtwork::Load(0x1a9, 0).draw(GetFrameBufferSurface(), 0x10, 0x1df,
+                                            g_npc_interaction_state->where_is_query ? 0x19b
+                                                                                    : 0x18b);
         redrawn = 1;
     } else if (!m_fLayoutDirty) {
         return;
@@ -370,12 +374,12 @@ void W8NpcDialogueOptionsPanel::Redraw()
     }
     if (m_fDirty) {
         if (m_background) {
-            m_background->draw(
-                GetFrameBufferSurface(),
-                g_npc_interaction_state->dialogue_layout == W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX
-                    ? m_main_text_box_image
-                    : m_backgroundImage,
-                m_bounds.left, m_bounds.top);
+            m_background->draw(GetFrameBufferSurface(),
+                               g_npc_interaction_state->dialogue_layout ==
+                                       W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX
+                                   ? m_main_text_box_image
+                                   : m_backgroundImage,
+                               m_bounds.left, m_bounds.top);
         }
         redrawn = 1;
     } else if (!m_fLayoutDirty) {
@@ -388,12 +392,16 @@ void W8NpcDialogueOptionsPanel::Redraw()
 static std::optional<std::string> ParseKeywordToken(std::string_view& line)
 {
     const auto start = line.find_first_not_of(' ');
-    if (start == std::string_view::npos) return {};
+    if (start == std::string_view::npos) {
+        return {};
+    }
     line.remove_prefix(start);
     const auto end = line.find_first_of("/\r\n");
     auto word = line.substr(0, end);
     const auto last = word.find_last_not_of(' ');
-    if (last == std::string_view::npos) return {};
+    if (last == std::string_view::npos) {
+        return {};
+    }
     word = word.substr(0, last + 1);
     line = end == std::string_view::npos ? std::string_view{} : line.substr(end + 1);
     return std::string(word);
@@ -402,29 +410,37 @@ static std::optional<std::string> ParseKeywordToken(std::string_view& line)
 /* Load one keyword file into a file list. */
 // FUNCTION: WIZ8 0x0056bed0
 static bool LoadKeywordFile(std::string_view path, KeywordFile& file)
-try
-{
+try {
     auto input = wiz8::open_file(path);
-    if (input->size() < 0 || input->size() > 16 * 1024 * 1024) return false;
+    if (input->size() < 0 || input->size() > 16 * 1024 * 1024) {
+        return false;
+    }
     const auto bytes = input->read_text();
-    if (bytes.find('\0') != std::string::npos) return false;
+    if (bytes.find('\0') != std::string::npos) {
+        return false;
+    }
     std::istringstream stream(bytes);
     std::string line;
     std::getline(stream, line);
     KeywordFile pending;
     while (std::getline(stream, line)) {
         // Retail's line limit and eleven-character metadata prefix are format constraints.
-        if (wiz8::text::to_utf16(line).size() >= 1000) return false;
+        if (wiz8::text::to_utf16(line).size() >= 1000) {
+            return false;
+        }
         std::string_view remaining(line);
         remaining.remove_prefix(wiz8::text::codepoint_prefix(remaining, 11));
         std::vector<std::string> words;
-        while (auto word = ParseKeywordToken(remaining)) words.push_back(std::move(*word));
+        while (auto word = ParseKeywordToken(remaining)) {
+            words.push_back(std::move(*word));
+        }
         pending.push_back(std::move(words));
     }
     file = std::move(pending);
     return true;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x0056c130
 void ClearKeywordLists(void)
@@ -439,7 +455,9 @@ void ReloadKeywordLists(void)
     ClearKeywordLists();
     KeywordFile english, translated;
     if (!LoadKeywordFile("Data\\Strings\\English_Keywords.txt", english) ||
-        !LoadKeywordFile("Data\\Strings\\translated_Keywords.txt", translated)) return;
+        !LoadKeywordFile("Data\\Strings\\translated_Keywords.txt", translated)) {
+        return;
+    }
     g_keyword_lists.push_back(std::move(english));
     g_keyword_lists.push_back(std::move(translated));
     g_keyword_lists_loaded = true;
@@ -451,11 +469,14 @@ std::string TranslateDialogueKeyword(std::string_view source)
     if (g_keyword_lists_loaded) {
         const auto& translated = g_keyword_lists[1];
         const auto& english = g_keyword_lists[0];
-        for (std::size_t row = 0; row < translated.size(); ++row)
-            for (std::size_t word = 0; word < translated[row].size(); ++word)
+        for (std::size_t row = 0; row < translated.size(); ++row) {
+            for (std::size_t word = 0; word < translated[row].size(); ++word) {
                 if (CompareTextIgnoreAsciiCase(source, translated[row][word]) == 0 &&
-                    row < english.size() && word < english[row].size())
+                    row < english.size() && word < english[row].size()) {
                     return english[row][word];
+                }
+            }
+        }
     }
     return std::string(source);
 }
@@ -542,8 +563,8 @@ void QueueNpcScriptNotice(W8NpcState* npc, W8ItemInstance* item, int line, bool 
    pausing the world, raising the dialogue flags and pointing the camera at
    the NPC's monster. */
 // FUNCTION: WIZ8 0x0056C6D0
-static void BeginNpcDialogueInternal(W8NpcState* npc, W8ItemInstance* item, int quote, unsigned char flags,
-                              unsigned char force)
+static void BeginNpcDialogueInternal(W8NpcState* npc, W8ItemInstance* item, int quote,
+                                     unsigned char flags, unsigned char force)
 {
     W8NpcInteractionState* state;
     W8MonsterInfo* info;
@@ -871,18 +892,19 @@ static void CreateNpcDialogueControls(void)
 
     state = g_npc_interaction_state;
     state->dialogue_panels[0] =
-        new W8NpcDialogueOptionsPanel(0x17, 0x166, 0xa4, 0x1c2,
-                                      CatalogArtwork::Load(0x1a9), 0);
-    state->dialogue_panels[1] = new Controls(0xa4, 0x166, 0x1dc, 0x1c2, CatalogArtwork::Load(0x1a9, 0), 1);
-    state->dialogue_panels[2] =
-        new W8NpcDialogueTextController(0x1dc, 0x11b, 0x269, 0x140,
-                                        CatalogArtwork::Load(0x1a9), 2, 4, 3);
-    state->dialogue_panels[3] = new Controls(0x1dc, 0x12f, 0x269, 0x1c2, CatalogArtwork::Load(0x1a9, 0), 5);
-    state->dialogue_panels[4] = new Controls(0x1dc, 0x166, 0x269, 0x1c2, CatalogArtwork::Load(0x1a9, 0), 7);
-    state->dialogue_panels[5] = new Controls(0x1dc, 0x166, 0x238, 499, CatalogArtwork::Load(0x1a9, 0), 6);
+        new W8NpcDialogueOptionsPanel(0x17, 0x166, 0xa4, 0x1c2, CatalogArtwork::Load(0x1a9), 0);
+    state->dialogue_panels[1] =
+        new Controls(0xa4, 0x166, 0x1dc, 0x1c2, CatalogArtwork::Load(0x1a9, 0), 1);
+    state->dialogue_panels[2] = new W8NpcDialogueTextController(
+        0x1dc, 0x11b, 0x269, 0x140, CatalogArtwork::Load(0x1a9), 2, 4, 3);
+    state->dialogue_panels[3] =
+        new Controls(0x1dc, 0x12f, 0x269, 0x1c2, CatalogArtwork::Load(0x1a9, 0), 5);
+    state->dialogue_panels[4] =
+        new Controls(0x1dc, 0x166, 0x269, 0x1c2, CatalogArtwork::Load(0x1a9, 0), 7);
+    state->dialogue_panels[5] =
+        new Controls(0x1dc, 0x166, 0x238, 499, CatalogArtwork::Load(0x1a9, 0), 6);
     state->dialogue_panels[6] =
-        new W8NpcTypedDialoguePanel(0x1dc, 0x166, 0x269, 0x1c0,
-                                    CatalogArtwork::Load(0x1a9), 0xd);
+        new W8NpcTypedDialoguePanel(0x1dc, 0x166, 0x269, 0x1c0, CatalogArtwork::Load(0x1a9), 0xd);
 
     panel = static_cast<W8NpcDialogueOptionsPanel*>(state->dialogue_panels[0]);
     state->dialogue_controls[W8_NPC_CONTROL_NPC_NAME] =
@@ -897,43 +919,43 @@ static void CreateNpcDialogueControls(void)
         new W8TextControl(panel, g_npc_dialogue_options_panel_regions->index(0), 2, 0x11, 0x45,
                           0x21, CatalogArtwork::Load(0x1a9, 0), -1, 0xc, 10, 0xb, -1);
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_2] =
-        new W8TextControl(panel, g_npc_dialogue_options_panel_regions->index(1), 0x44, 0x11,
-                          0x87, 0x21, CatalogArtwork::Load(0x1a9, 0), -1, 0xc, 10, 0xb, -1);
+        new W8TextControl(panel, g_npc_dialogue_options_panel_regions->index(1), 0x44, 0x11, 0x87,
+                          0x21, CatalogArtwork::Load(0x1a9, 0), -1, 0xc, 10, 0xb, -1);
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_3] =
         new W8TextControl(panel, g_npc_dialogue_options_panel_regions->index(2), 2, 0x21, 0x45,
                           0x31, CatalogArtwork::Load(0x1a9, 0), -1, 0xc, 10, 0xb, -1);
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_4] =
-        new W8TextControl(panel, g_npc_dialogue_options_panel_regions->index(3), 0x44, 0x21,
-                          0x87, 0x31, CatalogArtwork::Load(0x1a9, 0), -1, 0xc, 10, 0xb, -1);
+        new W8TextControl(panel, g_npc_dialogue_options_panel_regions->index(3), 0x44, 0x21, 0x87,
+                          0x31, CatalogArtwork::Load(0x1a9, 0), -1, 0xc, 10, 0xb, -1);
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_5] =
         new W8TextControl(panel, g_npc_dialogue_options_panel_regions->index(4), 2, 0x31, 0x45,
                           0x41, CatalogArtwork::Load(0x1a9, 0), -1, 0xc, 10, 0xb, -1);
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_6] =
-        new W8TextControl(panel, g_npc_dialogue_options_panel_regions->index(5), 0x44, 0x31,
-                          0x87, 0x41, CatalogArtwork::Load(0x1a9, 0), -1, 0xc, 10, 0xb, -1);
+        new W8TextControl(panel, g_npc_dialogue_options_panel_regions->index(5), 0x44, 0x31, 0x87,
+                          0x41, CatalogArtwork::Load(0x1a9, 0), -1, 0xc, 10, 0xb, -1);
     static_cast<W8TextControl*>(state->dialogue_controls[W8_NPC_CONTROL_TEXT_6])
         ->UpdateTextBounds(0x46, 0x31, 0x89, 0x41);
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_7] =
-        new W8TextControl(panel, g_npc_dialogue_options_panel_regions->index(6), 0x72, 0x47,
-                          0x89, 0x57, CatalogArtwork::Load(0x1aa, 0), 0, 4, 1, 2, 3);
+        new W8TextControl(panel, g_npc_dialogue_options_panel_regions->index(6), 0x72, 0x47, 0x89,
+                          0x57, CatalogArtwork::Load(0x1aa, 0), 0, 4, 1, 2, 3);
     state->dialogue_controls[W8_NPC_CONTROL_OPTION_BUTTONS + 0] =
         new W8TextControl(panel, g_npc_dialogue_trade_panel_regions->index(1), 7, 0x46, 0x17, 0x56,
                           CatalogArtwork::Load(0x1ab, 0), 0, 1, 2, 4, 3);
     state->dialogue_controls[W8_NPC_CONTROL_OPTION_BUTTONS + 1] =
-        new W8TextControl(panel, g_npc_dialogue_trade_panel_regions->index(2), 0x19, 0x46, 0x29, 0x56,
-                          CatalogArtwork::Load(0x1ab, 0), 5, 6, 7, 9, 8);
+        new W8TextControl(panel, g_npc_dialogue_trade_panel_regions->index(2), 0x19, 0x46, 0x29,
+                          0x56, CatalogArtwork::Load(0x1ab, 0), 5, 6, 7, 9, 8);
     state->dialogue_controls[W8_NPC_CONTROL_OPTION_BUTTONS + 2] =
-        new W8TextControl(panel, g_npc_dialogue_trade_panel_regions->index(3), 0x2b, 0x46, 0x3b, 0x56,
-                          CatalogArtwork::Load(0x1ab, 0), 10, 0xb, 0xc, 0xe, 0xd);
-    state->dialogue_controls[W8_NPC_CONTROL_OPTION_BUTTONS + 3] = new W8TextControl(
-        panel, g_npc_dialogue_trade_panel_regions->index(4), 0x3e, 0x46, 0x4e, 0x56,
-        CatalogArtwork::Load(0x1ab, 0), 0xf, 0x10, 0x11, 0x13, 0x12);
-    state->dialogue_controls[W8_NPC_CONTROL_OPTION_BUTTONS + 4] = new W8TextControl(
-        panel, g_npc_dialogue_trade_panel_regions->index(5), 0x50, 0x46, 0x60, 0x56,
-        CatalogArtwork::Load(0x1ab, 0), 0x14, 0x15, 0x16, 0x18, 0x17);
-    state->dialogue_controls[W8_NPC_CONTROL_OPTION_BUTTONS + 5] = new W8TextControl(
-        panel, g_npc_dialogue_trade_panel_regions->index(6), 0x62, 0x46, 0x72, 0x56,
-        CatalogArtwork::Load(0x1ab, 0), 0x19, 0x1a, 0x1b, 0x1d, 0x1c);
+        new W8TextControl(panel, g_npc_dialogue_trade_panel_regions->index(3), 0x2b, 0x46, 0x3b,
+                          0x56, CatalogArtwork::Load(0x1ab, 0), 10, 0xb, 0xc, 0xe, 0xd);
+    state->dialogue_controls[W8_NPC_CONTROL_OPTION_BUTTONS + 3] =
+        new W8TextControl(panel, g_npc_dialogue_trade_panel_regions->index(4), 0x3e, 0x46, 0x4e,
+                          0x56, CatalogArtwork::Load(0x1ab, 0), 0xf, 0x10, 0x11, 0x13, 0x12);
+    state->dialogue_controls[W8_NPC_CONTROL_OPTION_BUTTONS + 4] =
+        new W8TextControl(panel, g_npc_dialogue_trade_panel_regions->index(5), 0x50, 0x46, 0x60,
+                          0x56, CatalogArtwork::Load(0x1ab, 0), 0x14, 0x15, 0x16, 0x18, 0x17);
+    state->dialogue_controls[W8_NPC_CONTROL_OPTION_BUTTONS + 5] =
+        new W8TextControl(panel, g_npc_dialogue_trade_panel_regions->index(6), 0x62, 0x46, 0x72,
+                          0x56, CatalogArtwork::Load(0x1ab, 0), 0x19, 0x1a, 0x1b, 0x1d, 0x1c);
     state->dialogue_controls[W8_NPC_CONTROL_OPTION_BUTTONS + 0]->AddLayoutFlags(
         g_W8TextControlLayoutToggle);
     state->dialogue_controls[W8_NPC_CONTROL_OPTION_BUTTONS + 0]->EnableRegionHelp(0x7c2);
@@ -970,36 +992,35 @@ static void CreateNpcDialogueControls(void)
         new W8Widget(panel, g_npc_dialogue_options_panel_regions->index(7), 2, 4, 0x136, 0x57);
 
     panel = static_cast<W8NpcDialogueTextController*>(state->dialogue_panels[2]);
-    state->dialogue_controls[W8_NPC_CONTROL_SCROLL] =
-        new W8NpcDialogueScrollWidget(panel, g_npc_dialogue_transcript_panel_regions->index(0), 6, 6,
-                                      0x7c, 0x11);
+    state->dialogue_controls[W8_NPC_CONTROL_SCROLL] = new W8NpcDialogueScrollWidget(
+        panel, g_npc_dialogue_transcript_panel_regions->index(0), 6, 6, 0x7c, 0x11);
     state->dialogue_controls[W8_NPC_CONTROL_SCROLL_UP_BUTTON] =
-        new W8TextControl(panel, g_npc_dialogue_transcript_panel_regions->index(1), 0x7e, 3, 0x88, 0xb,
-                          CatalogArtwork::Load(0x1aa, 0), 0x14, 0x18, 0x15, 0x16, 0x17);
-    state->dialogue_controls[W8_NPC_CONTROL_SCROLL_DOWN_BUTTON] = new W8TextControl(
-        panel, g_npc_dialogue_transcript_panel_regions->index(2), 0x7e, 0xc, 0x88, 0x14,
-        CatalogArtwork::Load(0x1aa, 0), 0x19, 0x1d, 0x1a, 0x1b, 0x1c);
+        new W8TextControl(panel, g_npc_dialogue_transcript_panel_regions->index(1), 0x7e, 3, 0x88,
+                          0xb, CatalogArtwork::Load(0x1aa, 0), 0x14, 0x18, 0x15, 0x16, 0x17);
+    state->dialogue_controls[W8_NPC_CONTROL_SCROLL_DOWN_BUTTON] =
+        new W8TextControl(panel, g_npc_dialogue_transcript_panel_regions->index(2), 0x7e, 0xc, 0x88,
+                          0x14, CatalogArtwork::Load(0x1aa, 0), 0x19, 0x1d, 0x1a, 0x1b, 0x1c);
 
     panel = static_cast<W8NpcTypedDialoguePanel*>(state->dialogue_panels[6]);
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_12] =
-        new W8TextControl(panel, g_npc_dialogue_transcript_panel_regions->index(3), 0x11, 0x23, 0x22,
-                          0x30, CatalogArtwork::Load(0x1aa, 0), 5, 9, 6, 7, 8);
+        new W8TextControl(panel, g_npc_dialogue_transcript_panel_regions->index(3), 0x11, 0x23,
+                          0x22, 0x30, CatalogArtwork::Load(0x1aa, 0), 5, 9, 6, 7, 8);
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_12]->EnableRegionHelp(100);
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_13] =
-        new W8TextControl(panel, g_npc_dialogue_transcript_panel_regions->index(4), 0x26, 0x23, 0x37,
-                          0x30, CatalogArtwork::Load(0x1aa, 0), 10, 0xe, 0xb, 0xc, 0xd);
+        new W8TextControl(panel, g_npc_dialogue_transcript_panel_regions->index(4), 0x26, 0x23,
+                          0x37, 0x30, CatalogArtwork::Load(0x1aa, 0), 10, 0xe, 0xb, 0xc, 0xd);
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_13]->EnableRegionHelp(0x65);
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_23] =
-        new W8TextControl(panel, g_npc_dialogue_transcript_panel_regions->index(14), 9, 0x33, 0x84, 0x44,
-                          CatalogArtwork::Load(0x1a9, 0), -1, -1, 0xe, 0xf, -1);
+        new W8TextControl(panel, g_npc_dialogue_transcript_panel_regions->index(14), 9, 0x33, 0x84,
+                          0x44, CatalogArtwork::Load(0x1a9, 0), -1, -1, 0xe, 0xf, -1);
     static_cast<W8TextControl*>(state->dialogue_controls[W8_NPC_CONTROL_TEXT_23])
         ->m_textBuffer.SetText(g_localized_strings[0x741], g_wiz_text_font_secondary);
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_23]->m_primaryActivationCallback =
         SubmitNpcDialogueInput;
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_23]->EnableRegionHelp(0x66);
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_22] =
-        new W8TextControl(panel, g_npc_dialogue_transcript_panel_regions->index(13), 9, 0x43, 0x84, 0x52,
-                          CatalogArtwork::Load(0x1a9, 0), -1, -1, 0xe, 0xf, -1);
+        new W8TextControl(panel, g_npc_dialogue_transcript_panel_regions->index(13), 9, 0x43, 0x84,
+                          0x52, CatalogArtwork::Load(0x1a9, 0), -1, -1, 0xe, 0xf, -1);
     static_cast<W8TextControl*>(state->dialogue_controls[W8_NPC_CONTROL_TEXT_22])
         ->m_textBuffer.SetText(g_localized_strings[0x742], g_wiz_text_font_secondary);
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_22]->m_primaryActivationCallback =
@@ -1014,8 +1035,8 @@ static void CreateNpcDialogueControls(void)
         g_W8TextControlLayoutImageLeft | g_W8TextControlLayoutTextBesideImage |
         g_W8TextControlLayoutToggle);
     state->dialogue_controls[W8_NPC_CONTROL_PEOPLE_BUTTON] =
-        new W8TextControl(panel, g_npc_dialogue_transcript_panel_regions->index(8), 6, 0xf, 0x41, 0x1b,
-                          CatalogArtwork::Load(0x1a9, 0), 8, 9, -1, -1, -1);
+        new W8TextControl(panel, g_npc_dialogue_transcript_panel_regions->index(8), 6, 0xf, 0x41,
+                          0x1b, CatalogArtwork::Load(0x1a9, 0), 8, 9, -1, -1, -1);
     state->dialogue_controls[W8_NPC_CONTROL_PEOPLE_BUTTON]->AddLayoutFlags(
         g_W8TextControlLayoutStayLatched | g_W8TextControlLayoutImageLeft |
         g_W8TextControlLayoutTextBesideImage | g_W8TextControlLayoutToggle);
@@ -1031,9 +1052,9 @@ static void CreateNpcDialogueControls(void)
     state->dialogue_controls[W8_NPC_CONTROL_ITEMS_BUTTON]->AddLayoutFlags(
         g_W8TextControlLayoutStayLatched | g_W8TextControlLayoutImageLeft |
         g_W8TextControlLayoutTextBesideImage | g_W8TextControlLayoutToggle);
-    state->dialogue_controls[W8_NPC_CONTROL_MISC_BUTTON] =
-        new W8TextControl(panel, g_npc_dialogue_transcript_panel_regions->index(kNpcDialogueMiscButtonRegionOffset), 0x43, 0x1b, 0x89,
-                          0x27, CatalogArtwork::Load(0x1a9, 0), 8, 9, -1, -1, -1);
+    state->dialogue_controls[W8_NPC_CONTROL_MISC_BUTTON] = new W8TextControl(
+        panel, g_npc_dialogue_transcript_panel_regions->index(kNpcDialogueMiscButtonRegionOffset),
+        0x43, 0x1b, 0x89, 0x27, CatalogArtwork::Load(0x1a9, 0), 8, 9, -1, -1, -1);
     state->dialogue_controls[W8_NPC_CONTROL_MISC_BUTTON]->AddLayoutFlags(
         g_W8TextControlLayoutStayLatched | g_W8TextControlLayoutImageLeft |
         g_W8TextControlLayoutTextBesideImage | g_W8TextControlLayoutToggle);
@@ -1052,9 +1073,9 @@ static void CreateNpcDialogueControls(void)
         ->m_textBuffer.SetLayoutMode(g_W8TextBufferAlignBottom | g_W8TextBufferAlignRight);
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_24]->AddLayoutFlags(
         g_W8TextControlLayoutImageAtOrigin);
-    state->dialogue_controls[W8_NPC_CONTROL_TEXT_31] = new W8TextControl(
-        panel, g_npc_dialogue_trade_panel_regions->index(7), 0x35, 0x36, 0x51, 0x46,
-        CatalogArtwork::Load(0x1aa, 0), 0x1e, 0x22, 0x1f, 0x20, 0x21);
+    state->dialogue_controls[W8_NPC_CONTROL_TEXT_31] =
+        new W8TextControl(panel, g_npc_dialogue_trade_panel_regions->index(7), 0x35, 0x36, 0x51,
+                          0x46, CatalogArtwork::Load(0x1aa, 0), 0x1e, 0x22, 0x1f, 0x20, 0x21);
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_31]->EnableRegionHelp(0x7c9);
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_33] =
         new W8TextControl(panel, g_npc_dialogue_trade_panel_regions->index(9), 0x53, 0x4d, 0x86,
@@ -1063,14 +1084,14 @@ static void CreateNpcDialogueControls(void)
         ->m_textBuffer.SetLayoutMode(g_W8TextBufferAlignRight | g_W8TextBufferAlignMiddle);
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_33]->SetEnabled(false);
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_34] =
-        new W8TextControl(panel, g_npc_dialogue_trade_panel_regions->index(10), 5, 0x4d, 0x51,
-                          0x58, std::nullopt, -1, -1, -1, -1, -1);
+        new W8TextControl(panel, g_npc_dialogue_trade_panel_regions->index(10), 5, 0x4d, 0x51, 0x58,
+                          std::nullopt, -1, -1, -1, -1, -1);
     static_cast<W8TextControl*>(state->dialogue_controls[W8_NPC_CONTROL_TEXT_34])
         ->m_textBuffer.SetLayoutMode(g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_34]->SetEnabled(false);
-    state->dialogue_controls[W8_NPC_CONTROL_TEXT_35] =
-        new W8TextControl(panel, g_npc_dialogue_trade_panel_regions->index(kNpcDialogueText35RegionOffset),
-                          0x53, 0x3a, 0x86, 0x45, std::nullopt, -1, -1, -1, -1, -1);
+    state->dialogue_controls[W8_NPC_CONTROL_TEXT_35] = new W8TextControl(
+        panel, g_npc_dialogue_trade_panel_regions->index(kNpcDialogueText35RegionOffset), 0x53,
+        0x3a, 0x86, 0x45, std::nullopt, -1, -1, -1, -1, -1);
     static_cast<W8TextControl*>(state->dialogue_controls[W8_NPC_CONTROL_TEXT_35])
         ->m_textBuffer.SetLayoutMode(g_W8TextBufferAlignRight | g_W8TextBufferAlignMiddle);
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_35]->SetEnabled(false);
@@ -1280,8 +1301,7 @@ void EndNpcDialogueSession(bool skip_exit_actions)
     std::ranges::fill(g_npc_interaction_state->dialogue_controls, nullptr);
     RequestRedrawCombatBar();
     RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
-    for (unsigned int index = 0;
-         index < gXStatus.monsters.size(); index++) {
+    for (unsigned int index = 0; index < gXStatus.monsters.size(); index++) {
         ClearMonsterCharm(MonsterGetScriptPartByLocationIndex(index));
     }
     GetNpcMonsterInfo(g_npc_interaction_state->dialogue_npc);
@@ -1541,14 +1561,12 @@ unsigned char NpcDialogueTextBoxRegionEvent(const InputEvent* event, W8Region* r
 
     switch (event->type) {
     case InputEventType::LeftButtonDoubleClick:
-        NpcDialogueTextBoxDoubleClick(event->position.x,
-                                      event->position.y);
+        NpcDialogueTextBoxDoubleClick(event->position.x, event->position.y);
         return 1;
     case InputEventType::LeftButtonUp:
         if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
             region->flags &= ~W8_REGION_LEFT_BUTTON_HELD;
-            NpcDialogueTextBoxLeftUp(event->position.x,
-                                     event->position.y);
+            NpcDialogueTextBoxLeftUp(event->position.x, event->position.y);
         }
         [[fallthrough]];
     case InputEventType::RightButtonDown:
@@ -1562,8 +1580,7 @@ unsigned char NpcDialogueTextBoxRegionEvent(const InputEvent* event, W8Region* r
     case InputEventType::RightButtonUp:
         if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) != 0) {
             region->flags &= ~W8_REGION_RIGHT_BUTTON_HELD;
-            NpcDialogueTextBoxRightUp(event->position.x,
-                                      event->position.y);
+            NpcDialogueTextBoxRightUp(event->position.x, event->position.y);
         }
         return 1;
     default:
@@ -1596,8 +1613,7 @@ unsigned char NpcDialogueTextBoxRegionEvent(const InputEvent* event, W8Region* r
     g_npc_interaction_state->last_mouse_x = event->position.x;
     g_npc_interaction_state->last_mouse_y = event->position.y;
     if (g_npc_interaction_state->dialogue_layout == W8_DIALOGUE_LAYOUT_TRANSCRIPT) {
-        HighlightNoticeWordAt(3, event->position.x,
-                              event->position.y);
+        HighlightNoticeWordAt(3, event->position.x, event->position.y);
         return 1;
     }
     if (g_npc_interaction_state->dialogue_layout == W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX) {
@@ -1837,7 +1853,8 @@ void UpdateNpcTradeSelection(int index, int increment, int commit)
             W8_ITEM_EQUIP_CLASS_AMMUNITION) {
             g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_31]->SetEnabled(false);
         }
-        text = ShortenTextToWidth(FormatItemDisplayName(g_npc_interaction_state->trade_item, false), 0x7d, g_wiz_text_font_secondary);
+        text = ShortenTextToWidth(FormatItemDisplayName(g_npc_interaction_state->trade_item, false),
+                                  0x7d, g_wiz_text_font_secondary);
         static_cast<W8TextControl*>(
             g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_36])
             ->m_textBuffer.SetText(text, g_wiz_text_font_secondary);
@@ -2395,8 +2412,7 @@ void AddNpcDialogueKeyword(std::string text, signed char category, int play_chim
                 category = W8_DIALOGUE_CATEGORY_PEOPLE;
             } else {
                 for (index = 0; g_dialogue_person_keywords[index][0] != 0; ++index) {
-                    if (CompareTextIgnoreAsciiCase(text, g_dialogue_person_keywords[index]) ==
-                        0) {
+                    if (CompareTextIgnoreAsciiCase(text, g_dialogue_person_keywords[index]) == 0) {
                         break;
                     }
                 }
@@ -2407,7 +2423,8 @@ void AddNpcDialogueKeyword(std::string text, signed char category, int play_chim
                          index < static_cast<unsigned int>(g_dialogue_place_keyword_count);
                          ++index) {
                         if (CompareTextIgnoreAsciiCase(
-                                text, g_localized_strings[g_dialogue_place_keyword_ids[index]]) == 0) {
+                                text, g_localized_strings[g_dialogue_place_keyword_ids[index]]) ==
+                            0) {
                             break;
                         }
                     }
@@ -2432,8 +2449,9 @@ void AddNpcDialogueKeyword(std::string text, signed char category, int play_chim
                 SyncDialogueCategoryButtons();
             }
             if (play_chime != 0) {
-                wiz8::sound::play(reinterpret_cast<char*>(const_cast<char*>( // reinterpret-ok: SGP text ABI
-                              "Data\\Sound\\Misc\\Keyword Chime.wav")));
+                wiz8::sound::play(
+                    reinterpret_cast<char*>(const_cast<char*>( // reinterpret-ok: SGP text ABI
+                        "Data\\Sound\\Misc\\Keyword Chime.wav")));
             }
             controller->Collapse();
             controller->Expand();
@@ -2760,8 +2778,7 @@ static void OpenNpcItemAssay(void)
     auto* item_control = static_cast<W8TextControl*>(
         g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_24]);
 
-    if (g_npc_interaction_state->trade_item != 0 &&
-        item_control->m_imageSprites &&
+    if (g_npc_interaction_state->trade_item != 0 && item_control->m_imageSprites &&
         item_control->m_imageSprites != CatalogArtwork::Load(0x1ac).spriteSheet()) {
         dialog = new W8AssayDialog(g_npc_interaction_state->trade_item,
                                    &g_status.buffers.Char[g_status.selected_character]);
@@ -3491,7 +3508,11 @@ static void HandleNpcDialogueReply(std::string_view text, bool echo)
 static bool ReadNextWord(std::string_view& text, std::string& word)
 {
     const auto start = text.find_first_not_of(' ');
-    if (start == std::string_view::npos) { text = {}; word.clear(); return false; }
+    if (start == std::string_view::npos) {
+        text = {};
+        word.clear();
+        return false;
+    }
     text.remove_prefix(start);
     const auto end = text.find(' ');
     word = text.substr(0, end);
@@ -3546,15 +3567,32 @@ void HandleNpcDialogueInput(void)
     if (word_count > 2) {
         show_fallback = false;
     }
-    if (CompareTextIgnoreAsciiCase(std::string_view(field_text).substr(0, wiz8::text::codepoint_prefix(field_text, 4)), std::string_view(g_localized_strings[0x76b]).substr(0, wiz8::text::codepoint_prefix(g_localized_strings[0x76b], 4))) == 0 ||
-        CompareTextIgnoreAsciiCase(std::string_view(field_text).substr(0, wiz8::text::codepoint_prefix(field_text, 7)), std::string_view(g_localized_strings[0x76c]).substr(0, wiz8::text::codepoint_prefix(g_localized_strings[0x76c], 7))) == 0) {
+    if (CompareTextIgnoreAsciiCase(
+            std::string_view(field_text).substr(0, wiz8::text::codepoint_prefix(field_text, 4)),
+            std::string_view(g_localized_strings[0x76b])
+                .substr(0, wiz8::text::codepoint_prefix(g_localized_strings[0x76b], 4))) == 0 ||
+        CompareTextIgnoreAsciiCase(
+            std::string_view(field_text).substr(0, wiz8::text::codepoint_prefix(field_text, 7)),
+            std::string_view(g_localized_strings[0x76c])
+                .substr(0, wiz8::text::codepoint_prefix(g_localized_strings[0x76c], 7))) == 0) {
         RequestNpcJoinParty();
         return;
     }
     if (g_npc_interaction_state->where_is_query) {
-        if (CompareTextIgnoreAsciiCase(std::string_view(field_text).substr(0, wiz8::text::codepoint_prefix(field_text, 9)), std::string_view(g_localized_strings[0x76d]).substr(0, wiz8::text::codepoint_prefix(g_localized_strings[0x76d], 9))) == 0 ||
-            CompareTextIgnoreAsciiCase(std::string_view(field_text).substr(0, wiz8::text::codepoint_prefix(field_text, 0xa)), std::string_view(g_localized_strings[0x76e]).substr(0, wiz8::text::codepoint_prefix(g_localized_strings[0x76e], 0xa))) == 0 ||
-            CompareTextIgnoreAsciiCase(std::string_view(field_text).substr(0, wiz8::text::codepoint_prefix(field_text, 8)), std::string_view(g_localized_strings[0x76f]).substr(0, wiz8::text::codepoint_prefix(g_localized_strings[0x76f], 8))) == 0) {
+        if (CompareTextIgnoreAsciiCase(
+                std::string_view(field_text).substr(0, wiz8::text::codepoint_prefix(field_text, 9)),
+                std::string_view(g_localized_strings[0x76d])
+                    .substr(0, wiz8::text::codepoint_prefix(g_localized_strings[0x76d], 9))) == 0 ||
+            CompareTextIgnoreAsciiCase(
+                std::string_view(field_text)
+                    .substr(0, wiz8::text::codepoint_prefix(field_text, 0xa)),
+                std::string_view(g_localized_strings[0x76e])
+                    .substr(0, wiz8::text::codepoint_prefix(g_localized_strings[0x76e], 0xa))) ==
+                0 ||
+            CompareTextIgnoreAsciiCase(
+                std::string_view(field_text).substr(0, wiz8::text::codepoint_prefix(field_text, 8)),
+                std::string_view(g_localized_strings[0x76f])
+                    .substr(0, wiz8::text::codepoint_prefix(g_localized_strings[0x76f], 8))) == 0) {
             buf = field_text;
         } else {
             buf = fmt::sprintf(g_localized_strings[0x76a], field_text);
@@ -3574,12 +3612,28 @@ void HandleNpcDialogueInput(void)
 
     if (quote_id == -1) {
         buf = field_text;
-        if (CompareTextIgnoreAsciiCase(std::string_view(buf).substr(0, wiz8::text::codepoint_prefix(buf, 0xb)), std::string_view(g_localized_strings[0x770]).substr(0, wiz8::text::codepoint_prefix(g_localized_strings[0x770], 0xb))) == 0) {
+        if (CompareTextIgnoreAsciiCase(
+                std::string_view(buf).substr(0, wiz8::text::codepoint_prefix(buf, 0xb)),
+                std::string_view(g_localized_strings[0x770])
+                    .substr(0, wiz8::text::codepoint_prefix(g_localized_strings[0x770], 0xb))) ==
+            0) {
             field_text = buf.substr(wiz8::text::codepoint_prefix(buf, 0xb));
             show_fallback = false;
-        } else if (CompareTextIgnoreAsciiCase(std::string_view(buf).substr(0, wiz8::text::codepoint_prefix(buf, 9)), std::string_view(g_localized_strings[0x76d]).substr(0, wiz8::text::codepoint_prefix(g_localized_strings[0x76d], 9))) == 0 ||
-                   CompareTextIgnoreAsciiCase(std::string_view(buf).substr(0, wiz8::text::codepoint_prefix(buf, 0xa)), std::string_view(g_localized_strings[0x76e]).substr(0, wiz8::text::codepoint_prefix(g_localized_strings[0x76e], 0xa))) == 0 ||
-                   CompareTextIgnoreAsciiCase(std::string_view(buf).substr(0, wiz8::text::codepoint_prefix(buf, 8)), std::string_view(g_localized_strings[0x76f]).substr(0, wiz8::text::codepoint_prefix(g_localized_strings[0x76f], 8))) == 0) {
+        } else if (CompareTextIgnoreAsciiCase(
+                       std::string_view(buf).substr(0, wiz8::text::codepoint_prefix(buf, 9)),
+                       std::string_view(g_localized_strings[0x76d])
+                           .substr(0, wiz8::text::codepoint_prefix(g_localized_strings[0x76d],
+                                                                   9))) == 0 ||
+                   CompareTextIgnoreAsciiCase(
+                       std::string_view(buf).substr(0, wiz8::text::codepoint_prefix(buf, 0xa)),
+                       std::string_view(g_localized_strings[0x76e])
+                           .substr(0, wiz8::text::codepoint_prefix(g_localized_strings[0x76e],
+                                                                   0xa))) == 0 ||
+                   CompareTextIgnoreAsciiCase(
+                       std::string_view(buf).substr(0, wiz8::text::codepoint_prefix(buf, 8)),
+                       std::string_view(g_localized_strings[0x76f])
+                           .substr(0, wiz8::text::codepoint_prefix(g_localized_strings[0x76f],
+                                                                   8))) == 0) {
             field_text = buf.substr(wiz8::text::codepoint_prefix(buf, 9));
             plain_text = false;
             show_fallback = false;
@@ -3631,7 +3685,8 @@ void HandleNpcDialogueInput(void)
         cursor = field_text;
         while (!cursor.empty()) {
             has_word = ReadNextWord(cursor, word);
-            if (has_word && FindNpcScriptQuoteByKeyword(TranslateDialogueKeyword(word), 0, 0) != -1) {
+            if (has_word &&
+                FindNpcScriptQuoteByKeyword(TranslateDialogueKeyword(word), 0, 0) != -1) {
                 ++matches;
             }
         }
@@ -3835,7 +3890,8 @@ static bool IsDialoguePlaceKeyword(std::string_view name)
 // FUNCTION: WIZ8 0x00575070
 void ClearNpcDialogueTranscript(void)
 {
-    for (int index = 0; index < static_cast<int>(g_npc_interaction_state->dialogue_transcript.size()); ++index) {
+    for (int index = 0;
+         index < static_cast<int>(g_npc_interaction_state->dialogue_transcript.size()); ++index) {
         delete g_npc_interaction_state->dialogue_transcript[index];
     }
     g_npc_interaction_state->dialogue_transcript.clear();
@@ -3843,8 +3899,7 @@ void ClearNpcDialogueTranscript(void)
 
 // FUNCTION: WIZ8 0x005750D0
 unsigned char LoadNpcDialogueTranscript(wiz8::File& file)
-try
-{
+try {
     unsigned char version;
     int record_count;
     file.read_exact(&version, sizeof(version));
@@ -3859,13 +3914,17 @@ try
     for (int index = 0; index < record_count; ++index) {
         int text_length;
         file.read_exact(&text_length, sizeof(text_length));
-        if (text_length < 0 || text_length >= 100) return 0;
+        if (text_length < 0 || text_length >= 100) {
+            return 0;
+        }
         auto record = std::make_unique<W8DialogueTranscriptRecord>();
         std::vector<std::byte> bytes((std::size_t(text_length) + 1) * 2);
         file.read_exact(bytes.data(), bytes.size());
         record->text = wiz8::text::from_utf16le(bytes);
-        if (bytes[bytes.size()-1] != std::byte{} || bytes[bytes.size()-2] != std::byte{} ||
-            wiz8::text::to_utf16(record->text).size() != std::size_t(text_length)) return false;
+        if (bytes[bytes.size() - 1] != std::byte{} || bytes[bytes.size() - 2] != std::byte{} ||
+            wiz8::text::to_utf16(record->text).size() != std::size_t(text_length)) {
+            return false;
+        }
         file.read_exact(&record->category, sizeof(record->category));
         pending.push_back(std::move(record));
     }
@@ -3874,8 +3933,10 @@ try
     if (version > 1) {
         file.read_exact(&category_filter, sizeof(category_filter));
         file.read_exact(&sorted, sizeof(sorted));
-        if (category_filter < W8_DIALOGUE_CATEGORY_ALL || category_filter > W8_DIALOGUE_CATEGORY_MISC ||
-            sorted > 1) return 0;
+        if (category_filter < W8_DIALOGUE_CATEGORY_ALL ||
+            category_filter > W8_DIALOGUE_CATEGORY_MISC || sorted > 1) {
+            return 0;
+        }
     }
     auto& transcript = g_npc_interaction_state->dialogue_transcript;
     transcript.reserve(record_count);
@@ -3887,13 +3948,13 @@ try
     g_npc_interaction_state->dialogue_category_filter = category_filter;
     g_npc_interaction_state->transcript_sorted = sorted != 0;
     return 1;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x00575290
 unsigned char SaveNpcDialogueTranscript(wiz8::File& file)
-try
-{
+try {
     const unsigned char version = 2;
     const int record_count = static_cast<int>(g_npc_interaction_state->dialogue_transcript.size());
     file.write(&version, sizeof(version));
@@ -3901,7 +3962,9 @@ try
     for (int index = 0; index < record_count; ++index) {
         W8DialogueTranscriptRecord* record = g_npc_interaction_state->dialogue_transcript[index];
         const int text_length = wiz8::text::to_utf16(record->text).size();
-        if (text_length >= 100) return false;
+        if (text_length >= 100) {
+            return false;
+        }
         std::vector<std::byte> bytes((std::size_t(text_length) + 1) * 2);
         wiz8::text::to_utf16le(record->text, bytes);
         file.write(&text_length, sizeof(text_length));
@@ -3912,8 +3975,9 @@ try
     const unsigned char sorted = g_npc_interaction_state->transcript_sorted;
     file.write(&sorted, sizeof(sorted));
     return 1;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 /* Restate the five transcript category buttons so only the active
    dialogue_category_filter's button shows its secondary state. */
@@ -4281,8 +4345,8 @@ void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQu
 
 // FUNCTION: WIZ8 0x00576060
 void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQuote* quote,
-                              int quote_id, unsigned int font_palette,
-                              W8QuoteNotice notice, int npc_kind)
+                              int quote_id, unsigned int font_palette, W8QuoteNotice notice,
+                              int npc_kind)
 {
     if (visible == g_npc_interaction_state->quote_visible) {
         return;
@@ -4302,8 +4366,7 @@ void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQu
         auto& bubble = g_npc_interaction_state->quote_bubble;
         bubble = QuoteBubble::layout(
             normalized, 280,
-            font_palette == 0xffffffff ? std::nullopt
-                                       : std::optional<std::uint8_t>(font_palette));
+            font_palette == 0xffffffff ? std::nullopt : std::optional<std::uint8_t>(font_palette));
         if (!bubble) {
             if (g_npc_interaction_state->dialogue_npc != 0) {
                 error_text = fmt::format(
@@ -4318,7 +4381,8 @@ void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQu
         g_npc_interaction_state->quote_width = static_cast<short>(bubble ? bubble->width() : 0);
         g_npc_interaction_state->quote_height = static_cast<short>(bubble ? bubble->height() : 0);
         g_npc_interaction_state->quote_x = 320 - g_npc_interaction_state->quote_width / 2;
-        g_npc_interaction_state->quote_y = quote_id < 0 ? 350 - g_npc_interaction_state->quote_height : 20;
+        g_npc_interaction_state->quote_y =
+            quote_id < 0 ? 350 - g_npc_interaction_state->quote_height : 20;
         ShowNpcQuoteBubbleRegion(
             g_npc_interaction_state->quote_x, g_npc_interaction_state->quote_y,
             g_npc_interaction_state->quote_x + g_npc_interaction_state->quote_width,
@@ -4333,8 +4397,9 @@ void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQu
         bool level_up = std::holds_alternative<W8LevelUpNotice>(notice);
         g_npc_interaction_state->quote_notice = std::move(notice);
         if (level_up) {
-            wiz8::sound::play(reinterpret_cast<char*>(const_cast<char*>( // reinterpret-ok: SGP text ABI
-                          "Data\\Sound\\Misc\\GainLevel.wav")));
+            wiz8::sound::play(
+                reinterpret_cast<char*>(const_cast<char*>( // reinterpret-ok: SGP text ABI
+                    "Data\\Sound\\Misc\\GainLevel.wav")));
         }
         return;
     }
@@ -4467,7 +4532,6 @@ static void SetNpcDialogueHidden(char value)
         for (index = 0; index < 8; ++index) {
             if (g_status.buffers.XChar[index].fOccupied) {
                 EnableMainGamePortraitSlot(index);
-
             }
         }
         g_npc_dialogue_transcript_panel_regions.Disable();
@@ -4488,7 +4552,6 @@ static void SetNpcDialogueHidden(char value)
         for (index = 0; index < 8; ++index) {
             if (g_status.buffers.XChar[index].fOccupied) {
                 DisableMainGamePortraitSlot(index);
-
             }
         }
         g_npc_dialogue_transcript_panel_regions.Enable();
@@ -4735,11 +4798,15 @@ static void HandleNpcDialogueDeparture(unsigned char value)
 std::string ShortenTextToWidth(std::string_view text, unsigned int width, Font& font)
 {
     std::string shortened(text);
-    if (static_cast<unsigned int>(font.textWidth(shortened)) <= width) return shortened;
+    if (static_cast<unsigned int>(font.textWidth(shortened)) <= width) {
+        return shortened;
+    }
     while (!shortened.empty()) {
         shortened.resize(wiz8::text::previous_grapheme(shortened, shortened.size()));
         const auto candidate = shortened + "...";
-        if (static_cast<unsigned int>(font.textWidth(candidate)) <= width) return candidate;
+        if (static_cast<unsigned int>(font.textWidth(candidate)) <= width) {
+            return candidate;
+        }
     }
     return {};
 }
@@ -4793,8 +4860,7 @@ void AddDialogueTranscriptKeyword(std::string_view name, signed char category)
         }
         if (category == -1) {
             for (index = 0; index < gXStatus.uiNpcsInDatabase; ++index) {
-                if (CompareTextIgnoreAsciiCase(keyword, g_npc_records[index].source_name) ==
-                    0) {
+                if (CompareTextIgnoreAsciiCase(keyword, g_npc_records[index].source_name) == 0) {
                     category = W8_DIALOGUE_CATEGORY_PEOPLE;
                     break;
                 }
@@ -4802,8 +4868,7 @@ void AddDialogueTranscriptKeyword(std::string_view name, signed char category)
         }
         if (category == -1) {
             for (index = 0; g_dialogue_person_keywords[index][0] != 0; ++index) {
-                if (CompareTextIgnoreAsciiCase(keyword, g_dialogue_person_keywords[index]) ==
-                    0) {
+                if (CompareTextIgnoreAsciiCase(keyword, g_dialogue_person_keywords[index]) == 0) {
                     category = W8_DIALOGUE_CATEGORY_PEOPLE;
                     break;
                 }
@@ -4814,14 +4879,14 @@ void AddDialogueTranscriptKeyword(std::string_view name, signed char category)
                                                        : W8_DIALOGUE_CATEGORY_MISC;
         }
     }
-    for (int index = 0; index < static_cast<int>(g_npc_interaction_state->dialogue_transcript.size()); ++index) {
-        if (CompareTextIgnoreAsciiCase(
-                (g_npc_interaction_state->dialogue_transcript[index])->text, keyword) == 0) {
+    for (int index = 0;
+         index < static_cast<int>(g_npc_interaction_state->dialogue_transcript.size()); ++index) {
+        if (CompareTextIgnoreAsciiCase((g_npc_interaction_state->dialogue_transcript[index])->text,
+                                       keyword) == 0) {
             return;
         }
     }
-    W8DialogueTranscriptRecord* record =
-        new W8DialogueTranscriptRecord{};
+    W8DialogueTranscriptRecord* record = new W8DialogueTranscriptRecord{};
     record->text = keyword;
     record->category = category;
     g_npc_interaction_state->dialogue_transcript.push_back(record);
@@ -4925,11 +4990,6 @@ bool ProcessPendingEvent(void)
     }
     return false;
 }
-
-
-
-
-
 
 /* The keyword-list instantiations' char element type canonicalizes to
    unsigned short under the VC6 ABI spelling used by the PDB names. */

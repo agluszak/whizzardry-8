@@ -39,12 +39,12 @@ public:
 
         glm::vec4 diffuse;          /* 0x00 */
         glm::vec4 ambient;          /* 0x10 */
-        glm::vec4 specular;      /* 0x20 */
-        float translucency;              /* 0x30 */
-        float shininess;                 /* 0x34 */
-        float value_38;                  /* 0x38 */
-        glm::vec4 emissive;      /* 0x3c */
-        float fog_scale;                 /* 0x4c */
+        glm::vec4 specular;         /* 0x20 */
+        float translucency;         /* 0x30 */
+        float shininess;            /* 0x34 */
+        float value_38;             /* 0x38 */
+        glm::vec4 emissive;         /* 0x3c */
+        float fog_scale;            /* 0x4c */
         w8_ulong disabled_channels; /* 0x50 */
     };
 
@@ -79,4 +79,3 @@ public:
 };
 
 #pragma pack(pop)
-

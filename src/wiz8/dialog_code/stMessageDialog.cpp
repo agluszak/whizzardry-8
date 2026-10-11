@@ -45,16 +45,13 @@ void W8MessageDialogBase::Draw()
     if (!m_show_confirm && !allow_cancel) {
         y = m_y + m_height / 2 - (g_dialog_interface_font->height() * m_line_count >> 1);
     } else {
-        y = m_y + (m_height - 0x21) / 2 -
-            (g_dialog_interface_font->height() * m_line_count >> 1);
+        y = m_y + (m_height - 0x21) / 2 - (g_dialog_interface_font->height() * m_line_count >> 1);
     }
     if (!m_lines.empty()) {
         {
             TextOptions options;
-            options.colors.foreground =
-                g_dialog_interface_font->color(g_dialog_font_foreground);
-            options.colors.background =
-                g_dialog_interface_font->color(g_dialog_font_background);
+            options.colors.foreground = g_dialog_interface_font->color(g_dialog_font_foreground);
+            options.colors.background = g_dialog_interface_font->color(g_dialog_font_background);
             for (index = 0; index < m_line_count; ++index) {
                 const auto& line = m_lines[index];
                 short width = g_dialog_interface_font->textWidth(line);
@@ -149,9 +146,13 @@ unsigned int W8MessageDialogBase::WrapMessage(std::string_view message)
         if (!line.empty() && g_dialog_interface_font->textWidth(candidate) > maximum_width) {
             m_lines.push_back(std::move(line));
             line.assign(word);
-        } else line = std::move(candidate);
+        } else {
+            line = std::move(candidate);
+        }
         start = stop;
-        if (start < message.size() && message[start] == ' ') ++start;
+        if (start < message.size() && message[start] == ' ') {
+            ++start;
+        }
     }
     m_lines.push_back(std::move(line));
     return m_lines.size();
@@ -170,24 +171,30 @@ void W8MessageDialogBase::SetClientExtent(int width, int height)
 // FUNCTION: WIZ8 0x005d2d00
 int W8MessageDialogBase::CreateControls()
 {
-    if (int error = W8DialogBase::CreateControls(); error != 0) return error;
+    if (int error = W8DialogBase::CreateControls(); error != 0) {
+        return error;
+    }
     if (!m_edge_image) {
-        m_edge_image = LoadGenericButtonImages({}, "Data\\Dialogs\\DialogEdge.STI", {}, "Data\\Dialogs\\DialogEdge.STI", {}, m_background_path, static_cast<short>(m_background_flags), 0, 0);
+        m_edge_image = LoadGenericButtonImages(
+            {}, "Data\\Dialogs\\DialogEdge.STI", {}, "Data\\Dialogs\\DialogEdge.STI", {},
+            m_background_path, static_cast<short>(m_background_flags), 0, 0);
         if (!m_edge_image) {
             return m_error = 3;
         }
     }
     m_message_button.ConfigureTextButton({}, *g_dialog_interface_font, g_dialog_font_foreground,
-                                        g_dialog_font_background, m_x + 9, m_y + 9,
-                                        m_width - 0x12, m_height - 0x12, nullptr, 0,
-                                        m_edge_image, REGION_PRIORITY_HIGHEST - 1);
+                                         g_dialog_font_background, m_x + 9, m_y + 9, m_width - 0x12,
+                                         m_height - 0x12, nullptr, 0, m_edge_image,
+                                         REGION_PRIORITY_HIGHEST - 1);
 
     if (m_confirm_button.Configure("Data\\Dialogs\\DialogConfirmation.STI", 3, 0, 1, 2, 2,
-                                   MessageDialogConfirmCallback, nullptr, false, REGION_PRIORITY_HIGHEST,
-                                   W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr) &&
+                                   MessageDialogConfirmCallback, nullptr, false,
+                                   REGION_PRIORITY_HIGHEST, W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr,
+                                   nullptr) &&
         m_cancel_button.Configure("Data\\Dialogs\\DialogConfirmation.STI", 7, 4, 5, 6, 6,
-                                  MessageDialogCancelCallback, nullptr, false, REGION_PRIORITY_HIGHEST,
-                                  W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr)) {
+                                  MessageDialogCancelCallback, nullptr, false,
+                                  REGION_PRIORITY_HIGHEST, W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr,
+                                  nullptr)) {
         m_confirm_button.m_owner = this;
         m_cancel_button.m_owner = this;
         const int button_width = m_confirm_button.GetWidth();
@@ -251,10 +258,14 @@ bool W8MessageDialogBase::ProcessInput()
             return true;
         }
         keep_open = HandleInput(&input);
-        if (!keep_open) EndModalInput();
+        if (!keep_open) {
+            EndModalInput();
+        }
         return false;
     });
-    if (!keep_open) EndModalInput();
+    if (!keep_open) {
+        EndModalInput();
+    }
     return keep_open;
 }
 

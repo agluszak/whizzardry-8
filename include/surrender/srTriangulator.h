@@ -29,4 +29,3 @@ private:
     int remaining;
     std::span<const glm::vec2> points;
 };
-

@@ -114,7 +114,9 @@ void W8SplitItemDialog::DestroyButtons()
     } else if (static_cast<unsigned int>(m_mode) <= W8_ITEM_SPLIT_BUY) {
         count = 10;
     }
-    for (int index = 0; index < count; ++index) m_buttons[index].Reset();
+    for (int index = 0; index < count; ++index) {
+        m_buttons[index].Reset();
+    }
 }
 
 /* Shared cleanup in failure paths and DestroyControls. The helper name
@@ -182,38 +184,38 @@ bool W8SplitItemDialog::CreateButtons()
         count = 10;
     }
     m_buttons[0].Configure("Data\\Dialogs\\popup_splititem.sti", 0xc, 9, 10, 0xd, 0xb,
-                            OnSplitDecrement, BUTTON_NO_CALLBACK, false, REGION_PRIORITY_HIGHEST,
-                            W8_DIALOG_BUTTON_NO_TOOLTIP, OnSplitDecrementMany, BUTTON_NO_CALLBACK);
+                           OnSplitDecrement, BUTTON_NO_CALLBACK, false, REGION_PRIORITY_HIGHEST,
+                           W8_DIALOG_BUTTON_NO_TOOLTIP, OnSplitDecrementMany, BUTTON_NO_CALLBACK);
     m_buttons[1].Configure("Data\\Dialogs\\popup_splititem.sti", 7, 4, 5, 8, 6, OnSplitIncrement,
-                            BUTTON_NO_CALLBACK, false, REGION_PRIORITY_HIGHEST,
-                            W8_DIALOG_BUTTON_NO_TOOLTIP, OnSplitIncrementMany, BUTTON_NO_CALLBACK);
+                           BUTTON_NO_CALLBACK, false, REGION_PRIORITY_HIGHEST,
+                           W8_DIALOG_BUTTON_NO_TOOLTIP, OnSplitIncrementMany, BUTTON_NO_CALLBACK);
     m_buttons[2].ConfigureIcon("Data\\Dialogs\\popup_splititem.sti", BUTTON_NO_IMAGE, 3,
-                                REGION_PRIORITY_LOWEST, W8_DIALOG_BUTTON_NO_TOOLTIP);
+                               REGION_PRIORITY_LOWEST, W8_DIALOG_BUTTON_NO_TOOLTIP);
     m_buttons[3].Configure("Data\\Dialogs\\popup_splititem.sti", BUTTON_NO_IMAGE, 3,
-                            BUTTON_NO_IMAGE, 3, BUTTON_NO_IMAGE, OnCountFieldClick,
-                            BUTTON_NO_CALLBACK, false, REGION_PRIORITY_HIGHEST,
-                            W8_DIALOG_BUTTON_NO_TOOLTIP, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
+                           BUTTON_NO_IMAGE, 3, BUTTON_NO_IMAGE, OnCountFieldClick,
+                           BUTTON_NO_CALLBACK, false, REGION_PRIORITY_HIGHEST,
+                           W8_DIALOG_BUTTON_NO_TOOLTIP, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
     m_buttons[4].ConfigureIcon("Data\\Dialogs\\popup_splititem.sti", BUTTON_NO_IMAGE, 3,
-                                REGION_PRIORITY_LOWEST, W8_DIALOG_BUTTON_NO_TOOLTIP);
+                               REGION_PRIORITY_LOWEST, W8_DIALOG_BUTTON_NO_TOOLTIP);
     m_buttons[5].ConfigureIcon("Data\\Dialogs\\popup_splititem.sti", BUTTON_NO_IMAGE, 3,
-                                REGION_PRIORITY_LOWEST, W8_DIALOG_BUTTON_NO_TOOLTIP);
+                               REGION_PRIORITY_LOWEST, W8_DIALOG_BUTTON_NO_TOOLTIP);
     m_buttons[6].Configure("Data\\Dialogs\\popup_confirmationbuttons.sti", 3, 0, 1, 4, 2, OnAccept,
-                            BUTTON_NO_CALLBACK, false, REGION_PRIORITY_HIGHEST,
-                            W8_DIALOG_BUTTON_NO_TOOLTIP, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
+                           BUTTON_NO_CALLBACK, false, REGION_PRIORITY_HIGHEST,
+                           W8_DIALOG_BUTTON_NO_TOOLTIP, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
     m_buttons[7].Configure("Data\\Dialogs\\popup_confirmationbuttons.sti", 3, 5, 6, 9, 7, OnCancel,
-                            BUTTON_NO_CALLBACK, false, REGION_PRIORITY_HIGHEST,
-                            W8_DIALOG_BUTTON_NO_TOOLTIP, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
+                           BUTTON_NO_CALLBACK, false, REGION_PRIORITY_HIGHEST,
+                           W8_DIALOG_BUTTON_NO_TOOLTIP, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
     if (m_mode == W8_ITEM_SPLIT_SELL || m_mode == W8_ITEM_SPLIT_BUY) {
         m_buttons[8].ConfigureIcon("Data\\Dialogs\\popup_splititem.sti", BUTTON_NO_IMAGE, 3,
-                                    REGION_PRIORITY_LOWEST, W8_DIALOG_BUTTON_NO_TOOLTIP);
+                                   REGION_PRIORITY_LOWEST, W8_DIALOG_BUTTON_NO_TOOLTIP);
         m_buttons[9].ConfigureIcon("Data\\Dialogs\\popup_splititem.sti", BUTTON_NO_IMAGE, 3,
-                                    REGION_PRIORITY_LOWEST, W8_DIALOG_BUTTON_NO_TOOLTIP);
+                                   REGION_PRIORITY_LOWEST, W8_DIALOG_BUTTON_NO_TOOLTIP);
     }
     m_buttons[0].m_repeat_enabled = true;
     m_buttons[1].m_repeat_enabled = true;
     for (index = 0; index < count; ++index) {
         m_buttons[index].SetPosition(g_split_button_offsets[index].x + m_x,
-                                      g_split_button_offsets[index].y + m_y);
+                                     g_split_button_offsets[index].y + m_y);
         m_buttons[index].m_owner = this;
     }
     return true;
@@ -238,9 +240,9 @@ bool W8SplitItemDialog::CreateTextBuffers()
         bounds.top = g_split_text_bounds[index].top + m_y;
         bounds.right = g_split_text_bounds[index].right + m_x;
         bounds.bottom = g_split_text_bounds[index].bottom + m_y;
-        m_texts[index] = new W8TextBuffer(&bounds, g_localized_strings[g_split_text_string_ids[index]],
-                                          g_wiz_text_font_secondary,
-                                          g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
+        m_texts[index] = new W8TextBuffer(
+            &bounds, g_localized_strings[g_split_text_string_ids[index]], g_wiz_text_font_secondary,
+            g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
         if (m_texts[index] == 0) {
             DestroyTextBuffers();
             return false;

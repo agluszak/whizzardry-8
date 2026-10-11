@@ -84,8 +84,7 @@ static std::string slf_bytes()
     REQUIRE(static_cast<unsigned char>(bytes[sizeof(header) + 15 + 268]) == 1);
     return bytes;
 }
-struct FileFixture
-{
+struct FileFixture {
     ScopedTemporaryDirectory directory{"wiz8-files"};
     fs::path root = directory.path;
     fs::path assets = root / "assets", user = root / "user", disc = root / "disc";
@@ -98,8 +97,8 @@ struct FileFixture
         fixture(assets / "data" / "Override.bin", "loose!");
         fixture(assets / "data" / "NoExtension", "plain");
         fixture(assets / "data" / "ReadOnly.bin", "locked");
-        fs::permissions(assets / "data" / "ReadOnly.bin", fs::perms::owner_read |
-                        fs::perms::group_read | fs::perms::others_read);
+        fs::permissions(assets / "data" / "ReadOnly.bin",
+                        fs::perms::owner_read | fs::perms::group_read | fs::perms::others_read);
         fixture(assets / "Saves" / "Installed.SAV", "installed save");
         fixture(user / "Saves" / "CurrentGame.SAV", "user save");
         fixture(disc / "Levels" / "LEVELS.SLF", "disc bytes");
@@ -110,9 +109,10 @@ struct FileFixture
         const auto configured = w8_native::path_roots();
         REQUIRE(fs::equivalent(wiz8::path_from_utf8(configured.assets), assets));
         REQUIRE(fs::equivalent(wiz8::path_from_utf8(configured.user), user));
-        asset_roots.emplace(w8_native::Roots{wiz8::path_to_utf8(assets), wiz8::path_to_utf8(user),
-                             {wiz8::path_to_utf8(disc), wiz8::path_to_utf8(disc),
-                              wiz8::path_to_utf8(disc)}});
+        asset_roots.emplace(w8_native::Roots{
+            wiz8::path_to_utf8(assets),
+            wiz8::path_to_utf8(user),
+            {wiz8::path_to_utf8(disc), wiz8::path_to_utf8(disc), wiz8::path_to_utf8(disc)}});
         wiz8::mount_slf("Data/DATA.SLF");
     }
 
@@ -132,7 +132,11 @@ TEST_CASE_METHOD(FileFixture, "Host paths, overlays and streams", "[filesystem][
     REQUIRE((file->size() == 12 && independent->tell() == 0));
     REQUIRE((read_bytes(*file, 64) == "retail bytes"));
     REQUIRE((file->tell() == 12 && read_bytes(*file, 1).empty()));
-    REQUIRE_THROWS_AS(([&] { char byte; file->read_exact(&byte, 1); })(), std::exception);
+    REQUIRE_THROWS_AS(([&] {
+                          char byte;
+                          file->read_exact(&byte, 1);
+                      })(),
+                      std::exception);
     REQUIRE((independent->tell() == 0 && read_bytes(*independent, 6) == "retail"));
     REQUIRE_THROWS_AS(([&] { file->write("x", 1); })(), std::exception);
     REQUIRE((file->seek(-5, wiz8::SeekOrigin::end) == 7));
@@ -142,15 +146,19 @@ TEST_CASE_METHOD(FileFixture, "Host paths, overlays and streams", "[filesystem][
     file->seek(0, wiz8::SeekOrigin::begin);
     REQUIRE(file->read(nullptr, 0).bytes == 0);
     REQUIRE_THROWS_AS(([&] { file->read(nullptr, 1); })(), std::exception);
-    file->close(); file->close(); independent.reset();
+    file->close();
+    file->close();
+    independent.reset();
     REQUIRE_THROWS_AS(([&] { file->read(nullptr, 1); })(), std::exception);
     REQUIRE_THROWS_AS(([&] { wiz8::open_file("Data"); })(), std::exception);
-    REQUIRE_THROWS_AS(([&] { wiz8::open_file("missing/new.sav", wiz8::OpenMode::replace); })(), std::exception);
+    REQUIRE_THROWS_AS(([&] { wiz8::open_file("missing/new.sav", wiz8::OpenMode::replace); })(),
+                      std::exception);
 
     file = wiz8::open_file("Data/MixedCase.BIN", wiz8::OpenMode::update);
     file->write("native", 6);
     file->seek(0, wiz8::SeekOrigin::begin);
-    REQUIRE(read_bytes(*file, 12) == "native bytes"); file.reset();
+    REQUIRE(read_bytes(*file, 12) == "native bytes");
+    file.reset();
     REQUIRE(contents(assets / "data" / "MixedCase.BIN") == "retail bytes");
     REQUIRE(wiz8::remove_file("Data/mixedcase.bin"));
     REQUIRE(!wiz8::remove_file("Data/MixedCase.BIN"));
@@ -158,30 +166,42 @@ TEST_CASE_METHOD(FileFixture, "Host paths, overlays and streams", "[filesystem][
     wiz8::clear_read_only("Data/ReadOnly.bin");
     REQUIRE(!wiz8::file_status("Data/ReadOnly.bin")->read_only);
     file = wiz8::open_file("Data/ReadOnly.bin", wiz8::OpenMode::update);
-    file->write("unlocked", 8); file.reset();
+    file->write("unlocked", 8);
+    file.reset();
     REQUIRE(contents(assets / "data" / "ReadOnly.bin") == "locked");
-    REQUIRE_THROWS_AS(([&] { wiz8::open_host_file(assets / "data" / "ReadOnly.bin", wiz8::OpenMode::update); })(), std::exception);
+    REQUIRE_THROWS_AS(
+        ([&] { wiz8::open_host_file(assets / "data" / "ReadOnly.bin", wiz8::OpenMode::update); })(),
+        std::exception);
     for (const char* drive : {"D", "E", "F"}) {
         file = wiz8::open_file(std::string(drive) + ":/Levels/Levels.slf");
-        REQUIRE(read_bytes(*file, 10) == "disc bytes"); file.reset();
+        REQUIRE(read_bytes(*file, 10) == "disc bytes");
+        file.reset();
     }
-    for (auto mode : {wiz8::OpenMode::update, wiz8::OpenMode::replace, wiz8::OpenMode::append})
-        REQUIRE_THROWS_AS(([&] { wiz8::open_file("D:/Levels/Levels.slf", mode); })(), std::exception);
+    for (auto mode : {wiz8::OpenMode::update, wiz8::OpenMode::replace, wiz8::OpenMode::append}) {
+        REQUIRE_THROWS_AS(([&] { wiz8::open_file("D:/Levels/Levels.slf", mode); })(),
+                          std::exception);
+    }
     REQUIRE_THROWS_AS(([&] { wiz8::clear_read_only("D:/Levels/Levels.slf"); })(), std::exception);
     REQUIRE_THROWS_AS(([&] { wiz8::remove_file("D:/Levels/Levels.slf"); })(), std::exception);
-    wiz8::create_directory("sAVES"); wiz8::create_directory("Saves/Characters");
+    wiz8::create_directory("sAVES");
+    wiz8::create_directory("Saves/Characters");
     REQUIRE(wiz8::file_status("Saves/Characters")->info.type == SDL_PATHTYPE_DIRECTORY);
     file = wiz8::open_file("Saves/Installed.SAV", wiz8::OpenMode::append);
-    file->write("+user", 5); file.reset();
+    file->write("+user", 5);
+    file.reset();
     REQUIRE(contents(user / "Saves" / "Installed.SAV") == "installed save+user");
     REQUIRE(contents(assets / "Saves" / "Installed.SAV") == "installed save");
     file = wiz8::open_file("Saves/Native.SAV", wiz8::OpenMode::replace);
-    file->write("save", 4); file.reset();
+    file->write("save", 4);
+    file.reset();
     file = wiz8::open_file("Saves/Native.SAV", wiz8::OpenMode::append);
-    file->seek(0, wiz8::SeekOrigin::begin); file->write(" appended", 9); file.reset();
+    file->seek(0, wiz8::SeekOrigin::begin);
+    file->write(" appended", 9);
+    file.reset();
     REQUIRE(contents(user / "Saves" / "Native.SAV") == "save appended");
     file = wiz8::open_file("Saves/Native.SAV", wiz8::OpenMode::replace);
-    REQUIRE(file->size() == 0); file.reset();
+    REQUIRE(file->size() == 0);
+    file.reset();
     {
         char path[] = "Saves/Native.SAV";
         fixture(user / "Saves" / "Native.SAV", "RIFF");
@@ -210,8 +230,10 @@ TEST_CASE_METHOD(FileFixture, "Host paths, overlays and streams", "[filesystem][
             // A body that leaves a nested chunk open cannot be finalized.
             W8Chunk unbalanced;
             REQUIRE(unbalanced.OpenWrite(path));
-            REQUIRE_THROWS_AS(unbalanced.WriteChunk(W8ChunkId("BUNK"), [&] { unbalanced.OpenChunk(W8ChunkId("BUNK"), 0); }),
-                              std::logic_error);
+            REQUIRE_THROWS_AS(
+                unbalanced.WriteChunk(W8ChunkId("BUNK"),
+                                      [&] { unbalanced.OpenChunk(W8ChunkId("BUNK"), 0); }),
+                std::logic_error);
         }
         W8Chunk chunk;
         REQUIRE(chunk.OpenWrite(path));
@@ -221,11 +243,10 @@ TEST_CASE_METHOD(FileFixture, "Host paths, overlays and streams", "[filesystem][
         });
         chunk.WriteChunk(W8ChunkId("TAIL"), [] {});
         chunk.Close();
-        const unsigned char golden[] = {
-            'R', 'I', 'F', 'F', 1, 0, 44, 0, 0, 0, 2, 0, 0, 0,
-            'G', 'R', 'P', '1', 1, 0, 20, 0, 0, 0, 1, 0, 0, 0, 7, 0, 0, 0,
-            'L', 'E', 'A', 'F', 0, 0, 2, 0, 0, 0, 0xef, 0xbe,
-            'T', 'A', 'I', 'L', 0, 0, 0, 0, 0, 0};
+        const unsigned char golden[] = {'R',  'I',  'F', 'F', 1,   0,   44,  0,   0, 0, 2, 0, 0, 0,
+                                        'G',  'R',  'P', '1', 1,   0,   20,  0,   0, 0, 1, 0, 0, 0,
+                                        7,    0,    0,   0,   'L', 'E', 'A', 'F', 0, 0, 2, 0, 0, 0,
+                                        0xef, 0xbe, 'T', 'A', 'I', 'L', 0,   0,   0, 0, 0, 0};
         REQUIRE(contents(user / "Saves" / "Scoped.SAV") ==
                 std::string(reinterpret_cast<const char*>(golden), sizeof(golden)));
 
@@ -233,7 +254,9 @@ TEST_CASE_METHOD(FileFixture, "Host paths, overlays and streams", "[filesystem][
         REQUIRE(chunk.OpenRead(path));
         chunk.ForEachChunk([&](unsigned id) {
             visited.push_back(id);
-            if (id != W8ChunkId("GRP1")) return;
+            if (id != W8ChunkId("GRP1")) {
+                return;
+            }
             chunk.ReadGroup([&] {
                 REQUIRE(chunk.ReadValue<int>() == 7);
                 chunk.ForEachChunk([&](unsigned leaf) {
@@ -245,11 +268,15 @@ TEST_CASE_METHOD(FileFixture, "Host paths, overlays and streams", "[filesystem][
             });
         });
         chunk.Close();
-        REQUIRE(visited == std::vector<unsigned>{W8ChunkId("GRP1"), W8ChunkId("LEAF"), W8ChunkId("TAIL")});
+        REQUIRE(visited ==
+                std::vector<unsigned>{W8ChunkId("GRP1"), W8ChunkId("LEAF"), W8ChunkId("TAIL")});
         // A visitor returning false ends the walk after releasing its chunk.
         visited.clear();
         REQUIRE(chunk.OpenRead(path));
-        chunk.ForEachChunk([&](unsigned id) { visited.push_back(id); return false; });
+        chunk.ForEachChunk([&](unsigned id) {
+            visited.push_back(id);
+            return false;
+        });
         chunk.Close();
         REQUIRE(visited == std::vector<unsigned>{W8ChunkId("GRP1")});
     }
@@ -263,17 +290,28 @@ TEST_CASE_METHOD(FileFixture, "Host paths, overlays and streams", "[filesystem][
     const struct rlimit no_writes{0, old_limit.rlim_max};
     REQUIRE(setrlimit(RLIMIT_FSIZE, &no_writes) == 0);
     bool rejected_write = false;
-    try { limited->write("checked", 7); limited->flush(); }
-    catch (const std::exception&) { rejected_write = true; }
+    try {
+        limited->write("checked", 7);
+        limited->flush();
+    } catch (const std::exception&) {
+        rejected_write = true;
+    }
     limited.reset();
     REQUIRE(setrlimit(RLIMIT_FSIZE, &old_limit) == 0);
     REQUIRE(std::signal(SIGXFSZ, old_handler) != SIG_ERR);
     REQUIRE((rejected_write && fs::file_size(limited_path) == 0));
 #endif
     wiz8::copy_file("Saves/CurrentGame.SAV", "Saves/Backup.SAV");
-    REQUIRE_THROWS_AS(([&] { wiz8::copy_file("Saves/CurrentGame.SAV", "Saves/backup.sav"); })(), std::exception);
-    REQUIRE_THROWS_AS(([&] { wiz8::copy_file("Saves/CurrentGame.SAV", "Saves/currentgame.sav", wiz8::CopyMode::replace); })(), std::exception);
-    REQUIRE_THROWS_AS(([&] { wiz8::copy_file("missing.sav", "Saves/Backup.SAV", wiz8::CopyMode::replace); })(), std::exception);
+    REQUIRE_THROWS_AS(([&] { wiz8::copy_file("Saves/CurrentGame.SAV", "Saves/backup.sav"); })(),
+                      std::exception);
+    REQUIRE_THROWS_AS(([&] {
+                          wiz8::copy_file("Saves/CurrentGame.SAV", "Saves/currentgame.sav",
+                                          wiz8::CopyMode::replace);
+                      })(),
+                      std::exception);
+    REQUIRE_THROWS_AS(
+        ([&] { wiz8::copy_file("missing.sav", "Saves/Backup.SAV", wiz8::CopyMode::replace); })(),
+        std::exception);
     REQUIRE(contents(user / "Saves" / "Backup.SAV") == "user save");
     wiz8::copy_file("Data/MixedCase.BIN", "Saves/Backup.SAV", wiz8::CopyMode::replace);
     REQUIRE(contents(user / "Saves" / "Backup.SAV") == "retail bytes");
@@ -281,31 +319,46 @@ TEST_CASE_METHOD(FileFixture, "Host paths, overlays and streams", "[filesystem][
     fixture(unicode, "unicode import");
     REQUIRE(wiz8::path_from_utf8(wiz8::path_to_utf8(unicode)) == unicode);
     file = wiz8::open_host_file(unicode);
-    REQUIRE(read_bytes(*file, 14) == "unicode import"); file.reset();
+    REQUIRE(read_bytes(*file, 14) == "unicode import");
+    file.reset();
     std::vector<std::string> host_files;
     const auto host_text = wiz8::path_to_utf8(unicode);
     REQUIRE(srSystem::scanFiles(host_files, host_text.c_str()) == 1);
     REQUIRE(host_files == std::vector<std::string>{host_text});
     REQUIRE_THROWS_AS(([&] { wiz8::open_file(host_text); })(), std::exception);
-    for (const char* path : {"C:/../outside.sav", "Saves/../../outside.sav", "Saves/part:stream"})
-        REQUIRE_THROWS_AS(([&] { wiz8::open_file(path, wiz8::OpenMode::replace); })(), std::exception);
+    for (const char* path : {"C:/../outside.sav", "Saves/../../outside.sav", "Saves/part:stream"}) {
+        REQUIRE_THROWS_AS(([&] { wiz8::open_file(path, wiz8::OpenMode::replace); })(),
+                          std::exception);
+    }
     const auto outside = root / "outside";
     fixture(outside / "untouched.sav", "outside");
     std::error_code symlink_error;
     fs::create_directory_symlink(outside, user / "Escape", symlink_error);
     if (!symlink_error) {
-        REQUIRE_THROWS_AS(([&] { wiz8::open_file("Escape/untouched.sav", wiz8::OpenMode::replace); })(), std::exception);
-        REQUIRE_THROWS_AS(([&] { wiz8::copy_file("Saves/CurrentGame.SAV", "Escape/untouched.sav", wiz8::CopyMode::replace); })(), std::exception);
+        REQUIRE_THROWS_AS(
+            ([&] { wiz8::open_file("Escape/untouched.sav", wiz8::OpenMode::replace); })(),
+            std::exception);
+        REQUIRE_THROWS_AS(([&] {
+                              wiz8::copy_file("Saves/CurrentGame.SAV", "Escape/untouched.sav",
+                                              wiz8::CopyMode::replace);
+                          })(),
+                          std::exception);
         REQUIRE(contents(outside / "untouched.sav") == "outside");
-    } else fprintf(stderr, "Symlink checks unavailable: %s\n", symlink_error.message().c_str());
+    } else {
+        fprintf(stderr, "Symlink checks unavailable: %s\n", symlink_error.message().c_str());
+    }
     symlink_error.clear();
     fs::create_directory_symlink(assets, user / "AssetLink", symlink_error);
     if (!symlink_error) {
-        REQUIRE_THROWS_AS(([&] { wiz8::open_file("AssetLink/data/MixedCase.BIN", wiz8::OpenMode::update); })(), std::exception);
-        REQUIRE_THROWS_AS(([&] { wiz8::remove_file("AssetLink/data/MixedCase.BIN"); })(), std::exception);
+        REQUIRE_THROWS_AS(
+            ([&] { wiz8::open_file("AssetLink/data/MixedCase.BIN", wiz8::OpenMode::update); })(),
+            std::exception);
+        REQUIRE_THROWS_AS(([&] { wiz8::remove_file("AssetLink/data/MixedCase.BIN"); })(),
+                          std::exception);
     }
     const auto names = wiz8::list_directory("dAtA", "*.*");
-    REQUIRE((names.size() == 5 && std::find(names.begin(), names.end(), "NoExtension") != names.end()));
+    REQUIRE(
+        (names.size() == 5 && std::find(names.begin(), names.end(), "NoExtension") != names.end()));
     REQUIRE(wiz8::list_directory("Data", "*.absent").empty());
     char directory[512];
     // SDL consumers use the same virtual namespace and copy-up policy.
@@ -339,11 +392,13 @@ TEST_CASE_METHOD(FileFixture, "Host paths, overlays and streams", "[filesystem][
         srIO::readExact(disc_input->io(), directory, 10);
         REQUIRE(!memcmp(directory, "disc bytes", 10));
         bool rejected = false;
-        try { wiz8::open_file("D:/Levels/LEVELS.SLF", wiz8::OpenMode::replace); }
-        catch (const std::exception&) { rejected = true; }
+        try {
+            wiz8::open_file("D:/Levels/LEVELS.SLF", wiz8::OpenMode::replace);
+        } catch (const std::exception&) {
+            rejected = true;
+        }
         REQUIRE((rejected && contents(disc / "Levels" / "LEVELS.SLF") == "disc bytes"));
     }
-
 }
 
 TEST_CASE_METHOD(FileFixture, "Transactional save overwrite respects the asset overlay",
@@ -396,8 +451,8 @@ TEST_CASE_METHOD(FileFixture, "SLF archives and invalid records", "[filesystem][
     REQUIRE(srSystem::scanFiles(table, "Data", nullptr) == 0);
     REQUIRE((srSystem::scanFiles(table, "Data/*.absent") == 0 && table.size() == 3));
 
-    for (const char* path : {"Data/archiveonly.bin", "Data\\archiveonly.bin",
-                             "C:/Data\\archiveonly.bin"}) {
+    for (const char* path :
+         {"Data/archiveonly.bin", "Data\\archiveonly.bin", "C:/Data\\archiveonly.bin"}) {
         auto input = wiz8::open_file(path);
         REQUIRE(SDL_GetIOSize(input->io()) == 8);
         char bytes[8];
@@ -405,7 +460,6 @@ TEST_CASE_METHOD(FileFixture, "SLF archives and invalid records", "[filesystem][
         REQUIRE(SDL_TellIO(input->io()) == sizeof(bytes));
         REQUIRE(!memcmp(bytes, "archive!", sizeof(bytes)));
     }
-
 
     REQUIRE(wiz8::file_status("Data/archiveonly.bin")->archived);
     auto archived = wiz8::open_file("Data/archiveonly.bin");
@@ -434,22 +488,26 @@ TEST_CASE_METHOD(FileFixture, "SLF archives and invalid records", "[filesystem][
     REQUIRE((read_bytes(*archived, 1) == "!"));
     REQUIRE((second->read_text() == "ive!"));
     REQUIRE((second->read_text().empty()));
-    archived.reset(); second.reset();
+    archived.reset();
+    second.reset();
     wiz8::mount_slf("Data/DATA.SLF");
     file = wiz8::open_file("Data/Override.bin");
-    REQUIRE(read_bytes(*file, 6) == "loose!"); file.reset();
+    REQUIRE(read_bytes(*file, 6) == "loose!");
+    file.reset();
     auto patch = archive_bytes;
     patch.replace(sizeof(wiz8::SlfHeader), 8, "patched!");
     fixture(assets / "Patches" / "Patch.000", patch);
     wiz8::mount_slf("Patches/Patch.000", true);
     file = wiz8::open_file("C:/DATA/ARCHIVEONLY.BIN");
-    REQUIRE(read_bytes(*file, 8) == "patched!"); file.reset();
+    REQUIRE(read_bytes(*file, 8) == "patched!");
+    file.reset();
     auto latest_patch = patch;
     latest_patch.replace(sizeof(wiz8::SlfHeader), 8, "latest!!");
     fixture(assets / "Patches" / "Patch.049", latest_patch);
     wiz8::mount_slf("Patches/Patch.049", true);
     file = wiz8::open_file("Data/archiveonly.bin");
-    REQUIRE(read_bytes(*file, 8) == "latest!!"); file.reset();
+    REQUIRE(read_bytes(*file, 8) == "latest!!");
+    file.reset();
     fixture(assets / "data" / "ArchiveOnly.bin", "loose archive");
     file = wiz8::open_file("Data/archiveonly.bin");
     REQUIRE((file->read_text() == "loose archive"));
@@ -470,9 +528,15 @@ TEST_CASE_METHOD(FileFixture, "SLF archives and invalid records", "[filesystem][
         auto bytes = archive_bytes;
         wiz8::SlfHeader header{};
         memcpy(&header, bytes.data(), sizeof(header));
-        if (corruption == 0) header.iEntries = -1;
-        if (corruption == 1) header.iUsed = 3;
-        if (corruption == 2) memset(header.sPathToLibrary, 'x', sizeof(header.sPathToLibrary));
+        if (corruption == 0) {
+            header.iEntries = -1;
+        }
+        if (corruption == 1) {
+            header.iUsed = 3;
+        }
+        if (corruption == 2) {
+            memset(header.sPathToLibrary, 'x', sizeof(header.sPathToLibrary));
+        }
         if (corruption == 3) {
             const auto offset = sizeof(header) + 15;
             memcpy(bytes.data() + offset + sizeof(wiz8::SlfEntry), bytes.data() + offset,
@@ -482,14 +546,19 @@ TEST_CASE_METHOD(FileFixture, "SLF archives and invalid records", "[filesystem][
         fixture(assets / "data" / "Malformed.slf", bytes);
         REQUIRE_THROWS_AS(([&] { wiz8::mount_slf("Data/Malformed.slf", true); })(), std::exception);
         file = wiz8::open_file("Data/archiveonly.bin");
-        REQUIRE(read_bytes(*file, 8) == "latest!!"); file.reset();
+        REQUIRE(read_bytes(*file, 8) == "latest!!");
+        file.reset();
     }
     wiz8::clear_asset_archives();
     wiz8::mount_slf("Data/DATA.SLF");
     auto stale_archive = wiz8::open_file("Data/ArchiveOnly.bin");
     fs::resize_file(assets / "data" / "DATA.SLF", sizeof(wiz8::SlfHeader) + 3);
     REQUIRE_THROWS_AS(([&] { wiz8::open_file("Data/archiveonly.bin"); })(), std::exception);
-    REQUIRE_THROWS_AS(([&] { char byte; stale_archive->read(&byte, 1); })(), std::exception);
+    REQUIRE_THROWS_AS(([&] {
+                          char byte;
+                          stale_archive->read(&byte, 1);
+                      })(),
+                      std::exception);
     stale_archive.reset();
     fixture(assets / "data" / "DATA.SLF", archive_bytes);
     std::vector<std::unique_ptr<wiz8::File>> readers;
@@ -498,7 +567,9 @@ TEST_CASE_METHOD(FileFixture, "SLF archives and invalid records", "[filesystem][
         REQUIRE((read_bytes(*reader, 4) == (i % 2 ? "arch" : "user")));
         readers.push_back(std::move(reader));
     }
-    for (std::size_t i = 0; i < readers.size(); i += 2) readers[i].reset();
+    for (std::size_t i = 0; i < readers.size(); i += 2) {
+        readers[i].reset();
+    }
     readers.clear();
     auto level_archive = archive_bytes;
     wiz8::SlfHeader level_header{};
@@ -508,20 +579,23 @@ TEST_CASE_METHOD(FileFixture, "SLF archives and invalid records", "[filesystem][
     fixture(disc / "Levels" / "LEVELS.SLF", level_archive);
     wiz8::refresh_asset_archives();
     file = wiz8::open_file("Levels/ArchiveOnly.bin");
-    REQUIRE(read_bytes(*file, 8) == "archive!"); file.reset();
+    REQUIRE(read_bytes(*file, 8) == "archive!");
+    file.reset();
     file = wiz8::open_file("Data/ArchiveOnly.bin");
     REQUIRE(read_bytes(*file, 8) == "latest!!");
     // Refresh replaced disc metadata, but never invalidates an existing cursor.
     level_archive.replace(sizeof(level_header), 8, "newdisc!");
     fixture(disc / "Levels" / "LEVELS.SLF", level_archive);
     wiz8::refresh_asset_archives();
-    REQUIRE(file->tell() == 8); file.reset();
+    REQUIRE(file->tell() == 8);
+    file.reset();
     file = wiz8::open_file("Levels/ArchiveOnly.bin");
-    REQUIRE(read_bytes(*file, 8) == "newdisc!"); file.reset();
+    REQUIRE(read_bytes(*file, 8) == "newdisc!");
+    file.reset();
     wiz8::clear_asset_archives();
     REQUIRE(contents(user / "Saves" / "CurrentGame.SAV") == "user save");
     REQUIRE(contents(assets / "data" / "MixedCase.BIN") == "retail bytes");
     REQUIRE(contents(assets / "data" / "ReadOnly.bin") == "locked");
-    fs::permissions(assets / "data" / "ReadOnly.bin", fs::perms::owner_write, fs::perm_options::add);
-
+    fs::permissions(assets / "data" / "ReadOnly.bin", fs::perms::owner_write,
+                    fs::perm_options::add);
 }

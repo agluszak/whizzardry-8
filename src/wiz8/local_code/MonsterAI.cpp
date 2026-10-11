@@ -213,9 +213,7 @@ void UpdateMonsterGroups(bool staggered)
         UpdateMonsterSight();
     }
     camera_position = cameraLocation(*GetWorld());
-    for (group_list_index = 0;
-         group_list_index <
-         gXStatus.monster_groups.size();
+    for (group_list_index = 0; group_list_index < gXStatus.monster_groups.size();
          ++group_list_index) {
         if (staggered && group_list_index % 5 != g_monster_group_tick % 5) {
             continue;
@@ -224,8 +222,7 @@ void UpdateMonsterGroups(bool staggered)
         if (MonsterGroupAllMembersDying(monster_group)) {
             continue;
         }
-        monster_info =
-            FindMonster(monster_group->leader_location_id);
+        monster_info = FindMonster(monster_group->leader_location_id);
         if (monster_info == 0 || monster_info->p3D == 0) {
             continue;
         }
@@ -259,8 +256,7 @@ void UpdateMonsterGroups(bool staggered)
                 srAssertFail("pMonsterGroup", MONSTER_AI_CPP, 207, 0);
             }
             if (monster_group->leader_group_id == 0) {
-                monster_info =
-                    FindMonster(monster_group->leader_location_id);
+                monster_info = FindMonster(monster_group->leader_location_id);
                 if (!monster_info->p3D->IsDying()) {
                     DoMonsterRTAI(monster_info, true);
                 }
@@ -1385,8 +1381,8 @@ bool MonsterSpellTargetOK(W8MonsterInfo* monster_info, int spell_id, W8CombatSlo
             SetTargetSourceToMonster(monster_info, &source);
             power_level = ChooseMonsterSpellPowerLevel(
                 monster_info, GetMonsterDataForInfo(monster_info), spell_id);
-            PopulateSpellTargetMarkers(spell_id, power_level, &source, combat_slot,
-                                       monster_markers, party_markers, 0);
+            PopulateSpellTargetMarkers(spell_id, power_level, &source, combat_slot, monster_markers,
+                                       party_markers, 0);
             for (index = 0; index < static_cast<int>(party_markers.size()); ++index) {
                 ++total;
                 ResetCombatSlot(&probe);
@@ -2601,8 +2597,8 @@ bool MonsterSpellHasPartyTarget(W8MonsterInfo* monster_info, int spell_id, W8Com
     SetTargetSourceToMonster(monster_info, &source);
     power_level =
         ChooseMonsterSpellPowerLevel(monster_info, GetMonsterDataForInfo(monster_info), spell_id);
-    PopulateSpellTargetMarkers(spell_id, power_level, &source, slot, monster_markers,
-                               party_markers, 0);
+    PopulateSpellTargetMarkers(spell_id, power_level, &source, slot, monster_markers, party_markers,
+                               0);
     return !party_markers.empty();
 }
 
@@ -2661,8 +2657,7 @@ bool ShouldMonsterGroupEnterCombat(W8MonsterGroup* monster_group)
         return false;
     }
     if (monster_group->leader_location_id == -0x32323233 ||
-        (leader = FindMonster(monster_group->leader_location_id)) == 0 ||
-        leader->p3D == 0) {
+        (leader = FindMonster(monster_group->leader_location_id)) == 0 || leader->p3D == 0) {
         DebugMessage(1, fmt::format("ERROR: Group {:d} is without an active leader",
                                     monster_group->group_id));
         return false;

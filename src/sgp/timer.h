@@ -2,7 +2,6 @@
    Distributed under the accompanying SFI Source Code license agreement. */
 #pragma once
 
-
 /* Countdowns are stored as 64-bit w8_get_ticks deadline stamps. */
 inline uint64_t TimeUntilDeadline(uint64_t deadline)
 {

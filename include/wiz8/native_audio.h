@@ -3,23 +3,30 @@
 #include <SDL3_mixer/SDL_mixer.h>
 #include <memory>
 
-namespace w8_native
-{
-struct AudioDeleter
-{
-    void operator()(MIX_Audio* audio) const { MIX_DestroyAudio(audio); }
+namespace w8_native {
+struct AudioDeleter {
+    void operator()(MIX_Audio* audio) const
+    {
+        MIX_DestroyAudio(audio);
+    }
 };
-struct TrackDeleter
-{
-    void operator()(MIX_Track* track) const { MIX_DestroyTrack(track); }
+struct TrackDeleter {
+    void operator()(MIX_Track* track) const
+    {
+        MIX_DestroyTrack(track);
+    }
 };
-struct AudioInputDeleter
-{
-    void operator()(SDL_IOStream* stream) const { SDL_CloseIO(stream); }
+struct AudioInputDeleter {
+    void operator()(SDL_IOStream* stream) const
+    {
+        SDL_CloseIO(stream);
+    }
 };
-struct PCMDeleter
-{
-    void operator()(SDL_AudioStream* stream) const { SDL_DestroyAudioStream(stream); }
+struct PCMDeleter {
+    void operator()(SDL_AudioStream* stream) const
+    {
+        SDL_DestroyAudioStream(stream);
+    }
 };
 using Audio = std::unique_ptr<MIX_Audio, AudioDeleter>;
 using Track = std::unique_ptr<MIX_Track, TrackDeleter>;

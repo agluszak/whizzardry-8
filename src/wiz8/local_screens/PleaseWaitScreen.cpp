@@ -35,16 +35,15 @@
 #include "compat/native.h"
 #include "layouts/levels.h"
 
-
 /* The screen's descriptor. The entry handler mallocs it, clears it and fills the
    tail from the screen-state record it was entered with; the frame handler reads
    the tail and writes the caption; the leave releases it. */
 struct W8LevelLoadDescriptor {
     std::string caption; /* 0x000, written by strcpy and sprintf */
-    int mode;              /* 0x0f0, the screen state's own mode */
+    int mode;            /* 0x0f0, the screen state's own mode */
     int parameter;
     int parameter_2;
-    bool waiting;    /* 0x0fc, gates the polling path */
+    bool waiting;     /* 0x0fc, gates the polling path */
     std::string name; /* 0x0fd, bounded only by the next field */
     std::string previous_save_name;
     W8SaveScreenshot* save_payload;
@@ -85,7 +84,10 @@ static int g_level_backdrops[W8_LEVEL_COUNT] = {
 // FUNCTION: WIZ8 0x00590db0
 unsigned char PleaseWaitScreenInitialize(void)
 {
-    if ([&]() { const auto status = wiz8::file_status("CD.ROM"); return status && !status->archived && status->info.type == SDL_PATHTYPE_FILE; }()) {
+    if ([&]() {
+            const auto status = wiz8::file_status("CD.ROM");
+            return status && !status->archived && status->info.type == SDL_PATHTYPE_FILE;
+        }()) {
         g_cd_marker_present = true;
     }
     return g_level_load_font.load("Data\\Level Load\\levelload_font.sti");
@@ -102,8 +104,7 @@ unsigned char PleaseWaitScreenInitialize(void)
 unsigned char PleaseWaitScreenEnter(void)
 {
     if (!g_load_descriptor) {
-        g_load_descriptor =
-            new W8LevelLoadDescriptor{};
+        g_load_descriptor = new W8LevelLoadDescriptor{};
         if (!g_load_descriptor) {
             return 0;
         }
@@ -151,7 +152,11 @@ unsigned char PleaseWaitScreenEnter(void)
 // FUNCTION: WIZ8 0x00591620
 static bool PleaseWaitScreenEnsureLevelArchive(int level)
 {
-    if (![&]() { const auto status = wiz8::file_status("Levels\\Levels.slf"); return status && !status->archived && status->info.type == SDL_PATHTYPE_FILE; }() && g_cd_marker_present) {
+    if (![&]() {
+            const auto status = wiz8::file_status("Levels\\Levels.slf");
+            return status && !status->archived && status->info.type == SDL_PATHTYPE_FILE;
+        }() &&
+        g_cd_marker_present) {
         if (IsLevelCdMissing(level)) {
             g_load_descriptor->waiting = true;
             g_load_descriptor->parameter = level;
@@ -182,9 +187,9 @@ static void DrawPleaseWaitScreen()
                        : 0xe4;
     CatalogArtwork::Load(backdrop, 0).draw(GetFrameBufferSurface(), 0, 0, 0);
     CatalogArtwork::Load(0x1de, 0).draw(GetFrameBufferSurface(), 0, 0, 0x1be);
-    DrawText(GetFrameBufferSurface(), g_level_load_font, {0x6a, 0x1c7},
-             g_load_descriptor->caption);
-    CatalogArtwork::Load(0x1dd, 0).draw(GetFrameBufferSurface(), g_load_descriptor->caption_y, 0, 0x185);
+    DrawText(GetFrameBufferSurface(), g_level_load_font, {0x6a, 0x1c7}, g_load_descriptor->caption);
+    CatalogArtwork::Load(0x1dd, 0).draw(GetFrameBufferSurface(), g_load_descriptor->caption_y, 0,
+                                        0x185);
     ResetTransientRenderScenes();
 }
 
@@ -233,8 +238,7 @@ void PleaseWaitScreenFrame(void)
     case 1: {
         const auto& strings = g_localized_strings;
         g_load_descriptor->caption =
-               g_load_descriptor->name.starts_with("Quick") ? strings[0x6f1]
-                                                                               : strings[0x6f0];
+            g_load_descriptor->name.starts_with("Quick") ? strings[0x6f1] : strings[0x6f0];
     } break;
     case 2:
         g_load_descriptor->caption = g_localized_strings[0x6f2].c_str();
@@ -286,9 +290,8 @@ void PleaseWaitScreenFrame(void)
         // An asset-only save has no writable overlay to remove and is left intact.
         if (saved && !g_load_descriptor->previous_save_name.empty() &&
             g_load_descriptor->previous_save_name != g_load_descriptor->name) {
-            const std::string previous_path =
-                fmt::format("Saves\\{}.{}", g_load_descriptor->previous_save_name,
-                            g_save_extension);
+            const std::string previous_path = fmt::format(
+                "Saves\\{}.{}", g_load_descriptor->previous_save_name, g_save_extension);
             try {
                 wiz8::remove_file(previous_path);
             } catch (const std::exception& error) {
@@ -297,7 +300,8 @@ void PleaseWaitScreenFrame(void)
                             g_load_descriptor->name.c_str(), previous_path.c_str(), error.what());
             }
         }
-        ShowNotice(W8_FONT_PALETTE_BEIGE, saved ? g_localized_strings[0x6f4] : g_localized_strings[0x6f6]);
+        ShowNotice(W8_FONT_PALETTE_BEIGE,
+                   saved ? g_localized_strings[0x6f4] : g_localized_strings[0x6f6]);
         if (g_load_descriptor->save_payload) {
             delete g_load_descriptor->save_payload;
         }
@@ -363,7 +367,8 @@ void UpdatePleaseWaitLoadFrame(void)
     if (tick - g_load_descriptor->entered_tick > 499) {
         g_load_descriptor->caption_y = (g_load_descriptor->caption_y + 1) % 0x18;
         g_load_descriptor->entered_tick = tick;
-        CatalogArtwork::Load(0x1dd, 0).drawAndInvalidate(GetFrameBufferSurface(), g_load_descriptor->caption_y, 0, 0x185);
+        CatalogArtwork::Load(0x1dd, 0).drawAndInvalidate(GetFrameBufferSurface(),
+                                                         g_load_descriptor->caption_y, 0, 0x185);
         RenderFrame();
     }
 }

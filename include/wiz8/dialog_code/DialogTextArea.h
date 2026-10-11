@@ -65,7 +65,7 @@ private:
     int m_first_visible_entry;
     int m_first_visible_line;
     std::vector<std::unique_ptr<W8DialogTextEntry>> m_all_lines; /* owns entries */
-    std::vector<W8DialogTextEntry*> m_visible_lines; /* non-owning view */
+    std::vector<W8DialogTextEntry*> m_visible_lines;             /* non-owning view */
     bool m_layout_initialized;
 
 public:

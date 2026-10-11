@@ -8,7 +8,6 @@
 #include "wiz8/dice.h"
 #include "wiz8/retail_item_payloads.h"
 
-
 #pragma pack(push, 1)
 struct W8ItemTableEntry {
     short selector;         /* Retail offset 0x00: zero disables the slot */
@@ -110,9 +109,6 @@ struct W8ItemDatabaseRecord : wiz8::retail::ItemProperties, wiz8::retail::ItemEf
     std::string video_object_name;
     std::string sound_name;
 };
-
-
-
 
 /* GameplayDatabase.cpp owns the runtime Items.dbs and ItemTables.dbs roots.
    Keeping their declarations beside the record layouts gives item consumers a

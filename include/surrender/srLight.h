@@ -10,8 +10,7 @@
 
 // VTABLE: SURRENDER 0x100770B8 srVertexProcessor
 // VTABLE: SURRENDER 0x100770C4 srLight
-class SR_DLL_IMPORT srLight
-    : public srClassSupport<srLight, srIlluminator, 0x1220> {
+class SR_DLL_IMPORT srLight : public srClassSupport<srLight, srIlluminator, 0x1220> {
 public:
     enum e_preset { PRESET_DIRECTIONAL = 0, PRESET_POINT = 1, PRESET_SPOT = 2 };
 
@@ -89,22 +88,22 @@ public:
     float near_attenuation;  /* 0x180 */
     float far_attenuation;   /* 0x184 */
 
-    glm::vec3 opengl_attenuation;    /* 0x188 */
-    w8_ulong enable_flags;           /* 0x194 */
-    glm::vec3 ambient;               /* 0x198 */
-    glm::vec3 diffuse;               /* 0x1a4 */
-    glm::vec3 specular;              /* 0x1b0 */
-    glm::vec3 spot_direction;        /* 0x1bc */
-    float spot_angle;                     /* 0x1c8 */
-    float spot_exponent;                  /* 0x1cc */
-    float intensity;                      /* 0x1d0 */
-    float safe_range;                     /* 0x1d4 */
+    glm::vec3 opengl_attenuation; /* 0x188 */
+    w8_ulong enable_flags;        /* 0x194 */
+    glm::vec3 ambient;            /* 0x198 */
+    glm::vec3 diffuse;            /* 0x1a4 */
+    glm::vec3 specular;           /* 0x1b0 */
+    glm::vec3 spot_direction;     /* 0x1bc */
+    float spot_angle;             /* 0x1c8 */
+    float spot_exponent;          /* 0x1cc */
+    float intensity;              /* 0x1d0 */
+    float safe_range;             /* 0x1d4 */
     glm::vec4 scaled_ambient;     /* 0x1d8: ambient * intensity */
     glm::vec4 scaled_diffuse;     /* 0x1e8: diffuse * intensity */
     glm::vec4 scaled_specular;    /* 0x1f8: specular * intensity */
     glm::vec3 spot_direction_eye; /* 0x208 */
-    float spot_cutoff;                    /* 0x214: cos(spot_angle) */
-    float attenuation_range;              /* 0x218: scaled far end */
+    float spot_cutoff;            /* 0x214: cos(spot_angle) */
+    float attenuation_range;      /* 0x218: scaled far end */
     enum {
         DERIVED_ACTIVE = 0x01u,
         DERIVED_SPOT = 0x02u,

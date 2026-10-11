@@ -59,7 +59,6 @@
 #include "layouts/gameplay_databases.h"
 #include "surrender/srMath.h"
 
-
 /* The world-cursor node the party is standing in, tracked across the
    command-0 sweep so enter/leave commands fire once per crossing. */
 // GLOBAL: WIZ8 0x006834d4

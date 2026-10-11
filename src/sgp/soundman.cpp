@@ -28,10 +28,8 @@
 #include "wiz8/filesystem.h"
 #include "wiz8/native_audio.h"
 
-namespace wiz8::sound
-{
-struct AudioClip
-{
+namespace wiz8::sound {
+struct AudioClip {
     std::string name;
     std::uint32_t bytes = 0;
     std::uint32_t uses = 0;
@@ -39,8 +37,7 @@ struct AudioClip
     w8_native::Audio audio;
 };
 
-struct AudioPlayback
-{
+struct AudioPlayback {
     std::shared_ptr<MIX_Mixer> owner;
     // Track destruction synchronizes with mixing before closing its input.
     Clip clip;
@@ -55,12 +52,10 @@ struct AudioPlayback
     std::optional<glm::vec3> position;
 };
 
-namespace
-{
+namespace {
 constexpr std::uint32_t kCacheBudgetBytes = 8048 * 1024;
 
-struct Service
-{
+struct Service {
     bool enabled = false;
     std::uint32_t default_volume = 127;
     std::uint32_t cached_bytes = 0;
@@ -72,9 +67,12 @@ struct Service
 const char* tag_of(Group group)
 {
     switch (group) {
-    case Group::effects: return "effects";
-    case Group::ambient: return "ambient";
-    case Group::music: return "music";
+    case Group::effects:
+        return "effects";
+    case Group::ambient:
+        return "ambient";
+    case Group::music:
+        return "music";
     }
     return "effects";
 }
@@ -86,7 +84,9 @@ bool live(const Playback& playback)
 
 void finish(const Playback& playback)
 {
-    if (!playback || !playback->track) return;
+    if (!playback || !playback->track) {
+        return;
+    }
     auto callback = std::exchange(playback->on_finished, {});
     MIX_SetTrackStoppedCallback(playback->track.get(), nullptr, nullptr);
     playback->track.reset();
@@ -95,32 +95,46 @@ void finish(const Playback& playback)
     playback->owner.reset();
     std::erase(service_state.active, playback);
     // Retained objects become inert before callbacks, and never identify later playback.
-    if (callback) callback();
+    if (callback) {
+        callback();
+    }
 }
 
 void finish_stopped()
 {
     const auto playing = service_state.active;
-    for (const auto& playback : playing)
-        if (playback->stopped.load(std::memory_order_acquire)) finish(playback);
+    for (const auto& playback : playing) {
+        if (playback->stopped.load(std::memory_order_acquire)) {
+            finish(playback);
+        }
+    }
 }
 
 std::string resolve_path(std::string_view path)
 {
-    if (path.empty()) return {};
+    if (path.empty()) {
+        return {};
+    }
     std::string filename(path);
     strupr(filename.data());
-    if (const auto status = wiz8::file_status(filename); status && status->info.type == SDL_PATHTYPE_FILE)
+    if (const auto status = wiz8::file_status(filename);
+        status && status->info.type == SDL_PATHTYPE_FILE) {
         return filename;
-    if (filename.ends_with(".WAV")) filename.replace(filename.size() - 4, 4, ".MP3");
-    else if (filename.ends_with(".MP3")) filename.replace(filename.size() - 4, 4, ".WAV");
+    }
+    if (filename.ends_with(".WAV")) {
+        filename.replace(filename.size() - 4, 4, ".MP3");
+    } else if (filename.ends_with(".MP3")) {
+        filename.replace(filename.size() - 4, 4, ".WAV");
+    }
     return filename;
 }
 
 bool set_gain(AudioPlayback& playback, std::uint32_t volume)
 {
     const auto clamped = std::min(volume, 127u);
-    if (!MIX_SetTrackGain(playback.track.get(), float(clamped) / 127)) return false;
+    if (!MIX_SetTrackGain(playback.track.get(), float(clamped) / 127)) {
+        return false;
+    }
     playback.volume = clamped;
     return true;
 }
@@ -140,15 +154,22 @@ bool apply_spatial(AudioPlayback& playback)
 Playback create_playback(Group group)
 {
     finish_stopped();
-    if (!service_state.enabled) return {};
+    if (!service_state.enabled) {
+        return {};
+    }
     auto playback = std::make_shared<AudioPlayback>();
     playback->owner = w8_native::retain_audio_mixer();
     playback->track.reset(MIX_CreateTrack(playback->owner.get()));
     if (!playback->track || !MIX_TagTrack(playback->track.get(), tag_of(group)) ||
-        !MIX_SetTrackStoppedCallback(playback->track.get(), [](void* data, MIX_Track*) {
-            // The mixer thread must not dispatch game callbacks or destroy inputs.
-            static_cast<AudioPlayback*>(data)->stopped.store(true, std::memory_order_release);
-        }, playback.get())) return {};
+        !MIX_SetTrackStoppedCallback(
+            playback->track.get(),
+            [](void* data, MIX_Track*) {
+                // The mixer thread must not dispatch game callbacks or destroy inputs.
+                static_cast<AudioPlayback*>(data)->stopped.store(true, std::memory_order_release);
+            },
+            playback.get())) {
+        return {};
+    }
     return playback;
 }
 
@@ -156,29 +177,40 @@ Playback start(Playback playback, Clip clip, PlayOptions options)
 {
     auto& track = *playback->track;
     const auto natural_rate = MIX_TrackMSToFrames(&track, 1000);
-    if (natural_rate <= 0) return {};
+    if (natural_rate <= 0) {
+        return {};
+    }
     auto rate = options.rate.value_or(std::uint32_t(natural_rate));
     if (options.pitch_bend_percent != 0) {
         const auto bend = std::uint64_t(rate) * options.pitch_bend_percent / 100;
-        if (bend <= UINT32_MAX / 2)
+        if (bend <= UINT32_MAX / 2) {
             rate = std::uint32_t(std::clamp<std::int64_t>(
-                std::int64_t(rate) + std::int64_t(Random(std::uint32_t(bend * 2))) - std::int64_t(bend), 1,
-                UINT32_MAX));
+                std::int64_t(rate) + std::int64_t(Random(std::uint32_t(bend * 2))) -
+                    std::int64_t(bend),
+                1, UINT32_MAX));
+        }
     }
     playback->rate = rate;
     playback->position = options.position;
     const auto properties = SDL_CreateProperties();
-    bool ok = properties && rate > 0 && set_gain(*playback, options.volume.value_or(service_state.default_volume)) &&
-              MIX_SetTrackFrequencyRatio(&track, std::clamp(float(rate) / float(natural_rate), 0.01f, 100.0f)) &&
+    bool ok = properties && rate > 0 &&
+              set_gain(*playback, options.volume.value_or(service_state.default_volume)) &&
+              MIX_SetTrackFrequencyRatio(
+                  &track, std::clamp(float(rate) / float(natural_rate), 0.01f, 100.0f)) &&
               (!playback->position || apply_spatial(*playback)) &&
               SDL_SetNumberProperty(properties, MIX_PROP_PLAY_LOOPS_NUMBER,
                                     options.loops == 0 ? -1 : Sint64(options.loops) - 1) &&
               (options.fade_in_ms == 0 ||
-               SDL_SetNumberProperty(properties, MIX_PROP_PLAY_FADE_IN_MILLISECONDS_NUMBER, options.fade_in_ms)) &&
+               SDL_SetNumberProperty(properties, MIX_PROP_PLAY_FADE_IN_MILLISECONDS_NUMBER,
+                                     options.fade_in_ms)) &&
               MIX_PlayTrack(&track, properties);
     SDL_DestroyProperties(properties);
-    if (!ok) return {};
-    if (clip) ++clip->uses;
+    if (!ok) {
+        return {};
+    }
+    if (clip) {
+        ++clip->uses;
+    }
     playback->clip = std::move(clip);
     playback->started_at = w8_get_ticks();
     playback->on_finished = std::move(options.on_finished);
@@ -192,10 +224,16 @@ bool evict_one()
     auto victim = cache.end();
     for (auto it = cache.begin(); it != cache.end(); ++it) {
         // Active tracks and ambient emitters own their clips directly.
-        if (it->use_count() != 1) continue;
-        if (victim == cache.end() || (*it)->uses < (*victim)->uses) victim = it;
+        if (it->use_count() != 1) {
+            continue;
+        }
+        if (victim == cache.end() || (*it)->uses < (*victim)->uses) {
+            victim = it;
+        }
     }
-    if (victim == cache.end()) return false;
+    if (victim == cache.end()) {
+        return false;
+    }
     service_state.cached_bytes -= (*victim)->bytes;
     cache.erase(victim);
     return true;
@@ -203,16 +241,28 @@ bool evict_one()
 
 Clip load_resolved(const std::string& filename)
 {
-    for (const auto& clip : service_state.cache)
-        if (SDL_strcasecmp(clip->name.c_str(), filename.c_str()) == 0) return clip;
+    for (const auto& clip : service_state.cache) {
+        if (SDL_strcasecmp(clip->name.c_str(), filename.c_str()) == 0) {
+            return clip;
+        }
+    }
     auto input = w8_native::open_audio_input(filename.c_str());
-    if (!input) return {};
+    if (!input) {
+        return {};
+    }
     const Sint64 size = SDL_GetIOSize(input.get());
-    if (size <= 0 || size > kCacheBudgetBytes) return {};
-    while (std::uint64_t(size) + service_state.cached_bytes > kCacheBudgetBytes)
-        if (!evict_one()) return {};
+    if (size <= 0 || size > kCacheBudgetBytes) {
+        return {};
+    }
+    while (std::uint64_t(size) + service_state.cached_bytes > kCacheBudgetBytes) {
+        if (!evict_one()) {
+            return {};
+        }
+    }
     w8_native::Audio audio(MIX_LoadAudio_IO(w8_native::audio_mixer(), input.get(), false, false));
-    if (!audio) return {};
+    if (!audio) {
+        return {};
+    }
     auto clip = std::make_shared<AudioClip>();
     clip->name = filename;
     clip->bytes = std::uint32_t(size);
@@ -226,24 +276,34 @@ Clip load_resolved(const std::string& filename)
 Playback stream_resolved(const std::string& filename, PlayOptions options)
 {
     auto playback = create_playback(options.group);
-    if (!playback) return {};
+    if (!playback) {
+        return {};
+    }
     playback->input = w8_native::open_audio_input(filename.c_str());
-    if (!playback->input) return {};
+    if (!playback->input) {
+        return {};
+    }
     std::unique_ptr<MIX_AudioDecoder, decltype(&MIX_DestroyAudioDecoder)> decoder(
         MIX_CreateAudioDecoder_IO(playback->input.get(), false, 0), MIX_DestroyAudioDecoder);
-    if (!decoder) return {};
+    if (!decoder) {
+        return {};
+    }
     playback->duration = SDL_GetNumberProperty(MIX_GetAudioDecoderProperties(decoder.get()),
                                                MIX_PROP_METADATA_DURATION_FRAMES_NUMBER, -1);
     decoder.reset();
     if (SDL_SeekIO(playback->input.get(), 0, SDL_IO_SEEK_SET) != 0 ||
-        !MIX_SetTrackIOStream(playback->track.get(), playback->input.get(), false)) return {};
+        !MIX_SetTrackIOStream(playback->track.get(), playback->input.get(), false)) {
+        return {};
+    }
     return start(std::move(playback), {}, std::move(options));
 }
 
 std::optional<std::uint32_t> file_size(const std::string& filename)
 {
     const auto status = wiz8::file_status(filename);
-    if (!status || status->info.type != SDL_PATHTYPE_FILE) return std::nullopt;
+    if (!status || status->info.type != SDL_PATHTYPE_FILE) {
+        return std::nullopt;
+    }
     return std::uint32_t(std::min<Uint64>(status->info.size, UINT32_MAX));
 }
 } // namespace
@@ -273,13 +333,17 @@ void shutdown()
 // FUNCTION: WIZ8 0x004095b0
 void service()
 {
-    if (service_state.enabled) finish_stopped();
+    if (service_state.enabled) {
+        finish_stopped();
+    }
 }
 
 // FUNCTION: WIZ8 0x00409970
 Clip load(std::string_view path)
 {
-    if (!service_state.enabled) return {};
+    if (!service_state.enabled) {
+        return {};
+    }
     const auto filename = resolve_path(path);
     return filename.empty() ? Clip{} : load_resolved(filename);
 }
@@ -287,12 +351,17 @@ Clip load(std::string_view path)
 // FUNCTION: WIZ8 0x00408860
 Playback play(std::string_view path, PlayOptions options)
 {
-    if (!service_state.enabled) return {};
+    if (!service_state.enabled) {
+        return {};
+    }
     const auto filename = resolve_path(path);
-    if (filename.empty()) return {};
+    if (filename.empty()) {
+        return {};
+    }
     // Large clips are streamed instead of occupying the cache.
-    if (const auto size = file_size(filename); size && *size >= kMaxCachedClipBytes)
+    if (const auto size = file_size(filename); size && *size >= kMaxCachedClipBytes) {
         return stream_resolved(filename, std::move(options));
+    }
     auto clip = load_resolved(filename);
     if (!clip) {
         // Retail calls name a few clips missing from the shipped data (beep2.wav).
@@ -304,9 +373,13 @@ Playback play(std::string_view path, PlayOptions options)
 
 Playback play(const Clip& clip, PlayOptions options)
 {
-    if (!service_state.enabled || !clip || !clip->audio) return {};
+    if (!service_state.enabled || !clip || !clip->audio) {
+        return {};
+    }
     auto playback = create_playback(options.group);
-    if (!playback || !MIX_SetTrackAudio(playback->track.get(), clip->audio.get())) return {};
+    if (!playback || !MIX_SetTrackAudio(playback->track.get(), clip->audio.get())) {
+        return {};
+    }
     playback->duration = MIX_GetAudioDuration(clip->audio.get());
     return start(std::move(playback), clip, std::move(options));
 }
@@ -314,7 +387,9 @@ Playback play(const Clip& clip, PlayOptions options)
 // FUNCTION: WIZ8 0x00408ad0
 Playback stream(std::string_view path, PlayOptions options)
 {
-    if (!service_state.enabled) return {};
+    if (!service_state.enabled) {
+        return {};
+    }
     const auto filename = resolve_path(path);
     return filename.empty() ? Playback{} : stream_resolved(filename, std::move(options));
 }
@@ -362,18 +437,29 @@ bool stop(const Playback& playback, std::uint32_t fade_out_ms)
 bool stop_group(Group group)
 {
     auto owner = w8_native::retain_audio_mixer();
-    if (!service_state.enabled || !owner) return false;
+    if (!service_state.enabled || !owner) {
+        return false;
+    }
     const auto* tag = tag_of(group);
-    std::unique_ptr<MIX_Track*, decltype(&SDL_free)> tracks(MIX_GetTaggedTracks(owner.get(), tag, nullptr),
-                                                            SDL_free);
-    if (!tracks) return false;
+    std::unique_ptr<MIX_Track*, decltype(&SDL_free)> tracks(
+        MIX_GetTaggedTracks(owner.get(), tag, nullptr), SDL_free);
+    if (!tracks) {
+        return false;
+    }
     bool playing = false;
-    for (auto** track = tracks.get(); *track; ++track) playing |= MIX_TrackPlaying(*track);
+    for (auto** track = tracks.get(); *track; ++track) {
+        playing |= MIX_TrackPlaying(*track);
+    }
     // Retain this batch before dispatch: callbacks may start another tagged track.
     const auto batch = service_state.active;
-    if (!MIX_StopTag(owner.get(), tag, 0)) return false;
-    for (const auto& playback : batch)
-        if (playback->stopped.load(std::memory_order_acquire)) finish(playback);
+    if (!MIX_StopTag(owner.get(), tag, 0)) {
+        return false;
+    }
+    for (const auto& playback : batch) {
+        if (playback->stopped.load(std::memory_order_acquire)) {
+            finish(playback);
+        }
+    }
     return playing;
 }
 
@@ -398,7 +484,9 @@ std::optional<std::uint32_t> volume(const Playback& playback)
 // FUNCTION: WIZ8 0x0040ab20
 void set_position(const Playback& playback, glm::vec3 position)
 {
-    if (!live(playback) || !playback->position) return;
+    if (!live(playback) || !playback->position) {
+        return;
+    }
     playback->position = position;
     apply_spatial(*playback);
 }
@@ -412,10 +500,13 @@ std::uint32_t elapsed_ms(const Playback& playback)
 // FUNCTION: WIZ8 0x00409840
 std::optional<PlaybackTime> playback_time(const Playback& playback)
 {
-    if (!live(playback)) return std::nullopt;
+    if (!live(playback)) {
+        return std::nullopt;
+    }
     auto* track = playback->track.get();
     return PlaybackTime{
         std::uint32_t(std::max<Sint64>(0, MIX_TrackFramesToMS(track, playback->duration))),
-        std::uint32_t(std::max<Sint64>(0, MIX_TrackFramesToMS(track, MIX_GetTrackPlaybackPosition(track))))};
+        std::uint32_t(
+            std::max<Sint64>(0, MIX_TrackFramesToMS(track, MIX_GetTrackPlaybackPosition(track))))};
 }
 } // namespace wiz8::sound

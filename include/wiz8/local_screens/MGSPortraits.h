@@ -22,12 +22,12 @@ extern char s_general_magic_sound[];
 class W8ConditionButton : public W8TextControl {
 public:
     W8ConditionButton(Controls* panel, unsigned int region, int left, int top, int right,
-                      int bottom, CatalogArtwork artwork, int normal_sprite,
-                      int pressed_sprite, int alternate_normal_sprite, int alternate_pressed_sprite,
+                      int bottom, CatalogArtwork artwork, int normal_sprite, int pressed_sprite,
+                      int alternate_normal_sprite, int alternate_pressed_sprite,
                       int disabled_sprite, int ui_slot)
-        : W8TextControl(panel, region, left, top, right, bottom, std::move(artwork),
-                        normal_sprite, pressed_sprite, alternate_normal_sprite,
-                        alternate_pressed_sprite, disabled_sprite),
+        : W8TextControl(panel, region, left, top, right, bottom, std::move(artwork), normal_sprite,
+                        pressed_sprite, alternate_normal_sprite, alternate_pressed_sprite,
+                        disabled_sprite),
           m_condition(0xff), m_ui_slot(ui_slot)
     {
     }

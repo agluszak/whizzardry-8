@@ -377,8 +377,7 @@ void SetMonsterGroupHostility(W8MonsterGroup* group, unsigned int hostility, boo
     if (MonsterGroupAllMembersDying(group)) {
         return;
     }
-    W8MonsterInfo* leader =
-        FindMonster(group->leader_location_id);
+    W8MonsterInfo* leader = FindMonster(group->leader_location_id);
     if (leader != 0 && leader->p3D->hostility_preserved) {
         return;
     }
@@ -406,18 +405,13 @@ void SetMonsterGroupHostility(W8MonsterGroup* group, unsigned int hostility, boo
         SetMonsterHostility(monster, static_cast<unsigned char>(hostility));
     }
     if (group->leader_group_id != 0) {
-        SetMonsterGroupHostility(FindMonsterGroup(group->leader_group_id),
-                                 hostility, false);
+        SetMonsterGroupHostility(FindMonsterGroup(group->leader_group_id), hostility, false);
     }
     if (group->allied_group_ids[0] != 0) {
-        SetMonsterGroupHostility(
-            FindMonsterGroup(group->allied_group_ids[0]),
-            hostility, false);
+        SetMonsterGroupHostility(FindMonsterGroup(group->allied_group_ids[0]), hostility, false);
     }
     if (group->allied_group_ids[1] != 0) {
-        SetMonsterGroupHostility(
-            FindMonsterGroup(group->allied_group_ids[1]),
-            hostility, false);
+        SetMonsterGroupHostility(FindMonsterGroup(group->allied_group_ids[1]), hostility, false);
     }
     if (recurse) {
         AlertSameFactionGroups(group);

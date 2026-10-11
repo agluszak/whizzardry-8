@@ -33,7 +33,8 @@ void W8DialogBase::ScrollTextArea(W8DialogTextArea& area, int first_visible_line
     int right = left + width;
     int bottom = top + height;
     InvalidateRegion(left, top, right, bottom, 0);
-    CatalogArtwork::Load(0x1b6, 0).drawRect(GetFrameBufferSurface(), SDL_Rect{0, 0, (right) - (left), (bottom) - (top)}, left, top);
+    CatalogArtwork::Load(0x1b6, 0).drawRect(
+        GetFrameBufferSurface(), SDL_Rect{0, 0, (right) - (left), (bottom) - (top)}, left, top);
     area.m_dirty = true;
 }
 
@@ -146,14 +147,16 @@ int W8DialogBase::CreateControls()
         return m_error = 4;
     }
     if (!m_border) {
-        m_border = LoadGenericButtonImages({}, "Data\\Dialogs\\DialogBorder.STI", {}, "Data\\Dialogs\\DialogBorder.STI", {}, m_background_path, static_cast<short>(m_background_flags), 0, 0);
+        m_border = LoadGenericButtonImages({}, "Data\\Dialogs\\DialogBorder.STI", {},
+                                           "Data\\Dialogs\\DialogBorder.STI", {}, m_background_path,
+                                           static_cast<short>(m_background_flags), 0, 0);
         if (!m_border) {
             return m_error = 4;
         }
     }
-    if (m_resource.ConfigureTextButton({}, *m_font, m_foreground, m_background, m_x, m_y,
-                                      m_width, m_height, nullptr, 0, m_border,
-                                      REGION_PRIORITY_BACKGROUND)) {
+    if (m_resource.ConfigureTextButton({}, *m_font, m_foreground, m_background, m_x, m_y, m_width,
+                                       m_height, nullptr, 0, m_border,
+                                       REGION_PRIORITY_BACKGROUND)) {
         m_resource.SetTextOffsets(3, 3, true);
         m_resource.SetMultiColor(g_dialog_font_enabled);
         m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
@@ -209,7 +212,9 @@ bool W8DialogBase::ProcessInput()
         }
         return true;
     });
-    if (!m_keep_open) EndModalInput();
+    if (!m_keep_open) {
+        EndModalInput();
+    }
     return m_keep_open;
 }
 

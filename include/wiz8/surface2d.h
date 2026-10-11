@@ -32,11 +32,11 @@ protected:
     virtual void setupDefaultValues() override;
 
 public:
-    int left;                     /* 0x54 */
-    int top;                      /* 0x58 */
-    int right;                    /* 0x5c */
-    int bottom;                   /* 0x60 */
-    w8_ulong frame_handle;   /* 0x64 */
+    int left;                                     /* 0x54 */
+    int top;                                      /* 0x58 */
+    int right;                                    /* 0x5c */
+    int bottom;                                   /* 0x60 */
+    w8_ulong frame_handle;                        /* 0x64 */
     std::shared_ptr<srColorSurfaceIFace> surface; /* 0x68 */
 };
 
@@ -51,7 +51,8 @@ public:
         return "stSurface2D";
     }
 
-    stSurface2D(std::shared_ptr<srColorSurfaceIFace> surface, int width, int height, srNode* parent, int tile_size);
+    stSurface2D(std::shared_ptr<srColorSurfaceIFace> surface, int width, int height, srNode* parent,
+                int tile_size);
 
     virtual void traverse(TraverseInfo& info) override;
     virtual void process(const ProcessInfo& info, e_processType type) override;
@@ -64,19 +65,19 @@ public:
     void enableTextureUpdateFlags(unsigned int flag);
     void setAlphaTestEnabled(bool enabled);
     void invalidateTiles();
-    void updateRectangle(srGERD* renderer, void* pixels, w8_long pitch, int left, int top, int right,
-                         int bottom);
+    void updateRectangle(srGERD* renderer, void* pixels, w8_long pitch, int left, int top,
+                         int right, int bottom);
 
-    int vertex_array_mask;               /* 0x13c */
-    unsigned int shader_bits;            /* 0x140 */
-    int tile_size;                       /* 0x144 */
-    int columns;                         /* 0x148 */
-    int rows;                            /* 0x14c */
-    int width;                           /* 0x154 */
-    int height;                          /* 0x158 */
+    int vertex_array_mask;    /* 0x13c */
+    unsigned int shader_bits; /* 0x140 */
+    int tile_size;            /* 0x144 */
+    int columns;              /* 0x148 */
+    int rows;                 /* 0x14c */
+    int width;                /* 0x154 */
+    int height;               /* 0x158 */
     std::vector<std::unique_ptr<stTexture2D>> tiles;
-    float tile_u;                        /* 0x160 */
-    float tile_v;                        /* 0x164 */
+    float tile_u; /* 0x160 */
+    float tile_v; /* 0x164 */
     int field_168;
     float field_16c;
     float texture_coordinates[4][2]; /* 0x170: u, v per corner */

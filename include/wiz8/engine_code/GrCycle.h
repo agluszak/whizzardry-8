@@ -170,7 +170,7 @@ public:
     srModelInstance* current_model_instance;
     std::vector<stLight*>* m_plsLights;                  /* 0x1ac */
     std::vector<W8CameraShakeEffect*>* m_plsShakeEvents; /* 0x1b0 */
-    bool m_fDeleteLights;                             /* 0x1b4: named by GrCycle.cpp:1656 */
+    bool m_fDeleteLights;                                /* 0x1b4: named by GrCycle.cpp:1656 */
     /* 0x1b5: the subcycle the last update pass left on the representation. */
     unsigned char last_subcycle;
     unsigned char padding_1b6[2];

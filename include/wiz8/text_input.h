@@ -11,8 +11,8 @@ struct Font;
 void InitTextInputMode(Font& font);
 void InitTextInputModeWithScheme(int mode);
 void KillTextInputMode(void);
-char AddTextInputField(int left, int top, int width, int height, int priority, std::string_view text,
-                       std::size_t capacity, short input_type,
+char AddTextInputField(int left, int top, int width, int height, int priority,
+                       std::string_view text, std::size_t capacity, short input_type,
                        unsigned char use_inactive_text_field_color);
 void RemoveTextInputField(int index);
 std::size_t GetTextInputFieldByteLength(unsigned char index);
@@ -32,8 +32,8 @@ std::size_t GetTextInputByteCursor(void);
 void MouseMovedInTextRegionCallback(TEXTINPUTNODE* field, int reason);
 void MouseClickedInTextRegionCallback(TEXTINPUTNODE* field, int reason);
 void SetTextInputScheme(char mode);
-std::size_t CalculateCursorPos(int width, std::size_t cursor, std::string_view text, int* cursor_width,
-                                size_t* visible_count);
+std::size_t CalculateCursorPos(int width, std::size_t cursor, std::string_view text,
+                               int* cursor_width, size_t* visible_count);
 void RenderBackgroundField(TEXTINPUTNODE* field);
 void RenderInactiveTextFieldNode(TEXTINPUTNODE* field);
 void SelectAllText(void);

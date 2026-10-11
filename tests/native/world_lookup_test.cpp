@@ -21,7 +21,6 @@
 #include "surrender/srNode.h"
 #include "surrender/srTypeRegistry.h"
 
-
 namespace {
 struct TestWorld {
     W8World world{};
@@ -36,7 +35,9 @@ struct TestWorld {
     ~TestWorld()
     {
         DestroyAllWorldTriggers(&world);
-        for (stParticle* particle : particles) delete particle;
+        for (stParticle* particle : particles) {
+            delete particle;
+        }
         delete world.static_scene;
     }
 };

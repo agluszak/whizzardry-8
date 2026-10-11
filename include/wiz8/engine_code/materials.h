@@ -72,7 +72,7 @@ struct W8MaterialRecord {
     W8TextureAnimationMode animation_mode; /* 0x10d */
     int animation_frame;                   /* 0x10e */
     float animation_rate;                  /* 0x112 */
-    w8_ulong surface_flags;           /* 0x116 */
+    w8_ulong surface_flags;                /* 0x116 */
     float texture_modes[4];                /* 0x11a */
 };
 
@@ -102,7 +102,8 @@ struct W8MeshMaterial {
 };
 
 W8MeshMaterial LoadMaterial(const char* bitmap_folder, const W8MaterialRecord& source);
-std::shared_ptr<srTexture> LoadTextureFromFolder(const char* folder, const char* name, bool required);
+std::shared_ptr<srTexture> LoadTextureFromFolder(const char* folder, const char* name,
+                                                 bool required);
 std::shared_ptr<stTextureAnim> LoadAnimatedTexture(const char* folder, const char* name,
                                                    const W8MaterialRecord* source, bool required);
 bool MeshHasAnimatedTexture(srMeshModel* model);
@@ -110,8 +111,8 @@ void SetModelAnimatedTextureFrame(srModelInstance* instance, int frame);
 stTextureAnim* GetModelAnimatedTexture(srModelInstance* instance);
 
 W8MeshMaterial CreateDefaultMaterial();
-std::shared_ptr<srTextureIFace> LoadTextureFromPath(const char* path, const W8MaterialRecord* source,
-                                                    bool required);
+std::shared_ptr<srTextureIFace> LoadTextureFromPath(const char* path,
+                                                    const W8MaterialRecord* source, bool required);
 
 struct W8OctPreTreeVertex;
 struct W8OctRegionPolygon;

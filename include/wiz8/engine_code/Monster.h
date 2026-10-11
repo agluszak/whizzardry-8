@@ -97,7 +97,10 @@ struct W8MonsterRep : public W8EmitterHost {
 
     /* The spell-icon list; named by the SetMonsterSpellIcon assert
        "pMonRep->GetSpellIcons()". */
-    std::vector<W8MonsterSpellIcon*>* GetSpellIcons() { return spell_icons; }
+    std::vector<W8MonsterSpellIcon*>* GetSpellIcons()
+    {
+        return spell_icons;
+    }
 
     std::vector<W8AnimObj*> animations[W8_MONSTER_CYCLE_COUNT];              /* 0x0ac */
     std::vector<float> animation_scales[W8_MONSTER_CYCLE_COUNT];             /* 0x25c */
@@ -110,7 +113,7 @@ struct W8MonsterRep : public W8EmitterHost {
     /* 0x5c4: number of populated party-icon entries in objects; the
        attachment layout read by UpdateAttachedObjects. */
     int icon_count;
-    W8Item* objects[8];   /* 0x5c8 */
+    W8Item* objects[8];                            /* 0x5c8 */
     std::vector<W8MonsterSpellIcon*>* spell_icons; /* 0x5e8: W8MonsterSpellIcon records */
     float standing_height;
     float scale;
@@ -365,8 +368,9 @@ W8MonsterCycle ParseMonsterCycleName(const char* name, signed char* subcycle = 0
 unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
                                        const char* monster_name, W8Monster** monster,
                                        int load_value, int location_id);
-unsigned char MonsterReadAllCycles(const W8GrCycleLoadContext* context, std::string_view monster_name,
-                                   W8Monster** monster, int load_value, int location_id);
+unsigned char MonsterReadAllCycles(const W8GrCycleLoadContext* context,
+                                   std::string_view monster_name, W8Monster** monster,
+                                   int load_value, int location_id);
 unsigned short ChooseDifferentMonsterDirection(unsigned short previous_direction);
 
 std::optional<srBoundingBox> MonsterGetWorldAnimationBounds(W8Monster* monster);

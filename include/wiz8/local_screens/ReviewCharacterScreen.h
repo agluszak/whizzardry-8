@@ -39,9 +39,7 @@ enum CampMainRegionOffset {
     kCampCharacterHeaderRegionOffset = 11
 };
 
-enum CampInventoryRegionOffset {
-    kCampEquipmentRegionOffset = 8
-};
+enum CampInventoryRegionOffset { kCampEquipmentRegionOffset = 8 };
 
 enum W8CampPage {
     W8_CAMP_PAGE_ITEMS = 0,

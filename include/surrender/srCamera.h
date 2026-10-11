@@ -95,4 +95,3 @@ private:
     float environment_near_scale; /* 0x180 */
     float environment_far_scale;  /* 0x184 */
 };
-

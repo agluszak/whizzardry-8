@@ -5,12 +5,10 @@
 #include <cstdint>
 #include <optional>
 
-namespace wiz8
-{
+namespace wiz8 {
 // Value codec only: consumers explicitly copy low/high to packed save/SLF
 // records. This is not a runtime system-API emulation or a new disk record.
-struct DiskFileTime
-{
+struct DiskFileTime {
     std::uint32_t low = 0;
     std::uint32_t high = 0;
     constexpr std::uint64_t ticks() const noexcept
@@ -23,8 +21,7 @@ struct DiskFileTime
     }
 };
 
-struct CivilTime
-{
+struct CivilTime {
     int year;
     unsigned month, day, hour, minute, second;
     unsigned fraction_100ns;

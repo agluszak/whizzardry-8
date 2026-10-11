@@ -21,7 +21,7 @@ std::uint16_t& pixel(SDL_Surface& image, int x, int y)
 {
     return static_cast<std::uint16_t*>(image.pixels)[y * image.pitch / 2 + x];
 }
-}
+} // namespace
 
 TEST_CASE("SDL image blits use color keys, mirroring, and destination clip rectangles", "[surface]")
 {
@@ -32,8 +32,9 @@ TEST_CASE("SDL image blits use color keys, mirroring, and destination clip recta
     pixel(*source, 0, 0) = 0;
     pixel(*source, 1, 0) = 0x1234;
     pixel(*source, 2, 0) = 0x2345;
-    for (int x = 0; x < 5; ++x)
+    for (int x = 0; x < 5; ++x) {
         pixel(*destination, x, 0) = 0x4567;
+    }
     BlitImage(*destination, 1, 0, *source, nullptr, {.color_key = 0});
     REQUIRE(pixel(*destination, 0, 0) == 0x4567);
     REQUIRE(pixel(*destination, 1, 0) == 0x4567);
@@ -47,8 +48,8 @@ TEST_CASE("SDL image blits use color keys, mirroring, and destination clip recta
         BlitImage(*destination, 0, 0, *source, nullptr, {.color_key = 0, .mirror = true});
         SDL_Rect active{};
         REQUIRE(SDL_GetSurfaceClipRect(destination.get(), &active));
-        REQUIRE((active.x == clip.x && active.y == clip.y && active.w == clip.w &&
-                 active.h == clip.h));
+        REQUIRE(
+            (active.x == clip.x && active.y == clip.y && active.w == clip.w && active.h == clip.h));
     }
     SDL_Rect restored{};
     REQUIRE(SDL_GetSurfaceClipRect(destination.get(), &restored));

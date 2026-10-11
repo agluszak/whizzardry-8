@@ -12,11 +12,11 @@
 #include "glm/ext/vector_int3.hpp"
 
 // FUNCTION: SURRENDER 0x1003bea0
-srTriangulator::srTriangulator(std::span<const glm::vec2> points)
-    : remaining(0), points(points)
+srTriangulator::srTriangulator(std::span<const glm::vec2> points) : remaining(0), points(points)
 {
-    if (points.size() > static_cast<std::size_t>(std::numeric_limits<int>::max()))
+    if (points.size() > static_cast<std::size_t>(std::numeric_limits<int>::max())) {
         throw std::length_error("Too many triangulation points");
+    }
     remaining = static_cast<int>(points.size());
     nodes.resize(points.size());
     const int count = remaining;
@@ -26,7 +26,9 @@ srTriangulator::srTriangulator(std::span<const glm::vec2> points)
         nodes[i].prev = &nodes[(i + count - 1) % count];
         nodes[i].next = &nodes[(i + 1) % count];
     }
-    if (!nodes.empty()) current = nodes.data();
+    if (!nodes.empty()) {
+        current = nodes.data();
+    }
 }
 
 // FUNCTION: SURRENDER 0x1003c0e0
@@ -36,8 +38,9 @@ std::optional<glm::ivec3> srTriangulator::next()
         const auto* start = current;
         while (!satisfyConstraints(current)) {
             current = current->next;
-            if (current == start)
+            if (current == start) {
                 return std::nullopt;
+            }
         }
         auto* previous = current->prev;
         auto* next = current->next;

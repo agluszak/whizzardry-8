@@ -56,8 +56,9 @@ public:
     srVector3T* SetLength(double length)
     {
         const auto v = glmValue();
-        if (glm::dot(v, v) != 0)
+        if (glm::dot(v, v) != 0) {
             *this = glm::normalize(v) * static_cast<T>(length);
+        }
         return this;
     }
     srVector3T* Unitize()
@@ -243,8 +244,7 @@ template <class T> srVector3T<T> operator/(const srVector3T<T>& vector, double s
     return result;
 }
 
-class srVector2i
-{
+class srVector2i {
 public:
     int x;
     int y;

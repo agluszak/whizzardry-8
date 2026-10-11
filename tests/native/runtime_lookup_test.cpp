@@ -12,7 +12,6 @@
 
 class srNode;
 
-
 static bool identity()
 {
     REQUIRE((srInit() == 1));
@@ -52,6 +51,7 @@ static bool identity()
 TEST_CASE("runtime_lookup_test")
 {
     // Metadata is owned by each runtime lifecycle, with no stale static cache.
-    REQUIRE(identity()); REQUIRE(identity());
+    REQUIRE(identity());
+    REQUIRE(identity());
     std::puts("ok: runtime format identity, names and clones");
 }

@@ -28,12 +28,13 @@ struct Grid {
 };
 
 inline std::optional<glm::vec3> grounded(const glm::vec3& candidate, float ground,
-                                        bool allow_large_drop)
+                                         bool allow_large_drop)
 {
     const float height = std::abs(candidate.y - ground);
     if (!(height >= 1 && height <= g_navigator_vertical_snap_limit &&
-          (allow_large_drop || height <= g_double_twenty_five_hundred)))
+          (allow_large_drop || height <= g_double_twenty_five_hundred))) {
         return std::nullopt;
+    }
     return glm::vec3(candidate.x, ground, candidate.z);
 }
 } // namespace wiz8::placement

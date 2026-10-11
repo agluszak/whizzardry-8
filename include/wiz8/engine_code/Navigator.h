@@ -1,7 +1,5 @@
 #pragma once
 
-
-
 /* Engine Code\Navigator.cpp owns these declarations. */
 
 struct srBoundingBox;
@@ -16,7 +14,9 @@ struct srBoundingBox;
 
 class srNode;
 struct W8PathAI;
-namespace wiz8 { class File; }
+namespace wiz8 {
+class File;
+}
 
 /* W8NavigatorAttachment::flags bits with established meaning.
    - RESULT_MASK holds the last path-search result; the planners clear it before
@@ -335,15 +335,15 @@ public:
     void UpdateFacing(bool immediate);                                    /* 0x00454780 */
     void UpdateLinkedNavigator();                                         /* 0x00454D70 */
     bool UpdateLinkedPosition();
-    void CollectGroupNavigators(std::vector<W8Navigator*>& navigators);      /* 0x00455140 */
-    int ResolveMovement();                                                   /* 0x00455CC0 */
-    void ClearMovement();                                                    /* 0x004537E0 */
+    void CollectGroupNavigators(std::vector<W8Navigator*>& navigators); /* 0x00455140 */
+    int ResolveMovement();                                              /* 0x00455CC0 */
+    void ClearMovement();                                               /* 0x004537E0 */
     /* Modes 1 and 4 clear pitch/roll; 2, 3 and 5 enable pitch; 6 enables
        both. Mode 4 keeps the existing path; the other named modes build a
        fresh animated path. Later facing logic distinguishes 2/3 from 5/6. */
-    void SetNavigationMode(int mode); /* 0x00452E50 */
+    void SetNavigationMode(int mode);            /* 0x00452E50 */
     void SetBounds(const srBoundingBox& bounds); /* 0x00452F10 */
-    void SetTurnRate(float turn_rate);                /* 0x00453C90 */
+    void SetTurnRate(float turn_rate);           /* 0x00453C90 */
 
 public:
     int navigation_mode;

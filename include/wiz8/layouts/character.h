@@ -13,7 +13,6 @@
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/world.h"
 
-
 /* One enchantment slot. Both a character and a monster carry eight of them,
    and both clear a slot by zeroing all three dwords at once. */
 #pragma pack(push, 1)
@@ -113,12 +112,12 @@ struct W8HandAttack {
     int swings;                  /* Retail offset 0x19 */
     int damage_bonus;            /* Retail offset 0x1d */
     int hit_bonus;               /* Retail offset 0x21 */
-    int attack_bonus;            /* Retail offset 0x25: attack-score term, paired with modifier attack_bonus */
+    int attack_bonus; /* Retail offset 0x25: attack-score term, paired with modifier attack_bonus */
     int damage_percent; /* Retail offset 0x29: percent damage multiplier, paired with modifier damage_percent */
-    W8Dice damage_dice; /* Retail offset 0x2d */
+    W8Dice damage_dice;          /* Retail offset 0x2d */
     unsigned short attack_flags; /* Retail offset 0x31 */
-    unsigned char
-        condition_chances[W8_ATTACK_EFFECT_COUNT]; /* Retail offset 0x33: unarmed condition probabilities */
+    unsigned char condition_chances
+        [W8_ATTACK_EFFECT_COUNT]; /* Retail offset 0x33: unarmed condition probabilities */
     unsigned char unknown_43[0x18];
 };
 #pragma pack(pop) /* Retail offset 0x5b */
@@ -142,7 +141,7 @@ struct W8Character {
     bool fInParty; /* Retail offset 0x0004 */
     /* Retail offset 0x0005: the character's name, also the stem of its "%s.CHR" file. */
     std::string name;
-    std::string name_part_2; /* Retail offset 0x0019: rendered as the parenthesized name */
+    std::string name_part_2;          /* Retail offset 0x0019: rendered as the parenthesized name */
     unsigned char unknown_0025[0x44]; // Unidentified retail data, preserved verbatim.
     /* Retail offset 0x0069 and 0x006d: the current profession and the one the character
        started in. The level band subtracts a base only while the two agree. */
@@ -324,8 +323,6 @@ struct W8Character {
     bool has_saved_location;
 };
 
-
-
 enum W8SkillImportPolicy {
     W8_SKILL_IMPORT_POLICY_0 = 0,
     W8_SKILL_IMPORT_POLICY_1 = 1,
@@ -341,7 +338,6 @@ struct W8SkillAttributes {
     W8Attribute attribute_1;
     W8Attribute attribute_2;
 };
-
 
 extern W8RaceResistanceProfile g_race_resistance_profiles[];
 extern int g_profession_skill_availability[0x29][W8_PROFESSION_COUNT];
@@ -370,7 +366,6 @@ struct W8PortraitDescriptor {
     int unknown_008;
     int render_mode;
 };
-
 
 extern W8PortraitDescriptor g_portrait_descriptors[80];
 

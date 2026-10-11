@@ -21,4 +21,3 @@ template <class Enum> void srFlags<Enum>::set(int bit, int on)
     }
     value &= ~(1u << bit);
 }
-

@@ -34,7 +34,9 @@ srTextureMap::~srTextureMap()
 // FUNCTION: SURRENDER 0x100601C0
 void srTextureMap::getMipmapData(const MultiRequest& request)
 {
-    if (surface) copyMipmapChain(*surface, request);
+    if (surface) {
+        copyMipmapChain(*surface, request);
+    }
 }
 
 // FUNCTION: SURRENDER 0x100604E0

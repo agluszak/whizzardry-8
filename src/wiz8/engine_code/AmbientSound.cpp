@@ -41,8 +41,7 @@ const float g_ambient_sound_inner_radius_scale = 0.6000000238418579f;
 /* Random one-shot schedule. List-file sounds fire on their own as 2D one-shots;
    emitters roll their own schedule and fire positioned. Retail allows one
    instance of each. */
-struct W8RandomAmbient
-{
+struct W8RandomAmbient {
     wiz8::sound::Clip clip;
     std::uint32_t time_min = 0, time_max = 0;
     std::uint32_t volume_min = 0, volume_max = 0;
@@ -52,7 +51,10 @@ struct W8RandomAmbient
     std::uint64_t next_at = 0;
     wiz8::sound::Playback instance;
 
-    void Reschedule() { next_at = w8_get_ticks() + RandomRange(time_min, time_max); }
+    void Reschedule()
+    {
+        next_at = w8_get_ticks() + RandomRange(time_min, time_max);
+    }
     bool Due() const
     {
         return enabled && next_at <= w8_get_ticks() && !wiz8::sound::is_playing(instance);
@@ -60,10 +62,11 @@ struct W8RandomAmbient
     wiz8::sound::Playback Fire(std::uint32_t volume, std::optional<glm::vec3> position)
     {
         auto playback = wiz8::sound::play(
-            clip, {.volume = volume,
-                   .rate = speed ? std::optional(RandomRange(speed->first, speed->second)) : std::nullopt,
-                   .group = wiz8::sound::Group::ambient,
-                   .position = position});
+            clip,
+            {.volume = volume,
+             .rate = speed ? std::optional(RandomRange(speed->first, speed->second)) : std::nullopt,
+             .group = wiz8::sound::Group::ambient,
+             .position = position});
         if (playback) {
             Reschedule();
             instance = playback;
@@ -133,8 +136,8 @@ void StopAllAmbientSounds()
 // FUNCTION: WIZ8 0x00479040
 W8AmbientSound::W8AmbientSound()
     : volume_min(0), volume_max(0), current_volume(0), speed_min(0), speed_max(0), time_min(0),
-      time_max(0), radius(0), in_range(0), looping(0), sound_handle(), random(),
-      shared(0), bounded(0), region_angle(0)
+      time_max(0), radius(0), in_range(0), looping(0), sound_handle(), random(), shared(0),
+      bounded(0), region_angle(0)
 {
     config.wave_name[0] = 0;
     position.SetZero();
@@ -173,8 +176,8 @@ bool W8AmbientSound::IsInsideRegion(const srVector3T<float>* listener)
             rotation *=
                 glm::mat3_cast(glm::angleAxis(float(std::atan2(sin(angle), cos(angle))),
                                               normalizedOrZero(glm::vec3(region_axis.glmValue()))));
-            }
-            relative = rotation * relative.glmValue();
+        }
+        relative = rotation * relative.glmValue();
     }
     return PointInsideBounds(&relative, &region_min, &region_max);
 }
@@ -217,7 +220,8 @@ void W8AmbientSound::UpdatePosition(const srVector3T<float>* listener)
                                 match->sound_handle = sound_handle;
                                 match->target_volume =
                                     (match->volume_max * g_settings.sound_effects_volume) / 0x7f;
-                                match->current_volume = wiz8::sound::volume(sound_handle).value_or(0);
+                                match->current_volume =
+                                    wiz8::sound::volume(sound_handle).value_or(0);
                                 match->fade_timer.SetDuration(g_float_one_and_a_half /
                                                               match->target_volume);
                                 match->fade_timer.Restart();
@@ -308,10 +312,10 @@ void W8AmbientSound::Service(bool entered)
     }
     if (looping == 0) {
         if (!random) {
-            random = RegisterRandomAmbient(
-                config.wave_name, time_min, time_max, speed_min, speed_max,
-                (volume_min * g_settings.sound_effects_volume) / 0x7f,
-                (volume_max * g_settings.sound_effects_volume) / 0x7f, false);
+            random =
+                RegisterRandomAmbient(config.wave_name, time_min, time_max, speed_min, speed_max,
+                                      (volume_min * g_settings.sound_effects_volume) / 0x7f,
+                                      (volume_max * g_settings.sound_effects_volume) / 0x7f, false);
         }
         if (random != nullptr) {
             unsigned char should_play;
@@ -372,7 +376,8 @@ void W8AmbientSound::Service(bool entered)
         offset = position - camera;
         transformed = rotation * offset.glmValue();
         sound_handle = wiz8::sound::play(
-            config.wave_name, {.volume = current_volume, .loops = 0, .position = transformed.glmValue()});
+            config.wave_name,
+            {.volume = current_volume, .loops = 0, .position = transformed.glmValue()});
         if (sound_handle == nullptr) {
             in_range = 0;
         }
@@ -661,8 +666,7 @@ unsigned char AddAmbientSound(W8World* world, const char* name, const W8AmbientS
    lookup has already dereferenced it. */
 static W8AmbientSound* FindAmbientSoundByName(const char* name)
 {
-    int count =
-        static_cast<int>(g_world->plsAmbientSounds.size());
+    int count = static_cast<int>(g_world->plsAmbientSounds.size());
     int index;
 
     for (index = 0; index < count; ++index) {
@@ -735,7 +739,13 @@ unsigned char ReadAmbientSoundListFile(char* filename)
     int configured[10];
     int direct_selector = 0;
 
-    handle = [&]() { try { return wiz8::open_file(filename, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
+    handle = [&]() {
+        try {
+            return wiz8::open_file(filename, wiz8::OpenMode::read);
+        } catch (const std::exception&) {
+            return std::unique_ptr<wiz8::File>{};
+        }
+    }();
     if (handle == 0) {
         return 0;
     }
@@ -754,19 +764,24 @@ unsigned char ReadAmbientSoundListFile(char* filename)
             sprintf(path, "%s\\%s", directory, name);
             if (direct_selector == -1) {
                 const auto volume = [](int value) {
-                    return value == -1 ? std::uint32_t(g_settings.sound_effects_volume) : std::uint32_t(value);
+                    return value == -1 ? std::uint32_t(g_settings.sound_effects_volume)
+                                       : std::uint32_t(value);
                 };
-                RegisterRandomAmbient(path, configured[0], configured[1], configured[2], configured[3],
-                                      volume(configured[4]), volume(configured[5]), true);
+                RegisterRandomAmbient(path, configured[0], configured[1], configured[2],
+                                      configured[3], volume(configured[4]), volume(configured[5]),
+                                      true);
             } else {
-                wiz8::sound::play(
-                    path, {.volume = std::uint32_t((g_settings.sound_effects_volume * configured[5]) / 0x7f),
-                           .loops = std::uint32_t(direct_selector),
-                           .group = wiz8::sound::Group::ambient});
+                wiz8::sound::play(path,
+                                  {.volume = std::uint32_t(
+                                       (g_settings.sound_effects_volume * configured[5]) / 0x7f),
+                                   .loops = std::uint32_t(direct_selector),
+                                   .group = wiz8::sound::Group::ambient});
             }
         }
     }
-    if (handle) handle->close();
+    if (handle) {
+        handle->close();
+    }
     handle.reset();
     return 1;
 }
@@ -785,8 +800,7 @@ void SetSoundEffectsVolume(unsigned char volume)
     g_settings.sound_effects_volume = volume;
     wiz8::sound::set_default_volume(volume);
     if (g_world != 0) {
-        count =
-            static_cast<int>(g_world->plsAmbientSounds.size());
+        count = static_cast<int>(g_world->plsAmbientSounds.size());
         for (index = 0; index < count; ++index) {
             W8AmbientSound* sound = GetWorldAmbientSound(g_world, index);
             if (sound != 0) {
@@ -905,8 +919,7 @@ void LoadAmbientSoundList(wiz8::File& handle)
         } else {
             ok = 0;
         }
-        length =
-            static_cast<int>(g_world->plsAmbientSounds.size());
+        length = static_cast<int>(g_world->plsAmbientSounds.size());
         for (scan = 0; scan < length; ++scan) {
             W8AmbientSound* sound = GetWorldAmbientSound(g_world, scan);
             if (sound->pacSoundName != 0 && _stricmp(sound->pacSoundName, name) == 0) {

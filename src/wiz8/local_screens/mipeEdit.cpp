@@ -64,7 +64,7 @@ void CommitMipeEditFields(W8TriggerActionData* data, signed char bVarSet);
    g_mipe_table_base; the selected row gets palette 6, the rest 15. */
 #define MIPE_REDRAW_EDIT_FIELDS()                                                                  \
     do {                                                                                           \
-        W8MipeState* state_ = g_mipe_state.get();                                                        \
+        W8MipeState* state_ = g_mipe_state.get();                                                  \
         char shown_ =                                                                              \
             static_cast<char>(state_->edit_field_count - static_cast<char>(g_mipe_table_base));    \
         char row_;                                                                                 \

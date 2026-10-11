@@ -145,8 +145,7 @@ public:
     W8CharacterStatsRow();
     virtual void OnPrimary(W8TextControl* control) override;
     virtual void OnSecondary(W8TextControl* control) override;
-    void Initialize(Controls* owner, int x, int y, int count,
-                    const W8CharacterStatsRecord* table,
+    void Initialize(Controls* owner, int x, int y, int count, const W8CharacterStatsRecord* table,
                     const W8CharacterStatsRecord* default_record, int help_first, int help_second,
                     int help_value);
     /* Descriptive names for the collapse operations expanded in row/page input. */

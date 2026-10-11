@@ -83,9 +83,9 @@ struct PipelineKey {
     {
         offset = bias;
         const uint32_t packed_shader =
-            shader.value & (srShader::PASS_MASK | srShader::MASK_DEPTH_WRITE |
-                            srShader::MASK_COLOR_WRITE | 0x7u << srShader::DSTBLEND_SHIFT |
-                            0x3u << srShader::SRCBLEND_SHIFT);
+            shader.value &
+            (srShader::PASS_MASK | srShader::MASK_DEPTH_WRITE | srShader::MASK_COLOR_WRITE |
+             0x7u << srShader::DSTBLEND_SHIFT | 0x3u << srShader::SRCBLEND_SHIFT);
         value = packed_shader | (uint32_t)cull << 24 | (uint32_t)polygon << 26 |
                 (uint32_t)primitive << 28;
     }
@@ -152,9 +152,14 @@ srDD::PixelFormat argb8888Format()
 SDL_GPUCompareOp compareOp(uint32_t pass)
 {
     static const SDL_GPUCompareOp ops[8] = {
-        SDL_GPU_COMPAREOP_NEVER,   SDL_GPU_COMPAREOP_LESS,      SDL_GPU_COMPAREOP_EQUAL,
-        SDL_GPU_COMPAREOP_LESS_OR_EQUAL, SDL_GPU_COMPAREOP_GREATER, SDL_GPU_COMPAREOP_NOT_EQUAL,
-        SDL_GPU_COMPAREOP_GREATER_OR_EQUAL, SDL_GPU_COMPAREOP_ALWAYS,
+        SDL_GPU_COMPAREOP_NEVER,
+        SDL_GPU_COMPAREOP_LESS,
+        SDL_GPU_COMPAREOP_EQUAL,
+        SDL_GPU_COMPAREOP_LESS_OR_EQUAL,
+        SDL_GPU_COMPAREOP_GREATER,
+        SDL_GPU_COMPAREOP_NOT_EQUAL,
+        SDL_GPU_COMPAREOP_GREATER_OR_EQUAL,
+        SDL_GPU_COMPAREOP_ALWAYS,
     };
     return ops[pass & 7];
 }
@@ -162,7 +167,9 @@ SDL_GPUCompareOp compareOp(uint32_t pass)
 SDL_GPUBlendFactor sourceFactor(uint32_t blend)
 {
     static const SDL_GPUBlendFactor factors[4] = {
-        SDL_GPU_BLENDFACTOR_ZERO, SDL_GPU_BLENDFACTOR_ONE, SDL_GPU_BLENDFACTOR_SRC_ALPHA,
+        SDL_GPU_BLENDFACTOR_ZERO,
+        SDL_GPU_BLENDFACTOR_ONE,
+        SDL_GPU_BLENDFACTOR_SRC_ALPHA,
         SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
     };
     return factors[blend & 3];
@@ -181,20 +188,19 @@ SDL_GPUBlendFactor destinationFactor(uint32_t blend)
 class SDLGPUDevice : public srDD {
 public:
     SDLGPUDevice()
-        : device(0), window(0), color_target(0), depth_target(0), depth_format(),
-          vertex_shader(0), fragment_shader(0), vertex_buffer(0),
-          vertex_buffer_size(0), command_buffer(0), width(0), height(0), cull_mode(CULL_NONE),
-          polygon_mode(POLYGON_FILL), polygon_offset(0), vertex_arrays(), readback_dirty(0),
-          locked(0), trace(SDL_getenv("WIZ8_SRDD_TRACE") != 0)
-        {
+        : device(0), window(0), color_target(0), depth_target(0), depth_format(), vertex_shader(0),
+          fragment_shader(0), vertex_buffer(0), vertex_buffer_size(0), command_buffer(0), width(0),
+          height(0), cull_mode(CULL_NONE), polygon_mode(POLYGON_FILL), polygon_offset(0),
+          vertex_arrays(), readback_dirty(0), locked(0), trace(SDL_getenv("WIZ8_SRDD_TRACE") != 0)
+    {
         projection.projection = glm::mat4(1);
-            memset(&clear_values, 0, sizeof(clear_values));
-            fog_color = glm::vec4(0);
-            memset(&scissor, 0, sizeof(scissor));
-            memset(&viewport, 0, sizeof(viewport));
-            bound[0] = bound[1] = 0;
-            parameters[0] = parameters[1] = {};
-        }
+        memset(&clear_values, 0, sizeof(clear_values));
+        fog_color = glm::vec4(0);
+        memset(&scissor, 0, sizeof(scissor));
+        memset(&viewport, 0, sizeof(viewport));
+        bound[0] = bound[1] = 0;
+        parameters[0] = parameters[1] = {};
+    }
 
     ~SDLGPUDevice() override
     {
@@ -468,8 +474,8 @@ public:
     e_error createContext(w8_ulong_ptr handle) override
     {
         window = reinterpret_cast<SDL_Window*>(handle);
-        device = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV, SDL_getenv("WIZ8_GPU_DEBUG") != 0,
-                                     0);
+        device =
+            SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV, SDL_getenv("WIZ8_GPU_DEBUG") != 0, 0);
         if (device == 0) {
             SDL_Log("srDD_SDLGPU: device: %s", SDL_GetError());
             return static_cast<e_error>(1);
@@ -489,10 +495,10 @@ public:
                                                     SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET)
                            ? SDL_GPU_TEXTUREFORMAT_D24_UNORM_S8_UINT
                            : SDL_GPU_TEXTUREFORMAT_D32_FLOAT_S8_UINT;
-        vertex_shader = createShader(sr_vertex_spv, sizeof(sr_vertex_spv),
-                                     SDL_GPU_SHADERSTAGE_VERTEX, 0);
-        fragment_shader = createShader(sr_fragment_spv, sizeof(sr_fragment_spv),
-                                       SDL_GPU_SHADERSTAGE_FRAGMENT, 2);
+        vertex_shader =
+            createShader(sr_vertex_spv, sizeof(sr_vertex_spv), SDL_GPU_SHADERSTAGE_VERTEX, 0);
+        fragment_shader =
+            createShader(sr_fragment_spv, sizeof(sr_fragment_spv), SDL_GPU_SHADERSTAGE_FRAGMENT, 2);
         /* Handle 1 is the white texture unbound stages sample. */
         DeviceTexture white = createTexture(1, 1, 1);
         textures.push_back(white);
@@ -679,17 +685,23 @@ private:
         uploads.push_back(upload);
     }
 
-    template<class Vector>
-    Vector fetch(srRendererDefs::e_vertexArray slot, uint32_t index,
-                 Vector fallback) const
+    template <class Vector>
+    Vector fetch(srRendererDefs::e_vertexArray slot, uint32_t index, Vector fallback) const
     {
         if (((vertex_arrays.mask.value >> slot) & 1) == 0 &&
-            slot != srRendererDefs::VERTEX_ARRAY_POSITIONS) return fallback;
-        if (vertex_arrays.arrays[slot] == nullptr) return fallback;
-        const int components = SDL_min(static_cast<int>(vertex_arrays.components[slot]), Vector::length());
+            slot != srRendererDefs::VERTEX_ARRAY_POSITIONS) {
+            return fallback;
+        }
+        if (vertex_arrays.arrays[slot] == nullptr) {
+            return fallback;
+        }
+        const int components =
+            SDL_min(static_cast<int>(vertex_arrays.components[slot]), Vector::length());
         const uint32_t stride = vertex_arrays.strides[slot] != 0
-            ? vertex_arrays.strides[slot] : vertex_arrays.components[slot] * sizeof(float);
-        const auto* source = static_cast<const char*>(vertex_arrays.arrays[slot]) + size_t(index) * stride;
+                                    ? vertex_arrays.strides[slot]
+                                    : vertex_arrays.components[slot] * sizeof(float);
+        const auto* source =
+            static_cast<const char*>(vertex_arrays.arrays[slot]) + size_t(index) * stride;
         std::memcpy(glm::value_ptr(fallback), source, components * sizeof(float));
         return fallback;
     }
@@ -772,23 +784,23 @@ private:
                     "proj=[%g %g %g %g | %g %g %g %g | %g %g %g %g | %g %g %g %g] "
                     "viewport=(%g %g %g %g) scissor=(%d %d %d %d)",
                     (int)primitive, count, shader.value, (int)cull_mode, v.position[0],
-                    v.position[1], v.position[2], v.position[3], m[0], m[1], m[2], m[3], m[4],
-                    m[5], m[6], m[7], m[8], m[9], m[10], m[11], m[12], m[13], m[14], m[15],
-                    viewport.x, viewport.y, viewport.w, viewport.h, scissor.x, scissor.y,
-                    scissor.w, scissor.h);
+                    v.position[1], v.position[2], v.position[3], m[0], m[1], m[2], m[3], m[4], m[5],
+                    m[6], m[7], m[8], m[9], m[10], m[11], m[12], m[13], m[14], m[15], viewport.x,
+                    viewport.y, viewport.w, viewport.h, scissor.x, scissor.y, scissor.w, scissor.h);
             if (SDL_getenv("WIZ8_SRDD_VERTICES")) {
                 for (size_t i = start; i < vertices.size(); ++i) {
                     const Vertex& p = vertices[i];
                     SDL_Log("srDD vertex %08x (%g %g %g %g) uv=(%g %g %g) rgba=(%g %g %g %g)",
-                            shader.value, p.position[0], p.position[1], p.position[2], p.position[3],
-                            p.texcoord0[0], p.texcoord0[1], p.texcoord0[2], p.diffuse[0],
-                            p.diffuse[1], p.diffuse[2], p.diffuse[3]);
+                            shader.value, p.position[0], p.position[1], p.position[2],
+                            p.position[3], p.texcoord0[0], p.texcoord0[1], p.texcoord0[2],
+                            p.diffuse[0], p.diffuse[1], p.diffuse[2], p.diffuse[3]);
                 }
             }
         }
         DrawCommand command = {};
         command.kind = DrawCommand::DRAW;
-        command.pipeline_key = PipelineKey(shader, cull_mode, polygon_mode, primitive_class, polygon_offset);
+        command.pipeline_key =
+            PipelineKey(shader, cull_mode, polygon_mode, primitive_class, polygon_offset);
         command.first_vertex = start;
         command.vertex_count = (uint32_t)vertices.size() - start;
         const bool texturing = (shader.value & srShader::MASK_TEXTURING) != 0;
@@ -799,12 +811,12 @@ private:
         command.vertex_uniforms = projection;
         FragmentUniforms& fragment = command.fragment_uniforms;
         fragment.fog_color = fog_color;
-        fragment.mode = glm::ivec4(texturing ? 1 : 0,
-            (shader.value & srShader::MASK_GRADIENT) >> srShader::GRADIENT_SHIFT,
+        fragment.mode = glm::ivec4(
+            texturing ? 1 : 0, (shader.value & srShader::MASK_GRADIENT) >> srShader::GRADIENT_SHIFT,
             (shader.value & srShader::MASK_SECONDARY_GRADIENT) != 0,
             (shader.value & srShader::MASK_FOG) >> srShader::FOG_SHIFT);
-        fragment.alpha = glm::vec4((shader.value & srShader::MASK_ALPHATEST) != 0 ? 1.0f : 0.0f,
-                                  0, 0, 0);
+        fragment.alpha =
+            glm::vec4((shader.value & srShader::MASK_ALPHATEST) != 0 ? 1.0f : 0.0f, 0, 0, 0);
         command.scissor = scissor;
         command.viewport = viewport;
         commands.push_back(command);
@@ -814,15 +826,17 @@ private:
     {
         const auto key = std::make_pair(parameters.packed, parameters.mipmap_bias);
         const auto found = samplers.find(key);
-        if (found != samplers.end()) return found->second;
+        if (found != samplers.end()) {
+            return found->second;
+        }
         SDL_GPUSamplerCreateInfo info = {};
-        info.mag_filter = ((parameters.packed >> 4) & 3) >= 2
-                              ? SDL_GPU_FILTER_LINEAR : SDL_GPU_FILTER_NEAREST;
-        info.min_filter = ((parameters.packed >> 6) & 3) >= 2
-                              ? SDL_GPU_FILTER_LINEAR : SDL_GPU_FILTER_NEAREST;
+        info.mag_filter =
+            ((parameters.packed >> 4) & 3) >= 2 ? SDL_GPU_FILTER_LINEAR : SDL_GPU_FILTER_NEAREST;
+        info.min_filter =
+            ((parameters.packed >> 6) & 3) >= 2 ? SDL_GPU_FILTER_LINEAR : SDL_GPU_FILTER_NEAREST;
         const auto mip = (parameters.packed >> 8) & 3;
-        info.mipmap_mode = mip == 2 ? SDL_GPU_SAMPLERMIPMAPMODE_LINEAR
-                                   : SDL_GPU_SAMPLERMIPMAPMODE_NEAREST;
+        info.mipmap_mode =
+            mip == 2 ? SDL_GPU_SAMPLERMIPMAPMODE_LINEAR : SDL_GPU_SAMPLERMIPMAPMODE_NEAREST;
         info.address_mode_u = ((parameters.packed >> 10) & 3) == 1
                                   ? SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE
                                   : SDL_GPU_SAMPLERADDRESSMODE_REPEAT;
@@ -867,8 +881,8 @@ private:
         };
         SDL_GPUColorTargetDescription target = {};
         target.format = SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM;
-        target.blend_state.enable_blend = !(source == srShader::SRCBLEND_ONE &&
-                                            destination == srShader::DSTBLEND_ZERO);
+        target.blend_state.enable_blend =
+            !(source == srShader::SRCBLEND_ONE && destination == srShader::DSTBLEND_ZERO);
         target.blend_state.src_color_blendfactor = sourceFactor(source);
         target.blend_state.dst_color_blendfactor = destinationFactor(destination);
         target.blend_state.color_blend_op = SDL_GPU_BLENDOP_ADD;
@@ -888,9 +902,10 @@ private:
         info.vertex_input_state.num_vertex_buffers = 1;
         info.vertex_input_state.vertex_attributes = attributes;
         info.vertex_input_state.num_vertex_attributes = 6;
-        info.primitive_type = primitive == PRIMITIVE_CLASS_LINES    ? SDL_GPU_PRIMITIVETYPE_LINELIST
-                              : primitive == PRIMITIVE_CLASS_POINTS ? SDL_GPU_PRIMITIVETYPE_POINTLIST
-                                                                   : SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
+        info.primitive_type = primitive == PRIMITIVE_CLASS_LINES ? SDL_GPU_PRIMITIVETYPE_LINELIST
+                              : primitive == PRIMITIVE_CLASS_POINTS
+                                  ? SDL_GPU_PRIMITIVETYPE_POINTLIST
+                                  : SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
         info.rasterizer_state.fill_mode =
             polygon == POLYGON_LINE ? SDL_GPU_FILLMODE_LINE : SDL_GPU_FILLMODE_FILL;
         info.rasterizer_state.cull_mode = cull == CULL_BACK    ? SDL_GPU_CULLMODE_BACK
@@ -1110,8 +1125,8 @@ private:
             SDL_GPUTexture* swapchain = 0;
             Uint32 swapchain_width = 0;
             Uint32 swapchain_height = 0;
-            if (SDL_WaitAndAcquireGPUSwapchainTexture(command, window, &swapchain,
-                                                      &swapchain_width, &swapchain_height) &&
+            if (SDL_WaitAndAcquireGPUSwapchainTexture(command, window, &swapchain, &swapchain_width,
+                                                      &swapchain_height) &&
                 swapchain != 0) {
                 SDL_GPUBlitInfo blit = {};
                 blit.source.texture = color_target;
@@ -1192,18 +1207,25 @@ private:
         const glm::ivec2 position(command.x, command.y);
         const glm::ivec2 dimensions(width, height);
         if (glm::any(glm::lessThan(position, glm::ivec2(0))) ||
-            glm::any(glm::greaterThanEqual(position, dimensions))) return;
+            glm::any(glm::greaterThanEqual(position, dimensions))) {
+            return;
+        }
         const unsigned axis = vertical ? 1 : 0;
         const auto count = glm::min(command.count, dimensions[axis] - position[axis]);
-        if (count <= 0) return;
+        if (count <= 0) {
+            return;
+        }
         const bool read = command.opcode == 2 || command.opcode == 6;
         const bool fill = command.opcode == 4;
         const size_t stride = vertical ? width : 1;
         auto* line = readback.data() + size_t(command.y) * width + command.x;
         auto* data = static_cast<uint32_t*>(command.data);
         for (w8_long index = 0; index < count; ++index) {
-            if (read) data[index] = line[size_t(index) * stride];
-            else line[size_t(index) * stride] = data[fill ? 0 : index];
+            if (read) {
+                data[index] = line[size_t(index) * stride];
+            } else {
+                line[size_t(index) * stride] = data[fill ? 0 : index];
+            }
         }
         readback_dirty |= !read;
     }

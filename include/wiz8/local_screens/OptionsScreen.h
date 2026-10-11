@@ -240,7 +240,8 @@ public:
 // VTABLE: WIZ8 0x005eee80
 class W8OptionsButton : public W8TextControl {
 public:
-    W8OptionsButton(Controls* owner, int left, int top, int right, int bottom, std::string_view text);
+    W8OptionsButton(Controls* owner, int left, int top, int right, int bottom,
+                    std::string_view text);
     virtual void Redraw(bool full_redraw) override;
     virtual void OnMouseEnter(int event) override;
     virtual void OnMouseLeave(int event) override;
@@ -379,8 +380,8 @@ public:
 // VTABLE: WIZ8 0x005ef000 W8TextControl::Listener
 // VTABLE: WIZ8 0x005eeffc W8DialogCloseListener
 class W8OptionsScreen final : public W8ControlSelectionListener,
-                        public W8TextControl::Listener,
-                        public W8DialogCloseListener {
+                              public W8TextControl::Listener,
+                              public W8DialogCloseListener {
 public:
     W8OptionsScreen();
     ~W8OptionsScreen();

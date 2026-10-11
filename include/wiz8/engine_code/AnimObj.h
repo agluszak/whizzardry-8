@@ -27,12 +27,12 @@ struct W8AnimObj {
     W8AnimObj& operator=(const W8AnimObj&) = delete;
     ~W8AnimObj();
 
-    unsigned char group_count{};       // mesh/list group count, max 3
-    bool animation_playing{}; // copied onto monster/prop animation_playing
-    unsigned char frame_method{};      // copied onto frame_method
-    unsigned char behaviour{};         // copied onto animation_behaviour
-    unsigned char cycle{};             // default cycle/emitter index
-    bool path_lists{};        // 0 = mesh entries, nonzero = path lists
+    unsigned char group_count{};  // mesh/list group count, max 3
+    bool animation_playing{};     // copied onto monster/prop animation_playing
+    unsigned char frame_method{}; // copied onto frame_method
+    unsigned char behaviour{};    // copied onto animation_behaviour
+    unsigned char cycle{};        // default cycle/emitter index
+    bool path_lists{};            // 0 = mesh entries, nonzero = path lists
     float playback_scale{};
     bool random_play{}; // copied onto prop random_play
     /* Serialized as a float; 0x004A0320 copies its four-byte representation. */
@@ -56,12 +56,12 @@ unsigned int AnimObjListCount(W8AnimObj* animation, signed char index);
 W8PathAI* AnimObjListEntry(W8AnimObj* animation, signed char list_index, signed char entry_index);
 bool AnimationIsRunning(W8AnimObj* animation);
 bool AnimObjReadFromFile(W8ReadLevelInfo* info, W8AnimObj* animation, int load_all,
-                                  std::vector<stLight*>* light_list, int);
+                         std::vector<stLight*>* light_list, int);
 srModelInstance* AnimObjDispatch(W8AnimObj* animation, signed char list_index, unsigned char value);
 srModelInstance* AnimObjDispatchList(W8AnimObj* animation, signed char list_index,
                                      signed char entry_index);
 W8AniMesh* AnimObjEntry(W8AnimObj* animation, signed char list_index, unsigned int entry_index);
 std::optional<srBoundingBox> AnimObjGetBounds(W8AnimObj* animation, signed char list_index,
-                                            unsigned int frame);
+                                              unsigned int frame);
 
 #endif

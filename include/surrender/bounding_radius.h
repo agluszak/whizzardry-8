@@ -6,7 +6,7 @@
 #include <ranges>
 
 // Accumulate in the center's scalar precision; padding belongs to the caller.
-template<class Point, std::ranges::input_range Range>
+template <class Point, std::ranges::input_range Range>
 inline typename Point::value_type boundingRadius(Range&& points, const Point& center)
 {
     using Scalar = typename Point::value_type;

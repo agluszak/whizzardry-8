@@ -9,8 +9,7 @@
 // class srClassSupport<srMaterial, srMaterialIFace, 8720>
 
 // VTABLE: SURRENDER 0x10075538 srMaterial
-class SR_DLL_IMPORT srMaterial
-    : public srClassSupport<srMaterial, srMaterialIFace, 0x2210> {
+class SR_DLL_IMPORT srMaterial : public srClassSupport<srMaterial, srMaterialIFace, 0x2210> {
 public:
     /* Bit indices, not masks. */
     enum e_oper {
@@ -38,7 +37,6 @@ public:
     virtual void postProcess(srVertexPipe& pipe) override;
 
 protected:
-
     virtual void updateParms();
     virtual void reset();
 

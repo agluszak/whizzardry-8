@@ -30,24 +30,48 @@ public:
     explicit W8ButtonWidget(Controls& owner);
     ~W8ButtonWidget() override;
     void Draw();
-    void Redraw(bool) override { Draw(); }
+    void Redraw(bool) override
+    {
+        Draw();
+    }
     void Reset();
-    bool IsConfigured() const { return OwnsRegion(); }
+    bool IsConfigured() const
+    {
+        return OwnsRegion();
+    }
     void SetPosition(int x, int y);
     void Resize(int width, int height);
     void SetText(std::string_view text);
     void SetTextOffsets(int x, int y, bool shift);
     void SetMultiColor(bool enabled);
-    int GetWidth() const { return m_appearance.bounds.w; }
-    int GetHeight() const { return m_appearance.bounds.h; }
-    int GetX() const { return m_appearance.bounds.x; }
-    int GetY() const { return m_appearance.bounds.y; }
-    SDL_Point GetMousePosition() const { return GetRegionMousePosition(); }
+    int GetWidth() const
+    {
+        return m_appearance.bounds.w;
+    }
+    int GetHeight() const
+    {
+        return m_appearance.bounds.h;
+    }
+    int GetX() const
+    {
+        return m_appearance.bounds.x;
+    }
+    int GetY() const
+    {
+        return m_appearance.bounds.y;
+    }
+    SDL_Point GetMousePosition() const
+    {
+        return GetRegionMousePosition();
+    }
     bool IsLeftButtonHeld() const
     {
         return OwnsRegion() && (Region().flags & W8_REGION_LEFT_BUTTON_HELD) != 0;
     }
-    SDL_Rect GetBounds() const { return m_appearance.bounds; }
+    SDL_Rect GetBounds() const
+    {
+        return m_appearance.bounds;
+    }
     void SetEnabled(bool enabled) override;
     void UpdateEnabledState(bool enabled)
     {
@@ -59,14 +83,23 @@ public:
             m_dirty = true;
         }
     }
-    bool IsEnabled() const { return OwnsRegion() && m_visual.enabled; }
+    bool IsEnabled() const
+    {
+        return OwnsRegion() && m_visual.enabled;
+    }
     void SetPressed(bool pressed);
-    bool IsPressed() const { return m_visual.pressed; }
+    bool IsPressed() const
+    {
+        return m_visual.pressed;
+    }
     void SetVisible(bool visible);
     /* Installs the tooltip string on the mouse region (when one is configured
        and tooltips are on), or clears it. */
     void SetTooltipEnabled(bool enabled);
-    int GetUserData() const { return m_user_data; }
+    int GetUserData() const
+    {
+        return m_user_data;
+    }
     /* Load the frame images, configure the owned region, and store the
        per-button callbacks, left-toggle flag, priority and tooltip index. */
     bool Configure(const char* image_path, int gray_frame, int off_normal_frame,
@@ -74,12 +107,11 @@ public:
                    W8ButtonCallback left_callback, W8ButtonCallback move_callback,
                    bool left_toggles, int priority, int tooltip_index,
                    W8ButtonCallback right_callback, W8ButtonCallback double_click_callback);
-    bool Configure(std::shared_ptr<const SpriteSheet> sprites, int gray_frame,
-                   int off_normal_frame, int off_hover_frame, int on_normal_frame,
-                   int on_hover_frame, W8ButtonCallback left_callback,
-                   W8ButtonCallback move_callback, bool left_toggles, int priority,
-                   int tooltip_index, W8ButtonCallback right_callback,
-                   W8ButtonCallback double_click_callback);
+    bool Configure(std::shared_ptr<const SpriteSheet> sprites, int gray_frame, int off_normal_frame,
+                   int off_hover_frame, int on_normal_frame, int on_hover_frame,
+                   W8ButtonCallback left_callback, W8ButtonCallback move_callback,
+                   bool left_toggles, int priority, int tooltip_index,
+                   W8ButtonCallback right_callback, W8ButtonCallback double_click_callback);
     bool ConfigureIcon(const char* image_path, int disabled_frame, int normal_frame, int priority,
                        int tooltip_index)
     {
@@ -114,7 +146,10 @@ private:
     SDL_MouseButtonFlags m_armed_buttons = 0;
     SDL_MouseButtonFlags m_repeated_buttons = 0;
     int m_user_data = 0;
-    W8Region& Region() const { return g_regions[m_region]; }
+    W8Region& Region() const
+    {
+        return g_regions[m_region];
+    }
     void ConfigureRegion(int priority);
     void ApplyRegionBounds();
     void HandleMouseEvent(std::int32_t reason);
@@ -129,6 +164,7 @@ public:
     /* Raised by the dialog factories on their item-row buttons; right
        down then toggles CLICKED_ON the same way left-toggle does. */
     bool m_right_toggles;
+
 private:
     bool silent;       /* suppresses all button sounds */
     bool hover_silent; /* suppresses hover/exit sounds only */

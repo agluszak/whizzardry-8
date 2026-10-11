@@ -175,7 +175,7 @@ srRegistry::ClassNode* srRegistry::getClassNode(w8_ulong class_id)
 }
 
 srRegistry::ClassNode* srRegistry::registerClass(const char* class_name, ClassNode* parent,
-                                               w8_ulong class_id)
+                                                 w8_ulong class_id)
 {
     std::lock_guard lock(mutex);
     if (auto* existing = getClassNode(class_id)) {
@@ -202,9 +202,13 @@ const char* srRegistry::getClassName(ClassNode* node)
 
 int srRegistry::isDerivedOrSame(ClassNode* base, ClassNode* derived)
 {
-    if (!base) return 0;
+    if (!base) {
+        return 0;
+    }
     for (; derived; derived = derived->parent) {
-        if (derived == base) return 1;
+        if (derived == base) {
+            return 1;
+        }
     }
     return 0;
 }

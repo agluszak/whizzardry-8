@@ -16,13 +16,13 @@ template <class T> class srVector3T;
    auto-release nodes and re-aims/re-volumes playing voices relative to the
    camera. */
 void Update3DSounds(); /* 0x004AEFD0 */
-W8SpellVisual* CreateMonsterSpellEffect(std::string_view mls_name, int power_level, W8Monster* monster,
-                                        int value, int flags); /* 0x004AD630 */
-W8SpellVisual* CreateAttachedSpellEffect(std::string_view mls_name, int power_level, W8Monster* parent,
-                                         int value, int flags); /* 0x004AD8A0 */
+W8SpellVisual* CreateMonsterSpellEffect(std::string_view mls_name, int power_level,
+                                        W8Monster* monster, int value, int flags); /* 0x004AD630 */
+W8SpellVisual* CreateAttachedSpellEffect(std::string_view mls_name, int power_level,
+                                         W8Monster* parent, int value, int flags); /* 0x004AD8A0 */
 W8SpellVisual* CreateAimedSpellEffect(std::string_view mls_name, int power_level,
-                                      srVector3T<float>* position, glm::mat3* rotation,
-                                      int value, int flags); /* 0x004ADB20 */
+                                      srVector3T<float>* position, glm::mat3* rotation, int value,
+                                      int flags); /* 0x004ADB20 */
 void SetTargetConeEnabled(bool enabled);
 W8SpellVisual* SpawnCameraSpellEffect(std::string_view name, int power_level, int value,
                                       int flags); /* 0x004AD080 */

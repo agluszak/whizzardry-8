@@ -15,8 +15,8 @@
 #include "surrender/srTextureIFace.h"
 
 stTexture2D::stTexture2D()
-    : srClassSupport<stTexture2D, srTexture, 0x1000f>(), left(0), top(0), right(128),
-      bottom(128), frame_handle(getNewFrameHandle()), surface(0)
+    : srClassSupport<stTexture2D, srTexture, 0x1000f>(), left(0), top(0), right(128), bottom(128),
+      frame_handle(getNewFrameHandle()), surface(0)
 {
     setMipmap(MIPMAP_NONE);
     enableHint(HINT_NO_MIPMAPS);
@@ -41,7 +41,9 @@ w8_ulong stTexture2D::getTextureFrameHandle()
 // FUNCTION: WIZ8 0x0047E710
 void stTexture2D::getMipmapData(const MultiRequest& request)
 {
-    if (request.destinations.empty() || !request.destinations.front()) return;
+    if (request.destinations.empty() || !request.destinations.front()) {
+        return;
+    }
     request.destinations.front()->blit(0, 0, *surface, left, top, right, bottom);
 }
 
@@ -70,15 +72,13 @@ void stTexture2D::setupDefaultValues()
 }
 
 // FUNCTION: WIZ8 0x0047DAE0
-stSurface2D::stSurface2D(std::shared_ptr<srColorSurfaceIFace> source, int source_width, int source_height,
-                         srNode* parent, int tile_extent)
+stSurface2D::stSurface2D(std::shared_ptr<srColorSurfaceIFace> source, int source_width,
+                         int source_height, srNode* parent, int tile_extent)
     : srClassSupport<stSurface2D, srNode, 0x1000e>(static_cast<srNode*>(0)),
-      vertex_array_mask(1 << srRendererDefs::VERTEX_ARRAY_TEXCOORD0),
-      shader_bits(0x100a017), tile_size(tile_extent),
-      columns((source_width + tile_extent - 1) / tile_extent),
-      rows((source_height + tile_extent - 1) / tile_extent),
-      width(source_width), height(source_height),
-      tile_u(tile_extent / static_cast<float>(source_width)),
+      vertex_array_mask(1 << srRendererDefs::VERTEX_ARRAY_TEXCOORD0), shader_bits(0x100a017),
+      tile_size(tile_extent), columns((source_width + tile_extent - 1) / tile_extent),
+      rows((source_height + tile_extent - 1) / tile_extent), width(source_width),
+      height(source_height), tile_u(tile_extent / static_cast<float>(source_width)),
       tile_v(tile_extent / static_cast<float>(source_height)), field_168(0), field_16c(1.0f),
       scale(0.0f), texture_update_flags(0)
 {

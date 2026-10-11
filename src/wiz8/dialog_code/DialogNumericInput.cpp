@@ -16,7 +16,6 @@
 #include "wiz8/local_code/ButtonWidget.h"
 #include "local_code/ControlsRect.h"
 
-
 /* Dialog Code numeric entry field, reconstructed logical owner: the original
    translation-unit identity is unproven. The functions at 0x005E1460-0x005E1B22
    sit in the gap after DialogScrollBar.cpp (TrackButtonCallback ends at
@@ -73,7 +72,8 @@ void W8DialogNumericInput::SetActive(bool active, const SDL_Point* point)
     m_caret = -1;
     std::size_t suffix = length - 1;
     for (; count < length; ++count, --suffix) {
-        short suffix_width = m_font->textWidth(std::string_view(g_numeric_input_text).substr(suffix));
+        short suffix_width =
+            m_font->textWidth(std::string_view(g_numeric_input_text).substr(suffix));
         if ((m_bounds.right - point->x) - m_bounds.left < suffix_width) {
             m_caret = count;
             break;
@@ -105,13 +105,14 @@ void W8DialogNumericInput::Draw(bool force)
     if (text_x <= m_bounds.left) {
         text_x = m_bounds.left;
     }
-    DrawTextAndInvalidate(GetFrameBufferSurface(), *m_font, {text_x, text_y},
-                          g_numeric_input_text);
+    DrawTextAndInvalidate(GetFrameBufferSurface(), *m_font, {text_x, text_y}, g_numeric_input_text);
     if (m_active && m_caret != -1) {
         int caret_x =
-            m_bounds.right - m_font->textWidth(std::string_view(g_numeric_input_text).substr(length - m_caret)) - 1;
+            m_bounds.right -
+            m_font->textWidth(std::string_view(g_numeric_input_text).substr(length - m_caret)) - 1;
         font_height = m_font->height();
-        int caret_top = m_bounds.top + std::max(0, (m_bounds.bottom - m_bounds.top - font_height) / 2);
+        int caret_top =
+            m_bounds.top + std::max(0, (m_bounds.bottom - m_bounds.top - font_height) / 2);
         int caret_bottom = m_bounds.bottom;
         if (caret_top + m_font->height() < caret_bottom) {
             caret_bottom = caret_top + m_font->height();
@@ -138,7 +139,8 @@ void W8DialogNumericInput::TypeDigit(char digit)
         if (length < 10) {
             unsigned int value;
             g_numeric_input_text.insert(length - m_caret, 1, digit);
-            std::from_chars(g_numeric_input_text.data(), g_numeric_input_text.data() + g_numeric_input_text.size(), value);
+            std::from_chars(g_numeric_input_text.data(),
+                            g_numeric_input_text.data() + g_numeric_input_text.size(), value);
             if (value <= m_maximum) {
                 m_value = value;
                 NotifyValueChanged();
@@ -153,7 +155,9 @@ void W8DialogNumericInput::TypeDigit(char digit)
 
 static void RemoveNumericInputCharacter(unsigned int position, unsigned int length)
 {
-    if (position < length) g_numeric_input_text.erase(position, 1);
+    if (position < length) {
+        g_numeric_input_text.erase(position, 1);
+    }
 }
 
 // FUNCTION: WIZ8 0x005e1840
@@ -168,7 +172,8 @@ void W8DialogNumericInput::DeleteForward()
         if (length == 1) {
             m_value = 0;
         } else {
-            std::from_chars(g_numeric_input_text.data(), g_numeric_input_text.data() + g_numeric_input_text.size(), m_value);
+            std::from_chars(g_numeric_input_text.data(),
+                            g_numeric_input_text.data() + g_numeric_input_text.size(), m_value);
         }
         NotifyValueChanged();
     }
@@ -189,7 +194,8 @@ void W8DialogNumericInput::Backspace()
             if (length == 1) {
                 m_value = 0;
             } else {
-                std::from_chars(g_numeric_input_text.data(), g_numeric_input_text.data() + g_numeric_input_text.size(), m_value);
+                std::from_chars(g_numeric_input_text.data(),
+                                g_numeric_input_text.data() + g_numeric_input_text.size(), m_value);
             }
             NotifyValueChanged();
         }

@@ -701,8 +701,9 @@ int __cdecl CompareSpellPointDeficits(const void* first, const void* second)
 {
     const W8SpellPointDeficit* a = static_cast<const W8SpellPointDeficit*>(first);
     const W8SpellPointDeficit* b = static_cast<const W8SpellPointDeficit*>(second);
-    if (a->deficit < b->deficit)
+    if (a->deficit < b->deficit) {
         return 1;
+    }
     return (a->deficit == b->deficit) - 1;
 }
 
@@ -899,9 +900,8 @@ void MonsterReactsToBeingStruck(W8MonsterInfo* monster_info, W8TargetSource* att
                 W8_DISPOSITION_FRIENDLY) {
                 TickMonsterCondition(monster_info->location_id, W8_CONDITION_TURNCOAT, 1);
             }
-        } else if (MonsterHostility(
-                       FindMonster(attacker->iMonsterID),
-                       monster_info) == W8_DISPOSITION_FRIENDLY) {
+        } else if (MonsterHostility(FindMonster(attacker->iMonsterID), monster_info) ==
+                   W8_DISPOSITION_FRIENDLY) {
             TickMonsterCondition(monster_info->location_id, W8_CONDITION_TURNCOAT, 1);
         }
     }
@@ -1429,7 +1429,8 @@ W8Character* FindPartyMemberWithLowestResistance4(void)
             lowest = character->resistances[4].total;
         }
     }
-    if (lowest == 999)
+    if (lowest == 999) {
         return 0;
+    }
     return &g_status.buffers.Char[selected];
 }

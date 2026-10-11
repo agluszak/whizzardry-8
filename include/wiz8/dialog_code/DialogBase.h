@@ -52,15 +52,16 @@ public:
     virtual void OnRightButtonUp();
     virtual void OnMouseWheel(int delta);
 
-    template <class HandleInput>
-    static void DrainModalInput(HandleInput&& handle_input)
+    template <class HandleInput> static void DrainModalInput(HandleInput&& handle_input)
     {
         InputEvent input;
 
         const auto mouse = GetRegionMousePosition();
         UpdateRegionMousePosition(mouse.x, mouse.y);
         while (DequeueEvent(&input) == 1) {
-            if (!handle_input(input)) break;
+            if (!handle_input(input)) {
+                break;
+            }
         }
     }
 
@@ -119,6 +120,5 @@ protected:
     unsigned char padding_051[3];
     std::optional<ExclusiveRegionSet> m_input_scope;
 };
-
 
 extern int g_live_dialog_count;

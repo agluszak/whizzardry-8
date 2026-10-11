@@ -30,7 +30,6 @@
 
 struct W8NpcState;
 
-
 // GLOBAL: WIZ8 0x006834e4
 static W8Monster* g_swamp_spawned_monster;
 

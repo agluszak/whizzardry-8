@@ -26,9 +26,8 @@ stTextureAnim::stTextureAnim() : frame_tick(w8_get_ticks()) {}
 // FUNCTION: WIZ8 0x00485070
 stTextureAnim::stTextureAnim(const stTextureAnim& other)
     : textures(other.textures), animation_mode(other.animation_mode),
-      initial_frame(other.initial_frame), frame_rate(other.frame_rate),
-      frame_tick(w8_get_ticks()), trigger_mode(other.trigger_mode),
-      probability(other.probability), running(other.running)
+      initial_frame(other.initial_frame), frame_rate(other.frame_rate), frame_tick(w8_get_ticks()),
+      trigger_mode(other.trigger_mode), probability(other.probability), running(other.running)
 {
 }
 

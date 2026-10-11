@@ -48,25 +48,32 @@ bool PathAIUpdate(W8AIRecord* record, signed char direction)
 
 // FUNCTION: WIZ8 0x004a92a0
 bool LoadPathAI(W8PathAI** output, wiz8::File* handle)
-try
-{
-    if (!output) return false;
+try {
+    if (!output) {
+        return false;
+    }
     unsigned char version;
     handle->read_exact(&version, sizeof(version));
-    if (version != 0) return false;
+    if (version != 0) {
+        return false;
+    }
     auto path = std::make_unique<W8PathAI>();
     int point_count;
     handle->read_exact(&path->version, 1);
     handle->read_exact(&path->position, 4);
     handle->read_exact(&path->unknown_08, 4);
     handle->read_exact(&point_count, 4);
-    if (point_count < 0) return false;
+    if (point_count < 0) {
+        return false;
+    }
     if (point_count == 0) {
         *output = nullptr;
         return true;
     }
     path->rotations.resize(point_count);
-    if (path->version == 2) path->scales.resize(point_count);
+    if (path->version == 2) {
+        path->scales.resize(point_count);
+    }
     for (int index = 0; index < point_count; ++index) {
         srVector3T<float> point, axis;
         float angle;
@@ -82,10 +89,13 @@ try
         auto& rotation = path->rotations[index];
         rotation = glm::mat3(1);
         if (angle != g_double_zero) {
-            rotation *= glm::mat3_cast(glm::angleAxis(
-                float(std::atan2(sin(angle), cos(angle))), normalizedOrZero(glm::vec3(axis.glmValue()))));
+            rotation *=
+                glm::mat3_cast(glm::angleAxis(float(std::atan2(sin(angle), cos(angle))),
+                                              normalizedOrZero(glm::vec3(axis.glmValue()))));
         }
-        if (path->version == 2) handle->read_exact(&path->scales[index], sizeof(path->scales[index]));
+        if (path->version == 2) {
+            handle->read_exact(&path->scales[index], sizeof(path->scales[index]));
+        }
     }
     *output = path.release();
     return true;
@@ -100,7 +110,6 @@ void PathAIResetRecord(W8AIRecord* record)
         static_cast<W8PathAI*>(record)->position = 0;
     }
 }
-
 
 // FUNCTION: WIZ8 0x004a91f0
 void PathAIApplyToRep(W8AIRecord* record, W8AnimRepBase* representation)
@@ -158,7 +167,6 @@ void PathAIAddPoint(W8PathAI& path, const srVector3T<float>& point)
     }
 }
 
-
 // FUNCTION: WIZ8 0x004a9ba0
 void PathAIEnableTimedMode(W8PathAI* path)
 {
@@ -202,13 +210,11 @@ bool PathAINextPoint(W8PathAI* path, srVector3T<float>* point)
 bool PathAIIsComplete(W8PathAI* path)
 {
     if (path != 0 && !path->nodes.empty() &&
-        (path->point_index < static_cast<unsigned int>(path->nodes.size()) ||
-         path->looping)) {
+        (path->point_index < static_cast<unsigned int>(path->nodes.size()) || path->looping)) {
         return false;
     }
     return true;
 }
-
 
 // FUNCTION: WIZ8 0x004a9f60
 void PathAISetValue(W8PathAI* path, float value)
@@ -378,17 +384,23 @@ bool PathAITick(W8PathAI* path, signed char direction)
 // FUNCTION: WIZ8 0x004aa370
 void PathAIPosition(W8PathAI* path, srVector3T<float>* value)
 {
-    if (!path || path->nodes.empty()) return;
+    if (!path || path->nodes.empty()) {
+        return;
+    }
     if (!path->animated) {
         int index = path->discrete_mode
                         ? srFloatToInt(path->position + g_double_one_tenth)
                         : srFloatToInt((path->nodes.size() - 1) * path->position + g_double_half);
         index = std::min(index, static_cast<int>(path->nodes.size()) - 1);
-        if (index >= 0) *value = path->nodes[index];
+        if (index >= 0) {
+            *value = path->nodes[index];
+        }
         return;
     }
     const auto index = path->point_index;
-    if (index >= path->nodes.size()) return;
+    if (index >= path->nodes.size()) {
+        return;
+    }
     if (index + 1 < path->nodes.size()) {
         *value = path->nodes[index] * (g_float_one - path->interpolation_fraction) +
                  path->nodes[index + 1] * path->interpolation_fraction;

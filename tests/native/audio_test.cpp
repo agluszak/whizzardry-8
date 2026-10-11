@@ -37,8 +37,9 @@
 static unsigned callbacks = 0;
 static void word(std::vector<unsigned char>& data, unsigned value, int bytes)
 {
-    for (int i = 0; i < bytes; ++i)
+    for (int i = 0; i < bytes; ++i) {
         data.push_back(value >> (i * 8));
+    }
 }
 static void tag(std::vector<unsigned char>& data, const char* value)
 {
@@ -60,39 +61,43 @@ static std::vector<unsigned char> wav(bool stereo = false)
     word(bytes, 16, 2);
     tag(bytes, "data");
     word(bytes, 4410 * (stereo ? 4 : 2), 4);
-    for (int i = 0; i < 4410; ++i)
-    {
+    for (int i = 0; i < 4410; ++i) {
         word(bytes, unsigned(short(std::sin(i * 2 * 3.14159265 * 440 / 44100) * 12000)), 2);
-        if (stereo)
+        if (stereo) {
             word(bytes, unsigned(short(std::sin(i * 2 * 3.14159265 * 880 / 44100) * 6000)), 2);
+        }
     }
     return bytes;
 }
 static void write(const std::filesystem::path& name, const std::vector<unsigned char>& bytes)
 {
     std::ofstream file(name, std::ios::binary);
-    if (!file.write(reinterpret_cast<const char*>(bytes.data()), bytes.size()))
+    if (!file.write(reinterpret_cast<const char*>(bytes.data()), bytes.size())) {
         FAIL("Audio fixture or offline mixer failed");
+    }
 }
 static std::vector<float> mix(size_t frames)
 {
     std::vector<float> samples(frames * 2);
-    if (!w8_native::audio_render_for_test(samples.data(), frames))
+    if (!w8_native::audio_render_for_test(samples.data(), frames)) {
         FAIL("Audio fixture or offline mixer failed");
+    }
     return samples;
 }
 static double energy(const std::vector<float>& values, int channel)
 {
     double sum = 0;
-    for (size_t i = channel; i < values.size(); i += 2)
+    for (size_t i = channel; i < values.size(); i += 2) {
         sum += values[i] * values[i];
+    }
     return sum;
 }
 static unsigned crossings(const std::vector<float>& samples, int channel = 0)
 {
     unsigned count = 0;
-    for (size_t i = channel + 2; i < samples.size(); i += 2)
+    for (size_t i = channel + 2; i < samples.size(); i += 2) {
         count += samples[i - 2] <= 0 && samples[i] > 0;
+    }
     return count;
 }
 static bool near(double value, double expected, double tolerance = 0.02)
@@ -100,9 +105,7 @@ static bool near(double value, double expected, double tolerance = 0.02)
     return std::abs(value - expected) <= tolerance * std::max(1.0, std::abs(expected));
 }
 
-
-struct AudioFixture
-{
+struct AudioFixture {
     ScopedTemporaryDirectory directory{"wiz8-audio"};
     std::filesystem::path temporary = directory.path;
     std::filesystem::path asset = temporary / "assets";
@@ -134,7 +137,8 @@ struct AudioFixture
         entries[1].uiOffset = sizeof(header);
         entries[1].uiLength = 16;
         std::vector<unsigned char> archive(reinterpret_cast<unsigned char*>(&header),
-                                           reinterpret_cast<unsigned char*>(&header) + sizeof(header));
+                                           reinterpret_cast<unsigned char*>(&header) +
+                                               sizeof(header));
         archive.insert(archive.end(), wave.begin(), wave.end());
         archive.insert(archive.end(), reinterpret_cast<unsigned char*>(entries),
                        reinterpret_cast<unsigned char*>(entries) + sizeof(entries));
@@ -147,7 +151,13 @@ struct AudioFixture
     {
         {
             char packed[] = "data\\PACKED.WAV";
-            auto entry = [&]() { try { return wiz8::open_file(packed, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
+            auto entry = [&]() {
+                try {
+                    return wiz8::open_file(packed, wiz8::OpenMode::read);
+                } catch (const std::exception&) {
+                    return std::unique_ptr<wiz8::File>{};
+                }
+            }();
             REQUIRE(entry);
             auto first = wiz8::open_file(packed), second = wiz8::open_file(packed);
             entry.reset();
@@ -161,7 +171,7 @@ struct AudioFixture
             REQUIRE(std::memcmp(bytes, wave.data(), 32) == 0);
             first.reset();
             REQUIRE(second->seek(wave.size() - 32, wiz8::SeekOrigin::begin) ==
-                  int64_t(wave.size() - 32));
+                    int64_t(wave.size() - 32));
             REQUIRE(second->read(bytes, 32).bytes == 32);
             REQUIRE(std::memcmp(bytes, wave.data() + wave.size() - 32, 32) == 0);
             REQUIRE(loose->read(bytes, sizeof(bytes)).bytes == sizeof(bytes));
@@ -218,8 +228,7 @@ TEST_CASE_METHOD(AudioFixture, "Audio archives, tracks and combat sounds", "[aud
         REQUIRE(MIX_SetTrackIOStream(packed.get(), packedInput.get(), false));
         REQUIRE(MIX_SetTrackIOStream(looping.get(), loopInput.get(), false));
         REQUIRE(!MIX_SetTrackIOStream(bad.get(), badInput.get(), false));
-        for (auto track : {loose.get(), packed.get()})
-        {
+        for (auto track : {loose.get(), packed.get()}) {
             REQUIRE(MIX_GetTrackPlaybackPosition(track) == 0);
             REQUIRE(MIX_PlayTrack(track, 0));
             REQUIRE(MIX_TrackFramesToMS(track, MIX_GetTrackRemaining(track)) == 100);
@@ -239,16 +248,19 @@ TEST_CASE_METHOD(AudioFixture, "Audio archives, tracks and combat sounds", "[aud
         REQUIRE(MIX_TrackPlaying(looping.get()));
         REQUIRE(energy(samples, 0) + energy(samples, 1) > 10);
     }
-
 }
 
-TEST_CASE_METHOD(AudioFixture, "Audio playback, spatialization and movie lifetime", "[audio][mixer]")
+TEST_CASE_METHOD(AudioFixture, "Audio playback, spatialization and movie lifetime",
+                 "[audio][mixer]")
 {
     using wiz8::sound::Group;
     using wiz8::sound::PlayOptions;
     startOfflineAudio();
     unsigned callback_data = 0;
-    const auto count_end = [&] { ++callbacks; ++callback_data; };
+    const auto count_end = [&] {
+        ++callbacks;
+        ++callback_data;
+    };
     const std::string_view path = "TONE.WAV";
     auto sound = wiz8::sound::play(path, {.volume = 127, .on_finished = count_end});
     REQUIRE((sound != nullptr && wiz8::sound::is_playing(sound)));
@@ -317,8 +329,9 @@ TEST_CASE_METHOD(AudioFixture, "Audio playback, spatialization and movie lifetim
     REQUIRE(energy(samples, 0) + energy(samples, 1) > 10);
     wiz8::sound::service();
     REQUIRE(!wiz8::sound::is_playing(sound));
-    for (int i = 0; i < 64; ++i)
+    for (int i = 0; i < 64; ++i) {
         REQUIRE(wiz8::sound::play(path, {.loops = 0, .group = Group::ambient}) != nullptr);
+    }
     REQUIRE(wiz8::sound::stop_group(Group::ambient));
     sound = wiz8::sound::play(path, {.loops = 0, .group = Group::music});
     REQUIRE(sound != nullptr);
@@ -329,9 +342,9 @@ TEST_CASE_METHOD(AudioFixture, "Audio playback, spatialization and movie lifetim
     REQUIRE(wiz8::sound::stop_group(Group::music));
     // Old backend: 2048 frames at full gain = 137.670993 per ear; front = 1/4 power.
     const double baseline = 137.670993;
-    for (auto x : {-3.0f, 0.0f, 3.0f})
-    {
-        sound = wiz8::sound::play(path, {.volume = 127, .loops = 0, .position = glm::vec3(x, 0, 0)});
+    for (auto x : {-3.0f, 0.0f, 3.0f}) {
+        sound =
+            wiz8::sound::play(path, {.volume = 127, .loops = 0, .position = glm::vec3(x, 0, 0)});
         REQUIRE(sound != nullptr);
         samples = mix(2048);
         const auto left = energy(samples, 0), right = energy(samples, 1);
@@ -341,9 +354,9 @@ TEST_CASE_METHOD(AudioFixture, "Audio playback, spatialization and movie lifetim
         REQUIRE(wiz8::sound::stop(sound));
     }
     // Callers apply distance falloff; the service only pans.
-    for (auto distance : {1.0f, 100.0f})
-    {
-        sound = wiz8::sound::play(path, {.volume = 127, .loops = 0, .position = glm::vec3(0, 0, -distance)});
+    for (auto distance : {1.0f, 100.0f}) {
+        sound = wiz8::sound::play(
+            path, {.volume = 127, .loops = 0, .position = glm::vec3(0, 0, -distance)});
         REQUIRE(sound != nullptr);
         samples = mix(2048);
         REQUIRE(near(energy(samples, 0), baseline * 0.25));
@@ -413,8 +426,7 @@ TEST_CASE_METHOD(AudioFixture, "Audio playback, spatialization and movie lifetim
     REQUIRE(energy(samples, 0) + energy(samples, 1) > 1);
     wiz8::sound::service();
     REQUIRE(!wiz8::sound::is_playing(sound));
-    for (const std::string_view rejected : {"bad.wav", "Data\\Truncated.wav", ""})
-    {
+    for (const std::string_view rejected : {"bad.wav", "Data\\Truncated.wav", ""}) {
         REQUIRE(wiz8::sound::play(rejected) == nullptr);
         REQUIRE(wiz8::sound::stream(rejected) == nullptr);
         REQUIRE(wiz8::sound::load(rejected) == nullptr);
@@ -429,9 +441,9 @@ TEST_CASE_METHOD(AudioFixture, "Audio playback, spatialization and movie lifetim
     unsigned restarts = 0;
     wiz8::sound::Playback restarted;
     sound = wiz8::sound::play(path, {.volume = 127, .on_finished = [&] {
-        ++restarts;
-        restarted = wiz8::sound::play(path, {.volume = 127});
-    }});
+                                         ++restarts;
+                                         restarted = wiz8::sound::play(path, {.volume = 127});
+                                     }});
     REQUIRE(sound != nullptr);
     mix(8192);
     wiz8::sound::service();
@@ -447,7 +459,9 @@ TEST_CASE_METHOD(AudioFixture, "Audio playback, spatialization and movie lifetim
         samples = mix(1024);
         REQUIRE(energy(samples, 0) + energy(samples, 1) == 0);
         std::vector<float> pcm(4096);
-        for (size_t i = 0; i < pcm.size(); ++i) pcm[i] = float(std::sin(i * 2 * 3.14159265 * 440 / 44100) * 0.25);
+        for (size_t i = 0; i < pcm.size(); ++i) {
+            pcm[i] = float(std::sin(i * 2 * 3.14159265 * 440 / 44100) * 0.25);
+        }
         movie.append(pcm.data(), pcm.size());
         samples = mix(2048);
         REQUIRE(energy(samples, 0) + energy(samples, 1) > 1);
@@ -474,8 +488,11 @@ TEST_CASE_METHOD(AudioFixture, "Audio playback, spatialization and movie lifetim
         mix(8192);
         REQUIRE(movie.drained());
         bool rejected = false;
-        try { movie.append(pcm.data(), pcm.size() / 2); }
-        catch (const std::exception&) { rejected = true; }
+        try {
+            movie.append(pcm.data(), pcm.size() / 2);
+        } catch (const std::exception&) {
+            rejected = true;
+        }
         REQUIRE(rejected);
     }
     {
@@ -495,7 +512,6 @@ TEST_CASE_METHOD(AudioFixture, "Audio playback, spatialization and movie lifetim
     wiz8::sound::shutdown();
     REQUIRE(wiz8::sound::initialize(true));
     wiz8::sound::shutdown();
-
 }
 
 TEST_CASE_METHOD(AudioFixture, "Audio output device", "[.manual][audio]")
@@ -512,7 +528,8 @@ TEST_CASE_METHOD(AudioFixture, "Audio output device", "[.manual][audio]")
     puts("ok: native output device opened and completed playback");
 }
 
-TEST_CASE_METHOD(AudioFixture, "Audio clips outlive cache entries without slot reuse", "[audio][ownership]")
+TEST_CASE_METHOD(AudioFixture, "Audio clips outlive cache entries without slot reuse",
+                 "[audio][ownership]")
 {
     startOfflineAudio();
     std::vector<wiz8::sound::Clip> clips;
@@ -542,7 +559,8 @@ TEST_CASE_METHOD(AudioFixture, "Audio clips outlive cache entries without slot r
     REQUIRE(retained.expired());
 }
 
-TEST_CASE_METHOD(AudioFixture, "Owned clips retain the mixer across sound shutdown", "[audio][ownership]")
+TEST_CASE_METHOD(AudioFixture, "Owned clips retain the mixer across sound shutdown",
+                 "[audio][ownership]")
 {
     startOfflineAudio();
     auto clip = wiz8::sound::load("tone.wav");
@@ -555,7 +573,8 @@ TEST_CASE_METHOD(AudioFixture, "Owned clips retain the mixer across sound shutdo
     REQUIRE(lifetime.expired());
 }
 
-TEST_CASE_METHOD(AudioFixture, "Playback references never alias replacement tracks", "[audio][ownership]")
+TEST_CASE_METHOD(AudioFixture, "Playback references never alias replacement tracks",
+                 "[audio][ownership]")
 {
     startOfflineAudio();
     auto first = wiz8::sound::play("tone.wav", {.loops = 0});
@@ -577,7 +596,8 @@ TEST_CASE_METHOD(AudioFixture, "Playback references never alias replacement trac
     REQUIRE(wiz8::sound::is_playing(third));
 }
 
-TEST_CASE_METHOD(AudioFixture, "Mixer service owns discarded playback until completion", "[audio][ownership]")
+TEST_CASE_METHOD(AudioFixture, "Mixer service owns discarded playback until completion",
+                 "[audio][ownership]")
 {
     startOfflineAudio();
     std::weak_ptr<wiz8::sound::AudioPlayback> lifetime;
@@ -593,16 +613,17 @@ TEST_CASE_METHOD(AudioFixture, "Mixer service owns discarded playback until comp
     REQUIRE(lifetime.expired());
 }
 
-TEST_CASE_METHOD(AudioFixture, "Playback completion permits stop and shutdown reentry", "[audio][ownership]")
+TEST_CASE_METHOD(AudioFixture, "Playback completion permits stop and shutdown reentry",
+                 "[audio][ownership]")
 {
     startOfflineAudio();
     wiz8::sound::Playback other;
     unsigned calls = 0;
     auto first = wiz8::sound::play("tone.wav", {.on_finished = [&] {
-        ++calls;
-        wiz8::sound::stop(other);
-        wiz8::sound::shutdown();
-    }});
+                                       ++calls;
+                                       wiz8::sound::stop(other);
+                                       wiz8::sound::shutdown();
+                                   }});
     REQUIRE(first);
     other = wiz8::sound::stream("tone.wav", {.loops = 0});
     REQUIRE(other);
@@ -615,16 +636,19 @@ TEST_CASE_METHOD(AudioFixture, "Playback completion permits stop and shutdown re
     REQUIRE(calls == 1);
 }
 
-TEST_CASE_METHOD(AudioFixture, "Mixer tags stop only the original group before reentrant callbacks", "[audio][ownership]")
+TEST_CASE_METHOD(AudioFixture, "Mixer tags stop only the original group before reentrant callbacks",
+                 "[audio][ownership]")
 {
     using wiz8::sound::Group;
     startOfflineAudio();
     wiz8::sound::Playback replacement;
     unsigned calls = 0;
-    auto first = wiz8::sound::play("tone.wav", {.loops = 0, .group = Group::ambient, .on_finished = [&] {
-        ++calls;
-        replacement = wiz8::sound::stream("tone.wav", {.loops = 0, .group = Group::ambient});
-    }});
+    auto first =
+        wiz8::sound::play("tone.wav", {.loops = 0, .group = Group::ambient, .on_finished = [&] {
+                                           ++calls;
+                                           replacement = wiz8::sound::stream(
+                                               "tone.wav", {.loops = 0, .group = Group::ambient});
+                                       }});
     REQUIRE(first);
     auto second = wiz8::sound::stream("tone.wav", {.loops = 0, .group = Group::ambient});
     REQUIRE(second);
@@ -648,14 +672,15 @@ TEST_CASE_METHOD(AudioFixture, "Mixer tags stop only the original group before r
     REQUIRE(calls == 1);
 }
 
-TEST_CASE_METHOD(AudioFixture, "Stopping completed playback drains its deferred callback", "[audio][ownership]")
+TEST_CASE_METHOD(AudioFixture, "Stopping completed playback drains its deferred callback",
+                 "[audio][ownership]")
 {
     startOfflineAudio();
     auto callback_data = std::make_unique<unsigned>(0);
     auto sound = wiz8::sound::stream("tone.wav", {.on_finished = [data = callback_data.get()] {
-        ++callbacks;
-        ++*data;
-    }});
+                                         ++callbacks;
+                                         ++*data;
+                                     }});
     REQUIRE(sound);
     mix(8192);
     REQUIRE_FALSE(wiz8::sound::is_playing(sound));
@@ -669,16 +694,19 @@ TEST_CASE_METHOD(AudioFixture, "Stopping completed playback drains its deferred 
     REQUIRE(callbacks == 1);
 }
 
-TEST_CASE_METHOD(AudioFixture, "Character event destruction cancels its own deferred voice callback", "[audio][ownership]")
+TEST_CASE_METHOD(AudioFixture,
+                 "Character event destruction cancels its own deferred voice callback",
+                 "[audio][ownership]")
 {
     startOfflineAudio();
     auto event = std::make_unique<W8CharacterEvent>(nullptr, 0, 0, 0, 127);
     unsigned calls = 0;
     bool completed = false;
-    event->voice_playback = wiz8::sound::stream("tone.wav", {.on_finished = [&, entry = event.get()] {
-        ++calls;
-        completed = entry->sound_end_handled;
-    }});
+    event->voice_playback =
+        wiz8::sound::stream("tone.wav", {.on_finished = [&, entry = event.get()] {
+                                ++calls;
+                                completed = entry->sound_end_handled;
+                            }});
     REQUIRE(event->voice_playback);
     mix(8192);
     REQUIRE_FALSE(wiz8::sound::is_playing(event->voice_playback));
@@ -691,7 +719,8 @@ TEST_CASE_METHOD(AudioFixture, "Character event destruction cancels its own defe
     REQUIRE(calls == 1);
 }
 
-TEST_CASE_METHOD(AudioFixture, "Mixer completion defers game callbacks until service or next play", "[audio][ownership]")
+TEST_CASE_METHOD(AudioFixture, "Mixer completion defers game callbacks until service or next play",
+                 "[audio][ownership]")
 {
     startOfflineAudio();
     unsigned calls = 0;

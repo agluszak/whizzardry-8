@@ -18,13 +18,21 @@ public:
         std::vector<w8_ulong> avt;
         std::vector<w8_ulong> vertex_remap;
 
-        w8_ulong triangleCount() const { return static_cast<w8_ulong>(indices.size()); }
-        w8_ulong vertexCount() const { return static_cast<w8_ulong>(avt.size()); }
+        w8_ulong triangleCount() const
+        {
+            return static_cast<w8_ulong>(indices.size());
+        }
+        w8_ulong vertexCount() const
+        {
+            return static_cast<w8_ulong>(avt.size());
+        }
     };
 
     struct Input {
         Input(const glm::mat4& model_view, const glm::mat4& inverse_model_view)
-            : model_view(model_view), inverse_model_view(inverse_model_view) {}
+            : model_view(model_view), inverse_model_view(inverse_model_view)
+        {
+        }
         const glm::mat4& model_view;
         const glm::mat4& inverse_model_view;
         std::span<const glm::ivec3> triangles;

@@ -75,7 +75,6 @@ struct W8NpcState;
 // GLOBAL: WIZ8 0x0064C840
 static int g_spell_realm_help_string_ids[6] = {0x27, 0x28, 0x29, 0x2a, 0x2b, 0x2c};
 
-
 // GLOBAL: WIZ8 0x0069BF3C
 std::unique_ptr<W8SpellCastingView> gpSCSV;
 
@@ -148,9 +147,12 @@ static void CreateSpellCastingViewControls(void)
     Controls* panel;
     unsigned int index;
 
-    gpSCSV->panels[0] = std::make_unique<Controls>(0x17, 0x166, 0xe5, 0x1c2, CatalogArtwork::Load(400, 0), 0);
-    gpSCSV->panels[1] = std::make_unique<Controls>(0xe6, 0x166, 0x1a3, 0x1c2, CatalogArtwork::Load(400, 0), 1);
-    gpSCSV->panels[2] = std::make_unique<Controls>(0x1a4, 0x166, 0x268, 0x1c2, CatalogArtwork::Load(400, 0), 2);
+    gpSCSV->panels[0] =
+        std::make_unique<Controls>(0x17, 0x166, 0xe5, 0x1c2, CatalogArtwork::Load(400, 0), 0);
+    gpSCSV->panels[1] =
+        std::make_unique<Controls>(0xe6, 0x166, 0x1a3, 0x1c2, CatalogArtwork::Load(400, 0), 1);
+    gpSCSV->panels[2] =
+        std::make_unique<Controls>(0x1a4, 0x166, 0x268, 0x1c2, CatalogArtwork::Load(400, 0), 2);
 
     panel = gpSCSV->panels[0].get();
     gpSCSV->realm_buttons[0] =
@@ -191,12 +193,30 @@ static void CreateSpellCastingViewControls(void)
     gpSCSV->realm_buttons[4]->m_primaryActivationCallback = SelectMentalSpellRealm;
     gpSCSV->realm_buttons[5]->m_primaryActivationCallback = SelectDivineSpellRealm;
 
-    gpSCSV->realm_icons[0] = new W8TextControl(panel, -1, 0x55, 0xf, 0x67, 0x21, CatalogArtwork::Load(0x193, 0), g_spell_realm_animations[0].initial_frame, -1, -1, -1, g_spell_realm_animations[0].frame_count);
-    gpSCSV->realm_icons[1] = new W8TextControl(panel, -1, 0x73, 0xf, 0x85, 0x21, CatalogArtwork::Load(0x194, 0), g_spell_realm_animations[1].initial_frame, -1, -1, -1, g_spell_realm_animations[1].frame_count);
-    gpSCSV->realm_icons[2] = new W8TextControl(panel, -1, 0x49, 0x25, 0x5b, 0x37, CatalogArtwork::Load(0x195, 0), g_spell_realm_animations[2].initial_frame, -1, -1, -1, g_spell_realm_animations[2].frame_count);
-    gpSCSV->realm_icons[3] = new W8TextControl(panel, -1, 0x7f, 0x25, 0x91, 0x37, CatalogArtwork::Load(0x196, 0), g_spell_realm_animations[3].initial_frame, -1, -1, -1, g_spell_realm_animations[3].frame_count);
-    gpSCSV->realm_icons[4] = new W8TextControl(panel, -1, 0x55, 0x3b, 0x67, 0x4d, CatalogArtwork::Load(0x197, 0), g_spell_realm_animations[4].initial_frame, -1, -1, -1, g_spell_realm_animations[4].frame_count);
-    gpSCSV->realm_icons[5] = new W8TextControl(panel, -1, 0x73, 0x3b, 0x85, 0x4d, CatalogArtwork::Load(0x198, 0), g_spell_realm_animations[5].initial_frame, -1, -1, -1, g_spell_realm_animations[5].frame_count);
+    gpSCSV->realm_icons[0] =
+        new W8TextControl(panel, -1, 0x55, 0xf, 0x67, 0x21, CatalogArtwork::Load(0x193, 0),
+                          g_spell_realm_animations[0].initial_frame, -1, -1, -1,
+                          g_spell_realm_animations[0].frame_count);
+    gpSCSV->realm_icons[1] =
+        new W8TextControl(panel, -1, 0x73, 0xf, 0x85, 0x21, CatalogArtwork::Load(0x194, 0),
+                          g_spell_realm_animations[1].initial_frame, -1, -1, -1,
+                          g_spell_realm_animations[1].frame_count);
+    gpSCSV->realm_icons[2] =
+        new W8TextControl(panel, -1, 0x49, 0x25, 0x5b, 0x37, CatalogArtwork::Load(0x195, 0),
+                          g_spell_realm_animations[2].initial_frame, -1, -1, -1,
+                          g_spell_realm_animations[2].frame_count);
+    gpSCSV->realm_icons[3] =
+        new W8TextControl(panel, -1, 0x7f, 0x25, 0x91, 0x37, CatalogArtwork::Load(0x196, 0),
+                          g_spell_realm_animations[3].initial_frame, -1, -1, -1,
+                          g_spell_realm_animations[3].frame_count);
+    gpSCSV->realm_icons[4] =
+        new W8TextControl(panel, -1, 0x55, 0x3b, 0x67, 0x4d, CatalogArtwork::Load(0x197, 0),
+                          g_spell_realm_animations[4].initial_frame, -1, -1, -1,
+                          g_spell_realm_animations[4].frame_count);
+    gpSCSV->realm_icons[5] =
+        new W8TextControl(panel, -1, 0x73, 0x3b, 0x85, 0x4d, CatalogArtwork::Load(0x198, 0),
+                          g_spell_realm_animations[5].initial_frame, -1, -1, -1,
+                          g_spell_realm_animations[5].frame_count);
 
     panel = gpSCSV->panels[2].get();
     gpSCSV->power_controls[0] =
@@ -208,24 +228,24 @@ static void CreateSpellCastingViewControls(void)
     gpSCSV->power_controls[2] =
         new W8TextControl(panel, g_spell_casting_regions->index(8), 0x56, 0x10, 0x69, 0x23,
                           CatalogArtwork::Load(0x192, 0), 0xc, 0xe, 0xd, 0x10, 0xf);
-    gpSCSV->power_controls[3] = new W8TextControl(
-        panel, g_spell_casting_regions->index(9), 0x5b, 0x23, 0x70, 0x38, CatalogArtwork::Load(0x192, 0),
-        0x12, 0x14, 0x13, 0x16, 0x15);
-    gpSCSV->power_controls[4] = new W8TextControl(
-        panel, g_spell_casting_regions->index(10), 0x52, 0x38, 0x69, 0x4f, CatalogArtwork::Load(0x192, 0),
-        0x18, 0x1a, 0x19, 0x1c, 0x1b);
+    gpSCSV->power_controls[3] =
+        new W8TextControl(panel, g_spell_casting_regions->index(9), 0x5b, 0x23, 0x70, 0x38,
+                          CatalogArtwork::Load(0x192, 0), 0x12, 0x14, 0x13, 0x16, 0x15);
+    gpSCSV->power_controls[4] =
+        new W8TextControl(panel, g_spell_casting_regions->index(10), 0x52, 0x38, 0x69, 0x4f,
+                          CatalogArtwork::Load(0x192, 0), 0x18, 0x1a, 0x19, 0x1c, 0x1b);
     gpSCSV->power_controls[5] = new W8TextControl(
         panel, g_spell_casting_regions->index(kSpellPowerPipRegionOffset), 0x3a, 0x41, 0x53, 0x5a,
         CatalogArtwork::Load(0x192, 0), 0x1e, 0x20, 0x1f, 0x22, 0x21);
-    gpSCSV->power_controls[6] = new W8TextControl(
-        panel, g_spell_casting_regions->index(12), 0x1f, 0x3a, 0x3a, 0x55, CatalogArtwork::Load(0x192, 0),
-        0x24, 0x26, 0x25, 0x28, 0x27);
-    gpSCSV->power_controls[7] = new W8TextControl(
-        panel, g_spell_casting_regions->index(13), 0x10, 0x1f, 0x2d, 0x3c, CatalogArtwork::Load(0x192, 0),
-        0x30, 0x32, 0x31, 0x34, 0x33);
-    gpSCSV->power_controls[8] = new W8TextControl(
-        panel, g_spell_casting_regions->index(14), 0x10, 0x1f, 0x2d, 0x3c, CatalogArtwork::Load(0x192, 0),
-        0x2a, 0x2a, 0x2b, 0x2b, 0x2d);
+    gpSCSV->power_controls[6] =
+        new W8TextControl(panel, g_spell_casting_regions->index(12), 0x1f, 0x3a, 0x3a, 0x55,
+                          CatalogArtwork::Load(0x192, 0), 0x24, 0x26, 0x25, 0x28, 0x27);
+    gpSCSV->power_controls[7] =
+        new W8TextControl(panel, g_spell_casting_regions->index(13), 0x10, 0x1f, 0x2d, 0x3c,
+                          CatalogArtwork::Load(0x192, 0), 0x30, 0x32, 0x31, 0x34, 0x33);
+    gpSCSV->power_controls[8] =
+        new W8TextControl(panel, g_spell_casting_regions->index(14), 0x10, 0x1f, 0x2d, 0x3c,
+                          CatalogArtwork::Load(0x192, 0), 0x2a, 0x2a, 0x2b, 0x2b, 0x2d);
     gpSCSV->power_controls[0]->SetFlaggedRegionBounds(0x3f, 9, 7);
     gpSCSV->power_controls[1]->SetFlaggedRegionBounds(0x50, 0xc, 8);
     gpSCSV->power_controls[2]->SetFlaggedRegionBounds(0x5f, 0x19, 9);
@@ -612,8 +632,10 @@ static void RebuildSpellCastingList(int spell_id)
         pass = 0;
         do {
             index = 0;
-            while (index <
-                   static_cast<int>(gpSCSV->caster->skill_unlocks[static_cast<int>(W8_SKILL_FIRE_MAGIC) + realm])) {
+            while (
+                index <
+                static_cast<int>(
+                    gpSCSV->caster->skill_unlocks[static_cast<int>(W8_SKILL_FIRE_MAGIC) + realm])) {
                 int id = gpSCSV->learned.spell_ids_by_realm[realm][index];
                 gpSCSV->override_spell = id;
                 spell = &g_spell_records[id];
@@ -1133,7 +1155,8 @@ unsigned char SpellRealmButtonRegionEvent(const InputEvent* event, W8Region* reg
     const InputEventType us_event = event->type;
 
     if (IsLeftButtonEvent(us_event)) {
-        if (us_event == InputEventType::LeftButtonRepeat || us_event == InputEventType::LeftButtonDown) {
+        if (us_event == InputEventType::LeftButtonRepeat ||
+            us_event == InputEventType::LeftButtonDown) {
             gpSCSV->realm_buttons[region->callback_id]->OnLeftButtonDown(0);
             gpSCSV->realm_icons[region->callback_id]->Invalidate(false);
             region->flags |= W8_REGION_LEFT_BUTTON_HELD;
@@ -1187,7 +1210,8 @@ unsigned char SpellPowerPipRegionEvent(const InputEvent* event, W8Region* region
 
     us_event = event->type;
     if (IsLeftButtonEvent(us_event)) {
-        if (us_event == InputEventType::LeftButtonRepeat || us_event == InputEventType::LeftButtonDown) {
+        if (us_event == InputEventType::LeftButtonRepeat ||
+            us_event == InputEventType::LeftButtonDown) {
             gpSCSV->power_controls[region->callback_id]->OnLeftButtonDown(0);
             region->flags |= W8_REGION_LEFT_BUTTON_HELD;
             return 1;
@@ -1385,7 +1409,8 @@ void TryCommitSpellCast(void)
     if (gpSCSV->uiSpellToCast == 0x4b && !gpSCSV->dialog_confirmed) {
         if (!IsModalOpen() &&
             g_status.buffers.Char[g_status.selected_character].has_saved_location) {
-            ShowMainGameNoticeLine(g_localized_strings[0x7a4], SpellCastingDialogResult, true, true);
+            ShowMainGameNoticeLine(g_localized_strings[0x7a4], SpellCastingDialogResult, true,
+                                   true);
         }
     } else if (gpSCSV->uiSpellToCast == 0x49 && !gpSCSV->dialog_confirmed && !IsModalOpen()) {
         ShowMainGameNoticeLine(g_localized_strings[0x7a5], SpellCastingDialogResult, true, true);

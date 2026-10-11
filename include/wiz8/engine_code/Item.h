@@ -39,11 +39,11 @@ struct W8ItemRep : public W8AnimRepBase {
     virtual ~W8ItemRep() override;
 
     std::unique_ptr<stModelInstance> m_psrMesh;
-    glm::vec3 bounds_minimum;         /* 0x68 */
-    glm::vec3 bounds_maximum;         /* 0x74 */
-    float bounds_radius;              /* 0x80 */
-    float pulse_level; /* 0x88 */
-    unsigned int flags; /* 0x90 */
+    glm::vec3 bounds_minimum; /* 0x68 */
+    glm::vec3 bounds_maximum; /* 0x74 */
+    float bounds_radius;      /* 0x80 */
+    float pulse_level;        /* 0x88 */
+    unsigned int flags;       /* 0x90 */
 
     bool ReadFromFile(W8ReadLevelInfo* info, W8Item* item, bool anonymous_mesh);
     void RefreshBounds();

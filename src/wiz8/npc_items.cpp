@@ -498,7 +498,10 @@ W8NpcItemEntry* GetNpcItemAt(W8NpcState* npc, int index)
 }
 
 // FUNCTION: WIZ8 0x0055b710
-unsigned int GetNpcItemCount(W8NpcState* npc) { return (npc->items ? npc->items->size() : 0); }
+unsigned int GetNpcItemCount(W8NpcState* npc)
+{
+    return (npc->items ? npc->items->size() : 0);
+}
 
 // GLOBAL: WIZ8 0x0062A80C
 static char g_sound_cash_transaction[] = "Data\\Sound\\misc\\Cash Transaction.wav";

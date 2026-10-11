@@ -162,8 +162,8 @@ void __cdecl srDefaultAssertFailFunc(const char* expression, const char* source_
         {SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, 1, "Yes"},
         {SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, 0, "No"},
     };
-    const SDL_MessageBoxData box = {SDL_MESSAGEBOX_WARNING, 0, "FATAL: SR Assertion Failed",
-                                    buffer, 2, buttons, 0};
+    const SDL_MessageBoxData box = {
+        SDL_MESSAGEBOX_WARNING, 0, "FATAL: SR Assertion Failed", buffer, 2, buttons, 0};
     int choice = 0;
     if (SDL_ShowMessageBox(&box, &choice) && choice == 1) {
         __builtin_debugtrap();

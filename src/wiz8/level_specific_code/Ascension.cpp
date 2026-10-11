@@ -39,7 +39,6 @@
    the Ascension Peak level. 0x004E0560 and 0x004E05A0 are registered under
    case 0x24, the Footsteps level, which is part of the Ascension Peak block. */
 
-
 // GLOBAL: WIZ8 0x0068356C
 static W8IntervalGate* g_avalanche_gate;
 

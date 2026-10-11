@@ -37,7 +37,6 @@
 #include "image.h"
 #include "dialog_code/DialogBase.h"
 
-
 /* The screen's own state. */
 // GLOBAL: WIZ8 0x0069c4ba
 bool g_main_menu_has_save_games;
@@ -54,11 +53,15 @@ static std::unique_ptr<W8MessageDialogBase> main_menu_dialog;
 
 namespace {
 constexpr std::array<W8ControlsRect, 6> main_menu_item_bounds = {{
-    {174, 138, 467, 182}, {140, 187, 501, 231}, {204, 235, 436, 279},
-    {239, 284, 403, 328}, {234, 335, 408, 379}, {279, 423, 364, 467},
+    {174, 138, 467, 182},
+    {140, 187, 501, 231},
+    {204, 235, 436, 279},
+    {239, 284, 403, 328},
+    {234, 335, 408, 379},
+    {279, 423, 364, 467},
 }};
 constexpr std::array<int, 4> main_menu_sprite_objects = {0xea, 0xec, 0xeb, 0xed};
-}
+} // namespace
 
 // The original six item rectangles are now screen-owned data, not global
 // region registrations. The load-game item uses the disabled sprite when
@@ -66,19 +69,27 @@ constexpr std::array<int, 4> main_menu_sprite_objects = {0xea, 0xec, 0xeb, 0xed}
 // FUNCTION: WIZ8 0x005bcab0
 unsigned char DrawMainMenuItem(short item, short state)
 {
-    if (item < 0 || static_cast<std::size_t>(item) >= main_menu_item_bounds.size()) return 0;
-    if (item == 2 && !g_main_menu_has_save_games) state = 3;
+    if (item < 0 || static_cast<std::size_t>(item) >= main_menu_item_bounds.size()) {
+        return 0;
+    }
+    if (item == 2 && !g_main_menu_has_save_games) {
+        state = 3;
+    }
 
     const auto& bounds = main_menu_item_bounds[item];
-    if (state >= 0 && static_cast<std::size_t>(state) < main_menu_sprite_objects.size())
-        CatalogArtwork::Load(main_menu_sprite_objects[state], 0).draw(GetFrameBufferSurface(), item, 0x98, bounds.top);
+    if (state >= 0 && static_cast<std::size_t>(state) < main_menu_sprite_objects.size()) {
+        CatalogArtwork::Load(main_menu_sprite_objects[state], 0)
+            .draw(GetFrameBufferSurface(), item, 0x98, bounds.top);
+    }
     InvalidateRegion(0x98, bounds.top, 0x1f2, bounds.bottom, 0);
     return 1;
 }
 
 static void DrawMainMenuItems()
 {
-    for (short item = 0; item < 6; ++item) DrawMainMenuItem(item, 0);
+    for (short item = 0; item < 6; ++item) {
+        DrawMainMenuItem(item, 0);
+    }
     DrawMainMenuItem(g_main_menu_selected_item, 1);
 }
 
@@ -88,7 +99,6 @@ static void SelectMainMenuItem(short item)
     g_main_menu_selected_item = item;
     DrawMainMenuItem(item, 1);
 }
-
 
 /* The six menu items are widgets owned by this screen. The Controls panel
    creates their regions at runtime; the global region catalog is not involved. */
@@ -125,15 +135,16 @@ void ActivateMainMenuItem(short item)
 
 class MainMenuItemWidget final : public W8Widget {
 public:
-    MainMenuItemWidget(short item, const W8ControlsRect& bounds)
-        : item_(item)
+    MainMenuItemWidget(short item, const W8ControlsRect& bounds) : item_(item)
     {
         SetBounds(bounds.left, bounds.top, bounds.right, bounds.bottom);
     }
 
     void OnMouseEnter(int) override
     {
-        if (Available()) SelectMainMenuItem(item_);
+        if (Available()) {
+            SelectMainMenuItem(item_);
+        }
     }
 
     void OnMouseLeave(int) override
@@ -144,26 +155,35 @@ public:
 
     void OnLeftButtonDown(int) override
     {
-        if (Available()) DrawMainMenuItem(g_main_menu_selected_item, 2);
+        if (Available()) {
+            DrawMainMenuItem(g_main_menu_selected_item, 2);
+        }
     }
 
     void OnLeftButtonUp(int) override
     {
-        if (!Available()) return;
+        if (!Available()) {
+            return;
+        }
         const auto mouse = GetRegionMousePosition();
         const auto& bounds = main_menu_item_bounds[item_];
         const bool released_inside = mouse.x >= bounds.left && mouse.x <= bounds.right &&
                                      mouse.y >= bounds.top && mouse.y <= bounds.bottom;
         DrawMainMenuItem(g_main_menu_selected_item, released_inside ? 1 : 0);
         if (!released_inside) {
-            if (g_main_menu_selected_item == item_) g_main_menu_selected_item = -1;
+            if (g_main_menu_selected_item == item_) {
+                g_main_menu_selected_item = -1;
+            }
             return;
         }
         ActivateMainMenuItem(item_);
     }
 
 private:
-    bool Available() const { return item_ != 2 || g_main_menu_has_save_games; }
+    bool Available() const
+    {
+        return item_ != 2 || g_main_menu_has_save_games;
+    }
     short item_;
 };
 
@@ -237,7 +257,8 @@ unsigned char MainMenuScreenEnter(void)
 
     pending = g_pending_main_menu_message;
     if (!pending.empty()) {
-        main_menu_dialog.reset(static_cast<W8MessageDialogBase*>(CreateDialogByKind(W8_DIALOG_MESSAGE)));
+        main_menu_dialog.reset(
+            static_cast<W8MessageDialogBase*>(CreateDialogByKind(W8_DIALOG_MESSAGE)));
         dialog = main_menu_dialog.get();
         dialog->SetClientExtent(0xfa, 200);
         dialog->SetMessage(pending, 1, 0x32, true, false, true, true, 0, 0x15e);
@@ -246,7 +267,8 @@ unsigned char MainMenuScreenEnter(void)
         return 1;
     }
     if (!HasEnoughFreeDiskSpace() && !g_main_menu_warning_shown) {
-        main_menu_dialog.reset(static_cast<W8MessageDialogBase*>(CreateDialogByKind(W8_DIALOG_MESSAGE)));
+        main_menu_dialog.reset(
+            static_cast<W8MessageDialogBase*>(CreateDialogByKind(W8_DIALOG_MESSAGE)));
         dialog = main_menu_dialog.get();
         dialog->SetClientExtent(0xfa, 200);
         dialog->SetMessage(g_localized_strings[0x7ee], 1, 0x32, true, false, true, true, 0, 0x15e);

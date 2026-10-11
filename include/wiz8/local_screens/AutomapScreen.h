@@ -11,7 +11,9 @@ extern float g_automap_grid_cell_size;
 #include "wiz8/layouts/main_game_screen.h"
 #include "glm/ext/vector_float2.hpp"
 
-namespace wiz8 { class File; }
+namespace wiz8 {
+class File;
+}
 template <class T> class srVector3T;
 
 /* One map note with owned UTF-8 text. */

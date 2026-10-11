@@ -16,7 +16,6 @@ struct W8Region;
 /* The single-space separator wrapped notice lines are re-joined with. */
 extern char g_W8TextSeparator[];
 
-
 /* The region callback a widget without its own region is given. It answers
    whether the event was consumed; the screen-input dispatcher returns that
    byte to its caller. */
@@ -26,7 +25,7 @@ extern unsigned char DispatchControlRegionEvent(const InputEvent* event, struct 
    movement controls. Repeat presses again; release is unconditional. The
    panel-owned dispatcher above has a different repeat/release policy. */
 unsigned char DispatchButtonRegionEvent(const InputEvent* event, W8Region* region,
-                                               W8Widget* button);
+                                        W8Widget* button);
 
 /* Panel/container, not a W8Widget base. Child ownership is held by unique_ptr;
    widgets retain a non-owning back-pointer in m_pPanel. TakeControl transfers
@@ -54,11 +53,17 @@ struct Controls {
     W8ControlsRect m_dirtyRect;
     bool m_fWholeAreaDirty; /* set when a caller passes no rectangle */
     /* The region set this panel's widgets register in; 0 until CreateRegionSet. */
-    unsigned int RegionSet() const { return m_regionSet; }
+    unsigned int RegionSet() const
+    {
+        return m_regionSet;
+    }
     void EnableRegionSet(bool enable);
     void AdoptControl(std::unique_ptr<W8Widget> control);
     [[nodiscard]] std::unique_ptr<W8Widget> TakeControl(W8Widget* control);
-    size_t ControlCount() const { return m_controls.size(); }
+    size_t ControlCount() const
+    {
+        return m_controls.size();
+    }
     void DestroyAllControls();
     void InvalidateLayout();
     void SetBounds(int left, int top, int right, int bottom);
@@ -66,14 +71,17 @@ struct Controls {
     void CreateRegionSet();
 
     /* Non-owning view of a child; event dispatch does not use this index. */
-    inline W8Widget* ControlAt(int index) { return m_controls[index].get(); }
+    inline W8Widget* ControlAt(int index)
+    {
+        return m_controls[index].get();
+    }
 
-  private:
+private:
     friend class W8Widget;
     std::vector<std::unique_ptr<W8Widget>> m_controls;
     unsigned int m_regionSet = 0;
 
-  protected:
+protected:
     void RedrawChildren(bool full_redraw)
     {
         for (int index = 0; index < static_cast<int>(m_controls.size()); ++index) {
@@ -85,4 +93,3 @@ struct Controls {
     }
     void RedrawControls(bool full_redraw);
 };
-

@@ -251,7 +251,7 @@ bool W8MonsterInfoDialog::PopulateText()
                     text += g_comma_space;
                 }
                 text += g_spell_records[monster_info->pCombat->combat_effects[index].effect_id]
-                                 .display_name;
+                            .display_name;
                 ++count;
             }
         }
@@ -308,7 +308,7 @@ bool W8MonsterInfoDialog::PopulateText()
                     text += g_comma_space;
                 }
                 text += g_spell_records[monster_info->pCombat->combat_effects_2[index].effect_id]
-                           .display_name;
+                            .display_name;
                 ++count;
             }
         }
@@ -332,14 +332,15 @@ bool W8MonsterInfoDialog::PopulateText()
         W8RangeCategory best_range = GetMonsterBestRangeCategory(monster_info, true, &sight);
         if (best_range != W8_RANGE_NONE) {
             m_text_area.AddEntry(g_localized_strings[0x141],
-                                 g_localized_strings[g_spell_range_name_ids[best_range]], 10, 0xf, 0);
+                                 g_localized_strings[g_spell_range_name_ids[best_range]], 10, 0xf,
+                                 0);
         }
     }
     if (0x31 < knowledge && record->special_attack_kind != 0) {
         m_text_area.AddEntry(
             g_localized_strings[0x142],
-            g_localized_strings[g_monster_special_attack_name_ids[record->special_attack_kind]], 10, 0xf,
-            0);
+            g_localized_strings[g_monster_special_attack_name_ids[record->special_attack_kind]], 10,
+            0xf, 0);
     }
 
     if (9 < knowledge) {
@@ -397,7 +398,8 @@ bool W8MonsterInfoDialog::PopulateText()
                     if (count > 0) {
                         text += g_comma_space;
                     }
-                    text += g_localized_strings[g_condition_notices[immunity->conditions[slot]].noun];
+                    text +=
+                        g_localized_strings[g_condition_notices[immunity->conditions[slot]].noun];
                     ++count;
                 }
                 if (immunity->immune_all != 0) {
@@ -468,7 +470,6 @@ void W8MonsterInfoDialog::ScrollCallback(W8DialogScrollBar* scroll_bar, int firs
         dialog->ScrollTextArea(dialog->m_text_area, first_visible_entry, 0x11, 0x26, 0x10e, 0xb9);
     }
 }
-
 
 // FUNCTION: WIZ8 0x005d6080
 void W8MonsterInfoDialog::Draw()

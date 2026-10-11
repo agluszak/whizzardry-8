@@ -16,8 +16,7 @@
 #include "surrender/srTypeRegistry.h"
 
 // FUNCTION: SURRENDER 0x100565D0
-srScene::srScene(srNode* parent)
-    : srClassSupport<srScene, srNode, 0x1010>(static_cast<srNode*>(0))
+srScene::srScene(srNode* parent) : srClassSupport<srScene, srNode, 0x1010>(static_cast<srNode*>(0))
 {
     ambient_light = glm::vec3(0.2f);
     fog_color = glm::vec3(0.1f, 0.2f, 0.4f);

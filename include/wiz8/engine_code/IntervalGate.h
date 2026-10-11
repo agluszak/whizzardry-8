@@ -3,7 +3,9 @@
 #include "wiz8/engine_code/game_timer.h"
 #include "compat/compiler.h"
 
-namespace wiz8 { class File; }
+namespace wiz8 {
+class File;
+}
 
 /* The 0x28-byte timer-derived helper constructed by GDCamera. Its original
    name is not exposed; the vtable address remains the stable identity. */

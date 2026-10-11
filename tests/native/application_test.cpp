@@ -15,7 +15,6 @@
 #include "scoped_asset_roots.h"
 #include "wiz8/regions.h"
 
-
 static void CheckStopped()
 {
     REQUIRE(SDL_WasInit(0) == 0);
@@ -39,14 +38,14 @@ TEST_CASE("application_test")
             wiz8::Application application(arguments);
         } catch (const std::invalid_argument& failure) {
             rejected = std::string_view(failure.what()).find("requires a filename") !=
-                std::string_view::npos;
+                       std::string_view::npos;
         }
         REQUIRE(rejected);
         CheckStopped();
     }
 
-    const std::array<std::string_view, 4> arguments{
-        "/STRINGDATA=string data.wiz", "/window", "/vIdEoCfG", "C:\\missing video.cfg"};
+    const std::array<std::string_view, 4> arguments{"/STRINGDATA=string data.wiz", "/window",
+                                                    "/vIdEoCfG", "C:\\missing video.cfg"};
     for (int attempt = 0; attempt < 2; ++attempt) {
         bool failed = false;
         try {
@@ -61,7 +60,7 @@ TEST_CASE("application_test")
     }
 
     REQUIRE(SDL_SetEnvironmentVariable(SDL_GetEnvironment(), "SDL_VIDEODRIVER",
-                                     "wiz8-invalid-driver", true));
+                                       "wiz8-invalid-driver", true));
     bool failed = false;
     try {
         wiz8::Application application;
@@ -80,6 +79,4 @@ TEST_CASE("application_test")
     }
     REQUIRE((reported && gfIgnoreMessages));
     CheckStopped();
-
-
 }

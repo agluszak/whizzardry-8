@@ -142,10 +142,14 @@ void RefreshFormationBoard(void)
     const auto board_artwork =
         CatalogArtwork::Load(g_level_block->formation_board_alternate ? 0x9a : 0x99);
     board_image = RenderSpriteToImage(*board_artwork.spriteSheet(), 0);
-    if (!board_image) return;
+    if (!board_image) {
+        return;
+    }
     const auto compass_artwork = CatalogArtwork::Load(0x9b);
     compass_image = RenderSpriteToImage(*compass_artwork.spriteSheet(), 0);
-    if (!compass_image) return;
+    if (!compass_image) {
+        return;
+    }
     DrawFormationSlotMarkers(*board_image);
     g_level_block->formation_compass_sprite = CreateSpriteFromSurface(*compass_image, 0, 1, 0, 1);
     Position2DNodeUnsnapped(g_level_block->formation_compass_sprite, 0x207, 0x167);
@@ -179,7 +183,8 @@ void CreateFormationBoardOverlay(void)
         bounds.top = 0x166;
         bounds.right = 0x269;
         bounds.bottom = 0x1c2;
-        g_level_block->formation_overlay_sprite = CreateSpriteFromSurface(GetFrameBufferSurface(), &bounds, 0, 0, 1);
+        g_level_block->formation_overlay_sprite =
+            CreateSpriteFromSurface(GetFrameBufferSurface(), &bounds, 0, 0, 1);
         Position2DNodeUnsnapped(g_level_block->formation_overlay_sprite, 0x200, 0x166);
         SetModelInstance2DDisplayState(g_level_block->formation_overlay_sprite, 4);
     }
@@ -271,7 +276,8 @@ static unsigned char CreateFormationPanel(void)
     W8TextControl** button;
     int index;
 
-    g_formation_panel = std::make_unique<Controls>(0xd6, 0x3c, 0x1ab, 0x12f, CatalogArtwork::Load(0x9e, 0), 0);
+    g_formation_panel =
+        std::make_unique<Controls>(0xd6, 0x3c, 0x1ab, 0x12f, CatalogArtwork::Load(0x9e, 0), 0);
     if (!g_formation_panel) {
         return 0;
     }
@@ -280,9 +286,9 @@ static unsigned char CreateFormationPanel(void)
         int top = g_formation_cell_positions[index].y;
         W8TextControl* cell;
 
-        cell = new W8TextControl(g_formation_panel.get(), g_formation_regions->index(index), left, top,
-                                 left + 0x20, top + 0x20, CatalogArtwork::Load(0x9f, 0), -1, -1,
-                                 -1, -1, -1);
+        cell = new W8TextControl(g_formation_panel.get(), g_formation_regions->index(index), left,
+                                 top, left + 0x20, top + 0x20, CatalogArtwork::Load(0x9f, 0), -1,
+                                 -1, -1, -1, -1);
         g_formation_cell_controls[index] = cell;
         if (cell == 0) {
             DestroyFormationPanel();
@@ -290,22 +296,23 @@ static unsigned char CreateFormationPanel(void)
         }
         cell->AddLayoutFlags(g_W8TextControlLayoutToggle);
         cell->m_primaryActivationCallback = SelectFormationCell;
-        cell = new W8TextControl(g_formation_panel.get(), -1, left, top, left + 0x20, top + 0x20, CatalogArtwork::Load(0xa0, 0), -1, -1, -1, -1, -1);
+        cell = new W8TextControl(g_formation_panel.get(), -1, left, top, left + 0x20, top + 0x20,
+                                 CatalogArtwork::Load(0xa0, 0), -1, -1, -1, -1, -1);
         g_formation_cell_overlays[index] = cell;
         if (cell == 0) {
             DestroyFormationPanel();
             return 0;
         }
     }
-    g_formation_action_buttons[0] = new W8TextControl(
-        g_formation_panel.get(), g_formation_regions->index(15), 0x85, 0xcb, 0xa0, 0xe6,
-        CatalogArtwork::Load(0x8e, 0), 0, -1, 1, 2, 3);
-    g_formation_action_buttons[1] = new W8TextControl(
-        g_formation_panel.get(), g_formation_regions->index(16), 0xa7, 0xcb, 0xc2, 0xe6,
-        CatalogArtwork::Load(0x8e, 0), 4, -1, 5, 6, 7);
-    g_formation_action_buttons[2] = new W8TextControl(
-        g_formation_panel.get(), g_formation_regions->index(17), 0xf, 0xcd, 0x29, 0xe7,
-        CatalogArtwork::Load(0x8f, 0), 0, -1, 1, 2, 3);
+    g_formation_action_buttons[0] =
+        new W8TextControl(g_formation_panel.get(), g_formation_regions->index(15), 0x85, 0xcb, 0xa0,
+                          0xe6, CatalogArtwork::Load(0x8e, 0), 0, -1, 1, 2, 3);
+    g_formation_action_buttons[1] =
+        new W8TextControl(g_formation_panel.get(), g_formation_regions->index(16), 0xa7, 0xcb, 0xc2,
+                          0xe6, CatalogArtwork::Load(0x8e, 0), 4, -1, 5, 6, 7);
+    g_formation_action_buttons[2] =
+        new W8TextControl(g_formation_panel.get(), g_formation_regions->index(17), 0xf, 0xcd, 0x29,
+                          0xe7, CatalogArtwork::Load(0x8f, 0), 0, -1, 1, 2, 3);
     button = g_formation_action_buttons;
     while (*button != 0) {
         ++button;
@@ -623,11 +630,10 @@ static void BeginFormationDrag(const InputEvent*)
     region = artwork.imageOffset() + static_cast<short>(sprite);
     SetMouseCursorFromVideoObject(*artwork.spriteSheet(), region, 0x10, 0x10);
     const auto overlay_artwork = CatalogArtwork::Load(0xa0);
-    const auto overlay =
-        static_cast<std::uint16_t>(overlay_artwork.imageOffset() +
-                                   static_cast<short>(g_formation_cell_overlays
-                                                          [g_formation_drag_cell]
-                                                              ->m_alternateNormalSprite));
+    const auto overlay = static_cast<std::uint16_t>(
+        overlay_artwork.imageOffset() +
+        static_cast<short>(
+            g_formation_cell_overlays[g_formation_drag_cell]->m_alternateNormalSprite));
     BlitToMouseCursor(*overlay_artwork.spriteSheet(), overlay, 0, 0);
     WarpSystemCursor(point.x - 0x10, point.y - 0x10);
     RefreshMouseCursorTexture();

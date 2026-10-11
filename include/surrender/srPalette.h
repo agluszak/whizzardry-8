@@ -58,14 +58,14 @@ public:
         unsigned char lut_rgb[0x10000]; /* 0x10000 */
         srARGB palette[0x100];          /* 0x20000 */
         unsigned char duplicate[0x100]; /* 0x20400 */
-        w8_long color_count;               /* 0x20500 */
-        w8_ulong red_bits;         /* 0x20504 */
-        w8_ulong green_bits;       /* 0x20508 */
-        w8_ulong blue_bits;        /* 0x2050c */
+        w8_long color_count;            /* 0x20500 */
+        w8_ulong red_bits;              /* 0x20504 */
+        w8_ulong green_bits;            /* 0x20508 */
+        w8_ulong blue_bits;             /* 0x2050c */
         Entry entries[0x100];           /* 0x20510 */
-        w8_long entry_count;               /* 0x21510 */
+        w8_long entry_count;            /* 0x21510 */
         unsigned char* lut_row;         /* 0x21514 */
-        w8_long rg_dist[0x100];            /* 0x21518 */
+        w8_long rg_dist[0x100];         /* 0x21518 */
     };
 
     /* Color sampler. Sampled colors are quantized to sample_bits per channel and accumulated in a
@@ -107,18 +107,18 @@ public:
         void shiftUp(srARGB& color);
         void reallocColors(w8_long capacity);
 
-        w8_long sample_limit;               /* 0x000 */
+        w8_long sample_limit;            /* 0x000 */
         double sample_factor;            /* 0x008 */
-        w8_long sample_bits;                /* 0x010 */
-        w8_long color_count;                /* 0x014 */
-        w8_long sample_count;               /* 0x018 */
-        w8_long capacity;                   /* 0x01c */
-        w8_long output_palette_size;        /* 0x020 */
+        w8_long sample_bits;             /* 0x010 */
+        w8_long color_count;             /* 0x014 */
+        w8_long sample_count;            /* 0x018 */
+        w8_long capacity;                /* 0x01c */
+        w8_long output_palette_size;     /* 0x020 */
         unsigned char mask_flags[0x100]; /* 0x024 */
         srARGB mask_colors[0x100];       /* 0x124 */
         std::vector<ColorEntry> colors;
         std::vector<w8_long> links;
-        w8_long buckets[0x8000];            /* 0x52c */
+        w8_long buckets[0x8000]; /* 0x52c */
     };
 
     /* Optimal-palette builder; an octree over the sampled 5-5-5 color space. Level arrays hold
@@ -128,11 +128,11 @@ public:
     public:
         struct PaletteInfo {
             const Sampler::ColorEntry* colors; /* 0x00 */
-            w8_long color_count;                  /* 0x04 */
-            w8_long palette_size;                 /* 0x08 */
+            w8_long color_count;               /* 0x04 */
+            w8_long palette_size;              /* 0x08 */
             const srARGB* mask_colors;         /* 0x0c */
             const unsigned char* mask_flags;   /* 0x10 */
-            w8_long mask_count;                   /* 0x14 */
+            w8_long mask_count;                /* 0x14 */
         };
 
         static std::shared_ptr<srPalette> createOptimalPalette(const PaletteInfo& info);
@@ -151,15 +151,15 @@ public:
         };
 
         struct Node {
-            double err_min;      /* 0x00 */
-            double err_total;    /* 0x08 */
-            w8_ulong color; /* 0x10 */
-            srARGB bound_lo;     /* 0x14 */
-            srARGB bound_hi;     /* 0x18 */
-            Leaf* leaves;        /* 0x1c */
-            w8_long leaf_count;     /* 0x20 */
-            Node* parent;        /* 0x24 */
-            Node* children[8];   /* 0x28 */
+            double err_min;     /* 0x00 */
+            double err_total;   /* 0x08 */
+            w8_ulong color;     /* 0x10 */
+            srARGB bound_lo;    /* 0x14 */
+            srARGB bound_hi;    /* 0x18 */
+            Leaf* leaves;       /* 0x1c */
+            w8_long leaf_count; /* 0x20 */
+            Node* parent;       /* 0x24 */
+            Node* children[8];  /* 0x28 */
         };
 
         struct LUT {
@@ -174,7 +174,6 @@ public:
 
         static void findOptimalColor(Node* node, const LUT& lut);
         static void setupLUT(LUT& lut, const srARGB& color);
-
     };
 
     static SR_DLL_IMPORT const char* sGetClassName();
@@ -210,4 +209,3 @@ private:
     w8_long color_count;
     std::unique_ptr<Quantizer> quantizer;
 };
-

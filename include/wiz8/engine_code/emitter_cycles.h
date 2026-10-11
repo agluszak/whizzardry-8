@@ -8,8 +8,7 @@
 #include <iterator>
 #include <source_location>
 
-template<class Host>
-void ResetEmitterAnimations(Host& host)
+template <class Host> void ResetEmitterAnimations(Host& host)
 {
     for (std::size_t emitter = 0; emitter < std::size(host.emitters); ++emitter) {
         host.emitters[emitter] = nullptr;
@@ -17,20 +16,19 @@ void ResetEmitterAnimations(Host& host)
     }
 }
 
-template<class Host>
-void CloneEmitterAnimations(Host& host, const Host& source)
+template <class Host> void CloneEmitterAnimations(Host& host, const Host& source)
 {
     for (std::size_t emitter = 0; emitter < std::size(host.emitters); ++emitter) {
-        host.emitters[emitter] = source.emitters[emitter]
-            ? new W8AnimObj(*source.emitters[emitter]) : nullptr;
-        host.emitter_playback_scales[emitter] = source.emitters[emitter]
-            ? source.emitter_playback_scales[emitter] : 15.0f;
+        host.emitters[emitter] =
+            source.emitters[emitter] ? new W8AnimObj(*source.emitters[emitter]) : nullptr;
+        host.emitter_playback_scales[emitter] =
+            source.emitters[emitter] ? source.emitter_playback_scales[emitter] : 15.0f;
     }
 }
 
-template<class Host>
+template <class Host>
 void CloneEmitterLightLists(Host& host, const Host& source,
-                           std::source_location caller = std::source_location::current())
+                            std::source_location caller = std::source_location::current())
 {
     for (std::size_t emitter = 0; emitter < std::size(host.light_lists); ++emitter) {
         for (auto* lights : source.light_lists[emitter]) {
@@ -42,13 +40,16 @@ void CloneEmitterLightLists(Host& host, const Host& source,
 
 inline void SelectInitialEmitterLod(W8EmitterHost& host, signed char cycle)
 {
-    if (host.SetCycleFrameLod(cycle, 0, 2)) host.m_bLOD = 2;
-    else if (host.SetCycleFrameLod(cycle, 0, 1)) host.m_bLOD = 1;
-    else host.m_bLOD = 0;
+    if (host.SetCycleFrameLod(cycle, 0, 2)) {
+        host.m_bLOD = 2;
+    } else if (host.SetCycleFrameLod(cycle, 0, 1)) {
+        host.m_bLOD = 1;
+    } else {
+        host.m_bLOD = 0;
+    }
 }
 
-template<class Host>
-void StartEmitterCycle(Host& host, signed char cycle)
+template <class Host> void StartEmitterCycle(Host& host, signed char cycle)
 {
     host.current_cycle = cycle;
     W8AnimObj* animation = host.emitters[cycle];
@@ -62,9 +63,9 @@ void StartEmitterCycle(Host& host, signed char cycle)
 }
 
 // Missile and spell hosts own different-sized emitter tables, but load the same cycle state.
-template<class Host, class Visual>
-bool ReadEmitterCycle(Host& host, W8ReadLevelInfo* info, Visual& visual,
-                      int cycle_index, bool select_lod)
+template <class Host, class Visual>
+bool ReadEmitterCycle(Host& host, W8ReadLevelInfo* info, Visual& visual, int cycle_index,
+                      bool select_lod)
 {
     auto* lights = new std::vector<stLight*>;
     auto* animation = new W8AnimObj;
@@ -89,6 +90,8 @@ bool ReadEmitterCycle(Host& host, W8ReadLevelInfo* info, Visual& visual,
     host.frame_method = animation->frame_method;
     host.animation_playing = animation->animation_playing;
     host.emitters[emitter] = animation;
-    if (select_lod) SelectInitialEmitterLod(host, host.current_cycle);
+    if (select_lod) {
+        SelectInitialEmitterLod(host, host.current_cycle);
+    }
     return success;
 }

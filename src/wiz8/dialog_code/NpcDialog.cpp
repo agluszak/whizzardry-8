@@ -21,17 +21,14 @@
 #include "local_code/ControlsRect.h"
 #include "npc_script_file.h"
 
-
 /* Dialog Code\NpcDialog.cpp. The NPC dialogue popup; see the header for the
    request-buffer layout. The option-list strings and the two price-check
    strings live in the g_localized_strings message table. */
-
 
 /* The live popup; the constructor publishes it so the option callback and the
    Enter handling in ProcessInput can reach the active instance. */
 // GLOBAL: WIZ8 0x0069ca20
 static W8NpcDialog* g_npc_dialog;
-
 
 // FUNCTION: WIZ8 0x005DA6B0
 W8NpcDialog::W8NpcDialog(W8NpcQuoteEntry* message, int aux_data)
@@ -114,9 +111,9 @@ int W8NpcDialog::CreateControls()
         bounds.top = m_y + 10;
         bounds.right = m_x + m_width - 10;
         bounds.bottom = m_y + 0x19;
-        m_text_buffers[0] =
-            std::make_unique<W8TextBuffer>(&bounds, g_localized_strings[0x7e4], g_wiz_text_font_secondary,
-                             g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
+        m_text_buffers[0] = std::make_unique<W8TextBuffer>(
+            &bounds, g_localized_strings[0x7e4], g_wiz_text_font_secondary,
+            g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
     } else if (m_message->kind == W8_NPC_ENTRY_PRICE_CHECK ||
                m_message->kind == W8_NPC_ENTRY_ALWAYS_PRICE_CHECK) {
         short x = static_cast<short>((m_width - static_cast<short>((m_text_width + 5) * 2)) / 2);
@@ -134,17 +131,17 @@ int W8NpcDialog::CreateControls()
         bounds.top = m_y + 10;
         bounds.right = m_x + m_width - 10;
         bounds.bottom = m_y + 0x19;
-        m_text_buffers[0] =
-            std::make_unique<W8TextBuffer>(&bounds, line, g_wiz_text_font_secondary,
-                             g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
+        m_text_buffers[0] = std::make_unique<W8TextBuffer>(
+            &bounds, line, g_wiz_text_font_secondary,
+            g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
         line = fmt::format("{} {:d}g", g_localized_strings[0x7e6], g_status.party_gold);
         bounds.left = m_x + 10;
         bounds.top = m_y + 0x37;
         bounds.right = m_x + m_width - 10;
         bounds.bottom = m_y + 0x46;
-        m_text_buffers[1] =
-            std::make_unique<W8TextBuffer>(&bounds, line, g_wiz_text_font_secondary,
-                             g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
+        m_text_buffers[1] = std::make_unique<W8TextBuffer>(
+            &bounds, line, g_wiz_text_font_secondary,
+            g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
     } else if (m_message->kind == W8_NPC_ENTRY_KEYWORD_INPUT) {
         SetTextInputScheme(1);
         m_input_field = AddTextInputField(m_x + (m_width - 0x8c) / 2, m_y + 0x23, 0x8c, 0x10, 0x7f,
@@ -154,9 +151,9 @@ int W8NpcDialog::CreateControls()
         bounds.top = m_y + 10;
         bounds.right = m_x + m_width - 10;
         bounds.bottom = m_y + 0x19;
-        m_text_buffers[0] =
-            std::make_unique<W8TextBuffer>(&bounds, g_localized_strings[0x7e4], g_wiz_text_font_secondary,
-                             g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
+        m_text_buffers[0] = std::make_unique<W8TextBuffer>(
+            &bounds, g_localized_strings[0x7e4], g_wiz_text_font_secondary,
+            g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
     }
     return 0;
 }
@@ -212,8 +209,12 @@ bool W8NpcDialog::ProcessInput()
         }
         return true;
     });
-    if (returned_early) return true;
-    if (!m_keep_open) EndModalInput();
+    if (returned_early) {
+        return true;
+    }
+    if (!m_keep_open) {
+        EndModalInput();
+    }
     return m_keep_open;
 }
 

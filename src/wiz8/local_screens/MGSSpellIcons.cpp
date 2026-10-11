@@ -69,13 +69,15 @@ unsigned char CreateSpellIconHudControls(void)
     }
 
     g_spell_icon_count = 0;
-    g_combat_effect_left_panel = std::make_unique<Controls>(0x81, 0x14, 0x13d, 0x28, std::nullopt, 0);
+    g_combat_effect_left_panel =
+        std::make_unique<Controls>(0x81, 0x14, 0x13d, 0x28, std::nullopt, 0);
     if (!g_combat_effect_left_panel) {
         return 0;
     }
 
     g_combat_effect_left_count = 0;
-    g_combat_effect_right_panel = std::make_unique<Controls>(0x182, 0x14, 0x1ff, 0x28, std::nullopt, 0);
+    g_combat_effect_right_panel =
+        std::make_unique<Controls>(0x182, 0x14, 0x1ff, 0x28, std::nullopt, 0);
     if (!g_combat_effect_right_panel) {
         return 0;
     }
@@ -86,7 +88,8 @@ unsigned char CreateSpellIconHudControls(void)
 
 /* Strip rows are detached before destruction. Destruction can change the
    live panel/count, so each iteration reads them again and clears the observer slot. */
-static void DestroyEffectIconRows(const std::unique_ptr<Controls>& panel, W8TextControl** rows, const unsigned int& count)
+static void DestroyEffectIconRows(const std::unique_ptr<Controls>& panel, W8TextControl** rows,
+                                  const unsigned int& count)
 {
     for (unsigned int index = 0; index < count; ++index) {
         auto row = panel->TakeControl(rows[index]);
@@ -156,9 +159,9 @@ void RebuildSpellIconHudRows(void)
             if (icon == -1) {
                 ReportAssertion("iSpellIcon != BAD_INDEX", MGSSPELLICONS_CPP, 0x108);
             }
-            control = new W8TextControl(g_spell_icon_strip.get(), g_main_effect_regions->index(8 - g_spell_icon_count),
-                                        left, 0, right, 0x12, CatalogArtwork::Load(icon, 0), 0, -1,
-                                        -1, -1, -1);
+            control = new W8TextControl(
+                g_spell_icon_strip.get(), g_main_effect_regions->index(8 - g_spell_icon_count),
+                left, 0, right, 0x12, CatalogArtwork::Load(icon, 0), 0, -1, -1, -1, -1);
             g_spell_icon_rows[g_spell_icon_count] = control;
             control->Invalidate(false);
             EnableRegionInput(g_main_effect_regions->index(8 - g_spell_icon_count));
@@ -219,11 +222,10 @@ static void RebuildCombatEffectHudRows(void)
             if (icon == -1) {
                 ReportAssertion("iSpellIcon != BAD_INDEX", MGSSPELLICONS_CPP, 0x228);
             }
-            control =
-                new W8TextControl(g_combat_effect_left_panel.get(),
-                                  g_main_effect_regions->index(9 + g_combat_effect_left_count), left,
-                                  0, right, 0x14, CatalogArtwork::Load(icon, 0), 0, -1, -1, -1,
-                                  -1);
+            control = new W8TextControl(
+                g_combat_effect_left_panel.get(),
+                g_main_effect_regions->index(9 + g_combat_effect_left_count), left, 0, right, 0x14,
+                CatalogArtwork::Load(icon, 0), 0, -1, -1, -1, -1);
             g_combat_effect_left_rows[g_combat_effect_left_count] = control;
             control->Invalidate(false);
             EnableRegionInput(g_main_effect_regions->index(9 + g_combat_effect_left_count));
@@ -243,11 +245,10 @@ static void RebuildCombatEffectHudRows(void)
             if (icon == -1) {
                 ReportAssertion("iSpellIcon != BAD_INDEX", MGSSPELLICONS_CPP, 0x25e);
             }
-            control =
-                new W8TextControl(
-                    g_combat_effect_right_panel.get(),
-                    g_main_effect_regions->index(23 - g_combat_effect_right_count), left, 0, right,
-                    0x14, CatalogArtwork::Load(icon, 0), 0, -1, -1, -1, -1);
+            control = new W8TextControl(
+                g_combat_effect_right_panel.get(),
+                g_main_effect_regions->index(23 - g_combat_effect_right_count), left, 0, right,
+                0x14, CatalogArtwork::Load(icon, 0), 0, -1, -1, -1, -1);
             g_combat_effect_right_rows[g_combat_effect_right_count] = control;
             control->Invalidate(false);
             EnableRegionInput(g_main_effect_regions->index(23 - g_combat_effect_right_count));

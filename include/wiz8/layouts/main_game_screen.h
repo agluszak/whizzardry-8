@@ -18,8 +18,8 @@ class stModelInstance2D;
    object is an stTextureAnim; size and hotspot are the unsigned shorts
    ApplyCurrentCursor feeds to the mouse-cursor surface helpers. */
 struct W8MainGameResourceSlot {
-    int image_id;             /* Historical offset 0x00: catalog image / YOffset key */
-    std::shared_ptr<stTextureAnim> object;    /* Historical offset 0x04: loaded cursor anim */
+    int image_id;                          /* Historical offset 0x00: catalog image / YOffset key */
+    std::shared_ptr<stTextureAnim> object; /* Historical offset 0x04: loaded cursor anim */
     unsigned int frame_count; /* Historical offset 0x08: frames appended into the anim */
     unsigned short size_x;    /* Historical offset 0x0c */
     unsigned short size_y;    /* Historical offset 0x0e */
@@ -75,18 +75,18 @@ static const unsigned int W8_MAIN_REDRAW_ALL = 0xffffffffU;
 /* The dormant typed-dialogue input state hung off the level block: a plain
    heap object, not an srClass derivative. */
 struct W8DialogueTextState {
-    std::string text;                 /* Historical offset 0x00: owned editable buffer */
-    std::string first_line_prefix;    /* Historical offset 0x04: owned, measured before line one */
+    std::string text;              /* Historical offset 0x00: owned editable buffer */
+    std::string first_line_prefix; /* Historical offset 0x04: owned, measured before line one */
     void (*completion_callback)(); /* Historical offset 0x08: invoked before the input closes */
-    std::vector<std::size_t> line_offsets{0};    /* Historical offset 0x0c: owned offsets into text */
-    unsigned int line_count;       /* Historical offset 0x10 */
-    int notice_channel;            /* Historical offset 0x1c: passed to the completed notice */
-    short text_box;                /* Historical offset 0x20: text box whose scroll is replaced */
-    short unknown_22;              /* Historical offset 0x22: never read */
-    unsigned int wrap_width;       /* Historical offset 0x24: pixel budget and notice width */
-    std::size_t cursor;           /* Historical offset 0x28: insertion point in text */
-    unsigned char cursor_dirty;    /* Historical offset 0x2c: repaint just the dialogue cursor */
-    bool dirty;                    /* Historical offset 0x2d: cursor/text redraw pending */
+    std::vector<std::size_t> line_offsets{0}; /* Historical offset 0x0c: owned offsets into text */
+    unsigned int line_count;                  /* Historical offset 0x10 */
+    int notice_channel;         /* Historical offset 0x1c: passed to the completed notice */
+    short text_box;             /* Historical offset 0x20: text box whose scroll is replaced */
+    short unknown_22;           /* Historical offset 0x22: never read */
+    unsigned int wrap_width;    /* Historical offset 0x24: pixel budget and notice width */
+    std::size_t cursor;         /* Historical offset 0x28: insertion point in text */
+    unsigned char cursor_dirty; /* Historical offset 0x2c: repaint just the dialogue cursor */
+    bool dirty;                 /* Historical offset 0x2d: cursor/text redraw pending */
     unsigned char padding_2e[2];
     unsigned int saved_scroll_line; /* Historical offset 0x30: restored when input closes */
 };
@@ -94,16 +94,17 @@ struct W8DialogueTextState {
 struct W8LevelRuntimeBlock {
     /* Owned notice/list paint scratch, reused by the monster-list formatter. */
     std::string text_paint_scratch;
-    bool message_box_pending; /* Historical offset 0x0f0: message box lived last frame; render deferred */
+    bool
+        message_box_pending; /* Historical offset 0x0f0: message box lived last frame; render deferred */
     unsigned char flags[3];
     unsigned int redraw_flags; /* Historical offset 0x0f4 */
     /* Snapshot of redraw_flags taken before the two redraw passes; the second
        pass consumes this copy while the live word may still change. */
-    unsigned int saved_redraw_flags;           /* Historical offset 0x0f8 */
-    W8MainUiMode main_ui_mode;                 /* Historical offset 0x0fc: portraits / formation / radar */
-    int camera_mode;                           /* Historical offset 0x100 */
-    unsigned int hover_region;                 /* Historical offset 0x104 */
-    bool portrait_strip_dirty;                 /* Historical offset 0x108: portrait strip needs a redraw */
+    unsigned int saved_redraw_flags; /* Historical offset 0x0f8 */
+    W8MainUiMode main_ui_mode;       /* Historical offset 0x0fc: portraits / formation / radar */
+    int camera_mode;                 /* Historical offset 0x100 */
+    unsigned int hover_region;       /* Historical offset 0x104 */
+    bool portrait_strip_dirty;       /* Historical offset 0x108: portrait strip needs a redraw */
     unsigned char portrait_refresh_pending[8]; /* Historical offset 0x109 */
     unsigned char padding_111[3];
     int portrait_refresh_image[8]; /* Historical offset 0x114 */
@@ -114,7 +115,8 @@ struct W8LevelRuntimeBlock {
     unsigned char radar_map_visible;
     /* Historical offset 0x158: portraits UI mode selected; picks the portrait-hover layout. */
     unsigned char portrait_mode;
-    unsigned char text_scroll_drag_idle; /* Historical offset 0x159: cleared while thumb is dragged */
+    unsigned char
+        text_scroll_drag_idle; /* Historical offset 0x159: cleared while thumb is dragged */
     unsigned char padding_15a[2];
     /* Historical offset 0x15c: the x origin the mode-6 hover panel anchors the slot's portrait
        column position against. */
@@ -160,7 +162,7 @@ struct W8LevelRuntimeBlock {
     int condition_highlight_party_slot; /* Historical offset 0x20c: -1 while untracked */
     bool flag3;                         /* Historical offset 0x210 */
     unsigned char padding_211[3];
-    uint64_t clock;                  /* Historical offset 0x214 */
+    uint64_t clock;               /* Historical offset 0x214 */
     unsigned char portrait_flash; /* Historical offset 0x218: 500ms highlight pulse on clock */
     unsigned char padding_219[3];
     /* Historical offset 0x21c: content row count captured by the mode-6 hover overlay draw. */
@@ -190,8 +192,8 @@ struct W8LevelRuntimeBlock {
     uint64_t world_update_timer;     /* Historical offset 0x254 */
     uint64_t countdown0;             /* Historical offset 0x258 */
     uint64_t countdown1;             /* Historical offset 0x25c */
-    bool transition_active;       /* Historical offset 0x260 */
-    bool transition_pending;      /* Historical offset 0x261 */
+    bool transition_active;          /* Historical offset 0x260 */
+    bool transition_pending;         /* Historical offset 0x261 */
     unsigned char padding_262[2];
     int highlighted_item;
     int selected_item;
@@ -203,7 +205,7 @@ struct W8LevelRuntimeBlock {
     bool mipe_editing; /* Historical offset 0x272: MIPE edit session owns the hidden action panel */
     unsigned char padding_273;
     uint64_t tick; /* Historical offset 0x274 */
-    int value_278;     /* Historical offset 0x278 */
+    int value_278; /* Historical offset 0x278 */
     int pending_level;
     int pending_entry_id;
     int group_list_rows;  /* Historical offset 0x284 */
@@ -237,7 +239,8 @@ struct W8LevelRuntimeBlock {
     int move_percent;
     int move_percent_shown;
     unsigned char unknown_2e4[4];
-    Font* text_box_font;       /* Historical offset 0x2e8: g_wiz_text_font_secondary while the main text box is live */
+    Font*
+        text_box_font; /* Historical offset 0x2e8: g_wiz_text_font_secondary while the main text box is live */
     Palette16 palette; /* Historical offset 0x2ec */
     W8ActionKind selection_kind;
     int pending_action; /* Historical offset 0x2f4 */
@@ -249,7 +252,7 @@ struct W8LevelRuntimeBlock {
     int tooltip_subject;
     int tooltip_kind;
     uint64_t countdown3; /* Historical offset 0x30c */
-    int combat_slot;  /* Historical offset 0x310 */
+    int combat_slot;     /* Historical offset 0x310 */
     /* Historical offset 0x314: the keyboard-action menu is open; set before BuildKeyboardMenu,
        cleared by CloseKeyboardMenu. */
     bool keyboard_menu_open;
@@ -262,9 +265,10 @@ struct W8LevelRuntimeBlock {
     uint64_t countdown4; /* Historical offset 0x320: portrait right-hold arm clock */
     /* Historical offset 0x324: PortraitSelectRegionEvent right-button hold armed for camp. */
     bool portrait_right_hold_armed;
-    unsigned char formation_board_alternate; /* Historical offset 0x325: highlighted board art while hovered */
-    unsigned char radar_map_alternate;       /* Historical offset 0x326: radar uses alternate frame art */
-    bool review_transition_active;           /* Historical offset 0x327: set while leaving into review */
+    unsigned char
+        formation_board_alternate; /* Historical offset 0x325: highlighted board art while hovered */
+    unsigned char radar_map_alternate; /* Historical offset 0x326: radar uses alternate frame art */
+    bool review_transition_active;     /* Historical offset 0x327: set while leaving into review */
     /* Historical offset 0x328: the review-screen transition finished; gates its early-out. */
     bool review_transition_done;
     unsigned char padding_329[3];

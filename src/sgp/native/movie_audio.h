@@ -1,12 +1,10 @@
 #pragma once
 #include <cstddef>
 #include <memory>
-namespace w8_native
-{
+namespace w8_native {
 // Movie-owned queued PCM on soundman's mixer, with silence during underruns.
-class MovieAudio
-{
-  public:
+class MovieAudio {
+public:
     MovieAudio(unsigned rate, unsigned channels);
     ~MovieAudio();
     MovieAudio(const MovieAudio&) = delete;
@@ -16,7 +14,7 @@ class MovieAudio
     void finish();
     bool drained() const;
 
-  private:
+private:
     struct State;
     std::unique_ptr<State> state;
 };

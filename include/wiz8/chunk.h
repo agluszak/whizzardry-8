@@ -24,7 +24,8 @@ struct W8ChunkHead {
 constexpr unsigned int W8ChunkId(const char (&tag)[5])
 {
     return static_cast<unsigned char>(tag[0]) | static_cast<unsigned char>(tag[1]) << 8 |
-           static_cast<unsigned char>(tag[2]) << 16 | static_cast<unsigned>(static_cast<unsigned char>(tag[3])) << 24;
+           static_cast<unsigned char>(tag[2]) << 16 |
+           static_cast<unsigned>(static_cast<unsigned char>(tag[3])) << 24;
 }
 
 // Runtime navigation is owned value storage; only the ten-byte disk header
@@ -45,11 +46,16 @@ public:
     W8Chunk& operator=(const W8Chunk&) = delete;
     ~W8Chunk() = default;
 
-    bool IsOpen() const { return m_hFile != nullptr; }
+    bool IsOpen() const
+    {
+        return m_hFile != nullptr;
+    }
     /* The open stream, for section payloads written by format-specific code. */
     wiz8::File& Stream()
     {
-        if (!m_hFile) throw std::logic_error("closed RIFF");
+        if (!m_hFile) {
+            throw std::logic_error("closed RIFF");
+        }
         return *m_hFile;
     }
     bool OpenRead(std::string_view path);
@@ -76,18 +82,18 @@ public:
     std::int64_t RemainingBytes() const;
     void ReadBytes(void* buffer, std::size_t size);
     void WriteBytes(const void* buffer, std::size_t size);
-    template<class T> void ReadValue(T& value)
+    template <class T> void ReadValue(T& value)
     {
         static_assert(std::is_trivially_copyable_v<T>);
         ReadBytes(&value, sizeof(value));
     }
-    template<class T> T ReadValue()
+    template <class T> T ReadValue()
     {
         T value{};
         ReadValue(value);
         return value;
     }
-    template<class T> void WriteValue(const T& value)
+    template <class T> void WriteValue(const T& value)
     {
         static_assert(std::is_trivially_copyable_v<T>);
         WriteBytes(&value, sizeof(value));
@@ -96,18 +102,22 @@ public:
     // Write one complete chunk: body transfers the payload and the header
     // extent is patched when it returns. A body that leaves a nested chunk
     // open is rejected. Failures throw; the caller abandons the file.
-    template<class F> void WriteChunk(unsigned int chunk_id, F&& body)
+    template <class F> void WriteChunk(unsigned int chunk_id, F&& body)
     {
-        if (!m_fWriting || chunk_id == 0) throw std::logic_error("invalid RIFF chunk write");
+        if (!m_fWriting || chunk_id == 0) {
+            throw std::logic_error("invalid RIFF chunk write");
+        }
         OpenChunk(chunk_id, 0);
         const auto depth = m_heads.size();
         std::invoke(std::forward<F>(body));
-        if (m_heads.size() != depth) throw std::logic_error("unbalanced RIFF chunk");
+        if (m_heads.size() != depth) {
+            throw std::logic_error("unbalanced RIFF chunk");
+        }
         ReleaseCurrentChunk();
     }
     // A grouped chunk: body writes the group's prefix and its child chunks,
     // and the child count is patched when it returns.
-    template<class F> void WriteGroup(unsigned int chunk_id, F&& body)
+    template <class F> void WriteGroup(unsigned int chunk_id, F&& body)
     {
         WriteChunk(chunk_id, [&] {
             OpenGroup();
@@ -117,40 +127,48 @@ public:
     }
     // Read the current chunk as a group; body consumes the prefix and may
     // walk the children with ForEachChunk.
-    template<class F> void ReadGroup(F&& body)
+    template <class F> void ReadGroup(F&& body)
     {
         OpenGroup();
         const auto depth = m_heads.size();
         std::invoke(std::forward<F>(body));
-        if (m_heads.size() != depth) throw std::logic_error("unbalanced RIFF group");
+        if (m_heads.size() != depth) {
+            throw std::logic_error("unbalanced RIFF group");
+        }
         ReleaseGroup();
     }
     // Visit each child of the innermost open group with its chunk id. Chunks
     // marked at_end hold consumed sections and are skipped. Whatever payload
     // the visitor leaves unread is skipped; a visitor returning bool stops
     // the walk by returning false.
-    template<class F> void ForEachChunk(F&& visit)
+    template <class F> void ForEachChunk(F&& visit)
     {
         for (int index = 0, count = ChunkCount(); index < count; ++index) {
             OpenChunk(0, 0);
             const auto depth = m_heads.size();
             bool more = true;
             if (!CurrentChunkAtEnd()) {
-                if constexpr (std::is_void_v<std::invoke_result_t<F&, unsigned int>>)
+                if constexpr (std::is_void_v<std::invoke_result_t<F&, unsigned int>>) {
                     visit(CurrentChunkId());
-                else
+                } else {
                     more = visit(CurrentChunkId());
+                }
             }
-            if (m_heads.size() != depth) throw std::logic_error("unbalanced RIFF chunk");
+            if (m_heads.size() != depth) {
+                throw std::logic_error("unbalanced RIFF chunk");
+            }
             SkipCurrentChunk();
             ReleaseCurrentChunk();
-            if (!more) return;
+            if (!more) {
+                return;
+            }
         }
     }
     void RewindCurrentChunk();
     void SetCurrentChunkAtEnd();
     bool ReleaseCurrentChunk();
     unsigned char CurrentChunkAtEnd();
+
 private:
     W8ChunkHead& CurrentHead();
 };

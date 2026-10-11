@@ -62,16 +62,20 @@ void SetRenderOption(W8RenderOption option, int enabled)
         g_render_brightness = enabled ? 1.0f : 0.8f;
         break;
     case 7:
-        if (!enabled && g_render_fog_distance < 0.7f)
+        if (!enabled && g_render_fog_distance < 0.7f) {
             g_render_fog_distance = 0.7f;
-        if (enabled && g_render_fog_distance > 0.3f)
+        }
+        if (enabled && g_render_fog_distance > 0.3f) {
             g_render_fog_distance = 0.3f;
+        }
         break;
     case 8:
-        if (!enabled && g_render_fog_distance < 0.9f)
+        if (!enabled && g_render_fog_distance < 0.9f) {
             g_render_fog_distance = 0.9f;
-        if (enabled && g_render_fog_distance > 0.1f)
+        }
+        if (enabled && g_render_fog_distance > 0.1f) {
             g_render_fog_distance = 0.1f;
+        }
         break;
     case W8_RENDER_OPTION_MISSILE_LIGHTS:
         g_render_missile_lights = enabled != 0;
@@ -159,8 +163,7 @@ unsigned char GetRenderOptionState(W8RenderOption option)
 
 // FUNCTION: WIZ8 0x0047b890
 unsigned char LoadRenderOptions(wiz8::File& handle)
-try
-{
+try {
     int version;
     unsigned char options[W8_RENDER_OPTION_COUNT];
 
@@ -173,8 +176,9 @@ try
         SetRenderOption(static_cast<W8RenderOption>(option), options[option] != 0);
     }
     return 1;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x0047b920
 bool SaveRenderOptions(wiz8::File& handle)

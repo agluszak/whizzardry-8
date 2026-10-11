@@ -25,7 +25,7 @@ public:
     W8GrObject();                        /* 0x004B6900 */
     W8GrObject(const W8GrObject& other); /* 0x004B69A0 */
     W8GrObject& operator=(const W8GrObject&) = delete;
-    virtual ~W8GrObject();               /* 0x004B6B60 */
+    virtual ~W8GrObject(); /* 0x004B6B60 */
 
     void AddSoundEvent(std::unique_ptr<W8SoundEvent> event);
 
@@ -36,7 +36,6 @@ public:
     std::vector<std::unique_ptr<W8SoundEvent>> sound_events;
     // Prop and Item own their representation; the base never copies it.
     W8AnimRepBase* m_pRep;
-
 };
 
 /* The shared object-id counter both lifecycle callers advance. */

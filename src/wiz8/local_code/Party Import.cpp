@@ -108,9 +108,10 @@ W8Wiz7Character g_imported_characters[6];
    the shared tag and the flag bits unpack into g_import_flags. */
 // FUNCTION: WIZ8 0x00558D00
 unsigned char LoadWizardry7ImportFile(std::string_view path)
-try
-{
-    if (path.empty()) return 0;
+try {
+    if (path.empty()) {
+        return 0;
+    }
     auto file = wiz8::open_file(path, wiz8::OpenMode::read);
     unsigned char header[0x34c];
     short party_block[0x26];
@@ -120,34 +121,56 @@ try
     short bank_skip;
     memcpy(&record_skip, header + 0x2cc, sizeof(record_skip));
     memcpy(&bank_skip, header + 0x2ce, sizeof(bank_skip));
-    if (record_skip < 0 || bank_skip < 0) return 0;
+    if (record_skip < 0 || bank_skip < 0) {
+        return 0;
+    }
     file->seek(record_skip * 6 + bank_skip * 8 + 0x20 * 0x100, wiz8::SeekOrigin::current);
     file->read_exact(party_block, sizeof(party_block));
     const int character_count = party_block[0x25];
-    if (character_count < 1 || character_count > 6) return 0;
+    if (character_count < 1 || character_count > 6) {
+        return 0;
+    }
     file->seek(0x80 + 0x90 + 0x68 + 0x14a + 0x344 + 0x42 + 100, wiz8::SeekOrigin::current);
     file->read_exact(characters, character_count * sizeof(characters[0]));
     for (int index = 1; index < character_count; ++index) {
-        if (characters[index].party_tag != characters[0].party_tag) return 0;
+        if (characters[index].party_tag != characters[0].party_tag) {
+            return 0;
+        }
     }
 
     const bool ending_record = party_block[0] == -1;
     int ending = -1;
     if (ending_record) {
         switch (characters[0].party_tag & 0xf0) {
-        case 0x10: ending = 0; break;
-        case 0x20: ending = 1; break;
-        case 0x40: ending = 2; break;
-        case 0x80: ending = 3; break;
-        default: return 0;
+        case 0x10:
+            ending = 0;
+            break;
+        case 0x20:
+            ending = 1;
+            break;
+        case 0x40:
+            ending = 2;
+            break;
+        case 0x80:
+            ending = 3;
+            break;
+        default:
+            return 0;
         }
     }
     int difficulty = -1;
     switch (characters[0].party_tag & 0xf) {
-    case 1: difficulty = 0; break;
-    case 2: difficulty = 1; break;
-    case 4: difficulty = 2; break;
-    default: break;
+    case 1:
+        difficulty = 0;
+        break;
+    case 2:
+        difficulty = 1;
+        break;
+    case 4:
+        difficulty = 2;
+        break;
+    default:
+        break;
     }
 
     memcpy(g_imported_characters, characters, sizeof(characters));
@@ -159,8 +182,9 @@ try
         g_import_flags[index] = (header[0x200 + (index >> 3)] >> (index & 7)) & 1;
     }
     return 1;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 /* Apply the loaded Wizardry 7 import: reset the run, seed the party gold,
    mark the imported-party path and convert each record into a regular member.

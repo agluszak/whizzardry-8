@@ -54,11 +54,11 @@ struct W8XStatus {
        RecountCombatMonsters; nonzero starts combat and blocks ending it.
        Retail compares it unsigned (JA/JBE/SETA), never signed. */
     unsigned int hostile_monster_count;
-    int item_manager_pending;              /* 0x8f1 */
-    std::vector<W8MonsterInfo*> monsters; /* 0x8f5: 0x00683FAD */
-    std::vector<W8MonsterGroup*> monster_groups; /* 0x8f9: 0x00683FB1 */
-    std::vector<W8WorldItem*> world_items; /* 0x8fd */
-    std::vector<W8MonsterInfo*> unborn_monsters; /* 0x901 */
+    int item_manager_pending;                      /* 0x8f1 */
+    std::vector<W8MonsterInfo*> monsters;          /* 0x8f5: 0x00683FAD */
+    std::vector<W8MonsterGroup*> monster_groups;   /* 0x8f9: 0x00683FB1 */
+    std::vector<W8WorldItem*> world_items;         /* 0x8fd */
+    std::vector<W8MonsterInfo*> unborn_monsters;   /* 0x901 */
     std::vector<W8MonsterGroup*> encounter_groups; /* 0x905 */
     unsigned char unknown_049[4];
     bool fSurprisePossible; /* 0x90d: 0x00683FC5 */
@@ -78,15 +78,15 @@ struct W8XStatus {
     /* 0x91f: 0x00683FD7. InitializeGameplayRuntimeObjects stores the queue
        here; a standalone BSS pointer at this address is the same member. */
     W8CharacterEventQueue* character_event_queue;
-    int iCurrentCursor;          /* 0x923 */
-    int current_cursor_frame;    /* 0x927 */
-    uint64_t current_cursor_time;   /* 0x92b */
-    W8TargetNeed iTargetingMode; /* 0x92f: 0x00683FE7 */
+    int iCurrentCursor;           /* 0x923 */
+    int current_cursor_frame;     /* 0x927 */
+    uint64_t current_cursor_time; /* 0x92b */
+    W8TargetNeed iTargetingMode;  /* 0x92f: 0x00683FE7 */
     /* 0x933: the formation screen's edit buffer - MGSFormation snapshots the
        live formation here on open, edits the copy, and either reconciles it
        back or diffs it against live on accept. */
     W8PartyFormationState edited_formation;
-    std::vector<int> target_markers; /* 0x9b7: 0x0068406F */
+    std::vector<int> target_markers;          /* 0x9b7: 0x0068406F */
     srVector3T<float> target_position;        /* 0x9c7: 0x0068407F */
     W8CombatSlot shared_target;               /* 0x9d3: 0x0068408B */
     W8ActionDetailBlock shared_action_detail; /* 0x9f3: 0x006840AB */
@@ -121,8 +121,8 @@ struct W8XStatus {
     W8ItemInstance* dragged_item;       /* 0x19ba: 0x00685072 */
     unsigned char dragged_item_origin;  /* 0x19be: 0x00685076 */
     signed char dragged_character_slot; /* 0x19bf: 0x00685077 */
-    uint64_t spell_cooldown_clocks[14];    /* 0x19c0: 0x00685078 */
-    uint64_t combat_countdown;             /* 0x19f8: 0x006850B0 */
+    uint64_t spell_cooldown_clocks[14]; /* 0x19c0: 0x00685078 */
+    uint64_t combat_countdown;          /* 0x19f8: 0x006850B0 */
     unsigned char combat_difficulty;    /* 0x19fc: 0x006850B4 */
     bool party_moving;                  /* 0x19fd: 0x006850B5 */
     int saved_encounter_budget;         /* 0x19fe: 0x006850B6 */

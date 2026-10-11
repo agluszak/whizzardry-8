@@ -20,12 +20,13 @@
 struct W8CharacterCreationState;
 
 namespace {
-template<class T> T ReadStatValue(const void* address) {
+template <class T> T ReadStatValue(const void* address)
+{
     T value;
     std::memcpy(&value, address, sizeof(value));
     return value;
 }
-}
+} // namespace
 
 // GLOBAL: WIZ8 0x006483d0
 W8PortraitDescriptor g_portrait_descriptors[80] = {
@@ -68,18 +69,21 @@ W8CharacterPageEntry::W8CharacterPageEntry(Controls* owner, int x, int y, bool c
     m_second_text->SetLayoutMode(g_W8TextBufferAlignRight);
 
     int relative_split = split - owner->m_bounds.left;
-    m_decrement = new W8TextControl(owner, 0xffffffff, relative_split + 0x1b, y + 1, 0, 0, CatalogArtwork::Load(0x10a, 0), 0x19, 0x1b, 0x1a, 0x1d, 0x1c);
+    m_decrement = new W8TextControl(owner, 0xffffffff, relative_split + 0x1b, y + 1, 0, 0,
+                                    CatalogArtwork::Load(0x10a, 0), 0x19, 0x1b, 0x1a, 0x1d, 0x1c);
     m_decrement->AddLayoutFlags(0x100);
     m_decrement->SetEnabled(false);
     m_decrement->SetActive(false);
     m_decrement->m_listener = this;
 
-    m_increment = new W8TextControl(owner, 0xffffffff, relative_split + 0x3d, y + 1, 0, 0, CatalogArtwork::Load(0x10a, 0), 0x1e, 0x20, 0x1f, 0x22, 0x21);
+    m_increment = new W8TextControl(owner, 0xffffffff, relative_split + 0x3d, y + 1, 0, 0,
+                                    CatalogArtwork::Load(0x10a, 0), 0x1e, 0x20, 0x1f, 0x22, 0x21);
     m_increment->AddLayoutFlags(0x100);
     m_increment->SetActive(false);
     m_increment->m_listener = this;
 
-    m_help = new W8TextControl(owner, 0xffffffff, x, y, relative_split, y + 0xc, std::nullopt, -1, -1, -1, -1, -1);
+    m_help = new W8TextControl(owner, 0xffffffff, x, y, relative_split, y + 0xc, std::nullopt, -1,
+                               -1, -1, -1, -1);
     m_help->SetActive(false);
     m_help->m_listener = this;
 }
@@ -93,10 +97,11 @@ void W8CharacterPageEntry::SetContent(unsigned int id, std::string_view label, u
     m_second = second;
     m_third = third;
     m_label->SetText(label, g_wiz_text_font_secondary);
-    if (help_id == -1)
+    if (help_id == -1) {
         m_help->DisableRegionHelp();
-    else
+    } else {
         m_help->EnableRegionHelp(help_id);
+    }
     SetEnabled(true);
     UpdateButtons();
     MarkDirty();
@@ -133,8 +138,10 @@ void W8CharacterPageEntry::Redraw()
         if (m_draw_background) {
             CatalogArtwork::Load(0x108, 0).drawAndInvalidate(GetFrameBufferSurface(), 2, m_x, m_y);
         }
-        m_first_text->SetText(fmt::format("{:d}", ReadStatValue<unsigned int>(m_first)), g_wiz_text_font_secondary);
-        m_second_text->SetText(fmt::format("{:d}", ReadStatValue<int>(m_second)), g_wiz_text_font_secondary);
+        m_first_text->SetText(fmt::format("{:d}", ReadStatValue<unsigned int>(m_first)),
+                              g_wiz_text_font_secondary);
+        m_second_text->SetText(fmt::format("{:d}", ReadStatValue<int>(m_second)),
+                               g_wiz_text_font_secondary);
         m_first_text->FillBounds(0x8000);
         m_second_text->FillBounds(0x8000);
         m_label->RenderToTarget(0, true, GetFrameBufferSurface());
@@ -183,11 +190,13 @@ void W8CharacterPageEntry::UpdateButtons()
 void W8CharacterPageEntry::OnPrimary(W8TextControl* control)
 {
     if (control == m_increment) {
-        if (m_listener != 0)
+        if (m_listener != 0) {
             m_listener->AdjustEntry(this, 1);
+        }
     } else if (control == m_decrement) {
-        if (m_listener != 0)
+        if (m_listener != 0) {
             m_listener->AdjustEntry(this, -1);
+        }
     } else {
         /* Retail ignores clicks on any other control. */
         return;
@@ -200,13 +209,15 @@ void W8CharacterPageEntry::OnPrimary(W8TextControl* control)
 void W8CharacterPageEntry::OnSecondary(W8TextControl* control)
 {
     if (control == m_increment) {
-        if (m_listener != 0)
+        if (m_listener != 0) {
             m_listener->AdjustEntry(this, 5);
+        }
         UpdateButtons();
         MarkDirty();
     } else if (control == m_decrement) {
-        if (m_listener != 0)
+        if (m_listener != 0) {
             m_listener->AdjustEntry(this, -5);
+        }
         UpdateButtons();
         MarkDirty();
     } else if (m_listener != 0) {
@@ -216,7 +227,6 @@ void W8CharacterPageEntry::OnSecondary(W8TextControl* control)
 
 // VTABLE: WIZ8 0x005ef1e4 W8CharacterPage
 // class W8CharacterPage
-
 
 // FUNCTION: WIZ8 0x005afd90
 W8CharacterPage::W8CharacterPage(CatalogArtwork background)
@@ -266,7 +276,10 @@ void W8CharacterPage::Prepare()
 }
 
 // FUNCTION: WIZ8 0x005affc0
-void W8CharacterPage::AddEntry(W8CharacterPageEntry* entry) { m_entries.emplace_back(entry); }
+void W8CharacterPage::AddEntry(W8CharacterPageEntry* entry)
+{
+    m_entries.emplace_back(entry);
+}
 
 void W8CharacterPage::HandleInput(InputEvent*) {}
 void W8CharacterPage::Refresh() {}

@@ -9,7 +9,9 @@
 #include "compat/native.h"
 #include "surrender/srTypeRegistry.h"
 
-namespace wiz8 { class File; }
+namespace wiz8 {
+class File;
+}
 
 std::unique_ptr<srColorSurface> __stdcall LoadSurface(wiz8::File* handle, w8_long*);
 
@@ -19,7 +21,7 @@ std::unique_ptr<srColorSurface> __stdcall LoadSurface(wiz8::File* handle, w8_lon
    Wizardry-only. */
 class stTextureFile : public srClassSupport<stTextureFile, srTexture, 0x10001> {
 public:
-    virtual ~stTextureFile() override;          /* 0x0047C8E0 */
+    virtual ~stTextureFile() override; /* 0x0047C8E0 */
     static const char* sGetClassName()
     {
         return "stTextureFile";
@@ -56,7 +58,7 @@ public:
     void releaseSurface(); /* 0x0047BBD0 */
 
     virtual void dump(std::ostream& stream) override;
-    virtual w8_ulong getTextureFrameHandle() override;     /* 0x0047C5F0 */
+    virtual w8_ulong getTextureFrameHandle() override;                /* 0x0047C5F0 */
     virtual void getMipmapData(const MultiRequest& request) override; /* 0x0047CA50 */
     virtual void getMipmapLevelPartial(PartialRequest& request) override;
     virtual void invalidate() override; /* 0x0047C8B0 */

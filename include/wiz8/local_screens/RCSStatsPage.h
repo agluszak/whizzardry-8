@@ -12,8 +12,8 @@ struct W8Region;
 /* One row of the stats page's effect list: a character condition, an
    enchantment, or the modifiers of one equipped item. */
 struct W8CampEffectEntry {
-    bool items;          /* row lists an equipped item */
-    bool visible;        /* passes the current filter */
+    bool items;   /* row lists an equipped item */
+    bool visible; /* passes the current filter */
     bool beneficial;
     bool detrimental;
     int kind;        /* 0 condition, 1 enchantment, 2 equipment */

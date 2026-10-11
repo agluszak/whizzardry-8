@@ -6,8 +6,7 @@
 
 #include "random.h"
 
-namespace
-{
+namespace {
 // Retail used MSVC rand(), whose RAND_MAX is 0x7fff. Host rand() ranges are
 // wider (glibc: 2^31 - 1), which overflowed the 32-bit scaling and confined
 // Random() to 0..2, so reduce every roll to the retail 15-bit range.
@@ -48,8 +47,9 @@ std::uint32_t Random(std::uint32_t uiRange)
 {
     // Always return 0, if no range given (it's not an error)
 
-    if (uiRange == 0)
+    if (uiRange == 0) {
         return (0);
+    }
     return ScaleRoll(rand(), uiRange);
 }
 
@@ -64,8 +64,9 @@ bool Chance(std::uint32_t uiChance)
 std::uint32_t PreRandom(std::uint32_t uiRange)
 {
     std::uint32_t uiNum;
-    if (!uiRange)
+    if (!uiRange) {
         return 0;
+    }
     //Extract the current pregenerated number
     uiNum = ScaleRoll(static_cast<int>(guiPreRandomNums[guiPreRandomIndex]), uiRange);
     //Replace the current pregenerated number with a new one.
@@ -75,8 +76,9 @@ std::uint32_t PreRandom(std::uint32_t uiRange)
 
     //Go to the next index.
     guiPreRandomIndex++;
-    if (guiPreRandomIndex >= (std::uint32_t)MAX_PREGENERATED_NUMS)
+    if (guiPreRandomIndex >= (std::uint32_t)MAX_PREGENERATED_NUMS) {
         guiPreRandomIndex = 0;
+    }
     return uiNum;
 }
 

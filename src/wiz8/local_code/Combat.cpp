@@ -733,8 +733,9 @@ void SetSlotAction(int party_slot, W8ActionKind action_kind, int action_detail)
 // FUNCTION: WIZ8 0x004ed260
 void CombatLog(std::string_view text)
 {
-    if (g_combat_log_enabled)
+    if (g_combat_log_enabled) {
         ShowNotice(W8_FONT_PALETTE_BROWN, text);
+    }
 }
 
 /* Start a fresh round: lift the one action that does not survive it and clear
@@ -1091,8 +1092,7 @@ void EndCombat(bool forced_cleanup)
     RemoveAllEnchantments();
     ResetCombatEffects();
     ProcessMonstersAtCombatEnd(forced_cleanup);
-    unsigned int group_count =
-        gXStatus.monster_groups.size();
+    unsigned int group_count = gXStatus.monster_groups.size();
     for (unsigned int group_index = 0; group_index < group_count; ++group_index) {
         W8MonsterGroup* group = GetMonsterGroupByListIndex(group_index);
         if (group->fInCombat) {
@@ -2761,7 +2761,8 @@ int ExecuteMonsterSpecialAttack(W8MonsterInfo* monster_info, W8MonsterRecord* re
     ResolveMonsterGroupAttack(record->special_attack_kind, &source, &monster_info->Target,
                               char_targets, monster_targets);
     monster_info->pCombat->special_cooldown = record->special_attack_cooldown;
-    FatigueMonster(monster_info, static_cast<unsigned int>(monster_info->stamina_max) / 10, nullptr);
+    FatigueMonster(monster_info, static_cast<unsigned int>(monster_info->stamina_max) / 10,
+                   nullptr);
     return 3;
 }
 
@@ -3180,7 +3181,8 @@ void UpdateCombat(void)
             }
         }
     }
-    for (unsigned int monster_index = 0; monster_index < gXStatus.monsters.size(); ++monster_index) {
+    for (unsigned int monster_index = 0; monster_index < gXStatus.monsters.size();
+         ++monster_index) {
         W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
         if (monster_info->fActive && monster_info->fInCombat && monster_info->hp_current != 0 &&
             monster_info->pCombat->sight_refresh_pending) {
@@ -3360,7 +3362,8 @@ void ScheduleCombatActor(void)
             }
         }
         if (g_combat_state->eCombatActionStatus == 0) {
-            for (unsigned int monster_index = 0; monster_index < gXStatus.monsters.size(); ++monster_index) {
+            for (unsigned int monster_index = 0; monster_index < gXStatus.monsters.size();
+                 ++monster_index) {
                 W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
                 if (!monster_info->fInCombat) {
                     continue;

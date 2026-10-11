@@ -21,7 +21,6 @@
 #include "gameplay_modifiers.h"
 #include "layouts/item_instance.h"
 
-
 /* Clear the party modifier block, fold the party's effect slots, the combat
    effect run and each character's own equipment and condition blocks into
    their derived modifiers, then drive the sky node from the stored light
@@ -427,8 +426,8 @@ void ApplyConditionModifiers(W8Character* character, const unsigned int* conditi
                 W8MonsterInfo* bound;
                 if (character->conditions[W8_DEPENDENCE_SWALLOWED].level_acquired ==
                         g_status.current_level &&
-                    (bound = FindMonster(character->conditions[W8_DEPENDENCE_SWALLOWED].source_monster)) !=
-                        0) {
+                    (bound = FindMonster(
+                         character->conditions[W8_DEPENDENCE_SWALLOWED].source_monster)) != 0) {
                     W8MonsterRecord* monster = GetMonsterDataForInfo(bound);
                     target->health_regen_adjustment += -1 - (monster->effective_level >> 1);
                 } else {

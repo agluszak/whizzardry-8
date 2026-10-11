@@ -27,21 +27,23 @@ struct W8MonsterGroup {
     std::span<const int> MemberIds() const
     {
         const std::vector<int>* ids = monsters;
-        if (!ids)
+        if (!ids) {
             return {};
+        }
         return *ids;
     }
 
     int MemberLocationId(std::size_t index) const
     {
         const auto ids = MemberIds();
-        if (index >= ids.size())
+        if (index >= ids.size()) {
             return -1;
+        }
         return ids[index];
     }
 
-    int group_id;              /* GroupIndex ID lookup key */
-    unsigned int member_count; /* decremented when members leave */
+    int group_id;               /* GroupIndex ID lookup key */
+    unsigned int member_count;  /* decremented when members leave */
     std::vector<int>* monsters; /* location IDs of live members */
     /* Refreshed together by the targeting visibility pass. */
     int visible_member_count;
@@ -117,8 +119,9 @@ struct W8MonsterGroup {
     unsigned char unknown_d4[0x57];
 };
 
-unsigned int GetMonsterGroupIndexByID(int group_id, bool assert_on_failure = true,
-                                      std::source_location caller = std::source_location::current());
+unsigned int
+GetMonsterGroupIndexByID(int group_id, bool assert_on_failure = true,
+                         std::source_location caller = std::source_location::current());
 W8MonsterGroup* GetMonsterGroupByListIndex(unsigned int group_list_index);
 W8MonsterGroup* FindMonsterGroup(int group_id, bool assert_on_failure = true,
                                  std::source_location caller = std::source_location::current());

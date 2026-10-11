@@ -132,10 +132,16 @@ void srTextureFile::setupDefaultValues()
 // FUNCTION: SURRENDER 0x1005FCB0
 void srTextureFile::getMipmapData(const MultiRequest& request)
 {
-    if (!surface) loadSurface();
-    if (!surface || request.destinations.empty() || !request.destinations.front()) return;
+    if (!surface) {
+        loadSurface();
+    }
+    if (!surface || request.destinations.empty() || !request.destinations.front()) {
+        return;
+    }
     copyMipmapChain(*surface, request);
-    if ((cached & 1) == 0) releaseSurface();
+    if ((cached & 1) == 0) {
+        releaseSurface();
+    }
 }
 
 // FUNCTION: SURRENDER 0x1005FD30

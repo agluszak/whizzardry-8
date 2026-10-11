@@ -28,7 +28,8 @@ W8NotificationDialog::W8NotificationDialog(int message_index, bool cancel_allowe
     SetExtent(0xa0, 100);
     SetBackground("Data\\Dialogs\\DialogBackground.sti", 0);
     SetClientExtent(0xfa, 200);
-    SetMessage(g_localized_strings[message_index], 1, 0x32, true, cancel_allowed, true, true, 0, 0x15e);
+    SetMessage(g_localized_strings[message_index], 1, 0x32, true, cancel_allowed, true, true, 0,
+               0x15e);
     CaptureInputSink();
 }
 

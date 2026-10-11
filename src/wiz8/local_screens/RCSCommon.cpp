@@ -244,8 +244,7 @@ void DrawRcsTextJustified(std::string_view text, int left, int top, int width, i
                           unsigned int layout_mode)
 {
     if (layout_mode == (g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter)) {
-        left +=
-            (width - g_wiz_text_font_secondary.textWidth(text)) / 2;
+        left += (width - g_wiz_text_font_secondary.textWidth(text)) / 2;
     } else if (layout_mode == (g_W8TextBufferAlignRight | g_W8TextBufferAlignMiddle)) {
         left += width - g_wiz_text_font_secondary.textWidth(text);
     }
@@ -545,9 +544,8 @@ void CreateRcsDismissPanel(void)
                      0x8cf, 0);
     }
 
-    g_dismiss_button =
-        new W8TextControl(g_dismiss_panel.get(), g_camp_main_regions->index(1), 0, 0, 0x17, 0x10,
-                          CatalogArtwork::Load(0x113, 0), 0, 2, 1, 2, 3);
+    g_dismiss_button = new W8TextControl(g_dismiss_panel.get(), g_camp_main_regions->index(1), 0, 0,
+                                         0x17, 0x10, CatalogArtwork::Load(0x113, 0), 0, 2, 1, 2, 3);
     if (g_dismiss_button == 0) {
         srAssertFail("gpDismissButton", "C:\\Projects\\Wizardry 8\\Local Screens\\RCSCommon.cpp",
                      0x8d3, 0);
@@ -663,9 +661,15 @@ void ReleaseFormationBoard(void)
 void DestroyFormationPanel(void)
 {
     g_formation_panel.reset();
-    for (auto& control : g_formation_cell_controls) control = nullptr;
-    for (auto& overlay : g_formation_cell_overlays) overlay = nullptr;
-    for (auto& button : g_formation_action_buttons) button = nullptr;
+    for (auto& control : g_formation_cell_controls) {
+        control = nullptr;
+    }
+    for (auto& overlay : g_formation_cell_overlays) {
+        overlay = nullptr;
+    }
+    for (auto& button : g_formation_action_buttons) {
+        button = nullptr;
+    }
 }
 
 /* The upper-left character block. While an input mode is up it lists the
@@ -710,8 +714,9 @@ void DrawCampHeader(void)
                         level_x = 0x10a;
                     }
                     y = (row & 7) * 0xe + 0x24;
-                    DrawRcsText(g_localized_strings[g_profession_name_message_ids[profession]], name_x, y,
-                                0x68, g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
+                    DrawRcsText(g_localized_strings[g_profession_name_message_ids[profession]],
+                                name_x, y, 0x68,
+                                g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
                     state->text_buffer =
                         fmt::format("{:d}", character->profession_levels[profession]);
                     DrawRcsText(state->text_buffer, level_x, y, 0x20,
@@ -731,7 +736,8 @@ void DrawCampHeader(void)
     }
     if ((state->redraw_flags & W8_CAMP_REDRAW_PORTRAIT) != 0) {
         if (character->hp_current == 0) {
-            CatalogArtwork::Load(g_dead_portrait_catalog_ids[character->iRace][1], 0).draw(GetFrameBufferSurface(), 0, 0xa4, 0xc);
+            CatalogArtwork::Load(g_dead_portrait_catalog_ids[character->iRace][1], 0)
+                .draw(GetFrameBufferSurface(), 0, 0xa4, 0xc);
         } else {
             RenderPartyPortrait(character->portrait_index, 0xa4, 0xc, {}, 1, giReviewCharSlot);
         }
@@ -746,13 +752,15 @@ void DrawCampHeader(void)
         if (character->highest_condition == W8_CONDITION_NONE) {
             CatalogArtwork::Load(0x2f, 0).draw(GetFrameBufferSurface(), 0, 0xa5, 0xe);
         } else {
-            CatalogArtwork::Load(character->highest_condition + 0xb6, 0).draw(GetFrameBufferSurface(), 0, 0xa5, 0xe);
+            CatalogArtwork::Load(character->highest_condition + 0xb6, 0)
+                .draw(GetFrameBufferSurface(), 0, 0xa5, 0xe);
             CatalogArtwork::Load(0x61, 0).draw(GetFrameBufferSurface(), 0, 0xa4, 0xd);
         }
         if (character->enchantment_top == W8_ENCHANTMENT_NONE) {
             CatalogArtwork::Load(0x30, 0).draw(GetFrameBufferSurface(), 0, 0xee, 0xe);
         } else {
-            CatalogArtwork::Load(character->enchantment_top + 0xc9, 0).draw(GetFrameBufferSurface(), 0, 0xee, 0xe);
+            CatalogArtwork::Load(character->enchantment_top + 0xc9, 0)
+                .draw(GetFrameBufferSurface(), 0, 0xee, 0xe);
             CatalogArtwork::Load(0x61, 0).draw(GetFrameBufferSurface(), 0, 0xed, 0xd);
         }
         InvalidateRegion(0xa4, 0xc, 0xfe, 0x54, 1);
@@ -781,7 +789,8 @@ void DrawCampHeader(void)
         if (state->hover_region == g_camp_main_regions->index(12)) {
             g_wiz_text_font_secondary.setPalette(g_font_state_palettes[W8_FONT_PALETTE_GREEN]);
         }
-        state->text_buffer = g_localized_strings[g_profession_name_message_ids[character->iProfession]];
+        state->text_buffer =
+            g_localized_strings[g_profession_name_message_ids[character->iProfession]];
         DrawTextAndInvalidate(
             GetFrameBufferSurface(), g_wiz_text_font_secondary,
             {(0xba - g_wiz_text_font_secondary.textWidth(state->text_buffer)) / 2 + 0x74, 0x7c},
@@ -804,7 +813,8 @@ void DrawCampHeader(void)
             left = band_x + 6;
             top = band_y + 5;
             if (giReviewCharSlot == -1 || !g_status.buffers.XChar[slot].fOccupied) {
-                CatalogArtwork::Load(0x10f, 0).draw(GetFrameBufferSurface(), slot + 1, band_x + 5, band_y + 4);
+                CatalogArtwork::Load(0x10f, 0).draw(GetFrameBufferSurface(), slot + 1, band_x + 5,
+                                                    band_y + 4);
             } else {
                 W8Character* member = &g_status.buffers.Char[slot];
                 if (member->hp_current == 0) {
@@ -816,7 +826,8 @@ void DrawCampHeader(void)
                 }
                 CatalogArtwork::Load(image, sub_image).draw(GetFrameBufferSurface(), 0, left, top);
                 if (!CanSelectRcsPartySlot(slot)) {
-                    const SDL_Rect bounds{left, top, band_x + 0x32 - left + 1, band_y + 0x28 - top + 1};
+                    const SDL_Rect bounds{left, top, band_x + 0x32 - left + 1,
+                                          band_y + 0x28 - top + 1};
                     ShadowRect(GetFrameBufferSurface(), bounds);
                     ShadowRect(GetFrameBufferSurface(), bounds);
                 }
@@ -913,13 +924,15 @@ void DrawCampVitals(void)
     if (gap != 0) {
         ShadeStatusBarGap(gap, hp_row + 0x10c, frame_column - numeric + 0xb);
     }
-    CatalogArtwork::Load(stamina_frame, 0).draw(GetFrameBufferSurface(), 0, stamina_row + 0x10c, bar_top);
+    CatalogArtwork::Load(stamina_frame, 0)
+        .draw(GetFrameBufferSurface(), 0, stamina_row + 0x10c, bar_top);
     gap = 0x2d - stamina_fill;
     if (gap != 0) {
         ShadeStatusBarGap(gap, stamina_row + 0x10c, frame_column - numeric + 0xb);
     }
     if (SumCharacterSpellPoints(g_review_character) != 0) {
-        CatalogArtwork::Load(spell_frame, 0).draw(GetFrameBufferSurface(), 0, spell_column + 0x10c, bar_top);
+        CatalogArtwork::Load(spell_frame, 0)
+            .draw(GetFrameBufferSurface(), 0, spell_column + 0x10c, bar_top);
         gap = 0x2d - spell_fill;
         if (gap != 0) {
             ShadeStatusBarGap(gap, spell_column + 0x10c, frame_column - numeric + 0xb);
@@ -929,8 +942,8 @@ void DrawCampVitals(void)
     bounds.right = g_camp_page_regions->index(2);
     bounds.top = 0xd;
     bounds.bottom = 0x17;
-    text =
-        new W8TextBuffer(&bounds, {}, g_smfnt_font, g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
+    text = new W8TextBuffer(&bounds, {}, g_smfnt_font,
+                            g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
     if (!g_status.game_started) {
         text->SetFontStateIndex(8);
     } else {
@@ -959,7 +972,9 @@ static void DrawCampHand(W8EquipSlot slot, int hand_index, int top, int count_ce
 {
     int item_id = g_review_character->EquippedItem[slot].iItemNo;
     if (item_id == -1) {
-        CatalogArtwork::Load(g_empty_hand_catalog_ids[g_review_character->iRace * W8_RACE_DWARF + hand_index], 0).draw(GetFrameBufferSurface(), 0, 0x85, top);
+        CatalogArtwork::Load(
+            g_empty_hand_catalog_ids[g_review_character->iRace * W8_RACE_DWARF + hand_index], 0)
+            .draw(GetFrameBufferSurface(), 0, 0x85, top);
     } else {
         DrawSprite(GetFrameBufferSurface(), g_item_video_objects.Sprites(item_id), 2, 0x84, top);
         unsigned char count = g_review_character->EquippedItem[slot].stack_count;
@@ -1032,20 +1047,21 @@ int CreateCampButtonPanel(void)
     }
     g_camp_page_regions.Enable();
     g_camp_item_action_regions.Enable();
-    g_item_actions_panel = std::make_unique<Controls>(0, 0x1c2, 0x280, 0x1e0, CatalogArtwork::Load(0x110, 0), 0);
+    g_item_actions_panel =
+        std::make_unique<Controls>(0, 0x1c2, 0x280, 0x1e0, CatalogArtwork::Load(0x110, 0), 0);
     if (g_item_actions_panel) {
-        g_camp_page_buttons[0] = new W8TextControl(
-            g_item_actions_panel.get(), g_camp_page_regions->index(0), 0x1a4, 0, 0x1d0, 0x1e,
-            CatalogArtwork::Load(0x111, 0), 0, 4, 1, 2, 3);
-        g_camp_page_buttons[1] = new W8TextControl(
-            g_item_actions_panel.get(), g_camp_page_regions->index(1), 0x1d0, 0, 0x1fc, 0x1e,
-            CatalogArtwork::Load(0x111, 0), 10, 0xe, 0xb, 0xc, 0xd);
+        g_camp_page_buttons[0] =
+            new W8TextControl(g_item_actions_panel.get(), g_camp_page_regions->index(0), 0x1a4, 0,
+                              0x1d0, 0x1e, CatalogArtwork::Load(0x111, 0), 0, 4, 1, 2, 3);
+        g_camp_page_buttons[1] =
+            new W8TextControl(g_item_actions_panel.get(), g_camp_page_regions->index(1), 0x1d0, 0,
+                              0x1fc, 0x1e, CatalogArtwork::Load(0x111, 0), 10, 0xe, 0xb, 0xc, 0xd);
         g_camp_page_buttons[2] = new W8TextControl(
             g_item_actions_panel.get(), g_camp_page_regions->index(2), 0x1fc, 0, 0x228, 0x1e,
             CatalogArtwork::Load(0x111, 0), 0xf, 0x13, 0x10, 0x11, 0x12);
-        g_camp_page_buttons[3] = new W8TextControl(
-            g_item_actions_panel.get(), g_camp_page_regions->index(3), 0x228, 0, 0x254, 0x1e,
-            CatalogArtwork::Load(0x111, 0), 5, 9, 6, 7, 8);
+        g_camp_page_buttons[3] =
+            new W8TextControl(g_item_actions_panel.get(), g_camp_page_regions->index(3), 0x228, 0,
+                              0x254, 0x1e, CatalogArtwork::Load(0x111, 0), 5, 9, 6, 7, 8);
         g_camp_page_buttons[4] = new W8TextControl(
             g_item_actions_panel.get(), g_camp_page_regions->index(4), 0x254, 0, 0x280, 0x1e,
             CatalogArtwork::Load(0x106, 0), 0x10, -1, 0x11, 0x12, 0x13);
@@ -1063,35 +1079,30 @@ int CreateCampButtonPanel(void)
         g_camp_page_buttons[2]->m_primaryActivationCallback = OnCampPageButton2;
         g_camp_page_buttons[3]->m_primaryActivationCallback = OnCampPageButton3;
         g_camp_page_buttons[4]->m_primaryActivationCallback = CampPageDismissAction;
-        g_item_action_controls[W8_CAMP_ACTION_BUTTON_IDENTIFY] = new W8TextControl(
-            g_item_actions_panel.get(), g_camp_item_action_regions->index(0), 0, 0, 0x2c, 0x1e,
-            CatalogArtwork::Load(0x112, 0), 0, 2, 1, 4, 3);
+        g_item_action_controls[W8_CAMP_ACTION_BUTTON_IDENTIFY] =
+            new W8TextControl(g_item_actions_panel.get(), g_camp_item_action_regions->index(0), 0,
+                              0, 0x2c, 0x1e, CatalogArtwork::Load(0x112, 0), 0, 2, 1, 4, 3);
         g_item_action_controls[W8_CAMP_ACTION_BUTTON_MOVE] = new W8TextControl(
             g_item_actions_panel.get(), g_camp_item_action_regions->index(1), 0x2c, 0, 0x58, 0x1e,
             CatalogArtwork::Load(0x112, 0), 10, 0xc, 0xb, 0xe, 0xd);
-        g_item_action_controls[W8_CAMP_ACTION_BUTTON_SPLIT_STACK] = new W8TextControl(
-            g_item_actions_panel.get(), g_camp_item_action_regions->index(2), 0x58, 0, 0x84, 0x1e,
-            CatalogArtwork::Load(0x112, 0), 5, 7, 6, 9, 8);
-        g_item_action_controls[W8_CAMP_ACTION_BUTTON_USE] =
-            new W8TextControl(g_item_actions_panel.get(), g_camp_item_action_regions->index(3), 0x84, 0,
-                              0xb0, 0x1e, CatalogArtwork::Load(0x112, 0), 0xf, 0x11, 0x10, 0x13,
-                              0x12);
-        g_item_action_controls[W8_CAMP_ACTION_BUTTON_DROP] =
-            new W8TextControl(g_item_actions_panel.get(), g_camp_item_action_regions->index(4), 0xb0, 0,
-                              0xdc, 0x1e, CatalogArtwork::Load(0x112, 0), 0x14, 0x16, 0x15,
-                              0x18, 0x17);
-        g_item_action_controls[W8_CAMP_ACTION_BUTTON_CAST_SPELL] =
-            new W8TextControl(g_item_actions_panel.get(), g_camp_item_action_regions->index(5), 0x134, 0,
-                              0x160, 0x1e, CatalogArtwork::Load(0x112, 0), 0x19, 0x1b, 0x1a,
-                              0x1d, 0x1c);
-        g_item_action_controls[W8_CAMP_ACTION_BUTTON_USE_ON_ITEM] =
-            new W8TextControl(g_item_actions_panel.get(), g_camp_item_action_regions->index(6), 0xdc, 0,
-                              0x108, 0x1e, CatalogArtwork::Load(0x112, 0), 0x1e, 0x20, 0x1f,
-                              0x22, 0x21);
-        g_item_action_controls[W8_CAMP_ACTION_BUTTON_USE_ON_CHARACTER] =
-            new W8TextControl(g_item_actions_panel.get(), g_camp_item_action_regions->index(7), 0x108, 0,
-                              0x134, 0x1e, CatalogArtwork::Load(0x112, 0), 0x23, 0x25, 0x24,
-                              0x27, 0x26);
+        g_item_action_controls[W8_CAMP_ACTION_BUTTON_SPLIT_STACK] =
+            new W8TextControl(g_item_actions_panel.get(), g_camp_item_action_regions->index(2),
+                              0x58, 0, 0x84, 0x1e, CatalogArtwork::Load(0x112, 0), 5, 7, 6, 9, 8);
+        g_item_action_controls[W8_CAMP_ACTION_BUTTON_USE] = new W8TextControl(
+            g_item_actions_panel.get(), g_camp_item_action_regions->index(3), 0x84, 0, 0xb0, 0x1e,
+            CatalogArtwork::Load(0x112, 0), 0xf, 0x11, 0x10, 0x13, 0x12);
+        g_item_action_controls[W8_CAMP_ACTION_BUTTON_DROP] = new W8TextControl(
+            g_item_actions_panel.get(), g_camp_item_action_regions->index(4), 0xb0, 0, 0xdc, 0x1e,
+            CatalogArtwork::Load(0x112, 0), 0x14, 0x16, 0x15, 0x18, 0x17);
+        g_item_action_controls[W8_CAMP_ACTION_BUTTON_CAST_SPELL] = new W8TextControl(
+            g_item_actions_panel.get(), g_camp_item_action_regions->index(5), 0x134, 0, 0x160, 0x1e,
+            CatalogArtwork::Load(0x112, 0), 0x19, 0x1b, 0x1a, 0x1d, 0x1c);
+        g_item_action_controls[W8_CAMP_ACTION_BUTTON_USE_ON_ITEM] = new W8TextControl(
+            g_item_actions_panel.get(), g_camp_item_action_regions->index(6), 0xdc, 0, 0x108, 0x1e,
+            CatalogArtwork::Load(0x112, 0), 0x1e, 0x20, 0x1f, 0x22, 0x21);
+        g_item_action_controls[W8_CAMP_ACTION_BUTTON_USE_ON_CHARACTER] = new W8TextControl(
+            g_item_actions_panel.get(), g_camp_item_action_regions->index(7), 0x108, 0, 0x134, 0x1e,
+            CatalogArtwork::Load(0x112, 0), 0x23, 0x25, 0x24, 0x27, 0x26);
         index = 0;
         while (g_item_action_controls[index] != 0) {
             ++index;
@@ -1143,8 +1154,12 @@ int CreateCampButtonPanel(void)
 void DestroyCampButtonPanel(void)
 {
     g_item_actions_panel.reset();
-    for (auto& button : g_camp_page_buttons) button = nullptr;
-    for (auto& button : g_item_action_controls) button = nullptr;
+    for (auto& button : g_camp_page_buttons) {
+        button = nullptr;
+    }
+    for (auto& button : g_item_action_controls) {
+        button = nullptr;
+    }
     g_camp_item_action_regions.Disable();
     g_camp_page_regions.Disable();
 }

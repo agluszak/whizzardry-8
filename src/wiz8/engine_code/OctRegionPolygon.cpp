@@ -58,14 +58,17 @@ unsigned char W8OctPreTreeGeometry::CheckArrayLength(int** run, unsigned short c
 }
 
 // Records reserve index zero. Keep channel frees interleaved in record order.
-template<class Record, std::size_t Channels>
+template <class Record, std::size_t Channels>
 static void ReleaseSharedRuns(std::span<Record> records,
                               const std::array<int* Record::*, Channels>& fields)
 {
-    if (records.empty()) return;
+    if (records.empty()) {
+        return;
+    }
     std::array<int*, Channels> previous;
-    for (std::size_t channel = 0; channel < Channels; ++channel)
+    for (std::size_t channel = 0; channel < Channels; ++channel) {
         previous[channel] = records.front().*fields[channel];
+    }
     for (auto& record : records) {
         for (std::size_t channel = 0; channel < Channels; ++channel) {
             auto& run = record.*fields[channel];
@@ -76,7 +79,9 @@ static void ReleaseSharedRuns(std::span<Record> records,
             }
         }
     }
-    for (auto* run : previous) std::free(run);
+    for (auto* run : previous) {
+        std::free(run);
+    }
 }
 
 /* Free every run the geometry owns: per-vertex face-index and owned arrays
@@ -87,17 +92,20 @@ static void ReleaseSharedRuns(std::span<Record> records,
 void W8OctPreTreeGeometry::Release()
 {
     if (m_vertices != 0) {
-        if (vertex_count > 1)
-            ReleaseSharedRuns(std::span{m_vertices + 1, vertex_count - 1},
+        if (vertex_count > 1) {
+            ReleaseSharedRuns(
+                std::span{m_vertices + 1, vertex_count - 1},
                 std::array{&W8OctPreTreeVertex::face_indices, &W8OctPreTreeVertex::owned});
+        }
         free(m_vertices);
         m_vertices = nullptr;
     }
     vertex_count = 0;
     if (m_polygons != 0) {
-        if (m_polygon_count > 1)
+        if (m_polygon_count > 1) {
             ReleaseSharedRuns(std::span{m_polygons + 1, m_polygon_count - 1},
-                std::array{&W8OctRegionPolygon::face_indices});
+                              std::array{&W8OctRegionPolygon::face_indices});
+        }
         free(m_polygons);
         m_polygons = nullptr;
     }

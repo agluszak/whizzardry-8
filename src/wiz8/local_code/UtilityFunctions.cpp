@@ -59,14 +59,20 @@ static SDL_Rect MessageBoxBounds(const MessageBoxState& message_box)
         bounds = {left, top, right - left, bottom - top};
     };
 
-    if (message_box.accept.IsConfigured()) include(message_box.accept.GetBounds());
-    if (message_box.cancel.IsConfigured()) include(message_box.cancel.GetBounds());
+    if (message_box.accept.IsConfigured()) {
+        include(message_box.accept.GetBounds());
+    }
+    if (message_box.cancel.IsConfigured()) {
+        include(message_box.cancel.GetBounds());
+    }
     return bounds;
 }
 
 static void SetMessageBoxResult(bool accepted)
 {
-    if (!g_message_box) return;
+    if (!g_message_box) {
+        return;
+    }
     g_message_box->state = 1;
     g_message_box->accepted = accepted;
 }
@@ -183,7 +189,10 @@ int CompareSignedDescending(const void* first, const void* second)
 std::string FormatUnsignedIntegerWithCommas(unsigned int value)
 {
     auto text = std::to_string(value);
-    for (std::size_t i = text.size(); i > 3; ) { i -= 3; text.insert(i, ","); }
+    for (std::size_t i = text.size(); i > 3;) {
+        i -= 3;
+        text.insert(i, ",");
+    }
     return text;
 }
 
@@ -258,17 +267,20 @@ W8ScreenRect UnionScreenRects(const W8ScreenRect& first, const W8ScreenRect& sec
 // FUNCTION: WIZ8 0x00517e70
 bool ScreenPointInRect(const W8ScreenRect* rect, const SDL_Point* point)
 {
-    if (rect == nullptr || point == nullptr)
+    if (rect == nullptr || point == nullptr) {
         return false;
+    }
     const SDL_Rect bounds{rect->left, rect->top, rect->right - rect->left,
-                        rect->bottom - rect->top};
+                          rect->bottom - rect->top};
     return SDL_PointInRect(point, &bounds);
 }
 
 // FUNCTION: WIZ8 0x00517ea0
 void StripMonsterNameSuffix(std::string& name)
 {
-    if (const auto suffix = name.find('#'); suffix != std::string::npos) name.resize(suffix);
+    if (const auto suffix = name.find('#'); suffix != std::string::npos) {
+        name.resize(suffix);
+    }
 }
 
 // FUNCTION: WIZ8 0x00517ec0
@@ -484,7 +496,8 @@ retry:
 // FUNCTION: WIZ8 0x005182e0
 void DebugMessage(int channel, std::string_view message)
 {
-    (void)channel; (void)message; // The recovered diagnostic sink is inactive.
+    (void)channel;
+    (void)message; // The recovered diagnostic sink is inactive.
 }
 
 // FUNCTION: WIZ8 0x00518310
@@ -492,7 +505,8 @@ int RPCPtrToPCSlot(const W8MonsterManagerEntry* rpc)
 {
     int slot = 0;
 
-    for (const W8MonsterManagerEntry* current = gXStatus.monster_manager_entries; current < &gXStatus.monster_manager_entries[8]; ++current) {
+    for (const W8MonsterManagerEntry* current = gXStatus.monster_manager_entries;
+         current < &gXStatus.monster_manager_entries[8]; ++current) {
         if (rpc == current) {
             return slot;
         }
@@ -511,10 +525,12 @@ void FreeStringTable(void)
 }
 
 // FUNCTION: WIZ8 0x00518510
-bool CreateMessageBox(std::string_view text, Font& font, unsigned int shade, bool has_accept, bool has_cancel,
-                      void (*callback)(void))
+bool CreateMessageBox(std::string_view text, Font& font, unsigned int shade, bool has_accept,
+                      bool has_cancel, void (*callback)(void))
 {
-    if (g_message_box) return false;
+    if (g_message_box) {
+        return false;
+    }
 
     auto& message_box = g_message_box.emplace();
     unsigned short height = 0x58;
@@ -528,9 +544,9 @@ bool CreateMessageBox(std::string_view text, Font& font, unsigned int shade, boo
         width = 0x78;
     }
     const int y = (0x1e0 - height) / 2;
-    const auto background_image = LoadGenericButtonImages(
-        {}, DEFAULT_GENERIC_BUTTON_OFF, {}, DEFAULT_GENERIC_BUTTON_ON, {},
-        "Data\\Dialogs\\DialogBackground.STI", 0, 0, 0);
+    const auto background_image =
+        LoadGenericButtonImages({}, DEFAULT_GENERIC_BUTTON_OFF, {}, DEFAULT_GENERIC_BUTTON_ON, {},
+                                "Data\\Dialogs\\DialogBackground.STI", 0, 0, 0);
     const auto fail_creation = [] {
         g_message_box.reset();
         return false;
@@ -538,8 +554,8 @@ bool CreateMessageBox(std::string_view text, Font& font, unsigned int shade, boo
 
     if (!message_box.background.ConfigureTextButton(
             text, font, 0xff, 0, (0x280 - width) / 2, y, width, height,
-            [](W8ButtonWidget*) { SetMessageBoxResult(true); },
-            0, background_image, REGION_PRIORITY_BACKGROUND)) {
+            [](W8ButtonWidget*) { SetMessageBoxResult(true); }, 0, background_image,
+            REGION_PRIORITY_BACKGROUND)) {
         return fail_creation();
     }
     message_box.background.SetMultiColor(true);
@@ -549,9 +565,8 @@ bool CreateMessageBox(std::string_view text, Font& font, unsigned int shade, boo
     if (has_accept) {
         if (!message_box.accept.Configure(
                 "Data\\Message Box\\Ok.sti", 0, 1, 2, 3, 4,
-                [](W8ButtonWidget*) { SetMessageBoxResult(true); },
-                nullptr, false, REGION_PRIORITY_HIGHEST - 1,
-                W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr)) {
+                [](W8ButtonWidget*) { SetMessageBoxResult(true); }, nullptr, false,
+                REGION_PRIORITY_HIGHEST - 1, W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr)) {
             return fail_creation();
         }
         message_box.accept.SetPosition(0x131 - (has_cancel ? 0x1e : 0), y + 0x46);
@@ -559,9 +574,8 @@ bool CreateMessageBox(std::string_view text, Font& font, unsigned int shade, boo
     if (has_cancel) {
         if (!message_box.cancel.Configure(
                 "Data\\Message Box\\Cancel.sti", 0, 1, 2, 3, 4,
-                [](W8ButtonWidget*) { SetMessageBoxResult(false); },
-                nullptr, false, REGION_PRIORITY_HIGHEST - 1,
-                W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr)) {
+                [](W8ButtonWidget*) { SetMessageBoxResult(false); }, nullptr, false,
+                REGION_PRIORITY_HIGHEST - 1, W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr)) {
             return fail_creation();
         }
         message_box.cancel.SetPosition(0x131 + (has_accept ? 0x1e : 0), y + 0x46);
@@ -581,7 +595,9 @@ bool CreateMessageBox(std::string_view text, Font& font, unsigned int shade, boo
 
 static void ReleaseMessageBoxControls()
 {
-    if (!g_message_box) return;
+    if (!g_message_box) {
+        return;
+    }
 
     auto& message_box = *g_message_box;
     message_box.input_scope.reset();
@@ -617,22 +633,28 @@ bool IsMessageBoxActive(void)
 // FUNCTION: WIZ8 0x005189b0
 void RenderMessageBox(void)
 {
-    if (!g_message_box) return;
+    if (!g_message_box) {
+        return;
+    }
 
     auto& message_box = *g_message_box;
     if (message_box.state == 1) {
         ReleaseMessageBoxControls();
         message_box.state = 3;
     } else if (message_box.state == 2) {
-        Font& shade_font = message_box.font == &g_large_font ? g_large_font
-            : message_box.font == &g_small_font ? g_small_font
-            : message_box.font == &g_small_font_secondary ? g_small_font_secondary
-            : message_box.font == &g_wiz_text_font ? g_wiz_text_font
-            : g_wiz_text_font_secondary;
+        Font& shade_font = message_box.font == &g_large_font             ? g_large_font
+                           : message_box.font == &g_small_font           ? g_small_font
+                           : message_box.font == &g_small_font_secondary ? g_small_font_secondary
+                           : message_box.font == &g_wiz_text_font        ? g_wiz_text_font
+                                                                  : g_wiz_text_font_secondary;
         shade_font.setShade(message_box.shade);
         message_box.background.Draw();
-        if (message_box.has_accept) message_box.accept.Draw();
-        if (message_box.has_cancel) message_box.cancel.Draw();
+        if (message_box.has_accept) {
+            message_box.accept.Draw();
+        }
+        if (message_box.has_cancel) {
+            message_box.cancel.Draw();
+        }
     } else if (message_box.state == 3) {
         const bool accepted = message_box.accepted;
         const auto callback = message_box.callback;
@@ -646,7 +668,9 @@ void RenderMessageBox(void)
 // FUNCTION: WIZ8 0x00518b30
 void ProcessMessageBoxInput(void)
 {
-    if (!g_message_box || g_message_box->state != 2) return;
+    if (!g_message_box || g_message_box->state != 2) {
+        return;
+    }
 
     W8DialogBase::DrainModalInput([](const InputEvent& input) {
         switch (input.type) {

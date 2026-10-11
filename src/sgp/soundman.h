@@ -14,13 +14,11 @@
 /* Sound playback over SDL3_mixer. Clips are cached by name; every playback owns
    one mixer track. Game policy (ambient scheduling, distance volume, music
    transitions) lives with its callers. */
-namespace wiz8::sound
-{
+namespace wiz8::sound {
 // Mixer tags; retail used priority 0xfffffff0 for every ambient sound.
 enum class Group : std::uint8_t { effects, ambient, music };
 
-struct PlayOptions
-{
+struct PlayOptions {
     // 0..127; unset uses the default effects volume.
     std::optional<std::uint32_t> volume{};
     // Total plays; 0 repeats until stopped.
@@ -37,8 +35,7 @@ struct PlayOptions
     std::function<void()> on_finished{};
 };
 
-struct PlaybackTime
-{
+struct PlaybackTime {
     std::uint32_t total_ms;
     std::uint32_t current_ms;
 };

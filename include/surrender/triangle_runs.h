@@ -15,10 +15,9 @@ struct srTriangleRun {
 };
 
 // An empty order uses contiguous input; otherwise runs follow its permutation.
-template<class Visit>
+template <class Visit>
 inline void visitTriangleRuns(std::span<const w8_ulong> texture_sets,
-                              std::span<const w8_ulong> order,
-                              std::size_t maximum_run, Visit visit)
+                              std::span<const w8_ulong> order, std::size_t maximum_run, Visit visit)
 {
     assert(maximum_run > 0);
     const auto count = order.empty() ? texture_sets.size() : order.size();
@@ -29,7 +28,9 @@ inline void visitTriangleRuns(std::span<const w8_ulong> texture_sets,
         const auto texture = textureAt(first);
         const auto limit = std::min(maximum_run, count - first);
         std::size_t length = 1;
-        while (length < limit && textureAt(first + length) == texture) ++length;
+        while (length < limit && textureAt(first + length) == texture) {
+            ++length;
+        }
         visit(srTriangleRun{first, length, texture});
         first += length;
     }
@@ -45,7 +46,9 @@ inline std::vector<w8_ulong> sortedTriangleOrder(std::span<w8_ulong> depth_keys)
     });
     std::vector<w8_ulong> sorted_keys;
     sorted_keys.reserve(depth_keys.size());
-    for (auto index : order) sorted_keys.push_back(depth_keys[index]);
+    for (auto index : order) {
+        sorted_keys.push_back(depth_keys[index]);
+    }
     std::copy(sorted_keys.begin(), sorted_keys.end(), depth_keys.begin());
     return order;
 }

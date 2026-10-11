@@ -6,10 +6,12 @@
 
 // Inclusive x/y/z traversal; query callers choose whether to clip the range.
 // Break at the endpoint before incrementing, including at INT_MAX.
-template<class Visit>
+template <class Visit>
 void visitOctreeCellBox(const glm::ivec3& first, const glm::ivec3& last, Visit visit)
 {
-    if (glm::any(glm::greaterThan(first, last))) return;
+    if (glm::any(glm::greaterThan(first, last))) {
+        return;
+    }
     glm::ivec3 cell = first;
     for (;;) {
         cell.y = first.y;
@@ -17,23 +19,28 @@ void visitOctreeCellBox(const glm::ivec3& first, const glm::ivec3& last, Visit v
             cell.z = first.z;
             for (;;) {
                 visit(cell);
-                if (cell.z == last.z) break;
+                if (cell.z == last.z) {
+                    break;
+                }
                 ++cell.z;
             }
-            if (cell.y == last.y) break;
+            if (cell.y == last.y) {
+                break;
+            }
             ++cell.y;
         }
-        if (cell.x == last.x) break;
+        if (cell.x == last.x) {
+            break;
+        }
         ++cell.x;
     }
 }
 
-template<class Visit>
+template <class Visit>
 void visitClippedOctreeCellBox(const glm::ivec3& first, const glm::ivec3& last,
                                const glm::ivec3& dimensions, Visit visit)
 {
-    visitOctreeCellBox(glm::max(first, glm::ivec3(0)),
-                       glm::min(last, dimensions - 1), visit);
+    visitOctreeCellBox(glm::max(first, glm::ivec3(0)), glm::min(last, dimensions - 1), visit);
 }
 
 /* Runtime state for the fixed-point 3D Bresenham walk. Axis ties retain the
@@ -54,13 +61,14 @@ struct W8OctreeWalk {
 
     /* Return false from visit to stop at the first blocking cell. A copy of
        the cursor keeps the walk reusable and callers' starting cells intact. */
-    template<class Visit>
-    void visitCells(Visit visit) const
+    template <class Visit> void visitCells(Visit visit) const
     {
         auto current = cell;
         int error_a = error0, error_b = error1;
         for (int index = 0; index < count; ++index) {
-            if (!visit(current)) return;
+            if (!visit(current)) {
+                return;
+            }
             const auto step_minor = [&](int axis, int& error, int reset) {
                 current[axis] += step[axis];
                 error += reset;
@@ -68,12 +76,20 @@ struct W8OctreeWalk {
             };
             if (error_a < error_b) {
                 if (error_a < 0) {
-                    if (!step_minor(minor_axis0, error_a, error_reset0)) return;
-                    if (error_b < 0 && !step_minor(minor_axis1, error_b, error_reset1)) return;
+                    if (!step_minor(minor_axis0, error_a, error_reset0)) {
+                        return;
+                    }
+                    if (error_b < 0 && !step_minor(minor_axis1, error_b, error_reset1)) {
+                        return;
+                    }
                 }
             } else if (error_b < 0) {
-                if (!step_minor(minor_axis1, error_b, error_reset1)) return;
-                if (error_a < 0 && !step_minor(minor_axis0, error_a, error_reset0)) return;
+                if (!step_minor(minor_axis1, error_b, error_reset1)) {
+                    return;
+                }
+                if (error_a < 0 && !step_minor(minor_axis0, error_a, error_reset0)) {
+                    return;
+                }
             }
             current[major_axis] += step[major_axis];
             error_a -= error_delta0;
@@ -84,14 +100,16 @@ struct W8OctreeWalk {
 
 // Adjacent queries probe their quantized endpoints directly. Longer queries
 // lazily construct the fixed-point walk and can stop at the first blocked cell.
-template<class MakeWalk, class Visit>
-void visitOctreeSegment(const glm::ivec3& first, const glm::ivec3& last,
-                        MakeWalk makeWalk, Visit visit)
+template <class MakeWalk, class Visit>
+void visitOctreeSegment(const glm::ivec3& first, const glm::ivec3& last, MakeWalk makeWalk,
+                        Visit visit)
 {
     const auto delta = glm::abs(last - first);
     const auto distance = delta.x + delta.y + delta.z;
     if (distance < 2) {
-        if (visit(first, true) && distance != 0) visit(last, true);
+        if (visit(first, true) && distance != 0) {
+            visit(last, true);
+        }
     } else {
         makeWalk().visitCells([&](const glm::ivec3& cell) { return visit(cell, false); });
     }

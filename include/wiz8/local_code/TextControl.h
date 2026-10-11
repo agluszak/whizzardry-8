@@ -45,8 +45,9 @@ public:
 
     W8TextControl();
     W8TextControl(Controls* panel, unsigned int region, int left, int top, int right, int bottom,
-                  std::optional<CatalogArtwork> image_artwork, int normal_sprite, int pressed_sprite,
-                  int alternate_normal_sprite, int alternate_pressed_sprite, int disabled_sprite);
+                  std::optional<CatalogArtwork> image_artwork, int normal_sprite,
+                  int pressed_sprite, int alternate_normal_sprite, int alternate_pressed_sprite,
+                  int disabled_sprite);
 
     void SetImage(CatalogArtwork artwork);
     void SetItemImage(int item_id);

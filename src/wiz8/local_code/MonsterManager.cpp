@@ -142,8 +142,7 @@ W8MonsterInfo* CreateMonsterInfo(W8MonsterGroup* group, W8MonsterRecord* record,
     monster_info->elemental_summon = -1;
     monster_info->movement_watch_position.SetZero();
 
-    (record->unborn != 0 ? &gXStatus.unborn_monsters : &gXStatus.monsters)
-        ->push_back(monster_info);
+    (record->unborn != 0 ? &gXStatus.unborn_monsters : &gXStatus.monsters)->push_back(monster_info);
 
     group->monsters->push_back(monster_info->location_id);
     ++group->member_count;
@@ -336,8 +335,7 @@ void MonsterStartsDying(W8MonsterInfo* monster_info, bool display_message)
         StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_DIE, W8_ANIMATION_PLAY_ONCE);
         DeactivateMonster(monster_info);
         RecordMonsterKill(monster_info, display_message);
-        RemoveMonster(monster_info,
-                      false);
+        RemoveMonster(monster_info, false);
     }
 }
 
@@ -508,8 +506,7 @@ W8MonsterInfo* MonsterGetScriptPartByLocationIndex(unsigned int monster_list_ind
                              monster_list_index, static_cast<const void*>(&gXStatus.monsters));
         line = 0x5de;
     } else {
-        if (monster_list_index - 10000 >=
-            gXStatus.unborn_monsters.size()) {
+        if (monster_list_index - 10000 >= gXStatus.unborn_monsters.size()) {
             srAssertFail("(uiMonsterListIndex-10000) < (UINT32) (&gXStatus.unborn_monsters ? "
                          "gXStatus.unborn_monsters.size() : 0)",
                          MONSTER_MANAGER_CPP, 0x5d1, 0);
@@ -559,8 +556,7 @@ W8MonsterRecord* GetMonsterDataForInfo(W8MonsterInfo* monster_info)
 }
 
 // FUNCTION: WIZ8 0x004e5840
-W8MonsterInfo* FindMonster(int location_id, bool assert_on_failure,
-                                 std::source_location caller)
+W8MonsterInfo* FindMonster(int location_id, bool assert_on_failure, std::source_location caller)
 {
     W8MonsterInfo* monster = 0;
     unsigned int index;
@@ -647,8 +643,7 @@ W8MonsterInfo* GetNextMonsterInfo(bool reset_iterator)
     if (reset_iterator) {
         g_monster_info_iterator_index = 0;
     }
-    if (g_monster_info_iterator_index <
-        static_cast<int>(gXStatus.monsters.size())) {
+    if (g_monster_info_iterator_index < static_cast<int>(gXStatus.monsters.size())) {
         index = g_monster_info_iterator_index++;
         result = GetMonsterListEntry(index);
     }
@@ -1196,7 +1191,8 @@ void MonsterInfoEnterCombat(W8MonsterInfo* monster_info)
         srAssertFail("!pMonsterInfo->fInCombat", MONSTER_MANAGER_CPP, 0x29a, 0);
     }
     ClearMonsterPathAndResume(monster_info);
-    monster_info->pCombat = static_cast<W8MonsterCombatState*>(malloc(sizeof(W8MonsterCombatState)));
+    monster_info->pCombat =
+        static_cast<W8MonsterCombatState*>(malloc(sizeof(W8MonsterCombatState)));
     if (monster_info->pCombat == 0) {
         srAssertFail("pMonsterInfo->pCombat != NULL", MONSTER_MANAGER_CPP, 0x2a0, 0);
     }
@@ -1324,9 +1320,7 @@ void ToggleCombatMode(void)
             ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[W8_NOTICE_COMBAT_CANNOT_END]);
             return;
         }
-        for (group_list_index = 0;
-             group_list_index <
-             gXStatus.monster_groups.size();
+        for (group_list_index = 0; group_list_index < gXStatus.monster_groups.size();
              ++group_list_index) {
             monster_group = GetMonsterGroupByListIndex(group_list_index);
             if (monster_group->members_active && monster_group->fInCombat &&
@@ -1340,7 +1334,8 @@ void ToggleCombatMode(void)
         if ((missile == g_combat_state->engaged_missile ||
              g_missile_table[missile->missile_table_index].spell_missile != 0) &&
             missile->BlocksEndingCombat()) {
-            ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[W8_NOTICE_COMBAT_CANNOT_END_ENGAGED]);
+            ShowNotice(W8_FONT_PALETTE_BEIGE,
+                       g_localized_strings[W8_NOTICE_COMBAT_CANNOT_END_ENGAGED]);
             return;
         }
     }
@@ -1424,7 +1419,8 @@ void ProcessMonsterManagerFrame(void)
 {
     unsigned int monster_list_index;
 
-    for (monster_list_index = 0; monster_list_index < gXStatus.monsters.size(); ++monster_list_index) {
+    for (monster_list_index = 0; monster_list_index < gXStatus.monsters.size();
+         ++monster_list_index) {
         W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_list_index);
         W8Monster* monster = monster_info->p3D;
 
@@ -1502,7 +1498,7 @@ void ProcessMonsterManagerFrame(void)
    already dying, and says so on the debug channel rather than asserting. */
 // FUNCTION: WIZ8 0x004e5150
 std::string GetMonsterName(W8MonsterInfo* monster_info, W8MonsterRecord* record,
-                        unsigned char name_form)
+                           unsigned char name_form)
 {
     W8MonsterGroup* monster_group;
 
@@ -1542,8 +1538,9 @@ float GetAveragePartyMemberLevel(void)
             count += 1.0f;
         }
     }
-    if (count == 0.0f)
+    if (count == 0.0f) {
         return 1.0f;
+    }
     return total / count;
 }
 
@@ -1561,8 +1558,9 @@ unsigned int GetBestPartySkillLevel(W8Skill skill_index, int* party_slot)
             best_slot = index;
         }
     }
-    if (party_slot != 0)
+    if (party_slot != 0) {
         *party_slot = best_slot;
+    }
     return best_level;
 }
 
@@ -1610,8 +1608,9 @@ std::string FormatMonsterHealth(W8MonsterInfo* monster_info)
         }
     }
 
-    if (g_dev_mode)
+    if (g_dev_mode) {
         return fmt::format("{:d}/{:d}", monster_info->hp_current, monster_info->uiHPMax);
+    }
     const auto current = health_knowledge < 10 || suppress_exact_health
                              ? "?"
                              : fmt::format("{:d}", monster_info->hp_current);
@@ -1635,7 +1634,8 @@ void DetectMonsterGroups(void)
 {
     bool noticed = false;
 
-    for (unsigned int group_index = 0; group_index < gXStatus.monster_groups.size(); ++group_index) {
+    for (unsigned int group_index = 0; group_index < gXStatus.monster_groups.size();
+         ++group_index) {
         W8MonsterGroup* group = GetMonsterGroupByListIndex(group_index);
         if (!group->members_active || (group->alternate_name && group->group_state[0] != 0) ||
             (gXStatus.fCombatMode && !group->fInCombat) ||
@@ -1647,8 +1647,9 @@ void DetectMonsterGroups(void)
             int best_slot = -1;
             unsigned int best_margin = 0;
             for (unsigned int slot = 0; slot < 8; ++slot) {
-                if (!CanNoticeMonsterGroup(slot))
+                if (!CanNoticeMonsterGroup(slot)) {
                     continue;
+                }
                 W8Character* character = &g_status.buffers.Char[slot];
                 int score =
                     (character->monster_awareness[group->monster_id] - record->effective_level) *
@@ -1698,8 +1699,9 @@ void DetectMonsterGroups(void)
         }
         if (group->group_state[0] == 0) {
             for (unsigned int slot = 0; slot < 8; ++slot) {
-                if (!CanNoticeMonsterGroup(slot))
+                if (!CanNoticeMonsterGroup(slot)) {
                     continue;
+                }
                 W8Character* character = &g_status.buffers.Char[slot];
                 unsigned int awareness =
                     character->monster_awareness[group->monster_id] + group->member_count;
@@ -1752,9 +1754,7 @@ void EvaluateCombatDifficulty(void)
             if (npc != 0) {
                 int faction = npc->record->faction;
                 if (faction != 0 && faction != 1) {
-                    for (unsigned int group_index = 0;
-                         group_index <
-                         gXStatus.monster_groups.size();
+                    for (unsigned int group_index = 0; group_index < gXStatus.monster_groups.size();
                          ++group_index) {
                         W8MonsterGroup* group = GetMonsterGroupByListIndex(group_index);
                         if (group->members_active && group->fInCombat &&

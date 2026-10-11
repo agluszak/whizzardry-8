@@ -27,4 +27,3 @@ public:
     /* SurRender's submission pipeline updates these counters directly. */
     Statistics statistics;
 };
-

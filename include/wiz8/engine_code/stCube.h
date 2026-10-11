@@ -5,7 +5,9 @@
 
 struct W8World;
 class srNode;
-namespace wiz8 { class File; }
+namespace wiz8 {
+class File;
+}
 
 /* One world-cursor node: the scene node at +0x04, the three label parameters at
    +0x0c/+0x10/+0x14, the text scratch buffer at +0x18 and its length at +0x1c,
@@ -28,10 +30,10 @@ public:
     unsigned char GetLocation(srVector3T<float>* position);
     srNode* node; /* 0x04 */
     unsigned int value_08;
-    int parameters[3];   /* 0x0c, 0x10, 0x14 */
-    void* pUserdata;     /* 0x18 */
-    int userdata_size;   /* 0x1c */
-    w8_ulong color; /* 0x20 */
+    int parameters[3]; /* 0x0c, 0x10, 0x14 */
+    void* pUserdata;   /* 0x18 */
+    int userdata_size; /* 0x1c */
+    w8_ulong color;    /* 0x20 */
     char name[0x20];
 };
 

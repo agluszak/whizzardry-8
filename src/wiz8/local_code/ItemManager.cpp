@@ -331,8 +331,7 @@ int FindItemRecordByName(const char* name)
     for (index = 0; index < static_cast<int>(gXStatus.uiItemsInDatabase); ++index) {
         internal_name = g_item_records[index].internal_name;
         if (internal_name[0] == 0) {
-            if (_stricmp(g_item_records[index].display_name.c_str(), name) ==
-                0) {
+            if (_stricmp(g_item_records[index].display_name.c_str(), name) == 0) {
                 return index;
             }
         } else if (CompareTextIgnoreAsciiCase(internal_name, name) == 0) {
@@ -353,8 +352,7 @@ W8WorldItem* GetNextWorldItem(bool restart)
         g_world_item_cursor = 0;
     }
     index = g_world_item_cursor;
-    if (static_cast<unsigned int>(index) <
-        gXStatus.world_items.size()) {
+    if (static_cast<unsigned int>(index) < gXStatus.world_items.size()) {
         ++g_world_item_cursor;
         return GetWorldItemListEntry(index);
     }
@@ -452,9 +450,8 @@ W8WorldItem* ItemInfo(unsigned int item_list_index)
     W8WorldItem* item;
 
     if (item_list_index >= gXStatus.world_items.size()) {
-        srAssertFail(
-            "uiItemListIndex < (UINT32) gXStatus.world_items.size()",
-            ITEM_MANAGER_CPP, 961, 0);
+        srAssertFail("uiItemListIndex < (UINT32) gXStatus.world_items.size()", ITEM_MANAGER_CPP,
+                     961, 0);
     }
     item = GetWorldItemListEntry(item_list_index);
     if (item == 0) {
@@ -687,10 +684,16 @@ void ActivateItem(W8WorldItem* item)
     } else {
         zItemFullPath = fmt::format("{}\\{}.ITM", "Data\\Items3D", zItemName);
     }
-    if (![&]() { const auto status = wiz8::file_status(zItemFullPath); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
+    if (![&]() {
+            const auto status = wiz8::file_status(zItemFullPath);
+            return status && status->info.type == SDL_PATHTYPE_FILE;
+        }()) {
         zItemName = "questionmark";
         zItemFullPath = fmt::format("{}\\{}.ITM", "Data\\Items3D", zItemName);
-        if (![&]() { const auto status = wiz8::file_status(zItemFullPath); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
+        if (![&]() {
+                const auto status = wiz8::file_status(zItemFullPath);
+                return status && status->info.type == SDL_PATHTYPE_FILE;
+            }()) {
             srAssertFail("[&]() { const auto status = wiz8::file_status(zItemFullPath); return "
                          "status && status->info.type == SDL_PATHTYPE_FILE; }()",
                          ITEM_MANAGER_CPP, 0x1ed,
@@ -898,8 +901,8 @@ void DropHeldItem(int)
     delta.SetLength(glm::max(delta.Length() - g_float_one_hundred_twenty_five, g_float_zero));
 
     srVector3T<float> position = camera + delta;
-    position.y =
-        g_octree->settleToGround(position.glmValue(), true, 250).position.y + g_float_one_hundred_twenty_five;
+    position.y = g_octree->settleToGround(position.glmValue(), true, 250).position.y +
+                 g_float_one_hundred_twenty_five;
     if (FindNearbyFreePosition(250.0f, &position, true, true) != 0) {
         W8WorldItem* item = CreateWorldItem(&g_status.item_in_hand, &position,
                                             W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE, true);

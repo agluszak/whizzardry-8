@@ -33,8 +33,8 @@ static W8ControlsRect g_character_summary_quote_bounds[1] = {
 
 // FUNCTION: WIZ8 0x005e0320
 W8CharacterSummaryDialog::W8CharacterSummaryDialog(W8Character* character)
-    : m_voice_started(0), m_quote_text(0), m_numeric_input(0), m_remaining(0),
-      m_taken(0), m_total(0), m_field_070(0), m_character(character), m_use_original_character(0),
+    : m_voice_started(0), m_quote_text(0), m_numeric_input(0), m_remaining(0), m_taken(0),
+      m_total(0), m_field_070(0), m_character(character), m_use_original_character(0),
       m_portrait_clock_started(0)
 {
     SetExtent(0x171, 0x60);
@@ -180,19 +180,24 @@ bool W8CharacterSummaryDialog::ProcessInput()
     }
     bool keep_open = m_keep_open;
     DrainModalInput([this, &keep_open](const InputEvent& input) {
-        if (input.type == InputEventType::LeftButtonDown || input.type == InputEventType::LeftButtonRepeat ||
+        if (input.type == InputEventType::LeftButtonDown ||
+            input.type == InputEventType::LeftButtonRepeat ||
             input.type == InputEventType::RightButtonDown) {
             m_keep_open = false;
         }
         if (!DispatchRegionInput(&input)) {
             keep_open = HandleInputEvent(&input);
-            if (!keep_open) EndModalInput();
+            if (!keep_open) {
+                EndModalInput();
+            }
             return false;
         }
         keep_open = m_keep_open;
         return true;
     });
-    if (!keep_open) EndModalInput();
+    if (!keep_open) {
+        EndModalInput();
+    }
     return keep_open;
 }
 

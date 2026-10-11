@@ -10,7 +10,9 @@
 
 class srNode;
 class W8AnimRepBase;
-namespace wiz8 { class File; }
+namespace wiz8 {
+class File;
+}
 
 /* Runtime path data. File records are read field by field by LoadPathAI. */
 
@@ -31,9 +33,9 @@ struct W8PathAI : W8AIRecord {
     unsigned char version{};
     /* Normalized for interpolated movement, point units in discrete mode. */
     float position{};
-    unsigned int unknown_08{};             /* serialized */
+    unsigned int unknown_08{}; /* serialized */
     std::vector<srVector3T<float>> nodes;
-    int entry_index{};                     /* level camera/path entry index, assigned at load */
+    int entry_index{}; /* level camera/path entry index, assigned at load */
     std::vector<glm::mat3> rotations;
     std::vector<srVector3T<float>> scales;
     bool discrete_mode{};
@@ -51,7 +53,6 @@ struct W8PathAI : W8AIRecord {
     bool upright{};
     bool timed{};
 };
-
 
 /* Tagged-record dispatchers: the body switches on kind and hands the
    record to the path or missile implementation. */
@@ -74,7 +75,6 @@ bool PathAITick(W8PathAI* path, signed char direction);
 void PathAIPosition(W8PathAI* path, srVector3T<float>* value);
 bool LoadPathAI(W8PathAI** path, wiz8::File* handle);
 void PathAIAddPoint(W8PathAI& path, const srVector3T<float>& point);
-
 
 void PathAIAdvanceByDistance(W8PathAI* path, float value);
 

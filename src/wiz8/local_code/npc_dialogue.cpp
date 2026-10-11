@@ -69,7 +69,8 @@ static int SelectNpcQuoteResponse(W8NpcQuoteEntry* entry, int quote_index, int e
    scan every quote for a subentry whose text
    matches, reporting the entry and subentry indices through the out-pointers. */
 // FUNCTION: WIZ8 0x00525E80
-int FindNpcScriptQuoteByKeyword(std::string_view keyword, short* entry_index, short* sub_entry_index)
+int FindNpcScriptQuoteByKeyword(std::string_view keyword, short* entry_index,
+                                short* sub_entry_index)
 {
     W8NpcScriptFile* script;
     W8NpcScriptQuote* quote;
@@ -171,9 +172,9 @@ void RunNpcScriptLine(int script_line, bool force_npc_voice)
                     break;
                 case W8_NPC_ENTRY_CLOSE_DIALOGUE: {
                     QueueNpcMessageLine(W8_NPC_MSG_CLOSE_DIALOGUE, 0);
-                    auto panel = std::ranges::find(g_npc_scripting.message_lines,
-                                                   W8_NPC_MSG_SHOW_DIALOGUE_PANEL,
-                                                   GetMessageBoxLineKind);
+                    auto panel =
+                        std::ranges::find(g_npc_scripting.message_lines,
+                                          W8_NPC_MSG_SHOW_DIALOGUE_PANEL, GetMessageBoxLineKind);
                     if (panel != g_npc_scripting.message_lines.end()) {
                         g_npc_scripting.message_lines.erase(panel);
                     }
@@ -196,10 +197,8 @@ void RunNpcScriptLine(int script_line, bool force_npc_voice)
                     }
                     break;
                 case W8_NPC_ENTRY_NPC_WORLD_ACTION:
-                    if (g_npc_scripting.session.current_quote_index <
-                            g_world_action_quote_min ||
-                        g_world_action_quote_max <
-                            g_npc_scripting.session.current_quote_index) {
+                    if (g_npc_scripting.session.current_quote_index < g_world_action_quote_min ||
+                        g_world_action_quote_max < g_npc_scripting.session.current_quote_index) {
                         std::string action_name;
                         BeginScriptedWorldAction();
                         action_name = entry->sub_entries[0].text.c_str() + 4;
@@ -224,13 +223,12 @@ void RunNpcScriptLine(int script_line, bool force_npc_voice)
                     finished = true;
                     break;
                 case W8_NPC_ENTRY_SELF_GROUP_ACTION:
-                    if (g_npc_scripting.session.current_quote_index <
-                            g_world_action_quote_min ||
-                        g_world_action_quote_max <
-                            g_npc_scripting.session.current_quote_index) {
+                    if (g_npc_scripting.session.current_quote_index < g_world_action_quote_min ||
+                        g_world_action_quote_max < g_npc_scripting.session.current_quote_index) {
                         BeginScriptedWorldAction();
-                        QueueNpcMessageLine(W8_NPC_MSG_GROUP_ACTION,
-                                            static_cast<int>(g_npc_scripting.session.npc->group_index));
+                        QueueNpcMessageLine(
+                            W8_NPC_MSG_GROUP_ACTION,
+                            static_cast<int>(g_npc_scripting.session.npc->group_index));
                     }
                     break;
                 case W8_NPC_ENTRY_NPC_INTERACTION: {
@@ -274,15 +272,13 @@ void RunNpcScriptLine(int script_line, bool force_npc_voice)
         if (response >= 0) {
             QueueNpcScriptLine(response, false, false, false);
         }
-        SpeakNpcSubquote(quote, g_npc_scripting.session.subquote_index, false,
-                         force_npc_voice);
+        SpeakNpcSubquote(quote, g_npc_scripting.session.subquote_index, false, force_npc_voice);
         g_npc_scripting.session.subquote_index++;
         if (g_npc_scripting.session.current_quote_index == 0) {
             g_npc_scripting.session.npc->greeting_pending = false;
         }
         if (g_npc_scripting.session.subquote_index < quote->subquote_count) {
-            QueueNpcScriptLine(g_npc_scripting.session.current_quote_index, false, true,
-                               true);
+            QueueNpcScriptLine(g_npc_scripting.session.current_quote_index, false, true, true);
         }
     }
 }
@@ -305,7 +301,10 @@ static void QueueMessageBoxLine(W8MessageBoxLine line, bool prepend)
 W8NpcMessageKind GetMessageBoxLineKind(const W8MessageBoxLine& line)
 {
     struct KindOf {
-        W8NpcMessageKind operator()(const W8NpcQueuedQuote&) const { return W8_NPC_MSG_QUOTE; }
+        W8NpcMessageKind operator()(const W8NpcQueuedQuote&) const
+        {
+            return W8_NPC_MSG_QUOTE;
+        }
         W8NpcMessageKind operator()(const W8NpcQueuedEntry&) const
         {
             return W8_NPC_MSG_QUOTE_ENTRY;
@@ -314,7 +313,10 @@ W8NpcMessageKind GetMessageBoxLineKind(const W8MessageBoxLine& line)
         {
             return command.kind;
         }
-        W8NpcMessageKind operator()(const W8NpcQueuedNotice& notice) const { return notice.kind; }
+        W8NpcMessageKind operator()(const W8NpcQueuedNotice& notice) const
+        {
+            return notice.kind;
+        }
     };
     return std::visit(KindOf{}, line.action);
 }
@@ -322,8 +324,8 @@ W8NpcMessageKind GetMessageBoxLineKind(const W8MessageBoxLine& line)
 // FUNCTION: WIZ8 0x00528830
 void QueueNpcScriptLine(int quote, bool mark_pending, bool prepend, bool suppress_entries)
 {
-    QueueMessageBoxLine(
-        {SessionNpcKind(), W8NpcQueuedQuote{quote, mark_pending, suppress_entries}}, prepend);
+    QueueMessageBoxLine({SessionNpcKind(), W8NpcQueuedQuote{quote, mark_pending, suppress_entries}},
+                        prepend);
 }
 
 // FUNCTION: WIZ8 0x005289B0
@@ -406,9 +408,13 @@ static int FindNpcReplyQuote(std::string_view text)
 std::string GetNpcQuoteText(W8NpcState* npc, int type)
 {
     const W8NpcScriptFile* script = npc->script_file;
-    if (type < 0 || type >= static_cast<int>(script->quote_count)) return {};
+    if (type < 0 || type >= static_cast<int>(script->quote_count)) {
+        return {};
+    }
     const auto& record = script->quotes[type];
-    if (record.subquotes.empty() || record.subquotes[0].empty()) return {};
+    if (record.subquotes.empty() || record.subquotes[0].empty()) {
+        return {};
+    }
     return record.subquotes[0];
 }
 

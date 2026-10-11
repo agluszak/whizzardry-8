@@ -28,10 +28,8 @@ GenericButtonImage DefaultGenericButtonImage()
     return default_generic_image;
 }
 
-
-
 static std::int8_t DisabledOverlayStyle(const ButtonAppearance& appearance,
-                                       const ButtonVisualState& state);
+                                        const ButtonVisualState& state);
 static std::int8_t DrawQuickButton(SDL_Surface& target, const ButtonAppearance* appearance,
                                    const ButtonVisualState& state);
 static std::int8_t DrawGenericButton(SDL_Surface& target, const ButtonAppearance* appearance,
@@ -41,34 +39,38 @@ static void DrawTextOnButton(SDL_Surface& target, const ButtonAppearance* appear
 static void DrawHatchOnButton(SDL_Surface& target, const ButtonAppearance* appearance);
 static void DrawShadeOnButton(SDL_Surface& target, const ButtonAppearance* appearance);
 
-ButtonImage ButtonGraphics::Load(std::string_view filename, std::int32_t grayed, std::int32_t off_normal,
-                                 std::int32_t off_hilite, std::int32_t on_normal, std::int32_t on_hilite)
+ButtonImage ButtonGraphics::Load(std::string_view filename, std::int32_t grayed,
+                                 std::int32_t off_normal, std::int32_t off_hilite,
+                                 std::int32_t on_normal, std::int32_t on_hilite)
 {
     const std::array frames{grayed, off_normal, off_hilite, on_normal, on_hilite};
     if (filename.empty() || std::all_of(frames.begin(), frames.end(),
-                                      [](int frame) { return frame == BUTTON_NO_IMAGE; }))
+                                        [](int frame) { return frame == BUTTON_NO_IMAGE; })) {
         return {};
+    }
 
     auto image = std::make_shared<ButtonGraphics>();
     image->sprites = g_image_assets.sprites(filename);
-    if (!image->sprites)
+    if (!image->sprites) {
         return {};
+    }
 
     image->MaxWidth = image->MaxHeight = 0;
     for (const int index : frames) {
-        if (index == BUTTON_NO_IMAGE)
+        if (index == BUTTON_NO_IMAGE) {
             continue;
-        if (index < 0 ||
-            static_cast<std::size_t>(index) >= image->object().frames.size()) {
-            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Invalid button frame %d in %s",
-                         index, std::string(filename).c_str());
+        }
+        if (index < 0 || static_cast<std::size_t>(index) >= image->object().frames.size()) {
+            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Invalid button frame %d in %s", index,
+                         std::string(filename).c_str());
             return {};
         }
         const auto& frame = image->object().frames[index];
-        image->MaxWidth = std::max(image->MaxWidth,
-            static_cast<std::uint32_t>(std::max(0, frame.width + frame.offset.x)));
-        image->MaxHeight = std::max(image->MaxHeight,
-            static_cast<std::uint32_t>(std::max(0, frame.height + frame.offset.y)));
+        image->MaxWidth = std::max(
+            image->MaxWidth, static_cast<std::uint32_t>(std::max(0, frame.width + frame.offset.x)));
+        image->MaxHeight =
+            std::max(image->MaxHeight,
+                     static_cast<std::uint32_t>(std::max(0, frame.height + frame.offset.y)));
     }
     image->Grayed = grayed;
     image->OffNormal = off_normal;
@@ -78,30 +80,32 @@ ButtonImage ButtonGraphics::Load(std::string_view filename, std::int32_t grayed,
     return image;
 }
 
-ButtonImage ButtonGraphics::Load(std::shared_ptr<const SpriteSheet> sprites,
-                                 std::int32_t grayed, std::int32_t off_normal,
-                                 std::int32_t off_hilite, std::int32_t on_normal,
-                                 std::int32_t on_hilite)
+ButtonImage ButtonGraphics::Load(std::shared_ptr<const SpriteSheet> sprites, std::int32_t grayed,
+                                 std::int32_t off_normal, std::int32_t off_hilite,
+                                 std::int32_t on_normal, std::int32_t on_hilite)
 {
     const std::array frames{grayed, off_normal, off_hilite, on_normal, on_hilite};
     if (!sprites || std::all_of(frames.begin(), frames.end(),
-                                [](int frame) { return frame == BUTTON_NO_IMAGE; }))
+                                [](int frame) { return frame == BUTTON_NO_IMAGE; })) {
         return {};
+    }
 
     auto image = std::make_shared<ButtonGraphics>();
     image->sprites = std::move(sprites);
     for (const int index : frames) {
-        if (index == BUTTON_NO_IMAGE)
+        if (index == BUTTON_NO_IMAGE) {
             continue;
+        }
         if (index < 0 || static_cast<std::size_t>(index) >= image->object().frames.size()) {
             SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Invalid button frame %d", index);
             return {};
         }
         const auto& frame = image->object().frames[index];
-        image->MaxWidth = std::max(image->MaxWidth,
-            static_cast<std::uint32_t>(std::max(0, frame.width + frame.offset.x)));
-        image->MaxHeight = std::max(image->MaxHeight,
-            static_cast<std::uint32_t>(std::max(0, frame.height + frame.offset.y)));
+        image->MaxWidth = std::max(
+            image->MaxWidth, static_cast<std::uint32_t>(std::max(0, frame.width + frame.offset.x)));
+        image->MaxHeight =
+            std::max(image->MaxHeight,
+                     static_cast<std::uint32_t>(std::max(0, frame.height + frame.offset.y)));
     }
     image->Grayed = grayed;
     image->OffNormal = off_normal;
@@ -113,20 +117,25 @@ ButtonImage ButtonGraphics::Load(std::shared_ptr<const SpriteSheet> sprites,
 
 namespace {
 GenericButtonImage LoadGenericGraphics(const std::array<std::string_view, 6>& filenames,
-                                       std::int16_t background_frame, std::int16_t offset_x, std::int16_t offset_y,
-                                       bool optional_highlights = false)
+                                       std::int16_t background_frame, std::int16_t offset_x,
+                                       std::int16_t offset_y, bool optional_highlights = false)
 {
-    if (filenames[0].empty() || filenames[1].empty()) return {};
+    if (filenames[0].empty() || filenames[1].empty()) {
+        return {};
+    }
     auto image = std::make_shared<GenericButtonImages>();
     for (std::size_t index = 0; index < filenames.size(); ++index) {
-        if (filenames[index].empty()) continue;
+        if (filenames[index].empty()) {
+            continue;
+        }
         auto& object = image->frames[index];
         object = g_image_assets.sprites(filenames[index]);
-        const bool valid = object && (index == 5
-            ? background_frame >= 0 &&
-                  static_cast<std::size_t>(background_frame) < object->frames.size()
-            : object->frames.size() >= 9 && object->frames[0].width > 0 &&
-              object->frames[0].height > 0);
+        const bool valid =
+            object &&
+            (index == 5 ? background_frame >= 0 &&
+                              static_cast<std::size_t>(background_frame) < object->frames.size()
+                        : object->frames.size() >= 9 && object->frames[0].width > 0 &&
+                              object->frames[0].height > 0);
         if (!valid) {
             if (optional_highlights && (index == 3 || index == 4)) {
                 object.reset();
@@ -138,31 +147,38 @@ GenericButtonImage LoadGenericGraphics(const std::array<std::string_view, 6>& fi
         }
     }
     const auto pixel = image->frames[0]->frames[8].paletteIndexAt(0, 0);
-    if (!pixel) return {};
+    if (!pixel) {
+        return {};
+    }
     image->fill_color = image->frames[0]->colors[*pixel];
     image->background_frame = background_frame;
     image->offset_x = offset_x;
     image->offset_y = offset_y;
     return image;
 }
-}
+} // namespace
 
 bool InitializeButtonImageManager()
 {
-    default_generic_image = LoadGenericGraphics(
-        {DEFAULT_GENERIC_BUTTON_OFF, DEFAULT_GENERIC_BUTTON_ON, {},
-         DEFAULT_GENERIC_BUTTON_OFF_HI, DEFAULT_GENERIC_BUTTON_ON_HI, {}}, 0, 0, 0, true);
+    default_generic_image = LoadGenericGraphics({DEFAULT_GENERIC_BUTTON_OFF,
+                                                 DEFAULT_GENERIC_BUTTON_ON,
+                                                 {},
+                                                 DEFAULT_GENERIC_BUTTON_OFF_HI,
+                                                 DEFAULT_GENERIC_BUTTON_ON_HI,
+                                                 {}},
+                                                0, 0, 0, true);
     return default_generic_image != nullptr;
 }
 
 // FUNCTION: WIZ8 0x0040cb70
 GenericButtonImage LoadGenericButtonImages(std::string_view gray, std::string_view off_normal,
-                                          std::string_view off_hilite, std::string_view on_normal,
-                                          std::string_view on_hilite, std::string_view background,
-                                          std::int16_t index, std::int16_t offset_x, std::int16_t offset_y)
+                                           std::string_view off_hilite, std::string_view on_normal,
+                                           std::string_view on_hilite, std::string_view background,
+                                           std::int16_t index, std::int16_t offset_x,
+                                           std::int16_t offset_y)
 {
     return LoadGenericGraphics({off_normal, on_normal, gray, off_hilite, on_hilite, background},
-                                index, offset_x, offset_y);
+                               index, offset_x, offset_y);
 }
 
 // FUNCTION: WIZ8 0x0040ce60
@@ -171,11 +187,13 @@ void ShutdownButtonImageManager(void)
     default_generic_image.reset();
 }
 
-static std::int8_t DisabledOverlayStyle(const ButtonAppearance& button, const ButtonVisualState& state)
+static std::int8_t DisabledOverlayStyle(const ButtonAppearance& button,
+                                        const ButtonVisualState& state)
 {
-    if (button.bDisabledStyle == DISABLED_STYLE_DEFAULT)
-        return !state.checkbox && !button.string.empty()
-            ? DISABLED_STYLE_SHADED : DISABLED_STYLE_HATCHED;
+    if (button.bDisabledStyle == DISABLED_STYLE_DEFAULT) {
+        return !state.checkbox && !button.string.empty() ? DISABLED_STYLE_SHADED
+                                                         : DISABLED_STYLE_HATCHED;
+    }
     return button.bDisabledStyle;
 }
 
@@ -183,10 +201,16 @@ void DrawButtonAppearance(SDL_Surface& target, const ButtonAppearance& appearanc
                           const ButtonVisualState& state)
 {
     const auto* b = &appearance;
-    const auto disabled_style = b->quick_image ? DrawQuickButton(target, b, state) : DrawGenericButton(target, b, state);
-    if (!b->string.empty()) DrawTextOnButton(target, b, state);
-    if (disabled_style == DISABLED_STYLE_HATCHED) DrawHatchOnButton(target, b);
-    else if (disabled_style == DISABLED_STYLE_SHADED) DrawShadeOnButton(target, b);
+    const auto disabled_style =
+        b->quick_image ? DrawQuickButton(target, b, state) : DrawGenericButton(target, b, state);
+    if (!b->string.empty()) {
+        DrawTextOnButton(target, b, state);
+    }
+    if (disabled_style == DISABLED_STYLE_HATCHED) {
+        DrawHatchOnButton(target, b);
+    } else if (disabled_style == DISABLED_STYLE_SHADED) {
+        DrawShadeOnButton(target, b);
+    }
 }
 
 // FUNCTION: WIZ8 0x0040e060
@@ -194,27 +218,33 @@ static std::int8_t DrawQuickButton(SDL_Surface& target, const ButtonAppearance* 
                                    const ButtonVisualState& state)
 {
     std::int8_t disabled_style = DISABLED_STYLE_NONE;
-    if (!b->quick_image) return disabled_style;
+    if (!b->quick_image) {
+        return disabled_style;
+    }
     const auto& image = *b->quick_image;
     const bool checkbox = state.checkbox;
     const bool pressed = state.pressed;
     std::int32_t frame = 0;
     if (state.enabled) {
-        const bool highlighted = (state.hovered) && gfRenderHilights &&
-                                 (!checkbox || state.mouse_down);
+        const bool highlighted =
+            (state.hovered) && gfRenderHilights && (!checkbox || state.mouse_down);
         const auto normal = pressed ? image.OnNormal : image.OffNormal;
         const auto hilite = pressed ? image.OnHilite : image.OffHilite;
-        if (highlighted && hilite != BUTTON_NO_IMAGE) frame = hilite;
-        else if (normal != BUTTON_NO_IMAGE) frame = normal;
+        if (highlighted && hilite != BUTTON_NO_IMAGE) {
+            frame = hilite;
+        } else if (normal != BUTTON_NO_IMAGE) {
+            frame = normal;
+        }
     } else if (image.Grayed != BUTTON_NO_IMAGE) {
         frame = image.Grayed;
     } else {
         frame = checkbox ? (pressed ? image.OnHilite : image.OffHilite) : image.OffNormal;
         disabled_style = DisabledOverlayStyle(*b, state);
     }
-    if (frame != BUTTON_NO_IMAGE)
-        DrawSprite(target, image.object(), static_cast<std::size_t>(frame),
-                   b->bounds.x, b->bounds.y);
+    if (frame != BUTTON_NO_IMAGE) {
+        DrawSprite(target, image.object(), static_cast<std::size_t>(frame), b->bounds.x,
+                   b->bounds.y);
+    }
     return disabled_style;
 }
 
@@ -255,8 +285,9 @@ static void DrawTextOnButton(SDL_Surface& target, const ButtonAppearance* b,
 
         // Get the current clipping area and clip the viewable area to it
         SDL_GetSurfaceClipRect(&target, &previous_clip);
-        if (!SDL_GetRectIntersection(&text_clip, &previous_clip, &text_clip))
+        if (!SDL_GetRectIntersection(&text_clip, &previous_clip, &text_clip)) {
             return;
+        }
         ScopedClipRect clipping(target, text_clip);
 
         // Compute the coordinates to center the text
@@ -271,13 +302,12 @@ static void DrawTextOnButton(SDL_Surface& target, const ButtonAppearance* b,
                 text_x = text_origin_x + 3;
                 break;
             case BUTTON_TEXT_RIGHT:
-                text_x =
-                    (text_clip.x + text_clip.w) - b->usFont->textWidth(b->string) - 3;
+                text_x = (text_clip.x + text_clip.w) - b->usFont->textWidth(b->string) - 3;
                 break;
             case BUTTON_TEXT_CENTER:
             default:
-                text_x = (((button_width - 6) - b->usFont->textWidth(b->string)) / 2) +
-                         text_origin_x;
+                text_x =
+                    (((button_width - 6) - b->usFont->textWidth(b->string)) / 2) + text_origin_x;
                 break;
             }
         } else {
@@ -288,21 +318,21 @@ static void DrawTextOnButton(SDL_Surface& target, const ButtonAppearance* b,
         TextOptions options;
         options.colors.background = b->usFont->color(FONT_MCOLOR_BLACK);
         options.colors.foreground = b->usFont->color(static_cast<std::uint8_t>(b->sForeColor));
-        if (b->sShadowColor != -1)
+        if (b->sShadowColor != -1) {
             options.colors.shadow = b->usFont->color(static_cast<std::uint8_t>(b->sShadowColor));
-        if (options.colors.shadow == 0 && b->sShadowColor > 0)
+        }
+        if (options.colors.shadow == 0 && b->sShadowColor > 0) {
             options.colors.shadow = 1;
+        }
         //Override the colors if necessary.
-        if (state.enabled && state.hovered &&
-            b->sForeColorHilited != -1) {
+        if (state.enabled && state.hovered && b->sForeColorHilited != -1) {
             options.colors.foreground =
                 b->usFont->color(static_cast<std::uint8_t>(b->sForeColorHilited));
         } else if (state.pressed && b->sForeColorDown != -1) {
             options.colors.foreground =
                 b->usFont->color(static_cast<std::uint8_t>(b->sForeColorDown));
         }
-        if (state.enabled && state.hovered &&
-            b->sShadowColorHilited != -1) {
+        if (state.enabled && state.hovered && b->sShadowColorHilited != -1) {
             options.colors.shadow =
                 b->usFont->color(static_cast<std::uint8_t>(b->sShadowColorHilited));
         } else if (state.pressed && b->sShadowColorDown != -1) {
@@ -311,8 +341,9 @@ static void DrawTextOnButton(SDL_Surface& target, const ButtonAppearance* b,
         }
         if (options.colors.shadow == 0 &&
             ((state.enabled && state.hovered && b->sShadowColorHilited > 0) ||
-             (state.pressed && b->sShadowColorDown > 0) || b->sShadowColor > 0))
+             (state.pressed && b->sShadowColorDown > 0) || b->sShadowColor > 0)) {
             options.colors.shadow = 1;
+        }
         if (state.pressed &&
             b->fShiftText) { // Was the button clicked on? if so, move the text slightly for the illusion
             // that the text moved into the screen.
@@ -330,7 +361,9 @@ static std::int8_t DrawGenericButton(SDL_Surface& target, const ButtonAppearance
                                      const ButtonVisualState& state)
 {
     std::int8_t disabled_style = DISABLED_STYLE_NONE;
-    if (!b->generic_image) return disabled_style;
+    if (!b->generic_image) {
+        return disabled_style;
+    }
     std::int32_t NumChunksWide, NumChunksHigh, cx, cy, width, height, hremain, wremain;
     std::int32_t q, ImgNum, ox, oy;
     std::int32_t iBorderHeight, iBorderWidth;
@@ -339,21 +372,21 @@ static std::int8_t DrawGenericButton(SDL_Surface& target, const ButtonAppearance
     // Select the graphics to use depending on the current state of the button
     if (state.enabled) {
         if (state.pressed) {
-            if ((state.hovered) &&
-                (b->generic_image->frames[4] != nullptr) && gfRenderHilights)
+            if ((state.hovered) && (b->generic_image->frames[4] != nullptr) && gfRenderHilights) {
                 picture_index = 4;
-            else
+            } else {
                 picture_index = 1;
+            }
         } else {
-            if ((state.hovered) &&
-                (b->generic_image->frames[3] != nullptr) && gfRenderHilights)
+            if ((state.hovered) && (b->generic_image->frames[3] != nullptr) && gfRenderHilights) {
                 picture_index = 3;
-            else
+            } else {
                 picture_index = 0;
+            }
         }
-    } else if (b->generic_image->frames[2])
+    } else if (b->generic_image->frames[2]) {
         picture_index = 2;
-    else {
+    } else {
         picture_index = 0;
         disabled_style = DisabledOverlayStyle(*b, state);
     }
@@ -382,11 +415,12 @@ static std::int8_t DrawGenericButton(SDL_Surface& target, const ButtonAppearance
         ox = oy = 0;
         // if the button was clicked on, adjust the background image so that we get
         // the illusion that it is sunk into the screen.
-        if (state.pressed)
+        if (state.pressed) {
             ox = oy = 1;
+        }
 
-        const SDL_Rect background_area{b->bounds.x + ox, b->bounds.y + oy,
-                                       b->bounds.w - ox, b->bounds.h - oy};
+        const SDL_Rect background_area{b->bounds.x + ox, b->bounds.y + oy, b->bounds.w - ox,
+                                       b->bounds.h - oy};
         TileSprite(target, background_area, *b->generic_image->frames[5],
                    b->generic_image->background_frame,
                    {b->generic_image->offset_x, b->generic_image->offset_y});
@@ -398,18 +432,19 @@ static std::int8_t DrawGenericButton(SDL_Surface& target, const ButtonAppearance
 
     // Draw the button's borders and corners (horizontally)
     for (q = 0; q < NumChunksWide; q++) {
-        if (q == 0)
+        if (q == 0) {
             ImgNum = 0;
-        else
+        } else {
             ImgNum = 1;
+        }
 
-        draw_frame(static_cast<std::size_t>(ImgNum),
-                   b->bounds.x + q * iBorderWidth, b->bounds.y);
+        draw_frame(static_cast<std::size_t>(ImgNum), b->bounds.x + q * iBorderWidth, b->bounds.y);
 
-        if (q == 0)
+        if (q == 0) {
             ImgNum = 5;
-        else
+        } else {
             ImgNum = 6;
+        }
 
         draw_frame(static_cast<std::size_t>(ImgNum), b->bounds.x + q * iBorderWidth, cy);
     }

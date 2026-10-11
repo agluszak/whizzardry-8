@@ -12,7 +12,6 @@
 #include "surrender/srMath.h"
 #include "wiz8/npc_interaction.h"
 
-
 /* Level Specific Code\Rift1.cpp (level 0x15).
 
    Attribution evidence: 0x004DAFD0 passes this file's path string to
@@ -36,8 +35,7 @@ bool Rift1Sexspawn(Trigger* pTrigger)
             CreateLocationVar("AlSedexusSwapped", 1);
             monster_info = FindMonsterInfoBySpecies(0xd9);
             if (monster_info != 0) {
-                RemoveMonster(monster_info,
-                    true);
+                RemoveMonster(monster_info, true);
             }
             monster_info = FindMonsterInfoBySpecies(0x22b);
             if (monster_info == 0 && FindEntityByName("Sexspawn", &position, 0, 0)) {

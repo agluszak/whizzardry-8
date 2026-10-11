@@ -94,7 +94,6 @@
 #include "surrender/srModel.h"
 #include "surrender/srNode.h"
 
-
 // FUNCTION: WIZ8 0x00433a70
 void W8Octree::GetPathSurfaceNormal(const srVector3T<float>* position, srVector3T<float>* normal)
 {
@@ -277,13 +276,15 @@ void W8Octree::UpdateVisibility()
         for (index = 0; index < m_usNumPropsLoaded; ++index) {
             m_papProps[index]->SetActivationState(0);
         }
-        for (const auto id : m_prop_links.alwaysVisible())
+        for (const auto id : m_prop_links.alwaysVisible()) {
             m_papProps[id - 1]->SetActivationState(1);
+        }
         for (index = 0; index < m_usNumParticlesLoaded; ++index) {
             m_papParticles[index]->SetTraversalEnabled(false);
         }
-        for (const auto id : m_particle_links.alwaysVisible())
+        for (const auto id : m_particle_links.alwaysVisible()) {
             m_papParticles[id - 1]->SetTraversalEnabled(true);
+        }
         ValidateRegionMeshLinks();
         std::ranges::fill(m_previous_regions, false);
         std::ranges::fill(m_accumulated_regions, false);
@@ -345,8 +346,9 @@ void W8Octree::UpdateVisibility()
         MarkMeshLinksVisible(static_cast<unsigned int>(region));
     }
     if (m_ulNumParticles != 0) {
-        for (const auto id : m_particle_links.alwaysVisible())
+        for (const auto id : m_particle_links.alwaysVisible()) {
             SetBit(m_linked_particles, id - 1);
+        }
         for (std::size_t particle = 0; particle < m_linked_particles.size(); ++particle) {
             if (m_linked_particles[particle] && !m_visible_particles[particle]) {
                 m_papParticles[particle]->SetTraversalEnabled(true);
@@ -357,8 +359,9 @@ void W8Octree::UpdateVisibility()
         m_visible_particles = m_linked_particles;
     }
     if (m_ulNumProps != 0) {
-        for (const auto id : m_prop_links.alwaysVisible())
+        for (const auto id : m_prop_links.alwaysVisible()) {
             SetBit(m_linked_props, id - 1);
+        }
         for (std::size_t prop = 0; prop < m_linked_props.size(); ++prop) {
             if (m_linked_props[prop] && !m_visible_props[prop]) {
                 m_papProps[prop]->SetActivationState(1);
@@ -375,20 +378,22 @@ void W8Octree::UpdateVisibility()
    The grid and pre-generated frusta supply candidate regions. */
 // FUNCTION: WIZ8 0x0042f9a0
 std::vector<stModelInstance*> W8Octree::modelsNearPoint(const glm::vec3& center, float radius,
-                                                       unsigned int flags, bool only_accumulated)
+                                                        unsigned int flags, bool only_accumulated)
 {
     std::vector<stModelInstance*> out;
     if (!(radius >= 0) || glm::any(glm::isnan(center)) || glm::any(glm::isinf(center)) ||
-        m_spatial.m_region_cells_per_axis == 0 || !(m_spatial.m_region_grid_cell > 0))
+        m_spatial.m_region_cells_per_axis == 0 || !(m_spatial.m_region_grid_cell > 0)) {
         return out;
+    }
     const auto relative = (center - m_spatial.m_bounds.minimum) / m_spatial.m_region_grid_cell;
     const float reach = radius / m_spatial.m_region_grid_cell;
     const glm::vec3 limit(m_spatial.m_region_cells_per_axis - 1);
     const glm::ivec3 first(glm::clamp(glm::floor(relative - reach) - 1.0f, glm::vec3(0), limit));
     const glm::ivec3 last(glm::clamp(glm::floor(relative + reach) + 1.0f, glm::vec3(0), limit));
     const auto intersects = [&](srModelInstance* instance) {
-        if (!instance || !instance->getModel())
+        if (!instance || !instance->getModel()) {
             return false;
+        }
         const auto bounds = instance->getModel()->getBounds().box;
         const auto world = instance->getWorldSpaceMatrix<glm::mat4>();
         return bounds.transformed(world).intersectsSphere(center, radius);
@@ -430,8 +435,9 @@ std::vector<stModelInstance*> W8Octree::modelsNearPoint(const glm::vec3& center,
         if (m_current_regions[submesh] && submesh != 0) {
             stModelInstance* instance =
                 static_cast<stModelInstance*>(g_world->psrMeshes[m_pSubmeshes[submesh].mesh]);
-            if (intersects(instance))
+            if (intersects(instance)) {
                 out.push_back(instance);
+            }
             if ((flags & 0xff) != 0) {
                 MarkMeshLinksVisible(submesh);
             }
@@ -444,8 +450,9 @@ std::vector<stModelInstance*> W8Octree::modelsNearPoint(const glm::vec3& center,
                 continue;
             }
             srModelInstance* instance = m_papProps[bit - 1]->ToggleRepAnimationDefault();
-            if (intersects(instance))
+            if (intersects(instance)) {
                 out.push_back(static_cast<stModelInstance*>(instance));
+            }
         }
     }
     return out;
@@ -458,10 +465,14 @@ std::vector<stModelInstance*> W8Octree::modelsNearPoint(const glm::vec3& center,
 // FUNCTION: WIZ8 0x00430a70
 void W8Octree::MarkMeshLinksVisible(unsigned int mesh)
 {
-    if (mesh > m_meshCount) return;
-    m_particle_links.markVisible(mesh, std::span<stParticle* const>(m_papParticles, m_usNumParticlesLoaded),
-                                m_linked_particles);
-    m_prop_links.markVisible(mesh, std::span<W8Prop* const>(m_papProps, m_usNumPropsLoaded), m_linked_props);
+    if (mesh > m_meshCount) {
+        return;
+    }
+    m_particle_links.markVisible(
+        mesh, std::span<stParticle* const>(m_papParticles, m_usNumParticlesLoaded),
+        m_linked_particles);
+    m_prop_links.markVisible(mesh, std::span<W8Prop* const>(m_papProps, m_usNumPropsLoaded),
+                             m_linked_props);
 }
 
 /* Expand the camera box over the spatial levels and collect the regions the
@@ -568,8 +579,9 @@ unsigned int W8Octree::GetSectorForPosition(const srVector3T<float>* position)
     unsigned int cell[4];
     cell[0] = m_region_mask;
     for (int axis = 0; axis < 3; ++axis) {
-        int coordinate = static_cast<int>(((&position->x)[axis] - m_spatial.m_bounds.minimum[axis]) /
-                                          m_spatial.m_region_grid_cell);
+        int coordinate =
+            static_cast<int>(((&position->x)[axis] - m_spatial.m_bounds.minimum[axis]) /
+                             m_spatial.m_region_grid_cell);
         if (coordinate < 0 || coordinate >= m_spatial.m_region_cells_per_axis) {
             return 0;
         }
@@ -589,10 +601,14 @@ OctreeCellCoordinates W8Octree::cellCoordinates(const glm::vec3& location) const
     auto cell = cellAt(location);
     // Retain the visibility/swept-query policy even at exact negative cell
     // multiples; it is intentionally different from truncating cellAt().
-    for (int axis = 0; axis < 3; ++axis)
-        if (location[axis] < minimum[axis]) --cell[axis];
+    for (int axis = 0; axis < 3; ++axis) {
+        if (location[axis] < minimum[axis]) {
+            --cell[axis];
+        }
+    }
     const auto offset = (location - (glm::vec3(cell) * m_spatial.m_node_extent + minimum)) /
-                       m_spatial.m_node_extent - g_float_half;
+                            m_spatial.m_node_extent -
+                        g_float_half;
     const bool inside = !glm::any(glm::lessThan(location, minimum)) &&
                         !glm::any(glm::greaterThan(location, m_spatial.m_bounds.maximum));
     return {cell, offset, inside};
@@ -602,7 +618,9 @@ OctreeCellCoordinates W8Octree::cellCoordinates(const glm::vec3& location) const
 OctreeCellCoordinates W8Octree::projectRegionsAt(const glm::vec3& position)
 {
     const auto coordinates = cellCoordinates(position);
-    if (!coordinates.inside) return coordinates;
+    if (!coordinates.inside) {
+        return coordinates;
+    }
     const glm::ivec3 link_cell((position - m_spatial.m_bounds.minimum) /
                                m_spatial.m_region_grid_cell);
     srVector3T<float> box_min = m_spatial.m_bounds.minimum;
@@ -668,10 +686,12 @@ void W8Octree::MarkVisibleRegions()
         if (glm::dot(delta, delta) >= radius_squared) {
             continue;
         }
-        bool visible = srPlaneMath::containsSphere(view.frustum_planes, volume->m_points[0].glmValue(), 0);
+        bool visible =
+            srPlaneMath::containsSphere(view.frustum_planes, volume->m_points[0].glmValue(), 0);
 
         for (int point = 1; !visible && point < 9; ++point) {
-            visible = srPlaneMath::containsSphere(view.frustum_planes, volume->m_points[point].glmValue(), 0);
+            visible = srPlaneMath::containsSphere(view.frustum_planes,
+                                                  volume->m_points[point].glmValue(), 0);
         }
         if (visible && volume->m_region_bit != 0) {
             SetBit(m_current_regions, volume->m_region_bit);
@@ -693,21 +713,21 @@ void W8Octree::BuildFrustumPlanes()
     double tangent_vertical = tan(view.vertical_fov * g_float_half);
     const auto location = view.camera_location;
     const auto dof = view.camera_dof;
-    const auto width = glm::vec3((tangent * far_clip + ratio) *
-                                glm::dvec3(view.rotation_column0));
-    const auto height = glm::vec3((tangent_vertical * far_clip + ratio) *
-                                 glm::dvec3(view.rotation_column1));
+    const auto width = glm::vec3((tangent * far_clip + ratio) * glm::dvec3(view.rotation_column0));
+    const auto height =
+        glm::vec3((tangent_vertical * far_clip + ratio) * glm::dvec3(view.rotation_column1));
     const auto forward = far_clip * dof;
     const auto apex = location - backoff * dof;
-    const std::array<glm::vec3, 4> far_corners{{
-        (forward - width) + height + location, (forward + height) + width + location,
-        (forward - width) - height + location, (forward + width) - height + location}};
+    const std::array<glm::vec3, 4> far_corners{
+        {(forward - width) + height + location, (forward + height) + width + location,
+         (forward - width) - height + location, (forward + width) - height + location}};
     view.frustum_planes[4] = {dof, -glm::dot(dof, apex)};
     view.frustum_planes[5] = {-dof, glm::dot(dof, far_corners[0])};
     constexpr std::array<std::array<unsigned, 2>, 4> sides{{{1, 0}, {0, 2}, {3, 1}, {2, 3}}};
-    for (unsigned side = 0; side < sides.size(); ++side)
-        view.frustum_planes[side] = srPlaneMath::triangle(apex, far_corners[sides[side][0]],
-                                                 far_corners[sides[side][1]]);
+    for (unsigned side = 0; side < sides.size(); ++side) {
+        view.frustum_planes[side] =
+            srPlaneMath::triangle(apex, far_corners[sides[side][0]], far_corners[sides[side][1]]);
+    }
     for (int index = 0; index < 6; ++index) {
         view.frustum_planes[index].w += m_spatial.m_region_grid_cell;
     }
@@ -755,12 +775,12 @@ void W8Octree::CollectVisibleCells()
                 if (abs(x) >= 2 || abs(y) >= 2 || abs(z) >= 2) {
                     float offset = m_spatial.m_region_grid_cell * g_float_half;
                     srVector3T<float> point;
-                    point.x =
-                        cell_x * m_spatial.m_region_grid_cell + offset + m_spatial.m_bounds.minimum.x;
-                    point.y =
-                        cell_y * m_spatial.m_region_grid_cell + m_spatial.m_bounds.minimum.y + offset;
-                    point.z =
-                        cell_z * m_spatial.m_region_grid_cell + m_spatial.m_bounds.minimum.z + offset;
+                    point.x = cell_x * m_spatial.m_region_grid_cell + offset +
+                              m_spatial.m_bounds.minimum.x;
+                    point.y = cell_y * m_spatial.m_region_grid_cell + m_spatial.m_bounds.minimum.y +
+                              offset;
+                    point.z = cell_z * m_spatial.m_region_grid_cell + m_spatial.m_bounds.minimum.z +
+                              offset;
                     if (!srPlaneMath::containsSphere(view.frustum_planes, point.glmValue(), 0)) {
                         continue;
                     }
@@ -793,7 +813,8 @@ static unsigned char FindNextLevelFile(std::string* name)
     if (!g_octree_file_search_active) {
         std::string search = *name;
         const auto extension_start = search.find_last_of('.');
-        const auto extension = extension_start == std::string::npos ? std::string{} : search.substr(extension_start);
+        const auto extension =
+            extension_start == std::string::npos ? std::string{} : search.substr(extension_start);
         if (extension_start != std::string::npos) {
             search.resize(extension_start);
         }
@@ -820,8 +841,7 @@ static unsigned char FindNextLevelFile(std::string* name)
 
 // FUNCTION: WIZ8 0x00432b80
 bool W8Octree::LoadPointFiles(const char* level_name)
-try
-{
+try {
     std::string stem = level_name;
     if (const auto extension = stem.find_last_of('.'); extension != std::string::npos) {
         stem.resize(extension);
@@ -838,7 +858,8 @@ try
         file->read_exact(&count, sizeof(count));
         const auto bytes = std::uint64_t{count} * sizeof(srVector3T<float>);
         if (bytes > static_cast<std::uint64_t>(file->size() - file->tell()) ||
-            std::uint64_t{count} + 1 > std::numeric_limits<std::size_t>::max() / sizeof(srVector3T<float>)) {
+            std::uint64_t{count} + 1 >
+                std::numeric_limits<std::size_t>::max() / sizeof(srVector3T<float>)) {
             return false;
         }
         auto next = std::make_unique<srVector3T<float>[]>(std::size_t{count} + 1);
@@ -854,14 +875,14 @@ try
     m_point_count = count;
     m_points_dirty |= files > 1;
     return true;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 /* Write the octree's point count and records to the mutable overlay. */
 // FUNCTION: WIZ8 0x00432d60
 bool W8Octree::SavePoints(char* path)
-try
-{
+try {
     if (m_point_count == 0 || m_sample_points == 0) {
         return false;
     }
@@ -875,13 +896,13 @@ try
     file->write(m_sample_points, std::size_t{m_point_count} * sizeof(srVector3T<float>));
     file->close();
     return true;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x00432e90
 bool W8Octree::ReadRegionLinkFile(const char* level_name)
-try
-{
+try {
     std::string name = level_name;
     if (const auto extension = name.find_last_of('.'); extension != std::string::npos) {
         name.resize(extension);
@@ -908,8 +929,9 @@ try
     }
     m_region_links_ready = true;
     return true;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 /* The region volume containing `point` as its 1-based index into the spatial
    array, else the packed auto-region key - the region-grid level in the top
@@ -937,7 +959,7 @@ unsigned int W8Octree::RegionKeyForPoint(const srVector3T<float>* point)
     glm::ivec3 cell;
     for (int axis = 0; axis < 3; ++axis) {
         cell[axis] = static_cast<int>(((&point->x)[axis] - m_spatial.m_bounds.minimum[axis]) /
-                                           m_spatial.m_region_grid_cell);
+                                      m_spatial.m_region_grid_cell);
     }
     return (cell.x * 0x100 + cell.y) * 0x100 + cell.z + m_region_mask * 0x1000000;
 }
@@ -1048,8 +1070,8 @@ unsigned int W8Octree::SampleRegionLinks(const srVector3T<float>* point, bool de
                         static_cast<stModelInstance*>(g_world->psrMeshes[m_pSubmeshes[cell].mesh]));
                     if (!TestBit(m_projected_regions, cell)) {
                         auto slot = m_pRegionLinks->equal_range(key).first;
-                        while (slot != m_pRegionLinks->end() && slot->second !=
-                                                 static_cast<unsigned short>(cell)) {
+                        while (slot != m_pRegionLinks->end() &&
+                               slot->second != static_cast<unsigned short>(cell)) {
                             slot = NextIndexValue(*m_pRegionLinks, key, slot);
                         }
                         if (slot == m_pRegionLinks->end()) {
@@ -1210,7 +1232,8 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
                 break;
             }
             srVector3T<float> point;
-            point.x = m_region_cell * g_float_half + x_index * stride + m_spatial.m_bounds.minimum.x;
+            point.x =
+                m_region_cell * g_float_half + x_index * stride + m_spatial.m_bounds.minimum.x;
             unsigned short z_index = !rebuild_all && (x_index & 1) != 0 ? z_step : 0;
             if (!(m_spatial.m_working_bounds.minimum.x < point.x &&
                   point.x < m_spatial.m_working_bounds.maximum.x)) {
@@ -1220,7 +1243,8 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
                 if (aborted) {
                     break;
                 }
-                point.z = m_region_cell * g_float_half + z_index * stride + m_spatial.m_bounds.minimum.z;
+                point.z =
+                    m_region_cell * g_float_half + z_index * stride + m_spatial.m_bounds.minimum.z;
                 if (!(m_spatial.m_working_bounds.minimum.z < point.z &&
                       point.z < m_spatial.m_working_bounds.maximum.z)) {
                     continue;
@@ -1282,7 +1306,10 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
             *extension = '\0';
         }
         strcat(point_path, g_octree_point_extension);
-        if ([&]() { const auto status = wiz8::file_status(point_path); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
+        if ([&]() {
+                const auto status = wiz8::file_status(point_path);
+                return status && status->info.type == SDL_PATHTYPE_FILE;
+            }()) {
             wiz8::remove_file(point_path);
         }
         delete[] m_sample_points;
@@ -1354,8 +1381,7 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
    first, then the keys and their short values. */
 // FUNCTION: WIZ8 0x004331f0
 bool W8Octree::SaveRegionLinks(char* path)
-try
-{
+try {
     if (m_pRegionLinks == 0 || path == 0 || m_pRegionLinks->empty()) {
         return false;
     }
@@ -1379,8 +1405,9 @@ try
         for (unsigned int y = 0; y < extent; ++y) {
             for (unsigned int z = 0; z < extent; ++z) {
                 unsigned int key = (x << 16) + (y << 8) + z + base;
-                for (auto slot = m_pRegionLinks->equal_range(key).first; slot != m_pRegionLinks->end();
-             slot = NextIndexValue(*m_pRegionLinks, key, slot)) {
+                for (auto slot = m_pRegionLinks->equal_range(key).first;
+                     slot != m_pRegionLinks->end();
+                     slot = NextIndexValue(*m_pRegionLinks, key, slot)) {
                     keys.push_back(key);
                     values.push_back(slot->second);
                 }
@@ -1397,8 +1424,9 @@ try
     file->write(values.data(), values.size() * sizeof(values[0]));
     file->close();
     return true;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 /* Draw the octree cell the camera currently occupies as a wire box. The cell
    is derived on each axis by quantizing the camera position relative to the
@@ -1430,8 +1458,8 @@ const double g_color_byte_scale = 255.0;
 /* Pack normalized alpha/red/green/blue components using the current x87
    rounding mode, then retain each result's low byte. */
 // FUNCTION: WIZ8 0x00433fb0
-w8_ulong* __fastcall PackColourToLong(w8_ulong* color, double alpha, double red,
-                                           double green, double blue)
+w8_ulong* __fastcall PackColourToLong(w8_ulong* color, double alpha, double red, double green,
+                                      double blue)
 {
     unsigned char* bytes =
         reinterpret_cast<unsigned char*>(color); // reinterpret-ok: packed colour storage
@@ -1491,8 +1519,9 @@ int W8Octree::CountBadRegionMeshLinks(W8OctSpatialState* spatial)
             const auto minimum = spatial->m_bounds.minimum;
             for (unsigned child = 0; child < 8; ++child) {
                 local.m_node_index = m_branches[spatial->m_node_index].children[child];
-                if (!local.m_node_index)
+                if (!local.m_node_index) {
                     continue;
+                }
                 const glm::vec3 offset((child >> 2) & 1, (child >> 1) & 1, child & 1);
                 const auto corner = minimum + offset * local.m_extent;
                 local.m_bounds.minimum = corner;
@@ -1538,7 +1567,8 @@ void W8Octree::ToggleUpdateSuspension(W8World* world)
     }
     memset(m_pfRegsVisited, 0, m_spatial.m_region_id_bound + 1);
     if (g_octree_trace_node == 0) {
-        g_octree_trace_node = world->static_scene->adoptChild(g_octree_game_data->CreateTraceModel(), 1);
+        g_octree_trace_node =
+            world->static_scene->adoptChild(g_octree_game_data->CreateTraceModel(), 1);
         SetModelInstanceChainExclusionMask(g_octree_trace_node, 2);
     }
     g_octree_trace_node->clearFlag(srNode::FLAG_DISABLE);
@@ -1573,8 +1603,8 @@ unsigned char W8Octree::PrepareNavigatorTarget(W8NavigatorMovementState* movemen
             if (!pathing->TestWaypointSpan(&movement->position, &target, false, false)) {
                 movement->attachment->InitializeSegment(&movement->position, &target);
                 movement->attachment->separation = separation;
-                result =
-                    pathing->BuildAttachmentPath(movement->attachment.get(), movement->navigation_filter);
+                result = pathing->BuildAttachmentPath(movement->attachment.get(),
+                                                      movement->navigation_filter);
                 if (result != 0) {
                     W8NavigatorAttachment* attachment = movement->attachment.get();
                     attachment->path[attachment->path_position_index].position =
@@ -1670,8 +1700,8 @@ unsigned char W8Octree::LinkNavigatorTarget(W8NavigatorMovementState* movement,
                                             const srVector3T<float>* target, float separation)
 {
     if (pathing != 0) {
-        return pathing->LinkAttachmentTarget(movement->attachment.get(), movement->navigation_filter,
-                                             target, separation);
+        return pathing->LinkAttachmentTarget(movement->attachment.get(),
+                                             movement->navigation_filter, target, separation);
     }
     return 0;
 }
@@ -1878,11 +1908,12 @@ bool W8Octree::HasLineOfSight(const srVector3T<float>* from, srVector3T<float>* 
     cell = cellAt(from->glmValue());
     end_cell = cellAt(to->glmValue());
 
-    visitOctreeSegment(cell, end_cell,
-        [&] { return cellWalk(from->glmValue(), to->glmValue()); },
+    visitOctreeSegment(
+        cell, end_cell, [&] { return cellWalk(from->glmValue(), to->glmValue()); },
         [&](const glm::ivec3& current, bool adjacent) {
-            if (ProbeCellForBlockers(current) != 0 || adjacent)
+            if (ProbeCellForBlockers(current) != 0 || adjacent) {
                 blocked = TestProbeResult(&trace);
+            }
             return blocked == 0;
         });
     if (blocked != 0) {
@@ -1916,15 +1947,17 @@ short W8Octree::TraceLineOfSight(const srVector3T<float>* from, srVector3T<float
         cell = cellAt(from->glmValue());
         end_cell = cellAt(to->glmValue());
 
-        visitOctreeSegment(cell, end_cell,
-            [&] { return cellWalk(from->glmValue(), to->glmValue()); },
+        visitOctreeSegment(
+            cell, end_cell, [&] { return cellWalk(from->glmValue(), to->glmValue()); },
             [&](const glm::ivec3& current, bool adjacent) {
-                if (ProbeCellForTrace(current) != 0 || adjacent)
-                    blocked = g_octree_game_data->TestTraceResult(
-                        m_gd_result_count, m_aulGDObjs, &trace, m_trace_skip_flag, 0);
+                if (ProbeCellForTrace(current) != 0 || adjacent) {
+                    blocked = g_octree_game_data->TestTraceResult(m_gd_result_count, m_aulGDObjs,
+                                                                  &trace, m_trace_skip_flag, 0);
+                }
                 return !blocked;
             });
-        const auto prop_hit = trace_world ? traceProps(from->glmValue(), trace.end, 0, 0) : std::nullopt;
+        const auto prop_hit =
+            trace_world ? traceProps(from->glmValue(), trace.end, 0, 0) : std::nullopt;
         if (!prop_hit) {
             if (!blocked) {
                 goto resolve;
@@ -1941,8 +1974,8 @@ short W8Octree::TraceLineOfSight(const srVector3T<float>* from, srVector3T<float
     }
 resolve:
     if (from_location_id > -3) {
-        if (const auto hit = traceSphereHit(trace.start, trace.end,
-                from_location_id, to_location_id, to_location_id, 0, trace_mode)) {
+        if (const auto hit = traceSphereHit(trace.start, trace.end, from_location_id,
+                                            to_location_id, to_location_id, 0, trace_mode)) {
             *to = hit->position;
             return -1;
         }
@@ -1953,9 +1986,9 @@ resolve:
 /* Trace location spheres and then the camera. The winning location id
    retains the historical last-collider-offset behavior. */
 // FUNCTION: WIZ8 0x004353f0
-std::optional<W8Octree::SphereTraceHit> W8Octree::traceSphereHit(
-    const glm::vec3& from, const glm::vec3& to, int excluded, int target,
-    int excluded_location, unsigned int flags, bool noise_adjust)
+std::optional<W8Octree::SphereTraceHit>
+W8Octree::traceSphereHit(const glm::vec3& from, const glm::vec3& to, int excluded, int target,
+                         int excluded_location, unsigned int flags, bool noise_adjust)
 {
     unsigned int index = 0;
     std::vector<w8_ulong> ids;
@@ -1972,18 +2005,24 @@ std::optional<W8Octree::SphereTraceHit> W8Octree::traceSphereHit(
         float distance = projection.distance;
         if (noise_adjust) {
             distance -= (glm::distance(projection.point, from) / segment_length *
-                         g_float_fifteen_hundredths + g_float_one_tenth) * g_world_scale;
-            if (distance < g_float_zero) distance = g_float_zero;
+                             g_float_fifteen_hundredths +
+                         g_float_one_tenth) *
+                        g_world_scale;
+            if (distance < g_float_zero) {
+                distance = g_float_zero;
+            }
         }
         return distance;
     };
     const auto sphereOffset = [&](float sphere_radius, float distance) {
         const auto direction = to - from;
         const double length2 = glm::dot(direction, direction);
-        if (length2 == g_double_zero) return direction;
+        if (length2 == g_double_zero) {
+            return direction;
+        }
         const double length = std::sqrt(length2);
-        const double fraction = (length - std::sqrt(sphere_radius * sphere_radius -
-                                                    distance * distance)) / length;
+        const double fraction =
+            (length - std::sqrt(sphere_radius * sphere_radius - distance * distance)) / length;
         return glm::vec3(glm::dvec3(direction) * fraction);
     };
     inflate = g_position_height_epsilon;
@@ -2017,15 +2056,17 @@ no_probes:;
     if (count != 0) {
         do {
             int id = ids[index];
-            if (((excluded < 0) || (excluded != id)) && ((target < 0) || (excluded_location != id)) &&
+            if (((excluded < 0) || (excluded != id)) &&
+                ((target < 0) || (excluded_location != id)) &&
                 (probe_set == 0 || !pathing->MatchesPathProbe(id, 0, 0))) {
                 W8MonsterInfo* info = FindMonster(id);
                 if (info != 0) {
                     W8Monster* monster = info->p3D;
                     if (monster != 0 && monster->active && (monster->trace_mask & flags) == 0) {
                         const glm::vec3 center(monster->movement.position.x,
-                            monster->movement.position.y + monster->movement.height_offset,
-                            monster->movement.position.z);
+                                               monster->movement.position.y +
+                                                   monster->movement.height_offset,
+                                               monster->movement.position.z);
                         const float distance = sphereDistance(center);
                         float monster_radius = monster->radius;
                         if (distance < monster_radius) {
@@ -2057,8 +2098,9 @@ no_probes:;
     if (excluded != -1 && excluded_location != -1) {
         const float distance = sphereDistance(cameraLocation());
         const float camera_radius = g_startup_world->radius * g_camera_sphere_radius_scale;
-        if (distance < camera_radius)
+        if (distance < camera_radius) {
             return SphereTraceHit{sphereOffset(camera_radius, distance) + from, 0};
+        }
     }
     return std::nullopt;
 }
@@ -2239,8 +2281,8 @@ W8OctreeWalk W8Octree::cellWalk(const glm::vec3& from, const glm::vec3& to) cons
    GameData prop trace. The hit returns its prop id and contact together;
    current_prop keeps the selected id for existing registry consumers. */
 // FUNCTION: WIZ8 0x00436510
-std::optional<W8Octree::PropTraceHit> W8Octree::traceProps(
-    const glm::vec3& from, const glm::vec3& to, int skip_flag, int gate)
+std::optional<W8Octree::PropTraceHit>
+W8Octree::traceProps(const glm::vec3& from, const glm::vec3& to, int skip_flag, int gate)
 {
     glm::ivec3 cell;
     glm::ivec3 end_cell;
@@ -2251,8 +2293,8 @@ std::optional<W8Octree::PropTraceHit> W8Octree::traceProps(
     std::ranges::fill(m_visited_object_bits, false);
     cell = cellAt(from);
     end_cell = cellAt(to);
-    visitOctreeSegment(cell, end_cell,
-        [&] { return cellWalk(from, to); },
+    visitOctreeSegment(
+        cell, end_cell, [&] { return cellWalk(from, to); },
         [&](const glm::ivec3& current, bool) {
             g_octree_state = m_aulGDObjs;
             CollectObjectsInCell(current, W8_OCTREE_KIND_PROP);
@@ -2282,8 +2324,7 @@ int W8Octree::ProbeCellForTrace(const glm::ivec3& cell)
     unsigned int leaf_index = LeafIndexForCell(cell);
     m_gd_result_count = 0;
     if (leaf_index != 0 && m_leaves[leaf_index].gd_polygon_offset != 0) {
-        const w8_ulong* stream =
-            m_gd_surface_index_stream + m_leaves[leaf_index].gd_polygon_offset;
+        const w8_ulong* stream = m_gd_surface_index_stream + m_leaves[leaf_index].gd_polygon_offset;
         int remaining = *stream;
         while (remaining != 0) {
             ++stream;
@@ -2357,15 +2398,14 @@ unsigned char W8Octree::TestProbeResult(W8OctreeTrace* trace)
             const glm::vec4* planes = model->getPolyEq();
             unsigned int polygon = m_aulGDObjs[index] & 0xffff;
             const glm::vec4* plane = planes + polygon;
-            const auto contact = planeContact(*plane,
-                {trace->start, trace->end, trace->step,
-                 trace->length, trace->hit_limit}, PlaneContactMode::Collision);
+            const auto contact = planeContact(
+                *plane, {trace->start, trace->end, trace->step, trace->length, trace->hit_limit},
+                PlaneContactMode::Collision);
             if (contact) {
                 const auto axis = dominantPlaneAxis(glm::vec3(*plane));
                 const glm::ivec3* poly_vertex = model->getPolyVertex() + polygon;
                 const glm::vec3* vertices = model->getVertexLoc();
-                const RuntimeTriangle triangle{vertices[poly_vertex->x],
-                                               vertices[poly_vertex->y],
+                const RuntimeTriangle triangle{vertices[poly_vertex->x], vertices[poly_vertex->y],
                                                vertices[poly_vertex->z]};
                 if (PointInsideTriangle(triangle, axis, contact->point) &&
                     contact->distance < trace->hit_limit) {
@@ -2390,7 +2430,7 @@ unsigned char W8Octree::TestProbeResult(W8OctreeTrace* trace)
    consumption and zero-terminated; the shared buffer is returned. */
 // FUNCTION: WIZ8 0x00438780
 std::vector<w8_ulong> W8Octree::polygonsNearPoint(const glm::vec3& position, float radius,
-                                                 float height)
+                                                  float height)
 {
     m_gd_result_count = 0;
     std::ranges::fill(m_visited_polygon_bits, false);
@@ -2401,22 +2441,29 @@ std::vector<w8_ulong> W8Octree::polygonsNearPoint(const glm::vec3& position, flo
     const auto start = cellAt(box.minimum);
     const auto end = cellAt(box.maximum);
     visitOctreeCellBox(start, end,
-        [&](const glm::ivec3& cell) { ProbeCellForBlockersAppend(cell); });
+                       [&](const glm::ivec3& cell) { ProbeCellForBlockersAppend(cell); });
 
     std::vector<w8_ulong> polygons;
     polygons.reserve(m_gd_result_count);
     for (const auto key : std::span(m_aulGDObjs, m_gd_result_count)) {
         const auto mesh_index = key >> 16;
         if (key == 0 || mesh_index >= m_meshCount || !g_world->psrMeshes[mesh_index] ||
-            TestBit(m_alpha_bits, mesh_index)) continue;
+            TestBit(m_alpha_bits, mesh_index)) {
+            continue;
+        }
         auto& model = *static_cast<stMeshModel*>(g_world->psrMeshes[mesh_index]->getModel());
         const auto polygon = key & 0xffff;
         const auto plane = model.getPolyEq()[polygon];
-        if (plane.y < g_float_half) continue;
+        if (plane.y < g_float_half) {
+            continue;
+        }
         const auto& corners = model.getPolyVertex()[polygon];
         const auto* vertices = model.getVertexLoc();
-        const RuntimeTriangle triangle{vertices[corners.x], vertices[corners.y], vertices[corners.z]};
-        if (triangleIntersectsBox(box, triangle, glm::vec3(plane))) polygons.push_back(key);
+        const RuntimeTriangle triangle{vertices[corners.x], vertices[corners.y],
+                                       vertices[corners.z]};
+        if (triangleIntersectsBox(box, triangle, glm::vec3(plane))) {
+            polygons.push_back(key);
+        }
     }
     std::ranges::sort(polygons);
     return polygons;
@@ -2520,9 +2567,10 @@ W8Octree::W8Octree(const char* path, W8GameData** game_data)
         const auto grid_yz = std::uint64_t{header.m_grid_dims.y} * header.m_grid_dims.z;
         if (header.m_grid_dims.x == 0 || header.m_grid_dims.y == 0 || header.m_grid_dims.z == 0 ||
             grid_yz > std::numeric_limits<int>::max() ||
-            grid_yz > static_cast<unsigned int>(std::numeric_limits<int>::max()) / header.m_grid_dims.x ||
-            header.m_depth >= 31 || header.m_leaf_level > 8 ||
-            header.m_prop_count > 0xffff || header.m_particle_count > 0xffff ||
+            grid_yz >
+                static_cast<unsigned int>(std::numeric_limits<int>::max()) / header.m_grid_dims.x ||
+            header.m_depth >= 31 || header.m_leaf_level > 8 || header.m_prop_count > 0xffff ||
+            header.m_particle_count > 0xffff ||
             header.m_path_nodes > std::numeric_limits<int>::max() ||
             header.m_surface_count > std::numeric_limits<int>::max() ||
             header.m_mesh_total > header.m_submesh_count ||
@@ -2540,29 +2588,40 @@ W8Octree::W8Octree(const char* path, W8GameData** game_data)
             std::uint64_t{header.m_region_list_len} * sizeof(unsigned short) +
             std::uint64_t{header.m_gd_surface_stream_len} * sizeof(w8_ulong) +
             std::uint64_t{header.m_trigger_count} * sizeof(unsigned short) +
-            (header.m_region_count > 1 ? std::uint64_t{header.m_region_count} * sizeof(W8OctRegionVolume) : 0) +
-            (header.m_submesh_count != 0 ? (std::uint64_t{header.m_submesh_count} + 1) * sizeof(W8OctSubmesh) : 0) +
-            std::uint64_t{header.m_path_nodes} * sizeof(W8FilePathNode) +
-            3 * sizeof(uiTerminator);
+            (header.m_region_count > 1
+                 ? std::uint64_t{header.m_region_count} * sizeof(W8OctRegionVolume)
+                 : 0) +
+            (header.m_submesh_count != 0
+                 ? (std::uint64_t{header.m_submesh_count} + 1) * sizeof(W8OctSubmesh)
+                 : 0) +
+            std::uint64_t{header.m_path_nodes} * sizeof(W8FilePathNode) + 3 * sizeof(uiTerminator);
         if (required > remaining) {
             throw std::runtime_error("Octree tables exceed file size.");
         }
-        for (const auto count : {std::uint64_t{header.m_polygon_count},
-                                 std::uint64_t{header.m_surface_count},
-                                 std::uint64_t{header.m_submesh_count} + 1}) {
+        for (const auto count :
+             {std::uint64_t{header.m_polygon_count}, std::uint64_t{header.m_surface_count},
+              std::uint64_t{header.m_submesh_count} + 1}) {
             const auto whole_words = static_cast<std::uint64_t>(static_cast<float>(count) / 32.0f);
             if (whole_words * 32 > count || count - whole_words * 32 >= 32) {
                 throw std::runtime_error("Octree count exceeds BitArray sizing precision.");
             }
         }
-        if ((std::uint64_t{header.m_branch_count} + 2) > std::numeric_limits<std::size_t>::max() / sizeof(W8OctPreTreeBranch) ||
-            (std::uint64_t{header.m_leaf_count} + 2) > std::numeric_limits<std::size_t>::max() / sizeof(W8OctPreTreeLeaf) ||
-            (std::uint64_t{header.m_submesh_count} + 1) > std::numeric_limits<std::size_t>::max() / sizeof(W8OctSubmesh) ||
-            (std::uint64_t{header.m_polygon_count} + 2) > std::numeric_limits<std::size_t>::max() / sizeof(w8_ulong) ||
-            (std::uint64_t{header.m_leaf_polygon_stream_len} + 2) > std::numeric_limits<std::size_t>::max() / sizeof(w8_ulong) ||
-            (std::uint64_t{header.m_gd_surface_stream_len} + 2) > std::numeric_limits<std::size_t>::max() / sizeof(w8_ulong) ||
-            (std::uint64_t{header.m_region_list_len} + 2) > std::numeric_limits<std::size_t>::max() / sizeof(unsigned short) ||
-            (std::uint64_t{header.m_trigger_count} + 2) > std::numeric_limits<std::size_t>::max() / sizeof(unsigned short)) {
+        if ((std::uint64_t{header.m_branch_count} + 2) >
+                std::numeric_limits<std::size_t>::max() / sizeof(W8OctPreTreeBranch) ||
+            (std::uint64_t{header.m_leaf_count} + 2) >
+                std::numeric_limits<std::size_t>::max() / sizeof(W8OctPreTreeLeaf) ||
+            (std::uint64_t{header.m_submesh_count} + 1) >
+                std::numeric_limits<std::size_t>::max() / sizeof(W8OctSubmesh) ||
+            (std::uint64_t{header.m_polygon_count} + 2) >
+                std::numeric_limits<std::size_t>::max() / sizeof(w8_ulong) ||
+            (std::uint64_t{header.m_leaf_polygon_stream_len} + 2) >
+                std::numeric_limits<std::size_t>::max() / sizeof(w8_ulong) ||
+            (std::uint64_t{header.m_gd_surface_stream_len} + 2) >
+                std::numeric_limits<std::size_t>::max() / sizeof(w8_ulong) ||
+            (std::uint64_t{header.m_region_list_len} + 2) >
+                std::numeric_limits<std::size_t>::max() / sizeof(unsigned short) ||
+            (std::uint64_t{header.m_trigger_count} + 2) >
+                std::numeric_limits<std::size_t>::max() / sizeof(unsigned short)) {
             throw std::runtime_error("Octree allocation exceeds address space.");
         }
 
@@ -2581,9 +2640,11 @@ W8Octree::W8Octree(const char* path, W8GameData** game_data)
         if (!m_branches || !m_leaves || !m_polygon_index_stream || !m_aulPolyLookup) {
             throw std::bad_alloc();
         }
-        hOctFile->read_exact(m_branches, std::size_t{header.m_branch_count} * sizeof(W8OctPreTreeBranch));
+        hOctFile->read_exact(m_branches,
+                             std::size_t{header.m_branch_count} * sizeof(W8OctPreTreeBranch));
         hOctFile->read_exact(m_leaves, std::size_t{header.m_leaf_count} * sizeof(W8OctPreTreeLeaf));
-        hOctFile->read_exact(m_polygon_index_stream, std::size_t{header.m_leaf_polygon_stream_len} * sizeof(w8_ulong));
+        hOctFile->read_exact(m_polygon_index_stream,
+                             std::size_t{header.m_leaf_polygon_stream_len} * sizeof(w8_ulong));
         if (grid_count < 250000) {
             m_leaf_lookup = static_cast<w8_ulong*>(malloc(grid_count * sizeof(w8_ulong)));
             if (!m_leaf_lookup) {
@@ -2591,14 +2652,16 @@ W8Octree::W8Octree(const char* path, W8GameData** game_data)
             }
             hOctFile->read_exact(m_leaf_lookup, grid_count * sizeof(w8_ulong));
         }
-        hOctFile->read_exact(m_aulPolyLookup, std::size_t{header.m_polygon_count} * sizeof(w8_ulong));
+        hOctFile->read_exact(m_aulPolyLookup,
+                             std::size_t{header.m_polygon_count} * sizeof(w8_ulong));
         if (header.m_region_list_len != 0) {
             m_region_index_stream = static_cast<unsigned short*>(
                 malloc((std::size_t{header.m_region_list_len} + 2) * sizeof(unsigned short)));
             if (!m_region_index_stream) {
                 throw std::bad_alloc();
             }
-            hOctFile->read_exact(m_region_index_stream, std::size_t{header.m_region_list_len} * sizeof(unsigned short));
+            hOctFile->read_exact(m_region_index_stream,
+                                 std::size_t{header.m_region_list_len} * sizeof(unsigned short));
         }
         if (header.m_gd_surface_stream_len != 0) {
             m_gd_surface_index_stream = static_cast<w8_ulong*>(
@@ -2606,7 +2669,8 @@ W8Octree::W8Octree(const char* path, W8GameData** game_data)
             if (!m_gd_surface_index_stream) {
                 throw std::bad_alloc();
             }
-            hOctFile->read_exact(m_gd_surface_index_stream, std::size_t{header.m_gd_surface_stream_len} * sizeof(w8_ulong));
+            hOctFile->read_exact(m_gd_surface_index_stream,
+                                 std::size_t{header.m_gd_surface_stream_len} * sizeof(w8_ulong));
         }
         if (header.m_trigger_count != 0) {
             m_trigger_indices = static_cast<unsigned short*>(
@@ -2614,7 +2678,8 @@ W8Octree::W8Octree(const char* path, W8GameData** game_data)
             if (!m_trigger_indices) {
                 throw std::bad_alloc();
             }
-            hOctFile->read_exact(m_trigger_indices, std::size_t{header.m_trigger_count} * sizeof(unsigned short));
+            hOctFile->read_exact(m_trigger_indices,
+                                 std::size_t{header.m_trigger_count} * sizeof(unsigned short));
         }
         if (header.m_region_count > 1) {
             m_spatial.m_region_volumes = static_cast<W8OctRegionVolume*>(
@@ -2622,7 +2687,8 @@ W8Octree::W8Octree(const char* path, W8GameData** game_data)
             if (!m_spatial.m_region_volumes) {
                 throw std::bad_alloc();
             }
-            hOctFile->read_exact(m_spatial.m_region_volumes, std::size_t{header.m_region_count} * sizeof(W8OctRegionVolume));
+            hOctFile->read_exact(m_spatial.m_region_volumes,
+                                 std::size_t{header.m_region_count} * sizeof(W8OctRegionVolume));
         }
         hOctFile->read_exact(&uiTerminator, sizeof(uiTerminator));
         if (uiTerminator != 0xffffffff) {
@@ -2634,7 +2700,8 @@ W8Octree::W8Octree(const char* path, W8GameData** game_data)
             if (!m_pSubmeshes) {
                 throw std::bad_alloc();
             }
-            hOctFile->read_exact(m_pSubmeshes, (std::size_t{header.m_submesh_count} + 1) * sizeof(W8OctSubmesh));
+            hOctFile->read_exact(m_pSubmeshes,
+                                 (std::size_t{header.m_submesh_count} + 1) * sizeof(W8OctSubmesh));
             unsigned int limit = 0;
             for (std::size_t index = 0; index <= header.m_submesh_count; ++index) {
                 limit = std::max(limit, m_pSubmeshes[index].polygon_count);
@@ -2643,7 +2710,8 @@ W8Octree::W8Octree(const char* path, W8GameData** game_data)
                 throw std::runtime_error("Octree submesh polygon count exceeds scratch capacity.");
             }
             ++limit;
-            g_octree_storage_ = static_cast<unsigned int*>(malloc(std::size_t{limit} * sizeof(unsigned int)));
+            g_octree_storage_ =
+                static_cast<unsigned int*>(malloc(std::size_t{limit} * sizeof(unsigned int)));
             if (!g_octree_storage_) {
                 throw std::bad_alloc();
             }
@@ -2651,13 +2719,16 @@ W8Octree::W8Octree(const char* path, W8GameData** game_data)
                 g_octree_storage_[index] = index;
             }
             if (m_meshCount != 0) {
-                    if (!LoadPackedBits(*hOctFile, m_alpha_bits)) {
+                if (!LoadPackedBits(*hOctFile, m_alpha_bits)) {
                     throw std::runtime_error("Could not read octree alpha bits.");
                 }
             }
-            if (m_ulNumParticles != 0) m_particle_links.read(*hOctFile, m_meshCount);
-            if (m_ulNumProps != 0) m_prop_links.read(*hOctFile, m_meshCount);
-
+            if (m_ulNumParticles != 0) {
+                m_particle_links.read(*hOctFile, m_meshCount);
+            }
+            if (m_ulNumProps != 0) {
+                m_prop_links.read(*hOctFile, m_meshCount);
+            }
         }
         hOctFile->read_exact(&uiTerminator, sizeof(uiTerminator));
         if (uiTerminator != 0xffffffff) {
@@ -2666,7 +2737,7 @@ W8Octree::W8Octree(const char* path, W8GameData** game_data)
         if (header.m_path_nodes != 0) {
             pathing = new W8PathingService;
             pathing->ConfigureForLevel(header.m_path_nodes, header.m_region_cell,
-                                      header.m_path_clearance, m_spatial.bounds(), m_owned_0c0);
+                                       header.m_path_clearance, m_spatial.bounds(), m_owned_0c0);
             if (!pathing->ReadPathNodes(hOctFile.get())) {
                 throw std::runtime_error("Could not read octree path nodes.");
             }
@@ -2735,8 +2806,7 @@ int CheckLevelAssetSet(const char* level_path)
     const auto pvl = wiz8::file_status(stem + ".PVL");
     int rebuild = 1;
     unsigned short version = 0;
-    if (oct && oct->info.type == SDL_PATHTYPE_FILE &&
-        pvl && pvl->info.type == SDL_PATHTYPE_FILE) {
+    if (oct && oct->info.type == SDL_PATHTYPE_FILE && pvl && pvl->info.type == SDL_PATHTYPE_FILE) {
         try {
             auto file = wiz8::open_file(level_path);
             file->read_exact(&version, sizeof(version));
@@ -2923,7 +2993,8 @@ void W8Octree::Initialize(const W8OctFileHeader* header)
         if (m_ulNumParticles != 0) {
             m_linked_particles.assign(m_ulNumParticles, false);
             m_visible_particles.assign(m_ulNumParticles, false);
-            m_papParticles = static_cast<stParticle**>(malloc((m_ulNumParticles + 2) * sizeof(*m_papParticles)));
+            m_papParticles =
+                static_cast<stParticle**>(malloc((m_ulNumParticles + 2) * sizeof(*m_papParticles)));
         }
         if (m_ulNumProps != 0) {
             m_linked_props.assign(m_ulNumProps, false);
@@ -2935,7 +3006,8 @@ void W8Octree::Initialize(const W8OctFileHeader* header)
         m_projected_regions.assign(header->m_submesh_count + 1, false);
         m_current_regions.assign(header->m_submesh_count + 1, false);
         m_previous_regions.assign(header->m_submesh_count + 1, false);
-        m_visited_object_bits.assign(header->m_surface_count < 5000 ? 5000 : header->m_surface_count, false);
+        m_visited_object_bits.assign(
+            header->m_surface_count < 5000 ? 5000 : header->m_surface_count, false);
         m_accumulated_regions.assign(header->m_submesh_count + 1, false);
 
         object_registry = new W8OctreeObjectRegistry;
@@ -3155,9 +3227,8 @@ void W8Octree::UnregisterLocationObject(unsigned int location_id, W8OctreeObject
 
 /* Query the expanded segment box and own its ordered, deduplicated IDs. */
 // FUNCTION: WIZ8 0x0042ed60
-std::vector<w8_ulong> W8Octree::queryAlongSegment(const glm::vec3& origin,
-                                                const glm::vec3& delta, float extent,
-                                                unsigned short kind)
+std::vector<w8_ulong> W8Octree::queryAlongSegment(const glm::vec3& origin, const glm::vec3& delta,
+                                                  float extent, unsigned short kind)
 {
     const auto bounds = srSegmentMath::sweptBounds(origin, delta, extent);
     const auto lower = cellCoordinates(bounds.minimum).cell;
@@ -3166,7 +3237,7 @@ std::vector<w8_ulong> W8Octree::queryAlongSegment(const glm::vec3& origin,
     m_gd_result_count = 0;
     std::ranges::fill(m_visited_object_bits, false);
     visitClippedOctreeCellBox(lower, upper, glm::ivec3(m_leaf_grid_dimensions.glmValue()),
-        [&](const glm::ivec3& cell) { CollectObjectsInCell(cell, kind); });
+                              [&](const glm::ivec3& cell) { CollectObjectsInCell(cell, kind); });
     g_octree_state = nullptr;
     return {m_aulGDObjs, m_aulGDObjs + m_gd_result_count};
 }
@@ -3176,7 +3247,7 @@ std::vector<w8_ulong> W8Octree::queryAlongSegment(const glm::vec3& origin,
 
 // FUNCTION: WIZ8 0x0042ef00
 std::vector<w8_ulong> W8Octree::locationsInBox(const srBoundingBox& bounds,
-                                              unsigned short exclusion)
+                                               unsigned short exclusion)
 {
     return queryObjects(bounds, W8_OCTREE_KIND_LOCATION, exclusion == 0 ? -1 : exclusion);
 }
@@ -3194,7 +3265,7 @@ unsigned char W8Octree::TestBoxOccupied(const srVector3T<float>* lower,
     for (index = 0; index < count; ++index) {
         W8GDSurface* surface = g_octree_game_data->m_pSurfaces.data() + objects[index];
         if (SurfaceIntersectsBox(*surface, g_octree_game_data->m_pVertices,
-                                  {lower->glmValue(), upper->glmValue()})) {
+                                 {lower->glmValue(), upper->glmValue()})) {
             return 1;
         }
     }
@@ -3220,7 +3291,8 @@ unsigned char W8Octree::TestBoxOccupied(const srVector3T<float>* lower,
             GDProp* gd_prop = prop->m_gd_prop;
             for (int surface_index = 0; surface_index < gd_prop->m_surface_count; ++surface_index) {
                 W8GDSurface* surface = gd_prop->m_pGDSurfaces + surface_index;
-                if (SurfaceIntersectsBox(*surface,
+                if (SurfaceIntersectsBox(
+                        *surface,
                         {gd_prop->m_pVertices, static_cast<std::size_t>(gd_prop->m_vertex_count)},
                         {lower->glmValue(), upper->glmValue()})) {
                     return 1;
@@ -3234,17 +3306,19 @@ unsigned char W8Octree::TestBoxOccupied(const srVector3T<float>* lower,
 /* Query the inclusive cell box and copy the deduplicated IDs out of the
    scratch buffer before any subsequent query can overwrite them. */
 // FUNCTION: WIZ8 0x0042f280
-std::vector<w8_ulong> W8Octree::queryObjects(const srBoundingBox& bounds,
-                                           unsigned short kind, int excluded)
+std::vector<w8_ulong> W8Octree::queryObjects(const srBoundingBox& bounds, unsigned short kind,
+                                             int excluded)
 {
     const auto start = cellAt(bounds.minimum);
     const auto end = cellAt(bounds.maximum);
     g_octree_state = m_aulGDObjs;
     m_gd_result_count = 0;
     std::ranges::fill(m_visited_object_bits, false);
-    if (excluded >= 0) SetBit(m_visited_object_bits, excluded);
+    if (excluded >= 0) {
+        SetBit(m_visited_object_bits, excluded);
+    }
     visitClippedOctreeCellBox(start, end, glm::ivec3(m_leaf_grid_dimensions.glmValue()),
-        [&](const glm::ivec3& cell) { CollectObjectsInCell(cell, kind); });
+                              [&](const glm::ivec3& cell) { CollectObjectsInCell(cell, kind); });
     g_octree_state = nullptr;
     return {m_aulGDObjs, m_aulGDObjs + m_gd_result_count};
 }
@@ -3296,13 +3370,15 @@ unsigned int W8Octree::CollectObjectsInCell(const glm::ivec3& cell, unsigned sho
             g_octree_query_id = static_cast<unsigned short>(packed);
             const unsigned short entry_kind = OctreeKeyKind(packed);
             const bool matches = kind > W8_OCTREE_KIND_LOCATION
-                ? (entry_kind == W8_OCTREE_KIND_LOCATION || entry_kind == W8_OCTREE_KIND_NAVIGATOR)
-                : entry_kind == kind;
+                                     ? (entry_kind == W8_OCTREE_KIND_LOCATION ||
+                                        entry_kind == W8_OCTREE_KIND_NAVIGATOR)
+                                     : entry_kind == kind;
             if (matches && !SetBit(m_visited_object_bits, OctreeKeyId(packed) - 1)) {
                 g_octree_state[m_gd_result_count] = g_octree_query_id - 1;
                 ++m_gd_result_count;
             }
-            slot = NextIndexValue(*object_registry->by_cell, g_octree_query_cell, g_octree_query_slot);
+            slot =
+                NextIndexValue(*object_registry->by_cell, g_octree_query_cell, g_octree_query_slot);
             g_octree_query_slot = slot;
         }
         break;
@@ -3388,8 +3464,9 @@ unsigned int W8Octree::AdvanceNavigator(W8NavigatorMovementState* movement, floa
 void W8Octree::AdjustPortalDestination(srVector3T<float>* destination,
                                        const srVector3T<float>* source)
 {
-    if (!pathing || (!pathing->m_waypoint_editing && pathing->m_ulNumWayPoints != 0))
+    if (!pathing || (!pathing->m_waypoint_editing && pathing->m_ulNumWayPoints != 0)) {
         return;
+    }
     const auto source_point = source->glmValue();
     const auto local_destination = settleToGround(destination->glmValue(), true, 500).position;
     const auto local_source = settleToGround(source_point, true, 500).position;
@@ -3421,21 +3498,24 @@ static float g_scatter_column_offsets[5] = {0.0f, 1.0f, -1.0f, 2.0f, -2.0f};
    relaxes the tight vertical bound during search and rewrites every accepted
    y to the original source height afterwards. */
 static bool OverlapsNearbyMonster(const glm::vec3& point, float reach,
-                                   std::span<const w8_ulong> locations, bool alternate_radius)
+                                  std::span<const w8_ulong> locations, bool alternate_radius)
 {
     for (const auto id : locations) {
         auto* monster = GetMonsterByLocationID(id);
         const auto delta = monster->GetPosition().glmValue() - point;
         const float clearance =
             (alternate_radius ? monster->movement.alternate_radius : monster->radius) + reach;
-        if (glm::dot(delta, delta) < clearance * clearance) return true;
+        if (glm::dot(delta, delta) < clearance * clearance) {
+            return true;
+        }
     }
     return false;
 }
 
 // FUNCTION: WIZ8 0x00437980
 std::vector<glm::vec3> W8Octree::scatterPositions(const glm::vec3& position, float yaw,
-    float spacing, unsigned int count, bool proximity_check, bool flatten_y)
+                                                  float spacing, unsigned int count,
+                                                  bool proximity_check, bool flatten_y)
 {
     float source_y = position.y;
     std::vector<glm::vec3> positions;
@@ -3474,8 +3554,8 @@ std::vector<glm::vec3> W8Octree::scatterPositions(const glm::vec3& position, flo
                     jitter_column = Random(1000) * g_scatter_outer_ring_jitter_scale -
                                     g_generator_jitter_fraction;
                 }
-                const auto probe = grid.candidate(source.glmValue(),
-                    {ring + jitter_ring, jitter_column + *column_offset});
+                const auto probe = grid.candidate(
+                    source.glmValue(), {ring + jitter_ring, jitter_column + *column_offset});
                 if (const auto settled = wiz8::placement::grounded(
                         probe, probeGround(probe).position.y, flatten_y)) {
                     srVector3T<float> candidate = *settled;
@@ -3490,8 +3570,10 @@ std::vector<glm::vec3> W8Octree::scatterPositions(const glm::vec3& position, flo
                             const auto delta = navigator.glmValue() - candidate.glmValue();
                             float separation = g_startup_world->radius + reach;
                             if (separation * separation <= glm::dot(delta, delta)) {
-                                if (OverlapsNearbyMonster(candidate.glmValue(), reach, candidates, false))
+                                if (OverlapsNearbyMonster(candidate.glmValue(), reach, candidates,
+                                                          false)) {
                                     goto next_cell;
+                                }
                                 goto accept;
                             }
                         }
@@ -3524,8 +3606,9 @@ std::vector<glm::vec3> W8Octree::scatterPositions(const glm::vec3& position, flo
 
 // FUNCTION: WIZ8 0x00437f30
 NavigatorPlacement W8Octree::navigatorPositions(const glm::vec3& input, float yaw, float radius,
-    unsigned int count, bool first_only, bool settle_any_height, bool avoid_triggers,
-    int mode, bool require_waypoint_span)
+                                                unsigned int count, bool first_only,
+                                                bool settle_any_height, bool avoid_triggers,
+                                                int mode, bool require_waypoint_span)
 {
     unsigned int found = 0;
     srVector3T<float> source = input;
@@ -3541,8 +3624,9 @@ NavigatorPlacement W8Octree::navigatorPositions(const glm::vec3& input, float ya
     const wiz8::placement::Grid grid(angle, radius);
     source.y += g_world_scale;
     if (const auto settled = wiz8::placement::grounded(
-            source.glmValue(), probeGround(source.glmValue()).position.y, settle_any_height))
+            source.glmValue(), probeGround(source.glmValue()).position.y, settle_any_height)) {
         source = *settled;
+    }
     if (first_only) {
         candidates = nearbyLocations(source.glmValue(), radius);
     }
@@ -3581,8 +3665,8 @@ NavigatorPlacement W8Octree::navigatorPositions(const glm::vec3& input, float ya
                                 jitter_j = Random(1000) * g_scatter_inner_ring_jitter_scale -
                                            g_float_one_tenth;
                             }
-                            const auto probe = grid.candidate(source.glmValue(),
-                                {i + jitter_i, jitter_j + j});
+                            const auto probe =
+                                grid.candidate(source.glmValue(), {i + jitter_i, jitter_j + j});
                             if (const auto settled = wiz8::placement::grounded(
                                     probe, probeGround(probe).position.y, settle_any_height)) {
                                 srVector3T<float> candidate = *settled;
@@ -3602,9 +3686,11 @@ NavigatorPlacement W8Octree::navigatorPositions(const glm::vec3& input, float ya
                                         if (glm::dot(delta, delta) < separation * separation) {
                                             goto next_cell;
                                         }
-                                        if (OverlapsNearbyMonster(candidate.glmValue(), radius * g_float_half,
-                                                                  candidates, true))
+                                        if (OverlapsNearbyMonster(candidate.glmValue(),
+                                                                  radius * g_float_half, candidates,
+                                                                  true)) {
                                             goto next_cell;
+                                        }
                                     }
                                     if (!require_waypoint_span || pathing == 0 ||
                                         pathing->TestWaypointSpan(&candidate, &source, false,
@@ -3648,8 +3734,11 @@ NavigatorPlacement W8Octree::navigatorPositions(const glm::vec3& input, float ya
             --lower;
         } while (ring_upper <= mode);
     }
-    if (settle_any_height)
-        for (auto& point : positions) point.y = source_y;
+    if (settle_any_height) {
+        for (auto& point : positions) {
+            point.y = source_y;
+        }
+    }
     return {source.glmValue(), std::move(positions)};
 }
 

@@ -10,7 +10,7 @@
 // VTABLE: SURRENDER 0x10077074 srClassSupport<srIlluminator, srNode, 4608>
 // class srIlluminator
 class srIlluminator : public srClassSupport<srIlluminator, srNode, 0x1200>,
-                                    public srVertexProcessor {
+                      public srVertexProcessor {
 public:
     using srVertexProcessor::process;
     SR_DLL_IMPORT srIlluminator(srNode* parent = 0);
@@ -23,7 +23,6 @@ public:
     SR_DLL_IMPORT w8_ulong getGroupMask() const;
     SR_DLL_IMPORT void setGroupMask(w8_ulong mask);
 
-    w8_ulong group_mask;       /* 0x13c */
-    glm::vec3 eye_location;    /* 0x140 */
+    w8_ulong group_mask;    /* 0x13c */
+    glm::vec3 eye_location; /* 0x140 */
 };
-

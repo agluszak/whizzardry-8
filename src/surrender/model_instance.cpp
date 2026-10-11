@@ -88,8 +88,9 @@ srModelViewScope srModelInstance::scopedRenderTransform(srGERD& renderer) const
         const auto world_scale = glm::vec3(getWorldSpaceScale());
         glm::vec3 scale(glm::length(glm::vec3(matrix[0])), glm::length(glm::vec3(matrix[1])),
                         glm::length(glm::vec3(matrix[2])));
-        if (glm::determinant(glm::mat3(matrix)) > 0)
+        if (glm::determinant(glm::mat3(matrix)) > 0) {
             scale = -scale;
+        }
         renderer.loadIdentity();
         renderer.translate(glm::vec3(position));
         if (align_angle != 0.0f) {
@@ -114,10 +115,13 @@ srModelInstance::RenderScope::RenderScope(const srModelInstance& instance, srGER
 
 srModelInstance::RenderScope::~RenderScope()
 {
-    if (restore_mask) renderer.setExclusionMask(previous_mask);
+    if (restore_mask) {
+        renderer.setExclusionMask(previous_mask);
+    }
 }
 
-srModelInstance::RenderScope srModelInstance::scopedRender(srGERD& renderer, bool apply_exclusion) const
+srModelInstance::RenderScope srModelInstance::scopedRender(srGERD& renderer,
+                                                           bool apply_exclusion) const
 {
     return RenderScope(*this, renderer, apply_exclusion);
 }

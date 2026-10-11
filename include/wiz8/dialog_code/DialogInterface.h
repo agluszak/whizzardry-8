@@ -22,7 +22,8 @@ void ProcessNumericDialogInputEvents(Dialog* dialog, Field*& active_field,
         if (input.type == InputEventType::LeftButtonUp && active_field != 0) {
             active_field->SetActive(false);
         }
-        if (input.type == InputEventType::LeftButtonRepeat || input.type == InputEventType::RightButtonRepeat) {
+        if (input.type == InputEventType::LeftButtonRepeat ||
+            input.type == InputEventType::RightButtonRepeat) {
             DispatchRegionInput(&input);
         } else if (!DispatchRegionInput(&input)) {
             (dialog->*handle_event)(&input);

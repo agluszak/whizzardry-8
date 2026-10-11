@@ -34,8 +34,9 @@ public:
         return "stModelInstance";
     }
 
-    explicit stModelInstance(srNode* parent, Ownership ownership = Ownership::parent);                 /* 0x0047EC80 */
-    stModelInstance& operator=(const stModelInstance& other); /* 0x0047EDF0 */
+    explicit stModelInstance(srNode* parent,
+                             Ownership ownership = Ownership::parent); /* 0x0047EC80 */
+    stModelInstance& operator=(const stModelInstance& other);          /* 0x0047EDF0 */
 
     /* Queues opaque models ahead of their siblings and sorted-rendering
        models after them. */
@@ -76,13 +77,11 @@ public:
     float frame_interpolation;
 };
 
-
 /* Concrete 2D model instance. Slot 5 and the secondary slot-0 adjustor are
    SYNTHETIC compiler-generated deleting destructors; no source body owns
    either address. */
 // VTABLE: WIZ8 0x005ec858 srClassSupport<srModelInstance, class srNode, 4352>
-class stModelInstance2D
-    : public srClassSupport<stModelInstance2D, srModelInstance, 0x10005> {
+class stModelInstance2D : public srClassSupport<stModelInstance2D, srModelInstance, 0x10005> {
 public:
     static const char* sGetClassName()
     {
@@ -92,7 +91,7 @@ public:
     explicit stModelInstance2D(srNode* parent); /* 0x0047F0F0 */
 
     stModelInstance2D& operator=(const stModelInstance2D& other); /* 0x0047F290 */
-    void SetModel(std::shared_ptr<srModel> model);                                /* 0x0047F3A0 */
+    void SetModel(std::shared_ptr<srModel> model);                /* 0x0047F3A0 */
 
     void process(const ProcessInfo& info, e_processType type) override; /* 0x00480920 */
     unsigned short GetScaledWidth();                                    /* 0x00480EF0 */

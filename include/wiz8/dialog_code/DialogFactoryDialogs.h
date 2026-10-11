@@ -103,15 +103,15 @@ public:
     std::vector<std::string> m_lines;
     std::vector<void (*)(int)> m_field_064;
     int m_field_074;
-    float m_field_078; /* 0.05 */
-    float m_field_07c; /* 0.2 */
-    float m_field_080; /* 0.9 */
-    float m_field_084; /* 0.75 */
+    float m_field_078;       /* 0.05 */
+    float m_field_07c;       /* 0.2 */
+    float m_field_080;       /* 0.9 */
+    float m_field_084;       /* 0.75 */
     SDL_Color m_fill_colour; /* highlight fill colour */
     W8ButtonWidget m_text_button;
     W8ButtonWidget m_second_text_button;
-    GenericButtonImage area_inlay;  /* DialogInlay inlay for m_area_button */
-    W8ButtonWidget m_area_button; /* scrolling text area */
+    GenericButtonImage area_inlay; /* DialogInlay inlay for m_area_button */
+    W8ButtonWidget m_area_button;  /* scrolling text area */
     W8ButtonWidget m_up_button;
     W8ButtonWidget m_down_button;
     W8ButtonWidget m_slider_button;
@@ -244,11 +244,11 @@ private:
     static void ScrollItemsToMouse(W8ButtonWidget* button);
 
 public:
-  std::vector<W8WorldItem*> items;
-  std::vector<unsigned char> flags;
-  std::array<std::unique_ptr<W8ButtonWidget>, 13> m_buttons;
-  int m_first_item;
-  W8WorldItem* m_item_group;
+    std::vector<W8WorldItem*> items;
+    std::vector<unsigned char> flags;
+    std::array<std::unique_ptr<W8ButtonWidget>, 13> m_buttons;
+    int m_first_item;
+    W8WorldItem* m_item_group;
 };
 
 /* The item-split dialog opened for stackable item stacks. The destroy

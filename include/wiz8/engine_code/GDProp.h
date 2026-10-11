@@ -77,8 +77,14 @@ public:
     srBoundingBox computeBounds();
     /* Box-vs-bound test used by the pre-tree path obstruction pass. */
     bool boundsOverlap(const srBoundingBox& box);
-    std::span<const unsigned short> conditionalEdges() const { return m_path_edges; }
-    std::span<const unsigned short> conditionalWaypoints() const { return m_path_waypoints; }
+    std::span<const unsigned short> conditionalEdges() const
+    {
+        return m_path_edges;
+    }
+    std::span<const unsigned short> conditionalWaypoints() const
+    {
+        return m_path_waypoints;
+    }
     /* Appends the index to the waypoint list when the grid point lies inside
        the path bounds; the prop owns the counted list. */
     unsigned char RegisterPathSurface(unsigned int index, const glm::ivec2& point);
@@ -98,17 +104,17 @@ private:
        channel by ApplyAnimFrame. */
     void appendMeshGeometry(const W8LevelFileScaledPathNode& node, const W8LevelFileMesh& mesh);
 
-    Flags m_flags;                        /* 0x00 */
-    unsigned short m_prop_number;         /* 0x02 */
-    unsigned int m_path_handle;           /* 0x04 */
+    Flags m_flags;                /* 0x00 */
+    unsigned short m_prop_number; /* 0x02 */
+    unsigned int m_path_handle;   /* 0x04 */
     std::vector<unsigned short> m_path_edges;
     std::vector<unsigned short> m_path_waypoints;
-    int m_surface_count;                  /* 0x14; m_pGDSurfaces count */
-    int m_vertex_count;                   /* 0x18; m_pVertices count */
-    W8GDSurface* m_pGDSurfaces;           /* 0x1c */
-    srVector3T<float>* m_pVertices;       /* 0x20 */
-    Trigger* m_trigger;                   /* 0x24: installed by 0x004B7470 */
-    W8PathVerticalRange m_path_range;     /* 0x28 */
+    int m_surface_count;              /* 0x14; m_pGDSurfaces count */
+    int m_vertex_count;               /* 0x18; m_pVertices count */
+    W8GDSurface* m_pGDSurfaces;       /* 0x1c */
+    srVector3T<float>* m_pVertices;   /* 0x20 */
+    Trigger* m_trigger;               /* 0x24: installed by 0x004B7470 */
+    W8PathVerticalRange m_path_range; /* 0x28 */
     /* Vertex AABB cached by computeBounds and tested by
        boundsOverlap. */
     srVector3T<float> m_bound_min;  /* 0x34 */

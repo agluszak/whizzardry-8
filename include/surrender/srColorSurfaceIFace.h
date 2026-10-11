@@ -17,8 +17,7 @@ struct W8TgaHeader;
 // VTABLE: SURRENDER 0x10076708
 // class srClassSupport<srColorSurfaceIFace, srClass, 12544>
 
-class srColorSurfaceIFace
-    : public srClassSupport<srColorSurfaceIFace, srClass, 0x3100> {
+class srColorSurfaceIFace : public srClassSupport<srColorSurfaceIFace, srClass, 0x3100> {
 public:
     struct Rectangle {
         w8_long left;
@@ -66,9 +65,11 @@ public:
     virtual void fillRectangle(SDL_Rect rectangle, w8_ulong pixel);
     virtual SR_DLL_IMPORT void setHLine(w8_long y, w8_long x_start, w8_long x_end, w8_ulong pixel);
     virtual SR_DLL_IMPORT void setVLine(w8_long x, w8_long y_start, w8_long y_end, w8_ulong pixel);
-    virtual SR_DLL_IMPORT void setLine(w8_long x0, w8_long y0, w8_long x1, w8_long y1, w8_ulong pixel);
-    virtual SR_DLL_IMPORT void blit(w8_long x, w8_long y, srColorSurfaceIFace& source, w8_long source_x,
-                                    w8_long source_y, w8_long width, w8_long height);
+    virtual SR_DLL_IMPORT void setLine(w8_long x0, w8_long y0, w8_long x1, w8_long y1,
+                                       w8_ulong pixel);
+    virtual SR_DLL_IMPORT void blit(w8_long x, w8_long y, srColorSurfaceIFace& source,
+                                    w8_long source_x, w8_long source_y, w8_long width,
+                                    w8_long height);
     virtual SR_DLL_IMPORT void copy(srColorSurfaceIFace& source);
     virtual SR_DLL_IMPORT void flipRectangle(const Rectangle& rectangle);
     virtual void getPixelRow(w8_ulong* pixels, w8_long y, w8_long x_start, w8_long x_end) = 0;
@@ -83,15 +84,15 @@ public:
     SR_DLL_IMPORT w8_long getClampedX(w8_long x) const;
     SR_DLL_IMPORT w8_long getClampedY(w8_long y) const;
     SR_DLL_IMPORT srFilter* getFilter() const;
-// FUNCTION: SURRENDER 0x100598F0 SYMBOL
-// RECOMP: ?getHeight@srColorSurfaceIFace@@QBEJXZ
+    // FUNCTION: SURRENDER 0x100598F0 SYMBOL
+    // RECOMP: ?getHeight@srColorSurfaceIFace@@QBEJXZ
 
     w8_long getHeight() const
     {
         return height;
     }
-// FUNCTION: SURRENDER 0x100599E0 SYMBOL
-// RECOMP: ?getPitch@srColorSurfaceIFace@@QBEJXZ
+    // FUNCTION: SURRENDER 0x100599E0 SYMBOL
+    // RECOMP: ?getPitch@srColorSurfaceIFace@@QBEJXZ
 
     w8_long getPitch() const
     {
@@ -104,18 +105,22 @@ public:
 
     SurfaceDesc getSurfaceDesc() const
     {
-        return {static_cast<w8_ulong>(width), static_cast<w8_ulong>(height),
-                static_cast<w8_ulong>(pitch), clamp_modes, filter, pixel_format};
+        return {static_cast<w8_ulong>(width),
+                static_cast<w8_ulong>(height),
+                static_cast<w8_ulong>(pitch),
+                clamp_modes,
+                filter,
+                pixel_format};
     }
-// FUNCTION: SURRENDER 0x10059A60 SYMBOL
-// RECOMP: ?getWidth@srColorSurfaceIFace@@QBEJXZ
+    // FUNCTION: SURRENDER 0x10059A60 SYMBOL
+    // RECOMP: ?getWidth@srColorSurfaceIFace@@QBEJXZ
 
     w8_long getWidth() const
     {
         return width;
     }
-// FUNCTION: SURRENDER 0x10059A90 SYMBOL
-// RECOMP: ?setFilter@srColorSurfaceIFace@@QAEXPAVsrFilter@@@Z
+    // FUNCTION: SURRENDER 0x10059A90 SYMBOL
+    // RECOMP: ?setFilter@srColorSurfaceIFace@@QAEXPAVsrFilter@@@Z
 
     void setFilter(srFilter* filter)
     {
@@ -149,4 +154,3 @@ protected:
     srFilter* filter;
     srPixelConvert::PixelFormat pixel_format;
 };
-

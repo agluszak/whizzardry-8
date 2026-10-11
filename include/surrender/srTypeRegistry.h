@@ -67,7 +67,10 @@ protected:
     srRuntimeClass() = default;
     /* Copies start unnamed; srClass assignment copies the name explicitly. */
     srRuntimeClass(const srRuntimeClass&) {}
-    srRuntimeClass& operator=(const srRuntimeClass&) { return *this; }
+    srRuntimeClass& operator=(const srRuntimeClass&)
+    {
+        return *this;
+    }
 
 private:
     static SR_DLL_IMPORT w8_ulong sGetClassID();
@@ -98,8 +101,7 @@ protected:
 };
 
 /* Supplies format identity and cloning for a concrete scene/data type. */
-template <class Derived, class Base, w8_ulong ClassID>
-class srClassSupport : public Base {
+template <class Derived, class Base, w8_ulong ClassID> class srClassSupport : public Base {
 public:
     typedef Derived RegistryClass;
     enum { CLASS_ID = ClassID };
@@ -110,7 +112,8 @@ public:
         srRegistry::ClassNode* node = registry->getClassNode(ClassID);
 
         if (node == 0) {
-            node = registry->registerClass(Derived::sGetClassName(), Base::sGetClassNode(), ClassID);
+            node =
+                registry->registerClass(Derived::sGetClassName(), Base::sGetClassNode(), ClassID);
         }
         return node;
     }
@@ -174,7 +177,7 @@ public:
 template <class T, class U> T* sr_cast(U* object)
 {
     return object != nullptr && object->getClassID() == T::CLASS_ID ? static_cast<T*>(object)
-                                                                   : nullptr;
+                                                                    : nullptr;
 }
 
 template <class T, class U> T* sr_cast(const std::shared_ptr<U>& object)

@@ -192,7 +192,7 @@ git clang-format-21 --binary clang-format-21 main -- include src tests
 ```
 
 For a complete reformat of one file, run `clang-format-21 -i path/to/file.cpp`.
-PR #201 will apply a one-time repository-wide reformat and switch CI to checking
+PR #201 applies the one-time repository-wide reformat and switches CI to checking
 whole changed files.
 
 ## Catch2 test cases

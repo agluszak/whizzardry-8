@@ -45,9 +45,8 @@ class GDCamera {
 public:
     GDCamera(); /* 0x00476140 */
 
-    srCamera* CreateOrAttachCamera(srNode* parent, srCamera* camera); /* 0x00476440 */
-    void ApplyRotationMatrix(glm::mat3* rotation,
-                             W8LevelDataRecord* context);                       /* 0x00476610 */
+    srCamera* CreateOrAttachCamera(srNode* parent, srCamera* camera);           /* 0x00476440 */
+    void ApplyRotationMatrix(glm::mat3* rotation, W8LevelDataRecord* context);  /* 0x00476610 */
     void SnapToTarget(const srVector3T<float>* target);                         /* 0x00476950 */
     void SetOrientationImmediate(float pitch, float angle);                     /* 0x00476C30 */
     unsigned char LookAt(const srVector3T<float>* target, bool preserve_pitch); /* 0x00476F90 */
@@ -74,21 +73,21 @@ public:
         MarkRendererReady();
     }
     void SetOrientation(float angle, float pitch);                   /* 0x004788E0 */
-    glm::mat3 rotationMatrix();               /* 0x00478BD0 */
+    glm::mat3 rotationMatrix();                                      /* 0x00478BD0 */
     void BeginLeveling();                                            /* 0x00478CC0 */
     void GetForwardPoint(float distance, srVector3T<float>* output); /* 0x00478CE0 */
     void SetManualControlActive(bool enabled);                       /* 0x00478E00 */
 
     w8_ulong m_orientation_flags;
-    float m_yaw;                        /* 0x004 */
-    float m_pitch;                      /* 0x008 */
-    glm::mat3 m_pitch_rotation;    /* 0x00c */
-    glm::mat3 m_yaw_rotation;      /* 0x030 */
+    float m_yaw;                /* 0x004 */
+    float m_pitch;              /* 0x008 */
+    glm::mat3 m_pitch_rotation; /* 0x00c */
+    glm::mat3 m_yaw_rotation;   /* 0x030 */
     glm::mat3 m_rotation;       /* 0x054 */
     glm::vec3 m_direction;      /* 0x078 */
-    float m_frame_elapsed;              /* 0x084 */
-    bool m_transition_active;           /* 0x088 */
-    bool m_forced_transition;           /* 0x089 */
+    float m_frame_elapsed;      /* 0x084 */
+    bool m_transition_active;   /* 0x088 */
+    bool m_forced_transition;   /* 0x089 */
     unsigned char m_padding_08a[2];
     glm::vec3 m_position;                 /* 0x08c */
     float m_target_yaw;                   /* 0x098 */

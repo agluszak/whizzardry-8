@@ -14,7 +14,9 @@
 #include "wiz8/engine_code/materials.h"
 
 class OctMeshModel;
-namespace wiz8 { class File; }
+namespace wiz8 {
+class File;
+}
 
 /* Engine Code\LevelFile.cpp: the level-editor .lvl format the level builder
    reads, and the .pvl header it writes in front of the copied remainder.
@@ -85,7 +87,7 @@ struct W8LevelFileLightExtra { /* 0x3c */
 
 /* A world item placement. The .pvl item section stores the same fields plus
    an optional inline trigger behind has_trigger. */
-struct W8LevelFileItemRecord { /* 0x44 */
+struct W8LevelFileItemRecord {  /* 0x44 */
     char item_name[0x14];       /* item script name */
     srVector3T<float> position; /* scaled by world_scale on load */
     int positional5;
@@ -159,36 +161,36 @@ struct W8LevelParticleRecord {
     unsigned int particle_count;     /* 0x068 */
     /* Emission spread extents; x/y bound both emission_minimum and
        emission_maximum symmetrically, z only the maximum. */
-    srVector3T<float> spread;        /* 0x06c */
-    int has_acceleration;            /* 0x078 */
-    srVector3T<float> acceleration;  /* 0x07c */
-    int expiry_mode;                 /* 0x088: nonzero selects texture-frame expiry */
-    int bounds_mode;                 /* 0x08c */
-    srVector3T<float> bounds_origin; /* 0x090 */
-    float bounds_radius;             /* 0x09c */
-    srVector3T<float> bounds_extent; /* 0x0a0 */
-    unsigned int lifetime;           /* 0x0ac */
-    int emission_mode;               /* 0x0b0 */
-    unsigned int emission_interval;  /* 0x0b4 */
-    int los_check;                   /* 0x0b8: nonzero enables the line-of-sight check */
-    int speed_mode;                  /* 0x0bc */
-    float initial_speed;             /* 0x0c0 */
-    float speed_min;                 /* 0x0c4 */
-    float speed_max;                 /* 0x0c8 */
-    float particle_size;             /* 0x0cc: billboard quad scale */
-    int flutter_mode;                /* 0x0d0 */
-    float flutter_value;             /* 0x0d4 */
-    float flutter_period;            /* 0x0d8 */
-    int direction_mode;              /* 0x0dc */
-    float direction0;                /* 0x0e0 */
-    float direction1;                /* 0x0e4 */
-    int initially_active;            /* 0x0e8 */
-    W8MaterialRecord material;       /* 0x0ec */
-    short attachment_key;            /* 0x216, version >= 2 */
-    int emission_limit;              /* 0x218, version >= 3 */
+    srVector3T<float> spread;               /* 0x06c */
+    int has_acceleration;                   /* 0x078 */
+    srVector3T<float> acceleration;         /* 0x07c */
+    int expiry_mode;                        /* 0x088: nonzero selects texture-frame expiry */
+    int bounds_mode;                        /* 0x08c */
+    srVector3T<float> bounds_origin;        /* 0x090 */
+    float bounds_radius;                    /* 0x09c */
+    srVector3T<float> bounds_extent;        /* 0x0a0 */
+    unsigned int lifetime;                  /* 0x0ac */
+    int emission_mode;                      /* 0x0b0 */
+    unsigned int emission_interval;         /* 0x0b4 */
+    int los_check;                          /* 0x0b8: nonzero enables the line-of-sight check */
+    int speed_mode;                         /* 0x0bc */
+    float initial_speed;                    /* 0x0c0 */
+    float speed_min;                        /* 0x0c4 */
+    float speed_max;                        /* 0x0c8 */
+    float particle_size;                    /* 0x0cc: billboard quad scale */
+    int flutter_mode;                       /* 0x0d0 */
+    float flutter_value;                    /* 0x0d4 */
+    float flutter_period;                   /* 0x0d8 */
+    int direction_mode;                     /* 0x0dc */
+    float direction0;                       /* 0x0e0 */
+    float direction1;                       /* 0x0e4 */
+    int initially_active;                   /* 0x0e8 */
+    W8MaterialRecord material;              /* 0x0ec */
+    short attachment_key;                   /* 0x216, version >= 2 */
+    int emission_limit;                     /* 0x218, version >= 3 */
     unsigned char requires_sorted_renderer; /* 0x21c, version >= 3 */
-    int start_frame;                 /* 0x21d, version >= 4 */
-    int end_frame;                   /* 0x221, version >= 4 */
+    int start_frame;                        /* 0x21d, version >= 4 */
+    int end_frame;                          /* 0x221, version >= 4 */
 };
 
 struct W8LevelFileParticleSystem { /* 0x226 */
@@ -219,7 +221,10 @@ struct W8LevelFilePathAI {
     std::vector<W8LevelFileScaledPathNode> scaled_paths;
     std::vector<W8LevelFilePathNode> paths;
 
-    bool IsScaled() const { return scaled == 2; }
+    bool IsScaled() const
+    {
+        return scaled == 2;
+    }
     int PathCount() const
     {
         return static_cast<int>(IsScaled() ? scaled_paths.size() : paths.size());
@@ -227,7 +232,9 @@ struct W8LevelFilePathAI {
     /* A frame as a scaled node; unscaled frames get unit scale. */
     W8LevelFileScaledPathNode Node(int frame) const
     {
-        if (IsScaled()) return scaled_paths[frame];
+        if (IsScaled()) {
+            return scaled_paths[frame];
+        }
         return {paths[frame], srVector3T<float>(1.0f, 1.0f, 1.0f)};
     }
 };
@@ -247,18 +254,30 @@ struct W8LevelFileMesh {
     char mapping_count = 0;            /* version >= 4; at most one mapping */
     short mapped_value = 0;
     short mapped_key = 0;
-    char lod_mode = 0;    /* LOD meshes */
-    float lod_scale = 0;  /* short LOD meshes with lod_mode >= 2 */
+    char lod_mode = 0;   /* LOD meshes */
+    float lod_scale = 0; /* short LOD meshes with lod_mode >= 2 */
     std::vector<srVector3T<float>> vertices;
     std::vector<std::vector<srVector3T<float>>> lods;
     std::vector<std::vector<short>> lod_shorts; /* three shorts per vertex */
     std::vector<W8LevelFileCompressedFace> compressed_faces;
     std::vector<W8SerializedMeshFace> faces;
 
-    bool HasLods() const { return (flags & W8_LEVEL_MESH_LOD_VERTICES) != 0; }
-    bool HasShortLods() const { return (flags & W8_LEVEL_MESH_SHORT_LOD_VERTICES) != 0; }
-    bool HasCompressedFaces() const { return (flags & W8_LEVEL_MESH_COMPRESSED_FACES) != 0; }
-    int LodCount() const { return static_cast<int>(HasShortLods() ? lod_shorts.size() : lods.size()); }
+    bool HasLods() const
+    {
+        return (flags & W8_LEVEL_MESH_LOD_VERTICES) != 0;
+    }
+    bool HasShortLods() const
+    {
+        return (flags & W8_LEVEL_MESH_SHORT_LOD_VERTICES) != 0;
+    }
+    bool HasCompressedFaces() const
+    {
+        return (flags & W8_LEVEL_MESH_COMPRESSED_FACES) != 0;
+    }
+    int LodCount() const
+    {
+        return static_cast<int>(HasShortLods() ? lod_shorts.size() : lods.size());
+    }
 };
 
 /* A light. flags bit 2 adds the parametric definition, whose own flag adds a
@@ -325,21 +344,21 @@ struct W8LevelFileSwitch {
     char version = 0;
     int cycle_bounce = 0;
     int state_count = 0;
-    float animate_states = 0; /* != 0 -> W8_TRIGGER_ANIMATE_STATES */
-    int range = 0;            /* -> range_maximum (*500) */
-    int action = 0;           /* -> initial_action */
-    int value = 0;            /* serialized; unused */
-    int animate_action = 0;   /* != 0 -> W8_TRIGGER_ANIMATE_ACTION */
+    float animate_states = 0;       /* != 0 -> W8_TRIGGER_ANIMATE_STATES */
+    int range = 0;                  /* -> range_maximum (*500) */
+    int action = 0;                 /* -> initial_action */
+    int value = 0;                  /* serialized; unused */
+    int animate_action = 0;         /* != 0 -> W8_TRIGGER_ANIMATE_ACTION */
     unsigned char packed_flags = 0; /* bit0 FIRE_LINKED, bit1 LINK_ON_DEACTIVATE */
     unsigned char enabled = 0;
     char name[0x80]{};
     char recipients[0x100]{};
-    char sound[0x80]{};             /* wave filename -> "data\sound\%s" */
-    float minimum_range = 0;        /* version >= 2 -> range_minimum (*500) */
-    char surface_id[0x40]{};        /* version >= 2 */
+    char sound[0x80]{};                 /* wave filename -> "data\sound\%s" */
+    float minimum_range = 0;            /* version >= 2 -> range_minimum (*500) */
+    char surface_id[0x40]{};            /* version >= 2 */
     unsigned char has_door_trigger = 0; /* version >= 3 */
     W8LevelFileDoorRef door;
-    int action_value = 0;           /* version >= 4 */
+    int action_value = 0; /* version >= 4 */
 };
 
 /* Type-2 (invisible) trigger. Retail gates a kind-2 linked record on a byte
@@ -354,16 +373,16 @@ struct W8LevelFileInvisible {
     unsigned char enabled = 0;
     char name[0x80]{};
     char recipients[0x100]{};
-    unsigned char plane_flag = 0;             /* version >= 2: == 1 registers a trigger plane */
-    std::optional<W8LevelFilePlane> plane;    /* version >= 2 */
-    float angle = 0;                          /* version >= 3 */
-    srVector3T<float> direction{};            /* version >= 3 */
-    unsigned char unused = 0;                 /* version >= 3 */
-    char action_string[0x80]{};               /* version >= 3: action-17 payload */
-    unsigned char flag = 0;                   /* version >= 4 -> flags bit3 */
-    int action_value = 0;                     /* version >= 4 */
-    unsigned char has_legacy_geometry = 0;    /* version >= 5 */
-    unsigned char geometry_kind = 0;          /* has_legacy_geometry != 0 */
+    unsigned char plane_flag = 0;          /* version >= 2: == 1 registers a trigger plane */
+    std::optional<W8LevelFilePlane> plane; /* version >= 2 */
+    float angle = 0;                       /* version >= 3 */
+    srVector3T<float> direction{};         /* version >= 3 */
+    unsigned char unused = 0;              /* version >= 3 */
+    char action_string[0x80]{};            /* version >= 3: action-17 payload */
+    unsigned char flag = 0;                /* version >= 4 -> flags bit3 */
+    int action_value = 0;                  /* version >= 4 */
+    unsigned char has_legacy_geometry = 0; /* version >= 5 */
+    unsigned char geometry_kind = 0;       /* has_legacy_geometry != 0 */
 };
 
 /* Type-3 (ambient sound) trigger. */
@@ -381,14 +400,14 @@ struct W8LevelFileSound {
     srVector3T<float> region_u{};
     srVector3T<float> region_v{};
     char wave[0x80]{};
-    unsigned char has_position = 0;     /* version >= 2 */
-    unsigned char looping = 0;          /* version >= 2 */
-    srVector3T<float> region_center{};  /* version >= 3 */
-    float region_angle = 0;             /* version >= 3 */
-    srVector3T<float> region_min{};     /* version >= 3 */
-    srVector3T<float> region_max{};     /* version >= 3 */
-    char name[0x80]{};                  /* version >= 4 */
-    unsigned char shared = 0;           /* version >= 5 */
+    unsigned char has_position = 0;    /* version >= 2 */
+    unsigned char looping = 0;         /* version >= 2 */
+    srVector3T<float> region_center{}; /* version >= 3 */
+    float region_angle = 0;            /* version >= 3 */
+    srVector3T<float> region_min{};    /* version >= 3 */
+    srVector3T<float> region_max{};    /* version >= 3 */
+    char name[0x80]{};                 /* version >= 4 */
+    unsigned char shared = 0;          /* version >= 5 */
 };
 
 /* Type-4 (super) trigger. */
@@ -412,14 +431,14 @@ struct W8LevelFileSuperTrigger {
     int price = 0;
     unsigned char door_kind = 0;
     char animation[0x80]{};
-    float size[3]{};          /* version >= 2 */
-    float direction = 0;      /* version >= 2 */
-    unsigned char wait0 = 0;  /* version >= 2 */
-    unsigned char wait1 = 0;  /* version >= 2 */
-    unsigned char wait2 = 0;  /* version >= 2 */
-    unsigned char loop = 0;   /* version >= 2 */
-    float speed = 0;          /* version >= 2 */
-    float unknown_4b3[3]{};   /* version >= 2 */
+    float size[3]{};         /* version >= 2 */
+    float direction = 0;     /* version >= 2 */
+    unsigned char wait0 = 0; /* version >= 2 */
+    unsigned char wait1 = 0; /* version >= 2 */
+    unsigned char wait2 = 0; /* version >= 2 */
+    unsigned char loop = 0;  /* version >= 2 */
+    float speed = 0;         /* version >= 2 */
+    float unknown_4b3[3]{};  /* version >= 2 */
     unsigned char ignore = 0;
     unsigned char group = 0;
     unsigned char set_group = 0;
@@ -429,15 +448,15 @@ struct W8LevelFileSuperTrigger {
     int wait3 = 0;
     int field = 0;
     char event[0x100]{};
-    float normal_scale = 0;        /* copied to the linked record */
-    char particle_system[0x80]{};  /* version >= 3 */
-    unsigned char placement_kind = 0;                /* !(flags & 1) */
+    float normal_scale = 0;                             /* copied to the linked record */
+    char particle_system[0x80]{};                       /* version >= 3 */
+    unsigned char placement_kind = 0;                   /* !(flags & 1) */
     std::optional<W8LevelFileTriggerPosition> position; /* placement_kind == 1 */
-    std::optional<W8LevelFilePlane> plane;           /* placement_kind == 2 */
+    std::optional<W8LevelFilePlane> plane;              /* placement_kind == 2 */
     std::optional<W8LevelFileTriggerHotSpot> hotspot;   /* !(flags & 1) */
     unsigned char has_door = 0;
-    W8LevelFileDoorRef door;                         /* has_door != 0 */
-    std::optional<W8LevelFileLinkedRecord> record;   /* door.kind == 2 */
+    W8LevelFileDoorRef door;                       /* has_door != 0 */
+    std::optional<W8LevelFileLinkedRecord> record; /* door.kind == 2 */
 };
 
 /* A trigger: its type selects the record. Unknown types carry no record. */
@@ -481,24 +500,26 @@ struct W8LevelFileAnimObj {
     char behaviour = 0;
     char cycle = 0;
     char path_lists = 0;
-    float playback_scale = 15.0f; /* version >= 3 */
-    char start_frame = 0;         /* version >= 5 */
-    char random_play = 0;         /* version >= 6 */
-    float play_chance = 1.0f;     /* version >= 6 */
-    unsigned char discarded[0x32]{}; /* serialized; never used */
-    std::vector<char> channel_counts; /* one byte per animation */
-    std::vector<W8LevelFileBounds> bounds;          /* version >= 7 */
-    std::vector<W8LevelFileAnimLight> anim_lights;  /* version >= 8 */
-    std::optional<W8LevelFilePathAI> path_ai;       /* morphs, version >= 9 */
-    std::vector<W8LevelFileMorph> morphs;           /* path_lists == 0: one per animation */
-    std::vector<W8LevelFileTransform> transforms;   /* path_lists != 0 */
+    float playback_scale = 15.0f;                  /* version >= 3 */
+    char start_frame = 0;                          /* version >= 5 */
+    char random_play = 0;                          /* version >= 6 */
+    float play_chance = 1.0f;                      /* version >= 6 */
+    unsigned char discarded[0x32]{};               /* serialized; never used */
+    std::vector<char> channel_counts;              /* one byte per animation */
+    std::vector<W8LevelFileBounds> bounds;         /* version >= 7 */
+    std::vector<W8LevelFileAnimLight> anim_lights; /* version >= 8 */
+    std::optional<W8LevelFilePathAI> path_ai;      /* morphs, version >= 9 */
+    std::vector<W8LevelFileMorph> morphs;          /* path_lists == 0: one per animation */
+    std::vector<W8LevelFileTransform> transforms;  /* path_lists != 0 */
 
     /* Clamp a frame to the shortest transform path. */
     unsigned short ClampFrame(unsigned short frame) const
     {
         for (const auto& transform : transforms) {
             const int count = transform.pathAI.PathCount();
-            if (count <= frame) frame = static_cast<unsigned short>(count - 1);
+            if (count <= frame) {
+                frame = static_cast<unsigned short>(count - 1);
+            }
         }
         return frame;
     }
@@ -506,15 +527,15 @@ struct W8LevelFileAnimObj {
 
 struct W8LevelFileProp {
     char version = 0;
-    unsigned char frame_count = 0;  /* upper bound for segment frames */
-    unsigned char option = 0;       /* version >= 5 */
-    srVector3T<float> position{};   /* version >= 5 */
-    unsigned int flags = 0;         /* version >= 6; W8_PROP_COLLIDABLE etc. */
-    char name[0x40]{};              /* version >= 7 */
+    unsigned char frame_count = 0; /* upper bound for segment frames */
+    unsigned char option = 0;      /* version >= 5 */
+    srVector3T<float> position{};  /* version >= 5 */
+    unsigned int flags = 0;        /* version >= 6; W8_PROP_COLLIDABLE etc. */
+    char name[0x40]{};             /* version >= 7 */
     std::vector<W8LevelFileFramePosition> frame_positions; /* version >= 8 */
     W8LevelFileAnimObj anim_obj;
     std::optional<W8LevelFileTrigger> trigger;
-    char has_footsteps = 0;         /* version >= 9 */
+    char has_footsteps = 0; /* version >= 9 */
     unsigned char footstep_surface = 0;
     unsigned char footstep_material = 0;
 };

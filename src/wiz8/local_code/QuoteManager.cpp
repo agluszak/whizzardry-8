@@ -91,8 +91,9 @@ void RedrawPortraitQuoteBubbles(void)
             !slot->portrait_event_active) {
             continue;
         }
-        if (slot->quote.bubble)
+        if (slot->quote.bubble) {
             slot->quote.bubble->draw(GetFrameBufferSurface(), slot->quote.x, slot->quote.y);
+        }
     }
 }
 
@@ -444,14 +445,20 @@ bool FormatCharacterQuoteText(W8Character* character, unsigned int event_type,
         path = fmt::format("Data\\Quotes\\PCs\\{:c}_{}{:d}0.MSG", gender_code,
                            g_quote_personality_names[character->personality],
                            (character->voice != 0) + 1);
-        if (![&]() { const auto status = wiz8::file_status(path); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
+        if (![&]() {
+                const auto status = wiz8::file_status(path);
+                return status && status->info.type == SDL_PATHTYPE_FILE;
+            }()) {
             g_character_text.clear();
             return false;
         }
         g_character_text = GetStringFromStringDatabase(path, event_type, 0, metadata);
         /* Retail does not test the reader result or length before storing
            zero at buffer[strlen(buffer) - 1]. */
-        if (!g_character_text.empty()) g_character_text.resize(wiz8::text::previous(g_character_text, g_character_text.size()));
+        if (!g_character_text.empty()) {
+            g_character_text.resize(
+                wiz8::text::previous(g_character_text, g_character_text.size()));
+        }
     } else {
         W8NpcState* npc = GetNpcState(npc_index);
         if ((g_character_text = GetNpcQuoteText(npc, event_type)).empty()) {
@@ -740,11 +747,13 @@ unsigned char W8CharacterEvent::PlayEventSound()
         }
         return 1;
     }
-    const auto playback_time = wiz8::sound::playback_time(sound_handle).value_or(wiz8::sound::PlaybackTime{});
+    const auto playback_time =
+        wiz8::sound::playback_time(sound_handle).value_or(wiz8::sound::PlaybackTime{});
     record->voice_time_remaining_ms = playback_time.total_ms;
     record->mouth_gap = LoadMouthGapTrack(sound_path);
 #ifdef WIZ8_RUNTIME_TESTS
-    RuntimeObserve(RUNTIME_VOICE_STARTED, party_slot, bool(sound_handle), static_cast<int>(record->mouth_gap.ranges.size()));
+    RuntimeObserve(RUNTIME_VOICE_STARTED, party_slot, bool(sound_handle),
+                   static_cast<int>(record->mouth_gap.ranges.size()));
     RuntimeObserve(RUNTIME_VOICE_TIMING, party_slot, playback_time.total_ms,
                    playback_time.current_ms);
 #endif
@@ -877,22 +886,30 @@ static constexpr std::array<RegionTemplate, 8> g_party_portrait_event_templates{
 static std::array<ScreenRegionSet, 8>& PartyPortraitEventRegions()
 {
     static std::array<ScreenRegionSet, 8> regions{
-        ScreenRegionSet{std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 0, 1),
-                        0x1d + 0},
-        ScreenRegionSet{std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 1, 1),
-                        0x1d + 1},
-        ScreenRegionSet{std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 2, 1),
-                        0x1d + 2},
-        ScreenRegionSet{std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 3, 1),
-                        0x1d + 3},
-        ScreenRegionSet{std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 4, 1),
-                        0x1d + 4},
-        ScreenRegionSet{std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 5, 1),
-                        0x1d + 5},
-        ScreenRegionSet{std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 6, 1),
-                        0x1d + 6},
-        ScreenRegionSet{std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 7, 1),
-                        0x1d + 7},
+        ScreenRegionSet{
+            std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 0, 1),
+            0x1d + 0},
+        ScreenRegionSet{
+            std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 1, 1),
+            0x1d + 1},
+        ScreenRegionSet{
+            std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 2, 1),
+            0x1d + 2},
+        ScreenRegionSet{
+            std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 3, 1),
+            0x1d + 3},
+        ScreenRegionSet{
+            std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 4, 1),
+            0x1d + 4},
+        ScreenRegionSet{
+            std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 5, 1),
+            0x1d + 5},
+        ScreenRegionSet{
+            std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 6, 1),
+            0x1d + 6},
+        ScreenRegionSet{
+            std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 7, 1),
+            0x1d + 7},
     };
     return regions;
 }
@@ -900,14 +917,18 @@ void SetPartyPortraitEventBounds(unsigned int slot, unsigned short x, unsigned s
                                  unsigned short right, unsigned short bottom)
 {
     auto& regions = PartyPortraitEventRegions();
-    if (slot >= regions.size()) return;
+    if (slot >= regions.size()) {
+        return;
+    }
     regions[slot].Create();
     SetRegionBounds(regions[slot]->index(0), x, y, right, bottom);
 }
 void EnablePartyPortraitEvent(unsigned int slot)
 {
     auto& regions = PartyPortraitEventRegions();
-    if (slot >= regions.size()) return;
+    if (slot >= regions.size()) {
+        return;
+    }
     regions[slot].Create();
     regions[slot].Enable();
     regions[slot].EnableInput();
@@ -923,7 +944,9 @@ void DisablePartyPortraitEvent(unsigned int slot)
 
 void CreatePartyPortraitEventRegions()
 {
-    for (auto& region_set : PartyPortraitEventRegions()) region_set.Create();
+    for (auto& region_set : PartyPortraitEventRegions()) {
+        region_set.Create();
+    }
 }
 
 /* Turn a party-slot portrait/voice event on or off, optionally
@@ -971,8 +994,7 @@ void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned i
             /* Retail 0x0052fc82..0x0052fc9b: the quote line follows the
                speaker's name into the dialogue box (3) with the same scroll
                width, not the mode-selected box. */
-            ShowNotice(W8_FONT_PALETTE_TEXT_BOX, quote->bubble->text(), 3,
-                       GetTextBoxScrollRange());
+            ShowNotice(W8_FONT_PALETTE_TEXT_BOX, quote->bubble->text(), 3, GetTextBoxScrollRange());
         } else {
             if (g_first_remapped_event <= mapped_event) {
                 mapped_event = g_normal_event_count - g_first_remapped_event + mapped_event;
@@ -1059,7 +1081,8 @@ void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned i
         } else {
             quote->bubble = QuoteBubble::layout(quote_text, 200, std::nullopt);
             quote->width = static_cast<unsigned short>(quote->bubble ? quote->bubble->width() : 0);
-            quote->height = static_cast<unsigned short>(quote->bubble ? quote->bubble->height() : 0);
+            quote->height =
+                static_cast<unsigned short>(quote->bubble ? quote->bubble->height() : 0);
             if (g_current_screen_state.id == W8_SCREEN_CAMP) {
                 if (static_cast<int>(party_slot) == giReviewCharSlot) {
                     quote->x = 10;
@@ -1271,7 +1294,10 @@ unsigned char W8CharacterEventQueue::TryAdjustQueuedEvent(W8CharacterEvent* entr
 }
 
 // FUNCTION: WIZ8 0x0052E460
-bool W8CharacterEventQueue::HasActiveEvents() { return !active_events.empty(); }
+bool W8CharacterEventQueue::HasActiveEvents()
+{
+    return !active_events.empty();
+}
 
 // FUNCTION: WIZ8 0x0052E470
 bool W8CharacterEventQueue::IsMainQueueEmpty() const
@@ -1839,7 +1865,8 @@ int UpdateCharacterEventState(void)
 #ifdef WIZ8_RUNTIME_TESTS
                 if (sound_active != previous_mouth) {
                     RuntimeObserve(RUNTIME_MOUTH_CHANGED, party_slot,
-                                   wiz8::sound::elapsed_ms(record->voice_sound_handle), sound_active);
+                                   wiz8::sound::elapsed_ms(record->voice_sound_handle),
+                                   sound_active);
                 }
 #endif
             }
@@ -1916,7 +1943,8 @@ int UpdateCharacterEventState(void)
                     }
                 } else if (TimeUntilDeadline(record->portrait_pose_clock) == 0) {
                     int pose = record->portrait_pose;
-                    SetCurrentPortraitPose(*record,
+                    SetCurrentPortraitPose(
+                        *record,
                         g_portrait_pose_transition[pose - 1][record->target_portrait_pose - 1]);
                     // Reopening and event-pose transitions continue toward the
                     // target; only an idle blink enters the closing phase.

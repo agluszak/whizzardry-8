@@ -295,16 +295,16 @@ unsigned char CreateSubMenuScrollButtons(void)
     int i;
 
     g_submenu_scroll_buttons[0].Configure("Data\\Main Interface\\main_scroll_arrows.sti", 3, 0, 1,
-                                           2, 2, SubMenuScrollArrowUp, BUTTON_NO_CALLBACK, false,
-                                           REGION_PRIORITY_HIGHEST, 0x4b, BUTTON_NO_CALLBACK,
-                                           BUTTON_NO_CALLBACK);
+                                          2, 2, SubMenuScrollArrowUp, BUTTON_NO_CALLBACK, false,
+                                          REGION_PRIORITY_HIGHEST, 0x4b, BUTTON_NO_CALLBACK,
+                                          BUTTON_NO_CALLBACK);
     g_submenu_scroll_buttons[1].Configure("Data\\Main Interface\\main_scroll_arrows.sti", 7, 4, 5,
-                                           6, 6, SubMenuScrollArrowDown, BUTTON_NO_CALLBACK, false,
-                                           REGION_PRIORITY_HIGHEST, 0x4c, BUTTON_NO_CALLBACK,
-                                           BUTTON_NO_CALLBACK);
+                                          6, 6, SubMenuScrollArrowDown, BUTTON_NO_CALLBACK, false,
+                                          REGION_PRIORITY_HIGHEST, 0x4c, BUTTON_NO_CALLBACK,
+                                          BUTTON_NO_CALLBACK);
     for (i = 0; i < 2; ++i) {
         g_submenu_scroll_buttons[i].SetPosition(g_scroll_button_positions[i].x,
-                                                 g_scroll_button_positions[i].y);
+                                                g_scroll_button_positions[i].y);
         g_submenu_scroll_buttons[i].m_owner = 0;
     }
     return 1;
@@ -332,16 +332,16 @@ unsigned char CreateSubMenuPanelButtons(void)
     int index;
 
     g_submenu_panel_buttons[0].Configure(g_submenu_icons_path, 0x21, 0x1e, 0x1f, 0x20, 0x22,
-                                          SubMenuPanelCloseButton, BUTTON_NO_CALLBACK, false,
-                                          REGION_PRIORITY_HIGHEST, 0x4d, BUTTON_NO_CALLBACK,
-                                          BUTTON_NO_CALLBACK);
+                                         SubMenuPanelCloseButton, BUTTON_NO_CALLBACK, false,
+                                         REGION_PRIORITY_HIGHEST, 0x4d, BUTTON_NO_CALLBACK,
+                                         BUTTON_NO_CALLBACK);
     g_submenu_panel_buttons[1].Configure(g_submenu_icons_path, 0x26, 0x23, 0x24, 0x25, 0x27,
-                                          SubMenuPanelFormationButton, BUTTON_NO_CALLBACK, true,
-                                          REGION_PRIORITY_HIGHEST, 0x4e, BUTTON_NO_CALLBACK,
-                                          BUTTON_NO_CALLBACK);
+                                         SubMenuPanelFormationButton, BUTTON_NO_CALLBACK, true,
+                                         REGION_PRIORITY_HIGHEST, 0x4e, BUTTON_NO_CALLBACK,
+                                         BUTTON_NO_CALLBACK);
     for (index = 0; index < 2; ++index) {
         g_submenu_panel_buttons[index].SetPosition(g_submenu_panel_button_positions[index].x,
-                                                    g_submenu_panel_button_positions[index].y);
+                                                   g_submenu_panel_button_positions[index].y);
         g_submenu_panel_buttons[index].m_owner = 0;
     }
     return 1;
@@ -360,8 +360,8 @@ static void MainGameOptionsDiskButton(W8ButtonWidget* button)
 unsigned char CreateOptionsDiskButton(void)
 {
     g_options_disk_button.Configure(g_options_disk_path, 3, 0, 1, 2, 2, MainGameOptionsDiskButton,
-                                     BUTTON_NO_CALLBACK, false, REGION_PRIORITY_HIGHEST, 0x41,
-                                     BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
+                                    BUTTON_NO_CALLBACK, false, REGION_PRIORITY_HIGHEST, 0x41,
+                                    BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
     g_options_disk_button.SetPosition(g_options_disk_position.x, g_options_disk_position.y);
     g_options_disk_button.m_owner = 0;
     return 1;
@@ -485,7 +485,7 @@ unsigned char CreateCombatStanceButtons(void)
         REGION_PRIORITY_HIGHEST, 0x50, MainGameCombatStanceSecondary, BUTTON_NO_CALLBACK);
     for (index = 0; index < 5; ++index) {
         g_combat_stance_buttons[index].SetPosition(g_combat_stance_positions[index].x,
-                                                    g_combat_stance_positions[index].y);
+                                                   g_combat_stance_positions[index].y);
         g_combat_stance_buttons[index].m_owner = 0;
     }
     return 1;
@@ -518,14 +518,14 @@ unsigned char CreateRoofButtons(void)
     int index;
 
     g_roof_buttons[0].Configure(g_roof_buttons_path, 9, 0, 6, 3, 6, MainGameRoofButton0,
-                                 BUTTON_NO_CALLBACK, true, REGION_PRIORITY_HIGHEST, 0x38,
-                                 BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
+                                BUTTON_NO_CALLBACK, true, REGION_PRIORITY_HIGHEST, 0x38,
+                                BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
     g_roof_buttons[1].Configure(g_roof_buttons_path, 10, 1, 7, 4, 7, MainGameRoofButton1,
-                                 BUTTON_NO_CALLBACK, true, REGION_PRIORITY_HIGHEST, 0x39,
-                                 BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
+                                BUTTON_NO_CALLBACK, true, REGION_PRIORITY_HIGHEST, 0x39,
+                                BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
     g_roof_buttons[2].Configure(g_roof_buttons_path, 0xb, 2, 8, 5, 8, MainGameRoofButton2,
-                                 BUTTON_NO_CALLBACK, true, REGION_PRIORITY_HIGHEST, 0x3a,
-                                 BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
+                                BUTTON_NO_CALLBACK, true, REGION_PRIORITY_HIGHEST, 0x3a,
+                                BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
     if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS) {
         g_roof_buttons[0].SetPressed(true);
     } else if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_FORMATION) {
@@ -535,7 +535,7 @@ unsigned char CreateRoofButtons(void)
     }
     for (index = 0; index < 3; ++index) {
         g_roof_buttons[index].SetPosition(g_roof_button_positions[index].x,
-                                           g_roof_button_positions[index].y);
+                                          g_roof_button_positions[index].y);
         g_roof_buttons[index].m_owner = 0;
     }
     return 1;
@@ -768,32 +768,32 @@ unsigned char CreateLayoutArrowButtons(void)
     int index;
 
     g_layout_arrow_buttons[0].Configure(g_layout_arrows_path, 6, 0, 1, BUTTON_NO_IMAGE, 2,
-                                         MainGameLayoutRadarButton, BUTTON_NO_CALLBACK, false,
-                                         REGION_PRIORITY_HIGHEST, 0x3e, BUTTON_NO_CALLBACK,
-                                         BUTTON_NO_CALLBACK);
+                                        MainGameLayoutRadarButton, BUTTON_NO_CALLBACK, false,
+                                        REGION_PRIORITY_HIGHEST, 0x3e, BUTTON_NO_CALLBACK,
+                                        BUTTON_NO_CALLBACK);
     g_layout_arrow_buttons[1].Configure(g_layout_arrows_path, 0xe, 8, 9, BUTTON_NO_IMAGE, 10,
-                                         MainGameLayoutActionPanelButton, BUTTON_NO_CALLBACK, false,
-                                         REGION_PRIORITY_HIGHEST, 0x3f, BUTTON_NO_CALLBACK,
-                                         BUTTON_NO_CALLBACK);
+                                        MainGameLayoutActionPanelButton, BUTTON_NO_CALLBACK, false,
+                                        REGION_PRIORITY_HIGHEST, 0x3f, BUTTON_NO_CALLBACK,
+                                        BUTTON_NO_CALLBACK);
     g_layout_arrow_buttons[2].Configure(g_layout_arrows_path, 0x16, 0x10, 0x11, BUTTON_NO_IMAGE,
-                                         0x12, MainGameLayoutFormationButton, BUTTON_NO_CALLBACK,
-                                         false, REGION_PRIORITY_HIGHEST, 0x40, BUTTON_NO_CALLBACK,
-                                         BUTTON_NO_CALLBACK);
+                                        0x12, MainGameLayoutFormationButton, BUTTON_NO_CALLBACK,
+                                        false, REGION_PRIORITY_HIGHEST, 0x40, BUTTON_NO_CALLBACK,
+                                        BUTTON_NO_CALLBACK);
     g_layout_arrow_buttons[3].Configure(g_layout_arrows_path, 7, 3, 4, BUTTON_NO_IMAGE, 5,
-                                         MainGameLayoutRadarButton, BUTTON_NO_CALLBACK, false,
-                                         REGION_PRIORITY_HIGHEST, 0x3b, BUTTON_NO_CALLBACK,
-                                         BUTTON_NO_CALLBACK);
+                                        MainGameLayoutRadarButton, BUTTON_NO_CALLBACK, false,
+                                        REGION_PRIORITY_HIGHEST, 0x3b, BUTTON_NO_CALLBACK,
+                                        BUTTON_NO_CALLBACK);
     g_layout_arrow_buttons[4].Configure(g_layout_arrows_path, 0xf, 0xb, 0xc, BUTTON_NO_IMAGE, 0xd,
-                                         MainGameLayoutActionPanelButton, BUTTON_NO_CALLBACK, false,
-                                         REGION_PRIORITY_HIGHEST, 0x3c, BUTTON_NO_CALLBACK,
-                                         BUTTON_NO_CALLBACK);
+                                        MainGameLayoutActionPanelButton, BUTTON_NO_CALLBACK, false,
+                                        REGION_PRIORITY_HIGHEST, 0x3c, BUTTON_NO_CALLBACK,
+                                        BUTTON_NO_CALLBACK);
     g_layout_arrow_buttons[5].Configure(g_layout_arrows_path, 0x17, 0x13, 0x14, BUTTON_NO_IMAGE,
-                                         0x15, MainGameLayoutFormationButton, BUTTON_NO_CALLBACK,
-                                         false, REGION_PRIORITY_HIGHEST, 0x3d, BUTTON_NO_CALLBACK,
-                                         BUTTON_NO_CALLBACK);
+                                        0x15, MainGameLayoutFormationButton, BUTTON_NO_CALLBACK,
+                                        false, REGION_PRIORITY_HIGHEST, 0x3d, BUTTON_NO_CALLBACK,
+                                        BUTTON_NO_CALLBACK);
     for (index = 0; index < 6; ++index) {
         g_layout_arrow_buttons[index].SetPosition(g_layout_arrow_positions[index].x,
-                                                   g_layout_arrow_positions[index].y);
+                                                  g_layout_arrow_positions[index].y);
         g_layout_arrow_buttons[index].m_owner = 0;
     }
     return 1;
@@ -817,15 +817,29 @@ void CreateMainGameInterfaceButtons(void)
 // FUNCTION: WIZ8 0x00598AE0
 void DestroyMainGameInterfaceButtons(void)
 {
-    for (auto& button : g_submenu_buttons) button.Reset();
-    for (auto& button : g_submenu_scroll_buttons) button.Reset();
-    for (auto& button : g_submenu_panel_buttons) button.Reset();
+    for (auto& button : g_submenu_buttons) {
+        button.Reset();
+    }
+    for (auto& button : g_submenu_scroll_buttons) {
+        button.Reset();
+    }
+    for (auto& button : g_submenu_panel_buttons) {
+        button.Reset();
+    }
     gpSubMenuPanel.reset();
-    for (auto& row : g_submenu_rows) row = nullptr;
+    for (auto& row : g_submenu_rows) {
+        row = nullptr;
+    }
     g_options_disk_button.Reset();
-    for (auto& button : g_combat_stance_buttons) button.Reset();
-    for (auto& button : g_roof_buttons) button.Reset();
-    for (auto& button : g_layout_arrow_buttons) button.Reset();
+    for (auto& button : g_combat_stance_buttons) {
+        button.Reset();
+    }
+    for (auto& button : g_roof_buttons) {
+        button.Reset();
+    }
+    for (auto& button : g_layout_arrow_buttons) {
+        button.Reset();
+    }
 }
 
 static void SetMenuButtonBanksEnabled(bool enabled)
@@ -989,8 +1003,9 @@ void DrawSubMenuCharacterAction(void)
                 if (character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo == -1) {
                     text += g_localized_strings[0x5b8];
                 } else {
-                    text += g_localized_strings[g_generic_item_name_notice[GetItemUnidentifiedNameIndex(
-                               &character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON])]];
+                    text +=
+                        g_localized_strings[g_generic_item_name_notice[GetItemUnidentifiedNameIndex(
+                            &character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON])]];
                 }
             }
             if (!character->Hand[1].in_play) {
@@ -1393,7 +1408,8 @@ unsigned char BuildSubMenuPanel(short notification)
         icon_delta = notification;
         break;
     }
-    gpSubMenuPanel = std::make_unique<Controls>(left, 0x1c3, icon_delta + left, 0x1df, CatalogArtwork::Load(0x7f, 0), base);
+    gpSubMenuPanel = std::make_unique<Controls>(left, 0x1c3, icon_delta + left, 0x1df,
+                                                CatalogArtwork::Load(0x7f, 0), base);
     SetRegionBounds(g_main_submenu_regions->index(5), left, 0x1c3, icon_delta + left, 0x1df);
     for (index = 0; index < built - 1; ++index) {
         entry = g_submenu_entries[index];
@@ -1427,20 +1443,21 @@ unsigned char BuildSubMenuPanel(short notification)
             break;
         }
         g_submenu_rows[index] = new W8TextControl(
-            gpSubMenuPanel.get(), g_main_submenu_regions->index(index), index * 19 + 5, 5, index * 19 + 0x17, 0x17,
-            CatalogArtwork::Load(0x89, 0),
-            message, message, message + icon_delta, message + icon_delta, -1);
+            gpSubMenuPanel.get(), g_main_submenu_regions->index(index), index * 19 + 5, 5,
+            index * 19 + 0x17, 0x17, CatalogArtwork::Load(0x89, 0), message, message,
+            message + icon_delta, message + icon_delta, -1);
         if (g_submenu_rows[index] == 0) {
             DestroySubMenuPanel();
             return 0;
         }
         AssignSubMenuCallback(g_submenu_rows[index], menu, entry);
         g_submenu_rows[index]->m_secondaryActivationCallback = DestroySubMenuControls;
-        SetRegionHelp(g_main_submenu_regions->index(index), true, g_submenu_entry_help_ids[menu * 5 + entry]);
+        SetRegionHelp(g_main_submenu_regions->index(index), true,
+                      g_submenu_entry_help_ids[menu * 5 + entry]);
     }
-    g_submenu_rows[built - 1] =
-        new W8TextControl(gpSubMenuPanel.get(), g_main_submenu_regions->index(built - 1), built * 19 - 14, 5,
-                          built * 19 - 2, 0x17, CatalogArtwork::Load(0x89, 0), 0xbd, 0xbd, 0xbf, 0xbf, -1);
+    g_submenu_rows[built - 1] = new W8TextControl(
+        gpSubMenuPanel.get(), g_main_submenu_regions->index(built - 1), built * 19 - 14, 5,
+        built * 19 - 2, 0x17, CatalogArtwork::Load(0x89, 0), 0xbd, 0xbd, 0xbf, 0xbf, -1);
     if (g_submenu_rows[built - 1] == 0) {
         DestroySubMenuPanel();
         return 0;

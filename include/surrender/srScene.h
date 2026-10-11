@@ -16,7 +16,7 @@ public:
     enum e_enable { ENABLE_NODE_PICK_KEYS = 0 };
 
     struct Statistics {
-        double elapsed;              /* seconds since the last reset */
+        double elapsed;         /* seconds since the last reset */
         w8_ulong render_calls;  /* scene renders accumulated */
         w8_ulong node_calls;    /* node visits accumulated per render */
         w8_ulong process_calls; /* per-node process calls accumulated */
@@ -54,10 +54,9 @@ public:
     }
 
 protected:
-    srFlags<e_enable> enabled;       /* 0x138 */
-    Statistics statistics;           /* 0x140 */
-    TraverseInfo traversal;          /* 0x158 (renderer at 0x170) */
-    glm::vec3 ambient_light;         /* 0x174 */
-    glm::vec3 fog_color;             /* 0x180 */
+    srFlags<e_enable> enabled; /* 0x138 */
+    Statistics statistics;     /* 0x140 */
+    TraverseInfo traversal;    /* 0x158 (renderer at 0x170) */
+    glm::vec3 ambient_light;   /* 0x174 */
+    glm::vec3 fog_color;       /* 0x180 */
 };
-

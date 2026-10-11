@@ -14,7 +14,9 @@ class W8Prop;
 class Trigger;
 struct W8World;
 struct W8WorldItem;
-namespace wiz8 { class File; }
+namespace wiz8 {
+class File;
+}
 
 /* Timed Trigger actions are ordinary polymorphic objects owned by Trigger.cpp.
    The 0x38-byte event owns its embedded timer, but not m_pCountdown;
@@ -297,7 +299,7 @@ void InitializeStateDrivenPropVariables(Trigger* trigger);
 
 Trigger* FindTriggerByName(const char* name);
 Trigger* FindRequiredTriggerByName(const char* name,
-    std::source_location caller = std::source_location::current());
+                                   std::source_location caller = std::source_location::current());
 
 inline void RunNamedTrigger(const char* name, int source)
 {

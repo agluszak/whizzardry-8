@@ -32,7 +32,6 @@
 
 struct W8NpcState;
 
-
 /* Level Specific Code\Arnika.cpp (level 0, Arnika).
 
    Attribution evidence: the missing-trigger assertions quote this file's
@@ -151,7 +150,7 @@ static void RestoreArnikaElevator(W8Elevator& elevator, const ElevatorStateBindi
 }
 
 static void RunArnikaElevatorButton(W8Elevator& elevator, W8Prop*& button_prop,
-                                   const ElevatorStateBindings& bindings, int command)
+                                    const ElevatorStateBindings& bindings, int command)
 {
     if (command != 0) {
         if (command == -1) {
@@ -190,7 +189,7 @@ static void RunArnikaElevatorButton(W8Elevator& elevator, W8Prop*& button_prop,
 }
 
 static void RunArnikaElevatorMoving(W8Elevator& elevator, const ElevatorStateBindings& bindings,
-                                   int command)
+                                    int command)
 {
     if (command != 0) {
         if (command == -1) {
@@ -427,8 +426,8 @@ bool ArnikaMookholo(Trigger* pTrigger)
                 g_npc_dialogue_closed = false;
                 g_master_functions.push_back(ArnikaMookholoWatch);
             }
-            QueueNpcScriptNotice(FindNpcBindingForMonster(FindMonster(location_id)),
-                                 0, -1, false, 0);
+            QueueNpcScriptNotice(FindNpcBindingForMonster(FindMonster(location_id)), 0, -1, false,
+                                 0);
         }
     }
     return true;

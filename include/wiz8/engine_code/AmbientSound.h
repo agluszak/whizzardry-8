@@ -10,7 +10,7 @@ struct W8World;
 struct W8RandomAmbient;
 namespace wiz8 {
 class File;
-}  // namespace wiz8
+} // namespace wiz8
 
 struct W8AmbientSoundConfig {
     char wave_name[0x80];

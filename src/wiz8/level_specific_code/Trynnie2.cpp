@@ -36,7 +36,6 @@ class Trigger;
    (GoodaVine_A/B, Give_Zulu, Meat_Maker, Meat_Box, URN_Trigger_01-04) and runs
    the Trynnie2Killed location-variable sync. */
 
-
 /* Fact 0x229 records that the Trynnie2 group was wiped out; mirror it into the
    Trynnie2Killed location variable the first time this level sees it, so the
    world-side check has a stable flag to read. */

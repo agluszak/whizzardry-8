@@ -59,7 +59,7 @@ ScreenRegionSet& InputSinkRegion()
     static ScreenRegionSet region{templates};
     return region;
 }
-}
+} // namespace
 
 void CaptureInputSink()
 {
@@ -79,7 +79,9 @@ bool InputSinkCaptured()
 void ReleaseInputSinkCapture()
 {
     auto& region = InputSinkRegion();
-    if (!region) return;
+    if (!region) {
+        return;
+    }
     ClearActiveRegionIfMatches(region->index(0));
     region.DisableInput();
     region.Disable();
@@ -133,9 +135,13 @@ bool ExclusiveScopeIsLive(const ExclusiveRegionScope& scope)
 
 bool RegionAllowedByExclusiveSet(unsigned int region_index)
 {
-    if (g_exclusive_region_sets.empty()) return true;
+    if (g_exclusive_region_sets.empty()) {
+        return true;
+    }
     const auto& scope = g_exclusive_region_sets.back();
-    if (!ExclusiveScopeIsLive(scope)) return false;
+    if (!ExclusiveScopeIsLive(scope)) {
+        return false;
+    }
     const auto region_indices = g_region_sets[scope.set_index].Regions();
     return std::ranges::find(region_indices, region_index) != region_indices.end();
 }
@@ -147,11 +153,8 @@ struct DispatchPoint {
 
 DispatchPoint ToDispatchPoint(const InputEvent& event)
 {
-    return {
-        static_cast<unsigned short>(event.position.x +
-                                    g_cursor_hotspot_x),
-        static_cast<unsigned short>(event.position.y +
-                                    g_cursor_hotspot_y)};
+    return {static_cast<unsigned short>(event.position.x + g_cursor_hotspot_x),
+            static_cast<unsigned short>(event.position.y + g_cursor_hotspot_y)};
 }
 
 bool RegionContainsInputPoint(unsigned int region_index, unsigned short x, unsigned short y,
@@ -165,7 +168,7 @@ bool RegionContainsInputPoint(unsigned int region_index, unsigned short x, unsig
     }
     return RegionContainsPoint(region_index, x, y);
 }
-}
+} // namespace
 
 // FUNCTION: WIZ8 0x004f27a0
 void SetRegionHelpDelay(int delay_ms)
@@ -180,8 +183,12 @@ std::int32_t RegionReasonForInput(const W8Region& region, const InputEvent& inpu
 {
     switch (input.type) {
     case InputEventType::MouseMove:
-        if (region.flags & W8_REGION_MOUSE_LEAVE) return REGION_REASON_LOST_MOUSE;
-        if (region.flags & W8_REGION_MOUSE_ENTER) return REGION_REASON_GAIN_MOUSE;
+        if (region.flags & W8_REGION_MOUSE_LEAVE) {
+            return REGION_REASON_LOST_MOUSE;
+        }
+        if (region.flags & W8_REGION_MOUSE_ENTER) {
+            return REGION_REASON_GAIN_MOUSE;
+        }
         return REGION_REASON_MOVE;
     case InputEventType::LeftButtonDown:
         return REGION_REASON_LBUTTON_DWN |
@@ -231,19 +238,27 @@ void ReleaseDefaultHelpText(void)
 static bool FindEnabledRegionInSet(const W8RegionSet& set, unsigned short x, unsigned short y,
                                    bool dispatch_coordinates, unsigned int* found_region)
 {
-    if (set.enabled != 1) return false;
+    if (set.enabled != 1) {
+        return false;
+    }
     bool found_in_set = false;
     unsigned int best_region = 0;
     int best_priority = 0;
     for (const auto region_index : set.Regions()) {
-        if (!RegionContainsInputPoint(region_index, x, y, dispatch_coordinates)) continue;
+        if (!RegionContainsInputPoint(region_index, x, y, dispatch_coordinates)) {
+            continue;
+        }
         const int priority = g_regions[region_index].priority;
-        if (found_in_set && priority <= best_priority) continue;
+        if (found_in_set && priority <= best_priority) {
+            continue;
+        }
         found_in_set = true;
         best_region = region_index;
         best_priority = priority;
     }
-    if (found_in_set) *found_region = best_region;
+    if (found_in_set) {
+        *found_region = best_region;
+    }
     return found_in_set;
 }
 
@@ -260,7 +275,9 @@ static bool FindEnabledRegionAtPoint(unsigned short x, unsigned short y, unsigne
                                       found_region);
     }
     for (const auto set_index : g_region_set_scan_order) {
-        if (set_index >= g_region_sets.size() || set_index == g_control_region_set) continue;
+        if (set_index >= g_region_sets.size() || set_index == g_control_region_set) {
+            continue;
+        }
         if (FindEnabledRegionInSet(g_region_sets[set_index], x, y, dispatch_coordinates,
                                    found_region)) {
             return true;
@@ -300,7 +317,9 @@ bool DispatchUnchangedRegion(W8Region& region, const InputEvent& event)
 bool LeaveRegion(W8Region& region, const InputEvent& event)
 {
     region.flags = (region.flags & ~W8_REGION_MOUSE_STATE_MASK) | W8_REGION_MOUSE_LEAVE;
-    if (!DispatchUnchangedRegion(region, event)) return false;
+    if (!DispatchUnchangedRegion(region, event)) {
+        return false;
+    }
     if (region.flags & W8_REGION_HELP_SHOWN) {
         VideoRemoveToolTip();
         region.flags &= ~W8_REGION_HELP_SHOWN;
@@ -315,14 +334,16 @@ W8Region* FindDispatchRegion(const DispatchPoint& point, unsigned int& region_in
 {
     region_index =
         RegionAllowedByExclusiveSet(g_captured_region_index) ? g_captured_region_index : 0;
-    if (region_index != 0) return &g_regions[region_index];
+    if (region_index != 0) {
+        return &g_regions[region_index];
+    }
 
     if (FindEnabledRegionAtPoint(point.x, point.y, &region_index, true)) {
         return &g_regions[region_index];
     }
     return nullptr;
 }
-}
+} // namespace
 
 ExclusiveRegionSet::ExclusiveRegionSet(unsigned int set)
     : set_(set), sequence_(set < g_region_sets.size() ? g_region_sets[set].sequence : 0)
@@ -353,7 +374,9 @@ ExclusiveRegionSet::ExclusiveRegionSet(unsigned int set)
     const auto clear_mouse_state = [](unsigned int index) {
         if (index != 0 && index < g_regions.size()) {
             auto& region = g_regions[index];
-            if (region.flags & W8_REGION_HELP_SHOWN) VideoRemoveToolTip();
+            if (region.flags & W8_REGION_HELP_SHOWN) {
+                VideoRemoveToolTip();
+            }
             region.flags &= ~(W8_REGION_MOUSE_STATE_MASK | W8_REGION_HELP_SHOWN);
         }
     };
@@ -375,7 +398,9 @@ ExclusiveRegionSet::~ExclusiveRegionSet()
             break;
         }
     }
-    if (scope_index == g_exclusive_region_sets.size()) return;
+    if (scope_index == g_exclusive_region_sets.size()) {
+        return;
+    }
 
     const bool was_top = scope_index + 1 == g_exclusive_region_sets.size();
     if (!was_top) {
@@ -391,7 +416,9 @@ ExclusiveRegionSet::~ExclusiveRegionSet()
     const auto clear_mouse_state = [](unsigned int index) {
         if (index != 0 && index < g_regions.size()) {
             auto& region = g_regions[index];
-            if (region.flags & W8_REGION_HELP_SHOWN) VideoRemoveToolTip();
+            if (region.flags & W8_REGION_HELP_SHOWN) {
+                VideoRemoveToolTip();
+            }
             region.flags &= ~(W8_REGION_MOUSE_STATE_MASK | W8_REGION_HELP_SHOWN);
         }
     };
@@ -441,28 +468,31 @@ unsigned int UpdateRegionMousePosition(int x, int y)
     event.type = InputEventType::MouseMove;
     event.position = {x, y};
 
-    if (g_captured_region_index != 0 &&
-        RegionAllowedByExclusiveSet(g_captured_region_index)) {
+    if (g_captured_region_index != 0 && RegionAllowedByExclusiveSet(g_captured_region_index)) {
         const auto captured_index = g_captured_region_index;
         W8Region* forced = &g_regions[captured_index];
-        const bool inside = RegionContainsInputPoint(
-            captured_index, static_cast<unsigned short>(x), static_cast<unsigned short>(y), true);
+        const bool inside = RegionContainsInputPoint(captured_index, static_cast<unsigned short>(x),
+                                                     static_cast<unsigned short>(y), true);
         const bool was_hovered = g_hover_region_index == captured_index;
         if (!inside && was_hovered) {
             const auto held_buttons =
                 forced->flags & (W8_REGION_LEFT_BUTTON_HELD | W8_REGION_RIGHT_BUTTON_HELD);
             g_hover_region_index = 0;
-            if (!LeaveRegion(*forced, event)) return g_current_region_index;
+            if (!LeaveRegion(*forced, event)) {
+                return g_current_region_index;
+            }
             forced->flags |= held_buttons;
             PlayButtonSound(1);
             return g_current_region_index;
         }
         if (inside && !was_hovered) {
             g_hover_region_index = captured_index;
-            forced->flags = (forced->flags & ~W8_REGION_MOUSE_TRANSITION_MASK) |
-                            W8_REGION_MOUSE_ENTER;
+            forced->flags =
+                (forced->flags & ~W8_REGION_MOUSE_TRANSITION_MASK) | W8_REGION_MOUSE_ENTER;
             SetRegionHelpText(fmt::format("Region {:d}", captured_index));
-            if (!DispatchUnchangedRegion(*forced, event)) return g_current_region_index;
+            if (!DispatchUnchangedRegion(*forced, event)) {
+                return g_current_region_index;
+            }
             if (forced->help_enabled &&
                 (g_settings.tooltips_enabled || g_region_help_force_enabled)) {
                 g_region_help_clock = w8_get_ticks() + g_region_help_delay;
@@ -475,7 +505,9 @@ unsigned int UpdateRegionMousePosition(int x, int y)
         DispatchUnchangedRegion(*forced, event);
         return g_current_region_index;
     }
-    if (g_captured_region_index != 0) g_captured_region_index = 0;
+    if (g_captured_region_index != 0) {
+        g_captured_region_index = 0;
+    }
 
     if (FindEnabledRegionAtPoint(static_cast<unsigned short>(x), static_cast<unsigned short>(y),
                                  &region_index)) {
@@ -485,15 +517,18 @@ unsigned int UpdateRegionMousePosition(int x, int y)
         g_current_region_index = region_index;
         if (previous_index != 0 && previous_index != region_index) {
             W8Region* previous = &g_regions[previous_index];
-            if (!LeaveRegion(*previous, event) || region->binding_generation != generation)
+            if (!LeaveRegion(*previous, event) || region->binding_generation != generation) {
                 return g_current_region_index;
+            }
             PlayButtonSound(1);
         }
         if (previous_index != region_index) {
             region->flags |= W8_REGION_MOUSE_ENTER;
             SetRegionHelpText(fmt::format("Region {:d}", region_index));
         }
-        if (!DispatchUnchangedRegion(*region, event)) return g_current_region_index;
+        if (!DispatchUnchangedRegion(*region, event)) {
+            return g_current_region_index;
+        }
         if (g_current_region_index != previous_index) {
             if (region->help_enabled &&
                 (g_settings.tooltips_enabled || g_region_help_force_enabled)) {
@@ -510,7 +545,9 @@ unsigned int UpdateRegionMousePosition(int x, int y)
     if (g_hover_region_index != 0) {
         unsigned int previous_index = g_hover_region_index;
         W8Region* previous = &g_regions[previous_index];
-        if (!LeaveRegion(*previous, event)) return g_current_region_index;
+        if (!LeaveRegion(*previous, event)) {
+            return g_current_region_index;
+        }
         PlayButtonSound(1);
     }
     g_hover_region_index = g_current_region_index;
@@ -536,8 +573,7 @@ unsigned int FindRegionAtPoint(unsigned short x, unsigned short y)
     event.type = InputEventType::MouseMove;
     event.position = {x, y};
 
-    if (g_captured_region_index != 0 &&
-        RegionAllowedByExclusiveSet(g_captured_region_index)) {
+    if (g_captured_region_index != 0 && RegionAllowedByExclusiveSet(g_captured_region_index)) {
         return g_captured_region_index;
     }
 
@@ -545,8 +581,10 @@ unsigned int FindRegionAtPoint(unsigned short x, unsigned short y)
         if (g_hover_region_index != 0 && g_hover_region_index != region_index) {
             W8Region* previous = &g_regions[g_hover_region_index];
             const auto generation = g_regions[region_index].binding_generation;
-            if (!LeaveRegion(*previous, event) || g_regions[region_index].binding_generation != generation)
+            if (!LeaveRegion(*previous, event) ||
+                g_regions[region_index].binding_generation != generation) {
                 return 0;
+            }
             g_hover_region_index = 0;
             g_current_region_index = 0;
         }
@@ -572,12 +610,12 @@ unsigned char DispatchRegionInput(const InputEvent* event)
 {
     unsigned int region_index = 0;
     int sound_id = -1;
-    g_region_mouse_position = {event->position.x,
-                               event->position.y};
+    g_region_mouse_position = {event->position.x, event->position.y};
     const auto point = ToDispatchPoint(*event);
 #ifdef WIZ8_RUNTIME_TESTS
     if (event->type == InputEventType::MouseMove || event->type == InputEventType::LeftButtonDown ||
-        event->type == InputEventType::LeftButtonUp || event->type == InputEventType::RightButtonDown ||
+        event->type == InputEventType::LeftButtonUp ||
+        event->type == InputEventType::RightButtonDown ||
         event->type == InputEventType::RightButtonUp) {
         RuntimeObserve(RUNTIME_MOUSE_DISPATCH, event->type,
                        static_cast<w8_ulong>(point.x) | (static_cast<w8_ulong>(point.y) << 16),
@@ -586,7 +624,9 @@ unsigned char DispatchRegionInput(const InputEvent* event)
 #endif
 
     W8Region* region = FindDispatchRegion(point, region_index);
-    if (!region) return 0;
+    if (!region) {
+        return 0;
+    }
     if (region->help_enabled && (g_settings.tooltips_enabled || g_region_help_force_enabled) &&
         event->type != InputEventType::MouseMove) {
         if ((region->flags & W8_REGION_HELP_SHOWN) != 0) {
@@ -631,10 +671,14 @@ unsigned char DispatchRegionInput(const InputEvent* event)
     if (region->binding_generation == generation) {
         if (event->type == InputEventType::LeftButtonUp) {
             region->flags &= ~W8_REGION_LEFT_BUTTON_HELD;
-            if (g_captured_region_index == region_index) g_captured_region_index = 0;
+            if (g_captured_region_index == region_index) {
+                g_captured_region_index = 0;
+            }
         } else if (event->type == InputEventType::RightButtonUp) {
             region->flags &= ~W8_REGION_RIGHT_BUTTON_HELD;
-            if (g_captured_region_index == region_index) g_captured_region_index = 0;
+            if (g_captured_region_index == region_index) {
+                g_captured_region_index = 0;
+            }
         }
     }
     if (sound_id != -1) {
@@ -724,7 +768,9 @@ void ActivateDialogRegion(unsigned int region_index)
         event.type = InputEventType::MouseMove;
 
         W8Region* previous = &g_regions[g_hover_region_index];
-        if (!LeaveRegion(*previous, event)) return;
+        if (!LeaveRegion(*previous, event)) {
+            return;
+        }
         g_hover_region_index = 0;
     }
     g_regions[g_captured_region_index].flags &= ~W8_REGION_MOUSE_STATE_MASK;
@@ -770,15 +816,18 @@ void RegionSetDisable(unsigned int region_set_index)
 // FUNCTION: WIZ8 0x004f2260
 void EnableRegionSetInput(unsigned int region_set_index)
 {
-    for (auto index : g_region_sets.at(region_set_index).Regions())
+    for (auto index : g_region_sets.at(region_set_index).Regions()) {
         g_regions[index].flags &= ~W8_REGION_INPUT_MODE_MASK;
+    }
 }
 
 // FUNCTION: WIZ8 0x004f22f0
 void DisableRegionSetInput(unsigned int region_set_index)
 {
-    for (auto index : g_region_sets.at(region_set_index).Regions())
-        g_regions[index].flags = (g_regions[index].flags & ~W8_REGION_INPUT_MODE_MASK) | W8_REGION_INPUT_DISABLED;
+    for (auto index : g_region_sets.at(region_set_index).Regions()) {
+        g_regions[index].flags =
+            (g_regions[index].flags & ~W8_REGION_INPUT_MODE_MASK) | W8_REGION_INPUT_DISABLED;
+    }
 }
 
 // FUNCTION: WIZ8 0x004f2380
@@ -831,8 +880,8 @@ bool RegionContainsPoint(unsigned int region_index, unsigned short x, unsigned s
     switch (region->flags & W8_REGION_MODE_MASK) {
     case W8_REGION_RECTANGLE: {
         const SDL_Point point{x, y};
-        const SDL_Rect bounds{region->x1, region->y1,
-                              region->x2 - region->x1 + 1, region->y2 - region->y1 + 1};
+        const SDL_Rect bounds{region->x1, region->y1, region->x2 - region->x1 + 1,
+                              region->y2 - region->y1 + 1};
         return SDL_PointInRect(&point, &bounds);
     }
     case W8_REGION_CIRCLE: {
@@ -910,8 +959,8 @@ static void InsertIntoScanOrder(unsigned int set_index)
                   [](unsigned int index) { return index >= g_region_sets.size(); });
     const auto& set = g_region_sets[set_index];
     const auto key = std::pair{set.order, set.sequence};
-    const auto position = std::ranges::upper_bound(
-        g_region_set_scan_order, key, {}, [](unsigned int index) {
+    const auto position =
+        std::ranges::upper_bound(g_region_set_scan_order, key, {}, [](unsigned int index) {
             return std::pair{g_region_sets[index].order, g_region_sets[index].sequence};
         });
     g_region_set_scan_order.insert(position, set_index);
@@ -990,13 +1039,13 @@ std::size_t LiveDynamicRegionCount(void)
 {
     std::size_t count = 0;
     for (std::size_t index = kFirstDynamicRegionIndex; index < g_regions.size(); ++index) {
-        const bool registered = std::ranges::any_of(
-            g_region_sets, [index](const W8RegionSet& set) {
-                const auto regions = set.Regions();
-                return std::ranges::find(regions, static_cast<unsigned int>(index)) !=
-                       regions.end();
-            });
-        if (registered) ++count;
+        const bool registered = std::ranges::any_of(g_region_sets, [index](const W8RegionSet& set) {
+            const auto regions = set.Regions();
+            return std::ranges::find(regions, static_cast<unsigned int>(index)) != regions.end();
+        });
+        if (registered) {
+            ++count;
+        }
     }
     return count;
 }
@@ -1011,8 +1060,9 @@ unsigned int W8RegionSet::AddRegion(int priority)
     unsigned int region_index;
     if (active_count == region_ids.size()) {
         // Reserve first so a failed allocation cannot orphan a region.
-        if (region_ids.size() == region_ids.capacity())
+        if (region_ids.size() == region_ids.capacity()) {
             region_ids.reserve(std::max(size_t{8}, region_ids.capacity() * 2));
+        }
         if (!g_reusable_region_indices.empty()) {
             region_index = g_reusable_region_indices.back();
             g_reusable_region_indices.pop_back();
@@ -1045,9 +1095,13 @@ unsigned int W8RegionSet::AddRegion(int priority)
 bool W8RegionSet::RemoveRegion(unsigned int region_index)
 {
     const auto found = std::ranges::find(region_ids, region_index);
-    if (found == region_ids.end()) return false;
+    if (found == region_ids.end()) {
+        return false;
+    }
     const auto position = static_cast<size_t>(found - region_ids.begin());
-    if (position < active_count) --active_count;
+    if (position < active_count) {
+        --active_count;
+    }
     region_ids.erase(found);
     return true;
 }
@@ -1133,7 +1187,9 @@ OwnedRegionSet::OwnedRegionSet(std::span<const RegionTemplate> entries, int orde
 
 OwnedRegionSet::~OwnedRegionSet()
 {
-    if (set_ == 0) return;
+    if (set_ == 0) {
+        return;
+    }
     Disable();
     regions_.clear();
     DestroyRegionSet(set_);
@@ -1141,22 +1197,30 @@ OwnedRegionSet::~OwnedRegionSet()
 
 void OwnedRegionSet::Enable()
 {
-    if (set_ != 0) RegionSetEnable(set_);
+    if (set_ != 0) {
+        RegionSetEnable(set_);
+    }
 }
 
 void OwnedRegionSet::Disable()
 {
-    if (set_ != 0) RegionSetDisable(set_);
+    if (set_ != 0) {
+        RegionSetDisable(set_);
+    }
 }
 
 void OwnedRegionSet::EnableInput()
 {
-    if (set_ != 0) EnableRegionSetInput(set_);
+    if (set_ != 0) {
+        EnableRegionSetInput(set_);
+    }
 }
 
 void OwnedRegionSet::DisableInput()
 {
-    if (set_ != 0) DisableRegionSetInput(set_);
+    if (set_ != 0) {
+        DisableRegionSetInput(set_);
+    }
 }
 
 bool OwnedRegionSet::IsEnabled() const
@@ -1225,19 +1289,25 @@ RegionSetView::RegionSetView(const OwnedRegionSet& source, std::size_t first, st
 
 RegionSetView::~RegionSetView()
 {
-    if (set_ == 0) return;
+    if (set_ == 0) {
+        return;
+    }
     Disable();
     ReleaseRegionSetSlot(set_);
 }
 
 void RegionSetView::Enable()
 {
-    if (set_ != 0) RegionSetEnable(set_);
+    if (set_ != 0) {
+        RegionSetEnable(set_);
+    }
 }
 
 void RegionSetView::Disable()
 {
-    if (set_ != 0) RegionSetDisable(set_);
+    if (set_ != 0) {
+        RegionSetDisable(set_);
+    }
 }
 
 bool RegionSetView::IsEnabled() const
@@ -1260,7 +1330,9 @@ OwnedRegion::OwnedRegion(OwnedRegion&& other) noexcept
 
 OwnedRegion& OwnedRegion::operator=(OwnedRegion&& other) noexcept
 {
-    if (this == &other) return *this;
+    if (this == &other) {
+        return *this;
+    }
     reset();
     set_ = other.set_;
     index_ = other.index_;
@@ -1279,19 +1351,25 @@ OwnedRegion::operator bool() const
 
 W8Region& OwnedRegion::region()
 {
-    if (!*this) throw std::logic_error("Accessing an unbound owned region");
+    if (!*this) {
+        throw std::logic_error("Accessing an unbound owned region");
+    }
     return g_regions[index_];
 }
 
 const W8Region& OwnedRegion::region() const
 {
-    if (!*this) throw std::logic_error("Accessing an unbound owned region");
+    if (!*this) {
+        throw std::logic_error("Accessing an unbound owned region");
+    }
     return g_regions[index_];
 }
 
 void OwnedRegion::reset()
 {
-    if (*this) RemoveRegionFromSet(set_, index_);
+    if (*this) {
+        RemoveRegionFromSet(set_, index_);
+    }
     set_ = 0;
     index_ = 0;
     generation_ = 0;
@@ -1304,7 +1382,9 @@ void RemoveRegionFromSet(unsigned int region_set_index, unsigned int region_inde
         return;
     }
     auto& region = g_regions[region_index];
-    if (region.flags & W8_REGION_HELP_SHOWN) VideoRemoveToolTip();
+    if (region.flags & W8_REGION_HELP_SHOWN) {
+        VideoRemoveToolTip();
+    }
     region.widget = nullptr;
     region.text_field = nullptr;
     region.flags &= ~(W8_REGION_MOUSE_STATE_MASK | W8_REGION_HELP_SHOWN);
@@ -1312,19 +1392,31 @@ void RemoveRegionFromSet(unsigned int region_set_index, unsigned int region_inde
     region = g_regions.front();
     region.binding_generation = generation;
     g_reusable_region_indices.push_back(region_index);
-    if (g_current_region_index == region_index) g_current_region_index = 0;
-    if (g_captured_region_index == region_index) g_captured_region_index = 0;
-    if (g_hover_region_index == region_index) g_hover_region_index = 0;
+    if (g_current_region_index == region_index) {
+        g_current_region_index = 0;
+    }
+    if (g_captured_region_index == region_index) {
+        g_captured_region_index = 0;
+    }
+    if (g_hover_region_index == region_index) {
+        g_hover_region_index = 0;
+    }
 }
 
 void UnbindWidgetRegion(unsigned int region_index, W8Widget* widget, OwnedRegion* owner)
 {
-    if (region_index >= g_regions.size()) return;
+    if (region_index >= g_regions.size()) {
+        return;
+    }
     auto& region = g_regions[region_index];
-    if (region.widget != widget) return;
+    if (region.widget != widget) {
+        return;
+    }
 
     DisableRegionInput(region_index);
-    if (region.flags & W8_REGION_HELP_SHOWN) VideoRemoveToolTip();
+    if (region.flags & W8_REGION_HELP_SHOWN) {
+        VideoRemoveToolTip();
+    }
     region.flags &= ~(W8_REGION_MOUSE_STATE_MASK | W8_REGION_HELP_SHOWN);
     region.widget = nullptr;
     region.text_field = nullptr;
@@ -1335,9 +1427,15 @@ void UnbindWidgetRegion(unsigned int region_index, W8Widget* widget, OwnedRegion
     if (owner && owner->index_ == region_index) {
         owner->generation_ = region.binding_generation;
     }
-    if (g_captured_region_index == region_index) g_captured_region_index = 0;
-    if (g_current_region_index == region_index) g_current_region_index = 0;
-    if (g_hover_region_index == region_index) g_hover_region_index = 0;
+    if (g_captured_region_index == region_index) {
+        g_captured_region_index = 0;
+    }
+    if (g_current_region_index == region_index) {
+        g_current_region_index = 0;
+    }
+    if (g_hover_region_index == region_index) {
+        g_hover_region_index = 0;
+    }
 }
 
 // FUNCTION: WIZ8 0x004f29c0
@@ -1382,7 +1480,9 @@ void ClearHotRegion(void)
         W8Region* region = &g_regions[g_current_region_index];
         unsigned int mode = region->flags & W8_REGION_MODE_MASK;
         if (mode == 1 || mode == 2) {
-            if (!LeaveRegion(*region, event)) return;
+            if (!LeaveRegion(*region, event)) {
+                return;
+            }
             g_current_region_index = 0;
         }
     }
@@ -1439,7 +1539,9 @@ void ResetRegions(void)
     for (std::size_t set_index = 0; set_index < g_region_sets.size(); ++set_index) {
         auto& set = g_region_sets[set_index];
         const bool control_set = g_control_region_set != 0 && set_index == g_control_region_set;
-        if (!control_set) set.enabled = 0;
+        if (!control_set) {
+            set.enabled = 0;
+        }
         for (const auto region_index : set.Regions()) {
             auto& region = g_regions[region_index];
             if (control_set) {

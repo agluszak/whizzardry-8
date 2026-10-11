@@ -34,7 +34,6 @@
 extern std::shared_ptr<srColorSurface> g_mouse_surface;
 extern std::unique_ptr<srColorSurface> g_automap_surface;
 
-
 static bool shutdown_survivors()
 {
     REQUIRE((srInit()));
@@ -60,7 +59,8 @@ static bool shutdown_survivors()
     try {
         auto scene = std::make_unique<InterruptedScene>(model);
         REQUIRE((false));
-    } catch (const std::runtime_error&) {}
+    } catch (const std::runtime_error&) {
+    }
 
     // These are the actual global owners used by mouse and automap rendering.
     REQUIRE((srExit()));
@@ -92,7 +92,9 @@ static bool npc_script_teardown()
         for (auto& entry : quote.entries) {
             entry.sub_entry_count = 2;
             entry.sub_entries.resize(2);
-            for (auto& sub : entry.sub_entries) sub.text.assign(80, 's');
+            for (auto& sub : entry.sub_entries) {
+                sub.text.assign(80, 's');
+            }
         }
     }
     ReleaseNpcScriptFile(owner.release());
@@ -131,12 +133,14 @@ static bool queued_state_teardown()
 
 TEST_CASE("resource_lifecycle_test")
 {
-    REQUIRE(shutdown_survivors()); REQUIRE(shutdown_survivors()); REQUIRE(npc_script_teardown()); REQUIRE(queued_state_teardown());
+    REQUIRE(shutdown_survivors());
+    REQUIRE(shutdown_survivors());
+    REQUIRE(npc_script_teardown());
+    REQUIRE(queued_state_teardown());
     std::puts("ok: detached resource destruction, interrupted scenes, and reinitialization");
 }
 
-struct SpellVisualFixture
-{
+struct SpellVisualFixture {
     ScopedTemporaryDirectory directory{"wiz8-spell-visuals"};
     w8_native::Roots previous_roots = w8_native::path_roots();
     W8World* previous_world = GetWorld();
@@ -156,7 +160,8 @@ struct SpellVisualFixture
         std::filesystem::create_directory(directory.path / "assets");
         std::filesystem::create_directory(directory.path / "user");
         w8_native::configure_paths({(directory.path / "assets").string(),
-                                   (directory.path / "user").string(), {"", "", ""}});
+                                    (directory.path / "user").string(),
+                                    {"", "", ""}});
         SetCurrentWorld(&world);
     }
 
@@ -217,8 +222,7 @@ TEST_CASE_METHOD(SpellVisualFixture, "Missing spell visual fallback", "[resource
 }
 
 // A cloned resource must own its animations and light vectors after its source is released.
-template<class Host>
-static void CheckEmitterCloneLifetime()
+template <class Host> static void CheckEmitterCloneLifetime()
 {
     auto source = std::make_unique<Host>();
     source->value_0ac = 11;

@@ -83,7 +83,10 @@ public:
             int direct_vertex_indices;
             const glm::mat4* project_clip_near;
             float sort_bias;
-            w8_ulong triangleCount() const { return static_cast<w8_ulong>(indices.size()); }
+            w8_ulong triangleCount() const
+            {
+                return static_cast<w8_ulong>(indices.size());
+            }
         };
 
         struct Parameters {
@@ -186,8 +189,8 @@ public:
         /* intern the pass's {texture0,texture1,shader} key into
            texture_set, folding per-vertex texture/shader table transitions
            into the output ids. */
-        void assignTextureSets(w8_ulong* texture_set, const w8_ulong* indices,
-                               w8_ulong count, const srTriMeshPipeline::Pass* pass);
+        void assignTextureSets(w8_ulong* texture_set, const w8_ulong* indices, w8_ulong count,
+                               const srTriMeshPipeline::Pass* pass);
         /* While a vertex range is reserved (first_vertex != -1), give count accumulated vertices
            back. */
         void rewindVertexArray(w8_ulong count);
@@ -534,8 +537,8 @@ public:
     void setTextureDefaultMagFilter(srTextureIFace::e_filter filter);
     void setTextureDefaultMinFilter(srTextureIFace::e_filter filter);
     void setTextureDefaultMipmap(srTextureIFace::e_mipmap mipmap);
-    void setTextureSubImage(srTextureIFace* texture, w8_long mipmap, w8_long x, w8_long y, w8_long width,
-                            w8_long height);
+    void setTextureSubImage(srTextureIFace* texture, w8_long mipmap, w8_long x, w8_long y,
+                            w8_long width, w8_long height);
     void drawArrays(srRendererDefs::e_primitive primitive, w8_long first, w8_ulong count);
     void drawElements(srRendererDefs::e_primitive primitive, w8_ulong count,
                       srRendererDefs::e_indexType type, const void* indices);

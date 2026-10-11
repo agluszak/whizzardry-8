@@ -20,7 +20,9 @@
 
 class W8MonsterShakeCallback;
 class srGERD;
-namespace wiz8 { class File; }
+namespace wiz8 {
+class File;
+}
 
 class stParticle : public srClassSupport<stParticle, srNode, 0x10009> {
 public:
@@ -43,7 +45,7 @@ public:
     void SubmitToRenderer(srGERD* renderer);
     /* The per-particle age/cull/move step and billboard-corner expansion used
        by the submitted batch. Their retail names remain unavailable. */
-    void Update();                                 /* 0x00499FA0 */
+    void Update();                               /* 0x00499FA0 */
     void PrepareRenderer(const glm::mat4& view); /* 0x00498DD0 */
     srShader GetRenderFlags() const;
     unsigned char ReplaceTexture(const char* old_name, std::shared_ptr<srTextureIFace> replacement);

@@ -27,10 +27,7 @@ extern ScreenRegionSet g_main_radar_regions;
 extern ScreenRegionSet g_main_formation_board_regions;
 extern ScreenRegionSet g_main_submenu_regions;
 extern ScreenRegionSet g_main_effect_regions;
-enum MainEffectRegionOffset {
-    kMonsterListRegionOffset = 24,
-    kWorldViewRegionOffset = 25
-};
+enum MainEffectRegionOffset { kMonsterListRegionOffset = 24, kWorldViewRegionOffset = 25 };
 extern std::array<std::optional<RegionSetView>, 8> g_main_portrait_slot_views;
 extern std::optional<RegionSetView> g_main_portrait_edge_view;
 void EnableMainGamePortraitSlot(unsigned int slot);
@@ -161,8 +158,8 @@ public:
 class W8NpcDialogueTextController : public Controls {
 public:
     W8NpcDialogueTextController(int panel_left, int panel_top, int panel_right, int panel_bottom,
-                                CatalogArtwork artwork, int background_image,
-                                int margin_image, int line_image);
+                                CatalogArtwork artwork, int background_image, int margin_image,
+                                int line_image);
     virtual void Redraw() override;
     bool HandleScrollDownCommand(bool check_only);
     bool HandleScrollUpCommand(bool check_only);
@@ -362,7 +359,8 @@ public:
 
 // VTABLE: WIZ8 0x005eebd8 W8MainGameTextSelectionListener
 // VTABLE: WIZ8 0x005eebd0 W8TextControl::Listener
-class W8MainGameScreen final : public W8MainGameTextSelectionListener, public W8TextControl::Listener {
+class W8MainGameScreen final : public W8MainGameTextSelectionListener,
+                               public W8TextControl::Listener {
 public:
     W8MainGameScreen(Trigger* owner);
     virtual void SelectTextEntry(int index) override;
@@ -614,8 +612,8 @@ unsigned char MainGameScreenInitialize(void);
 unsigned char MainGameScreenEnter(void);
 void MainGameScreenFrame(void);
 unsigned char MainGameScreenLeave(int leaving);
-void ShowMainGameNoticeLine(std::string_view text, W8DialogDestroyCallback callback, bool confirmation,
-                            bool cancel);
+void ShowMainGameNoticeLine(std::string_view text, W8DialogDestroyCallback callback,
+                            bool confirmation, bool cancel);
 
 unsigned char CombatBarRegionEvent(const InputEvent* event, struct W8Region* region);
 unsigned char DialogueTranscriptRegionEvent(const InputEvent* event, struct W8Region* region);

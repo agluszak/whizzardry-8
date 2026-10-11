@@ -19,7 +19,6 @@ struct W8SkillNoticePayload {
     signed char skills[8];
 };
 
-
 struct W8LevelUpNotice {
     int party_slot;
 };

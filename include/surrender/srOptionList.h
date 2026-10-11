@@ -12,4 +12,3 @@ struct srExportOptions {
     w8_ulong unknown_04;
     const char* option_string;
 };
-

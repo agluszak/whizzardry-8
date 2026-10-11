@@ -278,35 +278,39 @@ void W8JournalPanel::Refresh()
 
 // FUNCTION: WIZ8 0x005bd530
 W8JournalPanel::W8JournalPanel()
-    : Controls(0x66, 0x1bb, 0, 0, CatalogArtwork::Load(0xf3, 0), 0), m_next(0), m_previous(0), m_close(0), m_mode(0),
-      m_page_text(0), m_alternate_mode(0)
+    : Controls(0x66, 0x1bb, 0, 0, CatalogArtwork::Load(0xf3, 0), 0), m_next(0), m_previous(0),
+      m_close(0), m_mode(0), m_page_text(0), m_alternate_mode(0)
 {
     short width;
     short height;
 
     CreateRegionSet();
     const SDL_Point _catalog_size_4 = CatalogArtwork::Load(0xf3, 0).size(0);
-        width = _catalog_size_4.x;
-        height = _catalog_size_4.y;;
+    width = _catalog_size_4.x;
+    height = _catalog_size_4.y;
+    ;
     m_bounds.right = m_bounds.left + static_cast<unsigned short>(width);
     m_bounds.bottom = m_bounds.top + static_cast<unsigned short>(height);
 
-    m_previous = new W8TextControl(this, 0xffffffff, 3, 3, 0, 0, CatalogArtwork::Load(0xf4, 0), 0, 2, 1, -1, 3);
+    m_previous = new W8TextControl(this, 0xffffffff, 3, 3, 0, 0, CatalogArtwork::Load(0xf4, 0), 0,
+                                   2, 1, -1, 3);
     m_previous->m_listener = this;
 
-    m_next = new W8TextControl(this, 0xffffffff, 0x11f, 3, 0, 0, CatalogArtwork::Load(0xf4, 0), 4, 6, 5, -1, 7);
+    m_next = new W8TextControl(this, 0xffffffff, 0x11f, 3, 0, 0, CatalogArtwork::Load(0xf4, 0), 4,
+                               6, 5, -1, 7);
     m_next->m_listener = this;
 
     W8ControlsRect bounds = {m_bounds.left, m_bounds.top, m_bounds.right, m_bounds.bottom};
     m_page_text = new W8TextBuffer(&bounds, "", g_options_detail_font,
                                    g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
 
-    m_mode = new W8TextControl(this, 0xffffffff, 0x1b0, -2, 0, 0, CatalogArtwork::Load(0x1bb, 0), 0, 2, 1, 2, 3);
+    m_mode = new W8TextControl(this, 0xffffffff, 0x1b0, -2, 0, 0, CatalogArtwork::Load(0x1bb, 0), 0,
+                               2, 1, 2, 3);
     m_mode->AddLayoutFlags(g_W8TextControlLayoutToggle);
     m_mode->m_listener = this;
 
-    m_close =
-        new W8TextControl(this, 0xffffffff, 0x1ea, -2, 0, 0, CatalogArtwork::Load(0x106, 0), 0x10, -1, 0x11, 0x12, 0x13);
+    m_close = new W8TextControl(this, 0xffffffff, 0x1ea, -2, 0, 0, CatalogArtwork::Load(0x106, 0),
+                                0x10, -1, 0x11, 0x12, 0x13);
     m_close->m_listener = this;
     m_close->EnableRegionHelp(0x6ed);
     SetEnabled(true);
@@ -376,8 +380,9 @@ void W8JournalPanel::OnPrimary(W8TextControl* control)
 // FUNCTION: WIZ8 0x005bddd0
 unsigned char JournalScreenInitialize(void)
 {
-    if (!g_journal_font.load("Data\\Journal\\journal_font.sti"))
+    if (!g_journal_font.load("Data\\Journal\\journal_font.sti")) {
         return 0;
+    }
     g_journal_font_palette = CatalogArtwork::Load(0x1b9).spriteSheet()->colors;
     return 1;
 }
@@ -418,7 +423,8 @@ unsigned char JournalScreenEnter(void)
         const W8FactDatabaseRecord* fact = &g_fact_records[entry.fact];
         std::string description =
             entry.alternate_text ? fact->alternate_description : fact->description;
-        if ((g_journal_show_all || fact->visibility <= maximum_visibility) && !description.empty()) {
+        if ((g_journal_show_all || fact->visibility <= maximum_visibility) &&
+            !description.empty()) {
             g_journal_entries.push_back(entry);
         }
     }

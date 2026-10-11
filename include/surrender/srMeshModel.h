@@ -112,11 +112,13 @@ public:
     SR_DLL_IMPORT virtual void reindexVertices(std::span<const w8_ulong> indices);
     SR_DLL_IMPORT virtual TriMesh getTriMesh();
     SR_DLL_IMPORT virtual void renderTriMesh(class srGERD& renderer, const TriMesh& mesh);
-    SR_DLL_IMPORT std::shared_ptr<srTextureIFace>* getPolyTexture(w8_long polygon, w8_long layer, int table);
+    SR_DLL_IMPORT std::shared_ptr<srTextureIFace>* getPolyTexture(w8_long polygon, w8_long layer,
+                                                                  int table);
     SR_DLL_IMPORT glm::ivec3* getPolyVertex();
     SR_DLL_IMPORT glm::ivec3* getPolyUVIndex(w8_long layer, int table);
     SR_DLL_IMPORT glm::vec2* getVertexTexCoords(w8_long vertex, w8_long layer, int table);
-    SR_DLL_IMPORT std::shared_ptr<srMaterialIFace>* getVertexMaterial(w8_long vertex, e_side side, int table);
+    SR_DLL_IMPORT std::shared_ptr<srMaterialIFace>* getVertexMaterial(w8_long vertex, e_side side,
+                                                                      int table);
     SR_DLL_IMPORT w8_ulong* getVertexShadeIndex(int table);
     SR_DLL_IMPORT glm::vec3* getVertexNormal();
     SR_DLL_IMPORT glm::vec4* getPolyEq();
@@ -125,8 +127,10 @@ public:
     glm::vec4* getVertexDCG(w8_long vertex, int table);
     SR_DLL_IMPORT srMaterialIFace* getMaterial(w8_long polygon, e_side side) const;
     SR_DLL_IMPORT srTextureIFace* getTexture(w8_long polygon, w8_long layer) const;
-    SR_DLL_IMPORT void setMaterial(std::shared_ptr<srMaterialIFace> material, w8_long polygon, e_side side);
-    SR_DLL_IMPORT void setTexture(std::shared_ptr<srTextureIFace> texture, w8_long polygon, w8_long layer);
+    SR_DLL_IMPORT void setMaterial(std::shared_ptr<srMaterialIFace> material, w8_long polygon,
+                                   e_side side);
+    SR_DLL_IMPORT void setTexture(std::shared_ptr<srTextureIFace> texture, w8_long polygon,
+                                  w8_long layer);
     // FUNCTION: SURRENDER 0x10041710 SYMBOL
     // RECOMP: ?setDirty@srMeshModel@@QAEXW4e_flags@1@@Z
     void setDirty(e_flags flag)
@@ -205,9 +209,11 @@ public:
     std::array<srShader, MAX_PASSES> shaders;
     /* Empty vectors are absent tables, even if a previous resize retained capacity. Accessors
        allocate only on demand and return nullptr for absent tables, not vector::data(). */
-    std::array<std::array<std::vector<std::shared_ptr<srTextureIFace>>, 2>, MAX_PASSES> poly_textures;
+    std::array<std::array<std::vector<std::shared_ptr<srTextureIFace>>, 2>, MAX_PASSES>
+        poly_textures;
     std::array<std::vector<srShader>, MAX_PASSES> poly_shaders;
-    std::array<std::array<std::vector<std::shared_ptr<srMaterialIFace>>, 2>, MAX_PASSES> vertex_materials;
+    std::array<std::array<std::vector<std::shared_ptr<srMaterialIFace>>, 2>, MAX_PASSES>
+        vertex_materials;
     std::vector<glm::ivec3> poly_vertices;
     std::array<std::vector<glm::ivec3>, MAX_PASSES> poly_uv_indices;
     std::vector<glm::vec4> poly_equations;

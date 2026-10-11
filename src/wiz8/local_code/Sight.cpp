@@ -339,7 +339,9 @@ unsigned int AgeAllMonsterSight(void)
 // FUNCTION: WIZ8 0x00505d20
 W8VisibilityRecord* FindMonToMonVisibility(W8MonsterInfo* source, W8MonsterInfo* target)
 {
-    if (!source->monster_visibility) return nullptr;
+    if (!source->monster_visibility) {
+        return nullptr;
+    }
     auto& visibility = *source->monster_visibility;
     auto found = visibility.find(target->location_id);
     return found == visibility.end() ? nullptr : &found->second;

@@ -56,8 +56,6 @@
 #include "mgs_commands.h"
 #include "surrender/srPixelConvert.h"
 
-
-
 /* Shared zero-initialized wide string: binary-wide DATA references read it as
    empty text and as a sprintf format argument. No recovered writer exists. */
 
@@ -76,7 +74,6 @@ std::string g_options_last_save_name;
 
 // GLOBAL: WIZ8 0x0064d72c
 static int g_last_options_panel = 5;
-
 
 // GLOBAL: WIZ8 0x0064d0b8
 static W8OptionsMenuRow g_options_menu_rows[8] = {
@@ -262,15 +259,17 @@ void W8OptionsSaveLoadPanel::Populate()
     m_selection.m_selectionListener = this;
 
     if (m_panel == 11) {
-        m_delete_button =
-            new W8TextControl(this, 0xffffffff, 0xd, 0x1b0, 0, 0, CatalogArtwork::Load(0xf8, 0), 6, 8, 7, -1, -1);
+        m_delete_button = new W8TextControl(this, 0xffffffff, 0xd, 0x1b0, 0, 0,
+                                            CatalogArtwork::Load(0xf8, 0), 6, 8, 7, -1, -1);
         m_delete_button->m_listener = this;
     } else {
         m_delete_button = 0;
     }
 
     int first_sprite = m_panel == 11 ? 3 : 0;
-    m_action_button = new W8TextControl(this, 0xffffffff, 0xf5, 0x1b0, 0, 0, CatalogArtwork::Load(0xf8, 0), first_sprite, first_sprite + 2, first_sprite + 1, -1, -1);
+    m_action_button =
+        new W8TextControl(this, 0xffffffff, 0xf5, 0x1b0, 0, 0, CatalogArtwork::Load(0xf8, 0),
+                          first_sprite, first_sprite + 2, first_sprite + 1, -1, -1);
     m_action_button->m_listener = this;
 
     if (m_panel == 11 && static_cast<int>(g_options_screen->m_save_slots.size()) == 1) {
@@ -281,8 +280,10 @@ void W8OptionsSaveLoadPanel::Populate()
     int page = 0;
     int selected = 0;
     if (m_panel == 11 && g_options_last_save_name[0] != 0) {
-        for (int index = 1; index < static_cast<int>(g_options_screen->m_save_slots.size()); ++index) {
-            if (strcmp(g_options_last_save_name.c_str(), (g_options_screen->m_save_slots[index])->name.c_str()) == 0) {
+        for (int index = 1; index < static_cast<int>(g_options_screen->m_save_slots.size());
+             ++index) {
+            if (strcmp(g_options_last_save_name.c_str(),
+                       (g_options_screen->m_save_slots[index])->name.c_str()) == 0) {
                 page = (index - 1) / 5;
                 selected = (index - 1) % 5;
             }
@@ -306,10 +307,12 @@ void W8OptionsSaveLoadPanel::SetActive(bool active)
 static void FinishOptionsTextEdit(W8OptionsScreen* screen, unsigned char cancelled)
 {
     W8OptionsTextEditor* editor = screen->m_text_editor;
-    if (!editor)
+    if (!editor) {
         return;
-    if (editor->m_listener)
+    }
+    if (editor->m_listener) {
         editor->m_listener->OnTextEditComplete(editor, cancelled);
+    }
     delete editor;
     screen->m_text_editor = nullptr;
 }
@@ -548,9 +551,7 @@ void W8OptionsSaveLoadPanel::SaveSelectedSave(std::string_view previous_name)
     // Game save paths resolve ASCII names case-insensitively. Never remove the
     // new file when a rename changes only capitalization.
     g_pending_screen_state.previous_save_name =
-        SDL_strcasecmp(old_name.c_str(), slot.name.c_str()) == 0
-            ? std::string()
-            : old_name;
+        SDL_strcasecmp(old_name.c_str(), slot.name.c_str()) == 0 ? std::string() : old_name;
     g_pending_screen_state.parameter_3 =
         new W8SaveScreenshot(g_options_screen->m_save_slots[0]->screenshot);
     SetPendingScreenState(W8_SCREEN_PLEASE_WAIT);
@@ -584,7 +585,10 @@ enum W8OptionsSaveRowSprite {
 };
 
 W8OptionsSaveRow::W8OptionsSaveRow(Controls* owner, int top, unsigned char save_mode)
-    : W8TextControl(owner, 0xffffffff, 10, top, 0, 0, CatalogArtwork::Load(0xf9, 0), save_mode ? W8_OPTIONS_SAVE_ROW_SAVE_NORMAL : W8_OPTIONS_SAVE_ROW_LOAD_NORMAL, save_mode ? W8_OPTIONS_SAVE_ROW_SAVE_PRESSED : W8_OPTIONS_SAVE_ROW_LOAD_PRESSED, -1, -1, W8_OPTIONS_SAVE_ROW_DISABLED),
+    : W8TextControl(owner, 0xffffffff, 10, top, 0, 0, CatalogArtwork::Load(0xf9, 0),
+                    save_mode ? W8_OPTIONS_SAVE_ROW_SAVE_NORMAL : W8_OPTIONS_SAVE_ROW_LOAD_NORMAL,
+                    save_mode ? W8_OPTIONS_SAVE_ROW_SAVE_PRESSED : W8_OPTIONS_SAVE_ROW_LOAD_PRESSED,
+                    -1, -1, W8_OPTIONS_SAVE_ROW_DISABLED),
       m_save_mode(save_mode), m_editing(0), m_save(0), m_save_listener(0)
 {
     AddLayoutFlags(g_W8TextControlLayoutLatchedImage | g_W8TextControlLayoutToggle);
@@ -606,14 +610,14 @@ void W8OptionsSaveRow::Redraw(bool full_redraw)
     if (m_save->screenshot.capture_result == 0) {
         CatalogArtwork::Load(0xf6, 0).draw(GetFrameBufferSurface(), 0, x + 6, y + 6);
     } else {
-        auto portrait = std::make_unique<srColorSurface>(srPixelConvert::SURFACE_ARGB1555,
-                                                      m_save->screenshot.pixels, 0x50, 0x3c, 0xa0);
+        auto portrait = std::make_unique<srColorSurface>(
+            srPixelConvert::SURFACE_ARGB1555, m_save->screenshot.pixels, 0x50, 0x3c, 0xa0);
         DrawColorSurface(portrait.get(), x + 6, y + 6);
     }
 
     std::string level_name = m_save->level_id == 0x38
-                                    ? g_default_level
-                                    : g_localized_strings[g_level_name_indices[m_save->level_id]];
+                                 ? g_default_level
+                                 : g_localized_strings[g_level_name_indices[m_save->level_id]];
     std::string timestamp;
     timestamp = fmt::format("{:d}-{:02d}-{:02d} {:2d}:{:02d}", m_save->timestamp.year,
                             m_save->timestamp.month, m_save->timestamp.day, m_save->timestamp.hour,
@@ -752,8 +756,7 @@ void W8OptionsKeyButton::SetKeyText(unsigned short key)
         if (character == 0) {
             text = g_localized_strings[0x86d];
         } else {
-            text.push_back(static_cast<char>(
-                std::toupper(static_cast<unsigned char>(character))));
+            text.push_back(static_cast<char>(std::toupper(static_cast<unsigned char>(character))));
         }
     }
 
@@ -1242,15 +1245,17 @@ void W8OptionsUnavailablePanel::Populate()
     m_content_top += 44;
     W8ControlsRect bounds = {m_bounds.left + 30, m_bounds.top + m_content_top, m_bounds.right - 30,
                              m_bounds.bottom};
-    W8TextBuffer* text = new W8TextBuffer(&bounds, g_localized_strings[m_message], g_options_detail_font,
-                                          g_W8TextBufferAlignTop | g_W8TextBufferAlignCenter, 4);
+    W8TextBuffer* text =
+        new W8TextBuffer(&bounds, g_localized_strings[m_message], g_options_detail_font,
+                         g_W8TextBufferAlignTop | g_W8TextBufferAlignCenter, 4);
     m_text_buffers.emplace_back(text);
     m_text_buffers[0]->SetLineHeight(22);
 }
 
 // FUNCTION: WIZ8 0x005a9090
 W8OptionsScreen::W8OptionsScreen()
-    : m_redraw_pending(1), m_modal_closing(0), m_selected_panel(-1), m_active_modal(0), m_text_editor(0), m_key_capture(0)
+    : m_redraw_pending(1), m_modal_closing(0), m_selected_panel(-1), m_active_modal(0),
+      m_text_editor(0), m_key_capture(0)
 {
     for (int index = 0; index < 8; ++index) {
         m_panel[index] = 0;
@@ -1375,7 +1380,8 @@ unsigned char W8OptionsScreen::ProcessInput(const InputEvent* input)
         if (IsTypingEvent(*input)) {
             if (input->key != VK_ESCAPE && input->key != VK_RETURN) {
                 const char32_t character = TypedCharacter(*input);
-                if (character != 0 && character < 0x80 && strchr("\\/:*?\"<>|", int(character)) != 0) {
+                if (character != 0 && character < 0x80 &&
+                    strchr("\\/:*?\"<>|", int(character)) != 0) {
                     return 0;
                 }
                 HandleTextInput(input);
@@ -1527,18 +1533,27 @@ void W8OptionsValues::TransferSettings()
    up the shared layout flag. */
 // FUNCTION: WIZ8 0x005a7370
 W8OptionsMenuButton::W8OptionsMenuButton(Controls* owner, const W8OptionsMenuRow* row)
-    : W8TextControl(owner, 0xffffffff, row->bounds.left, row->bounds.top, row->bounds.right, row->bounds.bottom, CatalogArtwork::Load(0xef, 0), row->image_indices[0], row->image_indices[1], row->image_indices[2], row->image_indices[3], row->image_indices[4])
+    : W8TextControl(owner, 0xffffffff, row->bounds.left, row->bounds.top, row->bounds.right,
+                    row->bounds.bottom, CatalogArtwork::Load(0xef, 0), row->image_indices[0],
+                    row->image_indices[1], row->image_indices[2], row->image_indices[3],
+                    row->image_indices[4])
 {
     m_item_id = row->item_id;
 
     if (row->child_bounds[0].left != -1) {
-        W8TextControl* control = new W8TextControl(m_pPanel, 0xffffffff, row->child_bounds[0].left, row->child_bounds[0].top, row->child_bounds[0].right, row->child_bounds[0].bottom, std::nullopt, -1, -1, -1, -1, -1);
+        W8TextControl* control =
+            new W8TextControl(m_pPanel, 0xffffffff, row->child_bounds[0].left,
+                              row->child_bounds[0].top, row->child_bounds[0].right,
+                              row->child_bounds[0].bottom, std::nullopt, -1, -1, -1, -1, -1);
         control->m_listener = this;
         control->AddLayoutFlags(g_W8TextControlSilentHover);
     }
 
     if (row->child_bounds[1].left != -1) {
-        W8TextControl* control = new W8TextControl(m_pPanel, 0xffffffff, row->child_bounds[1].left, row->child_bounds[1].top, row->child_bounds[1].right, row->child_bounds[1].bottom, std::nullopt, -1, -1, -1, -1, -1);
+        W8TextControl* control =
+            new W8TextControl(m_pPanel, 0xffffffff, row->child_bounds[1].left,
+                              row->child_bounds[1].top, row->child_bounds[1].right,
+                              row->child_bounds[1].bottom, std::nullopt, -1, -1, -1, -1, -1);
         control->m_listener = this;
         control->AddLayoutFlags(g_W8TextControlSilentHover);
     }
@@ -1553,7 +1568,8 @@ void W8OptionsMenuButton::OnPrimary(W8TextControl*)
 }
 
 W8OptionsCheckbox::W8OptionsCheckbox(Controls* owner, int top, int* value)
-    : W8TextControl(owner, 0xffffffff, 0x14d, top - 2, 0, 0, CatalogArtwork::Load(0xf1, 0), 2, 0, 3, 1, -1),
+    : W8TextControl(owner, 0xffffffff, 0x14d, top - 2, 0, 0, CatalogArtwork::Load(0xf1, 0), 2, 0, 3,
+                    1, -1),
       m_value(value)
 {
     AddLayoutFlags(g_W8TextControlLayoutLatchedImage | g_W8TextControlLayoutToggle);
@@ -1635,10 +1651,8 @@ W8OptionsPanel::~W8OptionsPanel()
 /* All labelled option rows use the same geometry and text formatting. */
 static void AddOptionsLabel(W8OptionsPanel& panel, int label)
 {
-    W8ControlsRect bounds = {panel.m_bounds.left + 20,
-                             panel.m_bounds.top + panel.m_content_top,
-                             panel.m_bounds.right,
-                             panel.m_bounds.top + panel.m_content_top + 22};
+    W8ControlsRect bounds = {panel.m_bounds.left + 20, panel.m_bounds.top + panel.m_content_top,
+                             panel.m_bounds.right, panel.m_bounds.top + panel.m_content_top + 22};
     panel.m_text_buffers.emplace_back(
         new W8TextBuffer(&bounds, g_localized_strings[label], g_options_detail_font,
                          g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4));
@@ -1658,10 +1672,12 @@ W8TextControl* W8OptionsPanel::AddChoiceButton(int label)
 {
     W8ControlsRect bounds = {m_bounds.left, m_bounds.top + m_content_top, m_bounds.left + 0x147,
                              m_bounds.top + m_content_top + 22};
-    W8TextBuffer* text = new W8TextBuffer(&bounds, g_localized_strings[label], g_options_detail_font,
-                                          g_W8TextBufferAlignTop | g_W8TextBufferAlignRight, 4);
+    W8TextBuffer* text =
+        new W8TextBuffer(&bounds, g_localized_strings[label], g_options_detail_font,
+                         g_W8TextBufferAlignTop | g_W8TextBufferAlignRight, 4);
     m_text_buffers.emplace_back(text);
-    W8TextControl* button = new W8TextControl(this, 0xffffffff, 0x151, m_content_top + 1, 0, 0, CatalogArtwork::Load(0xf1, 0), 4, 6, 5, 7, -1);
+    W8TextControl* button = new W8TextControl(this, 0xffffffff, 0x151, m_content_top + 1, 0, 0,
+                                              CatalogArtwork::Load(0xf1, 0), 4, 6, 5, 7, -1);
     button->AddLayoutFlags(g_W8TextControlLayoutLatchedImage | g_W8TextControlLayoutToggle);
     m_content_top += 22;
     return button;
@@ -1738,8 +1754,9 @@ W8OptionsPanel::W8OptionsPanel()
     short width;
     short height;
     const SDL_Point _catalog_size_0 = CatalogArtwork::Load(0xf2, 0).size(0);
-        width = _catalog_size_0.x;
-        height = _catalog_size_0.y;;
+    width = _catalog_size_0.x;
+    height = _catalog_size_0.y;
+    ;
     m_bounds.right = m_bounds.left + static_cast<unsigned short>(width);
     m_bounds.bottom = m_bounds.top + static_cast<unsigned short>(height);
 }
@@ -1757,19 +1774,23 @@ W8OptionsMenuSet::W8OptionsMenuSet()
     short width;
     short height;
     const SDL_Point _catalog_size_1 = CatalogArtwork::Load(0xf3, 0).size(0);
-        width = _catalog_size_1.x;
-        height = _catalog_size_1.y;;
+    width = _catalog_size_1.x;
+    height = _catalog_size_1.y;
+    ;
     m_bounds.right = m_bounds.left + static_cast<unsigned short>(width);
     m_bounds.bottom = m_bounds.top + static_cast<unsigned short>(height);
 
-    m_previous = new W8TextControl(this, 0xffffffff, 3, 3, 0, 0, CatalogArtwork::Load(0xf4, 0), 0, 2, 1, -1, 3);
+    m_previous = new W8TextControl(this, 0xffffffff, 3, 3, 0, 0, CatalogArtwork::Load(0xf4, 0), 0,
+                                   2, 1, -1, 3);
     m_previous->m_listener = this;
 
-    m_next = new W8TextControl(this, 0xffffffff, 0x11f, 3, 0, 0, CatalogArtwork::Load(0xf4, 0), 4, 6, 5, -1, 7);
+    m_next = new W8TextControl(this, 0xffffffff, 0x11f, 3, 0, 0, CatalogArtwork::Load(0xf4, 0), 4,
+                               6, 5, -1, 7);
     m_next->m_listener = this;
 
-    m_page_text = std::make_unique<W8TextBuffer>(&m_bounds, "", g_options_detail_font,
-                                   g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle, 4);
+    m_page_text =
+        std::make_unique<W8TextBuffer>(&m_bounds, "", g_options_detail_font,
+                                       g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle, 4);
 }
 
 /* The menu-set table has its own deleting destructor; the normal destructor

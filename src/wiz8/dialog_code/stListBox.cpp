@@ -21,9 +21,11 @@ void W8ListBoxDialog::TextAreaButtonCallback(W8ButtonWidget* button)
     auto* dialog = static_cast<W8ListBoxDialog*>(button->m_owner);
     const SDL_Point cursor = button->GetMousePosition();
     const int height = g_dialog_interface_font->height();
-    if (height == 0) return;
-    const int line = (cursor.y - dialog->m_area_button.GetY()) / height +
-                     dialog->m_first_visible_line;
+    if (height == 0) {
+        return;
+    }
+    const int line =
+        (cursor.y - dialog->m_area_button.GetY()) / height + dialog->m_first_visible_line;
     if (line == dialog->m_selected_line) {
         dialog->m_keep_open = false;
         return;
@@ -69,9 +71,15 @@ void W8ListBoxDialog::SliderTrackButtonCallback(W8ButtonWidget* button)
     SDL_Point cursor = button->GetMousePosition();
     const int top = button->GetY() + dialog->m_up_button.GetHeight();
     const int bottom = button->GetY() + button->GetHeight() - dialog->m_down_button.GetHeight();
-    if (cursor.y < top) cursor.y = top;
-    if (cursor.y > bottom) cursor.y = bottom;
-    if (bottom <= top) return;
+    if (cursor.y < top) {
+        cursor.y = top;
+    }
+    if (cursor.y > bottom) {
+        cursor.y = bottom;
+    }
+    if (bottom <= top) {
+        return;
+    }
     dialog->SetCurrentLine((cursor.y - top) * static_cast<int>(dialog->m_lines.size()) /
                            (bottom - top));
 }

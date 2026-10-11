@@ -45,4 +45,3 @@ protected:
     std::unique_ptr<srColorSurfaceIFace> surface;
     w8_ulong frame_handle;
 };
-

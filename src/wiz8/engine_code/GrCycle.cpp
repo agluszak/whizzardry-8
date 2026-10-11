@@ -274,8 +274,7 @@ const float g_float_one_thousand = 1000.0f;
 bool LoadGrCycle(const W8GrCycleLoadContext* context, const char* mon_name, W8GrCycle** cycle,
                  int cycle_index, int value, const char* directory, unsigned char object_type,
                  const char* bitmap_directory)
-try
-{
+try {
     W8ReadLevelInfo info;
     char mon_path[128];
     char bitmap_path[1024];
@@ -294,7 +293,13 @@ try
         strcpy(bitmap_path, bitmap_directory);
     }
 
-    std::unique_ptr<wiz8::File> handle = [&]() { try { return wiz8::open_file(mon_path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
+    std::unique_ptr<wiz8::File> handle = [&]() {
+        try {
+            return wiz8::open_file(mon_path, wiz8::OpenMode::read);
+        } catch (const std::exception&) {
+            return std::unique_ptr<wiz8::File>{};
+        }
+    }();
     if (handle == 0) {
         ShutdownWithErrorBox(fmt::format("Couldn't open {}", mon_path));
     }
@@ -310,7 +315,9 @@ try
         success = false;
     }
 
-    if (handle) handle->close();
+    if (handle) {
+        handle->close();
+    }
 
     handle.reset();
     if (!success) {
@@ -330,8 +337,7 @@ try
 // FUNCTION: WIZ8 0x004A6970
 unsigned char ReadGrCycleData(W8ReadLevelInfo* info, W8GrCycle** cycle, int cycle_index, int value,
                               unsigned char object_type)
-try
-{
+try {
     unsigned char has_path;
     unsigned char has_particles;
     unsigned char success;
@@ -775,8 +781,9 @@ void W8GrCycle::UpdateLights()
 std::optional<srBoundingBox> W8GrCycle::GetAnimationBounds()
 {
     auto* representation = GetRepresentation();
-    if (!representation)
+    if (!representation) {
         return std::nullopt;
+    }
     return AnimObjGetBounds(GetCurrentAnimation(), representation->m_bLOD,
                             representation->subcycle);
 }

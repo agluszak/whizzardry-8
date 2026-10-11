@@ -87,7 +87,13 @@ void WriteRecordModeEntry(void)
     std::unique_ptr<wiz8::File> file;
     unsigned int length;
 
-    file = [&]() { try { return wiz8::open_file(s_data_notes_txt, wiz8::OpenMode::replace); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
+    file = [&]() {
+        try {
+            return wiz8::open_file(s_data_notes_txt, wiz8::OpenMode::replace);
+        } catch (const std::exception&) {
+            return std::unique_ptr<wiz8::File>{};
+        }
+    }();
     if (file != 0) {
         file->seek(-static_cast<std::int64_t>(0), wiz8::SeekOrigin::end);
         state = cameraState(*GetWorld());
@@ -95,15 +101,11 @@ void WriteRecordModeEntry(void)
         line =
             fmt::format("{:f} {:f} {:f}\n", state.position.x, state.position.y, state.position.z);
         file->write(line.data(), line.size());
-        line = fmt::format(
-            "{:f} {:f} {:f} {:f} {:f} {:d}\n", state.pitch[0], state.pitch[1], state.pitch[2],
-            state.pitch[3],
-            state.pitch[4], 0);
+        line = fmt::format("{:f} {:f} {:f} {:f} {:f} {:d}\n", state.pitch[0], state.pitch[1],
+                           state.pitch[2], state.pitch[3], state.pitch[4], 0);
         file->write(line.data(), line.size());
-        line = fmt::format(
-            "{:f} {:f} {:f} {:f} {:f} {:d}\n", state.yaw[0], state.yaw[1], state.yaw[2],
-            state.yaw[3],
-            state.yaw[4], 0);
+        line = fmt::format("{:f} {:f} {:f} {:f} {:f} {:d}\n", state.yaw[0], state.yaw[1],
+                           state.yaw[2], state.yaw[3], state.yaw[4], 0);
         file->write(line.data(), line.size());
         if (GetLevelLocationCode(g_status.current_level, location_code) == 0) {
             strcpy(location_code, s_record_mode_default_location);
@@ -114,7 +116,9 @@ void WriteRecordModeEntry(void)
         length = strlen(g_record_mode_line);
         g_record_mode_line[length] = '\n';
         file->write(g_record_mode_line, length + 1);
-        if (file) file->close();
+        if (file) {
+            file->close();
+        }
         file.reset();
     }
     ResetEditorStatusLine(-1);
@@ -352,8 +356,9 @@ void ResolveSprungTrap(Trigger* trigger)
         GetCameraForwardPoint(1000.0f, &point);
     } else {
         const auto center = prop->GetCenterPosition();
-        if (!center)
+        if (!center) {
             return;
+        }
         point = *center;
     }
     camera = cameraLocation();

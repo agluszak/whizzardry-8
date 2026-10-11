@@ -68,7 +68,6 @@ enum W8Race {
     W8_RACE_COUNT = 16
 };
 
-
 /* A character's sex. Zero is male and one is female, which is what the quote
    lookup, the item record's sex mask and the female-only profession all agree
    on. A character or template that has not been assigned one carries UNSET. */
@@ -78,7 +77,6 @@ enum W8Gender {
     W8_GENDER_COUNT = 2,
     W8_GENDER_UNSET = -1
 };
-
 
 enum { W8_MAX_MONSTER_ATTACKS = 3 };
 
@@ -205,7 +203,7 @@ struct W8SpellRuntimeRecord {
     unsigned char unknown_055;
     int spell_level;              /* Retail offset 0x056: zero through seven */
     unsigned char wizardry_spell; /* Retail offset 0x05a */
-    std::string resource_name;       /* Retail offset 0x05b: visual/MLS resource basename */
+    std::string resource_name;    /* Retail offset 0x05b: visual/MLS resource basename */
     std::string display_name;     /* Retail offset 0x09b */
     unsigned char unknown_11b[4];
     unsigned char divinity_spell; /* Retail offset 0x11f */
@@ -247,12 +245,8 @@ struct W8SpellRuntimeRecord {
     std::string sound_name; /* Retail offset 0x14b: relative to Data\Spells\Sounds */
 };
 
-
-
-
-
 struct W8FactDatabaseRecord {
-    W8FactId identifier;      /* Retail offset 0x000 */
+    W8FactId identifier;       /* Retail offset 0x000 */
     std::string symbolic_name; /* Retail offset 0x004 .. 0x035 */
     /* Retail offset 0x036: the journal shades this fact's text when its value is true. */
     unsigned char highlight_when_true;
@@ -263,8 +257,6 @@ struct W8FactDatabaseRecord {
     std::string alternate_description;
     std::string description;
 };
-
-
 
 /* One optional NPC stock-rule entry appended after its database record: an
    item id, the configured quantity and a keep flag. The NPC restocks only
@@ -280,28 +272,30 @@ struct W8NpcItemStockRule {
 /* The RPC-character block a record with has_group carries; it is expanded
    into a W8Character when the NPC joins. */
 struct W8NpcCharacterTemplate {
-    std::string name;       /* Retail offset 0x000, record 0x0c4 */
-    std::string name_part_2; /* Retail offset 0x014, record 0x0d8 */
+    std::string name;                /* Retail offset 0x000, record 0x0c4 */
+    std::string name_part_2;         /* Retail offset 0x014, record 0x0d8 */
     unsigned char unknown_01a[0x44]; // Unidentified retail data, preserved verbatim.
     W8Profession
-        profession;     /* Retail offset 0x064, record 0x128: index into profession_levels[W8_PROFESSION_COUNT] */
+        profession; /* Retail offset 0x064, record 0x128: index into profession_levels[W8_PROFESSION_COUNT] */
     W8Race race;        /* Retail offset 0x068, record 0x12c */
     int table_value;    /* Retail offset 0x06c, record 0x130 */
     unsigned int level; /* Retail offset 0x070, record 0x134: starting profession level */
-    int attributes[7];  /* Retail offset 0x074, record 0x138: W8CharacterAttribute::value per attribute */
-    int skills[0x29];   /* Retail offset 0x090, record 0x154: W8CharacterSkill::value_02 per skill */
-    unsigned char
-        spells[0x72]; /* Retail offset 0x134, record 0x1f8: one flag per learnable spell, indexed from one */
-    unsigned short equipment_present[12]; /* Retail offset 0x1a6, record 0x26a: zero leaves the slot empty */
-    unsigned short equipment_ids[12];     /* Retail offset 0x1be, record 0x282: Items.dbs index, 0xffff empty */
-    unsigned short backpack_present[8];   /* Retail offset 0x1d6, record 0x29a */
-    unsigned short backpack_ids[8];       /* Retail offset 0x1e6, record 0x2aa */
-    signed char gender; /* Retail offset 0x1f6, record 0x2ba: copied into the character's own sex field */
+    int attributes
+        [7]; /* Retail offset 0x074, record 0x138: W8CharacterAttribute::value per attribute */
+    int skills[0x29]; /* Retail offset 0x090, record 0x154: W8CharacterSkill::value_02 per skill */
+    unsigned char spells
+        [0x72]; /* Retail offset 0x134, record 0x1f8: one flag per learnable spell, indexed from one */
+    unsigned short
+        equipment_present[12]; /* Retail offset 0x1a6, record 0x26a: zero leaves the slot empty */
+    unsigned short
+        equipment_ids[12]; /* Retail offset 0x1be, record 0x282: Items.dbs index, 0xffff empty */
+    unsigned short backpack_present[8]; /* Retail offset 0x1d6, record 0x29a */
+    unsigned short backpack_ids[8];     /* Retail offset 0x1e6, record 0x2aa */
+    signed char
+        gender; /* Retail offset 0x1f6, record 0x2ba: copied into the character's own sex field */
     short wanted_item_ids[3];
     unsigned char unknown_1fd[9];
 };
-
-
 
 /* One Data\Databases\NPC.DBS record. */
 struct W8NpcDatabaseRecord {
@@ -365,7 +359,8 @@ struct W8NpcDatabaseRecord {
        The wide RPC-character name at 0x0c4 bounds the string extent. */
     std::string display_name;
     W8NpcCharacterTemplate character; /* Retail offset 0x0c4 */
-    std::vector<W8NpcItemStockRule*>* item_stock_rules; /* Retail offset 0x2ca: W8NpcItemStockRule* elements */
+    std::vector<W8NpcItemStockRule*>*
+        item_stock_rules; /* Retail offset 0x2ca: W8NpcItemStockRule* elements */
     /* Retail offset 0x2ce/0x2d2: the trade price factors. CalculateTradeStackPrice adds the
        bargained adjustment to buy_price_factor when the NPC buys from the
        party and subtracts it from sell_price_factor when the party buys. */
@@ -380,14 +375,11 @@ struct W8NpcDatabaseRecord {
     /* Retail offset 0x2eb: the purse the NPC carries; the party gets it when the NPC's
        monster dies. */
     int gold;
-    unsigned char combat_script_notice_enabled;       /* Retail offset 0x2ef: hostile-NPC combat notice */
-    unsigned char allow_dismissed_departure_dialogue; /* Retail offset 0x2f0: permits dismissed-NPC dialogue */
+    unsigned char combat_script_notice_enabled; /* Retail offset 0x2ef: hostile-NPC combat notice */
+    unsigned char
+        allow_dismissed_departure_dialogue; /* Retail offset 0x2f0: permits dismissed-NPC dialogue */
     unsigned char unknown_2f1[0x18];
 };
-
-
-
-
 
 /* One Data\Databases\LEVELS.DBS record. The loader retains the disk row;
    all 60 canonical rows begin with a terminated UTF-16 display name. */
@@ -406,10 +398,6 @@ struct W8LevelDatabaseRecord {
     float gameplay_time_scale;
     unsigned char unknown_058[0x80];
 };
-
-
-
-
 
 /* The one monster record whose alternate name is used in place of its own. */
 enum { W8_MONSTER_RECORD_ALTERNATE_NAME = 397 };
@@ -477,7 +465,7 @@ struct W8MonsterRecord {
     unsigned char flags;
     unsigned char attribute_values[5]; /* Retail offset 0x0d1 */
     W8Dice hit_points;                 /* Retail offset 0x0d6: rolled into uiHPMax/hp_current */
-    W8Dice stamina_dice;               /* Retail offset 0x0da: initializes maximum and current stamina */
+    W8Dice stamina_dice; /* Retail offset 0x0da: initializes maximum and current stamina */
     unsigned char unknown_0de[2];
     /* Retail offset 0x0e0/0x0e1: the percentage chances the AI casts a spell or flees each
        round; a monster with a usable attack ignores them and always tries. */
@@ -521,7 +509,7 @@ struct W8MonsterRecord {
     unsigned char unknown_17d[4];
     unsigned int experience; /* Retail offset 0x181: base experience value */
     unsigned char unknown_185[2];
-    short record_id;       /* Retail offset 0x187: equals the zero-based database index */
+    short record_id;        /* Retail offset 0x187: equals the zero-based database index */
     std::string cycle_name; /* Retail offset 0x189: GrCycle lookup key */
     /* Retail offset 0x1b9: prefer ranged actions instead of closing/backing off. */
     unsigned char prefer_ranged_actions;
@@ -561,10 +549,10 @@ struct W8MonsterRecord {
     unsigned char unknown_252;
     int model_index;           /* Retail offset 0x253 */
     int alternate_model_index; /* Retail offset 0x257: alternate selected value */
-    int hostility_radius;      /* Retail offset 0x25b: Minimal Neutrality Distance / Hostility Radius */
-    int faction_id;            /* Retail offset 0x25f: W8Faction value, domain 0..20 */
-    int material;              /* Retail offset 0x263: Monster Editor Material selector */
-    unsigned char deleted;     /* Retail offset 0x267: LoadMonsterGroup skips the record */
+    int hostility_radius;  /* Retail offset 0x25b: Minimal Neutrality Distance / Hostility Radius */
+    int faction_id;        /* Retail offset 0x25f: W8Faction value, domain 0..20 */
+    int material;          /* Retail offset 0x263: Monster Editor Material selector */
+    unsigned char deleted; /* Retail offset 0x267: LoadMonsterGroup skips the record */
     unsigned char significant_kill;
     unsigned char unknown_269;
     /* Retail offset 0x26a: unborn monsters enter the birth/encounter lists before acting. */
@@ -576,17 +564,6 @@ struct W8MonsterRecord {
     int sp_budget;
     unsigned char unknown_273[0x24];
 };
-
-
-
-
-
-
-
-
-
-
-
 
 /* Data\Databases race table rows the resistance recalculation reads. A
    resistance_index of -1 terminates a race's list; an adjustment above

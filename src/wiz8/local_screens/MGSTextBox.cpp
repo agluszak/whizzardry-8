@@ -155,8 +155,9 @@ void W8MessageStorageRecord::RebuildEntries()
     for (auto start = value.find_first_not_of(' '); start != value.npos;
          start = value.find_first_not_of(' ', start)) {
         auto end = value.find(' ', start);
-        if (end == value.npos)
+        if (end == value.npos) {
             end = value.size();
+        }
         const auto x = g_level_block->text_box_font->prefixWidth(value, start);
         const auto width =
             g_level_block->text_box_font->textWidth(value.substr(start, end - start));
@@ -271,8 +272,8 @@ static void AppendNoticeLine(unsigned char font_palette, std::string_view text, 
         g_status.text_box_lines_shown[3] = g_status.text_box_lines_used[3];
         g_level_block->text_lines[3] = g_status.text_box_lines_used[3];
         W8MessageStorageRecord* last = &g_message_storage[3][g_status.text_box_lines_shown[3] - 1];
-        unsigned int delay =
-            g_settings.text_display_delay_ms * (wiz8::text::grapheme_count(last->text) * 100 / 20 + 100) / 100;
+        unsigned int delay = g_settings.text_display_delay_ms *
+                             (wiz8::text::grapheme_count(last->text) * 100 / 20 + 100) / 100;
         if (delay > 60000) {
             delay = 60000;
         }
@@ -318,7 +319,9 @@ void DisableDialogueTextBoxRegions()
 
 static void SetTextBoxRegionInput(TextBoxRegion first, std::size_t count, bool enabled)
 {
-    if (!g_text_box_regions) return;
+    if (!g_text_box_regions) {
+        return;
+    }
     for (std::size_t offset = 0; offset < count; ++offset) {
         const unsigned int index = TextBoxRegionIndex(first) + static_cast<unsigned int>(offset);
         if (enabled) {
@@ -354,11 +357,12 @@ void SetTextBoxRegionBounds(int left, int top, int right, int bottom)
     g_level_block->text_box_top = top;
     g_level_block->text_box_right = right;
     g_level_block->text_box_bottom = bottom;
-    if (!g_text_box_regions) return;
+    if (!g_text_box_regions) {
+        return;
+    }
     right_u = static_cast<unsigned short>(right);
-    SetRegionBounds(TextBoxRegionIndex(TextBoxRegion::Body),
-                    static_cast<unsigned short>(left), static_cast<unsigned short>(top), right_u,
-                    static_cast<unsigned short>(bottom));
+    SetRegionBounds(TextBoxRegionIndex(TextBoxRegion::Body), static_cast<unsigned short>(left),
+                    static_cast<unsigned short>(top), right_u, static_cast<unsigned short>(bottom));
     SetRegionBounds(TextBoxRegionIndex(TextBoxRegion::ScrollUp),
                     static_cast<unsigned short>(right_u + 5), 0x16b,
                     static_cast<unsigned short>(right_u + 0x14), 0x17a);
@@ -395,8 +399,7 @@ void ShowNotice(unsigned int font_palette, std::string_view text_view, short tex
             g_status.long_quote = 0;
         }
         g_level_block->text_lines[8 + text_box] = 0;
-        if (static_cast<unsigned int>(g_level_block->text_box_font->textWidth(text)) <
-            wrap_width) {
+        if (static_cast<unsigned int>(g_level_block->text_box_font->textWidth(text)) < wrap_width) {
             AppendNoticeLine(static_cast<unsigned char>(font_palette), text, text_box, 0);
         } else {
             std::string_view remaining(text);
@@ -405,18 +408,30 @@ void ShowNotice(unsigned int font_palette, std::string_view text_view, short tex
                 std::size_t end = 0, last_space = 0;
                 while (end < remaining.size() && remaining[end] != '\n') {
                     const auto next = wiz8::text::next_grapheme(remaining, end);
-                    if (g_level_block->text_box_font->textWidth(remaining.substr(0, next)) >= wrap_width && end) {
-                        if (last_space) end = last_space;
+                    if (g_level_block->text_box_font->textWidth(remaining.substr(0, next)) >=
+                            wrap_width &&
+                        end) {
+                        if (last_space) {
+                            end = last_space;
+                        }
                         break;
                     }
                     end = next;
-                    if (end < remaining.size() && (remaining[end] == ' ' || remaining[end] == '\t')) last_space = end;
+                    if (end < remaining.size() &&
+                        (remaining[end] == ' ' || remaining[end] == '\t')) {
+                        last_space = end;
+                    }
                 }
                 const auto line = remaining.substr(0, end);
-                AppendNoticeLine(static_cast<unsigned char>(font_palette), line, text_box, line_index++);
+                AppendNoticeLine(static_cast<unsigned char>(font_palette), line, text_box,
+                                 line_index++);
                 remaining.remove_prefix(end);
-                if (!remaining.empty() && remaining.front() == '\n') remaining.remove_prefix(1);
-                if (!remaining.empty()) g_level_block->text_lines[8 + text_box] = line_index == 1 ? line.size() : ~0U;
+                if (!remaining.empty() && remaining.front() == '\n') {
+                    remaining.remove_prefix(1);
+                }
+                if (!remaining.empty()) {
+                    g_level_block->text_lines[8 + text_box] = line_index == 1 ? line.size() : ~0U;
+                }
             }
         }
         if (g_status.quote_audit && g_notice_line_count > 7) {
@@ -472,23 +487,33 @@ unsigned char SaveMessageStorage(wiz8::File& file)
                     : 0;
             disk_record.font_palette = live_record->font_palette;
             disk_record.highlight_color = live_record->highlight_color;
-            disk_record.highlight_start = static_cast<unsigned char>(std::min<std::size_t>(255, wiz8::text::to_utf16(
-                std::string_view(live_record->text).substr(0, live_record->highlight_start)).size()));
-            disk_record.highlight_stop = static_cast<unsigned char>(std::min<std::size_t>(255, wiz8::text::to_utf16(
-                std::string_view(live_record->text).substr(0, live_record->highlight_stop)).size()));
+            disk_record.highlight_start = static_cast<unsigned char>(std::min<std::size_t>(
+                255,
+                wiz8::text::to_utf16(
+                    std::string_view(live_record->text).substr(0, live_record->highlight_start))
+                    .size()));
+            disk_record.highlight_stop = static_cast<unsigned char>(std::min<std::size_t>(
+                255, wiz8::text::to_utf16(
+                         std::string_view(live_record->text).substr(0, live_record->highlight_stop))
+                         .size()));
             disk_record.clock = static_cast<std::uint32_t>(live_record->clock);
             disk_record.saved_remaining_ms = live_record->saved_remaining_ms;
             disk_record.link = live_record->link;
-            disk_record.length = live_record->length < 0 ? -1 : static_cast<int>(
-                wiz8::text::to_utf16(std::string_view(live_record->text).substr(
-                    0, live_record->length)).size());
+            disk_record.length =
+                live_record->length < 0
+                    ? -1
+                    : static_cast<int>(
+                          wiz8::text::to_utf16(
+                              std::string_view(live_record->text).substr(0, live_record->length))
+                              .size());
             // Runtime word ranges are rebuilt after loading; disk pointer bits are unused.
             disk_record.serialized_entries_18_bits = 0;
             memcpy(disk_record.trailing_bytes, live_record->unknown_1c,
                    sizeof(disk_record.trailing_bytes));
             file.write(&disk_record, sizeof(disk_record));
             if (disk_record.character_count) {
-                std::vector<std::byte> bytes(static_cast<std::size_t>(disk_record.character_count) * 2);
+                std::vector<std::byte> bytes(static_cast<std::size_t>(disk_record.character_count) *
+                                             2);
                 wiz8::text::to_utf16le(live_record->text, bytes);
                 file.write(bytes.data(), bytes.size());
             }
@@ -505,8 +530,7 @@ unsigned char SaveMessageStorage(wiz8::File& file)
    zero without consuming a count slot. */
 // FUNCTION: WIZ8 0x0058FC30
 unsigned char LoadMessageStorage(wiz8::File& file)
-try
-{
+try {
     W8MessageStorageDiskRecord disk_record;
     W8MessageStorageRecord* live_record;
     int format;
@@ -521,7 +545,9 @@ try
         } else {
             file.read_exact(&g_status.text_box_lines_used[region], 4);
         }
-        if (g_status.text_box_lines_used[region] > 0x15e) return 0;
+        if (g_status.text_box_lines_used[region] > 0x15e) {
+            return 0;
+        }
         for (index = 0; index < g_status.text_box_lines_used[region]; ++index) {
             file.read_exact(&disk_record, sizeof(disk_record));
             live_record = &g_message_storage[region][index];
@@ -535,7 +561,9 @@ try
             live_record->length = disk_record.length;
             memcpy(live_record->unknown_1c, disk_record.trailing_bytes,
                    sizeof(live_record->unknown_1c));
-            if (disk_record.character_count > 100000) return 0;
+            if (disk_record.character_count > 100000) {
+                return 0;
+            }
             std::vector<std::byte> bytes(static_cast<std::size_t>(disk_record.character_count) * 2);
             file.read_exact(bytes.data(), bytes.size());
             auto decoded = wiz8::text::from_utf16le(bytes);
@@ -549,13 +577,16 @@ try
             };
             live_record->highlight_start = byte_offset(disk_record.highlight_start);
             live_record->highlight_stop = byte_offset(disk_record.highlight_stop);
-            if (disk_record.length >= 0) live_record->length = byte_offset(disk_record.length);
+            if (disk_record.length >= 0) {
+                live_record->length = byte_offset(disk_record.length);
+            }
             live_record->text = std::move(decoded);
         }
     }
     return 1;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 /* The selected wrapped-line start for one text box. NPC trade uses box 2. */
 // FUNCTION: WIZ8 0x0058fa60
@@ -585,7 +616,6 @@ void RedrawTextBox(void)
 {
     RequestRedraw(W8_MAIN_REDRAW_TEXT_BOX);
 }
-
 
 /* The font the main-game text box measures and draws with. */
 // FUNCTION: WIZ8 0x0058aa10
@@ -663,8 +693,7 @@ void ScrollDialogueTextBoxToLine(void)
    begins: a span ending before it recolours the previous row alone, one
    crossing it is cut in two, and one past it moves down by the split. */
 // FUNCTION: WIZ8 0x0058b410
-void HighlightTextBoxRange(unsigned char color, std::size_t start, std::size_t stop,
-                           short text_box)
+void HighlightTextBoxRange(unsigned char color, std::size_t start, std::size_t stop, short text_box)
 {
     W8MessageStorageRecord* line;
     W8MessageStorageRecord* previous;
@@ -808,8 +837,8 @@ int GetTextBoxVisibleLineCount(void)
 // FUNCTION: WIZ8 0x00590A40
 void PostCharacterNotice(int party_slot, std::string_view text, int context)
 {
-    const std::string_view separator = (text.starts_with("'") || text.starts_with(":"))
-                                          ? std::string_view{} : g_W8TextSeparator;
+    const std::string_view separator =
+        (text.starts_with("'") || text.starts_with(":")) ? std::string_view{} : g_W8TextSeparator;
     ShowNotice(W8_FONT_PALETTE_WHITE,
                fmt::format("{}{}{}", g_status.buffers.Char[party_slot].name, separator, text),
                context);
@@ -822,7 +851,6 @@ void PostCharacterNotice(int party_slot, std::string_view text, int context)
     }
     HighlightTextBoxRange(g_status.buffers.XChar[party_slot].party_order_index, 0, stop, context);
 }
-
 
 /* Retail expands this calculation at its callers and has no separate emission. */
 static unsigned int GetTextBoxLineCount(short text_box)
@@ -859,8 +887,8 @@ void AdvanceNoticeLine(short text_box)
     }
     W8MessageStorageRecord* record =
         &g_message_storage[text_box][g_status.text_box_lines_shown[text_box]];
-    unsigned int delay =
-        g_settings.text_display_delay_ms * (wiz8::text::grapheme_count(record->text) * 100 / 20 + 100) / 100;
+    unsigned int delay = g_settings.text_display_delay_ms *
+                         (wiz8::text::grapheme_count(record->text) * 100 / 20 + 100) / 100;
     if (delay > 60000) {
         delay = 60000;
     }
@@ -923,8 +951,7 @@ void ScrollTextBoxTo(int line)
         g_level_block->text_content_region =
             g_level_block->text_lines[text_box] != 0 ? kUpArrowEnabled : kUpArrowDisabled;
         g_level_block->dialogue_content_region =
-            g_level_block->text_lines[text_box] + GetTextBoxVisibleLineCount() <
-                    count + input_lines
+            g_level_block->text_lines[text_box] + GetTextBoxVisibleLineCount() < count + input_lines
                 ? kDownArrowEnabled
                 : kDownArrowDisabled;
         RedrawTextBox();
@@ -1012,8 +1039,8 @@ static void DrawDialogueTextCursor(int x, int y)
         x_offset = g_level_block->text_box_font->textWidth(input->first_line_prefix);
     }
     unsigned int start = input->line_offsets[line - 1];
-    x_offset +=
-        g_level_block->text_box_font->prefixWidth(std::string_view(input->text).substr(start), input->cursor - start);
+    x_offset += g_level_block->text_box_font->prefixWidth(
+        std::string_view(input->text).substr(start), input->cursor - start);
 
     int y_line = y + (line - hidden - 1) * 0xb;
     if (y_line < g_level_block->text_box_bottom) {
@@ -1023,7 +1050,7 @@ static void DrawDialogueTextCursor(int x, int y)
             y_end = bottom;
         }
         int x_cursor = x + x_offset + 1;
-        const SDL_Rect cursor{ x_cursor, y_line, 1, static_cast<int>(y_end - y_line + 1) };
+        const SDL_Rect cursor{x_cursor, y_line, 1, static_cast<int>(y_end - y_line + 1)};
         SDL_FillSurfaceRect(&GetFrameBufferSurface(), &cursor, 0xff00);
     }
 }
@@ -1039,20 +1066,24 @@ void DrawDialogueTextInputLines(int x, int y, unsigned int first_line)
     int maximum_width = 0;
     for (std::size_t line = first_line; line < input->line_offsets.size(); ++line) {
         auto start = input->line_offsets[line];
-        auto end = line + 1 < input->line_offsets.size() ? input->line_offsets[line + 1] : input->text.size();
+        auto end = line + 1 < input->line_offsets.size() ? input->line_offsets[line + 1]
+                                                         : input->text.size();
         auto text = std::string_view(input->text).substr(start, end - start);
         int draw_x = x;
         if (line == 0 && !input->first_line_prefix.empty()) {
-            DrawText(GetFrameBufferSurface(), *g_level_block->text_box_font, {draw_x, y}, input->first_line_prefix);
+            DrawText(GetFrameBufferSurface(), *g_level_block->text_box_font, {draw_x, y},
+                     input->first_line_prefix);
             draw_x += g_level_block->text_box_font->textWidth(input->first_line_prefix);
         }
         DrawText(GetFrameBufferSurface(), *g_level_block->text_box_font, {draw_x, y}, text);
-        maximum_width = std::max(maximum_width, draw_x - x + g_level_block->text_box_font->textWidth(text));
+        maximum_width =
+            std::max(maximum_width, draw_x - x + g_level_block->text_box_font->textWidth(text));
         y += 11;
-        if (y >= g_level_block->text_box_bottom) break;
+        if (y >= g_level_block->text_box_bottom) {
+            break;
+        }
     }
     InvalidateRegion(x, first_y, x + maximum_width, y, 0);
-
 }
 
 /* Repaint the dormant typed-dialogue editor over the text box: the wrapped
@@ -1134,13 +1165,18 @@ static void RewrapDialogueTextFromLine(unsigned int)
     auto last_break = std::size_t{0};
     for (std::size_t position = 0; position < input.text.size();) {
         auto end = wiz8::text::next_grapheme(input.text, position);
-        auto width = g_level_block->text_box_font->textWidth(std::string_view(input.text).substr(line_start, end - line_start));
-        if (line_start == 0) width += g_level_block->text_box_font->textWidth(input.first_line_prefix);
+        auto width = g_level_block->text_box_font->textWidth(
+            std::string_view(input.text).substr(line_start, end - line_start));
+        if (line_start == 0) {
+            width += g_level_block->text_box_font->textWidth(input.first_line_prefix);
+        }
         if (width > static_cast<int>(input.wrap_width) && position > line_start) {
             line_start = last_break > line_start ? last_break : position;
             input.line_offsets.push_back(line_start);
         }
-        if (input.text[position] == ' ') last_break = end;
+        if (input.text[position] == ' ') {
+            last_break = end;
+        }
         position = end;
     }
     input.line_count = input.line_offsets.size();
@@ -1149,7 +1185,9 @@ static void RewrapDialogueTextFromLine(unsigned int)
 // FUNCTION: WIZ8 0x0058D9C0
 static void InsertDialogueTextCharacter(char32_t character)
 {
-    if (!g_level_block->dialogue_text_input_open || !g_level_block->dialogue_text_input) return;
+    if (!g_level_block->dialogue_text_input_open || !g_level_block->dialogue_text_input) {
+        return;
+    }
     auto& input = *g_level_block->dialogue_text_input;
     std::string bytes;
     utf8::append(character, std::back_inserter(bytes));
@@ -1197,15 +1235,13 @@ unsigned char TextBoxScrollThumbRegionEvent(const InputEvent* input_event, W8Reg
     if (!IsLeftButtonHeld()) {
         g_level_block->text_scroll_drag_idle = 1;
         if (g_text_box_regions) {
-            ClearActiveRegionIfMatches(
-                TextBoxRegionIndex(TextBoxRegion::ScrollThumb));
+            ClearActiveRegionIfMatches(TextBoxRegionIndex(TextBoxRegion::ScrollThumb));
         }
         return 0;
     }
 
     if (g_text_box_regions) {
-        ActivateDialogRegion(
-            TextBoxRegionIndex(TextBoxRegion::ScrollThumb));
+        ActivateDialogRegion(TextBoxRegionIndex(TextBoxRegion::ScrollThumb));
     }
     int position = GetEventCursorY(input_event) - region->y1 - 1;
     if (position < 0) {
@@ -1243,7 +1279,8 @@ unsigned char TextBoxScrollUpRegionEvent(const InputEvent* event, W8Region* regi
         if (region->CaptureButtonDown(us_event)) {
             return 1;
         }
-        if (us_event != InputEventType::LeftButtonUp && us_event != InputEventType::LeftButtonRepeat) {
+        if (us_event != InputEventType::LeftButtonUp &&
+            us_event != InputEventType::LeftButtonRepeat) {
             return 0;
         }
         if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) == 0) {
@@ -1253,7 +1290,8 @@ unsigned char TextBoxScrollUpRegionEvent(const InputEvent* event, W8Region* regi
         ScrollTextBoxUp(1);
         return 1;
     } else {
-        if (us_event != InputEventType::RightButtonUp && us_event != InputEventType::RightButtonRepeat) {
+        if (us_event != InputEventType::RightButtonUp &&
+            us_event != InputEventType::RightButtonRepeat) {
             if (us_event != InputEventType::MouseMove) {
                 return 0;
             }
@@ -1294,7 +1332,8 @@ unsigned char TextBoxScrollDownRegionEvent(const InputEvent* event, W8Region* re
         if (region->CaptureButtonDown(us_event)) {
             return 1;
         }
-        if (us_event != InputEventType::LeftButtonUp && us_event != InputEventType::LeftButtonRepeat) {
+        if (us_event != InputEventType::LeftButtonUp &&
+            us_event != InputEventType::LeftButtonRepeat) {
             return 0;
         }
         if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
@@ -1302,7 +1341,8 @@ unsigned char TextBoxScrollDownRegionEvent(const InputEvent* event, W8Region* re
             return 1;
         }
     } else {
-        if (us_event != InputEventType::RightButtonUp && us_event != InputEventType::RightButtonRepeat) {
+        if (us_event != InputEventType::RightButtonUp &&
+            us_event != InputEventType::RightButtonRepeat) {
             if (us_event != InputEventType::MouseMove) {
                 return 0;
             }
@@ -1342,14 +1382,11 @@ unsigned char TextBoxBodyRegionEvent(const InputEvent* event, W8Region* region)
         }
         if (!gXStatus.fNpcDialogueMode) {
             if (gXStatus.fItemSelectMode) {
-                UseItemSelectTextBoxWheelAt(event->position.x,
-                                            event->position.y,
-                                            true);
+                UseItemSelectTextBoxWheelAt(event->position.x, event->position.y, true);
             }
             return 1;
         }
-        NpcDialogueTextBoxWheelAt(event->position.x,
-                                  event->position.y, true);
+        NpcDialogueTextBoxWheelAt(event->position.x, event->position.y, true);
         return 1;
     }
     if (gXStatus.fNpcDialogueMode) {
@@ -1425,10 +1462,13 @@ unsigned char HandleDialogueTextInput(const InputEvent* input_event)
     }
     W8DialogueTextState* input = g_level_block->dialogue_text_input;
     if (input_event->type == InputEventType::Text) {
-        if (input_event->text >= 32) InsertDialogueTextCharacter(input_event->text);
+        if (input_event->text >= 32) {
+            InsertDialogueTextCharacter(input_event->text);
+        }
         return 1;
     }
-    if (input_event->type != InputEventType::KeyDown && input_event->type != InputEventType::KeyRepeat) {
+    if (input_event->type != InputEventType::KeyDown &&
+        input_event->type != InputEventType::KeyRepeat) {
         return 1;
     }
     unsigned int key = input_event->key;
@@ -1483,8 +1523,8 @@ unsigned char HandleDialogueTextInput(const InputEvent* input_event)
         break;
     }
 
-    char character = TranslateKeyToCharacter(
-        static_cast<unsigned short>(key), static_cast<unsigned char>(input_event->modifiers));
+    char character = TranslateKeyToCharacter(static_cast<unsigned short>(key),
+                                             static_cast<unsigned char>(input_event->modifiers));
     if ((character >= '0' && character <= '9') || (character >= 'A' && character <= 'Z') ||
         (character >= 'a' && character <= 'z') || (character >= '!' && character <= '/') ||
         (character >= ':' && character <= '@') || (character >= '[' && character <= '_') ||
@@ -1523,11 +1563,18 @@ static void DrawNoticeWordOverlays(W8MessageStorageRecord* line, int x, int y);
 static void DrawTextBoxLine(W8MessageStorageRecord* line, int x, int y, bool hovered_line,
                             bool selected_line, bool skip_invalidate)
 {
-    if (skip_invalidate) { DrawNoticeWordOverlays(line, x, y); return; }
+    if (skip_invalidate) {
+        DrawNoticeWordOverlays(line, x, y);
+        return;
+    }
     auto text = std::string_view(line->text);
-    auto foreground = selected_line ? W8_FONT_PALETTE_BLUE : hovered_line ? W8_FONT_PALETTE_YELLOW : line->font_palette;
+    auto foreground = selected_line  ? W8_FONT_PALETTE_BLUE
+                      : hovered_line ? W8_FONT_PALETTE_YELLOW
+                                     : line->font_palette;
     auto set_palette = [&](unsigned int index) {
-        g_level_block->text_box_font->setPalette(index < W8_FONT_PALETTE_TEXT_BOX ? g_font_state_palettes[index] : g_level_block->palette);
+        g_level_block->text_box_font->setPalette(index < W8_FONT_PALETTE_TEXT_BOX
+                                                     ? g_font_state_palettes[index]
+                                                     : g_level_block->palette);
     };
     auto draw = [&](std::string_view span, unsigned int palette) {
         set_palette(palette);
@@ -1542,12 +1589,16 @@ static void DrawTextBoxLine(W8MessageStorageRecord* line, int x, int y, bool hov
         draw(visible.substr(0, start), foreground);
         draw(visible.substr(start, stop - start), line->highlight_color);
         draw(visible.substr(stop), foreground);
-    } else draw(visible, foreground);
+    } else {
+        draw(visible, foreground);
+    }
     if (line->length >= 0) {
         const auto suffix = text.substr(end);
         set_palette(foreground);
-        DrawTextAndInvalidate(GetFrameBufferSurface(), *g_level_block->text_box_font, {g_level_block->text_box_right -
-                              g_level_block->text_box_font->textWidth(suffix), y}, suffix);
+        DrawTextAndInvalidate(
+            GetFrameBufferSurface(), *g_level_block->text_box_font,
+            {g_level_block->text_box_right - g_level_block->text_box_font->textWidth(suffix), y},
+            suffix);
     }
     DrawNoticeWordOverlays(line, x, y);
 }
@@ -1627,8 +1678,7 @@ void RedrawTextBoxBody(bool skip_invalidate)
                     } else {
                         x = g_level_block->text_box_left +
                             ((g_level_block->text_box_right - g_level_block->text_box_left) / 2 -
-                             g_level_block->text_box_font->textWidth(line->text) /
-                                 2);
+                             g_level_block->text_box_font->textWidth(line->text) / 2);
                     }
                     DrawTextBoxLine(
                         line, x, g_level_block->text_box_top + y_offset,
@@ -1641,7 +1691,6 @@ void RedrawTextBoxBody(bool skip_invalidate)
         }
 
         g_level_block->text_box_font->setPalette(g_level_block->palette);
-
     }
 }
 
@@ -1667,21 +1716,23 @@ void RedrawTextBoxScrollChrome(void)
         scroll = g_level_block->text_lines[text_box];
         if (scroll == 0) {
             g_level_block->text_content_region = kUpArrowDisabled;
-        } else if (g_level_block->text_content_region ==
-                   kUpArrowDisabled) {
+        } else if (g_level_block->text_content_region == kUpArrowDisabled) {
             g_level_block->text_content_region = kUpArrowEnabled;
         }
 
         switch (g_level_block->text_content_region) {
         case kUpArrowEnabled:
-            CatalogArtwork::Load(0x86, 0).draw(GetFrameBufferSurface(), 0, g_level_block->text_box_right + 5, 0x16b);
+            CatalogArtwork::Load(0x86, 0).draw(GetFrameBufferSurface(), 0,
+                                               g_level_block->text_box_right + 5, 0x16b);
             break;
         case kUpArrowPressed:
-            CatalogArtwork::Load(0x86, 0).draw(GetFrameBufferSurface(), 1, g_level_block->text_box_right + 5, 0x16b);
+            CatalogArtwork::Load(0x86, 0).draw(GetFrameBufferSurface(), 1,
+                                               g_level_block->text_box_right + 5, 0x16b);
             break;
         case -1:
         case kUpArrowDisabled:
-            CatalogArtwork::Load(0x86, 0).draw(GetFrameBufferSurface(), 3, g_level_block->text_box_right + 5, 0x16b);
+            CatalogArtwork::Load(0x86, 0).draw(GetFrameBufferSurface(), 3,
+                                               g_level_block->text_box_right + 5, 0x16b);
             g_level_block->text_content_region = -1;
             break;
         }
@@ -1698,21 +1749,25 @@ void RedrawTextBoxScrollChrome(void)
 
         switch (g_level_block->dialogue_content_region) {
         case kDownArrowEnabled:
-            CatalogArtwork::Load(0x86, 0).draw(GetFrameBufferSurface(), 8, g_level_block->text_box_right + 5, 0x1ad);
+            CatalogArtwork::Load(0x86, 0).draw(GetFrameBufferSurface(), 8,
+                                               g_level_block->text_box_right + 5, 0x1ad);
             break;
         case kDownArrowPressed:
-            CatalogArtwork::Load(0x86, 0).draw(GetFrameBufferSurface(), 9, g_level_block->text_box_right + 5, 0x1ad);
+            CatalogArtwork::Load(0x86, 0).draw(GetFrameBufferSurface(), 9,
+                                               g_level_block->text_box_right + 5, 0x1ad);
             break;
         case -1:
         case kDownArrowDisabled:
-            CatalogArtwork::Load(0x86, 0).draw(GetFrameBufferSurface(), 0xb, g_level_block->text_box_right + 5, 0x1ad);
+            CatalogArtwork::Load(0x86, 0).draw(GetFrameBufferSurface(), 0xb,
+                                               g_level_block->text_box_right + 5, 0x1ad);
             g_level_block->dialogue_content_region = -1;
             break;
         }
 
         if (line_count > static_cast<unsigned int>(visible)) {
             thumb_y = static_cast<int>(scroll * 0x28 / (line_count - visible)) + 0x17b;
-            CatalogArtwork::Load(0x86, 0).draw(GetFrameBufferSurface(), 4, g_level_block->text_box_right + 5, thumb_y);
+            CatalogArtwork::Load(0x86, 0).draw(GetFrameBufferSurface(), 4,
+                                               g_level_block->text_box_right + 5, thumb_y);
         }
     }
 
@@ -1888,7 +1943,8 @@ static void DrawNoticeWordOverlay(const W8MessageStorageRecord* line, W8NoticeWo
 {
     std::string word_text;
     word_text = line->text.substr(word->start, word->end - word->start + 1);
-    DrawTextAndInvalidate(GetFrameBufferSurface(), *g_level_block->text_box_font, {word->x_start + x, y}, word_text);
+    DrawTextAndInvalidate(GetFrameBufferSurface(), *g_level_block->text_box_font,
+                          {word->x_start + x, y}, word_text);
     word->redraw = false;
 }
 
@@ -1899,8 +1955,8 @@ static void DrawNoticeWordOverlays(W8MessageStorageRecord* line, int x, int y)
         auto* word = &entry;
         if (word->keyword != W8_NOTICE_WORD_NORMAL) {
             Palette16 palette = word->keyword == W8_NOTICE_WORD_SELECTED
-                                          ? g_font_state_palettes[W8_FONT_PALETTE_BLUE]
-                                          : g_font_state_palettes[W8_FONT_PALETTE_YELLOW];
+                                    ? g_font_state_palettes[W8_FONT_PALETTE_BLUE]
+                                    : g_font_state_palettes[W8_FONT_PALETTE_YELLOW];
             g_level_block->text_box_font->setPalette(palette);
             DrawNoticeWordOverlay(line, word, x, y);
         }
@@ -1950,10 +2006,10 @@ static int GetNoticeLineLeft(int text_box, int line)
     if (g_status.text_line_cursor == 3 || !g_level_block->text_box_visible) {
         x_base = g_level_block->text_box_left;
     } else {
-        x_base = g_level_block->text_box_left +
-                 ((g_level_block->text_box_right - g_level_block->text_box_left) / 2 -
-                  g_level_block->text_box_font->textWidth(g_message_storage[text_box][line].text) /
-                      2);
+        x_base =
+            g_level_block->text_box_left +
+            ((g_level_block->text_box_right - g_level_block->text_box_left) / 2 -
+             g_level_block->text_box_font->textWidth(g_message_storage[text_box][line].text) / 2);
     }
     return x_base;
 }
@@ -2016,8 +2072,8 @@ std::string CopyNoticeWordText(const W8NoticeWord* word, int text_box, int line)
 // FUNCTION: WIZ8 0x00590b40
 void PostMonsterNotice(W8MonsterInfo* monster_info, std::string_view text)
 {
-    const std::string_view separator = (text.starts_with("'") || text.starts_with(":"))
-                                          ? std::string_view{} : g_W8TextSeparator;
+    const std::string_view separator =
+        (text.starts_with("'") || text.starts_with(":")) ? std::string_view{} : g_W8TextSeparator;
     ShowNotice(W8_FONT_PALETTE_RUST,
                fmt::format("{}{}{}", GetMonsterName(monster_info, 0, 0), separator, text));
 }

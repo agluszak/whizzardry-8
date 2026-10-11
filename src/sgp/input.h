@@ -70,7 +70,8 @@ enum class InputEventType : std::uint8_t {
 inline bool IsLeftButtonEvent(InputEventType type)
 {
     return type == InputEventType::LeftButtonDown || type == InputEventType::LeftButtonUp ||
-           type == InputEventType::LeftButtonDoubleClick || type == InputEventType::LeftButtonRepeat;
+           type == InputEventType::LeftButtonDoubleClick ||
+           type == InputEventType::LeftButtonRepeat;
 }
 
 struct InputEvent {
@@ -84,7 +85,10 @@ struct InputEvent {
     SDL_MouseButtonFlags buttons = 0;
     std::uint8_t clicks = 0;
 
-    bool IsKeyPress() const { return type == InputEventType::KeyDown || type == InputEventType::KeyRepeat; }
+    bool IsKeyPress() const
+    {
+        return type == InputEventType::KeyDown || type == InputEventType::KeyRepeat;
+    }
 };
 
 struct InputState {
@@ -107,11 +111,26 @@ void HandleInputEvent(const SDL_Event& event);
 void QueueEvent(InputEventType type, SDL_Point position, std::uint16_t key = 0);
 bool DequeueEvent(InputEvent* event);
 
-inline bool IsKeyHeld(std::uint16_t key) { return key < 256 && GetInputState().keys[key]; }
-inline bool IsLeftButtonHeld() { return GetInputState().left_button; }
-inline bool IsRightButtonHeld() { return GetInputState().right_button; }
-inline SDL_Point GetGameMousePosition() { return GetInputState().mouse; }
-inline void SetMouseMoveEventsEnabled(bool enabled) { GetInputState().mouse_move_events = enabled; }
+inline bool IsKeyHeld(std::uint16_t key)
+{
+    return key < 256 && GetInputState().keys[key];
+}
+inline bool IsLeftButtonHeld()
+{
+    return GetInputState().left_button;
+}
+inline bool IsRightButtonHeld()
+{
+    return GetInputState().right_button;
+}
+inline SDL_Point GetGameMousePosition()
+{
+    return GetInputState().mouse;
+}
+inline void SetMouseMoveEventsEnabled(bool enabled)
+{
+    GetInputState().mouse_move_events = enabled;
+}
 
 bool WarpGameMouse(SDL_Window* window, int x, int y);
 void FreeMouseCursor();

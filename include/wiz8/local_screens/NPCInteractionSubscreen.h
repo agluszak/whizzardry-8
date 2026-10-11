@@ -30,7 +30,9 @@ void HideNpcQuoteBubbleRegion();
 #include "wiz8/xstatus.h"
 #include "wiz8/dialog_code/PortraitQuote.h"
 
-namespace wiz8 { class File; }
+namespace wiz8 {
+class File;
+}
 
 /* Usability filters and the exclusive equipment categories in the trade UI.
    The category bits use the same positions as W8ItemEquipSlotGroup. */
@@ -287,8 +289,8 @@ void AddDialogueTranscriptKeyword(std::string_view name, signed char category);
 void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQuote* quote,
                               int quote_id, unsigned int font_palette);
 void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQuote* quote,
-                              int quote_id, unsigned int font_palette,
-                              W8QuoteNotice notice, int npc_kind);
+                              int quote_id, unsigned int font_palette, W8QuoteNotice notice,
+                              int npc_kind);
 void DrawNpcQuoteBubble(void);
 void LookAtDialogueNpc(void);
 void CloseNpcDialogueLayout(void);
