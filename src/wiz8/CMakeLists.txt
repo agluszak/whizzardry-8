@@ -13,6 +13,7 @@ add_library(WIZ8_GAME_CORE STATIC
     "../sgp/Button System.cpp"
     ../sgp/line.cpp
     ../sgp/himage.cpp
+    ../sgp/image_assets.cpp
     ../sgp/vobject_blitters.cpp
     ../sgp/shading.cpp
     ../sgp/Random.cpp

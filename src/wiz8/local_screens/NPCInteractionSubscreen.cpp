@@ -39,7 +39,6 @@
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/npc_script_file.h"
 #include "wiz8/npc_items.h"
-#include "wiz8/item_video_object_vector.h"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/layouts/item_tables.h"
@@ -2598,9 +2597,12 @@ void OpenNpcItemAssay(void)
         static_cast<W8TextControl*>(
             g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_24])
                 ->m_imageObject != -1 &&
-        static_cast<W8TextControl*>(
-            g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_24])
-                ->m_imageObject != 0x1ac) {
+        (static_cast<W8TextControl*>(
+             g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_24])
+                 ->m_imageIsItem ||
+         static_cast<W8TextControl*>(
+             g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_24])
+                 ->m_imageObject != 0x1ac)) {
         dialog = new W8AssayDialog(g_npc_interaction_state->trade_item,
                                    &g_status.buffers.Char[g_status.selected_character]);
         dialog->SetText("");
@@ -2718,9 +2720,8 @@ static void ShowSelectedNpcTradeItem(const W8ItemInstance* item)
 {
     std::string count_text;
     std::string_view text;
-    int image = g_item_video_objects.GetOrCreateVideoObject(item->iItemNo);
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_24])
-        ->SetImage(image);
+        ->SetItemImage(item->iItemNo);
     if (item->stack_count < 2) {
         text = "";
     } else {
@@ -3251,7 +3252,6 @@ W8ItemInstance* GetNpcTradeSlotItem(int index)
     std::string count_text;
     std::string_view text;
     W8Character* character;
-    int image;
     int hit;
     int slot;
 
@@ -3268,11 +3268,9 @@ W8ItemInstance* GetNpcTradeSlotItem(int index)
         if (character->EquippedItem[slot].iItemNo != -1 &&
             CanCharacterActivateItem(character, &character->EquippedItem[slot])) {
             if (index == hit) {
-                image = g_item_video_objects.GetOrCreateVideoObject(
-                    character->EquippedItem[slot].iItemNo);
                 static_cast<W8TextControl*>(
                     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_24])
-                    ->SetImage(image);
+                    ->SetItemImage(character->EquippedItem[slot].iItemNo);
                 if (character->EquippedItem[slot].stack_count < 2) {
                     text = "";
                 } else {
@@ -3294,11 +3292,9 @@ W8ItemInstance* GetNpcTradeSlotItem(int index)
         if (character->backpack[slot].iItemNo != -1 &&
             CanCharacterActivateItem(character, &character->backpack[slot])) {
             if (index == hit) {
-                image =
-                    g_item_video_objects.GetOrCreateVideoObject(character->backpack[slot].iItemNo);
                 static_cast<W8TextControl*>(
                     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_24])
-                    ->SetImage(image);
+                    ->SetItemImage(character->backpack[slot].iItemNo);
                 if (character->backpack[slot].stack_count < 2) {
                     text = "";
                 } else {

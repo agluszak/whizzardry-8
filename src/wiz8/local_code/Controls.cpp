@@ -25,6 +25,7 @@
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/video_object_catalog.h"
+#include "wiz8/item_video_object_vector.h"
 #include "Font.h"
 #include "input.h"
 #include "vsurface.h"
@@ -714,6 +715,7 @@ W8TextControl::W8TextControl()
     m_stateFlags = 0;
     m_layoutFlags = 0;
     m_alternateTextEnabled = false;
+    m_imageIsItem = false;
     m_imageObject = -1;
     m_imageFrame = -1;
     m_normalSprite = -1;
@@ -735,7 +737,12 @@ bool W8TextControl::MeasureText()
 
     if (m_imageObject != -1 && m_imageFrame != -1 &&
         ((handle = m_normalSprite) != -1 || (handle = m_pressedSprite) != -1)) {
-        std::tie(m_measured_w, m_measured_h) = GetCatalogImageSize(m_imageObject, m_imageFrame, handle);
+        if (m_imageIsItem)
+            std::tie(m_measured_w, m_measured_h) =
+                GetSpriteSize(g_item_video_objects.Sprites(m_imageObject), handle);
+        else
+            std::tie(m_measured_w, m_measured_h) =
+                GetCatalogImageSize(m_imageObject, m_imageFrame, handle);
         return true;
     }
     m_measured_w = -1;
@@ -762,6 +769,7 @@ W8TextControl::W8TextControl(Controls* panel, unsigned int region, int left, int
     m_alternateNormalSprite = alternate_normal_sprite;
     m_stateFlags = 0;
     m_alternateTextEnabled = false;
+    m_imageIsItem = false;
     m_imageObject = image_object;
     m_imageFrame = image_frame;
     m_normalSprite = normal_sprite;
@@ -866,7 +874,11 @@ void W8TextControl::Redraw(bool full_redraw)
         if (m_alternateTextEnabled) {
             short width;
             short height;
-            std::tie(width, height) = GetCatalogImageSize(m_imageObject, m_imageFrame, sprite);
+            if (m_imageIsItem)
+                std::tie(width, height) =
+                    GetSpriteSize(g_item_video_objects.Sprites(m_imageObject), sprite);
+            else
+                std::tie(width, height) = GetCatalogImageSize(m_imageObject, m_imageFrame, sprite);
             int x_inset = m_left - m_right + static_cast<unsigned short>(width);
             int y_inset = m_top - m_bottom + static_cast<unsigned short>(height);
             if (x_inset > 0) {
@@ -876,8 +888,12 @@ void W8TextControl::Redraw(bool full_redraw)
                 y += y_inset / 2;
             }
         }
-        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), m_imageObject, m_imageFrame, sprite, x, y,
-                                      VO_BLT_SRCTRANSPARENCY, 0);
+        if (m_imageIsItem)
+            DrawSpriteAndInvalidate(GetFrameBufferSurface(), g_item_video_objects.Sprites(m_imageObject),
+                                    sprite, x, y, VO_BLT_SRCTRANSPARENCY, 0);
+        else
+            DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), m_imageObject, m_imageFrame, sprite,
+                                          x, y, VO_BLT_SRCTRANSPARENCY, 0);
     }
 
     if (m_textBuffer.HasBuffer()) {
@@ -904,7 +920,12 @@ void W8TextControl::UpdateTextLayout()
     int absolute_right = m_pPanel->m_bounds.left + m_right;
     int absolute_bottom = m_pPanel->m_bounds.top + m_bottom;
     if (m_imageObject != -1 && m_imageFrame != -1) {
-        std::tie(measured_width, measured_height) = GetCatalogImageSize(m_imageObject, m_imageFrame, m_normalSprite);
+        if (m_imageIsItem)
+            std::tie(measured_width, measured_height) =
+                GetSpriteSize(g_item_video_objects.Sprites(m_imageObject), m_normalSprite);
+        else
+            std::tie(measured_width, measured_height) =
+                GetCatalogImageSize(m_imageObject, m_imageFrame, m_normalSprite);
         if ((m_layoutFlags & g_W8TextControlLayoutImageLeft) != 0) {
             absolute_left += 2 + static_cast<unsigned short>(measured_width);
         } else {

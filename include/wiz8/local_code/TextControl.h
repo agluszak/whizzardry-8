@@ -43,15 +43,27 @@ public:
     void SetImage(int object, int frame = 0)
     {
         m_imageObject = object;
+        m_imageIsItem = false;
         m_measured_w = -1;
         m_measured_h = -1;
         m_imageFrame = frame;
         m_normalSprite = 0;
         m_pressedSprite = 0;
     }
+    void SetItemImage(int item_id)
+    {
+        m_imageObject = item_id;
+        m_imageIsItem = true;
+        m_measured_w = -1;
+        m_measured_h = -1;
+        m_imageFrame = 0;
+        m_normalSprite = 0;
+        m_pressedSprite = 0;
+    }
     void ClearImage()
     {
         m_imageObject = -1;
+        m_imageIsItem = false;
         m_measured_w = -1;
         m_measured_h = -1;
         m_imageFrame = -1;
@@ -90,7 +102,8 @@ public:
     unsigned int m_stateFlags;   /* paired state masks */
     unsigned int m_layoutFlags;  /* layout and input behavior masks */
     bool m_alternateTextEnabled; /* alternate text-selection flag */
-    unsigned char pad_3d[3];
+    bool m_imageIsItem;
+    unsigned char pad_3e[2];
     int m_imageObject;
     int m_imageFrame;
     int m_normalSprite;
