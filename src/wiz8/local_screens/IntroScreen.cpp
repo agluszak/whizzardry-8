@@ -13,7 +13,6 @@
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/filesystem.h"
-#include "english.h"
 #include "input.h"
 
 /* Local Screens\IntroScreen.cpp is named by the gpVideo assertion at line 98.
