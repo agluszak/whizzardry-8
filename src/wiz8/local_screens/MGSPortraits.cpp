@@ -806,10 +806,9 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
                         GetFrameBufferSurface(), g_empty_hand_catalog_ids[character->iRace * W8_RACE_DWARF], 0,
                         0, band_menu_edge + 4, menu_y + 0x17, VO_BLT_SRCTRANSPARENCY, 0);
                 } else {
-                    DrawCatalogImage(GetFrameBufferSurface(),
-                                     g_item_video_objects.GetOrCreateVideoObject(main_hand_item_id),
-                                     0, 2, band_menu_edge + 3, menu_y + 0x17,
-                                     VO_BLT_SRCTRANSPARENCY, 0);
+                    DrawSprite(GetFrameBufferSurface(),
+                               g_item_video_objects.Sprites(main_hand_item_id), 2,
+                               band_menu_edge + 3, menu_y + 0x17, VO_BLT_SRCTRANSPARENCY, 0);
                     if (character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].stack_count != 0) {
                         text = fmt::format(
                             "{:d}",
@@ -832,10 +831,9 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
                             g_empty_hand_catalog_ids[character->iRace * W8_RACE_DWARF + 1], 0, 0,
                             band_menu_edge + 4, menu_y + 0x2f, VO_BLT_SRCTRANSPARENCY, 0);
                     } else {
-                        DrawCatalogImage(
-                            GetFrameBufferSurface(),
-                            g_item_video_objects.GetOrCreateVideoObject(off_hand_item_id), 0, 2,
-                            band_menu_edge + 3, menu_y + 0x2f, VO_BLT_SRCTRANSPARENCY, 0);
+                        DrawSprite(GetFrameBufferSurface(),
+                                   g_item_video_objects.Sprites(off_hand_item_id), 2,
+                                   band_menu_edge + 3, menu_y + 0x2f, VO_BLT_SRCTRANSPARENCY, 0);
                         if (character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].stack_count !=
                             0) {
                             text = fmt::format(

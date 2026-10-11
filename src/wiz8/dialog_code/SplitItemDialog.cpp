@@ -335,9 +335,9 @@ void W8SplitItemDialog::Draw()
         W8DialogBase::Draw();
     }
     if (m_first_draw) {
-        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(),
-                                      g_item_video_objects.GetOrCreateVideoObject(m_item->iItemNo),
-                                      0, 0, m_x + 0x18, m_y + 0xe, VO_BLT_SRCTRANSPARENCY, 0);
+        DrawSpriteAndInvalidate(GetFrameBufferSurface(),
+                                g_item_video_objects.Sprites(m_item->iItemNo), 0, m_x + 0x18,
+                                m_y + 0xe, VO_BLT_SRCTRANSPARENCY, 0);
         m_first_draw = false;
     }
     if (m_buttons[3]->m_dirty) {

@@ -904,8 +904,7 @@ void UpdateUseItemDetailPanel(W8ItemInstance* item)
     short count;
     bool charges = false;
 
-    g_use_item_select_controls[0]->SetImage(
-        g_item_video_objects.GetOrCreateVideoObject(item->iItemNo));
+    g_use_item_select_controls[0]->SetItemImage(item->iItemNo);
     count = 0;
     switch (g_item_records[item->iItemNo].quantity_kind) {
     case W8_ITEM_QUANTITY_STACK:
