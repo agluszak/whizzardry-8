@@ -2,13 +2,11 @@
 #include <fmt/format.h>
 #include <memory>
 #include <wiz8/filesystem.h>
-#include <SDL3/SDL_filesystem.h>
 #include <SDL3/SDL_rect.h>
 #include <string_view>
 #include <string>
 #include <cctype>
 #include <cstring>
-#include <optional>
 
 #include "wiz8/containers.h"
 #include "soundman.h"
