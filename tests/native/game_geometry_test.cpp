@@ -19,6 +19,7 @@
 #include <utility>
 
 #include "glm/geometric.hpp"
+#include "glm/ext/vector_float2.hpp"
 #include "surrender_test_fixture.h"
 #include "surrender/srBoundingBox.h"
 #include "surrender/srMaterial.h"
@@ -41,6 +42,8 @@
 #include "wiz8/direction_angles.h"
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/GameData.h"
+#include "wiz8/engine_code/Item.h"
+#include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/OctBuildPreTree.h"
 #include "wiz8/engine_code/OctBuildTree.h"
 #include "wiz8/engine_code/materials.h"
@@ -969,4 +972,78 @@ TEST_CASE("Swept query coordinates retain negative-cell policy and complete offs
     REQUIRE(lower.offset == glm::vec3(-0.5f));
     REQUIRE(lower.inside);
     REQUIRE(tree.projectRegionsAt({101, 50, 50}).cell == glm::ivec3(1, 0, 0));
+}
+
+TEST_CASE("Spatial bounds are independent snapshots of working and clipped extents", "[geometry][octree]")
+{
+    W8OctSpatialState state;
+    const srVector3 minimum(-30, -20, -10), maximum(10, 20, 30);
+    state.SetWorkingBounds(&minimum, &maximum);
+    state.m_clipped_minimum = {-3, -2, -1};
+    state.m_clipped_maximum = {1, 2, 3};
+    const auto working = state.GetWorkingBounds();
+    auto clipped = state.GetClippedBounds();
+    REQUIRE(working.minimum == minimum.glmValue());
+    REQUIRE(working.maximum == maximum.glmValue());
+    REQUIRE(clipped.minimum == glm::vec3(-3, -2, -1));
+    REQUIRE(clipped.maximum == glm::vec3(1, 2, 3));
+    clipped.minimum = glm::vec3(0);
+    REQUIRE(state.GetClippedBounds().minimum == glm::vec3(-3, -2, -1));
+    state.Reset();
+    REQUIRE(state.GetWorkingBounds().minimum == glm::vec3(0));
+    REQUIRE(state.GetClippedBounds().maximum == glm::vec3(0));
+    REQUIRE(working.minimum == minimum.glmValue());
+}
+
+TEST_CASE("Item bounds preserve local extents and report absent world items", "[geometry][item]")
+{
+    W8Item item;
+    auto* rep = static_cast<W8ItemRep*>(item.m_pRep);
+    rep->m_psrMesh = nullptr;
+    rep->bounds_minimum = {-5, -3, -1};
+    rep->bounds_maximum = {7, 9, 11};
+    rep->bounds_radius = 12;
+    rep->location = {100, 200, 300};
+
+    const auto local = item.GetCachedLocalBounds();
+    const auto radius = item.GetBoundsRadius();
+    auto world = GetItemWorldBounds(&item);
+    REQUIRE(world);
+    REQUIRE(local.minimum == glm::vec3(-5, -3, -1));
+    REQUIRE(local.maximum == glm::vec3(7, 9, 11));
+    REQUIRE(radius == 12);
+    REQUIRE(world->minimum == glm::vec3(95, 197, 299));
+    REQUIRE(world->maximum == glm::vec3(107, 209, 311));
+    world->minimum = glm::vec3(0);
+    REQUIRE(item.GetCachedLocalBounds().minimum == local.minimum);
+    REQUIRE(GetItemWorldBounds(&item)->minimum == glm::vec3(95, 197, 299));
+
+    srVector3 search;
+    REQUIRE(item.GetSearchPosition(&search));
+    REQUIRE(close(search.glmValue(), {100, 207.92f, 300}));
+    rep->bounds_minimum = glm::vec3(0);
+    rep->bounds_radius = 0;
+    REQUIRE(item.GetCachedLocalBounds().minimum == glm::vec3(0));
+    REQUIRE(item.GetBoundsRadius() == 0);
+    REQUIRE(local.minimum == glm::vec3(-5, -3, -1));
+    REQUIRE(radius == 12);
+    REQUIRE_FALSE(GetItemWorldBounds(nullptr));
+}
+
+TEST_CASE("Viewport bounds normalize each edge into an independent value", "[geometry][viewport]")
+{
+    struct RestoreViewport {
+        W8ViewportRect saved = g_viewport;
+        ~RestoreViewport() { g_viewport = saved; }
+    } restore;
+    g_viewport = {80, 60, 560, 420};
+    const auto bounds = GetScaledViewportBounds();
+    REQUIRE(glm::length(bounds.minimum - glm::vec2(0.125f)) < 1e-6f);
+    REQUIRE(glm::length(bounds.maximum - glm::vec2(0.875f)) < 1e-6f);
+    g_viewport = {-80, -60, 720, 540};
+    const auto outside = GetScaledViewportBounds();
+    REQUIRE(glm::length(outside.minimum - glm::vec2(-0.125f)) < 1e-6f);
+    REQUIRE(glm::length(outside.maximum - glm::vec2(1.125f)) < 1e-6f);
+    REQUIRE(glm::length(bounds.minimum - glm::vec2(0.125f)) < 1e-6f);
+    REQUIRE(glm::length(bounds.maximum - glm::vec2(0.875f)) < 1e-6f);
 }

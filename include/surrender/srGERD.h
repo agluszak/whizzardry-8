@@ -15,6 +15,7 @@
 #include "srTypeRegistry.h"
 #include "srVertexPipe.h"
 #include "srMath.h"
+#include "srModel.h"
 #include "srShader.h"
 #include "srFlags.h"
 
@@ -436,8 +437,8 @@ public:
     e_matrixMode getMatrixMode() const;
     glm::mat4 getMatrix();
     glm::mat4 getMatrix(e_matrixMode mode);
-    void getEyeSpaceBounds(glm::vec3& center, float& radius, const glm::vec3& object_center,
-                           float object_radius);
+    srModel::BoundingSphere getEyeSpaceBounds(const glm::vec3& object_center,
+                                             float object_radius);
     glm::vec4 getEyeSpaceLocation(const glm::vec3& object_location);
     void pushVertexProcessor(srVertexProcessor& processor);
     void popVertexProcessor();
@@ -522,10 +523,6 @@ public:
     void loadMatrix(const glm::mat4& matrix);
     void loadMatrix(const glm::dmat3& matrix);
     void loadMatrix(const glm::mat3& matrix);
-    void getScissor(w8_ulong& x, w8_ulong& y, w8_ulong& width,
-                    w8_ulong& height) const;
-    void getViewPort(w8_ulong& x, w8_ulong& y, w8_ulong& width,
-                     w8_ulong& height) const;
     void pushEnvironment();
     void popEnvironment();
     void setEnvironmentRange(float minimum, float maximum);

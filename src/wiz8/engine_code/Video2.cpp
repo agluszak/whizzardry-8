@@ -3144,12 +3144,10 @@ void DrawBufferLine(w8_long x0, w8_long y0, w8_long x1, w8_long y1, w8_ulong* pi
 }
 
 // FUNCTION: WIZ8 0x004273F0
-void GetScaledViewportBounds(glm::vec2* left_top, glm::vec2* right_bottom)
+ViewportBounds GetScaledViewportBounds()
 {
-    left_top->x = g_viewport.left * g_viewport_x_scale;
-    left_top->y = g_viewport.top * g_viewport_y_scale;
-    right_bottom->x = g_viewport.right * g_viewport_x_scale;
-    right_bottom->y = g_viewport.bottom * g_viewport_y_scale;
+    return {{g_viewport.left * g_viewport_x_scale, g_viewport.top * g_viewport_y_scale},
+            {g_viewport.right * g_viewport_x_scale, g_viewport.bottom * g_viewport_y_scale}};
 }
 
 // FUNCTION: WIZ8 0x004277F0

@@ -27,6 +27,7 @@
 #include "glm/matrix.hpp"
 #include "glm/vector_relational.hpp"
 #include "surrender/srMath.h"
+#include "surrender/srModel.h"
 #include "surrender/srGERD.h"
 #include "surrender/srColorSurface.h"
 #include "surrender/srCore.h"
@@ -2143,26 +2144,6 @@ void srGERD::applyClipPlaneChanges()
     dirty &= ~DIRTY_CLIP_PLANES;
 }
 
-// FUNCTION: SURRENDER 0x1001D4E0
-void srGERD::getScissor(w8_ulong& x, w8_ulong& y, w8_ulong& width,
-                        w8_ulong& height) const
-{
-    x = state.scissor.left;
-    y = state.scissor.top;
-    width = state.scissor.right - state.scissor.left;
-    height = state.scissor.bottom - state.scissor.top;
-}
-
-// FUNCTION: SURRENDER 0x1001D530
-void srGERD::getViewPort(w8_ulong& x, w8_ulong& y, w8_ulong& width,
-                         w8_ulong& height) const
-{
-    x = state.view_left;
-    y = state.view_top;
-    width = state.view_right - state.view_left;
-    height = state.view_bottom - state.view_top;
-}
-
 // FUNCTION: SURRENDER 0x1001C010
 void srGERD::pushClipPlane(const glm::vec4& plane, e_clipMode mode)
 {
@@ -2351,11 +2332,11 @@ glm::vec4 srGERD::getEyeSpaceLocation(const glm::vec3& object_location)
 }
 
 // FUNCTION: SURRENDER 0x1001DDF0
-void srGERD::getEyeSpaceBounds(glm::vec3& center, float& radius, const glm::vec3& object_center,
-                               float object_radius)
+srModel::BoundingSphere srGERD::getEyeSpaceBounds(const glm::vec3& object_center,
+                                                 float object_radius)
 {
-    center = glm::vec3(getEyeSpaceLocation(object_center));
-    radius = object_radius * state.max_modelview_scale;
+    const auto center = glm::vec3(getEyeSpaceLocation(object_center));
+    return {center, object_radius * state.max_modelview_scale};
 }
 
 // FUNCTION: SURRENDER 0x1001B570

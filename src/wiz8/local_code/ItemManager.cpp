@@ -1021,8 +1021,6 @@ unsigned char ReleaseItemLists(void)
 bool IsWorldItemWithinReach(W8Item* owner, const srVector3T<float>* from, float radius)
 {
     srVector3T<float> position;
-    srVector3T<float> lower;
-    srVector3T<float> upper;
     srVector3T<float> eye;
 
     owner->m_pRep->GetLocation(&position);
@@ -1030,9 +1028,9 @@ bool IsWorldItemWithinReach(W8Item* owner, const srVector3T<float>* from, float 
 
     srVector3T<float> delta = position - *from;
     if (delta.Length() < radius) {
-        owner->GetCachedLocalBounds(&lower, &upper);
-        lower += position;
-        upper += position;
+        const auto bounds = owner->GetCachedLocalBounds();
+        const srVector3T<float> lower(bounds.minimum + position.glmValue());
+        const srVector3T<float> upper(bounds.maximum + position.glmValue());
         if (ShowTargetMarker(&eye, &lower, &upper)) {
             return true;
         }
@@ -1049,15 +1047,13 @@ static bool IsWorldItemMarkerVisible(W8WorldItem* item, const srVector3T<float>&
     if (item->p3D != 0) {
         srVector3T<float> position;
         srVector3T<float> eye;
-        srVector3T<float> lower;
-        srVector3T<float> upper;
         item->p3D->m_pRep->GetLocation(&position);
         eye = cameraLocation();
         srVector3T<float> delta = position - camera;
         if (delta.Length() < static_cast<float>(g_double_twenty_five_hundred)) {
-            item->p3D->GetCachedLocalBounds(&lower, &upper);
-            lower += position;
-            upper += position;
+            const auto bounds = item->p3D->GetCachedLocalBounds();
+            const srVector3T<float> lower(bounds.minimum + position.glmValue());
+            const srVector3T<float> upper(bounds.maximum + position.glmValue());
             return ShowTargetMarker(&eye, &lower, &upper) != 0;
         }
     }

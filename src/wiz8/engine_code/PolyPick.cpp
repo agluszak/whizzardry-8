@@ -88,16 +88,12 @@ float MonsterDistanceToCamera(W8World* world, W8Monster* monster)
 // FUNCTION: WIZ8 0x004BE7C0
 float ItemDistanceToCamera(W8World* world, W8Item* item)
 {
-    srVector3T<float> lower;
-    srVector3T<float> upper;
-    if (!item->GetCachedLocalBounds(&lower, &upper)) {
-        return -1.0f;
-    }
+    const auto bounds = item->GetCachedLocalBounds();
     srVector3T<double> camera = world->camera->getLocation();
     srVector3T<float> camera_location;
     camera_location = glm::vec3(camera.glmValue());
     srVector3T<float> center = item->m_pRep->location;
-    center.z += (upper.z - lower.z) * 0.5f;
+    center.z += (bounds.maximum.z - bounds.minimum.z) * 0.5f;
     return (camera_location - center).Length();
 }
 

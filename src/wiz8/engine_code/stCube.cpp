@@ -317,11 +317,9 @@ void DrawWorldBox(W8World* world, srVector3T<float> minimum, srVector3T<float> m
     corners[6].Set(maximum.x, maximum.y, maximum.z);
     corners[7].Set(maximum.x, maximum.y, minimum.z);
 
-    glm::vec2 viewport_minimum;
-    glm::vec2 viewport_maximum;
-    GetScaledViewportBounds(&viewport_minimum, &viewport_maximum);
-    float viewport_width = viewport_maximum.x - viewport_minimum.x;
-    float viewport_height = viewport_maximum.y - viewport_minimum.y;
+    const auto viewport = GetScaledViewportBounds();
+    float viewport_width = viewport.maximum.x - viewport.minimum.x;
+    float viewport_height = viewport.maximum.y - viewport.minimum.y;
 
     w8_long screen[8][2];
     for (int index = 0; index < 8; ++index) {
@@ -332,9 +330,9 @@ void DrawWorldBox(W8World* world, srVector3T<float> minimum, srVector3T<float> m
             return;
         }
         screen[index][0] =
-            static_cast<w8_long>((projected.x * viewport_width + viewport_minimum.x) * 640.0f);
+            static_cast<w8_long>((projected.x * viewport_width + viewport.minimum.x) * 640.0f);
         screen[index][1] =
-            static_cast<w8_long>((projected.y * viewport_height + viewport_minimum.y) * 480.0f);
+            static_cast<w8_long>((projected.y * viewport_height + viewport.minimum.y) * 480.0f);
         if (screen[index][0] < 0 || screen[index][0] > 640 || screen[index][1] < 0 ||
             screen[index][1] > 480) {
             return;

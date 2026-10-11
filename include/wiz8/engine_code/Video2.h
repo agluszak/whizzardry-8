@@ -251,7 +251,11 @@ void SetWorldScaledViewport(int left, int top, int right, int bottom);
    through it. */
 void SetAutomapScaledViewport(int left, int top, int right, int bottom);
 /* Read the stored pixel viewport back out in normalized 0..1 scale. */
-void GetScaledViewportBounds(glm::vec2* left_top, glm::vec2* right_bottom);
+struct ViewportBounds {
+    glm::vec2 minimum;
+    glm::vec2 maximum;
+};
+ViewportBounds GetScaledViewportBounds();
 /* Lock the primary GERD buffer and emit one debug wireframe line. */
 void DrawBufferLine(w8_long x0, w8_long y0, w8_long x1, w8_long y1, w8_ulong* pixel);
 unsigned char InitializeRendererSceneObjects(void);

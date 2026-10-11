@@ -3,6 +3,7 @@
 #include <cstdio>
 #include <string_view>
 #include <thread>
+#include "glm/ext/vector_float3.hpp"
 
 #include "surrender/srClock.h"
 #include "surrender/srCore.h"
@@ -25,6 +26,20 @@ TEST_CASE("renderer platform")
         {
             auto* device = srCreateSDLGPUDevice();
             srGERD gerd(device, "SDLGPU");
+            gerd.matrixMode(srGERD::MATRIX_MODELVIEW);
+            gerd.loadIdentity();
+            const auto sphere = gerd.getEyeSpaceBounds({1, 2, 3}, 2);
+            REQUIRE(sphere.center == glm::vec3(1, 2, 3));
+            REQUIRE(sphere.radius == 2);
+            gerd.translate(5, 6, 7);
+            gerd.scale(2, -3, 4);
+            const auto scaled = gerd.getEyeSpaceBounds({1, 2, 3}, 2);
+            REQUIRE(scaled.center == glm::vec3(7, 0, 19));
+            REQUIRE(scaled.radius == 8);
+            REQUIRE(gerd.getEyeSpaceBounds({0, 0, 0}, 0).radius == 0);
+            REQUIRE(sphere.center == glm::vec3(1, 2, 3));
+            REQUIRE(sphere.radius == 2);
+            gerd.loadIdentity();
             const auto info = device->getInfo();
             REQUIRE(info.max_back_buffer_width == 8192);
             REQUIRE(info.max_back_buffer_height == 8192);

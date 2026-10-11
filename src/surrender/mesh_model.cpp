@@ -1299,9 +1299,7 @@ void srTriMeshPipeline::FlushSlots()
         bounds_radius = glm::distance(bounds_center, bounds_minimum) * 1.001f;
     }
 
-    glm::vec3 eye_center;
-    float eye_radius;
-    this->renderer->getEyeSpaceBounds(eye_center, eye_radius, bounds_center, bounds_radius);
+    const auto eye_bounds = this->renderer->getEyeSpaceBounds(bounds_center, bounds_radius);
     const auto model_view = this->renderer->getMatrix(srGERD::MATRIX_MODELVIEW);
     const auto inverse_model_view = this->renderer->getInverseModelViewMatrix();
     const auto clip_planes = this->renderer->getClipPlanes();
@@ -1330,7 +1328,7 @@ void srTriMeshPipeline::FlushSlots()
         culler_input.clip_mask = 0;
     } else {
         const auto clip = srTriangleCuller::getClipMask(
-            eye_center, eye_radius, clip_planes.planes, clip_planes.mask);
+            eye_bounds.center, eye_bounds.radius, clip_planes.planes, clip_planes.mask);
         const bool retain_clip_mask =
             clip.mask != 0 && ((clip.mask & 0xffffffc0UL) != 0 ||
                                (slot_count * triangle_count > 45 && clip.depth > 0.23f));
@@ -1437,8 +1435,8 @@ void srTriMeshPipeline::FlushSlots()
             pipe_input.direct_vertex_indices = culler_output.linear == 0;
             pipe_input.positions = positions;
             pipe_input.normals = vertex_extras;
-            pipe_input.eye_center = eye_center;
-            pipe_input.eye_radius = eye_radius;
+            pipe_input.eye_center = eye_bounds.center;
+            pipe_input.eye_radius = eye_bounds.radius;
             pipe_input.model_view = &model_view;
             pipe_input.normal_matrix = &normal_matrix;
             pipe_input.vertex_arrays = &this->vertex_arrays[0];

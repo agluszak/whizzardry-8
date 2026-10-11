@@ -6661,15 +6661,14 @@ void SetCombatTarget(int value)
         } else {
             W8WorldItem* item = ItemInfo(ItemIndex(value));
             if (item != 0) {
-                srVector3T<float> minimum;
-                srVector3T<float> maximum;
-                srVector3T<float> camera;
-
-                GetItemWorldBounds(item->p3D, &minimum, &maximum);
-                camera = cameraLocation();
-                if (TraceLineOfSightToBounds(&camera, &minimum, &maximum) != 0) {
-                    g_level_block->selected_item = value;
-                    SetWorldItemHighlight(value, true);
+                if (const auto bounds = GetItemWorldBounds(item->p3D)) {
+                    srVector3T<float> minimum(bounds->minimum);
+                    srVector3T<float> maximum(bounds->maximum);
+                    const srVector3T<float> camera(cameraLocation());
+                    if (TraceLineOfSightToBounds(&camera, &minimum, &maximum) != 0) {
+                        g_level_block->selected_item = value;
+                        SetWorldItemHighlight(value, true);
+                    }
                 }
             }
         }
