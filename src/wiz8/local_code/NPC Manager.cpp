@@ -80,6 +80,14 @@
 #include "surrender/srMath.h"
 #include "wiz8/npc_interaction.h"
 
+static bool ProbeNpcPlacementNearParty(int party_slot, int mode, srVector3T<float>* position_out);
+static bool InitializeNpcCharacter(W8NpcState* npc, W8Character* character);
+static void InitializeNpcItemTable(W8NpcState* npc);
+static bool RestoreNpcMonster(W8NpcState* npc, const char* entity_name);
+static bool SaveNpcItemLists(wiz8::File& file);
+static bool LoadNpcItemLists(wiz8::File& file);
+static bool NpcOffersService(W8NpcState* npc, unsigned int service_id);
+
 #define NPC_MANAGER_CPP "C:\\Projects\\Wizardry 8\\Local Code\\NPC Manager.cpp"
 
 enum { W8_NPC_TOPIC_SLOTS = 5, W8_NPC_FACT_SLOTS = 14 };
@@ -121,7 +129,7 @@ bool NpcRecordHasTradePool(W8NpcState* npc)
    static or the faction holds nothing toward the party; a factioned NPC whose
    allied faction a living front-rank party RPC shares answers fifty. */
 // FUNCTION: WIZ8 0x0050A280
-char GetNpcDisposition(W8NpcState* npc)
+static char GetNpcDisposition(W8NpcState* npc)
 {
     char disposition = npc->disposition;
     char faction_disposition;
@@ -419,7 +427,7 @@ bool NpcWantsItem(W8NpcState* npc, W8ItemInstance* item)
 }
 
 // FUNCTION: WIZ8 0x0050ddc0
-void ReturnDismissedNpcItems(W8NpcState* npc, W8Character* character)
+static void ReturnDismissedNpcItems(W8NpcState* npc, W8Character* character)
 {
     bool returned = false;
     bool dropped = false;
@@ -778,7 +786,7 @@ bool CanNpcJoinParty(W8NpcState* npc)
 /* Whether the NPC offers one service. The service id is looked up in a table
    that pairs it with its bit, so the ids need not be contiguous. */
 // FUNCTION: WIZ8 0x0050c9e0
-bool NpcOffersService(W8NpcState* npc, unsigned int service_id)
+static bool NpcOffersService(W8NpcState* npc, unsigned int service_id)
 {
     int row = 0;
 
@@ -1062,7 +1070,7 @@ void ChooseNewGameStartLocation(int* level, int* entrance)
    kind-0x8c greeter with the camera swung onto its head — and anything else
    falls back to the kind-0x18 greeter. */
 // FUNCTION: WIZ8 0x00509560
-void SelectStartNpcGreeting(void)
+static void SelectStartNpcGreeting(void)
 {
     W8Monster* monster;
     W8NpcState* npc;
@@ -1203,7 +1211,7 @@ catch (const std::exception&) { return false; }
 /* The stock-list tail of the NPCT section: for every NPC state the entry
    count, then each 0x14-byte stock entry in list order. */
 // FUNCTION: WIZ8 0x0050AA10
-bool SaveNpcItemLists(wiz8::File& file)
+static bool SaveNpcItemLists(wiz8::File& file)
 try
 {
     for (std::size_t npc_index = 0; npc_index < g_npc_states.size(); ++npc_index) {
@@ -1313,7 +1321,7 @@ void BindNpcToMonster(unsigned char npc_id, bool has_monster, int location_id)
    the name, profession and starting level, attributes, skills, known spells
    and worn/carried items, then the derived passes a level advance settles. */
 // FUNCTION: WIZ8 0x0050aed0
-bool InitializeNpcCharacter(W8NpcState* npc, W8Character* character)
+static bool InitializeNpcCharacter(W8NpcState* npc, W8Character* character)
 {
     W8NpcDatabaseRecord* record = npc->record;
     W8NpcCharacterTemplate* source;
@@ -1391,7 +1399,7 @@ bool InitializeNpcCharacter(W8NpcState* npc, W8Character* character)
    whose table id is zero or past the table database keeps the -1 ids and
    leaves the dice untouched. */
 // FUNCTION: WIZ8 0x0050b9e0
-void InitializeNpcItemTable(W8NpcState* npc)
+static void InitializeNpcItemTable(W8NpcState* npc)
 {
     unsigned int index;
 
@@ -1534,7 +1542,7 @@ static void DestroyNpcItemList(std::vector<W8NpcItemEntry*>* items)
 
 /* Stage all stock lists before replacing any live NPC's inventory. */
 // FUNCTION: WIZ8 0x0050AAF0
-bool LoadNpcItemLists(wiz8::File& file)
+static bool LoadNpcItemLists(wiz8::File& file)
 try
 {
     using ItemListOwner = std::unique_ptr<std::vector<W8NpcItemEntry*>, decltype(&DestroyNpcItemList)>;
@@ -1762,7 +1770,7 @@ void ApplyNpcInteraction(W8NpcState* npc, int kind, int value, W8ItemInstance* i
    item is offered - its weight and price penalties, all scaled by the
    character's difficulty. */
 // FUNCTION: WIZ8 0x0050BAF0
-char ScoreNpcTheft(W8Character* character, W8NpcState* npc, int item_id, int count)
+static char ScoreNpcTheft(W8Character* character, W8NpcState* npc, int item_id, int count)
 {
     W8ItemInstance item;
     int score;
@@ -1914,7 +1922,7 @@ const float g_targeting_quarter_pi = 0.7853981256484985f;
 /* Probe the navigator from the party eye at three height bands, reporting
    whether any band reaches. */
 // FUNCTION: WIZ8 0x0050B2F0
-bool ProbeNpcPlacementNearParty(int /*party_slot*/, int /*mode*/, srVector3T<float>* position_out)
+static bool ProbeNpcPlacementNearParty(int /*party_slot*/, int /*mode*/, srVector3T<float>* position_out)
 {
     srVector3T<float> party_position;
     float yaw;
@@ -2245,7 +2253,7 @@ void ReleaseNpcMonsterByKind(int kind)
    byte matches, and asks CreateGroup to create it; with a live monster it
    repositions the Navigator subobject. */
 // FUNCTION: WIZ8 0x0050c560
-bool RestoreNpcMonster(W8NpcState* npc, const char* entity_name)
+static bool RestoreNpcMonster(W8NpcState* npc, const char* entity_name)
 {
     srVector3T<float> position;
     srVector3T<float> copied;
