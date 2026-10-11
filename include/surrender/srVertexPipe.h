@@ -31,16 +31,20 @@ public:
         float eye_radius;
         const glm::mat4* model_view;
         const glm::mat4* normal_matrix;
-        srVertexArray* vertex_arrays;
+        std::span<srVertexArray> vertex_arrays;
         w8_ulong exclusion_mask;
         glm::vec4 ambient_light;
         std::span<const Record> records;
-        srVertexProcessor** processors;
-        w8_ulong processor_count;
+        std::span<srVertexProcessor* const> processors;
         float environment_minimum;
         float environment_maximum;
         float environment_scale;
         float environment_inverse_scale;
+
+        w8_ulong geometryIndex(w8_ulong processed_index) const
+        {
+            return direct_vertex_indices ? processed_index : active_vertices[processed_index];
+        }
     };
 
     SR_DLL_IMPORT srVertexPipe();

@@ -1,3 +1,4 @@
+#include <stdexcept>
 #include "surrender/srTextureIFace.h"
 #include "surrender/srPixelConvert.h"
 #include "surrender/srColorSurface.h"
@@ -200,10 +201,9 @@ bool processorOwnership()
     input.direct_vertex_indices = 1;
     input.positions = positions.data();
     input.model_view = input.normal_matrix = &identity;
-    input.vertex_arrays = &arrays;
+    input.vertex_arrays = {&arrays, 1};
     input.records = {&record, 1};
-    input.processors = processors.data();
-    input.processor_count = processors.size();
+    input.processors = processors;
     input.environment_maximum = 100;
     input.environment_inverse_scale = 1;
     {
@@ -220,17 +220,19 @@ bool processorOwnership()
         REQUIRE((probe.valid && probe.calls == 9));
 
         std::vector<srVertexProcessor*> many(129, &active);
-        input.processors = many.data();
-        input.processor_count = many.size();
+        input.processors = many;
         pipe.process(input);
         REQUIRE(active.calls == 9 + 129 * 3);
         active.enabled = false;
         pipe.process(input);
         REQUIRE(active.calls == 9 + 129 * 3);
-        input.processors = nullptr;
-        input.processor_count = 0;
+        input.processors = {};
         pipe.process(input); // no retained active pointers after shrinking to zero
         REQUIRE(active.calls == 9 + 129 * 3);
+        input.vertex_arrays = {};
+        REQUIRE_THROWS_AS(pipe.process(input), std::invalid_argument);
+        input.vertex_count = 0;
+        REQUIRE_NOTHROW(pipe.process(input));
     }
     // The pipe owns the pointer list, never the processors.
     active.enabled = true;
@@ -307,8 +309,8 @@ bool coverageFinalization()
     input.vertex_count = positions.size(); input.active_vertices = indices.data();
     input.direct_vertex_indices = 1; input.positions = positions.data();
     input.model_view = input.normal_matrix = &identity;
-    input.vertex_arrays = &arrays; input.records = {&record, 1};
-    input.processors = &processor; input.processor_count = 1;
+    input.vertex_arrays = {&arrays, 1}; input.records = {&record, 1};
+    input.processors = {&processor, 1};
     input.environment_maximum = input.environment_inverse_scale = 1;
     const float values[] = {-2.f, 0.f, .25f, 1.f, 2.f};
     for (unsigned channels = 1; channels < 16; ++channels) {
@@ -415,9 +417,9 @@ bool surfaceLighting()
     srVertexPipe::Input input{};
     input.positions = positions.data(); input.normals = normals.data();
     input.active_vertices = indices.data(); input.direct_vertex_indices = 1;
-    input.vertex_arrays = &arrays; input.records = {&record, 1};
+    input.vertex_arrays = {&arrays, 1}; input.records = {&record, 1};
     input.model_view = input.normal_matrix = &identity;
-    input.processors = &processor; input.processor_count = 1;
+    input.processors = {&processor, 1};
     input.ambient_light = glm::vec4(0);
     for (unsigned channels = 1; channels < 4; ++channels)
     for (unsigned ready = 0; ready < 4; ++ready)
@@ -512,12 +514,12 @@ bool distanceProfiles()
     input.vertex_count = positions.size(); input.active_vertices = indices.data();
     input.direct_vertex_indices = 1; input.positions = positions.data();
     input.model_view = input.normal_matrix = &identity;
-    input.vertex_arrays = &arrays; input.records = {&record, 1};
+    input.vertex_arrays = {&arrays, 1}; input.records = {&record, 1};
     input.eye_center = glm::vec3(0, 0, 33); input.eye_radius = 33;
     input.environment_scale = .2f; input.environment_inverse_scale = .8f;
     DistanceProfileProbe probe;
     srVertexProcessor* processor = &probe;
-    input.processors = &processor; input.processor_count = 1;
+    input.processors = {&processor, 1};
     srFog fog;
     probe.fog = &fog;
     for (auto range : {std::pair{0.f, 100.f}, std::pair{17.f, 43.f}, std::pair{32.f, 32.f}}) {
@@ -577,10 +579,9 @@ bool materialChannelOperations()
     input.direct_vertex_indices = 1;
     input.positions = positions.data();
     input.model_view = input.normal_matrix = &identity;
-    input.vertex_arrays = &arrays;
+    input.vertex_arrays = {&arrays, 1};
     input.records = {&record, 1};
-    input.processors = &processor;
-    input.processor_count = 1;
+    input.processors = {&processor, 1};
     input.environment_maximum = 100;
     input.environment_inverse_scale = 1;
     srVertexPipe pipe;
@@ -871,7 +872,7 @@ bool pipelineRecordTexcoords()
     input.active_vertices = indices.data();
     input.positions = positions.data();
     input.model_view = input.normal_matrix = &identity;
-    input.vertex_arrays = arrays.data();
+    input.vertex_arrays = arrays;
     input.records = std::span{pipeline->records}.first(pipeline->slot_count);
     pipeline->vertex_pipe->process(input);
     for (unsigned channel = 0; channel < output.size(); ++channel)

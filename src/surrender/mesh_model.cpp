@@ -1362,12 +1362,11 @@ void srTriMeshPipeline::FlushSlots()
                 pipe_input.eye_radius = eye_bounds.radius;
                 pipe_input.model_view = &model_view;
                 pipe_input.normal_matrix = &normal_matrix;
-                pipe_input.vertex_arrays = &this->vertex_arrays[0];
+                pipe_input.vertex_arrays = std::span{this->vertex_arrays}.first(slot_count);
                 pipe_input.exclusion_mask = exclusion_mask;
                 pipe_input.ambient_light = ambient_light;
                 pipe_input.records = std::span{records}.first(slot_count);
-                pipe_input.processors = processors;
-                pipe_input.processor_count = processor_count;
+                pipe_input.processors = {processors, processor_count};
                 pipe_input.environment_minimum = environment_minimum;
                 pipe_input.environment_maximum = environment_maximum;
                 pipe_input.environment_scale = environment_scale;
