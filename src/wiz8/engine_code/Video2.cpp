@@ -1,7 +1,6 @@
 #include "glm/ext/vector_double3.hpp"
 #include <SDL3/SDL_blendmode.h>
 #include <SDL3/SDL_rect.h>
-#include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_video.h>
 #include <SDL3/SDL_surface.h>
 #include <fmt/format.h>
