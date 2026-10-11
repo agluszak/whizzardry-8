@@ -202,7 +202,6 @@ jobs:
             clang-21 \
             clang-tidy-21 \
             ninja-build \
-            ccache \
             cmake \
             curl \
             pkg-config \
@@ -221,6 +220,13 @@ jobs:
           sudo apt-get install -y \
             ./libsdl3-mixer0_3.2.4+ds-1_amd64.deb \
             ./libsdl3-mixer-dev_3.2.4+ds-1_amd64.deb
+      - name: Determine include-hygiene scope
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          git fetch --no-tags --depth=1 origin "$BASE_SHA"
+          git diff --name-only -z "$BASE_SHA" HEAD > "$RUNNER_TEMP/include-hygiene-changed"
       # Include-cleaner must analyze direct includes, not headers supplied by
       # the game's PCH. Keep unity off here so every source is checked.
       - name: Configure include-hygiene database
@@ -234,4 +240,9 @@ jobs:
         env:
           CLANG_TIDY: clang-tidy-21
           RUN_CLANG_TIDY: run-clang-tidy-21
-        run: ./tools/run-clang-tidy.sh build/linux-tidy
+        run: |
+          if [[ "${{ github.event_name }}" == pull_request ]]; then
+            ./tools/run-clang-tidy.sh build/linux-tidy --changed-files "$RUNNER_TEMP/include-hygiene-changed"
+          else
+            ./tools/run-clang-tidy.sh build/linux-tidy
+          fi
