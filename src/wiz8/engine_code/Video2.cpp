@@ -445,9 +445,9 @@ void ShutdownVideoScenes(void)
     g_primary_color_surface.reset();
 }
 
-/* Derives the 16-bit channel masks and their leading-bit positions from the
-   renderer's reviewed pixel-format selector.  The startup configuration uses
-   format 9, RGB 5:5:5 with the high bit reserved. */
+/* Selects the SDL packed format for SGP's 16-bit framebuffer and sprites.
+   The startup configuration uses ARGB1555; the high bit is an opaque-pixel
+   marker, while zero is the software blitters' transparent pixel. */
 // FUNCTION: WIZ8 0x004265c0
 void Initialize16BitPixelFormatMasks(void)
 {
