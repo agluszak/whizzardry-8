@@ -1182,6 +1182,38 @@ TEST_CASE("Modal layers block underlying input and restore valid capture", "[own
     REQUIRE(g_ui.hover == 0);
 }
 
+TEST_CASE("Split fields share editing and restore focus after rejecting excessive amounts", "[owner][text-input]")
+{
+    UiStateSnapshot saved_state;
+    Font font{};
+    TextFieldGroup outer(font);
+    outer.Add(0, 0, 80, 20, 0, "name", 20, 2, false);
+    outer.Focus(0);
+    W8DialogBase dialog;
+    W8ButtonWidget button(dialog.InputLayer());
+    W8ControlsRect bounds{10, 10, 110, 30};
+    W8DialogNumericInput amount(0, &bounds, 12, font, &dialog, &button);
+    amount.m_maximum = 200;
+    const SDL_Point point{110, 20};
+    amount.SetActive(true, &point);
+    const InputEvent digit{.type = InputEventType::Text, .text = U'3'};
+    REQUIRE(amount.HandleInput(&digit));
+    REQUIRE(amount.m_value == 123);
+    REQUIRE(amount.HandleInput(&digit)); // 1233 is rejected without moving the caret.
+    REQUIRE(amount.m_value == 123);
+    const InputEvent backspace{.type = InputEventType::KeyDown, .key = VK_BACK};
+    REQUIRE(amount.HandleInput(&backspace));
+    REQUIRE(amount.m_value == 12);
+    const InputEvent letter{.type = InputEventType::Text, .text = U'x'};
+    REQUIRE(amount.HandleInput(&letter));
+    REQUIRE(amount.m_value == 12);
+    const InputEvent escape{.type = InputEventType::KeyDown, .key = VK_ESCAPE};
+    REQUIRE(amount.HandleInput(&escape));
+    REQUIRE_FALSE(amount.m_active);
+    REQUIRE(TextFieldGroup::Focused() == &outer);
+    REQUIRE(outer.Editing());
+}
+
 TEST_CASE("Input-layer owners close only after the outer dispatch completes", "[owner][ui-layer]")
 {
     UiStateSnapshot saved_state;
@@ -1491,7 +1523,7 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
         list.SetBackground("background.sti", 0);
         for (int index = 0; index < 20; ++index) list.m_lines.emplace_back("X");
         REQUIRE(list.CreateControls() == 0);
-        list.Draw();
+        list.Draw(GetFrameBufferSurface());
         list.InputLayer().setModal(true);
         GetInputState().mouse.y = 400;
         dispatch_mouse(InputEventType::LeftButtonDown, list.m_area_button.Bounds().x + 3,
@@ -1519,7 +1551,7 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
         short_list.SetBackground("background.sti", 0);
         short_list.m_lines.emplace_back("X");
         REQUIRE(short_list.CreateControls() == 0);
-        short_list.Draw();
+        short_list.Draw(GetFrameBufferSurface());
         REQUIRE_FALSE(short_list.m_scrollable);
         for (const auto* button : {&short_list.m_up_button, &short_list.m_down_button,
                                    &short_list.m_slider_button,

@@ -1,4 +1,4 @@
-#include "wiz8/engine_code/Video2.h"
+#include <SDL3/SDL_surface.h>
 #include "Font.h"
 #include <fmt/format.h>
 #include <fmt/printf.h>
@@ -107,7 +107,7 @@ int W8ProfRaceInfoDialogBase::CreateControls()
 }
 
 // FUNCTION: WIZ8 0x005DED60
-void W8ProfRaceInfoDialogBase::Draw()
+void W8ProfRaceInfoDialogBase::Draw(SDL_Surface& target)
 {
     if ((m_dirty_flags & W8_DIALOG_DIRTY_REDRAW) != 0) {
         if (!m_initialized) {
@@ -116,16 +116,16 @@ void W8ProfRaceInfoDialogBase::Draw()
         m_text_area.m_dirty = true;
         m_scroll_bar.m_dirty = true;
         m_button.m_dirty = true;
-        W8DialogBase::Draw();
-        m_uiArtwork->drawAndInvalidate(GetFrameBufferSurface(), m_uiSummaryImage,
+        W8DialogBase::Draw(target);
+        m_uiArtwork->drawAndInvalidate(target, m_uiSummaryImage,
                                        m_x + 0xd, m_y + 0xd);
-        DrawTextLine(g_W8TextBufferAlignLeft, 0x25, 0xb, 0x147, 0x18, g_localized_strings[m_uiNameId],
+        DrawTextLine(target, g_W8TextBufferAlignLeft, 0x25, 0xb, 0x147, 0x18, g_localized_strings[m_uiNameId],
                      g_options_detail_font);
-        DrawTextLine(g_W8TextBufferAlignCenter, 0xd, 0x29, 0x8e, 0xc, g_localized_strings[m_uiHeadingId],
+        DrawTextLine(target, g_W8TextBufferAlignCenter, 0xd, 0x29, 0x8e, 0xc, g_localized_strings[m_uiHeadingId],
                      g_wiz_text_font_secondary);
         int top = 0x37;
         for (int attribute = 0; attribute < ATTR_COUNT; ++attribute) {
-            DrawTextLine(g_W8TextBufferAlignLeft, 0x10, top, 0x74, 0xc,
+            DrawTextLine(target, g_W8TextBufferAlignLeft, 0x10, top, 0x74, 0xc,
                          g_localized_strings[g_character_description_first_ids[attribute]],
                          g_wiz_text_font_secondary);
             std::string minimum;
@@ -134,18 +134,18 @@ void W8ProfRaceInfoDialogBase::Draw()
             } else {
                 minimum = fmt::format("{:d}", m_minimums[attribute]);
             }
-            DrawTextLine(g_W8TextBufferAlignCenter, 0x85, top, 0x16, 0xc, minimum,
+            DrawTextLine(target, g_W8TextBufferAlignCenter, 0x85, top, 0x16, 0xc, minimum,
                          g_wiz_text_font_secondary);
             top += 0xe;
         }
     }
-    m_text_area.Draw(GetFrameBufferSurface(), false);
-    m_scroll_bar.Draw(GetFrameBufferSurface(), false);
-    m_button.Draw(GetFrameBufferSurface());
+    m_text_area.Draw(target, false);
+    m_scroll_bar.Draw(target, false);
+    m_button.Draw(target);
 }
 
 // FUNCTION: WIZ8 0x005DEEE0
-void W8ProfRaceInfoDialogBase::DrawTextLine(unsigned int layout_mode, int left, int top, int width,
+void W8ProfRaceInfoDialogBase::DrawTextLine(SDL_Surface& target, unsigned int layout_mode, int left, int top, int width,
                                             int height, std::string_view text, Font& font)
 {
     W8TextBuffer buffer;
@@ -155,7 +155,7 @@ void W8ProfRaceInfoDialogBase::DrawTextLine(unsigned int layout_mode, int left, 
     bounds.right = bounds.left + width;
     bounds.top = m_y + top;
     bounds.bottom = bounds.top + height;
-    buffer.RenderString(&bounds, text, font, false, GetFrameBufferSurface());
+    buffer.RenderString(&bounds, text, font, false, target);
 }
 
 // FUNCTION: WIZ8 0x005DEFB0
@@ -192,7 +192,7 @@ void W8ProfRaceInfoDialogBase::ScrollCallback(W8DialogScrollBar* scroll_bar,
 {
     W8ProfRaceInfoDialogBase* dialog = static_cast<W8ProfRaceInfoDialogBase*>(scroll_bar->m_owner);
     if (dialog != 0) {
-        dialog->ScrollTextArea(dialog->m_text_area, first_visible_entry, 0xa2, 0x29, 0xaf, 0xb8);
+        dialog->ScrollTextArea(dialog->m_text_area, first_visible_entry);
     }
 }
 

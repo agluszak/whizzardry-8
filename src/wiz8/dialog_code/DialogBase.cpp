@@ -1,3 +1,4 @@
+#include <SDL3/SDL_surface.h>
 #include <SDL3/SDL_rect.h>
 #include <string>
 #include <string_view>
@@ -7,7 +8,6 @@
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/dialog_code/DialogTextArea.h"
 #include "wiz8/ui_input.h"
-#include "wiz8/catalog_artwork.h"
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "input.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
@@ -21,17 +21,10 @@ void W8DialogBase::CreateCloseButton(W8ButtonWidget& button, int left, int top)
     button.m_owner = this;
 }
 
-void W8DialogBase::ScrollTextArea(W8DialogTextArea& area, int first_visible_line, int left, int top,
-                                  int width, int height)
+void W8DialogBase::ScrollTextArea(W8DialogTextArea& area, int first_visible_line)
 {
     area.SetFirstVisibleLine(first_visible_line);
-    left += m_x;
-    top += m_y;
-    int right = left + width;
-    int bottom = top + height;
-    InvalidateRegion(left, top, right, bottom);
-    CatalogArtwork::Load(0x1b6, 0).drawRect(GetFrameBufferSurface(), SDL_Rect{0, 0, (right) - (left), (bottom) - (top)}, left, top);
-    area.m_dirty = true;
+    m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
 }
 
 // FUNCTION: WIZ8 0x005dc7a0
@@ -47,7 +40,6 @@ W8DialogBase::W8DialogBase()
     m_width = -1;
     m_height = -1;
     m_background_flags = 0;
-    m_field_4c = 0;
     m_initialized = false;
     m_keep_open = true;
     m_destroy_callback = 0;
@@ -66,7 +58,7 @@ W8DialogBase::~W8DialogBase()
 }
 
 // FUNCTION: WIZ8 0x005dc890
-void W8DialogBase::Draw()
+void W8DialogBase::Draw(SDL_Surface& target)
 {
     if ((m_dirty_flags & W8_DIALOG_DIRTY_REDRAW) == 0) {
         return;
@@ -76,7 +68,7 @@ void W8DialogBase::Draw()
     }
     if (m_error == 0 && m_body) {
         m_body->setShape(SDL_Rect{m_x, m_y, m_width + 1, m_height + 1});
-        DrawButtonAppearance(GetFrameBufferSurface(), {.generic_image = m_border},
+        DrawButtonAppearance(target, {.generic_image = m_border},
                              {m_x, m_y, m_width, m_height}, {});
         InvalidateRegion(m_x, m_y, m_x + m_width, m_y + m_height);
     }
@@ -104,7 +96,6 @@ void W8DialogBase::SetExtent(int width, int height)
 {
     if (m_width != width || m_height != height) {
         if (m_initialized && m_width > 0 && m_height > 0) {
-            ClearSurfaceRect(m_x, m_y, m_x + m_width + 1, m_y + m_height + 1);
             InvalidateRegion(m_x, m_y, m_x + m_width + 1, m_y + m_height + 1);
         }
         m_width = width;
@@ -160,7 +151,6 @@ void W8DialogBase::DestroyControls()
     m_background_path.clear();
     m_background_flags = 0;
     if (m_initialized && m_x >= 0 && m_y >= 0 && m_width >= 0 && m_height >= 0) {
-        ClearSurfaceRect(m_x, m_y, m_x + m_width + 1, m_y + m_height + 1);
         InvalidateRegion(m_x, m_y, m_x + m_width + 1, m_y + m_height + 1);
     }
     m_initialized = false;

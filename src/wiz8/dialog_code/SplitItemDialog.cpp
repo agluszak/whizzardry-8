@@ -1,4 +1,4 @@
-#include "wiz8/engine_code/Video2.h"
+#include <SDL3/SDL_surface.h>
 #include <fmt/format.h>
 #include <SDL3/SDL_rect.h>
 #include <string>
@@ -22,13 +22,11 @@
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
-#include "wiz8/local_screens/Screens.h"
 #include "wiz8/utility.h"
 #include "wiz8/catalog_artwork.h"
 #include "input.h"
 #include "wiz8/dialog_code/AssayDialog.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
-#include "Video2.h"
 #include "dialog_code/DialogBase.h"
 #include "npc_trade_price.h"
 
@@ -285,7 +283,7 @@ bool W8SplitItemDialog::CreateNumericInput()
 }
 
 // FUNCTION: WIZ8 0x005DDB60
-void W8SplitItemDialog::Draw()
+void W8SplitItemDialog::Draw(SDL_Surface& target)
 {
     int index;
     int button_count;
@@ -316,10 +314,10 @@ void W8SplitItemDialog::Draw()
         }
         m_count_input->m_dirty = true;
         m_count_input->m_button->m_dirty = true;
-        W8DialogBase::Draw();
+        W8DialogBase::Draw(target);
     }
     if (m_first_draw) {
-        DrawSpriteAndInvalidate(GetFrameBufferSurface(),
+        DrawSpriteAndInvalidate(target,
                                 g_item_video_objects.Sprites(m_item->iItemNo), 0, m_x + 0x18,
                                 m_y + 0xe);
         m_first_draw = false;
@@ -330,16 +328,16 @@ void W8SplitItemDialog::Draw()
     }
     for (index = 0; index < button_count; ++index) {
         if (m_buttons[index].IsConfigured()) {
-            m_buttons[index].Draw(GetFrameBufferSurface());
+            m_buttons[index].Draw(target);
         }
     }
     for (index = 0; index < text_count; ++index) {
         if (m_texts[index] != 0) {
-            m_texts[index]->RenderToTarget(0, false, GetFrameBufferSurface());
+            m_texts[index]->RenderToTarget(0, false, target);
         }
     }
     if (m_count_input != 0) {
-        m_count_input->Draw(GetFrameBufferSurface(), false);
+        m_count_input->Draw(target, false);
     }
 }
 

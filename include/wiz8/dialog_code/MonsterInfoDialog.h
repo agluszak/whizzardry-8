@@ -12,7 +12,7 @@ class W8MonsterInfoDialog : public W8DialogBase {
 public:
     W8MonsterInfoDialog(int location_id);
     virtual int CreateControls() override;
-    virtual void Draw() override;
+    virtual void Draw(SDL_Surface& target) override;
     virtual void OnRightButtonUp() override;
     virtual void OnMouseWheel(int delta) override;
 

@@ -1,3 +1,4 @@
+#include <functional>
 #include <SDL3/SDL_mouse.h>
 #include "wiz8/button_interaction.h"
 #include "wiz8/local_code/ButtonWidget.h"
@@ -1288,7 +1289,7 @@ void W8OptionsScreen::Redraw()
         m_navigation_dirty = false;
     }
     if (m_active_modal != 0) {
-        m_active_modal->Draw();
+        m_active_modal->Draw(GetFrameBufferSurface());
     }
     if (m_text_editor != 0) {
         m_text_editor->m_fields.RenderAll(GetFrameBufferSurface());
@@ -1744,7 +1745,7 @@ void OptionsScreenFrame()
         }
     }
 
-    PumpUiInput({
+    if (!screen->m_active_modal) PumpUiInput({
         .before = [screen](const InputEvent& input) {
             return screen->ProcessInput(&input) ? InputRoute::Handled : InputRoute::Pass;
         },

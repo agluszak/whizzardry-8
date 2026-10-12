@@ -50,7 +50,8 @@ value validation; their small dialog-specific painter retains right alignment.
 There is no separate numeric editing algorithm or global numeric scratch buffer.
 
 Buttons, text buffers, editors, scrollbars and dialog text controls paint into an
-explicit `SDL_Surface&`. Screens choose draw order and recomposition, including
+explicit `SDL_Surface&`, including the complete dialog painting path. Scroll
+callbacks request redraw instead of painting the framebuffer directly. Screens choose draw order and recomposition, including
 restoring backing artwork before repainting changed controls. Ordinary dialog
 controllers retain shared backdrop and sizing behavior; they are not a generic
 visual parent/child system. NPC replies demonstrate modal content without

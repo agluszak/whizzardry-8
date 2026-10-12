@@ -1199,7 +1199,7 @@ void CampScreenFrame(void)
         ProcessMessageBoxInput();
     }
     ServiceMusicPlaylist();
-    if (g_camp_screen->dialog && !ProcessDialogInput(g_camp_screen->dialog.get())) {
+    if (g_camp_screen->dialog && !g_camp_screen->dialog->ProcessInput()) {
         g_camp_screen->dialog.reset();
         g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_ALL;
     }
@@ -1210,8 +1210,7 @@ void CampScreenFrame(void)
     SDL_Point point;
     SGPMouseGetPos(&point);
     UpdateUiPointer(point.x, point.y);
-    PumpUiInput({.unhandled = [&](const InputEvent& input) {
-        if (g_camp_screen->dialog) return InputRoute::Stop;
+    if (!g_camp_screen->dialog) PumpUiInput({.unhandled = [&](const InputEvent& input) {
         if (input.type == InputEventType::KeyDown) {
             if (input.key == VK_ESCAPE) {
                 if (g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_NONE ||
@@ -1400,7 +1399,7 @@ void DrawCampScreen(void)
 done:
     RedrawPortraitQuoteBubbles();
     if (state->dialog != 0) {
-        DrawDialog(state->dialog.get());
+        state->dialog->Draw(GetFrameBufferSurface());
     }
     RenderFrame();
 }
@@ -1633,7 +1632,7 @@ void ShowCampNoticeLine(std::string_view text, W8DialogDestroyCallback callback,
 
     dialog->SetClientExtent(0xfa, 200);
     dialog->SetMessage(text, 1, 0x32, confirmation, cancel, true, true, 0, 0x15e);
-    SetDialogDestroyCallback(dialog, callback);
+    dialog->m_destroy_callback = callback;
     DisplayCampDialog(std::unique_ptr<W8DialogBase>(dialog));
 }
 

@@ -4177,7 +4177,7 @@ void ShowMainGameNoticeLine(std::string_view text, W8DialogDestroyCallback callb
     dialog = CreateMessageDialog();
     dialog->SetClientExtent(0xfa, 200);
     dialog->SetMessage(text, 1, 0x32, confirmation, cancel, true, true, 0, 0x15e);
-    SetDialogDestroyCallback(dialog, callback);
+    dialog->m_destroy_callback = callback;
     g_modal_owner.reset(dialog);
 }
 
@@ -4384,7 +4384,7 @@ void RequestLevelTransition(int level, int entry, unsigned char flag)
         dialog->SetClientExtent(0xfa, 0xc8);
         dialog->SetMessage(g_level_block->text_paint_scratch, 1, 0x32, true, true, true, true, 0,
                            0x15e);
-        SetDialogDestroyCallback(dialog, OnEnterLevelDialogClosed);
+        dialog->m_destroy_callback = OnEnterLevelDialogClosed;
         g_modal_owner.reset(dialog);
         return;
     }

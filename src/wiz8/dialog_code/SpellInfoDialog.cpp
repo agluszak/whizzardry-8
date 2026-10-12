@@ -1,4 +1,4 @@
-#include "wiz8/engine_code/Video2.h"
+#include <SDL3/SDL_surface.h>
 #include <cstdint>
 #include <fmt/format.h>
 #include <string>
@@ -98,7 +98,7 @@ int W8SpellInfoDialog::CreateControls()
 
 
 // FUNCTION: WIZ8 0x005dbe00
-void W8SpellInfoDialog::Draw()
+void W8SpellInfoDialog::Draw(SDL_Surface& target)
 {
     int steps;
     W8SpellRealm realm;
@@ -111,19 +111,19 @@ void W8SpellInfoDialog::Draw()
         m_text_area.m_dirty = true;
         m_scroll_bar.m_dirty = true;
         m_button.m_dirty = true;
-        W8DialogBase::Draw();
-        DrawLabels();
+        W8DialogBase::Draw(target);
+        DrawLabels(target);
     }
-    m_text_area.Draw(GetFrameBufferSurface(), false);
-    m_scroll_bar.Draw(GetFrameBufferSurface(), false);
-    m_button.Draw(GetFrameBufferSurface());
+    m_text_area.Draw(target, false);
+    m_scroll_bar.Draw(target, false);
+    m_button.Draw(target);
     steps = static_cast<int>(m_timer.GetProgress());
     if (steps > 0) {
         realm = g_spell_records[m_spell].realm;
         animation = &g_spell_realm_animations[realm];
         m_animation_frame += steps;
         m_animation_frame %= animation->frame_count;
-        CatalogArtwork::Load(animation->image, 0).drawAndInvalidate(GetFrameBufferSurface(), m_animation_frame, m_x + 0xe, m_y + 0xe);
+        CatalogArtwork::Load(animation->image, 0).drawAndInvalidate(target, m_animation_frame, m_x + 0xe, m_y + 0xe);
     }
 }
 
@@ -278,7 +278,7 @@ bool W8SpellInfoDialog::PopulateText()
 }
 
 // FUNCTION: WIZ8 0x005dc490
-void W8SpellInfoDialog::DrawLabels()
+void W8SpellInfoDialog::DrawLabels(SDL_Surface& target)
 {
     std::string text;
     std::int16_t width;
@@ -287,11 +287,11 @@ void W8SpellInfoDialog::DrawLabels()
     g_wiz_text_font_secondary.resetPalette();
     text = record->display_name;
     width = g_wiz_text_font_secondary.textWidth(text);
-    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary,
+    DrawText(target, g_wiz_text_font_secondary,
              {m_x + 0x25 + (0xe7 - width) / 2, m_y + 0x12}, text);
     text = g_localized_strings[0x118];
     width = g_wiz_text_font_secondary.textWidth(text);
-    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary,
+    DrawText(target, g_wiz_text_font_secondary,
              {m_x + 0x25 + (0x53 - width) / 2, m_y + 0x24}, text);
     if (record->power_class == W8_SPELL_POWER_FIXED) {
         text = g_localized_strings[0x11a];
@@ -299,15 +299,15 @@ void W8SpellInfoDialog::DrawLabels()
         text = g_localized_strings[0x119];
     }
     width = g_wiz_text_font_secondary.textWidth(text);
-    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary,
+    DrawText(target, g_wiz_text_font_secondary,
              {m_x + 0x25 + (0x7b - width) / 2, m_y + 0x33}, text);
     text = fmt::format("{:d}", record->spell_level);
     width = g_wiz_text_font_secondary.textWidth(text);
-    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary,
+    DrawText(target, g_wiz_text_font_secondary,
              {m_x + 0x7c + (0x16 - width) / 2, m_y + 0x24}, text);
     text = fmt::format("{:d} {}", record->spell_point_cost, g_localized_strings[0x11b]);
     width = g_wiz_text_font_secondary.textWidth(text);
-    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary,
+    DrawText(target, g_wiz_text_font_secondary,
              {m_x + 0xa4 + (0x25 - width) / 2, m_y + 0x33}, text);
 }
 
@@ -316,7 +316,7 @@ void W8SpellInfoDialog::ScrollCallback(W8DialogScrollBar* scroll_bar, int first_
 {
     W8SpellInfoDialog* dialog = static_cast<W8SpellInfoDialog*>(scroll_bar->m_owner);
     if (dialog != 0) {
-        dialog->ScrollTextArea(dialog->m_text_area, first_visible_entry, 0x11, 0x43, 0x10e, 0xb9);
+        dialog->ScrollTextArea(dialog->m_text_area, first_visible_entry);
     }
 }
 

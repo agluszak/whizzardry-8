@@ -694,7 +694,7 @@ bool PreparePartyPortraitOverlay(unsigned int party_slot, unsigned int left, uns
                 (g_portrait_descriptors[portrait].render_mode == 2 && (party_slot & 1) != 0)) {
                 draw.mirror = true;
             }
-            if (BlitPartyPortraitAnimation(portrait, left, top, draw, party_slot, false) &&
+            if (BlitPartyPortraitAnimation(GetFrameBufferSurface(), portrait, left, top, draw, party_slot, false) &&
                 ((gXStatus.fCombatMode && g_combat_state->characters[party_slot].dead) ||
                  gXStatus.fSurprisePossible ||
                  character->highest_condition == W8_CONDITION_MISSING)) {
@@ -770,7 +770,7 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
                  (party_slot & 1) != 0)) {
                 portrait_draw.mirror = true;
             }
-            RenderPartyPortrait(portrait_catalog, menu_x + 0x14, menu_y, portrait_draw, 1,
+            RenderPartyPortrait(GetFrameBufferSurface(), portrait_catalog, menu_x + 0x14, menu_y, portrait_draw, 1,
                                 party_slot);
         }
         CatalogArtwork::Load(0x82, 0).draw(GetFrameBufferSurface(), static_cast<short>(grid_row), column_x, menu_y);

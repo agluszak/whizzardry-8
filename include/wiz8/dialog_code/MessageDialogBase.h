@@ -15,7 +15,7 @@ public:
     W8MessageDialogBase();
     virtual int CreateControls() override;
     virtual void DestroyControls() override;
-    virtual void Draw() override;
+    virtual void Draw(SDL_Surface& target) override;
 
     virtual bool ProcessInput() override;
     virtual bool HandleInput(const InputEvent* input);

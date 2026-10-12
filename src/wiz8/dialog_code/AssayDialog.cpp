@@ -1,4 +1,4 @@
-#include "wiz8/engine_code/Video2.h"
+#include <SDL3/SDL_surface.h>
 #include <fmt/format.h>
 #include <string_view>
 #include <string>
@@ -541,7 +541,7 @@ bool W8AssayDialog::PopulateText()
    header, so the toolchain does not emit the objects or these thunks. */
 
 // FUNCTION: WIZ8 0x005d9200
-void W8AssayDialog::Draw()
+void W8AssayDialog::Draw(SDL_Surface& target)
 {
     int index;
 
@@ -558,29 +558,29 @@ void W8AssayDialog::Draw()
         for (index = 0; index < W8_ASSAY_TEXT_BUFFER_COUNT; ++index) {
             m_text_buffers[index]->SetGeometryDirty();
         }
-        W8DialogBase::Draw();
+        W8DialogBase::Draw(target);
     }
     if (m_item_portrait_dirty) {
-        DrawSpriteAndInvalidate(GetFrameBufferSurface(),
+        DrawSpriteAndInvalidate(target,
                                 g_item_video_objects.Sprites(m_item->iItemNo), 0, m_x + 0x45,
                                 m_y + 0xe);
         if (!m_item->identified) {
-            CatalogArtwork::Load(0x11b, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, m_x + 0x45, m_y + 0xe);
+            CatalogArtwork::Load(0x11b, 0).drawAndInvalidate(target, 0, m_x + 0x45, m_y + 0xe);
         }
         m_item_portrait_dirty = false;
     }
     for (index = 0; index < W8_ASSAY_BUTTON_COUNT; ++index) {
         if (m_buttons[index].IsConfigured()) {
-            m_buttons[index].Draw(GetFrameBufferSurface());
+            m_buttons[index].Draw(target);
         }
     }
     for (index = 0; index < W8_ASSAY_TEXT_BUFFER_COUNT; ++index) {
         if (m_text_buffers[index] != 0) {
-            m_text_buffers[index]->RenderToTarget(0, false, GetFrameBufferSurface());
+            m_text_buffers[index]->RenderToTarget(0, false, target);
         }
     }
-    m_text_area.Draw(GetFrameBufferSurface(), false);
-    m_scroll_bar.Draw(GetFrameBufferSurface(), false);
+    m_text_area.Draw(target, false);
+    m_scroll_bar.Draw(target, false);
 }
 
 /* Same folded body as W8MonsterInfoDialog::OnRightButtonUp at 0x005D6E60;

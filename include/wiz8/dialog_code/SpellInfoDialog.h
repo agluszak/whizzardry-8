@@ -15,13 +15,13 @@ class W8SpellInfoDialog : public W8DialogBase {
 public:
     W8SpellInfoDialog(unsigned int spell);
     virtual int CreateControls() override;
-    virtual void Draw() override;
+    virtual void Draw(SDL_Surface& target) override;
     virtual void OnRightButtonUp() override;
     virtual void OnMouseWheel(int delta) override;
 
 private:
     bool PopulateText();
-    void DrawLabels();
+    void DrawLabels(SDL_Surface& target);
     static void ScrollCallback(W8DialogScrollBar* scroll_bar, int first_visible_entry);
 
     unsigned int m_spell;

@@ -709,9 +709,8 @@ void CharacterScreenFrame(void)
 {
     g_character_screen->UpdateDialog();
     W8CharacterScreen* screen = g_character_screen.get();
-    PumpUiInput({
+    if (!screen->m_dialog) PumpUiInput({
         .before = [screen](const InputEvent& input) {
-            if (screen->m_dialog) return InputRoute::Stop;
             screen->m_pages[screen->m_page_index]->HandleInput(&input);
             return InputRoute::Pass;
         },
@@ -742,7 +741,7 @@ void CharacterScreenFrame(void)
     screen->m_pages[screen->m_page_index]->Redraw(GetFrameBufferSurface(), false);
     screen->DrawNavigation(GetFrameBufferSurface());
     if (screen->m_dialog != 0)
-        screen->m_dialog->Draw();
+        screen->m_dialog->Draw(GetFrameBufferSurface());
     RenderFrame();
 }
 
@@ -751,6 +750,6 @@ void RefreshCharacterScreenPartySlot(unsigned int)
 {
     if (g_character_screen->m_dialog != 0 && g_character_screen->m_dialog_response == 1) {
         static_cast<W8CharacterSummaryDialog*>(g_character_screen->m_dialog)
-            ->DrawPortraitAnimationFrame();
+            ->DrawPortraitAnimationFrame(GetFrameBufferSurface());
     }
 }

@@ -18,7 +18,6 @@ class W8ButtonWidget;
 class W8DialogTextArea;
 
 typedef void (*W8DialogDestroyCallback)(W8DialogBase* dialog);
-void SetDialogDestroyCallback(W8DialogBase* dialog, W8DialogDestroyCallback callback);
 /* Shared close-button callback used by the monster and spell info dialogs. */
 void DialogCloseButtonCallback(W8ButtonWidget* button);
 
@@ -33,11 +32,11 @@ public:
     W8DialogBase();
     UiLayer& InputLayer() { return m_input; }
     ~W8DialogBase() override;
-    void DrawModal(SDL_Surface&) override { Draw(); }
+    void DrawModal(SDL_Surface& target) override { Draw(target); }
     void RequestModalRedraw() override { m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW; }
     virtual int CreateControls();
     virtual void DestroyControls();
-    virtual void Draw();
+    virtual void Draw(SDL_Surface& target);
 
     virtual void SetText(std::string_view text);
     virtual void SetOrigin(int x, int y);
@@ -49,8 +48,6 @@ public:
     virtual void OnRightButtonUp();
     virtual void OnMouseWheel(int delta);
 
-    friend void SetDialogDestroyCallback(W8DialogBase* dialog, W8DialogDestroyCallback callback);
-    friend class W8DialogNumericInput;
     template <class Dialog, class Field>
     friend void ProcessNumericDialogInputEvents(Dialog* dialog, Field*& active_field,
                                                 bool (Dialog::*handle_event)(const InputEvent*));
@@ -63,8 +60,7 @@ protected:
     void BeginModalInput();
     void EndModalInput();
     void CreateCloseButton(W8ButtonWidget& button, int left, int top);
-    void ScrollTextArea(W8DialogTextArea& area, int first_visible_line, int left, int top,
-                        int width, int height);
+    void ScrollTextArea(W8DialogTextArea& area, int first_visible_line);
 
     int m_error;
     HitTarget* m_body = nullptr;
@@ -94,7 +90,5 @@ public:
     void* m_destroy_callback_context;
 
 protected:
-    /* Cleared by W8DialogNumericInput when its field deactivates. */
-    int m_field_4c;
     bool m_right_button_down;
 };

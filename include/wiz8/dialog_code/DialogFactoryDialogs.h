@@ -68,7 +68,7 @@ public:
     virtual ~W8ListBoxDialog() override;
     virtual int CreateControls() override;
     virtual void DestroyControls() override;
-    virtual void Draw() override;
+    virtual void Draw(SDL_Surface& target) override;
 
     virtual void SetText(std::string_view text) override;
     virtual bool ProcessInput() override;
@@ -133,7 +133,7 @@ public:
     virtual ~W8SplitAmountDialog() override;
     virtual int CreateControls() override;
     virtual void DestroyControls() override;
-    virtual void Draw() override;
+    virtual void Draw(SDL_Surface& target) override;
     virtual bool ProcessInput() override;
     virtual void OnNumericInputChanged(int value) override;
 
@@ -185,7 +185,7 @@ public:
     virtual ~W8TriggerItemPickerDialog() override;
     virtual int CreateControls() override;
     virtual void DestroyControls() override;
-    virtual void Draw() override;
+    virtual void Draw(SDL_Surface& target) override;
 
     virtual bool ProcessInput() override;
 
@@ -253,7 +253,7 @@ public:
     virtual ~W8SplitItemDialog() override;
     virtual int CreateControls() override;
     virtual void DestroyControls() override;
-    virtual void Draw() override;
+    virtual void Draw(SDL_Surface& target) override;
     virtual bool ProcessInput() override;
     virtual void OnNumericInputChanged(int value) override;
 

@@ -14,10 +14,10 @@ class W8StatInfoDialogBase : public W8DialogBase {
 public:
     W8StatInfoDialogBase();
     virtual int CreateControls() override;
-    virtual void Draw() override;
+    virtual void Draw(SDL_Surface& target) override;
     virtual void OnRightButtonUp() override;
     virtual void OnMouseWheel(int delta) override;
-    virtual void DrawTitle();
+    virtual void DrawTitle(SDL_Surface& target);
     virtual bool PopulateText();
 
 protected:

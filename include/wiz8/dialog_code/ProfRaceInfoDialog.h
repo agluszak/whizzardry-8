@@ -39,7 +39,7 @@ class W8ProfRaceInfoDialogBase : public W8DialogBase {
 public:
     W8ProfRaceInfoDialogBase();
     virtual int CreateControls() override;
-    virtual void Draw() override;
+    virtual void Draw(SDL_Surface& target) override;
     virtual void OnRightButtonUp() override;
     virtual void OnMouseWheel(int delta) override;
 
@@ -50,7 +50,7 @@ private:
     static void ScrollCallback(W8DialogScrollBar* scroll_bar, int first_visible_entry);
     /* Renders one text line at a dialog-relative rectangle through a scratch
        W8TextBuffer. */
-    void DrawTextLine(unsigned int layout_mode, int left, int top, int width, int height,
+    void DrawTextLine(SDL_Surface& target, unsigned int layout_mode, int left, int top, int width, int height,
                       std::string_view text, Font& font);
 
 protected:

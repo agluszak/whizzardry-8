@@ -1,22 +1,10 @@
 #include "Font.h"
 #include <string_view>
 
-#include "wiz8/dialog_code/DialogFactoryDialogs.h"
 #include "wiz8/dialog_code/CharacterSummaryDialog.h"
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
-#include "wiz8/sr_api.h"
 #include "dialog_code/DialogBase.h"
-
-/*
- * Dialog Code\DialogInterface.cpp, named by the assertion this body embeds at
- * line 152.
- *
- * The forwarders below operate on the shared dialog base recovered elsewhere:
- * slot three draws, slot nine processes input, and the setter establishes
- * the base field at 0x44. The assertion does not return, which is why each
- * operation remains unconditional after its null check.
- */
 
 // GLOBAL: WIZ8 0x0064fde8
 Font* g_dialog_interface_font = nullptr;
@@ -56,10 +44,9 @@ void ConfigureDialogFont(Font& font, bool enabled, unsigned char foreground,
     g_dialog_font_background = background;
 }
 
-#define DIALOG_INTERFACE_CPP "C:\\Projects\\Wizardry 8\\Dialog Code\\DialogInterface.cpp"
 
 // FUNCTION: WIZ8 0x005CF4F0
-void SetDialogPrompt(W8MessageDialogBase* dialog, std::string_view text, int, int)
+void SetDialogPrompt(W8MessageDialogBase* dialog, std::string_view text)
 {
     dialog->SetMessage(text, 1, 0x32, true, true, true, false, 0, 0);
 }
@@ -68,31 +55,4 @@ void SetDialogPrompt(W8MessageDialogBase* dialog, std::string_view text, int, in
 bool GetDialogResult(W8DialogBase* dialog)
 {
     return static_cast<W8MessageDialogBase*>(dialog)->accepted;
-}
-
-// FUNCTION: WIZ8 0x005cf520
-void DrawDialog(W8DialogBase* dialog)
-{
-    if (dialog == 0) {
-        srAssertFail("pDialog", DIALOG_INTERFACE_CPP, 0x66, 0);
-    }
-    dialog->Draw();
-}
-
-// FUNCTION: WIZ8 0x005cf550
-bool ProcessDialogInput(W8DialogBase* dialog)
-{
-    if (dialog == 0) {
-        srAssertFail("pDialog", DIALOG_INTERFACE_CPP, 0x74, 0);
-    }
-    return dialog->ProcessInput();
-}
-
-// FUNCTION: WIZ8 0x005cf580
-void SetDialogDestroyCallback(W8DialogBase* dialog, W8DialogDestroyCallback callback)
-{
-    if (dialog == 0) {
-        srAssertFail("pCDialog", DIALOG_INTERFACE_CPP, 0x98, 0);
-    }
-    dialog->m_destroy_callback = callback;
 }

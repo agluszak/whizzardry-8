@@ -51,7 +51,4 @@ void ConfigureDialogFont(Font& font, bool enabled, unsigned char foreground,
 W8DialogBase* CreateCharacterSummaryDialog(W8Character* character);
 W8MessageDialogBase* CreateMessageDialog();
 bool GetDialogResult(W8DialogBase* dialog);
-void SetDialogPrompt(W8MessageDialogBase* dialog, std::string_view text, int, int);
-void DrawDialog(W8DialogBase* dialog);
-bool ProcessDialogInput(W8DialogBase* dialog);
-void SetDialogDestroyCallback(W8DialogBase* dialog, W8DialogDestroyCallback callback);
+void SetDialogPrompt(W8MessageDialogBase* dialog, std::string_view text);

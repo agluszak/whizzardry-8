@@ -1047,8 +1047,7 @@ void ServiceNpcDialogue(void)
             g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_12].dirty = true;
         }
         int selection =
-            g_npc_interaction_state->ui->transcript.get()
-                ->GetSelectedTranscriptEntryIndex();
+            g_npc_interaction_state->ui->transcript->GetSelectedTranscriptEntryIndex();
         if (selection == -1) {
             if (g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_13].enabled) {
                 SetNpcActionEnabled(W8_NPC_CONTROL_TEXT_13,
@@ -1060,11 +1059,9 @@ void ServiceNpcDialogue(void)
             g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_13].dirty = true;
         }
         SetNpcActionEnabled(W8_NPC_CONTROL_SCROLL_UP_BUTTON,
-            g_npc_interaction_state->ui->transcript.get()
-                ->HandleScrollUpCommand(true) != 0);
+            g_npc_interaction_state->ui->transcript->HandleScrollUpCommand(true) != 0);
         SetNpcActionEnabled(W8_NPC_CONTROL_SCROLL_DOWN_BUTTON,
-            g_npc_interaction_state->ui->transcript.get()
-                ->HandleScrollDownCommand(true) != 0);
+            g_npc_interaction_state->ui->transcript->HandleScrollDownCommand(true) != 0);
     }
     if (g_npc_interaction_state->ui != nullptr &&
         g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_24].text.m_highlighted != 0 &&
@@ -1710,7 +1707,7 @@ static void PromptNpcDispositionChange(void)
     W8MessageDialogBase* dialog =
         CreateMessageDialog();
 
-    SetDialogPrompt(dialog, g_localized_strings[0x798], 0, 0);
+    SetDialogPrompt(dialog, g_localized_strings[0x798]);
     dialog->m_destroy_callback = OnNpcDispositionPromptClosed;
     OpenModal(std::unique_ptr<ModalContent>(dialog));
 }
@@ -1913,14 +1910,10 @@ void OpenNpcDialogueTranscriptLayout(void)
     SetNpcActionVisible(W8_NPC_CONTROL_TEXT_7, false);
     SetNpcActionEnabled(W8_NPC_CONTROL_TEXT_1, true);
     SetNpcActionEnabled(W8_NPC_CONTROL_TEXT_2, true);
-    g_npc_interaction_state->ui->transcript.get()
-        ->RestoreTranscriptEntries();
-    g_npc_interaction_state->ui->transcript.get()
-        ->SetTranscriptCategoryFilter(g_npc_interaction_state->dialogue_category_filter);
-    g_npc_interaction_state->ui->transcript.get()
-        ->SetTranscriptSorted(g_npc_interaction_state->transcript_sorted);
-    g_npc_interaction_state->ui->transcript.get()
-        ->Expand();
+    g_npc_interaction_state->ui->transcript->RestoreTranscriptEntries();
+    g_npc_interaction_state->ui->transcript->SetTranscriptCategoryFilter(g_npc_interaction_state->dialogue_category_filter);
+    g_npc_interaction_state->ui->transcript->SetTranscriptSorted(g_npc_interaction_state->transcript_sorted);
+    g_npc_interaction_state->ui->transcript->Expand();
     SyncNpcDialogueTranscriptScrollButtons();
     SyncDialogueCategoryButtons();
     if (g_npc_interaction_state->transcript_sorted) {
@@ -1953,12 +1946,9 @@ static void CloseNpcDialogueTranscriptLayout(void)
 {
     int index;
 
-    g_npc_interaction_state->ui->transcript.get()
-        ->SaveTranscriptEntries();
-    g_npc_interaction_state->ui->transcript.get()
-        ->Collapse();
-    g_npc_interaction_state->ui->transcript.get()
-        ->ClearTranscriptEntries();
+    g_npc_interaction_state->ui->transcript->SaveTranscriptEntries();
+    g_npc_interaction_state->ui->transcript->Collapse();
+    g_npc_interaction_state->ui->transcript->ClearTranscriptEntries();
     SetNpcDialogueInputEnabled(2, false);
     SetNpcDialogueInputEnabled(0, false);
     SetNpcPanelActive(0, false);
@@ -1967,8 +1957,7 @@ static void CloseNpcDialogueTranscriptLayout(void)
     SetNpcPanelActive(3, false);
     SetNpcPanelActive(6, false);
     SetNpcDialogueLayoutMode(W8_DIALOGUE_LAYOUT_NONE);
-    g_npc_interaction_state->ui->transcript.get()
-        ->ClearBackground();
+    g_npc_interaction_state->ui->transcript->ClearBackground();
     ClearSurfaceRect(0x1dc, 0x11b, 0x269, 0x1c2);
     InvalidateRegion(0x1dc, 0x11b, 0x269, 0x1c2);
     for (index = 0; index < 8; ++index) {
@@ -2018,14 +2007,12 @@ static void EnterNpcTradeOptions(void)
 
 static void ScrollNpcDialogueUp(void)
 {
-    g_npc_interaction_state->ui->transcript.get()
-        ->HandleScrollUpCommand(false);
+    g_npc_interaction_state->ui->transcript->HandleScrollUpCommand(false);
 }
 
 static void ScrollNpcDialogueDown(void)
 {
-    g_npc_interaction_state->ui->transcript.get()
-        ->HandleScrollDownCommand(false);
+    g_npc_interaction_state->ui->transcript->HandleScrollDownCommand(false);
 }
 
 static void SubmitNpcDialogueKeyword(void)
@@ -2095,8 +2082,7 @@ void AddNpcDialogueKeyword(std::string text, signed char category, int play_chim
             if (g_npc_interaction_state->dialogue_category_filter != W8_DIALOGUE_CATEGORY_ALL &&
                 g_npc_interaction_state->dialogue_category_filter != category) {
                 g_npc_interaction_state->dialogue_category_filter = category;
-                g_npc_interaction_state->ui->transcript.get()
-                    ->SetTranscriptCategoryFilter(
+                g_npc_interaction_state->ui->transcript->SetTranscriptCategoryFilter(
                         g_npc_interaction_state->dialogue_category_filter);
                 SyncDialogueCategoryButtons();
             }
@@ -2114,12 +2100,9 @@ void AddNpcDialogueKeyword(std::string text, signed char category, int play_chim
 
 static void RefreshNpcDialogueTranscript(void)
 {
-    g_npc_interaction_state->ui->transcript.get()
-        ->RemoveSelectedTranscriptEntry();
-    g_npc_interaction_state->ui->transcript.get()
-        ->Collapse();
-    g_npc_interaction_state->ui->transcript.get()
-        ->Expand();
+    g_npc_interaction_state->ui->transcript->RemoveSelectedTranscriptEntry();
+    g_npc_interaction_state->ui->transcript->Collapse();
+    g_npc_interaction_state->ui->transcript->Expand();
     SyncNpcDialogueTranscriptScrollButtons();
 }
 
@@ -2130,8 +2113,7 @@ static void SyncNpcDialogueListFilter(void)
     } else {
         g_npc_interaction_state->transcript_sorted = false;
     }
-    g_npc_interaction_state->ui->transcript.get()
-        ->SetTranscriptSorted(g_npc_interaction_state->transcript_sorted);
+    g_npc_interaction_state->ui->transcript->SetTranscriptSorted(g_npc_interaction_state->transcript_sorted);
 }
 
 static void SelectNpcDialogueTopics(W8NpcDialogueControlSlot button, W8DialogueCategory category)
@@ -2140,8 +2122,7 @@ static void SelectNpcDialogueTopics(W8NpcDialogueControlSlot button, W8DialogueC
         g_npc_interaction_state->dialogue_category_filter = category;
         SyncDialogueCategoryButtons();
     }
-    g_npc_interaction_state->ui->transcript.get()
-        ->SetTranscriptCategoryFilter(category);
+    g_npc_interaction_state->ui->transcript->SetTranscriptCategoryFilter(category);
 }
 
 static void SelectNpcPeopleTopics(void)
@@ -3498,7 +3479,7 @@ static unsigned char HandleNpcDialogueItem(W8ItemInstance* item)
         dialog->SetClientExtent(0xfa, 200);
         message = g_localized_strings[0x7d6];
         dialog->SetMessage(message, 1, 0x32, true, true, true, true, 0, 0x15e);
-        SetDialogDestroyCallback(dialog, OnNpcTradeDialogClosed);
+        dialog->m_destroy_callback = OnNpcTradeDialogClosed;
         OpenModal(std::unique_ptr<ModalContent>(dialog));
         return 1;
     }

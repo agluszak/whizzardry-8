@@ -213,7 +213,7 @@ unsigned char MainMenuScreenEnter(void)
         dialog = main_menu_dialog.get();
         dialog->SetClientExtent(0xfa, 200);
         dialog->SetMessage(pending, 1, 0x32, true, false, true, true, 0, 0x15e);
-        SetDialogDestroyCallback(dialog, 0);
+        dialog->m_destroy_callback = 0;
         g_pending_main_menu_message.clear();
         return 1;
     }
@@ -222,7 +222,7 @@ unsigned char MainMenuScreenEnter(void)
         dialog = main_menu_dialog.get();
         dialog->SetClientExtent(0xfa, 200);
         dialog->SetMessage(g_localized_strings[0x7ee], 1, 0x32, true, false, true, true, 0, 0x15e);
-        SetDialogDestroyCallback(dialog, 0);
+        dialog->m_destroy_callback = 0;
         g_main_menu_warning_shown = true;
     }
     return 1;
@@ -247,8 +247,8 @@ void MainMenuScreenFrame()
         RequestExitScreen();
     }
     if (main_menu_dialog != nullptr) {
-        DrawDialog(main_menu_dialog.get());
-        if (!ProcessDialogInput(main_menu_dialog.get())) {
+        main_menu_dialog->Draw(GetFrameBufferSurface());
+        if (!main_menu_dialog->ProcessInput()) {
             main_menu_dialog.reset();
             g_main_menu_redraw = true;
             CatalogArtwork::Load(0xe8, 0).draw(GetFrameBufferSurface(), 0, 0, 0);
@@ -319,7 +319,7 @@ void MainMenuScreenFrame()
     NoOp();
     if (g_main_menu_redraw || IsMessageBoxActive() || main_menu_dialog != nullptr) {
         if (main_menu_dialog != nullptr) {
-            DrawDialog(main_menu_dialog.get());
+            main_menu_dialog->Draw(GetFrameBufferSurface());
         }
         RenderMessageBox();
         ResetTransientRenderScenes();

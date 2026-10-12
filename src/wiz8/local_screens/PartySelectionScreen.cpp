@@ -1,3 +1,4 @@
+#include <SDL3/SDL_mouse.h>
 #include "wiz8/button_interaction.h"
 #include <SDL3/SDL_surface.h>
 #include <fmt/format.h>
@@ -318,7 +319,7 @@ void RefreshPartySelectionPortrait(unsigned int party_slot)
     const auto position = PartySlotPosition(row);
     SpriteDraw draw{};
     draw.mirror = g_portrait_descriptors[portrait].render_mode == ((row & 1) ? 2 : 1);
-    BlitPartyPortraitAnimation(portrait, position.x, position.y, draw, row + 2, false);
+    BlitPartyPortraitAnimation(GetFrameBufferSurface(), portrait, position.x, position.y, draw, row + 2, false);
 }
 
 bool PartySelectionInReviewMode()
@@ -400,7 +401,7 @@ void W8PartySelectionController::DrawSlots(SDL_Surface& target)
             const int portrait = character->portrait_index;
             SpriteDraw draw{};
             draw.mirror = g_portrait_descriptors[portrait].render_mode == ((row & 1) ? 2 : 1);
-            RenderPartyPortrait(portrait, left, top, draw, 1, row + 2);
+            RenderPartyPortrait(target, portrait, left, top, draw, 1, row + 2);
         }
         CatalogArtwork::Load(0x100, 0).drawAndInvalidate(target, 0, left - 13, top - 11);
         if (row == hovered_slot || row == selected_slot)
@@ -1034,7 +1035,7 @@ void W8PartySelectionController::DrawPartySelectionComposition()
     DrawImportList(target);
     for (auto& button : actions) button->Draw(target);
     title.RenderToTarget(0, false, target);
-    if (m_dialog) m_dialog->Draw();
+    if (m_dialog) m_dialog->Draw(target);
     if (name_input) name_input->RenderAll(target);
 }
 
@@ -1254,8 +1255,7 @@ void PartySelectionScreenFrame(void)
             controller->ApplyPartySelectionConfirmation(controller->m_confirmation_action, result);
         }
     }
-    PumpUiInput({.unhandled = [&](const InputEvent& input) {
-        if (controller->m_dialog) return InputRoute::Stop;
+    if (!controller->m_dialog) PumpUiInput({.unhandled = [&](const InputEvent& input) {
         if (!controller->HandleNameInput(input) &&
             (input.type == InputEventType::KeyDown || input.type == InputEventType::KeyRepeat)) {
             switch (input.key) {

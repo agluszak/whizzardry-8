@@ -445,7 +445,7 @@ static void ShowDismissCharacterDialog(void)
     }
     dialog->SetMessage(fmt::sprintf(format, character->name), 1, 0x32, true, true, true, true, 0,
                        0x15e);
-    SetDialogDestroyCallback(dialog, OnDismissCharacterDialogClosed);
+    dialog->m_destroy_callback = OnDismissCharacterDialogClosed;
     DisplayCampDialog(std::unique_ptr<W8DialogBase>(dialog));
 }
 
@@ -559,7 +559,7 @@ void DrawCampHeader(void)
         if (character->hp_current == 0) {
             CatalogArtwork::Load(g_dead_portrait_catalog_ids[character->iRace][1], 0).draw(GetFrameBufferSurface(), 0, 0xa4, 0xc);
         } else {
-            RenderPartyPortrait(character->portrait_index, 0xa4, 0xc, {}, 1, giReviewCharSlot);
+            RenderPartyPortrait(GetFrameBufferSurface(), character->portrait_index, 0xa4, 0xc, {}, 1, giReviewCharSlot);
         }
         CatalogArtwork::Load(0x10f, 0).draw(GetFrameBufferSurface(), 9, 0xa4, 0xc);
         if (state->portrait_hovered[0] != 0) {

@@ -157,7 +157,7 @@ static bool PleaseWaitScreenEnsureLevelArchive(int level)
             }
             std::string message =
                 fmt::format("{}{:d}", g_localized_strings[0x6ee], GetLevelCdNumber(level));
-            SetDialogPrompt(g_swap_disc_dialog.get(), message, 0, 0);
+            SetDialogPrompt(g_swap_disc_dialog.get(), message);
             EnableCursorScene();
             return false;
         }
@@ -192,7 +192,7 @@ void PleaseWaitScreenFrame(void)
 {
     if (g_load_descriptor->waiting) {
         if (g_swap_disc_dialog->is_open) {
-            g_swap_disc_dialog->Draw();
+            g_swap_disc_dialog->Draw(GetFrameBufferSurface());
             if (!g_swap_disc_dialog->ProcessInput()) {
                 if (!g_swap_disc_dialog->accepted) {
                     g_swap_disc_dialog.reset();

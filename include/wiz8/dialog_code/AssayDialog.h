@@ -24,7 +24,7 @@ public:
     virtual ~W8AssayDialog() override;
     virtual int CreateControls() override;
     virtual void DestroyControls() override;
-    virtual void Draw() override;
+    virtual void Draw(SDL_Surface& target) override;
     virtual void OnRightButtonUp() override;
     virtual void OnMouseWheel(int delta) override;
     static void ScrollCallback(W8DialogScrollBar* scroll_bar, int first_visible_entry);

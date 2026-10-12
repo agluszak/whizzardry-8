@@ -1,3 +1,5 @@
+#include <cstddef>
+#include <memory>
 #include <SDL3/SDL_surface.h>
 #include <SDL3/SDL_rect.h>
 #include <algorithm>
@@ -40,7 +42,6 @@ void W8DialogNumericInput::SetActive(bool active)
     m_active = active;
     if (!active) {
         m_editor.reset();
-        m_dialog->m_field_4c = 0;
         m_dirty = m_button->m_dirty = true;
     }
 }
@@ -90,6 +91,8 @@ bool W8DialogNumericInput::HandleInput(const InputEvent* input)
         SetActive(false);
         return true;
     }
+    if ((input->type == InputEventType::KeyDown || input->type == InputEventType::KeyRepeat) &&
+        (input->key == '+' || input->key == '-')) return false;
     const auto previous = m_editor->Text(0);
     const auto previous_cursor = m_editor->Cursor();
     if (!m_editor->HandleInput(*input)) return false;
