@@ -297,7 +297,7 @@ public:
    range callback; its own listener is the controller's independently observed
    +4 callback subobject. */
 // VTABLE: WIZ8 0x005ef464
-class W8PartySelectionListControl : public W8Widget, public W8RangeListener {
+class W8PartySelectionListControl : public W8Widget {
 public:
     W8PartySelectionListControl(unsigned int region, int left, int top, int right,
                                 int bottom)
@@ -310,7 +310,7 @@ public:
     virtual void OnMouseLeave(int event) override;
     virtual void OnMouseMove(int event) override;
     virtual void OnLeftButtonUp(int event) override;
-    virtual void OnRangeChanged(W8RangeControl* control) override;
+    void OnRangeChanged(W8RangeControl* control);
 
     int m_visible_rows;
     int m_selection;
@@ -440,13 +440,12 @@ public:
 /* Owns the visible character rows and their selection. */
 // VTABLE: WIZ8 0x005ef3b4 W8PartySelectionPanelSelectionListener
 class W8PartySelectionCharacterPanel : public Controls,
-                                       public W8RangeListener,
                                        public W8PartySelectionPanelSelectionListener {
 public:
     W8PartySelectionCharacterPanel();
     virtual ~W8PartySelectionCharacterPanel();
     void OnSelectionChanged(W8ControlSelection* control, int selected);
-    virtual void OnRangeChanged(W8RangeControl* control) override;
+    void OnRangeChanged(W8RangeControl* control);
     virtual void SelectPartyMemberRow(int row) override;
     virtual void OpenCampForSelectedMember(int row) override;
     virtual void AdjustPartyMemberRange(int amount) override;
@@ -1277,14 +1276,13 @@ void W8PartySelectionController::SetMode(W8PartySelectionMode mode)
     switch (m_mode) {
     case W8_PARTY_SELECT_CHARACTERS: {
         m_range->SetActive(true);
-        m_range->EnableRegionSet(true);
         m_left_panel->SetActive(true);
         m_left_panel->EnableRegionSet(true);
         m_character_panel->SetActive(true);
         m_character_panel->EnableRegionSet(true);
 
         m_character_panel->m_range = m_range.get();
-        m_range->m_listener = m_character_panel.get();
+        m_range->on_change = [this](auto* range) { m_character_panel->OnRangeChanged(range); };
         int maximum =
             static_cast<int>(g_party_selection_character_collection->characters.size()) - 6;
         if (maximum < 0) {
@@ -1338,7 +1336,6 @@ void W8PartySelectionController::SetMode(W8PartySelectionMode mode)
         }
 
         m_range->SetActive(true);
-        m_range->EnableRegionSet(true);
         m_left_panel->SetActive(true);
         m_left_panel->EnableRegionSet(true);
         m_create_button->SetActive(false);
@@ -1358,7 +1355,7 @@ void W8PartySelectionController::SetMode(W8PartySelectionMode mode)
         m_import_panel->SetActive(true);
         m_import_panel->EnableRegionSet(true);
 
-        m_range->m_listener = m_list;
+        m_range->on_change = [this](auto* range) { m_list->OnRangeChanged(range); };
         int maximum = static_cast<int>(g_party_selection_character_collection->names.size()) -
                       m_list->m_visible_rows;
         if (maximum < 0) {
@@ -1377,7 +1374,6 @@ void W8PartySelectionController::SetMode(W8PartySelectionMode mode)
     }
     case W8_PARTY_SELECT_OPTIONS:
         m_range->SetActive(false);
-        m_range->EnableRegionSet(false);
         m_left_panel->SetActive(false);
         m_left_panel->EnableRegionSet(false);
         m_control0->SetActive(false);
@@ -1740,7 +1736,7 @@ void W8PartySelectionController::ApplyPartySelectionConfirmation(W8PartyConfirma
         collection->DeleteAt(selected);
 
         m_character_panel->m_range = m_range.get();
-        m_range->m_listener = m_character_panel.get();
+        m_range->on_change = [this](auto* range) { m_character_panel->OnRangeChanged(range); };
         int maximum = static_cast<int>(collection->characters.size()) - 6;
         if (maximum < 0) {
             maximum = 0;

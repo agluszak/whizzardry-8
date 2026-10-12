@@ -85,25 +85,6 @@ enum W8CampItemFilter {
     W8_CAMP_ITEM_FILTER_COUNT = 6
 };
 
-/* The three listeners own different range controls. Their callbacks update
-   the item, spell-realm and stats effect-list scroll positions respectively.
-   W8CampStatsRange and W8CampStatsControls are authored in RCSStatsPage.cpp
-   (declared in RCSStatsPage.h). */
-// VTABLE: WIZ8 0x005eed08
-class W8CampItemRange final : public W8CampRangeListener {
-public:
-    W8CampItemRange();
-    virtual void OnRangeChanged(W8RangeControl* control) override;
-};
-
-// VTABLE: WIZ8 0x005ef298
-class W8CampSpellRange final : public W8CampRangeListener {
-public:
-    explicit W8CampSpellRange(W8SpellRealm realm);
-    virtual void OnRangeChanged(W8RangeControl* control) override;
-    W8SpellRealm m_realm;
-};
-
 // VTABLE: WIZ8 0x005ef278 Controls
 // VTABLE: WIZ8 0x005ef270 W8TextControl::Listener
 class W8CampCharacterInfo : public Controls, public W8TextControl::Listener {
@@ -166,9 +147,9 @@ struct W8CampScreenState {
        handler reads it through item_scroll. */
     unsigned int item_list_count;
     int item_list[500];
-    std::unique_ptr<W8CampItemRange> item_range;
-    std::array<std::unique_ptr<W8CampSpellRange>, 6> spell_ranges;
-    std::unique_ptr<W8CampStatsRange> stats_range;
+    std::unique_ptr<W8RangeControl> item_range;
+    std::array<std::unique_ptr<W8RangeControl>, 6> spell_ranges;
+    std::unique_ptr<W8RangeControl> stats_range;
     std::unique_ptr<W8CampStatsControls> stats_controls;
     uint64_t item_timer;
     bool item_timer_active;

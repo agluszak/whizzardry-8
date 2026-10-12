@@ -67,7 +67,7 @@ extern unsigned short g_trap_name_string_ids[];
 class W8MainGameScreen;
 
 // VTABLE: WIZ8 0x005eeafc
-class W8MainGameTextKeyHandler : public W8Widget, public W8RangeListener {
+class W8MainGameTextKeyHandler : public W8Widget {
 public:
     W8MainGameTextKeyHandler(int left, int top, int right, int bottom, int line_count,
                              const unsigned short* line_string_ids);
@@ -78,7 +78,7 @@ public:
     virtual void OnLeftButtonUp(int event) override;
     void SetSelectedLine(int line);
     virtual char HandleKey(unsigned short key);
-    virtual void OnRangeChanged(W8RangeControl* control) override;
+    void OnRangeChanged(W8RangeControl* control);
 
 protected:
     void OnGeometryChanged() override;
@@ -91,7 +91,7 @@ public:
     int m_selected_line;
     int m_hover_line;
     int m_first_visible_line;
-    W8RangeListener* m_range_listener;
+    std::function<void()> on_selection;
 };
 
 /* One text-panel cell: the catalog image it shows (or -1) and a flag that
@@ -112,8 +112,7 @@ public:
 // VTABLE: WIZ8 0x005eeba8
 // VTABLE: WIZ8 0x005eeba0 W8TextControl::Listener
 class W8MainGameTextPanel : public Controls,
-                            public W8TextControl::Listener,
-                            public W8RangeListener {
+                            public W8TextControl::Listener {
 public:
     void BeginProgress(std::string_view text, float duration, float hold);
 
@@ -122,7 +121,7 @@ public:
     void Redraw(SDL_Surface& target, bool full_redraw) override;
     virtual void OnPrimary(W8TextControl* control) override;
     virtual void OnSecondary(W8TextControl*) override {}
-    virtual void OnRangeChanged(W8RangeControl* control) override;
+    void OnRangeChanged(W8RangeControl* control);
 
     W8MainGameTextEntry* m_entries[8];
     W8MainGameTextKeyHandler* m_key_handler;

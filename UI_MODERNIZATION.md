@@ -58,10 +58,14 @@ order without Controls or W8Widget. Their key-capture, save-row and editor
 listener interfaces are deleted. Journal, formation actions and options share
 the existing button painter, including missing frames and hover insets.
 
+The shared scrollbar now owns three targets and paints directly. The vertical
+thumb/arrow widgets, range listener interface and camp range-wrapper classes are
+deleted; camp, character creation, party selection and main-game text use callbacks.
+
 ## Remaining deletion work
 
-1. Finish merging button painting and migrate the camp scroll controls. Remove obsolete
-   wrappers rather than adding another control adapter.
+1. Finish merging button painting. Remove obsolete wrappers rather than adding
+   another control adapter.
 2. Migrate party/character screens, camp and the remaining gameplay groups
    as coherent owners. Keep gameplay behavior in their existing controllers.
 3. Replace RegionManager only after its registrations migrate. Delete numeric region

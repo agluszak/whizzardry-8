@@ -21,6 +21,7 @@
 #include "wiz8/button_interaction.h"
 #include <SDL3/SDL_mouse.h>
 #include "wiz8/local_code/RangeControl.h"
+#include "wiz8/cursor.h"
 #include "wiz8/local_code/ControlSelection.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/fonts.h"
@@ -1257,337 +1258,156 @@ W8HelpTextControl::W8HelpTextControl(unsigned int region, int left, int top, int
     m_regionHelp.clear();
 }
 
-// VTABLE: WIZ8 0x005ed6b4
-class W8VerticalRangeThumb : public W8Widget {
-public:
-    W8VerticalRangeThumb(W8RangeControl* range, int left, int top, int right, int bottom,
-                         CatalogArtwork artwork, int normal_sprite, int hovered_sprite,
-                         int disabled_sprite);
-
-    virtual void Redraw(SDL_Surface& target, bool full_redraw) override;
-    void AdjustValue(int steps) override;
-    virtual void OnMouseEnter(int event) override;
-    virtual void OnMouseLeave(int event) override;
-    virtual void OnLeftButtonDown(int event) override;
-    virtual void OnLeftButtonUp(int event) override;
-    virtual void OnMouseMove(int event) override;
-    void SetRangePosition(float position)
-    {
-        m_position = position;
-        ClampPositionAndInvalidate();
-    }
-
-protected:
-    CatalogArtwork m_artwork;
-    int m_normalSprite;
-    int m_hoveredSprite;
-    int m_disabledSprite;
-    int m_drawOffsetX;
-    int m_pixelPosition;
-    int m_thumbHeight;
-    int m_trackLength;
-    int m_dragCoordinate;
-    bool m_hovered;  /* cursor over the thumb */
-    bool m_dragging; /* thumb drag in progress */
-    unsigned char pad_5e[2];
-    float m_minimumPosition;
-    float m_maximumPosition;
-    float m_position;
-    W8RangeControl* m_range;
-
-    void ClampPositionAndInvalidate();
-    void SynchronizeRangeValue();
-};
-
-W8RangeButton::W8RangeButton(unsigned int region, int left, int top, int right, int bottom,
-                             std::optional<CatalogArtwork> image_artwork, W8SpriteStates sprites,
-                             short direction, W8RangeControl* range)
-    : W8TextControl(region, left, top, right, bottom, std::move(image_artwork), sprites),
-      m_direction(direction), m_range(range)
-{
-}
-
-/* The range panel owns two text-derived step buttons and one vertical thumb.
-   Retail construction passes five stack arguments and proves all three
-   allocation sizes, the ordered child construction, and the four EH cleanup
-   states. */
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wshadow-field"
-/* Controls stores panel bounds as `right`/`bottom`; this constructor forwards
-   those same names to the base. That is original constructor style, not a
-   second inherited field. */
-// FUNCTION: WIZ8 0x004f61f0
 W8RangeControl::W8RangeControl(int left, int top, int right, int bottom)
-    : Controls(left, top, right, bottom, std::nullopt, -1), m_minimum(0), m_maximum(1), m_value(0),
-      m_listener(0)
 {
-    int height = bottom - top;
-
-    CreateRegionSet();
-
-    m_decrement =
-        EmplaceControl<W8RangeButton>(0xffffffff, 0, 0, 0x10, 0x10, CatalogArtwork::Load(0x86), W8SpriteStates{.normal = 0, .pressed = 2, .alternate_normal = 1, .alternate_pressed = 2, .disabled = 3}, 0, this);
-    m_increment = EmplaceControl<W8RangeButton>(0xffffffff, 0, height - 0x10, 0x10, height, CatalogArtwork::Load(0x86), W8SpriteStates{.normal = 8, .pressed = 10, .alternate_normal = 9, .alternate_pressed = 10, .disabled = 0xb}, 1, this);
-    m_thumb = EmplaceControl<W8VerticalRangeThumb>(this, 0, 0x10, 0x10, height - 0x10,
-                                       CatalogArtwork::Load(0x86), 4, 5, -1);
-    m_enabled = false;
+    for (int part = 0; part < 3; ++part)
+        m_targets[part] = &m_input.add(SDL_Rect{0, 0, 1, 1},
+            [this, part](const UiPointerEvent& event) { return HandlePointer(part, event); });
+    SetBounds({left, top, right - left, bottom - top});
+    SetActive(false);
 }
-#pragma clang diagnostic pop
 
-// The panel owns all three registered widgets. Its base destructor releases them.
-W8RangeControl::~W8RangeControl() = default;
+void W8RangeControl::SetBounds(SDL_Rect bounds)
+{
+    m_bounds = bounds;
+    const auto thumb = m_artwork.size(4);
+    m_thumb_height = thumb.y;
+    m_track = {bounds.x, bounds.y + 16, std::max(16, thumb.x), bounds.h - 32};
+    m_travel = std::max(1, m_track.h - thumb.y);
+    m_targets[0]->setShape(SDL_Rect{bounds.x, bounds.y, 17, 17});
+    m_targets[1]->setShape(SDL_Rect{bounds.x, bounds.y + bounds.h - 16, 17, 17});
+    m_targets[2]->setShape(SDL_Rect{m_track.x, m_track.y, m_track.w + 1, m_track.h + 1});
+    m_dirty = true;
+}
 
-// FUNCTION: WIZ8 0x004f6440
 void W8RangeControl::SetRange(int first, int second)
 {
-    if (first < second) {
-        m_minimum = first;
-        m_maximum = second;
-    } else {
-        m_maximum = first;
-        m_minimum = second;
-    }
+    m_minimum = std::min(first, second);
+    m_maximum = std::max(first, second);
     SetValue(m_value);
 }
 
-// FUNCTION: WIZ8 0x004f6470
 void W8RangeControl::SetValue(int value)
 {
-    m_value = value;
-    if (value < m_minimum) {
-        m_value = m_minimum;
-    } else if (m_maximum < value) {
-        m_value = m_maximum;
-    }
-
-    float position;
-    if (m_value == m_minimum) {
-        position = g_float_zero;
-    } else if (m_value == m_maximum) {
-        position = g_float_one;
-    } else {
-        position = ((m_value - m_minimum) + g_float_half) / ((m_maximum - m_minimum) + 1);
-    }
-    m_thumb->SetRangePosition(position);
+    m_value = std::clamp(value, m_minimum, m_maximum);
+    m_position = m_value == m_minimum ? 0.f : m_value == m_maximum ? 1.f :
+        (m_value - m_minimum + .5f) / (m_maximum - m_minimum + 1);
+    m_dirty = true;
 }
 
-// FUNCTION: WIZ8 0x004f6540
-void W8RangeControl::Decrement()
+void W8RangeControl::AdjustValue(int steps)
 {
-    if (m_enabled) {
-        SetValue(m_value - 1);
-        if (m_listener != 0) {
-            m_listener->OnRangeChanged(this);
-        }
+    if (!m_enabled) return;
+    // Notify each step: existing controllers may update the range in response.
+    while (steps != 0) {
+        const int direction = steps > 0 ? 1 : -1;
+        SetValue(m_value - direction);
+        if (on_change) on_change(this);
+        steps -= direction;
     }
 }
 
-// FUNCTION: WIZ8 0x004f6570
-void W8RangeControl::Increment()
-{
-    if (m_enabled) {
-        SetValue(m_value + 1);
-        if (m_listener != 0) {
-            m_listener->OnRangeChanged(this);
-        }
-    }
-}
-
-// FUNCTION: WIZ8 0x004f65a0
 void W8RangeControl::SetEnabled(bool enabled)
 {
     m_enabled = enabled;
-    m_decrement->SetEnabled(enabled);
-    m_increment->SetEnabled(enabled);
-    m_thumb->SetEnabled(enabled);
-}
-
-static int ClampThumbToTrack(float& position, float minimum, float maximum, int track_length)
-{
-    if (position < minimum)
-        position = minimum;
-    if (maximum < position)
-        position = maximum;
-    return static_cast<int>(((position - minimum) / (maximum - minimum)) * track_length);
-}
-
-void W8VerticalRangeThumb::ClampPositionAndInvalidate()
-{
-    m_pixelPosition = ClampThumbToTrack(m_position, m_minimumPosition, m_maximumPosition,
-                                        m_trackLength);
-    Invalidate(false);
-}
-
-void W8VerticalRangeThumb::SynchronizeRangeValue()
-{
-    int value = static_cast<int>(m_range->m_thumb->m_position *
-                                 (m_range->m_maximum - m_range->m_minimum + 1)) +
-                m_range->m_minimum;
-    if (m_range->m_maximum < value) {
-        value = m_range->m_maximum;
+    if (!enabled) {
+        m_dragging = m_hovered = false;
+        for (auto* target : m_targets) target->releaseCapture();
+        for (auto& arrow : m_arrows) arrow.cancel(false);
     }
-    if (value != m_range->m_value) {
-        W8RangeListener* listener = m_range->m_listener;
-        m_range->m_value = value;
-        if (listener != 0) {
-            listener->OnRangeChanged(m_range);
-        }
-    }
+    m_dirty = true;
 }
 
-// FUNCTION: WIZ8 0x004f5b20
-W8VerticalRangeThumb::W8VerticalRangeThumb(W8RangeControl* range, int left, int top, int right,
-                                           int bottom, CatalogArtwork artwork, int normal_sprite,
-                                           int hovered_sprite, int disabled_sprite)
-    : W8Widget(0xffffffff, left, top, right, bottom), m_artwork(std::move(artwork))
+void W8RangeControl::SetActive(bool active)
 {
-    m_hoveredSprite = hovered_sprite;
-    m_disabledSprite = disabled_sprite;
-    m_normalSprite = normal_sprite;
-    m_hovered = false;
-    m_dragging = false;
-    m_minimumPosition = 0.0f;
-    m_maximumPosition = 1.0f;
-    m_position = 0.0f;
-    const auto [width, height] = m_artwork.size(normal_sprite);
-    // The thumb column is never narrower than its sprite; a wider one
-    // right-aligns the sprite.
-    if (right - left < width) {
-        SetBounds({left, top, width, bottom - top});
-        m_drawOffsetX = 0;
-    } else {
-        m_drawOffsetX = right - width - left;
+    m_active = active;
+    if (!active) {
+        m_dragging = m_hovered = false;
+        for (auto& arrow : m_arrows) arrow.cancel(false);
     }
-    m_thumbHeight = height;
-    m_trackLength = bottom - height - top;
-    m_range = range;
+    m_input.setEnabled(active);
+    m_dirty = true;
 }
 
-// FUNCTION: WIZ8 0x004f5c00
-void W8VerticalRangeThumb::OnLeftButtonDown(int event)
+UiResult W8RangeControl::HandlePointer(int part, const UiPointerEvent& event)
 {
-    PushButtonSoundScheme(0, true);
-    if (m_enabled) {
-        SDL_Point cursor;
-        SGPMouseGetPos(&cursor);
-        int y = ToLocal(cursor).y;
+    m_dirty = true;
+    if (!m_enabled || part == 2) PushButtonSoundScheme(0, true);
+    if (!m_enabled) return UiResult::Handled;
+    if (event.action == UiPointerAction::Wheel) {
+        AdjustValue(event.wheel);
+        return UiResult::Handled;
+    }
+    if (part < 2) {
+        const ButtonPolicy policy{.activation = ButtonActivation::Press, .repeat = true,
+                                  .controller_activation = true};
+        auto& press = m_arrows[part];
+        if (event.action == UiPointerAction::Leave) press.leave(policy);
+        if (event.button != UiPointerButton::Left) return UiResult::Handled;
+        bool activate = false;
+        if (event.action == UiPointerAction::Down)
+            activate = press.press(SDL_BUTTON_LMASK, policy).activate;
+        else if (event.action == UiPointerAction::Repeat)
+            activate = press.repeat(SDL_BUTTON_LMASK, policy).activate;
+        else if (event.action == UiPointerAction::Up) press.release(SDL_BUTTON_LMASK, policy);
+        if (activate) AdjustValue(part == 0 ? 1 : -1);
+        return UiResult::Handled;
+    }
+    const int y = event.position.y - g_cursor_hotspot_y - m_track.y;
+    bool changed = false;
+    if (event.action == UiPointerAction::Down && event.button == UiPointerButton::Left) {
         if (!m_hovered) {
-            m_hovered = true;
-            m_position = ((y - m_thumbHeight / 2) / static_cast<float>(m_trackLength)) *
-                             (m_maximumPosition - m_minimumPosition) +
-                         m_minimumPosition;
-            ClampPositionAndInvalidate();
-            SynchronizeRangeValue();
+            m_position = (y - m_thumb_height / 2) / static_cast<float>(m_travel);
+            changed = true;
         }
-        m_dragCoordinate = y;
-        m_dragging = true;
-        ActivateDialogRegion(m_region);
-    }
-}
-
-// FUNCTION: WIZ8 0x004f5d30
-void W8VerticalRangeThumb::OnLeftButtonUp(int event)
-{
-    PushButtonSoundScheme(0, true);
-    if (m_enabled && m_dragging) {
+        m_hovered = m_dragging = true;
+        m_drag_y = y;
+    } else if (event.action == UiPointerAction::Up && event.button == UiPointerButton::Left) {
         m_dragging = false;
-        ClearActiveRegionIfMatches(m_region);
-    }
-}
-
-// FUNCTION: WIZ8 0x004f5d70
-void W8VerticalRangeThumb::OnMouseMove(int event)
-{
-    if (!m_enabled) {
-        return;
-    }
-
-    SDL_Point cursor;
-    SGPMouseGetPos(&cursor);
-    int y = ToLocal(cursor).y;
-    if (m_dragging) {
-        int half_height = m_thumbHeight / 2;
-        if (y <= half_height) {
-            m_position = 0.0f;
-        } else if (m_trackLength + half_height <= y) {
-            m_position = 1.0f;
+        m_targets[2]->releaseCapture();
+    } else if (event.action == UiPointerAction::Leave && !m_dragging) m_hovered = false;
+    else if (event.action == UiPointerAction::Move) {
+        if (m_dragging) {
+            if (y <= m_thumb_height / 2) m_position = 0;
+            else if (y >= m_travel + m_thumb_height / 2) m_position = 1;
+            else {
+                m_position += (y - m_drag_y) / static_cast<float>(m_travel);
+                m_drag_y = y;
+            }
+            changed = true;
         } else {
-            int delta = y - m_dragCoordinate;
-            m_dragCoordinate = y;
-            m_position += (delta / static_cast<float>(m_trackLength)) *
-                          (m_maximumPosition - m_minimumPosition);
-        }
-        ClampPositionAndInvalidate();
-        SynchronizeRangeValue();
-        return;
-    }
-
-    bool hovered = (m_pixelPosition <= y && y <= m_pixelPosition + m_thumbHeight);
-    if (hovered != m_hovered) {
-        Invalidate(false);
-    }
-    m_hovered = hovered;
-}
-
-// FUNCTION: WIZ8 0x004f5ef0
-void W8VerticalRangeThumb::AdjustValue(int steps)
-{
-    m_range->AdjustValue(steps);
-}
-
-// FUNCTION: WIZ8 0x004f5f60
-void W8VerticalRangeThumb::Redraw(SDL_Surface& target, bool full_redraw)
-{
-    if (!m_active || (!full_redraw && !m_dirty)) {
-        return;
-    }
-    const auto area = ScreenBounds();
-    InvalidateRegion(area.x, area.y, area.x + area.w, area.y + area.h);
-    SDL_FillSurfaceRect(&target, &area, 0x8000);
-
-    int sprite;
-    if (!m_enabled) {
-        sprite = m_disabledSprite;
-        if (sprite == -1) {
-            return;
-        }
-    } else if (!m_hovered || (sprite = m_hoveredSprite) == -1) {
-        sprite = m_normalSprite;
-    }
-    m_artwork.draw(target, sprite, area.x + m_drawOffsetX,
-                   area.y + m_pixelPosition);
-}
-
-// FUNCTION: WIZ8 0x004f6050
-void W8RangeButton::OnLeftButtonDown(int event)
-{
-    W8TextControl::OnLeftButtonDown(event);
-    if (m_active && m_enabled) {
-        if (m_direction == 0) {
-            m_range->Decrement();
-        } else {
-            m_range->Increment();
+            const int pixel = static_cast<int>(m_position * m_travel);
+            m_hovered = pixel <= y && y <= pixel + m_thumb_height;
         }
     }
-}
-
-// FUNCTION: WIZ8 0x004f60c0
-void W8RangeButton::ActivatePrimary(int event)
-{
-    W8TextControl::ActivatePrimary(event);
-    if (m_active && m_enabled) {
-        if (m_direction == 0) {
-            m_range->Decrement();
-        } else {
-            m_range->Increment();
+    if (changed) {
+        m_position = std::clamp(m_position, 0.f, 1.f);
+        const int value = std::min(m_maximum, m_minimum +
+            static_cast<int>(m_position * (m_maximum - m_minimum + 1)));
+        if (value != m_value) {
+            m_value = value;
+            if (on_change) on_change(this);
         }
     }
+    return UiResult::Handled;
 }
 
-// FUNCTION: WIZ8 0x004f6180
-void W8RangeButton::AdjustValue(int steps)
+void W8RangeControl::Redraw(SDL_Surface& target, bool full_redraw)
 {
-    m_range->AdjustValue(steps);
+    if (!m_active || (!full_redraw && !m_dirty)) return;
+    m_dirty = false;
+    for (int part = 0; part < 2; ++part) {
+        const int frame = part * 8 + (!m_enabled ? 3 : m_arrows[part].pressed ? 2 :
+                                    m_targets[part]->hovered() ? 1 : 0);
+        const auto size = m_artwork.size(frame);
+        m_artwork.drawAndInvalidate(target, frame, m_bounds.x + 16 - size.x,
+            m_bounds.y + (part ? m_bounds.h - 16 : 0) + (16 - size.y) / 2);
+    }
+    SDL_FillSurfaceRect(&target, &m_track, 0x8000);
+    InvalidateRegion(m_track.x, m_track.y, m_track.x + m_track.w, m_track.y + m_track.h);
+    if (m_enabled) m_artwork.draw(target, m_hovered ? 5 : 4,
+        m_track.x + m_track.w - m_artwork.size(4).x,
+        m_track.y + static_cast<int>(m_position * m_travel));
 }
 
 // FUNCTION: WIZ8 0x004f6680
@@ -1650,20 +1470,6 @@ void W8HelpTextControl::OnLeftButtonDoubleClick(int event)
 {
     PushButtonSoundScheme(0, true);
     W8TextControl::OnLeftButtonDoubleClick(event);
-}
-
-void W8VerticalRangeThumb::OnMouseEnter(int)
-{
-    PushButtonSoundScheme(0, true);
-}
-
-void W8VerticalRangeThumb::OnMouseLeave(int event)
-{
-    PushButtonSoundScheme(0, true);
-    if (m_hovered && !m_dragging) {
-        m_hovered = false;
-        Invalidate(static_cast<unsigned char>(event) != 0);
-    }
 }
 
 /* Enables or disables the whole panel: the panel's own flag, then every child's,

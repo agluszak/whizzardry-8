@@ -197,7 +197,7 @@ void camp_effects()
         g_camp_screen = std::make_unique<W8CampScreenState>();
         auto* state = g_camp_screen.get();
         REQUIRE((state->effect_list.empty() && state->stats_range == nullptr));
-        state->stats_range = std::make_unique<W8CampStatsRange>();
+        state->stats_range = std::make_unique<W8RangeControl>(0x264, 0xbe, 0x276, 0x1b5);
         auto& range = *state->stats_range;
         state->effect_list = {
             {false, false, true, false, 0, 0, 0, 3, 10}, {false, false, false, true, 0, 1, 0, 3, 9},
@@ -207,11 +207,11 @@ void camp_effects()
         FilterCampEffectList();
         REQUIRE((state->effect_visible_lines == 24 && state->effect_scroll == 7));
         REQUIRE((state->effect_first_visible == 0 && state->effect_last_visible == 3));
-        REQUIRE((range.m_range->m_enabled && range.m_range->m_value == 7));
+        REQUIRE((range.m_enabled && range.m_value == 7));
         state->effect_filter = W8_CAMP_EFFECT_FILTER_BENEFICIAL;
         FilterCampEffectList();
         REQUIRE((state->effect_visible_lines == 14 && state->effect_scroll == 0));
-        REQUIRE((!range.m_range->m_enabled && !state->effect_list[1].visible));
+        REQUIRE((!range.m_enabled && !state->effect_list[1].visible));
         state->effect_filter = W8_CAMP_EFFECT_FILTER_DETRIMENTAL;
         FilterCampEffectList();
         REQUIRE((state->effect_visible_lines == 13 && state->effect_list[3].visible));
@@ -228,11 +228,11 @@ void camp_effects()
         REQUIRE(state->effect_list.size() == 28);
         REQUIRE((state->effect_detrimental_count == 20 && state->effect_beneficial_count == 8));
         REQUIRE((state->effect_list.front().index == 19 && state->effect_list.back().index == 0));
-        REQUIRE((state->effect_visible_lines == 64 && range.m_range->m_enabled));
+        REQUIRE((state->effect_visible_lines == 64 && range.m_enabled));
         character = {};
         RebuildCampEffectList();
         REQUIRE((state->effect_list.empty() && state->effect_visible_lines == 0));
-        REQUIRE((state->effect_beneficial_count == 0 && !range.m_range->m_enabled));
+        REQUIRE((state->effect_beneficial_count == 0 && !range.m_enabled));
         g_review_character = nullptr;
     }
 }

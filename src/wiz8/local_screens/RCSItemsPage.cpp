@@ -1032,7 +1032,7 @@ unsigned char ItemPoolRegionHandler(const InputEvent* event, W8Region* region, u
         count = delta;
         if (delta > 0) {
             do {
-                g_camp_screen->item_range->m_range->Decrement();
+                g_camp_screen->item_range->Decrement();
                 --count;
             } while (count != 0);
             delta = 0;
@@ -1040,7 +1040,7 @@ unsigned char ItemPoolRegionHandler(const InputEvent* event, W8Region* region, u
         if (delta < 0) {
             count = -delta;
             do {
-                g_camp_screen->item_range->m_range->Increment();
+                g_camp_screen->item_range->Increment();
                 --count;
             } while (count != 0);
         }

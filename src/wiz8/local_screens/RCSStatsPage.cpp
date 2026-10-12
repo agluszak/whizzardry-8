@@ -113,36 +113,6 @@ static W8PortraitGroup g_portrait_groups[12] = {
     {2, {56, 57}},
 };
 
-W8CampRangeListener::W8CampRangeListener(const W8ControlsRect& bounds)
-    : m_range(std::make_unique<W8RangeControl>(bounds.left, bounds.top, bounds.right,
-                                               bounds.bottom))
-{
-    m_range->m_listener = this;
-    m_range->SetActive(true);
-}
-
-// FUNCTION: WIZ8 0x005c4430
-W8CampStatsRange::W8CampStatsRange() : W8CampRangeListener({0x264, 0xbe, 0x276, 0x1b5}) {}
-
-// FUNCTION: WIZ8 0x005c44e0
-void W8CampStatsRange::OnRangeChanged(W8RangeControl*)
-{
-    g_camp_screen->effect_scroll = m_range->m_value;
-    g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_EFFECT_LIST;
-}
-
-/* The shared camp-range refresh, emitted inside this unit in both retail and
-   the demo. Retail calls it directly on the stats and spell listeners as
-   well, which is what proves the common W8CampRangeListener base. */
-// FUNCTION: WIZ8 0x005c4510
-void W8CampRangeListener::UpdateRange(bool range_changed)
-{
-    if (range_changed) {
-        m_range->InvalidateAll();
-    }
-    m_range->Redraw(GetFrameBufferSurface(), false);
-}
-
 // FUNCTION: WIZ8 0x005c4540
 W8CampStatsControls::W8CampStatsControls()
 {
@@ -257,14 +227,14 @@ void DrawCampStatsPage(void)
         DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {g_camp_stats_origin_x + 0x13b +
                          ((0x13b - g_wiz_text_font_secondary.textWidth(text)) >> 1), g_camp_stats_origin_y + 10}, text);
         g_camp_screen->stats_controls->InvalidateAll();
-        g_camp_screen->stats_range->m_range->InvalidateAll();
+        g_camp_screen->stats_range->InvalidateAll();
     }
     if ((g_camp_screen->redraw_flags & W8_CAMP_REDRAW_EFFECT_LIST) != 0) {
         InvalidateRegion(0x15d, 0xbe, 0x260, 0x1b5);
         CatalogArtwork::Load(0x1b6, 0).drawRect(GetFrameBufferSurface(), SDL_Rect{0, 0, (0x260) - (0x15d), (0x1b5) - (0xbe)}, 0x15d, 0xbe);
         DrawCampEffectList();
     }
-    g_camp_screen->stats_range->m_range->Redraw(GetFrameBufferSurface(), false);
+    g_camp_screen->stats_range->Redraw(GetFrameBufferSurface(), false);
 }
 
 /* 0x005C4D40/0x005C4E20: how many beneficial/detrimental lines the equipped
@@ -467,7 +437,7 @@ void FilterCampEffectList(void)
         }
     }
     int second = screen->effect_visible_lines - 0x11;
-    W8RangeControl* range = screen->stats_range->m_range.get();
+    W8RangeControl* range = screen->stats_range.get();
     if (second < 1) {
         second = 0;
         range->SetEnabled(false);
@@ -657,7 +627,7 @@ static unsigned char CampStatsMouseWheel(const InputEvent* event, W8Region*, uns
     if (event->type != InputEventType::MouseWheel) {
         return 0;
     }
-    g_camp_screen->stats_range->m_range->AdjustValue(event->wheel);
+    g_camp_screen->stats_range->AdjustValue(event->wheel);
     return 1;
 }
 

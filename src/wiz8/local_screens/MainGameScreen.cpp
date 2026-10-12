@@ -1293,9 +1293,8 @@ W8MainGameTextKeyHandler::W8MainGameTextKeyHandler(int left, int top, int right,
     m_line_string_ids = line_string_ids;
     m_selected_line = 0;
     m_first_visible_line = 0;
-    m_range_listener = 0;
     m_hover_line = -1;
-    m_range.m_listener = this;
+    m_range.on_change = [this](auto* range) { OnRangeChanged(range); };
     m_range.SetRange(0, m_line_count - m_visible_lines);
     m_range.InvalidateAll();
     m_range.SetActive(true);
@@ -1399,9 +1398,7 @@ void W8MainGameTextKeyHandler::SetSelectedLine(int line)
         m_first_visible_line = first;
         m_range.SetValue(first);
     }
-    if (m_range_listener != 0) {
-        m_range_listener->OnRangeChanged(&m_range);
-    }
+    if (on_selection) on_selection();
 }
 
 char W8MainGameTextKeyHandler::HandleKey(unsigned short key)
@@ -1557,14 +1554,14 @@ W8MainGameTextPanel::W8MainGameTextPanel()
     }
     m_key_handler = EmplaceControl<W8MainGameTextKeyHandler>(
         0x8e, 5, 0x10f, 0x59, 0xf, g_trap_name_string_ids);
-    m_key_handler->m_range_listener = this;
+    m_key_handler->on_selection = [this] { OnRangeChanged(&m_key_handler->m_range); };
     m_text_bounds.left = ScreenBounds().x + 0xc;
     m_text_bounds.top = ScreenBounds().y + 0x29;
     m_text_bounds.right = ScreenBounds().x + 0x84;
     m_text_bounds.bottom = ScreenBounds().y + 0x33;
     m_text_buffer.SetLayoutBounds(&m_text_bounds, true, true);
     EnableRegionSet(true);
-    m_key_handler->m_range.EnableRegionSet(true);
+    m_key_handler->m_range.SetActive(true);
     SetActive(true);
     InvalidateAll();
     for (index = 0; index < 8; ++index) {
@@ -2011,7 +2008,7 @@ void W8MainGameScreen::Update()
     case 3:
         panel = m_text_panel.get();
         panel->EnableRegionSet(false);
-        panel->m_key_handler->m_range.EnableRegionSet(false);
+        panel->m_key_handler->m_range.SetActive(false);
         m_action_panel->EnableRegionSet(false);
         CompleteTrapDisarm(m_owner);
         EndTrapInteractMode(0);
@@ -2105,7 +2102,7 @@ void W8MainGameScreen::EnablePanelRegionSets(bool enable)
     W8MainGameTextPanel* panel = m_text_panel.get();
 
     panel->EnableRegionSet(enable);
-    panel->m_key_handler->m_range.EnableRegionSet(enable);
+    panel->m_key_handler->m_range.SetActive(enable);
     m_action_panel->EnableRegionSet(enable);
 }
 
@@ -2159,7 +2156,7 @@ static void BeginTrapTargetAction()
     gXStatus.fTrapInteractMode = false;
     panel = screen->m_text_panel.get();
     panel->EnableRegionSet(false);
-    panel->m_key_handler->m_range.EnableRegionSet(false);
+    panel->m_key_handler->m_range.SetActive(false);
     screen->m_action_panel->EnableRegionSet(false);
     gXStatus.fTrapInteract = true;
     SelectTextBox(0);
@@ -2259,7 +2256,7 @@ int OpenTrapInteraction(Trigger* trigger)
         screen = g_main_game_screen.get();
         panel = screen->m_text_panel.get();
         panel->EnableRegionSet(true);
-        panel->m_key_handler->m_range.EnableRegionSet(true);
+        panel->m_key_handler->m_range.SetActive(true);
         screen->m_action_panel->EnableRegionSet(true);
         screen->m_text_panel->InvalidateAll();
         screen->m_status_panel->RefreshStatusTexts();
@@ -2311,7 +2308,7 @@ void EndTrapInteractMode(char suspend)
         W8MainGameTextPanel* panel = g_main_game_screen->m_text_panel.get();
         W8MainGameScreen* screen = g_main_game_screen.get();
         panel->EnableRegionSet(false);
-        panel->m_key_handler->m_range.EnableRegionSet(false);
+        panel->m_key_handler->m_range.SetActive(false);
         screen->m_action_panel->EnableRegionSet(false);
         gXStatus.fTrapInteract = true;
     } else {

@@ -31,11 +31,7 @@
 W8SpellRealmAnimation g_spell_realm_animations[6] = {{486, 22, 3}, {487, 18, 8},  {488, 14, 8},
                                                      {489, 21, 1}, {490, 16, 14}, {491, 24, 11}};
 
-/* Each realm owns a range panel. Its range callback is the existing
-   W8RangeListener subobject at +0x34, not a second widget base. */
-// VTABLE: WIZ8 0x005ef614 W8Widget
-// VTABLE: WIZ8 0x005ef610 W8RangeListener
-class W8CharacterSpellList : public W8Widget, public W8RangeListener {
+class W8CharacterSpellList : public W8Widget {
 public:
     W8CharacterSpellList(int x, int y, W8CharacterSpellEntry* entries);
     virtual void Redraw(SDL_Surface& target, bool force) override;
@@ -47,7 +43,7 @@ public:
     virtual void OnRightButtonDown(int event) override;
     virtual void OnLeftButtonUp(int event) override;
     virtual void OnRightButtonUp(int event) override;
-    virtual void OnRangeChanged(W8RangeControl* range) override;
+    void OnRangeChanged(W8RangeControl* range);
     void SetEntryCount(int count);
 
 private:
@@ -80,7 +76,7 @@ void W8CharacterSpellList::SetEntryCount(int count)
         const auto panel = m_pPanel->ScreenBounds();
         m_range = std::make_unique<W8RangeControl>(panel.x + m_x + 0xb8, panel.y + m_y + 0x1a,
                                                    panel.x + m_x + 0xca, panel.y + m_y + 0x78);
-        m_range->m_listener = this;
+        m_range->on_change = [this](auto* range) { OnRangeChanged(range); };
     }
     m_range->InvalidateAll();
     m_range->SetActive(true);
@@ -240,7 +236,7 @@ void W8CharacterSpellsPage::Activate()
     EnableRegionSet(true);
     UpdateSpellLists();
     for (int realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
-        m_realms[realm]->m_range->EnableRegionSet(true);
+        m_realms[realm]->m_range->SetActive(true);
     }
     m_contentDirty = true;
     m_prepared = true;
@@ -251,7 +247,7 @@ void W8CharacterSpellsPage::Deactivate()
 {
     EnableRegionSet(false);
     for (int realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
-        m_realms[realm]->m_range->EnableRegionSet(false);
+        m_realms[realm]->m_range->SetActive(false);
     }
 }
 

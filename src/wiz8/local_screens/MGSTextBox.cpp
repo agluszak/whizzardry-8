@@ -1735,7 +1735,7 @@ void AttemptTrapDisarm(int level, int /*flag*/, char backfire)
         screen->m_disarm_state = 8;
     }
     screen->m_text_panel->EnableRegionSet(false);
-    screen->m_text_panel->m_key_handler->m_range.EnableRegionSet(false);
+    screen->m_text_panel->m_key_handler->m_range.SetActive(false);
     screen->m_action_panel->EnableRegionSet(false);
     screen->m_timer.SetDuration(1.5f);
     screen->m_timer.Restart();

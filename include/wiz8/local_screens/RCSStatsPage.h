@@ -28,13 +28,6 @@ struct W8CampEffectEntry {
    list: button 0 selects beneficial rows, button 1 detrimental rows and
    button 2 switches the list to equipped items. */
 
-// VTABLE: WIZ8 0x005ef530
-class W8CampStatsRange final : public W8CampRangeListener {
-public:
-    W8CampStatsRange();
-    virtual void OnRangeChanged(W8RangeControl* control) override;
-};
-
 // VTABLE: WIZ8 0x005ef53c Controls
 // VTABLE: WIZ8 0x005ef534 W8TextControl::Listener
 class W8CampStatsControls : public Controls, public W8TextControl::Listener {
