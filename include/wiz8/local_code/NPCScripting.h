@@ -62,9 +62,6 @@ struct W8NpcScriptingState {
     bool dialogue_cancelled;
     bool portrait_message_active;
     bool scripted_scene_active;
-    bool sedexus_release_pending;
-    bool sedexus_capture_pending;
-    bool sedexus_capture_active;
 };
 
 extern W8NpcScriptingState g_npc_scripting;
@@ -96,7 +93,6 @@ std::optional<W8NpcScriptItemQuote> FindNpcScriptItemQuote(int item_id);
 void UpdateNpcDialogueVoiceAndCursor(void);
 void ProcessNpcScriptingFrame(void);
 void SetNpcScriptEventActive(unsigned char value);
-bool IsSedexusCaptureActive(void);
 /* Resolves NPC-name, named-person, and region keywords to a quote
    id; returns -1 when nothing matches. */
 int FindNpcNameOrPlaceQuote(W8NpcState* npc, std::string_view text);

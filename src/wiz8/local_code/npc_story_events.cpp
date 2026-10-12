@@ -38,6 +38,8 @@
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/level_specific_code/Ascension.h"
 #include "wiz8/message_box.h"
+#include "soundman.h"
+#include "wiz8/audio_resources.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/layouts/npc_state.h"
@@ -237,6 +239,68 @@ void EndScriptedPortraitPick(int party_slot)
         }
     }
 }
+/* The Al-Sedexus capture scene. Capture and release are each picked up by
+   the next scripting frame that runs in a suitable environment; the capture
+   stays active, with the moaning ambience streaming, until the release. */
+struct W8SedexusScene {
+    bool capture_pending = false;
+    bool release_pending = false;
+    bool capture_active = false;
+    wiz8::sound::Playback moaning;
+};
+static W8SedexusScene g_sedexus_scene;
+
+// FUNCTION: WIZ8 0x0052A070
+bool IsSedexusCaptureActive(void) { return g_sedexus_scene.capture_active; }
+
+void ResetSedexusScene(void)
+{
+    g_sedexus_scene.capture_pending = false;
+    g_sedexus_scene.release_pending = false;
+    g_sedexus_scene.capture_active = false;
+}
+
+void UpdateSedexusScene(void)
+{
+    if (!g_sedexus_scene.capture_pending && !g_sedexus_scene.release_pending) {
+        return;
+    }
+    const int environment = GetEnvironmentValue();
+    if (environment != 0 && environment != 2) {
+        return;
+    }
+    ClearScriptedSceneActive();
+    if (!g_sedexus_scene.release_pending) {
+        g_sedexus_scene.moaning =
+            wiz8::sound::stream("Data\\Sound\\Ambients\\Al_Sedexus Moaning.wav");
+    } else {
+        ClearMainGameTargetState();
+        int sedexus_party_slot = g_status.sedexus_party_slot;
+        for (int party_slot = 0; party_slot < 8; ++party_slot) {
+            const W8PartySlotRow& row = g_status.buffers.XChar[party_slot];
+            const W8Character& character = g_status.buffers.Char[party_slot];
+            if (row.fOccupied &&
+                (character.hp_current > 0 || character.highest_condition < W8_CONDITION_DEAD) &&
+                party_slot != sedexus_party_slot) {
+                RemoveCharacterCondition(party_slot, W8_CONDITION_UNCONSCIOUS, false);
+                sedexus_party_slot = g_status.sedexus_party_slot;
+            }
+        }
+        W8Character* character = &g_status.buffers.Char[sedexus_party_slot];
+        if (character->gender == W8_GENDER_MALE) {
+            QueueCharacterEvent(character, g_effect29, 0, g_character_event_no_flags,
+                                g_character_event_full_volume);
+        }
+        g_sedexus_scene.capture_active = false;
+        if (g_sedexus_scene.moaning != nullptr) {
+            wiz8::sound::stop(g_sedexus_scene.moaning);
+            g_sedexus_scene.moaning = nullptr;
+        }
+    }
+    g_sedexus_scene.capture_pending = false;
+    g_sedexus_scene.release_pending = false;
+}
+
 /* Al-Sedexus takes her pick: the scripted scene opens, the lighting fades,
    and every still-living occupied slot other than the selected character is
    put under condition 0x11. */
@@ -247,8 +311,8 @@ void BeginSedexusCapture(void)
 
     SetScriptedSceneActive();
     BeginScriptedWorldAction();
-    g_npc_scripting.sedexus_capture_pending = true;
-    g_npc_scripting.sedexus_capture_active = true;
+    g_sedexus_scene.capture_pending = true;
+    g_sedexus_scene.capture_active = true;
     BeginWorldLightingFade(-1000.0f);
     for (party_slot = 0; party_slot < 8; ++party_slot) {
         if (g_status.buffers.XChar[party_slot].fOccupied &&
@@ -286,7 +350,7 @@ static void ResolveSedexusCapture(void)
         }
     }
     SetScriptedSceneActive();
-    g_npc_scripting.sedexus_release_pending = true;
+    g_sedexus_scene.release_pending = true;
     BeginWorldLightingFade(1000.0f);
     RunNamedTrigger("al-seduxusgate", -1);
     RunNamedTrigger("templargate14", -1);

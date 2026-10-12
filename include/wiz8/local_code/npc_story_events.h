@@ -9,3 +9,7 @@ void RunNpcStoryAction(W8NpcStoryAction action);
 void BeginNpcScriptedScene(void);
 void EndScriptedPortraitPick(int party_slot);
 void BeginSedexusCapture(void);
+bool IsSedexusCaptureActive(void);
+/* Advance a pending Al-Sedexus capture or release; runs each scripting frame. */
+void UpdateSedexusScene(void);
+void ResetSedexusScene(void);

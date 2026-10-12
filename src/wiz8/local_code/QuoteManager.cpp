@@ -49,6 +49,7 @@
 #include "wiz8/utility.h"
 #include "random.h"
 #include "wiz8/local_code/character_events.h"
+#include "wiz8/local_code/npc_story_events.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/string_database.h"
