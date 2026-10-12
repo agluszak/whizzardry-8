@@ -655,15 +655,6 @@ void ReleaseFormationBoard(void)
     }
 }
 
-// FUNCTION: WIZ8 0x005B2580
-void DestroyFormationPanel(void)
-{
-    g_formation_panel.reset();
-    for (auto& control : g_formation_cell_controls) control = nullptr;
-    for (auto& overlay : g_formation_cell_overlays) overlay = nullptr;
-    for (auto& button : g_formation_action_buttons) button = nullptr;
-}
-
 /* The upper-left character block. While an input mode is up it lists the
    reviewed character's professions and their levels instead of the portrait;
    otherwise it repaints the portrait and vitals, the name/gender/profession

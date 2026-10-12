@@ -152,6 +152,7 @@ struct W8Region {
     std::uint64_t binding_generation = 0; // Detect replacement during callback dispatch.
     int priority = 0;
     std::string help_text{};
+    std::function<std::string()> help_text_provider{};
     bool text_field = false; // Hit-tested at the cursor tip, ahead of every other set.
     W8RegionHandler* handler = nullptr;
     /* The widget that positions, activates and labels this region. It is
@@ -406,7 +407,9 @@ struct UiInputPolicy {
     bool track_hover = true;
 };
 
-/* The single input-queue drain. Returns whether any event was dequeued. */
+/* The single input-queue drain. Returns whether any event was dequeued.
+   Deferred structural changes commit after the current policy callback and
+   stop draining, leaving the remaining events for the next screen/frame. */
 bool PumpUiInput(const UiInputPolicy& policy);
 
 void SetRegionHelpForceEnabled(bool enabled);

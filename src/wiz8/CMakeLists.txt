@@ -16,6 +16,7 @@ add_library(WIZ8_GAME_CORE STATIC
     local_code/FormationAndFacing.cpp
     local_code/ThingEditorShared.cpp
     local_code/Controls.cpp
+    local_code/UiLayer.cpp
     local_code/Factions.cpp
     local_code/LoadSaveGame.cpp
     local_code/Magic.cpp

@@ -24,6 +24,7 @@
 #include <ios>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string>
 #include <vector>
 #include <cstdint>
@@ -59,6 +60,7 @@
 #include "Font.h"
 #include "input.h"
 #include "wiz8/regions.h"
+#include "wiz8/ui_layer.h"
 #include "imgfmt.h"
 #include "temporary_directory.h"
 #include "scoped_asset_roots.h"
@@ -1667,6 +1669,206 @@ TEST_CASE("Camp effect ownership", "[owner]")
 TEST_CASE("Owned control region priority", "[owner]")
 {
     owned_regions_honor_priority();
+}
+
+TEST_CASE("Input layers preserve backend ordering and shape boundaries", "[owner][ui-layer]")
+{
+    RegionStateSnapshot saved_state;
+    ResetRegions();
+    std::vector<int> hits;
+    const auto record = [&](int id) {
+        return [&, id](const UiPointerEvent& event) {
+            if (event.action == UiPointerAction::Wheel) hits.push_back(id);
+            return UiResult::Handled;
+        };
+    };
+    UiLayer later(20);
+    later.add(SDL_Rect{10, 10, 11, 11}, record(1), 100);
+    UiLayer earlier(10);
+    auto& first = earlier.add(SDL_Rect{10, 10, 11, 11}, record(2), 5);
+    auto& tie = earlier.add(SDL_Rect{10, 10, 11, 11}, record(3), 5);
+    auto& circle = earlier.add(UiCircle{{15, 15}, 5}, record(4), 6);
+    dispatch_mouse(InputEventType::MouseWheel, 20, 15); // Circumference included.
+    dispatch_mouse(InputEventType::MouseWheel, 20, 20); // Rectangle's last pixel.
+    dispatch_mouse(InputEventType::MouseWheel, 21, 20); // Outside SDL extent.
+    REQUIRE(hits == std::vector<int>{4, 2});
+    first.setEnabled(false);
+    dispatch_mouse(InputEventType::MouseWheel, 20, 20);
+    earlier.remove(tie);
+    dispatch_mouse(InputEventType::MouseWheel, 20, 20);
+    circle.setShape(SDL_Rect{20, 20, 1, 1});
+    dispatch_mouse(InputEventType::MouseWheel, 20, 20);
+    earlier.setEnabled(false);
+    dispatch_mouse(InputEventType::MouseWheel, 20, 20);
+    REQUIRE(hits == std::vector<int>{4, 2, 3, 1, 4, 1});
+
+    earlier.setEnabled(true);
+    first.setEnabled(true);
+    circle.setEnabled(false);
+    UiLayer same_order(10);
+    same_order.add(SDL_Rect{10, 10, 11, 11}, record(5), 1000);
+    dispatch_mouse(InputEventType::MouseWheel, 15, 15);
+    REQUIRE(hits.back() == 2); // Equal layer orders use creation order.
+}
+
+TEST_CASE("Input layers keep capture outside and release it for gameplay drops", "[owner][ui-layer]")
+{
+    RegionStateSnapshot saved_state;
+    ResetRegions();
+    std::vector<UiPointerEvent> events;
+    int drops = 0;
+    HitTarget* drag_source = nullptr;
+    UiLayer layer;
+    auto& source = layer.add(SDL_Rect{10, 10, 20, 20}, [&](const UiPointerEvent& event) {
+        events.push_back(event);
+        if (drag_source && event.action == UiPointerAction::Leave)
+            drag_source->releaseCapture();
+        return UiResult::Handled;
+    });
+    layer.add(SDL_Rect{40, 10, 20, 20}, [&](const UiPointerEvent& event) {
+        if (event.action == UiPointerAction::Up) ++drops;
+        return UiResult::Handled;
+    });
+    dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true, false, 2);
+    REQUIRE(events.back().clicks == 2);
+    REQUIRE(events.back().local.x == 5);
+    REQUIRE(events.back().local.y == 5);
+    UpdateRegionMousePosition(45, 15);
+    REQUIRE(events.back().action == UiPointerAction::Leave);
+    dispatch_mouse(InputEventType::LeftButtonUp, 45, 15);
+    REQUIRE(events.back().action == UiPointerAction::Up);
+    REQUIRE_FALSE(events.back().inside);
+    REQUIRE(events.back().captured_buttons == SDL_BUTTON_LMASK);
+    REQUIRE(g_ui.captured == 0);
+    REQUIRE(drops == 0);
+
+    dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
+    const auto source_index = g_ui.captured;
+    drag_source = &source;
+    UpdateRegionMousePosition(45, 15);
+    REQUIRE(g_ui.captured == 0);
+    REQUIRE((g_regions[source_index].flags & W8_REGION_LEFT_BUTTON_HELD) == 0);
+    dispatch_mouse(InputEventType::LeftButtonUp, 45, 15);
+    REQUIRE(drops == 1);
+    dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
+    source.setEnabled(false);
+    REQUIRE(g_ui.captured == 0);
+    dispatch_mouse(InputEventType::LeftButtonUp, 45, 15);
+    REQUIRE(drops == 2);
+}
+
+TEST_CASE("Legacy modal scopes block input layers and restore valid capture", "[owner][ui-layer]")
+{
+    RegionStateSnapshot saved_state;
+    ResetRegions();
+    int releases = 0;
+    UiLayer screen;
+    auto& target = screen.add(SDL_Rect{10, 10, 20, 20}, [&](const UiPointerEvent& event) {
+        if (event.action == UiPointerAction::Up) ++releases;
+        return UiResult::Handled;
+    });
+    dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
+    const auto captured = g_ui.captured;
+    REQUIRE(captured != 0);
+    {
+        OwnedRegionSet modal(std::span<const RegionTemplate>{});
+        ExclusiveRegionSet scope(modal.set());
+        dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
+        REQUIRE(releases == 0);
+        REQUIRE(g_ui.captured == 0);
+        {
+            OwnedRegionSet nested(std::span<const RegionTemplate>{});
+            ExclusiveRegionSet nested_scope(nested.set());
+            dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
+            REQUIRE(g_ui.captured == 0);
+        }
+    }
+    REQUIRE(g_ui.captured == captured);
+    dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
+    REQUIRE(releases == 1);
+
+    dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
+    {
+        OwnedRegionSet modal(std::span<const RegionTemplate>{});
+        ExclusiveRegionSet scope(modal.set());
+        SECTION("A disabled target cannot regain suspended capture") { target.setEnabled(false); }
+        SECTION("A disabled layer cannot regain suspended capture") { screen.setEnabled(false); }
+        SECTION("A removed target cannot regain suspended capture") { screen.remove(target); }
+    }
+    REQUIRE(g_ui.captured == 0);
+    REQUIRE(g_ui.current == 0);
+    REQUIRE(g_ui.hover == 0);
+}
+
+TEST_CASE("Input-layer owners close only after the outer dispatch completes", "[owner][ui-layer]")
+{
+    RegionStateSnapshot saved_state;
+    ResetRegions();
+    const auto region_count = LiveDynamicRegionCount();
+    const auto set_count = LiveRegionSetCount();
+    auto layer = std::make_unique<UiLayer>();
+    bool finished = false;
+    layer->add(SDL_Rect{10, 10, 20, 20}, [&](const UiPointerEvent& event) {
+        if (event.action == UiPointerAction::Down) {
+            AfterUiDispatch([&] {
+                REQUIRE(finished);
+                layer.reset();
+            });
+            // Reentrant dispatch must not flush the outer callback's close.
+            dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
+            REQUIRE(layer != nullptr);
+            finished = true;
+        }
+        return UiResult::Handled;
+    });
+    dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
+    REQUIRE(layer == nullptr);
+    REQUIRE(g_ui.current == 0);
+    REQUIRE(g_ui.hover == 0);
+    REQUIRE(g_ui.captured == 0);
+    REQUIRE(LiveDynamicRegionCount() == region_count);
+    REQUIRE(LiveRegionSetCount() == set_count);
+
+    layer = std::make_unique<UiLayer>();
+    layer->add(SDL_Rect{10, 10, 20, 20}, [&](const UiPointerEvent& event) {
+        if (event.action == UiPointerAction::Enter)
+            AfterUiDispatch([&] { layer.reset(); });
+        return UiResult::Handled;
+    });
+    UpdateRegionMousePosition(15, 15);
+    REQUIRE(layer == nullptr);
+    REQUIRE(g_ui.hover == 0);
+    REQUIRE(g_ui.current == 0);
+}
+
+TEST_CASE("The input pump finishes its policy before committing a layer close", "[owner][ui-layer]")
+{
+    RegionStateSnapshot saved_state;
+    ResetRegions();
+    InputEvent pending;
+    while (DequeueEvent(&pending)) {}
+    auto layer = std::make_unique<UiLayer>();
+    layer->add(SDL_Rect{10, 10, 20, 20}, [&](const UiPointerEvent& event) {
+        if (event.action == UiPointerAction::Down)
+            AfterUiDispatch([&] { layer.reset(); });
+        return UiResult::Handled;
+    });
+    QueueEvent(InputEventType::LeftButtonDown, {15, 15});
+    QueueEvent(InputEventType::LeftButtonUp, {15, 15});
+    int consumed = 0;
+    UiInputPolicy policy;
+    policy.track_hover = false;
+    policy.consumed = [&](const InputEvent&) {
+        REQUIRE(layer != nullptr);
+        ++consumed;
+        return InputRoute::Handled;
+    };
+    REQUIRE(PumpUiInput(policy));
+    REQUIRE(consumed == 1);
+    REQUIRE(layer == nullptr);
+    REQUIRE(DequeueEvent(&pending));
+    REQUIRE(pending.type == InputEventType::LeftButtonUp);
+    REQUIRE_FALSE(DequeueEvent(&pending));
 }
 
 TEST_CASE("Callback reentrancy and region teardown", "[owner]")

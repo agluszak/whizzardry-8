@@ -13,8 +13,11 @@
 #include <stdexcept>
 #include <utility>
 #include <vector>
+#include <functional>
+#include <exception>
 
 #include "wiz8/regions.h"
+#include "wiz8/ui_layer.h"
 #include "Video2.h"
 #include "compat/native.h"
 #ifdef WIZ8_RUNTIME_TESTS
@@ -53,6 +56,25 @@ static unsigned char ConsumeRegionInput(const InputEvent*, W8Region*, unsigned s
 }
 
 namespace {
+unsigned int ui_dispatch_depth = 0;
+std::vector<std::function<void()>> after_ui_dispatch;
+
+class UiDispatchScope {
+public:
+    UiDispatchScope() { ++ui_dispatch_depth; }
+    ~UiDispatchScope() noexcept(false)
+    {
+        if (--ui_dispatch_depth != 0) return;
+        // Do not run application callbacks while unwinding another callback.
+        if (std::uncaught_exceptions() != 0) {
+            after_ui_dispatch.clear();
+            return;
+        }
+        auto actions = std::exchange(after_ui_dispatch, {});
+        for (auto& action : actions) action();
+    }
+};
+
 ScreenRegionSet& InputSinkRegion()
 {
     static constexpr std::array<RegionTemplate, 1> templates{{
@@ -61,6 +83,12 @@ ScreenRegionSet& InputSinkRegion()
     static ScreenRegionSet region{templates};
     return region;
 }
+}
+
+void AfterUiDispatch(std::function<void()> action)
+{
+    if (ui_dispatch_depth != 0) after_ui_dispatch.push_back(std::move(action));
+    else action();
 }
 
 void CaptureInputSink()
@@ -337,6 +365,7 @@ W8Region* FindDispatchRegion(const DispatchPoint& point, unsigned int& region_in
 ExclusiveRegionSet::ExclusiveRegionSet(unsigned int set)
     : set_(set), sequence_(set < g_region_sets.size() ? g_region_sets[set].sequence : 0)
 {
+    const UiDispatchScope dispatch_scope;
     const auto save_region = [](unsigned int index) {
         SavedRegionState saved{index, 0, 0};
         if (index != 0 && index < g_regions.size()) {
@@ -404,11 +433,21 @@ ExclusiveRegionSet::~ExclusiveRegionSet()
     clear_mouse_state(g_ui.hover);
     g_ui.modal_scopes.erase(g_ui.modal_scopes.begin() + scope_index);
 
-    const auto restore_flags = [](const SavedRegionState& saved) {
+    const auto restore_index = [](const SavedRegionState& saved) {
         if (saved.index == 0 || saved.index >= g_regions.size() ||
-            g_regions[saved.index].binding_generation != saved.generation) {
-            return;
+            g_regions[saved.index].binding_generation != saved.generation ||
+            !g_regions[saved.index].InputEnabled() ||
+            !RegionAllowedByExclusiveSet(saved.index) ||
+            !std::ranges::any_of(g_region_sets, [&](const auto& set) {
+                return set.enabled == 1 &&
+                       std::ranges::find(set.Regions(), saved.index) != set.Regions().end();
+            })) {
+            return 0u;
         }
+        return saved.index;
+    };
+    const auto restore_flags = [&](const SavedRegionState& saved) {
+        if (restore_index(saved) == 0) return;
         g_regions[saved.index].flags =
             (g_regions[saved.index].flags & ~W8_REGION_MOUSE_STATE_MASK) |
             (saved.flags & W8_REGION_MOUSE_STATE_MASK);
@@ -416,14 +455,6 @@ ExclusiveRegionSet::~ExclusiveRegionSet()
     restore_flags(saved_current_);
     restore_flags(saved_captured_);
     restore_flags(saved_hover_);
-    const auto restore_index = [](const SavedRegionState& saved) {
-        if (saved.index == 0 || saved.index >= g_regions.size() ||
-            g_regions[saved.index].binding_generation != saved.generation ||
-            !RegionAllowedByExclusiveSet(saved.index)) {
-            return 0u;
-        }
-        return saved.index;
-    };
     g_ui.current = restore_index(saved_current_);
     g_ui.captured = restore_index(saved_captured_);
     g_ui.hover = restore_index(saved_hover_);
@@ -436,6 +467,7 @@ ExclusiveRegionSet::~ExclusiveRegionSet()
 // FUNCTION: WIZ8 0x004f1360
 unsigned int UpdateRegionMousePosition(int x, int y)
 {
+    const UiDispatchScope dispatch_scope;
     g_ui.pointer = {x, y};
     const auto event = SyntheticMouseMove({x, y});
     unsigned int region_index;
@@ -452,7 +484,8 @@ unsigned int UpdateRegionMousePosition(int x, int y)
                 forced->flags & (W8_REGION_LEFT_BUTTON_HELD | W8_REGION_RIGHT_BUTTON_HELD);
             g_ui.hover = 0;
             if (!LeaveRegion(*forced, event)) return g_ui.current;
-            forced->flags |= held_buttons;
+            // A gameplay drag may release capture from its leave callback.
+            if (g_ui.captured == captured_index) forced->flags |= held_buttons;
             PlayButtonSound(1);
             return g_ui.current;
         }
@@ -527,6 +560,7 @@ SDL_Point GetRegionMousePosition()
 // FUNCTION: WIZ8 0x004f16f0
 unsigned int FindRegionAtPoint(unsigned short x, unsigned short y)
 {
+    const UiDispatchScope dispatch_scope;
     const auto event = SyntheticMouseMove({x, y});
     unsigned int region_index;
 
@@ -564,6 +598,7 @@ unsigned int FindRegionAtPoint(unsigned short x, unsigned short y)
 // FUNCTION: WIZ8 0x004f1910
 unsigned char DispatchRegionInput(const InputEvent* event)
 {
+    const UiDispatchScope dispatch_scope;
     unsigned int region_index = 0;
     int sound_id = -1;
     g_ui.pointer = {event->position.x,
@@ -662,7 +697,10 @@ void ShowRegionHelp(unsigned int region_index)
     if ((region->flags & W8_REGION_HELP_SHOWN) != 0) {
         return;
     }
-    if (!region->help_text.empty()) {
+    if (region->help_text_provider) {
+        text = region->help_text_provider();
+        if (text.empty()) return;
+    } else if (!region->help_text.empty()) {
         text = region->help_text;
     } else if (region->help_text_id == -1) {
         text = g_default_help_text;
@@ -699,6 +737,7 @@ void ShowRegionHelp(unsigned int region_index)
 // FUNCTION: WIZ8 0x004f2040
 void ActivateDialogRegion(unsigned int region_index)
 {
+    const UiDispatchScope dispatch_scope;
     if (region_index >= g_regions.size()) {
         srAssertFail("uiRegionIndex < guiRegionCount",
                      "C:\\Projects\\Wizardry 8\\Local Code\\RegionManager.cpp", 0x1d6, 0);
@@ -735,22 +774,35 @@ unsigned char ClearActiveRegionIfMatches(unsigned int region_index)
 bool PumpUiInput(const UiInputPolicy& policy)
 {
     if (policy.track_hover) {
-        SDL_Point mouse;
-        SGPMouseGetPos(&mouse);
-        UpdateRegionMousePosition(mouse.x, mouse.y);
+        bool changed;
+        {
+            const UiDispatchScope dispatch_scope;
+            SDL_Point mouse;
+            SGPMouseGetPos(&mouse);
+            UpdateRegionMousePosition(mouse.x, mouse.y);
+            changed = !after_ui_dispatch.empty();
+        }
+        if (changed) return false;
     }
     bool drained = false;
     InputEvent input;
     while (DequeueEvent(&input)) {
         drained = true;
-        auto route = policy.before ? policy.before(input) : InputRoute::Pass;
-        if (route == InputRoute::Pass) {
-            const bool consumed = (!policy.ui_accepts || policy.ui_accepts(input)) &&
-                                  DispatchRegionInput(&input) != 0;
-            const auto& next = consumed ? policy.consumed : policy.unhandled;
-            route = next ? next(input) : InputRoute::Handled;
+        bool stop;
+        {
+            const UiDispatchScope dispatch_scope;
+            auto route = policy.before ? policy.before(input) : InputRoute::Pass;
+            if (route == InputRoute::Pass) {
+                const bool consumed = (!policy.ui_accepts || policy.ui_accepts(input)) &&
+                                      DispatchRegionInput(&input) != 0;
+                const auto& next = consumed ? policy.consumed : policy.unhandled;
+                route = next ? next(input) : InputRoute::Handled;
+            }
+            // Keep policy callbacks alive through the whole event, then yield
+            // after structural changes instead of invoking the old policy again.
+            stop = route == InputRoute::Stop || !after_ui_dispatch.empty();
         }
-        if (route == InputRoute::Stop) break;
+        if (stop) break;
     }
     return drained;
 }
@@ -1292,6 +1344,7 @@ void UnbindWidgetRegion(unsigned int region_index, W8Widget* widget, OwnedRegion
 // FUNCTION: WIZ8 0x004f2a80
 void ClearHotRegion(void)
 {
+    const UiDispatchScope dispatch_scope;
     SDL_Point mouse;
     SGPMouseGetPos(&mouse);
     const auto event = SyntheticMouseMove(mouse);

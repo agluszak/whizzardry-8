@@ -1,5 +1,6 @@
 #include "wiz8/local_code/ControlsRect.h"
 #include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_mouse.h>
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
 #include <string_view>
@@ -7,12 +8,11 @@
 #include <array>
 #include <cstddef>
 #include <memory>
-#include <vector>
 
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/regions.h"
-#include "wiz8/local_code/Controls.h"
+#include "wiz8/ui_layer.h"
 #include "wiz8/local_screens/MainMenuScreen.h"
 #include "wiz8/cursor.h"
 #include "wiz8/layouts/screen_state.h"
@@ -54,9 +54,10 @@ std::string g_pending_main_menu_message;
 static std::unique_ptr<W8MessageDialogBase> main_menu_dialog;
 
 namespace {
-constexpr std::array<W8ControlsRect, 6> main_menu_item_bounds = {{
-    {174, 138, 467, 182}, {140, 187, 501, 231}, {204, 235, 436, 279},
-    {239, 284, 403, 328}, {234, 335, 408, 379}, {279, 423, 364, 467},
+// Retail right/bottom edges are inclusive; SDL extents include that last pixel.
+constexpr std::array<SDL_Rect, 6> main_menu_item_bounds = {{
+    {174, 138, 294, 45}, {140, 187, 362, 45}, {204, 235, 233, 45},
+    {239, 284, 165, 45}, {234, 335, 175, 45}, {279, 423, 86, 45},
 }};
 constexpr std::array<int, 4> main_menu_sprite_objects = {0xea, 0xec, 0xeb, 0xed};
 }
@@ -71,8 +72,8 @@ unsigned char DrawMainMenuItem(short item, short state)
 
     const auto& bounds = main_menu_item_bounds[item];
     if (state >= 0 && static_cast<std::size_t>(state) < main_menu_sprite_objects.size())
-        CatalogArtwork::Load(main_menu_sprite_objects[state], 0).draw(GetFrameBufferSurface(), item, 0x98, bounds.top);
-    InvalidateRegion(0x98, bounds.top, 0x1f2, bounds.bottom);
+        CatalogArtwork::Load(main_menu_sprite_objects[state], 0).draw(GetFrameBufferSurface(), item, 0x98, bounds.y);
+    InvalidateRegion(0x98, bounds.y, 0x1f2, bounds.y + bounds.h - 1);
     return 1;
 }
 
@@ -90,8 +91,7 @@ static void SelectMainMenuItem(short item)
 }
 
 
-/* The six menu items are widgets owned by this screen. The Controls panel
-   creates their regions at runtime; the global region catalog is not involved. */
+// The screen owns its input registrations; artwork stays in this file.
 namespace {
 void ActivateMainMenuItem(short item)
 {
@@ -123,61 +123,46 @@ void ActivateMainMenuItem(short item)
     }
 }
 
-class MainMenuItemWidget final : public W8Widget {
-public:
-    MainMenuItemWidget(short item, const W8ControlsRect& bounds)
-        : item_(item)
-    {
-        SetBounds(ToSDLRect(bounds));
-    }
-
-    void OnMouseEnter(int) override
-    {
-        if (Available()) SelectMainMenuItem(item_);
-    }
-
-    void OnMouseLeave(int) override
-    {
+UiResult HandleMainMenuItem(short item, const UiPointerEvent& event)
+{
+    const bool available = item != 2 || g_main_menu_has_save_games;
+    switch (event.action) {
+    case UiPointerAction::Enter:
+        if (available) SelectMainMenuItem(item);
+        break;
+    case UiPointerAction::Leave:
         DrawMainMenuItem(g_main_menu_selected_item, 0);
         g_main_menu_selected_item = -1;
-    }
-
-    void OnLeftButtonDown(int) override
-    {
-        if (Available()) DrawMainMenuItem(g_main_menu_selected_item, 2);
-    }
-
-    void OnLeftButtonUp(int) override
-    {
-        if (!Available()) return;
-        const auto mouse = GetRegionMousePosition();
-        const auto& bounds = main_menu_item_bounds[item_];
-        const bool released_inside = mouse.x >= bounds.left && mouse.x <= bounds.right &&
-                                     mouse.y >= bounds.top && mouse.y <= bounds.bottom;
-        DrawMainMenuItem(g_main_menu_selected_item, released_inside ? 1 : 0);
-        if (!released_inside) {
-            if (g_main_menu_selected_item == item_) g_main_menu_selected_item = -1;
-            return;
+        break;
+    case UiPointerAction::Down:
+        if (available && event.button == UiPointerButton::Left)
+            DrawMainMenuItem(g_main_menu_selected_item, 2);
+        break;
+    case UiPointerAction::Up:
+        if (!available || event.button != UiPointerButton::Left ||
+            !(event.captured_buttons & SDL_BUTTON_LMASK)) break;
+        DrawMainMenuItem(g_main_menu_selected_item, event.inside ? 1 : 0);
+        if (event.inside) {
+            AfterUiDispatch([item] { ActivateMainMenuItem(item); });
+        } else if (g_main_menu_selected_item == item) {
+            g_main_menu_selected_item = -1;
         }
-        ActivateMainMenuItem(item_);
+        break;
+    default: break;
     }
+    return UiResult::Handled;
+}
 
-private:
-    bool Available() const { return item_ != 2 || g_main_menu_has_save_games; }
-    short item_;
-};
+std::unique_ptr<UiLayer> main_menu_input;
 
-std::unique_ptr<Controls> main_menu_controls;
-
-void CreateMainMenuControls()
+void CreateMainMenuInput()
 {
-    main_menu_controls = std::make_unique<Controls>();
-    main_menu_controls->CreateRegionSet();
+    main_menu_input = std::make_unique<UiLayer>();
     for (short item = 0; item < static_cast<short>(main_menu_item_bounds.size()); ++item) {
-        main_menu_controls->EmplaceControl<MainMenuItemWidget>(item, main_menu_item_bounds[item]);
+        main_menu_input->add(main_menu_item_bounds[item], [item](const UiPointerEvent& event) {
+            return HandleMainMenuItem(item, event);
+        });
     }
-    main_menu_controls->SetActive(true);
-    main_menu_controls->EnableRegionSet(true);
 }
 } // namespace
 
@@ -210,9 +195,9 @@ unsigned char MainMenuScreenEnter(void)
     measured = g_wiz_text_font_secondary.textWidth(wide);
     DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x27b - measured, 5}, wide);
     g_wiz_text_font_secondary.resetPalette();
-    main_menu_controls.reset();
+    main_menu_input.reset();
     ResetRegions();
-    CreateMainMenuControls();
+    CreateMainMenuInput();
 
     if (gXStatus.uiMonstersInDatabase > 1000) {
         srAssertFail("gXStatus.uiMonstersInDatabase <= MAX_MONSTERS_IN_DATABASE",
@@ -347,7 +332,7 @@ void MainMenuScreenFrame()
 unsigned char MainMenuScreenLeave(int)
 {
     main_menu_dialog.reset();
-    main_menu_controls.reset();
+    main_menu_input.reset();
     ReleaseCatalogArtwork();
     ResetRegions();
     return 1;

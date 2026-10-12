@@ -61,6 +61,9 @@
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
 #include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/local_screens/MGSFormation.h"
+#include "wiz8/cursor.h"
+#include "layouts/party_formation.h"
 #include "wiz8/item_video_object_vector.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/item_tables.h"
@@ -320,6 +323,9 @@ class Game
         frame();
     }
 
+    void press_at(int x, int y) { mouse_button(x, y, true); frame(); }
+    void release_at(int x, int y) { mouse_button(x, y, false); frame(); }
+
     void release_outside(int region)
     {
         if (region < 0)
@@ -537,7 +543,7 @@ void ReachMainMenu(Game& game)
     REQUIRE(g_runtime_test_hooks.movie_frames_presented == 0);
 }
 
-/* The menu's hit targets must be widget-owned, survive screen re-entry, and
+/* The menu's hit targets must be screen-owned, survive screen re-entry, and
    never activate from an unpaired mouse release. */
 void MainMenuUiScenario()
 {
@@ -765,6 +771,70 @@ void StartPremadeGame(Game& game)
     REQUIRE(CountActiveCharacters() == 1);
     RunNewGameOpeningSequence(false, {});
     WaitMainGame(game, "premade-main-game");
+}
+
+// The formation layer must keep gameplay dragging independent of its artwork.
+void FormationUiScenario()
+{
+    Game game(false);
+    StartPremadeGame(game);
+    const int slot = PremadeSlot();
+    constexpr std::array<SDL_Point, 15> cell_offsets{{
+        {90, 28}, {61, 37}, {119, 37}, {152, 90}, {143, 61},
+        {143, 119}, {90, 152}, {119, 143}, {61, 143}, {28, 90},
+        {37, 119}, {37, 61}, {90, 72}, {72, 97}, {108, 97},
+    }};
+    const auto center = [&](int cell) {
+        return SDL_Point{214 + cell_offsets[cell].x + 16, 60 + cell_offsets[cell].y + 16};
+    };
+    const int original_row = g_status.formation.positions[slot].bQuadrant;
+    const int destination_row = (original_row + 1) % 5;
+    const auto destination = center(destination_row * 3);
+    const auto begin_drag = [&] {
+        const auto& position = gXStatus.edited_formation.positions[slot];
+        const auto source = center(position.bQuadrant * 3 + position.bQuadrantSlot);
+        game.press_at(source.x, source.y);
+        REQUIRE(g_ui.captured != 0);
+        for (int frame = 0; frame < 5; ++frame) game.frame();
+        REQUIRE(g_ui.captured != 0); // Below the 250 ms hold threshold.
+        REQUIRE(game.within_frames(60, [] { return g_ui.captured == 0; }));
+        REQUIRE(gXStatus.iCurrentCursor == W8_CURSOR_INVALID_TARGET);
+    };
+    const auto drop_at = [&](SDL_Point point) {
+        game.release_at(point.x - g_cursor_hotspot_x, point.y - g_cursor_hotspot_y);
+    };
+
+    OpenFormationPanel();
+    game.frame();
+    REQUIRE(gXStatus.fReviewCharacterMode);
+    REQUIRE(g_formation_cell_controls[0]->m_region == -1);
+    begin_drag();
+    drop_at(destination);
+    REQUIRE(gXStatus.edited_formation.positions[slot].bQuadrant == destination_row);
+    REQUIRE(g_status.formation.positions[slot].bQuadrant == original_row);
+
+    // Reset preserves the live formation; dropping on the panel edge cancels.
+    game.click_at(242, 278);
+    REQUIRE(gXStatus.edited_formation.positions[slot].bQuadrant == original_row);
+    begin_drag();
+    drop_at({220, 70});
+    REQUIRE(gXStatus.edited_formation.positions[slot].bQuadrant == original_row);
+
+    begin_drag();
+    drop_at(destination);
+    game.click_at(360, 276); // Accept, with teardown deferred past button dispatch.
+    REQUIRE_FALSE(gXStatus.fReviewCharacterMode);
+    REQUIRE_FALSE(g_formation_panel);
+    REQUIRE(g_status.formation.positions[slot].bQuadrant == destination_row);
+    REQUIRE(g_ui.captured == 0);
+
+    OpenFormationPanel();
+    game.frame();
+    REQUIRE(gXStatus.fReviewCharacterMode);
+    game.click_at(394, 276); // Cancel after re-entry.
+    REQUIRE_FALSE(g_formation_panel);
+    REQUIRE_FALSE(gXStatus.fReviewCharacterMode);
+    REQUIRE(g_status.formation.positions[slot].bQuadrant == destination_row);
 }
 
 std::vector<fs::path> SaveFiles(const fs::path& user)
@@ -1523,6 +1593,11 @@ void RunScenario(Scenario scenario)
 TEST_CASE("main-menu-ui", "[runtime]")
 {
     RunScenario(MainMenuUiScenario);
+}
+
+TEST_CASE("formation-ui", "[runtime]")
+{
+    RunScenario(FormationUiScenario);
 }
 
 TEST_CASE("video", "[runtime]")

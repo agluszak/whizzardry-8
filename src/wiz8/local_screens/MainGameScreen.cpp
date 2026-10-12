@@ -2960,7 +2960,6 @@ unsigned char MainGameScreenEnter(void)
     g_npc_quote_bubble_regions.Create();
     g_spell_casting_regions.Create();
     g_use_item_select_regions.Create();
-    g_formation_regions.Create();
     g_keyboard_menu_regions.Create();
     g_party_movement_regions.Create();
     CreateMainGameInterfaceButtons();
@@ -3551,7 +3550,7 @@ unsigned char MainGameScreenLeave(int leaving)
         ShutdownTextBoxRegions();
         g_spell_casting_regions.Destroy();
         g_use_item_select_regions.Destroy();
-        g_formation_regions.Destroy();
+        DestroyFormationPanel();
         g_keyboard_menu_regions.Destroy();
         g_party_movement_regions.Destroy();
         wiz8::sound::release_cache();
@@ -5342,7 +5341,7 @@ void SyncMainGameModeRegions(void)
         UpdatePartyMovementPanel();
     }
     if (gXStatus.fReviewCharacterMode) {
-        g_formation_regions.Enable();
+        EnableFormationInput();
     }
     if (g_level_block->keyboard_menu_open) {
         EnableKeyboardMenuInput();

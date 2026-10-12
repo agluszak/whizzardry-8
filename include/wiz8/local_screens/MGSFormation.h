@@ -9,7 +9,6 @@
 struct W8Region;
 struct Controls;
 class W8TextControl;
-class ScreenRegionSet;
 
 extern std::unique_ptr<Controls> g_formation_panel;
 extern W8TextControl* g_formation_cell_controls[15];
@@ -17,7 +16,7 @@ extern W8TextControl* g_formation_cell_overlays[15];
 extern W8TextControl* g_formation_action_buttons[3];
 
 void ReleaseFormationBoard(void);
-extern ScreenRegionSet g_formation_regions;
+void EnableFormationInput();
 void DestroyFormationPanel(void);
 void CloseFormationPanel(void);
 
@@ -34,9 +33,5 @@ unsigned char FormationBoardRegionEvent(const InputEvent* event, W8Region* regio
 /* Open the formation panel: build the controls, snapshot the live formation
    into gXStatus.edited_formation and pause the world. */
 void OpenFormationPanel(void);
-/* Region callback the fifteen formation cells share. */
-unsigned char FormationCellRegionEvent(const InputEvent* event, W8Region* region, unsigned short);
-unsigned char FormationActionRegionEvent(const InputEvent* event, W8Region* region, unsigned short);
-unsigned char FormationBackgroundRegionEvent(const InputEvent* event, W8Region* region, unsigned short);
 /* Highlight the cell holding one party slot and un-highlight the rest. */
 void SelectFormationSlotCell(int party_slot);
