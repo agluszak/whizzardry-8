@@ -468,6 +468,15 @@ bool Trigger::Save(wiz8::File& hFile)
     return header_ok;
 }
 
+/* One door flag is stored as a byte whose low bit is the flag. */
+template<class File>
+static bool readDoorFlag(File& file)
+{
+    unsigned char flag = 0;
+    file.read_exact(&flag, 1);
+    return (flag & 1) != 0;
+}
+
 /* Read one trigger back from the save file. The version byte selects how much
    of the trailing block is present; a type-10 action payload rebuilds its
    action data and re-queues the delayed timed event from the saved progress. */
@@ -508,24 +517,15 @@ try
             pDoor->type = W8_TRIGGER_PAYLOAD_DOOR;
             hFile.read_exact(&flag_mode, 1);
             if (flag_mode == 1) {
-                hFile.read_exact(&flag, 1);
-                pDoor->open = (flag & 1) != 0;
-                hFile.read_exact(&flag, 1);
-                pDoor->lockable = (flag & 1) != 0;
-                hFile.read_exact(&flag, 1);
-                pDoor->locked = (flag & 1) != 0;
-                hFile.read_exact(&flag, 1);
-                pDoor->auto_locking = (flag & 1) != 0;
-                hFile.read_exact(&flag, 1);
-                pDoor->one_way = (flag & 1) != 0;
-                hFile.read_exact(&flag, 1);
-                pDoor->secret = (flag & 1) != 0;
-                hFile.read_exact(&flag, 1);
-                pDoor->found = (flag & 1) != 0;
-                hFile.read_exact(&flag, 1);
-                pDoor->jammable = (flag & 1) != 0;
-                hFile.read_exact(&flag, 1);
-                pDoor->jammed = (flag & 1) != 0;
+                pDoor->open = readDoorFlag(hFile);
+                pDoor->lockable = readDoorFlag(hFile);
+                pDoor->locked = readDoorFlag(hFile);
+                pDoor->auto_locking = readDoorFlag(hFile);
+                pDoor->one_way = readDoorFlag(hFile);
+                pDoor->secret = readDoorFlag(hFile);
+                pDoor->found = readDoorFlag(hFile);
+                pDoor->jammable = readDoorFlag(hFile);
+                pDoor->jammed = readDoorFlag(hFile);
             } else {
                 action_flags = 0;
                 progress_delay = 0;
