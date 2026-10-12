@@ -5,7 +5,6 @@
 #include <string>
 #include <vector>
 #include <algorithm>
-#include <cstdlib>
 #include <cmath>
 #include <cstring>
 #include <memory>
@@ -1031,7 +1030,7 @@ W8MonsterGroup* CreateGroup(unsigned int monster_id, unsigned int count,
                 });
                 if (member != monsters.end()) {
                     g_octree->UnregisterLocationObjects(static_cast<unsigned short>(location_id));
-                    std::free(*member);
+                    gXStatus.DestroyOwnedMonsterInfo(*member);
                     monsters.erase(member);
                 }
             }

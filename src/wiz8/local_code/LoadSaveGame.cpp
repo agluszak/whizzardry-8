@@ -600,14 +600,8 @@ void WriteMonsterRecord(W8Chunk& chunk, unsigned int list_index)
     SavedMonsterOrders::Capture(monster).Write(chunk);
 }
 
-/* Allocations shared with the C-style monster managers, which free them. */
+/* World item allocations are still shared with the C-style item manager. */
 template<class T> using MallocPtr = std::unique_ptr<T, decltype(&free)>;
-template<class T> MallocPtr<T> AllocateZeroed()
-{
-    MallocPtr<T> owner(static_cast<T*>(calloc(1, sizeof(T))), &free);
-    if (!owner) throw std::bad_alloc();
-    return owner;
-}
 
 void WriteWorldItems(W8Chunk& chunks)
 {
@@ -1183,7 +1177,7 @@ catch (const std::exception&) { return false; }
 bool LoadMonster(W8Chunk* chunk)
 try
 {
-    auto owner = AllocateZeroed<W8MonsterInfo>();
+    auto owner = std::make_unique<W8MonsterInfo>();
     auto& info = *owner;
     const auto version = chunk->ReadValue<unsigned int>();
     wiz8::retail::read_sized(*chunk, info);
@@ -1212,8 +1206,12 @@ try
 
     auto& monsters = unborn ? gXStatus.unborn_monsters : gXStatus.monsters;
     monsters.reserve(monsters.size() + 1);
+    group->monsters.reserve(group->monsters.size() + 1);
+    gXStatus.owned_monster_infos.reserve(gXStatus.owned_monster_infos.size() + 1);
+    auto* borrowed = owner.get();
+    gXStatus.owned_monster_infos.push_back(std::move(owner));
+    monsters.push_back(borrowed);
     group->monsters.push_back(info.location_id);
-    monsters.push_back(owner.release());
     const auto leader = static_cast<unsigned int>(group->leader_location_id);
     if (leader == WIZ8_DEBUG_UNINITIALIZED_HEAP_PATTERN || leader < static_cast<unsigned int>(info.location_id))
         group->leader_location_id = info.location_id;

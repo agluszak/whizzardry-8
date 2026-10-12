@@ -7,6 +7,9 @@
 #include <cctype>
 #include <cmath>
 #include <cstdlib>
+#include <memory>
+#include <new>
+#include <utility>
 #include <cstring>
 
 #include "conditions.h"
@@ -98,14 +101,13 @@ static bool RemoveMonsterAt(unsigned int monster_list_index, bool destroy_monste
 W8MonsterInfo* CreateMonsterInfo(W8MonsterGroup* group, W8MonsterRecord* record,
                                  srVector3T<float>* position)
 {
-    W8MonsterInfo* monster_info = static_cast<W8MonsterInfo*>(malloc(sizeof(W8MonsterInfo)));
+    std::unique_ptr<W8MonsterInfo> owner(new (std::nothrow) W8MonsterInfo{});
+    W8MonsterInfo* monster_info = owner.get();
     int value;
 
-    if (monster_info == 0) {
-        return 0;
+    if (!monster_info) {
+        return nullptr;
     }
-
-    memset(monster_info, 0, sizeof(W8MonsterInfo));
     monster_info->location_id = g_status.next_monster_location_id;
     while (g_status.next_monster_location_id++, monster_info->location_id == 0) {
         monster_info->location_id = g_status.next_monster_location_id;
@@ -142,9 +144,12 @@ W8MonsterInfo* CreateMonsterInfo(W8MonsterGroup* group, W8MonsterRecord* record,
     monster_info->elemental_summon = -1;
     monster_info->movement_watch_position.SetZero();
 
-    (record->unborn != 0 ? &gXStatus.unborn_monsters : &gXStatus.monsters)
-        ->push_back(monster_info);
-
+    auto& monsters = record->unborn ? gXStatus.unborn_monsters : gXStatus.monsters;
+    monsters.reserve(monsters.size() + 1);
+    group->monsters.reserve(group->monsters.size() + 1);
+    gXStatus.owned_monster_infos.reserve(gXStatus.owned_monster_infos.size() + 1);
+    gXStatus.owned_monster_infos.push_back(std::move(owner));
+    monsters.push_back(monster_info);
     group->monsters.push_back(monster_info->location_id);
     ++group->member_count;
     ++group->active_member_count;
@@ -789,23 +794,26 @@ void ResetLivingMonstersAfterCombat(void)
 static void DestroyMonsterListEntry(unsigned int index)
 {
     W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(index);
-    DeactivateMonster(monster_info);
-    if (monster_info == 0) {
+    if (monster_info == nullptr) {
         srAssertFail("pMonsterInfo", MONSTER_MANAGER_CPP, 0x282, 0);
     }
+    DeactivateMonster(monster_info);
     if (monster_info->p3D != 0) {
         DetachMonsterRepresentation(monster_info->p3D, GetWorld());
         RemoveMonsterFromWorldList(GetWorld(), monster_info->p3D);
         DeleteMonster(monster_info->p3D);
         monster_info->p3D = 0;
     }
+    // Inactive (including unborn) monsters do not pass through DeactivateMonster's
+    // visibility cleanup. Remove their records before freeing the script part.
+    ReleaseMonToMonVisibilityList(monster_info);
     g_octree->UnregisterLocationObjects(static_cast<unsigned short>(monster_info->location_id));
     ReleaseNpcBinding(monster_info->bound_npc_index);
-    void* removed = gXStatus.monsters[index];
-    gXStatus.monsters.erase(gXStatus.monsters.begin() + index);
-    if (removed != 0) {
-        free(removed);
-    }
+    auto& members = index >= 10000 && index < 20000
+                        ? gXStatus.unborn_monsters : gXStatus.monsters;
+    const auto member_index = index >= 10000 && index < 20000 ? index - 10000 : index;
+    members.erase(members.begin() + member_index);
+    gXStatus.DestroyOwnedMonsterInfo(monster_info);
 }
 
 // FUNCTION: WIZ8 0x004e5f00
@@ -1059,13 +1067,34 @@ static void ClearRemainingMonsterGroups()
     wiz8::clear_and_dispose(gXStatus.encounter_groups, [](W8MonsterGroup* group) { delete group; });
 }
 
-/* Reset the two generated runtime IDs and the live manager counts, then create
-   or clear the four lists owned by gXStatus. The final two success checks are
-   deliberately asymmetric: retail rechecks plsMonsterList after initializing
-   plsUnbornMonsterList, and plsMonsterGroupList after the encounter list. */
+/* A monster belongs to exactly one of the live/unborn registries. Destroy
+   registered script parts while their groups and runtime bindings still exist. */
+static bool DestroyAllMonsterInfos()
+{
+    while (!gXStatus.monsters.empty()) {
+        if (!RemoveMonsterAt(0, true)) {
+            return false;
+        }
+    }
+    while (!gXStatus.unborn_monsters.empty()) {
+        if (!RemoveMonsterAt(10000, true)) {
+            return false;
+        }
+    }
+    // Also release a record retained after an interrupted load or spawn.
+    gXStatus.owned_monster_infos.clear();
+    ClearRemainingMonsterGroups();
+    return true;
+}
+
+/* Dispose any previous level's live and unborn records before resetting
+   runtime IDs and counters. Both registries borrow from the same owner. */
 // FUNCTION: WIZ8 0x004e3720
 bool InitializeMonsterManagerState(void)
 {
+    if (!DestroyAllMonsterInfos()) {
+        return false;
+    }
     g_status.next_monster_location_id = 1;
     g_status.next_group_id = 1;
     gXStatus.active_monster_count = 0;
@@ -1074,27 +1103,17 @@ bool InitializeMonsterManagerState(void)
     if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME && g_level_block != 0) {
         g_level_block->highlighted_item = -1;
     }
-    gXStatus.monsters.clear();
-    ClearRemainingMonsterGroups();
-    gXStatus.unborn_monsters.clear();
     return true;
 }
 
-/* The manager teardown: it drains the monster list by repeatedly destroying
-   entry zero rather than walking it, then releases the four gXStatus lists and
-   the species-indexed record cache. */
+/* Drain both monster registries while their groups and the world are intact,
+   then release the species-indexed record cache. */
 // FUNCTION: WIZ8 0x004e3820
 unsigned char ShutdownMonsterManager(void)
 {
-
-    while (!gXStatus.monsters.empty()) {
-        if (!RemoveMonsterAt(0, true)) {
-            return 0;
-        }
+    if (!DestroyAllMonsterInfos()) {
+        return 0;
     }
-    gXStatus.monsters.clear();
-    ClearRemainingMonsterGroups();
-    gXStatus.unborn_monsters.clear();
     // Direct member access retains the packed cache's alignment information.
     for (int index = 0; index < MAX_MONSTERS_IN_DATABASE; ++index) {
         if (gXStatus.monster_record_cache[index] != 0) {
