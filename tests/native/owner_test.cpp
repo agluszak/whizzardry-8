@@ -1,3 +1,4 @@
+#include <deque>
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_surface.h>
 #include "image.h"
@@ -293,6 +294,8 @@ struct RegionStateSnapshot {
     }
 };
 
+std::deque<RegionFunctionHandler> test_region_handlers;
+
 unsigned int add_test_region(unsigned int set, unsigned short id, int x1, int y1, int x2, int y2,
                              int priority, W8RegionCallback callback)
 {
@@ -300,7 +303,8 @@ unsigned int add_test_region(unsigned int set, unsigned short id, int x1, int y1
     g_regions[index].flags = W8_REGION_RECTANGLE;
     g_regions[index].SetBounds(static_cast<unsigned short>(x1), static_cast<unsigned short>(y1),
                     static_cast<unsigned short>(x2), static_cast<unsigned short>(y2));
-    SetRegionCallback(index, callback, id);
+    g_regions[index].handler = &test_region_handlers.emplace_back(callback, id);
+    ++g_regions[index].binding_generation;
     return index;
 }
 
@@ -315,19 +319,19 @@ struct TestOwnedRegionHandler final : W8RegionHandler {
     }
 };
 
-unsigned char record_region_event(const InputEvent* event, W8Region* region)
+unsigned char record_region_event(const InputEvent* event, W8Region* region, unsigned short id)
 {
-    region_events.emplace_back(region->callback_id, static_cast<int>(event->type));
+    region_events.emplace_back(id, static_cast<int>(event->type));
     return 1;
 }
-unsigned char hover_region(const InputEvent*, W8Region* region)
+unsigned char hover_region(const InputEvent*, W8Region* region, unsigned short id)
 {
     if (region->flags & W8_REGION_MOUSE_LEAVE)
-        region_events.emplace_back(region->callback_id, REGION_REASON_LOST_MOUSE);
+        region_events.emplace_back(id, REGION_REASON_LOST_MOUSE);
     else if (region->flags & W8_REGION_MOUSE_ENTER)
-        region_events.emplace_back(region->callback_id, REGION_REASON_GAIN_MOUSE);
+        region_events.emplace_back(id, REGION_REASON_GAIN_MOUSE);
     else
-        region_events.emplace_back(region->callback_id, REGION_REASON_MOVE);
+        region_events.emplace_back(id, REGION_REASON_MOVE);
     return 1;
 }
 
@@ -335,7 +339,7 @@ unsigned int nested_region_set = 0;
 unsigned int nested_region_index = 0;
 bool remove_nested_region = false;
 std::vector<InputEventType> nested_region_events;
-unsigned char nested_region_callback(const InputEvent* event, W8Region*)
+unsigned char nested_region_callback(const InputEvent* event, W8Region*, unsigned short)
 {
     if (event->type == InputEventType::LeftButtonDown) {
         nested_region_events.push_back(InputEventType::LeftButtonDown);
@@ -585,8 +589,7 @@ void owned_region_set_templates_and_teardown()
             REQUIRE(region.y1 == entry.y1);
             REQUIRE(region.x2 == entry.x2);
             REQUIRE(region.y2 == entry.y2);
-            REQUIRE(region.callback == entry.callback);
-            REQUIRE(region.callback_id == entry.callback_id);
+            REQUIRE((region.handler != nullptr) == (entry.callback != nullptr));
             REQUIRE(region.help_enabled == entry.help_enabled);
             REQUIRE(region.help_text_id == entry.help_text_id);
             REQUIRE(regions->index(index) < g_regions.size());
@@ -700,8 +703,7 @@ void region_set_views_share_owned_regions()
         REQUIRE(LiveDynamicRegionCount() == baseline_with_source);
 
         REQUIRE(source.index(0) == source_index);
-        REQUIRE(source[0].callback == record_region_event);
-        REQUIRE(source[0].callback_id == 21);
+        REQUIRE(source[0].handler != nullptr);
         REQUIRE(LiveDynamicRegionCount() == baseline_with_source);
 
         source.Enable();

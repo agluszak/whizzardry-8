@@ -1,3 +1,4 @@
+#include <memory>
 #include <cstddef>
 #include <cstdint>
 #include <array>
@@ -46,7 +47,7 @@ enum { W8_SCREEN_WIDTH = 640, W8_SCREEN_HEIGHT = 480, W8_HELP_MARGIN = 2 };
 enum { W8_REGION_MODE_MASK = 0xf };
 
 // bool-byte-ok: W8RegionCallback result
-static unsigned char ConsumeRegionInput(const InputEvent*, W8Region*)
+static unsigned char ConsumeRegionInput(const InputEvent*, W8Region*, unsigned short)
 {
     return 1;
 }
@@ -89,7 +90,7 @@ void ReleaseInputSinkCapture()
 // Retail catalog at GLOBAL WIZ8 0x00620048 / 0x0061f238 contained 313 regions / 51 sets; records now live with owning screens.
 // GLOBAL: WIZ8 0x00620048
 std::deque<W8Region> g_regions = {
-    {0x00000001, 0, 0, 0, 0, 0, 0, false, 0, -1, 0},
+    {0x00000001, 0, 0, 0, 0, false, 0, -1, 0},
 };
 // GLOBAL: WIZ8 0x0061f238
 std::deque<W8RegionSet> g_region_sets = {W8RegionSet{}};
@@ -306,9 +307,7 @@ RegionDispatchResult DispatchRegionEvent(W8Region& region, const InputEvent& eve
 {
     const auto generation = region.binding_generation;
     unsigned char handled = 0;
-    if (region.callback) {
-        handled = region.callback(&event, &region);
-    } else if (region.handler) {
+    if (region.handler) {
         handled = static_cast<unsigned char>(region.handler->HandleRegionInput(region, event));
     } else {
         return {0, false};
@@ -632,9 +631,8 @@ unsigned char DispatchRegionInput(const InputEvent* event)
     }
 
 #ifdef WIZ8_RUNTIME_TESTS
-    w8_ulong callback_address = 0;
-    memcpy(&callback_address, &region->callback, sizeof(callback_address));
-    RuntimeObserve(RUNTIME_REGION_ACTIVATED, region_index, callback_address, region->callback_id);
+    RuntimeObserve(RUNTIME_REGION_ACTIVATED, region_index,
+                   reinterpret_cast<w8_ulong>(region->handler), 0);
 #endif
     const auto generation = region->binding_generation;
     const auto dispatch = DispatchRegionEvent(*region, *event);
@@ -1042,14 +1040,14 @@ OwnedRegion::OwnedRegion(unsigned int set, const RegionTemplate& entry, int prio
     owned_region.y1 = entry.y1;
     owned_region.x2 = entry.x2;
     owned_region.y2 = entry.y2;
-    owned_region.callback = entry.callback;
-    owned_region.callback_id = entry.callback_id;
     owned_region.help_enabled = entry.help_enabled;
     owned_region.help_text_id = entry.help_text_id;
     owned_region.unknown_13 = 0;
     owned_region.help_text.clear();
     owned_region.text_field = false;
-    owned_region.handler = nullptr;
+    if (entry.callback)
+        function_ = std::make_unique<RegionFunctionHandler>(entry.callback, entry.callback_id);
+    owned_region.handler = function_.get();
     generation_ = ++owned_region.binding_generation;
 }
 
@@ -1199,7 +1197,8 @@ OwnedRegion::~OwnedRegion()
 }
 
 OwnedRegion::OwnedRegion(OwnedRegion&& other) noexcept
-    : set_(other.set_), index_(other.index_), generation_(other.generation_)
+    : set_(other.set_), index_(other.index_), generation_(other.generation_),
+      function_(std::move(other.function_))
 {
     other.set_ = 0;
     other.index_ = 0;
@@ -1213,6 +1212,7 @@ OwnedRegion& OwnedRegion::operator=(OwnedRegion&& other) noexcept
     set_ = other.set_;
     index_ = other.index_;
     generation_ = other.generation_;
+    function_ = std::move(other.function_);
     other.set_ = 0;
     other.index_ = 0;
     other.generation_ = 0;
@@ -1250,6 +1250,7 @@ void OwnedRegion::reset()
     set_ = 0;
     index_ = 0;
     generation_ = 0;
+    function_.reset();
 }
 
 void RemoveRegionFromSet(unsigned int region_set_index, unsigned int region_index)
@@ -1290,19 +1291,6 @@ void UnbindWidgetRegion(unsigned int region_index, W8Widget* widget, OwnedRegion
     if (g_captured_region_index == region_index) g_captured_region_index = 0;
     if (g_current_region_index == region_index) g_current_region_index = 0;
     if (g_hover_region_index == region_index) g_hover_region_index = 0;
-}
-
-// FUNCTION: WIZ8 0x004f29c0
-void SetRegionCallback(unsigned int region_index, W8RegionCallback callback,
-                       unsigned short callback_id)
-{
-    if (region_index >= g_regions.size()) {
-        srAssertFail("uiRegionIndex < guiRegionCount",
-                     "C:\\Projects\\Wizardry 8\\Local Code\\RegionManager.cpp", 0x4df, 0);
-    }
-    ++g_regions[region_index].binding_generation;
-    g_regions[region_index].callback = callback;
-    g_regions[region_index].callback_id = callback_id;
 }
 
 /* Send the current hot region a mouse-leave transition at the live cursor

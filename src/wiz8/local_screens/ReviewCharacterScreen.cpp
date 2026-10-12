@@ -503,7 +503,7 @@ void DrawCampResistances(void)
    event's cursor position picks the highlighted row within the eight visible
    ones, wheel input scrolls the realm's range control, and activating a valid
    row opens its spell info dialog. */
-unsigned char SpellListRegionHandler(const InputEvent* event, W8Region* region)
+unsigned char SpellListRegionHandler(const InputEvent* event, W8Region* region, unsigned short id)
 {
     unsigned short realm;
     int row;
@@ -512,7 +512,7 @@ unsigned char SpellListRegionHandler(const InputEvent* event, W8Region* region)
     int count;
 
     PushButtonSoundScheme(0, true);
-    realm = region->callback_id;
+    realm = id;
     row = (GetEventCursorY(event) - region->y1 - 1) / 0xd;
     visible = g_review_character->skill_unlocks[0x1c + realm] -
               g_camp_screen->learned_spells.scroll[realm];

@@ -61,6 +61,6 @@ void FilterCampEffectList(void);
    2; DisableCampSkillRegions releases them on camp leave. */
 void CreateCampSkillRegions(void);
 void DisableCampSkillRegions(void);
-unsigned char CampSkillListRegionHandler(const InputEvent* event, W8Region* region);
+unsigned char CampSkillListRegionHandler(const InputEvent* event, W8Region* region, unsigned short);
 
 extern ScreenRegionSet g_camp_skill_regions;

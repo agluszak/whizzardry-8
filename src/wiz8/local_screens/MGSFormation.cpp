@@ -190,7 +190,7 @@ unsigned char FormationBoardHoverRegionEvent(const InputEvent*, W8Region* region
 /* Board callback: opens the formation panel on release, hit-tests the cell
    markers for tooltips, and switches board art on hover transitions. */
 // FUNCTION: WIZ8 0x005b2020
-unsigned char FormationBoardRegionEvent(const InputEvent* event, W8Region* region)
+unsigned char FormationBoardRegionEvent(const InputEvent* event, W8Region* region, unsigned short)
 {
     switch (event->type) {
     case InputEventType::LeftButtonDown:
@@ -484,12 +484,12 @@ static void DropFormationSlot(int cell);
    activates the cell or completes the drop, and mouse transitions drive the
    hover art and tooltip. */
 // FUNCTION: WIZ8 0x005b29d0
-unsigned char FormationCellRegionEvent(const InputEvent* event, W8Region* region)
+unsigned char FormationCellRegionEvent(const InputEvent* event, W8Region* region, unsigned short id)
 {
     if (!gXStatus.fReviewCharacterMode) {
         return 0;
     }
-    if (g_formation_cell_slots[region->callback_id] == -1) {
+    if (g_formation_cell_slots[id] == -1) {
         PushButtonSoundScheme(0, true);
         if (event->type != InputEventType::LeftButtonUp) {
             return 1;
@@ -503,18 +503,18 @@ unsigned char FormationCellRegionEvent(const InputEvent* event, W8Region* region
             if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0 &&
                 TimeUntilDeadline(g_formation_drag_clock) == 0 && g_formation_drag_cell == -1 &&
                 g_formation_active_cell != -1) {
-                if (!CanHoldFormationPlace(g_formation_cell_slots[region->callback_id])) {
+                if (!CanHoldFormationPlace(g_formation_cell_slots[id])) {
                     region->flags &= ~W8_REGION_LEFT_BUTTON_HELD;
                     return 1;
                 }
                 BeginFormationDrag(event);
-                g_formation_cell_overlays[region->callback_id]->Invalidate(false);
+                g_formation_cell_overlays[id]->Invalidate(false);
                 return 1;
             }
         } else {
             if (event->type == InputEventType::LeftButtonDown) {
-                g_formation_cell_controls[region->callback_id]->OnLeftButtonDown(0);
-                g_formation_cell_overlays[region->callback_id]->Invalidate(false);
+                g_formation_cell_controls[id]->OnLeftButtonDown(0);
+                g_formation_cell_overlays[id]->Invalidate(false);
                 region->flags |= W8_REGION_LEFT_BUTTON_HELD;
                 g_formation_drag_clock = w8_get_ticks() + (0xfa);
                 return 1;
@@ -522,16 +522,16 @@ unsigned char FormationCellRegionEvent(const InputEvent* event, W8Region* region
             if (event->type != InputEventType::LeftButtonUp) {
                 return 0;
             }
-            if (g_formation_cell_slots[region->callback_id] != -1) {
-                g_formation_active_cell = region->callback_id;
-                g_formation_cell_controls[region->callback_id]->OnLeftButtonUp(0);
-                g_formation_cell_overlays[region->callback_id]->Invalidate(false);
+            if (g_formation_cell_slots[id] != -1) {
+                g_formation_active_cell = id;
+                g_formation_cell_controls[id]->OnLeftButtonUp(0);
+                g_formation_cell_overlays[id]->Invalidate(false);
             }
             if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
                 region->flags &= ~W8_REGION_LEFT_BUTTON_HELD;
             }
             if (g_formation_drag_cell != -1) {
-                DropFormationSlot(region->callback_id);
+                DropFormationSlot(id);
                 return 1;
             }
         }
@@ -540,14 +540,14 @@ unsigned char FormationCellRegionEvent(const InputEvent* event, W8Region* region
             return 0;
         }
         if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
-            g_formation_cell_controls[region->callback_id]->OnMouseLeave(0);
-            g_formation_cell_overlays[region->callback_id]->OnMouseLeave(0);
-            g_formation_cell_overlays[region->callback_id]->Invalidate(false);
+            g_formation_cell_controls[id]->OnMouseLeave(0);
+            g_formation_cell_overlays[id]->OnMouseLeave(0);
+            g_formation_cell_overlays[id]->Invalidate(false);
             if (IsLeftButtonHeld() && g_formation_drag_cell == -1 &&
-                CanHoldFormationPlace(g_formation_cell_slots[region->callback_id])) {
-                g_formation_active_cell = region->callback_id;
+                CanHoldFormationPlace(g_formation_cell_slots[id])) {
+                g_formation_active_cell = id;
                 BeginFormationDrag(event);
-                g_formation_cell_overlays[region->callback_id]->Invalidate(false);
+                g_formation_cell_overlays[id]->Invalidate(false);
             }
             g_formation_active_cell = -1;
             SetTooltipSubject(7, -1);
@@ -556,27 +556,27 @@ unsigned char FormationCellRegionEvent(const InputEvent* event, W8Region* region
         if ((region->flags & W8_REGION_MOUSE_ENTER) == 0 && g_formation_active_cell != -1) {
             return 0;
         }
-        g_formation_cell_controls[region->callback_id]->OnMouseEnter(0);
-        g_formation_cell_overlays[region->callback_id]->OnMouseEnter(0);
-        g_formation_cell_overlays[region->callback_id]->Invalidate(false);
-        g_formation_active_cell = region->callback_id;
-        SetTooltipSubject(7, g_formation_cell_slots[region->callback_id]);
+        g_formation_cell_controls[id]->OnMouseEnter(0);
+        g_formation_cell_overlays[id]->OnMouseEnter(0);
+        g_formation_cell_overlays[id]->Invalidate(false);
+        g_formation_active_cell = id;
+        SetTooltipSubject(7, g_formation_cell_slots[id]);
     }
     return 1;
 }
 
 // FUNCTION: WIZ8 0x005b2cb0
-unsigned char FormationActionRegionEvent(const InputEvent* event, W8Region* region)
+unsigned char FormationActionRegionEvent(const InputEvent* event, W8Region* region, unsigned short id)
 {
     if (!gXStatus.fReviewCharacterMode) {
         return 0;
     }
     return DispatchButtonRegionEvent(event, region,
-                                     g_formation_action_buttons[region->callback_id]);
+                                     g_formation_action_buttons[id]);
 }
 
 // FUNCTION: WIZ8 0x005b2d70
-unsigned char FormationBackgroundRegionEvent(const InputEvent* event, W8Region*)
+unsigned char FormationBackgroundRegionEvent(const InputEvent* event, W8Region*, unsigned short)
 {
     SDL_Point point;
     if (!gXStatus.fReviewCharacterMode) {

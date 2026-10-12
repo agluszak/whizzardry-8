@@ -1079,9 +1079,9 @@ static void KeyboardMenuUseRecordedItem(void)
 }
 
 // FUNCTION: WIZ8 0x00594760
-unsigned char KeyboardMenuRowRegionEvent(const InputEvent* event, W8Region* region)
+unsigned char KeyboardMenuRowRegionEvent(const InputEvent* event, W8Region* region, unsigned short id)
 {
-    W8TextControl* row = g_keyboard_menu_rows[region->callback_id];
+    W8TextControl* row = g_keyboard_menu_rows[id];
     unsigned short row_id;
     W8PartySlotRow* party_row;
     W8ItemInstance* item;
@@ -1115,11 +1115,11 @@ unsigned char KeyboardMenuRowRegionEvent(const InputEvent* event, W8Region* regi
             return 0;
         }
         row->OnMouseEnter(0);
-        row_id = region->callback_id;
+        row_id = id;
         if (g_keyboard_menu_pages[row_id] == W8_SUBMENU_SPELLS &&
             g_keyboard_menu_items[row_id] == 1) {
             SetRegionHelpForceEnabled(true);
-            if (g_keyboard_menu_rows[region->callback_id]->m_enabled == 0) {
+            if (g_keyboard_menu_rows[id]->m_enabled == 0) {
                 SetRegionHelpText(g_localized_strings[0x5a]);
                 return 1;
             }
@@ -1136,7 +1136,7 @@ unsigned char KeyboardMenuRowRegionEvent(const InputEvent* event, W8Region* regi
             return 1;
         }
         SetRegionHelpForceEnabled(true);
-        if (g_keyboard_menu_rows[region->callback_id]->m_enabled == 0) {
+        if (g_keyboard_menu_rows[id]->m_enabled == 0) {
             SetRegionHelpText(g_localized_strings[0x5d]);
             return 1;
         }
@@ -1153,7 +1153,7 @@ unsigned char KeyboardMenuRowRegionEvent(const InputEvent* event, W8Region* regi
 }
 
 // FUNCTION: WIZ8 0x005949A0
-unsigned char KeyboardMenuBackgroundRegionEvent(const InputEvent* event, W8Region*)
+unsigned char KeyboardMenuBackgroundRegionEvent(const InputEvent* event, W8Region*, unsigned short)
 {
     if (!g_level_block->keyboard_menu_open) {
         return 0;

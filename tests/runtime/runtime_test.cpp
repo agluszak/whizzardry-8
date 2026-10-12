@@ -510,7 +510,6 @@ void MainMenuUiScenario()
             const int region = MainMenuRegion(item);
             REQUIRE(region >= 0);
             REQUIRE(g_regions[region].handler != nullptr);
-            REQUIRE(g_regions[region].callback == nullptr);
             bound[item] = static_cast<unsigned>(region);
         }
         return bound;
@@ -527,7 +526,6 @@ void MainMenuUiScenario()
     game.wait_screen("credits", W8_SCREEN_CREDITS);
     for (auto region : bound) {
         REQUIRE(g_regions[region].handler == nullptr);
-        REQUIRE(g_regions[region].callback == nullptr);
     }
     game.click_at(320, 240);
     game.wait_screen("main-menu-return", W8_SCREEN_MAIN_MENU);

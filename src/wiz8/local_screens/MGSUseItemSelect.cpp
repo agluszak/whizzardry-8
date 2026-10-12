@@ -725,32 +725,32 @@ void CloseUseItemSelection(void)
     ClearSlotTargeting(g_status.selected_character);
 }
 
-/* Scroll up/down buttons for the use-item list (catalog callback_ids 0 and 1). */
+/* Scroll up/down buttons for the use-item list (region ids 0 and 1). */
 // FUNCTION: WIZ8 0x0059D970
-unsigned char UseItemSelectScrollRegionEvent(const InputEvent* event, W8Region* region)
+unsigned char UseItemSelectScrollRegionEvent(const InputEvent* event, W8Region* region, unsigned short id)
 {
     return DispatchButtonRegionEvent(event, region,
-                                     g_use_item_select_scroll_buttons[region->callback_id]);
+                                     g_use_item_select_scroll_buttons[id]);
 }
 
-/* Use-item select action/icon controls (catalog callback_ids 0, 3, 8). */
+/* Use-item select action/icon controls (region ids 0, 3, 8). */
 // FUNCTION: WIZ8 0x0059DA30
-unsigned char UseItemSelectControlRegionEvent(const InputEvent* event, W8Region* region)
+unsigned char UseItemSelectControlRegionEvent(const InputEvent* event, W8Region* region, unsigned short id)
 {
     switch (event->type) {
     case InputEventType::RightButtonDown:
-        g_use_item_select_controls[region->callback_id]->OnRightButtonDown(0);
+        g_use_item_select_controls[id]->OnRightButtonDown(0);
         region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
         return 1;
     case InputEventType::RightButtonUp:
         if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) != 0) {
-            g_use_item_select_controls[region->callback_id]->OnRightButtonUp(0);
+            g_use_item_select_controls[id]->OnRightButtonUp(0);
             region->flags &= ~W8_REGION_RIGHT_BUTTON_HELD;
         }
         return 1;
     default:
         return DispatchButtonRegionEvent(event, region,
-                                         g_use_item_select_controls[region->callback_id]);
+                                         g_use_item_select_controls[id]);
     }
 }
 

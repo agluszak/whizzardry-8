@@ -1464,20 +1464,19 @@ void TryNpcDialoguePickpocket(int party_slot)
 }
 
 /* Forward mouse enter/leave and button events to the main-screen control whose
-   pointer sits at W8NpcInteractionState::dialogue_controls[callback_id]. Id 0x27
+   pointer sits at W8NpcInteractionState::dialogue_controls[id]. Id 0x27
    is the panel slot at +0x1a8 and is ignored. Ids 1..6 and 0x16/0x17 pass 1
    into the widget hooks; every other id passes 0. Mouse-enter always passes 0. */
-unsigned char MainScreenControlRegionEvent(const InputEvent* event, W8Region* region)
+unsigned char MainScreenControlRegionEvent(const InputEvent* event, W8Region* region, unsigned short id)
 {
-    unsigned int callback_id = region->callback_id;
     W8Widget* control;
-    bool arg = (callback_id >= W8_NPC_CONTROL_TEXT_1 && callback_id <= W8_NPC_CONTROL_TEXT_6) ||
-               callback_id == W8_NPC_CONTROL_TEXT_22 || callback_id == W8_NPC_CONTROL_TEXT_23;
+    bool arg = (id >= W8_NPC_CONTROL_TEXT_1 && id <= W8_NPC_CONTROL_TEXT_6) ||
+               id == W8_NPC_CONTROL_TEXT_22 || id == W8_NPC_CONTROL_TEXT_23;
 
-    if (callback_id == 0x27) {
+    if (id == 0x27) {
         return 0;
     }
-    control = g_npc_interaction_state->dialogue_controls[callback_id];
+    control = g_npc_interaction_state->dialogue_controls[id];
     if (control == 0) {
         return 0;
     }
@@ -4296,7 +4295,7 @@ void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQu
     }
 }
 
-unsigned char NpcQuoteBubbleRegionEvent(const InputEvent* event, W8Region*)
+unsigned char NpcQuoteBubbleRegionEvent(const InputEvent* event, W8Region*, unsigned short)
 {
     if (event->type != InputEventType::LeftButtonDown) {
         return 0;

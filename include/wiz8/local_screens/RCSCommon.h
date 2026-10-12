@@ -91,14 +91,14 @@ extern W8TextControl* g_item_action_controls[W8_CAMP_ACTION_BUTTON_COUNT];
    the page and item-action strips to. */
 extern std::unique_ptr<Controls> g_item_actions_panel;
 
-unsigned char CampDismissPortraitRegionEvent(const InputEvent* event, W8Region* region);
-unsigned char CampPortraitSlotRegionEvent(const InputEvent* event, W8Region* region);
-unsigned char CampOpenCharacterScreenRegionEvent(const InputEvent* event, W8Region* region);
-unsigned char CampProfessionHistoryRegionEvent(const InputEvent* event, W8Region* region);
-unsigned char CampPageButtonRegionEvent(const InputEvent* event, W8Region* region);
-unsigned char CampItemActionRegionEvent(const InputEvent* event, W8Region* region);
-unsigned char CampLevelUpButtonRegionEvent(const InputEvent* event, W8Region* region);
-unsigned char CampDismissButtonRegionEvent(const InputEvent* event, W8Region* region);
+unsigned char CampDismissPortraitRegionEvent(const InputEvent* event, W8Region* region, unsigned short);
+unsigned char CampPortraitSlotRegionEvent(const InputEvent* event, W8Region* region, unsigned short);
+unsigned char CampOpenCharacterScreenRegionEvent(const InputEvent* event, W8Region* region, unsigned short);
+unsigned char CampProfessionHistoryRegionEvent(const InputEvent* event, W8Region* region, unsigned short);
+unsigned char CampPageButtonRegionEvent(const InputEvent* event, W8Region* region, unsigned short);
+unsigned char CampItemActionRegionEvent(const InputEvent* event, W8Region* region, unsigned short);
+unsigned char CampLevelUpButtonRegionEvent(const InputEvent* event, W8Region* region, unsigned short);
+unsigned char CampDismissButtonRegionEvent(const InputEvent* event, W8Region* region, unsigned short);
 
 void CreateRcsLevelUpPanel(void);
 void DestroyRcsLevelUpPanel(void);

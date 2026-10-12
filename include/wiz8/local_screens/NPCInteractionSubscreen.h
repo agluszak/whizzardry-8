@@ -305,8 +305,8 @@ void SyncDialogueNpcStateAndMarkPending(void);
 extern bool g_pending_notice_queued;
 void SyncNpcServiceButtons(int party_slot);
 /* Forward mouse events to W8NpcInteractionState control slots indexed by
-   callback_id in dialogue_controls (id 0x27 is ignored). */
-unsigned char MainScreenControlRegionEvent(const InputEvent* event, struct W8Region* region);
+   id in dialogue_controls (id 0x27 is ignored). */
+unsigned char MainScreenControlRegionEvent(const InputEvent* event, struct W8Region* region, unsigned short);
 void SwitchNpcDialogueLayout(W8NpcDialogueLayout layout);
 void BeginNpcDialogue(W8NpcState* npc, W8ItemInstance* item, int quote, unsigned char flags,
                       unsigned char force);
@@ -353,7 +353,7 @@ unsigned char IsNpcDialogueCursorActive(void);
 /* Forward a portrait pick into an active NPC dialogue. */
 void TryNpcDialoguePickpocket(int party_slot);
 std::string ShortenTextToWidth(std::string_view text, unsigned int width, Font& font);
-unsigned char NpcQuoteBubbleRegionEvent(const InputEvent* event, W8Region* region);
+unsigned char NpcQuoteBubbleRegionEvent(const InputEvent* event, W8Region* region, unsigned short);
 void SetDialogueFieldKeyword(std::string keyword, bool append);
 void ActivateNpcDialoguePanels(bool active);
 bool HasNpcDialogueDirtyPanels(void);

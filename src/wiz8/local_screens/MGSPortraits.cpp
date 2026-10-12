@@ -1316,9 +1316,9 @@ void CreateConditionButtons(void)
 }
 
 // FUNCTION: WIZ8 0x0059BD20
-unsigned char PortraitControlRegionEvent(const InputEvent* event, W8Region* region)
+unsigned char PortraitControlRegionEvent(const InputEvent* event, W8Region* region, unsigned short id)
 {
-    W8TextControl* control = g_portrait_controls[region->callback_id];
+    W8TextControl* control = g_portrait_controls[id];
     if (control == 0) {
         return 0;
     }
@@ -1329,7 +1329,7 @@ unsigned char PortraitControlRegionEvent(const InputEvent* event, W8Region* regi
         return 1;
     case InputEventType::LeftButtonUp:
         if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
-            giLevelUpChar = region->callback_id;
+            giLevelUpChar = id;
             control->OnLeftButtonUp(0);
             region->flags &= ~W8_REGION_LEFT_BUTTON_HELD;
         }
@@ -1411,13 +1411,13 @@ void UpdateConditionButtons(void)
 }
 
 // FUNCTION: WIZ8 0x0059C260
-unsigned char ConditionButtonRegionEvent(const InputEvent* event, W8Region* region)
+unsigned char ConditionButtonRegionEvent(const InputEvent* event, W8Region* region, unsigned short id)
 {
     switch (event->type) {
     case InputEventType::LeftButtonDown:
     case InputEventType::LeftButtonUp:
     case InputEventType::MouseMove:
-        return DispatchButtonRegionEvent(event, region, g_condition_buttons[region->callback_id]);
+        return DispatchButtonRegionEvent(event, region, g_condition_buttons[id]);
     default:
         return 0;
     }

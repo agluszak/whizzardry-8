@@ -5361,9 +5361,9 @@ void SyncMainGameModeRegions(void)
 /* Party portrait hit region: left-click selects / aims, right-hold opens camp,
    drag-hover arms the mode-6 overlay, and InputEventType::MouseMove drives help plus targeting
    cursor. Skips the slot parked in gXStatus.review_character_slot. */
-unsigned char PortraitSelectRegionEvent(const InputEvent* event, W8Region* region)
+unsigned char PortraitSelectRegionEvent(const InputEvent* event, W8Region* region, unsigned short id)
 {
-    int slot = region->callback_id;
+    int slot = id;
     bool targeting = false;
     bool aim_ok = false;
     bool front_rank = false;
@@ -5611,11 +5611,12 @@ unsigned char PortraitSelectRegionEvent(const InputEvent* event, W8Region* regio
    distinct enum fields and reload the live overlay owner after callbacks. */
 template <class Effect>
 static unsigned char DispatchPortraitOrbRegionEvent(const InputEvent* event, W8Region* region,
+                                                    unsigned short id,
                                                     Effect W8Character::* effect, Effect none,
                                                     int W8LevelRuntimeBlock::* selection,
                                                     int tooltip_kind)
 {
-    int slot = region->callback_id;
+    int slot = id;
     W8Character* character = &g_status.buffers.Char[slot];
     InputEventType us_event;
 
@@ -5677,28 +5678,28 @@ static unsigned char DispatchPortraitOrbRegionEvent(const InputEvent* event, W8R
 /* Condition orb on a party portrait (help 25): press while highest_condition
    is set arms the overlay slot; release and leave dismiss the hover plate;
    enter drives tooltip kind 1 and region help. */
-unsigned char PortraitConditionOrbRegionEvent(const InputEvent* event, W8Region* region)
+unsigned char PortraitConditionOrbRegionEvent(const InputEvent* event, W8Region* region, unsigned short id)
 {
-    return DispatchPortraitOrbRegionEvent(event, region, &W8Character::highest_condition,
+    return DispatchPortraitOrbRegionEvent(event, region, id, &W8Character::highest_condition,
                                           W8_CONDITION_NONE,
                                           &W8LevelRuntimeBlock::condition_orb_party_slot, 1);
 }
 
 /* Enchantment orb on a party portrait (help 26): near-clone of the condition
    orb against enchantment_top and tooltip kind 2. */
-unsigned char PortraitEnchantmentOrbRegionEvent(const InputEvent* event, W8Region* region)
+unsigned char PortraitEnchantmentOrbRegionEvent(const InputEvent* event, W8Region* region, unsigned short id)
 {
-    return DispatchPortraitOrbRegionEvent(event, region, &W8Character::enchantment_top,
+    return DispatchPortraitOrbRegionEvent(event, region, id, &W8Character::enchantment_top,
                                           W8_ENCHANTMENT_NONE,
                                           &W8LevelRuntimeBlock::enchantment_orb_party_slot, 2);
 }
 
 /* Help 28: portrait side bar — hover picks upper/lower weapon or assayable
    item; click opens Assay or binds items with Shift. */
-unsigned char PortraitAssaySidebarRegionEvent(const InputEvent* event, W8Region* region)
+unsigned char PortraitAssaySidebarRegionEvent(const InputEvent* event, W8Region* region, unsigned short id)
 {
     int previous_mode = g_level_block->portrait_assay_hover_mode;
-    int slot = region->callback_id;
+    int slot = id;
     W8Character* character;
     W8ItemInstance* item;
     int item_id;
@@ -5782,10 +5783,10 @@ unsigned char PortraitAssaySidebarRegionEvent(const InputEvent* event, W8Region*
 
 /* Help 24: portrait overlay hover strip; left-down and enter (while held)
    set portrait_overlay_party_slot, leave and up dismiss the mode-6 plate. */
-unsigned char PortraitOverlayHoverRegionEvent(const InputEvent* event, W8Region* region)
+unsigned char PortraitOverlayHoverRegionEvent(const InputEvent* event, W8Region* region, unsigned short id)
 {
     const InputEventType us_event = event->type;
-    int slot = region->callback_id;
+    int slot = id;
 
     if (us_event == InputEventType::LeftButtonDown) {
         g_level_block->portrait_overlay_party_slot = slot;
@@ -5826,9 +5827,9 @@ unsigned char PortraitOverlayHoverRegionEvent(const InputEvent* event, W8Region*
    open the keyboard menu on release while combat input is live, drive hover
    help for a queued spell/item, and right-click falls back when an action is
    unreachable. */
-unsigned char PartyCombatActionRegionEvent(const InputEvent* event, W8Region* region)
+unsigned char PartyCombatActionRegionEvent(const InputEvent* event, W8Region* region, unsigned short id)
 {
-    int slot = region->callback_id;
+    int slot = id;
     if (!IsPartySlotEligible(slot)) {
         return 0;
     }
@@ -5906,7 +5907,7 @@ unsigned char PartyCombatActionRegionEvent(const InputEvent* event, W8Region* re
 /* Help 31: radar-map button near the text area — left-up opens automap after
    tearing down mode 3/5/6 overlays; right-up toggles zoom; enter/leave hover
    the map button art. */
-unsigned char RadarMapButtonRegionEvent(const InputEvent* event, W8Region* region)
+unsigned char RadarMapButtonRegionEvent(const InputEvent* event, W8Region* region, unsigned short)
 {
     const InputEventType us_event = event->type;
 
@@ -5959,7 +5960,7 @@ static void StopWorldMouseLook()
    world-item hover and the portrait strip; left-up runs the targeting, item
    and monster dispatch; right-down opens monster info or the assay dialog or
    toggles the mouselook latch. */
-unsigned char WorldViewRegionEvent(const InputEvent* event, W8Region* region)
+unsigned char WorldViewRegionEvent(const InputEvent* event, W8Region* region, unsigned short)
 {
     SDL_Point cursor_pos;
     int cursor_x;
@@ -6202,7 +6203,7 @@ unsigned char WorldViewRegionEvent(const InputEvent* event, W8Region* region)
 
 /* Help 36: combat monster-list rows. Hit-test by 11-pixel row, hover via
    SetCombatAction, left-up aims, right-up posts the group info notice. */
-unsigned char MonsterListRegionEvent(const InputEvent* event, W8Region* region)
+unsigned char MonsterListRegionEvent(const InputEvent* event, W8Region* region, unsigned short)
 {
     int row = -1;
     W8MonsterGroup* group = 0;
@@ -7863,7 +7864,7 @@ void W8NpcDialogueTextController::SelectTranscriptKeywordAtPoint(int x, int y)
     InvalidateLayout();
 }
 
-unsigned char DialogueTranscriptRegionEvent(const InputEvent* event, W8Region* region)
+unsigned char DialogueTranscriptRegionEvent(const InputEvent* event, W8Region* region, unsigned short)
 {
     const InputEventType us_event = event->type;
     W8NpcDialogueTextController* controller;
@@ -7932,7 +7933,7 @@ unsigned char DialogueTranscriptRegionEvent(const InputEvent* event, W8Region* r
     return 1;
 }
 
-unsigned char CombatBarRegionEvent(const InputEvent* event, W8Region*)
+unsigned char CombatBarRegionEvent(const InputEvent* event, W8Region*, unsigned short)
 {
     const InputEventType us_event = event->type;
 

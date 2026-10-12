@@ -2078,10 +2078,9 @@ bool BlitPartyPortraitAnimation(int portrait, int left, int top, SpriteDraw opti
 }
 
 // FUNCTION: WIZ8 0x0052FD80
-unsigned char PartyPortraitEventRegionEvent(const InputEvent* event, W8Region* region)
+unsigned char PartyPortraitEventRegionEvent(const InputEvent* event, W8Region* region, unsigned short id)
 {
-    unsigned short callback_id = region->callback_id;
-    W8MonsterManagerEntry* entry = &gXStatus.monster_manager_entries[callback_id];
+    W8MonsterManagerEntry* entry = &gXStatus.monster_manager_entries[id];
     W8CharacterEvent* active;
 
     switch (event->type) {
@@ -2090,7 +2089,7 @@ unsigned char PartyPortraitEventRegionEvent(const InputEvent* event, W8Region* r
         break;
     case InputEventType::LeftButtonUp:
         if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
-            if (callback_id != 0 && callback_id != 1) {
+            if (id != 0 && id != 1) {
                 active = entry->active_character_event;
                 if (active != 0) {
                     gXStatus.character_event_queue->CompleteActiveEvent(active);

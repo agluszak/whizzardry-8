@@ -331,7 +331,7 @@ static void ClearAutomapMarkers()
 }
 
 /* Full-screen automap background: arm on left-down, dismiss on left-up. */
-unsigned char AutomapBackgroundRegionEvent(const InputEvent* event, W8Region* region)
+unsigned char AutomapBackgroundRegionEvent(const InputEvent* event, W8Region* region, unsigned short)
 {
     switch (event->type) {
     case InputEventType::LeftButtonDown:

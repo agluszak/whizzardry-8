@@ -67,17 +67,17 @@ void ToggleCampUsabilityFilter(void);
 void ToggleCampUnidentifiedItemFilter(void);
 void SortCampItemPool(void);
 void ToggleCampItemFilter(W8CampItemFilterButton tab);
-unsigned char BackpackRegionHandler(const InputEvent* event, W8Region* region);
-unsigned char EquipSlotRegionHandler(const InputEvent* event, W8Region* region);
-unsigned char ItemPoolRegionHandler(const InputEvent* event, W8Region* region);
-unsigned char RealmTabRegionHandler(const InputEvent* event, W8Region* region);
-unsigned char PanelTabRegionHandler(const InputEvent* event, W8Region* region);
+unsigned char BackpackRegionHandler(const InputEvent* event, W8Region* region, unsigned short);
+unsigned char EquipSlotRegionHandler(const InputEvent* event, W8Region* region, unsigned short);
+unsigned char ItemPoolRegionHandler(const InputEvent* event, W8Region* region, unsigned short);
+unsigned char RealmTabRegionHandler(const InputEvent* event, W8Region* region, unsigned short);
+unsigned char PanelTabRegionHandler(const InputEvent* event, W8Region* region, unsigned short);
 void SetItemTooltip(W8ItemInstance* item, W8Region* region);
 void DrawCampItemIcons(void);
 
 bool IsSpecialItemId(W8ItemInstance* item);
 
-/* The twelve equip-slot label message ids indexed by region callback_id. */
+/* The twelve equip-slot label message ids indexed by region id. */
 extern unsigned short g_equip_slot_label_ids[12];
 
 /* Camp panel lifecycle helpers. */
