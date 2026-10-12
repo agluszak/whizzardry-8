@@ -4,6 +4,7 @@
 #include <deque>
 #include <fmt/format.h>
 #include <algorithm>
+#include <SDL3/SDL_mouse.h>
 #include <SDL3/SDL_rect.h>
 #include <span>
 #include <string_view>
@@ -175,6 +176,21 @@ void SetRegionHelpDelay(int delay_ms)
     g_region_help_delay = delay_ms;
 }
 
+/* Region motion is re-derived from the current pointer, so it carries the live
+   modifier and button state; drag handlers rely on the held-button mask. */
+static InputEvent SyntheticMouseMove(SDL_Point position)
+{
+    const auto& input = GetInputState();
+    InputEvent event{};
+    event.timestamp = w8_get_ticks();
+    event.modifiers = input.modifiers;
+    event.buttons = (input.left_button ? SDL_BUTTON_LMASK : 0) |
+                    (input.right_button ? SDL_BUTTON_RMASK : 0);
+    event.type = InputEventType::MouseMove;
+    event.position = position;
+    return event;
+}
+
 std::int32_t RegionReasonForInput(const W8Region& region, const InputEvent& input)
 {
     switch (input.type) {
@@ -342,11 +358,7 @@ ExclusiveRegionSet::ExclusiveRegionSet(unsigned int set)
     if (saved_hover_.index != 0 && saved_hover_.index < g_regions.size()) {
         SDL_Point mouse;
         SGPMouseGetPos(&mouse);
-        InputEvent event{};
-        event.timestamp = w8_get_ticks();
-        event.modifiers = GetInputState().modifiers;
-        event.type = InputEventType::MouseMove;
-        event.position = mouse;
+        const auto event = SyntheticMouseMove(mouse);
         LeaveRegion(g_regions[saved_hover_.index], event);
     }
     const auto clear_mouse_state = [](unsigned int index) {
@@ -432,13 +444,8 @@ ExclusiveRegionSet::~ExclusiveRegionSet()
 unsigned int UpdateRegionMousePosition(int x, int y)
 {
     g_region_mouse_position = {x, y};
-    InputEvent event{};
+    const auto event = SyntheticMouseMove({x, y});
     unsigned int region_index;
-
-    event.timestamp = w8_get_ticks();
-    event.modifiers = GetInputState().modifiers;
-    event.type = InputEventType::MouseMove;
-    event.position = {x, y};
 
     if (g_captured_region_index != 0 &&
         RegionAllowedByExclusiveSet(g_captured_region_index)) {
@@ -527,13 +534,8 @@ SDL_Point GetRegionMousePosition()
 // FUNCTION: WIZ8 0x004f16f0
 unsigned int FindRegionAtPoint(unsigned short x, unsigned short y)
 {
-    InputEvent event;
+    const auto event = SyntheticMouseMove({x, y});
     unsigned int region_index;
-
-    event.timestamp = w8_get_ticks();
-    event.modifiers = GetInputState().modifiers;
-    event.type = InputEventType::MouseMove;
-    event.position = {x, y};
 
     if (g_captured_region_index != 0 &&
         RegionAllowedByExclusiveSet(g_captured_region_index)) {
@@ -717,10 +719,7 @@ void ActivateDialogRegion(unsigned int region_index)
     }
 
     if (g_hover_region_index != 0) {
-        InputEvent event;
-        event.timestamp = w8_get_ticks();
-        event.modifiers = GetInputState().modifiers;
-        event.type = InputEventType::MouseMove;
+        const auto event = SyntheticMouseMove(g_region_mouse_position);
 
         W8Region* previous = &g_regions[g_hover_region_index];
         if (!LeaveRegion(*previous, event)) return;
@@ -1303,13 +1302,8 @@ void SetRegionCallback(unsigned int region_index, W8RegionCallback callback,
 void ClearHotRegion(void)
 {
     SDL_Point mouse;
-    InputEvent event;
-
     SGPMouseGetPos(&mouse);
-    event.timestamp = w8_get_ticks();
-    event.modifiers = GetInputState().modifiers;
-    event.type = InputEventType::MouseMove;
-    event.position = mouse;
+    const auto event = SyntheticMouseMove(mouse);
 
     if (g_current_region_index != 0) {
         W8Region* region = &g_regions[g_current_region_index];
