@@ -23,6 +23,18 @@ template<class T> void pointer_slot(T* const& live, std::span<std::byte> bytes)
 }
 template<class T> void pointer_slot(T*& live, std::span<const std::byte>) { live = nullptr; }
 
+/* Runtime-exclusive resources use the same on-disk pointer-presence word.
+   The decoder never adopts saved process addresses. */
+template<class T> void pointer_slot(const std::unique_ptr<T>& live, std::span<std::byte> bytes)
+{
+    const std::uint32_t present = static_cast<bool>(live);
+    std::memcpy(bytes.data(), &present, sizeof(present));
+}
+template<class T> void pointer_slot(std::unique_ptr<T>& live, std::span<const std::byte>)
+{
+    live.reset();
+}
+
 /* A disk pointer slot whose payload a live record owns by value (an
    optional or a container): writers store whether it is present. */
 template<class Owner> void presence_slot(const Owner& live, std::span<std::byte> bytes)
