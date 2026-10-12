@@ -4,12 +4,11 @@
 #include "wiz8/button_interaction.h"
 
 #include "Font.h"
+#include "image_assets.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
-#include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/Configuration.h"
-#include "wiz8/local_code/Controls.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/regions.h"
 
@@ -23,24 +22,25 @@
 // FUNCTION: WIZ8 0x005db4e0
 void W8ButtonWidget::Draw(SDL_Surface& target)
 {
-    if (m_dirty && OwnsRegion() && (Region().flags & W8_REGION_INPUT_DISABLED) == 0) {
+    if (m_dirty && m_target && m_visible) {
         const ButtonVisualState visual{
             .enabled = m_enabled, .pressed = m_interaction.pressed,
-            .hovered = (Region().flags & W8_REGION_MOUSE_ENTER) != 0 ||
-                       g_ui.hover == static_cast<unsigned int>(m_region)};
-        DrawButtonAppearance(target, m_appearance, ScreenBounds(), visual);
-        const auto bounds = ScreenBounds();
+            .hovered = m_target->hovered(), .menu_artwork = policy.controller_activation};
+        DrawButtonAppearance(target, m_appearance, Bounds(), visual);
+        const auto bounds = Bounds();
         InvalidateRegion(bounds.x, bounds.y, bounds.x + bounds.w, bounds.y + bounds.h);
         m_dirty = false;
     }
 }
 
-void W8ButtonWidget::Redraw(SDL_Surface& target, bool full_redraw)
+void W8ButtonWidget::SetBounds(SDL_Rect bounds)
 {
-    if (!m_active) return;
-    if (full_redraw) m_dirty = true;
-    Draw(target);
+    m_bounds = bounds;
+    if (m_target)
+        m_target->setShape(SDL_Rect{bounds.x, bounds.y, bounds.w + 1, bounds.h + 1});
 }
+
+SDL_Point W8ButtonWidget::GetMousePosition() const { return GetRegionMousePosition(); }
 
 // FUNCTION: WIZ8 0x005db550
 void W8ButtonWidget::SetPosition(int x, int y)
@@ -62,14 +62,6 @@ void W8ButtonWidget::SetText(std::string_view text)
     m_dirty = true;
 }
 
-void W8ButtonWidget::SetTextOffsets(int x, int y, bool shift)
-{
-    m_appearance.bTextXOffset = x;
-    m_appearance.bTextYOffset = y;
-    m_appearance.fShiftText = shift;
-    m_dirty = true;
-}
-
 void W8ButtonWidget::SetMultiColor(bool enabled)
 {
     m_appearance.fMultiColor = enabled;
@@ -82,7 +74,7 @@ void W8ButtonWidget::SetEnabled(bool enabled)
     if (m_enabled == enabled) return;
     m_enabled = enabled;
     if (!enabled) {
-        m_interaction.cancel(m_left_toggles || m_right_toggles);
+        m_interaction.cancel(policy.primary_toggle != ButtonToggle::None || policy.secondary_toggle != ButtonToggle::None);
     }
     m_dirty = true;
 }
@@ -90,6 +82,8 @@ void W8ButtonWidget::SetEnabled(bool enabled)
 // FUNCTION: WIZ8 0x005db950
 void W8ButtonWidget::SetPressed(bool pressed)
 {
+    if (policy.primary_toggle == ButtonToggle::Release ||
+        policy.primary_toggle == ButtonToggle::StayLatched) m_interaction.selected = pressed;
     if (m_interaction.pressed != pressed) {
         m_interaction.pressed = pressed;
         m_dirty = true;
@@ -99,16 +93,10 @@ void W8ButtonWidget::SetPressed(bool pressed)
 // FUNCTION: WIZ8 0x005db9d0
 void W8ButtonWidget::SetVisible(bool visible)
 {
-    if (!OwnsRegion()) return;
-    const bool currently_visible = (Region().flags & W8_REGION_INPUT_DISABLED) == 0;
-    if (visible == currently_visible) return;
-    m_active = visible;
-    if (visible) {
-        Region().SetInputEnabled(true);
-    } else {
-        Region().SetInputEnabled(false);
-        m_interaction.cancel(m_left_toggles || m_right_toggles);
-    }
+    if (!m_target || m_visible == visible) return;
+    m_visible = visible;
+    m_target->setEnabled(visible);
+    if (!visible) m_interaction.cancel(policy.primary_toggle != ButtonToggle::None || policy.secondary_toggle != ButtonToggle::None);
     m_dirty = true;
     const auto mouse = GetRegionMousePosition();
     UpdateRegionMousePosition(mouse.x, mouse.y);
@@ -117,12 +105,13 @@ void W8ButtonWidget::SetVisible(bool visible)
 // FUNCTION: WIZ8 0x005dba70
 void W8ButtonWidget::SetTooltipEnabled(bool enabled)
 {
-    if (!OwnsRegion()) return;
+    if (!m_target) return;
     const bool show_tooltip =
         enabled && m_tooltip_index != W8_DIALOG_BUTTON_NO_TOOLTIP && g_settings.tooltips_enabled;
-    Region().help_text = show_tooltip ? g_localized_strings[m_tooltip_index] : std::string{};
-    Region().SetHelp(show_tooltip,
-                  show_tooltip ? m_tooltip_index : W8_DIALOG_BUTTON_NO_TOOLTIP);
+    if (show_tooltip)
+        m_target->setTooltip([index = m_tooltip_index] { return g_localized_strings[index]; });
+    else
+        m_target->setTooltip({});
 }
 
 // FUNCTION: WIZ8 0x005dbac0
@@ -134,42 +123,37 @@ void W8ButtonWidget::SetTooltipIndex(int tooltip_index)
 
 // FUNCTION: WIZ8 0x005db1b0
 W8ButtonWidget::W8ButtonWidget()
-    : m_tooltip_index(W8_DIALOG_BUTTON_NO_TOOLTIP), m_left_callback(nullptr),
-      m_right_callback(nullptr), m_move_callback(nullptr), m_double_click_callback(nullptr),
-      m_left_toggles(false), m_right_toggles(false), silent(false),
-      hover_silent(false), m_repeat_enabled(false), m_owner(nullptr),
-      m_layer(CurrentInputLayer())
-{
-    m_dirty = true;
-}
+    : m_owned_layer(new UiLayer(UiLayer::InheritInputScope{})), m_layer(m_owned_layer.get()) {}
 
-W8ButtonWidget::W8ButtonWidget(UiLayer& layer) : W8ButtonWidget()
-{
-    m_layer = CaptureRegionSet(layer.legacySet());
-}
+W8ButtonWidget::W8ButtonWidget(UiLayer& layer) : m_layer(&layer) {}
 
-// FUNCTION: WIZ8 0x005db260
-W8ButtonWidget::~W8ButtonWidget() = default;
+W8ButtonWidget::~W8ButtonWidget()
+{
+    if (m_target) m_layer->remove(*m_target);
+}
 
 void W8ButtonWidget::Reset()
 {
-    ReleaseRegion();
+    if (m_target) m_layer->remove(*m_target);
+    m_target = nullptr;
     m_appearance = {};
     SetBounds({});
     m_enabled = true;
     m_interaction = {};
     m_user_data = 0;
     m_left_callback = m_right_callback = m_move_callback = m_double_click_callback = nullptr;
-    m_left_toggles = m_right_toggles = m_repeat_enabled = false;
-    m_activation = ButtonActivation::Release;
+    policy = {};
     m_tooltip_index = W8_DIALOG_BUTTON_NO_TOOLTIP;
     m_owner = nullptr;
     m_dirty = true;
 }
 
-void W8ButtonWidget::ConfigureRegion(int priority)
+void W8ButtonWidget::ConfigureInput(int priority)
 {
-    ClaimRegion(priority, InputLayerSet(m_layer));
+    if (m_target) m_layer->remove(*m_target);
+    m_target = &m_layer->add(SDL_Rect{m_bounds.x, m_bounds.y, m_bounds.w + 1, m_bounds.h + 1},
+        [this](const UiPointerEvent& event) { return HandlePointer(event); }, priority);
+    m_visible = true;
     m_enabled = true;
     m_interaction = {};
     m_dirty = true;
@@ -192,10 +176,9 @@ bool W8ButtonWidget::ConfigureTextButton(std::string_view text, Font& font, shor
     m_user_data = user_data;
     m_left_callback = left_callback;
     m_right_callback = m_move_callback = m_double_click_callback = nullptr;
-    m_left_toggles = m_right_toggles = m_repeat_enabled = false;
-    m_activation = ButtonActivation::Release;
+    policy = {};
     m_tooltip_index = W8_DIALOG_BUTTON_NO_TOOLTIP;
-    ConfigureRegion(priority);
+    ConfigureInput(priority);
     return true;
 }
 
@@ -208,20 +191,10 @@ bool W8ButtonWidget::Configure(const char* image_path, int gray_frame, int off_n
                               W8ButtonCallback right_callback,
                               W8ButtonCallback double_click_callback)
 {
-    auto image = ButtonGraphics::Load(image_path, gray_frame, off_normal_frame,
-                                     off_hover_frame, on_normal_frame, on_hover_frame);
-    if (!image) return false;
-    m_appearance = {};
-    SetBounds({0, 0, static_cast<int>(image->MaxWidth), static_cast<int>(image->MaxHeight)});
-    m_appearance.quick_image = std::move(image);
-    m_left_callback = left_callback;
-    m_right_callback = right_callback;
-    m_move_callback = move_callback;
-    m_double_click_callback = double_click_callback;
-    m_left_toggles = left_toggles;
-    m_tooltip_index = tooltip_index;
-    ConfigureRegion(priority);
-    return true;
+    return Configure(g_image_assets.sprites(image_path), gray_frame, off_normal_frame,
+                     off_hover_frame, on_normal_frame, on_hover_frame, std::move(left_callback),
+                     std::move(move_callback), left_toggles, priority, tooltip_index,
+                     std::move(right_callback), std::move(double_click_callback));
 }
 
 bool W8ButtonWidget::Configure(std::shared_ptr<const SpriteSheet> sprites, int gray_frame,
@@ -243,78 +216,72 @@ bool W8ButtonWidget::Configure(std::shared_ptr<const SpriteSheet> sprites, int g
     m_right_callback = right_callback;
     m_move_callback = move_callback;
     m_double_click_callback = double_click_callback;
-    m_left_toggles = left_toggles;
+    policy.primary_toggle = left_toggles ? ButtonToggle::Press : ButtonToggle::None;
     m_tooltip_index = tooltip_index;
-    ConfigureRegion(priority);
+    ConfigureInput(priority);
     return true;
 }
 
-// FUNCTION: WIZ8 0x005db620
-void W8ButtonWidget::OnMouseEnter(int) { HandleButtonEvent(ButtonEvent::Enter, 0); }
-void W8ButtonWidget::OnMouseLeave(int) { HandleButtonEvent(ButtonEvent::Leave, 0); }
-void W8ButtonWidget::OnMouseMove(int) { HandleButtonEvent(ButtonEvent::Move, 0); }
-void W8ButtonWidget::OnLeftButtonDown(int) { HandleButtonEvent(ButtonEvent::Press, SDL_BUTTON_LMASK); }
-void W8ButtonWidget::OnLeftButtonUp(int) { HandleButtonEvent(ButtonEvent::Release, SDL_BUTTON_LMASK); }
-void W8ButtonWidget::OnLeftButtonDoubleClick(int)
+UiResult W8ButtonWidget::HandlePointer(const UiPointerEvent& event)
 {
-    HandleButtonEvent(ButtonEvent::DoubleClick, SDL_BUTTON_LMASK);
-}
-void W8ButtonWidget::ActivatePrimary(int) { HandleButtonEvent(ButtonEvent::Repeat, SDL_BUTTON_LMASK); }
-void W8ButtonWidget::OnRightButtonDown(int) { HandleButtonEvent(ButtonEvent::Press, SDL_BUTTON_RMASK); }
-void W8ButtonWidget::OnRightButtonUp(int) { HandleButtonEvent(ButtonEvent::Release, SDL_BUTTON_RMASK); }
-void W8ButtonWidget::ActivateSecondary(int) { HandleButtonEvent(ButtonEvent::Repeat, SDL_BUTTON_RMASK); }
-
-/* Press arms the button (or flips a toggle); release of an armed button
-   activates it unless it was held into repeat or activates on press. */
-void W8ButtonWidget::HandleButtonEvent(ButtonEvent event, SDL_MouseButtonFlags mask)
-{
-    if (!m_left_callback && !m_right_callback && !m_move_callback && !m_double_click_callback) return;
-    if (event == ButtonEvent::Leave) {
-        m_interaction.leave(InteractionPolicy());
+    if (!m_left_callback && !m_right_callback && !m_move_callback && !m_double_click_callback)
+        return UiResult::Handled;
+    // Text-style controls still use the temporary backend's ordinary sounds.
+    const bool backend_sound = event.action == UiPointerAction::Enter ||
+        event.action == UiPointerAction::Leave || event.action == UiPointerAction::Down ||
+        (event.action == UiPointerAction::Up && event.captured_buttons != 0);
+    if (policy.controller_activation && !m_enabled && backend_sound)
+        PushButtonSoundScheme(0, true);
+    if (event.action == UiPointerAction::Leave) {
+        if (m_interaction.leave(policy) && policy.controller_activation && policy.repeat)
+            PushButtonSoundScheme(0, true);
         m_dirty = true;
-        if (m_enabled && !silent && !hover_silent) PlayButtonSound(1);
-        return;
+        if (m_enabled && !policy.controller_activation) PlayButtonSound(1);
+        return UiResult::Handled;
     }
-    if (!m_enabled) return;
-    switch (event) {
-    case ButtonEvent::Enter:
-        m_dirty = true;
-        if (!silent && !hover_silent) PlayButtonSound(0);
-        return;
-    case ButtonEvent::DoubleClick:
-        if (const auto callback = m_double_click_callback;
-            callback && (!m_left_toggles || m_interaction.pressed)) {
-            callback(this);
-        }
-        return;
-    case ButtonEvent::Move:
-        if (const auto callback = m_move_callback) callback(this);
-        return;
-    default:
-        break;
-    }
-    const bool right = mask == SDL_BUTTON_RMASK;
-    const auto callback = right ? m_right_callback : m_left_callback;
-    const bool play_sound = !silent;
-    const auto policy = InteractionPolicy();
+    if (!m_enabled) return UiResult::Handled;
+    const auto mask = event.button == UiPointerButton::Right ? SDL_BUTTON_RMASK : SDL_BUTTON_LMASK;
+    const auto callback = event.button == UiPointerButton::Right ? m_right_callback : m_left_callback;
     ButtonResponse response;
     const bool was_pressed = m_interaction.pressed;
-    switch (event) {
-    case ButtonEvent::Press: response = m_interaction.press(mask, policy); break;
-    case ButtonEvent::Repeat: response = m_interaction.repeat(mask, policy); break;
-    case ButtonEvent::Release: response = m_interaction.release(mask, policy); break;
-    default: return;
+    switch (event.action) {
+    case UiPointerAction::Enter:
+        m_dirty = true;
+        if (!policy.controller_activation) PlayButtonSound(0);
+        return UiResult::Handled;
+    case UiPointerAction::Move:
+        if (const auto move = m_move_callback) move(this);
+        return UiResult::Handled;
+    case UiPointerAction::Down:
+        response = m_interaction.press(mask, policy);
+        break;
+    case UiPointerAction::Up:
+        if (!event.inside) {
+            m_interaction.leave(policy);
+            m_dirty = true;
+            return UiResult::Handled;
+        }
+        if (!(event.captured_buttons & mask)) return UiResult::Handled;
+        response = m_interaction.release(mask, policy);
+        if (response.repeated_release && policy.controller_activation)
+            PushButtonSoundScheme(0, true);
+        break;
+    case UiPointerAction::Repeat:
+        if (!(event.captured_buttons & mask)) return UiResult::Handled;
+        response = m_interaction.repeat(mask, policy);
+        break;
+    default: return UiResult::Handled;
     }
     if (was_pressed != m_interaction.pressed) m_dirty = true;
-    if (play_sound && response.press_sound) PlayButtonSound(2);
-    if (!response.activate) return;
-    if (callback) callback(this);
-    if (play_sound) PlayButtonSound(3);
-}
-
-ButtonPolicy W8ButtonWidget::InteractionPolicy() const
-{
-    return {.primary_toggle = m_left_toggles ? ButtonToggle::Press : ButtonToggle::None,
-            .secondary_toggle = m_right_toggles ? ButtonToggle::Press : ButtonToggle::None,
-            .activation = m_activation, .repeat = m_repeat_enabled};
+    if (response.press_sound && !policy.controller_activation) PlayButtonSound(2);
+    if (response.activate) {
+        if (callback) callback(this);
+        if (!policy.controller_activation || event.action == UiPointerAction::Repeat)
+            PlayButtonSound(3);
+    }
+    if (event.action == UiPointerAction::Down && event.button == UiPointerButton::Left &&
+        event.clicks >= 2 && (policy.primary_toggle == ButtonToggle::None || m_interaction.pressed)) {
+        if (const auto double_click = m_double_click_callback) double_click(this);
+    }
+    return UiResult::Handled;
 }

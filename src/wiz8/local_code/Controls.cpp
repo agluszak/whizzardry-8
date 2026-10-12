@@ -306,19 +306,6 @@ void W8Widget::UnbindRegion()
 
 /* An active hit region at the given priority, in the panel tree's set when
    the widget is in one, else in the given set. */
-void W8Widget::ClaimRegion(int priority, unsigned int set)
-{
-    ReleaseRegion();
-    const RegionTemplate region_template{W8_REGION_RECTANGLE, 0, 0, 0, 0,
-                                         nullptr, static_cast<std::uint16_t>(priority), false, -1};
-    if (m_pPanel && m_pPanel->ChildRegionSet() != 0) set = m_pPanel->ChildRegionSet();
-    OwnedRegion allocated_region(set, region_template, priority);
-    m_active = true;
-    SetRegion(allocated_region.index());
-    m_owned_region = std::move(allocated_region);
-}
-
-// FUNCTION: WIZ8 0x004f4020
 void W8Widget::SetRegion(unsigned int region)
 {
     if (m_region != static_cast<int>(region)) ReleaseRegion();
@@ -1153,13 +1140,9 @@ void W8TextControl::OnLeftButtonUp(int event)
 
     const bool was_selected = m_interaction.selected;
     const auto response = m_interaction.release(SDL_BUTTON_LMASK, InteractionPolicy());
-    if ((m_layoutFlags & g_W8TextControlLayoutToggle) == 0) {
-        Invalidate(static_cast<unsigned char>(event));
-    } else if (!was_selected) {
-        if ((m_layoutFlags & g_W8TextControlLayoutLatchedImage) != 0) {
-            Invalidate(static_cast<unsigned char>(event));
-        }
-    } else if ((m_layoutFlags & g_W8TextControlLayoutStayLatched) == 0) {
+    if ((m_layoutFlags & g_W8TextControlLayoutToggle) == 0 ||
+        (!was_selected && (m_layoutFlags & g_W8TextControlLayoutLatchedImage) != 0) ||
+        (was_selected && (m_layoutFlags & g_W8TextControlLayoutStayLatched) == 0)) {
         Invalidate(static_cast<unsigned char>(event));
     }
 
@@ -2077,7 +2060,7 @@ void W8Widget::OnGeometryChanged()
 
 // FUNCTION: WIZ8 0x004f5450
 W8ControlSelection::W8ControlSelection()
-    : m_value_4(0), m_value_8(0), m_selectedIndex(-1), m_selectionListener(0)
+    : m_selectedIndex(-1), m_selectionListener(0)
 {
 }
 

@@ -13,6 +13,7 @@
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "Font.h"
 #include "image.h"
+#include "himage.h"
 #include "image_assets.h"
 #include "sprite.h"
 
@@ -44,38 +45,9 @@ static void DrawShadeOnButton(SDL_Surface& target, const ButtonAppearance* appea
 ButtonImage ButtonGraphics::Load(std::string_view filename, std::int32_t grayed, std::int32_t off_normal,
                                  std::int32_t off_hilite, std::int32_t on_normal, std::int32_t on_hilite)
 {
-    const std::array frames{grayed, off_normal, off_hilite, on_normal, on_hilite};
-    if (filename.empty() || std::all_of(frames.begin(), frames.end(),
-                                      [](int frame) { return frame == BUTTON_NO_IMAGE; }))
-        return {};
-
-    auto image = std::make_shared<ButtonGraphics>();
-    image->sprites = g_image_assets.sprites(filename);
-    if (!image->sprites)
-        return {};
-
-    image->MaxWidth = image->MaxHeight = 0;
-    for (const int index : frames) {
-        if (index == BUTTON_NO_IMAGE)
-            continue;
-        if (index < 0 ||
-            static_cast<std::size_t>(index) >= image->object().frames.size()) {
-            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Invalid button frame %d in %s",
-                         index, std::string(filename).c_str());
-            return {};
-        }
-        const auto& frame = image->object().frames[index];
-        image->MaxWidth = std::max(image->MaxWidth,
-            static_cast<std::uint32_t>(std::max(0, frame.width + frame.offset.x)));
-        image->MaxHeight = std::max(image->MaxHeight,
-            static_cast<std::uint32_t>(std::max(0, frame.height + frame.offset.y)));
-    }
-    image->Grayed = grayed;
-    image->OffNormal = off_normal;
-    image->OffHilite = off_hilite;
-    image->OnNormal = on_normal;
-    image->OnHilite = on_hilite;
-    return image;
+    if (filename.empty()) return {};
+    return Load(g_image_assets.sprites(filename), grayed, off_normal, off_hilite,
+                on_normal, on_hilite);
 }
 
 ButtonImage ButtonGraphics::Load(std::shared_ptr<const SpriteSheet> sprites,
@@ -198,9 +170,9 @@ static std::int8_t DrawQuickButton(SDL_Surface& target, const ButtonAppearance* 
     const auto& image = *b->quick_image;
     const bool checkbox = state.checkbox;
     const bool pressed = state.pressed;
-    std::int32_t frame = 0;
+    std::int32_t frame = state.menu_artwork ? BUTTON_NO_IMAGE : 0;
     if (state.enabled) {
-        const bool highlighted = (state.hovered) && gfRenderHilights &&
+        const bool highlighted = state.hovered && (state.menu_artwork || gfRenderHilights) &&
                                  (!checkbox || state.mouse_down);
         const auto normal = pressed ? image.OnNormal : image.OffNormal;
         const auto hilite = pressed ? image.OnHilite : image.OffHilite;
@@ -212,9 +184,15 @@ static std::int8_t DrawQuickButton(SDL_Surface& target, const ButtonAppearance* 
         frame = checkbox ? (pressed ? image.OnHilite : image.OffHilite) : image.OffNormal;
         disabled_style = DisabledOverlayStyle(*b, state);
     }
-    if (frame != BUTTON_NO_IMAGE)
-        DrawSprite(target, image.object(), static_cast<std::size_t>(frame),
-                   bounds.x, bounds.y);
+    if (frame != BUTTON_NO_IMAGE) {
+        SDL_Point origin{bounds.x, bounds.y};
+        if (state.menu_artwork && state.hovered) {
+            const auto& sprite = image.object().frames[frame];
+            origin.x += std::max(0, sprite.width - bounds.w) / 2;
+            origin.y += std::max(0, sprite.height - bounds.h) / 2;
+        }
+        DrawSprite(target, image.object(), static_cast<std::size_t>(frame), origin.x, origin.y);
+    }
     return disabled_style;
 }
 

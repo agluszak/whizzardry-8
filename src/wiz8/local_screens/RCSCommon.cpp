@@ -625,18 +625,6 @@ void UpdateRcsDismissPanel(void)
     g_dismiss_panel->Redraw(GetFrameBufferSurface(), false);
 }
 
-/* Formation storage. Physical retail TU attribution remains unresolved;
-   the lifecycle interface is owned by MGSFormation.h. */
-
-// GLOBAL: WIZ8 0x0069c2ec
-std::unique_ptr<Controls> g_formation_panel;
-// GLOBAL: WIZ8 0x0069c344
-W8TextControl* g_formation_cell_controls[15];
-// GLOBAL: WIZ8 0x0069c384
-W8TextControl* g_formation_cell_overlays[15];
-// GLOBAL: WIZ8 0x0069c2f8
-W8TextControl* g_formation_action_buttons[3];
-
 /* Release the formation board, compass and overlay sprites. */
 // FUNCTION: WIZ8 0x005B1C00
 void ReleaseFormationBoard(void)

@@ -805,7 +805,6 @@ void FormationUiScenario()
     OpenFormationPanel();
     game.frame();
     REQUIRE(gXStatus.fReviewCharacterMode);
-    REQUIRE(g_formation_cell_controls[0]->m_region == -1);
     begin_drag();
     drop_at(destination);
     REQUIRE(gXStatus.edited_formation.positions[slot].bQuadrant == destination_row);
@@ -822,7 +821,6 @@ void FormationUiScenario()
     drop_at(destination);
     game.click_at(360, 276); // Accept, with teardown deferred past button dispatch.
     REQUIRE_FALSE(gXStatus.fReviewCharacterMode);
-    REQUIRE_FALSE(g_formation_panel);
     REQUIRE(g_status.formation.positions[slot].bQuadrant == destination_row);
     REQUIRE(g_ui.captured == 0);
 
@@ -830,7 +828,6 @@ void FormationUiScenario()
     game.frame();
     REQUIRE(gXStatus.fReviewCharacterMode);
     game.click_at(394, 276); // Cancel after re-entry.
-    REQUIRE_FALSE(g_formation_panel);
     REQUIRE_FALSE(gXStatus.fReviewCharacterMode);
     REQUIRE(g_status.formation.positions[slot].bQuadrant == destination_row);
 }
@@ -1118,12 +1115,16 @@ void CheckGameplayUi(Game& game)
     const int source = position.bQuadrant * 3 + position.bQuadrantSlot;
     REQUIRE((source >= 0 && source < 15));
     const int destination = ((position.bQuadrant + 1) % 5) * 3;
-    game.drag(g_formation_cell_controls[source]->ScreenBounds(),
-              g_formation_cell_controls[destination]->ScreenBounds());
+    constexpr std::array<SDL_Point, 15> cells{{
+        {90, 28}, {61, 37}, {119, 37}, {152, 90}, {143, 61},
+        {143, 119}, {90, 152}, {119, 143}, {61, 143}, {28, 90},
+        {37, 119}, {37, 61}, {90, 72}, {72, 97}, {108, 97},
+    }};
+    game.drag({214 + cells[source].x, 60 + cells[source].y, 32, 32},
+              {214 + cells[destination].x, 60 + cells[destination].y, 32, 32});
     REQUIRE(gXStatus.edited_formation.positions[slot].bQuadrant == destination / 3);
-    const auto accept = g_formation_action_buttons[0]->ScreenBounds();
-    game.click_at(accept.x + accept.w / 2, accept.y + accept.h / 2);
-    REQUIRE(!g_formation_panel);
+    game.click_at(360, 276);
+    REQUIRE_FALSE(gXStatus.fReviewCharacterMode);
     REQUIRE(g_status.formation.positions[slot].bQuadrant == destination / 3);
     g_status.formation = original_formation;
     RefreshFormationBoard();
@@ -1222,13 +1223,27 @@ void ResourceLifecycleScenario()
         game.wait_screen("automap-buttons-released", W8_SCREEN_MAIN_GAME);
         REQUIRE(g_automap_buttons.empty());
     }
+    game.command(W8_MGS_COMMAND_OPTIONS);
+    game.wait_screen("options-menu", W8_SCREEN_OPTIONS);
+    game.click_at(30, 250);
+    REQUIRE(g_options_screen->m_selected_panel == 2);
+    game.press_at(30, 60);
+    game.release_at(200, 190);
+    REQUIRE(g_options_screen->m_selected_panel == 2);
+    game.click_at(30, 60); // Artwork hotspot selects the same panel as its button.
+    REQUIRE(g_options_screen->m_selected_panel == 0);
+    game.click_at(20, 445);
+    game.wait_screen("options-menu-return", W8_SCREEN_MAIN_GAME);
     // Exercise a second screen's input, teardown and return-stack lifecycle.
     const std::size_t return_depth = g_screen_return_stack.size();
     game.command(W8_MGS_COMMAND_JOURNAL);
     game.wait_screen("journal", W8_SCREEN_JOURNAL);
     REQUIRE(g_screen_return_stack.size() == return_depth + 1);
     REQUIRE(g_screen_return_stack.back().id == W8_SCREEN_MAIN_GAME);
-    game.key(SDLK_ESCAPE);
+    // Exercise the ordinary toggle and close buttons.
+    game.click_at(540, 450);
+    game.click_at(540, 450);
+    game.click_at(600, 450);
     game.wait_screen("journal-return", W8_SCREEN_MAIN_GAME);
     REQUIRE(g_screen_return_stack.size() == return_depth);
     REQUIRE((GetWorld() && GetWorld()->level));

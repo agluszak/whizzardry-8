@@ -52,6 +52,8 @@ public:
     // Release capture when gameplay starts a drag whose destination should
     // receive the release. This changes the existing dispatcher's capture.
     void releaseCapture();
+    bool hovered() const;
+    SDL_MouseButtonFlags capturedButtons() const;
 
 private:
     friend class UiLayer;

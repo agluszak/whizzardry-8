@@ -210,8 +210,8 @@ bool W8SplitItemDialog::CreateButtons()
         m_buttons[9].ConfigureIcon("Data\\Dialogs\\popup_splititem.sti", BUTTON_NO_IMAGE, 3,
                                     REGION_PRIORITY_LOWEST, W8_DIALOG_BUTTON_NO_TOOLTIP);
     }
-    m_buttons[0].m_repeat_enabled = true;
-    m_buttons[1].m_repeat_enabled = true;
+    m_buttons[0].policy.repeat = true;
+    m_buttons[1].policy.repeat = true;
     for (index = 0; index < count; ++index) {
         m_buttons[index].SetPosition(g_split_button_offsets[index].x + m_x,
                                       g_split_button_offsets[index].y + m_y);

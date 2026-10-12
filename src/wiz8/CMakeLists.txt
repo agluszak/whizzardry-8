@@ -54,7 +54,6 @@ add_library(WIZ8_GAME_CORE STATIC
     local_screens/MGSTextBox.cpp
     local_screens/MainGameScreen.cpp
     local_screens/combat_portrait_image.cpp
-    local_screens/formation_panel_refresh.cpp
     local_screens/NPCInteractionSubscreen.cpp
     local_screens/CharacterScreen.cpp
     local_screens/CharacterPages.cpp

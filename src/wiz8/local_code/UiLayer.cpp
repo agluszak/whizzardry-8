@@ -145,6 +145,19 @@ void HitTarget::releaseCapture()
     backend_->owned.region().flags &= ~(W8_REGION_LEFT_BUTTON_HELD | W8_REGION_RIGHT_BUTTON_HELD);
 }
 
+bool HitTarget::hovered() const
+{
+    return g_ui.hover == backend_->owned.index() ||
+           (backend_->owned.region().flags & W8_REGION_MOUSE_ENTER) != 0;
+}
+
+SDL_MouseButtonFlags HitTarget::capturedButtons() const
+{
+    const auto flags = backend_->owned.region().flags;
+    return ((flags & W8_REGION_LEFT_BUTTON_HELD) ? SDL_BUTTON_LMASK : 0u) |
+           ((flags & W8_REGION_RIGHT_BUTTON_HELD) ? SDL_BUTTON_RMASK : 0u);
+}
+
 void HitTarget::useTextCursor()
 {
     backend_->owned.region().text_field = true;

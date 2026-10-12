@@ -5,6 +5,9 @@
 
 #include <memory>
 #include <vector>
+#include <array>
+#include "wiz8/ui_layer.h"
+#include "wiz8/local_code/ButtonWidget.h"
 
 #include "wiz8/engine_code/Quality.h"
 #include "wiz8/mgs_commands.h"
@@ -341,28 +344,6 @@ struct W8OptionsPanelRange {
     int last;
 };
 
-/* The button of one options menu row. */
-// VTABLE: WIZ8 0x005eed3c W8TextControl
-class W8OptionsMenuButton : public W8TextControl {
-public:
-    explicit W8OptionsMenuButton(const W8OptionsMenuRow& row);
-    virtual void Redraw(SDL_Surface& target, bool full_redraw) override;
-    virtual void EnableSecondaryState(bool immediate) override;
-
-    int m_item_id;
-};
-
-/* One options menu row: its button and up to two hotspots on the menu
-   artwork that activate it as if the button itself were clicked. */
-// VTABLE: WIZ8 0x005eed34 W8TextControl::Listener
-class W8OptionsMenuRowControl : public Controls, public W8TextControl::Listener {
-public:
-    explicit W8OptionsMenuRowControl(const W8OptionsMenuRow& row);
-    void OnPrimary(W8TextControl* hotspot) override;
-
-    W8OptionsMenuButton* m_button;
-};
-
 /* The options menu: its rows and the panel set they select. */
 // VTABLE: WIZ8 0x005eefec Controls
 // VTABLE: WIZ8 0x005eefe4 W8TextControl::Listener
@@ -384,33 +365,27 @@ public:
 // VTABLE: WIZ8 0x005ef008 W8ControlSelectionListener
 // VTABLE: WIZ8 0x005ef000 W8TextControl::Listener
 // VTABLE: WIZ8 0x005eeffc W8DialogCloseListener
-class W8OptionsScreen final : public W8ControlSelectionListener,
-                        public W8TextControl::Listener,
-                        public W8DialogCloseListener {
+class W8OptionsScreen final : public W8DialogCloseListener {
+    UiLayer m_menu_input;
 public:
     W8OptionsScreen();
     ~W8OptionsScreen();
-    void SelectPanel(int selected, bool notify);
+    void SelectPanel(int selected);
+    void ActivateMenu(int item);
     void CreateControls();
     unsigned char ProcessInput(const InputEvent* input);
     void Redraw();
     void ShowNotification(W8DialogCloseListener* listener, bool allow_cancel, int message,
                           int value);
     void BeginSaveNameEdit(W8OptionsTextEditor::Listener* listener, int row, std::string_view text);
-    virtual void OnSelectionChanged(W8ControlSelection* control, int selected) override;
-    virtual void OnPrimary(W8TextControl* control) override;
-    virtual void OnSecondary(W8TextControl*) override {}
     virtual void OnDialogClosed(bool accepted, int value) override;
 
     std::vector<std::unique_ptr<W8SaveSlot>> m_save_slots;
     bool m_redraw_pending;
     bool m_modal_closing;
-    unsigned char padding_01e[2];
     int m_selected_panel;
-    std::unique_ptr<Controls> m_controls;
+    std::array<std::unique_ptr<W8ButtonWidget>, 8> m_menu_buttons;
     std::unique_ptr<W8OptionsMenuSet> m_menu_set;
-    std::unique_ptr<W8ControlSelection> m_menu_selection;
-    unsigned char unknown_030[8];
     std::unique_ptr<W8OptionsPanelSet> m_panel[8];
     std::unique_ptr<W8MessageDialogBase> m_active_modal;
     std::unique_ptr<W8OptionsTextEditor> m_text_editor;

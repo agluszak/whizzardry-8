@@ -7,14 +7,6 @@
    rotating compass needle tracking the party's heading. */
 
 struct W8Region;
-struct Controls;
-class W8TextControl;
-
-extern std::unique_ptr<Controls> g_formation_panel;
-extern W8TextControl* g_formation_cell_controls[15];
-extern W8TextControl* g_formation_cell_overlays[15];
-extern W8TextControl* g_formation_action_buttons[3];
-
 void ReleaseFormationBoard(void);
 void EnableFormationInput();
 void DestroyFormationPanel(void);

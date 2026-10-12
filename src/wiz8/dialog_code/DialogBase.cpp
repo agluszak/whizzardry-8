@@ -1,5 +1,3 @@
-#include <SDL3/SDL_surface.h>
-#include <utility>
 #include <SDL3/SDL_rect.h>
 #include <string>
 #include <string_view>
@@ -27,26 +25,6 @@ RegionSetRef CurrentInputLayer()
 unsigned int InputLayerSet(const RegionSetRef& layer)
 {
     return RegionSetLive(layer) ? layer.index : ControlRegionSetIndex();
-}
-
-void W8DialogFrame::Configure(ButtonAppearance appearance, const SDL_Rect& bounds,
-                              unsigned int set)
-{
-    m_appearance = std::move(appearance);
-    SetBounds(bounds);
-    ClaimRegion(REGION_PRIORITY_BACKGROUND, set);
-}
-
-void W8DialogFrame::Reset()
-{
-    ReleaseRegion();
-    m_appearance = {};
-    SetBounds({});
-}
-
-void W8DialogFrame::Draw(SDL_Surface& target) const
-{
-    DrawButtonAppearance(target, m_appearance, ScreenBounds(), {});
 }
 
 void W8DialogBase::CreateCloseButton(W8ButtonWidget& button, int left, int top)
@@ -113,11 +91,10 @@ void W8DialogBase::Draw()
     if (!m_initialized) {
         CreateControls();
     }
-    if (m_error == 0 && m_frame.IsConfigured()) {
-        if (m_width != m_frame.Bounds().w || m_height != m_frame.Bounds().h) {
-            m_frame.SetBounds({m_x, m_y, m_width, m_height});
-        }
-        m_frame.Draw(GetFrameBufferSurface());
+    if (m_error == 0 && m_body) {
+        m_body->setShape(SDL_Rect{m_x, m_y, m_width + 1, m_height + 1});
+        DrawButtonAppearance(GetFrameBufferSurface(), {.generic_image = m_border},
+                             {m_x, m_y, m_width, m_height}, {});
         InvalidateRegion(m_x, m_y, m_x + m_width, m_y + m_height);
     }
     m_dirty_flags &= ~W8_DIALOG_DIRTY_REDRAW;
@@ -135,9 +112,7 @@ void W8DialogBase::SetOrigin(int x, int y)
 {
     m_x = x;
     m_y = y;
-    if (m_frame.IsConfigured()) {
-        m_frame.SetBounds({x, y, m_frame.Bounds().w, m_frame.Bounds().h});
-    }
+    if (m_body) m_body->setShape(SDL_Rect{x, y, m_width + 1, m_height + 1});
     m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
 }
 
@@ -184,7 +159,8 @@ int W8DialogBase::CreateControls()
             return m_error = 4;
         }
     }
-    m_frame.Configure({.generic_image = m_border}, {m_x, m_y, m_width, m_height}, m_input.legacySet());
+    if (m_body) m_input.remove(*m_body);
+    m_body = &m_input.add(SDL_Rect{m_x, m_y, m_width + 1, m_height + 1}, {}, REGION_PRIORITY_BACKGROUND);
     m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
     m_initialized = true;
     return 0;
@@ -194,7 +170,8 @@ int W8DialogBase::CreateControls()
 void W8DialogBase::DestroyControls()
 {
     EndModalInput();
-    m_frame.Reset();
+    if (m_body) m_input.remove(*m_body);
+    m_body = nullptr;
     m_border.reset();
     m_text.clear();
     m_background_path.clear();

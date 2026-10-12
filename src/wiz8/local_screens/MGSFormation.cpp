@@ -1,6 +1,5 @@
 #include <array>
 #include <memory>
-#include <string>
 
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_mouse.h>
@@ -17,10 +16,10 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/MGSRadarMap.h"
 #include "wiz8/local_code/ButtonSound.h"
-#include "wiz8/local_code/Controls.h"
+#include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/button_interaction.h"
 #include "wiz8/local_code/FormationAndFacing.h"
 #include "wiz8/local_code/Strings.h"
-#include "wiz8/local_code/TextControl.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/layouts/combat_state.h"
@@ -68,29 +67,31 @@ static uint64_t g_formation_drag_clock;
 // GLOBAL: WIZ8 0x0069c380
 static int g_formation_drag_cell;
 
-static std::unique_ptr<UiLayer> formation_input;
-static std::array<HitTarget*, 15> formation_cells{};
+namespace {
+struct FormationPanel {
+    UiLayer input{0x1b};
+    std::array<HitTarget*, 15> targets{};
+    std::array<ButtonInteraction, 15> cells{};
+    std::array<bool, 15> highlighted{};
+    std::array<std::unique_ptr<W8ButtonWidget>, 3> actions;
+    bool dirty = true;
+};
+std::unique_ptr<FormationPanel> formation;
+constexpr ButtonPolicy cell_policy{.primary_toggle = ButtonToggle::Release,
+                                  .controller_activation = true};
+}
+
 static UiResult HandleFormationCell(const UiPointerEvent& event, int cell);
-static UiResult HandleFormationAction(const UiPointerEvent& event, int action);
 static UiResult HandleFormationBackground(const UiPointerEvent& event);
 
 void EnableFormationInput()
 {
-    if (formation_input) formation_input->setEnabled(true);
+    if (formation) formation->input.setEnabled(true);
 }
 
-void DestroyFormationPanel()
-{
-    formation_input.reset();
-    formation_cells.fill(nullptr);
-    g_formation_panel.reset();
-    for (auto& control : g_formation_cell_controls) control = nullptr;
-    for (auto& overlay : g_formation_cell_overlays) overlay = nullptr;
-    for (auto& button : g_formation_action_buttons) button = nullptr;
-}
+void DestroyFormationPanel() { formation.reset(); }
 
 static void UpdateFormationCells(void);
-void ResetFormationCellControls(int cell);
 
 /* Draw each occupied slot's facing arrow and marching-order chip into the
    board image; the slot the board highlights gets the +1 frame of each. */
@@ -261,55 +262,63 @@ static void SelectFormationCell(void);
 static void AcceptFormationChanges(void);
 static void ResetFormationPanel(void);
 
-/* Keep artwork controls region-free; the panel owns a separate input layer. */
-// FUNCTION: WIZ8 0x005b2260
 static void CreateFormationPanel()
 {
-    int index;
-
-    g_formation_panel = std::make_unique<Controls>(0xd6, 0x3c, 0x1ab, 0x12f, CatalogArtwork::Load(0x9e, 0), 0);
-    formation_input = std::make_unique<UiLayer>(0x1b);
-    for (index = 0; index < 15; ++index) {
-        int left = g_formation_cell_positions[index].x;
-        int top = g_formation_cell_positions[index].y;
-        W8TextControl* cell;
-
-        cell = g_formation_panel->EmplaceControl<W8TextControl>(-1, left, top,
-                                 left + 0x20, top + 0x20, CatalogArtwork::Load(0x9f, 0));
-        g_formation_cell_controls[index] = cell;
-        formation_cells[index] = &formation_input->add(
-            SDL_Rect{0xd6 + left, 0x3c + top, 0x21, 0x21},
-            [index](const UiPointerEvent& event) { return HandleFormationCell(event, index); });
-        cell->AddLayoutFlags(g_W8TextControlLayoutToggle);
-        cell->m_onPrimary = SelectFormationCell;
-        cell = g_formation_panel->EmplaceControl<W8TextControl>(-1, left, top, left + 0x20, top + 0x20, CatalogArtwork::Load(0xa0, 0));
-        g_formation_cell_overlays[index] = cell;
+    formation = std::make_unique<FormationPanel>();
+    for (int cell = 0; cell < 15; ++cell) {
+        const auto position = g_formation_cell_positions[cell];
+        formation->targets[cell] = &formation->input.add(
+            SDL_Rect{0xd6 + position.x, 0x3c + position.y, 0x21, 0x21},
+            [cell](const UiPointerEvent& event) { return HandleFormationCell(event, cell); });
     }
-    g_formation_action_buttons[0] = g_formation_panel->EmplaceControl<W8TextControl>(-1, 0x85, 0xcb, 0xa0, 0xe6,
-        CatalogArtwork::Load(0x8e, 0), W8SpriteStates{.normal = 0, .alternate_normal = 1, .alternate_pressed = 2, .disabled = 3});
-    g_formation_action_buttons[1] = g_formation_panel->EmplaceControl<W8TextControl>(-1, 0xa7, 0xcb, 0xc2, 0xe6,
-        CatalogArtwork::Load(0x8e, 0), W8SpriteStates{.normal = 4, .alternate_normal = 5, .alternate_pressed = 6, .disabled = 7});
-    g_formation_action_buttons[2] = g_formation_panel->EmplaceControl<W8TextControl>(-1, 0xf, 0xcd, 0x29, 0xe7,
-        CatalogArtwork::Load(0x8f, 0), W8SpriteStates{.normal = 0, .alternate_normal = 1, .alternate_pressed = 2, .disabled = 3});
-    g_formation_action_buttons[0]->m_onPrimary = [] {
-        AfterUiDispatch(AcceptFormationChanges);
-    };
-    g_formation_action_buttons[1]->m_onPrimary = [] {
-        AfterUiDispatch(CloseFormationPanel);
-    };
-    g_formation_action_buttons[2]->m_onPrimary = ResetFormationPanel;
-    constexpr std::array<SDL_Rect, 3> action_bounds{{
-        {0xd6 + 0x85, 0x3c + 0xcb, 0x1c, 0x1c},
-        {0xd6 + 0xa7, 0x3c + 0xcb, 0x1c, 0x1c},
-        {0xd6 + 0xf, 0x3c + 0xcd, 0x1b, 0x1b},
+    constexpr std::array<SDL_Rect, 3> bounds{{
+        {0xd6 + 0x85, 0x3c + 0xcb, 0x1b, 0x1b},
+        {0xd6 + 0xa7, 0x3c + 0xcb, 0x1b, 0x1b},
+        {0xd6 + 0xf, 0x3c + 0xcd, 0x1a, 0x1a},
     }};
+    static constexpr std::array actions{AcceptFormationChanges, CloseFormationPanel, ResetFormationPanel};
     for (int action = 0; action < 3; ++action) {
-        auto& target = formation_input->add(action_bounds[action],
-            [action](const UiPointerEvent& event) { return HandleFormationAction(event, action); });
-        target.setTooltip([action] { return std::string(g_localized_strings[1981 + action]); });
+        const auto artwork = CatalogArtwork::Load(action == 2 ? 0x8f : 0x8e, 0);
+        const int frame = artwork.imageOffset() + (action == 1 ? 4 : 0);
+        auto& button = formation->actions[action];
+        button = std::make_unique<W8ButtonWidget>(formation->input);
+        button->Configure(artwork.spriteSheet(), frame + 3, frame, frame + 1, -1, frame + 2,
+            [action](W8ButtonWidget*) { AfterUiDispatch(actions[action]); },
+            {}, false, 0, 1981 + action, {}, {});
+        button->SetPosition(bounds[action].x, bounds[action].y);
+        button->Resize(bounds[action].w, bounds[action].h);
+        button->policy.controller_activation = true;
     }
-    formation_input->add(SDL_Rect{214, 60, 214, 244}, HandleFormationBackground);
-    g_formation_panel->SetActive(true);
+    formation->input.add(SDL_Rect{214, 60, 214, 244}, HandleFormationBackground);
+}
+
+void RefreshFormationPanel(bool force)
+{
+    if (!formation) return;
+    bool dirty = force || formation->dirty;
+    for (const auto& button : formation->actions) dirty = dirty || button->m_dirty;
+    if (!dirty) return;
+    auto& target = GetFrameBufferSurface();
+    CatalogArtwork::Load(0x9e, 0).drawAndInvalidate(target, 0, 0xd6, 0x3c);
+    const auto arrows = CatalogArtwork::Load(0x9f, 0);
+    const auto chips = CatalogArtwork::Load(0xa0, 0);
+    for (int cell = 0; cell < 15; ++cell) {
+        const int slot = g_formation_cell_slots[cell];
+        if (slot == -1) continue;
+        const auto position = g_formation_cell_positions[cell];
+        const bool disabled = !CanHoldFormationPlace(slot);
+        const int arrow = gXStatus.edited_formation.positions[slot].facing * 3 +
+                          (disabled ? 2 : formation->cells[cell].pressed ? 1 : 0);
+        const int chip = g_status.buffers.XChar[slot].party_order_index * 3 +
+                         (disabled ? 2 : formation->highlighted[cell] ? 1 : 0);
+        arrows.draw(target, arrow, 0xd6 + position.x, 0x3c + position.y);
+        chips.draw(target, chip, 0xd6 + position.x, 0x3c + position.y);
+    }
+    for (auto& button : formation->actions) {
+        button->m_dirty = true;
+        button->Draw(target);
+    }
+    formation->dirty = false;
 }
 
 /* Open the formation panel: build the controls, snapshot the live formation
@@ -335,63 +344,13 @@ void OpenFormationPanel(void)
 // FUNCTION: WIZ8 0x005b2600
 static void UpdateFormationCells(void)
 {
-    int cell;
-    int slot;
-
-    for (cell = 0; cell < 15; ++cell) {
-        g_formation_cell_slots[cell] = -1;
-        ResetFormationCellControls(cell);
+    for (auto& slot : g_formation_cell_slots) slot = -1;
+    for (int slot = 0; slot < 8; ++slot) {
+        const auto& position = gXStatus.edited_formation.positions[slot];
+        if (g_status.buffers.XChar[slot].fOccupied && position.bQuadrant != -1)
+            g_formation_cell_slots[position.bQuadrant * 3 + position.bQuadrantSlot] = slot;
     }
-    for (slot = 0; slot < 8; ++slot) {
-        W8PartySlotRow* row = &g_status.buffers.XChar[slot];
-        W8PartyFormationPosition* position = &gXStatus.edited_formation.positions[slot];
-        W8TextControl* primary;
-        W8TextControl* overlay;
-        int sprite;
-
-        if (row->fOccupied && position->bQuadrant != -1) {
-            cell = position->bQuadrant * 3 + position->bQuadrantSlot;
-            primary = g_formation_cell_controls[cell];
-            overlay = g_formation_cell_overlays[cell];
-            if (!CanHoldFormationPlace(slot)) {
-                sprite = position->facing * 3 + 2;
-                primary->m_normalSprite = sprite;
-                primary->m_alternateNormalSprite = sprite;
-                primary->m_pressedSprite = sprite;
-                primary->m_alternatePressedSprite = sprite;
-                primary->m_disabledSprite = sprite;
-                sprite = row->party_order_index * 3 + 2;
-                overlay->m_normalSprite = sprite;
-                overlay->m_alternateNormalSprite = sprite;
-                overlay->m_pressedSprite = sprite;
-                overlay->m_alternatePressedSprite = sprite;
-            } else {
-                sprite = position->facing * 3;
-                primary->m_normalSprite = sprite;
-                primary->m_alternateNormalSprite = sprite;
-                primary->m_pressedSprite = sprite + 1;
-                primary->m_alternatePressedSprite = sprite + 1;
-                primary->m_disabledSprite = sprite + 2;
-                sprite = row->party_order_index * 3;
-                overlay->m_normalSprite = sprite;
-                overlay->m_alternateNormalSprite = sprite + 1;
-                overlay->m_pressedSprite = sprite;
-                overlay->m_alternatePressedSprite = sprite + 1;
-                sprite += 2;
-            }
-            overlay->m_disabledSprite = sprite;
-            primary->SetActive(true);
-            overlay->SetActive(true);
-            primary->SetEnabled(true);
-            overlay->SetEnabled(true);
-            g_formation_cell_slots[cell] = slot;
-            if (slot == g_status.selected_character &&
-                !primary->IsSelected()) {
-                primary->EnableSecondaryState(false);
-            }
-        }
-    }
-    g_formation_panel->InvalidateAll();
+    SelectFormationSlotCell(g_status.selected_character);
 }
 
 /* The cells' activation callback: highlight the active cell and make its
@@ -399,20 +358,10 @@ static void UpdateFormationCells(void)
 // FUNCTION: WIZ8 0x005b27e0
 static void SelectFormationCell(void)
 {
-    int index;
-
-    if (CanHoldFormationPlace(g_formation_cell_slots[g_formation_active_cell])) {
-        for (index = 0; index < 15; ++index) {
-            W8TextControl* control = g_formation_cell_controls[index];
-
-            if (index == g_formation_active_cell) {
-                control->EnableSecondaryState(false);
-            } else if (control->IsSelected()) {
-                control->DisableSecondaryState(false);
-                g_formation_cell_overlays[index]->Invalidate(false);
-            }
-        }
-        SelectPartyCharacter(g_formation_cell_slots[g_formation_active_cell]);
+    const int slot = g_formation_cell_slots[g_formation_active_cell];
+    if (CanHoldFormationPlace(slot)) {
+        SelectFormationSlotCell(slot);
+        SelectPartyCharacter(slot);
     }
 }
 
@@ -473,23 +422,24 @@ static UiResult HandleFormationCell(const UiPointerEvent& event, int id)
                 TimeUntilDeadline(g_formation_drag_clock) == 0 && g_formation_drag_cell == -1 &&
                 g_formation_active_cell != -1) {
                 if (!CanHoldFormationPlace(g_formation_cell_slots[id])) {
-                    formation_cells[id]->releaseCapture();
+                    formation->targets[id]->releaseCapture();
                     return UiResult::Handled;
                 }
                 BeginFormationDrag();
-                g_formation_cell_overlays[id]->Invalidate(false);
+                formation->dirty = true;
             }
             return UiResult::Handled;
         case UiPointerAction::Down:
-            g_formation_cell_controls[id]->OnLeftButtonDown(0);
-            g_formation_cell_overlays[id]->Invalidate(false);
+            formation->cells[id].press(SDL_BUTTON_LMASK, cell_policy);
+            formation->dirty = true;
             g_formation_drag_clock = w8_get_ticks() + 250;
             return UiResult::Handled;
         case UiPointerAction::Up:
             if (g_formation_cell_slots[id] != -1) {
                 g_formation_active_cell = id;
-                g_formation_cell_controls[id]->OnLeftButtonUp(0);
-                g_formation_cell_overlays[id]->Invalidate(false);
+                if (formation->cells[id].release(SDL_BUTTON_LMASK, cell_policy).activate)
+                    SelectFormationCell();
+                formation->dirty = true;
             }
             if (g_formation_drag_cell != -1) DropFormationSlot(id);
             return UiResult::Handled;
@@ -497,14 +447,14 @@ static UiResult HandleFormationCell(const UiPointerEvent& event, int id)
         }
     }
     if (event.action == UiPointerAction::Leave) {
-        g_formation_cell_controls[id]->OnMouseLeave(0);
-        g_formation_cell_overlays[id]->OnMouseLeave(0);
-        g_formation_cell_overlays[id]->Invalidate(false);
+        formation->cells[id].leave(cell_policy);
+        formation->highlighted[id] = false;
+        formation->dirty = true;
         if ((event.buttons & SDL_BUTTON_LMASK) && g_formation_drag_cell == -1 &&
             CanHoldFormationPlace(g_formation_cell_slots[id])) {
             g_formation_active_cell = id;
             BeginFormationDrag();
-            g_formation_cell_overlays[id]->Invalidate(false);
+            formation->dirty = true;
         }
         g_formation_active_cell = -1;
         SetTooltipSubject(7, -1);
@@ -512,29 +462,13 @@ static UiResult HandleFormationCell(const UiPointerEvent& event, int id)
     }
     if (event.action == UiPointerAction::Enter ||
         (event.action == UiPointerAction::Move && g_formation_active_cell == -1)) {
-        g_formation_cell_controls[id]->OnMouseEnter(0);
-        g_formation_cell_overlays[id]->OnMouseEnter(0);
-        g_formation_cell_overlays[id]->Invalidate(false);
+        formation->highlighted[id] = true;
+        formation->dirty = true;
         g_formation_active_cell = id;
         SetTooltipSubject(7, g_formation_cell_slots[id]);
         return UiResult::Handled;
     }
     return UiResult::Pass;
-}
-
-static UiResult HandleFormationAction(const UiPointerEvent& event, int id)
-{
-    if (!gXStatus.fReviewCharacterMode) return UiResult::Pass;
-    auto& button = *g_formation_action_buttons[id];
-    if (event.action == UiPointerAction::Enter) button.OnMouseEnter(0);
-    else if (event.action == UiPointerAction::Leave) button.OnMouseLeave(0);
-    else if (event.button == UiPointerButton::Left) {
-        if (event.action == UiPointerAction::Down || event.action == UiPointerAction::Repeat)
-            button.OnLeftButtonDown(0);
-        else if (event.action == UiPointerAction::Up) button.OnLeftButtonUp(0);
-        else return UiResult::Pass;
-    } else return UiResult::Pass;
-    return UiResult::Handled;
 }
 
 static UiResult HandleFormationBackground(const UiPointerEvent& event)
@@ -562,9 +496,9 @@ static void BeginFormationDrag()
     unsigned short region;
     int sprite;
 
-    formation_cells[g_formation_active_cell]->releaseCapture();
+    formation->targets[g_formation_active_cell]->releaseCapture();
     SelectFormationCell();
-    g_formation_cell_controls[g_formation_active_cell]->DisableSecondaryState(false);
+    formation->cells[g_formation_active_cell] = {};
     g_formation_drag_slot = g_formation_cell_slots[g_formation_active_cell];
     g_formation_drag_cell = g_formation_active_cell;
     // The dragged chip follows the pointer; the drop must reach the cell under
@@ -572,21 +506,19 @@ static void BeginFormationDrag()
     g_formation_cell_slots[g_formation_active_cell] = -1;
     SGPMouseGetPos(&point);
     ClearMouseSurface();
-    sprite = g_formation_cell_controls[g_formation_drag_cell]->m_alternatePressedSprite;
+    sprite = gXStatus.edited_formation.positions[g_formation_drag_slot].facing * 3 + 1;
     const auto artwork = CatalogArtwork::Load(0x9f);
     region = artwork.imageOffset() + static_cast<short>(sprite);
     SetMouseCursorFromVideoObject(*artwork.spriteSheet(), region, 0x10, 0x10);
     const auto overlay_artwork = CatalogArtwork::Load(0xa0);
     const auto overlay =
         static_cast<std::uint16_t>(overlay_artwork.imageOffset() +
-                                   static_cast<short>(g_formation_cell_overlays
-                                                          [g_formation_drag_cell]
-                                                              ->m_alternateNormalSprite));
+                                   g_status.buffers.XChar[g_formation_drag_slot].party_order_index * 3 + 1);
     BlitToMouseCursor(*overlay_artwork.spriteSheet(), overlay, 0, 0);
     WarpSystemCursor(point.x - 0x10, point.y - 0x10);
     RefreshMouseCursorTexture();
     gXStatus.iCurrentCursor = W8_CURSOR_INVALID_TARGET;
-    ResetFormationCellControls(g_formation_drag_cell);
+    formation->dirty = true;
 }
 
 /* Drop the dragged character: into an empty cell it re-seats the row, onto a
@@ -608,9 +540,9 @@ static void DropFormationSlot(int cell)
     }
     UpdateHeldItemCursor();
     UpdateFormationCells();
-    g_formation_cell_overlays[g_formation_drag_cell]->SetAlternateTextEnabled(false);
+    formation->highlighted[g_formation_drag_cell] = false;
     if (cell != -1) {
-        g_formation_cell_overlays[cell]->SetAlternateTextEnabled(true);
+        formation->highlighted[cell] = true;
         g_formation_active_cell = cell;
         g_level_block->formation_highlight_party_slot = g_formation_cell_slots[cell];
         RequestRedraw(1 << (g_level_block->formation_highlight_party_slot & 0x1f));
@@ -618,41 +550,13 @@ static void DropFormationSlot(int cell)
     g_formation_drag_cell = -1;
 }
 
-/* Blank every sprite on a cell's control pair. */
-// FUNCTION: WIZ8 0x005b3080
-void ResetFormationCellControls(int cell)
-{
-    g_formation_cell_controls[cell]->m_normalSprite = -1;
-    g_formation_cell_controls[cell]->m_alternateNormalSprite = -1;
-    g_formation_cell_controls[cell]->m_pressedSprite = -1;
-    g_formation_cell_controls[cell]->m_alternatePressedSprite = -1;
-    g_formation_cell_controls[cell]->m_disabledSprite = -1;
-    g_formation_cell_controls[cell]->Invalidate(true);
-    g_formation_cell_overlays[cell]->m_normalSprite = -1;
-    g_formation_cell_overlays[cell]->m_alternateNormalSprite = -1;
-    g_formation_cell_overlays[cell]->m_pressedSprite = -1;
-    g_formation_cell_overlays[cell]->m_alternatePressedSprite = -1;
-    g_formation_cell_overlays[cell]->m_disabledSprite = -1;
-    g_formation_cell_overlays[cell]->Invalidate(true);
-}
-
-/* Highlight the cell holding one party slot and un-highlight the rest. */
-// FUNCTION: WIZ8 0x005b3100
 void SelectFormationSlotCell(int party_slot)
 {
-    int index;
-
-    for (index = 0; index < 15; ++index) {
-        W8TextControl* control = g_formation_cell_controls[index];
-
-        if (g_formation_cell_slots[index] == party_slot) {
-            control->EnableSecondaryState(false);
-            g_formation_cell_overlays[index]->Invalidate(false);
-        } else if (control->IsSelected()) {
-            control->DisableSecondaryState(false);
-            g_formation_cell_overlays[index]->Invalidate(false);
-        }
+    for (int cell = 0; cell < 15; ++cell) {
+        auto& state = formation->cells[cell];
+        state.pressed = state.selected = party_slot != -1 && g_formation_cell_slots[cell] == party_slot;
     }
+    formation->dirty = true;
 }
 
 // FUNCTION: WIZ8 0x005B2200

@@ -25,8 +25,6 @@ public:
     virtual void OnSecondary(W8TextControl*) override {}
 
 public:
-    int m_value_4;
-    int m_value_8;
     int m_selectedIndex;
     std::vector<W8TextControl*> m_lsButtons;
     W8ControlSelectionListener* m_selectionListener;

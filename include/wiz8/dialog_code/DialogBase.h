@@ -31,23 +31,6 @@ void SetDialogDestroyCallback(W8DialogBase* dialog, W8DialogDestroyCallback call
 /* Shared close-button callback used by the monster and spell info dialogs. */
 void DialogCloseButtonCallback(W8ButtonWidget* button);
 
-/* A dialog's body: it paints the bordered background and takes the clicks
-   that miss the dialog's controls, so they count as handled. */
-class W8DialogFrame final : public W8Widget {
-public:
-    void Configure(ButtonAppearance appearance, const SDL_Rect& bounds, unsigned int set);
-    void Reset();
-    bool IsConfigured() const { return OwnsRegion(); }
-    void Draw(SDL_Surface& target) const;
-    void Redraw(SDL_Surface& target, bool) override
-    {
-        if (m_active) Draw(target);
-    }
-
-private:
-    ButtonAppearance m_appearance;
-};
-
 /* Modal controls own their regions and state; only visual resources and
    rendering uses the shared dialog button appearance module. */
 // VTABLE: WIZ8 0x005efaf8
@@ -94,21 +77,18 @@ protected:
                         int width, int height);
 
     int m_error;
-    W8DialogFrame m_frame;
+    HitTarget* m_body = nullptr;
     std::string m_text;
     Font* m_font;
     unsigned char m_foreground;
     unsigned char m_background;
-    unsigned char padding_01a[2];
     std::string m_background_path;
     int m_background_flags;
     GenericButtonImage m_border;
-    unsigned char padding_026[2];
     int m_x;
     int m_y;
     int m_width;
     int m_height;
-    unsigned char unknown_038[8];
     bool m_initialized;
 
 public:
@@ -118,7 +98,6 @@ public:
 public:
     /* The trigger update installs its callback with a plain store, so this
        slot is public rather than reachable only through the setter. */
-    unsigned char padding_042[2];
     W8DialogDestroyCallback m_destroy_callback;
     /* Base constructor clears this slot; the destruction callback consumes
        it. The item-picker callback's payload is a Trigger*. */
@@ -128,7 +107,6 @@ protected:
     /* Cleared by W8DialogNumericInput when its field deactivates. */
     int m_field_4c;
     bool m_right_button_down;
-    unsigned char padding_051[3];
 };
 
 

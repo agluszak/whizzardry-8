@@ -43,9 +43,9 @@ bool W8DialogScrollBar::CreateControls(const Resources* resources)
         m_track_button.Reset();
         return false;
     }
-    m_up_button.m_activation = m_down_button.m_activation = m_track_button.m_activation =
+    m_up_button.policy.activation = m_down_button.policy.activation = m_track_button.policy.activation =
         ButtonActivation::Press;
-    m_up_button.m_repeat_enabled = m_down_button.m_repeat_enabled = m_track_button.m_repeat_enabled = true;
+    m_up_button.policy.repeat = m_down_button.policy.repeat = m_track_button.policy.repeat = true;
     m_on_scroll = resources->on_scroll;
     m_initialized = true;
     m_visible = false;

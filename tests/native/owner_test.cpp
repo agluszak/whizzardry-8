@@ -1287,27 +1287,35 @@ void generic_button_images()
             }
         }
     }
-    // Panel painting must use the supplied canvas, including forced repaints.
+    // Menu artwork preserves blank states and its enlarged-hover positioning.
+    auto menu_sprites = std::make_shared<SpriteSheet>(graphics->object());
+    menu_sprites->frames[2].width = 3;
+    menu_sprites->frames[2].indices.assign(3, 3);
+    ButtonAppearance menu{.quick_image = ButtonGraphics::Load(menu_sprites, 0, 1, 2, -1, -1)};
+    SDL_FillSurfaceRect(&target, nullptr, 0);
+    DrawButtonAppearance(target, menu, {1, 1, 1, 1}, {.hovered = true, .menu_artwork = true});
+    const auto* menu_pixels = static_cast<const std::uint16_t*>(target.pixels);
+    REQUIRE(menu_pixels[target.pitch / 2 + 1] == 0);
+    REQUIRE(menu_pixels[target.pitch / 2 + 2] == frame_colors[3]);
+    SDL_FillSurfaceRect(&target, nullptr, 0);
+    DrawButtonAppearance(target, menu, {1, 1, 1, 1}, {.pressed = true, .menu_artwork = true});
+    REQUIRE(menu_pixels[target.pitch / 2 + 1] == 0);
+    // Ordinary buttons paint to the supplied canvas, including forced repaints.
     {
-        Controls panel;
-        panel.CreateRegionSet();
-        panel.SetActive(true);
-        auto* button = panel.EmplaceControl<W8ButtonWidget>();
-        REQUIRE(button->ConfigureIcon("button.sti", 0, 1, REGION_PRIORITY_NORMAL,
+        UiLayer layer;
+        W8ButtonWidget button(layer);
+        REQUIRE(button.ConfigureIcon("button.sti", 0, 1, REGION_PRIORITY_NORMAL,
                                       W8_DIALOG_BUTTON_NO_TOOLTIP));
-        button->SetPosition(2, 3);
+        button.SetPosition(2, 3);
         SDL_FillSurfaceRect(&target, nullptr, 0);
-        panel.Redraw(target, true);
+        button.Draw(target);
         auto* pixels = static_cast<std::uint16_t*>(target.pixels);
         REQUIRE(pixels[3 * (target.pitch / 2) + 2] == frame_colors[2]);
         SDL_FillSurfaceRect(&target, nullptr, 0);
-        panel.Redraw(target, true);
+        button.m_dirty = true;
+        button.Draw(target);
         REQUIRE(pixels[3 * (target.pitch / 2) + 2] == frame_colors[2]);
 
-        auto* frame = panel.EmplaceControl<W8DialogFrame>();
-        frame->Configure(first_appearance, {4, 5, 1, 1}, panel.RegionSet());
-        panel.Redraw(target, true);
-        REQUIRE(pixels[5 * (target.pitch / 2) + 4] == frame_colors[2]);
     }
     gfRenderHilights = old_hilights;
     target_owner.reset();
@@ -1350,7 +1358,8 @@ void generic_button_images()
         REQUIRE((dialog->Bounds().x == 12 && dialog->Bounds().y == 13 && dialog->Bounds().w == 1));
         REQUIRE(std::any_of(g_regions.begin(), g_regions.end(),
                             [&dialog](const W8Region& region) {
-                                return region.handler == dialog.get();
+                                return region.handler && region.x1 == dialog->Bounds().x &&
+                                       region.y1 == dialog->Bounds().y;
                             }));
         REQUIRE(std::count_if(g_regions.begin(), g_regions.end(),
                               [](const W8Region& region) {
@@ -1364,7 +1373,7 @@ void generic_button_images()
     // the released dialog while completing the click (including its sound).
     auto closing_dialog = std::make_unique<W8ButtonWidget>();
     REQUIRE(closing_dialog->Configure("button.sti", 0, 1, 2, 3, 4,
-        [&](W8ButtonWidget*) { closing_dialog.reset(); }, nullptr, false,
+        [&](W8ButtonWidget*) { AfterUiDispatch([&] { closing_dialog.reset(); }); }, nullptr, false,
         REGION_PRIORITY_NORMAL, W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr));
     closing_dialog->SetPosition(12, 13);
     PushButtonSoundScheme(0, true);
@@ -2093,15 +2102,15 @@ TEST_CASE("Dialog controls own interaction without legacy GUI buttons", "[owner]
         button.SetTooltipIndex(0);
         button.SetTooltipEnabled(true);
         auto region = std::find_if(g_regions.begin(), g_regions.end(),
-                                   [&button](const W8Region& item) {
-                                       return item.handler == &button;
+                                   [](const W8Region& item) {
+                                       return item.x1 == 10 && item.y1 == 10 && item.help_enabled;
                                    });
         REQUIRE(region != g_regions.end());
         REQUIRE(region->help_enabled);
-        REQUIRE(region->help_text == "Button tooltip");
+        REQUIRE(region->help_text_provider() == "Button tooltip");
         button.SetTooltipEnabled(false);
         REQUIRE_FALSE(region->help_enabled);
-        REQUIRE(region->help_text.empty());
+        REQUIRE_FALSE(region->help_text_provider);
         GetInputState().left_button = false;
         GetInputState().mouse = {400, 400};
         dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true, false, 1);
@@ -2137,15 +2146,15 @@ TEST_CASE("Dialog controls own interaction without legacy GUI buttons", "[owner]
         REQUIRE(activations == 2);
         button.SetPosition(10, 10);
         button.Resize(40, 20);
-        button.m_repeat_enabled = true;
+        button.policy.repeat = true;
         dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
         dispatch_mouse(InputEventType::LeftButtonRepeat, 15, 15, true);
         dispatch_mouse(InputEventType::LeftButtonRepeat, 15, 15, true);
         REQUIRE(activations == 4);
         dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
         REQUIRE((!button.IsPressed() && activations == 4));
-        button.m_repeat_enabled = false;
-        button.m_activation = ButtonActivation::Press;
+        button.policy.repeat = false;
+        button.policy.activation = ButtonActivation::Press;
         dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
         REQUIRE(activations == 5);
         dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
@@ -2159,7 +2168,7 @@ TEST_CASE("Dialog controls own interaction without legacy GUI buttons", "[owner]
 
     auto closing = std::make_unique<W8ButtonWidget>();
     closing->ConfigureTextButton("close", font, 0, 0, 10, 10, 40, 20,
-        [&](W8ButtonWidget*) { closing.reset(); }, 0);
+        [&](W8ButtonWidget*) { AfterUiDispatch([&] { closing.reset(); }); }, 0);
     dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
     dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
     REQUIRE(!closing);
@@ -2287,7 +2296,11 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
                                    &short_list.m_third_text_button}) {
             const auto region = std::find_if(
                 g_regions.begin(), g_regions.end(),
-                [button](const W8Region& item) { return item.handler == button; });
+                [button](const W8Region& item) {
+                    const auto bounds = button->Bounds();
+                    return item.x1 == bounds.x && item.y1 == bounds.y &&
+                           item.x2 == bounds.x + bounds.w && item.y2 == bounds.y + bounds.h;
+                });
             REQUIRE(region != g_regions.end());
             REQUIRE((region->flags & W8_REGION_INPUT_DISABLED) != 0);
             REQUIRE_FALSE(button->m_dirty);

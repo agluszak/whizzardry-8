@@ -64,6 +64,8 @@ struct ButtonVisualState {
     bool hovered = false;
     bool checkbox = false;
     bool mouse_down = false;
+    // Menu artwork leaves missing states blank and insets enlarged hover sprites.
+    bool menu_artwork = false;
 };
 
 struct ButtonGraphics {

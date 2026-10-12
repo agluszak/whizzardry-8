@@ -211,7 +211,7 @@ int W8ListBoxDialog::CreateControls()
                                      m_text_button.Bounds().w, 0x14, TextAreaButtonCallback, 0,
                                      area_inlay, REGION_PRIORITY_HIGHEST - 1);
     m_area_button.m_owner = this;
-    m_area_button.m_activation = ButtonActivation::Press;
+    m_area_button.policy.activation = ButtonActivation::Press;
     const bool configured =
         m_up_button.Configure("Data\\Dialogs\\DialogUpArrow.STI", 3, 0, 1, 2, 2,
                               UpButtonCallback, nullptr, false, REGION_PRIORITY_HIGHEST - 1,
@@ -231,8 +231,8 @@ int W8ListBoxDialog::CreateControls()
         DestroyControls();
     } else {
         m_up_button.m_owner = m_down_button.m_owner = m_ok_button.m_owner = m_cancel_button.m_owner = this;
-        m_up_button.m_activation = m_down_button.m_activation = ButtonActivation::Press;
-        m_up_button.m_repeat_enabled = m_down_button.m_repeat_enabled = true;
+        m_up_button.policy.activation = m_down_button.policy.activation = ButtonActivation::Press;
+        m_up_button.policy.repeat = m_down_button.policy.repeat = true;
         third_btn_inlay = LoadGenericButtonImages({}, "Data\\Dialogs\\DialogInlay.STI", {}, "Data\\Dialogs\\DialogInlay.STI", {}, "Data\\Dialogs\\DialogBackground_dark.STI", 0, 3, 3);
         if (third_btn_inlay) {
             m_third_text_button.ConfigureTextButton({}, *g_dialog_interface_font,
@@ -240,8 +240,8 @@ int W8ListBoxDialog::CreateControls()
                 SliderTrackButtonCallback, 0, third_btn_inlay, REGION_PRIORITY_HIGHEST - 2);
             if (m_third_text_button.IsConfigured()) {
                 m_third_text_button.m_owner = this;
-                m_third_text_button.m_activation = ButtonActivation::Press;
-                m_third_text_button.m_repeat_enabled = true;
+                m_third_text_button.policy.activation = ButtonActivation::Press;
+                m_third_text_button.policy.repeat = true;
                 m_second_text_button.ConfigureTextButton({}, *g_dialog_interface_font,
                     g_dialog_font_foreground, g_dialog_font_background, m_x + 9,
                     m_y + m_height - m_ok_button.Bounds().h * 0x96 / 100 - 9,
@@ -529,8 +529,8 @@ bool W8SplitAmountDialog::CreateButtons()
     if (!m_buttons[5]->Configure("Data\\Dialogs\\popup_confirmationbuttons.sti", 3, 5, 6, 9, 7,
                             SplitCancel, BUTTON_NO_CALLBACK, false, REGION_PRIORITY_HIGHEST,
                             W8_DIALOG_BUTTON_NO_TOOLTIP, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK)) return false;
-    m_buttons[0]->m_repeat_enabled = true;
-    m_buttons[1]->m_repeat_enabled = true;
+    m_buttons[0]->policy.repeat = true;
+    m_buttons[1]->policy.repeat = true;
     for (index = 0; index < 6; ++index) {
         m_buttons[index]->SetPosition(g_split_amount_button_offsets[index].x + m_x,
                                       g_split_amount_button_offsets[index].y + m_y);
@@ -862,10 +862,10 @@ bool W8TriggerItemPickerDialog::CreateButtons()
                              BUTTON_NO_CALLBACK, ScrollItemsToMouse, false,
                              REGION_PRIORITY_HIGHEST - 1, W8_DIALOG_BUTTON_NO_TOOLTIP,
                              BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK) && configured;
-    m_buttons[5]->m_right_toggles = true;
-    m_buttons[6]->m_right_toggles = true;
-    m_buttons[7]->m_right_toggles = true;
-    m_buttons[8]->m_right_toggles = true;
+    m_buttons[5]->policy.secondary_toggle = ButtonToggle::Press;
+    m_buttons[6]->policy.secondary_toggle = ButtonToggle::Press;
+    m_buttons[7]->policy.secondary_toggle = ButtonToggle::Press;
+    m_buttons[8]->policy.secondary_toggle = ButtonToggle::Press;
     if (!configured) {
         for (auto& button : m_buttons) {
             button.reset();
