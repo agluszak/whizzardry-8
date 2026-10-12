@@ -150,13 +150,10 @@
 #include "layouts/main_game_screen.h"
 #include "layouts/npc_dialogue.h"
 #include "layouts/world.h"
-#include "local_code/Controls.h"
 #include "local_code/ControlsRect.h"
 #include "local_code/Factions.h"
 #include "local_code/RangeControl.h"
 #include "local_code/TextBuffer.h"
-#include "local_code/TextControl.h"
-#include "local_code/Widget.h"
 #include "mgs_commands.h"
 #include "monster_cycles.h"
 #include "npc_trade_price.h"
@@ -2123,82 +2120,55 @@ void RefreshMainGameActionPanel(void)
     g_main_game_screen->RefreshActionPanel();
 }
 
-W8NpcDialogueTextController::W8NpcDialogueTextController(int panel_left, int panel_top,
-                                                         int panel_right, int panel_bottom,
-                                                         CatalogArtwork artwork,
-                                                         int background_image, int margin_image_id,
-                                                         int line_image_id)
-    : Controls(panel_left, panel_top, panel_right, panel_bottom, std::move(artwork),
-               background_image),
-      text_area()
+W8NpcDialogueTextController::W8NpcDialogueTextController()
 {
-    W8ControlsRect bounds;
-    short width;
-    short height;
-
-    margin_image = margin_image_id;
-    line_image = line_image_id;
+    line_image = 3;
+    margin_image = 4;
     visible = 0;
-    const SDL_Point line_size = m_background->size(line_image);
-    width = line_size.x;
-    height = line_size.y;
-    line_height = height & 0xffff;
-    scroll_height = height & 0xffff;
-    const SDL_Point margin_size = m_background->size(margin_image);
-    width = margin_size.x;
-    height = margin_size.y;
-    margin = height & 0xffff;
-    bounds.bottom = panel_top + 0x12;
-    bounds.left = panel_left + 6;
-    bounds.top = bounds.bottom - line_height;
-    bounds.right = panel_left + 0x7c;
+    line_height = scroll_height = CatalogArtwork::Load(0x1a9, 0).size(3).y;
+    margin = CatalogArtwork::Load(0x1a9, 0).size(4).y;
+    W8ControlsRect bounds{0x1e2, 0x12d - line_height, 0x258, 0x12d};
     text_area.Configure(&bounds, g_wiz_text_font_secondary,
-                        g_W8DialogTextAreaShortenText | g_W8DialogTextAreaPointSelection |
-                            g_W8DialogTextAreaNoWrap);
+        g_W8DialogTextAreaShortenText | g_W8DialogTextAreaPointSelection | g_W8DialogTextAreaNoWrap);
     text_area.SetLineHeight(scroll_height);
+    expanded_target = &input.add(SDL_Rect{0, 0, 1, 1}, [this](const UiPointerEvent& event) {
+        if (event.action == UiPointerAction::Up && event.button == UiPointerButton::Left &&
+            (event.captured_buttons & SDL_BUTTON_LMASK))
+            AfterUiDispatch([this, point = event.position] { SelectTranscriptKeywordAtPoint(point.x, point.y); });
+        else if (event.action == UiPointerAction::Wheel) {
+            if (event.wheel > 0) text_area.ScrollUp(false);
+            else text_area.ScrollDown(false);
+            InvalidateAll();
+        } else if (event.action == UiPointerAction::Leave) {
+            if (text_area.ClearPointSelection()) InvalidateLayout();
+        } else if (event.action == UiPointerAction::Move) {
+            if (text_area.UpdateSelectionFromPoint(event.position.x, event.position.y)) InvalidateLayout();
+        }
+        return UiResult::Handled;
+    });
+    expanded_target->setEnabled(false);
 }
 
-/* Expanded transcript paint: when dirty, redraw the panel backdrop, optionally
-   tile the line/margin catalog images for the open layout, then forward to
-   active children and the embedded text area. */
 void W8NpcDialogueTextController::Redraw(SDL_Surface& target, bool full_redraw)
 {
-    bool was_dirty;
-    bool force;
-    int height;
-    int top;
-
-    was_dirty = m_dirty;
-    if (m_active) {
-        force = was_dirty;
-        if (force) {
-            m_background->drawAndInvalidate(target, m_backgroundImage,
-                                            ScreenBounds().x, ScreenBounds().y);
-            m_dirty = false;
-        }
-        if (line_image != -1 && margin_image != -1) {
-            if (visible == 1 && was_dirty) {
-                height = line_height;
-                top = (ScreenBounds().y - height) + margin;
-                if (height < scroll_height) {
-                    do {
-                        m_background->drawAndInvalidate(target, line_image,
-                                                        ScreenBounds().x, top);
-                        top -= line_height;
-                        height += line_height;
-                    } while (height < scroll_height);
-                }
-                m_background->drawAndInvalidate(target, margin_image,
-                                                ScreenBounds().x,
-                                                (line_height - margin) + top);
-                force = true;
-            } else if (!force && !m_childrenDirty) {
-                return;
+    if (!m_active) return;
+    full_redraw |= m_dirty;
+    if (full_redraw) {
+        const auto artwork = CatalogArtwork::Load(0x1a9, 0);
+        artwork.drawAndInvalidate(target, 2, 0x1dc, 0x11b);
+        if (visible == 1) {
+            int height = line_height;
+            int top = 0x11b - height + margin;
+            while (height < scroll_height) {
+                artwork.drawAndInvalidate(target, 3, 0x1dc, top);
+                top -= line_height;
+                height += line_height;
             }
-            RedrawChildren(target, force);
-            text_area.Draw(force);
+            artwork.drawAndInvalidate(target, 4, 0x1dc, line_height - margin + top);
         }
     }
+    text_area.Draw(full_redraw);
+    m_dirty = false;
 }
 
 unsigned char W8NpcDialogueTextController::AddTranscriptEntry(std::string_view text,
@@ -2234,7 +2204,7 @@ bool W8NpcDialogueTextController::IsSlotPortraitTranscriptCovered(unsigned int p
     int top;
 
     if (visible == 1) {
-        top = ((1 - scroll_height / line_height) * line_height - margin) + ScreenBounds().y;
+        top = ((1 - scroll_height / line_height) * line_height - margin) + 0x11b;
         switch (party_slot) {
         case 1:
             if (top < 0x67) {
@@ -2264,10 +2234,10 @@ void W8NpcDialogueTextController::Collapse()
     int top;
 
     visible = 0;
-    top = (ScreenBounds().y - (scroll_height / line_height) * line_height) - margin;
-    ClearSurfaceRect(ScreenBounds().x, top, ToEdges(ScreenBounds()).right, ToEdges(ScreenBounds()).bottom);
+    top = (0x11b - (scroll_height / line_height) * line_height) - margin;
+    ClearSurfaceRect(0x1dc, top, 0x269, 0x140);
     InvalidateAll();
-    InvalidateRegion(ScreenBounds().x, top, ToEdges(ScreenBounds()).right, ToEdges(ScreenBounds()).bottom);
+    InvalidateRegion(0x1dc, top, 0x269, 0x140);
     if (top < 0x67) {
         RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_1);
         RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_3);
@@ -2284,16 +2254,15 @@ void W8NpcDialogueTextController::Collapse()
         RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_7);
     }
     scroll_height = line_height;
-    bounds.left = ScreenBounds().x + 6;
-    bounds.right = ScreenBounds().x + 0x7c;
-    bounds.bottom = ScreenBounds().y + 0x12;
+    bounds.left = 0x1dc + 6;
+    bounds.right = 0x1dc + 0x7c;
+    bounds.bottom = 0x11b + 0x12;
     bounds.top = bounds.bottom - line_height;
     text_area.Configure(&bounds, g_wiz_text_font_secondary,
                         g_W8DialogTextAreaNoWrap | g_W8DialogTextAreaPointSelection |
                             g_W8DialogTextAreaShortenText);
-    g_main_dialogue.Disable();
-    (*g_main_dialogue)[0].SetInputEnabled(false);
-    g_npc_interaction_state->dialogue_panels[3]->InvalidateAll();
+    expanded_target->setEnabled(false);
+    g_npc_interaction_state->ui->panels[3].dirty = true;
 }
 
 void W8NpcDialogueTextController::Expand()
@@ -2308,9 +2277,9 @@ void W8NpcDialogueTextController::Expand()
     if (text_height >= 0xff) {
         text_height = 0xff;
     }
-    bounds.left = ScreenBounds().x + 6;
-    bounds.right = ScreenBounds().x + 0x7c;
-    bounds.bottom = ScreenBounds().y + 0x12;
+    bounds.left = 0x1dc + 6;
+    bounds.right = 0x1dc + 0x7c;
+    bounds.bottom = 0x11b + 0x12;
     bounds.top = bounds.bottom - text_height;
     scroll_height = text_height;
     text_area.Configure(&bounds, g_wiz_text_font_secondary,
@@ -2319,11 +2288,9 @@ void W8NpcDialogueTextController::Expand()
     if (scroll_height != 0xff) {
         text_area.SetFirstVisibleEntry(0);
     }
-    g_regions[g_main_dialogue->index(0)].SetBounds(static_cast<unsigned short>(bounds.left),
-        static_cast<unsigned short>(bounds.top),
-        static_cast<unsigned short>(bounds.right), static_cast<unsigned short>(bounds.bottom));
-    g_main_dialogue.Enable();
-    (*g_main_dialogue)[0].SetInputEnabled(true);
+    expanded_target->setShape(SDL_Rect{bounds.left, bounds.top, bounds.right - bounds.left + 1, bounds.bottom - bounds.top + 1});
+    input.setEnabled(true);
+    expanded_target->setEnabled(true);
     InvalidateAll();
 }
 
@@ -2331,9 +2298,9 @@ void W8NpcDialogueTextController::ClearBackground()
 {
     int top;
 
-    top = ((1 - scroll_height / line_height) * line_height - margin) + ScreenBounds().y;
-    ClearSurfaceRect(ScreenBounds().x, top, ToEdges(ScreenBounds()).right, ToEdges(ScreenBounds()).bottom);
-    InvalidateRegion(ScreenBounds().x, top, ToEdges(ScreenBounds()).right, ToEdges(ScreenBounds()).bottom);
+    top = ((1 - scroll_height / line_height) * line_height - margin) + 0x11b;
+    ClearSurfaceRect(0x1dc, top, 0x269, 0x140);
+    InvalidateRegion(0x1dc, top, 0x269, 0x140);
     if (top < 0x67) {
         RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_1);
         RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_3);
@@ -2360,58 +2327,6 @@ bool W8NpcDialogueTextController::IsExpanded()
     return scroll_height == 0xff;
 }
 
-/* Standalone JMP thunk onto W8Widget::~W8Widget; the vtable slot of
-   W8NpcDialogueScrollWidget reaches it. */
-
-W8NpcDialogueScrollWidget::W8NpcDialogueScrollWidget(unsigned int region, int left,
-                                                     int top, int right, int bottom)
-    : W8Widget(region, left, top, right, bottom)
-{
-    m_flags = 0;
-}
-
-void W8NpcDialogueScrollWidget::OnMouseEnter(int event)
-{
-    W8NpcDialogueTextController* controller;
-
-    controller =
-        static_cast<W8NpcDialogueTextController*>(g_npc_interaction_state->dialogue_panels[2]);
-    if (controller->text_area.SelectEntry(controller->text_area.m_first_visible_entry)) {
-        controller->InvalidateLayout();
-    }
-}
-
-void W8NpcDialogueScrollWidget::OnMouseLeave(int event)
-{
-    W8NpcDialogueTextController* controller;
-
-    controller =
-        static_cast<W8NpcDialogueTextController*>(g_npc_interaction_state->dialogue_panels[2]);
-    if (controller->text_area.ClearSelection()) {
-        controller->InvalidateLayout();
-    }
-}
-
-void W8NpcDialogueScrollWidget::OnLeftButtonDown(int event)
-{
-    if (m_active && m_enabled) {
-        m_flags |= 1;
-        if (m_onLeftButtonDown) {
-            m_onLeftButtonDown();
-        }
-    }
-}
-
-void W8NpcDialogueScrollWidget::OnLeftButtonUp(int event)
-{
-    if (m_active && m_enabled && (m_flags & 1)) {
-        m_flags &= ~1u;
-        if (m_onPrimary) {
-            m_onPrimary();
-        }
-    }
-}
-
 void W8NpcDialogueTextController::SetTranscriptCategoryFilter(signed char category)
 {
     text_area.SetCategoryFilter(category);
@@ -2435,7 +2350,7 @@ void W8NpcDialogueTextController::RestoreTranscriptEntries()
     if (g_npc_interaction_state->dialogue_transcript.empty()) {
         g_npc_interaction_state->dialogue_category_filter = W8_DIALOGUE_CATEGORY_ALL;
         controller =
-            static_cast<W8NpcDialogueTextController*>(g_npc_interaction_state->dialogue_panels[2]);
+            g_npc_interaction_state->ui->transcript.get();
         controller->SetTranscriptCategoryFilter(g_npc_interaction_state->dialogue_category_filter);
         SyncDialogueCategoryButtons();
         AddTranscriptEntry(" [No Keywords]", W8_DIALOGUE_CATEGORY_ALL, 0);
@@ -2520,9 +2435,6 @@ static constexpr std::array<RegionTemplate, 1> g_main_screen_template{{
 }};
 
 // Retail set 0x03, region 9
-static constexpr std::array<RegionTemplate, 1> g_main_dialogue_template{{
-    {0x00000001, 0, 0, 0, 0, DialogueTranscriptRegionEvent, 0, false, -1},
-}};
 
 // Retail set 0x04, regions 10-17
 static constexpr std::array<RegionTemplate, 8> g_main_combat_action_templates{{
@@ -2638,7 +2550,6 @@ void DestroyMainGameRegionViews()
 }
 ScreenRegionSet g_main_party_controls{g_main_party_controls_templates, 0x01};
 ScreenRegionSet g_main_screen{g_main_screen_template, 0x02};
-ScreenRegionSet g_main_dialogue{g_main_dialogue_template, 0x03};
 ScreenRegionSet g_main_combat_actions{g_main_combat_action_templates, 0x04};
 ScreenRegionSet g_main_portrait_regions{g_main_portrait_templates, 0x0f};
 ScreenRegionSet g_main_portrait_edge_regions{g_main_portrait_edge_templates, 0x10};
@@ -2675,7 +2586,6 @@ unsigned char MainGameScreenEnter(void)
     CreatePartyPortraitEventRegions();
     g_main_party_controls.Create();
     g_main_screen.Create();
-    g_main_dialogue.Create();
     g_main_combat_actions.Create();
     g_main_portrait_regions.Create();
     g_main_portrait_edge_regions.Create();
@@ -2685,9 +2595,6 @@ unsigned char MainGameScreenEnter(void)
     g_game_time_combat_bar_region.Create();
     CreateMainGameRegionViews();
     InitTextBoxRegions();
-    g_npc_dialogue_transcript_panel_regions.Create();
-    g_npc_dialogue_trade_panel_regions.Create();
-    g_npc_dialogue_options_panel_regions.Create();
     g_npc_quote_bubble_regions.Create();
     CreateMainGameInterfaceButtons();
     CreateLevelButtons();
@@ -3265,13 +3172,9 @@ unsigned char MainGameScreenLeave(int leaving)
         g_main_portrait_edge_regions.Destroy();
         g_main_portrait_regions.Destroy();
         g_main_combat_actions.Destroy();
-        g_main_dialogue.Destroy();
         g_main_screen.Destroy();
         g_main_party_controls.Destroy();
         g_npc_quote_bubble_regions.Destroy();
-        g_npc_dialogue_options_panel_regions.Destroy();
-        g_npc_dialogue_trade_panel_regions.Destroy();
-        g_npc_dialogue_transcript_panel_regions.Destroy();
         ShutdownTextBoxRegions();
         DestroyFormationPanel();
         wiz8::sound::release_cache();
@@ -5040,7 +4943,7 @@ void SyncMainGameModeRegions(void)
             if (gpSCSV) gpSCSV->input.setEnabled(true);
             RestoreSpellCastingRegions();
         } else if (gXStatus.fNpcDialogueMode && !CanOpenNpcDialogue()) {
-            g_npc_dialogue_options_panel_regions.Enable();
+            SetNpcDialogueInputEnabled(2, true);
         } else if (gXStatus.fItemSelectMode) {
             EnableUseItemSelectInput();
             RestoreSpellCastingRegions();
@@ -7103,9 +7006,7 @@ void ConfirmNpcTradeItem(void)
     }
     if ((g_npc_interaction_state->trade_mode == W8_NPC_TRADE_GIVE ||
          g_npc_interaction_state->trade_mode == W8_NPC_TRADE_SELL) &&
-        (static_cast<W8TextControl*>(
-             g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_5])
-             ->IsSelected())) {
+        (g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_5].interaction.selected)) {
         selected = g_status.selected_character;
         npc_kind = g_status.buffers.XChar[selected].npc_index;
         if (npc_kind != -1) {
@@ -7131,9 +7032,7 @@ void ConfirmNpcTradeItem(void)
             break;
         }
         slot = GetSelectedTextLine(2);
-        if ((static_cast<W8TextControl*>(
-                 g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_5])
-                 ->IsSelected())) {
+        if ((g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_5].interaction.selected)) {
             trading = &g_status.buffers.Char[g_status.selected_character];
             shown = 0;
             for (index = 0; index < 8; ++index) {
@@ -7155,9 +7054,7 @@ void ConfirmNpcTradeItem(void)
                     EmptyBackpackSlot(trading, index);
                 }
             }
-        } else if ((static_cast<W8TextControl*>(
-                        g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_6])
-                        ->IsSelected())) {
+        } else if ((g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_6].interaction.selected)) {
             shown = 0;
             target = slot;
             if (g_npc_interaction_state->trade_mode != W8_NPC_TRADE_GIVE || slot != 0) {
@@ -7352,12 +7249,8 @@ void PopulateNpcTradeList(void)
                        GetTextBoxFont().textWidth(g_level_block->text_paint_scratch));
         AppendTextBoxLine(g_level_block->text_paint_scratch, 2);
     }
-    if (!(static_cast<W8TextControl*>(
-             g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_5])
-             ->IsSelected())) {
-        if ((static_cast<W8TextControl*>(
-                 g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_6])
-                 ->IsSelected())) {
+    if (!(g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_5].interaction.selected)) {
+        if ((g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_6].interaction.selected)) {
             for (unsigned int index = 0; index < g_status.party_item_count; ++index) {
                 W8ItemInstance* item = &g_status.party_item_pool[index];
                 bool acceptable = true;
@@ -7407,7 +7300,7 @@ void PopulateNpcTradeList(void)
             ShowNpcPlayerTradeItem(item, acceptable, font_palette);
         }
     }
-    g_npc_interaction_state->dialogue_panels[1]->InvalidateAll();
+    g_npc_interaction_state->ui->panels[1].dirty = true;
 }
 
 void OpenNpcTradeQuantityDialog(void)
@@ -7577,75 +7470,6 @@ void W8NpcDialogueTextController::SelectTranscriptKeywordAtPoint(int x, int y)
     text_area.HighlightVisibleEntry(static_cast<int>(hit));
     SetDialogueFieldKeyword(std::string(*keyword), false);
     InvalidateLayout();
-}
-
-unsigned char DialogueTranscriptRegionEvent(const InputEvent* event, W8Region* region, unsigned short)
-{
-    const InputEventType us_event = event->type;
-    W8NpcDialogueTextController* controller;
-    bool scrolled;
-    short delta;
-
-    if (IsLeftButtonEvent(us_event)) {
-        if (us_event == InputEventType::LeftButtonRepeat || us_event == InputEventType::LeftButtonDown) {
-            region->flags |= W8_REGION_LEFT_BUTTON_HELD;
-            return 1;
-        }
-        if (us_event != InputEventType::LeftButtonUp) {
-            return 0;
-        }
-        if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
-            region->flags &= ~W8_REGION_LEFT_BUTTON_HELD;
-            static_cast<W8NpcDialogueTextController*>(g_npc_interaction_state->dialogue_panels[2])
-                ->SelectTranscriptKeywordAtPoint(event->position.x,
-                                                 event->position.y);
-            return 1;
-        }
-    } else {
-        if (us_event != InputEventType::MouseMove) {
-            if (us_event != InputEventType::MouseWheel) {
-                return 0;
-            }
-            delta = event->wheel;
-            if (delta > 0) {
-                controller = static_cast<W8NpcDialogueTextController*>(
-                    g_npc_interaction_state->dialogue_panels[2]);
-                scrolled = controller->text_area.ScrollUp(false);
-                if (!scrolled) {
-                    return 0;
-                }
-                controller->InvalidateAll();
-                return 0;
-            }
-            controller = static_cast<W8NpcDialogueTextController*>(
-                g_npc_interaction_state->dialogue_panels[2]);
-            scrolled = controller->text_area.ScrollDown(false);
-            if (!scrolled) {
-                return 0;
-            }
-            controller->InvalidateAll();
-            return 0;
-        }
-        if ((region->flags & W8_REGION_MOUSE_LEAVE) == 0) {
-            if ((region->flags & W8_REGION_MOUSE_ENTER) == 0) {
-                controller = static_cast<W8NpcDialogueTextController*>(
-                    g_npc_interaction_state->dialogue_panels[2]);
-                if (controller->text_area.UpdateSelectionFromPoint(
-                        event->position.x,
-                        event->position.y)) {
-                    controller->InvalidateLayout();
-                }
-            }
-        } else {
-            controller = static_cast<W8NpcDialogueTextController*>(
-                g_npc_interaction_state->dialogue_panels[2]);
-            if (controller->text_area.ClearPointSelection()) {
-                controller->InvalidateLayout();
-                return 1;
-            }
-        }
-    }
-    return 1;
 }
 
 unsigned char CombatBarRegionEvent(const InputEvent* event, W8Region*, unsigned short)

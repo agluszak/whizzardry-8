@@ -108,8 +108,6 @@
 #include "wiz8/npc_script_file.h"
 #include "wiz8/text_input.h"
 #include "wiz8/xstatus.h"
-#include "wiz8/local_code/TextControl.h"
-#include "wiz8/local_code/Controls.h"
 #include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/local_screens/MainMenuScreen.h"
 #include "wiz8/local_screens/Screens.h"
@@ -200,12 +198,6 @@ int MainMenuRegion(short item)
         if (RegionLive(region) && g_regions[region].ContainsPoint(point.x, point.y))
             return static_cast<int>(region);
     return -1;
-}
-
-int ControlRegion(const W8TextControl* control)
-{
-    return control && control->m_region >= 0 && RegionLive(control->m_region) ? control->m_region
-                                                                              : -1;
 }
 
 class Game
@@ -686,7 +678,7 @@ void StartGame(Game& game)
                         game.settled();
          ++press)
     {
-        game.click("start", LiveRegionWithHelp(0x6cb));
+        game.click_at(430, 447);
         if (InputSinkCaptured())
             game.key(SDLK_RETURN);
     }

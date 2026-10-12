@@ -29,7 +29,6 @@
 #include "wiz8/ui_layer.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/Strings.h"
-#include "wiz8/local_code/TextControl.h"
 #include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/MGSFormation.h"

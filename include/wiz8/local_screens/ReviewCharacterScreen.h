@@ -21,7 +21,6 @@
 #include "wiz8/local_screens/RCSStatsPage.h"
 #include "input.h"
 #include "compat/compiler.h"
-#include "local_code/TextControl.h"
 
 struct W8Character;
 struct W8CombatSlot;

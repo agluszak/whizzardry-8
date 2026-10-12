@@ -38,7 +38,6 @@
 #include "timer.h"
 #include "Font.h"
 #include "wiz8/filesystem.h"
-#include "wiz8/local_code/Controls.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/sr_api.h"

@@ -1068,7 +1068,6 @@ OwnedRegion::OwnedRegion(unsigned int set, const RegionTemplate& entry, int prio
     if (entry.callback)
         function_ = std::make_unique<RegionFunctionHandler>(entry.callback, entry.callback_id);
     owned_region.handler = function_.get();
-    owned_region.template_callback = entry.callback != nullptr;
     generation_ = ++owned_region.binding_generation;
 }
 
@@ -1287,27 +1286,6 @@ void RemoveRegionFromSet(unsigned int region_set_index, unsigned int region_inde
     region = g_regions.front();
     region.binding_generation = generation;
     g_reusable_region_indices.push_back(region_index);
-    g_ui.Forget(region_index);
-}
-
-void UnbindWidgetRegion(unsigned int region_index, W8Widget* widget, OwnedRegion* owner)
-{
-    if (region_index >= g_regions.size()) return;
-    auto& region = g_regions[region_index];
-    if (region.owner != widget) return;
-
-    g_regions[region_index].SetInputEnabled(false);
-    if (region.flags & W8_REGION_HELP_SHOWN) VideoRemoveToolTip();
-    region.flags &= ~(W8_REGION_MOUSE_STATE_MASK | W8_REGION_HELP_SHOWN);
-    region.owner = nullptr;
-    if (region.handler == widget) region.handler = nullptr;
-    region.help_enabled = false;
-    region.help_text_id = -1;
-    region.help_text.clear();
-    ++region.binding_generation;
-    if (owner && owner->index_ == region_index) {
-        owner->generation_ = region.binding_generation;
-    }
     g_ui.Forget(region_index);
 }
 

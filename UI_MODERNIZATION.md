@@ -45,9 +45,8 @@ selection, capacity, tab order and nested focus restoration reuse the existing e
 
 `ButtonInteraction` supplies the shared press, selection, arming and repeat state.
 Policies retain text-style release toggles/latches and dialog-style press toggles,
-per-button capture, repeats and controller activation. `W8ButtonWidget` is now an
-ordinary layer-backed control; `W8TextControl` still has the old visual ownership
-protocol. Journal owns its layer, buttons, page text and draw order without a panel.
+per-button capture, repeats and controller activation. `W8ButtonWidget` is an ordinary layer-backed control. The visual widget tree,
+`W8Widget`, `Controls`, `W8TextControl`, selection collections and listeners are deleted. Journal owns its layer, buttons, page text and draw order without a panel.
 The options menu owns eight buttons and its extra artwork hotspots directly; its
 row subclasses and selection-listener loop are removed. Navigation and radio
 selection use owner callbacks. Options panels own ordinary sliders with direct
@@ -83,8 +82,8 @@ region registration IDs.
 
 1. Finish merging button painting. Remove obsolete wrappers rather than adding
    another control adapter.
-2. Migrate party/character screens, camp and the remaining gameplay groups
-   as coherent owners. Keep gameplay behavior in their existing controllers.
+2. Migrate remaining legacy gameplay hit regions to their owners; screen widget
+   trees have been removed. Keep gameplay behavior in their existing controllers.
 3. Replace RegionManager only after its registrations migrate. Delete numeric region
    APIs, templates, slot recycling, binding generations, `OwnedRegion`,
    `ScreenRegionSet`, `RegionSetView`, `ExclusiveRegionSet` and `W8RegionHandler`.
@@ -116,3 +115,5 @@ as the final simplification.
 Party selection now owns its input, rows, portraits, option buttons and painters directly. The panel tree, row widgets and listener interfaces are gone. Import names use string values. Main-game level-up buttons and condition icons also own scoped input; their two numeric registration banks and condition-widget subclass are deleted.
 
 The combat submenu, lock-picking strip/readouts/actions and trap cells/list/actions now use ordinary owner state and explicit painting. Their widget subclasses, listener interfaces, action panels and submenu numeric registration bank are removed.
+
+NPC dialogue owns a fixed flat composition, action state, text values and a transcript controller. Its inherited panels, text/scroll widgets, numeric action registration banks and dispatch trampoline are deleted. TextBuffer and RangeControl now have separate implementation files; Controls.cpp and its widget headers are removed, along with tests that only exercised their obsolete ownership protocol.

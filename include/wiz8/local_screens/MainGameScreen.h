@@ -18,7 +18,6 @@ class Trigger;
 
 extern ScreenRegionSet g_main_party_controls;
 extern ScreenRegionSet g_main_screen;
-extern ScreenRegionSet g_main_dialogue;
 extern ScreenRegionSet g_main_combat_actions;
 extern ScreenRegionSet g_main_portrait_regions;
 extern ScreenRegionSet g_main_portrait_edge_regions;
@@ -52,13 +51,10 @@ extern unsigned short g_trap_name_string_ids[];
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/TextBuffer.h"
-#include "wiz8/local_code/Widget.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/ui_layer.h"
-#include "wiz8/local_code/TextControl.h"
 #include "wiz8/local_code/RangeControl.h"
 #include "wiz8/engine_code/game_timer.h"
-#include "wiz8/local_code/Controls.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/dialog_code/DialogTextArea.h"
@@ -128,12 +124,15 @@ private:
 
 /* The NPC dialogue keyword transcript. */
 // VTABLE: WIZ8 0x005ee920
-class W8NpcDialogueTextController : public Controls {
+class W8NpcDialogueTextController {
 public:
-    W8NpcDialogueTextController(int panel_left, int panel_top, int panel_right, int panel_bottom,
-                                CatalogArtwork artwork, int background_image,
-                                int margin_image, int line_image);
-    void Redraw(SDL_Surface& target, bool full_redraw) override;
+    W8NpcDialogueTextController();
+    void Redraw(SDL_Surface& target, bool full_redraw);
+    void InvalidateAll() { m_dirty = true; }
+    void InvalidateLayout() { m_dirty = true; }
+    UiLayer input{0x03};
+    HitTarget* expanded_target = nullptr;
+    bool m_active = false, m_dirty = true;
     bool HandleScrollDownCommand(bool check_only);
     bool HandleScrollUpCommand(bool check_only);
     /* Add one keyword line to the transcript unless the text is already
@@ -180,23 +179,6 @@ public:
     int scroll_height;
     W8DialogTextArea text_area;
     void SelectTranscriptKeywordAtPoint(int x, int y);
-};
-
-/* The hover/click target over the dialogue transcript. Entering selects the
-   first visible entry, leaving clears the selection, and the button handlers
-   track the press in m_flags before firing the widget callbacks. */
-// VTABLE: WIZ8 0x005ee92c
-class W8NpcDialogueScrollWidget : public W8Widget {
-public:
-    W8NpcDialogueScrollWidget(unsigned int region, int left, int top, int right,
-                              int bottom);
-
-    virtual void OnMouseEnter(int event) override;
-    virtual void OnMouseLeave(int event) override;
-    virtual void OnLeftButtonDown(int event) override;
-    virtual void OnLeftButtonUp(int event) override;
-
-    unsigned int m_flags; /* bit 0 while the primary button is held */
 };
 
 class W8LockInteraction;
@@ -529,7 +511,6 @@ void ShowMainGameNoticeLine(std::string_view text, W8DialogDestroyCallback callb
                             bool cancel);
 
 unsigned char CombatBarRegionEvent(const InputEvent* event, struct W8Region* region, unsigned short);
-unsigned char DialogueTranscriptRegionEvent(const InputEvent* event, struct W8Region* region, unsigned short);
 void SelectNpcBuyMode(void);
 void ConfirmNpcTradeItem(void);
 void RestockNpcTradeStock(void);

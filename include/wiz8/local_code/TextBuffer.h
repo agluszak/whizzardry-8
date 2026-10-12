@@ -7,7 +7,7 @@
 
 #include "wiz8/local_code/ControlsRect.h"
 
-/* Shared declaration owner; implementation remains in Local Code\Controls.cpp. */
+extern char g_W8TextSeparator[];
 
 extern const unsigned int g_W8TextBufferAlignLeft;
 extern const unsigned int g_W8TextBufferAlignCenter;

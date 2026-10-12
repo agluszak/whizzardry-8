@@ -64,7 +64,6 @@
 
 /* Suppress hover sounds on the registered options-row children. */
 // GLOBAL: WIZ8 0x005ed590
-extern const unsigned int g_W8TextControlSilentHover = 0x40;
 
 // GLOBAL: WIZ8 0x0069c1c8
 static bool g_options_first_frame;

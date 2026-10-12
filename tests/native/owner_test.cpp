@@ -34,9 +34,6 @@
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_code/Gameloop.h"
-#include "wiz8/local_code/Controls.h"
-#include "wiz8/local_code/TextControl.h"
-#include "wiz8/local_code/ControlSelection.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/TextBuffer.h"
@@ -765,24 +762,6 @@ void screen_region_set_lifecycle()
     regions.Destroy();
     REQUIRE_FALSE(regions);
     REQUIRE(LiveDynamicRegionCount() == baseline_region_count);
-}
-
-void widget_owned_regions_release_with_widget()
-{
-    RegionStateSnapshot saved_state;
-    ResetRegions();
-    const auto baseline_region_count = LiveDynamicRegionCount();
-    const auto baseline_set_count = LiveRegionSetCount();
-    {
-        Controls panel;
-        panel.CreateRegionSet();
-        auto* widget = panel.EmplaceControl<W8Widget>();
-        REQUIRE(widget->m_pPanel == &panel);
-        REQUIRE(LiveDynamicRegionCount() == baseline_region_count + 1);
-        REQUIRE(LiveRegionSetCount() == baseline_set_count + 1);
-    }
-    REQUIRE(LiveDynamicRegionCount() == baseline_region_count);
-    REQUIRE(LiveRegionSetCount() == baseline_set_count);
 }
 
 void input_sink_capture_can_be_released()
@@ -2014,71 +1993,6 @@ TEST_CASE("Generic button image ownership", "[owner]")
     generic_button_images();
 }
 
-TEST_CASE("Text controls preserve toggles, repeat and radio selection", "[owner][button]")
-{
-    PushButtonSoundScheme(0, true);
-    W8TextControl toggle(-1, 0, 0, 40, 20);
-    toggle.SetActive(true);
-    toggle.AddLayoutFlags(g_W8TextControlLayoutToggle | W8_TEXT_CONTROL_SILENT);
-    int primary = 0;
-    toggle.m_onPrimary = [&] { ++primary; };
-    toggle.OnLeftButtonDown(0);
-    REQUIRE(toggle.IsPressed());
-    REQUIRE_FALSE(toggle.IsSelected());
-    REQUIRE(primary == 0);
-    toggle.OnLeftButtonUp(0);
-    REQUIRE(toggle.IsSelected());
-    REQUIRE(primary == 1);
-    toggle.OnMouseLeave(0);
-    REQUIRE(toggle.IsPressed());
-    toggle.OnLeftButtonDown(0);
-    toggle.OnLeftButtonUp(0);
-    REQUIRE_FALSE(toggle.IsSelected());
-    REQUIRE(primary == 2);
-    toggle.AddLayoutFlags(g_W8TextControlLayoutStayLatched);
-    for (int click = 0; click < 2; ++click) {
-        toggle.OnLeftButtonDown(0);
-        toggle.OnLeftButtonUp(0);
-    }
-    REQUIRE(toggle.IsSelected());
-    REQUIRE(primary == 4);
-
-    W8TextControl repeat(-1, 0, 0, 40, 20);
-    repeat.SetActive(true);
-    repeat.AddLayoutFlags(W8_TEXT_CONTROL_ACTIVATE_WHILE_HELD | W8_TEXT_CONTROL_SILENT);
-    primary = 0;
-    int secondary = 0;
-    repeat.m_onPrimary = [&] { ++primary; };
-    repeat.m_onSecondary = [&] { ++secondary; };
-    repeat.OnLeftButtonDown(0);
-    repeat.ActivatePrimary(0);
-    REQUIRE(primary == 1);
-    repeat.OnRightButtonUp(0);
-    REQUIRE(secondary == 0);
-    repeat.OnLeftButtonUp(0);
-    REQUIRE(primary == 2);
-    repeat.ActivateSecondary(0);
-    REQUIRE(secondary == 1);
-    repeat.OnRightButtonUp(0);
-    REQUIRE(secondary == 1);
-
-    W8ControlSelection selection;
-    selection.AddEntry(&toggle);
-    selection.AddEntry(&repeat);
-    int notifications = 0;
-    selection.on_selection = [&](int) { ++notifications; };
-    selection.SetSelected(0, false);
-    for (int click = 0; click < 2; ++click) {
-        repeat.OnLeftButtonDown(0);
-        repeat.OnLeftButtonUp(0);
-    }
-    REQUIRE((selection.m_selectedIndex == 1 && !toggle.IsSelected() && repeat.IsSelected()));
-    REQUIRE(notifications == 1);
-    selection.SetSelected(0, false);
-    REQUIRE((selection.m_selectedIndex == 0 && toggle.IsSelected() && !repeat.IsSelected()));
-    REQUIRE(notifications == 1);
-}
-
 TEST_CASE("Dialog controls own interaction without legacy GUI buttons", "[owner]")
 {
     RegionStateSnapshot saved_state;
@@ -2420,11 +2334,6 @@ TEST_CASE("Screen region sets follow their screen lifecycle", "[owner]")
     screen_region_set_lifecycle();
 }
 
-TEST_CASE("Widget-owned regions release with their widget", "[owner]")
-{
-    widget_owned_regions_release_with_widget();
-}
-
 TEST_CASE("Input sink capture releases only its own capture", "[owner]")
 {
     input_sink_capture_can_be_released();
@@ -2587,36 +2496,6 @@ TEST_CASE("CatalogArtwork renders bitmap storage with mirror key semantics", "[o
     REQUIRE(surface_pixel(framebuffer, 71, 70) == 0);
     bitmap.drawRect(framebuffer, {0, 0, 1, 1}, 80, 80);
     REQUIRE(surface_pixel(framebuffer, 80, 80) == 0);
-}
-
-TEST_CASE("Controls draw optional CatalogArtwork backgrounds", "[owner][catalog]")
-{
-    initialize_test_framebuffer();
-    CatalogArtworkAssets assets;
-    auto& framebuffer = GetFrameBufferSurface();
-    const auto sprites = CatalogArtwork::Load(0x86);
-    REQUIRE(SDL_FillSurfaceRect(&framebuffer, nullptr, 0x07e0));
-    Controls with_background(100, 100, 140, 120, sprites, 0);
-    with_background.m_active = true;
-    with_background.m_dirty = true;
-    with_background.Redraw(GetFrameBufferSurface(), false);
-    REQUIRE(surface_pixel(framebuffer, 102, 103) == sprites.spriteSheet()->colors[1]);
-    Controls without_background(150, 100, 190, 120, std::nullopt, 0);
-    without_background.m_active = true;
-    without_background.m_dirty = true;
-    without_background.Redraw(GetFrameBufferSurface(), false);
-    REQUIRE(surface_pixel(framebuffer, 152, 103) == 0x07e0);
-
-    // A bounded invalidation must not narrow a pending whole-panel one.
-    const SDL_Point extent = sprites.size(0);
-    const W8ControlsRect corner{100, 100, 101, 101};
-    TakeUiUpload();
-    with_background.InvalidateAll();
-    with_background.InvalidateArea(corner);
-    with_background.Redraw(GetFrameBufferSurface(), false);
-    const SDL_Rect whole{100, 100, extent.x, extent.y};
-    const auto upload = TakeUiUpload();
-    REQUIRE(SDL_RectsEqual(&upload, &whole));
 }
 
 TEST_CASE("Item image cache owns shared sprite sheets", "[owner][catalog]")

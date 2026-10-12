@@ -15,7 +15,6 @@
 
 #include "input.h"
 
-class W8Widget;
 
 extern bool g_dev_mode;
 
@@ -135,11 +134,6 @@ struct W8Region {
     std::function<std::string()> help_text_provider{};
     bool text_field = false; // Hit-tested at the cursor tip, ahead of every other set.
     W8RegionHandler* handler = nullptr;
-    /* The widget that positions, activates and labels this region. It is
-       also the handler, unless the handler is a screen template's callback,
-       which then drives the widget itself. */
-    W8Widget* owner = nullptr;
-    bool template_callback = false; /* handler is a screen template's callback */
 };
 
 /* A region-template row's callback, bound to the row id it was declared with. */
@@ -178,7 +172,6 @@ public:
     void reset();
 
 private:
-    friend void UnbindWidgetRegion(unsigned int region_index, W8Widget* widget, OwnedRegion* owner);
 
     unsigned int set_ = 0;
     unsigned int index_ = 0;
@@ -362,7 +355,6 @@ std::size_t LiveRegionSetCount(void);
 void CaptureInputSink(void);
 void ReleaseInputSinkCapture(void);
 bool InputSinkCaptured(void);
-void UnbindWidgetRegion(unsigned int region_index, W8Widget* widget, OwnedRegion* owner);
 unsigned char ClearActiveRegionIfMatches(unsigned int region_index);
 void ActivateDialogRegion(unsigned int region_index); /* 0x004F2040 */
 /* Dispatch one already-dequeued event to the active region tree; PumpUiInput

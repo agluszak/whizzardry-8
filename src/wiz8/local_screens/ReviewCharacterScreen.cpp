@@ -16,7 +16,6 @@
 
 #include "compat/compiler.h"
 #include "image.h"
-#include "local_code/TextControl.h"
 #include "sprite.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/conditions.h"
