@@ -93,7 +93,7 @@ struct W8LevelFileItemRecord { /* 0x44 */
     std::int32_t positional7;
     std::int32_t positional8;
     std::int32_t positional9;
-    bool has_trigger;
+    std::uint8_t has_trigger;
     std::uint8_t positional10[3];
     std::int32_t positional11;
     std::int32_t positional12;
@@ -133,7 +133,7 @@ struct W8LevelFileDoor { /* 0x99 */
     std::uint8_t version;
     std::uint8_t flags[9];
     std::uint16_t item;
-    bool has_position;
+    std::uint8_t has_position;
     srVector3T<float> position;
     char linked_trigger[0x80];
 };
@@ -267,7 +267,7 @@ struct W8LevelFileMesh {
 struct W8LevelFileLight {
     std::int16_t version = 0;
     std::uint8_t create = 0;  /* != 0 -> created light path over static */
-    bool visible = false; /* bake requires != 0 to emit the light */
+    std::uint8_t visible = 0; /* bake requires != 0 to emit the light */
     std::uint16_t flags = 0;  /* W8LevelLightFlag */
     std::uint8_t unknown_06[2]{};
     srVector3T<float> position{}; /* consumed by the vertex-lighting pass */
@@ -338,7 +338,7 @@ struct W8LevelFileSwitch {
     char sound[0x80]{};             /* wave filename -> "data\sound\%s" */
     float minimum_range = 0;        /* version >= 2 -> range_minimum (*500) */
     char surface_id[0x40]{};        /* version >= 2 */
-    bool has_door_trigger = false; /* version >= 3 */
+    std::uint8_t has_door_trigger = 0; /* version >= 3 */
     W8LevelFileDoorRef door;
     std::int32_t action_value = 0;           /* version >= 4 */
 };
@@ -355,7 +355,7 @@ struct W8LevelFileInvisible {
     std::uint8_t enabled = 0;
     char name[0x80]{};
     char recipients[0x100]{};
-    bool plane_flag = false;             /* version >= 2: == 1 registers a trigger plane */
+    std::uint8_t plane_flag = 0;             /* version >= 2: == 1 registers a trigger plane */
     std::optional<W8LevelFilePlane> plane;    /* version >= 2 */
     float angle = 0;                          /* version >= 3 */
     srVector3T<float> direction{};            /* version >= 3 */
@@ -363,7 +363,7 @@ struct W8LevelFileInvisible {
     char action_string[0x80]{};               /* version >= 3: action-17 payload */
     std::uint8_t flag = 0;                   /* version >= 4 -> flags bit3 */
     std::int32_t action_value = 0;                     /* version >= 4 */
-    bool has_legacy_geometry = false;    /* version >= 5 */
+    std::uint8_t has_legacy_geometry = 0;    /* version >= 5 */
     std::uint8_t geometry_kind = 0;          /* has_legacy_geometry != 0 */
 };
 
@@ -382,7 +382,7 @@ struct W8LevelFileSound {
     srVector3T<float> region_u{};
     srVector3T<float> region_v{};
     char wave[0x80]{};
-    bool has_position = false;     /* version >= 2 */
+    std::uint8_t has_position = 0;     /* version >= 2 */
     std::uint8_t looping = 0;          /* version >= 2 */
     srVector3T<float> region_center{};  /* version >= 3 */
     float region_angle = 0;             /* version >= 3 */
@@ -399,7 +399,7 @@ struct W8LevelFileSuperTrigger {
     std::uint8_t flags = 0; /* bit0 skips the placement and hotspot records */
     std::uint8_t active = 0;
     std::uint8_t kind = 0;
-    bool when_active = false;
+    std::uint8_t when_active = 0;
     std::uint8_t prop_index = 0;
     std::uint8_t activation_count = 0;
     std::uint8_t inactive_count = 0;
@@ -436,7 +436,7 @@ struct W8LevelFileSuperTrigger {
     std::optional<W8LevelFileTriggerPosition> position; /* placement_kind == 1 */
     std::optional<W8LevelFilePlane> plane;           /* placement_kind == 2 */
     std::optional<W8LevelFileTriggerHotSpot> hotspot;   /* !(flags & 1) */
-    bool has_door = false;
+    std::uint8_t has_door = 0;
     W8LevelFileDoorRef door;                         /* has_door != 0 */
     std::optional<W8LevelFileLinkedRecord> record;   /* door.kind == 2 */
 };
@@ -523,7 +523,7 @@ struct W8LevelFileProp {
 /* The environment block: fog, environment colour, camera mode and the two
    optional 256-entry colour ramps. */
 struct W8LevelFileBlock {
-    bool fog_enabled = false;
+    std::uint8_t fog_enabled = 0;
     float environment_red = 0;
     float environment_green = 0;
     float environment_blue = 0;
@@ -534,9 +534,9 @@ struct W8LevelFileBlock {
     srVector3T<float> camera_position{};
     float camera_angle = 0;
     srVector3T<float> camera_axis{};
-    bool has_light_colours = false;
+    std::uint8_t has_light_colours = 0;
     std::uint8_t light_colours[0x300]{};
-    bool has_environment_colours = false;
+    std::uint8_t has_environment_colours = 0;
     std::uint8_t environment_colours[0x300]{};
 };
 

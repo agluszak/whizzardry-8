@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <memory>
+#include <span>
 
 #include "surrender/srImageIO.h"
 #include "surrender/srCore.h"
