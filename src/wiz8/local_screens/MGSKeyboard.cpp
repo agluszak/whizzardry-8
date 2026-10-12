@@ -78,22 +78,53 @@ MGSKeyboard* g_mgs_keyboard;
 
 // Retail set 0x26, regions 180-193.
 static constexpr std::array<RegionTemplate, 14> g_keyboard_menu_region_templates{{
-    {0x00000001, 0, 0, 0, 0, KeyboardMenuRowRegionEvent, 0, true, -1},
-    {0x00000001, 0, 0, 0, 0, KeyboardMenuRowRegionEvent, 1, true, -1},
-    {0x00000001, 0, 0, 0, 0, KeyboardMenuRowRegionEvent, 2, true, -1},
-    {0x00000001, 0, 0, 0, 0, KeyboardMenuRowRegionEvent, 3, true, -1},
-    {0x00000001, 0, 0, 0, 0, KeyboardMenuRowRegionEvent, 4, true, -1},
-    {0x00000001, 0, 0, 0, 0, KeyboardMenuRowRegionEvent, 5, true, -1},
-    {0x00000001, 0, 0, 0, 0, KeyboardMenuRowRegionEvent, 6, true, -1},
-    {0x00000001, 0, 0, 0, 0, KeyboardMenuRowRegionEvent, 7, true, -1},
-    {0x00000001, 0, 0, 0, 0, KeyboardMenuRowRegionEvent, 8, true, -1},
-    {0x00000001, 0, 0, 0, 0, KeyboardMenuRowRegionEvent, 9, true, -1},
-    {0x00000001, 0, 0, 0, 0, KeyboardMenuRowRegionEvent, 10, true, -1},
-    {0x00000001, 0, 0, 0, 0, KeyboardMenuRowRegionEvent, 11, true, -1},
-    {0x00000001, 0, 0, 0, 0, KeyboardMenuRowRegionEvent, 12, true, -1},
+    {0x00000001, 0, 0, 0, 0, nullptr, 0, true, -1},
+    {0x00000001, 0, 0, 0, 0, nullptr, 1, true, -1},
+    {0x00000001, 0, 0, 0, 0, nullptr, 2, true, -1},
+    {0x00000001, 0, 0, 0, 0, nullptr, 3, true, -1},
+    {0x00000001, 0, 0, 0, 0, nullptr, 4, true, -1},
+    {0x00000001, 0, 0, 0, 0, nullptr, 5, true, -1},
+    {0x00000001, 0, 0, 0, 0, nullptr, 6, true, -1},
+    {0x00000001, 0, 0, 0, 0, nullptr, 7, true, -1},
+    {0x00000001, 0, 0, 0, 0, nullptr, 8, true, -1},
+    {0x00000001, 0, 0, 0, 0, nullptr, 9, true, -1},
+    {0x00000001, 0, 0, 0, 0, nullptr, 10, true, -1},
+    {0x00000001, 0, 0, 0, 0, nullptr, 11, true, -1},
+    {0x00000001, 0, 0, 0, 0, nullptr, 12, true, -1},
     {0x00000001, 0, 0, 0, 0, KeyboardMenuBackgroundRegionEvent, 0, false, -1},
 }};
 ScreenRegionSet g_keyboard_menu_regions{g_keyboard_menu_region_templates, 0x26};
+
+/* The recast-spell and reuse-item rows name what they would cast or use in
+   their tooltip. */
+static void DescribeKeyboardMenuRow(int row)
+{
+    if (g_keyboard_menu_pages[row] == W8_SUBMENU_SPELLS && g_keyboard_menu_items[row] == 1) {
+        SetRegionHelpForceEnabled(true);
+        if (!g_keyboard_menu_rows[row]->m_enabled) {
+            SetRegionHelpText(g_localized_strings[0x5a]);
+            return;
+        }
+        const auto& name =
+            g_spell_records[g_status.buffers.XChar[g_selected_party_slot].spell_id].display_name;
+        const int power = GetAffordableSpellPowerLevel(g_selected_party_slot);
+        SetRegionHelpText(fmt::format("{}: {} ({:d})", g_localized_strings[0x5a], name, power));
+        return;
+    }
+    if (g_keyboard_menu_pages[row] != W8_SUBMENU_ITEMS || g_keyboard_menu_items[row] != 2) {
+        return;
+    }
+    SetRegionHelpForceEnabled(true);
+    if (!g_keyboard_menu_rows[row]->m_enabled) {
+        SetRegionHelpText(g_localized_strings[0x5d]);
+        return;
+    }
+    const auto& party_row = g_status.buffers.XChar[g_selected_party_slot];
+    auto* item = FindCharacterItemAt(g_selected_party_slot, party_row.item_origin,
+                                     party_row.item_slot);
+    SetRegionHelpText(
+        fmt::format("{}: {}", g_localized_strings[0x5d], FormatItemDisplayName(item, false)));
+}
 
 // FUNCTION: WIZ8 0x0055d260
 int MGSKeyboard::FindBinding(W8MGSCommand command) const
@@ -802,6 +833,7 @@ unsigned char BuildKeyboardMenu(void)
             }
             AssignKeyboardMenuCallback(menu, item, control);
             control->m_onSecondary = CloseKeyboardMenu;
+            control->m_onMouseEnter = [row] { DescribeKeyboardMenuRow(row); };
             g_keyboard_menu_pages[row] = menu;
             g_keyboard_menu_items[row] = item;
             (*g_keyboard_menu_regions)[row].SetHelp(true,
@@ -1072,80 +1104,6 @@ static void KeyboardMenuUseRecordedItem(void)
     CloseKeyboardMenu();
     StartCharacterItemUse(g_selected_party_slot);
     RequestRedraw(W8_MAIN_REDRAW_CHARACTER_ACTION);
-}
-
-// FUNCTION: WIZ8 0x00594760
-unsigned char KeyboardMenuRowRegionEvent(const InputEvent* event, W8Region* region, unsigned short id)
-{
-    W8TextControl* row = g_keyboard_menu_rows[id];
-    unsigned short row_id;
-    W8PartySlotRow* party_row;
-    W8ItemInstance* item;
-    std::string name;
-    int power;
-
-    if (row == 0) {
-        return 0;
-    }
-    switch (event->type) {
-    case InputEventType::RightButtonDown:
-        row->OnRightButtonDown(0);
-        region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
-        return 1;
-    case InputEventType::LeftButtonDown:
-    case InputEventType::LeftButtonRepeat:
-    case InputEventType::LeftButtonUp:
-        return DispatchButtonRegionEvent(event, region, row);
-    case InputEventType::RightButtonUp:
-        row->OnRightButtonUp(0);
-        if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) != 0) {
-            region->flags &= ~W8_REGION_RIGHT_BUTTON_HELD;
-        }
-        return 1;
-    case InputEventType::MouseMove:
-        if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
-            row->OnMouseLeave(0);
-            return 1;
-        }
-        if ((region->flags & W8_REGION_MOUSE_ENTER) == 0) {
-            return 0;
-        }
-        row->OnMouseEnter(0);
-        row_id = id;
-        if (g_keyboard_menu_pages[row_id] == W8_SUBMENU_SPELLS &&
-            g_keyboard_menu_items[row_id] == 1) {
-            SetRegionHelpForceEnabled(true);
-            if (g_keyboard_menu_rows[id]->m_enabled == 0) {
-                SetRegionHelpText(g_localized_strings[0x5a]);
-                return 1;
-            }
-            name = g_spell_records[g_status.buffers.XChar[g_selected_party_slot].spell_id]
-                       .display_name;
-            power = GetAffordableSpellPowerLevel(g_selected_party_slot);
-            SetRegionHelpText(fmt::format("{}: {} ({:d})", g_localized_strings[0x5a], name, power));
-            return 1;
-        }
-        if (g_keyboard_menu_pages[row_id] != W8_SUBMENU_ITEMS) {
-            return 1;
-        }
-        if (g_keyboard_menu_items[row_id] != 2) {
-            return 1;
-        }
-        SetRegionHelpForceEnabled(true);
-        if (g_keyboard_menu_rows[id]->m_enabled == 0) {
-            SetRegionHelpText(g_localized_strings[0x5d]);
-            return 1;
-        }
-        party_row = &g_status.buffers.XChar[g_selected_party_slot];
-        item = FindCharacterItemAt(g_selected_party_slot, party_row->item_origin,
-                                   party_row->item_slot);
-        name = FormatItemDisplayName(item, false);
-        SetRegionHelpText(fmt::format("{}: {}", g_localized_strings[0x5d], name));
-        return 1;
-    default:
-        break;
-    }
-    return 0;
 }
 
 // FUNCTION: WIZ8 0x005949A0

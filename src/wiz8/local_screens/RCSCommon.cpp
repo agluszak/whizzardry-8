@@ -442,20 +442,6 @@ unsigned char CampProfessionHistoryRegionEvent(const InputEvent* event, W8Region
     return 1;
 }
 
-/* Shared handler for the five bottom page buttons in g_camp_page_buttons. */
-// FUNCTION: WIZ8 0x005B62C0
-unsigned char CampPageButtonRegionEvent(const InputEvent* event, W8Region* region, unsigned short id)
-{
-    return DispatchButtonRegionEvent(event, region, g_camp_page_buttons[id]);
-}
-
-/* Shared handler for the eight item-action buttons. */
-// FUNCTION: WIZ8 0x005B6360
-unsigned char CampItemActionRegionEvent(const InputEvent* event, W8Region* region, unsigned short id)
-{
-    return DispatchButtonRegionEvent(event, region, g_item_action_controls[id]);
-}
-
 // FUNCTION: WIZ8 0x005b6400
 void CreateRcsLevelUpPanel(void)
 {
@@ -521,14 +507,6 @@ void UpdateRcsLevelUpPanel(void)
     g_level_up_panel->Redraw(false);
 }
 
-/* Single level-up button (help 1984). Assembly writes region flags through the
-   second parameter; Ghidra wrongly folded them into the event pointer. */
-// FUNCTION: WIZ8 0x005B66B0
-unsigned char CampLevelUpButtonRegionEvent(const InputEvent* event, W8Region* region, unsigned short)
-{
-    return DispatchButtonRegionEvent(event, region, g_level_up_button);
-}
-
 // FUNCTION: WIZ8 0x005b6740
 void CreateRcsDismissPanel(void)
 {
@@ -589,14 +567,6 @@ static void OnDismissCharacterDialogClosed(W8DialogBase* base)
         gXStatus.review_character_slot = static_cast<unsigned short>(giReviewCharSlot);
         DismissSelectedPartyCharacter();
     }
-}
-
-/* Single dismiss button (help 2387). Same region-flag pattern as the level-up
-   button. */
-// FUNCTION: WIZ8 0x005B6AA0
-unsigned char CampDismissButtonRegionEvent(const InputEvent* event, W8Region* region, unsigned short)
-{
-    return DispatchButtonRegionEvent(event, region, g_dismiss_button);
 }
 
 /* The same for the second panel and its widget. */

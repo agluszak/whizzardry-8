@@ -94,11 +94,11 @@ static bool g_use_item_commit_active;
 
 // Retail set 0x1a, regions 156-160.
 static constexpr std::array<RegionTemplate, 5> g_use_item_select_region_templates{{
-    {0x00000001, 0, 0, 0, 0, UseItemSelectScrollRegionEvent, 0, true, 96},
-    {0x00000001, 0, 0, 0, 0, UseItemSelectScrollRegionEvent, 1, true, 97},
-    {0x00000001, 0, 0, 0, 0, UseItemSelectControlRegionEvent, 0, true, 98},
-    {0x00000001, 0, 0, 0, 0, UseItemSelectControlRegionEvent, 3, true, 99},
-    {0x00000001, 0, 0, 0, 0, UseItemSelectControlRegionEvent, 8, true, 17},
+    {0x00000001, 0, 0, 0, 0, nullptr, 0, true, 96},
+    {0x00000001, 0, 0, 0, 0, nullptr, 1, true, 97},
+    {0x00000001, 0, 0, 0, 0, nullptr, 0, true, 98},
+    {0x00000001, 0, 0, 0, 0, nullptr, 3, true, 99},
+    {0x00000001, 0, 0, 0, 0, nullptr, 8, true, 17},
 }};
 ScreenRegionSet g_use_item_select_regions{g_use_item_select_region_templates, 0x1a};
 
@@ -708,35 +708,6 @@ void CloseUseItemSelection(void)
 {
     CloseUseItemSelectView();
     ClearSlotTargeting(g_status.selected_character);
-}
-
-/* Scroll up/down buttons for the use-item list (region ids 0 and 1). */
-// FUNCTION: WIZ8 0x0059D970
-unsigned char UseItemSelectScrollRegionEvent(const InputEvent* event, W8Region* region, unsigned short id)
-{
-    return DispatchButtonRegionEvent(event, region,
-                                     g_use_item_select_scroll_buttons[id]);
-}
-
-/* Use-item select action/icon controls (region ids 0, 3, 8). */
-// FUNCTION: WIZ8 0x0059DA30
-unsigned char UseItemSelectControlRegionEvent(const InputEvent* event, W8Region* region, unsigned short id)
-{
-    switch (event->type) {
-    case InputEventType::RightButtonDown:
-        g_use_item_select_controls[id]->OnRightButtonDown(0);
-        region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
-        return 1;
-    case InputEventType::RightButtonUp:
-        if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) != 0) {
-            g_use_item_select_controls[id]->OnRightButtonUp(0);
-            region->flags &= ~W8_REGION_RIGHT_BUTTON_HELD;
-        }
-        return 1;
-    default:
-        return DispatchButtonRegionEvent(event, region,
-                                         g_use_item_select_controls[id]);
-    }
 }
 
 /* Use-item text-box body region event: button presses only arm the held bits

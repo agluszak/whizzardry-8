@@ -18,16 +18,6 @@ struct W8Region;
 extern char g_W8TextSeparator[];
 
 
-/* The region callback a widget without its own region is given. It answers
-   whether the event was consumed; the screen-input dispatcher returns that
-   byte to its caller. */
-
-/* The simple button-region policy shared by camp tabs, scrolling and
-   movement controls. Repeat presses again; release is unconditional. The
-   panel-owned dispatcher above has a different repeat/release policy. */
-unsigned char DispatchButtonRegionEvent(const InputEvent* event, W8Region* region,
-                                               W8Widget* button);
-
 /* A panel is a widget that owns and positions child widgets, which may be
    panels themselves. Child ownership is held by unique_ptr; widgets retain a
    non-owning back-pointer in m_pPanel and their rectangles are relative to

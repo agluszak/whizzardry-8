@@ -35,35 +35,6 @@
 #include "layouts/main_game_screen.h"
 
 
-unsigned char DispatchButtonRegionEvent(const InputEvent* event, W8Region* region,
-                                               W8Widget* button)
-{
-    switch (event->type) {
-    case InputEventType::LeftButtonDown:
-    case InputEventType::LeftButtonRepeat:
-        region->flags |= W8_REGION_LEFT_BUTTON_HELD;
-        button->OnLeftButtonDown(0);
-        return 1;
-    case InputEventType::LeftButtonUp:
-        region->flags &= ~W8_REGION_LEFT_BUTTON_HELD;
-        button->OnLeftButtonUp(0);
-        return 1;
-    case InputEventType::MouseMove:
-        if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
-            button->OnMouseLeave(0);
-            return 1;
-        }
-        if ((region->flags & W8_REGION_MOUSE_ENTER) != 0) {
-            button->OnMouseEnter(0);
-            return 1;
-        }
-        break;
-    default:
-        break;
-    }
-    return 0;
-}
-
 /* Original Local Code\Controls.cpp translation unit. Keep these implementations
    together and preserve their order. Retail assertions identify the panel region set
    (line 399) and the widget's m_pPanel (line 1849); other role names are recovered. */
@@ -271,6 +242,7 @@ int W8Widget::HandleRegionInput(W8Region& region, const InputEvent& input)
             OnMouseLeave(0);
         } else if ((region.flags & W8_REGION_MOUSE_ENTER) != 0) {
             OnMouseEnter(0);
+            if (m_onMouseEnter) m_onMouseEnter();
         } else {
             OnMouseMove(region.flags & W8_REGION_LEFT_BUTTON_HELD);
         }

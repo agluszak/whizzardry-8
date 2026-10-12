@@ -70,8 +70,6 @@ void ToggleCampItemFilter(W8CampItemFilterButton tab);
 unsigned char BackpackRegionHandler(const InputEvent* event, W8Region* region, unsigned short);
 unsigned char EquipSlotRegionHandler(const InputEvent* event, W8Region* region, unsigned short);
 unsigned char ItemPoolRegionHandler(const InputEvent* event, W8Region* region, unsigned short);
-unsigned char RealmTabRegionHandler(const InputEvent* event, W8Region* region, unsigned short);
-unsigned char PanelTabRegionHandler(const InputEvent* event, W8Region* region, unsigned short);
 void SetItemTooltip(W8ItemInstance* item, W8Region* region);
 void DrawCampItemIcons(void);
 
