@@ -631,7 +631,7 @@ void W8OptionsSaveRow::Redraw(SDL_Surface& target, bool full_redraw)
 void W8OptionsSaveRow::OnLeftButtonUp(int event)
 {
     if (m_active && m_enabled && !m_editing &&
-        (m_stateFlags & g_W8TextControlStateSecondary) != 0) {
+        (IsSelected()) != 0) {
         SDL_Point point;
         SGPMouseGetPos(&point);
         point.x -= ScreenBounds().x;
@@ -646,7 +646,7 @@ void W8OptionsSaveRow::OnLeftButtonUp(int event)
 void W8OptionsSaveRow::OnLeftButtonDoubleClick(int event)
 {
     if (m_active && m_enabled && !m_editing &&
-        (m_stateFlags & g_W8TextControlStateSecondary) != 0 && m_save_listener != 0) {
+        (IsSelected()) != 0 && m_save_listener != 0) {
         m_save_listener->OnActivateSave(this);
     }
     W8TextControl::OnLeftButtonDoubleClick(event);
@@ -667,7 +667,7 @@ void W8OptionsButton::Redraw(SDL_Surface& target, bool full_redraw)
     if (m_active && (full_redraw || m_dirty) && m_textBuffer.HasBuffer()) {
         if (m_enabled) {
             int font_state;
-            if ((m_stateFlags & g_W8TextControlStatePressed) != 0) {
+            if ((IsPressed()) != 0) {
                 font_state = 13;
             } else {
                 font_state = m_alternateTextEnabled ? 14 : -1;
@@ -1005,7 +1005,7 @@ void W8OptionsInterfacePanel::OnDragEnd(W8HorizontalRangeThumb* thumb)
 
 void W8OptionsInterfacePanel::OnPrimary(W8TextControl* control)
 {
-    g_settings.tooltips_enabled = (control->m_stateFlags & g_W8TextControlStateSecondary) == 0;
+    g_settings.tooltips_enabled = (control->IsSelected()) == 0;
     m_tooltip_delay->SetEnabled(g_settings.tooltips_enabled);
     m_tooltip_delay->Invalidate(false);
 }
@@ -1132,8 +1132,7 @@ void W8OptionsAudioPanel::OnPrimary(W8TextControl* control)
     if (index == 4) {
         index = -1;
     }
-    unsigned char muted =
-        static_cast<unsigned char>(control->m_stateFlags) & g_W8TextControlStateSecondary;
+    const bool muted = control->IsSelected();
     switch (index) {
     case 0:
         SetMusicMuted(muted);
@@ -1503,7 +1502,8 @@ W8OptionsCheckbox::W8OptionsCheckbox(int top, int* value)
 void W8OptionsCheckbox::OnLeftButtonUp(int event)
 {
     W8TextControl::OnLeftButtonUp(event);
-    *m_value = static_cast<unsigned char>(m_stateFlags) & g_W8TextControlStateSecondary & 0xff;
+    // Option values keep the retail encoding: the state bit itself when on.
+    *m_value = IsSelected() ? g_W8TextControlStateSecondary : 0;
 }
 
 W8OptionsSlider::W8OptionsSlider(int top, float* value, bool alternate)
@@ -1619,7 +1619,7 @@ void W8OptionsPanel::AddChoices(int label, int count, const int* choices, int* v
 
 void W8OptionsMenuButton::Redraw(SDL_Surface& target, bool full_redraw)
 {
-    if ((full_redraw || m_dirty) && (m_stateFlags & g_W8TextControlStateSecondary) != 0 &&
+    if ((full_redraw || m_dirty) && (IsSelected()) != 0 &&
         m_item_id != -1) {
         CatalogArtwork::Load(0xf0, 0).drawAndInvalidate(target, m_item_id, 12, 15);
     }

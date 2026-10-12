@@ -2421,8 +2421,7 @@ static void SyncNpcDialogueListFilter(void)
     if (static_cast<unsigned char>(
             static_cast<W8TextControl*>(
                 g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_SORT_BUTTON])
-                ->m_stateFlags &
-            g_W8TextControlStateSecondary) != 0) {
+                ->IsSelected()) != 0) {
         g_npc_interaction_state->transcript_sorted = true;
     } else {
         g_npc_interaction_state->transcript_sorted = false;
@@ -2435,8 +2434,7 @@ static void SelectNpcDialogueTopics(W8NpcDialogueControlSlot button, W8DialogueC
 {
     if (static_cast<unsigned char>(
             static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[button])
-                ->m_stateFlags &
-            g_W8TextControlStateSecondary) != 0) {
+                ->IsSelected()) != 0) {
         g_npc_interaction_state->dialogue_category_filter = category;
         SyncDialogueCategoryButtons();
     }
@@ -2890,13 +2888,11 @@ static W8ItemInstance* ResolveNpcTradeRow(int index, bool pick, char decrement, 
         if (static_cast<unsigned char>(
                 static_cast<W8TextControl*>(
                     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_5])
-                    ->m_stateFlags &
-                g_W8TextControlStateSecondary) == 0) {
+                    ->IsSelected()) == 0) {
             if (static_cast<unsigned char>(
                     static_cast<W8TextControl*>(
                         g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_6])
-                        ->m_stateFlags &
-                    g_W8TextControlStateSecondary) != 0 &&
+                        ->IsSelected()) != 0 &&
                 g_status.party_item_count != 0) {
                 i = 0;
                 do {
@@ -3119,7 +3115,7 @@ static void ToggleNpcTradeCategory(int button, W8NpcTradeFilter filter)
 {
     W8TextControl* control = static_cast<W8TextControl*>(
         g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_OPTION_BUTTONS + button]);
-    if (static_cast<unsigned char>(control->m_stateFlags & g_W8TextControlStateSecondary) != 0) {
+    if (static_cast<unsigned char>(control->IsSelected()) != 0) {
         int previous = g_npc_interaction_state->trade_filter & W8_NPC_TRADE_CATEGORY_MASK;
         if (previous != filter) {
             int previous_button;
@@ -3163,8 +3159,7 @@ static void ToggleNpcCharacterUsabilityFilter(void)
     if (static_cast<unsigned char>(
             static_cast<W8TextControl*>(
                 g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_OPTION_BUTTONS + 2])
-                ->m_stateFlags &
-            g_W8TextControlStateSecondary) != 0) {
+                ->IsSelected()) != 0) {
         static_cast<W8TextControl*>(
             g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_OPTION_BUTTONS + 5])
             ->DisableSecondaryState(true);
@@ -3182,8 +3177,7 @@ static void ToggleNpcPartyUsabilityFilter(void)
     if (static_cast<unsigned char>(
             static_cast<W8TextControl*>(
                 g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_OPTION_BUTTONS + 5])
-                ->m_stateFlags &
-            g_W8TextControlStateSecondary) != 0) {
+                ->IsSelected()) != 0) {
         static_cast<W8TextControl*>(
             g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_OPTION_BUTTONS + 2])
             ->DisableSecondaryState(true);
@@ -3318,8 +3312,7 @@ static W8ItemInstance* GetNpcTradeSlotItem(int index)
     if (static_cast<unsigned char>(
             static_cast<W8TextControl*>(
                 g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_4])
-                ->m_stateFlags &
-            g_W8TextControlStateSecondary) == 0) {
+                ->IsSelected()) == 0) {
         return 0;
     }
     for (slot = 0; slot < 12; ++slot) {

@@ -71,6 +71,9 @@ public:
     virtual void AddLayoutFlags(unsigned int flags) override;
     virtual void SetAlternateTextEnabled(bool enabled) override;
     void RemoveLayoutFlags(unsigned int flags);
+    /* Held down, and latched on (a toggle, tab or radio entry that is set). */
+    bool IsPressed() const { return (m_stateFlags & g_W8TextControlStatePressed) != 0; }
+    bool IsSelected() const { return (m_stateFlags & g_W8TextControlStateSecondary) != 0; }
     virtual void EnableSecondaryState(bool immediate);
     virtual void DisableSecondaryState(bool immediate);
     virtual void OnMouseEnter(int event) override;
@@ -85,11 +88,10 @@ public:
     /* Lays text out in this panel-relative rectangle instead of the widget's. */
     void UpdateTextBounds(int left, int top, int right, int bottom);
 
+protected:
+    unsigned int m_stateFlags; /* pressed and selected bits; read via IsPressed/IsSelected */
+
 public:
-    /* The state-5 controller persists two option bits by directly masking the
-       controls' state words.  This is observed storage access, not an accessor
-       API inferred for convenience. */
-    unsigned int m_stateFlags;   /* paired state masks */
     unsigned int m_layoutFlags;  /* layout and input behavior masks */
     bool m_alternateTextEnabled; /* alternate text-selection flag */
     std::shared_ptr<const SpriteSheet> m_imageSprites;

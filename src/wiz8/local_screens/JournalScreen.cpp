@@ -307,7 +307,7 @@ W8JournalPanel::W8JournalPanel()
     EnableRegionSet(true);
     m_alternate_mode = 0;
     m_mode->EnableRegionHelp(0x6eb);
-    if ((m_mode->m_stateFlags & g_W8TextControlStateSecondary) != 0) {
+    if ((m_mode->IsSelected()) != 0) {
         m_mode->DisableSecondaryState(true);
     }
 }
@@ -345,15 +345,15 @@ void W8JournalPanel::OnPrimary(W8TextControl* control)
         RequestScreenTransition();
     } else {
         m_alternate_mode =
-            static_cast<unsigned char>(m_mode->m_stateFlags & g_W8TextControlStateSecondary);
+            static_cast<unsigned char>(m_mode->IsSelected());
         if (m_alternate_mode) {
             m_mode->EnableRegionHelp(0x6ec);
-            if ((m_mode->m_stateFlags & g_W8TextControlStateSecondary) == 0) {
+            if ((m_mode->IsSelected()) == 0) {
                 m_mode->EnableSecondaryState(true);
             }
         } else {
             m_mode->EnableRegionHelp(0x6eb);
-            if ((m_mode->m_stateFlags & g_W8TextControlStateSecondary) != 0) {
+            if ((m_mode->IsSelected()) != 0) {
                 m_mode->DisableSecondaryState(true);
             }
         }

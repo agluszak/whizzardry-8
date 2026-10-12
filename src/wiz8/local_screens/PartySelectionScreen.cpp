@@ -1566,8 +1566,8 @@ void W8PartySelectionController::OnPrimary(W8TextControl* control)
             g_settings.difficulty =
                 static_cast<W8Difficulty>(m_control3->m_options.m_selectedIndex);
             g_settings.simplified_npc_interaction = static_cast<unsigned char>(
-                m_control3->npc_interact_toggle->m_stateFlags & g_W8TextControlStateSecondary);
-            if ((m_control3->m_toggle->m_stateFlags & g_W8TextControlStateSecondary) != 0) {
+                m_control3->npc_interact_toggle->IsSelected());
+            if ((m_control3->m_toggle->IsSelected()) != 0) {
                 SetMode(W8_PARTY_SELECT_CREATION_NOTICE);
             } else {
                 RunNewGameOpeningSequence(true, {});
@@ -1587,7 +1587,7 @@ void W8PartySelectionController::OnPrimary(W8TextControl* control)
     if (control != m_reset_button) {
         return;
     }
-    if ((m_reset_button->m_stateFlags & g_W8TextControlStateSecondary) == 0) {
+    if ((m_reset_button->IsSelected()) == 0) {
         ResetForNewGame();
         SetMode(W8_PARTY_SELECT_CHARACTERS);
         SetSelection(0, false, true);

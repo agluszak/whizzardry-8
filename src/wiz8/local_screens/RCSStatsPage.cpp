@@ -177,16 +177,14 @@ W8CampStatsControls::~W8CampStatsControls()
 void W8CampStatsControls::OnPrimary(W8TextControl* control)
 {
     if (control == m_buttons[0]) {
-        if (static_cast<unsigned char>(m_buttons[0]->m_stateFlags &
-                                       g_W8TextControlStateSecondary)) {
+        if (static_cast<unsigned char>(m_buttons[0]->IsSelected())) {
             m_buttons[1]->DisableSecondaryState(false);
             g_camp_screen->effect_filter = W8_CAMP_EFFECT_FILTER_BENEFICIAL;
         } else {
             g_camp_screen->effect_filter = W8_CAMP_EFFECT_FILTER_ALL;
         }
     } else if (control == m_buttons[1]) {
-        if (static_cast<unsigned char>(m_buttons[1]->m_stateFlags &
-                                       g_W8TextControlStateSecondary)) {
+        if (static_cast<unsigned char>(m_buttons[1]->IsSelected())) {
             m_buttons[0]->DisableSecondaryState(false);
             g_camp_screen->effect_filter = W8_CAMP_EFFECT_FILTER_DETRIMENTAL;
         } else {
@@ -194,8 +192,7 @@ void W8CampStatsControls::OnPrimary(W8TextControl* control)
         }
     } else {
         g_camp_screen->effect_items_only =
-            static_cast<unsigned char>(m_buttons[2]->m_stateFlags &
-                                       g_W8TextControlStateSecondary) != 0;
+            static_cast<unsigned char>(m_buttons[2]->IsSelected()) != 0;
     }
     FilterCampEffectList();
     g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_EFFECT_LIST;
