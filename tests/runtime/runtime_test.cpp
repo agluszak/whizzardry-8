@@ -509,8 +509,8 @@ void MainMenuUiScenario()
         for (short item = 0; item < static_cast<short>(bound.size()); ++item) {
             const int region = MainMenuRegion(item);
             REQUIRE(region >= 0);
-            REQUIRE(g_regions[region].widget != nullptr);
-            REQUIRE(g_regions[region].callback == DispatchControlRegionEvent);
+            REQUIRE(g_regions[region].handler != nullptr);
+            REQUIRE(g_regions[region].callback == nullptr);
             bound[item] = static_cast<unsigned>(region);
         }
         return bound;
@@ -526,7 +526,7 @@ void MainMenuUiScenario()
     game.click("credits", MainMenuRegion(3));
     game.wait_screen("credits", W8_SCREEN_CREDITS);
     for (auto region : bound) {
-        REQUIRE(g_regions[region].widget == nullptr);
+        REQUIRE(g_regions[region].handler == nullptr);
         REQUIRE(g_regions[region].callback == nullptr);
     }
     game.click_at(320, 240);
@@ -1219,13 +1219,12 @@ void Ask(Game& game, std::string_view keyword)
     game.key(SDLK_RETURN);
 }
 
-/* Live regions bound to a dialog control: a W8ButtonWidget binds through
-   `widget`, the remaining W8RegionHandler controls through `handler`. */
+/* Live regions bound to a dialog control through their W8RegionHandler. */
 std::vector<unsigned> HandlerRegions()
 {
     std::vector<unsigned> regions;
     for (unsigned region = 1; region < g_regions.size(); ++region)
-        if (RegionLive(region) && (g_regions[region].handler || g_regions[region].widget))
+        if (RegionLive(region) && g_regions[region].handler)
             regions.push_back(region);
     return regions;
 }

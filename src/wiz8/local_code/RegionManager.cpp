@@ -1039,7 +1039,6 @@ OwnedRegion::OwnedRegion(unsigned int set, const RegionTemplate& entry, int prio
     owned_region.help_enabled = entry.help_enabled;
     owned_region.help_text_id = entry.help_text_id;
     owned_region.unknown_13 = 0;
-    owned_region.widget = nullptr;
     owned_region.help_text.clear();
     owned_region.text_field = nullptr;
     owned_region.handler = nullptr;
@@ -1253,7 +1252,6 @@ void RemoveRegionFromSet(unsigned int region_set_index, unsigned int region_inde
     }
     auto& region = g_regions[region_index];
     if (region.flags & W8_REGION_HELP_SHOWN) VideoRemoveToolTip();
-    region.widget = nullptr;
     region.text_field = nullptr;
     region.flags &= ~(W8_REGION_MOUSE_STATE_MASK | W8_REGION_HELP_SHOWN);
     const auto generation = region.binding_generation + 1;
@@ -1269,12 +1267,12 @@ void UnbindWidgetRegion(unsigned int region_index, W8Widget* widget, OwnedRegion
 {
     if (region_index >= g_regions.size()) return;
     auto& region = g_regions[region_index];
-    if (region.widget != widget) return;
+    if (region.handler != widget) return;
 
     g_regions[region_index].SetInputEnabled(false);
     if (region.flags & W8_REGION_HELP_SHOWN) VideoRemoveToolTip();
     region.flags &= ~(W8_REGION_MOUSE_STATE_MASK | W8_REGION_HELP_SHOWN);
-    region.widget = nullptr;
+    region.handler = nullptr;
     region.text_field = nullptr;
     region.help_enabled = false;
     region.help_text_id = -1;

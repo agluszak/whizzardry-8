@@ -107,6 +107,13 @@ struct RecordingWidget : W8Widget {
     }
 };
 
+namespace {
+int DispatchWidgetRegion(const InputEvent& event, W8Region& region)
+{
+    return region.handler ? region.handler->HandleRegionInput(region, event) : 0;
+}
+} // namespace
+
 TEST_CASE("widget_region_lifetimes")
 {
     // Destroy every set this case creates instead of shrinking the global
@@ -129,7 +136,7 @@ TEST_CASE("widget_region_lifetimes")
     REQUIRE(first_panel->ControlCount() == 2);
     InputEvent event{};
     event.type = InputEventType::LeftButtonDown;
-    REQUIRE(DispatchControlRegionEvent(&event, &g_regions[third_region]) == 1);
+    REQUIRE(DispatchWidgetRegion(event, g_regions[third_region]) == 1);
     REQUIRE(events.back() == 3);
 
     Controls second_panel;
@@ -144,10 +151,10 @@ TEST_CASE("widget_region_lifetimes")
     const auto second_region = second->m_region;
     auto detached_second = first_panel->TakeControl(second);
     REQUIRE(second->m_pPanel == nullptr);
-    REQUIRE(g_regions[second_region].widget == nullptr);
+    REQUIRE(g_regions[second_region].handler == nullptr);
     first_panel.reset();
     detached_second.reset(); // Detached widgets do not retain a dead panel pointer.
-    REQUIRE(DispatchControlRegionEvent(&event, &g_regions[third_region]) == 1);
+    REQUIRE(DispatchWidgetRegion(event, g_regions[third_region]) == 1);
     REQUIRE(events.back() == 3);
 
     // A failed derived constructor must remove the base-class registration.
@@ -173,9 +180,9 @@ TEST_CASE("widget_region_lifetimes")
     REQUIRE(replacement->m_region == reused_region);
     replacement->SetActive(true);
     delete old;
-    REQUIRE(g_regions[reused_region].widget == replacement);
+    REQUIRE(g_regions[reused_region].handler == replacement);
     REQUIRE(!(g_regions[reused_region].flags & W8_REGION_INPUT_DISABLED));
-    REQUIRE(DispatchControlRegionEvent(&event, &g_regions[reused_region]) == 1);
+    REQUIRE(DispatchWidgetRegion(event, g_regions[reused_region]) == 1);
     REQUIRE(events.back() == 5);
 
     // Post-callback latch writes must not corrupt a replacement's state.
@@ -189,7 +196,7 @@ TEST_CASE("widget_region_lifetimes")
         };
         event.type = reason;
         g_regions[reused_region].flags |= W8_REGION_LEFT_BUTTON_HELD | W8_REGION_RIGHT_BUTTON_HELD;
-        REQUIRE(DispatchControlRegionEvent(&event, &g_regions[reused_region]) == 1);
+        REQUIRE(DispatchWidgetRegion(event, g_regions[reused_region]) == 1);
         REQUIRE(g_regions[reused_region].flags == W8_REGION_RECTANGLE);
     }
     // Destroying a captured/hovered widget also releases those global views.
@@ -197,7 +204,7 @@ TEST_CASE("widget_region_lifetimes")
     delete replacement;
     REQUIRE((g_captured_region_index == 0 && g_current_region_index == 0 && g_hover_region_index == 0));
     REQUIRE(rebuilt_panel.ControlCount() == 0);
-    REQUIRE(DispatchControlRegionEvent(&event, &g_regions[reused_region]) == 0);
+    REQUIRE(DispatchWidgetRegion(event, g_regions[reused_region]) == 0);
 
     Controls hover_panel;
     hover_panel.CreateRegionSet();
@@ -226,7 +233,7 @@ TEST_CASE("widget_region_lifetimes")
     };
     g_hover_region_index = g_current_region_index = outgoing_region;
     REQUIRE(UpdateRegionMousePosition(100, 100) == 0);
-    REQUIRE(g_regions[outgoing_region].widget == outgoing);
+    REQUIRE(g_regions[outgoing_region].handler == outgoing);
     REQUIRE(g_regions[outgoing_region].flags & W8_REGION_MOUSE_ENTER);
     REQUIRE(g_hover_region_index == 0);
     hover_panel.EnableRegionSet(false);

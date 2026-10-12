@@ -10,7 +10,7 @@ struct Controls;
 struct W8Region;
 
 // VTABLE: WIZ8 0x005ed5bc
-class W8Widget {
+class W8Widget : public W8RegionHandler {
 public:
     friend struct Controls;
 
@@ -35,6 +35,7 @@ public:
     void DisableRegionHelp();
 
     virtual ~W8Widget();
+    int HandleRegionInput(W8Region& region, const InputEvent& input) override;
 
     virtual void SetEnabled(bool enabled);
     /* Default hooks; Redraw's flag is the panel's dirty state. */

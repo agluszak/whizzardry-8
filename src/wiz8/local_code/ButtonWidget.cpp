@@ -181,7 +181,7 @@ void W8ButtonWidget::ConfigureRegion(int priority)
 {
     ReleaseRegion();
     const RegionTemplate region_template{W8_REGION_RECTANGLE, 0, 0, 0, 0,
-                                         DispatchControlRegionEvent, static_cast<std::uint16_t>(priority), false, -1};
+                                         nullptr, static_cast<std::uint16_t>(priority), false, -1};
     const auto set = m_pPanel && m_pPanel->RegionSet() != 0 ? m_pPanel->RegionSet()
                                                                  : ControlRegionSetIndex();
     OwnedRegion allocated_region(set, region_template, priority);
