@@ -61,7 +61,6 @@
 #include "compat/native.h"
 #include "layouts/main_game_screen.h"
 #include "layouts/npc_dialogue.h"
-#include "local_code/ControlsRect.h"
 #include "local_code/HealthStaminaMana.h"
 
 struct W8NpcState;

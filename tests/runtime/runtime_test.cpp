@@ -1020,7 +1020,7 @@ void ResourceLifecycleScenario()
             REQUIRE(g_automap_buttons[index]->Bounds().w > 0);
             REQUIRE(g_automap_buttons[index]->Bounds().h > 0);
             g_automap_buttons[index]->m_dirty = true;
-            g_automap_buttons[index]->Draw();
+            g_automap_buttons[index]->Draw(GetFrameBufferSurface());
         }
         game.key(SDLK_ESCAPE);
         game.wait_screen("automap-buttons-released", W8_SCREEN_MAIN_GAME);

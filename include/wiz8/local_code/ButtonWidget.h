@@ -28,8 +28,8 @@ class W8ButtonWidget : public W8Widget {
 public:
     W8ButtonWidget();
     ~W8ButtonWidget() override;
-    void Draw();
-    void Redraw(SDL_Surface&, bool) override { Draw(); }
+    void Draw(SDL_Surface& target);
+    void Redraw(SDL_Surface& target, bool full_redraw) override;
     void Reset();
     bool IsConfigured() const { return OwnsRegion(); }
     void SetPosition(int x, int y);

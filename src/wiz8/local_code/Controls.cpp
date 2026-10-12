@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <SDL3/SDL_surface.h>
 #include <tuple>
 #include <SDL3/SDL_rect.h>
@@ -1852,7 +1853,7 @@ void Controls::SetActive(bool enable)
 {
     int index;
 
-    m_active = enable;
+    W8Widget::SetActive(enable);
     for (index = 0; index < static_cast<int>(m_controls.size()); ++index) {
         W8Widget* control = ControlAt(index);
 
@@ -1868,12 +1869,23 @@ void Controls::AddControl(std::unique_ptr<W8Widget> control)
     // A widget must not already belong to another panel.
     assert(control->m_pPanel == nullptr);
 
-    auto* child = control.get();
+    // Reserve before preparation so committing ownership cannot allocate.
+    if (m_controls.size() == m_controls.capacity()) {
+        m_controls.reserve(m_controls.empty() ? 1 : m_controls.size() * 2);
+    }
+    control->m_pPanel = this;
+    try {
+        control->BindRegion(ChildRegionSet());
+        // Layout needs the parent, but ownership is committed only after it succeeds.
+        control->OnGeometryChanged();
+        control->SetActive(m_active);
+    } catch (...) {
+        control->UnbindRegion();
+        control->m_pPanel = nullptr;
+        throw;
+    }
     m_controls.push_back(std::move(control));
-    child->m_pPanel = this;
-    child->BindRegion(ChildRegionSet());
-    // Panel-relative layout is resolved only once the parent is known.
-    child->OnGeometryChanged();
+    InvalidateLayout();
 }
 
 // FUNCTION: WIZ8 0x004f2da0
@@ -2005,7 +2017,7 @@ unsigned int Controls::ChildRegionSet() const
    children register in (and leave) the set of the panel it joins. */
 void Controls::BindRegion(unsigned int set)
 {
-    if (m_regionSet != 0) return;
+    if (m_regionSet != 0) set = m_regionSet;
     for (const auto& control : m_controls) {
         control->BindRegion(set);
     }
@@ -2013,7 +2025,6 @@ void Controls::BindRegion(unsigned int set)
 
 void Controls::UnbindRegion()
 {
-    if (m_regionSet != 0) return;
     for (const auto& control : m_controls) {
         control->UnbindRegion();
     }
@@ -2022,11 +2033,13 @@ void Controls::UnbindRegion()
 // FUNCTION: WIZ8 0x004f30c0
 void Controls::CreateRegionSet()
 {
-    if (m_regionSet == 0) {
-        m_regionSet = ::CreateRegionSet();
-    } else {
-        ResetRegionSet(m_regionSet);
-    }
+    // Existing descendants must leave their old bindings before the set resets.
+    // This also migrates children that previously inherited an ancestor's set.
+    const auto set = m_regionSet != 0 ? m_regionSet : ::CreateRegionSet();
+    UnbindRegion();
+    m_regionSet = set;
+    ResetRegionSet(m_regionSet);
+    BindRegion(m_regionSet);
 }
 
 // FUNCTION: WIZ8 0x004f4120

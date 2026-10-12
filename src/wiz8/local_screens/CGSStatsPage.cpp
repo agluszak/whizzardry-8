@@ -1,10 +1,10 @@
+#include <SDL3/SDL_surface.h>
 #include <fmt/format.h>
 #include <memory>
 #include <optional>
 #include <string>
 #include <vector>
 
-#include "image.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/local_code/Controls.h"
 #include "wiz8/local_screens/CharacterScreen.h"

@@ -2,7 +2,6 @@
 #include <memory>
 #include <fmt/format.h>
 #include <array>
-#include <optional>
 #include <string>
 #include <cstring>
 #include <vector>

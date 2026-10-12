@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
+#include <SDL3/SDL_rect.h>
 #include <filesystem>
 #include <fstream>
 #include <ios>
@@ -11,7 +12,6 @@
 #include <utility>
 #include <vector>
 #include <memory>
-#include <optional>
 #include <span>
 #include <unordered_map>
 
@@ -194,6 +194,75 @@ TEST_CASE("panels_nest_as_widgets")
     REQUIRE(g_regions[hotspot_region].handler == nullptr);
 }
 
+TEST_CASE("active_panels_attach_detach_and_migrate_nested_regions")
+{
+    Controls outer;
+    outer.SetBounds({100, 100, 100, 100});
+    outer.CreateRegionSet();
+    outer.EnableRegionSet(true);
+    outer.SetActive(true);
+    auto* inner = outer.EmplaceControl<Controls>();
+    inner->SetBounds({10, 20, 50, 50});
+    auto* leaf = inner->EmplaceControl<W8Widget>(-1u, 1, 2, 11, 12);
+    REQUIRE(leaf->m_active);
+    REQUIRE(FindRegionAtPoint(115, 125) == unsigned(leaf->m_region));
+    const auto inherited_region = leaf->m_region;
+
+    inner->CreateRegionSet();
+    inner->EnableRegionSet(true);
+    REQUIRE(!std::ranges::contains(g_region_sets[outer.RegionSet()].Regions(),
+                                   unsigned(leaf->m_region)));
+    REQUIRE(std::ranges::contains(g_region_sets[inner->RegionSet()].Regions(),
+                                  unsigned(leaf->m_region)));
+    REQUIRE(FindRegionAtPoint(115, 125) == unsigned(leaf->m_region));
+    const auto live = LiveDynamicRegionCount();
+    inner->CreateRegionSet();
+    REQUIRE(LiveDynamicRegionCount() == live);
+    REQUIRE(g_regions[leaf->m_region].owner == leaf);
+    REQUIRE(g_regions[leaf->m_region].InputEnabled());
+
+    // Independent sets must not leave detached subtrees in hit testing or capture.
+    g_ui.captured = g_ui.current = g_ui.hover = leaf->m_region;
+    auto detached = outer.TakeControl(inner);
+    REQUIRE(leaf->m_region == -1);
+    REQUIRE(FindRegionAtPoint(115, 125) == 0);
+    REQUIRE((g_ui.captured == 0 && g_ui.current == 0 && g_ui.hover == 0));
+    REQUIRE(g_regions[inherited_region].owner == nullptr);
+
+    Controls destination;
+    destination.SetBounds({200, 100, 100, 100});
+    destination.SetActive(true);
+    destination.AddControl(std::move(detached));
+    REQUIRE(leaf->m_active);
+    REQUIRE(FindRegionAtPoint(215, 125) == unsigned(leaf->m_region));
+    REQUIRE(FindRegionAtPoint(115, 125) == 0);
+}
+
+TEST_CASE("failed_panel_attachment_releases_prepared_descendant_regions")
+{
+    struct FailingLayout : Controls {
+        bool& destroyed_unattached;
+        explicit FailingLayout(bool& destroyed) : destroyed_unattached(destroyed) {}
+        ~FailingLayout() override { destroyed_unattached = m_pPanel == nullptr; }
+        void OnGeometryChanged() override
+        {
+            Controls::OnGeometryChanged();
+            if (m_pPanel) throw std::runtime_error("layout failed after region binding");
+        }
+    };
+    Controls owner;
+    owner.CreateRegionSet();
+    const auto live = LiveDynamicRegionCount();
+    bool destroyed_unattached = false;
+    auto pending = std::make_unique<FailingLayout>(destroyed_unattached);
+    pending->EmplaceControl<W8Widget>();
+    REQUIRE_THROWS_AS(owner.AddControl(std::move(pending)), std::runtime_error);
+    REQUIRE(destroyed_unattached);
+    REQUIRE(owner.ControlCount() == 0);
+    REQUIRE(g_region_sets[owner.RegionSet()].Regions().empty());
+    REQUIRE(LiveDynamicRegionCount() == live);
+}
+
 namespace {
 int g_template_region_calls = 0;
 unsigned char RecordTemplateRegionInput(const InputEvent*, W8Region*, unsigned short)
@@ -220,10 +289,13 @@ TEST_CASE("template_regions_keep_their_callback_when_a_widget_binds_them")
     panel.SetActive(true);
     REQUIRE(g_regions[index].InputEnabled());
 
+    regions.Enable();
+    REQUIRE(UpdateRegionMousePosition(105, 105) == index);
     g_template_region_calls = 0;
     InputEvent event{};
     event.type = InputEventType::LeftButtonDown;
-    REQUIRE(g_regions[index].handler->HandleRegionInput(g_regions[index], event) == 1);
+    event.position = {105, 105};
+    REQUIRE(DispatchRegionInput(&event) == 1);
     REQUIRE(g_template_region_calls == 1);
 
     panel.RemoveControl(widget);
@@ -322,7 +394,7 @@ TEST_CASE("widget_region_lifetimes")
     rebuilt_panel.CreateRegionSet();
     auto* old = rebuilt_panel.EmplaceControl<RecordingWidget>(events, 4);
     const auto reused_region = old->m_region;
-    rebuilt_panel.CreateRegionSet();
+    ResetRegionSet(rebuilt_panel.RegionSet());
     auto* replacement = rebuilt_panel.EmplaceControl<RecordingWidget>(events, 5);
     REQUIRE(replacement->m_region == reused_region);
     replacement->SetActive(true);

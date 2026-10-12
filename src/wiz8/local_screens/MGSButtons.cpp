@@ -1,3 +1,4 @@
+#include "wiz8/engine_code/Video2.h"
 #include <memory>
 #include <cstdint>
 #include <fmt/format.h>
@@ -50,7 +51,6 @@
 #include "layouts/item_instance.h"
 #include "layouts/main_game_screen.h"
 #include "layouts/targeting.h"
-#include "local_code/ControlsRect.h"
 #include "surrender/srMath.h"
 
 #define MGSBUTTONS_CPP "C:\\Projects\\Wizardry 8\\Local Screens\\MGSButtons.cpp"
@@ -383,7 +383,7 @@ void RedrawOptionsDiskButton(void)
         enabled = false;
     }
     g_options_disk_button.SetEnabled(enabled);
-    g_options_disk_button.Draw();
+    g_options_disk_button.Draw(GetFrameBufferSurface());
 }
 
 /* Pick which of the five combat-stance buttons is visible for the live combat
@@ -421,7 +421,7 @@ void UpdateCombatStanceButtons(void)
         enabled = false;
     }
     g_combat_stance_buttons[stance].SetEnabled(enabled);
-    g_combat_stance_buttons[stance].Draw();
+    g_combat_stance_buttons[stance].Draw(GetFrameBufferSurface());
 }
 
 /* Dirties the five combat-stance buttons and refreshes which one is live. */
@@ -580,7 +580,7 @@ void UpdateRoofButtons(void)
     g_roof_buttons[1].SetEnabled(enabled);
     SyncRoofButtonPressedState();
     for (auto& button : g_roof_buttons) {
-        button.Draw();
+        button.Draw(GetFrameBufferSurface());
     }
 }
 
@@ -738,7 +738,7 @@ void RedrawLayoutArrowButtons(void)
         g_layout_arrow_buttons[3].SetVisible(false);
         draw_button = &g_layout_arrow_buttons[0];
     }
-    draw_button->Draw();
+    draw_button->Draw(GetFrameBufferSurface());
 
     if (g_level_block->action_panel_visible == 0) {
         g_layout_arrow_buttons[4].SetVisible(true);
@@ -749,17 +749,17 @@ void RedrawLayoutArrowButtons(void)
         g_layout_arrow_buttons[4].SetVisible(false);
         draw_button = &g_layout_arrow_buttons[1];
     }
-    draw_button->Draw();
+    draw_button->Draw(GetFrameBufferSurface());
 
     if (g_level_block->formation_board_visible) {
         g_layout_arrow_buttons[2].SetVisible(true);
         g_layout_arrow_buttons[5].SetVisible(false);
-        g_layout_arrow_buttons[2].Draw();
+        g_layout_arrow_buttons[2].Draw(GetFrameBufferSurface());
         return;
     }
     g_layout_arrow_buttons[5].SetVisible(true);
     g_layout_arrow_buttons[2].SetVisible(false);
-    g_layout_arrow_buttons[5].Draw();
+    g_layout_arrow_buttons[5].Draw(GetFrameBufferSurface());
 }
 
 // FUNCTION: WIZ8 0x005982D0
@@ -1076,7 +1076,7 @@ void UpdateSubMenuPanelButtons(void)
     }
 
     for (auto& button : g_submenu_panel_buttons) {
-        button.Draw();
+        button.Draw(GetFrameBufferSurface());
     }
 }
 
@@ -1094,7 +1094,7 @@ static void UpdateSubMenuScrollButtons()
         }
     }
     for (auto& button : g_submenu_scroll_buttons) {
-        button.Draw();
+        button.Draw(GetFrameBufferSurface());
     }
 }
 
@@ -1116,7 +1116,7 @@ void RedrawSubMenuButtons(void)
     for (index = 0; index < 9; ++index) {
         auto& button = g_submenu_buttons[index];
         UpdateSubMenuButton(index);
-        button.Draw();
+        button.Draw(GetFrameBufferSurface());
     }
 
     CatalogArtwork::Load(0x7e, 0).drawAndInvalidate(GetFrameBufferSurface(), 7, 0x210, 0x1c2);
@@ -1238,7 +1238,7 @@ void UpdateMainGameButtons(void)
     for (index = 0; index < 9; ++index) {
         auto& button = g_submenu_buttons[index];
         UpdateSubMenuButton(index);
-        button.Draw();
+        button.Draw(GetFrameBufferSurface());
     }
     UpdateSubMenuScrollButtons();
     UpdateSubMenuPanelButtons();
@@ -1246,7 +1246,7 @@ void UpdateMainGameButtons(void)
               !gXStatus.fTrapInteractMode && !gXStatus.fCampMode && !gXStatus.fLockInteract &&
               !gXStatus.fTrapInteract;
     g_options_disk_button.SetEnabled(enabled);
-    g_options_disk_button.Draw();
+    g_options_disk_button.Draw(GetFrameBufferSurface());
     UpdateCombatStanceButtons();
     UpdateRoofButtons();
 }

@@ -39,7 +39,11 @@ public:
     void Configure(ButtonAppearance appearance, const SDL_Rect& bounds, unsigned int set);
     void Reset();
     bool IsConfigured() const { return OwnsRegion(); }
-    void Draw() const;
+    void Draw(SDL_Surface& target) const;
+    void Redraw(SDL_Surface& target, bool) override
+    {
+        if (m_active) Draw(target);
+    }
 
 private:
     ButtonAppearance m_appearance;

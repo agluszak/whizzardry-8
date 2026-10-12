@@ -1,3 +1,4 @@
+#include <SDL3/SDL_surface.h>
 #include "himage.h"
 #include "image.h"
 #include <memory>

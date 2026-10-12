@@ -6,7 +6,6 @@
 #include <fmt/printf.h>
 #include <optional>
 #include <string>
-#include <utility>
 #include <vector>
 
 #include "wiz8/spell_ids.h"

@@ -1,3 +1,4 @@
+#include "wiz8/engine_code/Video2.h"
 #include <fmt/format.h>
 #include <string_view>
 #include <string>
@@ -569,7 +570,7 @@ void W8AssayDialog::Draw()
     }
     for (index = 0; index < W8_ASSAY_BUTTON_COUNT; ++index) {
         if (m_buttons[index].IsConfigured()) {
-            m_buttons[index].Draw();
+            m_buttons[index].Draw(GetFrameBufferSurface());
         }
     }
     for (index = 0; index < W8_ASSAY_TEXT_BUFFER_COUNT; ++index) {

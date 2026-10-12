@@ -1,3 +1,4 @@
+#include <SDL3/SDL_surface.h>
 #include <fmt/format.h>
 #include <string_view>
 #include <cstring>

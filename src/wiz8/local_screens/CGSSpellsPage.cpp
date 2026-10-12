@@ -1,3 +1,5 @@
+#include <memory>
+#include <SDL3/SDL_surface.h>
 #include <fmt/format.h>
 #include <SDL3/SDL_rect.h>
 #include <string>

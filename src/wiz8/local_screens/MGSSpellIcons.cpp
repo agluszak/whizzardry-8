@@ -1,3 +1,4 @@
+#include "wiz8/local_code/ControlsRect.h"
 #include <memory>
 #include <fmt/format.h>
 #include <fmt/printf.h>

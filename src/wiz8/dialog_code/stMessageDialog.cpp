@@ -1,3 +1,4 @@
+#include "wiz8/engine_code/Video2.h"
 #include <fmt/format.h>
 #include <algorithm>
 #include <string_view>
@@ -41,7 +42,7 @@ void W8MessageDialogBase::Draw()
 
     W8DialogBase::Draw();
     m_message_button.m_dirty = true;
-    m_message_button.Draw();
+    m_message_button.Draw(GetFrameBufferSurface());
     if (!m_show_confirm && !allow_cancel) {
         y = m_y + m_height / 2 - (g_dialog_interface_font->height() * m_line_count >> 1);
     } else {
@@ -66,10 +67,10 @@ void W8MessageDialogBase::Draw()
     }
     if (m_show_confirm) {
         m_confirm_button.m_dirty = true;
-        m_confirm_button.Draw();
+        m_confirm_button.Draw(GetFrameBufferSurface());
         if (allow_cancel) {
             m_cancel_button.m_dirty = true;
-            m_cancel_button.Draw();
+            m_cancel_button.Draw(GetFrameBufferSurface());
         }
     }
 }

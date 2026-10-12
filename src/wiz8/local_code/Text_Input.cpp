@@ -1,3 +1,4 @@
+#include "wiz8/local_code/ControlsRect.h"
 #include <SDL3/SDL_pixels.h>
 #include "Types.h"
 #include <SDL3/SDL_rect.h>

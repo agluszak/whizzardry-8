@@ -1,3 +1,4 @@
+#include "wiz8/engine_code/Video2.h"
 #include <SDL3/SDL_rect.h>
 #include <algorithm>
 
@@ -108,13 +109,13 @@ void W8DialogScrollBar::Draw(bool force)
     if (m_initialized && m_visible && (force || m_dirty || m_up_button.m_dirty || m_down_button.m_dirty ||
         m_track_button.m_dirty || m_thumb_button.m_dirty)) {
         m_track_button.m_dirty = true;
-        m_track_button.Draw();
+        m_track_button.Draw(GetFrameBufferSurface());
         m_up_button.m_dirty = true;
-        m_up_button.Draw();
+        m_up_button.Draw(GetFrameBufferSurface());
         m_down_button.m_dirty = true;
-        m_down_button.Draw();
+        m_down_button.Draw(GetFrameBufferSurface());
         m_thumb_button.m_dirty = true;
-        m_thumb_button.Draw();
+        m_thumb_button.Draw(GetFrameBufferSurface());
         InvalidateRegion(m_track_button.Bounds().x, m_track_button.Bounds().y,
                          m_track_button.Bounds().x + m_track_button.Bounds().w,
                          m_track_button.Bounds().y + m_track_button.Bounds().h);

@@ -1,3 +1,4 @@
+#include "wiz8/engine_code/Video2.h"
 #include <fmt/format.h>
 #include <SDL3/SDL_rect.h>
 #include <string>
@@ -338,7 +339,7 @@ void W8SplitItemDialog::Draw()
     }
     for (index = 0; index < button_count; ++index) {
         if (m_buttons[index].IsConfigured()) {
-            m_buttons[index].Draw();
+            m_buttons[index].Draw(GetFrameBufferSurface());
         }
     }
     for (index = 0; index < text_count; ++index) {

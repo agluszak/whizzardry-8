@@ -13,22 +13,28 @@
 #include <SDL3/SDL_mouse.h>
 #include <SDL3/SDL_rect.h>
 #include <algorithm>
-#include <cstdint>
 #include <memory>
 #include <string_view>
 #include <utility>
 
 // FUNCTION: WIZ8 0x005db4e0
-void W8ButtonWidget::Draw()
+void W8ButtonWidget::Draw(SDL_Surface& target)
 {
     if (m_dirty && OwnsRegion() && (Region().flags & W8_REGION_INPUT_DISABLED) == 0) {
         m_visual.hovered = (Region().flags & W8_REGION_MOUSE_ENTER) != 0 ||
                            g_ui.hover == static_cast<unsigned int>(m_region);
-        DrawButtonAppearance(GetFrameBufferSurface(), m_appearance, ScreenBounds(), m_visual);
+        DrawButtonAppearance(target, m_appearance, ScreenBounds(), m_visual);
         const auto bounds = ScreenBounds();
         InvalidateRegion(bounds.x, bounds.y, bounds.x + bounds.w, bounds.y + bounds.h);
         m_dirty = false;
     }
+}
+
+void W8ButtonWidget::Redraw(SDL_Surface& target, bool full_redraw)
+{
+    if (!m_active) return;
+    if (full_redraw) m_dirty = true;
+    Draw(target);
 }
 
 // FUNCTION: WIZ8 0x005db550

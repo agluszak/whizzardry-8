@@ -63,7 +63,6 @@
 #include "layouts/npc_dialogue.h"
 #include "layouts/screen_state.h"
 #include "layouts/targeting.h"
-#include "local_code/ControlsRect.h"
 #include "mgs_commands.h"
 #include "surrender/srMath.h"
 

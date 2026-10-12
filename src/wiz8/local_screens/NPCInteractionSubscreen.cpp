@@ -1,3 +1,5 @@
+#include <functional>
+#include <SDL3/SDL_surface.h>
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <wiz8/filesystem.h>

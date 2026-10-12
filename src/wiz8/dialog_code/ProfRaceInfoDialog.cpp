@@ -1,3 +1,4 @@
+#include "wiz8/engine_code/Video2.h"
 #include "Font.h"
 #include <fmt/format.h>
 #include <fmt/printf.h>
@@ -140,7 +141,7 @@ void W8ProfRaceInfoDialogBase::Draw()
     }
     m_text_area.Draw(false);
     m_scroll_bar.Draw(false);
-    m_button.Draw();
+    m_button.Draw(GetFrameBufferSurface());
 }
 
 // FUNCTION: WIZ8 0x005DEEE0

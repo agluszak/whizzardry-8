@@ -1,3 +1,4 @@
+#include "wiz8/engine_code/Video2.h"
 #include <cstdint>
 #include <fmt/printf.h>
 #include <string>
@@ -90,7 +91,7 @@ void W8StatInfoDialogBase::Draw()
     }
     textarea.Draw(false);
     scrollbar.Draw(false);
-    button.Draw();
+    button.Draw(GetFrameBufferSurface());
 }
 
 // FUNCTION: WIZ8 0x005dfb40

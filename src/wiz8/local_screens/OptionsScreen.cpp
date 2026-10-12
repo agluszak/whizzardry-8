@@ -1480,6 +1480,19 @@ W8OptionsMenuRowControl::W8OptionsMenuRowControl(const W8OptionsMenuRow& row)
         hotspot->m_listener = this;
         hotspot->AddLayoutFlags(g_W8TextControlSilentHover);
     }
+    SDL_Rect row_bounds = m_button->Bounds();
+    for (int index = 1; index < static_cast<int>(ControlCount()); ++index) {
+        SDL_Rect combined{};
+        SDL_GetRectUnion(&row_bounds, &ControlAt(index)->Bounds(), &combined);
+        row_bounds = combined;
+    }
+    SetBounds(row_bounds);
+    for (int index = 0; index < static_cast<int>(ControlCount()); ++index) {
+        auto bounds = ControlAt(index)->Bounds();
+        bounds.x -= row_bounds.x;
+        bounds.y -= row_bounds.y;
+        ControlAt(index)->SetBounds(bounds);
+    }
 }
 
 void W8OptionsMenuRowControl::OnPrimary(W8TextControl*)
@@ -1693,7 +1706,7 @@ W8OptionsMenuSet::~W8OptionsMenuSet()
 void W8OptionsPanel::SetActive(bool active)
 {
     EnableRegionSet(active);
-    SetActive(active);
+    Controls::SetActive(active);
     InvalidateAll();
 }
 

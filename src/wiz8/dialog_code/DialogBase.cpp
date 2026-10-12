@@ -1,3 +1,4 @@
+#include <utility>
 #include <SDL3/SDL_rect.h>
 #include <string>
 #include <string_view>
@@ -42,9 +43,9 @@ void W8DialogFrame::Reset()
     SetBounds({});
 }
 
-void W8DialogFrame::Draw() const
+void W8DialogFrame::Draw(SDL_Surface& target) const
 {
-    DrawButtonAppearance(GetFrameBufferSurface(), m_appearance, ScreenBounds(), {});
+    DrawButtonAppearance(target, m_appearance, ScreenBounds(), {});
 }
 
 void W8DialogBase::CreateCloseButton(W8ButtonWidget& button, int left, int top)
@@ -116,7 +117,7 @@ void W8DialogBase::Draw()
         if (m_width != m_frame.Bounds().w || m_height != m_frame.Bounds().h) {
             m_frame.SetBounds({m_x, m_y, m_width, m_height});
         }
-        m_frame.Draw();
+        m_frame.Draw(GetFrameBufferSurface());
         InvalidateRegion(m_x, m_y, m_x + m_width, m_y + m_height);
     }
     m_dirty_flags &= ~W8_DIALOG_DIRTY_REDRAW;

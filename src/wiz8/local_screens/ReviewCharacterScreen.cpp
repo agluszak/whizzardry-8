@@ -1,3 +1,4 @@
+#include <SDL3/SDL_surface.h>
 #include "himage.h"
 #include <cstdint>
 #include <fmt/format.h>
@@ -5,7 +6,6 @@
 #include <SDL3/SDL_rect.h>
 #include <string_view>
 #include <string>
-#include <new>
 #include <array>
 #include <memory>
 #include <utility>

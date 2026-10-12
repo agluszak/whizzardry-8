@@ -1,3 +1,4 @@
+#include "wiz8/dialog_code/DialogBase.h"
 #include <deque>
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_surface.h>
@@ -1277,6 +1278,28 @@ void generic_button_images()
                 }
             }
         }
+    }
+    // Panel painting must use the supplied canvas, including forced repaints.
+    {
+        Controls panel;
+        panel.CreateRegionSet();
+        panel.SetActive(true);
+        auto* button = panel.EmplaceControl<W8ButtonWidget>();
+        REQUIRE(button->ConfigureIcon("button.sti", 0, 1, REGION_PRIORITY_NORMAL,
+                                      W8_DIALOG_BUTTON_NO_TOOLTIP));
+        button->SetPosition(2, 3);
+        SDL_FillSurfaceRect(&target, nullptr, 0);
+        panel.Redraw(target, true);
+        auto* pixels = static_cast<std::uint16_t*>(target.pixels);
+        REQUIRE(pixels[3 * (target.pitch / 2) + 2] == frame_colors[2]);
+        SDL_FillSurfaceRect(&target, nullptr, 0);
+        panel.Redraw(target, true);
+        REQUIRE(pixels[3 * (target.pitch / 2) + 2] == frame_colors[2]);
+
+        auto* frame = panel.EmplaceControl<W8DialogFrame>();
+        frame->Configure(first_appearance, {4, 5, 1, 1}, panel.RegionSet());
+        panel.Redraw(target, true);
+        REQUIRE(pixels[5 * (target.pitch / 2) + 4] == frame_colors[2]);
     }
     gfRenderHilights = old_hilights;
     target_owner.reset();
