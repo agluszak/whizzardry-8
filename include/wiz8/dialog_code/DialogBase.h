@@ -109,4 +109,5 @@ protected:
 };
 
 
-extern int g_live_dialog_count;
+/* The innermost live dialog; only its controls take input. */
+W8DialogBase* TopLiveDialog();
