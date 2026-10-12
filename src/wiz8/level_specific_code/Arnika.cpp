@@ -724,6 +724,23 @@ void ArnikaEl2Moving(int command)
     RunArnikaElevatorMoving(gEl02, g_el02_bindings, command);
 }
 
+/* Runs a door and its collide trigger for one elevator step and returns the door's prop. */
+static W8Prop* RunElevatorDoor(Trigger* door, Trigger* collide)
+{
+    W8Prop* prop = door->GetProp();
+    door->Run(-1);
+    collide->Run(-1);
+    return prop;
+}
+
+/* Runs the lift for one elevator step and returns its prop. */
+static W8Prop* RunElevatorLift(Trigger* lift)
+{
+    W8Prop* prop = lift->GetProp();
+    lift->Run(-1);
+    return prop;
+}
+
 /* Shared elevator step: advances the selected elevator one state, running
    the door/lift triggers for the departing state and caching the rep the
    moving master will wait on. States 3 and 7 are the door-closed pauses that
@@ -743,9 +760,7 @@ void ArnikaElevatorAdvance(int which)
        for the out-prop slot, which is not authored source. */
     switch (el->state) {
     case 1:
-        prop = el->pTopDoor->GetProp();
-        el->pTopDoor->Run(-1);
-        el->pTopDoorCollide->Run(-1);
+        prop = RunElevatorDoor(el->pTopDoor, el->pTopDoorCollide);
         el->state = 2;
         break;
     case 2:
@@ -753,20 +768,15 @@ void ArnikaElevatorAdvance(int which)
         el->state = 3;
         break;
     case 3:
-        prop = el->pTopDoor->GetProp();
-        el->pTopDoor->Run(-1);
-        el->pTopDoorCollide->Run(-1);
+        prop = RunElevatorDoor(el->pTopDoor, el->pTopDoorCollide);
         el->state = 4;
         break;
     case 4:
-        prop = el->pLift->GetProp();
-        el->pLift->Run(-1);
+        prop = RunElevatorLift(el->pLift);
         el->state = 5;
         break;
     case 5:
-        prop = el->pBottomDoor->GetProp();
-        el->pBottomDoor->Run(-1);
-        el->pBottomDoorCollide->Run(-1);
+        prop = RunElevatorDoor(el->pBottomDoor, el->pBottomDoorCollide);
         el->state = 6;
         break;
     case 6:
@@ -774,14 +784,11 @@ void ArnikaElevatorAdvance(int which)
         el->state = 7;
         break;
     case 7:
-        prop = el->pBottomDoor->GetProp();
-        el->pBottomDoor->Run(-1);
-        el->pBottomDoorCollide->Run(-1);
+        prop = RunElevatorDoor(el->pBottomDoor, el->pBottomDoorCollide);
         el->state = 8;
         break;
     case 8:
-        prop = el->pLift->GetProp();
-        el->pLift->Run(-1);
+        prop = RunElevatorLift(el->pLift);
         el->state = 1;
         break;
     }
