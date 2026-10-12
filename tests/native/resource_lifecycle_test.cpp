@@ -1,8 +1,10 @@
+#include <array>
 #include <catch2/catch_test_macros.hpp>
 #include <filesystem>
 #include <memory>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "GrCycle.h"
@@ -15,6 +17,10 @@
 #include "wiz8/engine_code/stMeshModel.h"
 #include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/character_event_queue.h"
+#include "wiz8/layouts/character.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/xstatus.h"
 #include "wiz8/message_box.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
@@ -102,13 +108,6 @@ static void npc_script_teardown()
 
 static void queued_state_teardown()
 {
-    {
-        W8CharacterEventQueue queue;
-        queue.pending_events.push_back(new W8CharacterEvent(nullptr, 0, 0, 0, 0));
-        queue.npc_deferred_events.push_back(new W8CharacterEvent(nullptr, 0, 0, 0, 0));
-        queue.vector0.push_back(new W8CharacterEvent(nullptr, 0, 0, 0, 0));
-        queue.vector1.push_back(new W8CharacterEvent(nullptr, 0, 0, 0, 0));
-    } // Every pending vector is owning, even when no frame dispatched it.
     AddDialogueTranscriptKeyword("Monastery", 0);
     AddDialogueTranscriptKeyword("Arnika", 0);
     REQUIRE((static_cast<int>(g_npc_interaction_state->dialogue_transcript.size()) == 2));
@@ -136,9 +135,34 @@ TEST_CASE("NPC script owns nested quotes until release", "[resources][lifecycle]
     npc_script_teardown();
 }
 
-TEST_CASE("Deferred character events and NPC message queues release their contents", "[resources][lifecycle]")
+TEST_CASE("NPC message queues release their contents", "[resources][lifecycle]")
 {
     queued_state_teardown();
+}
+
+TEST_CASE("A dead character's events leave every queue", "[resources][lifecycle]")
+{
+    std::array<W8Character, 8> party{};
+    party[0].fInParty = party[1].fInParty = true;
+    struct RestoreParty {
+        W8Character* saved;
+        ~RestoreParty() { g_status.buffers.Char = saved; }
+    } restore{std::exchange(g_status.buffers.Char, party.data())};
+    // Declared last, so its remaining active event completes while the party is reachable.
+    W8CharacterEventQueue queue;
+    const auto queues = {&queue.pending_events, &queue.npc_deferred_events, &queue.active_events};
+    for (auto* events : queues) {
+        for (auto* character : {&party[0], &party[1]})
+            events->push_back(std::make_unique<W8CharacterEvent>(character, 0, 0, 0, 0));
+    }
+    gXStatus.monster_manager_entries[0].active_character_event = queue.active_events.front().get();
+
+    queue.RemoveCharacterEvents(&party[0]);
+
+    for (const auto* events : queues)
+        REQUIRE((events->size() == 1 && events->front()->character == &party[1]));
+    // Completion releases the portrait's borrowed pointer to the active event.
+    REQUIRE(gXStatus.monster_manager_entries[0].active_character_event == nullptr);
 }
 
 struct SpellVisualFixture

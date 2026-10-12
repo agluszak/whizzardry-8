@@ -1,4 +1,6 @@
+#include <algorithm>
 #include <array>
+#include <memory>
 #include <cstdint>
 #include <fmt/format.h>
 #include <fmt/printf.h>
@@ -8,13 +10,11 @@
 #include <string_view>
 #include <string>
 #include <utility>
-#include <cstring>
 #include <optional>
 
 #include "sprite.h"
 #include "image.h"
 #include "wiz8/unicode.h"
-#include "wiz8/containers.h"
 #include "wiz8/fonts.h"
 #include "wiz8/integer_constants.h"
 #include "compat/native.h"
@@ -477,88 +477,75 @@ std::string W8CharacterEvent::GetQuoteText()
     return g_character_text;
 }
 
-/* 0x0052D460 proves four equal derived growable-vector instantiations followed
-   by a fifth instantiation with a distinct vtable and the tail state below. */
-
 // FUNCTION: WIZ8 0x0052d460
 W8CharacterEventQueue::W8CharacterEventQueue()
     : active_event_type(-1), active_party_slot(-1), follow_up_flags(0), follow_up_speaker_slot(-1)
 {
-    event_character_masks = new unsigned char[0xb1];
-    memset(event_character_masks, 0, 0xb1);
 }
 
 // FUNCTION: WIZ8 0x0052d5b0
-W8CharacterEventQueue::~W8CharacterEventQueue()
-{
-    DestroyAllEvents();
-    delete[] event_character_masks;
-}
+W8CharacterEventQueue::~W8CharacterEventQueue() { DestroyAllEvents(); }
 
-/* The queue owns active and deferred events until completion or teardown. */
+/* Completes every active event, then drops the undispatched ones. */
 // FUNCTION: WIZ8 0x0052db80
 void W8CharacterEventQueue::DestroyAllEvents()
 {
     CompleteAllActiveEvents();
-    wiz8::remove_all_and_delete_in_order(npc_deferred_events);
-    wiz8::remove_all_and_delete_in_order(pending_events);
-    wiz8::remove_all_and_delete_in_order(vector0);
-    wiz8::remove_all_and_delete_in_order(vector1);
+    npc_deferred_events.clear();
+    pending_events.clear();
 }
 
-static void DeleteQueuedCharacterEvents(std::vector<W8CharacterEvent*>& events,
-                                        W8Character* character)
+// FUNCTION: WIZ8 0x0052D8D0
+void W8CharacterEventQueue::CompleteActiveEvent(W8CharacterEvent* entry)
 {
-    for (int index = 0; index < static_cast<int>(events.size()); ++index) {
-        W8CharacterEvent* entry = events[index];
-        if (entry->character == character) {
-            auto* object = events[index];
-            events.erase(events.begin() + index);
-            delete object;
-            --index;
-        }
+    const auto owner =
+        std::ranges::find(active_events, entry, &std::unique_ptr<W8CharacterEvent>::get);
+    if (owner == active_events.end()) {
+        return;
     }
+    const std::unique_ptr<W8CharacterEvent> completed = std::move(*owner);
+    active_events.erase(owner);
+    RestartFollowUpClock(completed.get());
+    completed->Complete();
 }
 
 // FUNCTION: WIZ8 0x0052D970
 void W8CharacterEventQueue::RemoveCharacterEvents(W8Character* character)
 {
-    int index;
-    W8CharacterEvent* entry;
-
-    for (index = 0; index < static_cast<int>(active_events.size()); ++index) {
-        entry = active_events[index];
-        if (entry->character == character) {
-            active_events.erase(active_events.begin() + index);
-            --index;
-            entry->Complete();
+    const auto belongs_to_character = [character](const auto& entry) {
+        return entry->character == character;
+    };
+    /* Unlink the character's active events before completing them, so
+       completion never observes a half-updated list. */
+    std::vector<std::unique_ptr<W8CharacterEvent>> removed;
+    for (auto& entry : active_events) {
+        if (belongs_to_character(entry)) {
+            removed.push_back(std::move(entry));
         }
     }
-    DeleteQueuedCharacterEvents(vector1, character);
-    DeleteQueuedCharacterEvents(pending_events, character);
-    DeleteQueuedCharacterEvents(vector0, character);
-    DeleteQueuedCharacterEvents(npc_deferred_events, character);
+    std::erase(active_events, nullptr);
+    for (const auto& entry : removed) {
+        entry->Complete();
+    }
+    std::erase_if(pending_events, belongs_to_character);
+    std::erase_if(npc_deferred_events, belongs_to_character);
 }
 
 // FUNCTION: WIZ8 0x0052DB30
 void W8CharacterEventQueue::CompleteAllActiveEvents()
 {
     while (!active_events.empty()) {
-        const auto entry = active_events[0];
+        const std::unique_ptr<W8CharacterEvent> entry = std::move(active_events.front());
         active_events.erase(active_events.begin());
         entry->Complete();
-        delete entry;
     }
 }
 
 // FUNCTION: WIZ8 0x0052e3b0
 void W8CharacterEventQueue::CompleteFirstActiveEvent()
 {
-    W8CharacterEvent* entry;
-
     if (!active_events.empty()) {
-        entry = active_events[0];
-        CompleteActiveEvent(entry);
+        CompleteActiveEvent(active_events.front().get());
     }
 }
 
@@ -1163,47 +1150,37 @@ void W8CharacterEventQueue::ProcessFollowUpEvents()
 }
 
 // FUNCTION: WIZ8 0x0052D610
-int W8CharacterEventQueue::QueueEntry(W8CharacterEvent* entry)
+W8CharacterEvent* W8CharacterEventQueue::QueueEntry(std::unique_ptr<W8CharacterEvent> entry)
 {
-    unsigned int party_slot;
-
-    party_slot = CharacterPointerToPartySlot(entry->character);
+    const unsigned int party_slot = CharacterPointerToPartySlot(entry->character);
     if (HasEventCharacter(entry->event_type, party_slot)) {
-        delete entry;
-        return 0;
+        return nullptr;
     }
     if (g_status.greeting_pending) {
-        delete entry;
-        return 0;
+        return nullptr;
     }
     if (entry->event_type > 0x91 && (entry->flags & W8_EVENT_NO_PREEMPT) == 0) {
         W8MonsterManagerEntry* slot = &gXStatus.monster_manager_entries[party_slot];
         if (slot->active_character_event != 0) {
             CompleteActiveEvent(slot->active_character_event);
         }
-        entry->Dispatch();
-        return 1;
+        if (entry->Dispatch() == 0) {
+            return nullptr;
+        }
+        return active_events.emplace_back(std::move(entry)).get();
     }
     if (entry->event_type == 0x21) {
-        int index;
-        if (!active_events.empty() && active_events[0]->event_type == 0x21) {
-            delete entry;
-            return 0;
-        }
-        for (index = 0; index < static_cast<int>(pending_events.size()); ++index) {
-            if (pending_events[index]->event_type == 0x21) {
-                delete entry;
-                return 0;
-            }
+        const auto is_same_type = [](const auto& queued) { return queued->event_type == 0x21; };
+        if ((!active_events.empty() && is_same_type(active_events.front())) ||
+            std::ranges::any_of(pending_events, is_same_type)) {
+            return nullptr;
         }
     }
     if ((ShouldDeferCharacterEventForNpcScript(false) || IsNpcScriptSessionActive()) &&
         (entry->flags & W8_EVENT_NO_NPC_DEFER) == 0) {
-        npc_deferred_events.push_back(entry);
-        return 1;
+        return npc_deferred_events.emplace_back(std::move(entry)).get();
     }
-    pending_events.push_back(entry);
-    return 1;
+    return pending_events.emplace_back(std::move(entry)).get();
 }
 
 // FUNCTION: WIZ8 0x0052DD20
@@ -1281,44 +1258,37 @@ bool W8CharacterEventQueue::IsMainQueueEmpty() const
 // FUNCTION: WIZ8 0x0052DDD0
 void W8CharacterEventQueue::ProcessDeferredCharacterEvents()
 {
-    W8CharacterEvent* entry;
-    W8CharacterEvent* baseline;
-    int index;
-    int conflict_count;
-    int* conflict_indices;
-    int remaining_conflicts;
-    unsigned int event_type;
-    unsigned int party_slot;
-
     if (gXStatus.fSurprisePossible) {
         return;
     }
 
     if (!npc_deferred_events.empty() && !ShouldDeferCharacterEventForNpcScript(false) &&
         !IsNpcScriptSessionActive()) {
-        for (index = 0; index < static_cast<int>(npc_deferred_events.size()); ++index) {
-            QueueEntry(npc_deferred_events[index]);
-        }
+        /* Requeueing can dispatch, so detach the batch first; anything
+           deferred again lands in the emptied list. */
+        auto deferred = std::move(npc_deferred_events);
         npc_deferred_events.clear();
+        for (auto& entry : deferred) {
+            QueueEntry(std::move(entry));
+        }
     }
 
     if (!pending_events.empty()) {
-        conflict_count = 1;
-        baseline = pending_events[0];
-        conflict_indices = new int[static_cast<int>(pending_events.size())];
-        conflict_indices[0] = 0;
-        for (index = 1; index < static_cast<int>(pending_events.size()); ++index) {
-            entry = pending_events[index];
-            event_type = entry->event_type;
-            if (event_type == baseline->event_type && entry->character != baseline->character &&
-                event_type != 0x2a && event_type != 0x24) {
-                conflict_indices[conflict_count] = index;
-                ++conflict_count;
+        /* At most three party members voice the same event at once; extra
+           duplicates of the head event are dropped at random. */
+        const W8CharacterEvent& baseline = *pending_events.front();
+        std::vector<int> conflict_indices{0};
+        for (int index = 1; index < static_cast<int>(pending_events.size()); ++index) {
+            const W8CharacterEvent& entry = *pending_events[index];
+            if (entry.event_type == baseline.event_type && entry.character != baseline.character &&
+                entry.event_type != 0x2a && entry.event_type != 0x24) {
+                conflict_indices.push_back(index);
             }
         }
 
+        const int conflict_count = static_cast<int>(conflict_indices.size());
         if (conflict_count > 3) {
-            remaining_conflicts = conflict_count;
+            int remaining_conflicts = conflict_count;
             while (remaining_conflicts > 3) {
                 int pick = Random(conflict_count);
                 if (conflict_indices[pick] != -1) {
@@ -1326,18 +1296,12 @@ void W8CharacterEventQueue::ProcessDeferredCharacterEvents()
                     --remaining_conflicts;
                 }
             }
-            for (index = conflict_count - 1; index >= 0; --index) {
+            for (int index = conflict_count - 1; index >= 0; --index) {
                 if (conflict_indices[index] != -1) {
-                    if (conflict_indices[index] >= 0 &&
-                        std::cmp_less(conflict_indices[index], pending_events.size())) {
-                        auto* object = pending_events[conflict_indices[index]];
-                        pending_events.erase(pending_events.begin() + conflict_indices[index]);
-                        delete object;
-                    }
+                    pending_events.erase(pending_events.begin() + conflict_indices[index]);
                 }
             }
         }
-        delete[] conflict_indices;
     }
 
     if (pending_events.empty()) {
@@ -1348,44 +1312,40 @@ void W8CharacterEventQueue::ProcessDeferredCharacterEvents()
         return;
     }
 
-    index = 0;
-    while (index < static_cast<int>(pending_events.size())) {
-        entry = pending_events[index];
-        event_type = entry->event_type;
+    for (auto position = pending_events.begin(); position != pending_events.end(); ++position) {
+        W8CharacterEvent& entry = **position;
+        const unsigned int event_type = entry.event_type;
         if (g_current_screen_state.id != W8_SCREEN_MAIN_GAME) {
             unsigned int descriptor_index;
             if (MapEventTypeToDescriptorIndex(event_type, &descriptor_index) &&
                 g_character_event_descriptors[descriptor_index].defer_outside_main_game != 0) {
-                ++index;
                 continue;
             }
         }
 
-        if (entry->character->fInParty) {
-            party_slot = CharacterPointerToPartySlot(entry->character);
+        if (entry.character->fInParty) {
+            const unsigned int party_slot = CharacterPointerToPartySlot(entry.character);
             if (!HasEventCharacter(event_type, party_slot)) {
                 if (PartyPortraitEventsIdle() == 0) {
                     return;
                 }
-                if (entry->dispatch_delay_ms != 0 &&
-                    w8_get_ticks() - entry->dispatch_delay_start <=
-                        static_cast<unsigned int>(entry->dispatch_delay_ms)) {
+                if (entry.dispatch_delay_ms != 0 &&
+                    w8_get_ticks() - entry.dispatch_delay_start <=
+                        static_cast<unsigned int>(entry.dispatch_delay_ms)) {
                     return;
                 }
-                pending_events.erase(pending_events.begin() + index);
-                if (TryAdjustQueuedEvent(entry) == 0) {
-                    delete entry;
+                std::unique_ptr<W8CharacterEvent> dispatched = std::move(*position);
+                pending_events.erase(position);
+                if (TryAdjustQueuedEvent(dispatched.get()) == 0 || dispatched->Dispatch() == 0) {
                     return;
                 }
-                if (entry->Dispatch() == 0) {
-                    return;
-                }
-                active_events.push_back(entry);
+                active_events.push_back(std::move(dispatched));
                 return;
             }
         }
 
-        wiz8::erase_first(pending_events, entry);
+        /* The character left the party or already voiced this event. */
+        pending_events.erase(position);
         return;
     }
 }
@@ -1427,8 +1387,6 @@ W8CharacterEvent* ApplyItemEffectToRandomCharacter(unsigned int event_type, int 
 W8CharacterEvent* QueueCharacterEvent(W8Character* character, int event_type, unsigned int flags,
                                       int queue_mode, unsigned int volume)
 {
-    W8CharacterEvent* entry;
-
     if (g_settings.pc_confirmations == 0 &&
         (event_type == g_special_event2 || event_type == g_special_event17)) {
         return 0;
@@ -1438,11 +1396,8 @@ W8CharacterEvent* QueueCharacterEvent(W8Character* character, int event_type, un
         event_type != g_special_event10 && event_type != g_special_event16) {
         volume = volume * 70 / 100;
     }
-    entry = new W8CharacterEvent(character, event_type, flags, queue_mode, volume);
-    if (entry != 0 && gXStatus.character_event_queue->QueueEntry(entry) == 0) {
-        return 0;
-    }
-    return entry;
+    return gXStatus.character_event_queue->QueueEntry(
+        std::make_unique<W8CharacterEvent>(character, event_type, flags, queue_mode, volume));
 }
 
 /* Set the pose a party-slot portrait is animating toward. The request drops
