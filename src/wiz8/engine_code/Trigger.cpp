@@ -78,6 +78,13 @@
 #include "glm/ext/vector_float3.hpp"
 #include "layouts/item_instance.h"
 #include "layouts/item_tables.h"
+
+// Sets or clears one flag bit from a retail integer or float condition.
+static void assignFlag(unsigned int& flags, unsigned int flag, bool on)
+{
+    if (on) flags |= flag;
+    else flags &= ~flag;
+}
 #include "layouts/world.h"
 #include "surrender/srClock.h"
 #include "surrender/srNode.h"
@@ -1478,26 +1485,11 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
         trigger->cycle_bounce = byte0;
         trigger->action_value = action_value;
         trigger->initial_action = action;
-        if (animate_states != 0.0f)
-            trigger->flags |= W8_TRIGGER_ANIMATE_STATES;
-        else
-            trigger->flags &= ~W8_TRIGGER_ANIMATE_STATES;
-        if (animate_action != 0)
-            trigger->flags |= W8_TRIGGER_ANIMATE_ACTION;
-        else
-            trigger->flags &= ~W8_TRIGGER_ANIMATE_ACTION;
-        if (enabled != 0)
-            trigger->flags |= W8_TRIGGER_ENABLED;
-        else
-            trigger->flags &= ~W8_TRIGGER_ENABLED;
-        if ((packed_flags & 2) != 0)
-            trigger->flags |= W8_TRIGGER_LINK_ON_DEACTIVATE;
-        else
-            trigger->flags &= ~W8_TRIGGER_LINK_ON_DEACTIVATE;
-        if ((packed_flags & 1) != 0)
-            trigger->flags |= W8_TRIGGER_FIRE_LINKED;
-        else
-            trigger->flags &= ~W8_TRIGGER_FIRE_LINKED;
+        assignFlag(trigger->flags, W8_TRIGGER_ANIMATE_STATES, animate_states != 0.0f);
+        assignFlag(trigger->flags, W8_TRIGGER_ANIMATE_ACTION, animate_action != 0);
+        assignFlag(trigger->flags, W8_TRIGGER_ENABLED, enabled != 0);
+        assignFlag(trigger->flags, W8_TRIGGER_LINK_ON_DEACTIVATE, (packed_flags & 2) != 0);
+        assignFlag(trigger->flags, W8_TRIGGER_FIRE_LINKED, (packed_flags & 1) != 0);
         world->triggers.push_back(trigger);
         if (trigger->name[0] != 0) {
             trigger->setName(trigger->name);
@@ -1592,18 +1584,9 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
         trigger->initial_action = static_cast<unsigned short>(action);
         trigger->searchable = value_c8;
         trigger->flags |= W8_TRIGGER_POSITIONED;
-        if (fire_linked != 0)
-            trigger->flags |= W8_TRIGGER_FIRE_LINKED;
-        else
-            trigger->flags &= ~W8_TRIGGER_FIRE_LINKED;
-        if (enabled != 0)
-            trigger->flags |= W8_TRIGGER_ENABLED;
-        else
-            trigger->flags &= ~W8_TRIGGER_ENABLED;
-        if (keep_on_finish != 0)
-            trigger->flags |= W8_TRIGGER_KEEP_ON_FINISH;
-        else
-            trigger->flags &= ~W8_TRIGGER_KEEP_ON_FINISH;
+        assignFlag(trigger->flags, W8_TRIGGER_FIRE_LINKED, fire_linked != 0);
+        assignFlag(trigger->flags, W8_TRIGGER_ENABLED, enabled != 0);
+        assignFlag(trigger->flags, W8_TRIGGER_KEEP_ON_FINISH, keep_on_finish != 0);
         if (plane == 1)
             trigger->flags |= W8_TRIGGER_PLANE;
         trigger->m_pacRecipients = new char[strlen(recipients) + 1];
@@ -1779,38 +1762,14 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
         trigger->initial_action = static_cast<unsigned short>(initial_action);
         trigger->fallback_action = static_cast<unsigned short>(fallback_action);
         trigger->searchable = searchable;
-        if (enabled != 0)
-            trigger->flags |= W8_TRIGGER_ENABLED;
-        else
-            trigger->flags &= ~W8_TRIGGER_ENABLED;
-        if (fire_linked != 0)
-            trigger->flags |= W8_TRIGGER_FIRE_LINKED;
-        else
-            trigger->flags &= ~W8_TRIGGER_FIRE_LINKED;
-        if (link_on_deactivate != 0)
-            trigger->flags |= W8_TRIGGER_LINK_ON_DEACTIVATE;
-        else
-            trigger->flags &= ~W8_TRIGGER_LINK_ON_DEACTIVATE;
-        if (keep_on_finish != 0)
-            trigger->flags |= W8_TRIGGER_KEEP_ON_FINISH;
-        else
-            trigger->flags &= ~W8_TRIGGER_KEEP_ON_FINISH;
-        if (flag != 0)
-            trigger->flags |= 0x1000;
-        else
-            trigger->flags &= ~0x1000U;
-        if (consume_item != 0)
-            trigger->flags |= W8_TRIGGER_CONSUME_ITEM;
-        else
-            trigger->flags &= ~W8_TRIGGER_CONSUME_ITEM;
-        if (animate_action != 0)
-            trigger->flags |= W8_TRIGGER_ANIMATE_ACTION;
-        else
-            trigger->flags &= ~W8_TRIGGER_ANIMATE_ACTION;
-        if (alternate_toggles != 0)
-            trigger->flags |= W8_TRIGGER_ALTERNATE_TOGGLES;
-        else
-            trigger->flags &= ~W8_TRIGGER_ALTERNATE_TOGGLES;
+        assignFlag(trigger->flags, W8_TRIGGER_ENABLED, enabled != 0);
+        assignFlag(trigger->flags, W8_TRIGGER_FIRE_LINKED, fire_linked != 0);
+        assignFlag(trigger->flags, W8_TRIGGER_LINK_ON_DEACTIVATE, link_on_deactivate != 0);
+        assignFlag(trigger->flags, W8_TRIGGER_KEEP_ON_FINISH, keep_on_finish != 0);
+        assignFlag(trigger->flags, 0x1000, flag != 0);
+        assignFlag(trigger->flags, W8_TRIGGER_CONSUME_ITEM, consume_item != 0);
+        assignFlag(trigger->flags, W8_TRIGGER_ANIMATE_ACTION, animate_action != 0);
+        assignFlag(trigger->flags, W8_TRIGGER_ALTERNATE_TOGGLES, alternate_toggles != 0);
         if (trigger->alternate_action != 0)
             trigger->flags |= W8_TRIGGER_HAS_ALTERNATE;
 
@@ -1849,10 +1808,7 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
         trigger->state_count = value_b0;
         trigger->cycle_bounce = value_b3;
         trigger->state_mod_mode = value_b4;
-        if (animate_states != 0)
-            trigger->flags |= W8_TRIGGER_ANIMATE_STATES;
-        else
-            trigger->flags &= ~W8_TRIGGER_ANIMATE_STATES;
+        assignFlag(trigger->flags, W8_TRIGGER_ANIMATE_STATES, animate_states != 0);
 
         if (trigger->m_pacStateToMod != 0 &&
             (initial_location_value == 0 || initial_location_value == 1)) {
@@ -1870,10 +1826,7 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
         if (version > 2) {
             handle->read_exact(sound, sizeof(sound));
             sprintf(trigger->alternate_action_data, "data\\sound\\%s", sound);
-            if (flag0 != 0)
-                trigger->flags |= W8_TRIGGER_ALTERNATE_ACTION;
-            else
-                trigger->flags &= ~W8_TRIGGER_ALTERNATE_ACTION;
+            assignFlag(trigger->flags, W8_TRIGGER_ALTERNATE_ACTION, flag0 != 0);
         }
 
         if ((packed_flags & 1) == 0) {
