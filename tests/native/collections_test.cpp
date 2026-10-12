@@ -238,6 +238,29 @@ TEST_CASE("active_panels_attach_detach_and_migrate_nested_regions")
     REQUIRE(FindRegionAtPoint(115, 125) == 0);
 }
 
+TEST_CASE("circular_hit_areas_follow_panel_moves_and_reparenting")
+{
+    Controls source;
+    source.SetBounds({100, 100, 100, 100});
+    source.CreateRegionSet();
+    auto* pip = source.EmplaceControl<W8TextControl>(-1u, 10, 20, 30, 40);
+    pip->SetCircularHitArea({20, 30}, 8);
+    REQUIRE(g_regions[pip->m_region].ContainsPoint(120, 130));
+    REQUIRE_FALSE(g_regions[pip->m_region].ContainsPoint(129, 130));
+    source.SetBounds({200, 200, 100, 100});
+    REQUIRE(g_regions[pip->m_region].ContainsPoint(220, 230));
+    REQUIRE_FALSE(g_regions[pip->m_region].ContainsPoint(120, 130));
+
+    Controls destination;
+    destination.SetBounds({300, 100, 100, 100});
+    destination.CreateRegionSet();
+    destination.AddControl(source.TakeControl(pip));
+    REQUIRE(g_regions[pip->m_region].ContainsPoint(320, 130));
+    REQUIRE_FALSE(g_regions[pip->m_region].ContainsPoint(329, 130));
+    pip->SetBounds({20, 30, 20, 20});
+    REQUIRE(g_regions[pip->m_region].ContainsPoint(330, 140));
+}
+
 TEST_CASE("failed_panel_attachment_releases_prepared_descendant_regions")
 {
     struct FailingLayout : Controls {

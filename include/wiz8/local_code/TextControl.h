@@ -67,7 +67,8 @@ public:
     void Invalidate(bool immediate);
     virtual void SetEnabled(bool enabled) override;
     virtual void Redraw(SDL_Surface& target, bool full_redraw) override;
-    void SetFlaggedRegionBounds(int left, int top, int right);
+    /* Centre is panel-relative, like the initial sprite bounds. */
+    void SetCircularHitArea(SDL_Point center, int radius);
     virtual void AddLayoutFlags(unsigned int flags) override;
     virtual void SetAlternateTextEnabled(bool enabled) override;
     void RemoveLayoutFlags(unsigned int flags);
@@ -113,6 +114,11 @@ public:
 
 private:
     std::optional<W8ControlsRect> m_textBounds; /* set by UpdateTextBounds */
+    struct CircleHitArea {
+        SDL_Point center; // Widget-local, so it follows moves and reparenting.
+        int radius;
+    };
+    std::optional<CircleHitArea> m_circleHitArea;
 
 protected:
     void OnGeometryChanged() override;

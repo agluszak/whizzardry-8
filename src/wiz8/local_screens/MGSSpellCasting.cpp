@@ -200,15 +200,15 @@ static void CreateSpellCastingViewControls(void)
     gpSCSV->power_controls[6] = panel->EmplaceControl<W8TextControl>(g_spell_casting_regions->index(12), 0x1f, 0x3a, 0x3a, 0x55, CatalogArtwork::Load(0x192, 0), W8SpriteStates{.normal = 0x24, .pressed = 0x26, .alternate_normal = 0x25, .alternate_pressed = 0x28, .disabled = 0x27});
     gpSCSV->power_controls[7] = panel->EmplaceControl<W8TextControl>(g_spell_casting_regions->index(13), 0x10, 0x1f, 0x2d, 0x3c, CatalogArtwork::Load(0x192, 0), W8SpriteStates{.normal = 0x30, .pressed = 0x32, .alternate_normal = 0x31, .alternate_pressed = 0x34, .disabled = 0x33});
     gpSCSV->power_controls[8] = panel->EmplaceControl<W8TextControl>(g_spell_casting_regions->index(14), 0x10, 0x1f, 0x2d, 0x3c, CatalogArtwork::Load(0x192, 0), W8SpriteStates{.normal = 0x2a, .pressed = 0x2a, .alternate_normal = 0x2b, .alternate_pressed = 0x2b, .disabled = 0x2d});
-    gpSCSV->power_controls[0]->SetFlaggedRegionBounds(0x3f, 9, 7);
-    gpSCSV->power_controls[1]->SetFlaggedRegionBounds(0x50, 0xc, 8);
-    gpSCSV->power_controls[2]->SetFlaggedRegionBounds(0x5f, 0x19, 9);
-    gpSCSV->power_controls[3]->SetFlaggedRegionBounds(0x65, 0x2d, 10);
-    gpSCSV->power_controls[4]->SetFlaggedRegionBounds(0x5d, 0x43, 0xb);
-    gpSCSV->power_controls[5]->SetFlaggedRegionBounds(0x46, 0x4d, 0xc);
-    gpSCSV->power_controls[6]->SetFlaggedRegionBounds(0x2c, 0x47, 0xd);
-    gpSCSV->power_controls[7]->SetFlaggedRegionBounds(0x1e, 0x2d, 0xe);
-    gpSCSV->power_controls[8]->SetFlaggedRegionBounds(0x1e, 0x2d, 0xe);
+    gpSCSV->power_controls[0]->SetCircularHitArea({0x3f, 9}, 7);
+    gpSCSV->power_controls[1]->SetCircularHitArea({0x50, 0xc}, 8);
+    gpSCSV->power_controls[2]->SetCircularHitArea({0x5f, 0x19}, 9);
+    gpSCSV->power_controls[3]->SetCircularHitArea({0x65, 0x2d}, 10);
+    gpSCSV->power_controls[4]->SetCircularHitArea({0x5d, 0x43}, 0xb);
+    gpSCSV->power_controls[5]->SetCircularHitArea({0x46, 0x4d}, 0xc);
+    gpSCSV->power_controls[6]->SetCircularHitArea({0x2c, 0x47}, 0xd);
+    gpSCSV->power_controls[7]->SetCircularHitArea({0x1e, 0x2d}, 0xe);
+    gpSCSV->power_controls[8]->SetCircularHitArea({0x1e, 0x2d}, 0xe);
     for (index = 0; index < W8_SPELL_POWER_PIP_COUNT; ++index) {
         gpSCSV->power_controls[index]->AddLayoutFlags(g_W8TextControlLayoutToggle);
     }

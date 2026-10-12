@@ -928,16 +928,22 @@ void W8TextControl::UpdateTextLayout()
 void W8TextControl::OnGeometryChanged()
 {
     W8Widget::OnGeometryChanged();
+    if (m_circleHitArea && OwnsRegion()) {
+        const auto bounds = ScreenBounds();
+        auto& region = g_regions[m_region];
+        region.flags = (region.flags & ~(W8_REGION_RECTANGLE | W8_REGION_CIRCLE)) |
+                       W8_REGION_CIRCLE;
+        region.SetBounds(bounds.x + m_circleHitArea->center.x,
+                         bounds.y + m_circleHitArea->center.y, m_circleHitArea->radius, 0);
+    }
     UpdateTextLayout();
 }
 
 // FUNCTION: WIZ8 0x004f4600
-void W8TextControl::SetFlaggedRegionBounds(int left, int top, int right)
+void W8TextControl::SetCircularHitArea(SDL_Point center, int radius)
 {
-    if (m_region != -1 && m_pPanel != 0 && (g_regions[m_region].flags & 2) != 0) {
-        g_regions[m_region].SetBounds(m_pPanel->ScreenBounds().x + left, m_pPanel->ScreenBounds().y + top,
-                        right, 0);
-    }
+    m_circleHitArea = CircleHitArea{{center.x - Bounds().x, center.y - Bounds().y}, radius};
+    OnGeometryChanged();
 }
 
 // FUNCTION: WIZ8 0x004f46a0
