@@ -19,65 +19,51 @@ struct W8NpcState;
    InitializeLevelMasterFunctions registers the surrounding cluster
    (HigardiChest01-05, doortomb). */
 
+/* Spawns one hostile spirit at the named entity, if it exists. */
+static bool spawnSpiritAt(const char* entity)
+{
+    srVector3T<float> position;
+
+    if (FindEntityByName(entity, &position, 0, 0)) {
+        SpawnMonsters(0x1f2, 1, &position, 1, false, false, false);
+    }
+    return true;
+}
+
 /* "HigardiChest01": spawn one spirit monster (0x1f2, hostile) at the
    NP_Spirit01 entity. */
 // FUNCTION: WIZ8 0x004DAE30
 bool SeaCavesHigardiChest01(Trigger* pTrigger)
 {
-    srVector3T<float> position;
-
-    if (FindEntityByName("NP_Spirit01", &position, 0, 0)) {
-        SpawnMonsters(0x1f2, 1, &position, 1, false, false, false);
-    }
-    return true;
+    return spawnSpiritAt("NP_Spirit01");
 }
 
 /* "HigardiChest02": spawn one spirit monster at NP_Spirit02. */
 // FUNCTION: WIZ8 0x004DAE70
 bool SeaCavesHigardiChest02(Trigger* pTrigger)
 {
-    srVector3T<float> position;
-
-    if (FindEntityByName("NP_Spirit02", &position, 0, 0)) {
-        SpawnMonsters(0x1f2, 1, &position, 1, false, false, false);
-    }
-    return true;
+    return spawnSpiritAt("NP_Spirit02");
 }
 
 /* "HigardiChest03": spawn one spirit monster at NP_Spirit03. */
 // FUNCTION: WIZ8 0x004DAEB0
 bool SeaCavesHigardiChest03(Trigger* pTrigger)
 {
-    srVector3T<float> position;
-
-    if (FindEntityByName("NP_Spirit03", &position, 0, 0)) {
-        SpawnMonsters(0x1f2, 1, &position, 1, false, false, false);
-    }
-    return true;
+    return spawnSpiritAt("NP_Spirit03");
 }
 
 /* "HigardiChest04": spawn one spirit monster at NP_Spirit04. */
 // FUNCTION: WIZ8 0x004DAEF0
 bool SeaCavesHigardiChest04(Trigger* pTrigger)
 {
-    srVector3T<float> position;
-
-    if (FindEntityByName("NP_Spirit04", &position, 0, 0)) {
-        SpawnMonsters(0x1f2, 1, &position, 1, false, false, false);
-    }
-    return true;
+    return spawnSpiritAt("NP_Spirit04");
 }
 
 /* "HigardiChest05": spawn one spirit monster at NP_Spirit05. */
 // FUNCTION: WIZ8 0x004DAF30
 bool SeaCavesHigardiChest05(Trigger* pTrigger)
 {
-    srVector3T<float> position;
-
-    if (FindEntityByName("NP_Spirit05", &position, 0, 0)) {
-        SpawnMonsters(0x1f2, 1, &position, 1, false, false, false);
-    }
-    return true;
+    return spawnSpiritAt("NP_Spirit05");
 }
 
 /* "doortomb": NPC kind 0x64's monster entry gets a fresh group member when
