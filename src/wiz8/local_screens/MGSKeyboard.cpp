@@ -749,12 +749,12 @@ void CloseKeyboardMenu(void)
         g_keyboard_menu_regions->DisableInput();
     }
     if (g_level_block->portrait_refresh_pending[g_selected_party_slot] == 0) {
-        ClearSurfaceRect(g_keyboard_menu_panel->m_bounds.left, g_keyboard_menu_panel->m_bounds.top,
-                         g_keyboard_menu_panel->m_bounds.left + 0x52,
-                         g_keyboard_menu_panel->m_bounds.top + 0x4a);
-        InvalidateRegion(g_keyboard_menu_panel->m_bounds.left, g_keyboard_menu_panel->m_bounds.top,
-                         g_keyboard_menu_panel->m_bounds.left + 0x52,
-                         g_keyboard_menu_panel->m_bounds.top + 0x4a);
+        ClearSurfaceRect(g_keyboard_menu_panel->ScreenBounds().x, g_keyboard_menu_panel->ScreenBounds().y,
+                         g_keyboard_menu_panel->ScreenBounds().x + 0x52,
+                         g_keyboard_menu_panel->ScreenBounds().y + 0x4a);
+        InvalidateRegion(g_keyboard_menu_panel->ScreenBounds().x, g_keyboard_menu_panel->ScreenBounds().y,
+                         g_keyboard_menu_panel->ScreenBounds().x + 0x52,
+                         g_keyboard_menu_panel->ScreenBounds().y + 0x4a);
     }
     g_keyboard_menu_panel.reset();
     for (auto& row : g_keyboard_menu_rows) row = nullptr;
@@ -838,8 +838,8 @@ void EnableKeyboardMenuInput(void)
 bool KeyboardMenuContainsCursor(void)
 {
     return IsCursorInRectangle(
-        g_keyboard_menu_panel->m_bounds.left, g_keyboard_menu_panel->m_bounds.top,
-        g_keyboard_menu_panel->m_bounds.left + 0x52, g_keyboard_menu_panel->m_bounds.top + 0x4a);
+        g_keyboard_menu_panel->ScreenBounds().x, g_keyboard_menu_panel->ScreenBounds().y,
+        g_keyboard_menu_panel->ScreenBounds().x + 0x52, g_keyboard_menu_panel->ScreenBounds().y + 0x4a);
 }
 
 // FUNCTION: WIZ8 0x00593360

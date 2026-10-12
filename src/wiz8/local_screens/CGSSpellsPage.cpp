@@ -82,10 +82,10 @@ W8CharacterSpellList::~W8CharacterSpellList()
 void W8CharacterSpellList::SetEntryCount(int count)
 {
     if (!m_range) {
-        m_range = new W8RangeControl(m_pPanel->m_bounds.left + m_x + 0xb8,
-                                     m_pPanel->m_bounds.top + m_y + 0x1a,
-                                     m_pPanel->m_bounds.left + m_x + 0xca,
-                                     m_pPanel->m_bounds.top + m_y + 0x78);
+        m_range = new W8RangeControl(m_pPanel->ScreenBounds().x + m_x + 0xb8,
+                                     m_pPanel->ScreenBounds().y + m_y + 0x1a,
+                                     m_pPanel->ScreenBounds().x + m_x + 0xca,
+                                     m_pPanel->ScreenBounds().y + m_y + 0x78);
         m_range->m_listener = this;
     }
     m_range->InvalidateAll();
@@ -93,9 +93,9 @@ void W8CharacterSpellList::SetEntryCount(int count)
     m_entry_count = count;
     if (count > 7) {
         m_range->SetRange(0, count - 7);
-        m_range->SetRangeEnabled(true);
+        m_range->SetEnabled(true);
     } else {
-        m_range->SetRangeEnabled(false);
+        m_range->SetEnabled(false);
     }
 }
 
@@ -325,8 +325,8 @@ void W8CharacterSpellsPage::Redraw(bool full_redraw)
                 continue;
             }
             text.SetLayoutMode(g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
-            bounds.left = m_bounds.left + 0x29 + (realm % 2) * 0xd7;
-            bounds.top = m_bounds.top + 0x0f + (realm / 2) * 0x82;
+            bounds.left = ScreenBounds().x + 0x29 + (realm % 2) * 0xd7;
+            bounds.top = ScreenBounds().y + 0x0f + (realm / 2) * 0x82;
             bounds.right = bounds.left + 0x3c;
             bounds.bottom = bounds.top + 0x0e;
             text.SetLayoutBounds(&bounds, true, true);
@@ -365,7 +365,7 @@ void W8CharacterSpellsPage::Redraw(bool full_redraw)
                     (m_animation_frames[realm] + elapsed) % animation.frame_count;
             }
             if (!m_screen->HasDialog() || realm < 2) {
-                CatalogArtwork::Load(animation.image, 0).drawAndInvalidate(GetFrameBufferSurface(), m_animation_frames[realm], m_bounds.left + 0x0f + (realm % 2) * 0xd7, m_bounds.top + 0x0a + (realm / 2) * 0x82);
+                CatalogArtwork::Load(animation.image, 0).drawAndInvalidate(GetFrameBufferSurface(), m_animation_frames[realm], ScreenBounds().x + 0x0f + (realm % 2) * 0xd7, ScreenBounds().y + 0x0a + (realm / 2) * 0x82);
             }
         }
     }

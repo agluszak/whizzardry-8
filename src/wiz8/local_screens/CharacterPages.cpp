@@ -52,8 +52,8 @@ W8CharacterPageEntry::W8CharacterPageEntry(Controls* owner, int x, int y, bool c
     : m_listener(0), m_first(0), m_second(0), m_third(0), m_id(-1), m_draw_background(compact),
       m_dirty(1), m_enabled(0), m_increment_allowed(1)
 {
-    m_x = owner->m_bounds.left + x;
-    m_y = owner->m_bounds.top + y;
+    m_x = owner->ScreenBounds().x + x;
+    m_y = owner->ScreenBounds().y + y;
     int split = m_x + (compact ? 0x6d : 0x78);
     W8ControlsRect bounds = {m_x + 5, m_y + 1, split, m_y + 0xd};
     m_label = new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, 0, 4);
@@ -67,7 +67,7 @@ W8CharacterPageEntry::W8CharacterPageEntry(Controls* owner, int x, int y, bool c
     m_second_text = new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, 0, 4);
     m_second_text->SetLayoutMode(g_W8TextBufferAlignRight);
 
-    int relative_split = split - owner->m_bounds.left;
+    int relative_split = split - owner->ScreenBounds().x;
     m_decrement = owner->EmplaceControl<W8TextControl>(0xffffffff, relative_split + 0x1b, y + 1, 0, 0, CatalogArtwork::Load(0x10a, 0), 0x19, 0x1b, 0x1a, 0x1d, 0x1c);
     m_decrement->AddLayoutFlags(0x100);
     m_decrement->SetEnabled(false);

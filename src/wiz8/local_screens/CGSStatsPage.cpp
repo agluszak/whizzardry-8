@@ -248,8 +248,8 @@ void W8CharacterStatsRow::Initialize(Controls* owner, int x, int y,
 {
     m_table = table;
     m_count = static_cast<unsigned short>(count);
-    m_x = owner->m_bounds.left + x;
-    m_y = owner->m_bounds.top + y;
+    m_x = owner->ScreenBounds().x + x;
+    m_y = owner->ScreenBounds().y + y;
     if (count == 0) {
         srAssertFail("usItemsInList", CGS_STATS_PAGE_CPP, 0x1d6, 0);
     }
@@ -821,8 +821,8 @@ void W8CharacterStatsPage::Redraw(bool full_redraw)
 {
     bool redraw = static_cast<unsigned char>(m_active && m_dirty);
     W8TextBuffer text;
-    int left = m_bounds.left;
-    int top = m_bounds.top;
+    int left = ScreenBounds().x;
+    int top = ScreenBounds().y;
     W8CharacterPage::Redraw(full_redraw);
     if (redraw) {
         W8ControlsRect bounds;

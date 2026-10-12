@@ -28,28 +28,25 @@ extern char g_W8TextSeparator[];
 unsigned char DispatchButtonRegionEvent(const InputEvent* event, W8Region* region,
                                                W8Widget* button);
 
-/* Panel/container, not a W8Widget base. Child ownership is held by unique_ptr;
-   widgets retain a non-owning back-pointer in m_pPanel. TakeControl transfers
-   ownership to the caller; DestroyAllControls permits early release when rebuilding. */
+/* A panel is a widget that owns and positions child widgets, which may be
+   panels themselves. Child ownership is held by unique_ptr; widgets retain a
+   non-owning back-pointer in m_pPanel and their rectangles are relative to
+   the panel. TakeControl transfers ownership to the caller; DestroyAllControls
+   permits early release when rebuilding. */
 // VTABLE: WIZ8 0x005ed5a4
-struct Controls {
+struct Controls : W8Widget {
     Controls();
     Controls(int left, int top, int right, int bottom, std::optional<CatalogArtwork> background,
              int background_image);
-    virtual ~Controls();
-    Controls(const Controls&) = delete;
-    Controls& operator=(const Controls&) = delete;
+    ~Controls() override;
 
-    virtual void SetActive(bool active);
+    /* Activation is mirrored into every child. */
+    void SetActive(bool active) override;
     /* Queue the whole panel, or just an area of it, for repainting. */
     virtual void InvalidateAll();
     void InvalidateArea(const W8ControlsRect& rect);
-    virtual void Redraw(bool full_redraw);
-    /* SetEnabled mirrors m_active into every child's m_active. */
-    bool m_active;
-    bool m_dirty;
-    bool m_childrenDirty;
-    W8ControlsRect m_bounds; /* widget rectangles are relative to its origin */
+    void Redraw(bool full_redraw) override;
+    bool m_childrenDirty = false;
     std::optional<CatalogArtwork> m_background;
     int m_backgroundImage;
     /* The region set this panel's widgets register in; 0 until CreateRegionSet. */
@@ -71,7 +68,6 @@ struct Controls {
     size_t ControlCount() const { return m_controls.size(); }
     void DestroyAllControls();
     void InvalidateLayout();
-    void SetBounds(int left, int top, int right, int bottom);
     /* Creates the panel's own region set, or empties it so the panel can repopulate it. */
     void CreateRegionSet();
 
@@ -85,6 +81,7 @@ struct Controls {
     std::optional<W8ControlsRect> m_dirtyRect;
 
   protected:
+    void OnGeometryChanged() override;
     void RedrawChildren(bool full_redraw)
     {
         for (int index = 0; index < static_cast<int>(m_controls.size()); ++index) {

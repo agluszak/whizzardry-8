@@ -1524,9 +1524,9 @@ int CreateCampSecondaryPanel(void)
     if (g_camp_help_text == 0) {
         return 0;
     }
-    left = 0x1c2 - panel->m_bounds.left;
-    right = 0x20e - panel->m_bounds.left;
-    top = 0x3a - panel->m_bounds.top;
+    left = 0x1c2 - panel->ScreenBounds().x;
+    right = 0x20e - panel->ScreenBounds().x;
+    top = 0x3a - panel->ScreenBounds().y;
     for (index = 0; index < 7; ++index) {
         g_camp_stat_labels[index] =
             panel->EmplaceControl<W8CampInfoLabel>(-1, left, top, right, top + 0xc, std::nullopt,
@@ -1534,9 +1534,9 @@ int CreateCampSecondaryPanel(void)
         g_camp_stat_labels[index]->EnableRegionHelp(0x958);
         top += 0xe;
     }
-    left = 0x144 - panel->m_bounds.left;
-    right = 0x1b9 - panel->m_bounds.left;
-    top = -panel->m_bounds.top;
+    left = 0x144 - panel->ScreenBounds().x;
+    right = 0x1b9 - panel->ScreenBounds().x;
+    top = -panel->ScreenBounds().y;
     g_camp_info_labels[0] = panel->EmplaceControl<W8CampInfoLabel>(-1, left, top + 0x3a, right,
                                                 top + 0x46, std::nullopt, -1, -1, -1, -1, -1);
     g_camp_info_labels[1] = panel->EmplaceControl<W8CampInfoLabel>(-1, left, top + 0x48, right,

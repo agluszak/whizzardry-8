@@ -54,7 +54,8 @@ public:
     void SetValue(int value);
     void Decrement();
     void Increment();
-    void SetRangeEnabled(bool enabled);
+    /* A disabled range ignores steps and greys its buttons and thumb. */
+    void SetEnabled(bool enabled) override;
 
     void AdjustValue(int steps)
     {
@@ -71,7 +72,6 @@ public:
     W8Widget* m_increment;
     W8VerticalRangeThumb* m_thumb;
     W8RangeListener* m_listener;
-    bool m_enabled; /* binary enable gating Decrement/Increment */
 };
 
 class W8HorizontalRangeThumb;

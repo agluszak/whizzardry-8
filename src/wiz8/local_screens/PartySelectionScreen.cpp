@@ -710,8 +710,7 @@ W8PartySelectionCharacterPanel::W8PartySelectionCharacterPanel()
     : Controls(), m_range(0), m_selected_row(0)
 {
     CreateRegionSet();
-    m_bounds.left = 0x148;
-    m_bounds.top = 0x31;
+    SetBounds({0x148, 0x31, 0, 0});
 
     int top = 0;
     for (int row = 0; row < 6; ++row) {
@@ -1018,14 +1017,8 @@ W8PartySelectionOptionPanel::W8PartySelectionOptionPanel()
     : Controls(0x78, 0x28, 0, 0, CatalogArtwork::Load(0x102, 0), 0), m_options(), m_entries()
 {
     CreateRegionSet();
-
-    short width;
-    short height;
-    const SDL_Point _catalog_size_2 = CatalogArtwork::Load(0x102, 0).size(0);
-        width = _catalog_size_2.x;
-        height = _catalog_size_2.y;;
-    m_bounds.right = m_bounds.left + static_cast<unsigned short>(width);
-    m_bounds.bottom = m_bounds.top + static_cast<unsigned short>(height);
+    const auto [width, height] = CatalogArtwork::Load(0x102, 0).size(0);
+    SetBounds({Bounds().x, Bounds().y, width, height});
 
     int top = 0x13;
     for (int index = 0; index < 3; ++index) {
@@ -1050,8 +1043,8 @@ W8PartySelectionOptionPanel::W8PartySelectionOptionPanel()
     const SDL_Point _catalog_size_3 = CatalogArtwork::Load(0x102, 0).size(1);
         m_image_width = _catalog_size_3.x;
         m_image_height = _catalog_size_3.y;;
-    m_render_left = m_bounds.left + 0x18 + (0x160 - static_cast<unsigned short>(m_image_width)) / 2;
-    m_render_top = m_bounds.top + 0x80;
+    m_render_left = ScreenBounds().x + 0x18 + (0x160 - static_cast<unsigned short>(m_image_width)) / 2;
+    m_render_top = ScreenBounds().y + 0x80;
 }
 
 // FUNCTION: WIZ8 0x005c0560
@@ -1119,14 +1112,14 @@ void W8PartySelectionOptionPanel::SetOptionPanelMode(W8PartyCreationPage page)
         ControlAt(index)->SetActive(page == W8_PARTY_CREATION_OPTIONS);
     }
 
-    W8ControlsRect bounds = {m_bounds.left + 0x22, m_bounds.top + 0x12, m_bounds.left + 0x16e,
-                             m_bounds.top + 0x171};
+    W8ControlsRect bounds = {ScreenBounds().x + 0x22, ScreenBounds().y + 0x12, ScreenBounds().x + 0x16e,
+                             ScreenBounds().y + 0x171};
 
     if (page == W8_PARTY_CREATION_OPTIONS) {
         m_entries.emplace_back(new W8TextBuffer(&bounds, g_localized_strings[0x7f7], g_options_detail_font,
                                        g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4));
 
-        bounds.right = m_bounds.left + 0x155;
+        bounds.right = ScreenBounds().x + 0x155;
         m_entries.emplace_back(new W8TextBuffer(&bounds, g_localized_strings[0x7f8], g_options_detail_font,
                                        g_W8TextBufferAlignRight | g_W8TextBufferAlignTop, 4));
         bounds.top += 0x16;
@@ -1136,7 +1129,7 @@ void W8PartySelectionOptionPanel::SetOptionPanelMode(W8PartyCreationPage page)
         m_entries.emplace_back(new W8TextBuffer(&bounds, g_localized_strings[0x7fa], g_options_detail_font,
                                        g_W8TextBufferAlignRight | g_W8TextBufferAlignTop, 4));
 
-        bounds.right = m_bounds.left + 0x16e;
+        bounds.right = ScreenBounds().x + 0x16e;
         bounds.top += 0x2c;
         m_entries.emplace_back(new W8TextBuffer(&bounds, g_localized_strings[0x80b], g_options_detail_font,
                                        g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4));
@@ -1174,8 +1167,8 @@ void W8PartySelectionOptionPanel::SetOptionPanelMode(W8PartyCreationPage page)
         return;
     }
 
-    bounds.left = m_bounds.left + 0x2c;
-    bounds.right = m_bounds.left + 0x164;
+    bounds.left = ScreenBounds().x + 0x2c;
+    bounds.right = ScreenBounds().x + 0x164;
     W8TextBuffer* text = new W8TextBuffer(&bounds, g_localized_strings[0x6d1], g_options_detail_font,
                                           g_W8TextBufferAlignCenter | g_W8TextBufferAlignTop, 4);
     text->SetLineHeight(0x16);
@@ -1304,7 +1297,7 @@ void W8PartySelectionController::SetMode(W8PartySelectionMode mode)
             maximum = 0;
         }
         m_range->SetRange(0, maximum);
-        m_range->SetRangeEnabled(maximum > 0);
+        m_range->SetEnabled(maximum > 0);
         m_range->InvalidateAll();
 
         m_character_panel->m_control.m_selectionListener = 0;
@@ -1381,7 +1374,7 @@ void W8PartySelectionController::SetMode(W8PartySelectionMode mode)
         }
         m_range->SetRange(0, maximum);
         m_range->SetValue(m_list->m_selection);
-        m_range->SetRangeEnabled(maximum > 0);
+        m_range->SetEnabled(maximum > 0);
         m_range->InvalidateAll();
 
         m_control2->SetActive(true);
@@ -1766,7 +1759,7 @@ void W8PartySelectionController::ApplyPartySelectionConfirmation(W8PartyConfirma
             maximum = 0;
         }
         m_range->SetRange(0, maximum);
-        m_range->SetRangeEnabled(maximum > 0);
+        m_range->SetEnabled(maximum > 0);
         m_range->InvalidateAll();
         if (selected > 0 || collection->characters.empty()) {
             --selected;

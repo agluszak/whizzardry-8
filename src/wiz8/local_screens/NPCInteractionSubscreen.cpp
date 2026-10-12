@@ -340,8 +340,8 @@ void W8NpcTypedDialoguePanel::Redraw(bool full_redraw)
     }
     if (m_dirty) {
         if (m_background) {
-            m_background->draw(GetFrameBufferSurface(), m_backgroundImage, m_bounds.left,
-                               m_bounds.top);
+            m_background->draw(GetFrameBufferSurface(), m_backgroundImage, ScreenBounds().x,
+                               ScreenBounds().y);
         }
         CatalogArtwork::Load(0x1a9, 0).draw(GetFrameBufferSurface(), 0x10, 0x1df, g_npc_interaction_state->where_is_query ? 0x19b : 0x18b);
         redrawn = 1;
@@ -394,7 +394,7 @@ void W8NpcDialogueOptionsPanel::Redraw(bool full_redraw)
                 g_npc_interaction_state->dialogue_layout == W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX
                     ? m_main_text_box_image
                     : m_backgroundImage,
-                m_bounds.left, m_bounds.top);
+                ScreenBounds().x, ScreenBounds().y);
         }
         redrawn = 1;
     } else if (!m_childrenDirty) {

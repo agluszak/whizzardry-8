@@ -208,7 +208,7 @@ static void RebuildCombatEffectHudRows(void)
     W8TextControl* control;
     W8EffectSlot* effect;
 
-    g_combat_effect_left_panel->SetBounds(0x81, 0x14, 0x13d, 0x28);
+    g_combat_effect_left_panel->SetBounds(ToSDLRect({0x81, 0x14, 0x13d, 0x28}));
     left = 0;
     right = 0x14;
     g_combat_effect_left_count = 0;
@@ -231,7 +231,7 @@ static void RebuildCombatEffectHudRows(void)
             right += 0x15;
         }
     }
-    g_combat_effect_right_panel->SetBounds(0x182, 0x14, 0x1ff, 0x28);
+    g_combat_effect_right_panel->SetBounds(ToSDLRect({0x182, 0x14, 0x1ff, 0x28}));
     left = 0x69;
     right = 0x7d;
     g_combat_effect_right_count = 0;

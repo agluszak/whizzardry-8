@@ -91,7 +91,7 @@ static bool ownershipAndCallbacks()
 TEST_CASE("panel_adopts_and_transfers_unattached_widgets")
 {
     Controls source;
-    source.SetBounds(100, 200, 200, 300);
+    source.SetBounds({100, 200, 100, 100});
     source.CreateRegionSet();
 
     auto pending = std::make_unique<W8Widget>(-1u, 1, 2, 20, 30);
@@ -109,7 +109,7 @@ TEST_CASE("panel_adopts_and_transfers_unattached_widgets")
     REQUIRE(g_regions[original_region].y1 == 202);
 
     Controls target;
-    target.SetBounds(300, 400, 400, 500);
+    target.SetBounds({300, 400, 100, 100});
     target.CreateRegionSet();
     auto detached = source.TakeControl(widget);
     REQUIRE(source.ControlCount() == 0);
@@ -136,13 +136,13 @@ TEST_CASE("panel_adopts_and_transfers_unattached_widgets")
     target.AddControl(source.TakeControl(text));
     REQUIRE(text->m_textBuffer.GetHorizontalPosition(10) == 305);
     REQUIRE(g_regions[text->m_region].x1 == 303);
-    target.SetBounds(500, 400, 600, 500);
+    target.SetBounds({500, 400, 100, 100});
     REQUIRE(text->m_textBuffer.GetHorizontalPosition(10) == 505);
     REQUIRE(g_regions[text->m_region].x1 == 503);
     REQUIRE(g_regions[widget->m_region].x1 == 501);
     // An explicit text rectangle is panel-relative too.
     text->UpdateTextBounds(20, 4, 35, 20);
-    target.SetBounds(300, 400, 400, 500);
+    target.SetBounds({300, 400, 100, 100});
     REQUIRE(text->m_textBuffer.GetHorizontalPosition(10) == 322);
     target.RemoveControl(text);
 
@@ -153,6 +153,27 @@ TEST_CASE("panel_adopts_and_transfers_unattached_widgets")
     REQUIRE(target.ControlCount() == 1);
     target.DestroyAllControls();
     REQUIRE(target.ControlCount() == 0);
+}
+
+TEST_CASE("panels_nest_as_widgets")
+{
+    Controls outer;
+    outer.SetBounds({100, 100, 200, 200});
+    auto* inner = outer.EmplaceControl<Controls>();
+    inner->SetBounds({10, 20, 50, 50});
+    inner->CreateRegionSet();
+    auto* leaf = inner->EmplaceControl<W8Widget>(-1u, 1, 2, 11, 12);
+    REQUIRE(leaf->ScreenBounds().x == 111);
+    REQUIRE(g_regions[leaf->m_region].y1 == 122);
+
+    outer.SetBounds({300, 100, 200, 200});
+    REQUIRE(leaf->ScreenBounds().x == 311);
+    REQUIRE(g_regions[leaf->m_region].x1 == 311);
+
+    outer.SetActive(true);
+    REQUIRE(inner->m_active);
+    REQUIRE(leaf->m_active);
+    REQUIRE(g_regions[leaf->m_region].InputEnabled());
 }
 
 // Exercise real region bindings rather than manually filling a panel vector.

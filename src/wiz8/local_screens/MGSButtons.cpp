@@ -1260,7 +1260,7 @@ void UpdateSubMenuAutoClose(void)
     int left;
     int right;
 
-    left = gpSubMenuPanel->m_bounds.left;
+    left = gpSubMenuPanel->ScreenBounds().x;
     switch (g_submenu_entry_count) {
     case 0:
     case 1:
@@ -1277,8 +1277,8 @@ void UpdateSubMenuAutoClose(void)
     case 5:
         right = left + 0x67;
     }
-    if (!IsCursorInRectangle(left, gpSubMenuPanel->m_bounds.top, right,
-                             gpSubMenuPanel->m_bounds.top + 0x1c)) {
+    if (!IsCursorInRectangle(left, gpSubMenuPanel->ScreenBounds().y, right,
+                             gpSubMenuPanel->ScreenBounds().y + 0x1c)) {
     check_clock:
         if (!g_submenu_close_pending) {
             g_submenu_clock = w8_get_ticks() + (500);

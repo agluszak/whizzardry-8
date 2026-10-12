@@ -344,9 +344,9 @@ void SetCampSpellRangesEnabled(bool enable)
         if (enable) {
             second = g_review_character->skill_unlocks[0x1c + spell_range->m_realm] - 8;
             if (second < 1) {
-                spell_range->m_range->SetRangeEnabled(false);
+                spell_range->m_range->SetEnabled(false);
             } else {
-                spell_range->m_range->SetRangeEnabled(true);
+                spell_range->m_range->SetEnabled(true);
                 spell_range->m_range->SetRange(0, second);
             }
         }
@@ -366,9 +366,9 @@ void RefreshCampSpellRanges(void)
         spell_range->m_range->EnableRegionSet(true);
         second = g_review_character->skill_unlocks[0x1c + spell_range->m_realm] - 8;
         if (second < 1) {
-            spell_range->m_range->SetRangeEnabled(false);
+            spell_range->m_range->SetEnabled(false);
         } else {
-            spell_range->m_range->SetRangeEnabled(true);
+            spell_range->m_range->SetEnabled(true);
             spell_range->m_range->SetRange(0, second);
         }
     }
@@ -1842,7 +1842,7 @@ void RebuildCampItemList(void)
         }
     }
     scrollbar = g_camp_screen->item_range->m_range;
-    scrollbar->SetRangeEnabled(g_camp_screen->item_list_count > 8);
+    scrollbar->SetEnabled(g_camp_screen->item_list_count > 8);
     rows = g_camp_screen->item_list_count - 8;
     if (rows > 0) {
         scrollbar->SetRange(0, rows % 2 == 0 ? rows / 2 : rows / 2 + 1);

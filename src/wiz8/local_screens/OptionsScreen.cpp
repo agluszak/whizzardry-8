@@ -746,8 +746,8 @@ void W8OptionsKeyboardPanel::Populate()
     m_selection.m_selectionListener = this;
 
     W8OptionsKeyboardPage& page = g_options_keyboard_pages[m_panel - 6];
-    W8ControlsRect title_bounds = {m_bounds.left + 30, m_bounds.top + m_content_top,
-                                   m_bounds.right - 30, m_bounds.top + m_content_top + 22};
+    W8ControlsRect title_bounds = {ScreenBounds().x + 30, ScreenBounds().y + m_content_top,
+                                   ToEdges(ScreenBounds()).right - 30, ScreenBounds().y + m_content_top + 22};
     W8TextBuffer* title =
         new W8TextBuffer(&title_bounds, g_localized_strings[page.title], g_options_detail_font,
                          g_W8TextBufferAlignTop | g_W8TextBufferAlignCenter, 4);
@@ -761,8 +761,8 @@ void W8OptionsKeyboardPanel::Populate()
 
     W8OptionsKeyRow* row = g_options_key_rows + first;
     for (;;) {
-        W8ControlsRect label_bounds = {m_bounds.left + 20, m_bounds.top + m_content_top,
-                                       m_bounds.right, m_bounds.top + m_content_top + 22};
+        W8ControlsRect label_bounds = {ScreenBounds().x + 20, ScreenBounds().y + m_content_top,
+                                       ToEdges(ScreenBounds()).right, ScreenBounds().y + m_content_top + 22};
         W8TextBuffer* label =
             new W8TextBuffer(&label_bounds, g_localized_strings[row->label], g_options_detail_font,
                              g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4);
@@ -777,7 +777,7 @@ void W8OptionsKeyboardPanel::Populate()
         if (binding == page.last_binding) {
             std::string reset_text = g_localized_strings[0x833];
             short text_width = g_options_detail_font.textWidth(reset_text);
-            int left = (m_bounds.right - (text_width + 20) - m_bounds.left) / 2;
+            int left = (ToEdges(ScreenBounds()).right - (text_width + 20) - ScreenBounds().x) / 2;
             W8OptionsButton* reset =
                 EmplaceControl<W8OptionsButton>(left, 0x18e, left + text_width + 20, 0x1a4, reset_text);
             reset->m_listener = this;
@@ -1195,8 +1195,8 @@ void W8OptionsAdvancedGraphicsPanel::Populate()
 void W8OptionsUnavailablePanel::Populate()
 {
     m_content_top += 44;
-    W8ControlsRect bounds = {m_bounds.left + 30, m_bounds.top + m_content_top, m_bounds.right - 30,
-                             m_bounds.bottom};
+    W8ControlsRect bounds = {ScreenBounds().x + 30, ScreenBounds().y + m_content_top, ToEdges(ScreenBounds()).right - 30,
+                             ToEdges(ScreenBounds()).bottom};
     W8TextBuffer* text = new W8TextBuffer(&bounds, g_localized_strings[m_message], g_options_detail_font,
                                           g_W8TextBufferAlignTop | g_W8TextBufferAlignCenter, 4);
     m_text_buffers.emplace_back(text);
@@ -1573,10 +1573,10 @@ W8OptionsPanel::~W8OptionsPanel()
 /* All labelled option rows use the same geometry and text formatting. */
 static void AddOptionsLabel(W8OptionsPanel& panel, int label)
 {
-    W8ControlsRect bounds = {panel.m_bounds.left + 20,
-                             panel.m_bounds.top + panel.m_content_top,
-                             panel.m_bounds.right,
-                             panel.m_bounds.top + panel.m_content_top + 22};
+    W8ControlsRect bounds = {panel.ScreenBounds().x + 20,
+                             panel.ScreenBounds().y + panel.m_content_top,
+                             ToEdges(panel.ScreenBounds()).right,
+                             panel.ScreenBounds().y + panel.m_content_top + 22};
     panel.m_text_buffers.emplace_back(
         new W8TextBuffer(&bounds, g_localized_strings[label], g_options_detail_font,
                          g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4));
@@ -1592,8 +1592,8 @@ W8OptionsCheckbox* W8OptionsPanel::AddCheckbox(int label, int* value)
 
 W8TextControl* W8OptionsPanel::AddChoiceButton(int label)
 {
-    W8ControlsRect bounds = {m_bounds.left, m_bounds.top + m_content_top, m_bounds.left + 0x147,
-                             m_bounds.top + m_content_top + 22};
+    W8ControlsRect bounds = {ScreenBounds().x, ScreenBounds().y + m_content_top, ScreenBounds().x + 0x147,
+                             ScreenBounds().y + m_content_top + 22};
     W8TextBuffer* text = new W8TextBuffer(&bounds, g_localized_strings[label], g_options_detail_font,
                                           g_W8TextBufferAlignTop | g_W8TextBufferAlignRight, 4);
     m_text_buffers.emplace_back(text);
@@ -1663,14 +1663,8 @@ W8OptionsPanel::W8OptionsPanel()
     : Controls(0x104, 0, 0, 0, CatalogArtwork::Load(0xee, 0), 1), m_current(0), m_content_top(0x18)
 {
     CreateRegionSet();
-
-    short width;
-    short height;
-    const SDL_Point _catalog_size_0 = CatalogArtwork::Load(0xf2, 0).size(0);
-        width = _catalog_size_0.x;
-        height = _catalog_size_0.y;;
-    m_bounds.right = m_bounds.left + static_cast<unsigned short>(width);
-    m_bounds.bottom = m_bounds.top + static_cast<unsigned short>(height);
+    const auto [width, height] = CatalogArtwork::Load(0xf2, 0).size(0);
+    SetBounds({Bounds().x, Bounds().y, width, height});
 }
 
 /* The menu set builds itself from the shared options font: its panel bounds
@@ -1681,14 +1675,8 @@ W8OptionsMenuSet::W8OptionsMenuSet()
     : Controls(0x11b, 0x1a8, 0, 0, CatalogArtwork::Load(0xf3, 0), 0), m_pMenuSet(0)
 {
     CreateRegionSet();
-
-    short width;
-    short height;
-    const SDL_Point _catalog_size_1 = CatalogArtwork::Load(0xf3, 0).size(0);
-        width = _catalog_size_1.x;
-        height = _catalog_size_1.y;;
-    m_bounds.right = m_bounds.left + static_cast<unsigned short>(width);
-    m_bounds.bottom = m_bounds.top + static_cast<unsigned short>(height);
+    const auto [width, height] = CatalogArtwork::Load(0xf3, 0).size(0);
+    SetBounds({Bounds().x, Bounds().y, width, height});
 
     m_previous = EmplaceControl<W8TextControl>(0xffffffff, 3, 3, 0, 0, CatalogArtwork::Load(0xf4, 0), 0, 2, 1, -1, 3);
     m_previous->m_listener = this;
@@ -1696,7 +1684,8 @@ W8OptionsMenuSet::W8OptionsMenuSet()
     m_next = EmplaceControl<W8TextControl>(0xffffffff, 0x11f, 3, 0, 0, CatalogArtwork::Load(0xf4, 0), 4, 6, 5, -1, 7);
     m_next->m_listener = this;
 
-    m_page_text = std::make_unique<W8TextBuffer>(&m_bounds, "", g_options_detail_font,
+    const auto page_bounds = ToEdges(ScreenBounds());
+    m_page_text = std::make_unique<W8TextBuffer>(&page_bounds, "", g_options_detail_font,
                                    g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle, 4);
 }
 
@@ -1761,11 +1750,8 @@ void W8OptionsMenuSet::UpdateMenuSet()
     int current;
     int count;
 
-    bounds.left = m_bounds.left;
-    bounds.top = m_bounds.top;
-    bounds.right = m_bounds.right;
-    bounds.bottom = m_bounds.bottom;
-    int height = m_bounds.bottom - m_bounds.top;
+    bounds = ToEdges(ScreenBounds());
+    int height = bounds.bottom - bounds.top;
     if (m_pMenuSet == 0) {
         srAssertFail("m_pMenuSet", __FILE__,
                      0x5c9, 0);
@@ -1780,7 +1766,7 @@ void W8OptionsMenuSet::UpdateMenuSet()
     }
     bounds.top = panel_set->m_compact_layout != 0 ? 0x180 : 0x1a8;
     bounds.bottom = height + bounds.top;
-    SetBounds(bounds.left, bounds.top, bounds.right, bounds.bottom);
+    SetBounds(ToSDLRect(bounds));
     ++bounds.top;
     m_page_text->SetLayoutBounds(&bounds, true, true);
     SetActive(panel_set->m_hide_navigation == 0 &&

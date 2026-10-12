@@ -27,7 +27,7 @@ public:
 
     void SetRegion(unsigned int region);
     void Invalidate(bool immediate);
-    void SetActive(bool active);
+    virtual void SetActive(bool active);
     void EnableRegionHelp(int help_text_id);
     void DisableRegionHelp();
 

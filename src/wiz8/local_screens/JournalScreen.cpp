@@ -281,15 +281,9 @@ W8JournalPanel::W8JournalPanel()
     : Controls(0x66, 0x1bb, 0, 0, CatalogArtwork::Load(0xf3, 0), 0), m_next(0), m_previous(0), m_close(0), m_mode(0),
       m_page_text(0), m_alternate_mode(0)
 {
-    short width;
-    short height;
-
     CreateRegionSet();
-    const SDL_Point _catalog_size_4 = CatalogArtwork::Load(0xf3, 0).size(0);
-        width = _catalog_size_4.x;
-        height = _catalog_size_4.y;;
-    m_bounds.right = m_bounds.left + static_cast<unsigned short>(width);
-    m_bounds.bottom = m_bounds.top + static_cast<unsigned short>(height);
+    const auto [width, height] = CatalogArtwork::Load(0xf3, 0).size(0);
+    SetBounds({Bounds().x, Bounds().y, width, height});
 
     m_previous = EmplaceControl<W8TextControl>(0xffffffff, 3, 3, 0, 0, CatalogArtwork::Load(0xf4, 0), 0, 2, 1, -1, 3);
     m_previous->m_listener = this;
@@ -297,7 +291,7 @@ W8JournalPanel::W8JournalPanel()
     m_next = EmplaceControl<W8TextControl>(0xffffffff, 0x11f, 3, 0, 0, CatalogArtwork::Load(0xf4, 0), 4, 6, 5, -1, 7);
     m_next->m_listener = this;
 
-    W8ControlsRect bounds = {m_bounds.left, m_bounds.top, m_bounds.right, m_bounds.bottom};
+    const W8ControlsRect bounds = ToEdges(ScreenBounds());
     m_page_text = new W8TextBuffer(&bounds, "", g_options_detail_font,
                                    g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
 

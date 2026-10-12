@@ -732,10 +732,10 @@ W8LockInfoPanel::W8LockInfoPanel(int tumbler_count)
     W8ControlsRect bounds;
 
     m_tumbler_count = tumbler_count;
-    bounds.left = m_bounds.left + 0x25;
-    bounds.top = m_bounds.top + 7;
-    bounds.right = m_bounds.left + 0xb4;
-    bounds.bottom = m_bounds.top + 0x11;
+    bounds.left = ScreenBounds().x + 0x25;
+    bounds.top = ScreenBounds().y + 7;
+    bounds.right = ScreenBounds().x + 0xb4;
+    bounds.bottom = ScreenBounds().y + 0x11;
     m_text0.reset(new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4));
     bounds.top += 0xe;
     bounds.bottom += 0xe;
@@ -749,10 +749,10 @@ W8LockInfoPanel::W8LockInfoPanel(int tumbler_count)
     bounds.bottom += 0xe;
     m_text5 = std::make_unique<W8TextBuffer>(&bounds, g_localized_strings[0x7ab], g_wiz_text_font_secondary,
                                g_W8TextBufferAlignLeft, 4);
-    bounds.left = m_bounds.left + 0x98;
-    bounds.top = m_bounds.top + 0x15;
-    bounds.right = m_bounds.left + 0xb5;
-    bounds.bottom = m_bounds.top + 0x1f;
+    bounds.left = ScreenBounds().x + 0x98;
+    bounds.top = ScreenBounds().y + 0x15;
+    bounds.right = ScreenBounds().x + 0xb5;
+    bounds.bottom = ScreenBounds().y + 0x1f;
     m_text2.reset(new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4));
     bounds.top += 0xe;
     bounds.bottom += 0xe;
@@ -1300,15 +1300,14 @@ W8MainGameTextKeyHandler::W8MainGameTextKeyHandler(int left, int top, int right,
     m_range.SetRange(0, m_line_count - m_visible_lines);
     m_range.InvalidateAll();
     m_range.SetActive(true);
-    m_range.SetRangeEnabled(true);
+    m_range.SetEnabled(true);
 }
 
 void W8MainGameTextKeyHandler::OnGeometryChanged()
 {
     W8Widget::OnGeometryChanged();
     const auto bounds = ScreenBounds();
-    m_range.SetBounds(bounds.x + bounds.w + 1, bounds.y, bounds.x + bounds.w + 0x13,
-                      bounds.y + bounds.h);
+    m_range.SetBounds({bounds.x + bounds.w + 1, bounds.y, 0x12, bounds.h});
 }
 
 void W8MainGameTextKeyHandler::Redraw(bool full_redraw)
@@ -1561,10 +1560,10 @@ W8MainGameTextPanel::W8MainGameTextPanel()
     m_key_handler = EmplaceControl<W8MainGameTextKeyHandler>(
         0x8e, 5, 0x10f, 0x59, 0xf, g_trap_name_string_ids);
     m_key_handler->m_range_listener = this;
-    m_text_bounds.left = m_bounds.left + 0xc;
-    m_text_bounds.top = m_bounds.top + 0x29;
-    m_text_bounds.right = m_bounds.left + 0x84;
-    m_text_bounds.bottom = m_bounds.top + 0x33;
+    m_text_bounds.left = ScreenBounds().x + 0xc;
+    m_text_bounds.top = ScreenBounds().y + 0x29;
+    m_text_bounds.right = ScreenBounds().x + 0x84;
+    m_text_bounds.bottom = ScreenBounds().y + 0x33;
     m_text_buffer.SetLayoutBounds(&m_text_bounds, true, true);
     EnableRegionSet(true);
     m_key_handler->m_range.EnableRegionSet(true);
@@ -1626,7 +1625,7 @@ void W8MainGameTextPanel::Redraw(bool full_redraw)
         if (frame >= 7) {
             frame = 12 - frame;
         }
-        CatalogArtwork::Load(0x1b4, 0).drawAndInvalidate(GetFrameBufferSurface(), frame, m_bounds.left + 1, m_bounds.top + 2);
+        CatalogArtwork::Load(0x1b4, 0).drawAndInvalidate(GetFrameBufferSurface(), frame, ScreenBounds().x + 1, ScreenBounds().y + 2);
         m_target_marker_pending = false;
     }
 }
@@ -1677,10 +1676,10 @@ W8MainGameStatusPanel::W8MainGameStatusPanel()
 {
     W8ControlsRect bounds;
 
-    bounds.left = m_bounds.left + 0x25;
-    bounds.top = m_bounds.top + 7;
-    bounds.right = m_bounds.left + 0xb4;
-    bounds.bottom = m_bounds.top + 0x11;
+    bounds.left = ScreenBounds().x + 0x25;
+    bounds.top = ScreenBounds().y + 7;
+    bounds.right = ScreenBounds().x + 0xb4;
+    bounds.bottom = ScreenBounds().y + 0x11;
     m_text.reset(new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4));
     bounds.top += 0xe;
     bounds.bottom += 0xe;
@@ -1694,10 +1693,10 @@ W8MainGameStatusPanel::W8MainGameStatusPanel()
     bounds.bottom += 0xe;
     m_text4 = std::make_unique<W8TextBuffer>(&bounds, g_localized_strings[0x7b0], g_wiz_text_font_secondary,
                                g_W8TextBufferAlignLeft, 4);
-    bounds.left = m_bounds.left + 0x98;
-    bounds.top = m_bounds.top + 0x15;
-    bounds.right = m_bounds.left + 0xb5;
-    bounds.bottom = m_bounds.top + 0x1f;
+    bounds.left = ScreenBounds().x + 0x98;
+    bounds.top = ScreenBounds().y + 0x15;
+    bounds.right = ScreenBounds().x + 0xb5;
+    bounds.bottom = ScreenBounds().y + 0x1f;
     m_text1.reset(new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4));
     bounds.top += 0xe;
     bounds.bottom += 0xe;
@@ -2388,23 +2387,23 @@ void W8NpcDialogueTextController::Redraw(bool full_redraw)
         force = was_dirty;
         if (force) {
             m_background->drawAndInvalidate(GetFrameBufferSurface(), m_backgroundImage,
-                                            m_bounds.left, m_bounds.top);
+                                            ScreenBounds().x, ScreenBounds().y);
             m_dirty = false;
         }
         if (line_image != -1 && margin_image != -1) {
             if (visible == 1 && was_dirty) {
                 height = line_height;
-                top = (m_bounds.top - height) + margin;
+                top = (ScreenBounds().y - height) + margin;
                 if (height < scroll_height) {
                     do {
                         m_background->drawAndInvalidate(GetFrameBufferSurface(), line_image,
-                                                        m_bounds.left, top);
+                                                        ScreenBounds().x, top);
                         top -= line_height;
                         height += line_height;
                     } while (height < scroll_height);
                 }
                 m_background->drawAndInvalidate(GetFrameBufferSurface(), margin_image,
-                                                m_bounds.left,
+                                                ScreenBounds().x,
                                                 (line_height - margin) + top);
                 force = true;
             } else if (!force && !m_childrenDirty) {
@@ -2449,7 +2448,7 @@ bool W8NpcDialogueTextController::IsSlotPortraitTranscriptCovered(unsigned int p
     int top;
 
     if (visible == 1) {
-        top = ((1 - scroll_height / line_height) * line_height - margin) + m_bounds.top;
+        top = ((1 - scroll_height / line_height) * line_height - margin) + ScreenBounds().y;
         switch (party_slot) {
         case 1:
             if (top < 0x67) {
@@ -2479,10 +2478,10 @@ void W8NpcDialogueTextController::Collapse()
     int top;
 
     visible = 0;
-    top = (m_bounds.top - (scroll_height / line_height) * line_height) - margin;
-    ClearSurfaceRect(m_bounds.left, top, m_bounds.right, m_bounds.bottom);
+    top = (ScreenBounds().y - (scroll_height / line_height) * line_height) - margin;
+    ClearSurfaceRect(ScreenBounds().x, top, ToEdges(ScreenBounds()).right, ToEdges(ScreenBounds()).bottom);
     InvalidateAll();
-    InvalidateRegion(m_bounds.left, top, m_bounds.right, m_bounds.bottom);
+    InvalidateRegion(ScreenBounds().x, top, ToEdges(ScreenBounds()).right, ToEdges(ScreenBounds()).bottom);
     if (top < 0x67) {
         RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_1);
         RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_3);
@@ -2499,9 +2498,9 @@ void W8NpcDialogueTextController::Collapse()
         RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_7);
     }
     scroll_height = line_height;
-    bounds.left = m_bounds.left + 6;
-    bounds.right = m_bounds.left + 0x7c;
-    bounds.bottom = m_bounds.top + 0x12;
+    bounds.left = ScreenBounds().x + 6;
+    bounds.right = ScreenBounds().x + 0x7c;
+    bounds.bottom = ScreenBounds().y + 0x12;
     bounds.top = bounds.bottom - line_height;
     text_area.Configure(&bounds, g_wiz_text_font_secondary,
                         g_W8DialogTextAreaNoWrap | g_W8DialogTextAreaPointSelection |
@@ -2523,9 +2522,9 @@ void W8NpcDialogueTextController::Expand()
     if (text_height >= 0xff) {
         text_height = 0xff;
     }
-    bounds.left = m_bounds.left + 6;
-    bounds.right = m_bounds.left + 0x7c;
-    bounds.bottom = m_bounds.top + 0x12;
+    bounds.left = ScreenBounds().x + 6;
+    bounds.right = ScreenBounds().x + 0x7c;
+    bounds.bottom = ScreenBounds().y + 0x12;
     bounds.top = bounds.bottom - text_height;
     scroll_height = text_height;
     text_area.Configure(&bounds, g_wiz_text_font_secondary,
@@ -2546,9 +2545,9 @@ void W8NpcDialogueTextController::ClearBackground()
 {
     int top;
 
-    top = ((1 - scroll_height / line_height) * line_height - margin) + m_bounds.top;
-    ClearSurfaceRect(m_bounds.left, top, m_bounds.right, m_bounds.bottom);
-    InvalidateRegion(m_bounds.left, top, m_bounds.right, m_bounds.bottom);
+    top = ((1 - scroll_height / line_height) * line_height - margin) + ScreenBounds().y;
+    ClearSurfaceRect(ScreenBounds().x, top, ToEdges(ScreenBounds()).right, ToEdges(ScreenBounds()).bottom);
+    InvalidateRegion(ScreenBounds().x, top, ToEdges(ScreenBounds()).right, ToEdges(ScreenBounds()).bottom);
     if (top < 0x67) {
         RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_1);
         RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_3);

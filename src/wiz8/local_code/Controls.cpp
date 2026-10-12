@@ -105,28 +105,16 @@ extern const unsigned int g_W8TextControlLayoutImageAtOrigin = 0x80;
 Controls::Controls()
 {
     m_backgroundImage = -1;
-    m_active = false;
-    m_dirty = false;
-    m_childrenDirty = false;
-    m_bounds.left = 0;
-    m_bounds.top = 0;
-    m_bounds.right = 0;
-    m_bounds.bottom = 0;
 }
 
 // FUNCTION: WIZ8 0x004f2ca0
+/* A zero right or bottom edge leaves that extent empty until the panel is
+   sized, typically from its background artwork. */
 Controls::Controls(int left, int top, int right_bound, int bottom_bound,
                    std::optional<CatalogArtwork> background, int background_image)
+    : W8Widget(-1u, left, top, std::max(left, right_bound), std::max(top, bottom_bound)),
+      m_background(std::move(background)), m_backgroundImage(background_image)
 {
-    m_bounds.left = left;
-    m_bounds.right = right_bound;
-    m_active = false;
-    m_dirty = false;
-    m_childrenDirty = false;
-    m_background = std::move(background);
-    m_backgroundImage = background_image;
-    m_bounds.top = top;
-    m_bounds.bottom = bottom_bound;
 }
 
 // FUNCTION: WIZ8 0x004f2d30
@@ -203,7 +191,8 @@ W8Widget::~W8Widget()
 SDL_Point W8Widget::PanelOrigin() const
 {
     if (!m_pPanel) return {0, 0};
-    return {m_pPanel->m_bounds.left, m_pPanel->m_bounds.top};
+    const auto panel = m_pPanel->ScreenBounds();
+    return {panel.x, panel.y};
 }
 
 SDL_Rect W8Widget::ScreenBounds() const
@@ -908,7 +897,7 @@ void W8TextControl::OnGeometryChanged()
 void W8TextControl::SetFlaggedRegionBounds(int left, int top, int right)
 {
     if (m_region != -1 && m_pPanel != 0 && (g_regions[m_region].flags & 2) != 0) {
-        g_regions[m_region].SetBounds(m_pPanel->m_bounds.left + left, m_pPanel->m_bounds.top + top,
+        g_regions[m_region].SetBounds(m_pPanel->ScreenBounds().x + left, m_pPanel->ScreenBounds().y + top,
                         right, 0);
     }
 }
@@ -1399,11 +1388,11 @@ void W8RangeControl::Increment()
 }
 
 // FUNCTION: WIZ8 0x004f65a0
-void W8RangeControl::SetRangeEnabled(bool enabled)
+void W8RangeControl::SetEnabled(bool enabled)
 {
     m_enabled = enabled;
     m_decrement->SetEnabled(enabled);
-    m_increment->SetEnabled(enabled & m_enabled);
+    m_increment->SetEnabled(enabled);
     m_thumb->SetEnabled(enabled);
 }
 
@@ -1936,7 +1925,7 @@ void Controls::RedrawControls(bool full_redraw)
     if (full_redraw) {
         if (!m_dirtyRect) {
             if (m_background) {
-                m_background->invalidate(m_backgroundImage, m_bounds.left, m_bounds.top);
+                m_background->invalidate(m_backgroundImage, ScreenBounds().x, ScreenBounds().y);
             }
         } else {
             InvalidateRegion(m_dirtyRect->left, m_dirtyRect->top, m_dirtyRect->right,
@@ -1966,8 +1955,8 @@ void Controls::Redraw(bool full_redraw)
     }
     if (m_dirty) {
         if (m_background) {
-            m_background->draw(GetFrameBufferSurface(), m_backgroundImage, m_bounds.left,
-                               m_bounds.top);
+            m_background->draw(GetFrameBufferSurface(), m_backgroundImage, ScreenBounds().x,
+                               ScreenBounds().y);
         }
         redrawn = true;
     } else if (!m_childrenDirty) {
@@ -1976,12 +1965,12 @@ void Controls::Redraw(bool full_redraw)
     RedrawControls(redrawn);
 }
 
-/* Moves the panel; children keep their relative rectangles and re-derive
-   their screen geometry from the new origin. */
+/* Children keep their relative rectangles and re-derive their screen
+   geometry from the panel's new origin. */
 // FUNCTION: WIZ8 0x004f3010
-void Controls::SetBounds(int left, int top, int new_right, int new_bottom)
+void Controls::OnGeometryChanged()
 {
-    m_bounds = {left, top, new_right, new_bottom};
+    W8Widget::OnGeometryChanged();
     for (const auto& control : m_controls) {
         control->OnGeometryChanged();
     }
