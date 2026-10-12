@@ -112,3 +112,5 @@ WIZ8_ASSET_ROOT=/path/to/Wizardry8 ctest --preset linux -L runtime
 Require green native, ASan and include-hygiene checks before merging. Report code
 and state reductions alongside behavior checks; do not count an unfinished adapter
 as the final simplification.
+
+Party selection now owns its input, rows, portraits, option buttons and painters directly. The panel tree, row widgets and listener interfaces are gone. Import names use string values. Main-game level-up buttons and condition icons also own scoped input; their two numeric registration banks and condition-widget subclass are deleted.

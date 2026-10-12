@@ -1186,7 +1186,7 @@ void CheckGameplayUi(Game& game)
     g_status.buffers.XChar[slot].portrait_advance = true;
     EnablePortraitAdvanceRegions();
     UpdatePortraitAdvanceButtons();
-    game.click("level-up-portrait", g_main_portrait_controls->index(slot));
+    game.click_at( ((slot & 1) ? 0x23b : 0) + 0x22, (slot / 2) * 0x55 + 0x4f);
     game.wait_screen("level-up-character", W8_SCREEN_CHARACTER);
     REQUIRE(g_character_screen->m_mode == 2);
     REQUIRE(g_character_screen->m_original == &g_status.buffers.Char[slot]);

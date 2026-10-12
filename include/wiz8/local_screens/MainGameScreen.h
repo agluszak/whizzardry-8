@@ -20,8 +20,6 @@ extern ScreenRegionSet g_main_party_controls;
 extern ScreenRegionSet g_main_screen;
 extern ScreenRegionSet g_main_dialogue;
 extern ScreenRegionSet g_main_combat_actions;
-extern ScreenRegionSet g_main_portrait_controls;
-extern ScreenRegionSet g_main_conditions;
 extern ScreenRegionSet g_main_portrait_regions;
 extern ScreenRegionSet g_main_portrait_edge_regions;
 extern ScreenRegionSet g_main_radar_regions;

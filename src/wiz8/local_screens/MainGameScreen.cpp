@@ -2713,29 +2713,7 @@ static constexpr std::array<RegionTemplate, 8> g_main_combat_action_templates{{
     {0x00000001, 595, 323, 613, 340, PartyCombatActionRegionEvent, 7, false, -1},
 }};
 
-// Retail set 0x05, regions 18-25
-static constexpr std::array<RegionTemplate, 8> g_main_portrait_control_templates{{
-    {0x00000001, 0, 0, 0, 0, PortraitControlRegionEvent, 0, true, 1984},
-    {0x00000001, 0, 0, 0, 0, PortraitControlRegionEvent, 1, true, 1984},
-    {0x00000001, 0, 0, 0, 0, PortraitControlRegionEvent, 2, true, 1984},
-    {0x00000001, 0, 0, 0, 0, PortraitControlRegionEvent, 3, true, 1984},
-    {0x00000001, 0, 0, 0, 0, PortraitControlRegionEvent, 4, true, 1984},
-    {0x00000001, 0, 0, 0, 0, PortraitControlRegionEvent, 5, true, 1984},
-    {0x00000001, 0, 0, 0, 0, PortraitControlRegionEvent, 6, true, 1984},
-    {0x00000001, 0, 0, 0, 0, PortraitControlRegionEvent, 7, true, 1984},
-}};
 
-// Retail set 0x06, regions 26-33
-static constexpr std::array<RegionTemplate, 8> g_main_condition_templates{{
-    {0x00000001, 0, 0, 0, 0, ConditionButtonRegionEvent, 0, true, 1985},
-    {0x00000001, 0, 0, 0, 0, ConditionButtonRegionEvent, 1, true, 1985},
-    {0x00000001, 0, 0, 0, 0, ConditionButtonRegionEvent, 2, true, 1985},
-    {0x00000001, 0, 0, 0, 0, ConditionButtonRegionEvent, 3, true, 1985},
-    {0x00000001, 0, 0, 0, 0, ConditionButtonRegionEvent, 4, true, 1985},
-    {0x00000001, 0, 0, 0, 0, ConditionButtonRegionEvent, 5, true, 1985},
-    {0x00000001, 0, 0, 0, 0, ConditionButtonRegionEvent, 6, true, 1985},
-    {0x00000001, 0, 0, 0, 0, ConditionButtonRegionEvent, 7, true, 1985},
-}};
 
 // Retail set 0x0f, regions 34-81
 static constexpr std::array<RegionTemplate, 48> g_main_portrait_templates{{
@@ -2847,8 +2825,6 @@ ScreenRegionSet g_main_party_controls{g_main_party_controls_templates, 0x01};
 ScreenRegionSet g_main_screen{g_main_screen_template, 0x02};
 ScreenRegionSet g_main_dialogue{g_main_dialogue_template, 0x03};
 ScreenRegionSet g_main_combat_actions{g_main_combat_action_templates, 0x04};
-ScreenRegionSet g_main_portrait_controls{g_main_portrait_control_templates, 0x05};
-ScreenRegionSet g_main_conditions{g_main_condition_templates, 0x06};
 ScreenRegionSet g_main_portrait_regions{g_main_portrait_templates, 0x0f};
 ScreenRegionSet g_main_portrait_edge_regions{g_main_portrait_edge_templates, 0x10};
 ScreenRegionSet g_main_radar_regions{g_main_radar_template, 0x12};
@@ -2887,8 +2863,6 @@ unsigned char MainGameScreenEnter(void)
     g_main_screen.Create();
     g_main_dialogue.Create();
     g_main_combat_actions.Create();
-    g_main_portrait_controls.Create();
-    g_main_conditions.Create();
     g_main_portrait_regions.Create();
     g_main_portrait_edge_regions.Create();
     g_main_radar_regions.Create();
@@ -3478,8 +3452,6 @@ unsigned char MainGameScreenLeave(int leaving)
         g_main_radar_regions.Destroy();
         g_main_portrait_edge_regions.Destroy();
         g_main_portrait_regions.Destroy();
-        g_main_conditions.Destroy();
-        g_main_portrait_controls.Destroy();
         g_main_combat_actions.Destroy();
         g_main_dialogue.Destroy();
         g_main_screen.Destroy();

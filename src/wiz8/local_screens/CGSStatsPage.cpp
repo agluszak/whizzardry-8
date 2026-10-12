@@ -212,6 +212,7 @@ static void DrawStatRecord(SDL_Surface& target, const W8CharacterStatsRecord& re
 
 void W8CharacterStatsRow::Draw(SDL_Surface& target, bool force)
 {
+    m_dirty |= force;
     if (force || m_dirty) {
         CatalogArtwork::Load(0x104, 0).drawAndInvalidate(target,
             !m_enabled ? 3 : m_value->hovered() ? 2 : 1, m_x + 0x1c, m_y + 4);
@@ -288,17 +289,17 @@ void W8CharacterStatsPage::UpdateRowValues()
     }
 
     W8Profession profession = m_character->iProfession;
-    W8CharacterStatsRow* row = m_profession_row;
+    W8CharacterStatsRow* row = m_profession_row.get();
     row->SetValue(profession);
     m_profession_row->Invalidate();
 
     W8Race race = m_character->iRace;
-    row = m_race_row;
+    row = m_race_row.get();
     row->SetValue(race);
     m_race_row->Invalidate();
 
     W8Gender gender = m_character->gender;
-    row = m_gender_row;
+    row = m_gender_row.get();
     row->SetValue(gender);
     m_gender_row->Invalidate();
 }

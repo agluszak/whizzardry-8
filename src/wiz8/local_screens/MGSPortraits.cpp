@@ -19,7 +19,8 @@
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/Strings.h"
-#include "wiz8/local_code/TextControl.h"
+#include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/ui_layer.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/Combat.h"
@@ -29,7 +30,6 @@
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/item_tables.h"
-#include "wiz8/local_code/Controls.h"
 #include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/fonts.h"
 #include "wiz8/item_video_object_vector.h"
@@ -79,22 +79,27 @@ int g_empty_hand_catalog_ids[32] = {
 };
 
 // GLOBAL: WIZ8 0x0069B940
-static std::unique_ptr<Controls> g_portrait_panel; /* gpLevelButtonsPanel */
+namespace {
+struct PortraitButtons {
+    UiLayer input{0x05};
+    std::array<std::unique_ptr<W8ButtonWidget>, 8> buttons;
+};
+std::unique_ptr<PortraitButtons> portrait_buttons;
+struct ConditionIcons {
+    UiLayer input{0x06};
+    struct Icon {
+        HitTarget* target;
+        SDL_Point position;
+        int catalog = 0;
+        bool dirty = true;
+    };
+    std::array<Icon, 8> icons;
+    bool active = false;
+};
+std::unique_ptr<ConditionIcons> condition_icons;
+}
 // GLOBAL: WIZ8 0x0064C664
 char s_general_magic_sound[] = "Data\\Spells\\Sounds\\GeneralMagic.wav";
-
-// GLOBAL: WIZ8 0x0069B920
-static W8TextControl* g_portrait_controls[8]; /* gpLevelButtons[uiSlot] */
-
-// GLOBAL: WIZ8 0x0069B900
-static W8ConditionButton* g_condition_buttons[8];
-// GLOBAL: WIZ8 0x0069B944
-static std::unique_ptr<Controls> g_condition_buttons_panel;
-/* Party slot the level-up portrait button opens; -1 while idle. */
-// GLOBAL: WIZ8 0x0069B948
-static int giLevelUpChar;
-
-static void OnLevelButtonActivate(void);
 
 /* Refresh cached HP/stamina/spell portrait bar widths; dirty + redraw when
    any slot's displayed fraction (or numeric HP) changes. */
@@ -880,7 +885,7 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
             if (gXStatus.fCombatMode) {
                 entry->combat_portrait_dirty = true;
             }
-            g_condition_buttons[party_slot]->Invalidate(false);
+            condition_icons->icons[party_slot].dirty = true;
         }
 
         if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME &&
@@ -1016,7 +1021,7 @@ portrait_fx:
     }
 
     if (!gXStatus.fCombatMode && party_slot < 8 && party_row->fOccupied) {
-        g_portrait_controls[party_slot]->Invalidate(false);
+        portrait_buttons->buttons[party_slot]->m_dirty = true;
     }
 
     if (g_level_block->portrait_overlay_party_slot == static_cast<int>(party_slot)) {
@@ -1065,28 +1070,10 @@ void ShadeStatusBarGap(int length, int left, int top)
     }
 }
 
-// FUNCTION: WIZ8 0x0059BAD0
-void ReleasePortraitControls(void)
-{
-    DisablePortraitControls();
-    g_portrait_panel.reset();
-    for (auto& control : g_portrait_controls) {
-        control = nullptr;
-    }
-}
+void ReleasePortraitControls() { portrait_buttons.reset(); }
+void ReleaseConditionButtons() { condition_icons.reset(); }
 
-// FUNCTION: WIZ8 0x0059BF70
-void ReleaseConditionButtons(void)
-{
-    g_condition_buttons_panel.reset();
-    for (auto& button : g_condition_buttons) {
-        button = nullptr;
-    }
-}
-
-/* Drop the condition-icon highlight: every dismissal path clears the slot,
-   removes the overlay and redraws the portrait panel and portraits. */
-static void ClearConditionHighlight(void)
+static void ClearConditionHighlight()
 {
     g_level_block->condition_highlight_party_slot = -1;
     DismissHighlightOverlay();
@@ -1094,327 +1081,124 @@ static void ClearConditionHighlight(void)
     RequestRedraw(W8_MAIN_REDRAW_PORTRAITS);
 }
 
-// FUNCTION: WIZ8 0x0059BB40
-void DisablePortraitControls(void)
+void DisablePortraitControls()
 {
-    g_main_portrait_controls.Disable();
-    for (int slot = 0; slot < 8; ++slot) {
-        g_portrait_controls[slot]->SetActive(false);
-    }
+    portrait_buttons->input.setEnabled(false);
+    for (auto& button : portrait_buttons->buttons) button->SetVisible(false);
 }
 
-// FUNCTION: WIZ8 0x0059C030
-void DisableConditionButtons(void)
+void DisableConditionButtons()
 {
-    g_main_conditions.Disable();
-    g_condition_buttons_panel->SetActive(false);
-    if (g_level_block->condition_highlight_party_slot != -1) {
-        ClearConditionHighlight();
-    }
+    condition_icons->active = false;
+    condition_icons->input.setEnabled(false);
+    if (g_level_block->condition_highlight_party_slot != -1) ClearConditionHighlight();
 }
 
-// FUNCTION: WIZ8 0x0059BFC0
-void EnableConditionButtons(void)
+void EnableConditionButtons()
 {
-    if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS) {
-        srAssertFail("gConfig.uiCurrentLayout != LAYOUT_NORMAL",
-                     "C:\\Projects\\Wizardry 8\\Local Screens\\MGSPortraits.cpp", 0xa0c, 0);
-    }
-    g_main_conditions.Enable();
-    g_condition_buttons_panel->SetActive(true);
-    for (int slot = 0; slot < 8; ++slot) {
-        g_condition_buttons[slot]->SetEnabled(true);
-    }
-    g_condition_buttons_panel->InvalidateAll();
+    condition_icons->active = true;
+    condition_icons->input.setEnabled(true);
+    for (auto& icon : condition_icons->icons) icon.dirty = true;
 }
 
-// FUNCTION: WIZ8 0x0059BB70
-void EnablePortraitAdvanceRegions(void)
+void EnablePortraitAdvanceRegions()
 {
-    g_main_portrait_controls.Enable();
-    for (int party_slot = 0; party_slot < 8; ++party_slot) {
-        if (!IsCharacterReadyToAdvance(party_slot) ||
-            g_status.buffers.XChar[party_slot].portrait_advance == 0) {
-            (*g_main_portrait_controls)[party_slot].SetInputEnabled(false);
-        } else {
-            (*g_main_portrait_controls)[party_slot].SetInputEnabled(true);
-        }
-    }
+    portrait_buttons->input.setEnabled(true);
+    for (int slot = 0; slot < 8; ++slot)
+        portrait_buttons->buttons[slot]->SetEnabled(IsCharacterReadyToAdvance(slot) &&
+                                                    g_status.buffers.XChar[slot].portrait_advance);
 }
 
-// FUNCTION: WIZ8 0x0059BBD0
 void InvalidatePortraitControl(unsigned int party_slot)
 {
-    if (party_slot < 8 && g_status.buffers.XChar[party_slot].fOccupied) {
-        g_portrait_controls[party_slot]->Invalidate(false);
+    if (party_slot < 8 && g_status.buffers.XChar[party_slot].fOccupied)
+        portrait_buttons->buttons[party_slot]->m_dirty = true;
+}
+
+void InvalidatePortraitPanel()
+{
+    for (auto& button : portrait_buttons->buttons) button->m_dirty = true;
+}
+
+void UpdatePortraitAdvanceButtons()
+{
+    for (int slot = 0; slot < 8; ++slot) {
+        auto& button = *portrait_buttons->buttons[slot];
+        button.SetVisible(IsCharacterReadyToAdvance(slot) && !gXStatus.fNpcDialogueMode &&
+                          g_status.buffers.XChar[slot].portrait_advance);
+        button.Draw(GetFrameBufferSurface());
     }
 }
 
-// FUNCTION: WIZ8 0x0059BC00
-void InvalidatePortraitPanel(void)
+void CreateLevelButtons()
 {
-    g_portrait_panel->InvalidateAll();
-}
-
-// FUNCTION: WIZ8 0x0059BC10
-void UpdatePortraitAdvanceButtons(void)
-{
-    int slot;
-    W8TextControl** control;
-
-    for (slot = 0, control = g_portrait_controls; control < &g_portrait_controls[8];
-         ++slot, ++control) {
-        if (IsCharacterReadyToAdvance(slot) && !gXStatus.fNpcDialogueMode &&
-            g_status.buffers.XChar[slot].portrait_advance != 0) {
-            if (!(*control)->m_active) {
-                (*control)->SetActive(true);
-                InvalidatePortraitPanel();
-            }
-        } else if ((*control)->m_active) {
-            (*control)->SetActive(false);
-        }
-    }
-    g_portrait_panel->Redraw(GetFrameBufferSurface(), false);
-}
-
-// FUNCTION: WIZ8 0x0059BCA0
-static void OnLevelButtonActivate(void)
-{
-    int slot = giLevelUpChar;
-
-    if (slot == -1 || slot >= 8) {
-        return;
-    }
-    if (!g_status.buffers.XChar[slot].fOccupied) {
-        srAssertFail("fCHAR_OCCUPIED(giLevelUpChar)",
-                     "C:\\Projects\\Wizardry 8\\Local Screens\\MGSPortraits.cpp", 0x988, 0);
-    }
-    g_pending_screen_state.parameter_3 = &g_status.buffers.Char[slot];
-    g_pending_screen_state.mode = 2;
-    SetPendingScreenState(W8_SCREEN_CHARACTER);
-}
-
-// FUNCTION: WIZ8 0x0059B940
-void CreateLevelButtons(void)
-{
-    unsigned int uiSlot;
-
-    g_portrait_panel.reset();
-    const auto artwork = CatalogArtwork::Load(0xa8);
-    for (uiSlot = 0; uiSlot < 8; ++uiSlot) {
-        g_portrait_controls[uiSlot] = 0;
-    }
-
-    g_portrait_panel = std::make_unique<Controls>(0, 0, 0x280, 0x1e0, std::nullopt, -1);
-    if (!g_portrait_panel) {
-        srAssertFail("gpLevelButtonsPanel",
-                     "C:\\Projects\\Wizardry 8\\Local Screens\\MGSPortraits.cpp", 0x8e0, 0);
-    }
-
-    for (uiSlot = 0; uiSlot < 8; ++uiSlot) {
-        unsigned int column_x = (uiSlot & 1) != 0 ? 0x23b : 0;
-        int row_y = (uiSlot >> 1) * 0x55;
-        g_portrait_controls[uiSlot] =
-            g_portrait_panel->EmplaceControl<W8TextControl>(g_main_portrait_controls->index(uiSlot), column_x + 0x19, row_y + 0x46,
-                              column_x + 0x2b, row_y + 0x58, CatalogArtwork::Load(0xa7, 0), W8SpriteStates{.normal = 0, .pressed = 2, .alternate_normal = 1, .alternate_pressed = 4, .disabled = 3});
-        g_portrait_controls[uiSlot]->m_onPrimary = OnLevelButtonActivate;
-        if (g_portrait_controls[uiSlot] == 0) {
-            srAssertFail("gpLevelButtons[uiSlot]",
-                         "C:\\Projects\\Wizardry 8\\Local Screens\\MGSPortraits.cpp", 0x8f7, 0);
-        }
-    }
-
-    giLevelUpChar = -1;
-    g_portrait_panel->SetActive(true);
-    for (uiSlot = 0; uiSlot < 8; ++uiSlot) {
-        g_portrait_controls[uiSlot]->SetActive(false);
+    portrait_buttons = std::make_unique<PortraitButtons>();
+    for (int slot = 0; slot < 8; ++slot) {
+        auto& button = portrait_buttons->buttons[slot] = std::make_unique<W8ButtonWidget>(portrait_buttons->input);
+        button->Configure(CatalogArtwork::Load(0xa7, 0).spriteSheet(), 3, 0, 1, 2, 4,
+            [slot](auto*) { AfterUiDispatch([slot] {
+                g_pending_screen_state.parameter_3 = &g_status.buffers.Char[slot];
+                g_pending_screen_state.mode = 2;
+                SetPendingScreenState(W8_SCREEN_CHARACTER);
+            }); }, {}, false, 0, 1984, {}, {});
+        button->policy.controller_activation = true;
+        button->SetPosition(((slot & 1) ? 0x23b : 0) + 0x19, (slot / 2) * 0x55 + 0x46);
+        button->Resize(0x12, 0x12);
+        button->SetVisible(false);
     }
 }
 
-// FUNCTION: WIZ8 0x00599210
-void W8ConditionButton::Redraw(SDL_Surface& target, bool full_redraw)
+void CreateConditionButtons()
 {
-    bool dirty = m_dirty;
-
-    W8TextControl::Redraw(target, full_redraw);
-    if (!m_active) {
-        return;
+    condition_icons = std::make_unique<ConditionIcons>();
+    for (int slot = 0; slot < 8; ++slot) {
+        auto& icon = condition_icons->icons[slot];
+        icon.position = {((slot & 1) ? 0x23f : 0) + 0x17, (slot / 2) * 0x55 + 0x13};
+        icon.target = &condition_icons->input.add(SDL_Rect{icon.position.x, icon.position.y, 20, 20},
+            [slot](const UiPointerEvent& event) {
+                condition_icons->icons[slot].dirty = true;
+                if (event.action == UiPointerAction::Leave ||
+                    (event.action == UiPointerAction::Up && event.button == UiPointerButton::Left)) {
+                    if (g_level_block->condition_highlight_party_slot != -1) ClearConditionHighlight();
+                } else if (event.action == UiPointerAction::Down && event.button == UiPointerButton::Left) {
+                    g_level_block->condition_highlight_party_slot = slot;
+                    RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
+                }
+                return UiResult::Handled;
+            });
+        icon.target->setTooltip([] { return g_localized_strings[1985]; });
     }
-    if (m_pPanel == 0) {
-        return;
-    }
-    if (!full_redraw && !dirty) {
-        return;
-    }
-    const auto origin = ImageOrigin();
-    const int left = origin.x + 2;
-    const int top = origin.y + 2;
-    if (m_condition == 0) {
-        CatalogArtwork::Load(m_image_object + 0xb6, 0).drawAndInvalidate(target, 0, left, top);
-    } else if (m_condition == 1) {
-        CatalogArtwork::Load(m_image_object + 0xc9, 0).drawAndInvalidate(target, 0, left, top);
-    }
-}
-
-// FUNCTION: WIZ8 0x005992E0
-void W8ConditionButton::OnMouseLeave(int event)
-{
-    W8TextControl::OnMouseLeave(event);
-    if (g_level_block->condition_highlight_party_slot != -1) {
-        ClearConditionHighlight();
-    }
-}
-
-// FUNCTION: WIZ8 0x00599330
-void W8ConditionButton::OnLeftButtonDown(int event)
-{
-    W8TextControl::OnLeftButtonDown(event);
-    g_level_block->condition_highlight_party_slot = m_ui_slot;
-    RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
-}
-
-// FUNCTION: WIZ8 0x00599360
-void W8ConditionButton::OnLeftButtonUp(int event)
-{
-    W8TextControl::OnLeftButtonUp(event);
-    ClearConditionHighlight();
-}
-
-// FUNCTION: WIZ8 0x0059BDB0
-void CreateConditionButtons(void)
-{
-    unsigned int uiSlot;
-
-    g_condition_buttons_panel.reset();
-    for (uiSlot = 0; uiSlot < 8; ++uiSlot) {
-        g_condition_buttons[uiSlot] = 0;
-    }
-
-    g_condition_buttons_panel = std::make_unique<Controls>(0, 0, 0x280, 0x1e0, std::nullopt, -1);
-    if (!g_condition_buttons_panel) {
-        srAssertFail("gpConditionButtonsPanel",
-                     "C:\\Projects\\Wizardry 8\\Local Screens\\MGSPortraits.cpp", 0x9db, 0);
-    }
-
-    const CatalogArtwork artwork = CatalogArtwork::Load(0xa8);
-    for (uiSlot = 0; uiSlot < 8; ++uiSlot) {
-        unsigned int column_x = (uiSlot & 1) != 0 ? 0x23f : 0;
-        int row_y = (uiSlot >> 1) * 0x55;
-        g_condition_buttons[uiSlot] = g_condition_buttons_panel->EmplaceControl<W8ConditionButton>(
-            g_main_conditions->index(uiSlot), column_x + 0x17, row_y + 0x13,
-            column_x + 0x2a, row_y + 0x26, artwork, W8SpriteStates{.normal = 0, .pressed = 0, .alternate_normal = 1, .alternate_pressed = 1}, uiSlot);
-        if (g_condition_buttons[uiSlot] == 0) {
-            srAssertFail("gpConditionButtons[uiSlot]",
-                         "C:\\Projects\\Wizardry 8\\Local Screens\\MGSPortraits.cpp", 0x9ec, 0);
-        }
-    }
-
     DisableConditionButtons();
 }
 
-// FUNCTION: WIZ8 0x0059BD20
-unsigned char PortraitControlRegionEvent(const InputEvent* event, W8Region* region, unsigned short id)
+void UpdateConditionButtons()
 {
-    W8TextControl* control = g_portrait_controls[id];
-    if (control == 0) {
-        return 0;
-    }
-    switch (event->type) {
-    case InputEventType::LeftButtonDown:
-        control->OnLeftButtonDown(0);
-        region->flags |= W8_REGION_LEFT_BUTTON_HELD;
-        return 1;
-    case InputEventType::LeftButtonUp:
-        if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
-            giLevelUpChar = id;
-            control->OnLeftButtonUp(0);
-            region->flags &= ~W8_REGION_LEFT_BUTTON_HELD;
-        }
-        return 1;
-    case InputEventType::MouseMove:
-        if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
-            giLevelUpChar = -1;
-            control->OnMouseLeave(0);
-            return 1;
-        }
-        if ((region->flags & W8_REGION_MOUSE_ENTER) != 0) {
-            control->OnMouseEnter(0);
-            return 1;
-        }
-        break;
-    default:
-        break;
-    }
-    return 0;
-}
-
-// FUNCTION: WIZ8 0x0059C080
-void UpdateConditionButtons(void)
-{
-    int image;
-    int slot;
-
-    for (slot = 0; slot < 8; ++slot) {
-        W8ConditionButton* button = g_condition_buttons[slot];
-        W8MonsterManagerEntry* entry = &gXStatus.monster_manager_entries[slot];
-        image = 0;
+    for (int slot = 0; slot < 8; ++slot) {
+        auto& icon = condition_icons->icons[slot];
+        const auto& entry = gXStatus.monster_manager_entries[slot];
+        int catalog = 0;
         if (g_status.buffers.XChar[slot].fOccupied &&
-            g_level_block->portrait_refresh_pending[slot] == 0 && !entry->keyboard_menu_open) {
-            image = g_status.buffers.Char[slot].highest_condition;
-            if (image == 0) {
-                image = g_status.buffers.Char[slot].enchantment_top;
-                if (image != 0) {
-                    if (button->m_image_object != image) {
-                        button->m_image_object = image;
-                        button->Invalidate(false);
-                    }
-                    if (button->m_condition != 1) {
-                        button->m_condition = 1;
-                        button->Invalidate(false);
-                    }
-                }
-            } else {
-                if (button->m_image_object != image) {
-                    button->m_image_object = image;
-                    button->Invalidate(false);
-                }
-                if (button->m_condition != 0) {
-                    button->m_condition = 0;
-                    button->Invalidate(false);
-                }
-            }
+            g_level_block->portrait_refresh_pending[slot] == 0 && !entry.keyboard_menu_open) {
+            const auto& character = g_status.buffers.Char[slot];
+            if (character.highest_condition) catalog = character.highest_condition + 0xb6;
+            else if (character.enchantment_top) catalog = character.enchantment_top + 0xc9;
         }
-        if (image == 0) {
-            if (button->m_active) {
-                button->SetActive(false);
-                button->Invalidate(false);
-                if (g_level_block->portrait_refresh_pending[slot] == 0 &&
-                    !entry->keyboard_menu_open) {
-                    const auto bounds = button->ScreenBounds();
-                    ClearSurfaceRect(bounds.x, bounds.y, bounds.x + bounds.w,
-                                     bounds.y + bounds.h);
-                }
-                if (g_level_block->condition_highlight_party_slot == slot) {
-                    ClearConditionHighlight();
-                }
+        if (catalog != icon.catalog) {
+            icon.dirty = true;
+            if (!catalog) {
+                if (!g_level_block->portrait_refresh_pending[slot] && !entry.keyboard_menu_open)
+                    ClearSurfaceRect(icon.position.x, icon.position.y, icon.position.x + 19, icon.position.y + 19);
+                if (g_level_block->condition_highlight_party_slot == slot) ClearConditionHighlight();
             }
-        } else if (!button->m_active) {
-            button->SetActive(true);
-            button->Invalidate(false);
+            icon.catalog = catalog;
         }
-    }
-    g_condition_buttons_panel->Redraw(GetFrameBufferSurface(), false);
-}
-
-// FUNCTION: WIZ8 0x0059C260
-unsigned char ConditionButtonRegionEvent(const InputEvent* event, W8Region* region, unsigned short id)
-{
-    switch (event->type) {
-    case InputEventType::LeftButtonDown:
-    case InputEventType::LeftButtonUp:
-    case InputEventType::MouseMove:
-        return DispatchButtonRegionEvent(event, region, g_condition_buttons[id]);
-    default:
-        return 0;
+        icon.target->setEnabled(catalog != 0);
+        if (condition_icons->active && catalog && icon.dirty) {
+            auto& target = GetFrameBufferSurface();
+            CatalogArtwork::Load(0xa8, 0).drawAndInvalidate(target, icon.target->hovered() ? 1 : 0,
+                                                         icon.position.x, icon.position.y);
+            CatalogArtwork::Load(catalog, 0).drawAndInvalidate(target, 0, icon.position.x + 2, icon.position.y + 2);
+            icon.dirty = false;
+        }
     }
 }

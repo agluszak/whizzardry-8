@@ -124,4 +124,3 @@ protected:
     void NotifyPrimaryActivation();
     void NotifySecondaryActivation();
 };
-
