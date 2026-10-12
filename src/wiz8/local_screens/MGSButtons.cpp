@@ -26,7 +26,7 @@
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/cursor.h"
-#include "wiz8/local_code/Controls.h"
+#include "wiz8/ui_layer.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/TextControl.h"
@@ -93,7 +93,18 @@ std::array<W8ButtonWidget, 3> g_roof_buttons;
 W8ButtonWidget g_options_disk_button;
 /* The name is proven by this file's own assertion. */
 // GLOBAL: WIZ8 0x0069B8E8
-std::unique_ptr<Controls> gpSubMenuPanel;
+namespace {
+struct SubMenu {
+    UiLayer input{0x27};
+    int left = 0, background = 0;
+    bool dirty = true;
+    std::vector<std::unique_ptr<W8ButtonWidget>> buttons;
+};
+std::unique_ptr<SubMenu> submenu;
+}
+
+void DestroySubMenuPanel() { submenu.reset(); }
+
 /* The five caption rows; BuildSubMenuPanel news 0xb8-byte objects
    through the W8TextControl constructor. Five is the retail bound: the next
    known global starts at 0x0069B900. Menu 0 considers five actions then adds
@@ -102,7 +113,7 @@ std::unique_ptr<Controls> gpSubMenuPanel;
    priest-only trait 0x0b and iProfession is a single index, so menu 0
    never has all five actions available and built stays <= 5. */
 // GLOBAL: WIZ8 0x0069B8EC
-W8TextControl* g_submenu_rows[5];
+
 
 static void SubMenuPanelCloseButton(W8ButtonWidget* button);
 static void SubMenuPanelFormationButton(W8ButtonWidget* button);
@@ -154,13 +165,15 @@ int GetAttackMenuWeaponOffset(W8Skill skill)
 // FUNCTION: WIZ8 0x005963E0
 void RefreshSubMenuPanel(bool invalidate)
 {
-    if (!gpSubMenuPanel) {
-        srAssertFail("gpSubMenuPanel", MGSBUTTONS_CPP, 0x64f, 0);
+    if (!submenu) return;
+    submenu->dirty |= invalidate;
+    auto& target = GetFrameBufferSurface();
+    if (submenu->dirty) {
+        CatalogArtwork::Load(0x7f, 0).drawAndInvalidate(target, submenu->background, submenu->left, 0x1c3);
+        for (auto& button : submenu->buttons) button->m_dirty = true;
+        submenu->dirty = false;
     }
-    if (invalidate) {
-        gpSubMenuPanel->InvalidateAll();
-    }
-    gpSubMenuPanel->Redraw(GetFrameBufferSurface(), false);
+    for (auto& button : submenu->buttons) button->Draw(target);
 }
 
 static void ChooseSubMenuAction(W8ActionKind action)
@@ -820,8 +833,7 @@ void DestroyMainGameInterfaceButtons(void)
     for (auto& button : g_submenu_buttons) button.Reset();
     for (auto& button : g_submenu_scroll_buttons) button.Reset();
     for (auto& button : g_submenu_panel_buttons) button.Reset();
-    gpSubMenuPanel.reset();
-    for (auto& row : g_submenu_rows) row = nullptr;
+    submenu.reset();
     g_options_disk_button.Reset();
     for (auto& button : g_combat_stance_buttons) button.Reset();
     for (auto& button : g_roof_buttons) button.Reset();
@@ -855,86 +867,6 @@ void EnableMenuButtonBanks(void)
 void DisableMenuButtonBanks(void)
 {
     SetMenuButtonBanksEnabled(false);
-}
-
-// FUNCTION: WIZ8 0x00598CD0
-unsigned char SubMenuBackgroundRegionEvent(const InputEvent* event, W8Region* region, unsigned short)
-{
-    InputEventType us_event;
-
-    if (g_level_block->combat_end_notification == -1) {
-        return 0;
-    }
-    us_event = event->type;
-    if (us_event == InputEventType::RightButtonDown) {
-        return 1;
-    }
-    if (us_event == InputEventType::RightButtonUp) {
-        DestroySubMenuControls();
-        return 1;
-    }
-    if (us_event != InputEventType::MouseMove) {
-        return 0;
-    }
-    if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
-        return 1;
-    }
-    return (region->flags >> 4) & 1;
-}
-
-// FUNCTION: WIZ8 0x00598DB0
-unsigned char SubMenuRowRegionEvent(const InputEvent* event, W8Region* region, unsigned short id)
-{
-    W8PartySlotRow* party_row;
-    W8ItemInstance* item;
-    std::string name;
-    int slot;
-
-    if (g_level_block->combat_end_notification == -1) {
-        return 0;
-    }
-    RequestRedraw(W8_MAIN_REDRAW_FRAME);
-    switch (event->type) {
-    case InputEventType::RightButtonDown:
-        g_submenu_rows[id]->OnRightButtonDown(0);
-        region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
-        return 1;
-    case InputEventType::LeftButtonDown:
-    case InputEventType::LeftButtonUp:
-        return DispatchButtonRegionEvent(event, region, g_submenu_rows[id]);
-    case InputEventType::RightButtonUp:
-        g_submenu_rows[id]->OnRightButtonUp(0);
-        if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) != 0) {
-            region->flags &= ~W8_REGION_RIGHT_BUTTON_HELD;
-        }
-        return 1;
-    case InputEventType::MouseMove:
-        if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
-            g_submenu_rows[id]->OnMouseLeave(0);
-            return 1;
-        }
-        if ((region->flags & W8_REGION_MOUSE_ENTER) == 0) {
-            return 0;
-        }
-        if (g_level_block->combat_end_notification == 3 &&
-            g_submenu_entries[id] == 2) {
-            SetRegionHelpForceEnabled(true);
-            slot = g_status.selected_character;
-            if (!CanPartySlotUseRecordedItem(slot)) {
-                SetRegionHelpText(g_localized_strings[0x5d]);
-            } else {
-                party_row = &g_status.buffers.XChar[slot];
-                item = FindCharacterItemAt(slot, party_row->item_origin, party_row->item_slot);
-                name = FormatItemDisplayName(item, false);
-                SetRegionHelpText(fmt::format("{}: {}", g_localized_strings[0x5d], name));
-            }
-        }
-        g_submenu_rows[id]->OnMouseEnter(0);
-        return 1;
-    default:
-        break;
-    }
-    return 0;
 }
 
 // FUNCTION: WIZ8 0x00596FE0
@@ -1260,7 +1192,7 @@ void UpdateSubMenuAutoClose(void)
     int left;
     int right;
 
-    left = gpSubMenuPanel->ScreenBounds().x;
+    left = submenu->left;
     switch (g_submenu_entry_count) {
     case 0:
     case 1:
@@ -1277,8 +1209,8 @@ void UpdateSubMenuAutoClose(void)
     case 5:
         right = left + 0x67;
     }
-    if (!IsCursorInRectangle(left, gpSubMenuPanel->ScreenBounds().y, right,
-                             gpSubMenuPanel->ScreenBounds().y + 0x1c)) {
+    if (!IsCursorInRectangle(left, 0x1c3, right,
+                             0x1c3 + 0x1c)) {
     check_clock:
         if (!g_submenu_close_pending) {
             g_submenu_clock = w8_get_ticks() + (500);
@@ -1297,16 +1229,7 @@ void UpdateSubMenuAutoClose(void)
 // FUNCTION: WIZ8 0x005957E0
 void EnableSubMenuRegions(void)
 {
-    int index;
-
-    g_main_submenu_regions.Enable();
-    (*g_main_submenu_regions)[5].SetInputEnabled(true);
-    for (index = 0; index < g_submenu_entry_count; ++index) {
-        (*g_main_submenu_regions)[index].SetInputEnabled(true);
-    }
-    for (index = g_submenu_entry_count; index < 5; ++index) {
-        (*g_main_submenu_regions)[index].SetInputEnabled(false);
-    }
+    if (submenu) submenu->input.setEnabled(true);
 }
 
 // FUNCTION: WIZ8 0x00595850
@@ -1323,12 +1246,7 @@ unsigned char BuildSubMenuPanel(short notification)
     short state;
     int base;
 
-    gpSubMenuPanel.reset();
-    for (index = 0; index < 5; ++index) {
-        if (g_submenu_rows[index] != 0) {
-            g_submenu_rows[index] = 0;
-        }
-    }
+    submenu.reset();
     switch (notification) {
     case 6:
         menu = W8_SUBMENU_ATTACK;
@@ -1393,8 +1311,21 @@ unsigned char BuildSubMenuPanel(short notification)
         icon_delta = notification;
         break;
     }
-    gpSubMenuPanel = std::make_unique<Controls>(left, 0x1c3, icon_delta + left, 0x1df, CatalogArtwork::Load(0x7f, 0), base);
-    (*g_main_submenu_regions)[5].SetBounds(left, 0x1c3, icon_delta + left, 0x1df);
+    submenu = std::make_unique<SubMenu>();
+    submenu->left = left;
+    submenu->background = base;
+    submenu->input.add(SDL_Rect{left, 0x1c3, icon_delta + 1, 0x1d}, [](const UiPointerEvent& event) {
+        if (event.action == UiPointerAction::Up && event.button == UiPointerButton::Right)
+            AfterUiDispatch(DestroySubMenuControls);
+        return UiResult::Handled;
+    }, -1);
+    static constexpr void (*actions[5][5])() = {
+        {SubMenuSelectAttack, SubMenuSelectBerserk, SubMenuSelectBreathe, SubMenuSelectTurnUndead, SubMenuSelectPray},
+        {SubMenuSelectDefend, SubMenuSelectProtect},
+        {SubMenuSelectEquip, SubMenuOpenUseItemView, SubMenuUseRecordedItem},
+        {SubMenuOpenSpellView, SubMenuCastRecordedSpell},
+        {SubMenuSelectWalk, SubMenuSelectRun}
+    };
     for (index = 0; index < built - 1; ++index) {
         entry = g_submenu_entries[index];
         state = g_submenu_entry_states[entry];
@@ -1426,89 +1357,42 @@ unsigned char BuildSubMenuPanel(short notification)
             icon_delta = 2;
             break;
         }
-        g_submenu_rows[index] = gpSubMenuPanel->EmplaceControl<W8TextControl>(g_main_submenu_regions->index(index), index * 19 + 5, 5, index * 19 + 0x17, 0x17,
-            CatalogArtwork::Load(0x89, 0), W8SpriteStates{.normal = message, .pressed = message, .alternate_normal = message + icon_delta, .alternate_pressed = message + icon_delta});
-        if (g_submenu_rows[index] == 0) {
-            DestroySubMenuPanel();
-            return 0;
+        auto button = std::make_unique<W8ButtonWidget>(submenu->input);
+        button->Configure(CatalogArtwork::Load(0x89, 0).spriteSheet(), -1, message, message + icon_delta,
+            message, message + icon_delta, [action = actions[menu][entry]](auto*) { AfterUiDispatch(action); }, {},
+            false, 0, g_submenu_entry_help_ids[menu * 5 + entry],
+            [](auto*) { AfterUiDispatch(DestroySubMenuControls); }, {});
+        button->policy.controller_activation = true;
+        button->SetPosition(left + index * 19 + 5, 0x1c8);
+        button->Resize(18, 18);
+        if (menu == W8_SUBMENU_ITEMS && entry == 2) {
+            button->on_hover = [](bool hovered) {
+                if (!hovered) return;
+                SetRegionHelpForceEnabled(true);
+                const int slot = g_status.selected_character;
+                if (!CanPartySlotUseRecordedItem(slot)) SetRegionHelpText(g_localized_strings[0x5d]);
+                else {
+                    const auto& row = g_status.buffers.XChar[slot];
+                    const auto* item = FindCharacterItemAt(slot, row.item_origin, row.item_slot);
+                    SetRegionHelpText(fmt::format("{}: {}", g_localized_strings[0x5d], FormatItemDisplayName(item, false)));
+                }
+            };
         }
-        AssignSubMenuCallback(g_submenu_rows[index], menu, entry);
-        g_submenu_rows[index]->m_onSecondary = DestroySubMenuControls;
-        (*g_main_submenu_regions)[index].SetHelp(true, g_submenu_entry_help_ids[menu * 5 + entry]);
+        submenu->buttons.push_back(std::move(button));
     }
-    g_submenu_rows[built - 1] =
-        gpSubMenuPanel->EmplaceControl<W8TextControl>(g_main_submenu_regions->index(built - 1), built * 19 - 14, 5,
-                          built * 19 - 2, 0x17, CatalogArtwork::Load(0x89, 0), W8SpriteStates{.normal = 0xbd, .pressed = 0xbd, .alternate_normal = 0xbf, .alternate_pressed = 0xbf});
-    if (g_submenu_rows[built - 1] == 0) {
-        DestroySubMenuPanel();
-        return 0;
-    }
-    g_submenu_rows[built - 1]->m_onPrimary = DestroySubMenuControls;
-    g_submenu_rows[built - 1]->m_onSecondary = DestroySubMenuControls;
-    (*g_main_submenu_regions)[built - 1].SetHelp(true, 0x11);
-    g_main_submenu_regions.Enable();
-    gpSubMenuPanel->SetActive(true);
+    auto cancel = std::make_unique<W8ButtonWidget>(submenu->input);
+    cancel->Configure(CatalogArtwork::Load(0x89, 0).spriteSheet(), -1, 0xbd, 0xbf, 0xbd, 0xbf,
+        [](auto*) { AfterUiDispatch(DestroySubMenuControls); }, {}, false, 0, 0x11,
+        [](auto*) { AfterUiDispatch(DestroySubMenuControls); }, {});
+    cancel->policy.controller_activation = true;
+    cancel->SetPosition(left + built * 19 - 14, 0x1c8);
+    cancel->Resize(18, 18);
+    submenu->buttons.push_back(std::move(cancel));
     g_level_block->combat_end_notification = notification;
     g_submenu_menu = menu;
     g_submenu_entry_count = built;
     EnableSubMenuRegions();
     return 1;
-}
-
-// FUNCTION: WIZ8 0x00595EA0
-void AssignSubMenuCallback(W8TextControl* row, short menu, short item)
-{
-    switch (menu) {
-    case W8_SUBMENU_ATTACK:
-        switch (item) {
-        case 0:
-            row->m_onPrimary = SubMenuSelectAttack;
-            break;
-        case 1:
-            row->m_onPrimary = SubMenuSelectBerserk;
-            break;
-        case 2:
-            row->m_onPrimary = SubMenuSelectBreathe;
-            break;
-        case 3:
-            row->m_onPrimary = SubMenuSelectTurnUndead;
-            break;
-        case 4:
-            row->m_onPrimary = SubMenuSelectPray;
-            break;
-        }
-        break;
-    case W8_SUBMENU_DEFEND:
-        if (item == 0) {
-            row->m_onPrimary = SubMenuSelectDefend;
-        } else if (item == 1) {
-            row->m_onPrimary = SubMenuSelectProtect;
-        }
-        break;
-    case W8_SUBMENU_ITEMS:
-        if (item == 0) {
-            row->m_onPrimary = SubMenuSelectEquip;
-        } else if (item == 1) {
-            row->m_onPrimary = SubMenuOpenUseItemView;
-        } else if (item == 2) {
-            row->m_onPrimary = SubMenuUseRecordedItem;
-        }
-        break;
-    case W8_SUBMENU_SPELLS:
-        if (item == 0) {
-            row->m_onPrimary = SubMenuOpenSpellView;
-        } else if (item == 1) {
-            row->m_onPrimary = SubMenuCastRecordedSpell;
-        }
-        break;
-    case W8_SUBMENU_MOVE:
-        if (item == 0) {
-            row->m_onPrimary = SubMenuSelectWalk;
-        } else if (item == 1) {
-            row->m_onPrimary = SubMenuSelectRun;
-        }
-        break;
-    }
 }
 
 // FUNCTION: WIZ8 0x00596360

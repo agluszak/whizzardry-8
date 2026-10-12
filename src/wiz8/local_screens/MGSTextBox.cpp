@@ -1672,7 +1672,7 @@ void RedrawTextBoxComplete(void)
 
     screen->m_text_panel->InvalidateAll();
     screen->m_status_panel->RefreshStatusTexts();
-    screen->m_action_panel->InvalidateAll();
+    screen->actions_dirty = true;
 }
 
 /* The last message on the current line whose clock has stopped, searched from
@@ -1734,9 +1734,9 @@ void AttemptTrapDisarm(int level, int /*flag*/, char backfire)
     } else {
         screen->m_disarm_state = 8;
     }
-    screen->m_text_panel->EnableRegionSet(false);
+    screen->m_text_panel->EnableInput(false);
     screen->m_text_panel->m_key_handler->m_range.SetActive(false);
-    screen->m_action_panel->EnableRegionSet(false);
+    screen->input.setEnabled(false);
     screen->m_timer.SetDuration(1.5f);
     screen->m_timer.Restart();
 }

@@ -114,3 +114,5 @@ and state reductions alongside behavior checks; do not count an unfinished adapt
 as the final simplification.
 
 Party selection now owns its input, rows, portraits, option buttons and painters directly. The panel tree, row widgets and listener interfaces are gone. Import names use string values. Main-game level-up buttons and condition icons also own scoped input; their two numeric registration banks and condition-widget subclass are deleted.
+
+The combat submenu, lock-picking strip/readouts/actions and trap cells/list/actions now use ordinary owner state and explicit painting. Their widget subclasses, listener interfaces, action panels and submenu numeric registration bank are removed.

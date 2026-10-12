@@ -24,7 +24,6 @@ extern ScreenRegionSet g_main_portrait_regions;
 extern ScreenRegionSet g_main_portrait_edge_regions;
 extern ScreenRegionSet g_main_radar_regions;
 extern ScreenRegionSet g_main_formation_board_regions;
-extern ScreenRegionSet g_main_submenu_regions;
 extern ScreenRegionSet g_main_effect_regions;
 enum MainEffectRegionOffset {
     kMonsterListRegionOffset = 0,
@@ -54,6 +53,8 @@ extern unsigned short g_trap_name_string_ids[];
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_code/Widget.h"
+#include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/ui_layer.h"
 #include "wiz8/local_code/TextControl.h"
 #include "wiz8/local_code/RangeControl.h"
 #include "wiz8/engine_code/game_timer.h"
@@ -64,65 +65,38 @@ extern unsigned short g_trap_name_string_ids[];
 
 class W8MainGameScreen;
 
-// VTABLE: WIZ8 0x005eeafc
-class W8MainGameTextKeyHandler : public W8Widget {
+class W8MainGameTextKeyHandler {
 public:
-    W8MainGameTextKeyHandler(int left, int top, int right, int bottom, int line_count,
-                             const unsigned short* line_string_ids);
-    virtual void Redraw(SDL_Surface& target, bool full_redraw) override;
-    virtual void OnMouseLeave(int event) override;
-    virtual void OnMouseMove(int event) override;
-    virtual void AdjustValue(int steps) override;
-    virtual void OnLeftButtonUp(int event) override;
+    W8MainGameTextKeyHandler();
+    void Redraw(SDL_Surface& target, bool full_redraw);
     void SetSelectedLine(int line);
-    virtual char HandleKey(unsigned short key);
-    void OnRangeChanged(W8RangeControl* control);
-
-protected:
-    void OnGeometryChanged() override;
-
-public:
-    W8RangeControl m_range;
-    int m_line_count;
-    int m_visible_lines;
-    const unsigned short* m_line_string_ids;
-    int m_selected_line;
-    int m_hover_line;
-    int m_first_visible_line;
+    char HandleKey(unsigned short key);
+    UiLayer input;
+    W8RangeControl m_range{0x1d0, 0x16b, 0x1e2, 0x1bf};
+    int m_line_count = 15, m_visible_lines = 6;
+    int m_selected_line = 0, m_hover_line = -1, m_first_visible_line = 0;
+    bool m_dirty = true;
     std::function<void()> on_selection;
 };
 
-/* One text-panel cell: the catalog image it shows (or -1) and a flag that
-   gates mouse handling. */
-// VTABLE: WIZ8 0x005eeb4c
-class W8MainGameTextEntry : public W8TextControl {
+class W8MainGameTextPanel {
 public:
-    explicit W8MainGameTextEntry(int index);
-    virtual void Redraw(SDL_Surface& target, bool full_redraw) override;
-    virtual void OnMouseEnter(int event) override;
-    virtual void OnLeftButtonDown(int event) override;
-    virtual void OnLeftButtonUp(int event) override;
-
-    int m_image;
-    bool m_input_blocked;
-};
-
-// VTABLE: WIZ8 0x005eeba8
-// VTABLE: WIZ8 0x005eeba0 W8TextControl::Listener
-class W8MainGameTextPanel : public Controls,
-                            public W8TextControl::Listener {
-public:
-    void BeginProgress(std::string_view text, float duration, float hold);
-
     W8MainGameTextPanel();
-    virtual ~W8MainGameTextPanel();
-    void Redraw(SDL_Surface& target, bool full_redraw) override;
-    virtual void OnPrimary(W8TextControl* control) override;
-    virtual void OnSecondary(W8TextControl*) override {}
-    void OnRangeChanged(W8RangeControl* control);
-
-    W8MainGameTextEntry* m_entries[8];
-    W8MainGameTextKeyHandler* m_key_handler;
+    void BeginProgress(std::string_view text, float duration, float hold);
+    void Redraw(SDL_Surface& target, bool full_redraw);
+    void OnRangeChanged();
+    void InvalidateAll() { m_dirty = true; }
+    void EnableInput(bool enabled) { input.setEnabled(enabled); m_key_handler->input.setEnabled(enabled); }
+    UiLayer input;
+    struct Cell {
+        HitTarget* target;
+        ButtonInteraction interaction;
+        bool enabled = true, blocked = false, dirty = true;
+        int image = -1;
+    };
+    std::array<Cell, 8> cells;
+    std::unique_ptr<W8MainGameTextKeyHandler> m_key_handler;
+    bool m_dirty = true;
     int m_selection;
     W8MainGameScreen* m_screen;
     int* m_values;
@@ -225,102 +199,50 @@ public:
     unsigned int m_flags; /* bit 0 while the primary button is held */
 };
 
-class W8LockTumbler;
+class W8LockInteraction;
 
-/* Notified by a W8LockTumbler when it is released. */
-// VTABLE: WIZ8 0x005eeabc
-class W8LockTumblerListener {
-public:
-    virtual void OnTumblerReleased(W8LockTumbler* tumbler) = 0;
+struct W8LockTumbler {
+    SDL_Rect bounds{};
+    bool m_pin_set = false, m_rising = false, m_falling = false, m_at_top = false;
+    bool m_hovered = false, m_enabled = true, m_dirty = true;
+    int m_pin_index = 0, m_pin_height = 0x22;
+    void Redraw(SDL_Surface& target, bool full_redraw);
 };
 
-/* One lock-picking pin. */
-// VTABLE: WIZ8 0x005eea60
-class W8LockTumbler : public W8Widget {
+class W8LockTumblerPanel {
 public:
-    W8LockTumbler(int left, int top, int right, int bottom, int pin_index)
-        : W8Widget(0xffffffff, left, top, right, bottom), m_pin_set(0), m_rising(0),
-          m_falling(0), m_at_top(0), m_hovered(0), m_pin_index(pin_index), m_pin_height(0x22),
-          m_listener(0)
-    {
-    }
-    virtual void Redraw(SDL_Surface& target, bool full_redraw) override;
-    virtual void OnMouseEnter(int event) override;
-    virtual void OnMouseLeave(int event) override;
-    virtual void OnLeftButtonDown(int event) override;
-    virtual void OnLeftButtonUp(int event) override;
-
-    bool m_pin_set; /* raised and holding */
-    bool m_rising;  /* animating toward its target height */
-    bool m_falling; /* dropping back to rest */
-    bool m_at_top;  /* redrawn against the shared tumble phase */
-    bool m_hovered;
-    int m_pin_index;  /* column into the pin pattern tables */
-    int m_pin_height; /* pixel offset, 0x22 at rest */
-    W8LockTumblerListener* m_listener;
-};
-
-/* Notified by W8LockTumblerPanel with the index of a released tumbler. */
-// VTABLE: WIZ8 0x005eeae0
-class W8LockTumblerPanelListener {
-public:
-    virtual void OnTumblerPicked(int index) = 0;
-};
-
-/* The tumbler strip of the lock interaction. Owns the eight tumblers and the
-   three animation timers: the phase timer steps the shared sway, the rise
-   timer moves a pin toward g_lock_pin_target_height, the fall timer returns it
-   to rest. */
-// VTABLE: WIZ8 0x005eeaac
-class W8LockTumblerPanel : public Controls, public W8LockTumblerListener {
-public:
-    W8LockTumblerPanel(int tumbler_count, const unsigned char* pin_data);
-
-    virtual ~W8LockTumblerPanel();
-    virtual void OnTumblerReleased(W8LockTumbler* tumbler) override;
+    W8LockTumblerPanel(int tumbler_count, const unsigned char* pin_data, W8LockInteraction& owner);
     void UpdateTumblerAnimation();
-
-    int m_tumbler_count; /* pins in use, clamped to [2,8] */
-    W8LockTumbler* m_tumblers[8];
-    bool m_animating;          /* a pin is in flight; input is locked out */
-    int m_phase;               /* sway accumulator feeding g_lock_phase */
-    W8GameTimer m_phase_timer; /* 0.04s */
-    W8GameTimer m_rise_timer;  /* 0.03s */
-    W8GameTimer m_fall_timer;  /* 0.01s */
-    W8LockTumblerPanelListener* m_listener;
-};
-
-/* The lock interaction's readout column: the selected character's name plus
-   the lockpick-skill, spell-power and force-chance percentages. */
-// VTABLE: WIZ8 0x005eeac0
-class W8LockInfoPanel : public Controls {
-public:
-    W8LockInfoPanel(int tumbler_count);
-
-    void Redraw(SDL_Surface& target, bool full_redraw) override;
-    void RefreshInfo();
-
+    void InvalidateAll() { m_dirty = true; }
+    void Redraw(SDL_Surface& target, bool full_redraw);
+    UiLayer input;
+    std::array<W8LockTumbler, 8> m_tumblers;
     int m_tumbler_count;
-    std::unique_ptr<W8TextBuffer> m_text0; /* character name */
-    std::unique_ptr<W8TextBuffer> m_text1;
-    std::unique_ptr<W8TextBuffer> m_text2; /* lockpick skill */
-    std::unique_ptr<W8TextBuffer> m_text3;
-    std::unique_ptr<W8TextBuffer> m_text4; /* spell power */
-    std::unique_ptr<W8TextBuffer> m_text5;
-    std::unique_ptr<W8TextBuffer> m_text; /* force chance */
+    bool m_animating = false, m_dirty = true;
+    int m_phase = 0;
+    W8GameTimer m_phase_timer{0.04f, 0};
+    W8GameTimer m_rise_timer{0.03f, 0};
+    W8GameTimer m_fall_timer{0.01f, 0};
 };
 
-/* The lock-picking interaction. It answers the tumbler panel's "released
-   tumbler N" callback and receives the action-panel buttons; Process() is the
-   per-frame state machine ProcessLockInteractMode drives. */
-// VTABLE: WIZ8 0x005eead8 W8LockTumblerPanelListener
-// VTABLE: WIZ8 0x005eead0 W8TextControl::Listener
-class W8LockInteraction : public W8LockTumblerPanelListener, public W8TextControl::Listener {
+class W8LockInfoPanel {
+public:
+    explicit W8LockInfoPanel(int tumbler_count);
+    void Redraw(SDL_Surface& target, bool full_redraw);
+    void RefreshInfo();
+    void InvalidateAll() { m_dirty = true; }
+    int m_tumbler_count;
+    bool m_dirty = true;
+    std::array<W8TextBuffer, 7> text;
+};
+
+class W8LockInteraction {
 public:
     W8LockInteraction(Trigger* trigger);
 
-    virtual void OnTumblerPicked(int index) override;
-    virtual void OnPrimary(W8TextControl* control) override;
+    void OnTumblerPicked(int index);
+    void OnPrimary(W8ButtonWidget* control);
+    void DrawActions(SDL_Surface& target);
     int ReleaseOwnedTumblers(int slot);
     void Process();
     void ResolvePick();
@@ -332,15 +254,17 @@ public:
        control enables and enters state 7. The flag parameter is unused. */
     void ApplyKnockKnock(int level, int flag, char backfire);
 
+    UiLayer input;
+    std::array<std::unique_ptr<W8ButtonWidget>, 4> buttons;
+    bool actions_dirty = true;
     Trigger* m_trigger;
     int m_tumbler_count; /* trigger->lock_state.difficulty clamped to [2,8] */
     std::unique_ptr<W8LockTumblerPanel> m_tumbler_panel;
     std::unique_ptr<W8LockInfoPanel> m_info_panel;
-    std::unique_ptr<Controls> m_action_panel;
-    W8TextControl* m_done_button;      /* OnPrimary target, state 9 */
-    W8TextControl* m_spell_button;     /* gated by spell-0x27 power */
-    W8TextControl* m_force_button;     /* gated by the force chance */
-    W8TextControl* m_cancel_button;    /* OnPrimary target, state 5 (cancel) */
+    W8ButtonWidget* m_done_button;      /* OnPrimary target, state 9 */
+    W8ButtonWidget* m_spell_button;     /* gated by spell-0x27 power */
+    W8ButtonWidget* m_force_button;     /* gated by the force chance */
+    W8ButtonWidget* m_cancel_button;    /* OnPrimary target, state 5 (cancel) */
     int m_selected_slot;               /* party slot owning the raised pins */
     int m_picked_tumbler;              /* index OnTumblerPicked recorded */
     int m_state;                       /* Process() state */
@@ -350,20 +274,12 @@ public:
     W8GameTimer m_timer;               /* state-8 completion delay */
 };
 
-// VTABLE: WIZ8 0x005eebdc
-class W8MainGameTextSelectionListener {
-public:
-    virtual void SelectTextEntry(int index) = 0;
-};
-
-// VTABLE: WIZ8 0x005eebd8 W8MainGameTextSelectionListener
-// VTABLE: WIZ8 0x005eebd0 W8TextControl::Listener
-class W8MainGameScreen final : public W8MainGameTextSelectionListener, public W8TextControl::Listener {
+class W8MainGameScreen {
 public:
     W8MainGameScreen(Trigger* owner);
-    virtual void SelectTextEntry(int index) override;
-    virtual void OnPrimary(W8TextControl* control) override;
-    virtual void OnSecondary(W8TextControl*) override {}
+    void SelectTextEntry(int index);
+    void OnPrimary(int action);
+    void DrawActions(SDL_Surface& target);
     void Update();
     void RefreshActionPanel();
     void EnablePanelRegionSets(bool enable);
@@ -372,13 +288,14 @@ public:
     void CastTrapSpell();
     void UseTrapItem();
 
+    UiLayer input;
+    bool actions_dirty = true;
     Trigger* m_owner;
     std::unique_ptr<W8MainGameTextPanel> m_text_panel;
     std::unique_ptr<W8MainGameStatusPanel> m_status_panel;
-    std::unique_ptr<Controls> m_action_panel;
     int m_disarm_state;
     int m_selected_character;
-    W8TextControl* m_action_controls[5];
+    std::array<std::unique_ptr<W8ButtonWidget>, 5> m_action_controls;
     int m_device_id;
     int m_difficulty;
     unsigned char m_column_filled[8];
