@@ -105,7 +105,9 @@ W8MonsterInfo* CreateMonsterInfo(W8MonsterGroup* group, W8MonsterRecord* record,
     W8MonsterInfo* monster_info = owner.get();
     int value;
 
-    if (!monster_info) return nullptr;
+    if (!monster_info) {
+        return nullptr;
+    }
     monster_info->location_id = g_status.next_monster_location_id;
     while (g_status.next_monster_location_id++, monster_info->location_id == 0) {
         monster_info->location_id = g_status.next_monster_location_id;
@@ -792,10 +794,10 @@ void ResetLivingMonstersAfterCombat(void)
 static void DestroyMonsterListEntry(unsigned int index)
 {
     W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(index);
-    DeactivateMonster(monster_info);
-    if (monster_info == 0) {
+    if (monster_info == nullptr) {
         srAssertFail("pMonsterInfo", MONSTER_MANAGER_CPP, 0x282, 0);
     }
+    DeactivateMonster(monster_info);
     if (monster_info->p3D != 0) {
         DetachMonsterRepresentation(monster_info->p3D, GetWorld());
         RemoveMonsterFromWorldList(GetWorld(), monster_info->p3D);
@@ -1070,10 +1072,14 @@ static void ClearRemainingMonsterGroups()
 static bool DestroyAllMonsterInfos()
 {
     while (!gXStatus.monsters.empty()) {
-        if (!RemoveMonsterAt(0, true)) return false;
+        if (!RemoveMonsterAt(0, true)) {
+            return false;
+        }
     }
     while (!gXStatus.unborn_monsters.empty()) {
-        if (!RemoveMonsterAt(10000, true)) return false;
+        if (!RemoveMonsterAt(10000, true)) {
+            return false;
+        }
     }
     // Also release a record retained after an interrupted load or spawn.
     gXStatus.owned_monster_infos.clear();
@@ -1081,14 +1087,14 @@ static bool DestroyAllMonsterInfos()
     return true;
 }
 
-/* Reset the two generated runtime IDs and the live manager counts, then create
-   or clear the four lists owned by gXStatus. The final two success checks are
-   deliberately asymmetric: retail rechecks plsMonsterList after initializing
-   plsUnbornMonsterList, and plsMonsterGroupList after the encounter list. */
+/* Dispose any previous level's live and unborn records before resetting
+   runtime IDs and counters. Both registries borrow from the same owner. */
 // FUNCTION: WIZ8 0x004e3720
 bool InitializeMonsterManagerState(void)
 {
-    if (!DestroyAllMonsterInfos()) return false;
+    if (!DestroyAllMonsterInfos()) {
+        return false;
+    }
     g_status.next_monster_location_id = 1;
     g_status.next_group_id = 1;
     gXStatus.active_monster_count = 0;
@@ -1100,14 +1106,14 @@ bool InitializeMonsterManagerState(void)
     return true;
 }
 
-/* The manager teardown: it drains the monster list by repeatedly destroying
-   entry zero rather than walking it, then releases the four gXStatus lists and
-   the species-indexed record cache. */
+/* Drain both monster registries while their groups and the world are intact,
+   then release the species-indexed record cache. */
 // FUNCTION: WIZ8 0x004e3820
 unsigned char ShutdownMonsterManager(void)
 {
-
-    if (!DestroyAllMonsterInfos()) return 0;
+    if (!DestroyAllMonsterInfos()) {
+        return 0;
+    }
     // Direct member access retains the packed cache's alignment information.
     for (int index = 0; index < MAX_MONSTERS_IN_DATABASE; ++index) {
         if (gXStatus.monster_record_cache[index] != 0) {
