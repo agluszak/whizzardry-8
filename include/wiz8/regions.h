@@ -150,7 +150,6 @@ struct W8Region {
     bool help_enabled;
     unsigned char unknown_13;
     int help_text_id;
-    W8Widget* widget; // Non-owning callback target; cleared by widget teardown.
     std::uint64_t binding_generation = 0; // Detect replacement during callback dispatch.
     int priority = 0;
     std::string help_text{};

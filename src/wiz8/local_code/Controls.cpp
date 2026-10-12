@@ -170,11 +170,11 @@ void Controls::EnableRegionSet(bool enable)
 bool W8Widget::OwnsRegion() const
 {
     return m_region >= 0 && static_cast<unsigned int>(m_region) < g_regions.size() &&
-           g_regions[m_region].widget == this;
+           g_regions[m_region].handler == this;
 }
 
 static constexpr RegionTemplate g_widget_region_template{
-    W8_REGION_RECTANGLE, 0, 0, 0, 0, DispatchControlRegionEvent, 0, false, -1};
+    W8_REGION_RECTANGLE, 0, 0, 0, 0, nullptr, 0, false, -1};
 
 // FUNCTION: WIZ8 0x004f40f0
 void W8Widget::SetActive(bool active)
@@ -264,63 +264,61 @@ W8Widget::W8Widget(Controls* owner, unsigned int region, int left, int top, int 
     if (owner) SetPanel(*owner);
 }
 
-// Dynamic regions bind directly to a widget. Removing or moving another
+// Widget regions dispatch straight to their widget. Removing or moving another
 // child cannot change the event target.
 // FUNCTION: WIZ8 0x004F3140
-unsigned char DispatchControlRegionEvent(const InputEvent* event, W8Region* region)
+int W8Widget::HandleRegionInput(W8Region& region, const InputEvent& input)
 {
-    W8Widget* widget = region->widget;
-    if (!widget) return 0;
-    const auto reason = event->type;
+    const auto reason = input.type;
     switch (reason) {
     case InputEventType::LeftButtonDown:
-        region->flags |= W8_REGION_LEFT_BUTTON_HELD;
-        widget->OnLeftButtonDown(0);
+        region.flags |= W8_REGION_LEFT_BUTTON_HELD;
+        OnLeftButtonDown(0);
         return 1;
     case InputEventType::LeftButtonUp:
-        if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) == 0) {
+        if ((region.flags & W8_REGION_LEFT_BUTTON_HELD) == 0) {
             return 1;
         }
-        region->flags &= ~W8_REGION_LEFT_BUTTON_HELD;
-        widget->OnLeftButtonUp(0);
+        region.flags &= ~W8_REGION_LEFT_BUTTON_HELD;
+        OnLeftButtonUp(0);
         return 1;
     case InputEventType::LeftButtonDoubleClick:
-        widget->OnLeftButtonDoubleClick(0);
+        OnLeftButtonDoubleClick(0);
         return 1;
     case InputEventType::LeftButtonRepeat:
-        if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) == 0) {
+        if ((region.flags & W8_REGION_LEFT_BUTTON_HELD) == 0) {
             return 1;
         }
-        widget->ActivatePrimary(0);
+        ActivatePrimary(0);
         return 1;
     case InputEventType::RightButtonDown:
-        region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
-        widget->OnRightButtonDown(0);
+        region.flags |= W8_REGION_RIGHT_BUTTON_HELD;
+        OnRightButtonDown(0);
         return 1;
     case InputEventType::RightButtonUp:
-        if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) == 0) {
+        if ((region.flags & W8_REGION_RIGHT_BUTTON_HELD) == 0) {
             return 1;
         }
-        region->flags &= ~W8_REGION_RIGHT_BUTTON_HELD;
-        widget->OnRightButtonUp(0);
+        region.flags &= ~W8_REGION_RIGHT_BUTTON_HELD;
+        OnRightButtonUp(0);
         return 1;
     case InputEventType::RightButtonRepeat:
-        if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) == 0) {
+        if ((region.flags & W8_REGION_RIGHT_BUTTON_HELD) == 0) {
             return 1;
         }
-        widget->ActivateSecondary(0);
+        ActivateSecondary(0);
         return 1;
     case InputEventType::MouseMove:
-        if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
-            widget->OnMouseLeave(0);
-        } else if ((region->flags & W8_REGION_MOUSE_ENTER) != 0) {
-            widget->OnMouseEnter(0);
+        if ((region.flags & W8_REGION_MOUSE_LEAVE) != 0) {
+            OnMouseLeave(0);
+        } else if ((region.flags & W8_REGION_MOUSE_ENTER) != 0) {
+            OnMouseEnter(0);
         } else {
-            widget->OnMouseMove(region->flags & W8_REGION_LEFT_BUTTON_HELD);
+            OnMouseMove(region.flags & W8_REGION_LEFT_BUTTON_HELD);
         }
         return 1;
     case InputEventType::MouseWheel:
-        widget->AdjustValue(event->wheel);
+        AdjustValue(input.wheel);
         return 1;
     default:
         break;
@@ -334,7 +332,7 @@ void W8Widget::SetRegion(unsigned int region)
     if (m_region != static_cast<int>(region)) ReleaseRegion();
     m_region = static_cast<int>(region);
     if (m_region == -1) return;
-    g_regions[m_region].widget = this;
+    g_regions[m_region].handler = this;
     ++g_regions[m_region].binding_generation;
     UpdateRegionBounds(m_left, m_top, m_right, m_bottom);
     SetActive(m_active);
