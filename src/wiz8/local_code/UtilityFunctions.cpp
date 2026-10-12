@@ -573,7 +573,8 @@ bool CreateMessageBox(std::string_view text, Font& font, unsigned int shade, boo
     message_box.shade = shade;
     message_box.state = 2;
     message_box.callback = callback;
-    message_box.input_scope.emplace(ControlRegionSetIndex());
+    // The box's buttons took the current input layer when they were made.
+    message_box.input_scope.emplace(InputLayerSet(CurrentInputLayer()));
     const auto bounds = MessageBoxBounds(message_box);
     InvalidateRegion(bounds.x, bounds.y, bounds.x + bounds.w, bounds.y + bounds.h);
     return true;

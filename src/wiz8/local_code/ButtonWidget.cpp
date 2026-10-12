@@ -130,7 +130,7 @@ W8ButtonWidget::W8ButtonWidget()
       m_right_callback(nullptr), m_move_callback(nullptr), m_double_click_callback(nullptr),
       m_left_toggles(false), m_right_toggles(false), silent(false),
       hover_silent(false), m_repeat_enabled(false), m_owner(nullptr),
-      m_layer(TopLiveDialog())
+      m_layer(CurrentInputLayer())
 {
     m_dirty = true;
 }
@@ -156,7 +156,7 @@ void W8ButtonWidget::Reset()
 
 void W8ButtonWidget::ConfigureRegion(int priority)
 {
-    ClaimRegion(priority);
+    ClaimRegion(priority, InputLayerSet(m_layer));
     m_visual = {};
     m_armed_buttons = m_repeated_buttons = 0;
     m_dirty = true;
@@ -255,7 +255,6 @@ void W8ButtonWidget::ActivateSecondary(int) { HandleButtonEvent(ButtonEvent::Rep
    activates it unless it was held into repeat or activates on press. */
 void W8ButtonWidget::HandleButtonEvent(ButtonEvent event, SDL_MouseButtonFlags mask)
 {
-    if (m_layer != TopLiveDialog()) return;
     if (!m_left_callback && !m_right_callback && !m_move_callback && !m_double_click_callback) return;
     if (event == ButtonEvent::Leave) {
         m_armed_buttons = m_repeated_buttons = 0;

@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "input.h"
+#include "wiz8/regions.h"
 
 struct Font;
 class W8TextField;
@@ -84,6 +85,7 @@ private:
     void SelectWordAtMouse(int mouse_x);
 
     TextFieldStyle style_;
+    RegionSetRef layer_; /* the input layer the group was made in */
     std::vector<std::unique_ptr<W8TextField>> fields_;
     W8TextField* focused_ = nullptr;
     W8TextField* suspended_focus_ = nullptr;

@@ -894,6 +894,17 @@ void DestroyRegionSet(unsigned int region_set_index)
     ReleaseRegionSetSlot(region_set_index);
 }
 
+RegionSetRef CaptureRegionSet(unsigned int set)
+{
+    return {set, set < g_region_sets.size() ? g_region_sets[set].sequence : 0};
+}
+
+bool RegionSetLive(const RegionSetRef& set)
+{
+    return set.index != 0 && set.index < g_region_sets.size() &&
+           g_region_sets[set.index].sequence == set.sequence;
+}
+
 unsigned int ControlRegionSetIndex(void)
 {
     if (g_control_region_set == 0) {

@@ -136,7 +136,7 @@ public:
     W8DialogBase* m_owner;
 
 private:
-    /* The dialog that was innermost when this button was made; the button
-       only takes input while that dialog is still the innermost one. */
-    W8DialogBase* m_layer;
+    /* The input layer (dialog) this button was made in; it claims its
+       region there, so it takes input only while that layer is modal. */
+    RegionSetRef m_layer;
 };

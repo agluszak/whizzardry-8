@@ -68,7 +68,7 @@ protected:
     /* Join or leave the hit-region set of the panel tree this widget is in. */
     virtual void BindRegion(unsigned int set);
     virtual void UnbindRegion();
-    void ClaimRegion(int priority);
+    void ClaimRegion(int priority, unsigned int set);
     bool OwnsRegion() const;
     void ReleaseRegion();
     SDL_Point PanelOrigin() const;

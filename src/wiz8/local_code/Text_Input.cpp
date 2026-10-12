@@ -19,6 +19,7 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/regions.h"
+#include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/fonts.h"
 #include "wiz8/text_input.h"
 #include "wiz8/local_screens/Screens.h"
@@ -42,7 +43,7 @@
 class W8TextField final : public W8RegionHandler {
 public:
     W8TextField(TextFieldGroup& group, int id, int priority)
-        : group(group), id(id), region(ControlRegionSetIndex(), priority, *this)
+        : group(group), id(id), region(InputLayerSet(group.layer_), priority, *this)
     {
         region.region().text_field = true;
     }
@@ -210,7 +211,7 @@ void W8TextField::MouseClicked(int reason, int mouse_x, SDL_MouseButtonFlags but
     }
 }
 
-TextFieldGroup::TextFieldGroup(Font& font) : previous_(g_ui.focus)
+TextFieldGroup::TextFieldGroup(Font& font) : layer_(CurrentInputLayer()), previous_(g_ui.focus)
 {
     style_.font = &font;
     style_.cursor_color = Get16BPPColor(SDL_Color{10, 10, 10, SDL_ALPHA_OPAQUE});

@@ -290,6 +290,15 @@ private:
     SavedRegionState saved_hover_{};
 };
 
+/* A region set captured with its creation sequence: a set that has since been
+   destroyed, or whose slot now holds another set, is no longer live. */
+struct RegionSetRef {
+    unsigned int index = 0;
+    std::uint64_t sequence = 0;
+};
+RegionSetRef CaptureRegionSet(unsigned int set);
+bool RegionSetLive(const RegionSetRef& set);
+
 unsigned char InitializeRegionHelpState(void);
 
 class TextFieldGroup;

@@ -1881,6 +1881,16 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
         dialog.SetMessage("", 0, 0, true, true, false, false, 100, 80);
         REQUIRE(dialog.CreateControls() == 0);
         auto& control = accept ? dialog.m_confirm_button : dialog.m_cancel_button;
+        {
+            // A dialog opened on top owns the modal scope: the one beneath
+            // keeps its controls but takes no input until it is closed.
+            MessageDialog inner;
+            ExclusiveRegionSet inner_scope(inner.RegionSet());
+            dispatch_mouse(InputEventType::LeftButtonDown, control.Bounds().x, control.Bounds().y, true);
+            dispatch_mouse(InputEventType::LeftButtonUp, control.Bounds().x, control.Bounds().y);
+            REQUIRE(dialog.is_open);
+        }
+        ExclusiveRegionSet dialog_scope(dialog.RegionSet());
         dispatch_mouse(InputEventType::LeftButtonDown, control.Bounds().x, control.Bounds().y, true);
         REQUIRE(dialog.is_open);
         dispatch_mouse(InputEventType::LeftButtonUp, control.Bounds().x, control.Bounds().y);
@@ -1897,6 +1907,7 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
         for (int index = 0; index < 20; ++index) list.m_lines.emplace_back("X");
         REQUIRE(list.CreateControls() == 0);
         list.Draw();
+        ExclusiveRegionSet list_scope(list.RegionSet());
         GetInputState().mouse.y = 400;
         dispatch_mouse(InputEventType::LeftButtonDown, list.m_area_button.Bounds().x + 3,
                        list.m_area_button.Bounds().y + 21, true);

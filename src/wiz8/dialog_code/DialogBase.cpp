@@ -16,16 +16,23 @@
 // GLOBAL: WIZ8 0x0069CA28
 static std::vector<W8DialogBase*> g_live_dialogs;
 
-W8DialogBase* TopLiveDialog()
+RegionSetRef CurrentInputLayer()
 {
-    return g_live_dialogs.empty() ? nullptr : g_live_dialogs.back();
+    return CaptureRegionSet(g_live_dialogs.empty() ? ControlRegionSetIndex()
+                                                   : g_live_dialogs.back()->RegionSet());
 }
 
-void W8DialogFrame::Configure(ButtonAppearance appearance, const SDL_Rect& bounds)
+unsigned int InputLayerSet(const RegionSetRef& layer)
+{
+    return RegionSetLive(layer) ? layer.index : ControlRegionSetIndex();
+}
+
+void W8DialogFrame::Configure(ButtonAppearance appearance, const SDL_Rect& bounds,
+                              unsigned int set)
 {
     m_appearance = std::move(appearance);
     SetBounds(bounds);
-    ClaimRegion(REGION_PRIORITY_BACKGROUND);
+    ClaimRegion(REGION_PRIORITY_BACKGROUND, set);
 }
 
 void W8DialogFrame::Reset()
@@ -80,6 +87,7 @@ W8DialogBase::W8DialogBase()
     m_keep_open = true;
     m_destroy_callback = 0;
     m_destroy_callback_context = 0;
+    m_region_set.Enable();
     g_live_dialogs.push_back(this);
     m_right_button_down = false;
 }
@@ -175,7 +183,7 @@ int W8DialogBase::CreateControls()
             return m_error = 4;
         }
     }
-    m_frame.Configure({.generic_image = m_border}, {m_x, m_y, m_width, m_height});
+    m_frame.Configure({.generic_image = m_border}, {m_x, m_y, m_width, m_height}, RegionSet());
     m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
     m_initialized = true;
     return 0;
@@ -200,7 +208,7 @@ void W8DialogBase::DestroyControls()
 void W8DialogBase::BeginModalInput()
 {
     if (!m_input_scope) {
-        m_input_scope.emplace(ControlRegionSetIndex());
+        m_input_scope.emplace(RegionSet());
     }
 }
 
