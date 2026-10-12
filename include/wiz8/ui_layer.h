@@ -21,6 +21,7 @@ struct UiPointerEvent {
     SDL_MouseButtonFlags captured_buttons = 0;
     bool inside = false;
     int wheel = 0;
+    std::uint16_t modifiers = 0;
     std::uint8_t clicks = 0; // SDL click count on Down, including double clicks.
 };
 
@@ -53,6 +54,7 @@ public:
     // receive the release. This changes the existing dispatcher's capture.
     void releaseCapture();
     bool hovered() const;
+    bool hitAt(SDL_Point point) const;
     SDL_MouseButtonFlags capturedButtons() const;
 
 private:

@@ -119,39 +119,20 @@ bool NpcEditingText()
 }
 } // namespace
 
-namespace {
-
-// Retail set 0x16, regions 101-115.
-
-// Retail set 0x17, regions 116-129.
-
-// Retail set 0x18, regions 130-138.
-
-// Retail set 0x25, region 310.
-constexpr std::array<RegionTemplate, 1> kNpcQuoteBubbleRegionTemplates{{
-    {0x00000001, 0, 0, 0, 0, NpcQuoteBubbleRegionEvent, 0, false, -1},
-}};
-
-} // namespace
-
-ScreenRegionSet g_npc_quote_bubble_regions{kNpcQuoteBubbleRegionTemplates, 0x25};
+static std::unique_ptr<UiLayer> npc_quote_input;
 
 void ShowNpcQuoteBubbleRegion(int x1, int y1, int x2, int y2)
 {
-    if (!g_npc_quote_bubble_regions) return;
-    const auto region_index = g_npc_quote_bubble_regions->index(0);
-    g_regions[region_index].SetBounds(static_cast<unsigned short>(x1), static_cast<unsigned short>(y1),
-                    static_cast<unsigned short>(x2), static_cast<unsigned short>(y2));
-    g_npc_quote_bubble_regions->Enable();
-    g_npc_quote_bubble_regions.EnableInput();
+    npc_quote_input = std::make_unique<UiLayer>(0x25);
+    npc_quote_input->add(SDL_Rect{x1, y1, x2 - x1 + 1, y2 - y1 + 1},
+        [](const UiPointerEvent& event) {
+            if (event.action == UiPointerAction::Down && event.button == UiPointerButton::Left)
+                AfterUiDispatch([] { TryFinishNpcVoicePlayback(true); });
+            return UiResult::Handled;
+        });
 }
 
-void HideNpcQuoteBubbleRegion()
-{
-    if (!g_npc_quote_bubble_regions) return;
-    g_npc_quote_bubble_regions->Disable();
-    g_npc_quote_bubble_regions.DisableInput();
-}
+void HideNpcQuoteBubbleRegion() { npc_quote_input.reset(); }
 
 static void ToggleNpcTradeCategory(int button, W8NpcTradeFilter filter);
 static unsigned char OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item, bool force);
@@ -1317,79 +1298,51 @@ void TryNpcDialoguePickpocket(int party_slot)
     }
 }
 
-/* Region callback on the NPC-dialogue notice text boxes: the left button
-   routes through the keyword/slot click helpers, the right button through the
-   assay/keyword lookup helpers, and InputEventType::MouseMove tracks the hovered line or
-   notice word. Left release falls through into InputEventType::RightButtonDown and also
-   raises the right-held flag (retail bug). */
-unsigned char NpcDialogueTextBoxRegionEvent(const InputEvent* event, W8Region* region)
+UiResult HandleNpcTextBox(const UiPointerEvent& event)
 {
-    int line;
-    int y;
-
-    switch (event->type) {
-    case InputEventType::LeftButtonDoubleClick:
-        NpcDialogueTextBoxDoubleClick(event->position.x,
-                                      event->position.y);
-        return 1;
-    case InputEventType::LeftButtonUp:
-        if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
-            region->flags &= ~W8_REGION_LEFT_BUTTON_HELD;
-            NpcDialogueTextBoxLeftUp(event->position.x,
-                                     event->position.y);
-        }
-        [[fallthrough]];
-    case InputEventType::RightButtonDown:
-        region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
-        return 1;
-    case InputEventType::LeftButtonDown:
-        region->flags |= W8_REGION_LEFT_BUTTON_HELD;
-        return 1;
-    case InputEventType::MouseMove:
-        break;
-    case InputEventType::RightButtonUp:
-        if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) != 0) {
-            region->flags &= ~W8_REGION_RIGHT_BUTTON_HELD;
-            NpcDialogueTextBoxRightUp(event->position.x,
-                                      event->position.y);
-        }
-        return 1;
-    default:
-        return 0;
+    const auto point = event.position;
+    if (event.action == UiPointerAction::Down && event.button == UiPointerButton::Left && event.clicks == 2)
+        AfterUiDispatch([point] { NpcDialogueTextBoxDoubleClick(point.x, point.y); });
+    if (event.action == UiPointerAction::Up && event.inside) {
+        if (event.button == UiPointerButton::Left && (event.captured_buttons & SDL_BUTTON_LMASK))
+            AfterUiDispatch([point] { NpcDialogueTextBoxLeftUp(point.x, point.y); });
+        if (event.button == UiPointerButton::Right && (event.captured_buttons & SDL_BUTTON_RMASK))
+            AfterUiDispatch([point] { NpcDialogueTextBoxRightUp(point.x, point.y); });
     }
-    if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
-        NoOp();
+    if (event.action != UiPointerAction::Move && event.action != UiPointerAction::Enter && event.action != UiPointerAction::Leave)
+        return UiResult::Handled;
+    int y, line;
+    if (event.action == UiPointerAction::Leave) {
         ClearNoticeWordHover(3, true);
         ClearHoveredTextLine(2);
-        return 1;
+        return UiResult::Handled;
     }
-    if ((region->flags & W8_REGION_MOUSE_ENTER) != 0) {
-        g_npc_interaction_state->last_mouse_x = event->position.x;
-        g_npc_interaction_state->last_mouse_y = event->position.y;
-        NoOp();
+    if (event.action == UiPointerAction::Enter) {
+        g_npc_interaction_state->last_mouse_x = event.position.x;
+        g_npc_interaction_state->last_mouse_y = event.position.y;
         if (g_npc_interaction_state->dialogue_layout == W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX) {
-            y = event->position.y;
+            y = event.position.y;
             if (y >= g_level_block->text_box_top && y <= g_level_block->text_box_bottom) {
                 line = (y - g_level_block->text_box_top) / 11;
                 HighlightNoticeRow(line);
                 g_npc_interaction_state->hovered_text_line = line;
             }
         }
-        return 1;
+        return UiResult::Handled;
     }
-    if (event->position.x == g_npc_interaction_state->last_mouse_x &&
-        event->position.y == g_npc_interaction_state->last_mouse_y) {
-        return 1;
+    if (event.position.x == g_npc_interaction_state->last_mouse_x &&
+        event.position.y == g_npc_interaction_state->last_mouse_y) {
+        return UiResult::Handled;
     }
-    g_npc_interaction_state->last_mouse_x = event->position.x;
-    g_npc_interaction_state->last_mouse_y = event->position.y;
+    g_npc_interaction_state->last_mouse_x = event.position.x;
+    g_npc_interaction_state->last_mouse_y = event.position.y;
     if (g_npc_interaction_state->dialogue_layout == W8_DIALOGUE_LAYOUT_TRANSCRIPT) {
-        HighlightNoticeWordAt(3, event->position.x,
-                              event->position.y);
-        return 1;
+        HighlightNoticeWordAt(3, event.position.x,
+                              event.position.y);
+        return UiResult::Handled;
     }
     if (g_npc_interaction_state->dialogue_layout == W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX) {
-        y = event->position.y;
+        y = event.position.y;
         if (y >= g_level_block->text_box_top && y <= g_level_block->text_box_bottom) {
             line = (y - g_level_block->text_box_top) / 11;
             if (line != g_npc_interaction_state->hovered_text_line) {
@@ -1398,7 +1351,7 @@ unsigned char NpcDialogueTextBoxRegionEvent(const InputEvent* event, W8Region* r
             g_npc_interaction_state->hovered_text_line = line;
         }
     }
-    return 1;
+    return UiResult::Handled;
 }
 
 /* Mouse-wheel line tracking on the main NPC text box: flag forces the redraw
@@ -1979,7 +1932,7 @@ void OpenNpcDialogueTranscriptLayout(void)
         if (g_status.buffers.XChar[index].fOccupied) {
             DisableMainGamePortraitSlot(index);
 
-            (*g_main_portrait_edge_regions)[index].SetInputEnabled(false);
+            g_main_input->edge_targets[index]->setEnabled(false);
         }
     }
     if (g_npc_interaction_state->dialogue_npc->record->merchant != 0) {
@@ -2021,7 +1974,7 @@ static void CloseNpcDialogueTranscriptLayout(void)
         if (g_status.buffers.XChar[index].fOccupied) {
             EnableMainGamePortraitSlot(index);
 
-            (*g_main_portrait_edge_regions)[index].SetInputEnabled(true);
+            g_main_input->edge_targets[index]->setEnabled(true);
         }
     }
 }
@@ -3876,15 +3829,6 @@ void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQu
     } else if (g_current_screen_state.id == W8_SCREEN_CAMP) {
         g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_ALL;
     }
-}
-
-unsigned char NpcQuoteBubbleRegionEvent(const InputEvent* event, W8Region*, unsigned short)
-{
-    if (event->type != InputEventType::LeftButtonDown) {
-        return 0;
-    }
-    TryFinishNpcVoicePlayback(true);
-    return 1;
 }
 
 void DrawNpcQuoteBubble(void)

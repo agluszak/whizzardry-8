@@ -83,6 +83,7 @@ struct HitTarget::Backend final : W8RegionHandler {
                 ((region.flags & W8_REGION_RIGHT_BUTTON_HELD) ? SDL_BUTTON_RMASK : 0u),
             .inside = region.ContainsPoint(position.x, position.y),
             .wheel = input.wheel,
+            .modifiers = input.modifiers,
             .clicks = input.clicks,
         };
         return handler ? handler(event) == UiResult::Handled : 1;
@@ -149,6 +150,11 @@ bool HitTarget::hovered() const
 {
     return g_ui.hover == backend_->owned.index() ||
            (backend_->owned.region().flags & W8_REGION_MOUSE_ENTER) != 0;
+}
+
+bool HitTarget::hitAt(SDL_Point point) const
+{
+    return FindRegionAtPoint(point.x, point.y) == backend_->owned.index();
 }
 
 SDL_MouseButtonFlags HitTarget::capturedButtons() const

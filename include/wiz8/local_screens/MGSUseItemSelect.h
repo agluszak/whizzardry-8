@@ -20,7 +20,7 @@ void EnableUseItemSelectInput();
 void InvalidateUseItemSelectPanel(void);
 void CloseUseItemSelection(void);
 /* Text-box body callback while use-item select is active. */
-unsigned char UseItemSelectTextBoxRegionEvent(const InputEvent* event, W8Region* region);
+UiResult HandleUseItemTextBox(const UiPointerEvent& event);
 /* Text-box wheel helper while use-item select is active. */
 void UseItemSelectTextBoxWheelAt(short x, unsigned short y, bool flag);
 W8ItemInstance* GetSelectedOrFallbackValue(void);

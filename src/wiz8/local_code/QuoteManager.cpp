@@ -1,3 +1,4 @@
+#include "wiz8/ui_layer.h"
 #include <algorithm>
 #include <array>
 #include <memory>
@@ -848,70 +849,54 @@ finish_without_dispatch:
     return 0;
 }
 
-// Retail sets 0x1d-0x24, regions 302-309
-static constexpr std::array<RegionTemplate, 8> g_party_portrait_event_templates{{
-    {0x00000001, 0, 0, 0, 0, PartyPortraitEventRegionEvent, 0, false, -1},
-    {0x00000001, 0, 0, 0, 0, PartyPortraitEventRegionEvent, 1, false, -1},
-    {0x00000001, 0, 0, 0, 0, PartyPortraitEventRegionEvent, 2, false, -1},
-    {0x00000001, 0, 0, 0, 0, PartyPortraitEventRegionEvent, 3, false, -1},
-    {0x00000001, 0, 0, 0, 0, PartyPortraitEventRegionEvent, 4, false, -1},
-    {0x00000001, 0, 0, 0, 0, PartyPortraitEventRegionEvent, 5, false, -1},
-    {0x00000001, 0, 0, 0, 0, PartyPortraitEventRegionEvent, 6, false, -1},
-    {0x00000001, 0, 0, 0, 0, PartyPortraitEventRegionEvent, 7, false, -1},
-}};
-/* Retail kept these eight single-region sets for the whole process; the main
-   game and camp both drive them while the other screen is suspended, so no
-   screen owns them. They are created on first use and never torn down. */
-static std::array<ScreenRegionSet, 8>& PartyPortraitEventRegions()
-{
-    static std::array<ScreenRegionSet, 8> regions{
-        ScreenRegionSet{std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 0, 1),
-                        0x1d + 0},
-        ScreenRegionSet{std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 1, 1),
-                        0x1d + 1},
-        ScreenRegionSet{std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 2, 1),
-                        0x1d + 2},
-        ScreenRegionSet{std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 3, 1),
-                        0x1d + 3},
-        ScreenRegionSet{std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 4, 1),
-                        0x1d + 4},
-        ScreenRegionSet{std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 5, 1),
-                        0x1d + 5},
-        ScreenRegionSet{std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 6, 1),
-                        0x1d + 6},
-        ScreenRegionSet{std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 7, 1),
-                        0x1d + 7},
-    };
-    return regions;
-}
-void SetPartyPortraitEventBounds(unsigned int slot, unsigned short x, unsigned short y,
-                                 unsigned short right, unsigned short bottom)
-{
-    auto& regions = PartyPortraitEventRegions();
-    if (slot >= regions.size()) return;
-    regions[slot].Create();
-    (*regions[slot])[0].SetBounds(x, y, right, bottom);
-}
-void EnablePartyPortraitEvent(unsigned int slot)
-{
-    auto& regions = PartyPortraitEventRegions();
-    if (slot >= regions.size()) return;
-    regions[slot].Create();
-    regions[slot].Enable();
-    regions[slot].EnableInput();
-}
-void DisablePartyPortraitEvent(unsigned int slot)
-{
-    auto& regions = PartyPortraitEventRegions();
-    if (slot < regions.size() && regions[slot]) {
-        regions[slot].Disable();
-        regions[slot].DisableInput();
+namespace {
+struct PartyQuoteInput {
+    UiLayer input{0x1d};
+    std::array<HitTarget*, 8> targets;
+    PartyQuoteInput()
+    {
+        for (int slot = 0; slot < 8; ++slot) {
+            targets[slot] = &input.add(SDL_Rect{0, 0, 1, 1}, [slot](const UiPointerEvent& event) {
+                if (event.action == UiPointerAction::Up && event.inside &&
+                    event.button == UiPointerButton::Left && (event.captured_buttons & SDL_BUTTON_LMASK)) {
+                    AfterUiDispatch([slot] {
+                        auto* active = gXStatus.monster_manager_entries[slot].active_character_event;
+                        if (slot > 1 && active) gXStatus.character_event_queue->CompleteActiveEvent(active);
+                        else TryFinishNpcVoicePlayback(true);
+                    });
+                }
+                return UiResult::Handled;
+            });
+            targets[slot]->setEnabled(false);
+        }
     }
+};
+// Quotes persist while switching between camp and the live game.
+std::unique_ptr<PartyQuoteInput> party_quote_input;
 }
 
 void CreatePartyPortraitEventRegions()
 {
-    for (auto& region_set : PartyPortraitEventRegions()) region_set.Create();
+    if (!party_quote_input) party_quote_input = std::make_unique<PartyQuoteInput>();
+}
+
+void SetPartyPortraitEventBounds(unsigned int slot, unsigned short x, unsigned short y,
+                                 unsigned short right, unsigned short bottom)
+{
+    CreatePartyPortraitEventRegions();
+    if (slot < 8) party_quote_input->targets[slot]->setShape(SDL_Rect{x, y, right - x + 1, bottom - y + 1});
+}
+
+void EnablePartyPortraitEvent(unsigned int slot)
+{
+    CreatePartyPortraitEventRegions();
+    party_quote_input->input.setEnabled(true);
+    if (slot < 8) party_quote_input->targets[slot]->setEnabled(true);
+}
+
+void DisablePartyPortraitEvent(unsigned int slot)
+{
+    if (party_quote_input && slot < 8) party_quote_input->targets[slot]->setEnabled(false);
 }
 
 /* Turn a party-slot portrait/voice event on or off, optionally
@@ -2031,33 +2016,4 @@ bool BlitPartyPortraitAnimation(int portrait, int left, int top, SpriteDraw opti
         ShadowRect(GetFrameBufferSurface(), {left, top, 0x5a, 0x48});
     }
     return drawn;
-}
-
-// FUNCTION: WIZ8 0x0052FD80
-unsigned char PartyPortraitEventRegionEvent(const InputEvent* event, W8Region* region, unsigned short id)
-{
-    W8MonsterManagerEntry* entry = &gXStatus.monster_manager_entries[id];
-    W8CharacterEvent* active;
-
-    switch (event->type) {
-    case InputEventType::LeftButtonDown:
-        region->flags |= W8_REGION_LEFT_BUTTON_HELD;
-        break;
-    case InputEventType::LeftButtonUp:
-        if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
-            if (id != 0 && id != 1) {
-                active = entry->active_character_event;
-                if (active != 0) {
-                    gXStatus.character_event_queue->CompleteActiveEvent(active);
-                    return 1;
-                }
-            }
-            TryFinishNpcVoicePlayback(true);
-            return 1;
-        }
-        break;
-    default:
-        return 0;
-    }
-    return 1;
 }

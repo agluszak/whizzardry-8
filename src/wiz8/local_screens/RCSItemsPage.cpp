@@ -868,7 +868,7 @@ UiResult HandleCampItem(const UiPointerEvent& event, int slot, int origin)
         g_camp_screen->item_range->AdjustValue(event.wheel);
     if (event.action == UiPointerAction::Up && event.inside) {
         if (event.button == UiPointerButton::Left && (event.captured_buttons & SDL_BUTTON_LMASK))
-            AfterUiDispatch([item, index, origin] { HandleCampItemClick(item, index, origin); });
+            AfterUiDispatch([item, index, origin] { HandleCampItemClick(item, index, static_cast<W8ItemOrigin>(origin)); });
         if (event.button == UiPointerButton::Right && (event.captured_buttons & SDL_BUTTON_RMASK) &&
             item->iItemNo != -1 && g_camp_screen->item_action != W8_CAMP_ITEM_ACTION_IDENTIFY)
             AfterUiDispatch([item] { ShowCampItemInfo(item); });

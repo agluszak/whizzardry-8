@@ -185,43 +185,13 @@ void CreateFormationBoardOverlay(void)
     }
 }
 
-unsigned char FormationBoardHoverRegionEvent(const InputEvent*, W8Region* region);
-
-/* Board callback: opens the formation panel on release, hit-tests the cell
-   markers for tooltips, and switches board art on hover transitions. */
-// FUNCTION: WIZ8 0x005b2020
-unsigned char FormationBoardRegionEvent(const InputEvent* event, W8Region* region, unsigned short)
+UiResult HandleFormationBoard(const UiPointerEvent& event)
 {
-    switch (event->type) {
-    case InputEventType::LeftButtonDown:
-        region->flags |= W8_REGION_LEFT_BUTTON_HELD;
-        return 1;
-    case InputEventType::LeftButtonUp:
-        if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0 && !gXStatus.fReviewCharacterMode) {
-            OpenFormationPanel();
-        }
-        return 1;
-    case InputEventType::RightButtonDown:
-        region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
-        return 1;
-    case InputEventType::RightButtonUp:
-        return 1;
-    case InputEventType::MouseMove:
-        break;
-    default:
-        return 0;
-    }
-
-    return FormationBoardHoverRegionEvent(event, region);
-}
-
-/* The board region's second handler: just the hover half - hit-tests the
-   formation markers for the tooltip subject and swaps the board art on
-   enter/leave. Retail emits it as a separate function right after the full
-   handler. */
-// FUNCTION: WIZ8 0x005B207F
-unsigned char FormationBoardHoverRegionEvent(const InputEvent*, W8Region* region)
-{
+    if (event.action == UiPointerAction::Up && event.inside &&
+        event.button == UiPointerButton::Left && (event.captured_buttons & SDL_BUTTON_LMASK) && !gXStatus.fReviewCharacterMode)
+        AfterUiDispatch(OpenFormationPanel);
+    if (event.action != UiPointerAction::Move && event.action != UiPointerAction::Enter && event.action != UiPointerAction::Leave)
+        return UiResult::Handled;
     int slot;
     int hit;
 
@@ -246,16 +216,16 @@ unsigned char FormationBoardHoverRegionEvent(const InputEvent*, W8Region* region
     if (hit != g_level_block->formation_highlight_party_slot) {
         SetTooltipSubject(6, hit);
     }
-    if ((region->flags & W8_REGION_MOUSE_ENTER) == 0) {
-        if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
+    if (event.action != UiPointerAction::Enter) {
+        if (event.action == UiPointerAction::Leave) {
             g_level_block->formation_board_alternate = 0;
             RefreshFormationBoard();
         }
-        return 0;
+        return UiResult::Handled;
     }
     g_level_block->formation_board_alternate = 1;
     RefreshFormationBoard();
-    return 0;
+    return UiResult::Handled;
 }
 
 static void SelectFormationCell(void);

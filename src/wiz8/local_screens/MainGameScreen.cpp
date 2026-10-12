@@ -360,7 +360,7 @@ static void QueueInteractionNotice(int event_type)
 static void EnableActionPanelRegions()
 {
     if (g_level_block->action_panel_visible != 0) {
-        g_text_box_regions.Enable();
+        SetTextBoxEnabled(true);
         SetTextBoxMuteInput(true);
         SetTextBoxScrollInput(true);
         SetTextBoxChannelTabInput(true);
@@ -2411,163 +2411,68 @@ void ResetMainGameScreenState(void)
 }
 
 
-std::array<std::optional<RegionSetView>, 8> g_main_portrait_slot_views;
-std::optional<RegionSetView> g_main_portrait_edge_view;
+std::unique_ptr<MainGameInput> g_main_input;
 
-namespace {
-enum MainPortraitRegionOffset {
-    kPortraitWorldRegionOffset = 2
-};
-
-// Retail set 0x01, regions 1-6
-static constexpr std::array<RegionTemplate, 6> g_main_party_controls_templates{{
-    {0x00000001, 174, 138, 467, 182, nullptr, 0, false, -1},
-    {0x00000001, 140, 187, 501, 231, nullptr, 0, false, -1},
-    {0x00000001, 204, 235, 436, 279, nullptr, 0, false, -1},
-    {0x00000001, 239, 284, 403, 328, nullptr, 0, false, -1},
-    {0x00000001, 234, 335, 408, 379, nullptr, 0, false, -1},
-    {0x00000001, 279, 423, 364, 467, nullptr, 0, false, -1},
-}};
-
-// Retail set 0x02, region 8
-static constexpr std::array<RegionTemplate, 1> g_main_screen_template{{
-    {0x00000001, 0, 0, 639, 479, nullptr, 0, false, 0},
-}};
-
-// Retail set 0x03, region 9
-
-// Retail set 0x04, regions 10-17
-static constexpr std::array<RegionTemplate, 8> g_main_combat_action_templates{{
-    {0x00000001, 24, 68, 42, 85, PartyCombatActionRegionEvent, 0, false, -1},
-    {0x00000001, 595, 68, 613, 85, PartyCombatActionRegionEvent, 1, false, -1},
-    {0x00000001, 24, 153, 42, 170, PartyCombatActionRegionEvent, 2, false, -1},
-    {0x00000001, 595, 153, 613, 170, PartyCombatActionRegionEvent, 3, false, -1},
-    {0x00000001, 24, 238, 42, 255, PartyCombatActionRegionEvent, 4, false, -1},
-    {0x00000001, 595, 238, 613, 255, PartyCombatActionRegionEvent, 5, false, -1},
-    {0x00000001, 24, 323, 42, 340, PartyCombatActionRegionEvent, 6, false, -1},
-    {0x00000001, 595, 323, 613, 340, PartyCombatActionRegionEvent, 7, false, -1},
-}};
-
-
-
-// Retail set 0x0f, regions 34-81
-static constexpr std::array<RegionTemplate, 48> g_main_portrait_templates{{
-    {0x00000002, 32, 27, 8, 0, PortraitConditionOrbRegionEvent, 0, true, 25},
-    {0x00000002, 95, 27, 8, 0, PortraitEnchantmentOrbRegionEvent, 0, true, 26},
-    {0x00000001, 23, 18, 104, 89, PortraitSelectRegionEvent, 0, false, -1},
-    {0x00000001, 21, 91, 105, 101, TextBoxMuteRegionEvent, 0, false, -1},
-    {0x00000001, 4, 42, 19, 90, PortraitAssaySidebarRegionEvent, 0, true, 28},
-    {0x00000001, 109, 42, 123, 90, PortraitOverlayHoverRegionEvent, 0, true, 24},
-    {0x00000002, 608, 27, 8, 0, PortraitConditionOrbRegionEvent, 1, true, 25},
-    {0x00000002, 544, 27, 8, 0, PortraitEnchantmentOrbRegionEvent, 1, true, 26},
-    {0x00000001, 535, 18, 616, 89, PortraitSelectRegionEvent, 1, false, -1},
-    {0x00000001, 539, 91, 612, 101, TextBoxMuteRegionEvent, 1, false, -1},
-    {0x00000001, 621, 42, 635, 90, PortraitAssaySidebarRegionEvent, 1, true, 28},
-    {0x00000001, 517, 42, 531, 90, PortraitOverlayHoverRegionEvent, 1, true, 24},
-    {0x00000002, 32, 112, 8, 0, PortraitConditionOrbRegionEvent, 2, true, 25},
-    {0x00000002, 95, 112, 8, 0, PortraitEnchantmentOrbRegionEvent, 2, true, 26},
-    {0x00000001, 23, 103, 104, 174, PortraitSelectRegionEvent, 2, false, -1},
-    {0x00000001, 21, 176, 105, 186, TextBoxMuteRegionEvent, 2, false, -1},
-    {0x00000001, 4, 125, 19, 173, PortraitAssaySidebarRegionEvent, 2, true, 28},
-    {0x00000001, 109, 125, 123, 173, PortraitOverlayHoverRegionEvent, 2, true, 24},
-    {0x00000002, 608, 112, 8, 0, PortraitConditionOrbRegionEvent, 3, true, 25},
-    {0x00000002, 544, 112, 8, 0, PortraitEnchantmentOrbRegionEvent, 3, true, 26},
-    {0x00000001, 535, 103, 616, 174, PortraitSelectRegionEvent, 3, false, -1},
-    {0x00000001, 539, 176, 612, 186, TextBoxMuteRegionEvent, 3, false, -1},
-    {0x00000001, 621, 125, 635, 173, PortraitAssaySidebarRegionEvent, 3, true, 28},
-    {0x00000001, 517, 125, 531, 173, PortraitOverlayHoverRegionEvent, 3, true, 24},
-    {0x00000002, 32, 198, 8, 0, PortraitConditionOrbRegionEvent, 4, true, 25},
-    {0x00000002, 95, 198, 8, 0, PortraitEnchantmentOrbRegionEvent, 4, true, 26},
-    {0x00000001, 23, 189, 104, 255, PortraitSelectRegionEvent, 4, false, -1},
-    {0x00000001, 21, 261, 105, 271, TextBoxMuteRegionEvent, 4, false, -1},
-    {0x00000001, 4, 210, 19, 258, PortraitAssaySidebarRegionEvent, 4, true, 28},
-    {0x00000001, 109, 210, 123, 258, PortraitOverlayHoverRegionEvent, 4, true, 24},
-    {0x00000002, 608, 198, 8, 0, PortraitConditionOrbRegionEvent, 5, true, 25},
-    {0x00000002, 544, 198, 8, 0, PortraitEnchantmentOrbRegionEvent, 5, true, 26},
-    {0x00000001, 535, 189, 616, 255, PortraitSelectRegionEvent, 5, false, -1},
-    {0x00000001, 539, 261, 612, 271, TextBoxMuteRegionEvent, 5, false, -1},
-    {0x00000001, 621, 210, 635, 258, PortraitAssaySidebarRegionEvent, 5, true, 28},
-    {0x00000001, 517, 210, 531, 258, PortraitOverlayHoverRegionEvent, 5, true, 24},
-    {0x00000002, 32, 283, 8, 0, PortraitConditionOrbRegionEvent, 6, true, 25},
-    {0x00000002, 95, 283, 8, 0, PortraitEnchantmentOrbRegionEvent, 6, true, 26},
-    {0x00000001, 23, 274, 104, 344, PortraitSelectRegionEvent, 6, false, -1},
-    {0x00000001, 21, 346, 105, 356, TextBoxMuteRegionEvent, 6, false, -1},
-    {0x00000001, 4, 295, 19, 343, PortraitAssaySidebarRegionEvent, 6, true, 28},
-    {0x00000001, 109, 295, 123, 343, PortraitOverlayHoverRegionEvent, 6, true, 24},
-    {0x00000002, 608, 283, 8, 0, PortraitConditionOrbRegionEvent, 7, true, 25},
-    {0x00000002, 544, 283, 8, 0, PortraitEnchantmentOrbRegionEvent, 7, true, 26},
-    {0x00000001, 535, 274, 616, 344, PortraitSelectRegionEvent, 7, false, -1},
-    {0x00000001, 539, 346, 612, 356, TextBoxMuteRegionEvent, 7, false, -1},
-    {0x00000001, 621, 295, 635, 343, PortraitAssaySidebarRegionEvent, 7, true, 28},
-    {0x00000001, 517, 295, 531, 343, PortraitOverlayHoverRegionEvent, 7, true, 24},
-}};
-
-// Retail set 0x10, regions 90-97
-static constexpr std::array<RegionTemplate, 8> g_main_portrait_edge_templates{{
-    {0x00000001, 0, 18, 21, 102, PortraitSelectRegionEvent, 0, true, -1},
-    {0x00000001, 617, 18, 639, 102, PortraitSelectRegionEvent, 1, true, -1},
-    {0x00000001, 0, 103, 21, 187, PortraitSelectRegionEvent, 2, true, -1},
-    {0x00000001, 617, 103, 639, 187, PortraitSelectRegionEvent, 3, true, -1},
-    {0x00000001, 0, 188, 21, 272, PortraitSelectRegionEvent, 4, true, -1},
-    {0x00000001, 617, 188, 639, 272, PortraitSelectRegionEvent, 5, true, -1},
-    {0x00000001, 0, 273, 21, 357, PortraitSelectRegionEvent, 6, true, -1},
-    {0x00000001, 617, 273, 639, 357, PortraitSelectRegionEvent, 7, true, -1},
-}};
-
-// Retail set 0x12, region 98
-static constexpr std::array<RegionTemplate, 1> g_main_radar_template{{
-    {0x00000002, 75, 402, 46, 0, RadarMapButtonRegionEvent, 0, true, 31},
-}};
-
-// Retail set 0x13, regions 99-100
-static constexpr std::array<RegionTemplate, 2> g_main_formation_board_templates{{
-    {0x00000002, 564, 402, 40, 0, FormationBoardRegionEvent, 0, true, 32},
-    {0x00000001, 512, 358, 617, 450, TextBoxMuteRegionEvent, 0, false, -1},
-}};
-
-// Retail set 0x27, regions 194-199
-
-// Retail set 0x28, regions 205-230
-static constexpr std::array<RegionTemplate, 2> g_main_effect_templates{{
-    {0x00000001, 0, 0, 0, 0, MonsterListRegionEvent, 0, true, 36},
-    {0x00000001, 0, 0, 0, 0, WorldViewRegionEvent, 0, false, 23},
-}};
-
-// Retail sets 0x07-0x0e (one per party slot) and 0x11.
-void CreateMainGameRegionViews()
+void SetWorldResumeInput(bool enabled)
 {
-    for (unsigned int slot = 0; slot < 8; ++slot) {
-        g_main_portrait_slot_views[slot].emplace(*g_main_portrait_regions, slot * 6, 6,
-                                                 0x07 + static_cast<int>(slot));
-    }
-    g_main_portrait_edge_view.emplace(*g_main_portrait_edge_regions, 0, 8, 0x11);
+    if (g_main_input) g_main_input->resume_world = enabled;
 }
-void DestroyMainGameRegionViews()
-{
-    g_main_portrait_edge_view.reset();
-    for (auto& view : g_main_portrait_slot_views) view.reset();
-}
-}
-ScreenRegionSet g_main_party_controls{g_main_party_controls_templates, 0x01};
-ScreenRegionSet g_main_screen{g_main_screen_template, 0x02};
-ScreenRegionSet g_main_combat_actions{g_main_combat_action_templates, 0x04};
-ScreenRegionSet g_main_portrait_regions{g_main_portrait_templates, 0x0f};
-ScreenRegionSet g_main_portrait_edge_regions{g_main_portrait_edge_templates, 0x10};
-ScreenRegionSet g_main_radar_regions{g_main_radar_template, 0x12};
-ScreenRegionSet g_main_formation_board_regions{g_main_formation_board_templates, 0x13};
-ScreenRegionSet g_main_effect_regions{g_main_effect_templates, 0x28};
 
-void EnableMainGamePortraitSlot(unsigned int slot) {
-    if (slot < g_main_portrait_slot_views.size() && g_main_portrait_slot_views[slot]) {
-        g_main_portrait_slot_views[slot]->Enable();
-        g_main_portrait_slot_views[slot]->EnableInput();
+MainGameInput::MainGameInput()
+{
+    for (int slot = 0; slot < 8; ++slot) {
+        const int row = slot / 2;
+        const bool right = slot % 2;
+        portraits[slot] = std::make_unique<UiLayer>(0x07 + slot);
+        auto& input = *portraits[slot];
+        auto& targets = portrait_targets[slot];
+        const auto add = [&](int index, HitShape shape, auto handler, int help = -1) {
+            targets[index] = &input.add(shape, [this, slot, index, handler](const UiPointerEvent& event) {
+                return handler(event, *portrait_targets[slot][index], slot);
+            });
+            if (help != -1) targets[index]->setTooltip([help] { return g_localized_strings[help]; });
+        };
+        constexpr int orb_y[] = {27, 112, 198, 283};
+        constexpr int portrait_y[] = {18, 103, 189, 274};
+        constexpr int portrait_h[] = {72, 72, 67, 71};
+        constexpr int sidebar_y[] = {42, 125, 210, 295};
+        add(0, UiCircle{{right ? 608 : 32, orb_y[row]}, 8}, PortraitConditionOrbInput, 25);
+        add(1, UiCircle{{right ? 544 : 95, orb_y[row]}, 8}, PortraitEnchantmentOrbInput, 26);
+        add(2, SDL_Rect{right ? 535 : 23, portrait_y[row], 82, portrait_h[row]}, PortraitSelectInput);
+        targets[3] = &input.add(SDL_Rect{right ? 539 : 21, 91 + row * 85, right ? 74 : 85, 11},
+            [](const UiPointerEvent&) { PushButtonSoundScheme(0, true); return UiResult::Handled; });
+        add(4, SDL_Rect{right ? 621 : 4, sidebar_y[row], right ? 15 : 16, 49}, PortraitAssaySidebarInput, 28);
+        add(5, SDL_Rect{right ? 517 : 109, sidebar_y[row], 15, 49}, PortraitOverlayHoverInput, 24);
+        combat_targets[slot] = &combat.add(SDL_Rect{right ? 595 : 24, 68 + row * 85, 19, 18},
+            [this, slot](const UiPointerEvent& event) { return PartyCombatActionInput(event, *combat_targets[slot], slot); });
+        edge_targets[slot] = &edges.add(SDL_Rect{right ? 617 : 0, 18 + row * 85, right ? 23 : 22, 85},
+            [this, slot](const UiPointerEvent& event) { return PortraitSelectInput(event, *edge_targets[slot], slot); });
+        input.setEnabled(false);
     }
+    radar_target = &radar.add(UiCircle{{75, 402}, 46}, RadarMapButtonInput);
+    radar_target->setTooltip([] { return g_localized_strings[31]; });
+    auto& board = formation.add(UiCircle{{564, 402}, 40}, HandleFormationBoard);
+    board.setTooltip([] { return g_localized_strings[32]; });
+    formation.add(SDL_Rect{512, 358, 106, 93}, [](const UiPointerEvent&) {
+        PushButtonSoundScheme(0, true); return UiResult::Handled;
+    });
+    monster_list = &world.add(SDL_Rect{0, 0, 1, 1}, MonsterListInput);
+    monster_list->setTooltip([] { return g_localized_strings[36]; });
+    world_view = &world.add(SDL_Rect{0, 0, 1, 1}, WorldViewInput);
+    combat.setEnabled(false);
+    edges.setEnabled(false);
+    radar.setEnabled(false);
+    formation.setEnabled(false);
+    world.setEnabled(false);
 }
-void DisableMainGamePortraitSlot(unsigned int slot) {
-    if (slot < g_main_portrait_slot_views.size() && g_main_portrait_slot_views[slot]) {
-        g_main_portrait_slot_views[slot]->Disable();
-        g_main_portrait_slot_views[slot]->DisableInput();
-    }
+
+void EnableMainGamePortraitSlot(unsigned int slot)
+{
+    if (g_main_input && slot < 8) g_main_input->portraits[slot]->setEnabled(true);
+}
+void DisableMainGamePortraitSlot(unsigned int slot)
+{
+    if (g_main_input && slot < 8) g_main_input->portraits[slot]->setEnabled(false);
 }
 
 /* Enter the live game screen, constructing its owned native state on first entry. */
@@ -2584,18 +2489,10 @@ unsigned char MainGameScreenEnter(void)
     gXStatus.level_up_notice = true;
     ResetRegions();
     CreatePartyPortraitEventRegions();
-    g_main_party_controls.Create();
-    g_main_screen.Create();
-    g_main_combat_actions.Create();
-    g_main_portrait_regions.Create();
-    g_main_portrait_edge_regions.Create();
-    g_main_radar_regions.Create();
-    g_main_formation_board_regions.Create();
-    g_main_effect_regions.Create();
-    g_game_time_combat_bar_region.Create();
-    CreateMainGameRegionViews();
+
+
+    if (!g_main_input) g_main_input = std::make_unique<MainGameInput>();
     InitTextBoxRegions();
-    g_npc_quote_bubble_regions.Create();
     CreateMainGameInterfaceButtons();
     CreateLevelButtons();
     CreateConditionButtons();
@@ -2761,11 +2658,13 @@ unsigned char ProcessMainGameInput(void)
 {
     return PumpUiInput({
         .before = [](const InputEvent& input) {
-            return g_mouselook_active && HandleMouselookInput(&input) != 0 ? InputRoute::Handled
-                                                                           : InputRoute::Pass;
+            if (g_mouselook_active && HandleMouselookInput(&input)) return InputRoute::Handled;
+            if (g_main_input->resume_world && !IsModalOpen() && HandleWorldResumeInput(&input))
+                return InputRoute::Handled;
+            return InputRoute::Pass;
         },
         .unhandled = [](const InputEvent& input) {
-            if (GetForcedRegion() != 0) return InputRoute::Handled;
+            if (InputSinkCaptured()) return InputRoute::Handled;
             switch (input.type) {
             case InputEventType::LeftButtonDown:
             case InputEventType::LeftButtonUp:
@@ -2779,7 +2678,7 @@ unsigned char ProcessMainGameInput(void)
             }
             return InputRoute::Handled;
         },
-        .track_hover = GetForcedRegion() == 0,
+        .track_hover = !InputSinkCaptured() && !g_main_input->resume_world,
     });
 }
 
@@ -2883,9 +2782,9 @@ update_screen:
             if (!g_status.buffers.XChar[slot].fOccupied ||
                 g_status.buffers.Char[slot].highest_condition > W8_CONDITION_UNCONSCIOUS ||
                 (g_level_block->keyboard_menu_open && g_level_block->combat_slot == slot)) {
-                (*g_main_combat_actions)[slot].SetInputEnabled(false);
+                g_main_input->combat_targets[slot]->setEnabled(false);
             } else {
-                (*g_main_combat_actions)[slot].SetInputEnabled(true);
+                g_main_input->combat_targets[slot]->setEnabled(true);
             }
         }
     }
@@ -2906,34 +2805,21 @@ update_screen:
     SGPMouseGetPos(&point);
     if (!IsWorldCursorVisible()) {
         if (!g_modal_owner) {
-            if ((!ShouldDeferCharacterEventForNpcScript(true) || !gXStatus.fNpcDialogueMode) &&
-                !g_status.world_cursor_gate) {
-                g_level_block->hover_region = UpdateRegionMousePosition(point.x, point.y);
-            } else {
-                g_level_block->hover_region = FindRegionAtPoint(
-                    static_cast<unsigned short>(point.x), static_cast<unsigned short>(point.y));
-            }
+            if ((!ShouldDeferCharacterEventForNpcScript(true) || !gXStatus.fNpcDialogueMode) && !g_status.world_cursor_gate)
+                UpdateRegionMousePosition(point.x, point.y);
         } else {
-            g_level_block->hover_region = FindRegionAtPoint(static_cast<unsigned short>(point.x),
-                                                            static_cast<unsigned short>(point.y));
-            for (int portrait = 0; portrait < 8; ++portrait) {
-                if (g_status.buffers.XChar[portrait].fOccupied &&
-                    (g_level_block->hover_region ==
-                         g_main_portrait_regions->index(portrait * 6 + kPortraitWorldRegionOffset) ||
-                     g_level_block->hover_region == g_main_portrait_edge_regions->index(portrait))) {
-                    g_level_block->hover_region = UpdateRegionMousePosition(point.x, point.y);
+            for (int slot = 0; slot < 8; ++slot) {
+                if (g_status.buffers.XChar[slot].fOccupied &&
+                    (g_main_input->portrait_targets[slot][2]->hitAt(point) || g_main_input->edge_targets[slot]->hitAt(point))) {
+                    UpdateRegionMousePosition(point.x, point.y);
                     break;
                 }
             }
         }
-    } else {
-        UpdateWorldCursor();
-    }
+    } else UpdateWorldCursor();
     if (!g_level_block->keyboard_menu_open && g_level_block->hover_combat_slot != -1 &&
-        g_level_block->hover_region !=
-            g_main_combat_actions->index(g_level_block->hover_combat_slot)) {
+        !g_main_input->combat_targets[g_level_block->hover_combat_slot]->hitAt(point))
         g_level_block->hover_combat_slot = -1;
-    }
     TickAmbientFollowUpIdle(ProcessMainGameInput());
     if (!IsRecordModeActive()) {
         if (!IsMipeActive() || IsMipeMenuActive()) {
@@ -3164,17 +3050,10 @@ unsigned char MainGameScreenLeave(int leaving)
         if (gXStatus.fPartyMovementUi) {
             ReleasePartyMovement();
         }
-        DestroyMainGameRegionViews();
-        g_main_effect_regions.Destroy();
-        g_game_time_combat_bar_region.Destroy();
-        g_main_formation_board_regions.Destroy();
-        g_main_radar_regions.Destroy();
-        g_main_portrait_edge_regions.Destroy();
-        g_main_portrait_regions.Destroy();
-        g_main_combat_actions.Destroy();
-        g_main_screen.Destroy();
-        g_main_party_controls.Destroy();
-        g_npc_quote_bubble_regions.Destroy();
+        g_main_input.reset();
+
+
+        HideNpcQuoteBubbleRegion();
         ShutdownTextBoxRegions();
         DestroyFormationPanel();
         wiz8::sound::release_cache();
@@ -3701,12 +3580,10 @@ void RedrawCombatMonsterList(void)
         g_main_game_invalidate_rects[17].right = max_text_width + 0xfa;
         g_main_game_invalidate_rects[17].bottom = row_y;
         if (live_row_count == 0) {
-            (*g_main_effect_regions)[kMonsterListRegionOffset].SetInputEnabled(false);
+            g_main_input->monster_list->setEnabled(false);
         } else {
-            (*g_main_effect_regions)[kMonsterListRegionOffset].SetBounds(0xfa, 0x19,
-                            static_cast<unsigned short>(max_text_width) + 0xf9,
-                            static_cast<unsigned short>(live_row_count) * 0xb + 0x18);
-            (*g_main_effect_regions)[kMonsterListRegionOffset].SetInputEnabled(true);
+            g_main_input->monster_list->setShape(SDL_Rect{250, 25, int(max_text_width), int(live_row_count) * 11});
+            g_main_input->monster_list->setEnabled(true);
         }
         g_level_block->group_list_rows = live_row_count;
         g_level_block->group_list_width = max_text_width;
@@ -3842,7 +3719,7 @@ void RefreshSelectedPartyPortrait(unsigned int party_slot)
     g_level_block->portrait_refresh_image[party_slot] = 0x69;
     g_level_block->portrait_refresh_mode[party_slot] = 6;
     RequestRedraw(1u << (party_slot & 0x1f));
-    (*g_main_portrait_edge_regions)[party_slot].SetInputEnabled(false);
+    g_main_input->edge_targets[party_slot]->setEnabled(false);
     if (!gXStatus.monster_manager_entries[party_slot].keyboard_menu_open) {
         EnableMainGamePortraitSlot(party_slot);
 
@@ -4524,8 +4401,7 @@ void SetViewportMode(int mode)
         return;
     }
     rect = &g_viewport_modes[mode];
-    (*g_main_effect_regions)[kWorldViewRegionOffset].SetBounds(rect->left, rect->top,
-                    rect->right - 1, rect->bottom - 1);
+    g_main_input->world_view->setShape(SDL_Rect{rect->left, rect->top, rect->right - rect->left, rect->bottom - rect->top});
     W8MainGameInvalidateRect& viewport = g_main_game_invalidate_rects[15];
     viewport.left = rect->left;
     viewport.top = rect->top;
@@ -4686,7 +4562,7 @@ void UpdateFormationPortraitRefresh(void)
         } else if (!g_status.buffers.XChar[party_slot].fOccupied) {
             ClearPortraitRefreshSlot(static_cast<int>(party_slot));
             entry->auto_portrait_refresh = false;
-            (*g_main_portrait_edge_regions)[party_slot].SetInputEnabled(false);
+            g_main_input->edge_targets[party_slot]->setEnabled(false);
         } else if (!entry->portrait_refresh_pinned && !entry->damage_splat_active &&
                    !entry->effect_icon_active && !entry->portrait_event_active) {
             if (!IsPartyPortraitUnderCursor(party_slot) || entry->auto_portrait_refresh) {
@@ -4716,7 +4592,7 @@ void ClearPortraitRefreshSlot(int slot)
         ClearSurfaceRect(row->left - 1, row->top, row->right + 1, row->bottom);
         InvalidateRegion(row->left - 1, row->top, row->right + 1, row->bottom);
         RequestRedraw(1 << (slot & 0x1f));
-        (*g_main_portrait_edge_regions)[slot].SetInputEnabled(true);
+        g_main_input->edge_targets[slot]->setEnabled(true);
         DisableMainGamePortraitSlot(slot);
 
         RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
@@ -4855,44 +4731,14 @@ void OpenModal(std::unique_ptr<ModalContent> owner)
    changes. */
 void RefreshPartySlotRegions(void)
 {
-    int slot;
-
-    for (slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
-        if (!g_main_portrait_slot_views[slot]) {
-            continue;
-        }
-        RegionSetView& slot_view = *g_main_portrait_slot_views[slot];
-        unsigned int edge_region = g_main_portrait_edge_regions->index(slot);
-        if (!g_status.buffers.XChar[slot].fOccupied) {
-            if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS) {
-                slot_view.DisableInput();
-            } else if (static_cast<unsigned int>(g_settings.main_ui_mode) <=
-                       static_cast<unsigned int>(W8_MAIN_UI_MODE_RADAR)) {
-                g_regions[edge_region].SetInputEnabled(false);
-            }
-        } else if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS) {
-            if (!gXStatus.monster_manager_entries[slot].keyboard_menu_open) {
-                slot_view.EnableInput();
-            } else {
-                slot_view.DisableInput();
-            }
-        } else if (static_cast<unsigned int>(g_settings.main_ui_mode) <=
-                   static_cast<unsigned int>(W8_MAIN_UI_MODE_RADAR)) {
-            if (!gXStatus.monster_manager_entries[slot].keyboard_menu_open) {
-                if (g_level_block->portrait_refresh_pending[slot] == 0) {
-                    g_regions[edge_region].SetInputEnabled(true);
-                    slot_view.Disable();
-                } else {
-                    g_regions[edge_region].SetInputEnabled(false);
-                    slot_view.Enable();
-                    slot_view.EnableInput();
-                }
-            } else {
-                g_regions[edge_region].SetInputEnabled(false);
-                slot_view.Disable();
-                slot_view.DisableInput();
-            }
-        }
+    if (!g_main_input) return;
+    for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
+        const bool available = g_status.buffers.XChar[slot].fOccupied &&
+            !gXStatus.monster_manager_entries[slot].keyboard_menu_open;
+        const bool full = g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS ||
+            g_level_block->portrait_refresh_pending[slot] != 0;
+        g_main_input->portraits[slot]->setEnabled(available && full);
+        g_main_input->edge_targets[slot]->setEnabled(available && !full);
     }
 }
 
@@ -4904,31 +4750,29 @@ void SyncMainGameModeRegions(void)
 {
     SetMouseCursorHotspot(0, 0);
     SyncSystemCursor();
-    g_main_effect_regions.Enable();
+    g_main_input->world.setEnabled(true);
     if (g_level_block->group_list_rows == 0) {
-        (*g_main_effect_regions)[kMonsterListRegionOffset].SetInputEnabled(false);
+        g_main_input->monster_list->setEnabled(false);
     } else {
-        (*g_main_effect_regions)[kMonsterListRegionOffset].SetInputEnabled(true);
+        g_main_input->monster_list->setEnabled(true);
     }
 
     if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS) {
         SetViewportMode(GetMainGameViewportMode());
-        g_main_portrait_regions.Enable();
     } else if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_FORMATION) {
         SetViewportMode(GetMainGameViewportMode());
-        g_main_portrait_edge_regions.Enable();
+        g_main_input->edges.setEnabled(true);
     } else if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_RADAR) {
         SetViewportMode(GetMainGameViewportMode());
-        if (g_main_portrait_edge_view) g_main_portrait_edge_view->Enable();
+        g_main_input->edges.setEnabled(true);
     }
 
     RefreshPartySlotRegions();
     if (!gXStatus.fCombatMode) {
-        g_main_combat_actions.Disable();
-        g_main_combat_actions.DisableInput();
+        g_main_input->combat.setEnabled(false);
         EnablePortraitAdvanceRegions();
     } else {
-        g_main_combat_actions.Enable();
+        g_main_input->combat.setEnabled(true);
         DisablePortraitControls();
     }
     if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS) {
@@ -4953,10 +4797,10 @@ void SyncMainGameModeRegions(void)
             EnableTrapInteractionPanelRegions();
         } else {
             if (g_level_block->formation_board_visible) {
-                g_main_formation_board_regions.Enable();
+                g_main_input->formation.setEnabled(true);
             }
             if (g_level_block->radar_map_visible != 0) {
-                g_main_radar_regions.Enable();
+                g_main_input->radar.setEnabled(true);
             }
         }
     }
@@ -4985,7 +4829,7 @@ void SyncMainGameModeRegions(void)
 /* Party portrait hit region: left-click selects / aims, right-hold opens camp,
    drag-hover arms the mode-6 overlay, and InputEventType::MouseMove drives help plus targeting
    cursor. Skips the slot parked in gXStatus.review_character_slot. */
-unsigned char PortraitSelectRegionEvent(const InputEvent* event, W8Region* region, unsigned short id)
+UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int id)
 {
     int slot = id;
     bool targeting = false;
@@ -4993,16 +4837,15 @@ unsigned char PortraitSelectRegionEvent(const InputEvent* event, W8Region* regio
     bool front_rank = false;
     W8TargetNeed needed;
     W8ActionKind action_kind;
-    InputEventType us_event;
     std::string help_text;
 
     if (slot == static_cast<short>(gXStatus.review_character_slot)) {
-        return 0;
+        return UiResult::Pass;
     }
 
     needed = GetTargetNeededForCurrentAction(g_status.selected_character);
     if (gXStatus.iTargetingMode == W8_TARGET_NEED_ALLY ||
-        (needed == W8_TARGET_NEED_ALLY && (event->modifiers & CTRL_DOWN) != 0)) {
+        (needed == W8_TARGET_NEED_ALLY && (event.modifiers & CTRL_DOWN) != 0)) {
         targeting = true;
         if (CanPartySlotParticipate(slot)) {
             front_rank = false;
@@ -5021,54 +4864,53 @@ unsigned char PortraitSelectRegionEvent(const InputEvent* event, W8Region* regio
         }
     } else if (gXStatus.iTargetingMode == W8_TARGET_NEED_CHARACTER_INDIRECT ||
                (needed == W8_TARGET_NEED_CHARACTER_INDIRECT &&
-                (event->modifiers & CTRL_DOWN) != 0)) {
+                (event.modifiers & CTRL_DOWN) != 0)) {
         targeting = true;
         IsDeadCharacterTargetable(slot);
     }
 
-    us_event = event->type;
-    if (IsLeftButtonEvent(us_event)) {
-        if (us_event == InputEventType::LeftButtonRepeat) {
+    if ((event.button == UiPointerButton::Left)) {
+        if ((event.button == UiPointerButton::Left && event.action == UiPointerAction::Repeat)) {
             if (g_level_block->portrait_refresh_pending[slot] == 0 &&
                 g_settings.main_ui_mode != W8_MAIN_UI_MODE_PORTRAITS &&
                 g_level_block->portrait_overlay_party_slot == -1 &&
                 TimeUntilDeadline(g_level_block->countdown5) == 0 &&
-                (region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
+                (event.captured_buttons & SDL_BUTTON_LMASK) != 0) {
                 g_level_block->portrait_overlay_party_slot = slot;
                 if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME && g_level_block != 0) {
                     RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
-                    return 1;
+                    return UiResult::Handled;
                 }
             }
             /* retail falls through to return 1 at the end when the arm did not
                redraw */
-        } else if (us_event == InputEventType::LeftButtonDown) {
-            region->flags |= W8_REGION_LEFT_BUTTON_HELD;
+        } else if ((event.button == UiPointerButton::Left && event.action == UiPointerAction::Down && event.clicks != 2)) {
+
             if (g_level_block->portrait_refresh_pending[slot] == 0 &&
                 g_settings.main_ui_mode != W8_MAIN_UI_MODE_PORTRAITS &&
                 g_level_block->portrait_overlay_party_slot == -1) {
                 g_level_block->countdown5 = w8_get_ticks() + (500);
-                return 1;
+                return UiResult::Handled;
             }
-        } else if (us_event == InputEventType::LeftButtonUp) {
-            if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
+        } else if ((event.button == UiPointerButton::Left && event.action == UiPointerAction::Up)) {
+            if ((event.captured_buttons & SDL_BUTTON_LMASK) != 0) {
                 if (g_level_block->portrait_overlay_party_slot == slot) {
                     g_level_block->portrait_overlay_party_slot = -1;
                     DismissHighlightOverlay();
                     if (g_current_screen_state.id != W8_SCREEN_MAIN_GAME) {
                         g_main_game_mode = W8_MAIN_GAME_DEFAULT;
-                        return 1;
+                        return UiResult::Handled;
                     }
                     if (g_level_block == 0) {
                         g_main_game_mode = W8_MAIN_GAME_DEFAULT;
-                        return 1;
+                        return UiResult::Handled;
                     }
                     RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
                     if (g_current_screen_state.id != W8_SCREEN_MAIN_GAME) {
-                        return 1;
+                        return UiResult::Handled;
                     }
                     if (g_level_block == 0) {
-                        return 1;
+                        return UiResult::Handled;
                     }
                     RequestRedraw(W8_MAIN_REDRAW_PORTRAITS);
                 } else if (IsNpcDialogueCursorActive() == 0) {
@@ -5126,44 +4968,44 @@ unsigned char PortraitSelectRegionEvent(const InputEvent* event, W8Region* regio
                 RequestRedraw(1 << (slot & 0x1f));
                 if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME && g_level_block != 0) {
                     RequestRedraw(W8_MAIN_REDRAW_CHARACTER_ACTION);
-                    return 1;
+                    return UiResult::Handled;
                 }
             }
         } else {
-            if (us_event != InputEventType::LeftButtonDoubleClick) {
-                return 0;
+            if (!(event.button == UiPointerButton::Left && event.action == UiPointerAction::Down && event.clicks == 2)) {
+                return UiResult::Pass;
             }
             if (IsNpcDialogueCursorActive() == 0 && !gXStatus.scripted_scene) {
-                OpenCharacterScreenForPartySlot(slot, false);
-                return 1;
+                AfterUiDispatch([=] { OpenCharacterScreenForPartySlot(slot, false); });
+                return UiResult::Handled;
             }
         }
-    } else if (us_event == InputEventType::RightButtonDown) {
-        region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
+    } else if ((event.button == UiPointerButton::Right && event.action == UiPointerAction::Down)) {
+
         if (!targeting && IsNpcDialogueCursorActive() == 0 && !gXStatus.scripted_scene &&
             !g_level_block->portrait_right_hold_armed) {
             g_level_block->countdown4 = w8_get_ticks() + (1000);
             g_level_block->portrait_right_hold_armed = true;
         }
     } else {
-        if (us_event != InputEventType::RightButtonUp) {
-            if (us_event != InputEventType::MouseMove) {
-                return 0;
+        if (!(event.button == UiPointerButton::Right && event.action == UiPointerAction::Up)) {
+            if (!(event.action == UiPointerAction::Move || event.action == UiPointerAction::Enter || event.action == UiPointerAction::Leave)) {
+                return UiResult::Pass;
             }
             if (g_level_block->portrait_right_hold_armed &&
                 TimeUntilDeadline(g_level_block->countdown4) == 0) {
                 g_level_block->portrait_right_hold_armed = false;
-                OpenCharacterScreenForPartySlot(slot, false);
+                AfterUiDispatch([=] { OpenCharacterScreenForPartySlot(slot, false); });
             }
-            if ((region->flags & W8_REGION_MOUSE_LEAVE) == 0) {
-                if ((region->flags & W8_REGION_MOUSE_ENTER) == 0) {
+            if (event.action != UiPointerAction::Leave) {
+                if (event.action != UiPointerAction::Enter) {
                     if (IsNpcDialogueCursorActive() == 0) {
                         if (targeting && aim_ok) {
                             if (gXStatus.iTargetingMode == W8_TARGET_NEED_NONE) {
                                 RevalidateSelectedTarget(g_status.selected_character);
                             }
                             SetTargetCursor(4);
-                            return 0;
+                            return UiResult::Pass;
                         }
                         SetTargetCursor(GetTargetingCursorForState(0));
                     }
@@ -5176,7 +5018,7 @@ unsigned char PortraitSelectRegionEvent(const InputEvent* event, W8Region* regio
                         } else {
                             help_text = g_localized_strings[0x1e];
                         }
-                        SetRegionHelpText(help_text);
+                        target.setTooltip([text = help_text] { return std::string(text); });
                     }
                     PushButtonSoundScheme(0, true);
                     g_level_block->portrait_right_hold_armed = false;
@@ -5185,7 +5027,7 @@ unsigned char PortraitSelectRegionEvent(const InputEvent* event, W8Region* regio
                         SetTooltipSubject(0, slot);
                         if (gXStatus.iTargetingMode == W8_TARGET_NEED_NONE) {
                             UpdateSlotMonsterHighlights(slot, true);
-                            return 0;
+                            return UiResult::Pass;
                         }
                     }
                 }
@@ -5207,54 +5049,51 @@ unsigned char PortraitSelectRegionEvent(const InputEvent* event, W8Region* regio
                         if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME &&
                             g_level_block != 0) {
                             RequestRedraw(W8_MAIN_REDRAW_PORTRAITS);
-                            return 0;
+                            return UiResult::Pass;
                         }
                     }
                 }
             }
-            return 0;
+            return UiResult::Pass;
         }
-        if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) != 0 && !targeting &&
+        if ((event.captured_buttons & SDL_BUTTON_RMASK) != 0 && !targeting &&
             IsNpcDialogueCursorActive() == 0 && !gXStatus.scripted_scene) {
             g_level_block->portrait_right_hold_armed = false;
             if (!g_status.item_in_cursor || IsKeyHeld(VK_CONTROL)) {
-                OpenCharacterScreenForPartySlot(slot, false);
-                return 1;
+                AfterUiDispatch([=] { OpenCharacterScreenForPartySlot(slot, false); });
+                return UiResult::Handled;
             }
             GiveHeldItemToCharacterOrParty(slot, true);
             if (gXStatus.fItemSelectMode) {
                 RefreshUseItemSelection();
-                return 1;
+                return UiResult::Handled;
             }
         }
     }
-    return 1;
+    return UiResult::Handled;
 }
 
 /* Both portrait orbs share this event policy. Member pointers retain their
    distinct enum fields and reload the live overlay owner after callbacks. */
 template <class Effect>
-static unsigned char DispatchPortraitOrbRegionEvent(const InputEvent* event, W8Region* region,
-                                                    unsigned short id,
+static UiResult DispatchPortraitOrbInput(const UiPointerEvent& event, HitTarget& target, int id,
                                                     Effect W8Character::* effect, Effect none,
                                                     int W8LevelRuntimeBlock::* selection,
                                                     int tooltip_kind)
 {
     int slot = id;
     W8Character* character = &g_status.buffers.Char[slot];
-    InputEventType us_event;
 
     if ((character->*effect) == none) {
         PushButtonSoundScheme(0, true);
     }
 
-    us_event = event->type;
-    if (us_event != InputEventType::LeftButtonDown) {
-        if (us_event != InputEventType::LeftButtonUp) {
-            if (us_event != InputEventType::MouseMove) {
-                return 0;
+    if (!(event.button == UiPointerButton::Left && event.action == UiPointerAction::Down)) {
+        if (!(event.button == UiPointerButton::Left && event.action == UiPointerAction::Up)) {
+            if (!(event.action == UiPointerAction::Move || event.action == UiPointerAction::Enter || event.action == UiPointerAction::Leave)) {
+                return UiResult::Pass;
             }
-            if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
+            if (event.action == UiPointerAction::Leave) {
                 SetTooltipSubject(tooltip_kind, -1);
                 if ((g_level_block.get()->*selection) != -1) {
                     (g_level_block.get()->*selection) = -1;
@@ -5262,7 +5101,7 @@ static unsigned char DispatchPortraitOrbRegionEvent(const InputEvent* event, W8R
                     RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
                 }
             } else {
-                if ((region->flags & W8_REGION_MOUSE_ENTER) != 0) {
+                if (event.action == UiPointerAction::Enter) {
                     if ((character->*effect) != none) {
                         SetTooltipSubject(tooltip_kind, slot);
                         if (IsLeftButtonHeld() && (character->*effect) != none) {
@@ -5272,71 +5111,70 @@ static unsigned char DispatchPortraitOrbRegionEvent(const InputEvent* event, W8R
                                 RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
                             }
                         }
-                        EnableRegionHelpFlag(region);
-                        return 0;
+                        target.setTooltip([tooltip_kind] { return g_localized_strings[24 + tooltip_kind]; });
+                        return UiResult::Pass;
                     }
                 } else {
-                    return 0;
+                    return UiResult::Pass;
                 }
             }
-            DisableRegionHelpFlag(region);
-            return 0;
+            target.setTooltip({});
+            return UiResult::Pass;
         }
         if ((g_level_block.get()->*selection) == -1) {
-            return 1;
+            return UiResult::Handled;
         }
         (g_level_block.get()->*selection) = -1;
         DismissHighlightOverlay();
         RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
-        return 1;
+        return UiResult::Handled;
     }
 
     if ((character->*effect) == none) {
-        return 1;
+        return UiResult::Handled;
     }
     (g_level_block.get()->*selection) = slot;
     RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
-    return 1;
+    return UiResult::Handled;
 }
 
 /* Condition orb on a party portrait (help 25): press while highest_condition
    is set arms the overlay slot; release and leave dismiss the hover plate;
    enter drives tooltip kind 1 and region help. */
-unsigned char PortraitConditionOrbRegionEvent(const InputEvent* event, W8Region* region, unsigned short id)
+UiResult PortraitConditionOrbInput(const UiPointerEvent& event, HitTarget& target, int id)
 {
-    return DispatchPortraitOrbRegionEvent(event, region, id, &W8Character::highest_condition,
+    return DispatchPortraitOrbInput(event, target, id, &W8Character::highest_condition,
                                           W8_CONDITION_NONE,
                                           &W8LevelRuntimeBlock::condition_orb_party_slot, 1);
 }
 
 /* Enchantment orb on a party portrait (help 26): near-clone of the condition
    orb against enchantment_top and tooltip kind 2. */
-unsigned char PortraitEnchantmentOrbRegionEvent(const InputEvent* event, W8Region* region, unsigned short id)
+UiResult PortraitEnchantmentOrbInput(const UiPointerEvent& event, HitTarget& target, int id)
 {
-    return DispatchPortraitOrbRegionEvent(event, region, id, &W8Character::enchantment_top,
+    return DispatchPortraitOrbInput(event, target, id, &W8Character::enchantment_top,
                                           W8_ENCHANTMENT_NONE,
                                           &W8LevelRuntimeBlock::enchantment_orb_party_slot, 2);
 }
 
 /* Help 28: portrait side bar — hover picks upper/lower weapon or assayable
    item; click opens Assay or binds items with Shift. */
-unsigned char PortraitAssaySidebarRegionEvent(const InputEvent* event, W8Region* region, unsigned short id)
+UiResult PortraitAssaySidebarInput(const UiPointerEvent& event, HitTarget& target, int id)
 {
     int previous_mode = g_level_block->portrait_assay_hover_mode;
     int slot = id;
     W8Character* character;
     W8ItemInstance* item;
     int item_id;
-    InputEventType us_event;
 
     if (!IsPartySlotEligible(slot)) {
-        return 0;
+        return UiResult::Pass;
     }
 
     character = &g_status.buffers.Char[slot];
     item_id = character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo;
     if (item_id == -1 || (g_item_records[item_id].flags & W8_ITEM_FLAG_TWO_HANDED) == 0) {
-        if (GetEventCursorY(event) - region->y1 < 0x19) {
+        if (event.local.y < 0x19) {
             g_level_block->portrait_assay_hover_mode = 1;
         } else {
             g_level_block->portrait_assay_hover_mode = 2;
@@ -5349,41 +5187,40 @@ unsigned char PortraitAssaySidebarRegionEvent(const InputEvent* event, W8Region*
         RequestRedraw(1 << (slot & 0x1f));
     }
 
-    us_event = event->type;
-    if (IsLeftButtonEvent(us_event) || us_event == InputEventType::RightButtonDown) {
-        if (region->CaptureButtonDown(us_event)) {
-            return 1;
+    if ((event.button == UiPointerButton::Left) || (event.button == UiPointerButton::Right && event.action == UiPointerAction::Down)) {
+        if ((event.action == UiPointerAction::Down)) {
+            return UiResult::Handled;
         }
-        if (us_event != InputEventType::LeftButtonUp) {
-            return 0;
+        if (!(event.button == UiPointerButton::Left && event.action == UiPointerAction::Up)) {
+            return UiResult::Pass;
         }
-        if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) == 0) {
-            return 1;
+        if ((event.captured_buttons & SDL_BUTTON_LMASK) == 0) {
+            return UiResult::Handled;
         }
-        if ((event->modifiers & SHIFT_DOWN) == 0) {
+        if ((event.modifiers & SHIFT_DOWN) == 0) {
             BindCharacterItems(slot, true);
-            return 1;
+            return UiResult::Handled;
         }
         BindEveryPartyItem();
-        return 1;
+        return UiResult::Handled;
     }
-    if (us_event != InputEventType::RightButtonUp) {
-        if (us_event != InputEventType::MouseMove) {
-            return 0;
+    if (!(event.button == UiPointerButton::Right && event.action == UiPointerAction::Up)) {
+        if (!(event.action == UiPointerAction::Move || event.action == UiPointerAction::Enter || event.action == UiPointerAction::Leave)) {
+            return UiResult::Pass;
         }
-        if ((region->flags & W8_REGION_MOUSE_LEAVE) == 0) {
-            if ((region->flags & W8_REGION_MOUSE_ENTER) != 0) {
+        if (event.action != UiPointerAction::Leave) {
+            if (event.action == UiPointerAction::Enter) {
                 PushButtonSoundScheme(0, true);
                 SetTooltipSubject(5, slot);
             }
         } else {
             SetTooltipSubject(5, -1);
-            return 0;
+            return UiResult::Pass;
         }
-        return 0;
+        return UiResult::Pass;
     }
-    if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) == 0) {
-        return 1;
+    if ((event.captured_buttons & SDL_BUTTON_RMASK) == 0) {
+        return UiResult::Handled;
     }
     {
         int mode = g_level_block->portrait_assay_hover_mode;
@@ -5393,80 +5230,80 @@ unsigned char PortraitAssaySidebarRegionEvent(const InputEvent* event, W8Region*
                 goto open_assay;
             }
             if (mode != 3) {
-                return 1;
+                return UiResult::Handled;
             }
         }
         item = &character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON];
     open_assay:
         if (item != 0 && item->iItemNo != -1) {
-            OpenAssayDialog(item, slot);
+            AfterUiDispatch([=] { OpenAssayDialog(item, slot); });
         }
     }
-    return 1;
+    return UiResult::Handled;
 }
 
 /* Help 24: portrait overlay hover strip; left-down and enter (while held)
    set portrait_overlay_party_slot, leave and up dismiss the mode-6 plate. */
-unsigned char PortraitOverlayHoverRegionEvent(const InputEvent* event, W8Region* region, unsigned short id)
+UiResult PortraitOverlayHoverInput(const UiPointerEvent& event, HitTarget& target, int id)
 {
-    const InputEventType us_event = event->type;
     int slot = id;
 
-    if (us_event == InputEventType::LeftButtonDown) {
+    if ((event.button == UiPointerButton::Left && event.action == UiPointerAction::Down)) {
         g_level_block->portrait_overlay_party_slot = slot;
     } else {
-        if (us_event != InputEventType::LeftButtonUp) {
-            if (us_event != InputEventType::MouseMove) {
-                return 0;
+        if (!(event.button == UiPointerButton::Left && event.action == UiPointerAction::Up)) {
+            if (!(event.action == UiPointerAction::Move || event.action == UiPointerAction::Enter || event.action == UiPointerAction::Leave)) {
+                return UiResult::Pass;
             }
-            if ((region->flags & W8_REGION_MOUSE_LEAVE) == 0) {
-                if ((region->flags & W8_REGION_MOUSE_ENTER) == 0) {
-                    return 0;
+            if (event.action != UiPointerAction::Leave) {
+                if (event.action != UiPointerAction::Enter) {
+                    return UiResult::Pass;
                 }
                 PushButtonSoundScheme(0, true);
                 SetTooltipSubject(4, slot);
                 if (!IsLeftButtonHeld()) {
-                    return 0;
+                    return UiResult::Pass;
                 }
                 g_level_block->portrait_overlay_party_slot = slot;
             } else {
                 SetTooltipSubject(4, -1);
                 if (g_level_block->portrait_overlay_party_slot == -1) {
-                    return 0;
+                    return UiResult::Pass;
                 }
                 g_level_block->portrait_overlay_party_slot = -1;
                 DismissHighlightOverlay();
             }
             RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
-            return 0;
+            return UiResult::Pass;
         }
         g_level_block->portrait_overlay_party_slot = -1;
         DismissHighlightOverlay();
     }
     RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
-    return 1;
+    return UiResult::Handled;
 }
 
 /* Combat-action hit regions beside the eight party portraits (region set 4):
    open the keyboard menu on release while combat input is live, drive hover
    help for a queued spell/item, and right-click falls back when an action is
    unreachable. */
-unsigned char PartyCombatActionRegionEvent(const InputEvent* event, W8Region* region, unsigned short id)
+UiResult PartyCombatActionInput(const UiPointerEvent& event, HitTarget& target, int id)
 {
     int slot = id;
     if (!IsPartySlotEligible(slot)) {
-        return 0;
+        return UiResult::Pass;
     }
 
-    switch (event->type) {
-    case InputEventType::RightButtonDown:
-        region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
-        return 1;
-    case InputEventType::LeftButtonDown:
-        region->flags |= W8_REGION_LEFT_BUTTON_HELD;
-        return 1;
-    case InputEventType::LeftButtonUp:
-        if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0 &&
+    if (event.button == UiPointerButton::Right && event.action == UiPointerAction::Down) {
+
+        return UiResult::Handled;
+    }
+    if (event.button == UiPointerButton::Left && event.action == UiPointerAction::Down) {
+
+        return UiResult::Handled;
+    }
+    if (event.button == UiPointerButton::Left && event.action == UiPointerAction::Up) {
+        if ((event.captured_buttons & SDL_BUTTON_LMASK) != 0 &&
             g_status.buffers.XChar[slot].fOccupied) {
             if (g_level_block->keyboard_menu_open && slot != g_level_block->combat_slot) {
                 CloseKeyboardMenu();
@@ -5474,18 +5311,20 @@ unsigned char PartyCombatActionRegionEvent(const InputEvent* event, W8Region* re
             if (g_combat_state->round_active) {
                 g_level_block->combat_slot = slot;
                 OpenKeyboardMenuForSlot(slot);
-                return 1;
+                return UiResult::Handled;
             }
         }
-        return 1;
-    case InputEventType::RightButtonUp:
-        if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) != 0 && !gXStatus.fSpellCastMode &&
+        return UiResult::Handled;
+    }
+    if (event.button == UiPointerButton::Right && event.action == UiPointerAction::Up) {
+        if ((event.captured_buttons & SDL_BUTTON_RMASK) != 0 && !gXStatus.fSpellCastMode &&
             !gXStatus.fItemSelectMode) {
             FallbackFromUnreachableAction(slot);
         }
-        return 1;
-    case InputEventType::MouseMove:
-        if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
+        return UiResult::Handled;
+    }
+    if (event.action == UiPointerAction::Move || event.action == UiPointerAction::Enter || event.action == UiPointerAction::Leave) {
+        if (event.action == UiPointerAction::Leave) {
             if (!g_level_block->keyboard_menu_open) {
                 g_level_block->combat_slot = -1;
                 g_level_block->countdown3 = w8_get_ticks() + (0);
@@ -5493,11 +5332,11 @@ unsigned char PartyCombatActionRegionEvent(const InputEvent* event, W8Region* re
             }
             g_level_block->combat_action_hover_party_slot = -1;
             gXStatus.monster_manager_entries[slot].combat_portrait_dirty = true;
-            DisableRegionHelpFlag(region);
-            return 0;
+            target.setTooltip({});
+            return UiResult::Pass;
         }
-        if ((region->flags & W8_REGION_MOUSE_ENTER) == 0) {
-            return 0;
+        if (event.action != UiPointerAction::Enter) {
+            return UiResult::Pass;
         }
         if (g_combat_state->round_active) {
             g_level_block->combat_action_hover_party_slot = slot;
@@ -5506,67 +5345,64 @@ unsigned char PartyCombatActionRegionEvent(const InputEvent* event, W8Region* re
         {
             W8PartySlotRow* row = &g_status.buffers.XChar[slot];
             if (row->action == W8_ACTION_CAST_SPELL) {
-                EnableRegionHelpFlag(region);
-                SetRegionHelpText(fmt::format("{}: {} ({:d})", g_localized_strings[0x68],
+
+                target.setTooltip([text = fmt::format("{}: {} ({:d})", g_localized_strings[0x68],
                                               g_spell_records[row->action_detail0].display_name,
-                                              row->action_detail1.spell.power_level));
-                return 0;
+                                              row->action_detail1.spell.power_level)] { return std::string(text); });
+                return UiResult::Pass;
             }
             if (row->action == W8_ACTION_USE_ITEM) {
-                EnableRegionHelpFlag(region);
-                SetRegionHelpText(
+
+                target.setTooltip([text =
                     fmt::format("{}: {}", g_localized_strings[0x69],
-                                FormatItemDisplayName(row->action_detail1.item_use.item, false)));
-                return 0;
+                                FormatItemDisplayName(row->action_detail1.item_use.item, false))] { return std::string(text); });
+                return UiResult::Pass;
             }
         }
-        DisableRegionHelpFlag(region);
-        return 0;
-    default:
-        break;
+        target.setTooltip({});
+        return UiResult::Pass;
     }
-    return 0;
+    return UiResult::Pass;
 }
 
 /* Help 31: radar-map button near the text area — left-up opens automap after
    tearing down mode 3/5/6 overlays; right-up toggles zoom; enter/leave hover
    the map button art. */
-unsigned char RadarMapButtonRegionEvent(const InputEvent* event, W8Region* region, unsigned short)
+UiResult RadarMapButtonInput(const UiPointerEvent& event)
 {
-    const InputEventType us_event = event->type;
 
-    if (IsLeftButtonEvent(us_event) || us_event == InputEventType::RightButtonDown) {
-        if (region->CaptureButtonDown(us_event)) {
-            return 1;
+    if ((event.button == UiPointerButton::Left) || (event.button == UiPointerButton::Right && event.action == UiPointerAction::Down)) {
+        if ((event.action == UiPointerAction::Down)) {
+            return UiResult::Handled;
         }
-        if (us_event != InputEventType::LeftButtonUp) {
-            return 0;
+        if (!(event.button == UiPointerButton::Left && event.action == UiPointerAction::Up)) {
+            return UiResult::Pass;
         }
-        if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
+        if ((event.captured_buttons & SDL_BUTTON_LMASK) != 0) {
             SetMainGameMode(W8_MAIN_GAME_DEFAULT);
             SetPendingScreenState(W8_SCREEN_AUTOMAP);
-            return 1;
+            return UiResult::Handled;
         }
-    } else if (us_event == InputEventType::RightButtonUp) {
-        if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) != 0) {
+    } else if ((event.button == UiPointerButton::Right && event.action == UiPointerAction::Up)) {
+        if ((event.captured_buttons & SDL_BUTTON_RMASK) != 0) {
             ToggleRadarMapZoom();
         }
     } else {
-        if (us_event != InputEventType::MouseMove) {
-            return 0;
+        if (!(event.action == UiPointerAction::Move || event.action == UiPointerAction::Enter || event.action == UiPointerAction::Leave)) {
+            return UiResult::Pass;
         }
-        if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
+        if (event.action == UiPointerAction::Leave) {
             g_level_block->radar_map_alternate = 0;
             RefreshRadarMap();
-            return 1;
+            return UiResult::Handled;
         }
-        if ((region->flags & W8_REGION_MOUSE_ENTER) != 0) {
+        if (event.action == UiPointerAction::Enter) {
             g_level_block->radar_map_alternate = 1;
             RefreshRadarMap();
-            return 1;
+            return UiResult::Handled;
         }
     }
-    return 1;
+    return UiResult::Handled;
 }
 
 /* Restore the cursor and clear the mouse-look state on both exit paths. */
@@ -5584,39 +5420,37 @@ static void StopWorldMouseLook()
    world-item hover and the portrait strip; left-up runs the targeting, item
    and monster dispatch; right-down opens monster info or the assay dialog or
    toggles the mouselook latch. */
-unsigned char WorldViewRegionEvent(const InputEvent* event, W8Region* region, unsigned short)
+UiResult WorldViewInput(const UiPointerEvent& event)
 {
     SDL_Point cursor_pos;
     int cursor_x;
     int cursor_y;
     W8TargetNeed needed;
     int slot;
-    InputEventType us_event;
 
     PushButtonSoundScheme(0, true);
     if (IsMessageBoxActive() || gXStatus.fReviewCharacterMode || g_camera_path_active) {
-        return 0;
+        return UiResult::Pass;
     }
     needed = GetTargetNeededForCurrentAction(g_status.selected_character);
-    us_event = event->type;
-    if (!IsLeftButtonEvent(us_event) && us_event != InputEventType::RightButtonDown) {
-        if (us_event == InputEventType::RightButtonUp) {
+    if (!(event.button == UiPointerButton::Left) && !(event.button == UiPointerButton::Right && event.action == UiPointerAction::Down)) {
+        if ((event.button == UiPointerButton::Right && event.action == UiPointerAction::Up)) {
             if (g_mouselook_active && g_settings.mouselook_toggle == 0) {
                 StopWorldMouseLook();
-                return 1;
+                return UiResult::Handled;
             }
             if (!IsMipeActive()) {
-                return 1;
+                return UiResult::Handled;
             }
             SGPMouseGetPos(&cursor_pos);
             MipeWorldViewEvent(InputEventType::RightButtonUp, &cursor_pos);
-            return 1;
+            return UiResult::Handled;
         }
-        if (us_event != InputEventType::MouseMove) {
-            return 0;
+        if (!(event.action == UiPointerAction::Move || event.action == UiPointerAction::Enter || event.action == UiPointerAction::Leave)) {
+            return UiResult::Pass;
         }
-        cursor_y = GetEventCursorY(event);
-        cursor_x = GetEventCursorX(event);
+        cursor_y = event.position.y;
+        cursor_x = event.position.x;
         if (IsMipeActive()) {
             UpdateMipeSelection();
         } else {
@@ -5641,33 +5475,33 @@ unsigned char WorldViewRegionEvent(const InputEvent* event, W8Region* region, un
                 SetCombatTarget(hover);
             }
         }
-        if ((region->flags & W8_REGION_MOUSE_LEAVE) == 0 && g_modal_owner == 0) {
+        if (event.action != UiPointerAction::Leave && g_modal_owner == 0) {
             for (slot = 0; slot < 8; ++slot) {
                 if (g_status.buffers.XChar[slot].fOccupied &&
                     g_level_block->portrait_refresh_pending[slot] != 0 &&
                     IsPartyPortraitUnderCursor(slot)) {
-                    return 0;
+                    return UiResult::Pass;
                 }
             }
             UpdateWorldViewCursor(event, needed);
-            return 1;
+            return UiResult::Handled;
         }
         ClearCombatSelection();
-        return 1;
+        return UiResult::Handled;
     }
-    if (us_event == InputEventType::RightButtonDown) {
-        region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
+    if ((event.button == UiPointerButton::Right && event.action == UiPointerAction::Down)) {
+
         if (IsMipeActive()) {
             SGPMouseGetPos(&cursor_pos);
             MipeWorldViewEvent(InputEventType::RightButtonDown, &cursor_pos);
-            return 1;
+            return UiResult::Handled;
         }
         if (g_level_block->highlighted_item != -1 && !gXStatus.fSpellCastMode &&
             !gXStatus.fNpcDialogueMode && !gXStatus.fItemSelectMode &&
             !gXStatus.fLockInteractMode && !gXStatus.fTrapInteractMode &&
             (g_settings.ctrl_right_click_info == 0 || IsKeyHeld(VK_CONTROL))) {
-            OpenMonsterInfoDialog(g_level_block->highlighted_item);
-            return 1;
+            AfterUiDispatch([=] { OpenMonsterInfoDialog(g_level_block->highlighted_item); });
+            return UiResult::Handled;
         }
         if (!g_status.item_in_cursor && g_level_block->selected_item != -1 &&
             !gXStatus.fSpellCastMode && !gXStatus.fNpcDialogueMode && !gXStatus.fItemSelectMode &&
@@ -5676,16 +5510,16 @@ unsigned char WorldViewRegionEvent(const InputEvent* event, W8Region* region, un
             W8WorldItem* world_item = ItemInfo(ItemIndex(g_level_block->selected_item));
             PartyAttemptsToIdentifyItem(&world_item->item, 0);
             OpenAssayDialog(&world_item->item, -1);
-            return 1;
+            return UiResult::Handled;
         }
         if (!IsWorldCursorVisible() && !gXStatus.fNpcDialogueMode) {
             if (g_settings.mouselook_toggle != 0) {
                 if (g_mouselook_active) {
                     StopWorldMouseLook();
-                    return 1;
+                    return UiResult::Handled;
                 }
             } else if (g_mouselook_active) {
-                return 1;
+                return UiResult::Handled;
             }
             SGPMouseGetPos(&g_mouselook_cursor_pos);
             DisableCursorScene();
@@ -5696,35 +5530,35 @@ unsigned char WorldViewRegionEvent(const InputEvent* event, W8Region* region, un
             g_mouselook_manual = true;
             SetMouseMoveEventsEnabled(1);
         }
-        return 1;
+        return UiResult::Handled;
     }
-    if (us_event == InputEventType::LeftButtonDown) {
+    if ((event.button == UiPointerButton::Left && event.action == UiPointerAction::Down)) {
         if (g_mouselook_active) {
-            return 0;
+            return UiResult::Pass;
         }
-        region->flags |= W8_REGION_LEFT_BUTTON_HELD;
+
         if (!IsMipeActive()) {
-            return 1;
+            return UiResult::Handled;
         }
         SGPMouseGetPos(&cursor_pos);
         MipeWorldViewEvent(InputEventType::LeftButtonDown, &cursor_pos);
-        return 1;
+        return UiResult::Handled;
     }
-    if (us_event != InputEventType::LeftButtonUp) {
-        return 0;
+    if (!(event.button == UiPointerButton::Left && event.action == UiPointerAction::Up)) {
+        return UiResult::Pass;
     }
-    if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) == 0) {
-        return 1;
+    if ((event.captured_buttons & SDL_BUTTON_LMASK) == 0) {
+        return UiResult::Handled;
     }
     if (g_mouselook_active) {
-        return 1;
+        return UiResult::Handled;
     }
-    region->flags &= ~W8_REGION_LEFT_BUTTON_HELD;
+
     if (FinishNpcVoiceIfSessionActive()) {
-        return 1;
+        return UiResult::Handled;
     }
     if (gXStatus.iTargetingMode == W8_TARGET_NEED_PLACE ||
-        (needed == W8_TARGET_NEED_PLACE && (event->modifiers & CTRL_DOWN) != 0)) {
+        (needed == W8_TARGET_NEED_PLACE && (event.modifiers & CTRL_DOWN) != 0)) {
         if (!IsWorldCursorVisible()) {
             InitializeWorldCursor();
         }
@@ -5749,11 +5583,11 @@ unsigned char WorldViewRegionEvent(const InputEvent* event, W8Region* region, un
             SetWorldCursorExtents(&minimum, &maximum);
         }
     } else if (gXStatus.iTargetingMode == W8_TARGET_NEED_CONE ||
-               (needed == W8_TARGET_NEED_CONE && (event->modifiers & CTRL_DOWN) != 0)) {
+               (needed == W8_TARGET_NEED_CONE && (event.modifiers & CTRL_DOWN) != 0)) {
         AimAtGroundTarget(g_status.selected_character);
     } else if (g_level_block->highlighted_item == -1) {
-        if (g_status.item_in_cursor && ForwardSelectedPropIndex(GetWorld(), GetEventCursorX(event),
-                                                                GetEventCursorY(event)) == -1) {
+        if (g_status.item_in_cursor && ForwardSelectedPropIndex(GetWorld(), event.position.x,
+                                                                event.position.y) == -1) {
             if (!gXStatus.world_update_blocked) {
                 DropItemInHand(1);
             }
@@ -5765,8 +5599,8 @@ unsigned char WorldViewRegionEvent(const InputEvent* event, W8Region* region, un
                 SetTargetingMode(W8_TARGET_NEED_NONE);
             }
         } else if (!gXStatus.world_update_blocked) {
-            ForwardActivateSelectedProp(GetWorld(), 2, GetEventCursorX(event),
-                                        GetEventCursorY(event));
+            ForwardActivateSelectedProp(GetWorld(), 2, event.position.x,
+                                        event.position.y);
         }
     } else {
         W8MonsterInfo* monster_info = FindMonster(g_level_block->highlighted_item);
@@ -5818,27 +5652,27 @@ unsigned char WorldViewRegionEvent(const InputEvent* event, W8Region* region, un
         }
     }
     if (!IsMipeActive()) {
-        return 1;
+        return UiResult::Handled;
     }
     SGPMouseGetPos(&cursor_pos);
     MipeWorldViewEvent(InputEventType::LeftButtonUp, &cursor_pos);
-    return 1;
+    return UiResult::Handled;
 }
 
 /* Help 36: combat monster-list rows. Hit-test by 11-pixel row, hover via
    SetCombatAction, left-up aims, right-up posts the group info notice. */
-unsigned char MonsterListRegionEvent(const InputEvent* event, W8Region* region, unsigned short)
+UiResult MonsterListInput(const UiPointerEvent& event)
 {
     int row = -1;
     W8MonsterGroup* group = 0;
     int group_id = -1;
 
-    if ((region->flags & W8_REGION_MOUSE_LEAVE) == 0 && !gXStatus.fNpcDialogueMode &&
+    if (event.action != UiPointerAction::Leave && !gXStatus.fNpcDialogueMode &&
         gXStatus.iTargetingMode != W8_TARGET_NEED_PLACE &&
         gXStatus.iTargetingMode != W8_TARGET_NEED_CONE &&
         gXStatus.iTargetingMode != W8_TARGET_NEED_ITEM && gXStatus.active_monster_count != 0 &&
         !IsWorldCursorVisible() && !g_mouselook_active) {
-        row = (GetEventCursorY(event) - region->y1) / 0xb;
+        row = (event.local.y) / 0xb;
         group = GetLiveMonsterGroupAtIndex(row);
         if (group == 0) {
             row = -1;
@@ -5847,30 +5681,32 @@ unsigned char MonsterListRegionEvent(const InputEvent* event, W8Region* region, 
         }
     }
     SetCombatAction(group_id);
-    switch (event->type) {
-    case InputEventType::LeftButtonDown:
-        region->flags |= W8_REGION_LEFT_BUTTON_HELD;
-        return 1;
-    case InputEventType::LeftButtonUp:
-        if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0 &&
+    if (event.button == UiPointerButton::Left && event.action == UiPointerAction::Down) {
+
+        return UiResult::Handled;
+    }
+    if (event.button == UiPointerButton::Left && event.action == UiPointerAction::Up) {
+        if ((event.captured_buttons & SDL_BUTTON_LMASK) != 0 &&
             g_status.selected_character != -1 && group_id != -1 &&
             g_level_block->target_highlight_ok[0] != 0) {
             AimAtMonsterGroupMember(g_status.selected_character, group);
         }
-        return 1;
-    case InputEventType::RightButtonDown:
-        region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
-        return 1;
-    case InputEventType::RightButtonUp:
-        if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) != 0 && group_id != -1 &&
+        return UiResult::Handled;
+    }
+    if (event.button == UiPointerButton::Right && event.action == UiPointerAction::Down) {
+
+        return UiResult::Handled;
+    }
+    if (event.button == UiPointerButton::Right && event.action == UiPointerAction::Up) {
+        if ((event.captured_buttons & SDL_BUTTON_RMASK) != 0 && group_id != -1 &&
             !gXStatus.fSpellCastMode && !gXStatus.fNpcDialogueMode && !gXStatus.fItemSelectMode &&
             !gXStatus.fLockInteractMode && !gXStatus.fTrapInteractMode) {
             ShowMonsterGroupInfoNotice(group_id);
         }
-        return 1;
-    default:
-        return row == -1;
+        return UiResult::Handled;
     }
+        return row == -1 ? UiResult::Handled : UiResult::Pass;
+
 }
 
 /* Forget the whole combat selection - what is picked, what it is aimed at, and
@@ -5887,7 +5723,7 @@ void ClearCombatSelection(void)
    highlighted monster checks targetability and the mode flags; a picked prop
    checks whether its trigger takes the in-cursor item or shows a message;
    otherwise the cursor comes from the current targeting state. */
-void UpdateWorldViewCursor(const InputEvent* event, W8TargetNeed target_needed)
+void UpdateWorldViewCursor(const UiPointerEvent& event, W8TargetNeed target_needed)
 {
     int cursor = gXStatus.iCurrentCursor;
     if (cursor == W8_CURSOR_INVALID_TARGET) {
@@ -5903,8 +5739,8 @@ void UpdateWorldViewCursor(const InputEvent* event, W8TargetNeed target_needed)
                 SetTargetCursor(cursor);
                 return;
             }
-            int cursor_y = GetEventCursorY(event);
-            int cursor_x = GetEventCursorX(event);
+            int cursor_y = event.position.y;
+            int cursor_x = event.position.x;
             int prop_index = ForwardSelectedPropIndex(g_world, cursor_x, cursor_y);
             if (prop_index > -1) {
                 W8Prop* prop = GetWorldProp(g_world, prop_index);
@@ -6016,7 +5852,7 @@ void DisableCombatRegions(void)
     SetTextBoxChannelTabInput(false);
     if (g_level_block->action_panel_visible == 0) {
         SetTextBoxMuteInput(false);
-        g_text_box_regions.Disable();
+        SetTextBoxEnabled(false);
     }
 }
 
@@ -6363,8 +6199,8 @@ void SetRadarMapVisible(bool visible)
     if (visible) {
         g_level_block->radar_map_visible = visible;
         g_level_block->radar_map_alternate = 0;
-        g_main_radar_regions.Enable();
-        (*g_main_radar_regions)[0].SetInputEnabled(true);
+        g_main_input->radar.setEnabled(true);
+        g_main_input->radar_target->setEnabled(true);
         EnableRadarMap(true);
         if (gXStatus.fCombatMode) {
             ZoomRadarMapIn();
@@ -6374,8 +6210,8 @@ void SetRadarMapVisible(bool visible)
         RequestRedraw(W8_MAIN_REDRAW_LAYOUT | W8_MAIN_REDRAW_PORTRAIT_PANEL);
     } else {
         g_level_block->radar_map_visible = 0;
-        (*g_main_radar_regions)[0].SetInputEnabled(false);
-        g_main_radar_regions.Disable();
+        g_main_input->radar_target->setEnabled(false);
+        g_main_input->radar.setEnabled(false);
         EnableRadarMap(false);
         ReleaseRadarMap();
         RequestRedraw(W8_MAIN_REDRAW_LAYOUT | W8_MAIN_REDRAW_PORTRAIT_PANEL);
@@ -6412,11 +6248,11 @@ void SetFormationBoardVisible(bool visible)
     if (visible) {
         g_level_block->formation_board_visible = true;
         g_level_block->formation_board_alternate = 0;
-        g_main_formation_board_regions.Enable();
+        g_main_input->formation.setEnabled(true);
         RefreshFormationBoard();
     } else {
         g_level_block->formation_board_visible = false;
-        g_main_formation_board_regions.Disable();
+        g_main_input->formation.setEnabled(false);
         ReleaseFormationBoard();
     }
     RequestRedraw(W8_MAIN_REDRAW_LAYOUT | W8_MAIN_REDRAW_PORTRAIT_PANEL);
@@ -6750,8 +6586,7 @@ void PauseMainGameWorld(void)
     if (!gXStatus.fCombatMode) {
         if (gXStatus.world_paused) {
             MoveTimer(1);
-            (*g_game_time_combat_bar_region)[0].SetInputEnabled(true);
-            ActivateDialogRegion(g_game_time_combat_bar_region->index(0));
+            SetWorldResumeInput(true);
         }
         SetEnvironmentTimeEnabled(false);
         MonsterStopAllNavigators();
@@ -6767,8 +6602,7 @@ void ResumeMainGameWorld(void)
         if (!gXStatus.fCombatMode) {
             if (gXStatus.world_paused) {
                 MoveTimer(4);
-                ClearActiveRegionIfMatches(g_game_time_combat_bar_region->index(0));
-                (*g_game_time_combat_bar_region)[0].SetInputEnabled(false);
+            SetWorldResumeInput(false);
             }
             SetEnvironmentTimeEnabled(true);
             MonsterResumeAllNavigators();
@@ -7472,7 +7306,7 @@ void W8NpcDialogueTextController::SelectTranscriptKeywordAtPoint(int x, int y)
     InvalidateLayout();
 }
 
-unsigned char CombatBarRegionEvent(const InputEvent* event, W8Region*, unsigned short)
+unsigned char HandleWorldResumeInput(const InputEvent* event)
 {
     const InputEventType us_event = event->type;
 

@@ -189,7 +189,7 @@ static void CreateSpellCastingViewControls(void)
             if (g_main_portrait_slot_views[index]) {
                 g_main_portrait_slot_views[index]->Disable();
                 g_main_portrait_slot_views[index]->DisableInput();
-                (*g_main_portrait_edge_regions)[index].SetInputEnabled(false);
+                g_main_input->edge_targets[index]->setEnabled(false);
             }
         }
     }
@@ -290,7 +290,7 @@ void CloseSpellCastingView(void)
 // FUNCTION: WIZ8 0x0059F440
 void RestoreSpellCastingRegions(void)
 {
-    g_text_box_regions.Enable();
+    SetTextBoxEnabled(true);
     SetTextBoxScrollInput(true);
     g_level_block->action_panel_visible = 1;
     SetTextBoxMuteInput(false);
@@ -946,69 +946,28 @@ void CommitSpellCastingSelection(void)
     TryCommitSpellCast();
 }
 
-/* Spell-list text-box body region event: the hovered row is recomputed from
-   the cursor position for every event and drives SelectSpellCastingRow when it
-   changes. Left release casts the hovered spell; right release opens the
-   spell-info dialog with the target cursor saved for restore on close; leaving
-   the box clears the hover row. The held bits are armed on button down but are
-   never cleared on release. */
-// FUNCTION: WIZ8 0x005A0F70
-unsigned char SpellCastTextBoxRegionEvent(const InputEvent* event, W8Region* region)
+UiResult HandleSpellTextBox(const UiPointerEvent& event)
 {
-    W8SpellInfoDialog* dialog;
-    int line;
-
-    if (g_status.selected_character == -1) {
-        return 0;
-    }
-    if (gpSCSV->iSpellRealm == W8_SPELL_REALM_NONE) {
-        return 0;
-    }
-    line = g_level_block->text_lines[g_status.text_line_cursor] +
-           (GetEventCursorY(event) - region->y1) / 0xb;
-    if (line >= static_cast<int>(gpSCSV->uiSpellsInList) || line < -1) {
-        line = -1;
-    }
-    if (line != gpSCSV->selected_spell_index) {
-        SelectSpellCastingRow(line);
-    }
-    switch (event->type) {
-    case InputEventType::LeftButtonUp:
-        if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) == 0) {
-            return 1;
+    if (g_status.selected_character == -1 || gpSCSV->iSpellRealm == W8_SPELL_REALM_NONE)
+        return UiResult::Handled;
+    int line = g_level_block->text_lines[g_status.text_line_cursor] + event.local.y / 11;
+    if (!event.inside || line < 0 || line >= static_cast<int>(gpSCSV->uiSpellsInList)) line = -1;
+    if (line != gpSCSV->selected_spell_index) SelectSpellCastingRow(line);
+    if (line != -1 && event.action == UiPointerAction::Up) {
+        if (event.button == UiPointerButton::Left && (event.captured_buttons & SDL_BUTTON_LMASK))
+            AfterUiDispatch([line] { SelectSpellCastingListRow(line); });
+        if (event.button == UiPointerButton::Right && (event.captured_buttons & SDL_BUTTON_RMASK)) {
+            const auto spell = gpSCSV->uiSpells[line];
+            AfterUiDispatch([spell] {
+                g_saved_target_cursor = gXStatus.iCurrentCursor;
+                auto dialog = std::make_unique<W8SpellInfoDialog>(spell);
+                dialog->SetText("");
+                dialog->m_destroy_callback = RestoreTargetCursor;
+                OpenModal(std::move(dialog));
+            });
         }
-        if (line == -1) {
-            return 1;
-        }
-        SelectSpellCastingListRow(line);
-        return 1;
-    case InputEventType::LeftButtonDown:
-        region->flags |= W8_REGION_LEFT_BUTTON_HELD;
-        return 1;
-    case InputEventType::RightButtonDown:
-        region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
-        return 1;
-    case InputEventType::MouseMove:
-        if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
-            SelectSpellCastingRow(-1);
-        }
-        return 0;
-    default:
-        return 0;
-    case InputEventType::RightButtonUp:
-        if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) == 0) {
-            return 1;
-        }
-        if (line == -1) {
-            return 1;
-        }
-        g_saved_target_cursor = gXStatus.iCurrentCursor;
-        dialog = new W8SpellInfoDialog(gpSCSV->uiSpells[line]);
-        dialog->SetText("");
-        dialog->m_destroy_callback = RestoreTargetCursor;
-        OpenModal(std::unique_ptr<ModalContent>(dialog));
-        return 1;
     }
+    return UiResult::Handled;
 }
 
 /* The spell-list row click: re-colors the rows, remembers the spell, then

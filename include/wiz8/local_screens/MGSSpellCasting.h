@@ -70,7 +70,7 @@ class W8DialogBase;
 /* Destroy callback for the spell/use-item reason notices. */
 void SpellCastingNoticeClosed(W8DialogBase* dialog);
 /* Text-box body callback while spell casting is active. */
-unsigned char SpellCastTextBoxRegionEvent(const InputEvent* event, W8Region* region);
+UiResult HandleSpellTextBox(const UiPointerEvent& event);
 
 /* Live spell-casting view, or null when the panel is closed. */
 extern std::unique_ptr<W8SpellCastingView> gpSCSV;

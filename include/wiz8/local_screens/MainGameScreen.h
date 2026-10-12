@@ -16,20 +16,16 @@
 
 class Trigger;
 
-extern ScreenRegionSet g_main_party_controls;
-extern ScreenRegionSet g_main_screen;
-extern ScreenRegionSet g_main_combat_actions;
-extern ScreenRegionSet g_main_portrait_regions;
-extern ScreenRegionSet g_main_portrait_edge_regions;
-extern ScreenRegionSet g_main_radar_regions;
-extern ScreenRegionSet g_main_formation_board_regions;
-extern ScreenRegionSet g_main_effect_regions;
-enum MainEffectRegionOffset {
-    kMonsterListRegionOffset = 0,
-    kWorldViewRegionOffset = 1
+struct MainGameInput {
+    MainGameInput();
+    bool resume_world = false;
+    UiLayer combat{0x04}, edges{0x10}, radar{0x12}, formation{0x13}, world{0x28};
+    std::array<std::unique_ptr<UiLayer>, 8> portraits;
+    std::array<std::array<HitTarget*, 6>, 8> portrait_targets{};
+    std::array<HitTarget*, 8> combat_targets{}, edge_targets{};
+    HitTarget *radar_target = nullptr, *monster_list = nullptr, *world_view = nullptr;
 };
-extern std::array<std::optional<RegionSetView>, 8> g_main_portrait_slot_views;
-extern std::optional<RegionSetView> g_main_portrait_edge_view;
+extern std::unique_ptr<MainGameInput> g_main_input;
 void EnableMainGamePortraitSlot(unsigned int slot);
 void DisableMainGamePortraitSlot(unsigned int slot);
 struct W8ScreenRect;
@@ -320,7 +316,7 @@ void ResetMainGameScreenState(void);
 void RefreshTrackedPortraitOverlay(void);
 /* Which party portrait the pointer is over, if any. */
 void ClearCombatSelection(void);
-void UpdateWorldViewCursor(const InputEvent* event, W8TargetNeed target_needed);
+void UpdateWorldViewCursor(const UiPointerEvent& event, W8TargetNeed target_needed);
 void RequestRefreshPartyState(void);
 void RefreshFlaggedMainGameState(void);
 bool IsScreenIdle(void);
@@ -397,24 +393,24 @@ inline void ClearScreenWait(void)
 }
 /* Portrait condition / enchantment orbs (help 25 / 26): hold opens the
    mode-6 hover overlay; leave and release tear it down. */
-unsigned char PortraitConditionOrbRegionEvent(const InputEvent* event, struct W8Region* region, unsigned short);
-unsigned char PortraitEnchantmentOrbRegionEvent(const InputEvent* event, struct W8Region* region, unsigned short);
+UiResult PortraitConditionOrbInput(const UiPointerEvent& event, HitTarget& target, int slot);
+UiResult PortraitEnchantmentOrbInput(const UiPointerEvent& event, HitTarget& target, int slot);
 /* Party portrait hit regions: select, target, open camp, and drag-hover. */
-unsigned char PortraitSelectRegionEvent(const InputEvent* event, struct W8Region* region, unsigned short);
+UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int slot);
 /* Help 28: portrait side bar that opens Assay on the hovered weapon/item. */
-unsigned char PortraitAssaySidebarRegionEvent(const InputEvent* event, struct W8Region* region, unsigned short);
+UiResult PortraitAssaySidebarInput(const UiPointerEvent& event, HitTarget& target, int slot);
 /* Help 24: portrait overlay hover strip; drives portrait_overlay_party_slot. */
-unsigned char PortraitOverlayHoverRegionEvent(const InputEvent* event, struct W8Region* region, unsigned short);
+UiResult PortraitOverlayHoverInput(const UiPointerEvent& event, HitTarget& target, int slot);
 /* Region set 4: the eight combat-action hit regions beside the portraits. */
-unsigned char PartyCombatActionRegionEvent(const InputEvent* event, struct W8Region* region, unsigned short);
+UiResult PartyCombatActionInput(const UiPointerEvent& event, HitTarget& target, int slot);
 /* Help 31: radar-map button beside the text area. */
-unsigned char RadarMapButtonRegionEvent(const InputEvent* event, struct W8Region* region, unsigned short);
+UiResult RadarMapButtonInput(const UiPointerEvent& event);
 /* Region 23: the 3D world view. Hover refreshes the combat selection/target,
    left-up runs the targeting/item/monster dispatch, right-down opens monster
    info or the assay dialog, and the mouselook latch arms and releases here. */
-unsigned char WorldViewRegionEvent(const InputEvent* event, struct W8Region* region, unsigned short);
+UiResult WorldViewInput(const UiPointerEvent& event);
 /* Help 36: combat monster-list hit rows beside the radar map. */
-unsigned char MonsterListRegionEvent(const InputEvent* event, struct W8Region* region, unsigned short);
+UiResult MonsterListInput(const UiPointerEvent& event);
 void SetMainGameMode(W8MainGameMode mode);
 void SetFormationBoardVisible(bool visible);
 void ToggleMainGamePause(void);
@@ -511,7 +507,8 @@ unsigned char MainGameScreenLeave(int leaving);
 void ShowMainGameNoticeLine(std::string_view text, W8DialogDestroyCallback callback, bool confirmation,
                             bool cancel);
 
-unsigned char CombatBarRegionEvent(const InputEvent* event, struct W8Region* region, unsigned short);
+unsigned char HandleWorldResumeInput(const InputEvent* event);
+void SetWorldResumeInput(bool enabled);
 void SelectNpcBuyMode(void);
 void ConfirmNpcTradeItem(void);
 void RestockNpcTradeStock(void);

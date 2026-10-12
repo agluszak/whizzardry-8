@@ -1,3 +1,4 @@
+#include "wiz8/local_code/Strings.h"
 #include "wiz8/modal_content.h"
 #include "himage.h"
 #include <memory>
@@ -66,28 +67,16 @@ std::unique_ptr<W8MainGameScreen> g_main_game_screen;
 #define MGS_TEXT_BOX_CPP __FILE__
 
 namespace {
-
-// Retail set 0x14, regions 82-89.
-constexpr std::array<RegionTemplate, 8> kTextBoxRegionTemplates{{
-    {0x00000001, 457, 363, 472, 378, TextBoxScrollUpRegionEvent, 0, false, -1},
-    {0x00000001, 457, 429, 472, 444, TextBoxScrollDownRegionEvent, 0, false, -1},
-    {0x00000001, 461, 379, 468, 428, TextBoxScrollThumbRegionEvent, 0, false, -1},
-    {0x00000001, 166, 362, 456, 445, TextBoxBodyRegionEvent, 0, false, -1},
-    {0x00000001, 140, 362, 163, 377, TextBoxChannelTabRegionEvent, 0, true, 33},
-    {0x00000001, 140, 383, 163, 398, TextBoxChannelTabRegionEvent, 1, true, 34},
-    {0x00000001, 140, 404, 163, 419, TextBoxChannelTabRegionEvent, 3, true, 35},
-    {0x00000001, 128, 358, 511, 450, TextBoxMuteRegionEvent, 0, false, -1},
-}};
-
-unsigned int TextBoxRegionIndex(TextBoxRegion region)
-{
-    return g_text_box_regions->index(static_cast<std::size_t>(region));
+struct MessageBoxInput {
+    UiLayer body{0x14}, tabs{0x14};
+    std::array<HitTarget*, 8> targets{};
+};
+std::unique_ptr<MessageBoxInput> message_input;
+UiResult HandleTextScroll(const UiPointerEvent& event, bool up);
+UiResult HandleTextThumb(const UiPointerEvent& event);
+UiResult HandleTextBody(const UiPointerEvent& event);
+UiResult HandleTextChannel(const UiPointerEvent& event, int channel);
 }
-
-} // namespace
-
-ScreenRegionSet g_text_box_regions{kTextBoxRegionTemplates, 0x14};
-static std::optional<RegionSetView> g_dialogue_text_box_region_view;
 
 /* The TEXT chunk's 0x24-byte form is separate from the live message record:
    its first word is a UTF-16 unit count. The obsolete list-pointer word
@@ -285,79 +274,60 @@ static void NoticeDialogDestroyed(W8DialogBase*)
 
 void InitTextBoxRegions()
 {
-    g_text_box_regions.Create();
-    if (!g_dialogue_text_box_region_view) {
-        g_dialogue_text_box_region_view.emplace(*g_text_box_regions, 0, 4, 0x15); // Retail set 0x15
+    message_input = std::make_unique<MessageBoxInput>();
+    auto& ui = *message_input;
+    ui.targets[0] = &ui.body.add(SDL_Rect{457, 363, 16, 16},
+        [](const UiPointerEvent& event) { return HandleTextScroll(event, true); });
+    ui.targets[1] = &ui.body.add(SDL_Rect{457, 429, 16, 16},
+        [](const UiPointerEvent& event) { return HandleTextScroll(event, false); });
+    ui.targets[2] = &ui.body.add(SDL_Rect{461, 379, 8, 50}, HandleTextThumb);
+    ui.targets[3] = &ui.body.add(SDL_Rect{166, 362, 291, 84}, HandleTextBody);
+    for (int tab = 0; tab < 3; ++tab) {
+        ui.targets[4 + tab] = &ui.tabs.add(SDL_Rect{140, 362 + tab * 21, 24, 16},
+            [tab](const UiPointerEvent& event) { return HandleTextChannel(event, tab == 2 ? 3 : tab); });
+        ui.targets[4 + tab]->setTooltip([tab] { return g_localized_strings[33 + tab]; });
     }
+    ui.targets[7] = &ui.tabs.add(SDL_Rect{128, 358, 384, 93}, [](const UiPointerEvent&) {
+        PushButtonSoundScheme(0, true);
+        return UiResult::Handled;
+    }, -1);
+    ui.body.setEnabled(false);
+    ui.tabs.setEnabled(false);
 }
 
-void ShutdownTextBoxRegions()
+void ShutdownTextBoxRegions() { message_input.reset(); }
+void EnableDialogueTextBoxRegions() { if (message_input) message_input->body.setEnabled(true); }
+void DisableDialogueTextBoxRegions() { if (message_input) message_input->body.setEnabled(false); }
+void SetTextBoxEnabled(bool enabled)
 {
-    g_dialogue_text_box_region_view.reset();
-    g_text_box_regions.Destroy();
-}
-
-void EnableDialogueTextBoxRegions()
-{
-    if (g_dialogue_text_box_region_view) {
-        g_dialogue_text_box_region_view->Enable();
-    }
-}
-
-void DisableDialogueTextBoxRegions()
-{
-    if (g_dialogue_text_box_region_view) {
-        g_dialogue_text_box_region_view->Disable();
-    }
+    if (!message_input) return;
+    message_input->body.setEnabled(enabled);
+    message_input->tabs.setEnabled(enabled);
 }
 
 static void SetTextBoxRegionInput(TextBoxRegion first, std::size_t count, bool enabled)
 {
-    if (!g_text_box_regions) return;
-    for (std::size_t offset = 0; offset < count; ++offset) {
-        const unsigned int index = TextBoxRegionIndex(first) + static_cast<unsigned int>(offset);
-        if (enabled) {
-            g_regions[index].SetInputEnabled(true);
-        } else {
-            g_regions[index].SetInputEnabled(false);
-        }
-    }
+    if (!message_input) return;
+    for (std::size_t offset = 0; offset < count; ++offset)
+        message_input->targets[static_cast<std::size_t>(first) + offset]->setEnabled(enabled);
 }
 
-void SetTextBoxScrollInput(bool enabled)
-{
-    SetTextBoxRegionInput(TextBoxRegion::ScrollUp, 4, enabled);
-}
+void SetTextBoxScrollInput(bool enabled) { SetTextBoxRegionInput(TextBoxRegion::ScrollUp, 4, enabled); }
+void SetTextBoxChannelTabInput(bool enabled) { SetTextBoxRegionInput(TextBoxRegion::ChannelTab1, 3, enabled); }
+void SetTextBoxMuteInput(bool enabled) { SetTextBoxRegionInput(TextBoxRegion::Mute, 1, enabled); }
 
-void SetTextBoxChannelTabInput(bool enabled)
-{
-    SetTextBoxRegionInput(TextBoxRegion::ChannelTab1, 3, enabled);
-}
-
-void SetTextBoxMuteInput(bool enabled)
-{
-    SetTextBoxRegionInput(TextBoxRegion::Mute, 1, enabled);
-}
-
-/* Store the dialogue text-box rectangle and re-seat its body and scroll regions. */
 void SetTextBoxRegionBounds(int left, int top, int right, int bottom)
 {
-    unsigned short right_u;
-
     g_level_block->text_box_left = left;
     g_level_block->text_box_top = top;
     g_level_block->text_box_right = right;
     g_level_block->text_box_bottom = bottom;
-    if (!g_text_box_regions) return;
-    right_u = static_cast<unsigned short>(right);
-    g_regions[TextBoxRegionIndex(TextBoxRegion::Body)].SetBounds(static_cast<unsigned short>(left), static_cast<unsigned short>(top), right_u,
-                    static_cast<unsigned short>(bottom));
-    g_regions[TextBoxRegionIndex(TextBoxRegion::ScrollUp)].SetBounds(static_cast<unsigned short>(right_u + 5), 0x16b,
-                    static_cast<unsigned short>(right_u + 0x14), 0x17a);
-    g_regions[TextBoxRegionIndex(TextBoxRegion::ScrollDown)].SetBounds(static_cast<unsigned short>(right_u + 5), 0x1ad,
-                    static_cast<unsigned short>(right_u + 0x14), 0x1bc);
-    g_regions[TextBoxRegionIndex(TextBoxRegion::ScrollThumb)].SetBounds(static_cast<unsigned short>(right_u + 9), 0x17b,
-                    static_cast<unsigned short>(right_u + 0x10), 0x1ac);
+    if (!message_input) return;
+    auto& targets = message_input->targets;
+    targets[3]->setShape(SDL_Rect{left, top, right - left + 1, bottom - top + 1});
+    targets[0]->setShape(SDL_Rect{right + 5, 363, 16, 16});
+    targets[1]->setShape(SDL_Rect{right + 5, 429, 16, 16});
+    targets[2]->setShape(SDL_Rect{right + 9, 379, 8, 50});
 }
 
 void ShowNotice(unsigned int font_palette, std::string_view text_view, short text_box,
@@ -1127,239 +1097,87 @@ void DeleteDialogueTextCharacter(unsigned int key)
     InvalidateDialogueTextCursor();
 }
 
-unsigned char TextBoxScrollThumbRegionEvent(const InputEvent* input_event, W8Region* region, unsigned short)
+namespace {
+UiResult HandleTextThumb(const UiPointerEvent& event)
 {
     PushButtonSoundScheme(0, true);
-    if (input_event->type != InputEventType::MouseMove) {
-        return 0;
-    }
-
-    short text_box = g_status.text_line_cursor;
-    unsigned int visible_lines = GetTextBoxVisibleLineCount();
-    unsigned int line_count = GetTextBoxLineCount(text_box);
-    if (line_count <= visible_lines) {
-        return 0;
-    }
-
-    if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
+    if (!(event.buttons & SDL_BUTTON_LMASK)) {
         g_level_block->text_scroll_drag_idle = 1;
-        return 0;
+        return UiResult::Handled;
     }
-    if (!IsLeftButtonHeld()) {
-        g_level_block->text_scroll_drag_idle = 1;
-        if (g_text_box_regions) {
-            ClearActiveRegionIfMatches(
-                TextBoxRegionIndex(TextBoxRegion::ScrollThumb));
-        }
-        return 0;
-    }
-
-    if (g_text_box_regions) {
-        ActivateDialogRegion(
-            TextBoxRegionIndex(TextBoxRegion::ScrollThumb));
-    }
-    int position = GetEventCursorY(input_event) - region->y1 - 1;
-    if (position < 0) {
-        position = 0;
-    } else {
-        position += 2;
-        if (position > 0x2e) {
-            position = 0x2e;
-        }
-    }
-
-    unsigned int previous = g_level_block->text_lines[text_box];
-    g_level_block->text_lines[text_box] = (line_count - visible_lines) * position / 0x2f;
-    unsigned int current = g_level_block->text_lines[text_box];
+    if (event.action != UiPointerAction::Move && event.action != UiPointerAction::Down)
+        return UiResult::Handled;
+    const short box = g_status.text_line_cursor;
+    const auto visible = GetTextBoxVisibleLineCount();
+    const auto count = GetTextBoxLineCount(box);
+    if (count <= visible) return UiResult::Handled;
+    const auto position = std::clamp(event.local.y + 1, 0, 46);
+    const auto previous = g_level_block->text_lines[box];
+    const auto current = (count - visible) * position / 47;
+    g_level_block->text_lines[box] = current;
     if (current != previous) {
-        g_level_block->text_content_region = current != 0 ? kUpArrowEnabled : kUpArrowDisabled;
-        g_level_block->dialogue_content_region =
-            current + visible_lines < line_count ? kDownArrowEnabled : kDownArrowDisabled;
+        g_level_block->text_content_region = current ? kUpArrowEnabled : kUpArrowDisabled;
+        g_level_block->dialogue_content_region = current + visible < count ? kDownArrowEnabled : kDownArrowDisabled;
         RedrawTextBox();
     }
     g_level_block->text_scroll_drag_idle = 0;
-    return 1;
+    return UiResult::Handled;
 }
 
-unsigned char TextBoxScrollUpRegionEvent(const InputEvent* event, W8Region* region, unsigned short)
+UiResult HandleTextScroll(const UiPointerEvent& event, bool up)
 {
-    short text_box = g_status.text_line_cursor;
-    if (g_level_block->text_lines[text_box] == 0) {
-        PushButtonSoundScheme(0, true);
+    const short box = g_status.text_line_cursor;
+    const bool enabled = up ? g_level_block->text_lines[box] != 0 :
+        g_level_block->text_lines[box] + GetTextBoxVisibleLineCount() < GetTextBoxLineCount(box);
+    if (!enabled) PushButtonSoundScheme(0, true);
+    if (enabled && (event.action == UiPointerAction::Enter || event.action == UiPointerAction::Leave)) {
+        const bool hover = event.action == UiPointerAction::Enter;
+        if (up) g_level_block->text_content_region = hover ? kUpArrowPressed : kUpArrowEnabled;
+        else g_level_block->dialogue_content_region = hover ? kDownArrowPressed : kDownArrowEnabled;
+        RedrawTextBox();
     }
-
-    const InputEventType us_event = event->type;
-    if (IsLeftButtonEvent(us_event) || us_event == InputEventType::RightButtonDown) {
-        if (region->CaptureButtonDown(us_event)) {
-            return 1;
+    if ((event.action == UiPointerAction::Up || event.action == UiPointerAction::Repeat) && event.inside) {
+        const auto mask = event.button == UiPointerButton::Left ? SDL_BUTTON_LMASK : SDL_BUTTON_RMASK;
+        if (event.captured_buttons & mask) {
+            const int lines = event.button == UiPointerButton::Left ? 1 : 7;
+            if (up) ScrollTextBoxUp(lines);
+            else ScrollTextBoxDown(lines);
         }
-        if (us_event != InputEventType::LeftButtonUp && us_event != InputEventType::LeftButtonRepeat) {
-            return 0;
-        }
-        if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) == 0) {
-            return 1;
-        }
-
-        ScrollTextBoxUp(1);
-        return 1;
-    } else {
-        if (us_event != InputEventType::RightButtonUp && us_event != InputEventType::RightButtonRepeat) {
-            if (us_event != InputEventType::MouseMove) {
-                return 0;
-            }
-            if ((region->flags & W8_REGION_MOUSE_LEAVE) == 0) {
-                if ((region->flags & W8_REGION_MOUSE_ENTER) != 0 &&
-                    g_level_block->text_lines[text_box] != 0) {
-                    g_level_block->text_content_region = kUpArrowPressed;
-                    RedrawTextBox();
-                }
-            } else if (g_level_block->text_lines[text_box] != 0) {
-                g_level_block->text_content_region = kUpArrowEnabled;
-                RedrawTextBox();
-                return 0;
-            }
-            return 0;
-        }
-        if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) == 0) {
-            return 1;
-        }
-
-        ScrollTextBoxUp(7);
     }
-    return 1;
+    return UiResult::Handled;
 }
 
-unsigned char TextBoxScrollDownRegionEvent(const InputEvent* event, W8Region* region, unsigned short)
-{
-    short text_box = g_status.text_line_cursor;
-    unsigned int visible = GetTextBoxVisibleLineCount();
-    unsigned int count = GetTextBoxLineCount(text_box);
-    if (g_level_block->text_lines[text_box] + visible >= count) {
-        PushButtonSoundScheme(0, true);
-    }
-
-    const InputEventType us_event = event->type;
-    if (IsLeftButtonEvent(us_event) || us_event == InputEventType::RightButtonDown) {
-        if (region->CaptureButtonDown(us_event)) {
-            return 1;
-        }
-        if (us_event != InputEventType::LeftButtonUp && us_event != InputEventType::LeftButtonRepeat) {
-            return 0;
-        }
-        if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
-            ScrollTextBoxDown(1);
-            return 1;
-        }
-    } else {
-        if (us_event != InputEventType::RightButtonUp && us_event != InputEventType::RightButtonRepeat) {
-            if (us_event != InputEventType::MouseMove) {
-                return 0;
-            }
-            if ((region->flags & W8_REGION_MOUSE_LEAVE) == 0) {
-                if ((region->flags & W8_REGION_MOUSE_ENTER) != 0) {
-                    if (g_level_block->text_lines[text_box] + visible < count) {
-                        g_level_block->dialogue_content_region = kDownArrowPressed;
-                        RedrawTextBox();
-                    }
-                }
-            } else {
-                if (g_level_block->text_lines[text_box] + visible < count) {
-                    g_level_block->dialogue_content_region = kDownArrowEnabled;
-                    RedrawTextBox();
-                    return 0;
-                }
-            }
-            return 0;
-        }
-        if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) != 0) {
-            ScrollTextBoxDown(7);
-        }
-    }
-    return 1;
-}
-
-unsigned char TextBoxBodyRegionEvent(const InputEvent* event, W8Region* region, unsigned short)
+UiResult HandleTextBody(const UiPointerEvent& event)
 {
     PushButtonSoundScheme(0, true);
-    if (event->type == InputEventType::MouseWheel) {
-        short delta = event->wheel;
-        if (delta < 0) {
-            ScrollTextBoxDown(-delta);
-        } else {
-            ScrollTextBoxUp(delta);
-        }
-        if (!gXStatus.fNpcDialogueMode) {
-            if (gXStatus.fItemSelectMode) {
-                UseItemSelectTextBoxWheelAt(event->position.x,
-                                            event->position.y,
-                                            true);
-            }
-            return 1;
-        }
-        NpcDialogueTextBoxWheelAt(event->position.x,
-                                  event->position.y, true);
-        return 1;
+    if (event.action == UiPointerAction::Wheel) {
+        if (event.wheel < 0) ScrollTextBoxDown(-event.wheel);
+        else ScrollTextBoxUp(event.wheel);
+        if (gXStatus.fNpcDialogueMode) NpcDialogueTextBoxWheelAt(event.position.x, event.position.y, true);
+        else if (gXStatus.fItemSelectMode) UseItemSelectTextBoxWheelAt(event.position.x, event.position.y, true);
+        return UiResult::Handled;
     }
-    if (gXStatus.fNpcDialogueMode) {
-        return NpcDialogueTextBoxRegionEvent(event, region);
-    }
-    if (!gXStatus.fSpellCastMode) {
-        if (!gXStatus.fItemSelectMode) {
-            return 0;
-        }
-        return UseItemSelectTextBoxRegionEvent(event, region);
-    }
-    return SpellCastTextBoxRegionEvent(event, region);
+    if (gXStatus.fNpcDialogueMode) return HandleNpcTextBox(event);
+    if (gXStatus.fSpellCastMode) return HandleSpellTextBox(event);
+    if (gXStatus.fItemSelectMode) return HandleUseItemTextBox(event);
+    return UiResult::Handled;
 }
 
-unsigned char TextBoxChannelTabRegionEvent(const InputEvent* event, W8Region* region, unsigned short id)
+UiResult HandleTextChannel(const UiPointerEvent& event, int channel)
 {
-    SDL_Point mouse_pos;
-
     PushButtonSoundScheme(0, true);
-    SGPMouseGetPos(&mouse_pos);
-    if (event->type != InputEventType::LeftButtonUp) {
-        return 0;
-    }
-
-    g_status.text_line_cursor = static_cast<short>(id);
-    region->flags |= W8_REGION_LEFT_BUTTON_HELD;
+    if (event.action != UiPointerAction::Up || !event.inside ||
+        event.button != UiPointerButton::Left || !(event.captured_buttons & SDL_BUTTON_LMASK))
+        return UiResult::Handled;
+    g_status.text_line_cursor = static_cast<short>(channel);
+    const auto scroll = g_level_block->text_lines[channel];
+    g_level_block->text_content_region = scroll ? kUpArrowEnabled : kUpArrowDisabled;
+    g_level_block->dialogue_content_region = scroll + GetTextBoxVisibleLineCount() < GetTextBoxLineCount(channel)
+        ? kDownArrowEnabled : kDownArrowDisabled;
+    if (channel == 3) ScrollTextBoxTo(std::max(0, int(g_status.text_box_lines_shown[channel]) - 7));
     RedrawTextBox();
-
-    short text_box = g_status.text_line_cursor;
-    if (g_level_block->text_lines[text_box] == 0) {
-        g_level_block->text_content_region = kUpArrowDisabled;
-    } else {
-        g_level_block->text_content_region = kUpArrowEnabled;
-    }
-
-    unsigned int visible = GetTextBoxVisibleLineCount();
-    unsigned int count = GetTextBoxLineCount(text_box);
-    unsigned int scroll = g_level_block->text_lines[text_box];
-    if (scroll + visible < count) {
-        g_level_block->dialogue_content_region = kDownArrowEnabled;
-    } else {
-        if (scroll + visible >= count) {
-            g_level_block->dialogue_content_region = kDownArrowDisabled;
-        }
-    }
-
-    if (id == 3) {
-        if (g_status.text_box_lines_shown[text_box] > 7) {
-            ScrollTextBoxTo(g_status.text_box_lines_shown[text_box] - 7);
-            return 1;
-        }
-        ScrollTextBoxTo(0);
-    }
-    return 1;
+    return UiResult::Handled;
 }
-
-/* Background mute for the message/text-box plates that share this catalog
-   callback - suppress the default region click sound and swallow the event. */
-unsigned char TextBoxMuteRegionEvent(const InputEvent*, W8Region*, unsigned short)
-{
-    PushButtonSoundScheme(0, true);
-    return 0;
 }
 
 unsigned char HandleDialogueTextInput(const InputEvent* input_event)

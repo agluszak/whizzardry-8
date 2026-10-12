@@ -76,7 +76,7 @@ enum TextBoxArrowState : int {
 
 void InitTextBoxRegions();
 void ShutdownTextBoxRegions();
-extern ScreenRegionSet g_text_box_regions;
+void SetTextBoxEnabled(bool enabled);
 void EnableDialogueTextBoxRegions();
 void DisableDialogueTextBoxRegions();
 void SetTextBoxScrollInput(bool enabled);

@@ -9,7 +9,6 @@
 
 void SyncNpcDialogueTranscriptScrollButtons();
 class ScreenRegionSet;
-extern ScreenRegionSet g_npc_quote_bubble_regions;
 void SetNpcDialogueInputEnabled(int group, bool enabled);
 void ShowNpcQuoteBubbleRegion(int x1, int y1, int x2, int y2);
 void HideNpcQuoteBubbleRegion();
@@ -345,11 +344,10 @@ unsigned char IsNpcDialogueCursorActive(void);
 /* Forward a portrait pick into an active NPC dialogue. */
 void TryNpcDialoguePickpocket(int party_slot);
 std::string ShortenTextToWidth(std::string_view text, unsigned int width, Font& font);
-unsigned char NpcQuoteBubbleRegionEvent(const InputEvent* event, W8Region* region, unsigned short);
 void SetDialogueFieldKeyword(std::string keyword, bool append);
 void ActivateNpcDialoguePanels(bool active);
 bool HasNpcDialogueDirtyPanels(void);
-unsigned char NpcDialogueTextBoxRegionEvent(const InputEvent* event, W8Region* region);
+UiResult HandleNpcTextBox(const UiPointerEvent& event);
 void NpcDialogueTextBoxWheelAt(short x, unsigned short y, bool flag);
 /* True when an NPC quote/portrait session is active: finish voice playback and
    report that the click was consumed. */

@@ -212,7 +212,7 @@ void CloseUseItemSelectView(void)
 {
     if (!g_use_item_commit_active) {
         SetTextBoxScrollInput(false);
-        g_text_box_regions.Disable();
+        SetTextBoxEnabled(false);
         g_level_block->action_panel_visible = 0;
         SetTargetingMode(W8_TARGET_NEED_NONE);
         ResetEditorStatusLine(-1);
@@ -689,82 +689,31 @@ void CloseUseItemSelection(void)
     ClearSlotTargeting(g_status.selected_character);
 }
 
-/* Use-item text-box body region event: button presses only arm the held bits
-   and all action happens on release - left release commits the slot's line,
-   right release opens the assay dialog for the item under the cursor. Motion
-   keeps g_use_item_cursor_x/y as the last cursor point and tracks the hovered
-   row into g_use_item_hover_row. */
-// FUNCTION: WIZ8 0x0059DB40
-unsigned char UseItemSelectTextBoxRegionEvent(const InputEvent* event, W8Region* region)
+UiResult HandleUseItemTextBox(const UiPointerEvent& event)
 {
-    unsigned short y;
-    int row;
-    int slot;
-    const InputEventType us_event = event->type;
-
-    switch (us_event) {
-    case InputEventType::LeftButtonUp:
-        if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) == 0) {
-            return 1;
+    if (event.action == UiPointerAction::Leave) {
+        ClearHoveredTextLine(2);
+        g_use_item_hover_row = -1;
+    } else if (event.action == UiPointerAction::Move || event.action == UiPointerAction::Enter) {
+        g_use_item_cursor_x = event.position.x;
+        g_use_item_cursor_y = event.position.y;
+        const int row = event.local.y / 11;
+        if (event.inside && row != g_use_item_hover_row) HighlightNoticeRow(row);
+        g_use_item_hover_row = row;
+    } else if (event.action == UiPointerAction::Up && event.inside) {
+        if (event.button == UiPointerButton::Left && (event.captured_buttons & SDL_BUTTON_LMASK)) {
+            const int slot = GetHoveredTextLine(2);
+            if (slot != -1) AfterUiDispatch([slot] { SelectUseItemLine(slot); });
         }
-        region->flags &= ~W8_REGION_LEFT_BUTTON_HELD;
-        slot = GetHoveredTextLine(2);
-        if (slot == -1) {
-            return 1;
-        }
-        SelectUseItemLine(slot);
-        return 1;
-    case InputEventType::LeftButtonDown:
-        region->flags |= W8_REGION_LEFT_BUTTON_HELD;
-        return 1;
-    case InputEventType::RightButtonDown:
-        region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
-        return 1;
-    case InputEventType::MouseMove:
-        if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
-            ClearHoveredTextLine(2);
-            g_use_item_hover_row = -1;
-            return 1;
-        }
-        if ((region->flags & W8_REGION_MOUSE_ENTER) != 0) {
-            g_use_item_cursor_x = event->position.x;
-            g_use_item_cursor_y = event->position.y;
-            return 1;
-        }
-        if (event->position.x == g_use_item_cursor_x &&
-            event->position.y == g_use_item_cursor_y) {
-            return 1;
-        }
-        g_use_item_cursor_x = event->position.x;
-        g_use_item_cursor_y = event->position.y;
-        y = event->position.y;
-        if (g_level_block->text_box_top <= y && y <= g_level_block->text_box_bottom) {
-            row = (y - g_level_block->text_box_top) / 0xb;
-            if (row != g_use_item_hover_row) {
-                HighlightNoticeRow(row);
+        if (event.button == UiPointerButton::Right && (event.captured_buttons & SDL_BUTTON_RMASK)) {
+            const int row = event.local.y / 11;
+            if (row >= 0 && row < static_cast<int>(g_status.text_box_lines_shown[2])) {
+                const auto item = g_use_item_list[g_level_block->text_lines[2] + row];
+                if (item) AfterUiDispatch([item] { OpenUseItemAssayDialog(item); });
             }
-            g_use_item_hover_row = row;
         }
-        return 1;
-    case InputEventType::RightButtonUp:
-        if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) == 0) {
-            return 1;
-        }
-        region->flags &= ~W8_REGION_RIGHT_BUTTON_HELD;
-        y = event->position.y;
-        if (y < g_level_block->text_box_top || g_level_block->text_box_bottom < y) {
-            return 1;
-        }
-        row = (y - g_level_block->text_box_top) / 0xb;
-        if (row < static_cast<int>(g_status.text_box_lines_shown[2]) &&
-            g_use_item_list[g_level_block->text_lines[2] + row] != 0) {
-            OpenUseItemAssayDialog(g_use_item_list[g_level_block->text_lines[2] + row]);
-        }
-        return 1;
-    default:
-        break;
     }
-    return 0;
+    return UiResult::Handled;
 }
 
 /* Wheel rotation over the use-item text box re-selects the row under the

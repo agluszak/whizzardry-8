@@ -21,7 +21,7 @@ void UpdateFormationCompass(void);
 void CreateFormationBoardOverlay(void);
 /* Board callback: opens the formation panel on release, hit-tests the cell
    markers for tooltips, and switches board art on hover transitions. */
-unsigned char FormationBoardRegionEvent(const InputEvent* event, W8Region* region, unsigned short);
+UiResult HandleFormationBoard(const UiPointerEvent& event);
 /* Open the formation panel: build the controls, snapshot the live formation
    into gXStatus.edited_formation and pause the world. */
 void OpenFormationPanel(void);
