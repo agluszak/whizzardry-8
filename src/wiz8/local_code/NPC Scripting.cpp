@@ -669,101 +669,158 @@ static void ProcessMessageBoxQueue(void)
         return;
     }
 
-    const auto* command = std::get_if<W8NpcQueuedCommand>(&line.action);
-    const int argument = command != 0 ? command->argument : 0;
-    auto* notice = std::get_if<W8NpcQueuedNotice>(&line.action);
-    const W8NpcMessageKind kind = GetMessageBoxLineKind(line);
-    if (RunNpcStoryEvent(kind, argument)) {
-        g_npc_scripting.message_lines.erase(current);
-        return;
-    }
-    switch (kind) {
-    case W8_NPC_MSG_FOCUS_NPC: {
-        int npc_kind = argument;
-        npc = GetNpcStateByKind(npc_kind);
-        if (npc != 0) {
-            RecruitNpcIntoParty(npc);
-        }
-        EndNpcDialogueSession(false);
-        QueueNpcScriptLine(0, false, false, false);
-        break;
-    }
-    case W8_NPC_MSG_GROUP_ACTION: {
-        int group = argument;
-        ClearMainGameTargetState();
-        DismissNpcFromParty(group, 0, false, false);
-        if (g_npc_interaction_state->dialogue_layout == W8_DIALOGUE_LAYOUT_TRANSCRIPT) {
-            for (int party_slot = 0; party_slot < 8; ++party_slot) {
-                if (g_status.buffers.XChar[party_slot].fOccupied) {
-                    DisableMainGamePortraitSlot(party_slot);
+    struct RunAction {
+        W8NpcState* npc;
 
+        void operator()(const W8NpcQueuedQuote&) const {}
+        void operator()(const W8NpcQueuedEntry& queued) const
+        {
+            W8NpcScriptFile* script = npc != 0 ? npc->script_file : 0;
+            if (script != 0 && queued.quote_index >= 0 &&
+                queued.quote_index < static_cast<int>(script->quotes.size()) &&
+                queued.entry_index >= 0 &&
+                queued.entry_index <
+                    static_cast<int>(script->quotes[queued.quote_index].entries.size())) {
+                ProcessNpcQuoteEntry(
+                    &script->quotes[queued.quote_index].entries[queued.entry_index],
+                    queued.continuation_quote);
+            }
+        }
+        void operator()(const W8NpcQueuedNotice& message) const
+        {
+            if (const auto* skills = std::get_if<W8SkillNoticePayload>(&message.notice)) {
+                if (g_settings.skill_increase_messages == 0) {
+                    PostSkillIncreaseNotices(skills);
+                    return;
+                }
+            } else if (const auto* level_up = std::get_if<W8LevelUpNotice>(&message.notice)) {
+                g_status.buffers.XChar[level_up->party_slot].portrait_advance = 1;
+                if (g_settings.skill_increase_messages == 0) {
+                    wiz8::sound::play("Data\\Sound\\Misc\\GainLevel.wav");
+                    return;
+                }
+            }
+            ShowNpcPortraitMessage(message.text, message.notice);
+        }
+        void operator()(W8NpcStoryAction action) const { RunNpcStoryAction(action); }
+        void operator()(W8NpcCommand command) const
+        {
+            switch (command) {
+            case W8NpcCommand::close_dialogue:
+                CloseNpcDialogueIfActive();
+                g_npc_dialogue_closed = true;
+                break;
+            case W8NpcCommand::close_and_resume_npc:
+                CloseNpcDialogueIfActive();
+                if (g_npc_interaction_state->dialogue_npc != 0) {
+                    ResumeNpc(g_npc_interaction_state->dialogue_npc, 1);
+                }
+                break;
+            case W8NpcCommand::reopen_transcript:
+                CloseNpcDialogueLayout();
+                OpenNpcDialogueTranscriptLayout();
+                break;
+            case W8NpcCommand::journal_quote:
+                ShowNpcScriptNoticeBubble(g_localized_strings[0x74a]);
+                g_npc_scripting.session.quote_active = true;
+                wiz8::sound::play("Data\\Sound\\Misc\\Journal Entry.wav");
+                break;
+            case W8NpcCommand::dispatch_pending_notice:
+                DispatchPendingNpcScriptNotice();
+                break;
+            case W8NpcCommand::remove_speaking_npc: {
+                EndNpcDialogueSession(false);
+                W8Monster* monster = GetNpcMonster(g_npc_scripting.session.npc);
+                if (monster != 0) {
+                    monster->BeginFadeOutAndRemove(W8_MONSTER_REMOVAL_NONE);
+                }
+                break;
+            }
+            case W8NpcCommand::clear_target_state:
+                ClearMainGameTargetState();
+                break;
+            case W8NpcCommand::begin_scripted_world_action:
+                BeginScriptedWorldAction();
+                break;
+            case W8NpcCommand::reset_level_data_vectors:
+                if (!gXStatus.fCombatMode || gXStatus.fPartyMovementMode) {
+                    ResetLevelDataVectors();
+                }
+                break;
+            case W8NpcCommand::clear_level_movement_stopped:
+                if (!gXStatus.fCombatMode || gXStatus.fPartyMovementMode) {
+                    ClearLevelMovementStopped();
+                }
+                break;
+            case W8NpcCommand::spacer:
+                break;
+            }
+        }
+        void operator()(W8NpcRecruit recruit) const
+        {
+            if (W8NpcState* recruited = GetNpcStateByKind(recruit.npc_kind)) {
+                RecruitNpcIntoParty(recruited);
+            }
+            EndNpcDialogueSession(false);
+            QueueNpcScriptLine(0, false, false, false);
+        }
+        void operator()(W8NpcDismiss dismiss) const
+        {
+            ClearMainGameTargetState();
+            DismissNpcFromParty(dismiss.party_slot, 0, false, false);
+            if (g_npc_interaction_state->dialogue_layout == W8_DIALOGUE_LAYOUT_TRANSCRIPT) {
+                for (int party_slot = 0; party_slot < 8; ++party_slot) {
+                    if (g_status.buffers.XChar[party_slot].fOccupied) {
+                        DisableMainGamePortraitSlot(party_slot);
+                    }
                 }
             }
         }
-        break;
-    }
-    case W8_NPC_MSG_PARTY_MEMBER_EVENT: {
-        int party_slot = argument;
-        QueueCharacterEvent(&g_status.buffers.Char[party_slot], g_effect1,
-                            g_character_event_no_npc_defer, g_character_event_no_flags,
-                            g_character_event_full_volume);
-        break;
-    }
-    case W8_NPC_MSG_PARTY_SPEAKER_EVENT: {
-        unsigned int event_type = static_cast<unsigned int>(argument);
-        int party_slot = PickRandomPartySpeaker(event_type, g_status.selected_party_member);
-        if (party_slot != -1) {
-            g_status.selected_party_member = static_cast<unsigned char>(party_slot);
-            QueueCharacterEvent(&g_status.buffers.Char[party_slot], event_type,
-                                g_character_event_no_npc_defer, g_character_event_no_flags,
-                                g_character_event_full_volume);
-            SetNpcDialoguePanelVisible(0);
-            if (g_npc_interaction_state->modal_dialog_open) {
-                g_npc_interaction_state->suppress_parting_reaction = true;
+        void operator()(W8NpcPartySpeakerEvent event) const
+        {
+            int party_slot = PickRandomPartySpeaker(event.event_type, g_status.selected_party_member);
+            if (party_slot != -1) {
+                g_status.selected_party_member = static_cast<unsigned char>(party_slot);
+                QueueCharacterEvent(&g_status.buffers.Char[party_slot], event.event_type,
+                                    g_character_event_no_npc_defer, g_character_event_no_flags,
+                                    g_character_event_full_volume);
+                SetNpcDialoguePanelVisible(0);
+                if (g_npc_interaction_state->modal_dialog_open) {
+                    g_npc_interaction_state->suppress_parting_reaction = true;
+                }
             }
         }
-        break;
-    }
-    case W8_NPC_MSG_DISPATCH_PENDING_NOTICE:
-        DispatchPendingNpcScriptNotice();
-        break;
-    case W8_NPC_MSG_CLOSE_DIALOGUE:
-        CloseNpcDialogueIfActive();
-        g_npc_dialogue_closed = true;
-        break;
-    case W8_NPC_MSG_JOURNAL_QUOTE:
-        ShowNpcScriptNoticeBubble(g_localized_strings[0x74a]);
-        g_npc_scripting.session.quote_active = true;
-        wiz8::sound::play("Data\\Sound\\Misc\\Journal Entry.wav");
-        break;
-    case W8_NPC_MSG_PORTRAIT_STRING: {
-        int string_index = argument;
-        ShowNpcPortraitMessage(g_localized_strings[string_index]);
-        break;
-    }
-    case W8_NPC_MSG_SKILL_NOTICES: {
-        if (g_settings.skill_increase_messages == 0) {
-            PostSkillIncreaseNotices(&std::get<W8SkillNoticePayload>(notice->notice));
-        } else {
-            ShowNpcPortraitMessage(notice->text, notice->notice);
+        void operator()(W8NpcLevelUpReaction reaction) const
+        {
+            QueueCharacterEvent(&g_status.buffers.Char[reaction.party_slot], g_effect1,
+                                g_character_event_no_npc_defer, g_character_event_no_flags,
+                                g_character_event_full_volume);
         }
-        break;
-    }
-    case W8_NPC_MSG_SET_CONDITION_13: {
-        int party_slot = argument;
-        g_status.skip_next_condition_reaction = 1;
-        SetCharacterCondition(party_slot, W8_CONDITION_MISSING, W8_CONDITION_INDEFINITE, 0, 0, 0);
-        g_status.condition13_clock = 1;
-        g_status.condition13_stamp = g_status.world_clock;
-        g_status.pending_condition_party_slot = party_slot;
-        break;
-    }
-    case W8_NPC_MSG_PORTRAIT_MESSAGE:
-        ShowNpcPortraitMessage(notice->text);
-        break;
-    case W8_NPC_MSG_CLEAR_NPC_COMBAT:
-        if (g_combat_state != 0) {
-            int party_slot = argument;
+        void operator()(W8NpcPartyScriptLine line) const
+        {
+            QueueCharacterEvent(&g_status.buffers.Char[line.party_slot], 0x18,
+                                g_character_event_npc_script | g_character_event_no_npc_defer,
+                                g_character_event_no_flags, g_character_event_full_volume);
+        }
+        void operator()(W8NpcPortraitString message) const
+        {
+            ShowNpcPortraitMessage(g_localized_strings[message.string_index]);
+        }
+        void operator()(W8NpcMarkMissing missing) const
+        {
+            g_status.skip_next_condition_reaction = 1;
+            SetCharacterCondition(missing.party_slot, W8_CONDITION_MISSING,
+                                  W8_CONDITION_INDEFINITE, 0, 0, 0);
+            g_status.condition13_clock = 1;
+            g_status.condition13_stamp = g_status.world_clock;
+            g_status.pending_condition_party_slot = missing.party_slot;
+        }
+        void operator()(W8NpcLeaveCombat leave) const
+        {
+            if (g_combat_state == 0) {
+                return;
+            }
+            const int party_slot = leave.party_slot;
             if (g_combat_state->iActionChar == party_slot) {
                 g_combat_state->eCombatActionStatus = 0;
                 g_combat_state->iActionChar = -1;
@@ -773,84 +830,14 @@ static void ProcessMessageBoxQueue(void)
             SetTargetToCharacter(party_slot, false);
             g_combat_state->npc_combat_script_pending[party_slot] = false;
         }
-        break;
-    case W8_NPC_MSG_PORTRAIT_EXTRA:
-        ShowNpcPortraitMessage(notice->text, notice->notice);
-        break;
-    case W8_NPC_MSG_LEVEL_UP: {
-        int party_slot = std::get<W8LevelUpNotice>(notice->notice).party_slot;
-        g_status.buffers.XChar[party_slot].portrait_advance = 1;
-        if (g_settings.skill_increase_messages == 0) {
-            wiz8::sound::play("Data\\Sound\\Misc\\GainLevel.wav");
-        } else {
-            ShowNpcPortraitMessage(notice->text, notice->notice);
+        void operator()(W8NpcTravelConfirm travel) const
+        {
+            ShowMainGameNoticeLine(g_localized_strings[0x7eb], OnNpcTravelConfirmationClosed, true,
+                                   true);
+            g_pending_npc_travel_level = travel.level;
         }
-        break;
-    }
-    case W8_NPC_MSG_CLOSE_RESUME_NPC:
-        CloseNpcDialogueIfActive();
-        if (g_npc_interaction_state->dialogue_npc != 0) {
-            ResumeNpc(g_npc_interaction_state->dialogue_npc, 1);
-        }
-        break;
-    case W8_NPC_MSG_SHOW_DIALOGUE_PANEL:
-        SetNpcDialoguePanelVisible(1);
-        break;
-    case W8_NPC_MSG_QUOTE_ENTRY: {
-        const auto& queued = std::get<W8NpcQueuedEntry>(line.action);
-        W8NpcScriptFile* script = npc != 0 ? npc->script_file : 0;
-        if (script != 0 && queued.quote_index >= 0 &&
-            queued.quote_index < static_cast<int>(script->quotes.size()) &&
-            queued.entry_index >= 0 &&
-            queued.entry_index <
-                static_cast<int>(script->quotes[queued.quote_index].entries.size())) {
-            ProcessNpcQuoteEntry(&script->quotes[queued.quote_index].entries[queued.entry_index],
-                                 queued.continuation_quote);
-        }
-        break;
-    }
-    case W8_NPC_MSG_REOPEN_TRANSCRIPT:
-        CloseNpcDialogueLayout();
-        OpenNpcDialogueTranscriptLayout();
-        break;
-    case W8_NPC_MSG_PARTY_SLOT_EVENT_18: {
-        int party_slot = argument;
-        QueueCharacterEvent(&g_status.buffers.Char[party_slot], 0x18,
-                            g_character_event_npc_script | g_character_event_no_npc_defer,
-                            g_character_event_no_flags, g_character_event_full_volume);
-        break;
-    }
-    case W8_NPC_MSG_REMOVE_SELF: {
-        EndNpcDialogueSession(false);
-        W8Monster* monster = GetNpcMonster(g_npc_scripting.session.npc);
-        if (monster != 0) {
-            monster->BeginFadeOutAndRemove(W8_MONSTER_REMOVAL_NONE);
-        }
-        break;
-    }
-    case W8_NPC_MSG_TRAVEL_CONFIRM:
-        ShowMainGameNoticeLine(g_localized_strings[0x7eb], OnNpcTravelConfirmationClosed, true, true);
-        g_pending_npc_travel_level = argument;
-        break;
-    case W8_NPC_MSG_FINISH_ACTION:
-        if (argument == 0) {
-            ClearMainGameTargetState();
-        } else {
-            BeginScriptedWorldAction();
-        }
-        break;
-    case W8_NPC_MSG_RESET_LEVEL_STATE:
-        if (!gXStatus.fCombatMode || gXStatus.fPartyMovementMode) {
-            if (argument == 0) {
-                ClearLevelMovementStopped();
-            } else {
-                ResetLevelDataVectors();
-            }
-        }
-        break;
-    default:
-        break;
-    }
+    };
+    std::visit(RunAction{npc}, line.action);
 
     g_npc_scripting.message_lines.erase(current);
 }
@@ -961,11 +948,11 @@ void AuditNpcScriptQuotes(void)
 void ShowString(std::string_view text)
 {
     if (!IsLevelMovementStopped()) {
-        QueueNpcMessageLine(W8_NPC_MSG_RESET_LEVEL_STATE, 1);
+        QueueNpcAction(W8NpcCommand::reset_level_data_vectors);
     }
-    AddTextMessageBoxLine(W8_NPC_MSG_PORTRAIT_MESSAGE, std::string(text));
+    QueueNpcPortraitMessage(std::string(text));
     if (!IsLevelMovementStopped()) {
-        QueueNpcMessageLine(W8_NPC_MSG_RESET_LEVEL_STATE, 0);
+        QueueNpcAction(W8NpcCommand::clear_level_movement_stopped);
     }
 }
 // FUNCTION: WIZ8 0x00529BC0

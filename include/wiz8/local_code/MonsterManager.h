@@ -126,7 +126,7 @@ struct W8MonsterManagerEntry {
        condition-change event once while the latch is still clear. */
     bool condition_19_latch;
     /* Per-skill "increased" notice flags posted by PracticeCharacterSkill
-       and drained into W8_NPC_MSG_SKILL_NOTICES message lines. */
+       and drained into queued skill-notice portrait messages. */
     bool skill_notice_pending[W8_SKILL_COUNT];
     /* Set around SwapItemInstances so the autoswap-weapons check does
        not fire on the intermediate item states. */

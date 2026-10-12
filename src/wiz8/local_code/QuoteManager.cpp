@@ -576,7 +576,7 @@ void W8CharacterEvent::Complete()
             }
         }
     } else if (event_type == 51) {
-        QueueNpcMessageLine(W8_NPC_MSG_SET_CONDITION_13, party_slot);
+        QueueNpcAction(W8NpcMarkMissing{party_slot});
     }
 }
 

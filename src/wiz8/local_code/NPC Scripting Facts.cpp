@@ -147,7 +147,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         if (value == 0) {
             return;
         }
-        QueueNpcMessageLine(W8_NPC_MSG_TRIGGER_FIX, 0);
+        QueueNpcAction(W8NpcStoryAction::trigger_fix);
         return;
     case W8_FACT_CROCK_KIDNAPPED_PLAYER:
         if (value != 0 && FindEntityByName("NP_BlueFlowers", &position, 0, 0)) {
@@ -280,7 +280,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         return;
     case W8_FACT_MOOK_MOOK_PC_REMOVED:
         if (value != 0) {
-            QueueNpcMessageLine(W8_NPC_MSG_MOOK_COMMENT, 0);
+            QueueNpcAction(W8NpcStoryAction::mook_comment);
         }
         return;
     case W8_FACT_MOOK_HALL_OPEN:
@@ -369,7 +369,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         SetFactionDispositionBand(5, 2);
         return;
     case W8_FACT_AP_GOLEM_ATTACK:
-        QueueNpcMessageLine(W8_NPC_MSG_MOVE_GOLEM, 0);
+        QueueNpcAction(W8NpcStoryAction::move_golem);
         return;
     case W8_FACT_CM_RIDDLE2:
         trigger = FindTriggerByName("ChaosBTrigger");
@@ -377,7 +377,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
             trigger->flags &= ~W8_TRIGGER_ENABLED;
         }
         RunNamedTrigger("ChaosDoor01", -1);
-        QueueNpcMessageLine(W8_NPC_MSG_REMOVE_ALETHEIDES_AD, 0);
+        QueueNpcAction(W8NpcStoryAction::remove_aletheides_ad);
         return;
     case W8_FACT_DD_RIDDLE2:
         trigger = FindTriggerByName("KnowBTrigger");
@@ -385,7 +385,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
             trigger->flags &= ~W8_TRIGGER_ENABLED;
         }
         RunNamedTrigger("DoorKnow03", -1);
-        QueueNpcMessageLine(W8_NPC_MSG_REMOVE_ALETHEIDES_DD, 0);
+        QueueNpcAction(W8NpcStoryAction::remove_aletheides_dd);
         return;
     case W8_FACT_AD_RIDDLE2:
         trigger = FindTriggerByName("LifeBTrigger");
@@ -393,10 +393,10 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
             trigger->flags &= ~W8_TRIGGER_ENABLED;
         }
         RunNamedTrigger("DoorLife03", -1);
-        QueueNpcMessageLine(W8_NPC_MSG_REMOVE_ALETHEIDES_CM, 0);
+        QueueNpcAction(W8NpcStoryAction::remove_aletheides_cm);
         return;
     case W8_FACT_AP_SAVANT_DISAPPEARS:
-        QueueNpcMessageLine(W8_NPC_MSG_MOVE_SAVANT, 0);
+        QueueNpcAction(W8NpcStoryAction::move_savant);
         return;
     case W8_FACT_TEMPLAR:
         if (value == 0) {
@@ -415,13 +415,13 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         if (value == 0) {
             return;
         }
-        QueueNpcMessageLine(W8_NPC_MSG_REMOVE_JANETTE, 0);
+        QueueNpcAction(W8NpcStoryAction::remove_janette);
         return;
     case W8_FACT_MARTEN_FINISHED:
         if (value == 0) {
             return;
         }
-        QueueNpcMessageLine(W8_NPC_MSG_REMOVE_MARTEN, 0);
+        QueueNpcAction(W8NpcStoryAction::remove_marten);
         return;
     case W8_FACT_UMISSION_SCUBA_SOLVED_NO_ALIGN:
         if (value == 0) {
@@ -466,7 +466,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         trigger->flags &= ~W8_TRIGGER_ENABLED;
         return;
     case W8_FACT_RATTKIN_WHO_LOOKING_FOR:
-        QueueNpcMessageLine(W8_NPC_MSG_MILANO_RAT_DOOR, 0);
+        QueueNpcAction(W8NpcStoryAction::milano_rat_door);
         return;
     case W8_FACT_TRYNNIE_KILL_RATS_DONE:
         if (value == 0) {
@@ -475,7 +475,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         SetFact(W8_FACT_QUEST_MADRAS_OPEXTERM, 1, false);
         return;
     case W8_FACT_TRYNNIE_KILL_RATS_ASSIGNED:
-        QueueNpcMessageLine(W8_NPC_MSG_MOVE_GARI, 0);
+        QueueNpcAction(W8NpcStoryAction::move_gari);
         return;
     case W8_FACT_TRYNNIE_FUZZFAS_POTION:
         if (value == 0) {
@@ -484,13 +484,13 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         AddNpcItemWithDelay(GetNpcStateByKind(0x49), 0x1b0, 1, 0x15180);
         return;
     case W8_FACT_AP_BELA_DONE:
-        QueueNpcMessageLine(W8_NPC_MSG_MOVE_BELA, 0);
+        QueueNpcAction(W8NpcStoryAction::move_bela);
         return;
     case W8_FACT_TRYNNIE_GOT_DESTINY:
         if (value == 0) {
             return;
         }
-        QueueNpcMessageLine(W8_NPC_MSG_REMOVE_SHAMAN, 0);
+        QueueNpcAction(W8NpcStoryAction::remove_shaman);
         return;
     case W8_FACT_FACTION_RAPAX_COMMON_FRIENDLY:
         if (value == 0) {
@@ -503,19 +503,19 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         if (value == 0) {
             return;
         }
-        QueueNpcMessageLine(W8_NPC_MSG_PILLARGATE_ASAIZ, 0);
+        QueueNpcAction(W8NpcStoryAction::pillargate_asaiz);
         return;
     case W8_FACT_RAPAX_RIDDLE3:
         if (value == 0) {
             return;
         }
-        QueueNpcMessageLine(W8_NPC_MSG_PILLARGATE_LURE, 0);
+        QueueNpcAction(W8NpcStoryAction::pillargate_lure);
         return;
     case W8_FACT_RAPAX_RIDDLE2:
         if (value == 0) {
             return;
         }
-        QueueNpcMessageLine(W8_NPC_MSG_PILLARGATE_MADEUS, 0);
+        QueueNpcAction(W8NpcStoryAction::pillargate_madeus);
         return;
     case W8_FACT_RAPAX_INITIATES:
         if (value == 0) {
@@ -539,7 +539,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         return;
     case W8_FACT_ALSEDEXUS_PARTY_PASSOUT:
         if (value == 0) {
-            QueueNpcMessageLine(W8_NPC_MSG_SEDEXUS_PASSOUT, 0);
+            QueueNpcAction(W8NpcStoryAction::sedexus_passout);
             return;
         }
         BeginSedexusCapture();
@@ -569,7 +569,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         AddNpcItemWithDelay(GetNpcStateByKind(0x39), 0x1f8, 1, 0x15180);
         return;
     case W8_FACT_ALETHEIDES_DISAPPEARS:
-        QueueNpcMessageLine(W8_NPC_MSG_ALETHEIDES_LEAVES, 0);
+        QueueNpcAction(W8NpcStoryAction::aletheides_leaves);
         return;
     case W8_FACT_QUEEN_IS_FREE:
         if (value == 0) {
@@ -582,10 +582,10 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
             return;
         }
         ReleaseNpcMonsterByKind(0x55);
-        QueueNpcMessageLine(W8_NPC_MSG_PRINCE_NOT_HOME, 0);
+        QueueNpcAction(W8NpcStoryAction::prince_not_home);
         return;
     case W8_FACT_PRINCE_DISAPPEARS:
-        QueueNpcMessageLine(W8_NPC_MSG_PRINCE_DISAPPEARS, 0);
+        QueueNpcAction(W8NpcStoryAction::prince_disappears);
         return;
     case W8_FACT_UMPANI_INITIATE_LANDING:
         if (value == 0) {
@@ -608,31 +608,31 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         MarkNpcOfKind(0x52);
         return;
     case W8_FACT_HENCHMAN_DISAPPEARS:
-        QueueNpcMessageLine(W8_NPC_MSG_HENCHMAN_LEAVES, 0);
+        QueueNpcAction(W8NpcStoryAction::henchman_leaves);
         return;
     case W8_FACT_ALETHEIDES_CALLS_HENCHMAN:
-        QueueNpcMessageLine(W8_NPC_MSG_CALL_HENCHMAN, 0);
+        QueueNpcAction(W8NpcStoryAction::call_henchman);
         return;
     case W8_FACT_ENDGAME_MOVE_TO_BOOK:
-        QueueNpcMessageLine(W8_NPC_MSG_MOVE_TO_BOOK, 0);
+        QueueNpcAction(W8NpcStoryAction::move_to_book);
         return;
     case W8_FACT_ENDGAME_TURN_TOWARD_BOOK_WRITE:
-        QueueNpcMessageLine(W8_NPC_MSG_TURN_TO_BOOK, 0);
+        QueueNpcAction(W8NpcStoryAction::turn_to_book);
         return;
     case W8_FACT_SAVANT_HACK_ALETHEIDES:
         if (value == 0) {
             return;
         }
-        QueueNpcMessageLine(W8_NPC_MSG_SAVANT_HACK, 0);
+        QueueNpcAction(W8NpcStoryAction::savant_hack);
         return;
     case W8_FACT_ENDGAME_SAVANT_APPEARS:
-        QueueNpcMessageLine(W8_NPC_MSG_SAVANT_APPEARS, 0);
+        QueueNpcAction(W8NpcStoryAction::savant_appears);
         return;
     case W8_FACT_QUE_ENDGAME2:
         g_status.endgame2_queued = 1;
         return;
     case W8_FACT_ENDGAME_SAVANT_PHOON_SPLIT:
-        QueueNpcMessageLine(W8_NPC_MSG_PHOONZANG_SPLIT, 0);
+        QueueNpcAction(W8NpcStoryAction::phoonzang_split);
         return;
     case W8_FACT_QUE_ENDGAME3:
         g_status.endgame3_queued = 1;
@@ -699,7 +699,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         RunNamedTrigger("greenLightMeansOpen03", -1);
         return;
     case W8_FACT_TRANG_INTRO_DISAPPEAR_GUARD:
-        QueueNpcMessageLine(W8_NPC_MSG_REMOVE_SELF, 0);
+        QueueNpcAction(W8NpcCommand::remove_speaking_npc);
         return;
     case W8_FACT_INTRO_VI_DISAPPEARS:
         if (value == 0) {
@@ -749,34 +749,34 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         if (value == 0) {
             return;
         }
-        QueueNpcMessageLine(W8_NPC_MSG_BALBRAK_HOME, 0);
+        QueueNpcAction(W8NpcStoryAction::balbrak_home);
         return;
     case W8_FACT_UMPANI_MOVE_RUBBLE:
-        QueueNpcMessageLine(W8_NPC_MSG_MOVE_RUBBLE, 0);
+        QueueNpcAction(W8NpcStoryAction::move_rubble);
         return;
     case W8_FACT_QUEST_KILL_ALSEDEXUS:
         if (value != 0) {
             return;
         }
-        QueueNpcMessageLine(W8_NPC_MSG_SPACER, 0);
+        QueueNpcAction(W8NpcCommand::spacer);
         return;
     case W8_FACT_ALSEDEXUS_DISAPPEAR:
         if (value == 0) {
             return;
         }
-        QueueNpcMessageLine(W8_NPC_MSG_SEDEXUS_LEAVES, 0);
+        QueueNpcAction(W8NpcStoryAction::sedexus_leaves);
         return;
     case W8_FACT_ALSEDEXUS_DISAPPEARS_RIFT:
         if (value == 0) {
             return;
         }
-        QueueNpcMessageLine(W8_NPC_MSG_REMOVE_SEDEXUS_RIFT, 0);
+        QueueNpcAction(W8NpcStoryAction::remove_sedexus_rift);
         return;
     case W8_FACT_MOVE_TO_BOOK2:
-        QueueNpcMessageLine(W8_NPC_MSG_MOVE_TO_BOOK2, 0);
+        QueueNpcAction(W8NpcStoryAction::move_to_book2);
         return;
     case W8_FACT_CC_REMOVE_RPC_VI:
-        QueueNpcMessageLine(W8_NPC_MSG_REMOVE_RPC_VI, 0);
+        QueueNpcAction(W8NpcStoryAction::remove_rpc_vi);
         return;
     case W8_FACT_ENDGAME_JOIN_SAVANT:
         if (value == 0) {
@@ -808,7 +808,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         return;
     case W8_FACT_ENDGAME_QUE_CONGRAT_TWO:
     case W8_FACT_ENDGAME_QUE_CONGRAT_THREE:
-        QueueNpcMessageLine(W8_NPC_MSG_BEGIN_ENDGAME, 0);
+        QueueNpcAction(W8NpcStoryAction::begin_endgame);
         return;
     case W8_FACT_ENDGAME_QUE_CONGRAT_FOUR:
         EndNpcDialogueSession(false);
@@ -901,9 +901,9 @@ void HandleScriptedNpcDeath(unsigned int monster_list_index)
     }
     if (g_status.endgame2_queued != 0 ||
         (g_status.endgame3_queued != 0 && FindNpcOfKind(W8_NPC_PHOONZANG) != 0)) {
-        QueueNpcMessageLine(W8_NPC_MSG_TURN_TO_BOOK, 0);
+        QueueNpcAction(W8NpcStoryAction::turn_to_book);
     } else if (g_status.endgame3_queued != 0) {
-        QueueNpcMessageLine(W8_NPC_MSG_PHOONZANG_NOTICE, 0);
+        QueueNpcAction(W8NpcStoryAction::phoonzang_notice);
     }
     for (unsigned int entry_index = 0; entry_index < gXStatus.monsters.size(); ++entry_index) {
         W8MonsterInfo* entry = MonsterGetScriptPartByLocationIndex(entry_index);

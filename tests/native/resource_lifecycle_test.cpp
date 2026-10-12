@@ -114,11 +114,11 @@ static void queued_state_teardown()
     ClearNpcDialogueTranscript();
     ClearNpcDialogueTranscript();
     REQUIRE((g_npc_interaction_state->dialogue_transcript.size() == 0));
-    AddTextMessageBoxLine(W8_NPC_MSG_PORTRAIT_MESSAGE, std::string(80, 't'));
-    AddTextMessageBoxLine(W8_NPC_MSG_PORTRAIT_EXTRA, std::string(80, 't'),
+    QueueNpcPortraitMessage(std::string(80, 't'));
+    QueueNpcPortraitMessage(std::string(80, 't'),
                           W8ExperienceNoticePayload{});
-    AddTextMessageBoxLine(W8_NPC_MSG_SKILL_NOTICES, std::string(80, 't'), W8SkillNoticePayload{});
-    AddTextMessageBoxLine(W8_NPC_MSG_LEVEL_UP, std::string(80, 't'), W8LevelUpNotice{});
+    QueueNpcPortraitMessage(std::string(80, 't'), W8SkillNoticePayload{});
+    QueueNpcPortraitMessage(std::string(80, 't'), W8LevelUpNotice{});
     ClearNpcMessageQueue();
     ClearNpcMessageQueue();
     REQUIRE((IsMessageBoxLineQueueEmpty()));
