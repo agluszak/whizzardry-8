@@ -1,5 +1,4 @@
 #include <cstdint>
-#include <string>
 
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/ui_input.h"

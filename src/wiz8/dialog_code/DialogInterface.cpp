@@ -37,37 +37,11 @@ W8DialogBase* CreateCharacterSummaryDialog(W8Character* character)
 }
 
 // FUNCTION: WIZ8 0x005cf300
-W8DialogBase* CreateDialogByKind(W8DialogKind kind)
+W8MessageDialogBase* CreateMessageDialog()
 {
-    W8DialogBase* dialog;
-
-    switch (kind) {
-    case W8_DIALOG_BASIC:
-        dialog = new W8DialogBase;
-        dialog->SetText("Test Dialog");
-        dialog->SetOrigin(160, 120);
-        dialog->SetExtent(320, 240);
-        break;
-    case W8_DIALOG_MESSAGE:
-        dialog = new W8MessageDialogBase;
-        dialog->SetOrigin(240, 190);
-        dialog->SetExtent(160, 100);
-        dialog->SetBackground("Data\\Dialogs\\DialogBackground.sti", 0);
-        return dialog;
-    case W8_DIALOG_LIST_BOX:
-        dialog = new W8ListBoxDialog;
-        dialog->SetText("ListBox Dialog");
-        dialog->SetOrigin(200, 100);
-        dialog->SetExtent(240, 280);
-        break;
-    case W8_DIALOG_SPLIT_AMOUNT:
-        dialog = new W8SplitAmountDialog;
-        dialog->SetText("");
-        dialog->SetOrigin(159, 184);
-        return dialog;
-    default:
-        return 0;
-    }
+    auto* dialog = new W8MessageDialogBase;
+    dialog->SetOrigin(240, 190);
+    dialog->SetExtent(160, 100);
     dialog->SetBackground("Data\\Dialogs\\DialogBackground.sti", 0);
     return dialog;
 }

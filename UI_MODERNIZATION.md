@@ -1,119 +1,71 @@
 # UI modernization
 
-The goal is less infrastructure: one input dispatcher, screen-owned hit targets,
-ordinary controls, and explicit SDL painting. Do not build a visual widget tree
-or a general-purpose UI framework. The completed migration must delete more code,
-state and lifetime protocols than it introduces.
+The UI uses one input dispatcher, screen-owned hit targets, ordinary controls,
+and explicit SDL painting. Screen controllers own layout and draw order; there
+is no visual widget tree or second region backend.
 
-## Current implementation
+## Input and ownership
 
-`UiLayer` owns stable `HitTarget` registrations. Screens provide rectangular or
-circular bounds, priority, pointer callbacks and optional dynamic tooltip text.
-It temporarily uses RegionManager; there is only one dispatcher, hover state,
-capture owner and tooltip timer. `PumpUiInput` consumes the normalized SDL stream.
+`UiLayer` owns stable `HitTarget` objects. A target contains a rectangle or circle,
+priority, pointer callback and optional tooltip provider. The dispatcher borrows
+live layers and maintains hover, capture, modal scopes and the tooltip timer.
+`PumpUiInput` consumes normalized SDL events and applies the screen's input policy.
 
-- SDL rectangles are half-open; convert retail inclusive edges explicitly.
+- Coordinates are in 640x480 game space. SDL rectangles are half-open; retail
+  inclusive bounds are converted when constructing the target.
 - Lower layer order wins, then earlier creation. Within a layer, higher target
-  priority wins, then earlier registration. Default order matches the old backend.
+  priority wins, then earlier registration. Text fields use the cursor tip and
+  take precedence over their backing artwork.
 - Down captures. Up outside still reaches the source; conventional buttons require
-  a matching captured press and an inside release. Gameplay can release capture
-  explicitly to send a drop to its destination.
-- Disabling or removing targets clears their hover, capture and displayed help.
-- `UiResult::Pass` delegates to the screen policy, not to lower targets.
-- Tooltip providers read current state when the delayed tooltip is displayed.
+  a matching press and an inside release. Gameplay can release capture explicitly
+  when a drag destination must receive the drop.
+- Disabling or deleting a target clears its hover, capture and displayed help,
+  including references saved by a suspended modal layer.
+- Modal layers block underlying targets and restore valid capture on dismissal.
+  Controls receive their owner's layer explicitly; there is no global dialog stack
+  used to infer ownership.
+- `UiResult::Pass` delegates to screen policy, not to lower targets.
 - `AfterUiDispatch` commits target removal, owner destruction and screen transitions
   after the outermost dispatch transaction. The pump then yields, preserving queued
-  events for the next owner. Do not destroy a handler directly from its callback.
-- Modal layers reuse the backend's existing exclusive scope. Inherited legacy input
-  scopes and the text-cursor precedence exception remain private adapter details.
+  events for the next owner. Callbacks must defer destruction of their own target.
+- Tooltip providers read current state when delayed help is displayed.
 
-Main menu owns six targets and its painter; its widget subclass and panel are gone.
-Formation owns cell interaction state, three ordinary buttons and direct sprite
-painting. Its cell/overlay widgets, region templates and exported widget arrays are
-removed. The gameplay controller retains the 250 ms hold, leave-to-drag, destination
-capture release, legal moves, cancellation and accept/reset behavior.
+The numeric region registry, templates, IDs, slot recycling, binding generations,
+`OwnedRegion`, `ScreenRegionSet`, `RegionSetView`, `ExclusiveRegionSet`, and region
+handler adapters are deleted. Gameplay pause/mouselook policy remains in gameplay
+controllers, separate from modal UI ownership.
 
-NPC replies own their layer, editor, buttons, backdrop and explicit-surface painter,
-without `W8DialogBase`. A small `ModalContent` contract lets the main screen own active
-and suspended modal content. Explicit close restores editor focus before delivering
-the reply; teardown does not submit unfinished input. Other dialogs retain their
-base temporarily, but their background no longer requires a widget subclass.
+## Controls and painting
 
-`TextFieldGroup` owns ordinary fields and paints through `RenderAll(SDL_Surface&)`.
-Pointer/focus changes no longer paint the global framebuffer. UTF-8 editing,
-selection, capacity, tab order and nested focus restoration reuse the existing editor.
+`ButtonInteraction` supplies press, selection, arming and repeat state.
+`W8ButtonWidget` is an ordinary layer-backed button with the shared artwork painter;
+its historical name does not imply widget inheritance. Policies preserve press and
+release toggles, latches and controller activation. Screen-specific animated art
+and readouts are painted by their owners.
 
-`ButtonInteraction` supplies the shared press, selection, arming and repeat state.
-Policies retain text-style release toggles/latches and dialog-style press toggles,
-per-button capture, repeats and controller activation. `W8ButtonWidget` is an ordinary layer-backed control. The visual widget tree,
-`W8Widget`, `Controls`, `W8TextControl`, selection collections and listeners are deleted. Journal owns its layer, buttons, page text and draw order without a panel.
-The options menu owns eight buttons and its extra artwork hotspots directly; its
-row subclasses and selection-listener loop are removed. Navigation and radio
-selection use owner callbacks. Options panels own ordinary sliders with direct
-painting and callbacks; the horizontal thumb widget and listener are deleted.
-Track clicks and drags update bound values before notifying their owners.
-Options pages now own buttons, key-binding targets, save rows and explicit draw
-order without Controls or W8Widget. Their key-capture, save-row and editor
-listener interfaces are deleted. Journal, formation actions and options share
-the existing button painter, including missing frames and hover insets.
+`TextFieldGroup` supplies UTF-8 editing, selection, capacity, tab order and nested
+focus restoration. Numeric split fields use this editor with digit restriction and
+value validation; their small dialog-specific painter retains right alignment.
+There is no separate numeric editing algorithm or global numeric scratch buffer.
 
-The shared scrollbar now owns three targets and paints directly. The vertical
-thumb/arrow widgets, range listener interface and camp range-wrapper classes are
-deleted; camp, character creation, party selection and main-game text use callbacks.
+Buttons, text buffers, editors, scrollbars and dialog text controls paint into an
+explicit `SDL_Surface&`. Screens choose draw order and recomposition, including
+restoring backing artwork before repainting changed controls. Ordinary dialog
+controllers retain shared backdrop and sizing behavior; they are not a generic
+visual parent/child system. NPC replies demonstrate modal content without
+`W8DialogBase` inheritance.
 
-Movement, keyboard action menus, use-item selection and spell casting now own their
-layers and paint their artwork directly. Their numeric region templates, callback
-adapters and widget panels are removed. The spell view owns ordinary realm/power
-buttons; animated icons and labels are painted without decorative widgets. The
-lock status panel also owns text values and explicit painting.
-
-Character creation/editing pages now own their input, navigation, stat dropdowns,
-point-allocation buttons, spell lists and personality choices without Controls,
-W8Widget, selection collections or listener interfaces. The effect HUD paints
-directly from effect slots and owns only its hover targets.
-
-Camp panels also own their action/filter buttons, tabs and help targets directly.
-The level-up/dismiss, stats-filter, character-info, item-action, item-filter and
-secondary panels no longer use widget trees. The unused help-text widget and
-its input overrides are deleted. Pixel geometry no longer depends on camp
-region registration IDs.
-
-## Remaining deletion work
-
-1. Finish merging button painting. Remove obsolete wrappers rather than adding
-   another control adapter.
-2. Migrate remaining legacy gameplay hit regions to their owners; screen widget
-   trees have been removed. Keep gameplay behavior in their existing controllers.
-3. Replace RegionManager only after its registrations migrate. Delete numeric region
-   APIs, templates, slot recycling, binding generations, `OwnedRegion`,
-   `ScreenRegionSet`, `RegionSetView`, `ExclusiveRegionSet` and `W8RegionHandler`.
-4. Delete `W8Widget`, `Controls` and the remaining dialog hierarchy as callers leave.
-   Screens must own draw order and recomposition of old/new areas when artwork moves.
-
-The adapter is temporary. Migration is not complete while production needs those
-legacy types or two control implementations. Check the cumulative diff, not only
-individual slices, and revise the approach if conversions keep adding machinery.
+Main menu, formation, journal, options, party selection, character creation, camp,
+NPC dialogue, combat actions, locks, traps, spell selection and gameplay overlays
+own their input and painting directly. `W8Widget`, `Controls`, text widgets, panel
+and selection trees, listener interfaces, implicit dialog ownership, unused dialog
+factory kinds and notification subclasses are deleted.
 
 ## Validation
 
-Use existing Catch2 ownership/input cases for precedence, geometry, capture,
-modal blocking, editing and deferred teardown. Avoid tests of trivial accessors.
-Licensed runtime scenarios cover menu re-entry, formation hold/drop/reset/cancel,
-NPC text submission/cancellation, journal navigation, spell hover, portraits and
-save/load. Skipped licensed tests are not evidence of behavioral parity.
-
-```sh
-cmake --build --preset linux
-ctest --preset linux -R 'native_owners/'
-WIZ8_ASSET_ROOT=/path/to/Wizardry8 ctest --preset linux -L runtime
-```
-
-Require green native, ASan and include-hygiene checks before merging. Report code
-and state reductions alongside behavior checks; do not count an unfinished adapter
-as the final simplification.
-
-Party selection now owns its input, rows, portraits, option buttons and painters directly. The panel tree, row widgets and listener interfaces are gone. Import names use string values. Main-game level-up buttons and condition icons also own scoped input; their two numeric registration banks and condition-widget subclass are deleted.
-
-The combat submenu, lock-picking strip/readouts/actions and trap cells/list/actions now use ordinary owner state and explicit painting. Their widget subclasses, listener interfaces, action panels and submenu numeric registration bank are removed.
-
-NPC dialogue owns a fixed flat composition, action state, text values and a transcript controller. Its inherited panels, text/scroll widgets, numeric action registration banks and dispatch trampoline are deleted. TextBuffer and RangeControl now have separate implementation files; Controls.cpp and its widget headers are removed, along with tests that only exercised their obsolete ownership protocol.
+Use CI for builds, native ownership/input checks, ASan, include hygiene and licensed
+runtime scenarios. Existing cases cover precedence, capture, modal teardown,
+editing, menu re-entry, formation, NPC dialogue, journal, spell selection, portraits,
+options and save/load. Skipped licensed tests do not establish behavioral parity.
+Require green checks before merging. Measure the cumulative diff against the base;
+this migration must reduce code and lifetime protocols, not add a UI framework.

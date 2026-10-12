@@ -1,3 +1,6 @@
+#include "wiz8/dialog_code/ButtonAppearance.h"
+#include "wiz8/button_interaction.h"
+#include <SDL3/SDL_mouse.h>
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/ui_layer.h"
 #include <array>
@@ -10,12 +13,9 @@
 #include <fmt/printf.h>
 #include <string_view>
 #include <string>
-#include <array>
-#include <optional>
 #include <vector>
 
 #include "image.h"
-#include "input.h"
 #include "sprite.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/local_code/GameplayCode.h"
@@ -50,7 +50,6 @@
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/cursor.h"
 #include "wiz8/npc_interaction.h"
-#include "wiz8/ui_input.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/xstatus.h"
@@ -430,7 +429,7 @@ static void ShowDismissCharacterDialog(void)
     }
 
     W8MessageDialogBase* dialog =
-        static_cast<W8MessageDialogBase*>(CreateDialogByKind(W8_DIALOG_MESSAGE));
+        CreateMessageDialog();
     dialog->SetClientExtent(0xfa, 200);
 
     W8Character* character = &g_status.buffers.Char[giReviewCharSlot];

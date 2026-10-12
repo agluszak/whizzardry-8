@@ -419,12 +419,6 @@ bool W8ListBoxDialog::ProcessInput()
     return m_keep_open;
 }
 
-// FUNCTION: WIZ8 0x005cd700
-W8DialogKind W8ListBoxDialog::GetDialogType()
-{
-    return W8_DIALOG_LIST_BOX;
-}
-
 /* The split-size dialog ("popup_splititem.sti" with a numeric entry field):
    two stepper buttons, two passive frames around the field, accept/cancel. */
 struct W8SplitAmountButtonOffset {
@@ -874,13 +868,6 @@ bool W8TriggerItemPickerDialog::CreateButtons()
     return configured;
 }
 
-/* The picker reports the fourth factory kind. */
-// FUNCTION: WIZ8 0x005cf240
-W8DialogKind W8TriggerItemPickerDialog::GetDialogType()
-{
-    return W8_DIALOG_TRIGGER_ITEM_PICKER;
-}
-
 /* Sync the four visible item buttons with the scroll offset and the per-item
    enable flags. A short list pins the first row; a row scrolled past the end
    clears its pressed state and hides the button. */
@@ -1308,7 +1295,7 @@ int W8TriggerItemPickerDialog::AddItem(W8WorldItem* item)
 
 /* Poll the input queue for this picker. Button presses over a party portrait
    belong to the party, and the two button-down kinds first ask the screen
-   helper whether it wants them. RegionManager routes dialog controls; the
+   helper whether it wants them. The input layer routes dialog controls; the
    wheel scrolls the picker's first visible row in four-row steps. */
 // FUNCTION: WIZ8 0x005cef00
 bool W8TriggerItemPickerDialog::ProcessInput()

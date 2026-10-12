@@ -1,3 +1,4 @@
+#include "wiz8/ui_layer.h"
 #include <algorithm>
 #include <array>
 #include <catch2/catch_test_macros.hpp>
@@ -93,7 +94,6 @@
 #include "wiz8/local_screens/MGSSpellCasting.h"
 #include "wiz8/local_screens/MGSSpellIcons.h"
 #include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/character_skills.h"

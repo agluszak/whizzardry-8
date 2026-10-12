@@ -22,7 +22,7 @@ public:
     virtual int CreateControls() override;
     virtual void DestroyControls() override;
     virtual void Draw() override;
-    virtual W8DialogKind GetDialogType() override;
+
     virtual bool ProcessInput() override;
     virtual void OnNumericInputChanged(int value) override;
 

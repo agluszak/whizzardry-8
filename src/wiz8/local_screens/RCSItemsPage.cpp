@@ -1,3 +1,7 @@
+#include "wiz8/button_interaction.h"
+#include <algorithm>
+#include <SDL3/SDL_mouse.h>
+#include <utility>
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/ui_layer.h"
 #include <array>
@@ -8,7 +12,6 @@
 #include <SDL3/SDL_stdinc.h>
 #include <fmt/format.h>
 #include <fmt/printf.h>
-#include <optional>
 #include <string>
 #include <vector>
 

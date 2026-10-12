@@ -19,7 +19,6 @@
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/engine_code/Video2.h"
-#include "wiz8/engine_code/3dapi.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/xstatus.h"
 

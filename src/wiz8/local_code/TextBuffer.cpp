@@ -6,7 +6,6 @@
 #include "wiz8/fonts.h"
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
-#include <algorithm>
 #include <cstring>
 #include <string>
 #include <string_view>

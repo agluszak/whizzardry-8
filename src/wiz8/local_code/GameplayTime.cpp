@@ -1,10 +1,8 @@
 #include <fmt/printf.h>
-#include <array>
 #include <vector>
 #include <memory>
 #include <string>
 
-#include "input.h"
 #include "wiz8/conditions.h"
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/character.h"
@@ -23,7 +21,6 @@
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_code/GameplayTime.h"
-#include "wiz8/ui_input.h"
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Navigator.h"

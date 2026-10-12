@@ -205,7 +205,3 @@ bool W8CharacterSummaryDialog::ProcessInput()
 }
 
 // FUNCTION: WIZ8 0x005e0c30
-W8DialogKind W8CharacterSummaryDialog::GetDialogType()
-{
-    return W8_DIALOG_CHARACTER_SUMMARY;
-}

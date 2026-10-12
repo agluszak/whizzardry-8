@@ -74,7 +74,6 @@ public:
 
 private:
     bool m_selection_dirty; /* repaint after a selection change */
-    unsigned char unknown_03f;
     int m_entry_spacing;
     int m_behavior_flags;
     int m_line_height_override;
@@ -83,5 +82,4 @@ private:
     bool m_relayout_needed;
     signed char m_category_filter;
     bool m_sorted;
-    unsigned char unknown_057;
 };

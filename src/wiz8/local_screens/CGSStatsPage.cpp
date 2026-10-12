@@ -1,3 +1,4 @@
+#include <SDL3/SDL_rect.h>
 #include "wiz8/ui_layer.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/ButtonSound.h"
@@ -17,7 +18,6 @@
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/TextBuffer.h"
-#include "wiz8/sr_api.h"
 #include "wiz8/catalog_artwork.h"
 #include "input.h"
 

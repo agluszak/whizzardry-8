@@ -1,3 +1,6 @@
+#include <SDL3/SDL_mouse.h>
+#include "wiz8/local_code/TextBuffer.h"
+#include "wiz8/ui_layer.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/modal_content.h"
 #include "himage.h"
@@ -5,7 +8,6 @@
 #include <SDL3/SDL_surface.h>
 #include <cstddef>
 #include <cstdint>
-#include <optional>
 #include <fmt/format.h>
 #include <string_view>
 #include <SDL3/SDL_rect.h>
@@ -33,8 +35,6 @@
 #include "wiz8/local_screens/mipe.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/ButtonSound.h"
-#include "wiz8/ui_input.h"
-#include "wiz8/cursor.h"
 #include "wiz8/xstatus.h"
 #include "timer.h"
 #include "Font.h"
@@ -382,7 +382,7 @@ void ShowNotice(unsigned int font_palette, std::string_view text_view, short tex
         g_text_box_mode = 0;
     } else if (force_dialog) {
         W8MessageDialogBase* dialog =
-            static_cast<W8MessageDialogBase*>(CreateDialogByKind(W8_DIALOG_MESSAGE));
+            CreateMessageDialog();
         dialog->SetMessage(text, 1, 50, true, false, true, false, 0, 0);
         SetDialogDestroyCallback(dialog, NoticeDialogDestroyed);
         OpenModal(std::unique_ptr<ModalContent>(dialog));

@@ -1,3 +1,4 @@
+#include <SDL3/SDL_surface.h>
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/ui_layer.h"

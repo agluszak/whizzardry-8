@@ -72,8 +72,6 @@ add_library(WIZ8_GAME_CORE STATIC
     local_code/Strings.cpp
     local_code/Configuration.cpp
     local_code/ButtonSound.cpp
-    dialog_code/NotificationDialog.cpp
-    dialog_code/MessageDialogBase.cpp
     dialog_code/stMessageDialog.cpp
     dialog_code/DialogBase.cpp
     dialog_code/DialogFactoryDialogs.cpp

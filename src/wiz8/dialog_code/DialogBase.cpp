@@ -1,7 +1,6 @@
 #include <SDL3/SDL_rect.h>
 #include <string>
 #include <string_view>
-#include <vector>
 
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/dialog_code/DialogBase.h"
@@ -215,10 +214,6 @@ void DialogCloseButtonCallback(W8ButtonWidget* button)
 }
 
 // FUNCTION: WIZ8 0x005d6fa0
-W8DialogKind W8DialogBase::GetDialogType()
-{
-    return W8_DIALOG_BASIC;
-}
 
 /* Retail ICF shares this one-argument no-op with the retained widget Redraw
    body at 0x005B1BE0; this override has no separate retail address marker. */

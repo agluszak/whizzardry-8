@@ -43,7 +43,6 @@
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/monster_generators.h"
-#include "wiz8/ui_input.h"
 
 /* GameloopExit names this unit; GameLoop is placed with that companion. */
 

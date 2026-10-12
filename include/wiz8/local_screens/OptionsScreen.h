@@ -13,7 +13,7 @@
 #include "wiz8/mgs_commands.h"
 #include "wiz8/catalog_artwork.h"
 #include <functional>
-#include "wiz8/dialog_code/NotificationDialog.h"
+#include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/text_input.h"
 #include "compat/compiler.h"
@@ -214,7 +214,7 @@ struct W8OptionsKeyButton {
     HitTarget* target = nullptr;
 };
 
-class W8OptionsKeyboardPanel : public W8OptionsPanel, public W8DialogCloseListener {
+class W8OptionsKeyboardPanel : public W8OptionsPanel {
 public:
     explicit W8OptionsKeyboardPanel(int panel);
     void Populate() override;
@@ -222,7 +222,7 @@ public:
     void SetActive(bool active) override;
     void SelectKey(W8OptionsKeyButton* key);
     unsigned char OnKey(unsigned short key, unsigned short modifiers);
-    void OnDialogClosed(bool accepted, int value) override;
+    void OnDialogClosed(bool accepted, int value);
     void ClearDuplicateBinding(unsigned short key);
     void RefreshBindingLabels();
     int m_panel;
@@ -238,7 +238,7 @@ public:
     int m_message;
 };
 
-class W8OptionsSaveLoadPanel : public W8OptionsPanel, public W8DialogCloseListener {
+class W8OptionsSaveLoadPanel : public W8OptionsPanel {
 public:
     explicit W8OptionsSaveLoadPanel(int panel);
     void Populate() override;
@@ -246,7 +246,7 @@ public:
     void SetActive(bool active) override;
     void SetCurrent(int current) override;
     void OnPrimary(W8ButtonWidget* control);
-    void OnDialogClosed(bool accepted, int value) override;
+    void OnDialogClosed(bool accepted, int value);
     void OnTextEditComplete(W8OptionsTextEditor* editor, unsigned char cancelled);
     void OnEditSaveName();
     void SelectRow(int selected);
@@ -278,7 +278,7 @@ struct W8OptionsPanelRange {
     int last;
 };
 
-class W8OptionsScreen final : public W8DialogCloseListener {
+class W8OptionsScreen final {
     UiLayer m_menu_input;
 public:
     W8OptionsScreen();
@@ -289,14 +289,13 @@ public:
     void CreateControls();
     unsigned char ProcessInput(const InputEvent* input);
     void Redraw();
-    void ShowNotification(W8DialogCloseListener* listener, bool allow_cancel, int message,
-                          int value);
+    void ShowNotification(bool allow_cancel, int message, std::function<void(bool)> closed);
     void BeginSaveNameEdit(W8OptionsSaveLoadPanel* owner, int row, std::string_view text);
-    virtual void OnDialogClosed(bool accepted, int value) override;
+    void OnDialogClosed(bool accepted, int value);
 
     std::vector<std::unique_ptr<W8SaveSlot>> m_save_slots;
     bool m_redraw_pending;
-    bool m_modal_closing;
+    std::function<void(bool)> m_notification_closed;
     int m_selected_panel;
     std::array<std::unique_ptr<W8ButtonWidget>, 8> m_menu_buttons;
     std::array<std::unique_ptr<W8ButtonWidget>, 2> m_navigation;

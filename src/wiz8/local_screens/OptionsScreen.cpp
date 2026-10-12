@@ -50,7 +50,6 @@
 #include "input.h"
 #include "surrender/srColorSurface.h"
 #include "dialog_code/MessageDialogBase.h"
-#include "dialog_code/NotificationDialog.h"
 #include "difficulty.h"
 #include "file_time.h"
 #include "layouts/world.h"
@@ -314,7 +313,7 @@ void W8OptionsSaveLoadPanel::SetCurrent(int current)
 void W8OptionsSaveLoadPanel::OnPrimary(W8ButtonWidget* control)
 {
     if (control == m_delete_button) {
-        g_options_screen->ShowNotification(this, true, 0x828, 1);
+        g_options_screen->ShowNotification(true, 0x828, [this](bool accepted) { OnDialogClosed(accepted, 1); });
         return;
     }
     if (control != m_action_button) {
@@ -330,7 +329,7 @@ void W8OptionsSaveLoadPanel::OnPrimary(W8ButtonWidget* control)
     if (editor == 0 && m_current == 0 && m_selected == 0) {
         SaveSelectedSave();
     } else {
-        g_options_screen->ShowNotification(this, true, 0x829, 2);
+        g_options_screen->ShowNotification(true, 0x829, [this](bool accepted) { OnDialogClosed(accepted, 2); });
     }
 }
 
@@ -398,7 +397,7 @@ void W8OptionsSaveLoadPanel::OnTextEditComplete(W8OptionsTextEditor* editor, uns
     slot.name = editor->m_fields.Text(0);
     if (slot.name.size() == 0) {
         slot.name = m_previous_name;
-        g_options_screen->ShowNotification(this, false, 0x82a, 4);
+        g_options_screen->ShowNotification(false, 0x82a, [this](bool accepted) { OnDialogClosed(accepted, 4); });
         return;
     }
 
@@ -408,10 +407,10 @@ void W8OptionsSaveLoadPanel::OnTextEditComplete(W8OptionsTextEditor* editor, uns
         if (SaveSlotFileExists(slot.name) == 0) {
             SaveSelectedSave();
         } else {
-            g_options_screen->ShowNotification(this, true, 0x829, 2);
+            g_options_screen->ShowNotification(true, 0x829, [this](bool accepted) { OnDialogClosed(accepted, 2); });
         }
     } else {
-        g_options_screen->ShowNotification(this, true, 0x829, 3);
+        g_options_screen->ShowNotification(true, 0x829, [this](bool accepted) { OnDialogClosed(accepted, 3); });
     }
 }
 
@@ -441,7 +440,7 @@ void W8OptionsSaveLoadPanel::DeleteSelectedSave()
     std::string path;
     path = fmt::format("{}\\{}.{}", "Saves", slot.name, g_save_extension);
     if (wiz8::remove_file(path) == 0) {
-        g_options_screen->ShowNotification(this, false, 0x82f, 0);
+        g_options_screen->ShowNotification(false, 0x82f, [this](bool accepted) { OnDialogClosed(accepted, 0); });
         return;
     }
 
@@ -493,7 +492,7 @@ void W8OptionsSaveLoadPanel::SaveSelectedSave(std::string_view previous_name)
     int selected_slot = m_current * 5 + m_selected;
     W8SaveSlot& slot = *g_options_screen->m_save_slots[selected_slot];
     if (slot.name.size() == 0) {
-        g_options_screen->ShowNotification(this, false, 0x82a, 0);
+        g_options_screen->ShowNotification(false, 0x82a, [this](bool accepted) { OnDialogClosed(accepted, 0); });
         return;
     }
 
@@ -675,7 +674,7 @@ void W8OptionsKeyboardPanel::Populate()
                              key->interaction.release(SDL_BUTTON_LMASK, policy).activate) {
                         if (key->m_primary_binding == W8_MGS_COMMAND_NONE) {
                             key->interaction = {};
-                            AfterUiDispatch([this] { g_options_screen->ShowNotification(this, true, 0x834, 0); });
+                            AfterUiDispatch([this] { g_options_screen->ShowNotification(true, 0x834, [this](bool accepted) { OnDialogClosed(accepted, 0); }); });
                         } else SelectKey(key);
                     }
                 }
@@ -1092,7 +1091,7 @@ void W8OptionsUnavailablePanel::Populate()
 }
 
 W8OptionsScreen::W8OptionsScreen()
-    : m_redraw_pending(1), m_modal_closing(0), m_selected_panel(-1), m_key_capture(0)
+    : m_redraw_pending(1), m_selected_panel(-1), m_key_capture(0)
 {
     auto& current = m_save_slots.emplace_back(std::make_unique<W8SaveSlot>());
     if (g_status.game_started) {
@@ -1209,15 +1208,14 @@ void W8OptionsScreen::SelectPanel(int selected)
     }
 }
 
-void W8OptionsScreen::ShowNotification(W8DialogCloseListener* listener, bool allow_cancel,
-                                       int message, int value)
+void W8OptionsScreen::ShowNotification(bool allow_cancel, int message, std::function<void(bool)> closed)
 {
-    m_modal_closing = true;
-    m_active_modal = std::make_unique<W8NotificationDialog>(message, allow_cancel, value);
-    auto* dialog = static_cast<W8NotificationDialog*>(m_active_modal.get());
-    if (listener != 0) {
-        dialog->notify_target = listener;
-    }
+    auto dialog = std::unique_ptr<W8MessageDialogBase>(CreateMessageDialog());
+    dialog->SetClientExtent(250, 200);
+    dialog->SetMessage(g_localized_strings[message], 1, 50, true, allow_cancel, true, true, 0, 350);
+    dialog->InputLayer().setModal(true);
+    m_active_modal = std::move(dialog);
+    m_notification_closed = std::move(closed);
 }
 
 void W8OptionsScreen::ActivateMenu(int item)
@@ -1227,7 +1225,7 @@ void W8OptionsScreen::ActivateMenu(int item)
     else if (item == 7) RequestScreenTransition();
     else {
         FinishOptionsTextEdit(this, 1);
-        ShowNotification(this, true, 0x832, 0);
+        ShowNotification(true, 0x832, [this](bool accepted) { OnDialogClosed(accepted, 0); });
     }
 }
 
@@ -1731,9 +1729,10 @@ void OptionsScreenFrame()
     auto& active_modal = screen->m_active_modal;
     if (active_modal) {
         if (!active_modal->ProcessInput()) {
-            if (!screen->m_modal_closing) {
-                active_modal.reset();
-            }
+            const bool accepted = active_modal->accepted;
+            auto closed = std::exchange(screen->m_notification_closed, {});
+            active_modal.reset();
+            if (closed) closed(accepted);
             screen->m_redraw_pending = true;
             if (screen->m_selected_panel != -1) {
                 W8OptionsPanelSet* panel_set = screen->m_panel[screen->m_selected_panel].get();
@@ -1742,7 +1741,6 @@ void OptionsScreenFrame()
                 }
             }
         }
-        screen->m_modal_closing = false;
     }
 
     PumpUiInput({

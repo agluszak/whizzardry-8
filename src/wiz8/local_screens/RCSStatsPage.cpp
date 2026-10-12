@@ -1,3 +1,5 @@
+#include <SDL3/SDL_mouse.h>
+#include "wiz8/button_interaction.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/ui_layer.h"
 #include <SDL3/SDL_surface.h>
@@ -26,7 +28,6 @@
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/character_event_queue.h"
-#include "wiz8/cursor.h"
 #include "wiz8/fonts.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/text_input.h"

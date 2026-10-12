@@ -15,6 +15,7 @@
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "input.h"
+#include "wiz8/text_input.h"
 #include "Types.h"
 #include "compat/compiler.h"
 
@@ -43,20 +44,11 @@ public:
     bool HandleInput(const InputEvent* input);
 
 private:
-    /* Write a digit character at the caret position and re-parse
-       the text into m_value, rejecting results above m_maximum. */
-    void TypeDigit(char digit);
-    void NotifyValueChanged();
-    /* VK_DELETE — remove the character right of the caret. */
-    void DeleteForward();
-    /* VK_BACK — remove the character left of the caret. */
-    void Backspace();
+    UiLayer m_editor_input;
+    std::unique_ptr<TextFieldGroup> m_editor;
 
 public:
     W8ControlsRect m_bounds;
-    /* -1 while inactive; otherwise the count of characters to the right
-       of the caret. */
-    int m_caret;
     Font* m_font;
     int m_value;
     bool m_dirty;
@@ -77,7 +69,7 @@ public:
     virtual int CreateControls() override;
     virtual void DestroyControls() override;
     virtual void Draw() override;
-    virtual W8DialogKind GetDialogType() override;
+
     virtual void SetText(std::string_view text) override;
     virtual bool ProcessInput() override;
 
@@ -194,7 +186,7 @@ public:
     virtual int CreateControls() override;
     virtual void DestroyControls() override;
     virtual void Draw() override;
-    virtual W8DialogKind GetDialogType() override;
+
     virtual bool ProcessInput() override;
 
     int AddItem(W8WorldItem* item);

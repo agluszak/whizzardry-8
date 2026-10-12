@@ -1,9 +1,10 @@
+#include <utility>
+#include <SDL3/SDL_mouse.h>
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/button_interaction.h"
 #include "wiz8/ui_layer.h"
 #include <functional>
-#include "wiz8/modal_content.h"
 #include <memory>
 #include <algorithm>
 #include <SDL3/SDL_rect.h>
@@ -15,7 +16,6 @@
 #include <vector>
 
 #include "Video2.h"
-#include "input.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/local_screens/MGSSpellCasting.h"
 #include "wiz8/integer_constants.h"
@@ -50,14 +50,11 @@
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/npc_interaction.h"
-#include "wiz8/ui_input.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/utility.h"
 #include "wiz8/world_cursor.h"
-#include "wiz8/cursor.h"
 #include "wiz8/local_screens/MGSUseItemSelect.h"
 #include "wiz8/xstatus.h"
-#include "himage.h"
 #include "character_skills.h"
 #include "compat/native.h"
 #include "layouts/main_game_screen.h"

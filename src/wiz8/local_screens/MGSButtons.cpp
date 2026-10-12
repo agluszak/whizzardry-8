@@ -1,3 +1,5 @@
+#include <utility>
+#include <SDL3/SDL_rect.h>
 #include "wiz8/engine_code/Video2.h"
 #include <memory>
 #include <cstdint>
@@ -8,7 +10,6 @@
 
 #include "wiz8/local_screens/MGSButtons.h"
 #include "Video2.h"
-#include "input.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/engine_code/GameData.h"
@@ -37,7 +38,6 @@
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/ui_input.h"
-#include "wiz8/sr_api.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/xstatus.h"

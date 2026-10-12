@@ -493,16 +493,7 @@ void W8SplitItemDialog::OnNumericInputChanged(int value)
 // FUNCTION: WIZ8 0x005DE120
 bool W8SplitItemDialog::HandleInputEvent(const InputEvent* input)
 {
-    int index;
-    W8DialogNumericInput** field;
-
-    field = &m_count_input;
-    for (index = 0; index < 1; ++index) {
-        if (*field != 0 && (*field)->m_active != 0 && (*field)->HandleInput(input)) {
-            return true;
-        }
-        ++field;
-    }
+    if (m_count_input && m_count_input->HandleInput(input)) return true;
     if (input->type == InputEventType::KeyDown || input->type == InputEventType::KeyRepeat) {
         int key = toupper(input->key);
         if (key == '\r') {

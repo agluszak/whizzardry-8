@@ -1,5 +1,7 @@
+#include <SDL3/SDL_mouse.h>
+#include "wiz8/button_interaction.h"
+#include <SDL3/SDL_rect.h>
 #include "wiz8/modal_content.h"
-#include <algorithm>
 #include <memory>
 #include <fmt/format.h>
 #include <array>
@@ -7,7 +9,6 @@
 #include <cstring>
 #include <vector>
 
-#include "input.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/integer_constants.h"
 #include "wiz8/layouts/combat_state.h"
@@ -37,7 +38,6 @@
 #include "wiz8/npc_interaction.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/level_specific_code/Trynnie2.h"
-#include "wiz8/ui_input.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/fonts.h"
 #include "wiz8/xstatus.h"

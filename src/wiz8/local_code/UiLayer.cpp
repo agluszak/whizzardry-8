@@ -1,3 +1,14 @@
+#include <cstddef>
+#include <memory>
+#include <string>
+#include "wiz8/compat/native.h"
+#include <cstdint>
+#include <variant>
+#include <SDL3/SDL_mouse.h>
+#include "input.h"
+#include <SDL3/SDL_rect.h>
+#include <functional>
+#include <vector>
 #include "wiz8/ui_layer.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/cursor.h"
@@ -117,10 +128,9 @@ struct UiState {
             .local = {point.x - bounds.x, point.y - bounds.y}, .buttons = input.buttons,
             .captured_buttons = target.captured_buttons_, .inside = contains(target, input.position),
             .wheel = input.wheel, .modifiers = input.modifiers, .clicks = input.clicks};
-        // A callback can remove its own registration. Keep the callable alive;
-        // owner destruction is deferred by AfterUiDispatch until this returns.
-        auto handler = target.handler_;
-        return handler ? handler(event) : UiResult::Handled;
+        // Preserve state held by mutable callbacks. Target removal and owner
+        // destruction use AfterUiDispatch, so the callable stays alive here.
+        return target.handler_ ? target.handler_(event) : UiResult::Handled;
     }
     void leave(const InputEvent& input)
     {

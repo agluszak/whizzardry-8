@@ -1,5 +1,5 @@
+#include "wiz8/button_interaction.h"
 #include <SDL3/SDL_surface.h>
-#include "himage.h"
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <SDL3/SDL_filesystem.h>
@@ -645,7 +645,8 @@ void W8PartySelectionController::Setup()
                     hovered_row = event.action == UiPointerAction::Enter ? row : -1;
                     rows_dirty = true;
                 } else if (event.action == UiPointerAction::Wheel) m_range->AdjustValue(event.wheel);
-                else if (event.action == UiPointerAction::Up ||
+                else if ((event.action == UiPointerAction::Up && event.inside &&
+                          (event.captured_buttons & (event.button == UiPointerButton::Left ? SDL_BUTTON_LMASK : SDL_BUTTON_RMASK))) ||
                          (event.action == UiPointerAction::Down && event.button == UiPointerButton::Left && event.clicks == 2)) {
                     AfterUiDispatch([this, row, event] {
                         SetSelectedRow(g_party_selection_character_collection->first_visible + row);
@@ -662,7 +663,8 @@ void W8PartySelectionController::Setup()
                 if (event.action == UiPointerAction::Enter || event.action == UiPointerAction::Leave) {
                     hovered_slot = event.action == UiPointerAction::Enter ? row : -1;
                     slots_dirty = true;
-                } else if (event.action == UiPointerAction::Up ||
+                } else if ((event.action == UiPointerAction::Up && event.inside &&
+                          (event.captured_buttons & (event.button == UiPointerButton::Left ? SDL_BUTTON_LMASK : SDL_BUTTON_RMASK))) ||
                          (event.action == UiPointerAction::Down && event.button == UiPointerButton::Left && event.clicks == 2)) {
                     AfterUiDispatch([this, row, event] {
                         SetSelection(row, true, true);
@@ -686,7 +688,8 @@ void W8PartySelectionController::Setup()
         if (event.action == UiPointerAction::Leave) import_hovered = -1;
         else if (event.action == UiPointerAction::Enter || event.action == UiPointerAction::Move)
             import_hovered = event.local.y / 14 + import_first;
-        else if (event.action == UiPointerAction::Up && event.button == UiPointerButton::Left) {
+        else if (event.action == UiPointerAction::Up && event.button == UiPointerButton::Left &&
+                 event.inside && (event.captured_buttons & SDL_BUTTON_LMASK)) {
             const int selection = event.local.y / 14 + import_first;
             if (selection != import_selection && selection < static_cast<int>(g_party_selection_character_collection->names.size())) {
                 import_selection = selection;
@@ -737,6 +740,7 @@ void W8PartySelectionController::Setup()
         button->Configure(CatalogArtwork::Load(0xf1, 0).spriteSheet(), -1, 2, 3, 0, 1,
                           {}, {}, true, 0, -1, {}, {});
         button->policy.controller_activation = true;
+        button->policy.primary_toggle = ButtonToggle::Release;
         button->SetPosition(0x1d3, button == npc_toggle.get() ? 0x93 : 0xfe);
     }
     npc_toggle->SetPressed(g_settings.simplified_npc_interaction);

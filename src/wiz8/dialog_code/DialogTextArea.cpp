@@ -1,3 +1,4 @@
+#include <SDL3/SDL_surface.h>
 #include <memory>
 #include <optional>
 #include <string_view>

@@ -1,5 +1,4 @@
 #include "wiz8/dialog_code/DialogBase.h"
-#include <deque>
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_surface.h>
 #include "image.h"
@@ -24,7 +23,6 @@
 #include <ios>
 #include <memory>
 #include <optional>
-#include <span>
 #include <string>
 #include <vector>
 #include <cstdint>

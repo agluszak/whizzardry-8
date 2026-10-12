@@ -1,3 +1,6 @@
+#include <SDL3/SDL_mouse.h>
+#include "wiz8/button_interaction.h"
+#include "wiz8/ui_layer.h"
 #include "wiz8/modal_content.h"
 #include <SDL3/SDL_surface.h>
 #include "wiz8/unicode.h"
@@ -4172,7 +4175,7 @@ void ShowMainGameNoticeLine(std::string_view text, W8DialogDestroyCallback callb
     W8MessageDialogBase* dialog;
 
     SetMainGameMode(W8_MAIN_GAME_MODAL);
-    dialog = static_cast<W8MessageDialogBase*>(CreateDialogByKind(W8_DIALOG_MESSAGE));
+    dialog = CreateMessageDialog();
     dialog->SetClientExtent(0xfa, 200);
     dialog->SetMessage(text, 1, 0x32, confirmation, cancel, true, true, 0, 0x15e);
     SetDialogDestroyCallback(dialog, callback);
@@ -4379,7 +4382,7 @@ void RequestLevelTransition(int level, int entry, unsigned char flag)
         }
         SetMainGameMode(W8_MAIN_GAME_MODAL);
         W8MessageDialogBase* dialog =
-            static_cast<W8MessageDialogBase*>(CreateDialogByKind(W8_DIALOG_MESSAGE));
+            CreateMessageDialog();
         dialog->SetClientExtent(0xfa, 0xc8);
         dialog->SetMessage(g_level_block->text_paint_scratch, 1, 0x32, true, true, true, true, 0,
                            0x15e);
@@ -4759,10 +4762,8 @@ void SyncMainGameModeRegions(void)
 
     if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS) {
         SetViewportMode(GetMainGameViewportMode());
-    } else if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_FORMATION) {
-        SetViewportMode(GetMainGameViewportMode());
-        g_main_input->edges.setEnabled(true);
-    } else if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_RADAR) {
+    } else if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_FORMATION ||
+               g_settings.main_ui_mode == W8_MAIN_UI_MODE_RADAR) {
         SetViewportMode(GetMainGameViewportMode());
         g_main_input->edges.setEnabled(true);
     }

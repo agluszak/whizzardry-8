@@ -1,22 +1,15 @@
 #include <catch2/catch_test_macros.hpp>
-#include <algorithm>
 #include <array>
-#include <cstddef>
-#include <SDL3/SDL_rect.h>
 #include <filesystem>
 #include <fstream>
 #include <ios>
 #include <iterator> // IWYU pragma: keep - public header for std::istreambuf_iterator.
-#include <functional>
-#include <stdexcept>
-#include <utility>
 #include <vector>
 #include <memory>
 #include <span>
 #include <unordered_map>
 
 #include "wiz8/xstatus.h"
-#include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/Sight.h"
@@ -33,7 +26,6 @@
 #include "layouts/item_instance.h"
 #include "layouts/npc_state.h"
 #include "mgs_commands.h"
-#include "ui_input.h"
 #include "sight_state.h"
 
 

@@ -11,15 +11,6 @@
 #include "wiz8/ui_layer.h"
 #include "wiz8/modal_content.h"
 
-enum W8DialogKind {
-    W8_DIALOG_BASIC = 0,
-    W8_DIALOG_MESSAGE = 1,
-    W8_DIALOG_LIST_BOX = 3,
-    W8_DIALOG_TRIGGER_ITEM_PICKER = 4,
-    W8_DIALOG_SPLIT_AMOUNT = 5,
-    W8_DIALOG_CHARACTER_SUMMARY = 6,
-};
-
 enum { W8_DIALOG_DIRTY_REDRAW = 1u };
 
 class W8DialogBase;
@@ -47,7 +38,7 @@ public:
     virtual int CreateControls();
     virtual void DestroyControls();
     virtual void Draw();
-    virtual W8DialogKind GetDialogType(); /* Base=0, modal=1, list=3 */
+
     virtual void SetText(std::string_view text);
     virtual void SetOrigin(int x, int y);
     virtual void SetExtent(int width, int height);

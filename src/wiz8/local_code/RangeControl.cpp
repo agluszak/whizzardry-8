@@ -1,3 +1,4 @@
+#include <SDL3/SDL_rect.h>
 #include "wiz8/local_code/RangeControl.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/engine_code/Video2.h"

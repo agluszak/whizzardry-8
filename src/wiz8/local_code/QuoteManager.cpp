@@ -1,3 +1,4 @@
+#include <SDL3/SDL_mouse.h>
 #include "wiz8/ui_layer.h"
 #include <algorithm>
 #include <array>
@@ -6,7 +7,6 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <SDL3/SDL_filesystem.h>
-#include <span>
 #include <SDL3/SDL_rect.h>
 #include <string_view>
 #include <string>
@@ -20,7 +20,6 @@
 #include "wiz8/integer_constants.h"
 #include "compat/native.h"
 #include "conditions.h"
-#include "input.h"
 #include "layouts/main_game_screen.h"
 #include "message_box.h"
 #include "audio_resources.h"
@@ -61,7 +60,6 @@
 #include "timer.h"
 #include "wiz8/dialog_code/PortraitQuote.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
-#include "wiz8/ui_input.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/local_screens/mipe.h"

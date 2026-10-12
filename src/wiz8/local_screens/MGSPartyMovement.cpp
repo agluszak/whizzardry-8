@@ -7,7 +7,6 @@
 #include <vector>
 
 #include "image.h"
-#include "input.h"
 #include "timer.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Levels.h"

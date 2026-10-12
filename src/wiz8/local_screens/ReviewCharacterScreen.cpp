@@ -1,3 +1,4 @@
+#include <algorithm>
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/ui_layer.h"
@@ -49,7 +50,6 @@
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/dialog_code/SpellInfoDialog.h"
-#include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/RangeControl.h"
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/local_code/Strings.h"
@@ -1632,7 +1632,7 @@ void ShowCampNoticeLine(std::string_view text, W8DialogDestroyCallback callback,
                         bool cancel)
 {
     W8MessageDialogBase* dialog =
-        static_cast<W8MessageDialogBase*>(CreateDialogByKind(W8_DIALOG_MESSAGE));
+        CreateMessageDialog();
 
     dialog->SetClientExtent(0xfa, 200);
     dialog->SetMessage(text, 1, 0x32, confirmation, cancel, true, true, 0, 0x15e);

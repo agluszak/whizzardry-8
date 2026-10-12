@@ -50,10 +50,8 @@ private:
     W8NpcQuoteEntry* m_message;
     int m_aux_data;
     bool m_compact_options = false; /* option list may size under 200 wide */
-    unsigned char unknown_075;
     unsigned short m_text_width; /* widest option text + 6 */
     int m_input_field = -1;
     std::unique_ptr<TextFieldGroup> m_input_group;
-    unsigned char unknown_079;
     std::string m_input_text; /* fills the 0x270-byte allocation */
 };

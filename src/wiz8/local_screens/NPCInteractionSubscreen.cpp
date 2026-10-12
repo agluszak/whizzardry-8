@@ -1,3 +1,6 @@
+#include <SDL3/SDL_mouse.h>
+#include "wiz8/button_interaction.h"
+#include "wiz8/ui_layer.h"
 #include "image.h"
 #include "wiz8/item_video_object_vector.h"
 #include "wiz8/modal_content.h"
@@ -88,7 +91,6 @@
 #include "dialog_code/DialogBase.h"
 #include "layouts/main_game_screen.h"
 #include "layouts/npc_dialogue.h"
-#include "wiz8/local_code/ButtonSound.h"
 #include "local_code/ControlsRect.h"
 #include "local_code/Factions.h"
 #include "local_code/TextBuffer.h"
@@ -405,6 +407,7 @@ static void PaintNpcPanel(int index, SDL_Surface& target, bool force)
             DrawSpriteAndInvalidate(target, *sprites, action.image_offset + frame, x, y);
         }
         action.text.RenderToTarget(pressed && !checkbox ? 1 : 0, true, target);
+        action.text.m_geometryDirty = false;
         if (!action.enabled && sprites && frame == -1)
             ShadowRect(target, {bounds.x, bounds.y, bounds.w + 1, bounds.h + 1});
         action.dirty = false;
@@ -1192,8 +1195,7 @@ bool IsPortraitObscuredByNpcDialogue(unsigned int party_slot)
 {
     if (gXStatus.fNpcDialogueMode && !g_npc_interaction_state->scripted_dialogue &&
         g_npc_interaction_state->ui->panels[2].active) {
-        return g_npc_interaction_state->ui->transcript.get()
-            ->IsSlotPortraitTranscriptCovered(party_slot);
+        return g_npc_interaction_state->ui->transcript->IsSlotPortraitTranscriptCovered(party_slot);
     }
     return false;
 }
@@ -1706,7 +1708,7 @@ static void LeaveNpcDialogueLayout(void)
 static void PromptNpcDispositionChange(void)
 {
     W8MessageDialogBase* dialog =
-        static_cast<W8MessageDialogBase*>(CreateDialogByKind(W8_DIALOG_MESSAGE));
+        CreateMessageDialog();
 
     SetDialogPrompt(dialog, g_localized_strings[0x798], 0, 0);
     dialog->m_destroy_callback = OnNpcDispositionPromptClosed;
@@ -1852,8 +1854,7 @@ static void SelectNpcDialogueExit(void)
 
 void SyncNpcDialogueTranscriptScrollButtons()
 {
-    if (g_npc_interaction_state->ui->transcript.get()
-            ->IsExpanded()) {
+    if (g_npc_interaction_state->ui->transcript->IsExpanded()) {
         SetNpcActionEnabled(W8_NPC_CONTROL_SCROLL_UP_BUTTON,
             true);
         SetNpcActionEnabled(W8_NPC_CONTROL_SCROLL_DOWN_BUTTON,
@@ -3493,7 +3494,7 @@ static unsigned char HandleNpcDialogueItem(W8ItemInstance* item)
             ConfirmNpcTradePurchase();
             return 1;
         }
-        dialog = static_cast<W8MessageDialogBase*>(CreateDialogByKind(W8_DIALOG_MESSAGE));
+        dialog = CreateMessageDialog();
         dialog->SetClientExtent(0xfa, 200);
         message = g_localized_strings[0x7d6];
         dialog->SetMessage(message, 1, 0x32, true, true, true, true, 0, 0x15e);
@@ -3886,8 +3887,7 @@ static void SetNpcDialogueHidden(char value)
         g_npc_interaction_state->saved_mode = g_settings.main_ui_mode;
         ApplyMainGameModeFlag(W8_MAIN_UI_MODE_PORTRAITS, false);
         SetNpcPanelActive(2, false);
-        g_npc_interaction_state->ui->transcript.get()
-            ->Collapse();
+        g_npc_interaction_state->ui->transcript->Collapse();
         SetNpcPanelActive(3, false);
         for (index = 0; index < 8; ++index) {
             if (g_status.buffers.XChar[index].fOccupied) {
@@ -3896,8 +3896,7 @@ static void SetNpcDialogueHidden(char value)
             }
         }
         SetNpcDialogueInputEnabled(0, false);
-        g_npc_interaction_state->ui->transcript.get()
-            ->ClearBackground();
+        g_npc_interaction_state->ui->transcript->ClearBackground();
         ClearSurfaceRect(0x1dc, 0x11b, 0x269, 0x1c2);
         InvalidateRegion(0x1dc, 0x11b, 0x269, 0x1c2);
         RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_1);
@@ -3923,8 +3922,7 @@ static void SetNpcDialogueHidden(char value)
         g_level_block->action_panel_visible = 1;
         SetNpcPanelActive(2, true);
         SetNpcPanelActive(3, true);
-        g_npc_interaction_state->ui->transcript.get()
-            ->Expand();
+        g_npc_interaction_state->ui->transcript->Expand();
         SyncNpcDialogueTranscriptScrollButtons();
         if (auto* fields = TextFieldGroup::Focused()) fields->SetBlocksMouse(0, false);
         SetNpcActionEnabled(W8_NPC_CONTROL_TEXT_1, true);

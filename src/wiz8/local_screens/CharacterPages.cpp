@@ -1,3 +1,5 @@
+#include <string>
+#include <SDL3/SDL_rect.h>
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/ui_layer.h"
@@ -6,11 +8,9 @@
 #include <string_view>
 #include <cstring>
 #include <memory>
-#include <optional>
 #include <utility>
 #include <vector>
 
-#include "image.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "input.h"

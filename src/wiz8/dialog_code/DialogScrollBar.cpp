@@ -1,3 +1,4 @@
+#include <SDL3/SDL_surface.h>
 #include "wiz8/engine_code/Video2.h"
 #include <SDL3/SDL_rect.h>
 #include <algorithm>

@@ -16,7 +16,7 @@ public:
     virtual int CreateControls() override;
     virtual void DestroyControls() override;
     virtual void Draw() override;
-    virtual W8DialogKind GetDialogType() override;
+
     virtual bool ProcessInput() override;
     virtual bool HandleInput(const InputEvent* input);
 
@@ -44,14 +44,11 @@ protected:
     GenericButtonImage m_edge_image; /* 0x56 generic-button-image resource */
     W8ButtonWidget m_message_button{InputLayer()};
     W8ButtonWidget m_confirm_button{InputLayer()};
-    unsigned char unknown_064[0x10];
     W8ButtonWidget m_cancel_button{InputLayer()};
-    unsigned char unknown_07c[0x10];
     std::vector<std::string> m_lines;
     unsigned int m_line_count;
     bool m_show_confirm;
     bool allow_cancel; /* changes Escape handling */
-    unsigned char unknown_096[2];
 };
 
 void MessageDialogConfirmCallback(W8ButtonWidget* button);
