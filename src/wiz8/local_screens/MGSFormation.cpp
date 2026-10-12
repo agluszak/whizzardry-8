@@ -408,7 +408,7 @@ static void UpdateFormationCells(void)
             overlay->SetEnabled(true);
             g_formation_cell_slots[cell] = slot;
             if (slot == g_status.selected_character &&
-                (primary->IsSelected()) == 0) {
+                !primary->IsSelected()) {
                 primary->EnableSecondaryState(false);
             }
         }
@@ -429,7 +429,7 @@ static void SelectFormationCell(void)
 
             if (index == g_formation_active_cell) {
                 control->EnableSecondaryState(false);
-            } else if ((control->IsSelected()) != 0) {
+            } else if (control->IsSelected()) {
                 control->DisableSecondaryState(false);
                 g_formation_cell_overlays[index]->Invalidate(false);
             }
@@ -690,7 +690,7 @@ void SelectFormationSlotCell(int party_slot)
         if (g_formation_cell_slots[index] == party_slot) {
             control->EnableSecondaryState(false);
             g_formation_cell_overlays[index]->Invalidate(false);
-        } else if ((control->IsSelected()) != 0) {
+        } else if (control->IsSelected()) {
             control->DisableSecondaryState(false);
             g_formation_cell_overlays[index]->Invalidate(false);
         }

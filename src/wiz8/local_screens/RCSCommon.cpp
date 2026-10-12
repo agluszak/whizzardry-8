@@ -1259,8 +1259,7 @@ void SetCampItemActionMode(char mode)
 
     for (control = g_item_action_controls, index = W8_CAMP_ACTION_BUTTON_COUNT; index != 0;
          ++control, --index) {
-        if (static_cast<unsigned char>((*control)->IsSelected()) !=
-            0) {
+        if ((*control)->IsSelected()) {
             (*control)->DisableSecondaryState(false);
         }
     }
@@ -1308,7 +1307,7 @@ void SetCampItemActionMode(char mode)
         SetItemCursor(0);
     }
     if (selected != W8_CAMP_ACTION_BUTTON_NONE &&
-        static_cast<unsigned char>(g_item_action_controls[selected]->IsSelected()) == 0) {
+        g_item_action_controls[selected]->IsSelected() == 0) {
         g_item_action_controls[selected]->EnableSecondaryState(false);
     }
     g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_ITEM_ACTIONS;
@@ -1319,9 +1318,9 @@ void SetCampItemActionMode(char mode)
    button's secondary state. */
 static void SelectCampPageButton(int button, W8CampPage page)
 {
-    if (static_cast<unsigned char>(g_camp_page_buttons[button]->IsSelected()) != 0) {
+    if (g_camp_page_buttons[button]->IsSelected()) {
         for (int index = 0; index < 5; ++index) {
-            if (static_cast<unsigned char>(g_camp_page_buttons[index]->IsSelected()) != 0) {
+            if (g_camp_page_buttons[index]->IsSelected()) {
                 g_camp_page_buttons[index]->DisableSecondaryState(false);
             }
         }
@@ -1336,8 +1335,7 @@ static void SelectCampPageButton(int button, W8CampPage page)
 // FUNCTION: WIZ8 0x005b5c30
 static void OnCampIdentifyItem(void)
 {
-    if (static_cast<unsigned char>(
-            g_item_action_controls[W8_CAMP_ACTION_BUTTON_IDENTIFY]->IsSelected()) != 0) {
+    if (g_item_action_controls[W8_CAMP_ACTION_BUTTON_IDENTIFY]->IsSelected()) {
         g_camp_identifying_character = g_review_character;
         if (g_status.item_in_cursor) {
             IdentifyAndOpenItemInfo(&g_status.item_in_hand);
@@ -1352,8 +1350,7 @@ static void OnCampIdentifyItem(void)
 // FUNCTION: WIZ8 0x005b5c80
 static void OnCampMoveItem(void)
 {
-    if (static_cast<unsigned char>(
-            g_item_action_controls[W8_CAMP_ACTION_BUTTON_MOVE]->IsSelected()) != 0) {
+    if (g_item_action_controls[W8_CAMP_ACTION_BUTTON_MOVE]->IsSelected()) {
         SetCampItemActionMode(W8_CAMP_ITEM_ACTION_MOVE);
         if (g_status.item_in_cursor) {
             SetHandCursors(0);
@@ -1367,8 +1364,7 @@ static void OnCampMoveItem(void)
 // FUNCTION: WIZ8 0x005b5cd0
 static void OnCampSplitStack(void)
 {
-    if (static_cast<unsigned char>(
-            g_item_action_controls[W8_CAMP_ACTION_BUTTON_SPLIT_STACK]->IsSelected()) != 0) {
+    if (g_item_action_controls[W8_CAMP_ACTION_BUTTON_SPLIT_STACK]->IsSelected()) {
         if (g_status.item_in_cursor) {
             OpenSplitStackDialog(&g_status.item_in_hand);
             return;
@@ -1382,7 +1378,7 @@ static void OnCampSplitStack(void)
 // FUNCTION: WIZ8 0x005b5d10
 static void OnCampUseItem(void)
 {
-    if (static_cast<unsigned char>(g_item_action_controls[W8_CAMP_ACTION_BUTTON_USE]->IsSelected()) != 0) {
+    if (g_item_action_controls[W8_CAMP_ACTION_BUTTON_USE]->IsSelected()) {
         if (g_status.item_in_cursor) {
             UseCampItem(&g_status.item_in_hand);
             return;
@@ -1396,8 +1392,7 @@ static void OnCampUseItem(void)
 // FUNCTION: WIZ8 0x005b5d50
 static void OnCampDropItem(void)
 {
-    if (static_cast<unsigned char>(
-            g_item_action_controls[W8_CAMP_ACTION_BUTTON_DROP]->IsSelected()) != 0) {
+    if (g_item_action_controls[W8_CAMP_ACTION_BUTTON_DROP]->IsSelected()) {
         if (g_status.item_in_cursor) {
             if (ResolvePendingCampCharacter(true)) {
                 DropHeldCampItem();
@@ -1417,8 +1412,7 @@ static void OnCampCastSpell(void)
     unsigned char active;
 
     eligible = IsCampActionAllowed(giReviewCharSlot);
-    active = static_cast<unsigned char>(
-        g_item_action_controls[W8_CAMP_ACTION_BUTTON_CAST_SPELL]->IsSelected());
+    active = g_item_action_controls[W8_CAMP_ACTION_BUTTON_CAST_SPELL]->IsSelected();
     if (!eligible) {
         if (active != 0) {
             g_item_action_controls[W8_CAMP_ACTION_BUTTON_CAST_SPELL]->DisableSecondaryState(false);
@@ -1436,8 +1430,7 @@ static void OnCampCastSpell(void)
 // FUNCTION: WIZ8 0x005b5df0
 static void OnCampUseItemOnItem(void)
 {
-    if (static_cast<unsigned char>(
-            g_item_action_controls[W8_CAMP_ACTION_BUTTON_USE_ON_ITEM]->IsSelected()) != 0) {
+    if (g_item_action_controls[W8_CAMP_ACTION_BUTTON_USE_ON_ITEM]->IsSelected()) {
         giCasterCharSlot = giReviewCharSlot;
         if (g_status.item_in_cursor) {
             UseHeldItemOnItem(&g_status.item_in_hand);
@@ -1454,8 +1447,7 @@ static void OnCampUseItemOnItem(void)
 // FUNCTION: WIZ8 0x005b5e60
 static void OnCampUseItemOnCharacter(void)
 {
-    if (static_cast<unsigned char>(
-            g_item_action_controls[W8_CAMP_ACTION_BUTTON_USE_ON_CHARACTER]->IsSelected()) != 0) {
+    if (g_item_action_controls[W8_CAMP_ACTION_BUTTON_USE_ON_CHARACTER]->IsSelected()) {
         giCasterCharSlot = giReviewCharSlot;
         SetCampItemActionMode(W8_CAMP_ITEM_ACTION_USE_ON_CHARACTER);
         return;

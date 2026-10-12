@@ -826,7 +826,7 @@ static void SelectSpellPowerPip7(void)
 {
     int pip;
 
-    if (static_cast<unsigned char>(gpSCSV->power_controls[7]->IsSelected()) != 0) {
+    if (gpSCSV->power_controls[7]->IsSelected()) {
         for (pip = 0; pip < 7; ++pip) {
             W8TextControl* control = gpSCSV->power_controls[pip];
             if (control->m_enabled) {
@@ -852,7 +852,7 @@ static void SelectSpellPowerPip7(void)
 // FUNCTION: WIZ8 0x005A0660
 static void SelectSpellPowerPip8(void)
 {
-    if (static_cast<unsigned char>(gpSCSV->power_controls[8]->IsSelected()) != 0) {
+    if (gpSCSV->power_controls[8]->IsSelected()) {
         gpSCSV->power_controls[W8_SPELL_NAME_CONTROL]->m_textBuffer.SetRenderMode(4);
         gpSCSV->power_controls[W8_SPELL_NAME_CONTROL]->m_textBuffer.SetText(
             "?", g_wiz_text_font_secondary);
@@ -874,7 +874,7 @@ void SelectSpellPowerLevel(int power_level)
 
     gpSCSV->panels[2]->InvalidateAll();
     if (power_level == -1 ||
-        (static_cast<unsigned char>(gpSCSV->power_controls[power_level]->IsSelected()) == 0 &&
+        (gpSCSV->power_controls[power_level]->IsSelected() == 0 &&
          gpSCSV->iSpellPower == power_level)) {
         for (pip = 0; pip < 7; ++pip) {
             gpSCSV->power_controls[pip]->DisableSecondaryState(false);
@@ -882,7 +882,7 @@ void SelectSpellPowerLevel(int power_level)
         gpSCSV->iSpellPower = -1;
         if (gpSCSV->iSpellPowerClass == W8_SPELL_POWER_MAXIMUM) {
             gpSCSV->power_controls[8]->EnableSecondaryState(false);
-            if (static_cast<unsigned char>(gpSCSV->power_controls[8]->IsSelected()) == 0) {
+            if (gpSCSV->power_controls[8]->IsSelected() == 0) {
                 gpSCSV->power_controls[8]->EnableSecondaryState(false);
             } else {
                 gpSCSV->power_controls[W8_SPELL_NAME_CONTROL]->m_textBuffer.SetRenderMode(4);
@@ -1077,7 +1077,7 @@ unsigned char SpellPowerPipRegionEvent(const InputEvent* event, W8Region* region
         }
         if (us_event == InputEventType::LeftButtonUp) {
             gpSCSV->power_controls[id]->OnLeftButtonUp(0);
-            if (id < 7 && (gpSCSV->power_controls[id]->IsSelected()) == 0) {
+            if (id < 7 && !gpSCSV->power_controls[id]->IsSelected()) {
                 PreviewSpellPowerPipHover(id);
             }
             if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {

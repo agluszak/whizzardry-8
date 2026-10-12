@@ -593,30 +593,30 @@ void SyncRoofButtonPressedState(void)
         if (g_roof_buttons[0].IsPressed() == 0) {
             g_roof_buttons[0].SetPressed(true);
         }
-        if (g_roof_buttons[1].IsPressed() != 0) {
+        if (g_roof_buttons[1].IsPressed()) {
             g_roof_buttons[1].SetPressed(false);
         }
-        if (g_roof_buttons[2].IsPressed() != 0) {
+        if (g_roof_buttons[2].IsPressed()) {
             g_roof_buttons[2].SetPressed(false);
         }
     } else if (g_settings.main_ui_mode == 1) {
         if (g_roof_buttons[1].IsPressed() == 0) {
             g_roof_buttons[1].SetPressed(true);
         }
-        if (g_roof_buttons[0].IsPressed() != 0) {
+        if (g_roof_buttons[0].IsPressed()) {
             g_roof_buttons[0].SetPressed(false);
         }
-        if (g_roof_buttons[2].IsPressed() != 0) {
+        if (g_roof_buttons[2].IsPressed()) {
             g_roof_buttons[2].SetPressed(false);
         }
     } else if (g_settings.main_ui_mode == 2) {
         if (g_roof_buttons[2].IsPressed() == 0) {
             g_roof_buttons[2].SetPressed(true);
         }
-        if (g_roof_buttons[0].IsPressed() != 0) {
+        if (g_roof_buttons[0].IsPressed()) {
             g_roof_buttons[0].SetPressed(false);
         }
-        if (g_roof_buttons[1].IsPressed() != 0) {
+        if (g_roof_buttons[1].IsPressed()) {
             g_roof_buttons[1].SetPressed(false);
         }
     }
@@ -1065,7 +1065,7 @@ void UpdateSubMenuPanelButtons(void)
         g_level_block->combat_end_notification == -1 && AnyCharacterEngaged()) {
         g_submenu_panel_buttons[1].SetEnabled(true);
         if (!gXStatus.fReviewCharacterMode) {
-            if (g_submenu_panel_buttons[1].IsPressed() != 0) {
+            if (g_submenu_panel_buttons[1].IsPressed()) {
                 g_submenu_panel_buttons[1].SetPressed(false);
             }
         } else if (g_submenu_panel_buttons[1].IsPressed() == 0) {

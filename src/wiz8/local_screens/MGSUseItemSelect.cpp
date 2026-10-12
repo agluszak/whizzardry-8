@@ -379,8 +379,8 @@ static void SelectUseItemScrollMode(int mode)
 {
     W8TextControl* selected = g_use_item_select_scroll_buttons[mode];
     W8TextControl* other = g_use_item_select_scroll_buttons[1 - mode];
-    if ((selected->IsSelected()) != 0) {
-        if ((other->IsSelected()) != 0) {
+    if (selected->IsSelected()) {
+        if (other->IsSelected()) {
             other->DisableSecondaryState(false);
             other->Invalidate(false);
         }
@@ -408,7 +408,7 @@ void UpdateUseItemScrollButtons(void)
         return;
     }
     if (gXStatus.fCombatMode) {
-        if (static_cast<unsigned char>(g_use_item_select_scroll_buttons[0]->IsSelected()) == 0) {
+        if (g_use_item_select_scroll_buttons[0]->IsSelected() == 0) {
             g_use_item_select_scroll_buttons[0]->EnableSecondaryState(false);
             g_use_item_select_scroll_buttons[0]->Invalidate(false);
             UseItemSelectScrollUp();
@@ -432,7 +432,7 @@ void UpdateUseItemScrollButtons(void)
 // FUNCTION: WIZ8 0x0059D830
 static void UseItemSelectFilterToggle(void)
 {
-    if (static_cast<unsigned char>(g_use_item_select_controls[3]->IsSelected()) == 0) {
+    if (g_use_item_select_controls[3]->IsSelected() == 0) {
         g_use_item_select_controls[3]->EnableSecondaryState(true);
         g_use_item_select_controls[3]->Invalidate(false);
     }

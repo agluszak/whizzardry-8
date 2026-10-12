@@ -893,7 +893,7 @@ void W8TriggerItemPickerDialog::RefreshScrollButtons()
         int item = m_first_item + index;
         if (item < static_cast<int>(items.size())) {
             button.SetPressed(IsItemSelected(item));
-        } else if (button.IsPressed() != 0) {
+        } else if (button.IsPressed()) {
             button.SetPressed(false);
             button.SetVisible(false);
         }

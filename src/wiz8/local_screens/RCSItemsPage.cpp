@@ -670,7 +670,7 @@ void UnequipBothHands(void)
 // FUNCTION: WIZ8 0x005BB140
 void TogglePartyRowFlag(void)
 {
-    if ((g_camp_action_buttons[1]->IsSelected()) != 0) {
+    if (g_camp_action_buttons[1]->IsSelected()) {
         g_status.buffers.XChar[giReviewCharSlot].item_action_pending = true;
         g_camp_action_buttons[0]->SetEnabled(false);
         g_camp_action_buttons[0]->Invalidate(false);
@@ -755,14 +755,14 @@ void ToggleCampItemFilter(W8CampItemFilterButton tab)
     default:
         filter = static_cast<W8CampItemFilter>(tab);
     }
-    if ((g_camp_item_filter_buttons[tab]->IsSelected()) == 0) {
+    if (!g_camp_item_filter_buttons[tab]->IsSelected()) {
         g_camp_screen->item_filters[filter] = 0;
     } else {
         g_camp_screen->item_filters[filter] = 1;
         if (filter != W8_CAMP_ITEM_FILTER_USABLE && filter != W8_CAMP_ITEM_FILTER_UNIDENTIFIED) {
             ClearOtherCampItemGroupFilters(filter);
             for (index = 0; index < 4; ++index) {
-                if (index != tab && (g_camp_item_filter_buttons[index]->IsSelected()) != 0) {
+                if (index != tab && g_camp_item_filter_buttons[index]->IsSelected()) {
                     g_camp_item_filter_buttons[index]->DisableSecondaryState(true);
                 }
             }

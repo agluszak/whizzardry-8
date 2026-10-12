@@ -423,7 +423,7 @@ void W8CharacterStatsRow::OnPrimary(W8TextControl* control)
             SetValue(index);
         }
     } else if (control == m_value_control) {
-        if ((m_value_control->IsSelected()) != 0) {
+        if (m_value_control->IsSelected()) {
             BuildSubpanel();
             m_subpanel->InvalidateAll();
             if (m_listener != 0) {

@@ -631,7 +631,7 @@ void W8OptionsSaveRow::Redraw(SDL_Surface& target, bool full_redraw)
 void W8OptionsSaveRow::OnLeftButtonUp(int event)
 {
     if (m_active && m_enabled && !m_editing &&
-        (IsSelected()) != 0) {
+        (IsSelected())) {
         SDL_Point point;
         SGPMouseGetPos(&point);
         point.x -= ScreenBounds().x;
@@ -646,7 +646,7 @@ void W8OptionsSaveRow::OnLeftButtonUp(int event)
 void W8OptionsSaveRow::OnLeftButtonDoubleClick(int event)
 {
     if (m_active && m_enabled && !m_editing &&
-        (IsSelected()) != 0 && m_save_listener != 0) {
+        (IsSelected()) && m_save_listener != 0) {
         m_save_listener->OnActivateSave(this);
     }
     W8TextControl::OnLeftButtonDoubleClick(event);
@@ -667,7 +667,7 @@ void W8OptionsButton::Redraw(SDL_Surface& target, bool full_redraw)
     if (m_active && (full_redraw || m_dirty) && m_textBuffer.HasBuffer()) {
         if (m_enabled) {
             int font_state;
-            if ((IsPressed()) != 0) {
+            if (IsPressed()) {
                 font_state = 13;
             } else {
                 font_state = m_alternateTextEnabled ? 14 : -1;
@@ -1005,7 +1005,7 @@ void W8OptionsInterfacePanel::OnDragEnd(W8HorizontalRangeThumb* thumb)
 
 void W8OptionsInterfacePanel::OnPrimary(W8TextControl* control)
 {
-    g_settings.tooltips_enabled = (control->IsSelected()) == 0;
+    g_settings.tooltips_enabled = !control->IsSelected();
     m_tooltip_delay->SetEnabled(g_settings.tooltips_enabled);
     m_tooltip_delay->Invalidate(false);
 }
@@ -1619,7 +1619,7 @@ void W8OptionsPanel::AddChoices(int label, int count, const int* choices, int* v
 
 void W8OptionsMenuButton::Redraw(SDL_Surface& target, bool full_redraw)
 {
-    if ((full_redraw || m_dirty) && (IsSelected()) != 0 &&
+    if ((full_redraw || m_dirty) && IsSelected() &&
         m_item_id != -1) {
         CatalogArtwork::Load(0xf0, 0).drawAndInvalidate(target, m_item_id, 12, 15);
     }

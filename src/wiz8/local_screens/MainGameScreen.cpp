@@ -1508,7 +1508,7 @@ void W8MainGameTextPanel::BeginProgress(std::string_view text, float duration, f
     m_timer0.SetDuration(hold);
     m_timer0.Restart();
     for (int i = 0; i < 8; ++i) {
-        if ((m_entries[i]->IsSelected()) == 0) {
+        if (!m_entries[i]->IsSelected()) {
             m_entries[i]->m_input_blocked = true;
         }
     }
@@ -1569,7 +1569,7 @@ W8MainGameTextPanel::W8MainGameTextPanel()
     SetActive(true);
     InvalidateAll();
     for (index = 0; index < 8; ++index) {
-        if ((m_entries[index]->IsSelected()) == 0) {
+        if (!m_entries[index]->IsSelected()) {
             m_entries[index]->SetEnabled(GetTable650434Entry(m_selection, index) != 0);
             m_entries[index]->Invalidate(false);
         }
@@ -1652,7 +1652,7 @@ void W8MainGameTextPanel::OnRangeChanged(W8RangeControl* control)
     (void)control;
     m_selection = selection;
     for (column = 0; column < 8; ++column) {
-        if ((m_entries[column]->IsSelected()) == 0) {
+        if (!m_entries[column]->IsSelected()) {
             m_entries[column]->SetEnabled(GetTable650434Entry(selection, column) != 0);
             m_entries[column]->Invalidate(false);
         }
@@ -1985,7 +1985,7 @@ void W8MainGameScreen::Update()
         panel->m_progress_display = false;
         panel->InvalidateAll();
         for (column = 0; column < 8; ++column) {
-            if ((panel->m_entries[column]->IsSelected()) == 0) {
+            if (!panel->m_entries[column]->IsSelected()) {
                 panel->m_entries[column]->m_input_blocked = false;
             }
         }
@@ -2059,7 +2059,7 @@ void W8MainGameScreen::RefreshActionPanel()
 
     m_action_controls[4]->SetEnabled(skill >= 0);
     for (i = 0; i < 8; ++i) {
-        if ((m_text_panel->m_entries[i]->IsSelected()) == 0) {
+        if (!m_text_panel->m_entries[i]->IsSelected()) {
             m_text_panel->m_entries[i]->m_input_blocked = skill < 0;
         }
     }
@@ -7386,7 +7386,7 @@ void ConfirmNpcTradeItem(void)
          g_npc_interaction_state->trade_mode == W8_NPC_TRADE_SELL) &&
         (static_cast<W8TextControl*>(
              g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_5])
-             ->IsSelected()) != 0) {
+             ->IsSelected())) {
         selected = g_status.selected_character;
         npc_kind = g_status.buffers.XChar[selected].npc_index;
         if (npc_kind != -1) {
@@ -7414,7 +7414,7 @@ void ConfirmNpcTradeItem(void)
         slot = GetSelectedTextLine(2);
         if ((static_cast<W8TextControl*>(
                  g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_5])
-                 ->IsSelected()) != 0) {
+                 ->IsSelected())) {
             trading = &g_status.buffers.Char[g_status.selected_character];
             shown = 0;
             for (index = 0; index < 8; ++index) {
@@ -7438,7 +7438,7 @@ void ConfirmNpcTradeItem(void)
             }
         } else if ((static_cast<W8TextControl*>(
                         g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_6])
-                        ->IsSelected()) != 0) {
+                        ->IsSelected())) {
             shown = 0;
             target = slot;
             if (g_npc_interaction_state->trade_mode != W8_NPC_TRADE_GIVE || slot != 0) {
@@ -7633,12 +7633,12 @@ void PopulateNpcTradeList(void)
                        GetTextBoxFont().textWidth(g_level_block->text_paint_scratch));
         AppendTextBoxLine(g_level_block->text_paint_scratch, 2);
     }
-    if ((static_cast<W8TextControl*>(
+    if (!(static_cast<W8TextControl*>(
              g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_5])
-             ->IsSelected()) == 0) {
+             ->IsSelected())) {
         if ((static_cast<W8TextControl*>(
                  g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_6])
-                 ->IsSelected()) != 0) {
+                 ->IsSelected())) {
             for (unsigned int index = 0; index < g_status.party_item_count; ++index) {
                 W8ItemInstance* item = &g_status.party_item_pool[index];
                 bool acceptable = true;
