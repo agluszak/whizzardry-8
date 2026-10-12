@@ -2,7 +2,7 @@
 #ifndef WIZ8_CHARACTER_EVENT_QUEUE_H
 #define WIZ8_CHARACTER_EVENT_QUEUE_H
 
-#include "wiz8/audio_resources.h"
+#include "wiz8/voice_line.h"
 #include "timer.h"
 
 #include "wiz8/layouts/item_instance.h"
@@ -39,14 +39,7 @@ enum W8CharacterEventFlag {
 struct W8CharacterEvent {
     W8CharacterEvent(W8Character* character, unsigned int event_type, unsigned int flags,
                      int queue_mode, int volume);
-    ~W8CharacterEvent();
-    W8CharacterEvent(const W8CharacterEvent&) = delete;
-    W8CharacterEvent& operator=(const W8CharacterEvent&) = delete;
 
-    /* 0x00: set before the sound is stopped on synchronous shutdown; the
-       sound-end callback bails when it is set. */
-    bool sound_end_handled;
-    unsigned char padding_01[3];
     W8Character* character;
     unsigned int event_type;
     /* 0x0c: queue category passed as the fourth argument. */
@@ -73,9 +66,9 @@ struct W8CharacterEvent {
     int dispatch_delay_ms;
     uint64_t dispatch_delay_start;
 
-    /* The event owns the playback whose callback borrows this entry. The
-       portrait's shared handle can change independently of this lifetime. */
-    wiz8::sound::Playback voice_playback;
+    /* The event's voice; its completion completes the event. The portrait's
+       shared handle can change independently of this lifetime. */
+    W8VoiceLine voice;
 
     void DelayDispatch(int milliseconds)
     {
