@@ -120,19 +120,25 @@ unsigned char AscensionPeakInit(void)
     return 1;
 }
 
+/* Spawns one Alfie monster at a named entity, if the entity is present. */
+static void spawnAlfieAt(const char* entity, int monster_id)
+{
+    srVector3T<float> position;
+
+    if (FindEntityByName(entity, &position, 0, 0)) {
+        SpawnMonsters(monster_id, 1, &position, 0, true, false, false);
+    }
+}
+
 /* Spawn the Alfie "chaos" monster (0xae) at the NP_AlfieChaos entity once the
    party carries the Astral Dominae (0x244). */
 // FUNCTION: WIZ8 0x004DFAE0
 unsigned char SpawnAlfieChaos(int)
 {
-    srVector3T<float> position;
-
     if (!FindItemOnParty(0x244, 0, 0, 2, 0)) {
         return 0;
     }
-    if (FindEntityByName("NP_AlfieChaos", &position, 0, 0)) {
-        SpawnMonsters(0xae, 1, &position, 0, true, false, false);
-    }
+    spawnAlfieAt("NP_AlfieChaos", 0xae);
     return 1;
 }
 
@@ -141,11 +147,7 @@ unsigned char SpawnAlfieChaos(int)
 // FUNCTION: WIZ8 0x004DFB40
 unsigned char SpawnAlfieLife(int)
 {
-    srVector3T<float> position;
-
-    if (FindEntityByName("NP_AlfieLife", &position, 0, 0)) {
-        SpawnMonsters(0xaf, 1, &position, 0, true, false, false);
-    }
+    spawnAlfieAt("NP_AlfieLife", 0xaf);
     return 1;
 }
 
