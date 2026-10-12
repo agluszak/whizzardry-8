@@ -35,7 +35,7 @@
 #include "layouts/main_game_screen.h"
 
 
-std::uint8_t DispatchButtonRegionEvent(const InputEvent* event, W8Region* region,
+bool DispatchButtonRegionEvent(const InputEvent* event, W8Region* region,
                                                W8Widget* button)
 {
     switch (event->type) {
@@ -43,25 +43,25 @@ std::uint8_t DispatchButtonRegionEvent(const InputEvent* event, W8Region* region
     case InputEventType::LeftButtonRepeat:
         region->flags |= W8_REGION_LEFT_BUTTON_HELD;
         button->OnLeftButtonDown(0);
-        return 1;
+        return true;
     case InputEventType::LeftButtonUp:
         region->flags &= ~W8_REGION_LEFT_BUTTON_HELD;
         button->OnLeftButtonUp(0);
-        return 1;
+        return true;
     case InputEventType::MouseMove:
         if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
             button->OnMouseLeave(0);
-            return 1;
+            return true;
         }
         if ((region->flags & W8_REGION_MOUSE_ENTER) != 0) {
             button->OnMouseEnter(0);
-            return 1;
+            return true;
         }
         break;
     default:
         break;
     }
-    return 0;
+    return false;
 }
 
 /* Original Local Code\Controls.cpp translation unit. Keep these implementations
@@ -269,49 +269,49 @@ W8Widget::W8Widget(Controls* owner, std::uint32_t region, std::int32_t left, std
 // Dynamic regions bind directly to a widget. Removing or moving another
 // child cannot change the event target.
 // FUNCTION: WIZ8 0x004F3140
-std::uint8_t DispatchControlRegionEvent(const InputEvent* event, W8Region* region)
+bool DispatchControlRegionEvent(const InputEvent* event, W8Region* region)
 {
     W8Widget* widget = region->widget;
-    if (!widget) return 0;
+    if (!widget) return false;
     const auto reason = event->type;
     switch (reason) {
     case InputEventType::LeftButtonDown:
         region->flags |= W8_REGION_LEFT_BUTTON_HELD;
         widget->OnLeftButtonDown(0);
-        return 1;
+        return true;
     case InputEventType::LeftButtonUp:
         if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) == 0) {
-            return 1;
+            return true;
         }
         region->flags &= ~W8_REGION_LEFT_BUTTON_HELD;
         widget->OnLeftButtonUp(0);
-        return 1;
+        return true;
     case InputEventType::LeftButtonDoubleClick:
         widget->OnLeftButtonDoubleClick(0);
-        return 1;
+        return true;
     case InputEventType::LeftButtonRepeat:
         if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) == 0) {
-            return 1;
+            return true;
         }
         widget->ActivatePrimary(0);
-        return 1;
+        return true;
     case InputEventType::RightButtonDown:
         region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
         widget->OnRightButtonDown(0);
-        return 1;
+        return true;
     case InputEventType::RightButtonUp:
         if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) == 0) {
-            return 1;
+            return true;
         }
         region->flags &= ~W8_REGION_RIGHT_BUTTON_HELD;
         widget->OnRightButtonUp(0);
-        return 1;
+        return true;
     case InputEventType::RightButtonRepeat:
         if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) == 0) {
-            return 1;
+            return true;
         }
         widget->ActivateSecondary(0);
-        return 1;
+        return true;
     case InputEventType::MouseMove:
         if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
             widget->OnMouseLeave(0);
@@ -320,14 +320,14 @@ std::uint8_t DispatchControlRegionEvent(const InputEvent* event, W8Region* regio
         } else {
             widget->OnMouseMove(region->flags & W8_REGION_LEFT_BUTTON_HELD);
         }
-        return 1;
+        return true;
     case InputEventType::MouseWheel:
         widget->AdjustValue(event->wheel);
-        return 1;
+        return true;
     default:
         break;
     }
-    return 0;
+    return false;
 }
 
 // FUNCTION: WIZ8 0x004f4020

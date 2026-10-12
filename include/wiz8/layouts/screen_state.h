@@ -22,11 +22,11 @@ enum W8ScreenId {
 };
 
 struct W8ScreenStateHandlers {
-    std::uint8_t (*initialize)(void);
-    std::uint8_t (*enter)(void);
+    bool (*initialize)(void);
+    bool (*enter)(void);
     void (*frame)(void);
-    std::uint8_t (*leave)(std::int32_t leaving); /* 0 = suspend, 1 = discard */
-    std::uint8_t (*finalize)(void);
+    bool (*leave)(std::int32_t leaving); /* 0 = suspend, 1 = discard */
+    bool (*finalize)(void);
 };
 
 

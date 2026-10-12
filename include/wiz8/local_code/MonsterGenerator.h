@@ -30,13 +30,13 @@ struct MonGen {
        generator's chance. */
     bool CanGenerateEncounter(bool force);
     /* Selects and spawns the encounter table entry at `position`. */
-    std::uint8_t GenerateEncounter(const srVector3T<float>* position);
+    bool GenerateEncounter(const srVector3T<float>* position);
     /* Choose an entry for the current rarity/time/party level, or return null. */
     const W8EncounterEntry* SelectEncounterCandidate(const W8EncounterTableRuntime& table);
     /* Difficulty-aware group-size roll for one monster database record. */
     std::int32_t RollEncounterGroupSize(W8MonsterRecord* record);
     /* Arms or disarms the generator, loading its marker on the way in. */
-    void SetActive(std::uint8_t active, W8Item* node);
+    void SetActive(bool active, W8Item* node);
     /* The save pair. Both are __thiscall in the image. */
     void Save(wiz8::File& handle);
     std::uint8_t Load(wiz8::File& handle);

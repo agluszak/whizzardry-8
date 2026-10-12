@@ -1194,7 +1194,7 @@ std::int32_t srGERD::isWindowOpen() const
 }
 
 // FUNCTION: SURRENDER 0x1001D0E0
-std::int32_t srGERD::isFullScreen() const
+bool srGERD::isFullScreen() const
 {
     return device.open_info.display_mode >= 0;
 }
@@ -3431,18 +3431,18 @@ void srGERD::invalidateResidentPalette(srPalette* palette)
 }
 
 // FUNCTION: SURRENDER 0x10017D00
-std::int32_t srGERD::isTextureCached(srTextureIFace* texture) const
+bool srGERD::isTextureCached(srTextureIFace* texture) const
 {
     std::lock_guard access(state_section);
     if (texture != 0) {
         std::uint32_t handle = texture->getTextureFrameHandle();
         return texture_lookup.contains(handle);
     }
-    return 0;
+    return false;
 }
 
 // FUNCTION: SURRENDER 0x10017DD0
-std::int32_t srGERD::isTextureResident(srTextureIFace* texture) const
+bool srGERD::isTextureResident(srTextureIFace* texture) const
 {
     std::lock_guard access(state_section);
     if (texture != 0 && isWindowOpen() != 0) {
@@ -3451,10 +3451,10 @@ std::int32_t srGERD::isTextureResident(srTextureIFace* texture) const
         Texture* resident = entry == texture_lookup.end() ? nullptr : entry->second;
         if (resident != 0 && resident->device.resident_data != 0 &&
             resident->device.resident_size != 0) {
-            return 1;
+            return true;
         }
     }
-    return 0;
+    return false;
 }
 
 // FUNCTION: SURRENDER 0x10029600
@@ -3534,7 +3534,7 @@ srGERD* srGERD::getGERD(std::uint32_t index)
 }
 
 // FUNCTION: SURRENDER 0x10020DD0
-std::int32_t srGERD::isBufferLocked()
+bool srGERD::isBufferLocked()
 {
     return lock_surface != 0;
 }

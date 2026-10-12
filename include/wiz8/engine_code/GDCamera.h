@@ -52,7 +52,7 @@ public:
     void SnapToTarget(const srVector3T<float>* target);                         /* 0x00476950 */
     void SetOrientationImmediate(float pitch, float angle);                     /* 0x00476C30 */
     std::uint8_t LookAt(const srVector3T<float>* target, bool preserve_pitch); /* 0x00476F90 */
-    std::uint8_t ComputeTrackingOrientation(const srVector3T<float>* target, float* angle,
+    bool ComputeTrackingOrientation(const srVector3T<float>* target, float* angle,
                                              float* pitch); /* 0x00477180 */
     std::uint8_t BeginOrientationTransition(float target_pitch, float target_angle,
                                              bool force); /* 0x00477440 */

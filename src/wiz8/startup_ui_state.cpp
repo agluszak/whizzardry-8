@@ -12,7 +12,7 @@ std::int32_t g_region_help_delay;
 std::uint64_t g_region_help_clock;
 
 // FUNCTION: WIZ8 0x004f11d0
-std::uint8_t InitializeRegionHelpState(void)
+bool InitializeRegionHelpState(void)
 {
     g_region_help_delay = g_settings.tooltip_delay_ms;
     g_current_region_index = 0;
@@ -20,5 +20,5 @@ std::uint8_t InitializeRegionHelpState(void)
     g_hover_region_index = 0;
     g_region_help_force_enabled = false;
     g_default_help_text.clear();
-    return 1;
+    return true;
 }

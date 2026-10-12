@@ -406,22 +406,22 @@ void W8Item::LightRadarBlip()
 /* Run an item's trigger without a source. Action states 1 and 4 return zero
    so a world-item interaction waits instead of taking the item. */
 // FUNCTION: WIZ8 0x004A0070
-std::uint8_t RunItemTrigger(W8Item* item)
+bool RunItemTrigger(W8Item* item)
 {
     Trigger* trigger;
 
     if (item == 0) {
-        return 0;
+        return false;
     }
     trigger = item->trigger;
     if (trigger == 0) {
-        return 1;
+        return true;
     }
     trigger->Run(-1);
     if (trigger->action_state == 1 || trigger->action_state == 4) {
-        return 0;
+        return false;
     }
-    return 1;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x004A00C0

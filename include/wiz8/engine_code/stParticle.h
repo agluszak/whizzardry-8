@@ -31,7 +31,7 @@ public:
     }
     stParticle(srNode* parent, std::int32_t count); /* 0x00497AF0 */
     stParticle(const stParticle& other);   /* 0x00498180 */
-    void SetActive(std::uint8_t active);
+    void SetActive(bool active);
     void SetTraversalEnabled(bool enabled);
     void DeactivateParticle(std::uint32_t index);
     std::optional<std::uint32_t> activateParticle(bool replaceWhenFull);
@@ -47,7 +47,7 @@ public:
     void Update();                                 /* 0x00499FA0 */
     void PrepareRenderer(const glm::mat4& view); /* 0x00498DD0 */
     srShader GetRenderFlags() const;
-    std::uint8_t ReplaceTexture(const char* old_name, std::shared_ptr<srTextureIFace> replacement);
+    bool ReplaceTexture(const char* old_name, std::shared_ptr<srTextureIFace> replacement);
     virtual void traverse(srNode::TraverseInfo& info) override; /* 0x00498C40 */
     virtual void process(const srNode::ProcessInfo& info,
                          srNode::e_processType type) override; /* 0x00498D60 */

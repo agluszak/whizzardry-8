@@ -40,9 +40,9 @@ void SetWorldScenePosition(W8World* world, const srVector3T<float>* position);
 stParticle* FindParticleByName(W8World* world, const char* name);
 bool FindEntityByName(const char* name, srVector3T<float>* position, float* angle,
                       srVector3T<float>* direction);
-std::uint8_t AdjustWorldCollisionPosition(float radius, srVector3T<float>* position,
+bool AdjustWorldCollisionPosition(float radius, srVector3T<float>* position,
                                            bool check_items, bool check_monsters);
-std::uint8_t FindNearbyFreePosition(float radius, srVector3T<float>* position, bool check_items,
+bool FindNearbyFreePosition(float radius, srVector3T<float>* position, bool check_items,
                                      bool check_monsters);
 
 void SetSecondaryWorld(W8World* world);

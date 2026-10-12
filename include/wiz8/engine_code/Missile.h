@@ -50,7 +50,7 @@ struct W8AIMissile : W8AIRecord {
     std::uint8_t padding_1d[3];
 };
 
-std::uint8_t UpdateMissileAI(W8AIMissile* record);
+bool UpdateMissileAI(W8AIMissile* record);
 float AdvanceMissileAI(W8AIMissile* record, srVector3T<float>* out, std::uint32_t steps);
 
 /* The missile constructor allocates this complete 0x108-byte representation,

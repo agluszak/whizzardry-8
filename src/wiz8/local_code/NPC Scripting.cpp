@@ -328,7 +328,7 @@ void StripNpcKeywordPunctuation(std::string& text)
 // GLOBAL: WIZ8 0x0068C4FC
 
 // GLOBAL: WIZ8 0x0068c500
-static std::uint8_t g_npc_script_event_active;
+static bool g_npc_script_event_active;
 
 // GLOBAL: WIZ8 0x0068C358
 static std::int32_t g_pending_npc_travel_level;
@@ -888,7 +888,7 @@ void ShowString(std::string_view text)
     }
 }
 // FUNCTION: WIZ8 0x0052A1A0
-void SetNpcScriptEventActive(std::uint8_t value)
+void SetNpcScriptEventActive(bool value)
 {
     g_npc_script_event_active = value;
 }

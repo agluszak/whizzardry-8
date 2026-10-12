@@ -103,7 +103,7 @@ public:
     srVector3T<T>& operator/=(double scalar);
     bool operator==(const srVector3T<T>& other) const;
 
-    std::int32_t isValid() const
+    bool isValid() const
     {
         return std::isfinite(static_cast<double>(x)) && std::isfinite(static_cast<double>(y)) &&
                std::isfinite(static_cast<double>(z));

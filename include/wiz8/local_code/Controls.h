@@ -21,12 +21,12 @@ extern char g_W8TextSeparator[];
 /* The region callback a widget without its own region is given. It answers
    whether the event was consumed; the screen-input dispatcher returns that
    byte to its caller. */
-extern std::uint8_t DispatchControlRegionEvent(const InputEvent* event, struct W8Region* region);
+extern bool DispatchControlRegionEvent(const InputEvent* event, struct W8Region* region);
 
 /* The simple button-region policy shared by camp tabs, scrolling and
    movement controls. Repeat presses again; release is unconditional. The
    panel-owned dispatcher above has a different repeat/release policy. */
-std::uint8_t DispatchButtonRegionEvent(const InputEvent* event, W8Region* region,
+bool DispatchButtonRegionEvent(const InputEvent* event, W8Region* region,
                                                W8Widget* button);
 
 /* Panel/container, not a W8Widget base. Child ownership is held by unique_ptr;

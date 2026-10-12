@@ -212,12 +212,12 @@ srGERD::Renderer::Renderer(const Parameters& parameters)
 }
 
 // FUNCTION: SURRENDER 0x10024DB0
-std::int32_t srGERD::Renderer::isBatchFull() const
+bool srGERD::Renderer::isBatchFull() const
 {
     if (sorted == 0 && batch_limit < vertices.count) {
-        return 1;
+        return true;
     }
-    return 0;
+    return false;
 }
 
 // FUNCTION: SURRENDER 0x10024DE0
@@ -446,14 +446,14 @@ void srGERD::Renderer::transformVertices(const TriInput& input, std::uint8_t* cl
 
 /* Whether all clip-flag bytes share a clip plane. */
 // FUNCTION: SURRENDER 0x10025C00
-static std::int32_t fullyClipped(const std::uint8_t* flags, std::uint32_t count)
+static bool fullyClipped(const std::uint8_t* flags, std::uint32_t count)
 {
     std::uint8_t mask = srRendererDefs::FRUSTUM_CLIP_MASK;
     std::uint32_t index;
     for (index = 0; index < (count & ~3UL); index += 4) {
         mask &= flags[index] & flags[index + 1] & flags[index + 2] & flags[index + 3];
         if (mask == 0) {
-            return 0;
+            return false;
         }
     }
     for (; index < count; index++) {

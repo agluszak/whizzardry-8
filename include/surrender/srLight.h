@@ -55,7 +55,7 @@ public:
     void setLinearAttenuation(float range, float attenuation);
     void disable(e_enable option);
     void enable(e_enable option);
-    std::int32_t isEnabled(e_enable option) const;
+    bool isEnabled(e_enable option) const;
     glm::vec3 getAmbient() const;
     glm::vec3 getDiffuse() const;
     float getIntensity() const;

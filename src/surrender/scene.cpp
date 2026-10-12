@@ -170,7 +170,7 @@ void srScene::enable(e_enable option)
 }
 
 // FUNCTION: SURRENDER 0x10056B90
-std::int32_t srScene::isEnabled(e_enable option) const
+bool srScene::isEnabled(e_enable option) const
 {
     return (enabled.value & (1ul << option)) != 0;
 }

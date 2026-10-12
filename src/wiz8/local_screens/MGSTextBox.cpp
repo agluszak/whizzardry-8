@@ -441,7 +441,7 @@ std::int32_t GetTextBoxScrollRange(void)
    per region the used-line count followed by each 0x24-byte record and its
    wide string. The record's first word is the string count including its
    terminator; its +0x18 pointer word is unused. */
-std::uint8_t SaveMessageStorage(wiz8::File& file)
+bool SaveMessageStorage(wiz8::File& file)
 {
     W8MessageStorageDiskRecord disk_record;
     W8MessageStorageRecord* live_record;
@@ -482,7 +482,7 @@ std::uint8_t SaveMessageStorage(wiz8::File& file)
             }
         }
     }
-    return 1;
+    return true;
 }
 
 /* Read the four message runs back from the open TEXT chunk: a format dword,
@@ -1131,23 +1131,23 @@ void DeleteDialogueTextCharacter(std::uint32_t key)
     InvalidateDialogueTextCursor();
 }
 
-std::uint8_t TextBoxScrollThumbRegionEvent(const InputEvent* input_event, W8Region* region)
+bool TextBoxScrollThumbRegionEvent(const InputEvent* input_event, W8Region* region)
 {
     PushButtonSoundScheme(0, true);
     if (input_event->type != InputEventType::MouseMove) {
-        return 0;
+        return false;
     }
 
     std::int16_t text_box = g_status.text_line_cursor;
     std::uint32_t visible_lines = GetTextBoxVisibleLineCount();
     std::uint32_t line_count = GetTextBoxLineCount(text_box);
     if (line_count <= visible_lines) {
-        return 0;
+        return false;
     }
 
     if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
         g_level_block->text_scroll_drag_idle = 1;
-        return 0;
+        return false;
     }
     if (!IsLeftButtonHeld()) {
         g_level_block->text_scroll_drag_idle = 1;
@@ -1155,7 +1155,7 @@ std::uint8_t TextBoxScrollThumbRegionEvent(const InputEvent* input_event, W8Regi
             ClearActiveRegionIfMatches(
                 TextBoxRegionIndex(TextBoxRegion::ScrollThumb));
         }
-        return 0;
+        return false;
     }
 
     if (g_text_box_regions) {
@@ -1182,10 +1182,10 @@ std::uint8_t TextBoxScrollThumbRegionEvent(const InputEvent* input_event, W8Regi
         RedrawTextBox();
     }
     g_level_block->text_scroll_drag_idle = 0;
-    return 1;
+    return true;
 }
 
-std::uint8_t TextBoxScrollUpRegionEvent(const InputEvent* event, W8Region* region)
+bool TextBoxScrollUpRegionEvent(const InputEvent* event, W8Region* region)
 {
     std::int16_t text_box = g_status.text_line_cursor;
     if (g_level_block->text_lines[text_box] == 0) {
@@ -1195,21 +1195,21 @@ std::uint8_t TextBoxScrollUpRegionEvent(const InputEvent* event, W8Region* regio
     const InputEventType us_event = event->type;
     if (IsLeftButtonEvent(us_event) || us_event == InputEventType::RightButtonDown) {
         if (region->CaptureButtonDown(us_event)) {
-            return 1;
+            return true;
         }
         if (us_event != InputEventType::LeftButtonUp && us_event != InputEventType::LeftButtonRepeat) {
-            return 0;
+            return false;
         }
         if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) == 0) {
-            return 1;
+            return true;
         }
 
         ScrollTextBoxUp(1);
-        return 1;
+        return true;
     } else {
         if (us_event != InputEventType::RightButtonUp && us_event != InputEventType::RightButtonRepeat) {
             if (us_event != InputEventType::MouseMove) {
-                return 0;
+                return false;
             }
             if ((region->flags & W8_REGION_MOUSE_LEAVE) == 0) {
                 if ((region->flags & W8_REGION_MOUSE_ENTER) != 0 &&
@@ -1220,20 +1220,20 @@ std::uint8_t TextBoxScrollUpRegionEvent(const InputEvent* event, W8Region* regio
             } else if (g_level_block->text_lines[text_box] != 0) {
                 g_level_block->text_content_region = kUpArrowEnabled;
                 RedrawTextBox();
-                return 0;
+                return false;
             }
-            return 0;
+            return false;
         }
         if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) == 0) {
-            return 1;
+            return true;
         }
 
         ScrollTextBoxUp(7);
     }
-    return 1;
+    return true;
 }
 
-std::uint8_t TextBoxScrollDownRegionEvent(const InputEvent* event, W8Region* region)
+bool TextBoxScrollDownRegionEvent(const InputEvent* event, W8Region* region)
 {
     std::int16_t text_box = g_status.text_line_cursor;
     std::uint32_t visible = GetTextBoxVisibleLineCount();
@@ -1245,19 +1245,19 @@ std::uint8_t TextBoxScrollDownRegionEvent(const InputEvent* event, W8Region* reg
     const InputEventType us_event = event->type;
     if (IsLeftButtonEvent(us_event) || us_event == InputEventType::RightButtonDown) {
         if (region->CaptureButtonDown(us_event)) {
-            return 1;
+            return true;
         }
         if (us_event != InputEventType::LeftButtonUp && us_event != InputEventType::LeftButtonRepeat) {
-            return 0;
+            return false;
         }
         if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
             ScrollTextBoxDown(1);
-            return 1;
+            return true;
         }
     } else {
         if (us_event != InputEventType::RightButtonUp && us_event != InputEventType::RightButtonRepeat) {
             if (us_event != InputEventType::MouseMove) {
-                return 0;
+                return false;
             }
             if ((region->flags & W8_REGION_MOUSE_LEAVE) == 0) {
                 if ((region->flags & W8_REGION_MOUSE_ENTER) != 0) {
@@ -1270,19 +1270,19 @@ std::uint8_t TextBoxScrollDownRegionEvent(const InputEvent* event, W8Region* reg
                 if (g_level_block->text_lines[text_box] + visible < count) {
                     g_level_block->dialogue_content_region = kDownArrowEnabled;
                     RedrawTextBox();
-                    return 0;
+                    return false;
                 }
             }
-            return 0;
+            return false;
         }
         if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) != 0) {
             ScrollTextBoxDown(7);
         }
     }
-    return 1;
+    return true;
 }
 
-std::uint8_t TextBoxBodyRegionEvent(const InputEvent* event, W8Region* region)
+bool TextBoxBodyRegionEvent(const InputEvent* event, W8Region* region)
 {
     PushButtonSoundScheme(0, true);
     if (event->type == InputEventType::MouseWheel) {
@@ -1298,32 +1298,32 @@ std::uint8_t TextBoxBodyRegionEvent(const InputEvent* event, W8Region* region)
                                             event->position.y,
                                             true);
             }
-            return 1;
+            return true;
         }
         NpcDialogueTextBoxWheelAt(event->position.x,
                                   event->position.y, true);
-        return 1;
+        return true;
     }
     if (gXStatus.fNpcDialogueMode) {
         return NpcDialogueTextBoxRegionEvent(event, region);
     }
     if (!gXStatus.fSpellCastMode) {
         if (!gXStatus.fItemSelectMode) {
-            return 0;
+            return false;
         }
         return UseItemSelectTextBoxRegionEvent(event, region);
     }
     return SpellCastTextBoxRegionEvent(event, region);
 }
 
-std::uint8_t TextBoxChannelTabRegionEvent(const InputEvent* event, W8Region* region)
+bool TextBoxChannelTabRegionEvent(const InputEvent* event, W8Region* region)
 {
     SDL_Point mouse_pos;
 
     PushButtonSoundScheme(0, true);
     SGPMouseGetPos(&mouse_pos);
     if (event->type != InputEventType::LeftButtonUp) {
-        return 0;
+        return false;
     }
 
     g_status.text_line_cursor = static_cast<std::int16_t>(region->callback_id);
@@ -1351,41 +1351,41 @@ std::uint8_t TextBoxChannelTabRegionEvent(const InputEvent* event, W8Region* reg
     if (region->callback_id == 3) {
         if (g_status.text_box_lines_shown[text_box] > 7) {
             ScrollTextBoxTo(g_status.text_box_lines_shown[text_box] - 7);
-            return 1;
+            return true;
         }
         ScrollTextBoxTo(0);
     }
-    return 1;
+    return true;
 }
 
 /* Background mute for the message/text-box plates that share this catalog
    callback - suppress the default region click sound and swallow the event. */
-std::uint8_t TextBoxMuteRegionEvent(const InputEvent*, W8Region*)
+bool TextBoxMuteRegionEvent(const InputEvent*, W8Region*)
 {
     PushButtonSoundScheme(0, true);
-    return 0;
+    return false;
 }
 
-std::uint8_t HandleDialogueTextInput(const InputEvent* input_event)
+bool HandleDialogueTextInput(const InputEvent* input_event)
 {
     if (!g_level_block->dialogue_text_input_open ||
         (input_event->modifiers & (CTRL_DOWN | ALT_DOWN)) != 0) {
-        return 0;
+        return false;
     }
     W8DialogueTextState* input = g_level_block->dialogue_text_input.get();
     if (input_event->type == InputEventType::Text) {
         if (input_event->text >= 32) InsertDialogueTextCharacter(input_event->text);
-        return 1;
+        return true;
     }
     if (input_event->type != InputEventType::KeyDown && input_event->type != InputEventType::KeyRepeat) {
-        return 1;
+        return true;
     }
     std::uint32_t key = input_event->key;
     switch (key) {
     case 8:
     case 0x2e:
         DeleteDialogueTextCharacter(key);
-        return 1;
+        return true;
     case 0x0d:
     case 0x1b:
         if (input->completion_callback != 0) {
@@ -1398,36 +1398,36 @@ std::uint8_t HandleDialogueTextInput(const InputEvent* input_event)
         }
         ReleaseDialogueTextInput();
         RedrawTextBox();
-        return 1;
+        return true;
     case 0x20:
         InsertDialogueTextCharacter(' ');
-        return 1;
+        return true;
     case 0x23: {
         size_t length = input->text.size();
         if (input->cursor < length) {
             input->cursor = length;
             InvalidateDialogueTextCursor();
         }
-        return 1;
+        return true;
     }
     case 0x24:
         if (input->cursor != 0) {
             input->cursor = 0;
             InvalidateDialogueTextCursor();
         }
-        return 1;
+        return true;
     case 0x25:
         if (input->cursor != 0) {
             input->cursor = wiz8::text::previous_grapheme(input->text, input->cursor);
             InvalidateDialogueTextCursor();
         }
-        return 1;
+        return true;
     case 0x27:
         if (input->cursor < input->text.size()) {
             input->cursor = wiz8::text::next_grapheme(input->text, input->cursor);
             InvalidateDialogueTextCursor();
         }
-        return 1;
+        return true;
     default:
         break;
     }
@@ -1439,9 +1439,9 @@ std::uint8_t HandleDialogueTextInput(const InputEvent* input_event)
         (character >= ':' && character <= '@') || (character >= '[' && character <= '_') ||
         (character >= '{' && character <= '}')) {
         InsertDialogueTextCharacter(character);
-        return 1;
+        return true;
     }
-    return 0;
+    return false;
 }
 
 /* The text box's mode, and the setter that also records a value when one is

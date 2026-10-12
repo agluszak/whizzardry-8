@@ -52,7 +52,7 @@ public:
     virtual W8AnimRepBase* Clone() override;
 
     srModelInstance* ToggleAnimation(std::int32_t argument); /* 0x0044BA00 */
-    std::uint8_t SelectAnimationSlot(std::uint8_t tag);
+    bool SelectAnimationSlot(std::uint8_t tag);
     std::int32_t FindCurrentAnimationSlot(); /* 0x0044BAE0 */
     std::uint8_t AdvanceAnimationSegment();
     /* CreateAndLoadProp loads m_pRep into ECX, then passes (pInfo, pProp). */

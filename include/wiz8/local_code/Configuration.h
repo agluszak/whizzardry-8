@@ -18,7 +18,7 @@ bool SaveGameConfiguration(void);
 /* Bodies live in music_playlist.cpp (address-interleaved with that fragment). */
 void SetMusicVolume(std::uint8_t volume);
 bool IsMusicMuted(void);
-void SetMusicMuted(std::uint8_t muted);
+void SetMusicMuted(bool muted);
 
 /* The persisted configuration block. */
 

@@ -32,7 +32,7 @@ bool QueueNpcCombatScript(void);
    action pacing clock, and rolls the round counter forward until someone
    can act or the round ends. */
 void ScheduleCombatActor(void);
-std::int32_t CheckCombatEnd(std::uint32_t end_if_no_hostiles);
+bool CheckCombatEnd(std::uint32_t end_if_no_hostiles);
 void AdvanceCombatRound(void);
 void RollCombatSurprise(char party_cannot_be_surprised);
 /* Enter combat mode; queues a friendly NPC's combat-entry script
@@ -76,7 +76,7 @@ bool CreateCharacterBreathEffect(std::int32_t party_slot);
 std::int32_t ExecuteCharacterSpecialAttack(std::int32_t party_slot);
 void ApplyPartyCombatAction(std::int32_t party_slot, W8ActionKind action, std::int32_t detail,
                             const W8ActionDetailBlock* data, std::int32_t notify);
-std::int32_t IsPartyEngaged(void);
+bool IsPartyEngaged(void);
 W8PartyAction GetEffectivePartyAction(void);
 void RecordCharacterDeath(std::int32_t party_slot);
 void DropCharacterFromRound(std::int32_t party_slot);

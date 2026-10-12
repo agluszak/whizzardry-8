@@ -105,7 +105,7 @@ stModelInstance2D* CreateSpriteFromTexture(std::shared_ptr<srTextureIFace> textu
                                            bool keep_aspect, bool overlay);
 /* 0x00426F80: render the world into a caller-owned color surface through a
    scissored viewport, then blit the locked frame buffer onto the target. */
-std::uint8_t RenderWorldToSurface(srColorSurface* target, W8ScreenRect* rect,
+bool RenderWorldToSurface(srColorSurface* target, W8ScreenRect* rect,
                                    bool render_secondary);
 void SetPickKey(void* key);
 
@@ -114,7 +114,7 @@ struct W8ControlsRect;
 /* 0x00424790: build a solid-color quad sprite; width/height are pixel counts
    and `color` becomes the material's emissive vector. MGSRadarMap's blip
    templates are its observed callers. */
-void SetFullscreenSceneLast(std::uint8_t value); /* 0x004298E0 */
+void SetFullscreenSceneLast(bool value); /* 0x004298E0 */
 stModelInstance2D* CreateColoredPolygonSprite(std::int32_t width, std::int32_t height, const glm::vec4* color,
                                               bool fullscreen);
 /* 0x004253F0: the render-target sprite factory CreateSpriteFromSurface wraps; the
@@ -152,7 +152,7 @@ std::uint32_t MeasureNodeRenderWithoutPositionalOption(srNode* node);
    RenderAutomapMarkers' item-marker factory calls it cross-TU. */
 srModelInstance* MakePolygonBrush(srNode* parent, std::shared_ptr<srColorSurfaceIFace> surface, double width,
                                   double height, float mapping_x, float mapping_y,
-                                  float mapping_width, float mapping_height, std::uint8_t overlay);
+                                  float mapping_width, float mapping_height, bool overlay);
 /* 0x00484A40: blit one frame of a video object into a color surface. */
 bool BlitVideoObjectToColorSurface(const SpriteSheet& sprites, std::uint16_t region,
                                       srColorSurface& destination, std::int32_t x, std::int32_t y);
@@ -187,7 +187,7 @@ extern std::uint8_t g_fullscreen;
 extern bool g_screenshot_pending;
 extern bool g_video_inspector_enabled;
 extern bool g_cursor_scene_enabled;
-extern std::uint8_t g_fullscreen_scene_last;
+extern bool g_fullscreen_scene_last;
 extern const std::int32_t* g_overlay_viewport;
 extern srModeler* g_modeler;
 extern srScene* g_scene_user;
@@ -253,33 +253,33 @@ struct ViewportBounds {
 ViewportBounds GetScaledViewportBounds();
 /* Lock the primary GERD buffer and emit one debug wireframe line. */
 void DrawBufferLine(std::int32_t x0, std::int32_t y0, std::int32_t x1, std::int32_t y1, std::uint32_t* pixel);
-std::uint8_t InitializeRendererSceneObjects(void);
+bool InitializeRendererSceneObjects(void);
 void PurgeInactiveSceneInstances(srScene* scene);
 void ResetVideoFrameState(void);
 void SetPrimarySurfaceTextureHint2Enabled(bool enabled);
-std::uint8_t ClearPrimarySurface(void);
+bool ClearPrimarySurface(void);
 void ResetTransientRenderScenes(void);
 void ClearVideoDirtyBlocks(void); /* 0x00423150 */
 void RenderScene(srScene* scene, srCamera* camera, const std::int32_t* viewport, bool preserve_fog);
 void RenderFrame(void);
 /* The native presentation shell also owns this opaque surface entry point. */
 SDL_Surface* BeginVideoPresentation(void);
-std::uint8_t FinishVideoPresentation(void);
+bool FinishVideoPresentation(void);
 void PublishLightDirection(const EnvironmentColour* direction);
 void GetWorldColour(EnvironmentColour* colour); /* 0x00427290 */
 srVector3T<float>* __fastcall SaturateColor(srVector3T<float>* color);
 void ReleaseObject(stModelInstance2D* object);
 void Initialize16BitPixelFormatMasks(void);
-std::uint8_t CreateWizardryWindow(void);
-std::uint8_t InitializePrimarySurface(void);
+bool CreateWizardryWindow(void);
+bool InitializePrimarySurface(void);
 void ReleasePrimarySurface(void);
 std::uint8_t InitializeVideoDevice(void);
 bool SetupDisablesAudio();
-std::uint8_t OpenRendererWindow(void);
+bool OpenRendererWindow(void);
 void InvalidateRendererTextureCache(void);
 void AssertFailureHandler(const char* expression, const char* file, std::int32_t line, const char* message);
-std::uint8_t DisableCursorScene(void);
-std::uint8_t EnableCursorScene(void);
+bool DisableCursorScene(void);
+bool EnableCursorScene(void);
 void SetOverlayViewport(const std::int32_t* value);
 void SetWorldModelPickingEnabled(bool enabled);
 bool RendererBufferIsLockable(void);

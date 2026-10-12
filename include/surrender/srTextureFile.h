@@ -28,7 +28,7 @@ public:
     const std::string& getFileName() const;
     void setFileName(std::string file_name);
     void setCached(std::int32_t cached);
-    std::int32_t isSurfaceLoaded() const;
+    bool isSurfaceLoaded() const;
     void loadSurface();
     void releaseSurface();
 

@@ -76,7 +76,7 @@ void RecomputeCharacterHighestCondition(std::int32_t party_slot);
    runs it before the faction fallout. */
 void ReleaseMonsterConditionBindings(W8MonsterInfo* monster_info);
 
-std::uint8_t SetCharacterCondition(std::int32_t party_slot, W8Condition condition, std::int32_t duration,
+bool SetCharacterCondition(std::int32_t party_slot, W8Condition condition, std::int32_t duration,
                                     std::int32_t poison_strength, char alternate_missing_notice,
                                     char announce);
 

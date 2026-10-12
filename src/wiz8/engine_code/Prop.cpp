@@ -403,7 +403,7 @@ srModelInstance* W8PropRepresentation::ToggleAnimation(std::int32_t argument)
    The slot's first byte is the target frame; the current subcycle and that
    frame become the ordered range the animation plays through. */
 // FUNCTION: WIZ8 0x0044ba50
-std::uint8_t W8PropRepresentation::SelectAnimationSlot(std::uint8_t tag)
+bool W8PropRepresentation::SelectAnimationSlot(std::uint8_t tag)
 {
     std::int32_t index;
 
@@ -414,7 +414,7 @@ std::uint8_t W8PropRepresentation::SelectAnimationSlot(std::uint8_t tag)
             std::int8_t selected = slot->frame;
 
             if (selected < 0) {
-                return 0;
+                return false;
             }
             first_frame = subcycle;
             last_frame = static_cast<std::uint8_t>(selected);
@@ -428,10 +428,10 @@ std::uint8_t W8PropRepresentation::SelectAnimationSlot(std::uint8_t tag)
                 frame_direction = W8_ANIMATION_REVERSE;
             }
             animation_playing = 1;
-            return 1;
+            return true;
         }
     }
-    return 0;
+    return false;
 }
 
 /* Which slot carries the current tag. The tag is matched against each slot's

@@ -1476,7 +1476,7 @@ bool TakePendingSaveFlag(void)
 }
 
 // FUNCTION: WIZ8 0x00512f70
-std::uint8_t SaveSlotFileExists(std::string_view slot_name)
+bool SaveSlotFileExists(std::string_view slot_name)
 {
     return IsRegularFile(SaveSlotPath(slot_name));
 }

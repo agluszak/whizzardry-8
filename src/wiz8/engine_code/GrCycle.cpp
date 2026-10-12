@@ -231,11 +231,11 @@ void UpdateShakeEffects()
 /* Bit 2 gates the distance test, bit 3 selects the quadratic falloff, bit 4
    fades out with the remaining time and bit 5 fades in. */
 // FUNCTION: WIZ8 0x004AE4E0
-std::uint8_t W8CameraShakeEffect::Evaluate(const srVector3T<float>* position, float* out_amount)
+bool W8CameraShakeEffect::Evaluate(const srVector3T<float>* position, float* out_amount)
 {
     float progress = timer.GetProgress();
     if (g_float_one <= progress) {
-        return 0;
+        return false;
     }
     if (flags.limit_distance) {
         float dx = this->position.x - position->x;
@@ -255,12 +255,12 @@ std::uint8_t W8CameraShakeEffect::Evaluate(const srVector3T<float>* position, fl
     }
     if (flags.fade_out) {
         *out_amount = (g_float_one - progress) * *out_amount;
-        return 1;
+        return true;
     }
     if (flags.fade_in) {
         *out_amount = progress * *out_amount;
     }
-    return 1;
+    return true;
 }
 
 // GLOBAL: WIZ8 0x005ec128
@@ -671,7 +671,7 @@ void W8GrCycle::TickAnimation(float scale)
 }
 
 // FUNCTION: WIZ8 0x004a6fc0
-std::uint8_t W8GrCycle::ApplyPendingCycle()
+bool W8GrCycle::ApplyPendingCycle()
 {
     W8EmitterHost* representation = GetRepresentation();
 
@@ -721,9 +721,9 @@ std::uint8_t W8GrCycle::ApplyPendingCycle()
         }
         representation->animation_playing = 1;
         representation->timer = g_shared_timer_base->milliseconds();
-        return 1;
+        return true;
     }
-    return 0;
+    return false;
 }
 
 // FUNCTION: WIZ8 0x004a7150
@@ -1287,10 +1287,10 @@ srModelInstance* W8GrCycle::SelectCycleFrameLod(std::int8_t cycle, std::int8_t f
 }
 
 // FUNCTION: WIZ8 0x004a8400
-std::uint8_t W8GrCycle::ReplacePath(W8PathAI* path)
+bool W8GrCycle::ReplacePath(W8PathAI* path)
 {
     m_pAI.reset(path);
-    return 1;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x004a84a0
@@ -1441,7 +1441,7 @@ W8GrCycle* FindFirstGrCycleByName(std::string_view name)
 }
 
 // FUNCTION: WIZ8 0x004a8830
-std::uint8_t UnregisterGrCycle(W8GrCycle* cycle)
+bool UnregisterGrCycle(W8GrCycle* cycle)
 {
     std::int32_t name_index;
 
@@ -1453,17 +1453,17 @@ std::uint8_t UnregisterGrCycle(W8GrCycle* cycle)
         }
         if (wiz8::erase_first(*cycles, cycle)) {
             if (!cycles->empty()) {
-                return 0;
+                return false;
             }
             g_grcycles_by_name.erase(g_grcycles_by_name.begin() + name_index);
             delete cycles;
             char* name = g_grcycle_names[name_index];
             g_grcycle_names.erase(g_grcycle_names.begin() + name_index);
             delete[] name;
-            return 1;
+            return true;
         }
     }
-    return 0;
+    return false;
 }
 
 // FUNCTION: WIZ8 0x004a89a0

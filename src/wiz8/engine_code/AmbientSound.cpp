@@ -613,15 +613,15 @@ void DestroyAmbientSound(W8AmbientSound* ambient)
 /* Build a complete ambient-sound row and attach it to the world's list. The
    twenty parameters and their widths come directly from the stack reads. */
 // FUNCTION: WIZ8 0x0047a790
-std::uint8_t AddAmbientSound(W8World* world, const char* name, const W8AmbientSoundConfig* config,
+bool AddAmbientSound(W8World* world, const char* name, const W8AmbientSoundConfig* config,
                               const srVector3T<float>* position,
                               const srVector3T<float>* region_min,
                               const srVector3T<float>* region_max, std::int32_t volume_min, std::int32_t volume_max,
                               std::int32_t time_min, std::int32_t time_max, std::int32_t speed_min, std::int32_t speed_max,
-                              float radius, bool looping, std::uint8_t bounded,
+                              float radius, bool looping, bool bounded,
                               const srVector3T<float>* region_center, float region_angle,
                               const srVector3T<float>* region_axis,
-                              const srVector3T<float>* region_scale, std::uint8_t shared)
+                              const srVector3T<float>* region_scale, bool shared)
 {
     W8AmbientSound* sound = CreateAmbientSound();
 
@@ -653,7 +653,7 @@ std::uint8_t AddAmbientSound(W8World* world, const char* name, const W8AmbientSo
     sound->bounded = bounded;
     sound->shared = shared;
     world->plsAmbientSounds.push_back(sound);
-    return 1;
+    return true;
 }
 
 /* The by-name script operations share one lookup and the same start/stop
@@ -830,7 +830,7 @@ bool IsSoundEffectsMuted(void)
 }
 
 // FUNCTION: WIZ8 0x0047ae90
-void SetSoundEffectsMuted(std::uint8_t muted)
+void SetSoundEffectsMuted(bool muted)
 {
     if (muted != 0) {
         if (g_settings.muted_sound_effects_volume == 0xff) {
@@ -848,7 +848,7 @@ void SaveAmbientSoundList(wiz8::File& handle)
 {
     std::uint8_t version = 1;
     std::uint32_t count;
-    std::uint8_t ok;
+    bool ok;
     char empty_name[0x80];
     std::int32_t index;
 
@@ -886,7 +886,7 @@ void SaveAmbientSoundList(wiz8::File& handle)
 void LoadAmbientSoundList(wiz8::File& handle)
 {
     std::uint8_t version;
-    std::uint8_t ok;
+    bool ok;
     std::int32_t count = 0;
     std::int32_t index;
     char name[0x80];

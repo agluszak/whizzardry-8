@@ -104,20 +104,20 @@ struct W8LevelDataRecord {
     /* 0x0041FE20: when the camera sits outside the game-data AABB, push
        motion_displacement toward the box, clear environ vector, and optionally start
        party movement; returns non-zero when a clamp fired. */
-    std::uint8_t ClampCameraToBounds(const srVector3T<float>* minimum,
+    bool ClampCameraToBounds(const srVector3T<float>* minimum,
                                       const srVector3T<float>* maximum);
     /* 0x0041FF00: toggle setting-6e props referenced by
      * primary_contact_prop_id/secondary_contact_prop_id. */
-    std::uint8_t ToggleBoundProps();
+    bool ToggleBoundProps();
     /* 0x00420470: integrate camera_motion_velocity into motion_velocity/integrated_motion. */
     std::uint32_t resolveMotionFlags(std::uint32_t input, bool engaged);
     bool IntegrateCameraForward();
     /* 0x00420810: rotate motion_input by the saved yaw matrix and refresh
        motion_displacement; returns the updated fast-move latch. */
-    std::uint8_t ApplySavedMotionMatrix(std::uint8_t prior_fast, bool fast_move,
+    bool ApplySavedMotionMatrix(bool prior_fast, bool fast_move,
                                          const glm::mat3& saved);
     /* 0x0041FF90: advance movement progress / footstep state for one tick. */
-    void UpdateMotionProgress(std::uint8_t fast_move, std::uint8_t moved);
+    void UpdateMotionProgress(std::uint8_t fast_move, bool moved);
     /* 0x00420A60: accumulate footstep distance and optionally play a step. */
     bool UpdateFootstepFromMotion();
 };
@@ -175,7 +175,7 @@ struct W8EnvironRecord {
     float momentum_scale;
     float value_40;
 
-    std::uint8_t RescaleToReference(const W8EnvironRecord* reference);
+    bool RescaleToReference(const W8EnvironRecord* reference);
     /* 0x00421800: store `motion` / scale as the per-frame vector. */
     void SetScaledMotion(const glm::vec3& motion);
     /* 0x00421850: add vector * scale into `position`. */
@@ -211,11 +211,11 @@ struct W8GameData {
     ~W8GameData();                          /* 0x00449BB0 */
     void ReadProcessedGameData(wiz8::File* handle); /* 0x00449240 */
     /* Writes the game-data block WriteOctFile appends after the terminator. */
-    std::uint8_t WriteGameData(wiz8::File* handle); /* 0x0044AA40 */
+    bool WriteGameData(wiz8::File* handle); /* 0x0044AA40 */
     /* Reads one WGD vertex/polygon list: counts, the scaled vertex bank with
        unscaled bounds tracking, the face records, and — for the non-primary
        pass — the interface name and conditional-face records. */
-    std::uint8_t ReadWGDList(wiz8::File& file, std::int32_t poly_type);
+    bool ReadWGDList(wiz8::File& file, std::int32_t poly_type);
     /* Builds m_pInterfaces/m_pStates/m_piCondPolys from the {interface id,
        surface index, group} triples collected by ReadWGDList. */
 
@@ -241,7 +241,7 @@ struct W8GameData {
        props/octree/geometry and applying crossed surfaces. */
     std::uint8_t AdvanceEnvironmentMotion();
     /* 0x0041BD60: push the motion delta away from nearby active monsters. */
-    std::uint8_t ProbeMonstersAlongMotion(srVector3T<float>* direction,
+    bool ProbeMonstersAlongMotion(srVector3T<float>* direction,
                                            srVector3T<float>* position, std::int32_t mode);
     /* 0x0041B770: probe active collidable props along the motion segment;
        returns the nearest hit surface and may adjust `direction`. */
@@ -360,12 +360,12 @@ void SetLevelFastMovement(void);    /* 0x0041EFE0 */
 bool LevelMovedThisUpdate(void);    /* 0x0041EFF0 */
 bool HasLevelDataVector(void);      /* 0x0041F010 */
 void ResetCurrentEnvironment(void);
-std::uint8_t SetEnvironmentLoadFlag(std::uint8_t flag); /* 0x0041AAE0 */
+bool SetEnvironmentLoadFlag(bool flag); /* 0x0041AAE0 */
 void BeginCameraSway(void);
 void EndCameraSway(void);
 
 bool IsLevelMovementStopped(void);
-std::uint8_t ConsumeLevelElapsedTime(float* real_elapsed, float* frame_elapsed);
+bool ConsumeLevelElapsedTime(float* real_elapsed, float* frame_elapsed);
 /* Retail tests level flag 0x008; when set both outputs are -1. */
 void GetLevelSoundEnvironment(char* environment, char* secondary);
 
@@ -412,7 +412,7 @@ void UpdateLevelMovementAudio(void);
 /* 0x004EF9A0: fall-impact override handler owned by GameplayCode.cpp;
    declared in wiz8/local_code/GameplayCode.h. */
 
-extern std::uint8_t g_level_motion_fast;
+extern bool g_level_motion_fast;
 extern bool g_level_footstep_pending;
 extern float g_camera_motion_clamp;
 extern float g_camera_motion_divisor;

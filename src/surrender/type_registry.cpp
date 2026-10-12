@@ -41,7 +41,7 @@ void srRuntimeClass::verify(e_verify)
 }
 
 // FUNCTION: SURRENDER 0x100118D0
-std::int32_t srRuntimeClass::matchClassID(std::uint32_t class_id) const
+bool srRuntimeClass::matchClassID(std::uint32_t class_id) const
 {
     srRegistry* registry = srCore.getRegistry();
     srRegistry::ClassNode* instance_class = getClassNode();
@@ -50,7 +50,7 @@ std::int32_t srRuntimeClass::matchClassID(std::uint32_t class_id) const
 }
 
 // FUNCTION: SURRENDER 0x10011900
-std::int32_t srRuntimeClass::isNamed() const
+bool srRuntimeClass::isNamed() const
 {
     return !name.empty();
 }
@@ -201,11 +201,11 @@ const char* srRegistry::getClassName(ClassNode* node)
     return node ? node->class_name.c_str() : nullptr;
 }
 
-std::int32_t srRegistry::isDerivedOrSame(ClassNode* base, ClassNode* derived)
+bool srRegistry::isDerivedOrSame(ClassNode* base, ClassNode* derived)
 {
-    if (!base) return 0;
+    if (!base) return false;
     for (; derived; derived = derived->parent) {
-        if (derived == base) return 1;
+        if (derived == base) return true;
     }
-    return 0;
+    return false;
 }

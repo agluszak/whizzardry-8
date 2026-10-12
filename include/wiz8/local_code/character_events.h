@@ -10,7 +10,7 @@
 
 bool IsVoiceMuted(void);
 /* The audio panels pass the raw W8TextControl mask bit (0 or 2) through. */
-void SetVoiceMuted(std::uint8_t muted);
+void SetVoiceMuted(bool muted);
 
 struct W8Character;
 struct W8CharacterEvent;
@@ -33,7 +33,7 @@ bool FormatCharacterQuoteText(W8Character* character, std::uint32_t event_type,
 extern const std::int32_t g_fact_check_event;
 
 /* True when no occupied party slot has an active portrait/voice record. */
-std::uint8_t PartyPortraitEventsIdle(void);
+bool PartyPortraitEventsIdle(void);
 std::int32_t PickRandomPartySpeaker(std::uint32_t event_type, std::uint8_t excluded_slot);
 W8CharacterEvent* ApplyItemEffectToRandomCharacter(std::uint32_t event_type, std::int32_t excluded_slot,
                                                    std::uint32_t flags, std::int32_t queue_mode);
@@ -59,14 +59,14 @@ void RequeueSelectedPortraitEvent(void);
 void SetPortraitTargetPose(struct W8MonsterManagerEntry* slot, std::int32_t pose);
 /* Left-click on a party portrait completes that slot's active
    event, or finishes the NPC voice playback for the player portraits. */
-std::uint8_t PartyPortraitEventRegionEvent(const InputEvent* event, struct W8Region* region);
+bool PartyPortraitEventRegionEvent(const InputEvent* event, struct W8Region* region);
 /* Re-blit each active portrait quote bubble when the screen comes
    back from a modal view. */
 void RedrawPortraitQuoteBubbles(void);
 /* Queue the character's breath/idle event unless a spell or item
    is being aimed; `force` queues it regardless. */
 void StartBreathCycle(std::int32_t party_slot, bool force);
-void RenderPartyPortrait(std::int32_t portrait, std::int32_t left, std::int32_t top, SpriteDraw options, std::uint8_t value,
+void RenderPartyPortrait(std::int32_t portrait, std::int32_t left, std::int32_t top, SpriteDraw options, bool value,
                          std::int32_t party_slot);
 /* Blit one animated portrait frame and its transition, returning
    whether a frame was drawn. */

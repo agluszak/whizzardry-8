@@ -84,7 +84,7 @@ struct W8Item : public W8GrObject {
 
 bool ReadItemFromFile(W8ReadLevelInfo* info, W8Item** item, bool anonymous_mesh);
 /* Run the item's trigger, if any, and report its action state. */
-std::uint8_t RunItemTrigger(W8Item* item); /* 0x004A0070 */
+bool RunItemTrigger(W8Item* item); /* 0x004A0070 */
 std::optional<srBoundingBox> GetItemWorldBounds(const W8Item* item);
 
 bool LoadItemFromFile(const W8ReadLevelInfo* context, const char* name, W8Item** item,

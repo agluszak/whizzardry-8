@@ -588,13 +588,13 @@ public:
     /* Hands out the next path-node record, allocating a new chunk when the
        current one fills. */
     W8PrePathNode* GetPathNode();
-    std::uint8_t BuildPathList(W8PrePathNode* nodes, std::unordered_map<std::uint32_t, std::int32_t>* cell_map);
+    bool BuildPathList(W8PrePathNode* nodes, std::unordered_map<std::uint32_t, std::int32_t>* cell_map);
     W8PrePathNode* FindAdjacentPathNode(const W8PrePathNode* node, std::int32_t direction);
-    std::uint8_t LinkPathNodes();
+    bool LinkPathNodes();
     void PropagatePathNodeClearance(W8PrePathNode* node, std::uint32_t depth);
     std::uint32_t DeleteUnreachableAreas();
     std::int32_t CreatePathNodeArray();
-    std::uint8_t CreateAutomapNodes(W8LevelFile& level);
+    bool CreateAutomapNodes(W8LevelFile& level);
 
     W8PrePathNode** path_node_list; /* path_node_count entries */
     OctPrePathLog* path_log;

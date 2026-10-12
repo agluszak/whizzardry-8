@@ -299,7 +299,7 @@ void DispatchPendingNpcScriptNotice(void);
 bool CanOpenNpcDialogue(void);
 bool IsNpcDialogueTextInputActive(void);
 bool IsNpcDialogueTextBoxActive(void);
-std::uint8_t SetNpcDialoguePanelVisible(std::uint8_t value);
+bool SetNpcDialoguePanelVisible(bool value);
 bool ProcessPendingEvent(void);
 void SyncDialogueNpcStateAndMarkPending(void);
 /* A script notice is staged in g_pending_notice */
@@ -307,7 +307,7 @@ extern bool g_pending_notice_queued;
 void SyncNpcServiceButtons(std::int32_t party_slot);
 /* Forward mouse events to W8NpcInteractionState control slots indexed by
    callback_id in dialogue_controls (id 0x27 is ignored). */
-std::uint8_t MainScreenControlRegionEvent(const InputEvent* event, struct W8Region* region);
+bool MainScreenControlRegionEvent(const InputEvent* event, struct W8Region* region);
 void SwitchNpcDialogueLayout(W8NpcDialogueLayout layout);
 void BeginNpcDialogue(W8NpcState* npc, W8ItemInstance* item, std::int32_t quote, std::uint8_t flags,
                       std::uint8_t force);
@@ -354,11 +354,11 @@ std::uint8_t IsNpcDialogueCursorActive(void);
 /* Forward a portrait pick into an active NPC dialogue. */
 void TryNpcDialoguePickpocket(std::int32_t party_slot);
 std::string ShortenTextToWidth(std::string_view text, std::uint32_t width, Font& font);
-std::uint8_t NpcQuoteBubbleRegionEvent(const InputEvent* event, W8Region* region);
+bool NpcQuoteBubbleRegionEvent(const InputEvent* event, W8Region* region);
 void SetDialogueFieldKeyword(std::string keyword, bool append);
 void ActivateNpcDialoguePanels(bool active);
 bool HasNpcDialogueDirtyPanels(void);
-std::uint8_t NpcDialogueTextBoxRegionEvent(const InputEvent* event, W8Region* region);
+bool NpcDialogueTextBoxRegionEvent(const InputEvent* event, W8Region* region);
 void NpcDialogueTextBoxWheelAt(std::int16_t x, std::uint16_t y, bool flag);
 /* True when an NPC quote/portrait session is active: finish voice playback and
    report that the click was consumed. */

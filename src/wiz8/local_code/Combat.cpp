@@ -687,12 +687,12 @@ W8PartyAction GetEffectivePartyAction(void)
    otherwise, with nothing derived, one conscious character whose combat row is
    flagged is enough. */
 // FUNCTION: WIZ8 0x004e7e70
-std::int32_t IsPartyEngaged(void)
+bool IsPartyEngaged(void)
 {
     std::uint32_t party_slot;
 
     if (g_combat_state->uiCurrentPartyActionStatus != W8_PARTY_ACTION_NOT_STARTED) {
-        return 1;
+        return true;
     }
     if (g_combat_state->uiCurrentPartyAction == W8_PARTY_ACTION_NONE) {
         for (party_slot = 0; party_slot < 8; ++party_slot) {
@@ -700,11 +700,11 @@ std::int32_t IsPartyEngaged(void)
                 g_status.buffers.Char[party_slot].hp_current != 0 &&
                 g_status.buffers.Char[party_slot].highest_condition < W8_CONDITION_ASLEEP &&
                 g_combat_state->characters[party_slot].dead) {
-                return 1;
+                return true;
             }
         }
     }
-    return 0;
+    return false;
 }
 
 // FUNCTION: WIZ8 0x004ecdd0
@@ -826,27 +826,27 @@ void NotifyNearbyMonsters(std::int32_t what)
    act rolls against half their sixth attribute; nobody in shape at all, or the
    global being clear, and the answer is yes by default. */
 // FUNCTION: WIZ8 0x004ed1c0
-std::int32_t PartyAvoidsSurprise(void)
+bool PartyAvoidsSurprise(void)
 {
     std::uint32_t party_slot = 0;
 
     if (!gXStatus.fSurprisePossible) {
-        return 0;
+        return false;
     }
     while (!g_status.buffers.XChar[party_slot].fOccupied ||
            g_status.buffers.Char[party_slot].hp_current == 0 ||
            g_status.buffers.Char[party_slot].highest_condition > W8_CONDITION_INFATUATED) {
         ++party_slot;
         if (party_slot > 7) {
-            return 1;
+            return true;
         }
     }
     Random(1);
     if (g_status.buffers.Char[party_slot].attributes[W8_ATTRIBUTE_SENSES].effective >> 1 <=
         Random(100)) {
-        return 1;
+        return true;
     }
-    return 0;
+    return false;
 }
 
 // GLOBAL: WIZ8 0x005ed490
@@ -1969,7 +1969,7 @@ void AdvanceCombatRound(void)
    torn down - the all-dead defeat, the no-kill end, or the victory fanfare -
    and 0 while it may continue. */
 // FUNCTION: WIZ8 0x004e9f90
-std::int32_t CheckCombatEnd(std::uint32_t end_if_no_hostiles)
+bool CheckCombatEnd(std::uint32_t end_if_no_hostiles)
 {
     bool any_active = AnyCharacterActive();
     RecountCombatMonsters();
@@ -1987,20 +1987,20 @@ std::int32_t CheckCombatEnd(std::uint32_t end_if_no_hostiles)
         if (((end_if_no_hostiles == 0 || gXStatus.hostile_monster_count != 0) ||
              gXStatus.hostile_group_count != 0) &&
             g_combat_state->unengaged_rounds < 2) {
-            return 0;
+            return false;
         }
         if (g_combat_state->combat_result == 0) {
             if (g_combat_state->enemies_engaged) {
                 StartLevelMusic(1, 1);
                 EndCombat(false);
-                return 1;
+                return true;
             }
             ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x22e], 0);
             if (CombatHasContinuingEffects()) {
                 ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x22f], 0);
                 StartLevelMusic(1, 1);
                 EndCombat(false);
-                return 1;
+                return true;
             }
         } else {
             std::uint32_t party_slot;
@@ -2021,12 +2021,12 @@ std::int32_t CheckCombatEnd(std::uint32_t end_if_no_hostiles)
                  event != 0)) {
                 event->DelayDispatch(0x5dc);
                 EndCombat(false);
-                return 1;
+                return true;
             }
         }
     }
     EndCombat(false);
-    return 1;
+    return true;
 }
 
 /* Roll for surprise at combat start: the party side through the first

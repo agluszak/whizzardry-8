@@ -142,9 +142,9 @@ public:
 
     /* Returns whether the pairing ended up recorded; every recovered caller
        discards it. */
-    std::uint8_t RegisterObjectCell(W8OctreeObjectKind kind, std::int32_t id, const glm::ivec3& point);
-    std::uint8_t MoveObjectToCell(W8OctreeObjectKind kind, std::int32_t id, const glm::ivec3& point);
-    std::uint8_t UnregisterObject(W8OctreeObjectKind kind, std::int32_t id);
+    bool RegisterObjectCell(W8OctreeObjectKind kind, std::int32_t id, const glm::ivec3& point);
+    bool MoveObjectToCell(W8OctreeObjectKind kind, std::int32_t id, const glm::ivec3& point);
+    bool UnregisterObject(W8OctreeObjectKind kind, std::int32_t id);
 };
 
 /* The two compact records stored in an OCT file.  A branch is its two shorts
@@ -226,7 +226,7 @@ public:
                                        std::uint16_t exclusion); /* 0x0042EF00 */
     /* AABB occupancy test: GD triangles, kind-12 location objects (with each
        monster's navigator radius) and collidable-prop surfaces. */
-    std::uint8_t TestBoxOccupied(const srVector3T<float>* lower,
+    bool TestBoxOccupied(const srVector3T<float>* lower,
                                   const srVector3T<float>* upper); /* 0x0042EF30 */
     /* Append the objects of `kind` inside one cell to the shared query
        buffer; the registry path deduplicates through m_visited_object_bits. */
@@ -243,7 +243,7 @@ public:
     bool HasLineOfSight(const srVector3T<float>* from, srVector3T<float>* to, bool allow_fallback);
     /* Paths `from` toward `to`; on success `range` returns the path cost and
        `hops` the reached-waypoint count. */
-    std::uint8_t TestNoiseLineOfSight(const srVector3T<float>* from, srVector3T<float>* to,
+    bool TestNoiseLineOfSight(const srVector3T<float>* from, srVector3T<float>* to,
                                        float* range, std::int32_t* hops); /* 0x00434220 */
     std::int16_t TraceLineOfSight(const srVector3T<float>* from, srVector3T<float>* to, bool trace_world,
                            std::int32_t from_location_id, std::int32_t to_location_id, bool visit_octree,
@@ -259,7 +259,7 @@ public:
     std::int32_t ProbeCellForBlockersAppend(const glm::ivec3& cell); /* 0x00435DA0 */
     /* Test every buffered (mesh<<16)|polygon key's triangle against the trace
        ray; on a closer hit, end returns the contact point. */
-    std::uint8_t TestProbeResult(W8OctreeTrace* trace); /* 0x00435F00 */
+    bool TestProbeResult(W8OctreeTrace* trace); /* 0x00435F00 */
     struct PropTraceHit {
         glm::vec3 position;
         std::int32_t prop_id;
@@ -295,7 +295,7 @@ public:
                                          float separation);
     std::uint8_t PrepareNavigatorPatrol(W8NavigatorMovementState* movement, float minimum,
                                          float maximum);
-    std::uint8_t LinkNavigatorTarget(W8NavigatorMovementState* movement,
+    bool LinkNavigatorTarget(W8NavigatorMovementState* movement,
                                       const srVector3T<float>* target, float separation);
     void GetPathSurfaceNormal(const srVector3T<float>* position, srVector3T<float>* normal);
     GroundProbe settleToGround(const glm::vec3& position, bool test_props, float limit); /* 0x00433820 */
@@ -314,7 +314,7 @@ public:
     void UpdatePathVisualization(); /* 0x00434170 */
     void UpdateCameraVisibility();
     void UpdateVisibility();
-    std::uint8_t UpdateWorldTrace();
+    bool UpdateWorldTrace();
     /* Store `path` with its extension stripped into m_owned_0c0; the sibling
        data files are then derived from the stem. */
     bool SetPathStem(const char* path); /* 0x0042CF90 */
@@ -337,7 +337,7 @@ public:
        zero value samples a sparse checkerboard plus the stored points. */
     void BuildRegionLinks(bool rebuild_all); /* 0x004314C0 */
     bool SaveRegionLinks(char* path);
-    std::uint8_t ValidateRegionMeshLinks();
+    bool ValidateRegionMeshLinks();
     /* Collect the live (mesh<<16)|polygon keys whose triangles overlap the
        (x±radius, y-height..y, z±radius) box, sorted in an owned result. */
     std::vector<std::uint32_t> polygonsNearPoint(const glm::vec3& center, float radius,
@@ -434,7 +434,7 @@ public:
     bool m_projected_regions_valid;
     /* Set after a location matches a region, cleared before visibility
        collection. No consumer or Reset initialization is established. */
-    std::uint8_t m_location_region_matched; // bool-byte-ok: stores alone do not establish bool
+    bool m_location_region_matched;
     bool m_region_links_dirty;
     bool m_points_dirty;
     std::uint8_t m_padding_16e[2];
@@ -526,10 +526,10 @@ public:
     std::uint32_t SplitUVMaps(W8OctSubmeshBuild* record, W8OctPreTreeGeometry* geometry);
     void VerifyPolygonRegions();
     void VerifyAutoMeshes(W8OctPreTreeGeometry* geometry, W8OctSubmeshBuild* records);
-    std::uint8_t BuildPathLists(W8GameData* game_data, W8LevelFile& level,
+    bool BuildPathLists(W8GameData* game_data, W8LevelFile& level,
                                  std::uint32_t min_component_percent);
     char PathNodeObstructed(const srVector3T<float>* node_position);
-    std::uint8_t InsertConditionalNodes(std::unordered_multimap<std::uint32_t, CondPathNode*>& nodes,
+    bool InsertConditionalNodes(std::unordered_multimap<std::uint32_t, CondPathNode*>& nodes,
                                          std::uint32_t cell, std::uint32_t node, std::span<const W8PreProp> preprops);
     /* Tests the bounds box against static surfaces and registered props;
        0 clear, 1 blocked, 3 clear but prop ids were recorded in m_lBlocks. */

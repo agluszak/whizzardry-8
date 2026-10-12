@@ -1317,39 +1317,39 @@ void CreateConditionButtons(void)
 }
 
 // FUNCTION: WIZ8 0x0059BD20
-std::uint8_t PortraitControlRegionEvent(const InputEvent* event, W8Region* region)
+bool PortraitControlRegionEvent(const InputEvent* event, W8Region* region)
 {
     W8TextControl* control = g_portrait_controls[region->callback_id];
     if (control == 0) {
-        return 0;
+        return false;
     }
     switch (event->type) {
     case InputEventType::LeftButtonDown:
         control->OnLeftButtonDown(0);
         region->flags |= W8_REGION_LEFT_BUTTON_HELD;
-        return 1;
+        return true;
     case InputEventType::LeftButtonUp:
         if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
             giLevelUpChar = region->callback_id;
             control->OnLeftButtonUp(0);
             region->flags &= ~W8_REGION_LEFT_BUTTON_HELD;
         }
-        return 1;
+        return true;
     case InputEventType::MouseMove:
         if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
             giLevelUpChar = -1;
             control->OnMouseLeave(0);
-            return 1;
+            return true;
         }
         if ((region->flags & W8_REGION_MOUSE_ENTER) != 0) {
             control->OnMouseEnter(0);
-            return 1;
+            return true;
         }
         break;
     default:
         break;
     }
-    return 0;
+    return false;
 }
 
 // FUNCTION: WIZ8 0x0059C080
@@ -1412,7 +1412,7 @@ void UpdateConditionButtons(void)
 }
 
 // FUNCTION: WIZ8 0x0059C260
-std::uint8_t ConditionButtonRegionEvent(const InputEvent* event, W8Region* region)
+bool ConditionButtonRegionEvent(const InputEvent* event, W8Region* region)
 {
     switch (event->type) {
     case InputEventType::LeftButtonDown:
@@ -1420,6 +1420,6 @@ std::uint8_t ConditionButtonRegionEvent(const InputEvent* event, W8Region* regio
     case InputEventType::MouseMove:
         return DispatchButtonRegionEvent(event, region, g_condition_buttons[region->callback_id]);
     default:
-        return 0;
+        return false;
     }
 }

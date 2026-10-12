@@ -9,4 +9,4 @@ struct W8GameData;
 
 W8GameData* ReadGameData(const char* path, bool secondary); /* 0x00447570 */
 W8GameData* ReadHostGameData(const std::filesystem::path& path, bool secondary);
-std::uint8_t InitializeGameData(W8GameData* game_data);
+bool InitializeGameData(W8GameData* game_data);

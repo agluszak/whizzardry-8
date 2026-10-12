@@ -139,7 +139,7 @@ std::int32_t stModelInstance::AddExistingDamageStage(const char* name)
 }
 
 // FUNCTION: WIZ8 0x004807b0
-std::uint8_t stModelInstance::ReplaceDamageStageTexture(
+bool stModelInstance::ReplaceDamageStageTexture(
     std::int32_t stage, const char* old_name, const std::shared_ptr<srTextureIFace>& replacement)
 {
     stMeshModel* mesh = static_cast<stMeshModel*>(getModel());

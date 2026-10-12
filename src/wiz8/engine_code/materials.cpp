@@ -242,12 +242,12 @@ static std::int32_t WeldVertex(std::unordered_multimap<std::uint32_t, std::int32
                       std::uint32_t index, std::uint32_t link);
 static std::int32_t AccumulateVertexLight(OctPreTree* tree, W8OctPreTreeVertex* vertex,
                                  std::span<const W8LevelFileLight> lights, std::int32_t* sun_map);
-static std::uint8_t PropReceivesLight(OctPreTree* tree, const W8LevelFileProp& prop,
+static bool PropReceivesLight(OctPreTree* tree, const W8LevelFileProp& prop,
                                        const W8LevelFileLight& light);
 static std::int32_t BuildRegionPolygons(W8LevelFile& level, W8OctPreTreeGeometry* geometry,
                                std::uint8_t* classify);
 static std::uint8_t* ClassifyTextures(std::span<W8MaterialRecord> textures, char* stem);
-static std::uint8_t MaterialSort(W8OctPreTreeGeometry* geometry, std::span<W8MaterialRecord> textures,
+static bool MaterialSort(W8OctPreTreeGeometry* geometry, std::span<W8MaterialRecord> textures,
                                   std::uint8_t* classify);
 
 // FUNCTION: WIZ8 0x00492E60
@@ -1383,19 +1383,19 @@ static std::int32_t AccumulateVertexLight(OctPreTree* tree, W8OctPreTreeVertex* 
    the light to the record position must be clear, else each corner of each
    recorded bounds pair is tried. */
 // FUNCTION: WIZ8 0x00495E90
-static std::uint8_t PropReceivesLight(OctPreTree* tree, const W8LevelFileProp& prop,
+static bool PropReceivesLight(OctPreTree* tree, const W8LevelFileProp& prop,
                                        const W8LevelFileLight& light)
 {
     const auto origin = light.position.glmValue();
-    if (tree->SegmentClear(origin, prop.position.glmValue() * g_world_scale)) return 1;
+    if (tree->SegmentClear(origin, prop.position.glmValue() * g_world_scale)) return true;
     for (const auto& box : prop.anim_obj.bounds) {
         const srBoundingBox bounds{box.minimum.glmValue() * g_world_scale,
                                    box.maximum.glmValue() * g_world_scale};
         // Bounding-box corners retain the original x/y/z probe order.
         for (std::uint32_t corner = 0; corner < 8; ++corner)
-            if (tree->SegmentClear(origin, bounds.corner(corner))) return 1;
+            if (tree->SegmentClear(origin, bounds.corner(corner))) return true;
     }
-    return 0;
+    return false;
 }
 
 /* Classifies every material's automesh kind: picks the first populated texture
@@ -1523,7 +1523,7 @@ static std::uint8_t* ClassifyTextures(std::span<W8MaterialRecord> textures, char
    string, remaps each polygon's material index at its group's representative
    and moves the old index into the texture slot. */
 // FUNCTION: WIZ8 0x00496500
-static std::uint8_t MaterialSort(W8OctPreTreeGeometry* geometry, std::span<W8MaterialRecord> textures,
+static bool MaterialSort(W8OctPreTreeGeometry* geometry, std::span<W8MaterialRecord> textures,
                                   std::uint8_t* classify)
 {
     const std::int32_t count = static_cast<std::int32_t>(textures.size());
@@ -1551,19 +1551,19 @@ static std::uint8_t MaterialSort(W8OctPreTreeGeometry* geometry, std::span<W8Mat
     texture_names = static_cast<char*>(malloc(count << 9));
     if (texture_names == 0) {
         ReportBuildStatus(7, "MaterialSort: Could not allocate acTextNames\n");
-        return 0;
+        return false;
     }
     memset(texture_names, 0, count << 9);
     material_lookup = static_cast<std::int32_t*>(malloc(count * sizeof(std::int32_t)));
     if (material_lookup == 0) {
         ReportBuildStatus(7, "MaterialSort: Could not allocate piMatLookup\n");
-        return 0;
+        return false;
     }
     memset(material_lookup, 0, count * 4);
     texture_lookup = static_cast<std::int32_t*>(malloc(count * sizeof(std::int32_t)));
     if (texture_lookup == 0) {
         ReportBuildStatus(7, "MaterialSort: Could not allocate piTextLookup\n");
-        return 0;
+        return false;
     }
     memset(texture_lookup, 0, count * 4);
     material_count = 0;
@@ -1588,7 +1588,7 @@ static std::uint8_t MaterialSort(W8OctPreTreeGeometry* geometry, std::span<W8Mat
             }
             if (*texture_name == '\0') {
                 ReportBuildStatus(7, "MaterialSort: Missing Texture Name\n");
-                return 0;
+                return false;
             }
             strcpy(name, texture_name);
             for (scan = 0; scan < texture_count; ++scan) {
@@ -1653,7 +1653,7 @@ static std::uint8_t MaterialSort(W8OctPreTreeGeometry* geometry, std::span<W8Mat
     free(texture_names);
     free(material_lookup);
     free(texture_lookup);
-    return 1;
+    return true;
 }
 
 /* Interactive OctBuild option screen: draws the seven status lines, handles the

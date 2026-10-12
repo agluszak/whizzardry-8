@@ -95,8 +95,8 @@ private:
 
 std::vector<std::int32_t> screen_leaves;
 std::int32_t screen_entries, screen_frames;
-std::uint8_t enter() { ++screen_entries; return 1; }
-std::uint8_t leave(std::int32_t discard) { screen_leaves.push_back(discard); return 1; }
+bool enter() { ++screen_entries; return true; }
+bool leave(std::int32_t discard) { screen_leaves.push_back(discard); return true; }
 void frame() { ++screen_frames; }
 
 void button_image_fixture(const std::filesystem::path& root, std::string name, std::uint32_t count = 9,
@@ -315,12 +315,12 @@ struct TestOwnedRegionHandler final : W8RegionHandler {
     }
 };
 
-std::uint8_t record_region_event(const InputEvent* event, W8Region* region)
+bool record_region_event(const InputEvent* event, W8Region* region)
 {
     region_events.emplace_back(region->callback_id, static_cast<std::int32_t>(event->type));
-    return 1;
+    return true;
 }
-std::uint8_t hover_region(const InputEvent*, W8Region* region)
+bool hover_region(const InputEvent*, W8Region* region)
 {
     if (region->flags & W8_REGION_MOUSE_LEAVE)
         region_events.emplace_back(region->callback_id, REGION_REASON_LOST_MOUSE);
@@ -328,14 +328,14 @@ std::uint8_t hover_region(const InputEvent*, W8Region* region)
         region_events.emplace_back(region->callback_id, REGION_REASON_GAIN_MOUSE);
     else
         region_events.emplace_back(region->callback_id, REGION_REASON_MOVE);
-    return 1;
+    return true;
 }
 
 std::uint32_t nested_region_set = 0;
 std::uint32_t nested_region_index = 0;
 bool remove_nested_region = false;
 std::vector<InputEventType> nested_region_events;
-std::uint8_t nested_region_callback(const InputEvent* event, W8Region*)
+bool nested_region_callback(const InputEvent* event, W8Region*)
 {
     if (event->type == InputEventType::LeftButtonDown) {
         nested_region_events.push_back(InputEventType::LeftButtonDown);
@@ -349,7 +349,7 @@ std::uint8_t nested_region_callback(const InputEvent* event, W8Region*)
             RemoveRegionFromSet(nested_region_set, nested_region_index);
         }
     }
-    return 1;
+    return true;
 }
 void region_nested_input()
 {

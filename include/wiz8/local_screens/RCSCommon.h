@@ -68,7 +68,7 @@ inline void DrawCampValueBar(std::uint32_t value, std::uint32_t base, std::int32
 void DrawCampHeader(void);
 void DrawCampVitals(void);
 void DrawCampHands(void);
-std::int32_t CreateCampButtonPanel(void);
+bool CreateCampButtonPanel(void);
 void DestroyCampButtonPanel(void);
 void RefreshCampItemActions(bool invalidate);
 void SetCampItemActionMode(char mode);
@@ -92,14 +92,14 @@ extern W8TextControl* g_item_action_controls[W8_CAMP_ACTION_BUTTON_COUNT];
    the page and item-action strips to. */
 extern std::unique_ptr<Controls> g_item_actions_panel;
 
-std::uint8_t CampDismissPortraitRegionEvent(const InputEvent* event, W8Region* region);
-std::uint8_t CampPortraitSlotRegionEvent(const InputEvent* event, W8Region* region);
-std::uint8_t CampOpenCharacterScreenRegionEvent(const InputEvent* event, W8Region* region);
-std::uint8_t CampProfessionHistoryRegionEvent(const InputEvent* event, W8Region* region);
-std::uint8_t CampPageButtonRegionEvent(const InputEvent* event, W8Region* region);
-std::uint8_t CampItemActionRegionEvent(const InputEvent* event, W8Region* region);
-std::uint8_t CampLevelUpButtonRegionEvent(const InputEvent* event, W8Region* region);
-std::uint8_t CampDismissButtonRegionEvent(const InputEvent* event, W8Region* region);
+bool CampDismissPortraitRegionEvent(const InputEvent* event, W8Region* region);
+bool CampPortraitSlotRegionEvent(const InputEvent* event, W8Region* region);
+bool CampOpenCharacterScreenRegionEvent(const InputEvent* event, W8Region* region);
+bool CampProfessionHistoryRegionEvent(const InputEvent* event, W8Region* region);
+bool CampPageButtonRegionEvent(const InputEvent* event, W8Region* region);
+bool CampItemActionRegionEvent(const InputEvent* event, W8Region* region);
+bool CampLevelUpButtonRegionEvent(const InputEvent* event, W8Region* region);
+bool CampDismissButtonRegionEvent(const InputEvent* event, W8Region* region);
 
 void CreateRcsLevelUpPanel(void);
 void DestroyRcsLevelUpPanel(void);

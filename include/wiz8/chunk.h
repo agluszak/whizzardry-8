@@ -68,7 +68,7 @@ public:
     std::int64_t CurrentChunkEnd() const;
     std::int32_t ChunkCount();
     bool OpenChunk(std::uint32_t chunk_id, std::uint8_t grouped);
-    std::uint8_t Read(void* buffer, std::uint32_t size, std::uint32_t* transferred);
+    bool Read(void* buffer, std::uint32_t size, std::uint32_t* transferred);
     std::uint8_t Write(const void* buffer, std::uint32_t size, std::uint32_t* transferred);
 
     // Payload transfer within the active chunk. Reads never cross its extent;

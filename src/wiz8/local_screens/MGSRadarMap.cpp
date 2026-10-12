@@ -98,7 +98,7 @@ const float g_radar_center_x = 75.0f;
 const float g_radar_max_marker_scale = 38.0f;
 
 static stModelInstance2D* AcquireRadarBlip(std::int32_t sector, bool lit);
-static std::uint8_t PlaceRadarBlip(srVector3T<float>* delta, std::int32_t group, bool lit);
+static bool PlaceRadarBlip(srVector3T<float>* delta, std::int32_t group, bool lit);
 
 static void ResetRadarBlips()
 {
@@ -409,7 +409,7 @@ void UpdateRadarBlips(void)
 }
 
 // FUNCTION: WIZ8 0x005a3060
-static std::uint8_t PlaceRadarBlip(srVector3T<float>* delta, std::int32_t group, bool lit)
+static bool PlaceRadarBlip(srVector3T<float>* delta, std::int32_t group, bool lit)
 {
     std::int32_t ring = 0;
     std::int32_t left;
@@ -453,7 +453,7 @@ static std::uint8_t PlaceRadarBlip(srVector3T<float>* delta, std::int32_t group,
     }
     stModelInstance2D* blip = AcquireRadarBlip(ring + group * 3, lit);
     Position2DNodeUnsnapped(blip, left, top);
-    return 1;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x005a3360

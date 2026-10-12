@@ -375,7 +375,7 @@ public:
     bool CommitCharacter();
     void DrawHeader();
     void ShowMessage(std::string_view text, std::int32_t confirmation, std::int32_t response);
-    void HandleDialogResult(std::int32_t response, std::uint8_t accepted);
+    void HandleDialogResult(std::int32_t response, bool accepted);
     bool ValidateName();
 
     virtual void UpdateNavigation(W8CharacterPage* page) override;
@@ -429,7 +429,7 @@ extern std::uint16_t g_profession_level_name_message_ids[15][9];
 
 /* Refresh the character-screen response when a party slot changes. */
 void RefreshCharacterScreenPartySlot(std::uint32_t party_slot);
-std::uint8_t CharacterScreenEnter(void);
+bool CharacterScreenEnter(void);
 void CharacterScreenFrame(void);
-std::uint8_t CharacterScreenLeave(std::int32_t leaving);
+bool CharacterScreenLeave(std::int32_t leaving);
 extern char g_dash[];

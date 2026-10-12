@@ -93,7 +93,7 @@ static void SubMenuButtonOpenMenu1(W8ButtonWidget* button);
 static void SubMenuButtonToggleCombat(W8ButtonWidget* button);
 
 // FUNCTION: WIZ8 0x00594AF0
-std::uint8_t CreateSubMenuButtons(void)
+bool CreateSubMenuButtons(void)
 {
     std::int32_t index;
 
@@ -135,7 +135,7 @@ std::uint8_t CreateSubMenuButtons(void)
                                               g_submenu_button_positions[index].y);
         g_submenu_buttons[index].m_owner = 0;
     }
-    return 1;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x00594D20

@@ -290,7 +290,7 @@ void ResetSubMenuPanel(void)
 }
 
 // FUNCTION: WIZ8 0x00596EC0
-std::uint8_t CreateSubMenuScrollButtons(void)
+bool CreateSubMenuScrollButtons(void)
 {
     std::int32_t i;
 
@@ -307,7 +307,7 @@ std::uint8_t CreateSubMenuScrollButtons(void)
                                                  g_scroll_button_positions[i].y);
         g_submenu_scroll_buttons[i].m_owner = 0;
     }
-    return 1;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x005978D0
@@ -327,7 +327,7 @@ static void SubMenuPanelFormationButton(W8ButtonWidget* button)
 }
 
 // FUNCTION: WIZ8 0x00597670
-std::uint8_t CreateSubMenuPanelButtons(void)
+bool CreateSubMenuPanelButtons(void)
 {
     std::int32_t index;
 
@@ -344,7 +344,7 @@ std::uint8_t CreateSubMenuPanelButtons(void)
                                                     g_submenu_panel_button_positions[index].y);
         g_submenu_panel_buttons[index].m_owner = 0;
     }
-    return 1;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x00597B70
@@ -357,14 +357,14 @@ static void MainGameOptionsDiskButton(W8ButtonWidget* button)
 }
 
 // FUNCTION: WIZ8 0x00597A30
-std::uint8_t CreateOptionsDiskButton(void)
+bool CreateOptionsDiskButton(void)
 {
     g_options_disk_button.Configure(g_options_disk_path, 3, 0, 1, 2, 2, MainGameOptionsDiskButton,
                                      BUTTON_NO_CALLBACK, false, REGION_PRIORITY_HIGHEST, 0x41,
                                      BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
     g_options_disk_button.SetPosition(g_options_disk_position.x, g_options_disk_position.y);
     g_options_disk_button.m_owner = 0;
-    return 1;
+    return true;
 }
 
 /* Redraw the options-disk chrome and button; disabled under dialogue / lock /
@@ -464,7 +464,7 @@ static void MainGameCombatStanceSecondary(W8ButtonWidget* button)
 }
 
 // FUNCTION: WIZ8 0x00597B90
-std::uint8_t CreateCombatStanceButtons(void)
+bool CreateCombatStanceButtons(void)
 {
     std::int32_t index;
 
@@ -488,7 +488,7 @@ std::uint8_t CreateCombatStanceButtons(void)
                                                     g_combat_stance_positions[index].y);
         g_combat_stance_buttons[index].m_owner = 0;
     }
-    return 1;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x00598270
@@ -513,7 +513,7 @@ static void MainGameRoofButton2(W8ButtonWidget* button)
 }
 
 // FUNCTION: WIZ8 0x00597EE0
-std::uint8_t CreateRoofButtons(void)
+bool CreateRoofButtons(void)
 {
     std::int32_t index;
 
@@ -538,7 +538,7 @@ std::uint8_t CreateRoofButtons(void)
                                            g_roof_button_positions[index].y);
         g_roof_buttons[index].m_owner = 0;
     }
-    return 1;
+    return true;
 }
 
 /* Draw the roof chrome strip, mark each roof button dirty, sync enable/press
@@ -763,7 +763,7 @@ void RedrawLayoutArrowButtons(void)
 }
 
 // FUNCTION: WIZ8 0x005982D0
-std::uint8_t CreateLayoutArrowButtons(void)
+bool CreateLayoutArrowButtons(void)
 {
     std::int32_t index;
 
@@ -796,7 +796,7 @@ std::uint8_t CreateLayoutArrowButtons(void)
                                                    g_layout_arrow_positions[index].y);
         g_layout_arrow_buttons[index].m_owner = 0;
     }
-    return 1;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x00598AB0
@@ -858,32 +858,32 @@ void DisableMenuButtonBanks(void)
 }
 
 // FUNCTION: WIZ8 0x00598CD0
-std::uint8_t SubMenuBackgroundRegionEvent(const InputEvent* event, W8Region* region)
+bool SubMenuBackgroundRegionEvent(const InputEvent* event, W8Region* region)
 {
     InputEventType us_event;
 
     if (g_level_block->combat_end_notification == -1) {
-        return 0;
+        return false;
     }
     us_event = event->type;
     if (us_event == InputEventType::RightButtonDown) {
-        return 1;
+        return true;
     }
     if (us_event == InputEventType::RightButtonUp) {
         DestroySubMenuControls();
-        return 1;
+        return true;
     }
     if (us_event != InputEventType::MouseMove) {
-        return 0;
+        return false;
     }
     if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
-        return 1;
+        return true;
     }
-    return (region->flags >> 4) & 1;
+    return ((region->flags >> 4) & 1) != 0;
 }
 
 // FUNCTION: WIZ8 0x00598DB0
-std::uint8_t SubMenuRowRegionEvent(const InputEvent* event, W8Region* region)
+bool SubMenuRowRegionEvent(const InputEvent* event, W8Region* region)
 {
     W8PartySlotRow* party_row;
     W8ItemInstance* item;
@@ -1310,7 +1310,7 @@ void EnableSubMenuRegions(void)
 }
 
 // FUNCTION: WIZ8 0x00595850
-std::uint8_t BuildSubMenuPanel(std::int16_t notification)
+bool BuildSubMenuPanel(std::int16_t notification)
 {
     std::int16_t index;
     std::int32_t left;

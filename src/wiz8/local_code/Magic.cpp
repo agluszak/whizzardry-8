@@ -1447,14 +1447,14 @@ std::uint32_t ChooseMonsterSpellPowerLevel(W8MonsterInfo* monster_info, W8Monste
    A power level outside one through seven is silently taken as one, which is
    what makes a caller passing zero cast nothing at all rather than cast weakly. */
 // FUNCTION: WIZ8 0x004fb220
-std::int32_t PointCastSpell(srVector3T<float> position, std::int32_t spell_id, std::uint32_t power_level)
+bool PointCastSpell(srVector3T<float> position, std::int32_t spell_id, std::uint32_t power_level)
 {
     W8TargetSource source;
     W8CombatSlot target;
     bool sight_probe;
 
     if (power_level == 0) {
-        return 0;
+        return false;
     }
     if (power_level > W8_SPELL_POWER_MAX) {
         power_level = 1;
@@ -1497,7 +1497,7 @@ std::int32_t PointCastSpell(srVector3T<float> position, std::int32_t spell_id, s
     }
 
     CastSpellFromSource(spell_id, &source, &target, power_level, 0, 0, false, 0, 0, 0, 0);
-    return 1;
+    return true;
 }
 
 std::uint32_t GetSpellCastingSkillLevel(const W8Character* character, W8Skill spellbook_skill,
@@ -3416,7 +3416,7 @@ void PrepareSpellTarget(std::int32_t spell_id, W8TargetSource* source, W8CombatS
    the backfired spell's new target. A single-target spell keeps it a single
    slot; a group spell takes the whole monster group or the party instead. */
 // FUNCTION: WIZ8 0x004FEDC0
-std::int32_t PickBackfireTarget(std::int32_t spell_id, W8TargetSource* source, W8CombatSlot* target)
+bool PickBackfireTarget(std::int32_t spell_id, W8TargetSource* source, W8CombatSlot* target)
 {
     W8MonsterInfo* monster_info;
     std::uint32_t candidates;
@@ -3442,7 +3442,7 @@ std::int32_t PickBackfireTarget(std::int32_t spell_id, W8TargetSource* source, W
         ++index;
     }
     if (candidates == 0) {
-        return 0;
+        return false;
     }
     pick = Random(candidates) + 1;
     for (slot = 0; slot < 8; ++slot) {
@@ -3450,11 +3450,11 @@ std::int32_t PickBackfireTarget(std::int32_t spell_id, W8TargetSource* source, W
             (!TargetSourceIsCharacter(source, 0) || source->iChar != slot) && (--pick == 0)) {
             if (GetSpellTargetType(spell_id, false) == 4) {
                 target->iType = W8_TARGET_KIND_PARTY;
-                return 1;
+                return true;
             }
             target->iChar = slot;
             target->iType = W8_TARGET_KIND_CHARACTER;
-            return 1;
+            return true;
         }
     }
     index = 0;
@@ -3467,15 +3467,15 @@ std::int32_t PickBackfireTarget(std::int32_t spell_id, W8TargetSource* source, W
             if (GetSpellTargetType(spell_id, false) == 4) {
                 target->iType = W8_TARGET_KIND_GROUP;
                 target->iGroupID = monster_info->monster_group_id;
-                return 1;
+                return true;
             }
             target->iType = W8_TARGET_KIND_MONSTER;
             target->iMonsterID = monster_info->location_id;
-            return 1;
+            return true;
         }
         ++index;
     }
-    return 0;
+    return false;
 }
 
 /* Scatter a backfired point target to a random reachable spot inside the

@@ -638,7 +638,7 @@ std::uint32_t srVertexPipe::getExclusionMask() const
 }
 
 // FUNCTION: SURRENDER 0x1002C350
-std::int32_t srVertexPipe::testEyeSpaceBounds(const glm::vec3& center, float radius) const
+bool srVertexPipe::testEyeSpaceBounds(const glm::vec3& center, float radius) const
 {
     const auto offset = center - input->eye_bounds.center;
     const float sum = radius + input->eye_bounds.radius;

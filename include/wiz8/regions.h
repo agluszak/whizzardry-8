@@ -83,7 +83,7 @@ enum W8RegionFlags {
 };
 
 struct W8Region;
-typedef std::uint8_t (*W8RegionCallback)(const InputEvent* event, struct W8Region* region);
+typedef bool (*W8RegionCallback)(const InputEvent* event, struct W8Region* region);
 
 struct RegionTemplate {
     std::uint32_t flags;
@@ -249,16 +249,16 @@ private:
     SavedRegionState saved_hover_{};
 };
 
-std::uint8_t InitializeRegionHelpState(void);
+bool InitializeRegionHelpState(void);
 
 /* Text-box static-catalog callbacks, implemented in Local
    Screens\MGSTextBox.cpp. */
-std::uint8_t TextBoxScrollUpRegionEvent(const InputEvent*, W8Region*);    /* 0x0058E2A0 */
-std::uint8_t TextBoxScrollDownRegionEvent(const InputEvent*, W8Region*);  /* 0x0058E650 */
-std::uint8_t TextBoxScrollThumbRegionEvent(const InputEvent*, W8Region*); /* 0x0058E9F0 */
-std::uint8_t TextBoxBodyRegionEvent(const InputEvent*, W8Region*);        /* 0x0058ED90 */
-std::uint8_t TextBoxChannelTabRegionEvent(const InputEvent*, W8Region*);  /* 0x0058EFD0 */
-std::uint8_t TextBoxMuteRegionEvent(const InputEvent*, W8Region*);        /* 0x0058F240 */
+bool TextBoxScrollUpRegionEvent(const InputEvent*, W8Region*);    /* 0x0058E2A0 */
+bool TextBoxScrollDownRegionEvent(const InputEvent*, W8Region*);  /* 0x0058E650 */
+bool TextBoxScrollThumbRegionEvent(const InputEvent*, W8Region*); /* 0x0058E9F0 */
+bool TextBoxBodyRegionEvent(const InputEvent*, W8Region*);        /* 0x0058ED90 */
+bool TextBoxChannelTabRegionEvent(const InputEvent*, W8Region*);  /* 0x0058EFD0 */
+bool TextBoxMuteRegionEvent(const InputEvent*, W8Region*);        /* 0x0058F240 */
 
 extern std::deque<W8RegionSet> g_region_sets;
 extern std::deque<W8Region> g_regions;
@@ -310,7 +310,7 @@ void UnbindWidgetRegion(std::uint32_t region_index, W8Widget* widget, OwnedRegio
 std::int32_t RegionReasonForInput(const W8Region& region, const InputEvent& input);
 void EnableRegionHelp(std::uint32_t region_index);
 void DisableRegionHelp(std::uint32_t region_index);
-std::uint8_t ClearActiveRegionIfMatches(std::uint32_t region_index);
+bool ClearActiveRegionIfMatches(std::uint32_t region_index);
 void ActivateDialogRegion(std::uint32_t region_index); /* 0x004F2040 */
 /* 0x004F1910 returns the byte produced by the selected region callback. */
 std::uint8_t DispatchRegionInput(const InputEvent* event);

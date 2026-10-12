@@ -178,9 +178,9 @@ void HideNpcQuoteBubbleRegion()
     g_npc_quote_bubble_regions.DisableInput();
 }
 
-static std::uint8_t OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item, bool force);
-static std::uint8_t HandleNpcDialogueItem(W8ItemInstance* item);
-static void HandleNpcDialogueDeparture(std::uint8_t value);
+static bool OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item, bool force);
+static bool HandleNpcDialogueItem(W8ItemInstance* item);
+static void HandleNpcDialogueDeparture(bool value);
 static void CreateNpcDialogueControls(void);
 static void ToggleNpcHandItemFilter(void);
 static void ToggleNpcAccessoryItemFilter(void);
@@ -236,7 +236,7 @@ static void RequestNpcSpellService3(void);
 static void RequestNpcSpellService41(void);
 static void RequestNpcCharacterService(void);
 static void ConfirmNpcTradePurchase(void);
-static std::uint8_t AcceptNpcDialogueItem(W8NpcState* npc, W8ItemInstance* item, std::int32_t mode);
+static bool AcceptNpcDialogueItem(W8NpcState* npc, W8ItemInstance* item, std::int32_t mode);
 void OnNpcDialogClosed(W8DialogBase* dialog);
 
 // GLOBAL: WIZ8 0x0068ee90
@@ -651,7 +651,7 @@ void DispatchPendingNpcScriptNotice(void)
    disposition band picks the hostile or friendly entry. */
 static void CloseActiveNpcDialogueLayout();
 
-static std::uint8_t OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item, bool force)
+static bool OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item, bool force)
 {
     W8NpcInteractionState* state;
     W8MonsterInfo* info;
@@ -773,7 +773,7 @@ static std::uint8_t OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item, 
     g_npc_interaction_state->text_box_collapsed = true;
     space = " ";
     ShowNotice(W8_FONT_PALETTE_YELLOW, space, 3);
-    return 1;
+    return true;
 }
 
 /* Stage `npc` as the dialogue NPC: bind its monster's location, clear its
@@ -1443,7 +1443,7 @@ void TryNpcDialoguePickpocket(std::int32_t party_slot)
    pointer sits at W8NpcInteractionState::dialogue_controls[callback_id]. Id 0x27
    is the panel slot at +0x1a8 and is ignored. Ids 1..6 and 0x16/0x17 pass 1
    into the widget hooks; every other id passes 0. Mouse-enter always passes 0. */
-std::uint8_t MainScreenControlRegionEvent(const InputEvent* event, W8Region* region)
+bool MainScreenControlRegionEvent(const InputEvent* event, W8Region* region)
 {
     std::uint32_t callback_id = region->callback_id;
     W8Widget* control;
@@ -1451,50 +1451,50 @@ std::uint8_t MainScreenControlRegionEvent(const InputEvent* event, W8Region* reg
                callback_id == W8_NPC_CONTROL_TEXT_22 || callback_id == W8_NPC_CONTROL_TEXT_23;
 
     if (callback_id == 0x27) {
-        return 0;
+        return false;
     }
     control = g_npc_interaction_state->dialogue_controls[callback_id];
     if (control == 0) {
-        return 0;
+        return false;
     }
     switch (event->type) {
     case InputEventType::LeftButtonDown:
     case InputEventType::LeftButtonRepeat:
         control->OnLeftButtonDown(arg);
         region->flags |= W8_REGION_LEFT_BUTTON_HELD;
-        return 1;
+        return true;
     case InputEventType::LeftButtonUp:
         control->OnLeftButtonUp(arg);
         if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) == 0) {
-            return 1;
+            return true;
         }
         region->flags &= ~W8_REGION_LEFT_BUTTON_HELD;
-        return 1;
+        return true;
     case InputEventType::RightButtonDown:
     case InputEventType::RightButtonRepeat:
         control->OnRightButtonDown(arg);
         region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
-        return 1;
+        return true;
     case InputEventType::RightButtonUp:
         control->OnRightButtonUp(arg);
         if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) != 0) {
             region->flags &= ~W8_REGION_RIGHT_BUTTON_HELD;
         }
-        return 1;
+        return true;
     case InputEventType::MouseMove:
         if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
             control->OnMouseLeave(arg);
-            return 1;
+            return true;
         }
         if ((region->flags & W8_REGION_MOUSE_ENTER) != 0) {
             control->OnMouseEnter(0);
-            return 1;
+            return true;
         }
         break;
     default:
         break;
     }
-    return 0;
+    return false;
 }
 
 /* Region callback on the NPC-dialogue notice text boxes: the left button
@@ -1502,7 +1502,7 @@ std::uint8_t MainScreenControlRegionEvent(const InputEvent* event, W8Region* reg
    assay/keyword lookup helpers, and InputEventType::MouseMove tracks the hovered line or
    notice word. Left release falls through into InputEventType::RightButtonDown and also
    raises the right-held flag (retail bug). */
-std::uint8_t NpcDialogueTextBoxRegionEvent(const InputEvent* event, W8Region* region)
+bool NpcDialogueTextBoxRegionEvent(const InputEvent* event, W8Region* region)
 {
     std::int32_t line;
     std::int32_t y;
@@ -1511,7 +1511,7 @@ std::uint8_t NpcDialogueTextBoxRegionEvent(const InputEvent* event, W8Region* re
     case InputEventType::LeftButtonDoubleClick:
         NpcDialogueTextBoxDoubleClick(event->position.x,
                                       event->position.y);
-        return 1;
+        return true;
     case InputEventType::LeftButtonUp:
         if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
             region->flags &= ~W8_REGION_LEFT_BUTTON_HELD;
@@ -1521,10 +1521,10 @@ std::uint8_t NpcDialogueTextBoxRegionEvent(const InputEvent* event, W8Region* re
         [[fallthrough]];
     case InputEventType::RightButtonDown:
         region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
-        return 1;
+        return true;
     case InputEventType::LeftButtonDown:
         region->flags |= W8_REGION_LEFT_BUTTON_HELD;
-        return 1;
+        return true;
     case InputEventType::MouseMove:
         break;
     case InputEventType::RightButtonUp:
@@ -1533,15 +1533,15 @@ std::uint8_t NpcDialogueTextBoxRegionEvent(const InputEvent* event, W8Region* re
             NpcDialogueTextBoxRightUp(event->position.x,
                                       event->position.y);
         }
-        return 1;
+        return true;
     default:
-        return 0;
+        return false;
     }
     if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
         NoOp();
         ClearNoticeWordHover(3, true);
         ClearHoveredTextLine(2);
-        return 1;
+        return true;
     }
     if ((region->flags & W8_REGION_MOUSE_ENTER) != 0) {
         g_npc_interaction_state->last_mouse_x = event->position.x;
@@ -1555,18 +1555,18 @@ std::uint8_t NpcDialogueTextBoxRegionEvent(const InputEvent* event, W8Region* re
                 g_npc_interaction_state->hovered_text_line = line;
             }
         }
-        return 1;
+        return true;
     }
     if (event->position.x == g_npc_interaction_state->last_mouse_x &&
         event->position.y == g_npc_interaction_state->last_mouse_y) {
-        return 1;
+        return true;
     }
     g_npc_interaction_state->last_mouse_x = event->position.x;
     g_npc_interaction_state->last_mouse_y = event->position.y;
     if (g_npc_interaction_state->dialogue_layout == W8_DIALOGUE_LAYOUT_TRANSCRIPT) {
         HighlightNoticeWordAt(3, event->position.x,
                               event->position.y);
-        return 1;
+        return true;
     }
     if (g_npc_interaction_state->dialogue_layout == W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX) {
         y = event->position.y;
@@ -1578,7 +1578,7 @@ std::uint8_t NpcDialogueTextBoxRegionEvent(const InputEvent* event, W8Region* re
             g_npc_interaction_state->hovered_text_line = line;
         }
     }
-    return 1;
+    return true;
 }
 
 /* Mouse-wheel line tracking on the main NPC text box: flag forces the redraw
@@ -3914,7 +3914,7 @@ static void ConfirmNpcTradePurchase(void)
     g_npc_dialogue.QueueQuote(7, false, false, false);
 }
 
-static std::uint8_t HandleNpcDialogueItem(W8ItemInstance* item)
+static bool HandleNpcDialogueItem(W8ItemInstance* item)
 {
     W8MessageDialogBase* dialog;
     std::string message;
@@ -3924,7 +3924,7 @@ static std::uint8_t HandleNpcDialogueItem(W8ItemInstance* item)
     if (g_npc_interaction_state->trade_gold != 0 && item == 0) {
         if (g_npc_interaction_state->trade_gold != static_cast<std::int32_t>(g_status.party_gold)) {
             ConfirmNpcTradePurchase();
-            return 1;
+            return true;
         }
         dialog = static_cast<W8MessageDialogBase*>(CreateDialogByKind(W8_DIALOG_MESSAGE));
         dialog->SetClientExtent(0xfa, 200);
@@ -3932,7 +3932,7 @@ static std::uint8_t HandleNpcDialogueItem(W8ItemInstance* item)
         dialog->SetMessage(message, 1, 0x32, true, true, true, true, 0, 0x15e);
         SetDialogDestroyCallback(dialog, OnNpcTradeDialogClosed);
         OpenModal(dialog);
-        return 1;
+        return true;
     }
     if (GetNpcDispositionBand(g_npc_interaction_state->dialogue_npc) == W8_NPC_BAND_FRIENDLY ||
         g_npc_interaction_state->dialogue_npc->record->voice_script != 0) {
@@ -3940,11 +3940,11 @@ static std::uint8_t HandleNpcDialogueItem(W8ItemInstance* item)
             const auto match = FindNpcScriptItemQuote(item->iItemNo);
             if (!match) {
                 if (g_npc_interaction_state->dialogue_npc->record->voice_script != 0) {
-                    return 1;
+                    return true;
                 }
                 if ((g_item_records[item->iItemNo].flags & W8_ITEM_FLAG_NO_DISCARD) != 0) {
                     g_npc_dialogue.QueueQuote(0x11, false, false, false);
-                    return 1;
+                    return true;
                 }
                 if (AcceptNpcDialogueItem(g_npc_interaction_state->dialogue_npc, item, 1) != 0) {
                     g_npc_dialogue.QueueQuote(0x10, false, false, false);
@@ -3964,7 +3964,7 @@ static std::uint8_t HandleNpcDialogueItem(W8ItemInstance* item)
                     g_npc_interaction_state->held_item_pending = false;
                     AddItemToParty(&g_npc_interaction_state->pending_item, true, false);
                     ClearHeldItemDisplay();
-                    return 0;
+                    return false;
                 }
             }
         }
@@ -3972,7 +3972,7 @@ static std::uint8_t HandleNpcDialogueItem(W8ItemInstance* item)
         if ((g_item_records[item->iItemNo].flags & W8_ITEM_FLAG_NO_DISCARD) == 0) {
             if (!WillNpcTradeForItem(g_npc_interaction_state->dialogue_npc, item)) {
                 g_npc_dialogue.QueueQuote(7, false, false, false);
-                return 1;
+                return true;
             }
             const auto match = FindNpcScriptItemQuote(item->iItemNo);
             if (!match) {
@@ -3991,16 +3991,16 @@ static std::uint8_t HandleNpcDialogueItem(W8ItemInstance* item)
             return result;
         }
         g_npc_dialogue.QueueQuote(0x11, false, false, false);
-        return 1;
+        return true;
     }
     return result;
 }
 
 /* Retail ICF shares this constant-return callback with the retained body at
    0x005b1740; this typed source callback has no separate address marker. */
-static std::uint8_t AcceptNpcDialogueItem(W8NpcState*, W8ItemInstance*, std::int32_t)
+static bool AcceptNpcDialogueItem(W8NpcState*, W8ItemInstance*, std::int32_t)
 {
-    return 1;
+    return true;
 }
 
 /* While NPC script deferral holds character events during an open dialogue,
@@ -4271,13 +4271,13 @@ void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQu
     }
 }
 
-std::uint8_t NpcQuoteBubbleRegionEvent(const InputEvent* event, W8Region*)
+bool NpcQuoteBubbleRegionEvent(const InputEvent* event, W8Region*)
 {
     if (event->type != InputEventType::LeftButtonDown) {
-        return 0;
+        return false;
     }
     TryFinishNpcVoicePlayback(true);
-    return 1;
+    return true;
 }
 
 void DrawNpcQuoteBubble(void)
@@ -4552,7 +4552,7 @@ void SyncDialogueNpcState(void)
    the named-action queue hands the speaker's name to 0x00571660 instead.
    Every occupied living character without a maxed condition practices
    communication (skill 0x16). */
-static void HandleNpcDialogueDeparture(std::uint8_t value)
+static void HandleNpcDialogueDeparture(bool value)
 {
     W8MonsterInfo* info;
     W8Character* character;
@@ -4717,7 +4717,7 @@ bool CanOpenNpcDialogue(void)
     return gXStatus.fNpcDialogueMode && g_npc_interaction_state->scripted_dialogue;
 }
 
-std::uint8_t SetNpcDialoguePanelVisible(std::uint8_t value)
+bool SetNpcDialoguePanelVisible(bool value)
 {
     W8NpcDialogueTextController* controller;
 
@@ -4742,7 +4742,7 @@ std::uint8_t SetNpcDialoguePanelVisible(std::uint8_t value)
             RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_7);
             RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
             g_npc_interaction_state->dialogue_panel_hidden = true;
-            return 1;
+            return true;
         }
 
         controller =
@@ -4755,9 +4755,9 @@ std::uint8_t SetNpcDialoguePanelVisible(std::uint8_t value)
         SyncNpcDialogueTranscriptScrollButtons();
         RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
         g_npc_interaction_state->dialogue_panel_hidden = false;
-        return 1;
+        return true;
     }
-    return 0;
+    return false;
 }
 bool FinishNpcVoiceIfSessionActive(void)
 {

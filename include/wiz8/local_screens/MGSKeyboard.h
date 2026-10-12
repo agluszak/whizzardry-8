@@ -72,7 +72,7 @@ void CloseKeyboardMenu(void);
 /* Open the keyboard-action menu for one party slot. */
 void OpenKeyboardMenuForSlot(std::int32_t slot);
 /* Build the panel and one row per selectable menu entry. */
-std::uint8_t BuildKeyboardMenu(void);
+bool BuildKeyboardMenu(void);
 /* Re-enable the menu's region set and every row region. */
 void EnableKeyboardMenuInput(void);
 /* Whether the cursor sits inside the menu panel rectangle. */
@@ -85,14 +85,14 @@ void AssignKeyboardMenuCallback(std::int16_t menu, std::int16_t item, W8TextCont
 /* Invalidate (when asked) then redraw the menu panel. */
 void RedrawKeyboardMenuPanel(bool invalidate);
 /* Region callback the thirteen keyboard-menu rows share. */
-std::uint8_t KeyboardMenuRowRegionEvent(const InputEvent* event, W8Region* region);
+bool KeyboardMenuRowRegionEvent(const InputEvent* event, W8Region* region);
 /* Region callback for the keyboard-menu background: right-up closes the menu. */
-std::uint8_t KeyboardMenuBackgroundRegionEvent(const InputEvent* event, W8Region* region);
+bool KeyboardMenuBackgroundRegionEvent(const InputEvent* event, W8Region* region);
 /* Dispatch a bound MGS command number through the keyboard system. */
 void DispatchMGSCommand(W8MGSCommand command);
 /* Route one non-mouse input atom to text entry, dialogue, the trap text box,
    the MIPE editor, the record-mode console or a bound MGS command. */
-std::uint8_t HandleMainGameInputEvent(const InputEvent* input);
+bool HandleMainGameInputEvent(const InputEvent* input);
 /* Poll the camera/movement command bindings and set the world-render flags. */
 void HandleManualCameraHotkeys(void);
 void ApplyCameraMotionHotkeys(void);

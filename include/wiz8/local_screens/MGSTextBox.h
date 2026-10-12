@@ -96,7 +96,7 @@ void ReleaseMessageStorage(void);
 /* The TEXT section pair - the four message-storage
    runs persisted around the game-status record. */
 std::uint8_t SaveTextBoxState(wiz8::File* file);
-std::uint8_t HandleDialogueTextInput(const InputEvent* input);
+bool HandleDialogueTextInput(const InputEvent* input);
 char TextBoxHandleKey(const InputEvent* event);
 std::int32_t GetSelectedTextLine(std::int32_t index);
 void ClearSelectedTextLine(std::int32_t index);
@@ -172,7 +172,7 @@ std::int32_t FindStoppedTextLine(void);
 void SetTextBoxRegionBounds(std::int32_t left, std::int32_t top, std::int32_t right, std::int32_t bottom);
 void ResetMessageStorage(void);
 /* Write the four message runs into the open TEXT chunk. */
-std::uint8_t SaveMessageStorage(wiz8::File& file);
+bool SaveMessageStorage(wiz8::File& file);
 /* Rebuild the four message runs from the open TEXT chunk. */
 std::uint8_t LoadMessageStorage(wiz8::File& file);
 /* Defaults select the live mode's text box and its available line width. */

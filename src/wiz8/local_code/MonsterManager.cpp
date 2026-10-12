@@ -1078,12 +1078,12 @@ bool InitializeMonsterManagerState(void)
    entry zero rather than walking it, then releases the four gXStatus lists and
    the species-indexed record cache. */
 // FUNCTION: WIZ8 0x004e3820
-std::uint8_t ShutdownMonsterManager(void)
+bool ShutdownMonsterManager(void)
 {
 
     while (!gXStatus.monsters.empty()) {
         if (!RemoveMonsterAt(0, true)) {
-            return 0;
+            return false;
         }
     }
     gXStatus.monsters.clear();
@@ -1097,7 +1097,7 @@ std::uint8_t ShutdownMonsterManager(void)
             gXStatus.monster_record_cache[index] = 0;
         }
     }
-    return 1;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x004e3af0

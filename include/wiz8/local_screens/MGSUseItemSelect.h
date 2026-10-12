@@ -33,11 +33,11 @@ extern ScreenRegionSet g_use_item_select_regions;
 void InvalidateUseItemSelectPanel(void);
 void CloseUseItemSelection(void);
 /* Scroll-button region callback for use-item select (ids 0 and 1). */
-std::uint8_t UseItemSelectScrollRegionEvent(const InputEvent* event, W8Region* region);
+bool UseItemSelectScrollRegionEvent(const InputEvent* event, W8Region* region);
 /* Action/icon control region callback (catalog ids 0, 3, 8). */
-std::uint8_t UseItemSelectControlRegionEvent(const InputEvent* event, W8Region* region);
+bool UseItemSelectControlRegionEvent(const InputEvent* event, W8Region* region);
 /* Text-box body callback while use-item select is active. */
-std::uint8_t UseItemSelectTextBoxRegionEvent(const InputEvent* event, W8Region* region);
+bool UseItemSelectTextBoxRegionEvent(const InputEvent* event, W8Region* region);
 /* Text-box wheel helper while use-item select is active. */
 void UseItemSelectTextBoxWheelAt(std::int16_t x, std::uint16_t y, bool flag);
 W8ItemInstance* GetSelectedOrFallbackValue(void);

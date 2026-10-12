@@ -83,8 +83,8 @@ void EnableConditionButtons(void);
 
 /* Region callbacks the eight portrait level-up buttons and condition buttons
    share. */
-std::uint8_t PortraitControlRegionEvent(const InputEvent* event, W8Region* region);
-std::uint8_t ConditionButtonRegionEvent(const InputEvent* event, W8Region* region);
+bool PortraitControlRegionEvent(const InputEvent* event, W8Region* region);
+bool ConditionButtonRegionEvent(const InputEvent* event, W8Region* region);
 
 /* Main-game portrait overlay helpers used when a party slot refreshes. */
 bool PreparePartyPortraitOverlay(std::uint32_t party_slot, std::uint32_t flags, std::uint32_t top);

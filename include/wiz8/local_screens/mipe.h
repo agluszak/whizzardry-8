@@ -91,7 +91,7 @@ void ShowMonsterGeneratorStatus(void);
 /* The MIPE input dispatcher fed from the main game input loop: routes key
    events through the mode state machine and returns nonzero when the event
    was consumed. */
-std::uint8_t HandleMipeKey(const InputEvent* event);
+bool HandleMipeKey(const InputEvent* event);
 void ShowMonsterGeneratorEditor(void);
 
 void ToggleMipePanel(void);

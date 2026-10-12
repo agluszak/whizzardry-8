@@ -56,7 +56,7 @@ struct W8SpellCastingView {
     bool dialog_confirmed;
 };
 
-std::uint8_t OpenSpellCastingView(std::int32_t party_slot);
+bool OpenSpellCastingView(std::int32_t party_slot);
 void CloseSpellCastingView(void);
 extern ScreenRegionSet g_spell_casting_regions;
 enum SpellCastingRegionOffset {
@@ -78,11 +78,11 @@ class W8DialogBase;
 
 /* Destroy callback for the spell/use-item reason notices. */
 void SpellCastingNoticeClosed(W8DialogBase* dialog);
-std::uint8_t SpellRealmButtonRegionEvent(const InputEvent* event, W8Region* region);
-std::uint8_t SpellPowerPipRegionEvent(const InputEvent* event, W8Region* region);
-std::uint8_t IgnoreSpellCastingInput(const InputEvent* event, W8Region* region);
+bool SpellRealmButtonRegionEvent(const InputEvent* event, W8Region* region);
+bool SpellPowerPipRegionEvent(const InputEvent* event, W8Region* region);
+bool IgnoreSpellCastingInput(const InputEvent* event, W8Region* region);
 /* Text-box body callback while spell casting is active. */
-std::uint8_t SpellCastTextBoxRegionEvent(const InputEvent* event, W8Region* region);
+bool SpellCastTextBoxRegionEvent(const InputEvent* event, W8Region* region);
 
 /* Live spell-casting view, or null when the panel is closed. */
 extern std::unique_ptr<W8SpellCastingView> gpSCSV;

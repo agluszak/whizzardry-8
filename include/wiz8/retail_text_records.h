@@ -5,7 +5,11 @@
 #include "wiz8/unicode.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/chunk.h"
+#include <algorithm>
+#include <cstddef>
 #include <cstring>
+#include <span>
+#include <type_traits>
 #include <stdexcept>
 #include <limits>
 #include <memory>
@@ -536,6 +540,42 @@ template<> struct Record<W8GlobalStatus> {
 };
 
 
+/* Copy one disk field into its runtime value. A retail flag byte may hold any
+   value, so bool fields (and bool arrays, one disk element each) load as
+   "nonzero", never by copying the raw byte into a bool. */
+template<class T> void load_value(T* destination, std::span<const std::byte> bytes)
+{
+    const auto nonzero = [](std::span<const std::byte> element) {
+        return std::ranges::any_of(element, [](std::byte b) { return b != std::byte{0}; });
+    };
+    if constexpr (std::is_same_v<T, bool>) {
+        *destination = nonzero(bytes);
+    } else if constexpr (std::is_array_v<T> && std::is_same_v<std::remove_extent_t<T>, bool>) {
+        const std::size_t stride = bytes.size() / std::extent_v<T>;
+        for (std::size_t i = 0; i < std::extent_v<T>; ++i)
+            (*destination)[i] = nonzero(bytes.subspan(i * stride, stride));
+    } else {
+        std::memcpy(destination, bytes.data(), bytes.size());
+    }
+}
+
+/* Copy one runtime value into its disk field; bools store 0 or 1 in the
+   field's first byte of each element and zero the rest. */
+template<class T> void store_value(const T* source, std::span<std::byte> bytes)
+{
+    if constexpr (std::is_same_v<T, bool>) {
+        std::ranges::fill(bytes, std::byte{0});
+        bytes[0] = std::byte{*source};
+    } else if constexpr (std::is_array_v<T> && std::is_same_v<std::remove_extent_t<T>, bool>) {
+        std::ranges::fill(bytes, std::byte{0});
+        const std::size_t stride = bytes.size() / std::extent_v<T>;
+        for (std::size_t i = 0; i < std::extent_v<T>; ++i)
+            bytes[i * stride] = std::byte{(*source)[i]};
+    } else {
+        std::memcpy(bytes.data(), source, bytes.size());
+    }
+}
+
 template<class T> void decode(std::span<const std::byte> disk, T& runtime)
 {
     if (disk.size() > sizeof(typename Record<T>::Disk)) throw std::runtime_error("Oversized retail record");
@@ -545,7 +585,7 @@ template<class T> void decode(std::span<const std::byte> disk, T& runtime)
     if (!disk.empty()) std::memcpy(image.data(), disk.data(), disk.size());
     T decoded{};
     Record<T>::fields(decoded, std::span<const std::byte>(image),
-        [](auto* destination, auto bytes) { std::memcpy(destination, bytes.data(), bytes.size()); },
+        [](auto* destination, auto bytes) { load_value(destination, bytes); },
         [](std::string& destination, auto bytes, Encoding encoding) {
             if (encoding == Encoding::utf16) destination = text::from_utf16le(bytes);
             else {
@@ -560,7 +600,7 @@ template<class T> auto encode(const T& runtime)
 {
     std::array<std::byte, sizeof(typename Record<T>::Disk)> image{};
     Record<T>::fields(runtime, std::span<std::byte>(image),
-        [](const auto* source, auto bytes) { std::memcpy(bytes.data(), source, bytes.size()); },
+        [](const auto* source, auto bytes) { store_value(source, bytes); },
         [](const std::string& source, auto bytes, Encoding encoding) {
             if (encoding == Encoding::utf16) text::to_utf16le(source, bytes);
             else

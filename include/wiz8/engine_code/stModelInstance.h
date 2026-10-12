@@ -53,7 +53,7 @@ public:
     std::int32_t AddDamageStage(const char* name);
     std::int32_t AddExistingDamageStage(const char* name);
     std::int32_t FindDamageStage(const char* name);
-    std::uint8_t ReplaceDamageStageTexture(std::int32_t stage, const char* old_name,
+    bool ReplaceDamageStageTexture(std::int32_t stage, const char* old_name,
                                             const std::shared_ptr<srTextureIFace>& replacement);
 
 public:

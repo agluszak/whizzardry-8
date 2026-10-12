@@ -26,7 +26,7 @@ struct W8OctBuildNode {
     W8OctBuildNode();
     ~W8OctBuildNode();
 
-    std::uint8_t RearrangeNodePolys(std::int16_t current_depth, std::int16_t target_depth);
+    bool RearrangeNodePolys(std::int16_t current_depth, std::int16_t target_depth);
     std::vector<void*> linkedSurfaces(std::int16_t current_depth, std::int16_t target_depth, std::int16_t mode) const;
     std::vector<void*> storedSurfaces(std::int16_t mode) const;
     std::uint32_t ConvertToOctPreTree(std::uint16_t depth, OctPreTree* tree);

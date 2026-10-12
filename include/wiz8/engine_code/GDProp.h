@@ -82,10 +82,10 @@ public:
     std::span<const std::uint16_t> conditionalWaypoints() const { return m_path_waypoints; }
     /* Appends the index to the waypoint list when the grid point lies inside
        the path bounds; the prop owns the counted list. */
-    std::uint8_t RegisterPathSurface(std::uint32_t index, const glm::ivec2& point);
+    bool RegisterPathSurface(std::uint32_t index, const glm::ivec2& point);
     /* Appends the index to the link list when the segment touches the path
        bounds (one-cell tolerance on the crossed sides). */
-    std::uint8_t RegisterPathVertex(std::uint32_t index, const glm::ivec2& point,
+    bool RegisterPathVertex(std::uint32_t index, const glm::ivec2& point,
                                      const glm::ivec2& second);
 
 private:

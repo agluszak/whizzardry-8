@@ -135,7 +135,7 @@ struct W8NpcScriptItemQuote {
 };
 std::optional<W8NpcScriptItemQuote> FindNpcScriptItemQuote(std::int32_t item_id);
 void UpdateNpcDialogueVoiceAndCursor(void);
-void SetNpcScriptEventActive(std::uint8_t value);
+void SetNpcScriptEventActive(bool value);
 /* Resolves NPC-name, named-person, and region keywords to a quote
    id; returns -1 when nothing matches. */
 std::int32_t FindNpcNameOrPlaceQuote(W8NpcState* npc, std::string_view text);

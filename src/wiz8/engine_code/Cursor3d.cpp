@@ -774,7 +774,7 @@ void SetWorldCursorExtents(const srVector3T<float>* minimum, const srVector3T<fl
    and their crossed corner combinations are probed instead, and a settled
    height too far from the input height fails the resolution. */
 // FUNCTION: WIZ8 0x004921E0
-std::int32_t ResolveWorldCursorTarget(srVector3T<float>* position)
+bool ResolveWorldCursorTarget(srVector3T<float>* position)
 {
     W8WorldCursorState* cursor = gp3DCursor;
     float best = g_cursor_ground_height_sentinel;
@@ -785,7 +785,7 @@ std::int32_t ResolveWorldCursorTarget(srVector3T<float>* position)
         *position = cursor->position;
     }
     if (cursor == 0) {
-        return 1;
+        return true;
     }
     for (std::int32_t corner = 0; corner < 4; ++corner) {
         glm::vec3 offset;
@@ -805,10 +805,10 @@ std::int32_t ResolveWorldCursorTarget(srVector3T<float>* position)
     if (cursor->footprint_mode &&
         static_cast<float>(g_monster_poster_max_distance) <= fabs(best - position->y)) {
         position->y = best + g_float_one_thousand;
-        return 0;
+        return false;
     }
     position->y = best + g_float_one_thousand;
-    return 1;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x00492500

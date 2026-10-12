@@ -52,13 +52,13 @@
 /* Copy the node's world location out; the searchable position resolver treats
    a missing node chain as unresolvable. */
 // FUNCTION: WIZ8 0x0048d050
-std::uint8_t W8WorldCursorNode::GetLocation(srVector3T<float>* position)
+bool W8WorldCursorNode::GetLocation(srVector3T<float>* position)
 {
     if (node != 0) {
         *position = glm::vec3(node->getLocation());
-        return 1;
+        return true;
     }
-    return 0;
+    return false;
 }
 
 /* Cursor nodes are allocated separately so their addresses survive
@@ -502,7 +502,7 @@ std::uint32_t LoadWorldCursorNodeStates(wiz8::File& handle)
 }
 
 // FUNCTION: WIZ8 0x0048e6d0
-std::uint8_t SaveWorldCursorNodeStates(wiz8::File& handle)
+bool SaveWorldCursorNodeStates(wiz8::File& handle)
 {
     bool ok = true;
     std::int32_t version = 2;
@@ -511,11 +511,11 @@ std::uint8_t SaveWorldCursorNodeStates(wiz8::File& handle)
     W8WorldCursorNode* node;
 
     if (!(handle.write(&version, 4), true)) {
-        return 0;
+        return false;
     }
     count = static_cast<std::int32_t>(g_world_cursor_nodes.size());
     if (!(handle.write(&count, 4), true)) {
-        return 0;
+        return false;
     }
     for (index = 0; index < count && ok; ++index) {
         node = g_world_cursor_nodes[index];
@@ -629,7 +629,7 @@ std::uint32_t LoadWorldCursorNodes(wiz8::File& handle)
 }
 
 // FUNCTION: WIZ8 0x0048ead0
-std::uint8_t SaveWorldCursorNodes(wiz8::File& handle)
+bool SaveWorldCursorNodes(wiz8::File& handle)
 {
     bool ok = true;
     std::int32_t version = 3;
@@ -640,12 +640,12 @@ std::uint8_t SaveWorldCursorNodes(wiz8::File& handle)
     W8WorldCursorNode* node;
 
     if (!(handle.write(&version, 4), true)) {
-        return 0;
+        return false;
     }
     handle.write(&gXStatus.mipe_cube_serial, 4);
     count = static_cast<std::int32_t>(g_world_cursor_nodes.size());
     if (!(handle.write(&count, 4), true)) {
-        return 0;
+        return false;
     }
     for (index = 0; index < count && ok; ++index) {
         node = g_world_cursor_nodes[index];

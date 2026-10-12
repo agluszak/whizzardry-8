@@ -2434,7 +2434,7 @@ void ApplyMonsterControlToNearbyMonsters(W8SpellEffectEntry* effect)
 char RevealItemBindingsToTarget(W8SpellEffectEntry* effect)
 {
     bool verbose;
-    char applied; // bool-byte-ok: forwards the unnormalized byte-valued cure result
+    std::int8_t applied; // bool-byte-ok: forwards the unnormalized byte-valued cure result
     std::int32_t result;
 
     verbose = g_settings.verbose_combat_messages != 0;

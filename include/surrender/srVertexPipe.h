@@ -92,10 +92,10 @@ public:
     SR_DLL_IMPORT std::span<glm::vec4> getSpecular();
     SR_DLL_IMPORT void* getUserArray(std::uint32_t index);
     std::uint32_t getVertexCount() const;
-    std::int32_t isChannelAvailable(srVertexProcessor::e_channel channel) const;
+    bool isChannelAvailable(srVertexProcessor::e_channel channel) const;
     SR_DLL_IMPORT void process(const Input& input);
     SR_DLL_IMPORT void swapDiffuseAndSpecular();
-    SR_DLL_IMPORT std::int32_t testEyeSpaceBounds(const glm::vec3& center, float radius) const;
+    SR_DLL_IMPORT bool testEyeSpaceBounds(const glm::vec3& center, float radius) const;
 
     /* Per-record render state from Input::records. flags: bit0 vertex colors present, bit1 indexed
        specular into diffuse, bit2 indexed specular into specular, bit3 indexed alpha, bits4/5
@@ -220,7 +220,7 @@ inline std::uint32_t srVertexPipe::getVertexCount() const
 
 // FUNCTION: SURRENDER 0x1002C4E0 SYMBOL
 // RECOMP: ?isChannelAvailable@srVertexPipe@@QBEHW4e_channel@srVertexProcessor@@@Z
-inline std::int32_t srVertexPipe::isChannelAvailable(srVertexProcessor::e_channel channel) const
+inline bool srVertexPipe::isChannelAvailable(srVertexProcessor::e_channel channel) const
 {
     return ((1u << channel) & channel_mask) != 0;
 }

@@ -271,50 +271,50 @@ static void OpenLevelUpCharacterScreen(void)
 /* Dismiss-confirm portrait/name hitbox (help 2368): click dismisses the
    reviewed party member; mouse enter/leave toggles portrait_hovered[0]. */
 // FUNCTION: WIZ8 0x005B5E90
-std::uint8_t CampDismissPortraitRegionEvent(const InputEvent* event, W8Region* region)
+bool CampDismissPortraitRegionEvent(const InputEvent* event, W8Region* region)
 {
     const InputEventType us_event = event->type;
 
     if (us_event == InputEventType::LeftButtonDown) {
         region->flags |= W8_REGION_LEFT_BUTTON_HELD;
-        return 1;
+        return true;
     }
     if (us_event != InputEventType::LeftButtonUp) {
         if (us_event != InputEventType::MouseMove) {
-            return 0;
+            return false;
         }
         if ((region->flags & W8_REGION_MOUSE_LEAVE) == 0) {
             if ((region->flags & W8_REGION_MOUSE_ENTER) == 0) {
-                return 0;
+                return false;
             }
             g_camp_screen->portrait_hovered[0] = 1;
         } else {
             g_camp_screen->portrait_hovered[0] = 0;
         }
         g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_PORTRAIT;
-        return 0;
+        return false;
     }
     if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) == 0) {
-        return 1;
+        return true;
     }
     DismissSelectedPartyCharacter();
-    return 1;
+    return true;
 }
 
 /* Eight party portrait slots on the camp screen. Targeting modes 1 and 7 aim
    spells/items; otherwise a click selects the reviewed character. */
 // FUNCTION: WIZ8 0x005B5F10
-std::uint8_t CampPortraitSlotRegionEvent(const InputEvent* event, W8Region* region)
+bool CampPortraitSlotRegionEvent(const InputEvent* event, W8Region* region)
 {
     const InputEventType us_event = event->type;
     std::int32_t target_slot = region->callback_id;
 
     if (IsLeftButtonEvent(us_event) || us_event == InputEventType::RightButtonDown) {
         if (region->CaptureButtonDown(us_event)) {
-            return 1;
+            return true;
         }
         if (us_event != InputEventType::LeftButtonUp) {
-            return 0;
+            return false;
         }
         if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0 &&
             g_status.buffers.XChar[target_slot].fOccupied) {
@@ -326,19 +326,19 @@ std::uint8_t CampPortraitSlotRegionEvent(const InputEvent* event, W8Region* regi
                         QueueCharacterEvent(&g_status.buffers.Char[giReviewCharSlot],
                                             g_character_event_kind2, 0, g_character_event_no_flags,
                                             g_character_event_full_volume);
-                        return 1;
+                        return true;
                     }
                     AimAtCharacter(giReviewCharSlot, target_slot, W8_TARGETING_CONTEXT_CURRENT);
                     StartBreathCycle(giReviewCharSlot, false);
-                    return 1;
+                    return true;
                 }
                 if (g_status.buffers.Char[target_slot].uiCondition[W8_CONDITION_MISSING] == 0) {
                     if (g_camp_screen->item_action != W8_CAMP_ITEM_ACTION_CAST_SPELL) {
                         TargetCharacterWithHeldItem(target_slot);
-                        return 1;
+                        return true;
                     }
                     ReportCastResult(target_slot);
-                    return 1;
+                    return true;
                 }
             } else {
                 if (gXStatus.iTargetingMode == W8_TARGET_NEED_CHARACTER_INDIRECT) {
@@ -346,23 +346,23 @@ std::uint8_t CampPortraitSlotRegionEvent(const InputEvent* event, W8Region* regi
                         QueueCharacterEvent(&g_status.buffers.Char[giReviewCharSlot],
                                             g_character_event_kind2, 0, g_character_event_no_flags,
                                             g_character_event_full_volume);
-                        return 1;
+                        return true;
                     }
                     AimAtCharacterIndirect(giReviewCharSlot, target_slot,
                                            W8_TARGETING_CONTEXT_CURRENT);
                     StartBreathCycle(giReviewCharSlot, false);
-                    return 1;
+                    return true;
                 }
                 if (giReviewCharSlot != target_slot) {
                     SelectCampCharacter(target_slot);
-                    return 1;
+                    return true;
                 }
             }
         }
     } else {
         if (us_event != InputEventType::RightButtonUp) {
             if (us_event != InputEventType::MouseMove) {
-                return 0;
+                return false;
             }
             if ((region->flags & W8_REGION_MOUSE_TRANSITION_MASK) != 0) {
                 g_camp_screen->redraw_flags |= 1u << (region->callback_id & 0x1f);
@@ -371,24 +371,24 @@ std::uint8_t CampPortraitSlotRegionEvent(const InputEvent* event, W8Region* regi
                     g_status.buffers.Char[target_slot].uiCondition[W8_CONDITION_MISSING] == 0) {
                     if ((region->flags & W8_REGION_MOUSE_ENTER) != 0) {
                         UpdateItemCursorForState(1, 0, target_slot);
-                        return 0;
+                        return false;
                     }
                     UpdateItemCursorForState(0, 0, target_slot);
                 }
             }
-            return 0;
+            return false;
         }
         if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) != 0 && g_status.item_in_cursor) {
             TryGiveHeldItemToCampPortrait(target_slot);
         }
     }
-    return 1;
+    return true;
 }
 
 /* Opens the character editor (W8_SCREEN_CHARACTER, mode 1) for the reviewed
    party member. Help 2362. */
 // FUNCTION: WIZ8 0x005B61A0
-std::uint8_t CampOpenCharacterScreenRegionEvent(const InputEvent* event, W8Region* region)
+bool CampOpenCharacterScreenRegionEvent(const InputEvent* event, W8Region* region)
 {
     const InputEventType us_event = event->type;
 
@@ -397,12 +397,12 @@ std::uint8_t CampOpenCharacterScreenRegionEvent(const InputEvent* event, W8Regio
     } else {
         if (us_event != InputEventType::LeftButtonUp) {
             if (us_event != InputEventType::MouseMove) {
-                return 0;
+                return false;
             }
             if ((region->flags & W8_REGION_MOUSE_TRANSITION_MASK) != 0) {
                 g_camp_screen->redraw_flags |= 0x200;
             }
-            return 0;
+            return false;
         }
         if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
             g_current_screen_state.parameter_3 = g_review_character;
@@ -410,16 +410,16 @@ std::uint8_t CampOpenCharacterScreenRegionEvent(const InputEvent* event, W8Regio
             g_pending_screen_state.mode = 1;
             g_pending_screen_state.parameter_3 = g_review_character;
             SetPendingScreenState(W8_SCREEN_CHARACTER);
-            return 1;
+            return true;
         }
     }
-    return 1;
+    return true;
 }
 
 /* Holding the header region (help 2363) shows profession history; releasing
    it restores the summary and clears the active hover region. */
 // FUNCTION: WIZ8 0x005B6220
-std::uint8_t CampProfessionHistoryRegionEvent(const InputEvent* event, W8Region* region)
+bool CampProfessionHistoryRegionEvent(const InputEvent* event, W8Region* region)
 {
     const InputEventType us_event = event->type;
 
@@ -433,30 +433,30 @@ std::uint8_t CampProfessionHistoryRegionEvent(const InputEvent* event, W8Region*
                 if ((region->flags & W8_REGION_MOUSE_TRANSITION_MASK) != 0) {
                     g_camp_screen->redraw_flags |= 0x200;
                 }
-                return 0;
+                return false;
             }
-            return 0;
+            return false;
         }
         if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) == 0) {
-            return 1;
+            return true;
         }
         SetCampHeaderMode(W8_CAMP_HEADER_SUMMARY);
         ClearActiveRegionIfMatches(g_camp_screen->hover_region);
     }
     g_camp_screen->redraw_flags |= 0x7ff;
-    return 1;
+    return true;
 }
 
 /* Shared handler for the five bottom page buttons in g_camp_page_buttons. */
 // FUNCTION: WIZ8 0x005B62C0
-std::uint8_t CampPageButtonRegionEvent(const InputEvent* event, W8Region* region)
+bool CampPageButtonRegionEvent(const InputEvent* event, W8Region* region)
 {
     return DispatchButtonRegionEvent(event, region, g_camp_page_buttons[region->callback_id]);
 }
 
 /* Shared handler for the eight item-action buttons. */
 // FUNCTION: WIZ8 0x005B6360
-std::uint8_t CampItemActionRegionEvent(const InputEvent* event, W8Region* region)
+bool CampItemActionRegionEvent(const InputEvent* event, W8Region* region)
 {
     return DispatchButtonRegionEvent(event, region, g_item_action_controls[region->callback_id]);
 }
@@ -529,7 +529,7 @@ void UpdateRcsLevelUpPanel(void)
 /* Single level-up button (help 1984). Assembly writes region flags through the
    second parameter; Ghidra wrongly folded them into the event pointer. */
 // FUNCTION: WIZ8 0x005B66B0
-std::uint8_t CampLevelUpButtonRegionEvent(const InputEvent* event, W8Region* region)
+bool CampLevelUpButtonRegionEvent(const InputEvent* event, W8Region* region)
 {
     return DispatchButtonRegionEvent(event, region, g_level_up_button);
 }
@@ -599,7 +599,7 @@ static void OnDismissCharacterDialogClosed(W8DialogBase* base)
 /* Single dismiss button (help 2387). Same region-flag pattern as the level-up
    button. */
 // FUNCTION: WIZ8 0x005B6AA0
-std::uint8_t CampDismissButtonRegionEvent(const InputEvent* event, W8Region* region)
+bool CampDismissButtonRegionEvent(const InputEvent* event, W8Region* region)
 {
     return DispatchButtonRegionEvent(event, region, g_dismiss_button);
 }
@@ -1016,7 +1016,7 @@ void DrawCampHands(void)
    controls live on; it is created with the camp screen and torn down by
    DestroyCampButtonPanel. Returns 0 when any allocation fails. */
 // FUNCTION: WIZ8 0x005b4eb0
-std::int32_t CreateCampButtonPanel(void)
+bool CreateCampButtonPanel(void)
 {
     std::int32_t index;
 

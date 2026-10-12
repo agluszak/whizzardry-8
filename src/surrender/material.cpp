@@ -373,7 +373,7 @@ void srMaterial::enable(e_oper operation)
 }
 
 // FUNCTION: SURRENDER 0x10034B20
-std::int32_t srMaterial::isEnabled(e_oper operation) const
+bool srMaterial::isEnabled(e_oper operation) const
 {
     return (operations.value & (1 << (operation & 0x1f))) != 0;
 }

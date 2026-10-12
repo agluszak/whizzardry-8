@@ -5,8 +5,8 @@
 extern Font g_level_load_font; /* Font used for level-load and
                                         party-death/ending overlay text */
 
-std::uint8_t PleaseWaitScreenInitialize(void);
-std::uint8_t PleaseWaitScreenEnter(void);
+bool PleaseWaitScreenInitialize(void);
+bool PleaseWaitScreenEnter(void);
 void PleaseWaitScreenFrame(void);
-std::uint8_t PleaseWaitScreenLeave(std::int32_t leaving);
+bool PleaseWaitScreenLeave(std::int32_t leaving);
 void UpdatePleaseWaitLoadFrame(void);

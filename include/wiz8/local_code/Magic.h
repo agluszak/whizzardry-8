@@ -46,7 +46,7 @@ std::int32_t ExecuteCharacterSpellCast(std::int32_t party_slot, std::int32_t spe
 void RedirectBackfiredSpellTarget(W8TargetSource* source, W8CombatSlot* target);
 /* Pick one random in-combat participant other than the source
    and write it as the backfired spell's new target. */
-std::int32_t PickBackfireTarget(std::int32_t spell_id, W8TargetSource* source, W8CombatSlot* target);
+bool PickBackfireTarget(std::int32_t spell_id, W8TargetSource* source, W8CombatSlot* target);
 /* Scatter a backfired point target to a random reachable spot
    inside the spell's range around its source. */
 void ScatterSpellPointTarget(std::int32_t spell_id, W8TargetSource* source, W8CombatSlot* target);
@@ -54,7 +54,7 @@ void ScatterSpellPointTarget(std::int32_t spell_id, W8TargetSource* source, W8Co
    condition 0x0c gates it, a trait save can avoid it. */
 void CheckSpellBackfire(std::int32_t spell_id, W8TargetSource* source, W8CombatSlot* target);
 void SetPartySlotSpell(std::int32_t party_slot, std::int32_t spell_id, std::int32_t power_level, const W8CombatSlot* target);
-std::int32_t PointCastSpell(srVector3T<float> position, std::int32_t spell_id, std::uint32_t power_level);
+bool PointCastSpell(srVector3T<float> position, std::int32_t spell_id, std::uint32_t power_level);
 
 bool CanCastFromItem(const W8Character* caster, const W8ItemInstance* item);
 

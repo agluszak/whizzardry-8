@@ -1091,6 +1091,20 @@ TEST_CASE("Packed camera angles", "[save][records]")
     packed_camera_angles();
 }
 
+TEST_CASE("Retail flag bytes decode to bool by value", "[save][records]")
+{
+    // Retail writers stored flags as arbitrary nonzero bytes; copying such a
+    // byte into a bool is undefined, so it must decode as "nonzero".
+    std::array<std::byte, sizeof(wiz8::retail::NpcState)> image{};
+    image[offsetof(wiz8::retail::NpcState, has_monster)] = std::byte{2};
+    W8NpcState npc;
+    wiz8::retail::decode<W8NpcState>(image, npc);
+    REQUIRE(npc.has_monster);
+    REQUIRE_FALSE(npc.is_grouped);
+    const auto encoded = wiz8::retail::encode(npc);
+    REQUIRE(encoded[offsetof(wiz8::retail::NpcState, has_monster)] == std::byte{1});
+}
+
 TEST_CASE("Global status record", "[save][records]")
 {
     global_status_record();

@@ -102,7 +102,7 @@ public:
     /* Return `frame`'s vertex bounds, decompressing a scratch copy when the frame
        is not resident. Invalid frames and empty meshes return zero bounds. */
     srBoundingBox GetFrameBounds(std::int32_t frame);
-    std::uint8_t DecompressFrame(std::int32_t frame, std::uint8_t flags,
+    bool DecompressFrame(std::int32_t frame, std::uint8_t flags,
                                   std::span<glm::vec3> destination); /* 0x00471930 */
     void ComputeFrameNormals(std::int32_t frame);                           /* 0x004729F0 */
     void ClearAutomapPolygonFilter();
@@ -205,5 +205,5 @@ std::int32_t __fastcall IsZeroVector(const srVector3T<float>* vector);
 /* Release least-recently-used decompressed frame caches until `needed` bytes
    have been freed; 0 when the registry cannot supply them. A requesting model
    is retained because its renderer may already hold borrowed frame pointers. */
-std::uint8_t ReclaimDecompressedBytes(std::uint32_t needed,
+bool ReclaimDecompressedBytes(std::uint32_t needed,
                                       const stMeshModel* retained_model = nullptr);

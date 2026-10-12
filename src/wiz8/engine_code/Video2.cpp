@@ -96,9 +96,9 @@
 
 srModelInstance* Video2DRectToSquarePolygon(const W8ControlsRect* rect, SDL_Surface& source,
                                             srNode* parent,
-                                            std::uint8_t overlay);
+                                            bool overlay);
 srModelInstance* Video2DRectToPolygon(const W8ControlsRect* rect, SDL_Surface& source,
-                                      srNode* parent, std::uint8_t overlay);
+                                      srNode* parent, bool overlay);
 std::uint8_t CopySurfaceWithBorder(srColorSurface* surface, const W8ControlsRect* rect,
                                     SDL_Surface& source, float* scale_x, float* scale_y,
                                     float* mapping_x, float* mapping_y);
@@ -118,7 +118,7 @@ SDL_Window* ghWindow;
 // GLOBAL: WIZ8 0x603c38
 bool g_world_pick_enabled = true;
 // GLOBAL: WIZ8 0x603c4c
-std::uint8_t g_fullscreen_scene_last = 1;
+bool g_fullscreen_scene_last = true;
 // GLOBAL: WIZ8 0x603c60
 bool g_cursor_scene_enabled = true;
 // GLOBAL: WIZ8 0x603c6d
@@ -350,13 +350,13 @@ bool InitializeVideoManager(void)
     g_page_full_redraw[1] = 0;
     Initialize16BitPixelFormatMasks();
     if (!CreateWizardryWindow()) {
-        return 0;
+        return false;
     }
     if (!InitializePrimarySurface()) {
-        return 0;
+        return false;
     }
     if (!InitializeVideoDevice()) {
-        return 0;
+        return false;
     }
     InitializeRendererSceneObjects();
     if (!g_video_active) {
@@ -380,7 +380,7 @@ bool InitializeVideoManager(void)
 done:
     SetViewport(0, 0, 0x280, 0x1e0);
     if (!InitializeStartupNavigation()) {
-        return 0;
+        return false;
     }
     EnableAllRenderOptions();
     return InitializeMouseCursorScene();
@@ -468,7 +468,7 @@ void Initialize16BitPixelFormatMasks(void)
    is preserved here; AdjustWindowRect turns the four stored client bounds into
    the outer window rectangle before CreateWindowEx. */
 // FUNCTION: WIZ8 0x00425ec0
-std::uint8_t CreateWizardryWindow(void)
+bool CreateWizardryWindow(void)
 {
     ghWindow = W8CreateGameWindow(g_screen_width, g_screen_height, g_fullscreen != 0);
     return ghWindow != 0;
@@ -481,15 +481,15 @@ void ReleasePrimarySurface(void)
     primarySurface.reset();
 }
 
-std::uint8_t InitializePrimarySurface(void)
+bool InitializePrimarySurface(void)
 {
     if (g_sgp_pixel_format == SDL_PIXELFORMAT_UNKNOWN)
-        return 0;
+        return false;
     primarySurface.reset(SDL_CreateSurface(640, 480, g_sgp_pixel_format));
     if (!primarySurface)
-        return 0;
+        return false;
     SDL_SetSurfaceBlendMode(primarySurface.get(), SDL_BLENDMODE_NONE);
-    return 1;
+    return true;
 }
 
 /* Selects and starts the configured SurRender display driver, binds it to the
@@ -574,14 +574,14 @@ catch (const std::exception&) { return false; }
 /* Applies the configured window style, asks SurRender for the matching display
    mode in fullscreen operation, and opens the renderer output window. */
 // FUNCTION: WIZ8 0x00422800
-std::uint8_t OpenRendererWindow(void)
+bool OpenRendererWindow(void)
 {
     if (!W8ConfigureGameWindow(ghWindow, g_fullscreen != 0, g_screen_width, g_screen_height))
-        return 0;
+        return false;
     if (g_gerd->openWindow(g_screen_width, g_screen_height) != srGERD::ERROR_NONE)
-        return 0;
+        return false;
     g_flush_pending = true;
-    return 1;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x00423390
@@ -594,12 +594,12 @@ SDL_Surface* BeginVideoPresentation(void)
 }
 
 // FUNCTION: WIZ8 0x004234A0
-std::uint8_t FinishVideoPresentation(void)
+bool FinishVideoPresentation(void)
 {
     videoSurfaceOwner.reset();
     g_flush_pending = true;
     InvalidateRegion(0, 0, 640, 480, 0);
-    return 1;
+    return true;
 }
 
 /* WM_SIZE only rebuilds the SurRender output in windowed mode.  Full-screen
@@ -609,17 +609,17 @@ std::uint8_t FinishVideoPresentation(void)
 bool VideoResizeWindow(void)
 {
     if (g_fullscreen || !ghWindow || !g_gerd || !g_flush_pending) {
-        return 0;
+        return false;
     }
     g_flush_pending = false;
     g_gerd->closeWindow(static_cast<srGERD::e_closeHint>(1));
     if (g_gerd->openWindow() == srGERD::ERROR_WINDOW_OPEN_FAILED) {
-        return 0;
+        return false;
     }
     SetRendererModePair();
     ResetTransientRenderScenes();
     g_flush_pending = true;
-    return 1;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x00422970
@@ -672,7 +672,7 @@ void SuspendVideoManager(void)
 bool RestoreVideoManager(void)
 {
     if (g_video_active) {
-        return 1;
+        return true;
     }
     if (gXStatus.world_update_blocked) {
         ResumeMainGameWorld();
@@ -687,7 +687,7 @@ bool RestoreVideoManager(void)
             SetRendererModePair();
         }
     }
-    return 0;
+    return false;
 }
 
 /* The mode the engine falls back to: 640x480 at 16bpp, reported height first.
@@ -701,10 +701,10 @@ void GetCurrentVideoSettings(std::uint16_t* height, std::uint16_t* width, std::u
 }
 
 // FUNCTION: WIZ8 0x00421ff0
-std::uint8_t ClearPrimarySurface(void)
+bool ClearPrimarySurface(void)
 {
     SDL_FillSurfaceRect(primarySurface.get(), nullptr, 0);
-    return 1;
+    return true;
 }
 
 void UpdateRenderElapsedTime(void);
@@ -996,7 +996,7 @@ void RenderFrame(void)
    otherwise the stored game viewport globals apply. SaveGame uses it for the
    SHOT screenshot; the automap uses it for its backdrop. */
 // FUNCTION: WIZ8 0x00426f80
-std::uint8_t RenderWorldToSurface(srColorSurface* target, W8ScreenRect* rect,
+bool RenderWorldToSurface(srColorSurface* target, W8ScreenRect* rect,
                                    bool render_secondary)
 {
     srGERD* gerd = g_secondary_gerd;
@@ -1045,9 +1045,9 @@ std::uint8_t RenderWorldToSurface(srColorSurface* target, W8ScreenRect* rect,
         target->setFilter(&srBoxFilter);
         target->copy(*buffer);
         gerd->unlockBuffer();
-        return 1;
+        return true;
     }
-    return 0;
+    return false;
 }
 
 // FUNCTION: WIZ8 0x00427440
@@ -1125,7 +1125,7 @@ void SetWorldModelPickingEnabled(bool enabled)
 // FUNCTION: WIZ8 0x00424EB0
 srModelInstance* MakePolygonBrush(srNode* parent, std::shared_ptr<srColorSurfaceIFace> surface, double width,
                                   double height, float mapping_x, float mapping_y,
-                                  float mapping_width, float mapping_height, std::uint8_t overlay)
+                                  float mapping_width, float mapping_height, bool overlay)
 {
     std::shared_ptr<srMeshModel> model;
     stModelInstance2D* instance;
@@ -1413,7 +1413,7 @@ std::uint32_t GetMillisecondsSinceCursorMove(void)
 /* The tracked cursor as viewport-relative 0..1 coordinates, or zero when it
    lies outside. Same tracked position and viewport as the query above. */
 // FUNCTION: WIZ8 0x00428230
-std::uint8_t GetCursorPositionInViewport(glm::vec2* position)
+bool GetCursorPositionInViewport(glm::vec2* position)
 {
     std::int32_t x = g_cursor_hotspot_x + g_cursor_width;
     std::int32_t y = g_cursor_hotspot_y + g_cursor_height;
@@ -1422,9 +1422,9 @@ std::uint8_t GetCursorPositionInViewport(glm::vec2* position)
         position->x =
             (x - g_viewport.left) / static_cast<float>(g_viewport.right - g_viewport.left);
         position->y = (y - g_viewport.top) / static_cast<float>(g_viewport.bottom - g_viewport.top);
-        return 1;
+        return true;
     }
-    return 0;
+    return false;
 }
 
 /* The tracked cursor tip (hotspot + size) in pixel-scale units. DropHeldItem
@@ -1504,7 +1504,7 @@ std::int32_t GetEventCursorY(const InputEvent* atom)
 
 /* Creates the shipped 128x128 mouse polygon inside its dedicated scene. */
 // FUNCTION: WIZ8 0x004285c0
-std::uint8_t InitializeMouseCursorScene(void)
+bool InitializeMouseCursorScene(void)
 {
     srScene* cursor_scene = new srScene(static_cast<srNode*>(0));
     cursor_scene->setAmbientLight(0.0f, 0.0f, 0.0f);
@@ -1512,7 +1512,7 @@ std::uint8_t InitializeMouseCursorScene(void)
     g_cursor_scene = cursor_scene;
     g_cursor_scene->setName("Mouse Cursor Scene");
     if (!g_mouse_surface) {
-        return 0;
+        return false;
     }
     ClearMouseSurface();
     g_cursor_node =
@@ -1528,7 +1528,7 @@ std::uint8_t InitializeMouseCursorScene(void)
         g_cursor_texture->setWrapT(srTextureIFace::WRAP_CLAMP);
         PositionMouseCursor(640, 480, true);
     }
-    return 1;
+    return true;
 }
 
 /* Dirty-rectangle tracking and surface updates. */
@@ -1969,7 +1969,7 @@ void SetPrimarySurfaceTextureHint2Enabled(bool enabled)
 }
 
 // FUNCTION: WIZ8 0x00424040
-std::uint8_t InitializeMouseSurface(void)
+bool InitializeMouseSurface(void)
 {
     if (g_pixel_format == 7) {
         g_mouse_surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_RGB565, 128UL, 128UL);
@@ -1978,15 +1978,15 @@ std::uint8_t InitializeMouseSurface(void)
     } else if (g_pixel_format == 9) {
         g_mouse_surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, 128UL, 128UL);
     } else {
-        return 0;
+        return false;
     }
     g_mouse_surface->setFilter(&srBoxFilter);
     ClearMouseSurface();
-    return 1;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x00423500
-std::uint8_t InitializeRendererSceneObjects(void)
+bool InitializeRendererSceneObjects(void)
 {
     srCamera::Rect view;
     std::shared_ptr<srMaterial> material;
@@ -2085,7 +2085,7 @@ std::uint8_t InitializeRendererSceneObjects(void)
 
     g_surface_node = new stSurface2D(g_primary_color_surface, 640, 480, g_scene_overlay0, 128);
     if (!g_surface_node)
-        return 0;
+        return false;
 
     strncpy(renderer_name, g_gerd->getName().c_str(), 127);
     renderer_name[127] = 0;
@@ -2095,7 +2095,7 @@ std::uint8_t InitializeRendererSceneObjects(void)
     }
     g_renderer_mode = strstr(renderer_name, "DIRECT3D") || strstr(renderer_name, "GLIDE") ||
                       strstr(renderer_name, "SOFTWARE2");
-    return 1;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x004263f0
@@ -2154,17 +2154,17 @@ void SetPickedModelInstance(srModelInstance* value)
 }
 
 // FUNCTION: WIZ8 0x00428010
-std::uint8_t DisableCursorScene(void)
+bool DisableCursorScene(void)
 {
     g_cursor_scene_enabled = false;
-    return 1;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x00428020
-std::uint8_t EnableCursorScene(void)
+bool EnableCursorScene(void)
 {
     g_cursor_scene_enabled = true;
-    return 1;
+    return true;
 }
 
 /* Release an srClass, leaving the renderer in 2D mode, or in the paired
@@ -2245,7 +2245,7 @@ void SetSurfaceScale(float scale)
 }
 
 // FUNCTION: WIZ8 0x004298E0
-void SetFullscreenSceneLast(std::uint8_t value)
+void SetFullscreenSceneLast(bool value)
 {
     g_fullscreen_scene_last = value;
 }
@@ -2405,7 +2405,7 @@ void PositionToolTipNode(srNode* node, std::int32_t x, std::int32_t y, bool posi
    overlay scene. */
 // FUNCTION: WIZ8 0x00424560
 srModelInstance* Video2DRectToSquarePolygon(const W8ControlsRect* rect, SDL_Surface& source,
-                                            srNode* parent, std::uint8_t overlay)
+                                            srNode* parent, bool overlay)
 {
     std::int32_t extent = (rect->bottom - rect->top) + 2;
     std::int32_t width_extent = (rect->right - rect->left) + 2;
@@ -2675,7 +2675,7 @@ std::uint8_t CopySurfaceWithBorder(srColorSurface* surface, const W8ControlsRect
    repeats its border, and the node records the rectangle extents. */
 // FUNCTION: WIZ8 0x00424280
 srModelInstance* Video2DRectToPolygon(const W8ControlsRect* rect, SDL_Surface& source,
-                                      srNode* parent, std::uint8_t overlay)
+                                      srNode* parent, bool overlay)
 {
     double left = rect->left * g_inverse_screen_width;
     std::int32_t extent = rect->right - rect->left;

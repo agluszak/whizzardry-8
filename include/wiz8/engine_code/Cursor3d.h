@@ -26,6 +26,6 @@ char MarchWorldCursorTarget(srVector3T<float>* target);
 /* 0x004921E0: resolve the world cursor's target position into the out
    vector: copy the cursor position, ground-probe its candidate offsets and
    keep the settled height. */
-std::int32_t ResolveWorldCursorTarget(srVector3T<float>* position);
+bool ResolveWorldCursorTarget(srVector3T<float>* position);
 void GetWorldCursorTargetPosition(srVector3T<float>* position);
 void ResetWorldCursorRange(void); /* 0x00492530 */

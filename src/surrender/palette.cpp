@@ -319,19 +319,19 @@ srPalette::Quantizer::Quantizer()
 }
 
 // FUNCTION: SURRENDER 0x10004160
-std::int32_t srPalette::matchPalette(const srARGB* const colors, std::int32_t color_count) const
+bool srPalette::matchPalette(const srARGB* const colors, std::int32_t color_count) const
 {
     if (color_count != this->color_count) {
-        return 0;
+        return false;
     }
     for (std::int32_t index = 0; index < color_count; ++index) {
         // reinterpret-ok: retail compares the packed color dwords
         if (reinterpret_cast<const std::uint32_t&>(this->colors[index]) !=
             reinterpret_cast<const std::uint32_t&>(colors[index])) {
-            return 0;
+            return false;
         }
     }
-    return 1;
+    return true;
 }
 
 // FUNCTION: SURRENDER 0x10004210

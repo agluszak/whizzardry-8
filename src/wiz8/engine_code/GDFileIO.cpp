@@ -170,7 +170,7 @@ InterfaceBank BuildInterfaces(std::size_t count, const std::vector<ConditionalFa
 }
 
 // FUNCTION: WIZ8 0x00447660
-std::uint8_t W8GameData::ReadWGDList(wiz8::File& file, std::int32_t poly_type)
+bool W8GameData::ReadWGDList(wiz8::File& file, std::int32_t poly_type)
 {
     if (poly_type < 0 || poly_type > 2) throw std::runtime_error("invalid WGD poly type");
     wiz8::BinaryReader reader(file);
@@ -180,7 +180,7 @@ std::uint8_t W8GameData::ReadWGDList(wiz8::File& file, std::int32_t poly_type)
         VerticesCount() > std::numeric_limits<std::int32_t>::max() - vertex_count ||
         SurfacesCount() > std::numeric_limits<std::int32_t>::max() - face_count)
         throw std::runtime_error("invalid WGD record count");
-    if (!vertex_count && !face_count) return 0;
+    if (!vertex_count && !face_count) return false;
     if (!vertex_count || !face_count) throw std::runtime_error("incomplete WGD bank counts");
     if (poly_type == 0 && (VerticesCount() || SurfacesCount()))
         throw std::runtime_error("primary WGD bank already loaded");
@@ -271,7 +271,7 @@ std::uint8_t W8GameData::ReadWGDList(wiz8::File& file, std::int32_t poly_type)
     geometry_index.reset();
     interface_names.swap(names);
     minimum = bank_min; maximum = bank_max;
-    return 1;
+    return true;
 }
 
 /* Answers the 1-based ordinal of the name-table entry matching `name`,
@@ -505,26 +505,26 @@ struct W8ProcessedGameDataHeader {
 };
 
 // FUNCTION: WIZ8 0x0041a820
-std::uint8_t W8EnvironRecord::RescaleToReference(const W8EnvironRecord* reference)
+bool W8EnvironRecord::RescaleToReference(const W8EnvironRecord* reference)
 {
     if (reference == 0) {
         float difference = static_cast<float>(fabs(g_navigator_gravity + vector.y));
         if (g_navigator_gravity * g_camera_snap_epsilon < difference) {
-            return 1;
+            return true;
         }
         difference = static_cast<float>(fabs(forward_scale - g_camera_level_forward_scale));
         if (g_camera_level_forward_scale * g_camera_snap_epsilon < difference) {
-            return 1;
+            return true;
         }
         difference = static_cast<float>(fabs(motion_limit - g_default_motion_limit));
         if (g_default_motion_limit * g_camera_snap_epsilon < difference) {
-            return 1;
+            return true;
         }
         difference = static_cast<float>(fabs(momentum_scale - g_default_momentum_scale));
         if (g_default_momentum_scale * g_camera_snap_epsilon < difference) {
-            return 1;
+            return true;
         }
-        return 0;
+        return false;
     }
 
     float scale = g_navigator_gravity / -reference->gravity_y;
@@ -534,7 +534,7 @@ std::uint8_t W8EnvironRecord::RescaleToReference(const W8EnvironRecord* referenc
     forward_scale *= g_camera_level_forward_scale / reference->forward_scale;
     motion_limit *= g_default_motion_limit / reference->motion_limit;
     momentum_scale *= g_default_momentum_scale / reference->momentum_scale;
-    return 0;
+    return false;
 }
 
 /* Read the processed GameData header and all of its variable-size banks. */
@@ -685,10 +685,10 @@ W8GameData::W8GameData(wiz8::File* handle, bool secondary)
    from its primary 0x4c-byte bank.  The constructor expands only local bounds,
    leaving the serialized GameData limits unchanged. */
 // FUNCTION: WIZ8 0x004497c0
-std::uint8_t InitializeGameData(W8GameData* game_data)
+bool InitializeGameData(W8GameData* game_data)
 {
     if (game_data == 0) {
-        return 0;
+        return false;
     }
 
     srVector3T<float> minimum = game_data->minimum;
@@ -699,10 +699,10 @@ std::uint8_t InitializeGameData(W8GameData* game_data)
 
     for (std::int32_t index = 0; index < game_data->SurfacesCount(); ++index) {
         if (game_data->geometry_index->InsertSurface(&game_data->m_pSurfaces[index], 3) == 0) {
-            return 0;
+            return false;
         }
     }
-    return 1;
+    return true;
 }
 
 /* Rebuild one indexed surface plane and derive the runtime classification
@@ -1008,7 +1008,7 @@ static void LinkSurfaceEdge(std::int32_t polygon, std::int32_t edge, std::unorde
 }
 
 // FUNCTION: WIZ8 0x0044aa40
-std::uint8_t W8GameData::WriteGameData(wiz8::File* handle)
+bool W8GameData::WriteGameData(wiz8::File* handle)
 {
     W8ProcessedGameDataHeader header;
     std::int32_t index;
@@ -1030,7 +1030,7 @@ std::uint8_t W8GameData::WriteGameData(wiz8::File* handle)
 
     if (handle == 0) {
         ReportBuildStatus(7, "WriteGameData: File not open.\n");
-        return 0;
+        return false;
     }
     handle->write(&header, sizeof(header));
     handle->write(m_pVertices.data(),
@@ -1043,5 +1043,5 @@ std::uint8_t W8GameData::WriteGameData(wiz8::File* handle)
     for (index = 0; index < EnvironsCount(); ++index) {
         handle->write(m_ppEnvirons[index].get(), sizeof(W8EnvironRecord));
     }
-    return 1;
+    return true;
 }

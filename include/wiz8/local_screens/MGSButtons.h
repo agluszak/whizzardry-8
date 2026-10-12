@@ -49,15 +49,15 @@ void RefreshSubMenuPanel(bool invalidate);
 /* Close and rebuild the sub menu around the saved combat-end notification. */
 void ResetSubMenuPanel(void);
 /* Create and lay out the two scroll-arrow buttons. */
-std::uint8_t CreateSubMenuScrollButtons(void);
+bool CreateSubMenuScrollButtons(void);
 /* Create the close/formation panel buttons. */
-std::uint8_t CreateSubMenuPanelButtons(void);
+bool CreateSubMenuPanelButtons(void);
 /* Create the options-disk button. */
-std::uint8_t CreateOptionsDiskButton(void);
+bool CreateOptionsDiskButton(void);
 /* Create the five combat-stance buttons. */
-std::uint8_t CreateCombatStanceButtons(void);
+bool CreateCombatStanceButtons(void);
 /* Create the three roof/viewpoint buttons. */
-std::uint8_t CreateRoofButtons(void);
+bool CreateRoofButtons(void);
 /* Draw roof chrome, mark the three buttons dirty, sync state, and request the
    0x100000 redraw bit. */
 void RedrawRoofButtons(void);
@@ -69,7 +69,7 @@ void SyncRoofButtonPressedState(void);
    live action-panel / formation-board / radar-map visibility flags. */
 void RedrawLayoutArrowButtons(void);
 /* Create the six layout-arrow buttons. */
-std::uint8_t CreateLayoutArrowButtons(void);
+bool CreateLayoutArrowButtons(void);
 /* MainGameScreenEnter's interface-button bank: submenu, scroll, panel,
    options disk, combat stance, roof, and layout arrows. */
 void CreateMainGameInterfaceButtons(void);
@@ -129,9 +129,9 @@ void SetSubMenuButtonTooltips(std::int32_t enabled);
    banks around the surprise/camp sequence. */
 void EnableMenuButtonBanks(void);
 void DisableMenuButtonBanks(void);
-std::uint8_t SubMenuBackgroundRegionEvent(const InputEvent* event, W8Region* region);
+bool SubMenuBackgroundRegionEvent(const InputEvent* event, W8Region* region);
 /* Region callback the five sub-menu rows share. */
-std::uint8_t SubMenuRowRegionEvent(const InputEvent* event, W8Region* region);
+bool SubMenuRowRegionEvent(const InputEvent* event, W8Region* region);
 
 /* Enable the panel region set and one input region per live row. */
 void EnableSubMenuRegions(void);
@@ -140,7 +140,7 @@ void EnableSubMenuRegions(void);
 void OpenSubMenuPanel(std::int16_t notification);
 /* Build the panel and one row per available entry of the notification's
    menu. */
-std::uint8_t BuildSubMenuPanel(std::int16_t notification);
+bool BuildSubMenuPanel(std::int16_t notification);
 /* Install the row's primary callback for its (W8SubMenuPage, entry) pair. */
 void AssignSubMenuCallback(W8TextControl* row, std::int16_t menu, std::int16_t item);
 /* The row availability states the refresh maps icon frames through. */

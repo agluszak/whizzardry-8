@@ -134,7 +134,7 @@ protected:
     virtual SR_DLL_IMPORT void minify(srColorSurfaceIFace& source);
 
     SR_DLL_IMPORT void copySurfaceParameters(const srColorSurfaceIFace& source);
-    SR_DLL_IMPORT std::int32_t isPixelFormatCompatible(const srColorSurfaceIFace& source) const;
+    SR_DLL_IMPORT bool isPixelFormatCompatible(const srColorSurfaceIFace& source) const;
     SR_DLL_IMPORT void setSurfaceDesc(const SurfaceDesc& description);
 
     friend class stTextureFile;

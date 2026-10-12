@@ -1056,7 +1056,7 @@ void OctPreTree::VerifyAutoMeshes(W8OctPreTreeGeometry* geometry, W8OctSubmeshBu
    keys each (z<<16 | x) cell so one pass emits at most one node per cell
    unless a duplicate key arrives with an empty value. */
 // FUNCTION: WIZ8 0x0046b060
-std::uint8_t OctPreTree::BuildPathLists(W8GameData* game_data, W8LevelFile& level,
+bool OctPreTree::BuildPathLists(W8GameData* game_data, W8LevelFile& level,
                                          std::uint32_t min_component_percent)
 {
     std::unordered_map<std::uint32_t, std::int32_t> node_map;
@@ -1151,7 +1151,7 @@ std::uint8_t OctPreTree::BuildPathLists(W8GameData* game_data, W8LevelFile& leve
            arrays), object_registry and g_octree_game_data are all
            left behind - the registry pointer and global stay live. */
         if (!pre_pathing->BuildPathList(head, &node_map)) {
-            return 0;
+            return false;
         }
         pre_pathing->LinkCollideableProps(prop_count, preprops, &cond_map);
         pre_pathing->CreateAutomapNodes(level);
@@ -1168,7 +1168,7 @@ std::uint8_t OctPreTree::BuildPathLists(W8GameData* game_data, W8LevelFile& leve
     delete object_registry;
     object_registry = 0;
     SetOctreeGameData(0);
-    return 1;
+    return true;
 }
 
 /* Probes one node candidate: box-tests the cell against surfaces/props, then
@@ -1267,7 +1267,7 @@ char OctPreTree::PathNodeObstructed(const srVector3T<float>* node)
    conditional-node map keyed by (stop-mesh frame << 16 | preprop index + 1).
    Blocker nodes are flagged 0x2000000. */
 // FUNCTION: WIZ8 0x0046b9d0
-std::uint8_t OctPreTree::InsertConditionalNodes(std::unordered_multimap<std::uint32_t, CondPathNode*>& nodes,
+bool OctPreTree::InsertConditionalNodes(std::unordered_multimap<std::uint32_t, CondPathNode*>& nodes,
                                                  std::uint32_t cell, std::uint32_t node,
                                                  std::span<const W8PreProp> preprops)
 {
@@ -1306,7 +1306,7 @@ std::uint8_t OctPreTree::InsertConditionalNodes(std::unordered_multimap<std::uin
 char OctPreTree::TestPathPropBounds(const srBoundingBox& bounds)
 {
     std::vector<std::uint32_t> ids;
-    std::uint8_t hit = 0;
+    bool hit = false;
 
     ids = queryObjects(bounds, 3, -1);
     std::int32_t count = ids.size();

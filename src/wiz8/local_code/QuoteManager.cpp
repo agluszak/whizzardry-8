@@ -350,7 +350,7 @@ bool IsVoiceMuted(void)
 }
 
 // FUNCTION: WIZ8 0x0052E370
-void SetVoiceMuted(std::uint8_t muted)
+void SetVoiceMuted(bool muted)
 {
     if (muted != 0) {
         if (g_settings.muted_voice_volume == 0xff) {
@@ -575,7 +575,7 @@ void W8CharacterEvent::Complete()
 }
 
 // FUNCTION: WIZ8 0x0052C910
-std::uint8_t W8CharacterEvent::IsConditionMet(std::uint32_t event_type)
+bool W8CharacterEvent::IsConditionMet(std::uint32_t event_type)
 {
     do {
         switch (event_type) {
@@ -607,11 +607,11 @@ std::uint8_t W8CharacterEvent::IsConditionMet(std::uint32_t event_type)
             if (character->hp_current < static_cast<std::uint32_t>(trigger_value) ||
                 character->highest_condition != W8_CONDITION_NONE) {
                 QueueCharacterEvent(character, 84, 0, 1, 0x7f);
-                return 0;
+                return false;
             }
-            return 1;
+            return true;
         default:
-            return 1;
+            return true;
         }
     } while (1);
 }
@@ -674,7 +674,7 @@ static bool CanDispatchCharacterEvent(std::uint32_t party_slot, std::uint32_t ev
 #define FALLBACK_VOICE_TEXT "Ouch play this sound."
 
 // FUNCTION: WIZ8 0x0052D260
-std::uint8_t W8CharacterEvent::PlayEventSound()
+bool W8CharacterEvent::PlayEventSound()
 {
     std::uint32_t party_slot = CharacterPointerToPartySlot(character);
     std::uint32_t sound_event = event_type;
@@ -737,7 +737,7 @@ void W8CharacterEventQueue::RecordDispatchedEvent(std::uint32_t event_type, std:
 }
 
 // FUNCTION: WIZ8 0x0052CA60
-std::uint8_t W8CharacterEvent::Dispatch()
+bool W8CharacterEvent::Dispatch()
 {
     std::uint32_t party_slot;
     std::uint32_t metadata;
@@ -750,11 +750,11 @@ std::uint8_t W8CharacterEvent::Dispatch()
 
     metadata = 0xffffffff;
     if (character == 0) {
-        return 0;
+        return false;
     }
     party_slot = CharacterPointerToPartySlot(character);
     if (!MapEventTypeToDescriptorIndex(event_type, &descriptor_index)) {
-        return 0;
+        return false;
     }
     metadata = 0xffffffff;
     if ((flags & W8_EVENT_BYPASS_CHECKS) == 0) {
@@ -766,11 +766,11 @@ std::uint8_t W8CharacterEvent::Dispatch()
             event_type != static_cast<std::uint32_t>(g_special_event1)) {
             if (character->uiCondition[W8_CONDITION_SILENCED] != 0) {
                 QueueCharacterEvent(character, g_special_event1, 0, 1, 0x7f);
-                return 0;
+                return false;
             }
             if (character->uiCondition[W8_CONDITION_INSANE] != 0) {
                 QueueCharacterEvent(character, g_special_event21, 0, 1, 0x7f);
-                return 0;
+                return false;
             }
         }
     }
@@ -785,11 +785,11 @@ std::uint8_t W8CharacterEvent::Dispatch()
             npc = GetNpcState(npc_index);
             row->pending_event_type = event_type;
             if (npc == 0) {
-                return 1;
+                return true;
             }
             if (npc->name_style == W8_NPC_VI_DOMINA && event_type > 0x8b && event_type < 0x92 &&
                 g_status.current_level != 0) {
-                return 0;
+                return false;
             }
             if ((flags & W8_EVENT_NPC_SCRIPT) != 0) {
                 SetNpcScriptEventActive(1);
@@ -803,7 +803,7 @@ std::uint8_t W8CharacterEvent::Dispatch()
             }
             slot->active_character_event = this;
             gXStatus.character_event_queue->RecordDispatchedEvent(event_type, party_slot);
-            return 1;
+            return true;
         }
         has_quote = FormatCharacterQuoteText(character, event_type, &metadata);
         if (PlayEventSound() != 0) {
@@ -814,23 +814,23 @@ std::uint8_t W8CharacterEvent::Dispatch()
                 slot->active_character_event = this;
                 row->pending_event_type = event_type;
                 slot->pending_event_type = event_type;
-                return 1;
+                return true;
             }
             SetPartyPortraitEventState(party_slot, true, event_type, {}, 1);
             slot->pending_event_type = event_type;
-            return 1;
+            return true;
         }
         Complete();
         if (!has_quote) {
-            return 0;
+            return false;
         }
         gXStatus.character_event_queue->RecordDispatchedEvent(event_type, party_slot);
         gXStatus.character_event_queue->RestartFollowUpClock(this);
-        return 0;
+        return false;
     }
 finish_without_dispatch:
     Complete();
-    return 0;
+    return false;
 }
 
 // Retail sets 0x1d-0x24, regions 302-309
@@ -1221,39 +1221,39 @@ bool W8CharacterEventQueue::HasEventCharacter(std::uint32_t event_type, std::uin
 }
 
 // FUNCTION: WIZ8 0x0052DC80
-std::uint8_t W8CharacterEventQueue::TryAdjustQueuedEvent(W8CharacterEvent* entry)
+bool W8CharacterEventQueue::TryAdjustQueuedEvent(W8CharacterEvent* entry)
 {
     if (entry == 0 || active_event_type == -1 ||
         entry->event_type != static_cast<std::uint32_t>(active_event_type)) {
-        return 1;
+        return true;
     }
 
     std::uint32_t party_slot = CharacterPointerToPartySlot(entry->character);
     if (party_slot == static_cast<std::uint32_t>(active_party_slot)) {
-        return 1;
+        return true;
     }
 
     if (TimeUntilDeadline(recent_event_clock) == 0) {
         active_event_type = -1;
         active_party_slot = -1;
-        return 1;
+        return true;
     }
 
     std::uint32_t event_type = entry->event_type;
     std::uint32_t descriptor_index;
     if (!MapEventTypeToDescriptorIndex(event_type, &descriptor_index)) {
-        return 1;
+        return true;
     }
     if (g_character_event_descriptors[descriptor_index].coalesce_duplicates == 0) {
-        return 1;
+        return true;
     }
 
     entry->original_event_type = event_type;
     if (event_type == 4) {
-        return 0;
+        return false;
     }
     entry->event_type = 10;
-    return 1;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x0052E460
@@ -1742,7 +1742,7 @@ void RequeueSelectedPortraitEvent(void)
 /* Occupied slots with portrait_event_active set still have a portrait/voice record in
    flight; trap-trigger follow-up waits until none of those are active. */
 // FUNCTION: WIZ8 0x0052E590
-std::uint8_t PartyPortraitEventsIdle(void)
+bool PartyPortraitEventsIdle(void)
 {
     W8PartySlotRow* row = g_status.buffers.XChar;
     const W8MonsterManagerEntry* current;
@@ -1750,10 +1750,10 @@ std::uint8_t PartyPortraitEventsIdle(void)
     for (current = gXStatus.monster_manager_entries; current < &gXStatus.monster_manager_entries[8];
          ++current, ++row) {
         if (row->fOccupied && current->portrait_event_active) {
-            return 0;
+            return false;
         }
     }
-    return 1;
+    return true;
 }
 
 static void SetCurrentPortraitPose(W8MonsterManagerEntry& record, std::int32_t pose)
@@ -1910,7 +1910,7 @@ std::int32_t UpdateCharacterEventState(void)
    for the animated form the frame blitter runs first, and the death,
    in-combat or exhausted state adds the darkened overlay. */
 // FUNCTION: WIZ8 0x0052eb00
-void RenderPartyPortrait(std::int32_t portrait, std::int32_t left, std::int32_t top, SpriteDraw options, std::uint8_t value,
+void RenderPartyPortrait(std::int32_t portrait, std::int32_t left, std::int32_t top, SpriteDraw options, bool value,
                          std::int32_t party_slot)
 {
     CatalogArtwork::Load(0x12, portrait).draw(GetFrameBufferSurface(), 0, left, top, options);
@@ -2039,7 +2039,7 @@ bool BlitPartyPortraitAnimation(std::int32_t portrait, std::int32_t left, std::i
 }
 
 // FUNCTION: WIZ8 0x0052FD80
-std::uint8_t PartyPortraitEventRegionEvent(const InputEvent* event, W8Region* region)
+bool PartyPortraitEventRegionEvent(const InputEvent* event, W8Region* region)
 {
     std::uint16_t callback_id = region->callback_id;
     W8MonsterManagerEntry* entry = &gXStatus.monster_manager_entries[callback_id];
@@ -2055,15 +2055,15 @@ std::uint8_t PartyPortraitEventRegionEvent(const InputEvent* event, W8Region* re
                 active = entry->active_character_event;
                 if (active != 0) {
                     gXStatus.character_event_queue->CompleteActiveEvent(active);
-                    return 1;
+                    return true;
                 }
             }
             TryFinishNpcVoicePlayback(true);
-            return 1;
+            return true;
         }
         break;
     default:
-        return 0;
+        return false;
     }
-    return 1;
+    return true;
 }

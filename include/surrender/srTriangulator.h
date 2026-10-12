@@ -22,7 +22,7 @@ private:
         Node* prev;
     };
 
-    std::int32_t satisfyConstraints(const Node* vertex);
+    bool satisfyConstraints(const Node* vertex);
 
     // Sized once: clipping only unlinks nodes, preserving every node address.
     std::vector<Node> nodes;

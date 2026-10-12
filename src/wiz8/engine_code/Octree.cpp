@@ -137,7 +137,7 @@ static std::vector<std::string> g_octree_file_search;
 static std::size_t g_octree_file_search_index;
 
 // GLOBAL: WIZ8 0x006598b2
-static std::uint8_t g_octree_file_search_active;
+static bool g_octree_file_search_active;
 
 // GLOBAL: WIZ8 0x00606810
 static char g_octree_point_extension[] = ".pts";
@@ -304,7 +304,7 @@ void W8Octree::UpdateVisibility()
         std::ranges::fill(m_linked_props, false);
     }
     m_projected_regions_valid = false;
-    m_location_region_matched = 0;
+    m_location_region_matched = false;
     view.visible_cells = projectRegionsAt(view.camera_location).cell;
     CollectVisibleCells();
     UpdatePathVisualization();
@@ -509,7 +509,7 @@ std::int16_t W8Octree::ProjectLinkedRegionsForLocation(srVector3T<float>* locati
             }
         }
         if (match_count != 0) {
-            m_location_region_matched = 1;
+            m_location_region_matched = true;
             return match_count;
         }
     }
@@ -551,7 +551,7 @@ std::int16_t W8Octree::ProjectLinkedRegionsForLocation(srVector3T<float>* locati
     if (match_count == 0) {
         return 0;
     }
-    m_location_region_matched = 1;
+    m_location_region_matched = true;
     return match_count;
 }
 
@@ -783,12 +783,12 @@ void W8Octree::CollectVisibleCells()
 }
 
 // FUNCTION: WIZ8 0x004329a0
-static std::uint8_t FindNextLevelFile(std::string* name)
+static bool FindNextLevelFile(std::string* name)
 {
     if (name == 0) {
         g_octree_file_search_active = 0;
         g_octree_file_search.clear();
-        return 0;
+        return false;
     }
     if (!g_octree_file_search_active) {
         std::string search = *name;
@@ -810,12 +810,12 @@ static std::uint8_t FindNextLevelFile(std::string* name)
     }
     if (!g_octree_file_search_active) {
         g_octree_file_search.clear();
-        return 0;
+        return false;
     }
     const auto separator = name->find_last_of("\\/");
     name->resize(separator == std::string::npos ? 0 : separator + 1);
     *name += g_octree_file_search[g_octree_file_search_index];
-    return 1;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x00432b80
@@ -1404,7 +1404,7 @@ catch (const std::exception&) { return false; }
    is derived on each axis by quantizing the camera position relative to the
    spatial minimum, and the box spans one cell from there. */
 // FUNCTION: WIZ8 0x00433eb0
-std::uint8_t W8Octree::UpdateWorldTrace()
+bool W8Octree::UpdateWorldTrace()
 {
     srVector3T<float> camera;
     glm::ivec3 cell;
@@ -1421,7 +1421,7 @@ std::uint8_t W8Octree::UpdateWorldTrace()
                 minimum.z + m_spatial.m_node_extent);
     std::uint32_t* packed = PackColourToLong(&color, 0.0, 1.0, 0.0, 0.0);
     DrawWorldBox(g_world, minimum, maximum, *packed);
-    return 1;
+    return true;
 }
 
 // GLOBAL: WIZ8 0x005ebf60
@@ -1447,7 +1447,7 @@ std::uint32_t* __fastcall PackColourToLong(std::uint32_t* color, double alpha, d
    all region bounds enabled, and every reported bad link is posted as one
    notice. */
 // FUNCTION: WIZ8 0x00433ab0
-std::uint8_t W8Octree::ValidateRegionMeshLinks()
+bool W8Octree::ValidateRegionMeshLinks()
 {
     W8OctSpatialState spatial(&m_spatial);
     spatial.m_depth = 0;
@@ -1457,9 +1457,9 @@ std::uint8_t W8Octree::ValidateRegionMeshLinks()
     if (bad_links != 0) {
         CreateMessageBox(fmt::format(" {:d} Bad Region-Mesh Links!", bad_links), g_small_font, 1,
                          true, false, 0);
-        return 0;
+        return false;
     }
-    return 1;
+    return true;
 }
 
 /* Recount a node's bad region links.  Leaf nodes union the bounding boxes of
@@ -1546,7 +1546,7 @@ void W8Octree::ToggleUpdateSuspension(W8World* world)
 }
 
 // FUNCTION: WIZ8 0x00434220
-std::uint8_t W8Octree::TestNoiseLineOfSight(const srVector3T<float>* from, srVector3T<float>* to,
+bool W8Octree::TestNoiseLineOfSight(const srVector3T<float>* from, srVector3T<float>* to,
                                              float* range, std::int32_t* hops)
 {
     return pathing->MeasureAttachmentPath(from, to, range, hops);
@@ -1666,14 +1666,14 @@ std::uint8_t W8Octree::PrepareNavigatorPatrol(W8NavigatorMovementState* movement
 }
 
 // FUNCTION: WIZ8 0x00434a00
-std::uint8_t W8Octree::LinkNavigatorTarget(W8NavigatorMovementState* movement,
+bool W8Octree::LinkNavigatorTarget(W8NavigatorMovementState* movement,
                                             const srVector3T<float>* target, float separation)
 {
     if (pathing != 0) {
         return pathing->LinkAttachmentTarget(movement->attachment.get(), movement->navigation_filter,
                                              target, separation);
     }
-    return 0;
+    return false;
 }
 
 /* The cell-walk probes and the trace helpers the two line-of-sight bodies use.
@@ -2074,7 +2074,7 @@ W8OctreeObjectRegistry::W8OctreeObjectRegistry()
 
 // FUNCTION: WIZ8 0x00436b20
 // FUNCTION: WIZ8 0x00436b90
-std::uint8_t W8OctreeObjectRegistry::MoveObjectToCell(W8OctreeObjectKind kind, std::int32_t id,
+bool W8OctreeObjectRegistry::MoveObjectToCell(W8OctreeObjectKind kind, std::int32_t id,
                                                        const glm::ivec3& point)
 {
     std::uint32_t object_key = PackOctreeObjectKey(kind, id);
@@ -2086,24 +2086,24 @@ std::uint8_t W8OctreeObjectRegistry::MoveObjectToCell(W8OctreeObjectKind kind, s
     InsertIndexValue(*by_object, object_key, cell_value);
     RemoveIndexValue(*by_cell, cell_key, object_value);
     InsertIndexValue(*by_cell, cell_key, object_value);
-    return 1;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x00436dc0
-std::uint8_t W8OctreeObjectRegistry::UnregisterObject(W8OctreeObjectKind kind, std::int32_t id)
+bool W8OctreeObjectRegistry::UnregisterObject(W8OctreeObjectKind kind, std::int32_t id)
 {
     std::uint32_t object_key = PackOctreeObjectKey(kind, id);
     std::int32_t object_value = static_cast<std::int32_t>(object_key);
     const auto slot = by_object->equal_range(object_key).first;
     if (slot == by_object->end()) {
-        return 0;
+        return false;
     }
     const auto cell_key = static_cast<std::uint32_t>(slot->second);
     by_object->erase(slot);
     RemoveIndexValue(*by_cell, cell_key, object_value);
     // Retail advances through the erased slot's free-list link and normally
     // ends here. Preserve the single-pair removal without dereferencing erase.
-    return 1;
+    return true;
 }
 
 /* Record that one object now occupies one cell.
@@ -2118,7 +2118,7 @@ std::uint8_t W8OctreeObjectRegistry::UnregisterObject(W8OctreeObjectKind kind, s
    The two indexes are the same pair AddCollidablePropBounds keeps: one keyed by
    cell, one keyed by object. */
 // FUNCTION: WIZ8 0x00437000
-std::uint8_t W8OctreeObjectRegistry::RegisterObjectCell(W8OctreeObjectKind kind, std::int32_t id,
+bool W8OctreeObjectRegistry::RegisterObjectCell(W8OctreeObjectKind kind, std::int32_t id,
                                                          const glm::ivec3& point)
 {
     std::uint32_t object_key = PackOctreeObjectKey(kind & 0xffff, id);
@@ -2129,7 +2129,7 @@ std::uint8_t W8OctreeObjectRegistry::RegisterObjectCell(W8OctreeObjectKind kind,
            and the old y byte is shifted too far. Preserve that test. */
         if (point.x == 0 && (((occupied - 1) & 0xff00) << 8) == point.y &&
             OctreeCellKeyZ(occupied) == point.z) {
-            return 1;
+            return true;
         }
         std::uint32_t occupied_key = static_cast<std::uint32_t>(occupied);
         std::int32_t object_value = static_cast<std::int32_t>(object_key);
@@ -2153,7 +2153,7 @@ std::uint8_t W8OctreeObjectRegistry::RegisterObjectCell(W8OctreeObjectKind kind,
     InsertIndexValue(*by_object, object_key, cell_value);
     RemoveIndexValue(*by_cell, cell_key, object_value);
     InsertIndexValue(*by_cell, cell_key, object_value);
-    return 1;
+    return true;
 }
 
 /* Register one collidable prop against every octree cell its bounding box
@@ -2343,7 +2343,7 @@ std::int32_t W8Octree::ProbeCellForBlockersAppend(const glm::ivec3& cell)
    instance's triangle against the record and keep the nearest contact: the
    record's end returns the hit position and hit_limit the distance. */
 // FUNCTION: WIZ8 0x00435f00
-std::uint8_t W8Octree::TestProbeResult(W8OctreeTrace* trace)
+bool W8Octree::TestProbeResult(W8OctreeTrace* trace)
 {
     bool hit = false;
     glm::vec3 best_contact;
@@ -3185,7 +3185,7 @@ std::vector<std::uint32_t> W8Octree::locationsInBox(const srBoundingBox& bounds,
    monster's navigator radius inflates the box) and collidable-prop surfaces
    all answer "occupied". */
 // FUNCTION: WIZ8 0x0042ef30
-std::uint8_t W8Octree::TestBoxOccupied(const srVector3T<float>* lower,
+bool W8Octree::TestBoxOccupied(const srVector3T<float>* lower,
                                         const srVector3T<float>* upper)
 {
     auto objects = queryObjects({lower->glmValue(), upper->glmValue()}, W8_OCTREE_KIND_SURFACE, -1);
@@ -3195,7 +3195,7 @@ std::uint8_t W8Octree::TestBoxOccupied(const srVector3T<float>* lower,
         W8GDSurface* surface = g_octree_game_data->m_pSurfaces.data() + objects[index];
         if (SurfaceIntersectsBox(*surface, g_octree_game_data->m_pVertices,
                                   {lower->glmValue(), upper->glmValue()})) {
-            return 1;
+            return true;
         }
     }
     objects = queryObjects({lower->glmValue(), upper->glmValue()}, W8_OCTREE_KIND_LOCATION, -1);
@@ -3208,7 +3208,7 @@ std::uint8_t W8Octree::TestBoxOccupied(const srVector3T<float>* lower,
             if (lower->x - radius < position.x && position.x < radius + upper->x &&
                 lower->y - radius < position.y && position.y < radius + upper->y &&
                 lower->z - radius < position.z && position.z < radius + upper->z) {
-                return 1;
+                return true;
             }
         }
     }
@@ -3223,12 +3223,12 @@ std::uint8_t W8Octree::TestBoxOccupied(const srVector3T<float>* lower,
                 if (SurfaceIntersectsBox(*surface,
                         {gd_prop->m_pVertices, static_cast<std::size_t>(gd_prop->m_vertex_count)},
                         {lower->glmValue(), upper->glmValue()})) {
-                    return 1;
+                    return true;
                 }
             }
         }
     }
-    return 0;
+    return false;
 }
 
 /* Query the inclusive cell box and copy the deduplicated IDs out of the

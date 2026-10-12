@@ -30,7 +30,7 @@ std::int32_t srWindow::getHeight(std::uintptr_t handle)
     return height;
 }
 
-std::int32_t srWindow::isWindow(std::uintptr_t handle)
+bool srWindow::isWindow(std::uintptr_t handle)
 {
     return handle != 0;
 }

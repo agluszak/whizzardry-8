@@ -1568,7 +1568,7 @@ void srMeshModel::disable(e_control control)
 }
 
 // FUNCTION: SURRENDER 0x10041870
-std::int32_t srMeshModel::isEnabled(e_control control) const
+bool srMeshModel::isEnabled(e_control control) const
 {
     return (render_control.value & (1 << control)) != 0;
 }

@@ -401,7 +401,7 @@ class W8PartySelectionInputHandler;
 
 class W8PartySelectionDecisionListener {
 public:
-    virtual void OnDecision(W8PartySelectionInputHandler* handler, std::uint8_t accepted) = 0;
+    virtual void OnDecision(W8PartySelectionInputHandler* handler, bool accepted) = 0;
     virtual void OnToggle(std::int32_t value) = 0;
 };
 
@@ -545,7 +545,7 @@ public:
     virtual void OnPrimary(W8TextControl* control) override;
     virtual void OnSecondary(W8TextControl*) override {}
     virtual void OnSelectionChanged(W8PartySelectionListControl* control, std::int32_t selection) override;
-    virtual void OnDecision(W8PartySelectionInputHandler* handler, std::uint8_t accepted) override;
+    virtual void OnDecision(W8PartySelectionInputHandler* handler, bool accepted) override;
     virtual void OnToggle(std::int32_t value) override;
 
     void SetMode(W8PartySelectionMode mode);
@@ -1633,7 +1633,7 @@ void W8PartySelectionController::OnSelectionChanged(W8PartySelectionListControl*
 }
 
 // FUNCTION: WIZ8 0x005c1d70
-void W8PartySelectionController::OnDecision(W8PartySelectionInputHandler*, std::uint8_t accepted)
+void W8PartySelectionController::OnDecision(W8PartySelectionInputHandler*, bool accepted)
 {
     if (!accepted) {
         std::string slot_name;
@@ -1913,7 +1913,7 @@ void W8PartySelectionController::TogglePartyMemberSelection()
    from state 3 that is not preserving mode 1.  Loose CHR files are then merged
    and ordered before the controller presents them. */
 // FUNCTION: WIZ8 0x005c2de0
-std::uint8_t PartySelectionScreenEnter(void)
+bool PartySelectionScreenEnter(void)
 {
     SetViewport(0, 0, 0x280, 0x1e0);
     SetPrimarySurfaceTextureHint2Enabled(false);
@@ -1941,14 +1941,14 @@ std::uint8_t PartySelectionScreenEnter(void)
         g_party_selection_controller->SetMode(g_party_selection_controller->m_mode);
     }
     StartMusicResource("MainMenu.MPL", 1, 1);
-    return 1;
+    return true;
 }
 
 /* The state persists its controller and imported-character collection while
    another screen is temporarily stacked over it.  A leaving tick destroys
    both; an ordinary tick only performs the common display/region reset. */
 // FUNCTION: WIZ8 0x005c30b0
-std::uint8_t PartySelectionScreenLeave(std::int32_t leaving)
+bool PartySelectionScreenLeave(std::int32_t leaving)
 {
     if (leaving) {
         g_party_selection_character_collection.reset();
@@ -1956,7 +1956,7 @@ std::uint8_t PartySelectionScreenLeave(std::int32_t leaving)
     }
     NoOp();
     ResetRegions();
-    return 1;
+    return true;
 }
 
 /* Run modal close-out, cursor/region dispatch and the party-selection keyboard layer.
@@ -2078,9 +2078,9 @@ void GameStartRouterFrame(void)
 
 /* Lifecycle record 2 has nothing to release. Retail's linker folded this body
    into ScreenLifecycleSuccess, which compiles to the same bytes. */
-std::uint8_t GameStartRouterLeave(std::int32_t leaving)
+bool GameStartRouterLeave(std::int32_t leaving)
 {
-    return 1;
+    return true;
 }
 
 /* One byte per portrait; the retail table is one for every portrait. */

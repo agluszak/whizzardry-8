@@ -782,7 +782,7 @@ const float g_navigator_snap_angle = 0.029999999329447746f;
 // GLOBAL: WIZ8 0x005ebca4
 const float g_navigator_mode3_scale = 0.4000000059604645f;
 // GLOBAL: WIZ8 0x006081e4
-std::uint8_t g_combat_inactive = 1;
+bool g_combat_inactive = true;
 
 // FUNCTION: WIZ8 0x004526c0
 std::uint16_t W8Navigator::SetMovementTargetToNavigator(W8Navigator* target, double separation)

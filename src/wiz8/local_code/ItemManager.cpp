@@ -1001,7 +1001,7 @@ std::uint8_t InteractWithWorldItem(std::int32_t runtime_id)
 
 /* Detach and release all world item groups. */
 // FUNCTION: WIZ8 0x004f6a50
-std::uint8_t ReleaseItemLists(void)
+bool ReleaseItemLists(void)
 {
     wiz8::clear_and_dispose(gXStatus.world_items, [](W8WorldItem* item) {
         if (item->sector_id >= 0) {
@@ -1095,7 +1095,7 @@ bool AnyWorldItemVisible(void)
 /* Advance one falling world item (flag bit 1) toward the ground for this
    frame. Clears the falling flag once it has landed or the settle misses. */
 // FUNCTION: WIZ8 0x004f9240
-std::uint8_t AdvanceFallingWorldItem(W8WorldItem* item)
+bool AdvanceFallingWorldItem(W8WorldItem* item)
 {
     srVector3T<float> probe;
     bool hit;
@@ -1105,7 +1105,7 @@ std::uint8_t AdvanceFallingWorldItem(W8WorldItem* item)
     std::int32_t sector;
 
     if (!ItemHasFlags(item, W8_WORLD_ITEM_FALLING)) {
-        return 0;
+        return false;
     }
 
     previous_y = item->position.y;
@@ -1122,7 +1122,7 @@ std::uint8_t AdvanceFallingWorldItem(W8WorldItem* item)
     if (!hit || fabs(ground - previous_y) < g_camera_snap_epsilon) {
         item->flags &= ~W8_WORLD_ITEM_FALLING;
         item->vertical_velocity = 0.0f;
-        return 0;
+        return false;
     }
 
     sector = g_octree->current_prop;
@@ -1151,14 +1151,14 @@ std::uint8_t AdvanceFallingWorldItem(W8WorldItem* item)
         item->p3D->SetLocation(&probe);
     }
     item->position = probe;
-    return 1;
+    return true;
 }
 
 /* Drop one item onto the ground below where it is. The search starts one world
    unit up so an item already resting does not settle into the floor; landing
    moves it between sectors and clears its saved-marker flag. */
 // FUNCTION: WIZ8 0x004f93d0
-std::uint8_t SettleWorldItem(W8WorldItem* item)
+bool SettleWorldItem(W8WorldItem* item)
 {
     srVector3T<float> start;
     bool hit;
@@ -1173,7 +1173,7 @@ std::uint8_t SettleWorldItem(W8WorldItem* item)
     start = ground_probe.position;
     hit = ground_probe.hit;
     if (!hit) {
-        return 0;
+        return false;
     }
 
     sector = g_octree->current_prop;
@@ -1190,7 +1190,7 @@ std::uint8_t SettleWorldItem(W8WorldItem* item)
         item->p3D->SetLocation(&start);
     }
     item->position = start;
-    return 1;
+    return true;
 }
 
 /* Rebuild every world item's carried instance from its own item id, which

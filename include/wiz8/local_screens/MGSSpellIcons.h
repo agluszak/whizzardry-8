@@ -17,7 +17,7 @@ extern std::uint32_t g_combat_effect_right_count;
 
 /* Allocate the three HUD Controls panels MainGameScreenEnter needs before the
    spell/effect icon rows are filled in. */
-std::uint8_t CreateSpellIconHudControls(void);
+bool CreateSpellIconHudControls(void);
 /* Tear down the icon rows and destroy the three HUD panels. */
 void DestroySpellIconHudControls(void);
 /* Drop and rebuild the spell-icon rows on the existing top strip. */
@@ -35,6 +35,6 @@ void InvalidateMainGameEffectHud(void);
 void ShowPartyEffectIconHelp(std::int32_t slot_index);
 void ShowCombatLeftEffectIconHelp(std::int32_t slot_index);
 void ShowCombatRightEffectIconHelp(std::int32_t slot_index);
-std::uint8_t PartyEffectIconRegionEvent(const InputEvent* event, struct W8Region* region);
-std::uint8_t CombatLeftEffectIconRegionEvent(const InputEvent* event, struct W8Region* region);
-std::uint8_t CombatRightEffectIconRegionEvent(const InputEvent* event, struct W8Region* region);
+bool PartyEffectIconRegionEvent(const InputEvent* event, struct W8Region* region);
+bool CombatLeftEffectIconRegionEvent(const InputEvent* event, struct W8Region* region);
+bool CombatRightEffectIconRegionEvent(const InputEvent* event, struct W8Region* region);

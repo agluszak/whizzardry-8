@@ -103,7 +103,7 @@ struct W8NpcState {
        reset runs. */
     std::uint8_t incapacitated;
     /* 0x0e9 and 0x114: two flags raised together when the NPC is marked. */
-    std::uint8_t event_pending;
+    bool event_pending;
     /* 0x0ea: the NPC is restored into the current level and available for
        binding; cleared while a restore is pending. */
     bool restored;
@@ -122,7 +122,7 @@ struct W8NpcState {
        stamped for. */
     bool pending_release;
     std::uint8_t pending_release_level;
-    std::uint8_t restore_done;
+    bool restore_done;
     /* 0x115: the forty entry weights matching item_ids; only the slots
        whose table selector was set carry a weight. */
     std::uint8_t item_weights[40];

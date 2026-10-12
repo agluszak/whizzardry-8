@@ -67,7 +67,7 @@ void srTextureFile::setCached(std::int32_t cached)
 }
 
 // FUNCTION: SURRENDER 0x1005FF00
-std::int32_t srTextureFile::isSurfaceLoaded() const
+bool srTextureFile::isSurfaceLoaded() const
 {
     return surface != 0;
 }

@@ -107,7 +107,7 @@ void SetCameraLightMode(std::int32_t mode);
 void RefreshFogRanges(void);
 
 void SetViewDistance(float distance);
-std::uint8_t InitializeEnvironmentColours(void);
+bool InitializeEnvironmentColours(void);
 extern std::uint64_t g_frame_tick;
 extern float g_frame_elapsed;
 

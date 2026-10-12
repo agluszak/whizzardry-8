@@ -503,7 +503,7 @@ void DrawCampResistances(void)
    event's cursor position picks the highlighted row within the eight visible
    ones, wheel input scrolls the realm's range control, and activating a valid
    row opens its spell info dialog. */
-std::uint8_t SpellListRegionHandler(const InputEvent* event, W8Region* region)
+bool SpellListRegionHandler(const InputEvent* event, W8Region* region)
 {
     std::uint16_t realm;
     std::int32_t row;
@@ -1313,7 +1313,7 @@ void LayoutCampSecondaryRegions(void)
     }
 }
 
-std::uint8_t CampScreenEnter(void)
+bool CampScreenEnter(void)
 {
     ClearPrimarySurface();
     g_review_character = static_cast<W8Character*>(g_current_screen_state.parameter_3);
@@ -1419,7 +1419,7 @@ std::uint8_t CampScreenEnter(void)
     if (!g_status.game_started) {
         StartMusicResource("MainMenu.MPL", 1, 1);
     }
-    return 1;
+    return true;
 }
 
 void CampScreenFrame(void)
@@ -1503,7 +1503,7 @@ void CampScreenFrame(void)
     DrawCampScreen();
 }
 
-std::uint8_t CampScreenLeave(std::int32_t)
+bool CampScreenLeave(std::int32_t)
 {
     DeactivateCampPage();
     g_smfnt_font.resetPalette();
@@ -1533,7 +1533,7 @@ std::uint8_t CampScreenLeave(std::int32_t)
     if (gXStatus.fCampMode) {
         gXStatus.dialogue_sync_pending = true;
     }
-    return 1;
+    return true;
 }
 
 /* Leave camp. When an item is held out for the pending character, it goes to

@@ -188,7 +188,7 @@ W8PrePathNode* PrePathing::GetPathNode()
 }
 
 // FUNCTION: WIZ8 0x004CD2C0
-std::uint8_t PrePathing::BuildPathList(W8PrePathNode* nodes,
+bool PrePathing::BuildPathList(W8PrePathNode* nodes,
                                         std::unordered_map<std::uint32_t, std::int32_t>* cell_map)
 {
     this->cell_map = cell_map;
@@ -199,17 +199,17 @@ std::uint8_t PrePathing::BuildPathList(W8PrePathNode* nodes,
         sprintf(message, "BuildPathList: Could not allocate path node list, length %d nodes.\n",
                 path_node_count);
         ReportBuildStatus(7, message);
-        return 0;
+        return false;
     }
     for (std::int32_t i = 0; i < path_node_count; ++i) {
         path_node_list[i] = nodes;
         nodes = nodes->next;
     }
     if (LinkPathNodes() == 0) {
-        return 0;
+        return false;
     }
     CreatePathNodeArray();
-    return 1;
+    return true;
 }
 
 W8PrePathNode* PrePathing::FindAdjacentPathNode(const W8PrePathNode* node, std::int32_t direction)
@@ -227,7 +227,7 @@ W8PrePathNode* PrePathing::FindAdjacentPathNode(const W8PrePathNode* node, std::
 }
 
 // FUNCTION: WIZ8 0x004CD390
-std::uint8_t PrePathing::LinkPathNodes()
+bool PrePathing::LinkPathNodes()
 {
     float link_height = grid_scale * g_prepath_link_height;
     std::int32_t links_found = 0;
@@ -287,7 +287,7 @@ std::uint8_t PrePathing::LinkPathNodes()
             PropagatePathNodeClearance(edge, 0);
         }
     }
-    return 1;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x004CD650
@@ -522,7 +522,7 @@ std::int32_t PrePathing::CreatePathNodeArray()
 }
 
 // FUNCTION: WIZ8 0x004CE070
-std::uint8_t PrePathing::CreateAutomapNodes(W8LevelFile& level)
+bool PrePathing::CreateAutomapNodes(W8LevelFile& level)
 {
     std::int32_t last_percent = 0;
     std::vector<std::int32_t> node_keys;
@@ -530,7 +530,7 @@ std::uint8_t PrePathing::CreateAutomapNodes(W8LevelFile& level)
     char message[0x400];
 
     if (path_node_list == 0) {
-        return 0;
+        return false;
     }
     SetAutomapGridCellSize(AutomapLevelIsLarge() ? 4000.0f : 2000.0f);
     std::int32_t created = 0;
@@ -569,7 +569,7 @@ std::uint8_t PrePathing::CreateAutomapNodes(W8LevelFile& level)
     }
     free(path_node_list);
     path_node_list = 0;
-    return 1;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x004CE510

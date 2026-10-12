@@ -55,7 +55,7 @@ public:
     float getShininess() const;
     glm::vec4 getSpecular() const;
     float getTranslucency() const;
-    std::int32_t isEnabled(e_oper operation) const;
+    bool isEnabled(e_oper operation) const;
     // FUNCTION: SURRENDER 0x10034930 SYMBOL
     // RECOMP: ?setAmbient@srMaterial@@QAEXABV?$srVector4T@M@@@Z
     void setAmbient(const glm::vec4& ambient)

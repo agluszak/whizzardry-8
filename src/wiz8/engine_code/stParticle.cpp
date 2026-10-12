@@ -735,7 +735,7 @@ void stParticle::SetTexture(std::shared_ptr<srTextureIFace> texture)
 }
 
 // FUNCTION: WIZ8 0x0049acd0
-void stParticle::SetActive(std::uint8_t active)
+void stParticle::SetActive(bool active)
 {
     if (active != 0 && emitting == 0) {
         std::uint32_t now = g_shared_timer_base->milliseconds();
@@ -746,15 +746,15 @@ void stParticle::SetActive(std::uint8_t active)
 }
 
 // FUNCTION: WIZ8 0x0049ac30
-std::uint8_t stParticle::ReplaceTexture(const char* old_name,
+bool stParticle::ReplaceTexture(const char* old_name,
                                          std::shared_ptr<srTextureIFace> replacement)
 {
     if ((sr_cast<stTextureFile>(texture) || sr_cast<stTextureAnim>(texture)) &&
         _stricmp(texture->getName().c_str(), old_name) == 0) {
         SetTexture(std::move(replacement));
-        return 1;
+        return true;
     }
-    return 0;
+    return false;
 }
 
 // FUNCTION: WIZ8 0x0049ACA0

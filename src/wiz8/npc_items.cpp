@@ -171,7 +171,7 @@ std::int32_t AddNpcItem(W8NpcState* npc, std::int32_t item_id, std::uint32_t qua
 }
 
 // FUNCTION: WIZ8 0x0055afa0
-std::uint8_t MaintainNpcStock(W8NpcState* npc, bool force)
+bool MaintainNpcStock(W8NpcState* npc, bool force)
 {
     W8NpcItemEntry* entry;
     W8NpcItemStockRule* rule;
@@ -219,18 +219,18 @@ std::uint8_t MaintainNpcStock(W8NpcState* npc, bool force)
 
     if (static_cast<std::uint32_t>(g_status.world_clock - npc->maintenance_clock) < 0x15180 &&
         !force) {
-        return 0;
+        return false;
     }
     DecayNpcInventory(npc);
     RestockNpcItems(npc);
     RemoveDepletedNpcStock(npc);
     npc->maintenance_clock = g_status.world_clock;
     npc->restock_clock = g_status.world_clock;
-    return 1;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x0055a630
-std::uint8_t PopulateNpcStock(W8NpcState* npc)
+bool PopulateNpcStock(W8NpcState* npc)
 {
     std::vector<W8NpcItemStockRule*>* rules;
     W8NpcItemStockRule* rule;
@@ -246,12 +246,12 @@ std::uint8_t PopulateNpcStock(W8NpcState* npc)
     rules = npc->record->item_stock_rules;
     if (rules == 0) {
         npc->items = 0;
-        return 1;
+        return true;
     }
     rule_count = (rules ? rules->size() : 0);
     if (rule_count == 0) {
         npc->items = 0;
-        return 1;
+        return true;
     }
     if (npc->items == 0) {
         npc->items = new std::vector<W8NpcItemEntry*>;
@@ -286,7 +286,7 @@ std::uint8_t PopulateNpcStock(W8NpcState* npc)
     SortNpcItems(npc);
     npc->maintenance_clock = g_status.world_clock;
     npc->restock_clock = g_status.world_clock;
-    return 1;
+    return true;
 }
 
 /* Keep equally ordered stock entries in their current order and preserve the
@@ -505,7 +505,7 @@ std::uint32_t GetNpcItemCount(W8NpcState* npc) { return (npc->items ? npc->items
 static char g_sound_cash_transaction[] = "Data\\Sound\\misc\\Cash Transaction.wav";
 
 // FUNCTION: WIZ8 0x0055B730
-std::uint8_t SellItemToNpc(W8NpcState* npc, W8ItemInstance* item, std::uint8_t quantity,
+bool SellItemToNpc(W8NpcState* npc, W8ItemInstance* item, std::uint8_t quantity,
                             bool suppress_payment)
 {
     W8ItemInstance stack;
@@ -524,10 +524,10 @@ std::uint8_t SellItemToNpc(W8NpcState* npc, W8ItemInstance* item, std::uint8_t q
                 item->stack_count = 1;
             }
             AddNpcItemFromInstance(npc, item, quantity);
-            return 1;
+            return true;
         }
     }
-    return 0;
+    return false;
 }
 
 // FUNCTION: WIZ8 0x0055b290
@@ -798,16 +798,16 @@ bool CompleteNpcItemPurchase(W8NpcState* npc, std::int32_t index, std::uint8_t q
 }
 
 // FUNCTION: WIZ8 0x0055ae00
-std::uint8_t ConsumeNpcItemQuantity(W8NpcState* npc, std::int32_t index, std::uint8_t quantity)
+bool ConsumeNpcItemQuantity(W8NpcState* npc, std::int32_t index, std::uint8_t quantity)
 {
     W8NpcItemEntry* entry;
 
     if (quantity == 0) {
-        return 0;
+        return false;
     }
     entry = GetNpcItemAt(npc, index);
     if (entry == 0) {
-        return 0;
+        return false;
     }
     if (g_item_records[entry->item.iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK) {
         if (entry->item.stack_count < quantity) {
@@ -816,7 +816,7 @@ std::uint8_t ConsumeNpcItemQuantity(W8NpcState* npc, std::int32_t index, std::ui
         entry->item.stack_count -= quantity;
         if (entry->item.stack_count == 0) {
             entry->quantity = 0;
-            return 1;
+            return true;
         }
     } else {
         if (entry->quantity < quantity) {
@@ -824,7 +824,7 @@ std::uint8_t ConsumeNpcItemQuantity(W8NpcState* npc, std::int32_t index, std::ui
         }
         entry->quantity -= quantity;
     }
-    return 1;
+    return true;
 }
 
 /* Remove ordinary stock that is neither protected by its item flags nor kept

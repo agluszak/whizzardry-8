@@ -43,7 +43,7 @@ struct W8WorldItem {
 W8WorldItem* CreateWorldItem(W8ItemInstance* item, const srVector3T<float>* position,
                              std::int32_t entity_flags, bool add_to_world);
 W8WorldItem* GetNextWorldItem(bool restart);
-std::uint8_t SettleWorldItem(W8WorldItem* item);
+bool SettleWorldItem(W8WorldItem* item);
 W8WorldItem* SpawnItem(std::int32_t item_id, const srVector3T<float>* position, std::int32_t entity_flags,
                        bool add_to_world);
 

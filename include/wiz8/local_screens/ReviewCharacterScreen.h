@@ -289,9 +289,9 @@ void TakeItemUnitToHand(W8ItemInstance* item, std::uint16_t slot, W8ItemOrigin o
 
 void CampScreenInitializeRegions(void);
 void LayoutCampSecondaryRegions(void);
-std::uint8_t CampScreenEnter(void);
+bool CampScreenEnter(void);
 void CampScreenFrame(void);
-std::uint8_t CampScreenLeave(std::int32_t leaving);
+bool CampScreenLeave(std::int32_t leaving);
 
 /* Camp spell-page pieces in ReviewCharacterScreen.cpp: the character switch,
    the six realm scrollbars, the page renderer, the resistance bars and the
@@ -300,7 +300,7 @@ void SetCampSpellRangesEnabled(bool enable);
 void RefreshCampSpellRanges(void);
 void DrawCampSpellPages(void);
 void DrawCampResistances(void);
-std::uint8_t SpellListRegionHandler(const InputEvent* event, W8Region* region);
+bool SpellListRegionHandler(const InputEvent* event, W8Region* region);
 void OpenSpellInfoDialog(std::uint32_t spell_id);
 void SyncReviewCharInputRegion(void);
 bool IsEquippableItemClass(W8ItemInstance* item);

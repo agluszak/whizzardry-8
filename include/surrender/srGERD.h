@@ -203,7 +203,7 @@ public:
         void render(const TriInput& input);
         /* the accumulated batch count passed the limit. Only
            immediate (non-sorted) renderers report full. */
-        std::int32_t isBatchFull() const;
+        bool isBatchFull() const;
         /* submit the accumulated batch through the DD. */
         void submit();
         /* the immediate (sorted == 0) and
@@ -356,7 +356,7 @@ public:
     void closeWindow(e_closeHint hint);
     e_backBuffer getBackBufferType() const;
     std::int32_t isWindowOpen() const;
-    std::int32_t isFullScreen() const;
+    bool isFullScreen() const;
     std::uintptr_t getWindowHandle() const;
     void setGamma(const srVector3T<float>& gamma);
     e_error beginFrame();
@@ -556,7 +556,7 @@ public:
     std::int32_t getPolygonOffset() const;
     void setPolygonOffset(std::int32_t offset);
 
-    std::int32_t isBufferLocked();
+    bool isBufferLocked();
     srGERD* getPrev() const;
     srGERD* getPrevOpen() const;
     static std::int32_t getGERDCount();
@@ -602,8 +602,8 @@ public:
     std::int32_t getAccumGreenBits() const;
     std::int32_t getAccumBlueBits() const;
     void accumulate(e_accum operation, float scale);
-    std::int32_t isTextureCached(srTextureIFace* texture) const;
-    std::int32_t isTextureResident(srTextureIFace* texture) const;
+    bool isTextureCached(srTextureIFace* texture) const;
+    bool isTextureResident(srTextureIFace* texture) const;
     srTextureIFace::e_compression getTextureDefaultCompression() const;
     srTextureIFace::e_correction getTextureDefaultCorrection() const;
     srTextureIFace::e_filter getTextureDefaultMagFilter() const;
@@ -620,14 +620,14 @@ public:
 
     // FUNCTION: SURRENDER 0x1001BB80 SYMBOL
     // RECOMP: ?isPickStackEmpty@srGERD@@QBEHXZ
-    std::int32_t isPickStackEmpty() const
+    bool isPickStackEmpty() const
     {
         return pick.pick_depth == 0;
     }
 
     // FUNCTION: SURRENDER 0x1001BAE0 SYMBOL
     // RECOMP: ?isEnabled@srGERD@@QBEHW4e_enable@1@@Z
-    std::int32_t isEnabled(e_enable option) const
+    bool isEnabled(e_enable option) const
     {
         return (enable_flags.value & (1UL << option)) != 0;
     }

@@ -41,7 +41,7 @@
  */
 
 // FUNCTION: WIZ8 0x004e2f40
-std::uint8_t InitializeGame(size_t& initialized_screens)
+bool InitializeGame(size_t& initialized_screens)
 {
     const auto version = FormatVersionBanner(true, true, true);
     bool ok;
@@ -57,12 +57,12 @@ std::uint8_t InitializeGame(size_t& initialized_screens)
     for (std::int32_t screen = 0; screen < W8_SCREEN_COUNT; ++screen) {
         initialized_screens = screen + 1;
         if (!g_screen_handlers[screen].initialize()) {
-            return 0;
+            return false;
         }
     }
     SetShadeTablePercent((float)0.66);
     if (!InitializeMenuFonts()) {
-        return 0;
+        return false;
     }
     InitializeButtonImageManager();
     InitializeRegionHelpState();
@@ -70,25 +70,25 @@ std::uint8_t InitializeGame(size_t& initialized_screens)
     InitializeGameplayRuntimeObjects();
     UpdateHeldItemCursor();
     if (!VerifyDataSubdirs()) {
-        return 0;
+        return false;
     }
     if (!InitializeItemDatabase()) {
-        return 0;
+        return false;
     }
     if (!InitializeItemTables()) {
-        return 0;
+        return false;
     }
     if (!LoadMonsterDatabase(0)) {
-        return 0;
+        return false;
     }
     if (!InitializeNpcDatabase()) {
-        return 0;
+        return false;
     }
     if (!InitializeFactDatabase()) {
-        return 0;
+        return false;
     }
     if (!InitializeLevelDatabase()) {
-        return 0;
+        return false;
     }
     InitializeItemVideoObjects();
     SetPendingScreenState(W8_SCREEN_INTRO);
@@ -111,9 +111,9 @@ std::uint8_t InitializeGame(size_t& initialized_screens)
     }
     ReleaseMessageStorage();
     if (!InitializeMusicPlaylist()) {
-        return 0;
+        return false;
     }
     ok = static_cast<std::uint8_t>(0x4000000 < GetTotalPhysicalMemory());
     g_texture_cache_enabled = ok;
-    return 1;
+    return true;
 }

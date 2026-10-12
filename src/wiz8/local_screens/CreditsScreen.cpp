@@ -59,7 +59,7 @@ std::optional<std::string> ReadRetailTextLine(wiz8::File* handle)
 }
 
 // FUNCTION: WIZ8 0x005bc130
-std::uint8_t CreditsScreenEnter(void)
+bool CreditsScreenEnter(void)
 try
 {
     std::unique_ptr<wiz8::File> handle;
@@ -120,7 +120,7 @@ try
 catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x005bc420
-std::uint8_t CreditsScreenLeave(std::int32_t)
+bool CreditsScreenLeave(std::int32_t)
 {
     g_credit_lines.clear();
     ResetRegions();
@@ -128,7 +128,7 @@ std::uint8_t CreditsScreenLeave(std::int32_t)
     if (IsCurrentMusicPlaylist("EndCredit.MPL")) {
         StopMusicPlaylist(true);
     }
-    return 1;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x005bc530

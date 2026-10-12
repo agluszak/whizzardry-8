@@ -302,17 +302,17 @@ bool GDProp::boundsOverlap(const srBoundingBox& box)
    The prop owns a counted waypoint list consumed by
    CheckConditionalWayPtStatus. */
 // FUNCTION: WIZ8 0x004b7730
-std::uint8_t GDProp::RegisterPathSurface(std::uint32_t index, const glm::ivec2& point)
+bool GDProp::RegisterPathSurface(std::uint32_t index, const glm::ivec2& point)
 {
     if (static_cast<std::uint16_t>(point.x) < m_path_bounds.min_x ||
         static_cast<std::uint16_t>(point.x) > m_path_bounds.max_x ||
         static_cast<std::uint16_t>(point.y) < m_path_bounds.min_z ||
         static_cast<std::uint16_t>(point.y) > m_path_bounds.max_z) {
-        return 0;
+        return false;
     }
 
     m_path_waypoints.push_back(static_cast<std::uint16_t>(index));
-    return 1;
+    return true;
 }
 
 /* Record a link index when the segment between the two grid points touches
@@ -321,7 +321,7 @@ std::uint8_t GDProp::RegisterPathSurface(std::uint32_t index, const glm::ivec2& 
    cell of the rectangle. The vertical branch re-tests its first crossing
    instead of interpolating the second — a faithful retail oddity. */
 // FUNCTION: WIZ8 0x004b7830
-std::uint8_t GDProp::RegisterPathVertex(std::uint32_t index, const glm::ivec2& point,
+bool GDProp::RegisterPathVertex(std::uint32_t index, const glm::ivec2& point,
                                       const glm::ivec2& second)
 {
     const glm::vec2 from(static_cast<std::uint16_t>(point.x), static_cast<std::uint16_t>(point.y));
@@ -337,9 +337,9 @@ std::uint8_t GDProp::RegisterPathVertex(std::uint32_t index, const glm::ivec2& p
     bool found = false;
     for (float cross : {crossings.x, crossings.y})
         found |= cross > minimum[minor] - 1 && cross < maximum[minor] + 1;
-    if (!found) return 0;
+    if (!found) return false;
     m_path_edges.push_back(static_cast<std::uint16_t>(index));
-    return 1;
+    return true;
 }
 
 /* Register the item on the collidable prop's sector list, building the path

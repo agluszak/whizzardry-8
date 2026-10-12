@@ -183,6 +183,6 @@ std::int32_t ResolveCharacterAttack(std::int32_t party_slot);
 void QueueFumbleReaction(std::int32_t party_slot);
 /* A defender guarding the attack's target may interpose and
    become the struck target instead; answers whether the target changed. */
-std::int32_t ResolveGuardianInterception(W8TargetSource* source, W8CombatSlot* target);
+bool ResolveGuardianInterception(W8TargetSource* source, W8CombatSlot* target);
 void FireCharacterItemMissile(std::int32_t party_slot, W8Character* pc, W8CombatCharacterRow* row,
                               W8RangeCategory range_category);

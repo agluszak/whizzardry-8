@@ -77,7 +77,7 @@ void ChooseNewGameStartLocation(std::int32_t* level, std::int32_t* entrance);
 std::int32_t SelectNewGameStartLevel(void);
 void BindNpcToMonster(std::uint8_t value, bool enabled, std::int32_t location_id);
 bool RecruitNpcIntoParty(W8NpcState* npc);
-std::int32_t DismissNpcFromParty(std::int32_t party_slot, std::int32_t, bool skip_spawn, bool neutral);
+bool DismissNpcFromParty(std::int32_t party_slot, std::int32_t, bool skip_spawn, bool neutral);
 /* How many leading party slots are occupied. */
 std::uint8_t CountLeadingPartySlots(void);
 bool NpcKnowsFact(W8NpcState* npc, W8FactId fact);

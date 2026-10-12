@@ -189,7 +189,7 @@ public:
     SR_DLL_IMPORT srARGB getColor(std::int32_t index) const;
     SR_DLL_IMPORT const srARGB* getPaletteDataPtr();
     SR_DLL_IMPORT std::int32_t getPaletteSize() const;
-    SR_DLL_IMPORT std::int32_t matchPalette(const srARGB* const colors, std::int32_t color_count) const;
+    SR_DLL_IMPORT bool matchPalette(const srARGB* const colors, std::int32_t color_count) const;
     SR_DLL_IMPORT std::uint8_t quantize(const srARGB& color);
     SR_DLL_IMPORT void quantize(std::uint8_t* const indices, const srARGB* const colors,
                                 std::int32_t color_count);

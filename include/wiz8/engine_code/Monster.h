@@ -158,7 +158,7 @@ public:
     W8Monster(const W8Monster& rhs);
     virtual ~W8Monster() override;
 
-    virtual std::uint8_t CanEnterCycle(std::int8_t cycle) override;
+    virtual bool CanEnterCycle(std::int8_t cycle) override;
     virtual void UpdateRepresentation(W8World* world) override;
     virtual std::int8_t GetNumSubCycles() override;
     virtual bool IsCycleSupported(std::int8_t cycle) override;
@@ -230,8 +230,8 @@ public:
     bool HasLineOfSightToMonster(W8Monster* monster);
     void GetMonsterSightFlags(W8Monster* monster, bool* primary, bool* secondary);
     bool HasLineOfSightFromPoint(srVector3T<float> point);
-    std::int32_t IsFacingMonster(W8Monster* monster);
-    std::int32_t IsFacingPlayer();
+    bool IsFacingMonster(W8Monster* monster);
+    bool IsFacingPlayer();
     void ApplyRepresentationScale();
     void RefreshStandingHeight();
 
@@ -370,7 +370,7 @@ std::uint8_t MonsterReadAllCycles(const W8GrCycleLoadContext* context, std::stri
 std::uint16_t ChooseDifferentMonsterDirection(std::uint16_t previous_direction);
 
 std::optional<srBoundingBox> MonsterGetWorldAnimationBounds(W8Monster* monster);
-std::uint8_t LoadMonsterCycle(const W8GrCycleLoadContext* context, const char* mon_name,
+bool LoadMonsterCycle(const W8GrCycleLoadContext* context, const char* mon_name,
                                W8Monster** monster, std::int32_t cycle, std::int32_t value);
 
 bool MonsterUsesCurrentModelInstance(W8GrCycle* cycle);
@@ -380,7 +380,7 @@ float MonsterGetYaw(W8Monster* monster); /* 0x004C5770 */
 srVector3T<float> MonsterGetLocalLocation(const W8Monster* monster);
 void UpdateMonster(W8Monster* monster);
 bool MonsterIsCycleSupported(W8Monster* monster, std::int8_t cycle);
-std::uint8_t MonsterReplacePath(W8Monster* monster, W8PathAI* path);
+bool MonsterReplacePath(W8Monster* monster, W8PathAI* path);
 std::uint8_t MonsterGetAnimationRadius(W8Monster* monster, float* radius);
 void MonsterSetFacing(W8Monster* monster, float angle);
 bool MonsterGetMirrorX(W8Monster* monster);
@@ -403,7 +403,7 @@ void MonsterSetCycle(W8Monster* monster, std::int8_t cycle);
 void MonsterSetActive(W8Monster* monster, bool state); /* 0x004C6160 */
 void MonsterSetCycleBehaviour(W8GrCycle* cycle, std::int8_t behaviour);
 void MonsterSetCycleSubCycle(W8GrCycle* cycle, std::uint8_t subcycle);
-void SetCombatInactiveFlag(std::uint8_t value);
+void SetCombatInactiveFlag(bool value);
 void UpdateNearestMonsterGroupMembers();
 void ApplyMonsterRepresentationScale(W8Monster* monster);
 

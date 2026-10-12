@@ -26,7 +26,7 @@ public:
     virtual ~W8WorldCursorNode() {}
     /* 0x0048D050: copy the node's world location out; answers 0 when the node
        chain is absent. */
-    std::uint8_t GetLocation(srVector3T<float>* position);
+    bool GetLocation(srVector3T<float>* position);
     srNode* node; /* 0x04 */
     std::uint32_t value_08;
     std::int32_t parameters[3];   /* 0x0c, 0x10, 0x14 */
@@ -67,7 +67,7 @@ void SetWorldCursorNodeColor(W8WorldCursorNode* entry, std::uint32_t color);
 W8WorldCursorNode* PickWorldCursorNodeAtScreenPoint(std::int32_t x, std::int32_t y);
 void DrawWorldBox(W8World* world, srVector3T<float> minimum, srVector3T<float> maximum,
                   std::uint32_t color);
-std::uint8_t SaveWorldCursorNodeStates(wiz8::File& handle);
-std::uint8_t SaveWorldCursorNodes(wiz8::File& handle);
+bool SaveWorldCursorNodeStates(wiz8::File& handle);
+bool SaveWorldCursorNodes(wiz8::File& handle);
 std::uint32_t LoadWorldCursorNodes(wiz8::File& handle);
 std::uint32_t LoadWorldCursorNodeStates(wiz8::File& handle);

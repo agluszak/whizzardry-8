@@ -258,7 +258,7 @@ std::uint8_t GDCamera::LookAt(const srVector3T<float>* target, bool preserve_pit
 }
 
 // FUNCTION: WIZ8 0x00477180
-std::uint8_t GDCamera::ComputeTrackingOrientation(const srVector3T<float>* target, float* angle,
+bool GDCamera::ComputeTrackingOrientation(const srVector3T<float>* target, float* angle,
                                                    float* pitch)
 {
     float lower_margin = -g_camera_vertical_margin;
@@ -291,12 +291,12 @@ std::uint8_t GDCamera::ComputeTrackingOrientation(const srVector3T<float>* targe
         if (*pitch > g_camera_pitch_upper || *pitch < g_camera_pitch_lower) {
             *pitch = m_pitch;
         }
-        return 0;
+        return false;
     }
 
     *angle = m_yaw;
     *pitch = m_pitch;
-    return 1;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x00477440

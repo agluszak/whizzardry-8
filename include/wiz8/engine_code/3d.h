@@ -45,11 +45,11 @@ void FinalizeStaticScene(srScene* scene);
 // Factories return detached instances. Scene ownership requires explicit adoption.
 std::unique_ptr<stModelInstance> CreateModelInstance(std::shared_ptr<stMeshModel> model);
 
-std::uint8_t FinalizeWorldScenes(srNode* node, srNode* dynamic_scene);
+bool FinalizeWorldScenes(srNode* node, srNode* dynamic_scene);
 /* Mark an instance lit and bake dynamic-scene lights once (render_flags bit 1). */
-std::uint8_t BakeInstanceVertexLightingIfNeeded(stModelInstance* instance,
+bool BakeInstanceVertexLightingIfNeeded(stModelInstance* instance,
                                                  srNode* dynamic_scene); /* 0x0046F4A0 */
-std::uint8_t BakeInstanceVertexLighting(stModelInstance* instance, srNode* lights,
+bool BakeInstanceVertexLighting(stModelInstance* instance, srNode* lights,
                                          bool walk_chain);
 void SetSceneMeshShaderBit3(srNode* node, std::int32_t argument);
 void SetSceneMeshShaderLowBits(srNode* node, std::int32_t argument);

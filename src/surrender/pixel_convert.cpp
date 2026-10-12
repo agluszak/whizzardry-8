@@ -313,15 +313,15 @@ void initFormats()
 } // namespace
 
 // FUNCTION: SURRENDER 0x10007E40
-std::int32_t srPixelConvert::PixelFormat::isValid() const
+bool srPixelConvert::PixelFormat::isValid() const
 {
     if (PIXEL_SIZE_8 <= pixel_size && pixel_size <= PIXEL_SIZE_32 && COLOR_RGB <= color_model &&
         color_model <= COLOR_INDEXED && red_bits <= 8 && green_bits <= 8 && blue_bits <= 8 &&
         alpha_bits <= 8 && red_shift <= 0x1f && green_shift <= 0x1f && blue_shift <= 0x1f &&
         alpha_shift <= 0x1f) {
-        return 1;
+        return true;
     }
-    return 0;
+    return false;
 }
 
 // FUNCTION: SURRENDER 0x10007E90

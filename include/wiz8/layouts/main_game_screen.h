@@ -86,7 +86,7 @@ struct W8DialogueTextState {
     std::int16_t unknown_22;              /* Historical offset 0x22: never read */
     std::uint32_t wrap_width;       /* Historical offset 0x24: pixel budget and notice width */
     std::size_t cursor;           /* Historical offset 0x28: insertion point in text */
-    std::uint8_t cursor_dirty;    /* Historical offset 0x2c: repaint just the dialogue cursor */
+    bool cursor_dirty;    /* Historical offset 0x2c: repaint just the dialogue cursor */
     bool dirty;                    /* Historical offset 0x2d: cursor/text redraw pending */
     std::uint8_t padding_2e[2];
     std::uint32_t saved_scroll_line; /* Historical offset 0x30: restored when input closes */
@@ -105,7 +105,7 @@ struct W8LevelRuntimeBlock {
     std::int32_t camera_mode;                           /* Historical offset 0x100 */
     std::uint32_t hover_region;                 /* Historical offset 0x104 */
     bool portrait_strip_dirty;                 /* Historical offset 0x108: portrait strip needs a redraw */
-    std::uint8_t portrait_refresh_pending[8]; /* Historical offset 0x109 */
+    bool portrait_refresh_pending[8]; /* Historical offset 0x109 */
     std::uint8_t padding_111[3];
     std::int32_t portrait_refresh_image[8]; /* Historical offset 0x114 */
     std::int32_t portrait_refresh_mode[8];  /* Historical offset 0x134 */

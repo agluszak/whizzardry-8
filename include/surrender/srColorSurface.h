@@ -81,7 +81,7 @@ private:
                                          std::uint32_t count);
     SR_DLL_IMPORT void convertFromARGB8888(void* pixels, const std::uint32_t* source,
                                            std::uint32_t count);
-    SR_DLL_IMPORT std::int32_t isCompatible(srColorSurfaceIFace& source);
+    SR_DLL_IMPORT bool isCompatible(srColorSurfaceIFace& source);
 
     template<class Pixel>
     void transferColumn(std::span<Pixel> pixels, std::int32_t x, std::int32_t y);

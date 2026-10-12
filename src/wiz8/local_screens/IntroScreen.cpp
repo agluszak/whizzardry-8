@@ -41,7 +41,7 @@ void ContinueAfterDarkEndingVideo(void)
 W8BinkVideo* gpVideo;
 
 // FUNCTION: WIZ8 0x005ae510
-std::uint8_t IntroScreenEnter(void)
+bool IntroScreenEnter(void)
 {
     std::string path;
     char gzCdDirectory[4];
@@ -159,14 +159,14 @@ static void AdvanceIntroScreen(void)
 }
 
 // FUNCTION: WIZ8 0x005ae940
-std::uint8_t IntroScreenLeave(std::int32_t)
+bool IntroScreenLeave(std::int32_t)
 {
     if (gpVideo != 0) {
         FinishVideoPresentation();
         delete gpVideo;
     }
     gpVideo = 0;
-    return 1;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x005AE9C0

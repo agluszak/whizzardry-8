@@ -185,31 +185,31 @@ void CreateFormationBoardOverlay(void)
     }
 }
 
-std::uint8_t FormationBoardHoverRegionEvent(const InputEvent*, W8Region* region);
+bool FormationBoardHoverRegionEvent(const InputEvent*, W8Region* region);
 
 /* Board callback: opens the formation panel on release, hit-tests the cell
    markers for tooltips, and switches board art on hover transitions. */
 // FUNCTION: WIZ8 0x005b2020
-std::uint8_t FormationBoardRegionEvent(const InputEvent* event, W8Region* region)
+bool FormationBoardRegionEvent(const InputEvent* event, W8Region* region)
 {
     switch (event->type) {
     case InputEventType::LeftButtonDown:
         region->flags |= W8_REGION_LEFT_BUTTON_HELD;
-        return 1;
+        return true;
     case InputEventType::LeftButtonUp:
         if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0 && !gXStatus.fReviewCharacterMode) {
             OpenFormationPanel();
         }
-        return 1;
+        return true;
     case InputEventType::RightButtonDown:
         region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
-        return 1;
+        return true;
     case InputEventType::RightButtonUp:
-        return 1;
+        return true;
     case InputEventType::MouseMove:
         break;
     default:
-        return 0;
+        return false;
     }
 
     return FormationBoardHoverRegionEvent(event, region);
@@ -220,7 +220,7 @@ std::uint8_t FormationBoardRegionEvent(const InputEvent* event, W8Region* region
    enter/leave. Retail emits it as a separate function right after the full
    handler. */
 // FUNCTION: WIZ8 0x005B207F
-std::uint8_t FormationBoardHoverRegionEvent(const InputEvent*, W8Region* region)
+bool FormationBoardHoverRegionEvent(const InputEvent*, W8Region* region)
 {
     std::int32_t slot;
     std::int32_t hit;
@@ -251,11 +251,11 @@ std::uint8_t FormationBoardHoverRegionEvent(const InputEvent*, W8Region* region)
             g_level_block->formation_board_alternate = 0;
             RefreshFormationBoard();
         }
-        return 0;
+        return false;
     }
     g_level_block->formation_board_alternate = 1;
     RefreshFormationBoard();
-    return 0;
+    return false;
 }
 
 static void SelectFormationCell(void);
@@ -266,14 +266,14 @@ static void ResetFormationPanel(void);
    buttons (accept, close, reset). On any allocation failure the partial panel
    is released. */
 // FUNCTION: WIZ8 0x005b2260
-static std::uint8_t CreateFormationPanel(void)
+static bool CreateFormationPanel(void)
 {
     W8TextControl** button;
     std::int32_t index;
 
     g_formation_panel = std::make_unique<Controls>(0xd6, 0x3c, 0x1ab, 0x12f, CatalogArtwork::Load(0x9e, 0), 0);
     if (!g_formation_panel) {
-        return 0;
+        return false;
     }
     for (index = 0; index < 15; ++index) {
         std::int32_t left = g_formation_cell_positions[index].x;
@@ -286,7 +286,7 @@ static std::uint8_t CreateFormationPanel(void)
         g_formation_cell_controls[index] = cell;
         if (cell == 0) {
             DestroyFormationPanel();
-            return 0;
+            return false;
         }
         cell->AddLayoutFlags(g_W8TextControlLayoutToggle);
         cell->m_primaryActivationCallback = SelectFormationCell;
@@ -294,7 +294,7 @@ static std::uint8_t CreateFormationPanel(void)
         g_formation_cell_overlays[index] = cell;
         if (cell == 0) {
             DestroyFormationPanel();
-            return 0;
+            return false;
         }
     }
     g_formation_action_buttons[0] = new W8TextControl(
@@ -314,11 +314,11 @@ static std::uint8_t CreateFormationPanel(void)
             g_formation_action_buttons[1]->m_primaryActivationCallback = CloseFormationPanel;
             g_formation_action_buttons[2]->m_primaryActivationCallback = ResetFormationPanel;
             g_formation_panel->SetEnabled(true);
-            return 1;
+            return true;
         }
     }
     DestroyFormationPanel();
-    return 0;
+    return false;
 }
 
 /* Open the formation panel: build the controls, snapshot the live formation
@@ -484,7 +484,7 @@ static void DropFormationSlot(std::int32_t cell);
    activates the cell or completes the drop, and mouse transitions drive the
    hover art and tooltip. */
 // FUNCTION: WIZ8 0x005b29d0
-std::uint8_t FormationCellRegionEvent(const InputEvent* event, W8Region* region)
+bool FormationCellRegionEvent(const InputEvent* event, W8Region* region)
 {
     if (!gXStatus.fReviewCharacterMode) {
         return 0;
@@ -566,21 +566,21 @@ std::uint8_t FormationCellRegionEvent(const InputEvent* event, W8Region* region)
 }
 
 // FUNCTION: WIZ8 0x005b2cb0
-std::uint8_t FormationActionRegionEvent(const InputEvent* event, W8Region* region)
+bool FormationActionRegionEvent(const InputEvent* event, W8Region* region)
 {
     if (!gXStatus.fReviewCharacterMode) {
-        return 0;
+        return false;
     }
     return DispatchButtonRegionEvent(event, region,
                                      g_formation_action_buttons[region->callback_id]);
 }
 
 // FUNCTION: WIZ8 0x005b2d70
-std::uint8_t FormationBackgroundRegionEvent(const InputEvent* event, W8Region*)
+bool FormationBackgroundRegionEvent(const InputEvent* event, W8Region*)
 {
     SDL_Point point;
     if (!gXStatus.fReviewCharacterMode) {
-        return 0;
+        return false;
     }
     PushButtonSoundScheme(0, true);
     SGPMouseGetPos(&point);
@@ -589,7 +589,7 @@ std::uint8_t FormationBackgroundRegionEvent(const InputEvent* event, W8Region*)
         if (g_formation_drag_cell != -1) {
             DropFormationSlot(-1);
         }
-        return 1;
+        return true;
     case InputEventType::MouseMove:
         if ((point.x < 234 || point.x > 406 || point.y < 80 || point.y > 252) &&
             g_formation_drag_cell != -1) {
@@ -599,7 +599,7 @@ std::uint8_t FormationBackgroundRegionEvent(const InputEvent* event, W8Region*)
     default:
         break;
     }
-    return 0;
+    return false;
 }
 
 /* Pick up the active cell's character: clear the cell, switch the mouse

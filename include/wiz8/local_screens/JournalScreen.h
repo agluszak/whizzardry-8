@@ -47,10 +47,10 @@ void RecordFactChangeForJournal(W8FactId fact_id);
 /* Write the entry count, a format dword and each journal entry
    into the open JRNL chunk. */
 void SaveFactJournal(wiz8::File& file);
-std::uint8_t JournalScreenInitialize(void);
-std::uint8_t JournalScreenEnter(void);
+bool JournalScreenInitialize(void);
+bool JournalScreenEnter(void);
 void JournalScreenFrame(void);
-std::uint8_t JournalScreenLeave(std::int32_t leaving);
-std::uint8_t JournalScreenFinalize(void);
+bool JournalScreenLeave(std::int32_t leaving);
+bool JournalScreenFinalize(void);
 /* Load the fact journal vector from the JRNL section. */
 void LoadJournalEntries(wiz8::File& file);

@@ -86,8 +86,8 @@ struct OctBuildPreTree : W8OctBuildTree {
     OctPreTree* BuildOctPreTree();
     std::uint16_t BuildRegions();
     bool assignPointToVolumes(const glm::vec3& point, std::int16_t object, OctRegionObjectLinks& links);
-    std::uint8_t BuildParticleRegions(std::span<const W8LevelFileParticleSystem> particles);
-    std::uint8_t BuildGeometryRegions(std::span<const W8LevelFileProp> records, std::int32_t base_index,
+    bool BuildParticleRegions(std::span<const W8LevelFileParticleSystem> particles);
+    bool BuildGeometryRegions(std::span<const W8LevelFileProp> records, std::int32_t base_index,
                                        bool finalize);
 
     void AssignInitialRegions(const W8OctSpatialState* spatial);
@@ -95,15 +95,15 @@ struct OctBuildPreTree : W8OctBuildTree {
     bool updateRegionForGeometry(const RegionGeometry& geometry, std::int16_t value);
     bool updateRegionMap(const W8OctSpatialState& state, const RegionGeometry& geometry, std::int16_t value);
     W8OctBuildNode* FindNode(std::uint32_t path);
-    std::uint8_t MergeAdjacentRegion(W8OctBuildNode* node, std::uint32_t path);
-    std::uint8_t MergeRegion(W8OctBuildNode* node, const std::int32_t* cell);
+    bool MergeAdjacentRegion(W8OctBuildNode* node, std::uint32_t path);
+    bool MergeRegion(W8OctBuildNode* node, const std::int32_t* cell);
     void FinalizeRegionMapping();
     void AssignRegionFromSurfaces(const W8OctSpatialState* spatial);
     void ValidatePolygonRegions();
     void ValidateRegionBounds(std::span<const srBoundingBox> region_bounds);
     /* SortGeometry: welds duplicate vertices, drops degenerate polygons,
        repacks both arrays and re-inserts every polygon with mode 2. */
-    std::uint8_t SortGeometry(W8OctPreTreeGeometry* geometry);
+    bool SortGeometry(W8OctPreTreeGeometry* geometry);
     /* Inserts one region polygon into the octree working state. */
     std::uint8_t InsertSurface(W8OctRegionPolygon* polygon, std::uint32_t mode);
     /* Recursive inserter for InsertSurface: subdivides to the leaf, collecting
@@ -127,7 +127,7 @@ struct OctBuildPreTree : W8OctBuildTree {
     /* Region assignment pass run by SortGeometry: builds each vertex's
        polygon-reference run, assigns vertex and polygon regions against the
        region volumes, compacts dead regions and finishes in BuildRegions. */
-    std::uint8_t AssignPolygonRegions(W8OctPreTreeGeometry* geometry);
+    bool AssignPolygonRegions(W8OctPreTreeGeometry* geometry);
     /* Resolves a shared polygon (flags bit2): histograms the neighboring
        polygons' regions collected through the corner vertices' face runs,
        picks the most frequent region the polygon actually touches, assigns it

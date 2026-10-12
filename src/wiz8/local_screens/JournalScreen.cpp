@@ -375,24 +375,24 @@ void W8JournalPanel::OnPrimary(W8TextControl* control)
    proof that a record's fifth slot is its finalizer rather than a second
    initializer - record 10's allocate/free pair is the first. */
 // FUNCTION: WIZ8 0x005bddd0
-std::uint8_t JournalScreenInitialize(void)
+bool JournalScreenInitialize(void)
 {
     if (!g_journal_font.load("Data\\Journal\\journal_font.sti"))
-        return 0;
+        return false;
     g_journal_font_palette = CatalogArtwork::Load(0x1b9).spriteSheet()->colors;
-    return 1;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x005bde10
-std::uint8_t JournalScreenFinalize(void)
+bool JournalScreenFinalize(void)
 {
     g_journal_font.clear();
     g_journal_font_palette = {};
-    return 1;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x005bde40
-std::uint8_t JournalScreenEnter(void)
+bool JournalScreenEnter(void)
 {
     std::int32_t maximum_visibility;
 
@@ -425,11 +425,11 @@ std::uint8_t JournalScreenEnter(void)
     }
     g_journal_panel->Refresh();
     CatalogArtwork::Load(0x1b7, 0).drawAndInvalidate(GetFrameBufferSurface(), 1, 0, 0x1b4);
-    return 1;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x005be0b0
-std::uint8_t JournalScreenLeave(std::int32_t)
+bool JournalScreenLeave(std::int32_t)
 {
     ResetRegions();
     g_journal_panel.reset();
@@ -437,7 +437,7 @@ std::uint8_t JournalScreenLeave(std::int32_t)
     if (gXStatus.fCampMode) {
         SyncDialogueNpcState();
     }
-    return 1;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x005be110

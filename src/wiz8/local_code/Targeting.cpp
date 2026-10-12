@@ -561,7 +561,7 @@ void ApplyTarget(W8CombatSlot* target, bool in_combat)
 /* Put the on-screen marker over one monster, from the party's eye to the
    monster's own bounds. */
 // FUNCTION: WIZ8 0x00539870
-std::uint8_t ShowMonsterTargetMarker(W8MonsterInfo* monster_info)
+bool ShowMonsterTargetMarker(W8MonsterInfo* monster_info)
 {
     srVector3T<float> eye;
 

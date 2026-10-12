@@ -36,7 +36,7 @@ std::int32_t GetSelectedPartySlot(void)
    near-black 0x010101 and puts one video-object frame over it, which is the
    shape record 1's much larger main-menu entry starts with too. */
 // FUNCTION: WIZ8 0x00591790
-std::uint8_t ExitScreenEnter(void)
+bool ExitScreenEnter(void)
 {
     std::uint16_t colour;
 
@@ -47,7 +47,7 @@ std::uint8_t ExitScreenEnter(void)
     SDL_FillSurfaceRect(&GetFrameBufferSurface(), &bounds, colour);
     CatalogArtwork::Load(0x1e4, 0).draw(GetFrameBufferSurface(), 0, 0, 0);
     ResetTransientRenderScenes();
-    return 1;
+    return true;
 }
 
 /* Lifecycle record 12's frame close-out. It drains the input queue through the

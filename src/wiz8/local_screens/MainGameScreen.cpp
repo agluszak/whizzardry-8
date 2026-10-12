@@ -295,7 +295,7 @@ static void DrawMainGamePrompt(void);
 void InvalidateLockInteractionPanels(void);
 std::uint8_t GetOpenDialogueFlag(void);
 void RedrawTextBoxComplete(void);
-std::uint8_t HandleMouselookInput(const InputEvent* input);
+bool HandleMouselookInput(const InputEvent* input);
 
 static bool IsPartyPortraitUnderCursor(std::uint32_t party_slot);
 void UpdateFormationPortraitRefresh(void);
@@ -368,7 +368,7 @@ static void EnableActionPanelRegions()
     }
 }
 
-std::int32_t OpenLockInteraction(Trigger* trigger)
+bool OpenLockInteraction(Trigger* trigger)
 {
     W8Character* character;
     W8LockTumblerPanel* panel;
@@ -2219,7 +2219,7 @@ void W8MainGameScreen::UseTrapItem()
 /* Open the trap interaction over a trigger, or re-raise its panels while one
    is suspended; a trigger in state 9 is already open. Outside those paths a
    random party member eats the detection event and the detect sound plays. */
-std::int32_t OpenTrapInteraction(Trigger* trigger)
+bool OpenTrapInteraction(Trigger* trigger)
 {
     W8MainGameScreen* screen;
     W8MainGameTextPanel* panel;
@@ -2227,20 +2227,20 @@ std::int32_t OpenTrapInteraction(Trigger* trigger)
     std::uint32_t event_type;
 
     if (gXStatus.fLockInteractMode || gXStatus.fLockInteract) {
-        return 0;
+        return false;
     }
     if (gXStatus.fTrapInteractMode || (gXStatus.fTrapInteract && trigger != 0)) {
         if (g_main_game_screen != 0 && g_main_game_screen->m_disarm_state == 9) {
-            return 1;
+            return true;
         }
         QueueInteractionNotice(g_trap_notice_event);
         wiz8::sound::play(s_trap_detect);
-        return 1;
+        return true;
     }
     if (gXStatus.fCombatMode) {
         QueueInteractionNotice(g_trap_notice_event);
         wiz8::sound::play(s_trap_detect);
-        return 1;
+        return true;
     }
     gXStatus.fTrapInteractMode = true;
     if (g_level_block->combat_end_notification != -1) {
@@ -2266,7 +2266,7 @@ std::int32_t OpenTrapInteraction(Trigger* trigger)
         screen->m_action_panel->Invalidate(0);
         g_main_game_screen->RefreshActionPanel();
         gXStatus.fTrapInteract = false;
-        return 1;
+        return true;
     }
     if (trigger->lock_state.device_id == -1) {
         SelectTrapType(trigger);
@@ -2284,7 +2284,7 @@ std::int32_t OpenTrapInteraction(Trigger* trigger)
     trigger->lock_state.last_interaction_clock = g_status.world_clock;
     wiz8::sound::play(s_trap_detect);
     gXStatus.fTrapInteract = false;
-    return 1;
+    return true;
 }
 
 void UpdateMainGameScreen(void)
@@ -2409,7 +2409,7 @@ void W8NpcDialogueTextController::Redraw()
     }
 }
 
-std::uint8_t W8NpcDialogueTextController::AddTranscriptEntry(std::string_view text,
+bool W8NpcDialogueTextController::AddTranscriptEntry(std::string_view text,
                                                               std::int8_t category, char mark)
 {
     std::int32_t index;
@@ -2417,7 +2417,7 @@ std::uint8_t W8NpcDialogueTextController::AddTranscriptEntry(std::string_view te
 
     for (index = 0; index < static_cast<std::int32_t>(text_area.m_all_lines.size()); ++index) {
         if (CompareTextIgnoreAsciiCase(*text_area.GetEntryText(index), text) == 0) {
-            return 0;
+            return false;
         }
     }
     added = text_area.AddEntry({}, text, 0, 7, category);
@@ -2434,7 +2434,7 @@ std::uint8_t W8NpcDialogueTextController::AddTranscriptEntry(std::string_view te
             }
         }
     }
-    return 1;
+    return true;
 }
 
 bool W8NpcDialogueTextController::IsSlotPortraitTranscriptCovered(std::uint32_t party_slot)
@@ -2926,7 +2926,7 @@ void DisableMainGamePortraitSlot(std::uint32_t slot) {
 }
 
 /* Enter the live game screen, constructing its owned native state on first entry. */
-std::uint8_t MainGameScreenEnter(void)
+bool MainGameScreenEnter(void)
 {
     std::int32_t display_mode;
     W8Difficulty difficulty = g_status.difficulty;
@@ -3036,7 +3036,7 @@ std::uint8_t MainGameScreenEnter(void)
     if (!gXStatus.fCombatMode) {
         StartLevelMusic(1, 1);
     }
-    return 1;
+    return true;
 }
 
 /* While the party is idle, arm a one-minute countdown after input and, once the
@@ -3068,7 +3068,7 @@ void BeginLevelTransition(void)
     SetPendingScreenState(W8_SCREEN_PLEASE_WAIT);
 }
 
-void TickAmbientFollowUpIdle(std::uint8_t input_handled)
+void TickAmbientFollowUpIdle(bool input_handled)
 {
     if (!gXStatus.fCombatMode && !gXStatus.fSpellCastMode && !gXStatus.fItemSelectMode &&
         !gXStatus.fNpcDialogueMode && !gXStatus.fLockInteractMode && !gXStatus.fTrapInteractMode &&
@@ -3125,7 +3125,7 @@ void SetMainGameMode(W8MainGameMode mode)
     g_main_game_mode = mode;
 }
 
-std::uint8_t ProcessMainGameInput(void)
+bool ProcessMainGameInput(void)
 {
     SDL_Point mouse;
     SGPMouseGetPos(&mouse);
@@ -3149,7 +3149,7 @@ std::uint8_t ProcessMainGameInput(void)
                 if (HandleDialogueTextInput(&input) == 0 &&
                     HandleMainGameInputEvent(&input) == 0) {
                     ResetMainGameMode();
-                    return 1;
+                    return true;
                 }
                 break;
             }
@@ -3472,7 +3472,7 @@ render_world:
 
 /* Suspension retains the allocation and resource strip. A full leave also
    unloads the level and releases the per-screen block. */
-std::uint8_t MainGameScreenLeave(std::int32_t leaving)
+bool MainGameScreenLeave(std::int32_t leaving)
 {
     std::int32_t index;
 
@@ -3531,7 +3531,7 @@ std::uint8_t MainGameScreenLeave(std::int32_t leaving)
         if (g_status.current_level != -1) {
             UnloadSkyWorld();
             if (!UnloadLevel("")) {
-                return 0;
+                return false;
             }
         }
         if (gXStatus.fPartyMovementUi) {
@@ -3572,7 +3572,7 @@ std::uint8_t MainGameScreenLeave(std::int32_t leaving)
     DisableSky();
     DestroyMainGameInterfaceButtons();
     DestroySpellIconHudControls();
-    return 1;
+    return true;
 }
 
 /* The "leave the current game" confirmation callback: on accept it tears
@@ -4863,7 +4863,7 @@ void ApplySavedRedrawInvalidates(void)
    simply snapped to the trigger location or the dialog owns the modal region
    until OnEnterLevelDialogClosed runs. With it clear the transition is staged
    straight into the pending screen state and modes 3/5/6 are torn down. */
-void RequestLevelTransition(std::int32_t level, std::int32_t entry, std::uint8_t flag)
+void RequestLevelTransition(std::int32_t level, std::int32_t entry, bool flag)
 {
     std::uint32_t normalized = NormalizeMasterFunctionValue(level);
 
@@ -5369,7 +5369,7 @@ void SyncMainGameModeRegions(void)
 /* Party portrait hit region: left-click selects / aims, right-hold opens camp,
    drag-hover arms the mode-6 overlay, and InputEventType::MouseMove drives help plus targeting
    cursor. Skips the slot parked in gXStatus.review_character_slot. */
-std::uint8_t PortraitSelectRegionEvent(const InputEvent* event, W8Region* region)
+bool PortraitSelectRegionEvent(const InputEvent* event, W8Region* region)
 {
     std::int32_t slot = region->callback_id;
     bool targeting = false;
@@ -5381,7 +5381,7 @@ std::uint8_t PortraitSelectRegionEvent(const InputEvent* event, W8Region* region
     std::string help_text;
 
     if (slot == static_cast<std::int16_t>(gXStatus.review_character_slot)) {
-        return 0;
+        return false;
     }
 
     needed = GetTargetNeededForCurrentAction(g_status.selected_character);
@@ -5421,7 +5421,7 @@ std::uint8_t PortraitSelectRegionEvent(const InputEvent* event, W8Region* region
                 g_level_block->portrait_overlay_party_slot = slot;
                 if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME && g_level_block != 0) {
                     RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
-                    return 1;
+                    return true;
                 }
             }
             /* retail falls through to return 1 at the end when the arm did not
@@ -5432,7 +5432,7 @@ std::uint8_t PortraitSelectRegionEvent(const InputEvent* event, W8Region* region
                 g_settings.main_ui_mode != W8_MAIN_UI_MODE_PORTRAITS &&
                 g_level_block->portrait_overlay_party_slot == -1) {
                 g_level_block->countdown5 = w8_get_ticks() + (500);
-                return 1;
+                return true;
             }
         } else if (us_event == InputEventType::LeftButtonUp) {
             if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
@@ -5441,18 +5441,18 @@ std::uint8_t PortraitSelectRegionEvent(const InputEvent* event, W8Region* region
                     DismissHighlightOverlay();
                     if (g_current_screen_state.id != W8_SCREEN_MAIN_GAME) {
                         g_main_game_mode = W8_MAIN_GAME_DEFAULT;
-                        return 1;
+                        return true;
                     }
                     if (g_level_block == 0) {
                         g_main_game_mode = W8_MAIN_GAME_DEFAULT;
-                        return 1;
+                        return true;
                     }
                     RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
                     if (g_current_screen_state.id != W8_SCREEN_MAIN_GAME) {
-                        return 1;
+                        return true;
                     }
                     if (g_level_block == 0) {
-                        return 1;
+                        return true;
                     }
                     RequestRedraw(W8_MAIN_REDRAW_PORTRAITS);
                 } else if (IsNpcDialogueCursorActive() == 0) {
@@ -5510,16 +5510,16 @@ std::uint8_t PortraitSelectRegionEvent(const InputEvent* event, W8Region* region
                 RequestRedraw(1 << (slot & 0x1f));
                 if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME && g_level_block != 0) {
                     RequestRedraw(W8_MAIN_REDRAW_CHARACTER_ACTION);
-                    return 1;
+                    return true;
                 }
             }
         } else {
             if (us_event != InputEventType::LeftButtonDoubleClick) {
-                return 0;
+                return false;
             }
             if (IsNpcDialogueCursorActive() == 0 && !gXStatus.scripted_scene) {
                 OpenCharacterScreenForPartySlot(slot, false);
-                return 1;
+                return true;
             }
         }
     } else if (us_event == InputEventType::RightButtonDown) {
@@ -5532,7 +5532,7 @@ std::uint8_t PortraitSelectRegionEvent(const InputEvent* event, W8Region* region
     } else {
         if (us_event != InputEventType::RightButtonUp) {
             if (us_event != InputEventType::MouseMove) {
-                return 0;
+                return false;
             }
             if (g_level_block->portrait_right_hold_armed &&
                 TimeUntilDeadline(g_level_block->countdown4) == 0) {
@@ -5547,7 +5547,7 @@ std::uint8_t PortraitSelectRegionEvent(const InputEvent* event, W8Region* region
                                 RevalidateSelectedTarget(g_status.selected_character);
                             }
                             SetTargetCursor(4);
-                            return 0;
+                            return false;
                         }
                         SetTargetCursor(GetTargetingCursorForState(0));
                     }
@@ -5569,7 +5569,7 @@ std::uint8_t PortraitSelectRegionEvent(const InputEvent* event, W8Region* region
                         SetTooltipSubject(0, slot);
                         if (gXStatus.iTargetingMode == W8_TARGET_NEED_NONE) {
                             UpdateSlotMonsterHighlights(slot, true);
-                            return 0;
+                            return false;
                         }
                     }
                 }
@@ -5591,34 +5591,34 @@ std::uint8_t PortraitSelectRegionEvent(const InputEvent* event, W8Region* region
                         if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME &&
                             g_level_block != 0) {
                             RequestRedraw(W8_MAIN_REDRAW_PORTRAITS);
-                            return 0;
+                            return false;
                         }
                     }
                 }
             }
-            return 0;
+            return false;
         }
         if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) != 0 && !targeting &&
             IsNpcDialogueCursorActive() == 0 && !gXStatus.scripted_scene) {
             g_level_block->portrait_right_hold_armed = false;
             if (!g_status.item_in_cursor || IsKeyHeld(VK_CONTROL)) {
                 OpenCharacterScreenForPartySlot(slot, false);
-                return 1;
+                return true;
             }
             GiveHeldItemToCharacterOrParty(slot, true);
             if (gXStatus.fItemSelectMode) {
                 RefreshUseItemSelection();
-                return 1;
+                return true;
             }
         }
     }
-    return 1;
+    return true;
 }
 
 /* Both portrait orbs share this event policy. Member pointers retain their
    distinct enum fields and reload the live overlay owner after callbacks. */
 template <class Effect>
-static std::uint8_t DispatchPortraitOrbRegionEvent(const InputEvent* event, W8Region* region,
+static bool DispatchPortraitOrbRegionEvent(const InputEvent* event, W8Region* region,
                                                     Effect W8Character::* effect, Effect none,
                                                     std::int32_t W8LevelRuntimeBlock::* selection,
                                                     std::int32_t tooltip_kind)
@@ -5635,7 +5635,7 @@ static std::uint8_t DispatchPortraitOrbRegionEvent(const InputEvent* event, W8Re
     if (us_event != InputEventType::LeftButtonDown) {
         if (us_event != InputEventType::LeftButtonUp) {
             if (us_event != InputEventType::MouseMove) {
-                return 0;
+                return false;
             }
             if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
                 SetTooltipSubject(tooltip_kind, -1);
@@ -5656,36 +5656,36 @@ static std::uint8_t DispatchPortraitOrbRegionEvent(const InputEvent* event, W8Re
                             }
                         }
                         EnableRegionHelpFlag(region);
-                        return 0;
+                        return false;
                     }
                 } else {
-                    return 0;
+                    return false;
                 }
             }
             DisableRegionHelpFlag(region);
-            return 0;
+            return false;
         }
         if ((g_level_block.get()->*selection) == -1) {
-            return 1;
+            return true;
         }
         (g_level_block.get()->*selection) = -1;
         DismissHighlightOverlay();
         RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
-        return 1;
+        return true;
     }
 
     if ((character->*effect) == none) {
-        return 1;
+        return true;
     }
     (g_level_block.get()->*selection) = slot;
     RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
-    return 1;
+    return true;
 }
 
 /* Condition orb on a party portrait (help 25): press while highest_condition
    is set arms the overlay slot; release and leave dismiss the hover plate;
    enter drives tooltip kind 1 and region help. */
-std::uint8_t PortraitConditionOrbRegionEvent(const InputEvent* event, W8Region* region)
+bool PortraitConditionOrbRegionEvent(const InputEvent* event, W8Region* region)
 {
     return DispatchPortraitOrbRegionEvent(event, region, &W8Character::highest_condition,
                                           W8_CONDITION_NONE,
@@ -5694,7 +5694,7 @@ std::uint8_t PortraitConditionOrbRegionEvent(const InputEvent* event, W8Region* 
 
 /* Enchantment orb on a party portrait (help 26): near-clone of the condition
    orb against enchantment_top and tooltip kind 2. */
-std::uint8_t PortraitEnchantmentOrbRegionEvent(const InputEvent* event, W8Region* region)
+bool PortraitEnchantmentOrbRegionEvent(const InputEvent* event, W8Region* region)
 {
     return DispatchPortraitOrbRegionEvent(event, region, &W8Character::enchantment_top,
                                           W8_ENCHANTMENT_NONE,
@@ -5703,7 +5703,7 @@ std::uint8_t PortraitEnchantmentOrbRegionEvent(const InputEvent* event, W8Region
 
 /* Help 28: portrait side bar — hover picks upper/lower weapon or assayable
    item; click opens Assay or binds items with Shift. */
-std::uint8_t PortraitAssaySidebarRegionEvent(const InputEvent* event, W8Region* region)
+bool PortraitAssaySidebarRegionEvent(const InputEvent* event, W8Region* region)
 {
     std::int32_t previous_mode = g_level_block->portrait_assay_hover_mode;
     std::int32_t slot = region->callback_id;
@@ -5713,7 +5713,7 @@ std::uint8_t PortraitAssaySidebarRegionEvent(const InputEvent* event, W8Region* 
     InputEventType us_event;
 
     if (!IsPartySlotEligible(slot)) {
-        return 0;
+        return false;
     }
 
     character = &g_status.buffers.Char[slot];
@@ -5735,24 +5735,24 @@ std::uint8_t PortraitAssaySidebarRegionEvent(const InputEvent* event, W8Region* 
     us_event = event->type;
     if (IsLeftButtonEvent(us_event) || us_event == InputEventType::RightButtonDown) {
         if (region->CaptureButtonDown(us_event)) {
-            return 1;
+            return true;
         }
         if (us_event != InputEventType::LeftButtonUp) {
-            return 0;
+            return false;
         }
         if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) == 0) {
-            return 1;
+            return true;
         }
         if ((event->modifiers & SHIFT_DOWN) == 0) {
             BindCharacterItems(slot, true);
-            return 1;
+            return true;
         }
         BindEveryPartyItem();
-        return 1;
+        return true;
     }
     if (us_event != InputEventType::RightButtonUp) {
         if (us_event != InputEventType::MouseMove) {
-            return 0;
+            return false;
         }
         if ((region->flags & W8_REGION_MOUSE_LEAVE) == 0) {
             if ((region->flags & W8_REGION_MOUSE_ENTER) != 0) {
@@ -5761,12 +5761,12 @@ std::uint8_t PortraitAssaySidebarRegionEvent(const InputEvent* event, W8Region* 
             }
         } else {
             SetTooltipSubject(5, -1);
-            return 0;
+            return false;
         }
-        return 0;
+        return false;
     }
     if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) == 0) {
-        return 1;
+        return true;
     }
     {
         std::int32_t mode = g_level_block->portrait_assay_hover_mode;
@@ -5776,7 +5776,7 @@ std::uint8_t PortraitAssaySidebarRegionEvent(const InputEvent* event, W8Region* 
                 goto open_assay;
             }
             if (mode != 3) {
-                return 1;
+                return true;
             }
         }
         item = &character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON];
@@ -5785,12 +5785,12 @@ std::uint8_t PortraitAssaySidebarRegionEvent(const InputEvent* event, W8Region* 
             OpenAssayDialog(item, slot);
         }
     }
-    return 1;
+    return true;
 }
 
 /* Help 24: portrait overlay hover strip; left-down and enter (while held)
    set portrait_overlay_party_slot, leave and up dismiss the mode-6 plate. */
-std::uint8_t PortraitOverlayHoverRegionEvent(const InputEvent* event, W8Region* region)
+bool PortraitOverlayHoverRegionEvent(const InputEvent* event, W8Region* region)
 {
     const InputEventType us_event = event->type;
     std::int32_t slot = region->callback_id;
@@ -5800,54 +5800,54 @@ std::uint8_t PortraitOverlayHoverRegionEvent(const InputEvent* event, W8Region* 
     } else {
         if (us_event != InputEventType::LeftButtonUp) {
             if (us_event != InputEventType::MouseMove) {
-                return 0;
+                return false;
             }
             if ((region->flags & W8_REGION_MOUSE_LEAVE) == 0) {
                 if ((region->flags & W8_REGION_MOUSE_ENTER) == 0) {
-                    return 0;
+                    return false;
                 }
                 PushButtonSoundScheme(0, true);
                 SetTooltipSubject(4, slot);
                 if (!IsLeftButtonHeld()) {
-                    return 0;
+                    return false;
                 }
                 g_level_block->portrait_overlay_party_slot = slot;
             } else {
                 SetTooltipSubject(4, -1);
                 if (g_level_block->portrait_overlay_party_slot == -1) {
-                    return 0;
+                    return false;
                 }
                 g_level_block->portrait_overlay_party_slot = -1;
                 DismissHighlightOverlay();
             }
             RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
-            return 0;
+            return false;
         }
         g_level_block->portrait_overlay_party_slot = -1;
         DismissHighlightOverlay();
     }
     RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
-    return 1;
+    return true;
 }
 
 /* Combat-action hit regions beside the eight party portraits (region set 4):
    open the keyboard menu on release while combat input is live, drive hover
    help for a queued spell/item, and right-click falls back when an action is
    unreachable. */
-std::uint8_t PartyCombatActionRegionEvent(const InputEvent* event, W8Region* region)
+bool PartyCombatActionRegionEvent(const InputEvent* event, W8Region* region)
 {
     std::int32_t slot = region->callback_id;
     if (!IsPartySlotEligible(slot)) {
-        return 0;
+        return false;
     }
 
     switch (event->type) {
     case InputEventType::RightButtonDown:
         region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
-        return 1;
+        return true;
     case InputEventType::LeftButtonDown:
         region->flags |= W8_REGION_LEFT_BUTTON_HELD;
-        return 1;
+        return true;
     case InputEventType::LeftButtonUp:
         if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0 &&
             g_status.buffers.XChar[slot].fOccupied) {
@@ -5857,16 +5857,16 @@ std::uint8_t PartyCombatActionRegionEvent(const InputEvent* event, W8Region* reg
             if (g_combat_state->round_active) {
                 g_level_block->combat_slot = slot;
                 OpenKeyboardMenuForSlot(slot);
-                return 1;
+                return true;
             }
         }
-        return 1;
+        return true;
     case InputEventType::RightButtonUp:
         if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) != 0 && !gXStatus.fSpellCastMode &&
             !gXStatus.fItemSelectMode) {
             FallbackFromUnreachableAction(slot);
         }
-        return 1;
+        return true;
     case InputEventType::MouseMove:
         if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
             if (!g_level_block->keyboard_menu_open) {
@@ -5877,10 +5877,10 @@ std::uint8_t PartyCombatActionRegionEvent(const InputEvent* event, W8Region* reg
             g_level_block->combat_action_hover_party_slot = -1;
             gXStatus.monster_manager_entries[slot].combat_portrait_dirty = true;
             DisableRegionHelpFlag(region);
-            return 0;
+            return false;
         }
         if ((region->flags & W8_REGION_MOUSE_ENTER) == 0) {
-            return 0;
+            return false;
         }
         if (g_combat_state->round_active) {
             g_level_block->combat_action_hover_party_slot = slot;
@@ -5893,42 +5893,42 @@ std::uint8_t PartyCombatActionRegionEvent(const InputEvent* event, W8Region* reg
                 SetRegionHelpText(fmt::format("{}: {} ({:d})", g_localized_strings[0x68],
                                               g_spell_records[row->action_detail0].display_name,
                                               row->action_detail1.spell.power_level));
-                return 0;
+                return false;
             }
             if (row->action == W8_ACTION_USE_ITEM) {
                 EnableRegionHelpFlag(region);
                 SetRegionHelpText(
                     fmt::format("{}: {}", g_localized_strings[0x69],
                                 FormatItemDisplayName(row->action_detail1.item_use.item, false)));
-                return 0;
+                return false;
             }
         }
         DisableRegionHelpFlag(region);
-        return 0;
+        return false;
     default:
         break;
     }
-    return 0;
+    return false;
 }
 
 /* Help 31: radar-map button near the text area — left-up opens automap after
    tearing down mode 3/5/6 overlays; right-up toggles zoom; enter/leave hover
    the map button art. */
-std::uint8_t RadarMapButtonRegionEvent(const InputEvent* event, W8Region* region)
+bool RadarMapButtonRegionEvent(const InputEvent* event, W8Region* region)
 {
     const InputEventType us_event = event->type;
 
     if (IsLeftButtonEvent(us_event) || us_event == InputEventType::RightButtonDown) {
         if (region->CaptureButtonDown(us_event)) {
-            return 1;
+            return true;
         }
         if (us_event != InputEventType::LeftButtonUp) {
-            return 0;
+            return false;
         }
         if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
             SetMainGameMode(W8_MAIN_GAME_DEFAULT);
             SetPendingScreenState(W8_SCREEN_AUTOMAP);
-            return 1;
+            return true;
         }
     } else if (us_event == InputEventType::RightButtonUp) {
         if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) != 0) {
@@ -5936,20 +5936,20 @@ std::uint8_t RadarMapButtonRegionEvent(const InputEvent* event, W8Region* region
         }
     } else {
         if (us_event != InputEventType::MouseMove) {
-            return 0;
+            return false;
         }
         if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
             g_level_block->radar_map_alternate = 0;
             RefreshRadarMap();
-            return 1;
+            return true;
         }
         if ((region->flags & W8_REGION_MOUSE_ENTER) != 0) {
             g_level_block->radar_map_alternate = 1;
             RefreshRadarMap();
-            return 1;
+            return true;
         }
     }
-    return 1;
+    return true;
 }
 
 /* Restore the cursor and clear the mouse-look state on both exit paths. */
@@ -5967,7 +5967,7 @@ static void StopWorldMouseLook()
    world-item hover and the portrait strip; left-up runs the targeting, item
    and monster dispatch; right-down opens monster info or the assay dialog or
    toggles the mouselook latch. */
-std::uint8_t WorldViewRegionEvent(const InputEvent* event, W8Region* region)
+bool WorldViewRegionEvent(const InputEvent* event, W8Region* region)
 {
     SDL_Point cursor_pos;
     std::int32_t cursor_x;
@@ -5978,7 +5978,7 @@ std::uint8_t WorldViewRegionEvent(const InputEvent* event, W8Region* region)
 
     PushButtonSoundScheme(0, true);
     if (IsMessageBoxActive() || gXStatus.fReviewCharacterMode || g_camera_path_active) {
-        return 0;
+        return false;
     }
     needed = GetTargetNeededForCurrentAction(g_status.selected_character);
     us_event = event->type;
@@ -5986,17 +5986,17 @@ std::uint8_t WorldViewRegionEvent(const InputEvent* event, W8Region* region)
         if (us_event == InputEventType::RightButtonUp) {
             if (g_mouselook_active && g_settings.mouselook_toggle == 0) {
                 StopWorldMouseLook();
-                return 1;
+                return true;
             }
             if (!IsMipeActive()) {
-                return 1;
+                return true;
             }
             SGPMouseGetPos(&cursor_pos);
             MipeWorldViewEvent(InputEventType::RightButtonUp, &cursor_pos);
-            return 1;
+            return true;
         }
         if (us_event != InputEventType::MouseMove) {
-            return 0;
+            return false;
         }
         cursor_y = GetEventCursorY(event);
         cursor_x = GetEventCursorX(event);
@@ -6029,28 +6029,28 @@ std::uint8_t WorldViewRegionEvent(const InputEvent* event, W8Region* region)
                 if (g_status.buffers.XChar[slot].fOccupied &&
                     g_level_block->portrait_refresh_pending[slot] != 0 &&
                     IsPartyPortraitUnderCursor(slot)) {
-                    return 0;
+                    return false;
                 }
             }
             UpdateWorldViewCursor(event, needed);
-            return 1;
+            return true;
         }
         ClearCombatSelection();
-        return 1;
+        return true;
     }
     if (us_event == InputEventType::RightButtonDown) {
         region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
         if (IsMipeActive()) {
             SGPMouseGetPos(&cursor_pos);
             MipeWorldViewEvent(InputEventType::RightButtonDown, &cursor_pos);
-            return 1;
+            return true;
         }
         if (g_level_block->highlighted_item != -1 && !gXStatus.fSpellCastMode &&
             !gXStatus.fNpcDialogueMode && !gXStatus.fItemSelectMode &&
             !gXStatus.fLockInteractMode && !gXStatus.fTrapInteractMode &&
             (g_settings.ctrl_right_click_info == 0 || IsKeyHeld(VK_CONTROL))) {
             OpenMonsterInfoDialog(g_level_block->highlighted_item);
-            return 1;
+            return true;
         }
         if (!g_status.item_in_cursor && g_level_block->selected_item != -1 &&
             !gXStatus.fSpellCastMode && !gXStatus.fNpcDialogueMode && !gXStatus.fItemSelectMode &&
@@ -6059,16 +6059,16 @@ std::uint8_t WorldViewRegionEvent(const InputEvent* event, W8Region* region)
             W8WorldItem* world_item = ItemInfo(ItemIndex(g_level_block->selected_item));
             PartyAttemptsToIdentifyItem(&world_item->item, 0);
             OpenAssayDialog(&world_item->item, -1);
-            return 1;
+            return true;
         }
         if (!IsWorldCursorVisible() && !gXStatus.fNpcDialogueMode) {
             if (g_settings.mouselook_toggle != 0) {
                 if (g_mouselook_active) {
                     StopWorldMouseLook();
-                    return 1;
+                    return true;
                 }
             } else if (g_mouselook_active) {
-                return 1;
+                return true;
             }
             SGPMouseGetPos(&g_mouselook_cursor_pos);
             DisableCursorScene();
@@ -6079,32 +6079,32 @@ std::uint8_t WorldViewRegionEvent(const InputEvent* event, W8Region* region)
             g_mouselook_manual = true;
             SetMouseMoveEventsEnabled(1);
         }
-        return 1;
+        return true;
     }
     if (us_event == InputEventType::LeftButtonDown) {
         if (g_mouselook_active) {
-            return 0;
+            return false;
         }
         region->flags |= W8_REGION_LEFT_BUTTON_HELD;
         if (!IsMipeActive()) {
-            return 1;
+            return true;
         }
         SGPMouseGetPos(&cursor_pos);
         MipeWorldViewEvent(InputEventType::LeftButtonDown, &cursor_pos);
-        return 1;
+        return true;
     }
     if (us_event != InputEventType::LeftButtonUp) {
-        return 0;
+        return false;
     }
     if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) == 0) {
-        return 1;
+        return true;
     }
     if (g_mouselook_active) {
-        return 1;
+        return true;
     }
     region->flags &= ~W8_REGION_LEFT_BUTTON_HELD;
     if (FinishNpcVoiceIfSessionActive()) {
-        return 1;
+        return true;
     }
     if (gXStatus.iTargetingMode == W8_TARGET_NEED_PLACE ||
         (needed == W8_TARGET_NEED_PLACE && (event->modifiers & CTRL_DOWN) != 0)) {
@@ -6201,16 +6201,16 @@ std::uint8_t WorldViewRegionEvent(const InputEvent* event, W8Region* region)
         }
     }
     if (!IsMipeActive()) {
-        return 1;
+        return true;
     }
     SGPMouseGetPos(&cursor_pos);
     MipeWorldViewEvent(InputEventType::LeftButtonUp, &cursor_pos);
-    return 1;
+    return true;
 }
 
 /* Help 36: combat monster-list rows. Hit-test by 11-pixel row, hover via
    SetCombatAction, left-up aims, right-up posts the group info notice. */
-std::uint8_t MonsterListRegionEvent(const InputEvent* event, W8Region* region)
+bool MonsterListRegionEvent(const InputEvent* event, W8Region* region)
 {
     std::int32_t row = -1;
     W8MonsterGroup* group = 0;
@@ -6233,24 +6233,24 @@ std::uint8_t MonsterListRegionEvent(const InputEvent* event, W8Region* region)
     switch (event->type) {
     case InputEventType::LeftButtonDown:
         region->flags |= W8_REGION_LEFT_BUTTON_HELD;
-        return 1;
+        return true;
     case InputEventType::LeftButtonUp:
         if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0 &&
             g_status.selected_character != -1 && group_id != -1 &&
             g_level_block->target_highlight_ok[0] != 0) {
             AimAtMonsterGroupMember(g_status.selected_character, group);
         }
-        return 1;
+        return true;
     case InputEventType::RightButtonDown:
         region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
-        return 1;
+        return true;
     case InputEventType::RightButtonUp:
         if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) != 0 && group_id != -1 &&
             !gXStatus.fSpellCastMode && !gXStatus.fNpcDialogueMode && !gXStatus.fItemSelectMode &&
             !gXStatus.fLockInteractMode && !gXStatus.fTrapInteractMode) {
             ShowMonsterGroupInfoNotice(group_id);
         }
-        return 1;
+        return true;
     default:
         return row == -1;
     }
@@ -6338,18 +6338,18 @@ void ClearHighlightIfItIs(const std::int32_t* item)
 /* Whether the screen is in one of the states that takes the player's input
    away. The first flag settles it outright; otherwise one state only counts
    while a further check disagrees, and three more count on their own. */
-std::int32_t IsScreenInputBlocked(void)
+bool IsScreenInputBlocked(void)
 {
     if (gXStatus.fSpellCastMode) {
-        return 1;
+        return true;
     }
     if (gXStatus.fNpcDialogueMode && !CanOpenNpcDialogue()) {
-        return 1;
+        return true;
     }
     if (!gXStatus.fLockInteractMode && !gXStatus.fTrapInteractMode && !gXStatus.fItemSelectMode) {
-        return 0;
+        return false;
     }
-    return 1;
+    return true;
 }
 
 /* Whether the screen is idle - none of the six overlays is up. The same six
@@ -7130,17 +7130,17 @@ std::uint32_t DispatchMainGameMouseButtons(const InputEvent* input)
    look flag, and each mouse move accumulates yaw/pitch from the offset off
    the 320x240 anchor before recentering the cursor. Smoothing defers the
    apply to the frame tick; otherwise it applies immediately. */
-std::uint8_t HandleMouselookInput(const InputEvent* input)
+bool HandleMouselookInput(const InputEvent* input)
 {
     if (!g_camera_path_active && (!gXStatus.world_paused || gXStatus.fCombatMode)) {
         const InputEventType us_event = input->type;
         switch (us_event) {
         case InputEventType::LeftButtonDown:
             g_mouselook_left_held = true;
-            return 1;
+            return true;
         case InputEventType::LeftButtonUp:
             g_mouselook_left_held = false;
-            return 1;
+            return true;
         case InputEventType::MouseMove:
             g_mouselook_pending_yaw =
                 (input->position.x - 0x140) * g_mouselook_yaw_scale +
@@ -7153,12 +7153,12 @@ std::uint8_t HandleMouselookInput(const InputEvent* input)
             if (g_settings.mouselook_smoothing == 0) {
                 ApplyPendingMouselook();
             }
-            return 1;
+            return true;
         default:
             break;
         }
     }
-    return 0;
+    return false;
 }
 
 void PauseMainGameWorld(void)
@@ -7908,7 +7908,7 @@ void W8NpcDialogueTextController::SelectTranscriptKeywordAtPoint(std::int32_t x,
     InvalidateLayout();
 }
 
-std::uint8_t DialogueTranscriptRegionEvent(const InputEvent* event, W8Region* region)
+bool DialogueTranscriptRegionEvent(const InputEvent* event, W8Region* region)
 {
     const InputEventType us_event = event->type;
     W8NpcDialogueTextController* controller;
@@ -7918,22 +7918,22 @@ std::uint8_t DialogueTranscriptRegionEvent(const InputEvent* event, W8Region* re
     if (IsLeftButtonEvent(us_event)) {
         if (us_event == InputEventType::LeftButtonRepeat || us_event == InputEventType::LeftButtonDown) {
             region->flags |= W8_REGION_LEFT_BUTTON_HELD;
-            return 1;
+            return true;
         }
         if (us_event != InputEventType::LeftButtonUp) {
-            return 0;
+            return false;
         }
         if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
             region->flags &= ~W8_REGION_LEFT_BUTTON_HELD;
             static_cast<W8NpcDialogueTextController*>(g_npc_interaction_state->dialogue_panels[2])
                 ->SelectTranscriptKeywordAtPoint(event->position.x,
                                                  event->position.y);
-            return 1;
+            return true;
         }
     } else {
         if (us_event != InputEventType::MouseMove) {
             if (us_event != InputEventType::MouseWheel) {
-                return 0;
+                return false;
             }
             delta = event->wheel;
             if (delta > 0) {
@@ -7941,19 +7941,19 @@ std::uint8_t DialogueTranscriptRegionEvent(const InputEvent* event, W8Region* re
                     g_npc_interaction_state->dialogue_panels[2]);
                 scrolled = controller->text_area.ScrollUp(false);
                 if (!scrolled) {
-                    return 0;
+                    return false;
                 }
                 controller->Invalidate(0);
-                return 0;
+                return false;
             }
             controller = static_cast<W8NpcDialogueTextController*>(
                 g_npc_interaction_state->dialogue_panels[2]);
             scrolled = controller->text_area.ScrollDown(false);
             if (!scrolled) {
-                return 0;
+                return false;
             }
             controller->Invalidate(0);
-            return 0;
+            return false;
         }
         if ((region->flags & W8_REGION_MOUSE_LEAVE) == 0) {
             if ((region->flags & W8_REGION_MOUSE_ENTER) == 0) {
@@ -7970,14 +7970,14 @@ std::uint8_t DialogueTranscriptRegionEvent(const InputEvent* event, W8Region* re
                 g_npc_interaction_state->dialogue_panels[2]);
             if (controller->text_area.ClearPointSelection()) {
                 controller->InvalidateLayout();
-                return 1;
+                return true;
             }
         }
     }
-    return 1;
+    return true;
 }
 
-std::uint8_t CombatBarRegionEvent(const InputEvent* event, W8Region*)
+bool CombatBarRegionEvent(const InputEvent* event, W8Region*)
 {
     const InputEventType us_event = event->type;
 
@@ -7991,12 +7991,12 @@ std::uint8_t CombatBarRegionEvent(const InputEvent* event, W8Region*)
             goto resume_world;
         }
         if (us_event == InputEventType::MouseMove) {
-            return 1;
+            return true;
         }
     }
 
     if (g_mgs_keyboard->FindCommandForEvent(event) == W8_MGS_COMMAND_NONE) {
-        return 0;
+        return false;
     }
 
 resume_world:
@@ -8004,10 +8004,10 @@ resume_world:
         AcknowledgeSurprise();
     }
     if (!gXStatus.world_paused) {
-        return 1;
+        return true;
     }
     ResumeMainGameWorld();
-    return 1;
+    return true;
 }
 
 /* Note that the party's state changed. The combat half is only asked for while
@@ -8096,7 +8096,7 @@ void DestroySurpriseFade(void)
     g_world_render_enabled = 1;
 }
 
-std::uint8_t UpdateSurpriseFade(void)
+bool UpdateSurpriseFade(void)
 {
     bool done = false;
     bool boundary = false;

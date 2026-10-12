@@ -64,16 +64,16 @@ constexpr std::array<std::int32_t, 4> main_menu_sprite_objects = {0xea, 0xec, 0x
 // The original six item rectangles are now screen-owned data, not global
 // region registrations. The load-game item uses the disabled sprite when
 // the party has no saves.
-std::uint8_t DrawMainMenuItem(std::int16_t item, std::int16_t state)
+bool DrawMainMenuItem(std::int16_t item, std::int16_t state)
 {
-    if (item < 0 || static_cast<std::size_t>(item) >= main_menu_item_bounds.size()) return 0;
+    if (item < 0 || static_cast<std::size_t>(item) >= main_menu_item_bounds.size()) return false;
     if (item == 2 && !g_main_menu_has_save_games) state = 3;
 
     const auto& bounds = main_menu_item_bounds[item];
     if (state >= 0 && static_cast<std::size_t>(state) < main_menu_sprite_objects.size())
         CatalogArtwork::Load(main_menu_sprite_objects[state], 0).draw(GetFrameBufferSurface(), item, 0x98, bounds.top);
     InvalidateRegion(0x98, bounds.top, 0x1f2, bounds.bottom, 0);
-    return 1;
+    return true;
 }
 
 static void DrawMainMenuItems()
@@ -182,7 +182,7 @@ void CreateMainMenuControls()
 }
 } // namespace
 
-std::uint8_t MainMenuScreenEnter(void)
+bool MainMenuScreenEnter(void)
 {
     std::string text;
     std::string wide;
@@ -232,7 +232,7 @@ std::uint8_t MainMenuScreenEnter(void)
         dialog->SetMessage(pending, 1, 0x32, true, false, true, true, 0, 0x15e);
         SetDialogDestroyCallback(dialog, 0);
         g_pending_main_menu_message.clear();
-        return 1;
+        return true;
     }
     if (!HasEnoughFreeDiskSpace() && !g_main_menu_warning_shown) {
         main_menu_dialog.reset(static_cast<W8MessageDialogBase*>(CreateDialogByKind(W8_DIALOG_MESSAGE)));
@@ -242,7 +242,7 @@ std::uint8_t MainMenuScreenEnter(void)
         SetDialogDestroyCallback(dialog, 0);
         g_main_menu_warning_shown = true;
     }
-    return 1;
+    return true;
 }
 
 /* The main menu's developer-mode key hook. Retail never consumes the key: its
@@ -348,13 +348,13 @@ void MainMenuScreenFrame()
     RenderFrame();
 }
 
-std::uint8_t MainMenuScreenLeave(std::int32_t)
+bool MainMenuScreenLeave(std::int32_t)
 {
     main_menu_dialog.reset();
     main_menu_controls.reset();
     ReleaseCatalogArtwork();
     ResetRegions();
-    return 1;
+    return true;
 }
 
 void SetMainMenuMessage(std::string_view message)

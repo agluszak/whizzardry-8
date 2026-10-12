@@ -140,22 +140,22 @@ bool IsLevelCdMissing(std::int32_t level)
 
 /* Configured disc roots are immutable D: through F: asset namespaces. */
 // FUNCTION: WIZ8 0x0042B590
-std::uint8_t FindGameDataPath(char* path, std::int32_t cd_number)
+bool FindGameDataPath(char* path, std::int32_t cd_number)
 {
-    if (path == nullptr || cd_number < 1 || cd_number > 3) return 0;
+    if (path == nullptr || cd_number < 1 || cd_number > 3) return false;
     path[0] = '\0';
     try {
-        if (w8_native::path_roots().discs[cd_number - 1].empty()) return 0;
+        if (w8_native::path_roots().discs[cd_number - 1].empty()) return false;
         char disc[] = "D:\\";
         disc[0] += cd_number - 1;
         const auto root = wiz8::file_status(disc);
         const auto data = wiz8::file_status(std::string(disc) + "Data");
         if (!root || root->info.type != SDL_PATHTYPE_DIRECTORY || root->writable ||
-            !data || data->info.type != SDL_PATHTYPE_DIRECTORY || data->writable) return 0;
+            !data || data->info.type != SDL_PATHTYPE_DIRECTORY || data->writable) return false;
         strcpy(path, disc);
-        return 1;
+        return true;
     } catch (const std::exception&) {
-        return 0;
+        return false;
     }
 }
 
@@ -204,16 +204,16 @@ void UnloadSkyWorld(void)
 // The original bounds-checks only the upper end, so a negative level_id reads
 // before the table. Reproduced as-is; GetLevelFolderName checks both ends.
 // FUNCTION: WIZ8 0x0042b500
-std::uint8_t GetLevelLocationCode(std::int32_t level_id, char* location_code)
+bool GetLevelLocationCode(std::int32_t level_id, char* location_code)
 {
     if (level_id >= W8_LEVEL_COUNT) {
-        return 0;
+        return false;
     }
     if (!location_code) {
-        return 0;
+        return false;
     }
     strcpy(location_code, g_level_folders[level_id].location_code);
-    return 1;
+    return true;
 }
 
 static std::int32_t LevelFindIDByLocationCode(const char* location_code)
@@ -285,7 +285,7 @@ void NoOp(W8World* world, std::int32_t first, std::int32_t second)
    animated-cloud material: its cloud meshes are marked for the renderer's
    control bits and every CloudsN prop's mesh chain is rebound to it. */
 // FUNCTION: WIZ8 0x0042B020
-std::uint8_t LoadSkyWorld(std::int32_t level, W8LevelInfo* info)
+bool LoadSkyWorld(std::int32_t level, W8LevelInfo* info)
 {
     std::int8_t sky_index;
     W8LevelInfo local_info;
@@ -297,11 +297,11 @@ std::uint8_t LoadSkyWorld(std::int32_t level, W8LevelInfo* info)
         sky_index = 0;
     }
     if (sky_index == g_loaded_sky_index) {
-        return 1;
+        return true;
     }
     if (info == 0) {
         if (!LevelBuildInfoByID(level, &local_info)) {
-            return 0;
+            return false;
         }
         info = &local_info;
     }
@@ -312,16 +312,16 @@ std::uint8_t LoadSkyWorld(std::int32_t level, W8LevelInfo* info)
         ResetEnvironment();
     }
     if (sky_index == -1) {
-        return 1;
+        return true;
     }
     sky_world = CreateWorld();
     g_secondary_world = sky_world;
     if (sky_world == 0) {
-        return 0;
+        return false;
     }
     if (!LoadWorld(sky_world, info->sky_file_name, info->sky_folder, info->sky_bitmap_folder,
                    false)) {
-        return 0;
+        return false;
     }
 
     const glm::dvec3 position(0);
@@ -374,7 +374,7 @@ std::uint8_t LoadSkyWorld(std::int32_t level, W8LevelInfo* info)
     WorldRemoveLight(sky_world, sky_world->camera_light);
     sky_world->camera_light = 0;
     g_loaded_sky_index = sky_index;
-    return 1;
+    return true;
 }
 
 // GLOBAL: WIZ8 0x00605820
@@ -395,7 +395,7 @@ float g_default_world_height = 1000.0f;
 const float g_position_height_epsilon = 2500.0f;
 
 // GLOBAL: WIZ8 0x00603ad0
-std::uint8_t g_environment_load_flag = 1;
+bool g_environment_load_flag = true;
 
 // GLOBAL: WIZ8 0x0065ba70
 bool g_camera_path_active;
@@ -482,7 +482,7 @@ bool LevelBuildInfoByID(std::int32_t level, W8LevelInfo* info)
    rollback boundary, entry positioning, first-visit work and final renderer
    publication. */
 // FUNCTION: WIZ8 0x0042A6F0
-std::uint8_t LoadLevel(std::int32_t requested_level, std::int32_t entrance, bool restoring_game)
+bool LoadLevel(std::int32_t requested_level, std::int32_t entrance, bool restoring_game)
 {
     std::int32_t level = NormalizeMasterFunctionValue(requested_level);
     W8LevelInfo level_info;
@@ -643,7 +643,7 @@ std::uint8_t LoadLevel(std::int32_t requested_level, std::int32_t entrance, bool
 }
 
 // FUNCTION: WIZ8 0x0042ACE0
-std::uint8_t UnloadLevel(const char* save_directory)
+bool UnloadLevel(const char* save_directory)
 {
     if (gXStatus.fCombatMode) {
         EndCombat(true);
@@ -667,19 +667,19 @@ std::uint8_t UnloadLevel(const char* save_directory)
     }
 
     if (ReleaseItemLists() == 0) {
-        return 0;
+        return false;
     }
     if (g_world_cleanup_flag) {
         RenderFrame();
     }
     if (ShutdownMonsterManager() == 0) {
-        return 0;
+        return false;
     }
     if (g_world_cleanup_flag) {
         RenderFrame();
     }
     if (ScreenLifecycleSuccess() == 0) {
-        return 0;
+        return false;
     }
     if (g_world_cleanup_flag) {
         RenderFrame();
@@ -709,7 +709,7 @@ std::uint8_t UnloadLevel(const char* save_directory)
     ReleaseEnvironmentObjects();
     g_runtime_world_scale = 500.0f;
     ClearActiveWorldCursorNode();
-    return 1;
+    return true;
 }
 
 /* Unload the current level and load `level` at `entrance`. When the request
@@ -717,7 +717,7 @@ std::uint8_t UnloadLevel(const char* save_directory)
    saved yaw/pitch records and position are put back after the load; every
    other request is a plain unload+load. */
 // FUNCTION: WIZ8 0x0042AF60
-std::uint8_t ReloadLevelPreservingCamera(std::int32_t level, std::int32_t entrance)
+bool ReloadLevelPreservingCamera(std::int32_t level, std::int32_t entrance)
 {
     W8CameraAngleRecord saved_angle;
     W8CameraAngleRecord saved_pitch;
@@ -731,15 +731,15 @@ std::uint8_t ReloadLevelPreservingCamera(std::int32_t level, std::int32_t entran
     }
     if (g_status.current_level != -1) {
         if (UnloadLevel("Saves") == 0) {
-            return 0;
+            return false;
         }
     }
     if (LoadLevel(level, entrance, false) == 0) {
-        return 0;
+        return false;
     }
     if (restore) {
         RestoreWorldCameraOrientation(saved_angle, saved_pitch, GetWorld());
         SetWorldScenePosition(GetWorld(), &saved_position);
     }
-    return 1;
+    return true;
 }

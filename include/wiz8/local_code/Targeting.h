@@ -51,7 +51,7 @@ void HighlightSpellTargetsAtCachedPosition(void);
    the ordinary group selection has no usable monster. */
 std::int32_t ChooseFallbackMonsterTarget(std::int32_t party_slot, std::int32_t group_id, W8TargetingContext context);
 void SetFactionFlag(std::int8_t faction, bool flag);
-std::uint8_t ShowMonsterTargetMarker(W8MonsterInfo* monster_info);
+bool ShowMonsterTargetMarker(W8MonsterInfo* monster_info);
 bool IsSpellTargetStillValidIn(std::int32_t party_slot, std::int32_t spell_id, W8TargetingContext context);
 void ClearTargetHighlights(std::int32_t party_slot, const W8CombatSlot* target);
 void ClearPartySlotMonsterHighlights(std::uint32_t party_slot);

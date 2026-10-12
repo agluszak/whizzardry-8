@@ -53,8 +53,8 @@ public:
     std::uint8_t padding_0ba[2];
     wiz8::sound::Playback sound_handle;      // Current playback, shared during group handoff.
     std::shared_ptr<W8RandomAmbient> random; // One-shot schedule; empty for looping sounds.
-    std::uint8_t shared;  /* 0x0c4: shared 2D group sound; voices hand off by name */
-    std::uint8_t bounded; /* 0x0c5: region test enabled (v2 trigger field) */
+    bool shared;  /* 0x0c4: shared 2D group sound; voices hand off by name */
+    bool bounded; /* 0x0c5: region test enabled (v2 trigger field) */
     std::uint8_t padding_0c6[2];
     srVector3T<float> region_min;    /* 0x0c8 */
     srVector3T<float> region_max;    /* 0x0d4 */
@@ -135,15 +135,15 @@ void PositionAmbientSoundByName(W8World* /* unused */, const char* name);
 void StopAmbientSoundByName(W8World* /* unused */, const char* name);
 void ToggleAmbientSoundByName(W8World* /* unused */, const char* name);
 void DestroyAmbientSound(W8AmbientSound* ambient);
-std::uint8_t AddAmbientSound(W8World* world, const char* name, const W8AmbientSoundConfig* config,
+bool AddAmbientSound(W8World* world, const char* name, const W8AmbientSoundConfig* config,
                               const srVector3T<float>* position,
                               const srVector3T<float>* region_min,
                               const srVector3T<float>* region_max, std::int32_t volume_min, std::int32_t volume_max,
                               std::int32_t time_min, std::int32_t time_max, std::int32_t speed_min, std::int32_t speed_max,
-                              float radius, bool looping, std::uint8_t bounded,
+                              float radius, bool looping, bool bounded,
                               const srVector3T<float>* region_center, float region_angle,
                               const srVector3T<float>* region_axis,
-                              const srVector3T<float>* region_scale, std::uint8_t shared);
+                              const srVector3T<float>* region_scale, bool shared);
 
 void SaveAmbientSoundList(wiz8::File& handle);
 void LoadAmbientSoundList(wiz8::File& handle);
@@ -151,7 +151,7 @@ void LoadAmbientSoundList(wiz8::File& handle);
 bool IsSoundEffectsMuted(void);
 std::uint8_t GetSoundEffectsVolume(void);
 void SetSoundEffectsVolume(std::uint8_t volume);
-void SetSoundEffectsMuted(std::uint8_t muted);
+void SetSoundEffectsMuted(bool muted);
 
 extern std::uint8_t g_default_footstep_surface;
 extern std::uint8_t g_default_footstep_material;

@@ -80,7 +80,7 @@ std::unique_ptr<W8AIRecord> W8AIMissile::Clone() const
    steer the representation while the path is unobstructed, and end the flight
    at expiry or an early-impact limit. */
 // FUNCTION: WIZ8 0x004a4cf0
-std::uint8_t UpdateMissileAI(W8AIMissile* record)
+bool UpdateMissileAI(W8AIMissile* record)
 {
     W8Missile* missile;
     srVector3T<float> position;
@@ -94,12 +94,12 @@ std::uint8_t UpdateMissileAI(W8AIMissile* record)
     std::uint32_t delta;
 
     if (record == 0) {
-        return 0;
+        return false;
     }
     missile = record->missile;
     if (missile->impacting) {
         if (!missile->align_explosion) {
-            return 1;
+            return true;
         }
         position = missile->GetPosition();
         pitch = ElevationToTargetCPP(&position);
@@ -109,7 +109,7 @@ std::uint8_t UpdateMissileAI(W8AIMissile* record)
         rotation *= glm::mat3_cast(glm::angleAxis(float(yaw), glm::vec3(0, 1, 0)));
         rotation *= glm::mat3_cast(glm::angleAxis(float(pitch), glm::vec3(1, 0, 0)));
         missile->m_pRep->SetRotation(&rotation);
-        return 1;
+        return true;
     }
     position = missile->GetPosition();
     count = g_shared_timer_base->milliseconds() >> 1;
@@ -119,7 +119,7 @@ std::uint8_t UpdateMissileAI(W8AIMissile* record)
     }
     record->last_half_tick = count;
     if (gXStatus.world_update_blocked) {
-        return 1;
+        return true;
     }
     advance = AdvanceMissileAI(record, &out, delta);
     remaining = missile->duration - record->elapsed + 1.0f;
@@ -147,7 +147,7 @@ std::uint8_t UpdateMissileAI(W8AIMissile* record)
             !missile->CheckNavigatorCollision(&position, &out)) {
             missile->EnterImpactCycle();
         }
-        return 1;
+        return true;
     }
     missile->flight_done = true;
     if (missile->missile_table_index == 0x23 &&
@@ -157,7 +157,7 @@ std::uint8_t UpdateMissileAI(W8AIMissile* record)
     if (g_missile_table[missile->missile_table_index].spell_missile != 0) {
         AbsorbMissileDamage(missile);
     }
-    return 1;
+    return true;
 }
 
 /* Predict the homing missile's next position `steps` half-ticks ahead and

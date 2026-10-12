@@ -32,15 +32,15 @@ bool W8OctRegionPolygon::containsPoint(const srBoundingBox& bounds) const
 /* Grow `*run` to (count + capacity) dwords when count lands on a capacity
    boundary, preserving existing entries. */
 // FUNCTION: WIZ8 0x004cfb70
-std::uint8_t W8OctPreTreeGeometry::CheckArrayLength(std::int32_t** run, std::uint16_t count,
+bool W8OctPreTreeGeometry::CheckArrayLength(std::int32_t** run, std::uint16_t count,
                                                      std::uint16_t capacity)
 {
     if (capacity == 0) {
-        return 0;
+        return false;
     }
     if (count % capacity == 0) {
         if (std::uint32_t(count) + capacity > 65535) {
-            return 0;
+            return false;
         }
         const std::uint16_t total = count + capacity;
         std::int32_t* grown = static_cast<std::int32_t*>(malloc(total * sizeof(std::int32_t)));
@@ -51,11 +51,11 @@ std::uint8_t W8OctPreTreeGeometry::CheckArrayLength(std::int32_t** run, std::uin
                 free(*run);
             }
             *run = grown;
-            return 1;
+            return true;
         }
         ReportBuildStatus(7, "CheckArrayLength: Could not allocate new array.\n");
     }
-    return 0;
+    return false;
 }
 
 // Records reserve index zero. Keep channel frees interleaved in record order.

@@ -248,9 +248,9 @@ public:
     void resetStatistics() override {}
     void extCommand(std::uint32_t, void*, std::uint32_t) override {}
 
-    std::int32_t isBusy() override
+    bool isBusy() override
     {
-        return 0;
+        return false;
     }
 
     e_error openWindow(const OpenInfo& info, OpenResult& result) override

@@ -1022,7 +1022,7 @@ std::uint8_t W8MonsterRep::ReadCycleData(W8ReadLevelInfo* info, W8Monster* monst
 {
     std::vector<stLight*>* lights = new std::vector<stLight*>;
     W8AnimObj* animation;
-    std::uint8_t success;
+    bool success;
     std::int8_t cycle;
     std::int32_t subcycle;
 
@@ -2646,7 +2646,7 @@ bool W8Monster::HasLineOfSightFromPoint(srVector3T<float> point)
 }
 
 // FUNCTION: WIZ8 0x004c4ca0
-std::int32_t W8Monster::IsFacingMonster(W8Monster* monster)
+bool W8Monster::IsFacingMonster(W8Monster* monster)
 {
     float bearing;
     float facing;
@@ -2664,7 +2664,7 @@ std::int32_t W8Monster::IsFacingMonster(W8Monster* monster)
 }
 
 // FUNCTION: WIZ8 0x004c4d40
-std::int32_t W8Monster::IsFacingPlayer()
+bool W8Monster::IsFacingPlayer()
 {
     float bearing;
     float facing;
@@ -2981,33 +2981,33 @@ float W8Monster::GetPointDistanceToMonster(W8Monster* monster, srVector3T<float>
    combat, motionless, and death rules to W8GrCycle's primary-table operation;
    W8Navigator's distinct slot 3 remains inherited in the secondary table. */
 // FUNCTION: WIZ8 0x004c2bf0
-std::uint8_t W8Monster::CanEnterCycle(std::int8_t cycle)
+bool W8Monster::CanEnterCycle(std::int8_t cycle)
 {
     W8MonsterInfo* monster_info = FindMonster(location_id);
 
     if (gXStatus.fCombatMode && IsCameraTransitionActive()) {
-        return 0;
+        return false;
     }
     if (m_pRep->animation_playing == 0) {
         if (cycle != W8_MONSTER_CYCLE_GET_HIT && cycle != W8_MONSTER_CYCLE_DIE &&
             cycle != W8_MONSTER_CYCLE_BIRTH && monster_info->fMotionless) {
             if (!g_dev_mode) {
-                return 0;
+                return false;
             }
             srAssertFail("FALSE", MONSTER_CPP, 0x97f, 0);
-            return 0;
+            return false;
         }
     } else {
         if (!IsCycleInterruptable(static_cast<std::int8_t>(Query(W8_MONSTER_QUERY_CYCLE))) &&
             Query(W8_MONSTER_QUERY_CYCLE_COMPLETE) == 0) {
-            return 0;
+            return false;
         }
         if (cycle == W8_MONSTER_CYCLE_DIE && monster_info->monster_species == 0x199 &&
             Query(W8_MONSTER_QUERY_AT_PLAYBACK_END) == 0) {
-            return 0;
+            return false;
         }
     }
-    return 1;
+    return true;
 }
 
 /* Report whether a cycle may be interrupted. The original diagnostic names
@@ -4095,12 +4095,12 @@ bool MonsterIsCycleSupported(W8Monster* monster, std::int8_t cycle)
 }
 
 // FUNCTION: WIZ8 0x004c5b10
-std::uint8_t MonsterReplacePath(W8Monster* monster, W8PathAI* path)
+bool MonsterReplacePath(W8Monster* monster, W8PathAI* path)
 {
     if (monster != 0) {
         return monster->ReplacePath(path);
     }
-    return 0;
+    return false;
 }
 
 /* Reset pitch, update the Navigator's facing, and rebuild the representation's
@@ -4440,7 +4440,7 @@ std::uint8_t MonsterReadAllCycles(const W8GrCycleLoadContext* context, std::stri
    at the -1 sentinel.  The factory accepts the base-class output slot; object
    type zero is what proves the resulting object is a W8Monster here. */
 // FUNCTION: WIZ8 0x004C5910
-std::uint8_t LoadMonsterCycle(const W8GrCycleLoadContext* context, const char* mon_name,
+bool LoadMonsterCycle(const W8GrCycleLoadContext* context, const char* mon_name,
                                W8Monster** monster, std::int32_t cycle, std::int32_t value)
 {
     W8GrCycle* loaded = *monster;
@@ -5132,7 +5132,7 @@ void RefreshMonsterStandingHeight(W8Monster* monster)
     }
 }
 // FUNCTION: WIZ8 0x004C6220
-void SetCombatInactiveFlag(std::uint8_t value)
+void SetCombatInactiveFlag(bool value)
 {
     g_combat_inactive = value;
     g_combat_round_counter = 0;

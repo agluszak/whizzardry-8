@@ -852,7 +852,7 @@ bool FindEntityByName(const char* name, srVector3T<float>* position, float* angl
 /* Push a candidate position clear of static geometry, then reject it when it
    overlaps another world item or monster. */
 // FUNCTION: WIZ8 0x00451390
-std::uint8_t AdjustWorldCollisionPosition(float radius, srVector3T<float>* position,
+bool AdjustWorldCollisionPosition(float radius, srVector3T<float>* position,
                                            bool check_items, bool check_monsters)
 {
     float threshold = radius * g_path_endpoint_scale;
@@ -875,7 +875,7 @@ std::uint8_t AdjustWorldCollisionPosition(float radius, srVector3T<float>* posit
         second -= *position;
         float first_distance = first.Length();
         if (first_distance < threshold && second.Length() < threshold) {
-            return 0;
+            return false;
         }
         if (first_distance < threshold) {
             first.SetLength(radius - first_distance);
@@ -897,7 +897,7 @@ std::uint8_t AdjustWorldCollisionPosition(float radius, srVector3T<float>* posit
                 const auto other_radius = owner->GetBoundsRadius();
                 srVector3T<float> delta = center - *position;
                 if (delta.Length() < other_radius + radius) {
-                    return 0;
+                    return false;
                 }
             }
             item = GetNextWorldItem(false);
@@ -913,25 +913,25 @@ std::uint8_t AdjustWorldCollisionPosition(float radius, srVector3T<float>* posit
                 float other_radius;
                 if (center && monster->GetAnimationRadius(&other_radius) &&
                     (*center - *position).Length() < other_radius + radius) {
-                    return 0;
+                    return false;
                 }
             }
             info = GetNextMonsterInfo(false);
         }
     }
-    return 1;
+    return true;
 }
 
 /* Try the requested point first, then the two retail half-turn probe points
    around it; only an unobstructed probe is handed to the overlap resolver. */
 // FUNCTION: WIZ8 0x00451800
-std::uint8_t FindNearbyFreePosition(float radius, srVector3T<float>* position, bool check_items,
+bool FindNearbyFreePosition(float radius, srVector3T<float>* position, bool check_items,
                                      bool check_monsters)
 {
     srVector3T<float> candidate = *position;
     if (AdjustWorldCollisionPosition(radius, &candidate, check_items, check_monsters)) {
         *position = candidate;
-        return 1;
+        return true;
     }
 
     float angle = 0.0f;
@@ -946,9 +946,9 @@ std::uint8_t FindNearbyFreePosition(float radius, srVector3T<float>* position, b
         if (candidate == unblocked &&
             AdjustWorldCollisionPosition(radius, &candidate, check_items, check_monsters)) {
             *position = candidate;
-            return 1;
+            return true;
         }
         angle += g_quarter_turn;
     } while (angle < g_camera_pi);
-    return 0;
+    return false;
 }

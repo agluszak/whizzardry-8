@@ -30,7 +30,7 @@ class W8OptionsTextEditor {
 public:
     class Listener {
     public:
-        virtual void OnTextEditComplete(W8OptionsTextEditor* editor, std::uint8_t cancelled) = 0;
+        virtual void OnTextEditComplete(W8OptionsTextEditor* editor, bool cancelled) = 0;
     };
     virtual ~W8OptionsTextEditor()
     {
@@ -42,7 +42,7 @@ public:
 
 class W8OptionsKeyCapture {
 public:
-    virtual std::uint8_t OnKey(std::uint16_t key, std::uint16_t modifiers) = 0;
+    virtual bool OnKey(std::uint16_t key, std::uint16_t modifiers) = 0;
 };
 
 class W8OptionsSaveRowListener {
@@ -277,7 +277,7 @@ public:
     virtual void SetActive(bool active) override;
     virtual void OnPrimary(W8TextControl* control) override;
     virtual void OnSelectionChanged(W8ControlSelection* selection, std::int32_t selected) override;
-    virtual std::uint8_t OnKey(std::uint16_t key, std::uint16_t modifiers) override;
+    virtual bool OnKey(std::uint16_t key, std::uint16_t modifiers) override;
     virtual void OnDialogClosed(bool accepted, std::int32_t value) override;
     void ClearDuplicateBinding(std::uint16_t key);
     void RefreshBindingLabels();
@@ -313,7 +313,7 @@ public:
     virtual void SetCurrent(std::int32_t current) override;
     virtual void OnPrimary(W8TextControl* control) override;
     virtual void OnDialogClosed(bool accepted, std::int32_t value) override;
-    virtual void OnTextEditComplete(W8OptionsTextEditor* editor, std::uint8_t cancelled) override;
+    virtual void OnTextEditComplete(W8OptionsTextEditor* editor, bool cancelled) override;
     virtual void OnEditSaveName(W8OptionsSaveRow* row) override;
     virtual void OnActivateSave(W8OptionsSaveRow* row) override;
     virtual void OnSelectionChanged(W8ControlSelection* selection, std::int32_t selected) override;
@@ -418,6 +418,6 @@ extern std::string g_options_last_save_name;
 void SetLastSaveName(std::string_view target);
 std::string_view GetLastSaveName(void);
 
-std::uint8_t OptionsScreenEnter(void);
+bool OptionsScreenEnter(void);
 void OptionsScreenFrame(void);
-std::uint8_t OptionsScreenLeave(std::int32_t leaving);
+bool OptionsScreenLeave(std::int32_t leaving);

@@ -461,11 +461,11 @@ static void ReturnDismissedNpcItems(W8NpcState* npc, W8Character* character)
 }
 
 // FUNCTION: WIZ8 0x0050b590
-std::int32_t DismissNpcFromParty(std::int32_t party_slot, std::int32_t /*unused*/, bool skip_spawn, bool neutral)
+bool DismissNpcFromParty(std::int32_t party_slot, std::int32_t /*unused*/, bool skip_spawn, bool neutral)
 {
     W8PartySlotRow* row = &g_status.buffers.XChar[party_slot];
     if (row->npc_index == -1) {
-        return 0;
+        return false;
     }
     srVector3T<float> position;
     if (!skip_spawn) {
@@ -475,7 +475,7 @@ std::int32_t DismissNpcFromParty(std::int32_t party_slot, std::int32_t /*unused*
     }
     W8NpcState* npc = GetNpcState(row->npc_index);
     if (npc == 0 || npc->binding_unavailable) {
-        return 0;
+        return false;
     }
     W8Character* character = &g_status.buffers.Char[party_slot];
     *npc->character = *character;
@@ -499,7 +499,7 @@ std::int32_t DismissNpcFromParty(std::int32_t party_slot, std::int32_t /*unused*
         }
         delete[] records;
         if (species == gXStatus.uiMonstersInDatabase) {
-            return 0;
+            return false;
         }
         W8MonsterGroup* group = CreateGroup(species, 1, &position, true, false, true);
         W8MonsterInfo* monster = FindMonster(group->leader_location_id);
@@ -523,7 +523,7 @@ std::int32_t DismissNpcFromParty(std::int32_t party_slot, std::int32_t /*unused*
     npc->dismissed_flag = true;
     memset(&npc->dismissed_timer, 0, sizeof(npc->dismissed_timer));
     npc->event_pending = 1;
-    return 1;
+    return true;
 }
 
 /* The per-frame pass over a bound NPC's party slot: a dying member is handed

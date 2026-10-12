@@ -239,31 +239,31 @@ void ResetMGSKeyboardBindings()
    gate on their flags; everything else resolves to a bound MGS command.
    Attribution-gap body leading the MGSKeyboard.cpp hull at 0x00591960. */
 // FUNCTION: WIZ8 0x00591890
-std::uint8_t HandleMainGameInputEvent(const InputEvent* input)
+bool HandleMainGameInputEvent(const InputEvent* input)
 {
     if (IsTypingEvent(*input) && static_cast<char>(HandleTextInput(input)) != 0) {
-        return 1;
+        return true;
     }
     if ((input->type == InputEventType::KeyDown || input->type == InputEventType::KeyRepeat) && gXStatus.fNpcDialogueMode) {
         HandleNpcDialogueKeyEvent(input);
-        return 1;
+        return true;
     }
     if ((input->type == InputEventType::KeyDown || input->type == InputEventType::KeyRepeat) &&
         gXStatus.fTrapInteractMode && TextBoxHandleKey(input) != 0) {
-        return 1;
+        return true;
     }
     if (IsMipeActive() && HandleMipeKey(input) != 0) {
-        return 1;
+        return true;
     }
     if (IsRecordModeActive()) {
         if (!IsKeyHeld(VK_CONTROL) && HandleRecordModeKey(input, PromptRecordModeEntry) == 1) {
             ApplyRecordModeLine();
-            return 1;
+            return true;
         }
     } else {
         DispatchMGSCommand(g_mgs_keyboard->FindCommandForEvent(input));
     }
-    return 1;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x00591960
@@ -762,7 +762,7 @@ void CloseKeyboardMenu(void)
 }
 
 // FUNCTION: WIZ8 0x00592F90
-std::uint8_t BuildKeyboardMenu(void)
+bool BuildKeyboardMenu(void)
 {
     std::int32_t left;
     std::int32_t top;
@@ -780,7 +780,7 @@ std::uint8_t BuildKeyboardMenu(void)
     left += 0x17;
     g_keyboard_menu_panel = std::make_unique<Controls>(left, top, left + 0x52, top + 0x4a, CatalogArtwork::Load(0xa6, 0), 0);
     if (!g_keyboard_menu_panel) {
-        return 0;
+        return false;
     }
     SetRegionBounds(g_keyboard_menu_regions->index(13), left, top, left + 0x52, top + 0x4a);
     row = 0;
@@ -800,7 +800,7 @@ std::uint8_t BuildKeyboardMenu(void)
             if (control == 0) {
                 g_keyboard_menu_panel.reset();
                 for (auto& row : g_keyboard_menu_rows) row = nullptr;
-                return 0;
+                return false;
             }
             AssignKeyboardMenuCallback(menu, item, control);
             control->m_secondaryActivationCallback = CloseKeyboardMenu;
@@ -821,7 +821,7 @@ std::uint8_t BuildKeyboardMenu(void)
     SetRegionHelp(g_keyboard_menu_regions->index(row), true, 0x11);
     g_keyboard_menu_panel->SetEnabled(true);
     RefreshKeyboardMenuRows();
-    return 1;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x005932D0
@@ -1079,7 +1079,7 @@ static void KeyboardMenuUseRecordedItem(void)
 }
 
 // FUNCTION: WIZ8 0x00594760
-std::uint8_t KeyboardMenuRowRegionEvent(const InputEvent* event, W8Region* region)
+bool KeyboardMenuRowRegionEvent(const InputEvent* event, W8Region* region)
 {
     W8TextControl* row = g_keyboard_menu_rows[region->callback_id];
     std::uint16_t row_id;
@@ -1153,16 +1153,16 @@ std::uint8_t KeyboardMenuRowRegionEvent(const InputEvent* event, W8Region* regio
 }
 
 // FUNCTION: WIZ8 0x005949A0
-std::uint8_t KeyboardMenuBackgroundRegionEvent(const InputEvent* event, W8Region*)
+bool KeyboardMenuBackgroundRegionEvent(const InputEvent* event, W8Region*)
 {
     if (!g_level_block->keyboard_menu_open) {
-        return 0;
+        return false;
     }
     if (event->type != InputEventType::RightButtonUp) {
-        return 0;
+        return false;
     }
     CloseKeyboardMenu();
-    return 1;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x005929d0

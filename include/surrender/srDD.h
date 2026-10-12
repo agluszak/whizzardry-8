@@ -240,7 +240,7 @@ public:
     virtual Statistics getStatistics() = 0;
     virtual void resetStatistics() = 0;
     virtual void extCommand(std::uint32_t command, void* data, std::uint32_t size) = 0;
-    virtual std::int32_t isBusy() = 0;
+    virtual bool isBusy() = 0;
     virtual e_error openWindow(const OpenInfo& info, OpenResult& result) = 0;
     virtual void closeWindow() = 0;
     virtual void beginFrame() = 0;

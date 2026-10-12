@@ -134,7 +134,7 @@ void FinalizeStaticScene(srScene* scene)
    light. "Sun"-prefixed lights bake into the sunlight array instead and are
    skipped here. `walk_chain` limits the light walk to the first sibling. */
 // FUNCTION: WIZ8 0x0046E8A0
-std::uint8_t BakeInstanceVertexLighting(stModelInstance* instance, srNode* lights, bool walk_chain)
+bool BakeInstanceVertexLighting(stModelInstance* instance, srNode* lights, bool walk_chain)
 {
     auto world = instance->getWorldSpaceMatrix<glm::mat4>();
     const auto normal_matrix = glm::transpose(glm::inverse(glm::mat3(world)));
@@ -147,7 +147,7 @@ std::uint8_t BakeInstanceVertexLighting(stModelInstance* instance, srNode* light
         const auto vertex_lights = mesh->GetVertexLights(true, -1);
         mesh->GetVertexSunlight(true);
         if (vertex_lights.empty())
-            return 0;
+            return false;
         if (!lights)
             continue;
         auto* vertex_materials = mesh->getVertexMaterial(0, srMeshModel::SIDE_FRONT, 0);
@@ -198,14 +198,14 @@ std::uint8_t BakeInstanceVertexLighting(stModelInstance* instance, srNode* light
             }
         }
     }
-    return 1;
+    return true;
 }
 
 /* Bake the dynamic scene's light children into every not-yet-lit model
    instance under one static-scene subtree. render_flags bit 1 is the instance's
    own lit marker; the child-chain exclusion update uses the shared helper. */
 // FUNCTION: WIZ8 0x0046F410
-std::uint8_t FinalizeWorldScenes(srNode* node, srNode* dynamic_scene)
+bool FinalizeWorldScenes(srNode* node, srNode* dynamic_scene)
 {
     for (; node != 0; node = node->next_sibling_) {
         if (node->first_child_ != 0) {
@@ -215,13 +215,13 @@ std::uint8_t FinalizeWorldScenes(srNode* node, srNode* dynamic_scene)
             BakeInstanceVertexLightingIfNeeded(instance, dynamic_scene);
         }
     }
-    return 1;
+    return true;
 }
 
 /* Bake dynamic-scene lights into one not-yet-lit model instance. render_flags
    bit 1 is the lit marker. */
 // FUNCTION: WIZ8 0x0046F4A0
-std::uint8_t BakeInstanceVertexLightingIfNeeded(stModelInstance* instance, srNode* dynamic_scene)
+bool BakeInstanceVertexLightingIfNeeded(stModelInstance* instance, srNode* dynamic_scene)
 {
     srNode* lights = dynamic_scene->first_child_;
 
@@ -230,7 +230,7 @@ std::uint8_t BakeInstanceVertexLightingIfNeeded(stModelInstance* instance, srNod
         SetModelInstanceChainExclusionMask(instance, 1);
         BakeInstanceVertexLighting(instance, lights, true);
     }
-    return 1;
+    return true;
 }
 
 /* Walk every live world mesh (octree mesh table, or the update-mesh chain when

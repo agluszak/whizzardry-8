@@ -431,7 +431,7 @@ void RecountActiveMonsterGroupMembers(W8MonsterGroup* monster_group)
 
    The despawn paths and the standalone emission share this canonical body. */
 // FUNCTION: WIZ8 0x0050f5d0
-std::uint8_t RemoveAllGroupMembers(W8MonsterGroup* monster_group)
+bool RemoveAllGroupMembers(W8MonsterGroup* monster_group)
 {
     std::uint32_t index;
     bool removed;
@@ -441,14 +441,14 @@ std::uint8_t RemoveAllGroupMembers(W8MonsterGroup* monster_group)
     do {
         --index;
         if (static_cast<std::int32_t>(index) < 0) {
-            return 1;
+            return true;
         }
 
         location_id = monster_group->MemberLocationId(index);
         removed = true;
         removed = RemoveMonster(FindMonster(location_id), removed);
     } while (removed);
-    return 0;
+    return false;
 }
 
 /* Brings every member of a group into the world. Front to back, and the list
@@ -570,21 +570,21 @@ W8MonsterGroup* GetLiveMonsterGroupAtIndex(std::int32_t index)
    group - stops the walk and reports success anyway, as does a null group,
    which is why every path returns one. */
 // FUNCTION: WIZ8 0x0050fba0
-std::uint8_t ApplyToMonsterGroupLeader(W8MonsterGroup* monster_group,
+bool ApplyToMonsterGroupLeader(W8MonsterGroup* monster_group,
                                         const srVector3T<float>* position, bool follow_leader)
 {
     if (monster_group != 0) {
         while (follow_leader && monster_group->leader_group_id != 0) {
             monster_group = FindMonsterGroup(monster_group->leader_group_id);
             if (monster_group == 0) {
-                return 1;
+                return true;
             }
         }
         W8MonsterInfo* monster_info =
             FindMonster(monster_group->leader_location_id);
         monster_info->p3D->ConfigureMovementToPosition(position);
     }
-    return 1;
+    return true;
 }
 
 /* Re-applies every loaded group's formation onto its lead member's live
@@ -933,12 +933,12 @@ static W8MonsterGroup* UnlinkMonsterGroupFromLeader(W8MonsterGroup* monster_grou
 }
 
 // FUNCTION: WIZ8 0x0050fc20
-std::uint8_t LinkMonsterGroupToLeader(W8MonsterGroup* leader, W8MonsterGroup* monster_group)
+bool LinkMonsterGroupToLeader(W8MonsterGroup* leader, W8MonsterGroup* monster_group)
 {
     std::uint32_t slot;
 
     if (leader != 0 && leader->group_id == monster_group->group_id) {
-        return 0;
+        return false;
     }
     if (monster_group->encounter_registered && monster_group->leader_group_id == 0) {
         UnregisterActiveEncounterGroup(monster_group);
@@ -951,15 +951,15 @@ std::uint8_t LinkMonsterGroupToLeader(W8MonsterGroup* leader, W8MonsterGroup* mo
                 monster_group->leader_group_id = leader->group_id;
                 RefreshMonsterGroup(monster_group);
                 SetMonsterGroupHostility(monster_group, leader->ubDisposition, false);
-                return 1;
+                return true;
             }
         }
-        return 0;
+        return false;
     }
     if (monster_group->encounter_registered) {
         RegisterActiveEncounterGroup(monster_group);
     }
-    return 1;
+    return true;
 }
 
 /* Allocate one live monster group, create its members, activate them, and
@@ -1557,7 +1557,7 @@ void MarkMonsterGroupForRemoval(std::int32_t group_id)
    of its members into the live monster list. Answers 1 when the group was
    actually waiting on the encounter list. */
 // FUNCTION: WIZ8 0x00511990
-std::uint8_t GiveBirthToMonster(W8MonsterGroup* monster_group)
+bool GiveBirthToMonster(W8MonsterGroup* monster_group)
 {
     W8MonsterInfo* member_info;
     std::uint32_t index;
@@ -1577,9 +1577,9 @@ std::uint8_t GiveBirthToMonster(W8MonsterGroup* monster_group)
             }
         }
         RefreshOutwardSightForAllMonsters();
-        return 1;
+        return true;
     }
-    return 0;
+    return false;
 }
 
 /* Respawns a same-sized group of a different monster id beside the source

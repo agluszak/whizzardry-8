@@ -159,23 +159,23 @@ stSound3D* CreateAndPlaySoundNode(const char* sound_name, srVector3T<float> posi
    (command, node, context); the context slot normally carries the address of
    the command's argument byte, while command 4 smuggles the byte itself
    through it. */
-typedef std::uint8_t (*W8WorldCursorNodeHandler)(std::int32_t command, W8WorldCursorNode* node,
+typedef bool (*W8WorldCursorNodeHandler)(std::int32_t command, W8WorldCursorNode* node,
                                                   std::int32_t context);
 
-static std::uint8_t WorldCursorNodeShowMessageOnce(std::int32_t command, W8WorldCursorNode* node,
+static bool WorldCursorNodeShowMessageOnce(std::int32_t command, W8WorldCursorNode* node,
                                                     std::int32_t context);
-static std::uint8_t WorldCursorNodeShowContextMessage(std::int32_t command, W8WorldCursorNode* node,
+static bool WorldCursorNodeShowContextMessage(std::int32_t command, W8WorldCursorNode* node,
                                                        std::int32_t context);
-static std::uint8_t WorldCursorNodeShowMessage(std::int32_t command, W8WorldCursorNode* node, std::int32_t context);
-static std::uint8_t WorldCursorNodeApplyItemEffect(std::int32_t command, W8WorldCursorNode* node,
+static bool WorldCursorNodeShowMessage(std::int32_t command, W8WorldCursorNode* node, std::int32_t context);
+static bool WorldCursorNodeApplyItemEffect(std::int32_t command, W8WorldCursorNode* node,
                                                     std::int32_t context);
-static std::uint8_t WorldCursorNodeMaleCharacterEvent(std::int32_t command, W8WorldCursorNode* node,
+static bool WorldCursorNodeMaleCharacterEvent(std::int32_t command, W8WorldCursorNode* node,
                                                        std::int32_t context);
-static std::uint8_t IsMasterFunctionTypeEight(std::int32_t command, W8WorldCursorNode* node, std::int32_t context);
-static std::uint8_t WorldCursorNodeSeenBodies(std::int32_t command, W8WorldCursorNode* node, std::int32_t context);
-static std::uint8_t WorldCursorNodeApplyType6ItemEffect(std::int32_t command, W8WorldCursorNode* node,
+static bool IsMasterFunctionTypeEight(std::int32_t command, W8WorldCursorNode* node, std::int32_t context);
+static bool WorldCursorNodeSeenBodies(std::int32_t command, W8WorldCursorNode* node, std::int32_t context);
+static bool WorldCursorNodeApplyType6ItemEffect(std::int32_t command, W8WorldCursorNode* node,
                                                          std::int32_t context);
-static std::uint8_t WorldCursorNodePartyVoice(std::int32_t command, W8WorldCursorNode* node, std::int32_t context);
+static bool WorldCursorNodePartyVoice(std::int32_t command, W8WorldCursorNode* node, std::int32_t context);
 
 /* The character-event kind constants the cursor-node handlers queue. */
 // GLOBAL: WIZ8 0x005EE5F4
@@ -206,7 +206,7 @@ static W8WorldCursorNodeHandler g_world_cursor_node_handlers[10] = {
    themselves to nodes of type 3, 2 and 7 respectively. Answers whether any
    handler reported the command handled. */
 // FUNCTION: WIZ8 0x004D9080
-std::uint8_t DispatchWorldCursorNodeCommand(W8MonsterInfo* info, std::int32_t command, ...)
+bool DispatchWorldCursorNodeCommand(W8MonsterInfo* info, std::int32_t command, ...)
 {
     srVector3T<float> position;
     W8WorldCursorNode* node;
@@ -292,7 +292,7 @@ std::uint8_t DispatchWorldCursorNodeCommand(W8MonsterInfo* info, std::int32_t co
    Parameter 1 additionally gates the message on a living party member with
    trait 0x0c while the party is neither searching nor under effect 0x11. */
 // FUNCTION: WIZ8 0x004D9260
-static std::uint8_t WorldCursorNodeShowMessageOnce(std::int32_t command, W8WorldCursorNode* node,
+static bool WorldCursorNodeShowMessageOnce(std::int32_t command, W8WorldCursorNode* node,
                                                     std::int32_t context)
 {
     std::int32_t message_id;
@@ -317,11 +317,11 @@ static std::uint8_t WorldCursorNodeShowMessageOnce(std::int32_t command, W8World
                 goto command_check;
             }
         }
-        return 0;
+        return false;
     }
 command_check:
     if (command != 1) {
-        return 0;
+        return false;
     }
     if (type == 0) {
         result = true;
@@ -331,7 +331,7 @@ command_check:
             shown = static_cast<char*>(node->pUserdata);
         }
         if (*shown != 0) {
-            return 0;
+            return false;
         }
         *shown = 1;
         if (folder == 0) {
@@ -348,7 +348,7 @@ command_check:
 /* Type-2 nodes: command 4 with a nonzero context flag shows the node's
    message while the main game screen is up. */
 // FUNCTION: WIZ8 0x004D93E0
-static std::uint8_t WorldCursorNodeShowContextMessage(std::int32_t command, W8WorldCursorNode* node,
+static bool WorldCursorNodeShowContextMessage(std::int32_t command, W8WorldCursorNode* node,
                                                        std::int32_t context)
 {
     const char* folder;
@@ -358,7 +358,7 @@ static std::uint8_t WorldCursorNodeShowContextMessage(std::int32_t command, W8Wo
 
     folder = GetLevelFolderName(GetLoadedLevelID());
     if (command != 4) {
-        return 0;
+        return false;
     }
     if (static_cast<std::uint8_t>(context) != 0) {
         message_id = GetWorldCursorNodeParameter(node, 0);
@@ -372,12 +372,12 @@ static std::uint8_t WorldCursorNodeShowContextMessage(std::int32_t command, W8Wo
             }
         }
     }
-    return 1;
+    return true;
 }
 
 /* Type-3 nodes: command 3 shows the node's message unconditionally. */
 // FUNCTION: WIZ8 0x004D94B0
-static std::uint8_t WorldCursorNodeShowMessage(std::int32_t command, W8WorldCursorNode* node, std::int32_t context)
+static bool WorldCursorNodeShowMessage(std::int32_t command, W8WorldCursorNode* node, std::int32_t context)
 {
     const char* folder;
     std::int32_t message_id;
@@ -386,7 +386,7 @@ static std::uint8_t WorldCursorNodeShowMessage(std::int32_t command, W8WorldCurs
 
     folder = GetLevelFolderName(GetLoadedLevelID());
     if (command != 3) {
-        return 0;
+        return false;
     }
     message_id = GetWorldCursorNodeParameter(node, 0);
     if (folder == 0) {
@@ -398,26 +398,26 @@ static std::uint8_t WorldCursorNodeShowMessage(std::int32_t command, W8WorldCurs
             ShowString(text);
         }
     }
-    return 1;
+    return true;
 }
 
 /* Type-4 nodes: entering applies the node's item effect to a random party
    member. */
 // FUNCTION: WIZ8 0x004D9560
-static std::uint8_t WorldCursorNodeApplyItemEffect(std::int32_t command, W8WorldCursorNode* node,
+static bool WorldCursorNodeApplyItemEffect(std::int32_t command, W8WorldCursorNode* node,
                                                     std::int32_t context)
 {
     if (command == 1) {
         ApplyItemEffectToRandomCharacter(g_character_event_kind0, -1, 0,
                                          g_character_event_no_flags);
     }
-    return 1;
+    return true;
 }
 
 /* Type-9 nodes: entering while the fact-0x14c gate holds queues the male
    event for the indexed party member when that member is male. */
 // FUNCTION: WIZ8 0x004D9590
-static std::uint8_t WorldCursorNodeMaleCharacterEvent(std::int32_t command, W8WorldCursorNode* node,
+static bool WorldCursorNodeMaleCharacterEvent(std::int32_t command, W8WorldCursorNode* node,
                                                        std::int32_t context)
 {
     W8Character* character;
@@ -429,12 +429,12 @@ static std::uint8_t WorldCursorNodeMaleCharacterEvent(std::int32_t command, W8Wo
                                 g_character_event_full_volume);
         }
     }
-    return 1;
+    return true;
 }
 
 /* Predicate installed in the master-function callback table. */
 // FUNCTION: WIZ8 0x004D95F0
-static std::uint8_t IsMasterFunctionTypeEight(std::int32_t command, W8WorldCursorNode* node, std::int32_t context)
+static bool IsMasterFunctionTypeEight(std::int32_t command, W8WorldCursorNode* node, std::int32_t context)
 {
     return command == 8;
 }
@@ -444,7 +444,7 @@ static std::uint8_t IsMasterFunctionTypeEight(std::int32_t command, W8WorldCurso
    and latch the AP_SeenBodies location variable. Retail runs the fact-0x133
    clear twice. */
 // FUNCTION: WIZ8 0x004D9600
-static std::uint8_t WorldCursorNodeSeenBodies(std::int32_t command, W8WorldCursorNode* node, std::int32_t context)
+static bool WorldCursorNodeSeenBodies(std::int32_t command, W8WorldCursorNode* node, std::int32_t context)
 {
     if (command == 1) {
         if (GetLocationVarIDByName("AP_SeenBodies") == -1) {
@@ -464,20 +464,20 @@ static std::uint8_t WorldCursorNodeSeenBodies(std::int32_t command, W8WorldCurso
             }
         }
     }
-    return 1;
+    return true;
 }
 
 /* Type-6 nodes: entering applies the node's item effect to a random party
    member. */
 // FUNCTION: WIZ8 0x004D96C0
-static std::uint8_t WorldCursorNodeApplyType6ItemEffect(std::int32_t command, W8WorldCursorNode* node,
+static bool WorldCursorNodeApplyType6ItemEffect(std::int32_t command, W8WorldCursorNode* node,
                                                          std::int32_t context)
 {
     if (command == 1) {
         ApplyItemEffectToRandomCharacter(g_character_event_kind3, -1, 0,
                                          g_character_event_no_flags);
     }
-    return 1;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x004D96F0
@@ -557,7 +557,7 @@ void LoadAwayCampChest(void)
    node's event type, once - the first byte of the node's userdata is the
    shown flag. */
 // FUNCTION: WIZ8 0x004D98C0
-static std::uint8_t WorldCursorNodePartyVoice(std::int32_t command, W8WorldCursorNode* node, std::int32_t context)
+static bool WorldCursorNodePartyVoice(std::int32_t command, W8WorldCursorNode* node, std::int32_t context)
 {
     std::int32_t event_type;
     char* shown;
@@ -579,13 +579,13 @@ static std::uint8_t WorldCursorNodePartyVoice(std::int32_t command, W8WorldCurso
             }
         }
     }
-    return 1;
+    return true;
 }
 
 /* Format the current level's message-database path, fetch the indexed string
    and show it. Answers whether the string existed. */
 // FUNCTION: WIZ8 0x004D9960
-std::uint8_t ShowLevelMessage(std::int32_t message_id)
+bool ShowLevelMessage(std::int32_t message_id)
 {
     const char* folder;
     std::string path;
@@ -598,9 +598,9 @@ std::uint8_t ShowLevelMessage(std::int32_t message_id)
     path = fmt::format("Data\\Messages\\{}.msg", folder);
     if ((!(text = GetStringFromStringDatabase(path, message_id, 0, 0)).empty()) != 0) {
         ShowString(text);
-        return 1;
+        return true;
     }
-    return 0;
+    return false;
 }
 
 /* The level-specific callbacks and master-function helpers this unit

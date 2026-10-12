@@ -13,10 +13,10 @@ public:
     W8BinkVideo();
     ~W8BinkVideo();
 
-    std::uint8_t Open(const char* path, std::int32_t flags);
-    std::uint8_t UpdateFrame();
-    std::uint8_t CopyFrameToPrimarySurface();
-    std::uint8_t CopyFrameToTargetSurface();
+    bool Open(const char* path, std::int32_t flags);
+    bool UpdateFrame();
+    bool CopyFrameToPrimarySurface();
+    bool CopyFrameToTargetSurface();
     void SetTarget(SDL_Surface* target);
 
 private:

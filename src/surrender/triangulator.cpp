@@ -57,20 +57,20 @@ std::optional<glm::ivec3> srTriangulator::next()
 }
 
 // FUNCTION: SURRENDER 0x1003bfa0
-std::int32_t srTriangulator::satisfyConstraints(const Node* vertex)
+bool srTriangulator::satisfyConstraints(const Node* vertex)
 {
     glm::vec2 a = points[vertex->prev->index];
     glm::vec2 b = points[vertex->index];
     glm::vec2 c = points[vertex->next->index];
     if (srTriangleProjection::orientedArea(a, b, c) <= 0) {
-        return 0;
+        return false;
     }
     Node* node = vertex->next->next;
     while (!srTriangleProjection::containsClosed(std::array{a, b, c}, points[node->index])) {
         node = node->next;
         if (node == vertex->prev) {
-            return 1;
+            return true;
         }
     }
-    return 0;
+    return false;
 }

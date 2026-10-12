@@ -190,7 +190,7 @@ struct W8OctPreTreeGeometry {
 
     /* Grow an owned face-index run at capacity boundaries. Retail narrows
        count + capacity to 16 bits before allocation and returns a byte. */
-    std::uint8_t CheckArrayLength(std::int32_t** run, std::uint16_t count, std::uint16_t capacity);
+    bool CheckArrayLength(std::int32_t** run, std::uint16_t count, std::uint16_t capacity);
 
     /* Frees the per-vertex polygon runs, both arrays and the owned +0x14
        buffer; the preprocessing driver runs it during cleanup. */

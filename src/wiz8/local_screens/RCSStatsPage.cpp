@@ -69,7 +69,7 @@ static constexpr std::array<RegionTemplate, 5> g_camp_skill_templates{{
 }};
 ScreenRegionSet g_camp_skill_regions{g_camp_skill_templates};
 
-static std::uint8_t CampStatsMouseWheel(const InputEvent* event, W8Region*);
+static bool CampStatsMouseWheel(const InputEvent* event, W8Region*);
 void DrawCampEffectList(void);
 void DrawCampEffectEntry(W8CampEffectEntry* entry, std::int32_t* line_out);
 
@@ -657,14 +657,14 @@ void DrawCampEffectEntry(W8CampEffectEntry* entry, std::int32_t* line_out)
 /* Wheel input over the stats page's effect-list region steps the
    scrollbar. */
 // FUNCTION: WIZ8 0x005c5c60
-static std::uint8_t CampStatsMouseWheel(const InputEvent* event, W8Region*)
+static bool CampStatsMouseWheel(const InputEvent* event, W8Region*)
 {
     PushButtonSoundScheme(0, true);
     if (event->type != InputEventType::MouseWheel) {
-        return 0;
+        return false;
     }
     g_camp_screen->stats_range->m_range->AdjustValue(event->wheel);
-    return 1;
+    return true;
 }
 
 /* Creates the five skill-category regions once per camp session and points
@@ -829,7 +829,7 @@ void DrawCampSkillsPage(void)
    dialog's second argument is raised when the character's level is the best
    among the occupied party slots. */
 // FUNCTION: WIZ8 0x005c6230
-std::uint8_t CampSkillListRegionHandler(const InputEvent* event, W8Region* region)
+bool CampSkillListRegionHandler(const InputEvent* event, W8Region* region)
 {
     std::int32_t row = (GetEventCursorY(event) - region->y1 - 1) / 0xe;
     std::int32_t skill = -1;
@@ -850,7 +850,7 @@ std::uint8_t CampSkillListRegionHandler(const InputEvent* event, W8Region* regio
         region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
     } else if (event->type != InputEventType::RightButtonUp) {
         if (event->type != InputEventType::MouseMove) {
-            return 0;
+            return false;
         }
         if ((region->flags & W8_REGION_MOUSE_ENTER) != 0 || row != g_camp_skill_hover_row) {
             std::string text = skill == -1 ? std::string{} : g_localized_strings[0x958];
@@ -858,7 +858,7 @@ std::uint8_t CampSkillListRegionHandler(const InputEvent* event, W8Region* regio
             ResetRegionHelp(true);
             g_camp_skill_hover_row = row;
         }
-        return 0;
+        return false;
     }
     if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) != 0 && skill != -1) {
         bool best = false;
@@ -871,7 +871,7 @@ std::uint8_t CampSkillListRegionHandler(const InputEvent* event, W8Region* regio
             skill == g_profession_bonus_skills[g_review_character->iProfession]);
         DisplayCampDialog(std::move(dialog));
     }
-    return 1;
+    return true;
 }
 
 /* The character screen's fourth page (name, portrait, personality and voice)

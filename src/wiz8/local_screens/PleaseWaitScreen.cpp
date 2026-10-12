@@ -83,7 +83,7 @@ static std::int32_t g_level_backdrops[W8_LEVEL_COUNT] = {
 /* Lifecycle record 4's initializer. The marker write is guarded, so a missing
    CD.ROM leaves the flag at its BSS zero rather than storing a comparison
    result. */
-std::uint8_t PleaseWaitScreenInitialize(void)
+bool PleaseWaitScreenInitialize(void)
 {
     if ([&]() { const auto status = wiz8::file_status("CD.ROM"); return status && !status->archived && status->info.type == SDL_PATHTYPE_FILE; }()) {
         g_cd_marker_present = true;
@@ -98,7 +98,7 @@ std::uint8_t PleaseWaitScreenInitialize(void)
    save; modes 1 and 2 carry a name; mode 3 carries two parameters and no name.
 
    The handler accesses the shared descriptor through g_load_descriptor. */
-std::uint8_t PleaseWaitScreenEnter(void)
+bool PleaseWaitScreenEnter(void)
 {
     if (!g_load_descriptor) {
         g_load_descriptor = std::make_unique<W8LevelLoadDescriptor>();
@@ -133,7 +133,7 @@ std::uint8_t PleaseWaitScreenEnter(void)
     g_load_descriptor->caption_y = 0;
     g_load_descriptor->entered_tick = w8_get_ticks();
     g_swap_disc_dialog_poll_count = 0;
-    return 1;
+    return true;
 }
 
 /* The gate the frame handler runs before every load. When the level archive is
@@ -329,7 +329,7 @@ void PleaseWaitScreenFrame(void)
    allocated; the ordinary pass only tears the frame down. Both passes run the
    teardown, which is why the release sits under the flag rather than the whole
    body. */
-std::uint8_t PleaseWaitScreenLeave(std::int32_t leaving)
+bool PleaseWaitScreenLeave(std::int32_t leaving)
 {
     if (leaving) {
         g_load_descriptor.reset();
@@ -337,7 +337,7 @@ std::uint8_t PleaseWaitScreenLeave(std::int32_t leaving)
     NoOp();
     ResetRegions();
     EnableCursorScene();
-    return 1;
+    return true;
 }
 
 /* Texture loads performed while screen four is active keep audio and the

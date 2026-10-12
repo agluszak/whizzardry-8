@@ -77,7 +77,7 @@ W8CountedOctBuildNode::~W8CountedOctBuildNode()
 /* Replace the two polygon-link chains used by pre-tree leaves with compact,
    null-terminated surface arrays. */
 // FUNCTION: WIZ8 0x004af7b0
-std::uint8_t W8OctBuildNode::RearrangeNodePolys(std::int16_t current_depth, std::int16_t target_depth)
+bool W8OctBuildNode::RearrangeNodePolys(std::int16_t current_depth, std::int16_t target_depth)
 {
     if (current_depth == target_depth) {
         for (std::int16_t mode = 2; mode < 4; ++mode) {
@@ -87,7 +87,7 @@ std::uint8_t W8OctBuildNode::RearrangeNodePolys(std::int16_t current_depth, std:
                     static_cast<void**>(malloc((collected.size() + 1) * sizeof(void*)));
                 if (surfaces == 0) {
                     ReportBuildStatus(7, "RearrangeNodePolys: Could not allocate poly list.\n");
-                    return 0;
+                    return false;
                 }
                 std::uint32_t index;
                 for (index = 0; index < collected.size(); ++index) {
@@ -104,7 +104,7 @@ std::uint8_t W8OctBuildNode::RearrangeNodePolys(std::int16_t current_depth, std:
             }
         }
     }
-    return 1;
+    return true;
 }
 
 namespace {
@@ -254,12 +254,12 @@ OctBuildPreTree::OctBuildPreTree(float leaf_size, std::optional<srBoundingBox> b
    both arrays, then re-insert every surviving polygon and continue into the
    region assignment pass. Normalizes each vertex normal on the way. */
 // FUNCTION: WIZ8 0x004afea0
-std::uint8_t OctBuildPreTree::SortGeometry(W8OctPreTreeGeometry* geometry)
+bool OctBuildPreTree::SortGeometry(W8OctPreTreeGeometry* geometry)
 {
     game_data = geometry;
     if (!geometry->compact()) {
         ReportBuildStatus(7, "SortGeometry: Could not allocate replacement geometry tables");
-        return 0;
+        return false;
     }
     for (std::uint32_t polygon = 1; polygon < geometry->m_polygon_count; ++polygon) {
         if (InsertSurface(&geometry->m_polygons[polygon], 2) == 0) {
@@ -267,7 +267,7 @@ std::uint8_t OctBuildPreTree::SortGeometry(W8OctPreTreeGeometry* geometry)
             sprintf(message, "SortGeometry: Polygon %d cannot be inserted into tree",
                     static_cast<std::int32_t>(polygon));
             ReportBuildStatus(7, message);
-            return 0;
+            return false;
         }
     }
     return AssignPolygonRegions(geometry);
@@ -638,7 +638,7 @@ void OctBuildPreTree::AssignPolygonRegion(W8OctRegionPolygon* polygon)
    emptied regions through the region_remap remap table and finishes in
    BuildRegions. */
 // FUNCTION: WIZ8 0x004b1280
-std::uint8_t OctBuildPreTree::AssignPolygonRegions(W8OctPreTreeGeometry* geometry)
+bool OctBuildPreTree::AssignPolygonRegions(W8OctPreTreeGeometry* geometry)
 {
     ReportBuildStatus(6, "Inserting polygons and vertices into regions...\n");
     geometry->m_max_face_count = 0;
@@ -1054,7 +1054,7 @@ W8OctBuildNode* OctBuildPreTree::FindNode(std::uint32_t path)
    the first region that can be merged. The high byte remains the depth mask;
    the other three bytes are the x/y/z cell coordinates. */
 // FUNCTION: WIZ8 0x004b2450
-std::uint8_t OctBuildPreTree::MergeAdjacentRegion(W8OctBuildNode* node, std::uint32_t path)
+bool OctBuildPreTree::MergeAdjacentRegion(W8OctBuildNode* node, std::uint32_t path)
 {
     std::int32_t cell[4];
     cell[0] = path & 0xff000000;
@@ -1065,40 +1065,40 @@ std::uint8_t OctBuildPreTree::MergeAdjacentRegion(W8OctBuildNode* node, std::uin
     for (std::int32_t axis = 1; axis <= 3; ++axis) {
         if (cell[axis] != 0) {
             --cell[axis];
-            if (MergeRegion(node, cell) != 0) return 1;
+            if (MergeRegion(node, cell) != 0) return true;
             ++cell[axis];
         }
         ++cell[axis];
         if ((cell[axis] & (1 << (spatial.m_leaf_level + 1))) == 0 &&
-            MergeRegion(node, cell) != 0) return 1;
+            MergeRegion(node, cell) != 0) return true;
         if (axis != 3) --cell[axis];
     }
-    return 0;
+    return false;
 }
 
 /* Merge one neighboring region into the region carried by the adjacent build
    node. Every packed path is re-keyed in the region table and the surviving
    center becomes the population-weighted average of both groups. */
 // FUNCTION: WIZ8 0x004b25c0
-std::uint8_t OctBuildPreTree::MergeRegion(W8OctBuildNode* node, const std::int32_t* cell)
+bool OctBuildPreTree::MergeRegion(W8OctBuildNode* node, const std::int32_t* cell)
 {
     std::uint32_t neighbor_path = ((cell[1] * 0x100 + cell[2]) * 0x100 + cell[3]) + cell[0];
     W8OctBuildNode* neighbor = FindNode(neighbor_path);
     if (neighbor == 0 || neighbor->leaf_kind == 0 || neighbor->leaf_kind >= 100) {
-        return 0;
+        return false;
     }
 
     std::uint16_t neighbor_region = neighbor->region;
     std::uint16_t node_region = node->region;
     if (neighbor_region == node_region) {
-        return 0;
+        return false;
     }
 
     const auto& node_center = region_centers[node_region];
     auto& neighbor_center = region_centers[neighbor_region];
     float distance = glm::distance(node_center, neighbor_center);
     if (!(distance < spatial.m_region_grid_cell * g_float_three)) {
-        return 0;
+        return false;
     }
 
     std::uint16_t combined_count = node->leaf_kind + neighbor->leaf_kind;
@@ -1128,7 +1128,7 @@ std::uint8_t OctBuildPreTree::MergeRegion(W8OctBuildNode* node, const std::int32
                           glm::vec3(glm::dvec3(neighbor_center) * double(neighbor_count));
     neighbor_center = glm::vec3(glm::dvec3(weighted) *
                                (1.0 / double(moved_count + neighbor_count)));
-    return 1;
+    return true;
 }
 
 /* Compact provisional submesh ids into the final region range, rewrite every
@@ -1378,7 +1378,7 @@ bool OctBuildPreTree::assignPointToVolumes(const glm::vec3& point, std::int16_t 
    regions lead the compact list, followed by one null-terminated list per
    region; the lookup table stores each region's offset into that list. */
 // FUNCTION: WIZ8 0x004b3820
-std::uint8_t OctBuildPreTree::BuildParticleRegions(std::span<const W8LevelFileParticleSystem> particles)
+bool OctBuildPreTree::BuildParticleRegions(std::span<const W8LevelFileParticleSystem> particles)
 {
     particle_count = static_cast<std::int32_t>(particles.size());
     particle_regions.clear();
@@ -1430,14 +1430,14 @@ std::uint8_t OctBuildPreTree::BuildParticleRegions(std::span<const W8LevelFilePa
 
     mesh_particle_links = particle_regions.packedLinks(spatial.submesh_count);
     particle_regions.clear();
-    return 1;
+    return true;
 }
 
 /* Accumulate the two preprocessing geometry banks into one region-to-prop
    table owned by this builder. The final call appends the second bank and
    returns the compact lookup/list pair before clearing temporary membership. */
 // FUNCTION: WIZ8 0x004b3f90
-std::uint8_t OctBuildPreTree::BuildGeometryRegions(std::span<const W8LevelFileProp> records,
+bool OctBuildPreTree::BuildGeometryRegions(std::span<const W8LevelFileProp> records,
                                                     std::int32_t base_index, bool finalize)
 {
     if (!finalize) {
@@ -1469,7 +1469,7 @@ std::uint8_t OctBuildPreTree::BuildGeometryRegions(std::span<const W8LevelFilePr
         prop_count = record_count + base_index;
         prop_regions.clear();
     }
-    return 1;
+    return true;
 }
 
 /* Build the compact runtime pre-tree, transfer the auxiliary ownership that

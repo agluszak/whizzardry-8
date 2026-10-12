@@ -103,7 +103,7 @@ bool LoadAniMeshFromInfo(W8ReadLevelInfo* info, W8AniMesh* mesh, bool load_all)
         srAssertFail("pInfo&&pAniMesh", ANI_MESH_CPP, 0x105, 0);
     }
     if (info == 0 || mesh == 0)
-        return 0;
+        return false;
     mesh->bitmap_directory = info->bitmap_folder;
     mesh->world = info->world;
     mesh->flags = {};

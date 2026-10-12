@@ -54,8 +54,7 @@ struct TEXTINPUTNODE {
     std::size_t max_code_units; // retail name/editor limit
     std::uint8_t _padding05[3];
     std::string szString;
-    // bool-byte-ok: JA2 declares fEnabled as BOOLEAN (UINT8)
-    std::uint8_t fEnabled;
+    bool fEnabled;
     bool fUserField;
     std::uint8_t _padding0f;
     std::uint32_t region_index = 0;
@@ -80,31 +79,31 @@ W8Region& TextFieldRegion(const TEXTINPUTNODE* field)
     return g_regions[index];
 }
 
-std::uint8_t TextFieldRegionEvent(const InputEvent* event, W8Region* region)
+bool TextFieldRegionEvent(const InputEvent* event, W8Region* region)
 {
     auto* field = region->text_field;
-    if (!field) return 0;
+    if (!field) return false;
     g_text_field_input_x = event->position.x;
     g_text_field_input_buttons = event->buttons;
     switch (event->type) {
     case InputEventType::MouseMove: {
         MouseMovedInTextRegionCallback(field, RegionReasonForInput(*region, *event));
-        return 1;
+        return true;
     }
     case InputEventType::LeftButtonDown:
         g_captured_region_index = field->region_index;
         MouseClickedInTextRegionCallback(field, RegionReasonForInput(*region, *event));
-        return 1;
+        return true;
     case InputEventType::LeftButtonUp:
         if (g_captured_region_index == field->region_index) g_captured_region_index = 0;
         MouseClickedInTextRegionCallback(field, RegionReasonForInput(*region, *event));
-        return 1;
+        return true;
     case InputEventType::LeftButtonDoubleClick:
-        return 1;
+        return true;
     default:
         break;
     }
-    return 0;
+    return false;
 }
 }
 

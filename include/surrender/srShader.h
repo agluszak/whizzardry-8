@@ -102,7 +102,7 @@ public:
     };
 
     /* Packed-field range test. */
-    std::int32_t isValid() const
+    bool isValid() const
     {
         return !((value & PASS_MASK) > PASS_ALWAYS || (value >> DEPTH_WRITE_SHIFT & 0x1) > 1 ||
                  (value >> COLOR_WRITE_SHIFT & 0x1) > 1 ||

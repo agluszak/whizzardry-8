@@ -43,7 +43,7 @@ void PresentMenuOverlayFrame();
 void SaveJpegScreenshot();
 extern std::uint8_t g_fullscreen;
 extern srScene* g_cursor_scene;
-std::uint8_t InitializeMouseCursorScene();
+bool InitializeMouseCursorScene();
 void PositionMouseCursor(std::int32_t, std::int32_t, bool);
 struct FixtureRoot
 {

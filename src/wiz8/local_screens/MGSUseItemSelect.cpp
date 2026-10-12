@@ -191,7 +191,7 @@ static void CreateUseItemSelectControls(void)
 }
 
 // FUNCTION: WIZ8 0x0059C930
-std::uint8_t OpenUseItemSelectView(std::int32_t slot)
+bool OpenUseItemSelectView(std::int32_t slot)
 {
     W8TextControl** control;
     W8MainUiMode mode;
@@ -234,7 +234,7 @@ std::uint8_t OpenUseItemSelectView(std::int32_t slot)
     RefreshUseItemSelectionForSlot(slot);
     SelectSpellCastingPartySlot(slot);
     PauseMainGameWorld();
-    return 1;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x0059CAC0
@@ -728,7 +728,7 @@ void CloseUseItemSelection(void)
 
 /* Scroll up/down buttons for the use-item list (catalog callback_ids 0 and 1). */
 // FUNCTION: WIZ8 0x0059D970
-std::uint8_t UseItemSelectScrollRegionEvent(const InputEvent* event, W8Region* region)
+bool UseItemSelectScrollRegionEvent(const InputEvent* event, W8Region* region)
 {
     return DispatchButtonRegionEvent(event, region,
                                      g_use_item_select_scroll_buttons[region->callback_id]);
@@ -736,7 +736,7 @@ std::uint8_t UseItemSelectScrollRegionEvent(const InputEvent* event, W8Region* r
 
 /* Use-item select action/icon controls (catalog callback_ids 0, 3, 8). */
 // FUNCTION: WIZ8 0x0059DA30
-std::uint8_t UseItemSelectControlRegionEvent(const InputEvent* event, W8Region* region)
+bool UseItemSelectControlRegionEvent(const InputEvent* event, W8Region* region)
 {
     switch (event->type) {
     case InputEventType::RightButtonDown:
@@ -761,7 +761,7 @@ std::uint8_t UseItemSelectControlRegionEvent(const InputEvent* event, W8Region* 
    keeps g_use_item_cursor_x/y as the last cursor point and tracks the hovered
    row into g_use_item_hover_row. */
 // FUNCTION: WIZ8 0x0059DB40
-std::uint8_t UseItemSelectTextBoxRegionEvent(const InputEvent* event, W8Region* region)
+bool UseItemSelectTextBoxRegionEvent(const InputEvent* event, W8Region* region)
 {
     std::uint16_t y;
     std::int32_t row;
@@ -771,35 +771,35 @@ std::uint8_t UseItemSelectTextBoxRegionEvent(const InputEvent* event, W8Region* 
     switch (us_event) {
     case InputEventType::LeftButtonUp:
         if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) == 0) {
-            return 1;
+            return true;
         }
         region->flags &= ~W8_REGION_LEFT_BUTTON_HELD;
         slot = GetHoveredTextLine(2);
         if (slot == -1) {
-            return 1;
+            return true;
         }
         SelectUseItemLine(slot);
-        return 1;
+        return true;
     case InputEventType::LeftButtonDown:
         region->flags |= W8_REGION_LEFT_BUTTON_HELD;
-        return 1;
+        return true;
     case InputEventType::RightButtonDown:
         region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
-        return 1;
+        return true;
     case InputEventType::MouseMove:
         if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
             ClearHoveredTextLine(2);
             g_use_item_hover_row = -1;
-            return 1;
+            return true;
         }
         if ((region->flags & W8_REGION_MOUSE_ENTER) != 0) {
             g_use_item_cursor_x = event->position.x;
             g_use_item_cursor_y = event->position.y;
-            return 1;
+            return true;
         }
         if (event->position.x == g_use_item_cursor_x &&
             event->position.y == g_use_item_cursor_y) {
-            return 1;
+            return true;
         }
         g_use_item_cursor_x = event->position.x;
         g_use_item_cursor_y = event->position.y;
@@ -811,26 +811,26 @@ std::uint8_t UseItemSelectTextBoxRegionEvent(const InputEvent* event, W8Region* 
             }
             g_use_item_hover_row = row;
         }
-        return 1;
+        return true;
     case InputEventType::RightButtonUp:
         if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) == 0) {
-            return 1;
+            return true;
         }
         region->flags &= ~W8_REGION_RIGHT_BUTTON_HELD;
         y = event->position.y;
         if (y < g_level_block->text_box_top || g_level_block->text_box_bottom < y) {
-            return 1;
+            return true;
         }
         row = (y - g_level_block->text_box_top) / 0xb;
         if (row < static_cast<std::int32_t>(g_status.text_box_lines_shown[2]) &&
             g_use_item_list[g_level_block->text_lines[2] + row] != 0) {
             OpenUseItemAssayDialog(g_use_item_list[g_level_block->text_lines[2] + row]);
         }
-        return 1;
+        return true;
     default:
         break;
     }
-    return 0;
+    return false;
 }
 
 /* Wheel rotation over the use-item text box re-selects the row under the

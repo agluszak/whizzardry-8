@@ -44,10 +44,9 @@
 enum { W8_SCREEN_WIDTH = 640, W8_SCREEN_HEIGHT = 480, W8_HELP_MARGIN = 2 };
 enum { W8_REGION_MODE_MASK = 0xf };
 
-// bool-byte-ok: W8RegionCallback result
-static std::uint8_t ConsumeRegionInput(const InputEvent*, W8Region*)
+static bool ConsumeRegionInput(const InputEvent*, W8Region*)
 {
-    return 1;
+    return true;
 }
 
 namespace {
@@ -731,14 +730,14 @@ void ActivateDialogRegion(std::uint32_t region_index)
 }
 
 // FUNCTION: WIZ8 0x004f21b0
-std::uint8_t ClearActiveRegionIfMatches(std::uint32_t region_index)
+bool ClearActiveRegionIfMatches(std::uint32_t region_index)
 {
     if (g_captured_region_index == region_index) {
         g_captured_region_index = 0;
         g_current_region_index = 0;
-        return 1;
+        return true;
     }
-    return 0;
+    return false;
 }
 
 // FUNCTION: WIZ8 0x004f21d0

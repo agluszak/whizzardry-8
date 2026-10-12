@@ -146,7 +146,7 @@ public:
     }
     // FUNCTION: SURRENDER 0x10041770 SYMBOL
     // RECOMP: ?testDirty@srMeshModel@@QBEHW4e_flags@1@@Z
-    std::int32_t testDirty(e_flags flag) const
+    bool testDirty(e_flags flag) const
     {
         return (dirty_flags.value & (1 << flag)) != 0;
     }
@@ -175,7 +175,7 @@ public:
         render_control.set(control, 1);
         setDirty(DIRTY_TRI_MESH);
     }
-    std::int32_t isEnabled(e_control control) const;
+    bool isEnabled(e_control control) const;
     // FUNCTION: SURRENDER 0x10041660
     void setDirtyAll()
     {

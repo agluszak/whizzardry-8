@@ -27,13 +27,13 @@ void RebuildAllWorldItemInstances(void);
 
 bool InitializeItemManagerState();
 
-std::uint8_t ReleaseItemLists(void);
+bool ReleaseItemLists(void);
 
 extern std::int32_t g_world_item_cursor;
 
 void DropHeldItem(std::int32_t);
 void UpdateNearbyWorldItems(void);
-std::uint8_t AdvanceFallingWorldItem(W8WorldItem* item);
+bool AdvanceFallingWorldItem(W8WorldItem* item);
 bool IsWorldItemWithinReach(W8Item* owner, const srVector3T<float>* from, float radius);
 bool AnyWorldItemVisible(void);
 void DropMonsterLoot(W8MonsterInfo* monster_info, std::int32_t value);

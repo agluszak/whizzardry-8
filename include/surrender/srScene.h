@@ -37,7 +37,7 @@ public:
     glm::vec3 getAmbientLight() const;
     glm::vec3 getFogColor() const;
     Statistics getStatistics() const;
-    std::int32_t isEnabled(e_enable option) const;
+    bool isEnabled(e_enable option) const;
     void render(srGERD& renderer, class srCamera* camera);
     void resetStatistics();
     // FUNCTION: SURRENDER 0x10056C10

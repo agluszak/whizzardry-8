@@ -124,7 +124,7 @@ W8MonsterGroup* GetMonsterGroupByListIndex(std::uint32_t group_list_index);
 W8MonsterGroup* FindMonsterGroup(std::int32_t group_id, bool assert_on_failure = true,
                                  std::source_location caller = std::source_location::current());
 bool GetMonsterGroupEngagementState(std::int32_t group_id);
-std::uint8_t ApplyToMonsterGroupLeader(W8MonsterGroup* monster_group,
+bool ApplyToMonsterGroupLeader(W8MonsterGroup* monster_group,
                                         const srVector3T<float>* position, bool follow_leader);
 /* Whether the group is loaded, in combat, and still has members; hostile
    groups are live on that alone, others also need CombatAllowsLiveGroups. */
@@ -155,7 +155,7 @@ void RecountActiveMonsterGroupMembers(W8MonsterGroup* monster_group);
 void GetMonsterGroupCentre(W8MonsterGroup* monster_group, srVector3T<float>* centre);
 W8MonsterGroup* FindFirstMonsterByID(std::int32_t monster_id);
 W8MonsterGroup* FindNextExistingMonsterByID(std::int32_t monster_id, W8MonsterGroup* previous);
-std::uint8_t GiveBirthToMonster(W8MonsterGroup* monster_group);
+bool GiveBirthToMonster(W8MonsterGroup* monster_group);
 W8MonsterGroup* CreateGroup(std::uint32_t monster_id, std::uint32_t count,
                             const srVector3T<float>* position, bool use_alternate_name,
                             bool announce_spawn, bool place_on_ground);
@@ -172,7 +172,7 @@ W8MonsterRecord* MonsterGroupGetRecord(W8MonsterGroup* group);
 void RefreshMonsterGroup(W8MonsterGroup* monster_group);
 void DetachMonsterGroup(W8MonsterGroup* monster_group);
 
-std::uint8_t RemoveAllGroupMembers(W8MonsterGroup* monster_group);
+bool RemoveAllGroupMembers(W8MonsterGroup* monster_group);
 /* MonsterGroup.cpp: respawns a same-sized group of a different monster id
    beside the source group, deactivating the old members as each replacement
    activates; NULL on failure. */

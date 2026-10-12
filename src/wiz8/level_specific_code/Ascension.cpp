@@ -71,7 +71,7 @@ std::int32_t CountAscensionPeakItems(void)
 /* Standalone JMP thunk onto AscensionPeakInit. */
 
 // FUNCTION: WIZ8 0x004DF870
-std::uint8_t AscensionPeakInit(void)
+bool AscensionPeakInit(void)
 {
     srVector3T<float> position;
     std::int32_t count = CountAscensionPeakItems();
@@ -118,49 +118,49 @@ std::uint8_t AscensionPeakInit(void)
             CreateLocationVar("AP_All3Items", 1);
         }
     }
-    return 1;
+    return true;
 }
 
 /* Spawn the Alfie "chaos" monster (0xae) at the NP_AlfieChaos entity once the
    party carries the Astral Dominae (0x244). */
 // FUNCTION: WIZ8 0x004DFAE0
-std::uint8_t SpawnAlfieChaos(std::int32_t)
+bool SpawnAlfieChaos(std::int32_t)
 {
     srVector3T<float> position;
 
     if (!FindItemOnParty(0x244, 0, 0, 2, 0)) {
-        return 0;
+        return false;
     }
     if (FindEntityByName("NP_AlfieChaos", &position, 0, 0)) {
         SpawnMonsters(0xae, 1, &position, 0, true, false, false);
     }
-    return 1;
+    return true;
 }
 
 /* Spawn the Alfie "life" monster (0xaf) at the NP_AlfieLife entity when it is
    present in the level. */
 // FUNCTION: WIZ8 0x004DFB40
-std::uint8_t SpawnAlfieLife(std::int32_t)
+bool SpawnAlfieLife(std::int32_t)
 {
     srVector3T<float> position;
 
     if (FindEntityByName("NP_AlfieLife", &position, 0, 0)) {
         SpawnMonsters(0xaf, 1, &position, 0, true, false, false);
     }
-    return 1;
+    return true;
 }
 
 /* Spawn the Alfie "know" monster (0xb0) at the NP_AlfieKnow entity when it is
    present in the level. */
 // FUNCTION: WIZ8 0x004DFB80
-std::uint8_t SpawnAlfieKnow(std::int32_t)
+bool SpawnAlfieKnow(std::int32_t)
 {
     srVector3T<float> position;
 
     if (FindEntityByName("NP_AlfieKnow", &position, 0, 0)) {
         SpawnMonsters(0xb0, 1, &position, 0, true, false, false);
     }
-    return 1;
+    return true;
 }
 
 /* Fire the "Avalanche" trigger and, when asked, update the 0x15d/0x15e
@@ -230,7 +230,7 @@ bool AscensionRampUp(Trigger* pTrigger)
 /* Spawn the Rapax ambush and the prince once two relics are brought to the
    peak. */
 // FUNCTION: WIZ8 0x004DFEA0
-std::uint8_t SpawnAscensionAmbush(void)
+bool SpawnAscensionAmbush(void)
 {
     srVector3T<float> position;
 
@@ -246,7 +246,7 @@ std::uint8_t SpawnAscensionAmbush(void)
     if (FindEntityByName("NP_Prince", &position, 0, 0)) {
         SpawnMonsters(0xb2, 1, &position, 0, true, false, false);
     }
-    return 1;
+    return true;
 }
 
 /* The ChaosBTrigger activation callback: arm ChaosATrigger, and once

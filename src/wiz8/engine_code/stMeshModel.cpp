@@ -465,7 +465,7 @@ std::int32_t stMeshModel::ReleaseDecompressedFrames()
 /* Evict least-recently-used decompressed frames until `needed` bytes are
    available, or give up when every eligible model has been drained. */
 // FUNCTION: WIZ8 0x00473BF0
-std::uint8_t ReclaimDecompressedBytes(std::uint32_t needed, const stMeshModel* retained_model)
+bool ReclaimDecompressedBytes(std::uint32_t needed, const stMeshModel* retained_model)
 {
     std::uint32_t released = 0;
     while (released < needed) {
@@ -576,16 +576,16 @@ static void DecompressMeshNormals(const std::uint8_t* normals, std::int32_t coun
 /* Expand one frame's compressed table into `destination`: bit 1 the vertex
    locations, bit 2 the vertex normals, bit 4 the polygon normals. */
 // FUNCTION: WIZ8 0x00471930
-std::uint8_t stMeshModel::DecompressFrame(std::int32_t frame, std::uint8_t flags,
+bool stMeshModel::DecompressFrame(std::int32_t frame, std::uint8_t flags,
                                            std::span<glm::vec3> destination)
 {
     if (static_cast<std::uint32_t>(frame) >= frames.size()) {
-        return 0;
+        return false;
     }
     const auto& storage = frames[frame];
     const auto count = flags & (W8_MESH_FRAME_LOCATIONS | W8_MESH_FRAME_VERTEX_NORMALS)
                            ? vertex_location_count : polygon_count;
-    if (destination.size() < static_cast<std::size_t>(count)) return 0;
+    if (destination.size() < static_cast<std::size_t>(count)) return false;
     if (flags & W8_MESH_FRAME_LOCATIONS) {
         for (std::int32_t index = 0; index < vertex_location_count; ++index) {
             const std::int16_t* source = &storage.compressed_locations[index * 3];
@@ -593,19 +593,19 @@ std::uint8_t stMeshModel::DecompressFrame(std::int32_t frame, std::uint8_t flags
                                    source[1] * vertex_compression_scale,
                                    source[2] * vertex_compression_scale);
         }
-        return 1;
+        return true;
     }
     if (flags & W8_MESH_FRAME_VERTEX_NORMALS) {
         DecompressMeshNormals(storage.compressed_vertex_normals.data(), vertex_location_count,
                               destination.data());
-        return 1;
+        return true;
     }
     if (flags & W8_MESH_FRAME_POLYGON_NORMALS) {
         DecompressMeshNormals(storage.compressed_polygon_normals.data(), polygon_count,
                               destination.data());
-        return 1;
+        return true;
     }
-    return 0;
+    return false;
 }
 
 /* Allocate one frame's decompressed caches for the tables named by `flags`

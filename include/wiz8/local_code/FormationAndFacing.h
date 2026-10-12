@@ -71,13 +71,13 @@ void FaceCameraToSelection(std::int32_t party_slot);
 std::int32_t GetQuadrantForPosition(srVector3T<float> position);
 
 /* Whether the monster faces the party's own position. */
-std::int32_t IsMonsterFacingParty(W8MonsterInfo* monster_info);
+bool IsMonsterFacingParty(W8MonsterInfo* monster_info);
 /* Whether the first monster faces the second. */
-std::int32_t IsMonsterFacingMonster(W8MonsterInfo* first, W8MonsterInfo* second);
+bool IsMonsterFacingMonster(W8MonsterInfo* first, W8MonsterInfo* second);
 /* Whether the party faces a world point. */
 bool IsPartyLookingAt(W8MonsterInfo* monster_info, srVector3T<float> point);
 /* Whether the second monster looks away from the first. */
-std::int32_t IsMonsterLookingAwayFrom(W8MonsterInfo* first, W8MonsterInfo* second);
+bool IsMonsterLookingAwayFrom(W8MonsterInfo* first, W8MonsterInfo* second);
 /* Whether the monster sits on the screen side the character
    faces. */
 bool IsCharacterFacingMonster(std::int32_t party_slot, W8MonsterInfo* monster_info);
@@ -85,7 +85,7 @@ bool IsCharacterFacingMonster(std::int32_t party_slot, W8MonsterInfo* monster_in
 void TurnCharacterTowardMonster(std::int32_t party_slot, W8MonsterInfo* monster_info);
 /* Whether the monster is on the side opposite the character's
    facing. */
-std::int32_t IsMonsterBehindCharacter(W8MonsterInfo* monster_info, std::int32_t party_slot);
+bool IsMonsterBehindCharacter(W8MonsterInfo* monster_info, std::int32_t party_slot);
 /* Face the character toward its committed combat slot's target;
    asserts the slot ids are not BAD_INDEX. */
 void FaceCharacterTowardCombatTarget(std::int32_t party_slot, W8CombatSlot* target);

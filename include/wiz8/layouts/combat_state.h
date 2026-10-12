@@ -196,7 +196,7 @@ struct W8CombatCharacterRow {
 struct W8CombatState {
     /* Historical offset 0x000: raised by BeginCombatExecution and cleared at the round
        boundary. Gates actor scheduling; not the end-of-combat flag. */
-    std::uint8_t execution_active;
+    bool execution_active;
     /* Historical offset 0x001: set when combat begins and when continuous combat resumes;
        cleared at the round boundary while continuous_combat is off. Gates
        party movement and the combat-sensitive UI panels. */

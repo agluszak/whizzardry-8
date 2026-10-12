@@ -64,7 +64,7 @@ const float g_movement_fatigue_tick_scale = 0.0004f;
 
 void DrawPartyMovementGauge(std::int16_t right, std::int16_t image, bool panel_live, std::int32_t caption);
 
-std::uint8_t CreatePartyMovementPanel(void)
+bool CreatePartyMovementPanel(void)
 {
     W8ControlsRect bounds;
 
@@ -102,10 +102,10 @@ std::uint8_t CreatePartyMovementPanel(void)
         g_level_block->move_percent = 100;
         g_level_block->move_percent_shown = 100;
         g_party_movement_panel->Invalidate(0);
-        return 1;
+        return true;
     }
     ReleasePartyMovement();
-    return 0;
+    return false;
 }
 
 void ReleasePartyMovement(void)
@@ -275,10 +275,10 @@ void InvalidatePartyMovementPanel(void)
     g_party_movement_panel->Invalidate(0);
 }
 
-std::uint8_t FreeTurnButtonRegionEvent(const InputEvent* event, W8Region* region)
+bool FreeTurnButtonRegionEvent(const InputEvent* event, W8Region* region)
 {
     if (!gXStatus.fPartyMovementUi) {
-        return 0;
+        return false;
     }
     return DispatchButtonRegionEvent(event, region, g_party_movement_buttons[region->callback_id]);
 }
@@ -297,7 +297,7 @@ void EnableFreeTurnButton(void)
    and a bearable load accumulates distance scaled by load, doubled in combat
    and raised again while the second condition runs, until the accumulator
    crosses 2500 and converts into real fatigue. */
-std::uint8_t HandlePartyMovement(float* real_elapsed, float* frame_elapsed)
+bool HandlePartyMovement(float* real_elapsed, float* frame_elapsed)
 {
     std::int32_t party_slot;
     float amount;
@@ -305,7 +305,7 @@ std::uint8_t HandlePartyMovement(float* real_elapsed, float* frame_elapsed)
     std::uint32_t ticks;
 
     if (ConsumeLevelElapsedTime(real_elapsed, frame_elapsed) == 0) {
-        return 0;
+        return false;
     }
     for (party_slot = 0; party_slot < W8_PARTY_SLOT_COUNT; ++party_slot) {
         W8PartySlotRow* row = &g_status.buffers.XChar[party_slot];
@@ -352,5 +352,5 @@ std::uint8_t HandlePartyMovement(float* real_elapsed, float* frame_elapsed)
             row->movement_fatigue = row->movement_fatigue - (ticks * 0x9c4);
         }
     }
-    return 1;
+    return true;
 }

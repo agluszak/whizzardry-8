@@ -167,7 +167,7 @@ void srColorSurfaceIFace::setVClampMode(std::int32_t enabled)
 }
 
 // FUNCTION: SURRENDER 0x1005A0E0
-std::int32_t srColorSurfaceIFace::isPixelFormatCompatible(const srColorSurfaceIFace& source) const
+bool srColorSurfaceIFace::isPixelFormatCompatible(const srColorSurfaceIFace& source) const
 {
     return pixel_format == source.pixel_format;
 }
@@ -842,19 +842,19 @@ static bool samePalette(srPalette* first, srPalette* second)
 }
 
 // FUNCTION: SURRENDER 0x1005C4D0
-std::int32_t srColorSurface::isCompatible(srColorSurfaceIFace& source)
+bool srColorSurface::isCompatible(srColorSurfaceIFace& source)
 {
     if (source.getClassID() != getClassID()) {
-        return 0;
+        return false;
     }
     if (pixel_format == source.pixel_format) {
         if (pixel_format.color_model == srPixelConvert::COLOR_INDEXED &&
             !samePalette(getPalette().get(), source.getPalette().get())) {
-            return 0;
+            return false;
         }
         return source.getDataPtr() != 0;
     }
-    return 0;
+    return false;
 }
 
 // FUNCTION: SURRENDER 0x1005C460

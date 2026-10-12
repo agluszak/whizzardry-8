@@ -564,7 +564,7 @@ static std::int32_t GetMonsterProtectionScore(W8MonsterInfo* monster)
    replaces the target with the guardian. Answers whether the target was
    taken over. */
 // FUNCTION: WIZ8 0x00545e50
-std::int32_t ResolveGuardianInterception(W8TargetSource* source, W8CombatSlot* target)
+bool ResolveGuardianInterception(W8TargetSource* source, W8CombatSlot* target)
 {
     std::vector<W8TargetSource> candidates;
     std::vector<W8TargetSource> interposers;
@@ -609,7 +609,7 @@ std::int32_t ResolveGuardianInterception(W8TargetSource* source, W8CombatSlot* t
         }
     }
     if (candidates.empty()) {
-        return 0;
+        return false;
     }
     if (target->iType == W8_TARGET_KIND_CHARACTER) {
         target_name = g_status.buffers.Char[target->iChar].name;
@@ -673,7 +673,7 @@ std::int32_t ResolveGuardianInterception(W8TargetSource* source, W8CombatSlot* t
                 }
             }
         }
-        return 0;
+        return false;
     }
     std::uint32_t uiSuccessfulCnt = static_cast<std::int32_t>(interposers.size());
     if (uiSuccessfulCnt <= 0) {
@@ -706,7 +706,7 @@ std::int32_t ResolveGuardianInterception(W8TargetSource* source, W8CombatSlot* t
     }
     g_combat_state->unaware = 0;
     g_combat_state->natural_attack = 0;
-    return 1;
+    return true;
 }
 
 /* The character counterpart: the target has to still be in play, the character

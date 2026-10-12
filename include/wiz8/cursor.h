@@ -13,7 +13,7 @@ class srScene;
 
 extern srModelInstance* g_cursor_node;
 extern srScene* g_cursor_scene;
-std::uint8_t InitializeMouseCursorScene(void);
+bool InitializeMouseCursorScene(void);
 
 class srTextureIFace;
 
@@ -55,7 +55,7 @@ std::uint32_t GetMillisecondsSinceCursorMove(void);
 /* 0x00428520: whether the current cursor hotspot is inside the inclusive
    rectangle (left, top, right, bottom). */
 bool IsCursorInRectangle(std::int32_t left, std::int32_t top, std::int32_t right, std::int32_t bottom);
-std::uint8_t GetCursorPositionInViewport(glm::vec2* position);
+bool GetCursorPositionInViewport(glm::vec2* position);
 /* The tracked cursor tip in normalized screen coordinates. */
 glm::vec2 GetCursorScaledPosition();
 void UpdateHeldItemCursor(void);

@@ -25,7 +25,7 @@ W8ChunkHead& W8Chunk::CurrentHead()
 }
 
 // FUNCTION: WIZ8 0x0055ca20
-std::uint8_t W8Chunk::Read(void* buffer, std::uint32_t size, std::uint32_t* transferred)
+bool W8Chunk::Read(void* buffer, std::uint32_t size, std::uint32_t* transferred)
 {
     if (transferred) *transferred = 0;
     if (!m_hFile) throw std::logic_error("read closed RIFF");

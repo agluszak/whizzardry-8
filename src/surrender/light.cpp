@@ -473,7 +473,7 @@ void srLight::disable(e_enable flag)
 }
 
 // FUNCTION: SURRENDER 0x1004E650
-std::int32_t srLight::isEnabled(e_enable flag) const
+bool srLight::isEnabled(e_enable flag) const
 {
     return (enable_flags & (1 << flag)) != 0;
 }

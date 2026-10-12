@@ -38,7 +38,7 @@ public:
     {
         this->cached = cached;
     }
-    std::int32_t isSurfaceLoaded() const
+    bool isSurfaceLoaded() const
     {
         return surface != 0;
     }

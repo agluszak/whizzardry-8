@@ -454,7 +454,7 @@ std::uint32_t GetBestPartySkillLevel(W8Skill skill_index, std::int32_t* party_sl
 
 void StartMonsterCycle(W8MonsterInfo* monster_info, std::int32_t cycle, std::int32_t behavior);
 void MonsterInfoLeaveCombat(W8MonsterInfo* monster_info);
-std::uint8_t ShutdownMonsterManager(void);
+bool ShutdownMonsterManager(void);
 
 std::string GetMonsterName(W8MonsterInfo* monster_info, W8MonsterRecord* record,
                         std::uint8_t name_form);

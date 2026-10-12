@@ -64,7 +64,7 @@ public:
     W8CameraShakeEffect(const W8CameraShakeEffect& other);  /* 0x004AE000 */
     /* Per-frame evaluation: answers whether the effect is still active and
        reports how much it contributes this frame. */
-    std::uint8_t Evaluate(const srVector3T<float>* position, float* out_amount);
+    bool Evaluate(const srVector3T<float>* position, float* out_amount);
 
     Flags flags;                /* 0x00: runtime effect and list state */
     float intensity;            /* 0x04 */
@@ -121,12 +121,12 @@ public:
     W8GrCycle(const W8GrCycle& other); /* 0x004A5F20 */
     virtual ~W8GrCycle() override;
     // FUNCTION: WIZ8 0x004a7140
-    virtual std::uint8_t CanEnterCycle(std::int8_t)
+    virtual bool CanEnterCycle(std::int8_t)
     {
-        return 1;
+        return true;
     }
     virtual void TickAnimation(float scale);           /* 0x004A6E20 */
-    virtual std::uint8_t ApplyPendingCycle();         /* 0x004A6FC0 */
+    virtual bool ApplyPendingCycle();         /* 0x004A6FC0 */
     virtual void UpdateRepresentation(W8World* world); /* 0x004A7470 */
     virtual std::int8_t GetNumSubCycles() = 0;
     virtual bool IsCycleSupported(std::int8_t cycle) = 0;
@@ -164,7 +164,7 @@ public:
     void UpdateLights();
     srModelInstance* SelectCycleFrameLod(std::int8_t cycle, std::int8_t frame, std::int8_t lod);
     srModelInstance* GetCurrentModelInstance();
-    std::uint8_t ReplacePath(W8PathAI* path);
+    bool ReplacePath(W8PathAI* path);
     void SubmitTargetValue();
 
 public:
@@ -200,7 +200,7 @@ public:
 extern const float g_float_one_thousandth;
 
 W8GrCycle* FindFirstGrCycleByName(std::string_view name);
-std::uint8_t UnregisterGrCycle(W8GrCycle* cycle);
+bool UnregisterGrCycle(W8GrCycle* cycle);
 void RegisterGrCycle(const char* name, W8GrCycle* cycle);
 bool LoadGrCycle(const W8GrCycleLoadContext* context, const char* mon_name, W8GrCycle** cycle,
                  std::int32_t cycle_index, std::int32_t value, const char* directory, std::uint8_t object_type,

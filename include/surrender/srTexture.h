@@ -31,7 +31,7 @@ public:
     void setCompression(e_compression compression);
     void enableHint(e_hint hint);
     void disableHint(e_hint hint);
-    std::int32_t isHintEnabled(e_hint hint) const;
+    bool isHintEnabled(e_hint hint) const;
     void setCorrection(e_correction correction);
     void setMagFilter(e_filter filter);
     void setMinFilter(e_filter filter);

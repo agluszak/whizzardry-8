@@ -241,7 +241,7 @@ CameraRotation W8GameData::cameraRotation(std::uint32_t flags, const glm::mat3& 
 }
 
 // GLOBAL: WIZ8 0x00652dcd
-std::uint8_t g_level_motion_fast;
+bool g_level_motion_fast;
 // GLOBAL: WIZ8 0x00652db9
 bool g_level_footstep_pending;
 // GLOBAL: WIZ8 0x00603ac0
@@ -414,7 +414,7 @@ glm::vec3 W8EnvironRecord::withScaledMotion(const glm::vec3& position) const
 }
 
 // FUNCTION: WIZ8 0x0041FE20
-std::uint8_t W8LevelDataRecord::ClampCameraToBounds(const srVector3T<float>* minimum,
+bool W8LevelDataRecord::ClampCameraToBounds(const srVector3T<float>* minimum,
                                                      const srVector3T<float>* maximum)
 {
     bool clamped = false;
@@ -441,7 +441,7 @@ std::uint8_t W8LevelDataRecord::ClampCameraToBounds(const srVector3T<float>* min
     }
     if (camera_position.z <= maximum->z) {
         if (!clamped) {
-            return 0;
+            return false;
         }
     } else {
         clamped = true;
@@ -593,7 +593,7 @@ W8GDSurface* W8GameData::ProbePropsAlongMotion(srVector3T<float>* direction,
 }
 
 // FUNCTION: WIZ8 0x0041BD60
-std::uint8_t W8GameData::ProbeMonstersAlongMotion(srVector3T<float>* direction,
+bool W8GameData::ProbeMonstersAlongMotion(srVector3T<float>* direction,
                                                    srVector3T<float>* position, std::int32_t)
 {
     std::vector<std::uint32_t> objects;
@@ -625,7 +625,7 @@ std::uint8_t W8GameData::ProbeMonstersAlongMotion(srVector3T<float>* direction,
     objects = g_octree->queryObjects({lower.glmValue(), upper.glmValue()}, W8_OCTREE_KIND_LOCATION, -1);
     count = objects.size();
     if (count == 0) {
-        return 0;
+        return false;
     }
     for (index = 0; index < count; ++index) {
         if (objects[index] == 0) {
@@ -1906,7 +1906,7 @@ void ClearLevelMovementStopped(void)
    into the session accumulators, clear the pending pair, and report whether
    either was above the camera-transition epsilon. */
 // FUNCTION: WIZ8 0x0041f170
-std::uint8_t ConsumeLevelElapsedTime(float* real_elapsed, float* frame_elapsed)
+bool ConsumeLevelElapsedTime(float* real_elapsed, float* frame_elapsed)
 {
     W8LevelDataRecord* record = g_level_data;
     bool elapsed = false;
@@ -2036,10 +2036,10 @@ void ResetCurrentEnvironment(void)
 }
 
 // FUNCTION: WIZ8 0x0041AAE0
-std::uint8_t SetEnvironmentLoadFlag(std::uint8_t flag)
+bool SetEnvironmentLoadFlag(bool flag)
 {
     srVector3T<float> zero_vector(0.0f, 0.0f, 0.0f);
-    std::uint8_t previous = g_environment_load_flag;
+    bool previous = g_environment_load_flag;
     if (g_environ != 0) {
         g_environ->vector = zero_vector;
         if (flag == 0) {
@@ -2390,7 +2390,7 @@ bool W8LevelDataRecord::IntegrateCameraForward()
 }
 
 // FUNCTION: WIZ8 0x00420810
-std::uint8_t W8LevelDataRecord::ApplySavedMotionMatrix(std::uint8_t prior_fast, bool fast_move,
+bool W8LevelDataRecord::ApplySavedMotionMatrix(bool prior_fast, bool fast_move,
                                                         const glm::mat3& saved)
 {
     float horizontal;
@@ -2402,7 +2402,7 @@ std::uint8_t W8LevelDataRecord::ApplySavedMotionMatrix(std::uint8_t prior_fast, 
     motion_input = saved * motion_input;
     integrated_motion = motion_input * camera_scale;
     if (!IntegrateCameraForward()) {
-        return 0;
+        return false;
     }
 
     horizontal = glm::length(glm::vec2(motion_velocity.x, motion_velocity.z));
@@ -2458,7 +2458,7 @@ bool W8LevelDataRecord::UpdateFootstepFromMotion()
    only while its setting-6f2 latch is set, and the secondary follows when it
    is still set on the far side; a secondary that fails the check reports 0. */
 // FUNCTION: WIZ8 0x0041FF00
-std::uint8_t W8LevelDataRecord::ToggleBoundProps()
+bool W8LevelDataRecord::ToggleBoundProps()
 {
     W8Prop* prop;
     bool toggled = false;
@@ -2472,7 +2472,7 @@ std::uint8_t W8LevelDataRecord::ToggleBoundProps()
             if (secondary_contact_prop_id >= 0) {
                 prop = g_world->collidable_props[secondary_contact_prop_id];
                 if (!prop->IsAnimationPingPong()) {
-                    return 0;
+                    return false;
                 }
                 prop->ReverseAnimationDirection();
             }
@@ -2482,7 +2482,7 @@ std::uint8_t W8LevelDataRecord::ToggleBoundProps()
 }
 
 // FUNCTION: WIZ8 0x0041FF90
-void W8LevelDataRecord::UpdateMotionProgress(std::uint8_t fast_move, std::uint8_t moved)
+void W8LevelDataRecord::UpdateMotionProgress(std::uint8_t fast_move, bool moved)
 {
     bool allow_override;
     float length;

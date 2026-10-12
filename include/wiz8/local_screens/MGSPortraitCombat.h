@@ -54,7 +54,7 @@ extern std::int16_t g_submenu_entry_message_ids[25];
 extern std::int32_t g_submenu_entry_help_ids[25];
 
 /* Create the nine-button bank and keep its state flag clear. */
-std::uint8_t CreateSubMenuButtons(void);
+bool CreateSubMenuButtons(void);
 /* Restate one bank button against the live mode flags. */
 void UpdateSubMenuButton(std::int32_t index);
 /* Drop the combat-end notification, rebuild the panel for the saved one. */

@@ -1,6 +1,6 @@
 #pragma once
 
-std::uint8_t InitializeMenuFonts(void);
+bool InitializeMenuFonts(void);
 void ReleaseMenuFonts();
 
 #include <cstdint>

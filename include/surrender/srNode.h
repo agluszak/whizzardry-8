@@ -114,7 +114,7 @@ protected:
     virtual SR_DLL_IMPORT std::int32_t processSignal(std::uint32_t signal, void* value);
     SR_DLL_IMPORT void clearNotify(e_notify notification);
     SR_DLL_IMPORT void setNotify(e_notify notification);
-    SR_DLL_IMPORT std::int32_t testNotify(e_notify notification) const;
+    SR_DLL_IMPORT bool testNotify(e_notify notification) const;
 
 public:
     SR_DLL_IMPORT void dumpHierarchy(std::ostream& stream, std::int32_t indent) const;
@@ -134,9 +134,9 @@ public:
         return parent_;
     }
     SR_DLL_IMPORT srNode* getPrev() const;
-    SR_DLL_IMPORT std::int32_t isChildOf(const srNode& node) const;
-    SR_DLL_IMPORT std::int32_t isParentOf(const srNode& node) const;
-    static SR_DLL_IMPORT std::int32_t isSceneGraphLocked();
+    SR_DLL_IMPORT bool isChildOf(const srNode& node) const;
+    SR_DLL_IMPORT bool isParentOf(const srNode& node) const;
+    static SR_DLL_IMPORT bool isSceneGraphLocked();
     static SR_DLL_IMPORT void lockSceneGraph();
     static SR_DLL_IMPORT void unlockSceneGraph();
 
@@ -207,7 +207,7 @@ public:
     SR_DLL_IMPORT void rotateZ(double angle);
     // Reparenting changes scene membership and preserves the ownership mode.
     // Independently owned nodes remain borrowed until adoptChild transfers them.
-    SR_DLL_IMPORT std::int32_t setParent(srNode* parent, std::int32_t preserve_world_transform);
+    SR_DLL_IMPORT bool setParent(srNode* parent, std::int32_t preserve_world_transform);
     SR_DLL_IMPORT void setLocation(const glm::dvec3& location);
     SR_DLL_IMPORT void setLocation(double x, double y, double z);
     SR_DLL_IMPORT void setLocationX(double x);
@@ -231,7 +231,7 @@ public:
     SR_DLL_IMPORT void notifyDependent();
     SR_DLL_IMPORT void notifyParents(const srFlags<e_notify>& notifications);
     SR_DLL_IMPORT void signal(std::uint32_t signal, void* value);
-    SR_DLL_IMPORT std::int32_t testFlag(e_flag flag) const;
+    SR_DLL_IMPORT bool testFlag(e_flag flag) const;
     SR_DLL_IMPORT void yawAt(const glm::dvec3& target, double amount);
     SR_DLL_IMPORT void yawAt(const srNode* target, double amount);
 

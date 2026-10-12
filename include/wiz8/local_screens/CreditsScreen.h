@@ -17,6 +17,6 @@ struct W8CreditLine {
 };
 
 std::optional<std::string> ReadRetailTextLine(wiz8::File* handle);
-std::uint8_t CreditsScreenEnter(void);
+bool CreditsScreenEnter(void);
 void CreditsScreenFrame(void);
-std::uint8_t CreditsScreenLeave(std::int32_t leaving);
+bool CreditsScreenLeave(std::int32_t leaving);

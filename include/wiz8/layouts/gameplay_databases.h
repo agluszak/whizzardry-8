@@ -88,7 +88,7 @@ enum { W8_MAX_MONSTER_ATTACKS = 3 };
    attack block. */
 #pragma pack(push, 1)
 struct W8MonsterAttack {
-    std::uint8_t fHasAttack; /* Retail offset 0x00 */
+    bool fHasAttack; /* Retail offset 0x00 */
     /* Retail offset 0x01: indexes the announcement verb table; must not be
        MON_WEAPON_NAME_UNARMED. */
     std::uint8_t ubWeaponNameIndex;
@@ -325,7 +325,7 @@ struct W8NpcDatabaseRecord {
     std::uint8_t merchant;
     /* Retail offset 0x057: the NPC carries an RPC character and can join a monster group,
        which is what makes the group index on its runtime state meaningful. */
-    std::uint8_t has_group;
+    bool has_group;
     /* Retail offset 0x058: the NPC's kind. Kind twenty refuses to trade. */
     std::int32_t kind;
     /* Retail offset 0x05c: the disposition byte CreateNpcRuntimeNode starts the state with. */
@@ -381,7 +381,7 @@ struct W8NpcDatabaseRecord {
     /* Retail offset 0x2eb: the purse the NPC carries; the party gets it when the NPC's
        monster dies. */
     std::int32_t gold;
-    std::uint8_t combat_script_notice_enabled;       /* Retail offset 0x2ef: hostile-NPC combat notice */
+    bool combat_script_notice_enabled;       /* Retail offset 0x2ef: hostile-NPC combat notice */
     std::uint8_t allow_dismissed_departure_dialogue; /* Retail offset 0x2f0: permits dismissed-NPC dialogue */
     std::uint8_t unknown_2f1[0x18];
 };
@@ -456,7 +456,7 @@ struct W8MonsterRecord {
     std::string name2; /* Retail offset 0x060: suffix after '#' removed at load */
     std::string name3; /* Retail offset 0x090: suffix after '#' removed at load */
     /* Cosmic Forge's Monster Editor exposes this byte as 'Can open doors'. */
-    std::uint8_t can_open_doors;
+    bool can_open_doors;
     /* Retail offset 0x0c1: rolled by the group-attack summon to size the spawned group. */
     W8Dice group_size_dice;
     W8EncounterCompanionRecord companions[2];

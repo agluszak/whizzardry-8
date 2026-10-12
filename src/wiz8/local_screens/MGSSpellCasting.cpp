@@ -291,12 +291,12 @@ void ReleaseSpellCastingViewControls(void)
    view state, swaps the game mode, builds the panels and redirects the region
    sets the view takes over. */
 // FUNCTION: WIZ8 0x0059F0E0
-std::uint8_t OpenSpellCastingView(std::int32_t party_slot)
+bool OpenSpellCastingView(std::int32_t party_slot)
 {
     W8MainUiMode mode;
 
     if (!IsPartySlotEligible(party_slot)) {
-        return 0;
+        return false;
     }
     if (!gpSCSV) {
         gpSCSV = std::make_unique<W8SpellCastingView>();
@@ -330,7 +330,7 @@ std::uint8_t OpenSpellCastingView(std::int32_t party_slot)
     RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
     PauseMainGameWorld();
     gpSCSV->override_spell = 0;
-    return 1;
+    return true;
 }
 
 /* Tears the spell-casting view down: restores the regions and game mode,
@@ -1129,7 +1129,7 @@ void CommitSpellCastingSelection(void)
    realm button, invalidates its icon, and on enter sets the realm tooltip
    (plain name when disabled, or name with skill level when enabled). */
 // FUNCTION: WIZ8 0x005A0C80
-std::uint8_t SpellRealmButtonRegionEvent(const InputEvent* event, W8Region* region)
+bool SpellRealmButtonRegionEvent(const InputEvent* event, W8Region* region)
 {
     const InputEventType us_event = event->type;
 
@@ -1177,7 +1177,7 @@ std::uint8_t SpellRealmButtonRegionEvent(const InputEvent* event, W8Region* regi
 /* Power-pip / cancel-button region callback (ids 0..8 and 10). While
    input_blocked is set the handler swallows input. */
 // FUNCTION: WIZ8 0x005A0E50
-std::uint8_t SpellPowerPipRegionEvent(const InputEvent* event, W8Region* region)
+bool SpellPowerPipRegionEvent(const InputEvent* event, W8Region* region)
 {
     InputEventType us_event;
     std::uint32_t callback_id;
@@ -1227,16 +1227,16 @@ std::uint8_t SpellPowerPipRegionEvent(const InputEvent* event, W8Region* region)
    the box clears the hover row. The held bits are armed on button down but are
    never cleared on release. */
 // FUNCTION: WIZ8 0x005A0F70
-std::uint8_t SpellCastTextBoxRegionEvent(const InputEvent* event, W8Region* region)
+bool SpellCastTextBoxRegionEvent(const InputEvent* event, W8Region* region)
 {
     W8SpellInfoDialog* dialog;
     std::int32_t line;
 
     if (g_status.selected_character == -1) {
-        return 0;
+        return false;
     }
     if (gpSCSV->iSpellRealm == W8_SPELL_REALM_NONE) {
-        return 0;
+        return false;
     }
     line = g_level_block->text_lines[g_status.text_line_cursor] +
            (GetEventCursorY(event) - region->y1) / 0xb;
@@ -1249,46 +1249,46 @@ std::uint8_t SpellCastTextBoxRegionEvent(const InputEvent* event, W8Region* regi
     switch (event->type) {
     case InputEventType::LeftButtonUp:
         if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) == 0) {
-            return 1;
+            return true;
         }
         if (line == -1) {
-            return 1;
+            return true;
         }
         SelectSpellCastingListRow(line);
-        return 1;
+        return true;
     case InputEventType::LeftButtonDown:
         region->flags |= W8_REGION_LEFT_BUTTON_HELD;
-        return 1;
+        return true;
     case InputEventType::RightButtonDown:
         region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
-        return 1;
+        return true;
     case InputEventType::MouseMove:
         if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
             SelectSpellCastingRow(-1);
         }
-        return 0;
+        return false;
     default:
-        return 0;
+        return false;
     case InputEventType::RightButtonUp:
         if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) == 0) {
-            return 1;
+            return true;
         }
         if (line == -1) {
-            return 1;
+            return true;
         }
         g_saved_target_cursor = gXStatus.iCurrentCursor;
         dialog = new W8SpellInfoDialog(gpSCSV->uiSpells[line]);
         dialog->SetText("");
         dialog->m_destroy_callback = RestoreTargetCursor;
         OpenModal(dialog);
-        return 1;
+        return true;
     }
 }
 
 // FUNCTION: WIZ8 0x005A1140
-std::uint8_t IgnoreSpellCastingInput(const InputEvent* event, W8Region*)
+bool IgnoreSpellCastingInput(const InputEvent* event, W8Region*)
 {
-    return 0;
+    return false;
 }
 
 /* The spell-list row click: re-colors the rows, remembers the spell, then

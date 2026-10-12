@@ -65,7 +65,7 @@ void srNode::unlockSceneGraph()
 }
 
 // FUNCTION: SURRENDER 0x10050380
-std::int32_t srNode::isSceneGraphLocked()
+bool srNode::isSceneGraphLocked()
 {
     return sceneGraphLockCount.load() != 0;
 }
@@ -117,7 +117,7 @@ void srNode::clearNotify(e_notify notification)
 }
 
 // FUNCTION: SURRENDER 0x10050490
-std::int32_t srNode::testNotify(e_notify notification) const
+bool srNode::testNotify(e_notify notification) const
 {
     return (notifications.value & (1 << notification)) != 0;
 }
@@ -252,14 +252,14 @@ srNode::~srNode()
    rebuilds them against the new parent's inverse basis (orthonormalized by
    Gram-Schmidt) so the node's world placement survives the move. */
 // FUNCTION: SURRENDER 0x10050F00
-std::int32_t srNode::setParent(srNode* parent, std::int32_t preserve_world_transform)
+bool srNode::setParent(srNode* parent, std::int32_t preserve_world_transform)
 {
     std::lock_guard access(sceneGraphCSect);
     if (parent == this) {
-        return 0;
+        return false;
     }
     if (parent != 0 && isParentOf(*parent)) {
-        return 0;
+        return false;
     }
     if (preserve_world_transform != 0) {
         rotation = getWorldSpaceRotation<glm::dmat3>();
@@ -290,7 +290,7 @@ std::int32_t srNode::setParent(srNode* parent, std::int32_t preserve_world_trans
     if (testNotify(NOTIFY_TRANSFORM_DIRTY) != 0) {
         updateTransformation();
     }
-    return 1;
+    return true;
 }
 
 void srNode::detach()
@@ -330,24 +330,24 @@ void srNode::unlink()
 }
 
 // FUNCTION: SURRENDER 0x10051370
-std::int32_t srNode::isChildOf(const srNode& node) const
+bool srNode::isChildOf(const srNode& node) const
 {
     const srNode* current = this;
     while (current != 0) {
         if (current == &node) {
-            return 1;
+            return true;
         }
         current = current->parent_;
     }
-    return 0;
+    return false;
 }
 
 // FUNCTION: SURRENDER 0x100513A0
-std::int32_t srNode::isParentOf(const srNode& node) const
+bool srNode::isParentOf(const srNode& node) const
 {
     const srNode* target = &node;
     if (target == 0) {
-        return 0;
+        return false;
     }
     return target->isChildOf(*this);
 }
@@ -454,7 +454,7 @@ void srNode::clearFlag(e_flag flag)
 }
 
 // FUNCTION: SURRENDER 0x10051CB0
-std::int32_t srNode::testFlag(e_flag flag) const
+bool srNode::testFlag(e_flag flag) const
 {
     return (flags.value & (1 << flag)) != 0;
 }

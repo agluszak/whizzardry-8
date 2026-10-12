@@ -342,7 +342,7 @@ void srTexture::disableHint(e_hint hint)
 }
 
 // FUNCTION: SURRENDER 0x1005EDC0
-std::int32_t srTexture::isHintEnabled(e_hint hint) const
+bool srTexture::isHintEnabled(e_hint hint) const
 {
     return (texture_dimensions_.hints & (1 << hint)) != 0;
 }

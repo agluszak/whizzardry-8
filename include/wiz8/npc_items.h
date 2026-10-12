@@ -19,8 +19,8 @@ char RateItemIdentifyDifficulty(W8NpcState* npc, std::int32_t item_id);
 std::int32_t RestockNpcItems(W8NpcState* npc);
 void ClearNpcItems(W8NpcState* npc);
 void SortNpcItems(W8NpcState* npc);
-std::uint8_t PopulateNpcStock(W8NpcState* npc);
-std::uint8_t MaintainNpcStock(W8NpcState* npc, bool force);
+bool PopulateNpcStock(W8NpcState* npc);
+bool MaintainNpcStock(W8NpcState* npc, bool force);
 void MatureNpcDelayedItems(W8NpcState* npc);
 void RestockNpcInventory(W8NpcState* npc); /* 0x0055BCC0 */
 W8NpcItemEntry* GetNpcItemAt(W8NpcState* npc, std::int32_t index);
@@ -29,10 +29,10 @@ bool NpcAcceptsTradeItem(W8NpcState* npc, W8ItemInstance* item);
 bool NpcAcceptsTradeItemClass(W8NpcState* npc, W8ItemInstance* item); /* 0x0055B290 */
 std::int32_t CalculateNpcTradeStackPrice(W8NpcState* npc, std::int32_t item_id, W8TradePriceKind price_kind,
                                 std::uint8_t stack_count, bool identified);
-std::uint8_t ConsumeNpcItemQuantity(W8NpcState* npc, std::int32_t index, std::uint8_t quantity);
+bool ConsumeNpcItemQuantity(W8NpcState* npc, std::int32_t index, std::uint8_t quantity);
 /* 0x0055B730: move a sold/given party item into NPC stock, paying party gold
    unless suppressed (the item being a dialogue topic the NPC wants). */
-std::uint8_t SellItemToNpc(W8NpcState* npc, W8ItemInstance* item, std::uint8_t quantity,
+bool SellItemToNpc(W8NpcState* npc, W8ItemInstance* item, std::uint8_t quantity,
                             bool suppress_payment);
 /* 0x0055B7E0: the stock mutation a completed trade applies for one slot. */
 void DecayNpcInventory(W8NpcState* npc);

@@ -59,7 +59,7 @@ public:
         PixelFormat() : fourcc(0) {}
 
         std::string getName() const;
-        std::int32_t isValid() const;
+        bool isValid() const;
         std::optional<std::size_t> match(std::span<const PixelFormat> formats) const;
 
         std::int32_t operator==(const PixelFormat& other) const

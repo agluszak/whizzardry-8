@@ -32,10 +32,10 @@ void RunMasterFunctions(void);
 void SaveMasterFunctions(void);
 /* Dispatch one world-cursor-node command against the nodes covering `info`'s
    ground-settled position (the camera's when info is null). */
-std::uint8_t DispatchWorldCursorNodeCommand(W8MonsterInfo* info, std::int32_t command, ...);
+bool DispatchWorldCursorNodeCommand(W8MonsterInfo* info, std::int32_t command, ...);
 /* Format the current level's message-database path, fetch the indexed string
    and show it. Answers whether the string existed. */
-std::uint8_t ShowLevelMessage(std::int32_t message_id);
+bool ShowLevelMessage(std::int32_t message_id);
 
 void InitializeLevelMasterFunctions(std::int32_t level);
 W8MonsterGroup* SpawnMonsters(std::int32_t monster_id, std::int32_t count, srVector3T<float>* position, std::int32_t hostility,

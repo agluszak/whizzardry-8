@@ -680,7 +680,7 @@ void TickMonsterCondition(std::int32_t location_id, W8Condition condition, std::
    switch, trait gates, and the same rescan/notify/tail handling as the other
    transitions. */
 // FUNCTION: WIZ8 0x00522FE0
-std::uint8_t SetCharacterCondition(std::int32_t party_slot, W8Condition condition, std::int32_t duration,
+bool SetCharacterCondition(std::int32_t party_slot, W8Condition condition, std::int32_t duration,
                                     std::int32_t poison_strength, char alternate_missing_notice,
                                     char announce)
 {
@@ -701,12 +701,12 @@ std::uint8_t SetCharacterCondition(std::int32_t party_slot, W8Condition conditio
                      0);
     }
     if (condition == W8_CONDITION_POISONED && poison_strength == 0) {
-        return 0;
+        return false;
     }
     if (condition == W8_CONDITION_DEAD && CharacterHasTrait(character, W8_TRAIT_CHEAT_DEATH) &&
         character->uiCondition[W8_CONDITION_UNCONSCIOUS] < 7) {
         CheatDeathRevive(party_slot);
-        return 0;
+        return false;
     }
     switch (condition) {
     case W8_CONDITION_DISEASED:
@@ -717,7 +717,7 @@ std::uint8_t SetCharacterCondition(std::int32_t party_slot, W8Condition conditio
         break;
     default:
         if (duration == 0) {
-            return 0;
+            return false;
         }
         break;
     }
@@ -725,13 +725,13 @@ std::uint8_t SetCharacterCondition(std::int32_t party_slot, W8Condition conditio
         PostCharacterNotice(party_slot,
                             fmt::sprintf(g_localized_strings[0x242],
                                          g_localized_strings[g_condition_notices[condition].name]));
-        return 0;
+        return false;
     }
     switch (condition) {
     case W8_CONDITION_AFRAID:
         if (CharacterHasTrait(character, W8_TRAIT_FEARLESS)) {
             PostCharacterNotice(party_slot, g_localized_strings[0x180]);
-            return 0;
+            return false;
         }
         [[fallthrough]];
     case W8_CONDITION_DISEASED:
@@ -740,7 +740,7 @@ std::uint8_t SetCharacterCondition(std::int32_t party_slot, W8Condition conditio
     case W8_CONDITION_POISONED:
     case W8_CONDITION_ASLEEP:
         if (CharacterHasTrait(character, static_cast<W8Trait>(0x1e))) {
-            return 0;
+            return false;
         }
         break;
     case W8_CONDITION_INSANE:
@@ -751,7 +751,7 @@ std::uint8_t SetCharacterCondition(std::int32_t party_slot, W8Condition conditio
     case W8_CONDITION_TURNCOAT:
         if (CharacterHasTrait(character, W8_TRAIT_MENTAL_CONDITION_IMMUNITY)) {
             PostCharacterNotice(party_slot, g_localized_strings[0x181]);
-            return 0;
+            return false;
         }
         break;
     default:
@@ -779,7 +779,7 @@ std::uint8_t SetCharacterCondition(std::int32_t party_slot, W8Condition conditio
     }
     RebuildConditionsAndDerivedStats(party_slot);
     if (!handled) {
-        return 0;
+        return false;
     }
     if (condition == W8_CONDITION_DEAD) {
         CharacterDies(party_slot);
@@ -804,7 +804,7 @@ std::uint8_t SetCharacterCondition(std::int32_t party_slot, W8Condition conditio
         gXStatus.fCombatMode) {
         ClearPartySlotMonsterHighlights(party_slot);
     }
-    return 1;
+    return true;
 }
 
 /* Copy every condition a character is under onto something else in the world.

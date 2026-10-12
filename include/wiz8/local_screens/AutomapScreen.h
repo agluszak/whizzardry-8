@@ -52,7 +52,7 @@ bool AutomapHasCellAt(const srVector3T<float>* position);
 void ResetAutomapView(void);
 bool SaveAutomapNotes(wiz8::File& handle);
 bool LoadAutomapNotes(wiz8::File& handle);
-std::uint8_t GetAutomapPositionUnderCursor(srVector3T<float>* position);
+bool GetAutomapPositionUnderCursor(srVector3T<float>* position);
 void SetAutomapToolCursor(std::int32_t tool);
 W8AutomapNote* FindAutomapNoteUnderCursor(void);
 void CreateAutomapMarkerSprites(void);
@@ -60,12 +60,12 @@ void RenderAutomapMarkers(void);
 void CreateAutomapButtons(void);
 
 std::uint8_t ReadAutomapNodes(wiz8::File* hFile);
-std::uint8_t AutomapScreenEnter(void);
+bool AutomapScreenEnter(void);
 void AutomapScreenFrame(void);
-std::uint8_t AutomapScreenLeave(std::int32_t leaving);
-std::uint8_t AutomapScreenFinalize(void);
+bool AutomapScreenLeave(std::int32_t leaving);
+bool AutomapScreenFinalize(void);
 /* Full-screen dismiss: left-up after a held press leaves the automap. */
-std::uint8_t AutomapBackgroundRegionEvent(const InputEvent* event, struct W8Region* region);
+bool AutomapBackgroundRegionEvent(const InputEvent* event, struct W8Region* region);
 float GetAutomapGridCellSize(void);
 void SetAutomapGridCellSize(float value);
 /* Packs a world position into an automap cell key. */

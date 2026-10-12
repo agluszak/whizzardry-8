@@ -34,7 +34,7 @@ public:
     std::uint32_t getClassID(ClassNode* node);
     const char* getClassName(ClassNode* node);
     ClassNode* getRootNode();
-    std::int32_t isDerivedOrSame(ClassNode* base, ClassNode* derived);
+    bool isDerivedOrSame(ClassNode* base, ClassNode* derived);
     ClassNode* registerClass(const char* class_name, ClassNode* parent, std::uint32_t class_id);
 
 private:
@@ -59,8 +59,8 @@ public:
 
     SR_DLL_IMPORT void setName(std::string name);
     SR_DLL_IMPORT const std::string& getName() const;
-    SR_DLL_IMPORT std::int32_t isNamed() const;
-    SR_DLL_IMPORT std::int32_t matchClassID(std::uint32_t class_id) const;
+    SR_DLL_IMPORT bool isNamed() const;
+    SR_DLL_IMPORT bool matchClassID(std::uint32_t class_id) const;
 
     virtual SR_DLL_IMPORT ~srRuntimeClass() = default;
 

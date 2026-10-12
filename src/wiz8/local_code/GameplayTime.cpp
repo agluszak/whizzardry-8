@@ -48,7 +48,7 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/gameplay_databases.h"
 
-std::uint8_t CombatBarRegionEvent(const InputEvent* event, W8Region* region);
+bool CombatBarRegionEvent(const InputEvent* event, W8Region* region);
 
 namespace {
 static constexpr std::array<RegionTemplate, 1> g_game_time_combat_bar_template{{

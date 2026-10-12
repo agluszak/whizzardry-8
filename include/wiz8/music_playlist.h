@@ -12,8 +12,8 @@ extern std::int32_t g_music_pause_min_seconds;
 extern std::int32_t g_music_pause_max_seconds;
 extern std::int32_t g_music_pause_chance_percent;
 
-std::uint8_t InitializeMusicPlaylist(void);
-std::uint8_t StartMusicResource(const char* resource, std::int32_t fade, std::uint8_t replace_current);
+bool InitializeMusicPlaylist(void);
+bool StartMusicResource(const char* resource, std::int32_t fade, bool replace_current);
 
 void ServiceMusicPlaylist(void);
 void StopMusicPlaylist(bool fade);

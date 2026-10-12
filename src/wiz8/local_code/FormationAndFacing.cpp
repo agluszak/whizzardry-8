@@ -734,7 +734,7 @@ void RebuildPartyStatus(W8PartyFormationState* status, const W8PartySlotRow* par
 /* Whether the monster currently faces the party's own position, inside the
    usual facing tolerance - the mirror of IsPartyLookingAt. */
 // FUNCTION: WIZ8 0x00555a60
-std::int32_t IsMonsterFacingParty(W8MonsterInfo* monster_info)
+bool IsMonsterFacingParty(W8MonsterInfo* monster_info)
 {
     srVector3T<float> party_position = g_startup_world->GetPosition();
     return IsPartyLookingAt(monster_info, party_position);
@@ -742,7 +742,7 @@ std::int32_t IsMonsterFacingParty(W8MonsterInfo* monster_info)
 
 /* Whether the first monster faces the second, inside the usual tolerance. */
 // FUNCTION: WIZ8 0x00555b00
-std::int32_t IsMonsterFacingMonster(W8MonsterInfo* first, W8MonsterInfo* second)
+bool IsMonsterFacingMonster(W8MonsterInfo* first, W8MonsterInfo* second)
 {
     srVector3T<float> second_position = second->p3D->GetPosition();
     return IsPartyLookingAt(first, second_position);
@@ -751,7 +751,7 @@ std::int32_t IsMonsterFacingMonster(W8MonsterInfo* first, W8MonsterInfo* second)
 /* Whether the second monster is looking away from the first, measured the
    shortest way round like IsPartyLookingAwayFrom. */
 // FUNCTION: WIZ8 0x00555de0
-std::int32_t IsMonsterLookingAwayFrom(W8MonsterInfo* first, W8MonsterInfo* second)
+bool IsMonsterLookingAwayFrom(W8MonsterInfo* first, W8MonsterInfo* second)
 {
     srVector3T<float> first_position = first->p3D->GetPosition();
     srVector3T<float> second_position = second->p3D->GetPosition();
@@ -759,9 +759,9 @@ std::int32_t IsMonsterLookingAwayFrom(W8MonsterInfo* first, W8MonsterInfo* secon
     float facing = second->p3D->GetYaw();
 
     if (static_cast<float>(g_facing_tolerance1) <= ShortestAngleDistance(bearing, facing)) {
-        return 1;
+        return true;
     }
-    return 0;
+    return false;
 }
 
 /* The monster's bearing off the camera direction folded into one of the four
@@ -827,7 +827,7 @@ void TurnCharacterTowardMonster(std::int32_t party_slot, W8MonsterInfo* monster_
 /* Whether the monster sits on the side opposite the one the character faces -
    the being-snuck-up-on test. */
 // FUNCTION: WIZ8 0x00555c60
-std::int32_t IsMonsterBehindCharacter(W8MonsterInfo* monster_info, std::int32_t party_slot)
+bool IsMonsterBehindCharacter(W8MonsterInfo* monster_info, std::int32_t party_slot)
 {
     srVector3T<float> monster_position = monster_info->p3D->GetPosition();
     std::int8_t side;
@@ -848,7 +848,7 @@ std::int32_t IsMonsterBehindCharacter(W8MonsterInfo* monster_info, std::int32_t 
         break;
     default:
         srAssertFail("FALSE", FORMATION_CPP, 0x456, 0);
-        return 0;
+        return false;
     }
     difference = side - g_status.formation.positions[party_slot].facing;
     if (difference < 0) {

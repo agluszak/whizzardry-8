@@ -425,7 +425,7 @@ void NavigatorDefaultCallback(W8Navigator* navigator);
 
 extern const float g_navigator_vertical_phase_step;
 extern const float g_navigator_snap_angle;
-extern std::uint8_t g_combat_inactive;
+extern bool g_combat_inactive;
 extern std::uint8_t g_navigator_link_mode;
 extern const float g_navigator_linked_radius_scale;
 extern std::vector<W8Navigator*> g_navigator_group;

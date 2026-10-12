@@ -58,7 +58,7 @@ static W8TextControl* g_combat_effect_left_rows[9];
 static void RebuildCombatEffectHudRows(void);
 
 // FUNCTION: WIZ8 0x005AE9D0
-std::uint8_t CreateSpellIconHudControls(void)
+bool CreateSpellIconHudControls(void)
 {
     g_spell_icon_strip.reset();
     g_combat_effect_left_panel.reset();
@@ -66,23 +66,23 @@ std::uint8_t CreateSpellIconHudControls(void)
 
     g_spell_icon_strip = std::make_unique<Controls>(0x19d, 0, 0x280, 0x12, std::nullopt, 0);
     if (!g_spell_icon_strip) {
-        return 0;
+        return false;
     }
 
     g_spell_icon_count = 0;
     g_combat_effect_left_panel = std::make_unique<Controls>(0x81, 0x14, 0x13d, 0x28, std::nullopt, 0);
     if (!g_combat_effect_left_panel) {
-        return 0;
+        return false;
     }
 
     g_combat_effect_left_count = 0;
     g_combat_effect_right_panel = std::make_unique<Controls>(0x182, 0x14, 0x1ff, 0x28, std::nullopt, 0);
     if (!g_combat_effect_right_panel) {
-        return 0;
+        return false;
     }
 
     g_combat_effect_right_count = 0;
-    return 1;
+    return true;
 }
 
 /* Strip rows are detached before destruction. Destruction can change the
@@ -331,29 +331,29 @@ static std::uint32_t FindActiveEffectSlotIndex(const W8EffectSlot* slots, std::u
 
 /* All three effect strips use the same active-slot hover policy. The caller
    retains the combat guard and sound setup before supplying its current slots. */
-static std::uint8_t DispatchEffectIconRegionEvent(const InputEvent* event, W8Region* region,
+static bool DispatchEffectIconRegionEvent(const InputEvent* event, W8Region* region,
                                                    const W8EffectSlot* slots, std::uint32_t count,
                                                    void (*show_help)(std::int32_t))
 {
     std::uint32_t slot_index = FindActiveEffectSlotIndex(slots, count, region->callback_id);
     if (slot_index != count && event->type == InputEventType::MouseMove) {
         if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
-            return 1;
+            return true;
         }
         if ((region->flags & W8_REGION_MOUSE_ENTER) != 0) {
             show_help(slot_index);
-            return 1;
+            return true;
         }
         if (g_effect_icon_help_duration != slots[slot_index].duration) {
             show_help(slot_index);
             ResetRegionHelp(false);
         }
     }
-    return 0;
+    return false;
 }
 
 // FUNCTION: WIZ8 0x005AEEA0
-std::uint8_t PartyEffectIconRegionEvent(const InputEvent* event, W8Region* region)
+bool PartyEffectIconRegionEvent(const InputEvent* event, W8Region* region)
 {
     PushButtonSoundScheme(0, true);
     return DispatchEffectIconRegionEvent(event, region, g_status.effect_slots, 12,
@@ -378,10 +378,10 @@ void ShowCombatRightEffectIconHelp(std::int32_t slot_index)
    effect slot and refresh help on enter. */
 
 // FUNCTION: WIZ8 0x005AF530
-std::uint8_t CombatLeftEffectIconRegionEvent(const InputEvent* event, W8Region* region)
+bool CombatLeftEffectIconRegionEvent(const InputEvent* event, W8Region* region)
 {
     if (!gXStatus.fCombatMode) {
-        return 0;
+        return false;
     }
     PushButtonSoundScheme(0, true);
     return DispatchEffectIconRegionEvent(event, region, g_combat_state->effect_slots, 9,
@@ -391,10 +391,10 @@ std::uint8_t CombatLeftEffectIconRegionEvent(const InputEvent* event, W8Region* 
 /* Right combat-effect strip (six slots at g_combat_state->effect_slots0). */
 
 // FUNCTION: WIZ8 0x005AF5E0
-std::uint8_t CombatRightEffectIconRegionEvent(const InputEvent* event, W8Region* region)
+bool CombatRightEffectIconRegionEvent(const InputEvent* event, W8Region* region)
 {
     if (!gXStatus.fCombatMode) {
-        return 0;
+        return false;
     }
     PushButtonSoundScheme(0, true);
     return DispatchEffectIconRegionEvent(event, region, g_combat_state->effect_slots0, 6,

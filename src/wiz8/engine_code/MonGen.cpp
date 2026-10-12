@@ -50,7 +50,7 @@
 
 /* These are recovered in their owning Local Code units. Retail MonGen calls
    them out of line, so keep the cross-TU seams rather than cloning their logic. */
-std::uint8_t LinkMonsterGroupToLeader(W8MonsterGroup* leader,
+bool LinkMonsterGroupToLeader(W8MonsterGroup* leader,
                                        W8MonsterGroup* monster_group); /* 0x0050FC20 */
 
 // FUNCTION: WIZ8 0x0048A680
@@ -289,7 +289,7 @@ std::int32_t MonGen::RollEncounterGroupSize(W8MonsterRecord* record)
    group as a live random encounter. The bit-5 form is only valid for hostile
    factions while one of the three story facts is set. */
 // FUNCTION: WIZ8 0x0048AD20
-std::uint8_t MonGen::GenerateEncounter(const srVector3T<float>* position)
+bool MonGen::GenerateEncounter(const srVector3T<float>* position)
 {
     W8EncounterCompanionRecord companion_records[2];
     bool companion_active[2] = {false, false};
@@ -304,14 +304,14 @@ std::uint8_t MonGen::GenerateEncounter(const srVector3T<float>* position)
     std::int32_t index;
 
     if ((flags & W8_MONGEN_DISABLED) != 0 || encounter_table_index == -1) {
-        return 0;
+        return false;
     }
 
     table = GetEncounterTable(encounter_table_index);
-    if (!table) return 0;
+    if (!table) return false;
     const auto* selected = SelectEncounterCandidate(*table);
     if (!selected) {
-        return 0;
+        return false;
     }
 
     species = selected->species;
@@ -326,7 +326,7 @@ std::uint8_t MonGen::GenerateEncounter(const srVector3T<float>* position)
         DebugMessage(1, fmt::format("MonGen::GenerateEncounter: WARNING - DBS record for monster "
                                     "species {:d} has been DELETED!",
                                     species));
-        return 0;
+        return false;
     }
 
     /* Retail computes this total even though the surviving release path never
@@ -345,7 +345,7 @@ std::uint8_t MonGen::GenerateEncounter(const srVector3T<float>* position)
         if (GetFactionDisposition(record->faction_id) != W8_FACTION_HOSTILE ||
             (!GetFact(W8_FACT_DESTINAE_POSSESS) && !GetFact(W8_FACT_ASTRAL_POSSESS) &&
              !GetFact(W8_FACT_CHAOS_POSSESS))) {
-            return 0;
+            return false;
         }
     }
 
@@ -386,7 +386,7 @@ std::uint8_t MonGen::GenerateEncounter(const srVector3T<float>* position)
                          fmt::format("MonGen::GenerateEncounter: WARNING - DBS record for monster "
                                      "species {:d} has been DELETED, chum of species {:d}!",
                                      companion_species, species));
-            return 0;
+            return false;
         }
 
         std::int32_t companion_group_count = RollDice(&companion_record->group_size_dice);
@@ -408,7 +408,7 @@ std::uint8_t MonGen::GenerateEncounter(const srVector3T<float>* position)
                                group->member_count, group_name, companion_count, companion_word,
                                selected->challenge_level));
     }
-    return 1;
+    return true;
 }
 
 /* Refuse generation while global gameplay modes block it, while the generator
@@ -639,7 +639,7 @@ std::uint8_t MonGen::LoadAll(wiz8::File& save_handle)
 try
 {
     W8LevelDatabaseRecord* level;
-    std::uint8_t success;
+    bool success;
     std::int32_t version;
     std::int32_t count;
     std::int32_t index;
@@ -850,7 +850,7 @@ std::uint8_t MonGen::Load(wiz8::File& handle)
 try
 {
     std::uint8_t version;
-    std::uint8_t ok;
+    bool ok;
     bool loaded;
 
     ok = (handle.read(&version, 1).bytes == static_cast<std::size_t>(1));
@@ -938,7 +938,7 @@ static void LoadMonsterGeneratorMarker(MonGen* generator)
    disarming drops the flag and notifies the world. Both directions are no-ops
    when the flag already reads as asked. */
 // FUNCTION: WIZ8 0x0048b770
-void MonGen::SetActive(std::uint8_t active, W8Item* node)
+void MonGen::SetActive(bool active, W8Item* node)
 {
     (void)node;
     if (((flags >> 2) & 1) == active) {

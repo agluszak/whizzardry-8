@@ -302,7 +302,7 @@ void W8OptionsSaveLoadPanel::SetActive(bool active)
 }
 
 /* Commit or cancel the active save-name edit before changing options pages. */
-static void FinishOptionsTextEdit(W8OptionsScreen* screen, std::uint8_t cancelled)
+static void FinishOptionsTextEdit(W8OptionsScreen* screen, bool cancelled)
 {
     W8OptionsTextEditor* editor = screen->m_text_editor.get();
     if (!editor)
@@ -412,7 +412,7 @@ void W8OptionsSaveLoadPanel::OnDialogClosed(bool accepted, std::int32_t value)
     }
 }
 
-void W8OptionsSaveLoadPanel::OnTextEditComplete(W8OptionsTextEditor*, std::uint8_t cancelled)
+void W8OptionsSaveLoadPanel::OnTextEditComplete(W8OptionsTextEditor*, bool cancelled)
 {
     std::int32_t selected_slot = m_current * 5 + m_selection.m_selectedIndex;
     m_rows[m_editing_row]->m_editing = false;
@@ -833,17 +833,17 @@ void W8OptionsKeyboardPanel::SetActive(bool active)
     m_selection.SetSelected(-1);
 }
 
-std::uint8_t W8OptionsKeyboardPanel::OnKey(std::uint16_t key, std::uint16_t modifiers)
+bool W8OptionsKeyboardPanel::OnKey(std::uint16_t key, std::uint16_t modifiers)
 {
     if (modifiers != 0) {
-        return 0;
+        return false;
     }
     if (key != VK_ESCAPE) {
         ClearDuplicateBinding(key);
     }
     m_captured_button->SetKey(key);
     m_selection.SetSelected(-1);
-    return 1;
+    return true;
 }
 
 void W8OptionsKeyboardPanel::OnDialogClosed(bool accepted, std::int32_t)
@@ -1830,20 +1830,20 @@ void W8OptionsScreen::OnSelectionChanged(W8ControlSelection*, std::int32_t selec
 /* State 10 first transfers its option values back to the shared settings
    block, then releases every controller-owned control before returning the
    display and region systems to their common screen boundary. */
-std::uint8_t OptionsScreenLeave(std::int32_t)
+bool OptionsScreenLeave(std::int32_t)
 {
     g_options_values.applying = 1;
     g_options_values.TransferSettings();
     g_options_screen.reset();
     NoOp();
     ResetRegions();
-    return 1;
+    return true;
 }
 
 /* State 10 creates the controller after resetting the shared 2D screen
    systems.  The selected panel is determined by the transition mode, with the
    in-game branch preserving the combat and save-state overrides. */
-std::uint8_t OptionsScreenEnter()
+bool OptionsScreenEnter()
 {
     std::int32_t selected;
 
@@ -1880,7 +1880,7 @@ std::uint8_t OptionsScreenEnter()
     }
     g_options_screen->SelectPanel(selected, true);
     g_options_first_frame = true;
-    return 1;
+    return true;
 }
 
 /* The state-10 frame owns modal retirement, input refusal order and redraw

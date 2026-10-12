@@ -170,7 +170,7 @@ public:
     /* Add one keyword line to the transcript unless the text is already
        present; a nonzero mark puts the new entry in state 0x60, and any
        leftover "[No Keywords]" placeholder is removed afterwards. */
-    std::uint8_t AddTranscriptEntry(std::string_view text, std::int8_t category, char mark);
+    bool AddTranscriptEntry(std::string_view text, std::int8_t category, char mark);
     /* Whether the expanded transcript's top edge reaches above the portrait
        band for an odd party slot (1 -> 0x67, 3 -> 0xbc, 5 -> 0x111, 7 ->
        always covered). Callers use it to skip portrait work on rows the
@@ -350,7 +350,7 @@ public:
     std::int32_t m_picked_tumbler;              /* index OnTumblerPicked recorded */
     std::int32_t m_state;                       /* Process() state */
     std::int32_t m_tumbler_owner[8];            /* owning party slot per pin, -1 unset */
-    std::uint8_t m_tumbler_locked[8]; /* pin kept when the slot is released */
+    bool m_tumbler_locked[8]; /* pin kept when the slot is released */
     std::int32_t m_slot_attempts[8];            /* pick attempts per party slot */
     W8GameTimer m_timer;               /* state-8 completion delay */
 };
@@ -437,7 +437,7 @@ void ApplyMainGameRedrawFlags(void);
 void DrawMainGameScreen(void);
 void CancelMouselook();
 void SetTooltipSubject(std::int32_t kind, std::int32_t subject);
-std::int32_t IsScreenInputBlocked(void);
+bool IsScreenInputBlocked(void);
 void DisableCombatRegions(void);
 
 extern bool g_radar_panel_shown;
@@ -457,7 +457,7 @@ enum W8MainGameMode {
 extern W8MainGameMode g_main_game_mode;
 extern std::int32_t g_selected_party_slot;
 std::int32_t GetSelectedPartySlot(void);
-void RequestLevelTransition(std::int32_t level, std::int32_t entry, std::uint8_t flag);
+void RequestLevelTransition(std::int32_t level, std::int32_t entry, bool flag);
 extern bool g_build_level_links;
 extern std::int32_t g_next_link_level;
 extern bool g_navigator_position_changed;
@@ -467,8 +467,8 @@ void SetViewportMode(std::int32_t mode);
    panels, optionally re-raise them from settings prefs, refresh tooltip and
    region state, and sync both settings and the level-block mode field. */
 void ApplyMainGameModeFlag(W8MainUiMode mode, bool enable);
-std::uint8_t ProcessMainGameInput(void);
-void TickAmbientFollowUpIdle(std::uint8_t input_handled);
+bool ProcessMainGameInput(void);
+void TickAmbientFollowUpIdle(bool input_handled);
 /* Re-sync the eight party slots' region sets and portrait hit
    regions with occupancy, the monster-entry flag and the display mode; the
    party add/remove entries and the keyboard menu's close run it. */
@@ -503,24 +503,24 @@ inline void ClearScreenWait(void)
 }
 /* Portrait condition / enchantment orbs (help 25 / 26): hold opens the
    mode-6 hover overlay; leave and release tear it down. */
-std::uint8_t PortraitConditionOrbRegionEvent(const InputEvent* event, struct W8Region* region);
-std::uint8_t PortraitEnchantmentOrbRegionEvent(const InputEvent* event, struct W8Region* region);
+bool PortraitConditionOrbRegionEvent(const InputEvent* event, struct W8Region* region);
+bool PortraitEnchantmentOrbRegionEvent(const InputEvent* event, struct W8Region* region);
 /* Party portrait hit regions: select, target, open camp, and drag-hover. */
-std::uint8_t PortraitSelectRegionEvent(const InputEvent* event, struct W8Region* region);
+bool PortraitSelectRegionEvent(const InputEvent* event, struct W8Region* region);
 /* Help 28: portrait side bar that opens Assay on the hovered weapon/item. */
-std::uint8_t PortraitAssaySidebarRegionEvent(const InputEvent* event, struct W8Region* region);
+bool PortraitAssaySidebarRegionEvent(const InputEvent* event, struct W8Region* region);
 /* Help 24: portrait overlay hover strip; drives portrait_overlay_party_slot. */
-std::uint8_t PortraitOverlayHoverRegionEvent(const InputEvent* event, struct W8Region* region);
+bool PortraitOverlayHoverRegionEvent(const InputEvent* event, struct W8Region* region);
 /* Region set 4: the eight combat-action hit regions beside the portraits. */
-std::uint8_t PartyCombatActionRegionEvent(const InputEvent* event, struct W8Region* region);
+bool PartyCombatActionRegionEvent(const InputEvent* event, struct W8Region* region);
 /* Help 31: radar-map button beside the text area. */
-std::uint8_t RadarMapButtonRegionEvent(const InputEvent* event, struct W8Region* region);
+bool RadarMapButtonRegionEvent(const InputEvent* event, struct W8Region* region);
 /* Region 23: the 3D world view. Hover refreshes the combat selection/target,
    left-up runs the targeting/item/monster dispatch, right-down opens monster
    info or the assay dialog, and the mouselook latch arms and releases here. */
-std::uint8_t WorldViewRegionEvent(const InputEvent* event, struct W8Region* region);
+bool WorldViewRegionEvent(const InputEvent* event, struct W8Region* region);
 /* Help 36: combat monster-list hit rows beside the radar map. */
-std::uint8_t MonsterListRegionEvent(const InputEvent* event, struct W8Region* region);
+bool MonsterListRegionEvent(const InputEvent* event, struct W8Region* region);
 void SetMainGameMode(W8MainGameMode mode);
 void SetFormationBoardVisible(bool visible);
 void ToggleMainGamePause(void);
@@ -592,8 +592,8 @@ void EndLockInteractMode(char suspend);
 void UpdateMainGameScreen(void);
 void EndTrapInteractMode(char suspend);
 std::int32_t GetPartySlotLocksTrapsLevel(std::int32_t slot);
-std::int32_t OpenLockInteraction(Trigger* trigger);
-std::int32_t OpenTrapInteraction(Trigger* trigger);
+bool OpenLockInteraction(Trigger* trigger);
+bool OpenTrapInteraction(Trigger* trigger);
 /* When a slot's committed action cannot execute, re-choose a
    fallback hand, breath or character attack, or reroute spell/item aiming. */
 void FallbackFromUnreachableAction(std::int32_t party_slot);
@@ -608,17 +608,17 @@ void ResetMainGameMode(void);
 void CreateSurpriseFade(void);
 void ReverseSurpriseFade(void);
 void DestroySurpriseFade(void);
-std::uint8_t UpdateSurpriseFade(void);
-std::uint8_t OpenUseItemSelectView(std::int32_t slot);
+bool UpdateSurpriseFade(void);
+bool OpenUseItemSelectView(std::int32_t slot);
 
-std::uint8_t MainGameScreenEnter(void);
+bool MainGameScreenEnter(void);
 void MainGameScreenFrame(void);
-std::uint8_t MainGameScreenLeave(std::int32_t leaving);
+bool MainGameScreenLeave(std::int32_t leaving);
 void ShowMainGameNoticeLine(std::string_view text, W8DialogDestroyCallback callback, bool confirmation,
                             bool cancel);
 
-std::uint8_t CombatBarRegionEvent(const InputEvent* event, struct W8Region* region);
-std::uint8_t DialogueTranscriptRegionEvent(const InputEvent* event, struct W8Region* region);
+bool CombatBarRegionEvent(const InputEvent* event, struct W8Region* region);
+bool DialogueTranscriptRegionEvent(const InputEvent* event, struct W8Region* region);
 void SelectNpcBuyMode(void);
 void ConfirmNpcTradeItem(void);
 void RestockNpcTradeStock(void);

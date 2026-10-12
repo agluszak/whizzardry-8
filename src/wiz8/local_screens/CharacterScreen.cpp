@@ -614,7 +614,7 @@ void W8CharacterScreen::ShowMessage(std::string_view text, std::int32_t confirma
 }
 
 // FUNCTION: WIZ8 0x005b1520
-void W8CharacterScreen::HandleDialogResult(std::int32_t response, std::uint8_t accepted)
+void W8CharacterScreen::HandleDialogResult(std::int32_t response, bool accepted)
 {
     if (accepted) {
         switch (response) {
@@ -699,13 +699,13 @@ W8Character* W8CharacterScreen::GetOriginalCharacter()
 
 /* Retail's shared success return, also used by the screen lifecycle table. */
 // FUNCTION: WIZ8 0x005b1740
-std::uint8_t ScreenLifecycleSuccess(void)
+bool ScreenLifecycleSuccess(void)
 {
-    return 1;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x005b1750
-std::uint8_t CharacterScreenEnter(void)
+bool CharacterScreenEnter(void)
 {
     SetViewport(0, 0, 0x280, 0x1e0);
     SetPrimarySurfaceTextureHint2Enabled(false);
@@ -720,16 +720,16 @@ std::uint8_t CharacterScreenEnter(void)
         (g_current_screen_state.mode == 0 || g_current_screen_state.mode == 2)) {
         StartMusicResource("Menus.MPL", 1, 1);
     }
-    return 1;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x005b1840
-std::uint8_t CharacterScreenLeave(std::int32_t leaving)
+bool CharacterScreenLeave(std::int32_t leaving)
 {
     if (leaving) g_character_screen.reset();
     NoOp();
     ResetRegions();
-    return 1;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x005b18e0
