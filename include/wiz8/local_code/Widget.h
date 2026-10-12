@@ -61,6 +61,7 @@ protected:
     bool OwnsRegion() const;
     void ReleaseRegion();
     void UpdateRegionBounds(int left, int top, int right, int bottom);
+    SDL_Point PanelOrigin() const;
 
 public:
     /* Read from outside the class by Local Screens\RCSCommon.cpp, which is what
