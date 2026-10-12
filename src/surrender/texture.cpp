@@ -254,6 +254,18 @@ void srTexture::setMipmapBias(float bias)
     mipmap_bias = bias;
 }
 
+// Packed state keeps each field at a fixed shift; these helpers read and replace one field.
+template<class Enum>
+static w8_ulong withField(w8_ulong packed, w8_ulong field_mask, unsigned shift, Enum value)
+{
+    return (packed & ~field_mask) | (static_cast<w8_ulong>(value) << shift);
+}
+
+static w8_ulong readField(w8_ulong packed, unsigned shift, w8_ulong width_mask)
+{
+    return (packed >> shift) & width_mask;
+}
+
 // FUNCTION: SURRENDER 0x1005EC60
 void srTexture::setCorrection(e_correction correction)
 {
@@ -263,33 +275,31 @@ void srTexture::setCorrection(e_correction correction)
 // FUNCTION: SURRENDER 0x1005EC80
 void srTexture::setMagFilter(e_filter filter)
 {
-    packed_state =
-        (packed_state & ~Parameters::MAG_FILTER_MASK) | (filter << Parameters::MAG_FILTER_SHIFT);
+    packed_state = withField(packed_state, Parameters::MAG_FILTER_MASK, Parameters::MAG_FILTER_SHIFT, filter);
 }
 
 // FUNCTION: SURRENDER 0x1005ECA0
 void srTexture::setMinFilter(e_filter filter)
 {
-    packed_state =
-        (packed_state & ~Parameters::MIN_FILTER_MASK) | (filter << Parameters::MIN_FILTER_SHIFT);
+    packed_state = withField(packed_state, Parameters::MIN_FILTER_MASK, Parameters::MIN_FILTER_SHIFT, filter);
 }
 
 // FUNCTION: SURRENDER 0x1005ECC0
 void srTexture::setMipmap(e_mipmap mipmap)
 {
-    packed_state = (packed_state & ~Parameters::MIPMAP_MASK) | (mipmap << Parameters::MIPMAP_SHIFT);
+    packed_state = withField(packed_state, Parameters::MIPMAP_MASK, Parameters::MIPMAP_SHIFT, mipmap);
 }
 
 // FUNCTION: SURRENDER 0x1005ECE0
 void srTexture::setWrapS(e_wrap wrap)
 {
-    packed_state = (packed_state & ~Parameters::WRAP_S_MASK) | (wrap << Parameters::WRAP_S_SHIFT);
+    packed_state = withField(packed_state, Parameters::WRAP_S_MASK, Parameters::WRAP_S_SHIFT, wrap);
 }
 
 // FUNCTION: SURRENDER 0x1005ED00
 void srTexture::setWrapT(e_wrap wrap)
 {
-    packed_state = (packed_state & ~Parameters::WRAP_T_MASK) | (wrap << Parameters::WRAP_T_SHIFT);
+    packed_state = withField(packed_state, Parameters::WRAP_T_MASK, Parameters::WRAP_T_SHIFT, wrap);
 }
 
 // FUNCTION: SURRENDER 0x1005ED20
@@ -301,31 +311,31 @@ srTextureIFace::e_correction srTexture::getCorrection() const
 // FUNCTION: SURRENDER 0x1005ED30
 srTextureIFace::e_filter srTexture::getMagFilter() const
 {
-    return static_cast<e_filter>((packed_state >> Parameters::MAG_FILTER_SHIFT) & 7);
+    return static_cast<e_filter>(readField(packed_state, Parameters::MAG_FILTER_SHIFT, 7));
 }
 
 // FUNCTION: SURRENDER 0x1005ED40
 srTextureIFace::e_filter srTexture::getMinFilter() const
 {
-    return static_cast<e_filter>((packed_state >> Parameters::MIN_FILTER_SHIFT) & 7);
+    return static_cast<e_filter>(readField(packed_state, Parameters::MIN_FILTER_SHIFT, 7));
 }
 
 // FUNCTION: SURRENDER 0x1005ED50
 srTextureIFace::e_mipmap srTexture::getMipmap() const
 {
-    return static_cast<e_mipmap>((packed_state >> Parameters::MIPMAP_SHIFT) & 3);
+    return static_cast<e_mipmap>(readField(packed_state, Parameters::MIPMAP_SHIFT, 3));
 }
 
 // FUNCTION: SURRENDER 0x1005ED60
 srTextureIFace::e_wrap srTexture::getWrapS() const
 {
-    return static_cast<e_wrap>((packed_state >> Parameters::WRAP_S_SHIFT) & 1);
+    return static_cast<e_wrap>(readField(packed_state, Parameters::WRAP_S_SHIFT, 1));
 }
 
 // FUNCTION: SURRENDER 0x1005ED70
 srTextureIFace::e_wrap srTexture::getWrapT() const
 {
-    return static_cast<e_wrap>((packed_state >> Parameters::WRAP_T_SHIFT) & 1);
+    return static_cast<e_wrap>(readField(packed_state, Parameters::WRAP_T_SHIFT, 1));
 }
 
 // FUNCTION: SURRENDER 0x1005ED80
