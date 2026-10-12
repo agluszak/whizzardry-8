@@ -102,6 +102,22 @@ void W8ButtonWidget::SetVisible(bool visible)
     UpdateRegionMousePosition(mouse.x, mouse.y);
 }
 
+void W8ButtonWidget::SetImage(ButtonImage image)
+{
+    m_appearance.quick_image = std::move(image);
+    m_dirty = true;
+}
+
+void W8ButtonWidget::SetCircularHitArea(SDL_Point center, int radius)
+{
+    m_target->setShape(UiCircle{center, radius});
+}
+
+void W8ButtonWidget::SetTooltip(std::function<std::string()> text)
+{
+    m_target->setTooltip(std::move(text));
+}
+
 // FUNCTION: WIZ8 0x005dba70
 void W8ButtonWidget::SetTooltipEnabled(bool enabled)
 {
@@ -236,9 +252,11 @@ UiResult W8ButtonWidget::HandlePointer(const UiPointerEvent& event)
         if (m_interaction.leave(policy) && policy.controller_activation && policy.repeat)
             PushButtonSoundScheme(0, true);
         m_dirty = true;
+        if (on_hover) on_hover(false);
         if (m_enabled && !policy.controller_activation) PlayButtonSound(1);
         return UiResult::Handled;
     }
+    if (event.action == UiPointerAction::Enter && on_hover) on_hover(true);
     if (!m_enabled) return UiResult::Handled;
     const auto mask = event.button == UiPointerButton::Right ? SDL_BUTTON_RMASK : SDL_BUTTON_LMASK;
     const auto callback = event.button == UiPointerButton::Right ? m_right_callback : m_left_callback;

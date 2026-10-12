@@ -1665,41 +1665,19 @@ void W8MainGameTextPanel::OnRangeChanged(W8RangeControl* control)
 }
 
 W8MainGameStatusPanel::W8MainGameStatusPanel()
-    : Controls(0x17, 0x166, 0, 0, CatalogArtwork::Load(0x1b1, 0), 0)
 {
-    W8ControlsRect bounds;
-
-    bounds.left = ScreenBounds().x + 0x25;
-    bounds.top = ScreenBounds().y + 7;
-    bounds.right = ScreenBounds().x + 0xb4;
-    bounds.bottom = ScreenBounds().y + 0x11;
-    m_text.reset(new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4));
-    bounds.top += 0xe;
-    bounds.bottom += 0xe;
-    m_text0 = std::make_unique<W8TextBuffer>(&bounds, g_localized_strings[0x7a9], g_wiz_text_font_secondary,
-                               g_W8TextBufferAlignLeft, 4);
-    bounds.top += 0xe;
-    bounds.bottom += 0xe;
-    m_text2 = std::make_unique<W8TextBuffer>(&bounds, g_localized_strings[0x7aa], g_wiz_text_font_secondary,
-                               g_W8TextBufferAlignLeft, 4);
-    bounds.top += 0xe;
-    bounds.bottom += 0xe;
-    m_text4 = std::make_unique<W8TextBuffer>(&bounds, g_localized_strings[0x7b0], g_wiz_text_font_secondary,
-                               g_W8TextBufferAlignLeft, 4);
-    bounds.left = ScreenBounds().x + 0x98;
-    bounds.top = ScreenBounds().y + 0x15;
-    bounds.right = ScreenBounds().x + 0xb5;
-    bounds.bottom = ScreenBounds().y + 0x1f;
-    m_text1.reset(new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4));
-    bounds.top += 0xe;
-    bounds.bottom += 0xe;
-    m_text3.reset(new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4));
-    bounds.top += 0xe;
-    bounds.bottom += 0xe;
-    m_text5.reset(new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4));
-    m_target = 0;
-    SetActive(true);
-    InvalidateAll();
+    m_text[0].SetLayoutBounds(0x17 + 0x25, 0x166 + 7, 0x17 + 0xb4, 0x166 + 0x11);
+    m_text[0].SetLayoutMode(g_W8TextBufferAlignCenter);
+    const int labels[]{0x7a9, 0x7aa, 0x7b0};
+    for (int row = 0; row < 3; ++row) {
+        auto& label = m_text[row * 2 + 1];
+        label.SetLayoutBounds(0x17 + 0x25, 0x17b + row * 14, 0x17 + 0xb4, 0x185 + row * 14);
+        label.SetLayoutMode(g_W8TextBufferAlignLeft);
+        label.SetText(g_localized_strings[labels[row]], g_wiz_text_font_secondary);
+        auto& value = m_text[row * 2 + 2];
+        value.SetLayoutBounds(0x17 + 0x98, 0x17b + row * 14, 0x17 + 0xb5, 0x185 + row * 14);
+        value.SetLayoutMode(g_W8TextBufferAlignCenter);
+    }
 }
 
 void W8MainGameStatusPanel::RefreshStatusTexts()
@@ -1710,28 +1688,28 @@ void W8MainGameStatusPanel::RefreshStatusTexts()
     unsigned int realm;
     unsigned int figure;
 
-    m_text->SetText(character->name, g_wiz_text_font_secondary);
+    m_text[0].SetText(character->name, g_wiz_text_font_secondary);
     if (level >= 0) {
         level += m_target * 6;
     }
     if (level < 0) {
-        m_text1->SetFontStateIndex(0);
-        m_text1->SetText(g_dash, g_wiz_text_font_secondary);
+        m_text[2].SetFontStateIndex(0);
+        m_text[2].SetText(g_dash, g_wiz_text_font_secondary);
     } else {
-        m_text1->SetFontStateIndex(m_target < 1 ? -1 : 3);
-        m_text1->SetText(fmt::format("{:d}%", level), g_wiz_text_font_secondary);
+        m_text[2].SetFontStateIndex(m_target < 1 ? -1 : 3);
+        m_text[2].SetText(fmt::format("{:d}%", level), g_wiz_text_font_secondary);
     }
     if (!IsPartySlotEligible(g_status.selected_character) || character->spell_learned[0x27] != 1) {
-        m_text3->SetFontStateIndex(0);
-        m_text3->SetText(g_dash, g_wiz_text_font_secondary);
+        m_text[4].SetFontStateIndex(0);
+        m_text[4].SetText(g_dash, g_wiz_text_font_secondary);
     } else {
         W8Skill book_skill =
             GetBestSpellbookSkillForSpell(character, W8_SPELL_KNOCK_KNOCK, true, false, 7);
         realm = character->skills[static_cast<int>(W8_SKILL_FIRE_MAGIC) + g_spell_records[W8_SPELL_KNOCK_KNOCK].realm]
                     .level;
         book = character->skills[book_skill].level;
-        m_text3->SetFontStateIndex(-1);
-        m_text3->SetText(fmt::format("{:d}%", (book + realm * 4) / 5), g_wiz_text_font_secondary);
+        m_text[4].SetFontStateIndex(-1);
+        m_text[4].SetText(fmt::format("{:d}%", (book + realm * 4) / 5), g_wiz_text_font_secondary);
     }
     if (IsPartySlotEligible(g_status.selected_character) && character->spell_learned[0x12] == 1) {
         W8Skill figure_skill =
@@ -1739,21 +1717,21 @@ void W8MainGameStatusPanel::RefreshStatusTexts()
         figure = GetSpellCastingSkillLevel(character, figure_skill,
                                            g_spell_records[W8_SPELL_DIVINE_TRAP].realm);
         if (static_cast<int>(figure) >= 0) {
-            m_text5->SetFontStateIndex(-1);
-            m_text5->SetText(fmt::format("{:d}%", figure), g_wiz_text_font_secondary);
-            m_text0->SetGeometryDirty();
-            m_text2->SetGeometryDirty();
-            m_text4->SetGeometryDirty();
-            InvalidateAll();
+            m_text[6].SetFontStateIndex(-1);
+            m_text[6].SetText(fmt::format("{:d}%", figure), g_wiz_text_font_secondary);
+            m_text[1].SetGeometryDirty();
+            m_text[3].SetGeometryDirty();
+            m_text[5].SetGeometryDirty();
+            m_dirty = true;
             return;
         }
     }
-    m_text5->SetFontStateIndex(0);
-    m_text5->SetText(g_dash, g_wiz_text_font_secondary);
-    m_text0->SetGeometryDirty();
-    m_text2->SetGeometryDirty();
-    m_text4->SetGeometryDirty();
-    InvalidateAll();
+    m_text[6].SetFontStateIndex(0);
+    m_text[6].SetText(g_dash, g_wiz_text_font_secondary);
+    m_text[1].SetGeometryDirty();
+    m_text[3].SetGeometryDirty();
+    m_text[5].SetGeometryDirty();
+    m_dirty = true;
 }
 
 int GetPartySlotLocksTrapsLevel(int slot)
@@ -1773,16 +1751,10 @@ int GetPartySlotLocksTrapsLevel(int slot)
 
 void W8MainGameStatusPanel::Redraw(SDL_Surface& target, bool full_redraw)
 {
-    if (m_active && m_dirty) {
-        Controls::Redraw(target, full_redraw);
-        m_text->RenderToTarget(0, false, target);
-        m_text0->RenderToTarget(0, false, target);
-        m_text1->RenderToTarget(0, false, target);
-        m_text2->RenderToTarget(0, false, target);
-        m_text3->RenderToTarget(0, false, target);
-        m_text4->RenderToTarget(0, false, target);
-        m_text5->RenderToTarget(0, false, target);
-    }
+    if (!m_dirty && !full_redraw) return;
+    CatalogArtwork::Load(0x1b1, 0).drawAndInvalidate(target, 0, 0x17, 0x166);
+    for (auto& text : m_text) text.RenderToTarget(0, true, target);
+    m_dirty = false;
 }
 
 W8MainGameScreen::W8MainGameScreen(Trigger* owner)
@@ -2954,10 +2926,6 @@ unsigned char MainGameScreenEnter(void)
     g_npc_dialogue_trade_panel_regions.Create();
     g_npc_dialogue_options_panel_regions.Create();
     g_npc_quote_bubble_regions.Create();
-    g_spell_casting_regions.Create();
-    g_use_item_select_regions.Create();
-    g_keyboard_menu_regions.Create();
-    g_party_movement_regions.Create();
     CreateMainGameInterfaceButtons();
     CreateSpellIconHudControls();
     CreateLevelButtons();
@@ -3546,11 +3514,7 @@ unsigned char MainGameScreenLeave(int leaving)
         g_npc_dialogue_trade_panel_regions.Destroy();
         g_npc_dialogue_transcript_panel_regions.Destroy();
         ShutdownTextBoxRegions();
-        g_spell_casting_regions.Destroy();
-        g_use_item_select_regions.Destroy();
         DestroyFormationPanel();
-        g_keyboard_menu_regions.Destroy();
-        g_party_movement_regions.Destroy();
         wiz8::sound::release_cache();
         g_level_block.reset();
         ReleaseCatalogArtwork();
@@ -5314,12 +5278,12 @@ void SyncMainGameModeRegions(void)
     if (g_settings.main_ui_mode != W8_MAIN_UI_MODE_RADAR) {
         EnableActionPanelRegions();
         if (gXStatus.fSpellCastMode) {
-            g_spell_casting_regions.Enable();
+            if (gpSCSV) gpSCSV->input.setEnabled(true);
             RestoreSpellCastingRegions();
         } else if (gXStatus.fNpcDialogueMode && !CanOpenNpcDialogue()) {
             g_npc_dialogue_options_panel_regions.Enable();
         } else if (gXStatus.fItemSelectMode) {
-            g_use_item_select_regions.Enable();
+            EnableUseItemSelectInput();
             RestoreSpellCastingRegions();
         } else if (gXStatus.fLockInteractMode) {
             EnableLockInteractionPanels();

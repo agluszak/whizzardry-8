@@ -62,6 +62,12 @@ The shared scrollbar now owns three targets and paints directly. The vertical
 thumb/arrow widgets, range listener interface and camp range-wrapper classes are
 deleted; camp, character creation, party selection and main-game text use callbacks.
 
+Movement, keyboard action menus, use-item selection and spell casting now own their
+layers and paint their artwork directly. Their numeric region templates, callback
+adapters and widget panels are removed. The spell view owns ordinary realm/power
+buttons; animated icons and labels are painted without decorative widgets. The
+lock status panel also owns text values and explicit painting.
+
 ## Remaining deletion work
 
 1. Finish merging button painting. Remove obsolete wrappers rather than adding

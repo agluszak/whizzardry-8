@@ -4,20 +4,8 @@
 #include "wiz8/layouts/main_game_screen.h"
 
 struct W8Region;
-class W8TextControl;
 class W8DialogBase;
-class ScreenRegionSet;
 struct W8ItemInstance;
-
-/* The three use-item select panels; element 1 is the list panel
-   iterated together with its siblings by the per-frame update. */
-
-/* Up/down scroll buttons for the use-item select list plus the
-   caption label at index 2; CloseUseItemSelectView deletes all three in one
-   pass ending at g_selected_use_item_line. */
-extern W8TextControl* g_use_item_select_scroll_buttons[3];
-/* Action/icon controls indexed by region id (0..8). */
-extern W8TextControl* g_use_item_select_controls[9];
 
 extern W8MainUiMode g_use_item_select_return_mode;
 extern W8ItemInstance* g_use_item_selected;
@@ -28,13 +16,9 @@ extern W8ItemInstance* g_use_item_select_override_item;
 extern int g_saved_target_cursor;
 
 void SetUseItemSelectReturnMode(W8MainUiMode value);
-extern ScreenRegionSet g_use_item_select_regions;
+void EnableUseItemSelectInput();
 void InvalidateUseItemSelectPanel(void);
 void CloseUseItemSelection(void);
-/* Scroll-button region callback for use-item select (ids 0 and 1). */
-unsigned char UseItemSelectScrollRegionEvent(const InputEvent* event, W8Region* region, unsigned short);
-/* Action/icon control region callback (catalog ids 0, 3, 8). */
-unsigned char UseItemSelectControlRegionEvent(const InputEvent* event, W8Region* region, unsigned short);
 /* Text-box body callback while use-item select is active. */
 unsigned char UseItemSelectTextBoxRegionEvent(const InputEvent* event, W8Region* region);
 /* Text-box wheel helper while use-item select is active. */

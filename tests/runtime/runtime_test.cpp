@@ -1140,20 +1140,20 @@ void CheckGameplayUi(Game& game)
     character.sp_max[realm] = character.iSPLeft[realm] = 100;
     REQUIRE(OpenSpellCastingView(slot));
     game.frame();
-    const auto realm_bounds = gpSCSV->realm_buttons[realm]->ScreenBounds();
+    const auto realm_bounds = gpSCSV->realm_buttons[realm]->Bounds();
     game.move_pointer(0, 200);
     g_default_help_text.clear();
     game.move_pointer(realm_bounds.x + 5, realm_bounds.y + 5);
     REQUIRE(g_default_help_text.starts_with(g_localized_strings[0x27 + realm]));
-    game.click("spell-realm", ControlRegion(gpSCSV->realm_buttons[realm]));
+    game.click_at(realm_bounds.x + realm_bounds.w / 2, realm_bounds.y + realm_bounds.h / 2);
     REQUIRE(gpSCSV->iSpellRealm == realm);
     REQUIRE(gpSCSV->uiSpellsInList == 1);
     game.click_at(250, 372); // First spell in the ordinary text-box list.
     REQUIRE(gpSCSV->uiSpellToCast == W8_SPELL_LIGHT);
-    game.click("spell-power", ControlRegion(gpSCSV->power_controls[1]));
+    game.click_at(0x1f4, 0x172);
     if (gpSCSV) {
         REQUIRE(gpSCSV->iSpellPower == 1);
-        game.click("cancel-spell", ControlRegion(gpSCSV->power_controls[W8_SPELL_CANCEL_CONTROL]));
+        game.click_at(0x247, 0x179);
         REQUIRE(!gpSCSV);
     } else {
         // Target-free spells may commit in the same frame as power selection.

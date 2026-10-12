@@ -19,15 +19,14 @@
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/CombatPartyMovement.h"
-#include "wiz8/local_code/Controls.h"
+#include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/ui_layer.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/TextBuffer.h"
-#include "wiz8/local_code/TextControl.h"
 #include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/regions.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/xstatus.h"
@@ -39,25 +38,18 @@
 
 #define PARTY_MOVEMENT_CPP __FILE__
 
-/* Retail callback IDs 0 and 1 index this base, and ReleasePartyMovement walks
-   the two-pointer span. */
-// GLOBAL: WIZ8 0x0069BF40
-static W8TextControl* g_party_movement_buttons[2];
-// GLOBAL: WIZ8 0x0069BF48
-uint64_t g_party_movement_animation_clock;
-// GLOBAL: WIZ8 0x0069BF4C
-std::unique_ptr<Controls> g_party_movement_panel;
-// GLOBAL: WIZ8 0x0069BF50
-std::unique_ptr<W8TextBuffer> g_party_movement_caption;
-// GLOBAL: WIZ8 0x0069BF54
-unsigned int g_party_movement_animation_frame;
-
-// Retail set 0x1c, regions 200-201.
-static constexpr std::array<RegionTemplate, 2> g_party_movement_region_templates{{
-    {0x00000001, 0, 0, 0, 0, FreeTurnButtonRegionEvent, 0, true, 37},
-    {0x00000001, 0, 0, 0, 0, FreeTurnButtonRegionEvent, 1, true, 38},
-}};
-ScreenRegionSet g_party_movement_regions{g_party_movement_region_templates, 0x1c};
+namespace {
+struct PartyMovementPanel {
+    UiLayer input{0x1c};
+    std::array<std::unique_ptr<W8ButtonWidget>, 2> buttons;
+    std::unique_ptr<W8TextBuffer> caption;
+    uint64_t animation_clock = 0;
+    unsigned int animation_frame = 0;
+    bool dirty = true;
+    int visible_button = 1;
+};
+std::unique_ptr<PartyMovementPanel> movement;
+}
 
 // GLOBAL: WIZ8 0x005EECD0
 const float g_movement_fatigue_tick_scale = 0.0004f;
@@ -66,46 +58,25 @@ void DrawPartyMovementGauge(short right, short image, bool panel_live, int capti
 
 unsigned char CreatePartyMovementPanel(void)
 {
-    W8ControlsRect bounds;
-
-    g_party_movement_animation_frame = 0;
-    g_party_movement_panel.reset();
-    g_party_movement_caption.reset();
-    g_party_movement_buttons[0] = 0;
-    g_party_movement_buttons[1] = 0;
-
-    g_party_movement_panel = std::make_unique<Controls>(0xb1, 0x13f, 0x1cf, 0x153, CatalogArtwork::Load(0x93, 0), 0);
-
-    bounds.left = 0xc3;
-    bounds.right = 0x1b9;
-    bounds.top = 0x13f;
-    bounds.bottom = 0x153;
-    g_party_movement_caption =
-        std::make_unique<W8TextBuffer>(&bounds, std::string_view{}, g_wiz_text_font_secondary,
-                                       g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
-
-    g_party_movement_buttons[0] =
-        g_party_movement_panel->EmplaceControl<W8TextControl>(g_party_movement_regions->index(0), 0x10a, 0, 0x11e,
-                          0x14, CatalogArtwork::Load(0x94, 0), W8SpriteStates{.normal = 4, .pressed = 6, .alternate_normal = 5, .alternate_pressed = 6, .disabled = 7});
-    g_party_movement_buttons[1] =
-        g_party_movement_panel->EmplaceControl<W8TextControl>(g_party_movement_regions->index(1), 0x10a, 0, 0x11e,
-                          0x14, CatalogArtwork::Load(0x94, 0), W8SpriteStates{.normal = 4, .pressed = 6, .alternate_normal = 5, .alternate_pressed = 6, .disabled = 7});
-
-    if (g_party_movement_panel && g_party_movement_buttons[0] != 0 &&
-        g_party_movement_buttons[1] != 0) {
-        g_party_movement_buttons[0]->m_onPrimary = BeginFreeTurnPhase;
-        g_party_movement_buttons[1]->m_onPrimary = CancelPartyMovement;
-        g_party_movement_regions.Enable();
-        g_party_movement_panel->SetActive(true);
-        g_party_movement_buttons[0]->SetActive(false);
-        gXStatus.fPartyMovementUi = true;
-        g_level_block->move_percent = 100;
-        g_level_block->move_percent_shown = 100;
-        g_party_movement_panel->InvalidateAll();
-        return 1;
+    movement = std::make_unique<PartyMovementPanel>();
+    const W8ControlsRect bounds{0xc3, 0x13f, 0x1b9, 0x153};
+    movement->caption = std::make_unique<W8TextBuffer>(&bounds, std::string_view{},
+        g_wiz_text_font_secondary, g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
+    const auto art = CatalogArtwork::Load(0x94, 0);
+    for (int index = 0; index < 2; ++index) {
+        auto& button = movement->buttons[index];
+        button = std::make_unique<W8ButtonWidget>(movement->input);
+        button->Configure(art.spriteSheet(), 7, 4, 5, 6, 6,
+            [index](auto*) { AfterUiDispatch(index ? CancelPartyMovement : BeginFreeTurnPhase); },
+            {}, false, 0, 37 + index, {}, {});
+        button->policy.controller_activation = true;
+        button->SetPosition(0x1bb, 0x13f);
+        button->Resize(20, 20);
+        button->SetVisible(index == 1);
     }
-    ReleasePartyMovement();
-    return 0;
+    gXStatus.fPartyMovementUi = true;
+    g_level_block->move_percent = g_level_block->move_percent_shown = 100;
+    return 1;
 }
 
 void ReleasePartyMovement(void)
@@ -115,28 +86,22 @@ void ReleasePartyMovement(void)
         InvalidateRegion(0xb1, 0x13f, 0x1cf, 0x153);
     }
     RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
-    g_party_movement_regions.Disable();
-    g_party_movement_panel.reset();
-    for (auto& button : g_party_movement_buttons) button = nullptr;
-    g_party_movement_caption.reset();
+    movement.reset();
     gXStatus.fPartyMovementUi = false;
 }
 
 void UpdatePartyMovementPanel(void)
 {
-    g_party_movement_regions.Enable();
-    if (CanPartyMove()) {
-        g_party_movement_buttons[1]->SetActive(true);
-        g_party_movement_buttons[0]->SetActive(false);
-        return;
-    }
-    g_party_movement_buttons[0]->SetActive(true);
-    g_party_movement_buttons[1]->SetActive(false);
+    movement->input.setEnabled(true);
+    const int visible = CanPartyMove() ? 1 : 0;
+    movement->dirty |= visible != movement->visible_button;
+    movement->visible_button = visible;
+    for (int index = 0; index < 2; ++index) movement->buttons[index]->SetVisible(index == visible);
 }
 
 void DisablePartyMovementRegions(void)
 {
-    g_party_movement_regions.Disable();
+    if (movement) movement->input.setEnabled(false);
 }
 
 void DrawPartyMovementPanel(void)
@@ -158,31 +123,18 @@ void DrawPartyMovementPanel(void)
                      "(gpCombat->uiNextPartyAction != PARTY_ACTION_NONE)",
                      PARTY_MOVEMENT_CPP, 0xfb, 0);
     }
-    panel_live = g_party_movement_panel->m_active &&
-                 (g_party_movement_panel->m_dirty || g_party_movement_panel->m_childrenDirty);
-    if (!CanPartyMove()) {
-        if (!g_party_movement_buttons[0]->m_active) {
-            g_party_movement_buttons[0]->SetActive(true);
-            g_party_movement_buttons[0]->Invalidate(false);
-        }
-        if (g_party_movement_buttons[1]->m_active) {
-            g_party_movement_buttons[1]->SetActive(false);
-        }
-    } else {
-        if (!g_party_movement_buttons[1]->m_active) {
-            g_party_movement_buttons[1]->SetActive(true);
-            g_party_movement_buttons[1]->Invalidate(false);
-        }
-        if (g_party_movement_buttons[0]->m_active) {
-            g_party_movement_buttons[0]->SetActive(false);
-        }
-        if (!g_combat_state->round_active) {
-            g_party_movement_buttons[1]->SetEnabled(false);
-        } else {
-            g_party_movement_buttons[1]->SetEnabled(true);
-        }
+    const int visible = CanPartyMove() ? 1 : 0;
+    movement->dirty |= visible != movement->visible_button;
+    movement->visible_button = visible;
+    for (int index = 0; index < 2; ++index) movement->buttons[index]->SetVisible(index == visible);
+    if (visible == 1) movement->buttons[1]->SetEnabled(g_combat_state->round_active);
+    panel_live = movement->dirty || movement->buttons[visible]->m_dirty;
+    if (panel_live) {
+        CatalogArtwork::Load(0x93, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0xb1, 0x13f);
+        movement->buttons[visible]->m_dirty = true;
+        movement->buttons[visible]->Draw(GetFrameBufferSurface());
+        movement->dirty = false;
     }
-    g_party_movement_panel->Redraw(GetFrameBufferSurface(), false);
     right = 0x1b9 - g_level_block->move_percent * 0xf6 / 100;
     if (!CanPartyMove()) {
         if (!IsLevelMovementStopped()) {
@@ -231,10 +183,10 @@ void DrawPartyMovementGauge(short right, short image, bool panel_live, int capti
         rearm = true;
         frame = 0xc;
     } else {
-        if (TimeUntilDeadline(g_party_movement_animation_clock) == 0) {
-            ++g_party_movement_animation_frame;
-            if (g_party_movement_animation_frame > 0xb) {
-                g_party_movement_animation_frame = 0;
+        if (TimeUntilDeadline(movement->animation_clock) == 0) {
+            ++movement->animation_frame;
+            if (movement->animation_frame > 0xb) {
+                movement->animation_frame = 0;
             }
             rearm = true;
             advanced = true;
@@ -254,43 +206,35 @@ void DrawPartyMovementGauge(short right, short image, bool panel_live, int capti
         timer_length = 0x5a;
     }
     if (rearm) {
-        g_party_movement_animation_clock = w8_get_ticks() + (timer_length);
+        movement->animation_clock = w8_get_ticks() + (timer_length);
     }
     if (!panel_live) {
         if (advanced) {
-            g_party_movement_panel->InvalidateAll();
+            movement->dirty = true;
         }
         return;
     }
-    CatalogArtwork::Load(0x95, 0).drawAndInvalidate(GetFrameBufferSurface(), g_party_movement_animation_frame + frame_base + frame, right - 0xf, 0x142);
+    CatalogArtwork::Load(0x95, 0).drawAndInvalidate(GetFrameBufferSurface(), movement->animation_frame + frame_base + frame, right - 0xf, 0x142);
     InvalidateRegion(right - 0xf, 0x142, right - 1, 0x150);
     if (caption != -1) {
-        g_party_movement_caption->RenderString(g_localized_strings[caption], g_wiz_text_font_secondary,
+        movement->caption->RenderString(g_localized_strings[caption], g_wiz_text_font_secondary,
                                                false, GetFrameBufferSurface());
     }
 }
 
 void InvalidatePartyMovementPanel(void)
 {
-    g_party_movement_panel->InvalidateAll();
-}
-
-unsigned char FreeTurnButtonRegionEvent(const InputEvent* event, W8Region* region, unsigned short id)
-{
-    if (!gXStatus.fPartyMovementUi) {
-        return 0;
-    }
-    return DispatchButtonRegionEvent(event, region, g_party_movement_buttons[id]);
+    movement->dirty = true;
 }
 
 void DisableFreeTurnButton(void)
 {
-    g_party_movement_buttons[0]->SetEnabled(false);
+    movement->buttons[0]->SetEnabled(false);
 }
 
 void EnableFreeTurnButton(void)
 {
-    g_party_movement_buttons[0]->SetEnabled(true);
+    movement->buttons[0]->SetEnabled(true);
 }
 
 /* Per-frame movement/fatigue processing: each occupied party slot with stamina

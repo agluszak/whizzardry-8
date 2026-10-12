@@ -1,15 +1,17 @@
+#include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
+#include "wiz8/button_interaction.h"
+#include "wiz8/ui_layer.h"
+#include <functional>
 #include "wiz8/modal_content.h"
 #include <memory>
 #include <algorithm>
-#include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_rect.h>
-#include <SDL3/SDL_surface.h>
 #include <array>
 #include <fmt/format.h>
 #include <string>
 #include <cstdlib>
 #include <cstring>
-#include <optional>
 #include <vector>
 
 #include "Video2.h"
@@ -34,14 +36,12 @@
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/catalog_artwork.h"
-#include "wiz8/local_code/Controls.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/TextBuffer.h"
-#include "wiz8/local_code/TextControl.h"
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/local_screens/MainGameScreen.h"
@@ -79,28 +79,6 @@ static int g_spell_realm_help_string_ids[6] = {0x27, 0x28, 0x29, 0x2a, 0x2b, 0x2
 // GLOBAL: WIZ8 0x0069BF3C
 std::unique_ptr<W8SpellCastingView> gpSCSV;
 
-// Retail set 0x19, regions 139-155.
-static constexpr std::array<RegionTemplate, 17> g_spell_casting_region_templates{{
-    {0x00000001, 0, 0, 0, 0, SpellRealmButtonRegionEvent, 0, true, -1},
-    {0x00000001, 0, 0, 0, 0, SpellRealmButtonRegionEvent, 1, true, -1},
-    {0x00000001, 0, 0, 0, 0, SpellRealmButtonRegionEvent, 2, true, -1},
-    {0x00000001, 0, 0, 0, 0, SpellRealmButtonRegionEvent, 3, true, -1},
-    {0x00000001, 0, 0, 0, 0, SpellRealmButtonRegionEvent, 4, true, -1},
-    {0x00000001, 0, 0, 0, 0, SpellRealmButtonRegionEvent, 5, true, -1},
-    {0x00000002, 0, 0, 0, 0, SpellPowerPipRegionEvent, 0, true, 46},
-    {0x00000002, 0, 0, 0, 0, SpellPowerPipRegionEvent, 1, true, 47},
-    {0x00000002, 0, 0, 0, 0, SpellPowerPipRegionEvent, 2, true, 48},
-    {0x00000002, 0, 0, 0, 0, SpellPowerPipRegionEvent, 3, true, 49},
-    {0x00000002, 0, 0, 0, 0, SpellPowerPipRegionEvent, 4, true, 50},
-    {0x00000002, 0, 0, 0, 0, SpellPowerPipRegionEvent, 5, true, 51},
-    {0x00000002, 0, 0, 0, 0, SpellPowerPipRegionEvent, 6, true, 52},
-    {0x00000002, 0, 0, 0, 0, SpellPowerPipRegionEvent, 7, true, 53},
-    {0x00000002, 0, 0, 0, 0, SpellPowerPipRegionEvent, 8, true, 54},
-    {0x00000001, 0, 0, 0, 0, IgnoreSpellCastingInput, 0, true, 55},
-    {0x00000001, 0, 0, 0, 0, SpellPowerPipRegionEvent, 10, true, 17},
-}};
-ScreenRegionSet g_spell_casting_regions{g_spell_casting_region_templates, 0x19};
-
 int GetSpellCastingPowerIndex(void)
 {
     if (!gpSCSV) {
@@ -110,7 +88,6 @@ int GetSpellCastingPowerIndex(void)
 }
 
 static void CreateSpellCastingViewControls(void);
-void ReleaseSpellCastingViewControls(void);
 static void SelectSpellPowerPip7(void);
 static void SelectSpellPowerPip8(void);
 static void SpellCastingDialogResult(W8DialogBase* dialog);
@@ -132,110 +109,83 @@ void ShowSpellCastingError(int spell_id);
 // FUNCTION: WIZ8 0x0059E1F0
 static void CreateSpellCastingViewControls(void)
 {
-    Controls* panel;
-    unsigned int index;
-
-    gpSCSV->panels[0] = std::make_unique<Controls>(0x17, 0x166, 0xe5, 0x1c2, CatalogArtwork::Load(400, 0), 0);
-    gpSCSV->panels[1] = std::make_unique<Controls>(0xe6, 0x166, 0x1a3, 0x1c2, CatalogArtwork::Load(400, 0), 1);
-    gpSCSV->panels[2] = std::make_unique<Controls>(0x1a4, 0x166, 0x268, 0x1c2, CatalogArtwork::Load(400, 0), 2);
-
-    panel = gpSCSV->panels[0].get();
-    gpSCSV->realm_buttons[0] =
-        panel->EmplaceControl<W8TextControl>(g_spell_casting_regions->index(0), 0x1e, 0xd, 0x69, 0x23,
-                          CatalogArtwork::Load(0x191, 0), W8SpriteStates{.normal = 0, .pressed = 3, .alternate_normal = 1, .alternate_pressed = 3, .disabled = 2});
-    gpSCSV->realm_buttons[1] =
-        panel->EmplaceControl<W8TextControl>(g_spell_casting_regions->index(1), 0x71, 0xd, 0xbc, 0x23,
-                          CatalogArtwork::Load(0x191, 0), W8SpriteStates{.normal = 4, .pressed = 7, .alternate_normal = 5, .alternate_pressed = 7, .disabled = 6});
-    gpSCSV->realm_buttons[2] =
-        panel->EmplaceControl<W8TextControl>(g_spell_casting_regions->index(2), 0x12, 0x23, 0x5d, 0x39,
-                          CatalogArtwork::Load(0x191, 0), W8SpriteStates{.normal = 0, .pressed = 3, .alternate_normal = 1, .alternate_pressed = 3, .disabled = 2});
-    gpSCSV->realm_buttons[3] =
-        panel->EmplaceControl<W8TextControl>(g_spell_casting_regions->index(3), 0x7d, 0x23, 200, 0x39,
-                          CatalogArtwork::Load(0x191, 0), W8SpriteStates{.normal = 4, .pressed = 7, .alternate_normal = 5, .alternate_pressed = 7, .disabled = 6});
-    gpSCSV->realm_buttons[4] =
-        panel->EmplaceControl<W8TextControl>(g_spell_casting_regions->index(4), 0x1e, 0x39, 0x69, 0x4f,
-                          CatalogArtwork::Load(0x191, 0), W8SpriteStates{.normal = 0, .pressed = 3, .alternate_normal = 1, .alternate_pressed = 3, .disabled = 2});
-    gpSCSV->realm_buttons[5] =
-        panel->EmplaceControl<W8TextControl>(g_spell_casting_regions->index(5), 0x71, 0x39, 0xbc, 0x4f,
-                          CatalogArtwork::Load(0x191, 0), W8SpriteStates{.normal = 4, .pressed = 7, .alternate_normal = 5, .alternate_pressed = 7, .disabled = 6});
-    for (index = 0; index < W8_SPELL_REALM_COUNT; ++index) {
-        gpSCSV->realm_buttons[index]->AddLayoutFlags(g_W8TextControlLayoutToggle);
-    }
-    for (index = 0; index < W8_SPELL_REALM_COUNT; ++index) {
-        gpSCSV->realm_buttons[index]->m_textBuffer.SetLayoutMode(g_W8TextBufferAlignMiddle |
-                                                                 g_W8TextBufferAlignCenter);
-    }
-    gpSCSV->realm_buttons[0]->UpdateTextBounds(0x1e, 0xd, 0x55, 0x23);
-    gpSCSV->realm_buttons[1]->UpdateTextBounds(0x85, 0xd, 0xbc, 0x23);
-    gpSCSV->realm_buttons[2]->UpdateTextBounds(0x12, 0x23, 0x49, 0x39);
-    gpSCSV->realm_buttons[3]->UpdateTextBounds(0x91, 0x23, 200, 0x39);
-    gpSCSV->realm_buttons[4]->UpdateTextBounds(0x1e, 0x39, 0x55, 0x4f);
-    gpSCSV->realm_buttons[5]->UpdateTextBounds(0x85, 0x39, 0xbc, 0x4f);
-    for (int realm = W8_SPELL_REALM_FIRE; realm < W8_SPELL_REALM_COUNT; ++realm) {
-        gpSCSV->realm_buttons[realm]->m_onPrimary = [realm] {
-            SelectSpellCastingRealm(static_cast<W8SpellRealm>(realm));
+    const auto make_button = [](int artwork, const std::array<int, 5>& frames,
+                                SDL_Rect bounds, int help, std::function<void()> action) {
+        auto button = std::make_unique<W8ButtonWidget>(gpSCSV->input);
+        button->Configure(CatalogArtwork::Load(artwork, 0).spriteSheet(),
+            frames[0], frames[1], frames[2], frames[3], frames[4],
+            [action](auto*) { AfterUiDispatch(action); }, {}, false, 0, help, {}, {});
+        button->policy.controller_activation = true;
+        button->policy.primary_toggle = ButtonToggle::Release;
+        button->SetPosition(bounds.x, bounds.y);
+        button->Resize(bounds.w, bounds.h);
+        return button;
+    };
+    constexpr SDL_Point realm_positions[] = {{0x1e, 0xd}, {0x71, 0xd}, {0x12, 0x23},
+        {0x7d, 0x23}, {0x1e, 0x39}, {0x71, 0x39}};
+    constexpr int text_left[] = {0x1e, 0x85, 0x12, 0x91, 0x1e, 0x85};
+    for (int realm = 0; realm < 6; ++realm) {
+        const int frame = (realm % 2) * 4;
+        const auto pos = realm_positions[realm];
+        auto& button = gpSCSV->realm_buttons[realm];
+        button = make_button(0x191, {frame + 2, frame, frame + 1, frame + 3, frame + 3},
+            {0x17 + pos.x, 0x166 + pos.y, 75, 22}, -1,
+            [realm] { SelectSpellCastingRealm(static_cast<W8SpellRealm>(realm)); });
+        const auto tooltip = [realm] {
+            const auto& name = g_localized_strings[g_spell_realm_help_string_ids[realm]];
+            if (!gpSCSV->realm_buttons[realm]->IsEnabled()) return std::string(name);
+            return fmt::format("{} ({}: {:d})", name, g_localized_strings[0x2d],
+                g_status.buffers.Char[g_status.selected_character]
+                    .skills[W8_SKILL_FIRE_MAGIC + realm].level);
         };
+        button->SetTooltip(tooltip);
+        button->on_hover = [tooltip](bool entered) {
+            gpSCSV->dirty[0] = true;
+            if (entered) SetRegionHelpText(tooltip());
+        };
+        auto& text = gpSCSV->realm_text[realm];
+        text.SetLayoutMode(g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
+        text.SetLayoutBounds(0x17 + text_left[realm], 0x166 + pos.y,
+            0x17 + text_left[realm] + 55, 0x166 + pos.y + 22);
     }
-
-    gpSCSV->realm_icons[0] = panel->EmplaceControl<W8TextControl>(-1, 0x55, 0xf, 0x67, 0x21, CatalogArtwork::Load(0x193, 0), W8SpriteStates{.normal = static_cast<int>(g_spell_realm_animations[0].initial_frame), .disabled = static_cast<int>(g_spell_realm_animations[0].frame_count)});
-    gpSCSV->realm_icons[1] = panel->EmplaceControl<W8TextControl>(-1, 0x73, 0xf, 0x85, 0x21, CatalogArtwork::Load(0x194, 0), W8SpriteStates{.normal = static_cast<int>(g_spell_realm_animations[1].initial_frame), .disabled = static_cast<int>(g_spell_realm_animations[1].frame_count)});
-    gpSCSV->realm_icons[2] = panel->EmplaceControl<W8TextControl>(-1, 0x49, 0x25, 0x5b, 0x37, CatalogArtwork::Load(0x195, 0), W8SpriteStates{.normal = static_cast<int>(g_spell_realm_animations[2].initial_frame), .disabled = static_cast<int>(g_spell_realm_animations[2].frame_count)});
-    gpSCSV->realm_icons[3] = panel->EmplaceControl<W8TextControl>(-1, 0x7f, 0x25, 0x91, 0x37, CatalogArtwork::Load(0x196, 0), W8SpriteStates{.normal = static_cast<int>(g_spell_realm_animations[3].initial_frame), .disabled = static_cast<int>(g_spell_realm_animations[3].frame_count)});
-    gpSCSV->realm_icons[4] = panel->EmplaceControl<W8TextControl>(-1, 0x55, 0x3b, 0x67, 0x4d, CatalogArtwork::Load(0x197, 0), W8SpriteStates{.normal = static_cast<int>(g_spell_realm_animations[4].initial_frame), .disabled = static_cast<int>(g_spell_realm_animations[4].frame_count)});
-    gpSCSV->realm_icons[5] = panel->EmplaceControl<W8TextControl>(-1, 0x73, 0x3b, 0x85, 0x4d, CatalogArtwork::Load(0x198, 0), W8SpriteStates{.normal = static_cast<int>(g_spell_realm_animations[5].initial_frame), .disabled = static_cast<int>(g_spell_realm_animations[5].frame_count)});
-
-    panel = gpSCSV->panels[2].get();
-    gpSCSV->power_controls[0] =
-        panel->EmplaceControl<W8TextControl>(g_spell_casting_regions->index(6), 0x38, 2, 0x47, 0x11,
-                          CatalogArtwork::Load(0x192, 0), W8SpriteStates{.normal = 0, .pressed = 2, .alternate_normal = 1, .alternate_pressed = 4, .disabled = 3});
-    gpSCSV->power_controls[1] =
-        panel->EmplaceControl<W8TextControl>(g_spell_casting_regions->index(7), 0x48, 4, 0x59, 0x15,
-                          CatalogArtwork::Load(0x192, 0), W8SpriteStates{.normal = 6, .pressed = 8, .alternate_normal = 7, .alternate_pressed = 10, .disabled = 9});
-    gpSCSV->power_controls[2] =
-        panel->EmplaceControl<W8TextControl>(g_spell_casting_regions->index(8), 0x56, 0x10, 0x69, 0x23,
-                          CatalogArtwork::Load(0x192, 0), W8SpriteStates{.normal = 0xc, .pressed = 0xe, .alternate_normal = 0xd, .alternate_pressed = 0x10, .disabled = 0xf});
-    gpSCSV->power_controls[3] = panel->EmplaceControl<W8TextControl>(g_spell_casting_regions->index(9), 0x5b, 0x23, 0x70, 0x38, CatalogArtwork::Load(0x192, 0), W8SpriteStates{.normal = 0x12, .pressed = 0x14, .alternate_normal = 0x13, .alternate_pressed = 0x16, .disabled = 0x15});
-    gpSCSV->power_controls[4] = panel->EmplaceControl<W8TextControl>(g_spell_casting_regions->index(10), 0x52, 0x38, 0x69, 0x4f, CatalogArtwork::Load(0x192, 0), W8SpriteStates{.normal = 0x18, .pressed = 0x1a, .alternate_normal = 0x19, .alternate_pressed = 0x1c, .disabled = 0x1b});
-    gpSCSV->power_controls[5] = panel->EmplaceControl<W8TextControl>(g_spell_casting_regions->index(kSpellPowerPipRegionOffset), 0x3a, 0x41, 0x53, 0x5a,
-        CatalogArtwork::Load(0x192, 0), W8SpriteStates{.normal = 0x1e, .pressed = 0x20, .alternate_normal = 0x1f, .alternate_pressed = 0x22, .disabled = 0x21});
-    gpSCSV->power_controls[6] = panel->EmplaceControl<W8TextControl>(g_spell_casting_regions->index(12), 0x1f, 0x3a, 0x3a, 0x55, CatalogArtwork::Load(0x192, 0), W8SpriteStates{.normal = 0x24, .pressed = 0x26, .alternate_normal = 0x25, .alternate_pressed = 0x28, .disabled = 0x27});
-    gpSCSV->power_controls[7] = panel->EmplaceControl<W8TextControl>(g_spell_casting_regions->index(13), 0x10, 0x1f, 0x2d, 0x3c, CatalogArtwork::Load(0x192, 0), W8SpriteStates{.normal = 0x30, .pressed = 0x32, .alternate_normal = 0x31, .alternate_pressed = 0x34, .disabled = 0x33});
-    gpSCSV->power_controls[8] = panel->EmplaceControl<W8TextControl>(g_spell_casting_regions->index(14), 0x10, 0x1f, 0x2d, 0x3c, CatalogArtwork::Load(0x192, 0), W8SpriteStates{.normal = 0x2a, .pressed = 0x2a, .alternate_normal = 0x2b, .alternate_pressed = 0x2b, .disabled = 0x2d});
-    gpSCSV->power_controls[0]->SetCircularHitArea({0x3f, 9}, 7);
-    gpSCSV->power_controls[1]->SetCircularHitArea({0x50, 0xc}, 8);
-    gpSCSV->power_controls[2]->SetCircularHitArea({0x5f, 0x19}, 9);
-    gpSCSV->power_controls[3]->SetCircularHitArea({0x65, 0x2d}, 10);
-    gpSCSV->power_controls[4]->SetCircularHitArea({0x5d, 0x43}, 0xb);
-    gpSCSV->power_controls[5]->SetCircularHitArea({0x46, 0x4d}, 0xc);
-    gpSCSV->power_controls[6]->SetCircularHitArea({0x2c, 0x47}, 0xd);
-    gpSCSV->power_controls[7]->SetCircularHitArea({0x1e, 0x2d}, 0xe);
-    gpSCSV->power_controls[8]->SetCircularHitArea({0x1e, 0x2d}, 0xe);
-    for (index = 0; index < W8_SPELL_POWER_PIP_COUNT; ++index) {
-        gpSCSV->power_controls[index]->AddLayoutFlags(g_W8TextControlLayoutToggle);
+    constexpr SDL_Point pip_positions[] = {{0x38, 2}, {0x48, 4}, {0x56, 0x10},
+        {0x5b, 0x23}, {0x52, 0x38}, {0x3a, 0x41}, {0x1f, 0x3a}, {0x10, 0x1f}, {0x10, 0x1f}};
+    constexpr SDL_Point pip_centers[] = {{0x3f, 9}, {0x50, 0xc}, {0x5f, 0x19},
+        {0x65, 0x2d}, {0x5d, 0x43}, {0x46, 0x4d}, {0x2c, 0x47}, {0x1e, 0x2d}, {0x1e, 0x2d}};
+    for (int pip = 0; pip < 9; ++pip) {
+        const int base = pip == 7 ? 0x30 : pip == 8 ? 0x2a : pip * 6;
+        auto& frames = gpSCSV->power_frames[pip];
+        frames = {base + 3, base, base + 1, base + 2, base + 4};
+        if (pip == 8) { frames[3] = base; frames[4] = base + 1; }
+        const int radius = 7 + std::min(pip, 7);
+        auto& button = gpSCSV->power_controls[pip];
+        button = make_button(0x192, frames,
+            {0x1a4 + pip_positions[pip].x, 0x166 + pip_positions[pip].y,
+             radius * 2 + 1, radius * 2 + 1}, 46 + pip, [pip] {
+                if (pip == 7) SelectSpellPowerPip7();
+                else if (pip == 8) SelectSpellPowerPip8();
+                else {
+                    SelectSpellPowerLevel(pip);
+                    if (!gpSCSV->power_controls[pip]->IsPressed()) PreviewSpellPowerPipHover(pip);
+                }
+            });
+        button->SetCircularHitArea({0x1a4 + pip_centers[pip].x, 0x166 + pip_centers[pip].y}, radius);
+        button->on_hover = [pip](bool entered) { PreviewSpellPowerPipHover(entered ? pip : -1); };
     }
-    for (int pip = 0; pip < 7; ++pip) {
-        gpSCSV->power_controls[pip]->m_onPrimary = [pip] { SelectSpellPowerLevel(pip); };
+    gpSCSV->spell_name.SetLayoutBounds(0x1b2, 0x170, 0x1d4, 0x17e);
+    gpSCSV->spell_name.SetLayoutMode(g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
+    if (!gpSCSV->name_target) {
+        gpSCSV->name_target = &gpSCSV->input.add(SDL_Rect{0x1b2, 0x170, 35, 15},
+            [](const UiPointerEvent&) { return UiResult::Pass; });
+        gpSCSV->name_target->setTooltip([] { return std::string(g_localized_strings[55]); });
     }
-    gpSCSV->power_controls[7]->m_onPrimary = SelectSpellPowerPip7;
-    gpSCSV->power_controls[8]->m_onPrimary = SelectSpellPowerPip8;
-
-    gpSCSV->power_controls[W8_SPELL_NAME_CONTROL] =
-        panel->EmplaceControl<W8TextControl>(g_spell_casting_regions->index(15), 0xe, 10, 0x30, 0x18,
-                          std::nullopt);
-    gpSCSV->power_controls[W8_SPELL_NAME_CONTROL]->m_textBuffer.SetLayoutMode(
-        g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
-    gpSCSV->power_controls[W8_SPELL_CANCEL_CONTROL] =
-        panel->EmplaceControl<W8TextControl>(g_spell_casting_regions->index(16), 0x96, 6, 0xb1, 0x21,
-                          CatalogArtwork::Load(0x8e, 0), W8SpriteStates{.normal = 4, .alternate_normal = 5, .alternate_pressed = 6, .disabled = 7});
-    gpSCSV->power_controls[W8_SPELL_CANCEL_CONTROL]->m_onPrimary =
-        ResetSpellCastingSelection;
-
-    gpSCSV->panels[0]->SetActive(true);
-    gpSCSV->panels[1]->SetActive(true);
-    gpSCSV->panels[2]->SetActive(true);
+    gpSCSV->cancel = make_button(0x8e, {7, 4, 5, -1, 6},
+        {0x23a, 0x16c, 27, 27}, 17, ResetSpellCastingSelection);
+    gpSCSV->cancel->policy.primary_toggle = ButtonToggle::None;
+    gpSCSV->dirty.fill(true);
 
     if (gXStatus.fCampMode) {
-        for (index = 0; index < W8_PARTY_SLOT_COUNT; ++index) {
+        for (int index = 0; index < W8_PARTY_SLOT_COUNT; ++index) {
             if (g_main_portrait_slot_views[index]) {
                 g_main_portrait_slot_views[index]->Disable();
                 g_main_portrait_slot_views[index]->DisableInput();
@@ -243,18 +193,6 @@ static void CreateSpellCastingViewControls(void)
             }
         }
     }
-}
-
-/* Releases the three panels and every text control the view owns. */
-// FUNCTION: WIZ8 0x0059F060
-void ReleaseSpellCastingViewControls(void)
-{
-    for (auto& panel : gpSCSV->panels) {
-        panel.reset();
-    }
-    std::ranges::fill(gpSCSV->realm_buttons, nullptr);
-    std::ranges::fill(gpSCSV->realm_icons, nullptr);
-    std::ranges::fill(gpSCSV->power_controls, nullptr);
 }
 
 /* Opens the spell-casting view for one party slot: allocates and clears the
@@ -276,8 +214,6 @@ unsigned char OpenSpellCastingView(int party_slot)
     if (g_level_block->combat_end_notification != -1) {
         DestroySubMenuControls();
     }
-    gpSCSV->input_blocked = false;
-    gpSCSV->field_574 = 1;
     gpSCSV->location_id = -1;
     gpSCSV->interact_id = W8_DIALOGUE_LAYOUT_UNSET;
     CloseMainGameOverlays();
@@ -286,7 +222,7 @@ unsigned char OpenSpellCastingView(int party_slot)
     gpSCSV->saved_game_mode = mode;
     CreateSpellCastingViewControls();
     RestoreSpellCastingRegions();
-    g_spell_casting_regions.Enable();
+    gpSCSV->input.setEnabled(true);
     SelectTextBox(2);
     ResetEditorStatusLine(-1);
     g_level_block->text_box_visible = false;
@@ -314,7 +250,7 @@ void CloseSpellCastingView(void)
     W8NpcState* npc;
 
     if (!gpSCSV->closing) {
-        g_spell_casting_regions.Disable();
+        gpSCSV->input.setEnabled(false);
         SetTextBoxScrollInput(false);
         g_level_block->action_panel_visible = 0;
         SetTargetingMode(W8_TARGET_NEED_NONE);
@@ -323,7 +259,6 @@ void CloseSpellCastingView(void)
         }
         g_level_block->text_box_visible = true;
         SelectTextBox(gXStatus.fCombatMode);
-        ReleaseSpellCastingViewControls();
         SetTextBoxRegionBounds(0xa8, 0x16e, 0x1c4, 0x1ba);
         gXStatus.fSpellCastMode = false;
         ApplyMainGameModeFlag(gpSCSV->saved_game_mode, true);
@@ -411,8 +346,7 @@ void SelectSpellCastingCharacter(int party_slot)
         return;
     }
     if (gpSCSV->caster->sp_max[realm] == 0) {
-        gpSCSV->realm_icons[realm]->m_normalSprite = g_spell_realm_animations[realm].initial_frame;
-        gpSCSV->realm_icons[gpSCSV->iSpellRealm]->Invalidate(false);
+        gpSCSV->dirty[0] = true;
         gpSCSV->iSpellRealm = W8_SPELL_REALM_NONE;
         ResetEditorStatusLine(-1);
         return;
@@ -430,8 +364,9 @@ void UpdateSpellRealmPointDisplays(void)
     for (realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
         bool has_realm = gpSCSV->caster->sp_max[realm] != 0;
         gpSCSV->realm_buttons[realm]->SetEnabled(has_realm);
-        gpSCSV->realm_icons[realm]->SetEnabled(has_realm);
-        gpSCSV->realm_buttons[realm]->m_textBuffer.SetText(
+        gpSCSV->realm_text[realm].SetFontStateIndex(has_realm ? -1 : 0);
+        gpSCSV->dirty[0] = true;
+        gpSCSV->realm_text[realm].SetText(
             fmt::format(
                 "{:d}/{:d}",
                 GetCharacterRealmSpellPoints(gpSCSV->caster, static_cast<W8SpellRealm>(realm)),
@@ -461,6 +396,7 @@ static void UpdateSpellPowerPips(void)
 {
     unsigned int pip;
     W8SpellCastRating rating;
+    gpSCSV->dirty[2] = true;
 
     if (gpSCSV->uiPowerLevels == 0 || gpSCSV->iSpellPowerClass == W8_SPELL_POWER_FIXED) {
         for (pip = 0; pip < W8_SPELL_POWER_PIP_COUNT; ++pip) {
@@ -471,18 +407,18 @@ static void UpdateSpellPowerPips(void)
         RefreshSpellPowerPip(8);
         if (gpSCSV->iSpellPowerClass == W8_SPELL_POWER_SELECTABLE) {
             RefreshAvailableSpellPowerPips();
-            gpSCSV->power_controls[7]->SetActive(false);
-            gpSCSV->power_controls[8]->SetActive(false);
+            gpSCSV->power_controls[7]->SetVisible(false);
+            gpSCSV->power_controls[8]->SetVisible(false);
         } else if (gpSCSV->iSpellPowerClass == W8_SPELL_POWER_REPEAT_OUT_OF_COMBAT) {
-            gpSCSV->power_controls[7]->SetActive(!gXStatus.fCombatMode);
+            gpSCSV->power_controls[7]->SetVisible(!gXStatus.fCombatMode);
             RefreshAvailableSpellPowerPips();
-            gpSCSV->power_controls[8]->SetActive(false);
+            gpSCSV->power_controls[8]->SetVisible(false);
         } else if (gpSCSV->iSpellPowerClass == W8_SPELL_POWER_MAXIMUM) {
             for (pip = 0; pip < 7; ++pip) {
                 gpSCSV->power_controls[pip]->SetEnabled(false);
             }
-            gpSCSV->power_controls[8]->SetActive(true);
-            gpSCSV->power_controls[7]->SetActive(false);
+            gpSCSV->power_controls[8]->SetVisible(true);
+            gpSCSV->power_controls[7]->SetVisible(false);
         }
     }
     if (gpSCSV->iSpellPowerClass == W8_SPELL_POWER_MAXIMUM) {
@@ -493,18 +429,18 @@ static void UpdateSpellPowerPips(void)
                 }
                 gpSCSV->power_controls[pip]->SetEnabled(false);
                 rating = GetSpellCastRating(gpSCSV->caster, gpSCSV->uiSpellToCast, pip + 1);
-                gpSCSV->power_controls[pip]->m_disabledSprite = (pip + rating * 9) * 6;
+                gpSCSV->power_frames[pip][0] = (pip + rating * 9) * 6;
             }
         }
         if (gpSCSV->uiPowerLevels < 7) {
             for (pip = gpSCSV->uiPowerLevels; pip < 7; ++pip) {
-                gpSCSV->power_controls[pip]->m_disabledSprite = pip * 6 + 3;
+                gpSCSV->power_frames[pip][0] = pip * 6 + 3;
             }
             return;
         }
     } else {
         for (pip = 0; pip < 7; ++pip) {
-            gpSCSV->power_controls[pip]->m_disabledSprite = pip * 6 + 3;
+            gpSCSV->power_frames[pip][0] = pip * 6 + 3;
         }
     }
 }
@@ -517,7 +453,6 @@ static void RefreshSpellPowerPip(int pip)
     W8SpellCastRating rating;
     int level;
     int frame;
-    W8TextControl* control;
 
     if (gpSCSV->uiSpellToCast == 0) {
         srAssertFail("gpSCSV->uiSpellToCast != SPELL_NONE", SPELLCASTING_CPP, 0x303, 0);
@@ -530,19 +465,12 @@ static void RefreshSpellPowerPip(int pip)
     gpSCSV->power_controls[pip]->SetEnabled(true);
     rating = GetSpellCastRating(gpSCSV->caster, gpSCSV->uiSpellToCast, level);
     frame = (pip + rating * 9) * 6;
-    control = gpSCSV->power_controls[pip];
-    control->m_normalSprite = frame;
-    if (pip == 8) {
-        gpSCSV->power_controls[8]->m_alternateNormalSprite = frame;
-    } else {
-        control->m_alternateNormalSprite = frame + 1;
-    }
-    control->m_pressedSprite = frame + 2;
-    if (pip == 8) {
-        gpSCSV->power_controls[8]->m_alternatePressedSprite = frame + 2;
-    } else {
-        control->m_alternatePressedSprite = frame + 4;
-    }
+    auto& frames = gpSCSV->power_frames[pip];
+    frames[1] = frame;
+    frames[2] = pip == 8 ? frame : frame + 1;
+    frames[3] = frame + 2;
+    frames[4] = pip == 8 ? frame + 2 : frame + 4;
+    gpSCSV->dirty[2] = true;
 }
 
 static void AppendSpellCastingListEntry(int id, W8SpellRuntimeRecord* spell, char color)
@@ -753,26 +681,44 @@ void BeginSpellCast(int spell_id, int location_id, W8NpcDialogueLayout interact_
 // FUNCTION: WIZ8 0x005A0270
 void SetSpellCastingPanelsActive(bool active)
 {
-    int index;
-    bool text_pending;
-
-    text_pending = false;
-    for (index = 0; index < 3; ++index) {
-        Controls* panel = gpSCSV->panels[index].get();
-        if (panel->m_active) {
-            if (active) {
-                panel->InvalidateAll();
+    auto& view = *gpSCSV;
+    auto& target = GetFrameBufferSurface();
+    for (const auto& button : view.realm_buttons) view.dirty[0] |= button->m_dirty;
+    for (const auto& button : view.power_controls) view.dirty[2] |= button->m_dirty;
+    view.dirty[2] |= view.cancel->m_dirty;
+    constexpr int origins[] = {0x17, 0xe6, 0x1a4};
+    constexpr SDL_Point icons[] = {{0x55, 0xf}, {0x73, 0xf}, {0x49, 0x25},
+        {0x7f, 0x25}, {0x55, 0x3b}, {0x73, 0x3b}};
+    for (int panel = 0; panel < 3; ++panel) {
+        if (!active && !view.dirty[panel]) continue;
+        CatalogArtwork::Load(400, 0).drawAndInvalidate(target, panel, origins[panel], 0x166);
+        if (panel == 0) {
+            for (int realm = 0; realm < 6; ++realm) {
+                auto& button = *view.realm_buttons[realm];
+                button.m_dirty = true;
+                button.Draw(target);
+                const int offset = button.IsPressed() ? 1 : 0;
+                view.realm_text[realm].RenderText(target, offset, offset, true);
+                const auto& animation = g_spell_realm_animations[realm];
+                const int frame = !button.IsEnabled() ? animation.frame_count :
+                    view.iSpellRealm == realm ? view.realm_anim_frame : animation.initial_frame;
+                CatalogArtwork::Load(0x193 + realm, 0).drawAndInvalidate(target, frame,
+                    0x17 + icons[realm].x, 0x166 + icons[realm].y);
             }
-            if (index == 1) {
-                Controls* description = gpSCSV->panels[1].get();
-                text_pending = description->m_active &&
-                               (description->m_dirty || description->m_childrenDirty);
+        } else if (panel == 1) {
+            RedrawTextBoxScrollChrome();
+        } else {
+            for (int pip = 0; pip < 9; ++pip) {
+                const auto& f = view.power_frames[pip];
+                view.power_controls[pip]->SetImage(ButtonGraphics::Load(
+                    CatalogArtwork::Load(0x192, 0).spriteSheet(), f[0], f[1], f[2], f[3], f[4]));
+                view.power_controls[pip]->Draw(target);
             }
-            panel->Redraw(GetFrameBufferSurface(), false);
-            if (text_pending) {
-                RedrawTextBoxScrollChrome();
-            }
+            view.cancel->m_dirty = true;
+            view.cancel->Draw(target);
+            view.spell_name.RenderToTarget(0, true, target);
         }
+        view.dirty[panel] = false;
     }
 }
 
@@ -785,7 +731,7 @@ void SpellCastingNoticeClosed(W8DialogBase* dialog)
 // FUNCTION: WIZ8 0x005A0300
 void InvalidateSpellCastingDescription(void)
 {
-    gpSCSV->panels[1]->InvalidateAll();
+    gpSCSV->dirty[1] = true;
 }
 
 /* Switches the view to another realm: the old realm's icon returns to its
@@ -799,22 +745,20 @@ static void SelectSpellCastingRealm(W8SpellRealm realm)
     previous = gpSCSV->iSpellRealm;
     if (previous != realm) {
         if (previous != W8_SPELL_REALM_NONE) {
-            gpSCSV->realm_icons[previous]->m_normalSprite =
-                g_spell_realm_animations[previous].initial_frame;
-            gpSCSV->realm_icons[gpSCSV->iSpellRealm]->Invalidate(false);
-            gpSCSV->realm_buttons[gpSCSV->iSpellRealm]->DisableSecondaryState(false);
-            gpSCSV->realm_buttons[gpSCSV->iSpellRealm]->Invalidate(false);
+            gpSCSV->dirty[0] = true;
+            gpSCSV->realm_buttons[gpSCSV->iSpellRealm]->SetPressed(false);
+            gpSCSV->realm_buttons[gpSCSV->iSpellRealm]->m_dirty = true;
         }
         gpSCSV->iSpellRealm = realm;
         gpSCSV->realm_anim_frame = g_spell_realm_animations[gpSCSV->iSpellRealm].initial_frame;
-        gpSCSV->realm_icons[gpSCSV->iSpellRealm]->Invalidate(false);
+        gpSCSV->dirty[0] = true;
         gpSCSV->realm_anim_timer = w8_get_ticks() + (0x32);
         RebuildSpellCastingList(W8_SPELL_NONE);
         ClearSpellCastingChoice();
     }
     if (realm != W8_SPELL_REALM_NONE) {
-        gpSCSV->realm_buttons[realm]->EnableSecondaryState(false);
-        gpSCSV->realm_buttons[realm]->Invalidate(false);
+        gpSCSV->realm_buttons[realm]->SetPressed(true);
+        gpSCSV->realm_buttons[realm]->m_dirty = true;
     }
 }
 
@@ -826,25 +770,25 @@ static void SelectSpellPowerPip7(void)
 {
     int pip;
 
-    if (gpSCSV->power_controls[7]->IsSelected()) {
+    if (gpSCSV->power_controls[7]->IsPressed()) {
         for (pip = 0; pip < 7; ++pip) {
-            W8TextControl* control = gpSCSV->power_controls[pip];
-            if (control->m_enabled) {
-                control->DisableSecondaryState(false);
+            auto& control = gpSCSV->power_controls[pip];
+            if (control->IsEnabled()) {
+                control->SetPressed(false);
             }
         }
-        gpSCSV->power_controls[W8_SPELL_NAME_CONTROL]->m_textBuffer.SetRenderMode(4);
-        gpSCSV->power_controls[W8_SPELL_NAME_CONTROL]->m_textBuffer.SetText(
+        gpSCSV->spell_name.SetRenderMode(4);
+        gpSCSV->spell_name.SetText(
             "?", g_wiz_text_font_secondary);
         gpSCSV->iSpellPower = 7;
-        gpSCSV->power_controls[W8_SPELL_NAME_CONTROL]->Invalidate(true);
+        gpSCSV->dirty[2] = true;
         return;
     }
-    gpSCSV->power_controls[W8_SPELL_NAME_CONTROL]->m_textBuffer.SetRenderMode(4);
-    gpSCSV->power_controls[W8_SPELL_NAME_CONTROL]->m_textBuffer.SetText("",
+    gpSCSV->spell_name.SetRenderMode(4);
+    gpSCSV->spell_name.SetText("",
                                                                         g_wiz_text_font_secondary);
     gpSCSV->iSpellPower = -1;
-    gpSCSV->power_controls[W8_SPELL_NAME_CONTROL]->Invalidate(true);
+    gpSCSV->dirty[2] = true;
 }
 
 /* The max-power pip: while its secondary state is lit it prices the name
@@ -852,16 +796,16 @@ static void SelectSpellPowerPip7(void)
 // FUNCTION: WIZ8 0x005A0660
 static void SelectSpellPowerPip8(void)
 {
-    if (gpSCSV->power_controls[8]->IsSelected()) {
-        gpSCSV->power_controls[W8_SPELL_NAME_CONTROL]->m_textBuffer.SetRenderMode(4);
-        gpSCSV->power_controls[W8_SPELL_NAME_CONTROL]->m_textBuffer.SetText(
+    if (gpSCSV->power_controls[8]->IsPressed()) {
+        gpSCSV->spell_name.SetRenderMode(4);
+        gpSCSV->spell_name.SetText(
             "?", g_wiz_text_font_secondary);
         gpSCSV->iSpellPower = 7;
-        gpSCSV->power_controls[W8_SPELL_NAME_CONTROL]->Invalidate(true);
+        gpSCSV->dirty[2] = true;
         return;
     }
-    gpSCSV->power_controls[8]->EnableSecondaryState(false);
-    gpSCSV->power_controls[W8_SPELL_NAME_CONTROL]->Invalidate(true);
+    gpSCSV->power_controls[8]->SetPressed(true);
+    gpSCSV->dirty[2] = true;
 }
 
 /* Records the chosen power level: pips through the level light, pips above it
@@ -872,28 +816,28 @@ void SelectSpellPowerLevel(int power_level)
     int pip;
     std::string text;
 
-    gpSCSV->panels[2]->InvalidateAll();
+    gpSCSV->dirty[2] = true;
     if (power_level == -1 ||
-        (gpSCSV->power_controls[power_level]->IsSelected() == 0 &&
+        (gpSCSV->power_controls[power_level]->IsPressed() == 0 &&
          gpSCSV->iSpellPower == power_level)) {
         for (pip = 0; pip < 7; ++pip) {
-            gpSCSV->power_controls[pip]->DisableSecondaryState(false);
+            gpSCSV->power_controls[pip]->SetPressed(false);
         }
         gpSCSV->iSpellPower = -1;
         if (gpSCSV->iSpellPowerClass == W8_SPELL_POWER_MAXIMUM) {
-            gpSCSV->power_controls[8]->EnableSecondaryState(false);
-            if (gpSCSV->power_controls[8]->IsSelected() == 0) {
-                gpSCSV->power_controls[8]->EnableSecondaryState(false);
+            gpSCSV->power_controls[8]->SetPressed(true);
+            if (gpSCSV->power_controls[8]->IsPressed() == 0) {
+                gpSCSV->power_controls[8]->SetPressed(true);
             } else {
-                gpSCSV->power_controls[W8_SPELL_NAME_CONTROL]->m_textBuffer.SetRenderMode(4);
-                gpSCSV->power_controls[W8_SPELL_NAME_CONTROL]->m_textBuffer.SetText(
+                gpSCSV->spell_name.SetRenderMode(4);
+                gpSCSV->spell_name.SetText(
                     "?", g_wiz_text_font_secondary);
                 gpSCSV->iSpellPower = 7;
             }
-            gpSCSV->power_controls[W8_SPELL_NAME_CONTROL]->Invalidate(true);
+            gpSCSV->dirty[2] = true;
             return;
         }
-        gpSCSV->power_controls[W8_SPELL_NAME_CONTROL]->m_textBuffer.SetRenderMode(4);
+        gpSCSV->spell_name.SetRenderMode(4);
         if (gpSCSV->iSpellPowerClass == W8_SPELL_POWER_FIXED) {
             text = fmt::format("{:d}", g_spell_records[gpSCSV->uiSpellToCast].spell_point_cost);
         } else {
@@ -903,19 +847,19 @@ void SelectSpellPowerLevel(int power_level)
         gpSCSV->iSpellPower = power_level;
         if (power_level >= 0) {
             for (pip = 0; pip <= power_level; ++pip) {
-                gpSCSV->power_controls[pip]->EnableSecondaryState(false);
+                gpSCSV->power_controls[pip]->SetPressed(true);
             }
         }
         if (power_level + 1 < 8) {
             for (pip = power_level + 1; pip < 8; ++pip) {
-                gpSCSV->power_controls[pip]->DisableSecondaryState(false);
+                gpSCSV->power_controls[pip]->SetPressed(false);
             }
         }
-        gpSCSV->power_controls[W8_SPELL_NAME_CONTROL]->m_textBuffer.SetRenderMode(4);
+        gpSCSV->spell_name.SetRenderMode(4);
         text = fmt::format("{:d}", (power_level + 1) *
                                        g_spell_records[gpSCSV->uiSpellToCast].spell_point_cost);
     }
-    gpSCSV->power_controls[W8_SPELL_NAME_CONTROL]->m_textBuffer.SetText(text,
+    gpSCSV->spell_name.SetText(text,
                                                                         g_wiz_text_font_secondary);
 }
 
@@ -925,37 +869,32 @@ void SelectSpellPowerLevel(int power_level)
 // FUNCTION: WIZ8 0x005A0910
 static void PreviewSpellPowerPipHover(int power_level)
 {
-    W8TextControl* spell_name;
     std::string text;
 
     if (power_level < 7) {
         if ((gpSCSV->iSpellPowerClass == W8_SPELL_POWER_SELECTABLE ||
              gpSCSV->iSpellPowerClass == W8_SPELL_POWER_REPEAT_OUT_OF_COMBAT) &&
-            (power_level == -1 || (gpSCSV->power_controls[power_level]->m_active &&
-                                   gpSCSV->power_controls[power_level]->m_enabled))) {
-            spell_name = gpSCSV->power_controls[W8_SPELL_NAME_CONTROL];
-            const SDL_Rect bounds = spell_name->ScreenBounds();
-            SDL_FillSurfaceRect(&GetFrameBufferSurface(), &bounds,
-                                Get16BPPColor(SDL_Color{1, 1, 1, SDL_ALPHA_OPAQUE}));
-            spell_name->Invalidate(false);
+            (power_level == -1 || (gpSCSV->power_controls[power_level]->IsVisible() &&
+                                   gpSCSV->power_controls[power_level]->IsEnabled()))) {
+            gpSCSV->dirty[2] = true;
             if (power_level != -1) {
-                spell_name->m_textBuffer.SetRenderMode(6);
+                gpSCSV->spell_name.SetRenderMode(6);
                 text = fmt::format("{:d}",
                                    (power_level + 1) *
                                        g_spell_records[gpSCSV->uiSpellToCast].spell_point_cost);
-                spell_name->m_textBuffer.SetText(text, g_wiz_text_font_secondary);
+                gpSCSV->spell_name.SetText(text, g_wiz_text_font_secondary);
                 return;
             }
             if (gpSCSV->iSpellPowerClass == W8_SPELL_POWER_SELECTABLE) {
-                spell_name->m_textBuffer.SetRenderMode(4);
+                gpSCSV->spell_name.SetRenderMode(4);
                 if (gpSCSV->iSpellPower != -1) {
                     text = fmt::format("{:d}",
                                        (gpSCSV->iSpellPower + 1) *
                                            g_spell_records[gpSCSV->uiSpellToCast].spell_point_cost);
-                    spell_name->m_textBuffer.SetText(text, g_wiz_text_font_secondary);
+                    gpSCSV->spell_name.SetText(text, g_wiz_text_font_secondary);
                     return;
                 }
-                spell_name->m_textBuffer.SetText("", g_wiz_text_font_secondary);
+                gpSCSV->spell_name.SetText("", g_wiz_text_font_secondary);
             }
         }
     }
@@ -999,105 +938,12 @@ void CommitSpellCastingSelection(void)
                 g_spell_realm_animations[gpSCSV->iSpellRealm].frame_count) {
                 gpSCSV->realm_anim_frame = 0;
             }
-            gpSCSV->realm_icons[gpSCSV->iSpellRealm]->m_normalSprite = gpSCSV->realm_anim_frame;
-            gpSCSV->realm_icons[gpSCSV->iSpellRealm]->Invalidate(false);
+            gpSCSV->dirty[0] = true;
             gpSCSV->realm_anim_timer = w8_get_ticks() + (0x32);
             RequestRedraw(W8_MAIN_REDRAW_FRAME);
         }
     }
     TryCommitSpellCast();
-}
-
-/* Realm button/icon region callback (catalog ids 0..5): presses the matching
-   realm button, invalidates its icon, and on enter sets the realm tooltip
-   (plain name when disabled, or name with skill level when enabled). */
-// FUNCTION: WIZ8 0x005A0C80
-unsigned char SpellRealmButtonRegionEvent(const InputEvent* event, W8Region* region, unsigned short id)
-{
-    const InputEventType us_event = event->type;
-
-    if (IsLeftButtonEvent(us_event)) {
-        if (us_event == InputEventType::LeftButtonRepeat || us_event == InputEventType::LeftButtonDown) {
-            gpSCSV->realm_buttons[id]->OnLeftButtonDown(0);
-            gpSCSV->realm_icons[id]->Invalidate(false);
-            region->flags |= W8_REGION_LEFT_BUTTON_HELD;
-            return 1;
-        }
-        if (us_event == InputEventType::LeftButtonUp) {
-            gpSCSV->realm_buttons[id]->OnLeftButtonUp(0);
-            gpSCSV->realm_icons[id]->Invalidate(false);
-            if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
-                region->flags &= ~W8_REGION_LEFT_BUTTON_HELD;
-            }
-            return 1;
-        }
-    } else if (us_event == InputEventType::MouseMove) {
-        if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
-            gpSCSV->realm_buttons[id]->OnMouseLeave(0);
-            gpSCSV->realm_icons[id]->Invalidate(false);
-            return 1;
-        }
-        if ((region->flags & W8_REGION_MOUSE_ENTER) != 0) {
-            unsigned int realm = id;
-            gpSCSV->realm_buttons[realm]->OnMouseEnter(0);
-            if (!gpSCSV->realm_buttons[realm]->m_enabled) {
-                SetRegionHelpText(g_localized_strings[g_spell_realm_help_string_ids[realm]]);
-            } else {
-                SetRegionHelpText(fmt::format(
-                    "{} ({}: {:d})", g_localized_strings[g_spell_realm_help_string_ids[realm]],
-                    g_localized_strings[0x2d],
-                    g_status.buffers.Char[g_status.selected_character]
-                        .skills[W8_SKILL_FIRE_MAGIC + realm]
-                        .level));
-            }
-            gpSCSV->realm_icons[realm]->Invalidate(false);
-            return 1;
-        }
-    }
-    return 0;
-}
-
-/* Power-pip / cancel-button region callback (ids 0..8 and 10). While
-   input_blocked is set the handler swallows input. */
-// FUNCTION: WIZ8 0x005A0E50
-unsigned char SpellPowerPipRegionEvent(const InputEvent* event, W8Region* region, unsigned short id)
-{
-    InputEventType us_event;
-
-    if (gpSCSV->input_blocked) {
-        return 1;
-    }
-
-    us_event = event->type;
-    if (IsLeftButtonEvent(us_event)) {
-        if (us_event == InputEventType::LeftButtonRepeat || us_event == InputEventType::LeftButtonDown) {
-            gpSCSV->power_controls[id]->OnLeftButtonDown(0);
-            region->flags |= W8_REGION_LEFT_BUTTON_HELD;
-            return 1;
-        }
-        if (us_event == InputEventType::LeftButtonUp) {
-            gpSCSV->power_controls[id]->OnLeftButtonUp(0);
-            if (id < 7 && !gpSCSV->power_controls[id]->IsSelected()) {
-                PreviewSpellPowerPipHover(id);
-            }
-            if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
-                region->flags &= ~W8_REGION_LEFT_BUTTON_HELD;
-            }
-            return 1;
-        }
-    } else if (us_event == InputEventType::MouseMove) {
-        if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
-            PreviewSpellPowerPipHover(-1);
-            gpSCSV->power_controls[id]->OnMouseLeave(0);
-            return 1;
-        }
-        if ((region->flags & W8_REGION_MOUSE_ENTER) != 0) {
-            PreviewSpellPowerPipHover(id);
-            gpSCSV->power_controls[id]->OnMouseEnter(0);
-            return 1;
-        }
-    }
-    return 0;
 }
 
 /* Spell-list text-box body region event: the hovered row is recomputed from
@@ -1163,12 +1009,6 @@ unsigned char SpellCastTextBoxRegionEvent(const InputEvent* event, W8Region* reg
         OpenModal(std::unique_ptr<ModalContent>(dialog));
         return 1;
     }
-}
-
-// FUNCTION: WIZ8 0x005A1140
-unsigned char IgnoreSpellCastingInput(const InputEvent* event, W8Region*, unsigned short)
-{
-    return 0;
 }
 
 /* The spell-list row click: re-colors the rows, remembers the spell, then

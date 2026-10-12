@@ -11,7 +11,10 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/integer_constants.h"
 #include "wiz8/layouts/combat_state.h"
-#include "wiz8/local_code/Controls.h"
+#include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/ui_layer.h"
+#include "wiz8/item_video_object_vector.h"
+#include "image.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/local_screens/MGSUseItemSelect.h"
 #include "wiz8/dialog_code/AssayDialog.h"
@@ -25,7 +28,6 @@
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/Targeting.h"
-#include "wiz8/local_code/TextControl.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/MGSPortraitCombat.h"
 #include "wiz8/local_screens/MGSSpellCasting.h"
@@ -60,11 +62,11 @@ W8MainUiMode g_use_item_select_return_mode;
 static int g_use_item_select_mode;
 
 // GLOBAL: WIZ8 0x0069B950
-W8TextControl* g_use_item_select_scroll_buttons[3];
+
 // GLOBAL: WIZ8 0x0069B95C
 static int g_selected_use_item_line;
 // GLOBAL: WIZ8 0x0069B960
-W8TextControl* g_use_item_select_controls[9];
+
 // GLOBAL: WIZ8 0x0069B9A0
 W8ItemInstance* g_use_item_selected;
 // GLOBAL: WIZ8 0x0069B9A4
@@ -72,7 +74,7 @@ W8ItemInstance* g_use_item_select_override_item;
 // GLOBAL: WIZ8 0x0069B990
 static int g_use_item_list_count;
 // GLOBAL: WIZ8 0x0069B994
-static std::unique_ptr<Controls> g_use_item_select_panels[3];
+
 // GLOBAL: WIZ8 0x0069B9A8
 static int g_use_item_cursor_x;
 // GLOBAL: WIZ8 0x0069B9AC
@@ -93,15 +95,24 @@ static int g_use_item_hover_row;
 // GLOBAL: WIZ8 0x0069BF38
 static bool g_use_item_commit_active;
 
-// Retail set 0x1a, regions 156-160.
-static constexpr std::array<RegionTemplate, 5> g_use_item_select_region_templates{{
-    {0x00000001, 0, 0, 0, 0, UseItemSelectScrollRegionEvent, 0, true, 96},
-    {0x00000001, 0, 0, 0, 0, UseItemSelectScrollRegionEvent, 1, true, 97},
-    {0x00000001, 0, 0, 0, 0, UseItemSelectControlRegionEvent, 0, true, 98},
-    {0x00000001, 0, 0, 0, 0, UseItemSelectControlRegionEvent, 3, true, 99},
-    {0x00000001, 0, 0, 0, 0, UseItemSelectControlRegionEvent, 8, true, 17},
-}};
-ScreenRegionSet g_use_item_select_regions{g_use_item_select_region_templates, 0x1a};
+namespace {
+struct UseItemView {
+    UiLayer input{0x1a};
+    std::array<std::unique_ptr<W8ButtonWidget>, 2> pools;
+    std::unique_ptr<W8ButtonWidget> filter;
+    std::unique_ptr<W8ButtonWidget> close;
+    W8TextBuffer caption;
+    W8TextBuffer quantity;
+    std::shared_ptr<const SpriteSheet> item_image;
+    std::array<bool, 3> dirty{true, true, true};
+};
+std::unique_ptr<UseItemView> use_item;
+}
+
+void EnableUseItemSelectInput()
+{
+    if (use_item) use_item->input.setEnabled(true);
+}
 
 void UpdateUseItemScrollButtons(void);
 static void SelectUseItemScrollMode(int mode);
@@ -114,77 +125,51 @@ static void UseItemSelectFilterToggle(void);
 static void UseItemSelectAssayButton(void);
 static void CreateUseItemSelectControls(void);
 
-/* Build the use-item view chrome: three Controls panels, the two scroll
-   buttons plus the caption label in g_use_item_select_scroll_buttons, and the
-   nine g_use_item_select_controls rows. */
-// FUNCTION: WIZ8 0x0059C300
 static void CreateUseItemSelectControls(void)
 {
-    Controls* panel;
-
-    g_use_item_select_panels[0] = std::make_unique<Controls>(0x17, 0x166, 0xa4, 0x1c2, CatalogArtwork::Load(0x97, 0), 0);
-    g_use_item_select_panels[1] = std::make_unique<Controls>(0xa4, 0x166, 0x1dc, 0x1c2, CatalogArtwork::Load(0x97, 0), 1);
-    g_use_item_select_panels[2] = std::make_unique<Controls>(0x1dc, 0x166, 0x269, 0x1c2, CatalogArtwork::Load(0x97, 0), 2);
-    panel = g_use_item_select_panels[0].get();
-    g_use_item_select_scroll_buttons[0] =
-        panel->EmplaceControl<W8TextControl>(g_use_item_select_regions->index(0), 0x24, 0x1d, 0x44, 0x3d,
-                          CatalogArtwork::Load(0x98, 0), W8SpriteStates{.normal = 0, .pressed = 2, .alternate_normal = 1, .alternate_pressed = 4, .disabled = 3});
-    g_use_item_select_scroll_buttons[1] =
-        panel->EmplaceControl<W8TextControl>(g_use_item_select_regions->index(1), 0x48, 0x1d, 0x68, 0x3d,
-                          CatalogArtwork::Load(0x98, 0), W8SpriteStates{.normal = 5, .pressed = 7, .alternate_normal = 6, .alternate_pressed = 9, .disabled = 8});
-    g_use_item_select_scroll_buttons[2] =
-        panel->EmplaceControl<W8TextControl>(0xffffffff, 4, 4, 0x89, 0x13);
-    g_use_item_select_scroll_buttons[0]->AddLayoutFlags(g_W8TextControlLayoutToggle);
-    g_use_item_select_scroll_buttons[1]->AddLayoutFlags(g_W8TextControlLayoutToggle);
-    g_use_item_select_scroll_buttons[0]->m_onPrimary = UseItemSelectScrollUp;
-    g_use_item_select_scroll_buttons[1]->m_onPrimary = [] { SelectUseItemScrollMode(1); };
-    g_use_item_select_scroll_buttons[2]->m_textBuffer.SetLayoutMode(g_W8TextBufferAlignMiddle |
-                                                                    g_W8TextBufferAlignCenter);
-    g_use_item_select_scroll_buttons[2]->m_textBuffer.SetText(g_localized_strings[0x77a],
-                                                              g_wiz_text_font_secondary);
-    panel = g_use_item_select_panels[2].get();
-    g_use_item_select_controls[0] =
-        panel->EmplaceControl<W8TextControl>(g_use_item_select_regions->index(2), 5, 5, 0x31, 0x39);
-    g_use_item_select_controls[0]->m_textBuffer.SetLayoutMode(g_W8TextBufferAlignBottom |
-                                                              g_W8TextBufferAlignRight);
-    g_use_item_select_controls[0]->AddLayoutFlags(g_W8TextControlLayoutImageAtOrigin);
-    g_use_item_select_controls[1] =
-        panel->EmplaceControl<W8TextControl>(0xffffffff, 0x36, 6, 0x44, 0x14, CatalogArtwork::Load(0x1ab, 0), W8SpriteStates{.normal = 0, .pressed = 1, .alternate_normal = 2, .alternate_pressed = 4, .disabled = 3});
-    g_use_item_select_controls[2] =
-        panel->EmplaceControl<W8TextControl>(0xffffffff, 0x47, 6, 0x55, 0x14, CatalogArtwork::Load(0x1ab, 0), W8SpriteStates{.normal = 5, .pressed = 6, .alternate_normal = 7, .alternate_pressed = 9, .disabled = 8});
-    g_use_item_select_controls[3] =
-        panel->EmplaceControl<W8TextControl>(g_use_item_select_regions->index(3), 0x58, 6, 0x66, 0x14,
-                          CatalogArtwork::Load(0x1ab, 0), W8SpriteStates{.normal = 0xa, .pressed = 0xb, .alternate_normal = 0xc, .alternate_pressed = 0xe, .disabled = 0xd});
-    g_use_item_select_controls[4] = panel->EmplaceControl<W8TextControl>(0xffffffff, 0x36, 0x17, 0x44, 0x25, CatalogArtwork::Load(0x1ab, 0), W8SpriteStates{.normal = 0xf, .pressed = 0x10, .alternate_normal = 0x11, .alternate_pressed = 0x13, .disabled = 0x12});
-    g_use_item_select_controls[5] = panel->EmplaceControl<W8TextControl>(0xffffffff, 0x47, 0x17, 0x55, 0x25, CatalogArtwork::Load(0x1ab, 0), W8SpriteStates{.normal = 0x14, .pressed = 0x15, .alternate_normal = 0x16, .alternate_pressed = 0x18, .disabled = 0x17});
-    g_use_item_select_controls[6] = panel->EmplaceControl<W8TextControl>(0xffffffff, 0x58, 0x17, 0x66, 0x25, CatalogArtwork::Load(0x1ab, 0), W8SpriteStates{.normal = 0x19, .pressed = 0x1a, .alternate_normal = 0x1b, .alternate_pressed = 0x1d, .disabled = 0x1c});
-    g_use_item_select_controls[7] = panel->EmplaceControl<W8TextControl>(0xffffffff, 0x35, 0x27, 0x56, 0x39, CatalogArtwork::Load(0x1aa, 0), W8SpriteStates{.normal = 0x1e, .pressed = 0x22, .alternate_normal = 0x1f, .alternate_pressed = 0x20, .disabled = 0x21});
-    g_use_item_select_controls[8] =
-        panel->EmplaceControl<W8TextControl>(g_use_item_select_regions->index(4), 0x6c, 6, 0x87, 0x21,
-                          CatalogArtwork::Load(0x8e, 0), W8SpriteStates{.normal = 4, .alternate_normal = 5, .alternate_pressed = 6, .disabled = 7});
-    g_use_item_select_controls[2]->AddLayoutFlags(g_W8TextControlLayoutToggle);
-    g_use_item_select_controls[3]->AddLayoutFlags(g_W8TextControlLayoutToggle);
-    g_use_item_select_controls[4]->AddLayoutFlags(g_W8TextControlLayoutToggle);
-    g_use_item_select_controls[5]->AddLayoutFlags(g_W8TextControlLayoutToggle);
-    g_use_item_select_controls[6]->AddLayoutFlags(g_W8TextControlLayoutToggle);
-    g_use_item_select_controls[0]->m_onPrimary = UseItemSelectAssayButton;
-    g_use_item_select_controls[0]->m_onSecondary = UseItemSelectAssayButton;
-    g_use_item_select_controls[1]->m_onPrimary = NoOp;
-    g_use_item_select_controls[2]->m_onPrimary = NoOp;
-    g_use_item_select_controls[3]->m_onPrimary = UseItemSelectFilterToggle;
-    g_use_item_select_controls[4]->m_onPrimary = NoOp;
-    g_use_item_select_controls[5]->m_onPrimary = NoOp;
-    g_use_item_select_controls[6]->m_onPrimary = NoOp;
-    g_use_item_select_controls[8]->m_onPrimary = CloseUseItemSelection;
-    for (auto& select_panel : g_use_item_select_panels) {
-        select_panel->SetActive(true);
+    use_item = std::make_unique<UseItemView>();
+    const auto make_button = [](int artwork, int normal, int pressed, int hover, int pressed_hover,
+                                int disabled, SDL_Rect bounds, int help, void (*action)()) {
+        auto button = std::make_unique<W8ButtonWidget>(use_item->input);
+        button->Configure(CatalogArtwork::Load(artwork, 0).spriteSheet(), disabled, normal, hover,
+            pressed, pressed_hover, [action](auto*) { AfterUiDispatch(action); }, {}, false,
+            0, help, {}, {});
+        button->policy.controller_activation = true;
+        button->SetPosition(bounds.x, bounds.y);
+        button->Resize(bounds.w, bounds.h);
+        return button;
+    };
+    for (int index = 0; index < 2; ++index) {
+        const int base = index * 5;
+        use_item->pools[index] = make_button(0x98, base, base + 2, base + 1, base + 4, base + 3,
+            {0x17 + (index ? 0x48 : 0x24), 0x183, 32, 32}, 96 + index,
+            index ? +[] { SelectUseItemScrollMode(1); } : UseItemSelectScrollUp);
+        use_item->pools[index]->policy.primary_toggle = ButtonToggle::Release;
     }
+    use_item->filter = make_button(0x1ab, 10, 11, 12, 14, 13,
+        {0x234, 0x16c, 14, 14}, 99, UseItemSelectFilterToggle);
+    use_item->filter->policy.primary_toggle = ButtonToggle::Release;
+    use_item->filter->SetEnabled(false);
+    use_item->close = make_button(0x8e, 4, -1, 5, 6, 7,
+        {0x248, 0x16c, 27, 27}, 17, CloseUseItemSelection);
+    use_item->caption.SetLayoutBounds(0x1b, 0x16a, 0xa0, 0x179);
+    use_item->caption.SetLayoutMode(g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
+    use_item->caption.SetText(g_localized_strings[0x77a], g_wiz_text_font_secondary);
+    use_item->quantity.SetLayoutBounds(0x1e1, 0x16b, 0x20d, 0x19f);
+    use_item->quantity.SetLayoutMode(g_W8TextBufferAlignBottom | g_W8TextBufferAlignRight);
+    auto& item = use_item->input.add(SDL_Rect{0x1e1, 0x16b, 45, 53},
+        [](const UiPointerEvent& event) {
+            const auto mask = event.button == UiPointerButton::Right ? SDL_BUTTON_RMASK : SDL_BUTTON_LMASK;
+            if (event.action == UiPointerAction::Up && event.inside && (event.captured_buttons & mask))
+                AfterUiDispatch(UseItemSelectAssayButton);
+            return UiResult::Handled;
+        });
+    item.setTooltip([] { return g_localized_strings[98]; });
 }
 
 // FUNCTION: WIZ8 0x0059C930
 unsigned char OpenUseItemSelectView(int slot)
 {
-    W8TextControl** control;
     W8MainUiMode mode;
 
     g_use_item_commit_active = false;
@@ -199,7 +184,6 @@ unsigned char OpenUseItemSelectView(int slot)
     SetMainGameOverlayViewport(mode);
     g_use_item_select_return_mode = mode;
     RestoreSpellCastingRegions();
-    g_use_item_select_regions.Enable();
     SelectTextBox(2);
     ResetEditorStatusLine(-1);
     g_level_block->text_box_visible = false;
@@ -212,12 +196,7 @@ unsigned char OpenUseItemSelectView(int slot)
     g_use_item_selected = 0;
     g_use_item_select_override_item = 0;
     g_use_item_detail_item = 0;
-    for (control = g_use_item_select_controls + 1; control <= g_use_item_select_controls + 6;
-         control++) {
-        (*control)->SetEnabled(false);
-    }
     memset(g_use_item_list, 0, sizeof(g_use_item_list));
-    g_use_item_select_controls[7]->SetEnabled(false);
     RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
     RequestRedrawCombatBar();
     RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
@@ -232,7 +211,6 @@ unsigned char OpenUseItemSelectView(int slot)
 void CloseUseItemSelectView(void)
 {
     if (!g_use_item_commit_active) {
-        g_use_item_select_regions.Disable();
         SetTextBoxScrollInput(false);
         g_text_box_regions.Disable();
         g_level_block->action_panel_visible = 0;
@@ -240,11 +218,7 @@ void CloseUseItemSelectView(void)
         ResetEditorStatusLine(-1);
         g_level_block->text_box_visible = true;
         SelectTextBox(gXStatus.fCombatMode);
-        for (auto& select_panel : g_use_item_select_panels) {
-            select_panel.reset();
-        }
-        std::ranges::fill(g_use_item_select_scroll_buttons, nullptr);
-        std::ranges::fill(g_use_item_select_controls, nullptr);
+        use_item.reset();
         gXStatus.fItemSelectMode = false;
         ApplyMainGameModeFlag(g_use_item_select_return_mode, true);
         RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
@@ -285,12 +259,12 @@ void RefreshUseItemSelectionForSlot(int party_slot)
             const bool party_pool = gXStatus.dragged_item_origin == W8_ITEM_ORIGIN_PARTY_POOL;
             if (party_pool && gXStatus.fCombatMode)
                 srAssertFail("!gXStatus.fCombatMode", MGSUSEITEMSELECT_CPP, 0x1f0, 0);
-            g_use_item_select_scroll_buttons[party_pool ? 1 : 0]->EnableSecondaryState(false);
-            g_use_item_select_scroll_buttons[party_pool ? 0 : 1]->DisableSecondaryState(false);
+            use_item->pools[party_pool ? 1 : 0]->SetPressed(true);
+            use_item->pools[party_pool ? 0 : 1]->SetPressed(false);
             RebuildUseItemSelectList(party_pool ? 1 : 0, gXStatus.dragged_item);
         } else {
             ResetEditorStatusLine(2);
-            g_use_item_select_controls[3]->SetEnabled(true);
+            use_item->filter->SetEnabled(true);
             UseItemSelectFilterToggle();
             g_use_item_list_count = 0;
             g_selected_use_item_line = -1;
@@ -312,8 +286,8 @@ void RefreshUseItemSelectionForSlot(int party_slot)
             const bool party_pool = g_status.buffers.XChar[party_slot].item_origin == W8_ITEM_ORIGIN_PARTY_POOL;
             if (party_pool && gXStatus.fCombatMode)
                 srAssertFail("!gXStatus.fCombatMode", MGSUSEITEMSELECT_CPP, 0x216, 0);
-            g_use_item_select_scroll_buttons[party_pool ? 1 : 0]->EnableSecondaryState(false);
-            g_use_item_select_scroll_buttons[party_pool ? 0 : 1]->DisableSecondaryState(false);
+            use_item->pools[party_pool ? 1 : 0]->SetPressed(true);
+            use_item->pools[party_pool ? 0 : 1]->SetPressed(false);
             RebuildUseItemSelectList(party_pool ? 1 : 0, item);
             if (g_selected_use_item_line == -1) {
                 srAssertFail("giReuseItemLineNumber != -1", MGSUSEITEMSELECT_CPP, 0x221, 0);
@@ -329,7 +303,7 @@ void RefreshUseItemSelectionForSlot(int party_slot)
         RebuildUseItemSelectList(g_use_item_select_mode, 0);
         return;
     }
-    g_use_item_select_scroll_buttons[0]->EnableSecondaryState(false);
+    use_item->pools[0]->SetPressed(true);
     UseItemSelectScrollUp();
 }
 
@@ -341,7 +315,7 @@ void SetUseItemSelectReturnMode(W8MainUiMode value)
 // FUNCTION: WIZ8 0x0059CF40
 void InvalidateUseItemSelectPanel(void)
 {
-    g_use_item_select_panels[1]->InvalidateAll();
+    use_item->dirty[1] = true;
 }
 
 /* fItemSelectMode per-frame update: keep the scroll buttons synced, run the
@@ -350,26 +324,34 @@ void InvalidateUseItemSelectPanel(void)
 // FUNCTION: WIZ8 0x0059CF50
 void UpdateUseItemSelect(bool active)
 {
-    bool panel_dirty;
-    int i;
-
-    panel_dirty = false;
     UpdateUseItemScrollButtons();
-    for (i = 0; i < 3; i++) {
-        if (g_use_item_select_panels[i]->m_active) {
-            if (active) {
-                g_use_item_select_panels[i]->InvalidateAll();
+    use_item->dirty[0] |= use_item->pools[0]->m_dirty || use_item->pools[1]->m_dirty;
+    use_item->dirty[2] |= use_item->filter->m_dirty || use_item->close->m_dirty;
+    auto& target = GetFrameBufferSurface();
+    const int x[]{0x17, 0xa4, 0x1dc};
+    for (int panel = 0; panel < 3; ++panel) {
+        if (!active && !use_item->dirty[panel]) continue;
+        CatalogArtwork::Load(0x97, 0).drawAndInvalidate(target, panel, x[panel], 0x166);
+        if (panel == 0) {
+            use_item->caption.RenderToTarget(0, true, target);
+            for (auto& button : use_item->pools) {
+                button->m_dirty = true;
+                button->Draw(target);
             }
-            if (i == 1) {
-                panel_dirty = g_use_item_select_panels[1]->m_active &&
-                              (g_use_item_select_panels[1]->m_dirty ||
-                               g_use_item_select_panels[1]->m_childrenDirty);
-            }
-            g_use_item_select_panels[i]->Redraw(GetFrameBufferSurface(), false);
-            if (panel_dirty) {
-                RedrawTextBoxScrollChrome();
-            }
+        } else if (panel == 1) RedrawTextBoxScrollChrome();
+        else {
+            // These unavailable actions are artwork, not six disabled widgets.
+            const auto actions = CatalogArtwork::Load(0x1ab, 0);
+            for (int index : {0, 1, 3, 4, 5})
+                actions.draw(target, index * 5 + 3, 0x212 + (index % 3) * 17, 0x16c + (index / 3) * 17);
+            CatalogArtwork::Load(0x1aa, 0).draw(target, 0x21, 0x211, 0x18d);
+            use_item->filter->m_dirty = use_item->close->m_dirty = true;
+            use_item->filter->Draw(target);
+            use_item->close->Draw(target);
+            if (use_item->item_image) DrawSpriteAndInvalidate(target, *use_item->item_image, 0, 0x1e1, 0x16b);
+            use_item->quantity.RenderToTarget(0, true, target);
         }
+        use_item->dirty[panel] = false;
     }
     CommitSelectedItemUse();
 }
@@ -377,16 +359,16 @@ void UpdateUseItemSelect(bool active)
 /* The two scroll buttons are mutually exclusive views of the same list. */
 static void SelectUseItemScrollMode(int mode)
 {
-    W8TextControl* selected = g_use_item_select_scroll_buttons[mode];
-    W8TextControl* other = g_use_item_select_scroll_buttons[1 - mode];
-    if (selected->IsSelected()) {
-        if (other->IsSelected()) {
-            other->DisableSecondaryState(false);
-            other->Invalidate(false);
+    auto* selected = use_item->pools[mode].get();
+    auto* other = use_item->pools[1 - mode].get();
+    if (selected->IsPressed()) {
+        if (other->IsPressed()) {
+            other->SetPressed(false);
+            other->m_dirty = true;
         }
         RebuildUseItemSelectList(mode, 0);
     } else {
-        selected->EnableSecondaryState(false);
+        selected->SetPressed(true);
     }
 }
 
@@ -403,38 +385,38 @@ static void UseItemSelectScrollUp(void)
 void UpdateUseItemScrollButtons(void)
 {
     if (g_use_item_select_mode == -1 && g_use_item_list_count == 1) {
-        g_use_item_select_scroll_buttons[0]->SetEnabled(false);
-        g_use_item_select_scroll_buttons[1]->SetEnabled(false);
+        use_item->pools[0]->SetEnabled(false);
+        use_item->pools[1]->SetEnabled(false);
         return;
     }
     if (gXStatus.fCombatMode) {
-        if (g_use_item_select_scroll_buttons[0]->IsSelected() == 0) {
-            g_use_item_select_scroll_buttons[0]->EnableSecondaryState(false);
-            g_use_item_select_scroll_buttons[0]->Invalidate(false);
+        if (use_item->pools[0]->IsPressed() == 0) {
+            use_item->pools[0]->SetPressed(true);
+            use_item->pools[0]->m_dirty = true;
             UseItemSelectScrollUp();
         }
-        if (g_use_item_select_scroll_buttons[1]->m_enabled) {
-            g_use_item_select_scroll_buttons[1]->SetEnabled(false);
-            g_use_item_select_scroll_buttons[1]->Invalidate(false);
+        if (use_item->pools[1]->IsEnabled()) {
+            use_item->pools[1]->SetEnabled(false);
+            use_item->pools[1]->m_dirty = true;
         }
         return;
     }
-    if (!g_use_item_select_scroll_buttons[1]->m_enabled) {
-        g_use_item_select_scroll_buttons[1]->SetEnabled(true);
-        g_use_item_select_scroll_buttons[1]->Invalidate(false);
+    if (!use_item->pools[1]->IsEnabled()) {
+        use_item->pools[1]->SetEnabled(true);
+        use_item->pools[1]->m_dirty = true;
     }
-    if (!g_use_item_select_scroll_buttons[0]->m_enabled) {
-        g_use_item_select_scroll_buttons[0]->SetEnabled(true);
-        g_use_item_select_scroll_buttons[0]->Invalidate(false);
+    if (!use_item->pools[0]->IsEnabled()) {
+        use_item->pools[0]->SetEnabled(true);
+        use_item->pools[0]->m_dirty = true;
     }
 }
 
 // FUNCTION: WIZ8 0x0059D830
 static void UseItemSelectFilterToggle(void)
 {
-    if (g_use_item_select_controls[3]->IsSelected() == 0) {
-        g_use_item_select_controls[3]->EnableSecondaryState(true);
-        g_use_item_select_controls[3]->Invalidate(false);
+    if (use_item->filter->IsPressed() == 0) {
+        use_item->filter->SetPressed(true);
+        use_item->filter->m_dirty = true;
     }
     g_use_item_select_flags |= 1;
 }
@@ -442,7 +424,7 @@ static void UseItemSelectFilterToggle(void)
 // FUNCTION: WIZ8 0x0059D860
 static void UseItemSelectAssayButton(void)
 {
-    if (g_use_item_detail_item != 0 && g_use_item_select_controls[0]->m_imageSprites) {
+    if (g_use_item_detail_item != 0 && use_item->item_image) {
         OpenUseItemAssayDialog(g_use_item_detail_item);
     }
 }
@@ -493,18 +475,16 @@ static void RebuildUseItemSelectList(int mode, W8ItemInstance* select)
     ClearSelectedTextLine(2);
     g_use_item_selected = 0;
     g_use_item_detail_item = 0;
-    g_use_item_select_controls[0]->ClearImage();
-    g_use_item_select_controls[0]->m_textBuffer.SetText("", g_large_font);
-    g_use_item_select_controls[0]->Invalidate(true);
+    use_item->item_image.reset();
+    use_item->quantity.SetText("", g_large_font);
+    use_item->dirty[2] = true;
     SelectSpellCastingPartySlot(g_status.selected_character);
     g_use_item_select_mode = mode;
     if (mode == -1) {
-        for (i = 1; i <= 6; i++) {
-            g_use_item_select_controls[i]->SetEnabled(false);
-        }
+        use_item->filter->SetEnabled(false);
         return;
     }
-    g_use_item_select_controls[3]->SetEnabled(true);
+    use_item->filter->SetEnabled(true);
     UseItemSelectFilterToggle();
     g_use_item_list_count = 0;
     g_selected_use_item_line = -1;
@@ -709,35 +689,6 @@ void CloseUseItemSelection(void)
     ClearSlotTargeting(g_status.selected_character);
 }
 
-/* Scroll up/down buttons for the use-item list (region ids 0 and 1). */
-// FUNCTION: WIZ8 0x0059D970
-unsigned char UseItemSelectScrollRegionEvent(const InputEvent* event, W8Region* region, unsigned short id)
-{
-    return DispatchButtonRegionEvent(event, region,
-                                     g_use_item_select_scroll_buttons[id]);
-}
-
-/* Use-item select action/icon controls (region ids 0, 3, 8). */
-// FUNCTION: WIZ8 0x0059DA30
-unsigned char UseItemSelectControlRegionEvent(const InputEvent* event, W8Region* region, unsigned short id)
-{
-    switch (event->type) {
-    case InputEventType::RightButtonDown:
-        g_use_item_select_controls[id]->OnRightButtonDown(0);
-        region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
-        return 1;
-    case InputEventType::RightButtonUp:
-        if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) != 0) {
-            g_use_item_select_controls[id]->OnRightButtonUp(0);
-            region->flags &= ~W8_REGION_RIGHT_BUTTON_HELD;
-        }
-        return 1;
-    default:
-        return DispatchButtonRegionEvent(event, region,
-                                         g_use_item_select_controls[id]);
-    }
-}
-
 /* Use-item text-box body region event: button presses only arm the held bits
    and all action happens on release - left release commits the slot's line,
    right release opens the assay dialog for the item under the cursor. Motion
@@ -893,7 +844,7 @@ void UpdateUseItemDetailPanel(W8ItemInstance* item)
     short count;
     bool charges = false;
 
-    g_use_item_select_controls[0]->SetItemImage(item->iItemNo);
+    use_item->item_image = g_item_video_objects.SharedSprites(item->iItemNo);
     count = 0;
     switch (g_item_records[item->iItemNo].quantity_kind) {
     case W8_ITEM_QUANTITY_STACK:
@@ -921,8 +872,8 @@ void UpdateUseItemDetailPanel(W8ItemInstance* item)
     } else {
         value = "";
     }
-    g_use_item_select_controls[0]->m_textBuffer.SetText(value, g_wiz_text_font_secondary);
-    g_use_item_select_controls[0]->Invalidate(true);
+    use_item->quantity.SetText(value, g_wiz_text_font_secondary);
+    use_item->dirty[2] = true;
     g_use_item_detail_item = item;
 }
 

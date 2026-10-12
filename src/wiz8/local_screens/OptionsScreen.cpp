@@ -10,7 +10,6 @@
 #include <fmt/format.h>
 #include <memory>
 #include <utility>
-#include <optional>
 #include <wiz8/filesystem.h>
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_stdinc.h>

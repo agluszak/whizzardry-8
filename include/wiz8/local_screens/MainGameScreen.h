@@ -143,21 +143,15 @@ public:
     bool m_target_marker_pending;
 };
 
-// VTABLE: WIZ8 0x005eebc0
-class W8MainGameStatusPanel : public Controls {
+class W8MainGameStatusPanel {
 public:
     W8MainGameStatusPanel();
-    void Redraw(SDL_Surface& target, bool full_redraw) override;
+    void Redraw(SDL_Surface& target, bool full_redraw);
     void RefreshStatusTexts();
-
-    std::unique_ptr<W8TextBuffer> m_text;
-    std::unique_ptr<W8TextBuffer> m_text0;
-    std::unique_ptr<W8TextBuffer> m_text1;
-    std::unique_ptr<W8TextBuffer> m_text2;
-    std::unique_ptr<W8TextBuffer> m_text3;
-    std::unique_ptr<W8TextBuffer> m_text4;
-    std::unique_ptr<W8TextBuffer> m_text5;
-    int m_target;
+    int m_target = 0;
+private:
+    std::array<W8TextBuffer, 7> m_text;
+    bool m_dirty = true;
 };
 
 /* The NPC dialogue keyword transcript. */

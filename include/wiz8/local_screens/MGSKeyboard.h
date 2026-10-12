@@ -8,8 +8,6 @@
 #include "wiz8/mgs_commands.h"
 #include "compat/compiler.h"
 
-class srVector2i;
-class ScreenRegionSet;
 namespace wiz8 { class File; }
 
 #pragma pack(push, 1)
@@ -46,23 +44,7 @@ private:
 
 extern MGSKeyboard* g_mgs_keyboard;
 
-struct Controls;
-struct W8Region;
-class W8TextControl;
-
-/* The keyboard-action menu the main screen opens for a party slot: a panel,
-   twelve menu/item-keyed rows plus a trailing row, and the per-row callback
-   selection the availability refresh drives. */
-/* Each keyboard-menu row's (W8SubMenuPage, entry) selection. */
-extern short g_keyboard_menu_items[12];
-extern std::unique_ptr<Controls> g_keyboard_menu_panel;
-extern short g_keyboard_menu_pages[12];
-extern W8TextControl* g_keyboard_menu_rows[13];
-/* The (x, y) of the twelve menu rows and the trailing close row. */
-extern srVector2i g_keyboard_row_positions[13];
-
 void ResetMGSKeyboardBindings();
-extern ScreenRegionSet g_keyboard_menu_regions;
 
 /* Discard every queued input atom (screen-entry stale-input flush). */
 void DrainInputEventQueue(void);
@@ -78,15 +60,8 @@ void EnableKeyboardMenuInput(void);
 bool KeyboardMenuContainsCursor(void);
 /* Re-evaluate every row's availability and restate its icon frames. */
 void RefreshKeyboardMenuRows(void);
-/* Install the row's primary callback for its (menu, item) pair. */
-/* Install the row's primary callback for its (W8SubMenuPage, entry) pair. */
-void AssignKeyboardMenuCallback(short menu, short item, W8TextControl* row);
 /* Invalidate (when asked) then redraw the menu panel. */
 void RedrawKeyboardMenuPanel(bool invalidate);
-/* Region callback the thirteen keyboard-menu rows share. */
-unsigned char KeyboardMenuRowRegionEvent(const InputEvent* event, W8Region* region, unsigned short);
-/* Region callback for the keyboard-menu background: right-up closes the menu. */
-unsigned char KeyboardMenuBackgroundRegionEvent(const InputEvent* event, W8Region* region, unsigned short);
 /* Dispatch a bound MGS command number through the keyboard system. */
 void DispatchMGSCommand(W8MGSCommand command);
 /* Route one non-mouse input atom to text entry, dialogue, the trap text box,

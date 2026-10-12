@@ -58,6 +58,11 @@ public:
     void SetPressed(bool pressed);
     bool IsPressed() const { return m_interaction.pressed; }
     void SetVisible(bool visible);
+    bool IsVisible() const { return m_visible; }
+    void SetImage(ButtonImage image);
+    void SetCircularHitArea(SDL_Point center, int radius);
+    void SetTooltip(std::function<std::string()> text);
+    std::function<void(bool)> on_hover;
     /* Installs the tooltip string on the input target (when one is configured
        and tooltips are on), or clears it. */
     void SetTooltipEnabled(bool enabled);
