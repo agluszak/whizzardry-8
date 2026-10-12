@@ -88,8 +88,6 @@ int g_monster_info_iterator_index;
 #define MONSTER_MANAGER_CPP "C:\\Projects\\Wizardry 8\\Local Code\\MonsterManager.cpp"
 #define MAX_MONSTERS_IN_DATABASE 1000
 
-void DestroyMonsterActionQueue(W8MonsterInfo* monster_info);
-
 /* The two cycles that always start regardless of the pending one: 0x14 is the
    cycle a motionless monster is still allowed to enter, and 0x15 is death. */
 enum { W8_CYCLE_NONE = 0xff, W8_CYCLE_STOP = 0x14, W8_CYCLE_DEATH = 0x15 };
@@ -1206,11 +1204,7 @@ void DeactivateMonster(W8MonsterInfo* monster_info)
     }
 }
 
-/* Combat entry for one monster entry: it stops and re-poses the live Monster,
-   allocates the 0x153-byte pCombat block the MonsterManager.cpp:672 assertion
-   names, and clears it as 0x54 dwords plus a trailing word and byte - the
-   `memset` shape VC6 emits for a zero-initialised structure of that
-   size, which is also what fixes the block's extent. */
+/* Prepare fresh combat state and reset the monster's target before it joins combat. */
 // FUNCTION: WIZ8 0x004e4390
 void MonsterInfoEnterCombat(W8MonsterInfo* monster_info)
 {
@@ -1221,11 +1215,7 @@ void MonsterInfoEnterCombat(W8MonsterInfo* monster_info)
         srAssertFail("!pMonsterInfo->fInCombat", MONSTER_MANAGER_CPP, 0x29a, 0);
     }
     ClearMonsterPathAndResume(monster_info);
-    monster_info->pCombat = static_cast<W8MonsterCombatState*>(malloc(sizeof(W8MonsterCombatState)));
-    if (monster_info->pCombat == 0) {
-        srAssertFail("pMonsterInfo->pCombat != NULL", MONSTER_MANAGER_CPP, 0x2a0, 0);
-    }
-    memset(monster_info->pCombat, 0, sizeof(W8MonsterCombatState));
+    monster_info->pCombat = std::make_unique<W8MonsterCombatState>();
     monster_info->fInCombat = true;
     if (monster_info->player_visibility.sight_state == W8_SIGHT_UNSEEN) {
         monster_info->player_visibility.sight_state = W8_SIGHT_RECENT;
@@ -1242,11 +1232,7 @@ void MonsterInfoEnterCombat(W8MonsterInfo* monster_info)
     }
 }
 
-/* Combat exit, the mirror of 0x004E4390: it detaches the entry from the two
-   selection slots the global at 0x006836A8 holds, walks pCombat's two record
-   runs releasing every occupied one, then frees the block and lowers fInCombat.
-   Both runs step by 0x11 bytes; the first starts at +0x3e and the second at
-   +0xd7, which is what places them inside the 0x153-byte allocation. */
+/* Release active combat effects before destroying the state and its action queue. */
 // FUNCTION: WIZ8 0x004e4500
 void MonsterInfoLeaveCombat(W8MonsterInfo* monster_info)
 {
@@ -1278,9 +1264,7 @@ void MonsterInfoLeaveCombat(W8MonsterInfo* monster_info)
             ClearEffectSlot(monster_info, entry);
         }
     }
-    DestroyMonsterActionQueue(monster_info);
-    free(monster_info->pCombat);
-    monster_info->pCombat = 0;
+    monster_info->pCombat.reset();
     monster_info->fInCombat = false;
     if (monster_info->ubDisposition == W8_DISPOSITION_HOSTILE) {
         RecountCombatMonsters();
