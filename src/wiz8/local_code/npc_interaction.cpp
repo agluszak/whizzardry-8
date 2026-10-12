@@ -6,6 +6,7 @@
 #include "wiz8/local_code/NPCScripting.h"
 #include "conditions.h"
 #include "wiz8/npc_speech.h"
+#include "wiz8/local_code/npc_story_events.h"
 
 // GLOBAL: WIZ8 0x0068C430
 W8NpcScriptingState g_npc_scripting;
@@ -45,4 +46,5 @@ void ClearNpcMessageQueue(void)
 
     StopNpcVoice(g_npc_scripting.speech);
     g_npc_scripting = {};
+    ResetSedexusScene();
 }

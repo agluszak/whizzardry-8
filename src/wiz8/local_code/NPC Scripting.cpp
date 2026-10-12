@@ -63,7 +63,6 @@
 #include "monster_actions.h"
 #include "wiz8/npc_speech.h"
 #include "wiz8/local_code/npc_story_events.h"
-#include "audio_resources.h"
 #include "wiz8/local_code/npc_dialogue_view.h"
 
 static void ProcessMessageBoxQueue(void);
@@ -336,10 +335,6 @@ static bool g_message_queue_idle;
 // GLOBAL: WIZ8 0x0068C358
 static int g_pending_npc_travel_level;
 
-// GLOBAL: WIZ8 0x0061aea0
-static wiz8::sound::Playback g_sedexus_sound_handle = nullptr;
-// GLOBAL: WIZ8 0x0061c324
-static char g_sedexus_moaning_sound[] = "Data\\Sound\\Ambients\\Al_Sedexus Moaning.wav";
 
 // FUNCTION: WIZ8 0x00524BD0
 std::string FormatNpcVoiceSoundPath(W8NpcState* npc)
@@ -374,46 +369,10 @@ void ReloadNpcScriptResources(W8NpcState* npc)
 // FUNCTION: WIZ8 0x00524EB0
 void ProcessNpcScriptingFrame(void)
 {
-    W8Character* character;
     bool can_open_dialogue;
     bool dialogue_ready;
-    int environment;
-    int party_slot;
-    int sedexus_party_slot;
 
-    if ((g_npc_scripting.sedexus_capture_pending || g_npc_scripting.sedexus_release_pending) &&
-        ((environment = GetEnvironmentValue(), environment == 0) ||
-         (environment = GetEnvironmentValue(), environment == 2))) {
-        ClearScriptedSceneActive();
-        if (!g_npc_scripting.sedexus_release_pending) {
-            g_sedexus_sound_handle = wiz8::sound::stream(g_sedexus_moaning_sound);
-        } else {
-            ClearMainGameTargetState();
-            sedexus_party_slot = g_status.sedexus_party_slot;
-            for (party_slot = 0; party_slot < 8; ++party_slot) {
-                W8PartySlotRow* row = &g_status.buffers.XChar[party_slot];
-                character = &g_status.buffers.Char[party_slot];
-                if (row->fOccupied && ((character->hp_current > 0 ||
-                                        character->highest_condition < W8_CONDITION_DEAD) &&
-                                       party_slot != sedexus_party_slot)) {
-                    RemoveCharacterCondition(party_slot, W8_CONDITION_UNCONSCIOUS, false);
-                    sedexus_party_slot = g_status.sedexus_party_slot;
-                }
-            }
-            character = &g_status.buffers.Char[sedexus_party_slot];
-            if (character->gender == W8_GENDER_MALE) {
-                QueueCharacterEvent(character, g_effect29, 0, g_character_event_no_flags,
-                                    g_character_event_full_volume);
-            }
-            g_npc_scripting.sedexus_capture_active = false;
-            if (g_sedexus_sound_handle != nullptr) {
-                wiz8::sound::stop(g_sedexus_sound_handle);
-                g_sedexus_sound_handle = nullptr;
-            }
-        }
-        g_npc_scripting.sedexus_capture_pending = false;
-        g_npc_scripting.sedexus_release_pending = false;
-    }
+    UpdateSedexusScene();
     if (!g_npc_scripting.scripted_scene_active && !g_npc_scripting.session.quote_active &&
         !g_npc_scripting.portrait_message_active) {
         if (g_npc_scripting.reply != W8NpcReplyState::dialog_open) {
@@ -964,11 +923,6 @@ void SetScriptedSceneActive(void)
 void ClearScriptedSceneActive(void)
 {
     g_npc_scripting.scripted_scene_active = false;
-}
-// FUNCTION: WIZ8 0x0052A070
-bool IsSedexusCaptureActive(void)
-{
-    return g_npc_scripting.sedexus_capture_active;
 }
 // FUNCTION: WIZ8 0x0052A1A0
 void SetNpcScriptEventActive(unsigned char value)
