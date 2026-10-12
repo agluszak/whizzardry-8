@@ -6,7 +6,7 @@
 #include <vector>
 
 #include "input.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_layer.h"
 
 struct Font;
 class W8TextField;
@@ -38,6 +38,7 @@ class TextFieldGroup {
 public:
     explicit TextFieldGroup(int scheme);
     explicit TextFieldGroup(Font& font);
+    TextFieldGroup(UiLayer& layer, Font& font);
     ~TextFieldGroup();
     TextFieldGroup(const TextFieldGroup&) = delete;
     TextFieldGroup& operator=(const TextFieldGroup&) = delete;
@@ -71,6 +72,7 @@ public:
 
 private:
     friend class W8TextField;
+    TextFieldGroup(Font& font, UiLayer* layer);
 
     W8TextField* Find(int id) const;
     void Suspend();
@@ -85,7 +87,8 @@ private:
     void SelectWordAtMouse(int mouse_x);
 
     TextFieldStyle style_;
-    RegionSetRef layer_; /* the input layer the group was made in */
+    std::unique_ptr<UiLayer> owned_layer_;
+    UiLayer* layer_; // Explicit modal layer, or the inherited input scope above.
     std::vector<std::unique_ptr<W8TextField>> fields_;
     W8TextField* focused_ = nullptr;
     W8TextField* suspended_focus_ = nullptr;

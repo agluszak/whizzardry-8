@@ -61,7 +61,7 @@ input queue. Direct self-destruction from a handler is not supported.
 
 The adapter intentionally retains the backend's modal scopes, text-field
 precedence exception, cursor-hotspot handling and sound behavior. It is not a
-completed `UiRouter`, modal-layer API or control consolidation. Those semantics
+completed `UiRouter` or control consolidation. Those semantics
 must be migrated with their real callers, not duplicated in the adapter.
 
 ## Main-menu prototype
@@ -92,9 +92,31 @@ callback releases capture. Accept and close defer panel destruction until the
 button handler has returned; teardown removes input before its visual controls.
 
 This is an input migration, not the button consolidation or final painting
-migration. The separate modal text-entry prototype remains next. The class named
-`W8DialogTextEntry` is a transcript display, not an editor; the prototype must
-use a real editable field and exercise nested focus restoration.
+migration. NPC keyword replies now exercise modal text entry, as described below.
+
+## Modal input and text editing
+
+`UiLayerMode::Modal` and `setModal` use the backend's existing exclusive scope.
+Dialogs own their layer directly. The transitional dialog frame and buttons
+still share that layer through their current registration path; no second modal
+stack is introduced.
+
+`TextFieldGroup` owns ordinary fields and layer targets, not `W8Widget` instances.
+Groups can attach explicitly to a modal layer. Existing callers inherit their
+current dialog/control scope inside the adapter. UTF-8 editing, selection, tab
+order, capacity limits and SDL text-input activation retain the existing editor.
+The cursor-tip precedence exception remains internal to text-field targets.
+
+NPC reply dialogs own their editor and suspend the previous group for their
+lifetime. The global popup pointer and separate global popup field group are
+removed. Keyword Enter submits; Escape cancels. Closing restores the previous
+editor before reporting the result, and the result callback runs while the
+reply's strings are alive. Options close through `AfterUiDispatch`.
+
+This completes the modal input/editor ownership slice, but the NPC popup still
+uses the legacy dialog painter and button controls. Removing that hierarchy and
+consolidating the two button behaviors remain outstanding; this is not yet the
+completed architecture experiment.
 
 ## Migration sequence and gates
 
@@ -111,7 +133,8 @@ use a real editable field and exercise nested focus restoration.
    with existing editing logic, nested focus restoration and deferred close.
    Require runtime parity and a measurable complexity reduction before expanding
    to the remaining screens. Formation input is implemented; its runtime parity
-   gate and the modal text-entry prototype remain pending.
+   gate is covered by licensed scenarios. Modal/editor ownership is migrated;
+   deleting the remaining dialog/control dependencies is still pending.
 4. **Controls:** audit and merge `W8TextControl`/`W8ButtonWidget` button semantics,
    including toggles, repeat, right clicks and sounds. Keep `ButtonAppearance`
    as resource/painting functionality. Reuse existing text editing and layout.
@@ -146,7 +169,8 @@ The licensed `runtime_main-menu-ui` scenario remains the main-menu behavior gate
 disabled Load, release outside, pointer-dismissed Credits and clean re-entry.
 `runtime_formation-ui` adds a real-game scenario for the hold threshold,
 destination drops, reset, cancellation on the panel edge, accept and re-entry.
-It requires retail assets and has not been executed successfully in this workspace.
+It requires retail assets. The main-menu and formation scenarios passed locally
+on the initial implementation; all checks must be repeated on the rebased head.
 Spell hover, NPC dialogue, save/load and portrait behavior also need licensed
 runtime checks as those interaction groups migrate. A skipped runtime
 scenario is not evidence of parity.

@@ -31,6 +31,10 @@ struct UiCircle {
 using HitShape = std::variant<SDL_Rect, UiCircle>;
 
 class UiLayer;
+class TextFieldGroup;
+class W8TextField;
+class W8DialogBase;
+struct RegionSetRef;
 
 // A persistent input registration, borrowed from its layer. No painting or
 // widget lifetime is attached to it. Rectangles use SDL's half-open bounds;
@@ -51,6 +55,8 @@ public:
 
 private:
     friend class UiLayer;
+    friend class W8TextField;
+    void useTextCursor();
     HitTarget(unsigned int set, HitShape shape, Handler handler, int priority);
     struct Backend;
     std::unique_ptr<Backend> backend_;
@@ -59,18 +65,28 @@ private:
 // Temporary RegionManager-backed registration API. There is still exactly one
 // input dispatcher, hover state, capture owner and tooltip timer. Lower layer
 // orders win; within a layer higher priorities win, then first registration.
+enum class UiLayerMode { Normal, Modal };
+
 class UiLayer {
 public:
     explicit UiLayer(int order = 0x33);
+    explicit UiLayer(UiLayerMode mode, int order = 0x33);
     ~UiLayer();
     UiLayer(const UiLayer&) = delete;
     UiLayer& operator=(const UiLayer&) = delete;
 
     HitTarget& add(HitShape shape, HitTarget::Handler handler, int priority = 0);
     void remove(HitTarget& target);
+    void setModal(bool modal);
     void setEnabled(bool enabled);
 
 private:
+    friend class TextFieldGroup;
+    friend class W8DialogBase;
+    friend RegionSetRef CurrentInputLayer();
+    unsigned int legacySet() const;
+    struct InheritInputScope {};
+    explicit UiLayer(InheritInputScope);
     struct Backend;
     std::unique_ptr<Backend> backend_;
 };

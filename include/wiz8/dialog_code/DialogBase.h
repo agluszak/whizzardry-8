@@ -2,14 +2,13 @@
 #pragma once
 
 #include <SDL3/SDL_rect.h>
-#include <optional>
-#include <span>
 #include <string>
 #include <string_view>
 
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/regions.h"
+#include "wiz8/ui_layer.h"
 
 enum W8DialogKind {
     W8_DIALOG_BASIC = 0,
@@ -54,11 +53,12 @@ private:
 // VTABLE: WIZ8 0x005efaf8
 class W8DialogBase {
     /* First, so it outlives every control's region. */
-    OwnedRegionSet m_region_set{std::span<const RegionTemplate>{}};
+    UiLayer m_input;
+    friend RegionSetRef CurrentInputLayer();
 
 public:
     W8DialogBase();
-    unsigned int RegionSet() const { return m_region_set.set(); }
+    UiLayer& InputLayer() { return m_input; }
     virtual ~W8DialogBase();
     virtual int CreateControls();
     virtual void DestroyControls();
@@ -127,7 +127,6 @@ protected:
     int m_field_4c;
     bool m_right_button_down;
     unsigned char padding_051[3];
-    std::optional<ExclusiveRegionSet> m_input_scope;
 };
 
 

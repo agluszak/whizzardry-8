@@ -1757,6 +1757,51 @@ TEST_CASE("Input layers keep capture outside and release it for gameplay drops",
     REQUIRE(drops == 2);
 }
 
+TEST_CASE("Modal layers isolate editors and restore focus after deferred close", "[owner][ui-layer]")
+{
+    RegionStateSnapshot saved_state;
+    ResetRegions();
+    Font font{};
+    TextFieldGroup outer(font);
+    const int outer_field = outer.Add(0, 0, 80, 20, 0, "outer", 32, 0xf, false);
+    outer.Focus(outer_field);
+    outer.SetCursor(2);
+    struct Editor {
+        UiLayer input{UiLayerMode::Modal};
+        TextFieldGroup fields;
+        explicit Editor(Font& font) : fields(input, font)
+        {
+            fields.Focus(fields.Add(0, 30, 80, 20, 0, "inner", 32, 0xf, false));
+        }
+    };
+    auto editor = std::make_unique<Editor>(font);
+    REQUIRE(TextFieldGroup::Focused() == &editor->fields);
+    REQUIRE_FALSE(outer.HandleInput(InputEvent{.type = InputEventType::Text, .text = U'x'}));
+    REQUIRE(editor->fields.HandleInput(InputEvent{.type = InputEventType::Text, .text = U'é'}));
+    REQUIRE(editor->fields.Text(0) == "é");
+    {
+        Editor nested(font);
+        REQUIRE(TextFieldGroup::Focused() == &nested.fields);
+        REQUIRE_FALSE(editor->fields.HandleInput(InputEvent{.type = InputEventType::Text, .text = U'x'}));
+    }
+    REQUIRE(TextFieldGroup::Focused() == &editor->fields);
+    editor->input.add(SDL_Rect{90, 30, 20, 20}, [&](const UiPointerEvent& event) {
+        if (event.action == UiPointerAction::Up) {
+            AfterUiDispatch([&] { editor.reset(); });
+            REQUIRE(editor != nullptr);
+        }
+        return UiResult::Handled;
+    });
+    dispatch_mouse(InputEventType::LeftButtonDown, 95, 35, true);
+    dispatch_mouse(InputEventType::LeftButtonUp, 95, 35);
+    REQUIRE_FALSE(editor);
+    REQUIRE(TextFieldGroup::Focused() == &outer);
+    REQUIRE(outer.FocusedId() == outer_field);
+    REQUIRE(outer.Cursor() == 2);
+    REQUIRE(outer.Text(outer_field) == "outer");
+    REQUIRE(g_ui.captured == 0);
+}
+
 TEST_CASE("Legacy modal scopes block input layers and restore valid capture", "[owner][ui-layer]")
 {
     RegionStateSnapshot saved_state;
@@ -2110,12 +2155,12 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
             // A dialog opened on top owns the modal scope: the one beneath
             // keeps its controls but takes no input until it is closed.
             MessageDialog inner;
-            ExclusiveRegionSet inner_scope(inner.RegionSet());
+            inner.InputLayer().setModal(true);
             dispatch_mouse(InputEventType::LeftButtonDown, control.Bounds().x, control.Bounds().y, true);
             dispatch_mouse(InputEventType::LeftButtonUp, control.Bounds().x, control.Bounds().y);
             REQUIRE(dialog.is_open);
         }
-        ExclusiveRegionSet dialog_scope(dialog.RegionSet());
+        dialog.InputLayer().setModal(true);
         dispatch_mouse(InputEventType::LeftButtonDown, control.Bounds().x, control.Bounds().y, true);
         REQUIRE(dialog.is_open);
         dispatch_mouse(InputEventType::LeftButtonUp, control.Bounds().x, control.Bounds().y);
@@ -2132,7 +2177,7 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
         for (int index = 0; index < 20; ++index) list.m_lines.emplace_back("X");
         REQUIRE(list.CreateControls() == 0);
         list.Draw();
-        ExclusiveRegionSet list_scope(list.RegionSet());
+        list.InputLayer().setModal(true);
         GetInputState().mouse.y = 400;
         dispatch_mouse(InputEventType::LeftButtonDown, list.m_area_button.Bounds().x + 3,
                        list.m_area_button.Bounds().y + 21, true);

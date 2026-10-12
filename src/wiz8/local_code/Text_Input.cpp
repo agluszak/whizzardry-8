@@ -20,8 +20,6 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/regions.h"
-#include "wiz8/local_code/Widget.h"
-#include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/fonts.h"
 #include "wiz8/text_input.h"
 #include "wiz8/local_screens/Screens.h"
@@ -44,22 +42,23 @@
 
 /* One editable field of a group. Its hit region is hit-tested at the cursor
    tip, ahead of the panel hosting it. */
-class W8TextField final : public W8Widget {
+class W8TextField final {
 public:
-    W8TextField(TextFieldGroup& group, int id, int priority) : group(group), id(id)
+    W8TextField(TextFieldGroup& group, int id, int priority, SDL_Rect bounds)
+        : group(group), id(id), bounds(bounds),
+          target(group.layer_->add(bounds, [this](const UiPointerEvent& event) {
+              return HandleInput(event);
+          }, priority))
     {
-        ClaimRegion(priority, InputLayerSet(group.layer_));
-        g_regions[m_region].text_field = true;
+        target.useTextCursor();
     }
-    ~W8TextField() override
-    {
-        g_ui.ReleaseCapture(static_cast<unsigned int>(m_region));
-    }
+    ~W8TextField() { group.layer_->remove(target); }
+    W8TextField(const W8TextField&) = delete;
+    W8TextField& operator=(const W8TextField&) = delete;
 
-    int HandleRegionInput(W8Region& target, const InputEvent& event) override;
-
-    W8ControlsRect Edges() const { return ToEdges(ScreenBounds()); }
-    int EditWidth() const { return Bounds().w - 10; }
+    UiResult HandleInput(const UiPointerEvent& event);
+    W8ControlsRect Edges() const { return ToEdges(bounds); }
+    int EditWidth() const { return bounds.w - 10; }
     Font& font() { return *group.style_.font; }
 
     /* Scrolls so the cursor stays visible; updates the caret x and visible byte span. */
@@ -102,7 +101,7 @@ public:
     }
     std::size_t MousePosition(int mouse_x)
     {
-        const int offset = mouse_x - ScreenBounds().x;
+        const int offset = mouse_x - bounds.x;
         int previous_width = 0;
         for (auto position = parking; position < text.size();) {
             const auto end = wiz8::text::next_grapheme(text, position);
@@ -114,8 +113,8 @@ public:
         }
         return text.size();
     }
-    void MouseMoved(int reason, int mouse_x, SDL_MouseButtonFlags buttons);
-    void MouseClicked(int reason, int mouse_x, SDL_MouseButtonFlags buttons);
+    void MouseMoved(UiPointerAction action, int mouse_x, SDL_MouseButtonFlags buttons);
+    void MouseClicked(const UiPointerEvent& event);
 
     TextFieldGroup& group;
     int id;
@@ -134,35 +133,31 @@ public:
     std::size_t visible_count = 0;
     std::size_t mouse_down = 0;
     int cursor_x = 0;
+    SDL_Rect bounds;
+    HitTarget& target;
 };
 
-int W8TextField::HandleRegionInput(W8Region& target, const InputEvent& event)
+UiResult W8TextField::HandleInput(const UiPointerEvent& event)
 {
-    switch (event.type) {
-    case InputEventType::MouseMove:
-        MouseMoved(RegionReasonForInput(target, event), event.position.x, event.buttons);
-        return 1;
-    case InputEventType::LeftButtonDown:
-        g_ui.captured = static_cast<unsigned int>(m_region);
-        MouseClicked(RegionReasonForInput(target, event), event.position.x, event.buttons);
-        return 1;
-    case InputEventType::LeftButtonUp:
-        g_ui.ReleaseCapture(static_cast<unsigned int>(m_region));
-        MouseClicked(RegionReasonForInput(target, event), event.position.x, event.buttons);
-        return 1;
-    case InputEventType::LeftButtonDoubleClick:
-        return 1;
-    default:
-        return 0;
+    if (event.action == UiPointerAction::Enter || event.action == UiPointerAction::Leave ||
+        event.action == UiPointerAction::Move) {
+        MouseMoved(event.action, event.position.x, event.buttons);
+        return UiResult::Handled;
     }
+    if (event.button == UiPointerButton::Left &&
+        (event.action == UiPointerAction::Down || event.action == UiPointerAction::Up)) {
+        MouseClicked(event);
+        return UiResult::Handled;
+    }
+    return UiResult::Pass;
 }
 
-void W8TextField::MouseMoved(int reason, int mouse_x, SDL_MouseButtonFlags buttons)
+void W8TextField::MouseMoved(UiPointerAction action, int mouse_x, SDL_MouseButtonFlags buttons)
 {
-    if (IsModalOpen() || blocks_mouse) return;
-    if ((reason & REGION_REASON_GAIN_MOUSE) != 0) SetTargetCursor(GetTextInputCursor());
-    if ((reason & REGION_REASON_LOST_MOUSE) != 0) SetTargetCursor(W8_CURSOR_NONE);
-    if ((buttons & SDL_BUTTON_LMASK) == 0 || !group.focused_ || (reason & REGION_REASON_MOVE) == 0)
+    if (blocks_mouse) return;
+    if (action == UiPointerAction::Enter) SetTargetCursor(GetTextInputCursor());
+    if (action == UiPointerAction::Leave) SetTargetCursor(W8_CURSOR_NONE);
+    if ((buttons & SDL_BUTTON_LMASK) == 0 || !group.focused_ || action != UiPointerAction::Move)
         return;
     if (group.focused_ != this) {
         group.RenderInactive(*group.focused_);
@@ -185,20 +180,22 @@ void W8TextField::MouseMoved(int reason, int mouse_x, SDL_MouseButtonFlags butto
     Relayout();
 }
 
-void W8TextField::MouseClicked(int reason, int mouse_x, SDL_MouseButtonFlags buttons)
+void W8TextField::MouseClicked(const UiPointerEvent& event)
 {
-    if (IsModalOpen() || blocks_mouse) return;
-    if ((reason & REGION_REASON_LBUTTON_DOUBLECLICK) != 0) {
+    const auto mouse_x = event.position.x;
+    const auto buttons = event.buttons;
+    if (blocks_mouse) return;
+    if (event.action == UiPointerAction::Down && event.clicks >= 2) {
         if (group.focused_) group.SelectWordAtMouse(mouse_x);
         return;
     }
-    if ((reason & REGION_REASON_LBUTTON_DWN) != 0) {
+    if (event.action == UiPointerAction::Down) {
         if (group.focused_ != this) return;
         SetCursor(MousePosition(mouse_x));
         mouse_down = cursor;
         return;
     }
-    if ((reason & REGION_REASON_LBUTTON_UP) == 0) return;
+    if (event.action != UiPointerAction::Up) return;
     if (group.focused_ != this) {
         if (group.focused_) group.RenderInactive(*group.focused_);
         if (!enabled) return;
@@ -212,7 +209,12 @@ void W8TextField::MouseClicked(int reason, int mouse_x, SDL_MouseButtonFlags but
     }
 }
 
-TextFieldGroup::TextFieldGroup(Font& font) : layer_(CurrentInputLayer()), previous_(g_ui.focus)
+TextFieldGroup::TextFieldGroup(Font& font) : TextFieldGroup(font, nullptr) {}
+TextFieldGroup::TextFieldGroup(UiLayer& layer, Font& font) : TextFieldGroup(font, &layer) {}
+
+TextFieldGroup::TextFieldGroup(Font& font, UiLayer* layer)
+    : owned_layer_(layer ? nullptr : new UiLayer(UiLayer::InheritInputScope{})),
+      layer_(layer ? layer : owned_layer_.get()), previous_(g_ui.focus)
 {
     style_.font = &font;
     style_.cursor_color = Get16BPPColor(SDL_Color{10, 10, 10, SDL_ALPHA_OPAQUE});
@@ -253,7 +255,7 @@ TextFieldGroup* TextFieldGroup::Focused() { return g_ui.focus; }
 void TextFieldGroup::Suspend()
 {
     for (auto& field : fields_) {
-        field->SetActive(false);
+        field->target.setEnabled(false);
         field->enabled = false;
     }
     suspended_focus_ = focused_;
@@ -263,7 +265,7 @@ void TextFieldGroup::Suspend()
 void TextFieldGroup::Resume()
 {
     for (auto& field : fields_) {
-        field->SetActive(true);
+        field->target.setEnabled(true);
         field->enabled = true;
     }
     focused_ = suspended_focus_ ? suspended_focus_ : fields_.empty() ? nullptr : fields_.front().get();
@@ -327,12 +329,11 @@ int TextFieldGroup::Add(int left, int top, int width, int height, int priority,
                         bool use_inactive_color)
 {
     const int id = fields_.empty() ? 0 : fields_.back()->id + 1;
-    auto& field = *fields_.emplace_back(std::make_unique<W8TextField>(*this, id, priority));
+    auto& field = *fields_.emplace_back(std::make_unique<W8TextField>(*this, id, priority, SDL_Rect{left, top, width, height}));
     field.input_type = input_type;
     field.capacity = input_type == 0x1002 ? 6 : capacity;
     field.text.assign(text);
     field.use_inactive_color = use_inactive_color;
-    field.SetBounds({left, top, width, height});
     if (fields_.size() == 1) field.SelectAll();
     return id;
 }
@@ -779,7 +780,7 @@ void TextFieldGroup::RenderInactive(W8TextField& field)
         index = end;
     }
     if (disabled) {
-        const auto bounds = field.ScreenBounds();
+        const auto bounds = field.bounds;
         ShadowRect(GetFrameBufferSurface(), SDL_Rect{bounds.x, bounds.y, bounds.w + 1, bounds.h + 1});
     }
 }

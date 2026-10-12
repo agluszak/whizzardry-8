@@ -14,6 +14,7 @@
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/text_input.h"
 #include "wiz8/regions.h"
+#include "wiz8/ui_layer.h"
 #include "input.h"
 #include "Font.h"
 #include "dialog_code/DialogBase.h"
@@ -27,12 +28,6 @@
    strings live in the g_localized_strings message table. */
 
 
-/* The live popup; the constructor publishes it so the option callback and the
-   Enter handling in ProcessInput can reach the active instance. */
-// GLOBAL: WIZ8 0x0069ca20
-static W8NpcDialog* g_npc_dialog;
-
-
 // FUNCTION: WIZ8 0x005DA6B0
 W8NpcDialog::W8NpcDialog(W8NpcQuoteEntry* message, int aux_data)
 {
@@ -43,10 +38,9 @@ W8NpcDialog::W8NpcDialog(W8NpcQuoteEntry* message, int aux_data)
     std::string line;
 
     SetBackground("Data\\Dialogs\\DialogBackground.sti", 0);
-    g_npc_dialog = this;
+    m_input_group = std::make_unique<TextFieldGroup>(InputLayer(), g_wiz_text_mono_font);
     m_message = message;
     m_aux_data = aux_data;
-    m_input_field = 0xff; // No text-input field has been registered yet.
 
     char opcode = message->kind;
     if (opcode == W8_NPC_ENTRY_OPTIONS) {
@@ -85,8 +79,14 @@ W8NpcDialog::W8NpcDialog(W8NpcQuoteEntry* message, int aux_data)
 // FUNCTION: WIZ8 0x005DA860
 W8NpcDialog::~W8NpcDialog()
 {
-    if (m_input_field != 0xff && m_input_group) {
-        m_input_group->Remove(m_input_field);
+    // Restore the suspended editor before reporting the reply. The callback
+    // reads this dialog's strings, so run it before member destruction.
+    m_input_group.reset();
+    EndModalInput();
+    if (m_destroy_callback) {
+        const auto closed = m_destroy_callback;
+        m_destroy_callback = nullptr;
+        closed(this);
     }
 }
 
@@ -107,7 +107,10 @@ int W8NpcDialog::CreateControls()
             m_buttons[index] = std::make_unique<W8ButtonWidget>();
             m_buttons[index]->ConfigureTextButton(
                 line, g_wiz_text_mono_font, 4, 5, static_cast<short>(m_x + x),
-                static_cast<short>(m_y + 0x23), m_text_width, 0x14, OptionSelected, index);
+                static_cast<short>(m_y + 0x23), m_text_width, 0x14, [this, index](W8ButtonWidget*) {
+                    m_selected_option = index;
+                    AfterUiDispatch([this] { m_keep_open = false; });
+                }, index);
             x += m_text_width + 10;
         }
         bounds.left = m_x + 10;
@@ -123,12 +126,18 @@ int W8NpcDialog::CreateControls()
         m_buttons[0] = std::make_unique<W8ButtonWidget>();
         m_buttons[0]->ConfigureTextButton(
             g_localized_strings[0x7df], g_wiz_text_mono_font, 4, 5, static_cast<short>(m_x + x),
-            static_cast<short>(m_y + 0x1e), m_text_width, 0x14, OptionSelected, 0);
+            static_cast<short>(m_y + 0x1e), m_text_width, 0x14, [this](W8ButtonWidget*) {
+                m_selected_option = 0;
+                AfterUiDispatch([this] { m_keep_open = false; });
+            }, 0);
         m_buttons[1] = std::make_unique<W8ButtonWidget>();
         m_buttons[1]->ConfigureTextButton(g_localized_strings[0x7e0], g_wiz_text_mono_font, 4, 5,
                                           static_cast<short>(m_x + x + m_text_width + 10),
                                           static_cast<short>(m_y + 0x1e), m_text_width, 0x14,
-                                          OptionSelected, 1);
+                                          [this](W8ButtonWidget*) {
+                                              m_selected_option = 1;
+                                              AfterUiDispatch([this] { m_keep_open = false; });
+                                          }, 1);
         line = fmt::sprintf(g_localized_strings[0x7e5], g_npc_scripting.price_check->price);
         bounds.left = m_x + 10;
         bounds.top = m_y + 10;
@@ -146,7 +155,6 @@ int W8NpcDialog::CreateControls()
             std::make_unique<W8TextBuffer>(&bounds, line, g_wiz_text_font_secondary,
                              g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
     } else if (m_message->kind == W8_NPC_ENTRY_KEYWORD_INPUT) {
-        m_input_group = TextFieldGroup::Focused();
         m_input_group->SetScheme(1);
         m_input_field = m_input_group->Add(m_x + (m_width - 0x8c) / 2, m_y + 0x23, 0x8c, 0x10, 0x7f,
                                           "", 0x28, 0xf, true);
@@ -198,33 +206,24 @@ void W8NpcDialog::Draw()
 bool W8NpcDialog::ProcessInput()
 {
     BeginModalInput();
-    bool returned_early = false;
     PumpUiInput({
-        .before = [this, &returned_early](const InputEvent& input) {
+        .before = [this](const InputEvent& input) {
             if (IsTypingEvent(input) && m_input_group && m_input_group->HandleInput(input)) {
                 return InputRoute::Handled;
             }
-            if (input.type == InputEventType::KeyDown && input.key == VK_RETURN &&
+            if (input.type == InputEventType::KeyDown &&
+                (input.key == VK_RETURN || input.key == VK_ESCAPE) &&
                 m_message->kind == W8_NPC_ENTRY_KEYWORD_INPUT) {
-                m_input_text = m_input_group ? m_input_group->Text(m_input_field) : std::string{};
-                g_npc_dialog->m_keep_open = false;
-                EndModalInput();
-                returned_early = true;
+                m_cancelled = input.key == VK_ESCAPE;
+                if (!m_cancelled) m_input_text = m_input_group->Text(m_input_field);
+                m_keep_open = false;
                 return InputRoute::Stop;
             }
             return InputRoute::Pass;
         },
     });
-    if (returned_early) return true;
     if (!m_keep_open) EndModalInput();
     return m_keep_open;
-}
-
-// FUNCTION: WIZ8 0x005DB150
-void W8NpcDialog::OptionSelected(W8ButtonWidget* button)
-{
-    g_npc_dialog->m_selected_option = static_cast<unsigned char>(button->GetUserData());
-    g_npc_dialog->m_keep_open = false;
 }
 
 // FUNCTION: WIZ8 0x005DB1A0

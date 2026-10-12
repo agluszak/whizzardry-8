@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <limits>
 #include <stdexcept>
 #include <string>
@@ -14,6 +15,7 @@
 
 #include "input.h"
 #include "wiz8/cursor.h"
+#include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/regions.h"
 
@@ -68,8 +70,8 @@ struct HitTarget::Backend final : W8RegionHandler {
             button = UiPointerButton::Right;
 
         // Match the backend's cursor-artwork hotspot convention at this boundary.
-        const SDL_Point position{input.position.x + g_cursor_hotspot_x,
-                                 input.position.y + g_cursor_hotspot_y};
+        const SDL_Point position{input.position.x + (region.text_field ? 0 : g_cursor_hotspot_x),
+                                 input.position.y + (region.text_field ? 0 : g_cursor_hotspot_y)};
         const UiPointerEvent event{
             .action = action,
             .button = button,
@@ -143,29 +145,45 @@ void HitTarget::releaseCapture()
     backend_->owned.region().flags &= ~(W8_REGION_LEFT_BUTTON_HELD | W8_REGION_RIGHT_BUTTON_HELD);
 }
 
+void HitTarget::useTextCursor()
+{
+    backend_->owned.region().text_field = true;
+}
+
 struct UiLayer::Backend {
     unsigned int set;
+    bool owns_set;
+    RegionSetRef inherited_scope{};
     std::vector<std::unique_ptr<HitTarget>> targets;
+    std::optional<ExclusiveRegionSet> modal;
 
-    explicit Backend(int order) : set(CreateRegionSet(order))
+    Backend(int order, UiLayerMode mode) : set(CreateRegionSet(order)), owns_set(true)
     {
         g_region_sets[set].enabled = 1;
+        if (mode == UiLayerMode::Modal) modal.emplace(set);
     }
+
+    explicit Backend(InheritInputScope)
+        : set(InputLayerSet(CurrentInputLayer())), owns_set(false),
+          inherited_scope(CaptureRegionSet(set)) {}
 
     ~Backend()
     {
         targets.clear();
-        DestroyRegionSet(set);
+        modal.reset();
+        if (owns_set) DestroyRegionSet(set);
     }
 };
 
-UiLayer::UiLayer(int order) : backend_(std::make_unique<Backend>(order)) {}
+UiLayer::UiLayer(int order) : UiLayer(UiLayerMode::Normal, order) {}
+UiLayer::UiLayer(UiLayerMode mode, int order) : backend_(std::make_unique<Backend>(order, mode)) {}
+UiLayer::UiLayer(InheritInputScope scope) : backend_(std::make_unique<Backend>(scope)) {}
 UiLayer::~UiLayer() = default;
 
 HitTarget& UiLayer::add(HitShape shape, HitTarget::Handler handler, int priority)
 {
     auto target = std::unique_ptr<HitTarget>(
-        new HitTarget(backend_->set, shape, std::move(handler), priority));
+        new HitTarget(legacySet(), shape, std::move(handler), priority));
     auto& result = *target;
     backend_->targets.push_back(std::move(target));
     return result;
@@ -182,4 +200,15 @@ void UiLayer::setEnabled(bool enabled)
     if (!enabled) {
         for (const auto index : g_region_sets[backend_->set].Regions()) ForgetTarget(index);
     }
+}
+
+unsigned int UiLayer::legacySet() const
+{
+    return backend_->owns_set ? backend_->set : InputLayerSet(backend_->inherited_scope);
+}
+
+void UiLayer::setModal(bool modal)
+{
+    if (modal && !backend_->modal) backend_->modal.emplace(legacySet());
+    else if (!modal) backend_->modal.reset();
 }

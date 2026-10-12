@@ -106,6 +106,7 @@
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/message_box.h"
 #include "wiz8/npc_interaction.h"
+#include "wiz8/npc_script_file.h"
 #include "wiz8/text_input.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/local_code/TextControl.h"
@@ -350,16 +351,14 @@ class Game
         frame();
     }
 
-    void drag(int source, int destination)
+    void drag(SDL_Rect from, SDL_Rect to)
     {
-        REQUIRE((source >= 0 && destination >= 0));
-        const auto from = g_regions[source];
-        const auto to = g_regions[destination];
-        mouse_button((from.x1 + from.x2) / 2, (from.y1 + from.y2) / 2, true);
+        mouse_button(from.x + from.w / 2, from.y + from.h / 2, true);
         frame();
-        // The formation callback begins the drag on leaving the source while held.
-        move_pointer((to.x1 + to.x2) / 2, (to.y1 + to.y2) / 2);
-        mouse_button((to.x1 + to.x2) / 2, (to.y1 + to.y2) / 2, false);
+        // Leaving the source while held starts the gameplay drag.
+        move_pointer(to.x + to.w / 2, to.y + to.h / 2);
+        mouse_button(to.x + to.w / 2 - g_cursor_hotspot_x,
+                     to.y + to.h / 2 - g_cursor_hotspot_y, false);
         frame();
     }
 
@@ -1120,10 +1119,11 @@ void CheckGameplayUi(Game& game)
     const int source = position.bQuadrant * 3 + position.bQuadrantSlot;
     REQUIRE((source >= 0 && source < 15));
     const int destination = ((position.bQuadrant + 1) % 5) * 3;
-    game.drag(ControlRegion(g_formation_cell_controls[source]),
-              ControlRegion(g_formation_cell_controls[destination]));
+    game.drag(g_formation_cell_controls[source]->ScreenBounds(),
+              g_formation_cell_controls[destination]->ScreenBounds());
     REQUIRE(gXStatus.edited_formation.positions[slot].bQuadrant == destination / 3);
-    game.click("accept-formation", ControlRegion(g_formation_action_buttons[0]));
+    const auto accept = g_formation_action_buttons[0]->ScreenBounds();
+    game.click_at(accept.x + accept.w / 2, accept.y + accept.h / 2);
     REQUIRE(!g_formation_panel);
     REQUIRE(g_status.formation.positions[slot].bQuadrant == destination / 3);
     g_status.formation = original_formation;
@@ -1499,6 +1499,26 @@ void NpcDialogueScenario()
     Walk(game, "walk-after-farewell", 2.0f);
 
     StartConversation(game, "second-greeting", burz);
+    // Keyword popups own their editor and restore the transcript's focus.
+    auto* transcript_fields = TextFieldGroup::Focused();
+    REQUIRE(transcript_fields);
+    W8NpcQuoteEntry keyword_request{};
+    keyword_request.kind = W8_NPC_ENTRY_KEYWORD_INPUT;
+    OpenNpcDialog(&keyword_request, 0);
+    game.frame();
+    REQUIRE(TextFieldGroup::Focused() != transcript_fields);
+    game.enter_text("cancelled");
+    game.key(SDLK_ESCAPE);
+    REQUIRE_FALSE(g_modal_owner);
+    REQUIRE(TextFieldGroup::Focused() == transcript_fields);
+    OpenNpcDialog(&keyword_request, 0);
+    game.frame();
+    game.enter_text("hello");
+    REQUIRE(TextFieldGroup::Focused()->Text(0) == "hello");
+    game.key(SDLK_RETURN);
+    REQUIRE_FALSE(g_modal_owner);
+    REQUIRE(TextFieldGroup::Focused() == transcript_fields);
+    WaitDialogue(game, "keyword-reply", DialogueAwaitingPlayer);
     SayFarewell(game, "second-farewell");
     std::printf("npc-dialogue: two visits after %lu frames\n", game.frames());
 }

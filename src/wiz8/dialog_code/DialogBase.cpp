@@ -21,7 +21,7 @@ static std::vector<W8DialogBase*> g_live_dialogs;
 RegionSetRef CurrentInputLayer()
 {
     return CaptureRegionSet(g_live_dialogs.empty() ? ControlRegionSetIndex()
-                                                   : g_live_dialogs.back()->RegionSet());
+                                                   : g_live_dialogs.back()->m_input.legacySet());
 }
 
 unsigned int InputLayerSet(const RegionSetRef& layer)
@@ -89,7 +89,6 @@ W8DialogBase::W8DialogBase()
     m_keep_open = true;
     m_destroy_callback = 0;
     m_destroy_callback_context = 0;
-    m_region_set.Enable();
     g_live_dialogs.push_back(this);
     m_right_button_down = false;
 }
@@ -185,7 +184,7 @@ int W8DialogBase::CreateControls()
             return m_error = 4;
         }
     }
-    m_frame.Configure({.generic_image = m_border}, {m_x, m_y, m_width, m_height}, RegionSet());
+    m_frame.Configure({.generic_image = m_border}, {m_x, m_y, m_width, m_height}, m_input.legacySet());
     m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
     m_initialized = true;
     return 0;
@@ -209,14 +208,12 @@ void W8DialogBase::DestroyControls()
 
 void W8DialogBase::BeginModalInput()
 {
-    if (!m_input_scope) {
-        m_input_scope.emplace(RegionSet());
-    }
+    m_input.setModal(true);
 }
 
 void W8DialogBase::EndModalInput()
 {
-    m_input_scope.reset();
+    m_input.setModal(false);
 }
 
 // FUNCTION: WIZ8 0x005dcce0

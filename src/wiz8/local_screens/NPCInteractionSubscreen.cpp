@@ -99,7 +99,6 @@
 namespace {
 // The typed-dialogue panel's keyword field, and the field scripted NPC dialogs type into.
 std::optional<TextFieldGroup> g_npc_text_fields;
-std::optional<TextFieldGroup> g_npc_dialog_text_fields;
 
 std::string NpcFieldText()
 {
@@ -4110,9 +4109,7 @@ void OpenNpcDialog(W8NpcQuoteEntry* request, int aux_data)
     W8MonsterInfo* monster_info;
     W8NpcDialog* dialog;
 
-    if (!gXStatus.fNpcDialogueMode || g_npc_interaction_state->scripted_dialogue) {
-        g_npc_dialog_text_fields.emplace(g_wiz_text_mono_font);
-    } else {
+    if (gXStatus.fNpcDialogueMode && !g_npc_interaction_state->scripted_dialogue) {
         SetNpcDialoguePanelVisible(0);
     }
     dialog = new W8NpcDialog(request, aux_data);
@@ -4450,15 +4447,17 @@ void OnNpcDialogClosed(W8DialogBase* dialog)
     std::string entry_text;
     int index;
 
-    if (!gXStatus.fNpcDialogueMode || g_npc_interaction_state->scripted_dialogue) {
-        g_npc_dialog_text_fields.reset();
-    } else if (auto* fields = TextFieldGroup::Focused()) {
+    if (auto* fields = TextFieldGroup::Focused()) {
         fields->SetScheme(1);
     }
     RestoreCurrentNpcQuoteBubble();
     if (g_npc_interaction_state->dialogue_layout == W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX) {
         CloseNpcDialogueOptionLayout();
         OpenNpcDialogueTranscriptLayout();
+    }
+    if (npc_dialog->m_cancelled) {
+        g_npc_scripting.reply = W8NpcReplyState::none;
+        return;
     }
     if (request->kind == W8_NPC_ENTRY_OPTIONS) {
         for (index = 0; index < request->sub_entry_count; ++index) {
