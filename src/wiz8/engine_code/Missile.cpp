@@ -236,6 +236,17 @@ W8MissileTableRecord* g_missile_table;
 
 // GLOBAL: WIZ8 0x0060c9c8
 const char* g_missile_cycle_names[] = {"FLY", "EXPLODE"};
+
+/* Index of the cycle whose name starts the PAC name, or -1 when none does. */
+static int missileCycleIndex(const char* pac_name)
+{
+    for (int index = 0; index < 2; ++index) {
+        if (_strnicmp(pac_name, g_missile_cycle_names[index], strlen(g_missile_cycle_names[index])) ==
+            0)
+            return index;
+    }
+    return -1;
+}
 // GLOBAL: WIZ8 0x0065bddc
 unsigned int g_missile_table_count;
 
@@ -536,14 +547,7 @@ unsigned char LoadMissileCycle(W8GrCycleLoadContext* context, const char* name,
 #pragma clang diagnostic pop
                                     srAssertFail("pacName", MISSILE_CPP, 0x32f, 0);
                                 }
-                                cycle = -1;
-                                for (index = 0; index < 2; ++index) {
-                                    if (_strnicmp(pacName, g_missile_cycle_names[index],
-                                                  strlen(g_missile_cycle_names[index])) == 0) {
-                                        cycle = index;
-                                        break;
-                                    }
-                                }
+                                                                cycle = missileCycleIndex(pacName);
                                 effect = new W8CameraShakeEffect(duration, true, intensity,
                                                                  seconds * g_world_scale, 0);
                                 if (effect != 0) {
@@ -567,14 +571,7 @@ unsigned char LoadMissileCycle(W8GrCycleLoadContext* context, const char* name,
 #pragma clang diagnostic pop
                         srAssertFail("pacName", MISSILE_CPP, 0x32f, 0);
                     }
-                    cycle = -1;
-                    for (index = 0; index < 2; ++index) {
-                        if (_strnicmp(pacName, g_missile_cycle_names[index],
-                                      strlen(g_missile_cycle_names[index])) == 0) {
-                            cycle = index;
-                            break;
-                        }
-                    }
+                                        cycle = missileCycleIndex(pacName);
                     snprintf(wave_path, sizeof(wave_path), "Data\\Missiles\\Sounds\\%s.WAV", pacFileName);
                     sound = std::make_unique<W8SoundEvent>(sound_kind, cycle, frame, 0, wave_path,
                                              _stricmp(pacLoop, "LOOP") == 0);
