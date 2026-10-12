@@ -280,16 +280,16 @@ bool AscensionChaosATrigger(Trigger* pTrigger)
     if (GetLocationVarValueByName("AlethidiesChaosActive") != 0) {
         return false;
     }
-    QueueNpcAction(W8NpcCommand::begin_scripted_world_action);
-    QueueNpcAction(W8NpcPortraitString{0x71e});
+    g_npc_dialogue.Queue(W8NpcCommand::begin_scripted_world_action);
+    g_npc_dialogue.Queue(W8NpcPortraitString{0x71e});
     if (!FindItemOnParty(0x244, 0, 0, 2, 0)) {
-        QueueNpcAction(W8NpcPortraitString{0x71f});
+        g_npc_dialogue.Queue(W8NpcPortraitString{0x71f});
     } else {
         SetTriggerVariableByName("AlethidiesChaosActive", 1);
-        QueueNpcAction(W8NpcPortraitString{0x720});
-        QueueNpcAction(W8NpcStoryAction::spawn_alfie_chaos);
+        g_npc_dialogue.Queue(W8NpcPortraitString{0x720});
+        g_npc_dialogue.Queue(W8NpcStoryAction::spawn_alfie_chaos);
     }
-    QueueNpcAction(W8NpcCommand::clear_target_state);
+    g_npc_dialogue.Queue(W8NpcCommand::clear_target_state);
     pTrigger->flags &= ~W8_TRIGGER_ENABLED;
     return true;
 }
@@ -325,16 +325,16 @@ bool AscensionLifeATrigger(Trigger* pTrigger)
     if (GetLocationVarValueByName("AlethidiesLifeActive") != 0) {
         return false;
     }
-    QueueNpcAction(W8NpcCommand::begin_scripted_world_action);
-    QueueNpcAction(W8NpcPortraitString{0x71e});
+    g_npc_dialogue.Queue(W8NpcCommand::begin_scripted_world_action);
+    g_npc_dialogue.Queue(W8NpcPortraitString{0x71e});
     if (!FindItemOnParty(0x242, 0, 0, 2, 0)) {
-        QueueNpcAction(W8NpcPortraitString{0x71f});
+        g_npc_dialogue.Queue(W8NpcPortraitString{0x71f});
     } else {
         SetTriggerVariableByName("AlethidiesLifeActive", 1);
-        QueueNpcAction(W8NpcPortraitString{0x720});
-        QueueNpcAction(W8NpcStoryAction::spawn_alfie_life);
+        g_npc_dialogue.Queue(W8NpcPortraitString{0x720});
+        g_npc_dialogue.Queue(W8NpcStoryAction::spawn_alfie_life);
     }
-    QueueNpcAction(W8NpcCommand::clear_target_state);
+    g_npc_dialogue.Queue(W8NpcCommand::clear_target_state);
     pTrigger->flags &= ~W8_TRIGGER_ENABLED;
     return true;
 }
@@ -370,16 +370,16 @@ bool AscensionKnowATrigger(Trigger* pTrigger)
     if (GetLocationVarValueByName("AlethidiesKnowActive") != 0) {
         return false;
     }
-    QueueNpcAction(W8NpcCommand::begin_scripted_world_action);
-    QueueNpcAction(W8NpcPortraitString{0x71e});
+    g_npc_dialogue.Queue(W8NpcCommand::begin_scripted_world_action);
+    g_npc_dialogue.Queue(W8NpcPortraitString{0x71e});
     if (!FindItemOnParty(0x243, 0, 0, 2, 0)) {
-        QueueNpcAction(W8NpcPortraitString{0x71f});
+        g_npc_dialogue.Queue(W8NpcPortraitString{0x71f});
     } else {
         SetTriggerVariableByName("AlethidiesKnowActive", 1);
-        QueueNpcAction(W8NpcPortraitString{0x720});
-        QueueNpcAction(W8NpcStoryAction::spawn_alfie_know);
+        g_npc_dialogue.Queue(W8NpcPortraitString{0x720});
+        g_npc_dialogue.Queue(W8NpcStoryAction::spawn_alfie_know);
     }
-    QueueNpcAction(W8NpcCommand::clear_target_state);
+    g_npc_dialogue.Queue(W8NpcCommand::clear_target_state);
     pTrigger->flags &= ~W8_TRIGGER_ENABLED;
     return true;
 }

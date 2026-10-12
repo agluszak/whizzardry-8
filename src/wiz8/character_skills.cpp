@@ -21,6 +21,7 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/Screens.h"
+#include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/message_box.h"
 #include "wiz8/utility.h"
 #include "wiz8/layouts/screen_state.h"
@@ -109,7 +110,7 @@ void FlushDeferredSkillNotices(void)
             have_line = true;
             if (count == 8) {
                 extra.count = 8;
-                QueueNpcPortraitMessage(std::move(text), extra);
+                g_npc_dialogue.QueuePortraitMessage(std::move(text), extra);
                 count = 0;
                 length = 0;
                 have_line = false;
@@ -120,7 +121,7 @@ void FlushDeferredSkillNotices(void)
     }
     if (have_line) {
         extra.count = static_cast<signed char>(count);
-        QueueNpcPortraitMessage(std::move(text), extra);
+        g_npc_dialogue.QueuePortraitMessage(std::move(text), extra);
     }
     for (slot = 0; slot < 8; ++slot) {
         memset(&gXStatus.monster_manager_entries[slot].skill_notice_pending[0], 0, W8_SKILL_COUNT);
@@ -674,7 +675,7 @@ void PracticeCharacterSkill(W8Character* character, W8Skill skill_id, int usage_
                     extra.count = 1;
                     extra.party_slots[0] = static_cast<signed char>(slot);
                     extra.skills[0] = static_cast<signed char>(skill_id);
-                    QueueNpcPortraitMessage(std::move(text), extra);
+                    g_npc_dialogue.QueuePortraitMessage(std::move(text), extra);
                     return;
                 }
                 gXStatus.monster_manager_entries[slot].skill_notice_pending[skill_id] = true;

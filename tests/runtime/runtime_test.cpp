@@ -91,6 +91,7 @@
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/NPCScripting.h"
+#include "wiz8/local_code/npc_dialogue_view.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/message_box.h"
 #include "wiz8/npc_interaction.h"
@@ -1182,7 +1183,7 @@ void LoadGameScenario(const fs::path& fixture)
 bool DialogueAwaitingPlayer()
 {
     return gXStatus.fNpcDialogueMode && !IsNpcScriptSessionActive() &&
-           IsMessageBoxLineQueueEmpty() && g_npc_scripting.reply == W8NpcReplyState::none &&
+           !g_npc_dialogue.has_queued_actions() && g_npc_dialogue.reply() == W8NpcReplyState::none &&
            g_modal_owner == nullptr;
 }
 
@@ -1193,7 +1194,7 @@ void WaitDialogue(Game& game, const char* step, const std::function<bool()>& rea
     game.wait(step, [&] {
         if (ready())
             return true;
-        if (g_npc_scripting.speech.voice_playing && g_modal_owner == nullptr)
+        if (IsNpcVoicePlaying() && g_modal_owner == nullptr)
             game.key(SDLK_ESCAPE);
         return false;
     });
@@ -1252,10 +1253,10 @@ void BuyAnswer(Game& game, const char* step, W8FactId fact)
 {
     const auto before = HandlerRegions();
     WaitDialogue(game, step, [] {
-        return g_modal_owner != nullptr && g_npc_scripting.price_check.has_value();
+        return g_modal_owner != nullptr && g_npc_dialogue.price_check().has_value();
     });
     const unsigned gold = g_status.party_gold;
-    const int price = g_npc_scripting.price_check->price;
+    const int price = g_npc_dialogue.price_check()->price;
     CAPTURE(step, gold, price);
     REQUIRE((price > 0 && unsigned(price) <= gold));
     REQUIRE(GetFact(fact) == 0);
@@ -1278,7 +1279,7 @@ void SayFarewell(Game& game, const char* step)
         return false;
     });
     WaitMainGame(game, step);
-    REQUIRE(IsMessageBoxLineQueueEmpty());
+    REQUIRE(!g_npc_dialogue.has_queued_actions());
 }
 
 /* A conversation with Burz, the merchant beside the starting area: the

@@ -1043,7 +1043,7 @@ portrait_fx:
         g_npc_interaction_state->dialogue_layout == W8_DIALOGUE_LAYOUT_TRANSCRIPT &&
         !g_npc_interaction_state->scripted_dialogue &&
         !g_npc_interaction_state->dialogue_panel_hidden &&
-        g_npc_scripting.reply == W8NpcReplyState::none &&
+        g_npc_dialogue.reply() == W8NpcReplyState::none &&
         g_npc_interaction_state->dialogue_hidden == 0 && !gXStatus.scripted_scene) {
         SetNpcDialoguePanelVisible(1);
     }

@@ -556,7 +556,7 @@ void UpdateNpcPartyMember(int party_slot)
         if (character->highest_condition > W8_CONDITION_WEBBED) {
             npc->event_pending = 1;
             BeginScriptedWorldAction();
-            QueueNpcAction(W8NpcDismiss{party_slot});
+            g_npc_dialogue.Queue(W8NpcDismiss{party_slot});
             return;
         }
         QueueCharacterEvent(character, 0x53, 0, g_character_event_no_flags,
@@ -961,7 +961,7 @@ void ProcessNpcPendingEvents(void)
                             QueueCharacterEvent(character, event, 0, g_character_event_no_flags,
                                                 g_character_event_full_volume);
                             BeginScriptedWorldAction();
-                            QueueNpcAction(W8NpcDismiss{slot});
+                            g_npc_dialogue.Queue(W8NpcDismiss{slot});
                             continue;
                         }
                         W8NpcState* bound = GetNpcState(row->npc_index);
@@ -2055,7 +2055,7 @@ void UpdateNpcEvents(void)
                     break;
                 }
             }
-            QueueNpcAction(W8NpcStoryAction::endgame_screen);
+            g_npc_dialogue.Queue(W8NpcStoryAction::endgame_screen);
         }
     }
 
@@ -2580,7 +2580,7 @@ bool QueueNpcDepartureEvents(int destination_level)
         }
     }
     if (queued) {
-        QueueNpcAction(W8NpcTravelConfirm{destination_level});
+        g_npc_dialogue.Queue(W8NpcTravelConfirm{destination_level});
         ResetLevelDataVectors();
     }
     return queued;
@@ -2606,19 +2606,19 @@ void QueueNpcTravelRefusals(int destination_level)
         }
         if (NpcOffersService(npc, GetLevelBand(destination_level))) {
             BeginScriptedWorldAction();
-            QueueNpcAction(W8NpcDismiss{slot});
+            g_npc_dialogue.Queue(W8NpcDismiss{slot});
         }
         if (npc->name_style == W8_NPC_RODAN) {
             if (!HasHealthyNpcPartner(W8_NPC_DRAZIC)) {
                 BeginScriptedWorldAction();
-                QueueNpcAction(W8NpcDismiss{slot});
+                g_npc_dialogue.Queue(W8NpcDismiss{slot});
                 return;
             }
         }
         if (npc->name_style == W8_NPC_DRAZIC) {
             if (!HasHealthyNpcPartner(W8_NPC_RODAN)) {
                 BeginScriptedWorldAction();
-                QueueNpcAction(W8NpcDismiss{slot});
+                g_npc_dialogue.Queue(W8NpcDismiss{slot});
                 return;
             }
         }

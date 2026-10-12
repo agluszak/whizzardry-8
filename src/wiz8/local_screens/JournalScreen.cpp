@@ -35,6 +35,7 @@
 #include "input.h"
 #include "difficulty.h"
 #include "local_code/Controls.h"
+#include "wiz8/local_code/NPCScripting.h"
 #include "message_box.h"
 
 // GLOBAL: WIZ8 0x0064df38
@@ -115,7 +116,7 @@ void RecordFactChangeForJournal(W8FactId fact_id)
         return;
     }
     if (gXStatus.fNpcDialogueMode) {
-        QueueNpcAction(W8NpcCommand::journal_quote);
+        g_npc_dialogue.Queue(W8NpcCommand::journal_quote);
         return;
     }
     int range = GetTextBoxScrollRange();

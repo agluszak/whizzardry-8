@@ -29,7 +29,7 @@ enum W8CharacterEventFlag {
        event and dispatch immediately; this bit queues them normally. */
     W8_EVENT_NO_PREEMPT = 0x20,
     /* The event is an NPC-script line: Dispatch reloads the NPC's script
-       resources around RunNpcScriptLine and Complete skips the item notice. */
+       resources around W8NpcDialogue::Speak and Complete skips the item notice. */
     W8_EVENT_NPC_SCRIPT = 0x40
 };
 

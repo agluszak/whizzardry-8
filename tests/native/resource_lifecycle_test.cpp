@@ -114,14 +114,14 @@ static void queued_state_teardown()
     ClearNpcDialogueTranscript();
     ClearNpcDialogueTranscript();
     REQUIRE((g_npc_interaction_state->dialogue_transcript.size() == 0));
-    QueueNpcPortraitMessage(std::string(80, 't'));
-    QueueNpcPortraitMessage(std::string(80, 't'),
+    g_npc_dialogue.QueuePortraitMessage(std::string(80, 't'));
+    g_npc_dialogue.QueuePortraitMessage(std::string(80, 't'),
                           W8ExperienceNoticePayload{});
-    QueueNpcPortraitMessage(std::string(80, 't'), W8SkillNoticePayload{});
-    QueueNpcPortraitMessage(std::string(80, 't'), W8LevelUpNotice{});
+    g_npc_dialogue.QueuePortraitMessage(std::string(80, 't'), W8SkillNoticePayload{});
+    g_npc_dialogue.QueuePortraitMessage(std::string(80, 't'), W8LevelUpNotice{});
     ClearNpcMessageQueue();
     ClearNpcMessageQueue();
-    REQUIRE((IsMessageBoxLineQueueEmpty()));
+    REQUIRE((!g_npc_dialogue.has_queued_actions()));
 }
 
 TEST_CASE("Detached SurRender resources outlive shutdown and repeated initialization", "[resources][lifecycle]")

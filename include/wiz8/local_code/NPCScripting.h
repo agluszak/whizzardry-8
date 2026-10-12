@@ -7,7 +7,6 @@
 #include <vector>
 
 #include "wiz8/message_box.h"
-#include "wiz8/npc_speech.h"
 
 
 struct W8NpcState;
@@ -20,21 +19,6 @@ struct W8MonsterGroup;
 struct W8WorldItem;
 class W8Monster;
 class W8DialogBase;
-
-/* The conversation being spoken: its speaker, script and position. Starting
-   a nested conversation can suspend it; it resumes once the queue drains. */
-struct W8NpcDialogueSession {
-    W8NpcState* npc;
-    W8NpcScriptFile* script_file;
-    int current_quote_index;
-    int finished_quote_index;
-    /* Which subquote of the current quote is next; reset when a new quote
-       is staged or the cursor runs past subquote_count. */
-    unsigned char subquote_index;
-    /* A quote is being presented - voice is playing or the text/EOS
-       hold is counting down. Cleared by FinishNpcVoicePlayback. */
-    bool quote_active;
-};
 
 /* Whether the conversation waits on the player: a queued options, keyword or
    price-check entry is pending, or its reply dialog is open. */
@@ -49,38 +33,97 @@ struct W8NpcPriceCheck {
     bool tells_fact;
 };
 
-struct W8NpcScriptingState {
-    W8NpcDialogueSession session;
-    std::optional<W8NpcDialogueSession> suspended_session;
-    W8NpcReplyState reply;
-    std::optional<W8NpcPriceCheck> price_check;
-    W8NpcSpeech speech;
-    std::list<W8MessageBoxLine> message_lines;
-    std::vector<int> pending_script_values;
-    /* Latched by CancelNpcDialogue; the response loop checks it at
-       entries_done and abandons the pending response. */
-    bool dialogue_cancelled;
-    bool portrait_message_active;
-    bool scripted_scene_active;
+/* Owns conversation progress: the speaker and its quote cursor, the queued
+   script work, and whether the player owes a reply. Presentation, screens and
+   game systems report what happened through the transitions below; only this
+   class decides which script step follows. */
+class W8NpcDialogue {
+public:
+    W8NpcState* speaker() const { return session_.npc; }
+    int current_quote() const { return session_.current_quote_index; }
+    W8NpcReplyState reply() const { return reply_; }
+    const std::optional<W8NpcPriceCheck>& price_check() const { return price_check_; }
+    bool has_queued_actions() const { return !queue_.empty(); }
+    /* A scripted scene holds the queue until it ends. */
+    bool is_held_by_scene() const { return held_by_scene_; }
+
+    /* Make `npc` the speaker. `suspend_current` keeps the current
+       conversation, which resumes once the queue drains. */
+    void Begin(W8NpcState* npc, bool suspend_current);
+    /* One frame: unless a quote is on screen, a scene holds the queue or a
+       reply dialog is open, run the next queued action; once the queue
+       drains, resume a suspended conversation. */
+    void Advance();
+    /* Run script quote `quote` of the speaker now: apply its entries on the
+       last subquote and present the current subquote. */
+    void Speak(int quote, bool force_npc_voice);
+    /* Abandon the response Speak is assembling (a fact ended the conversation). */
+    void Cancel();
+    /* The player's answer to the pending reply. */
+    void Answer(std::string_view text);
+    /* The current quote or portrait message has left the screen. */
+    void SpeechFinished();
+
+    void QueueQuote(int quote, bool mark_pending, bool prepend, bool suppress_entries);
+    void Queue(W8NpcAction action);
+    /* Queue a portrait message; `notice` posts when its bubble is dismissed. */
+    void QueuePortraitMessage(std::string text, W8QuoteNotice notice = {});
+
+    void ReplyDialogOpened(std::optional<W8NpcPriceCheck> price_check);
+    void ReplyDialogClosed();
+    /* Drop a pending reply and price check without answering. */
+    void AbandonReply();
+    void HoldForScene();
+    void ReleaseScene();
+    void Reset();
+
+private:
+    /* A conversation position. Begin can suspend one and Advance resumes it. */
+    struct Session {
+        W8NpcState* npc;
+        int current_quote_index;
+        /* The last quote presentation finished; Speak continues its
+           subquotes instead of restarting. */
+        int finished_quote_index;
+        /* Which subquote of the current quote is next. */
+        unsigned char subquote_index;
+    };
+
+    void Push(W8NpcAction action, bool prepend);
+    void QueueQuoteEntry(int quote, int entry, int continuation_quote, bool prepend);
+    void RunNextAction();
+    void RunQuoteEntry(W8NpcQuoteEntry* entry, int continuation_quote);
+    int SelectResponse(W8NpcQuoteEntry* entry, int quote, int entry_index);
+    int FindReplyQuote(std::string_view text) const;
+    void RunDeclineActions(int quote);
+
+    Session session_{};
+    std::optional<Session> suspended_;
+    W8NpcReplyState reply_ = W8NpcReplyState::none;
+    std::optional<W8NpcPriceCheck> price_check_;
+    std::list<W8MessageBoxLine> queue_;
+    /* Quotes queued with mark_pending since the queue last ran dry. */
+    std::vector<int> pending_quotes_;
+    bool queue_idle_ = false;
+    bool cancelled_ = false;
+    bool held_by_scene_ = false;
 };
 
-extern W8NpcScriptingState g_npc_scripting;
+extern W8NpcDialogue g_npc_dialogue;
 
 std::string GetNpcScriptRegionName(int region);
 void StripNpcKeywordPunctuation(std::string& text);
 void TryFinishNpcVoicePlayback(bool force);
 int FindNpcScriptQuoteByKeyword(std::string_view keyword, short* entry_index, short* sub_entry_index);
-void RunNpcScriptLine(int script_line, bool force_npc_voice);
-/* Resolve the player's answer to the pending reply and clear it. */
-void AnswerNpcReply(std::string_view text);
-/* Speak one subquote of the current quote (NPC Scripting.cpp). */
-void SpeakNpcSubquote(W8NpcScriptQuote* quote, unsigned char subquote_index, bool notice_only,
-                      bool force_npc_voice);
+/* What presenting a subquote asks of the conversation: script sentinels
+   UNKNOWN and CLASSIFIED stand for the NPC's stock "don't know" and
+   "won't say" quotes. */
+enum class W8NpcSubquoteOutcome : unsigned char { presented, unknown, classified };
+/* Present one subquote of the speaker's current quote (npc_dialogue_view.cpp). */
+W8NpcSubquoteOutcome SpeakNpcSubquote(W8NpcScriptQuote* quote, unsigned char subquote_index,
+                                      bool notice_only, bool force_npc_voice);
 /* Add a keyword a quote entry of `kind` teaches to the dialogue keyword lists. */
 void ApplyScriptedDialogueKeyword(int kind, const char* text);
-/* Build a W8NpcQueuedEntry line for `entry` carrying
-   `continuation_quote`; prepend != 0 inserts it at the queue front. */
-void QueueNpcQuoteEntry(int quote_index, int entry_index, int continuation_quote, bool prepend);
 /* The first argument is a pointer into a character or party item
    slot - the slot whose address matches is the one removed. */
 void RemoveNpcScriptItem(W8ItemInstance* item, int match_item_id, int item_id);
@@ -91,16 +134,11 @@ struct W8NpcScriptItemQuote {
 };
 std::optional<W8NpcScriptItemQuote> FindNpcScriptItemQuote(int item_id);
 void UpdateNpcDialogueVoiceAndCursor(void);
-void ProcessNpcScriptingFrame(void);
 void SetNpcScriptEventActive(unsigned char value);
 /* Resolves NPC-name, named-person, and region keywords to a quote
    id; returns -1 when nothing matches. */
 int FindNpcNameOrPlaceQuote(W8NpcState* npc, std::string_view text);
 void RestoreCurrentNpcQuoteBubble(void);
-void QueueNpcScriptLine(int quote, bool mark_pending, bool prepend, bool suppress_entries);
-void SetScriptedSceneActive(void);
-void ClearScriptedSceneActive(void);
-void CancelNpcDialogue(void);
 /* Show the NPC quote bubble for the formatted line; a nonzero
    second argument also plays the startup jingle. */
 void DisplayNpcQuote(std::string_view text, bool play_sound);
