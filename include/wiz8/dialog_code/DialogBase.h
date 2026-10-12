@@ -31,6 +31,19 @@ void SetDialogDestroyCallback(W8DialogBase* dialog, W8DialogDestroyCallback call
 /* Shared close-button callback used by the monster and spell info dialogs. */
 void DialogCloseButtonCallback(W8ButtonWidget* button);
 
+/* A dialog's body: it paints the bordered background and takes the clicks
+   that miss the dialog's controls, so they count as handled. */
+class W8DialogFrame final : public W8Widget {
+public:
+    void Configure(ButtonAppearance appearance, const SDL_Rect& bounds);
+    void Reset();
+    bool IsConfigured() const { return OwnsRegion(); }
+    void Draw() const;
+
+private:
+    ButtonAppearance m_appearance;
+};
+
 /* Modal controls own their regions and state; only visual resources and
    rendering uses the shared dialog button appearance module. */
 // VTABLE: WIZ8 0x005efaf8
@@ -70,7 +83,7 @@ protected:
                         int width, int height);
 
     int m_error;
-    W8ButtonWidget m_resource;
+    W8DialogFrame m_frame;
     std::string m_text;
     Font* m_font;
     unsigned char m_foreground;

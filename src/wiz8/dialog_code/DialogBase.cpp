@@ -21,6 +21,25 @@ W8DialogBase* TopLiveDialog()
     return g_live_dialogs.empty() ? nullptr : g_live_dialogs.back();
 }
 
+void W8DialogFrame::Configure(ButtonAppearance appearance, const SDL_Rect& bounds)
+{
+    m_appearance = std::move(appearance);
+    SetBounds(bounds);
+    ClaimRegion(REGION_PRIORITY_BACKGROUND);
+}
+
+void W8DialogFrame::Reset()
+{
+    ReleaseRegion();
+    m_appearance = {};
+    SetBounds({});
+}
+
+void W8DialogFrame::Draw() const
+{
+    DrawButtonAppearance(GetFrameBufferSurface(), m_appearance, ScreenBounds(), {});
+}
+
 void W8DialogBase::CreateCloseButton(W8ButtonWidget& button, int left, int top)
 {
     button.Configure("Data\\Dialogs\\popup_confirmationbuttons.sti", 3, 0, 1, 4, 2,
@@ -85,12 +104,11 @@ void W8DialogBase::Draw()
     if (!m_initialized) {
         CreateControls();
     }
-    if (m_error == 0 && m_resource.IsConfigured()) {
-        if (m_width != m_resource.Bounds().w || m_height != m_resource.Bounds().h) {
-            m_resource.Resize(m_width, m_height);
+    if (m_error == 0 && m_frame.IsConfigured()) {
+        if (m_width != m_frame.Bounds().w || m_height != m_frame.Bounds().h) {
+            m_frame.SetBounds({m_x, m_y, m_width, m_height});
         }
-        m_resource.m_dirty = true;
-        m_resource.Draw();
+        m_frame.Draw();
         InvalidateRegion(m_x, m_y, m_x + m_width, m_y + m_height);
     }
     m_dirty_flags &= ~W8_DIALOG_DIRTY_REDRAW;
@@ -108,8 +126,8 @@ void W8DialogBase::SetOrigin(int x, int y)
 {
     m_x = x;
     m_y = y;
-    if (m_resource.IsConfigured()) {
-        m_resource.SetPosition(x, y);
+    if (m_frame.IsConfigured()) {
+        m_frame.SetBounds({x, y, m_frame.Bounds().w, m_frame.Bounds().h});
     }
     m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
 }
@@ -157,23 +175,17 @@ int W8DialogBase::CreateControls()
             return m_error = 4;
         }
     }
-    if (m_resource.ConfigureTextButton({}, *m_font, m_foreground, m_background, m_x, m_y,
-                                      m_width, m_height, nullptr, 0, m_border,
-                                      REGION_PRIORITY_BACKGROUND)) {
-        m_resource.SetTextOffsets(3, 3, true);
-        m_resource.SetMultiColor(g_dialog_font_enabled);
-        m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
-        m_initialized = true;
-        return 0;
-    }
-    return m_error = 7;
+    m_frame.Configure({.generic_image = m_border}, {m_x, m_y, m_width, m_height});
+    m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
+    m_initialized = true;
+    return 0;
 }
 
 // FUNCTION: WIZ8 0x005dcc30
 void W8DialogBase::DestroyControls()
 {
     EndModalInput();
-    m_resource.Reset();
+    m_frame.Reset();
     m_border.reset();
     m_text.clear();
     m_background_path.clear();

@@ -305,6 +305,21 @@ void W8Widget::UnbindRegion()
     ReleaseRegion();
 }
 
+/* An active hit region at the given priority, in the panel tree's set or,
+   outside any panel, the shared control set that dialogs scope input to. */
+void W8Widget::ClaimRegion(int priority)
+{
+    ReleaseRegion();
+    const RegionTemplate region_template{W8_REGION_RECTANGLE, 0, 0, 0, 0,
+                                         nullptr, static_cast<std::uint16_t>(priority), false, -1};
+    const auto set = m_pPanel && m_pPanel->ChildRegionSet() != 0 ? m_pPanel->ChildRegionSet()
+                                                                  : ControlRegionSetIndex();
+    OwnedRegion allocated_region(set, region_template, priority);
+    m_active = true;
+    SetRegion(allocated_region.index());
+    m_owned_region = std::move(allocated_region);
+}
+
 // FUNCTION: WIZ8 0x004f4020
 void W8Widget::SetRegion(unsigned int region)
 {
