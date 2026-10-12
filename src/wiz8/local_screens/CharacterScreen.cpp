@@ -2,7 +2,6 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <SDL3/SDL_filesystem.h>
-#include <SDL3/SDL_rect.h>
 #include <string_view>
 #include <cstring>
 #include <optional>
