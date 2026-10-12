@@ -999,6 +999,10 @@ void text_input_ownership()
                 dispatch_mouse(InputEventType::LeftButtonDown, 5, 5);
                 REQUIRE(g_ui.captured == region_index);
                 dispatch_mouse(InputEventType::LeftButtonUp, 100, 100);
+                // Retail fields include their right edge despite SDL paint extents.
+                dispatch_mouse(InputEventType::LeftButtonDown, 80, 10);
+                REQUIRE(g_ui.captured == region_index);
+                dispatch_mouse(InputEventType::LeftButtonUp, 100, 100);
                 REQUIRE(g_ui.captured == 0);
             }
             // A field wins over its hosting panel, whose set is scanned before the control set.

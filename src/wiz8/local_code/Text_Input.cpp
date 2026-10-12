@@ -17,7 +17,7 @@
 #include "wiz8/cursor.h"
 #include "Font.h"
 #include "input.h"
-#include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/ui_layer.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/regions.h"
 #include "wiz8/fonts.h"
@@ -46,7 +46,8 @@ class W8TextField final {
 public:
     W8TextField(TextFieldGroup& group, int id, int priority, SDL_Rect bounds)
         : group(group), id(id), bounds(bounds),
-          target(group.layer_->add(bounds, [this](const UiPointerEvent& event) {
+          target(group.layer_->add(SDL_Rect{bounds.x, bounds.y, bounds.w + 1, bounds.h + 1},
+                                  [this](const UiPointerEvent& event) {
               return HandleInput(event);
           }, priority))
     {
