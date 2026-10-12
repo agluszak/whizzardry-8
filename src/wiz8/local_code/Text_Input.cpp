@@ -651,17 +651,16 @@ bool TextFieldGroup::HandleInput(const InputEvent& event)
         InsertRestricted(character);
         return true;
     }
-    if (character == ' ' && (input_type & 4) != 0) {
-        InsertCharacter(' ');
-    } else if (character == '-' && (input_type & 2) != 0 && field.cursor == 0) {
-        InsertCharacter('-');
-    } else if (character >= '0' && character <= '9' && (input_type & 1) != 0) {
-        InsertCharacter(character);
-    } else if ((input_type & 2) != 0 && IsUppercaseCharacter(character) != 0) {
+    const bool space = character == ' ' && (input_type & 4) != 0;
+    const bool sign = character == '-' && (input_type & 2) != 0 && field.cursor == 0;
+    const bool digit = character >= '0' && character <= '9' && (input_type & 1) != 0;
+    const bool letters = (input_type & 2) != 0;
+    const bool punctuation = (input_type & 8) != 0 && IsPunctuationCharacter(character) != 0;
+    if (letters && IsUppercaseCharacter(character) != 0) {
         InsertCharacter((input_type & 0x20) != 0 ? ToLowercaseCharacter(character) : character);
-    } else if ((input_type & 2) != 0 && IsLowercaseCharacter(character) != 0) {
+    } else if (letters && IsLowercaseCharacter(character) != 0) {
         InsertCharacter((input_type & 0x10) != 0 ? ToUppercaseCharacter(character) : character);
-    } else if ((input_type & 8) != 0 && IsPunctuationCharacter(character) != 0) {
+    } else if (space || sign || digit || punctuation) {
         InsertCharacter(character);
     }
     return true;
