@@ -240,7 +240,8 @@ void ResetMGSKeyboardBindings()
 // FUNCTION: WIZ8 0x00591890
 unsigned char HandleMainGameInputEvent(const InputEvent* input)
 {
-    if (IsTypingEvent(*input) && static_cast<char>(HandleTextInput(input)) != 0) {
+    auto* text_fields = TextFieldGroup::Focused();
+    if (IsTypingEvent(*input) && text_fields && text_fields->HandleInput(*input)) {
         return 1;
     }
     if ((input->type == InputEventType::KeyDown || input->type == InputEventType::KeyRepeat) && gXStatus.fNpcDialogueMode) {

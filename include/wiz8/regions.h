@@ -15,7 +15,6 @@
 #include "input.h"
 
 class W8Widget;
-struct TEXTINPUTNODE;
 
 extern bool g_dev_mode;
 
@@ -153,7 +152,7 @@ struct W8Region {
     std::uint64_t binding_generation = 0; // Detect replacement during callback dispatch.
     int priority = 0;
     std::string help_text{};
-    TEXTINPUTNODE* text_field = nullptr;
+    bool subtract_cursor_hotspot = false; // Text fields hit-test at the cursor tip.
     W8RegionHandler* handler = nullptr;
 };
 

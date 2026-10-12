@@ -412,7 +412,7 @@ void W8OptionsSaveLoadPanel::OnDialogClosed(bool accepted, int value)
     }
 }
 
-void W8OptionsSaveLoadPanel::OnTextEditComplete(W8OptionsTextEditor*, unsigned char cancelled)
+void W8OptionsSaveLoadPanel::OnTextEditComplete(W8OptionsTextEditor* editor, unsigned char cancelled)
 {
     int selected_slot = m_current * 5 + m_selection.m_selectedIndex;
     m_rows[m_editing_row]->m_editing = false;
@@ -423,7 +423,7 @@ void W8OptionsSaveLoadPanel::OnTextEditComplete(W8OptionsTextEditor*, unsigned c
 
     W8SaveSlot& slot = *g_options_screen->m_save_slots[selected_slot];
     m_previous_name = slot.name;
-    slot.name = GetTextFromField(0);
+    slot.name = editor->m_fields.Text(0);
     if (slot.name.size() == 0) {
         slot.name = m_previous_name;
         g_options_screen->ShowNotification(this, false, 0x82a, 4);
@@ -656,9 +656,8 @@ void W8OptionsScreen::BeginSaveNameEdit(W8OptionsTextEditor::Listener* listener,
                                         std::string_view text)
 {
     auto editor = std::make_unique<W8OptionsTextEditor>();
-    InitTextInputModeWithScheme(1);
-    AddTextInputField(0x16b, row * 0x49 + 0x46, 0xfa, 0xc, 0x7f, text, 0x3b, 0xf, 1);
-    SetActiveField(0);
+    editor->m_fields.Add(0x16b, row * 0x49 + 0x46, 0xfa, 0xc, 0x7f, text, 0x3b, 0xf, true);
+    editor->m_fields.Focus(0);
     editor->m_listener = listener;
     m_text_editor = std::move(editor);
 }
@@ -1327,7 +1326,7 @@ unsigned char W8OptionsScreen::ProcessInput(const InputEvent* input)
                 if (character != 0 && character < 0x80 && strchr("\\/:*?\"<>|", int(character)) != 0) {
                     return 0;
                 }
-                HandleTextInput(input);
+                editor->m_fields.HandleInput(*input);
                 return 0;
             }
             SetTargetCursor(W8_CURSOR_NONE);
@@ -1365,7 +1364,7 @@ void W8OptionsScreen::Redraw()
         m_active_modal->Draw();
     }
     if (m_text_editor != 0) {
-        RenderActiveTextField();
+        m_text_editor->m_fields.RenderFocused();
     }
 }
 

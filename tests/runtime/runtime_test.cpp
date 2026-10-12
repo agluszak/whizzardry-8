@@ -1213,9 +1213,9 @@ void Ask(Game& game, std::string_view keyword)
 {
     REQUIRE(DialogueAwaitingPlayer());
     game.key(SDLK_RETURN);
-    REQUIRE(EditingText());
+    REQUIRE((TextFieldGroup::Focused() && TextFieldGroup::Focused()->Editing()));
     game.enter_text(keyword);
-    REQUIRE(GetTextFromField(0) == keyword);
+    REQUIRE(TextFieldGroup::Focused()->Text(0) == keyword);
     game.key(SDLK_RETURN);
 }
 

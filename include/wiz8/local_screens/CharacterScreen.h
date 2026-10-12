@@ -1,4 +1,7 @@
 #pragma once
+#include <optional>
+
+#include "wiz8/text_input.h"
 
 #include <string_view>
 #include <memory>
@@ -305,6 +308,7 @@ private:
     bool m_animation_active;
     bool m_description_dirty;
     bool m_portrait_dirty;
+    std::optional<TextFieldGroup> m_text_fields;
 };
 
 W8CharacterStatsPage* CreateCharacterStatsPage();

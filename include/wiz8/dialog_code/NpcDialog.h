@@ -1,5 +1,7 @@
 #pragma once
 
+class TextFieldGroup;
+
 #include <array>
 #include <memory>
 #include <string>
@@ -45,7 +47,8 @@ private:
     bool m_compact_options; /* option list may size under 200 wide */
     unsigned char unknown_075;
     unsigned short m_text_width; /* widest option text + 6 */
-    unsigned char m_input_field; /* AddTextInputField id for opcode 0x13 */
+    unsigned char m_input_field; /* keyword field id for opcode 0x13 */
+    TextFieldGroup* m_input_group = nullptr;
     unsigned char unknown_079;
     std::string m_input_text; /* fills the 0x270-byte allocation */
 };

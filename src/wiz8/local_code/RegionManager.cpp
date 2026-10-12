@@ -158,7 +158,7 @@ bool RegionContainsInputPoint(unsigned int region_index, unsigned short x, unsig
                               bool dispatch_coordinates)
 {
     const auto& region = g_regions[region_index];
-    if (dispatch_coordinates && region.text_field) {
+    if (dispatch_coordinates && region.subtract_cursor_hotspot) {
         return region.ContainsPoint(static_cast<unsigned short>(static_cast<int>(x) - g_cursor_hotspot_x),
                                     static_cast<unsigned short>(static_cast<int>(y) - g_cursor_hotspot_y));
     }
@@ -1040,7 +1040,7 @@ OwnedRegion::OwnedRegion(unsigned int set, const RegionTemplate& entry, int prio
     owned_region.help_text_id = entry.help_text_id;
     owned_region.unknown_13 = 0;
     owned_region.help_text.clear();
-    owned_region.text_field = nullptr;
+    owned_region.subtract_cursor_hotspot = false;
     owned_region.handler = nullptr;
     generation_ = ++owned_region.binding_generation;
 }
@@ -1252,7 +1252,6 @@ void RemoveRegionFromSet(unsigned int region_set_index, unsigned int region_inde
     }
     auto& region = g_regions[region_index];
     if (region.flags & W8_REGION_HELP_SHOWN) VideoRemoveToolTip();
-    region.text_field = nullptr;
     region.flags &= ~(W8_REGION_MOUSE_STATE_MASK | W8_REGION_HELP_SHOWN);
     const auto generation = region.binding_generation + 1;
     region = g_regions.front();
@@ -1273,7 +1272,6 @@ void UnbindWidgetRegion(unsigned int region_index, W8Widget* widget, OwnedRegion
     if (region.flags & W8_REGION_HELP_SHOWN) VideoRemoveToolTip();
     region.flags &= ~(W8_REGION_MOUSE_STATE_MASK | W8_REGION_HELP_SHOWN);
     region.handler = nullptr;
-    region.text_field = nullptr;
     region.help_enabled = false;
     region.help_text_id = -1;
     region.help_text.clear();

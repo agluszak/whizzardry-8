@@ -432,11 +432,8 @@ public:
 class W8PartySelectionInputHandler {
 public:
     W8PartySelectionInputHandler() {}
-    virtual ~W8PartySelectionInputHandler()
-    {
-        RemoveTextInputField(0);
-        KillTextInputMode();
-    }
+    virtual ~W8PartySelectionInputHandler() = default;
+    TextFieldGroup m_fields{1};
     unsigned char HandleInput(const InputEvent* input);
 
     W8PartySelectionDecisionListener* m_listener;
@@ -1093,13 +1090,13 @@ unsigned char W8PartySelectionInputHandler::HandleInput(const InputEvent* input)
             if (character != 0 && character < 0x80 && strchr("\\/:*?\"<>|", int(character))) {
                 return 1;
             }
-            HandleTextInput(input);
+            m_fields.HandleInput(*input);
             if (m_listener) {
-                m_listener->OnToggle(GetTextInputFieldByteLength(0) != 0);
+                m_listener->OnToggle(m_fields.ByteLength(0) != 0);
             }
             return 1;
         }
-        if (!GetTextInputFieldByteLength(0)) {
+        if (!m_fields.ByteLength(0)) {
             return 1;
         }
     }
@@ -1192,11 +1189,10 @@ void W8PartySelectionOptionPanel::SetOptionPanelMode(W8PartyCreationPage page)
         return;
     }
     W8PartySelectionInputHandler* input_handler = new W8PartySelectionInputHandler;
-    InitTextInputModeWithScheme(1);
-    AddTextInputField(m_render_left + 2, m_render_top + 2,
+    input_handler->m_fields.Add(m_render_left + 2, m_render_top + 2,
                       static_cast<unsigned short>(m_image_width) - 4,
-                      static_cast<unsigned short>(m_image_height) - 4, 0x7f, "", 0x28, 0x0f, 1);
-    SetActiveField(0);
+                      static_cast<unsigned short>(m_image_height) - 4, 0x7f, "", 0x28, 0x0f, true);
+    input_handler->m_fields.Focus(0);
     controller->m_input_handler.reset(input_handler);
     input_handler->m_listener = controller;
     input_handler->m_listener->OnToggle(0);
@@ -1636,7 +1632,7 @@ void W8PartySelectionController::OnDecision(W8PartySelectionInputHandler*, unsig
 {
     if (!accepted) {
         std::string slot_name;
-        slot_name = GetTextFromField(0);
+        slot_name = m_input_handler->m_fields.Text(0);
         if (SaveSlotFileExists(slot_name)) {
             OpenNotification(g_localized_strings[0x829], true, W8_PARTY_CONFIRM_START_WITH_SAVE_NAME);
             return;
@@ -1717,7 +1713,7 @@ void W8PartySelectionController::DrawPartySelectionComposition()
         m_dialog->Draw();
     }
     if (m_input_handler) {
-        RenderActiveTextField();
+        m_input_handler->m_fields.RenderFocused();
     }
 }
 
@@ -1783,7 +1779,7 @@ void W8PartySelectionController::ApplyPartySelectionConfirmation(W8PartyConfirma
     }
     case W8_PARTY_CONFIRM_START_WITH_SAVE_NAME: {
         std::string slot_name;
-        slot_name = GetTextFromField(0);
+        slot_name = m_input_handler->m_fields.Text(0);
         m_input_handler.reset();
         RunNewGameOpeningSequence(true, slot_name);
         return;

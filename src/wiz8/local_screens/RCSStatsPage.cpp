@@ -933,15 +933,15 @@ void W8CharacterPersonalityPage::Activate()
 {
     EnableRegionSet(true);
     m_prepared = true;
-    InitTextInputModeWithScheme(1);
-    AddTextInputField(m_bounds.left + 0x97, m_bounds.top + 0xab, 0x106, 0x10, 0x7f,
-                      m_character->name_part_2, 5, 0xf, 1);
-    AddTextInputField(m_bounds.left + 0x97, m_bounds.top + 0xc7, 0x106, 0x10, 0x7f,
-                      m_character->name, 9, 0xf, 1);
-    if (GetTextInputFieldByteLength(0) == 0)
-        SetActiveField(0);
-    else if (GetTextInputFieldByteLength(1) == 0)
-        SetActiveField(1);
+    auto& fields = m_text_fields.emplace(1);
+    fields.Add(m_bounds.left + 0x97, m_bounds.top + 0xab, 0x106, 0x10, 0x7f,
+               m_character->name_part_2, 5, 0xf, true);
+    fields.Add(m_bounds.left + 0x97, m_bounds.top + 0xc7, 0x106, 0x10, 0x7f, m_character->name,
+               9, 0xf, true);
+    if (fields.ByteLength(0) == 0)
+        fields.Focus(0);
+    else if (fields.ByteLength(1) == 0)
+        fields.Focus(1);
     m_personality_selection.SetSelected(m_character->personality);
     m_voice_selection.SetSelected(m_character->voice);
 }
@@ -950,9 +950,7 @@ void W8CharacterPersonalityPage::Activate()
 void W8CharacterPersonalityPage::Deactivate()
 {
     EnableRegionSet(false);
-    RemoveTextInputField(1);
-    RemoveTextInputField(0);
-    KillTextInputMode();
+    m_text_fields.reset();
 }
 
 // FUNCTION: WIZ8 0x005c6910
@@ -976,7 +974,8 @@ void W8CharacterPersonalityPage::Accept()
 // FUNCTION: WIZ8 0x005c69a0
 void W8CharacterPersonalityPage::GetNavigationState(bool* next_enabled, bool* exit_enabled)
 {
-    *next_enabled = GetTextInputFieldByteLength(0) != 0 && GetTextInputFieldByteLength(1) != 0;
+    *next_enabled = m_text_fields && m_text_fields->ByteLength(0) != 0 &&
+                    m_text_fields->ByteLength(1) != 0;
     if (m_mode != 0) {
         W8Character* original = m_screen->GetOriginalCharacter();
         *exit_enabled = false;
@@ -1006,18 +1005,19 @@ void W8CharacterPersonalityPage::HandleInput(const InputEvent* input)
     if (character != 0 && character < 0x80 && strchr("\\/:*?\"<>|", int(character)) != 0) {
         return;
     }
+    if (!m_text_fields) return;
     if (input->key == VK_TAB) {
-        SelectNextField();
+        m_text_fields->FocusNext();
         return;
     }
-    if (!HandleTextInput(input))
+    if (!m_text_fields->HandleInput(*input))
         return;
 
-    short field = GetActiveTextInputField();
+    const int field = m_text_fields->FocusedId();
     if (field == 0) {
-        m_character->name_part_2 = GetTextFromField(0);
+        m_character->name_part_2 = m_text_fields->Text(0);
     } else if (field == 1) {
-        m_character->name = GetTextFromField(1);
+        m_character->name = m_text_fields->Text(1);
     }
     m_screen->UpdateNavigation(this);
 }
@@ -1025,8 +1025,10 @@ void W8CharacterPersonalityPage::HandleInput(const InputEvent* input)
 // FUNCTION: WIZ8 0x005c6b20
 void W8CharacterPersonalityPage::Refresh()
 {
-    SetInputFieldText(0, m_character->name_part_2);
-    SetInputFieldText(1, m_character->name);
+    if (m_text_fields) {
+        m_text_fields->SetText(0, m_character->name_part_2);
+        m_text_fields->SetText(1, m_character->name);
+    }
     m_personality_selection.SetSelected(m_character->personality);
     m_voice_selection.SetSelected(m_character->voice);
 }
@@ -1047,8 +1049,8 @@ void W8CharacterPersonalityPage::Redraw()
 
     bool redraw = m_fEnabled && m_fDirty;
     W8CharacterPage::Redraw();
-    if (!m_screen->HasDialog()) {
-        RenderAllTextFields();
+    if (!m_screen->HasDialog() && m_text_fields) {
+        m_text_fields->RenderAll();
     }
 
     if (redraw) {
