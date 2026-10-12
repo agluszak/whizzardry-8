@@ -276,7 +276,6 @@ private:
 };
 
 class W8CharacterPersonalityPage : public W8CharacterPage,
-                                   public W8ControlSelectionListener,
                                    public W8TextControl::Listener {
 public:
     W8CharacterPersonalityPage()
@@ -291,7 +290,7 @@ public:
     virtual void GetNavigationState(bool*, bool*) override;
     virtual void HandleInput(const InputEvent*) override;
     virtual void Refresh() override;
-    virtual void OnSelectionChanged(W8ControlSelection*, int) override;
+    void OnSelectionChanged(W8ControlSelection*, int);
     virtual void OnPrimary(W8TextControl*) override;
 
 private:

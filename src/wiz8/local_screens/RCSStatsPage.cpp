@@ -875,7 +875,6 @@ unsigned char CampSkillListRegionHandler(const InputEvent* event, W8Region* regi
    demo 0x005CFAD0..0x005D0FE0 inside the same hull. */
 
 // VTABLE: WIZ8 0x005ef57c W8CharacterPage
-// VTABLE: WIZ8 0x005ef578 W8ControlSelectionListener
 // VTABLE: WIZ8 0x005ef570 W8TextControl::Listener
 // class W8CharacterPersonalityPage
 // FUNCTION: WIZ8 0x005c6460
@@ -910,7 +909,7 @@ void W8CharacterPersonalityPage::SetCharacter(W8Character* character,
         m_personality_selection.AddEntry(entry);
     }
     m_personality_selection.SetSelected(character->personality);
-    m_personality_selection.m_selectionListener = this;
+    m_personality_selection.on_selection = [this](int selected) { OnSelectionChanged(&m_personality_selection, selected); };
 
     for (index = 0; index < 2; ++index) {
         int top = index == 0 ? 0x140 : 0x15d;
@@ -920,7 +919,7 @@ void W8CharacterPersonalityPage::SetCharacter(W8Character* character,
     }
     character->voice = std::clamp(int(character->voice), 0, 1);
     m_voice_selection.SetSelected(character->voice);
-    m_voice_selection.m_selectionListener = this;
+    m_voice_selection.on_selection = [this](int selected) { OnSelectionChanged(&m_voice_selection, selected); };
 }
 
 // FUNCTION: WIZ8 0x005c6820

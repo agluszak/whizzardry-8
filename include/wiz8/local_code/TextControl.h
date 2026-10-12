@@ -42,8 +42,6 @@ struct W8SpriteStates {
 // VTABLE: WIZ8 0x005ed604
 class W8TextControl : public W8Widget {
 public:
-    friend class W8ControlSelection;
-
     // VTABLE: WIZ8 0x005ed664
     class Listener {
     public:

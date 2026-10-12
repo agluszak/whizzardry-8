@@ -36,6 +36,7 @@
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/Controls.h"
 #include "wiz8/local_code/TextControl.h"
+#include "wiz8/local_code/ControlSelection.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/TextBuffer.h"
@@ -2013,7 +2014,7 @@ TEST_CASE("Generic button image ownership", "[owner]")
     generic_button_images();
 }
 
-TEST_CASE("Text controls preserve release toggles and shared repeat suppression", "[owner][button]")
+TEST_CASE("Text controls preserve toggles, repeat and radio selection", "[owner][button]")
 {
     PushButtonSoundScheme(0, true);
     W8TextControl toggle(-1, 0, 0, 40, 20);
@@ -2060,6 +2061,22 @@ TEST_CASE("Text controls preserve release toggles and shared repeat suppression"
     REQUIRE(secondary == 1);
     repeat.OnRightButtonUp(0);
     REQUIRE(secondary == 1);
+
+    W8ControlSelection selection;
+    selection.AddEntry(&toggle);
+    selection.AddEntry(&repeat);
+    int notifications = 0;
+    selection.on_selection = [&](int) { ++notifications; };
+    selection.SetSelected(0, false);
+    for (int click = 0; click < 2; ++click) {
+        repeat.OnLeftButtonDown(0);
+        repeat.OnLeftButtonUp(0);
+    }
+    REQUIRE((selection.m_selectedIndex == 1 && !toggle.IsSelected() && repeat.IsSelected()));
+    REQUIRE(notifications == 1);
+    selection.SetSelected(0, false);
+    REQUIRE((selection.m_selectedIndex == 0 && toggle.IsSelected() && !repeat.IsSelected()));
+    REQUIRE(notifications == 1);
 }
 
 TEST_CASE("Dialog controls own interaction without legacy GUI buttons", "[owner]")

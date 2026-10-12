@@ -49,13 +49,13 @@ per-button capture, repeats and controller activation. `W8ButtonWidget` is now a
 ordinary layer-backed control; `W8TextControl` still has the old visual ownership
 protocol. Journal owns its layer, buttons, page text and draw order without a panel.
 The options menu owns eight buttons and its extra artwork hotspots directly; its
-row subclasses and selection-listener loop are removed. The option panels still
-use the old controls. Journal, formation actions and options share the existing
+row subclasses and selection-listener loop are removed. Navigation and radio selection now use owner callbacks. The option panels
+still use the old visual controls. Journal, formation actions and options share the existing
 button painter, including the menu artwork's missing frames and hover insets.
 
 ## Remaining deletion work
 
-1. Finish merging button painting, sliders and selection callbacks. Remove obsolete
+1. Finish merging button painting and sliders. Remove obsolete
    wrappers rather than adding another control adapter.
 2. Migrate options, party/character screens, camp and the remaining gameplay groups
    as coherent owners. Keep gameplay behavior in their existing controllers.

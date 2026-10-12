@@ -1,4 +1,3 @@
-#include <cstdint>
 #include <SDL3/SDL_surface.h>
 #include <tuple>
 #include <SDL3/SDL_rect.h>
@@ -14,7 +13,6 @@
 #include <string>
 
 #include "image.h"
-#include "wiz8/containers.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/TextBuffer.h"
@@ -2054,72 +2052,24 @@ void W8Widget::OnGeometryChanged()
     UpdateRegionBounds();
 }
 
-/* Selection controller: the listener occupies +0, the text-control pointer
-   vector +0x10. Controls.cpp:2679 names m_lsButtons and checks iSelected against
-   its count. The selected index is stored at +0x0c. */
-
-// FUNCTION: WIZ8 0x004f5450
-W8ControlSelection::W8ControlSelection()
-    : m_selectedIndex(-1), m_selectionListener(0)
+void W8ControlSelection::AddEntry(W8TextControl* entry)
 {
-}
-
-// FUNCTION: WIZ8 0x004f54b0
-int W8ControlSelection::AddEntry(W8TextControl* entry)
-{
-    entry->AddLayoutFlags(0x19);
-    entry->m_listener = this;
+    entry->AddLayoutFlags(g_W8TextControlLayoutToggle | g_W8TextControlLayoutStayLatched |
+                          g_W8TextControlLayoutLatchedImage);
     const auto index = static_cast<int>(m_lsButtons.size());
+    entry->m_onPrimary = [this, index] { SetSelected(index); };
     m_lsButtons.push_back(entry);
-    return index;
 }
 
-/*
- * Moves the selection. Tells the outgoing entry it lost the selection and the
- * incoming one that it gained it, then reports the change.
- *
- * Both lookups go through the vector's bounds-checked GetAt, which returns the
- * base pointer rather than an offset one when the index is out of range - so an
- * index past the end quietly addresses element zero instead of failing. The
- * assert at the top is the only thing that would have caught it, and it does
- * not return.
- */
-// FUNCTION: WIZ8 0x004f5540
-void W8ControlSelection::SetSelected(int iSelected)
+void W8ControlSelection::SetSelected(int selected, bool notify)
 {
-    int previous;
-
-    if (iSelected >= static_cast<int>(m_lsButtons.size())) {
-        srAssertFail("iSelected < m_lsButtons.Length()",
-                     "C:\\Projects\\Wizardry 8\\Local Code\\Controls.cpp", 0xa77, 0);
-    }
-    previous = m_selectedIndex;
-    if (previous == iSelected) {
-        return;
-    }
-    if (previous != -1) {
-        m_lsButtons[previous]->DisableSecondaryState(false);
-    }
-    m_selectedIndex = iSelected;
-    if (iSelected != -1) {
-        m_lsButtons[iSelected]->EnableSecondaryState(false);
-    }
-    if (m_selectionListener != 0) {
-        m_selectionListener->OnSelectionChanged(this, m_selectedIndex);
-    }
-}
-
-// FUNCTION: WIZ8 0x004f55c0
-void W8ControlSelection::OnPrimary(W8TextControl* entry)
-{
-    int iIndex;
-
-    iIndex = wiz8::index_of(m_lsButtons, entry);
-    if (iIndex == -1) {
-        srAssertFail("iIndex != -1", "C:\\Projects\\Wizardry 8\\Local Code\\Controls.cpp", 0xa9e,
-                     0);
-    }
-    SetSelected(iIndex);
+    if (selected >= static_cast<int>(m_lsButtons.size()))
+        srAssertFail("selected < m_lsButtons.size()", __FILE__, __LINE__, 0);
+    if (selected == m_selectedIndex) return;
+    if (m_selectedIndex != -1) m_lsButtons[m_selectedIndex]->DisableSecondaryState(false);
+    m_selectedIndex = selected;
+    if (selected != -1) m_lsButtons[selected]->EnableSecondaryState(false);
+    if (notify && on_selection) on_selection(selected);
 }
 
 ButtonPolicy W8TextControl::InteractionPolicy() const

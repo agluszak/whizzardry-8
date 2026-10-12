@@ -112,26 +112,14 @@ class W8OptionsPanelSet {
 public:
     W8OptionsPanelSet();
     ~W8OptionsPanelSet();
-    void Advance();
-    void Retreat();
+    void Scroll(int delta);
 
     int m_page_count;
-    int unknown_004;
     unsigned char m_compact_layout;
     unsigned char m_hide_navigation;
     bool m_active; /* set once the set's panels are built */
     int m_current;
     std::vector<std::unique_ptr<W8OptionsPanel>> m_panels;
-};
-
-/* Widgets bound to an option value; their input handlers store through the
-   value pointer. */
-// VTABLE: WIZ8 0x005eed8c
-class W8OptionsCheckbox : public W8TextControl {
-public:
-    W8OptionsCheckbox(int top, int* value);
-    virtual void OnLeftButtonUp(int event) override;
-    int* m_value;
 };
 
 // VTABLE: WIZ8 0x005eef20
@@ -141,15 +129,6 @@ public:
     virtual void OnMouseMove(int event) override;
     virtual void Redraw(SDL_Surface& target, bool full_redraw) override;
     float* m_value;
-};
-
-// VTABLE: WIZ8 0x005eefd4
-class W8OptionsSelection : public W8ControlSelection {
-public:
-    explicit W8OptionsSelection(int* value);
-    virtual ~W8OptionsSelection();
-    virtual void OnPrimary(W8TextControl* control) override;
-    int* m_value;
 };
 
 /* Common base of the concrete option panels. */
@@ -162,7 +141,7 @@ public:
     virtual void Populate() = 0;
     virtual void SetActive(bool active);
     virtual void SetCurrent(int current);
-    W8OptionsCheckbox* AddCheckbox(int label, int* value);
+    void AddCheckbox(int label, int* value);
     W8TextControl* AddChoiceButton(int label);
     W8OptionsSlider* AddSlider(int label, float* value, bool alternate);
     void AddChoices(int label, int count, const int* choices, int* value);
@@ -171,20 +150,18 @@ public:
     int m_content_top;
     int unknown_054;
     std::vector<std::unique_ptr<W8TextBuffer>> m_text_buffers;
-    std::vector<std::unique_ptr<W8OptionsSelection>> m_option_selections;
+    std::vector<std::unique_ptr<W8ControlSelection>> m_option_selections;
 };
 
 // VTABLE: WIZ8 0x005ef174
 class W8OptionsGamePanel : public W8OptionsPanel {
 public:
-    W8OptionsGamePanel();
     virtual void Populate() override;
 };
 
 // VTABLE: WIZ8 0x005ef158
 class W8OptionsMousePanel : public W8OptionsPanel {
 public:
-    W8OptionsMousePanel();
     virtual void Populate() override;
 };
 
@@ -195,7 +172,6 @@ class W8OptionsInterfacePanel : public W8OptionsPanel,
                                 public W8HorizontalRangeThumbListener,
                                 public W8TextControl::Listener {
 public:
-    W8OptionsInterfacePanel();
     virtual void Populate() override;
     virtual void OnDrag(W8HorizontalRangeThumb*) override {}
     virtual void OnDragEnd(W8HorizontalRangeThumb* thumb) override;
@@ -210,7 +186,6 @@ class W8OptionsAudioPanel : public W8OptionsPanel,
                             public W8HorizontalRangeThumbListener,
                             public W8TextControl::Listener {
 public:
-    W8OptionsAudioPanel();
     virtual void Populate() override;
     virtual void OnDrag(W8HorizontalRangeThumb* thumb) override;
     virtual void OnDragEnd(W8HorizontalRangeThumb* thumb) override;
@@ -223,7 +198,6 @@ public:
 // VTABLE: WIZ8 0x005ef0d4 W8HorizontalRangeThumbListener
 class W8OptionsGraphicsPanel : public W8OptionsPanel, public W8HorizontalRangeThumbListener {
 public:
-    W8OptionsGraphicsPanel();
     virtual void Populate() override;
     virtual void OnDrag(W8HorizontalRangeThumb* thumb) override;
     virtual void OnDragEnd(W8HorizontalRangeThumb*) override;
@@ -232,7 +206,6 @@ public:
 // VTABLE: WIZ8 0x005ef0b8
 class W8OptionsAdvancedGraphicsPanel : public W8OptionsPanel {
 public:
-    W8OptionsAdvancedGraphicsPanel();
     virtual void Populate() override;
 };
 
@@ -261,12 +234,10 @@ public:
 
 // VTABLE: WIZ8 0x005ef034 W8OptionsPanel
 // VTABLE: WIZ8 0x005ef02c W8TextControl::Listener
-// VTABLE: WIZ8 0x005ef028 W8ControlSelectionListener
 // VTABLE: WIZ8 0x005ef024 W8OptionsKeyCapture
 // VTABLE: WIZ8 0x005ef020 W8DialogCloseListener
 class W8OptionsKeyboardPanel : public W8OptionsPanel,
                                public W8TextControl::Listener,
-                               public W8ControlSelectionListener,
                                public W8OptionsKeyCapture,
                                public W8DialogCloseListener {
 public:
@@ -275,7 +246,7 @@ public:
     void InvalidateAll() override;
     virtual void SetActive(bool active) override;
     virtual void OnPrimary(W8TextControl* control) override;
-    virtual void OnSelectionChanged(W8ControlSelection* selection, int selected) override;
+    void OnSelectionChanged(W8ControlSelection* selection, int selected);
     virtual unsigned char OnKey(unsigned short key, unsigned short modifiers) override;
     virtual void OnDialogClosed(bool accepted, int value) override;
     void ClearDuplicateBinding(unsigned short key);
@@ -298,13 +269,11 @@ public:
 // VTABLE: WIZ8 0x005ef064 W8DialogCloseListener
 // VTABLE: WIZ8 0x005ef060 W8OptionsTextEditor::Listener
 // VTABLE: WIZ8 0x005ef058 W8OptionsSaveRowListener
-// VTABLE: WIZ8 0x005ef054 W8ControlSelectionListener
 class W8OptionsSaveLoadPanel : public W8OptionsPanel,
                                public W8TextControl::Listener,
                                public W8DialogCloseListener,
                                public W8OptionsTextEditor::Listener,
-                               public W8OptionsSaveRowListener,
-                               public W8ControlSelectionListener {
+                               public W8OptionsSaveRowListener {
 public:
     explicit W8OptionsSaveLoadPanel(int panel);
     virtual void Populate() override;
@@ -315,7 +284,7 @@ public:
     virtual void OnTextEditComplete(W8OptionsTextEditor* editor, unsigned char cancelled) override;
     virtual void OnEditSaveName(W8OptionsSaveRow* row) override;
     virtual void OnActivateSave(W8OptionsSaveRow* row) override;
-    virtual void OnSelectionChanged(W8ControlSelection* selection, int selected) override;
+    void OnSelectionChanged(W8ControlSelection* selection, int selected);
     void DeleteSelectedSave();
     void LoadSelectedSave();
     void SaveSelectedSave(std::string_view previous_name = {});
@@ -344,27 +313,6 @@ struct W8OptionsPanelRange {
     int last;
 };
 
-/* The options menu: its rows and the panel set they select. */
-// VTABLE: WIZ8 0x005eefec Controls
-// VTABLE: WIZ8 0x005eefe4 W8TextControl::Listener
-class W8OptionsMenuSet : public Controls, public W8TextControl::Listener {
-public:
-    W8OptionsMenuSet();
-    virtual ~W8OptionsMenuSet();
-    void Redraw(SDL_Surface& target, bool full_redraw) override;
-    virtual void OnPrimary(W8TextControl* control) override;
-
-    W8OptionsPanelSet* m_pMenuSet; /* OptionsScreen.cpp:1481 */
-    W8TextControl* m_next;
-    W8TextControl* m_previous;
-    std::unique_ptr<W8TextBuffer> m_page_text;
-
-    void UpdateMenuSet();
-};
-
-// VTABLE: WIZ8 0x005ef008 W8ControlSelectionListener
-// VTABLE: WIZ8 0x005ef000 W8TextControl::Listener
-// VTABLE: WIZ8 0x005eeffc W8DialogCloseListener
 class W8OptionsScreen final : public W8DialogCloseListener {
     UiLayer m_menu_input;
 public:
@@ -372,6 +320,7 @@ public:
     ~W8OptionsScreen();
     void SelectPanel(int selected);
     void ActivateMenu(int item);
+    void UpdateNavigation();
     void CreateControls();
     unsigned char ProcessInput(const InputEvent* input);
     void Redraw();
@@ -385,7 +334,11 @@ public:
     bool m_modal_closing;
     int m_selected_panel;
     std::array<std::unique_ptr<W8ButtonWidget>, 8> m_menu_buttons;
-    std::unique_ptr<W8OptionsMenuSet> m_menu_set;
+    std::array<std::unique_ptr<W8ButtonWidget>, 2> m_navigation;
+    std::unique_ptr<W8TextBuffer> m_page_text;
+    int m_navigation_y = 0x1a8;
+    bool m_navigation_visible = false;
+    bool m_navigation_dirty = true;
     std::unique_ptr<W8OptionsPanelSet> m_panel[8];
     std::unique_ptr<W8MessageDialogBase> m_active_modal;
     std::unique_ptr<W8OptionsTextEditor> m_text_editor;

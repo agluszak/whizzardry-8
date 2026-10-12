@@ -4,6 +4,7 @@
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/ui_layer.h"
 #include <cstdint>
+#include <algorithm>
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_surface.h>
 #include <fmt/format.h>
@@ -45,7 +46,6 @@
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/fonts.h"
-#include "wiz8/sr_api.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/text_input.h"
 #include "wiz8/local_code/Strings.h"
@@ -213,18 +213,6 @@ W8OptionsPanelSet::~W8OptionsPanelSet() = default;
    identical to W8TextControl's table except slot 0, which holds the generated
    deleting destructor 0x005A76B0 wrapping the emitted destructor 0x005A76D0. */
 
-W8OptionsGamePanel::W8OptionsGamePanel() : W8OptionsPanel() {}
-
-W8OptionsMousePanel::W8OptionsMousePanel() : W8OptionsPanel() {}
-
-W8OptionsInterfacePanel::W8OptionsInterfacePanel() : W8OptionsPanel() {}
-
-W8OptionsAudioPanel::W8OptionsAudioPanel() : W8OptionsPanel() {}
-
-W8OptionsGraphicsPanel::W8OptionsGraphicsPanel() : W8OptionsPanel() {}
-
-W8OptionsAdvancedGraphicsPanel::W8OptionsAdvancedGraphicsPanel() : W8OptionsPanel() {}
-
 W8OptionsKeyboardPanel::W8OptionsKeyboardPanel(int panel)
     : W8OptionsPanel(), m_panel(panel), m_captured_button(0)
 {
@@ -264,7 +252,7 @@ void W8OptionsSaveLoadPanel::Populate()
         m_rows.push_back(row);
         top += 0x49;
     }
-    m_selection.m_selectionListener = this;
+    m_selection.on_selection = [this](int selected) { OnSelectionChanged(&m_selection, selected); };
 
     if (m_panel == 11) {
         m_delete_button =
@@ -502,7 +490,7 @@ void W8OptionsSaveLoadPanel::DeleteSelectedSave()
         g_options_screen->m_panel[5]->m_page_count =
             (static_cast<int>(g_options_screen->m_save_slots.size()) - 1) / 5 + 1;
     }
-    g_options_screen->m_menu_set->UpdateMenuSet();
+    g_options_screen->UpdateNavigation();
     SetCurrent(m_current);
     m_selection.SetSelected(selected_slot == -1 ? -1 : (selected_slot - 1) % 5);
 }
@@ -748,7 +736,7 @@ void W8OptionsKeyButton::SetKeyText(unsigned short key)
 
 void W8OptionsKeyboardPanel::Populate()
 {
-    m_selection.m_selectionListener = this;
+    m_selection.on_selection = [this](int selected) { OnSelectionChanged(&m_selection, selected); };
 
     W8OptionsKeyboardPage& page = g_options_keyboard_pages[m_panel - 6];
     W8ControlsRect title_bounds = {ScreenBounds().x + 30, ScreenBounds().y + m_content_top,
@@ -795,7 +783,7 @@ void W8OptionsKeyboardPanel::InvalidateAll()
 {
     Controls::InvalidateAll();
     // ~W8OptionsScreen deactivates its panels after OptionsScreenLeave has cleared the global.
-    if (g_options_screen) g_options_screen->m_menu_set->InvalidateAll();
+    if (g_options_screen) g_options_screen->m_navigation_dirty = true;
 }
 
 void W8OptionsKeyboardPanel::OnPrimary(W8TextControl*)
@@ -1210,9 +1198,6 @@ void W8OptionsUnavailablePanel::Populate()
 W8OptionsScreen::W8OptionsScreen()
     : m_redraw_pending(1), m_modal_closing(0), m_selected_panel(-1), m_key_capture(0)
 {
-    for (int index = 0; index < 8; ++index) {
-        m_panel[index] = 0;
-    }
     auto& current = m_save_slots.emplace_back(std::make_unique<W8SaveSlot>());
     if (g_status.game_started) {
         FillCurrentSaveSlot(*current);
@@ -1257,9 +1242,26 @@ void W8OptionsScreen::CreateControls()
                 });
         }
     }
-    m_menu_set = std::make_unique<W8OptionsMenuSet>();
-    m_menu_set->SetActive(true);
-    m_menu_set->EnableRegionSet(true);
+    const auto arrows = CatalogArtwork::Load(0xf4, 0);
+    for (int direction = 0; direction < 2; ++direction) {
+        const int frame = arrows.imageOffset() + direction * 4;
+        auto& button = m_navigation[direction];
+        button = std::make_unique<W8ButtonWidget>(m_menu_input);
+        button->Configure(arrows.spriteSheet(), frame + 3, frame, frame + 1, frame + 2, -1,
+            [this, direction](W8ButtonWidget*) {
+                AfterUiDispatch([this, direction] {
+                    m_panel[m_selected_panel]->Scroll(direction == 0 ? -1 : 1);
+                    UpdateNavigation();
+                });
+            }, {}, false, 0, W8_DIALOG_BUTTON_NO_TOOLTIP, {}, {});
+        const auto size = arrows.size(direction * 4);
+        button->Resize(size.x, size.y);
+        button->policy.controller_activation = true;
+    }
+    const auto size = CatalogArtwork::Load(0xf3, 0).size(0);
+    const W8ControlsRect bounds{0x11b, m_navigation_y, 0x11b + size.x, m_navigation_y + size.y};
+    m_page_text = std::make_unique<W8TextBuffer>(&bounds, "", g_options_detail_font,
+        g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle, 4);
 }
 
 W8OptionsScreen::~W8OptionsScreen()
@@ -1297,14 +1299,12 @@ void W8OptionsScreen::SelectPanel(int selected)
         }
         current->m_panels[current->m_current]->SetActive(true);
         current->m_active = true;
-        m_menu_set->m_pMenuSet = m_panel[m_selected_panel].get();
-        m_menu_set->UpdateMenuSet();
         if (m_selected_panel == 4) {
             m_panel[4]->m_page_count = (static_cast<int>(m_save_slots.size()) - 2) / 5 + 1;
         } else if (m_selected_panel == 5) {
             m_panel[5]->m_page_count = (static_cast<int>(m_save_slots.size()) - 1) / 5 + 1;
         }
-        m_menu_set->UpdateMenuSet();
+        UpdateNavigation();
     }
     for (int item = 0; item < 6; ++item)
         m_menu_buttons[item]->SetPressed(item == selected);
@@ -1368,6 +1368,7 @@ void W8OptionsScreen::Redraw()
         ClearSurfaceRect(0, 0, 640, 480);
         CatalogArtwork::Load(0xee, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0, 0);
         for (auto& button : m_menu_buttons) button->m_dirty = true;
+        m_navigation_dirty = true;
         m_redraw_pending = false;
     }
     if (m_selected_panel != -1) {
@@ -1383,8 +1384,15 @@ void W8OptionsScreen::Redraw()
                 g_options_menu_rows[item].item_id, 12, 15);
         button.Draw(GetFrameBufferSurface());
     }
-    if (m_selected_panel != -1) {
-        m_menu_set->Redraw(GetFrameBufferSurface(), false);
+    if (m_navigation_visible && (m_navigation_dirty || m_navigation[0]->m_dirty || m_navigation[1]->m_dirty)) {
+        auto& target = GetFrameBufferSurface();
+        CatalogArtwork::Load(0xf3, 0).drawAndInvalidate(target, 0, 0x11b, m_navigation_y);
+        for (auto& button : m_navigation) {
+            button->m_dirty = true;
+            button->Draw(target);
+        }
+        m_page_text->RenderToTarget(0, true, target);
+        m_navigation_dirty = false;
     }
     if (m_active_modal != 0) {
         m_active_modal->Draw();
@@ -1489,23 +1497,6 @@ void W8OptionsValues::TransferSettings()
     }
 }
 
-W8OptionsCheckbox::W8OptionsCheckbox(int top, int* value)
-    : W8TextControl(0xffffffff, 0x14d, top - 2, 0, 0, CatalogArtwork::Load(0xf1, 0), W8SpriteStates{.normal = 2, .pressed = 0, .alternate_normal = 3, .alternate_pressed = 1}),
-      m_value(value)
-{
-    AddLayoutFlags(g_W8TextControlLayoutLatchedImage | g_W8TextControlLayoutToggle);
-    if (*m_value != 0) {
-        EnableSecondaryState(false);
-    }
-}
-
-void W8OptionsCheckbox::OnLeftButtonUp(int event)
-{
-    W8TextControl::OnLeftButtonUp(event);
-    // Preserve the option value encoding independently of button state.
-    *m_value = IsSelected() ? 2 : 0;
-}
-
 W8OptionsSlider::W8OptionsSlider(int top, float* value, bool alternate)
     : W8HorizontalRangeThumb(0xffffffff, 0xc9, top - 2, CatalogArtwork::Load(0xf5),
                              alternate ? 4 : 0, 1, 2, 3),
@@ -1543,24 +1534,9 @@ void W8OptionsSlider::Redraw(SDL_Surface& target, bool full_redraw)
     }
 }
 
-/* The base cleanup at 0x005A93A0 destroys m_lsButtons; absence of constructor
-   unwind registration does not establish its authored declaration. */
-
-W8OptionsSelection::W8OptionsSelection(int* value) : m_value(value) {}
-
-/* The empty body still emits the m_lsButtons vector teardown over the
-   W8ControlSelection base. */
-W8OptionsSelection::~W8OptionsSelection() = default;
-
-void W8OptionsSelection::OnPrimary(W8TextControl* control)
-{
-    W8ControlSelection::OnPrimary(control);
-    *m_value = m_selectedIndex;
-}
-
 W8OptionsPanel::~W8OptionsPanel()
 {
-    // Widgets must be unregistered before their selection listeners are destroyed.
+    // Release controls before the owners borrowed by their selection callbacks.
     DestroyAllControls();
 }
 
@@ -1576,12 +1552,16 @@ static void AddOptionsLabel(W8OptionsPanel& panel, int label)
                          g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4));
 }
 
-W8OptionsCheckbox* W8OptionsPanel::AddCheckbox(int label, int* value)
+void W8OptionsPanel::AddCheckbox(int label, int* value)
 {
     AddOptionsLabel(*this, label);
-    W8OptionsCheckbox* checkbox = EmplaceControl<W8OptionsCheckbox>(m_content_top, value);
+    auto* checkbox = EmplaceControl<W8TextControl>(-1, 0x14d, m_content_top - 2, 0, 0,
+        CatalogArtwork::Load(0xf1, 0), W8SpriteStates{.normal = 2, .pressed = 0,
+                                                  .alternate_normal = 3, .alternate_pressed = 1});
+    checkbox->AddLayoutFlags(g_W8TextControlLayoutLatchedImage | g_W8TextControlLayoutToggle);
+    if (*value != 0) checkbox->EnableSecondaryState(false);
+    checkbox->m_onPrimary = [checkbox, value] { *value = checkbox->IsSelected() ? 2 : 0; };
     m_content_top += 44;
-    return checkbox;
 }
 
 W8TextControl* W8OptionsPanel::AddChoiceButton(int label)
@@ -1608,12 +1588,12 @@ W8OptionsSlider* W8OptionsPanel::AddSlider(int label, float* value, bool alterna
 void W8OptionsPanel::AddChoices(int label, int count, const int* choices, int* value)
 {
     AddOptionsLabel(*this, label);
-    W8OptionsSelection* selection = new W8OptionsSelection(value);
-    m_option_selections.emplace_back(selection);
+    auto& selection = m_option_selections.emplace_back(std::make_unique<W8ControlSelection>());
+    selection->on_selection = [value](int selected) { *value = selected; };
     for (int index = 0; index < count; ++index) {
         selection->AddEntry(AddChoiceButton(choices[index]));
     }
-    selection->SetSelected(*selection->m_value);
+    selection->SetSelected(*value);
     m_content_top += 22;
 }
 
@@ -1628,14 +1608,6 @@ void W8OptionsPanel::Redraw(SDL_Surface& target, bool full_redraw)
     }
 }
 
-void W8OptionsMenuSet::Redraw(SDL_Surface& target, bool full_redraw)
-{
-    if (m_active && (m_dirty || m_childrenDirty)) {
-        Controls::Redraw(target, full_redraw);
-        m_page_text->RenderToTarget(0, true, target);
-    }
-}
-
 /* The shared panel base sizes itself from the chrome sprite of its render
    target and owns one region set per concrete panel. */
 W8OptionsPanel::W8OptionsPanel()
@@ -1644,35 +1616,6 @@ W8OptionsPanel::W8OptionsPanel()
     CreateRegionSet();
     const auto [width, height] = CatalogArtwork::Load(0xf2, 0).size(0);
     SetBounds({Bounds().x, Bounds().y, width, height});
-}
-
-/* The menu set builds itself from the shared options font: its panel bounds
-   follow the rendered chrome sprite, then the two page arrows are constructed
-   and registered with the listener subobject, and the page text starts as the
-   shared empty wide-string global until UpdateMenuSet fills it. */
-W8OptionsMenuSet::W8OptionsMenuSet()
-    : Controls(0x11b, 0x1a8, 0, 0, CatalogArtwork::Load(0xf3, 0), 0), m_pMenuSet(0)
-{
-    CreateRegionSet();
-    const auto [width, height] = CatalogArtwork::Load(0xf3, 0).size(0);
-    SetBounds({Bounds().x, Bounds().y, width, height});
-
-    m_previous = EmplaceControl<W8TextControl>(0xffffffff, 3, 3, 0, 0, CatalogArtwork::Load(0xf4, 0), W8SpriteStates{.normal = 0, .pressed = 2, .alternate_normal = 1, .disabled = 3});
-    m_previous->m_listener = this;
-
-    m_next = EmplaceControl<W8TextControl>(0xffffffff, 0x11f, 3, 0, 0, CatalogArtwork::Load(0xf4, 0), W8SpriteStates{.normal = 4, .pressed = 6, .alternate_normal = 5, .disabled = 7});
-    m_next->m_listener = this;
-
-    const auto page_bounds = ToEdges(ScreenBounds());
-    m_page_text = std::make_unique<W8TextBuffer>(&page_bounds, "", g_options_detail_font,
-                                   g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle, 4);
-}
-
-/* The menu-set table has its own deleting destructor; the normal destructor
-   clears the inherited Controls children before releasing its page text. */
-W8OptionsMenuSet::~W8OptionsMenuSet()
-{
-    DestroyAllControls();
 }
 
 void W8OptionsPanel::SetActive(bool active)
@@ -1688,90 +1631,38 @@ void W8OptionsPanel::SetCurrent(int current)
     InvalidateAll();
 }
 
-void W8OptionsPanelSet::Advance()
+void W8OptionsPanelSet::Scroll(int delta)
 {
-    int current;
-
-    if (m_page_count == 0) {
-        current = m_current;
-        if (current < static_cast<int>(m_panels.size()) - 1) {
-            m_panels[current]->SetActive(false);
-            current = m_current + 1;
-            m_current = current;
-            m_panels[current]->SetActive(true);
-        }
-    } else if (m_panels[0]->m_current < m_page_count - 1) {
-        m_panels[0]->SetCurrent(m_panels[0]->m_current + 1);
+    const int current = m_page_count ? m_panels[0]->m_current : m_current;
+    const int count = m_page_count ? m_page_count : static_cast<int>(m_panels.size());
+    const int next = std::clamp(current + delta, 0, count - 1);
+    if (next == current) return;
+    if (m_page_count) m_panels[0]->SetCurrent(next);
+    else {
+        m_panels[m_current]->SetActive(false);
+        m_current = next;
+        m_panels[m_current]->SetActive(true);
     }
 }
 
-void W8OptionsPanelSet::Retreat()
+void W8OptionsScreen::UpdateNavigation()
 {
-    int current;
-
-    if (m_page_count == 0) {
-        current = m_current;
-        if (current > 0) {
-            m_panels[current]->SetActive(false);
-            current = m_current - 1;
-            m_current = current;
-            m_panels[current]->SetActive(true);
-        }
-    } else if (m_panels[0]->m_current > 0) {
-        m_panels[0]->SetCurrent(m_panels[0]->m_current - 1);
+    const auto& panels = *m_panel[m_selected_panel];
+    const int current = panels.m_page_count ? panels.m_panels[0]->m_current : panels.m_current;
+    const int count = panels.m_page_count ? panels.m_page_count : static_cast<int>(panels.m_panels.size());
+    m_navigation_y = panels.m_compact_layout ? 0x180 : 0x1a8;
+    m_navigation_visible = !panels.m_hide_navigation && (panels.m_compact_layout || count > 1);
+    for (int direction = 0; direction < 2; ++direction) {
+        auto& button = *m_navigation[direction];
+        button.SetPosition(0x11b + (direction == 0 ? 3 : 0x11f), m_navigation_y + 3);
+        button.SetEnabled(direction == 0 ? current > 0 : current < count - 1);
+        button.SetVisible(m_navigation_visible);
     }
-}
-
-void W8OptionsMenuSet::UpdateMenuSet()
-{
-    W8ControlsRect bounds;
-    W8OptionsPanelSet* panel_set;
-    int current;
-    int count;
-
-    bounds = ToEdges(ScreenBounds());
-    int height = bounds.bottom - bounds.top;
-    if (m_pMenuSet == 0) {
-        srAssertFail("m_pMenuSet", __FILE__,
-                     0x5c9, 0);
-    }
-    panel_set = m_pMenuSet;
-    if (panel_set->m_page_count == 0) {
-        current = panel_set->m_current;
-        count = static_cast<int>(panel_set->m_panels.size());
-    } else {
-        current = panel_set->m_panels[0]->m_current;
-        count = panel_set->m_page_count;
-    }
-    bounds.top = panel_set->m_compact_layout != 0 ? 0x180 : 0x1a8;
-    bounds.bottom = height + bounds.top;
-    SetBounds(ToSDLRect(bounds));
-    ++bounds.top;
+    const auto size = CatalogArtwork::Load(0xf3, 0).size(0);
+    const W8ControlsRect bounds{0x11b, m_navigation_y + 1, 0x11b + size.x, m_navigation_y + size.y};
     m_page_text->SetLayoutBounds(&bounds, true, true);
-    SetActive(panel_set->m_hide_navigation == 0 &&
-               (panel_set->m_compact_layout != 0 || count > 1));
-    if (m_active) {
-        m_next->SetEnabled(current < count - 1);
-        m_previous->SetEnabled(current > 0);
-        std::string text;
-
-        text = fmt::format("{:d} / {:d}", current + 1, count);
-        m_page_text->SetText(text, g_options_detail_font);
-    }
-    InvalidateAll();
-}
-
-/* The chrome listener is attached at the secondary base subobject.  The
-   preceding control walks back and all other primary activations walk forward;
-   both paths then recompute bounds, navigation availability, and page text. */
-void W8OptionsMenuSet::OnPrimary(W8TextControl* control)
-{
-    if (control == m_previous) {
-        m_pMenuSet->Retreat();
-    } else {
-        m_pMenuSet->Advance();
-    }
-    UpdateMenuSet();
+    m_page_text->SetText(fmt::format("{:d} / {:d}", current + 1, count), g_options_detail_font);
+    m_navigation_dirty = true;
 }
 
 /* The dialog callback's teardown decision is part of the Options screen's
@@ -1876,7 +1767,6 @@ void OptionsScreenFrame()
                 if (panel_set->m_active) {
                     panel_set->m_panels[panel_set->m_current]->InvalidateAll();
                 }
-                screen->m_menu_set->InvalidateAll();
             }
         }
         screen->m_modal_closing = false;

@@ -1227,6 +1227,10 @@ void ResourceLifecycleScenario()
     game.wait_screen("options-menu", W8_SCREEN_OPTIONS);
     game.click_at(30, 250);
     REQUIRE(g_options_screen->m_selected_panel == 2);
+    game.click_at(580, 430);
+    REQUIRE(g_options_screen->m_panel[2]->m_current == 1);
+    game.click_at(290, 430);
+    REQUIRE(g_options_screen->m_panel[2]->m_current == 0);
     game.press_at(30, 60);
     game.release_at(200, 190);
     REQUIRE(g_options_screen->m_selected_panel == 2);

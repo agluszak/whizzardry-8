@@ -437,19 +437,15 @@ public:
     W8PartySelectionDecisionListener* m_listener;
 };
 
-/* Controls owns the six row widgets. The three callback bases occupy +0x4c,
-   +0x50 and +0x54; the complete W8Control member at +0x58 owns their selection
-   vector. The selected absolute row at +0x80 is read directly by the party-selection
-   keyboard handler. */
+/* Owns the visible character rows and their selection. */
 // VTABLE: WIZ8 0x005ef3b4 W8PartySelectionPanelSelectionListener
 class W8PartySelectionCharacterPanel : public Controls,
-                                       public W8ControlSelectionListener,
                                        public W8RangeListener,
                                        public W8PartySelectionPanelSelectionListener {
 public:
     W8PartySelectionCharacterPanel();
     virtual ~W8PartySelectionCharacterPanel();
-    virtual void OnSelectionChanged(W8ControlSelection* control, int selected) override;
+    void OnSelectionChanged(W8ControlSelection* control, int selected);
     virtual void OnRangeChanged(W8RangeControl* control) override;
     virtual void SelectPartyMemberRow(int row) override;
     virtual void OpenCampForSelectedMember(int row) override;
@@ -484,13 +480,13 @@ public:
     W8Widget* m_redraw_partner;
 };
 
-class W8PartySelectionPartySlotPanel : public Controls, public W8ControlSelectionListener {
+class W8PartySelectionPartySlotPanel : public Controls {
 public:
     friend class W8PartySelectionController;
 
     W8PartySelectionPartySlotPanel();
     virtual ~W8PartySelectionPartySlotPanel();
-    virtual void OnSelectionChanged(W8ControlSelection* control, int selected) override;
+    void OnSelectionChanged(W8ControlSelection* control, int selected);
 
     W8ControlSelection m_control;
 };
@@ -700,8 +696,7 @@ void W8PartySelectionCharacterPanel::SynchronizeVisibleSelection()
     if (selection < 0 || selection > 5) {
         selection = -1;
     }
-    m_control.SetSelected(selection);
-    m_control.m_selectionListener = this;
+    m_control.SetSelected(selection, false);
     RefreshVisibleRows();
 }
 
@@ -720,6 +715,7 @@ W8PartySelectionCharacterPanel::W8PartySelectionCharacterPanel()
         top += 0x2a;
     }
 
+    m_control.on_selection = [this](int selected) { OnSelectionChanged(&m_control, selected); };
     SynchronizeVisibleSelection();
 }
 
@@ -740,7 +736,6 @@ void W8PartySelectionCharacterPanel::OnRangeChanged(W8RangeControl* control)
         return;
     }
     g_party_selection_character_collection->first_visible = control->m_value;
-    m_control.m_selectionListener = 0;
     SynchronizeVisibleSelection();
 }
 
@@ -762,7 +757,6 @@ void W8PartySelectionCharacterPanel::SetSelectedRow(int selection)
         m_range->SetValue(first);
     }
 
-    m_control.m_selectionListener = 0;
     SynchronizeVisibleSelection();
 }
 
@@ -885,7 +879,7 @@ W8PartySelectionPartySlotPanel::W8PartySelectionPartySlotPanel() : Controls()
         control->UpdateTextBounds(bounds.x - 8, bounds.y + 0x51, bounds.x + 0x61, bounds.y + 0x60);
         m_control.AddEntry(control);
     }
-    m_control.m_selectionListener = this;
+    m_control.on_selection = [this](int selected) { OnSelectionChanged(&m_control, selected); };
     for (int slot = 0; slot < 6; ++slot) {
         W8TextControl* control = m_control.m_lsButtons[slot];
         control->SetEnabled(g_status.buffers.XChar[slot + 2].fOccupied);
@@ -1300,14 +1294,12 @@ void W8PartySelectionController::SetMode(W8PartySelectionMode mode)
         m_range->SetEnabled(maximum > 0);
         m_range->InvalidateAll();
 
-        m_character_panel->m_control.m_selectionListener = 0;
         int selected = m_character_panel->m_selected_row -
                        g_party_selection_character_collection->first_visible;
         if (selected < 0 || selected > 5) {
             selected = -1;
         }
-        m_character_panel->m_control.SetSelected(selected);
-        m_character_panel->m_control.m_selectionListener = m_character_panel.get();
+        m_character_panel->m_control.SetSelected(selected, false);
         for (int index = 0; index < static_cast<int>(m_character_panel->ControlCount());
              ++index) {
             W8PartySelectionCharacterRow* row =
@@ -1434,9 +1426,7 @@ void W8PartySelectionController::SetSelection(int selection, bool party_slot, bo
                     }
                 }
             }
-            m_control1->m_control.m_selectionListener = 0;
-            m_control1->m_control.SetSelected(selected_slot);
-            m_control1->m_control.m_selectionListener = m_control1.get();
+            m_control1->m_control.SetSelected(selected_slot, false);
             if (refresh_other) {
                 m_character_panel->SetSelectedRow(selection);
             }
@@ -1464,9 +1454,7 @@ void W8PartySelectionController::SetSelection(int selection, bool party_slot, bo
             m_character_panel->SetSelectedRow(character_index);
         }
         if (refresh_other) {
-            m_control1->m_control.m_selectionListener = 0;
-            m_control1->m_control.SetSelected(selection);
-            m_control1->m_control.m_selectionListener = m_control1.get();
+            m_control1->m_control.SetSelected(selection, false);
         }
     }
 
