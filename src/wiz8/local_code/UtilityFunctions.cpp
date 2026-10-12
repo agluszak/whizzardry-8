@@ -537,7 +537,7 @@ bool CreateMessageBox(std::string_view text, Font& font, unsigned int shade, boo
     if (!message_box.background.ConfigureTextButton(
             text, font, 0xff, 0, (0x280 - width) / 2, y, width, height,
             [](W8ButtonWidget*) { SetMessageBoxResult(true); },
-            0, background_image, REGION_PRIORITY_BACKGROUND)) {
+            0, background_image, UI_PRIORITY_BACKGROUND)) {
         return fail_creation();
     }
     message_box.background.SetMultiColor(true);
@@ -548,7 +548,7 @@ bool CreateMessageBox(std::string_view text, Font& font, unsigned int shade, boo
         if (!message_box.accept.Configure(
                 "Data\\Message Box\\Ok.sti", 0, 1, 2, 3, 4,
                 [](W8ButtonWidget*) { SetMessageBoxResult(true); },
-                nullptr, false, REGION_PRIORITY_HIGHEST - 1,
+                nullptr, false, UI_PRIORITY_HIGHEST - 1,
                 W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr)) {
             return fail_creation();
         }
@@ -558,7 +558,7 @@ bool CreateMessageBox(std::string_view text, Font& font, unsigned int shade, boo
         if (!message_box.cancel.Configure(
                 "Data\\Message Box\\Cancel.sti", 0, 1, 2, 3, 4,
                 [](W8ButtonWidget*) { SetMessageBoxResult(false); },
-                nullptr, false, REGION_PRIORITY_HIGHEST - 1,
+                nullptr, false, UI_PRIORITY_HIGHEST - 1,
                 W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr)) {
             return fail_creation();
         }

@@ -261,7 +261,7 @@ public:
     void DrawActions(SDL_Surface& target);
     void Update();
     void RefreshActionPanel();
-    void EnablePanelRegionSets(bool enable);
+    void EnablePanelInput(bool enable);
     int GetTrapInteractionChance() const;
     void ApplyInspectSuccess();
     void CastTrapSpell();

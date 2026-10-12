@@ -842,7 +842,7 @@ void RenderFrame(void)
 
     g_gerd->setClearColor(clear_color.x, clear_color.y, clear_color.z, 1.0f);
     SyncSystemCursor();
-    UpdateRegionHelp();
+    UpdateUiHelp();
     FlushUiUpload();
     if (g_gerd != 0) {
         g_gerd->resetStatistics();

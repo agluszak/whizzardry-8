@@ -5,13 +5,13 @@
 #include "input.h"
 #include "wiz8/ui_layer.h"
 
-inline constexpr int REGION_PRIORITY_BACKGROUND = -1;
-inline constexpr int REGION_PRIORITY_LOWEST = 0;
-inline constexpr int REGION_PRIORITY_LOW = 15;
-inline constexpr int REGION_PRIORITY_BASE = 31;
-inline constexpr int REGION_PRIORITY_NORMAL = REGION_PRIORITY_BASE;
-inline constexpr int REGION_PRIORITY_HIGH = 63;
-inline constexpr int REGION_PRIORITY_HIGHEST = 127;
+inline constexpr int UI_PRIORITY_BACKGROUND = -1;
+inline constexpr int UI_PRIORITY_LOWEST = 0;
+inline constexpr int UI_PRIORITY_LOW = 15;
+inline constexpr int UI_PRIORITY_BASE = 31;
+inline constexpr int UI_PRIORITY_NORMAL = UI_PRIORITY_BASE;
+inline constexpr int UI_PRIORITY_HIGH = 63;
+inline constexpr int UI_PRIORITY_HIGHEST = 127;
 
 extern bool g_dev_mode;
 class TextFieldGroup;
@@ -22,27 +22,27 @@ struct UiRoutingState {
     void ClearPointer() { current = hover = captured = nullptr; }
 };
 extern UiRoutingState g_ui;
-extern int g_region_help_delay;
-extern std::uint64_t g_region_help_clock;
-extern bool g_region_help_force_enabled;
+extern int g_ui_help_delay;
+extern std::uint64_t g_ui_help_clock;
+extern bool g_ui_help_forced;
 
 HitTarget* UiTargetAt(SDL_Point point);
-void UpdateRegionMousePosition(int x, int y);
-SDL_Point GetRegionMousePosition();
-bool DispatchRegionInput(const InputEvent* event);
-void ResetRegions();
-void ClearHotRegion();
+void UpdateUiPointer(int x, int y);
+SDL_Point UiPointerPosition();
+bool DispatchUiInput(const InputEvent* event);
+void ResetUiInput();
+void ClearUiHover();
 void CaptureInputSink();
 void ReleaseInputSinkCapture();
 bool InputSinkCaptured();
 void ReleaseUiCapture();
-std::size_t LiveDynamicRegionCount();
-std::size_t LiveRegionSetCount();
-unsigned char InitializeRegionHelpState();
-void UpdateRegionHelp();
-void ResetRegionHelp(bool delayed);
-void SetRegionHelpDelay(int delay_ms);
-void SetRegionHelpForceEnabled(bool enabled);
+std::size_t LiveUiTargetCount();
+std::size_t LiveUiLayerCount();
+unsigned char InitializeUiHelp();
+void UpdateUiHelp();
+void ResetUiHelp(bool delayed);
+void SetUiHelpDelay(int delay_ms);
+void SetUiHelpForced(bool enabled);
 
 enum class InputRoute { Pass, Handled, Stop };
 

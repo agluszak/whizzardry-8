@@ -41,13 +41,13 @@ W8DialogTextEntry::W8DialogTextEntry(std::string_view prefix, std::string_view t
     UpdateLayout();
 }
 
-int W8DialogTextEntry::DrawLine(std::string_view line, int prefix_remaining, int y)
+int W8DialogTextEntry::DrawLine(SDL_Surface& target, std::string_view line, int prefix_remaining, int y)
 {
     int x = GetHorizontalPosition(m_font->textWidth(line));
     if (prefix_remaining > 0) {
         if (prefix_remaining < static_cast<int>(line.size())) {
             const auto prefix = line.substr(0, prefix_remaining);
-            DrawText(GetFrameBufferSurface(), *m_font, {x, y}, prefix);
+            DrawText(target, *m_font, {x, y}, prefix);
             x += m_font->textWidth(prefix);
             if (!m_selected) {
                 m_font->setPalette(m_text_palette < 15
@@ -58,12 +58,12 @@ int W8DialogTextEntry::DrawLine(std::string_view line, int prefix_remaining, int
         }
         prefix_remaining -= line.size();
     }
-    DrawText(GetFrameBufferSurface(), *m_font, {x, y}, line);
+    DrawText(target, *m_font, {x, y}, line);
     return prefix_remaining;
 }
 
 // FUNCTION: WIZ8 0x005d1170
-void W8DialogTextEntry::Draw(bool force)
+void W8DialogTextEntry::Draw(SDL_Surface& target, bool force)
 {
     int width = m_layoutBounds.right - m_layoutBounds.left;
     int prefix_remaining = m_prefix_length;
@@ -97,11 +97,11 @@ void W8DialogTextEntry::Draw(bool force)
     SDL_Rect clip{m_pendingBounds.left, m_pendingBounds.top,
                   m_pendingBounds.right - m_pendingBounds.left,
                   m_pendingBounds.bottom - m_pendingBounds.top};
-    ScopedClipRect clipping(GetFrameBufferSurface(), clip);
+    ScopedClipRect clipping(target, clip);
     int y = GetVerticalPosition();
     for (;;) {
         const auto end = remaining.find('\n');
-        prefix_remaining = DrawLine(remaining.substr(0, end), prefix_remaining, y);
+        prefix_remaining = DrawLine(target, remaining.substr(0, end), prefix_remaining, y);
         if (end == std::string_view::npos) break;
         y += GetLineHeight();
         if (m_layoutBounds.bottom <= y) break;

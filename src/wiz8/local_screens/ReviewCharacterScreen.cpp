@@ -1210,7 +1210,7 @@ void CampScreenFrame(void)
     }
     SDL_Point point;
     SGPMouseGetPos(&point);
-    UpdateRegionMousePosition(point.x, point.y);
+    UpdateUiPointer(point.x, point.y);
     PumpUiInput({.unhandled = [&](const InputEvent& input) {
         if (input.type == InputEventType::KeyDown) {
             if (input.key == VK_ESCAPE) {
@@ -1285,7 +1285,7 @@ unsigned char CampScreenLeave(int)
         ReleaseInputSinkCapture();
     }
     g_camp_screen.reset();
-    ResetRegions();
+    ResetUiInput();
     if (gXStatus.fCampMode) {
         gXStatus.dialogue_sync_pending = true;
     }
@@ -2311,7 +2311,7 @@ void BeginEndgameSequence(void)
         fade_code = 1;
         endgame_variant = true;
     }
-    ResetRegions();
+    ResetUiInput();
     CaptureInputSink();
     VideoRemoveToolTip();
     g_level_block->transition_pending = true;
@@ -2423,7 +2423,7 @@ void BeginPartyDeath(void)
     UpdateHeldItemCursor();
     wiz8::sound::play("Data\\Sound\\Misc\\PartyDead.wav");
     StartMusicResource("CombatLose.MPL", 0, 1);
-    ResetRegions();
+    ResetUiInput();
     CaptureInputSink();
     VideoRemoveToolTip();
     g_level_block->transition_pending = true;

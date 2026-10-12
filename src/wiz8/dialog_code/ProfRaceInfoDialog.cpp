@@ -139,8 +139,8 @@ void W8ProfRaceInfoDialogBase::Draw()
             top += 0xe;
         }
     }
-    m_text_area.Draw(false);
-    m_scroll_bar.Draw(false);
+    m_text_area.Draw(GetFrameBufferSurface(), false);
+    m_scroll_bar.Draw(GetFrameBufferSurface(), false);
     m_button.Draw(GetFrameBufferSurface());
 }
 

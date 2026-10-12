@@ -35,7 +35,7 @@ public:
                     int* third, int help_id);
     void SetEnabled(bool enabled);
     void SetIncrementAllowed(bool allowed);
-    void Redraw();
+    void Redraw(SDL_Surface& target);
     void SetLabelFontState(int state);
     void MarkDirty();
     void UpdateButtons();

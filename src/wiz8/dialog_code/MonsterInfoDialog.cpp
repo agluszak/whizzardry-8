@@ -488,7 +488,7 @@ void W8MonsterInfoDialog::Draw()
         DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary,
                  {m_x + 0xe + (0x112 - width) / 2, m_y + 0x11}, name);
     }
-    m_text_area.Draw(false);
-    m_scroll_bar.Draw(false);
+    m_text_area.Draw(GetFrameBufferSurface(), false);
+    m_scroll_bar.Draw(GetFrameBufferSurface(), false);
     m_button.Draw(GetFrameBufferSurface());
 }

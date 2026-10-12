@@ -40,7 +40,7 @@ void W8ButtonWidget::SetBounds(SDL_Rect bounds)
         m_target->setShape(SDL_Rect{bounds.x, bounds.y, bounds.w + 1, bounds.h + 1});
 }
 
-SDL_Point W8ButtonWidget::GetMousePosition() const { return GetRegionMousePosition(); }
+SDL_Point W8ButtonWidget::GetMousePosition() const { return UiPointerPosition(); }
 
 // FUNCTION: WIZ8 0x005db550
 void W8ButtonWidget::SetPosition(int x, int y)
@@ -98,8 +98,8 @@ void W8ButtonWidget::SetVisible(bool visible)
     m_target->setEnabled(visible);
     if (!visible) m_interaction.cancel(policy.primary_toggle != ButtonToggle::None || policy.secondary_toggle != ButtonToggle::None);
     m_dirty = true;
-    const auto mouse = GetRegionMousePosition();
-    UpdateRegionMousePosition(mouse.x, mouse.y);
+    const auto mouse = UiPointerPosition();
+    UpdateUiPointer(mouse.x, mouse.y);
 }
 
 void W8ButtonWidget::SetImage(ButtonImage image)
@@ -139,7 +139,7 @@ void W8ButtonWidget::SetTooltipIndex(int tooltip_index)
 
 // FUNCTION: WIZ8 0x005db1b0
 W8ButtonWidget::W8ButtonWidget()
-    : m_owned_layer(new UiLayer(UiLayer::InheritInputScope{})), m_layer(m_owned_layer.get()) {}
+    : m_owned_layer(new UiLayer()), m_layer(m_owned_layer.get()) {}
 
 W8ButtonWidget::W8ButtonWidget(UiLayer& layer) : m_layer(&layer) {}
 

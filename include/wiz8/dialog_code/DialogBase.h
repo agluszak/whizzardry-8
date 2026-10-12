@@ -37,7 +37,6 @@ void DialogCloseButtonCallback(W8ButtonWidget* button);
 class W8DialogBase : public ModalContent {
     /* First, so it outlives every control's region. */
     UiLayer m_input;
-    friend UiLayer* CurrentInputLayer();
 
 public:
     W8DialogBase();

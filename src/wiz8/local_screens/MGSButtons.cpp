@@ -308,11 +308,11 @@ unsigned char CreateSubMenuScrollButtons(void)
 
     g_submenu_scroll_buttons[0].Configure("Data\\Main Interface\\main_scroll_arrows.sti", 3, 0, 1,
                                            2, 2, SubMenuScrollArrowUp, BUTTON_NO_CALLBACK, false,
-                                           REGION_PRIORITY_HIGHEST, 0x4b, BUTTON_NO_CALLBACK,
+                                           UI_PRIORITY_HIGHEST, 0x4b, BUTTON_NO_CALLBACK,
                                            BUTTON_NO_CALLBACK);
     g_submenu_scroll_buttons[1].Configure("Data\\Main Interface\\main_scroll_arrows.sti", 7, 4, 5,
                                            6, 6, SubMenuScrollArrowDown, BUTTON_NO_CALLBACK, false,
-                                           REGION_PRIORITY_HIGHEST, 0x4c, BUTTON_NO_CALLBACK,
+                                           UI_PRIORITY_HIGHEST, 0x4c, BUTTON_NO_CALLBACK,
                                            BUTTON_NO_CALLBACK);
     for (i = 0; i < 2; ++i) {
         g_submenu_scroll_buttons[i].SetPosition(g_scroll_button_positions[i].x,
@@ -345,11 +345,11 @@ unsigned char CreateSubMenuPanelButtons(void)
 
     g_submenu_panel_buttons[0].Configure(g_submenu_icons_path, 0x21, 0x1e, 0x1f, 0x20, 0x22,
                                           SubMenuPanelCloseButton, BUTTON_NO_CALLBACK, false,
-                                          REGION_PRIORITY_HIGHEST, 0x4d, BUTTON_NO_CALLBACK,
+                                          UI_PRIORITY_HIGHEST, 0x4d, BUTTON_NO_CALLBACK,
                                           BUTTON_NO_CALLBACK);
     g_submenu_panel_buttons[1].Configure(g_submenu_icons_path, 0x26, 0x23, 0x24, 0x25, 0x27,
                                           SubMenuPanelFormationButton, BUTTON_NO_CALLBACK, true,
-                                          REGION_PRIORITY_HIGHEST, 0x4e, BUTTON_NO_CALLBACK,
+                                          UI_PRIORITY_HIGHEST, 0x4e, BUTTON_NO_CALLBACK,
                                           BUTTON_NO_CALLBACK);
     for (index = 0; index < 2; ++index) {
         g_submenu_panel_buttons[index].SetPosition(g_submenu_panel_button_positions[index].x,
@@ -372,7 +372,7 @@ static void MainGameOptionsDiskButton(W8ButtonWidget* button)
 unsigned char CreateOptionsDiskButton(void)
 {
     g_options_disk_button.Configure(g_options_disk_path, 3, 0, 1, 2, 2, MainGameOptionsDiskButton,
-                                     BUTTON_NO_CALLBACK, false, REGION_PRIORITY_HIGHEST, 0x41,
+                                     BUTTON_NO_CALLBACK, false, UI_PRIORITY_HIGHEST, 0x41,
                                      BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
     g_options_disk_button.SetPosition(g_options_disk_position.x, g_options_disk_position.y);
     g_options_disk_button.m_owner = 0;
@@ -482,19 +482,19 @@ unsigned char CreateCombatStanceButtons(void)
 
     g_combat_stance_buttons[0].Configure(
         g_attack_confirm_path, 3, 0, 1, 2, 2, MainGameCombatConfirmButton, BUTTON_NO_CALLBACK,
-        false, REGION_PRIORITY_HIGHEST, 0x4f, MainGameCombatStanceSecondary, BUTTON_NO_CALLBACK);
+        false, UI_PRIORITY_HIGHEST, 0x4f, MainGameCombatStanceSecondary, BUTTON_NO_CALLBACK);
     g_combat_stance_buttons[1].Configure(
         g_combat_stop_path, 3, 0, 1, 2, 2, MainGameCombatConfirmButton, BUTTON_NO_CALLBACK, false,
-        REGION_PRIORITY_HIGHEST, 0x50, MainGameCombatStanceSecondary, BUTTON_NO_CALLBACK);
+        UI_PRIORITY_HIGHEST, 0x50, MainGameCombatStanceSecondary, BUTTON_NO_CALLBACK);
     g_combat_stance_buttons[2].Configure(
         g_cont_start_path, 3, 0, 1, 2, 2, MainGameCombatConfirmButton, BUTTON_NO_CALLBACK, false,
-        REGION_PRIORITY_HIGHEST, 0x4f, MainGameCombatStanceSecondary, BUTTON_NO_CALLBACK);
+        UI_PRIORITY_HIGHEST, 0x4f, MainGameCombatStanceSecondary, BUTTON_NO_CALLBACK);
     g_combat_stance_buttons[3].Configure(
         g_cont_toggle_path, 3, 0, 1, 2, 2, MainGameCombatConfirmButton, BUTTON_NO_CALLBACK, false,
-        REGION_PRIORITY_HIGHEST, 0x51, MainGameCombatStanceSecondary, BUTTON_NO_CALLBACK);
+        UI_PRIORITY_HIGHEST, 0x51, MainGameCombatStanceSecondary, BUTTON_NO_CALLBACK);
     g_combat_stance_buttons[4].Configure(
         g_cont_pending_path, 3, 0, 1, 2, 2, MainGameCombatConfirmButton, BUTTON_NO_CALLBACK, false,
-        REGION_PRIORITY_HIGHEST, 0x50, MainGameCombatStanceSecondary, BUTTON_NO_CALLBACK);
+        UI_PRIORITY_HIGHEST, 0x50, MainGameCombatStanceSecondary, BUTTON_NO_CALLBACK);
     for (index = 0; index < 5; ++index) {
         g_combat_stance_buttons[index].SetPosition(g_combat_stance_positions[index].x,
                                                     g_combat_stance_positions[index].y);
@@ -530,13 +530,13 @@ unsigned char CreateRoofButtons(void)
     int index;
 
     g_roof_buttons[0].Configure(g_roof_buttons_path, 9, 0, 6, 3, 6, MainGameRoofButton0,
-                                 BUTTON_NO_CALLBACK, true, REGION_PRIORITY_HIGHEST, 0x38,
+                                 BUTTON_NO_CALLBACK, true, UI_PRIORITY_HIGHEST, 0x38,
                                  BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
     g_roof_buttons[1].Configure(g_roof_buttons_path, 10, 1, 7, 4, 7, MainGameRoofButton1,
-                                 BUTTON_NO_CALLBACK, true, REGION_PRIORITY_HIGHEST, 0x39,
+                                 BUTTON_NO_CALLBACK, true, UI_PRIORITY_HIGHEST, 0x39,
                                  BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
     g_roof_buttons[2].Configure(g_roof_buttons_path, 0xb, 2, 8, 5, 8, MainGameRoofButton2,
-                                 BUTTON_NO_CALLBACK, true, REGION_PRIORITY_HIGHEST, 0x3a,
+                                 BUTTON_NO_CALLBACK, true, UI_PRIORITY_HIGHEST, 0x3a,
                                  BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
     if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS) {
         g_roof_buttons[0].SetPressed(true);
@@ -781,27 +781,27 @@ unsigned char CreateLayoutArrowButtons(void)
 
     g_layout_arrow_buttons[0].Configure(g_layout_arrows_path, 6, 0, 1, BUTTON_NO_IMAGE, 2,
                                          MainGameLayoutRadarButton, BUTTON_NO_CALLBACK, false,
-                                         REGION_PRIORITY_HIGHEST, 0x3e, BUTTON_NO_CALLBACK,
+                                         UI_PRIORITY_HIGHEST, 0x3e, BUTTON_NO_CALLBACK,
                                          BUTTON_NO_CALLBACK);
     g_layout_arrow_buttons[1].Configure(g_layout_arrows_path, 0xe, 8, 9, BUTTON_NO_IMAGE, 10,
                                          MainGameLayoutActionPanelButton, BUTTON_NO_CALLBACK, false,
-                                         REGION_PRIORITY_HIGHEST, 0x3f, BUTTON_NO_CALLBACK,
+                                         UI_PRIORITY_HIGHEST, 0x3f, BUTTON_NO_CALLBACK,
                                          BUTTON_NO_CALLBACK);
     g_layout_arrow_buttons[2].Configure(g_layout_arrows_path, 0x16, 0x10, 0x11, BUTTON_NO_IMAGE,
                                          0x12, MainGameLayoutFormationButton, BUTTON_NO_CALLBACK,
-                                         false, REGION_PRIORITY_HIGHEST, 0x40, BUTTON_NO_CALLBACK,
+                                         false, UI_PRIORITY_HIGHEST, 0x40, BUTTON_NO_CALLBACK,
                                          BUTTON_NO_CALLBACK);
     g_layout_arrow_buttons[3].Configure(g_layout_arrows_path, 7, 3, 4, BUTTON_NO_IMAGE, 5,
                                          MainGameLayoutRadarButton, BUTTON_NO_CALLBACK, false,
-                                         REGION_PRIORITY_HIGHEST, 0x3b, BUTTON_NO_CALLBACK,
+                                         UI_PRIORITY_HIGHEST, 0x3b, BUTTON_NO_CALLBACK,
                                          BUTTON_NO_CALLBACK);
     g_layout_arrow_buttons[4].Configure(g_layout_arrows_path, 0xf, 0xb, 0xc, BUTTON_NO_IMAGE, 0xd,
                                          MainGameLayoutActionPanelButton, BUTTON_NO_CALLBACK, false,
-                                         REGION_PRIORITY_HIGHEST, 0x3c, BUTTON_NO_CALLBACK,
+                                         UI_PRIORITY_HIGHEST, 0x3c, BUTTON_NO_CALLBACK,
                                          BUTTON_NO_CALLBACK);
     g_layout_arrow_buttons[5].Configure(g_layout_arrows_path, 0x17, 0x13, 0x14, BUTTON_NO_IMAGE,
                                          0x15, MainGameLayoutFormationButton, BUTTON_NO_CALLBACK,
-                                         false, REGION_PRIORITY_HIGHEST, 0x3d, BUTTON_NO_CALLBACK,
+                                         false, UI_PRIORITY_HIGHEST, 0x3d, BUTTON_NO_CALLBACK,
                                          BUTTON_NO_CALLBACK);
     for (index = 0; index < 6; ++index) {
         g_layout_arrow_buttons[index].SetPosition(g_layout_arrow_positions[index].x,
@@ -1365,7 +1365,7 @@ unsigned char BuildSubMenuPanel(short notification)
         button->SetPosition(left + index * 19 + 5, 0x1c8);
         button->Resize(18, 18);
         if (menu == W8_SUBMENU_ITEMS && entry == 2) {
-            button->on_hover = [](bool hovered) { if (hovered) SetRegionHelpForceEnabled(true); };
+            button->on_hover = [](bool hovered) { if (hovered) SetUiHelpForced(true); };
             button->SetTooltip([] {
                 const int slot = g_status.selected_character;
                 if (!CanPartySlotUseRecordedItem(slot)) return std::string(g_localized_strings[0x5d]);

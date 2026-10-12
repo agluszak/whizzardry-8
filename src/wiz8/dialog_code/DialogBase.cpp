@@ -13,18 +13,10 @@
 #include "input.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 
-// GLOBAL: WIZ8 0x0069CA28
-static std::vector<W8DialogBase*> g_live_dialogs;
-
-UiLayer* CurrentInputLayer()
-{
-    return g_live_dialogs.empty() ? nullptr : &g_live_dialogs.back()->m_input;
-}
-
 void W8DialogBase::CreateCloseButton(W8ButtonWidget& button, int left, int top)
 {
     button.Configure("Data\\Dialogs\\popup_confirmationbuttons.sti", 3, 0, 1, 4, 2,
-                     DialogCloseButtonCallback, BUTTON_NO_CALLBACK, false, REGION_PRIORITY_HIGHEST,
+                     DialogCloseButtonCallback, BUTTON_NO_CALLBACK, false, UI_PRIORITY_HIGHEST,
                      W8_DIALOG_BUTTON_NO_TOOLTIP, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
     button.SetPosition(m_x + left, m_y + top);
     button.m_owner = this;
@@ -61,7 +53,6 @@ W8DialogBase::W8DialogBase()
     m_keep_open = true;
     m_destroy_callback = 0;
     m_destroy_callback_context = 0;
-    g_live_dialogs.push_back(this);
     m_right_button_down = false;
 }
 
@@ -73,7 +64,6 @@ W8DialogBase::~W8DialogBase()
         m_destroy_callback(this);
     }
     DestroyControls();
-    std::erase(g_live_dialogs, this);
 }
 
 // FUNCTION: WIZ8 0x005dc890
@@ -154,7 +144,7 @@ int W8DialogBase::CreateControls()
         }
     }
     if (m_body) m_input.remove(*m_body);
-    m_body = &m_input.add(SDL_Rect{m_x, m_y, m_width + 1, m_height + 1}, {}, REGION_PRIORITY_BACKGROUND);
+    m_body = &m_input.add(SDL_Rect{m_x, m_y, m_width + 1, m_height + 1}, {}, UI_PRIORITY_BACKGROUND);
     m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
     m_initialized = true;
     return 0;

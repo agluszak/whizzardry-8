@@ -1130,7 +1130,6 @@ void EndCombat(bool forced_cleanup)
     ZoomRadarMapOut();
     EnablePortraitAdvanceRegions();
     g_main_input->combat.setEnabled(false);
-    g_main_combat_actions.DisableInput();
     if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME &&
         !g_level_block->review_transition_active) {
         ClearSurfaceRect(0x17, 0x34, 0x2d, 0x159);

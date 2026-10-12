@@ -21,8 +21,8 @@ private:
     static void ScrollCallback(W8DialogScrollBar* scroll_bar, int first_visible_entry);
 
     int m_location_id;
-    W8DialogScrollBar m_scroll_bar;
-    W8ButtonWidget m_button;
+    W8DialogScrollBar m_scroll_bar{InputLayer()};
+    W8ButtonWidget m_button{InputLayer()};
     W8DialogTextArea m_text_area;
 };
 

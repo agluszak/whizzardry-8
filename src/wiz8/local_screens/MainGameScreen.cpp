@@ -1815,7 +1815,7 @@ void W8MainGameScreen::Update()
         }
         // c-style-cast-ok: SGP spells filenames STR (UINT8*), the historical ABI boundary
         wiz8::sound::play(g_trap_sprung_sound);
-        EnablePanelRegionSets(false);
+        EnablePanelInput(false);
         ResolveSprungTrap(m_owner);
         m_disarm_state = 9;
         m_timer.SetDuration(2.0f);
@@ -1892,7 +1892,7 @@ void W8MainGameScreen::RefreshActionPanel()
     actions_dirty = true;
 }
 
-void W8MainGameScreen::EnablePanelRegionSets(bool enable)
+void W8MainGameScreen::EnablePanelInput(bool enable)
 {
     W8MainGameTextPanel* panel = m_text_panel.get();
 
@@ -1905,7 +1905,7 @@ void W8MainGameScreen::EnablePanelRegionSets(bool enable)
 void EnableTrapInteractionPanelRegions(void)
 {
     if (g_main_game_screen) {
-        g_main_game_screen->EnablePanelRegionSets(true);
+        g_main_game_screen->EnablePanelInput(true);
     }
 }
 
@@ -2167,7 +2167,7 @@ void W8NpcDialogueTextController::Redraw(SDL_Surface& target, bool full_redraw)
             artwork.drawAndInvalidate(target, 4, 0x1dc, line_height - margin + top);
         }
     }
-    text_area.Draw(full_redraw);
+    text_area.Draw(target, full_redraw);
     m_dirty = false;
 }
 
@@ -2487,7 +2487,7 @@ unsigned char MainGameScreenEnter(void)
         LoadMainGameCursorResources();
     }
     gXStatus.level_up_notice = true;
-    ResetRegions();
+    ResetUiInput();
     CreatePartyPortraitEventRegions();
 
 
@@ -2806,12 +2806,12 @@ update_screen:
     if (!IsWorldCursorVisible()) {
         if (!g_modal_owner) {
             if ((!ShouldDeferCharacterEventForNpcScript(true) || !gXStatus.fNpcDialogueMode) && !g_status.world_cursor_gate)
-                UpdateRegionMousePosition(point.x, point.y);
+                UpdateUiPointer(point.x, point.y);
         } else {
             for (int slot = 0; slot < 8; ++slot) {
                 if (g_status.buffers.XChar[slot].fOccupied &&
                     (g_main_input->portrait_targets[slot][2]->hitAt(point) || g_main_input->edge_targets[slot]->hitAt(point))) {
-                    UpdateRegionMousePosition(point.x, point.y);
+                    UpdateUiPointer(point.x, point.y);
                     break;
                 }
             }
@@ -3061,7 +3061,7 @@ unsigned char MainGameScreenLeave(int leaving)
         ReleaseCatalogArtwork();
     }
     NoOp();
-    ResetRegions();
+    ResetUiInput();
     g_world_render_enabled = 0;
     g_monster_shadow_updates_enabled = 0;
     DisableSky();
@@ -4679,7 +4679,7 @@ void ApplyMainGameModeFlag(W8MainUiMode mode, bool enable)
 apply_mode_tail:
     g_settings.main_ui_mode = mode;
     g_level_block->main_ui_mode = mode;
-    ClearHotRegion();
+    ClearUiHover();
     if (!gXStatus.fSpellCastMode) {
         if (!gXStatus.fNpcDialogueMode) {
             if (!gXStatus.fItemSelectMode) {
@@ -4714,7 +4714,7 @@ apply_mode_tail:
         g_level_block->action_panel_layout_inset = 0;
     }
     RequestRedraw(W8_MAIN_REDRAW_ALL);
-    ResetRegions();
+    ResetUiInput();
     SyncMainGameModeRegions();
 }
 
@@ -4742,7 +4742,7 @@ void RefreshPartySlotRegions(void)
     }
 }
 
-/* Re-arm the main-game region sets after ResetRegions: pick the viewport and
+/* Re-arm the main-game region sets after ResetUiInput: pick the viewport and
    layout band from the current mode, then re-enable whichever overlays are
    up (combat portraits, condition buttons, spell/NPC/lock/trap/formation/
    radar, party movement, review, keyboard menu, combat submenu). */

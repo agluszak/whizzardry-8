@@ -66,7 +66,7 @@ try
     std::string line;
 
     SetViewport(0, 0, 0x280, 0x1e0);
-    ResetRegions();
+    ResetUiInput();
     DisableCursorScene();
     std::vector<W8CreditLine> pending;
 
@@ -123,7 +123,7 @@ catch (const std::exception&) { return false; }
 unsigned char CreditsScreenLeave(int)
 {
     g_credit_lines.clear();
-    ResetRegions();
+    ResetUiInput();
     EnableCursorScene();
     if (IsCurrentMusicPlaylist("EndCredit.MPL")) {
         StopMusicPlaylist(true);

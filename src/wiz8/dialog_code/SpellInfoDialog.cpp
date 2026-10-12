@@ -114,8 +114,8 @@ void W8SpellInfoDialog::Draw()
         W8DialogBase::Draw();
         DrawLabels();
     }
-    m_text_area.Draw(false);
-    m_scroll_bar.Draw(false);
+    m_text_area.Draw(GetFrameBufferSurface(), false);
+    m_scroll_bar.Draw(GetFrameBufferSurface(), false);
     m_button.Draw(GetFrameBufferSurface());
     steps = static_cast<int>(m_timer.GetProgress());
     if (steps > 0) {

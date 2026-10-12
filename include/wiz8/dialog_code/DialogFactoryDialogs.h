@@ -1,3 +1,4 @@
+#include <deque>
 #include "Font.h"
 #pragma once
 
@@ -38,7 +39,7 @@ public:
     void SetValue(int value);
     void SetActive(bool active);
     void SetActive(bool active, const SDL_Point* point);
-    void Draw(bool force);
+    void Draw(SDL_Surface& target, bool force);
     bool HandleInput(const InputEvent* input);
 
 private:
@@ -108,17 +109,17 @@ public:
     float m_field_080; /* 0.9 */
     float m_field_084; /* 0.75 */
     SDL_Color m_fill_colour; /* highlight fill colour */
-    W8ButtonWidget m_text_button;
-    W8ButtonWidget m_second_text_button;
+    W8ButtonWidget m_text_button{InputLayer()};
+    W8ButtonWidget m_second_text_button{InputLayer()};
     GenericButtonImage area_inlay;  /* DialogInlay inlay for m_area_button */
-    W8ButtonWidget m_area_button; /* scrolling text area */
-    W8ButtonWidget m_up_button;
-    W8ButtonWidget m_down_button;
-    W8ButtonWidget m_slider_button;
+    W8ButtonWidget m_area_button{InputLayer()}; /* scrolling text area */
+    W8ButtonWidget m_up_button{InputLayer()};
+    W8ButtonWidget m_down_button{InputLayer()};
+    W8ButtonWidget m_slider_button{InputLayer()};
     GenericButtonImage third_btn_inlay; /* DialogInlay inlay for m_third_text_button */
-    W8ButtonWidget m_third_text_button;
-    W8ButtonWidget m_ok_button;
-    W8ButtonWidget m_cancel_button;
+    W8ButtonWidget m_third_text_button{InputLayer()};
+    W8ButtonWidget m_ok_button{InputLayer()};
+    W8ButtonWidget m_cancel_button{InputLayer()};
     bool m_scrollable; /* scrolling area is scrollable */
     int m_first_visible_line;
     int m_selected_line;
@@ -295,7 +296,7 @@ private:
     static void OnCountFieldClick(W8ButtonWidget* button);
 
 public:
-    std::array<W8ButtonWidget, 10> m_buttons; /* minus/plus, frames, accept/cancel */
+    std::deque<W8ButtonWidget> m_buttons; /* minus/plus, frames, accept/cancel */
     W8TextBuffer* m_texts[14];
     W8DialogNumericInput* m_count_input;
     /* The numeric field while a click or keypress owns it. */

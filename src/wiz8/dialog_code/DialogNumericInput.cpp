@@ -87,7 +87,7 @@ void W8DialogNumericInput::SetActive(bool active, const SDL_Point* point)
 }
 
 // FUNCTION: WIZ8 0x005e15c0
-void W8DialogNumericInput::Draw(bool force)
+void W8DialogNumericInput::Draw(SDL_Surface& target, bool force)
 {
     if (!force && !m_dirty) {
         return;
@@ -98,14 +98,14 @@ void W8DialogNumericInput::Draw(bool force)
     m_font->setShade(Font::kNormalShade);
     SDL_Rect text_clip{m_bounds.left, m_bounds.top, m_bounds.right - m_bounds.left,
                        m_bounds.bottom - m_bounds.top};
-    ScopedClipRect clipping(GetFrameBufferSurface(), text_clip);
+    ScopedClipRect clipping(target, text_clip);
     unsigned short font_height = m_font->height();
     int text_y = m_bounds.top + std::max(0, (m_bounds.bottom - m_bounds.top - font_height) / 2);
     int text_x = m_bounds.right - m_font->textWidth(g_numeric_input_text);
     if (text_x <= m_bounds.left) {
         text_x = m_bounds.left;
     }
-    DrawTextAndInvalidate(GetFrameBufferSurface(), *m_font, {text_x, text_y},
+    DrawTextAndInvalidate(target, *m_font, {text_x, text_y},
                           g_numeric_input_text);
     if (m_active && m_caret != -1) {
         int caret_x =
@@ -117,7 +117,7 @@ void W8DialogNumericInput::Draw(bool force)
             caret_bottom = caret_top + m_font->height();
         }
         const SDL_Rect caret{caret_x, caret_top, 1, caret_bottom - caret_top + 1};
-        SDL_FillSurfaceRect(&GetFrameBufferSurface(), &caret, 0xffff);
+        SDL_FillSurfaceRect(&target, &caret, 0xffff);
     }
     m_dirty = false;
 }

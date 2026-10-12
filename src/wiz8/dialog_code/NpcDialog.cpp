@@ -95,7 +95,7 @@ int W8NpcDialog::CreateControls()
         "Data\\Dialogs\\DialogBackground.sti", 0, 0, 0);
     if (!m_background.generic_image) return 4;
     m_input.add(SDL_Rect{m_bounds.x, m_bounds.y, m_bounds.w + 1, m_bounds.h + 1}, {},
-                REGION_PRIORITY_BACKGROUND);
+                UI_PRIORITY_BACKGROUND);
     if (m_message->kind == W8_NPC_ENTRY_OPTIONS) {
         int x =
             (m_bounds.w - static_cast<short>((m_text_width + 10) * m_message->sub_entry_count - 10)) /

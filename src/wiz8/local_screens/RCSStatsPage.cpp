@@ -796,7 +796,7 @@ UiResult HandleCampSkillList(const UiPointerEvent& event, int category)
         event.action == UiPointerAction::Leave) {
         const int hover = event.inside && skill != -1 ? row : -1;
         if (hover != g_camp_skill_hover_row) {
-            ResetRegionHelp(true);
+            ResetUiHelp(true);
             g_camp_skill_hover_row = hover;
         }
     }
@@ -1098,7 +1098,7 @@ void W8CharacterPersonalityPage::Redraw(SDL_Surface& target, bool full_redraw)
         bounds.right = W8CharacterPage::bounds.x + 0x150;
         text.SetLayoutBounds(&bounds, true, true);
         text.SetText(element.GetQuoteText(), g_wiz_text_font_secondary);
-        text.FillBounds(0x8000);
+        text.FillBounds(target, 0x8000);
         text.RenderToTarget(0, true, target);
         m_description_dirty = false;
     }

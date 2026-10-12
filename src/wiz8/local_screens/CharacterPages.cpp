@@ -150,28 +150,28 @@ void W8CharacterPageEntry::SetHelpActive(bool active)
 }
 
 // FUNCTION: WIZ8 0x005afaf0
-void W8CharacterPageEntry::Redraw()
+void W8CharacterPageEntry::Redraw(SDL_Surface& target)
 {
     m_dirty |= m_increment->m_dirty || m_decrement->m_dirty;
     if (m_enabled && m_dirty) {
         m_increment->m_dirty = m_decrement->m_dirty = true;
         if (m_draw_background) {
-            CatalogArtwork::Load(0x108, 0).drawAndInvalidate(GetFrameBufferSurface(), 2, m_x, m_y);
+            CatalogArtwork::Load(0x108, 0).drawAndInvalidate(target, 2, m_x, m_y);
         }
         m_first_text.SetText(fmt::format("{:d}", ReadStatValue<unsigned int>(m_first)), g_wiz_text_font_secondary);
         m_second_text.SetText(fmt::format("{:d}", ReadStatValue<int>(m_second)), g_wiz_text_font_secondary);
-        m_first_text.FillBounds(0x8000);
-        m_second_text.FillBounds(0x8000);
-        m_label.RenderToTarget(0, true, GetFrameBufferSurface());
-        m_first_text.RenderToTarget(0, true, GetFrameBufferSurface());
-        m_second_text.RenderToTarget(0, true, GetFrameBufferSurface());
+        m_first_text.FillBounds(target, 0x8000);
+        m_second_text.FillBounds(target, 0x8000);
+        m_label.RenderToTarget(0, true, target);
+        m_first_text.RenderToTarget(0, true, target);
+        m_second_text.RenderToTarget(0, true, target);
         m_dirty = false;
     } else if (!m_draw_background && m_dirty) {
-        m_label.RenderToTarget(0, true, GetFrameBufferSurface());
+        m_label.RenderToTarget(0, true, target);
         m_dirty = false;
     }
-    m_increment->Draw(GetFrameBufferSurface());
-    m_decrement->Draw(GetFrameBufferSurface());
+    m_increment->Draw(target);
+    m_decrement->Draw(target);
     m_increment->m_dirty = m_decrement->m_dirty = false;
 }
 
@@ -244,7 +244,7 @@ void W8CharacterPage::Redraw(SDL_Surface& target, bool full_redraw)
     }
     m_dirty = false;
     for (int index = 0; index < static_cast<int>(m_entries.size()); ++index) {
-        m_entries[index]->Redraw();
+        m_entries[index]->Redraw(target);
     }
 }
 

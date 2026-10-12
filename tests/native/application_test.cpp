@@ -21,7 +21,7 @@ static void CheckStopped()
     REQUIRE(SDL_WasInit(0) == 0);
     REQUIRE((!gfProgramIsRunning && !gfGameInitialized && !gfApplicationActive));
     REQUIRE(ghWindow == nullptr);
-    REQUIRE(LiveDynamicRegionCount() == 0);
+    REQUIRE(LiveUiTargetCount() == 0);
 }
 
 TEST_CASE("application_test")

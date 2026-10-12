@@ -248,11 +248,11 @@ void W8TextBuffer::SetLineHeight(unsigned int height)
 /* Fills the current text rectangle on the standard UI surface and queues the
    same rectangle for composition. */
 // FUNCTION: WIZ8 0x004f3d50
-void W8TextBuffer::FillBounds(int colour)
+void W8TextBuffer::FillBounds(SDL_Surface& target, int colour)
 {
     const SDL_Rect area{m_layoutBounds.left, m_layoutBounds.top, m_layoutBounds.right - m_layoutBounds.left,
                         m_layoutBounds.bottom - m_layoutBounds.top};
-    SDL_FillSurfaceRect(&GetFrameBufferSurface(), &area, colour);
+    SDL_FillSurfaceRect(&target, &area, colour);
     InvalidateRegion(m_layoutBounds.left, m_layoutBounds.top, m_layoutBounds.right,
                      m_layoutBounds.bottom);
 }

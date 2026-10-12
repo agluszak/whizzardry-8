@@ -38,7 +38,6 @@ class W8TextField;
 class W8DialogBase;
 struct UiState;
 struct InputEvent;
-UiLayer* CurrentInputLayer();
 
 // A persistent input registration, borrowed from its layer. No painting or
 // widget lifetime is attached to it. Rectangles use SDL's half-open bounds;
@@ -66,8 +65,8 @@ private:
     friend class W8TextField;
     void useTextCursor();
     friend struct UiState;
-    friend bool DispatchRegionInput(const InputEvent*);
-    friend void ResetRegions();
+    friend bool DispatchUiInput(const InputEvent*);
+    friend void ResetUiInput();
     HitTarget(UiLayer& layer, HitShape shape, Handler handler, int priority);
     UiLayer& layer_;
     HitShape shape_;
@@ -99,14 +98,11 @@ private:
     friend class W8DialogBase;
     friend class W8ButtonWidget;
     friend struct UiState;
-    friend void ResetRegions();
-    friend std::size_t LiveDynamicRegionCount();
+    friend void ResetUiInput();
+    friend std::size_t LiveUiTargetCount();
     friend class HitTarget;
-    struct InheritInputScope {};
-    explicit UiLayer(InheritInputScope);
-    UiLayer* parent_ = nullptr;
     int order_;
-    bool enabled_ = true, modal_ = false, inherited_ = false;
+    bool enabled_ = true, modal_ = false;
     std::vector<std::unique_ptr<HitTarget>> targets_;
     HitTarget *saved_hover_ = nullptr, *saved_capture_ = nullptr;
     SDL_MouseButtonFlags saved_buttons_ = 0;

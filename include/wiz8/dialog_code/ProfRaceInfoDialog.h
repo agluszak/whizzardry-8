@@ -60,8 +60,8 @@ protected:
     unsigned int m_uiHeadingId; /* g_localized_strings index */
     unsigned int m_uiDetailId;  /* g_localized_strings index */
     int m_minimums[W8_DIALOG_ATTRIBUTE_COUNT];
-    W8DialogScrollBar m_scroll_bar;
-    W8ButtonWidget m_button;
+    W8DialogScrollBar m_scroll_bar{InputLayer()};
+    W8ButtonWidget m_button{InputLayer()};
     W8DialogTextArea m_text_area;
 };
 

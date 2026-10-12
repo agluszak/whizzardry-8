@@ -212,7 +212,7 @@ TextFieldGroup::TextFieldGroup(Font& font) : TextFieldGroup(font, nullptr) {}
 TextFieldGroup::TextFieldGroup(UiLayer& layer, Font& font) : TextFieldGroup(font, &layer) {}
 
 TextFieldGroup::TextFieldGroup(Font& font, UiLayer* layer)
-    : owned_layer_(layer ? nullptr : new UiLayer(UiLayer::InheritInputScope{})),
+    : owned_layer_(layer ? nullptr : new UiLayer()),
       layer_(layer ? layer : owned_layer_.get()), previous_(g_ui.focus)
 {
     style_.font = &font;

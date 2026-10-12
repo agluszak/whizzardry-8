@@ -1088,7 +1088,7 @@ void CheckGameplayUi(Game& game)
     game.move_pointer(0, 200);
     VideoRemoveToolTip();
     game.move_pointer(realm_bounds.x + 5, realm_bounds.y + 5);
-    ResetRegionHelp(false);
+    ResetUiHelp(false);
     REQUIRE(HasScreenTransitionObjects());
     game.click_at(realm_bounds.x + realm_bounds.w / 2, realm_bounds.y + realm_bounds.h / 2);
     REQUIRE(gpSCSV->iSpellRealm == realm);
@@ -1117,7 +1117,7 @@ void CheckGameplayUi(Game& game)
     game.move_pointer(0, 200);
     VideoRemoveToolTip();
     game.move_pointer(0x277, 9);
-    ResetRegionHelp(false);
+    ResetUiHelp(false);
     REQUIRE(HasScreenTransitionObjects());
     g_status.effect_slots[0] = original_effect;
     RefreshSpellIconHudRows();

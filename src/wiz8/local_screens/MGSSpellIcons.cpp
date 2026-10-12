@@ -57,7 +57,7 @@ void PaintEffectStrip(std::unique_ptr<UiLayer>& layer, std::span<const W8EffectS
                 if (event.action == UiPointerAction::Leave) return UiResult::Handled;
                 if (event.action == UiPointerAction::Move && duration != slot.duration) {
                     duration = slot.duration;
-                    ResetRegionHelp(false);
+                    ResetUiHelp(false);
                 }
                 return UiResult::Pass;
             });

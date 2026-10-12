@@ -899,7 +899,7 @@ void W8OptionsInterfacePanel::Populate()
     m_tooltip_delay->UpdatePixelPosition();
     m_tooltip_delay->on_release = [this] {
         g_settings.tooltip_delay_ms = static_cast<int>(m_tooltip_delay->m_position);
-        SetRegionHelpDelay(0);
+        SetUiHelpDelay(0);
     };
     auto* button = AddChoiceButton(0x80f, [this](auto* control) { OnPrimary(control); });
     button->SetTooltipIndex(0x810);
@@ -1660,7 +1660,7 @@ unsigned char OptionsScreenLeave(int)
     g_options_values.TransferSettings();
     g_options_screen.reset();
     NoOp();
-    ResetRegions();
+    ResetUiInput();
     return 1;
 }
 
@@ -1673,7 +1673,7 @@ unsigned char OptionsScreenEnter()
 
     SetViewport(0, 0, 0x280, 0x1e0);
     SetPrimarySurfaceTextureHint2Enabled(false);
-    ResetRegions();
+    ResetUiInput();
     UpdateHeldItemCursor();
     g_wiz_text_font_secondary.resetPalette();
     g_options_values.applying = 0;
@@ -1724,7 +1724,7 @@ void OptionsScreenFrame()
 
     W8OptionsScreen* screen = g_options_screen.get();
     if (screen->m_text_editor != 0) {
-        UpdateRegionMousePosition(point.x, point.y);
+        UpdateUiPointer(point.x, point.y);
         screen = g_options_screen.get();
     }
 

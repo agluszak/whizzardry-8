@@ -181,13 +181,13 @@ int W8MessageDialogBase::CreateControls()
     m_message_button.ConfigureTextButton({}, *g_dialog_interface_font, g_dialog_font_foreground,
                                         g_dialog_font_background, m_x + 9, m_y + 9,
                                         m_width - 0x12, m_height - 0x12, nullptr, 0,
-                                        m_edge_image, REGION_PRIORITY_HIGHEST - 1);
+                                        m_edge_image, UI_PRIORITY_HIGHEST - 1);
 
     if (m_confirm_button.Configure("Data\\Dialogs\\DialogConfirmation.STI", 3, 0, 1, 2, 2,
-                                   MessageDialogConfirmCallback, nullptr, false, REGION_PRIORITY_HIGHEST,
+                                   MessageDialogConfirmCallback, nullptr, false, UI_PRIORITY_HIGHEST,
                                    W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr) &&
         m_cancel_button.Configure("Data\\Dialogs\\DialogConfirmation.STI", 7, 4, 5, 6, 6,
-                                  MessageDialogCancelCallback, nullptr, false, REGION_PRIORITY_HIGHEST,
+                                  MessageDialogCancelCallback, nullptr, false, UI_PRIORITY_HIGHEST,
                                   W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr)) {
         m_confirm_button.m_owner = this;
         m_cancel_button.m_owner = this;

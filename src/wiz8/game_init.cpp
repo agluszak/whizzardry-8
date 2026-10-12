@@ -64,7 +64,7 @@ unsigned char InitializeGame(size_t& initialized_screens)
         return 0;
     }
     InitializeButtonImageManager();
-    InitializeRegionHelpState();
+    InitializeUiHelp();
     ResetGameStatus(false);
     InitializeGameplayRuntimeObjects();
     UpdateHeldItemCursor();

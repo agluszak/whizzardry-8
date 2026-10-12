@@ -17,7 +17,7 @@
 
 UiRoutingState g_ui;
 bool g_dev_mode;
-bool g_region_help_force_enabled;
+bool g_ui_help_forced;
 
 namespace {
 unsigned dispatch_depth = 0;
@@ -51,11 +51,7 @@ struct UiState {
     bool allowed(const UiLayer& layer) const
     {
         if (!layer.enabled_) return false;
-        if (layer.parent_ && !allowed(*layer.parent_)) return false;
-        if (modals.empty()) return true;
-        for (auto* scope = &layer; scope; scope = scope->parent_)
-            if (scope == modals.back()) return true;
-        return false;
+        return modals.empty() || modals.back() == &layer;
     }
     bool live(const HitTarget* target) const
     {
@@ -84,16 +80,11 @@ struct UiState {
         // Text editors sit above their hosting plate and use the cursor tip.
         for (const bool text : {true, false}) {
             for (auto* layer : layers) {
-                if (layer->parent_ || !allowed(*layer)) continue;
+                if (!allowed(*layer)) continue;
                 HitTarget* best = nullptr;
-                for (auto* candidate : layers) {
-                    auto* root = candidate;
-                    while (root->parent_) root = root->parent_;
-                    if (root != layer || !allowed(*candidate)) continue;
-                    for (const auto& target : candidate->targets_) {
-                        if (target->text_cursor_ != text || !target->enabled_ || !contains(*target, point)) continue;
-                        if (!best || target->priority_ > best->priority_) best = target.get();
-                    }
+                for (const auto& target : layer->targets_) {
+                    if (target->text_cursor_ != text || !target->enabled_ || !contains(*target, point)) continue;
+                    if (!best || target->priority_ > best->priority_) best = target.get();
                 }
                 if (best) return best;
             }
@@ -136,8 +127,8 @@ struct UiState {
         auto* previous = std::exchange(g_ui.hover, nullptr);
         hideTooltip();
         if (previous) send(*previous, input, UiPointerAction::Leave);
-        g_region_help_delay = g_settings.tooltip_delay_ms;
-        g_region_help_force_enabled = false;
+        g_ui_help_delay = g_settings.tooltip_delay_ms;
+        g_ui_help_forced = false;
     }
     void motion(const InputEvent& input)
     {
@@ -157,7 +148,7 @@ struct UiState {
         if (contains(*target, input.position) && g_ui.hover != target) {
             g_ui.hover = target;
             send(*target, input, UiPointerAction::Enter);
-            g_region_help_clock = w8_get_ticks() + g_region_help_delay;
+            g_ui_help_clock = w8_get_ticks() + g_ui_help_delay;
             PlayButtonSound(0);
         } else send(*target, input, UiPointerAction::Move);
     }
@@ -165,7 +156,7 @@ struct UiState {
     {
         auto* target = g_ui.hover;
         if (!live(target) || !target->tooltip_ || tooltip == target ||
-            (!g_settings.tooltips_enabled && !g_region_help_force_enabled)) return;
+            (!g_settings.tooltips_enabled && !g_ui_help_forced)) return;
         const auto text = target->tooltip_();
         if (text.empty()) return;
         hideTooltip();
@@ -234,19 +225,11 @@ UiLayer::UiLayer(int order) : order_(order)
     layers.insert(pos, this);
 }
 UiLayer::UiLayer(UiLayerMode mode, int order) : UiLayer(order) { setModal(mode == UiLayerMode::Modal); }
-UiLayer::UiLayer(InheritInputScope) : UiLayer()
-{
-    inherited_ = true;
-    parent_ = CurrentInputLayer();
-}
 UiLayer::~UiLayer()
 {
     setModal(false);
     targets_.clear();
     auto& layers = State().layers;
-    for (auto* layer : layers) {
-        if (layer->parent_ == this) { layer->parent_ = nullptr; layer->setEnabled(false); }
-    }
     std::erase(layers, this);
 }
 HitTarget& UiLayer::add(HitShape shape, HitTarget::Handler handler, int priority)
@@ -305,18 +288,18 @@ void UiLayer::setModal(bool modal)
 }
 
 HitTarget* UiTargetAt(SDL_Point point) { return State().at(point); }
-void UpdateRegionMousePosition(int x, int y)
+void UpdateUiPointer(int x, int y)
 {
     const DispatchScope scope;
     State().motion(PointerMotion({x, y}));
 }
-SDL_Point GetRegionMousePosition() { return g_ui.pointer; }
+SDL_Point UiPointerPosition() { return g_ui.pointer; }
 void ReleaseUiCapture() { if (g_ui.captured) g_ui.captured->releaseCapture(); }
-void CaptureInputSink() { ClearHotRegion(); ReleaseUiCapture(); State().sink = true; }
+void CaptureInputSink() { ClearUiHover(); ReleaseUiCapture(); State().sink = true; }
 void ReleaseInputSinkCapture() { State().sink = false; }
 bool InputSinkCaptured() { return State().sink; }
 
-bool DispatchRegionInput(const InputEvent* input)
+bool DispatchUiInput(const InputEvent* input)
 {
     const DispatchScope scope;
     UiPointerAction action;
@@ -341,7 +324,7 @@ bool DispatchRegionInput(const InputEvent* input)
     auto* target = state.live(g_ui.captured) ? g_ui.captured : state.at(input->position);
     if (!target) return state.sink && state.modals.empty();
     state.hideTooltip();
-    g_region_help_clock = w8_get_ticks() + g_region_help_delay;
+    g_ui_help_clock = w8_get_ticks() + g_ui_help_delay;
     const auto mask = button == UiPointerButton::Left ? SDL_BUTTON_LMASK : SDL_BUTTON_RMASK;
     int sound = -1;
     if (action == UiPointerAction::Down) {
@@ -359,13 +342,13 @@ bool DispatchRegionInput(const InputEvent* input)
     return handled;
 }
 
-void ClearHotRegion()
+void ClearUiHover()
 {
     const DispatchScope scope;
     State().leave(PointerMotion(g_ui.pointer));
     g_ui.current = nullptr;
 }
-void ResetRegions()
+void ResetUiInput()
 {
     auto& state = State();
     state.hideTooltip();
@@ -373,28 +356,27 @@ void ResetRegions()
     g_ui.ClearPointer();
     state.sink = false;
     for (auto* layer : state.layers) {
-        if (layer->inherited_) continue;
         layer->setEnabled(false);
     }
-    g_region_help_delay = g_settings.tooltip_delay_ms;
-    g_region_help_force_enabled = false;
+    g_ui_help_delay = g_settings.tooltip_delay_ms;
+    g_ui_help_forced = false;
 }
-void SetRegionHelpDelay(int delay) { g_region_help_delay = delay ? delay : g_settings.tooltip_delay_ms; }
-void SetRegionHelpForceEnabled(bool enabled) { g_region_help_force_enabled = enabled; }
-void UpdateRegionHelp() { if (TimeUntilDeadline(g_region_help_clock) == 0) State().showTooltip(); }
-void ResetRegionHelp(bool delayed)
+void SetUiHelpDelay(int delay) { g_ui_help_delay = delay ? delay : g_settings.tooltip_delay_ms; }
+void SetUiHelpForced(bool enabled) { g_ui_help_forced = enabled; }
+void UpdateUiHelp() { if (TimeUntilDeadline(g_ui_help_clock) == 0) State().showTooltip(); }
+void ResetUiHelp(bool delayed)
 {
     State().hideTooltip();
-    if (delayed) g_region_help_clock = w8_get_ticks() + g_region_help_delay;
+    if (delayed) g_ui_help_clock = w8_get_ticks() + g_ui_help_delay;
     else State().showTooltip();
 }
-std::size_t LiveDynamicRegionCount()
+std::size_t LiveUiTargetCount()
 {
     std::size_t count = 0;
     for (auto* layer : State().layers) count += layer->targets_.size();
     return count;
 }
-std::size_t LiveRegionSetCount() { return State().layers.size(); }
+std::size_t LiveUiLayerCount() { return State().layers.size(); }
 
 bool PumpUiInput(const UiInputPolicy& policy)
 {
@@ -404,7 +386,7 @@ bool PumpUiInput(const UiInputPolicy& policy)
             const DispatchScope scope;
             SDL_Point point;
             SGPMouseGetPos(&point);
-            UpdateRegionMousePosition(point.x, point.y);
+            UpdateUiPointer(point.x, point.y);
             changed = !pending_actions.empty();
         }
         if (changed) return false;
@@ -418,7 +400,7 @@ bool PumpUiInput(const UiInputPolicy& policy)
             const DispatchScope scope;
             auto route = policy.before ? policy.before(input) : InputRoute::Pass;
             if (route == InputRoute::Pass) {
-                const bool consumed = (!policy.ui_accepts || policy.ui_accepts(input)) && DispatchRegionInput(&input);
+                const bool consumed = (!policy.ui_accepts || policy.ui_accepts(input)) && DispatchUiInput(&input);
                 const auto& next = consumed ? policy.consumed : policy.unhandled;
                 route = next ? next(input) : InputRoute::Handled;
             }

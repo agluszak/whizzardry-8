@@ -875,8 +875,8 @@ UiResult HandleCampItem(const UiPointerEvent& event, int slot, int origin)
     }
     if (event.action == UiPointerAction::Enter || event.action == UiPointerAction::Up ||
         event.action == UiPointerAction::Wheel) {
-        SetRegionHelpDelay(std::min(g_settings.tooltip_delay_ms, 300));
-        SetRegionHelpForceEnabled(true);
+        SetUiHelpDelay(std::min(g_settings.tooltip_delay_ms, 300));
+        SetUiHelpForced(true);
         target.setTooltip([slot, origin] { return CampItemTooltip(slot, origin); });
     }
     return UiResult::Handled;

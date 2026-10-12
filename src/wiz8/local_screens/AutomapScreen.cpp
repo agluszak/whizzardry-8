@@ -466,7 +466,7 @@ void CreateAutomapButtons(void)
         if (action) callback = [action](W8ButtonWidget*) { action(); };
         if (button->Configure(std::move(sprites), base_frame + 3, base_frame, base_frame + 1,
                               base_frame + 2, base_frame + 2, callback, nullptr, false,
-                              REGION_PRIORITY_HIGHEST, g_automap_button_tooltips[index], nullptr, nullptr)) {
+                              UI_PRIORITY_HIGHEST, g_automap_button_tooltips[index], nullptr, nullptr)) {
             button->SetPosition(g_automap_button_positions[index].x,
                                 g_automap_button_positions[index].y);
         }
@@ -816,7 +816,7 @@ void AutomapScreenFrame(void)
             }
             SDL_Point point;
             SGPMouseGetPos(&point);
-            UpdateRegionMousePosition(point.x, point.y);
+            UpdateUiPointer(point.x, point.y);
             return InputRoute::Pass;
         }
         if (!g_automap_cursor_inside) {

@@ -126,7 +126,7 @@ unsigned char PleaseWaitScreenEnter(void)
             break;
         }
     }
-    ResetRegions();
+    ResetUiInput();
     SetPrimarySurfaceTextureHint2Enabled(false);
     DisableCursorScene();
     g_load_descriptor->caption_y = 0;
@@ -334,7 +334,7 @@ unsigned char PleaseWaitScreenLeave(int leaving)
         g_load_descriptor.reset();
     }
     NoOp();
-    ResetRegions();
+    ResetUiInput();
     EnableCursorScene();
     return 1;
 }

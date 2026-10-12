@@ -250,19 +250,19 @@ void dispatch_mouse(InputEventType event, std::uint16_t x, std::uint16_t y, bool
                     bool right = false, std::uint8_t click_count = 0)
 {
     const auto input = mouse_atom(event, x, y, left, right, click_count);
-    if (event == InputEventType::MouseMove) UpdateRegionMousePosition(x, y);
-    DispatchRegionInput(&input);
+    if (event == InputEventType::MouseMove) UpdateUiPointer(x, y);
+    DispatchUiInput(&input);
 }
 
-struct RegionStateSnapshot {
-    int help_delay = g_region_help_delay;
-    bool force = g_region_help_force_enabled;
-    ~RegionStateSnapshot()
+struct UiStateSnapshot {
+    int help_delay = g_ui_help_delay;
+    bool force = g_ui_help_forced;
+    ~UiStateSnapshot()
     {
-        ClearHotRegion();
+        ClearUiHover();
         ReleaseUiCapture();
-        g_region_help_delay = help_delay;
-        g_region_help_force_enabled = force;
+        g_ui_help_delay = help_delay;
+        g_ui_help_forced = force;
     }
 };
 
@@ -336,9 +336,9 @@ void text_input_ownership()
     Font font{};
     for (unsigned repeat = 0; repeat < 32; ++repeat) {
         TextFieldGroup outer(font);
-        const auto first = outer.Add(0, 0, 80, 20, REGION_PRIORITY_NORMAL, "alpha", 32, 0, false);
-        const auto middle = outer.Add(0, 20, 80, 20, REGION_PRIORITY_NORMAL, "beta", 32, 0, false);
-        const auto last = outer.Add(0, 40, 80, 20, REGION_PRIORITY_NORMAL, "gamma", 32, 0, false);
+        const auto first = outer.Add(0, 0, 80, 20, UI_PRIORITY_NORMAL, "alpha", 32, 0, false);
+        const auto middle = outer.Add(0, 20, 80, 20, UI_PRIORITY_NORMAL, "beta", 32, 0, false);
+        const auto last = outer.Add(0, 40, 80, 20, UI_PRIORITY_NORMAL, "gamma", 32, 0, false);
         REQUIRE((first == 0 && middle == 1 && last == 2));
         REQUIRE((outer.Text(first)[0] == 'a' && outer.ByteLength(first) == 5));
         if (repeat == 0) {
@@ -360,11 +360,11 @@ void text_input_ownership()
         {
             TextFieldGroup inner(font);
             REQUIRE(TextFieldGroup::Focused() == &inner);
-            REQUIRE(inner.Add(0, 0, 80, 20, REGION_PRIORITY_NORMAL, "inner", 32, 0, false) == 0);
+            REQUIRE(inner.Add(0, 0, 80, 20, UI_PRIORITY_NORMAL, "inner", 32, 0, false) == 0);
         }
         REQUIRE(TextFieldGroup::Focused() == &outer);
         REQUIRE((outer.Text(first)[0] == 'a' && outer.ByteLength(last) == 5));
-        REQUIRE(outer.Add(0, 60, 80, 20, REGION_PRIORITY_NORMAL, "delta", 32, 0, false) == 3);
+        REQUIRE(outer.Add(0, 60, 80, 20, UI_PRIORITY_NORMAL, "delta", 32, 0, false) == 3);
         outer.Remove(first);
         outer.Remove(3);
         outer.Remove(last);
@@ -516,8 +516,8 @@ private:
 void generic_button_images()
 {
     initialize_test_framebuffer();
-    RegionStateSnapshot saved_regions;
-    ResetRegions();
+    UiStateSnapshot saved_regions;
+    ResetUiInput();
     ScopedTemporaryDirectory temporary{"wiz8-button-images"};
     const auto& root = temporary.path;
     const auto assets = root / "assets";
@@ -628,7 +628,7 @@ void generic_button_images()
     {
         UiLayer layer;
         W8ButtonWidget button(layer);
-        REQUIRE(button.ConfigureIcon("button.sti", 0, 1, REGION_PRIORITY_NORMAL,
+        REQUIRE(button.ConfigureIcon("button.sti", 0, 1, UI_PRIORITY_NORMAL,
                                       W8_DIALOG_BUTTON_NO_TOOLTIP));
         button.SetPosition(2, 3);
         SDL_FillSurfaceRect(&target, nullptr, 0);
@@ -668,25 +668,25 @@ void generic_button_images()
     REQUIRE(std::all_of(quick_images.begin(), quick_images.end(),
                         [](const auto& item) { return item != nullptr; }));
     quick_images.clear();
-    const auto widget_count = LiveDynamicRegionCount();
+    const auto widget_count = LiveUiTargetCount();
     {
         auto dialog = std::make_unique<W8ButtonWidget>();
-        REQUIRE(dialog->ConfigureIcon("button.sti", 0, 1, REGION_PRIORITY_NORMAL,
+        REQUIRE(dialog->ConfigureIcon("button.sti", 0, 1, UI_PRIORITY_NORMAL,
                                       W8_DIALOG_BUTTON_NO_TOOLTIP));
         dialog->SetPosition(12, 13);
-        REQUIRE(!dialog->ConfigureIcon("missing.sti", 0, 1, REGION_PRIORITY_NORMAL,
+        REQUIRE(!dialog->ConfigureIcon("missing.sti", 0, 1, UI_PRIORITY_NORMAL,
                                        W8_DIALOG_BUTTON_NO_TOOLTIP));
         REQUIRE((dialog->Bounds().x == 12 && dialog->Bounds().y == 13 && dialog->Bounds().w == 1));
         REQUIRE(UiTargetAt({12, 13}) != nullptr);
-        REQUIRE(LiveDynamicRegionCount() == widget_count + 1);
+        REQUIRE(LiveUiTargetCount() == widget_count + 1);
     }
-    REQUIRE(LiveDynamicRegionCount() == widget_count);
+    REQUIRE(LiveUiTargetCount() == widget_count);
     // A dialog's click callback can close it. The dispatcher must not read
     // the released dialog while completing the click (including its sound).
     auto closing_dialog = std::make_unique<W8ButtonWidget>();
     REQUIRE(closing_dialog->Configure("button.sti", 0, 1, 2, 3, 4,
         [&](W8ButtonWidget*) { AfterUiDispatch([&] { closing_dialog.reset(); }); }, nullptr, false,
-        REGION_PRIORITY_NORMAL, W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr));
+        UI_PRIORITY_NORMAL, W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr));
     closing_dialog->SetPosition(12, 13);
     PushButtonSoundScheme(0, true);
     {
@@ -934,7 +934,7 @@ void generic_button_images()
     REQUIRE(g_font12point1.load(filename));
     {
     TextFieldGroup fields(g_font12point1);
-    const auto field = fields.Add(0, 0, 80, 20, REGION_PRIORITY_NORMAL, "", 1000, 0x0f, false);
+    const auto field = fields.Add(0, 0, 80, 20, UI_PRIORITY_NORMAL, "", 1000, 0x0f, false);
     fields.Focus(field);
     const std::string clusters = "é👩‍👩‍👧‍👦中";
     fields.SetText(field, clusters);
@@ -995,8 +995,8 @@ TEST_CASE("Camp effect ownership", "[owner]")
 
 TEST_CASE("Input layers preserve backend ordering and shape boundaries", "[owner][ui-layer]")
 {
-    RegionStateSnapshot saved_state;
-    ResetRegions();
+    UiStateSnapshot saved_state;
+    ResetUiInput();
     std::vector<int> hits;
     const auto record = [&](int id) {
         return [&, id](const UiPointerEvent& event) {
@@ -1035,8 +1035,8 @@ TEST_CASE("Input layers preserve backend ordering and shape boundaries", "[owner
 
 TEST_CASE("Input layers keep capture outside and release it for gameplay drops", "[owner][ui-layer]")
 {
-    RegionStateSnapshot saved_state;
-    ResetRegions();
+    UiStateSnapshot saved_state;
+    ResetUiInput();
     std::vector<UiPointerEvent> events;
     int drops = 0;
     HitTarget* drag_source = nullptr;
@@ -1055,7 +1055,7 @@ TEST_CASE("Input layers keep capture outside and release it for gameplay drops",
     REQUIRE(events.back().clicks == 2);
     REQUIRE(events.back().local.x == 5);
     REQUIRE(events.back().local.y == 5);
-    UpdateRegionMousePosition(45, 15);
+    UpdateUiPointer(45, 15);
     REQUIRE(events.back().action == UiPointerAction::Leave);
     dispatch_mouse(InputEventType::LeftButtonUp, 45, 15);
     REQUIRE(events.back().action == UiPointerAction::Up);
@@ -1066,7 +1066,7 @@ TEST_CASE("Input layers keep capture outside and release it for gameplay drops",
 
     dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
     drag_source = &source;
-    UpdateRegionMousePosition(45, 15);
+    UpdateUiPointer(45, 15);
     REQUIRE(g_ui.captured == 0);
     REQUIRE(source.capturedButtons() == 0);
     dispatch_mouse(InputEventType::LeftButtonUp, 45, 15);
@@ -1101,8 +1101,8 @@ TEST_CASE("Text fields paint only into their supplied surface", "[owner][ui-laye
 
 TEST_CASE("Modal layers isolate editors and restore focus after deferred close", "[owner][ui-layer]")
 {
-    RegionStateSnapshot saved_state;
-    ResetRegions();
+    UiStateSnapshot saved_state;
+    ResetUiInput();
     Font font{};
     TextFieldGroup outer(font);
     const int outer_field = outer.Add(0, 0, 80, 20, 0, "outer", 32, 0xf, false);
@@ -1146,8 +1146,8 @@ TEST_CASE("Modal layers isolate editors and restore focus after deferred close",
 
 TEST_CASE("Modal layers block underlying input and restore valid capture", "[owner][ui-layer]")
 {
-    RegionStateSnapshot saved_state;
-    ResetRegions();
+    UiStateSnapshot saved_state;
+    ResetUiInput();
     int releases = 0;
     UiLayer screen;
     auto& target = screen.add(SDL_Rect{10, 10, 20, 20}, [&](const UiPointerEvent& event) {
@@ -1186,10 +1186,10 @@ TEST_CASE("Modal layers block underlying input and restore valid capture", "[own
 
 TEST_CASE("Input-layer owners close only after the outer dispatch completes", "[owner][ui-layer]")
 {
-    RegionStateSnapshot saved_state;
-    ResetRegions();
-    const auto region_count = LiveDynamicRegionCount();
-    const auto set_count = LiveRegionSetCount();
+    UiStateSnapshot saved_state;
+    ResetUiInput();
+    const auto region_count = LiveUiTargetCount();
+    const auto set_count = LiveUiLayerCount();
     auto layer = std::make_unique<UiLayer>();
     bool finished = false;
     layer->add(SDL_Rect{10, 10, 20, 20}, [&](const UiPointerEvent& event) {
@@ -1210,8 +1210,8 @@ TEST_CASE("Input-layer owners close only after the outer dispatch completes", "[
     REQUIRE(g_ui.current == 0);
     REQUIRE(g_ui.hover == 0);
     REQUIRE(g_ui.captured == 0);
-    REQUIRE(LiveDynamicRegionCount() == region_count);
-    REQUIRE(LiveRegionSetCount() == set_count);
+    REQUIRE(LiveUiTargetCount() == region_count);
+    REQUIRE(LiveUiLayerCount() == set_count);
 
     layer = std::make_unique<UiLayer>();
     layer->add(SDL_Rect{10, 10, 20, 20}, [&](const UiPointerEvent& event) {
@@ -1219,7 +1219,7 @@ TEST_CASE("Input-layer owners close only after the outer dispatch completes", "[
             AfterUiDispatch([&] { layer.reset(); });
         return UiResult::Handled;
     });
-    UpdateRegionMousePosition(15, 15);
+    UpdateUiPointer(15, 15);
     REQUIRE(layer == nullptr);
     REQUIRE(g_ui.hover == 0);
     REQUIRE(g_ui.current == 0);
@@ -1227,8 +1227,8 @@ TEST_CASE("Input-layer owners close only after the outer dispatch completes", "[
 
 TEST_CASE("The input pump finishes its policy before committing a layer close", "[owner][ui-layer]")
 {
-    RegionStateSnapshot saved_state;
-    ResetRegions();
+    UiStateSnapshot saved_state;
+    ResetUiInput();
     InputEvent pending;
     while (DequeueEvent(&pending)) {}
     auto layer = std::make_unique<UiLayer>();
@@ -1316,8 +1316,8 @@ TEST_CASE("Generic button image ownership", "[owner]")
 
 TEST_CASE("Dialog controls own interaction without legacy GUI buttons", "[owner]")
 {
-    RegionStateSnapshot saved_state;
-    ResetRegions();
+    UiStateSnapshot saved_state;
+    ResetUiInput();
     struct TooltipStateSnapshot {
         bool tooltips_enabled = g_settings.tooltips_enabled;
         std::vector<std::string> localized_strings = std::move(g_localized_strings);
@@ -1409,8 +1409,8 @@ TEST_CASE("Dialog controls own interaction without legacy GUI buttons", "[owner]
 TEST_CASE("Modal confirmations and scrollbars dispatch through their native owners", "[owner]")
 {
     initialize_test_framebuffer();
-    RegionStateSnapshot saved_state;
-    ResetRegions();
+    UiStateSnapshot saved_state;
+    ResetUiInput();
     ScopedTemporaryDirectory temporary{"wiz8-modal-controls"};
     const auto& root = temporary.path;
     const auto assets = root / "assets";
@@ -1429,7 +1429,8 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
     std::vector<int> positions;
     ScrollPositionCapture position_capture(positions);
     {
-        W8DialogScrollBar bar;
+        UiLayer input;
+        W8DialogScrollBar bar(input);
         const W8DialogScrollBar::Resources resources{
             "arrows.sti", "track.sti", 0, RecordScrollPosition};
         REQUIRE(bar.CreateControls(&resources));
@@ -1544,8 +1545,8 @@ void message_box_callback()
 TEST_CASE("Message box owns its buttons and isolates modal input", "[owner]")
 {
     initialize_test_framebuffer();
-    RegionStateSnapshot saved_state;
-    ResetRegions();
+    UiStateSnapshot saved_state;
+    ResetUiInput();
     ScopedTemporaryDirectory directory{"wiz8-message-box"};
     const auto assets = directory.path / "assets";
     const auto previous_roots = w8_native::path_roots();
@@ -1580,7 +1581,7 @@ TEST_CASE("Message box owns its buttons and isolates modal input", "[owner]")
         ++screen_events;
         return UiResult::Handled;
     });
-    const auto baseline_regions = LiveDynamicRegionCount();
+    const auto baseline_regions = LiveUiTargetCount();
 
     Font font{};
     PushButtonSoundScheme(0, true);
@@ -1588,7 +1589,7 @@ TEST_CASE("Message box owns its buttons and isolates modal input", "[owner]")
         message_box_callback_count = 0;
         REQUIRE(CreateMessageBox("", font, 0, true, true, message_box_callback));
         REQUIRE(IsMessageBoxActive());
-        REQUIRE(LiveDynamicRegionCount() > baseline_regions);
+        REQUIRE(LiveUiTargetCount() > baseline_regions);
 
         const auto x = accepted ? 280 : 340;
         dispatch_mouse(InputEventType::LeftButtonDown, x, 260, true);
@@ -1599,7 +1600,7 @@ TEST_CASE("Message box owns its buttons and isolates modal input", "[owner]")
         RenderMessageBox();
         REQUIRE_FALSE(IsMessageBoxActive());
         REQUIRE(message_box_callback_count == (accepted ? 1 : 0));
-        REQUIRE(LiveDynamicRegionCount() == baseline_regions);
+        REQUIRE(LiveUiTargetCount() == baseline_regions);
     }
 }
 

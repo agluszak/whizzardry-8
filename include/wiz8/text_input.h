@@ -89,7 +89,7 @@ private:
 
     TextFieldStyle style_;
     std::unique_ptr<UiLayer> owned_layer_;
-    UiLayer* layer_; // Explicit modal layer, or the inherited input scope above.
+    UiLayer* layer_; // Borrowed owner layer, or this group's own layer.
     std::vector<std::unique_ptr<W8TextField>> fields_;
     W8TextField* focused_ = nullptr;
     W8TextField* suspended_focus_ = nullptr;

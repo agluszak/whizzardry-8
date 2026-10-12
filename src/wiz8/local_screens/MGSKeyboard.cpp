@@ -796,7 +796,7 @@ unsigned char BuildKeyboardMenu(void)
                 if (event.action == UiPointerAction::Enter &&
                     ((row.menu == W8_SUBMENU_ITEMS && row.item == 2) ||
                      (row.menu == W8_SUBMENU_SPELLS && row.item == 1)))
-                    SetRegionHelpForceEnabled(true);
+                    SetUiHelpForced(true);
                 if (!row.enabled) {
                     PushButtonSoundScheme(0, true);
                     return UiResult::Handled;

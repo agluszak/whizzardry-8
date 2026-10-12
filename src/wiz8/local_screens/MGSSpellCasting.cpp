@@ -185,9 +185,8 @@ static void CreateSpellCastingViewControls(void)
 
     if (gXStatus.fCampMode) {
         for (int index = 0; index < W8_PARTY_SLOT_COUNT; ++index) {
-            if (g_main_portrait_slot_views[index]) {
-                g_main_portrait_slot_views[index]->Disable();
-                g_main_portrait_slot_views[index]->DisableInput();
+            if (g_main_input) {
+                DisableMainGamePortraitSlot(index);
                 g_main_input->edge_targets[index]->setEnabled(false);
             }
         }

@@ -42,10 +42,10 @@ public:
 
 protected:
     GenericButtonImage m_edge_image; /* 0x56 generic-button-image resource */
-    W8ButtonWidget m_message_button;
-    W8ButtonWidget m_confirm_button;
+    W8ButtonWidget m_message_button{InputLayer()};
+    W8ButtonWidget m_confirm_button{InputLayer()};
     unsigned char unknown_064[0x10];
-    W8ButtonWidget m_cancel_button;
+    W8ButtonWidget m_cancel_button{InputLayer()};
     unsigned char unknown_07c[0x10];
     std::vector<std::string> m_lines;
     unsigned int m_line_count;

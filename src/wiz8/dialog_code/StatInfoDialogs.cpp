@@ -89,8 +89,8 @@ void W8StatInfoDialogBase::Draw()
         W8DialogBase::Draw();
         DrawTitle();
     }
-    textarea.Draw(false);
-    scrollbar.Draw(false);
+    textarea.Draw(GetFrameBufferSurface(), false);
+    scrollbar.Draw(GetFrameBufferSurface(), false);
     button.Draw(GetFrameBufferSurface());
 }
 

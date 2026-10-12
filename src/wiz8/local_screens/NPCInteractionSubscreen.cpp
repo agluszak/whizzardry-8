@@ -3627,7 +3627,7 @@ void DrainNpcDialogueDeferralInput(void)
         return;
     }
     SGPMouseGetPos(&mouse);
-    UpdateRegionMousePosition(mouse.x, mouse.y);
+    UpdateUiPointer(mouse.x, mouse.y);
     while (DequeueEvent(&input) == 1) {
         if (input.type == InputEventType::KeyDown) {
             if (input.key == VK_ESCAPE) {
@@ -4188,7 +4188,7 @@ void FlushInputWhileWorldCursorGate(void)
         return;
     }
     SGPMouseGetPos(&mouse);
-    UpdateRegionMousePosition(mouse.x, mouse.y);
+    UpdateUiPointer(mouse.x, mouse.y);
     while (DequeueEvent(&input) == 1) {
     }
 }
