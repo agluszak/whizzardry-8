@@ -109,7 +109,7 @@ void FlushDeferredSkillNotices(void)
             have_line = true;
             if (count == 8) {
                 extra.count = 8;
-                AddTextMessageBoxLine(W8_NPC_MSG_SKILL_NOTICES, std::move(text), extra);
+                QueueNpcPortraitMessage(std::move(text), extra);
                 count = 0;
                 length = 0;
                 have_line = false;
@@ -120,7 +120,7 @@ void FlushDeferredSkillNotices(void)
     }
     if (have_line) {
         extra.count = static_cast<signed char>(count);
-        AddTextMessageBoxLine(W8_NPC_MSG_SKILL_NOTICES, std::move(text), extra);
+        QueueNpcPortraitMessage(std::move(text), extra);
     }
     for (slot = 0; slot < 8; ++slot) {
         memset(&gXStatus.monster_manager_entries[slot].skill_notice_pending[0], 0, W8_SKILL_COUNT);
@@ -674,7 +674,7 @@ void PracticeCharacterSkill(W8Character* character, W8Skill skill_id, int usage_
                     extra.count = 1;
                     extra.party_slots[0] = static_cast<signed char>(slot);
                     extra.skills[0] = static_cast<signed char>(skill_id);
-                    AddTextMessageBoxLine(W8_NPC_MSG_SKILL_NOTICES, std::move(text), extra);
+                    QueueNpcPortraitMessage(std::move(text), extra);
                     return;
                 }
                 gXStatus.monster_manager_entries[slot].skill_notice_pending[skill_id] = true;

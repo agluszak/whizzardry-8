@@ -275,9 +275,9 @@ void RefreshLevelUpReadyNotices(void)
                         text += " ";
                         text = fmt::sprintf(g_localized_strings[0x773], text);
                         *ready_flag = 1;
-                        AddTextMessageBoxLine(W8_NPC_MSG_LEVEL_UP, std::move(text),
+                        QueueNpcPortraitMessage(std::move(text),
                                               W8LevelUpNotice{party_slot});
-                        QueueNpcMessageLine(W8_NPC_MSG_PARTY_MEMBER_EVENT, party_slot);
+                        QueueNpcAction(W8NpcLevelUpReaction{party_slot});
                     } else {
                         *ready_flag = 1;
                     }
@@ -1210,7 +1210,7 @@ void AwardPartyExperience(int amount, int alternate_message)
         }
     }
     auto text = fmt::sprintf(g_localized_strings[alternate_message ? 0x231 : 0x232], amount);
-    AddTextMessageBoxLine(W8_NPC_MSG_PORTRAIT_EXTRA, std::move(text),
+    QueueNpcPortraitMessage(std::move(text),
                           W8ExperienceNoticePayload{static_cast<unsigned int>(amount),
                                                     static_cast<unsigned char>(alternate_message)});
 }

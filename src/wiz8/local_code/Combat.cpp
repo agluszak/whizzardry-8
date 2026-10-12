@@ -408,8 +408,8 @@ bool QueueNpcCombatScript(void)
         if (hostile_group_present && CanPlaceNpcNearParty(slot)) {
             BeginScriptedWorldAction();
             ShowString(fmt::format("{} {}", npc->record->source_name, g_localized_strings[0x272]));
-            QueueNpcMessageLine(W8_NPC_MSG_PARTY_SLOT_EVENT_18, slot);
-            QueueNpcMessageLine(W8_NPC_MSG_CLEAR_NPC_COMBAT, slot);
+            QueueNpcAction(W8NpcPartyScriptLine{slot});
+            QueueNpcAction(W8NpcLeaveCombat{slot});
             g_combat_state->npc_combat_script_pending[slot] = true;
             return true;
         }
