@@ -108,7 +108,7 @@ void W8DialogTextEntry::Draw(bool force)
         remaining.remove_prefix(end + 1);
     }
     InvalidateRegion(m_layoutBounds.left, m_layoutBounds.top, m_layoutBounds.right,
-                     m_layoutBounds.bottom, 0);
+                     m_layoutBounds.bottom);
     m_geometryDirty = false;
 }
 

@@ -328,7 +328,7 @@ void W8PartySelectionListControl::Redraw(bool full_redraw)
         int right = m_pPanel->m_bounds.left + m_right;
         int bottom = m_pPanel->m_bounds.top + m_bottom;
 
-        InvalidateRegion(left, top, right, bottom, 0);
+        InvalidateRegion(left, top, right, bottom);
         CatalogArtwork::Load(0x1b6, 0).drawRect(GetFrameBufferSurface(), SDL_Rect{0, 0, (right) - (left), (bottom) - (top)}, left, top);
         SDL_Rect clip{left, top, right - left, bottom - top};
         ScopedClipRect clipping(GetFrameBufferSurface(), clip);
@@ -944,7 +944,7 @@ void W8PartySelectionCharacterSummaryPanel::Redraw()
 
     CatalogArtwork::Load(0xfc, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0x7f, 0xc5);
     CatalogArtwork::Load(0x1b6, 0).drawRect(GetFrameBufferSurface(), SDL_Rect{0, 0, (0x139) - (0x85), (0xc0) - (0x30)}, 0x85, 0x30);
-    InvalidateRegion(0x85, 0x30, 0x139, 0xc0, 0);
+    InvalidateRegion(0x85, 0x30, 0x139, 0xc0);
     if (!m_character) {
         return;
     }

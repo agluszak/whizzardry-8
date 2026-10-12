@@ -692,7 +692,7 @@ void DrawCampHeader(void)
 
     if (state->header_mode != W8_CAMP_HEADER_SUMMARY) {
         if ((state->redraw_flags & 0x7ff) != 0) {
-            InvalidateRegion(0, 0, 0x136, 0xa5, 0);
+            InvalidateRegion(0, 0, 0x136, 0xa5);
             const SDL_Rect bounds{0, 0, 0x136, 0xa5};
             SDL_FillSurfaceRect(&GetFrameBufferSurface(), &bounds, 0x8000);
             CatalogArtwork::Load(0x123, 0).draw(GetFrameBufferSurface(), 0, 0, 0);
@@ -724,7 +724,7 @@ void DrawCampHeader(void)
     }
 
     if ((state->redraw_flags & 0x400) != 0) {
-        InvalidateRegion(0, 0, 0x136, 0xa5, 0);
+        InvalidateRegion(0, 0, 0x136, 0xa5);
         const SDL_Rect bounds{0, 0, 0x136, 0xa5};
         SDL_FillSurfaceRect(&GetFrameBufferSurface(), &bounds, 0x8000);
         CatalogArtwork::Load(0x10f, 0).draw(GetFrameBufferSurface(), 0, 0, 0);
@@ -755,7 +755,7 @@ void DrawCampHeader(void)
             CatalogArtwork::Load(character->enchantment_top + 0xc9, 0).draw(GetFrameBufferSurface(), 0, 0xee, 0xe);
             CatalogArtwork::Load(0x61, 0).draw(GetFrameBufferSurface(), 0, 0xed, 0xd);
         }
-        InvalidateRegion(0xa4, 0xc, 0xfe, 0x54, 1);
+        InvalidateRegion(0xa4, 0xc, 0xfe, 0x54);
         DrawCampVitals();
         DrawCampHands();
     }
@@ -827,7 +827,7 @@ void DrawCampHeader(void)
                     CatalogArtwork::Load(0x117, 0).draw(GetFrameBufferSurface(), 1, left, top);
                 }
             }
-            InvalidateRegion(left, top, band_x + 0x33, band_y + 0x29, 0);
+            InvalidateRegion(left, top, band_x + 0x33, band_y + 0x29);
         }
     }
 }
@@ -949,7 +949,7 @@ void DrawCampVitals(void)
         formatted = fmt::format("{:d}", g_review_character->hp_current);
         text->RenderString(formatted, g_smfnt_font, false, GetFrameBufferSurface());
     }
-    InvalidateRegion(0x10c, bar_top, g_camp_item_action_regions->index(0), frame_column + 0x38, 0);
+    InvalidateRegion(0x10c, bar_top, g_camp_item_action_regions->index(0), frame_column + 0x38);
     delete text;
 }
 
@@ -1008,7 +1008,7 @@ void DrawCampHands(void)
     g_smfnt_font.setPalette(palette);
     DrawText(GetFrameBufferSurface(), g_smfnt_font,
              {(0xd - g_smfnt_font.textWidth(text)) / 2 + 0x84, 0xe}, text);
-    InvalidateRegion(0x81, 0xb, 0x95, 0x53, 0);
+    InvalidateRegion(0x81, 0xb, 0x95, 0x53);
 }
 
 /* The shared bottom panel the five page buttons and the eight item-action

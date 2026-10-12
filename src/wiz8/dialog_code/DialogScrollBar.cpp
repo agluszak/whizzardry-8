@@ -117,7 +117,7 @@ void W8DialogScrollBar::Draw(bool force)
         m_thumb_button.Draw();
         InvalidateRegion(m_track_button.GetX(), m_track_button.GetY(),
                          m_track_button.GetX() + m_track_button.GetWidth(),
-                         m_track_button.GetY() + m_track_button.GetHeight(), 0);
+                         m_track_button.GetY() + m_track_button.GetHeight());
         m_dirty = false;
     }
 }

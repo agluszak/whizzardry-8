@@ -756,7 +756,7 @@ void DrawCampBackpackItems(void)
         if ((state->item_redraw_flags & (W8_CAMP_ITEM_REDRAW_BACKPACK_CELL_FIRST << slot)) == 0) {
             continue;
         }
-        InvalidateRegion(left, top, right, bottom, 0);
+        InvalidateRegion(left, top, right, bottom);
         item_id = character->backpack[slot].iItemNo;
         if (item_id == -1 || CanCharacterUseItem(character, item_id)) {
             CatalogArtwork::Load(0x1b6, 0).drawRect(GetFrameBufferSurface(), SDL_Rect{0, 0, (right) - (left), (bottom) - (top)}, left, top);
@@ -805,7 +805,7 @@ void DrawCampEquipmentItems(void)
         }
         region = &g_camp_screen_regions[slot];
         InvalidateRegion(region->x, region->y, region->x + region->width,
-                         region->y + region->height, 0);
+                         region->y + region->height);
         CatalogArtwork::Load(0x1b6, 0).drawRect(GetFrameBufferSurface(), SDL_Rect{0, 0, (region->x + region->width) - (region->x), (region->y + region->height) - (region->y)}, region->x, region->y);
         item_id = character->EquippedItem[slot].iItemNo;
         if (item_id == -1) {
@@ -931,7 +931,7 @@ void DrawCampItemPool(void)
         if ((state->item_redraw_flags & (W8_CAMP_ITEM_REDRAW_POOL_CELL_FIRST << i)) == 0) {
             continue;
         }
-        InvalidateRegion(left, top, right, bottom, 0);
+        InvalidateRegion(left, top, right, bottom);
         if (!CanCharacterUseItem(character, item->iItemNo)) {
             CatalogArtwork::Load(0x11a, 0).draw(GetFrameBufferSurface(), 0, left, top);
         } else {
@@ -956,7 +956,7 @@ void DrawCampItemPool(void)
         right = left + 0x2e;
         bottom = top + 0x36;
         if ((state->item_redraw_flags & (W8_CAMP_ITEM_REDRAW_POOL_CELL_FIRST << i)) != 0) {
-            InvalidateRegion(left, top, right, bottom, 0);
+            InvalidateRegion(left, top, right, bottom);
             CatalogArtwork::Load(0x1b6, 0).drawRect(
                 GetFrameBufferSurface(), SDL_Rect{0, 0, (right) - (left), (bottom) - (top)}, left,
                 top);

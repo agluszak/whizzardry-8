@@ -107,7 +107,7 @@ void W8CharacterSpellList::Redraw(bool force)
         int top = m_top + m_pPanel->m_bounds.top;
         int right = m_right + m_pPanel->m_bounds.left;
         int bottom = m_bottom + m_pPanel->m_bounds.top;
-        InvalidateRegion(left, top, right, bottom, 0);
+        InvalidateRegion(left, top, right, bottom);
         CatalogArtwork::Load(0x1b6, 0).drawRect(GetFrameBufferSurface(), SDL_Rect{0, 0, (right) - (left), (bottom) - (top)}, left, top);
         int y = top + 1;
         g_wiz_text_font_secondary.resetPalette();

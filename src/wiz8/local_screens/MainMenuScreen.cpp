@@ -71,7 +71,7 @@ unsigned char DrawMainMenuItem(short item, short state)
     const auto& bounds = main_menu_item_bounds[item];
     if (state >= 0 && static_cast<std::size_t>(state) < main_menu_sprite_objects.size())
         CatalogArtwork::Load(main_menu_sprite_objects[state], 0).draw(GetFrameBufferSurface(), item, 0x98, bounds.top);
-    InvalidateRegion(0x98, bounds.top, 0x1f2, bounds.bottom, 0);
+    InvalidateRegion(0x98, bounds.top, 0x1f2, bounds.bottom);
     return 1;
 }
 

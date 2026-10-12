@@ -112,7 +112,7 @@ void ReleasePartyMovement(void)
 {
     if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
         ClearSurfaceRect(0xb1, 0x13f, 0x1cf, 0x153);
-        InvalidateRegion(0xb1, 0x13f, 0x1cf, 0x153, 0);
+        InvalidateRegion(0xb1, 0x13f, 0x1cf, 0x153);
     }
     RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
     g_party_movement_regions.Disable();
@@ -263,7 +263,7 @@ void DrawPartyMovementGauge(short right, short image, bool panel_live, int capti
         return;
     }
     CatalogArtwork::Load(0x95, 0).drawAndInvalidate(GetFrameBufferSurface(), g_party_movement_animation_frame + frame_base + frame, right - 0xf, 0x142);
-    InvalidateRegion(right - 0xf, 0x142, right - 1, 0x150, 0);
+    InvalidateRegion(right - 0xf, 0x142, right - 1, 0x150);
     if (caption != -1) {
         g_party_movement_caption->RenderString(g_localized_strings[caption], g_wiz_text_font_secondary,
                                                false, GetFrameBufferSurface());

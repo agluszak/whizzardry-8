@@ -409,7 +409,7 @@ void RedrawCombatPortraits(void)
         if (g_settings.main_ui_mode != W8_MAIN_UI_MODE_PORTRAITS &&
             g_level_block->portrait_refresh_pending[slot] == 0) {
             ClearSurfaceRect(portrait_x, row_y + 0x37, portrait_x + 0x14, row_y + 0x58);
-            InvalidateRegion(portrait_x, row_y + 0x37, portrait_x + 0x14, row_y + 0x58, 0);
+            InvalidateRegion(portrait_x, row_y + 0x37, portrait_x + 0x14, row_y + 0x58);
         }
         if (g_level_block->combat_action_hover_party_slot == -1 ||
             g_level_block->combat_action_hover_party_slot != slot) {
@@ -592,7 +592,7 @@ void RedrawPartyPortraitBars(unsigned int party_slot, bool slot_enabled)
         }
 
         InvalidateRegion(band_portrait_edge, bar_y + menu_y, band_portrait_edge + 0x18,
-                         bar_y + menu_y + 0x2d, 0);
+                         bar_y + menu_y + 0x2d);
         if (g_settings.numeric_hit_points != 0) {
             W8TextBuffer text;
             W8ControlsRect bounds;
@@ -605,7 +605,7 @@ void RedrawPartyPortraitBars(unsigned int party_slot, bool slot_enabled)
             text.SetLayoutBounds(&bounds, true, true);
             g_smfnt_font.resetPalette();
             text.SetText(fmt::format("{:d}", character->hp_current), g_smfnt_font);
-            InvalidateRegion(bounds.left, bounds.top + 1, bounds.right, bounds.bottom, 0);
+            InvalidateRegion(bounds.left, bounds.top + 1, bounds.right, bounds.bottom);
             const SDL_Rect background{bounds.left, bounds.top + 1, bounds.right - bounds.left,
                                       bounds.bottom - bounds.top - 1};
             SDL_FillSurfaceRect(&GetFrameBufferSurface(), &background, 0x8000);

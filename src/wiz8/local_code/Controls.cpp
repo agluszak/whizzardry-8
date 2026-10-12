@@ -574,7 +574,7 @@ void W8TextBuffer::FillBounds(int colour)
                         m_layoutBounds.bottom - m_layoutBounds.top};
     SDL_FillSurfaceRect(&GetFrameBufferSurface(), &area, colour);
     InvalidateRegion(m_layoutBounds.left, m_layoutBounds.top, m_layoutBounds.right,
-                     m_layoutBounds.bottom, 0);
+                     m_layoutBounds.bottom);
 }
 
 /* Draw each newline-delimited view without modifying the owned text. */
@@ -661,7 +661,7 @@ void W8TextBuffer::RenderToTarget(int offset, bool force, SDL_Surface& target)
 
     m_font->setPalette(previous_state);
     InvalidateRegion(m_layoutBounds.left, m_layoutBounds.top, m_layoutBounds.right,
-                     m_layoutBounds.bottom, 0);
+                     m_layoutBounds.bottom);
     m_geometryDirty = false;
 }
 
@@ -1624,7 +1624,7 @@ void W8VerticalRangeThumb::Redraw(bool full_redraw)
     int top = m_pPanel->m_bounds.top + m_top;
     int right = m_pPanel->m_bounds.left + m_right;
     int bottom = m_pPanel->m_bounds.top + m_bottom;
-    InvalidateRegion(left, top, right, bottom, 0);
+    InvalidateRegion(left, top, right, bottom);
     const SDL_Rect area{left, top, right - left, bottom - top};
     SDL_FillSurfaceRect(&GetFrameBufferSurface(), &area, 0x8000);
 
@@ -1999,11 +1999,11 @@ void Controls::RedrawControls(bool full_redraw)
     if (full_redraw) {
         if (m_fWholeAreaDirty) {
             if (m_background) {
-                m_background->invalidate(m_backgroundImage, m_bounds.left, m_bounds.top, 2);
+                m_background->invalidate(m_backgroundImage, m_bounds.left, m_bounds.top);
             }
         } else {
             InvalidateRegion(m_dirtyRect.left, m_dirtyRect.top, m_dirtyRect.right,
-                             m_dirtyRect.bottom, 2);
+                             m_dirtyRect.bottom);
         }
         m_fDirty = false;
         m_dirtyRect.left = -1;

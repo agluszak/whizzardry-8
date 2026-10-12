@@ -293,13 +293,13 @@ void DispatchMGSCommand(W8MGSCommand command)
             if (gXStatus.fCombatMode) {
                 ToggleCombatMode();
                 if (!gXStatus.fCombatMode) {
-                    InvalidateRegion(0xa8, 0x16e, 0x1c4, 0x1ba, 0);
+                    InvalidateRegion(0xa8, 0x16e, 0x1c4, 0x1ba);
                     return;
                 }
             }
             ShowMainGameNoticeLine(g_localized_strings[0x779], OnLeaveGameConfirmClosed, true, true);
         }
-        InvalidateRegion(0xa8, 0x16e, 0x1c4, 0x1ba, 0);
+        InvalidateRegion(0xa8, 0x16e, 0x1c4, 0x1ba);
         break;
     case W8_MGS_COMMAND_QUIT_GAME:
         ShowMainGameNoticeLine(g_localized_strings[0x832], OnQuitGameDialogClosed, true, true);
@@ -754,7 +754,7 @@ void CloseKeyboardMenu(void)
                          g_keyboard_menu_panel->m_bounds.top + 0x4a);
         InvalidateRegion(g_keyboard_menu_panel->m_bounds.left, g_keyboard_menu_panel->m_bounds.top,
                          g_keyboard_menu_panel->m_bounds.left + 0x52,
-                         g_keyboard_menu_panel->m_bounds.top + 0x4a, 0);
+                         g_keyboard_menu_panel->m_bounds.top + 0x4a);
     }
     g_keyboard_menu_panel.reset();
     for (auto& row : g_keyboard_menu_rows) row = nullptr;

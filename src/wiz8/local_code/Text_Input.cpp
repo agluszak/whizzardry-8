@@ -694,7 +694,7 @@ void TextFieldGroup::RenderBackground(W8TextField& field)
     if (field.use_inactive_color && &field != focused_) colour = style_.inactive_field_color;
     const SDL_Rect area{left, top, right - left, bottom - top};
     SDL_FillSurfaceRect(&GetFrameBufferSurface(), &area, colour);
-    InvalidateRegion(left, top, right, bottom, 0);
+    InvalidateRegion(left, top, right, bottom);
 }
 
 namespace {

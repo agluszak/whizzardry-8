@@ -573,7 +573,7 @@ void W8LockTumbler::Redraw(bool full_redraw)
     right = m_right + m_pPanel->m_bounds.left;
     top = m_top + m_pPanel->m_bounds.top;
     bottom = m_bottom + m_pPanel->m_bounds.top;
-    InvalidateRegion(left - 3, top, right + 3, bottom, 0);
+    InvalidateRegion(left - 3, top, right + 3, bottom);
     const SDL_Rect top_fill{left, top, right - left, 0x24};
     const SDL_Rect bottom_fill{left - 3, top + 0x24, right - left + 6, bottom - top - 0x24};
     SDL_FillSurfaceRect(&GetFrameBufferSurface(), &top_fill, 0x8000);
@@ -1321,7 +1321,7 @@ void W8MainGameTextKeyHandler::Redraw(bool full_redraw)
     top = m_pPanel->m_bounds.top + m_top;
     right = m_pPanel->m_bounds.left + m_right;
     bottom = m_pPanel->m_bounds.top + m_bottom;
-    InvalidateRegion(left, top, right, bottom, 0);
+    InvalidateRegion(left, top, right, bottom);
     CatalogArtwork::Load(0x1b6, 0).drawRect(GetFrameBufferSurface(), SDL_Rect{0, 0, (right) - (left), (bottom) - (top)}, left, top);
     last = m_first_visible_line + m_visible_lines;
     left += 2;
@@ -1605,7 +1605,7 @@ void W8MainGameTextPanel::Redraw()
         if (progress > m_progress_drawn) {
             m_progress_drawn = progress;
             InvalidateRegion(m_text_bounds.left, m_text_bounds.top, m_text_bounds.right,
-                             m_text_bounds.bottom, 0);
+                             m_text_bounds.bottom);
             auto& framebuffer = GetFrameBufferSurface();
             SDL_GetSurfaceClipRect(&framebuffer, &clip);
             clip.h = (m_text_bounds.left + m_progress_drawn) - clip.y;
@@ -2475,7 +2475,7 @@ void W8NpcDialogueTextController::Collapse()
     top = (m_bounds.top - (scroll_height / line_height) * line_height) - margin;
     ClearSurfaceRect(m_bounds.left, top, m_bounds.right, m_bounds.bottom);
     Invalidate(0);
-    InvalidateRegion(m_bounds.left, top, m_bounds.right, m_bounds.bottom, 0);
+    InvalidateRegion(m_bounds.left, top, m_bounds.right, m_bounds.bottom);
     if (top < 0x67) {
         RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_1);
         RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_3);
@@ -2541,7 +2541,7 @@ void W8NpcDialogueTextController::ClearBackground()
 
     top = ((1 - scroll_height / line_height) * line_height - margin) + m_bounds.top;
     ClearSurfaceRect(m_bounds.left, top, m_bounds.right, m_bounds.bottom);
-    InvalidateRegion(m_bounds.left, top, m_bounds.right, m_bounds.bottom, 0);
+    InvalidateRegion(m_bounds.left, top, m_bounds.right, m_bounds.bottom);
     if (top < 0x67) {
         RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_1);
         RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_3);
@@ -3701,7 +3701,7 @@ void ApplyMainGameRedrawFlags(void)
                                        g_level_block->portrait_refresh_pending[party_slot] == 0);
             if (g_level_block->portrait_refresh_pending[party_slot] != 0) {
                 InvalidateRegion(portrait_rect->left, portrait_rect->top, portrait_rect->right,
-                                 portrait_rect->bottom, 1);
+                                 portrait_rect->bottom);
             }
             if (gXStatus.monster_manager_entries[party_slot].keyboard_menu_open) {
                 RedrawKeyboardMenuPanel(true);
@@ -3711,7 +3711,7 @@ void ApplyMainGameRedrawFlags(void)
     if ((g_level_block->redraw_flags & W8_MAIN_REDRAW_LAYOUT) != 0) {
         RedrawLayoutArrowButtons();
         CatalogArtwork::Load(0x7e, 0).drawAndInvalidate(GetFrameBufferSurface(), 1, 0x269, 0x166);
-        InvalidateRegion(0x269, 0x166, 0x27f, 0x1c1, 0);
+        InvalidateRegion(0x269, 0x166, 0x27f, 0x1c1);
     }
     if (gXStatus.fSpellCastMode) {
         if ((g_level_block->redraw_flags & W8_MAIN_REDRAW_TEXT_BOX) != 0) {
@@ -4006,7 +4006,7 @@ void RedrawCombatMonsterList(void)
         unsigned int clear_bottom = g_level_block->group_list_rows * 0xb + 0x1a;
         int clear_right = g_level_block->group_list_width + 0xfb;
         ClearSurfaceRect(0xfa, 0x19, clear_right, clear_bottom);
-        InvalidateRegion(0xfa, 0x19, clear_right, clear_bottom, 1);
+        InvalidateRegion(0xfa, 0x19, clear_right, clear_bottom);
     }
     if (gXStatus.active_monster_count != 0) {
         group_list_index = 0;
@@ -4208,7 +4208,7 @@ void RefreshSelectedPartyPortrait(unsigned int party_slot)
                          g_level_block->dialogue_y + g_level_block->dialogue_height);
         InvalidateRegion(g_level_block->dialogue_x, g_level_block->dialogue_y,
                          g_level_block->dialogue_x + g_level_block->dialogue_width,
-                         g_level_block->dialogue_y + g_level_block->dialogue_height, 0);
+                         g_level_block->dialogue_y + g_level_block->dialogue_height);
     }
 
     g_main_game_mode = W8_MAIN_GAME_PORTRAIT_REFRESH;
@@ -4382,7 +4382,7 @@ void DrawHighlightOverlay(unsigned int party_slot, int row_count, unsigned int m
                                 g_level_block->highlight_row * 0x12);
     InvalidateRegion(g_level_block->dialogue_x, g_level_block->dialogue_y,
                      g_level_block->dialogue_x + g_level_block->dialogue_width,
-                     g_level_block->dialogue_y + g_level_block->dialogue_height, 1);
+                     g_level_block->dialogue_y + g_level_block->dialogue_height);
 }
 
 static void BeginPortraitOverlay(unsigned int party_slot, int row_count, unsigned int width)
@@ -4846,7 +4846,7 @@ void ApplySavedRedrawInvalidates(void)
                 right -= delta;
             }
         }
-        InvalidateRegion(left, top, right + 1, bottom + 1, 1);
+        InvalidateRegion(left, top, right + 1, bottom + 1);
     }
 }
 
@@ -5090,7 +5090,7 @@ void ClearPortraitRefreshSlot(int slot)
         g_level_block->portrait_refresh_image[slot] = 0;
         row = &g_main_game_invalidate_rects[slot];
         ClearSurfaceRect(row->left - 1, row->top, row->right + 1, row->bottom);
-        InvalidateRegion(row->left - 1, row->top, row->right + 1, row->bottom, 1);
+        InvalidateRegion(row->left - 1, row->top, row->right + 1, row->bottom);
         RequestRedraw(1 << (slot & 0x1f));
         (*g_main_portrait_edge_regions)[slot].SetInputEnabled(true);
         DisableMainGamePortraitSlot(slot);
@@ -7161,7 +7161,7 @@ void ResumeMainGameWorld(void)
                 UpdatePartyMovementPanel();
             }
             ClearSurfaceRect(0xb1, 0x13f, 0x1cf, 0x153);
-            InvalidateRegion(0xb1, 0x13f, 0x1cf, 0x153, 0);
+            InvalidateRegion(0xb1, 0x13f, 0x1cf, 0x153);
             RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
         }
     }
@@ -7303,7 +7303,7 @@ void ClearHighlightOverlayRegion(void)
                          g_level_block->dialogue_y + g_level_block->dialogue_height);
         InvalidateRegion(g_level_block->dialogue_x, g_level_block->dialogue_y,
                          g_level_block->dialogue_x + g_level_block->dialogue_width,
-                         g_level_block->dialogue_y + g_level_block->dialogue_height, 0);
+                         g_level_block->dialogue_y + g_level_block->dialogue_height);
         if (g_level_block->dialogue_y <
             static_cast<unsigned int>(g_viewport_modes[g_level_block->camera_mode].top)) {
             RequestRedrawCombatBar();

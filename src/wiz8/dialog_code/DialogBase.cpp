@@ -38,7 +38,7 @@ void W8DialogBase::ScrollTextArea(W8DialogTextArea& area, int first_visible_line
     top += m_y;
     int right = left + width;
     int bottom = top + height;
-    InvalidateRegion(left, top, right, bottom, 0);
+    InvalidateRegion(left, top, right, bottom);
     CatalogArtwork::Load(0x1b6, 0).drawRect(GetFrameBufferSurface(), SDL_Rect{0, 0, (right) - (left), (bottom) - (top)}, left, top);
     area.m_dirty = true;
 }
@@ -91,7 +91,7 @@ void W8DialogBase::Draw()
         }
         m_resource.m_dirty = true;
         m_resource.Draw();
-        InvalidateRegion(m_x, m_y, m_x + m_width, m_y + m_height, 1);
+        InvalidateRegion(m_x, m_y, m_x + m_width, m_y + m_height);
     }
     m_dirty_flags &= ~W8_DIALOG_DIRTY_REDRAW;
 }
@@ -120,7 +120,7 @@ void W8DialogBase::SetExtent(int width, int height)
     if (m_width != width || m_height != height) {
         if (m_initialized && m_width > 0 && m_height > 0) {
             ClearSurfaceRect(m_x, m_y, m_x + m_width + 1, m_y + m_height + 1);
-            InvalidateRegion(m_x, m_y, m_x + m_width + 1, m_y + m_height + 1, 1);
+            InvalidateRegion(m_x, m_y, m_x + m_width + 1, m_y + m_height + 1);
         }
         m_width = width;
         m_height = height;
@@ -180,7 +180,7 @@ void W8DialogBase::DestroyControls()
     m_background_flags = 0;
     if (m_initialized && m_x >= 0 && m_y >= 0 && m_width >= 0 && m_height >= 0) {
         ClearSurfaceRect(m_x, m_y, m_x + m_width + 1, m_y + m_height + 1);
-        InvalidateRegion(m_x, m_y, m_x + m_width + 1, m_y + m_height + 1, 1);
+        InvalidateRegion(m_x, m_y, m_x + m_width + 1, m_y + m_height + 1);
     }
     m_initialized = false;
 }

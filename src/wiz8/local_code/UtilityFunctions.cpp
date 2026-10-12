@@ -575,7 +575,7 @@ bool CreateMessageBox(std::string_view text, Font& font, unsigned int shade, boo
     message_box.callback = callback;
     message_box.input_scope.emplace(ControlRegionSetIndex());
     const auto bounds = MessageBoxBounds(message_box);
-    InvalidateRegion(bounds.x, bounds.y, bounds.x + bounds.w, bounds.y + bounds.h, 0x11);
+    InvalidateRegion(bounds.x, bounds.y, bounds.x + bounds.w, bounds.y + bounds.h);
     return true;
 }
 
@@ -591,7 +591,7 @@ static void ReleaseMessageBoxControls()
     message_box.background.Reset();
     if (bounds.w > 0 && bounds.h > 0) {
         ClearSurfaceRect(bounds.x, bounds.y, bounds.x + bounds.w, bounds.y + bounds.h);
-        InvalidateRegion(bounds.x, bounds.y, bounds.x + bounds.w, bounds.y + bounds.h, 1);
+        InvalidateRegion(bounds.x, bounds.y, bounds.x + bounds.w, bounds.y + bounds.h);
     }
 }
 

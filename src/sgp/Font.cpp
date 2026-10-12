@@ -239,8 +239,7 @@ void DrawTextAndInvalidate(SDL_Surface& target, Font& font, SDL_Point at,
                            std::string_view text, TextOptions options)
 {
     DrawText(target, font, at, text, options);
-    InvalidateRegion(at.x, at.y, at.x + font.textWidth(text), at.y + font.height(),
-                     INVAL_SRC_TRANS);
+    InvalidateRegion(at.x, at.y, at.x + font.textWidth(text), at.y + font.height());
 }
 
 void ConfigureFontRendering(const std::vector<std::uint16_t>& translation)
