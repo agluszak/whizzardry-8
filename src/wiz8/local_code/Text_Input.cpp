@@ -48,7 +48,7 @@ public:
     }
     ~W8TextField()
     {
-        if (g_captured_region_index == region.index()) g_captured_region_index = 0;
+        g_ui.ReleaseCapture(region.index());
     }
     W8TextField(const W8TextField&) = delete;
     W8TextField& operator=(const W8TextField&) = delete;
@@ -134,10 +134,6 @@ public:
     OwnedRegion region;
 };
 
-namespace {
-TextFieldGroup* g_focused_group = nullptr;
-}
-
 int W8TextField::HandleRegionInput(W8Region& target, const InputEvent& event)
 {
     switch (event.type) {
@@ -145,11 +141,11 @@ int W8TextField::HandleRegionInput(W8Region& target, const InputEvent& event)
         MouseMoved(RegionReasonForInput(target, event), event.position.x, event.buttons);
         return 1;
     case InputEventType::LeftButtonDown:
-        g_captured_region_index = region.index();
+        g_ui.captured = region.index();
         MouseClicked(RegionReasonForInput(target, event), event.position.x, event.buttons);
         return 1;
     case InputEventType::LeftButtonUp:
-        if (g_captured_region_index == region.index()) g_captured_region_index = 0;
+        g_ui.ReleaseCapture(region.index());
         MouseClicked(RegionReasonForInput(target, event), event.position.x, event.buttons);
         return 1;
     case InputEventType::LeftButtonDoubleClick:
@@ -214,12 +210,12 @@ void W8TextField::MouseClicked(int reason, int mouse_x, SDL_MouseButtonFlags but
     }
 }
 
-TextFieldGroup::TextFieldGroup(Font& font) : previous_(g_focused_group)
+TextFieldGroup::TextFieldGroup(Font& font) : previous_(g_ui.focus)
 {
     style_.font = &font;
     style_.cursor_color = Get16BPPColor(SDL_Color{10, 10, 10, SDL_ALPHA_OPAQUE});
     if (previous_) previous_->Suspend();
-    g_focused_group = this;
+    g_ui.focus = this;
     SetNativeTextInputEnabled(false);
 }
 
@@ -234,15 +230,15 @@ TextFieldGroup::~TextFieldGroup()
 {
     focused_ = suspended_focus_ = nullptr;
     fields_.clear();
-    if (g_focused_group == this) {
-        g_focused_group = previous_;
+    if (g_ui.focus == this) {
+        g_ui.focus = previous_;
         if (previous_)
             previous_->Resume();
         else
             SetNativeTextInputEnabled(false);
         return;
     }
-    for (auto* group = g_focused_group; group; group = group->previous_) {
+    for (auto* group = g_ui.focus; group; group = group->previous_) {
         if (group->previous_ == this) {
             group->previous_ = previous_;
             break;
@@ -250,7 +246,7 @@ TextFieldGroup::~TextFieldGroup()
     }
 }
 
-TextFieldGroup* TextFieldGroup::Focused() { return g_focused_group; }
+TextFieldGroup* TextFieldGroup::Focused() { return g_ui.focus; }
 
 void TextFieldGroup::Suspend()
 {

@@ -292,6 +292,42 @@ private:
 
 unsigned char InitializeRegionHelpState(void);
 
+class TextFieldGroup;
+
+/* A modal scope on the routing stack; a scope whose set slot was destroyed
+   and reused is detected through the set's sequence. */
+struct ModalScope {
+    ExclusiveRegionSet* scope;
+    unsigned int set_index;
+    std::uint64_t sequence;
+};
+
+/* The one owner of UI input routing state. The innermost modal scope is the
+   active tree and the scopes beneath it are suspended (their pointer state is
+   saved by ExclusiveRegionSet); without a scope the screen's sets are active. */
+struct UiRoutingState {
+    unsigned int current = 0;  /* region under the pointer */
+    unsigned int hover = 0;    /* region that received the last enter */
+    unsigned int captured = 0; /* region holding pointer capture */
+    SDL_Point pointer{};
+    TextFieldGroup* focus = nullptr; /* text-field group holding keyboard focus */
+    std::vector<ModalScope> modal_scopes;
+
+    void ReleaseCapture(unsigned int region)
+    {
+        if (captured == region) captured = 0;
+    }
+    void Forget(unsigned int region)
+    {
+        if (current == region) current = 0;
+        if (hover == region) hover = 0;
+        ReleaseCapture(region);
+    }
+    void ClearPointer() { current = hover = captured = 0; }
+};
+
+extern UiRoutingState g_ui;
+
 /* Text-box static-catalog callbacks, implemented in Local
    Screens\MGSTextBox.cpp. */
 unsigned char TextBoxScrollUpRegionEvent(const InputEvent*, W8Region*, unsigned short);    /* 0x0058E2A0 */
@@ -305,9 +341,6 @@ extern std::deque<W8RegionSet> g_region_sets;
 extern std::deque<W8Region> g_regions;
 extern int g_region_help_delay;
 extern std::uint64_t g_region_help_clock;
-extern unsigned int g_current_region_index;
-extern unsigned int g_captured_region_index;
-extern unsigned int g_hover_region_index;
 extern bool g_region_help_force_enabled;
 extern std::string g_default_help_text;
 
