@@ -32,7 +32,6 @@
 #include "wiz8/filesystem.h"
 #include "soundman.h"
 #include "wiz8/local_code/NPCManager.h"
-#include "compat/compiler.h"
 #include "compat/native.h"
 #include "layouts/levels.h"
 

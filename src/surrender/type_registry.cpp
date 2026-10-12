@@ -11,7 +11,6 @@
 
 #include "surrender/srTypeRegistry.h"
 #include "surrender/srDebug.h"
-#include "compat/compiler.h"
 #include "surrender/srCore.h"
 
 #define SRRUNTIMECLASS_CPP "srRuntimeClass.cpp"

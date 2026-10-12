@@ -5,7 +5,6 @@
 
 #include "wiz8/engine_code/World.h"
 #include "surrender/srScene.h"
-#include "compat/compiler.h"
 #include "layouts/world.h"
 #include "surrender/srNode.h"
 

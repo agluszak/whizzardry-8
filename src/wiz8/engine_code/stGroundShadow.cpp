@@ -20,7 +20,6 @@
 #include "surrender/srStatisticsManager.h"
 #include "surrender/srTexture.h"
 #include "surrender/srVertexPipe.h"
-#include "compat/compiler.h"
 #include "glm/ext/vector_float2.hpp"
 #include "surrender/srGERD.h"
 #include "surrender/mesh_submission.h"

@@ -12,7 +12,6 @@
 #include "surrender/srBoundingBox.h"
 #include "surrender/swept_bounds.h"
 
-#include "compat/compiler.h"
 #include "wiz8/engine_code/OctBuildTree.h"
 #include "wiz8/engine_code/oct_build_traversal.h"
 #include "wiz8/engine_code/GameData.h"

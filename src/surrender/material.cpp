@@ -7,7 +7,6 @@
 #include "surrender/stream_scope.h"
 #include "surrender/srCore.h"
 #include "surrender/srDebug.h"
-#include "compat/compiler.h"
 #include "glm/ext/vector_float4.hpp"
 #include "surrender/srFlags.h"
 #include "surrender/srMaterialIFace.h"

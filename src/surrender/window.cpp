@@ -2,7 +2,6 @@
 #include <SDL3/SDL_video.h>
 
 #include "surrender/srWindow.h"
-#include "compat/compiler.h"
 
 /* Native window handles are SDL_Window pointers carried as unsigned long. */
 namespace {

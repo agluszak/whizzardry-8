@@ -4,7 +4,6 @@
 #include <optional>
 #include <string>
 
-#include "compat/compiler.h"
 #include "wiz8/bink_video.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/engine_code/Video2.h"

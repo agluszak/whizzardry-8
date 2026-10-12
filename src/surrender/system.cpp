@@ -12,7 +12,6 @@
 
 #include "surrender/srSystem.h"
 #include "wiz8/filesystem.h"
-#include "compat/compiler.h"
 
 std::int32_t srSystem::scanFiles(std::vector<std::string>& files, const char* path)
 {

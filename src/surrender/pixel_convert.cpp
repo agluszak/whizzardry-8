@@ -21,7 +21,6 @@
 #include "surrender/srARGB.h"
 #include "surrender/srMath.h"
 #include "surrender/srPalette.h"
-#include "compat/compiler.h"
 #include "compat/native.h"
 
 /* Conversion routines stored in the format table. The generic pair is

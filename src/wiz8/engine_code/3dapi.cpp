@@ -10,7 +10,6 @@
 #include <memory>
 #include <string>
 
-#include "compat/compiler.h"
 #include "wiz8/containers.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/3dapi.h"

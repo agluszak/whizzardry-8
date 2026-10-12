@@ -5,7 +5,6 @@
 #include <vector>
 #include <span>
 #include "surrender/triangle_selection.h"
-#include "compat/compiler.h"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include <catch2/catch_test_macros.hpp>

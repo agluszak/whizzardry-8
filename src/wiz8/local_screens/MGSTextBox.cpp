@@ -50,7 +50,6 @@
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/OctPath.h"
 #include "wiz8/fonts.h"
-#include "compat/compiler.h"
 #include "compat/native.h"
 #include "dialog_code/DialogBase.h"
 #include "game_timer.h"

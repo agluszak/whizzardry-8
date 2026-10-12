@@ -10,7 +10,6 @@
 
 #include "surrender/srDebug.h"
 #include "surrender/srCore.h"
-#include "compat/compiler.h"
 #include "compat/native.h"
 
 void srDumpFlags(std::ostream& stream, std::uint32_t flags, const char* names)

@@ -48,7 +48,6 @@
 #include "LevelFile.h"
 #include "ReadMesh.h"
 #include "application.h"
-#include "compat/compiler.h"
 #include "compat/native.h"
 #include "environment_colour.h"
 #include "glm/ext/matrix_float3x3.hpp"

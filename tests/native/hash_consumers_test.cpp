@@ -9,7 +9,6 @@
 #include "surrender/srHuffman.h"
 #include "surrender/srGERD.h"
 #include "surrender/srCore.h"
-#include "compat/compiler.h"
 #include "surrender/srIO.h"
 #include "surrender/srShader.h"
 #include "surrender/srTexture.h"

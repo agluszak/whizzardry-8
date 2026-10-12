@@ -11,7 +11,6 @@
 #include "surrender/stream_scope.h"
 #include "surrender/srColorSurfaceIFace.h"
 #include "surrender/srImageIO.h"
-#include "compat/compiler.h"
 #include "surrender/srARGB.h"
 #include "surrender/srTypeRegistry.h"
 

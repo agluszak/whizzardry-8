@@ -14,7 +14,6 @@
 
 #include "surrender/srSerialization.h"
 #include "surrender/srHuffman.h"
-#include "compat/compiler.h"
 #include "surrender/srIO.h"
 #include "surrender/srQuadWord.h"
 

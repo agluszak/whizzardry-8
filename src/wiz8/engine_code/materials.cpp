@@ -28,7 +28,6 @@
 #include <utility>
 #include <vector>
 
-#include "compat/compiler.h"
 #include "glm/geometric.hpp" // NOLINT(misc-include-cleaner)
 #include "himage.h"
 #include "surrender/srTypeRegistry.h"

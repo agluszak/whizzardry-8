@@ -12,7 +12,6 @@
 #include <memory>
 #include <utility>
 
-#include "compat/compiler.h"
 #include "wiz8/surface_storage.h"
 #include "wiz8/unicode.h"
 #include "surrender/srBoundingBox.h"

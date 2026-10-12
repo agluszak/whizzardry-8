@@ -51,7 +51,6 @@
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/utility.h"
-#include "wiz8/compat/compiler.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/engine_code/Video2.h"
 #include "Font.h"

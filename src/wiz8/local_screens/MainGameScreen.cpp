@@ -20,7 +20,6 @@
 #include <optional>
 #include <utility>
 
-#include "compat/compiler.h"
 #include "layouts/targeting.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/conditions.h"

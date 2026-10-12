@@ -10,7 +10,6 @@
 #include "surrender/srDebug.h"
 #include "surrender/srGERD.h"
 #include "surrender/srPixelConvert.h"
-#include "compat/compiler.h"
 #include "surrender/srColorSurfaceIFace.h"
 #include "surrender/srFilter.h"
 #include "surrender/srTextureIFace.h"

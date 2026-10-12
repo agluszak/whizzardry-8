@@ -13,7 +13,6 @@
 #include <memory>
 #include <utility>
 
-#include "compat/compiler.h"
 #include "layouts/targeting.h"
 #include "wiz8/retail_text_records.h"
 #include "wiz8/containers.h"

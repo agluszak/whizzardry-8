@@ -3,7 +3,6 @@
 #include <glm/ext/vector_float3.hpp>
 
 #include "wiz8/surface2d.h"
-#include "compat/compiler.h"
 #include "surrender/srGERD.h"
 #include "surrender/srNode.h"
 #include "surrender/srTexture.h"

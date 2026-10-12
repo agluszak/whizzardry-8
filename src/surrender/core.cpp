@@ -19,7 +19,6 @@
 #include "surrender/srTextureMap.h"
 #include "surrender/srTriMeshPipeline.h"
 #include "surrender/srTypeRegistry.h"
-#include "compat/compiler.h"
 #include "compat/native.h"
 #include "surrender/srClock.h"
 #include "surrender/srColorSurfaceIFace.h"

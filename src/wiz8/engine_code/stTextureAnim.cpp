@@ -5,7 +5,6 @@
 #include <utility>
 
 #include "wiz8/engine_code/stTextureAnim.h"
-#include "compat/compiler.h"
 #include "surrender/srTexture.h"
 #include "surrender/srTextureIFace.h"
 #include "surrender/srTypeRegistry.h"

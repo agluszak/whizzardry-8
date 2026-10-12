@@ -23,7 +23,6 @@
 #include "surrender/plane_math.h"
 #include "surrender/triangle_projection.h"
 #include "surrender/srTriangulator.h"
-#include "compat/compiler.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_double2.hpp"
 #include "glm/ext/vector_double3.hpp"

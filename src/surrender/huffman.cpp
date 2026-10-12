@@ -13,7 +13,6 @@
 #include <vector>
 
 #include "surrender/srHuffman.h"
-#include "compat/compiler.h"
 #include "surrender/srIO.h"
 
 static void sortSymbolPairs(srHuffman::Sampler::Symbol* pairs, std::uint32_t count);

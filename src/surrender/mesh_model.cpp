@@ -13,7 +13,6 @@
 
 #include "glm/geometric.hpp"
 #include "surrender/srBoundingBox.h"
-#include "compat/compiler.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float2.hpp"

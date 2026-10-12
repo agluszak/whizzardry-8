@@ -11,7 +11,6 @@
 #include <utility>
 #include <optional>
 
-#include "compat/compiler.h"
 #include "image.h"
 #include "local_code/TextControl.h"
 #include "sprite.h"

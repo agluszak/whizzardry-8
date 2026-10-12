@@ -5,7 +5,6 @@
 #include "glm/ext/vector_float2.hpp"
 #include "wiz8/navigation_math.h"
 #include "surrender/picking_math.h"
-#include "compat/compiler.h"
 #include "surrender/triangle_runs.h"
 #include <vector>
 #include <utility>

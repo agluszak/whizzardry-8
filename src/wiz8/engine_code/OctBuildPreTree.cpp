@@ -27,7 +27,6 @@
 #include <vector>
 
 #include "wiz8/engine_code/OctBuildPreTree.h"
-#include "compat/compiler.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/materials.h"
 #include "wiz8/engine_code/Octree.h"

@@ -16,7 +16,6 @@
 #include <ranges>
 #include "surrender/triangle_selection.h"
 
-#include "compat/compiler.h"
 #include "compat/native.h"
 #include "glm/common.hpp"
 #include "glm/ext/matrix_float4x4.hpp"

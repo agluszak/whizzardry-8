@@ -29,7 +29,6 @@
 #include "surrender/srCore.h"
 #include "surrender/srFilter.h"
 #include "surrender/srPalette.h"
-#include "compat/compiler.h"
 #include "glm/ext/vector_float4.hpp"
 #include "surrender/srColorSurfaceIFace.h"
 #include "surrender/srPixelConvert.h"

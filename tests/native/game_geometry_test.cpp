@@ -94,7 +94,6 @@
 #include "wiz8/engine_code/Navigator.h"
 #include "wiz8/engine_code/SoundEvent.h"
 #include "wiz8/local_code/ItemManager.h"
-#include "compat/compiler.h"
 #include "geometry.h"
 #include "surrender/srMath.h"
 #include "surrender/segment_math.h"

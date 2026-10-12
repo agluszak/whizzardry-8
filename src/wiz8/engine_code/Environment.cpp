@@ -7,7 +7,6 @@
 #include <memory>
 #include <vector>
 
-#include "compat/compiler.h"
 #include "surrender/srVertexProcessor.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/engine_code/Environment.h"

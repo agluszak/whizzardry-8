@@ -5,7 +5,6 @@
 #include <string>
 #include <vector>
 
-#include "compat/compiler.h"
 #include "glm/common.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "surrender/srNode.h"

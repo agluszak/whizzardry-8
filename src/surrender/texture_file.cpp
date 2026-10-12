@@ -7,7 +7,6 @@
 
 #include "surrender/srTextureFile.h"
 #include "surrender/srImageIO.h"
-#include "compat/compiler.h"
 #include "surrender/srColorSurfaceIFace.h"
 #include "surrender/srTexture.h"
 

@@ -25,7 +25,6 @@
 #include <optional>
 #include <utility>
 
-#include "compat/compiler.h"
 #include "compat/native.h"
 #include "glm/common.hpp"
 #include "glm/ext/vector_float4.hpp"

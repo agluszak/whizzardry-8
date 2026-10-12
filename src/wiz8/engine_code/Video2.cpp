@@ -21,7 +21,6 @@
 #include <utility>
 #include <vector>
 
-#include "compat/compiler.h"
 #include "compat/native.h"
 #include "glm/common.hpp" // IWYU pragma: keep
 #include "glm/ext/vector_float2.hpp"

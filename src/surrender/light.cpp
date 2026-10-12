@@ -19,7 +19,6 @@
 #include "surrender/srGERD.h"
 #include "surrender/srVertexPipe.h"
 #include "surrender/srMath.h"
-#include "compat/compiler.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"

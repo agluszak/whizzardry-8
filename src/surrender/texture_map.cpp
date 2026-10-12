@@ -5,7 +5,6 @@
 #include <utility>
 
 #include "surrender/srTextureMap.h"
-#include "compat/compiler.h"
 #include "surrender/srColorSurfaceIFace.h"
 #include "surrender/srTexture.h"
 

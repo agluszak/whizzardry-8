@@ -16,7 +16,6 @@
 #include "surrender/srPixelConvert.h"
 #include "surrender/srColorSurface.h"
 #include "wiz8/sr_api.h"
-#include "compat/compiler.h"
 #include "surrender/srFilter.h"
 
 void initPixelTables();

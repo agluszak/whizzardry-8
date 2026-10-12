@@ -3,7 +3,6 @@
 bool InitializeMenuFonts(void);
 void ReleaseMenuFonts();
 
-#include <cstdint>
 #include "Font.h"
 
 /* Game-specific bitmap font roles and owned notice palettes. */

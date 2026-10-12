@@ -20,7 +20,6 @@
 #include "wiz8/engine_code/stMeshModel.h"
 #include "wiz8/sr_api.h"
 #include "application.h"
-#include "compat/compiler.h"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "surrender/srMaterialIFace.h"

@@ -14,7 +14,6 @@
 #include <cstring>
 #include <exception>
 
-#include "compat/compiler.h"
 #include "compat/native.h"
 #include "glm/geometric.hpp"
 #include "glm/matrix.hpp"

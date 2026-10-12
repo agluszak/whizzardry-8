@@ -65,7 +65,6 @@
 #include "wiz8/float_constants.h"
 #include "wiz8/local_code/Noise.h"
 #include "soundman.h"
-#include "compat/compiler.h"
 #include "dice.h"
 #include "layouts/character.h"
 #include "layouts/item_instance.h"

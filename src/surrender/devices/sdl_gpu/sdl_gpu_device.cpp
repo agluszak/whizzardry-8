@@ -26,7 +26,6 @@
 #include "surrender/srDD_SDLGPU.h"
 #include "sr_fragment.spv.h"
 #include "sr_vertex.spv.h"
-#include "compat/compiler.h"
 #include "surrender/srDD.h"
 #include "surrender/srFlags.h"
 #include "surrender/srPixelConvert.h"

@@ -44,7 +44,6 @@
 #include "surrender/srWindow.h"
 #include "surrender/srPalette.h"
 #include "surrender/srClip.h"
-#include "compat/compiler.h"
 #include "surrender/srARGB.h"
 #include "surrender/srClock.h"
 #include "surrender/srColorSurfaceIFace.h"

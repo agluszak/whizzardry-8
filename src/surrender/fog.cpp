@@ -11,7 +11,6 @@
 #include "surrender/stream_scope.h"
 #include "surrender/srDebug.h"
 #include "surrender/srVertexPipe.h"
-#include "compat/compiler.h"
 #include "surrender/srNode.h"
 #include "surrender/srTypeRegistry.h"
 #include "surrender/srVertexProcessor.h"

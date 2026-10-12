@@ -14,7 +14,6 @@
 #include "surrender/srCore.h"
 #include "surrender/srImageIO.h"
 #include "wiz8/sr_api.h"
-#include "compat/compiler.h"
 #include "surrender/srColorSurfaceIFace.h"
 #include "surrender/srPixelConvert.h"
 

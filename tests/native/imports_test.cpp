@@ -36,7 +36,6 @@
 #include "surrender/srTextureFile.h"
 #include "surrender/srTextureMap.h"
 #include "wiz8/sr_api.h"
-#include "compat/compiler.h"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "surrender/srARGB.h"

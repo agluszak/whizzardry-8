@@ -18,7 +18,6 @@
 #include "surrender/srCore.h"
 #include "surrender/srDebug.h"
 #include "surrender/srGERD.h"
-#include "compat/compiler.h"
 #include "surrender/srFlags.h"
 #include "surrender/srMath.h"
 #include "surrender/srTypeRegistry.h"

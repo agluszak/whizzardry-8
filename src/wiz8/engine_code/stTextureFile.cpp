@@ -6,7 +6,6 @@
 #include <string>
 
 #include "wiz8/engine_code/stTextureFile.h"
-#include "compat/compiler.h"
 #include "compat/native.h"
 #include "surrender/srTexture.h"
 #include "wiz8/filesystem.h"

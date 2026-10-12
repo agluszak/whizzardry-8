@@ -1,7 +1,6 @@
 #pragma once
 
 
-#include <cstdint>
 class W8Navigator;
 
 extern W8Navigator* g_startup_world;

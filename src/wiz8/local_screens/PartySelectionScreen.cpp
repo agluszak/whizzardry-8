@@ -53,7 +53,6 @@
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/filesystem.h"
 #include "Font.h"
-#include "compat/compiler.h"
 #include "difficulty.h"
 #include "file_time.h"
 

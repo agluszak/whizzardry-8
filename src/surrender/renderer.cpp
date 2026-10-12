@@ -11,12 +11,10 @@
 #include <span>
 #include <unordered_map>
 
-#include "surrender/srMath.h"
 #include <bit>
 #include "surrender/srGERD.h"
 #include "surrender/srClip.h"
 #include "surrender/triangle_selection.h"
-#include "compat/compiler.h"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "glm/ext/vector_uint3.hpp"

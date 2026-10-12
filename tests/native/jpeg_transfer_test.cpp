@@ -19,7 +19,6 @@
 #include <utility>
 
 #include "surrender_test_fixture.h"
-#include "compat/compiler.h"
 #include "surrender/srIO.h"
 /* Actual SDL_image decoding and byte-exact transfer. gray.jpg/cmyk.jpg are
    synthetic 3x2, quality-100 JPEGs with samples 20 + 9*i. */

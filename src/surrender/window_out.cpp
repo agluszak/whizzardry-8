@@ -2,7 +2,6 @@
 #include <iostream>
 
 #include "surrender/srWindowOut.h"
-#include "compat/compiler.h"
 
 /* The Windows build opens a RichEdit diagnostic console; natively the stream
    writes to standard error. */
