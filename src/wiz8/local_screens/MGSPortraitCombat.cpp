@@ -210,7 +210,7 @@ void UpdateSubMenuButton(int index)
                 g_submenu_buttons[2].SetPressed(true);
             }
         } else {
-            if (g_submenu_buttons[2].IsPressed() != 0) {
+            if (g_submenu_buttons[2].IsPressed()) {
                 g_submenu_buttons[2].SetPressed(false);
             }
         }
@@ -228,7 +228,7 @@ void UpdateSubMenuButton(int index)
                 g_submenu_buttons[3].SetPressed(true);
             }
         } else {
-            if (g_submenu_buttons[3].IsPressed() != 0) {
+            if (g_submenu_buttons[3].IsPressed()) {
                 g_submenu_buttons[3].SetPressed(false);
             }
         }
@@ -245,7 +245,7 @@ void UpdateSubMenuButton(int index)
                 g_submenu_buttons[4].SetPressed(true);
             }
         } else {
-            if (g_submenu_buttons[4].IsPressed() != 0) {
+            if (g_submenu_buttons[4].IsPressed()) {
                 g_submenu_buttons[4].SetPressed(false);
             }
         }

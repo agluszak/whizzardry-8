@@ -31,6 +31,16 @@ enum W8TextControlInputFlag {
 };
 enum { W8_TEXT_CONTROL_ACTIVATED_WHILE_HELD = 0x04u };
 
+/* Which sprite of a control's image shows in each visual state; -1 shows
+   none. The alternate pair is used while alternate text is enabled. */
+struct W8SpriteStates {
+    int normal = -1;
+    int pressed = -1;
+    int alternate_normal = -1;
+    int alternate_pressed = -1;
+    int disabled = -1;
+};
+
 // VTABLE: WIZ8 0x005ed604
 class W8TextControl : public W8Widget {
 public:
@@ -44,24 +54,27 @@ public:
     };
 
     W8TextControl();
-    // Explicit parent adoption: panel geometry is borrowed for text layout,
-    // but this constructor leaves the widget unattached.
-    W8TextControl(Controls& panel, unsigned int region, int left, int top, int right, int bottom,
-                  std::optional<CatalogArtwork> image_artwork, int normal_sprite, int pressed_sprite,
-                  int alternate_normal_sprite, int alternate_pressed_sprite, int disabled_sprite);
+    // A right or bottom of zero takes the edge from the normal sprite's size.
+    W8TextControl(unsigned int region, int left, int top, int right, int bottom,
+                  std::optional<CatalogArtwork> image_artwork = std::nullopt,
+                  W8SpriteStates sprites = {});
     void SetImage(CatalogArtwork artwork);
     void SetItemImage(int item_id);
     void ClearImage();
 
     bool MeasureText();
-    void GetTextOrigin(int* px, int* py);
+    SDL_Point ImageOrigin();
     void Invalidate(bool immediate);
     virtual void SetEnabled(bool enabled) override;
-    virtual void Redraw(bool full_redraw) override;
-    void SetFlaggedRegionBounds(int left, int top, int right);
+    virtual void Redraw(SDL_Surface& target, bool full_redraw) override;
+    /* Centre is panel-relative, like the initial sprite bounds. */
+    void SetCircularHitArea(SDL_Point center, int radius);
     virtual void AddLayoutFlags(unsigned int flags) override;
     virtual void SetAlternateTextEnabled(bool enabled) override;
     void RemoveLayoutFlags(unsigned int flags);
+    /* Held down, and latched on (a toggle, tab or radio entry that is set). */
+    bool IsPressed() const { return (m_stateFlags & g_W8TextControlStatePressed) != 0; }
+    bool IsSelected() const { return (m_stateFlags & g_W8TextControlStateSecondary) != 0; }
     virtual void EnableSecondaryState(bool immediate);
     virtual void DisableSecondaryState(bool immediate);
     virtual void OnMouseEnter(int event) override;
@@ -73,15 +86,13 @@ public:
     virtual void OnLeftButtonDoubleClick(int event) override;
     virtual void ActivatePrimary(int event) override;
     virtual void ActivateSecondary(int event) override;
+    /* Lays text out in this panel-relative rectangle instead of the widget's. */
     void UpdateTextBounds(int left, int top, int right, int bottom);
-    virtual void SetBounds(int left, int top, int right, int bottom) override;
-    virtual void SetBoundsFromRect(const W8ControlsRect* bounds) override;
+
+protected:
+    unsigned int m_stateFlags; /* pressed and selected bits; read via IsPressed/IsSelected */
 
 public:
-    /* The state-5 controller persists two option bits by directly masking the
-       controls' state words.  This is observed storage access, not an accessor
-       API inferred for convenience. */
-    unsigned int m_stateFlags;   /* paired state masks */
     unsigned int m_layoutFlags;  /* layout and input behavior masks */
     bool m_alternateTextEnabled; /* alternate text-selection flag */
     std::shared_ptr<const SpriteSheet> m_imageSprites;
@@ -101,7 +112,17 @@ public:
        construction; the pointer is the shared callback attachment point. */
     Listener* m_listener;
 
+private:
+    std::optional<W8ControlsRect> m_textBounds; /* set by UpdateTextBounds */
+    struct CircleHitArea {
+        SDL_Point center; // Widget-local, so it follows moves and reparenting.
+        int radius;
+    };
+    std::optional<CircleHitArea> m_circleHitArea;
+
 protected:
+    void OnGeometryChanged() override;
+    W8ControlsRect TextBounds();
     void UpdateTextLayout();
     void NotifyPrimaryActivation();
     void NotifySecondaryActivation();
@@ -110,8 +131,7 @@ protected:
 // VTABLE: WIZ8 0x005ed758
 class W8HelpTextControl : public W8TextControl {
 public:
-    W8HelpTextControl(Controls& panel, unsigned int region, int left, int top, int right,
-                      int bottom);
+    W8HelpTextControl(unsigned int region, int left, int top, int right, int bottom);
 
     void SetRegionHelp(std::string_view text);
     virtual void OnMouseEnter(int event) override;

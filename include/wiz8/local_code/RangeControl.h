@@ -3,6 +3,8 @@
 #include "wiz8/local_code/Controls.h"
 #include "wiz8/local_code/TextControl.h"
 
+#include <memory>
+
 /* Shared declaration owner; implementation remains in Local Code\Controls.cpp. */
 
 class W8RangeControl;
@@ -10,9 +12,8 @@ class W8RangeControl;
 // VTABLE: WIZ8 0x005ed6fc
 class W8RangeButton : public W8TextControl {
 public:
-    W8RangeButton(Controls& panel, unsigned int region, int left, int top, int right, int bottom,
-                  std::optional<CatalogArtwork> image_artwork, int normal_sprite, int pressed_sprite,
-                  int alternate_normal_sprite, int alternate_pressed_sprite, int disabled_sprite,
+    W8RangeButton(unsigned int region, int left, int top, int right, int bottom,
+                  std::optional<CatalogArtwork> image_artwork, W8SpriteStates sprites,
                   short direction, W8RangeControl* range);
 
     virtual void OnLeftButtonDown(int event) override;
@@ -32,16 +33,6 @@ public:
     virtual void OnRangeChanged(W8RangeControl* control) = 0;
 };
 
-/* Common base of the camp screen's three range listeners (item, spell-realm
-   and stats): each owns one W8RangeControl. */
-class W8CampRangeListener : public W8RangeListener {
-public:
-    /* Re-invalidates the range control when the visible pool
-       changed and always repaints it. */
-    void UpdateRange(bool range_changed);
-    W8RangeControl* m_range;
-};
-
 // VTABLE: WIZ8 0x005ed74c
 class W8RangeControl : public Controls {
 public:
@@ -54,7 +45,8 @@ public:
     void SetValue(int value);
     void Decrement();
     void Increment();
-    void SetRangeEnabled(bool enabled);
+    /* A disabled range ignores steps and greys its buttons and thumb. */
+    void SetEnabled(bool enabled) override;
 
     void AdjustValue(int steps)
     {
@@ -71,7 +63,17 @@ public:
     W8Widget* m_increment;
     W8VerticalRangeThumb* m_thumb;
     W8RangeListener* m_listener;
-    bool m_enabled; /* binary enable gating Decrement/Increment */
+};
+
+/* Common base of the camp screen's three range listeners (item, spell-realm
+   and stats): each owns one active W8RangeControl and listens to it. */
+class W8CampRangeListener : public W8RangeListener {
+public:
+    explicit W8CampRangeListener(const W8ControlsRect& bounds);
+    /* Re-invalidates the range control when the visible pool
+       changed and always repaints it. */
+    void UpdateRange(bool range_changed);
+    std::unique_ptr<W8RangeControl> m_range;
 };
 
 class W8HorizontalRangeThumb;
@@ -89,7 +91,7 @@ public:
                            CatalogArtwork artwork, int background_sprite,
                            int normal_thumb_sprite, int hovered_thumb_sprite,
                            int disabled_thumb_sprite);
-    virtual void Redraw(bool full_redraw) override;
+    virtual void Redraw(SDL_Surface& target, bool full_redraw) override;
     void UpdatePixelPosition();
     virtual void OnLeftButtonDown(int event) override;
     virtual void OnLeftButtonUp(int event) override;

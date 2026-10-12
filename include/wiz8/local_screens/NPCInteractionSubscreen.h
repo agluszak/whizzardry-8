@@ -65,8 +65,8 @@ public:
     {
         m_main_text_box_image = 0x11;
     }
-    virtual void SetEnabled(bool enable) override;
-    virtual void Redraw() override;
+    virtual void SetActive(bool enable) override;
+    void Redraw(SDL_Surface& target, bool full_redraw) override;
 
     int m_main_text_box_image;
 };
@@ -82,8 +82,8 @@ public:
         : Controls(left, top, new_right, new_bottom, std::move(background), background_image)
     {
     }
-    virtual void SetEnabled(bool enable) override;
-    virtual void Redraw() override;
+    virtual void SetActive(bool enable) override;
+    void Redraw(SDL_Surface& target, bool full_redraw) override;
 };
 
 struct W8PendingNoticeLine {

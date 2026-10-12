@@ -28,33 +28,31 @@ extern char g_W8TextSeparator[];
 unsigned char DispatchButtonRegionEvent(const InputEvent* event, W8Region* region,
                                                W8Widget* button);
 
-/* Panel/container, not a W8Widget base. Child ownership is held by unique_ptr;
-   widgets retain a non-owning back-pointer in m_pPanel. TakeControl transfers
-   ownership to the caller; DestroyAllControls permits early release when rebuilding.
-   The accumulated redraw rectangle uses left == -1 for an empty rectangle. */
+/* A panel is a widget that owns and positions child widgets, which may be
+   panels themselves. Child ownership is held by unique_ptr; widgets retain a
+   non-owning back-pointer in m_pPanel and their rectangles are relative to
+   the panel. TakeControl transfers ownership to the caller; DestroyAllControls
+   permits early release when rebuilding. */
 // VTABLE: WIZ8 0x005ed5a4
-struct Controls {
+struct Controls : W8Widget {
     Controls();
     Controls(int left, int top, int right, int bottom, std::optional<CatalogArtwork> background,
              int background_image);
-    virtual ~Controls();
-    Controls(const Controls&) = delete;
-    Controls& operator=(const Controls&) = delete;
+    ~Controls() override;
 
-    virtual void SetEnabled(bool enable);
-    virtual void Invalidate(const W8ControlsRect* rect);
-    virtual void Redraw();
-    /* SetEnabled mirrors m_fEnabled into every child's m_active. */
-    bool m_fEnabled;
-    bool m_fDirty;
-    bool m_fLayoutDirty;
-    W8ControlsRect m_bounds; /* widget rectangles are relative to its origin */
+    /* Activation is mirrored into every child. */
+    void SetActive(bool active) override;
+    /* Queue the whole panel, or just an area of it, for repainting. */
+    virtual void InvalidateAll();
+    void InvalidateArea(const W8ControlsRect& rect);
+    void Redraw(SDL_Surface& target, bool full_redraw) override;
+    bool m_childrenDirty = false;
     std::optional<CatalogArtwork> m_background;
     int m_backgroundImage;
-    W8ControlsRect m_dirtyRect;
-    bool m_fWholeAreaDirty; /* set when a caller passes no rectangle */
-    /* The region set this panel's widgets register in; 0 until CreateRegionSet. */
+    /* The region set this panel owns; 0 until CreateRegionSet. */
     unsigned int RegionSet() const { return m_regionSet; }
+    /* The set children register in: this panel's own, else its parent's. */
+    unsigned int ChildRegionSet() const;
     void EnableRegionSet(bool enable);
     // Takes ownership of an unattached widget; callers keep borrowed pointers.
     void AddControl(std::unique_ptr<W8Widget> control);
@@ -72,7 +70,6 @@ struct Controls {
     size_t ControlCount() const { return m_controls.size(); }
     void DestroyAllControls();
     void InvalidateLayout();
-    void SetBounds(int left, int top, int right, int bottom);
     /* Creates the panel's own region set, or empties it so the panel can repopulate it. */
     void CreateRegionSet();
 
@@ -82,17 +79,22 @@ struct Controls {
   private:
     std::vector<std::unique_ptr<W8Widget>> m_controls;
     unsigned int m_regionSet = 0;
+    /* While m_dirty: the bounded area pending redraw, or none for the whole panel. */
+    std::optional<W8ControlsRect> m_dirtyRect;
 
   protected:
-    void RedrawChildren(bool full_redraw)
+    void OnGeometryChanged() override;
+    void BindRegion(unsigned int set) override;
+    void UnbindRegion() override;
+    void RedrawChildren(SDL_Surface& target, bool full_redraw)
     {
-        for (int index = 0; index < static_cast<int>(m_controls.size()); ++index) {
-            if (ControlAt(index)->m_active) {
-                ControlAt(index)->Redraw(full_redraw);
+        for (const auto& control : m_controls) {
+            if (control->m_active) {
+                control->Redraw(target, full_redraw);
             }
         }
-        m_fLayoutDirty = false;
+        m_childrenDirty = false;
     }
-    void RedrawControls(bool full_redraw);
+    void RedrawControls(SDL_Surface& target, bool full_redraw);
 };
 

@@ -413,9 +413,9 @@ int OpenLockInteraction(Trigger* trigger)
         return 1;
     }
     g_lock_interaction->EnablePanels(1);
-    g_lock_interaction->m_tumbler_panel->Invalidate(0);
+    g_lock_interaction->m_tumbler_panel->InvalidateAll();
     g_lock_interaction->m_info_panel->RefreshInfo();
-    g_lock_interaction->m_action_panel->Invalidate(0);
+    g_lock_interaction->m_action_panel->InvalidateAll();
     skill = GetPartySlotLocksTrapsLevel(g_status.selected_character);
     panel = g_lock_interaction->m_tumbler_panel.get();
     for (i = 0; i < panel->m_tumbler_count; ++i) {
@@ -451,9 +451,9 @@ void ProcessLockInteractMode(void)
 /* Redraw the lock interaction's tumbler, info and action panels. */
 void RedrawLockInteractionPanels(void)
 {
-    g_lock_interaction->m_tumbler_panel->Redraw();
-    g_lock_interaction->m_info_panel->Redraw();
-    g_lock_interaction->m_action_panel->Redraw();
+    g_lock_interaction->m_tumbler_panel->Redraw(GetFrameBufferSurface(), false);
+    g_lock_interaction->m_info_panel->Redraw(GetFrameBufferSurface(), false);
+    g_lock_interaction->m_action_panel->Redraw(GetFrameBufferSurface(), false);
 }
 
 /* Leave lock interact mode. With `suspend` clear the interaction object is
@@ -532,7 +532,7 @@ void RefreshLockInteractionControls(void)
     }
     interaction->m_force_button->SetEnabled(static_cast<int>(figure) > -1);
     interaction->m_info_panel->RefreshInfo();
-    interaction->m_action_panel->Invalidate(0);
+    interaction->m_action_panel->InvalidateAll();
 }
 
 /* Re-arm the lock tumbler and action region sets while lock interact is up. */
@@ -550,12 +550,12 @@ void InvalidateLockInteractionPanels(void)
 {
     W8LockInteraction* interaction = g_lock_interaction.get();
 
-    interaction->m_tumbler_panel->Invalidate(0);
+    interaction->m_tumbler_panel->InvalidateAll();
     interaction->m_info_panel->RefreshInfo();
-    interaction->m_action_panel->Invalidate(0);
+    interaction->m_action_panel->InvalidateAll();
 }
 
-void W8LockTumbler::Redraw(bool full_redraw)
+void W8LockTumbler::Redraw(SDL_Surface& target, bool full_redraw)
 {
     int left;
     int top;
@@ -569,25 +569,26 @@ void W8LockTumbler::Redraw(bool full_redraw)
     if (!full_redraw && !m_dirty) {
         return;
     }
-    left = m_left + m_pPanel->m_bounds.left;
-    right = m_right + m_pPanel->m_bounds.left;
-    top = m_top + m_pPanel->m_bounds.top;
-    bottom = m_bottom + m_pPanel->m_bounds.top;
+    const auto bounds = ScreenBounds();
+    left = bounds.x;
+    right = bounds.x + bounds.w;
+    top = bounds.y;
+    bottom = bounds.y + bounds.h;
     InvalidateRegion(left - 3, top, right + 3, bottom);
     const SDL_Rect top_fill{left, top, right - left, 0x24};
     const SDL_Rect bottom_fill{left - 3, top + 0x24, right - left + 6, bottom - top - 0x24};
-    SDL_FillSurfaceRect(&GetFrameBufferSurface(), &top_fill, 0x8000);
-    SDL_FillSurfaceRect(&GetFrameBufferSurface(), &bottom_fill, 0x8000);
-    CatalogArtwork::Load(0x1ae, 0).draw(GetFrameBufferSurface(), 0, left + 3, top);
+    SDL_FillSurfaceRect(&target, &top_fill, 0x8000);
+    SDL_FillSurfaceRect(&target, &bottom_fill, 0x8000);
+    CatalogArtwork::Load(0x1ae, 0).draw(target, 0, left + 3, top);
     frame = m_pin_index * 4 + 1;
     if (m_pin_set) {
         frame += m_at_top ? 2 : 1;
     } else if (m_hovered && !m_rising && !m_falling) {
         frame += 3;
     }
-    CatalogArtwork::Load(0x1ae, 0).draw(GetFrameBufferSurface(), frame, left, top);
+    CatalogArtwork::Load(0x1ae, 0).draw(target, frame, left, top);
     if (m_at_top) {
-        CatalogArtwork::Load(0x1ae, 0).draw(GetFrameBufferSurface(), g_lock_phase + 0x11, right, top - 4);
+        CatalogArtwork::Load(0x1ae, 0).draw(target, g_lock_phase + 0x11, right, top - 4);
     }
     m_dirty = false;
 }
@@ -642,8 +643,8 @@ W8LockTumblerPanel::W8LockTumblerPanel(int tumbler_count, const unsigned char* p
         m_tumblers[i]->m_listener = this;
     }
     EnableRegionSet(true);
-    SetEnabled(true);
-    Invalidate(0);
+    SetActive(true);
+    InvalidateAll();
     if (m_tumbler_count < 8) {
         for (i = m_tumbler_count; i < 8; i++) {
             m_tumblers[i]->SetActive(false);
@@ -731,10 +732,10 @@ W8LockInfoPanel::W8LockInfoPanel(int tumbler_count)
     W8ControlsRect bounds;
 
     m_tumbler_count = tumbler_count;
-    bounds.left = m_bounds.left + 0x25;
-    bounds.top = m_bounds.top + 7;
-    bounds.right = m_bounds.left + 0xb4;
-    bounds.bottom = m_bounds.top + 0x11;
+    bounds.left = ScreenBounds().x + 0x25;
+    bounds.top = ScreenBounds().y + 7;
+    bounds.right = ScreenBounds().x + 0xb4;
+    bounds.bottom = ScreenBounds().y + 0x11;
     m_text0.reset(new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4));
     bounds.top += 0xe;
     bounds.bottom += 0xe;
@@ -748,10 +749,10 @@ W8LockInfoPanel::W8LockInfoPanel(int tumbler_count)
     bounds.bottom += 0xe;
     m_text5 = std::make_unique<W8TextBuffer>(&bounds, g_localized_strings[0x7ab], g_wiz_text_font_secondary,
                                g_W8TextBufferAlignLeft, 4);
-    bounds.left = m_bounds.left + 0x98;
-    bounds.top = m_bounds.top + 0x15;
-    bounds.right = m_bounds.left + 0xb5;
-    bounds.bottom = m_bounds.top + 0x1f;
+    bounds.left = ScreenBounds().x + 0x98;
+    bounds.top = ScreenBounds().y + 0x15;
+    bounds.right = ScreenBounds().x + 0xb5;
+    bounds.bottom = ScreenBounds().y + 0x1f;
     m_text2.reset(new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4));
     bounds.top += 0xe;
     bounds.bottom += 0xe;
@@ -759,8 +760,8 @@ W8LockInfoPanel::W8LockInfoPanel(int tumbler_count)
     bounds.top += 0xe;
     bounds.bottom += 0xe;
     m_text.reset(new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4));
-    SetEnabled(true);
-    Invalidate(0);
+    SetActive(true);
+    InvalidateAll();
 }
 
 void W8LockInfoPanel::RefreshInfo()
@@ -813,20 +814,20 @@ done:
     m_text1->SetGeometryDirty();
     m_text3->SetGeometryDirty();
     m_text5->SetGeometryDirty();
-    Invalidate(0);
+    InvalidateAll();
 }
 
-void W8LockInfoPanel::Redraw()
+void W8LockInfoPanel::Redraw(SDL_Surface& target, bool full_redraw)
 {
-    if (m_fEnabled && m_fDirty) {
-        Controls::Redraw();
-        m_text0->RenderToTarget(0, false, GetFrameBufferSurface());
-        m_text1->RenderToTarget(0, false, GetFrameBufferSurface());
-        m_text2->RenderToTarget(0, false, GetFrameBufferSurface());
-        m_text3->RenderToTarget(0, false, GetFrameBufferSurface());
-        m_text4->RenderToTarget(0, false, GetFrameBufferSurface());
-        m_text5->RenderToTarget(0, false, GetFrameBufferSurface());
-        m_text->RenderToTarget(0, false, GetFrameBufferSurface());
+    if (m_active && m_dirty) {
+        Controls::Redraw(target, full_redraw);
+        m_text0->RenderToTarget(0, false, target);
+        m_text1->RenderToTarget(0, false, target);
+        m_text2->RenderToTarget(0, false, target);
+        m_text3->RenderToTarget(0, false, target);
+        m_text4->RenderToTarget(0, false, target);
+        m_text5->RenderToTarget(0, false, target);
+        m_text->RenderToTarget(0, false, target);
     }
 }
 
@@ -852,23 +853,23 @@ W8LockInteraction::W8LockInteraction(Trigger* trigger) : m_timer()
     m_action_panel = std::make_unique<Controls>(0x1e7, 0x166, 0, 0, CatalogArtwork::Load(0x1af, 0), 2);
     m_action_panel->CreateRegionSet();
     m_spell_button =
-        m_action_panel->EmplaceControl<W8TextControl>(*m_action_panel, 0xffffffff, 6, 6, 0, 0, CatalogArtwork::Load(0x1b0, 0), 8, 10, 9, 10, 0xb);
+        m_action_panel->EmplaceControl<W8TextControl>(0xffffffff, 6, 6, 0, 0, CatalogArtwork::Load(0x1b0, 0), W8SpriteStates{.normal = 8, .pressed = 10, .alternate_normal = 9, .alternate_pressed = 10, .disabled = 0xb});
     m_spell_button->m_listener = this;
     m_force_button =
-        m_action_panel->EmplaceControl<W8TextControl>(*m_action_panel, 0xffffffff, 0x24, 6, 0, 0, CatalogArtwork::Load(0x1b0, 0), 0, 2, 1, 2, 3);
+        m_action_panel->EmplaceControl<W8TextControl>(0xffffffff, 0x24, 6, 0, 0, CatalogArtwork::Load(0x1b0, 0), W8SpriteStates{.normal = 0, .pressed = 2, .alternate_normal = 1, .alternate_pressed = 2, .disabled = 3});
     m_force_button->m_listener = this;
     m_cancel_button =
-        m_action_panel->EmplaceControl<W8TextControl>(*m_action_panel, 0xffffffff, 6, 0x24, 0, 0, CatalogArtwork::Load(0x1b0, 0), 4, 6, 5, 6, 7);
+        m_action_panel->EmplaceControl<W8TextControl>(0xffffffff, 6, 0x24, 0, 0, CatalogArtwork::Load(0x1b0, 0), W8SpriteStates{.normal = 4, .pressed = 6, .alternate_normal = 5, .alternate_pressed = 6, .disabled = 7});
     m_cancel_button->m_listener = this;
     m_done_button =
-        m_action_panel->EmplaceControl<W8TextControl>(*m_action_panel, 0xffffffff, 0x44, 6, 0, 0, CatalogArtwork::Load(0x8e, 0), 4, 6, 5, 6, 7);
+        m_action_panel->EmplaceControl<W8TextControl>(0xffffffff, 0x44, 6, 0, 0, CatalogArtwork::Load(0x8e, 0), W8SpriteStates{.normal = 4, .pressed = 6, .alternate_normal = 5, .alternate_pressed = 6, .disabled = 7});
     m_done_button->m_listener = this;
     m_spell_button->EnableRegionHelp(0x7cb);
     m_force_button->EnableRegionHelp(0x7cd);
     m_cancel_button->EnableRegionHelp(0x7cc);
     m_action_panel->EnableRegionSet(true);
-    m_action_panel->SetEnabled(true);
-    m_action_panel->Invalidate(0);
+    m_action_panel->SetActive(true);
+    m_action_panel->InvalidateAll();
     m_selected_slot = -1;
     for (i = 0; i < 8; i++) {
         m_tumbler_owner[i] = -1;
@@ -895,7 +896,7 @@ W8LockInteraction::W8LockInteraction(Trigger* trigger) : m_timer()
     }
     m_force_button->SetEnabled(static_cast<int>(figure) > -1);
     m_info_panel->RefreshInfo();
-    m_action_panel->Invalidate(0);
+    m_action_panel->InvalidateAll();
 }
 
 int W8LockInteraction::ReleaseOwnedTumblers(int slot)
@@ -913,7 +914,7 @@ int W8LockInteraction::ReleaseOwnedTumblers(int slot)
             dropped = 1;
         }
     }
-    m_tumbler_panel->Invalidate(0);
+    m_tumbler_panel->InvalidateAll();
     return dropped;
 }
 
@@ -1174,7 +1175,7 @@ void W8LockInteraction::AttemptForce()
             }
             m_force_button->SetEnabled(static_cast<int>(chance) > -1);
             m_info_panel->RefreshInfo();
-            m_action_panel->Invalidate(0);
+            m_action_panel->InvalidateAll();
         }
     }
 }
@@ -1252,7 +1253,7 @@ void W8LockInteraction::ApplyKnockKnock(int level, int /*flag*/, char backfire)
             wiz8::sound::play(s_lock_pin_rising);
         } else {
             wiz8::sound::play(s_lock_pin_falling);
-            m_tumbler_panel->Invalidate(0);
+            m_tumbler_panel->InvalidateAll();
         }
     }
     RefreshLockInteractionControls();
@@ -1280,12 +1281,13 @@ void CastSpellAtLockInteraction(unsigned int level, int flag, int backfire)
     g_lock_interaction->ApplyKnockKnock(level, flag, backfire);
 }
 
-W8MainGameTextKeyHandler::W8MainGameTextKeyHandler(Controls& panel, int left, int top, int right,
-                                                   int bottom, int line_count,
+// The scroll bar fills the rightmost 0x13 pixels; OnGeometryChanged places it
+// once the panel origin is known.
+W8MainGameTextKeyHandler::W8MainGameTextKeyHandler(int left, int top, int right, int bottom,
+                                                   int line_count,
                                                    const unsigned short* line_string_ids)
     : W8Widget(0xffffffff, left, top, right - 0x13, bottom),
-      m_range(panel.m_bounds.left - 0x12 + right, panel.m_bounds.top + top,
-              right + panel.m_bounds.left, panel.m_bounds.top + bottom)
+      m_range(right - 0x12, top, right, bottom)
 {
     m_line_count = line_count;
     m_visible_lines = (bottom - top) / 0xe;
@@ -1296,12 +1298,19 @@ W8MainGameTextKeyHandler::W8MainGameTextKeyHandler(Controls& panel, int left, in
     m_hover_line = -1;
     m_range.m_listener = this;
     m_range.SetRange(0, m_line_count - m_visible_lines);
-    m_range.Invalidate(0);
+    m_range.InvalidateAll();
+    m_range.SetActive(true);
     m_range.SetEnabled(true);
-    m_range.SetRangeEnabled(true);
 }
 
-void W8MainGameTextKeyHandler::Redraw(bool full_redraw)
+void W8MainGameTextKeyHandler::OnGeometryChanged()
+{
+    W8Widget::OnGeometryChanged();
+    const auto bounds = ScreenBounds();
+    m_range.SetBounds({bounds.x + bounds.w + 1, bounds.y, 0x12, bounds.h});
+}
+
+void W8MainGameTextKeyHandler::Redraw(SDL_Surface& target, bool full_redraw)
 {
     int left;
     int top;
@@ -1317,12 +1326,13 @@ void W8MainGameTextKeyHandler::Redraw(bool full_redraw)
     if (!m_dirty && !full_redraw) {
         return;
     }
-    left = m_pPanel->m_bounds.left + m_left;
-    top = m_pPanel->m_bounds.top + m_top;
-    right = m_pPanel->m_bounds.left + m_right;
-    bottom = m_pPanel->m_bounds.top + m_bottom;
+    const auto bounds = ScreenBounds();
+    left = bounds.x;
+    top = bounds.y;
+    right = bounds.x + bounds.w;
+    bottom = bounds.y + bounds.h;
     InvalidateRegion(left, top, right, bottom);
-    CatalogArtwork::Load(0x1b6, 0).drawRect(GetFrameBufferSurface(), SDL_Rect{0, 0, (right) - (left), (bottom) - (top)}, left, top);
+    CatalogArtwork::Load(0x1b6, 0).drawRect(target, SDL_Rect{0, 0, (right) - (left), (bottom) - (top)}, left, top);
     last = m_first_visible_line + m_visible_lines;
     left += 2;
     top += 1;
@@ -1335,11 +1345,11 @@ void W8MainGameTextKeyHandler::Redraw(bool full_redraw)
             colour = g_wiz_text_font_secondary.glyphs->colors;
         }
         g_wiz_text_font_secondary.setPalette(colour);
-        DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {left, top}, g_localized_strings[m_line_string_ids[line]]);
+        DrawText(target, g_wiz_text_font_secondary, {left, top}, g_localized_strings[m_line_string_ids[line]]);
         top += 0xe;
     }
     g_wiz_text_font_secondary.resetPalette();
-    m_range.Invalidate(0);
+    m_range.InvalidateAll();
     m_dirty = false;
 }
 
@@ -1355,7 +1365,7 @@ void W8MainGameTextKeyHandler::OnMouseMove(int)
     int line;
 
     SGPMouseGetPos(&point);
-    line = (point.y - m_pPanel->m_bounds.top - m_top) / 0xe + m_first_visible_line;
+    line = (ToLocal(point).y) / 0xe + m_first_visible_line;
     if (line != m_hover_line) {
         m_hover_line = line;
         Invalidate(false);
@@ -1372,7 +1382,7 @@ void W8MainGameTextKeyHandler::OnLeftButtonUp(int)
     SDL_Point point;
 
     SGPMouseGetPos(&point);
-    SetSelectedLine((point.y - m_pPanel->m_bounds.top - m_top) / 0xe + m_first_visible_line);
+    SetSelectedLine((ToLocal(point).y) / 0xe + m_first_visible_line);
 }
 
 void W8MainGameTextKeyHandler::SetSelectedLine(int line)
@@ -1458,21 +1468,18 @@ W8MainGameTextEntry::W8MainGameTextEntry(int index)
     MeasureText();
     left = (index % 4) * 0x1e + 0xd;
     top = (index / 4) * 0x32 + 8;
-    m_left = left;
-    m_right = m_measured_w + left;
-    m_bottom = m_measured_h + top;
-    m_top = top;
+    SetBounds({left, top, m_measured_w, m_measured_h});
     AddLayoutFlags(g_W8TextControlLayoutLatchedImage | g_W8TextControlLayoutToggle);
 }
 
-void W8MainGameTextEntry::Redraw(bool full_redraw)
+void W8MainGameTextEntry::Redraw(SDL_Surface& target, bool full_redraw)
 {
     bool dirty = m_dirty;
     int image;
     int left;
     int top;
 
-    W8TextControl::Redraw(full_redraw);
+    W8TextControl::Redraw(target, full_redraw);
     if (!m_active) {
         return;
     }
@@ -1480,14 +1487,14 @@ void W8MainGameTextEntry::Redraw(bool full_redraw)
         return;
     }
     image = m_image;
-    left = m_pPanel->m_bounds.left + m_left;
-    top = m_pPanel->m_bounds.top + m_top;
+    left = ScreenBounds().x;
+    top = ScreenBounds().y;
     if (image == 0) {
-        CatalogArtwork::Load(0x1b3, 0).draw(GetFrameBufferSurface(), 2, left, top);
+        CatalogArtwork::Load(0x1b3, 0).draw(target, 2, left, top);
     } else if (image == 1) {
-        CatalogArtwork::Load(0x1b3, 0).draw(GetFrameBufferSurface(), 0, left, top);
+        CatalogArtwork::Load(0x1b3, 0).draw(target, 0, left, top);
     } else if (image == 2) {
-        CatalogArtwork::Load(0x1b3, 0).draw(GetFrameBufferSurface(), 1, left, top);
+        CatalogArtwork::Load(0x1b3, 0).draw(target, 1, left, top);
     }
 }
 
@@ -1501,8 +1508,7 @@ void W8MainGameTextPanel::BeginProgress(std::string_view text, float duration, f
     m_timer0.SetDuration(hold);
     m_timer0.Restart();
     for (int i = 0; i < 8; ++i) {
-        if ((static_cast<unsigned char>(m_entries[i]->m_stateFlags) &
-             g_W8TextControlStateSecondary) == 0) {
+        if (!m_entries[i]->IsSelected()) {
             m_entries[i]->m_input_blocked = true;
         }
     }
@@ -1551,20 +1557,19 @@ W8MainGameTextPanel::W8MainGameTextPanel()
         m_entries[index]->EnableRegionHelp(0x7d1);
     }
     m_key_handler = EmplaceControl<W8MainGameTextKeyHandler>(
-        *this, 0x8e, 5, 0x10f, 0x59, 0xf, g_trap_name_string_ids);
+        0x8e, 5, 0x10f, 0x59, 0xf, g_trap_name_string_ids);
     m_key_handler->m_range_listener = this;
-    m_text_bounds.left = m_bounds.left + 0xc;
-    m_text_bounds.top = m_bounds.top + 0x29;
-    m_text_bounds.right = m_bounds.left + 0x84;
-    m_text_bounds.bottom = m_bounds.top + 0x33;
+    m_text_bounds.left = ScreenBounds().x + 0xc;
+    m_text_bounds.top = ScreenBounds().y + 0x29;
+    m_text_bounds.right = ScreenBounds().x + 0x84;
+    m_text_bounds.bottom = ScreenBounds().y + 0x33;
     m_text_buffer.SetLayoutBounds(&m_text_bounds, true, true);
     EnableRegionSet(true);
     m_key_handler->m_range.EnableRegionSet(true);
-    SetEnabled(true);
-    Invalidate(0);
+    SetActive(true);
+    InvalidateAll();
     for (index = 0; index < 8; ++index) {
-        if ((static_cast<unsigned char>(m_entries[index]->m_stateFlags) &
-             g_W8TextControlStateSecondary) == 0) {
+        if (!m_entries[index]->IsSelected()) {
             m_entries[index]->SetEnabled(GetTable650434Entry(m_selection, index) != 0);
             m_entries[index]->Invalidate(false);
         }
@@ -1586,17 +1591,17 @@ W8MainGameTextPanel::~W8MainGameTextPanel()
     DestroyAllControls();
 }
 
-void W8MainGameTextPanel::Redraw()
+void W8MainGameTextPanel::Redraw(SDL_Surface& target, bool full_redraw)
 {
     SDL_Rect clip;
     int progress;
 
-    if (m_fDirty) {
+    if (m_dirty) {
         m_target_marker_pending = true;
     }
-    Controls::Redraw();
-    m_key_handler->m_range.Redraw();
-    if (!m_fEnabled) {
+    Controls::Redraw(target, full_redraw);
+    m_key_handler->m_range.Redraw(target, false);
+    if (!m_active) {
         return;
     }
     if (m_progress_display) {
@@ -1605,20 +1610,20 @@ void W8MainGameTextPanel::Redraw()
             m_progress_drawn = progress;
             InvalidateRegion(m_text_bounds.left, m_text_bounds.top, m_text_bounds.right,
                              m_text_bounds.bottom);
-            auto& framebuffer = GetFrameBufferSurface();
+            auto& framebuffer = target;
             SDL_GetSurfaceClipRect(&framebuffer, &clip);
             clip.h = (m_text_bounds.left + m_progress_drawn) - clip.y;
             ScopedClipRect clipped(framebuffer, clip);
-            CatalogArtwork::Load(0x1b5, 0).draw(GetFrameBufferSurface(), 0, m_text_bounds.left, m_text_bounds.top);
-            m_text_buffer.RenderToTarget(0, true, GetFrameBufferSurface());
+            CatalogArtwork::Load(0x1b5, 0).draw(target, 0, m_text_bounds.left, m_text_bounds.top);
+            m_text_buffer.RenderToTarget(0, true, target);
         }
     }
-    if (m_fEnabled && m_target_changed && m_target_marker_pending) {
+    if (m_active && m_target_changed && m_target_marker_pending) {
         int frame = m_marker_anim_time % 12;
         if (frame >= 7) {
             frame = 12 - frame;
         }
-        CatalogArtwork::Load(0x1b4, 0).drawAndInvalidate(GetFrameBufferSurface(), frame, m_bounds.left + 1, m_bounds.top + 2);
+        CatalogArtwork::Load(0x1b4, 0).drawAndInvalidate(target, frame, ScreenBounds().x + 1, ScreenBounds().y + 2);
         m_target_marker_pending = false;
     }
 }
@@ -1647,8 +1652,7 @@ void W8MainGameTextPanel::OnRangeChanged(W8RangeControl* control)
     (void)control;
     m_selection = selection;
     for (column = 0; column < 8; ++column) {
-        if ((static_cast<unsigned char>(m_entries[column]->m_stateFlags) &
-             g_W8TextControlStateSecondary) == 0) {
+        if (!m_entries[column]->IsSelected()) {
             m_entries[column]->SetEnabled(GetTable650434Entry(selection, column) != 0);
             m_entries[column]->Invalidate(false);
         }
@@ -1669,10 +1673,10 @@ W8MainGameStatusPanel::W8MainGameStatusPanel()
 {
     W8ControlsRect bounds;
 
-    bounds.left = m_bounds.left + 0x25;
-    bounds.top = m_bounds.top + 7;
-    bounds.right = m_bounds.left + 0xb4;
-    bounds.bottom = m_bounds.top + 0x11;
+    bounds.left = ScreenBounds().x + 0x25;
+    bounds.top = ScreenBounds().y + 7;
+    bounds.right = ScreenBounds().x + 0xb4;
+    bounds.bottom = ScreenBounds().y + 0x11;
     m_text.reset(new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4));
     bounds.top += 0xe;
     bounds.bottom += 0xe;
@@ -1686,10 +1690,10 @@ W8MainGameStatusPanel::W8MainGameStatusPanel()
     bounds.bottom += 0xe;
     m_text4 = std::make_unique<W8TextBuffer>(&bounds, g_localized_strings[0x7b0], g_wiz_text_font_secondary,
                                g_W8TextBufferAlignLeft, 4);
-    bounds.left = m_bounds.left + 0x98;
-    bounds.top = m_bounds.top + 0x15;
-    bounds.right = m_bounds.left + 0xb5;
-    bounds.bottom = m_bounds.top + 0x1f;
+    bounds.left = ScreenBounds().x + 0x98;
+    bounds.top = ScreenBounds().y + 0x15;
+    bounds.right = ScreenBounds().x + 0xb5;
+    bounds.bottom = ScreenBounds().y + 0x1f;
     m_text1.reset(new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4));
     bounds.top += 0xe;
     bounds.bottom += 0xe;
@@ -1698,8 +1702,8 @@ W8MainGameStatusPanel::W8MainGameStatusPanel()
     bounds.bottom += 0xe;
     m_text5.reset(new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4));
     m_target = 0;
-    SetEnabled(true);
-    Invalidate(0);
+    SetActive(true);
+    InvalidateAll();
 }
 
 void W8MainGameStatusPanel::RefreshStatusTexts()
@@ -1744,7 +1748,7 @@ void W8MainGameStatusPanel::RefreshStatusTexts()
             m_text0->SetGeometryDirty();
             m_text2->SetGeometryDirty();
             m_text4->SetGeometryDirty();
-            Invalidate(0);
+            InvalidateAll();
             return;
         }
     }
@@ -1753,7 +1757,7 @@ void W8MainGameStatusPanel::RefreshStatusTexts()
     m_text0->SetGeometryDirty();
     m_text2->SetGeometryDirty();
     m_text4->SetGeometryDirty();
-    Invalidate(0);
+    InvalidateAll();
 }
 
 int GetPartySlotLocksTrapsLevel(int slot)
@@ -1771,17 +1775,17 @@ int GetPartySlotLocksTrapsLevel(int slot)
     return static_cast<int>(character->skills[W8_SKILL_LOCKS_TRAPS].level);
 }
 
-void W8MainGameStatusPanel::Redraw()
+void W8MainGameStatusPanel::Redraw(SDL_Surface& target, bool full_redraw)
 {
-    if (m_fEnabled && m_fDirty) {
-        Controls::Redraw();
-        m_text->RenderToTarget(0, false, GetFrameBufferSurface());
-        m_text0->RenderToTarget(0, false, GetFrameBufferSurface());
-        m_text1->RenderToTarget(0, false, GetFrameBufferSurface());
-        m_text2->RenderToTarget(0, false, GetFrameBufferSurface());
-        m_text3->RenderToTarget(0, false, GetFrameBufferSurface());
-        m_text4->RenderToTarget(0, false, GetFrameBufferSurface());
-        m_text5->RenderToTarget(0, false, GetFrameBufferSurface());
+    if (m_active && m_dirty) {
+        Controls::Redraw(target, full_redraw);
+        m_text->RenderToTarget(0, false, target);
+        m_text0->RenderToTarget(0, false, target);
+        m_text1->RenderToTarget(0, false, target);
+        m_text2->RenderToTarget(0, false, target);
+        m_text3->RenderToTarget(0, false, target);
+        m_text4->RenderToTarget(0, false, target);
+        m_text5->RenderToTarget(0, false, target);
     }
 }
 
@@ -1796,26 +1800,26 @@ W8MainGameScreen::W8MainGameScreen(Trigger* owner)
     m_action_panel = std::make_unique<Controls>(0x1e7, 0x166, 0, 0, CatalogArtwork::Load(0x1b1, 0), 2);
     m_action_panel->CreateRegionSet();
     m_action_controls[1] =
-        m_action_panel->EmplaceControl<W8TextControl>(*m_action_panel, 0xffffffff, 6, 6, 0, 0, CatalogArtwork::Load(0x1b0, 0), 8, 10, 9, 10, 0xb);
+        m_action_panel->EmplaceControl<W8TextControl>(0xffffffff, 6, 6, 0, 0, CatalogArtwork::Load(0x1b0, 0), W8SpriteStates{.normal = 8, .pressed = 10, .alternate_normal = 9, .alternate_pressed = 10, .disabled = 0xb});
     m_action_controls[1]->m_listener = this;
     m_action_controls[2] =
-        m_action_panel->EmplaceControl<W8TextControl>(*m_action_panel, 0xffffffff, 0x24, 6, 0, 0, CatalogArtwork::Load(0x1b0, 0), 0, 2, 1, 2, 3);
+        m_action_panel->EmplaceControl<W8TextControl>(0xffffffff, 0x24, 6, 0, 0, CatalogArtwork::Load(0x1b0, 0), W8SpriteStates{.normal = 0, .pressed = 2, .alternate_normal = 1, .alternate_pressed = 2, .disabled = 3});
     m_action_controls[2]->m_listener = this;
     m_action_controls[3] =
-        m_action_panel->EmplaceControl<W8TextControl>(*m_action_panel, 0xffffffff, 6, 0x24, 0, 0, CatalogArtwork::Load(0x1b0, 0), 4, 6, 5, 6, 7);
+        m_action_panel->EmplaceControl<W8TextControl>(0xffffffff, 6, 0x24, 0, 0, CatalogArtwork::Load(0x1b0, 0), W8SpriteStates{.normal = 4, .pressed = 6, .alternate_normal = 5, .alternate_pressed = 6, .disabled = 7});
     m_action_controls[3]->m_listener = this;
-    m_action_controls[4] = m_action_panel->EmplaceControl<W8TextControl>(*m_action_panel, 0xffffffff, 0x24, 0x24, 0, 0, CatalogArtwork::Load(0x1b0, 0), 0xc, 0xe, 0xd, 0xe, 0xf);
+    m_action_controls[4] = m_action_panel->EmplaceControl<W8TextControl>(0xffffffff, 0x24, 0x24, 0, 0, CatalogArtwork::Load(0x1b0, 0), W8SpriteStates{.normal = 0xc, .pressed = 0xe, .alternate_normal = 0xd, .alternate_pressed = 0xe, .disabled = 0xf});
     m_action_controls[4]->m_listener = this;
     m_action_controls[0] =
-        m_action_panel->EmplaceControl<W8TextControl>(*m_action_panel, 0xffffffff, 0x44, 6, 0, 0, CatalogArtwork::Load(0x8e, 0), 4, 6, 5, 6, 7);
+        m_action_panel->EmplaceControl<W8TextControl>(0xffffffff, 0x44, 6, 0, 0, CatalogArtwork::Load(0x8e, 0), W8SpriteStates{.normal = 4, .pressed = 6, .alternate_normal = 5, .alternate_pressed = 6, .disabled = 7});
     m_action_controls[0]->m_listener = this;
     m_action_controls[1]->EnableRegionHelp(0x7ce);
     m_action_controls[2]->EnableRegionHelp(0x7cf);
     m_action_controls[3]->EnableRegionHelp(0x7cc);
     m_action_controls[4]->EnableRegionHelp(0x7d0);
     m_action_panel->EnableRegionSet(true);
-    m_action_panel->SetEnabled(true);
-    m_action_panel->Invalidate(0);
+    m_action_panel->SetActive(true);
+    m_action_panel->InvalidateAll();
     for (int i = 0; i < 8; ++i) {
         m_column_filled[i] = 0;
         m_slot_attempted[i] = 0;
@@ -1868,7 +1872,7 @@ void W8MainGameScreen::SelectTextEntry(int index)
     m_action_controls[2]->SetEnabled(false);
     m_action_controls[3]->SetEnabled(false);
     m_action_controls[4]->SetEnabled(false);
-    m_action_panel->Invalidate(0);
+    m_action_panel->InvalidateAll();
     m_text_panel->BeginProgress(g_localized_strings[0x7b5], duration, hold);
     m_sound_handle = wiz8::sound::play(g_trap_sounds[index]);
 }
@@ -1940,7 +1944,7 @@ void W8MainGameScreen::OnPrimary(W8TextControl* control)
     m_action_controls[2]->SetEnabled(false);
     m_action_controls[3]->SetEnabled(false);
     m_action_controls[4]->SetEnabled(false);
-    m_action_panel->Invalidate(0);
+    m_action_panel->InvalidateAll();
     m_text_panel->BeginProgress(g_localized_strings[0x7b6], duration, hold);
     m_sound_handle = wiz8::sound::stream(g_trap_inspection_sound);
 }
@@ -1979,10 +1983,9 @@ void W8MainGameScreen::Update()
             return;
         }
         panel->m_progress_display = false;
-        panel->Invalidate(0);
+        panel->InvalidateAll();
         for (column = 0; column < 8; ++column) {
-            if ((static_cast<unsigned char>(panel->m_entries[column]->m_stateFlags) &
-                 g_W8TextControlStateSecondary) == 0) {
+            if (!panel->m_entries[column]->IsSelected()) {
                 panel->m_entries[column]->m_input_blocked = false;
             }
         }
@@ -2056,8 +2059,7 @@ void W8MainGameScreen::RefreshActionPanel()
 
     m_action_controls[4]->SetEnabled(skill >= 0);
     for (i = 0; i < 8; ++i) {
-        if ((static_cast<unsigned char>(m_text_panel->m_entries[i]->m_stateFlags) &
-             g_W8TextControlStateSecondary) == 0) {
+        if (!m_text_panel->m_entries[i]->IsSelected()) {
             m_text_panel->m_entries[i]->m_input_blocked = skill < 0;
         }
     }
@@ -2096,7 +2098,7 @@ void W8MainGameScreen::RefreshActionPanel()
     m_action_controls[2]->SetEnabled(true);
     m_action_controls[3]->SetEnabled(true);
     m_status_panel->RefreshStatusTexts();
-    m_action_panel->Invalidate(0);
+    m_action_panel->InvalidateAll();
 }
 
 void W8MainGameScreen::EnablePanelRegionSets(bool enable)
@@ -2260,9 +2262,9 @@ int OpenTrapInteraction(Trigger* trigger)
         panel->EnableRegionSet(true);
         panel->m_key_handler->m_range.EnableRegionSet(true);
         screen->m_action_panel->EnableRegionSet(true);
-        screen->m_text_panel->Invalidate(0);
+        screen->m_text_panel->InvalidateAll();
         screen->m_status_panel->RefreshStatusTexts();
-        screen->m_action_panel->Invalidate(0);
+        screen->m_action_panel->InvalidateAll();
         g_main_game_screen->RefreshActionPanel();
         gXStatus.fTrapInteract = false;
         return 1;
@@ -2294,9 +2296,9 @@ void UpdateMainGameScreen(void)
 /* Redraw the trap interaction's text, status and action panels. */
 void RedrawTrapInteractionPanels(void)
 {
-    g_main_game_screen->m_text_panel->Redraw();
-    g_main_game_screen->m_status_panel->Redraw();
-    g_main_game_screen->m_action_panel->Redraw();
+    g_main_game_screen->m_text_panel->Redraw(GetFrameBufferSurface(), false);
+    g_main_game_screen->m_status_panel->Redraw(GetFrameBufferSurface(), false);
+    g_main_game_screen->m_action_panel->Redraw(GetFrameBufferSurface(), false);
 }
 
 /* Leave trap interact mode. With `suspend` clear the main game screen object
@@ -2368,41 +2370,41 @@ W8NpcDialogueTextController::W8NpcDialogueTextController(int panel_left, int pan
 /* Expanded transcript paint: when dirty, redraw the panel backdrop, optionally
    tile the line/margin catalog images for the open layout, then forward to
    active children and the embedded text area. */
-void W8NpcDialogueTextController::Redraw()
+void W8NpcDialogueTextController::Redraw(SDL_Surface& target, bool full_redraw)
 {
     bool was_dirty;
     bool force;
     int height;
     int top;
 
-    was_dirty = m_fDirty;
-    if (m_fEnabled) {
+    was_dirty = m_dirty;
+    if (m_active) {
         force = was_dirty;
         if (force) {
-            m_background->drawAndInvalidate(GetFrameBufferSurface(), m_backgroundImage,
-                                            m_bounds.left, m_bounds.top);
-            m_fDirty = false;
+            m_background->drawAndInvalidate(target, m_backgroundImage,
+                                            ScreenBounds().x, ScreenBounds().y);
+            m_dirty = false;
         }
         if (line_image != -1 && margin_image != -1) {
             if (visible == 1 && was_dirty) {
                 height = line_height;
-                top = (m_bounds.top - height) + margin;
+                top = (ScreenBounds().y - height) + margin;
                 if (height < scroll_height) {
                     do {
-                        m_background->drawAndInvalidate(GetFrameBufferSurface(), line_image,
-                                                        m_bounds.left, top);
+                        m_background->drawAndInvalidate(target, line_image,
+                                                        ScreenBounds().x, top);
                         top -= line_height;
                         height += line_height;
                     } while (height < scroll_height);
                 }
-                m_background->drawAndInvalidate(GetFrameBufferSurface(), margin_image,
-                                                m_bounds.left,
+                m_background->drawAndInvalidate(target, margin_image,
+                                                ScreenBounds().x,
                                                 (line_height - margin) + top);
                 force = true;
-            } else if (!force && !m_fLayoutDirty) {
+            } else if (!force && !m_childrenDirty) {
                 return;
             }
-            RedrawChildren(force);
+            RedrawChildren(target, force);
             text_area.Draw(force);
         }
     }
@@ -2428,7 +2430,7 @@ unsigned char W8NpcDialogueTextController::AddTranscriptEntry(std::string_view t
         for (index = 0; index < static_cast<int>(text_area.m_all_lines.size()); ++index) {
             if (CompareTextIgnoreAsciiCase(*text_area.GetEntryText(index), " [No Keywords]") == 0) {
                 text_area.RemoveEntry(index);
-                Invalidate(0);
+                InvalidateAll();
                 break;
             }
         }
@@ -2441,7 +2443,7 @@ bool W8NpcDialogueTextController::IsSlotPortraitTranscriptCovered(unsigned int p
     int top;
 
     if (visible == 1) {
-        top = ((1 - scroll_height / line_height) * line_height - margin) + m_bounds.top;
+        top = ((1 - scroll_height / line_height) * line_height - margin) + ScreenBounds().y;
         switch (party_slot) {
         case 1:
             if (top < 0x67) {
@@ -2471,10 +2473,10 @@ void W8NpcDialogueTextController::Collapse()
     int top;
 
     visible = 0;
-    top = (m_bounds.top - (scroll_height / line_height) * line_height) - margin;
-    ClearSurfaceRect(m_bounds.left, top, m_bounds.right, m_bounds.bottom);
-    Invalidate(0);
-    InvalidateRegion(m_bounds.left, top, m_bounds.right, m_bounds.bottom);
+    top = (ScreenBounds().y - (scroll_height / line_height) * line_height) - margin;
+    ClearSurfaceRect(ScreenBounds().x, top, ToEdges(ScreenBounds()).right, ToEdges(ScreenBounds()).bottom);
+    InvalidateAll();
+    InvalidateRegion(ScreenBounds().x, top, ToEdges(ScreenBounds()).right, ToEdges(ScreenBounds()).bottom);
     if (top < 0x67) {
         RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_1);
         RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_3);
@@ -2491,16 +2493,16 @@ void W8NpcDialogueTextController::Collapse()
         RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_7);
     }
     scroll_height = line_height;
-    bounds.left = m_bounds.left + 6;
-    bounds.right = m_bounds.left + 0x7c;
-    bounds.bottom = m_bounds.top + 0x12;
+    bounds.left = ScreenBounds().x + 6;
+    bounds.right = ScreenBounds().x + 0x7c;
+    bounds.bottom = ScreenBounds().y + 0x12;
     bounds.top = bounds.bottom - line_height;
     text_area.Configure(&bounds, g_wiz_text_font_secondary,
                         g_W8DialogTextAreaNoWrap | g_W8DialogTextAreaPointSelection |
                             g_W8DialogTextAreaShortenText);
     g_main_dialogue.Disable();
     (*g_main_dialogue)[0].SetInputEnabled(false);
-    g_npc_interaction_state->dialogue_panels[3]->Invalidate(0);
+    g_npc_interaction_state->dialogue_panels[3]->InvalidateAll();
 }
 
 void W8NpcDialogueTextController::Expand()
@@ -2515,9 +2517,9 @@ void W8NpcDialogueTextController::Expand()
     if (text_height >= 0xff) {
         text_height = 0xff;
     }
-    bounds.left = m_bounds.left + 6;
-    bounds.right = m_bounds.left + 0x7c;
-    bounds.bottom = m_bounds.top + 0x12;
+    bounds.left = ScreenBounds().x + 6;
+    bounds.right = ScreenBounds().x + 0x7c;
+    bounds.bottom = ScreenBounds().y + 0x12;
     bounds.top = bounds.bottom - text_height;
     scroll_height = text_height;
     text_area.Configure(&bounds, g_wiz_text_font_secondary,
@@ -2531,16 +2533,16 @@ void W8NpcDialogueTextController::Expand()
         static_cast<unsigned short>(bounds.right), static_cast<unsigned short>(bounds.bottom));
     g_main_dialogue.Enable();
     (*g_main_dialogue)[0].SetInputEnabled(true);
-    Invalidate(0);
+    InvalidateAll();
 }
 
 void W8NpcDialogueTextController::ClearBackground()
 {
     int top;
 
-    top = ((1 - scroll_height / line_height) * line_height - margin) + m_bounds.top;
-    ClearSurfaceRect(m_bounds.left, top, m_bounds.right, m_bounds.bottom);
-    InvalidateRegion(m_bounds.left, top, m_bounds.right, m_bounds.bottom);
+    top = ((1 - scroll_height / line_height) * line_height - margin) + ScreenBounds().y;
+    ClearSurfaceRect(ScreenBounds().x, top, ToEdges(ScreenBounds()).right, ToEdges(ScreenBounds()).bottom);
+    InvalidateRegion(ScreenBounds().x, top, ToEdges(ScreenBounds()).right, ToEdges(ScreenBounds()).bottom);
     if (top < 0x67) {
         RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_1);
         RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_3);
@@ -2603,8 +2605,8 @@ void W8NpcDialogueScrollWidget::OnLeftButtonDown(int event)
 {
     if (m_active && m_enabled) {
         m_flags |= 1;
-        if (m_leftButtonDownCallback) {
-            m_leftButtonDownCallback();
+        if (m_onLeftButtonDown) {
+            m_onLeftButtonDown();
         }
     }
 }
@@ -2613,8 +2615,8 @@ void W8NpcDialogueScrollWidget::OnLeftButtonUp(int event)
 {
     if (m_active && m_enabled && (m_flags & 1)) {
         m_flags &= ~1u;
-        if (m_primaryActivationCallback) {
-            m_primaryActivationCallback();
+        if (m_onPrimary) {
+            m_onPrimary();
         }
     }
 }
@@ -2638,7 +2640,7 @@ void W8NpcDialogueTextController::RestoreTranscriptEntries()
         record = g_npc_interaction_state->dialogue_transcript[index].get();
         AddTranscriptEntry(record->text, record->category, 0);
     }
-    Invalidate(0);
+    InvalidateAll();
     if (g_npc_interaction_state->dialogue_transcript.empty()) {
         g_npc_interaction_state->dialogue_category_filter = W8_DIALOGUE_CATEGORY_ALL;
         controller =
@@ -7332,7 +7334,7 @@ void W8NpcDialogueTextController::ClearTranscriptEntries()
     while (0u < static_cast<int>((unsigned)text_area.m_all_lines.size())) {
         text_area.RemoveEntry(0);
     }
-    Invalidate(0);
+    InvalidateAll();
 }
 
 void W8NpcDialogueTextController::RemoveSelectedTranscriptEntry()
@@ -7341,7 +7343,7 @@ void W8NpcDialogueTextController::RemoveSelectedTranscriptEntry()
         int index = text_area.GetOwningEntryIndex(text_area.m_highlighted_entry);
         if (index != -1) {
             text_area.RemoveEntry(index);
-            Invalidate(0);
+            InvalidateAll();
         }
     }
 }
@@ -7354,7 +7356,7 @@ int W8NpcDialogueTextController::GetSelectedTranscriptEntryIndex()
 void W8NpcDialogueTextController::SetTranscriptSorted(bool sorted)
 {
     text_area.SetSorted(sorted);
-    Invalidate(0);
+    InvalidateAll();
 }
 
 /* The trade confirm button's activation callback. Selling mode first offers
@@ -7384,8 +7386,7 @@ void ConfirmNpcTradeItem(void)
          g_npc_interaction_state->trade_mode == W8_NPC_TRADE_SELL) &&
         (static_cast<W8TextControl*>(
              g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_5])
-             ->m_stateFlags &
-         g_W8TextControlStateSecondary) != 0) {
+             ->IsSelected())) {
         selected = g_status.selected_character;
         npc_kind = g_status.buffers.XChar[selected].npc_index;
         if (npc_kind != -1) {
@@ -7413,8 +7414,7 @@ void ConfirmNpcTradeItem(void)
         slot = GetSelectedTextLine(2);
         if ((static_cast<W8TextControl*>(
                  g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_5])
-                 ->m_stateFlags &
-             g_W8TextControlStateSecondary) != 0) {
+                 ->IsSelected())) {
             trading = &g_status.buffers.Char[g_status.selected_character];
             shown = 0;
             for (index = 0; index < 8; ++index) {
@@ -7438,8 +7438,7 @@ void ConfirmNpcTradeItem(void)
             }
         } else if ((static_cast<W8TextControl*>(
                         g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_6])
-                        ->m_stateFlags &
-                    g_W8TextControlStateSecondary) != 0) {
+                        ->IsSelected())) {
             shown = 0;
             target = slot;
             if (g_npc_interaction_state->trade_mode != W8_NPC_TRADE_GIVE || slot != 0) {
@@ -7634,14 +7633,12 @@ void PopulateNpcTradeList(void)
                        GetTextBoxFont().textWidth(g_level_block->text_paint_scratch));
         AppendTextBoxLine(g_level_block->text_paint_scratch, 2);
     }
-    if ((static_cast<W8TextControl*>(
+    if (!(static_cast<W8TextControl*>(
              g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_5])
-             ->m_stateFlags &
-         g_W8TextControlStateSecondary) == 0) {
+             ->IsSelected())) {
         if ((static_cast<W8TextControl*>(
                  g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_6])
-                 ->m_stateFlags &
-             g_W8TextControlStateSecondary) != 0) {
+                 ->IsSelected())) {
             for (unsigned int index = 0; index < g_status.party_item_count; ++index) {
                 W8ItemInstance* item = &g_status.party_item_pool[index];
                 bool acceptable = true;
@@ -7691,7 +7688,7 @@ void PopulateNpcTradeList(void)
             ShowNpcPlayerTradeItem(item, acceptable, font_palette);
         }
     }
-    g_npc_interaction_state->dialogue_panels[1]->Invalidate(0);
+    g_npc_interaction_state->dialogue_panels[1]->InvalidateAll();
 }
 
 void OpenNpcTradeQuantityDialog(void)
@@ -7898,7 +7895,7 @@ unsigned char DialogueTranscriptRegionEvent(const InputEvent* event, W8Region* r
                 if (!scrolled) {
                     return 0;
                 }
-                controller->Invalidate(0);
+                controller->InvalidateAll();
                 return 0;
             }
             controller = static_cast<W8NpcDialogueTextController*>(
@@ -7907,7 +7904,7 @@ unsigned char DialogueTranscriptRegionEvent(const InputEvent* event, W8Region* r
             if (!scrolled) {
                 return 0;
             }
-            controller->Invalidate(0);
+            controller->InvalidateAll();
             return 0;
         }
         if ((region->flags & W8_REGION_MOUSE_LEAVE) == 0) {

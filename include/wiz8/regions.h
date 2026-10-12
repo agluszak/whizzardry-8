@@ -154,6 +154,11 @@ struct W8Region {
     std::string help_text{};
     bool text_field = false; // Hit-tested at the cursor tip, ahead of every other set.
     W8RegionHandler* handler = nullptr;
+    /* The widget that positions, activates and labels this region. It is
+       also the handler, unless the handler is a screen template's callback,
+       which then drives the widget itself. */
+    W8Widget* owner = nullptr;
+    bool template_callback = false; /* handler is a screen template's callback */
 };
 
 /* A region-template row's callback, bound to the row id it was declared with. */
@@ -289,6 +294,15 @@ private:
     SavedRegionState saved_captured_{};
     SavedRegionState saved_hover_{};
 };
+
+/* A region set captured with its creation sequence: a set that has since been
+   destroyed, or whose slot now holds another set, is no longer live. */
+struct RegionSetRef {
+    unsigned int index = 0;
+    std::uint64_t sequence = 0;
+};
+RegionSetRef CaptureRegionSet(unsigned int set);
+bool RegionSetLive(const RegionSetRef& set);
 
 unsigned char InitializeRegionHelpState(void);
 

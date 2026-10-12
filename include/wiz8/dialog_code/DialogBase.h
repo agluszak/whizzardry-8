@@ -3,6 +3,7 @@
 
 #include <SDL3/SDL_rect.h>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 
@@ -31,12 +32,33 @@ void SetDialogDestroyCallback(W8DialogBase* dialog, W8DialogDestroyCallback call
 /* Shared close-button callback used by the monster and spell info dialogs. */
 void DialogCloseButtonCallback(W8ButtonWidget* button);
 
+/* A dialog's body: it paints the bordered background and takes the clicks
+   that miss the dialog's controls, so they count as handled. */
+class W8DialogFrame final : public W8Widget {
+public:
+    void Configure(ButtonAppearance appearance, const SDL_Rect& bounds, unsigned int set);
+    void Reset();
+    bool IsConfigured() const { return OwnsRegion(); }
+    void Draw(SDL_Surface& target) const;
+    void Redraw(SDL_Surface& target, bool) override
+    {
+        if (m_active) Draw(target);
+    }
+
+private:
+    ButtonAppearance m_appearance;
+};
+
 /* Modal controls own their regions and state; only visual resources and
    rendering uses the shared dialog button appearance module. */
 // VTABLE: WIZ8 0x005efaf8
 class W8DialogBase {
+    /* First, so it outlives every control's region. */
+    OwnedRegionSet m_region_set{std::span<const RegionTemplate>{}};
+
 public:
     W8DialogBase();
+    unsigned int RegionSet() const { return m_region_set.set(); }
     virtual ~W8DialogBase();
     virtual int CreateControls();
     virtual void DestroyControls();
@@ -70,7 +92,7 @@ protected:
                         int width, int height);
 
     int m_error;
-    W8ButtonWidget m_resource;
+    W8DialogFrame m_frame;
     std::string m_text;
     Font* m_font;
     unsigned char m_foreground;
@@ -109,5 +131,10 @@ protected:
 };
 
 
-/* The innermost live dialog; only its controls take input. */
-W8DialogBase* TopLiveDialog();
+/* Each live dialog is an input layer with its own region set; buttons and
+   text fields made while it is innermost take input there, so its modal
+   scope reaches exactly its own controls. Outside dialogs the layer is the
+   shared control set. InputLayerSet resolves a captured layer, falling back
+   to the shared set once that layer's dialog is gone. */
+RegionSetRef CurrentInputLayer();
+unsigned int InputLayerSet(const RegionSetRef& layer);

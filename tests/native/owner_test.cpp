@@ -1,3 +1,4 @@
+#include "wiz8/dialog_code/DialogBase.h"
 #include <deque>
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_surface.h>
@@ -1278,6 +1279,28 @@ void generic_button_images()
             }
         }
     }
+    // Panel painting must use the supplied canvas, including forced repaints.
+    {
+        Controls panel;
+        panel.CreateRegionSet();
+        panel.SetActive(true);
+        auto* button = panel.EmplaceControl<W8ButtonWidget>();
+        REQUIRE(button->ConfigureIcon("button.sti", 0, 1, REGION_PRIORITY_NORMAL,
+                                      W8_DIALOG_BUTTON_NO_TOOLTIP));
+        button->SetPosition(2, 3);
+        SDL_FillSurfaceRect(&target, nullptr, 0);
+        panel.Redraw(target, true);
+        auto* pixels = static_cast<std::uint16_t*>(target.pixels);
+        REQUIRE(pixels[3 * (target.pitch / 2) + 2] == frame_colors[2]);
+        SDL_FillSurfaceRect(&target, nullptr, 0);
+        panel.Redraw(target, true);
+        REQUIRE(pixels[3 * (target.pitch / 2) + 2] == frame_colors[2]);
+
+        auto* frame = panel.EmplaceControl<W8DialogFrame>();
+        frame->Configure(first_appearance, {4, 5, 1, 1}, panel.RegionSet());
+        panel.Redraw(target, true);
+        REQUIRE(pixels[5 * (target.pitch / 2) + 4] == frame_colors[2]);
+    }
     gfRenderHilights = old_hilights;
     target_owner.reset();
     graphics.reset();
@@ -1316,7 +1339,7 @@ void generic_button_images()
         dialog->SetPosition(12, 13);
         REQUIRE(!dialog->ConfigureIcon("missing.sti", 0, 1, REGION_PRIORITY_NORMAL,
                                        W8_DIALOG_BUTTON_NO_TOOLTIP));
-        REQUIRE((dialog->GetX() == 12 && dialog->GetY() == 13 && dialog->GetWidth() == 1));
+        REQUIRE((dialog->Bounds().x == 12 && dialog->Bounds().y == 13 && dialog->Bounds().w == 1));
         REQUIRE(std::any_of(g_regions.begin(), g_regions.end(),
                             [&dialog](const W8Region& region) {
                                 return region.handler == dialog.get();
@@ -1783,7 +1806,7 @@ TEST_CASE("Dialog controls own interaction without legacy GUI buttons", "[owner]
         REQUIRE(button.IsConfigured());
         button.Resize(60, 30);
         button.SetPosition(20, 20);
-        REQUIRE((button.GetBounds().w == 60 && button.GetBounds().h == 30));
+        REQUIRE((button.Bounds().w == 60 && button.Bounds().h == 30));
         dispatch_mouse(InputEventType::LeftButtonDown, 75, 45, true);
         REQUIRE(button.IsLeftButtonHeld());
         dispatch_mouse(InputEventType::LeftButtonUp, 75, 45);
@@ -1805,7 +1828,7 @@ TEST_CASE("Dialog controls own interaction without legacy GUI buttons", "[owner]
         dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
         REQUIRE(activations == 5);
         button.Reset();
-        REQUIRE((!button.IsEnabled() && !button.IsPressed() && button.GetWidth() == 0));
+        REQUIRE((!button.IsEnabled() && !button.IsPressed() && button.Bounds().w == 0));
         dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
         dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
         REQUIRE(activations == 5);
@@ -1881,9 +1904,19 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
         dialog.SetMessage("", 0, 0, true, true, false, false, 100, 80);
         REQUIRE(dialog.CreateControls() == 0);
         auto& control = accept ? dialog.m_confirm_button : dialog.m_cancel_button;
-        dispatch_mouse(InputEventType::LeftButtonDown, control.GetX(), control.GetY(), true);
+        {
+            // A dialog opened on top owns the modal scope: the one beneath
+            // keeps its controls but takes no input until it is closed.
+            MessageDialog inner;
+            ExclusiveRegionSet inner_scope(inner.RegionSet());
+            dispatch_mouse(InputEventType::LeftButtonDown, control.Bounds().x, control.Bounds().y, true);
+            dispatch_mouse(InputEventType::LeftButtonUp, control.Bounds().x, control.Bounds().y);
+            REQUIRE(dialog.is_open);
+        }
+        ExclusiveRegionSet dialog_scope(dialog.RegionSet());
+        dispatch_mouse(InputEventType::LeftButtonDown, control.Bounds().x, control.Bounds().y, true);
         REQUIRE(dialog.is_open);
-        dispatch_mouse(InputEventType::LeftButtonUp, control.GetX(), control.GetY());
+        dispatch_mouse(InputEventType::LeftButtonUp, control.Bounds().x, control.Bounds().y);
         REQUIRE(!dialog.is_open);
         REQUIRE(dialog.accepted == accept);
     }
@@ -1897,23 +1930,24 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
         for (int index = 0; index < 20; ++index) list.m_lines.emplace_back("X");
         REQUIRE(list.CreateControls() == 0);
         list.Draw();
+        ExclusiveRegionSet list_scope(list.RegionSet());
         GetInputState().mouse.y = 400;
-        dispatch_mouse(InputEventType::LeftButtonDown, list.m_area_button.GetX() + 3,
-                       list.m_area_button.GetY() + 21, true);
-        dispatch_mouse(InputEventType::LeftButtonUp, list.m_area_button.GetX() + 3,
-                       list.m_area_button.GetY() + 21);
+        dispatch_mouse(InputEventType::LeftButtonDown, list.m_area_button.Bounds().x + 3,
+                       list.m_area_button.Bounds().y + 21, true);
+        dispatch_mouse(InputEventType::LeftButtonUp, list.m_area_button.Bounds().x + 3,
+                       list.m_area_button.Bounds().y + 21);
         REQUIRE(list.m_selected_line == 2);
-        dispatch_mouse(InputEventType::LeftButtonDown, list.m_down_button.GetX(), list.m_down_button.GetY(), true);
-        dispatch_mouse(InputEventType::LeftButtonRepeat, list.m_down_button.GetX(), list.m_down_button.GetY(), true);
-        dispatch_mouse(InputEventType::LeftButtonUp, list.m_down_button.GetX(), list.m_down_button.GetY());
+        dispatch_mouse(InputEventType::LeftButtonDown, list.m_down_button.Bounds().x, list.m_down_button.Bounds().y, true);
+        dispatch_mouse(InputEventType::LeftButtonRepeat, list.m_down_button.Bounds().x, list.m_down_button.Bounds().y, true);
+        dispatch_mouse(InputEventType::LeftButtonUp, list.m_down_button.Bounds().x, list.m_down_button.Bounds().y);
         REQUIRE(list.m_selected_line == 4);
-        dispatch_mouse(InputEventType::LeftButtonDown, list.m_third_text_button.GetX() + 1,
-                       list.m_third_text_button.GetY() + 30, true);
+        dispatch_mouse(InputEventType::LeftButtonDown, list.m_third_text_button.Bounds().x + 1,
+                       list.m_third_text_button.Bounds().y + 30, true);
         REQUIRE(list.m_selected_line == 15);
-        dispatch_mouse(InputEventType::LeftButtonRepeat, list.m_third_text_button.GetX() + 1,
-                       list.m_third_text_button.GetY() + 20, true);
-        dispatch_mouse(InputEventType::LeftButtonUp, list.m_third_text_button.GetX() + 1,
-                       list.m_third_text_button.GetY() + 20);
+        dispatch_mouse(InputEventType::LeftButtonRepeat, list.m_third_text_button.Bounds().x + 1,
+                       list.m_third_text_button.Bounds().y + 20, true);
+        dispatch_mouse(InputEventType::LeftButtonUp, list.m_third_text_button.Bounds().x + 1,
+                       list.m_third_text_button.Bounds().y + 20);
         REQUIRE(list.m_selected_line == 10);
     }
     {
@@ -2222,15 +2256,26 @@ TEST_CASE("Controls draw optional CatalogArtwork backgrounds", "[owner][catalog]
     const auto sprites = CatalogArtwork::Load(0x86);
     REQUIRE(SDL_FillSurfaceRect(&framebuffer, nullptr, 0x07e0));
     Controls with_background(100, 100, 140, 120, sprites, 0);
-    with_background.m_fEnabled = true;
-    with_background.m_fDirty = true;
-    with_background.Redraw();
+    with_background.m_active = true;
+    with_background.m_dirty = true;
+    with_background.Redraw(GetFrameBufferSurface(), false);
     REQUIRE(surface_pixel(framebuffer, 102, 103) == sprites.spriteSheet()->colors[1]);
     Controls without_background(150, 100, 190, 120, std::nullopt, 0);
-    without_background.m_fEnabled = true;
-    without_background.m_fDirty = true;
-    without_background.Redraw();
+    without_background.m_active = true;
+    without_background.m_dirty = true;
+    without_background.Redraw(GetFrameBufferSurface(), false);
     REQUIRE(surface_pixel(framebuffer, 152, 103) == 0x07e0);
+
+    // A bounded invalidation must not narrow a pending whole-panel one.
+    const SDL_Point extent = sprites.size(0);
+    const W8ControlsRect corner{100, 100, 101, 101};
+    TakeUiUpload();
+    with_background.InvalidateAll();
+    with_background.InvalidateArea(corner);
+    with_background.Redraw(GetFrameBufferSurface(), false);
+    const SDL_Rect whole{100, 100, extent.x, extent.y};
+    const auto upload = TakeUiUpload();
+    REQUIRE(SDL_RectsEqual(&upload, &whole));
 }
 
 TEST_CASE("Item image cache owns shared sprite sheets", "[owner][catalog]")

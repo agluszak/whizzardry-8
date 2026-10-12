@@ -1,3 +1,4 @@
+#include "wiz8/local_code/ControlsRect.h"
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
@@ -127,7 +128,7 @@ public:
     MainMenuItemWidget(short item, const W8ControlsRect& bounds)
         : item_(item)
     {
-        SetBounds(bounds.left, bounds.top, bounds.right, bounds.bottom);
+        SetBounds(ToSDLRect(bounds));
     }
 
     void OnMouseEnter(int) override
@@ -175,7 +176,7 @@ void CreateMainMenuControls()
     for (short item = 0; item < static_cast<short>(main_menu_item_bounds.size()); ++item) {
         main_menu_controls->EmplaceControl<MainMenuItemWidget>(item, main_menu_item_bounds[item]);
     }
-    main_menu_controls->SetEnabled(true);
+    main_menu_controls->SetActive(true);
     main_menu_controls->EnableRegionSet(true);
 }
 } // namespace

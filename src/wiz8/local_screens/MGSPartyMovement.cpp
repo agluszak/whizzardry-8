@@ -85,23 +85,23 @@ unsigned char CreatePartyMovementPanel(void)
                                        g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
 
     g_party_movement_buttons[0] =
-        g_party_movement_panel->EmplaceControl<W8TextControl>(*g_party_movement_panel, g_party_movement_regions->index(0), 0x10a, 0, 0x11e,
-                          0x14, CatalogArtwork::Load(0x94, 0), 4, 6, 5, 6, 7);
+        g_party_movement_panel->EmplaceControl<W8TextControl>(g_party_movement_regions->index(0), 0x10a, 0, 0x11e,
+                          0x14, CatalogArtwork::Load(0x94, 0), W8SpriteStates{.normal = 4, .pressed = 6, .alternate_normal = 5, .alternate_pressed = 6, .disabled = 7});
     g_party_movement_buttons[1] =
-        g_party_movement_panel->EmplaceControl<W8TextControl>(*g_party_movement_panel, g_party_movement_regions->index(1), 0x10a, 0, 0x11e,
-                          0x14, CatalogArtwork::Load(0x94, 0), 4, 6, 5, 6, 7);
+        g_party_movement_panel->EmplaceControl<W8TextControl>(g_party_movement_regions->index(1), 0x10a, 0, 0x11e,
+                          0x14, CatalogArtwork::Load(0x94, 0), W8SpriteStates{.normal = 4, .pressed = 6, .alternate_normal = 5, .alternate_pressed = 6, .disabled = 7});
 
     if (g_party_movement_panel && g_party_movement_buttons[0] != 0 &&
         g_party_movement_buttons[1] != 0) {
-        g_party_movement_buttons[0]->m_primaryActivationCallback = BeginFreeTurnPhase;
-        g_party_movement_buttons[1]->m_primaryActivationCallback = CancelPartyMovement;
+        g_party_movement_buttons[0]->m_onPrimary = BeginFreeTurnPhase;
+        g_party_movement_buttons[1]->m_onPrimary = CancelPartyMovement;
         g_party_movement_regions.Enable();
-        g_party_movement_panel->SetEnabled(true);
+        g_party_movement_panel->SetActive(true);
         g_party_movement_buttons[0]->SetActive(false);
         gXStatus.fPartyMovementUi = true;
         g_level_block->move_percent = 100;
         g_level_block->move_percent_shown = 100;
-        g_party_movement_panel->Invalidate(0);
+        g_party_movement_panel->InvalidateAll();
         return 1;
     }
     ReleasePartyMovement();
@@ -158,8 +158,8 @@ void DrawPartyMovementPanel(void)
                      "(gpCombat->uiNextPartyAction != PARTY_ACTION_NONE)",
                      PARTY_MOVEMENT_CPP, 0xfb, 0);
     }
-    panel_live = g_party_movement_panel->m_fEnabled &&
-                 (g_party_movement_panel->m_fDirty || g_party_movement_panel->m_fLayoutDirty);
+    panel_live = g_party_movement_panel->m_active &&
+                 (g_party_movement_panel->m_dirty || g_party_movement_panel->m_childrenDirty);
     if (!CanPartyMove()) {
         if (!g_party_movement_buttons[0]->m_active) {
             g_party_movement_buttons[0]->SetActive(true);
@@ -182,7 +182,7 @@ void DrawPartyMovementPanel(void)
             g_party_movement_buttons[1]->SetEnabled(true);
         }
     }
-    g_party_movement_panel->Redraw();
+    g_party_movement_panel->Redraw(GetFrameBufferSurface(), false);
     right = 0x1b9 - g_level_block->move_percent * 0xf6 / 100;
     if (!CanPartyMove()) {
         if (!IsLevelMovementStopped()) {
@@ -258,7 +258,7 @@ void DrawPartyMovementGauge(short right, short image, bool panel_live, int capti
     }
     if (!panel_live) {
         if (advanced) {
-            g_party_movement_panel->Invalidate(0);
+            g_party_movement_panel->InvalidateAll();
         }
         return;
     }
@@ -272,7 +272,7 @@ void DrawPartyMovementGauge(short right, short image, bool panel_live, int capti
 
 void InvalidatePartyMovementPanel(void)
 {
-    g_party_movement_panel->Invalidate(0);
+    g_party_movement_panel->InvalidateAll();
 }
 
 unsigned char FreeTurnButtonRegionEvent(const InputEvent* event, W8Region* region, unsigned short id)

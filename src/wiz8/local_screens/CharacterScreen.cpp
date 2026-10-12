@@ -143,29 +143,29 @@ void W8CharacterScreen::BuildControls()
     m_controls = std::make_unique<Controls>(0, 0x1c2, 0, 0, CatalogArtwork::Load(0x107, 0), 4);
     m_controls->CreateRegionSet();
 
-    m_next = m_controls->EmplaceControl<W8TextControl>(*m_controls, 0xffffffff, 0x254, 0, 0, 0, CatalogArtwork::Load(0x106, 0), 8, 10, 9, 10, 0xb);
+    m_next = m_controls->EmplaceControl<W8TextControl>(0xffffffff, 0x254, 0, 0, 0, CatalogArtwork::Load(0x106, 0), W8SpriteStates{.normal = 8, .pressed = 10, .alternate_normal = 9, .alternate_pressed = 10, .disabled = 0xb});
     m_next->EnableRegionHelp(0xdc);
     m_next->m_listener = this;
 
-    m_previous = m_controls->EmplaceControl<W8TextControl>(*m_controls, 0xffffffff, 0x228, 0, 0, 0, CatalogArtwork::Load(0x106, 0), 0xc, 0xe, 0xd, 0xe, 0xf);
+    m_previous = m_controls->EmplaceControl<W8TextControl>(0xffffffff, 0x228, 0, 0, 0, CatalogArtwork::Load(0x106, 0), W8SpriteStates{.normal = 0xc, .pressed = 0xe, .alternate_normal = 0xd, .alternate_pressed = 0xe, .disabled = 0xf});
     m_previous->EnableRegionHelp(0xdd);
     m_previous->m_listener = this;
 
-    m_exit = m_controls->EmplaceControl<W8TextControl>(*m_controls, 0xffffffff, 0x1fc, 0, 0, 0, CatalogArtwork::Load(0x106, 0), 0x14, 0x16, 0x15, 0x16, 0x17);
+    m_exit = m_controls->EmplaceControl<W8TextControl>(0xffffffff, 0x1fc, 0, 0, 0, CatalogArtwork::Load(0x106, 0), W8SpriteStates{.normal = 0x14, .pressed = 0x16, .alternate_normal = 0x15, .alternate_pressed = 0x16, .disabled = 0x17});
     m_exit->EnableRegionHelp(0xde);
     m_exit->m_listener = this;
 
-    m_accept = m_controls->EmplaceControl<W8TextControl>(*m_controls, 0xffffffff, 0x1d0, 0, 0, 0, CatalogArtwork::Load(0x106, 0), 4, 6, 5, 6, 7);
+    m_accept = m_controls->EmplaceControl<W8TextControl>(0xffffffff, 0x1d0, 0, 0, 0, CatalogArtwork::Load(0x106, 0), W8SpriteStates{.normal = 4, .pressed = 6, .alternate_normal = 5, .alternate_pressed = 6, .disabled = 7});
     m_accept->EnableRegionHelp(0xdf);
     m_accept->m_listener = this;
 
-    m_reset = m_controls->EmplaceControl<W8TextControl>(*m_controls, 0xffffffff, 0, 0, 0, 0, CatalogArtwork::Load(0x106, 0), 0x1d, 0x1f, 0x1e, 0x1f, 0x20);
+    m_reset = m_controls->EmplaceControl<W8TextControl>(0xffffffff, 0, 0, 0, 0, CatalogArtwork::Load(0x106, 0), W8SpriteStates{.normal = 0x1d, .pressed = 0x1f, .alternate_normal = 0x1e, .alternate_pressed = 0x1f, .disabled = 0x20});
     m_reset->EnableRegionHelp(0xe1);
     m_reset->m_listener = this;
 
-    m_controls->SetEnabled(true);
+    m_controls->SetActive(true);
     m_controls->EnableRegionSet(true);
-    m_controls->Invalidate(0);
+    m_controls->InvalidateAll();
     m_reset->SetActive(false);
     if (m_mode == 1 && g_status.game_started && CharacterPointerToPartySlot(m_original) > 1) {
         m_reset->SetActive(true);
@@ -195,7 +195,7 @@ void W8CharacterScreen::UpdateDialog()
         }
         if (!m_dialog->ProcessInput()) {
             ReleaseInputSinkCapture();
-            m_controls->Invalidate(0);
+            m_controls->InvalidateAll();
             m_pages[m_page_index]->Prepare();
             m_header_dirty = true;
 #pragma clang diagnostic push
@@ -404,7 +404,7 @@ void W8CharacterScreen::AdvancePage(bool forward)
 void W8CharacterScreen::SelectPage(int index)
 {
     if (m_page_index >= 0) {
-        m_pages[m_page_index]->SetEnabled(false);
+        m_pages[m_page_index]->SetActive(false);
         m_pages[m_page_index]->Deactivate();
     }
     SyncCharacterForPage(index);
@@ -431,7 +431,7 @@ void W8CharacterScreen::SelectPage(int index)
     m_page_index = index;
     W8CharacterPage* page = m_pages[index].get();
     page->Activate();
-    page->SetEnabled(true);
+    page->SetActive(true);
 
     int previous = index - 1;
     while (previous >= 0 && !m_page_enabled[previous])
@@ -455,7 +455,7 @@ void W8CharacterScreen::SelectPage(int index)
         m_next->m_disabledSprite = 0xb;
         m_next->EnableRegionHelp(0xdc);
     }
-    m_controls->Invalidate(0);
+    m_controls->InvalidateAll();
     page->Prepare();
     m_header_dirty = true;
     UpdateNavigation(page);
@@ -764,8 +764,8 @@ void CharacterScreenFrame(void)
     });
     if (screen->m_header_dirty)
         screen->DrawHeader();
-    screen->m_pages[screen->m_page_index]->Redraw();
-    screen->m_controls->Redraw();
+    screen->m_pages[screen->m_page_index]->Redraw(GetFrameBufferSurface(), false);
+    screen->m_controls->Redraw(GetFrameBufferSurface(), false);
     if (screen->m_dialog != 0)
         screen->m_dialog->Draw();
     RenderFrame();

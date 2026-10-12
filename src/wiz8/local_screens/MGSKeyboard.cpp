@@ -63,7 +63,6 @@
 #include "layouts/npc_dialogue.h"
 #include "layouts/screen_state.h"
 #include "layouts/targeting.h"
-#include "local_code/ControlsRect.h"
 #include "mgs_commands.h"
 #include "surrender/srMath.h"
 
@@ -749,12 +748,12 @@ void CloseKeyboardMenu(void)
         g_keyboard_menu_regions->DisableInput();
     }
     if (g_level_block->portrait_refresh_pending[g_selected_party_slot] == 0) {
-        ClearSurfaceRect(g_keyboard_menu_panel->m_bounds.left, g_keyboard_menu_panel->m_bounds.top,
-                         g_keyboard_menu_panel->m_bounds.left + 0x52,
-                         g_keyboard_menu_panel->m_bounds.top + 0x4a);
-        InvalidateRegion(g_keyboard_menu_panel->m_bounds.left, g_keyboard_menu_panel->m_bounds.top,
-                         g_keyboard_menu_panel->m_bounds.left + 0x52,
-                         g_keyboard_menu_panel->m_bounds.top + 0x4a);
+        ClearSurfaceRect(g_keyboard_menu_panel->ScreenBounds().x, g_keyboard_menu_panel->ScreenBounds().y,
+                         g_keyboard_menu_panel->ScreenBounds().x + 0x52,
+                         g_keyboard_menu_panel->ScreenBounds().y + 0x4a);
+        InvalidateRegion(g_keyboard_menu_panel->ScreenBounds().x, g_keyboard_menu_panel->ScreenBounds().y,
+                         g_keyboard_menu_panel->ScreenBounds().x + 0x52,
+                         g_keyboard_menu_panel->ScreenBounds().y + 0x4a);
     }
     g_keyboard_menu_panel.reset();
     for (auto& row : g_keyboard_menu_rows) row = nullptr;
@@ -790,11 +789,10 @@ unsigned char BuildKeyboardMenu(void)
             if (message == -1) {
                 continue;
             }
-            control = g_keyboard_menu_panel->EmplaceControl<W8TextControl>(*g_keyboard_menu_panel, g_keyboard_menu_regions->index(row),
+            control = g_keyboard_menu_panel->EmplaceControl<W8TextControl>(g_keyboard_menu_regions->index(row),
                 g_keyboard_row_positions[row].x,
                 g_keyboard_row_positions[row].y, g_keyboard_row_positions[row].x + 0x12,
-                g_keyboard_row_positions[row].y + 0x12, CatalogArtwork::Load(0x89, 0), -1, -1,
-                -1, -1, message + 6);
+                g_keyboard_row_positions[row].y + 0x12, CatalogArtwork::Load(0x89, 0), W8SpriteStates{.disabled = message + 6});
             g_keyboard_menu_rows[row] = control;
             if (control == 0) {
                 g_keyboard_menu_panel.reset();
@@ -802,7 +800,7 @@ unsigned char BuildKeyboardMenu(void)
                 return 0;
             }
             AssignKeyboardMenuCallback(menu, item, control);
-            control->m_secondaryActivationCallback = CloseKeyboardMenu;
+            control->m_onSecondary = CloseKeyboardMenu;
             g_keyboard_menu_pages[row] = menu;
             g_keyboard_menu_items[row] = item;
             (*g_keyboard_menu_regions)[row].SetHelp(true,
@@ -810,14 +808,13 @@ unsigned char BuildKeyboardMenu(void)
             ++row;
         }
     }
-    g_keyboard_menu_rows[row] = g_keyboard_menu_panel->EmplaceControl<W8TextControl>(*g_keyboard_menu_panel, g_keyboard_menu_regions->index(row), g_keyboard_row_positions[row].x,
+    g_keyboard_menu_rows[row] = g_keyboard_menu_panel->EmplaceControl<W8TextControl>(g_keyboard_menu_regions->index(row), g_keyboard_row_positions[row].x,
         g_keyboard_row_positions[row].y, g_keyboard_row_positions[row].x + 0x12,
-        g_keyboard_row_positions[row].y + 0x12, CatalogArtwork::Load(0x89, 0), 0xbd, 0xbd, 0xbf,
-        0xbf, -1);
-    g_keyboard_menu_rows[row]->m_primaryActivationCallback = CloseKeyboardMenu;
-    g_keyboard_menu_rows[row]->m_secondaryActivationCallback = CloseKeyboardMenu;
+        g_keyboard_row_positions[row].y + 0x12, CatalogArtwork::Load(0x89, 0), W8SpriteStates{.normal = 0xbd, .pressed = 0xbd, .alternate_normal = 0xbf, .alternate_pressed = 0xbf});
+    g_keyboard_menu_rows[row]->m_onPrimary = CloseKeyboardMenu;
+    g_keyboard_menu_rows[row]->m_onSecondary = CloseKeyboardMenu;
     (*g_keyboard_menu_regions)[row].SetHelp(true, 0x11);
-    g_keyboard_menu_panel->SetEnabled(true);
+    g_keyboard_menu_panel->SetActive(true);
     RefreshKeyboardMenuRows();
     return 1;
 }
@@ -838,8 +835,8 @@ void EnableKeyboardMenuInput(void)
 bool KeyboardMenuContainsCursor(void)
 {
     return IsCursorInRectangle(
-        g_keyboard_menu_panel->m_bounds.left, g_keyboard_menu_panel->m_bounds.top,
-        g_keyboard_menu_panel->m_bounds.left + 0x52, g_keyboard_menu_panel->m_bounds.top + 0x4a);
+        g_keyboard_menu_panel->ScreenBounds().x, g_keyboard_menu_panel->ScreenBounds().y,
+        g_keyboard_menu_panel->ScreenBounds().x + 0x52, g_keyboard_menu_panel->ScreenBounds().y + 0x4a);
 }
 
 // FUNCTION: WIZ8 0x00593360
@@ -922,43 +919,43 @@ void AssignKeyboardMenuCallback(short menu, short item, W8TextControl* row)
     case W8_SUBMENU_ATTACK:
         switch (item) {
         case 0:
-            row->m_primaryActivationCallback = KeyboardMenuSelectAttack;
+            row->m_onPrimary = KeyboardMenuSelectAttack;
             break;
         case 1:
-            row->m_primaryActivationCallback = KeyboardMenuSelectBerserk;
+            row->m_onPrimary = KeyboardMenuSelectBerserk;
             break;
         case 2:
-            row->m_primaryActivationCallback = KeyboardMenuSelectBreathe;
+            row->m_onPrimary = KeyboardMenuSelectBreathe;
             break;
         case 4:
-            row->m_primaryActivationCallback = KeyboardMenuSelectPray;
+            row->m_onPrimary = KeyboardMenuSelectPray;
             break;
         case 3:
-            row->m_primaryActivationCallback = KeyboardMenuSelectTurnUndead;
+            row->m_onPrimary = KeyboardMenuSelectTurnUndead;
             break;
         }
         break;
     case W8_SUBMENU_DEFEND:
         if (item == 0) {
-            row->m_primaryActivationCallback = KeyboardMenuSelectDefend;
+            row->m_onPrimary = KeyboardMenuSelectDefend;
         } else if (item == 1) {
-            row->m_primaryActivationCallback = KeyboardMenuSelectProtect;
+            row->m_onPrimary = KeyboardMenuSelectProtect;
         }
         break;
     case W8_SUBMENU_ITEMS:
         if (item == 0) {
-            row->m_primaryActivationCallback = KeyboardMenuSelectEquip;
+            row->m_onPrimary = KeyboardMenuSelectEquip;
         } else if (item == 1) {
-            row->m_primaryActivationCallback = KeyboardMenuOpenUseItemView;
+            row->m_onPrimary = KeyboardMenuOpenUseItemView;
         } else if (item == 2) {
-            row->m_primaryActivationCallback = KeyboardMenuUseRecordedItem;
+            row->m_onPrimary = KeyboardMenuUseRecordedItem;
         }
         break;
     case W8_SUBMENU_SPELLS:
         if (item == 0) {
-            row->m_primaryActivationCallback = KeyboardMenuOpenSpellView;
+            row->m_onPrimary = KeyboardMenuOpenSpellView;
         } else if (item == 1) {
-            row->m_primaryActivationCallback = KeyboardMenuCastRecordedSpell;
+            row->m_onPrimary = KeyboardMenuCastRecordedSpell;
         }
         break;
     }
@@ -968,9 +965,9 @@ void AssignKeyboardMenuCallback(short menu, short item, W8TextControl* row)
 void RedrawKeyboardMenuPanel(bool invalidate)
 {
     if (invalidate) {
-        g_keyboard_menu_panel->Invalidate(0);
+        g_keyboard_menu_panel->InvalidateAll();
     }
-    g_keyboard_menu_panel->Redraw();
+    g_keyboard_menu_panel->Redraw(GetFrameBufferSurface(), false);
 }
 
 static void ChooseKeyboardMenuAction(W8ActionKind action)

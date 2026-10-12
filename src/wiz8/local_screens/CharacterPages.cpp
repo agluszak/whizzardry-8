@@ -1,3 +1,4 @@
+#include <SDL3/SDL_surface.h>
 #include <fmt/format.h>
 #include <string_view>
 #include <cstring>
@@ -52,8 +53,8 @@ W8CharacterPageEntry::W8CharacterPageEntry(Controls* owner, int x, int y, bool c
     : m_listener(0), m_first(0), m_second(0), m_third(0), m_id(-1), m_draw_background(compact),
       m_dirty(1), m_enabled(0), m_increment_allowed(1)
 {
-    m_x = owner->m_bounds.left + x;
-    m_y = owner->m_bounds.top + y;
+    m_x = owner->ScreenBounds().x + x;
+    m_y = owner->ScreenBounds().y + y;
     int split = m_x + (compact ? 0x6d : 0x78);
     W8ControlsRect bounds = {m_x + 5, m_y + 1, split, m_y + 0xd};
     m_label = new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, 0, 4);
@@ -67,19 +68,19 @@ W8CharacterPageEntry::W8CharacterPageEntry(Controls* owner, int x, int y, bool c
     m_second_text = new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, 0, 4);
     m_second_text->SetLayoutMode(g_W8TextBufferAlignRight);
 
-    int relative_split = split - owner->m_bounds.left;
-    m_decrement = owner->EmplaceControl<W8TextControl>(*owner, 0xffffffff, relative_split + 0x1b, y + 1, 0, 0, CatalogArtwork::Load(0x10a, 0), 0x19, 0x1b, 0x1a, 0x1d, 0x1c);
+    int relative_split = split - owner->ScreenBounds().x;
+    m_decrement = owner->EmplaceControl<W8TextControl>(0xffffffff, relative_split + 0x1b, y + 1, 0, 0, CatalogArtwork::Load(0x10a, 0), W8SpriteStates{.normal = 0x19, .pressed = 0x1b, .alternate_normal = 0x1a, .alternate_pressed = 0x1d, .disabled = 0x1c});
     m_decrement->AddLayoutFlags(0x100);
     m_decrement->SetEnabled(false);
     m_decrement->SetActive(false);
     m_decrement->m_listener = this;
 
-    m_increment = owner->EmplaceControl<W8TextControl>(*owner, 0xffffffff, relative_split + 0x3d, y + 1, 0, 0, CatalogArtwork::Load(0x10a, 0), 0x1e, 0x20, 0x1f, 0x22, 0x21);
+    m_increment = owner->EmplaceControl<W8TextControl>(0xffffffff, relative_split + 0x3d, y + 1, 0, 0, CatalogArtwork::Load(0x10a, 0), W8SpriteStates{.normal = 0x1e, .pressed = 0x20, .alternate_normal = 0x1f, .alternate_pressed = 0x22, .disabled = 0x21});
     m_increment->AddLayoutFlags(0x100);
     m_increment->SetActive(false);
     m_increment->m_listener = this;
 
-    m_help = owner->EmplaceControl<W8TextControl>(*owner, 0xffffffff, x, y, relative_split, y + 0xc, std::nullopt, -1, -1, -1, -1, -1);
+    m_help = owner->EmplaceControl<W8TextControl>(0xffffffff, x, y, relative_split, y + 0xc);
     m_help->SetActive(false);
     m_help->m_listener = this;
 }
@@ -240,18 +241,18 @@ void W8CharacterPage::SetCharacter(W8Character* character, W8CharacterCreationSt
 }
 
 // FUNCTION: WIZ8 0x005aff20
-void W8CharacterPage::Redraw()
+void W8CharacterPage::Redraw(SDL_Surface& target, bool full_redraw)
 {
-    Controls::Redraw();
+    Controls::Redraw(target, full_redraw);
     for (int index = 0; index < static_cast<int>(m_entries.size()); ++index) {
         m_entries[index]->Redraw();
     }
 }
 
 // FUNCTION: WIZ8 0x005aff50
-void W8CharacterPage::Invalidate(const W8ControlsRect* rect)
+void W8CharacterPage::InvalidateAll()
 {
-    Controls::Invalidate(rect);
+    Controls::InvalidateAll();
     for (const auto& entry : m_entries) {
         entry->MarkDirty();
     }
@@ -260,8 +261,8 @@ void W8CharacterPage::Invalidate(const W8ControlsRect* rect)
 // FUNCTION: WIZ8 0x005affa0
 void W8CharacterPage::Prepare()
 {
-    Invalidate(0);
-    m_dirty = true;
+    InvalidateAll();
+    m_contentDirty = true;
     m_prepared = true;
 }
 

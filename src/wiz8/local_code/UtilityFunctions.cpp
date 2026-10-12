@@ -50,7 +50,7 @@ static std::optional<MessageBoxState> g_message_box;
 
 static SDL_Rect MessageBoxBounds(const MessageBoxState& message_box)
 {
-    auto bounds = message_box.background.GetBounds();
+    auto bounds = message_box.background.Bounds();
     const auto include = [&bounds](SDL_Rect control) {
         const int left = std::min(bounds.x, control.x);
         const int top = std::min(bounds.y, control.y);
@@ -59,8 +59,8 @@ static SDL_Rect MessageBoxBounds(const MessageBoxState& message_box)
         bounds = {left, top, right - left, bottom - top};
     };
 
-    if (message_box.accept.IsConfigured()) include(message_box.accept.GetBounds());
-    if (message_box.cancel.IsConfigured()) include(message_box.cancel.GetBounds());
+    if (message_box.accept.IsConfigured()) include(message_box.accept.Bounds());
+    if (message_box.cancel.IsConfigured()) include(message_box.cancel.Bounds());
     return bounds;
 }
 
@@ -573,7 +573,8 @@ bool CreateMessageBox(std::string_view text, Font& font, unsigned int shade, boo
     message_box.shade = shade;
     message_box.state = 2;
     message_box.callback = callback;
-    message_box.input_scope.emplace(ControlRegionSetIndex());
+    // The box's buttons took the current input layer when they were made.
+    message_box.input_scope.emplace(InputLayerSet(CurrentInputLayer()));
     const auto bounds = MessageBoxBounds(message_box);
     InvalidateRegion(bounds.x, bounds.y, bounds.x + bounds.w, bounds.y + bounds.h);
     return true;
@@ -630,9 +631,9 @@ void RenderMessageBox(void)
             : message_box.font == &g_wiz_text_font ? g_wiz_text_font
             : g_wiz_text_font_secondary;
         shade_font.setShade(message_box.shade);
-        message_box.background.Draw();
-        if (message_box.has_accept) message_box.accept.Draw();
-        if (message_box.has_cancel) message_box.cancel.Draw();
+        message_box.background.Draw(GetFrameBufferSurface());
+        if (message_box.has_accept) message_box.accept.Draw(GetFrameBufferSurface());
+        if (message_box.has_cancel) message_box.cancel.Draw(GetFrameBufferSurface());
     } else if (message_box.state == 3) {
         const bool accepted = message_box.accepted;
         const auto callback = message_box.callback;

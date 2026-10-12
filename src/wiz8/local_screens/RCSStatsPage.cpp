@@ -1,3 +1,4 @@
+#include <SDL3/SDL_surface.h>
 #include "himage.h"
 #include "image.h"
 #include <fmt/format.h>
@@ -112,19 +113,16 @@ static W8PortraitGroup g_portrait_groups[12] = {
     {2, {56, 57}},
 };
 
-// FUNCTION: WIZ8 0x005c4430
-W8CampStatsRange::W8CampStatsRange()
+W8CampRangeListener::W8CampRangeListener(const W8ControlsRect& bounds)
+    : m_range(std::make_unique<W8RangeControl>(bounds.left, bounds.top, bounds.right,
+                                               bounds.bottom))
 {
-    m_range = new W8RangeControl(0x264, 0xbe, 0x276, 0x1b5);
     m_range->m_listener = this;
-    m_range->SetEnabled(true);
+    m_range->SetActive(true);
 }
 
-// FUNCTION: WIZ8 0x005c44c0
-W8CampStatsRange::~W8CampStatsRange()
-{
-    delete m_range;
-}
+// FUNCTION: WIZ8 0x005c4430
+W8CampStatsRange::W8CampStatsRange() : W8CampRangeListener({0x264, 0xbe, 0x276, 0x1b5}) {}
 
 // FUNCTION: WIZ8 0x005c44e0
 void W8CampStatsRange::OnRangeChanged(W8RangeControl*)
@@ -140,24 +138,24 @@ void W8CampStatsRange::OnRangeChanged(W8RangeControl*)
 void W8CampRangeListener::UpdateRange(bool range_changed)
 {
     if (range_changed) {
-        m_range->Invalidate(0);
+        m_range->InvalidateAll();
     }
-    m_range->Redraw();
+    m_range->Redraw(GetFrameBufferSurface(), false);
 }
 
 // FUNCTION: WIZ8 0x005c4540
 W8CampStatsControls::W8CampStatsControls()
 {
     CreateRegionSet();
-    m_buttons[0] = EmplaceControl<W8TextControl>(*this, -1, 0x13c, 0xbe, 0, 0, CatalogArtwork::Load(0x145, 0), 0, 1, 2, 4, 3);
+    m_buttons[0] = EmplaceControl<W8TextControl>(-1, 0x13c, 0xbe, 0, 0, CatalogArtwork::Load(0x145, 0), W8SpriteStates{.normal = 0, .pressed = 1, .alternate_normal = 2, .alternate_pressed = 4, .disabled = 3});
     m_buttons[0]->AddLayoutFlags(g_W8TextControlLayoutLatchedImage | g_W8TextControlLayoutToggle);
     m_buttons[0]->m_listener = this;
     m_buttons[0]->EnableRegionHelp(0x954);
-    m_buttons[1] = EmplaceControl<W8TextControl>(*this, -1, 0x13c, 0xd6, 0, 0, CatalogArtwork::Load(0x145, 0), 5, 6, 7, 9, 8);
+    m_buttons[1] = EmplaceControl<W8TextControl>(-1, 0x13c, 0xd6, 0, 0, CatalogArtwork::Load(0x145, 0), W8SpriteStates{.normal = 5, .pressed = 6, .alternate_normal = 7, .alternate_pressed = 9, .disabled = 8});
     m_buttons[1]->AddLayoutFlags(g_W8TextControlLayoutLatchedImage | g_W8TextControlLayoutToggle);
     m_buttons[1]->m_listener = this;
     m_buttons[1]->EnableRegionHelp(0x955);
-    m_buttons[2] = EmplaceControl<W8TextControl>(*this, -1, 0x13c, 0xf3, 0, 0, CatalogArtwork::Load(0x145, 0), 10, 15, 12, 17, 13);
+    m_buttons[2] = EmplaceControl<W8TextControl>(-1, 0x13c, 0xf3, 0, 0, CatalogArtwork::Load(0x145, 0), W8SpriteStates{.normal = 10, .pressed = 15, .alternate_normal = 12, .alternate_pressed = 17, .disabled = 13});
     m_buttons[2]->AddLayoutFlags(g_W8TextControlLayoutLatchedImage | g_W8TextControlLayoutToggle);
     m_buttons[2]->m_listener = this;
     m_buttons[2]->EnableRegionHelp(0x956);
@@ -167,7 +165,7 @@ W8CampStatsControls::W8CampStatsControls()
     static constexpr RegionTemplate kWheelRegion{W8_REGION_RECTANGLE, 0x15d, 0xbe, 0x260, 0x1b5,
                                                  CampStatsMouseWheel, 0, false, -1};
     m_wheel_region = OwnedRegion(RegionSet(), kWheelRegion);
-    Controls::SetEnabled(true);
+    Controls::SetActive(true);
 }
 
 // FUNCTION: WIZ8 0x005c47a0
@@ -180,16 +178,14 @@ W8CampStatsControls::~W8CampStatsControls()
 void W8CampStatsControls::OnPrimary(W8TextControl* control)
 {
     if (control == m_buttons[0]) {
-        if (static_cast<unsigned char>(m_buttons[0]->m_stateFlags &
-                                       g_W8TextControlStateSecondary)) {
+        if (m_buttons[0]->IsSelected()) {
             m_buttons[1]->DisableSecondaryState(false);
             g_camp_screen->effect_filter = W8_CAMP_EFFECT_FILTER_BENEFICIAL;
         } else {
             g_camp_screen->effect_filter = W8_CAMP_EFFECT_FILTER_ALL;
         }
     } else if (control == m_buttons[1]) {
-        if (static_cast<unsigned char>(m_buttons[1]->m_stateFlags &
-                                       g_W8TextControlStateSecondary)) {
+        if (m_buttons[1]->IsSelected()) {
             m_buttons[0]->DisableSecondaryState(false);
             g_camp_screen->effect_filter = W8_CAMP_EFFECT_FILTER_DETRIMENTAL;
         } else {
@@ -197,8 +193,7 @@ void W8CampStatsControls::OnPrimary(W8TextControl* control)
         }
     } else {
         g_camp_screen->effect_items_only =
-            static_cast<unsigned char>(m_buttons[2]->m_stateFlags &
-                                       g_W8TextControlStateSecondary) != 0;
+            m_buttons[2]->IsSelected();
     }
     FilterCampEffectList();
     g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_EFFECT_LIST;
@@ -261,15 +256,15 @@ void DrawCampStatsPage(void)
         text = g_localized_strings[0x939];
         DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {g_camp_stats_origin_x + 0x13b +
                          ((0x13b - g_wiz_text_font_secondary.textWidth(text)) >> 1), g_camp_stats_origin_y + 10}, text);
-        g_camp_screen->stats_controls->Invalidate(0);
-        g_camp_screen->stats_range->m_range->Invalidate(0);
+        g_camp_screen->stats_controls->InvalidateAll();
+        g_camp_screen->stats_range->m_range->InvalidateAll();
     }
     if ((g_camp_screen->redraw_flags & W8_CAMP_REDRAW_EFFECT_LIST) != 0) {
         InvalidateRegion(0x15d, 0xbe, 0x260, 0x1b5);
         CatalogArtwork::Load(0x1b6, 0).drawRect(GetFrameBufferSurface(), SDL_Rect{0, 0, (0x260) - (0x15d), (0x1b5) - (0xbe)}, 0x15d, 0xbe);
         DrawCampEffectList();
     }
-    g_camp_screen->stats_range->m_range->Redraw();
+    g_camp_screen->stats_range->m_range->Redraw(GetFrameBufferSurface(), false);
 }
 
 /* 0x005C4D40/0x005C4E20: how many beneficial/detrimental lines the equipped
@@ -472,19 +467,19 @@ void FilterCampEffectList(void)
         }
     }
     int second = screen->effect_visible_lines - 0x11;
-    W8RangeControl* range = screen->stats_range->m_range;
+    W8RangeControl* range = screen->stats_range->m_range.get();
     if (second < 1) {
         second = 0;
-        range->SetRangeEnabled(false);
+        range->SetEnabled(false);
     } else {
-        range->SetRangeEnabled(true);
+        range->SetEnabled(true);
         range->SetRange(0, second);
     }
     if (screen->effect_scroll > second) {
         screen->effect_scroll = second;
     }
     range->SetValue(screen->effect_scroll);
-    range->Invalidate(0);
+    range->InvalidateAll();
 }
 
 /* Draws the visible slice of the effect list into the page's clipping
@@ -892,16 +887,16 @@ void W8CharacterPersonalityPage::SetCharacter(W8Character* character,
     W8TextControl::Listener* action_listener = this;
 
     m_control5 =
-        EmplaceControl<W8TextControl>(*this, 0xffffffff, 100, 0x19, 0, 0, CatalogArtwork::Load(0x10a, 0), 10, 0xc, 0xb, 0xe, 0xd);
+        EmplaceControl<W8TextControl>(0xffffffff, 100, 0x19, 0, 0, CatalogArtwork::Load(0x10a, 0), W8SpriteStates{.normal = 10, .pressed = 0xc, .alternate_normal = 0xb, .alternate_pressed = 0xe, .disabled = 0xd});
     m_control5->m_listener = action_listener;
-    m_control4 = EmplaceControl<W8TextControl>(*this, 0xffffffff, 0x144, 0x19, 0, 0, CatalogArtwork::Load(0x10a, 0), 0xf, 0x11, 0x10, 0x13, 0x12);
+    m_control4 = EmplaceControl<W8TextControl>(0xffffffff, 0x144, 0x19, 0, 0, CatalogArtwork::Load(0x10a, 0), W8SpriteStates{.normal = 0xf, .pressed = 0x11, .alternate_normal = 0x10, .alternate_pressed = 0x13, .disabled = 0x12});
     m_control4->m_listener = action_listener;
     m_control7 =
-        EmplaceControl<W8TextControl>(*this, 0xffffffff, 100, 0x67, 0, 0, CatalogArtwork::Load(0x10a, 0), 10, 0xc, 0xb, 0xe, 0xd);
+        EmplaceControl<W8TextControl>(0xffffffff, 100, 0x67, 0, 0, CatalogArtwork::Load(0x10a, 0), W8SpriteStates{.normal = 10, .pressed = 0xc, .alternate_normal = 0xb, .alternate_pressed = 0xe, .disabled = 0xd});
     m_control7->m_listener = action_listener;
-    m_control6 = EmplaceControl<W8TextControl>(*this, 0xffffffff, 0x144, 0x67, 0, 0, CatalogArtwork::Load(0x10a, 0), 0xf, 0x11, 0x10, 0x13, 0x12);
+    m_control6 = EmplaceControl<W8TextControl>(0xffffffff, 0x144, 0x67, 0, 0, CatalogArtwork::Load(0x10a, 0), W8SpriteStates{.normal = 0xf, .pressed = 0x11, .alternate_normal = 0x10, .alternate_pressed = 0x13, .disabled = 0x12});
     m_control6->m_listener = action_listener;
-    m_randomize = EmplaceControl<W8TextControl>(*this, 0xffffffff, 0x16d, 0x155, 0, 0, CatalogArtwork::Load(0x10a, 0), 0x14, 0x16, 0x15, 0x18, 0x17);
+    m_randomize = EmplaceControl<W8TextControl>(0xffffffff, 0x16d, 0x155, 0, 0, CatalogArtwork::Load(0x10a, 0), W8SpriteStates{.normal = 0x14, .pressed = 0x16, .alternate_normal = 0x15, .alternate_pressed = 0x18, .disabled = 0x17});
     m_randomize->m_listener = action_listener;
     m_randomize->EnableRegionHelp(0xf5);
 
@@ -910,7 +905,7 @@ void W8CharacterPersonalityPage::SetCharacter(W8Character* character,
         int column = index % 3;
         int row = index / 3;
         W8TextControl* entry =
-            EmplaceControl<W8TextControl>(*this, 0xffffffff, column * 0x80 + 0x24, row * 0xe + 0x107, column * 0x80 + 0xa3, row * 0xe + 0x114, CatalogArtwork::Load(0x105, 0), 5, 7, 6, 8, -1);
+            EmplaceControl<W8TextControl>(0xffffffff, column * 0x80 + 0x24, row * 0xe + 0x107, column * 0x80 + 0xa3, row * 0xe + 0x114, CatalogArtwork::Load(0x105, 0), W8SpriteStates{.normal = 5, .pressed = 7, .alternate_normal = 6, .alternate_pressed = 8});
         entry->AddLayoutFlags(g_W8TextControlLayoutImageAtOrigin);
         m_personality_selection.AddEntry(entry);
     }
@@ -919,7 +914,7 @@ void W8CharacterPersonalityPage::SetCharacter(W8Character* character,
 
     for (index = 0; index < 2; ++index) {
         int top = index == 0 ? 0x140 : 0x15d;
-        W8TextControl* entry = EmplaceControl<W8TextControl>(*this, 0xffffffff, 0x21, top, 0x69, top + 0xe, CatalogArtwork::Load(0x105, 0), 5, 7, 6, 8, -1);
+        W8TextControl* entry = EmplaceControl<W8TextControl>(0xffffffff, 0x21, top, 0x69, top + 0xe, CatalogArtwork::Load(0x105, 0), W8SpriteStates{.normal = 5, .pressed = 7, .alternate_normal = 6, .alternate_pressed = 8});
         entry->AddLayoutFlags(g_W8TextControlLayoutImageAtOrigin);
         m_voice_selection.AddEntry(entry);
     }
@@ -934,9 +929,9 @@ void W8CharacterPersonalityPage::Activate()
     EnableRegionSet(true);
     m_prepared = true;
     auto& fields = m_text_fields.emplace(1);
-    fields.Add(m_bounds.left + 0x97, m_bounds.top + 0xab, 0x106, 0x10, 0x7f,
+    fields.Add(ScreenBounds().x + 0x97, ScreenBounds().y + 0xab, 0x106, 0x10, 0x7f,
                m_character->name_part_2, 5, 0xf, true);
-    fields.Add(m_bounds.left + 0x97, m_bounds.top + 0xc7, 0x106, 0x10, 0x7f, m_character->name,
+    fields.Add(ScreenBounds().x + 0x97, ScreenBounds().y + 0xc7, 0x106, 0x10, 0x7f, m_character->name,
                9, 0xf, true);
     if (fields.ByteLength(0) == 0)
         fields.Focus(0);
@@ -967,7 +962,7 @@ void W8CharacterPersonalityPage::Accept()
         m_character->name = original->name;
     }
     Refresh();
-    Invalidate(0);
+    InvalidateAll();
     m_screen->UpdateNavigation(this);
 }
 
@@ -1037,18 +1032,18 @@ void W8CharacterPersonalityPage::Refresh()
    fixed text labels and the nine personality labels, then let the dirty
    portrait, description and name-row blocks refresh themselves. */
 // FUNCTION: WIZ8 0x005c6b70
-void W8CharacterPersonalityPage::Redraw()
+void W8CharacterPersonalityPage::Redraw(SDL_Surface& target, bool full_redraw)
 {
     if (m_animation_active) {
         int elapsed = static_cast<int>(anim_timer.GetProgress());
         if (elapsed > 0) {
             m_animation_frame = (m_animation_frame + elapsed) % 3;
-            CatalogArtwork::Load(0x105, 0).drawAndInvalidate(GetFrameBufferSurface(), m_animation_frame + 2, m_bounds.left + 0x156, m_bounds.top + 0x137);
+            CatalogArtwork::Load(0x105, 0).drawAndInvalidate(target, m_animation_frame + 2, ScreenBounds().x + 0x156, ScreenBounds().y + 0x137);
         }
     }
 
-    bool redraw = m_fEnabled && m_fDirty;
-    W8CharacterPage::Redraw();
+    bool redraw = m_active && m_dirty;
+    W8CharacterPage::Redraw(target, full_redraw);
     if (!m_screen->HasDialog() && m_text_fields) {
         m_text_fields->RenderAll();
     }
@@ -1057,72 +1052,72 @@ void W8CharacterPersonalityPage::Redraw()
         W8TextBuffer text;
         W8ControlsRect bounds;
 
-        bounds.left = m_bounds.left + 0x2c;
-        bounds.right = m_bounds.left + 100;
-        bounds.top = m_bounds.top + 0x19;
-        bounds.bottom = m_bounds.top + 0x31;
+        bounds.left = ScreenBounds().x + 0x2c;
+        bounds.right = ScreenBounds().x + 100;
+        bounds.top = ScreenBounds().y + 0x19;
+        bounds.bottom = ScreenBounds().y + 0x31;
         text.RenderString(&bounds, g_localized_strings[0xee], g_wiz_text_font_secondary, true,
-                          GetFrameBufferSurface());
+                          target);
 
-        bounds.top = m_bounds.top + 0x67;
-        bounds.bottom = m_bounds.top + 0x7f;
+        bounds.top = ScreenBounds().y + 0x67;
+        bounds.bottom = ScreenBounds().y + 0x7f;
         text.RenderString(&bounds, g_localized_strings[0xf0], g_wiz_text_font_secondary, true,
-                          GetFrameBufferSurface());
+                          target);
 
-        bounds.left = m_bounds.left + 0x160;
-        bounds.right = m_bounds.left + 0x198;
+        bounds.left = ScreenBounds().x + 0x160;
+        bounds.right = ScreenBounds().x + 0x198;
         text.RenderString(&bounds, g_localized_strings[0xf1], g_wiz_text_font_secondary, true,
-                          GetFrameBufferSurface());
+                          target);
 
-        bounds.top = m_bounds.top + 0x19;
-        bounds.bottom = m_bounds.top + 0x31;
+        bounds.top = ScreenBounds().y + 0x19;
+        bounds.bottom = ScreenBounds().y + 0x31;
         text.RenderString(&bounds, g_localized_strings[0xef], g_wiz_text_font_secondary, true,
-                          GetFrameBufferSurface());
+                          target);
 
-        bounds.left = m_bounds.left + 0x24;
-        bounds.right = m_bounds.left + 0x92;
-        bounds.top = m_bounds.top + 0xaa;
-        bounds.bottom = m_bounds.top + 0xbc;
+        bounds.left = ScreenBounds().x + 0x24;
+        bounds.right = ScreenBounds().x + 0x92;
+        bounds.top = ScreenBounds().y + 0xaa;
+        bounds.bottom = ScreenBounds().y + 0xbc;
         text.RenderString(&bounds, g_localized_strings[0x84], g_wiz_text_font_secondary, true,
-                          GetFrameBufferSurface());
+                          target);
 
-        bounds.top = m_bounds.top + 0xc6;
-        bounds.bottom = m_bounds.top + 0xd8;
+        bounds.top = ScreenBounds().y + 0xc6;
+        bounds.bottom = ScreenBounds().y + 0xd8;
         text.RenderString(&bounds, g_localized_strings[0x85], g_wiz_text_font_secondary, true,
-                          GetFrameBufferSurface());
+                          target);
 
-        bounds.left = m_bounds.left + 0x18;
-        bounds.top = m_bounds.top + 0xee;
-        bounds.right = m_bounds.left + 0x1a8;
-        bounds.bottom = m_bounds.top + 0xfa;
+        bounds.left = ScreenBounds().x + 0x18;
+        bounds.top = ScreenBounds().y + 0xee;
+        bounds.right = ScreenBounds().x + 0x1a8;
+        bounds.bottom = ScreenBounds().y + 0xfa;
         text.RenderString(&bounds, g_localized_strings[0x86], g_wiz_text_font_secondary, true,
-                          GetFrameBufferSurface());
+                          target);
 
         int index = 0;
         for (const unsigned short* message_id = g_personality_message_ids;
              message_id < g_personality_message_ids + 9; ++message_id, ++index) {
-            bounds.left = (index % 3) * 0x80 + 0x30 + m_bounds.left;
+            bounds.left = (index % 3) * 0x80 + 0x30 + ScreenBounds().x;
             bounds.right = bounds.left + 0x80;
-            bounds.top = m_bounds.top + 0x106 + (index / 3) * 0xe;
+            bounds.top = ScreenBounds().y + 0x106 + (index / 3) * 0xe;
             bounds.bottom = bounds.top + 0xe;
             text.SetLayoutBounds(&bounds, true, true);
             text.SetLayoutMode(g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft);
             text.RenderString(g_localized_strings[*message_id], g_wiz_text_font_secondary, true,
-                              GetFrameBufferSurface());
+                              target);
         }
 
-        bounds.top = m_bounds.top + 0x13f;
-        bounds.bottom = m_bounds.top + 0x14d;
-        bounds.left = m_bounds.left + 0x29;
-        bounds.right = m_bounds.left + 0x69;
+        bounds.top = ScreenBounds().y + 0x13f;
+        bounds.bottom = ScreenBounds().y + 0x14d;
+        bounds.left = ScreenBounds().x + 0x29;
+        bounds.right = ScreenBounds().x + 0x69;
         text.SetLayoutMode(g_W8TextBufferAlignCenter | g_W8TextBufferAlignTop);
         text.RenderString(&bounds, g_localized_strings[0x8d], g_wiz_text_font_secondary, true,
-                          GetFrameBufferSurface());
+                          target);
 
-        bounds.top = m_bounds.top + 0x15c;
-        bounds.bottom = m_bounds.top + 0x16a;
+        bounds.top = ScreenBounds().y + 0x15c;
+        bounds.bottom = ScreenBounds().y + 0x16a;
         text.RenderString(&bounds, g_localized_strings[0x8e], g_wiz_text_font_secondary, true,
-                          GetFrameBufferSurface());
+                          target);
 
         m_portrait_dirty = true;
         m_description_dirty = true;
@@ -1130,7 +1125,7 @@ void W8CharacterPersonalityPage::Redraw()
     }
 
     if (m_portrait_dirty) {
-        CatalogArtwork::Load(0x11, m_character->portrait_index).drawAndInvalidate(GetFrameBufferSurface(), 0, m_bounds.left + 0x86, m_bounds.top + 5, {}, BitmapKey::Opaque);
+        CatalogArtwork::Load(0x11, m_character->portrait_index).drawAndInvalidate(target, 0, ScreenBounds().x + 0x86, ScreenBounds().y + 5, {}, BitmapKey::Opaque);
         m_portrait_dirty = false;
     }
 
@@ -1140,14 +1135,14 @@ void W8CharacterPersonalityPage::Redraw()
         W8CharacterEvent element(m_character, g_effect0, 0, g_character_event_no_flags,
                                  g_character_event_full_volume);
 
-        bounds.top = m_bounds.top + 0x13a;
-        bounds.bottom = m_bounds.top + 0x16a;
-        bounds.left = m_bounds.left + 0x70;
-        bounds.right = m_bounds.left + 0x150;
+        bounds.top = ScreenBounds().y + 0x13a;
+        bounds.bottom = ScreenBounds().y + 0x16a;
+        bounds.left = ScreenBounds().x + 0x70;
+        bounds.right = ScreenBounds().x + 0x150;
         text.SetLayoutBounds(&bounds, true, true);
         text.SetText(element.GetQuoteText(), g_wiz_text_font_secondary);
         text.FillBounds(0x8000);
-        text.RenderToTarget(0, true, GetFrameBufferSurface());
+        text.RenderToTarget(0, true, target);
         m_description_dirty = false;
     }
 
@@ -1155,7 +1150,7 @@ void W8CharacterPersonalityPage::Redraw()
         W8TextBuffer text;
         W8ControlsRect bounds = {9, 0xec, 0xbd, 0x184};
         text.RenderString(&bounds, g_localized_strings[0xe9], g_wiz_text_font_secondary, true,
-                          GetFrameBufferSurface());
+                          target);
         m_prepared = false;
     }
 }
@@ -1253,7 +1248,7 @@ void W8CharacterSkillsPage::Activate()
 {
     EnableRegionSet(true);
     Refresh();
-    m_dirty = true;
+    m_contentDirty = true;
     m_prepared = true;
 }
 
@@ -1266,8 +1261,8 @@ void W8CharacterSkillsPage::Deactivate()
 void W8CharacterSkillsPage::Accept()
 {
     RefundAllSkillPoints(m_character, m_creation_state);
-    Invalidate(0);
-    m_dirty = true;
+    InvalidateAll();
+    m_contentDirty = true;
     m_screen->UpdateNavigation(this);
     for (int index = 0; index < static_cast<int>(m_entries.size()); ++index) {
         m_entries[index]->UpdateButtons();
@@ -1291,7 +1286,7 @@ void W8CharacterSkillsPage::GetNavigationState(bool* next_enabled, bool* exit_en
 void W8CharacterSkillsPage::AdjustEntry(W8CharacterPageEntry* entry, int delta)
 {
     entry->MarkDirty();
-    m_dirty = true;
+    m_contentDirty = true;
     InitializeLevelUpAttributePool(m_character, m_creation_state, entry->m_id, delta);
     m_screen->UpdateNavigation(this);
 }
@@ -1303,26 +1298,26 @@ void W8CharacterSkillsPage::ShowEntryInfo(W8CharacterPageEntry* entry)
 }
 
 // FUNCTION: WIZ8 0x005c77f0
-void W8CharacterSkillsPage::Redraw()
+void W8CharacterSkillsPage::Redraw(SDL_Surface& target, bool full_redraw)
 {
-    bool redraw = static_cast<unsigned char>(m_fEnabled && m_fDirty);
+    bool redraw = static_cast<unsigned char>(m_active && m_dirty);
     if (m_force_redraw) {
         UpdateEntries();
-        Invalidate(0);
+        InvalidateAll();
         redraw = true;
         m_force_redraw = false;
     }
-    W8CharacterPage::Redraw();
+    W8CharacterPage::Redraw(target, full_redraw);
 
     if (redraw) {
         for (int category = 0; category < 5; ++category) {
             if (category != 4 || m_show_fifth_category) {
-                CatalogArtwork::Load(0x144, 0).draw(GetFrameBufferSurface(), static_cast<short>(g_character_page2_category_frames[category]), m_bounds.left + g_character_page2_category_geometry[category].x -
-                                     0x16, m_bounds.top + g_character_page2_category_geometry[category].y - 3);
+                CatalogArtwork::Load(0x144, 0).draw(target, static_cast<short>(g_character_page2_category_frames[category]), ScreenBounds().x + g_character_page2_category_geometry[category].x -
+                                     0x16, ScreenBounds().y + g_character_page2_category_geometry[category].y - 3);
             }
         }
         if (!m_show_fifth_category) {
-            CatalogArtwork::Load(0x108, 0).draw(GetFrameBufferSurface(), 1, m_bounds.left, m_bounds.top + 0x118);
+            CatalogArtwork::Load(0x108, 0).draw(target, 1, ScreenBounds().x, ScreenBounds().y + 0x118);
         }
     }
 
@@ -1330,36 +1325,36 @@ void W8CharacterSkillsPage::Redraw()
         W8TextBuffer text;
         W8ControlsRect bounds = {4, 0xec, 0xc2, 0x162};
         text.RenderString(&bounds, g_localized_strings[0xe8], g_wiz_text_font_secondary, true,
-                          GetFrameBufferSurface());
+                          target);
         bounds.top = 0x162;
         bounds.right = 0x8f;
         bounds.bottom = 0x179;
         text.RenderString(&bounds, g_localized_strings[0xe3], g_wiz_text_font_secondary, true,
-                          GetFrameBufferSurface());
+                          target);
         bounds.top = 0x184;
         bounds.bottom = 0x19b;
         text.RenderString(&bounds, g_localized_strings[0xe4], g_wiz_text_font_secondary, true,
-                          GetFrameBufferSurface());
+                          target);
         bounds.left = 0x8f;
         bounds.top = 0x162;
         bounds.right = 0xbf;
         bounds.bottom = 0x179;
-        CatalogArtwork::Load(0x107, 0).draw(GetFrameBufferSurface(), 5, 0x8f, 0x162);
+        CatalogArtwork::Load(0x107, 0).draw(target, 5, 0x8f, 0x162);
         text.SetLayoutBounds(&bounds, true, true);
         text.RenderString(fmt::format("{:d}", m_creation_state->skill_step_limit),
-                          g_options_detail_font, true, GetFrameBufferSurface());
+                          g_options_detail_font, true, target);
         m_prepared = false;
     }
 
-    if (m_dirty) {
+    if (m_contentDirty) {
         W8TextBuffer text;
         W8ControlsRect bounds = {0x8f, 0x184, 0xbf, 0x19b};
-        CatalogArtwork::Load(0x107, 0).draw(GetFrameBufferSurface(), 5, 0x8f, 0x184);
+        CatalogArtwork::Load(0x107, 0).draw(target, 5, 0x8f, 0x184);
         text.SetLayoutBounds(&bounds, true, true);
         text.RenderString(fmt::format("{:d}/{:d}", m_creation_state->skill_points_remaining,
                                       m_creation_state->skill_points_total),
-                          g_options_detail_font, true, GetFrameBufferSurface());
-        m_dirty = false;
+                          g_options_detail_font, true, target);
+        m_contentDirty = false;
     }
 }
 

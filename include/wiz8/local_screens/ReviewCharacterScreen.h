@@ -93,10 +93,6 @@ enum W8CampItemFilter {
 class W8CampItemRange final : public W8CampRangeListener {
 public:
     W8CampItemRange();
-    ~W8CampItemRange()
-    {
-        delete m_range;
-    }
     virtual void OnRangeChanged(W8RangeControl* control) override;
 };
 
@@ -104,7 +100,6 @@ public:
 class W8CampSpellRange final : public W8CampRangeListener {
 public:
     explicit W8CampSpellRange(W8SpellRealm realm);
-    ~W8CampSpellRange();
     virtual void OnRangeChanged(W8RangeControl* control) override;
     W8SpellRealm m_realm;
 };
@@ -114,8 +109,8 @@ public:
 class W8CampCharacterInfo : public Controls, public W8TextControl::Listener {
 public:
     W8CampCharacterInfo();
-    virtual void SetEnabled(bool enabled) override;
-    virtual void Redraw() override;
+    virtual void SetActive(bool enabled) override;
+    void Redraw(SDL_Surface& target, bool full_redraw) override;
     virtual void OnPrimary(W8TextControl* control) override;
     void SetCombatView(bool enabled);
     bool m_combat_view;

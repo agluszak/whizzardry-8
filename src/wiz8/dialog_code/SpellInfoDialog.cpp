@@ -1,3 +1,4 @@
+#include "wiz8/engine_code/Video2.h"
 #include <cstdint>
 #include <fmt/format.h>
 #include <string>
@@ -115,7 +116,7 @@ void W8SpellInfoDialog::Draw()
     }
     m_text_area.Draw(false);
     m_scroll_bar.Draw(false);
-    m_button.Draw();
+    m_button.Draw(GetFrameBufferSurface());
     steps = static_cast<int>(m_timer.GetProgress());
     if (steps > 0) {
         realm = g_spell_records[m_spell].realm;

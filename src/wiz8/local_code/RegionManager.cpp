@@ -894,6 +894,17 @@ void DestroyRegionSet(unsigned int region_set_index)
     ReleaseRegionSetSlot(region_set_index);
 }
 
+RegionSetRef CaptureRegionSet(unsigned int set)
+{
+    return {set, set < g_region_sets.size() ? g_region_sets[set].sequence : 0};
+}
+
+bool RegionSetLive(const RegionSetRef& set)
+{
+    return set.index != 0 && set.index < g_region_sets.size() &&
+           g_region_sets[set.index].sequence == set.sequence;
+}
+
 unsigned int ControlRegionSetIndex(void)
 {
     if (g_control_region_set == 0) {
@@ -1033,6 +1044,7 @@ OwnedRegion::OwnedRegion(unsigned int set, const RegionTemplate& entry, int prio
     if (entry.callback)
         function_ = std::make_unique<RegionFunctionHandler>(entry.callback, entry.callback_id);
     owned_region.handler = function_.get();
+    owned_region.template_callback = entry.callback != nullptr;
     generation_ = ++owned_region.binding_generation;
 }
 
@@ -1258,12 +1270,13 @@ void UnbindWidgetRegion(unsigned int region_index, W8Widget* widget, OwnedRegion
 {
     if (region_index >= g_regions.size()) return;
     auto& region = g_regions[region_index];
-    if (region.handler != widget) return;
+    if (region.owner != widget) return;
 
     g_regions[region_index].SetInputEnabled(false);
     if (region.flags & W8_REGION_HELP_SHOWN) VideoRemoveToolTip();
     region.flags &= ~(W8_REGION_MOUSE_STATE_MASK | W8_REGION_HELP_SHOWN);
-    region.handler = nullptr;
+    region.owner = nullptr;
+    if (region.handler == widget) region.handler = nullptr;
     region.help_enabled = false;
     region.help_text_id = -1;
     region.help_text.clear();

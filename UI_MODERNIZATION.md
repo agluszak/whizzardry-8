@@ -17,19 +17,38 @@ will still need to render the game's original graphics and text.
   so overlapping regions keep the original precedence regardless of creation
   order. The eight party-portrait event regions are process-lifetime because
   the main game and camp both drive them while the other is suspended.
-- **Controls / W8Widget / W8TextControl**: already owns child controls through
-  unique_ptr through `AddControl` / `EmplaceControl` and routes region events
-  into virtual widget methods. Constructors leave widgets unattached;
-  `TakeControl` transfers ownership and `RemoveControl` destroys a child.
-  Widget destructors release regions without mutating the parent. It backs
-  game panels and many screens. A panel that needs hit testing creates its own
-  region set (`Controls::CreateRegionSet`) and destroys it with the panel; the
-  retail per-panel global set slots are gone, and a widget's region moves with
-  it when it is reparented.
+- **Controls / W8Widget / W8TextControl**: a panel (`Controls`) is a
+  `W8Widget` that owns child widgets through `AddControl` / `EmplaceControl`;
+  panels nest. A widget's geometry is one private `SDL_Rect` relative to its
+  panel (`Bounds()`, `ScreenBounds()`, `ToLocal()`, `SetBounds()`), and it
+  paints through `Redraw(SDL_Surface& target, bool full_redraw)`.
+  Constructors take no parent and leave widgets unattached; anything derived
+  from the panel origin (hit region, text layout, embedded scroll bars) is
+  resolved in `OnGeometryChanged`, which runs on adoption, on `SetBounds` and
+  for every descendant when a panel moves. `TakeControl` transfers ownership
+  and `RemoveControl` destroys a child. Widget destructors release regions
+  without mutating the parent. A panel that needs hit testing creates its own
+  region set (`Controls::CreateRegionSet`); a panel without one registers its
+  children in its nearest ancestor's set and is never a hit target itself.
+  Click handlers are `std::function` members (`m_onPrimary` and friends), so
+  they capture context instead of needing one free function per button; text
+  controls name their sprite states (`W8SpriteStates`) and expose
+  `IsPressed()` / `IsSelected()`.
+- **Catalog regions**: a widget built with a screen-template region index
+  binds that region as its `owner` (geometry, activation, help). When the
+  template has a callback, the callback stays the region's handler and drives
+  the widget; it often carries screen behaviour the widget lacks (formation
+  drag-and-drop, spell-pip previews, portrait selection). Porting such a
+  callback into its widget must preserve that behaviour exactly; only then
+  can the template row drop its callback.
 - **W8DialogBase / W8ButtonWidget**: dialog buttons are `W8Widget`s
   (`local_code/ButtonWidget.h`); a button's region is an `OwnedRegion` member
   and modal dispatch reaches it through the ordinary widget hooks. The
-  separate `W8DialogButton` hierarchy is gone. Camp screen state, its ranges,
+  separate `W8DialogButton` hierarchy is gone. Each dialog owns a region set
+  and is an input layer: buttons and text fields claim regions in the layer
+  they were made in, and the dialog's modal scope covers exactly that set, so
+  nested dialogs isolate input without per-button checks. The dialog
+  background is a `W8DialogFrame`, not a button. Text fields are widgets. Camp screen state, its ranges,
   its active dialog and every `Controls` panel are `unique_ptr`-owned.
 - **Screen and panel ownership (#192–#197)**: `Controls::AcquireRegionSet` and the
   process-lifetime per-panel set slots have been deleted. Options, character
@@ -73,11 +92,26 @@ Do not invent widget subclasses where simple screen input suffices.
 
 ## Remaining work
 
-The region-set migration and first screen/panel ownership passes are complete.
-Next, finish screen-local resource lifetimes, remove recovery-only initialization
-and manual teardown, and consolidate event routing, focus and redraw. Renderer
-objects (`g_fade_overlay`, surprise effects and automap 2D markers) still use
-`ReleaseRendererObject` and belong to a separate renderer ownership audit.
+The region-set migration, screen/panel ownership passes and the first widget
+tree pass (nesting panels, unified geometry, explicit paint target, dialog
+input layers) are complete. Next, in order:
+
+1. Port catalog-region callbacks into the widgets they drive, one screen at a
+   time and with behaviour parity checked against the runtime scenarios;
+   then drop the callbacks from the template rows.
+2. Merge the `W8TextControl` and `W8ButtonWidget` interaction state machines
+   into one button, keeping `ButtonAppearance` as the painter; split passive
+   text/image controls from interactive ones; replace `W8TextControl::Listener`
+   with the `std::function` click handlers.
+3. Make dialogs panels that own their buttons as children instead of value
+   members, so a modal dialog is an overlay in the widget tree.
+4. With every hit target a widget, hit-test the active widget tree directly
+   (hover, capture, focus and the modal stack owned by the router) and delete
+   `W8Region`, region sets, `ExclusiveRegionSet` and numeric region indices.
+
+Renderer objects (`g_fade_overlay`, surprise effects and automap 2D markers)
+still use `ReleaseRendererObject` and belong to a separate renderer ownership
+audit.
 
 ## Migration sequence
 

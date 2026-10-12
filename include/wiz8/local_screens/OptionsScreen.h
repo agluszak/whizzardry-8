@@ -50,10 +50,10 @@ public:
 // VTABLE: WIZ8 0x005eee2c
 class W8OptionsSaveRow : public W8TextControl {
 public:
-    W8OptionsSaveRow(Controls& owner, int top, unsigned char save_mode);
+    W8OptionsSaveRow(int top, unsigned char save_mode);
     void SetSave(W8SaveSlot& save);
     void ClearSave();
-    virtual void Redraw(bool full_redraw) override;
+    virtual void Redraw(SDL_Surface& target, bool full_redraw) override;
     virtual void OnLeftButtonUp(int event) override;
     virtual void OnLeftButtonDoubleClick(int event) override;
 
@@ -126,7 +126,7 @@ public:
 // VTABLE: WIZ8 0x005eed8c
 class W8OptionsCheckbox : public W8TextControl {
 public:
-    W8OptionsCheckbox(Controls& owner, int top, int* value);
+    W8OptionsCheckbox(int top, int* value);
     virtual void OnLeftButtonUp(int event) override;
     int* m_value;
 };
@@ -136,7 +136,7 @@ class W8OptionsSlider : public W8HorizontalRangeThumb {
 public:
     W8OptionsSlider(int top, float* value, bool alternate);
     virtual void OnMouseMove(int event) override;
-    virtual void Redraw(bool full_redraw) override;
+    virtual void Redraw(SDL_Surface& target, bool full_redraw) override;
     float* m_value;
 };
 
@@ -155,7 +155,7 @@ class W8OptionsPanel : public Controls {
 public:
     W8OptionsPanel();
     virtual ~W8OptionsPanel();
-    virtual void Redraw() override;
+    void Redraw(SDL_Surface& target, bool full_redraw) override;
     virtual void Populate() = 0;
     virtual void SetActive(bool active);
     virtual void SetCurrent(int current);
@@ -237,8 +237,8 @@ public:
 // VTABLE: WIZ8 0x005eee80
 class W8OptionsButton : public W8TextControl {
 public:
-    W8OptionsButton(Controls& owner, int left, int top, int right, int bottom, std::string_view text);
-    virtual void Redraw(bool full_redraw) override;
+    W8OptionsButton(int left, int top, int right, int bottom, std::string_view text);
+    virtual void Redraw(SDL_Surface& target, bool full_redraw) override;
     virtual void OnMouseEnter(int event) override;
     virtual void OnMouseLeave(int event) override;
 };
@@ -246,7 +246,7 @@ public:
 // VTABLE: WIZ8 0x005eeed0
 class W8OptionsKeyButton : public W8OptionsButton {
 public:
-    W8OptionsKeyButton(Controls& owner, int top, W8MGSCommand primary_binding,
+    W8OptionsKeyButton(int top, W8MGSCommand primary_binding,
                        W8MGSCommand secondary_binding);
 
     void SetKey(unsigned short key);
@@ -269,7 +269,7 @@ class W8OptionsKeyboardPanel : public W8OptionsPanel,
 public:
     explicit W8OptionsKeyboardPanel(int panel);
     virtual void Populate() override;
-    virtual void Invalidate(const W8ControlsRect* bounds) override;
+    void InvalidateAll() override;
     virtual void SetActive(bool active) override;
     virtual void OnPrimary(W8TextControl* control) override;
     virtual void OnSelectionChanged(W8ControlSelection* selection, int selected) override;
@@ -341,18 +341,26 @@ struct W8OptionsPanelRange {
     int last;
 };
 
-/* One options menu row. */
+/* The button of one options menu row. */
 // VTABLE: WIZ8 0x005eed3c W8TextControl
-// VTABLE: WIZ8 0x005eed34 W8TextControl::Listener
-class W8OptionsMenuButton : public W8TextControl, public W8TextControl::Listener {
+class W8OptionsMenuButton : public W8TextControl {
 public:
-    W8OptionsMenuButton(Controls& owner, const W8OptionsMenuRow* row);
-    void CreateSiblingControls(const W8OptionsMenuRow& row);
-    virtual void Redraw(bool full_redraw) override;
+    explicit W8OptionsMenuButton(const W8OptionsMenuRow& row);
+    virtual void Redraw(SDL_Surface& target, bool full_redraw) override;
     virtual void EnableSecondaryState(bool immediate) override;
-    virtual void OnPrimary(W8TextControl* control) override;
 
     int m_item_id;
+};
+
+/* One options menu row: its button and up to two hotspots on the menu
+   artwork that activate it as if the button itself were clicked. */
+// VTABLE: WIZ8 0x005eed34 W8TextControl::Listener
+class W8OptionsMenuRowControl : public Controls, public W8TextControl::Listener {
+public:
+    explicit W8OptionsMenuRowControl(const W8OptionsMenuRow& row);
+    void OnPrimary(W8TextControl* hotspot) override;
+
+    W8OptionsMenuButton* m_button;
 };
 
 /* The options menu: its rows and the panel set they select. */
@@ -362,7 +370,7 @@ class W8OptionsMenuSet : public Controls, public W8TextControl::Listener {
 public:
     W8OptionsMenuSet();
     virtual ~W8OptionsMenuSet();
-    virtual void Redraw() override;
+    void Redraw(SDL_Surface& target, bool full_redraw) override;
     virtual void OnPrimary(W8TextControl* control) override;
 
     W8OptionsPanelSet* m_pMenuSet; /* OptionsScreen.cpp:1481 */

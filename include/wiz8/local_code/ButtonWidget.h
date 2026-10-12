@@ -28,8 +28,8 @@ class W8ButtonWidget : public W8Widget {
 public:
     W8ButtonWidget();
     ~W8ButtonWidget() override;
-    void Draw();
-    void Redraw(bool) override { Draw(); }
+    void Draw(SDL_Surface& target);
+    void Redraw(SDL_Surface& target, bool full_redraw) override;
     void Reset();
     bool IsConfigured() const { return OwnsRegion(); }
     void SetPosition(int x, int y);
@@ -37,16 +37,11 @@ public:
     void SetText(std::string_view text);
     void SetTextOffsets(int x, int y, bool shift);
     void SetMultiColor(bool enabled);
-    int GetWidth() const { return m_right - m_left; }
-    int GetHeight() const { return m_bottom - m_top; }
-    int GetX() const { return m_left; }
-    int GetY() const { return m_top; }
     SDL_Point GetMousePosition() const { return GetRegionMousePosition(); }
     bool IsLeftButtonHeld() const
     {
         return OwnsRegion() && (Region().flags & W8_REGION_LEFT_BUTTON_HELD) != 0;
     }
-    SDL_Rect GetBounds() const { return {m_left, m_top, GetWidth(), GetHeight()}; }
     void SetEnabled(bool enabled) override;
     void UpdateEnabledState(bool enabled)
     {
@@ -115,8 +110,6 @@ private:
     int m_user_data = 0;
     W8Region& Region() const { return g_regions[m_region]; }
     void ConfigureRegion(int priority);
-    void SetButtonRect(const SDL_Rect& bounds);
-    SDL_Rect ScreenBounds() const;
     enum class ButtonEvent { Enter, Leave, Move, Press, Release, Repeat, DoubleClick };
     void HandleButtonEvent(ButtonEvent event, SDL_MouseButtonFlags mask);
     int m_tooltip_index; /* g_localized_strings index, or -1 */
@@ -143,7 +136,7 @@ public:
     W8DialogBase* m_owner;
 
 private:
-    /* The dialog that was innermost when this button was made; the button
-       only takes input while that dialog is still the innermost one. */
-    W8DialogBase* m_layer;
+    /* The input layer (dialog) this button was made in; it claims its
+       region there, so it takes input only while that layer is modal. */
+    RegionSetRef m_layer;
 };

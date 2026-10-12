@@ -1,3 +1,4 @@
+#include <SDL3/SDL_surface.h>
 #include "himage.h"
 #include "image.h"
 #include <memory>
@@ -269,7 +270,7 @@ void W8JournalPanel::Refresh()
             }
         }
     }
-    Invalidate(0);
+    InvalidateAll();
 }
 
 // VTABLE: WIZ8 0x005ef340 Controls
@@ -281,39 +282,33 @@ W8JournalPanel::W8JournalPanel()
     : Controls(0x66, 0x1bb, 0, 0, CatalogArtwork::Load(0xf3, 0), 0), m_next(0), m_previous(0), m_close(0), m_mode(0),
       m_page_text(0), m_alternate_mode(0)
 {
-    short width;
-    short height;
-
     CreateRegionSet();
-    const SDL_Point _catalog_size_4 = CatalogArtwork::Load(0xf3, 0).size(0);
-        width = _catalog_size_4.x;
-        height = _catalog_size_4.y;;
-    m_bounds.right = m_bounds.left + static_cast<unsigned short>(width);
-    m_bounds.bottom = m_bounds.top + static_cast<unsigned short>(height);
+    const auto [width, height] = CatalogArtwork::Load(0xf3, 0).size(0);
+    SetBounds({Bounds().x, Bounds().y, width, height});
 
-    m_previous = EmplaceControl<W8TextControl>(*this, 0xffffffff, 3, 3, 0, 0, CatalogArtwork::Load(0xf4, 0), 0, 2, 1, -1, 3);
+    m_previous = EmplaceControl<W8TextControl>(0xffffffff, 3, 3, 0, 0, CatalogArtwork::Load(0xf4, 0), W8SpriteStates{.normal = 0, .pressed = 2, .alternate_normal = 1, .disabled = 3});
     m_previous->m_listener = this;
 
-    m_next = EmplaceControl<W8TextControl>(*this, 0xffffffff, 0x11f, 3, 0, 0, CatalogArtwork::Load(0xf4, 0), 4, 6, 5, -1, 7);
+    m_next = EmplaceControl<W8TextControl>(0xffffffff, 0x11f, 3, 0, 0, CatalogArtwork::Load(0xf4, 0), W8SpriteStates{.normal = 4, .pressed = 6, .alternate_normal = 5, .disabled = 7});
     m_next->m_listener = this;
 
-    W8ControlsRect bounds = {m_bounds.left, m_bounds.top, m_bounds.right, m_bounds.bottom};
+    const W8ControlsRect bounds = ToEdges(ScreenBounds());
     m_page_text = new W8TextBuffer(&bounds, "", g_options_detail_font,
                                    g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
 
-    m_mode = EmplaceControl<W8TextControl>(*this, 0xffffffff, 0x1b0, -2, 0, 0, CatalogArtwork::Load(0x1bb, 0), 0, 2, 1, 2, 3);
+    m_mode = EmplaceControl<W8TextControl>(0xffffffff, 0x1b0, -2, 0, 0, CatalogArtwork::Load(0x1bb, 0), W8SpriteStates{.normal = 0, .pressed = 2, .alternate_normal = 1, .alternate_pressed = 2, .disabled = 3});
     m_mode->AddLayoutFlags(g_W8TextControlLayoutToggle);
     m_mode->m_listener = this;
 
     m_close =
-        EmplaceControl<W8TextControl>(*this, 0xffffffff, 0x1ea, -2, 0, 0, CatalogArtwork::Load(0x106, 0), 0x10, -1, 0x11, 0x12, 0x13);
+        EmplaceControl<W8TextControl>(0xffffffff, 0x1ea, -2, 0, 0, CatalogArtwork::Load(0x106, 0), W8SpriteStates{.normal = 0x10, .alternate_normal = 0x11, .alternate_pressed = 0x12, .disabled = 0x13});
     m_close->m_listener = this;
     m_close->EnableRegionHelp(0x6ed);
-    SetEnabled(true);
+    SetActive(true);
     EnableRegionSet(true);
     m_alternate_mode = 0;
     m_mode->EnableRegionHelp(0x6eb);
-    if ((m_mode->m_stateFlags & g_W8TextControlStateSecondary) != 0) {
+    if (m_mode->IsSelected()) {
         m_mode->DisableSecondaryState(true);
     }
 }
@@ -326,11 +321,11 @@ W8JournalPanel::~W8JournalPanel()
 }
 
 // FUNCTION: WIZ8 0x005bdbf0
-void W8JournalPanel::Redraw()
+void W8JournalPanel::Redraw(SDL_Surface& target, bool full_redraw)
 {
-    if (m_fEnabled && (m_fDirty || m_fLayoutDirty)) {
-        Controls::Redraw();
-        m_page_text->RenderToTarget(0, true, GetFrameBufferSurface());
+    if (m_active && (m_dirty || m_childrenDirty)) {
+        Controls::Redraw(target, full_redraw);
+        m_page_text->RenderToTarget(0, true, target);
     }
 }
 
@@ -351,15 +346,15 @@ void W8JournalPanel::OnPrimary(W8TextControl* control)
         RequestScreenTransition();
     } else {
         m_alternate_mode =
-            static_cast<unsigned char>(m_mode->m_stateFlags & g_W8TextControlStateSecondary);
+            m_mode->IsSelected();
         if (m_alternate_mode) {
             m_mode->EnableRegionHelp(0x6ec);
-            if ((m_mode->m_stateFlags & g_W8TextControlStateSecondary) == 0) {
+            if (!m_mode->IsSelected()) {
                 m_mode->EnableSecondaryState(true);
             }
         } else {
             m_mode->EnableRegionHelp(0x6eb);
-            if ((m_mode->m_stateFlags & g_W8TextControlStateSecondary) != 0) {
+            if (m_mode->IsSelected()) {
                 m_mode->DisableSecondaryState(true);
             }
         }
@@ -458,6 +453,6 @@ void JournalScreenFrame(void)
         }
         return InputRoute::Handled;
     }});
-    g_journal_panel->Redraw();
+    g_journal_panel->Redraw(GetFrameBufferSurface(), false);
     RenderFrame();
 }

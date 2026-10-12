@@ -86,6 +86,15 @@
 #include "wiz8/local_screens/MGSKeyboard.h"
 #include "wiz8/local_screens/OptionsScreen.h"
 #include "wiz8/local_screens/AutomapScreen.h"
+#include "wiz8/local_screens/MGSFormation.h"
+#include "wiz8/local_screens/MGSPortraits.h"
+#include "wiz8/local_screens/MGSSpellCasting.h"
+#include "wiz8/local_screens/MGSSpellIcons.h"
+#include "wiz8/local_code/Magic.h"
+#include "wiz8/local_code/Strings.h"
+#include "wiz8/spell_ids.h"
+#include "wiz8/layouts/gameplay_databases.h"
+#include "wiz8/character_skills.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/layouts/npc_state.h"
@@ -296,7 +305,11 @@ class Game
         if (region < 0)
             Fail(step, "target region is not live");
         const W8Region& bounds = g_regions[region];
-        click_at((bounds.x1 + bounds.x2) / 2, (bounds.y1 + bounds.y2) / 2);
+        if ((bounds.flags & (W8_REGION_RECTANGLE | W8_REGION_CIRCLE)) == W8_REGION_CIRCLE) {
+            click_at(bounds.x1, bounds.y1); // Circle fields are centre and radius.
+        } else {
+            click_at((bounds.x1 + bounds.x2) / 2, (bounds.y1 + bounds.y2) / 2);
+        }
     }
 
     void click_at(int x, int y)
@@ -315,6 +328,32 @@ class Game
         mouse_button((bounds.x1 + bounds.x2) / 2, (bounds.y1 + bounds.y2) / 2, true);
         frame();
         mouse_button(0, 0, false);
+        frame();
+    }
+
+    void move_pointer(int x, int y)
+    {
+        int width = 0, height = 0;
+        SDL_GetWindowSize(window_, &width, &height);
+        SDL_Event motion{};
+        motion.type = SDL_EVENT_MOUSE_MOTION;
+        motion.motion.windowID = SDL_GetWindowID(window_);
+        motion.motion.x = (x + 0.5f) * width / 640;
+        motion.motion.y = (y + 0.5f) * height / 480;
+        HandleGameEvent(motion);
+        frame();
+    }
+
+    void drag(int source, int destination)
+    {
+        REQUIRE((source >= 0 && destination >= 0));
+        const auto from = g_regions[source];
+        const auto to = g_regions[destination];
+        mouse_button((from.x1 + from.x2) / 2, (from.y1 + from.y2) / 2, true);
+        frame();
+        // The formation callback begins the drag on leaving the source while held.
+        move_pointer((to.x1 + to.x2) / 2, (to.y1 + to.y2) / 2);
+        mouse_button((to.x1 + to.x2) / 2, (to.y1 + to.y2) / 2, false);
         frame();
     }
 
@@ -844,8 +883,8 @@ void InventoryChestScenario()
     REQUIRE_FALSE(picker->items.empty());
     const auto click_button = [&](int index) {
         auto& button = *picker->m_buttons[index];
-        game.click_at(button.GetX() + button.GetWidth() / 2,
-                      button.GetY() + button.GetHeight() / 2);
+        game.click_at(button.Bounds().x + button.Bounds().w / 2,
+                      button.Bounds().y + button.Bounds().h / 2);
     };
     // A full pool can still absorb part of an ammunition stack. The picker
     // must retain only the remainder, including after a second failed attempt.
@@ -1000,6 +1039,93 @@ void CheckWorldRender(Game& game)
     REQUIRE(changed > viewport / 4);
 }
 
+// Exercise the screen-template behaviours that generic widget dispatch cannot replace.
+void CheckGameplayUi(Game& game)
+{
+    const int slot = PremadeSlot();
+    const auto original_formation = g_status.formation;
+    OpenFormationPanel();
+    game.frame();
+    const auto position = g_status.formation.positions[slot];
+    const int source = position.bQuadrant * 3 + position.bQuadrantSlot;
+    REQUIRE((source >= 0 && source < 15));
+    const int destination = ((position.bQuadrant + 1) % 5) * 3;
+    game.drag(ControlRegion(g_formation_cell_controls[source]),
+              ControlRegion(g_formation_cell_controls[destination]));
+    REQUIRE(gXStatus.edited_formation.positions[slot].bQuadrant == destination / 3);
+    game.click("accept-formation", ControlRegion(g_formation_action_buttons[0]));
+    REQUIRE(!g_formation_panel);
+    REQUIRE(g_status.formation.positions[slot].bQuadrant == destination / 3);
+    g_status.formation = original_formation;
+    RefreshFormationBoard();
+
+    // Give the fixture a real learned spell and mana; exercise pointer routing,
+    // realm tooltips and power selection with the licensed spell data.
+    auto& character = g_status.buffers.Char[slot];
+    const auto original_character = character;
+    character.iProfession = W8_PROFESSION_MAGE;
+    character.skills[W8_SKILL_FIRE_MAGIC].level = 100;
+    LearnSpell(&character, W8_SPELL_LIGHT, false);
+    const auto realm = g_spell_records[W8_SPELL_LIGHT].realm;
+    character.sp_max[realm] = character.iSPLeft[realm] = 100;
+    REQUIRE(OpenSpellCastingView(slot));
+    game.frame();
+    const auto realm_bounds = gpSCSV->realm_buttons[realm]->ScreenBounds();
+    game.move_pointer(0, 200);
+    g_default_help_text.clear();
+    game.move_pointer(realm_bounds.x + 5, realm_bounds.y + 5);
+    REQUIRE(g_default_help_text.starts_with(g_localized_strings[0x27 + realm]));
+    game.click("spell-realm", ControlRegion(gpSCSV->realm_buttons[realm]));
+    REQUIRE(gpSCSV->iSpellRealm == realm);
+    REQUIRE(gpSCSV->uiSpellsInList == 1);
+    game.click_at(250, 372); // First spell in the ordinary text-box list.
+    REQUIRE(gpSCSV->uiSpellToCast == W8_SPELL_LIGHT);
+    game.click("spell-power", ControlRegion(gpSCSV->power_controls[1]));
+    if (gpSCSV) {
+        REQUIRE(gpSCSV->iSpellPower == 1);
+        game.click("cancel-spell", ControlRegion(gpSCSV->power_controls[W8_SPELL_CANCEL_CONTROL]));
+        REQUIRE(!gpSCSV);
+    } else {
+        // Target-free spells may commit in the same frame as power selection.
+        REQUIRE(g_status.buffers.XChar[slot].spell_id == W8_SPELL_LIGHT);
+        REQUIRE(g_status.buffers.XChar[slot].spell_detail.spell.power_level == 2);
+    }
+    character = original_character;
+
+    const auto original_effect = g_status.effect_slots[0];
+    g_status.effect_slots[0].active = true;
+    g_status.effect_slots[0].effect_id = W8_SPELL_LIGHT;
+    g_status.effect_slots[0].amount = 1;
+    g_status.effect_slots[0].duration = 600;
+    RefreshSpellIconHudRows();
+    game.frame();
+    REQUIRE(g_spell_icon_count > 0);
+    const auto icon = g_spell_icon_strip->ControlAt(0)->ScreenBounds();
+    game.move_pointer(0, 200);
+    g_default_help_text.clear();
+    game.move_pointer(icon.x + icon.w / 2, icon.y + icon.h / 2);
+    REQUIRE(g_default_help_text.starts_with(g_spell_records[W8_SPELL_LIGHT].display_name));
+    g_status.effect_slots[0] = original_effect;
+    RefreshSpellIconHudRows();
+
+    const auto original_experience = character.experience;
+    const auto original_notice = g_status.buffers.XChar[slot].portrait_advance;
+    character.experience = character.experience_goal;
+    g_status.buffers.XChar[slot].portrait_advance = true;
+    EnablePortraitAdvanceRegions();
+    UpdatePortraitAdvanceButtons();
+    game.click("level-up-portrait", g_main_portrait_controls->index(slot));
+    game.wait_screen("level-up-character", W8_SCREEN_CHARACTER);
+    REQUIRE(g_character_screen->m_mode == 2);
+    REQUIRE(g_character_screen->m_original == &g_status.buffers.Char[slot]);
+    game.key(SDLK_ESCAPE);
+    game.key(SDLK_RETURN); // Confirm abandoning the level-up edit.
+    game.wait_screen("cancel-level-up", W8_SCREEN_MAIN_GAME);
+    character.experience = original_experience;
+    g_status.buffers.XChar[slot].portrait_advance = original_notice;
+    UpdatePortraitAdvanceButtons();
+}
+
 // Load and render the retail level, evict resident textures, then reload the
 // saved level through the shipped loading screen. Leave gameplay resident at
 // scope exit so Application shutdown exercises the same owners as gameplay.
@@ -1009,6 +1135,7 @@ void ResourceLifecycleScenario()
     StartPremadeGame(game);
     // Rendering and resource recycling use the same live world and GPU session.
     CheckWorldRender(game);
+    CheckGameplayUi(game);
     // Automap buttons own their sprite sheets. Re-entering the screen must
     // rebuild all sixteen controls after the previous owners are destroyed.
     for (int visit = 0; visit != 2; ++visit) {
@@ -1017,10 +1144,10 @@ void ResourceLifecycleScenario()
         REQUIRE(g_automap_buttons.size() == 16);
         for (int index = 0; index != 16; ++index) {
             REQUIRE(g_automap_buttons[index]);
-            REQUIRE(g_automap_buttons[index]->GetWidth() > 0);
-            REQUIRE(g_automap_buttons[index]->GetHeight() > 0);
+            REQUIRE(g_automap_buttons[index]->Bounds().w > 0);
+            REQUIRE(g_automap_buttons[index]->Bounds().h > 0);
             g_automap_buttons[index]->m_dirty = true;
-            g_automap_buttons[index]->Draw();
+            g_automap_buttons[index]->Draw(GetFrameBufferSurface());
         }
         game.key(SDLK_ESCAPE);
         game.wait_screen("automap-buttons-released", W8_SCREEN_MAIN_GAME);

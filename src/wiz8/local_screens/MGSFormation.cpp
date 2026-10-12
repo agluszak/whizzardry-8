@@ -280,37 +280,36 @@ static unsigned char CreateFormationPanel(void)
         int top = g_formation_cell_positions[index].y;
         W8TextControl* cell;
 
-        cell = g_formation_panel->EmplaceControl<W8TextControl>(*g_formation_panel, g_formation_regions->index(index), left, top,
-                                 left + 0x20, top + 0x20, CatalogArtwork::Load(0x9f, 0), -1, -1,
-                                 -1, -1, -1);
+        cell = g_formation_panel->EmplaceControl<W8TextControl>(g_formation_regions->index(index), left, top,
+                                 left + 0x20, top + 0x20, CatalogArtwork::Load(0x9f, 0));
         g_formation_cell_controls[index] = cell;
         if (cell == 0) {
             DestroyFormationPanel();
             return 0;
         }
         cell->AddLayoutFlags(g_W8TextControlLayoutToggle);
-        cell->m_primaryActivationCallback = SelectFormationCell;
-        cell = g_formation_panel->EmplaceControl<W8TextControl>(*g_formation_panel, -1, left, top, left + 0x20, top + 0x20, CatalogArtwork::Load(0xa0, 0), -1, -1, -1, -1, -1);
+        cell->m_onPrimary = SelectFormationCell;
+        cell = g_formation_panel->EmplaceControl<W8TextControl>(-1, left, top, left + 0x20, top + 0x20, CatalogArtwork::Load(0xa0, 0));
         g_formation_cell_overlays[index] = cell;
         if (cell == 0) {
             DestroyFormationPanel();
             return 0;
         }
     }
-    g_formation_action_buttons[0] = g_formation_panel->EmplaceControl<W8TextControl>(*g_formation_panel, g_formation_regions->index(15), 0x85, 0xcb, 0xa0, 0xe6,
-        CatalogArtwork::Load(0x8e, 0), 0, -1, 1, 2, 3);
-    g_formation_action_buttons[1] = g_formation_panel->EmplaceControl<W8TextControl>(*g_formation_panel, g_formation_regions->index(16), 0xa7, 0xcb, 0xc2, 0xe6,
-        CatalogArtwork::Load(0x8e, 0), 4, -1, 5, 6, 7);
-    g_formation_action_buttons[2] = g_formation_panel->EmplaceControl<W8TextControl>(*g_formation_panel, g_formation_regions->index(17), 0xf, 0xcd, 0x29, 0xe7,
-        CatalogArtwork::Load(0x8f, 0), 0, -1, 1, 2, 3);
+    g_formation_action_buttons[0] = g_formation_panel->EmplaceControl<W8TextControl>(g_formation_regions->index(15), 0x85, 0xcb, 0xa0, 0xe6,
+        CatalogArtwork::Load(0x8e, 0), W8SpriteStates{.normal = 0, .alternate_normal = 1, .alternate_pressed = 2, .disabled = 3});
+    g_formation_action_buttons[1] = g_formation_panel->EmplaceControl<W8TextControl>(g_formation_regions->index(16), 0xa7, 0xcb, 0xc2, 0xe6,
+        CatalogArtwork::Load(0x8e, 0), W8SpriteStates{.normal = 4, .alternate_normal = 5, .alternate_pressed = 6, .disabled = 7});
+    g_formation_action_buttons[2] = g_formation_panel->EmplaceControl<W8TextControl>(g_formation_regions->index(17), 0xf, 0xcd, 0x29, 0xe7,
+        CatalogArtwork::Load(0x8f, 0), W8SpriteStates{.normal = 0, .alternate_normal = 1, .alternate_pressed = 2, .disabled = 3});
     button = g_formation_action_buttons;
     while (*button != 0) {
         ++button;
         if (button > &g_formation_action_buttons[2]) {
-            g_formation_action_buttons[0]->m_primaryActivationCallback = AcceptFormationChanges;
-            g_formation_action_buttons[1]->m_primaryActivationCallback = CloseFormationPanel;
-            g_formation_action_buttons[2]->m_primaryActivationCallback = ResetFormationPanel;
-            g_formation_panel->SetEnabled(true);
+            g_formation_action_buttons[0]->m_onPrimary = AcceptFormationChanges;
+            g_formation_action_buttons[1]->m_onPrimary = CloseFormationPanel;
+            g_formation_action_buttons[2]->m_onPrimary = ResetFormationPanel;
+            g_formation_panel->SetActive(true);
             return 1;
         }
     }
@@ -409,12 +408,12 @@ static void UpdateFormationCells(void)
             overlay->SetEnabled(true);
             g_formation_cell_slots[cell] = slot;
             if (slot == g_status.selected_character &&
-                (primary->m_stateFlags & g_W8TextControlStateSecondary) == 0) {
+                !primary->IsSelected()) {
                 primary->EnableSecondaryState(false);
             }
         }
     }
-    g_formation_panel->Invalidate(0);
+    g_formation_panel->InvalidateAll();
 }
 
 /* The cells' activation callback: highlight the active cell and make its
@@ -430,7 +429,7 @@ static void SelectFormationCell(void)
 
             if (index == g_formation_active_cell) {
                 control->EnableSecondaryState(false);
-            } else if ((control->m_stateFlags & g_W8TextControlStateSecondary) != 0) {
+            } else if (control->IsSelected()) {
                 control->DisableSecondaryState(false);
                 g_formation_cell_overlays[index]->Invalidate(false);
             }
@@ -612,6 +611,9 @@ static void BeginFormationDrag(const InputEvent*)
     g_formation_cell_controls[g_formation_active_cell]->DisableSecondaryState(false);
     g_formation_drag_slot = g_formation_cell_slots[g_formation_active_cell];
     g_formation_drag_cell = g_formation_active_cell;
+    // The dragged chip follows the pointer; the drop must reach the cell under
+    // it rather than the button region that captured the initial press.
+    ClearActiveRegionIfMatches(g_formation_cell_controls[g_formation_drag_cell]->m_region);
     g_formation_cell_slots[g_formation_active_cell] = -1;
     SGPMouseGetPos(&point);
     ClearMouseSurface();
@@ -691,7 +693,7 @@ void SelectFormationSlotCell(int party_slot)
         if (g_formation_cell_slots[index] == party_slot) {
             control->EnableSecondaryState(false);
             g_formation_cell_overlays[index]->Invalidate(false);
-        } else if ((control->m_stateFlags & g_W8TextControlStateSecondary) != 0) {
+        } else if (control->IsSelected()) {
             control->DisableSecondaryState(false);
             g_formation_cell_overlays[index]->Invalidate(false);
         }

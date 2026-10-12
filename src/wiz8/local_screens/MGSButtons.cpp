@@ -1,3 +1,4 @@
+#include "wiz8/engine_code/Video2.h"
 #include <memory>
 #include <cstdint>
 #include <fmt/format.h>
@@ -50,7 +51,6 @@
 #include "layouts/item_instance.h"
 #include "layouts/main_game_screen.h"
 #include "layouts/targeting.h"
-#include "local_code/ControlsRect.h"
 #include "surrender/srMath.h"
 
 #define MGSBUTTONS_CPP "C:\\Projects\\Wizardry 8\\Local Screens\\MGSButtons.cpp"
@@ -158,9 +158,9 @@ void RefreshSubMenuPanel(bool invalidate)
         srAssertFail("gpSubMenuPanel", MGSBUTTONS_CPP, 0x64f, 0);
     }
     if (invalidate) {
-        gpSubMenuPanel->Invalidate(0);
+        gpSubMenuPanel->InvalidateAll();
     }
-    gpSubMenuPanel->Redraw();
+    gpSubMenuPanel->Redraw(GetFrameBufferSurface(), false);
 }
 
 static void ChooseSubMenuAction(W8ActionKind action)
@@ -383,7 +383,7 @@ void RedrawOptionsDiskButton(void)
         enabled = false;
     }
     g_options_disk_button.SetEnabled(enabled);
-    g_options_disk_button.Draw();
+    g_options_disk_button.Draw(GetFrameBufferSurface());
 }
 
 /* Pick which of the five combat-stance buttons is visible for the live combat
@@ -421,7 +421,7 @@ void UpdateCombatStanceButtons(void)
         enabled = false;
     }
     g_combat_stance_buttons[stance].SetEnabled(enabled);
-    g_combat_stance_buttons[stance].Draw();
+    g_combat_stance_buttons[stance].Draw(GetFrameBufferSurface());
 }
 
 /* Dirties the five combat-stance buttons and refreshes which one is live. */
@@ -580,7 +580,7 @@ void UpdateRoofButtons(void)
     g_roof_buttons[1].SetEnabled(enabled);
     SyncRoofButtonPressedState();
     for (auto& button : g_roof_buttons) {
-        button.Draw();
+        button.Draw(GetFrameBufferSurface());
     }
 }
 
@@ -593,30 +593,30 @@ void SyncRoofButtonPressedState(void)
         if (g_roof_buttons[0].IsPressed() == 0) {
             g_roof_buttons[0].SetPressed(true);
         }
-        if (g_roof_buttons[1].IsPressed() != 0) {
+        if (g_roof_buttons[1].IsPressed()) {
             g_roof_buttons[1].SetPressed(false);
         }
-        if (g_roof_buttons[2].IsPressed() != 0) {
+        if (g_roof_buttons[2].IsPressed()) {
             g_roof_buttons[2].SetPressed(false);
         }
     } else if (g_settings.main_ui_mode == 1) {
         if (g_roof_buttons[1].IsPressed() == 0) {
             g_roof_buttons[1].SetPressed(true);
         }
-        if (g_roof_buttons[0].IsPressed() != 0) {
+        if (g_roof_buttons[0].IsPressed()) {
             g_roof_buttons[0].SetPressed(false);
         }
-        if (g_roof_buttons[2].IsPressed() != 0) {
+        if (g_roof_buttons[2].IsPressed()) {
             g_roof_buttons[2].SetPressed(false);
         }
     } else if (g_settings.main_ui_mode == 2) {
         if (g_roof_buttons[2].IsPressed() == 0) {
             g_roof_buttons[2].SetPressed(true);
         }
-        if (g_roof_buttons[0].IsPressed() != 0) {
+        if (g_roof_buttons[0].IsPressed()) {
             g_roof_buttons[0].SetPressed(false);
         }
-        if (g_roof_buttons[1].IsPressed() != 0) {
+        if (g_roof_buttons[1].IsPressed()) {
             g_roof_buttons[1].SetPressed(false);
         }
     }
@@ -738,7 +738,7 @@ void RedrawLayoutArrowButtons(void)
         g_layout_arrow_buttons[3].SetVisible(false);
         draw_button = &g_layout_arrow_buttons[0];
     }
-    draw_button->Draw();
+    draw_button->Draw(GetFrameBufferSurface());
 
     if (g_level_block->action_panel_visible == 0) {
         g_layout_arrow_buttons[4].SetVisible(true);
@@ -749,17 +749,17 @@ void RedrawLayoutArrowButtons(void)
         g_layout_arrow_buttons[4].SetVisible(false);
         draw_button = &g_layout_arrow_buttons[1];
     }
-    draw_button->Draw();
+    draw_button->Draw(GetFrameBufferSurface());
 
     if (g_level_block->formation_board_visible) {
         g_layout_arrow_buttons[2].SetVisible(true);
         g_layout_arrow_buttons[5].SetVisible(false);
-        g_layout_arrow_buttons[2].Draw();
+        g_layout_arrow_buttons[2].Draw(GetFrameBufferSurface());
         return;
     }
     g_layout_arrow_buttons[5].SetVisible(true);
     g_layout_arrow_buttons[2].SetVisible(false);
-    g_layout_arrow_buttons[5].Draw();
+    g_layout_arrow_buttons[5].Draw(GetFrameBufferSurface());
 }
 
 // FUNCTION: WIZ8 0x005982D0
@@ -1065,7 +1065,7 @@ void UpdateSubMenuPanelButtons(void)
         g_level_block->combat_end_notification == -1 && AnyCharacterEngaged()) {
         g_submenu_panel_buttons[1].SetEnabled(true);
         if (!gXStatus.fReviewCharacterMode) {
-            if (g_submenu_panel_buttons[1].IsPressed() != 0) {
+            if (g_submenu_panel_buttons[1].IsPressed()) {
                 g_submenu_panel_buttons[1].SetPressed(false);
             }
         } else if (g_submenu_panel_buttons[1].IsPressed() == 0) {
@@ -1076,7 +1076,7 @@ void UpdateSubMenuPanelButtons(void)
     }
 
     for (auto& button : g_submenu_panel_buttons) {
-        button.Draw();
+        button.Draw(GetFrameBufferSurface());
     }
 }
 
@@ -1094,7 +1094,7 @@ static void UpdateSubMenuScrollButtons()
         }
     }
     for (auto& button : g_submenu_scroll_buttons) {
-        button.Draw();
+        button.Draw(GetFrameBufferSurface());
     }
 }
 
@@ -1116,7 +1116,7 @@ void RedrawSubMenuButtons(void)
     for (index = 0; index < 9; ++index) {
         auto& button = g_submenu_buttons[index];
         UpdateSubMenuButton(index);
-        button.Draw();
+        button.Draw(GetFrameBufferSurface());
     }
 
     CatalogArtwork::Load(0x7e, 0).drawAndInvalidate(GetFrameBufferSurface(), 7, 0x210, 0x1c2);
@@ -1238,7 +1238,7 @@ void UpdateMainGameButtons(void)
     for (index = 0; index < 9; ++index) {
         auto& button = g_submenu_buttons[index];
         UpdateSubMenuButton(index);
-        button.Draw();
+        button.Draw(GetFrameBufferSurface());
     }
     UpdateSubMenuScrollButtons();
     UpdateSubMenuPanelButtons();
@@ -1246,7 +1246,7 @@ void UpdateMainGameButtons(void)
               !gXStatus.fTrapInteractMode && !gXStatus.fCampMode && !gXStatus.fLockInteract &&
               !gXStatus.fTrapInteract;
     g_options_disk_button.SetEnabled(enabled);
-    g_options_disk_button.Draw();
+    g_options_disk_button.Draw(GetFrameBufferSurface());
     UpdateCombatStanceButtons();
     UpdateRoofButtons();
 }
@@ -1260,7 +1260,7 @@ void UpdateSubMenuAutoClose(void)
     int left;
     int right;
 
-    left = gpSubMenuPanel->m_bounds.left;
+    left = gpSubMenuPanel->ScreenBounds().x;
     switch (g_submenu_entry_count) {
     case 0:
     case 1:
@@ -1277,8 +1277,8 @@ void UpdateSubMenuAutoClose(void)
     case 5:
         right = left + 0x67;
     }
-    if (!IsCursorInRectangle(left, gpSubMenuPanel->m_bounds.top, right,
-                             gpSubMenuPanel->m_bounds.top + 0x1c)) {
+    if (!IsCursorInRectangle(left, gpSubMenuPanel->ScreenBounds().y, right,
+                             gpSubMenuPanel->ScreenBounds().y + 0x1c)) {
     check_clock:
         if (!g_submenu_close_pending) {
             g_submenu_clock = w8_get_ticks() + (500);
@@ -1426,29 +1426,28 @@ unsigned char BuildSubMenuPanel(short notification)
             icon_delta = 2;
             break;
         }
-        g_submenu_rows[index] = gpSubMenuPanel->EmplaceControl<W8TextControl>(*gpSubMenuPanel, g_main_submenu_regions->index(index), index * 19 + 5, 5, index * 19 + 0x17, 0x17,
-            CatalogArtwork::Load(0x89, 0),
-            message, message, message + icon_delta, message + icon_delta, -1);
+        g_submenu_rows[index] = gpSubMenuPanel->EmplaceControl<W8TextControl>(g_main_submenu_regions->index(index), index * 19 + 5, 5, index * 19 + 0x17, 0x17,
+            CatalogArtwork::Load(0x89, 0), W8SpriteStates{.normal = message, .pressed = message, .alternate_normal = message + icon_delta, .alternate_pressed = message + icon_delta});
         if (g_submenu_rows[index] == 0) {
             DestroySubMenuPanel();
             return 0;
         }
         AssignSubMenuCallback(g_submenu_rows[index], menu, entry);
-        g_submenu_rows[index]->m_secondaryActivationCallback = DestroySubMenuControls;
+        g_submenu_rows[index]->m_onSecondary = DestroySubMenuControls;
         (*g_main_submenu_regions)[index].SetHelp(true, g_submenu_entry_help_ids[menu * 5 + entry]);
     }
     g_submenu_rows[built - 1] =
-        gpSubMenuPanel->EmplaceControl<W8TextControl>(*gpSubMenuPanel, g_main_submenu_regions->index(built - 1), built * 19 - 14, 5,
-                          built * 19 - 2, 0x17, CatalogArtwork::Load(0x89, 0), 0xbd, 0xbd, 0xbf, 0xbf, -1);
+        gpSubMenuPanel->EmplaceControl<W8TextControl>(g_main_submenu_regions->index(built - 1), built * 19 - 14, 5,
+                          built * 19 - 2, 0x17, CatalogArtwork::Load(0x89, 0), W8SpriteStates{.normal = 0xbd, .pressed = 0xbd, .alternate_normal = 0xbf, .alternate_pressed = 0xbf});
     if (g_submenu_rows[built - 1] == 0) {
         DestroySubMenuPanel();
         return 0;
     }
-    g_submenu_rows[built - 1]->m_primaryActivationCallback = DestroySubMenuControls;
-    g_submenu_rows[built - 1]->m_secondaryActivationCallback = DestroySubMenuControls;
+    g_submenu_rows[built - 1]->m_onPrimary = DestroySubMenuControls;
+    g_submenu_rows[built - 1]->m_onSecondary = DestroySubMenuControls;
     (*g_main_submenu_regions)[built - 1].SetHelp(true, 0x11);
     g_main_submenu_regions.Enable();
-    gpSubMenuPanel->SetEnabled(true);
+    gpSubMenuPanel->SetActive(true);
     g_level_block->combat_end_notification = notification;
     g_submenu_menu = menu;
     g_submenu_entry_count = built;
@@ -1463,50 +1462,50 @@ void AssignSubMenuCallback(W8TextControl* row, short menu, short item)
     case W8_SUBMENU_ATTACK:
         switch (item) {
         case 0:
-            row->m_primaryActivationCallback = SubMenuSelectAttack;
+            row->m_onPrimary = SubMenuSelectAttack;
             break;
         case 1:
-            row->m_primaryActivationCallback = SubMenuSelectBerserk;
+            row->m_onPrimary = SubMenuSelectBerserk;
             break;
         case 2:
-            row->m_primaryActivationCallback = SubMenuSelectBreathe;
+            row->m_onPrimary = SubMenuSelectBreathe;
             break;
         case 3:
-            row->m_primaryActivationCallback = SubMenuSelectTurnUndead;
+            row->m_onPrimary = SubMenuSelectTurnUndead;
             break;
         case 4:
-            row->m_primaryActivationCallback = SubMenuSelectPray;
+            row->m_onPrimary = SubMenuSelectPray;
             break;
         }
         break;
     case W8_SUBMENU_DEFEND:
         if (item == 0) {
-            row->m_primaryActivationCallback = SubMenuSelectDefend;
+            row->m_onPrimary = SubMenuSelectDefend;
         } else if (item == 1) {
-            row->m_primaryActivationCallback = SubMenuSelectProtect;
+            row->m_onPrimary = SubMenuSelectProtect;
         }
         break;
     case W8_SUBMENU_ITEMS:
         if (item == 0) {
-            row->m_primaryActivationCallback = SubMenuSelectEquip;
+            row->m_onPrimary = SubMenuSelectEquip;
         } else if (item == 1) {
-            row->m_primaryActivationCallback = SubMenuOpenUseItemView;
+            row->m_onPrimary = SubMenuOpenUseItemView;
         } else if (item == 2) {
-            row->m_primaryActivationCallback = SubMenuUseRecordedItem;
+            row->m_onPrimary = SubMenuUseRecordedItem;
         }
         break;
     case W8_SUBMENU_SPELLS:
         if (item == 0) {
-            row->m_primaryActivationCallback = SubMenuOpenSpellView;
+            row->m_onPrimary = SubMenuOpenSpellView;
         } else if (item == 1) {
-            row->m_primaryActivationCallback = SubMenuCastRecordedSpell;
+            row->m_onPrimary = SubMenuCastRecordedSpell;
         }
         break;
     case W8_SUBMENU_MOVE:
         if (item == 0) {
-            row->m_primaryActivationCallback = SubMenuSelectWalk;
+            row->m_onPrimary = SubMenuSelectWalk;
         } else if (item == 1) {
-            row->m_primaryActivationCallback = SubMenuSelectRun;
+            row->m_onPrimary = SubMenuSelectRun;
         }
         break;
     }

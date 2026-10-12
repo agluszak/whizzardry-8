@@ -1,3 +1,4 @@
+#include "wiz8/engine_code/Video2.h"
 #include <SDL3/SDL_rect.h>
 #include <algorithm>
 
@@ -56,19 +57,19 @@ void W8DialogScrollBar::SetLayout(int x, int y, int entry_count, int first_visib
                                   int entry_height, int view_height)
 {
     if (m_initialized) {
-        int track_width = m_track_button.GetWidth();
-        int arrow_width = m_up_button.GetWidth();
+        int track_width = m_track_button.Bounds().w;
+        int arrow_width = m_up_button.Bounds().w;
         m_track_button.SetPosition( static_cast<short>(x), static_cast<short>(y));
         int arrow_x = x + (track_width - arrow_width) / 2;
         m_up_button.SetPosition( static_cast<short>(arrow_x), static_cast<short>(y));
         m_down_button.SetPosition( static_cast<short>(arrow_x),
-                          static_cast<short>(y - m_down_button.GetHeight() +
-                                             m_track_button.GetHeight()));
+                          static_cast<short>(y - m_down_button.Bounds().h +
+                                             m_track_button.Bounds().h));
         m_track_bounds.left = x;
-        m_track_bounds.top = y + m_up_button.GetHeight();
-        m_track_bounds.right = x + m_track_button.GetWidth();
+        m_track_bounds.top = y + m_up_button.Bounds().h;
+        m_track_bounds.right = x + m_track_button.Bounds().w;
         m_track_bounds.bottom =
-            y - m_down_button.GetHeight() + m_track_button.GetHeight();
+            y - m_down_button.Bounds().h + m_track_button.Bounds().h;
         m_entry_count = entry_count;
         m_first_visible_entry = first_visible_entry;
         m_entry_height = entry_height;
@@ -88,11 +89,11 @@ void W8DialogScrollBar::UpdateThumb()
 {
     if (m_initialized && m_entry_count != -1 && m_first_visible_entry != -1) {
         int x = m_track_bounds.left +
-                (m_track_bounds.right - m_track_bounds.left - m_thumb_button.GetWidth()) / 2;
+                (m_track_bounds.right - m_track_bounds.left - m_thumb_button.Bounds().w) / 2;
         int offset = 0;
         if (m_entry_count > m_view_height / m_entry_height) {
             offset =
-                ((m_track_bounds.bottom - m_track_bounds.top - m_thumb_button.GetHeight()) *
+                ((m_track_bounds.bottom - m_track_bounds.top - m_thumb_button.Bounds().h) *
                  m_first_visible_entry) /
                 (m_entry_count - m_view_height / m_entry_height);
         }
@@ -108,16 +109,16 @@ void W8DialogScrollBar::Draw(bool force)
     if (m_initialized && m_visible && (force || m_dirty || m_up_button.m_dirty || m_down_button.m_dirty ||
         m_track_button.m_dirty || m_thumb_button.m_dirty)) {
         m_track_button.m_dirty = true;
-        m_track_button.Draw();
+        m_track_button.Draw(GetFrameBufferSurface());
         m_up_button.m_dirty = true;
-        m_up_button.Draw();
+        m_up_button.Draw(GetFrameBufferSurface());
         m_down_button.m_dirty = true;
-        m_down_button.Draw();
+        m_down_button.Draw(GetFrameBufferSurface());
         m_thumb_button.m_dirty = true;
-        m_thumb_button.Draw();
-        InvalidateRegion(m_track_button.GetX(), m_track_button.GetY(),
-                         m_track_button.GetX() + m_track_button.GetWidth(),
-                         m_track_button.GetY() + m_track_button.GetHeight());
+        m_thumb_button.Draw(GetFrameBufferSurface());
+        InvalidateRegion(m_track_button.Bounds().x, m_track_button.Bounds().y,
+                         m_track_button.Bounds().x + m_track_button.Bounds().w,
+                         m_track_button.Bounds().y + m_track_button.Bounds().h);
         m_dirty = false;
     }
 }
@@ -167,7 +168,7 @@ void W8DialogScrollBar::ScrollToMouse(int mouse_y)
     if (m_view_height / m_entry_height < m_entry_count && m_entry_count != -1 &&
         m_first_visible_entry != -1) {
         int top = m_track_bounds.top;
-        int range = m_track_bounds.bottom - top - m_thumb_button.GetHeight();
+        int range = m_track_bounds.bottom - top - m_thumb_button.Bounds().h;
         if (range <= 0) return;
         const int last_entry = m_entry_count - m_view_height / m_entry_height;
         m_first_visible_entry = last_entry * std::clamp(mouse_y - top, 0, range) / range;

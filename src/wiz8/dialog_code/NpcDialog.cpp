@@ -184,7 +184,7 @@ void W8NpcDialog::Draw()
     }
     for (index = 0; index < 3; ++index) {
         if (m_buttons[index] != 0) {
-            m_buttons[index]->Draw();
+            m_buttons[index]->Draw(GetFrameBufferSurface());
         }
     }
     for (index = 0; index < 2; ++index) {

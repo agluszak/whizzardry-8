@@ -1,10 +1,10 @@
+#include <SDL3/SDL_surface.h>
 #include <fmt/format.h>
 #include <memory>
 #include <optional>
 #include <string>
 #include <vector>
 
-#include "image.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/local_code/Controls.h"
 #include "wiz8/local_screens/CharacterScreen.h"
@@ -102,9 +102,9 @@ static char g_zero_slash_zero[] = "0/0";
 // VTABLE: WIZ8 0x005ef700 W8CharacterStatsRecordControl
 class W8CharacterStatsRecordControl : public W8TextControl {
 public:
-    W8CharacterStatsRecordControl(Controls& owner, int top, int height,
+    W8CharacterStatsRecordControl(int top, int height,
                                   const W8CharacterStatsRecord* record, int variant);
-    virtual void Redraw(bool full_redraw) override;
+    virtual void Redraw(SDL_Surface& target, bool full_redraw) override;
     virtual void OnMouseEnter(int event) override;
     virtual void OnMouseLeave(int event) override;
     virtual void OnRightButtonUp(int event) override;
@@ -116,9 +116,9 @@ public:
 };
 
 // FUNCTION: WIZ8 0x005c8e70
-W8CharacterStatsValue::W8CharacterStatsValue(Controls& owner, int x, int y,
+W8CharacterStatsValue::W8CharacterStatsValue(int x, int y,
                                              const W8CharacterStatsRecord* default_record)
-    : W8TextControl(owner, 0xffffffff, x, y, 0, 0, CatalogArtwork::Load(0x104, 0), 1, 1, 2, 2, 3),
+    : W8TextControl(0xffffffff, x, y, 0, 0, CatalogArtwork::Load(0x104, 0), W8SpriteStates{.normal = 1, .pressed = 1, .alternate_normal = 2, .alternate_pressed = 2, .disabled = 3}),
       m_default_record(default_record)
 {
     m_textBuffer.SetText(g_localized_strings[default_record->name_id], g_options_detail_font);
@@ -140,17 +140,17 @@ void W8CharacterStatsValue::SetRecord(const W8CharacterStatsRecord* record)
 
 /* Redraw the current record's name over the value control's own text. */
 // FUNCTION: WIZ8 0x005c9000
-void W8CharacterStatsValue::Redraw(bool full_redraw)
+void W8CharacterStatsValue::Redraw(SDL_Surface& target, bool full_redraw)
 {
-    W8TextControl::Redraw(full_redraw);
+    W8TextControl::Redraw(target, full_redraw);
     if (!m_active || m_pPanel == 0) {
         return;
     }
-    int left = m_pPanel->m_bounds.left + m_left + 2;
-    int top = m_pPanel->m_bounds.top + m_top + 1;
+    int left = ScreenBounds().x + 2;
+    int top = ScreenBounds().y + 1;
     const W8CharacterStatsRecord* record = m_record;
     unsigned int image = m_enabled ? record->image_enabled : record->image_disabled;
-    CatalogArtwork::Load(record->object, 0).draw(GetFrameBufferSurface(), image, left, top);
+    CatalogArtwork::Load(record->object, 0).draw(target, image, left, top);
 }
 
 /* Force the control enabled while the base handles the right-button release,
@@ -165,10 +165,10 @@ void W8CharacterStatsValue::OnRightButtonUp(int event)
 }
 
 // FUNCTION: WIZ8 0x005c9060
-W8CharacterStatsRecordControl::W8CharacterStatsRecordControl(Controls& owner, int top, int height,
+W8CharacterStatsRecordControl::W8CharacterStatsRecordControl(int top, int height,
                                                              const W8CharacterStatsRecord* record,
                                                              int variant)
-    : W8TextControl(owner, 0xffffffff, 0, top, 0x7e, top + height, CatalogArtwork::Load(0x104, 0), 0, 0, 0, 0, 0)
+    : W8TextControl(0xffffffff, 0, top, 0x7e, top + height, CatalogArtwork::Load(0x104, 0), W8SpriteStates{.normal = 0, .pressed = 0, .alternate_normal = 0, .alternate_pressed = 0, .disabled = 0})
 {
     m_record = record;
     m_variant = static_cast<unsigned char>(variant);
@@ -198,17 +198,17 @@ W8CharacterStatsRecordControl::W8CharacterStatsRecordControl(Controls& owner, in
 
 /* Redraw the record's catalogue image over the entry's own background. */
 // FUNCTION: WIZ8 0x005c9220
-void W8CharacterStatsRecordControl::Redraw(bool full_redraw)
+void W8CharacterStatsRecordControl::Redraw(SDL_Surface& target, bool full_redraw)
 {
-    W8TextControl::Redraw(full_redraw);
+    W8TextControl::Redraw(target, full_redraw);
     if (!m_active || m_pPanel == 0) {
         return;
     }
-    int left = m_pPanel->m_bounds.left + m_left + 2;
-    int top = m_pPanel->m_bounds.top + m_text_offset + m_top + 1;
+    int left = ScreenBounds().x + 2;
+    int top = ScreenBounds().y + m_text_offset + 1;
     const W8CharacterStatsRecord* record = m_record;
     unsigned int image = m_enabled ? record->image_enabled : record->image_disabled;
-    CatalogArtwork::Load(record->object, 0).draw(GetFrameBufferSurface(), image, left, top);
+    CatalogArtwork::Load(record->object, 0).draw(target, image, left, top);
 }
 
 // FUNCTION: WIZ8 0x005c9290
@@ -248,22 +248,22 @@ void W8CharacterStatsRow::Initialize(Controls* owner, int x, int y,
 {
     m_table = table;
     m_count = static_cast<unsigned short>(count);
-    m_x = owner->m_bounds.left + x;
-    m_y = owner->m_bounds.top + y;
+    m_x = owner->ScreenBounds().x + x;
+    m_y = owner->ScreenBounds().y + y;
     if (count == 0) {
         srAssertFail("usItemsInList", CGS_STATS_PAGE_CPP, 0x1d6, 0);
     }
 
-    m_decrement = owner->EmplaceControl<W8TextControl>(*owner, 0xffffffff, x + 1, y + 4, 0, 0, CatalogArtwork::Load(0x10a, 0), 0, 2, 1, 4, 3);
+    m_decrement = owner->EmplaceControl<W8TextControl>(0xffffffff, x + 1, y + 4, 0, 0, CatalogArtwork::Load(0x10a, 0), W8SpriteStates{.normal = 0, .pressed = 2, .alternate_normal = 1, .alternate_pressed = 4, .disabled = 3});
     m_decrement->m_listener = this;
     m_decrement->EnableRegionHelp(help_first);
 
     m_increment =
-        owner->EmplaceControl<W8TextControl>(*owner, 0xffffffff, x + 0x9f, y + 4, 0, 0, CatalogArtwork::Load(0x10a, 0), 5, 7, 6, 9, 8);
+        owner->EmplaceControl<W8TextControl>(0xffffffff, x + 0x9f, y + 4, 0, 0, CatalogArtwork::Load(0x10a, 0), W8SpriteStates{.normal = 5, .pressed = 7, .alternate_normal = 6, .alternate_pressed = 9, .disabled = 8});
     m_increment->m_listener = this;
     m_increment->EnableRegionHelp(help_value);
 
-    m_value_control = owner->EmplaceControl<W8CharacterStatsValue>(*owner, x + 0x1c, y + 4, default_record);
+    m_value_control = owner->EmplaceControl<W8CharacterStatsValue>(x + 0x1c, y + 4, default_record);
     m_value_control->UpdateTextBounds(x + 0x1c + 0x19, y + 4, x + 0x1c + 0x7e, y + 4 + 0x16);
     m_value_control->AddLayoutFlags(g_W8TextControlLayoutToggle);
     m_value_control->m_listener = this;
@@ -304,14 +304,14 @@ void W8CharacterStatsRow::BuildSubpanel()
                 height = 0x16;
             }
             auto* control = m_subpanel->EmplaceControl<W8CharacterStatsRecordControl>(
-                *m_subpanel, top, height, &m_table[index], variant);
+                top, height, &m_table[index], variant);
             m_subpanel_entries[index] = control;
             control->UpdateTextBounds(0x19, control->m_text_offset + top, 0x7e,
                                       control->m_text_offset + top + 0x16);
             control->m_listener = this;
         }
     }
-    m_subpanel->SetEnabled(true);
+    m_subpanel->SetActive(true);
     m_subpanel->EnableRegionSet(true);
     for (unsigned int index = 0; index < m_count; ++index) {
         m_subpanel_entries[index]->SetEnabled(m_table[index].enabled);
@@ -324,7 +324,7 @@ void W8CharacterStatsRow::Invalidate()
     m_increment->Invalidate(false);
     m_value_control->Invalidate(false);
     if (m_subpanel) {
-        m_subpanel->Invalidate(0);
+        m_subpanel->InvalidateAll();
     }
 }
 
@@ -348,7 +348,7 @@ void W8CharacterStatsRow::SetValue(int index)
 
 void W8CharacterStatsRow::Collapse()
 {
-    m_subpanel->SetEnabled(false);
+    m_subpanel->SetActive(false);
     m_subpanel->EnableRegionSet(false);
     m_value_control->DisableSecondaryState(true);
     if (m_listener != 0) {
@@ -358,7 +358,7 @@ void W8CharacterStatsRow::Collapse()
 
 void W8CharacterStatsRow::CollapseIfNotHovered()
 {
-    if (m_subpanel != 0 && m_subpanel->m_fEnabled) {
+    if (m_subpanel != 0 && m_subpanel->m_active) {
         int index = 0;
         while (index < m_count) {
             if (m_subpanel_entries[index]->m_alternateTextEnabled) {
@@ -423,9 +423,9 @@ void W8CharacterStatsRow::OnPrimary(W8TextControl* control)
             SetValue(index);
         }
     } else if (control == m_value_control) {
-        if ((m_value_control->m_stateFlags & g_W8TextControlStateSecondary) != 0) {
+        if (m_value_control->IsSelected()) {
             BuildSubpanel();
-            m_subpanel->Invalidate(0);
+            m_subpanel->InvalidateAll();
             if (m_listener != 0) {
                 m_listener->OnRowExpanded(this);
             }
@@ -480,7 +480,7 @@ void W8CharacterStatsPage::Activate()
         m_attribute_controls[index]->SetActive(true);
         m_attribute_controls[index]->SetEnabled(true);
     }
-    m_dirty = true;
+    m_contentDirty = true;
     m_prepared = true;
 }
 
@@ -556,8 +556,8 @@ void W8CharacterStatsPage::Refresh()
 void W8CharacterStatsPage::Accept()
 {
     RefundAllocatedAttributes(m_character, m_creation_state);
-    Invalidate(0);
-    m_dirty = true;
+    InvalidateAll();
+    m_contentDirty = true;
     m_screen->UpdateNavigation(this);
     for (int index = 0; index < static_cast<int>(m_entries.size()); ++index) {
         m_entries[index]->UpdateButtons();
@@ -605,10 +605,10 @@ void W8CharacterStatsPage::HandleInput(const InputEvent* input)
 void W8CharacterStatsPage::AdjustEntry(W8CharacterPageEntry* entry, int delta)
 {
     entry->MarkDirty();
-    m_dirty = true;
+    m_contentDirty = true;
     AdjustAllocatedAttribute(m_character, m_creation_state, static_cast<W8Attribute>(entry->m_id),
                              delta);
-    Invalidate(0);
+    InvalidateAll();
     m_screen->UpdateNavigation(this);
     if (m_character->attributes[entry->m_id].base >= 100) {
         for (int skill = 0x22; skill < 0x28; ++skill) {
@@ -639,7 +639,7 @@ void W8CharacterStatsPage::OnRowValueChanged(W8CharacterStatsRow* row, int value
     } else {
         SetCharacterGender(m_character, m_creation_state, static_cast<W8Gender>(value));
     }
-    m_dirty = true;
+    m_contentDirty = true;
     m_screen->UpdateNavigation(this);
     Refresh();
 }
@@ -677,7 +677,7 @@ void W8CharacterStatsPage::OnRowExpanded(W8CharacterStatsRow* row)
 void W8CharacterStatsPage::OnRowCollapsed(W8CharacterStatsRow* row)
 {
     SetRowControlsActive(row, true);
-    Invalidate(0);
+    InvalidateAll();
 }
 
 /* Right-clicking a row's value asks the screen for that entry's info. */
@@ -798,7 +798,7 @@ void W8CharacterStatsPage::SetCharacter(W8Character* character,
 
     for (int control_index = 0; control_index < 5; ++control_index) {
         W8TextControl* control =
-            EmplaceControl<W8TextControl>(*this, 0xffffffff, 0xf3, 0xba + control_index * 0xe, 0x195, 0xba + control_index * 0xe + 0xc, std::nullopt, -1, -1, -1, -1, -1);
+            EmplaceControl<W8TextControl>(0xffffffff, 0xf3, 0xba + control_index * 0xe, 0x195, 0xba + control_index * 0xe + 0xc);
         m_attribute_controls[control_index] = control;
         control->SetActive(false);
         control->m_listener = this;
@@ -817,13 +817,13 @@ W8CharacterStatsPage::~W8CharacterStatsPage()
 /* The page redraw: header figures, the seven attribute entries' section,
    the three value rows' labels, then the resistance and trait blocks. */
 // FUNCTION: WIZ8 0x005cab20
-void W8CharacterStatsPage::Redraw()
+void W8CharacterStatsPage::Redraw(SDL_Surface& target, bool full_redraw)
 {
-    bool redraw = static_cast<unsigned char>(m_fEnabled && m_fDirty);
+    bool redraw = static_cast<unsigned char>(m_active && m_dirty);
     W8TextBuffer text;
-    int left = m_bounds.left;
-    int top = m_bounds.top;
-    W8CharacterPage::Redraw();
+    int left = ScreenBounds().x;
+    int top = ScreenBounds().y;
+    W8CharacterPage::Redraw(target, full_redraw);
     if (redraw) {
         W8ControlsRect bounds;
         text.SetLayoutMode(g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
@@ -832,7 +832,7 @@ void W8CharacterStatsPage::Redraw()
         bounds.top = top + 0xe;
         bounds.bottom = top + 0x1a;
         text.RenderString(&bounds, g_localized_strings[0x96], g_wiz_text_font_secondary, false,
-                          GetFrameBufferSurface());
+                          target);
 
         if (m_character->iRace != W8_RACE_NONE) {
             bounds.top = top + 0x7e;
@@ -841,7 +841,7 @@ void W8CharacterStatsPage::Redraw()
             bounds.right = left + 0x10f;
             text.SetLayoutBounds(&bounds, true, true);
             text.RenderString(fmt::format("{:d}", m_creation_state->attribute_points_remaining),
-                              g_wiz_text_font_secondary, false, GetFrameBufferSurface());
+                              g_wiz_text_font_secondary, false, target);
         }
 
         text.SetLayoutMode(g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
@@ -851,7 +851,7 @@ void W8CharacterStatsPage::Redraw()
         bounds.left = left + 0x116;
         int saved_right = bounds.right;
         text.RenderString(&bounds, g_localized_strings[0x87], g_wiz_text_font_secondary, false,
-                          GetFrameBufferSurface());
+                          target);
 
         text.SetLayoutMode(g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
         bounds.left = left + 0x1a;
@@ -859,7 +859,7 @@ void W8CharacterStatsPage::Redraw()
         bounds.top = top + 0xac;
         bounds.bottom = top + 0xb8;
         text.RenderString(&bounds, g_localized_strings[0xb1], g_wiz_text_font_secondary, false,
-                          GetFrameBufferSurface());
+                          target);
 
         text.SetLayoutMode(g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft);
         bounds.left = left + 0x1d;
@@ -886,14 +886,14 @@ void W8CharacterStatsPage::Redraw()
                                     [g_character_skill_name_ids
                                          [g_profession_bonus_skills[m_character->iProfession]]],
                                 g_localized_strings[0xb2]),
-                    g_wiz_text_font_secondary, false, GetFrameBufferSurface());
+                    g_wiz_text_font_secondary, false, target);
                 bounds.top += line_height;
             }
             for (int trait_index = 0; trait_index < 0x20; ++trait_index) {
                 if (available[trait_index] != 0) {
                     text.RenderString(&bounds,
                                       g_localized_strings[g_character_trait_name_ids[trait_index]],
-                                      g_wiz_text_font_secondary, false, GetFrameBufferSurface());
+                                      g_wiz_text_font_secondary, false, target);
                     bounds.top += line_height;
                 }
             }
@@ -905,7 +905,7 @@ void W8CharacterStatsPage::Redraw()
         bounds.top = top + 0xac;
         bounds.bottom = top + 0xb8;
         text.RenderString(&bounds, g_localized_strings[0xa6], g_wiz_text_font_secondary, false,
-                          GetFrameBufferSurface());
+                          target);
 
         bounds.left = left + 0xf8;
         bounds.top = top + 0xba;
@@ -913,56 +913,56 @@ void W8CharacterStatsPage::Redraw()
         bounds.right = left + 0x195;
         text.SetLayoutMode(g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
         text.RenderString(&bounds, g_localized_strings[0xa7], g_wiz_text_font_secondary, false,
-                          GetFrameBufferSurface());
+                          target);
         if (m_character->iRace != W8_RACE_NONE) {
             text.SetLayoutMode(g_W8TextBufferAlignRight | g_W8TextBufferAlignMiddle);
             text.RenderString(fmt::format("{:d}", m_character->uiHPMax), g_wiz_text_font_secondary,
-                              false, GetFrameBufferSurface());
+                              false, target);
         }
 
         bounds.top += 0xe;
         bounds.bottom += 0xe;
         text.SetLayoutMode(g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
         text.RenderString(&bounds, g_localized_strings[0xa9], g_wiz_text_font_secondary, false,
-                          GetFrameBufferSurface());
+                          target);
         if (m_character->iRace != W8_RACE_NONE) {
             text.SetLayoutMode(g_W8TextBufferAlignRight | g_W8TextBufferAlignMiddle);
             text.RenderString(fmt::format("{:d}", m_character->uiStaminaMax),
-                              g_wiz_text_font_secondary, false, GetFrameBufferSurface());
+                              g_wiz_text_font_secondary, false, target);
         }
 
         bounds.bottom += 0xe;
         bounds.top += 0xe;
         text.SetLayoutMode(g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
         text.RenderString(&bounds, g_localized_strings[0xed], g_wiz_text_font_secondary, false,
-                          GetFrameBufferSurface());
+                          target);
         if (m_character->iRace != W8_RACE_NONE) {
             text.SetLayoutMode(g_W8TextBufferAlignRight | g_W8TextBufferAlignMiddle);
             text.RenderString(
                 fmt::format("{:d}", ComputeLevelUpSpellPointAward(m_character, m_creation_state)),
-                g_wiz_text_font_secondary, false, GetFrameBufferSurface());
+                g_wiz_text_font_secondary, false, target);
         }
 
         bounds.top += 0xe;
         bounds.bottom += 0xe;
         text.SetLayoutMode(g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
         text.RenderString(&bounds, g_localized_strings[0xad], g_wiz_text_font_secondary, false,
-                          GetFrameBufferSurface());
+                          target);
         if (m_character->iRace != W8_RACE_NONE) {
             text.SetLayoutMode(g_W8TextBufferAlignRight | g_W8TextBufferAlignMiddle);
             text.RenderString(fmt::format("{:d}", m_character->armor_class_average),
-                              g_wiz_text_font_secondary, false, GetFrameBufferSurface());
+                              g_wiz_text_font_secondary, false, target);
         }
 
         bounds.top += 0xe;
         bounds.bottom += 0xe;
         text.SetLayoutMode(g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
         text.RenderString(&bounds, g_localized_strings[0xaf], g_wiz_text_font_secondary, false,
-                          GetFrameBufferSurface());
+                          target);
         if (m_character->iRace != W8_RACE_NONE) {
             text.SetLayoutMode(g_W8TextBufferAlignRight | g_W8TextBufferAlignMiddle);
             text.RenderString(fmt::format("{:d}", m_character->carrying_capacity / 10),
-                              g_wiz_text_font_secondary, false, GetFrameBufferSurface());
+                              g_wiz_text_font_secondary, false, target);
         }
 
         text.SetLayoutMode(g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
@@ -971,7 +971,7 @@ void W8CharacterStatsPage::Redraw()
         bounds.top = top + 0x140;
         bounds.bottom = top + 0x14c;
         text.RenderString(&bounds, g_localized_strings[0xb9], g_wiz_text_font_secondary, false,
-                          GetFrameBufferSurface());
+                          target);
         if (m_character->iRace != W8_RACE_NONE || m_character->iProfession != W8_PROFESSION_NONE) {
             for (int realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
                 bool first_column = (realm & 1) == 0;
@@ -983,13 +983,13 @@ void W8CharacterStatsPage::Redraw()
                 int value = m_character->resistances[realm].total - 0x19;
                 std::string value_text =
                     value == 0 ? std::string(g_dash) : fmt::format("{:+d}", value);
-                text.RenderString(value_text, g_wiz_text_font_secondary, false, GetFrameBufferSurface());
+                text.RenderString(value_text, g_wiz_text_font_secondary, false, target);
             }
         }
         for (int realm_index = 0; realm_index < 6; ++realm_index) {
             bool first_column = (realm_index & 1) == 0;
             int frame_top = (first_column ? 0x155 : 0x16f) + top;
-            CatalogArtwork::Load(g_character_resistance_images[realm_index], 0).drawAndInvalidate(GetFrameBufferSurface(), g_spell_realm_animations[realm_index].initial_frame, (realm_index / 2) * 0x3f + 0x23 + left, frame_top);
+            CatalogArtwork::Load(g_character_resistance_images[realm_index], 0).drawAndInvalidate(target, g_spell_realm_animations[realm_index].initial_frame, (realm_index / 2) * 0x3f + 0x23 + left, frame_top);
         }
 
         text.SetLayoutMode(g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
@@ -998,7 +998,7 @@ void W8CharacterStatsPage::Redraw()
         bounds.top = top + 0x120;
         bounds.bottom = top + 0x12c;
         text.RenderString(&bounds, g_localized_strings[0xb3], g_wiz_text_font_secondary, false,
-                          GetFrameBufferSurface());
+                          target);
         if (m_character->iProfession != W8_PROFESSION_NONE) {
             text.SetLayoutMode(g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft);
             bounds.top = top + 0x12f;
@@ -1009,7 +1009,7 @@ void W8CharacterStatsPage::Redraw()
                 &bounds,
                 g_localized_strings[g_character_skill_name_ids
                                   [g_profession_bonus_skills[m_character->iProfession]]],
-                g_wiz_text_font_secondary, false, GetFrameBufferSurface());
+                g_wiz_text_font_secondary, false, target);
             for (int index = 0; index < 4; ++index) {
                 if (g_profession_skills[m_character->iProfession][index] != -1) {
                     bounds.top += 0xe;
@@ -1018,7 +1018,7 @@ void W8CharacterStatsPage::Redraw()
                         &bounds,
                         g_localized_strings[g_character_skill_name_ids
                                           [g_profession_skills[m_character->iProfession][index]]],
-                        g_wiz_text_font_secondary, false, GetFrameBufferSurface());
+                        g_wiz_text_font_secondary, false, target);
                 }
             }
             text.SetLayoutMode(g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
@@ -1028,7 +1028,7 @@ void W8CharacterStatsPage::Redraw()
             bounds.bottom = top + 0x185;
             text.SetLayoutBounds(&bounds, true, true);
             text.RenderString(fmt::format("{:d}", m_creation_state->skill_points_total),
-                              g_wiz_text_font_secondary, false, GetFrameBufferSurface());
+                              g_wiz_text_font_secondary, false, target);
         }
         text.SetLayoutMode(g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
         bounds.top = top + 0x179;
@@ -1036,7 +1036,7 @@ void W8CharacterStatsPage::Redraw()
         bounds.bottom = top + 0x185;
         bounds.right = saved_right;
         text.RenderString(&bounds, g_localized_strings[0x87], g_wiz_text_font_secondary, false,
-                          GetFrameBufferSurface());
+                          target);
     }
 
     text.SetLayoutMode(g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
@@ -1051,46 +1051,46 @@ void W8CharacterStatsPage::Redraw()
         } else {
             text_id = 0xe6;
         }
-        text.RenderString(g_localized_strings[text_id], g_wiz_text_font_secondary, true, GetFrameBufferSurface());
+        text.RenderString(g_localized_strings[text_id], g_wiz_text_font_secondary, true, target);
         bounds.top = 0x162;
         bounds.bottom = 0x179;
         bounds.right = 0x8f;
         text.RenderString(&bounds, g_localized_strings[0xe2], g_wiz_text_font_secondary, true,
-                          GetFrameBufferSurface());
+                          target);
         bounds.top = 0x184;
         bounds.bottom = 0x19b;
         text.RenderString(&bounds, g_localized_strings[0xe4], g_wiz_text_font_secondary, true,
-                          GetFrameBufferSurface());
+                          target);
         m_prepared = false;
     }
 
-    if (m_dirty) {
+    if (m_contentDirty) {
         W8ControlsRect bounds = {0x8f, 0x162, 0xbf, 0x179};
-        CatalogArtwork::Load(0x107, 0).draw(GetFrameBufferSurface(), 5, 0x8f, 0x162);
+        CatalogArtwork::Load(0x107, 0).draw(target, 5, 0x8f, 0x162);
         text.SetLayoutBounds(&bounds, true, true);
         text.RenderString(fmt::format("{:d}", m_creation_state->attribute_step_limit),
-                          g_options_detail_font, true, GetFrameBufferSurface());
+                          g_options_detail_font, true, target);
         bounds.top = 0x184;
         bounds.bottom = 0x19b;
-        CatalogArtwork::Load(0x107, 0).draw(GetFrameBufferSurface(), 5, 0x8f, 0x184);
+        CatalogArtwork::Load(0x107, 0).draw(target, 5, 0x8f, 0x184);
         text.SetLayoutBounds(&bounds, true, true);
         int total = m_creation_state->attribute_points_total;
         std::string points_text =
             total < 1
                 ? g_zero_slash_zero
                 : fmt::format("{:d}/{:d}", m_creation_state->attribute_points_remaining, total);
-        text.RenderString(points_text, g_options_detail_font, true, GetFrameBufferSurface());
-        m_dirty = false;
+        text.RenderString(points_text, g_options_detail_font, true, target);
+        m_contentDirty = false;
     }
 
-    if (m_profession_row->m_subpanel != 0 && m_profession_row->m_subpanel->m_fEnabled) {
-        m_profession_row->m_subpanel->Redraw();
+    if (m_profession_row->m_subpanel != 0 && m_profession_row->m_subpanel->m_active) {
+        m_profession_row->m_subpanel->Redraw(target, false);
     }
-    if (m_race_row->m_subpanel != 0 && m_race_row->m_subpanel->m_fEnabled) {
-        m_race_row->m_subpanel->Redraw();
+    if (m_race_row->m_subpanel != 0 && m_race_row->m_subpanel->m_active) {
+        m_race_row->m_subpanel->Redraw(target, false);
     }
-    if (m_gender_row->m_subpanel != 0 && m_gender_row->m_subpanel->m_fEnabled) {
-        m_gender_row->m_subpanel->Redraw();
+    if (m_gender_row->m_subpanel != 0 && m_gender_row->m_subpanel->m_active) {
+        m_gender_row->m_subpanel->Redraw(target, false);
     }
 }
 

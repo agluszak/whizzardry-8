@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
+#include <SDL3/SDL_rect.h>
 #include <filesystem>
 #include <fstream>
 #include <ios>
@@ -11,7 +12,6 @@
 #include <utility>
 #include <vector>
 #include <memory>
-#include <optional>
 #include <span>
 #include <unordered_map>
 
@@ -91,7 +91,7 @@ static bool ownershipAndCallbacks()
 TEST_CASE("panel_adopts_and_transfers_unattached_widgets")
 {
     Controls source;
-    source.SetBounds(100, 200, 200, 300);
+    source.SetBounds({100, 200, 100, 100});
     source.CreateRegionSet();
 
     auto pending = std::make_unique<W8Widget>(-1u, 1, 2, 20, 30);
@@ -109,7 +109,7 @@ TEST_CASE("panel_adopts_and_transfers_unattached_widgets")
     REQUIRE(g_regions[original_region].y1 == 202);
 
     Controls target;
-    target.SetBounds(300, 400, 400, 500);
+    target.SetBounds({300, 400, 100, 100});
     target.CreateRegionSet();
     auto detached = source.TakeControl(widget);
     REQUIRE(source.ControlCount() == 0);
@@ -124,20 +124,27 @@ TEST_CASE("panel_adopts_and_transfers_unattached_widgets")
     REQUIRE(g_regions[widget->m_region].x1 == 301);
     REQUIRE(g_regions[widget->m_region].y1 == 402);
 
-    // Text controls may borrow geometry from the panel during construction,
-    // but must not register or change ownership until AddControl is called.
+    // Text layout is panel-relative: it is resolved on adoption and follows
+    // reparenting and panel moves, as the hit region does. Centred 10px text
+    // in the 15px-wide rectangle 3..18 starts 2px in.
     auto pending_text = std::make_unique<W8TextControl>(
-        source, -1u, 3, 4, 18, 20, std::nullopt, -1, -1, -1, -1, -1);
+        -1u, 3, 4, 18, 20);
     auto* text = pending_text.get();
-    REQUIRE(text->m_pPanel == nullptr);
-    REQUIRE(text->m_textBuffer.GetHorizontalPosition(10) == 105);
-    REQUIRE(source.ControlCount() == 0);
     source.AddControl(std::move(pending_text));
-    REQUIRE(source.ControlCount() == 1);
-    REQUIRE(text->m_pPanel == &source);
+    REQUIRE(text->m_textBuffer.GetHorizontalPosition(10) == 105);
     REQUIRE(g_regions[text->m_region].handler == text);
-    source.RemoveControl(text);
-    REQUIRE(source.ControlCount() == 0);
+    target.AddControl(source.TakeControl(text));
+    REQUIRE(text->m_textBuffer.GetHorizontalPosition(10) == 305);
+    REQUIRE(g_regions[text->m_region].x1 == 303);
+    target.SetBounds({500, 400, 100, 100});
+    REQUIRE(text->m_textBuffer.GetHorizontalPosition(10) == 505);
+    REQUIRE(g_regions[text->m_region].x1 == 503);
+    REQUIRE(g_regions[widget->m_region].x1 == 501);
+    // An explicit text rectangle is panel-relative too.
+    text->UpdateTextBounds(20, 4, 35, 20);
+    target.SetBounds({300, 400, 100, 100});
+    REQUIRE(text->m_textBuffer.GetHorizontalPosition(10) == 322);
+    target.RemoveControl(text);
 
     auto* another = target.EmplaceControl<W8Widget>();
     REQUIRE(target.ControlCount() == 2);
@@ -146,6 +153,180 @@ TEST_CASE("panel_adopts_and_transfers_unattached_widgets")
     REQUIRE(target.ControlCount() == 1);
     target.DestroyAllControls();
     REQUIRE(target.ControlCount() == 0);
+}
+
+TEST_CASE("panels_nest_as_widgets")
+{
+    Controls outer;
+    outer.SetBounds({100, 100, 200, 200});
+    auto* inner = outer.EmplaceControl<Controls>();
+    inner->SetBounds({10, 20, 50, 50});
+    inner->CreateRegionSet();
+    auto* leaf = inner->EmplaceControl<W8Widget>(-1u, 1, 2, 11, 12);
+    REQUIRE(leaf->ScreenBounds().x == 111);
+    REQUIRE(g_regions[leaf->m_region].y1 == 122);
+
+    outer.SetBounds({300, 100, 200, 200});
+    REQUIRE(leaf->ScreenBounds().x == 311);
+    REQUIRE(g_regions[leaf->m_region].x1 == 311);
+
+    outer.SetActive(true);
+    REQUIRE(inner->m_active);
+    REQUIRE(leaf->m_active);
+    REQUIRE(g_regions[leaf->m_region].InputEnabled());
+
+    // A panel without a set of its own is never a hit target; its children
+    // register in the set of the panel it joins, and leave it with the panel.
+    outer.CreateRegionSet();
+    auto row = std::make_unique<Controls>();
+    row->SetBounds({5, 5, 50, 20});
+    auto* hotspot = row->EmplaceControl<W8Widget>(-1u, 0, 0, 10, 10);
+    REQUIRE(hotspot->m_region == -1);
+    auto* attached_row = row.get();
+    outer.AddControl(std::move(row));
+    REQUIRE(attached_row->m_region == -1);
+    REQUIRE(std::ranges::contains(g_region_sets[outer.RegionSet()].Regions(),
+                                  unsigned(hotspot->m_region)));
+    REQUIRE(g_regions[hotspot->m_region].x1 == 305);
+    const auto hotspot_region = hotspot->m_region;
+    auto detached_row = outer.TakeControl(attached_row);
+    REQUIRE(hotspot->m_region == -1);
+    REQUIRE(g_regions[hotspot_region].handler == nullptr);
+}
+
+TEST_CASE("active_panels_attach_detach_and_migrate_nested_regions")
+{
+    Controls outer;
+    outer.SetBounds({100, 100, 100, 100});
+    outer.CreateRegionSet();
+    outer.EnableRegionSet(true);
+    outer.SetActive(true);
+    auto* inner = outer.EmplaceControl<Controls>();
+    inner->SetBounds({10, 20, 50, 50});
+    auto* leaf = inner->EmplaceControl<W8Widget>(-1u, 1, 2, 11, 12);
+    REQUIRE(leaf->m_active);
+    REQUIRE(FindRegionAtPoint(115, 125) == unsigned(leaf->m_region));
+    const auto inherited_region = leaf->m_region;
+
+    inner->CreateRegionSet();
+    inner->EnableRegionSet(true);
+    REQUIRE(!std::ranges::contains(g_region_sets[outer.RegionSet()].Regions(),
+                                   unsigned(leaf->m_region)));
+    REQUIRE(std::ranges::contains(g_region_sets[inner->RegionSet()].Regions(),
+                                  unsigned(leaf->m_region)));
+    REQUIRE(FindRegionAtPoint(115, 125) == unsigned(leaf->m_region));
+    const auto live = LiveDynamicRegionCount();
+    inner->CreateRegionSet();
+    REQUIRE(LiveDynamicRegionCount() == live);
+    REQUIRE(g_regions[leaf->m_region].owner == leaf);
+    REQUIRE(g_regions[leaf->m_region].InputEnabled());
+
+    // Independent sets must not leave detached subtrees in hit testing or capture.
+    g_ui.captured = g_ui.current = g_ui.hover = leaf->m_region;
+    auto detached = outer.TakeControl(inner);
+    REQUIRE(leaf->m_region == -1);
+    REQUIRE(FindRegionAtPoint(115, 125) == 0);
+    REQUIRE((g_ui.captured == 0 && g_ui.current == 0 && g_ui.hover == 0));
+    REQUIRE(g_regions[inherited_region].owner == nullptr);
+
+    Controls destination;
+    destination.SetBounds({200, 100, 100, 100});
+    destination.SetActive(true);
+    destination.AddControl(std::move(detached));
+    REQUIRE(leaf->m_active);
+    REQUIRE(FindRegionAtPoint(215, 125) == unsigned(leaf->m_region));
+    REQUIRE(FindRegionAtPoint(115, 125) == 0);
+}
+
+TEST_CASE("circular_hit_areas_follow_panel_moves_and_reparenting")
+{
+    Controls source;
+    source.SetActive(true);
+    source.SetBounds({100, 100, 100, 100});
+    source.CreateRegionSet();
+    auto* pip = source.EmplaceControl<W8TextControl>(-1u, 10, 20, 30, 40);
+    pip->SetCircularHitArea({20, 30}, 8);
+    REQUIRE(g_regions[pip->m_region].ContainsPoint(120, 130));
+    REQUIRE_FALSE(g_regions[pip->m_region].ContainsPoint(129, 130));
+    source.SetBounds({200, 200, 100, 100});
+    REQUIRE(g_regions[pip->m_region].ContainsPoint(220, 230));
+    REQUIRE_FALSE(g_regions[pip->m_region].ContainsPoint(120, 130));
+
+    Controls destination;
+    destination.SetBounds({300, 100, 100, 100});
+    destination.CreateRegionSet();
+    destination.SetActive(true);
+    destination.AddControl(source.TakeControl(pip));
+    REQUIRE(g_regions[pip->m_region].ContainsPoint(320, 130));
+    REQUIRE_FALSE(g_regions[pip->m_region].ContainsPoint(329, 130));
+    pip->SetBounds({20, 30, 20, 20});
+    REQUIRE(g_regions[pip->m_region].ContainsPoint(330, 140));
+}
+
+TEST_CASE("failed_panel_attachment_releases_prepared_descendant_regions")
+{
+    struct FailingLayout : Controls {
+        bool& destroyed_unattached;
+        explicit FailingLayout(bool& destroyed) : destroyed_unattached(destroyed) {}
+        ~FailingLayout() override { destroyed_unattached = m_pPanel == nullptr; }
+        void OnGeometryChanged() override
+        {
+            Controls::OnGeometryChanged();
+            if (m_pPanel) throw std::runtime_error("layout failed after region binding");
+        }
+    };
+    Controls owner;
+    owner.CreateRegionSet();
+    const auto live = LiveDynamicRegionCount();
+    bool destroyed_unattached = false;
+    auto pending = std::make_unique<FailingLayout>(destroyed_unattached);
+    pending->EmplaceControl<W8Widget>();
+    REQUIRE_THROWS_AS(owner.AddControl(std::move(pending)), std::runtime_error);
+    REQUIRE(destroyed_unattached);
+    REQUIRE(owner.ControlCount() == 0);
+    REQUIRE(g_region_sets[owner.RegionSet()].Regions().empty());
+    REQUIRE(LiveDynamicRegionCount() == live);
+}
+
+namespace {
+int g_template_region_calls = 0;
+unsigned char RecordTemplateRegionInput(const InputEvent*, W8Region*, unsigned short)
+{
+    ++g_template_region_calls;
+    return 1;
+}
+} // namespace
+
+// Regression: binding a widget to a screen-template region must leave the
+// template's callback routing input (it carries screen behaviour such as
+// formation drag-and-drop); the widget still positions and activates it.
+TEST_CASE("template_regions_keep_their_callback_when_a_widget_binds_them")
+{
+    static constexpr std::array<RegionTemplate, 1> templates{{
+        {W8_REGION_RECTANGLE, 0, 0, 0, 0, RecordTemplateRegionInput, 0, false, -1},
+    }};
+    OwnedRegionSet regions(templates);
+    const auto index = regions.index(0);
+    Controls panel;
+    panel.SetBounds({100, 100, 100, 100});
+    auto* widget = panel.EmplaceControl<W8Widget>(index, 1, 2, 11, 12);
+    REQUIRE(g_regions[index].x1 == 101);
+    panel.SetActive(true);
+    REQUIRE(g_regions[index].InputEnabled());
+
+    regions.Enable();
+    REQUIRE(UpdateRegionMousePosition(105, 105) == index);
+    g_template_region_calls = 0;
+    InputEvent event{};
+    event.type = InputEventType::LeftButtonDown;
+    event.position = {105, 105};
+    REQUIRE(DispatchRegionInput(&event) == 1);
+    REQUIRE(g_template_region_calls == 1);
+
+    panel.RemoveControl(widget);
+    REQUIRE(!g_regions[index].InputEnabled());
+    REQUIRE(g_regions[index].owner == nullptr);
+    REQUIRE(g_regions[index].handler != nullptr);
 }
 
 // Exercise real region bindings rather than manually filling a panel vector.
@@ -220,18 +401,15 @@ TEST_CASE("widget_region_lifetimes")
 
     // A failed derived constructor must never register or enter the owner.
     struct FailingWidget : W8Widget {
-        explicit FailingWidget(Controls& owner) : W8Widget(-1u, 0, 0, 10, 10)
+        FailingWidget() : W8Widget(-1u, 0, 0, 10, 10)
         {
-            REQUIRE(m_pPanel == nullptr);
-            REQUIRE(owner.ControlCount() == 0);
-            REQUIRE(g_region_sets[owner.RegionSet()].Regions().empty());
             throw std::runtime_error("incomplete widget");
         }
     };
     Controls failing_panel;
     failing_panel.CreateRegionSet();
     const auto live_before_failure = LiveDynamicRegionCount();
-    REQUIRE_THROWS_AS(failing_panel.EmplaceControl<FailingWidget>(failing_panel), std::runtime_error);
+    REQUIRE_THROWS_AS(failing_panel.EmplaceControl<FailingWidget>(), std::runtime_error);
     REQUIRE(failing_panel.ControlCount() == 0);
     REQUIRE(g_region_sets[failing_panel.RegionSet()].Regions().empty());
     REQUIRE(LiveDynamicRegionCount() == live_before_failure);
@@ -241,7 +419,7 @@ TEST_CASE("widget_region_lifetimes")
     rebuilt_panel.CreateRegionSet();
     auto* old = rebuilt_panel.EmplaceControl<RecordingWidget>(events, 4);
     const auto reused_region = old->m_region;
-    rebuilt_panel.CreateRegionSet();
+    ResetRegionSet(rebuilt_panel.RegionSet());
     auto* replacement = rebuilt_panel.EmplaceControl<RecordingWidget>(events, 5);
     REQUIRE(replacement->m_region == reused_region);
     replacement->SetActive(true);
@@ -276,8 +454,8 @@ TEST_CASE("widget_region_lifetimes")
     hover_panel.CreateRegionSet();
     auto* outgoing = hover_panel.EmplaceControl<RecordingWidget>(events, 7);
     auto* incoming = hover_panel.EmplaceControl<RecordingWidget>(events, 8);
-    incoming->SetBounds(40, 0, 60, 20);
-    hover_panel.SetEnabled(true);
+    incoming->SetBounds({40, 0, 20, 20});
+    hover_panel.SetActive(true);
     hover_panel.EnableRegionSet(true);
     PushButtonSoundScheme(0, true);
     const auto outgoing_region = outgoing->m_region;

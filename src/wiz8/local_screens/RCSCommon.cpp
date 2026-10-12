@@ -91,12 +91,8 @@ std::unique_ptr<Controls> g_item_actions_panel;
    profession's level-band title. */
 
 /* The page and item-action button callbacks CreateCampButtonPanel
-   wires into m_primaryActivationCallback. */
-static void OnCampPageButton0(void);
-static void OnCampPageButton1(void);
-static void OnCampPageButton2(void);
-static void OnCampPageButton3(void);
-static void CampPageDismissAction(void);
+   wires into m_onPrimary. */
+static void SelectCampPageButton(int button, W8CampPage page);
 static void OnCampIdentifyItem(void);
 static void OnCampMoveItem(void);
 static void OnCampSplitStack(void);
@@ -133,7 +129,7 @@ void SelectCampCharacter(int slot)
     case W8_CAMP_PAGE_STATS:
         g_camp_screen->effect_selection = 0;
         RebuildCampEffectList();
-        g_camp_screen->character_info->Invalidate(0);
+        g_camp_screen->character_info->InvalidateAll();
         break;
     case W8_CAMP_PAGE_SPELLS:
         BuildLearnedSpellState(&g_camp_screen->learned_spells, g_review_character);
@@ -473,14 +469,14 @@ void CreateRcsLevelUpPanel(void)
     }
 
     g_level_up_button =
-        g_level_up_panel->EmplaceControl<W8TextControl>(*g_level_up_panel, g_camp_main_regions->index(0), 0, 0, 0x12, 0x12,
-                          CatalogArtwork::Load(0xa7, 0), 0, 2, 1, 4, 3);
+        g_level_up_panel->EmplaceControl<W8TextControl>(g_camp_main_regions->index(0), 0, 0, 0x12, 0x12,
+                          CatalogArtwork::Load(0xa7, 0), W8SpriteStates{.normal = 0, .pressed = 2, .alternate_normal = 1, .alternate_pressed = 4, .disabled = 3});
     if (g_level_up_button == 0) {
         srAssertFail("gpLevelUpButton", "C:\\Projects\\Wizardry 8\\Local Screens\\RCSCommon.cpp",
                      0x852, 0);
     }
-    g_level_up_button->m_primaryActivationCallback = OpenLevelUpCharacterScreen;
-    g_level_up_panel->SetEnabled(true);
+    g_level_up_button->m_onPrimary = OpenLevelUpCharacterScreen;
+    g_level_up_panel->SetActive(true);
     g_level_up_button->SetActive(false);
 }
 /* Ask the first panel to redraw all of itself. A null rectangle is how
@@ -490,14 +486,14 @@ void CreateRcsLevelUpPanel(void)
 // FUNCTION: WIZ8 0x005b6590
 void RedrawRcsLevelUpPanel(void)
 {
-    g_level_up_panel->Invalidate(0);
+    g_level_up_panel->InvalidateAll();
 }
 
 /* Redraw the second. */
 // FUNCTION: WIZ8 0x005b68d0
 void RedrawRcsDismissPanel(void)
 {
-    g_dismiss_panel->Invalidate(0);
+    g_dismiss_panel->InvalidateAll();
 }
 
 /* Tear the first panel down, then destroy its separate widget. */
@@ -522,7 +518,7 @@ void UpdateRcsLevelUpPanel(void)
         g_level_up_button->SetActive(true);
         RedrawRcsLevelUpPanel();
     }
-    g_level_up_panel->Redraw();
+    g_level_up_panel->Redraw(GetFrameBufferSurface(), false);
 }
 
 /* Single level-up button (help 1984). Assembly writes region flags through the
@@ -546,14 +542,14 @@ void CreateRcsDismissPanel(void)
     }
 
     g_dismiss_button =
-        g_dismiss_panel->EmplaceControl<W8TextControl>(*g_dismiss_panel, g_camp_main_regions->index(1), 0, 0, 0x17, 0x10,
-                          CatalogArtwork::Load(0x113, 0), 0, 2, 1, 2, 3);
+        g_dismiss_panel->EmplaceControl<W8TextControl>(g_camp_main_regions->index(1), 0, 0, 0x17, 0x10,
+                          CatalogArtwork::Load(0x113, 0), W8SpriteStates{.normal = 0, .pressed = 2, .alternate_normal = 1, .alternate_pressed = 2, .disabled = 3});
     if (g_dismiss_button == 0) {
         srAssertFail("gpDismissButton", "C:\\Projects\\Wizardry 8\\Local Screens\\RCSCommon.cpp",
                      0x8d3, 0);
     }
-    g_dismiss_button->m_primaryActivationCallback = ShowDismissCharacterDialog;
-    g_dismiss_panel->SetEnabled(true);
+    g_dismiss_button->m_onPrimary = ShowDismissCharacterDialog;
+    g_dismiss_panel->SetActive(true);
     g_dismiss_button->SetActive(false);
 }
 
@@ -626,7 +622,7 @@ void UpdateRcsDismissPanel(void)
     } else if (g_dismiss_button->m_active) {
         g_dismiss_button->SetActive(false);
     }
-    g_dismiss_panel->Redraw();
+    g_dismiss_panel->Redraw(GetFrameBufferSurface(), false);
 }
 
 /* Formation storage. Physical retail TU attribution remains unresolved;
@@ -1034,16 +1030,16 @@ int CreateCampButtonPanel(void)
     g_camp_item_action_regions.Enable();
     g_item_actions_panel = std::make_unique<Controls>(0, 0x1c2, 0x280, 0x1e0, CatalogArtwork::Load(0x110, 0), 0);
     if (g_item_actions_panel) {
-        g_camp_page_buttons[0] = g_item_actions_panel->EmplaceControl<W8TextControl>(*g_item_actions_panel, g_camp_page_regions->index(0), 0x1a4, 0, 0x1d0, 0x1e,
-            CatalogArtwork::Load(0x111, 0), 0, 4, 1, 2, 3);
-        g_camp_page_buttons[1] = g_item_actions_panel->EmplaceControl<W8TextControl>(*g_item_actions_panel, g_camp_page_regions->index(1), 0x1d0, 0, 0x1fc, 0x1e,
-            CatalogArtwork::Load(0x111, 0), 10, 0xe, 0xb, 0xc, 0xd);
-        g_camp_page_buttons[2] = g_item_actions_panel->EmplaceControl<W8TextControl>(*g_item_actions_panel, g_camp_page_regions->index(2), 0x1fc, 0, 0x228, 0x1e,
-            CatalogArtwork::Load(0x111, 0), 0xf, 0x13, 0x10, 0x11, 0x12);
-        g_camp_page_buttons[3] = g_item_actions_panel->EmplaceControl<W8TextControl>(*g_item_actions_panel, g_camp_page_regions->index(3), 0x228, 0, 0x254, 0x1e,
-            CatalogArtwork::Load(0x111, 0), 5, 9, 6, 7, 8);
-        g_camp_page_buttons[4] = g_item_actions_panel->EmplaceControl<W8TextControl>(*g_item_actions_panel, g_camp_page_regions->index(4), 0x254, 0, 0x280, 0x1e,
-            CatalogArtwork::Load(0x106, 0), 0x10, -1, 0x11, 0x12, 0x13);
+        g_camp_page_buttons[0] = g_item_actions_panel->EmplaceControl<W8TextControl>(g_camp_page_regions->index(0), 0x1a4, 0, 0x1d0, 0x1e,
+            CatalogArtwork::Load(0x111, 0), W8SpriteStates{.normal = 0, .pressed = 4, .alternate_normal = 1, .alternate_pressed = 2, .disabled = 3});
+        g_camp_page_buttons[1] = g_item_actions_panel->EmplaceControl<W8TextControl>(g_camp_page_regions->index(1), 0x1d0, 0, 0x1fc, 0x1e,
+            CatalogArtwork::Load(0x111, 0), W8SpriteStates{.normal = 10, .pressed = 0xe, .alternate_normal = 0xb, .alternate_pressed = 0xc, .disabled = 0xd});
+        g_camp_page_buttons[2] = g_item_actions_panel->EmplaceControl<W8TextControl>(g_camp_page_regions->index(2), 0x1fc, 0, 0x228, 0x1e,
+            CatalogArtwork::Load(0x111, 0), W8SpriteStates{.normal = 0xf, .pressed = 0x13, .alternate_normal = 0x10, .alternate_pressed = 0x11, .disabled = 0x12});
+        g_camp_page_buttons[3] = g_item_actions_panel->EmplaceControl<W8TextControl>(g_camp_page_regions->index(3), 0x228, 0, 0x254, 0x1e,
+            CatalogArtwork::Load(0x111, 0), W8SpriteStates{.normal = 5, .pressed = 9, .alternate_normal = 6, .alternate_pressed = 7, .disabled = 8});
+        g_camp_page_buttons[4] = g_item_actions_panel->EmplaceControl<W8TextControl>(g_camp_page_regions->index(4), 0x254, 0, 0x280, 0x1e,
+            CatalogArtwork::Load(0x106, 0), W8SpriteStates{.normal = 0x10, .alternate_normal = 0x11, .alternate_pressed = 0x12, .disabled = 0x13});
         for (index = 0; index < 5; ++index) {
             if (g_camp_page_buttons[index] == 0) {
                 return 0;
@@ -1053,37 +1049,32 @@ int CreateCampButtonPanel(void)
         g_camp_page_buttons[1]->AddLayoutFlags(g_W8TextControlLayoutToggle);
         g_camp_page_buttons[2]->AddLayoutFlags(g_W8TextControlLayoutToggle);
         g_camp_page_buttons[3]->AddLayoutFlags(g_W8TextControlLayoutToggle);
-        g_camp_page_buttons[0]->m_primaryActivationCallback = OnCampPageButton0;
-        g_camp_page_buttons[1]->m_primaryActivationCallback = OnCampPageButton1;
-        g_camp_page_buttons[2]->m_primaryActivationCallback = OnCampPageButton2;
-        g_camp_page_buttons[3]->m_primaryActivationCallback = OnCampPageButton3;
-        g_camp_page_buttons[4]->m_primaryActivationCallback = CampPageDismissAction;
-        g_item_action_controls[W8_CAMP_ACTION_BUTTON_IDENTIFY] = g_item_actions_panel->EmplaceControl<W8TextControl>(*g_item_actions_panel, g_camp_item_action_regions->index(0), 0, 0, 0x2c, 0x1e,
-            CatalogArtwork::Load(0x112, 0), 0, 2, 1, 4, 3);
-        g_item_action_controls[W8_CAMP_ACTION_BUTTON_MOVE] = g_item_actions_panel->EmplaceControl<W8TextControl>(*g_item_actions_panel, g_camp_item_action_regions->index(1), 0x2c, 0, 0x58, 0x1e,
-            CatalogArtwork::Load(0x112, 0), 10, 0xc, 0xb, 0xe, 0xd);
-        g_item_action_controls[W8_CAMP_ACTION_BUTTON_SPLIT_STACK] = g_item_actions_panel->EmplaceControl<W8TextControl>(*g_item_actions_panel, g_camp_item_action_regions->index(2), 0x58, 0, 0x84, 0x1e,
-            CatalogArtwork::Load(0x112, 0), 5, 7, 6, 9, 8);
+        g_camp_page_buttons[0]->m_onPrimary = [] { SelectCampPageButton(0, W8_CAMP_PAGE_ITEMS); };
+        g_camp_page_buttons[1]->m_onPrimary = [] { SelectCampPageButton(1, W8_CAMP_PAGE_SPELLS); };
+        g_camp_page_buttons[2]->m_onPrimary = [] { SelectCampPageButton(2, W8_CAMP_PAGE_SKILLS); };
+        g_camp_page_buttons[3]->m_onPrimary = [] { SelectCampPageButton(3, W8_CAMP_PAGE_STATS); };
+        g_camp_page_buttons[4]->m_onPrimary = [] { DismissSelectedPartyCharacter(); };
+        g_item_action_controls[W8_CAMP_ACTION_BUTTON_IDENTIFY] = g_item_actions_panel->EmplaceControl<W8TextControl>(g_camp_item_action_regions->index(0), 0, 0, 0x2c, 0x1e,
+            CatalogArtwork::Load(0x112, 0), W8SpriteStates{.normal = 0, .pressed = 2, .alternate_normal = 1, .alternate_pressed = 4, .disabled = 3});
+        g_item_action_controls[W8_CAMP_ACTION_BUTTON_MOVE] = g_item_actions_panel->EmplaceControl<W8TextControl>(g_camp_item_action_regions->index(1), 0x2c, 0, 0x58, 0x1e,
+            CatalogArtwork::Load(0x112, 0), W8SpriteStates{.normal = 10, .pressed = 0xc, .alternate_normal = 0xb, .alternate_pressed = 0xe, .disabled = 0xd});
+        g_item_action_controls[W8_CAMP_ACTION_BUTTON_SPLIT_STACK] = g_item_actions_panel->EmplaceControl<W8TextControl>(g_camp_item_action_regions->index(2), 0x58, 0, 0x84, 0x1e,
+            CatalogArtwork::Load(0x112, 0), W8SpriteStates{.normal = 5, .pressed = 7, .alternate_normal = 6, .alternate_pressed = 9, .disabled = 8});
         g_item_action_controls[W8_CAMP_ACTION_BUTTON_USE] =
-            g_item_actions_panel->EmplaceControl<W8TextControl>(*g_item_actions_panel, g_camp_item_action_regions->index(3), 0x84, 0,
-                              0xb0, 0x1e, CatalogArtwork::Load(0x112, 0), 0xf, 0x11, 0x10, 0x13,
-                              0x12);
+            g_item_actions_panel->EmplaceControl<W8TextControl>(g_camp_item_action_regions->index(3), 0x84, 0,
+                              0xb0, 0x1e, CatalogArtwork::Load(0x112, 0), W8SpriteStates{.normal = 0xf, .pressed = 0x11, .alternate_normal = 0x10, .alternate_pressed = 0x13, .disabled = 0x12});
         g_item_action_controls[W8_CAMP_ACTION_BUTTON_DROP] =
-            g_item_actions_panel->EmplaceControl<W8TextControl>(*g_item_actions_panel, g_camp_item_action_regions->index(4), 0xb0, 0,
-                              0xdc, 0x1e, CatalogArtwork::Load(0x112, 0), 0x14, 0x16, 0x15,
-                              0x18, 0x17);
+            g_item_actions_panel->EmplaceControl<W8TextControl>(g_camp_item_action_regions->index(4), 0xb0, 0,
+                              0xdc, 0x1e, CatalogArtwork::Load(0x112, 0), W8SpriteStates{.normal = 0x14, .pressed = 0x16, .alternate_normal = 0x15, .alternate_pressed = 0x18, .disabled = 0x17});
         g_item_action_controls[W8_CAMP_ACTION_BUTTON_CAST_SPELL] =
-            g_item_actions_panel->EmplaceControl<W8TextControl>(*g_item_actions_panel, g_camp_item_action_regions->index(5), 0x134, 0,
-                              0x160, 0x1e, CatalogArtwork::Load(0x112, 0), 0x19, 0x1b, 0x1a,
-                              0x1d, 0x1c);
+            g_item_actions_panel->EmplaceControl<W8TextControl>(g_camp_item_action_regions->index(5), 0x134, 0,
+                              0x160, 0x1e, CatalogArtwork::Load(0x112, 0), W8SpriteStates{.normal = 0x19, .pressed = 0x1b, .alternate_normal = 0x1a, .alternate_pressed = 0x1d, .disabled = 0x1c});
         g_item_action_controls[W8_CAMP_ACTION_BUTTON_USE_ON_ITEM] =
-            g_item_actions_panel->EmplaceControl<W8TextControl>(*g_item_actions_panel, g_camp_item_action_regions->index(6), 0xdc, 0,
-                              0x108, 0x1e, CatalogArtwork::Load(0x112, 0), 0x1e, 0x20, 0x1f,
-                              0x22, 0x21);
+            g_item_actions_panel->EmplaceControl<W8TextControl>(g_camp_item_action_regions->index(6), 0xdc, 0,
+                              0x108, 0x1e, CatalogArtwork::Load(0x112, 0), W8SpriteStates{.normal = 0x1e, .pressed = 0x20, .alternate_normal = 0x1f, .alternate_pressed = 0x22, .disabled = 0x21});
         g_item_action_controls[W8_CAMP_ACTION_BUTTON_USE_ON_CHARACTER] =
-            g_item_actions_panel->EmplaceControl<W8TextControl>(*g_item_actions_panel, g_camp_item_action_regions->index(7), 0x108, 0,
-                              0x134, 0x1e, CatalogArtwork::Load(0x112, 0), 0x23, 0x25, 0x24,
-                              0x27, 0x26);
+            g_item_actions_panel->EmplaceControl<W8TextControl>(g_camp_item_action_regions->index(7), 0x108, 0,
+                              0x134, 0x1e, CatalogArtwork::Load(0x112, 0), W8SpriteStates{.normal = 0x23, .pressed = 0x25, .alternate_normal = 0x24, .alternate_pressed = 0x27, .disabled = 0x26});
         index = 0;
         while (g_item_action_controls[index] != 0) {
             ++index;
@@ -1105,22 +1096,22 @@ int CreateCampButtonPanel(void)
                 g_item_action_controls[W8_CAMP_ACTION_BUTTON_USE_ON_CHARACTER]->AddLayoutFlags(
                     g_W8TextControlLayoutToggle);
                 g_item_action_controls[W8_CAMP_ACTION_BUTTON_IDENTIFY]
-                    ->m_primaryActivationCallback = OnCampIdentifyItem;
-                g_item_action_controls[W8_CAMP_ACTION_BUTTON_MOVE]->m_primaryActivationCallback =
+                    ->m_onPrimary = OnCampIdentifyItem;
+                g_item_action_controls[W8_CAMP_ACTION_BUTTON_MOVE]->m_onPrimary =
                     OnCampMoveItem;
                 g_item_action_controls[W8_CAMP_ACTION_BUTTON_SPLIT_STACK]
-                    ->m_primaryActivationCallback = OnCampSplitStack;
-                g_item_action_controls[W8_CAMP_ACTION_BUTTON_USE]->m_primaryActivationCallback =
+                    ->m_onPrimary = OnCampSplitStack;
+                g_item_action_controls[W8_CAMP_ACTION_BUTTON_USE]->m_onPrimary =
                     OnCampUseItem;
-                g_item_action_controls[W8_CAMP_ACTION_BUTTON_DROP]->m_primaryActivationCallback =
+                g_item_action_controls[W8_CAMP_ACTION_BUTTON_DROP]->m_onPrimary =
                     OnCampDropItem;
                 g_item_action_controls[W8_CAMP_ACTION_BUTTON_CAST_SPELL]
-                    ->m_primaryActivationCallback = OnCampCastSpell;
+                    ->m_onPrimary = OnCampCastSpell;
                 g_item_action_controls[W8_CAMP_ACTION_BUTTON_USE_ON_ITEM]
-                    ->m_primaryActivationCallback = OnCampUseItemOnItem;
+                    ->m_onPrimary = OnCampUseItemOnItem;
                 g_item_action_controls[W8_CAMP_ACTION_BUTTON_USE_ON_CHARACTER]
-                    ->m_primaryActivationCallback = OnCampUseItemOnCharacter;
-                g_item_actions_panel->SetEnabled(true);
+                    ->m_onPrimary = OnCampUseItemOnCharacter;
+                g_item_actions_panel->SetActive(true);
                 g_camp_page_buttons[0]->EnableSecondaryState(false);
                 return 1;
             }
@@ -1250,9 +1241,9 @@ void RefreshCampItemActions(bool invalidate)
         }
     }
     if (invalidate) {
-        g_item_actions_panel->Invalidate(0);
+        g_item_actions_panel->InvalidateAll();
     }
-    g_item_actions_panel->Redraw();
+    g_item_actions_panel->Redraw(GetFrameBufferSurface(), false);
 }
 
 /* Switch the items-page action mode: every action button's secondary state is
@@ -1268,8 +1259,7 @@ void SetCampItemActionMode(char mode)
 
     for (control = g_item_action_controls, index = W8_CAMP_ACTION_BUTTON_COUNT; index != 0;
          ++control, --index) {
-        if (static_cast<unsigned char>((*control)->m_stateFlags & g_W8TextControlStateSecondary) !=
-            0) {
+        if ((*control)->IsSelected()) {
             (*control)->DisableSecondaryState(false);
         }
     }
@@ -1317,21 +1307,20 @@ void SetCampItemActionMode(char mode)
         SetItemCursor(0);
     }
     if (selected != W8_CAMP_ACTION_BUTTON_NONE &&
-        static_cast<unsigned char>(g_item_action_controls[selected]->m_stateFlags &
-                                   g_W8TextControlStateSecondary) == 0) {
+        g_item_action_controls[selected]->IsSelected() == 0) {
         g_item_action_controls[selected]->EnableSecondaryState(false);
     }
     g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_ITEM_ACTIONS;
 }
 
-/* Descriptive name for the page-button operation expanded in the callbacks. */
+/* A page button's click: while its secondary state is up, clear it on every
+   page button and switch to the button's page; then raise the pressed
+   button's secondary state. */
 static void SelectCampPageButton(int button, W8CampPage page)
 {
-    if (static_cast<unsigned char>(g_camp_page_buttons[button]->m_stateFlags &
-                                   g_W8TextControlStateSecondary) != 0) {
+    if (g_camp_page_buttons[button]->IsSelected()) {
         for (int index = 0; index < 5; ++index) {
-            if (static_cast<unsigned char>(g_camp_page_buttons[index]->m_stateFlags &
-                                           g_W8TextControlStateSecondary) != 0) {
+            if (g_camp_page_buttons[index]->IsSelected()) {
                 g_camp_page_buttons[index]->DisableSecondaryState(false);
             }
         }
@@ -1340,48 +1329,13 @@ static void SelectCampPageButton(int button, W8CampPage page)
     g_camp_page_buttons[button]->EnableSecondaryState(false);
 }
 
-/* The five page-button callbacks share one shape: while this button's
-   secondary state is up, clear it on every page button and switch to the
-   button's page; then raise the pressed button's secondary state. */
-// FUNCTION: WIZ8 0x005b5ae0
-static void OnCampPageButton0(void)
-{
-    SelectCampPageButton(0, W8_CAMP_PAGE_ITEMS);
-}
-
-// FUNCTION: WIZ8 0x005b5b30
-static void OnCampPageButton1(void)
-{
-    SelectCampPageButton(1, W8_CAMP_PAGE_SPELLS);
-}
-
-// FUNCTION: WIZ8 0x005b5b80
-static void OnCampPageButton2(void)
-{
-    SelectCampPageButton(2, W8_CAMP_PAGE_SKILLS);
-}
-
-// FUNCTION: WIZ8 0x005b5bd0
-static void OnCampPageButton3(void)
-{
-    SelectCampPageButton(3, W8_CAMP_PAGE_STATS);
-}
-
-// FUNCTION: WIZ8 0x005b5c20
-static void CampPageDismissAction(void)
-{
-    DismissSelectedPartyCharacter();
-}
-
 /* Item-action button callbacks: while the button's secondary state is up the
    click performs the held-item action or arms the button's targeting mode;
    while it is down the click falls back to clearing the action mode. */
 // FUNCTION: WIZ8 0x005b5c30
 static void OnCampIdentifyItem(void)
 {
-    if (static_cast<unsigned char>(
-            g_item_action_controls[W8_CAMP_ACTION_BUTTON_IDENTIFY]->m_stateFlags &
-            g_W8TextControlStateSecondary) != 0) {
+    if (g_item_action_controls[W8_CAMP_ACTION_BUTTON_IDENTIFY]->IsSelected()) {
         g_camp_identifying_character = g_review_character;
         if (g_status.item_in_cursor) {
             IdentifyAndOpenItemInfo(&g_status.item_in_hand);
@@ -1396,9 +1350,7 @@ static void OnCampIdentifyItem(void)
 // FUNCTION: WIZ8 0x005b5c80
 static void OnCampMoveItem(void)
 {
-    if (static_cast<unsigned char>(
-            g_item_action_controls[W8_CAMP_ACTION_BUTTON_MOVE]->m_stateFlags &
-            g_W8TextControlStateSecondary) != 0) {
+    if (g_item_action_controls[W8_CAMP_ACTION_BUTTON_MOVE]->IsSelected()) {
         SetCampItemActionMode(W8_CAMP_ITEM_ACTION_MOVE);
         if (g_status.item_in_cursor) {
             SetHandCursors(0);
@@ -1412,9 +1364,7 @@ static void OnCampMoveItem(void)
 // FUNCTION: WIZ8 0x005b5cd0
 static void OnCampSplitStack(void)
 {
-    if (static_cast<unsigned char>(
-            g_item_action_controls[W8_CAMP_ACTION_BUTTON_SPLIT_STACK]->m_stateFlags &
-            g_W8TextControlStateSecondary) != 0) {
+    if (g_item_action_controls[W8_CAMP_ACTION_BUTTON_SPLIT_STACK]->IsSelected()) {
         if (g_status.item_in_cursor) {
             OpenSplitStackDialog(&g_status.item_in_hand);
             return;
@@ -1428,8 +1378,7 @@ static void OnCampSplitStack(void)
 // FUNCTION: WIZ8 0x005b5d10
 static void OnCampUseItem(void)
 {
-    if (static_cast<unsigned char>(g_item_action_controls[W8_CAMP_ACTION_BUTTON_USE]->m_stateFlags &
-                                   g_W8TextControlStateSecondary) != 0) {
+    if (g_item_action_controls[W8_CAMP_ACTION_BUTTON_USE]->IsSelected()) {
         if (g_status.item_in_cursor) {
             UseCampItem(&g_status.item_in_hand);
             return;
@@ -1443,9 +1392,7 @@ static void OnCampUseItem(void)
 // FUNCTION: WIZ8 0x005b5d50
 static void OnCampDropItem(void)
 {
-    if (static_cast<unsigned char>(
-            g_item_action_controls[W8_CAMP_ACTION_BUTTON_DROP]->m_stateFlags &
-            g_W8TextControlStateSecondary) != 0) {
+    if (g_item_action_controls[W8_CAMP_ACTION_BUTTON_DROP]->IsSelected()) {
         if (g_status.item_in_cursor) {
             if (ResolvePendingCampCharacter(true)) {
                 DropHeldCampItem();
@@ -1465,9 +1412,7 @@ static void OnCampCastSpell(void)
     unsigned char active;
 
     eligible = IsCampActionAllowed(giReviewCharSlot);
-    active = static_cast<unsigned char>(
-        g_item_action_controls[W8_CAMP_ACTION_BUTTON_CAST_SPELL]->m_stateFlags &
-        g_W8TextControlStateSecondary);
+    active = g_item_action_controls[W8_CAMP_ACTION_BUTTON_CAST_SPELL]->IsSelected();
     if (!eligible) {
         if (active != 0) {
             g_item_action_controls[W8_CAMP_ACTION_BUTTON_CAST_SPELL]->DisableSecondaryState(false);
@@ -1485,9 +1430,7 @@ static void OnCampCastSpell(void)
 // FUNCTION: WIZ8 0x005b5df0
 static void OnCampUseItemOnItem(void)
 {
-    if (static_cast<unsigned char>(
-            g_item_action_controls[W8_CAMP_ACTION_BUTTON_USE_ON_ITEM]->m_stateFlags &
-            g_W8TextControlStateSecondary) != 0) {
+    if (g_item_action_controls[W8_CAMP_ACTION_BUTTON_USE_ON_ITEM]->IsSelected()) {
         giCasterCharSlot = giReviewCharSlot;
         if (g_status.item_in_cursor) {
             UseHeldItemOnItem(&g_status.item_in_hand);
@@ -1504,9 +1447,7 @@ static void OnCampUseItemOnItem(void)
 // FUNCTION: WIZ8 0x005b5e60
 static void OnCampUseItemOnCharacter(void)
 {
-    if (static_cast<unsigned char>(
-            g_item_action_controls[W8_CAMP_ACTION_BUTTON_USE_ON_CHARACTER]->m_stateFlags &
-            g_W8TextControlStateSecondary) != 0) {
+    if (g_item_action_controls[W8_CAMP_ACTION_BUTTON_USE_ON_CHARACTER]->IsSelected()) {
         giCasterCharSlot = giReviewCharSlot;
         SetCampItemActionMode(W8_CAMP_ITEM_ACTION_USE_ON_CHARACTER);
         return;

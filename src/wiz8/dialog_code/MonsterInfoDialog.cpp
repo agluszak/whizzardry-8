@@ -490,5 +490,5 @@ void W8MonsterInfoDialog::Draw()
     }
     m_text_area.Draw(false);
     m_scroll_bar.Draw(false);
-    m_button.Draw();
+    m_button.Draw(GetFrameBufferSurface());
 }

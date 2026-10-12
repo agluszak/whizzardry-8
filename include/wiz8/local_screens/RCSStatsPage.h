@@ -32,7 +32,6 @@ struct W8CampEffectEntry {
 class W8CampStatsRange final : public W8CampRangeListener {
 public:
     W8CampStatsRange();
-    ~W8CampStatsRange();
     virtual void OnRangeChanged(W8RangeControl* control) override;
 };
 

@@ -15,7 +15,7 @@ class W8JournalPanel : public Controls, public W8TextControl::Listener {
 public:
     W8JournalPanel();
     virtual ~W8JournalPanel();
-    virtual void Redraw() override;
+    void Redraw(SDL_Surface& target, bool full_redraw) override;
     virtual void OnPrimary(W8TextControl* control) override;
     void Refresh();
 

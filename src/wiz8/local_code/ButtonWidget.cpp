@@ -1,3 +1,4 @@
+#include <SDL3/SDL_surface.h>
 #include "wiz8/local_code/ButtonWidget.h"
 
 #include "Font.h"
@@ -13,35 +14,41 @@
 #include <SDL3/SDL_mouse.h>
 #include <SDL3/SDL_rect.h>
 #include <algorithm>
-#include <cstdint>
 #include <memory>
 #include <string_view>
 #include <utility>
 
 // FUNCTION: WIZ8 0x005db4e0
-void W8ButtonWidget::Draw()
+void W8ButtonWidget::Draw(SDL_Surface& target)
 {
     if (m_dirty && OwnsRegion() && (Region().flags & W8_REGION_INPUT_DISABLED) == 0) {
         m_visual.hovered = (Region().flags & W8_REGION_MOUSE_ENTER) != 0 ||
                            g_ui.hover == static_cast<unsigned int>(m_region);
-        DrawButtonAppearance(GetFrameBufferSurface(), m_appearance, ScreenBounds(), m_visual);
+        DrawButtonAppearance(target, m_appearance, ScreenBounds(), m_visual);
         const auto bounds = ScreenBounds();
         InvalidateRegion(bounds.x, bounds.y, bounds.x + bounds.w, bounds.y + bounds.h);
         m_dirty = false;
     }
 }
 
+void W8ButtonWidget::Redraw(SDL_Surface& target, bool full_redraw)
+{
+    if (!m_active) return;
+    if (full_redraw) m_dirty = true;
+    Draw(target);
+}
+
 // FUNCTION: WIZ8 0x005db550
 void W8ButtonWidget::SetPosition(int x, int y)
 {
-    if (m_left == x && m_top == y) return;
-    SetButtonRect({x, y, GetWidth(), GetHeight()});
+    if (Bounds().x == x && Bounds().y == y) return;
+    SetBounds({x, y, Bounds().w, Bounds().h});
     m_dirty = true;
 }
 
 void W8ButtonWidget::Resize(int width, int height)
 {
-    SetButtonRect({m_left, m_top, std::max(width, 4), std::max(height, 3)});
+    SetBounds({Bounds().x, Bounds().y, std::max(width, 4), std::max(height, 3)});
     m_dirty = true;
 }
 
@@ -63,21 +70,6 @@ void W8ButtonWidget::SetMultiColor(bool enabled)
 {
     m_appearance.fMultiColor = enabled;
     m_dirty = true;
-}
-
-void W8ButtonWidget::SetButtonRect(const SDL_Rect& bounds)
-{
-    m_left = bounds.x;
-    m_top = bounds.y;
-    m_right = bounds.x + bounds.w;
-    m_bottom = bounds.y + bounds.h;
-    UpdateRegionBounds(m_left, m_top, m_right, m_bottom);
-}
-
-SDL_Rect W8ButtonWidget::ScreenBounds() const
-{
-    const auto origin = PanelOrigin();
-    return {m_left + origin.x, m_top + origin.y, GetWidth(), GetHeight()};
 }
 
 // FUNCTION: WIZ8 0x005db8d0
@@ -145,7 +137,7 @@ W8ButtonWidget::W8ButtonWidget()
       m_right_callback(nullptr), m_move_callback(nullptr), m_double_click_callback(nullptr),
       m_left_toggles(false), m_right_toggles(false), silent(false),
       hover_silent(false), m_repeat_enabled(false), m_owner(nullptr),
-      m_layer(TopLiveDialog())
+      m_layer(CurrentInputLayer())
 {
     m_dirty = true;
 }
@@ -157,7 +149,7 @@ void W8ButtonWidget::Reset()
 {
     ReleaseRegion();
     m_appearance = {};
-    SetButtonRect({});
+    SetBounds({});
     m_visual = {};
     m_armed_buttons = m_repeated_buttons = 0;
     m_user_data = 0;
@@ -171,16 +163,7 @@ void W8ButtonWidget::Reset()
 
 void W8ButtonWidget::ConfigureRegion(int priority)
 {
-    ReleaseRegion();
-    const RegionTemplate region_template{W8_REGION_RECTANGLE, 0, 0, 0, 0,
-                                         nullptr, static_cast<std::uint16_t>(priority), false, -1};
-    const auto set = m_pPanel && m_pPanel->RegionSet() != 0 ? m_pPanel->RegionSet()
-                                                                 : ControlRegionSetIndex();
-    OwnedRegion allocated_region(set, region_template, priority);
-    m_active = true;
-    SetRegion(allocated_region.index());
-    m_owned_region = std::move(allocated_region);
-    SetButtonRect(GetBounds());
+    ClaimRegion(priority, InputLayerSet(m_layer));
     m_visual = {};
     m_armed_buttons = m_repeated_buttons = 0;
     m_dirty = true;
@@ -199,7 +182,7 @@ bool W8ButtonWidget::ConfigureTextButton(std::string_view text, Font& font, shor
     m_appearance.usFont = &font;
     m_appearance.sForeColor = fore_color;
     m_appearance.sShadowColor = shadow_color;
-    SetButtonRect({x, y, std::max<int>(width, 4), std::max<int>(height, 3)});
+    SetBounds({x, y, std::max<int>(width, 4), std::max<int>(height, 3)});
     m_user_data = user_data;
     m_left_callback = left_callback;
     m_right_callback = m_move_callback = m_double_click_callback = nullptr;
@@ -223,7 +206,7 @@ bool W8ButtonWidget::Configure(const char* image_path, int gray_frame, int off_n
                                      off_hover_frame, on_normal_frame, on_hover_frame);
     if (!image) return false;
     m_appearance = {};
-    SetButtonRect({0, 0, static_cast<int>(image->MaxWidth), static_cast<int>(image->MaxHeight)});
+    SetBounds({0, 0, static_cast<int>(image->MaxWidth), static_cast<int>(image->MaxHeight)});
     m_appearance.quick_image = std::move(image);
     m_left_callback = left_callback;
     m_right_callback = right_callback;
@@ -247,7 +230,7 @@ bool W8ButtonWidget::Configure(std::shared_ptr<const SpriteSheet> sprites, int g
                                       off_hover_frame, on_normal_frame, on_hover_frame);
     if (!image) return false;
     m_appearance = {};
-    SetButtonRect({0, 0, static_cast<int>(image->MaxWidth),
+    SetBounds({0, 0, static_cast<int>(image->MaxWidth),
                    static_cast<int>(image->MaxHeight)});
     m_appearance.quick_image = std::move(image);
     m_left_callback = left_callback;
@@ -279,7 +262,6 @@ void W8ButtonWidget::ActivateSecondary(int) { HandleButtonEvent(ButtonEvent::Rep
    activates it unless it was held into repeat or activates on press. */
 void W8ButtonWidget::HandleButtonEvent(ButtonEvent event, SDL_MouseButtonFlags mask)
 {
-    if (m_layer != TopLiveDialog()) return;
     if (!m_left_callback && !m_right_callback && !m_move_callback && !m_double_click_callback) return;
     if (event == ButtonEvent::Leave) {
         m_armed_buttons = m_repeated_buttons = 0;

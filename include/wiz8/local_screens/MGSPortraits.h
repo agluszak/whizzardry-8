@@ -21,17 +21,13 @@ extern char s_general_magic_sound[];
 // VTABLE: WIZ8 0x005eec50
 class W8ConditionButton : public W8TextControl {
 public:
-    W8ConditionButton(Controls& panel, unsigned int region, int left, int top, int right,
-                      int bottom, CatalogArtwork artwork, int normal_sprite,
-                      int pressed_sprite, int alternate_normal_sprite, int alternate_pressed_sprite,
-                      int disabled_sprite, int ui_slot)
-        : W8TextControl(panel, region, left, top, right, bottom, std::move(artwork),
-                        normal_sprite, pressed_sprite, alternate_normal_sprite,
-                        alternate_pressed_sprite, disabled_sprite),
+    W8ConditionButton(unsigned int region, int left, int top, int right, int bottom,
+                      CatalogArtwork artwork, W8SpriteStates sprites, int ui_slot)
+        : W8TextControl(region, left, top, right, bottom, std::move(artwork), sprites),
           m_condition(0xff), m_ui_slot(ui_slot)
     {
     }
-    virtual void Redraw(bool full_redraw) override;
+    virtual void Redraw(SDL_Surface& target, bool full_redraw) override;
     virtual void OnMouseLeave(int event) override;
     virtual void OnLeftButtonDown(int event) override;
     virtual void OnLeftButtonUp(int event) override;

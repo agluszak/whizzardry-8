@@ -2,7 +2,6 @@
 #include <memory>
 #include <fmt/format.h>
 #include <array>
-#include <optional>
 #include <string>
 #include <cstring>
 #include <vector>
@@ -12,6 +11,7 @@
 #include "wiz8/integer_constants.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/local_code/Controls.h"
+#include "wiz8/engine_code/Video2.h"
 #include "wiz8/local_screens/MGSUseItemSelect.h"
 #include "wiz8/dialog_code/AssayDialog.h"
 #include "wiz8/engine_code/Spells.h"
@@ -103,12 +103,12 @@ static constexpr std::array<RegionTemplate, 5> g_use_item_select_region_template
 ScreenRegionSet g_use_item_select_regions{g_use_item_select_region_templates, 0x1a};
 
 void UpdateUseItemScrollButtons(void);
+static void SelectUseItemScrollMode(int mode);
 static void RebuildUseItemSelectList(int mode, W8ItemInstance* select);
 static bool AppendUseItemListEntry(W8ItemInstance* item, W8ItemInstance* select,
                                    unsigned char pass);
 bool IsUseItemFilteredOut(W8ItemInstance* item);
 static void UseItemSelectScrollUp(void);
-static void UseItemSelectScrollDown(void);
 static void UseItemSelectFilterToggle(void);
 static void UseItemSelectAssayButton(void);
 static void CreateUseItemSelectControls(void);
@@ -126,62 +126,57 @@ static void CreateUseItemSelectControls(void)
     g_use_item_select_panels[2] = std::make_unique<Controls>(0x1dc, 0x166, 0x269, 0x1c2, CatalogArtwork::Load(0x97, 0), 2);
     panel = g_use_item_select_panels[0].get();
     g_use_item_select_scroll_buttons[0] =
-        panel->EmplaceControl<W8TextControl>(*panel, g_use_item_select_regions->index(0), 0x24, 0x1d, 0x44, 0x3d,
-                          CatalogArtwork::Load(0x98, 0), 0, 2, 1, 4, 3);
+        panel->EmplaceControl<W8TextControl>(g_use_item_select_regions->index(0), 0x24, 0x1d, 0x44, 0x3d,
+                          CatalogArtwork::Load(0x98, 0), W8SpriteStates{.normal = 0, .pressed = 2, .alternate_normal = 1, .alternate_pressed = 4, .disabled = 3});
     g_use_item_select_scroll_buttons[1] =
-        panel->EmplaceControl<W8TextControl>(*panel, g_use_item_select_regions->index(1), 0x48, 0x1d, 0x68, 0x3d,
-                          CatalogArtwork::Load(0x98, 0), 5, 7, 6, 9, 8);
+        panel->EmplaceControl<W8TextControl>(g_use_item_select_regions->index(1), 0x48, 0x1d, 0x68, 0x3d,
+                          CatalogArtwork::Load(0x98, 0), W8SpriteStates{.normal = 5, .pressed = 7, .alternate_normal = 6, .alternate_pressed = 9, .disabled = 8});
     g_use_item_select_scroll_buttons[2] =
-        panel->EmplaceControl<W8TextControl>(*panel, 0xffffffff, 4, 4, 0x89, 0x13, std::nullopt, -1, -1, -1, -1, -1);
+        panel->EmplaceControl<W8TextControl>(0xffffffff, 4, 4, 0x89, 0x13);
     g_use_item_select_scroll_buttons[0]->AddLayoutFlags(g_W8TextControlLayoutToggle);
     g_use_item_select_scroll_buttons[1]->AddLayoutFlags(g_W8TextControlLayoutToggle);
-    g_use_item_select_scroll_buttons[0]->m_primaryActivationCallback = UseItemSelectScrollUp;
-    g_use_item_select_scroll_buttons[1]->m_primaryActivationCallback = UseItemSelectScrollDown;
+    g_use_item_select_scroll_buttons[0]->m_onPrimary = UseItemSelectScrollUp;
+    g_use_item_select_scroll_buttons[1]->m_onPrimary = [] { SelectUseItemScrollMode(1); };
     g_use_item_select_scroll_buttons[2]->m_textBuffer.SetLayoutMode(g_W8TextBufferAlignMiddle |
                                                                     g_W8TextBufferAlignCenter);
     g_use_item_select_scroll_buttons[2]->m_textBuffer.SetText(g_localized_strings[0x77a],
                                                               g_wiz_text_font_secondary);
     panel = g_use_item_select_panels[2].get();
     g_use_item_select_controls[0] =
-        panel->EmplaceControl<W8TextControl>(*panel, g_use_item_select_regions->index(2), 5, 5, 0x31, 0x39, std::nullopt,
-                          -1, -1, -1, -1, -1);
+        panel->EmplaceControl<W8TextControl>(g_use_item_select_regions->index(2), 5, 5, 0x31, 0x39);
     g_use_item_select_controls[0]->m_textBuffer.SetLayoutMode(g_W8TextBufferAlignBottom |
                                                               g_W8TextBufferAlignRight);
     g_use_item_select_controls[0]->AddLayoutFlags(g_W8TextControlLayoutImageAtOrigin);
     g_use_item_select_controls[1] =
-        panel->EmplaceControl<W8TextControl>(*panel, 0xffffffff, 0x36, 6, 0x44, 0x14, CatalogArtwork::Load(0x1ab, 0), 0, 1, 2, 4, 3);
+        panel->EmplaceControl<W8TextControl>(0xffffffff, 0x36, 6, 0x44, 0x14, CatalogArtwork::Load(0x1ab, 0), W8SpriteStates{.normal = 0, .pressed = 1, .alternate_normal = 2, .alternate_pressed = 4, .disabled = 3});
     g_use_item_select_controls[2] =
-        panel->EmplaceControl<W8TextControl>(*panel, 0xffffffff, 0x47, 6, 0x55, 0x14, CatalogArtwork::Load(0x1ab, 0), 5, 6, 7, 9, 8);
+        panel->EmplaceControl<W8TextControl>(0xffffffff, 0x47, 6, 0x55, 0x14, CatalogArtwork::Load(0x1ab, 0), W8SpriteStates{.normal = 5, .pressed = 6, .alternate_normal = 7, .alternate_pressed = 9, .disabled = 8});
     g_use_item_select_controls[3] =
-        panel->EmplaceControl<W8TextControl>(*panel, g_use_item_select_regions->index(3), 0x58, 6, 0x66, 0x14,
-                          CatalogArtwork::Load(0x1ab, 0), 0xa, 0xb, 0xc, 0xe, 0xd);
-    g_use_item_select_controls[4] = panel->EmplaceControl<W8TextControl>(*panel, 0xffffffff, 0x36, 0x17, 0x44, 0x25, CatalogArtwork::Load(0x1ab, 0), 0xf, 0x10,
-        0x11, 0x13, 0x12);
-    g_use_item_select_controls[5] = panel->EmplaceControl<W8TextControl>(*panel, 0xffffffff, 0x47, 0x17, 0x55, 0x25, CatalogArtwork::Load(0x1ab, 0), 0x14, 0x15,
-        0x16, 0x18, 0x17);
-    g_use_item_select_controls[6] = panel->EmplaceControl<W8TextControl>(*panel, 0xffffffff, 0x58, 0x17, 0x66, 0x25, CatalogArtwork::Load(0x1ab, 0), 0x19, 0x1a,
-        0x1b, 0x1d, 0x1c);
-    g_use_item_select_controls[7] = panel->EmplaceControl<W8TextControl>(*panel, 0xffffffff, 0x35, 0x27, 0x56, 0x39, CatalogArtwork::Load(0x1aa, 0), 0x1e, 0x22,
-        0x1f, 0x20, 0x21);
+        panel->EmplaceControl<W8TextControl>(g_use_item_select_regions->index(3), 0x58, 6, 0x66, 0x14,
+                          CatalogArtwork::Load(0x1ab, 0), W8SpriteStates{.normal = 0xa, .pressed = 0xb, .alternate_normal = 0xc, .alternate_pressed = 0xe, .disabled = 0xd});
+    g_use_item_select_controls[4] = panel->EmplaceControl<W8TextControl>(0xffffffff, 0x36, 0x17, 0x44, 0x25, CatalogArtwork::Load(0x1ab, 0), W8SpriteStates{.normal = 0xf, .pressed = 0x10, .alternate_normal = 0x11, .alternate_pressed = 0x13, .disabled = 0x12});
+    g_use_item_select_controls[5] = panel->EmplaceControl<W8TextControl>(0xffffffff, 0x47, 0x17, 0x55, 0x25, CatalogArtwork::Load(0x1ab, 0), W8SpriteStates{.normal = 0x14, .pressed = 0x15, .alternate_normal = 0x16, .alternate_pressed = 0x18, .disabled = 0x17});
+    g_use_item_select_controls[6] = panel->EmplaceControl<W8TextControl>(0xffffffff, 0x58, 0x17, 0x66, 0x25, CatalogArtwork::Load(0x1ab, 0), W8SpriteStates{.normal = 0x19, .pressed = 0x1a, .alternate_normal = 0x1b, .alternate_pressed = 0x1d, .disabled = 0x1c});
+    g_use_item_select_controls[7] = panel->EmplaceControl<W8TextControl>(0xffffffff, 0x35, 0x27, 0x56, 0x39, CatalogArtwork::Load(0x1aa, 0), W8SpriteStates{.normal = 0x1e, .pressed = 0x22, .alternate_normal = 0x1f, .alternate_pressed = 0x20, .disabled = 0x21});
     g_use_item_select_controls[8] =
-        panel->EmplaceControl<W8TextControl>(*panel, g_use_item_select_regions->index(4), 0x6c, 6, 0x87, 0x21,
-                          CatalogArtwork::Load(0x8e, 0), 4, -1, 5, 6, 7);
+        panel->EmplaceControl<W8TextControl>(g_use_item_select_regions->index(4), 0x6c, 6, 0x87, 0x21,
+                          CatalogArtwork::Load(0x8e, 0), W8SpriteStates{.normal = 4, .alternate_normal = 5, .alternate_pressed = 6, .disabled = 7});
     g_use_item_select_controls[2]->AddLayoutFlags(g_W8TextControlLayoutToggle);
     g_use_item_select_controls[3]->AddLayoutFlags(g_W8TextControlLayoutToggle);
     g_use_item_select_controls[4]->AddLayoutFlags(g_W8TextControlLayoutToggle);
     g_use_item_select_controls[5]->AddLayoutFlags(g_W8TextControlLayoutToggle);
     g_use_item_select_controls[6]->AddLayoutFlags(g_W8TextControlLayoutToggle);
-    g_use_item_select_controls[0]->m_primaryActivationCallback = UseItemSelectAssayButton;
-    g_use_item_select_controls[0]->m_secondaryActivationCallback = UseItemSelectAssayButton;
-    g_use_item_select_controls[1]->m_primaryActivationCallback = NoOp;
-    g_use_item_select_controls[2]->m_primaryActivationCallback = NoOp;
-    g_use_item_select_controls[3]->m_primaryActivationCallback = UseItemSelectFilterToggle;
-    g_use_item_select_controls[4]->m_primaryActivationCallback = NoOp;
-    g_use_item_select_controls[5]->m_primaryActivationCallback = NoOp;
-    g_use_item_select_controls[6]->m_primaryActivationCallback = NoOp;
-    g_use_item_select_controls[8]->m_primaryActivationCallback = CloseUseItemSelection;
+    g_use_item_select_controls[0]->m_onPrimary = UseItemSelectAssayButton;
+    g_use_item_select_controls[0]->m_onSecondary = UseItemSelectAssayButton;
+    g_use_item_select_controls[1]->m_onPrimary = NoOp;
+    g_use_item_select_controls[2]->m_onPrimary = NoOp;
+    g_use_item_select_controls[3]->m_onPrimary = UseItemSelectFilterToggle;
+    g_use_item_select_controls[4]->m_onPrimary = NoOp;
+    g_use_item_select_controls[5]->m_onPrimary = NoOp;
+    g_use_item_select_controls[6]->m_onPrimary = NoOp;
+    g_use_item_select_controls[8]->m_onPrimary = CloseUseItemSelection;
     for (auto& select_panel : g_use_item_select_panels) {
-        select_panel->SetEnabled(true);
+        select_panel->SetActive(true);
     }
 }
 
@@ -345,7 +340,7 @@ void SetUseItemSelectReturnMode(W8MainUiMode value)
 // FUNCTION: WIZ8 0x0059CF40
 void InvalidateUseItemSelectPanel(void)
 {
-    g_use_item_select_panels[1]->Invalidate(0);
+    g_use_item_select_panels[1]->InvalidateAll();
 }
 
 /* fItemSelectMode per-frame update: keep the scroll buttons synced, run the
@@ -360,16 +355,16 @@ void UpdateUseItemSelect(bool active)
     panel_dirty = false;
     UpdateUseItemScrollButtons();
     for (i = 0; i < 3; i++) {
-        if (g_use_item_select_panels[i]->m_fEnabled) {
+        if (g_use_item_select_panels[i]->m_active) {
             if (active) {
-                g_use_item_select_panels[i]->Invalidate(0);
+                g_use_item_select_panels[i]->InvalidateAll();
             }
             if (i == 1) {
-                panel_dirty = g_use_item_select_panels[1]->m_fEnabled &&
-                              (g_use_item_select_panels[1]->m_fDirty ||
-                               g_use_item_select_panels[1]->m_fLayoutDirty);
+                panel_dirty = g_use_item_select_panels[1]->m_active &&
+                              (g_use_item_select_panels[1]->m_dirty ||
+                               g_use_item_select_panels[1]->m_childrenDirty);
             }
-            g_use_item_select_panels[i]->Redraw();
+            g_use_item_select_panels[i]->Redraw(GetFrameBufferSurface(), false);
             if (panel_dirty) {
                 RedrawTextBoxScrollChrome();
             }
@@ -383,8 +378,8 @@ static void SelectUseItemScrollMode(int mode)
 {
     W8TextControl* selected = g_use_item_select_scroll_buttons[mode];
     W8TextControl* other = g_use_item_select_scroll_buttons[1 - mode];
-    if ((selected->m_stateFlags & g_W8TextControlStateSecondary) != 0) {
-        if ((other->m_stateFlags & g_W8TextControlStateSecondary) != 0) {
+    if (selected->IsSelected()) {
+        if (other->IsSelected()) {
             other->DisableSecondaryState(false);
             other->Invalidate(false);
         }
@@ -412,8 +407,7 @@ void UpdateUseItemScrollButtons(void)
         return;
     }
     if (gXStatus.fCombatMode) {
-        if (static_cast<unsigned char>(g_use_item_select_scroll_buttons[0]->m_stateFlags &
-                                       g_W8TextControlStateSecondary) == 0) {
+        if (g_use_item_select_scroll_buttons[0]->IsSelected() == 0) {
             g_use_item_select_scroll_buttons[0]->EnableSecondaryState(false);
             g_use_item_select_scroll_buttons[0]->Invalidate(false);
             UseItemSelectScrollUp();
@@ -434,17 +428,10 @@ void UpdateUseItemScrollButtons(void)
     }
 }
 
-// FUNCTION: WIZ8 0x0059D7E0
-static void UseItemSelectScrollDown(void)
-{
-    SelectUseItemScrollMode(1);
-}
-
 // FUNCTION: WIZ8 0x0059D830
 static void UseItemSelectFilterToggle(void)
 {
-    if (static_cast<unsigned char>(g_use_item_select_controls[3]->m_stateFlags &
-                                   g_W8TextControlStateSecondary) == 0) {
+    if (g_use_item_select_controls[3]->IsSelected() == 0) {
         g_use_item_select_controls[3]->EnableSecondaryState(true);
         g_use_item_select_controls[3]->Invalidate(false);
     }
