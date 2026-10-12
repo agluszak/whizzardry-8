@@ -94,6 +94,8 @@ void SortPartyItemPool(void);
 void RefreshAfterItemRecordChange(W8ItemInstance* item, W8Character* character, bool refresh);
 void ReplaceOrCreateItem(W8ItemInstance* item, int item_id, bool maximum_quantity,
                          bool force_identified, bool mark_special);
+bool PlaceItemOnCursor(int item_id, bool maximum_quantity, bool force_identified,
+                      bool mark_special);
 void SwapItemInstances(W8ItemInstance* item, W8ItemInstance* destination, W8Character* character,
                        bool refresh);
 void NormalizeItemStack(W8ItemInstance* item);

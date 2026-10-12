@@ -56,12 +56,7 @@ void EnsureTrynnie2KilledVar(void)
 // FUNCTION: WIZ8 0x004D9D70
 bool Trynnie2GoodaVineA(Trigger* pTrigger)
 {
-    if (g_status.item_in_cursor) {
-        return false;
-    }
-    ReplaceOrCreateItem(&g_status.item_in_hand, 0x16d, true, true, false);
-    SetItemCursor(0);
-    return true;
+    return PlaceItemOnCursor(0x16d, true, true, false);
 }
 
 /* "GoodaVine_B": place the second vine item on the cursor, refusing while the
@@ -69,12 +64,7 @@ bool Trynnie2GoodaVineA(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004D9DA0
 bool Trynnie2GoodaVineB(Trigger* pTrigger)
 {
-    if (g_status.item_in_cursor) {
-        return false;
-    }
-    ReplaceOrCreateItem(&g_status.item_in_hand, 0x16e, true, true, false);
-    SetItemCursor(0);
-    return true;
+    return PlaceItemOnCursor(0x16e, true, true, false);
 }
 
 /* "Give_Zulu": place item 0x1b3 on the cursor, refusing while the cursor
@@ -82,12 +72,7 @@ bool Trynnie2GoodaVineB(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004D9DD0
 bool Trynnie2GiveZulu(Trigger* pTrigger)
 {
-    if (g_status.item_in_cursor) {
-        return false;
-    }
-    ReplaceOrCreateItem(&g_status.item_in_hand, 0x1b3, true, true, false);
-    SetItemCursor(0);
-    return true;
+    return PlaceItemOnCursor(0x1b3, true, true, false);
 }
 
 /* "Meat_Maker": spawn the meat item at the Meat_Position entity. */
