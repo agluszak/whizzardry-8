@@ -305,7 +305,7 @@ class Game
         if (region < 0)
             Fail(step, "target region is not live");
         const W8Region& bounds = g_regions[region];
-        if ((bounds.flags & W8_REGION_MODE_MASK) == W8_REGION_CIRCLE) {
+        if ((bounds.flags & (W8_REGION_RECTANGLE | W8_REGION_CIRCLE)) == W8_REGION_CIRCLE) {
             click_at(bounds.x1, bounds.y1); // Circle fields are centre and radius.
         } else {
             click_at((bounds.x1 + bounds.x2) / 2, (bounds.y1 + bounds.y2) / 2);
