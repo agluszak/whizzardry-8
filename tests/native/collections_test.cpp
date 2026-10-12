@@ -124,20 +124,27 @@ TEST_CASE("panel_adopts_and_transfers_unattached_widgets")
     REQUIRE(g_regions[widget->m_region].x1 == 301);
     REQUIRE(g_regions[widget->m_region].y1 == 402);
 
-    // Text controls may borrow geometry from the panel during construction,
-    // but must not register or change ownership until AddControl is called.
+    // Text layout is panel-relative: it is resolved on adoption and follows
+    // reparenting and panel moves, as the hit region does. Centred 10px text
+    // in the 15px-wide rectangle 3..18 starts 2px in.
     auto pending_text = std::make_unique<W8TextControl>(
-        source, -1u, 3, 4, 18, 20, std::nullopt, -1, -1, -1, -1, -1);
+        -1u, 3, 4, 18, 20, std::nullopt, -1, -1, -1, -1, -1);
     auto* text = pending_text.get();
-    REQUIRE(text->m_pPanel == nullptr);
-    REQUIRE(text->m_textBuffer.GetHorizontalPosition(10) == 105);
-    REQUIRE(source.ControlCount() == 0);
     source.AddControl(std::move(pending_text));
-    REQUIRE(source.ControlCount() == 1);
-    REQUIRE(text->m_pPanel == &source);
+    REQUIRE(text->m_textBuffer.GetHorizontalPosition(10) == 105);
     REQUIRE(g_regions[text->m_region].handler == text);
-    source.RemoveControl(text);
-    REQUIRE(source.ControlCount() == 0);
+    target.AddControl(source.TakeControl(text));
+    REQUIRE(text->m_textBuffer.GetHorizontalPosition(10) == 305);
+    REQUIRE(g_regions[text->m_region].x1 == 303);
+    target.SetBounds(500, 400, 600, 500);
+    REQUIRE(text->m_textBuffer.GetHorizontalPosition(10) == 505);
+    REQUIRE(g_regions[text->m_region].x1 == 503);
+    REQUIRE(g_regions[widget->m_region].x1 == 501);
+    // An explicit text rectangle is panel-relative too.
+    text->UpdateTextBounds(20, 4, 35, 20);
+    target.SetBounds(300, 400, 400, 500);
+    REQUIRE(text->m_textBuffer.GetHorizontalPosition(10) == 322);
+    target.RemoveControl(text);
 
     auto* another = target.EmplaceControl<W8Widget>();
     REQUIRE(target.ControlCount() == 2);
@@ -220,18 +227,15 @@ TEST_CASE("widget_region_lifetimes")
 
     // A failed derived constructor must never register or enter the owner.
     struct FailingWidget : W8Widget {
-        explicit FailingWidget(Controls& owner) : W8Widget(-1u, 0, 0, 10, 10)
+        FailingWidget() : W8Widget(-1u, 0, 0, 10, 10)
         {
-            REQUIRE(m_pPanel == nullptr);
-            REQUIRE(owner.ControlCount() == 0);
-            REQUIRE(g_region_sets[owner.RegionSet()].Regions().empty());
             throw std::runtime_error("incomplete widget");
         }
     };
     Controls failing_panel;
     failing_panel.CreateRegionSet();
     const auto live_before_failure = LiveDynamicRegionCount();
-    REQUIRE_THROWS_AS(failing_panel.EmplaceControl<FailingWidget>(failing_panel), std::runtime_error);
+    REQUIRE_THROWS_AS(failing_panel.EmplaceControl<FailingWidget>(), std::runtime_error);
     REQUIRE(failing_panel.ControlCount() == 0);
     REQUIRE(g_region_sets[failing_panel.RegionSet()].Regions().empty());
     REQUIRE(LiveDynamicRegionCount() == live_before_failure);

@@ -44,9 +44,8 @@ public:
     };
 
     W8TextControl();
-    // Explicit parent adoption: panel geometry is borrowed for text layout,
-    // but this constructor leaves the widget unattached.
-    W8TextControl(Controls& panel, unsigned int region, int left, int top, int right, int bottom,
+    // A right or bottom of zero takes the edge from the normal sprite's size.
+    W8TextControl(unsigned int region, int left, int top, int right, int bottom,
                   std::optional<CatalogArtwork> image_artwork, int normal_sprite, int pressed_sprite,
                   int alternate_normal_sprite, int alternate_pressed_sprite, int disabled_sprite);
     void SetImage(CatalogArtwork artwork);
@@ -73,9 +72,8 @@ public:
     virtual void OnLeftButtonDoubleClick(int event) override;
     virtual void ActivatePrimary(int event) override;
     virtual void ActivateSecondary(int event) override;
+    /* Lays text out in this panel-relative rectangle instead of the widget's. */
     void UpdateTextBounds(int left, int top, int right, int bottom);
-    virtual void SetBounds(int left, int top, int right, int bottom) override;
-    virtual void SetBoundsFromRect(const W8ControlsRect* bounds) override;
 
 public:
     /* The state-5 controller persists two option bits by directly masking the
@@ -101,7 +99,12 @@ public:
        construction; the pointer is the shared callback attachment point. */
     Listener* m_listener;
 
+private:
+    std::optional<W8ControlsRect> m_textBounds; /* set by UpdateTextBounds */
+
 protected:
+    void OnGeometryChanged() override;
+    W8ControlsRect TextBounds();
     void UpdateTextLayout();
     void NotifyPrimaryActivation();
     void NotifySecondaryActivation();
@@ -110,8 +113,7 @@ protected:
 // VTABLE: WIZ8 0x005ed758
 class W8HelpTextControl : public W8TextControl {
 public:
-    W8HelpTextControl(Controls& panel, unsigned int region, int left, int top, int right,
-                      int bottom);
+    W8HelpTextControl(unsigned int region, int left, int top, int right, int bottom);
 
     void SetRegionHelp(std::string_view text);
     virtual void OnMouseEnter(int event) override;

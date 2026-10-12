@@ -1426,7 +1426,7 @@ unsigned char BuildSubMenuPanel(short notification)
             icon_delta = 2;
             break;
         }
-        g_submenu_rows[index] = gpSubMenuPanel->EmplaceControl<W8TextControl>(*gpSubMenuPanel, g_main_submenu_regions->index(index), index * 19 + 5, 5, index * 19 + 0x17, 0x17,
+        g_submenu_rows[index] = gpSubMenuPanel->EmplaceControl<W8TextControl>(g_main_submenu_regions->index(index), index * 19 + 5, 5, index * 19 + 0x17, 0x17,
             CatalogArtwork::Load(0x89, 0),
             message, message, message + icon_delta, message + icon_delta, -1);
         if (g_submenu_rows[index] == 0) {
@@ -1438,7 +1438,7 @@ unsigned char BuildSubMenuPanel(short notification)
         (*g_main_submenu_regions)[index].SetHelp(true, g_submenu_entry_help_ids[menu * 5 + entry]);
     }
     g_submenu_rows[built - 1] =
-        gpSubMenuPanel->EmplaceControl<W8TextControl>(*gpSubMenuPanel, g_main_submenu_regions->index(built - 1), built * 19 - 14, 5,
+        gpSubMenuPanel->EmplaceControl<W8TextControl>(g_main_submenu_regions->index(built - 1), built * 19 - 14, 5,
                           built * 19 - 2, 0x17, CatalogArtwork::Load(0x89, 0), 0xbd, 0xbd, 0xbf, 0xbf, -1);
     if (g_submenu_rows[built - 1] == 0) {
         DestroySubMenuPanel();

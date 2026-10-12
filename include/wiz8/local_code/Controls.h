@@ -30,8 +30,7 @@ unsigned char DispatchButtonRegionEvent(const InputEvent* event, W8Region* regio
 
 /* Panel/container, not a W8Widget base. Child ownership is held by unique_ptr;
    widgets retain a non-owning back-pointer in m_pPanel. TakeControl transfers
-   ownership to the caller; DestroyAllControls permits early release when rebuilding.
-   The accumulated redraw rectangle uses left == -1 for an empty rectangle. */
+   ownership to the caller; DestroyAllControls permits early release when rebuilding. */
 // VTABLE: WIZ8 0x005ed5a4
 struct Controls {
     Controls();
@@ -51,8 +50,6 @@ struct Controls {
     W8ControlsRect m_bounds; /* widget rectangles are relative to its origin */
     std::optional<CatalogArtwork> m_background;
     int m_backgroundImage;
-    W8ControlsRect m_dirtyRect;
-    bool m_fWholeAreaDirty; /* set when a caller passes no rectangle */
     /* The region set this panel's widgets register in; 0 until CreateRegionSet. */
     unsigned int RegionSet() const { return m_regionSet; }
     void EnableRegionSet(bool enable);
@@ -82,6 +79,8 @@ struct Controls {
   private:
     std::vector<std::unique_ptr<W8Widget>> m_controls;
     unsigned int m_regionSet = 0;
+    /* While m_fDirty: the bounded area pending redraw, or none for the whole panel. */
+    std::optional<W8ControlsRect> m_dirtyRect;
 
   protected:
     void RedrawChildren(bool full_redraw)

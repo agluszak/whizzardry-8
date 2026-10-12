@@ -473,7 +473,7 @@ void CreateRcsLevelUpPanel(void)
     }
 
     g_level_up_button =
-        g_level_up_panel->EmplaceControl<W8TextControl>(*g_level_up_panel, g_camp_main_regions->index(0), 0, 0, 0x12, 0x12,
+        g_level_up_panel->EmplaceControl<W8TextControl>(g_camp_main_regions->index(0), 0, 0, 0x12, 0x12,
                           CatalogArtwork::Load(0xa7, 0), 0, 2, 1, 4, 3);
     if (g_level_up_button == 0) {
         srAssertFail("gpLevelUpButton", "C:\\Projects\\Wizardry 8\\Local Screens\\RCSCommon.cpp",
@@ -546,7 +546,7 @@ void CreateRcsDismissPanel(void)
     }
 
     g_dismiss_button =
-        g_dismiss_panel->EmplaceControl<W8TextControl>(*g_dismiss_panel, g_camp_main_regions->index(1), 0, 0, 0x17, 0x10,
+        g_dismiss_panel->EmplaceControl<W8TextControl>(g_camp_main_regions->index(1), 0, 0, 0x17, 0x10,
                           CatalogArtwork::Load(0x113, 0), 0, 2, 1, 2, 3);
     if (g_dismiss_button == 0) {
         srAssertFail("gpDismissButton", "C:\\Projects\\Wizardry 8\\Local Screens\\RCSCommon.cpp",
@@ -1034,15 +1034,15 @@ int CreateCampButtonPanel(void)
     g_camp_item_action_regions.Enable();
     g_item_actions_panel = std::make_unique<Controls>(0, 0x1c2, 0x280, 0x1e0, CatalogArtwork::Load(0x110, 0), 0);
     if (g_item_actions_panel) {
-        g_camp_page_buttons[0] = g_item_actions_panel->EmplaceControl<W8TextControl>(*g_item_actions_panel, g_camp_page_regions->index(0), 0x1a4, 0, 0x1d0, 0x1e,
+        g_camp_page_buttons[0] = g_item_actions_panel->EmplaceControl<W8TextControl>(g_camp_page_regions->index(0), 0x1a4, 0, 0x1d0, 0x1e,
             CatalogArtwork::Load(0x111, 0), 0, 4, 1, 2, 3);
-        g_camp_page_buttons[1] = g_item_actions_panel->EmplaceControl<W8TextControl>(*g_item_actions_panel, g_camp_page_regions->index(1), 0x1d0, 0, 0x1fc, 0x1e,
+        g_camp_page_buttons[1] = g_item_actions_panel->EmplaceControl<W8TextControl>(g_camp_page_regions->index(1), 0x1d0, 0, 0x1fc, 0x1e,
             CatalogArtwork::Load(0x111, 0), 10, 0xe, 0xb, 0xc, 0xd);
-        g_camp_page_buttons[2] = g_item_actions_panel->EmplaceControl<W8TextControl>(*g_item_actions_panel, g_camp_page_regions->index(2), 0x1fc, 0, 0x228, 0x1e,
+        g_camp_page_buttons[2] = g_item_actions_panel->EmplaceControl<W8TextControl>(g_camp_page_regions->index(2), 0x1fc, 0, 0x228, 0x1e,
             CatalogArtwork::Load(0x111, 0), 0xf, 0x13, 0x10, 0x11, 0x12);
-        g_camp_page_buttons[3] = g_item_actions_panel->EmplaceControl<W8TextControl>(*g_item_actions_panel, g_camp_page_regions->index(3), 0x228, 0, 0x254, 0x1e,
+        g_camp_page_buttons[3] = g_item_actions_panel->EmplaceControl<W8TextControl>(g_camp_page_regions->index(3), 0x228, 0, 0x254, 0x1e,
             CatalogArtwork::Load(0x111, 0), 5, 9, 6, 7, 8);
-        g_camp_page_buttons[4] = g_item_actions_panel->EmplaceControl<W8TextControl>(*g_item_actions_panel, g_camp_page_regions->index(4), 0x254, 0, 0x280, 0x1e,
+        g_camp_page_buttons[4] = g_item_actions_panel->EmplaceControl<W8TextControl>(g_camp_page_regions->index(4), 0x254, 0, 0x280, 0x1e,
             CatalogArtwork::Load(0x106, 0), 0x10, -1, 0x11, 0x12, 0x13);
         for (index = 0; index < 5; ++index) {
             if (g_camp_page_buttons[index] == 0) {
@@ -1058,30 +1058,30 @@ int CreateCampButtonPanel(void)
         g_camp_page_buttons[2]->m_primaryActivationCallback = OnCampPageButton2;
         g_camp_page_buttons[3]->m_primaryActivationCallback = OnCampPageButton3;
         g_camp_page_buttons[4]->m_primaryActivationCallback = CampPageDismissAction;
-        g_item_action_controls[W8_CAMP_ACTION_BUTTON_IDENTIFY] = g_item_actions_panel->EmplaceControl<W8TextControl>(*g_item_actions_panel, g_camp_item_action_regions->index(0), 0, 0, 0x2c, 0x1e,
+        g_item_action_controls[W8_CAMP_ACTION_BUTTON_IDENTIFY] = g_item_actions_panel->EmplaceControl<W8TextControl>(g_camp_item_action_regions->index(0), 0, 0, 0x2c, 0x1e,
             CatalogArtwork::Load(0x112, 0), 0, 2, 1, 4, 3);
-        g_item_action_controls[W8_CAMP_ACTION_BUTTON_MOVE] = g_item_actions_panel->EmplaceControl<W8TextControl>(*g_item_actions_panel, g_camp_item_action_regions->index(1), 0x2c, 0, 0x58, 0x1e,
+        g_item_action_controls[W8_CAMP_ACTION_BUTTON_MOVE] = g_item_actions_panel->EmplaceControl<W8TextControl>(g_camp_item_action_regions->index(1), 0x2c, 0, 0x58, 0x1e,
             CatalogArtwork::Load(0x112, 0), 10, 0xc, 0xb, 0xe, 0xd);
-        g_item_action_controls[W8_CAMP_ACTION_BUTTON_SPLIT_STACK] = g_item_actions_panel->EmplaceControl<W8TextControl>(*g_item_actions_panel, g_camp_item_action_regions->index(2), 0x58, 0, 0x84, 0x1e,
+        g_item_action_controls[W8_CAMP_ACTION_BUTTON_SPLIT_STACK] = g_item_actions_panel->EmplaceControl<W8TextControl>(g_camp_item_action_regions->index(2), 0x58, 0, 0x84, 0x1e,
             CatalogArtwork::Load(0x112, 0), 5, 7, 6, 9, 8);
         g_item_action_controls[W8_CAMP_ACTION_BUTTON_USE] =
-            g_item_actions_panel->EmplaceControl<W8TextControl>(*g_item_actions_panel, g_camp_item_action_regions->index(3), 0x84, 0,
+            g_item_actions_panel->EmplaceControl<W8TextControl>(g_camp_item_action_regions->index(3), 0x84, 0,
                               0xb0, 0x1e, CatalogArtwork::Load(0x112, 0), 0xf, 0x11, 0x10, 0x13,
                               0x12);
         g_item_action_controls[W8_CAMP_ACTION_BUTTON_DROP] =
-            g_item_actions_panel->EmplaceControl<W8TextControl>(*g_item_actions_panel, g_camp_item_action_regions->index(4), 0xb0, 0,
+            g_item_actions_panel->EmplaceControl<W8TextControl>(g_camp_item_action_regions->index(4), 0xb0, 0,
                               0xdc, 0x1e, CatalogArtwork::Load(0x112, 0), 0x14, 0x16, 0x15,
                               0x18, 0x17);
         g_item_action_controls[W8_CAMP_ACTION_BUTTON_CAST_SPELL] =
-            g_item_actions_panel->EmplaceControl<W8TextControl>(*g_item_actions_panel, g_camp_item_action_regions->index(5), 0x134, 0,
+            g_item_actions_panel->EmplaceControl<W8TextControl>(g_camp_item_action_regions->index(5), 0x134, 0,
                               0x160, 0x1e, CatalogArtwork::Load(0x112, 0), 0x19, 0x1b, 0x1a,
                               0x1d, 0x1c);
         g_item_action_controls[W8_CAMP_ACTION_BUTTON_USE_ON_ITEM] =
-            g_item_actions_panel->EmplaceControl<W8TextControl>(*g_item_actions_panel, g_camp_item_action_regions->index(6), 0xdc, 0,
+            g_item_actions_panel->EmplaceControl<W8TextControl>(g_camp_item_action_regions->index(6), 0xdc, 0,
                               0x108, 0x1e, CatalogArtwork::Load(0x112, 0), 0x1e, 0x20, 0x1f,
                               0x22, 0x21);
         g_item_action_controls[W8_CAMP_ACTION_BUTTON_USE_ON_CHARACTER] =
-            g_item_actions_panel->EmplaceControl<W8TextControl>(*g_item_actions_panel, g_camp_item_action_regions->index(7), 0x108, 0,
+            g_item_actions_panel->EmplaceControl<W8TextControl>(g_camp_item_action_regions->index(7), 0x108, 0,
                               0x134, 0x1e, CatalogArtwork::Load(0x112, 0), 0x23, 0x25, 0x24,
                               0x27, 0x26);
         index = 0;

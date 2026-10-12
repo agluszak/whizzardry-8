@@ -156,7 +156,7 @@ void RebuildSpellIconHudRows(void)
             if (icon == -1) {
                 ReportAssertion("iSpellIcon != BAD_INDEX", MGSSPELLICONS_CPP, 0x108);
             }
-            control = g_spell_icon_strip->EmplaceControl<W8TextControl>(*g_spell_icon_strip, g_main_effect_regions->index(8 - g_spell_icon_count),
+            control = g_spell_icon_strip->EmplaceControl<W8TextControl>(g_main_effect_regions->index(8 - g_spell_icon_count),
                                         left, 0, right, 0x12, CatalogArtwork::Load(icon, 0), 0, -1,
                                         -1, -1, -1);
             g_spell_icon_rows[g_spell_icon_count] = control;
@@ -220,8 +220,7 @@ static void RebuildCombatEffectHudRows(void)
                 ReportAssertion("iSpellIcon != BAD_INDEX", MGSSPELLICONS_CPP, 0x228);
             }
             control =
-                g_combat_effect_left_panel->EmplaceControl<W8TextControl>(*g_combat_effect_left_panel,
-                                  g_main_effect_regions->index(9 + g_combat_effect_left_count), left,
+                g_combat_effect_left_panel->EmplaceControl<W8TextControl>(g_main_effect_regions->index(9 + g_combat_effect_left_count), left,
                                   0, right, 0x14, CatalogArtwork::Load(icon, 0), 0, -1, -1, -1,
                                   -1);
             g_combat_effect_left_rows[g_combat_effect_left_count] = control;
@@ -244,8 +243,7 @@ static void RebuildCombatEffectHudRows(void)
                 ReportAssertion("iSpellIcon != BAD_INDEX", MGSSPELLICONS_CPP, 0x25e);
             }
             control =
-                g_combat_effect_right_panel->EmplaceControl<W8TextControl>(*g_combat_effect_right_panel,
-                    g_main_effect_regions->index(23 - g_combat_effect_right_count), left, 0, right,
+                g_combat_effect_right_panel->EmplaceControl<W8TextControl>(g_main_effect_regions->index(23 - g_combat_effect_right_count), left, 0, right,
                     0x14, CatalogArtwork::Load(icon, 0), 0, -1, -1, -1, -1);
             g_combat_effect_right_rows[g_combat_effect_right_count] = control;
             control->Invalidate(false);

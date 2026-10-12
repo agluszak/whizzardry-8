@@ -2231,6 +2231,17 @@ TEST_CASE("Controls draw optional CatalogArtwork backgrounds", "[owner][catalog]
     without_background.m_fDirty = true;
     without_background.Redraw();
     REQUIRE(surface_pixel(framebuffer, 152, 103) == 0x07e0);
+
+    // A bounded invalidation must not narrow a pending whole-panel one.
+    const SDL_Point extent = sprites.size(0);
+    const W8ControlsRect corner{100, 100, 101, 101};
+    TakeUiUpload();
+    with_background.Invalidate(nullptr);
+    with_background.Invalidate(&corner);
+    with_background.Redraw();
+    const SDL_Rect whole{100, 100, extent.x, extent.y};
+    const auto upload = TakeUiUpload();
+    REQUIRE(SDL_RectsEqual(&upload, &whole));
 }
 
 TEST_CASE("Item image cache owns shared sprite sheets", "[owner][catalog]")

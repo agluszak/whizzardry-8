@@ -790,7 +790,7 @@ unsigned char BuildKeyboardMenu(void)
             if (message == -1) {
                 continue;
             }
-            control = g_keyboard_menu_panel->EmplaceControl<W8TextControl>(*g_keyboard_menu_panel, g_keyboard_menu_regions->index(row),
+            control = g_keyboard_menu_panel->EmplaceControl<W8TextControl>(g_keyboard_menu_regions->index(row),
                 g_keyboard_row_positions[row].x,
                 g_keyboard_row_positions[row].y, g_keyboard_row_positions[row].x + 0x12,
                 g_keyboard_row_positions[row].y + 0x12, CatalogArtwork::Load(0x89, 0), -1, -1,
@@ -810,7 +810,7 @@ unsigned char BuildKeyboardMenu(void)
             ++row;
         }
     }
-    g_keyboard_menu_rows[row] = g_keyboard_menu_panel->EmplaceControl<W8TextControl>(*g_keyboard_menu_panel, g_keyboard_menu_regions->index(row), g_keyboard_row_positions[row].x,
+    g_keyboard_menu_rows[row] = g_keyboard_menu_panel->EmplaceControl<W8TextControl>(g_keyboard_menu_regions->index(row), g_keyboard_row_positions[row].x,
         g_keyboard_row_positions[row].y, g_keyboard_row_positions[row].x + 0x12,
         g_keyboard_row_positions[row].y + 0x12, CatalogArtwork::Load(0x89, 0), 0xbd, 0xbd, 0xbf,
         0xbf, -1);

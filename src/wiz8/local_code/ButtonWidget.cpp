@@ -67,11 +67,7 @@ void W8ButtonWidget::SetMultiColor(bool enabled)
 
 void W8ButtonWidget::SetButtonRect(const SDL_Rect& bounds)
 {
-    m_left = bounds.x;
-    m_top = bounds.y;
-    m_right = bounds.x + bounds.w;
-    m_bottom = bounds.y + bounds.h;
-    UpdateRegionBounds(m_left, m_top, m_right, m_bottom);
+    SetBounds(bounds.x, bounds.y, bounds.x + bounds.w, bounds.y + bounds.h);
 }
 
 SDL_Rect W8ButtonWidget::ScreenBounds() const

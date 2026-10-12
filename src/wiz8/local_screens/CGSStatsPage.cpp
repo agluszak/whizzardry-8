@@ -102,7 +102,7 @@ static char g_zero_slash_zero[] = "0/0";
 // VTABLE: WIZ8 0x005ef700 W8CharacterStatsRecordControl
 class W8CharacterStatsRecordControl : public W8TextControl {
 public:
-    W8CharacterStatsRecordControl(Controls& owner, int top, int height,
+    W8CharacterStatsRecordControl(int top, int height,
                                   const W8CharacterStatsRecord* record, int variant);
     virtual void Redraw(bool full_redraw) override;
     virtual void OnMouseEnter(int event) override;
@@ -116,9 +116,9 @@ public:
 };
 
 // FUNCTION: WIZ8 0x005c8e70
-W8CharacterStatsValue::W8CharacterStatsValue(Controls& owner, int x, int y,
+W8CharacterStatsValue::W8CharacterStatsValue(int x, int y,
                                              const W8CharacterStatsRecord* default_record)
-    : W8TextControl(owner, 0xffffffff, x, y, 0, 0, CatalogArtwork::Load(0x104, 0), 1, 1, 2, 2, 3),
+    : W8TextControl(0xffffffff, x, y, 0, 0, CatalogArtwork::Load(0x104, 0), 1, 1, 2, 2, 3),
       m_default_record(default_record)
 {
     m_textBuffer.SetText(g_localized_strings[default_record->name_id], g_options_detail_font);
@@ -165,10 +165,10 @@ void W8CharacterStatsValue::OnRightButtonUp(int event)
 }
 
 // FUNCTION: WIZ8 0x005c9060
-W8CharacterStatsRecordControl::W8CharacterStatsRecordControl(Controls& owner, int top, int height,
+W8CharacterStatsRecordControl::W8CharacterStatsRecordControl(int top, int height,
                                                              const W8CharacterStatsRecord* record,
                                                              int variant)
-    : W8TextControl(owner, 0xffffffff, 0, top, 0x7e, top + height, CatalogArtwork::Load(0x104, 0), 0, 0, 0, 0, 0)
+    : W8TextControl(0xffffffff, 0, top, 0x7e, top + height, CatalogArtwork::Load(0x104, 0), 0, 0, 0, 0, 0)
 {
     m_record = record;
     m_variant = static_cast<unsigned char>(variant);
@@ -254,16 +254,16 @@ void W8CharacterStatsRow::Initialize(Controls* owner, int x, int y,
         srAssertFail("usItemsInList", CGS_STATS_PAGE_CPP, 0x1d6, 0);
     }
 
-    m_decrement = owner->EmplaceControl<W8TextControl>(*owner, 0xffffffff, x + 1, y + 4, 0, 0, CatalogArtwork::Load(0x10a, 0), 0, 2, 1, 4, 3);
+    m_decrement = owner->EmplaceControl<W8TextControl>(0xffffffff, x + 1, y + 4, 0, 0, CatalogArtwork::Load(0x10a, 0), 0, 2, 1, 4, 3);
     m_decrement->m_listener = this;
     m_decrement->EnableRegionHelp(help_first);
 
     m_increment =
-        owner->EmplaceControl<W8TextControl>(*owner, 0xffffffff, x + 0x9f, y + 4, 0, 0, CatalogArtwork::Load(0x10a, 0), 5, 7, 6, 9, 8);
+        owner->EmplaceControl<W8TextControl>(0xffffffff, x + 0x9f, y + 4, 0, 0, CatalogArtwork::Load(0x10a, 0), 5, 7, 6, 9, 8);
     m_increment->m_listener = this;
     m_increment->EnableRegionHelp(help_value);
 
-    m_value_control = owner->EmplaceControl<W8CharacterStatsValue>(*owner, x + 0x1c, y + 4, default_record);
+    m_value_control = owner->EmplaceControl<W8CharacterStatsValue>(x + 0x1c, y + 4, default_record);
     m_value_control->UpdateTextBounds(x + 0x1c + 0x19, y + 4, x + 0x1c + 0x7e, y + 4 + 0x16);
     m_value_control->AddLayoutFlags(g_W8TextControlLayoutToggle);
     m_value_control->m_listener = this;
@@ -304,7 +304,7 @@ void W8CharacterStatsRow::BuildSubpanel()
                 height = 0x16;
             }
             auto* control = m_subpanel->EmplaceControl<W8CharacterStatsRecordControl>(
-                *m_subpanel, top, height, &m_table[index], variant);
+                top, height, &m_table[index], variant);
             m_subpanel_entries[index] = control;
             control->UpdateTextBounds(0x19, control->m_text_offset + top, 0x7e,
                                       control->m_text_offset + top + 0x16);
@@ -798,7 +798,7 @@ void W8CharacterStatsPage::SetCharacter(W8Character* character,
 
     for (int control_index = 0; control_index < 5; ++control_index) {
         W8TextControl* control =
-            EmplaceControl<W8TextControl>(*this, 0xffffffff, 0xf3, 0xba + control_index * 0xe, 0x195, 0xba + control_index * 0xe + 0xc, std::nullopt, -1, -1, -1, -1, -1);
+            EmplaceControl<W8TextControl>(0xffffffff, 0xf3, 0xba + control_index * 0xe, 0x195, 0xba + control_index * 0xe + 0xc, std::nullopt, -1, -1, -1, -1, -1);
         m_attribute_controls[control_index] = control;
         control->SetActive(false);
         control->m_listener = this;

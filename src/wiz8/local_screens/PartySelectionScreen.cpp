@@ -416,7 +416,7 @@ public:
    index, and the panel callback used for row/scroll actions. */
 class W8PartySelectionCharacterRow : public W8TextControl {
 public:
-    W8PartySelectionCharacterRow(Controls& panel, int top, int row);
+    W8PartySelectionCharacterRow(int top, int row);
     virtual void Redraw(bool full_redraw) override;
     virtual void AdjustValue(int amount) override;
     virtual void OnRightButtonUp(int event) override;
@@ -477,7 +477,7 @@ public:
 
 class W8PartySelectionPartySlotRow : public W8TextControl {
 public:
-    W8PartySelectionPartySlotRow(Controls& panel, int row);
+    explicit W8PartySelectionPartySlotRow(int row);
     virtual void Redraw(bool full_redraw) override;
     virtual void OnRightButtonUp(int event) override;
     virtual void OnLeftButtonDoubleClick(int event) override;
@@ -617,8 +617,8 @@ bool PartySelectionInReviewMode(void)
     return g_party_selection_controller->m_mode == W8_PARTY_SELECT_IMPORT;
 }
 
-W8PartySelectionCharacterRow::W8PartySelectionCharacterRow(Controls& panel, int top, int row)
-    : W8TextControl(panel, 0xffffffff, 0, top, 0, 0, CatalogArtwork::Load(0xfb, 0), 0, 1, 2, 1, -1), m_row(row),
+W8PartySelectionCharacterRow::W8PartySelectionCharacterRow(int top, int row)
+    : W8TextControl(0xffffffff, 0, top, 0, 0, CatalogArtwork::Load(0xfb, 0), 0, 1, 2, 1, -1), m_row(row),
       m_character_index(0), m_selection_listener(0)
 {
     AddLayoutFlags(0x11);
@@ -718,7 +718,7 @@ W8PartySelectionCharacterPanel::W8PartySelectionCharacterPanel()
 
     int top = 0;
     for (int row = 0; row < 6; ++row) {
-        W8PartySelectionCharacterRow* control = EmplaceControl<W8PartySelectionCharacterRow>(*this, top, row);
+        W8PartySelectionCharacterRow* control = EmplaceControl<W8PartySelectionCharacterRow>(top, row);
         control->m_selection_listener = this;
         m_control.AddEntry(control);
         top += 0x2a;
@@ -800,8 +800,8 @@ void W8PartySelectionCharacterPanel::AdjustPartyMemberRange(int amount)
 }
 
 // FUNCTION: WIZ8 0x005bf120
-W8PartySelectionPartySlotRow::W8PartySelectionPartySlotRow(Controls& panel, int row)
-    : W8TextControl(panel, 0xffffffff, (row & 1) * 0x20b + 0x0e, (row / 2) * 0x82 + 0x3a, 0, 0, CatalogArtwork::Load(0x101, 0), -1, 1, 0, 0, -1),
+W8PartySelectionPartySlotRow::W8PartySelectionPartySlotRow(int row)
+    : W8TextControl(0xffffffff, (row & 1) * 0x20b + 0x0e, (row / 2) * 0x82 + 0x3a, 0, 0, CatalogArtwork::Load(0x101, 0), -1, 1, 0, 0, -1),
       m_row(row), m_redraw_partner(0)
 {
     AddLayoutFlags(0x11);
@@ -886,7 +886,7 @@ W8PartySelectionPartySlotPanel::W8PartySelectionPartySlotPanel() : Controls()
 {
     CreateRegionSet();
     for (int row = 0; row < 6; ++row) {
-        auto* control = EmplaceControl<W8PartySelectionPartySlotRow>(*this, row);
+        auto* control = EmplaceControl<W8PartySelectionPartySlotRow>(row);
         control->UpdateTextBounds(control->m_left - 8, control->m_top + 0x51,
                                   control->m_left + 0x61, control->m_top + 0x60);
         m_control.AddEntry(control);
@@ -907,7 +907,7 @@ W8PartySelectionCharacterGridPanel::W8PartySelectionCharacterGridPanel() : Contr
         int left = (index & 1) ? 0x21d : 0x52;
         int top = (index / 2) * 0x82 + 0x6c;
         W8TextControl* control =
-            EmplaceControl<W8TextControl>(*this, 0xffffffff, left, top, 0, 0, CatalogArtwork::Load(0xa7, 0), 0, 2, 1, 4, 3);
+            EmplaceControl<W8TextControl>(0xffffffff, left, top, 0, 0, CatalogArtwork::Load(0xa7, 0), 0, 2, 1, 4, 3);
         control->m_listener = this;
     }
 }
@@ -1035,21 +1035,21 @@ W8PartySelectionOptionPanel::W8PartySelectionOptionPanel()
     int top = 0x13;
     for (int index = 0; index < 3; ++index) {
         m_options.AddEntry(
-            EmplaceControl<W8TextControl>(*this, 0xffffffff, 0x15f, top, 0, 0, CatalogArtwork::Load(0xf1, 0), 4, 6, 5, 7, -1));
+            EmplaceControl<W8TextControl>(0xffffffff, 0x15f, top, 0, 0, CatalogArtwork::Load(0xf1, 0), 4, 6, 5, 7, -1));
         top += 0x16;
     }
     m_options.SetSelected(g_settings.difficulty);
 
     top += 0x16;
     npc_interact_toggle =
-        EmplaceControl<W8TextControl>(*this, 0xffffffff, 0x15b, top, 0, 0, CatalogArtwork::Load(0xf1, 0), 2, 0, 3, 1, -1);
+        EmplaceControl<W8TextControl>(0xffffffff, 0x15b, top, 0, 0, CatalogArtwork::Load(0xf1, 0), 2, 0, 3, 1, -1);
     npc_interact_toggle->AddLayoutFlags(g_W8TextControlLayoutLatchedImage |
                                         g_W8TextControlLayoutToggle);
     if (g_settings.simplified_npc_interaction) {
         npc_interact_toggle->EnableSecondaryState(false);
     }
 
-    m_toggle = EmplaceControl<W8TextControl>(*this, 0xffffffff, 0x15b, 0xd6, 0, 0, CatalogArtwork::Load(0xf1, 0), 2, 0, 3, 1, -1);
+    m_toggle = EmplaceControl<W8TextControl>(0xffffffff, 0x15b, 0xd6, 0, 0, CatalogArtwork::Load(0xf1, 0), 2, 0, 3, 1, -1);
     m_toggle->AddLayoutFlags(g_W8TextControlLayoutLatchedImage | g_W8TextControlLayoutToggle);
 
     const SDL_Point _catalog_size_3 = CatalogArtwork::Load(0x102, 0).size(1);
@@ -1223,21 +1223,21 @@ void W8PartySelectionController::Setup()
     m_left_panel = std::make_unique<Controls>(0x145, 0x137, 0, 0, std::nullopt, -1);
     m_left_panel->CreateRegionSet();
     m_create_button =
-        m_left_panel->EmplaceControl<W8TextControl>(*m_left_panel, 0xffffffff, 0, 0, 0, 0, CatalogArtwork::Load(0xfe, 0), 0, 2, 1, 2, 3);
+        m_left_panel->EmplaceControl<W8TextControl>(0xffffffff, 0, 0, 0, 0, CatalogArtwork::Load(0xfe, 0), 0, 2, 1, 2, 3);
     m_create_button->m_textBuffer.SetText(g_localized_strings[0x6c5], g_wiz_text_bold_font);
     m_create_button->m_listener = this;
 
     m_add_remove_button =
-        m_left_panel->EmplaceControl<W8TextControl>(*m_left_panel, 0xffffffff, 0, 0x1a, 0, 0, CatalogArtwork::Load(0xfe, 0), 0, 2, 1, 2, 3);
+        m_left_panel->EmplaceControl<W8TextControl>(0xffffffff, 0, 0x1a, 0, 0, CatalogArtwork::Load(0xfe, 0), 0, 2, 1, 2, 3);
     m_add_remove_button->m_listener = this;
 
     m_delete_button =
-        m_left_panel->EmplaceControl<W8TextControl>(*m_left_panel, 0xffffffff, 0, 0x34, 0, 0, CatalogArtwork::Load(0xfe, 0), 0, 2, 1, 2, 3);
+        m_left_panel->EmplaceControl<W8TextControl>(0xffffffff, 0, 0x34, 0, 0, CatalogArtwork::Load(0xfe, 0), 0, 2, 1, 2, 3);
     m_delete_button->m_textBuffer.SetText(g_localized_strings[0x6c8], g_wiz_text_bold_font);
     m_delete_button->m_listener = this;
 
     m_review_button =
-        m_left_panel->EmplaceControl<W8TextControl>(*m_left_panel, 0xffffffff, 0, 0x4e, 0, 0, CatalogArtwork::Load(0xfe, 0), 0, 2, 1, 2, 3);
+        m_left_panel->EmplaceControl<W8TextControl>(0xffffffff, 0, 0x4e, 0, 0, CatalogArtwork::Load(0xfe, 0), 0, 2, 1, 2, 3);
     m_review_button->m_textBuffer.SetText(g_localized_strings[0x6c9], g_wiz_text_bold_font);
     m_review_button->m_listener = this;
 
@@ -1249,16 +1249,16 @@ void W8PartySelectionController::Setup()
     m_bottom_panel = std::make_unique<Controls>(0x84, 0x1b5, 0, 0, std::nullopt, -1);
     m_bottom_panel->CreateRegionSet();
     m_back_button =
-        m_bottom_panel->EmplaceControl<W8TextControl>(*m_bottom_panel, 0xffffffff, 0x14c, 0, 0, 0, CatalogArtwork::Load(0x106, 0), 4, 6, 5, 6, 7);
+        m_bottom_panel->EmplaceControl<W8TextControl>(0xffffffff, 0x14c, 0, 0, 0, CatalogArtwork::Load(0x106, 0), 4, 6, 5, 6, 7);
     m_back_button->EnableRegionHelp(0x6ca);
     m_back_button->m_listener = this;
 
     m_confirm_button =
-        m_bottom_panel->EmplaceControl<W8TextControl>(*m_bottom_panel, 0xffffffff, 0x120, 0, 0, 0, CatalogArtwork::Load(0x106, 0), 0, 2, 1, 2, 3);
+        m_bottom_panel->EmplaceControl<W8TextControl>(0xffffffff, 0x120, 0, 0, 0, CatalogArtwork::Load(0x106, 0), 0, 2, 1, 2, 3);
     m_confirm_button->EnableRegionHelp(0x6cb);
     m_confirm_button->m_listener = this;
 
-    m_reset_button = m_bottom_panel->EmplaceControl<W8TextControl>(*m_bottom_panel, 0xffffffff, 0xf4, 0, 0, 0, CatalogArtwork::Load(0x106, 0), 0x18, 0x1a, 0x19, 0x1c, 0x1b);
+    m_reset_button = m_bottom_panel->EmplaceControl<W8TextControl>(0xffffffff, 0xf4, 0, 0, 0, CatalogArtwork::Load(0x106, 0), 0x18, 0x1a, 0x19, 0x1c, 0x1b);
     m_reset_button->AddLayoutFlags(g_W8TextControlLayoutLatchedImage | g_W8TextControlLayoutToggle);
     m_reset_button->EnableRegionHelp(0x6cc);
     m_reset_button->m_listener = this;

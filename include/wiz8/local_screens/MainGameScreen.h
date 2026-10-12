@@ -68,8 +68,8 @@ class W8MainGameScreen;
 // VTABLE: WIZ8 0x005eeafc
 class W8MainGameTextKeyHandler : public W8Widget, public W8RangeListener {
 public:
-    W8MainGameTextKeyHandler(Controls& panel, int left, int top, int right, int bottom,
-                             int line_count, const unsigned short* line_string_ids);
+    W8MainGameTextKeyHandler(int left, int top, int right, int bottom, int line_count,
+                             const unsigned short* line_string_ids);
     virtual void Redraw(bool full_redraw) override;
     virtual void OnMouseLeave(int event) override;
     virtual void OnMouseMove(int event) override;
@@ -79,6 +79,10 @@ public:
     virtual char HandleKey(unsigned short key);
     virtual void OnRangeChanged(W8RangeControl* control) override;
 
+protected:
+    void OnGeometryChanged() override;
+
+public:
     W8RangeControl m_range;
     int m_line_count;
     int m_visible_lines;

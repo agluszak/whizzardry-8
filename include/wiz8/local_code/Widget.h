@@ -39,8 +39,8 @@ public:
     /* Default hooks; Redraw's flag is the panel's dirty state. */
     // FUNCTION: WIZ8 0x005b1be0
     virtual void Redraw(bool) {}
-    virtual void SetBounds(int left, int top, int right, int bottom);
-    virtual void SetBoundsFromRect(const W8ControlsRect* bounds);
+    /* The one way to move a widget: hit testing and layout follow. */
+    void SetBounds(int left, int top, int right, int bottom);
     virtual void AddLayoutFlags(unsigned int) {}
     virtual void SetAlternateTextEnabled(bool) {}
     virtual void OnMouseEnter(int) {}
@@ -56,6 +56,10 @@ public:
     virtual void ActivateSecondary(int) {}
 
 protected:
+    /* Called after the widget's rectangle or its panel's origin changed,
+       including attachment to a panel. Overrides that derive screen
+       coordinates from the panel origin must call the base. */
+    virtual void OnGeometryChanged();
     bool OwnsRegion() const;
     void ReleaseRegion();
     void UpdateRegionBounds(int left, int top, int right, int bottom);
@@ -68,9 +72,8 @@ public:
     bool m_active;  /* panel participation and region input */
     bool m_dirty;   /* pending widget redraw */
     unsigned char pad_007;
-    /* The widget's rectangle, relative to the owner's origin. The
-       constructor adds the origin to all four before handing them to the
-       region, which is what makes right and bottom edges rather than a size. */
+    /* The widget's rectangle, relative to the owning panel's origin; right
+       and bottom are edges, not a size. Change it through SetBounds. */
     int m_left;
     int m_top;
     int m_right;

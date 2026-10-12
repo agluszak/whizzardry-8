@@ -50,7 +50,7 @@ public:
 // VTABLE: WIZ8 0x005eee2c
 class W8OptionsSaveRow : public W8TextControl {
 public:
-    W8OptionsSaveRow(Controls& owner, int top, unsigned char save_mode);
+    W8OptionsSaveRow(int top, unsigned char save_mode);
     void SetSave(W8SaveSlot& save);
     void ClearSave();
     virtual void Redraw(bool full_redraw) override;
@@ -126,7 +126,7 @@ public:
 // VTABLE: WIZ8 0x005eed8c
 class W8OptionsCheckbox : public W8TextControl {
 public:
-    W8OptionsCheckbox(Controls& owner, int top, int* value);
+    W8OptionsCheckbox(int top, int* value);
     virtual void OnLeftButtonUp(int event) override;
     int* m_value;
 };
@@ -237,7 +237,7 @@ public:
 // VTABLE: WIZ8 0x005eee80
 class W8OptionsButton : public W8TextControl {
 public:
-    W8OptionsButton(Controls& owner, int left, int top, int right, int bottom, std::string_view text);
+    W8OptionsButton(int left, int top, int right, int bottom, std::string_view text);
     virtual void Redraw(bool full_redraw) override;
     virtual void OnMouseEnter(int event) override;
     virtual void OnMouseLeave(int event) override;
@@ -246,7 +246,7 @@ public:
 // VTABLE: WIZ8 0x005eeed0
 class W8OptionsKeyButton : public W8OptionsButton {
 public:
-    W8OptionsKeyButton(Controls& owner, int top, W8MGSCommand primary_binding,
+    W8OptionsKeyButton(int top, W8MGSCommand primary_binding,
                        W8MGSCommand secondary_binding);
 
     void SetKey(unsigned short key);
@@ -346,7 +346,7 @@ struct W8OptionsPanelRange {
 // VTABLE: WIZ8 0x005eed34 W8TextControl::Listener
 class W8OptionsMenuButton : public W8TextControl, public W8TextControl::Listener {
 public:
-    W8OptionsMenuButton(Controls& owner, const W8OptionsMenuRow* row);
+    W8OptionsMenuButton(const W8OptionsMenuRow* row);
     void CreateSiblingControls(const W8OptionsMenuRow& row);
     virtual void Redraw(bool full_redraw) override;
     virtual void EnableSecondaryState(bool immediate) override;

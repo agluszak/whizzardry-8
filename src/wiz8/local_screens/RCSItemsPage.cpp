@@ -1217,10 +1217,10 @@ static void DrawCampItemLabel(W8ItemInstance* item, int left, int top, char flag
 // VTABLE: WIZ8 0x005ef2b0
 class W8CampInfoLabel : public W8TextControl {
 public:
-    W8CampInfoLabel(Controls& panel, unsigned int region, int left, int top, int right, int bottom,
+    W8CampInfoLabel(unsigned int region, int left, int top, int right, int bottom,
                     std::optional<CatalogArtwork> image_artwork, int normal_sprite, int pressed_sprite,
                     int alternate_normal_sprite, int alternate_pressed_sprite, int disabled_sprite)
-        : W8TextControl(panel, region, left, top, right, bottom, std::move(image_artwork),
+        : W8TextControl(region, left, top, right, bottom, std::move(image_artwork),
                         normal_sprite, pressed_sprite, alternate_normal_sprite,
                         alternate_pressed_sprite, disabled_sprite)
     {
@@ -1280,9 +1280,9 @@ int CreateCampActionPanel(void)
         return 0;
     }
     g_camp_action_buttons[0] =
-        g_camp_action_panel->EmplaceControl<W8TextControl>(*g_camp_action_panel, g_camp_item_pool_regions->index(15), 5, 0, 0x21, 0x18,
+        g_camp_action_panel->EmplaceControl<W8TextControl>(g_camp_item_pool_regions->index(15), 5, 0, 0x21, 0x18,
                           CatalogArtwork::Load(0x11e, 0), 0, 2, 1, 2, 3);
-    g_camp_action_buttons[1] = g_camp_action_panel->EmplaceControl<W8TextControl>(*g_camp_action_panel, g_camp_item_pool_regions->index(16), 0x26, 0, 0x42, 0x18,
+    g_camp_action_buttons[1] = g_camp_action_panel->EmplaceControl<W8TextControl>(g_camp_item_pool_regions->index(16), 0x26, 0, 0x42, 0x18,
         CatalogArtwork::Load(0x11e, 0), 8, 4, 9, 5, 0xb);
     index = 0;
     while (g_camp_action_buttons[index] != 0) {
@@ -1358,26 +1358,26 @@ int CreateItemsTabPanel(void)
     if (!g_camp_item_filter_panel) {
         return 0;
     }
-    g_camp_item_filter_buttons[0] = g_camp_item_filter_panel->EmplaceControl<W8TextControl>(*g_camp_item_filter_panel, g_camp_item_pool_regions->index(8), 0, 0, 0x18, 0x18,
+    g_camp_item_filter_buttons[0] = g_camp_item_filter_panel->EmplaceControl<W8TextControl>(g_camp_item_pool_regions->index(8), 0, 0, 0x18, 0x18,
         CatalogArtwork::Load(0x11f, 0), 0, 2, 1, 4, 3);
     g_camp_item_filter_buttons[1] =
-        g_camp_item_filter_panel->EmplaceControl<W8TextControl>(*g_camp_item_filter_panel, g_camp_item_pool_regions->index(9), 0, 0x19,
+        g_camp_item_filter_panel->EmplaceControl<W8TextControl>(g_camp_item_pool_regions->index(9), 0, 0x19,
                           0x18, 0x31, CatalogArtwork::Load(0x11f, 0), 0xf, 0x11, 0x10, 0x13,
                           0x12);
     g_camp_item_filter_buttons[2] =
-        g_camp_item_filter_panel->EmplaceControl<W8TextControl>(*g_camp_item_filter_panel, g_camp_item_pool_regions->index(10), 0, 0x4b,
+        g_camp_item_filter_panel->EmplaceControl<W8TextControl>(g_camp_item_pool_regions->index(10), 0, 0x4b,
                           0x18, 0x63, CatalogArtwork::Load(0x11f, 0), 0x14, 0x16, 0x15, 0x18,
                           0x17);
-    g_camp_item_filter_buttons[3] = g_camp_item_filter_panel->EmplaceControl<W8TextControl>(*g_camp_item_filter_panel, g_camp_item_pool_regions->index(11), 0, 0x32, 0x18, 0x4a,
+    g_camp_item_filter_buttons[3] = g_camp_item_filter_panel->EmplaceControl<W8TextControl>(g_camp_item_pool_regions->index(11), 0, 0x32, 0x18, 0x4a,
         CatalogArtwork::Load(0x11f, 0), 5, 7, 6, 9, 8);
-    g_camp_item_filter_buttons[4] = g_camp_item_filter_panel->EmplaceControl<W8TextControl>(*g_camp_item_filter_panel, g_camp_item_pool_regions->index(12), 0, 0x6c, 0x18, 0x84,
+    g_camp_item_filter_buttons[4] = g_camp_item_filter_panel->EmplaceControl<W8TextControl>(g_camp_item_pool_regions->index(12), 0, 0x6c, 0x18, 0x84,
         CatalogArtwork::Load(0x11f, 0), 10, 0xc, 0xb, 0xe, 0xd);
     g_camp_item_filter_buttons[5] =
-        g_camp_item_filter_panel->EmplaceControl<W8TextControl>(*g_camp_item_filter_panel, g_camp_item_pool_regions->index(13), 0, 0x8e,
+        g_camp_item_filter_panel->EmplaceControl<W8TextControl>(g_camp_item_pool_regions->index(13), 0, 0x8e,
                           0x18, 0xa6, CatalogArtwork::Load(0x11f, 0), 0x28, 0x2a, 0x29, 0x2c,
                           0x2b);
     g_camp_item_filter_buttons[6] =
-        g_camp_item_filter_panel->EmplaceControl<W8TextControl>(*g_camp_item_filter_panel, g_camp_item_pool_regions->index(14), 0, 0xb0,
+        g_camp_item_filter_panel->EmplaceControl<W8TextControl>(g_camp_item_pool_regions->index(14), 0, 0xb0,
                           0x18, 0xc8, CatalogArtwork::Load(0x11f, 0), 0x1e, 0x20, 0x1f, 0x22,
                           0x21);
     index = 0;
@@ -1511,16 +1511,16 @@ int CreateCampSecondaryPanel(void)
     panel = g_camp_secondary_panel.get();
     panel->CreateRegionSet();
     g_camp_page_tabs[0] =
-        panel->EmplaceControl<W8TextControl>(*panel, -1, 2, 2, 0x16, 0x16, CatalogArtwork::Load(0x121, 0), 0, 2, 1, 4, 3);
+        panel->EmplaceControl<W8TextControl>(-1, 2, 2, 0x16, 0x16, CatalogArtwork::Load(0x121, 0), 0, 2, 1, 4, 3);
     g_camp_page_tabs[1] =
-        panel->EmplaceControl<W8TextControl>(*panel, -1, 2, 0x17, 0x16, 0x2b, CatalogArtwork::Load(0x121, 0), 5, 7,
+        panel->EmplaceControl<W8TextControl>(-1, 2, 0x17, 0x16, 0x2b, CatalogArtwork::Load(0x121, 0), 5, 7,
                           6, 9, 8);
     for (index = 0; index < 2; ++index) {
         if (g_camp_page_tabs[index] == 0) {
             return 0;
         }
     }
-    g_camp_help_text = panel->EmplaceControl<W8HelpTextControl>(*panel, -1, 5, 0x4d, 0x7c, 0x59);
+    g_camp_help_text = panel->EmplaceControl<W8HelpTextControl>(-1, 5, 0x4d, 0x7c, 0x59);
     if (g_camp_help_text == 0) {
         return 0;
     }
@@ -1529,7 +1529,7 @@ int CreateCampSecondaryPanel(void)
     top = 0x3a - panel->m_bounds.top;
     for (index = 0; index < 7; ++index) {
         g_camp_stat_labels[index] =
-            panel->EmplaceControl<W8CampInfoLabel>(*panel, -1, left, top, right, top + 0xc, std::nullopt,
+            panel->EmplaceControl<W8CampInfoLabel>(-1, left, top, right, top + 0xc, std::nullopt,
                                 -1, -1, -1, -1, -1);
         g_camp_stat_labels[index]->EnableRegionHelp(0x958);
         top += 0xe;
@@ -1537,13 +1537,13 @@ int CreateCampSecondaryPanel(void)
     left = 0x144 - panel->m_bounds.left;
     right = 0x1b9 - panel->m_bounds.left;
     top = -panel->m_bounds.top;
-    g_camp_info_labels[0] = panel->EmplaceControl<W8CampInfoLabel>(*panel, -1, left, top + 0x3a, right,
+    g_camp_info_labels[0] = panel->EmplaceControl<W8CampInfoLabel>(-1, left, top + 0x3a, right,
                                                 top + 0x46, std::nullopt, -1, -1, -1, -1, -1);
-    g_camp_info_labels[1] = panel->EmplaceControl<W8CampInfoLabel>(*panel, -1, left, top + 0x48, right,
+    g_camp_info_labels[1] = panel->EmplaceControl<W8CampInfoLabel>(-1, left, top + 0x48, right,
                                                 top + 0x54, std::nullopt, -1, -1, -1, -1, -1);
-    g_camp_info_labels[2] = panel->EmplaceControl<W8CampInfoLabel>(*panel, -1, left, top + 0x80, right,
+    g_camp_info_labels[2] = panel->EmplaceControl<W8CampInfoLabel>(-1, left, top + 0x80, right,
                                                 top + 0x8c, std::nullopt, -1, -1, -1, -1, -1);
-    g_camp_info_labels[3] = panel->EmplaceControl<W8CampInfoLabel>(*panel, -1, left, top + 0x8e, right,
+    g_camp_info_labels[3] = panel->EmplaceControl<W8CampInfoLabel>(-1, left, top + 0x8e, right,
                                                 top + 0x9a, std::nullopt, -1, -1, -1, -1, -1);
     g_camp_stat_labels[0]->m_secondaryActivationCallback = OpenStrengthInfoDialog;
     g_camp_stat_labels[1]->m_secondaryActivationCallback = OpenIntelligenceInfoDialog;
