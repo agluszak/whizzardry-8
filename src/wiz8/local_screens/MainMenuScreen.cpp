@@ -127,7 +127,7 @@ public:
     MainMenuItemWidget(short item, const W8ControlsRect& bounds)
         : item_(item)
     {
-        SetBounds(bounds.left, bounds.top, bounds.right, bounds.bottom);
+        SetBounds(ToSDLRect(bounds));
     }
 
     void OnMouseEnter(int) override

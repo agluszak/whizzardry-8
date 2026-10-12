@@ -206,24 +206,30 @@ SDL_Point W8Widget::PanelOrigin() const
     return {m_pPanel->m_bounds.left, m_pPanel->m_bounds.top};
 }
 
-void W8Widget::UpdateRegionBounds(int left, int top, int right, int bottom)
+SDL_Rect W8Widget::ScreenBounds() const
+{
+    const auto origin = PanelOrigin();
+    return {m_rect.x + origin.x, m_rect.y + origin.y, m_rect.w, m_rect.h};
+}
+
+SDL_Point W8Widget::ToLocal(SDL_Point screen) const
+{
+    const auto bounds = ScreenBounds();
+    return {screen.x - bounds.x, screen.y - bounds.y};
+}
+
+void W8Widget::UpdateRegionBounds()
 {
     if (!OwnsRegion()) return;
-    const auto origin = PanelOrigin();
-    g_regions[m_region].SetBounds(static_cast<unsigned short>(left + origin.x),
-                                  static_cast<unsigned short>(top + origin.y),
-                                  static_cast<unsigned short>(right + origin.x),
-                                  static_cast<unsigned short>(bottom + origin.y));
+    const auto bounds = ScreenBounds();
+    g_regions[m_region].SetBounds(bounds.x, bounds.y, bounds.x + bounds.w, bounds.y + bounds.h);
 }
 
 // FUNCTION: WIZ8 0x004f3dd0
 W8Widget::W8Widget(unsigned int region, int left, int top, int right, int bottom)
     : W8Widget()
 {
-    m_left = left;
-    m_top = top;
-    m_right = right;
-    m_bottom = bottom;
+    m_rect = {left, top, right - left, bottom - top};
     m_region = static_cast<int>(region);
 }
 
@@ -297,7 +303,7 @@ void W8Widget::SetRegion(unsigned int region)
     if (m_region == -1) return;
     g_regions[m_region].handler = this;
     ++g_regions[m_region].binding_generation;
-    UpdateRegionBounds(m_left, m_top, m_right, m_bottom);
+    UpdateRegionBounds();
     SetActive(m_active);
 }
 
@@ -761,34 +767,27 @@ W8TextControl::W8TextControl(unsigned int region, int left, int top, int right, 
 
     MeasureText();
 
-    if (right == 0) {
-        m_right = left + m_measured_w;
-    }
-    if (bottom == 0) {
-        m_bottom = top + m_measured_h;
+    if (right == 0 || bottom == 0) {
+        SetBounds({left, top, right == 0 ? m_measured_w : right - left,
+                   bottom == 0 ? m_measured_h : bottom - top});
     }
     m_textBuffer.MarkGeometryDirty(10);
 }
 
-/* Where the text should be drawn: the panel origin plus either the widget's
-   corner or an alignment computed from its cached measured extent. */
+/* Where the image is drawn on screen: the widget's corner, or the image
+   right- (or left-) aligned and vertically centred by its measured extent. */
 // FUNCTION: WIZ8 0x004f4850
-void W8TextControl::GetTextOrigin(int* px, int* py)
+SDL_Point W8TextControl::ImageOrigin()
 {
-    if (m_pPanel == 0) {
-        srAssertFail("m_pPanel != NULL", "C:\\Projects\\Wizardry 8\\Local Code\\Controls.cpp",
-                     0x739, 0);
-    }
-    *px = m_pPanel->m_bounds.left;
-    *py = m_pPanel->m_bounds.top;
+    const auto bounds = ScreenBounds();
     if (((m_measured_w == -1 || m_measured_h == -1) && !MeasureText()) ||
         (m_layoutFlags & g_W8TextControlLayoutImageAtOrigin) != 0) {
-        *px += m_left;
-        *py += m_top;
-        return;
+        return {bounds.x, bounds.y};
     }
-    *px += (m_layoutFlags & g_W8TextControlLayoutImageLeft) != 0 ? m_left : m_right - m_measured_w;
-    *py += ((m_bottom - m_measured_h) - m_top) / 2 + m_top;
+    const int x = (m_layoutFlags & g_W8TextControlLayoutImageLeft) != 0
+                      ? bounds.x
+                      : bounds.x + bounds.w - m_measured_w;
+    return {x, bounds.y + (bounds.h - m_measured_h) / 2};
 }
 
 // FUNCTION: WIZ8 0x004f4990
@@ -825,10 +824,8 @@ void W8TextControl::Redraw(bool full_redraw)
             if (m_textBuffer.HasBuffer()) {
                 m_textBuffer.RenderToTarget(text_state, full_redraw, GetFrameBufferSurface());
             }
-            const int left = m_pPanel->m_bounds.left + m_left;
-            const int top = m_pPanel->m_bounds.top + m_top;
-            ShadowRect(GetFrameBufferSurface(),
-                       {left, top, m_right - m_left + 1, m_bottom - m_top + 1});
+            const auto bounds = ScreenBounds();
+            ShadowRect(GetFrameBufferSurface(), {bounds.x, bounds.y, bounds.w + 1, bounds.h + 1});
             m_dirty = false;
             return;
         }
@@ -840,17 +837,12 @@ void W8TextControl::Redraw(bool full_redraw)
                                                                           : m_pressedSprite;
     }
 
-    int x;
-    int y;
-    GetTextOrigin(&x, &y);
+    auto [x, y] = ImageOrigin();
     if (sprite != -1) {
         if (m_alternateTextEnabled) {
-            short width;
-            short height;
-            std::tie(width, height) =
-                GetSpriteSize(*m_imageSprites, m_imageYOffset + sprite);
-            int x_inset = m_left - m_right + static_cast<unsigned short>(width);
-            int y_inset = m_top - m_bottom + static_cast<unsigned short>(height);
+            const auto [width, height] = GetSpriteSize(*m_imageSprites, m_imageYOffset + sprite);
+            int x_inset = static_cast<unsigned short>(width) - Bounds().w;
+            int y_inset = static_cast<unsigned short>(height) - Bounds().h;
             if (x_inset > 0) {
                 x += x_inset / 2;
             }
@@ -876,7 +868,8 @@ W8ControlsRect W8TextControl::TextBounds()
     if (m_textBounds) {
         return *m_textBounds;
     }
-    W8ControlsRect bounds{m_left, m_top, m_right, m_bottom};
+    const auto& rect = Bounds();
+    W8ControlsRect bounds{rect.x, rect.y, rect.x + rect.w, rect.y + rect.h};
     if ((m_layoutFlags & g_W8TextControlLayoutTextBesideImage) != 0 && m_imageSprites) {
         const auto [width, height] =
             GetSpriteSize(*m_imageSprites, m_imageYOffset + m_normalSprite);
@@ -1452,11 +1445,8 @@ void W8VerticalRangeThumb::SynchronizeRangeValue()
 W8VerticalRangeThumb::W8VerticalRangeThumb(W8RangeControl* range, int left, int top, int right,
                                            int bottom, CatalogArtwork artwork, int normal_sprite,
                                            int hovered_sprite, int disabled_sprite)
-    : W8Widget(0xffffffff, left, top, 0, bottom), m_artwork(std::move(artwork))
+    : W8Widget(0xffffffff, left, top, right, bottom), m_artwork(std::move(artwork))
 {
-    short width;
-    short height;
-
     m_hoveredSprite = hovered_sprite;
     m_disabledSprite = disabled_sprite;
     m_normalSprite = normal_sprite;
@@ -1465,19 +1455,17 @@ W8VerticalRangeThumb::W8VerticalRangeThumb(W8RangeControl* range, int left, int 
     m_minimumPosition = 0.0f;
     m_maximumPosition = 1.0f;
     m_position = 0.0f;
-    const SDL_Point sprite_size = m_artwork.size(normal_sprite);
-    width = sprite_size.x;
-    height = sprite_size.y;
-    if (right - left < static_cast<unsigned short>(width)) {
-        m_right = m_left + static_cast<unsigned short>(width);
+    const auto [width, height] = m_artwork.size(normal_sprite);
+    // The thumb column is never narrower than its sprite; a wider one
+    // right-aligns the sprite.
+    if (right - left < width) {
+        SetBounds({left, top, width, bottom - top});
         m_drawOffsetX = 0;
     } else {
-        m_right = right;
-        m_drawOffsetX = right - static_cast<unsigned short>(width) - left;
+        m_drawOffsetX = right - width - left;
     }
-    SetRegion(m_region);
-    m_thumbHeight = static_cast<unsigned short>(height);
-    m_trackLength = bottom - static_cast<unsigned short>(height) - top;
+    m_thumbHeight = height;
+    m_trackLength = bottom - height - top;
     m_range = range;
 }
 
@@ -1488,7 +1476,7 @@ void W8VerticalRangeThumb::OnLeftButtonDown(int event)
     if (m_enabled) {
         SDL_Point cursor;
         SGPMouseGetPos(&cursor);
-        int y = cursor.y - m_pPanel->m_bounds.top - m_top;
+        int y = ToLocal(cursor).y;
         if (!m_hovered) {
             m_hovered = true;
             m_position = ((y - m_thumbHeight / 2) / static_cast<float>(m_trackLength)) *
@@ -1522,7 +1510,7 @@ void W8VerticalRangeThumb::OnMouseMove(int event)
 
     SDL_Point cursor;
     SGPMouseGetPos(&cursor);
-    int y = cursor.y - m_pPanel->m_bounds.top - m_top;
+    int y = ToLocal(cursor).y;
     if (m_dragging) {
         int half_height = m_thumbHeight / 2;
         if (y <= half_height) {
@@ -1559,12 +1547,8 @@ void W8VerticalRangeThumb::Redraw(bool full_redraw)
     if (!m_active || (!full_redraw && !m_dirty)) {
         return;
     }
-    int left = m_pPanel->m_bounds.left + m_left;
-    int top = m_pPanel->m_bounds.top + m_top;
-    int right = m_pPanel->m_bounds.left + m_right;
-    int bottom = m_pPanel->m_bounds.top + m_bottom;
-    InvalidateRegion(left, top, right, bottom);
-    const SDL_Rect area{left, top, right - left, bottom - top};
+    const auto area = ScreenBounds();
+    InvalidateRegion(area.x, area.y, area.x + area.w, area.y + area.h);
     SDL_FillSurfaceRect(&GetFrameBufferSurface(), &area, 0x8000);
 
     int sprite;
@@ -1576,9 +1560,8 @@ void W8VerticalRangeThumb::Redraw(bool full_redraw)
     } else if (!m_hovered || (sprite = m_hoveredSprite) == -1) {
         sprite = m_normalSprite;
     }
-    m_artwork.draw(GetFrameBufferSurface(), sprite,
-                   m_pPanel->m_bounds.left + m_drawOffsetX + m_left,
-                   m_pPanel->m_bounds.top + m_pixelPosition + m_top);
+    m_artwork.draw(GetFrameBufferSurface(), sprite, area.x + m_drawOffsetX,
+                   area.y + m_pixelPosition);
 }
 
 // FUNCTION: WIZ8 0x004f6050
@@ -1695,9 +1678,6 @@ W8HorizontalRangeThumb::W8HorizontalRangeThumb(unsigned int region, int left,
                                                int hovered_thumb_sprite, int disabled_thumb_sprite)
     : W8Widget(region, left, top, 0, 0), m_artwork(std::move(artwork))
 {
-    short width;
-    short height;
-
     m_normalThumbSprite = normal_thumb_sprite;
     m_hoveredThumbSprite = hovered_thumb_sprite;
     m_disabledThumbSprite = disabled_thumb_sprite;
@@ -1709,16 +1689,10 @@ W8HorizontalRangeThumb::W8HorizontalRangeThumb(unsigned int region, int left,
     m_maximumPosition = 1.0f;
     m_position = 0.0f;
     m_listener = 0;
-    const SDL_Point background_size = m_artwork.size(background_sprite);
-    width = background_size.x;
-    height = background_size.y;
-    m_right = static_cast<unsigned short>(width) + m_left;
-    m_bottom = m_top + static_cast<unsigned short>(height);
-    const SDL_Point thumb_size = m_artwork.size(m_normalThumbSprite);
-    width = thumb_size.x;
-    height = thumb_size.y;
-    m_thumbWidth = static_cast<unsigned short>(width);
-    m_trackLength = (m_right - m_left) - static_cast<unsigned short>(width);
+    const auto [track_width, track_height] = m_artwork.size(background_sprite);
+    SetBounds({left, top, track_width, track_height});
+    m_thumbWidth = m_artwork.size(m_normalThumbSprite).x;
+    m_trackLength = track_width - m_thumbWidth;
 }
 
 // FUNCTION: WIZ8 0x004f5710
@@ -1734,7 +1708,7 @@ void W8HorizontalRangeThumb::OnLeftButtonDown(int event)
     if (m_enabled) {
         SDL_Point cursor;
         SGPMouseGetPos(&cursor);
-        int x = cursor.x - m_pPanel->m_bounds.left - m_left;
+        int x = ToLocal(cursor).x;
         if (!m_hovered) {
             m_hovered = true;
             m_position = ((x - m_thumbWidth / 2) / static_cast<float>(m_trackLength)) *
@@ -1805,7 +1779,7 @@ void W8HorizontalRangeThumb::OnMouseMove(int event)
 
     SDL_Point cursor;
     SGPMouseGetPos(&cursor);
-    int x = cursor.x - m_pPanel->m_bounds.left - m_left;
+    int x = ToLocal(cursor).x;
     if (m_dragging) {
         if (x < 0 || m_trackLength + m_thumbWidth / 2 < x) {
             return;
@@ -1835,8 +1809,7 @@ void W8HorizontalRangeThumb::Redraw(bool full_redraw)
         return;
     }
 
-    int x = m_pPanel->m_bounds.left + m_left;
-    int y = m_pPanel->m_bounds.top + m_top;
+    const auto [x, y, width, height] = ScreenBounds();
     m_artwork.drawAndInvalidate(GetFrameBufferSurface(), m_backgroundSprite, x, y);
 
     int sprite;
@@ -2040,18 +2013,15 @@ void W8Widget::SetEnabled(bool enabled)
 }
 
 // FUNCTION: WIZ8 0x004f6980
-void W8Widget::SetBounds(int left, int top, int right, int bottom)
+void W8Widget::SetBounds(const SDL_Rect& bounds)
 {
-    m_left = left;
-    m_top = top;
-    m_right = right;
-    m_bottom = bottom;
+    m_rect = bounds;
     OnGeometryChanged();
 }
 
 void W8Widget::OnGeometryChanged()
 {
-    UpdateRegionBounds(m_left, m_top, m_right, m_bottom);
+    UpdateRegionBounds();
 }
 
 /* Selection controller: the listener occupies +0, the text-control pointer

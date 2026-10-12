@@ -1040,11 +1040,7 @@ static void PreviewSpellPowerPipHover(int power_level)
             (power_level == -1 || (gpSCSV->power_controls[power_level]->m_active &&
                                    gpSCSV->power_controls[power_level]->m_enabled))) {
             spell_name = gpSCSV->power_controls[W8_SPELL_NAME_CONTROL];
-            panel = gpSCSV->panels[2].get();
-            const int left = spell_name->m_left + panel->m_bounds.left;
-            const int top = spell_name->m_top + panel->m_bounds.top;
-            const SDL_Rect bounds{left, top, spell_name->m_right - spell_name->m_left,
-                                  spell_name->m_bottom - spell_name->m_top};
+            const SDL_Rect bounds = spell_name->ScreenBounds();
             SDL_FillSurfaceRect(&GetFrameBufferSurface(), &bounds,
                                 Get16BPPColor(SDL_Color{1, 1, 1, SDL_ALPHA_OPAQUE}));
             spell_name->Invalidate(false);

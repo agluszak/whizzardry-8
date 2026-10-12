@@ -34,14 +34,14 @@ void W8ButtonWidget::Draw()
 // FUNCTION: WIZ8 0x005db550
 void W8ButtonWidget::SetPosition(int x, int y)
 {
-    if (m_left == x && m_top == y) return;
-    SetButtonRect({x, y, GetWidth(), GetHeight()});
+    if (Bounds().x == x && Bounds().y == y) return;
+    SetBounds({x, y, Bounds().w, Bounds().h});
     m_dirty = true;
 }
 
 void W8ButtonWidget::Resize(int width, int height)
 {
-    SetButtonRect({m_left, m_top, std::max(width, 4), std::max(height, 3)});
+    SetBounds({Bounds().x, Bounds().y, std::max(width, 4), std::max(height, 3)});
     m_dirty = true;
 }
 
@@ -63,17 +63,6 @@ void W8ButtonWidget::SetMultiColor(bool enabled)
 {
     m_appearance.fMultiColor = enabled;
     m_dirty = true;
-}
-
-void W8ButtonWidget::SetButtonRect(const SDL_Rect& bounds)
-{
-    SetBounds(bounds.x, bounds.y, bounds.x + bounds.w, bounds.y + bounds.h);
-}
-
-SDL_Rect W8ButtonWidget::ScreenBounds() const
-{
-    const auto origin = PanelOrigin();
-    return {m_left + origin.x, m_top + origin.y, GetWidth(), GetHeight()};
 }
 
 // FUNCTION: WIZ8 0x005db8d0
@@ -153,7 +142,7 @@ void W8ButtonWidget::Reset()
 {
     ReleaseRegion();
     m_appearance = {};
-    SetButtonRect({});
+    SetBounds({});
     m_visual = {};
     m_armed_buttons = m_repeated_buttons = 0;
     m_user_data = 0;
@@ -176,7 +165,6 @@ void W8ButtonWidget::ConfigureRegion(int priority)
     m_active = true;
     SetRegion(allocated_region.index());
     m_owned_region = std::move(allocated_region);
-    SetButtonRect(GetBounds());
     m_visual = {};
     m_armed_buttons = m_repeated_buttons = 0;
     m_dirty = true;
@@ -195,7 +183,7 @@ bool W8ButtonWidget::ConfigureTextButton(std::string_view text, Font& font, shor
     m_appearance.usFont = &font;
     m_appearance.sForeColor = fore_color;
     m_appearance.sShadowColor = shadow_color;
-    SetButtonRect({x, y, std::max<int>(width, 4), std::max<int>(height, 3)});
+    SetBounds({x, y, std::max<int>(width, 4), std::max<int>(height, 3)});
     m_user_data = user_data;
     m_left_callback = left_callback;
     m_right_callback = m_move_callback = m_double_click_callback = nullptr;
@@ -219,7 +207,7 @@ bool W8ButtonWidget::Configure(const char* image_path, int gray_frame, int off_n
                                      off_hover_frame, on_normal_frame, on_hover_frame);
     if (!image) return false;
     m_appearance = {};
-    SetButtonRect({0, 0, static_cast<int>(image->MaxWidth), static_cast<int>(image->MaxHeight)});
+    SetBounds({0, 0, static_cast<int>(image->MaxWidth), static_cast<int>(image->MaxHeight)});
     m_appearance.quick_image = std::move(image);
     m_left_callback = left_callback;
     m_right_callback = right_callback;
@@ -243,7 +231,7 @@ bool W8ButtonWidget::Configure(std::shared_ptr<const SpriteSheet> sprites, int g
                                       off_hover_frame, on_normal_frame, on_hover_frame);
     if (!image) return false;
     m_appearance = {};
-    SetButtonRect({0, 0, static_cast<int>(image->MaxWidth),
+    SetBounds({0, 0, static_cast<int>(image->MaxWidth),
                    static_cast<int>(image->MaxHeight)});
     m_appearance.quick_image = std::move(image);
     m_left_callback = left_callback;

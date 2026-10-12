@@ -844,8 +844,8 @@ void InventoryChestScenario()
     REQUIRE_FALSE(picker->items.empty());
     const auto click_button = [&](int index) {
         auto& button = *picker->m_buttons[index];
-        game.click_at(button.GetX() + button.GetWidth() / 2,
-                      button.GetY() + button.GetHeight() / 2);
+        game.click_at(button.Bounds().x + button.Bounds().w / 2,
+                      button.Bounds().y + button.Bounds().h / 2);
     };
     // A full pool can still absorb part of an ammunition stack. The picker
     // must retain only the remainder, including after a second failed attempt.
@@ -1017,8 +1017,8 @@ void ResourceLifecycleScenario()
         REQUIRE(g_automap_buttons.size() == 16);
         for (int index = 0; index != 16; ++index) {
             REQUIRE(g_automap_buttons[index]);
-            REQUIRE(g_automap_buttons[index]->GetWidth() > 0);
-            REQUIRE(g_automap_buttons[index]->GetHeight() > 0);
+            REQUIRE(g_automap_buttons[index]->Bounds().w > 0);
+            REQUIRE(g_automap_buttons[index]->Bounds().h > 0);
             g_automap_buttons[index]->m_dirty = true;
             g_automap_buttons[index]->Draw();
         }

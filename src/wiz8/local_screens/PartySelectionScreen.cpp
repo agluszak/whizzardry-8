@@ -323,14 +323,11 @@ public:
 void W8PartySelectionListControl::Redraw(bool full_redraw)
 {
     if (m_active && (m_dirty || full_redraw)) {
-        int left = m_pPanel->m_bounds.left + m_left;
-        int top = m_pPanel->m_bounds.top + m_top;
-        int right = m_pPanel->m_bounds.left + m_right;
-        int bottom = m_pPanel->m_bounds.top + m_bottom;
-
-        InvalidateRegion(left, top, right, bottom);
-        CatalogArtwork::Load(0x1b6, 0).drawRect(GetFrameBufferSurface(), SDL_Rect{0, 0, (right) - (left), (bottom) - (top)}, left, top);
-        SDL_Rect clip{left, top, right - left, bottom - top};
+        const auto clip = ScreenBounds();
+        const int left = clip.x;
+        int top = clip.y;
+        InvalidateRegion(left, top, left + clip.w, top + clip.h);
+        CatalogArtwork::Load(0x1b6, 0).drawRect(GetFrameBufferSurface(), SDL_Rect{0, 0, clip.w, clip.h}, left, top);
         ScopedClipRect clipping(GetFrameBufferSurface(), clip);
 
         int end = m_first_visible + m_visible_rows;
@@ -367,7 +364,8 @@ void W8PartySelectionListControl::OnMouseMove(int)
 {
     SDL_Point point;
     SGPMouseGetPos(&point);
-    int hovered = (point.x - m_pPanel->m_bounds.top - m_top) / 0x0e + m_first_visible;
+    // Rows are stacked vertically, as in OnLeftButtonUp.
+    int hovered = ToLocal(point).y / 0x0e + m_first_visible;
     if (hovered != m_hovered) {
         m_hovered = hovered;
         Invalidate(false);
@@ -379,7 +377,7 @@ void W8PartySelectionListControl::OnLeftButtonUp(int event)
 {
     SDL_Point point;
     SGPMouseGetPos(&point);
-    int selection = (point.y - m_pPanel->m_bounds.top - m_top) / 0x0e + m_first_visible;
+    int selection = ToLocal(point).y / 0x0e + m_first_visible;
     if (selection != m_selection) {
         m_selection = selection;
         Invalidate(static_cast<unsigned char>(event));
@@ -598,15 +596,14 @@ void RefreshPartySelectionPortrait(unsigned int party_slot)
         index = 0;
     }
     auto* row = static_cast<W8PartySelectionPartySlotRow*>(buttons[index]);
-    Controls* panel = row->m_pPanel;
     int portrait = g_status.buffers.Char[row->m_row + 2].portrait_index;
     SpriteDraw draw{};
     if ((g_portrait_descriptors[portrait].render_mode == 1 && row->m_row % 2 == 0) ||
         (g_portrait_descriptors[portrait].render_mode == 2 && row->m_row % 2 != 0)) {
         draw.mirror = true;
     }
-    BlitPartyPortraitAnimation(portrait, panel->m_bounds.left + row->m_left,
-                               panel->m_bounds.top + row->m_top, draw, row->m_row + 2, false);
+    const auto bounds = row->ScreenBounds();
+    BlitPartyPortraitAnimation(portrait, bounds.x, bounds.y, draw, row->m_row + 2, false);
 }
 
 /* Whether the party selector is in its review-existing-character mode; the
@@ -638,8 +635,8 @@ void W8PartySelectionCharacterRow::Redraw(bool full_redraw)
     W8TextControl::Redraw(full_redraw);
     W8Character* character =
         g_party_selection_character_collection->GetCharacter(m_character_index);
-    int left = m_pPanel->m_bounds.left + m_left;
-    int top = m_pPanel->m_bounds.top + m_top;
+    int left = ScreenBounds().x;
+    int top = ScreenBounds().y;
     CatalogArtwork::Load(0x13, character->portrait_index).draw(GetFrameBufferSurface(), 0, left + 2, top + 2);
     if (character->fInParty) {
         ShadowRect(GetFrameBufferSurface(), {left + 2, top + 2, 0x2d, 0x24});
@@ -814,13 +811,11 @@ void W8PartySelectionPartySlotRow::Redraw(bool full_redraw)
         return;
     }
 
-    int left = m_pPanel->m_bounds.left + m_left;
-    int top = m_pPanel->m_bounds.top + m_top;
+    const auto area = ScreenBounds();
+    int left = area.x;
+    int top = area.y;
     W8Character* character = 0;
     if (!g_status.buffers.XChar[m_row + 2].fOccupied) {
-        const int right = m_pPanel->m_bounds.left + m_right;
-        const int bottom = m_pPanel->m_bounds.top + m_bottom;
-        const SDL_Rect area{left, top, right - left, bottom - top};
         SDL_FillSurfaceRect(&GetFrameBufferSurface(), &area, 0x8000);
     } else {
         character = &g_status.buffers.Char[m_row + 2];
@@ -887,8 +882,8 @@ W8PartySelectionPartySlotPanel::W8PartySelectionPartySlotPanel() : Controls()
     CreateRegionSet();
     for (int row = 0; row < 6; ++row) {
         auto* control = EmplaceControl<W8PartySelectionPartySlotRow>(row);
-        control->UpdateTextBounds(control->m_left - 8, control->m_top + 0x51,
-                                  control->m_left + 0x61, control->m_top + 0x60);
+        const auto& bounds = control->Bounds();
+        control->UpdateTextBounds(bounds.x - 8, bounds.y + 0x51, bounds.x + 0x61, bounds.y + 0x60);
         m_control.AddEntry(control);
     }
     m_control.m_selectionListener = this;

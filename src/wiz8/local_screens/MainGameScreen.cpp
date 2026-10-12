@@ -569,10 +569,11 @@ void W8LockTumbler::Redraw(bool full_redraw)
     if (!full_redraw && !m_dirty) {
         return;
     }
-    left = m_left + m_pPanel->m_bounds.left;
-    right = m_right + m_pPanel->m_bounds.left;
-    top = m_top + m_pPanel->m_bounds.top;
-    bottom = m_bottom + m_pPanel->m_bounds.top;
+    const auto bounds = ScreenBounds();
+    left = bounds.x;
+    right = bounds.x + bounds.w;
+    top = bounds.y;
+    bottom = bounds.y + bounds.h;
     InvalidateRegion(left - 3, top, right + 3, bottom);
     const SDL_Rect top_fill{left, top, right - left, 0x24};
     const SDL_Rect bottom_fill{left - 3, top + 0x24, right - left + 6, bottom - top - 0x24};
@@ -1305,9 +1306,9 @@ W8MainGameTextKeyHandler::W8MainGameTextKeyHandler(int left, int top, int right,
 void W8MainGameTextKeyHandler::OnGeometryChanged()
 {
     W8Widget::OnGeometryChanged();
-    const auto origin = PanelOrigin();
-    m_range.SetBounds(origin.x + m_right + 1, origin.y + m_top, origin.x + m_right + 0x13,
-                      origin.y + m_bottom);
+    const auto bounds = ScreenBounds();
+    m_range.SetBounds(bounds.x + bounds.w + 1, bounds.y, bounds.x + bounds.w + 0x13,
+                      bounds.y + bounds.h);
 }
 
 void W8MainGameTextKeyHandler::Redraw(bool full_redraw)
@@ -1326,10 +1327,11 @@ void W8MainGameTextKeyHandler::Redraw(bool full_redraw)
     if (!m_dirty && !full_redraw) {
         return;
     }
-    left = m_pPanel->m_bounds.left + m_left;
-    top = m_pPanel->m_bounds.top + m_top;
-    right = m_pPanel->m_bounds.left + m_right;
-    bottom = m_pPanel->m_bounds.top + m_bottom;
+    const auto bounds = ScreenBounds();
+    left = bounds.x;
+    top = bounds.y;
+    right = bounds.x + bounds.w;
+    bottom = bounds.y + bounds.h;
     InvalidateRegion(left, top, right, bottom);
     CatalogArtwork::Load(0x1b6, 0).drawRect(GetFrameBufferSurface(), SDL_Rect{0, 0, (right) - (left), (bottom) - (top)}, left, top);
     last = m_first_visible_line + m_visible_lines;
@@ -1364,7 +1366,7 @@ void W8MainGameTextKeyHandler::OnMouseMove(int)
     int line;
 
     SGPMouseGetPos(&point);
-    line = (point.y - m_pPanel->m_bounds.top - m_top) / 0xe + m_first_visible_line;
+    line = (ToLocal(point).y) / 0xe + m_first_visible_line;
     if (line != m_hover_line) {
         m_hover_line = line;
         Invalidate(false);
@@ -1381,7 +1383,7 @@ void W8MainGameTextKeyHandler::OnLeftButtonUp(int)
     SDL_Point point;
 
     SGPMouseGetPos(&point);
-    SetSelectedLine((point.y - m_pPanel->m_bounds.top - m_top) / 0xe + m_first_visible_line);
+    SetSelectedLine((ToLocal(point).y) / 0xe + m_first_visible_line);
 }
 
 void W8MainGameTextKeyHandler::SetSelectedLine(int line)
@@ -1467,10 +1469,7 @@ W8MainGameTextEntry::W8MainGameTextEntry(int index)
     MeasureText();
     left = (index % 4) * 0x1e + 0xd;
     top = (index / 4) * 0x32 + 8;
-    m_left = left;
-    m_right = m_measured_w + left;
-    m_bottom = m_measured_h + top;
-    m_top = top;
+    SetBounds({left, top, m_measured_w, m_measured_h});
     AddLayoutFlags(g_W8TextControlLayoutLatchedImage | g_W8TextControlLayoutToggle);
 }
 
@@ -1489,8 +1488,8 @@ void W8MainGameTextEntry::Redraw(bool full_redraw)
         return;
     }
     image = m_image;
-    left = m_pPanel->m_bounds.left + m_left;
-    top = m_pPanel->m_bounds.top + m_top;
+    left = ScreenBounds().x;
+    top = ScreenBounds().y;
     if (image == 0) {
         CatalogArtwork::Load(0x1b3, 0).draw(GetFrameBufferSurface(), 2, left, top);
     } else if (image == 1) {

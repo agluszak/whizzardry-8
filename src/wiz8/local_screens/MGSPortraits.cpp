@@ -1236,8 +1236,6 @@ void CreateLevelButtons(void)
 void W8ConditionButton::Redraw(bool full_redraw)
 {
     bool dirty = m_dirty;
-    int left;
-    int top;
 
     W8TextControl::Redraw(full_redraw);
     if (!m_active) {
@@ -1249,9 +1247,9 @@ void W8ConditionButton::Redraw(bool full_redraw)
     if (!full_redraw && !dirty) {
         return;
     }
-    GetTextOrigin(&left, &top);
-    left += 2;
-    top += 2;
+    const auto origin = ImageOrigin();
+    const int left = origin.x + 2;
+    const int top = origin.y + 2;
     if (m_condition == 0) {
         CatalogArtwork::Load(m_image_object + 0xb6, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, left, top);
     } else if (m_condition == 1) {
@@ -1393,10 +1391,9 @@ void UpdateConditionButtons(void)
                 button->Invalidate(false);
                 if (g_level_block->portrait_refresh_pending[slot] == 0 &&
                     !entry->keyboard_menu_open) {
-                    ClearSurfaceRect(button->m_left + g_condition_buttons_panel->m_bounds.left,
-                                     button->m_top + g_condition_buttons_panel->m_bounds.top,
-                                     button->m_right + g_condition_buttons_panel->m_bounds.left,
-                                     button->m_bottom + g_condition_buttons_panel->m_bounds.top);
+                    const auto bounds = button->ScreenBounds();
+                    ClearSurfaceRect(bounds.x, bounds.y, bounds.x + bounds.w,
+                                     bounds.y + bounds.h);
                 }
                 if (g_level_block->condition_highlight_party_slot == slot) {
                     ClearConditionHighlight();

@@ -53,7 +53,7 @@ public:
     void ClearImage();
 
     bool MeasureText();
-    void GetTextOrigin(int* px, int* py);
+    SDL_Point ImageOrigin();
     void Invalidate(bool immediate);
     virtual void SetEnabled(bool enabled) override;
     virtual void Redraw(bool full_redraw) override;

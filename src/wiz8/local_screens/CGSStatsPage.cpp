@@ -146,8 +146,8 @@ void W8CharacterStatsValue::Redraw(bool full_redraw)
     if (!m_active || m_pPanel == 0) {
         return;
     }
-    int left = m_pPanel->m_bounds.left + m_left + 2;
-    int top = m_pPanel->m_bounds.top + m_top + 1;
+    int left = ScreenBounds().x + 2;
+    int top = ScreenBounds().y + 1;
     const W8CharacterStatsRecord* record = m_record;
     unsigned int image = m_enabled ? record->image_enabled : record->image_disabled;
     CatalogArtwork::Load(record->object, 0).draw(GetFrameBufferSurface(), image, left, top);
@@ -204,8 +204,8 @@ void W8CharacterStatsRecordControl::Redraw(bool full_redraw)
     if (!m_active || m_pPanel == 0) {
         return;
     }
-    int left = m_pPanel->m_bounds.left + m_left + 2;
-    int top = m_pPanel->m_bounds.top + m_text_offset + m_top + 1;
+    int left = ScreenBounds().x + 2;
+    int top = ScreenBounds().y + m_text_offset + 1;
     const W8CharacterStatsRecord* record = m_record;
     unsigned int image = m_enabled ? record->image_enabled : record->image_disabled;
     CatalogArtwork::Load(record->object, 0).draw(GetFrameBufferSurface(), image, left, top);

@@ -87,7 +87,7 @@ int W8ListBoxDialog::GetVisibleLineCount()
     if (!m_area_button.IsConfigured()) {
         return 0;
     }
-    return m_area_button.GetHeight() /
+    return m_area_button.Bounds().h /
            static_cast<int>(static_cast<unsigned int>(g_dialog_interface_font->height()));
 }
 
@@ -204,9 +204,9 @@ int W8ListBoxDialog::CreateControls()
         return 4;
     }
     m_area_button.ConfigureTextButton({}, *g_dialog_interface_font, g_dialog_font_foreground,
-                                     g_dialog_font_background, m_text_button.GetX(),
-                                     m_text_button.GetY() + m_text_button.GetHeight() + 4,
-                                     m_text_button.GetWidth(), 0x14, TextAreaButtonCallback, 0,
+                                     g_dialog_font_background, m_text_button.Bounds().x,
+                                     m_text_button.Bounds().y + m_text_button.Bounds().h + 4,
+                                     m_text_button.Bounds().w, 0x14, TextAreaButtonCallback, 0,
                                      area_inlay, REGION_PRIORITY_HIGHEST - 1);
     m_area_button.m_owner = this;
     m_area_button.m_activation = DialogButtonActivation::Press;
@@ -242,22 +242,22 @@ int W8ListBoxDialog::CreateControls()
                 m_third_text_button.m_repeat_enabled = true;
                 m_second_text_button.ConfigureTextButton({}, *g_dialog_interface_font,
                     g_dialog_font_foreground, g_dialog_font_background, m_x + 9,
-                    m_y + m_height - m_ok_button.GetHeight() * 0x96 / 100 - 9,
-                    m_width - 0x12, m_ok_button.GetHeight() * 0x96 / 100, nullptr, 0,
+                    m_y + m_height - m_ok_button.Bounds().h * 0x96 / 100 - 9,
+                    m_width - 0x12, m_ok_button.Bounds().h * 0x96 / 100, nullptr, 0,
                     edge_inlay, REGION_PRIORITY_HIGHEST - 1);
                 m_cancel_button.SetPosition(
-                    m_second_text_button.GetX() - m_cancel_button.GetWidth() +
-                        m_second_text_button.GetWidth(),
-                    m_second_text_button.GetHeight() / 2 -
-                        m_cancel_button.GetHeight() / 2 + m_second_text_button.GetY());
+                    m_second_text_button.Bounds().x - m_cancel_button.Bounds().w +
+                        m_second_text_button.Bounds().w,
+                    m_second_text_button.Bounds().h / 2 -
+                        m_cancel_button.Bounds().h / 2 + m_second_text_button.Bounds().y);
                 m_ok_button.SetPosition(
-                                  m_cancel_button.GetX() -
-                                      m_cancel_button.GetWidth() / 2 -
-                                      m_ok_button.GetWidth(),
-                                  m_cancel_button.GetY());
-                m_area_button.Resize(m_text_button.GetWidth(),
-                    -6 - m_text_button.GetY() - m_text_button.GetHeight() +
-                    m_second_text_button.GetY());
+                                  m_cancel_button.Bounds().x -
+                                      m_cancel_button.Bounds().w / 2 -
+                                      m_ok_button.Bounds().w,
+                                  m_cancel_button.Bounds().y);
+                m_area_button.Resize(m_text_button.Bounds().w,
+                    -6 - m_text_button.Bounds().y - m_text_button.Bounds().h +
+                    m_second_text_button.Bounds().y);
                 int selected = m_selected_line;
                 m_selected_line = 0;
                 SetCurrentLine(selected);
@@ -306,11 +306,11 @@ void W8ListBoxDialog::Draw()
     m_text_button.m_dirty = m_second_text_button.m_dirty = true;
     m_text_button.Draw();
     m_second_text_button.Draw();
-    int dx = m_text_button.GetX() - m_x;
-    int dy = m_text_button.GetY() + m_text_button.GetHeight() + 4 - m_y;
-    int width = m_text_button.GetWidth();
-    int height = -6 - m_text_button.GetY() - m_text_button.GetHeight() +
-                 m_second_text_button.GetY();
+    int dx = m_text_button.Bounds().x - m_x;
+    int dy = m_text_button.Bounds().y + m_text_button.Bounds().h + 4 - m_y;
+    int width = m_text_button.Bounds().w;
+    int height = -6 - m_text_button.Bounds().y - m_text_button.Bounds().h +
+                 m_second_text_button.Bounds().y;
     unsigned int visible_lines;
     if (static_cast<int>(m_lines.size()) < height / static_cast<int>(static_cast<unsigned int>(
                                                         g_dialog_interface_font->height()))) {
@@ -320,7 +320,7 @@ void W8ListBoxDialog::Draw()
         int rows = height / static_cast<int>(
                                 static_cast<unsigned int>(g_dialog_interface_font->height()));
         if (static_cast<int>(m_lines.size()) > rows) {
-            width = width + (-7 - m_up_button.GetWidth());
+            width = width + (-7 - m_up_button.Bounds().w);
             m_scrollable = true;
             visible_lines = rows;
         } else {
@@ -337,20 +337,20 @@ void W8ListBoxDialog::Draw()
     if (m_scrollable) {
         m_up_button.SetPosition( m_x + dx + 4 + width, m_y + 4 + dy);
         m_down_button.SetPosition( m_x + dx + 4 + width,
-                          m_y + dy + height - m_down_button.GetHeight() - 4);
+                          m_y + dy + height - m_down_button.Bounds().h - 4);
         m_slider_button.SetPosition( m_x + dx + 4 + width,
-            m_area_button.GetHeight() +
-                ((height - m_up_button.GetHeight() - m_down_button.GetHeight() - 7) *
+            m_area_button.Bounds().h +
+                ((height - m_up_button.Bounds().h - m_down_button.Bounds().h - 7) *
                  m_selected_line) /
                     static_cast<int>(m_lines.size()) +
                 m_y + 3 + dy);
         const int fill_left = m_x + width + dx;
-        const int fill_top = m_y + dy + m_up_button.GetHeight();
-        const SDL_Rect fill{fill_left, fill_top, m_up_button.GetWidth(),
-                            height - m_up_button.GetHeight() - m_down_button.GetHeight()};
+        const int fill_top = m_y + dy + m_up_button.Bounds().h;
+        const SDL_Rect fill{fill_left, fill_top, m_up_button.Bounds().w,
+                            height - m_up_button.Bounds().h - m_down_button.Bounds().h};
         SDL_FillSurfaceRect(&GetFrameBufferSurface(), &fill, Get16BPPColor(m_fill_colour));
         m_third_text_button.SetPosition(m_x + dx + width, m_y + dy);
-        m_third_text_button.Resize(m_up_button.GetWidth() + 7, height);
+        m_third_text_button.Resize(m_up_button.Bounds().w + 7, height);
         m_third_text_button.Draw();
         m_up_button.m_dirty = true;
         m_up_button.Draw();
@@ -370,7 +370,7 @@ void W8ListBoxDialog::Draw()
     if (!m_scrollable)
         m_up_button.m_dirty = m_down_button.m_dirty = m_slider_button.m_dirty =
             m_third_text_button.m_dirty = false;
-    rect = m_area_button.GetBounds();
+    rect = m_area_button.Bounds();
     {
         SDL_Rect text_clip{rect.x + 3, rect.y + 3, rect.w - 6, rect.h - 6};
         ScopedClipRect clipping(GetFrameBufferSurface(), text_clip);
@@ -1153,9 +1153,9 @@ void W8TriggerItemPickerDialog::ScrollItemsToMouse(W8ButtonWidget* button)
         W8TriggerItemPickerDialog* dialog =
             static_cast<W8TriggerItemPickerDialog*>(button->m_owner);
         SDL_Point point = button->GetMousePosition();
-        bottom = button->GetY() + 2 * dialog->m_buttons[9]->GetHeight();
-        top = button->GetY() + dialog->m_buttons[9]->GetHeight() + button->GetHeight() -
-              2 * dialog->m_buttons[10]->GetHeight() - dialog->m_buttons[11]->GetHeight();
+        bottom = button->Bounds().y + 2 * dialog->m_buttons[9]->Bounds().h;
+        top = button->Bounds().y + dialog->m_buttons[9]->Bounds().h + button->Bounds().h -
+              2 * dialog->m_buttons[10]->Bounds().h - dialog->m_buttons[11]->Bounds().h;
         if (top <= bottom) return;
         if (point.y < bottom) {
             point.y = bottom;
@@ -1364,8 +1364,8 @@ void W8TriggerItemPickerDialog::Draw()
         for (int index = 0; index < 13; ++index) {
             m_buttons[index]->m_dirty = true;
         }
-        SetExtent(m_buttons[4]->GetWidth() + 0xe,
-                  m_buttons[5]->GetHeight() * visible_rows + m_buttons[4]->GetHeight() + 0xe);
+        SetExtent(m_buttons[4]->Bounds().w + 0xe,
+                  m_buttons[5]->Bounds().h * visible_rows + m_buttons[4]->Bounds().h + 0xe);
         W8DialogBase::Draw();
     }
 
@@ -1380,13 +1380,13 @@ void W8TriggerItemPickerDialog::Draw()
             m_buttons[11]->m_dirty = true;
         }
 
-        m_buttons[12]->SetPosition(m_x + m_width - m_buttons[12]->GetWidth() - 9, m_y + 7);
+        m_buttons[12]->SetPosition(m_x + m_width - m_buttons[12]->Bounds().w - 9, m_y + 7);
         m_buttons[12]->Draw();
-        m_buttons[9]->SetPosition(m_buttons[12]->GetX() + 4, m_buttons[12]->GetY() + 3);
+        m_buttons[9]->SetPosition(m_buttons[12]->Bounds().x + 4, m_buttons[12]->Bounds().y + 3);
         m_buttons[9]->Draw();
-        m_buttons[10]->SetPosition(m_buttons[9]->GetX(), m_buttons[12]->GetY() +
-                                                             m_buttons[12]->GetHeight() - 4 -
-                                                             m_buttons[10]->GetHeight());
+        m_buttons[10]->SetPosition(m_buttons[9]->Bounds().x, m_buttons[12]->Bounds().y +
+                                                             m_buttons[12]->Bounds().h - 4 -
+                                                             m_buttons[10]->Bounds().h);
         m_buttons[10]->Draw();
 
         int progress = 0;
@@ -1396,10 +1396,10 @@ void W8TriggerItemPickerDialog::Draw()
                 progress = m_first_item + 2;
             }
         }
-        int travel = m_buttons[12]->GetHeight() - m_buttons[9]->GetHeight() -
-                     m_buttons[10]->GetHeight() - m_buttons[11]->GetHeight();
-        m_buttons[11]->SetPosition(m_buttons[9]->GetX(),
-                                   m_buttons[9]->GetHeight() + m_buttons[12]->GetY() +
+        int travel = m_buttons[12]->Bounds().h - m_buttons[9]->Bounds().h -
+                     m_buttons[10]->Bounds().h - m_buttons[11]->Bounds().h;
+        m_buttons[11]->SetPosition(m_buttons[9]->Bounds().x,
+                                   m_buttons[9]->Bounds().h + m_buttons[12]->Bounds().y +
                                        travel * progress / static_cast<int>(items.size()) + 1);
         m_buttons[11]->Draw();
     } else {
@@ -1409,20 +1409,20 @@ void W8TriggerItemPickerDialog::Draw()
         m_buttons[11]->SetVisible(false);
     }
 
-    m_buttons[4]->SetPosition(m_x + 7, m_y + m_height - m_buttons[4]->GetHeight() - 5);
+    m_buttons[4]->SetPosition(m_x + 7, m_y + m_height - m_buttons[4]->Bounds().h - 5);
     m_buttons[4]->Draw();
-    m_buttons[3]->SetPosition(m_buttons[4]->GetX() - m_buttons[3]->GetWidth() +
-                                  m_buttons[4]->GetWidth() - 1,
-                              m_buttons[4]->GetY());
+    m_buttons[3]->SetPosition(m_buttons[4]->Bounds().x - m_buttons[3]->Bounds().w +
+                                  m_buttons[4]->Bounds().w - 1,
+                              m_buttons[4]->Bounds().y);
     m_buttons[3]->Draw();
-    m_buttons[2]->SetPosition(m_buttons[3]->GetX() - m_buttons[2]->GetWidth(),
-                              m_buttons[4]->GetY());
+    m_buttons[2]->SetPosition(m_buttons[3]->Bounds().x - m_buttons[2]->Bounds().w,
+                              m_buttons[4]->Bounds().y);
     m_buttons[2]->Draw();
-    m_buttons[1]->SetPosition(m_buttons[2]->GetX() - m_buttons[1]->GetWidth(),
-                              m_buttons[4]->GetY());
+    m_buttons[1]->SetPosition(m_buttons[2]->Bounds().x - m_buttons[1]->Bounds().w,
+                              m_buttons[4]->Bounds().y);
     m_buttons[1]->Draw();
-    m_buttons[0]->SetPosition(m_buttons[1]->GetX() - m_buttons[0]->GetWidth(),
-                              m_buttons[4]->GetY());
+    m_buttons[0]->SetPosition(m_buttons[1]->Bounds().x - m_buttons[0]->Bounds().w,
+                              m_buttons[4]->Bounds().y);
     m_buttons[0]->Draw();
     RefreshScrollButtons();
 
@@ -1430,7 +1430,7 @@ void W8TriggerItemPickerDialog::Draw()
         W8ButtonWidget* button = m_buttons[5 + row].get();
 
         button->SetVisible(true);
-        button->SetPosition(m_x + 7, m_y + button->GetHeight() * row + 7);
+        button->SetPosition(m_x + 7, m_y + button->Bounds().h * row + 7);
         if (!button->m_dirty) {
             continue;
         }
@@ -1445,20 +1445,20 @@ void W8TriggerItemPickerDialog::Draw()
         W8WorldItem* world_item = items[item_index];
         W8ItemInstance* item = &world_item->item;
         DrawSprite(GetFrameBufferSurface(), g_item_video_objects.Sprites(item->iItemNo), 0,
-                   button->GetX() + 2, button->GetY() + 2);
+                   button->Bounds().x + 2, button->Bounds().y + 2);
         if (item->stack_count > 1) {
             auto name = GetItemDisplayName(item);
             DrawText(GetFrameBufferSurface(), g_wiz_text_font,
-                     {button->GetX() + 0x3c, button->GetY() + 6},
+                     {button->Bounds().x + 0x3c, button->Bounds().y + 6},
                      fmt::format("{}({:d})", name, item->stack_count));
         } else {
             auto name = GetItemDisplayName(item);
             DrawText(GetFrameBufferSurface(), g_wiz_text_font,
-                     {button->GetX() + 0x3c, button->GetY() + 6}, name);
+                     {button->Bounds().x + 0x3c, button->Bounds().y + 6}, name);
         }
         unsigned short weight = g_item_records[item->iItemNo].weight;
         DrawText(GetFrameBufferSurface(), g_wiz_text_font,
-                 {button->GetX() + 0x3c, button->GetY() + g_wiz_text_font.height() + 6},
+                 {button->Bounds().x + 0x3c, button->Bounds().y + g_wiz_text_font.height() + 6},
                  fmt::format("{:4.1f} lbs", weight * 0.1f));
     }
 }

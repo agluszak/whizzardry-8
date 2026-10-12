@@ -588,8 +588,8 @@ void W8OptionsSaveRow::Redraw(bool full_redraw)
         return;
     }
 
-    int x = m_pPanel->m_bounds.left + m_left;
-    int y = m_pPanel->m_bounds.top + m_top;
+    int x = ScreenBounds().x;
+    int y = ScreenBounds().y;
     if (m_save->screenshot.capture_result == 0) {
         CatalogArtwork::Load(0xf6, 0).draw(GetFrameBufferSurface(), 0, x + 6, y + 6);
     } else {
@@ -634,8 +634,8 @@ void W8OptionsSaveRow::OnLeftButtonUp(int event)
         (m_stateFlags & g_W8TextControlStateSecondary) != 0) {
         SDL_Point point;
         SGPMouseGetPos(&point);
-        point.x -= m_pPanel->m_bounds.left + m_left;
-        point.y -= m_pPanel->m_bounds.top + m_top;
+        point.x -= ScreenBounds().x;
+        point.y -= ScreenBounds().y;
         if (m_save_mode != 0 && point.x >= 0x5c && point.y >= 0x33 && m_save_listener != 0) {
             m_save_listener->OnEditSaveName(this);
         }
@@ -1535,8 +1535,8 @@ void W8OptionsSlider::Redraw(bool full_redraw)
     if (m_active && (full_redraw || m_dirty)) {
         W8HorizontalRangeThumb::Redraw(full_redraw);
         if (m_enabled && m_pixelPosition > 13) {
-            int left = m_pPanel->m_bounds.left + m_left;
-            int top = m_pPanel->m_bounds.top + m_top;
+            int left = ScreenBounds().x;
+            int top = ScreenBounds().y;
             unsigned short color = Get16BPPColor(SDL_Color{0, 255, 0, SDL_ALPHA_OPAQUE});
             int end = m_pixelPosition < 74 ? m_pixelPosition - 1 : 73;
             const SDL_Rect first_segment{left + 13, top + 7, end - 13, 2};

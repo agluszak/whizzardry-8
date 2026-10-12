@@ -15,8 +15,7 @@ public:
     friend struct Controls;
 
     W8Widget()
-        : m_enabled(1), m_active(0), m_dirty(0), m_left(0), m_top(0), m_right(0), m_bottom(0),
-          m_region(-1), m_pPanel(0), m_primaryActivationCallback(0), m_leftButtonDownCallback(0),
+        : m_enabled(1), m_active(0), m_dirty(0), m_region(-1), m_pPanel(0), m_primaryActivationCallback(0), m_leftButtonDownCallback(0),
           m_secondaryActivationCallback(0), m_rightButtonDownCallback(0),
           m_leftDoubleClickCallback(0)
     {
@@ -39,8 +38,14 @@ public:
     /* Default hooks; Redraw's flag is the panel's dirty state. */
     // FUNCTION: WIZ8 0x005b1be0
     virtual void Redraw(bool) {}
+    /* The widget's rectangle relative to its panel, and on screen. A widget
+       without a panel sits at the screen origin. */
+    const SDL_Rect& Bounds() const { return m_rect; }
+    SDL_Rect ScreenBounds() const;
+    /* A screen point in this widget's own coordinates. */
+    SDL_Point ToLocal(SDL_Point screen) const;
     /* The one way to move a widget: hit testing and layout follow. */
-    void SetBounds(int left, int top, int right, int bottom);
+    void SetBounds(const SDL_Rect& bounds);
     virtual void AddLayoutFlags(unsigned int) {}
     virtual void SetAlternateTextEnabled(bool) {}
     virtual void OnMouseEnter(int) {}
@@ -62,7 +67,6 @@ protected:
     virtual void OnGeometryChanged();
     bool OwnsRegion() const;
     void ReleaseRegion();
-    void UpdateRegionBounds(int left, int top, int right, int bottom);
     SDL_Point PanelOrigin() const;
 
 public:
@@ -72,12 +76,6 @@ public:
     bool m_active;  /* panel participation and region input */
     bool m_dirty;   /* pending widget redraw */
     unsigned char pad_007;
-    /* The widget's rectangle, relative to the owning panel's origin; right
-       and bottom are edges, not a size. Change it through SetBounds. */
-    int m_left;
-    int m_top;
-    int m_right;
-    int m_bottom;
     int m_region; /* handed to DisableRegionInput unless -1 */
     Controls* m_pPanel;
     W8ControlCallback m_primaryActivationCallback; /* invoked by text-control activation */
@@ -86,4 +84,9 @@ public:
     W8ControlCallback m_rightButtonDownCallback;
     W8ControlCallback m_leftDoubleClickCallback;
     OwnedRegion m_owned_region;
+
+private:
+    void UpdateRegionBounds();
+
+    SDL_Rect m_rect{}; /* relative to the panel origin */
 };

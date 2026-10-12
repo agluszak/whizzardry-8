@@ -86,7 +86,7 @@ void W8DialogBase::Draw()
         CreateControls();
     }
     if (m_error == 0 && m_resource.IsConfigured()) {
-        if (m_width != m_resource.GetWidth() || m_height != m_resource.GetHeight()) {
+        if (m_width != m_resource.Bounds().w || m_height != m_resource.Bounds().h) {
             m_resource.Resize(m_width, m_height);
         }
         m_resource.m_dirty = true;

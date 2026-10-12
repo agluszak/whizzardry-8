@@ -50,7 +50,7 @@ static std::optional<MessageBoxState> g_message_box;
 
 static SDL_Rect MessageBoxBounds(const MessageBoxState& message_box)
 {
-    auto bounds = message_box.background.GetBounds();
+    auto bounds = message_box.background.Bounds();
     const auto include = [&bounds](SDL_Rect control) {
         const int left = std::min(bounds.x, control.x);
         const int top = std::min(bounds.y, control.y);
@@ -59,8 +59,8 @@ static SDL_Rect MessageBoxBounds(const MessageBoxState& message_box)
         bounds = {left, top, right - left, bottom - top};
     };
 
-    if (message_box.accept.IsConfigured()) include(message_box.accept.GetBounds());
-    if (message_box.cancel.IsConfigured()) include(message_box.cancel.GetBounds());
+    if (message_box.accept.IsConfigured()) include(message_box.accept.Bounds());
+    if (message_box.cancel.IsConfigured()) include(message_box.cancel.Bounds());
     return bounds;
 }
 

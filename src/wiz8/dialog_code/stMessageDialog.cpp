@@ -190,8 +190,8 @@ int W8MessageDialogBase::CreateControls()
                                   W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr)) {
         m_confirm_button.m_owner = this;
         m_cancel_button.m_owner = this;
-        const int button_width = m_confirm_button.GetWidth();
-        const int button_y = m_y + m_height - m_confirm_button.GetHeight() - 0xf;
+        const int button_width = m_confirm_button.Bounds().w;
+        const int button_y = m_y + m_height - m_confirm_button.Bounds().h - 0xf;
         const int button_x = m_x + (m_width - button_width * (allow_cancel ? 3 : 1)) / 2;
         m_confirm_button.SetPosition(button_x, button_y);
         m_cancel_button.SetPosition(m_x + m_width / 2 + button_width / 2, button_y);

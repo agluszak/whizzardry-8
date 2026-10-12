@@ -103,12 +103,9 @@ void W8CharacterSpellList::SetEntryCount(int count)
 void W8CharacterSpellList::Redraw(bool force)
 {
     if (m_active && (m_dirty || force)) {
-        int left = m_left + m_pPanel->m_bounds.left;
-        int top = m_top + m_pPanel->m_bounds.top;
-        int right = m_right + m_pPanel->m_bounds.left;
-        int bottom = m_bottom + m_pPanel->m_bounds.top;
-        InvalidateRegion(left, top, right, bottom);
-        CatalogArtwork::Load(0x1b6, 0).drawRect(GetFrameBufferSurface(), SDL_Rect{0, 0, (right) - (left), (bottom) - (top)}, left, top);
+        const auto [left, top, width, height] = ScreenBounds();
+        InvalidateRegion(left, top, left + width, top + height);
+        CatalogArtwork::Load(0x1b6, 0).drawRect(GetFrameBufferSurface(), SDL_Rect{0, 0, width, height}, left, top);
         int y = top + 1;
         g_wiz_text_font_secondary.resetPalette();
         g_wiz_text_font_secondary.setShade(Font::kNormalShade);
@@ -128,7 +125,7 @@ void W8CharacterSpellList::Redraw(bool force)
             std::string cost;
             cost = fmt::format("{:d}", g_spell_records[m_entries[index].spell].spell_point_cost);
             DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary,
-                     {right - g_wiz_text_font_secondary.textWidth(cost) - 2, y}, cost);
+                     {left + width - g_wiz_text_font_secondary.textWidth(cost) - 2, y}, cost);
             y += 13;
             g_wiz_text_font_secondary.resetPalette();
             g_wiz_text_font_secondary.setShade(Font::kNormalShade);
@@ -156,7 +153,7 @@ int W8CharacterSpellList::GetMouseEntry()
 {
     SDL_Point mouse;
     SGPMouseGetPos(&mouse);
-    return (mouse.y - m_pPanel->m_bounds.top - m_top) / 13 + m_scroll_offset + m_first_entry;
+    return (ToLocal(mouse).y) / 13 + m_scroll_offset + m_first_entry;
 }
 
 // FUNCTION: WIZ8 0x005c8120
