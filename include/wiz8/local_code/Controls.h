@@ -80,7 +80,6 @@ struct Controls {
     inline W8Widget* ControlAt(int index) { return m_controls[index].get(); }
 
   private:
-    friend class W8Widget;
     std::vector<std::unique_ptr<W8Widget>> m_controls;
     unsigned int m_regionSet = 0;
 

@@ -1280,12 +1280,12 @@ void CastSpellAtLockInteraction(unsigned int level, int flag, int backfire)
     g_lock_interaction->ApplyKnockKnock(level, flag, backfire);
 }
 
-W8MainGameTextKeyHandler::W8MainGameTextKeyHandler(Controls* panel, int left, int top, int right,
+W8MainGameTextKeyHandler::W8MainGameTextKeyHandler(Controls& panel, int left, int top, int right,
                                                    int bottom, int line_count,
                                                    const unsigned short* line_string_ids)
-    : W8Widget(panel, 0xffffffff, left, top, right - 0x13, bottom),
-      m_range(panel->m_bounds.left - 0x12 + right, panel->m_bounds.top + top,
-              right + panel->m_bounds.left, panel->m_bounds.top + bottom)
+    : W8Widget(0xffffffff, left, top, right - 0x13, bottom),
+      m_range(panel.m_bounds.left - 0x12 + right, panel.m_bounds.top + top,
+              right + panel.m_bounds.left, panel.m_bounds.top + bottom)
 {
     m_line_count = line_count;
     m_visible_lines = (bottom - top) / 0xe;
@@ -1550,8 +1550,8 @@ W8MainGameTextPanel::W8MainGameTextPanel()
         m_entries[index]->m_listener = this;
         m_entries[index]->EnableRegionHelp(0x7d1);
     }
-    m_key_handler = new W8MainGameTextKeyHandler(
-        this, 0x8e, 5, 0x10f, 0x59, 0xf, g_trap_name_string_ids);
+    m_key_handler = EmplaceControl<W8MainGameTextKeyHandler>(
+        *this, 0x8e, 5, 0x10f, 0x59, 0xf, g_trap_name_string_ids);
     m_key_handler->m_range_listener = this;
     m_text_bounds.left = m_bounds.left + 0xc;
     m_text_bounds.top = m_bounds.top + 0x29;

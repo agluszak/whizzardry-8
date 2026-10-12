@@ -21,7 +21,7 @@ extern char s_general_magic_sound[];
 // VTABLE: WIZ8 0x005eec50
 class W8ConditionButton : public W8TextControl {
 public:
-    W8ConditionButton(Controls* panel, unsigned int region, int left, int top, int right,
+    W8ConditionButton(Controls& panel, unsigned int region, int left, int top, int right,
                       int bottom, CatalogArtwork artwork, int normal_sprite,
                       int pressed_sprite, int alternate_normal_sprite, int alternate_pressed_sprite,
                       int disabled_sprite, int ui_slot)

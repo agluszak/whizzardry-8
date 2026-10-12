@@ -49,11 +49,6 @@ public:
     W8TextControl(Controls& panel, unsigned int region, int left, int top, int right, int bottom,
                   std::optional<CatalogArtwork> image_artwork, int normal_sprite, int pressed_sprite,
                   int alternate_normal_sprite, int alternate_pressed_sprite, int disabled_sprite);
-    // Legacy constructor, still used by callers that adopt during construction.
-    W8TextControl(Controls* panel, unsigned int region, int left, int top, int right, int bottom,
-                  std::optional<CatalogArtwork> image_artwork, int normal_sprite, int pressed_sprite,
-                  int alternate_normal_sprite, int alternate_pressed_sprite, int disabled_sprite);
-
     void SetImage(CatalogArtwork artwork);
     void SetItemImage(int item_id);
     void ClearImage();
@@ -129,15 +124,3 @@ public:
 protected:
     std::string m_regionHelp;
 };
-
-/* Separate panel-owned arrays retain their slots until each control has been
-   destroyed. Panel storage and region sets are released by the caller. */
-inline void DestroyTextControls(W8TextControl** controls, int count)
-{
-    for (int index = 0; index < count; ++index) {
-        if (controls[index] != 0) {
-            delete controls[index];
-            controls[index] = 0;
-        }
-    }
-}

@@ -1217,7 +1217,7 @@ static void DrawCampItemLabel(W8ItemInstance* item, int left, int top, char flag
 // VTABLE: WIZ8 0x005ef2b0
 class W8CampInfoLabel : public W8TextControl {
 public:
-    W8CampInfoLabel(Controls* panel, unsigned int region, int left, int top, int right, int bottom,
+    W8CampInfoLabel(Controls& panel, unsigned int region, int left, int top, int right, int bottom,
                     std::optional<CatalogArtwork> image_artwork, int normal_sprite, int pressed_sprite,
                     int alternate_normal_sprite, int alternate_pressed_sprite, int disabled_sprite)
         : W8TextControl(panel, region, left, top, right, bottom, std::move(image_artwork),
@@ -1529,7 +1529,7 @@ int CreateCampSecondaryPanel(void)
     top = 0x3a - panel->m_bounds.top;
     for (index = 0; index < 7; ++index) {
         g_camp_stat_labels[index] =
-            new W8CampInfoLabel(panel, -1, left, top, right, top + 0xc, std::nullopt,
+            panel->EmplaceControl<W8CampInfoLabel>(*panel, -1, left, top, right, top + 0xc, std::nullopt,
                                 -1, -1, -1, -1, -1);
         g_camp_stat_labels[index]->EnableRegionHelp(0x958);
         top += 0xe;
@@ -1537,13 +1537,13 @@ int CreateCampSecondaryPanel(void)
     left = 0x144 - panel->m_bounds.left;
     right = 0x1b9 - panel->m_bounds.left;
     top = -panel->m_bounds.top;
-    g_camp_info_labels[0] = new W8CampInfoLabel(panel, -1, left, top + 0x3a, right,
+    g_camp_info_labels[0] = panel->EmplaceControl<W8CampInfoLabel>(*panel, -1, left, top + 0x3a, right,
                                                 top + 0x46, std::nullopt, -1, -1, -1, -1, -1);
-    g_camp_info_labels[1] = new W8CampInfoLabel(panel, -1, left, top + 0x48, right,
+    g_camp_info_labels[1] = panel->EmplaceControl<W8CampInfoLabel>(*panel, -1, left, top + 0x48, right,
                                                 top + 0x54, std::nullopt, -1, -1, -1, -1, -1);
-    g_camp_info_labels[2] = new W8CampInfoLabel(panel, -1, left, top + 0x80, right,
+    g_camp_info_labels[2] = panel->EmplaceControl<W8CampInfoLabel>(*panel, -1, left, top + 0x80, right,
                                                 top + 0x8c, std::nullopt, -1, -1, -1, -1, -1);
-    g_camp_info_labels[3] = new W8CampInfoLabel(panel, -1, left, top + 0x8e, right,
+    g_camp_info_labels[3] = panel->EmplaceControl<W8CampInfoLabel>(*panel, -1, left, top + 0x8e, right,
                                                 top + 0x9a, std::nullopt, -1, -1, -1, -1, -1);
     g_camp_stat_labels[0]->m_secondaryActivationCallback = OpenStrengthInfoDialog;
     g_camp_stat_labels[1]->m_secondaryActivationCallback = OpenIntelligenceInfoDialog;

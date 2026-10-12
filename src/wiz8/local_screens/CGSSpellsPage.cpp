@@ -35,7 +35,7 @@ W8SpellRealmAnimation g_spell_realm_animations[6] = {{486, 22, 3}, {487, 18, 8},
 // VTABLE: WIZ8 0x005ef610 W8RangeListener
 class W8CharacterSpellList : public W8Widget, public W8RangeListener {
 public:
-    W8CharacterSpellList(Controls* owner, int x, int y, W8CharacterSpellEntry* entries);
+    W8CharacterSpellList(int x, int y, W8CharacterSpellEntry* entries);
     virtual ~W8CharacterSpellList() override;
     virtual void Redraw(bool force) override;
     virtual void OnMouseEnter(int event) override;
@@ -64,9 +64,9 @@ public:
     int m_y;
 };
 
-W8CharacterSpellList::W8CharacterSpellList(Controls* owner, int x, int y,
+W8CharacterSpellList::W8CharacterSpellList(int x, int y,
                                            W8CharacterSpellEntry* entries)
-    : W8Widget(owner, 0xffffffff, x + 0x1a, y + 0x19, x + 0xb4, y + 0x79), m_range(0),
+    : W8Widget(0xffffffff, x + 0x1a, y + 0x19, x + 0xb4, y + 0x79), m_range(0),
       m_entries(entries), m_hovered_entry(-1), m_scroll_offset(0), m_listener(0),
       m_x(x), m_y(y)
 {
@@ -237,7 +237,7 @@ void W8CharacterSpellsPage::SetCharacter(W8Character* character,
     CreateRegionSet();
     for (int realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
         m_realms[realm] =
-            new W8CharacterSpellList(this, (realm % 2) * 215 + 13, (realm / 2) * 130 + 8,
+            EmplaceControl<W8CharacterSpellList>((realm % 2) * 215 + 13, (realm / 2) * 130 + 8,
                                      m_SpellData);
         m_realms[realm]->m_listener = this;
     }

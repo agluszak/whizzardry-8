@@ -102,7 +102,7 @@ static char g_zero_slash_zero[] = "0/0";
 // VTABLE: WIZ8 0x005ef700 W8CharacterStatsRecordControl
 class W8CharacterStatsRecordControl : public W8TextControl {
 public:
-    W8CharacterStatsRecordControl(Controls* owner, int top, int height,
+    W8CharacterStatsRecordControl(Controls& owner, int top, int height,
                                   const W8CharacterStatsRecord* record, int variant);
     virtual void Redraw(bool full_redraw) override;
     virtual void OnMouseEnter(int event) override;
@@ -165,7 +165,7 @@ void W8CharacterStatsValue::OnRightButtonUp(int event)
 }
 
 // FUNCTION: WIZ8 0x005c9060
-W8CharacterStatsRecordControl::W8CharacterStatsRecordControl(Controls* owner, int top, int height,
+W8CharacterStatsRecordControl::W8CharacterStatsRecordControl(Controls& owner, int top, int height,
                                                              const W8CharacterStatsRecord* record,
                                                              int variant)
     : W8TextControl(owner, 0xffffffff, 0, top, 0x7e, top + height, CatalogArtwork::Load(0x104, 0), 0, 0, 0, 0, 0)
@@ -194,7 +194,6 @@ W8CharacterStatsRecordControl::W8CharacterStatsRecordControl(Controls* owner, in
     m_textBuffer.SetText(g_localized_strings[record->name_id], g_options_detail_font);
     m_textBuffer.SetLayoutMode(g_W8TextBufferAlignMiddle | g_W8TextBufferAlignLeft);
     m_pressedTextOffset = 0;
-    UpdateTextBounds(0x19, m_text_offset + top, 0x7e, m_text_offset + top + 0x16);
 }
 
 /* Redraw the record's catalogue image over the entry's own background. */
@@ -304,9 +303,12 @@ void W8CharacterStatsRow::BuildSubpanel()
                 top = index * 0x16 + 2;
                 height = 0x16;
             }
-            m_subpanel_entries[index] = new W8CharacterStatsRecordControl(m_subpanel.get(), top, height,
+            m_subpanel_entries[index] = m_subpanel->EmplaceControl<W8CharacterStatsRecordControl>(*m_subpanel, top, height,
                                                                           &m_table[index], variant);
-            m_subpanel_entries[index]->m_listener = this;
+            auto* control = m_subpanel_entries[index];
+            control->UpdateTextBounds(0x19, control->m_text_offset + top, 0x7e,
+                                      control->m_text_offset + top + 0x16);
+            control->m_listener = this;
         }
     }
     m_subpanel->SetEnabled(true);

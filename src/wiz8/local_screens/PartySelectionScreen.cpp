@@ -299,9 +299,9 @@ public:
 // VTABLE: WIZ8 0x005ef464
 class W8PartySelectionListControl : public W8Widget, public W8RangeListener {
 public:
-    W8PartySelectionListControl(Controls* panel, unsigned int region, int left, int top, int right,
+    W8PartySelectionListControl(unsigned int region, int left, int top, int right,
                                 int bottom)
-        : W8Widget(panel, region, left, top, right, bottom), m_visible_rows(0x11), m_selection(0),
+        : W8Widget(region, left, top, right, bottom), m_visible_rows(0x11), m_selection(0),
           m_hovered(-1), m_first_visible(0), m_listener(0)
     {
     }
@@ -416,7 +416,7 @@ public:
    index, and the panel callback used for row/scroll actions. */
 class W8PartySelectionCharacterRow : public W8TextControl {
 public:
-    W8PartySelectionCharacterRow(Controls* panel, int top, int row);
+    W8PartySelectionCharacterRow(Controls& panel, int top, int row);
     virtual void Redraw(bool full_redraw) override;
     virtual void AdjustValue(int amount) override;
     virtual void OnRightButtonUp(int event) override;
@@ -477,7 +477,7 @@ public:
 
 class W8PartySelectionPartySlotRow : public W8TextControl {
 public:
-    W8PartySelectionPartySlotRow(Controls* panel, int row);
+    W8PartySelectionPartySlotRow(Controls& panel, int row);
     virtual void Redraw(bool full_redraw) override;
     virtual void OnRightButtonUp(int event) override;
     virtual void OnLeftButtonDoubleClick(int event) override;
@@ -617,7 +617,7 @@ bool PartySelectionInReviewMode(void)
     return g_party_selection_controller->m_mode == W8_PARTY_SELECT_IMPORT;
 }
 
-W8PartySelectionCharacterRow::W8PartySelectionCharacterRow(Controls* panel, int top, int row)
+W8PartySelectionCharacterRow::W8PartySelectionCharacterRow(Controls& panel, int top, int row)
     : W8TextControl(panel, 0xffffffff, 0, top, 0, 0, CatalogArtwork::Load(0xfb, 0), 0, 1, 2, 1, -1), m_row(row),
       m_character_index(0), m_selection_listener(0)
 {
@@ -718,7 +718,7 @@ W8PartySelectionCharacterPanel::W8PartySelectionCharacterPanel()
 
     int top = 0;
     for (int row = 0; row < 6; ++row) {
-        W8PartySelectionCharacterRow* control = new W8PartySelectionCharacterRow(this, top, row);
+        W8PartySelectionCharacterRow* control = EmplaceControl<W8PartySelectionCharacterRow>(*this, top, row);
         control->m_selection_listener = this;
         m_control.AddEntry(control);
         top += 0x2a;
@@ -800,12 +800,11 @@ void W8PartySelectionCharacterPanel::AdjustPartyMemberRange(int amount)
 }
 
 // FUNCTION: WIZ8 0x005bf120
-W8PartySelectionPartySlotRow::W8PartySelectionPartySlotRow(Controls* panel, int row)
+W8PartySelectionPartySlotRow::W8PartySelectionPartySlotRow(Controls& panel, int row)
     : W8TextControl(panel, 0xffffffff, (row & 1) * 0x20b + 0x0e, (row / 2) * 0x82 + 0x3a, 0, 0, CatalogArtwork::Load(0x101, 0), -1, 1, 0, 0, -1),
       m_row(row), m_redraw_partner(0)
 {
     AddLayoutFlags(0x11);
-    UpdateTextBounds(m_left - 8, m_top + 0x51, m_left + 0x61, m_top + 0x60);
 }
 
 // FUNCTION: WIZ8 0x005bf280
@@ -887,7 +886,10 @@ W8PartySelectionPartySlotPanel::W8PartySelectionPartySlotPanel() : Controls()
 {
     CreateRegionSet();
     for (int row = 0; row < 6; ++row) {
-        m_control.AddEntry(new W8PartySelectionPartySlotRow(this, row));
+        auto* control = EmplaceControl<W8PartySelectionPartySlotRow>(*this, row);
+        control->UpdateTextBounds(control->m_left - 8, control->m_top + 0x51,
+                                  control->m_left + 0x61, control->m_top + 0x60);
+        m_control.AddEntry(control);
     }
     m_control.m_selectionListener = this;
     for (int slot = 0; slot < 6; ++slot) {
@@ -1241,7 +1243,7 @@ void W8PartySelectionController::Setup()
 
     m_import_panel = std::make_unique<Controls>(0x148, 0x31, 0, 0, std::nullopt, -1);
     m_import_panel->CreateRegionSet();
-    m_list = new W8PartySelectionListControl(m_import_panel.get(), 0xffffffff, 0, 0, 0x9d, 0xfa);
+    m_list = m_import_panel->EmplaceControl<W8PartySelectionListControl>(0xffffffff, 0, 0, 0x9d, 0xfa);
     m_list->m_listener = this;
 
     m_bottom_panel = std::make_unique<Controls>(0x84, 0x1b5, 0, 0, std::nullopt, -1);

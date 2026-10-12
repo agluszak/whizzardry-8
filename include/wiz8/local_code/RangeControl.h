@@ -85,7 +85,7 @@ public:
 // VTABLE: WIZ8 0x005ed66c
 class W8HorizontalRangeThumb : public W8Widget {
 public:
-    W8HorizontalRangeThumb(Controls* panel, unsigned int region, int left, int top,
+    W8HorizontalRangeThumb(unsigned int region, int left, int top,
                            CatalogArtwork artwork, int background_sprite,
                            int normal_thumb_sprite, int hovered_thumb_sprite,
                            int disabled_thumb_sprite);

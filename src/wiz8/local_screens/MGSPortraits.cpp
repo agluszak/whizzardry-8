@@ -1303,8 +1303,8 @@ void CreateConditionButtons(void)
     for (uiSlot = 0; uiSlot < 8; ++uiSlot) {
         unsigned int column_x = (uiSlot & 1) != 0 ? 0x23f : 0;
         int row_y = (uiSlot >> 1) * 0x55;
-        g_condition_buttons[uiSlot] = new W8ConditionButton(
-            g_condition_buttons_panel.get(), g_main_conditions->index(uiSlot), column_x + 0x17, row_y + 0x13,
+        g_condition_buttons[uiSlot] = g_condition_buttons_panel->EmplaceControl<W8ConditionButton>(
+            *g_condition_buttons_panel, g_main_conditions->index(uiSlot), column_x + 0x17, row_y + 0x13,
             column_x + 0x2a, row_y + 0x26, artwork, 0, 0, 1, 1, -1, uiSlot);
         if (g_condition_buttons[uiSlot] == 0) {
             srAssertFail("gpConditionButtons[uiSlot]",
