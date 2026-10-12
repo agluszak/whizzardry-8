@@ -8,6 +8,7 @@
 #include <string>
 #include <cstdint>
 #include <optional>
+#include <memory>
 
 #include "conditions.h"
 #include "layouts/targeting.h"
@@ -163,9 +164,8 @@ enum {
     W8_MONSTER_ATTRIBUTE_SENSES = 4
 };
 
-/* The 0x153-byte combat allocation has two adjacent runs of 0x11-byte records.
-   ClearEffectSlot consumes a record whenever its leading active byte is set. */
-#pragma pack(push, 1)
+/* Runtime combat state, with its pending actions owned as a value.
+   The serialized monster record is handled by the separate save codec. */
 
 struct W8MonsterCombatState {
     /* The phase of the round this monster next acts on, zero when it
@@ -190,9 +190,8 @@ struct W8MonsterCombatState {
        indiscriminately (friends included); Combat Range counts allies as
        hostile while set. */
     bool berserk;
-    /* The queue of actions the monster's AI has decided on, one
-       W8MonsterAction each. The AI owns the list and destroys it outright. */
-    std::vector<W8MonsterAction>* actions;
+    /* Candidate actions for the next AI decision. */
+    std::vector<W8MonsterAction> actions;
     int character_hate[9];
     W8EffectSlot combat_effects[9];   /* 0x03e .. 0x0d7 */
     W8EffectSlot combat_effects_2[6]; /* 0x0d7 .. 0x13d */
@@ -229,7 +228,6 @@ struct W8MonsterCombatState {
        skips friendly targets and gets one extra action repick. */
     bool reconsider_action;
 };
-#pragma pack(pop)
 
 /* The sight state both visibility records carry: unseen, seen this pass, or
    seen within the decay window since last_seen_clock. Stored as a byte. */
@@ -299,8 +297,8 @@ struct W8MonsterInfo {
     int monster_group_id;
     unsigned int monster_species;
     W8Monster* p3D;
-    /* Allocated while the monster is in combat. */
-    W8MonsterCombatState* pCombat;
+    /* Combat state exists only during the fight, and owns its action queue. */
+    std::unique_ptr<W8MonsterCombatState> pCombat;
     bool fActive;
     bool fInCombat;
     /* Copied from the group's ubDisposition when the entry is created. */
