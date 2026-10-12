@@ -33,13 +33,13 @@ GenericButtonImage DefaultGenericButtonImage()
 static std::int8_t DisabledOverlayStyle(const ButtonAppearance& appearance,
                                        const ButtonVisualState& state);
 static std::int8_t DrawQuickButton(SDL_Surface& target, const ButtonAppearance* appearance,
-                                   const ButtonVisualState& state);
+                                   const SDL_Rect& bounds, const ButtonVisualState& state);
 static std::int8_t DrawGenericButton(SDL_Surface& target, const ButtonAppearance* appearance,
-                                     const ButtonVisualState& state);
+                                     const SDL_Rect& bounds, const ButtonVisualState& state);
 static void DrawTextOnButton(SDL_Surface& target, const ButtonAppearance* appearance,
-                             const ButtonVisualState& state);
-static void DrawHatchOnButton(SDL_Surface& target, const ButtonAppearance* appearance);
-static void DrawShadeOnButton(SDL_Surface& target, const ButtonAppearance* appearance);
+                             const SDL_Rect& bounds, const ButtonVisualState& state);
+static void DrawHatchOnButton(SDL_Surface& target, const ButtonAppearance* appearance, const SDL_Rect& bounds);
+static void DrawShadeOnButton(SDL_Surface& target, const ButtonAppearance* appearance, const SDL_Rect& bounds);
 
 ButtonImage ButtonGraphics::Load(std::string_view filename, std::int32_t grayed, std::int32_t off_normal,
                                  std::int32_t off_hilite, std::int32_t on_normal, std::int32_t on_hilite)
@@ -180,18 +180,18 @@ static std::int8_t DisabledOverlayStyle(const ButtonAppearance& button, const Bu
 }
 
 void DrawButtonAppearance(SDL_Surface& target, const ButtonAppearance& appearance,
-                          const ButtonVisualState& state)
+                          const SDL_Rect& bounds, const ButtonVisualState& state)
 {
     const auto* b = &appearance;
-    const auto disabled_style = b->quick_image ? DrawQuickButton(target, b, state) : DrawGenericButton(target, b, state);
-    if (!b->string.empty()) DrawTextOnButton(target, b, state);
-    if (disabled_style == DISABLED_STYLE_HATCHED) DrawHatchOnButton(target, b);
-    else if (disabled_style == DISABLED_STYLE_SHADED) DrawShadeOnButton(target, b);
+    const auto disabled_style = b->quick_image ? DrawQuickButton(target, b, bounds, state) : DrawGenericButton(target, b, bounds, state);
+    if (!b->string.empty()) DrawTextOnButton(target, b, bounds, state);
+    if (disabled_style == DISABLED_STYLE_HATCHED) DrawHatchOnButton(target, b, bounds);
+    else if (disabled_style == DISABLED_STYLE_SHADED) DrawShadeOnButton(target, b, bounds);
 }
 
 // FUNCTION: WIZ8 0x0040e060
 static std::int8_t DrawQuickButton(SDL_Surface& target, const ButtonAppearance* b,
-                                   const ButtonVisualState& state)
+                                   const SDL_Rect& bounds, const ButtonVisualState& state)
 {
     std::int8_t disabled_style = DISABLED_STYLE_NONE;
     if (!b->quick_image) return disabled_style;
@@ -214,31 +214,28 @@ static std::int8_t DrawQuickButton(SDL_Surface& target, const ButtonAppearance* 
     }
     if (frame != BUTTON_NO_IMAGE)
         DrawSprite(target, image.object(), static_cast<std::size_t>(frame),
-                   b->bounds.x, b->bounds.y);
+                   bounds.x, bounds.y);
     return disabled_style;
 }
 
-static void DrawHatchOnButton(SDL_Surface& target, const ButtonAppearance* b)
+static void DrawHatchOnButton(SDL_Surface& target, const ButtonAppearance* b, const SDL_Rect& bounds)
 {
-    const auto& bounds = b->bounds;
     const SDL_Rect area{bounds.x, bounds.y, bounds.w, bounds.h};
     HatchRect(target, area);
 }
 
-static void DrawShadeOnButton(SDL_Surface& target, const ButtonAppearance* b)
+static void DrawShadeOnButton(SDL_Surface& target, const ButtonAppearance* b, const SDL_Rect& bounds)
 {
-    const auto& bounds = b->bounds;
     const SDL_Rect area{bounds.x, bounds.y, bounds.w, bounds.h};
     ShadowRect(target, area);
 }
 
 // FUNCTION: WIZ8 0x0040e5d0
 static void DrawTextOnButton(SDL_Surface& target, const ButtonAppearance* b,
-                             const ButtonVisualState& state)
+                             const SDL_Rect& bounds, const ButtonVisualState& state)
 {
     std::int32_t text_x, text_y, button_width, button_height, text_origin_x, text_origin_y;
     SDL_Rect text_clip, previous_clip;
-    const auto& bounds = b->bounds;
 
     // If this button actually has a string to print
     if (!b->string.empty()) {
@@ -327,7 +324,7 @@ static void DrawTextOnButton(SDL_Surface& target, const ButtonAppearance* b,
 
 // FUNCTION: WIZ8 0x0040e890
 static std::int8_t DrawGenericButton(SDL_Surface& target, const ButtonAppearance* b,
-                                     const ButtonVisualState& state)
+                                     const SDL_Rect& bounds, const ButtonVisualState& state)
 {
     std::int8_t disabled_style = DISABLED_STYLE_NONE;
     if (!b->generic_image) return disabled_style;
@@ -364,17 +361,17 @@ static std::int8_t DrawGenericButton(SDL_Surface& target, const ButtonAppearance
     iBorderWidth = first_frame.width;
 
     // Compute the number of button "chunks" needed to be blitted
-    width = b->bounds.w;
-    height = b->bounds.h;
+    width = bounds.w;
+    height = bounds.h;
     NumChunksWide = width / iBorderWidth;
     NumChunksHigh = height / iBorderHeight;
     hremain = height % iBorderHeight;
     wremain = width % iBorderWidth;
 
-    cx = (b->bounds.x + ((NumChunksWide - 1) * iBorderWidth) + wremain);
-    cy = (b->bounds.y + ((NumChunksHigh - 1) * iBorderHeight) + hremain);
+    cx = (bounds.x + ((NumChunksWide - 1) * iBorderWidth) + wremain);
+    cy = (bounds.y + ((NumChunksHigh - 1) * iBorderHeight) + hremain);
 
-    const SDL_Rect button_area{b->bounds.x, b->bounds.y, b->bounds.w, b->bounds.h};
+    const SDL_Rect button_area{bounds.x, bounds.y, bounds.w, bounds.h};
     SDL_FillSurfaceRect(&target, &button_area, b->generic_image->fill_color);
 
     // If there is a background image, fill the button's area with it
@@ -385,8 +382,8 @@ static std::int8_t DrawGenericButton(SDL_Surface& target, const ButtonAppearance
         if (state.pressed)
             ox = oy = 1;
 
-        const SDL_Rect background_area{b->bounds.x + ox, b->bounds.y + oy,
-                                       b->bounds.w - ox, b->bounds.h - oy};
+        const SDL_Rect background_area{bounds.x + ox, bounds.y + oy,
+                                       bounds.w - ox, bounds.h - oy};
         TileSprite(target, background_area, *b->generic_image->frames[5],
                    b->generic_image->background_frame,
                    {b->generic_image->offset_x, b->generic_image->offset_y});
@@ -404,31 +401,31 @@ static std::int8_t DrawGenericButton(SDL_Surface& target, const ButtonAppearance
             ImgNum = 1;
 
         draw_frame(static_cast<std::size_t>(ImgNum),
-                   b->bounds.x + q * iBorderWidth, b->bounds.y);
+                   bounds.x + q * iBorderWidth, bounds.y);
 
         if (q == 0)
             ImgNum = 5;
         else
             ImgNum = 6;
 
-        draw_frame(static_cast<std::size_t>(ImgNum), b->bounds.x + q * iBorderWidth, cy);
+        draw_frame(static_cast<std::size_t>(ImgNum), bounds.x + q * iBorderWidth, cy);
     }
     // Blit the right side corners
-    draw_frame(2, cx, b->bounds.y);
+    draw_frame(2, cx, bounds.y);
     draw_frame(7, cx, cy);
     // Draw the vertical members of the button's borders
     NumChunksHigh--;
 
     if (hremain != 0) {
         q = NumChunksHigh;
-        const int y = b->bounds.y + q * iBorderHeight - (iBorderHeight - hremain);
-        draw_frame(3, b->bounds.x, y);
+        const int y = bounds.y + q * iBorderHeight - (iBorderHeight - hremain);
+        draw_frame(3, bounds.x, y);
         draw_frame(4, cx, y);
     }
 
     for (q = 1; q < NumChunksHigh; q++) {
-        const int y = b->bounds.y + q * iBorderHeight;
-        draw_frame(3, b->bounds.x, y);
+        const int y = bounds.y + q * iBorderHeight;
+        draw_frame(3, bounds.x, y);
         draw_frame(4, cx, y);
     }
 

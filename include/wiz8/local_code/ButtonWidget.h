@@ -38,16 +38,16 @@ public:
     void SetText(std::string_view text);
     void SetTextOffsets(int x, int y, bool shift);
     void SetMultiColor(bool enabled);
-    int GetWidth() const { return m_appearance.bounds.w; }
-    int GetHeight() const { return m_appearance.bounds.h; }
-    int GetX() const { return m_appearance.bounds.x; }
-    int GetY() const { return m_appearance.bounds.y; }
+    int GetWidth() const { return m_right - m_left; }
+    int GetHeight() const { return m_bottom - m_top; }
+    int GetX() const { return m_left; }
+    int GetY() const { return m_top; }
     SDL_Point GetMousePosition() const { return GetRegionMousePosition(); }
     bool IsLeftButtonHeld() const
     {
         return OwnsRegion() && (Region().flags & W8_REGION_LEFT_BUTTON_HELD) != 0;
     }
-    SDL_Rect GetBounds() const { return m_appearance.bounds; }
+    SDL_Rect GetBounds() const { return {m_left, m_top, GetWidth(), GetHeight()}; }
     void SetEnabled(bool enabled) override;
     void UpdateEnabledState(bool enabled)
     {
@@ -116,8 +116,9 @@ private:
     int m_user_data = 0;
     W8Region& Region() const { return g_regions[m_region]; }
     void ConfigureRegion(int priority);
-    void ApplyRegionBounds();
-    void HandleMouseEvent(std::int32_t reason);
+    void SetButtonRect(const SDL_Rect& bounds);
+    enum class ButtonEvent { Enter, Leave, Move, Press, Release, Repeat, DoubleClick };
+    void HandleButtonEvent(ButtonEvent event, SDL_MouseButtonFlags mask);
     int m_tooltip_index; /* g_localized_strings index, or -1 */
     W8ButtonCallback m_left_callback;
     W8ButtonCallback m_right_callback;

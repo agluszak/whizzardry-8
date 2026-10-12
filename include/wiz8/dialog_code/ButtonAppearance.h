@@ -39,7 +39,6 @@ using GenericButtonImage = std::shared_ptr<GenericButtonImages>;
 struct ButtonAppearance {
     ButtonImage quick_image;
     GenericButtonImage generic_image;
-    SDL_Rect bounds{};
     std::int8_t bDisabledStyle = DISABLED_STYLE_DEFAULT;
     std::string string;
     Font* usFont = nullptr;
@@ -101,7 +100,7 @@ struct GenericButtonImages {
 extern bool gfRenderHilights;
 
 void DrawButtonAppearance(SDL_Surface& target, const ButtonAppearance& appearance,
-                          const ButtonVisualState& state);
+                          const SDL_Rect& bounds, const ButtonVisualState& state);
 GenericButtonImage DefaultGenericButtonImage();
 bool InitializeButtonImageManager();
 void ShutdownButtonImageManager();

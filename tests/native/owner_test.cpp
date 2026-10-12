@@ -1252,8 +1252,6 @@ void generic_button_images()
     ButtonAppearance first_appearance;
     ButtonAppearance second_appearance;
     first_appearance.quick_image = second_appearance.quick_image = graphics;
-    first_appearance.bounds = {0, 0, 8, 8};
-    second_appearance.bounds = {2, 0, 8, 8};
     // Verify blits for normal and checkbox highlights in every visual state.
     const auto& frame_colors = graphics->object().colors;
     auto target_owner = CreateCpuStorage(8, 8, SDL_PIXELFORMAT_RGB565);
@@ -1266,7 +1264,7 @@ void generic_button_images()
             for (bool pressed : {false, true}) {
                 for (bool hover : {false, true}) {
                     for (bool mouse_down : {false, true}) {
-                        DrawButtonAppearance(target, first_appearance,
+                        DrawButtonAppearance(target, first_appearance, SDL_Rect{0, 0, 8, 8},
                                               {enabled, pressed, hover, checkbox, mouse_down});
                         auto* pixels = static_cast<std::uint16_t*>(target.pixels);
                         REQUIRE(pixels);
