@@ -612,8 +612,6 @@ void W8LockTumbler::OnMouseLeave(int event)
     }
 }
 
-/* Retail ICF folds this onto W8HorizontalRangeThumb::OnMouseEnter. The fold
-   does not make the two source methods one identity. */
 void W8LockTumbler::OnLeftButtonDown(int)
 {
     PushButtonSoundScheme(0, true);

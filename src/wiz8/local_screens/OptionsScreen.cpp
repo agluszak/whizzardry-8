@@ -58,7 +58,6 @@
 #include "file_time.h"
 #include "layouts/world.h"
 #include "local_code/Controls.h"
-#include "local_code/RangeControl.h"
 #include "mgs_commands.h"
 #include "surrender/srPixelConvert.h"
 
@@ -973,7 +972,10 @@ void W8OptionsInterfacePanel::Populate()
     m_tooltip_delay->UpdatePixelPosition();
     m_tooltip_delay->m_position = static_cast<float>(g_settings.tooltip_delay_ms);
     m_tooltip_delay->UpdatePixelPosition();
-    m_tooltip_delay->m_listener = this;
+    m_tooltip_delay->on_release = [this] {
+        g_settings.tooltip_delay_ms = static_cast<int>(m_tooltip_delay->m_position);
+        SetRegionHelpDelay(0);
+    };
     W8TextControl* button = AddChoiceButton(0x80f);
     button->EnableRegionHelp(0x810);
     button->m_listener = this;
@@ -990,17 +992,10 @@ void W8OptionsInterfacePanel::Populate()
     AddCheckbox(0x80a, &g_options_values.autoscroll_combat_messages);
 }
 
-void W8OptionsInterfacePanel::OnDragEnd(W8HorizontalRangeThumb* thumb)
-{
-    g_settings.tooltip_delay_ms = static_cast<int>(thumb->m_position);
-    SetRegionHelpDelay(0);
-}
-
 void W8OptionsInterfacePanel::OnPrimary(W8TextControl* control)
 {
     g_settings.tooltips_enabled = !control->IsSelected();
     m_tooltip_delay->SetEnabled(g_settings.tooltips_enabled);
-    m_tooltip_delay->Invalidate(false);
 }
 
 void W8OptionsAudioPanel::Populate()
@@ -1048,7 +1043,8 @@ void W8OptionsAudioPanel::Populate()
         slider->UpdatePixelPosition();
         slider->m_position = static_cast<float>(volume);
         slider->UpdatePixelPosition();
-        slider->m_listener = this;
+        slider->on_change = [this, index](float value) { ChangeVolume(index, value); };
+        slider->on_release = [this, index] { PreviewVolume(index); };
         m_sliders[index] = slider;
 
         m_mute_buttons[index] = AddChoiceButton(0x822);
@@ -1063,41 +1059,26 @@ void W8OptionsAudioPanel::Populate()
     AddCheckbox(0x824, &g_options_values.pc_subtitles);
 }
 
-void W8OptionsAudioPanel::OnDrag(W8HorizontalRangeThumb* thumb)
+void W8OptionsAudioPanel::ChangeVolume(int index, float value)
 {
-    int index;
-    for (index = 0; index < 4; ++index) {
-        if (thumb == m_sliders[index]) {
-            break;
-        }
-    }
     switch (index) {
     case 0:
-        SetMusicVolume(static_cast<unsigned char>(thumb->m_position));
+        SetMusicVolume(static_cast<unsigned char>(value));
         return;
     case 1:
-        SetSoundEffectsVolume(static_cast<unsigned char>(thumb->m_position));
+        SetSoundEffectsVolume(static_cast<unsigned char>(value));
         return;
     case 2:
-        g_settings.footstep_volume = static_cast<unsigned char>(thumb->m_position);
+        g_settings.footstep_volume = static_cast<unsigned char>(value);
         return;
     case 3:
-        g_settings.voice_volume = static_cast<unsigned char>(thumb->m_position);
+        g_settings.voice_volume = static_cast<unsigned char>(value);
         return;
     }
 }
 
-void W8OptionsAudioPanel::OnDragEnd(W8HorizontalRangeThumb* thumb)
+void W8OptionsAudioPanel::PreviewVolume(int index)
 {
-    int index;
-    for (index = 0; index < 4; ++index) {
-        if (thumb == m_sliders[index]) {
-            break;
-        }
-    }
-    if (index == 4) {
-        index = -1;
-    }
     switch (index) {
     case 1:
         wiz8::sound::play("Data\\Sound\\Misc\\Interface Swoosh 01.wav");
@@ -1145,7 +1126,6 @@ void W8OptionsAudioPanel::OnPrimary(W8TextControl* control)
         break;
     }
     m_sliders[index]->SetEnabled(muted == 0);
-    m_sliders[index]->Invalidate(false);
 }
 
 void W8OptionsGraphicsPanel::Populate()
@@ -1155,7 +1135,7 @@ void W8OptionsGraphicsPanel::Populate()
     slider->m_minimumPosition = 0.1f;
     slider->m_maximumPosition = 1.9f;
     slider->UpdatePixelPosition();
-    slider->m_listener = this;
+    slider->on_change = [](float value) { SetDisplayGamma(value); };
     slider->SetEnabled(GetRendererModeByte());
     m_content_top += 22;
     AddCheckbox(0x816, &g_options_values.render_options[4]);
@@ -1166,13 +1146,6 @@ void W8OptionsGraphicsPanel::Populate()
     AddCheckbox(0x817, &g_options_values.render_options[5]);
     AddCheckbox(0x81d, &g_options_values.render_options[8]);
 }
-
-void W8OptionsGraphicsPanel::OnDrag(W8HorizontalRangeThumb*)
-{
-    SetDisplayGamma(g_options_values.gamma);
-}
-
-void W8OptionsGraphicsPanel::OnDragEnd(W8HorizontalRangeThumb*) {}
 
 void W8OptionsAdvancedGraphicsPanel::Populate()
 {
@@ -1497,39 +1470,103 @@ void W8OptionsValues::TransferSettings()
     }
 }
 
-W8OptionsSlider::W8OptionsSlider(int top, float* value, bool alternate)
-    : W8HorizontalRangeThumb(0xffffffff, 0xc9, top - 2, CatalogArtwork::Load(0xf5),
-                             alternate ? 4 : 0, 1, 2, 3),
-      m_value(value)
+W8OptionsSlider::W8OptionsSlider(UiLayer& layer, SDL_Point origin, float* value, bool alternate)
+    : m_origin(origin), m_value(value), m_backgroundSprite(alternate ? 4 : 0)
 {
-    if (m_value != 0) {
-        m_position = *m_value;
-    }
+    if (value) m_position = *value;
+    const auto size = m_artwork.size(m_backgroundSprite);
+    m_thumbWidth = m_artwork.size(1).x;
+    m_trackLength = size.x - m_thumbWidth;
+    m_target = &layer.add(SDL_Rect{origin.x, origin.y, size.x + 1, size.y + 1},
+        [this](const UiPointerEvent& event) { return HandlePointer(event); });
 }
 
-void W8OptionsSlider::OnMouseMove(int event)
+void W8OptionsSlider::UpdatePixelPosition()
 {
-    W8HorizontalRangeThumb::OnMouseMove(event);
-    if (m_dragging && m_value != 0) {
-        *m_value = m_position;
+    m_position = std::clamp(m_position, m_minimumPosition, m_maximumPosition);
+    m_pixelPosition = static_cast<int>((m_position - m_minimumPosition) /
+                                      (m_maximumPosition - m_minimumPosition) * m_trackLength);
+    m_dirty = true;
+}
+
+void W8OptionsSlider::CancelDrag()
+{
+    m_target->releaseCapture();
+    m_hovered = m_dragging = false;
+    m_dirty = true;
+}
+
+void W8OptionsSlider::SetEnabled(bool enabled)
+{
+    m_enabled = enabled;
+    if (!enabled) CancelDrag();
+    m_dirty = true;
+}
+
+UiResult W8OptionsSlider::HandlePointer(const UiPointerEvent& event)
+{
+    PushButtonSoundScheme(0, true);
+    if (!m_enabled) return UiResult::Handled;
+    const int x = event.position.x - g_cursor_hotspot_x - m_origin.x;
+    switch (event.action) {
+    case UiPointerAction::Down:
+        if (event.button != UiPointerButton::Left) break;
+        m_dragCoordinate = x;
+        m_dragging = true;
+        if (m_hovered) break;
+        m_hovered = true;
+        m_position = (x - m_thumbWidth / 2) / static_cast<float>(m_trackLength) *
+                     (m_maximumPosition - m_minimumPosition) + m_minimumPosition;
+        UpdatePixelPosition();
+        if (m_value) *m_value = m_position;
+        if (on_change) on_change(m_position);
+        break;
+    case UiPointerAction::Move:
+        if (m_dragging) {
+            if (x < 0 || x > m_trackLength + m_thumbWidth / 2) break;
+            m_position += (x - m_dragCoordinate) / static_cast<float>(m_trackLength) *
+                          (m_maximumPosition - m_minimumPosition);
+            m_dragCoordinate = x;
+            UpdatePixelPosition();
+            if (m_value) *m_value = m_position;
+            if (on_change) on_change(m_position);
+        } else {
+            const bool hovered = m_pixelPosition <= x && x <= m_pixelPosition + m_thumbWidth;
+            m_dirty |= m_hovered != hovered;
+            m_hovered = hovered;
+        }
+        break;
+    case UiPointerAction::Up:
+        if (event.button == UiPointerButton::Left && m_dragging) {
+            CancelDrag();
+            if (on_release) on_release();
+        }
+        break;
+    case UiPointerAction::Leave:
+        if (!m_dragging) {
+            m_hovered = false;
+            m_dirty = true;
+        }
+        break;
+    default: break;
     }
+    return UiResult::Handled;
 }
 
 void W8OptionsSlider::Redraw(SDL_Surface& target, bool full_redraw)
 {
-    if (m_active && (full_redraw || m_dirty)) {
-        W8HorizontalRangeThumb::Redraw(target, full_redraw);
-        if (m_enabled && m_pixelPosition > 13) {
-            int left = ScreenBounds().x;
-            int top = ScreenBounds().y;
-            unsigned short color = Get16BPPColor(SDL_Color{0, 255, 0, SDL_ALPHA_OPAQUE});
-            int end = m_pixelPosition < 74 ? m_pixelPosition - 1 : 73;
-            const SDL_Rect first_segment{left + 13, top + 7, end - 13, 2};
-            SDL_FillSurfaceRect(&target, &first_segment, color);
-            if (m_pixelPosition > 83) {
-                const SDL_Rect second_segment{left + 83, top + 7, m_pixelPosition - 84, 2};
-                SDL_FillSurfaceRect(&target, &second_segment, color);
-            }
+    if (!full_redraw && !m_dirty) return;
+    m_dirty = false;
+    const auto [left, top] = m_origin;
+    m_artwork.drawAndInvalidate(target, m_backgroundSprite, left, top);
+    m_artwork.draw(target, !m_enabled ? 3 : m_hovered ? 2 : 1, left + m_pixelPosition, top);
+    if (m_enabled && m_pixelPosition > 13) {
+        const auto color = Get16BPPColor(SDL_Color{0, 255, 0, SDL_ALPHA_OPAQUE});
+        const SDL_Rect first{left + 13, top + 7, std::min(m_pixelPosition - 1, 73) - 13, 2};
+        SDL_FillSurfaceRect(&target, &first, color);
+        if (m_pixelPosition > 83) {
+            const SDL_Rect second{left + 83, top + 7, m_pixelPosition - 84, 2};
+            SDL_FillSurfaceRect(&target, &second, color);
         }
     }
 }
@@ -1580,9 +1617,11 @@ W8TextControl* W8OptionsPanel::AddChoiceButton(int label)
 W8OptionsSlider* W8OptionsPanel::AddSlider(int label, float* value, bool alternate)
 {
     AddOptionsLabel(*this, label);
-    W8OptionsSlider* slider = EmplaceControl<W8OptionsSlider>(m_content_top, value, alternate);
+    auto& slider = m_owned_sliders.emplace_back(std::make_unique<W8OptionsSlider>(
+        m_input, SDL_Point{ScreenBounds().x + 0xc9, ScreenBounds().y + m_content_top - 2},
+        value, alternate));
     m_content_top += 22;
-    return slider;
+    return slider.get();
 }
 
 void W8OptionsPanel::AddChoices(int label, int count, const int* choices, int* value)
@@ -1599,8 +1638,10 @@ void W8OptionsPanel::AddChoices(int label, int count, const int* choices, int* v
 
 void W8OptionsPanel::Redraw(SDL_Surface& target, bool full_redraw)
 {
-    bool redraw_text = m_dirty && m_active;
+    if (!m_active) return;
+    const bool redraw_text = m_dirty || full_redraw;
     Controls::Redraw(target, full_redraw);
+    for (auto& slider : m_owned_sliders) slider->Redraw(target, redraw_text);
     if (redraw_text) {
         for (int index = 0; index < static_cast<int>(m_text_buffers.size()); ++index) {
             m_text_buffers[index]->RenderToTarget(0, true, target);
@@ -1614,6 +1655,7 @@ W8OptionsPanel::W8OptionsPanel()
     : Controls(0x104, 0, 0, 0, CatalogArtwork::Load(0xee, 0), 1), m_current(0), m_content_top(0x18)
 {
     CreateRegionSet();
+    m_input.setEnabled(false);
     const auto [width, height] = CatalogArtwork::Load(0xf2, 0).size(0);
     SetBounds({Bounds().x, Bounds().y, width, height});
 }
@@ -1621,6 +1663,8 @@ W8OptionsPanel::W8OptionsPanel()
 void W8OptionsPanel::SetActive(bool active)
 {
     EnableRegionSet(active);
+    if (!active) for (auto& slider : m_owned_sliders) slider->CancelDrag();
+    m_input.setEnabled(active);
     Controls::SetActive(active);
     InvalidateAll();
 }

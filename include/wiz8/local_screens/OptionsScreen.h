@@ -13,7 +13,8 @@
 #include "wiz8/mgs_commands.h"
 #include "wiz8/local_code/TextControl.h"
 #include "wiz8/local_code/ControlSelection.h"
-#include "wiz8/local_code/RangeControl.h"
+#include "wiz8/catalog_artwork.h"
+#include <functional>
 #include "wiz8/dialog_code/NotificationDialog.h"
 #include "wiz8/local_code/Controls.h"
 #include "wiz8/local_code/ControlsRect.h"
@@ -122,18 +123,42 @@ public:
     std::vector<std::unique_ptr<W8OptionsPanel>> m_panels;
 };
 
-// VTABLE: WIZ8 0x005eef20
-class W8OptionsSlider : public W8HorizontalRangeThumb {
+// Options own slider input and painting; no visual parent or listener hierarchy.
+class W8OptionsSlider {
 public:
-    W8OptionsSlider(int top, float* value, bool alternate);
-    virtual void OnMouseMove(int event) override;
-    virtual void Redraw(SDL_Surface& target, bool full_redraw) override;
+    W8OptionsSlider(UiLayer& layer, SDL_Point origin, float* value, bool alternate);
+    void Redraw(SDL_Surface& target, bool full_redraw);
+    void UpdatePixelPosition();
+    void SetEnabled(bool enabled);
+    void CancelDrag();
+    float m_minimumPosition = 0;
+    float m_maximumPosition = 1;
+    float m_position = 0;
+    std::function<void(float)> on_change;
+    std::function<void()> on_release;
+
+private:
+    UiResult HandlePointer(const UiPointerEvent& event);
+    CatalogArtwork m_artwork = CatalogArtwork::Load(0xf5);
+    SDL_Point m_origin;
+    HitTarget* m_target;
     float* m_value;
+    int m_backgroundSprite;
+    int m_trackLength;
+    int m_thumbWidth;
+    int m_pixelPosition = 0;
+    int m_dragCoordinate = 0;
+    bool m_enabled = true;
+    bool m_hovered = false;
+    bool m_dragging = false;
+    bool m_dirty = true;
 };
 
 /* Common base of the concrete option panels. */
 // VTABLE: WIZ8 0x005eefa8
 class W8OptionsPanel : public Controls {
+    UiLayer m_input;
+    std::vector<std::unique_ptr<W8OptionsSlider>> m_owned_sliders;
 public:
     W8OptionsPanel();
     virtual ~W8OptionsPanel();
@@ -166,41 +191,32 @@ public:
 };
 
 // VTABLE: WIZ8 0x005ef134 W8OptionsPanel
-// VTABLE: WIZ8 0x005ef12c W8HorizontalRangeThumbListener
 // VTABLE: WIZ8 0x005ef124 W8TextControl::Listener
 class W8OptionsInterfacePanel : public W8OptionsPanel,
-                                public W8HorizontalRangeThumbListener,
                                 public W8TextControl::Listener {
 public:
     virtual void Populate() override;
-    virtual void OnDrag(W8HorizontalRangeThumb*) override {}
-    virtual void OnDragEnd(W8HorizontalRangeThumb* thumb) override;
     virtual void OnPrimary(W8TextControl* control) override;
     W8OptionsSlider* m_tooltip_delay;
 };
 
 // VTABLE: WIZ8 0x005ef108 W8OptionsPanel
-// VTABLE: WIZ8 0x005ef100 W8HorizontalRangeThumbListener
 // VTABLE: WIZ8 0x005ef0f8 W8TextControl::Listener
 class W8OptionsAudioPanel : public W8OptionsPanel,
-                            public W8HorizontalRangeThumbListener,
                             public W8TextControl::Listener {
 public:
     virtual void Populate() override;
-    virtual void OnDrag(W8HorizontalRangeThumb* thumb) override;
-    virtual void OnDragEnd(W8HorizontalRangeThumb* thumb) override;
     virtual void OnPrimary(W8TextControl* control) override;
+    void ChangeVolume(int index, float value);
+    void PreviewVolume(int index);
     W8OptionsSlider* m_sliders[4];
     W8TextControl* m_mute_buttons[4];
 };
 
 // VTABLE: WIZ8 0x005ef0dc W8OptionsPanel
-// VTABLE: WIZ8 0x005ef0d4 W8HorizontalRangeThumbListener
-class W8OptionsGraphicsPanel : public W8OptionsPanel, public W8HorizontalRangeThumbListener {
+class W8OptionsGraphicsPanel : public W8OptionsPanel {
 public:
     virtual void Populate() override;
-    virtual void OnDrag(W8HorizontalRangeThumb* thumb) override;
-    virtual void OnDragEnd(W8HorizontalRangeThumb*) override;
 };
 
 // VTABLE: WIZ8 0x005ef0b8

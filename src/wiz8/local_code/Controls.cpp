@@ -1263,8 +1263,6 @@ public:
     W8VerticalRangeThumb(W8RangeControl* range, int left, int top, int right, int bottom,
                          CatalogArtwork artwork, int normal_sprite, int hovered_sprite,
                          int disabled_sprite);
-    /* Retail ICF folds this onto W8HorizontalRangeThumb's deleting destructor
-       at 0x004f69b0. */
 
     virtual void Redraw(SDL_Surface& target, bool full_redraw) override;
     void AdjustValue(int steps) override;
@@ -1404,7 +1402,6 @@ void W8RangeControl::SetEnabled(bool enabled)
     m_thumb->SetEnabled(enabled);
 }
 
-/* Both thumb orientations use the same normalized track coordinate. */
 static int ClampThumbToTrack(float& position, float minimum, float maximum, int track_length)
 {
     if (position < minimum)
@@ -1655,94 +1652,6 @@ void W8HelpTextControl::OnLeftButtonDoubleClick(int event)
     W8TextControl::OnLeftButtonDoubleClick(event);
 }
 
-/* The vtable at 0x005ED66C is the horizontal draggable range thumb. Its
-   constructor measures the normal sprite for the widget bounds, then measures
-   the movable thumb sprite and retains the remaining horizontal travel at
-   +0x4c. The interaction methods independently prove that geometry: cursor X
-   is converted through +0x4c into the normalized float range +0x60..+0x68. */
-
-void W8HorizontalRangeThumb::ClampPositionAndInvalidate()
-{
-    m_pixelPosition = ClampThumbToTrack(m_position, m_minimumPosition, m_maximumPosition,
-                                        m_trackLength);
-    Invalidate(false);
-}
-
-// FUNCTION: WIZ8 0x004f5620
-W8HorizontalRangeThumb::W8HorizontalRangeThumb(unsigned int region, int left,
-                                               int top, CatalogArtwork artwork,
-                                               int background_sprite, int normal_thumb_sprite,
-                                               int hovered_thumb_sprite, int disabled_thumb_sprite)
-    : W8Widget(region, left, top, 0, 0), m_artwork(std::move(artwork))
-{
-    m_normalThumbSprite = normal_thumb_sprite;
-    m_hoveredThumbSprite = hovered_thumb_sprite;
-    m_disabledThumbSprite = disabled_thumb_sprite;
-    m_backgroundSprite = background_sprite;
-    m_pixelPosition = 0;
-    m_hovered = false;
-    m_dragging = false;
-    m_minimumPosition = 0.0f;
-    m_maximumPosition = 1.0f;
-    m_position = 0.0f;
-    m_listener = 0;
-    const auto [track_width, track_height] = m_artwork.size(background_sprite);
-    SetBounds({left, top, track_width, track_height});
-    m_thumbWidth = m_artwork.size(m_normalThumbSprite).x;
-    m_trackLength = track_width - m_thumbWidth;
-}
-
-// FUNCTION: WIZ8 0x004f5710
-void W8HorizontalRangeThumb::UpdatePixelPosition()
-{
-    ClampPositionAndInvalidate();
-}
-
-// FUNCTION: WIZ8 0x004f5780
-void W8HorizontalRangeThumb::OnLeftButtonDown(int event)
-{
-    PushButtonSoundScheme(0, true);
-    if (m_enabled) {
-        SDL_Point cursor;
-        SGPMouseGetPos(&cursor);
-        int x = ToLocal(cursor).x;
-        if (!m_hovered) {
-            m_hovered = true;
-            m_position = ((x - m_thumbWidth / 2) / static_cast<float>(m_trackLength)) *
-                             (m_maximumPosition - m_minimumPosition) +
-                         m_minimumPosition;
-            ClampPositionAndInvalidate();
-            if (m_listener != 0) {
-                m_listener->OnDrag(this);
-            }
-        }
-        m_dragCoordinate = x;
-        m_dragging = true;
-        ActivateDialogRegion(m_region);
-    }
-}
-
-// FUNCTION: WIZ8 0x004f5880
-void W8HorizontalRangeThumb::OnLeftButtonUp(int event)
-{
-    PushButtonSoundScheme(0, true);
-    if (m_enabled && m_dragging) {
-        m_dragging = false;
-        ClearActiveRegionIfMatches(m_region);
-        if (m_listener != 0) {
-            m_listener->OnDragEnd(this);
-        }
-    }
-}
-
-// FUNCTION: WIZ8 0x004f58c0
-void W8HorizontalRangeThumb::OnMouseEnter(int)
-{
-    PushButtonSoundScheme(0, true);
-}
-
-/* Retail ICF-folds these two hover hooks onto the horizontal thumb methods
-   at 0x004f58c0 / 0x004f58d0. */
 void W8VerticalRangeThumb::OnMouseEnter(int)
 {
     PushButtonSoundScheme(0, true);
@@ -1755,69 +1664,6 @@ void W8VerticalRangeThumb::OnMouseLeave(int event)
         m_hovered = false;
         Invalidate(static_cast<unsigned char>(event) != 0);
     }
-}
-
-// FUNCTION: WIZ8 0x004f58d0
-void W8HorizontalRangeThumb::OnMouseLeave(int event)
-{
-    PushButtonSoundScheme(0, true);
-    if (m_hovered && !m_dragging) {
-        m_hovered = false;
-        Invalidate(static_cast<unsigned char>(event) != 0);
-    }
-}
-
-// FUNCTION: WIZ8 0x004f5940
-void W8HorizontalRangeThumb::OnMouseMove(int event)
-{
-    if (!m_enabled) {
-        return;
-    }
-
-    SDL_Point cursor;
-    SGPMouseGetPos(&cursor);
-    int x = ToLocal(cursor).x;
-    if (m_dragging) {
-        if (x < 0 || m_trackLength + m_thumbWidth / 2 < x) {
-            return;
-        }
-        int delta = x - m_dragCoordinate;
-        m_dragCoordinate = x;
-        m_position +=
-            (delta / static_cast<float>(m_trackLength)) * (m_maximumPosition - m_minimumPosition);
-        ClampPositionAndInvalidate();
-        if (m_listener != 0) {
-            m_listener->OnDrag(this);
-        }
-        return;
-    }
-
-    bool hovered = (m_pixelPosition <= x && x <= m_pixelPosition + m_thumbWidth);
-    if (m_hovered != hovered && m_pPanel != 0) {
-        Invalidate(false);
-    }
-    m_hovered = hovered;
-}
-
-// FUNCTION: WIZ8 0x004f5a80
-void W8HorizontalRangeThumb::Redraw(SDL_Surface& target, bool full_redraw)
-{
-    if (!m_active || (!full_redraw && !m_dirty)) {
-        return;
-    }
-
-    const auto [x, y, width, height] = ScreenBounds();
-    m_artwork.drawAndInvalidate(target, m_backgroundSprite, x, y);
-
-    int sprite;
-    if (!m_enabled && m_disabledThumbSprite != -1) {
-        sprite = m_disabledThumbSprite;
-    } else if (m_hovered && m_hoveredThumbSprite != -1) {
-        sprite = m_hoveredThumbSprite;
-    } else {
-        sprite = m_normalThumbSprite;
-    }
-    m_artwork.draw(target, sprite, x + m_pixelPosition, y);
 }
 
 /* Enables or disables the whole panel: the panel's own flag, then every child's,

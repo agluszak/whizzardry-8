@@ -1236,6 +1236,21 @@ void ResourceLifecycleScenario()
     REQUIRE(g_options_screen->m_selected_panel == 2);
     game.click_at(30, 60); // Artwork hotspot selects the same panel as its button.
     REQUIRE(g_options_screen->m_selected_panel == 0);
+    const float combat_speed = g_options_values.combat_speed;
+    game.click_at(480, 50);
+    const float clicked_speed = g_options_values.combat_speed;
+    REQUIRE(clicked_speed < 0.5f);
+    game.press_at(480, 50);
+    game.move_pointer(520, 50);
+    REQUIRE(g_options_values.combat_speed > clicked_speed);
+    game.release_at(200, 190); // Captured release outside ends the drag.
+    const float released_speed = g_options_values.combat_speed;
+    game.move_pointer(490, 50);
+    REQUIRE(g_options_values.combat_speed == released_speed);
+    game.click_at(30, 250); // An inactive panel must not retain slider input.
+    game.click_at(480, 50);
+    REQUIRE(g_options_values.combat_speed == released_speed);
+    g_options_values.combat_speed = combat_speed;
     game.click_at(20, 445);
     game.wait_screen("options-menu-return", W8_SCREEN_MAIN_GAME);
     // Exercise a second screen's input, teardown and return-stack lifecycle.
