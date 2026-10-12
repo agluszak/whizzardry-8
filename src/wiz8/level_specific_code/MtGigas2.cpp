@@ -125,41 +125,36 @@ bool MtGigas2Train(Trigger* pTrigger)
     return false;
 }
 
-/* Activation callback on redwire: the first wire moves the panel from 0 to
-   1; any other order shocks the party. */
-// FUNCTION: WIZ8 0x004DB420
-bool MtGigas2RedWire(Trigger* pTrigger)
+/* Each wire passes only from its expected panel state; 3 means already fixed. */
+static bool advanceWirePanel(int expected, int next)
 {
-    int value = GetLocationVarValueByName("WirePanel");
+    const int value = GetLocationVarValueByName("WirePanel");
 
     if (value == 3) {
         return true;
     }
     g_trigger_feedback = true;
-    if (value != 0) {
+    if (value != expected) {
         MtGigas2WireShock();
         return false;
     }
-    SetTriggerVariableByName("WirePanel", 1);
+    SetTriggerVariableByName("WirePanel", next);
     return true;
+}
+
+/* Activation callback on redwire: the first wire moves the panel from 0 to
+   1; any other order shocks the party. */
+// FUNCTION: WIZ8 0x004DB420
+bool MtGigas2RedWire(Trigger* pTrigger)
+{
+    return advanceWirePanel(0, 1);
 }
 
 /* Activation callback on bluewire: valid only as the second wire (1 -> 2). */
 // FUNCTION: WIZ8 0x004DB460
 bool MtGigas2BlueWire(Trigger* pTrigger)
 {
-    int value = GetLocationVarValueByName("WirePanel");
-
-    if (value == 3) {
-        return true;
-    }
-    g_trigger_feedback = true;
-    if (value != 1) {
-        MtGigas2WireShock();
-        return false;
-    }
-    SetTriggerVariableByName("WirePanel", 2);
-    return true;
+    return advanceWirePanel(1, 2);
 }
 
 /* Activation callback on yellowwire: valid only as the last wire (2 -> 3);

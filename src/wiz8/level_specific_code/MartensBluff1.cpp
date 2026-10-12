@@ -139,18 +139,24 @@ bool MartensBluff1FHandlock(Trigger* pTrigger)
     return false;
 }
 
+/* Advances one 4-bit digit of DialState modulo 8, leaving the other digits alone. */
+static void advanceDialDigit(int shift)
+{
+    int state = GetLocationVarValueByName("DialState");
+    const int digit = (((state >> shift) & 0xf) + 1) % 8;
+
+    state = (digit << shift) | (state & ~(0xf << shift));
+    SetTriggerVariableByName("DialState", state);
+}
+
 /* The "Dial-A" callback: advance the lowest DialState digit modulo 8. */
 // FUNCTION: WIZ8 0x004DEE10
 bool MartensBluff1DialA(Trigger* pTrigger)
 {
-    int state;
-
     if (g_door_controller == 0) {
         return false;
     }
-    state = GetLocationVarValueByName("DialState");
-    state = ((state & 0xf) + 1) % 8 | (state & 0xfffffff0);
-    SetTriggerVariableByName("DialState", state);
+    advanceDialDigit(0);
     return true;
 }
 
@@ -158,14 +164,10 @@ bool MartensBluff1DialA(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004DEE50
 bool MartensBluff1DialB(Trigger* pTrigger)
 {
-    int state;
-
     if (g_door_controller == 0) {
         return false;
     }
-    state = GetLocationVarValueByName("DialState");
-    state = (((state >> 4) & 0xf) + 1) % 8 << 4 | (state & 0xffffff0f);
-    SetTriggerVariableByName("DialState", state);
+    advanceDialDigit(4);
     return true;
 }
 
@@ -173,14 +175,10 @@ bool MartensBluff1DialB(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004DEEA0
 bool MartensBluff1DialC(Trigger* pTrigger)
 {
-    int state;
-
     if (g_door_controller == 0) {
         return false;
     }
-    state = GetLocationVarValueByName("DialState");
-    state = (((state >> 8) & 0xf) + 1) % 8 << 8 | (state & 0xfffff0ff);
-    SetTriggerVariableByName("DialState", state);
+    advanceDialDigit(8);
     return true;
 }
 
