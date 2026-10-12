@@ -901,24 +901,7 @@ void DestroyAllMissiles(W8World* world)
 // FUNCTION: WIZ8 0x004A3230
 W8MissileRep::~W8MissileRep()
 {
-    int emitter;
-
-    for (emitter = 0; emitter < 2; ++emitter) {
-        if (emitters[emitter] != 0) {
-            delete emitters[emitter];
-            emitters[emitter] = 0;
-        }
-    }
-
-    for (emitter = 0; emitter < 2; ++emitter) {
-        int light_list;
-
-        for (light_list = 0; light_list < static_cast<int>(light_lists[emitter].size());
-             ++light_list) {
-            DestroyLightVector(light_lists[emitter][light_list]);
-        }
-        light_lists[emitter].clear();
-    }
+    ReleaseEmitterCycles(emitters, light_lists);
 }
 
 /* Copy the effect definition, then replace its radius from the selected

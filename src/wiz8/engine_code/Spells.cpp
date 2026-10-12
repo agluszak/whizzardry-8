@@ -899,22 +899,7 @@ W8AnimRepBase* W8SpellEmitterHost::Clone()
 // FUNCTION: WIZ8 0x004ab1c0
 W8SpellEmitterHost::~W8SpellEmitterHost()
 {
-    int emitter;
-    int light_list;
-
-    for (emitter = 0; emitter < SPELL_NUM_CYCLES; ++emitter) {
-        if (emitters[emitter] != 0) {
-            delete emitters[emitter];
-            emitters[emitter] = 0;
-        }
-    }
-    for (emitter = 0; emitter < SPELL_NUM_CYCLES; ++emitter) {
-        for (light_list = 0; light_list < static_cast<int>(light_lists[emitter].size());
-             ++light_list) {
-            DestroyLightVector(light_lists[emitter][light_list]);
-        }
-        light_lists[emitter].clear();
-    }
+    ReleaseEmitterCycles(emitters, light_lists);
 }
 
 /* Whether one spell id is among the six that occupy a persistent combat
