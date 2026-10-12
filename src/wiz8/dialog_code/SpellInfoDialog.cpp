@@ -5,7 +5,6 @@
 #include <vector>
 
 #include "wiz8/dialog_code/SpellInfoDialog.h"
-#include "image.h"
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/fonts.h"
 #include "wiz8/local_code/Strings.h"

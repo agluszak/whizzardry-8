@@ -5,7 +5,6 @@
 #include <cstring>
 #include <vector>
 
-#include "image.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/dialog_code/AssayDialog.h"
 #include "wiz8/dialog_code/SpellInfoDialog.h"

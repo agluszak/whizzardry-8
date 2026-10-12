@@ -7,7 +7,6 @@
 #include <vector>
 
 #include "wiz8/dialog_code/ProfRaceInfoDialog.h"
-#include "image.h"
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/item_tables.h"
