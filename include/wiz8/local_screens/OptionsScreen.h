@@ -31,12 +31,9 @@ public:
     public:
         virtual void OnTextEditComplete(W8OptionsTextEditor* editor, unsigned char cancelled) = 0;
     };
-    virtual ~W8OptionsTextEditor()
-    {
-        RemoveTextInputField(0);
-        KillTextInputMode();
-    }
+    virtual ~W8OptionsTextEditor() = default;
     Listener* m_listener;
+    TextFieldGroup m_fields{1};
 };
 
 class W8OptionsKeyCapture {

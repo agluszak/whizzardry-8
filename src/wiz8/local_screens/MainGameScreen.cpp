@@ -3894,7 +3894,7 @@ void DrawMainGameScreen(void)
         }
         UpdateMainGameButtons();
         RedrawPortraitQuoteBubbles();
-        RenderAllTextFields();
+        if (auto* text_fields = TextFieldGroup::Focused()) text_fields->RenderAll();
         if (g_level_block->mouselook_debug != 0) {
             ClearSurfaceRect(0xdc, 0x1e, 0x154, 0x26);
             g_smfnt_font.resetPalette();

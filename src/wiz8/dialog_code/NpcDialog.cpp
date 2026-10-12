@@ -85,8 +85,8 @@ W8NpcDialog::W8NpcDialog(W8NpcQuoteEntry* message, int aux_data)
 // FUNCTION: WIZ8 0x005DA860
 W8NpcDialog::~W8NpcDialog()
 {
-    if (m_input_field != 0xff) {
-        RemoveTextInputField(m_input_field);
+    if (m_input_field != 0xff && m_input_group) {
+        m_input_group->Remove(m_input_field);
     }
 }
 
@@ -146,10 +146,11 @@ int W8NpcDialog::CreateControls()
             std::make_unique<W8TextBuffer>(&bounds, line, g_wiz_text_font_secondary,
                              g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
     } else if (m_message->kind == W8_NPC_ENTRY_KEYWORD_INPUT) {
-        SetTextInputScheme(1);
-        m_input_field = AddTextInputField(m_x + (m_width - 0x8c) / 2, m_y + 0x23, 0x8c, 0x10, 0x7f,
-                                          "", 0x28, 0xf, 1);
-        SetActiveField(m_input_field);
+        m_input_group = TextFieldGroup::Focused();
+        m_input_group->SetScheme(1);
+        m_input_field = m_input_group->Add(m_x + (m_width - 0x8c) / 2, m_y + 0x23, 0x8c, 0x10, 0x7f,
+                                          "", 0x28, 0xf, true);
+        m_input_group->Focus(m_input_field);
         bounds.left = m_x + 10;
         bounds.top = m_y + 10;
         bounds.right = m_x + m_width - 10;
@@ -200,12 +201,12 @@ bool W8NpcDialog::ProcessInput()
     bool returned_early = false;
     PumpUiInput({
         .before = [this, &returned_early](const InputEvent& input) {
-            if (IsTypingEvent(input) && static_cast<char>(HandleTextInput(&input)) != 0) {
+            if (IsTypingEvent(input) && m_input_group && m_input_group->HandleInput(input)) {
                 return InputRoute::Handled;
             }
             if (input.type == InputEventType::KeyDown && input.key == VK_RETURN &&
                 m_message->kind == W8_NPC_ENTRY_KEYWORD_INPUT) {
-                m_input_text = GetTextFromField(m_input_field);
+                m_input_text = m_input_group ? m_input_group->Text(m_input_field) : std::string{};
                 g_npc_dialog->m_keep_open = false;
                 EndModalInput();
                 returned_early = true;

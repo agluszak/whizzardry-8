@@ -95,6 +95,29 @@
 #include "surrender/srMath.h"
 
 namespace {
+// The typed-dialogue panel's keyword field, and the field scripted NPC dialogs type into.
+std::optional<TextFieldGroup> g_npc_text_fields;
+std::optional<TextFieldGroup> g_npc_dialog_text_fields;
+
+std::string NpcFieldText()
+{
+    auto* fields = TextFieldGroup::Focused();
+    return fields ? fields->Text(0) : std::string{};
+}
+
+void SetNpcFieldText(std::string_view text)
+{
+    if (auto* fields = TextFieldGroup::Focused()) fields->SetText(0, text);
+}
+
+bool NpcEditingText()
+{
+    auto* fields = TextFieldGroup::Focused();
+    return fields && fields->Editing();
+}
+} // namespace
+
+namespace {
 
 // Retail set 0x16, regions 101-115.
 constexpr std::array<RegionTemplate, 15> kNpcDialogueTranscriptPanelRegionTemplates{{
@@ -298,10 +321,10 @@ void W8NpcTypedDialoguePanel::SetEnabled(bool enable)
     if (!enable || !m_fEnabled) {
         Controls::SetEnabled(enable);
         if (enable) {
-            InitTextInputModeWithScheme(1);
-            AddTextInputField(0x1e5, 0x170, 0x7a, 0x12, 0x7f, "", 0xbe, 0xf, 1);
-        } else {
-            RemoveTextInputField(0);
+            g_npc_text_fields.emplace(1);
+            g_npc_text_fields->Add(0x1e5, 0x170, 0x7a, 0x12, 0x7f, "", 0xbe, 0xf, true);
+        } else if (g_npc_text_fields) {
+            g_npc_text_fields->Remove(0);
         }
     }
 }
@@ -1112,7 +1135,7 @@ void ServiceNpcDialogue(void)
     if (g_npc_interaction_state->dialogue_hidden != 0 && IsRightButtonHeld()) {
         SetNpcDialogueHidden(0);
     }
-    field_text = GetTextFromField(0);
+    field_text = NpcFieldText();
     if (g_npc_interaction_state->pending_layout != W8_DIALOGUE_LAYOUT_NONE) {
         g_level_block->text_box_visible = false;
         EnableDialogueTextBoxRegions();
@@ -1265,7 +1288,7 @@ void EndNpcDialogueSession(bool skip_exit_actions)
         ClearMonsterCharm(MonsterGetScriptPartByLocationIndex(index));
     }
     GetNpcMonsterInfo(g_npc_interaction_state->dialogue_npc);
-    KillTextInputMode();
+    g_npc_text_fields.reset();
     ResumeMainGameWorld();
     if (!skip_exit_actions) {
         if (!g_npc_interaction_state->held_item_pending) {
@@ -1609,13 +1632,13 @@ static void SelectNpcDialogueKeyword(W8NoticeWord* word, int line)
     std::string combined;
     word->keyword = W8_NOTICE_WORD_SELECTED;
     word_text = CopyNoticeWordText(word, 3, line);
-    field_text = GetTextFromField(0);
+    field_text = NpcFieldText();
     StripNpcKeywordPunctuation(word_text);
     if (field_text.size() != 0) {
         combined = fmt::format("{} {}", field_text, word_text);
-        SetInputFieldText(0, combined);
+        SetNpcFieldText(combined);
     } else {
-        SetInputFieldText(0, word_text);
+        SetNpcFieldText(word_text);
     }
     RedrawTextBoxBody(true);
 }
@@ -1639,7 +1662,7 @@ static void NpcDialogueTextBoxLeftUp(int x, int y)
         if (!IsKeyHeld(VK_SHIFT)) {
             ResetUsedNoticeWords(3, true);
             word_text.clear();
-            SetInputFieldText(0, word_text);
+            SetNpcFieldText(word_text);
         }
         SelectNpcDialogueKeyword(word, line);
         return;
@@ -1722,7 +1745,7 @@ static void NpcDialogueTextBoxDoubleClick(int x, int y)
         if (!IsKeyHeld(VK_SHIFT)) {
             ResetUsedNoticeWords(3, true);
             word_text.clear();
-            SetInputFieldText(0, word_text);
+            SetNpcFieldText(word_text);
         }
         if (word->keyword != W8_NOTICE_WORD_SELECTED) {
             SelectNpcDialogueKeyword(word, line);
@@ -2305,7 +2328,7 @@ static void SubmitNpcDialogueKeyword(void)
 {
     std::string keyword;
 
-    keyword = GetTextFromField(0);
+    keyword = NpcFieldText();
     AddNpcDialogueKeyword(keyword, -1, 0);
 }
 
@@ -3429,8 +3452,8 @@ void HandleNpcDialogueInput(void)
     int word_count;
     int matches;
 
-    field_text = GetTextFromField(0);
-    ClearActiveField();
+    field_text = NpcFieldText();
+    if (auto* fields = TextFieldGroup::Focused()) fields->ClearFocus();
     StripNpcKeywordPunctuation(field_text);
     if (field_text.size() == 0 && g_npc_scripting.reply == W8NpcReplyState::none) {
         return;
@@ -3632,9 +3655,9 @@ void HandleNpcDialogueKeyEvent(const InputEvent* event)
             TryFinishNpcVoicePlayback(true);
             return;
         }
-        if (EditingText()) {
-            SetInputFieldText(0, "");
-            ClearActiveField();
+        if (NpcEditingText()) {
+            SetNpcFieldText("");
+            if (auto* fields = TextFieldGroup::Focused()) fields->ClearFocus();
             return;
         }
         if (g_npc_scripting.reply != W8NpcReplyState::none || !IsMessageBoxLineQueueEmpty()) {
@@ -3679,10 +3702,10 @@ void HandleNpcDialogueKeyEvent(const InputEvent* event)
             return;
         }
     case 0xd:
-        if (EditingText()) {
+        if (NpcEditingText()) {
             HandleNpcDialogueInput();
         } else {
-            SetActiveField(0);
+            if (auto* fields = TextFieldGroup::Focused()) fields->Focus(0);
         }
         return;
     default:
@@ -3712,13 +3735,13 @@ void SetDialogueFieldKeyword(std::string keyword, bool append)
     std::string field_text;
     std::string combined;
 
-    field_text = GetTextFromField(0);
+    field_text = NpcFieldText();
     StripNpcKeywordPunctuation(keyword);
     if (field_text.size() != 0 && append) {
         combined = fmt::format("{} {}", field_text, keyword);
-        SetInputFieldText(0, combined);
+        SetNpcFieldText(combined);
     } else {
-        SetInputFieldText(0, keyword);
+        SetNpcFieldText(keyword);
     }
 }
 
@@ -4125,7 +4148,7 @@ void OpenNpcDialog(W8NpcQuoteEntry* request, int aux_data)
     W8NpcDialog* dialog;
 
     if (!gXStatus.fNpcDialogueMode || g_npc_interaction_state->scripted_dialogue) {
-        InitTextInputMode(g_wiz_text_mono_font);
+        g_npc_dialog_text_fields.emplace(g_wiz_text_mono_font);
     } else {
         SetNpcDialoguePanelVisible(0);
     }
@@ -4355,7 +4378,7 @@ static void SetNpcDialogueHidden(char value)
         RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_3);
         RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_5);
         RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_7);
-        SetInputFieldBlocksMouseCallback(0, true);
+        if (auto* fields = TextFieldGroup::Focused()) fields->SetBlocksMouse(0, true);
         g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_1]->SetEnabled(false);
         DisableNpcTradeActions();
         g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_6]->SetEnabled(false);
@@ -4377,7 +4400,7 @@ static void SetNpcDialogueHidden(char value)
         static_cast<W8NpcDialogueTextController*>(g_npc_interaction_state->dialogue_panels[2])
             ->Expand();
         SyncNpcDialogueTranscriptScrollButtons();
-        SetInputFieldBlocksMouseCallback(0, false);
+        if (auto* fields = TextFieldGroup::Focused()) fields->SetBlocksMouse(0, false);
         g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_1]->SetEnabled(true);
         g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_2]->SetEnabled(true);
         g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_3]->SetEnabled(true);
@@ -4465,9 +4488,9 @@ void OnNpcDialogClosed(W8DialogBase* dialog)
     int index;
 
     if (!gXStatus.fNpcDialogueMode || g_npc_interaction_state->scripted_dialogue) {
-        KillTextInputMode();
-    } else {
-        SetTextInputScheme(1);
+        g_npc_dialog_text_fields.reset();
+    } else if (auto* fields = TextFieldGroup::Focused()) {
+        fields->SetScheme(1);
     }
     RestoreCurrentNpcQuoteBubble();
     if (g_npc_interaction_state->dialogue_layout == W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX) {
@@ -4481,10 +4504,10 @@ void OnNpcDialogClosed(W8DialogBase* dialog)
                 if (!gXStatus.fNpcDialogueMode || g_npc_interaction_state->scripted_dialogue) {
                     HandleNpcDialogueReply(entry_text, false);
                 } else {
-                    field_text = GetTextFromField(0);
+                    field_text = NpcFieldText();
                     StripNpcKeywordPunctuation(entry_text);
                     static_cast<void>(field_text.size());
-                    SetInputFieldText(0, entry_text);
+                    SetNpcFieldText(entry_text);
                     HandleNpcDialogueInput();
                 }
                 break;
@@ -4500,20 +4523,20 @@ void OnNpcDialogClosed(W8DialogBase* dialog)
         if (!gXStatus.fNpcDialogueMode || g_npc_interaction_state->scripted_dialogue) {
             HandleNpcDialogueReply(entry_text, false);
         } else {
-            field_text = GetTextFromField(0);
+            field_text = NpcFieldText();
             StripNpcKeywordPunctuation(entry_text);
             static_cast<void>(field_text.size());
-            SetInputFieldText(0, entry_text);
+            SetNpcFieldText(entry_text);
             HandleNpcDialogueInput();
         }
     } else if (request->kind == W8_NPC_ENTRY_KEYWORD_INPUT) {
         if (!gXStatus.fNpcDialogueMode || g_npc_interaction_state->scripted_dialogue) {
             HandleNpcDialogueReply(npc_dialog->m_input_text, false);
         } else {
-            field_text = GetTextFromField(0);
+            field_text = NpcFieldText();
             StripNpcKeywordPunctuation(npc_dialog->m_input_text);
             static_cast<void>(field_text.size());
-            SetInputFieldText(0, npc_dialog->m_input_text);
+            SetNpcFieldText(npc_dialog->m_input_text);
             HandleNpcDialogueInput();
         }
     }

@@ -4,6 +4,7 @@
 #include <deque>
 #include <fmt/format.h>
 #include <algorithm>
+#include <SDL3/SDL_mouse.h>
 #include <SDL3/SDL_rect.h>
 #include <span>
 #include <string_view>
@@ -175,6 +176,21 @@ void SetRegionHelpDelay(int delay_ms)
     g_region_help_delay = delay_ms;
 }
 
+/* Region motion is re-derived from the current pointer, so it carries the live
+   modifier and button state; drag handlers rely on the held-button mask. */
+static InputEvent SyntheticMouseMove(SDL_Point position)
+{
+    const auto& input = GetInputState();
+    InputEvent event{};
+    event.timestamp = w8_get_ticks();
+    event.modifiers = input.modifiers;
+    event.buttons = (input.left_button ? SDL_BUTTON_LMASK : 0) |
+                    (input.right_button ? SDL_BUTTON_RMASK : 0);
+    event.type = InputEventType::MouseMove;
+    event.position = position;
+    return event;
+}
+
 std::int32_t RegionReasonForInput(const W8Region& region, const InputEvent& input)
 {
     switch (input.type) {
@@ -228,13 +244,15 @@ void ReleaseDefaultHelpText(void)
 }
 
 static bool FindEnabledRegionInSet(const W8RegionSet& set, unsigned short x, unsigned short y,
-                                   bool dispatch_coordinates, unsigned int* found_region)
+                                   bool dispatch_coordinates, unsigned int* found_region,
+                                   bool text_fields_only = false)
 {
     if (set.enabled != 1) return false;
     bool found_in_set = false;
     unsigned int best_region = 0;
     int best_priority = 0;
     for (const auto region_index : set.Regions()) {
+        if (text_fields_only && !g_regions[region_index].text_field) continue;
         if (!RegionContainsInputPoint(region_index, x, y, dispatch_coordinates)) continue;
         const int priority = g_regions[region_index].priority;
         if (found_in_set && priority <= best_priority) continue;
@@ -247,8 +265,9 @@ static bool FindEnabledRegionInSet(const W8RegionSet& set, unsigned short x, uns
 }
 
 /* Sets are scanned by declared order, then creation sequence; the widget
-   control set is always consulted last. A modal scope restricts the scan to
-   its own set. */
+   control set is always consulted last, except that its text fields come
+   first because they are drawn over the panel hosting them. A modal scope
+   restricts the scan to its own set. */
 static bool FindEnabledRegionAtPoint(unsigned short x, unsigned short y, unsigned int* found_region,
                                      bool dispatch_coordinates = false)
 {
@@ -258,6 +277,12 @@ static bool FindEnabledRegionAtPoint(unsigned short x, unsigned short y, unsigne
                FindEnabledRegionInSet(g_region_sets[scope.set_index], x, y, dispatch_coordinates,
                                       found_region);
     }
+    const bool has_control_set =
+        g_control_region_set != 0 && g_control_region_set < g_region_sets.size();
+    if (has_control_set && FindEnabledRegionInSet(g_region_sets[g_control_region_set], x, y,
+                                                  dispatch_coordinates, found_region, true)) {
+        return true;
+    }
     for (const auto set_index : g_region_set_scan_order) {
         if (set_index >= g_region_sets.size() || set_index == g_control_region_set) continue;
         if (FindEnabledRegionInSet(g_region_sets[set_index], x, y, dispatch_coordinates,
@@ -265,7 +290,7 @@ static bool FindEnabledRegionAtPoint(unsigned short x, unsigned short y, unsigne
             return true;
         }
     }
-    return g_control_region_set != 0 && g_control_region_set < g_region_sets.size() &&
+    return has_control_set &&
            FindEnabledRegionInSet(g_region_sets[g_control_region_set], x, y, dispatch_coordinates,
                                   found_region);
 }
@@ -342,11 +367,7 @@ ExclusiveRegionSet::ExclusiveRegionSet(unsigned int set)
     if (saved_hover_.index != 0 && saved_hover_.index < g_regions.size()) {
         SDL_Point mouse;
         SGPMouseGetPos(&mouse);
-        InputEvent event{};
-        event.timestamp = w8_get_ticks();
-        event.modifiers = GetInputState().modifiers;
-        event.type = InputEventType::MouseMove;
-        event.position = mouse;
+        const auto event = SyntheticMouseMove(mouse);
         LeaveRegion(g_regions[saved_hover_.index], event);
     }
     const auto clear_mouse_state = [](unsigned int index) {
@@ -432,13 +453,8 @@ ExclusiveRegionSet::~ExclusiveRegionSet()
 unsigned int UpdateRegionMousePosition(int x, int y)
 {
     g_region_mouse_position = {x, y};
-    InputEvent event{};
+    const auto event = SyntheticMouseMove({x, y});
     unsigned int region_index;
-
-    event.timestamp = w8_get_ticks();
-    event.modifiers = GetInputState().modifiers;
-    event.type = InputEventType::MouseMove;
-    event.position = {x, y};
 
     if (g_captured_region_index != 0 &&
         RegionAllowedByExclusiveSet(g_captured_region_index)) {
@@ -527,13 +543,8 @@ SDL_Point GetRegionMousePosition()
 // FUNCTION: WIZ8 0x004f16f0
 unsigned int FindRegionAtPoint(unsigned short x, unsigned short y)
 {
-    InputEvent event;
+    const auto event = SyntheticMouseMove({x, y});
     unsigned int region_index;
-
-    event.timestamp = w8_get_ticks();
-    event.modifiers = GetInputState().modifiers;
-    event.type = InputEventType::MouseMove;
-    event.position = {x, y};
 
     if (g_captured_region_index != 0 &&
         RegionAllowedByExclusiveSet(g_captured_region_index)) {
@@ -717,10 +728,7 @@ void ActivateDialogRegion(unsigned int region_index)
     }
 
     if (g_hover_region_index != 0) {
-        InputEvent event;
-        event.timestamp = w8_get_ticks();
-        event.modifiers = GetInputState().modifiers;
-        event.type = InputEventType::MouseMove;
+        const auto event = SyntheticMouseMove(g_region_mouse_position);
 
         W8Region* previous = &g_regions[g_hover_region_index];
         if (!LeaveRegion(*previous, event)) return;
@@ -1040,7 +1048,7 @@ OwnedRegion::OwnedRegion(unsigned int set, const RegionTemplate& entry, int prio
     owned_region.help_text_id = entry.help_text_id;
     owned_region.unknown_13 = 0;
     owned_region.help_text.clear();
-    owned_region.text_field = nullptr;
+    owned_region.text_field = false;
     owned_region.handler = nullptr;
     generation_ = ++owned_region.binding_generation;
 }
@@ -1252,7 +1260,6 @@ void RemoveRegionFromSet(unsigned int region_set_index, unsigned int region_inde
     }
     auto& region = g_regions[region_index];
     if (region.flags & W8_REGION_HELP_SHOWN) VideoRemoveToolTip();
-    region.text_field = nullptr;
     region.flags &= ~(W8_REGION_MOUSE_STATE_MASK | W8_REGION_HELP_SHOWN);
     const auto generation = region.binding_generation + 1;
     region = g_regions.front();
@@ -1273,7 +1280,6 @@ void UnbindWidgetRegion(unsigned int region_index, W8Widget* widget, OwnedRegion
     if (region.flags & W8_REGION_HELP_SHOWN) VideoRemoveToolTip();
     region.flags &= ~(W8_REGION_MOUSE_STATE_MASK | W8_REGION_HELP_SHOWN);
     region.handler = nullptr;
-    region.text_field = nullptr;
     region.help_enabled = false;
     region.help_text_id = -1;
     region.help_text.clear();
@@ -1305,13 +1311,8 @@ void SetRegionCallback(unsigned int region_index, W8RegionCallback callback,
 void ClearHotRegion(void)
 {
     SDL_Point mouse;
-    InputEvent event;
-
     SGPMouseGetPos(&mouse);
-    event.timestamp = w8_get_ticks();
-    event.modifiers = GetInputState().modifiers;
-    event.type = InputEventType::MouseMove;
-    event.position = mouse;
+    const auto event = SyntheticMouseMove(mouse);
 
     if (g_current_region_index != 0) {
         W8Region* region = &g_regions[g_current_region_index];

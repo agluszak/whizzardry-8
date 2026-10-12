@@ -974,50 +974,56 @@ void text_input_ownership()
 {
     Font font{};
     for (unsigned repeat = 0; repeat < 32; ++repeat) {
-        InitTextInputMode(font);
-        const auto first = AddTextInputField(0, 0, 80, 20, REGION_PRIORITY_NORMAL,
-                                             "alpha", 32, 0, 0);
-        const auto middle = AddTextInputField(0, 20, 80, 20, REGION_PRIORITY_NORMAL,
-                                              "beta", 32, 0, 0);
-        const auto last = AddTextInputField(0, 40, 80, 20, REGION_PRIORITY_NORMAL,
-                                            "gamma", 32, 0, 0);
+        TextFieldGroup outer(font);
+        const auto first = outer.Add(0, 0, 80, 20, REGION_PRIORITY_NORMAL, "alpha", 32, 0, false);
+        const auto middle = outer.Add(0, 20, 80, 20, REGION_PRIORITY_NORMAL, "beta", 32, 0, false);
+        const auto last = outer.Add(0, 40, 80, 20, REGION_PRIORITY_NORMAL, "gamma", 32, 0, false);
         REQUIRE((first == 0 && middle == 1 && last == 2));
-        std::string text;
-        text = GetTextFromField(first);
-        REQUIRE((text[0] == 'a' && GetTextInputFieldByteLength(first) == 5));
+        REQUIRE((outer.Text(first)[0] == 'a' && outer.ByteLength(first) == 5));
         if (repeat == 0) {
             const auto field_region = std::find_if(
                 g_regions.begin(), g_regions.end(),
                 [](const W8Region& region) {
-                    return region.text_field != nullptr && region.y1 == 0;
+                    return region.text_field && region.y1 == 0;
                 });
             REQUIRE(field_region != g_regions.end());
             const auto region_index =
                 static_cast<unsigned int>(field_region - g_regions.begin());
-            ExclusiveRegionSet scope(ControlRegionSetIndex());
+            {
+                ExclusiveRegionSet scope(ControlRegionSetIndex());
+                dispatch_mouse(InputEventType::LeftButtonDown, 5, 5);
+                REQUIRE(g_captured_region_index == region_index);
+                dispatch_mouse(InputEventType::LeftButtonUp, 100, 100);
+                REQUIRE(g_captured_region_index == 0);
+            }
+            // A field wins over its hosting panel, whose set is scanned before the control set.
+            constexpr std::array<RegionTemplate, 1> panel_templates{{
+                {W8_REGION_RECTANGLE, 0, 0, 640, 480, nullptr, 0, false, -1},
+            }};
+            OwnedRegionSet panel(panel_templates);
+            panel.Enable();
+            panel.EnableInput();
             dispatch_mouse(InputEventType::LeftButtonDown, 5, 5);
             REQUIRE(g_captured_region_index == region_index);
             dispatch_mouse(InputEventType::LeftButtonUp, 100, 100);
             REQUIRE(g_captured_region_index == 0);
         }
-        RemoveTextInputField(middle);
-        REQUIRE(GetTextInputFieldByteLength(last) == 5);
-        InitTextInputMode(font);
-        REQUIRE(AddTextInputField(0, 0, 80, 20, REGION_PRIORITY_NORMAL,
-                                "inner", 32, 0, 0) == 0);
-        KillTextInputMode();
-        text = GetTextFromField(first);
-        REQUIRE((text[0] == 'a' && GetTextInputFieldByteLength(last) == 5));
-        REQUIRE(AddTextInputField(0, 60, 80, 20, REGION_PRIORITY_NORMAL,
-                                "delta", 32, 0, 0) == 3);
-        RemoveTextInputField(first);
-        RemoveTextInputField(3);
-        RemoveTextInputField(last);
-        KillTextInputMode();
-        REQUIRE(GetActiveTextInputField() == -1);
-        InitTextInputMode(font);
-        KillTextInputMode();
+        outer.Remove(middle);
+        REQUIRE(outer.ByteLength(last) == 5);
+        {
+            TextFieldGroup inner(font);
+            REQUIRE(TextFieldGroup::Focused() == &inner);
+            REQUIRE(inner.Add(0, 0, 80, 20, REGION_PRIORITY_NORMAL, "inner", 32, 0, false) == 0);
+        }
+        REQUIRE(TextFieldGroup::Focused() == &outer);
+        REQUIRE((outer.Text(first)[0] == 'a' && outer.ByteLength(last) == 5));
+        REQUIRE(outer.Add(0, 60, 80, 20, REGION_PRIORITY_NORMAL, "delta", 32, 0, false) == 3);
+        outer.Remove(first);
+        outer.Remove(3);
+        outer.Remove(last);
+        REQUIRE(outer.FocusedId() == -1);
     }
+    REQUIRE(TextFieldGroup::Focused() == nullptr);
 }
 
 void formatted_strings()
@@ -1573,47 +1579,48 @@ void generic_button_images()
     REQUIRE(words.entries.empty());
     g_level_block = std::move(previous_level);
     REQUIRE(g_font12point1.load(filename));
-    InitTextInputMode(g_font12point1);
-    const auto field = AddTextInputField(0, 0, 80, 20, REGION_PRIORITY_NORMAL, "", 1000, 0x0f, 0);
-    SetActiveField(field);
+    {
+    TextFieldGroup fields(g_font12point1);
+    const auto field = fields.Add(0, 0, 80, 20, REGION_PRIORITY_NORMAL, "", 1000, 0x0f, false);
+    fields.Focus(field);
     const std::string clusters = "é👩‍👩‍👧‍👦中";
-    SetInputFieldText(field, clusters);
-    SetTextInputCursor(clusters.size());
+    fields.SetText(field, clusters);
+    fields.SetCursor(clusters.size());
     InputEvent backspace{};
     backspace.type = InputEventType::KeyDown;
     backspace.key = 8;
-    REQUIRE(HandleTextInput(&backspace));
-    REQUIRE(GetTextFromField(field) == "é👩‍👩‍👧‍👦");
-    REQUIRE(HandleTextInput(&backspace));
-    REQUIRE(GetTextFromField(field) == "é");
-    REQUIRE(HandleTextInput(&backspace));
-    REQUIRE(GetTextFromField(field).empty());
+    REQUIRE(fields.HandleInput(backspace));
+    REQUIRE(fields.Text(field) == "é👩‍👩‍👧‍👦");
+    REQUIRE(fields.HandleInput(backspace));
+    REQUIRE(fields.Text(field) == "é");
+    REQUIRE(fields.HandleInput(backspace));
+    REQUIRE(fields.Text(field).empty());
     InputEvent committed{};
     committed.type = InputEventType::Text;
     committed.text = 0x4e2d;
-    REQUIRE(HandleTextInput(&committed));
-    REQUIRE(GetTextFromField(field) == "中");
+    REQUIRE(fields.HandleInput(committed));
+    REQUIRE(fields.Text(field) == "中");
     committed.text = 0x1f600;
-    REQUIRE(HandleTextInput(&committed));
-    REQUIRE(GetTextFromField(field) == "中😀");
-    SetInputFieldText(field, "");
+    REQUIRE(fields.HandleInput(committed));
+    REQUIRE(fields.Text(field) == "中😀");
+    fields.SetText(field, "");
     const std::array<char32_t, 7> family = {0x1f469, 0x200d, 0x1f469, 0x200d, 0x1f467, 0x200d, 0x1f466};
     for (const auto scalar : family) {
         committed.text = scalar;
-        REQUIRE(HandleTextInput(&committed));
+        REQUIRE(fields.HandleInput(committed));
     }
-    REQUIRE(GetTextFromField(field) == "👩‍👩‍👧‍👦");
-    REQUIRE(HandleTextInput(&backspace));
-    REQUIRE(GetTextFromField(field).empty());
+    REQUIRE(fields.Text(field) == "👩‍👩‍👧‍👦");
+    REQUIRE(fields.HandleInput(backspace));
+    REQUIRE(fields.Text(field).empty());
     std::string long_text;
     for (unsigned n = 0; n < 100; ++n) long_text += "中";
-    SetInputFieldText(field, long_text);
-    SetTextInputCursor(long_text.size());
-    REQUIRE(GetTextInputByteCursor() == 300);
-    REQUIRE(GetTextInputFieldByteLength(field) == 300);
-    REQUIRE(HandleTextInput(&backspace));
-    REQUIRE((GetTextInputByteCursor() == 297 && GetTextFromField(field).size() == 297));
-    KillTextInputMode();
+    fields.SetText(field, long_text);
+    fields.SetCursor(long_text.size());
+    REQUIRE(fields.Cursor() == 300);
+    REQUIRE(fields.ByteLength(field) == 300);
+    REQUIRE(fields.HandleInput(backspace));
+    REQUIRE((fields.Cursor() == 297 && fields.Text(field).size() == 297));
+    }
     ResetFontRendering();
     g_font12point1.clear();
     ShutdownButtonImageManager();

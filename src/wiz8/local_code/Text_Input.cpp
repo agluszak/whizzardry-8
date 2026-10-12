@@ -39,1278 +39,763 @@
  * .cpp / local_code/ placement remains a recovery choice.
  */
 
-typedef void (*INPUT_CALLBACK)(unsigned char index, int active);
+class W8TextField final : public W8RegionHandler {
+public:
+    W8TextField(TextFieldGroup& group, int id, int priority)
+        : group(group), id(id), region(ControlRegionSetIndex(), priority, *this)
+    {
+        region.region().text_field = true;
+    }
+    ~W8TextField()
+    {
+        if (g_captured_region_index == region.index()) g_captured_region_index = 0;
+    }
+    W8TextField(const W8TextField&) = delete;
+    W8TextField& operator=(const W8TextField&) = delete;
 
-/* The allocation at 0x005D39B0 is 0x6c bytes. Sir-Tech's released
-   Text_Input.c establishes the inherited members through InputCallback.
-   Retail traversal and rendering then identify two Wizardry additions:
-   +0x60 selects the alternate inactive-field background, and +0x61 suppresses
-   both mouse callbacks. 0x62-0x63 only align the following list links. */
-struct TEXTINPUTNODE {
-    unsigned char ubID;
-    unsigned char _padding01;
-    short usInputType;
-    std::size_t max_code_units; // retail name/editor limit
-    unsigned char _padding05[3];
-    std::string szString;
-    // bool-byte-ok: JA2 declares fEnabled as BOOLEAN (UINT8)
-    unsigned char fEnabled;
-    bool fUserField;
-    unsigned char _padding0f;
-    unsigned int region_index = 0;
-    INPUT_CALLBACK InputCallback;
-    bool fUseInactiveTextFieldColor; /* Wizardry extension at +0x60 */
-    bool fBlockMouseCallbacks;       /* Wizardry extension at +0x61 */
-    unsigned char _padding62[2];
-    std::unique_ptr<TEXTINPUTNODE> next;
-    TEXTINPUTNODE* prev;
+    int HandleRegionInput(W8Region& target, const InputEvent& event) override;
 
+    W8Region& bounds() { return region.region(); }
+    int EditWidth() { return bounds().x2 - bounds().x1 - 10; }
+    Font& font() { return *group.style_.font; }
+
+    /* Scrolls so the cursor stays visible; updates the caret x and visible byte span. */
+    void Relayout()
+    {
+        const std::string_view view = text;
+        const auto at = std::min(cursor, view.size());
+        auto start = std::min(visible_start, at);
+        while (start < at && font().textWidth(view.substr(start, at - start)) > EditWidth())
+            start = wiz8::text::next_grapheme(view, start);
+        auto end = start;
+        while (end < view.size()) {
+            const auto next = wiz8::text::next_grapheme(view, end);
+            if (font().textWidth(view.substr(start, next - start)) > EditWidth()) break;
+            end = next;
+        }
+        visible_start = start;
+        cursor_x = font().textWidth(view.substr(start, at - start)) + 2;
+        visible_count = end - start;
+        parking = start;
+    }
+    void SetCursor(std::size_t position)
+    {
+        position = std::min(position, text.size());
+        std::size_t boundary = 0;
+        while (boundary < position) {
+            const auto next = wiz8::text::next_grapheme(text, boundary);
+            if (next > position) break;
+            boundary = next;
+        }
+        cursor = boundary;
+        Relayout();
+    }
+    void SelectAll()
+    {
+        selection_start = 0;
+        selection_end = text.size();
+        cursor = text.size();
+        selecting = true;
+    }
+    std::size_t MousePosition(int mouse_x)
+    {
+        const int offset = mouse_x - bounds().x1;
+        int previous_width = 0;
+        for (auto position = parking; position < text.size();) {
+            const auto end = wiz8::text::next_grapheme(text, position);
+            const auto width =
+                font().textWidth(std::string_view(text).substr(parking, end - parking));
+            if (offset < (width + previous_width) / 2) return position;
+            previous_width = width;
+            position = end;
+        }
+        return text.size();
+    }
+    void MouseMoved(int reason, int mouse_x, SDL_MouseButtonFlags buttons);
+    void MouseClicked(int reason, int mouse_x, SDL_MouseButtonFlags buttons);
+
+    TextFieldGroup& group;
+    int id;
+    short input_type = 0;
+    std::size_t capacity = 0; // UTF-16 code units, the retail name/editor limit
+    std::string text;
+    bool enabled = true;
+    bool use_inactive_color = false;
+    bool blocks_mouse = false;
+    std::size_t cursor = 0;
+    std::size_t selection_start = 0;
+    std::size_t selection_end = 0;
+    bool selecting = false;
+    std::size_t parking = 0;
+    std::size_t visible_start = 0;
+    std::size_t visible_count = 0;
+    std::size_t mouse_down = 0;
+    int cursor_x = 0;
+    OwnedRegion region;
 };
 
 namespace {
-int g_text_field_input_x = 0;
-SDL_MouseButtonFlags g_text_field_input_buttons = 0;
-
-W8Region& TextFieldRegion(const TEXTINPUTNODE* field)
-{
-    const auto index = field && field->region_index < g_regions.size()
-                           ? field->region_index
-                           : 0;
-    return g_regions[index];
+TextFieldGroup* g_focused_group = nullptr;
 }
 
-unsigned char TextFieldRegionEvent(const InputEvent* event, W8Region* region)
+int W8TextField::HandleRegionInput(W8Region& target, const InputEvent& event)
 {
-    auto* field = region->text_field;
-    if (!field) return 0;
-    g_text_field_input_x = event->position.x;
-    g_text_field_input_buttons = event->buttons;
-    switch (event->type) {
-    case InputEventType::MouseMove: {
-        MouseMovedInTextRegionCallback(field, RegionReasonForInput(*region, *event));
+    switch (event.type) {
+    case InputEventType::MouseMove:
+        MouseMoved(RegionReasonForInput(target, event), event.position.x, event.buttons);
         return 1;
-    }
     case InputEventType::LeftButtonDown:
-        g_captured_region_index = field->region_index;
-        MouseClickedInTextRegionCallback(field, RegionReasonForInput(*region, *event));
+        g_captured_region_index = region.index();
+        MouseClicked(RegionReasonForInput(target, event), event.position.x, event.buttons);
         return 1;
     case InputEventType::LeftButtonUp:
-        if (g_captured_region_index == field->region_index) g_captured_region_index = 0;
-        MouseClickedInTextRegionCallback(field, RegionReasonForInput(*region, *event));
+        if (g_captured_region_index == region.index()) g_captured_region_index = 0;
+        MouseClicked(RegionReasonForInput(target, event), event.position.x, event.buttons);
         return 1;
     case InputEventType::LeftButtonDoubleClick:
         return 1;
     default:
-        break;
-    }
-    return 0;
-}
-}
-
-/* 0x005D3520 allocates this record once per active input session, and
-   0x005D35E0 fills the same fixed layout for its three presentation modes. */
-struct TextInputColors {
-    Font* usFont;
-    unsigned short usTextFieldColor;
-    unsigned char ubForeColor;
-    unsigned char ubShadowColor;
-    unsigned char ubHiForeColor;
-    unsigned char ubHiShadowColor;
-    unsigned char ubHiBackColor;
-    bool fBevelling;
-    unsigned short usBrighterColor;
-    unsigned short usDarkerColor;
-    unsigned short usCursorColor;
-    bool fUseDisabledAutoShade;
-    unsigned char ubDisabledForeColor;
-    unsigned char ubDisabledShadowColor;
-    unsigned char _padding13;
-    unsigned short usDisabledTextFieldColor;
-    unsigned short usInactiveTextFieldColor;
-};
-
-struct STACKTEXTINPUTNODE {
-    std::unique_ptr<TEXTINPUTNODE> head;
-    std::unique_ptr<TextInputColors> pColors;
-    std::unique_ptr<STACKTEXTINPUTNODE> next;
-};
-
-
-// GLOBAL: WIZ8 0x0069C808
-static bool gfEditingText;
-
-// GLOBAL: WIZ8 0x0069C7EC
-static std::unique_ptr<TextInputColors> pColors;
-// GLOBAL: WIZ8 0x0069C7F0
-static std::unique_ptr<STACKTEXTINPUTNODE> pInputStack;
-// GLOBAL: WIZ8 0x0069C7F4
-static std::unique_ptr<TEXTINPUTNODE> gpTextInputHead;
-// GLOBAL: WIZ8 0x0069C7F8
-static TEXTINPUTNODE* gpTextInputTail;
-// GLOBAL: WIZ8 0x0069C7FC
-static TEXTINPUTNODE* gpActive;
-// GLOBAL: WIZ8 0x0069C809
-static bool gfTextInputMode;
-// GLOBAL: WIZ8 0x0069C80A
-static bool gfHiliteMode;
-// GLOBAL: WIZ8 0x0069C80B
-static std::size_t gubCursorPos;
-// GLOBAL: WIZ8 0x0069C80C
-static std::size_t gubStartHilite;
-// GLOBAL: WIZ8 0x0069C80D
-static std::size_t gubEndHilite;
-// GLOBAL: WIZ8 0x0069C80E
-static std::size_t gubParkingPos;
-// GLOBAL: WIZ8 0x0069C80F
-static std::size_t gubVisibleStart;
-// GLOBAL: WIZ8 0x0069C7E9
-static std::size_t gubMouseDownPos;
-// GLOBAL: WIZ8 0x0069C5D8
-static int gsCursorX;
-// GLOBAL: WIZ8 0x0069C7E4
-static size_t guiVisibleCount;
-
-// FUNCTION: WIZ8 0x005D3470
-void InitTextInputMode(Font& font)
-{
-    if (gpTextInputHead != 0) {
-        auto session = std::make_unique<STACKTEXTINPUTNODE>();
-        auto* head = gpTextInputHead.get();
-        session->head = std::move(gpTextInputHead);
-        session->pColors = std::move(pColors);
-        session->next = std::move(pInputStack);
-        pInputStack = std::move(session);
-        for (TEXTINPUTNODE* field = head; field != 0; field = field->next.get()) {
-            if (field->fEnabled != 0) {
-                g_regions[field->region_index].SetInputEnabled(false);
-                field->fEnabled = 0;
-            }
-        }
-        gpActive = 0;
-    }
-    gpTextInputHead.reset();
-    gpTextInputTail = nullptr;
-    pColors = std::make_unique<TextInputColors>();
-    pColors->usFont = &font;
-    gfTextInputMode = true;
-    gfEditingText = false;
-    SetNativeTextInputEnabled(false);
-    pColors->fBevelling = false;
-    pColors->fUseDisabledAutoShade = true;
-    pColors->usCursorColor = Get16BPPColor(SDL_Color{10, 10, 10, SDL_ALPHA_OPAQUE});
-    gubVisibleStart = 0;
-}
-
-// FUNCTION: WIZ8 0x005D3520
-void InitTextInputModeWithScheme(int mode)
-{
-    Assert(mode >= 0 && mode <= 2);
-    InitTextInputMode(mode == 0 ? g_font12point1 : g_wiz_text_mono_font);
-    SetTextInputScheme(mode);
-}
-
-// FUNCTION: WIZ8 0x005D35E0
-void SetTextInputScheme(char mode)
-{
-    if (mode == 0) {
-        pColors->usFont = &g_font12point1;
-        pColors->usTextFieldColor = Get16BPPColor(SDL_Color{200, 200, 0, SDL_ALPHA_OPAQUE});
-        pColors->usInactiveTextFieldColor = Get16BPPColor(SDL_Color{255, 255, 255, SDL_ALPHA_OPAQUE});
-        pColors->usDarkerColor = Get16BPPColor(SDL_Color{24, 61, 81, SDL_ALPHA_OPAQUE});
-        pColors->usBrighterColor = Get16BPPColor(SDL_Color{136, 138, 135, SDL_ALPHA_OPAQUE});
-        pColors->fBevelling = true;
-        pColors->ubForeColor = 0x8d;
-        pColors->ubShadowColor = 0;
-        pColors->ubHiForeColor = 0xd0;
-    } else if (mode == 1) {
-        pColors->usFont = &g_wiz_text_mono_font;
-        pColors->usTextFieldColor = Get16BPPColor(SDL_Color{30, 42, 99, SDL_ALPHA_OPAQUE});
-        pColors->usInactiveTextFieldColor = Get16BPPColor(SDL_Color{255, 255, 255, SDL_ALPHA_OPAQUE});
-        pColors->usInactiveTextFieldColor = Get16BPPColor(SDL_Color{10, 10, 10, SDL_ALPHA_OPAQUE});
-        pColors->usDarkerColor = Get16BPPColor(SDL_Color{0, 0, 0, SDL_ALPHA_OPAQUE});
-        pColors->usBrighterColor = Get16BPPColor(SDL_Color{0, 0, 0, SDL_ALPHA_OPAQUE});
-        pColors->fBevelling = true;
-        pColors->ubForeColor = 4;
-        pColors->ubShadowColor = 5;
-        pColors->ubHiForeColor = 4;
-        pColors->ubHiShadowColor = 5;
-        pColors->ubHiBackColor = 3;
-        pColors->usCursorColor = Get16BPPColor(SDL_Color{255, 255, 255, SDL_ALPHA_OPAQUE});
-        return;
-    } else if (mode == 2) {
-        pColors->usFont = &g_wiz_text_mono_font;
-        pColors->usTextFieldColor = Get16BPPColor(SDL_Color{255, 255, 255, SDL_ALPHA_OPAQUE});
-        pColors->usInactiveTextFieldColor = Get16BPPColor(SDL_Color{255, 255, 255, SDL_ALPHA_OPAQUE});
-        pColors->usDarkerColor = Get16BPPColor(SDL_Color{0, 0, 0, SDL_ALPHA_OPAQUE});
-        pColors->usBrighterColor = Get16BPPColor(SDL_Color{0, 0, 0, SDL_ALPHA_OPAQUE});
-        pColors->fBevelling = true;
-        pColors->ubForeColor = 0x8d;
-        pColors->ubShadowColor = 0;
-        pColors->ubHiForeColor = 0xd0;
-    } else {
-        return;
-    }
-    pColors->ubHiShadowColor = 0xcd;
-    pColors->ubHiBackColor = 0xcd;
-    pColors->usCursorColor = Get16BPPColor(SDL_Color{10, 10, 10, SDL_ALPHA_OPAQUE});
-}
-
-// FUNCTION: WIZ8 0x005D3800
-void KillTextInputMode(void)
-{
-    gpActive = nullptr;
-    gpTextInputTail = nullptr;
-    for (auto* field = gpTextInputHead.get(); field != nullptr; field = field->next.get()) {
-        RemoveRegionFromSet(ControlRegionSetIndex(), field->region_index);
-        field->region_index = 0;
-    }
-    gpTextInputHead.reset();
-    pColors.reset();
-    auto session = std::move(pInputStack);
-    if (!session) {
-        gfTextInputMode = false;
-        gfEditingText = false;
-        SetNativeTextInputEnabled(false);
-        SetNativeTextInputEnabled(false);
-        return;
-    }
-    gpTextInputHead = std::move(session->head);
-    pColors = std::move(session->pColors);
-    pInputStack = std::move(session->next);
-    gfTextInputMode = true;
-    auto* field = gpTextInputHead.get();
-    for (field = gpTextInputHead.get(); field != 0; field = field->next.get()) {
-        gpTextInputTail = field;
-        if (field->fEnabled == 0) {
-            g_regions[field->region_index].SetInputEnabled(true);
-            field->fEnabled = 1;
-        }
-    }
-    field = gpTextInputHead.get();
-    if (gpActive == 0)
-        gpActive = gpTextInputHead.get();
-    for (; field != 0; field = field->next.get()) {
-        if (field == gpActive || field->ubID != 0 || field->fEnabled == 0)
-            continue;
-        gpActive = field;
-        if (field->fUserField) {
-            gfHiliteMode = false;
-            gfEditingText = false;
-            SetNativeTextInputEnabled(false);
-            if (field->InputCallback != 0)
-                field->InputCallback(field->ubID, 1);
-        } else {
-            gubStartHilite = 0;
-            gubEndHilite = field->szString.size();
-            gubCursorPos = field->szString.size();
-            gubParkingPos = CalculateCursorPos(
-                TextFieldRegion(field).x2 - TextFieldRegion(field).x1 - 10, gubCursorPos,
-                field->szString.c_str(), &gsCursorX, &guiVisibleCount);
-            gubCursorPos = gpActive->szString.size();
-            gfHiliteMode = true;
-            gfEditingText = true;
-            SetNativeTextInputEnabled(true);
-        }
-        break;
-    }
-    if (gpTextInputHead == 0)
-        gpActive = 0;
-}
-
-// FUNCTION: WIZ8 0x005D39B0
-char AddTextInputField(int left, int top, int width, int height, int priority, std::string_view text,
-                       std::size_t capacity, short input_type,
-                       unsigned char use_inactive_text_field_color)
-{
-    auto owner = std::make_unique<TEXTINPUTNODE>();
-    auto* field = owner.get();
-    field->usInputType = input_type;
-    if (input_type == 0x1002)
-        capacity = 6;
-    field->max_code_units = capacity;
-    field->szString.assign(text);
-    if (gpTextInputHead == 0) {
-        gpTextInputHead = std::move(owner);
-        gpTextInputTail = field;
-        field->ubID = 0;
-    } else {
-        gpTextInputTail->next = std::move(owner);
-        field->prev = gpTextInputTail;
-        field->ubID = gpTextInputTail->ubID + 1;
-        gpTextInputTail = field;
-    }
-    if (gpTextInputHead.get() == field) {
-        gubStartHilite = 0;
-        gubEndHilite = field->szString.size();
-        gubCursorPos = field->szString.size();
-        if (gpActive != 0) {
-            gubParkingPos = CalculateCursorPos(
-                TextFieldRegion(gpActive).x2 - TextFieldRegion(gpActive).x1 - 10,
-                gubCursorPos, gpActive->szString, &gsCursorX, &guiVisibleCount);
-        }
-        gfHiliteMode = true;
-    }
-    field->fUserField = false;
-    field->fEnabled = 1;
-    field->fBlockMouseCallbacks = false;
-    field->region_index = AddRegionToSet(ControlRegionSetIndex(), priority);
-    auto& region = g_regions[field->region_index];
-    region.text_field = field;
-    g_regions[field->region_index].SetBounds(static_cast<unsigned short>(left),
-                    static_cast<unsigned short>(top), static_cast<unsigned short>(left + width),
-                    static_cast<unsigned short>(top + height));
-    SetRegionCallback(field->region_index, TextFieldRegionEvent, field->ubID);
-    field->fUseInactiveTextFieldColor = use_inactive_text_field_color;
-    return field->ubID;
-}
-
-// FUNCTION: WIZ8 0x005D3B40
-void RemoveTextInputField(int index)
-{
-    TEXTINPUTNODE* field = gpTextInputHead.get();
-    while (field != 0 && field->ubID != index)
-        field = field->next.get();
-    if (field == 0)
-        return;
-    if (g_captured_region_index == field->region_index) g_captured_region_index = 0;
-    RemoveRegionFromSet(ControlRegionSetIndex(), field->region_index);
-    field->region_index = 0;
-    if (field == gpTextInputTail)
-        gpTextInputTail = field->prev;
-    if (field->next)
-        field->next->prev = field->prev;
-    if (field == gpActive) {
-        gpActive = nullptr;
-        gfEditingText = false;
-        SetNativeTextInputEnabled(false);
-    }
-    auto& link = field->prev ? field->prev->next : gpTextInputHead;
-    auto removed = std::move(link);
-    link = std::move(removed->next);
-    if (gpTextInputHead == 0) {
-        gfTextInputMode = false;
-        gfEditingText = false;
-        SetNativeTextInputEnabled(false);
-    }
-}
-
-// FUNCTION: WIZ8 0x005D3C10
-void SetInputFieldText(unsigned char index, std::string_view text)
-{
-    for (auto* field = gpTextInputHead.get(); field; field = field->next.get()) {
-        if (field->ubID != index) continue;
-        field->szString.assign(text);
-        gfHiliteMode = false;
-        SetTextInputCursor(0);
-        return;
-    }
-}
-
-// FUNCTION: WIZ8 0x005D3BF0
-short GetActiveTextInputField(void)
-{
-    if (gpActive != 0)
-        return gpActive->ubID;
-    return -1;
-}
-
-// FUNCTION: WIZ8 0x005D3CC0
-std::string GetTextFromField(unsigned char index)
-{
-    for (auto* field = gpTextInputHead.get(); field; field = field->next.get())
-        if (field->ubID == index) return field->szString;
-    return {};
-}
-
-// FUNCTION: WIZ8 0x005D3D00
-std::size_t GetTextInputFieldByteLength(unsigned char index)
-{
-    for (TEXTINPUTNODE* field = gpTextInputHead.get(); field != 0; field = field->next.get()) {
-        if (field->ubID == index)
-            return field->szString.size();
-    }
-    return 0;
-}
-
-// FUNCTION: WIZ8 0x005D3D20
-void SetActiveField(char index)
-{
-    TEXTINPUTNODE* field = gpTextInputHead.get();
-    while (field != 0 && (field == gpActive || field->ubID != index || field->fEnabled == 0)) {
-        field = field->next.get();
-    }
-    if (field == 0)
-        return;
-    gpActive = field;
-    if (!field->fUserField) {
-        gubStartHilite = 0;
-        gubEndHilite = field->szString.size();
-        gubCursorPos = field->szString.size();
-        gubParkingPos =
-            CalculateCursorPos(TextFieldRegion(field).x2 - TextFieldRegion(field).x1 - 10,
-                               gubCursorPos, field->szString.c_str(), &gsCursorX, &guiVisibleCount);
-        gubCursorPos = gpActive->szString.size();
-        gfHiliteMode = true;
-        gfEditingText = true;
-        SetNativeTextInputEnabled(true);
-        return;
-    }
-    gfHiliteMode = false;
-    gfEditingText = false;
-    SetNativeTextInputEnabled(false);
-    if (field->InputCallback != 0)
-        field->InputCallback(field->ubID, 1);
-}
-
-// FUNCTION: WIZ8 0x005D3DF0
-void SelectNextField(void)
-{
-    if (gpActive == 0)
-        return;
-    TEXTINPUTNODE* previous = gpActive;
-    if (previous->fUserField) {
-        if (previous->InputCallback != 0)
-            previous->InputCallback(previous->ubID, 0);
-    } else {
-        RenderInactiveTextFieldNode(previous);
-    }
-
-    bool found = false;
-    do {
-        gpActive = gpActive->next.get();
-        if (gpActive == 0)
-            gpActive = gpTextInputHead.get();
-        if (gpActive->fEnabled != 0) {
-            found = true;
-            if (gpActive->fUserField) {
-                gfHiliteMode = false;
-                gfEditingText = false;
-                SetNativeTextInputEnabled(false);
-                if (gpActive->InputCallback != 0)
-                    gpActive->InputCallback(gpActive->ubID, 1);
-            } else {
-                gubStartHilite = 0;
-                gubEndHilite = gpActive->szString.size();
-                gubCursorPos = gpActive->szString.size();
-                gubParkingPos = CalculateCursorPos(
-                    TextFieldRegion(gpActive).x2 - TextFieldRegion(gpActive).x1 - 10,
-                    gubCursorPos, gpActive->szString, &gsCursorX, &guiVisibleCount);
-                gfHiliteMode = true;
-                gfEditingText = true;
-                SetNativeTextInputEnabled(true);
-            }
-        }
-        if (gpActive == previous)
-            break;
-        if (found)
-            return;
-    } while (true);
-    gfEditingText = false;
-    SetNativeTextInputEnabled(false);
-}
-
-// FUNCTION: WIZ8 0x005D3F00
-void ClearActiveField(void)
-{
-    if (gpActive == 0)
-        return;
-    if (!gpActive->fUserField) {
-        RenderInactiveTextFieldNode(gpActive);
-    } else if (gpActive->InputCallback != 0) {
-        gpActive->InputCallback(gpActive->ubID, 0);
-    }
-    gfEditingText = false;
-    SetNativeTextInputEnabled(false);
-    gpActive = 0;
-}
-
-static void DeleteHighlightedText(std::size_t first, std::size_t last)
-{
-    if (last < first) {
-        std::size_t swap = first;
-        first = last;
-        last = swap;
-    }
-    gpActive->szString.erase(first, last - first);
-    gubStartHilite = 0;
-    gubEndHilite = 0;
-    SetTextInputCursor(first);
-}
-
-// FUNCTION: WIZ8 0x005D3F50
-unsigned int HandleTextInput(const InputEvent* input)
-{
-    const bool committed = input->type == InputEventType::Text;
-    const char32_t committed_character = input->text;
-    InputEvent normalized = *input;
-    if (committed) { normalized.type = InputEventType::KeyDown; normalized.key = 0; normalized.modifiers = 0; input = &normalized; }
-
-    if (!gfTextInputMode || !gfEditingText || gpActive == 0 ||
-        (input->type != InputEventType::KeyDown && input->type != InputEventType::KeyRepeat) ||
-        input->key == VK_ESCAPE || input->key == VK_RETURN || input->key == VK_TAB ||
-        (input->modifiers & ALT_DOWN) != 0 ||
-        ((input->modifiers & CTRL_DOWN) != 0 && input->key != VK_DELETE &&
-         input->key != VK_RIGHT && input->key != VK_LEFT) ||
-        (input->key > 0x6f && input->key < 0x7c)) {
         return 0;
     }
-
-    std::size_t selection_end = gubEndHilite;
-    switch (input->key) {
-    case 0x25: /* Left */
-        if ((input->modifiers & SHIFT_DOWN) != 0) {
-            if (!gfHiliteMode) {
-                gfHiliteMode = true;
-                gubStartHilite = gubCursorPos;
-            }
-            if (gubCursorPos != 0) {
-                gubCursorPos = wiz8::text::previous_grapheme(gpActive->szString, gubCursorPos);
-                gubParkingPos = CalculateCursorPos(
-                    TextFieldRegion(gpActive).x2 - TextFieldRegion(gpActive).x1 - 10,
-                    gubCursorPos, gpActive->szString, &gsCursorX, &guiVisibleCount);
-            }
-            gubEndHilite = gubCursorPos;
-            return 1;
-        }
-        if (gfHiliteMode) {
-            gubCursorPos = gubStartHilite;
-            gfHiliteMode = false;
-            gubParkingPos = CalculateCursorPos(
-                TextFieldRegion(gpActive).x2 - TextFieldRegion(gpActive).x1 - 10,
-                gubCursorPos, gpActive->szString, &gsCursorX, &guiVisibleCount);
-            return 1;
-        }
-        if (gubCursorPos != 0) {
-            gubCursorPos = wiz8::text::previous_grapheme(gpActive->szString, gubCursorPos);
-            gubParkingPos = CalculateCursorPos(
-                TextFieldRegion(gpActive).x2 - TextFieldRegion(gpActive).x1 - 10,
-                gubCursorPos, gpActive->szString, &gsCursorX, &guiVisibleCount);
-        }
-        return 1;
-
-    case 0x27: /* Right */
-        if ((input->modifiers & SHIFT_DOWN) != 0) {
-            if (!gfHiliteMode) {
-                gfHiliteMode = true;
-                gubStartHilite = gubCursorPos;
-            }
-            if (gubCursorPos < gpActive->szString.size()) {
-                { std::size_t next = gubCursorPos;
-                next = wiz8::text::next_grapheme(gpActive->szString, next);
-                gubCursorPos = next; }
-                gubParkingPos = CalculateCursorPos(
-                    TextFieldRegion(gpActive).x2 - TextFieldRegion(gpActive).x1 - 10,
-                    gubCursorPos, gpActive->szString, &gsCursorX, &guiVisibleCount);
-            }
-            gubEndHilite = gubCursorPos;
-            return 1;
-        }
-        if (gfHiliteMode) {
-            gubCursorPos = selection_end;
-            gfHiliteMode = false;
-            gubParkingPos = CalculateCursorPos(
-                TextFieldRegion(gpActive).x2 - TextFieldRegion(gpActive).x1 - 10,
-                gubCursorPos, gpActive->szString, &gsCursorX, &guiVisibleCount);
-            return 1;
-        }
-        if (gubCursorPos < gpActive->szString.size()) {
-            { std::size_t next = gubCursorPos;
-                next = wiz8::text::next_grapheme(gpActive->szString, next);
-                gubCursorPos = next; }
-            gubParkingPos = CalculateCursorPos(
-                TextFieldRegion(gpActive).x2 - TextFieldRegion(gpActive).x1 - 10,
-                gubCursorPos, gpActive->szString, &gsCursorX, &guiVisibleCount);
-        }
-        return 1;
-
-    case 0x23: /* End */
-        if ((input->modifiers & SHIFT_DOWN) != 0) {
-            if (!gfHiliteMode) {
-                gfHiliteMode = true;
-                gubStartHilite = gubCursorPos;
-            }
-            gubCursorPos = gpActive->szString.size();
-            gubEndHilite = gubCursorPos;
-        } else {
-            gfHiliteMode = false;
-            gubCursorPos = gpActive->szString.size();
-        }
-        gubParkingPos = CalculateCursorPos(
-            TextFieldRegion(gpActive).x2 - TextFieldRegion(gpActive).x1 - 10,
-            gubCursorPos, gpActive->szString, &gsCursorX, &guiVisibleCount);
-        return 1;
-
-    case 0x24: /* Home */
-        if ((input->modifiers & SHIFT_DOWN) != 0) {
-            if (!gfHiliteMode) {
-                gfHiliteMode = true;
-                gubStartHilite = gubCursorPos;
-            }
-            gubCursorPos = 0;
-            gubEndHilite = 0;
-        } else {
-            gubCursorPos = 0;
-            gfHiliteMode = false;
-        }
-        gubParkingPos = CalculateCursorPos(TextFieldRegion(gpActive).x2 -
-                                               TextFieldRegion(gpActive).x1 - 10,
-                                           0, gpActive->szString, &gsCursorX, &guiVisibleCount);
-        return 1;
-
-    case 0x2e: /* Delete */
-        if ((input->modifiers & CTRL_DOWN) != 0) {
-            gpActive->szString.clear();
-
-            gubCursorPos = 0;
-            gubStartHilite = 0;
-            gubEndHilite = 0;
-            gfHiliteMode = false;
-            SetTextInputCursor(0);
-            return 1;
-        }
-        if (!gfHiliteMode) {
-            /* 0x005D5D0C returns from inside the guard without repositioning the
-               cursor, so gParkingPos keeps the value it had for the longer
-               string. The retail's one SetTextInputCursor call in this function
-               is on the highlighted path below. */
-            if (gubCursorPos < gpActive->szString.size()) {
-                std::size_t end = gubCursorPos;
-                end = wiz8::text::next_grapheme(gpActive->szString, end);
-                gpActive->szString.erase(gubCursorPos, end - gubCursorPos);
-            }
-            return 1;
-        }
-        gfHiliteMode = false;
-        if (gubStartHilite != selection_end) {
-            DeleteHighlightedText(gubStartHilite, selection_end);
-        }
-        return 1;
-
-    case 8:
-        if (!gfHiliteMode) {
-            if (gubCursorPos != 0) {
-                const auto old_position = gubCursorPos;
-                gubCursorPos = wiz8::text::previous_grapheme(gpActive->szString, gubCursorPos);
-                gpActive->szString.erase(gubCursorPos, old_position - gubCursorPos);
-                gubParkingPos = CalculateCursorPos(
-                    TextFieldRegion(gpActive).x2 - TextFieldRegion(gpActive).x1 - 10,
-                    gubCursorPos, gpActive->szString, &gsCursorX, &guiVisibleCount);
-                return 1;
-            }
-        } else {
-            gfHiliteMode = false;
-            if (gubStartHilite != selection_end) {
-                DeleteHighlightedText(gubStartHilite, selection_end);
-                return 1;
-            }
-        }
-        break;
-
-    default: {
-        char32_t character = committed ? committed_character :
-            TranslateKeyToCharacter(static_cast<unsigned short>(input->key), input->modifiers);
-        if (!committed && NativeTextInputEnabled()) return 1;
-        if (character == 0)
-            return 1;
-
-        if (gfHiliteMode) {
-            gfHiliteMode = false;
-            if (gubStartHilite != gubEndHilite) {
-                DeleteHighlightedText(gubStartHilite, gubEndHilite);
-            }
-        }
-
-        unsigned short input_type = static_cast<unsigned short>(gpActive->usInputType);
-        if (input_type > 0x0fff) {
-            HandleExclusiveInput(character);
-            return 1;
-        }
-        if (character == ' ' && (input_type & 4) != 0) {
-            AddChar(' ');
-            return 1;
-        }
-        if (character == '-' && (input_type & 2) != 0 && gubCursorPos == 0) {
-            AddChar('-');
-            return 1;
-        }
-        if (character >= '0' && character <= '9' && (input_type & 1) != 0) {
-            AddChar(character);
-            return 1;
-        }
-        if ((input_type & 2) != 0) {
-            if (IsUppercaseCharacter(character) != 0) {
-                if ((input_type & 0x20) != 0)
-                    character = ToLowercaseCharacter(character);
-                AddChar(character);
-                return 1;
-            }
-            if (IsLowercaseCharacter(character) != 0) {
-                if ((input_type & 0x10) != 0)
-                    character = ToUppercaseCharacter(character);
-                AddChar(character);
-                return 1;
-            }
-        }
-        if ((input_type & 8) != 0 &&
-            IsPunctuationCharacter(character) != 0) {
-            AddChar(character);
-        }
-        return 1;
-    }
-    }
-    return 1;
 }
 
-// FUNCTION: WIZ8 0x005D4970
-void HandleExclusiveInput(unsigned short character)
+void W8TextField::MouseMoved(int reason, int mouse_x, SDL_MouseButtonFlags buttons)
 {
-    short input_type = gpActive->usInputType;
-    if (input_type == 0x1000) {
-        if (IsUppercaseCharacter(character) == 0 && IsLowercaseCharacter(character) == 0 &&
-            (character < '0' || character > '9') && character != '_' && character != '.') {
-            return;
-        }
-        if (gubCursorPos == 0 && character >= '0' && character <= '9')
-            return;
-        AddChar(character);
+    if (IsModalOpen() || blocks_mouse) return;
+    if ((reason & REGION_REASON_GAIN_MOUSE) != 0) SetTargetCursor(GetTextInputCursor());
+    if ((reason & REGION_REASON_LOST_MOUSE) != 0) SetTargetCursor(W8_CURSOR_NONE);
+    if ((buttons & SDL_BUTTON_LMASK) == 0 || !group.focused_ || (reason & REGION_REASON_MOVE) == 0)
+        return;
+    if (group.focused_ != this) {
+        group.RenderInactive(*group.focused_);
+        group.focused_ = this;
+        mouse_down = 0;
+        cursor = 0;
+        Relayout();
+        selecting = false;
+        selection_start = selection_end = 0;
+    }
+    const auto position = MousePosition(mouse_x);
+    if (position == mouse_down) {
+        selecting = false;
         return;
     }
-    if (input_type == 0x1001) {
-        if (gubCursorPos == 0) {
-            if (IsLowercaseCharacter(character) != 0) {
-                AddChar(character);
-                return;
-            }
-            if (IsUppercaseCharacter(character) == 0)
-                return;
-            AddChar(static_cast<unsigned short>(ToLowercaseCharacter(character)));
-            return;
-        }
-        if (character >= '0' && character <= '9')
-            AddChar(character);
+    selection_start = std::min(mouse_down, position);
+    selection_end = std::max(mouse_down, position);
+    selecting = true;
+    cursor = position;
+    Relayout();
+}
+
+void W8TextField::MouseClicked(int reason, int mouse_x, SDL_MouseButtonFlags buttons)
+{
+    if (IsModalOpen() || blocks_mouse) return;
+    if ((reason & REGION_REASON_LBUTTON_DOUBLECLICK) != 0) {
+        if (group.focused_) group.SelectWordAtMouse(mouse_x);
         return;
     }
-    if (input_type != 0x1002)
-        return;
-    if (gubCursorPos == 0) {
-        if (character >= '0' && character <= '2')
-            AddChar(character);
-        return;
-    }
-    if (gubCursorPos == 1) {
-        if (character >= '0' && character <= '9') {
-            if (gpActive->szString[0] != '2' || character <= '3')
-                AddChar(character);
-        }
-        if (gpActive->szString.size() <= 2) {
-            AddChar(':');
-            return;
-        }
-        { std::size_t next = gubCursorPos;
-                next = wiz8::text::next_grapheme(gpActive->szString, next);
-                gubCursorPos = next; }
-        SetTextInputCursor(gubCursorPos);
+    if ((reason & REGION_REASON_LBUTTON_DWN) != 0) {
+        if (group.focused_ != this) return;
+        SetCursor(MousePosition(mouse_x));
+        mouse_down = cursor;
         return;
     }
-    if (gubCursorPos == 2) {
-        if (character == ':') {
-            AddChar(':');
-            return;
-        }
-        if (character < '0' || character > '9')
-            return;
-        AddChar(':');
-        AddChar(character);
+    if ((reason & REGION_REASON_LBUTTON_UP) == 0) return;
+    if (group.focused_ != this) {
+        if (group.focused_) group.RenderInactive(*group.focused_);
+        if (!enabled) return;
+        group.FocusField(*this);
         return;
     }
-    if (gubCursorPos == 3) {
-        if (character >= '0' && character <= '5')
-            AddChar(character);
-        return;
-    }
-    if (gubCursorPos == 4 && character >= '0' && character <= '9') {
-        AddChar(character);
+    if ((buttons & SDL_BUTTON_LMASK) != 0) {
+        const auto position = MousePosition(mouse_x);
+        if (position == mouse_down) selecting = false;
+        SetCursor(position);
     }
 }
 
-// FUNCTION: WIZ8 0x005D4B70
-void AddChar(char32_t character)
+TextFieldGroup::TextFieldGroup(Font& font) : previous_(g_focused_group)
 {
+    style_.font = &font;
+    style_.cursor_color = Get16BPPColor(SDL_Color{10, 10, 10, SDL_ALPHA_OPAQUE});
+    if (previous_) previous_->Suspend();
+    g_focused_group = this;
+    SetNativeTextInputEnabled(false);
+}
+
+TextFieldGroup::TextFieldGroup(int scheme)
+    : TextFieldGroup(scheme == 0 ? g_font12point1 : g_wiz_text_mono_font)
+{
+    Assert(scheme >= 0 && scheme <= 2);
+    SetScheme(scheme);
+}
+
+TextFieldGroup::~TextFieldGroup()
+{
+    focused_ = suspended_focus_ = nullptr;
+    fields_.clear();
+    if (g_focused_group == this) {
+        g_focused_group = previous_;
+        if (previous_)
+            previous_->Resume();
+        else
+            SetNativeTextInputEnabled(false);
+        return;
+    }
+    for (auto* group = g_focused_group; group; group = group->previous_) {
+        if (group->previous_ == this) {
+            group->previous_ = previous_;
+            break;
+        }
+    }
+}
+
+TextFieldGroup* TextFieldGroup::Focused() { return g_focused_group; }
+
+void TextFieldGroup::Suspend()
+{
+    for (auto& field : fields_) {
+        field->bounds().SetInputEnabled(false);
+        field->enabled = false;
+    }
+    suspended_focus_ = focused_;
+    focused_ = nullptr;
+}
+
+void TextFieldGroup::Resume()
+{
+    for (auto& field : fields_) {
+        field->bounds().SetInputEnabled(true);
+        field->enabled = true;
+    }
+    focused_ = suspended_focus_ ? suspended_focus_ : fields_.empty() ? nullptr : fields_.front().get();
+    suspended_focus_ = nullptr;
+    SetNativeTextInputEnabled(editing_ && focused_);
+}
+
+void TextFieldGroup::SetEditing(bool editing)
+{
+    editing_ = editing;
+    SetNativeTextInputEnabled(editing);
+}
+
+void TextFieldGroup::SetScheme(int scheme)
+{
+    auto& s = style_;
+    if (scheme == 0) {
+        s.font = &g_font12point1;
+        s.field_color = Get16BPPColor(SDL_Color{200, 200, 0, SDL_ALPHA_OPAQUE});
+        s.inactive_field_color = Get16BPPColor(SDL_Color{255, 255, 255, SDL_ALPHA_OPAQUE});
+        s.darker_color = Get16BPPColor(SDL_Color{24, 61, 81, SDL_ALPHA_OPAQUE});
+        s.brighter_color = Get16BPPColor(SDL_Color{136, 138, 135, SDL_ALPHA_OPAQUE});
+        s.bevelled = true;
+        s.fore_color = 0x8d;
+        s.shadow_color = 0;
+        s.highlight_fore_color = 0xd0;
+    } else if (scheme == 1) {
+        s.font = &g_wiz_text_mono_font;
+        s.field_color = Get16BPPColor(SDL_Color{30, 42, 99, SDL_ALPHA_OPAQUE});
+        s.inactive_field_color = Get16BPPColor(SDL_Color{10, 10, 10, SDL_ALPHA_OPAQUE});
+        s.darker_color = Get16BPPColor(SDL_Color{0, 0, 0, SDL_ALPHA_OPAQUE});
+        s.brighter_color = Get16BPPColor(SDL_Color{0, 0, 0, SDL_ALPHA_OPAQUE});
+        s.bevelled = true;
+        s.fore_color = 4;
+        s.shadow_color = 5;
+        s.highlight_fore_color = 4;
+        s.highlight_shadow_color = 5;
+        s.highlight_back_color = 3;
+        s.cursor_color = Get16BPPColor(SDL_Color{255, 255, 255, SDL_ALPHA_OPAQUE});
+        return;
+    } else if (scheme == 2) {
+        s.font = &g_wiz_text_mono_font;
+        s.field_color = Get16BPPColor(SDL_Color{255, 255, 255, SDL_ALPHA_OPAQUE});
+        s.inactive_field_color = Get16BPPColor(SDL_Color{255, 255, 255, SDL_ALPHA_OPAQUE});
+        s.darker_color = Get16BPPColor(SDL_Color{0, 0, 0, SDL_ALPHA_OPAQUE});
+        s.brighter_color = Get16BPPColor(SDL_Color{0, 0, 0, SDL_ALPHA_OPAQUE});
+        s.bevelled = true;
+        s.fore_color = 0x8d;
+        s.shadow_color = 0;
+        s.highlight_fore_color = 0xd0;
+    } else {
+        return;
+    }
+    s.highlight_shadow_color = 0xcd;
+    s.highlight_back_color = 0xcd;
+    s.cursor_color = Get16BPPColor(SDL_Color{10, 10, 10, SDL_ALPHA_OPAQUE});
+}
+
+int TextFieldGroup::Add(int left, int top, int width, int height, int priority,
+                        std::string_view text, std::size_t capacity, short input_type,
+                        bool use_inactive_color)
+{
+    const int id = fields_.empty() ? 0 : fields_.back()->id + 1;
+    auto& field = *fields_.emplace_back(std::make_unique<W8TextField>(*this, id, priority));
+    field.input_type = input_type;
+    field.capacity = input_type == 0x1002 ? 6 : capacity;
+    field.text.assign(text);
+    field.use_inactive_color = use_inactive_color;
+    field.bounds().SetBounds(left, top, left + width, top + height);
+    if (fields_.size() == 1) field.SelectAll();
+    return id;
+}
+
+W8TextField* TextFieldGroup::Find(int id) const
+{
+    const auto found = std::ranges::find(fields_, id, &W8TextField::id);
+    return found == fields_.end() ? nullptr : found->get();
+}
+
+void TextFieldGroup::Remove(int id)
+{
+    const auto found = std::ranges::find(fields_, id, &W8TextField::id);
+    if (found == fields_.end()) return;
+    if (found->get() == focused_) {
+        focused_ = nullptr;
+        SetEditing(false);
+    }
+    if (found->get() == suspended_focus_) suspended_focus_ = nullptr;
+    fields_.erase(found);
+    if (fields_.empty()) SetEditing(false);
+}
+
+void TextFieldGroup::SetText(int id, std::string_view text)
+{
+    auto* field = Find(id);
+    if (!field) return;
+    field->text.assign(text);
+    if (focused_) {
+        focused_->selecting = false;
+        focused_->SetCursor(0);
+    }
+}
+
+std::string TextFieldGroup::Text(int id) const
+{
+    const auto* field = Find(id);
+    return field ? field->text : std::string{};
+}
+
+std::size_t TextFieldGroup::ByteLength(int id) const
+{
+    const auto* field = Find(id);
+    return field ? field->text.size() : 0;
+}
+
+void TextFieldGroup::SetBlocksMouse(int id, bool blocks)
+{
+    if (auto* field = Find(id)) field->blocks_mouse = blocks;
+}
+
+void TextFieldGroup::FocusField(W8TextField& field)
+{
+    focused_ = &field;
+    field.SelectAll();
+    field.Relayout();
+    SetEditing(true);
+}
+
+void TextFieldGroup::Focus(int id)
+{
+    auto* field = Find(id);
+    if (!field || field == focused_ || !field->enabled) return;
+    FocusField(*field);
+}
+
+int TextFieldGroup::FocusedId() const { return focused_ ? focused_->id : -1; }
+
+void TextFieldGroup::FocusNext()
+{
+    if (!focused_) return;
+    auto* previous = focused_;
+    RenderInactive(*previous);
+    auto position = std::ranges::find(fields_, previous, &std::unique_ptr<W8TextField>::get);
+    for (std::size_t step = 0; step < fields_.size(); ++step) {
+        if (++position == fields_.end()) position = fields_.begin();
+        auto& candidate = **position;
+        if (!candidate.enabled) continue;
+        FocusField(candidate);
+        // Retail: wrapping back to the only enabled field ends editing.
+        if (&candidate == previous) SetEditing(false);
+        return;
+    }
+    SetEditing(false);
+}
+
+void TextFieldGroup::ClearFocus()
+{
+    if (!focused_) return;
+    RenderInactive(*focused_);
+    SetEditing(false);
+    focused_ = nullptr;
+}
+
+std::size_t TextFieldGroup::Cursor() const { return focused_ ? focused_->cursor : 0; }
+
+void TextFieldGroup::SetCursor(std::size_t cursor)
+{
+    if (focused_) focused_->SetCursor(cursor);
+}
+
+void TextFieldGroup::DeleteSelection(std::size_t first, std::size_t last)
+{
+    if (last < first) std::swap(first, last);
+    focused_->text.erase(first, last - first);
+    focused_->selection_start = focused_->selection_end = 0;
+    focused_->SetCursor(first);
+}
+
+void TextFieldGroup::InsertCharacter(char32_t character)
+{
+    auto& field = *focused_;
     std::string bytes;
     utf8::append(character, std::back_inserter(bytes));
-    if (wiz8::text::to_utf16(gpActive->szString).size() +
-        wiz8::text::to_utf16(bytes).size() > gpActive->max_code_units) return;
-    gpActive->szString.insert(gubCursorPos, bytes);
-    gubCursorPos += bytes.size();
-    gubParkingPos = CalculateCursorPos(
-        TextFieldRegion(gpActive).x2 - TextFieldRegion(gpActive).x1 - 10, gubCursorPos,
-        gpActive->szString, &gsCursorX, &guiVisibleCount);
+    if (wiz8::text::to_utf16(field.text).size() + wiz8::text::to_utf16(bytes).size() >
+        field.capacity)
+        return;
+    field.text.insert(field.cursor, bytes);
+    field.cursor += bytes.size();
+    field.Relayout();
 }
 
-static std::size_t FindTextInputMousePosition(TEXTINPUTNODE* field, std::size_t start,
-                                             int mouse_offset)
+/* Input types above 0x0fff accept one fixed format each: identifiers, a
+   lowercase letter followed by digits, and HH:MM. */
+void TextFieldGroup::InsertRestricted(char32_t character)
 {
-    int previous_width = 0;
-    for (auto position = start; position < field->szString.size();) {
-        const auto end = wiz8::text::next_grapheme(field->szString, position);
-        const auto width = pColors->usFont->textWidth(std::string_view(field->szString).substr(start, end - start));
-        if (mouse_offset < (width + previous_width) / 2) return position;
-        previous_width = width;
-        position = end;
+    auto& field = *focused_;
+    const auto is_digit = [](char32_t c) { return c >= '0' && c <= '9'; };
+    if (field.input_type == 0x1000) {
+        if (IsUppercaseCharacter(character) == 0 && IsLowercaseCharacter(character) == 0 &&
+            !is_digit(character) && character != '_' && character != '.')
+            return;
+        if (field.cursor == 0 && is_digit(character)) return;
+        InsertCharacter(character);
+        return;
     }
-    return field->szString.size();
+    if (field.input_type == 0x1001) {
+        if (field.cursor == 0) {
+            if (IsLowercaseCharacter(character) != 0)
+                InsertCharacter(character);
+            else if (IsUppercaseCharacter(character) != 0)
+                InsertCharacter(ToLowercaseCharacter(character));
+            return;
+        }
+        if (is_digit(character)) InsertCharacter(character);
+        return;
+    }
+    if (field.input_type != 0x1002) return;
+    switch (field.cursor) {
+    case 0:
+        if (character >= '0' && character <= '2') InsertCharacter(character);
+        return;
+    case 1:
+        if (is_digit(character) && (field.text[0] != '2' || character <= '3'))
+            InsertCharacter(character);
+        if (field.text.size() <= 2) {
+            InsertCharacter(':');
+            return;
+        }
+        field.SetCursor(wiz8::text::next_grapheme(field.text, field.cursor));
+        return;
+    case 2:
+        if (character == ':') {
+            InsertCharacter(':');
+        } else if (is_digit(character)) {
+            InsertCharacter(':');
+            InsertCharacter(character);
+        }
+        return;
+    case 3:
+        if (character >= '0' && character <= '5') InsertCharacter(character);
+        return;
+    case 4:
+        if (is_digit(character)) InsertCharacter(character);
+        return;
+    default:
+        return;
+    }
 }
 
-// FUNCTION: WIZ8 0x005D4CB0
-void MouseMovedInTextRegionCallback(TEXTINPUTNODE* field, int reason)
+bool TextFieldGroup::HandleInput(const InputEvent& event)
 {
-    if (!field) return;
-    if (IsModalOpen())
-        return;
-
-    if (field->fBlockMouseCallbacks) return;
-    int field_index = field->ubID;
-
-    if ((reason & REGION_REASON_GAIN_MOUSE) != 0)
-        SetTargetCursor(GetTextInputCursor());
-    if ((reason & REGION_REASON_LOST_MOUSE) != 0)
-        SetTargetCursor(W8_CURSOR_NONE);
-
-    if ((g_text_field_input_buttons & SDL_BUTTON_LMASK) == 0 || gpActive == 0 ||
-        (reason & REGION_REASON_MOVE) == 0) {
-        return;
+    const bool committed = event.type == InputEventType::Text;
+    InputEvent normalized = event;
+    if (committed) {
+        normalized.type = InputEventType::KeyDown;
+        normalized.key = 0;
+        normalized.modifiers = 0;
     }
-
-    if (field->ubID != gpActive->ubID) {
-        RenderInactiveTextFieldNode(gpActive);
-        for (TEXTINPUTNODE* field = gpTextInputHead.get(); field != 0; field = field->next.get()) {
-            if (field->ubID == field_index) {
-                gubMouseDownPos = 0;
-                gubCursorPos = 0;
-                gpActive = field;
-                gubParkingPos = CalculateCursorPos(
-                    TextFieldRegion(field).x2 - TextFieldRegion(field).x1 - 10, 0,
-                    field->szString.c_str(), &gsCursorX, &guiVisibleCount);
-                gfHiliteMode = false;
-                gubStartHilite = 0;
-                gubEndHilite = 0;
-                break;
+    const auto& input = normalized;
+    if (!editing_ || !focused_ ||
+        (input.type != InputEventType::KeyDown && input.type != InputEventType::KeyRepeat) ||
+        input.key == VK_ESCAPE || input.key == VK_RETURN || input.key == VK_TAB ||
+        (input.modifiers & ALT_DOWN) != 0 ||
+        ((input.modifiers & CTRL_DOWN) != 0 && input.key != VK_DELETE &&
+         input.key != VK_RIGHT && input.key != VK_LEFT) ||
+        (input.key > 0x6f && input.key < 0x7c)) {
+        return false;
+    }
+    auto& field = *focused_;
+    const bool shift = (input.modifiers & SHIFT_DOWN) != 0;
+    const auto extend_selection = [&] {
+        if (!field.selecting) {
+            field.selecting = true;
+            field.selection_start = field.cursor;
+        }
+    };
+    const std::size_t selection_end = field.selection_end;
+    switch (input.key) {
+    case 0x25: /* Left */
+        if (shift) {
+            extend_selection();
+            if (field.cursor != 0) {
+                field.cursor = wiz8::text::previous_grapheme(field.text, field.cursor);
+                field.Relayout();
             }
+            field.selection_end = field.cursor;
+            return true;
         }
+        if (field.selecting) {
+            field.cursor = field.selection_start;
+            field.selecting = false;
+        } else if (field.cursor != 0) {
+            field.cursor = wiz8::text::previous_grapheme(field.text, field.cursor);
+        }
+        field.Relayout();
+        return true;
+    case 0x27: /* Right */
+        if (shift) {
+            extend_selection();
+            if (field.cursor < field.text.size()) {
+                field.cursor = wiz8::text::next_grapheme(field.text, field.cursor);
+                field.Relayout();
+            }
+            field.selection_end = field.cursor;
+            return true;
+        }
+        if (field.selecting) {
+            field.cursor = selection_end;
+            field.selecting = false;
+        } else if (field.cursor < field.text.size()) {
+            field.cursor = wiz8::text::next_grapheme(field.text, field.cursor);
+        }
+        field.Relayout();
+        return true;
+    case 0x23: /* End */
+        if (shift)
+            extend_selection();
+        else
+            field.selecting = false;
+        field.cursor = field.text.size();
+        if (shift) field.selection_end = field.cursor;
+        field.Relayout();
+        return true;
+    case 0x24: /* Home */
+        if (shift) {
+            extend_selection();
+            field.selection_end = 0;
+        } else {
+            field.selecting = false;
+        }
+        field.cursor = 0;
+        field.Relayout();
+        return true;
+    case 0x2e: /* Delete */
+        if ((input.modifiers & CTRL_DOWN) != 0) {
+            field.text.clear();
+            field.selection_start = field.selection_end = 0;
+            field.selecting = false;
+            field.SetCursor(0);
+            return true;
+        }
+        if (!field.selecting) {
+            // Retail keeps the scroll position computed for the longer string.
+            if (field.cursor < field.text.size()) {
+                const auto end = wiz8::text::next_grapheme(field.text, field.cursor);
+                field.text.erase(field.cursor, end - field.cursor);
+            }
+            return true;
+        }
+        field.selecting = false;
+        if (field.selection_start != selection_end)
+            DeleteSelection(field.selection_start, selection_end);
+        return true;
+    case 8: /* Backspace */
+        if (!field.selecting) {
+            if (field.cursor != 0) {
+                const auto old_position = field.cursor;
+                field.cursor = wiz8::text::previous_grapheme(field.text, field.cursor);
+                field.text.erase(field.cursor, old_position - field.cursor);
+                field.Relayout();
+            }
+        } else {
+            field.selecting = false;
+            if (field.selection_start != selection_end)
+                DeleteSelection(field.selection_start, selection_end);
+        }
+        return true;
+    default:
+        break;
     }
-
-    TEXTINPUTNODE* current_field = gpActive;
-    if (current_field->fUserField)
-        return;
-
-    std::size_t position = gubParkingPos;
-    int mouse_offset = g_text_field_input_x - TextFieldRegion(current_field).x1;
-    position = FindTextInputMousePosition(current_field, position, mouse_offset);
-
-    if (position == gubMouseDownPos) {
-        gfHiliteMode = false;
-        return;
+    char32_t character = committed ? event.text
+                                   : TranslateKeyToCharacter(static_cast<unsigned short>(input.key),
+                                                             input.modifiers);
+    if (!committed && NativeTextInputEnabled()) return true;
+    if (character == 0) return true;
+    if (field.selecting) {
+        field.selecting = false;
+        if (field.selection_start != field.selection_end)
+            DeleteSelection(field.selection_start, field.selection_end);
     }
-    if (gubMouseDownPos < position) {
-        gubStartHilite = gubMouseDownPos;
-        gubEndHilite = position;
-    } else {
-        gubEndHilite = gubMouseDownPos;
-        gubStartHilite = position;
+    const auto input_type = static_cast<unsigned short>(field.input_type);
+    if (input_type > 0x0fff) {
+        InsertRestricted(character);
+        return true;
     }
-    gfHiliteMode = true;
-    gubCursorPos = position;
-    gubParkingPos = CalculateCursorPos(
-        TextFieldRegion(current_field).x2 - TextFieldRegion(current_field).x1 - 10,
-        position, current_field->szString.c_str(), &gsCursorX, &guiVisibleCount);
+    const bool space = character == ' ' && (input_type & 4) != 0;
+    const bool sign = character == '-' && (input_type & 2) != 0 && field.cursor == 0;
+    const bool digit = character >= '0' && character <= '9' && (input_type & 1) != 0;
+    const bool letters = (input_type & 2) != 0;
+    const bool punctuation = (input_type & 8) != 0 && IsPunctuationCharacter(character) != 0;
+    if (letters && IsUppercaseCharacter(character) != 0) {
+        InsertCharacter((input_type & 0x20) != 0 ? ToLowercaseCharacter(character) : character);
+    } else if (letters && IsLowercaseCharacter(character) != 0) {
+        InsertCharacter((input_type & 0x10) != 0 ? ToUppercaseCharacter(character) : character);
+    } else if (space || sign || digit || punctuation) {
+        InsertCharacter(character);
+    }
+    return true;
 }
 
-// FUNCTION: WIZ8 0x005D4F10
-void MouseClickedInTextRegionCallback(TEXTINPUTNODE* field, int reason)
+void TextFieldGroup::SelectWordAtMouse(int mouse_x)
 {
-    if (!field) return;
-    int field_index = field->ubID;
-    if (IsModalOpen())
-        return;
-
-    if (field->fBlockMouseCallbacks) return;
-
-    if ((reason & REGION_REASON_LBUTTON_DOUBLECLICK) != 0) {
-        if (gpActive != 0)
-            SelectAllText();
-        return;
-    }
-
-    if ((reason & REGION_REASON_LBUTTON_DWN) != 0) {
-        TEXTINPUTNODE* field = gpActive;
-        if (field == 0 || field_index != field->ubID)
-            return;
-
-        std::size_t position = gubParkingPos;
-        if (field->fUserField) {
-            position = 0;
-        } else {
-            int mouse_offset = g_text_field_input_x - TextFieldRegion(field).x1;
-            position = FindTextInputMousePosition(field, gubParkingPos, mouse_offset);
-        }
-        SetTextInputCursor(position);
-        gubMouseDownPos = gubCursorPos;
-        return;
-    }
-
-    if ((reason & REGION_REASON_LBUTTON_UP) == 0)
-        return;
-    TEXTINPUTNODE* clicked = gpTextInputHead.get();
-    if (gpActive != 0) {
-        if (field_index != gpActive->ubID)
-            RenderInactiveTextFieldNode(gpActive);
-        clicked = gpTextInputHead.get();
-        if (field_index == gpActive->ubID)
-            clicked = gpActive;
-    }
-
-    if (clicked != gpActive) {
-        while (clicked != 0 && clicked->ubID != field_index)
-            clicked = clicked->next.get();
-        if (clicked == 0)
-            return;
-
-        TEXTINPUTNODE* candidate = gpTextInputHead.get();
-        while (candidate != 0 && (candidate == gpActive || candidate->ubID != clicked->ubID ||
-                                  candidate->fEnabled == 0)) {
-            candidate = candidate->next.get();
-        }
-        if (candidate == 0)
-            return;
-
-        gpActive = candidate;
-        if (candidate->fUserField) {
-            gfHiliteMode = false;
-            gfEditingText = false;
-            SetNativeTextInputEnabled(false);
-            if (candidate->InputCallback != 0)
-                candidate->InputCallback(candidate->ubID, 1);
-            return;
-        }
-        gubStartHilite = 0;
-        gubEndHilite = candidate->szString.size();
-        gubCursorPos = candidate->szString.size();
-        SetTextInputCursor(gubCursorPos);
-        gubCursorPos = candidate->szString.size();
-        gfHiliteMode = true;
-        gfEditingText = true;
-        SetNativeTextInputEnabled(true);
-        return;
-    }
-
-    std::size_t position = gubParkingPos;
-    if ((g_text_field_input_buttons & SDL_BUTTON_LMASK) != 0) {
-        if (gpActive->fUserField) {
-            position = 0;
-        } else {
-            TEXTINPUTNODE* field = gpActive;
-            int mouse_offset = g_text_field_input_x - TextFieldRegion(field).x1;
-            position = FindTextInputMousePosition(field, position, mouse_offset);
-        }
-        if (position == gubMouseDownPos)
-            gfHiliteMode = false;
-        SetTextInputCursor(position);
-    }
+    auto& field = *focused_;
+    const auto position = field.MousePosition(mouse_x);
+    if (position < field.text.size() && field.text[position] == ' ') return;
+    const auto before = position == 0 ? std::string::npos : field.text.rfind(' ', position);
+    const auto after = field.text.find(' ', position + 1);
+    field.selection_start = before == std::string::npos ? 0 : before + 1;
+    field.selection_end = after == std::string::npos ? field.text.size() : after;
+    field.selecting = true;
 }
 
-// FUNCTION: WIZ8 0x005D52C0
-void RenderBackgroundField(TEXTINPUTNODE* field)
+void TextFieldGroup::RenderBackground(W8TextField& field)
 {
-    TextInputColors* style = pColors.get();
-    int left = TextFieldRegion(field).x1;
-    int top = TextFieldRegion(field).y1;
-    int right = TextFieldRegion(field).x2;
-    int bottom = TextFieldRegion(field).y2;
-
-    if (style->fBevelling) {
+    const auto& region = field.bounds();
+    const int left = region.x1, top = region.y1, right = region.x2, bottom = region.y2;
+    if (style_.bevelled) {
         const SDL_Rect darker{left, top, right - left, bottom - top};
         const SDL_Rect brighter{left + 1, top + 1, right - left - 1, bottom - top - 1};
-        SDL_FillSurfaceRect(&GetFrameBufferSurface(), &darker, style->usDarkerColor);
-        SDL_FillSurfaceRect(&GetFrameBufferSurface(), &brighter, style->usBrighterColor);
+        SDL_FillSurfaceRect(&GetFrameBufferSurface(), &darker, style_.darker_color);
+        SDL_FillSurfaceRect(&GetFrameBufferSurface(), &brighter, style_.brighter_color);
     }
-
-    unsigned short colour;
-    if (field->fEnabled == 0 && !style->fUseDisabledAutoShade)
-        colour = style->usDisabledTextFieldColor;
-    else
-        colour = style->usTextFieldColor;
-    if (field->fUseInactiveTextFieldColor && field != gpActive)
-        colour = style->usInactiveTextFieldColor;
-
+    unsigned short colour = !field.enabled && !style_.disabled_auto_shade
+                                ? style_.disabled_field_color
+                                : style_.field_color;
+    if (field.use_inactive_color && &field != focused_) colour = style_.inactive_field_color;
     const SDL_Rect area{left, top, right - left, bottom - top};
     SDL_FillSurfaceRect(&GetFrameBufferSurface(), &area, colour);
     InvalidateRegion(left, top, right, bottom, 0);
 }
 
-// FUNCTION: WIZ8 0x005D5390
-void RenderActiveTextField(void)
+namespace {
+TextOptions FieldTextOptions(Font& font, unsigned char fore, unsigned char shadow,
+                             unsigned char background)
 {
-    TEXTINPUTNODE* field = gpActive;
-    if (field == 0 || field->fUserField)
-        return;
+    TextOptions options;
+    options.colors.foreground = font.color(fore);
+    options.colors.shadow = font.color(shadow);
+    if (options.colors.shadow == 0 && shadow != 0) options.colors.shadow = 1;
+    options.colors.background = font.color(background);
+    options.mono = true;
+    return options;
+}
+} // namespace
 
+void TextFieldGroup::RenderFocused()
+{
+    if (!focused_) return;
+    auto& field = *focused_;
+    auto& font = *style_.font;
     if (IsLeftButtonHeld()) {
-        if (GetGameMousePosition().x < TextFieldRegion(field).x1) {
-            if (gubCursorPos != 0) {
-                gubCursorPos = wiz8::text::previous_grapheme(gpActive->szString, gubCursorPos);
-                gubParkingPos = CalculateCursorPos(
-                    TextFieldRegion(field).x2 - TextFieldRegion(field).x1 - 10,
-                    gubCursorPos, field->szString.c_str(), &gsCursorX, &guiVisibleCount);
+        if (GetGameMousePosition().x < field.bounds().x1) {
+            if (field.cursor != 0) {
+                field.cursor = wiz8::text::previous_grapheme(field.text, field.cursor);
+                field.Relayout();
             }
-            if (gfHiliteMode)
-                gubStartHilite = gubVisibleStart;
-        } else if (TextFieldRegion(field).x2 < GetGameMousePosition().x) {
-            if (gubCursorPos < field->szString.size()) {
-                { std::size_t next = gubCursorPos;
-                next = wiz8::text::next_grapheme(gpActive->szString, next);
-                gubCursorPos = next; }
-                gubParkingPos = CalculateCursorPos(
-                    TextFieldRegion(field).x2 - TextFieldRegion(field).x1 - 10,
-                    gubCursorPos, field->szString.c_str(), &gsCursorX, &guiVisibleCount);
+            if (field.selecting) field.selection_start = field.visible_start;
+        } else if (field.bounds().x2 < GetGameMousePosition().x) {
+            if (field.cursor < field.text.size()) {
+                field.cursor = wiz8::text::next_grapheme(field.text, field.cursor);
+                field.Relayout();
             }
-            if (gfHiliteMode)
-                gubEndHilite = static_cast<unsigned char>(guiVisibleCount + gubVisibleStart);
+            if (field.selecting) field.selection_end = field.visible_count + field.visible_start;
         }
     }
-
-    {
-        unsigned short font_height = pColors->usFont->height();
-        unsigned int vertical_offset =
-            (TextFieldRegion(field).y2 - TextFieldRegion(field).y1 - font_height) / 2;
-        RenderBackgroundField(field);
-
-        const char* visible = field->szString.c_str() + gubParkingPos;
-
-        bool has_selection = gfHiliteMode && gubStartHilite != gubEndHilite;
-        std::size_t selection_first = gubEndHilite;
-        std::size_t selection_last = gubStartHilite;
-        if (gubStartHilite < gubEndHilite) {
-            selection_first = gubStartHilite;
-            selection_last = gubEndHilite;
-        }
-
-        for (size_t index = 0; index < guiVisibleCount && visible[index];) {
-            short prefix = pColors->usFont->prefixWidth(const_cast<char*>(visible), index);
-            unsigned char background;
-            TextOptions options;
-            if (has_selection &&
-                selection_first <= gubParkingPos + index &&
-                gubParkingPos + index < selection_last) {
-                options.colors.foreground =
-                    pColors->usFont->color(pColors->ubHiForeColor);
-                options.colors.shadow =
-                    pColors->usFont->color(pColors->ubHiShadowColor);
-                if (options.colors.shadow == 0 && pColors->ubHiShadowColor != 0)
-                    options.colors.shadow = 1;
-                background = pColors->ubHiBackColor;
-            } else {
-                options.colors.foreground = pColors->usFont->color(pColors->ubForeColor);
-                options.colors.shadow = pColors->usFont->color(pColors->ubShadowColor);
-                if (options.colors.shadow == 0 && pColors->ubShadowColor != 0)
-                    options.colors.shadow = 1;
-                background = 0;
-            }
-            options.colors.background = pColors->usFont->color(background);
-            options.mono = true;
-            std::size_t end = index;
-            wiz8::text::next(visible, end);
-            const std::string glyph(visible + index, end - index);
-            DrawText(GetFrameBufferSurface(), *pColors->usFont,
-                     {TextFieldRegion(field).x1 + prefix + 3,
-                      static_cast<int>(TextFieldRegion(field).y1 + vertical_offset)},
-                     glyph, options);
-            index = end;
-        }
-
-        if (gfEditingText && !field->fUserField && !IsLeftButtonHeld() &&
-            w8_get_ticks() % 1000 < 500) {
-            int left = TextFieldRegion(field).x1 + gsCursorX;
-            int top = TextFieldRegion(field).y1 + vertical_offset;
-            const SDL_Rect cursor{left, top, 1, font_height};
-            SDL_FillSurfaceRect(&GetFrameBufferSurface(), &cursor, pColors->usCursorColor);
-        }
-
+    const unsigned short font_height = font.height();
+    const int text_top =
+        field.bounds().y1 + (field.bounds().y2 - field.bounds().y1 - font_height) / 2;
+    RenderBackground(field);
+    const std::string_view visible = std::string_view(field.text).substr(field.parking);
+    const bool has_selection = field.selecting && field.selection_start != field.selection_end;
+    const auto selection_first = std::min(field.selection_start, field.selection_end);
+    const auto selection_last = std::max(field.selection_start, field.selection_end);
+    for (std::size_t index = 0; index < field.visible_count && index < visible.size();) {
+        const short prefix = font.prefixWidth(visible, index);
+        const auto absolute = field.parking + index;
+        const bool selected =
+            has_selection && selection_first <= absolute && absolute < selection_last;
+        const auto options =
+            selected ? FieldTextOptions(font, style_.highlight_fore_color,
+                                        style_.highlight_shadow_color, style_.highlight_back_color)
+                     : FieldTextOptions(font, style_.fore_color, style_.shadow_color, 0);
+        std::size_t end = index;
+        wiz8::text::next(visible, end);
+        DrawText(GetFrameBufferSurface(), font, {field.bounds().x1 + prefix + 3, text_top},
+                 visible.substr(index, end - index), options);
+        index = end;
+    }
+    if (editing_ && !IsLeftButtonHeld() && w8_get_ticks() % 1000 < 500) {
+        const SDL_Rect caret{field.bounds().x1 + field.cursor_x, text_top, 1, font_height};
+        SDL_FillSurfaceRect(&GetFrameBufferSurface(), &caret, style_.cursor_color);
     }
 }
 
-// FUNCTION: WIZ8 0x005D5770
-void RenderInactiveTextFieldNode(TEXTINPUTNODE* field)
+void TextFieldGroup::RenderInactive(W8TextField& field)
 {
-    if (field == 0 || field->fUserField)
-        return;
-
-    const bool disabled = field->fEnabled == 0 && pColors->fUseDisabledAutoShade;
-    {
-        unsigned char shadow;
-        TextOptions options;
-        if (disabled) {
-            options.colors.foreground =
-                pColors->usFont->color(pColors->ubDisabledForeColor);
-            shadow = pColors->ubDisabledShadowColor;
-        } else {
-            options.colors.foreground = pColors->usFont->color(pColors->ubForeColor);
-            shadow = pColors->ubShadowColor;
-        }
-        options.colors.shadow = pColors->usFont->color(shadow);
-        if (options.colors.shadow == 0 && shadow != 0)
-            options.colors.shadow = 1;
-        unsigned short font_height = pColors->usFont->height();
-        unsigned int vertical_offset =
-            (TextFieldRegion(field).y2 - TextFieldRegion(field).y1 - font_height) / 2;
-        options.colors.background = pColors->usFont->color(0);
-        options.mono = true;
-        RenderBackgroundField(field);
-
-        const char* visible = field->szString.c_str();
-        for (size_t index = 0; visible[index];) {
-            short prefix = pColors->usFont->prefixWidth(field->szString.c_str(), index);
-            if (TextFieldRegion(field).x2 - TextFieldRegion(field).x1 - 10 < prefix + 3) break;
-            std::size_t end = index;
-            wiz8::text::next(visible, end);
-            const std::string glyph(visible + index, end - index);
-            DrawText(GetFrameBufferSurface(), *pColors->usFont,
-                     {TextFieldRegion(field).x1 + prefix + 3,
-                      static_cast<int>(TextFieldRegion(field).y1 + vertical_offset)},
-                     glyph, options);
-            index = end;
-        }
-
+    auto& font = *style_.font;
+    const bool disabled = !field.enabled && style_.disabled_auto_shade;
+    const auto options =
+        disabled ? FieldTextOptions(font, style_.disabled_fore_color, style_.disabled_shadow_color, 0)
+                 : FieldTextOptions(font, style_.fore_color, style_.shadow_color, 0);
+    const unsigned short font_height = font.height();
+    const int text_top =
+        field.bounds().y1 + (field.bounds().y2 - field.bounds().y1 - font_height) / 2;
+    RenderBackground(field);
+    const std::string_view text = field.text;
+    for (std::size_t index = 0; index < text.size();) {
+        const short prefix = font.prefixWidth(text, index);
+        if (field.EditWidth() < prefix + 3) break;
+        std::size_t end = index;
+        wiz8::text::next(text, end);
+        DrawText(GetFrameBufferSurface(), font, {field.bounds().x1 + prefix + 3, text_top},
+                 text.substr(index, end - index), options);
+        index = end;
     }
-
     if (disabled) {
-        SDL_Rect rectangle = {
-            TextFieldRegion(field).x1,
-            TextFieldRegion(field).y1,
-            TextFieldRegion(field).x2 - TextFieldRegion(field).x1 + 1,
-            TextFieldRegion(field).y2 - TextFieldRegion(field).y1 + 1,
-        };
-        ShadowRect(GetFrameBufferSurface(), rectangle);
+        const auto& region = field.bounds();
+        ShadowRect(GetFrameBufferSurface(),
+                   SDL_Rect{region.x1, region.y1, region.x2 - region.x1 + 1, region.y2 - region.y1 + 1});
     }
 }
 
-// FUNCTION: WIZ8 0x005D59A0
-void RenderAllTextFields(void)
+void TextFieldGroup::RenderAll()
 {
-    for (STACKTEXTINPUTNODE* session = pInputStack.get(); session != 0; session = session->next.get()) {
-        for (TEXTINPUTNODE* field = session->head.get(); field != 0; field = field->next.get()) {
-            RenderInactiveTextFieldNode(field);
-        }
-    }
-    for (TEXTINPUTNODE* field = gpTextInputHead.get(); field != 0; field = field->next.get()) {
-        if (field == gpActive)
-            RenderActiveTextField();
+    for (auto* group = previous_; group; group = group->previous_)
+        for (auto& field : group->fields_) group->RenderInactive(*field);
+    for (auto& field : fields_) {
+        if (field.get() == focused_)
+            RenderFocused();
         else
-            RenderInactiveTextFieldNode(field);
-    }
-}
-
-// FUNCTION: WIZ8 0x005D5A00
-bool EditingText(void)
-{
-    return gfEditingText;
-}
-
-// FUNCTION: WIZ8 0x005D5A10
-std::size_t CalculateCursorPos(int width, std::size_t cursor, std::string_view text,
-                              int* cursor_width, size_t* visible_count)
-{
-    cursor = std::min(cursor, text.size());
-    auto start = std::min(gubVisibleStart, cursor);
-    while (start < cursor && pColors->usFont->textWidth(text.substr(start, cursor - start)) > width)
-        start = wiz8::text::next_grapheme(text, start);
-    auto end = start;
-    while (end < text.size()) {
-        auto next = wiz8::text::next_grapheme(text, end);
-        if (pColors->usFont->textWidth(text.substr(start, next - start)) > width) break;
-        end = next;
-    }
-    gubVisibleStart = start;
-    *cursor_width = pColors->usFont->textWidth(text.substr(start, cursor - start)) + 2;
-    *visible_count = end - start; // Byte extent; the renderer decodes glyphs.
-    return start;
-}
-
-std::size_t GetTextInputByteCursor(void) { return gubCursorPos; }
-
-// FUNCTION: WIZ8 0x005D5BF0
-void SetTextInputCursor(std::size_t cursor)
-{
-    if (gpActive) {
-        cursor = std::min(cursor, gpActive->szString.size());
-        std::size_t boundary = 0;
-        while (boundary < cursor) {
-            const auto next = wiz8::text::next_grapheme(gpActive->szString, boundary);
-            if (next > cursor) break;
-            boundary = next;
-        }
-        cursor = boundary;
-    }
-    gubCursorPos = cursor;
-    if (gpActive != 0) {
-        gubParkingPos = CalculateCursorPos(
-            TextFieldRegion(gpActive).x2 - TextFieldRegion(gpActive).x1 - 10, cursor,
-            gpActive->szString, &gsCursorX, &guiVisibleCount);
-    }
-}
-
-// FUNCTION: WIZ8 0x005D5C40
-void SelectAllText(void)
-{
-    TEXTINPUTNODE* field = gpActive;
-    std::size_t position = gubParkingPos;
-    if (field->fUserField) {
-        position = 0;
-    } else {
-        int mouse_offset = g_text_field_input_x - TextFieldRegion(field).x1;
-        position = FindTextInputMousePosition(field, position, mouse_offset);
-    }
-
-    if (field->szString[position] == ' ')
-        return;
-    std::size_t first = 0;
-    if (position != 0) {
-        std::size_t scan = position;
-        const char* character = field->szString.c_str() + position;
-        do {
-            if (*character == ' ') {
-                first = scan + 1;
-                break;
-            }
-            --scan;
-            --character;
-        } while (scan != 0);
-    }
-
-    std::size_t last = field->szString.size();
-    for (std::size_t scan = position + 1; scan < field->szString.size(); ++scan) {
-        if (field->szString[scan] == ' ') {
-            last = scan;
-            break;
-        }
-    }
-    gubStartHilite = first;
-    gubEndHilite = last;
-    gfHiliteMode = true;
-}
-
-/* Sets whether the named field's mouse region callback is
-   suppressed; the NPC dialogue toggles it on field 0 while the modal is up. */
-// FUNCTION: WIZ8 0x005D5DA0
-void SetInputFieldBlocksMouseCallback(unsigned char field_id, bool blocks)
-{
-    TEXTINPUTNODE* field = gpTextInputHead.get();
-    if (field != 0) {
-        while (field->ubID != field_id) {
-            field = field->next.get();
-            if (field == 0) {
-                return;
-            }
-        }
-        field->fBlockMouseCallbacks = blocks;
+            RenderInactive(*field);
     }
 }
