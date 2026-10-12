@@ -17,18 +17,8 @@ inline constexpr std::string_view DEFAULT_GENERIC_BUTTON_ON = "Data\\Message Box
 inline constexpr std::string_view DEFAULT_GENERIC_BUTTON_OFF_HI = "Data\\Message Box\\GENBUTN3.STI";
 inline constexpr std::string_view DEFAULT_GENERIC_BUTTON_ON_HI = "Data\\Message Box\\GENBUTN4.STI";
 
-inline constexpr int BUTTON_TEXT_LEFT = -1;
-inline constexpr int BUTTON_TEXT_CENTER = 0;
-inline constexpr int BUTTON_TEXT_RIGHT = 1;
 inline constexpr int BUTTON_NO_IMAGE = -1;
 inline constexpr std::nullptr_t BUTTON_NO_CALLBACK = nullptr;
-
-enum {
-    DISABLED_STYLE_NONE,
-    DISABLED_STYLE_DEFAULT,
-    DISABLED_STYLE_HATCHED,
-    DISABLED_STYLE_SHADED
-};
 
 struct ButtonGraphics;
 struct GenericButtonImages;
@@ -39,31 +29,17 @@ using GenericButtonImage = std::shared_ptr<GenericButtonImages>;
 struct ButtonAppearance {
     ButtonImage quick_image;
     GenericButtonImage generic_image;
-    std::int8_t bDisabledStyle = DISABLED_STYLE_DEFAULT;
     std::string string;
     Font* usFont = nullptr;
     bool fMultiColor = false;
     std::int16_t sForeColor = 0;
     std::int16_t sShadowColor = -1;
-    std::int16_t sForeColorDown = -1;
-    std::int16_t sShadowColorDown = -1;
-    std::int16_t sForeColorHilited = -1;
-    std::int16_t sShadowColorHilited = -1;
-    std::int8_t bJustification = BUTTON_TEXT_CENTER;
-    std::int8_t bTextXOffset = -1;
-    std::int8_t bTextYOffset = -1;
-    std::int8_t bTextXSubOffSet = 0;
-    std::int8_t bTextYSubOffSet = 0;
-    bool fShiftText = true;
-    std::int16_t sWrappedWidth = -1;
 };
 
 struct ButtonVisualState {
     bool enabled = true;
     bool pressed = false;
     bool hovered = false;
-    bool checkbox = false;
-    bool mouse_down = false;
     // Menu artwork leaves missing states blank and insets enlarged hover sprites.
     bool menu_artwork = false;
 };
@@ -99,7 +75,6 @@ struct GenericButtonImages {
     std::int16_t offset_y = 0;
 };
 
-extern bool gfRenderHilights;
 
 void DrawButtonAppearance(SDL_Surface& target, const ButtonAppearance& appearance,
                           const SDL_Rect& bounds, const ButtonVisualState& state);

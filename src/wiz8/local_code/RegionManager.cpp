@@ -207,34 +207,6 @@ static InputEvent SyntheticMouseMove(SDL_Point position)
     return event;
 }
 
-std::int32_t RegionReasonForInput(const W8Region& region, const InputEvent& input)
-{
-    switch (input.type) {
-    case InputEventType::MouseMove:
-        if (region.flags & W8_REGION_MOUSE_LEAVE) return REGION_REASON_LOST_MOUSE;
-        if (region.flags & W8_REGION_MOUSE_ENTER) return REGION_REASON_GAIN_MOUSE;
-        return REGION_REASON_MOVE;
-    case InputEventType::LeftButtonDown:
-        return REGION_REASON_LBUTTON_DWN |
-               (input.clicks >= 2 ? REGION_REASON_LBUTTON_DOUBLECLICK : 0);
-    case InputEventType::LeftButtonUp:
-        return REGION_REASON_LBUTTON_UP;
-    case InputEventType::LeftButtonDoubleClick:
-        return REGION_REASON_NONE;
-    case InputEventType::LeftButtonRepeat:
-        return REGION_REASON_LBUTTON_REPEAT;
-    case InputEventType::RightButtonDown:
-        return REGION_REASON_RBUTTON_DWN;
-    case InputEventType::RightButtonUp:
-        return REGION_REASON_RBUTTON_UP;
-    case InputEventType::RightButtonRepeat:
-        return REGION_REASON_RBUTTON_REPEAT;
-    default:
-        break;
-    }
-    return REGION_REASON_NONE;
-}
-
 // FUNCTION: WIZ8 0x004F27C0
 void SetRegionHelpForceEnabled(bool enabled)
 {

@@ -315,11 +315,13 @@ unsigned int add_test_region(unsigned int set, unsigned short id, int x1, int y1
 
 std::vector<std::pair<int, int>> region_events;
 struct TestOwnedRegionHandler final : W8RegionHandler {
-    std::vector<std::int32_t> reasons;
+    std::vector<InputEventType> events;
+    std::uint8_t clicks = 0;
 
-    int HandleRegionInput(W8Region& region, const InputEvent& input) override
+    int HandleRegionInput(W8Region&, const InputEvent& input) override
     {
-        reasons.push_back(RegionReasonForInput(region, input));
+        events.push_back(input.type);
+        clicks = input.clicks;
         return 1;
     }
 };
@@ -332,11 +334,11 @@ unsigned char record_region_event(const InputEvent* event, W8Region* region, uns
 unsigned char hover_region(const InputEvent*, W8Region* region, unsigned short id)
 {
     if (region->flags & W8_REGION_MOUSE_LEAVE)
-        region_events.emplace_back(id, REGION_REASON_LOST_MOUSE);
+        region_events.emplace_back(id, W8_REGION_MOUSE_LEAVE);
     else if (region->flags & W8_REGION_MOUSE_ENTER)
-        region_events.emplace_back(id, REGION_REASON_GAIN_MOUSE);
+        region_events.emplace_back(id, W8_REGION_MOUSE_ENTER);
     else
-        region_events.emplace_back(id, REGION_REASON_MOVE);
+        region_events.emplace_back(id, 0);
     return 1;
 }
 
@@ -395,8 +397,8 @@ void nested_hover_transitions()
         UpdateRegionMousePosition(25, 5);
     }
     REQUIRE(region_events.size() >= 2);
-    REQUIRE((region_events[0] == std::pair<int, int>{1, REGION_REASON_LOST_MOUSE}));
-    REQUIRE((region_events[1] == std::pair<int, int>{2, REGION_REASON_GAIN_MOUSE}));
+    REQUIRE((region_events[0] == std::pair<int, int>{1, W8_REGION_MOUSE_LEAVE}));
+    REQUIRE((region_events[1] == std::pair<int, int>{2, W8_REGION_MOUSE_ENTER}));
 }
 void owned_region_captures_across_frames()
 {
@@ -416,10 +418,10 @@ void owned_region_captures_across_frames()
     dispatch_mouse(InputEventType::LeftButtonUp, 100, 100);
 
     REQUIRE(g_ui.captured == 0);
-    REQUIRE(std::find(handler.reasons.begin(), handler.reasons.end(),
-                      REGION_REASON_LBUTTON_DWN) != handler.reasons.end());
-    REQUIRE(std::find(handler.reasons.begin(), handler.reasons.end(),
-                      REGION_REASON_LBUTTON_UP) != handler.reasons.end());
+    REQUIRE(std::find(handler.events.begin(), handler.events.end(),
+                      InputEventType::LeftButtonDown) != handler.events.end());
+    REQUIRE(std::find(handler.events.begin(), handler.events.end(),
+                      InputEventType::LeftButtonUp) != handler.events.end());
 }
 
 void modal_scope_persists_across_frames()
@@ -437,7 +439,7 @@ void modal_scope_persists_across_frames()
 
     REQUIRE(g_ui.hover == region);
     REQUIRE(std::count_if(region_events.begin(), region_events.end(), [](const auto& event) {
-                return event.second == REGION_REASON_GAIN_MOUSE;
+                return event.second == W8_REGION_MOUSE_ENTER;
             }) == 1);
 }
 
@@ -459,8 +461,8 @@ void modal_scope_preserves_capture_across_frames()
     REQUIRE(g_ui.captured == region.index());
     dispatch_mouse(InputEventType::LeftButtonUp, 100, 100);
 
-    REQUIRE(std::find(handler.reasons.begin(), handler.reasons.end(),
-                      REGION_REASON_LBUTTON_UP) != handler.reasons.end());
+    REQUIRE(std::find(handler.events.begin(), handler.events.end(),
+                      InputEventType::LeftButtonUp) != handler.events.end());
     REQUIRE(g_ui.captured == 0);
 }
 
@@ -533,7 +535,7 @@ void later_region_set_precedes_button_set()
 
     REQUIRE(std::find(region_events.begin(), region_events.end(),
                       std::pair<int, int>{7, static_cast<int>(InputEventType::LeftButtonDown)}) != region_events.end());
-    REQUIRE(handler.reasons.empty());
+    REQUIRE(handler.events.empty());
 }
 
 void owned_region_move_and_teardown()
@@ -906,8 +908,8 @@ void owned_regions_honor_priority()
     REQUIRE(g_ui.hover == high.index());
     dispatch_mouse(InputEventType::LeftButtonDown, 10, 10, true);
     REQUIRE(g_ui.captured == high.index());
-    REQUIRE(high_handler.reasons.back() == REGION_REASON_LBUTTON_DWN);
-    REQUIRE(low_handler.reasons.empty());
+    REQUIRE(high_handler.events.back() == InputEventType::LeftButtonDown);
+    REQUIRE(low_handler.events.empty());
     dispatch_mouse(InputEventType::LeftButtonUp, 10, 10);
     REQUIRE(g_ui.captured == 0);
 }
@@ -1261,29 +1263,17 @@ void generic_button_images()
     ButtonAppearance first_appearance;
     ButtonAppearance second_appearance;
     first_appearance.quick_image = second_appearance.quick_image = graphics;
-    // Verify blits for normal and checkbox highlights in every visual state.
     const auto& frame_colors = graphics->object().colors;
     auto target_owner = CreateCpuStorage(8, 8, SDL_PIXELFORMAT_RGB565);
     REQUIRE(target_owner);
     auto& target = *target_owner;
-    const auto old_hilights = gfRenderHilights;
-    gfRenderHilights = true;
-    for (bool checkbox : {false, true}) {
-        for (bool enabled : {false, true}) {
-            for (bool pressed : {false, true}) {
-                for (bool hover : {false, true}) {
-                    for (bool mouse_down : {false, true}) {
-                        DrawButtonAppearance(target, first_appearance, SDL_Rect{0, 0, 8, 8},
-                                              {enabled, pressed, hover, checkbox, mouse_down});
-                        auto* pixels = static_cast<std::uint16_t*>(target.pixels);
-                        REQUIRE(pixels);
-                        const auto color = pixels[0];
-                        const bool highlight = hover && (!checkbox || mouse_down);
-                        const unsigned expected_frame = !enabled ? 0 :
-                            pressed ? (highlight ? 4 : 3) : (highlight ? 2 : 1);
-                        REQUIRE(color == frame_colors[expected_frame + 1]);
-                    }
-                }
+    for (bool enabled : {false, true}) {
+        for (bool pressed : {false, true}) {
+            for (bool hover : {false, true}) {
+                DrawButtonAppearance(target, first_appearance, {0, 0, 8, 8}, {enabled, pressed, hover});
+                const auto* pixels = static_cast<const std::uint16_t*>(target.pixels);
+                const unsigned frame = !enabled ? 0 : pressed ? (hover ? 4 : 3) : (hover ? 2 : 1);
+                REQUIRE(pixels[0] == frame_colors[frame + 1]);
             }
         }
     }
@@ -1317,7 +1307,6 @@ void generic_button_images()
         REQUIRE(pixels[3 * (target.pitch / 2) + 2] == frame_colors[2]);
 
     }
-    gfRenderHilights = old_hilights;
     target_owner.reset();
     graphics.reset();
     ShutdownButtonImageManager();
@@ -2369,7 +2358,7 @@ TEST_CASE("Message box owns its buttons and isolates modal input", "[owner]")
         const auto x = accepted ? 280 : 340;
         dispatch_mouse(InputEventType::LeftButtonDown, x, 260, true);
         dispatch_mouse(InputEventType::LeftButtonUp, x, 260);
-        REQUIRE(screen_handler.reasons.empty());
+        REQUIRE(screen_handler.events.empty());
 
         RenderMessageBox();
         RenderMessageBox();
@@ -2392,9 +2381,8 @@ TEST_CASE("Owned regions use SDL click counts", "[owner]")
     for (const std::uint8_t click_count : {0, 1, 2, 3, 4}) {
         const auto down = mouse_atom(InputEventType::LeftButtonDown, 10, 10, true, false, click_count);
         DispatchRegionInput(&down);
-        const auto reason = handler.reasons.back();
-        REQUIRE((reason & REGION_REASON_LBUTTON_DWN) != 0);
-        REQUIRE(((reason & REGION_REASON_LBUTTON_DOUBLECLICK) != 0) == (click_count >= 2));
+        REQUIRE(handler.events.back() == InputEventType::LeftButtonDown);
+        REQUIRE(handler.clicks == click_count);
         const auto up = mouse_atom(InputEventType::LeftButtonUp, 10, 10);
         DispatchRegionInput(&up);
     }

@@ -26,26 +26,6 @@ inline constexpr int REGION_PRIORITY_BASE = 31;
 inline constexpr int REGION_PRIORITY_NORMAL = REGION_PRIORITY_BASE;
 inline constexpr int REGION_PRIORITY_HIGH = 63;
 inline constexpr int REGION_PRIORITY_HIGHEST = 127;
-inline constexpr int REGION_PRIORITY_AUTO = -1;
-
-enum : std::int32_t {
-    REGION_REASON_NONE = 0,
-    REGION_REASON_INIT = 1,
-    REGION_REASON_MOVE = 2,
-    REGION_REASON_LBUTTON_DWN = 4,
-    REGION_REASON_LBUTTON_UP = 8,
-    REGION_REASON_RBUTTON_DWN = 16,
-    REGION_REASON_RBUTTON_UP = 32,
-    REGION_REASON_LOST_MOUSE = 64,
-    REGION_REASON_GAIN_MOUSE = 128,
-    REGION_REASON_LBUTTON_REPEAT = 256,
-    REGION_REASON_RBUTTON_REPEAT = 512,
-    REGION_REASON_LBUTTON_DOUBLECLICK = 1024
-};
-
-inline constexpr std::int32_t REGION_REASON_BUTTONS =
-    REGION_REASON_LBUTTON_DWN | REGION_REASON_LBUTTON_UP |
-    REGION_REASON_RBUTTON_DWN | REGION_REASON_RBUTTON_UP;
 
 // Hit-test precedence between region sets: lower orders win, and sets with the
 // same order resolve by creation sequence. Screen sets pass the retail catalog
@@ -383,7 +363,6 @@ void CaptureInputSink(void);
 void ReleaseInputSinkCapture(void);
 bool InputSinkCaptured(void);
 void UnbindWidgetRegion(unsigned int region_index, W8Widget* widget, OwnedRegion* owner);
-std::int32_t RegionReasonForInput(const W8Region& region, const InputEvent& input);
 unsigned char ClearActiveRegionIfMatches(unsigned int region_index);
 void ActivateDialogRegion(unsigned int region_index); /* 0x004F2040 */
 /* Dispatch one already-dequeued event to the active region tree; PumpUiInput
