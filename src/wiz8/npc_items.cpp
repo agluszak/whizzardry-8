@@ -477,142 +477,48 @@ unsigned char SellItemToNpc(W8NpcState* npc, W8ItemInstance* item, unsigned char
     return 0;
 }
 
+// Each equip class an NPC accepts for trade, with its bit in trade_item_class_mask.
+struct TradeClassBit {
+    unsigned int equip_class;
+    unsigned int bit;
+};
+
+static constexpr TradeClassBit kTradeClassBits[] = {
+    {W8_ITEM_EQUIP_CLASS_SHORT_WEAPON, 0x1u},
+    {W8_ITEM_EQUIP_CLASS_EXTENDED_WEAPON, 0x2u},
+    {W8_ITEM_EQUIP_CLASS_THROWN_WEAPON, 0x4u},
+    {W8_ITEM_EQUIP_CLASS_RANGED_WEAPON, 0x8u},
+    {W8_ITEM_EQUIP_CLASS_AMMUNITION, 0x10u},
+    {W8_ITEM_EQUIP_CLASS_SHIELD, 0x20u},
+    {W8_ITEM_EQUIP_CLASS_TORSO, 0x40u},
+    {W8_ITEM_EQUIP_CLASS_LEGS, 0x80u},
+    {W8_ITEM_EQUIP_CLASS_HEAD, 0x100u},
+    {W8_ITEM_EQUIP_CLASS_HANDS, 0x200u},
+    {W8_ITEM_EQUIP_CLASS_FEET, 0x400u},
+    {W8_ITEM_EQUIP_CLASS_MISC, 0x800u},
+    {W8_ITEM_EQUIP_CLASS_CLOAK, 0x1000u},
+    {W8_ITEM_EQUIP_CLASS_INSTRUMENT, 0x2000u},
+    {W8_ITEM_EQUIP_CLASS_GADGET, 0x4000u},
+    {W8_ITEM_EQUIP_CLASS_MISC_MAGIC, 0x8000u},
+    {W8_ITEM_EQUIP_CLASS_POTION, 0x10000u},
+    {W8_ITEM_EQUIP_CLASS_BOMB, 0x20000u},
+    {W8_ITEM_EQUIP_CLASS_POWDER, 0x40000u},
+    {W8_ITEM_EQUIP_CLASS_SPELLBOOK, 0x80000u},
+    {W8_ITEM_EQUIP_CLASS_SCROLL, 0x100000u},
+    {W8_ITEM_EQUIP_CLASS_FOOD, 0x200000u},
+    {W8_ITEM_EQUIP_CLASS_DRINK, 0x400000u},
+    {W8_ITEM_EQUIP_CLASS_KEY, 0x800000u},
+    {W8_ITEM_EQUIP_CLASS_WRITING, 0x1000000u},
+    {W8_ITEM_EQUIP_CLASS_OTHER, 0x2000000u},
+};
+
 // FUNCTION: WIZ8 0x0055b290
 bool NpcAcceptsTradeItemClass(W8NpcState* npc, W8ItemInstance* item)
 {
-    switch (g_item_records[item->iItemNo].equip_class) {
-    case W8_ITEM_EQUIP_CLASS_SHORT_WEAPON:
-        if ((npc->record->trade_item_class_mask & 0x1u) != 0) {
-            return true;
-        }
-        break;
-    case W8_ITEM_EQUIP_CLASS_EXTENDED_WEAPON:
-        if ((npc->record->trade_item_class_mask & 0x2u) != 0) {
-            return true;
-        }
-        break;
-    case W8_ITEM_EQUIP_CLASS_THROWN_WEAPON:
-        if ((npc->record->trade_item_class_mask & 0x4u) != 0) {
-            return true;
-        }
-        break;
-    case W8_ITEM_EQUIP_CLASS_RANGED_WEAPON:
-        if ((npc->record->trade_item_class_mask & 0x8u) != 0) {
-            return true;
-        }
-        break;
-    case W8_ITEM_EQUIP_CLASS_AMMUNITION:
-        if ((npc->record->trade_item_class_mask & 0x10u) != 0) {
-            return true;
-        }
-        break;
-    case W8_ITEM_EQUIP_CLASS_SHIELD:
-        if ((npc->record->trade_item_class_mask & 0x20u) != 0) {
-            return true;
-        }
-        break;
-    case W8_ITEM_EQUIP_CLASS_TORSO:
-        if ((npc->record->trade_item_class_mask & 0x40u) != 0) {
-            return true;
-        }
-        break;
-    case W8_ITEM_EQUIP_CLASS_LEGS:
-        if ((npc->record->trade_item_class_mask & 0x80u) != 0) {
-            return true;
-        }
-        break;
-    case W8_ITEM_EQUIP_CLASS_HEAD:
-        if ((npc->record->trade_item_class_mask & 0x100u) != 0) {
-            return true;
-        }
-        break;
-    case W8_ITEM_EQUIP_CLASS_HANDS:
-        if ((npc->record->trade_item_class_mask & 0x200u) != 0) {
-            return true;
-        }
-        break;
-    case W8_ITEM_EQUIP_CLASS_FEET:
-        if ((npc->record->trade_item_class_mask & 0x400u) != 0) {
-            return true;
-        }
-        break;
-    case W8_ITEM_EQUIP_CLASS_MISC:
-        if ((npc->record->trade_item_class_mask & 0x800u) != 0) {
-            return true;
-        }
-        break;
-    case W8_ITEM_EQUIP_CLASS_CLOAK:
-        if ((npc->record->trade_item_class_mask & 0x1000u) != 0) {
-            return true;
-        }
-        break;
-    case W8_ITEM_EQUIP_CLASS_INSTRUMENT:
-        if ((npc->record->trade_item_class_mask & 0x2000u) != 0) {
-            return true;
-        }
-        break;
-    case W8_ITEM_EQUIP_CLASS_GADGET:
-        if ((npc->record->trade_item_class_mask & 0x4000u) != 0) {
-            return true;
-        }
-        break;
-    case W8_ITEM_EQUIP_CLASS_MISC_MAGIC:
-        if ((npc->record->trade_item_class_mask & 0x8000u) != 0) {
-            return true;
-        }
-        break;
-    case W8_ITEM_EQUIP_CLASS_POTION:
-        if ((npc->record->trade_item_class_mask & 0x10000u) != 0) {
-            return true;
-        }
-        break;
-    case W8_ITEM_EQUIP_CLASS_BOMB:
-        if ((npc->record->trade_item_class_mask & 0x20000u) != 0) {
-            return true;
-        }
-        break;
-    case W8_ITEM_EQUIP_CLASS_POWDER:
-        if ((npc->record->trade_item_class_mask & 0x40000u) != 0) {
-            return true;
-        }
-        break;
-    case W8_ITEM_EQUIP_CLASS_SPELLBOOK:
-        if ((npc->record->trade_item_class_mask & 0x80000u) != 0) {
-            return true;
-        }
-        break;
-    case W8_ITEM_EQUIP_CLASS_SCROLL:
-        if ((npc->record->trade_item_class_mask & 0x100000u) != 0) {
-            return true;
-        }
-        break;
-    case W8_ITEM_EQUIP_CLASS_FOOD:
-        if ((npc->record->trade_item_class_mask & 0x200000u) != 0) {
-            return true;
-        }
-        break;
-    case W8_ITEM_EQUIP_CLASS_DRINK:
-        if ((npc->record->trade_item_class_mask & 0x400000u) != 0) {
-            return true;
-        }
-        break;
-    case W8_ITEM_EQUIP_CLASS_KEY:
-        if ((npc->record->trade_item_class_mask & 0x800000u) != 0) {
-            return true;
-        }
-        break;
-    case W8_ITEM_EQUIP_CLASS_WRITING:
-        if ((npc->record->trade_item_class_mask & 0x1000000u) != 0) {
-            return true;
-        }
-        break;
-    case W8_ITEM_EQUIP_CLASS_OTHER:
-        if ((npc->record->trade_item_class_mask & 0x2000000u) != 0) {
-            return true;
-        }
-        break;
-    default:
-        break;
+    const unsigned int equip_class = g_item_records[item->iItemNo].equip_class;
+    for (const auto& entry : kTradeClassBits) {
+        if (entry.equip_class == equip_class)
+            return (npc->record->trade_item_class_mask & entry.bit) != 0;
     }
     return false;
 }
