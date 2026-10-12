@@ -1761,6 +1761,27 @@ TEST_CASE("Input layers keep capture outside and release it for gameplay drops",
     REQUIRE(drops == 2);
 }
 
+TEST_CASE("Text fields paint only into their supplied surface", "[owner][ui-layer]")
+{
+    initialize_test_framebuffer();
+    auto& framebuffer = GetFrameBufferSurface();
+    SDL_FillSurfaceRect(&framebuffer, nullptr, 0x1234);
+    auto before = CopyCpuStorage(framebuffer);
+    auto target = CreateCpuStorage(100, 50, SDL_PIXELFORMAT_RGB565);
+    REQUIRE(before);
+    REQUIRE(target);
+    SDL_FillSurfaceRect(target.get(), nullptr, 0xffff);
+    Font font{};
+    TextFieldGroup fields(font);
+    const auto field = fields.Add(0, 0, 80, 20, 0, "", 32, 0, false);
+    fields.Focus(field);
+    fields.ClearFocus();
+    fields.RenderAll(*target);
+    REQUIRE(*static_cast<std::uint16_t*>(target->pixels) == 0);
+    REQUIRE(std::memcmp(framebuffer.pixels, before->pixels,
+                        framebuffer.pitch * framebuffer.h) == 0);
+}
+
 TEST_CASE("Modal layers isolate editors and restore focus after deferred close", "[owner][ui-layer]")
 {
     RegionStateSnapshot saved_state;

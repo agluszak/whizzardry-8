@@ -1,4 +1,5 @@
 #pragma once
+#include "wiz8/modal_content.h"
 
 #include "wiz8/audio_resources.h"
 
@@ -408,9 +409,9 @@ extern signed char g_spell_power_extent_index[8];
 
 struct W8ItemInstance;
 
-extern W8DialogBase* g_modal_owner;
-void OpenModal(W8DialogBase* owner);
-extern W8DialogBase* g_pending_main_game_dialog;
+extern std::unique_ptr<ModalContent> g_modal_owner;
+void OpenModal(std::unique_ptr<ModalContent> owner);
+extern std::unique_ptr<ModalContent> g_pending_main_game_dialog;
 
 /* Open the assay (item info) dialog for an item, evaluated against the party
    slot's character; -1 means no character. The current modal owner, if any,

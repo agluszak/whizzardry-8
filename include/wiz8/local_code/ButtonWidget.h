@@ -13,6 +13,7 @@
 enum { W8_DIALOG_BUTTON_NO_TOOLTIP = -1 };
 
 class W8DialogBase;
+class UiLayer;
 class W8ButtonWidget;
 
 /* Callbacks stored through Configure and dispatched with the button as the subject. */
@@ -27,6 +28,7 @@ enum class DialogButtonActivation { Press, Release };
 class W8ButtonWidget : public W8Widget {
 public:
     W8ButtonWidget();
+    explicit W8ButtonWidget(UiLayer& layer);
     ~W8ButtonWidget() override;
     void Draw(SDL_Surface& target);
     void Redraw(SDL_Surface& target, bool full_redraw) override;

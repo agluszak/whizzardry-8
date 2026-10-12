@@ -89,7 +89,6 @@
 #include "wiz8/local_screens/MGSKeyboard.h"
 #include "wiz8/local_screens/OptionsScreen.h"
 #include "wiz8/local_screens/AutomapScreen.h"
-#include "wiz8/local_screens/MGSFormation.h"
 #include "wiz8/local_screens/MGSPortraits.h"
 #include "wiz8/local_screens/MGSSpellCasting.h"
 #include "wiz8/local_screens/MGSSpellIcons.h"
@@ -948,7 +947,7 @@ void InventoryChestScenario()
     game.wait("chest-picker", [] { return g_modal_owner != nullptr; });
     game.frame();
     REQUIRE(gXStatus.world_update_blocked);
-    auto* picker = static_cast<W8TriggerItemPickerDialog*>(g_modal_owner);
+    auto* picker = static_cast<W8TriggerItemPickerDialog*>(g_modal_owner.get());
     REQUIRE_FALSE(picker->items.empty());
     const auto click_button = [&](int index) {
         auto& button = *picker->m_buttons[index];

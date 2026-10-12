@@ -9,6 +9,7 @@
 #include "wiz8/ui_layer.h"
 
 struct Font;
+struct SDL_Surface;
 class W8TextField;
 
 struct TextFieldStyle {
@@ -67,8 +68,7 @@ public:
     std::size_t Cursor() const;
     void SetCursor(std::size_t cursor);
 
-    void RenderFocused();
-    void RenderAll();
+    void RenderAll(SDL_Surface& target);
 
 private:
     friend class W8TextField;
@@ -79,8 +79,9 @@ private:
     void Resume();
     void SetEditing(bool editing);
     void FocusField(W8TextField& field);
-    void RenderBackground(W8TextField& field);
-    void RenderInactive(W8TextField& field);
+    void RenderFocused(SDL_Surface& target);
+    void RenderBackground(W8TextField& field, SDL_Surface& target);
+    void RenderInactive(W8TextField& field, SDL_Surface& target);
     void InsertCharacter(char32_t character);
     void InsertRestricted(char32_t character);
     void DeleteSelection(std::size_t first, std::size_t last);

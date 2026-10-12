@@ -9,6 +9,7 @@
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/regions.h"
 #include "wiz8/ui_layer.h"
+#include "wiz8/modal_content.h"
 
 enum W8DialogKind {
     W8_DIALOG_BASIC = 0,
@@ -17,7 +18,6 @@ enum W8DialogKind {
     W8_DIALOG_TRIGGER_ITEM_PICKER = 4,
     W8_DIALOG_SPLIT_AMOUNT = 5,
     W8_DIALOG_CHARACTER_SUMMARY = 6,
-    W8_DIALOG_NPC = 7
 };
 
 enum { W8_DIALOG_DIRTY_REDRAW = 1u };
@@ -51,7 +51,7 @@ private:
 /* Modal controls own their regions and state; only visual resources and
    rendering uses the shared dialog button appearance module. */
 // VTABLE: WIZ8 0x005efaf8
-class W8DialogBase {
+class W8DialogBase : public ModalContent {
     /* First, so it outlives every control's region. */
     UiLayer m_input;
     friend RegionSetRef CurrentInputLayer();
@@ -59,7 +59,9 @@ class W8DialogBase {
 public:
     W8DialogBase();
     UiLayer& InputLayer() { return m_input; }
-    virtual ~W8DialogBase();
+    ~W8DialogBase() override;
+    void DrawModal(SDL_Surface&) override { Draw(); }
+    void RequestModalRedraw() override { m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW; }
     virtual int CreateControls();
     virtual void DestroyControls();
     virtual void Draw();
@@ -68,7 +70,7 @@ public:
     virtual void SetOrigin(int x, int y);
     virtual void SetExtent(int width, int height);
     virtual void SetBackground(const char* path, int flags);
-    virtual bool ProcessInput();
+    bool ProcessInput() override;
     virtual void OnNumericInputChanged(int control_id);
     virtual void OnRightButtonDown();
     virtual void OnRightButtonUp();

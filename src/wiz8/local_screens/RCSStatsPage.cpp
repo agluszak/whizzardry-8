@@ -1045,7 +1045,7 @@ void W8CharacterPersonalityPage::Redraw(SDL_Surface& target, bool full_redraw)
     bool redraw = m_active && m_dirty;
     W8CharacterPage::Redraw(target, full_redraw);
     if (!m_screen->HasDialog() && m_text_fields) {
-        m_text_fields->RenderAll();
+        m_text_fields->RenderAll(GetFrameBufferSurface());
     }
 
     if (redraw) {

@@ -1702,7 +1702,7 @@ void W8PartySelectionController::DrawPartySelectionComposition()
         m_dialog->Draw();
     }
     if (m_input_handler) {
-        m_input_handler->m_fields.RenderFocused();
+        m_input_handler->m_fields.RenderAll(GetFrameBufferSurface());
     }
 }
 

@@ -4,9 +4,12 @@ class TextFieldGroup;
 
 #include <array>
 #include <memory>
+#include <functional>
 #include <string>
 
-#include "wiz8/dialog_code/DialogBase.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
+#include "wiz8/modal_content.h"
+#include "wiz8/ui_layer.h"
 #include "compat/compiler.h"
 
 class W8TextBuffer;
@@ -20,18 +23,26 @@ struct W8NpcQuoteEntry;
    owns its editor; closing restores the previous editor before reporting the
    reply to the NPC controller. */
 // VTABLE: WIZ8 0x005efa4c
-class W8NpcDialog : public W8DialogBase {
-    friend void OnNpcDialogClosed(W8DialogBase* dialog);
+class W8NpcDialog final : public ModalContent {
+    friend void OnNpcDialogClosed(W8NpcDialog& dialog);
 
 public:
-    W8NpcDialog(W8NpcQuoteEntry* message, int aux_data);
+    W8NpcDialog(W8NpcQuoteEntry* message, int aux_data,
+                std::function<void(W8NpcDialog&)> closed);
     virtual ~W8NpcDialog() override;
-    virtual int CreateControls() override;
-    virtual void Draw() override;
-    virtual W8DialogKind GetDialogType() override; /* 7 */
+    void DrawModal(SDL_Surface& target) override;
+    void RequestModalRedraw() override { m_dirty = true; }
     virtual bool ProcessInput() override;
 
 private:
+    int CreateControls();
+    UiLayer m_input;
+    SDL_Rect m_bounds{};
+    ButtonAppearance m_background;
+    bool m_initialized = false;
+    bool m_dirty = true;
+    bool m_keep_open = true;
+    std::function<void(W8NpcDialog&)> m_closed;
     std::array<std::unique_ptr<W8TextBuffer>, 2> m_text_buffers;
     std::array<std::unique_ptr<W8ButtonWidget>, 3> m_buttons;
     signed char m_selected_option = -1;

@@ -1,5 +1,6 @@
 #include <SDL3/SDL_surface.h>
 #include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/ui_layer.h"
 
 #include "Font.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
@@ -140,6 +141,11 @@ W8ButtonWidget::W8ButtonWidget()
       m_layer(CurrentInputLayer())
 {
     m_dirty = true;
+}
+
+W8ButtonWidget::W8ButtonWidget(UiLayer& layer) : W8ButtonWidget()
+{
+    m_layer = CaptureRegionSet(layer.legacySet());
 }
 
 // FUNCTION: WIZ8 0x005db260

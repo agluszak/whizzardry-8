@@ -1,3 +1,4 @@
+#include "wiz8/modal_content.h"
 #include <algorithm>
 #include <memory>
 #include <fmt/format.h>
@@ -689,7 +690,7 @@ void OpenUseItemAssayDialog(W8ItemInstance* item)
     dialog->SetText("");
     dialog->SetOrigin(g_info_dialog_x, 0x48);
     dialog->m_destroy_callback = RestoreTargetCursor;
-    OpenModal(dialog);
+    OpenModal(std::unique_ptr<ModalContent>(dialog));
 }
 
 /* Destroy callback for the item-assay and spell-info dialogs: put back the

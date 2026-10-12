@@ -161,7 +161,6 @@ void W8TextField::MouseMoved(UiPointerAction action, int mouse_x, SDL_MouseButto
     if ((buttons & SDL_BUTTON_LMASK) == 0 || !group.focused_ || action != UiPointerAction::Move)
         return;
     if (group.focused_ != this) {
-        group.RenderInactive(*group.focused_);
         group.focused_ = this;
         mouse_down = 0;
         cursor = 0;
@@ -198,7 +197,6 @@ void W8TextField::MouseClicked(const UiPointerEvent& event)
     }
     if (event.action != UiPointerAction::Up) return;
     if (group.focused_ != this) {
-        if (group.focused_) group.RenderInactive(*group.focused_);
         if (!enabled) return;
         group.FocusField(*this);
         return;
@@ -407,7 +405,6 @@ void TextFieldGroup::FocusNext()
 {
     if (!focused_) return;
     auto* previous = focused_;
-    RenderInactive(*previous);
     auto position = std::ranges::find(fields_, previous, &std::unique_ptr<W8TextField>::get);
     for (std::size_t step = 0; step < fields_.size(); ++step) {
         if (++position == fields_.end()) position = fields_.begin();
@@ -424,7 +421,6 @@ void TextFieldGroup::FocusNext()
 void TextFieldGroup::ClearFocus()
 {
     if (!focused_) return;
-    RenderInactive(*focused_);
     SetEditing(false);
     focused_ = nullptr;
 }
@@ -678,21 +674,21 @@ void TextFieldGroup::SelectWordAtMouse(int mouse_x)
     field.selecting = true;
 }
 
-void TextFieldGroup::RenderBackground(W8TextField& field)
+void TextFieldGroup::RenderBackground(W8TextField& field, SDL_Surface& target)
 {
     const auto [left, top, right, bottom] = field.Edges();
     if (style_.bevelled) {
         const SDL_Rect darker{left, top, right - left, bottom - top};
         const SDL_Rect brighter{left + 1, top + 1, right - left - 1, bottom - top - 1};
-        SDL_FillSurfaceRect(&GetFrameBufferSurface(), &darker, style_.darker_color);
-        SDL_FillSurfaceRect(&GetFrameBufferSurface(), &brighter, style_.brighter_color);
+        SDL_FillSurfaceRect(&target, &darker, style_.darker_color);
+        SDL_FillSurfaceRect(&target, &brighter, style_.brighter_color);
     }
     unsigned short colour = !field.enabled && !style_.disabled_auto_shade
                                 ? style_.disabled_field_color
                                 : style_.field_color;
     if (field.use_inactive_color && &field != focused_) colour = style_.inactive_field_color;
     const SDL_Rect area{left, top, right - left, bottom - top};
-    SDL_FillSurfaceRect(&GetFrameBufferSurface(), &area, colour);
+    SDL_FillSurfaceRect(&target, &area, colour);
     InvalidateRegion(left, top, right, bottom);
 }
 
@@ -710,7 +706,7 @@ TextOptions FieldTextOptions(Font& font, unsigned char fore, unsigned char shado
 }
 } // namespace
 
-void TextFieldGroup::RenderFocused()
+void TextFieldGroup::RenderFocused(SDL_Surface& target)
 {
     if (!focused_) return;
     auto& field = *focused_;
@@ -733,7 +729,7 @@ void TextFieldGroup::RenderFocused()
     const unsigned short font_height = font.height();
     const int text_top =
         field.Edges().top + (field.Edges().bottom - field.Edges().top - font_height) / 2;
-    RenderBackground(field);
+    RenderBackground(field, target);
     const std::string_view visible = std::string_view(field.text).substr(field.parking);
     const bool has_selection = field.selecting && field.selection_start != field.selection_end;
     const auto selection_first = std::min(field.selection_start, field.selection_end);
@@ -749,17 +745,17 @@ void TextFieldGroup::RenderFocused()
                      : FieldTextOptions(font, style_.fore_color, style_.shadow_color, 0);
         std::size_t end = index;
         wiz8::text::next(visible, end);
-        DrawText(GetFrameBufferSurface(), font, {field.Edges().left + prefix + 3, text_top},
+        DrawText(target, font, {field.Edges().left + prefix + 3, text_top},
                  visible.substr(index, end - index), options);
         index = end;
     }
     if (editing_ && !IsLeftButtonHeld() && w8_get_ticks() % 1000 < 500) {
         const SDL_Rect caret{field.Edges().left + field.cursor_x, text_top, 1, font_height};
-        SDL_FillSurfaceRect(&GetFrameBufferSurface(), &caret, style_.cursor_color);
+        SDL_FillSurfaceRect(&target, &caret, style_.cursor_color);
     }
 }
 
-void TextFieldGroup::RenderInactive(W8TextField& field)
+void TextFieldGroup::RenderInactive(W8TextField& field, SDL_Surface& target)
 {
     auto& font = *style_.font;
     const bool disabled = !field.enabled && style_.disabled_auto_shade;
@@ -769,31 +765,31 @@ void TextFieldGroup::RenderInactive(W8TextField& field)
     const unsigned short font_height = font.height();
     const int text_top =
         field.Edges().top + (field.Edges().bottom - field.Edges().top - font_height) / 2;
-    RenderBackground(field);
+    RenderBackground(field, target);
     const std::string_view text = field.text;
     for (std::size_t index = 0; index < text.size();) {
         const short prefix = font.prefixWidth(text, index);
         if (field.EditWidth() < prefix + 3) break;
         std::size_t end = index;
         wiz8::text::next(text, end);
-        DrawText(GetFrameBufferSurface(), font, {field.Edges().left + prefix + 3, text_top},
+        DrawText(target, font, {field.Edges().left + prefix + 3, text_top},
                  text.substr(index, end - index), options);
         index = end;
     }
     if (disabled) {
         const auto bounds = field.bounds;
-        ShadowRect(GetFrameBufferSurface(), SDL_Rect{bounds.x, bounds.y, bounds.w + 1, bounds.h + 1});
+        ShadowRect(target, SDL_Rect{bounds.x, bounds.y, bounds.w + 1, bounds.h + 1});
     }
 }
 
-void TextFieldGroup::RenderAll()
+void TextFieldGroup::RenderAll(SDL_Surface& target)
 {
     for (auto* group = previous_; group; group = group->previous_)
-        for (auto& field : group->fields_) group->RenderInactive(*field);
+        for (auto& field : group->fields_) group->RenderInactive(*field, target);
     for (auto& field : fields_) {
         if (field.get() == focused_)
-            RenderFocused();
+            RenderFocused(target);
         else
-            RenderInactive(*field);
+            RenderInactive(*field, target);
     }
 }

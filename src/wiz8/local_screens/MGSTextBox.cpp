@@ -1,3 +1,4 @@
+#include "wiz8/modal_content.h"
 #include "himage.h"
 #include <memory>
 #include <SDL3/SDL_surface.h>
@@ -415,8 +416,8 @@ void ShowNotice(unsigned int font_palette, std::string_view text_view, short tex
             static_cast<W8MessageDialogBase*>(CreateDialogByKind(W8_DIALOG_MESSAGE));
         dialog->SetMessage(text, 1, 50, true, false, true, false, 0, 0);
         SetDialogDestroyCallback(dialog, NoticeDialogDestroyed);
-        OpenModal(dialog);
-        DrawDialog(g_modal_owner);
+        OpenModal(std::unique_ptr<ModalContent>(dialog));
+        g_modal_owner->DrawModal(GetFrameBufferSurface());
     }
 }
 

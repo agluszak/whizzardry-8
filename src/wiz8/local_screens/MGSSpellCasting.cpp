@@ -1,3 +1,4 @@
+#include "wiz8/modal_content.h"
 #include <memory>
 #include <algorithm>
 #include <SDL3/SDL_pixels.h>
@@ -1159,7 +1160,7 @@ unsigned char SpellCastTextBoxRegionEvent(const InputEvent* event, W8Region* reg
         dialog = new W8SpellInfoDialog(gpSCSV->uiSpells[line]);
         dialog->SetText("");
         dialog->m_destroy_callback = RestoreTargetCursor;
-        OpenModal(dialog);
+        OpenModal(std::unique_ptr<ModalContent>(dialog));
         return 1;
     }
 }

@@ -1,3 +1,4 @@
+#include "wiz8/modal_content.h"
 #include <SDL3/SDL_surface.h>
 #include "wiz8/unicode.h"
 #include "himage.h"
@@ -172,9 +173,9 @@ class srColorSurfaceIFace;
 // GLOBAL: WIZ8 0x0068edcc
 std::unique_ptr<W8LevelRuntimeBlock> g_level_block;
 // GLOBAL: WIZ8 0x0068edd0
-W8DialogBase* g_modal_owner;
+std::unique_ptr<ModalContent> g_modal_owner;
 // GLOBAL: WIZ8 0x0068edd4
-W8DialogBase* g_pending_main_game_dialog;
+std::unique_ptr<ModalContent> g_pending_main_game_dialog;
 
 // GLOBAL: WIZ8 0x0068edb0
 static uint64_t g_mouselook_last_tick;
@@ -3220,14 +3221,12 @@ update_screen:
         if (!gXStatus.world_update_blocked) {
             PauseMainGameWorld();
         }
-        if (!ProcessDialogInput(g_modal_owner)) {
+        if (!g_modal_owner->ProcessInput()) {
             ReleaseInputSinkCapture();
-            delete g_modal_owner;
-            g_modal_owner = 0;
+            g_modal_owner.reset();
             if (g_pending_main_game_dialog) {
-                g_modal_owner = g_pending_main_game_dialog;
-                g_pending_main_game_dialog->m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
-                g_pending_main_game_dialog = 0;
+                g_modal_owner = std::move(g_pending_main_game_dialog);
+                g_modal_owner->RequestModalRedraw();
             }
             RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
             ResumeMainGameWorld();
@@ -3468,6 +3467,10 @@ unsigned char MainGameScreenLeave(int leaving)
 {
     int index;
 
+    if (leaving) {
+        g_modal_owner.reset();
+        g_pending_main_game_dialog.reset();
+    }
     SetMainGameMode(W8_MAIN_GAME_DEFAULT);
 
     CancelMouselook();
@@ -3651,7 +3654,7 @@ void ApplyMainGameRedrawFlags(void)
             RefreshTrackedPortraitOverlay();
         }
         if (g_modal_owner != 0) {
-            g_modal_owner->m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
+            g_modal_owner->RequestModalRedraw();
         }
     }
     if ((g_level_block->redraw_flags & W8_MAIN_REDRAW_MONSTER_LIST) != 0) {
@@ -3871,7 +3874,7 @@ void DrawMainGameScreen(void)
     }
     if (!IsScreenTransitionPending()) {
         if (g_modal_owner != 0) {
-            DrawDialog(g_modal_owner);
+            g_modal_owner->DrawModal(GetFrameBufferSurface());
         }
         if (g_level_block->combat_end_notification != -1) {
             UpdateSubMenuAutoClose();
@@ -3894,7 +3897,7 @@ void DrawMainGameScreen(void)
         }
         UpdateMainGameButtons();
         RedrawPortraitQuoteBubbles();
-        if (auto* text_fields = TextFieldGroup::Focused()) text_fields->RenderAll();
+        if (auto* text_fields = TextFieldGroup::Focused()) text_fields->RenderAll(GetFrameBufferSurface());
         if (g_level_block->mouselook_debug != 0) {
             ClearSurfaceRect(0xdc, 0x1e, 0x154, 0x26);
             g_smfnt_font.resetPalette();
@@ -4675,7 +4678,7 @@ void ShowMainGameNoticeLine(std::string_view text, W8DialogDestroyCallback callb
     dialog->SetClientExtent(0xfa, 200);
     dialog->SetMessage(text, 1, 0x32, confirmation, cancel, true, true, 0, 0x15e);
     SetDialogDestroyCallback(dialog, callback);
-    g_modal_owner = dialog;
+    g_modal_owner.reset(dialog);
     CaptureInputSink();
 }
 
@@ -4883,7 +4886,7 @@ void RequestLevelTransition(int level, int entry, unsigned char flag)
         dialog->SetMessage(g_level_block->text_paint_scratch, 1, 0x32, true, true, true, true, 0,
                            0x15e);
         SetDialogDestroyCallback(dialog, OnEnterLevelDialogClosed);
-        g_modal_owner = dialog;
+        g_modal_owner.reset(dialog);
         CaptureInputSink();
         return;
     }
@@ -5219,9 +5222,9 @@ apply_mode_tail:
 }
 
 /* Take the screen for a modal owner and put its region up. */
-void OpenModal(W8DialogBase* owner)
+void OpenModal(std::unique_ptr<ModalContent> owner)
 {
-    g_modal_owner = owner;
+    g_modal_owner = std::move(owner);
     CaptureInputSink();
 }
 
@@ -7202,7 +7205,7 @@ void OpenMonsterInfoDialog(int location_id)
     W8MonsterInfoDialog* dialog = new W8MonsterInfoDialog(location_id);
     dialog->SetText("");
     dialog->m_destroy_callback = InvalidateMainGameScreen;
-    g_modal_owner = dialog;
+    g_modal_owner.reset(dialog);
     CaptureInputSink();
 }
 
@@ -7213,8 +7216,7 @@ void OpenAssayDialog(W8ItemInstance* item, int character_slot)
     W8DialogBase* dialog;
 
     if (g_modal_owner != 0) {
-        g_pending_main_game_dialog = g_modal_owner;
-        g_modal_owner = 0;
+        g_pending_main_game_dialog = std::move(g_modal_owner);
     }
     if (character_slot != -1) {
         dialog = new W8AssayDialog(item, &g_status.buffers.Char[character_slot]);
@@ -7224,7 +7226,7 @@ void OpenAssayDialog(W8ItemInstance* item, int character_slot)
     dialog->SetText("");
     dialog->SetOrigin(g_info_dialog_x, 0x48);
     dialog->m_destroy_callback = InvalidateMainGameScreen;
-    g_modal_owner = dialog;
+    g_modal_owner.reset(dialog);
     CaptureInputSink();
 }
 
@@ -7713,7 +7715,7 @@ void OpenNpcTradeQuantityDialog(void)
     dialog->SetText("");
     dialog->SetOrigin(g_split_dialog_x, g_split_dialog_y);
     dialog->m_destroy_callback = NpcTradeSplitDialogResult;
-    OpenModal(dialog);
+    OpenModal(std::unique_ptr<ModalContent>(dialog));
 }
 
 void SelectNpcBuyMode(void)

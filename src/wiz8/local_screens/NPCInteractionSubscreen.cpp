@@ -1,3 +1,4 @@
+#include "wiz8/modal_content.h"
 #include <functional>
 #include <SDL3/SDL_surface.h>
 #include <fmt/format.h>
@@ -258,7 +259,7 @@ static void RequestNpcSpellService41(void);
 static void RequestNpcCharacterService(void);
 static void ConfirmNpcTradePurchase(void);
 static unsigned char AcceptNpcDialogueItem(W8NpcState* npc, W8ItemInstance* item, int mode);
-void OnNpcDialogClosed(W8DialogBase* dialog);
+void OnNpcDialogClosed(W8NpcDialog& dialog);
 
 // GLOBAL: WIZ8 0x0068ee90
 static W8NpcInteractionState g_npc_interaction_storage;
@@ -1703,7 +1704,7 @@ static void NpcDialogueTextBoxRightUp(int x, int y)
         dialog->SetText("");
         dialog->SetOrigin(g_info_dialog_x, 0x48);
         dialog->m_destroy_callback = OnNpcAssayDialogClosed;
-        OpenModal(dialog);
+        OpenModal(std::unique_ptr<ModalContent>(dialog));
         return;
     case W8_DIALOGUE_LAYOUT_TRANSCRIPT:
         word = HitTestNoticeWord(3, x, y, &line);
@@ -1985,7 +1986,7 @@ static void PromptNpcDispositionChange(void)
 
     SetDialogPrompt(dialog, g_localized_strings[0x798], 0, 0);
     dialog->m_destroy_callback = OnNpcDispositionPromptClosed;
-    OpenModal(dialog);
+    OpenModal(std::unique_ptr<ModalContent>(dialog));
 }
 
 static void OnNpcDispositionPromptClosed(W8DialogBase* dialog)
@@ -2715,7 +2716,7 @@ static void OpenNpcItemAssay(void)
         dialog->SetText("");
         dialog->SetOrigin(g_info_dialog_x, 0x48);
         dialog->m_destroy_callback = OnNpcAssayDialogClosed;
-        OpenModal(dialog);
+        OpenModal(std::unique_ptr<ModalContent>(dialog));
     }
 }
 
@@ -2781,7 +2782,7 @@ static void OpenNpcGoldAmountDialog(void)
     dialog->SetText("");
     dialog->SetOrigin(g_split_dialog_origin_x, g_split_dialog_origin_y);
     dialog->m_destroy_callback = OnNpcTradeSplitDialogDestroy;
-    OpenModal(dialog);
+    OpenModal(std::unique_ptr<ModalContent>(dialog));
 }
 
 /* Destroy callback for the trade split-amount dialog: on confirm it takes the
@@ -3918,7 +3919,7 @@ static unsigned char HandleNpcDialogueItem(W8ItemInstance* item)
         message = g_localized_strings[0x7d6];
         dialog->SetMessage(message, 1, 0x32, true, true, true, true, 0, 0x15e);
         SetDialogDestroyCallback(dialog, OnNpcTradeDialogClosed);
-        OpenModal(dialog);
+        OpenModal(std::unique_ptr<ModalContent>(dialog));
         return 1;
     }
     if (GetNpcDispositionBand(g_npc_interaction_state->dialogue_npc) == W8_NPC_BAND_FRIENDLY ||
@@ -4112,10 +4113,8 @@ void OpenNpcDialog(W8NpcQuoteEntry* request, int aux_data)
     if (gXStatus.fNpcDialogueMode && !g_npc_interaction_state->scripted_dialogue) {
         SetNpcDialoguePanelVisible(0);
     }
-    dialog = new W8NpcDialog(request, aux_data);
-    dialog->SetText("");
-    dialog->m_destroy_callback = OnNpcDialogClosed;
-    OpenModal(dialog);
+    dialog = new W8NpcDialog(request, aux_data, OnNpcDialogClosed);
+    OpenModal(std::unique_ptr<ModalContent>(dialog));
     g_npc_scripting.reply = W8NpcReplyState::dialog_open;
     if (request->kind == W8_NPC_ENTRY_PRICE_CHECK ||
         request->kind == W8_NPC_ENTRY_ALWAYS_PRICE_CHECK) {
@@ -4439,9 +4438,9 @@ void QueueDialogueNpcRefusal(void)
     QueueNpcScriptLine(0x69, false, false, false);
 }
 
-void OnNpcDialogClosed(W8DialogBase* dialog)
+void OnNpcDialogClosed(W8NpcDialog& dialog)
 {
-    W8NpcDialog* npc_dialog = static_cast<W8NpcDialog*>(dialog);
+    W8NpcDialog* npc_dialog = &dialog;
     W8NpcQuoteEntry* request = npc_dialog->m_message;
     std::string field_text;
     std::string entry_text;

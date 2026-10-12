@@ -113,10 +113,19 @@ removed. Keyword Enter submits; Escape cancels. Closing restores the previous
 editor before reporting the result, and the result callback runs while the
 reply's strings are alive. Options close through `AfterUiDispatch`.
 
-This completes the modal input/editor ownership slice, but the NPC popup still
-uses the legacy dialog painter and button controls. Removing that hierarchy and
-consolidating the two button behaviors remain outstanding; this is not yet the
-completed architecture experiment.
+The NPC popup no longer inherits `W8DialogBase`: it owns its geometry, backdrop,
+layer, editor, buttons and explicit-surface painter. The main screen owns active
+and suspended modal content through `unique_ptr`; a small `ModalContent` interface
+only supplies input, painting and redraw entry points. Other dialogs implement
+that host contract through their existing base while their callers migrate.
+Reply delivery happens on explicit close, before destruction; discarding the
+popup during screen teardown does not submit an unfinished reply.
+
+Text fields paint through `RenderAll(SDL_Surface&)`. Focus changes and pointer
+handlers no longer paint into the global framebuffer. Existing screens repaint
+their fields during composition, preserving caret and selection rendering.
+The reusable popup buttons still use `W8ButtonWidget`; merging its behavior with
+`W8TextControl` and removing their widget infrastructure remain outstanding.
 
 ## Migration sequence and gates
 
@@ -134,7 +143,8 @@ completed architecture experiment.
    Require runtime parity and a measurable complexity reduction before expanding
    to the remaining screens. Formation input is implemented; its runtime parity
    gate is covered by licensed scenarios. Modal/editor ownership is migrated;
-   deleting the remaining dialog/control dependencies is still pending.
+   the NPC popup owns its painter independently of the legacy dialog base.
+   Shared button consolidation is the next gate.
 4. **Controls:** audit and merge `W8TextControl`/`W8ButtonWidget` button semantics,
    including toggles, repeat, right clicks and sounds. Keep `ButtonAppearance`
    as resource/painting functionality. Reuse existing text editing and layout.
@@ -170,7 +180,8 @@ disabled Load, release outside, pointer-dismissed Credits and clean re-entry.
 `runtime_formation-ui` adds a real-game scenario for the hold threshold,
 destination drops, reset, cancellation on the panel edge, accept and re-entry.
 It requires retail assets. The main-menu and formation scenarios passed locally
-on the initial implementation; all checks must be repeated on the rebased head.
+on the rebased implementation, together with all eleven licensed scenarios.
+New migration slices must repeat their relevant checks.
 Spell hover, NPC dialogue, save/load and portrait behavior also need licensed
 runtime checks as those interaction groups migrate. A skipped runtime
 scenario is not evidence of parity.

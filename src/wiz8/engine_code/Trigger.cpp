@@ -843,7 +843,7 @@ void UpdateWorldTriggers(W8World* world)
                     dialog->SetItemGroup(trigger->world_item_group);
                     dialog->m_destroy_callback = OnItemDialogClosed;
                     gXStatus.item_pick_pending = false;
-                    g_modal_owner = dialog;
+                    g_modal_owner.reset(dialog);
                 }
             }
         }

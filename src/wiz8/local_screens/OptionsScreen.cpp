@@ -1363,7 +1363,7 @@ void W8OptionsScreen::Redraw()
         m_active_modal->Draw();
     }
     if (m_text_editor != 0) {
-        m_text_editor->m_fields.RenderFocused();
+        m_text_editor->m_fields.RenderAll(GetFrameBufferSurface());
     }
 }
 

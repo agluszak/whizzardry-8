@@ -83,6 +83,7 @@ public:
 private:
     friend class TextFieldGroup;
     friend class W8DialogBase;
+    friend class W8ButtonWidget;
     friend RegionSetRef CurrentInputLayer();
     unsigned int legacySet() const;
     struct InheritInputScope {};
