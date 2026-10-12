@@ -1331,7 +1331,7 @@ void RefreshCampActionPanel(bool invalidate)
     if (invalidate) {
         g_camp_action_panel->InvalidateAll();
     }
-    g_camp_action_panel->Redraw(false);
+    g_camp_action_panel->Redraw(GetFrameBufferSurface(), false);
 }
 
 /* The right-hand panel of seven tabs: the six realm filters and the pool sort
@@ -1462,7 +1462,7 @@ void RefreshItemsTabPanel(bool invalidate)
     if (invalidate) {
         g_camp_item_filter_panel->InvalidateAll();
     }
-    g_camp_item_filter_panel->Redraw(false);
+    g_camp_item_filter_panel->Redraw(GetFrameBufferSurface(), false);
 }
 
 /* The top secondary panel: the Items/Character info page tabs, the help line,
@@ -1604,5 +1604,5 @@ void RefreshCampSecondaryPanel(bool invalidate)
     if (invalidate) {
         InvalidateCampPanel();
     }
-    g_camp_secondary_panel->Redraw(false);
+    g_camp_secondary_panel->Redraw(GetFrameBufferSurface(), false);
 }

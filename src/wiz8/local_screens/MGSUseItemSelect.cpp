@@ -12,6 +12,7 @@
 #include "wiz8/integer_constants.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/local_code/Controls.h"
+#include "wiz8/engine_code/Video2.h"
 #include "wiz8/local_screens/MGSUseItemSelect.h"
 #include "wiz8/dialog_code/AssayDialog.h"
 #include "wiz8/engine_code/Spells.h"
@@ -364,7 +365,7 @@ void UpdateUseItemSelect(bool active)
                               (g_use_item_select_panels[1]->m_dirty ||
                                g_use_item_select_panels[1]->m_childrenDirty);
             }
-            g_use_item_select_panels[i]->Redraw(false);
+            g_use_item_select_panels[i]->Redraw(GetFrameBufferSurface(), false);
             if (panel_dirty) {
                 RedrawTextBoxScrollChrome();
             }

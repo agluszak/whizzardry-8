@@ -451,9 +451,9 @@ void ProcessLockInteractMode(void)
 /* Redraw the lock interaction's tumbler, info and action panels. */
 void RedrawLockInteractionPanels(void)
 {
-    g_lock_interaction->m_tumbler_panel->Redraw(false);
-    g_lock_interaction->m_info_panel->Redraw(false);
-    g_lock_interaction->m_action_panel->Redraw(false);
+    g_lock_interaction->m_tumbler_panel->Redraw(GetFrameBufferSurface(), false);
+    g_lock_interaction->m_info_panel->Redraw(GetFrameBufferSurface(), false);
+    g_lock_interaction->m_action_panel->Redraw(GetFrameBufferSurface(), false);
 }
 
 /* Leave lock interact mode. With `suspend` clear the interaction object is
@@ -555,7 +555,7 @@ void InvalidateLockInteractionPanels(void)
     interaction->m_action_panel->InvalidateAll();
 }
 
-void W8LockTumbler::Redraw(bool full_redraw)
+void W8LockTumbler::Redraw(SDL_Surface& target, bool full_redraw)
 {
     int left;
     int top;
@@ -577,18 +577,18 @@ void W8LockTumbler::Redraw(bool full_redraw)
     InvalidateRegion(left - 3, top, right + 3, bottom);
     const SDL_Rect top_fill{left, top, right - left, 0x24};
     const SDL_Rect bottom_fill{left - 3, top + 0x24, right - left + 6, bottom - top - 0x24};
-    SDL_FillSurfaceRect(&GetFrameBufferSurface(), &top_fill, 0x8000);
-    SDL_FillSurfaceRect(&GetFrameBufferSurface(), &bottom_fill, 0x8000);
-    CatalogArtwork::Load(0x1ae, 0).draw(GetFrameBufferSurface(), 0, left + 3, top);
+    SDL_FillSurfaceRect(&target, &top_fill, 0x8000);
+    SDL_FillSurfaceRect(&target, &bottom_fill, 0x8000);
+    CatalogArtwork::Load(0x1ae, 0).draw(target, 0, left + 3, top);
     frame = m_pin_index * 4 + 1;
     if (m_pin_set) {
         frame += m_at_top ? 2 : 1;
     } else if (m_hovered && !m_rising && !m_falling) {
         frame += 3;
     }
-    CatalogArtwork::Load(0x1ae, 0).draw(GetFrameBufferSurface(), frame, left, top);
+    CatalogArtwork::Load(0x1ae, 0).draw(target, frame, left, top);
     if (m_at_top) {
-        CatalogArtwork::Load(0x1ae, 0).draw(GetFrameBufferSurface(), g_lock_phase + 0x11, right, top - 4);
+        CatalogArtwork::Load(0x1ae, 0).draw(target, g_lock_phase + 0x11, right, top - 4);
     }
     m_dirty = false;
 }
@@ -817,17 +817,17 @@ done:
     InvalidateAll();
 }
 
-void W8LockInfoPanel::Redraw(bool full_redraw)
+void W8LockInfoPanel::Redraw(SDL_Surface& target, bool full_redraw)
 {
     if (m_active && m_dirty) {
-        Controls::Redraw(full_redraw);
-        m_text0->RenderToTarget(0, false, GetFrameBufferSurface());
-        m_text1->RenderToTarget(0, false, GetFrameBufferSurface());
-        m_text2->RenderToTarget(0, false, GetFrameBufferSurface());
-        m_text3->RenderToTarget(0, false, GetFrameBufferSurface());
-        m_text4->RenderToTarget(0, false, GetFrameBufferSurface());
-        m_text5->RenderToTarget(0, false, GetFrameBufferSurface());
-        m_text->RenderToTarget(0, false, GetFrameBufferSurface());
+        Controls::Redraw(target, full_redraw);
+        m_text0->RenderToTarget(0, false, target);
+        m_text1->RenderToTarget(0, false, target);
+        m_text2->RenderToTarget(0, false, target);
+        m_text3->RenderToTarget(0, false, target);
+        m_text4->RenderToTarget(0, false, target);
+        m_text5->RenderToTarget(0, false, target);
+        m_text->RenderToTarget(0, false, target);
     }
 }
 
@@ -1310,7 +1310,7 @@ void W8MainGameTextKeyHandler::OnGeometryChanged()
     m_range.SetBounds({bounds.x + bounds.w + 1, bounds.y, 0x12, bounds.h});
 }
 
-void W8MainGameTextKeyHandler::Redraw(bool full_redraw)
+void W8MainGameTextKeyHandler::Redraw(SDL_Surface& target, bool full_redraw)
 {
     int left;
     int top;
@@ -1332,7 +1332,7 @@ void W8MainGameTextKeyHandler::Redraw(bool full_redraw)
     right = bounds.x + bounds.w;
     bottom = bounds.y + bounds.h;
     InvalidateRegion(left, top, right, bottom);
-    CatalogArtwork::Load(0x1b6, 0).drawRect(GetFrameBufferSurface(), SDL_Rect{0, 0, (right) - (left), (bottom) - (top)}, left, top);
+    CatalogArtwork::Load(0x1b6, 0).drawRect(target, SDL_Rect{0, 0, (right) - (left), (bottom) - (top)}, left, top);
     last = m_first_visible_line + m_visible_lines;
     left += 2;
     top += 1;
@@ -1345,7 +1345,7 @@ void W8MainGameTextKeyHandler::Redraw(bool full_redraw)
             colour = g_wiz_text_font_secondary.glyphs->colors;
         }
         g_wiz_text_font_secondary.setPalette(colour);
-        DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {left, top}, g_localized_strings[m_line_string_ids[line]]);
+        DrawText(target, g_wiz_text_font_secondary, {left, top}, g_localized_strings[m_line_string_ids[line]]);
         top += 0xe;
     }
     g_wiz_text_font_secondary.resetPalette();
@@ -1472,14 +1472,14 @@ W8MainGameTextEntry::W8MainGameTextEntry(int index)
     AddLayoutFlags(g_W8TextControlLayoutLatchedImage | g_W8TextControlLayoutToggle);
 }
 
-void W8MainGameTextEntry::Redraw(bool full_redraw)
+void W8MainGameTextEntry::Redraw(SDL_Surface& target, bool full_redraw)
 {
     bool dirty = m_dirty;
     int image;
     int left;
     int top;
 
-    W8TextControl::Redraw(full_redraw);
+    W8TextControl::Redraw(target, full_redraw);
     if (!m_active) {
         return;
     }
@@ -1490,11 +1490,11 @@ void W8MainGameTextEntry::Redraw(bool full_redraw)
     left = ScreenBounds().x;
     top = ScreenBounds().y;
     if (image == 0) {
-        CatalogArtwork::Load(0x1b3, 0).draw(GetFrameBufferSurface(), 2, left, top);
+        CatalogArtwork::Load(0x1b3, 0).draw(target, 2, left, top);
     } else if (image == 1) {
-        CatalogArtwork::Load(0x1b3, 0).draw(GetFrameBufferSurface(), 0, left, top);
+        CatalogArtwork::Load(0x1b3, 0).draw(target, 0, left, top);
     } else if (image == 2) {
-        CatalogArtwork::Load(0x1b3, 0).draw(GetFrameBufferSurface(), 1, left, top);
+        CatalogArtwork::Load(0x1b3, 0).draw(target, 1, left, top);
     }
 }
 
@@ -1593,7 +1593,7 @@ W8MainGameTextPanel::~W8MainGameTextPanel()
     DestroyAllControls();
 }
 
-void W8MainGameTextPanel::Redraw(bool full_redraw)
+void W8MainGameTextPanel::Redraw(SDL_Surface& target, bool full_redraw)
 {
     SDL_Rect clip;
     int progress;
@@ -1601,8 +1601,8 @@ void W8MainGameTextPanel::Redraw(bool full_redraw)
     if (m_dirty) {
         m_target_marker_pending = true;
     }
-    Controls::Redraw(full_redraw);
-    m_key_handler->m_range.Redraw(false);
+    Controls::Redraw(target, full_redraw);
+    m_key_handler->m_range.Redraw(target, false);
     if (!m_active) {
         return;
     }
@@ -1612,12 +1612,12 @@ void W8MainGameTextPanel::Redraw(bool full_redraw)
             m_progress_drawn = progress;
             InvalidateRegion(m_text_bounds.left, m_text_bounds.top, m_text_bounds.right,
                              m_text_bounds.bottom);
-            auto& framebuffer = GetFrameBufferSurface();
+            auto& framebuffer = target;
             SDL_GetSurfaceClipRect(&framebuffer, &clip);
             clip.h = (m_text_bounds.left + m_progress_drawn) - clip.y;
             ScopedClipRect clipped(framebuffer, clip);
-            CatalogArtwork::Load(0x1b5, 0).draw(GetFrameBufferSurface(), 0, m_text_bounds.left, m_text_bounds.top);
-            m_text_buffer.RenderToTarget(0, true, GetFrameBufferSurface());
+            CatalogArtwork::Load(0x1b5, 0).draw(target, 0, m_text_bounds.left, m_text_bounds.top);
+            m_text_buffer.RenderToTarget(0, true, target);
         }
     }
     if (m_active && m_target_changed && m_target_marker_pending) {
@@ -1625,7 +1625,7 @@ void W8MainGameTextPanel::Redraw(bool full_redraw)
         if (frame >= 7) {
             frame = 12 - frame;
         }
-        CatalogArtwork::Load(0x1b4, 0).drawAndInvalidate(GetFrameBufferSurface(), frame, ScreenBounds().x + 1, ScreenBounds().y + 2);
+        CatalogArtwork::Load(0x1b4, 0).drawAndInvalidate(target, frame, ScreenBounds().x + 1, ScreenBounds().y + 2);
         m_target_marker_pending = false;
     }
 }
@@ -1778,17 +1778,17 @@ int GetPartySlotLocksTrapsLevel(int slot)
     return static_cast<int>(character->skills[W8_SKILL_LOCKS_TRAPS].level);
 }
 
-void W8MainGameStatusPanel::Redraw(bool full_redraw)
+void W8MainGameStatusPanel::Redraw(SDL_Surface& target, bool full_redraw)
 {
     if (m_active && m_dirty) {
-        Controls::Redraw(full_redraw);
-        m_text->RenderToTarget(0, false, GetFrameBufferSurface());
-        m_text0->RenderToTarget(0, false, GetFrameBufferSurface());
-        m_text1->RenderToTarget(0, false, GetFrameBufferSurface());
-        m_text2->RenderToTarget(0, false, GetFrameBufferSurface());
-        m_text3->RenderToTarget(0, false, GetFrameBufferSurface());
-        m_text4->RenderToTarget(0, false, GetFrameBufferSurface());
-        m_text5->RenderToTarget(0, false, GetFrameBufferSurface());
+        Controls::Redraw(target, full_redraw);
+        m_text->RenderToTarget(0, false, target);
+        m_text0->RenderToTarget(0, false, target);
+        m_text1->RenderToTarget(0, false, target);
+        m_text2->RenderToTarget(0, false, target);
+        m_text3->RenderToTarget(0, false, target);
+        m_text4->RenderToTarget(0, false, target);
+        m_text5->RenderToTarget(0, false, target);
     }
 }
 
@@ -2301,9 +2301,9 @@ void UpdateMainGameScreen(void)
 /* Redraw the trap interaction's text, status and action panels. */
 void RedrawTrapInteractionPanels(void)
 {
-    g_main_game_screen->m_text_panel->Redraw(false);
-    g_main_game_screen->m_status_panel->Redraw(false);
-    g_main_game_screen->m_action_panel->Redraw(false);
+    g_main_game_screen->m_text_panel->Redraw(GetFrameBufferSurface(), false);
+    g_main_game_screen->m_status_panel->Redraw(GetFrameBufferSurface(), false);
+    g_main_game_screen->m_action_panel->Redraw(GetFrameBufferSurface(), false);
 }
 
 /* Leave trap interact mode. With `suspend` clear the main game screen object
@@ -2375,7 +2375,7 @@ W8NpcDialogueTextController::W8NpcDialogueTextController(int panel_left, int pan
 /* Expanded transcript paint: when dirty, redraw the panel backdrop, optionally
    tile the line/margin catalog images for the open layout, then forward to
    active children and the embedded text area. */
-void W8NpcDialogueTextController::Redraw(bool full_redraw)
+void W8NpcDialogueTextController::Redraw(SDL_Surface& target, bool full_redraw)
 {
     bool was_dirty;
     bool force;
@@ -2386,7 +2386,7 @@ void W8NpcDialogueTextController::Redraw(bool full_redraw)
     if (m_active) {
         force = was_dirty;
         if (force) {
-            m_background->drawAndInvalidate(GetFrameBufferSurface(), m_backgroundImage,
+            m_background->drawAndInvalidate(target, m_backgroundImage,
                                             ScreenBounds().x, ScreenBounds().y);
             m_dirty = false;
         }
@@ -2396,20 +2396,20 @@ void W8NpcDialogueTextController::Redraw(bool full_redraw)
                 top = (ScreenBounds().y - height) + margin;
                 if (height < scroll_height) {
                     do {
-                        m_background->drawAndInvalidate(GetFrameBufferSurface(), line_image,
+                        m_background->drawAndInvalidate(target, line_image,
                                                         ScreenBounds().x, top);
                         top -= line_height;
                         height += line_height;
                     } while (height < scroll_height);
                 }
-                m_background->drawAndInvalidate(GetFrameBufferSurface(), margin_image,
+                m_background->drawAndInvalidate(target, margin_image,
                                                 ScreenBounds().x,
                                                 (line_height - margin) + top);
                 force = true;
             } else if (!force && !m_childrenDirty) {
                 return;
             }
-            RedrawChildren(force);
+            RedrawChildren(target, force);
             text_area.Draw(force);
         }
     }

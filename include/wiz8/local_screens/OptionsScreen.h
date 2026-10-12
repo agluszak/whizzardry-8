@@ -53,7 +53,7 @@ public:
     W8OptionsSaveRow(int top, unsigned char save_mode);
     void SetSave(W8SaveSlot& save);
     void ClearSave();
-    virtual void Redraw(bool full_redraw) override;
+    virtual void Redraw(SDL_Surface& target, bool full_redraw) override;
     virtual void OnLeftButtonUp(int event) override;
     virtual void OnLeftButtonDoubleClick(int event) override;
 
@@ -136,7 +136,7 @@ class W8OptionsSlider : public W8HorizontalRangeThumb {
 public:
     W8OptionsSlider(int top, float* value, bool alternate);
     virtual void OnMouseMove(int event) override;
-    virtual void Redraw(bool full_redraw) override;
+    virtual void Redraw(SDL_Surface& target, bool full_redraw) override;
     float* m_value;
 };
 
@@ -155,7 +155,7 @@ class W8OptionsPanel : public Controls {
 public:
     W8OptionsPanel();
     virtual ~W8OptionsPanel();
-    void Redraw(bool full_redraw) override;
+    void Redraw(SDL_Surface& target, bool full_redraw) override;
     virtual void Populate() = 0;
     virtual void SetActive(bool active);
     virtual void SetCurrent(int current);
@@ -238,7 +238,7 @@ public:
 class W8OptionsButton : public W8TextControl {
 public:
     W8OptionsButton(int left, int top, int right, int bottom, std::string_view text);
-    virtual void Redraw(bool full_redraw) override;
+    virtual void Redraw(SDL_Surface& target, bool full_redraw) override;
     virtual void OnMouseEnter(int event) override;
     virtual void OnMouseLeave(int event) override;
 };
@@ -346,7 +346,7 @@ struct W8OptionsPanelRange {
 class W8OptionsMenuButton : public W8TextControl {
 public:
     explicit W8OptionsMenuButton(const W8OptionsMenuRow& row);
-    virtual void Redraw(bool full_redraw) override;
+    virtual void Redraw(SDL_Surface& target, bool full_redraw) override;
     virtual void EnableSecondaryState(bool immediate) override;
 
     int m_item_id;
@@ -370,7 +370,7 @@ class W8OptionsMenuSet : public Controls, public W8TextControl::Listener {
 public:
     W8OptionsMenuSet();
     virtual ~W8OptionsMenuSet();
-    void Redraw(bool full_redraw) override;
+    void Redraw(SDL_Surface& target, bool full_redraw) override;
     virtual void OnPrimary(W8TextControl* control) override;
 
     W8OptionsPanelSet* m_pMenuSet; /* OptionsScreen.cpp:1481 */

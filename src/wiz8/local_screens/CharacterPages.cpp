@@ -240,9 +240,9 @@ void W8CharacterPage::SetCharacter(W8Character* character, W8CharacterCreationSt
 }
 
 // FUNCTION: WIZ8 0x005aff20
-void W8CharacterPage::Redraw(bool full_redraw)
+void W8CharacterPage::Redraw(SDL_Surface& target, bool full_redraw)
 {
-    Controls::Redraw(full_redraw);
+    Controls::Redraw(target, full_redraw);
     for (int index = 0; index < static_cast<int>(m_entries.size()); ++index) {
         m_entries[index]->Redraw();
     }

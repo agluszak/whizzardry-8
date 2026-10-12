@@ -320,11 +320,11 @@ W8JournalPanel::~W8JournalPanel()
 }
 
 // FUNCTION: WIZ8 0x005bdbf0
-void W8JournalPanel::Redraw(bool full_redraw)
+void W8JournalPanel::Redraw(SDL_Surface& target, bool full_redraw)
 {
     if (m_active && (m_dirty || m_childrenDirty)) {
-        Controls::Redraw(full_redraw);
-        m_page_text->RenderToTarget(0, true, GetFrameBufferSurface());
+        Controls::Redraw(target, full_redraw);
+        m_page_text->RenderToTarget(0, true, target);
     }
 }
 
@@ -452,6 +452,6 @@ void JournalScreenFrame(void)
         }
         return InputRoute::Handled;
     }});
-    g_journal_panel->Redraw(false);
+    g_journal_panel->Redraw(GetFrameBufferSurface(), false);
     RenderFrame();
 }

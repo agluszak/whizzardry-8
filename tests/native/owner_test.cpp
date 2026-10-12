@@ -2235,12 +2235,12 @@ TEST_CASE("Controls draw optional CatalogArtwork backgrounds", "[owner][catalog]
     Controls with_background(100, 100, 140, 120, sprites, 0);
     with_background.m_active = true;
     with_background.m_dirty = true;
-    with_background.Redraw(false);
+    with_background.Redraw(GetFrameBufferSurface(), false);
     REQUIRE(surface_pixel(framebuffer, 102, 103) == sprites.spriteSheet()->colors[1]);
     Controls without_background(150, 100, 190, 120, std::nullopt, 0);
     without_background.m_active = true;
     without_background.m_dirty = true;
-    without_background.Redraw(false);
+    without_background.Redraw(GetFrameBufferSurface(), false);
     REQUIRE(surface_pixel(framebuffer, 152, 103) == 0x07e0);
 
     // A bounded invalidation must not narrow a pending whole-panel one.
@@ -2249,7 +2249,7 @@ TEST_CASE("Controls draw optional CatalogArtwork backgrounds", "[owner][catalog]
     TakeUiUpload();
     with_background.InvalidateAll();
     with_background.InvalidateArea(corner);
-    with_background.Redraw(false);
+    with_background.Redraw(GetFrameBufferSurface(), false);
     const SDL_Rect whole{100, 100, extent.x, extent.y};
     const auto upload = TakeUiUpload();
     REQUIRE(SDL_RectsEqual(&upload, &whole));

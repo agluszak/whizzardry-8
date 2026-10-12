@@ -1174,7 +1174,7 @@ void UpdatePortraitAdvanceButtons(void)
             (*control)->SetActive(false);
         }
     }
-    g_portrait_panel->Redraw(false);
+    g_portrait_panel->Redraw(GetFrameBufferSurface(), false);
 }
 
 // FUNCTION: WIZ8 0x0059BCA0
@@ -1232,11 +1232,11 @@ void CreateLevelButtons(void)
 }
 
 // FUNCTION: WIZ8 0x00599210
-void W8ConditionButton::Redraw(bool full_redraw)
+void W8ConditionButton::Redraw(SDL_Surface& target, bool full_redraw)
 {
     bool dirty = m_dirty;
 
-    W8TextControl::Redraw(full_redraw);
+    W8TextControl::Redraw(target, full_redraw);
     if (!m_active) {
         return;
     }
@@ -1250,9 +1250,9 @@ void W8ConditionButton::Redraw(bool full_redraw)
     const int left = origin.x + 2;
     const int top = origin.y + 2;
     if (m_condition == 0) {
-        CatalogArtwork::Load(m_image_object + 0xb6, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, left, top);
+        CatalogArtwork::Load(m_image_object + 0xb6, 0).drawAndInvalidate(target, 0, left, top);
     } else if (m_condition == 1) {
-        CatalogArtwork::Load(m_image_object + 0xc9, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, left, top);
+        CatalogArtwork::Load(m_image_object + 0xc9, 0).drawAndInvalidate(target, 0, left, top);
     }
 }
 
@@ -1403,7 +1403,7 @@ void UpdateConditionButtons(void)
             button->Invalidate(false);
         }
     }
-    g_condition_buttons_panel->Redraw(false);
+    g_condition_buttons_panel->Redraw(GetFrameBufferSurface(), false);
 }
 
 // FUNCTION: WIZ8 0x0059C260

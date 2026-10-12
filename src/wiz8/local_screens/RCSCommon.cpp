@@ -518,7 +518,7 @@ void UpdateRcsLevelUpPanel(void)
         g_level_up_button->SetActive(true);
         RedrawRcsLevelUpPanel();
     }
-    g_level_up_panel->Redraw(false);
+    g_level_up_panel->Redraw(GetFrameBufferSurface(), false);
 }
 
 /* Single level-up button (help 1984). Assembly writes region flags through the
@@ -622,7 +622,7 @@ void UpdateRcsDismissPanel(void)
     } else if (g_dismiss_button->m_active) {
         g_dismiss_button->SetActive(false);
     }
-    g_dismiss_panel->Redraw(false);
+    g_dismiss_panel->Redraw(GetFrameBufferSurface(), false);
 }
 
 /* Formation storage. Physical retail TU attribution remains unresolved;
@@ -1243,7 +1243,7 @@ void RefreshCampItemActions(bool invalidate)
     if (invalidate) {
         g_item_actions_panel->InvalidateAll();
     }
-    g_item_actions_panel->Redraw(false);
+    g_item_actions_panel->Redraw(GetFrameBufferSurface(), false);
 }
 
 /* Switch the items-page action mode: every action button's secondary state is

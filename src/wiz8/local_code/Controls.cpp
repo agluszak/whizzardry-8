@@ -817,7 +817,7 @@ SDL_Point W8TextControl::ImageOrigin()
 }
 
 // FUNCTION: WIZ8 0x004f4990
-void W8TextControl::Redraw(bool full_redraw)
+void W8TextControl::Redraw(SDL_Surface& target, bool full_redraw)
 {
     if (!m_active || m_pPanel == 0) {
         return;
@@ -831,14 +831,14 @@ void W8TextControl::Redraw(bool full_redraw)
 
     if (!full_redraw && !m_dirty) {
         if (m_textBuffer.HasBuffer()) {
-            m_textBuffer.RenderToTarget(text_state, false, GetFrameBufferSurface());
+            m_textBuffer.RenderToTarget(text_state, false, target);
         }
         return;
     }
 
     if (!m_imageSprites) {
         if (m_textBuffer.HasBuffer()) {
-            m_textBuffer.RenderToTarget(text_state, full_redraw, GetFrameBufferSurface());
+            m_textBuffer.RenderToTarget(text_state, full_redraw, target);
         }
         return;
     }
@@ -848,10 +848,10 @@ void W8TextControl::Redraw(bool full_redraw)
         sprite = m_disabledSprite;
         if (sprite == -1) {
             if (m_textBuffer.HasBuffer()) {
-                m_textBuffer.RenderToTarget(text_state, full_redraw, GetFrameBufferSurface());
+                m_textBuffer.RenderToTarget(text_state, full_redraw, target);
             }
             const auto bounds = ScreenBounds();
-            ShadowRect(GetFrameBufferSurface(), {bounds.x, bounds.y, bounds.w + 1, bounds.h + 1});
+            ShadowRect(target, {bounds.x, bounds.y, bounds.w + 1, bounds.h + 1});
             m_dirty = false;
             return;
         }
@@ -876,12 +876,12 @@ void W8TextControl::Redraw(bool full_redraw)
                 y += y_inset / 2;
             }
         }
-        DrawSpriteAndInvalidate(GetFrameBufferSurface(), *m_imageSprites,
+        DrawSpriteAndInvalidate(target, *m_imageSprites,
                                 m_imageYOffset + sprite, x, y);
     }
 
     if (m_textBuffer.HasBuffer()) {
-        m_textBuffer.RenderToTarget(text_state, full_redraw, GetFrameBufferSurface());
+        m_textBuffer.RenderToTarget(text_state, full_redraw, target);
     }
     m_dirty = false;
 }
@@ -1290,7 +1290,7 @@ public:
     /* Retail ICF folds this onto W8HorizontalRangeThumb's deleting destructor
        at 0x004f69b0. */
 
-    virtual void Redraw(bool full_redraw) override;
+    virtual void Redraw(SDL_Surface& target, bool full_redraw) override;
     void AdjustValue(int steps) override;
     virtual void OnMouseEnter(int event) override;
     virtual void OnMouseLeave(int event) override;
@@ -1563,14 +1563,14 @@ void W8VerticalRangeThumb::AdjustValue(int steps)
 }
 
 // FUNCTION: WIZ8 0x004f5f60
-void W8VerticalRangeThumb::Redraw(bool full_redraw)
+void W8VerticalRangeThumb::Redraw(SDL_Surface& target, bool full_redraw)
 {
     if (!m_active || (!full_redraw && !m_dirty)) {
         return;
     }
     const auto area = ScreenBounds();
     InvalidateRegion(area.x, area.y, area.x + area.w, area.y + area.h);
-    SDL_FillSurfaceRect(&GetFrameBufferSurface(), &area, 0x8000);
+    SDL_FillSurfaceRect(&target, &area, 0x8000);
 
     int sprite;
     if (!m_enabled) {
@@ -1581,7 +1581,7 @@ void W8VerticalRangeThumb::Redraw(bool full_redraw)
     } else if (!m_hovered || (sprite = m_hoveredSprite) == -1) {
         sprite = m_normalSprite;
     }
-    m_artwork.draw(GetFrameBufferSurface(), sprite, area.x + m_drawOffsetX,
+    m_artwork.draw(target, sprite, area.x + m_drawOffsetX,
                    area.y + m_pixelPosition);
 }
 
@@ -1824,14 +1824,14 @@ void W8HorizontalRangeThumb::OnMouseMove(int event)
 }
 
 // FUNCTION: WIZ8 0x004f5a80
-void W8HorizontalRangeThumb::Redraw(bool full_redraw)
+void W8HorizontalRangeThumb::Redraw(SDL_Surface& target, bool full_redraw)
 {
     if (!m_active || (!full_redraw && !m_dirty)) {
         return;
     }
 
     const auto [x, y, width, height] = ScreenBounds();
-    m_artwork.drawAndInvalidate(GetFrameBufferSurface(), m_backgroundSprite, x, y);
+    m_artwork.drawAndInvalidate(target, m_backgroundSprite, x, y);
 
     int sprite;
     if (!m_enabled && m_disabledThumbSprite != -1) {
@@ -1841,7 +1841,7 @@ void W8HorizontalRangeThumb::Redraw(bool full_redraw)
     } else {
         sprite = m_normalThumbSprite;
     }
-    m_artwork.draw(GetFrameBufferSurface(), sprite, x + m_pixelPosition, y);
+    m_artwork.draw(target, sprite, x + m_pixelPosition, y);
 }
 
 /* Enables or disables the whole panel: the panel's own flag, then every child's,
@@ -1939,7 +1939,7 @@ void Controls::InvalidateLayout()
     RequestRedraw(W8_MAIN_REDRAW_FRAME);
 }
 
-void Controls::RedrawControls(bool full_redraw)
+void Controls::RedrawControls(SDL_Surface& target, bool full_redraw)
 {
     if (full_redraw) {
         if (!m_dirtyRect) {
@@ -1953,7 +1953,7 @@ void Controls::RedrawControls(bool full_redraw)
         m_dirty = false;
         m_dirtyRect.reset();
     }
-    RedrawChildren(full_redraw);
+    RedrawChildren(target, full_redraw);
 }
 
 /* Flushes pending panel drawing, then asks each enabled child to redraw. A
@@ -1961,7 +1961,7 @@ void Controls::RedrawControls(bool full_redraw)
    request uses the accumulated rectangle. A forced redraw (from a parent
    repainting over this panel) repaints all of it. */
 // FUNCTION: WIZ8 0x004f2f10
-void Controls::Redraw(bool full_redraw)
+void Controls::Redraw(SDL_Surface& target, bool full_redraw)
 {
     bool redrawn = false;
 
@@ -1974,14 +1974,14 @@ void Controls::Redraw(bool full_redraw)
     }
     if (m_dirty) {
         if (m_background) {
-            m_background->draw(GetFrameBufferSurface(), m_backgroundImage, ScreenBounds().x,
+            m_background->draw(target, m_backgroundImage, ScreenBounds().x,
                                ScreenBounds().y);
         }
         redrawn = true;
     } else if (!m_childrenDirty) {
         return;
     }
-    RedrawControls(redrawn);
+    RedrawControls(target, redrawn);
 }
 
 /* Children keep their relative rectangles and re-derive their screen

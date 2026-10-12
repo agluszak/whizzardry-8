@@ -45,7 +45,7 @@ struct Controls : W8Widget {
     /* Queue the whole panel, or just an area of it, for repainting. */
     virtual void InvalidateAll();
     void InvalidateArea(const W8ControlsRect& rect);
-    void Redraw(bool full_redraw) override;
+    void Redraw(SDL_Surface& target, bool full_redraw) override;
     bool m_childrenDirty = false;
     std::optional<CatalogArtwork> m_background;
     int m_backgroundImage;
@@ -86,15 +86,15 @@ struct Controls : W8Widget {
     void OnGeometryChanged() override;
     void BindRegion(unsigned int set) override;
     void UnbindRegion() override;
-    void RedrawChildren(bool full_redraw)
+    void RedrawChildren(SDL_Surface& target, bool full_redraw)
     {
-        for (int index = 0; index < static_cast<int>(m_controls.size()); ++index) {
-            if (ControlAt(index)->m_active) {
-                ControlAt(index)->Redraw(full_redraw);
+        for (const auto& control : m_controls) {
+            if (control->m_active) {
+                control->Redraw(target, full_redraw);
             }
         }
         m_childrenDirty = false;
     }
-    void RedrawControls(bool full_redraw);
+    void RedrawControls(SDL_Surface& target, bool full_redraw);
 };
 

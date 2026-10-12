@@ -130,7 +130,7 @@ void RefreshSpellIconHudRows(void)
     RebuildSpellIconHudRows();
     g_spell_icon_strip->SetActive(true);
     if (g_spell_icon_count != 0) {
-        g_spell_icon_strip->Redraw(false);
+        g_spell_icon_strip->Redraw(GetFrameBufferSurface(), false);
     }
 }
 
@@ -182,10 +182,10 @@ void RefreshCombatEffectHud(void)
     g_combat_effect_left_panel->SetActive(true);
     g_combat_effect_right_panel->SetActive(true);
     if (g_combat_effect_left_count != 0) {
-        g_combat_effect_left_panel->Redraw(false);
+        g_combat_effect_left_panel->Redraw(GetFrameBufferSurface(), false);
     }
     if (g_combat_effect_right_count != 0) {
-        g_combat_effect_right_panel->Redraw(false);
+        g_combat_effect_right_panel->Redraw(GetFrameBufferSurface(), false);
     }
     if (g_level_block->portrait_refresh_pending[0] != 0) {
         g_combat_effect_left_panel->SetActive(false);

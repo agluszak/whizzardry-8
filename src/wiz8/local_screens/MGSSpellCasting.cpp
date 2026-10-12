@@ -768,7 +768,7 @@ void SetSpellCastingPanelsActive(bool active)
                 text_pending = description->m_active &&
                                (description->m_dirty || description->m_childrenDirty);
             }
-            panel->Redraw(false);
+            panel->Redraw(GetFrameBufferSurface(), false);
             if (text_pending) {
                 RedrawTextBoxScrollChrome();
             }

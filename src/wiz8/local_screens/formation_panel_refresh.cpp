@@ -11,6 +11,6 @@ void RefreshFormationPanel(bool show_portraits)
             g_formation_panel->InvalidateAll();
             InvalidateRegion(0xd6, 0x3c, 0x1ab, 0x12f);
         }
-        g_formation_panel->Redraw(false);
+        g_formation_panel->Redraw(GetFrameBufferSurface(), false);
     }
 }

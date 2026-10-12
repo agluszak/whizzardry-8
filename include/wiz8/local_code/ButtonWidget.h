@@ -29,7 +29,7 @@ public:
     W8ButtonWidget();
     ~W8ButtonWidget() override;
     void Draw();
-    void Redraw(bool) override { Draw(); }
+    void Redraw(SDL_Surface&, bool) override { Draw(); }
     void Reset();
     bool IsConfigured() const { return OwnsRegion(); }
     void SetPosition(int x, int y);

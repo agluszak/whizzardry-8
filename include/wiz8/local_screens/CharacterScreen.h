@@ -77,7 +77,7 @@ public:
     W8CharacterPage(CatalogArtwork background);
     virtual ~W8CharacterPage();
     void InvalidateAll() override;
-    void Redraw(bool full_redraw) override;
+    void Redraw(SDL_Surface& target, bool full_redraw) override;
     virtual void SetCharacter(W8Character* character, W8CharacterCreationState* creation_state,
                               int mode);
     virtual void Activate() = 0;
@@ -122,7 +122,7 @@ class W8CharacterStatsValue : public W8TextControl {
 public:
     W8CharacterStatsValue(int x, int y,
                           const W8CharacterStatsRecord* default_record);
-    virtual void Redraw(bool full_redraw) override;
+    virtual void Redraw(SDL_Surface& target, bool full_redraw) override;
     virtual void OnRightButtonUp(int event) override;
     void SetRecord(const W8CharacterStatsRecord* record);
 
@@ -181,7 +181,7 @@ class W8CharacterStatsPage : public W8CharacterPage,
 public:
     W8CharacterStatsPage() : W8CharacterPage(CatalogArtwork::Load(0x104)) {}
     virtual ~W8CharacterStatsPage() override;
-    void Redraw(bool full_redraw) override;
+    void Redraw(SDL_Surface& target, bool full_redraw) override;
     virtual void SetCharacter(W8Character*, W8CharacterCreationState*, int) override;
     virtual void Activate() override;
     virtual void Deactivate() override;
@@ -237,7 +237,7 @@ public:
         }
     }
     virtual void SetCharacter(W8Character*, W8CharacterCreationState*, int) override;
-    void Redraw(bool full_redraw) override;
+    void Redraw(SDL_Surface& target, bool full_redraw) override;
     virtual void Activate() override;
     virtual void Deactivate() override;
     virtual void Accept() override;
@@ -258,7 +258,7 @@ private:
 class W8CharacterSkillsPage : public W8CharacterPage, public W8CharacterPageEntryListener {
 public:
     W8CharacterSkillsPage() : W8CharacterPage(CatalogArtwork::Load(0x108)) {}
-    void Redraw(bool full_redraw) override;
+    void Redraw(SDL_Surface& target, bool full_redraw) override;
     virtual void SetCharacter(W8Character*, W8CharacterCreationState*, int) override;
     virtual void Activate() override;
     virtual void Deactivate() override;
@@ -283,7 +283,7 @@ public:
         : W8CharacterPage(CatalogArtwork::Load(0x105)), anim_timer(0.4f, 1), m_animation_active(0)
     {
     }
-    void Redraw(bool full_redraw) override;
+    void Redraw(SDL_Surface& target, bool full_redraw) override;
     virtual void SetCharacter(W8Character*, W8CharacterCreationState*, int) override;
     virtual void Activate() override;
     virtual void Deactivate() override;

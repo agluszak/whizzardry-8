@@ -182,7 +182,7 @@ void DrawPartyMovementPanel(void)
             g_party_movement_buttons[1]->SetEnabled(true);
         }
     }
-    g_party_movement_panel->Redraw(false);
+    g_party_movement_panel->Redraw(GetFrameBufferSurface(), false);
     right = 0x1b9 - g_level_block->move_percent * 0xf6 / 100;
     if (!CanPartyMove()) {
         if (!IsLevelMovementStopped()) {

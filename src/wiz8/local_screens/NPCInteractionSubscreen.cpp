@@ -328,7 +328,7 @@ void W8NpcTypedDialoguePanel::SetActive(bool enable)
 
 /* Base redraw plus the input-frame image: drawn at y 0x19b while where_is_query is
    raised, else 0x18b. */
-void W8NpcTypedDialoguePanel::Redraw(bool full_redraw)
+void W8NpcTypedDialoguePanel::Redraw(SDL_Surface& target, bool full_redraw)
 {
     int redrawn = 0;
 
@@ -337,15 +337,15 @@ void W8NpcTypedDialoguePanel::Redraw(bool full_redraw)
     }
     if (m_dirty) {
         if (m_background) {
-            m_background->draw(GetFrameBufferSurface(), m_backgroundImage, ScreenBounds().x,
+            m_background->draw(target, m_backgroundImage, ScreenBounds().x,
                                ScreenBounds().y);
         }
-        CatalogArtwork::Load(0x1a9, 0).draw(GetFrameBufferSurface(), 0x10, 0x1df, g_npc_interaction_state->where_is_query ? 0x19b : 0x18b);
+        CatalogArtwork::Load(0x1a9, 0).draw(target, 0x10, 0x1df, g_npc_interaction_state->where_is_query ? 0x19b : 0x18b);
         redrawn = 1;
     } else if (!m_childrenDirty) {
         return;
     }
-    RedrawControls(redrawn != 0);
+    RedrawControls(target, redrawn != 0);
 }
 /* Unlike the base, the six option buttons stay inactive while the expanded
    NPC dialogue layout (dialogue_layout == W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX) is not up. */
@@ -377,7 +377,7 @@ void W8NpcDialogueOptionsPanel::SetActive(bool enable)
 
 /* Base redraw except the foreground catalog image is m_main_text_box_image rather than
    m_backgroundImage while the expanded dialogue layout is up. */
-void W8NpcDialogueOptionsPanel::Redraw(bool full_redraw)
+void W8NpcDialogueOptionsPanel::Redraw(SDL_Surface& target, bool full_redraw)
 {
     int redrawn = 0;
 
@@ -387,7 +387,7 @@ void W8NpcDialogueOptionsPanel::Redraw(bool full_redraw)
     if (m_dirty) {
         if (m_background) {
             m_background->draw(
-                GetFrameBufferSurface(),
+                target,
                 g_npc_interaction_state->dialogue_layout == W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX
                     ? m_main_text_box_image
                     : m_backgroundImage,
@@ -397,7 +397,7 @@ void W8NpcDialogueOptionsPanel::Redraw(bool full_redraw)
     } else if (!m_childrenDirty) {
         return;
     }
-    RedrawControls(redrawn != 0);
+    RedrawControls(target, redrawn != 0);
 }
 
 static std::optional<std::string> ParseKeywordToken(std::string_view& line)
@@ -1362,7 +1362,7 @@ void ActivateNpcDialoguePanels(bool active)
                                     (g_npc_interaction_state->dialogue_panels[1]->m_dirty ||
                                      g_npc_interaction_state->dialogue_panels[1]->m_childrenDirty);
                 }
-                panel[i]->Redraw(false);
+                panel[i]->Redraw(GetFrameBufferSurface(), false);
                 if (redraw_scroll) {
                     RedrawTextBoxScrollChrome();
                 }

@@ -91,7 +91,7 @@ public:
                            CatalogArtwork artwork, int background_sprite,
                            int normal_thumb_sprite, int hovered_thumb_sprite,
                            int disabled_thumb_sprite);
-    virtual void Redraw(bool full_redraw) override;
+    virtual void Redraw(SDL_Surface& target, bool full_redraw) override;
     void UpdatePixelPosition();
     virtual void OnLeftButtonDown(int event) override;
     virtual void OnLeftButtonUp(int event) override;

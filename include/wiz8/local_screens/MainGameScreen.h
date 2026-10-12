@@ -70,7 +70,7 @@ class W8MainGameTextKeyHandler : public W8Widget, public W8RangeListener {
 public:
     W8MainGameTextKeyHandler(int left, int top, int right, int bottom, int line_count,
                              const unsigned short* line_string_ids);
-    virtual void Redraw(bool full_redraw) override;
+    virtual void Redraw(SDL_Surface& target, bool full_redraw) override;
     virtual void OnMouseLeave(int event) override;
     virtual void OnMouseMove(int event) override;
     virtual void AdjustValue(int steps) override;
@@ -99,7 +99,7 @@ public:
 class W8MainGameTextEntry : public W8TextControl {
 public:
     explicit W8MainGameTextEntry(int index);
-    virtual void Redraw(bool full_redraw) override;
+    virtual void Redraw(SDL_Surface& target, bool full_redraw) override;
     virtual void OnMouseEnter(int event) override;
     virtual void OnLeftButtonDown(int event) override;
     virtual void OnLeftButtonUp(int event) override;
@@ -118,7 +118,7 @@ public:
 
     W8MainGameTextPanel();
     virtual ~W8MainGameTextPanel();
-    void Redraw(bool full_redraw) override;
+    void Redraw(SDL_Surface& target, bool full_redraw) override;
     virtual void OnPrimary(W8TextControl* control) override;
     virtual void OnSecondary(W8TextControl*) override {}
     virtual void OnRangeChanged(W8RangeControl* control) override;
@@ -147,7 +147,7 @@ public:
 class W8MainGameStatusPanel : public Controls {
 public:
     W8MainGameStatusPanel();
-    void Redraw(bool full_redraw) override;
+    void Redraw(SDL_Surface& target, bool full_redraw) override;
     void RefreshStatusTexts();
 
     std::unique_ptr<W8TextBuffer> m_text;
@@ -167,7 +167,7 @@ public:
     W8NpcDialogueTextController(int panel_left, int panel_top, int panel_right, int panel_bottom,
                                 CatalogArtwork artwork, int background_image,
                                 int margin_image, int line_image);
-    void Redraw(bool full_redraw) override;
+    void Redraw(SDL_Surface& target, bool full_redraw) override;
     bool HandleScrollDownCommand(bool check_only);
     bool HandleScrollUpCommand(bool check_only);
     /* Add one keyword line to the transcript unless the text is already
@@ -252,7 +252,7 @@ public:
           m_listener(0)
     {
     }
-    virtual void Redraw(bool full_redraw) override;
+    virtual void Redraw(SDL_Surface& target, bool full_redraw) override;
     virtual void OnMouseEnter(int event) override;
     virtual void OnMouseLeave(int event) override;
     virtual void OnLeftButtonDown(int event) override;
@@ -305,7 +305,7 @@ class W8LockInfoPanel : public Controls {
 public:
     W8LockInfoPanel(int tumbler_count);
 
-    void Redraw(bool full_redraw) override;
+    void Redraw(SDL_Surface& target, bool full_redraw) override;
     void RefreshInfo();
 
     int m_tumbler_count;

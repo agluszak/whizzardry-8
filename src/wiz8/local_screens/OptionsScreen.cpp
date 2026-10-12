@@ -578,12 +578,12 @@ W8OptionsSaveRow::W8OptionsSaveRow(int top, unsigned char save_mode)
     AddLayoutFlags(g_W8TextControlLayoutLatchedImage | g_W8TextControlLayoutToggle);
 }
 
-void W8OptionsSaveRow::Redraw(bool full_redraw)
+void W8OptionsSaveRow::Redraw(SDL_Surface& target, bool full_redraw)
 {
     if (!m_active || (!full_redraw && !m_dirty)) {
         return;
     }
-    W8TextControl::Redraw(full_redraw);
+    W8TextControl::Redraw(target, full_redraw);
     if (!m_enabled || m_save == 0) {
         return;
     }
@@ -591,7 +591,7 @@ void W8OptionsSaveRow::Redraw(bool full_redraw)
     int x = ScreenBounds().x;
     int y = ScreenBounds().y;
     if (m_save->screenshot.capture_result == 0) {
-        CatalogArtwork::Load(0xf6, 0).draw(GetFrameBufferSurface(), 0, x + 6, y + 6);
+        CatalogArtwork::Load(0xf6, 0).draw(target, 0, x + 6, y + 6);
     } else {
         auto portrait = std::make_unique<srColorSurface>(srPixelConvert::SURFACE_ARGB1555,
                                                       m_save->screenshot.pixels, 0x50, 0x3c, 0xa0);
@@ -609,21 +609,21 @@ void W8OptionsSaveRow::Redraw(bool full_redraw)
     int text_x = x + 0x5e;
     if (m_save->version_major + m_save->version_minor * 0.1f + m_save->version_patch * 0.01f <=
         1.24f) {
-        DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {text_x, y + 9}, level_name);
-        DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {text_x, y + 0x16},
+        DrawText(target, g_wiz_text_font_secondary, {text_x, y + 9}, level_name);
+        DrawText(target, g_wiz_text_font_secondary, {text_x, y + 0x16},
                  fmt::format("{} {:3d}, {:2d}:{:02d}", g_localized_strings[0x826],
                              m_save->game_time_days, m_save->game_time_ms / 3600000,
                              (m_save->game_time_ms / 60000) % 60));
-        DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {text_x, y + 0x23}, timestamp);
+        DrawText(target, g_wiz_text_font_secondary, {text_x, y + 0x23}, timestamp);
     } else {
-        DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {text_x, y + 9},
+        DrawText(target, g_wiz_text_font_secondary, {text_x, y + 9},
                  g_localized_strings[0x830]);
-        DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {text_x, y + 0x16},
+        DrawText(target, g_wiz_text_font_secondary, {text_x, y + 0x16},
                  g_localized_strings[0x831]);
     }
-    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {text_x, y + 0x34}, m_save->name);
+    DrawText(target, g_wiz_text_font_secondary, {text_x, y + 0x34}, m_save->name);
     if (m_save->iron_man) {
-        DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {x + 0x156, y + 9},
+        DrawText(target, g_wiz_text_font_secondary, {x + 0x156, y + 9},
                  g_localized_strings[0x827]);
     }
 }
@@ -662,7 +662,7 @@ void W8OptionsScreen::BeginSaveNameEdit(W8OptionsTextEditor::Listener* listener,
     m_text_editor = std::move(editor);
 }
 
-void W8OptionsButton::Redraw(bool full_redraw)
+void W8OptionsButton::Redraw(SDL_Surface& target, bool full_redraw)
 {
     if (m_active && (full_redraw || m_dirty) && m_textBuffer.HasBuffer()) {
         if (m_enabled) {
@@ -674,7 +674,7 @@ void W8OptionsButton::Redraw(bool full_redraw)
             }
             m_textBuffer.SetFontStateIndex(font_state);
         }
-        m_textBuffer.RenderToTarget(0, full_redraw, GetFrameBufferSurface());
+        m_textBuffer.RenderToTarget(0, full_redraw, target);
         m_dirty = false;
     }
 }
@@ -1353,12 +1353,12 @@ void W8OptionsScreen::Redraw()
     if (m_selected_panel != -1) {
         W8OptionsPanelSet* panel_set = m_panel[m_selected_panel].get();
         if (panel_set->m_active) {
-            panel_set->m_panels[panel_set->m_current]->Redraw(false);
+            panel_set->m_panels[panel_set->m_current]->Redraw(GetFrameBufferSurface(), false);
         }
     }
-    m_controls->Redraw(false);
+    m_controls->Redraw(GetFrameBufferSurface(), false);
     if (m_selected_panel != -1) {
-        m_menu_set->Redraw(false);
+        m_menu_set->Redraw(GetFrameBufferSurface(), false);
     }
     if (m_active_modal != 0) {
         m_active_modal->Draw();
@@ -1524,20 +1524,20 @@ void W8OptionsSlider::OnMouseMove(int event)
     }
 }
 
-void W8OptionsSlider::Redraw(bool full_redraw)
+void W8OptionsSlider::Redraw(SDL_Surface& target, bool full_redraw)
 {
     if (m_active && (full_redraw || m_dirty)) {
-        W8HorizontalRangeThumb::Redraw(full_redraw);
+        W8HorizontalRangeThumb::Redraw(target, full_redraw);
         if (m_enabled && m_pixelPosition > 13) {
             int left = ScreenBounds().x;
             int top = ScreenBounds().y;
             unsigned short color = Get16BPPColor(SDL_Color{0, 255, 0, SDL_ALPHA_OPAQUE});
             int end = m_pixelPosition < 74 ? m_pixelPosition - 1 : 73;
             const SDL_Rect first_segment{left + 13, top + 7, end - 13, 2};
-            SDL_FillSurfaceRect(&GetFrameBufferSurface(), &first_segment, color);
+            SDL_FillSurfaceRect(&target, &first_segment, color);
             if (m_pixelPosition > 83) {
                 const SDL_Rect second_segment{left + 83, top + 7, m_pixelPosition - 84, 2};
-                SDL_FillSurfaceRect(&GetFrameBufferSurface(), &second_segment, color);
+                SDL_FillSurfaceRect(&target, &second_segment, color);
             }
         }
     }
@@ -1617,13 +1617,13 @@ void W8OptionsPanel::AddChoices(int label, int count, const int* choices, int* v
     m_content_top += 22;
 }
 
-void W8OptionsMenuButton::Redraw(bool full_redraw)
+void W8OptionsMenuButton::Redraw(SDL_Surface& target, bool full_redraw)
 {
     if ((full_redraw || m_dirty) && (m_stateFlags & g_W8TextControlStateSecondary) != 0 &&
         m_item_id != -1) {
-        CatalogArtwork::Load(0xf0, 0).drawAndInvalidate(GetFrameBufferSurface(), m_item_id, 12, 15);
+        CatalogArtwork::Load(0xf0, 0).drawAndInvalidate(target, m_item_id, 12, 15);
     }
-    W8TextControl::Redraw(full_redraw);
+    W8TextControl::Redraw(target, full_redraw);
 }
 
 void W8OptionsMenuButton::EnableSecondaryState(bool immediate)
@@ -1632,22 +1632,22 @@ void W8OptionsMenuButton::EnableSecondaryState(bool immediate)
     Invalidate(immediate);
 }
 
-void W8OptionsPanel::Redraw(bool full_redraw)
+void W8OptionsPanel::Redraw(SDL_Surface& target, bool full_redraw)
 {
     bool redraw_text = m_dirty && m_active;
-    Controls::Redraw(full_redraw);
+    Controls::Redraw(target, full_redraw);
     if (redraw_text) {
         for (int index = 0; index < static_cast<int>(m_text_buffers.size()); ++index) {
-            m_text_buffers[index]->RenderToTarget(0, true, GetFrameBufferSurface());
+            m_text_buffers[index]->RenderToTarget(0, true, target);
         }
     }
 }
 
-void W8OptionsMenuSet::Redraw(bool full_redraw)
+void W8OptionsMenuSet::Redraw(SDL_Surface& target, bool full_redraw)
 {
     if (m_active && (m_dirty || m_childrenDirty)) {
-        Controls::Redraw(full_redraw);
-        m_page_text->RenderToTarget(0, true, GetFrameBufferSurface());
+        Controls::Redraw(target, full_redraw);
+        m_page_text->RenderToTarget(0, true, target);
     }
 }
 

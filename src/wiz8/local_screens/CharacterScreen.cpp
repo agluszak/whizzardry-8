@@ -764,8 +764,8 @@ void CharacterScreenFrame(void)
     });
     if (screen->m_header_dirty)
         screen->DrawHeader();
-    screen->m_pages[screen->m_page_index]->Redraw(false);
-    screen->m_controls->Redraw(false);
+    screen->m_pages[screen->m_page_index]->Redraw(GetFrameBufferSurface(), false);
+    screen->m_controls->Redraw(GetFrameBufferSurface(), false);
     if (screen->m_dialog != 0)
         screen->m_dialog->Draw();
     RenderFrame();

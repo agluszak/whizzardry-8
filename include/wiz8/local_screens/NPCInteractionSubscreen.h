@@ -66,7 +66,7 @@ public:
         m_main_text_box_image = 0x11;
     }
     virtual void SetActive(bool enable) override;
-    void Redraw(bool full_redraw) override;
+    void Redraw(SDL_Surface& target, bool full_redraw) override;
 
     int m_main_text_box_image;
 };
@@ -83,7 +83,7 @@ public:
     {
     }
     virtual void SetActive(bool enable) override;
-    void Redraw(bool full_redraw) override;
+    void Redraw(SDL_Surface& target, bool full_redraw) override;
 };
 
 struct W8PendingNoticeLine {

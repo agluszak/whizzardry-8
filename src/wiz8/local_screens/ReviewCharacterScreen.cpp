@@ -609,15 +609,15 @@ void RedrawCampItemsPage(void)
     }
     if ((g_camp_screen->redraw_flags & W8_CAMP_REDRAW_ACTION_PANEL) != 0) {
         g_camp_action_panel->InvalidateAll();
-        g_camp_action_panel->Redraw(false);
+        g_camp_action_panel->Redraw(GetFrameBufferSurface(), false);
     } else {
-        g_camp_action_panel->Redraw(false);
+        g_camp_action_panel->Redraw(GetFrameBufferSurface(), false);
     }
     if ((g_camp_screen->redraw_flags & W8_CAMP_REDRAW_REALM_TABS) != 0) {
         g_camp_item_filter_panel->InvalidateAll();
-        g_camp_item_filter_panel->Redraw(false);
+        g_camp_item_filter_panel->Redraw(GetFrameBufferSurface(), false);
     } else {
-        g_camp_item_filter_panel->Redraw(false);
+        g_camp_item_filter_panel->Redraw(GetFrameBufferSurface(), false);
     }
 }
 
@@ -1060,7 +1060,7 @@ void W8CampCharacterInfo::OnPrimary(W8TextControl* control)
 unsigned short g_camp_armor_class_labels[12] = {1052, 1053, 1054, 1055, 1056, 1057,
                                                 1058, 1059, 1060, 1061, 1062, 1063};
 
-void W8CampCharacterInfo::Redraw(bool full_redraw)
+void W8CampCharacterInfo::Redraw(SDL_Surface& target, bool full_redraw)
 {
     bool redraw = m_active && m_dirty;
     if (!m_combat_view &&
@@ -1070,7 +1070,7 @@ void W8CampCharacterInfo::Redraw(bool full_redraw)
           m_backgroundImage == 2))) {
         SetCombatView(false);
     }
-    Controls::Redraw(full_redraw);
+    Controls::Redraw(target, full_redraw);
     if (!redraw)
         return;
     InvalidateCampPanel();
@@ -1602,19 +1602,19 @@ void DrawCampScreen(void)
             }
         }
     }
-    state->character_info->Redraw(false);
+    state->character_info->Redraw(GetFrameBufferSurface(), false);
     if (state->page == W8_CAMP_PAGE_ITEMS) {
         RefreshCampActionPanel(false);
         RefreshItemsTabPanel(false);
         RefreshCampSecondaryPanel(false);
-        state->item_range->m_range->Redraw(false);
+        state->item_range->m_range->Redraw(GetFrameBufferSurface(), false);
         if (IsKeyHeld(VK_CONTROL) && state->dialog == 0) {
             DrawCampItemIcons();
             state->item_icons_drawn = true;
         }
     } else if (state->page == W8_CAMP_PAGE_STATS) {
         state->stats_range->UpdateRange(false);
-        state->stats_controls->Redraw(false);
+        state->stats_controls->Redraw(GetFrameBufferSurface(), false);
     } else if (state->page == W8_CAMP_PAGE_SPELLS) {
         for (index = 0; index < 6; ++index) {
             state->spell_ranges[index]->UpdateRange(false);

@@ -968,7 +968,7 @@ void RedrawKeyboardMenuPanel(bool invalidate)
     if (invalidate) {
         g_keyboard_menu_panel->InvalidateAll();
     }
-    g_keyboard_menu_panel->Redraw(false);
+    g_keyboard_menu_panel->Redraw(GetFrameBufferSurface(), false);
 }
 
 static void ChooseKeyboardMenuAction(W8ActionKind action)

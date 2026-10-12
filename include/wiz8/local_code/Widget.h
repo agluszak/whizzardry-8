@@ -36,7 +36,7 @@ public:
     virtual void SetEnabled(bool enabled);
     /* Default hooks; Redraw's flag is the panel's dirty state. */
     // FUNCTION: WIZ8 0x005b1be0
-    virtual void Redraw(bool) {}
+    virtual void Redraw(SDL_Surface&, bool) {}
     /* The widget's rectangle relative to its panel, and on screen. A widget
        without a panel sits at the screen origin. */
     const SDL_Rect& Bounds() const { return m_rect; }

@@ -160,7 +160,7 @@ void RefreshSubMenuPanel(bool invalidate)
     if (invalidate) {
         gpSubMenuPanel->InvalidateAll();
     }
-    gpSubMenuPanel->Redraw(false);
+    gpSubMenuPanel->Redraw(GetFrameBufferSurface(), false);
 }
 
 static void ChooseSubMenuAction(W8ActionKind action)

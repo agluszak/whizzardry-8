@@ -66,7 +66,7 @@ public:
     SDL_Point ImageOrigin();
     void Invalidate(bool immediate);
     virtual void SetEnabled(bool enabled) override;
-    virtual void Redraw(bool full_redraw) override;
+    virtual void Redraw(SDL_Surface& target, bool full_redraw) override;
     void SetFlaggedRegionBounds(int left, int top, int right);
     virtual void AddLayoutFlags(unsigned int flags) override;
     virtual void SetAlternateTextEnabled(bool enabled) override;
