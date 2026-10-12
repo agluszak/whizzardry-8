@@ -263,14 +263,14 @@ void W8OptionsSaveLoadPanel::Populate()
 
     if (m_panel == 11) {
         m_delete_button =
-            EmplaceControl<W8TextControl>(0xffffffff, 0xd, 0x1b0, 0, 0, CatalogArtwork::Load(0xf8, 0), 6, 8, 7, -1, -1);
+            EmplaceControl<W8TextControl>(0xffffffff, 0xd, 0x1b0, 0, 0, CatalogArtwork::Load(0xf8, 0), W8SpriteStates{.normal = 6, .pressed = 8, .alternate_normal = 7});
         m_delete_button->m_listener = this;
     } else {
         m_delete_button = 0;
     }
 
     int first_sprite = m_panel == 11 ? 3 : 0;
-    m_action_button = EmplaceControl<W8TextControl>(0xffffffff, 0xf5, 0x1b0, 0, 0, CatalogArtwork::Load(0xf8, 0), first_sprite, first_sprite + 2, first_sprite + 1, -1, -1);
+    m_action_button = EmplaceControl<W8TextControl>(0xffffffff, 0xf5, 0x1b0, 0, 0, CatalogArtwork::Load(0xf8, 0), W8SpriteStates{.normal = first_sprite, .pressed = first_sprite + 2, .alternate_normal = first_sprite + 1});
     m_action_button->m_listener = this;
 
     if (m_panel == 11 && static_cast<int>(g_options_screen->m_save_slots.size()) == 1) {
@@ -546,7 +546,7 @@ void W8OptionsSaveLoadPanel::SaveSelectedSave(std::string_view previous_name)
 
 W8OptionsButton::W8OptionsButton(int left, int top, int right, int bottom,
                                  std::string_view text)
-    : W8TextControl(0xffffffff, left, top, right, bottom, std::nullopt, -1, -1, -1, -1, -1)
+    : W8TextControl(0xffffffff, left, top, right, bottom)
 {
     m_textBuffer.SetLayoutMode(g_W8TextBufferAlignTop);
     m_textBuffer.SetText(text, g_options_detail_font);
@@ -572,7 +572,7 @@ enum W8OptionsSaveRowSprite {
 };
 
 W8OptionsSaveRow::W8OptionsSaveRow(int top, unsigned char save_mode)
-    : W8TextControl(0xffffffff, 10, top, 0, 0, CatalogArtwork::Load(0xf9, 0), save_mode ? W8_OPTIONS_SAVE_ROW_SAVE_NORMAL : W8_OPTIONS_SAVE_ROW_LOAD_NORMAL, save_mode ? W8_OPTIONS_SAVE_ROW_SAVE_PRESSED : W8_OPTIONS_SAVE_ROW_LOAD_PRESSED, -1, -1, W8_OPTIONS_SAVE_ROW_DISABLED),
+    : W8TextControl(0xffffffff, 10, top, 0, 0, CatalogArtwork::Load(0xf9, 0), W8SpriteStates{.normal = save_mode ? W8_OPTIONS_SAVE_ROW_SAVE_NORMAL : W8_OPTIONS_SAVE_ROW_LOAD_NORMAL, .pressed = save_mode ? W8_OPTIONS_SAVE_ROW_SAVE_PRESSED : W8_OPTIONS_SAVE_ROW_LOAD_PRESSED, .disabled = W8_OPTIONS_SAVE_ROW_DISABLED}),
       m_save_mode(save_mode), m_editing(0), m_save(0), m_save_listener(0)
 {
     AddLayoutFlags(g_W8TextControlLayoutLatchedImage | g_W8TextControlLayoutToggle);
@@ -1467,7 +1467,7 @@ void W8OptionsValues::TransferSettings()
    optional hotspot rectangles (left == -1 when absent), the button bounds and
    its image indices. */
 W8OptionsMenuButton::W8OptionsMenuButton(const W8OptionsMenuRow& row)
-    : W8TextControl(0xffffffff, row.bounds.left, row.bounds.top, row.bounds.right, row.bounds.bottom, CatalogArtwork::Load(0xef, 0), row.image_indices[0], row.image_indices[1], row.image_indices[2], row.image_indices[3], row.image_indices[4])
+    : W8TextControl(0xffffffff, row.bounds.left, row.bounds.top, row.bounds.right, row.bounds.bottom, CatalogArtwork::Load(0xef, 0), W8SpriteStates{.normal = row.image_indices[0], .pressed = row.image_indices[1], .alternate_normal = row.image_indices[2], .alternate_pressed = row.image_indices[3], .disabled = row.image_indices[4]})
 {
     m_item_id = row.item_id;
 }
@@ -1477,7 +1477,7 @@ W8OptionsMenuRowControl::W8OptionsMenuRowControl(const W8OptionsMenuRow& row)
     m_button = EmplaceControl<W8OptionsMenuButton>(row);
     for (const auto& bounds : row.child_bounds) {
         if (bounds.left == -1) continue;
-        auto* hotspot = EmplaceControl<W8TextControl>(0xffffffff, bounds.left, bounds.top, bounds.right, bounds.bottom, std::nullopt, -1, -1, -1, -1, -1);
+        auto* hotspot = EmplaceControl<W8TextControl>(0xffffffff, bounds.left, bounds.top, bounds.right, bounds.bottom);
         hotspot->m_listener = this;
         hotspot->AddLayoutFlags(g_W8TextControlSilentHover);
     }
@@ -1491,7 +1491,7 @@ void W8OptionsMenuRowControl::OnPrimary(W8TextControl*)
 }
 
 W8OptionsCheckbox::W8OptionsCheckbox(int top, int* value)
-    : W8TextControl(0xffffffff, 0x14d, top - 2, 0, 0, CatalogArtwork::Load(0xf1, 0), 2, 0, 3, 1, -1),
+    : W8TextControl(0xffffffff, 0x14d, top - 2, 0, 0, CatalogArtwork::Load(0xf1, 0), W8SpriteStates{.normal = 2, .pressed = 0, .alternate_normal = 3, .alternate_pressed = 1}),
       m_value(value)
 {
     AddLayoutFlags(g_W8TextControlLayoutLatchedImage | g_W8TextControlLayoutToggle);
@@ -1591,7 +1591,7 @@ W8TextControl* W8OptionsPanel::AddChoiceButton(int label)
     W8TextBuffer* text = new W8TextBuffer(&bounds, g_localized_strings[label], g_options_detail_font,
                                           g_W8TextBufferAlignTop | g_W8TextBufferAlignRight, 4);
     m_text_buffers.emplace_back(text);
-    W8TextControl* button = EmplaceControl<W8TextControl>(0xffffffff, 0x151, m_content_top + 1, 0, 0, CatalogArtwork::Load(0xf1, 0), 4, 6, 5, 7, -1);
+    W8TextControl* button = EmplaceControl<W8TextControl>(0xffffffff, 0x151, m_content_top + 1, 0, 0, CatalogArtwork::Load(0xf1, 0), W8SpriteStates{.normal = 4, .pressed = 6, .alternate_normal = 5, .alternate_pressed = 7});
     button->AddLayoutFlags(g_W8TextControlLayoutLatchedImage | g_W8TextControlLayoutToggle);
     m_content_top += 22;
     return button;
@@ -1672,10 +1672,10 @@ W8OptionsMenuSet::W8OptionsMenuSet()
     const auto [width, height] = CatalogArtwork::Load(0xf3, 0).size(0);
     SetBounds({Bounds().x, Bounds().y, width, height});
 
-    m_previous = EmplaceControl<W8TextControl>(0xffffffff, 3, 3, 0, 0, CatalogArtwork::Load(0xf4, 0), 0, 2, 1, -1, 3);
+    m_previous = EmplaceControl<W8TextControl>(0xffffffff, 3, 3, 0, 0, CatalogArtwork::Load(0xf4, 0), W8SpriteStates{.normal = 0, .pressed = 2, .alternate_normal = 1, .disabled = 3});
     m_previous->m_listener = this;
 
-    m_next = EmplaceControl<W8TextControl>(0xffffffff, 0x11f, 3, 0, 0, CatalogArtwork::Load(0xf4, 0), 4, 6, 5, -1, 7);
+    m_next = EmplaceControl<W8TextControl>(0xffffffff, 0x11f, 3, 0, 0, CatalogArtwork::Load(0xf4, 0), W8SpriteStates{.normal = 4, .pressed = 6, .alternate_normal = 5, .disabled = 7});
     m_next->m_listener = this;
 
     const auto page_bounds = ToEdges(ScreenBounds());

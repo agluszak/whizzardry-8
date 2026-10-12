@@ -793,8 +793,7 @@ unsigned char BuildKeyboardMenu(void)
             control = g_keyboard_menu_panel->EmplaceControl<W8TextControl>(g_keyboard_menu_regions->index(row),
                 g_keyboard_row_positions[row].x,
                 g_keyboard_row_positions[row].y, g_keyboard_row_positions[row].x + 0x12,
-                g_keyboard_row_positions[row].y + 0x12, CatalogArtwork::Load(0x89, 0), -1, -1,
-                -1, -1, message + 6);
+                g_keyboard_row_positions[row].y + 0x12, CatalogArtwork::Load(0x89, 0), W8SpriteStates{.disabled = message + 6});
             g_keyboard_menu_rows[row] = control;
             if (control == 0) {
                 g_keyboard_menu_panel.reset();
@@ -812,8 +811,7 @@ unsigned char BuildKeyboardMenu(void)
     }
     g_keyboard_menu_rows[row] = g_keyboard_menu_panel->EmplaceControl<W8TextControl>(g_keyboard_menu_regions->index(row), g_keyboard_row_positions[row].x,
         g_keyboard_row_positions[row].y, g_keyboard_row_positions[row].x + 0x12,
-        g_keyboard_row_positions[row].y + 0x12, CatalogArtwork::Load(0x89, 0), 0xbd, 0xbd, 0xbf,
-        0xbf, -1);
+        g_keyboard_row_positions[row].y + 0x12, CatalogArtwork::Load(0x89, 0), W8SpriteStates{.normal = 0xbd, .pressed = 0xbd, .alternate_normal = 0xbf, .alternate_pressed = 0xbf});
     g_keyboard_menu_rows[row]->m_primaryActivationCallback = CloseKeyboardMenu;
     g_keyboard_menu_rows[row]->m_secondaryActivationCallback = CloseKeyboardMenu;
     (*g_keyboard_menu_regions)[row].SetHelp(true, 0x11);

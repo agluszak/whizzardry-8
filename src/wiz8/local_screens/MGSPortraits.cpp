@@ -1216,8 +1216,7 @@ void CreateLevelButtons(void)
         int row_y = (uiSlot >> 1) * 0x55;
         g_portrait_controls[uiSlot] =
             g_portrait_panel->EmplaceControl<W8TextControl>(g_main_portrait_controls->index(uiSlot), column_x + 0x19, row_y + 0x46,
-                              column_x + 0x2b, row_y + 0x58, CatalogArtwork::Load(0xa7, 0), 0, 2,
-                              1, 4, 3);
+                              column_x + 0x2b, row_y + 0x58, CatalogArtwork::Load(0xa7, 0), W8SpriteStates{.normal = 0, .pressed = 2, .alternate_normal = 1, .alternate_pressed = 4, .disabled = 3});
         g_portrait_controls[uiSlot]->m_primaryActivationCallback = OnLevelButtonActivate;
         if (g_portrait_controls[uiSlot] == 0) {
             srAssertFail("gpLevelButtons[uiSlot]",
@@ -1303,7 +1302,7 @@ void CreateConditionButtons(void)
         int row_y = (uiSlot >> 1) * 0x55;
         g_condition_buttons[uiSlot] = g_condition_buttons_panel->EmplaceControl<W8ConditionButton>(
             g_main_conditions->index(uiSlot), column_x + 0x17, row_y + 0x13,
-            column_x + 0x2a, row_y + 0x26, artwork, 0, 0, 1, 1, -1, uiSlot);
+            column_x + 0x2a, row_y + 0x26, artwork, W8SpriteStates{.normal = 0, .pressed = 0, .alternate_normal = 1, .alternate_pressed = 1}, uiSlot);
         if (g_condition_buttons[uiSlot] == 0) {
             srAssertFail("gpConditionButtons[uiSlot]",
                          "C:\\Projects\\Wizardry 8\\Local Screens\\MGSPortraits.cpp", 0x9ec, 0);

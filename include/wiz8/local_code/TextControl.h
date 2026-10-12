@@ -31,6 +31,16 @@ enum W8TextControlInputFlag {
 };
 enum { W8_TEXT_CONTROL_ACTIVATED_WHILE_HELD = 0x04u };
 
+/* Which sprite of a control's image shows in each visual state; -1 shows
+   none. The alternate pair is used while alternate text is enabled. */
+struct W8SpriteStates {
+    int normal = -1;
+    int pressed = -1;
+    int alternate_normal = -1;
+    int alternate_pressed = -1;
+    int disabled = -1;
+};
+
 // VTABLE: WIZ8 0x005ed604
 class W8TextControl : public W8Widget {
 public:
@@ -46,8 +56,8 @@ public:
     W8TextControl();
     // A right or bottom of zero takes the edge from the normal sprite's size.
     W8TextControl(unsigned int region, int left, int top, int right, int bottom,
-                  std::optional<CatalogArtwork> image_artwork, int normal_sprite, int pressed_sprite,
-                  int alternate_normal_sprite, int alternate_pressed_sprite, int disabled_sprite);
+                  std::optional<CatalogArtwork> image_artwork = std::nullopt,
+                  W8SpriteStates sprites = {});
     void SetImage(CatalogArtwork artwork);
     void SetItemImage(int item_id);
     void ClearImage();

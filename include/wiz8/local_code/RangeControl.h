@@ -13,8 +13,7 @@ class W8RangeControl;
 class W8RangeButton : public W8TextControl {
 public:
     W8RangeButton(unsigned int region, int left, int top, int right, int bottom,
-                  std::optional<CatalogArtwork> image_artwork, int normal_sprite, int pressed_sprite,
-                  int alternate_normal_sprite, int alternate_pressed_sprite, int disabled_sprite,
+                  std::optional<CatalogArtwork> image_artwork, W8SpriteStates sprites,
                   short direction, W8RangeControl* range);
 
     virtual void OnLeftButtonDown(int event) override;

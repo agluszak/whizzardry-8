@@ -853,16 +853,16 @@ W8LockInteraction::W8LockInteraction(Trigger* trigger) : m_timer()
     m_action_panel = std::make_unique<Controls>(0x1e7, 0x166, 0, 0, CatalogArtwork::Load(0x1af, 0), 2);
     m_action_panel->CreateRegionSet();
     m_spell_button =
-        m_action_panel->EmplaceControl<W8TextControl>(0xffffffff, 6, 6, 0, 0, CatalogArtwork::Load(0x1b0, 0), 8, 10, 9, 10, 0xb);
+        m_action_panel->EmplaceControl<W8TextControl>(0xffffffff, 6, 6, 0, 0, CatalogArtwork::Load(0x1b0, 0), W8SpriteStates{.normal = 8, .pressed = 10, .alternate_normal = 9, .alternate_pressed = 10, .disabled = 0xb});
     m_spell_button->m_listener = this;
     m_force_button =
-        m_action_panel->EmplaceControl<W8TextControl>(0xffffffff, 0x24, 6, 0, 0, CatalogArtwork::Load(0x1b0, 0), 0, 2, 1, 2, 3);
+        m_action_panel->EmplaceControl<W8TextControl>(0xffffffff, 0x24, 6, 0, 0, CatalogArtwork::Load(0x1b0, 0), W8SpriteStates{.normal = 0, .pressed = 2, .alternate_normal = 1, .alternate_pressed = 2, .disabled = 3});
     m_force_button->m_listener = this;
     m_cancel_button =
-        m_action_panel->EmplaceControl<W8TextControl>(0xffffffff, 6, 0x24, 0, 0, CatalogArtwork::Load(0x1b0, 0), 4, 6, 5, 6, 7);
+        m_action_panel->EmplaceControl<W8TextControl>(0xffffffff, 6, 0x24, 0, 0, CatalogArtwork::Load(0x1b0, 0), W8SpriteStates{.normal = 4, .pressed = 6, .alternate_normal = 5, .alternate_pressed = 6, .disabled = 7});
     m_cancel_button->m_listener = this;
     m_done_button =
-        m_action_panel->EmplaceControl<W8TextControl>(0xffffffff, 0x44, 6, 0, 0, CatalogArtwork::Load(0x8e, 0), 4, 6, 5, 6, 7);
+        m_action_panel->EmplaceControl<W8TextControl>(0xffffffff, 0x44, 6, 0, 0, CatalogArtwork::Load(0x8e, 0), W8SpriteStates{.normal = 4, .pressed = 6, .alternate_normal = 5, .alternate_pressed = 6, .disabled = 7});
     m_done_button->m_listener = this;
     m_spell_button->EnableRegionHelp(0x7cb);
     m_force_button->EnableRegionHelp(0x7cd);
@@ -1803,18 +1803,18 @@ W8MainGameScreen::W8MainGameScreen(Trigger* owner)
     m_action_panel = std::make_unique<Controls>(0x1e7, 0x166, 0, 0, CatalogArtwork::Load(0x1b1, 0), 2);
     m_action_panel->CreateRegionSet();
     m_action_controls[1] =
-        m_action_panel->EmplaceControl<W8TextControl>(0xffffffff, 6, 6, 0, 0, CatalogArtwork::Load(0x1b0, 0), 8, 10, 9, 10, 0xb);
+        m_action_panel->EmplaceControl<W8TextControl>(0xffffffff, 6, 6, 0, 0, CatalogArtwork::Load(0x1b0, 0), W8SpriteStates{.normal = 8, .pressed = 10, .alternate_normal = 9, .alternate_pressed = 10, .disabled = 0xb});
     m_action_controls[1]->m_listener = this;
     m_action_controls[2] =
-        m_action_panel->EmplaceControl<W8TextControl>(0xffffffff, 0x24, 6, 0, 0, CatalogArtwork::Load(0x1b0, 0), 0, 2, 1, 2, 3);
+        m_action_panel->EmplaceControl<W8TextControl>(0xffffffff, 0x24, 6, 0, 0, CatalogArtwork::Load(0x1b0, 0), W8SpriteStates{.normal = 0, .pressed = 2, .alternate_normal = 1, .alternate_pressed = 2, .disabled = 3});
     m_action_controls[2]->m_listener = this;
     m_action_controls[3] =
-        m_action_panel->EmplaceControl<W8TextControl>(0xffffffff, 6, 0x24, 0, 0, CatalogArtwork::Load(0x1b0, 0), 4, 6, 5, 6, 7);
+        m_action_panel->EmplaceControl<W8TextControl>(0xffffffff, 6, 0x24, 0, 0, CatalogArtwork::Load(0x1b0, 0), W8SpriteStates{.normal = 4, .pressed = 6, .alternate_normal = 5, .alternate_pressed = 6, .disabled = 7});
     m_action_controls[3]->m_listener = this;
-    m_action_controls[4] = m_action_panel->EmplaceControl<W8TextControl>(0xffffffff, 0x24, 0x24, 0, 0, CatalogArtwork::Load(0x1b0, 0), 0xc, 0xe, 0xd, 0xe, 0xf);
+    m_action_controls[4] = m_action_panel->EmplaceControl<W8TextControl>(0xffffffff, 0x24, 0x24, 0, 0, CatalogArtwork::Load(0x1b0, 0), W8SpriteStates{.normal = 0xc, .pressed = 0xe, .alternate_normal = 0xd, .alternate_pressed = 0xe, .disabled = 0xf});
     m_action_controls[4]->m_listener = this;
     m_action_controls[0] =
-        m_action_panel->EmplaceControl<W8TextControl>(0xffffffff, 0x44, 6, 0, 0, CatalogArtwork::Load(0x8e, 0), 4, 6, 5, 6, 7);
+        m_action_panel->EmplaceControl<W8TextControl>(0xffffffff, 0x44, 6, 0, 0, CatalogArtwork::Load(0x8e, 0), W8SpriteStates{.normal = 4, .pressed = 6, .alternate_normal = 5, .alternate_pressed = 6, .disabled = 7});
     m_action_controls[0]->m_listener = this;
     m_action_controls[1]->EnableRegionHelp(0x7ce);
     m_action_controls[2]->EnableRegionHelp(0x7cf);

@@ -768,18 +768,16 @@ bool W8TextControl::MeasureText()
 // Text layout needs the panel origin, so it is resolved when the panel adopts
 // the control (OnGeometryChanged), not here.
 W8TextControl::W8TextControl(unsigned int region, int left, int top, int right, int bottom,
-                             std::optional<CatalogArtwork> image_artwork, int normal_sprite,
-                             int pressed_sprite, int alternate_normal_sprite,
-                             int alternate_pressed_sprite, int disabled_sprite)
+                             std::optional<CatalogArtwork> image_artwork, W8SpriteStates sprites)
     : W8Widget(region, left, top, right, bottom)
 {
-    m_pressedSprite = pressed_sprite;
-    m_alternatePressedSprite = alternate_pressed_sprite;
-    m_alternateNormalSprite = alternate_normal_sprite;
+    m_pressedSprite = sprites.pressed;
+    m_alternatePressedSprite = sprites.alternate_pressed;
+    m_alternateNormalSprite = sprites.alternate_normal;
     m_stateFlags = 0;
     m_alternateTextEnabled = false;
-    m_normalSprite = normal_sprite;
-    m_disabledSprite = disabled_sprite;
+    m_normalSprite = sprites.normal;
+    m_disabledSprite = sprites.disabled;
     m_layoutFlags = 0;
     m_listener = 0;
     m_pressedTextOffset = 1;
@@ -1274,7 +1272,7 @@ void W8TextControl::SetAlternateTextEnabled(bool enabled)
 // FUNCTION: WIZ8 0x004f65e0
 W8HelpTextControl::W8HelpTextControl(unsigned int region, int left, int top, int right,
                                      int bottom)
-    : W8TextControl(region, left, top, right, bottom, std::nullopt, -1, -1, -1, -1, -1)
+    : W8TextControl(region, left, top, right, bottom)
 {
     m_regionHelp.clear();
 }
@@ -1324,13 +1322,9 @@ protected:
 };
 
 W8RangeButton::W8RangeButton(unsigned int region, int left, int top, int right, int bottom,
-                             std::optional<CatalogArtwork> image_artwork, int normal_sprite,
-                             int pressed_sprite, int alternate_normal_sprite,
-                             int alternate_pressed_sprite, int disabled_sprite, short direction,
-                             W8RangeControl* range)
-    : W8TextControl(region, left, top, right, bottom, std::move(image_artwork),
-                    normal_sprite, pressed_sprite, alternate_normal_sprite,
-                    alternate_pressed_sprite, disabled_sprite),
+                             std::optional<CatalogArtwork> image_artwork, W8SpriteStates sprites,
+                             short direction, W8RangeControl* range)
+    : W8TextControl(region, left, top, right, bottom, std::move(image_artwork), sprites),
       m_direction(direction), m_range(range)
 {
 }
@@ -1354,9 +1348,8 @@ W8RangeControl::W8RangeControl(int left, int top, int right, int bottom)
     CreateRegionSet();
 
     m_decrement =
-        EmplaceControl<W8RangeButton>(0xffffffff, 0, 0, 0x10, 0x10, CatalogArtwork::Load(0x86), 0, 2, 1, 2, 3, 0, this);
-    m_increment = EmplaceControl<W8RangeButton>(0xffffffff, 0, height - 0x10, 0x10, height, CatalogArtwork::Load(0x86), 8,
-                                    10, 9, 10, 0xb, 1, this);
+        EmplaceControl<W8RangeButton>(0xffffffff, 0, 0, 0x10, 0x10, CatalogArtwork::Load(0x86), W8SpriteStates{.normal = 0, .pressed = 2, .alternate_normal = 1, .alternate_pressed = 2, .disabled = 3}, 0, this);
+    m_increment = EmplaceControl<W8RangeButton>(0xffffffff, 0, height - 0x10, 0x10, height, CatalogArtwork::Load(0x86), W8SpriteStates{.normal = 8, .pressed = 10, .alternate_normal = 9, .alternate_pressed = 10, .disabled = 0xb}, 1, this);
     m_thumb = EmplaceControl<W8VerticalRangeThumb>(this, 0, 0x10, 0x10, height - 0x10,
                                        CatalogArtwork::Load(0x86), 4, 5, -1);
     m_enabled = false;

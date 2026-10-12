@@ -128,7 +128,7 @@ TEST_CASE("panel_adopts_and_transfers_unattached_widgets")
     // reparenting and panel moves, as the hit region does. Centred 10px text
     // in the 15px-wide rectangle 3..18 starts 2px in.
     auto pending_text = std::make_unique<W8TextControl>(
-        -1u, 3, 4, 18, 20, std::nullopt, -1, -1, -1, -1, -1);
+        -1u, 3, 4, 18, 20);
     auto* text = pending_text.get();
     source.AddControl(std::move(pending_text));
     REQUIRE(text->m_textBuffer.GetHorizontalPosition(10) == 105);

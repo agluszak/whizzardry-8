@@ -1012,10 +1012,10 @@ W8CampCharacterInfo::W8CampCharacterInfo()
 {
     CreateRegionSet();
     m_combat_view = true;
-    m_stats_tab = EmplaceControl<W8TextControl>(-1, 8, 0x8b, 0, 0, CatalogArtwork::Load(0x121, 0), 15, 16, 17, 19, 18);
+    m_stats_tab = EmplaceControl<W8TextControl>(-1, 8, 0x8b, 0, 0, CatalogArtwork::Load(0x121, 0), W8SpriteStates{.normal = 15, .pressed = 16, .alternate_normal = 17, .alternate_pressed = 19, .disabled = 18});
     m_stats_tab->m_listener = this;
     m_stats_tab->EnableRegionHelp(0x960);
-    m_combat_tab = EmplaceControl<W8TextControl>(-1, 8, 0x8b, 0, 0, CatalogArtwork::Load(0x121, 0), 10, 11, 12, 14, 13);
+    m_combat_tab = EmplaceControl<W8TextControl>(-1, 8, 0x8b, 0, 0, CatalogArtwork::Load(0x121, 0), W8SpriteStates{.normal = 10, .pressed = 11, .alternate_normal = 12, .alternate_pressed = 14, .disabled = 13});
     m_combat_tab->m_listener = this;
     m_combat_tab->EnableRegionHelp(0x95f);
     m_values[0] = EmplaceControl<W8HelpTextControl>(-1, 0xa0, 0x4c, 0xc0, 0x58);

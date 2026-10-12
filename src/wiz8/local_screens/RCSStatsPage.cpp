@@ -146,15 +146,15 @@ void W8CampRangeListener::UpdateRange(bool range_changed)
 W8CampStatsControls::W8CampStatsControls()
 {
     CreateRegionSet();
-    m_buttons[0] = EmplaceControl<W8TextControl>(-1, 0x13c, 0xbe, 0, 0, CatalogArtwork::Load(0x145, 0), 0, 1, 2, 4, 3);
+    m_buttons[0] = EmplaceControl<W8TextControl>(-1, 0x13c, 0xbe, 0, 0, CatalogArtwork::Load(0x145, 0), W8SpriteStates{.normal = 0, .pressed = 1, .alternate_normal = 2, .alternate_pressed = 4, .disabled = 3});
     m_buttons[0]->AddLayoutFlags(g_W8TextControlLayoutLatchedImage | g_W8TextControlLayoutToggle);
     m_buttons[0]->m_listener = this;
     m_buttons[0]->EnableRegionHelp(0x954);
-    m_buttons[1] = EmplaceControl<W8TextControl>(-1, 0x13c, 0xd6, 0, 0, CatalogArtwork::Load(0x145, 0), 5, 6, 7, 9, 8);
+    m_buttons[1] = EmplaceControl<W8TextControl>(-1, 0x13c, 0xd6, 0, 0, CatalogArtwork::Load(0x145, 0), W8SpriteStates{.normal = 5, .pressed = 6, .alternate_normal = 7, .alternate_pressed = 9, .disabled = 8});
     m_buttons[1]->AddLayoutFlags(g_W8TextControlLayoutLatchedImage | g_W8TextControlLayoutToggle);
     m_buttons[1]->m_listener = this;
     m_buttons[1]->EnableRegionHelp(0x955);
-    m_buttons[2] = EmplaceControl<W8TextControl>(-1, 0x13c, 0xf3, 0, 0, CatalogArtwork::Load(0x145, 0), 10, 15, 12, 17, 13);
+    m_buttons[2] = EmplaceControl<W8TextControl>(-1, 0x13c, 0xf3, 0, 0, CatalogArtwork::Load(0x145, 0), W8SpriteStates{.normal = 10, .pressed = 15, .alternate_normal = 12, .alternate_pressed = 17, .disabled = 13});
     m_buttons[2]->AddLayoutFlags(g_W8TextControlLayoutLatchedImage | g_W8TextControlLayoutToggle);
     m_buttons[2]->m_listener = this;
     m_buttons[2]->EnableRegionHelp(0x956);
@@ -889,16 +889,16 @@ void W8CharacterPersonalityPage::SetCharacter(W8Character* character,
     W8TextControl::Listener* action_listener = this;
 
     m_control5 =
-        EmplaceControl<W8TextControl>(0xffffffff, 100, 0x19, 0, 0, CatalogArtwork::Load(0x10a, 0), 10, 0xc, 0xb, 0xe, 0xd);
+        EmplaceControl<W8TextControl>(0xffffffff, 100, 0x19, 0, 0, CatalogArtwork::Load(0x10a, 0), W8SpriteStates{.normal = 10, .pressed = 0xc, .alternate_normal = 0xb, .alternate_pressed = 0xe, .disabled = 0xd});
     m_control5->m_listener = action_listener;
-    m_control4 = EmplaceControl<W8TextControl>(0xffffffff, 0x144, 0x19, 0, 0, CatalogArtwork::Load(0x10a, 0), 0xf, 0x11, 0x10, 0x13, 0x12);
+    m_control4 = EmplaceControl<W8TextControl>(0xffffffff, 0x144, 0x19, 0, 0, CatalogArtwork::Load(0x10a, 0), W8SpriteStates{.normal = 0xf, .pressed = 0x11, .alternate_normal = 0x10, .alternate_pressed = 0x13, .disabled = 0x12});
     m_control4->m_listener = action_listener;
     m_control7 =
-        EmplaceControl<W8TextControl>(0xffffffff, 100, 0x67, 0, 0, CatalogArtwork::Load(0x10a, 0), 10, 0xc, 0xb, 0xe, 0xd);
+        EmplaceControl<W8TextControl>(0xffffffff, 100, 0x67, 0, 0, CatalogArtwork::Load(0x10a, 0), W8SpriteStates{.normal = 10, .pressed = 0xc, .alternate_normal = 0xb, .alternate_pressed = 0xe, .disabled = 0xd});
     m_control7->m_listener = action_listener;
-    m_control6 = EmplaceControl<W8TextControl>(0xffffffff, 0x144, 0x67, 0, 0, CatalogArtwork::Load(0x10a, 0), 0xf, 0x11, 0x10, 0x13, 0x12);
+    m_control6 = EmplaceControl<W8TextControl>(0xffffffff, 0x144, 0x67, 0, 0, CatalogArtwork::Load(0x10a, 0), W8SpriteStates{.normal = 0xf, .pressed = 0x11, .alternate_normal = 0x10, .alternate_pressed = 0x13, .disabled = 0x12});
     m_control6->m_listener = action_listener;
-    m_randomize = EmplaceControl<W8TextControl>(0xffffffff, 0x16d, 0x155, 0, 0, CatalogArtwork::Load(0x10a, 0), 0x14, 0x16, 0x15, 0x18, 0x17);
+    m_randomize = EmplaceControl<W8TextControl>(0xffffffff, 0x16d, 0x155, 0, 0, CatalogArtwork::Load(0x10a, 0), W8SpriteStates{.normal = 0x14, .pressed = 0x16, .alternate_normal = 0x15, .alternate_pressed = 0x18, .disabled = 0x17});
     m_randomize->m_listener = action_listener;
     m_randomize->EnableRegionHelp(0xf5);
 
@@ -907,7 +907,7 @@ void W8CharacterPersonalityPage::SetCharacter(W8Character* character,
         int column = index % 3;
         int row = index / 3;
         W8TextControl* entry =
-            EmplaceControl<W8TextControl>(0xffffffff, column * 0x80 + 0x24, row * 0xe + 0x107, column * 0x80 + 0xa3, row * 0xe + 0x114, CatalogArtwork::Load(0x105, 0), 5, 7, 6, 8, -1);
+            EmplaceControl<W8TextControl>(0xffffffff, column * 0x80 + 0x24, row * 0xe + 0x107, column * 0x80 + 0xa3, row * 0xe + 0x114, CatalogArtwork::Load(0x105, 0), W8SpriteStates{.normal = 5, .pressed = 7, .alternate_normal = 6, .alternate_pressed = 8});
         entry->AddLayoutFlags(g_W8TextControlLayoutImageAtOrigin);
         m_personality_selection.AddEntry(entry);
     }
@@ -916,7 +916,7 @@ void W8CharacterPersonalityPage::SetCharacter(W8Character* character,
 
     for (index = 0; index < 2; ++index) {
         int top = index == 0 ? 0x140 : 0x15d;
-        W8TextControl* entry = EmplaceControl<W8TextControl>(0xffffffff, 0x21, top, 0x69, top + 0xe, CatalogArtwork::Load(0x105, 0), 5, 7, 6, 8, -1);
+        W8TextControl* entry = EmplaceControl<W8TextControl>(0xffffffff, 0x21, top, 0x69, top + 0xe, CatalogArtwork::Load(0x105, 0), W8SpriteStates{.normal = 5, .pressed = 7, .alternate_normal = 6, .alternate_pressed = 8});
         entry->AddLayoutFlags(g_W8TextControlLayoutImageAtOrigin);
         m_voice_selection.AddEntry(entry);
     }

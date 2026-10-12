@@ -68,18 +68,18 @@ W8CharacterPageEntry::W8CharacterPageEntry(Controls* owner, int x, int y, bool c
     m_second_text->SetLayoutMode(g_W8TextBufferAlignRight);
 
     int relative_split = split - owner->ScreenBounds().x;
-    m_decrement = owner->EmplaceControl<W8TextControl>(0xffffffff, relative_split + 0x1b, y + 1, 0, 0, CatalogArtwork::Load(0x10a, 0), 0x19, 0x1b, 0x1a, 0x1d, 0x1c);
+    m_decrement = owner->EmplaceControl<W8TextControl>(0xffffffff, relative_split + 0x1b, y + 1, 0, 0, CatalogArtwork::Load(0x10a, 0), W8SpriteStates{.normal = 0x19, .pressed = 0x1b, .alternate_normal = 0x1a, .alternate_pressed = 0x1d, .disabled = 0x1c});
     m_decrement->AddLayoutFlags(0x100);
     m_decrement->SetEnabled(false);
     m_decrement->SetActive(false);
     m_decrement->m_listener = this;
 
-    m_increment = owner->EmplaceControl<W8TextControl>(0xffffffff, relative_split + 0x3d, y + 1, 0, 0, CatalogArtwork::Load(0x10a, 0), 0x1e, 0x20, 0x1f, 0x22, 0x21);
+    m_increment = owner->EmplaceControl<W8TextControl>(0xffffffff, relative_split + 0x3d, y + 1, 0, 0, CatalogArtwork::Load(0x10a, 0), W8SpriteStates{.normal = 0x1e, .pressed = 0x20, .alternate_normal = 0x1f, .alternate_pressed = 0x22, .disabled = 0x21});
     m_increment->AddLayoutFlags(0x100);
     m_increment->SetActive(false);
     m_increment->m_listener = this;
 
-    m_help = owner->EmplaceControl<W8TextControl>(0xffffffff, x, y, relative_split, y + 0xc, std::nullopt, -1, -1, -1, -1, -1);
+    m_help = owner->EmplaceControl<W8TextControl>(0xffffffff, x, y, relative_split, y + 0xc);
     m_help->SetActive(false);
     m_help->m_listener = this;
 }

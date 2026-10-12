@@ -86,10 +86,10 @@ unsigned char CreatePartyMovementPanel(void)
 
     g_party_movement_buttons[0] =
         g_party_movement_panel->EmplaceControl<W8TextControl>(g_party_movement_regions->index(0), 0x10a, 0, 0x11e,
-                          0x14, CatalogArtwork::Load(0x94, 0), 4, 6, 5, 6, 7);
+                          0x14, CatalogArtwork::Load(0x94, 0), W8SpriteStates{.normal = 4, .pressed = 6, .alternate_normal = 5, .alternate_pressed = 6, .disabled = 7});
     g_party_movement_buttons[1] =
         g_party_movement_panel->EmplaceControl<W8TextControl>(g_party_movement_regions->index(1), 0x10a, 0, 0x11e,
-                          0x14, CatalogArtwork::Load(0x94, 0), 4, 6, 5, 6, 7);
+                          0x14, CatalogArtwork::Load(0x94, 0), W8SpriteStates{.normal = 4, .pressed = 6, .alternate_normal = 5, .alternate_pressed = 6, .disabled = 7});
 
     if (g_party_movement_panel && g_party_movement_buttons[0] != 0 &&
         g_party_movement_buttons[1] != 0) {

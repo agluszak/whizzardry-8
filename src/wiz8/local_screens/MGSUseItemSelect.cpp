@@ -127,12 +127,12 @@ static void CreateUseItemSelectControls(void)
     panel = g_use_item_select_panels[0].get();
     g_use_item_select_scroll_buttons[0] =
         panel->EmplaceControl<W8TextControl>(g_use_item_select_regions->index(0), 0x24, 0x1d, 0x44, 0x3d,
-                          CatalogArtwork::Load(0x98, 0), 0, 2, 1, 4, 3);
+                          CatalogArtwork::Load(0x98, 0), W8SpriteStates{.normal = 0, .pressed = 2, .alternate_normal = 1, .alternate_pressed = 4, .disabled = 3});
     g_use_item_select_scroll_buttons[1] =
         panel->EmplaceControl<W8TextControl>(g_use_item_select_regions->index(1), 0x48, 0x1d, 0x68, 0x3d,
-                          CatalogArtwork::Load(0x98, 0), 5, 7, 6, 9, 8);
+                          CatalogArtwork::Load(0x98, 0), W8SpriteStates{.normal = 5, .pressed = 7, .alternate_normal = 6, .alternate_pressed = 9, .disabled = 8});
     g_use_item_select_scroll_buttons[2] =
-        panel->EmplaceControl<W8TextControl>(0xffffffff, 4, 4, 0x89, 0x13, std::nullopt, -1, -1, -1, -1, -1);
+        panel->EmplaceControl<W8TextControl>(0xffffffff, 4, 4, 0x89, 0x13);
     g_use_item_select_scroll_buttons[0]->AddLayoutFlags(g_W8TextControlLayoutToggle);
     g_use_item_select_scroll_buttons[1]->AddLayoutFlags(g_W8TextControlLayoutToggle);
     g_use_item_select_scroll_buttons[0]->m_primaryActivationCallback = UseItemSelectScrollUp;
@@ -143,29 +143,24 @@ static void CreateUseItemSelectControls(void)
                                                               g_wiz_text_font_secondary);
     panel = g_use_item_select_panels[2].get();
     g_use_item_select_controls[0] =
-        panel->EmplaceControl<W8TextControl>(g_use_item_select_regions->index(2), 5, 5, 0x31, 0x39, std::nullopt,
-                          -1, -1, -1, -1, -1);
+        panel->EmplaceControl<W8TextControl>(g_use_item_select_regions->index(2), 5, 5, 0x31, 0x39);
     g_use_item_select_controls[0]->m_textBuffer.SetLayoutMode(g_W8TextBufferAlignBottom |
                                                               g_W8TextBufferAlignRight);
     g_use_item_select_controls[0]->AddLayoutFlags(g_W8TextControlLayoutImageAtOrigin);
     g_use_item_select_controls[1] =
-        panel->EmplaceControl<W8TextControl>(0xffffffff, 0x36, 6, 0x44, 0x14, CatalogArtwork::Load(0x1ab, 0), 0, 1, 2, 4, 3);
+        panel->EmplaceControl<W8TextControl>(0xffffffff, 0x36, 6, 0x44, 0x14, CatalogArtwork::Load(0x1ab, 0), W8SpriteStates{.normal = 0, .pressed = 1, .alternate_normal = 2, .alternate_pressed = 4, .disabled = 3});
     g_use_item_select_controls[2] =
-        panel->EmplaceControl<W8TextControl>(0xffffffff, 0x47, 6, 0x55, 0x14, CatalogArtwork::Load(0x1ab, 0), 5, 6, 7, 9, 8);
+        panel->EmplaceControl<W8TextControl>(0xffffffff, 0x47, 6, 0x55, 0x14, CatalogArtwork::Load(0x1ab, 0), W8SpriteStates{.normal = 5, .pressed = 6, .alternate_normal = 7, .alternate_pressed = 9, .disabled = 8});
     g_use_item_select_controls[3] =
         panel->EmplaceControl<W8TextControl>(g_use_item_select_regions->index(3), 0x58, 6, 0x66, 0x14,
-                          CatalogArtwork::Load(0x1ab, 0), 0xa, 0xb, 0xc, 0xe, 0xd);
-    g_use_item_select_controls[4] = panel->EmplaceControl<W8TextControl>(0xffffffff, 0x36, 0x17, 0x44, 0x25, CatalogArtwork::Load(0x1ab, 0), 0xf, 0x10,
-        0x11, 0x13, 0x12);
-    g_use_item_select_controls[5] = panel->EmplaceControl<W8TextControl>(0xffffffff, 0x47, 0x17, 0x55, 0x25, CatalogArtwork::Load(0x1ab, 0), 0x14, 0x15,
-        0x16, 0x18, 0x17);
-    g_use_item_select_controls[6] = panel->EmplaceControl<W8TextControl>(0xffffffff, 0x58, 0x17, 0x66, 0x25, CatalogArtwork::Load(0x1ab, 0), 0x19, 0x1a,
-        0x1b, 0x1d, 0x1c);
-    g_use_item_select_controls[7] = panel->EmplaceControl<W8TextControl>(0xffffffff, 0x35, 0x27, 0x56, 0x39, CatalogArtwork::Load(0x1aa, 0), 0x1e, 0x22,
-        0x1f, 0x20, 0x21);
+                          CatalogArtwork::Load(0x1ab, 0), W8SpriteStates{.normal = 0xa, .pressed = 0xb, .alternate_normal = 0xc, .alternate_pressed = 0xe, .disabled = 0xd});
+    g_use_item_select_controls[4] = panel->EmplaceControl<W8TextControl>(0xffffffff, 0x36, 0x17, 0x44, 0x25, CatalogArtwork::Load(0x1ab, 0), W8SpriteStates{.normal = 0xf, .pressed = 0x10, .alternate_normal = 0x11, .alternate_pressed = 0x13, .disabled = 0x12});
+    g_use_item_select_controls[5] = panel->EmplaceControl<W8TextControl>(0xffffffff, 0x47, 0x17, 0x55, 0x25, CatalogArtwork::Load(0x1ab, 0), W8SpriteStates{.normal = 0x14, .pressed = 0x15, .alternate_normal = 0x16, .alternate_pressed = 0x18, .disabled = 0x17});
+    g_use_item_select_controls[6] = panel->EmplaceControl<W8TextControl>(0xffffffff, 0x58, 0x17, 0x66, 0x25, CatalogArtwork::Load(0x1ab, 0), W8SpriteStates{.normal = 0x19, .pressed = 0x1a, .alternate_normal = 0x1b, .alternate_pressed = 0x1d, .disabled = 0x1c});
+    g_use_item_select_controls[7] = panel->EmplaceControl<W8TextControl>(0xffffffff, 0x35, 0x27, 0x56, 0x39, CatalogArtwork::Load(0x1aa, 0), W8SpriteStates{.normal = 0x1e, .pressed = 0x22, .alternate_normal = 0x1f, .alternate_pressed = 0x20, .disabled = 0x21});
     g_use_item_select_controls[8] =
         panel->EmplaceControl<W8TextControl>(g_use_item_select_regions->index(4), 0x6c, 6, 0x87, 0x21,
-                          CatalogArtwork::Load(0x8e, 0), 4, -1, 5, 6, 7);
+                          CatalogArtwork::Load(0x8e, 0), W8SpriteStates{.normal = 4, .alternate_normal = 5, .alternate_pressed = 6, .disabled = 7});
     g_use_item_select_controls[2]->AddLayoutFlags(g_W8TextControlLayoutToggle);
     g_use_item_select_controls[3]->AddLayoutFlags(g_W8TextControlLayoutToggle);
     g_use_item_select_controls[4]->AddLayoutFlags(g_W8TextControlLayoutToggle);

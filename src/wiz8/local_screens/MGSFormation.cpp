@@ -281,8 +281,7 @@ static unsigned char CreateFormationPanel(void)
         W8TextControl* cell;
 
         cell = g_formation_panel->EmplaceControl<W8TextControl>(g_formation_regions->index(index), left, top,
-                                 left + 0x20, top + 0x20, CatalogArtwork::Load(0x9f, 0), -1, -1,
-                                 -1, -1, -1);
+                                 left + 0x20, top + 0x20, CatalogArtwork::Load(0x9f, 0));
         g_formation_cell_controls[index] = cell;
         if (cell == 0) {
             DestroyFormationPanel();
@@ -290,7 +289,7 @@ static unsigned char CreateFormationPanel(void)
         }
         cell->AddLayoutFlags(g_W8TextControlLayoutToggle);
         cell->m_primaryActivationCallback = SelectFormationCell;
-        cell = g_formation_panel->EmplaceControl<W8TextControl>(-1, left, top, left + 0x20, top + 0x20, CatalogArtwork::Load(0xa0, 0), -1, -1, -1, -1, -1);
+        cell = g_formation_panel->EmplaceControl<W8TextControl>(-1, left, top, left + 0x20, top + 0x20, CatalogArtwork::Load(0xa0, 0));
         g_formation_cell_overlays[index] = cell;
         if (cell == 0) {
             DestroyFormationPanel();
@@ -298,11 +297,11 @@ static unsigned char CreateFormationPanel(void)
         }
     }
     g_formation_action_buttons[0] = g_formation_panel->EmplaceControl<W8TextControl>(g_formation_regions->index(15), 0x85, 0xcb, 0xa0, 0xe6,
-        CatalogArtwork::Load(0x8e, 0), 0, -1, 1, 2, 3);
+        CatalogArtwork::Load(0x8e, 0), W8SpriteStates{.normal = 0, .alternate_normal = 1, .alternate_pressed = 2, .disabled = 3});
     g_formation_action_buttons[1] = g_formation_panel->EmplaceControl<W8TextControl>(g_formation_regions->index(16), 0xa7, 0xcb, 0xc2, 0xe6,
-        CatalogArtwork::Load(0x8e, 0), 4, -1, 5, 6, 7);
+        CatalogArtwork::Load(0x8e, 0), W8SpriteStates{.normal = 4, .alternate_normal = 5, .alternate_pressed = 6, .disabled = 7});
     g_formation_action_buttons[2] = g_formation_panel->EmplaceControl<W8TextControl>(g_formation_regions->index(17), 0xf, 0xcd, 0x29, 0xe7,
-        CatalogArtwork::Load(0x8f, 0), 0, -1, 1, 2, 3);
+        CatalogArtwork::Load(0x8f, 0), W8SpriteStates{.normal = 0, .alternate_normal = 1, .alternate_pressed = 2, .disabled = 3});
     button = g_formation_action_buttons;
     while (*button != 0) {
         ++button;

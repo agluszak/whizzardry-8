@@ -155,22 +155,22 @@ static void CreateSpellCastingViewControls(void)
     panel = gpSCSV->panels[0].get();
     gpSCSV->realm_buttons[0] =
         panel->EmplaceControl<W8TextControl>(g_spell_casting_regions->index(0), 0x1e, 0xd, 0x69, 0x23,
-                          CatalogArtwork::Load(0x191, 0), 0, 3, 1, 3, 2);
+                          CatalogArtwork::Load(0x191, 0), W8SpriteStates{.normal = 0, .pressed = 3, .alternate_normal = 1, .alternate_pressed = 3, .disabled = 2});
     gpSCSV->realm_buttons[1] =
         panel->EmplaceControl<W8TextControl>(g_spell_casting_regions->index(1), 0x71, 0xd, 0xbc, 0x23,
-                          CatalogArtwork::Load(0x191, 0), 4, 7, 5, 7, 6);
+                          CatalogArtwork::Load(0x191, 0), W8SpriteStates{.normal = 4, .pressed = 7, .alternate_normal = 5, .alternate_pressed = 7, .disabled = 6});
     gpSCSV->realm_buttons[2] =
         panel->EmplaceControl<W8TextControl>(g_spell_casting_regions->index(2), 0x12, 0x23, 0x5d, 0x39,
-                          CatalogArtwork::Load(0x191, 0), 0, 3, 1, 3, 2);
+                          CatalogArtwork::Load(0x191, 0), W8SpriteStates{.normal = 0, .pressed = 3, .alternate_normal = 1, .alternate_pressed = 3, .disabled = 2});
     gpSCSV->realm_buttons[3] =
         panel->EmplaceControl<W8TextControl>(g_spell_casting_regions->index(3), 0x7d, 0x23, 200, 0x39,
-                          CatalogArtwork::Load(0x191, 0), 4, 7, 5, 7, 6);
+                          CatalogArtwork::Load(0x191, 0), W8SpriteStates{.normal = 4, .pressed = 7, .alternate_normal = 5, .alternate_pressed = 7, .disabled = 6});
     gpSCSV->realm_buttons[4] =
         panel->EmplaceControl<W8TextControl>(g_spell_casting_regions->index(4), 0x1e, 0x39, 0x69, 0x4f,
-                          CatalogArtwork::Load(0x191, 0), 0, 3, 1, 3, 2);
+                          CatalogArtwork::Load(0x191, 0), W8SpriteStates{.normal = 0, .pressed = 3, .alternate_normal = 1, .alternate_pressed = 3, .disabled = 2});
     gpSCSV->realm_buttons[5] =
         panel->EmplaceControl<W8TextControl>(g_spell_casting_regions->index(5), 0x71, 0x39, 0xbc, 0x4f,
-                          CatalogArtwork::Load(0x191, 0), 4, 7, 5, 7, 6);
+                          CatalogArtwork::Load(0x191, 0), W8SpriteStates{.normal = 4, .pressed = 7, .alternate_normal = 5, .alternate_pressed = 7, .disabled = 6});
     for (index = 0; index < W8_SPELL_REALM_COUNT; ++index) {
         gpSCSV->realm_buttons[index]->AddLayoutFlags(g_W8TextControlLayoutToggle);
     }
@@ -191,35 +191,30 @@ static void CreateSpellCastingViewControls(void)
     gpSCSV->realm_buttons[4]->m_primaryActivationCallback = SelectMentalSpellRealm;
     gpSCSV->realm_buttons[5]->m_primaryActivationCallback = SelectDivineSpellRealm;
 
-    gpSCSV->realm_icons[0] = panel->EmplaceControl<W8TextControl>(-1, 0x55, 0xf, 0x67, 0x21, CatalogArtwork::Load(0x193, 0), g_spell_realm_animations[0].initial_frame, -1, -1, -1, g_spell_realm_animations[0].frame_count);
-    gpSCSV->realm_icons[1] = panel->EmplaceControl<W8TextControl>(-1, 0x73, 0xf, 0x85, 0x21, CatalogArtwork::Load(0x194, 0), g_spell_realm_animations[1].initial_frame, -1, -1, -1, g_spell_realm_animations[1].frame_count);
-    gpSCSV->realm_icons[2] = panel->EmplaceControl<W8TextControl>(-1, 0x49, 0x25, 0x5b, 0x37, CatalogArtwork::Load(0x195, 0), g_spell_realm_animations[2].initial_frame, -1, -1, -1, g_spell_realm_animations[2].frame_count);
-    gpSCSV->realm_icons[3] = panel->EmplaceControl<W8TextControl>(-1, 0x7f, 0x25, 0x91, 0x37, CatalogArtwork::Load(0x196, 0), g_spell_realm_animations[3].initial_frame, -1, -1, -1, g_spell_realm_animations[3].frame_count);
-    gpSCSV->realm_icons[4] = panel->EmplaceControl<W8TextControl>(-1, 0x55, 0x3b, 0x67, 0x4d, CatalogArtwork::Load(0x197, 0), g_spell_realm_animations[4].initial_frame, -1, -1, -1, g_spell_realm_animations[4].frame_count);
-    gpSCSV->realm_icons[5] = panel->EmplaceControl<W8TextControl>(-1, 0x73, 0x3b, 0x85, 0x4d, CatalogArtwork::Load(0x198, 0), g_spell_realm_animations[5].initial_frame, -1, -1, -1, g_spell_realm_animations[5].frame_count);
+    gpSCSV->realm_icons[0] = panel->EmplaceControl<W8TextControl>(-1, 0x55, 0xf, 0x67, 0x21, CatalogArtwork::Load(0x193, 0), W8SpriteStates{.normal = static_cast<int>(g_spell_realm_animations[0].initial_frame), .disabled = static_cast<int>(g_spell_realm_animations[0].frame_count)});
+    gpSCSV->realm_icons[1] = panel->EmplaceControl<W8TextControl>(-1, 0x73, 0xf, 0x85, 0x21, CatalogArtwork::Load(0x194, 0), W8SpriteStates{.normal = static_cast<int>(g_spell_realm_animations[1].initial_frame), .disabled = static_cast<int>(g_spell_realm_animations[1].frame_count)});
+    gpSCSV->realm_icons[2] = panel->EmplaceControl<W8TextControl>(-1, 0x49, 0x25, 0x5b, 0x37, CatalogArtwork::Load(0x195, 0), W8SpriteStates{.normal = static_cast<int>(g_spell_realm_animations[2].initial_frame), .disabled = static_cast<int>(g_spell_realm_animations[2].frame_count)});
+    gpSCSV->realm_icons[3] = panel->EmplaceControl<W8TextControl>(-1, 0x7f, 0x25, 0x91, 0x37, CatalogArtwork::Load(0x196, 0), W8SpriteStates{.normal = static_cast<int>(g_spell_realm_animations[3].initial_frame), .disabled = static_cast<int>(g_spell_realm_animations[3].frame_count)});
+    gpSCSV->realm_icons[4] = panel->EmplaceControl<W8TextControl>(-1, 0x55, 0x3b, 0x67, 0x4d, CatalogArtwork::Load(0x197, 0), W8SpriteStates{.normal = static_cast<int>(g_spell_realm_animations[4].initial_frame), .disabled = static_cast<int>(g_spell_realm_animations[4].frame_count)});
+    gpSCSV->realm_icons[5] = panel->EmplaceControl<W8TextControl>(-1, 0x73, 0x3b, 0x85, 0x4d, CatalogArtwork::Load(0x198, 0), W8SpriteStates{.normal = static_cast<int>(g_spell_realm_animations[5].initial_frame), .disabled = static_cast<int>(g_spell_realm_animations[5].frame_count)});
 
     panel = gpSCSV->panels[2].get();
     gpSCSV->power_controls[0] =
         panel->EmplaceControl<W8TextControl>(g_spell_casting_regions->index(6), 0x38, 2, 0x47, 0x11,
-                          CatalogArtwork::Load(0x192, 0), 0, 2, 1, 4, 3);
+                          CatalogArtwork::Load(0x192, 0), W8SpriteStates{.normal = 0, .pressed = 2, .alternate_normal = 1, .alternate_pressed = 4, .disabled = 3});
     gpSCSV->power_controls[1] =
         panel->EmplaceControl<W8TextControl>(g_spell_casting_regions->index(7), 0x48, 4, 0x59, 0x15,
-                          CatalogArtwork::Load(0x192, 0), 6, 8, 7, 10, 9);
+                          CatalogArtwork::Load(0x192, 0), W8SpriteStates{.normal = 6, .pressed = 8, .alternate_normal = 7, .alternate_pressed = 10, .disabled = 9});
     gpSCSV->power_controls[2] =
         panel->EmplaceControl<W8TextControl>(g_spell_casting_regions->index(8), 0x56, 0x10, 0x69, 0x23,
-                          CatalogArtwork::Load(0x192, 0), 0xc, 0xe, 0xd, 0x10, 0xf);
-    gpSCSV->power_controls[3] = panel->EmplaceControl<W8TextControl>(g_spell_casting_regions->index(9), 0x5b, 0x23, 0x70, 0x38, CatalogArtwork::Load(0x192, 0),
-        0x12, 0x14, 0x13, 0x16, 0x15);
-    gpSCSV->power_controls[4] = panel->EmplaceControl<W8TextControl>(g_spell_casting_regions->index(10), 0x52, 0x38, 0x69, 0x4f, CatalogArtwork::Load(0x192, 0),
-        0x18, 0x1a, 0x19, 0x1c, 0x1b);
+                          CatalogArtwork::Load(0x192, 0), W8SpriteStates{.normal = 0xc, .pressed = 0xe, .alternate_normal = 0xd, .alternate_pressed = 0x10, .disabled = 0xf});
+    gpSCSV->power_controls[3] = panel->EmplaceControl<W8TextControl>(g_spell_casting_regions->index(9), 0x5b, 0x23, 0x70, 0x38, CatalogArtwork::Load(0x192, 0), W8SpriteStates{.normal = 0x12, .pressed = 0x14, .alternate_normal = 0x13, .alternate_pressed = 0x16, .disabled = 0x15});
+    gpSCSV->power_controls[4] = panel->EmplaceControl<W8TextControl>(g_spell_casting_regions->index(10), 0x52, 0x38, 0x69, 0x4f, CatalogArtwork::Load(0x192, 0), W8SpriteStates{.normal = 0x18, .pressed = 0x1a, .alternate_normal = 0x19, .alternate_pressed = 0x1c, .disabled = 0x1b});
     gpSCSV->power_controls[5] = panel->EmplaceControl<W8TextControl>(g_spell_casting_regions->index(kSpellPowerPipRegionOffset), 0x3a, 0x41, 0x53, 0x5a,
-        CatalogArtwork::Load(0x192, 0), 0x1e, 0x20, 0x1f, 0x22, 0x21);
-    gpSCSV->power_controls[6] = panel->EmplaceControl<W8TextControl>(g_spell_casting_regions->index(12), 0x1f, 0x3a, 0x3a, 0x55, CatalogArtwork::Load(0x192, 0),
-        0x24, 0x26, 0x25, 0x28, 0x27);
-    gpSCSV->power_controls[7] = panel->EmplaceControl<W8TextControl>(g_spell_casting_regions->index(13), 0x10, 0x1f, 0x2d, 0x3c, CatalogArtwork::Load(0x192, 0),
-        0x30, 0x32, 0x31, 0x34, 0x33);
-    gpSCSV->power_controls[8] = panel->EmplaceControl<W8TextControl>(g_spell_casting_regions->index(14), 0x10, 0x1f, 0x2d, 0x3c, CatalogArtwork::Load(0x192, 0),
-        0x2a, 0x2a, 0x2b, 0x2b, 0x2d);
+        CatalogArtwork::Load(0x192, 0), W8SpriteStates{.normal = 0x1e, .pressed = 0x20, .alternate_normal = 0x1f, .alternate_pressed = 0x22, .disabled = 0x21});
+    gpSCSV->power_controls[6] = panel->EmplaceControl<W8TextControl>(g_spell_casting_regions->index(12), 0x1f, 0x3a, 0x3a, 0x55, CatalogArtwork::Load(0x192, 0), W8SpriteStates{.normal = 0x24, .pressed = 0x26, .alternate_normal = 0x25, .alternate_pressed = 0x28, .disabled = 0x27});
+    gpSCSV->power_controls[7] = panel->EmplaceControl<W8TextControl>(g_spell_casting_regions->index(13), 0x10, 0x1f, 0x2d, 0x3c, CatalogArtwork::Load(0x192, 0), W8SpriteStates{.normal = 0x30, .pressed = 0x32, .alternate_normal = 0x31, .alternate_pressed = 0x34, .disabled = 0x33});
+    gpSCSV->power_controls[8] = panel->EmplaceControl<W8TextControl>(g_spell_casting_regions->index(14), 0x10, 0x1f, 0x2d, 0x3c, CatalogArtwork::Load(0x192, 0), W8SpriteStates{.normal = 0x2a, .pressed = 0x2a, .alternate_normal = 0x2b, .alternate_pressed = 0x2b, .disabled = 0x2d});
     gpSCSV->power_controls[0]->SetFlaggedRegionBounds(0x3f, 9, 7);
     gpSCSV->power_controls[1]->SetFlaggedRegionBounds(0x50, 0xc, 8);
     gpSCSV->power_controls[2]->SetFlaggedRegionBounds(0x5f, 0x19, 9);
@@ -244,12 +239,12 @@ static void CreateSpellCastingViewControls(void)
 
     gpSCSV->power_controls[W8_SPELL_NAME_CONTROL] =
         panel->EmplaceControl<W8TextControl>(g_spell_casting_regions->index(15), 0xe, 10, 0x30, 0x18,
-                          std::nullopt, -1, -1, -1, -1, -1);
+                          std::nullopt);
     gpSCSV->power_controls[W8_SPELL_NAME_CONTROL]->m_textBuffer.SetLayoutMode(
         g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
     gpSCSV->power_controls[W8_SPELL_CANCEL_CONTROL] =
         panel->EmplaceControl<W8TextControl>(g_spell_casting_regions->index(16), 0x96, 6, 0xb1, 0x21,
-                          CatalogArtwork::Load(0x8e, 0), 4, -1, 5, 6, 7);
+                          CatalogArtwork::Load(0x8e, 0), W8SpriteStates{.normal = 4, .alternate_normal = 5, .alternate_pressed = 6, .disabled = 7});
     gpSCSV->power_controls[W8_SPELL_CANCEL_CONTROL]->m_primaryActivationCallback =
         ResetSpellCastingSelection;
 
