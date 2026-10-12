@@ -53,15 +53,16 @@ row subclasses and selection-listener loop are removed. Navigation and radio
 selection use owner callbacks. Options panels own ordinary sliders with direct
 painting and callbacks; the horizontal thumb widget and listener are deleted.
 Track clicks and drags update bound values before notifying their owners.
-The remaining option rows still use the old visual controls. Journal, formation
-actions and options share the existing button painter, including the menu
-artwork's missing frames and hover insets.
+Options pages now own buttons, key-binding targets, save rows and explicit draw
+order without Controls or W8Widget. Their key-capture, save-row and editor
+listener interfaces are deleted. Journal, formation actions and options share
+the existing button painter, including missing frames and hover insets.
 
 ## Remaining deletion work
 
 1. Finish merging button painting and migrate the camp scroll controls. Remove obsolete
    wrappers rather than adding another control adapter.
-2. Migrate options, party/character screens, camp and the remaining gameplay groups
+2. Migrate party/character screens, camp and the remaining gameplay groups
    as coherent owners. Keep gameplay behavior in their existing controllers.
 3. Replace RegionManager only after its registrations migrate. Delete numeric region
    APIs, templates, slot recycling, binding generations, `OwnedRegion`,

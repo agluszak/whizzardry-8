@@ -1391,9 +1391,9 @@ void LoadGameScenario(const fs::path& fixture)
         return panel->m_panel == 11 && !panel->m_rows.empty();
     });
     // The only save is the first row; select it, then press Load.
-    game.click("select-save", ControlRegion(panel->m_rows[0]));
-    REQUIRE(panel->m_selection.m_selectedIndex == 0);
-    game.click("load", ControlRegion(panel->m_action_button));
+    game.click_at(300, 40);
+    REQUIRE(panel->m_selected == 0);
+    game.click_at(540, 445);
     WaitMainGame(game, "loaded");
     Settle(game, "loaded");
     ExpectAt("loaded", anchor);

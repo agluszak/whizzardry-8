@@ -25,8 +25,6 @@
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/TextBuffer.h"
-#include "wiz8/local_code/TextControl.h"
-#include "wiz8/local_code/ControlSelection.h"
 #include "wiz8/local_screens/OptionsScreen.h"
 #include "wiz8/local_screens/JournalScreen.h"
 #include "wiz8/local_screens/MGSKeyboard.h"
@@ -57,7 +55,6 @@
 #include "difficulty.h"
 #include "file_time.h"
 #include "layouts/world.h"
-#include "local_code/Controls.h"
 #include "mgs_commands.h"
 #include "surrender/srPixelConvert.h"
 
@@ -206,12 +203,6 @@ W8OptionsPanelSet::W8OptionsPanelSet()
 
 W8OptionsPanelSet::~W8OptionsPanelSet() = default;
 
-/* Standalone JMP thunk onto Controls::~Controls emitted for this TU. */
-
-/* Vtable 0x005EEDDC is an unnamed W8TextControl subclass emitted for this TU:
-   identical to W8TextControl's table except slot 0, which holds the generated
-   deleting destructor 0x005A76B0 wrapping the emitted destructor 0x005A76D0. */
-
 W8OptionsKeyboardPanel::W8OptionsKeyboardPanel(int panel)
     : W8OptionsPanel(), m_panel(panel), m_captured_button(0)
 {
@@ -230,40 +221,32 @@ W8OptionsUnavailablePanel::W8OptionsUnavailablePanel(int message)
 void W8OptionsSaveRow::SetSave(W8SaveSlot& save)
 {
     m_save = &save;
-    SetEnabled(true);
-    Invalidate(false);
+    button.SetEnabled(true);
+    button.m_dirty = true;
 }
 
 void W8OptionsSaveRow::ClearSave()
 {
     m_save = nullptr;
-    SetEnabled(false);
-    Invalidate(false);
+    button.SetEnabled(false);
+    button.m_dirty = true;
 }
 
 void W8OptionsSaveLoadPanel::Populate()
 {
-    int top = 0x12;
     for (int index = 0; index < 5; ++index) {
-        W8OptionsSaveRow* row = EmplaceControl<W8OptionsSaveRow>(top, m_panel == 12);
-        row->m_save_listener = this;
-        m_selection.AddEntry(row);
-        m_rows.push_back(row);
-        top += 0x49;
+        m_rows.emplace_back(std::make_unique<W8OptionsSaveRow>(m_input, *this, index, m_panel == 12));
     }
-    m_selection.on_selection = [this](int selected) { OnSelectionChanged(&m_selection, selected); };
 
     if (m_panel == 11) {
         m_delete_button =
-            EmplaceControl<W8TextControl>(0xffffffff, 0xd, 0x1b0, 0, 0, CatalogArtwork::Load(0xf8, 0), W8SpriteStates{.normal = 6, .pressed = 8, .alternate_normal = 7});
-        m_delete_button->m_listener = this;
+            AddButton(0xd, 0x1b0, 0xf8, 6, 8, 7, -1, -1, [this](auto* button) { AfterUiDispatch([this, button] { OnPrimary(button); }); });
     } else {
         m_delete_button = 0;
     }
 
     int first_sprite = m_panel == 11 ? 3 : 0;
-    m_action_button = EmplaceControl<W8TextControl>(0xffffffff, 0xf5, 0x1b0, 0, 0, CatalogArtwork::Load(0xf8, 0), W8SpriteStates{.normal = first_sprite, .pressed = first_sprite + 2, .alternate_normal = first_sprite + 1});
-    m_action_button->m_listener = this;
+    m_action_button = AddButton(0xf5, 0x1b0, 0xf8, first_sprite, first_sprite + 2, first_sprite + 1, -1, -1, [this](auto* button) { AfterUiDispatch([this, button] { OnPrimary(button); }); });
 
     if (m_panel == 11 && static_cast<int>(g_options_screen->m_save_slots.size()) == 1) {
         m_delete_button->SetEnabled(false);
@@ -281,15 +264,15 @@ void W8OptionsSaveLoadPanel::Populate()
         }
     }
     SetCurrent(page);
-    m_selection.SetSelected(selected);
+    SelectRow(selected);
 }
 
 void W8OptionsSaveLoadPanel::SetActive(bool active)
 {
     W8OptionsPanel::SetActive(active);
     if (active && g_options_screen->m_text_editor == 0 && m_panel == 12 &&
-        m_selection.m_selectedIndex == 0 && m_current == 0) {
-        OnEditSaveName(m_rows[0]);
+        m_selected == 0 && m_current == 0) {
+        OnEditSaveName();
     }
 }
 
@@ -299,8 +282,7 @@ static void FinishOptionsTextEdit(W8OptionsScreen* screen, unsigned char cancell
     W8OptionsTextEditor* editor = screen->m_text_editor.get();
     if (!editor)
         return;
-    if (editor->m_listener)
-        editor->m_listener->OnTextEditComplete(editor, cancelled);
+    editor->owner->OnTextEditComplete(editor, cancelled);
     screen->m_text_editor.reset();
 }
 
@@ -324,14 +306,14 @@ void W8OptionsSaveLoadPanel::SetCurrent(int current)
     for (; limit < first + 5; ++limit) {
         m_rows[limit - first]->ClearSave();
     }
-    m_selection.SetSelected(0);
-    if (g_options_screen->m_text_editor == 0 && m_panel == 12 && m_selection.m_selectedIndex == 0 &&
+    SelectRow(0);
+    if (g_options_screen->m_text_editor == 0 && m_panel == 12 && m_selected == 0 &&
         m_current == 0) {
-        OnEditSaveName(m_rows[0]);
+        OnEditSaveName();
     }
 }
 
-void W8OptionsSaveLoadPanel::OnPrimary(W8TextControl* control)
+void W8OptionsSaveLoadPanel::OnPrimary(W8ButtonWidget* control)
 {
     if (control == m_delete_button) {
         g_options_screen->ShowNotification(this, true, 0x828, 1);
@@ -347,7 +329,7 @@ void W8OptionsSaveLoadPanel::OnPrimary(W8TextControl* control)
 
     W8OptionsTextEditor* editor = g_options_screen->m_text_editor.get();
     FinishOptionsTextEdit(g_options_screen.get(), 0);
-    if (editor == 0 && m_current == 0 && m_selection.m_selectedIndex == 0) {
+    if (editor == 0 && m_current == 0 && m_selected == 0) {
         SaveSelectedSave();
     } else {
         g_options_screen->ShowNotification(this, true, 0x829, 2);
@@ -360,17 +342,17 @@ void W8OptionsSaveLoadPanel::OnDialogClosed(bool accepted, int value)
     if (!accepted) {
         if (value == 2) {
             if (g_options_screen->m_text_editor != 0 || m_panel != 12 ||
-                m_selection.m_selectedIndex != 0) {
+                m_selected != 0) {
                 return;
             }
             selected_slot = m_current;
         } else if (value == 3) {
-            selected_slot = m_current * 5 + m_selection.m_selectedIndex;
+            selected_slot = m_current * 5 + m_selected;
             (g_options_screen->m_save_slots[selected_slot])->name = m_previous_name;
-            W8OptionsSaveRow* row = m_rows[m_selection.m_selectedIndex];
+            W8OptionsSaveRow* row = m_rows[m_selected].get();
             row->SetSave(*g_options_screen->m_save_slots[selected_slot]);
             if (g_options_screen->m_text_editor != 0 || m_panel != 12 ||
-                m_selection.m_selectedIndex != 0) {
+                m_selected != 0) {
                 return;
             }
             selected_slot = m_current;
@@ -390,7 +372,7 @@ void W8OptionsSaveLoadPanel::OnDialogClosed(bool accepted, int value)
             return;
         case 4:
             if (g_options_screen->m_text_editor != 0 || m_panel != 12 ||
-                m_selection.m_selectedIndex != 0) {
+                m_selected != 0) {
                 return;
             }
             selected_slot = m_current;
@@ -400,16 +382,16 @@ void W8OptionsSaveLoadPanel::OnDialogClosed(bool accepted, int value)
         }
     }
     if (selected_slot == 0) {
-        OnEditSaveName(m_rows[0]);
+        OnEditSaveName();
     }
 }
 
 void W8OptionsSaveLoadPanel::OnTextEditComplete(W8OptionsTextEditor* editor, unsigned char cancelled)
 {
-    int selected_slot = m_current * 5 + m_selection.m_selectedIndex;
+    int selected_slot = m_current * 5 + m_selected;
     m_rows[m_editing_row]->m_editing = false;
     if (cancelled != 0) {
-        m_rows[m_selection.m_selectedIndex]->Invalidate(false);
+        m_rows[m_editing_row]->button.m_dirty = true;
         return;
     }
 
@@ -422,9 +404,9 @@ void W8OptionsSaveLoadPanel::OnTextEditComplete(W8OptionsTextEditor* editor, uns
         return;
     }
 
-    W8OptionsSaveRow* row = m_rows[m_selection.m_selectedIndex];
+    W8OptionsSaveRow* row = m_rows[m_selected].get();
     row->SetSave(slot);
-    if (m_current == 0 && m_selection.m_selectedIndex == 0) {
+    if (m_current == 0 && m_selected == 0) {
         if (SaveSlotFileExists(slot.name) == 0) {
             SaveSelectedSave();
         } else {
@@ -435,31 +417,28 @@ void W8OptionsSaveLoadPanel::OnTextEditComplete(W8OptionsTextEditor* editor, uns
     }
 }
 
-void W8OptionsSaveLoadPanel::OnEditSaveName(W8OptionsSaveRow*)
+void W8OptionsSaveLoadPanel::OnEditSaveName()
 {
-    int selected_slot = m_current * 5 + m_selection.m_selectedIndex;
-    g_options_screen->BeginSaveNameEdit(this, m_selection.m_selectedIndex,
+    int selected_slot = m_current * 5 + m_selected;
+    g_options_screen->BeginSaveNameEdit(this, m_selected,
                                         g_options_screen->m_save_slots[selected_slot]->name);
-    m_editing_row = m_selection.m_selectedIndex;
+    m_editing_row = m_selected;
     m_rows[m_editing_row]->m_editing = true;
 }
 
-void W8OptionsSaveLoadPanel::OnActivateSave(W8OptionsSaveRow*)
+void W8OptionsSaveLoadPanel::SelectRow(int selected)
 {
-    OnPrimary(m_action_button);
-}
-
-void W8OptionsSaveLoadPanel::OnSelectionChanged(W8ControlSelection*, int)
-{
+    if (m_selected == selected) return;
+    m_selected = selected;
+    for (int i = 0; i < static_cast<int>(m_rows.size()); ++i)
+        m_rows[i]->button.SetPressed(i == selected);
     FinishOptionsTextEdit(g_options_screen.get(), 1);
-    if (m_panel == 12 && m_current == 0 && m_selection.m_selectedIndex == 0) {
-        OnEditSaveName(m_rows[0]);
-    }
+    if (m_panel == 12 && m_current == 0 && selected == 0) OnEditSaveName();
 }
 
 void W8OptionsSaveLoadPanel::DeleteSelectedSave()
 {
-    int selected_slot = m_current * 5 + 1 + m_selection.m_selectedIndex;
+    int selected_slot = m_current * 5 + 1 + m_selected;
     W8SaveSlot& slot = *g_options_screen->m_save_slots[selected_slot];
     std::string path;
     path = fmt::format("{}\\{}.{}", "Saves", slot.name, g_save_extension);
@@ -477,7 +456,7 @@ void W8OptionsSaveLoadPanel::DeleteSelectedSave()
         }
     } else if (selected_slot >= static_cast<int>(g_options_screen->m_save_slots.size())) {
         --selected_slot;
-        if (m_selection.m_selectedIndex == 0) {
+        if (m_selected == 0) {
             --m_current;
         }
     }
@@ -491,12 +470,12 @@ void W8OptionsSaveLoadPanel::DeleteSelectedSave()
     }
     g_options_screen->UpdateNavigation();
     SetCurrent(m_current);
-    m_selection.SetSelected(selected_slot == -1 ? -1 : (selected_slot - 1) % 5);
+    SelectRow(selected_slot == -1 ? -1 : (selected_slot - 1) % 5);
 }
 
 void W8OptionsSaveLoadPanel::LoadSelectedSave()
 {
-    int selected_slot = m_current * 5 + 1 + m_selection.m_selectedIndex;
+    int selected_slot = m_current * 5 + 1 + m_selected;
     W8SaveSlot& slot = *g_options_screen->m_save_slots[selected_slot];
     if (slot.version_major + slot.version_minor * 0.1f + slot.version_patch * 0.01f <= 1.24f) {
         SetLastSaveName(slot.name);
@@ -513,7 +492,7 @@ void W8OptionsSaveLoadPanel::LoadSelectedSave()
 
 void W8OptionsSaveLoadPanel::SaveSelectedSave(std::string_view previous_name)
 {
-    int selected_slot = m_current * 5 + m_selection.m_selectedIndex;
+    int selected_slot = m_current * 5 + m_selected;
     W8SaveSlot& slot = *g_options_screen->m_save_slots[selected_slot];
     if (slot.name.size() == 0) {
         g_options_screen->ShowNotification(this, false, 0x82a, 0);
@@ -536,52 +515,42 @@ void W8OptionsSaveLoadPanel::SaveSelectedSave(std::string_view previous_name)
     SetPendingScreenState(W8_SCREEN_PLEASE_WAIT);
 }
 
-W8OptionsButton::W8OptionsButton(int left, int top, int right, int bottom,
-                                 std::string_view text)
-    : W8TextControl(0xffffffff, left, top, right, bottom)
+W8OptionsSaveRow::W8OptionsSaveRow(UiLayer& layer, W8OptionsSaveLoadPanel& owner,
+                                 int index, bool save_mode) : button(layer)
 {
-    m_textBuffer.SetLayoutMode(g_W8TextBufferAlignTop);
-    m_textBuffer.SetText(text, g_options_detail_font);
-}
-
-W8OptionsKeyButton::W8OptionsKeyButton(int top, W8MGSCommand primary_binding,
-                                       W8MGSCommand secondary_binding)
-    : W8OptionsButton(100, top, 0x15e, top + 22, ""), m_primary_binding(primary_binding),
-      m_secondary_binding(secondary_binding)
-{
-    AddLayoutFlags(g_W8TextControlLayoutLatchedImage | g_W8TextControlLayoutToggle);
-    m_textBuffer.SetLayoutMode(g_W8TextBufferNoWrap | g_W8TextBufferAlignRight |
-                               g_W8TextBufferAlignTop);
-}
-
-/* Sprite indices within catalog object 0xf9, frame 0. */
-enum W8OptionsSaveRowSprite {
-    W8_OPTIONS_SAVE_ROW_SAVE_NORMAL = 0,
-    W8_OPTIONS_SAVE_ROW_SAVE_PRESSED = 1,
-    W8_OPTIONS_SAVE_ROW_LOAD_NORMAL = 2,
-    W8_OPTIONS_SAVE_ROW_LOAD_PRESSED = 3,
-    W8_OPTIONS_SAVE_ROW_DISABLED = 4
-};
-
-W8OptionsSaveRow::W8OptionsSaveRow(int top, unsigned char save_mode)
-    : W8TextControl(0xffffffff, 10, top, 0, 0, CatalogArtwork::Load(0xf9, 0), W8SpriteStates{.normal = save_mode ? W8_OPTIONS_SAVE_ROW_SAVE_NORMAL : W8_OPTIONS_SAVE_ROW_LOAD_NORMAL, .pressed = save_mode ? W8_OPTIONS_SAVE_ROW_SAVE_PRESSED : W8_OPTIONS_SAVE_ROW_LOAD_PRESSED, .disabled = W8_OPTIONS_SAVE_ROW_DISABLED}),
-      m_save_mode(save_mode), m_editing(0), m_save(0), m_save_listener(0)
-{
-    AddLayoutFlags(g_W8TextControlLayoutLatchedImage | g_W8TextControlLayoutToggle);
+    auto art = CatalogArtwork::Load(0xf9, 0);
+    const int normal = save_mode ? 0 : 2;
+    button.Configure(art.spriteSheet(), 4, normal, -1, normal + 1, -1,
+        [&owner, this, index, save_mode](auto*) {
+            AfterUiDispatch([&owner, this, index, save_mode] {
+                const auto point = button.GetMousePosition();
+                if (!m_editing && owner.m_selected == index && save_mode &&
+                    point.x - button.Bounds().x >= 0x5c && point.y - button.Bounds().y >= 0x33)
+                    owner.OnEditSaveName();
+                owner.SelectRow(index);
+            });
+        }, {}, false, 0, -1, {}, [&owner, this, index](auto*) {
+            if (!m_editing && owner.m_selected == index)
+                AfterUiDispatch([&owner] { owner.OnPrimary(owner.m_action_button); });
+        });
+    button.policy.primary_toggle = ButtonToggle::StayLatched;
+    button.policy.controller_activation = true;
+    button.SetPosition(0x104 + 10, 0x12 + index * 0x49);
+    const auto size = art.size(normal);
+    button.Resize(size.x, size.y);
 }
 
 void W8OptionsSaveRow::Redraw(SDL_Surface& target, bool full_redraw)
 {
-    if (!m_active || (!full_redraw && !m_dirty)) {
-        return;
-    }
-    W8TextControl::Redraw(target, full_redraw);
-    if (!m_enabled || m_save == 0) {
+    if (!full_redraw && !button.m_dirty) return;
+    button.m_dirty = true;
+    button.Draw(target);
+    if (!button.IsEnabled() || m_save == 0) {
         return;
     }
 
-    int x = ScreenBounds().x;
-    int y = ScreenBounds().y;
+    int x = button.Bounds().x;
+    int y = button.Bounds().y;
     if (m_save->screenshot.capture_result == 0) {
         CatalogArtwork::Load(0xf6, 0).draw(target, 0, x + 6, y + 6);
     } else {
@@ -620,76 +589,27 @@ void W8OptionsSaveRow::Redraw(SDL_Surface& target, bool full_redraw)
     }
 }
 
-void W8OptionsSaveRow::OnLeftButtonUp(int event)
+void W8OptionsSaveLoadPanel::Redraw(SDL_Surface& target, bool full_redraw)
 {
-    if (m_active && m_enabled && !m_editing &&
-        (IsSelected())) {
-        SDL_Point point;
-        SGPMouseGetPos(&point);
-        point.x -= ScreenBounds().x;
-        point.y -= ScreenBounds().y;
-        if (m_save_mode != 0 && point.x >= 0x5c && point.y >= 0x33 && m_save_listener != 0) {
-            m_save_listener->OnEditSaveName(this);
-        }
-    }
-    W8TextControl::OnLeftButtonUp(event);
+    if (!m_active) return;
+    const bool repaint = full_redraw || m_dirty;
+    W8OptionsPanel::Redraw(target, full_redraw);
+    for (auto& row : m_rows) row->Redraw(target, repaint);
 }
 
-void W8OptionsSaveRow::OnLeftButtonDoubleClick(int event)
-{
-    if (m_active && m_enabled && !m_editing &&
-        (IsSelected()) && m_save_listener != 0) {
-        m_save_listener->OnActivateSave(this);
-    }
-    W8TextControl::OnLeftButtonDoubleClick(event);
-}
-
-void W8OptionsScreen::BeginSaveNameEdit(W8OptionsTextEditor::Listener* listener, int row,
+void W8OptionsScreen::BeginSaveNameEdit(W8OptionsSaveLoadPanel* owner, int row,
                                         std::string_view text)
 {
     auto editor = std::make_unique<W8OptionsTextEditor>();
     editor->m_fields.Add(0x16b, row * 0x49 + 0x46, 0xfa, 0xc, 0x7f, text, 0x3b, 0xf, true);
     editor->m_fields.Focus(0);
-    editor->m_listener = listener;
+    editor->owner = owner;
     m_text_editor = std::move(editor);
-}
-
-void W8OptionsButton::Redraw(SDL_Surface& target, bool full_redraw)
-{
-    if (m_active && (full_redraw || m_dirty) && m_textBuffer.HasBuffer()) {
-        if (m_enabled) {
-            int font_state;
-            if (IsPressed()) {
-                font_state = 13;
-            } else {
-                font_state = m_alternateTextEnabled ? 14 : -1;
-            }
-            m_textBuffer.SetFontStateIndex(font_state);
-        }
-        m_textBuffer.RenderToTarget(0, full_redraw, target);
-        m_dirty = false;
-    }
-}
-
-void W8OptionsButton::OnMouseEnter(int event)
-{
-    W8TextControl::OnMouseEnter(event);
-    SetAlternateTextEnabled(true);
-    Invalidate(static_cast<unsigned char>(event));
-}
-
-void W8OptionsButton::OnMouseLeave(int event)
-{
-    W8TextControl::OnMouseLeave(event);
-    SetAlternateTextEnabled(false);
-    Invalidate(static_cast<unsigned char>(event));
 }
 
 void W8OptionsKeyButton::SetKey(unsigned short key)
 {
-    m_textBuffer.SetFontStateIndex(m_alternateTextEnabled ? 14 : -1);
     if (key == VK_ESCAPE) {
-        Invalidate(false);
         return;
     }
 
@@ -705,7 +625,6 @@ void W8OptionsKeyButton::SetKey(unsigned short key)
         }
     }
     SetKeyText(key);
-    Invalidate(true);
 }
 
 void W8OptionsKeyButton::SetKeyText(unsigned short key)
@@ -730,89 +649,97 @@ void W8OptionsKeyButton::SetKeyText(unsigned short key)
     if (m_secondary_binding != W8_MGS_COMMAND_NONE && key != 0) {
         text = fmt::format("({}) {}", g_localized_strings[0x89d], text);
     }
-    m_textBuffer.SetText(text, g_options_detail_font);
+    this->text.SetText(text, g_options_detail_font);
 }
 
 void W8OptionsKeyboardPanel::Populate()
 {
-    m_selection.on_selection = [this](int selected) { OnSelectionChanged(&m_selection, selected); };
-
-    W8OptionsKeyboardPage& page = g_options_keyboard_pages[m_panel - 6];
-    W8ControlsRect title_bounds = {ScreenBounds().x + 30, ScreenBounds().y + m_content_top,
-                                   ToEdges(ScreenBounds()).right - 30, ScreenBounds().y + m_content_top + 22};
-    W8TextBuffer* title =
-        new W8TextBuffer(&title_bounds, g_localized_strings[page.title], g_options_detail_font,
-                         g_W8TextBufferAlignTop | g_W8TextBufferAlignCenter, 4);
-    m_text_buffers.emplace_back(title);
+    const auto add_key = [this](SDL_Rect bounds, W8MGSCommand primary,
+                               W8MGSCommand secondary, std::string_view caption) {
+        auto& entry = m_keys.emplace_back(std::make_unique<W8OptionsKeyButton>());
+        auto* key = entry.get();
+        key->m_primary_binding = primary;
+        key->m_secondary_binding = secondary;
+        key->text.SetLayoutBounds(bounds.x, bounds.y, bounds.x + bounds.w, bounds.y + bounds.h);
+        key->text.SetLayoutMode(g_W8TextBufferNoWrap | g_W8TextBufferAlignTop |
+                               (primary == W8_MGS_COMMAND_NONE ? 0 : g_W8TextBufferAlignRight));
+        key->text.SetText(caption, g_options_detail_font);
+        key->target = &m_input.add(SDL_Rect{bounds.x, bounds.y, bounds.w + 1, bounds.h + 1},
+            [this, key](const UiPointerEvent& event) {
+                const ButtonPolicy policy{.primary_toggle = ButtonToggle::StayLatched,
+                                          .controller_activation = true};
+                m_dirty = true;
+                if (event.action == UiPointerAction::Leave) key->interaction.leave(policy);
+                else if (event.button == UiPointerButton::Left) {
+                    if (event.action == UiPointerAction::Down)
+                        key->interaction.press(SDL_BUTTON_LMASK, policy);
+                    else if (event.action == UiPointerAction::Up && event.inside &&
+                             key->interaction.release(SDL_BUTTON_LMASK, policy).activate) {
+                        if (key->m_primary_binding == W8_MGS_COMMAND_NONE) {
+                            key->interaction = {};
+                            AfterUiDispatch([this] { g_options_screen->ShowNotification(this, true, 0x834, 0); });
+                        } else SelectKey(key);
+                    }
+                }
+                return UiResult::Handled;
+            });
+    };
+    const auto& page = g_options_keyboard_pages[m_panel - 6];
+    const W8ControlsRect title_bounds{m_bounds.x + 30, m_content_top,
+                                     m_bounds.x + m_bounds.w - 30, m_content_top + 22};
+    m_text_buffers.emplace_back(std::make_unique<W8TextBuffer>(&title_bounds,
+        g_localized_strings[page.title], g_options_detail_font,
+        g_W8TextBufferAlignTop | g_W8TextBufferAlignCenter, 4));
     m_content_top += 44;
-
-    int first = 0;
-    while (g_options_key_rows[first].primary_binding != page.first_binding) {
-        ++first;
-    }
-
-    W8OptionsKeyRow* row = g_options_key_rows + first;
+    auto* row = g_options_key_rows;
+    while (row->primary_binding != page.first_binding) ++row;
     for (;;) {
-        W8ControlsRect label_bounds = {ScreenBounds().x + 20, ScreenBounds().y + m_content_top,
-                                       ToEdges(ScreenBounds()).right, ScreenBounds().y + m_content_top + 22};
-        W8TextBuffer* label =
-            new W8TextBuffer(&label_bounds, g_localized_strings[row->label], g_options_detail_font,
-                             g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4);
-        m_text_buffers.emplace_back(label);
-
-        W8OptionsKeyButton* button = EmplaceControl<W8OptionsKeyButton>(m_content_top, row->primary_binding, row->secondary_binding);
-        m_selection.AddEntry(button);
+        const W8ControlsRect bounds{m_bounds.x + 20, m_content_top,
+                                    m_bounds.x + m_bounds.w, m_content_top + 22};
+        m_text_buffers.emplace_back(std::make_unique<W8TextBuffer>(&bounds,
+            g_localized_strings[row->label], g_options_detail_font,
+            g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4));
+        add_key({m_bounds.x + 100, m_content_top, 0x15e - 100, 22},
+                row->primary_binding, row->secondary_binding, "");
         m_content_top += 22;
+        if ((row++)->primary_binding == page.last_binding) break;
+    }
+    const auto& reset = g_localized_strings[0x833];
+    const int width = g_options_detail_font.textWidth(reset) + 20;
+    add_key({m_bounds.x + (m_bounds.w - width) / 2, 0x18e, width, 22},
+            W8_MGS_COMMAND_NONE, W8_MGS_COMMAND_NONE, reset);
+}
 
-        W8MGSCommand binding = row->primary_binding;
-        ++row;
-        if (binding == page.last_binding) {
-            std::string reset_text = g_localized_strings[0x833];
-            short text_width = g_options_detail_font.textWidth(reset_text);
-            int left = (ToEdges(ScreenBounds()).right - (text_width + 20) - ScreenBounds().x) / 2;
-            W8OptionsButton* reset =
-                EmplaceControl<W8OptionsButton>(left, 0x18e, left + text_width + 20, 0x1a4, reset_text);
-            reset->m_listener = this;
-            return;
-        }
+void W8OptionsKeyboardPanel::Redraw(SDL_Surface& target, bool full_redraw)
+{
+    if (!m_active) return;
+    const bool repaint = full_redraw || m_dirty;
+    W8OptionsPanel::Redraw(target, full_redraw);
+    if (repaint) for (auto& key : m_keys) {
+        key->text.SetFontStateIndex(key->interaction.pressed ? 13 : key->target->hovered() ? 14 : -1);
+        key->text.RenderToTarget(0, true, target);
     }
 }
 
-void W8OptionsKeyboardPanel::InvalidateAll()
+void W8OptionsKeyboardPanel::SelectKey(W8OptionsKeyButton* key)
 {
-    Controls::InvalidateAll();
-    // ~W8OptionsScreen deactivates its panels after OptionsScreenLeave has cleared the global.
-    if (g_options_screen) g_options_screen->m_navigation_dirty = true;
-}
-
-void W8OptionsKeyboardPanel::OnPrimary(W8TextControl*)
-{
-    g_options_screen->ShowNotification(this, true, 0x834, 0);
-}
-
-void W8OptionsKeyboardPanel::OnSelectionChanged(W8ControlSelection*, int selected)
-{
-    if (selected == -1) {
-        m_captured_button = 0;
-        g_options_screen->m_key_capture = 0;
-        return;
+    m_captured_button = key;
+    if (g_options_screen) g_options_screen->m_key_capture = key ? this : nullptr;
+    for (auto& entry : m_keys) {
+        entry->interaction.cancel(false);
+        entry->interaction.selected = entry->interaction.pressed = entry.get() == key;
     }
-
-    m_captured_button = static_cast<W8OptionsKeyButton*>(ControlAt(selected));
-    g_options_screen->m_key_capture = this;
+    InvalidateAll();
 }
 
 void W8OptionsKeyboardPanel::RefreshBindingLabels()
 {
-    int count = static_cast<int>(ControlCount()) - 1;
-    for (int index = 0; index < count; ++index) {
-        W8OptionsKeyButton* button = static_cast<W8OptionsKeyButton*>(ControlAt(index));
-        MGSKeyBinding* binding =
-            g_mgs_keyboard->GetBinding(g_mgs_keyboard->FindBinding(button->m_primary_binding));
-        if (binding != 0) {
-            button->SetKeyText(binding->key);
-        }
+    for (auto& key : m_keys) {
+        if (key->m_primary_binding == W8_MGS_COMMAND_NONE) continue;
+        auto* binding = g_mgs_keyboard->GetBinding(g_mgs_keyboard->FindBinding(key->m_primary_binding));
+        if (binding) key->SetKeyText(binding->key);
     }
+    InvalidateAll();
 }
 
 void W8OptionsKeyboardPanel::SetActive(bool active)
@@ -821,7 +748,7 @@ void W8OptionsKeyboardPanel::SetActive(bool active)
     if (active) {
         RefreshBindingLabels();
     }
-    m_selection.SetSelected(-1);
+    SelectKey(nullptr);
 }
 
 unsigned char W8OptionsKeyboardPanel::OnKey(unsigned short key, unsigned short modifiers)
@@ -833,13 +760,13 @@ unsigned char W8OptionsKeyboardPanel::OnKey(unsigned short key, unsigned short m
         ClearDuplicateBinding(key);
     }
     m_captured_button->SetKey(key);
-    m_selection.SetSelected(-1);
+    SelectKey(nullptr);
     return 1;
 }
 
 void W8OptionsKeyboardPanel::OnDialogClosed(bool accepted, int)
 {
-    m_selection.SetSelected(-1);
+    SelectKey(nullptr);
     if (accepted) {
         ResetMGSKeyboardBindings();
         RefreshBindingLabels();
@@ -976,11 +903,10 @@ void W8OptionsInterfacePanel::Populate()
         g_settings.tooltip_delay_ms = static_cast<int>(m_tooltip_delay->m_position);
         SetRegionHelpDelay(0);
     };
-    W8TextControl* button = AddChoiceButton(0x80f);
-    button->EnableRegionHelp(0x810);
-    button->m_listener = this;
+    auto* button = AddChoiceButton(0x80f, [this](auto* control) { OnPrimary(control); });
+    button->SetTooltipIndex(0x810);
     if (!g_settings.tooltips_enabled) {
-        button->EnableSecondaryState(false);
+        button->SetPressed(true);
         m_tooltip_delay->SetEnabled(false);
     }
     m_content_top += 22;
@@ -992,9 +918,9 @@ void W8OptionsInterfacePanel::Populate()
     AddCheckbox(0x80a, &g_options_values.autoscroll_combat_messages);
 }
 
-void W8OptionsInterfacePanel::OnPrimary(W8TextControl* control)
+void W8OptionsInterfacePanel::OnPrimary(W8ButtonWidget* control)
 {
-    g_settings.tooltips_enabled = !control->IsSelected();
+    g_settings.tooltips_enabled = !control->IsPressed();
     m_tooltip_delay->SetEnabled(g_settings.tooltips_enabled);
 }
 
@@ -1047,11 +973,10 @@ void W8OptionsAudioPanel::Populate()
         slider->on_release = [this, index] { PreviewVolume(index); };
         m_sliders[index] = slider;
 
-        m_mute_buttons[index] = AddChoiceButton(0x822);
-        m_mute_buttons[index]->m_listener = this;
+        m_mute_buttons[index] = AddChoiceButton(0x822, [this](auto* control) { OnPrimary(control); });
         if (muted) {
             m_sliders[index]->SetEnabled(false);
-            m_mute_buttons[index]->EnableSecondaryState(false);
+            m_mute_buttons[index]->SetPressed(true);
         }
     }
     m_content_top += 22;
@@ -1095,7 +1020,7 @@ void W8OptionsAudioPanel::PreviewVolume(int index)
     }
 }
 
-void W8OptionsAudioPanel::OnPrimary(W8TextControl* control)
+void W8OptionsAudioPanel::OnPrimary(W8ButtonWidget* control)
 {
     int index;
     for (index = 0; index < 4; ++index) {
@@ -1106,7 +1031,7 @@ void W8OptionsAudioPanel::OnPrimary(W8TextControl* control)
     if (index == 4) {
         index = -1;
     }
-    const bool muted = control->IsSelected();
+    const bool muted = control->IsPressed();
     switch (index) {
     case 0:
         SetMusicMuted(muted);
@@ -1322,9 +1247,7 @@ unsigned char W8OptionsScreen::ProcessInput(const InputEvent* input)
                 return 0;
             }
             SetTargetCursor(W8_CURSOR_NONE);
-            if (editor->m_listener != 0) {
-                editor->m_listener->OnTextEditComplete(editor, input->key == VK_ESCAPE);
-            }
+            editor->owner->OnTextEditComplete(editor, input->key == VK_ESCAPE);
             m_text_editor.reset();
             return 1;
         }
@@ -1571,10 +1494,19 @@ void W8OptionsSlider::Redraw(SDL_Surface& target, bool full_redraw)
     }
 }
 
-W8OptionsPanel::~W8OptionsPanel()
+W8ButtonWidget* W8OptionsPanel::AddButton(int x, int y, int artwork, int normal, int pressed,
+                                         int hover, int pressed_hover, int disabled,
+                                         W8ButtonCallback callback)
 {
-    // Release controls before the owners borrowed by their selection callbacks.
-    DestroyAllControls();
+    const auto art = CatalogArtwork::Load(artwork, 0);
+    auto& button = m_buttons.emplace_back(std::make_unique<W8ButtonWidget>(m_input));
+    button->Configure(art.spriteSheet(), disabled, normal, hover, pressed, pressed_hover,
+                      std::move(callback), {}, false, 0, -1, {}, {});
+    button->policy.controller_activation = true;
+    button->SetPosition(m_bounds.x + x, m_bounds.y + y);
+    const auto size = art.size(normal);
+    button->Resize(size.x, size.y);
+    return button.get();
 }
 
 /* All labelled option rows use the same geometry and text formatting. */
@@ -1592,24 +1524,21 @@ static void AddOptionsLabel(W8OptionsPanel& panel, int label)
 void W8OptionsPanel::AddCheckbox(int label, int* value)
 {
     AddOptionsLabel(*this, label);
-    auto* checkbox = EmplaceControl<W8TextControl>(-1, 0x14d, m_content_top - 2, 0, 0,
-        CatalogArtwork::Load(0xf1, 0), W8SpriteStates{.normal = 2, .pressed = 0,
-                                                  .alternate_normal = 3, .alternate_pressed = 1});
-    checkbox->AddLayoutFlags(g_W8TextControlLayoutLatchedImage | g_W8TextControlLayoutToggle);
-    if (*value != 0) checkbox->EnableSecondaryState(false);
-    checkbox->m_onPrimary = [checkbox, value] { *value = checkbox->IsSelected() ? 2 : 0; };
+    auto* checkbox = AddButton(0x14d, m_content_top - 2, 0xf1, 2, 0, 3, 1, -1,
+        [value](auto* button) { *value = button->IsPressed() ? 2 : 0; });
+    checkbox->policy.primary_toggle = ButtonToggle::Release;
+    checkbox->SetPressed(*value != 0);
     m_content_top += 44;
 }
 
-W8TextControl* W8OptionsPanel::AddChoiceButton(int label)
+W8ButtonWidget* W8OptionsPanel::AddChoiceButton(int label, W8ButtonCallback callback)
 {
-    W8ControlsRect bounds = {ScreenBounds().x, ScreenBounds().y + m_content_top, ScreenBounds().x + 0x147,
-                             ScreenBounds().y + m_content_top + 22};
-    W8TextBuffer* text = new W8TextBuffer(&bounds, g_localized_strings[label], g_options_detail_font,
-                                          g_W8TextBufferAlignTop | g_W8TextBufferAlignRight, 4);
-    m_text_buffers.emplace_back(text);
-    W8TextControl* button = EmplaceControl<W8TextControl>(0xffffffff, 0x151, m_content_top + 1, 0, 0, CatalogArtwork::Load(0xf1, 0), W8SpriteStates{.normal = 4, .pressed = 6, .alternate_normal = 5, .alternate_pressed = 7});
-    button->AddLayoutFlags(g_W8TextControlLayoutLatchedImage | g_W8TextControlLayoutToggle);
+    const W8ControlsRect bounds{m_bounds.x, m_bounds.y + m_content_top, m_bounds.x + 0x147,
+                               m_bounds.y + m_content_top + 22};
+    m_text_buffers.emplace_back(std::make_unique<W8TextBuffer>(&bounds, g_localized_strings[label],
+        g_options_detail_font, g_W8TextBufferAlignTop | g_W8TextBufferAlignRight, 4));
+    auto* button = AddButton(0x151, m_content_top + 1, 0xf1, 4, 6, 5, 7, -1, std::move(callback));
+    button->policy.primary_toggle = ButtonToggle::Release;
     m_content_top += 22;
     return button;
 }
@@ -1627,45 +1556,47 @@ W8OptionsSlider* W8OptionsPanel::AddSlider(int label, float* value, bool alterna
 void W8OptionsPanel::AddChoices(int label, int count, const int* choices, int* value)
 {
     AddOptionsLabel(*this, label);
-    auto& selection = m_option_selections.emplace_back(std::make_unique<W8ControlSelection>());
-    selection->on_selection = [value](int selected) { *value = selected; };
+    const auto first = m_buttons.size();
     for (int index = 0; index < count; ++index) {
-        selection->AddEntry(AddChoiceButton(choices[index]));
+        auto* button = AddChoiceButton(choices[index], [this, first, count, index, value](auto*) {
+            *value = index;
+            for (int i = 0; i < count; ++i) m_buttons[first + i]->SetPressed(i == index);
+        });
+        button->policy.primary_toggle = ButtonToggle::StayLatched;
+        button->SetPressed(index == *value);
     }
-    selection->SetSelected(*value);
     m_content_top += 22;
 }
 
 void W8OptionsPanel::Redraw(SDL_Surface& target, bool full_redraw)
 {
     if (!m_active) return;
-    const bool redraw_text = m_dirty || full_redraw;
-    Controls::Redraw(target, full_redraw);
-    for (auto& slider : m_owned_sliders) slider->Redraw(target, redraw_text);
-    if (redraw_text) {
-        for (int index = 0; index < static_cast<int>(m_text_buffers.size()); ++index) {
-            m_text_buffers[index]->RenderToTarget(0, true, target);
-        }
+    const bool repaint = full_redraw || m_dirty;
+    if (repaint) {
+        m_background.drawAndInvalidate(target, m_backgroundImage, m_bounds.x, m_bounds.y);
+        for (auto& text : m_text_buffers) text->RenderToTarget(0, true, target);
     }
+    for (auto& button : m_buttons) {
+        button->m_dirty |= repaint;
+        button->Draw(target);
+    }
+    for (auto& slider : m_owned_sliders) slider->Redraw(target, repaint);
+    m_dirty = false;
 }
 
-/* The shared panel base sizes itself from the chrome sprite of its render
-   target and owns one region set per concrete panel. */
 W8OptionsPanel::W8OptionsPanel()
-    : Controls(0x104, 0, 0, 0, CatalogArtwork::Load(0xee, 0), 1), m_current(0), m_content_top(0x18)
 {
-    CreateRegionSet();
     m_input.setEnabled(false);
-    const auto [width, height] = CatalogArtwork::Load(0xf2, 0).size(0);
-    SetBounds({Bounds().x, Bounds().y, width, height});
+    const auto size = CatalogArtwork::Load(0xf2, 0).size(0);
+    m_bounds = {0x104, 0, size.x, size.y};
 }
 
 void W8OptionsPanel::SetActive(bool active)
 {
-    EnableRegionSet(active);
+    m_active = active;
     if (!active) for (auto& slider : m_owned_sliders) slider->CancelDrag();
     m_input.setEnabled(active);
-    Controls::SetActive(active);
+    for (auto& button : m_buttons) button->SetVisible(active);
     InvalidateAll();
 }
 
