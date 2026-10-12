@@ -2823,31 +2823,7 @@ static constexpr std::array<RegionTemplate, 6> g_main_submenu_templates{{
 }};
 
 // Retail set 0x28, regions 205-230
-static constexpr std::array<RegionTemplate, 26> g_main_effect_templates{{
-    {0x00000001, 0, 0, 0, 0, PartyEffectIconRegionEvent, 8, true, -1},
-    {0x00000001, 0, 0, 0, 0, PartyEffectIconRegionEvent, 7, true, -1},
-    {0x00000001, 0, 0, 0, 0, PartyEffectIconRegionEvent, 6, true, -1},
-    {0x00000001, 0, 0, 0, 0, PartyEffectIconRegionEvent, 5, true, -1},
-    {0x00000001, 0, 0, 0, 0, PartyEffectIconRegionEvent, 4, true, -1},
-    {0x00000001, 0, 0, 0, 0, PartyEffectIconRegionEvent, 3, true, -1},
-    {0x00000001, 0, 0, 0, 0, PartyEffectIconRegionEvent, 2, true, -1},
-    {0x00000001, 0, 0, 0, 0, PartyEffectIconRegionEvent, 1, true, -1},
-    {0x00000001, 0, 0, 0, 0, PartyEffectIconRegionEvent, 0, true, -1},
-    {0x00000001, 0, 0, 0, 0, CombatLeftEffectIconRegionEvent, 0, true, -1},
-    {0x00000001, 0, 0, 0, 0, CombatLeftEffectIconRegionEvent, 1, true, -1},
-    {0x00000001, 0, 0, 0, 0, CombatLeftEffectIconRegionEvent, 2, true, -1},
-    {0x00000001, 0, 0, 0, 0, CombatLeftEffectIconRegionEvent, 3, true, -1},
-    {0x00000001, 0, 0, 0, 0, CombatLeftEffectIconRegionEvent, 4, true, -1},
-    {0x00000001, 0, 0, 0, 0, CombatLeftEffectIconRegionEvent, 5, true, -1},
-    {0x00000001, 0, 0, 0, 0, CombatLeftEffectIconRegionEvent, 6, true, -1},
-    {0x00000001, 0, 0, 0, 0, CombatLeftEffectIconRegionEvent, 7, true, -1},
-    {0x00000001, 0, 0, 0, 0, CombatLeftEffectIconRegionEvent, 8, true, -1},
-    {0x00000001, 0, 0, 0, 0, CombatRightEffectIconRegionEvent, 5, true, -1},
-    {0x00000001, 0, 0, 0, 0, CombatRightEffectIconRegionEvent, 4, true, -1},
-    {0x00000001, 0, 0, 0, 0, CombatRightEffectIconRegionEvent, 3, true, -1},
-    {0x00000001, 0, 0, 0, 0, CombatRightEffectIconRegionEvent, 2, true, -1},
-    {0x00000001, 0, 0, 0, 0, CombatRightEffectIconRegionEvent, 1, true, -1},
-    {0x00000001, 0, 0, 0, 0, CombatRightEffectIconRegionEvent, 0, true, -1},
+static constexpr std::array<RegionTemplate, 2> g_main_effect_templates{{
     {0x00000001, 0, 0, 0, 0, MonsterListRegionEvent, 0, true, 36},
     {0x00000001, 0, 0, 0, 0, WorldViewRegionEvent, 0, false, 23},
 }};
@@ -2927,7 +2903,6 @@ unsigned char MainGameScreenEnter(void)
     g_npc_dialogue_options_panel_regions.Create();
     g_npc_quote_bubble_regions.Create();
     CreateMainGameInterfaceButtons();
-    CreateSpellIconHudControls();
     CreateLevelButtons();
     CreateConditionButtons();
     InitializeMainGameLevelBlock();

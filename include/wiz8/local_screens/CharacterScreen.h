@@ -1,5 +1,10 @@
 #pragma once
+#include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/ui_layer.h"
+#include "wiz8/catalog_artwork.h"
 #include <optional>
+#include <array>
+#include <functional>
 
 #include "wiz8/text_input.h"
 
@@ -8,14 +13,11 @@
 #include <vector>
 
 #include "wiz8/local_code/TextBuffer.h"
-#include "wiz8/local_code/TextControl.h"
-#include "wiz8/local_code/ControlSelection.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/local_code/CharGeneration.h"
 #include "wiz8/compat/compiler.h"
 #include "wiz8/engine_code/game_timer.h"
-#include "wiz8/local_code/Controls.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "input.h"
 #include "layouts/gameplay_databases.h"
@@ -24,22 +26,11 @@ class W8DialogBase;
 class W8CharacterScreen;
 class W8CharacterPageEntry;
 
-class W8CharacterPageEntryListener {
-public:
-    virtual void AdjustEntry(W8CharacterPageEntry* entry, int delta) = 0;
-    virtual void ShowEntryInfo(W8CharacterPageEntry* entry) = 0;
-};
-
 /* One value row shared by the skills and attributes pages. */
-class W8CharacterPageEntry : public W8TextControl::Listener {
+class W8CharacterPageEntry {
 public:
-    W8CharacterPageEntry(Controls* owner, int x, int y, bool compact);
-    virtual ~W8CharacterPageEntry()
-    {
-        delete m_label;
-        delete m_first_text;
-        delete m_second_text;
-    }
+    W8CharacterPageEntry(UiLayer& input, int x, int y, bool compact);
+    ~W8CharacterPageEntry();
     void SetContent(unsigned int id, std::string_view label, unsigned int* first, int* second,
                     int* third, int help_id);
     void SetEnabled(bool enabled);
@@ -48,17 +39,17 @@ public:
     void SetLabelFontState(int state);
     void MarkDirty();
     void UpdateButtons();
-    virtual void OnPrimary(W8TextControl* control) override;
-    virtual void OnSecondary(W8TextControl* control) override;
     void SetHelpActive(bool active);
+    std::function<void(int)> on_adjust;
+    std::function<void()> on_info;
 
-    W8CharacterPageEntryListener* m_listener;
-    W8TextControl* m_increment;
-    W8TextControl* m_decrement;
-    W8TextControl* m_help;
-    W8TextBuffer* m_label;
-    W8TextBuffer* m_first_text;
-    W8TextBuffer* m_second_text;
+    UiLayer& m_input;
+    std::unique_ptr<W8ButtonWidget> m_increment;
+    std::unique_ptr<W8ButtonWidget> m_decrement;
+    HitTarget* m_help;
+    W8TextBuffer m_label;
+    W8TextBuffer m_first_text;
+    W8TextBuffer m_second_text;
     unsigned int* m_first;
     int* m_second;
     int* m_third;
@@ -72,12 +63,18 @@ public:
 };
 
 /* Common base of the four character screen pages. */
-class W8CharacterPage : public Controls {
+class W8CharacterPage {
 public:
+    UiLayer input;
+    CatalogArtwork background;
+    static constexpr SDL_Rect bounds{0xc3, 0x2b, 445, 406};
+    bool m_active = false;
+    bool m_dirty = true;
     W8CharacterPage(CatalogArtwork background);
+    void SetActive(bool active);
     virtual ~W8CharacterPage();
-    void InvalidateAll() override;
-    void Redraw(SDL_Surface& target, bool full_redraw) override;
+    virtual void InvalidateAll();
+    virtual void Redraw(SDL_Surface& target, bool full_redraw);
     virtual void SetCharacter(W8Character* character, W8CharacterCreationState* creation_state,
                               int mode);
     virtual void Activate() = 0;
@@ -115,72 +112,44 @@ struct W8CharacterStatsRecord {
     unsigned char pad_0f;
 };
 
-/* The stats value control: it carries the record currently shown and the
-   record to fall back to when the character has none. */
-// VTABLE: WIZ8 0x005ef6b0 W8CharacterStatsValue
-class W8CharacterStatsValue : public W8TextControl {
-public:
-    W8CharacterStatsValue(int x, int y,
-                          const W8CharacterStatsRecord* default_record);
-    virtual void Redraw(SDL_Surface& target, bool full_redraw) override;
-    virtual void OnRightButtonUp(int event) override;
-    void SetRecord(const W8CharacterStatsRecord* record);
+class W8CharacterStatsPage;
 
-    const W8CharacterStatsRecord* m_record;
-    const W8CharacterStatsRecord* m_default_record;
-};
-
-/* Stats-row callbacks. The row itself raises slots 0 and 3; the page's input
-   handling raises slots 1 and 2. */
-class W8CharacterStatsRowListener {
+class W8CharacterStatsRow {
 public:
-    virtual void OnRowValueChanged(W8CharacterStatsRow* row, int value) = 0;
-    virtual void OnRowExpanded(W8CharacterStatsRow* row) = 0;
-    virtual void OnRowCollapsed(W8CharacterStatsRow* row) = 0;
-    virtual void OnRowInfoRequested(W8CharacterStatsRow* row, int value) = 0;
-};
-
-/* A stats-page value row: a decrement arrow, an increment arrow and a value
-   control whose current index indexes the row's 0x10-byte record table. */
-class W8CharacterStatsRow final : public W8TextControl::Listener {
-public:
-    W8CharacterStatsRow();
-    virtual void OnPrimary(W8TextControl* control) override;
-    virtual void OnSecondary(W8TextControl* control) override;
-    void Initialize(Controls* owner, int x, int y, int count,
-                    const W8CharacterStatsRecord* table,
-                    const W8CharacterStatsRecord* default_record, int help_first, int help_second,
-                    int help_value);
-    /* Descriptive names for the collapse operations expanded in row/page input. */
+    W8CharacterStatsRow(W8CharacterStatsPage& owner, int x, int y, int count,
+        const W8CharacterStatsRecord* table, const W8CharacterStatsRecord* default_record,
+        int help_first, int help_second, int help_value);
+    ~W8CharacterStatsRow();
     void Collapse();
     void CollapseIfNotHovered();
-    void Invalidate();
+    void Invalidate() { m_dirty = true; }
     void BuildSubpanel();
     void SetValue(int index);
+    void SetEnabled(bool enabled);
+    void Draw(SDL_Surface& target, bool force);
+    void DrawChoices(SDL_Surface& target);
+    void Step(int direction);
 
-    int m_index; /* current stat index */
-    unsigned short m_count;
-    unsigned char pad_00a[2];
+    int m_index = -1;
+    int m_count;
     int m_x;
     int m_y;
     const W8CharacterStatsRecord* m_table;
-    W8TextControl* m_decrement;
-    W8TextControl* m_increment;
-    W8CharacterStatsValue* m_value_control;
-    std::unique_ptr<Controls> m_subpanel;
-    // Owned by m_subpanel.
-    std::vector<W8TextControl*> m_subpanel_entries;
-    W8CharacterStatsRowListener* m_listener;
+    const W8CharacterStatsRecord* m_default_record;
+    W8CharacterStatsPage& m_owner;
+    std::unique_ptr<W8ButtonWidget> m_decrement;
+    std::unique_ptr<W8ButtonWidget> m_increment;
+    HitTarget* m_value;
+    std::unique_ptr<UiLayer> m_choices;
+    std::vector<HitTarget*> m_choice_targets;
+    bool m_enabled = true;
+    bool m_dirty = true;
 };
 
 // VTABLE: WIZ8 0x005ef778 W8CharacterPage
-class W8CharacterStatsPage : public W8CharacterPage,
-                             public W8CharacterStatsRowListener,
-                             public W8CharacterPageEntryListener,
-                             public W8TextControl::Listener {
+class W8CharacterStatsPage : public W8CharacterPage {
 public:
     W8CharacterStatsPage() : W8CharacterPage(CatalogArtwork::Load(0x104)) {}
-    virtual ~W8CharacterStatsPage() override;
     void Redraw(SDL_Surface& target, bool full_redraw) override;
     virtual void SetCharacter(W8Character*, W8CharacterCreationState*, int) override;
     virtual void Activate() override;
@@ -190,27 +159,25 @@ public:
     virtual void HandleInput(const InputEvent*) override;
     virtual void Refresh() override;
     virtual void Prepare() override;
-    virtual void OnRowValueChanged(W8CharacterStatsRow* row, int value) override;
-    virtual void OnRowExpanded(W8CharacterStatsRow* row) override;
-    virtual void OnRowCollapsed(W8CharacterStatsRow* row) override;
-    virtual void OnRowInfoRequested(W8CharacterStatsRow* row, int value) override;
-    virtual void AdjustEntry(W8CharacterPageEntry*, int) override;
-    virtual void ShowEntryInfo(W8CharacterPageEntry*) override;
-    virtual void OnPrimary(W8TextControl*) override;
-    virtual void OnSecondary(W8TextControl*) override;
+    void OnRowValueChanged(W8CharacterStatsRow* row, int value);
+    void OnRowExpanded(W8CharacterStatsRow* row);
+    void OnRowCollapsed(W8CharacterStatsRow* row);
+    void OnRowInfoRequested(W8CharacterStatsRow* row, int value);
+    void AdjustEntry(W8CharacterPageEntry*, int);
+    void ShowEntryInfo(W8CharacterPageEntry*);
 
 private:
     void UpdateRowValues();
     void SetRowControlsActive(W8CharacterStatsRow* row, bool active);
 
 public:
-    W8CharacterStatsRow* m_profession_row;
-    W8CharacterStatsRow* m_race_row;
-    W8CharacterStatsRow* m_gender_row;
+    std::unique_ptr<W8CharacterStatsRow> m_profession_row;
+    std::unique_ptr<W8CharacterStatsRow> m_race_row;
+    std::unique_ptr<W8CharacterStatsRow> m_gender_row;
     bool nav_next_state;
     bool m_rows_initialized;
     unsigned char pad_08a[2];
-    W8TextControl* m_attribute_controls[5];
+    HitTarget* m_attribute_controls[5];
 };
 
 struct W8CharacterSpellEntry {
@@ -220,22 +187,12 @@ struct W8CharacterSpellEntry {
     bool selected;
 };
 
-class W8CharacterSpellListListener {
-public:
-    virtual void SelectSpell(unsigned int entry) = 0;
-    virtual void ShowSpellInfo(unsigned int entry) = 0;
-};
-
 class W8CharacterSpellList;
 
-class W8CharacterSpellsPage : public W8CharacterPage, public W8CharacterSpellListListener {
+class W8CharacterSpellsPage : public W8CharacterPage {
 public:
-    W8CharacterSpellsPage() : W8CharacterPage(CatalogArtwork::Load(0x109)), anim_timer(0.05f, 1)
-    {
-        for (int realm = 0; realm < 6; ++realm) {
-            m_realms[realm] = 0;
-        }
-    }
+    W8CharacterSpellsPage();
+    ~W8CharacterSpellsPage() override;
     virtual void SetCharacter(W8Character*, W8CharacterCreationState*, int) override;
     void Redraw(SDL_Surface& target, bool full_redraw) override;
     virtual void Activate() override;
@@ -243,19 +200,19 @@ public:
     virtual void Accept() override;
     virtual void GetNavigationState(bool*, bool*) override;
     virtual void Refresh() override;
-    virtual void SelectSpell(unsigned int entry) override;
-    virtual void ShowSpellInfo(unsigned int entry) override;
+    void SelectSpell(unsigned int entry);
+    void ShowSpellInfo(unsigned int entry);
 
 private:
     void UpdateSpellLists();
-    W8CharacterSpellList* m_realms[6];
+    std::unique_ptr<W8CharacterSpellList> m_realms[6];
     W8CharacterSpellEntry m_SpellData[114];
     W8GameTimer anim_timer;
     unsigned int m_animation_frames[6];
     unsigned int m_last_selected;
 };
 
-class W8CharacterSkillsPage : public W8CharacterPage, public W8CharacterPageEntryListener {
+class W8CharacterSkillsPage : public W8CharacterPage {
 public:
     W8CharacterSkillsPage() : W8CharacterPage(CatalogArtwork::Load(0x108)) {}
     void Redraw(SDL_Surface& target, bool full_redraw) override;
@@ -264,8 +221,8 @@ public:
     virtual void Deactivate() override;
     virtual void Accept() override;
     virtual void GetNavigationState(bool*, bool*) override;
-    virtual void AdjustEntry(W8CharacterPageEntry*, int) override;
-    virtual void ShowEntryInfo(W8CharacterPageEntry*) override;
+    void AdjustEntry(W8CharacterPageEntry*, int);
+    void ShowEntryInfo(W8CharacterPageEntry*);
     virtual void Refresh() override;
 
 private:
@@ -275,8 +232,7 @@ private:
     bool nav_next_state;
 };
 
-class W8CharacterPersonalityPage : public W8CharacterPage,
-                                   public W8TextControl::Listener {
+class W8CharacterPersonalityPage : public W8CharacterPage {
 public:
     W8CharacterPersonalityPage()
         : W8CharacterPage(CatalogArtwork::Load(0x105)), anim_timer(0.4f, 1), m_animation_active(0)
@@ -290,17 +246,12 @@ public:
     virtual void GetNavigationState(bool*, bool*) override;
     virtual void HandleInput(const InputEvent*) override;
     virtual void Refresh() override;
-    void OnSelectionChanged(W8ControlSelection*, int);
-    virtual void OnPrimary(W8TextControl*) override;
+    void ChangePortrait(int action);
 
 private:
-    W8TextControl* m_control4;
-    W8TextControl* m_control5;
-    W8TextControl* m_control6;
-    W8TextControl* m_control7;
-    W8TextControl* m_randomize;
-    W8ControlSelection m_personality_selection;
-    W8ControlSelection m_voice_selection;
+    std::array<std::unique_ptr<W8ButtonWidget>, 5> m_buttons;
+    std::array<HitTarget*, 11> m_choices{};
+    bool m_choices_dirty = true;
     W8GameTimer anim_timer;
     int m_animation_frame;
     bool m_animation_active;
@@ -347,24 +298,7 @@ extern unsigned short g_personality_message_ids[10];
 void ResetCharacterScreenSkill(W8Skill skill_id);
 void RefundCharacterScreenSkill(W8Skill skill_id);
 
-/* Used by the pages to raise the screen-owned dialogs and to query the
-   current character. */
-class W8CharacterPageHost {
-public:
-    virtual void UpdateNavigation(W8CharacterPage* page) = 0;
-    virtual void ShowSpellInfo(int value) = 0;
-    virtual void ShowProfessionInfo(W8Profession profession) = 0;
-    virtual void ShowRaceInfo(W8Race race) = 0;
-    virtual void ShowPrimaryAttributeInfo(W8Attribute attribute) = 0;
-    virtual void ShowSecondaryAttributeInfo(unsigned int attribute) = 0;
-    virtual void ShowSkillInfo(W8Skill value) = 0;
-    virtual void ShowDescription(int first, int second) = 0;
-    virtual void ShowCharacterSummary() = 0;
-    virtual bool HasDialog() = 0;
-    virtual W8Character* GetOriginalCharacter() = 0;
-};
-
-class W8CharacterScreen final : public W8CharacterPageHost, public W8TextControl::Listener {
+class W8CharacterScreen final {
 public:
     W8CharacterScreen(int mode, W8Character* character);
     ~W8CharacterScreen();
@@ -379,22 +313,21 @@ public:
     void HandleDialogResult(int response, unsigned char accepted);
     bool ValidateName();
 
-    virtual void UpdateNavigation(W8CharacterPage* page) override;
-    virtual void ShowSpellInfo(int value) override;
-    virtual void ShowProfessionInfo(W8Profession profession) override;
-    virtual void ShowRaceInfo(W8Race race) override;
-    virtual void ShowPrimaryAttributeInfo(W8Attribute attribute) override;
-    virtual void ShowSecondaryAttributeInfo(unsigned int attribute) override;
-    virtual void ShowSkillInfo(W8Skill value) override;
-    virtual void ShowDescription(int first, int second) override;
-    virtual void ShowCharacterSummary() override;
-    virtual bool HasDialog() override;
-    virtual W8Character* GetOriginalCharacter() override;
-    virtual void OnPrimary(W8TextControl* control) override;
-    virtual void OnSecondary(W8TextControl* control) override;
+    void UpdateNavigation(W8CharacterPage* page);
+    void ShowSpellInfo(int value);
+    void ShowProfessionInfo(W8Profession profession);
+    void ShowRaceInfo(W8Race race);
+    void ShowPrimaryAttributeInfo(W8Attribute attribute);
+    void ShowSecondaryAttributeInfo(unsigned int attribute);
+    void ShowSkillInfo(W8Skill value);
+    void ShowDescription(int first, int second);
+    void ShowCharacterSummary();
+    bool HasDialog();
+    W8Character* GetOriginalCharacter();
+    void DrawNavigation(SDL_Surface& target);
 
     int m_mode;
-    int m_page_index;
+    int m_page_index = -1;
     bool m_header_dirty;
     unsigned char pad_011[3];
     W8Character* m_original;
@@ -405,12 +338,13 @@ public:
     bool m_confirm_profession;
     bool m_force_transition;
     unsigned char pad_1aef;
-    std::unique_ptr<Controls> m_controls;
-    W8TextControl* m_previous;
-    W8TextControl* m_next;
-    W8TextControl* m_exit;
-    W8TextControl* m_accept;
-    W8TextControl* m_reset;
+    UiLayer m_input;
+    bool m_navigation_dirty = true;
+    std::unique_ptr<W8ButtonWidget> m_previous;
+    std::unique_ptr<W8ButtonWidget> m_next;
+    std::unique_ptr<W8ButtonWidget> m_exit;
+    std::unique_ptr<W8ButtonWidget> m_accept;
+    std::unique_ptr<W8ButtonWidget> m_reset;
     bool m_page_enabled[4];
     std::unique_ptr<W8CharacterPage> m_pages[4];
     W8DialogBase* m_dialog;

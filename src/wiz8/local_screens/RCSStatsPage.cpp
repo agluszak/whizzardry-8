@@ -1,3 +1,5 @@
+#include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/ui_layer.h"
 #include <SDL3/SDL_surface.h>
 #include "himage.h"
 #include "image.h"
@@ -851,69 +853,64 @@ unsigned char CampSkillListRegionHandler(const InputEvent* event, W8Region* regi
 void W8CharacterPersonalityPage::SetCharacter(W8Character* character,
                                               W8CharacterCreationState* creation_state, int mode)
 {
-    CreateRegionSet();
     W8CharacterPage::SetCharacter(character, creation_state, mode);
-    W8TextControl::Listener* action_listener = this;
-
-    m_control5 =
-        EmplaceControl<W8TextControl>(0xffffffff, 100, 0x19, 0, 0, CatalogArtwork::Load(0x10a, 0), W8SpriteStates{.normal = 10, .pressed = 0xc, .alternate_normal = 0xb, .alternate_pressed = 0xe, .disabled = 0xd});
-    m_control5->m_listener = action_listener;
-    m_control4 = EmplaceControl<W8TextControl>(0xffffffff, 0x144, 0x19, 0, 0, CatalogArtwork::Load(0x10a, 0), W8SpriteStates{.normal = 0xf, .pressed = 0x11, .alternate_normal = 0x10, .alternate_pressed = 0x13, .disabled = 0x12});
-    m_control4->m_listener = action_listener;
-    m_control7 =
-        EmplaceControl<W8TextControl>(0xffffffff, 100, 0x67, 0, 0, CatalogArtwork::Load(0x10a, 0), W8SpriteStates{.normal = 10, .pressed = 0xc, .alternate_normal = 0xb, .alternate_pressed = 0xe, .disabled = 0xd});
-    m_control7->m_listener = action_listener;
-    m_control6 = EmplaceControl<W8TextControl>(0xffffffff, 0x144, 0x67, 0, 0, CatalogArtwork::Load(0x10a, 0), W8SpriteStates{.normal = 0xf, .pressed = 0x11, .alternate_normal = 0x10, .alternate_pressed = 0x13, .disabled = 0x12});
-    m_control6->m_listener = action_listener;
-    m_randomize = EmplaceControl<W8TextControl>(0xffffffff, 0x16d, 0x155, 0, 0, CatalogArtwork::Load(0x10a, 0), W8SpriteStates{.normal = 0x14, .pressed = 0x16, .alternate_normal = 0x15, .alternate_pressed = 0x18, .disabled = 0x17});
-    m_randomize->m_listener = action_listener;
-    m_randomize->EnableRegionHelp(0xf5);
-
-    int index;
-    for (index = 0; index < 9; ++index) {
-        int column = index % 3;
-        int row = index / 3;
-        W8TextControl* entry =
-            EmplaceControl<W8TextControl>(0xffffffff, column * 0x80 + 0x24, row * 0xe + 0x107, column * 0x80 + 0xa3, row * 0xe + 0x114, CatalogArtwork::Load(0x105, 0), W8SpriteStates{.normal = 5, .pressed = 7, .alternate_normal = 6, .alternate_pressed = 8});
-        entry->AddLayoutFlags(g_W8TextControlLayoutImageAtOrigin);
-        m_personality_selection.AddEntry(entry);
-    }
-    m_personality_selection.SetSelected(character->personality);
-    m_personality_selection.on_selection = [this](int selected) { OnSelectionChanged(&m_personality_selection, selected); };
-
-    for (index = 0; index < 2; ++index) {
-        int top = index == 0 ? 0x140 : 0x15d;
-        W8TextControl* entry = EmplaceControl<W8TextControl>(0xffffffff, 0x21, top, 0x69, top + 0xe, CatalogArtwork::Load(0x105, 0), W8SpriteStates{.normal = 5, .pressed = 7, .alternate_normal = 6, .alternate_pressed = 8});
-        entry->AddLayoutFlags(g_W8TextControlLayoutImageAtOrigin);
-        m_voice_selection.AddEntry(entry);
+    constexpr SDL_Point positions[] = {{100, 0x19}, {0x144, 0x19}, {100, 0x67},
+        {0x144, 0x67}, {0x16d, 0x155}};
+    for (int action = 0; action < 5; ++action) {
+        const int frame = action == 4 ? 20 : action % 2 ? 15 : 10;
+        auto& button = m_buttons[action];
+        button = std::make_unique<W8ButtonWidget>(input);
+        button->Configure(CatalogArtwork::Load(0x10a, 0).spriteSheet(), frame + 3,
+            frame, frame + 1, frame + 2, frame + 4,
+            [this, action](auto*) { AfterUiDispatch([this, action] { ChangePortrait(action); }); },
+            {}, false, 0, action == 4 ? 0xf5 : -1, {}, {});
+        button->policy.controller_activation = true;
+        button->SetPosition(0xc3 + positions[action].x, 0x2b + positions[action].y);
     }
     character->voice = std::clamp(int(character->voice), 0, 1);
-    m_voice_selection.SetSelected(character->voice);
-    m_voice_selection.on_selection = [this](int selected) { OnSelectionChanged(&m_voice_selection, selected); };
+    for (int index = 0; index < 11; ++index) {
+        const bool voice = index >= 9;
+        const int x = 0xc3 + (voice ? 0x21 : (index % 3) * 0x80 + 0x24);
+        const int y = 0x2b + (voice ? (index == 9 ? 0x140 : 0x15d) : (index / 3) * 14 + 0x107);
+        if (m_choices[index]) input.remove(*m_choices[index]);
+        m_choices[index] = &input.add(SDL_Rect{x, y, voice ? 73 : 128, voice ? 15 : 14},
+            [this, index, voice](const UiPointerEvent& event) {
+                m_choices_dirty = true;
+                if (event.action == UiPointerAction::Up && event.inside &&
+                    event.button == UiPointerButton::Left && event.captured_buttons) {
+                    AfterUiDispatch([this, index, voice] {
+                        if (voice) m_character->voice = index - 9;
+                        else m_character->personality = index;
+                        m_description_dirty = true;
+                        m_screen->UpdateNavigation(this);
+                    });
+                }
+                return UiResult::Handled;
+            });
+    }
 }
 
 // FUNCTION: WIZ8 0x005c6820
 void W8CharacterPersonalityPage::Activate()
 {
-    EnableRegionSet(true);
+    input.setEnabled(true);
     m_prepared = true;
     auto& fields = m_text_fields.emplace(1);
-    fields.Add(ScreenBounds().x + 0x97, ScreenBounds().y + 0xab, 0x106, 0x10, 0x7f,
+    fields.Add(W8CharacterPage::bounds.x + 0x97, W8CharacterPage::bounds.y + 0xab, 0x106, 0x10, 0x7f,
                m_character->name_part_2, 5, 0xf, true);
-    fields.Add(ScreenBounds().x + 0x97, ScreenBounds().y + 0xc7, 0x106, 0x10, 0x7f, m_character->name,
+    fields.Add(W8CharacterPage::bounds.x + 0x97, W8CharacterPage::bounds.y + 0xc7, 0x106, 0x10, 0x7f, m_character->name,
                9, 0xf, true);
     if (fields.ByteLength(0) == 0)
         fields.Focus(0);
     else if (fields.ByteLength(1) == 0)
         fields.Focus(1);
-    m_personality_selection.SetSelected(m_character->personality);
-    m_voice_selection.SetSelected(m_character->voice);
+    m_choices_dirty = true;
 }
 
 // FUNCTION: WIZ8 0x005c68f0
 void W8CharacterPersonalityPage::Deactivate()
 {
-    EnableRegionSet(false);
+    input.setEnabled(false);
     m_text_fields.reset();
 }
 
@@ -993,8 +990,7 @@ void W8CharacterPersonalityPage::Refresh()
         m_text_fields->SetText(0, m_character->name_part_2);
         m_text_fields->SetText(1, m_character->name);
     }
-    m_personality_selection.SetSelected(m_character->personality);
-    m_voice_selection.SetSelected(m_character->voice);
+    m_choices_dirty = true;
 }
 
 /* The final page's whole redraw: advance the portrait animation, draw the
@@ -1007,12 +1003,27 @@ void W8CharacterPersonalityPage::Redraw(SDL_Surface& target, bool full_redraw)
         int elapsed = static_cast<int>(anim_timer.GetProgress());
         if (elapsed > 0) {
             m_animation_frame = (m_animation_frame + elapsed) % 3;
-            CatalogArtwork::Load(0x105, 0).drawAndInvalidate(target, m_animation_frame + 2, ScreenBounds().x + 0x156, ScreenBounds().y + 0x137);
+            CatalogArtwork::Load(0x105, 0).drawAndInvalidate(target, m_animation_frame + 2, W8CharacterPage::bounds.x + 0x156, W8CharacterPage::bounds.y + 0x137);
         }
     }
 
     bool redraw = m_active && m_dirty;
     W8CharacterPage::Redraw(target, full_redraw);
+    for (auto& button : m_buttons) {
+        button->m_dirty |= redraw || full_redraw;
+        button->Draw(target);
+    }
+    if (redraw || full_redraw || m_choices_dirty) {
+        for (int index = 0; index < 11; ++index) {
+            const bool voice = index >= 9;
+            const int selected = voice ? m_character->voice + 9 : m_character->personality;
+            const int frame = 5 + (selected == index ? 2 : 0) + m_choices[index]->hovered();
+            const int x = 0xc3 + (voice ? 0x21 : (index % 3) * 0x80 + 0x24);
+            const int y = 0x2b + (voice ? (index == 9 ? 0x140 : 0x15d) : (index / 3) * 14 + 0x107);
+            CatalogArtwork::Load(0x105, 0).drawAndInvalidate(target, frame, x, y);
+        }
+        m_choices_dirty = false;
+    }
     if (!m_screen->HasDialog() && m_text_fields) {
         m_text_fields->RenderAll(GetFrameBufferSurface());
     }
@@ -1021,53 +1032,53 @@ void W8CharacterPersonalityPage::Redraw(SDL_Surface& target, bool full_redraw)
         W8TextBuffer text;
         W8ControlsRect bounds;
 
-        bounds.left = ScreenBounds().x + 0x2c;
-        bounds.right = ScreenBounds().x + 100;
-        bounds.top = ScreenBounds().y + 0x19;
-        bounds.bottom = ScreenBounds().y + 0x31;
+        bounds.left = W8CharacterPage::bounds.x + 0x2c;
+        bounds.right = W8CharacterPage::bounds.x + 100;
+        bounds.top = W8CharacterPage::bounds.y + 0x19;
+        bounds.bottom = W8CharacterPage::bounds.y + 0x31;
         text.RenderString(&bounds, g_localized_strings[0xee], g_wiz_text_font_secondary, true,
                           target);
 
-        bounds.top = ScreenBounds().y + 0x67;
-        bounds.bottom = ScreenBounds().y + 0x7f;
+        bounds.top = W8CharacterPage::bounds.y + 0x67;
+        bounds.bottom = W8CharacterPage::bounds.y + 0x7f;
         text.RenderString(&bounds, g_localized_strings[0xf0], g_wiz_text_font_secondary, true,
                           target);
 
-        bounds.left = ScreenBounds().x + 0x160;
-        bounds.right = ScreenBounds().x + 0x198;
+        bounds.left = W8CharacterPage::bounds.x + 0x160;
+        bounds.right = W8CharacterPage::bounds.x + 0x198;
         text.RenderString(&bounds, g_localized_strings[0xf1], g_wiz_text_font_secondary, true,
                           target);
 
-        bounds.top = ScreenBounds().y + 0x19;
-        bounds.bottom = ScreenBounds().y + 0x31;
+        bounds.top = W8CharacterPage::bounds.y + 0x19;
+        bounds.bottom = W8CharacterPage::bounds.y + 0x31;
         text.RenderString(&bounds, g_localized_strings[0xef], g_wiz_text_font_secondary, true,
                           target);
 
-        bounds.left = ScreenBounds().x + 0x24;
-        bounds.right = ScreenBounds().x + 0x92;
-        bounds.top = ScreenBounds().y + 0xaa;
-        bounds.bottom = ScreenBounds().y + 0xbc;
+        bounds.left = W8CharacterPage::bounds.x + 0x24;
+        bounds.right = W8CharacterPage::bounds.x + 0x92;
+        bounds.top = W8CharacterPage::bounds.y + 0xaa;
+        bounds.bottom = W8CharacterPage::bounds.y + 0xbc;
         text.RenderString(&bounds, g_localized_strings[0x84], g_wiz_text_font_secondary, true,
                           target);
 
-        bounds.top = ScreenBounds().y + 0xc6;
-        bounds.bottom = ScreenBounds().y + 0xd8;
+        bounds.top = W8CharacterPage::bounds.y + 0xc6;
+        bounds.bottom = W8CharacterPage::bounds.y + 0xd8;
         text.RenderString(&bounds, g_localized_strings[0x85], g_wiz_text_font_secondary, true,
                           target);
 
-        bounds.left = ScreenBounds().x + 0x18;
-        bounds.top = ScreenBounds().y + 0xee;
-        bounds.right = ScreenBounds().x + 0x1a8;
-        bounds.bottom = ScreenBounds().y + 0xfa;
+        bounds.left = W8CharacterPage::bounds.x + 0x18;
+        bounds.top = W8CharacterPage::bounds.y + 0xee;
+        bounds.right = W8CharacterPage::bounds.x + 0x1a8;
+        bounds.bottom = W8CharacterPage::bounds.y + 0xfa;
         text.RenderString(&bounds, g_localized_strings[0x86], g_wiz_text_font_secondary, true,
                           target);
 
         int index = 0;
         for (const unsigned short* message_id = g_personality_message_ids;
              message_id < g_personality_message_ids + 9; ++message_id, ++index) {
-            bounds.left = (index % 3) * 0x80 + 0x30 + ScreenBounds().x;
+            bounds.left = (index % 3) * 0x80 + 0x30 + W8CharacterPage::bounds.x;
             bounds.right = bounds.left + 0x80;
-            bounds.top = ScreenBounds().y + 0x106 + (index / 3) * 0xe;
+            bounds.top = W8CharacterPage::bounds.y + 0x106 + (index / 3) * 0xe;
             bounds.bottom = bounds.top + 0xe;
             text.SetLayoutBounds(&bounds, true, true);
             text.SetLayoutMode(g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft);
@@ -1075,16 +1086,16 @@ void W8CharacterPersonalityPage::Redraw(SDL_Surface& target, bool full_redraw)
                               target);
         }
 
-        bounds.top = ScreenBounds().y + 0x13f;
-        bounds.bottom = ScreenBounds().y + 0x14d;
-        bounds.left = ScreenBounds().x + 0x29;
-        bounds.right = ScreenBounds().x + 0x69;
+        bounds.top = W8CharacterPage::bounds.y + 0x13f;
+        bounds.bottom = W8CharacterPage::bounds.y + 0x14d;
+        bounds.left = W8CharacterPage::bounds.x + 0x29;
+        bounds.right = W8CharacterPage::bounds.x + 0x69;
         text.SetLayoutMode(g_W8TextBufferAlignCenter | g_W8TextBufferAlignTop);
         text.RenderString(&bounds, g_localized_strings[0x8d], g_wiz_text_font_secondary, true,
                           target);
 
-        bounds.top = ScreenBounds().y + 0x15c;
-        bounds.bottom = ScreenBounds().y + 0x16a;
+        bounds.top = W8CharacterPage::bounds.y + 0x15c;
+        bounds.bottom = W8CharacterPage::bounds.y + 0x16a;
         text.RenderString(&bounds, g_localized_strings[0x8e], g_wiz_text_font_secondary, true,
                           target);
 
@@ -1094,7 +1105,7 @@ void W8CharacterPersonalityPage::Redraw(SDL_Surface& target, bool full_redraw)
     }
 
     if (m_portrait_dirty) {
-        CatalogArtwork::Load(0x11, m_character->portrait_index).drawAndInvalidate(target, 0, ScreenBounds().x + 0x86, ScreenBounds().y + 5, {}, BitmapKey::Opaque);
+        CatalogArtwork::Load(0x11, m_character->portrait_index).drawAndInvalidate(target, 0, W8CharacterPage::bounds.x + 0x86, W8CharacterPage::bounds.y + 5, {}, BitmapKey::Opaque);
         m_portrait_dirty = false;
     }
 
@@ -1104,10 +1115,10 @@ void W8CharacterPersonalityPage::Redraw(SDL_Surface& target, bool full_redraw)
         W8CharacterEvent element(m_character, g_effect0, 0, g_character_event_no_flags,
                                  g_character_event_full_volume);
 
-        bounds.top = ScreenBounds().y + 0x13a;
-        bounds.bottom = ScreenBounds().y + 0x16a;
-        bounds.left = ScreenBounds().x + 0x70;
-        bounds.right = ScreenBounds().x + 0x150;
+        bounds.top = W8CharacterPage::bounds.y + 0x13a;
+        bounds.bottom = W8CharacterPage::bounds.y + 0x16a;
+        bounds.left = W8CharacterPage::bounds.x + 0x70;
+        bounds.right = W8CharacterPage::bounds.x + 0x150;
         text.SetLayoutBounds(&bounds, true, true);
         text.SetText(element.GetQuoteText(), g_wiz_text_font_secondary);
         text.FillBounds(0x8000);
@@ -1125,29 +1136,29 @@ void W8CharacterPersonalityPage::Redraw(SDL_Surface& target, bool full_redraw)
 }
 
 // FUNCTION: WIZ8 0x005c7220
-void W8CharacterPersonalityPage::OnPrimary(W8TextControl* control)
+void W8CharacterPersonalityPage::ChangePortrait(int action)
 {
     int portrait = m_character->portrait_index;
-    if (control == m_control4) {
+    if (action == 1) {
         int group = g_portrait_descriptors[portrait].group + 1;
         if (group > 11)
             group = 0;
         m_character->portrait_index = g_portrait_groups[group].portraits[0];
         m_portrait_dirty = true;
-    } else if (control == m_control5) {
+    } else if (action == 0) {
         int group = g_portrait_descriptors[portrait].group - 1;
         if (group < 0)
             group = 11;
         m_character->portrait_index = g_portrait_groups[group].portraits[0];
         m_portrait_dirty = true;
-    } else if (control == m_control6 || control == m_control7) {
+    } else if (action == 3 || action == 2) {
         int group = g_portrait_descriptors[portrait].group;
         W8PortraitGroup* portraits = &g_portrait_groups[group];
         int index = 0;
         while (index < portraits->count && portraits->portraits[index] != portrait) {
             ++index;
         }
-        if (control == m_control6) {
+        if (action == 3) {
             ++index;
             if (index >= portraits->count)
                 index = 0;
@@ -1158,7 +1169,7 @@ void W8CharacterPersonalityPage::OnPrimary(W8TextControl* control)
         }
         m_character->portrait_index = portraits->portraits[index];
         m_portrait_dirty = true;
-    } else if (control == m_randomize) {
+    } else if (action == 4) {
         m_animation_active = true;
         m_animation_frame = 2;
         anim_timer.Restart();
@@ -1167,21 +1178,9 @@ void W8CharacterPersonalityPage::OnPrimary(W8TextControl* control)
         m_screen->ShowCharacterSummary();
     }
 
-    if (control != m_randomize) {
+    if (action != 4) {
         m_screen->UpdateNavigation(this);
     }
-}
-
-// FUNCTION: WIZ8 0x005c73b0
-void W8CharacterPersonalityPage::OnSelectionChanged(W8ControlSelection* control, int selected)
-{
-    if (control == &m_voice_selection) {
-        m_character->voice = selected;
-    } else {
-        m_character->personality = selected;
-    }
-    m_description_dirty = true;
-    m_screen->UpdateNavigation(this);
 }
 
 // FUNCTION: WIZ8 0x005c73f0
@@ -1197,16 +1196,16 @@ W8CharacterPersonalityPage* CreateCharacterPersonalityPage()
 void W8CharacterSkillsPage::SetCharacter(W8Character* character,
                                          W8CharacterCreationState* creation_state, int mode)
 {
-    CreateRegionSet();
     W8CharacterPage::SetCharacter(character, creation_state, mode);
     int category_count[5] = {0, 0, 0, 0, 0};
     for (int skill = 0; skill < 0x29; ++skill) {
         int category = g_skill_attributes[skill].category;
         W8CharacterPageEntry* entry = new W8CharacterPageEntry(
-            this, g_character_page2_category_geometry[category].x,
+            input, g_character_page2_category_geometry[category].x,
             g_character_page2_category_geometry[category].y + category_count[category] * 0xe, true);
         AddEntry(entry);
-        entry->m_listener = this;
+        entry->on_adjust = [this, entry](int delta) { AdjustEntry(entry, delta); };
+        entry->on_info = [this, entry] { ShowEntryInfo(entry); };
         ++category_count[category];
     }
     nav_next_state = false;
@@ -1215,7 +1214,7 @@ void W8CharacterSkillsPage::SetCharacter(W8Character* character,
 // FUNCTION: WIZ8 0x005c76a0
 void W8CharacterSkillsPage::Activate()
 {
-    EnableRegionSet(true);
+    input.setEnabled(true);
     Refresh();
     m_contentDirty = true;
     m_prepared = true;
@@ -1223,7 +1222,7 @@ void W8CharacterSkillsPage::Activate()
 
 void W8CharacterSkillsPage::Deactivate()
 {
-    EnableRegionSet(false);
+    input.setEnabled(false);
 }
 
 // FUNCTION: WIZ8 0x005c76c0
@@ -1281,12 +1280,12 @@ void W8CharacterSkillsPage::Redraw(SDL_Surface& target, bool full_redraw)
     if (redraw) {
         for (int category = 0; category < 5; ++category) {
             if (category != 4 || m_show_fifth_category) {
-                CatalogArtwork::Load(0x144, 0).draw(target, static_cast<short>(g_character_page2_category_frames[category]), ScreenBounds().x + g_character_page2_category_geometry[category].x -
-                                     0x16, ScreenBounds().y + g_character_page2_category_geometry[category].y - 3);
+                CatalogArtwork::Load(0x144, 0).draw(target, static_cast<short>(g_character_page2_category_frames[category]), W8CharacterPage::bounds.x + g_character_page2_category_geometry[category].x -
+                                     0x16, W8CharacterPage::bounds.y + g_character_page2_category_geometry[category].y - 3);
             }
         }
         if (!m_show_fifth_category) {
-            CatalogArtwork::Load(0x108, 0).draw(target, 1, ScreenBounds().x, ScreenBounds().y + 0x118);
+            CatalogArtwork::Load(0x108, 0).draw(target, 1, W8CharacterPage::bounds.x, W8CharacterPage::bounds.y + 0x118);
         }
     }
 

@@ -119,7 +119,6 @@
 #include "layouts/targeting.h"
 #include "layouts/world.h"
 #include "local_code/CharGeneration.h"
-#include "local_code/ControlSelection.h"
 #include "local_code/Factions.h"
 #include "local_code/SpellEffect.h"
 #include "mgs_commands.h"
@@ -597,7 +596,9 @@ void SpendPool(Game& game, const char* step, int page_index, const bool& complet
         while (!complete && *entry->m_second < *entry->m_third)
         {
             const int before = *entry->m_second;
-            game.click(step, ControlRegion(entry->m_increment));
+            INFO(step);
+            const auto bounds = entry->m_increment->Bounds();
+            game.click_at(bounds.x + bounds.w / 2, bounds.y + bounds.h / 2);
             if (!game.within_frames(2, [&] { return complete || *entry->m_second != before; }))
                 break; // The entry is capped by something else (race maximum).
         }
@@ -627,11 +628,14 @@ std::string CreateCharacter(Game& game)
 
     W8CharacterStatsPage* stats = StatsPage();
     REQUIRE((stats->m_profession_row && stats->m_race_row && stats->m_gender_row));
-    game.click("profession", ControlRegion(stats->m_profession_row->m_increment));
+    { const auto bounds = stats->m_profession_row->m_increment->Bounds();
+      game.click_at(bounds.x + bounds.w / 2, bounds.y + bounds.h / 2); }
     REQUIRE(game.within_frames(2, [&] { return stats->m_profession_row->m_index != -1; }));
-    game.click("race", ControlRegion(stats->m_race_row->m_increment));
+    { const auto bounds = stats->m_race_row->m_increment->Bounds();
+      game.click_at(bounds.x + bounds.w / 2, bounds.y + bounds.h / 2); }
     REQUIRE(game.within_frames(2, [&] { return stats->m_race_row->m_index != -1; }));
-    game.click("gender", ControlRegion(stats->m_gender_row->m_increment));
+    { const auto bounds = stats->m_gender_row->m_increment->Bounds();
+      game.click_at(bounds.x + bounds.w / 2, bounds.y + bounds.h / 2); }
     REQUIRE(game.within_frames(2, [&] { return stats->m_gender_row->m_index != -1; }));
     REQUIRE((game.within_frames(2, [&] {
         return !stats->m_entries.empty() && stats->m_entries[0]->m_enabled;
@@ -639,14 +643,14 @@ std::string CreateCharacter(Game& game)
     SpendPool(game, "attributes", 0, g_character_screen->m_creation_state.attributes_complete);
 
     // The first profession is a non-caster, so Next skips the spell page.
-    game.click("to-skills", ControlRegion(g_character_screen->m_next));
+    game.click_at(616, 464);
     game.wait("skills", [&] {
         W8CharacterPage* page = g_character_screen->m_pages[2].get();
         return g_character_screen->m_page_index == 2 && page && !page->m_entries.empty();
     });
     SpendPool(game, "skills", 2, g_character_screen->m_creation_state.skills_complete);
 
-    game.click("to-personality", ControlRegion(g_character_screen->m_next));
+    game.click_at(616, 464);
     game.wait("personality", [&] {
         W8CharacterPage* page = g_character_screen->m_pages[3].get();
         return g_character_screen->m_page_index == 3 && page && !page->m_prepared;
@@ -659,7 +663,7 @@ std::string CreateCharacter(Game& game)
     const std::string name = typed.name;
     REQUIRE(!name.empty());
 
-    game.click("commit", ControlRegion(g_character_screen->m_next));
+    game.click_at(616, 464);
     game.wait_screen("committed", W8_SCREEN_PARTY_SELECTION);
     const auto saved = game.user_root() / "Saves" / "Characters" / (name + ".CHR");
     if (!fs::is_regular_file(saved))
@@ -1169,11 +1173,9 @@ void CheckGameplayUi(Game& game)
     g_status.effect_slots[0].duration = 600;
     RefreshSpellIconHudRows();
     game.frame();
-    REQUIRE(g_spell_icon_count > 0);
-    const auto icon = g_spell_icon_strip->ControlAt(0)->ScreenBounds();
     game.move_pointer(0, 200);
     g_default_help_text.clear();
-    game.move_pointer(icon.x + icon.w / 2, icon.y + icon.h / 2);
+    game.move_pointer(0x277, 9);
     REQUIRE(g_default_help_text.starts_with(g_spell_records[W8_SPELL_LIGHT].display_name));
     g_status.effect_slots[0] = original_effect;
     RefreshSpellIconHudRows();

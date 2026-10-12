@@ -29,8 +29,8 @@ extern ScreenRegionSet g_main_formation_board_regions;
 extern ScreenRegionSet g_main_submenu_regions;
 extern ScreenRegionSet g_main_effect_regions;
 enum MainEffectRegionOffset {
-    kMonsterListRegionOffset = 24,
-    kWorldViewRegionOffset = 25
+    kMonsterListRegionOffset = 0,
+    kWorldViewRegionOffset = 1
 };
 extern std::array<std::optional<RegionSetView>, 8> g_main_portrait_slot_views;
 extern std::optional<RegionSetView> g_main_portrait_edge_view;

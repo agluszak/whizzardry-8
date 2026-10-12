@@ -1,3 +1,4 @@
+#include "wiz8/local_code/ButtonSound.h"
 #include <SDL3/SDL_rect.h>
 #include <fmt/format.h>
 #include <array>
@@ -797,7 +798,10 @@ unsigned char BuildKeyboardMenu(void)
                     ((row.menu == W8_SUBMENU_ITEMS && row.item == 2) ||
                      (row.menu == W8_SUBMENU_SPELLS && row.item == 1)))
                     SetRegionHelpForceEnabled(true);
-                if (!row.enabled) return UiResult::Handled;
+                if (!row.enabled) {
+                    PushButtonSoundScheme(0, true);
+                    return UiResult::Handled;
+                }
                 const auto mask = event.button == UiPointerButton::Right ? SDL_BUTTON_RMASK : SDL_BUTTON_LMASK;
                 if (event.action == UiPointerAction::Down) row.press.press(mask, policy);
                 if (event.action == UiPointerAction::Up && event.inside &&

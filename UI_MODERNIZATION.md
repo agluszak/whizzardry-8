@@ -68,6 +68,11 @@ adapters and widget panels are removed. The spell view owns ordinary realm/power
 buttons; animated icons and labels are painted without decorative widgets. The
 lock status panel also owns text values and explicit painting.
 
+Character creation/editing pages now own their input, navigation, stat dropdowns,
+point-allocation buttons, spell lists and personality choices without Controls,
+W8Widget, selection collections or listener interfaces. The effect HUD paints
+directly from effect slots and owns only its hover targets.
+
 ## Remaining deletion work
 
 1. Finish merging button painting. Remove obsolete wrappers rather than adding

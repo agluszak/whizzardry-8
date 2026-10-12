@@ -1,398 +1,100 @@
-#include "wiz8/local_code/ControlsRect.h"
+#include "wiz8/local_screens/MGSSpellIcons.h"
+
 #include <memory>
+#include <span>
+#include <string>
 #include <fmt/format.h>
 #include <fmt/printf.h>
-#include <optional>
-#include <string>
-#include <vector>
+#include <SDL3/SDL_rect.h>
 
-#include "wiz8/local_screens/MGSSpellIcons.h"
-#include "input.h"
-#include "wiz8/local_code/Strings.h"
-#include "wiz8/local_code/ButtonSound.h"
+#include "wiz8/catalog_artwork.h"
+#include "wiz8/ui_layer.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/combat_state.h"
-#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/screen_state.h"
-#include "wiz8/local_code/Controls.h"
-#include "wiz8/local_code/Gameloop.h"
-#include "wiz8/local_code/MagicEffects.h"
+#include "wiz8/layouts/main_game_screen.h"
+#include "wiz8/local_code/ButtonSound.h"
+#include "wiz8/local_code/Strings.h"
+#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/engine_code/Video2.h"
-#include "wiz8/local_code/TextControl.h"
+#include "wiz8/engine_code/3dapi.h"
 #include "wiz8/regions.h"
 #include "wiz8/xstatus.h"
-#include "wiz8/engine_code/3dapi.h"
-#include "gameplay_modifiers.h"
-#include "layouts/main_game_screen.h"
-#include "wiz8/catalog_artwork.h"
 
-// GLOBAL: WIZ8 0x0069c260
-static unsigned int g_effect_icon_help_duration;
+namespace {
+std::unique_ptr<UiLayer> party_icons;
+std::unique_ptr<UiLayer> left_icons;
+std::unique_ptr<UiLayer> right_icons;
 
-// GLOBAL: WIZ8 0x0069C25C
-unsigned int g_spell_icon_count;
-/* Child spell-icon text controls under g_spell_icon_strip. */
-// GLOBAL: WIZ8 0x0069C264
-static constexpr unsigned int kPartyEffectIconCount = 9;
-static W8TextControl* g_spell_icon_rows[12];
-/* Right-side combat-effect icon rows under g_combat_effect_right_panel. */
-// GLOBAL: WIZ8 0x0069C294
-static W8TextControl* g_combat_effect_right_rows[6];
-// GLOBAL: WIZ8 0x0069C2AC
-unsigned int g_combat_effect_right_count;
-// GLOBAL: WIZ8 0x0069C2B0
-std::unique_ptr<Controls> g_spell_icon_strip;
-// GLOBAL: WIZ8 0x0069C2B4
-unsigned int g_combat_effect_left_count;
-// GLOBAL: WIZ8 0x0069C2B8
-std::unique_ptr<Controls> g_combat_effect_right_panel;
-// GLOBAL: WIZ8 0x0069C2BC
-std::unique_ptr<Controls> g_combat_effect_left_panel;
-/* Left-side combat-effect icon rows under g_combat_effect_left_panel. */
-// GLOBAL: WIZ8 0x0069C2C0
-static W8TextControl* g_combat_effect_left_rows[9];
-
-#define MGSSPELLICONS_CPP "C:\\Projects\\Wizardry 8\\Local Screens\\MGSSpellIcons.cpp"
-
-static void RebuildCombatEffectHudRows(void);
-
-// FUNCTION: WIZ8 0x005AE9D0
-unsigned char CreateSpellIconHudControls(void)
+std::string EffectHelp(const W8EffectSlot& slot, bool show_duration)
 {
-    g_spell_icon_strip.reset();
-    g_combat_effect_left_panel.reset();
-    g_combat_effect_right_panel.reset();
-
-    g_spell_icon_strip = std::make_unique<Controls>(0x19d, 0, 0x280, 0x12, std::nullopt, 0);
-    if (!g_spell_icon_strip) {
-        return 0;
-    }
-
-    g_spell_icon_count = 0;
-    g_combat_effect_left_panel = std::make_unique<Controls>(0x81, 0x14, 0x13d, 0x28, std::nullopt, 0);
-    if (!g_combat_effect_left_panel) {
-        return 0;
-    }
-
-    g_combat_effect_left_count = 0;
-    g_combat_effect_right_panel = std::make_unique<Controls>(0x182, 0x14, 0x1ff, 0x28, std::nullopt, 0);
-    if (!g_combat_effect_right_panel) {
-        return 0;
-    }
-
-    g_combat_effect_right_count = 0;
-    return 1;
+    return fmt::format("{}: ", g_spell_records[slot.effect_id].display_name) +
+        (show_duration ? fmt::sprintf(g_localized_strings[0x79c], slot.amount, slot.duration)
+                       : fmt::sprintf(g_localized_strings[0x79d], slot.amount));
 }
 
-/* Strip rows are detached before destruction. Destruction can change the
-   live panel/count, so each iteration reads them again and clears the observer slot. */
-static void DestroyEffectIconRows(const std::unique_ptr<Controls>& panel, W8TextControl** rows, const unsigned int& count)
+// Effects are already owned by the game. The HUD only owns their hit targets;
+// icons have no independent state or lifetime and are painted from those effects.
+void PaintEffectStrip(std::unique_ptr<UiLayer>& layer, std::span<const W8EffectSlot> slots,
+                      SDL_Point origin, int step, int size, bool show_duration)
 {
-    for (unsigned int index = 0; index < count; ++index) {
-        panel->RemoveControl(rows[index]);
-        rows[index] = nullptr;
+    layer = std::make_unique<UiLayer>(0x28);
+    for (const auto& slot : slots) {
+        if (!slot.active) continue;
+        const int icon = g_effect_visual_table[slot.effect_id].hud_icon;
+        if (icon < 0) continue;
+        CatalogArtwork::Load(icon, 0).drawAndInvalidate(GetFrameBufferSurface(), 0,
+                                                       origin.x, origin.y);
+        auto& target = layer->add(SDL_Rect{origin.x, origin.y, size + 1, size + 1},
+            [&slot, show_duration, duration = slot.duration](const UiPointerEvent& event) mutable {
+                PushButtonSoundScheme(0, true);
+                if (event.action == UiPointerAction::Enter) {
+                    duration = slot.duration;
+                    SetRegionHelpText(EffectHelp(slot, show_duration));
+                    return UiResult::Handled;
+                }
+                if (event.action == UiPointerAction::Leave) return UiResult::Handled;
+                if (event.action == UiPointerAction::Move && duration != slot.duration) {
+                    duration = slot.duration;
+                    SetRegionHelpText(EffectHelp(slot, show_duration));
+                    ResetRegionHelp(false);
+                }
+                return UiResult::Pass;
+            });
+        target.setTooltip([&slot, show_duration] { return EffectHelp(slot, show_duration); });
+        origin.x += step;
     }
 }
-
-static void ClearSpellIconHudRows()
-{
-    unsigned int index;
-    DestroyEffectIconRows(g_spell_icon_strip, g_spell_icon_rows, g_spell_icon_count);
-    /* Retail swept twelve catalog slots downward from the last party icon,
-       running three past the strip into the neighbouring set. The screen now
-       owns exactly the nine party-icon regions, and the sweep must skip the
-       leave path that has already destroyed them. */
-    if (g_main_effect_regions) {
-        for (index = 0; index < kPartyEffectIconCount; ++index) {
-            (*g_main_effect_regions)[kPartyEffectIconCount - 1 - index].SetInputEnabled(false);
-        }
-    }
-    g_spell_icon_count = 0;
 }
 
-// FUNCTION: WIZ8 0x005AEB20
-void DestroySpellIconHudControls(void)
+void DestroySpellIconHudControls()
 {
-    ClearSpellIconHudRows();
-    g_spell_icon_strip.reset();
-
-    DestroyCombatEffectHudRows();
-    g_combat_effect_left_panel.reset();
-    g_combat_effect_right_panel.reset();
+    party_icons.reset();
+    left_icons.reset();
+    right_icons.reset();
 }
 
-/* Drop the live spell-icon rows and rebuild them from the current party spell
-   slots, then enable and redraw the top strip when any icons remain. */
-// FUNCTION: WIZ8 0x005AEBE0
-void RefreshSpellIconHudRows(void)
+void RefreshSpellIconHudRows()
 {
-    ClearSpellIconHudRows();
-    RebuildSpellIconHudRows();
-    g_spell_icon_strip->SetActive(true);
-    if (g_spell_icon_count != 0) {
-        g_spell_icon_strip->Redraw(GetFrameBufferSurface(), false);
-    }
+    PaintEffectStrip(party_icons, g_status.effect_slots, {0x26e, 0}, -0x13, 0x12, true);
 }
 
-/* Walk the twelve party effect slots and create one top-strip text control per
-   active effect whose visual table entry is not BAD_INDEX. */
-// FUNCTION: WIZ8 0x005AEC70
-void RebuildSpellIconHudRows(void)
+void RefreshCombatEffectHud()
 {
-    int left;
-    int right;
-    int icon;
-    int slot;
-    W8TextControl* control;
-    W8EffectSlot* effect;
-
-    left = 0xd1;
-    right = 0xe3;
-    g_spell_icon_count = 0;
-    for (slot = 0; slot < 12; ++slot) {
-        effect = &g_status.effect_slots[slot];
-        if (effect->active) {
-            icon = g_effect_visual_table[effect->effect_id].hud_icon;
-            if (icon == -1) {
-                ReportAssertion("iSpellIcon != BAD_INDEX", MGSSPELLICONS_CPP, 0x108);
-            }
-            control = g_spell_icon_strip->EmplaceControl<W8TextControl>(g_main_effect_regions->index(8 - g_spell_icon_count),
-                                        left, 0, right, 0x12, CatalogArtwork::Load(icon, 0), W8SpriteStates{.normal = 0});
-            g_spell_icon_rows[g_spell_icon_count] = control;
-            control->Invalidate(false);
-            (*g_main_effect_regions)[8 - g_spell_icon_count].SetInputEnabled(true);
-            ++g_spell_icon_count;
-            right = left - 1;
-            left -= 0x13;
-        }
-    }
+    left_icons.reset();
+    right_icons.reset();
+    if (!gXStatus.fCombatMode) return;
+    PaintEffectStrip(left_icons, g_combat_state->effect_slots, {0x81, 0x14}, 0x15, 0x14, false);
+    PaintEffectStrip(right_icons, g_combat_state->effect_slots0, {0x1eb, 0x14}, -0x15, 0x14, true);
+    left_icons->setEnabled(!g_level_block->portrait_refresh_pending[0]);
+    right_icons->setEnabled(!g_level_block->portrait_refresh_pending[1]);
 }
 
-/* Tear down combat-effect rows, rebuild them while combat is up, then enable
-   and redraw the flanking panels. Portrait-refresh pending on slots 0/1 hides
-   the matching panel. */
-// FUNCTION: WIZ8 0x005AEF30
-void RefreshCombatEffectHud(void)
-{
-    DestroyCombatEffectHudRows();
-    if (!gXStatus.fCombatMode) {
-        return;
-    }
-    RebuildCombatEffectHudRows();
-    g_combat_effect_left_panel->SetActive(true);
-    g_combat_effect_right_panel->SetActive(true);
-    if (g_combat_effect_left_count != 0) {
-        g_combat_effect_left_panel->Redraw(GetFrameBufferSurface(), false);
-    }
-    if (g_combat_effect_right_count != 0) {
-        g_combat_effect_right_panel->Redraw(GetFrameBufferSurface(), false);
-    }
-    if (g_level_block->portrait_refresh_pending[0] != 0) {
-        g_combat_effect_left_panel->SetActive(false);
-    }
-    if (g_level_block->portrait_refresh_pending[1] != 0) {
-        g_combat_effect_right_panel->SetActive(false);
-    }
-}
-
-/* Rebuild both combat-effect panels: nine left slots walk right from x=0,
-   six right slots walk left from x=0x69, one text control per active effect. */
-// FUNCTION: WIZ8 0x005AEFC0
-static void RebuildCombatEffectHudRows(void)
-{
-    int left;
-    int right;
-    int icon;
-    int slot;
-    W8TextControl* control;
-    W8EffectSlot* effect;
-
-    g_combat_effect_left_panel->SetBounds(ToSDLRect({0x81, 0x14, 0x13d, 0x28}));
-    left = 0;
-    right = 0x14;
-    g_combat_effect_left_count = 0;
-    for (slot = 0; slot < 9; ++slot) {
-        effect = &g_combat_state->effect_slots[slot];
-        if (effect->active) {
-            icon = g_effect_visual_table[effect->effect_id].hud_icon;
-            if (icon == -1) {
-                ReportAssertion("iSpellIcon != BAD_INDEX", MGSSPELLICONS_CPP, 0x228);
-            }
-            control =
-                g_combat_effect_left_panel->EmplaceControl<W8TextControl>(g_main_effect_regions->index(9 + g_combat_effect_left_count), left,
-                                  0, right, 0x14, CatalogArtwork::Load(icon, 0), W8SpriteStates{.normal = 0});
-            g_combat_effect_left_rows[g_combat_effect_left_count] = control;
-            control->Invalidate(false);
-            (*g_main_effect_regions)[9 + g_combat_effect_left_count].SetInputEnabled(true);
-            ++g_combat_effect_left_count;
-            left = right + 1;
-            right += 0x15;
-        }
-    }
-    g_combat_effect_right_panel->SetBounds(ToSDLRect({0x182, 0x14, 0x1ff, 0x28}));
-    left = 0x69;
-    right = 0x7d;
-    g_combat_effect_right_count = 0;
-    for (slot = 0; slot < 6; ++slot) {
-        effect = &g_combat_state->effect_slots0[slot];
-        if (effect->active) {
-            icon = g_effect_visual_table[effect->effect_id].hud_icon;
-            if (icon == -1) {
-                ReportAssertion("iSpellIcon != BAD_INDEX", MGSSPELLICONS_CPP, 0x25e);
-            }
-            control =
-                g_combat_effect_right_panel->EmplaceControl<W8TextControl>(g_main_effect_regions->index(23 - g_combat_effect_right_count), left, 0, right,
-                    0x14, CatalogArtwork::Load(icon, 0), W8SpriteStates{.normal = 0});
-            g_combat_effect_right_rows[g_combat_effect_right_count] = control;
-            control->Invalidate(false);
-            (*g_main_effect_regions)[23 - g_combat_effect_right_count].SetInputEnabled(true);
-            ++g_combat_effect_right_count;
-            right = left - 1;
-            left -= 0x15;
-        }
-    }
-}
-// FUNCTION: WIZ8 0x005AF210
-void DestroyCombatEffectHudRows(void)
-{
-    unsigned int index;
-
-    DestroyEffectIconRows(g_combat_effect_left_panel, g_combat_effect_left_rows,
-                          g_combat_effect_left_count);
-    if (g_main_effect_regions) {
-        for (index = 0; index < 9; ++index) {
-            (*g_main_effect_regions)[9 + index].SetInputEnabled(false);
-        }
-    }
-    g_combat_effect_left_count = 0;
-
-    DestroyEffectIconRows(g_combat_effect_right_panel, g_combat_effect_right_rows,
-                          g_combat_effect_right_count);
-    if (g_main_effect_regions) {
-        for (index = 0; index < 6; ++index) {
-            (*g_main_effect_regions)[23 - index].SetInputEnabled(false);
-        }
-    }
-    g_combat_effect_right_count = 0;
-}
-
-/* Clear and invalidate the main-game effect strip while it is up. Moved here
-   from Magic Effects.cpp: the TU report proves this hull's range covers
-   0x005AF2D0. */
-// FUNCTION: WIZ8 0x005af2d0
-void InvalidateMainGameEffectHud(void)
+void InvalidateMainGameEffectHud()
 {
     if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
         ClearSurfaceRect(0x7f, 0x14, 0x201, 0x28);
         InvalidateRegion(0x7f, 0x14, 0x201, 0x28);
     }
-}
-
-static void ShowEffectIconHelp(const W8EffectSlot* slot, bool show_duration, int assertion_line)
-{
-    W8SpellRuntimeRecord* records = g_spell_records;
-    int amount = slot->amount;
-    unsigned int duration = slot->duration;
-    int effect_id = slot->effect_id;
-    g_effect_icon_help_duration = duration;
-    std::string text = fmt::format("{}: ", records[effect_id].display_name);
-    text += show_duration
-                ? fmt::sprintf(g_localized_strings[0x79c], amount, g_effect_icon_help_duration)
-                : fmt::sprintf(g_localized_strings[0x79d], amount);
-    SetRegionHelpText(text);
-}
-
-// FUNCTION: WIZ8 0x005AED90
-void ShowPartyEffectIconHelp(int slot_index)
-{
-    ShowEffectIconHelp(&g_status.effect_slots[slot_index], true, 0x15c);
-}
-
-static unsigned int FindActiveEffectSlotIndex(const W8EffectSlot* slots, unsigned int count,
-                                              unsigned int active_index)
-{
-    unsigned int match = 0;
-    for (unsigned int index = 0; index < count; ++index) {
-        if (slots[index].active) {
-            if (match == active_index) {
-                return index;
-            }
-            ++match;
-        }
-    }
-    return count;
-}
-
-/* All three effect strips use the same active-slot hover policy. The caller
-   retains the combat guard and sound setup before supplying its current slots. */
-static unsigned char DispatchEffectIconRegionEvent(const InputEvent* event, W8Region* region,
-                                                   unsigned short id,
-                                                   const W8EffectSlot* slots, unsigned int count,
-                                                   void (*show_help)(int))
-{
-    unsigned int slot_index = FindActiveEffectSlotIndex(slots, count, id);
-    if (slot_index != count && event->type == InputEventType::MouseMove) {
-        if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
-            return 1;
-        }
-        if ((region->flags & W8_REGION_MOUSE_ENTER) != 0) {
-            show_help(slot_index);
-            return 1;
-        }
-        if (g_effect_icon_help_duration != slots[slot_index].duration) {
-            show_help(slot_index);
-            ResetRegionHelp(false);
-        }
-    }
-    return 0;
-}
-
-// FUNCTION: WIZ8 0x005AEEA0
-unsigned char PartyEffectIconRegionEvent(const InputEvent* event, W8Region* region, unsigned short id)
-{
-    PushButtonSoundScheme(0, true);
-    return DispatchEffectIconRegionEvent(event, region, id, g_status.effect_slots, 12,
-                                         ShowPartyEffectIconHelp);
-}
-
-/* Left combat-effect strip (nine slots at g_combat_state->effect_slots). */
-
-// FUNCTION: WIZ8 0x005AF300
-void ShowCombatLeftEffectIconHelp(int slot_index)
-{
-    ShowEffectIconHelp(&g_combat_state->effect_slots[slot_index], false, 0x2e1);
-}
-
-// FUNCTION: WIZ8 0x005AF410
-void ShowCombatRightEffectIconHelp(int slot_index)
-{
-    ShowEffectIconHelp(&g_combat_state->effect_slots0[slot_index], true, 0x30d);
-}
-
-/* Top-row party effect icons: map the region id onto the Nth active party
-   effect slot and refresh help on enter. */
-
-// FUNCTION: WIZ8 0x005AF530
-unsigned char CombatLeftEffectIconRegionEvent(const InputEvent* event, W8Region* region, unsigned short id)
-{
-    if (!gXStatus.fCombatMode) {
-        return 0;
-    }
-    PushButtonSoundScheme(0, true);
-    return DispatchEffectIconRegionEvent(event, region, id, g_combat_state->effect_slots, 9,
-                                         ShowCombatLeftEffectIconHelp);
-}
-
-/* Right combat-effect strip (six slots at g_combat_state->effect_slots0). */
-
-// FUNCTION: WIZ8 0x005AF5E0
-unsigned char CombatRightEffectIconRegionEvent(const InputEvent* event, W8Region* region, unsigned short id)
-{
-    if (!gXStatus.fCombatMode) {
-        return 0;
-    }
-    PushButtonSoundScheme(0, true);
-    return DispatchEffectIconRegionEvent(event, region, id, g_combat_state->effect_slots0, 6,
-                                         ShowCombatRightEffectIconHelp);
 }
