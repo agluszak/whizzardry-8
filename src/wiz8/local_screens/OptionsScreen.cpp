@@ -791,7 +791,8 @@ void W8OptionsKeyboardPanel::Populate()
 void W8OptionsKeyboardPanel::Invalidate(const W8ControlsRect* bounds)
 {
     Controls::Invalidate(bounds);
-    g_options_screen->m_menu_set->Invalidate(0);
+    // ~W8OptionsScreen deactivates its panels after OptionsScreenLeave has cleared the global.
+    if (g_options_screen) g_options_screen->m_menu_set->Invalidate(0);
 }
 
 void W8OptionsKeyboardPanel::OnPrimary(W8TextControl*)

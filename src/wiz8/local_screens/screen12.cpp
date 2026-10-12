@@ -57,7 +57,6 @@ unsigned char ExitScreenEnter(void)
 // FUNCTION: WIZ8 0x005917e0
 void ExitScreenFrame(void)
 {
-
     RenderFrame();
     PumpUiInput({
         .unhandled = [](const InputEvent& input) {
