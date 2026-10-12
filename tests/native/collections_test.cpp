@@ -91,6 +91,7 @@ static bool ownershipAndCallbacks()
 TEST_CASE("panel_adopts_and_transfers_unattached_widgets")
 {
     Controls source;
+    source.SetBounds(100, 200, 200, 300);
     source.CreateRegionSet();
 
     auto pending = std::make_unique<W8Widget>(-1u, 1, 2, 20, 30);
@@ -103,20 +104,25 @@ TEST_CASE("panel_adopts_and_transfers_unattached_widgets")
     REQUIRE(widget->m_pPanel == &source);
     const auto original_region = widget->m_region;
     REQUIRE(original_region >= 0);
-    REQUIRE(g_regions[original_region].widget == widget);
+    REQUIRE(g_regions[original_region].handler == widget);
+    REQUIRE(g_regions[original_region].x1 == 101);
+    REQUIRE(g_regions[original_region].y1 == 202);
 
     Controls target;
+    target.SetBounds(300, 400, 400, 500);
     target.CreateRegionSet();
     auto detached = source.TakeControl(widget);
     REQUIRE(source.ControlCount() == 0);
     REQUIRE(detached.get() == widget);
     REQUIRE(widget->m_pPanel == nullptr);
-    REQUIRE(g_regions[original_region].widget == nullptr);
+    REQUIRE(g_regions[original_region].handler == nullptr);
     target.AddControl(std::move(detached));
     REQUIRE(detached == nullptr);
     REQUIRE(target.ControlAt(0) == widget);
     REQUIRE(widget->m_pPanel == &target);
-    REQUIRE(g_regions[widget->m_region].widget == widget);
+    REQUIRE(g_regions[widget->m_region].handler == widget);
+    REQUIRE(g_regions[widget->m_region].x1 == 301);
+    REQUIRE(g_regions[widget->m_region].y1 == 402);
 
     // Text controls may borrow geometry from the panel during construction,
     // but must not register or change ownership until AddControl is called.
@@ -124,11 +130,12 @@ TEST_CASE("panel_adopts_and_transfers_unattached_widgets")
         source, -1u, 3, 4, 18, 20, std::nullopt, -1, -1, -1, -1, -1);
     auto* text = pending_text.get();
     REQUIRE(text->m_pPanel == nullptr);
+    REQUIRE(text->m_textBuffer.GetHorizontalPosition(10) == 105);
     REQUIRE(source.ControlCount() == 0);
     source.AddControl(std::move(pending_text));
     REQUIRE(source.ControlCount() == 1);
     REQUIRE(text->m_pPanel == &source);
-    REQUIRE(g_regions[text->m_region].widget == text);
+    REQUIRE(g_regions[text->m_region].handler == text);
     source.RemoveControl(text);
     REQUIRE(source.ControlCount() == 0);
 
