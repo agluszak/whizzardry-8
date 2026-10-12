@@ -631,9 +631,9 @@ void RenderMessageBox(void)
             : message_box.font == &g_wiz_text_font ? g_wiz_text_font
             : g_wiz_text_font_secondary;
         shade_font.setShade(message_box.shade);
-        message_box.background.Draw();
-        if (message_box.has_accept) message_box.accept.Draw();
-        if (message_box.has_cancel) message_box.cancel.Draw();
+        message_box.background.Draw(GetFrameBufferSurface());
+        if (message_box.has_accept) message_box.accept.Draw(GetFrameBufferSurface());
+        if (message_box.has_cancel) message_box.cancel.Draw(GetFrameBufferSurface());
     } else if (message_box.state == 3) {
         const bool accepted = message_box.accepted;
         const auto callback = message_box.callback;

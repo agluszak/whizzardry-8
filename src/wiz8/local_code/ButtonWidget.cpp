@@ -1,3 +1,4 @@
+#include <SDL3/SDL_surface.h>
 #include "wiz8/local_code/ButtonWidget.h"
 
 #include "Font.h"

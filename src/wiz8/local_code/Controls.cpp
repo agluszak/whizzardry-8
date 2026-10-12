@@ -1879,6 +1879,7 @@ void Controls::AddControl(std::unique_ptr<W8Widget> control)
         // Layout needs the parent, but ownership is committed only after it succeeds.
         control->OnGeometryChanged();
         control->SetActive(m_active);
+        control->m_dirty = true;
     } catch (...) {
         control->UnbindRegion();
         control->m_pPanel = nullptr;
