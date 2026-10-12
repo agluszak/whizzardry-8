@@ -984,12 +984,25 @@ void text_input_ownership()
             const auto field_region = std::find_if(
                 g_regions.begin(), g_regions.end(),
                 [](const W8Region& region) {
-                    return region.subtract_cursor_hotspot && region.y1 == 0;
+                    return region.text_field && region.y1 == 0;
                 });
             REQUIRE(field_region != g_regions.end());
             const auto region_index =
                 static_cast<unsigned int>(field_region - g_regions.begin());
-            ExclusiveRegionSet scope(ControlRegionSetIndex());
+            {
+                ExclusiveRegionSet scope(ControlRegionSetIndex());
+                dispatch_mouse(InputEventType::LeftButtonDown, 5, 5);
+                REQUIRE(g_captured_region_index == region_index);
+                dispatch_mouse(InputEventType::LeftButtonUp, 100, 100);
+                REQUIRE(g_captured_region_index == 0);
+            }
+            // A field wins over its hosting panel, whose set is scanned before the control set.
+            constexpr std::array<RegionTemplate, 1> panel_templates{{
+                {W8_REGION_RECTANGLE, 0, 0, 640, 480, nullptr, 0, false, -1},
+            }};
+            OwnedRegionSet panel(panel_templates);
+            panel.Enable();
+            panel.EnableInput();
             dispatch_mouse(InputEventType::LeftButtonDown, 5, 5);
             REQUIRE(g_captured_region_index == region_index);
             dispatch_mouse(InputEventType::LeftButtonUp, 100, 100);

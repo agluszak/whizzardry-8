@@ -44,7 +44,7 @@ public:
     W8TextField(TextFieldGroup& group, int id, int priority)
         : group(group), id(id), region(ControlRegionSetIndex(), priority, *this)
     {
-        region.region().subtract_cursor_hotspot = true;
+        region.region().text_field = true;
     }
     ~W8TextField()
     {

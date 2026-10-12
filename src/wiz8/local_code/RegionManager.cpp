@@ -159,7 +159,7 @@ bool RegionContainsInputPoint(unsigned int region_index, unsigned short x, unsig
                               bool dispatch_coordinates)
 {
     const auto& region = g_regions[region_index];
-    if (dispatch_coordinates && region.subtract_cursor_hotspot) {
+    if (dispatch_coordinates && region.text_field) {
         return region.ContainsPoint(static_cast<unsigned short>(static_cast<int>(x) - g_cursor_hotspot_x),
                                     static_cast<unsigned short>(static_cast<int>(y) - g_cursor_hotspot_y));
     }
@@ -244,13 +244,15 @@ void ReleaseDefaultHelpText(void)
 }
 
 static bool FindEnabledRegionInSet(const W8RegionSet& set, unsigned short x, unsigned short y,
-                                   bool dispatch_coordinates, unsigned int* found_region)
+                                   bool dispatch_coordinates, unsigned int* found_region,
+                                   bool text_fields_only = false)
 {
     if (set.enabled != 1) return false;
     bool found_in_set = false;
     unsigned int best_region = 0;
     int best_priority = 0;
     for (const auto region_index : set.Regions()) {
+        if (text_fields_only && !g_regions[region_index].text_field) continue;
         if (!RegionContainsInputPoint(region_index, x, y, dispatch_coordinates)) continue;
         const int priority = g_regions[region_index].priority;
         if (found_in_set && priority <= best_priority) continue;
@@ -263,8 +265,9 @@ static bool FindEnabledRegionInSet(const W8RegionSet& set, unsigned short x, uns
 }
 
 /* Sets are scanned by declared order, then creation sequence; the widget
-   control set is always consulted last. A modal scope restricts the scan to
-   its own set. */
+   control set is always consulted last, except that its text fields come
+   first because they are drawn over the panel hosting them. A modal scope
+   restricts the scan to its own set. */
 static bool FindEnabledRegionAtPoint(unsigned short x, unsigned short y, unsigned int* found_region,
                                      bool dispatch_coordinates = false)
 {
@@ -274,6 +277,12 @@ static bool FindEnabledRegionAtPoint(unsigned short x, unsigned short y, unsigne
                FindEnabledRegionInSet(g_region_sets[scope.set_index], x, y, dispatch_coordinates,
                                       found_region);
     }
+    const bool has_control_set =
+        g_control_region_set != 0 && g_control_region_set < g_region_sets.size();
+    if (has_control_set && FindEnabledRegionInSet(g_region_sets[g_control_region_set], x, y,
+                                                  dispatch_coordinates, found_region, true)) {
+        return true;
+    }
     for (const auto set_index : g_region_set_scan_order) {
         if (set_index >= g_region_sets.size() || set_index == g_control_region_set) continue;
         if (FindEnabledRegionInSet(g_region_sets[set_index], x, y, dispatch_coordinates,
@@ -281,7 +290,7 @@ static bool FindEnabledRegionAtPoint(unsigned short x, unsigned short y, unsigne
             return true;
         }
     }
-    return g_control_region_set != 0 && g_control_region_set < g_region_sets.size() &&
+    return has_control_set &&
            FindEnabledRegionInSet(g_region_sets[g_control_region_set], x, y, dispatch_coordinates,
                                   found_region);
 }
@@ -1039,7 +1048,7 @@ OwnedRegion::OwnedRegion(unsigned int set, const RegionTemplate& entry, int prio
     owned_region.help_text_id = entry.help_text_id;
     owned_region.unknown_13 = 0;
     owned_region.help_text.clear();
-    owned_region.subtract_cursor_hotspot = false;
+    owned_region.text_field = false;
     owned_region.handler = nullptr;
     generation_ = ++owned_region.binding_generation;
 }

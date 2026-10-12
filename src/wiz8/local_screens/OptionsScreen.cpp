@@ -415,7 +415,7 @@ void W8OptionsSaveLoadPanel::OnDialogClosed(bool accepted, int value)
 void W8OptionsSaveLoadPanel::OnTextEditComplete(W8OptionsTextEditor* editor, unsigned char cancelled)
 {
     int selected_slot = m_current * 5 + m_selection.m_selectedIndex;
-    m_rows[m_editing_row]->SetEditing(false);
+    m_rows[m_editing_row]->m_editing = false;
     if (cancelled != 0) {
         m_rows[m_selection.m_selectedIndex]->Invalidate(false);
         return;
@@ -449,7 +449,7 @@ void W8OptionsSaveLoadPanel::OnEditSaveName(W8OptionsSaveRow*)
     g_options_screen->BeginSaveNameEdit(this, m_selection.m_selectedIndex,
                                         g_options_screen->m_save_slots[selected_slot]->name);
     m_editing_row = m_selection.m_selectedIndex;
-    m_rows[m_editing_row]->SetEditing(true);
+    m_rows[m_editing_row]->m_editing = true;
 }
 
 void W8OptionsSaveLoadPanel::OnActivateSave(W8OptionsSaveRow*)
@@ -626,12 +626,6 @@ void W8OptionsSaveRow::Redraw(bool full_redraw)
         DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {x + 0x156, y + 9},
                  g_localized_strings[0x827]);
     }
-}
-
-void W8OptionsSaveRow::SetEditing(bool editing)
-{
-    m_editing = editing;
-    if (OwnsRegion()) g_regions[m_region].SetInputEnabled(m_active && !editing);
 }
 
 void W8OptionsSaveRow::OnLeftButtonUp(int event)

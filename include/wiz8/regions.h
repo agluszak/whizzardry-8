@@ -152,7 +152,7 @@ struct W8Region {
     std::uint64_t binding_generation = 0; // Detect replacement during callback dispatch.
     int priority = 0;
     std::string help_text{};
-    bool subtract_cursor_hotspot = false; // Text fields hit-test at the cursor tip.
+    bool text_field = false; // Hit-tested at the cursor tip, ahead of every other set.
     W8RegionHandler* handler = nullptr;
 };
 
