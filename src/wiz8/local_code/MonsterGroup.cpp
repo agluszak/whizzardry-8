@@ -4,6 +4,8 @@
 #include <source_location>
 #include <string>
 #include <vector>
+#include <algorithm>
+#include <cstdlib>
 #include <cmath>
 #include <cstring>
 #include <memory>
@@ -1021,7 +1023,18 @@ W8MonsterGroup* CreateGroup(unsigned int monster_id, unsigned int count,
 
     for (created = 0; created < count; ++created) {
         if (CreateMonsterInfo(group, record, const_cast<srVector3T<float>*>(position)) == 0) {
-            // Retail freed the group while it was still listed.
+            // A previous iteration may already have registered monsters and octree locations.
+            auto& monsters = record->unborn ? gXStatus.unborn_monsters : gXStatus.monsters;
+            for (const int location_id : group->monsters) {
+                const auto member = std::ranges::find_if(monsters, [location_id](const W8MonsterInfo* info) {
+                    return info->location_id == location_id;
+                });
+                if (member != monsters.end()) {
+                    g_octree->UnregisterLocationObjects(static_cast<unsigned short>(location_id));
+                    std::free(*member);
+                    monsters.erase(member);
+                }
+            }
             wiz8::erase_first(*list, group);
             delete group;
             return 0;
