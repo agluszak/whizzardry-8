@@ -597,7 +597,7 @@ void BeginCombatExecution(void)
     for (index = 0; index < gXStatus.monsters.size(); ++index) {
         W8MonsterInfo* monster = MonsterGetScriptPartByLocationIndex(index);
         if (monster->fInCombat) {
-            W8MonsterCombatState* state = monster->pCombat;
+            W8MonsterCombatState* state = monster->pCombat.get();
             state->berserk = false;
             state->spot_attempts = 0;
             state->pending_action_repick_count = 0;
@@ -984,7 +984,7 @@ void SetUpMonsterTurn(W8MonsterInfo* monster_info)
 // FUNCTION: WIZ8 0x004eb7f0
 void EndMonsterAttack(W8MonsterInfo* monster_info)
 {
-    W8MonsterCombatState* combat = monster_info->pCombat;
+    W8MonsterCombatState* combat = monster_info->pCombat.get();
     unsigned int next;
 
     GetMonsterDataForInfo(monster_info);
@@ -2890,7 +2890,7 @@ void StepMonsterCombatAction(W8MonsterInfo* monster_info)
         }
         RefreshAllSight();
         monster = monster_info->p3D;
-        combat = monster_info->pCombat;
+        combat = monster_info->pCombat.get();
         if (static_cast<int>(
                 (monster->movement.callback_threshold <= g_float_zero
                      ? monster->movement.callback_progress / monster->movement.callback_threshold
@@ -3297,7 +3297,7 @@ void UpdateCombat(void)
         MonsterSetNavigatorHalted(monster_info->p3D, true);
         g_combat_state->eCombatActionStatus = 0;
         g_combat_state->pActionMonsterInfo = 0;
-        W8MonsterCombatState* combat = monster_info->pCombat;
+        W8MonsterCombatState* combat = monster_info->pCombat.get();
         if (combat->active) {
             if (monster_info->action_kind == W8_MONSTER_ACTION_ATTACK &&
                 combat->attacks_per_round != 0 &&
@@ -3359,7 +3359,7 @@ void ScheduleCombatActor(void)
                 if (!monster_info->fInCombat) {
                     continue;
                 }
-                W8MonsterCombatState* combat = monster_info->pCombat;
+                W8MonsterCombatState* combat = monster_info->pCombat.get();
                 if (combat->phase != g_combat_state->round_counter) {
                     continue;
                 }
