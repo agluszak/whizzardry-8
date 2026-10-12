@@ -1669,9 +1669,9 @@ void RedrawTextBoxComplete(void)
 {
     W8MainGameScreen* screen = g_main_game_screen.get();
 
-    screen->m_text_panel->Invalidate(0);
+    screen->m_text_panel->InvalidateAll();
     screen->m_status_panel->RefreshStatusTexts();
-    screen->m_action_panel->Invalidate(0);
+    screen->m_action_panel->InvalidateAll();
 }
 
 /* The last message on the current line whose clock has stopped, searched from

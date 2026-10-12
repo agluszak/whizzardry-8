@@ -133,7 +133,7 @@ void SelectCampCharacter(int slot)
     case W8_CAMP_PAGE_STATS:
         g_camp_screen->effect_selection = 0;
         RebuildCampEffectList();
-        g_camp_screen->character_info->Invalidate(0);
+        g_camp_screen->character_info->InvalidateAll();
         break;
     case W8_CAMP_PAGE_SPELLS:
         BuildLearnedSpellState(&g_camp_screen->learned_spells, g_review_character);
@@ -480,7 +480,7 @@ void CreateRcsLevelUpPanel(void)
                      0x852, 0);
     }
     g_level_up_button->m_primaryActivationCallback = OpenLevelUpCharacterScreen;
-    g_level_up_panel->SetEnabled(true);
+    g_level_up_panel->SetActive(true);
     g_level_up_button->SetActive(false);
 }
 /* Ask the first panel to redraw all of itself. A null rectangle is how
@@ -490,14 +490,14 @@ void CreateRcsLevelUpPanel(void)
 // FUNCTION: WIZ8 0x005b6590
 void RedrawRcsLevelUpPanel(void)
 {
-    g_level_up_panel->Invalidate(0);
+    g_level_up_panel->InvalidateAll();
 }
 
 /* Redraw the second. */
 // FUNCTION: WIZ8 0x005b68d0
 void RedrawRcsDismissPanel(void)
 {
-    g_dismiss_panel->Invalidate(0);
+    g_dismiss_panel->InvalidateAll();
 }
 
 /* Tear the first panel down, then destroy its separate widget. */
@@ -522,7 +522,7 @@ void UpdateRcsLevelUpPanel(void)
         g_level_up_button->SetActive(true);
         RedrawRcsLevelUpPanel();
     }
-    g_level_up_panel->Redraw();
+    g_level_up_panel->Redraw(false);
 }
 
 /* Single level-up button (help 1984). Assembly writes region flags through the
@@ -553,7 +553,7 @@ void CreateRcsDismissPanel(void)
                      0x8d3, 0);
     }
     g_dismiss_button->m_primaryActivationCallback = ShowDismissCharacterDialog;
-    g_dismiss_panel->SetEnabled(true);
+    g_dismiss_panel->SetActive(true);
     g_dismiss_button->SetActive(false);
 }
 
@@ -626,7 +626,7 @@ void UpdateRcsDismissPanel(void)
     } else if (g_dismiss_button->m_active) {
         g_dismiss_button->SetActive(false);
     }
-    g_dismiss_panel->Redraw();
+    g_dismiss_panel->Redraw(false);
 }
 
 /* Formation storage. Physical retail TU attribution remains unresolved;
@@ -1120,7 +1120,7 @@ int CreateCampButtonPanel(void)
                     ->m_primaryActivationCallback = OnCampUseItemOnItem;
                 g_item_action_controls[W8_CAMP_ACTION_BUTTON_USE_ON_CHARACTER]
                     ->m_primaryActivationCallback = OnCampUseItemOnCharacter;
-                g_item_actions_panel->SetEnabled(true);
+                g_item_actions_panel->SetActive(true);
                 g_camp_page_buttons[0]->EnableSecondaryState(false);
                 return 1;
             }
@@ -1250,9 +1250,9 @@ void RefreshCampItemActions(bool invalidate)
         }
     }
     if (invalidate) {
-        g_item_actions_panel->Invalidate(0);
+        g_item_actions_panel->InvalidateAll();
     }
-    g_item_actions_panel->Redraw();
+    g_item_actions_panel->Redraw(false);
 }
 
 /* Switch the items-page action mode: every action button's secondary state is

@@ -118,7 +118,7 @@ public:
 
     W8MainGameTextPanel();
     virtual ~W8MainGameTextPanel();
-    virtual void Redraw() override;
+    void Redraw(bool full_redraw) override;
     virtual void OnPrimary(W8TextControl* control) override;
     virtual void OnSecondary(W8TextControl*) override {}
     virtual void OnRangeChanged(W8RangeControl* control) override;
@@ -139,7 +139,7 @@ public:
     int m_marker_anim_time; /* drives the 12-frame target-changed marker */
     bool m_target_changed;
     /* Draw the animated target-changed marker this frame; raised while
-       m_fDirty, consumed by Redraw. */
+       m_dirty, consumed by Redraw. */
     bool m_target_marker_pending;
 };
 
@@ -147,7 +147,7 @@ public:
 class W8MainGameStatusPanel : public Controls {
 public:
     W8MainGameStatusPanel();
-    virtual void Redraw() override;
+    void Redraw(bool full_redraw) override;
     void RefreshStatusTexts();
 
     std::unique_ptr<W8TextBuffer> m_text;
@@ -167,7 +167,7 @@ public:
     W8NpcDialogueTextController(int panel_left, int panel_top, int panel_right, int panel_bottom,
                                 CatalogArtwork artwork, int background_image,
                                 int margin_image, int line_image);
-    virtual void Redraw() override;
+    void Redraw(bool full_redraw) override;
     bool HandleScrollDownCommand(bool check_only);
     bool HandleScrollUpCommand(bool check_only);
     /* Add one keyword line to the transcript unless the text is already
@@ -305,7 +305,7 @@ class W8LockInfoPanel : public Controls {
 public:
     W8LockInfoPanel(int tumbler_count);
 
-    virtual void Redraw() override;
+    void Redraw(bool full_redraw) override;
     void RefreshInfo();
 
     int m_tumbler_count;

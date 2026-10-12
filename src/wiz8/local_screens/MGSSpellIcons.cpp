@@ -128,9 +128,9 @@ void RefreshSpellIconHudRows(void)
 {
     ClearSpellIconHudRows();
     RebuildSpellIconHudRows();
-    g_spell_icon_strip->SetEnabled(true);
+    g_spell_icon_strip->SetActive(true);
     if (g_spell_icon_count != 0) {
-        g_spell_icon_strip->Redraw();
+        g_spell_icon_strip->Redraw(false);
     }
 }
 
@@ -180,19 +180,19 @@ void RefreshCombatEffectHud(void)
         return;
     }
     RebuildCombatEffectHudRows();
-    g_combat_effect_left_panel->SetEnabled(true);
-    g_combat_effect_right_panel->SetEnabled(true);
+    g_combat_effect_left_panel->SetActive(true);
+    g_combat_effect_right_panel->SetActive(true);
     if (g_combat_effect_left_count != 0) {
-        g_combat_effect_left_panel->Redraw();
+        g_combat_effect_left_panel->Redraw(false);
     }
     if (g_combat_effect_right_count != 0) {
-        g_combat_effect_right_panel->Redraw();
+        g_combat_effect_right_panel->Redraw(false);
     }
     if (g_level_block->portrait_refresh_pending[0] != 0) {
-        g_combat_effect_left_panel->SetEnabled(false);
+        g_combat_effect_left_panel->SetActive(false);
     }
     if (g_level_block->portrait_refresh_pending[1] != 0) {
-        g_combat_effect_right_panel->SetEnabled(false);
+        g_combat_effect_right_panel->SetActive(false);
     }
 }
 

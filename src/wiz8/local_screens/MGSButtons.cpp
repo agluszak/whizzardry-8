@@ -158,9 +158,9 @@ void RefreshSubMenuPanel(bool invalidate)
         srAssertFail("gpSubMenuPanel", MGSBUTTONS_CPP, 0x64f, 0);
     }
     if (invalidate) {
-        gpSubMenuPanel->Invalidate(0);
+        gpSubMenuPanel->InvalidateAll();
     }
-    gpSubMenuPanel->Redraw();
+    gpSubMenuPanel->Redraw(false);
 }
 
 static void ChooseSubMenuAction(W8ActionKind action)
@@ -1448,7 +1448,7 @@ unsigned char BuildSubMenuPanel(short notification)
     g_submenu_rows[built - 1]->m_secondaryActivationCallback = DestroySubMenuControls;
     (*g_main_submenu_regions)[built - 1].SetHelp(true, 0x11);
     g_main_submenu_regions.Enable();
-    gpSubMenuPanel->SetEnabled(true);
+    gpSubMenuPanel->SetActive(true);
     g_level_block->combat_end_notification = notification;
     g_submenu_menu = menu;
     g_submenu_entry_count = built;

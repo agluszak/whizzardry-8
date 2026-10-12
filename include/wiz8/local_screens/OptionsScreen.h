@@ -155,7 +155,7 @@ class W8OptionsPanel : public Controls {
 public:
     W8OptionsPanel();
     virtual ~W8OptionsPanel();
-    virtual void Redraw() override;
+    void Redraw(bool full_redraw) override;
     virtual void Populate() = 0;
     virtual void SetActive(bool active);
     virtual void SetCurrent(int current);
@@ -269,7 +269,7 @@ class W8OptionsKeyboardPanel : public W8OptionsPanel,
 public:
     explicit W8OptionsKeyboardPanel(int panel);
     virtual void Populate() override;
-    virtual void Invalidate(const W8ControlsRect* bounds) override;
+    void InvalidateAll() override;
     virtual void SetActive(bool active) override;
     virtual void OnPrimary(W8TextControl* control) override;
     virtual void OnSelectionChanged(W8ControlSelection* selection, int selected) override;
@@ -362,7 +362,7 @@ class W8OptionsMenuSet : public Controls, public W8TextControl::Listener {
 public:
     W8OptionsMenuSet();
     virtual ~W8OptionsMenuSet();
-    virtual void Redraw() override;
+    void Redraw(bool full_redraw) override;
     virtual void OnPrimary(W8TextControl* control) override;
 
     W8OptionsPanelSet* m_pMenuSet; /* OptionsScreen.cpp:1481 */

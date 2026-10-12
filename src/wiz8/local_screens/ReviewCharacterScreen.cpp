@@ -608,16 +608,16 @@ void RedrawCampItemsPage(void)
         g_camp_screen->item_range->UpdateRange(false);
     }
     if ((g_camp_screen->redraw_flags & W8_CAMP_REDRAW_ACTION_PANEL) != 0) {
-        g_camp_action_panel->Invalidate(0);
-        g_camp_action_panel->Redraw();
+        g_camp_action_panel->InvalidateAll();
+        g_camp_action_panel->Redraw(false);
     } else {
-        g_camp_action_panel->Redraw();
+        g_camp_action_panel->Redraw(false);
     }
     if ((g_camp_screen->redraw_flags & W8_CAMP_REDRAW_REALM_TABS) != 0) {
-        g_camp_item_filter_panel->Invalidate(0);
-        g_camp_item_filter_panel->Redraw();
+        g_camp_item_filter_panel->InvalidateAll();
+        g_camp_item_filter_panel->Redraw(false);
     } else {
-        g_camp_item_filter_panel->Redraw();
+        g_camp_item_filter_panel->Redraw(false);
     }
 }
 
@@ -635,7 +635,7 @@ void DrawCampCharacterInfo(void)
     SDL_Rect clip;
 
     if (state->info_page != W8_CAMP_INFO_PAGE_ITEMS) {
-        state->character_info->Invalidate(0);
+        state->character_info->InvalidateAll();
         InvalidateCampPanel();
         return;
     }
@@ -1024,10 +1024,10 @@ W8CampCharacterInfo::W8CampCharacterInfo()
     m_values[3] = EmplaceControl<W8HelpTextControl>(-1, 0x122, 0x3e, 0x142, 0x4a);
 }
 
-void W8CampCharacterInfo::SetEnabled(bool enabled)
+void W8CampCharacterInfo::SetActive(bool enabled)
 {
     EnableRegionSet(enabled);
-    Controls::SetEnabled(enabled);
+    Controls::SetActive(enabled);
     if (enabled)
         SetCombatView(m_combat_view);
 }
@@ -1048,7 +1048,7 @@ void W8CampCharacterInfo::SetCombatView(bool enabled)
     } else {
         m_backgroundImage = 1;
     }
-    Invalidate(0);
+    InvalidateAll();
 }
 
 void W8CampCharacterInfo::OnPrimary(W8TextControl* control)
@@ -1060,9 +1060,9 @@ void W8CampCharacterInfo::OnPrimary(W8TextControl* control)
 unsigned short g_camp_armor_class_labels[12] = {1052, 1053, 1054, 1055, 1056, 1057,
                                                 1058, 1059, 1060, 1061, 1062, 1063};
 
-void W8CampCharacterInfo::Redraw()
+void W8CampCharacterInfo::Redraw(bool full_redraw)
 {
-    bool redraw = m_fEnabled && m_fDirty;
+    bool redraw = m_active && m_dirty;
     if (!m_combat_view &&
         ((g_review_character->armor_class_components[W8_AC_COMPONENT_REFLEXTION] > 0 &&
           m_backgroundImage != 2) ||
@@ -1070,7 +1070,7 @@ void W8CampCharacterInfo::Redraw()
           m_backgroundImage == 2))) {
         SetCombatView(false);
     }
-    Controls::Redraw();
+    Controls::Redraw(full_redraw);
     if (!redraw)
         return;
     InvalidateCampPanel();
@@ -1232,7 +1232,7 @@ void W8CampCharacterInfo::Redraw()
 W8CampItemRange::W8CampItemRange()
 {
     m_range = new W8RangeControl(0x263, 0xc1, 0x275, 0x1a1);
-    m_range->SetEnabled(true);
+    m_range->SetActive(true);
     m_range->m_listener = this;
 }
 
@@ -1253,7 +1253,7 @@ W8CampSpellRange::W8CampSpellRange(W8SpellRealm realm)
     int y = (realm / 3) * 0x8c;
     m_range = new W8RangeControl(x + 0xbb, y + 0xc3, x + 0xcd, y + 0x129);
     m_range->m_listener = this;
-    m_range->SetEnabled(true);
+    m_range->SetActive(true);
 }
 
 W8CampSpellRange::~W8CampSpellRange()
@@ -1610,19 +1610,19 @@ void DrawCampScreen(void)
             }
         }
     }
-    state->character_info->Redraw();
+    state->character_info->Redraw(false);
     if (state->page == W8_CAMP_PAGE_ITEMS) {
         RefreshCampActionPanel(false);
         RefreshItemsTabPanel(false);
         RefreshCampSecondaryPanel(false);
-        state->item_range->m_range->Redraw();
+        state->item_range->m_range->Redraw(false);
         if (IsKeyHeld(VK_CONTROL) && state->dialog == 0) {
             DrawCampItemIcons();
             state->item_icons_drawn = true;
         }
     } else if (state->page == W8_CAMP_PAGE_STATS) {
         state->stats_range->UpdateRange(false);
-        state->stats_controls->Redraw();
+        state->stats_controls->Redraw(false);
     } else if (state->page == W8_CAMP_PAGE_SPELLS) {
         for (index = 0; index < 6; ++index) {
             state->spell_ranges[index]->UpdateRange(false);
@@ -1712,7 +1712,7 @@ void ActivateCampPage(void)
         RebuildCampEffectList();
         state->stats_range->m_range->EnableRegionSet(true);
         state->stats_controls->EnableRegionSet(true);
-        state->character_info->SetEnabled(true);
+        state->character_info->SetActive(true);
         return;
     case W8_CAMP_PAGE_SKILLS:
         CreateCampSkillRegions();
@@ -1743,7 +1743,7 @@ void DeactivateCampPage(void)
         DisableItemsRealmTabs();
         DisableCampActionButtons();
         DisableCampSecondaryPanel();
-        state->character_info->SetEnabled(false);
+        state->character_info->SetActive(false);
         state->item_range->m_range->EnableRegionSet(false);
         if (g_status.game_started) {
             g_camp_item_pool_regions.Disable();
@@ -1753,7 +1753,7 @@ void DeactivateCampPage(void)
     case W8_CAMP_PAGE_STATS:
         state->stats_range->m_range->EnableRegionSet(false);
         state->stats_controls->EnableRegionSet(false);
-        state->character_info->SetEnabled(false);
+        state->character_info->SetActive(false);
         state->effect_list.clear();
         break;
     case W8_CAMP_PAGE_SKILLS:

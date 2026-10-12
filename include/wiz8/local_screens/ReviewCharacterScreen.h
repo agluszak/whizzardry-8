@@ -114,8 +114,8 @@ public:
 class W8CampCharacterInfo : public Controls, public W8TextControl::Listener {
 public:
     W8CampCharacterInfo();
-    virtual void SetEnabled(bool enabled) override;
-    virtual void Redraw() override;
+    virtual void SetActive(bool enabled) override;
+    void Redraw(bool full_redraw) override;
     virtual void OnPrimary(W8TextControl* control) override;
     void SetCombatView(bool enabled);
     bool m_combat_view;

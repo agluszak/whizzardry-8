@@ -2222,23 +2222,23 @@ TEST_CASE("Controls draw optional CatalogArtwork backgrounds", "[owner][catalog]
     const auto sprites = CatalogArtwork::Load(0x86);
     REQUIRE(SDL_FillSurfaceRect(&framebuffer, nullptr, 0x07e0));
     Controls with_background(100, 100, 140, 120, sprites, 0);
-    with_background.m_fEnabled = true;
-    with_background.m_fDirty = true;
-    with_background.Redraw();
+    with_background.m_active = true;
+    with_background.m_dirty = true;
+    with_background.Redraw(false);
     REQUIRE(surface_pixel(framebuffer, 102, 103) == sprites.spriteSheet()->colors[1]);
     Controls without_background(150, 100, 190, 120, std::nullopt, 0);
-    without_background.m_fEnabled = true;
-    without_background.m_fDirty = true;
-    without_background.Redraw();
+    without_background.m_active = true;
+    without_background.m_dirty = true;
+    without_background.Redraw(false);
     REQUIRE(surface_pixel(framebuffer, 152, 103) == 0x07e0);
 
     // A bounded invalidation must not narrow a pending whole-panel one.
     const SDL_Point extent = sprites.size(0);
     const W8ControlsRect corner{100, 100, 101, 101};
     TakeUiUpload();
-    with_background.Invalidate(nullptr);
-    with_background.Invalidate(&corner);
-    with_background.Redraw();
+    with_background.InvalidateAll();
+    with_background.InvalidateArea(corner);
+    with_background.Redraw(false);
     const SDL_Rect whole{100, 100, extent.x, extent.y};
     const auto upload = TakeUiUpload();
     REQUIRE(SDL_RectsEqual(&upload, &whole));

@@ -817,7 +817,7 @@ unsigned char BuildKeyboardMenu(void)
     g_keyboard_menu_rows[row]->m_primaryActivationCallback = CloseKeyboardMenu;
     g_keyboard_menu_rows[row]->m_secondaryActivationCallback = CloseKeyboardMenu;
     (*g_keyboard_menu_regions)[row].SetHelp(true, 0x11);
-    g_keyboard_menu_panel->SetEnabled(true);
+    g_keyboard_menu_panel->SetActive(true);
     RefreshKeyboardMenuRows();
     return 1;
 }
@@ -968,9 +968,9 @@ void AssignKeyboardMenuCallback(short menu, short item, W8TextControl* row)
 void RedrawKeyboardMenuPanel(bool invalidate)
 {
     if (invalidate) {
-        g_keyboard_menu_panel->Invalidate(0);
+        g_keyboard_menu_panel->InvalidateAll();
     }
-    g_keyboard_menu_panel->Redraw();
+    g_keyboard_menu_panel->Redraw(false);
 }
 
 static void ChooseKeyboardMenuAction(W8ActionKind action)

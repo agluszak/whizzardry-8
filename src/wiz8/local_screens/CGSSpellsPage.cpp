@@ -88,8 +88,8 @@ void W8CharacterSpellList::SetEntryCount(int count)
                                      m_pPanel->m_bounds.top + m_y + 0x78);
         m_range->m_listener = this;
     }
-    m_range->Invalidate(0);
-    m_range->SetEnabled(true);
+    m_range->InvalidateAll();
+    m_range->SetActive(true);
     m_entry_count = count;
     if (count > 7) {
         m_range->SetRange(0, count - 7);
@@ -130,7 +130,7 @@ void W8CharacterSpellList::Redraw(bool force)
             g_wiz_text_font_secondary.resetPalette();
             g_wiz_text_font_secondary.setShade(Font::kNormalShade);
         }
-        m_range->Invalidate(0);
+        m_range->InvalidateAll();
         m_dirty = false;
     }
 }
@@ -248,7 +248,7 @@ void W8CharacterSpellsPage::Activate()
     for (int realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
         m_realms[realm]->m_range->EnableRegionSet(true);
     }
-    m_dirty = true;
+    m_contentDirty = true;
     m_prepared = true;
 }
 
@@ -270,8 +270,8 @@ void W8CharacterSpellsPage::Accept()
         m_SpellData[index].selected = false;
     }
     ResetSpellSelections(m_character, m_creation_state);
-    Invalidate(0);
-    m_dirty = true;
+    InvalidateAll();
+    m_contentDirty = true;
     m_screen->UpdateNavigation(this);
 }
 
@@ -281,13 +281,13 @@ void W8CharacterSpellsPage::Accept()
 /* Repaint the spell-point instructions and pool, the six realm headings and
    values, then the animated realm icons and their range controls. */
 // FUNCTION: WIZ8 0x005C88C0
-void W8CharacterSpellsPage::Redraw()
+void W8CharacterSpellsPage::Redraw(bool full_redraw)
 {
-    bool redraw = m_fEnabled && m_fDirty;
+    bool redraw = m_active && m_dirty;
     W8TextBuffer text;
     W8ControlsRect bounds;
 
-    W8CharacterPage::Redraw();
+    W8CharacterPage::Redraw(full_redraw);
     text.SetLayoutMode(g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
     if (m_prepared) {
         bounds.left = 4;
@@ -306,7 +306,7 @@ void W8CharacterSpellsPage::Redraw()
         m_prepared = false;
     }
 
-    if (m_dirty) {
+    if (m_contentDirty) {
         bounds.left = 0x8f;
         bounds.top = 0x173;
         bounds.right = 0xbf;
@@ -316,7 +316,7 @@ void W8CharacterSpellsPage::Redraw()
         text.RenderString(fmt::format("{:d}/{:d}", m_creation_state->spell_points_remaining,
                                       m_creation_state->spell_points_total),
                           g_options_detail_font, true, GetFrameBufferSurface());
-        m_dirty = false;
+        m_contentDirty = false;
     }
 
     if (redraw) {
@@ -370,7 +370,7 @@ void W8CharacterSpellsPage::Redraw()
         }
     }
     for (int realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
-        m_realms[realm]->m_range->Redraw();
+        m_realms[realm]->m_range->Redraw(false);
     }
 }
 
@@ -454,9 +454,9 @@ void W8CharacterSpellsPage::SelectSpell(unsigned int uiSelected)
         m_last_selected = uiSelected;
     }
     UpdateSpellLists();
-    m_dirty = true;
+    m_contentDirty = true;
     m_screen->UpdateNavigation(this);
-    Invalidate(0);
+    InvalidateAll();
 }
 
 // FUNCTION: WIZ8 0x005c88a0

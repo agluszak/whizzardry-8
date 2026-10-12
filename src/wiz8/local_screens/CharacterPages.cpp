@@ -240,18 +240,18 @@ void W8CharacterPage::SetCharacter(W8Character* character, W8CharacterCreationSt
 }
 
 // FUNCTION: WIZ8 0x005aff20
-void W8CharacterPage::Redraw()
+void W8CharacterPage::Redraw(bool full_redraw)
 {
-    Controls::Redraw();
+    Controls::Redraw(full_redraw);
     for (int index = 0; index < static_cast<int>(m_entries.size()); ++index) {
         m_entries[index]->Redraw();
     }
 }
 
 // FUNCTION: WIZ8 0x005aff50
-void W8CharacterPage::Invalidate(const W8ControlsRect* rect)
+void W8CharacterPage::InvalidateAll()
 {
-    Controls::Invalidate(rect);
+    Controls::InvalidateAll();
     for (const auto& entry : m_entries) {
         entry->MarkDirty();
     }
@@ -260,8 +260,8 @@ void W8CharacterPage::Invalidate(const W8ControlsRect* rect)
 // FUNCTION: WIZ8 0x005affa0
 void W8CharacterPage::Prepare()
 {
-    Invalidate(0);
-    m_dirty = true;
+    InvalidateAll();
+    m_contentDirty = true;
     m_prepared = true;
 }
 

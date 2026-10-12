@@ -105,9 +105,9 @@ extern const unsigned int g_W8TextControlLayoutImageAtOrigin = 0x80;
 Controls::Controls()
 {
     m_backgroundImage = -1;
-    m_fEnabled = false;
-    m_fDirty = false;
-    m_fLayoutDirty = false;
+    m_active = false;
+    m_dirty = false;
+    m_childrenDirty = false;
     m_bounds.left = 0;
     m_bounds.top = 0;
     m_bounds.right = 0;
@@ -120,9 +120,9 @@ Controls::Controls(int left, int top, int right_bound, int bottom_bound,
 {
     m_bounds.left = left;
     m_bounds.right = right_bound;
-    m_fEnabled = false;
-    m_fDirty = false;
-    m_fLayoutDirty = false;
+    m_active = false;
+    m_dirty = false;
+    m_childrenDirty = false;
     m_background = std::move(background);
     m_backgroundImage = background_image;
     m_bounds.top = top;
@@ -650,7 +650,7 @@ void W8Widget::Invalidate(bool immediate)
     if (m_pPanel != 0) {
         m_dirty = true;
         if (immediate) {
-            m_pPanel->Invalidate(0);
+            m_pPanel->InvalidateAll();
             RequestRedraw(W8_MAIN_REDRAW_FRAME);
             return;
         }
@@ -1827,11 +1827,11 @@ void W8HorizontalRangeThumb::Redraw(bool full_redraw)
    and each child's region follows - mode 4 restores the disabled region and
    clearing the mode bits re-arms it. */
 // FUNCTION: WIZ8 0x004f2d50
-void Controls::SetEnabled(bool enable)
+void Controls::SetActive(bool enable)
 {
     int index;
 
-    m_fEnabled = enable;
+    m_active = enable;
     for (index = 0; index < static_cast<int>(m_controls.size()); ++index) {
         W8Widget* control = ControlAt(index);
 
@@ -1898,34 +1898,36 @@ void Controls::DestroyAllControls()
     }
 }
 
-/* Adds a rectangle to the panel's pending redraw; a null rectangle means the
-   whole panel. A bounded request never narrows a pending whole-panel one. */
+/* Pending panel repaint: the whole panel, or the union of the requested
+   areas. A bounded request never narrows a pending whole-panel one. */
 // FUNCTION: WIZ8 0x004f2e50
-void Controls::Invalidate(const W8ControlsRect* rect)
+void Controls::InvalidateAll()
 {
-    if (!rect) {
-        m_dirtyRect.reset();
-    } else if (!m_fDirty) {
-        m_dirtyRect = *rect;
+    m_dirtyRect.reset();
+    m_dirty = true;
+    RequestRedraw(W8_MAIN_REDRAW_FRAME);
+}
+
+void Controls::InvalidateArea(const W8ControlsRect& rect)
+{
+    if (!m_dirty) {
+        m_dirtyRect = rect;
     } else if (m_dirtyRect) {
-        const SDL_Rect dirty{m_dirtyRect->left, m_dirtyRect->top,
-                             m_dirtyRect->right - m_dirtyRect->left,
-                             m_dirtyRect->bottom - m_dirtyRect->top};
-        const SDL_Rect requested{rect->left, rect->top,
-                                 rect->right - rect->left, rect->bottom - rect->top};
+        const SDL_Rect dirty = ToSDLRect(*m_dirtyRect);
+        const SDL_Rect requested = ToSDLRect(rect);
         SDL_Rect combined{};
         SDL_GetRectUnion(&dirty, &requested, &combined);
         m_dirtyRect = W8ControlsRect{combined.x, combined.y, combined.x + combined.w,
                                      combined.y + combined.h};
     }
-    m_fDirty = true;
+    m_dirty = true;
     RequestRedraw(W8_MAIN_REDRAW_FRAME);
 }
 
 // FUNCTION: WIZ8 0x004f2f00
 void Controls::InvalidateLayout()
 {
-    m_fLayoutDirty = true;
+    m_childrenDirty = true;
     RequestRedraw(W8_MAIN_REDRAW_FRAME);
 }
 
@@ -1940,7 +1942,7 @@ void Controls::RedrawControls(bool full_redraw)
             InvalidateRegion(m_dirtyRect->left, m_dirtyRect->top, m_dirtyRect->right,
                              m_dirtyRect->bottom);
         }
-        m_fDirty = false;
+        m_dirty = false;
         m_dirtyRect.reset();
     }
     RedrawChildren(full_redraw);
@@ -1948,22 +1950,27 @@ void Controls::RedrawControls(bool full_redraw)
 
 /* Flushes pending panel drawing, then asks each enabled child to redraw. A
    full panel request uses the target-backed path when one exists; a bounded
-   request uses the accumulated rectangle. */
+   request uses the accumulated rectangle. A forced redraw (from a parent
+   repainting over this panel) repaints all of it. */
 // FUNCTION: WIZ8 0x004f2f10
-void Controls::Redraw()
+void Controls::Redraw(bool full_redraw)
 {
     bool redrawn = false;
 
-    if (!m_fEnabled) {
+    if (!m_active) {
         return;
     }
-    if (m_fDirty) {
+    if (full_redraw) {
+        m_dirty = true;
+        m_dirtyRect.reset();
+    }
+    if (m_dirty) {
         if (m_background) {
             m_background->draw(GetFrameBufferSurface(), m_backgroundImage, m_bounds.left,
                                m_bounds.top);
         }
         redrawn = true;
-    } else if (!m_fLayoutDirty) {
+    } else if (!m_childrenDirty) {
         return;
     }
     RedrawControls(redrawn);

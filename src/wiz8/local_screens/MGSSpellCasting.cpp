@@ -253,9 +253,9 @@ static void CreateSpellCastingViewControls(void)
     gpSCSV->power_controls[W8_SPELL_CANCEL_CONTROL]->m_primaryActivationCallback =
         ResetSpellCastingSelection;
 
-    gpSCSV->panels[0]->SetEnabled(true);
-    gpSCSV->panels[1]->SetEnabled(true);
-    gpSCSV->panels[2]->SetEnabled(true);
+    gpSCSV->panels[0]->SetActive(true);
+    gpSCSV->panels[1]->SetActive(true);
+    gpSCSV->panels[2]->SetActive(true);
 
     if (gXStatus.fCampMode) {
         for (index = 0; index < W8_PARTY_SLOT_COUNT; ++index) {
@@ -782,16 +782,16 @@ void SetSpellCastingPanelsActive(bool active)
     text_pending = false;
     for (index = 0; index < 3; ++index) {
         Controls* panel = gpSCSV->panels[index].get();
-        if (panel->m_fEnabled) {
+        if (panel->m_active) {
             if (active) {
-                panel->Invalidate(0);
+                panel->InvalidateAll();
             }
             if (index == 1) {
                 Controls* description = gpSCSV->panels[1].get();
-                text_pending = description->m_fEnabled &&
-                               (description->m_fDirty || description->m_fLayoutDirty);
+                text_pending = description->m_active &&
+                               (description->m_dirty || description->m_childrenDirty);
             }
-            panel->Redraw();
+            panel->Redraw(false);
             if (text_pending) {
                 RedrawTextBoxScrollChrome();
             }
@@ -808,7 +808,7 @@ void SpellCastingNoticeClosed(W8DialogBase* dialog)
 // FUNCTION: WIZ8 0x005A0300
 void InvalidateSpellCastingDescription(void)
 {
-    gpSCSV->panels[1]->Invalidate(0);
+    gpSCSV->panels[1]->InvalidateAll();
 }
 
 // FUNCTION: WIZ8 0x005A0320
@@ -975,7 +975,7 @@ void SelectSpellPowerLevel(int power_level)
     int pip;
     std::string text;
 
-    gpSCSV->panels[2]->Invalidate(0);
+    gpSCSV->panels[2]->InvalidateAll();
     if (power_level == -1 ||
         (static_cast<unsigned char>(gpSCSV->power_controls[power_level]->m_stateFlags &
                                     g_W8TextControlStateSecondary) == 0 &&

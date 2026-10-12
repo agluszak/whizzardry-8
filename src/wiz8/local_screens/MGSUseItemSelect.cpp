@@ -181,7 +181,7 @@ static void CreateUseItemSelectControls(void)
     g_use_item_select_controls[6]->m_primaryActivationCallback = NoOp;
     g_use_item_select_controls[8]->m_primaryActivationCallback = CloseUseItemSelection;
     for (auto& select_panel : g_use_item_select_panels) {
-        select_panel->SetEnabled(true);
+        select_panel->SetActive(true);
     }
 }
 
@@ -345,7 +345,7 @@ void SetUseItemSelectReturnMode(W8MainUiMode value)
 // FUNCTION: WIZ8 0x0059CF40
 void InvalidateUseItemSelectPanel(void)
 {
-    g_use_item_select_panels[1]->Invalidate(0);
+    g_use_item_select_panels[1]->InvalidateAll();
 }
 
 /* fItemSelectMode per-frame update: keep the scroll buttons synced, run the
@@ -360,16 +360,16 @@ void UpdateUseItemSelect(bool active)
     panel_dirty = false;
     UpdateUseItemScrollButtons();
     for (i = 0; i < 3; i++) {
-        if (g_use_item_select_panels[i]->m_fEnabled) {
+        if (g_use_item_select_panels[i]->m_active) {
             if (active) {
-                g_use_item_select_panels[i]->Invalidate(0);
+                g_use_item_select_panels[i]->InvalidateAll();
             }
             if (i == 1) {
-                panel_dirty = g_use_item_select_panels[1]->m_fEnabled &&
-                              (g_use_item_select_panels[1]->m_fDirty ||
-                               g_use_item_select_panels[1]->m_fLayoutDirty);
+                panel_dirty = g_use_item_select_panels[1]->m_active &&
+                              (g_use_item_select_panels[1]->m_dirty ||
+                               g_use_item_select_panels[1]->m_childrenDirty);
             }
-            g_use_item_select_panels[i]->Redraw();
+            g_use_item_select_panels[i]->Redraw(false);
             if (panel_dirty) {
                 RedrawTextBoxScrollChrome();
             }

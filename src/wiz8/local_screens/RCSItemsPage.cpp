@@ -107,7 +107,7 @@ void SetCampInfoPageMode(char mode)
         g_camp_page_tabs[0]->DisableSecondaryState(true);
         g_camp_page_tabs[1]->EnableSecondaryState(true);
         g_camp_help_text->SetActive(false);
-        g_camp_screen->character_info->SetEnabled(true);
+        g_camp_screen->character_info->SetActive(true);
         for (index = 0; index < 7; ++index) {
             g_camp_stat_labels[index]->SetActive(false);
         }
@@ -119,7 +119,7 @@ void SetCampInfoPageMode(char mode)
         g_camp_page_tabs[0]->EnableSecondaryState(true);
         g_camp_page_tabs[1]->DisableSecondaryState(true);
         g_camp_help_text->SetActive(true);
-        g_camp_screen->character_info->SetEnabled(false);
+        g_camp_screen->character_info->SetActive(false);
         for (index = 0; index < 7; ++index) {
             g_camp_stat_labels[index]->SetActive(true);
         }
@@ -1291,7 +1291,7 @@ int CreateCampActionPanel(void)
             g_camp_action_buttons[1]->AddLayoutFlags(g_W8TextControlLayoutToggle);
             g_camp_action_buttons[0]->m_primaryActivationCallback = UnequipBothHands;
             g_camp_action_buttons[1]->m_primaryActivationCallback = TogglePartyRowFlag;
-            g_camp_action_panel->SetEnabled(true);
+            g_camp_action_panel->SetActive(true);
             return 1;
         }
     }
@@ -1336,9 +1336,9 @@ void DisableCampActionButtons(void)
 void RefreshCampActionPanel(bool invalidate)
 {
     if (invalidate) {
-        g_camp_action_panel->Invalidate(0);
+        g_camp_action_panel->InvalidateAll();
     }
-    g_camp_action_panel->Redraw();
+    g_camp_action_panel->Redraw(false);
 }
 
 /* The right-hand panel of seven tabs: the six realm filters and the pool sort
@@ -1396,7 +1396,7 @@ int CreateItemsTabPanel(void)
             g_camp_item_filter_buttons[5]->m_primaryActivationCallback =
                 ToggleCampUnidentifiedItemFilter;
             g_camp_item_filter_buttons[6]->m_primaryActivationCallback = SortCampItemPool;
-            g_camp_item_filter_panel->SetEnabled(true);
+            g_camp_item_filter_panel->SetActive(true);
             return 1;
         }
     }
@@ -1471,9 +1471,9 @@ void DisableItemsRealmTabs(void)
 void RefreshItemsTabPanel(bool invalidate)
 {
     if (invalidate) {
-        g_camp_item_filter_panel->Invalidate(0);
+        g_camp_item_filter_panel->InvalidateAll();
     }
-    g_camp_item_filter_panel->Redraw();
+    g_camp_item_filter_panel->Redraw(false);
 }
 
 /* The top secondary panel: the Items/Character info page tabs, the help line,
@@ -1566,7 +1566,7 @@ int CreateCampSecondaryPanel(void)
     g_camp_page_tabs[1]->m_primaryActivationCallback = ShowCampCharacterPage;
     g_camp_page_tabs[0]->EnableRegionHelp(0x95d);
     g_camp_page_tabs[1]->EnableRegionHelp(0x95e);
-    panel->SetEnabled(true);
+    panel->SetActive(true);
     return 1;
 }
 
@@ -1580,7 +1580,7 @@ void ReleaseCampSecondaryPanel(void)
 // FUNCTION: WIZ8 0x005b9ef0
 void InvalidateCampPanel(void)
 {
-    g_camp_secondary_panel->Invalidate(0);
+    g_camp_secondary_panel->InvalidateAll();
 }
 
 // FUNCTION: WIZ8 0x005b9f00
@@ -1617,5 +1617,5 @@ void RefreshCampSecondaryPanel(bool invalidate)
     if (invalidate) {
         InvalidateCampPanel();
     }
-    g_camp_secondary_panel->Redraw();
+    g_camp_secondary_panel->Redraw(false);
 }

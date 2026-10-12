@@ -311,7 +311,7 @@ void W8CharacterStatsRow::BuildSubpanel()
             control->m_listener = this;
         }
     }
-    m_subpanel->SetEnabled(true);
+    m_subpanel->SetActive(true);
     m_subpanel->EnableRegionSet(true);
     for (unsigned int index = 0; index < m_count; ++index) {
         m_subpanel_entries[index]->SetEnabled(m_table[index].enabled);
@@ -324,7 +324,7 @@ void W8CharacterStatsRow::Invalidate()
     m_increment->Invalidate(false);
     m_value_control->Invalidate(false);
     if (m_subpanel) {
-        m_subpanel->Invalidate(0);
+        m_subpanel->InvalidateAll();
     }
 }
 
@@ -348,7 +348,7 @@ void W8CharacterStatsRow::SetValue(int index)
 
 void W8CharacterStatsRow::Collapse()
 {
-    m_subpanel->SetEnabled(false);
+    m_subpanel->SetActive(false);
     m_subpanel->EnableRegionSet(false);
     m_value_control->DisableSecondaryState(true);
     if (m_listener != 0) {
@@ -358,7 +358,7 @@ void W8CharacterStatsRow::Collapse()
 
 void W8CharacterStatsRow::CollapseIfNotHovered()
 {
-    if (m_subpanel != 0 && m_subpanel->m_fEnabled) {
+    if (m_subpanel != 0 && m_subpanel->m_active) {
         int index = 0;
         while (index < m_count) {
             if (m_subpanel_entries[index]->m_alternateTextEnabled) {
@@ -425,7 +425,7 @@ void W8CharacterStatsRow::OnPrimary(W8TextControl* control)
     } else if (control == m_value_control) {
         if ((m_value_control->m_stateFlags & g_W8TextControlStateSecondary) != 0) {
             BuildSubpanel();
-            m_subpanel->Invalidate(0);
+            m_subpanel->InvalidateAll();
             if (m_listener != 0) {
                 m_listener->OnRowExpanded(this);
             }
@@ -480,7 +480,7 @@ void W8CharacterStatsPage::Activate()
         m_attribute_controls[index]->SetActive(true);
         m_attribute_controls[index]->SetEnabled(true);
     }
-    m_dirty = true;
+    m_contentDirty = true;
     m_prepared = true;
 }
 
@@ -556,8 +556,8 @@ void W8CharacterStatsPage::Refresh()
 void W8CharacterStatsPage::Accept()
 {
     RefundAllocatedAttributes(m_character, m_creation_state);
-    Invalidate(0);
-    m_dirty = true;
+    InvalidateAll();
+    m_contentDirty = true;
     m_screen->UpdateNavigation(this);
     for (int index = 0; index < static_cast<int>(m_entries.size()); ++index) {
         m_entries[index]->UpdateButtons();
@@ -605,10 +605,10 @@ void W8CharacterStatsPage::HandleInput(const InputEvent* input)
 void W8CharacterStatsPage::AdjustEntry(W8CharacterPageEntry* entry, int delta)
 {
     entry->MarkDirty();
-    m_dirty = true;
+    m_contentDirty = true;
     AdjustAllocatedAttribute(m_character, m_creation_state, static_cast<W8Attribute>(entry->m_id),
                              delta);
-    Invalidate(0);
+    InvalidateAll();
     m_screen->UpdateNavigation(this);
     if (m_character->attributes[entry->m_id].base >= 100) {
         for (int skill = 0x22; skill < 0x28; ++skill) {
@@ -639,7 +639,7 @@ void W8CharacterStatsPage::OnRowValueChanged(W8CharacterStatsRow* row, int value
     } else {
         SetCharacterGender(m_character, m_creation_state, static_cast<W8Gender>(value));
     }
-    m_dirty = true;
+    m_contentDirty = true;
     m_screen->UpdateNavigation(this);
     Refresh();
 }
@@ -677,7 +677,7 @@ void W8CharacterStatsPage::OnRowExpanded(W8CharacterStatsRow* row)
 void W8CharacterStatsPage::OnRowCollapsed(W8CharacterStatsRow* row)
 {
     SetRowControlsActive(row, true);
-    Invalidate(0);
+    InvalidateAll();
 }
 
 /* Right-clicking a row's value asks the screen for that entry's info. */
@@ -817,13 +817,13 @@ W8CharacterStatsPage::~W8CharacterStatsPage()
 /* The page redraw: header figures, the seven attribute entries' section,
    the three value rows' labels, then the resistance and trait blocks. */
 // FUNCTION: WIZ8 0x005cab20
-void W8CharacterStatsPage::Redraw()
+void W8CharacterStatsPage::Redraw(bool full_redraw)
 {
-    bool redraw = static_cast<unsigned char>(m_fEnabled && m_fDirty);
+    bool redraw = static_cast<unsigned char>(m_active && m_dirty);
     W8TextBuffer text;
     int left = m_bounds.left;
     int top = m_bounds.top;
-    W8CharacterPage::Redraw();
+    W8CharacterPage::Redraw(full_redraw);
     if (redraw) {
         W8ControlsRect bounds;
         text.SetLayoutMode(g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
@@ -1064,7 +1064,7 @@ void W8CharacterStatsPage::Redraw()
         m_prepared = false;
     }
 
-    if (m_dirty) {
+    if (m_contentDirty) {
         W8ControlsRect bounds = {0x8f, 0x162, 0xbf, 0x179};
         CatalogArtwork::Load(0x107, 0).draw(GetFrameBufferSurface(), 5, 0x8f, 0x162);
         text.SetLayoutBounds(&bounds, true, true);
@@ -1080,17 +1080,17 @@ void W8CharacterStatsPage::Redraw()
                 ? g_zero_slash_zero
                 : fmt::format("{:d}/{:d}", m_creation_state->attribute_points_remaining, total);
         text.RenderString(points_text, g_options_detail_font, true, GetFrameBufferSurface());
-        m_dirty = false;
+        m_contentDirty = false;
     }
 
-    if (m_profession_row->m_subpanel != 0 && m_profession_row->m_subpanel->m_fEnabled) {
-        m_profession_row->m_subpanel->Redraw();
+    if (m_profession_row->m_subpanel != 0 && m_profession_row->m_subpanel->m_active) {
+        m_profession_row->m_subpanel->Redraw(false);
     }
-    if (m_race_row->m_subpanel != 0 && m_race_row->m_subpanel->m_fEnabled) {
-        m_race_row->m_subpanel->Redraw();
+    if (m_race_row->m_subpanel != 0 && m_race_row->m_subpanel->m_active) {
+        m_race_row->m_subpanel->Redraw(false);
     }
-    if (m_gender_row->m_subpanel != 0 && m_gender_row->m_subpanel->m_fEnabled) {
-        m_gender_row->m_subpanel->Redraw();
+    if (m_gender_row->m_subpanel != 0 && m_gender_row->m_subpanel->m_active) {
+        m_gender_row->m_subpanel->Redraw(false);
     }
 }
 

@@ -310,7 +310,7 @@ static unsigned char CreateFormationPanel(void)
             g_formation_action_buttons[0]->m_primaryActivationCallback = AcceptFormationChanges;
             g_formation_action_buttons[1]->m_primaryActivationCallback = CloseFormationPanel;
             g_formation_action_buttons[2]->m_primaryActivationCallback = ResetFormationPanel;
-            g_formation_panel->SetEnabled(true);
+            g_formation_panel->SetActive(true);
             return 1;
         }
     }
@@ -414,7 +414,7 @@ static void UpdateFormationCells(void)
             }
         }
     }
-    g_formation_panel->Invalidate(0);
+    g_formation_panel->InvalidateAll();
 }
 
 /* The cells' activation callback: highlight the active cell and make its

@@ -316,7 +316,7 @@ void W8OptionsSaveLoadPanel::SetCurrent(int current)
 {
     FinishOptionsTextEdit(g_options_screen.get(), 1);
     m_current = current;
-    Invalidate(0);
+    InvalidateAll();
 
     int first = current * 5;
     if (m_panel == 11) {
@@ -786,11 +786,11 @@ void W8OptionsKeyboardPanel::Populate()
     }
 }
 
-void W8OptionsKeyboardPanel::Invalidate(const W8ControlsRect* bounds)
+void W8OptionsKeyboardPanel::InvalidateAll()
 {
-    Controls::Invalidate(bounds);
+    Controls::InvalidateAll();
     // ~W8OptionsScreen deactivates its panels after OptionsScreenLeave has cleared the global.
-    if (g_options_screen) g_options_screen->m_menu_set->Invalidate(0);
+    if (g_options_screen) g_options_screen->m_menu_set->InvalidateAll();
 }
 
 void W8OptionsKeyboardPanel::OnPrimary(W8TextControl*)
@@ -1239,11 +1239,11 @@ void W8OptionsScreen::CreateControls()
         }
     }
     m_menu_selection->m_selectionListener = this;
-    m_controls->SetEnabled(true);
+    m_controls->SetActive(true);
     m_controls->EnableRegionSet(true);
-    m_controls->Invalidate(0);
+    m_controls->InvalidateAll();
     m_menu_set = std::make_unique<W8OptionsMenuSet>();
-    m_menu_set->SetEnabled(true);
+    m_menu_set->SetActive(true);
     m_menu_set->EnableRegionSet(true);
 }
 
@@ -1353,12 +1353,12 @@ void W8OptionsScreen::Redraw()
     if (m_selected_panel != -1) {
         W8OptionsPanelSet* panel_set = m_panel[m_selected_panel].get();
         if (panel_set->m_active) {
-            panel_set->m_panels[panel_set->m_current]->Redraw();
+            panel_set->m_panels[panel_set->m_current]->Redraw(false);
         }
     }
-    m_controls->Redraw();
+    m_controls->Redraw(false);
     if (m_selected_panel != -1) {
-        m_menu_set->Redraw();
+        m_menu_set->Redraw(false);
     }
     if (m_active_modal != 0) {
         m_active_modal->Draw();
@@ -1638,10 +1638,10 @@ void W8OptionsMenuButton::EnableSecondaryState(bool immediate)
     Invalidate(immediate);
 }
 
-void W8OptionsPanel::Redraw()
+void W8OptionsPanel::Redraw(bool full_redraw)
 {
-    bool redraw_text = m_fDirty && m_fEnabled;
-    Controls::Redraw();
+    bool redraw_text = m_dirty && m_active;
+    Controls::Redraw(full_redraw);
     if (redraw_text) {
         for (int index = 0; index < static_cast<int>(m_text_buffers.size()); ++index) {
             m_text_buffers[index]->RenderToTarget(0, true, GetFrameBufferSurface());
@@ -1649,10 +1649,10 @@ void W8OptionsPanel::Redraw()
     }
 }
 
-void W8OptionsMenuSet::Redraw()
+void W8OptionsMenuSet::Redraw(bool full_redraw)
 {
-    if (m_fEnabled && (m_fDirty || m_fLayoutDirty)) {
-        Controls::Redraw();
+    if (m_active && (m_dirty || m_childrenDirty)) {
+        Controls::Redraw(full_redraw);
         m_page_text->RenderToTarget(0, true, GetFrameBufferSurface());
     }
 }
@@ -1710,14 +1710,14 @@ W8OptionsMenuSet::~W8OptionsMenuSet()
 void W8OptionsPanel::SetActive(bool active)
 {
     EnableRegionSet(active);
-    SetEnabled(active);
-    Invalidate(0);
+    SetActive(active);
+    InvalidateAll();
 }
 
 void W8OptionsPanel::SetCurrent(int current)
 {
     m_current = current;
-    Invalidate(0);
+    InvalidateAll();
 }
 
 void W8OptionsPanelSet::Advance()
@@ -1783,9 +1783,9 @@ void W8OptionsMenuSet::UpdateMenuSet()
     SetBounds(bounds.left, bounds.top, bounds.right, bounds.bottom);
     ++bounds.top;
     m_page_text->SetLayoutBounds(&bounds, true, true);
-    SetEnabled(panel_set->m_hide_navigation == 0 &&
+    SetActive(panel_set->m_hide_navigation == 0 &&
                (panel_set->m_compact_layout != 0 || count > 1));
-    if (m_fEnabled) {
+    if (m_active) {
         m_next->SetEnabled(current < count - 1);
         m_previous->SetEnabled(current > 0);
         std::string text;
@@ -1793,7 +1793,7 @@ void W8OptionsMenuSet::UpdateMenuSet()
         text = fmt::format("{:d} / {:d}", current + 1, count);
         m_page_text->SetText(text, g_options_detail_font);
     }
-    Invalidate(0);
+    InvalidateAll();
 }
 
 /* The chrome listener is attached at the secondary base subobject.  The
@@ -1914,13 +1914,13 @@ void OptionsScreenFrame()
                 active_modal.reset();
             }
             screen->m_redraw_pending = true;
-            screen->m_controls->Invalidate(0);
+            screen->m_controls->InvalidateAll();
             if (screen->m_selected_panel != -1) {
                 W8OptionsPanelSet* panel_set = screen->m_panel[screen->m_selected_panel].get();
                 if (panel_set->m_active) {
-                    panel_set->m_panels[panel_set->m_current]->Invalidate(0);
+                    panel_set->m_panels[panel_set->m_current]->InvalidateAll();
                 }
-                screen->m_menu_set->Invalidate(0);
+                screen->m_menu_set->InvalidateAll();
             }
         }
         screen->m_modal_closing = false;

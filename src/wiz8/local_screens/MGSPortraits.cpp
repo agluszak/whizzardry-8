@@ -1107,7 +1107,7 @@ void DisablePortraitControls(void)
 void DisableConditionButtons(void)
 {
     g_main_conditions.Disable();
-    g_condition_buttons_panel->SetEnabled(false);
+    g_condition_buttons_panel->SetActive(false);
     if (g_level_block->condition_highlight_party_slot != -1) {
         ClearConditionHighlight();
     }
@@ -1121,11 +1121,11 @@ void EnableConditionButtons(void)
                      "C:\\Projects\\Wizardry 8\\Local Screens\\MGSPortraits.cpp", 0xa0c, 0);
     }
     g_main_conditions.Enable();
-    g_condition_buttons_panel->SetEnabled(true);
+    g_condition_buttons_panel->SetActive(true);
     for (int slot = 0; slot < 8; ++slot) {
         g_condition_buttons[slot]->SetEnabled(true);
     }
-    g_condition_buttons_panel->Invalidate(0);
+    g_condition_buttons_panel->InvalidateAll();
 }
 
 // FUNCTION: WIZ8 0x0059BB70
@@ -1153,7 +1153,7 @@ void InvalidatePortraitControl(unsigned int party_slot)
 // FUNCTION: WIZ8 0x0059BC00
 void InvalidatePortraitPanel(void)
 {
-    g_portrait_panel->Invalidate(0);
+    g_portrait_panel->InvalidateAll();
 }
 
 // FUNCTION: WIZ8 0x0059BC10
@@ -1174,7 +1174,7 @@ void UpdatePortraitAdvanceButtons(void)
             (*control)->SetActive(false);
         }
     }
-    g_portrait_panel->Redraw();
+    g_portrait_panel->Redraw(false);
 }
 
 // FUNCTION: WIZ8 0x0059BCA0
@@ -1226,7 +1226,7 @@ void CreateLevelButtons(void)
     }
 
     giLevelUpChar = -1;
-    g_portrait_panel->SetEnabled(true);
+    g_portrait_panel->SetActive(true);
     for (uiSlot = 0; uiSlot < 8; ++uiSlot) {
         g_portrait_controls[uiSlot]->SetActive(false);
     }
@@ -1404,7 +1404,7 @@ void UpdateConditionButtons(void)
             button->Invalidate(false);
         }
     }
-    g_condition_buttons_panel->Redraw();
+    g_condition_buttons_panel->Redraw(false);
 }
 
 // FUNCTION: WIZ8 0x0059C260

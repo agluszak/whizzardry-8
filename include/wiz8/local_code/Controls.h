@@ -40,13 +40,15 @@ struct Controls {
     Controls(const Controls&) = delete;
     Controls& operator=(const Controls&) = delete;
 
-    virtual void SetEnabled(bool enable);
-    virtual void Invalidate(const W8ControlsRect* rect);
-    virtual void Redraw();
-    /* SetEnabled mirrors m_fEnabled into every child's m_active. */
-    bool m_fEnabled;
-    bool m_fDirty;
-    bool m_fLayoutDirty;
+    virtual void SetActive(bool active);
+    /* Queue the whole panel, or just an area of it, for repainting. */
+    virtual void InvalidateAll();
+    void InvalidateArea(const W8ControlsRect& rect);
+    virtual void Redraw(bool full_redraw);
+    /* SetEnabled mirrors m_active into every child's m_active. */
+    bool m_active;
+    bool m_dirty;
+    bool m_childrenDirty;
     W8ControlsRect m_bounds; /* widget rectangles are relative to its origin */
     std::optional<CatalogArtwork> m_background;
     int m_backgroundImage;
@@ -79,7 +81,7 @@ struct Controls {
   private:
     std::vector<std::unique_ptr<W8Widget>> m_controls;
     unsigned int m_regionSet = 0;
-    /* While m_fDirty: the bounded area pending redraw, or none for the whole panel. */
+    /* While m_dirty: the bounded area pending redraw, or none for the whole panel. */
     std::optional<W8ControlsRect> m_dirtyRect;
 
   protected:
@@ -90,7 +92,7 @@ struct Controls {
                 ControlAt(index)->Redraw(full_redraw);
             }
         }
-        m_fLayoutDirty = false;
+        m_childrenDirty = false;
     }
     void RedrawControls(bool full_redraw);
 };

@@ -117,7 +117,7 @@ W8CampStatsRange::W8CampStatsRange()
 {
     m_range = new W8RangeControl(0x264, 0xbe, 0x276, 0x1b5);
     m_range->m_listener = this;
-    m_range->SetEnabled(true);
+    m_range->SetActive(true);
 }
 
 // FUNCTION: WIZ8 0x005c44c0
@@ -140,9 +140,9 @@ void W8CampStatsRange::OnRangeChanged(W8RangeControl*)
 void W8CampRangeListener::UpdateRange(bool range_changed)
 {
     if (range_changed) {
-        m_range->Invalidate(0);
+        m_range->InvalidateAll();
     }
-    m_range->Redraw();
+    m_range->Redraw(false);
 }
 
 // FUNCTION: WIZ8 0x005c4540
@@ -167,7 +167,7 @@ W8CampStatsControls::W8CampStatsControls()
     static constexpr RegionTemplate kWheelRegion{W8_REGION_RECTANGLE, 0x15d, 0xbe, 0x260, 0x1b5,
                                                  CampStatsMouseWheel, 0, false, -1};
     m_wheel_region = OwnedRegion(RegionSet(), kWheelRegion);
-    Controls::SetEnabled(true);
+    Controls::SetActive(true);
 }
 
 // FUNCTION: WIZ8 0x005c47a0
@@ -261,15 +261,15 @@ void DrawCampStatsPage(void)
         text = g_localized_strings[0x939];
         DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {g_camp_stats_origin_x + 0x13b +
                          ((0x13b - g_wiz_text_font_secondary.textWidth(text)) >> 1), g_camp_stats_origin_y + 10}, text);
-        g_camp_screen->stats_controls->Invalidate(0);
-        g_camp_screen->stats_range->m_range->Invalidate(0);
+        g_camp_screen->stats_controls->InvalidateAll();
+        g_camp_screen->stats_range->m_range->InvalidateAll();
     }
     if ((g_camp_screen->redraw_flags & W8_CAMP_REDRAW_EFFECT_LIST) != 0) {
         InvalidateRegion(0x15d, 0xbe, 0x260, 0x1b5);
         CatalogArtwork::Load(0x1b6, 0).drawRect(GetFrameBufferSurface(), SDL_Rect{0, 0, (0x260) - (0x15d), (0x1b5) - (0xbe)}, 0x15d, 0xbe);
         DrawCampEffectList();
     }
-    g_camp_screen->stats_range->m_range->Redraw();
+    g_camp_screen->stats_range->m_range->Redraw(false);
 }
 
 /* 0x005C4D40/0x005C4E20: how many beneficial/detrimental lines the equipped
@@ -484,7 +484,7 @@ void FilterCampEffectList(void)
         screen->effect_scroll = second;
     }
     range->SetValue(screen->effect_scroll);
-    range->Invalidate(0);
+    range->InvalidateAll();
 }
 
 /* Draws the visible slice of the effect list into the page's clipping
@@ -967,7 +967,7 @@ void W8CharacterPersonalityPage::Accept()
         m_character->name = original->name;
     }
     Refresh();
-    Invalidate(0);
+    InvalidateAll();
     m_screen->UpdateNavigation(this);
 }
 
@@ -1037,7 +1037,7 @@ void W8CharacterPersonalityPage::Refresh()
    fixed text labels and the nine personality labels, then let the dirty
    portrait, description and name-row blocks refresh themselves. */
 // FUNCTION: WIZ8 0x005c6b70
-void W8CharacterPersonalityPage::Redraw()
+void W8CharacterPersonalityPage::Redraw(bool full_redraw)
 {
     if (m_animation_active) {
         int elapsed = static_cast<int>(anim_timer.GetProgress());
@@ -1047,8 +1047,8 @@ void W8CharacterPersonalityPage::Redraw()
         }
     }
 
-    bool redraw = m_fEnabled && m_fDirty;
-    W8CharacterPage::Redraw();
+    bool redraw = m_active && m_dirty;
+    W8CharacterPage::Redraw(full_redraw);
     if (!m_screen->HasDialog() && m_text_fields) {
         m_text_fields->RenderAll();
     }
@@ -1253,7 +1253,7 @@ void W8CharacterSkillsPage::Activate()
 {
     EnableRegionSet(true);
     Refresh();
-    m_dirty = true;
+    m_contentDirty = true;
     m_prepared = true;
 }
 
@@ -1266,8 +1266,8 @@ void W8CharacterSkillsPage::Deactivate()
 void W8CharacterSkillsPage::Accept()
 {
     RefundAllSkillPoints(m_character, m_creation_state);
-    Invalidate(0);
-    m_dirty = true;
+    InvalidateAll();
+    m_contentDirty = true;
     m_screen->UpdateNavigation(this);
     for (int index = 0; index < static_cast<int>(m_entries.size()); ++index) {
         m_entries[index]->UpdateButtons();
@@ -1291,7 +1291,7 @@ void W8CharacterSkillsPage::GetNavigationState(bool* next_enabled, bool* exit_en
 void W8CharacterSkillsPage::AdjustEntry(W8CharacterPageEntry* entry, int delta)
 {
     entry->MarkDirty();
-    m_dirty = true;
+    m_contentDirty = true;
     InitializeLevelUpAttributePool(m_character, m_creation_state, entry->m_id, delta);
     m_screen->UpdateNavigation(this);
 }
@@ -1303,16 +1303,16 @@ void W8CharacterSkillsPage::ShowEntryInfo(W8CharacterPageEntry* entry)
 }
 
 // FUNCTION: WIZ8 0x005c77f0
-void W8CharacterSkillsPage::Redraw()
+void W8CharacterSkillsPage::Redraw(bool full_redraw)
 {
-    bool redraw = static_cast<unsigned char>(m_fEnabled && m_fDirty);
+    bool redraw = static_cast<unsigned char>(m_active && m_dirty);
     if (m_force_redraw) {
         UpdateEntries();
-        Invalidate(0);
+        InvalidateAll();
         redraw = true;
         m_force_redraw = false;
     }
-    W8CharacterPage::Redraw();
+    W8CharacterPage::Redraw(full_redraw);
 
     if (redraw) {
         for (int category = 0; category < 5; ++category) {
@@ -1351,7 +1351,7 @@ void W8CharacterSkillsPage::Redraw()
         m_prepared = false;
     }
 
-    if (m_dirty) {
+    if (m_contentDirty) {
         W8TextBuffer text;
         W8ControlsRect bounds = {0x8f, 0x184, 0xbf, 0x19b};
         CatalogArtwork::Load(0x107, 0).draw(GetFrameBufferSurface(), 5, 0x8f, 0x184);
@@ -1359,7 +1359,7 @@ void W8CharacterSkillsPage::Redraw()
         text.RenderString(fmt::format("{:d}/{:d}", m_creation_state->skill_points_remaining,
                                       m_creation_state->skill_points_total),
                           g_options_detail_font, true, GetFrameBufferSurface());
-        m_dirty = false;
+        m_contentDirty = false;
     }
 }
 

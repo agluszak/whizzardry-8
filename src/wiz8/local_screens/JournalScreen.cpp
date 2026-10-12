@@ -269,7 +269,7 @@ void W8JournalPanel::Refresh()
             }
         }
     }
-    Invalidate(0);
+    InvalidateAll();
 }
 
 // VTABLE: WIZ8 0x005ef340 Controls
@@ -309,7 +309,7 @@ W8JournalPanel::W8JournalPanel()
         EmplaceControl<W8TextControl>(0xffffffff, 0x1ea, -2, 0, 0, CatalogArtwork::Load(0x106, 0), 0x10, -1, 0x11, 0x12, 0x13);
     m_close->m_listener = this;
     m_close->EnableRegionHelp(0x6ed);
-    SetEnabled(true);
+    SetActive(true);
     EnableRegionSet(true);
     m_alternate_mode = 0;
     m_mode->EnableRegionHelp(0x6eb);
@@ -326,10 +326,10 @@ W8JournalPanel::~W8JournalPanel()
 }
 
 // FUNCTION: WIZ8 0x005bdbf0
-void W8JournalPanel::Redraw()
+void W8JournalPanel::Redraw(bool full_redraw)
 {
-    if (m_fEnabled && (m_fDirty || m_fLayoutDirty)) {
-        Controls::Redraw();
+    if (m_active && (m_dirty || m_childrenDirty)) {
+        Controls::Redraw(full_redraw);
         m_page_text->RenderToTarget(0, true, GetFrameBufferSurface());
     }
 }
@@ -458,6 +458,6 @@ void JournalScreenFrame(void)
         }
         return InputRoute::Handled;
     }});
-    g_journal_panel->Redraw();
+    g_journal_panel->Redraw(false);
     RenderFrame();
 }

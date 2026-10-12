@@ -6,11 +6,11 @@
 // FUNCTION: WIZ8 0x005B2980
 void RefreshFormationPanel(bool show_portraits)
 {
-    if (g_formation_panel->m_fEnabled) {
+    if (g_formation_panel->m_active) {
         if (show_portraits) {
-            g_formation_panel->Invalidate(0);
+            g_formation_panel->InvalidateAll();
             InvalidateRegion(0xd6, 0x3c, 0x1ab, 0x12f);
         }
-        g_formation_panel->Redraw();
+        g_formation_panel->Redraw(false);
     }
 }

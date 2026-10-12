@@ -163,9 +163,9 @@ void W8CharacterScreen::BuildControls()
     m_reset->EnableRegionHelp(0xe1);
     m_reset->m_listener = this;
 
-    m_controls->SetEnabled(true);
+    m_controls->SetActive(true);
     m_controls->EnableRegionSet(true);
-    m_controls->Invalidate(0);
+    m_controls->InvalidateAll();
     m_reset->SetActive(false);
     if (m_mode == 1 && g_status.game_started && CharacterPointerToPartySlot(m_original) > 1) {
         m_reset->SetActive(true);
@@ -195,7 +195,7 @@ void W8CharacterScreen::UpdateDialog()
         }
         if (!m_dialog->ProcessInput()) {
             ReleaseInputSinkCapture();
-            m_controls->Invalidate(0);
+            m_controls->InvalidateAll();
             m_pages[m_page_index]->Prepare();
             m_header_dirty = true;
 #pragma clang diagnostic push
@@ -404,7 +404,7 @@ void W8CharacterScreen::AdvancePage(bool forward)
 void W8CharacterScreen::SelectPage(int index)
 {
     if (m_page_index >= 0) {
-        m_pages[m_page_index]->SetEnabled(false);
+        m_pages[m_page_index]->SetActive(false);
         m_pages[m_page_index]->Deactivate();
     }
     SyncCharacterForPage(index);
@@ -431,7 +431,7 @@ void W8CharacterScreen::SelectPage(int index)
     m_page_index = index;
     W8CharacterPage* page = m_pages[index].get();
     page->Activate();
-    page->SetEnabled(true);
+    page->SetActive(true);
 
     int previous = index - 1;
     while (previous >= 0 && !m_page_enabled[previous])
@@ -455,7 +455,7 @@ void W8CharacterScreen::SelectPage(int index)
         m_next->m_disabledSprite = 0xb;
         m_next->EnableRegionHelp(0xdc);
     }
-    m_controls->Invalidate(0);
+    m_controls->InvalidateAll();
     page->Prepare();
     m_header_dirty = true;
     UpdateNavigation(page);
@@ -764,8 +764,8 @@ void CharacterScreenFrame(void)
     });
     if (screen->m_header_dirty)
         screen->DrawHeader();
-    screen->m_pages[screen->m_page_index]->Redraw();
-    screen->m_controls->Redraw();
+    screen->m_pages[screen->m_page_index]->Redraw(false);
+    screen->m_controls->Redraw(false);
     if (screen->m_dialog != 0)
         screen->m_dialog->Draw();
     RenderFrame();

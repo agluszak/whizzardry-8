@@ -281,7 +281,7 @@ TEST_CASE("widget_region_lifetimes")
     auto* outgoing = hover_panel.EmplaceControl<RecordingWidget>(events, 7);
     auto* incoming = hover_panel.EmplaceControl<RecordingWidget>(events, 8);
     incoming->SetBounds({40, 0, 20, 20});
-    hover_panel.SetEnabled(true);
+    hover_panel.SetActive(true);
     hover_panel.EnableRegionSet(true);
     PushButtonSoundScheme(0, true);
     const auto outgoing_region = outgoing->m_region;

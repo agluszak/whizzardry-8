@@ -38,7 +38,7 @@ bool W8NpcDialogueTextController::HandleScrollDownCommand(bool check_only)
 {
     if (text_area.ScrollDown(check_only)) {
         if (!check_only) {
-            Invalidate(0);
+            InvalidateAll();
         }
         return true;
     }
@@ -49,7 +49,7 @@ bool W8NpcDialogueTextController::HandleScrollUpCommand(bool check_only)
 {
     if (text_area.ScrollUp(check_only)) {
         if (!check_only) {
-            Invalidate(0);
+            InvalidateAll();
         }
         return true;
     }
