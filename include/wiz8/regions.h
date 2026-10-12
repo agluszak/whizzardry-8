@@ -154,6 +154,11 @@ struct W8Region {
     std::string help_text{};
     bool text_field = false; // Hit-tested at the cursor tip, ahead of every other set.
     W8RegionHandler* handler = nullptr;
+    /* The widget that positions, activates and labels this region. It is
+       also the handler, unless the handler is a screen template's callback,
+       which then drives the widget itself. */
+    W8Widget* owner = nullptr;
+    bool template_callback = false; /* handler is a screen template's callback */
 };
 
 /* A region-template row's callback, bound to the row id it was declared with. */

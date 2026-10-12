@@ -155,7 +155,7 @@ void Controls::EnableRegionSet(bool enable)
 bool W8Widget::OwnsRegion() const
 {
     return m_region >= 0 && static_cast<unsigned int>(m_region) < g_regions.size() &&
-           g_regions[m_region].handler == this;
+           g_regions[m_region].owner == this;
 }
 
 static constexpr RegionTemplate g_widget_region_template{
@@ -325,8 +325,12 @@ void W8Widget::SetRegion(unsigned int region)
     if (m_region != static_cast<int>(region)) ReleaseRegion();
     m_region = static_cast<int>(region);
     if (m_region == -1) return;
-    g_regions[m_region].handler = this;
-    ++g_regions[m_region].binding_generation;
+    auto& bound = g_regions[m_region];
+    bound.owner = this;
+    // A screen template's callback keeps routing the region's input; it
+    // reaches this widget through the screen's own records.
+    if (!bound.template_callback) bound.handler = this;
+    ++bound.binding_generation;
     UpdateRegionBounds();
     SetActive(m_active);
 }

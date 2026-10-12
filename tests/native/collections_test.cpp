@@ -194,6 +194,44 @@ TEST_CASE("panels_nest_as_widgets")
     REQUIRE(g_regions[hotspot_region].handler == nullptr);
 }
 
+namespace {
+int g_template_region_calls = 0;
+unsigned char RecordTemplateRegionInput(const InputEvent*, W8Region*, unsigned short)
+{
+    ++g_template_region_calls;
+    return 1;
+}
+} // namespace
+
+// Regression: binding a widget to a screen-template region must leave the
+// template's callback routing input (it carries screen behaviour such as
+// formation drag-and-drop); the widget still positions and activates it.
+TEST_CASE("template_regions_keep_their_callback_when_a_widget_binds_them")
+{
+    static constexpr std::array<RegionTemplate, 1> templates{{
+        {W8_REGION_RECTANGLE, 0, 0, 0, 0, RecordTemplateRegionInput, 0, false, -1},
+    }};
+    OwnedRegionSet regions(templates);
+    const auto index = regions.index(0);
+    Controls panel;
+    panel.SetBounds({100, 100, 100, 100});
+    auto* widget = panel.EmplaceControl<W8Widget>(index, 1, 2, 11, 12);
+    REQUIRE(g_regions[index].x1 == 101);
+    panel.SetActive(true);
+    REQUIRE(g_regions[index].InputEnabled());
+
+    g_template_region_calls = 0;
+    InputEvent event{};
+    event.type = InputEventType::LeftButtonDown;
+    REQUIRE(g_regions[index].handler->HandleRegionInput(g_regions[index], event) == 1);
+    REQUIRE(g_template_region_calls == 1);
+
+    panel.RemoveControl(widget);
+    REQUIRE(!g_regions[index].InputEnabled());
+    REQUIRE(g_regions[index].owner == nullptr);
+    REQUIRE(g_regions[index].handler != nullptr);
+}
+
 // Exercise real region bindings rather than manually filling a panel vector.
 struct RecordingWidget : W8Widget {
     std::vector<int>& events;
