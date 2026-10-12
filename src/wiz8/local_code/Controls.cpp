@@ -20,6 +20,8 @@
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_code/Widget.h"
 #include "wiz8/local_code/TextControl.h"
+#include "wiz8/button_interaction.h"
+#include <SDL3/SDL_mouse.h>
 #include "wiz8/local_code/RangeControl.h"
 #include "wiz8/local_code/ControlSelection.h"
 #include "wiz8/float_constants.h"
@@ -83,10 +85,6 @@ extern const unsigned int g_W8TextBufferAlignTop = 0x10;
 extern const unsigned int g_W8TextBufferAlignBottom = 0x20;
 // GLOBAL: WIZ8 0x005ED560
 extern const unsigned int g_W8TextBufferNoWrap = 0x40;
-// GLOBAL: WIZ8 0x005ED56C
-extern const unsigned int g_W8TextControlStatePressed = 0x01;
-// GLOBAL: WIZ8 0x005ED570
-extern const unsigned int g_W8TextControlStateSecondary = 0x02;
 // GLOBAL: WIZ8 0x005ED578
 extern const unsigned int g_W8TextControlLayoutToggle = 0x01;
 // GLOBAL: WIZ8 0x005ED57C
@@ -700,7 +698,6 @@ void W8TextControl::Invalidate(bool immediate)
 // FUNCTION: WIZ8 0x004f4160
 W8TextControl::W8TextControl()
 {
-    m_stateFlags = 0;
     m_layoutFlags = 0;
     m_alternateTextEnabled = false;
     m_imageYOffset = -1;
@@ -779,7 +776,6 @@ W8TextControl::W8TextControl(unsigned int region, int left, int top, int right, 
     m_pressedSprite = sprites.pressed;
     m_alternatePressedSprite = sprites.alternate_pressed;
     m_alternateNormalSprite = sprites.alternate_normal;
-    m_stateFlags = 0;
     m_alternateTextEnabled = false;
     m_normalSprite = sprites.normal;
     m_disabledSprite = sprites.disabled;
@@ -825,7 +821,7 @@ void W8TextControl::Redraw(SDL_Surface& target, bool full_redraw)
     }
 
     int text_state = 0;
-    if ((m_stateFlags & g_W8TextControlStatePressed) != 0 &&
+    if (m_interaction.pressed &&
         (m_layoutFlags & g_W8TextControlLayoutTextBesideImage) == 0) {
         text_state = m_pressedTextOffset;
     }
@@ -856,7 +852,7 @@ void W8TextControl::Redraw(SDL_Surface& target, bool full_redraw)
             m_dirty = false;
             return;
         }
-    } else if ((m_stateFlags & g_W8TextControlStatePressed) == 0) {
+    } else if (!m_interaction.pressed) {
         sprite = m_alternateTextEnabled && m_alternateNormalSprite != -1 ? m_alternateNormalSprite
                                                                          : m_normalSprite;
     } else {
@@ -972,9 +968,9 @@ void W8TextControl::RemoveLayoutFlags(unsigned int flags)
 void W8TextControl::EnableSecondaryState(bool immediate)
 {
     if ((m_layoutFlags & g_W8TextControlLayoutToggle) != 0 &&
-        (m_stateFlags & g_W8TextControlStateSecondary) == 0) {
-        m_stateFlags |= g_W8TextControlStatePressed;
-        m_stateFlags |= g_W8TextControlStateSecondary;
+        !m_interaction.selected) {
+        m_interaction.pressed = true;
+        m_interaction.selected = true;
         Invalidate(immediate);
     }
 }
@@ -983,9 +979,9 @@ void W8TextControl::EnableSecondaryState(bool immediate)
 void W8TextControl::DisableSecondaryState(bool immediate)
 {
     if ((m_layoutFlags & g_W8TextControlLayoutToggle) != 0 &&
-        (m_stateFlags & g_W8TextControlStateSecondary) != 0) {
-        m_stateFlags &= ~g_W8TextControlStatePressed;
-        m_stateFlags &= ~g_W8TextControlStateSecondary;
+        m_interaction.selected) {
+        m_interaction.pressed = false;
+        m_interaction.selected = false;
         Invalidate(immediate);
     }
 }
@@ -1005,7 +1001,7 @@ void W8TextControl::OnMouseEnter(int event)
         PushButtonSoundScheme(0, true);
     }
 
-    if ((m_stateFlags & g_W8TextControlStatePressed) == 0) {
+    if (!m_interaction.pressed) {
         if (m_alternateNormalSprite == -1) {
             return;
         }
@@ -1026,7 +1022,7 @@ void W8TextControl::OnMouseLeave(int event)
     if (!m_enabled) {
         PushButtonSoundScheme(0, true);
         if ((m_layoutFlags & g_W8TextControlLayoutToggle) == 0) {
-            m_stateFlags &= ~g_W8TextControlStatePressed;
+            m_interaction.pressed = false;
         }
         SetAlternateTextEnabled(false);
         return;
@@ -1034,13 +1030,12 @@ void W8TextControl::OnMouseLeave(int event)
     if ((m_layoutFlags & (W8_TEXT_CONTROL_SILENT | g_W8TextControlSilentHover)) != 0) {
         PushButtonSoundScheme(0, true);
     }
-    if ((m_layoutFlags & W8_TEXT_CONTROL_ACTIVATE_WHILE_HELD) != 0 &&
-        (m_stateFlags & W8_TEXT_CONTROL_ACTIVATED_WHILE_HELD) != 0) {
+    const bool was_pressed = m_interaction.pressed;
+    const bool repeated = m_interaction.leave(InteractionPolicy());
+    if ((m_layoutFlags & W8_TEXT_CONTROL_ACTIVATE_WHILE_HELD) != 0 && repeated)
         PushButtonSoundScheme(0, true);
-        m_stateFlags &= ~W8_TEXT_CONTROL_ACTIVATED_WHILE_HELD;
-    }
 
-    if ((m_stateFlags & g_W8TextControlStatePressed) == 0) {
+    if (!was_pressed) {
         if (m_alternateNormalSprite == -1) {
             return;
         }
@@ -1055,10 +1050,9 @@ void W8TextControl::OnMouseLeave(int event)
         SetAlternateTextEnabled(false);
         Invalidate(static_cast<unsigned char>(event));
     }
-    if ((m_stateFlags & g_W8TextControlStateSecondary) != 0) {
+    if (m_interaction.selected) {
         return;
     }
-    m_stateFlags &= ~g_W8TextControlStatePressed;
     Invalidate(static_cast<unsigned char>(event));
 }
 
@@ -1100,13 +1094,13 @@ void W8TextControl::OnLeftButtonDown(int event)
         PushButtonSoundScheme(0, true);
     }
 
+    const bool was_pressed = m_interaction.pressed;
+    m_interaction.press(SDL_BUTTON_LMASK, InteractionPolicy());
     if ((m_layoutFlags & g_W8TextControlLayoutToggle) == 0) {
-        m_stateFlags |= g_W8TextControlStatePressed;
         if (m_imageSprites) {
             Invalidate(static_cast<unsigned char>(event));
         }
-    } else if ((m_stateFlags & g_W8TextControlStatePressed) == 0) {
-        m_stateFlags |= g_W8TextControlStatePressed;
+    } else if (!was_pressed) {
         if ((m_layoutFlags & g_W8TextControlLayoutLatchedImage) == 0) {
             Invalidate(static_cast<unsigned char>(event));
         }
@@ -1122,6 +1116,7 @@ void W8TextControl::OnLeftButtonDown(int event)
 void W8TextControl::OnRightButtonDown(int)
 {
     if ((m_active && m_enabled)) {
+        m_interaction.press(SDL_BUTTON_RMASK, InteractionPolicy());
         if ((m_layoutFlags & W8_TEXT_CONTROL_SILENT) != 0) {
             PushButtonSoundScheme(0, true);
         }
@@ -1145,36 +1140,31 @@ void W8TextControl::OnLeftButtonUp(int event)
     if (!m_enabled) {
         PushButtonSoundScheme(0, true);
         if ((m_layoutFlags & g_W8TextControlLayoutToggle) == 0) {
-            m_stateFlags &= ~g_W8TextControlStatePressed;
+            m_interaction.pressed = false;
         }
         return;
     }
-    if ((m_stateFlags & g_W8TextControlStatePressed) == 0) {
+    if (!m_interaction.pressed) {
         return;
     }
     if ((m_layoutFlags & W8_TEXT_CONTROL_SILENT) != 0) {
         PushButtonSoundScheme(0, true);
     }
 
+    const bool was_selected = m_interaction.selected;
+    const auto response = m_interaction.release(SDL_BUTTON_LMASK, InteractionPolicy());
     if ((m_layoutFlags & g_W8TextControlLayoutToggle) == 0) {
-        m_stateFlags &= ~g_W8TextControlStatePressed;
         Invalidate(static_cast<unsigned char>(event));
-    } else if ((m_stateFlags & g_W8TextControlStateSecondary) == 0) {
-        m_stateFlags |= g_W8TextControlStatePressed;
-        m_stateFlags |= g_W8TextControlStateSecondary;
+    } else if (!was_selected) {
         if ((m_layoutFlags & g_W8TextControlLayoutLatchedImage) != 0) {
             Invalidate(static_cast<unsigned char>(event));
         }
     } else if ((m_layoutFlags & g_W8TextControlLayoutStayLatched) == 0) {
-        m_stateFlags &= ~g_W8TextControlStatePressed;
-        m_stateFlags &= ~g_W8TextControlStateSecondary;
         Invalidate(static_cast<unsigned char>(event));
     }
 
     m_textBuffer.SetGeometryDirty();
-    if ((m_layoutFlags & W8_TEXT_CONTROL_ACTIVATE_WHILE_HELD) != 0 &&
-        (m_stateFlags & W8_TEXT_CONTROL_ACTIVATED_WHILE_HELD) != 0) {
-        m_stateFlags &= ~W8_TEXT_CONTROL_ACTIVATED_WHILE_HELD;
+    if (response.repeated_release) {
         PushButtonSoundScheme(0, true);
         return;
     }
@@ -1198,9 +1188,8 @@ void W8TextControl::OnRightButtonUp(int)
     if ((m_layoutFlags & W8_TEXT_CONTROL_SILENT) != 0) {
         PushButtonSoundScheme(0, true);
     }
-    if ((m_layoutFlags & W8_TEXT_CONTROL_ACTIVATE_WHILE_HELD) != 0 &&
-        (m_stateFlags & W8_TEXT_CONTROL_ACTIVATED_WHILE_HELD) != 0) {
-        m_stateFlags &= ~W8_TEXT_CONTROL_ACTIVATED_WHILE_HELD;
+    const auto response = m_interaction.release(SDL_BUTTON_RMASK, InteractionPolicy());
+    if (response.repeated_release) {
         PushButtonSoundScheme(0, true);
         return;
     }
@@ -1210,9 +1199,8 @@ void W8TextControl::OnRightButtonUp(int)
 // FUNCTION: WIZ8 0x004f5230
 void W8TextControl::ActivatePrimary(int)
 {
-    if ((m_layoutFlags & W8_TEXT_CONTROL_ACTIVATE_WHILE_HELD) != 0 && m_active && m_enabled &&
-        (m_stateFlags & g_W8TextControlStatePressed) != 0) {
-        m_stateFlags |= W8_TEXT_CONTROL_ACTIVATED_WHILE_HELD;
+    if (m_active && m_enabled &&
+        m_interaction.repeat(SDL_BUTTON_LMASK, InteractionPolicy()).activate) {
         if ((m_layoutFlags & W8_TEXT_CONTROL_SILENT) == 0) {
             PlayButtonSound(3);
         }
@@ -1228,7 +1216,7 @@ void W8TextControl::OnLeftButtonDoubleClick(int)
             PushButtonSoundScheme(0, true);
         }
         if ((m_layoutFlags & g_W8TextControlLayoutToggle) != 0 &&
-            (m_stateFlags & g_W8TextControlStateSecondary) == 0) {
+            !m_interaction.selected) {
             return;
         }
         if (m_onDoubleClick != 0) {
@@ -1245,8 +1233,8 @@ void W8TextControl::OnLeftButtonDoubleClick(int)
 // FUNCTION: WIZ8 0x004f5360
 void W8TextControl::ActivateSecondary(int)
 {
-    if ((m_layoutFlags & W8_TEXT_CONTROL_ACTIVATE_WHILE_HELD) != 0 && m_active && m_enabled) {
-        m_stateFlags |= W8_TEXT_CONTROL_ACTIVATED_WHILE_HELD;
+    if (m_active && m_enabled &&
+        m_interaction.repeat(SDL_BUTTON_RMASK, InteractionPolicy()).activate) {
         if ((m_layoutFlags & W8_TEXT_CONTROL_SILENT) == 0) {
             PlayButtonSound(3);
         }
@@ -2149,4 +2137,15 @@ void W8ControlSelection::OnPrimary(W8TextControl* entry)
                      0);
     }
     SetSelected(iIndex);
+}
+
+ButtonPolicy W8TextControl::InteractionPolicy() const
+{
+    ButtonToggle toggle = ButtonToggle::None;
+    if (m_layoutFlags & g_W8TextControlLayoutToggle)
+        toggle = (m_layoutFlags & g_W8TextControlLayoutStayLatched)
+                     ? ButtonToggle::StayLatched : ButtonToggle::Release;
+    return {.primary_toggle = toggle,
+            .repeat = (m_layoutFlags & W8_TEXT_CONTROL_ACTIVATE_WHILE_HELD) != 0,
+            .controller_activation = true};
 }

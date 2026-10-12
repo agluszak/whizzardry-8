@@ -127,6 +127,22 @@ their fields during composition, preserving caret and selection rendering.
 The reusable popup buttons still use `W8ButtonWidget`; merging its behavior with
 `W8TextControl` and removing their widget infrastructure remain outstanding.
 
+## Shared button interaction
+
+`ButtonInteraction` owns press, selection, armed-button and repeat state for both
+`W8TextControl` and `W8ButtonWidget`. Policies preserve the actual differences:
+text controls toggle on release and can stay selected; dialog toggles activate
+on press. Dialog presses arm each pointer button independently. Text controls
+also support controller-driven secondary activation and share repeat suppression
+between the buttons. The painters and their existing sound paths remain with
+the controls while screens migrate; there is no new event dispatcher.
+
+The old text-control state masks and the dialog control's duplicate armed/repeat
+fields are removed. Native tests cover the text policy's latch/repeat behavior
+and the dialog policy's matching press, cancellation, repeat and press activation.
+This consolidates interaction state, not the remaining widget wrappers or slider
+and painting protocols.
+
 ## Migration sequence and gates
 
 1. **Baseline:** keep the useful parent-independent construction, SDL geometry,
@@ -144,7 +160,8 @@ The reusable popup buttons still use `W8ButtonWidget`; merging its behavior with
    to the remaining screens. Formation input is implemented; its runtime parity
    gate is covered by licensed scenarios. Modal/editor ownership is migrated;
    the NPC popup owns its painter independently of the legacy dialog base.
-   Shared button consolidation is the next gate.
+   Button interaction state is consolidated; converting the remaining control
+   wrappers and screen owners is still in progress.
 4. **Controls:** audit and merge `W8TextControl`/`W8ButtonWidget` button semantics,
    including toggles, repeat, right clicks and sounds. Keep `ButtonAppearance`
    as resource/painting functionality. Reuse existing text editing and layout.

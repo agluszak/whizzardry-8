@@ -6,6 +6,7 @@
 #include <string_view>
 
 #include "compat/compiler.h"
+#include "wiz8/button_interaction.h"
 #include "local_code/ControlsRect.h"
 #include "wiz8/local_code/Widget.h"
 #include "wiz8/local_code/TextBuffer.h"
@@ -15,8 +16,6 @@ struct SpriteSheet;
 
 /* Shared declaration owner; implementation remains in Local Code\Controls.cpp. */
 
-extern const unsigned int g_W8TextControlStatePressed;
-extern const unsigned int g_W8TextControlStateSecondary;
 extern const unsigned int g_W8TextControlLayoutToggle;
 extern const unsigned int g_W8TextControlLayoutTextBesideImage;
 extern const unsigned int g_W8TextControlLayoutImageLeft;
@@ -29,7 +28,6 @@ enum W8TextControlInputFlag {
     W8_TEXT_CONTROL_SILENT = 0x20u,
     W8_TEXT_CONTROL_ACTIVATE_WHILE_HELD = 0x100u
 };
-enum { W8_TEXT_CONTROL_ACTIVATED_WHILE_HELD = 0x04u };
 
 /* Which sprite of a control's image shows in each visual state; -1 shows
    none. The alternate pair is used while alternate text is enabled. */
@@ -73,8 +71,8 @@ public:
     virtual void SetAlternateTextEnabled(bool enabled) override;
     void RemoveLayoutFlags(unsigned int flags);
     /* Held down, and latched on (a toggle, tab or radio entry that is set). */
-    bool IsPressed() const { return (m_stateFlags & g_W8TextControlStatePressed) != 0; }
-    bool IsSelected() const { return (m_stateFlags & g_W8TextControlStateSecondary) != 0; }
+    bool IsPressed() const { return m_interaction.pressed; }
+    bool IsSelected() const { return m_interaction.selected; }
     virtual void EnableSecondaryState(bool immediate);
     virtual void DisableSecondaryState(bool immediate);
     virtual void OnMouseEnter(int event) override;
@@ -90,7 +88,8 @@ public:
     void UpdateTextBounds(int left, int top, int right, int bottom);
 
 protected:
-    unsigned int m_stateFlags; /* pressed and selected bits; read via IsPressed/IsSelected */
+    ButtonInteraction m_interaction;
+    ButtonPolicy InteractionPolicy() const;
 
 public:
     unsigned int m_layoutFlags;  /* layout and input behavior masks */

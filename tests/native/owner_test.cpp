@@ -35,6 +35,7 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/Controls.h"
+#include "wiz8/local_code/TextControl.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/TextBuffer.h"
@@ -47,6 +48,7 @@
 #include "image_assets.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/button_interaction.h"
 #include "wiz8/dialog_code/DialogScrollBar.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
@@ -2013,6 +2015,55 @@ TEST_CASE("Generic button image ownership", "[owner]")
     generic_button_images();
 }
 
+TEST_CASE("Text controls preserve release toggles and shared repeat suppression", "[owner][button]")
+{
+    PushButtonSoundScheme(0, true);
+    W8TextControl toggle(-1, 0, 0, 40, 20);
+    toggle.SetActive(true);
+    toggle.AddLayoutFlags(g_W8TextControlLayoutToggle | W8_TEXT_CONTROL_SILENT);
+    int primary = 0;
+    toggle.m_onPrimary = [&] { ++primary; };
+    toggle.OnLeftButtonDown(0);
+    REQUIRE(toggle.IsPressed());
+    REQUIRE_FALSE(toggle.IsSelected());
+    REQUIRE(primary == 0);
+    toggle.OnLeftButtonUp(0);
+    REQUIRE(toggle.IsSelected());
+    REQUIRE(primary == 1);
+    toggle.OnMouseLeave(0);
+    REQUIRE(toggle.IsPressed());
+    toggle.OnLeftButtonDown(0);
+    toggle.OnLeftButtonUp(0);
+    REQUIRE_FALSE(toggle.IsSelected());
+    REQUIRE(primary == 2);
+    toggle.AddLayoutFlags(g_W8TextControlLayoutStayLatched);
+    for (int click = 0; click < 2; ++click) {
+        toggle.OnLeftButtonDown(0);
+        toggle.OnLeftButtonUp(0);
+    }
+    REQUIRE(toggle.IsSelected());
+    REQUIRE(primary == 4);
+
+    W8TextControl repeat(-1, 0, 0, 40, 20);
+    repeat.SetActive(true);
+    repeat.AddLayoutFlags(W8_TEXT_CONTROL_ACTIVATE_WHILE_HELD | W8_TEXT_CONTROL_SILENT);
+    primary = 0;
+    int secondary = 0;
+    repeat.m_onPrimary = [&] { ++primary; };
+    repeat.m_onSecondary = [&] { ++secondary; };
+    repeat.OnLeftButtonDown(0);
+    repeat.ActivatePrimary(0);
+    REQUIRE(primary == 1);
+    repeat.OnRightButtonUp(0);
+    REQUIRE(secondary == 0);
+    repeat.OnLeftButtonUp(0);
+    REQUIRE(primary == 2);
+    repeat.ActivateSecondary(0);
+    REQUIRE(secondary == 1);
+    repeat.OnRightButtonUp(0);
+    REQUIRE(secondary == 1);
+}
+
 TEST_CASE("Dialog controls own interaction without legacy GUI buttons", "[owner]")
 {
     RegionStateSnapshot saved_state;
@@ -2094,7 +2145,7 @@ TEST_CASE("Dialog controls own interaction without legacy GUI buttons", "[owner]
         dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
         REQUIRE((!button.IsPressed() && activations == 4));
         button.m_repeat_enabled = false;
-        button.m_activation = DialogButtonActivation::Press;
+        button.m_activation = ButtonActivation::Press;
         dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
         REQUIRE(activations == 5);
         dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);

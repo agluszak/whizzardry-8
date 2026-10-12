@@ -1515,8 +1515,8 @@ W8OptionsCheckbox::W8OptionsCheckbox(int top, int* value)
 void W8OptionsCheckbox::OnLeftButtonUp(int event)
 {
     W8TextControl::OnLeftButtonUp(event);
-    // Option values keep the retail encoding: the state bit itself when on.
-    *m_value = IsSelected() ? g_W8TextControlStateSecondary : 0;
+    // Preserve the option value encoding independently of button state.
+    *m_value = IsSelected() ? 2 : 0;
 }
 
 W8OptionsSlider::W8OptionsSlider(int top, float* value, bool alternate)

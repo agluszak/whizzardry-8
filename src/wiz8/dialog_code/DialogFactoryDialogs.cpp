@@ -13,6 +13,7 @@
 #include "image.h"
 #include "sprite.h"
 #include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/button_interaction.h"
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/regions.h"
 #include "wiz8/utility.h"
@@ -210,7 +211,7 @@ int W8ListBoxDialog::CreateControls()
                                      m_text_button.Bounds().w, 0x14, TextAreaButtonCallback, 0,
                                      area_inlay, REGION_PRIORITY_HIGHEST - 1);
     m_area_button.m_owner = this;
-    m_area_button.m_activation = DialogButtonActivation::Press;
+    m_area_button.m_activation = ButtonActivation::Press;
     const bool configured =
         m_up_button.Configure("Data\\Dialogs\\DialogUpArrow.STI", 3, 0, 1, 2, 2,
                               UpButtonCallback, nullptr, false, REGION_PRIORITY_HIGHEST - 1,
@@ -230,7 +231,7 @@ int W8ListBoxDialog::CreateControls()
         DestroyControls();
     } else {
         m_up_button.m_owner = m_down_button.m_owner = m_ok_button.m_owner = m_cancel_button.m_owner = this;
-        m_up_button.m_activation = m_down_button.m_activation = DialogButtonActivation::Press;
+        m_up_button.m_activation = m_down_button.m_activation = ButtonActivation::Press;
         m_up_button.m_repeat_enabled = m_down_button.m_repeat_enabled = true;
         third_btn_inlay = LoadGenericButtonImages({}, "Data\\Dialogs\\DialogInlay.STI", {}, "Data\\Dialogs\\DialogInlay.STI", {}, "Data\\Dialogs\\DialogBackground_dark.STI", 0, 3, 3);
         if (third_btn_inlay) {
@@ -239,7 +240,7 @@ int W8ListBoxDialog::CreateControls()
                 SliderTrackButtonCallback, 0, third_btn_inlay, REGION_PRIORITY_HIGHEST - 2);
             if (m_third_text_button.IsConfigured()) {
                 m_third_text_button.m_owner = this;
-                m_third_text_button.m_activation = DialogButtonActivation::Press;
+                m_third_text_button.m_activation = ButtonActivation::Press;
                 m_third_text_button.m_repeat_enabled = true;
                 m_second_text_button.ConfigureTextButton({}, *g_dialog_interface_font,
                     g_dialog_font_foreground, g_dialog_font_background, m_x + 9,

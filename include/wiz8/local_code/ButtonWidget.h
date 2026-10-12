@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Font.h"
+#include "wiz8/button_interaction.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/local_code/Widget.h"
 #include "wiz8/regions.h"
@@ -18,7 +19,6 @@ class W8ButtonWidget;
 
 /* Callbacks stored through Configure and dispatched with the button as the subject. */
 using W8ButtonCallback = std::function<void(W8ButtonWidget*)>;
-enum class DialogButtonActivation { Press, Release };
 
 /* Sprite or generic-frame push button. Draws through ButtonAppearance and
    receives input through the W8Widget region dispatch. A button may be a
@@ -55,9 +55,9 @@ public:
             m_dirty = true;
         }
     }
-    bool IsEnabled() const { return OwnsRegion() && m_visual.enabled; }
+    bool IsEnabled() const { return OwnsRegion() && m_enabled; }
     void SetPressed(bool pressed);
-    bool IsPressed() const { return m_visual.pressed; }
+    bool IsPressed() const { return m_interaction.pressed; }
     void SetVisible(bool visible);
     /* Installs the tooltip string on the mouse region (when one is configured
        and tooltips are on), or clears it. */
@@ -106,9 +106,8 @@ public:
 
 private:
     ButtonAppearance m_appearance;
-    ButtonVisualState m_visual;
-    SDL_MouseButtonFlags m_armed_buttons = 0;
-    SDL_MouseButtonFlags m_repeated_buttons = 0;
+    ButtonInteraction m_interaction;
+    ButtonPolicy InteractionPolicy() const;
     int m_user_data = 0;
     W8Region& Region() const { return g_regions[m_region]; }
     void ConfigureRegion(int priority);
@@ -132,7 +131,7 @@ private:
 public:
     /* Spinner repeats activate while held; a repeated press does not activate again on release. */
     bool m_repeat_enabled;
-    DialogButtonActivation m_activation = DialogButtonActivation::Release;
+    ButtonActivation m_activation = ButtonActivation::Release;
     /* Set by the dialog factories to the owning dialog; the per-button
        dispatch callback reads it back when a stored callback needs it. */
     W8DialogBase* m_owner;

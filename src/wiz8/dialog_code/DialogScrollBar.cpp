@@ -4,6 +4,7 @@
 
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/button_interaction.h"
 #include "wiz8/dialog_code/DialogScrollBar.h"
 #include "wiz8/regions.h"
 #include "Video2.h"
@@ -43,7 +44,7 @@ bool W8DialogScrollBar::CreateControls(const Resources* resources)
         return false;
     }
     m_up_button.m_activation = m_down_button.m_activation = m_track_button.m_activation =
-        DialogButtonActivation::Press;
+        ButtonActivation::Press;
     m_up_button.m_repeat_enabled = m_down_button.m_repeat_enabled = m_track_button.m_repeat_enabled = true;
     m_on_scroll = resources->on_scroll;
     m_initialized = true;
