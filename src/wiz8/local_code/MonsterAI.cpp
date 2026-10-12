@@ -774,14 +774,6 @@ void ApplyMonsterRTAIDecision(W8MonsterInfo* monster_info, unsigned char decisio
     monster_info->ai_mode ^= (monster_info->ai_mode ^ decision) & W8_MONSTER_AI_MODE_MASK;
 }
 
-/* Throw away the queue of actions a monster's AI had decided on. */
-// FUNCTION: WIZ8 0x00532330
-void DestroyMonsterActionQueue(W8MonsterInfo* monster_info)
-{
-    delete monster_info->pCombat->actions;
-    monster_info->pCombat->actions = nullptr;
-}
-
 /* Run the decision over every monster that is in the fight and still alive. */
 // FUNCTION: WIZ8 0x005314f0
 void UpdateAllMonsterAI(void)
@@ -1091,10 +1083,7 @@ void BuildMonsterActionQueue(W8MonsterInfo* monster_info, bool target_locked, bo
     W8Disposition disposition_needed;
 
     record = GetMonsterDataForInfo(monster_info);
-    if (!monster_info->pCombat->actions) {
-        monster_info->pCombat->actions = new std::vector<W8MonsterAction>;
-    }
-    auto& actions = *monster_info->pCombat->actions;
+    auto& actions = monster_info->pCombat->actions;
     actions.clear();
     if (!target_locked && !attack_locked) {
         if (CanMonsterProtect(monster_info) &&
@@ -1236,7 +1225,7 @@ static void QueueMonsterAction(W8MonsterInfo* monster_info, W8MonsterActionKind 
                                int action_detail, int attack_index, W8TargetKind target_kind,
                                int target_value)
 {
-    auto& entry = monster_info->pCombat->actions->emplace_back();
+    auto& entry = monster_info->pCombat->actions.emplace_back();
     entry.action_kind = action_kind;
     entry.action_detail = action_detail;
     if (action_kind == W8_MONSTER_ACTION_ATTACK) {
@@ -1264,7 +1253,7 @@ bool ChooseRandomMonsterAction(W8MonsterInfo* monster_info, bool target_locked, 
 
     record = GetMonsterDataForInfo(monster_info);
     BuildMonsterActionQueue(monster_info, target_locked, attack_locked);
-    const auto& actions = *monster_info->pCombat->actions;
+    const auto& actions = monster_info->pCombat->actions;
     if (actions.empty()) {
         return false;
     }
