@@ -1,6 +1,8 @@
+#include <memory>
 #include <cstdint>
 #include <fmt/format.h>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "wiz8/containers.h"
@@ -262,15 +264,13 @@ void RunSearchPulse(void)
                             if (Random(2) != 0) {
                                 event_type = g_search_found_item_event_alt;
                             }
-                            W8CharacterEvent* event =
-                                new W8CharacterEvent(character, event_type, 0, g_effect_argument0,
-                                                     g_character_event_full_volume);
+                            auto event = std::make_unique<W8CharacterEvent>(
+                                character, event_type, 0, g_effect_argument0,
+                                g_character_event_full_volume);
                             if (searchable->world_item != 0) {
                                 event->item = searchable->world_item->item;
                             }
-                            if (event != 0) {
-                                gXStatus.character_event_queue->QueueEntry(event);
-                            }
+                            gXStatus.character_event_queue->QueueEntry(std::move(event));
                         }
                         srVector3T<float> position;
                         searchable->GetPosition(&position);
