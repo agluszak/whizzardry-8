@@ -202,17 +202,22 @@ W8Widget::~W8Widget()
     if (m_pPanel) m_pPanel->TakeControl(this).release();
 }
 
+/* Widget geometry is relative to its panel; a widget without a panel sits
+   at the screen origin. */
+SDL_Point W8Widget::PanelOrigin() const
+{
+    if (!m_pPanel) return {0, 0};
+    return {m_pPanel->m_bounds.left, m_pPanel->m_bounds.top};
+}
+
 void W8Widget::UpdateRegionBounds(int left, int top, int right, int bottom)
 {
-    if (!OwnsRegion() || !m_pPanel) return;
-    g_regions[m_region].SetBounds(static_cast<unsigned short>(static_cast<short>(left) +
-                                                static_cast<short>(m_pPanel->m_bounds.left)),
-                    static_cast<unsigned short>(static_cast<short>(top) +
-                                                static_cast<short>(m_pPanel->m_bounds.top)),
-                    static_cast<unsigned short>(static_cast<short>(right) +
-                                                static_cast<short>(m_pPanel->m_bounds.left)),
-                    static_cast<unsigned short>(static_cast<short>(bottom) +
-                                                static_cast<short>(m_pPanel->m_bounds.top)));
+    if (!OwnsRegion()) return;
+    const auto origin = PanelOrigin();
+    g_regions[m_region].SetBounds(static_cast<unsigned short>(left + origin.x),
+                                  static_cast<unsigned short>(top + origin.y),
+                                  static_cast<unsigned short>(right + origin.x),
+                                  static_cast<unsigned short>(bottom + origin.y));
 }
 
 /* Move a widget between panels, preserving its existing region when it has

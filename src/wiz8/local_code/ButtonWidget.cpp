@@ -24,8 +24,8 @@ void W8ButtonWidget::Draw()
     if (m_dirty && OwnsRegion() && (Region().flags & W8_REGION_INPUT_DISABLED) == 0) {
         m_visual.hovered = (Region().flags & W8_REGION_MOUSE_ENTER) != 0 ||
                            g_hover_region_index == static_cast<unsigned int>(m_region);
-        DrawButtonAppearance(GetFrameBufferSurface(), m_appearance, GetBounds(), m_visual);
-        const auto bounds = GetBounds();
+        DrawButtonAppearance(GetFrameBufferSurface(), m_appearance, ScreenBounds(), m_visual);
+        const auto bounds = ScreenBounds();
         InvalidateRegion(bounds.x, bounds.y, bounds.x + bounds.w, bounds.y + bounds.h, 0);
         m_dirty = false;
     }
@@ -65,18 +65,19 @@ void W8ButtonWidget::SetMultiColor(bool enabled)
     m_dirty = true;
 }
 
-/* Region bounds are absolute: a button keeps its own screen rectangle even
-   when a panel owns it. */
 void W8ButtonWidget::SetButtonRect(const SDL_Rect& bounds)
 {
     m_left = bounds.x;
     m_top = bounds.y;
     m_right = bounds.x + bounds.w;
     m_bottom = bounds.y + bounds.h;
-    if (!OwnsRegion()) return;
-    Region().SetBounds(static_cast<unsigned short>(m_left),
-                    static_cast<unsigned short>(m_top), static_cast<unsigned short>(m_right),
-                    static_cast<unsigned short>(m_bottom));
+    UpdateRegionBounds(m_left, m_top, m_right, m_bottom);
+}
+
+SDL_Rect W8ButtonWidget::ScreenBounds() const
+{
+    const auto origin = PanelOrigin();
+    return {m_left + origin.x, m_top + origin.y, GetWidth(), GetHeight()};
 }
 
 // FUNCTION: WIZ8 0x005db8d0
@@ -149,7 +150,6 @@ W8ButtonWidget::W8ButtonWidget()
     m_dirty = true;
 }
 
-W8ButtonWidget::W8ButtonWidget(Controls& owner) : W8ButtonWidget() { SetPanel(owner); }
 
 // FUNCTION: WIZ8 0x005db260
 W8ButtonWidget::~W8ButtonWidget() = default;

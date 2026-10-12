@@ -27,7 +27,6 @@ enum class DialogButtonActivation { Press, Release };
 class W8ButtonWidget : public W8Widget {
 public:
     W8ButtonWidget();
-    explicit W8ButtonWidget(Controls& owner);
     ~W8ButtonWidget() override;
     void Draw();
     void Redraw(bool) override { Draw(); }
@@ -117,6 +116,7 @@ private:
     W8Region& Region() const { return g_regions[m_region]; }
     void ConfigureRegion(int priority);
     void SetButtonRect(const SDL_Rect& bounds);
+    SDL_Rect ScreenBounds() const;
     enum class ButtonEvent { Enter, Leave, Move, Press, Release, Repeat, DoubleClick };
     void HandleButtonEvent(ButtonEvent event, SDL_MouseButtonFlags mask);
     int m_tooltip_index; /* g_localized_strings index, or -1 */
