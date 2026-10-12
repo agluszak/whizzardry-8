@@ -129,6 +129,19 @@ srLight& srLight::operator=(const srLight& other)
 // indices when it is null.
 static const char* const s_light_flag_names = 0;
 
+// The label is the first output, so the column width pads it; keep any '{' in the label.
+static void dumpRow(std::ostream& stream, const char* label, const auto& value)
+{
+    stream.width(0x20);
+    stream << label << value << '\n';
+}
+
+static void dumpVectorRow(std::ostream& stream, const char* label, const glm::vec3& value)
+{
+    stream.width(0x20);
+    stream << label << value.x << ',' << value.y << ',' << value.z << '}' << '\n';
+}
+
 // FUNCTION: SURRENDER 0x1004E0C0
 void srLight::dump(std::ostream& stream)
 {
@@ -138,33 +151,19 @@ void srLight::dump(std::ostream& stream)
     stream << "  Control flags: ";
     srDumpFlags(stream, enable_flags, s_light_flag_names);
     stream << '\n';
-    stream.width(0x20);
-    stream << "  Intensity: " << intensity << '\n';
-    stream.width(0x20);
-    stream << "  Ambient coeff.: {" << ambient.x << ',' << ambient.y << ',' << ambient.z << '}'
-           << '\n';
-    stream.width(0x20);
-    stream << "  Diffuse coeff.: {" << diffuse.x << ',' << diffuse.y << ',' << diffuse.z << '}'
-           << '\n';
-    stream.width(0x20);
-    stream << "  Specular coeff.: {" << specular.x << ',' << specular.y << ',' << specular.z << '}'
-           << '\n';
-    stream.width(0x20);
-    stream << "  Spot direction: {" << spot_direction.x << ',' << spot_direction.y << ','
-           << spot_direction.z << '}' << '\n';
-    stream.width(0x20);
-    stream << "  Spot angle: " << spot_angle << '\n';
-    stream.width(0x20);
-    stream << "  Spot exponent: " << spot_exponent << '\n';
-    stream.width(0x20);
-    stream << "  Safe Range: " << safe_range << '\n';
+    dumpRow(stream, "  Intensity: ", intensity);
+    dumpVectorRow(stream, "  Ambient coeff.: {", ambient);
+    dumpVectorRow(stream, "  Diffuse coeff.: {", diffuse);
+    dumpVectorRow(stream, "  Specular coeff.: {", specular);
+    dumpVectorRow(stream, "  Spot direction: {", spot_direction);
+    dumpRow(stream, "  Spot angle: ", spot_angle);
+    dumpRow(stream, "  Spot exponent: ", spot_exponent);
+    dumpRow(stream, "  Safe Range: ", safe_range);
     stream.width(0x20);
     stream << "  Attenuation model: ";
     if (attenuation_model == ATTENUATION_OPENGL) {
         stream << "OpenGL" << '\n';
-        stream.width(0x20);
-        stream << "  Attenuation fact.: {" << opengl_attenuation.x << ',' << opengl_attenuation.y
-               << ',' << opengl_attenuation.z << '}' << '\n';
+        dumpVectorRow(stream, "  Attenuation fact.: {", opengl_attenuation);
     } else if (attenuation_model == ATTENUATION_3DSTUDIO_MAX) {
         stream << "3DStudio Max" << '\n';
         stream.width(0x20);

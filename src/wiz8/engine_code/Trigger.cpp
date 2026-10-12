@@ -551,51 +551,15 @@ try
                 action_flags = 0;
                 progress_delay = 0;
                 hFile.read_exact(&action_flags, 2);
-                if ((action_flags & 1) != 0) {
-                    pDoor->open = true;
-                } else {
-                    pDoor->open = false;
-                }
-                if ((action_flags & 2) != 0) {
-                    pDoor->lockable = true;
-                } else {
-                    pDoor->lockable = false;
-                }
-                if ((action_flags & 4) != 0) {
-                    pDoor->locked = true;
-                } else {
-                    pDoor->locked = false;
-                }
-                if ((action_flags & 8) != 0) {
-                    pDoor->auto_locking = true;
-                } else {
-                    pDoor->auto_locking = false;
-                }
-                if ((action_flags & 0x10) != 0) {
-                    pDoor->one_way = true;
-                } else {
-                    pDoor->one_way = false;
-                }
-                if ((action_flags & 0x20) != 0) {
-                    pDoor->secret = true;
-                } else {
-                    pDoor->secret = false;
-                }
-                if ((action_flags & 0x40) != 0) {
-                    pDoor->found = true;
-                } else {
-                    pDoor->found = false;
-                }
-                if ((action_flags & 0x80) != 0) {
-                    pDoor->jammable = true;
-                } else {
-                    pDoor->jammable = false;
-                }
-                if ((action_flags & 0x100) != 0) {
-                    pDoor->jammed = true;
-                } else {
-                    pDoor->jammed = false;
-                }
+                pDoor->open = (action_flags & 1) != 0;
+                pDoor->lockable = (action_flags & 2) != 0;
+                pDoor->locked = (action_flags & 4) != 0;
+                pDoor->auto_locking = (action_flags & 8) != 0;
+                pDoor->one_way = (action_flags & 0x10) != 0;
+                pDoor->secret = (action_flags & 0x20) != 0;
+                pDoor->found = (action_flags & 0x40) != 0;
+                pDoor->jammable = (action_flags & 0x80) != 0;
+                pDoor->jammed = (action_flags & 0x100) != 0;
                 hFile.read_exact(&progress_delay, 2);
                 if (m_lData1 != 0 && progress_delay != 0) {
                     if (m_pEvent == 0) {
