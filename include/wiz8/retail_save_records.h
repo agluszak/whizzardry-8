@@ -286,7 +286,7 @@ template<> struct Record<W8MonsterGroup> {
         const auto field = [&](std::size_t offset, std::size_t size) { return bytes.subspan(offset, size); };
         value(&runtime.group_id, field(offsetof(Disk, group_id), sizeof(Disk::group_id)));
         value(&runtime.member_count, field(offsetof(Disk, member_count), sizeof(Disk::member_count)));
-        pointer_slot(runtime.monsters, field(offsetof(Disk, monsters), sizeof(Disk::monsters)));
+        presence_slot(runtime.monsters, field(offsetof(Disk, monsters), sizeof(Disk::monsters)));
         value(&runtime.visible_member_count, field(offsetof(Disk, visible_member_count), sizeof(Disk::visible_member_count)));
         value(&runtime.selectable_member_count, field(offsetof(Disk, selectable_member_count), sizeof(Disk::selectable_member_count)));
         value(&runtime.active_member_count, field(offsetof(Disk, active_member_count), sizeof(Disk::active_member_count)));

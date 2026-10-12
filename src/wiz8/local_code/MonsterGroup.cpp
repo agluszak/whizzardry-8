@@ -5,7 +5,6 @@
 #include <string>
 #include <vector>
 #include <cmath>
-#include <cstdlib>
 #include <cstring>
 #include <memory>
 
@@ -978,17 +977,11 @@ W8MonsterGroup* CreateGroup(unsigned int monster_id, unsigned int count,
     if (count > 9) {
         count = 9;
     }
-    group = static_cast<W8MonsterGroup*>(malloc(sizeof(W8MonsterGroup)));
-    if (group == 0) {
-        return 0;
-    }
-    memset(group, 0, sizeof(W8MonsterGroup));
-
     record = MonsterDBFromSpecies(monster_id);
     if (record == 0) {
-        free(group);
         return 0;
     }
+    group = new W8MonsterGroup{};
 
     do {
         group->group_id = g_status.next_group_id;
@@ -1020,12 +1013,6 @@ W8MonsterGroup* CreateGroup(unsigned int monster_id, unsigned int count,
     group->group_state[5] = 0xff;
     group->spawn_time = g_status.world_clock;
 
-    group->monsters = new std::vector<int>;
-    if (group->monsters == 0) {
-        free(group);
-        return 0;
-    }
-
     list = &gXStatus.monster_groups;
     if (record->unborn != 0) {
         list = &gXStatus.encounter_groups;
@@ -1034,7 +1021,9 @@ W8MonsterGroup* CreateGroup(unsigned int monster_id, unsigned int count,
 
     for (created = 0; created < count; ++created) {
         if (CreateMonsterInfo(group, record, const_cast<srVector3T<float>*>(position)) == 0) {
-            free(group);
+            // Retail freed the group while it was still listed.
+            wiz8::erase_first(*list, group);
+            delete group;
             return 0;
         }
     }
@@ -1081,7 +1070,7 @@ bool DestroyMonsterGroup(W8MonsterGroup* monster_group, W8MonsterInfo* monster_i
 {
     unsigned int group_list_index;
     std::vector<W8MonsterGroup*>* list;
-    void* removed;
+    W8MonsterGroup* removed;
 
     if (monster_group->members_active) {
         DetachMonsterGroup(monster_group);
@@ -1094,7 +1083,6 @@ bool DestroyMonsterGroup(W8MonsterGroup* monster_group, W8MonsterInfo* monster_i
     } else {
         RefreshMonsterGroup(UnlinkMonsterGroupFromLeader(monster_group));
     }
-    delete monster_group->monsters;
     group_list_index = GetMonsterGroupIndexByID(monster_group->group_id);
     list = &gXStatus.monster_groups;
     if (group_list_index >= W8_ENCOUNTER_GROUP_INDEX_BIAS) {
@@ -1106,7 +1094,7 @@ bool DestroyMonsterGroup(W8MonsterGroup* monster_group, W8MonsterInfo* monster_i
     if (removed == nullptr) {
         return false;
     }
-    free(removed);
+    delete removed;
     return true;
 }
 
