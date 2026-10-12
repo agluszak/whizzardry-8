@@ -1,3 +1,4 @@
+#include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/local_screens/MGSSpellIcons.h"
 
 #include <memory>

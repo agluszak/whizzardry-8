@@ -46,7 +46,6 @@
 #include "input.h"
 #include "game_timer.h"
 #include "local_code/CombatAttack.h"
-#include "local_code/Controls.h"
 #include "local_code/RangeControl.h"
 #include "surrender/srMath.h"
 
@@ -71,7 +70,6 @@ static constexpr std::array<RegionTemplate, 5> g_camp_skill_templates{{
 }};
 ScreenRegionSet g_camp_skill_regions{g_camp_skill_templates};
 
-static unsigned char CampStatsMouseWheel(const InputEvent* event, W8Region*, unsigned short);
 void DrawCampEffectList(void);
 void DrawCampEffectEntry(W8CampEffectEntry* entry, int* line_out);
 
@@ -118,54 +116,57 @@ static W8PortraitGroup g_portrait_groups[12] = {
 // FUNCTION: WIZ8 0x005c4540
 W8CampStatsControls::W8CampStatsControls()
 {
-    CreateRegionSet();
-    m_buttons[0] = EmplaceControl<W8TextControl>(-1, 0x13c, 0xbe, 0, 0, CatalogArtwork::Load(0x145, 0), W8SpriteStates{.normal = 0, .pressed = 1, .alternate_normal = 2, .alternate_pressed = 4, .disabled = 3});
-    m_buttons[0]->AddLayoutFlags(g_W8TextControlLayoutLatchedImage | g_W8TextControlLayoutToggle);
-    m_buttons[0]->m_listener = this;
-    m_buttons[0]->EnableRegionHelp(0x954);
-    m_buttons[1] = EmplaceControl<W8TextControl>(-1, 0x13c, 0xd6, 0, 0, CatalogArtwork::Load(0x145, 0), W8SpriteStates{.normal = 5, .pressed = 6, .alternate_normal = 7, .alternate_pressed = 9, .disabled = 8});
-    m_buttons[1]->AddLayoutFlags(g_W8TextControlLayoutLatchedImage | g_W8TextControlLayoutToggle);
-    m_buttons[1]->m_listener = this;
-    m_buttons[1]->EnableRegionHelp(0x955);
-    m_buttons[2] = EmplaceControl<W8TextControl>(-1, 0x13c, 0xf3, 0, 0, CatalogArtwork::Load(0x145, 0), W8SpriteStates{.normal = 10, .pressed = 15, .alternate_normal = 12, .alternate_pressed = 17, .disabled = 13});
-    m_buttons[2]->AddLayoutFlags(g_W8TextControlLayoutLatchedImage | g_W8TextControlLayoutToggle);
-    m_buttons[2]->m_listener = this;
-    m_buttons[2]->EnableRegionHelp(0x956);
-    if (g_camp_screen->effect_items_only) {
-        m_buttons[2]->EnableSecondaryState(false);
+    constexpr int y[] = {0xbe, 0xd6, 0xf3};
+    for (int index = 0; index < 3; ++index) {
+        const int frame = index * 5;
+        auto& button = m_buttons[index];
+        button = std::make_unique<W8ButtonWidget>(input);
+        button->Configure(CatalogArtwork::Load(0x145, 0).spriteSheet(), frame + 3,
+            frame, frame + 2, index == 2 ? 15 : frame + 1, index == 2 ? 17 : frame + 4,
+            [this, index](auto*) { AfterUiDispatch([this, index] { SelectFilter(index); }); },
+            {}, false, 0, 0x954 + index, {}, {});
+        button->policy.controller_activation = true;
+        button->policy.primary_toggle = ButtonToggle::Release;
+        button->SetPosition(0x13c, y[index]);
     }
-    static constexpr RegionTemplate kWheelRegion{W8_REGION_RECTANGLE, 0x15d, 0xbe, 0x260, 0x1b5,
-                                                 CampStatsMouseWheel, 0, false, -1};
-    m_wheel_region = OwnedRegion(RegionSet(), kWheelRegion);
-    Controls::SetActive(true);
+    m_buttons[2]->SetPressed(g_camp_screen->effect_items_only);
+    input.add(SDL_Rect{0x15d, 0xbe, 260, 248}, [](const UiPointerEvent& event) {
+        PushButtonSoundScheme(0, true);
+        if (event.action != UiPointerAction::Wheel) return UiResult::Pass;
+        g_camp_screen->stats_range->AdjustValue(event.wheel);
+        return UiResult::Handled;
+    });
 }
 
-// FUNCTION: WIZ8 0x005c47a0
-W8CampStatsControls::~W8CampStatsControls()
+void W8CampStatsControls::InvalidateAll()
 {
-    DestroyAllControls();
+    for (const auto& button : m_buttons) button->m_dirty = true;
 }
 
-// FUNCTION: WIZ8 0x005c4800
-void W8CampStatsControls::OnPrimary(W8TextControl* control)
+void W8CampStatsControls::Redraw(SDL_Surface& target, bool force)
 {
-    if (control == m_buttons[0]) {
-        if (m_buttons[0]->IsSelected()) {
-            m_buttons[1]->DisableSecondaryState(false);
+    for (const auto& button : m_buttons) { button->m_dirty |= force; button->Draw(target); }
+}
+
+void W8CampStatsControls::SelectFilter(int index)
+{
+    if (index == 0) {
+        if (m_buttons[0]->IsPressed()) {
+            m_buttons[1]->SetPressed(false);
             g_camp_screen->effect_filter = W8_CAMP_EFFECT_FILTER_BENEFICIAL;
         } else {
             g_camp_screen->effect_filter = W8_CAMP_EFFECT_FILTER_ALL;
         }
-    } else if (control == m_buttons[1]) {
-        if (m_buttons[1]->IsSelected()) {
-            m_buttons[0]->DisableSecondaryState(false);
+    } else if (index == 1) {
+        if (m_buttons[1]->IsPressed()) {
+            m_buttons[0]->SetPressed(false);
             g_camp_screen->effect_filter = W8_CAMP_EFFECT_FILTER_DETRIMENTAL;
         } else {
             g_camp_screen->effect_filter = W8_CAMP_EFFECT_FILTER_ALL;
         }
     } else {
         g_camp_screen->effect_items_only =
-            m_buttons[2]->IsSelected();
+            m_buttons[2]->IsPressed();
     }
     FilterCampEffectList();
     g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_EFFECT_LIST;
@@ -623,16 +624,6 @@ void DrawCampEffectEntry(W8CampEffectEntry* entry, int* line_out)
 /* Wheel input over the stats page's effect-list region steps the
    scrollbar. */
 // FUNCTION: WIZ8 0x005c5c60
-static unsigned char CampStatsMouseWheel(const InputEvent* event, W8Region*, unsigned short)
-{
-    PushButtonSoundScheme(0, true);
-    if (event->type != InputEventType::MouseWheel) {
-        return 0;
-    }
-    g_camp_screen->stats_range->AdjustValue(event->wheel);
-    return 1;
-}
-
 /* Creates the five skill-category regions once per camp session and points
    them at the list handler. Category 4 is the overflow block under the right
    column. */

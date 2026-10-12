@@ -125,19 +125,3 @@ protected:
     void NotifySecondaryActivation();
 };
 
-// VTABLE: WIZ8 0x005ed758
-class W8HelpTextControl : public W8TextControl {
-public:
-    W8HelpTextControl(unsigned int region, int left, int top, int right, int bottom);
-
-    void SetRegionHelp(std::string_view text);
-    virtual void OnMouseEnter(int event) override;
-    virtual void OnLeftButtonDown(int event) override;
-    virtual void OnRightButtonDown(int event) override;
-    virtual void OnLeftButtonUp(int event) override;
-    virtual void OnRightButtonUp(int event) override;
-    virtual void OnLeftButtonDoubleClick(int event) override;
-
-protected:
-    std::string m_regionHelp;
-};

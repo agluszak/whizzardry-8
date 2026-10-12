@@ -1,9 +1,11 @@
 #pragma once
 
 #include "wiz8/regions.h"
-#include "wiz8/local_code/Controls.h"
+#include "wiz8/ui_layer.h"
+#include "wiz8/local_code/ButtonWidget.h"
+#include <array>
+#include <memory>
 #include "wiz8/local_code/RangeControl.h"
-#include "wiz8/local_code/TextControl.h"
 #include "input.h"
 #include "compat/compiler.h"
 
@@ -28,15 +30,14 @@ struct W8CampEffectEntry {
    list: button 0 selects beneficial rows, button 1 detrimental rows and
    button 2 switches the list to equipped items. */
 
-// VTABLE: WIZ8 0x005ef53c Controls
-// VTABLE: WIZ8 0x005ef534 W8TextControl::Listener
-class W8CampStatsControls : public Controls, public W8TextControl::Listener {
+class W8CampStatsControls {
 public:
     W8CampStatsControls();
-    virtual ~W8CampStatsControls();
-    virtual void OnPrimary(W8TextControl* control) override;
-    W8TextControl* m_buttons[3];
-    OwnedRegion m_wheel_region;
+    void Redraw(SDL_Surface& target, bool force);
+    void InvalidateAll();
+    void SelectFilter(int index);
+    UiLayer input;
+    std::array<std::unique_ptr<W8ButtonWidget>, 3> m_buttons;
 };
 
 /* Camp page-1 renderer - attributes, traits and the effect list trigger. */

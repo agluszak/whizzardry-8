@@ -1,4 +1,5 @@
 #pragma once
+#include <string>
 
 #include "wiz8/character_skills.h"
 #include "wiz8/dialog_code/DialogBase.h"
@@ -70,8 +71,6 @@ void ToggleCampItemFilter(W8CampItemFilterButton tab);
 unsigned char BackpackRegionHandler(const InputEvent* event, W8Region* region, unsigned short);
 unsigned char EquipSlotRegionHandler(const InputEvent* event, W8Region* region, unsigned short);
 unsigned char ItemPoolRegionHandler(const InputEvent* event, W8Region* region, unsigned short);
-unsigned char RealmTabRegionHandler(const InputEvent* event, W8Region* region, unsigned short);
-unsigned char PanelTabRegionHandler(const InputEvent* event, W8Region* region, unsigned short);
 void SetItemTooltip(W8ItemInstance* item, W8Region* region);
 void DrawCampItemIcons(void);
 
@@ -81,19 +80,17 @@ bool IsSpecialItemId(W8ItemInstance* item);
 extern unsigned short g_equip_slot_label_ids[12];
 
 /* Camp panel lifecycle helpers. */
-int CreateCampActionPanel(void);
-void ReleaseCampActionPanel(void);
 void EnableCampActionButtons(void);
 void DisableCampActionButtons(void);
 void RefreshCampActionPanel(bool invalidate);
-int CreateItemsTabPanel(void);
-void ReleaseItemsTabPanel(void);
 void UpdateCampItemFilters(void);
 void DisableItemsRealmTabs(void);
 void RefreshItemsTabPanel(bool invalidate);
-int CreateCampSecondaryPanel(void);
-void ReleaseCampSecondaryPanel(void);
 void InvalidateCampPanel(void);
 void EnableCampSecondaryPanel(void);
 void DisableCampSecondaryPanel(void);
 void RefreshCampSecondaryPanel(bool invalidate);
+
+void CreateCampItemControls();
+void DestroyCampItemControls();
+void SetCampItemHelp(std::string text);

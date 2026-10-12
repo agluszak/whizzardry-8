@@ -73,6 +73,12 @@ point-allocation buttons, spell lists and personality choices without Controls,
 W8Widget, selection collections or listener interfaces. The effect HUD paints
 directly from effect slots and owns only its hover targets.
 
+Camp panels also own their action/filter buttons, tabs and help targets directly.
+The level-up/dismiss, stats-filter, character-info, item-action, item-filter and
+secondary panels no longer use widget trees. The unused help-text widget and
+its input overrides are deleted. Pixel geometry no longer depends on camp
+region registration IDs.
+
 ## Remaining deletion work
 
 1. Finish merging button painting. Remove obsolete wrappers rather than adding

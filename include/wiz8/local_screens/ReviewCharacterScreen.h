@@ -1,3 +1,7 @@
+#include "wiz8/ui_layer.h"
+#include "wiz8/local_code/ButtonWidget.h"
+#include <array>
+#include <string>
 #pragma once
 
 #include <string_view>
@@ -17,10 +21,8 @@
 #include "wiz8/local_screens/RCSStatsPage.h"
 #include "input.h"
 #include "compat/compiler.h"
-#include "local_code/Controls.h"
 #include "local_code/TextControl.h"
 
-class W8Widget;
 struct W8Character;
 struct W8CombatSlot;
 struct W8Region;
@@ -29,14 +31,12 @@ extern ScreenRegionSet g_camp_main_regions;
 extern ScreenRegionSet g_camp_inventory_regions;
 extern ScreenRegionSet g_camp_item_pool_regions;
 extern ScreenRegionSet g_camp_spell_list_regions;
-extern ScreenRegionSet g_camp_page_regions;
-extern ScreenRegionSet g_camp_item_action_regions;
 extern ScreenRegionSet g_camp_automap_regions;
 extern ScreenRegionSet g_camp_overlay_regions;
 
 enum CampMainRegionOffset {
-    kCampPartyPortraitRegionOffset = 3,
-    kCampCharacterHeaderRegionOffset = 11
+    kCampPartyPortraitRegionOffset = 1,
+    kCampCharacterHeaderRegionOffset = 9
 };
 
 enum CampInventoryRegionOffset {
@@ -85,20 +85,22 @@ enum W8CampItemFilter {
     W8_CAMP_ITEM_FILTER_COUNT = 6
 };
 
-// VTABLE: WIZ8 0x005ef278 Controls
-// VTABLE: WIZ8 0x005ef270 W8TextControl::Listener
-class W8CampCharacterInfo : public Controls, public W8TextControl::Listener {
+class W8CampCharacterInfo {
 public:
     W8CampCharacterInfo();
-    virtual void SetActive(bool enabled) override;
-    void Redraw(SDL_Surface& target, bool full_redraw) override;
-    virtual void OnPrimary(W8TextControl* control) override;
+    void SetActive(bool enabled);
+    void Redraw(SDL_Surface& target, bool full_redraw);
     void SetCombatView(bool enabled);
-    bool m_combat_view;
-    unsigned char m_pad_051[3];
-    W8TextControl* m_combat_tab;
-    W8TextControl* m_stats_tab;
-    W8HelpTextControl* m_values[4];
+    void InvalidateAll() { m_dirty = true; }
+    UiLayer input;
+    bool m_combat_view = true;
+    bool m_active = false;
+    bool m_dirty = true;
+    int m_backgroundImage = 0;
+    std::unique_ptr<W8ButtonWidget> m_combat_tab;
+    std::unique_ptr<W8ButtonWidget> m_stats_tab;
+    std::array<HitTarget*, 4> m_values;
+    std::array<std::string, 4> m_help;
 };
 
 /* W8CampScreenState::redraw_flags. Party-slot bits are shifted by the slot
@@ -206,15 +208,6 @@ extern bool g_camp_character_pending;
    CreateItemsTabPanel and read here and in RCSItemsPage.cpp. The
    secondary panel owns the Items/Character info page tabs, the character-info
    help text, the seven attribute rows and the four secondary value labels. */
-extern std::unique_ptr<Controls> g_camp_secondary_panel;
-extern W8Widget* g_camp_info_labels[4];
-extern W8TextControl* g_camp_page_tabs[2];
-extern W8HelpTextControl* g_camp_help_text;
-extern W8Widget* g_camp_stat_labels[7];
-extern std::unique_ptr<Controls> g_camp_action_panel;
-extern W8TextControl* g_camp_action_buttons[2];
-extern W8TextControl* g_camp_item_filter_buttons[7];
-extern std::unique_ptr<Controls> g_camp_item_filter_panel;
 /* One g_localized_strings id per primary attribute row; defined in
    ReviewCharacterScreen.cpp, drawn by RCSStatsPage.cpp's stats page. */
 extern int g_attribute_label_ids[7];

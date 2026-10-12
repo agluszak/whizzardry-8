@@ -1251,14 +1251,6 @@ void W8TextControl::SetAlternateTextEnabled(bool enabled)
     m_alternateTextEnabled = enabled;
 }
 
-// FUNCTION: WIZ8 0x004f65e0
-W8HelpTextControl::W8HelpTextControl(unsigned int region, int left, int top, int right,
-                                     int bottom)
-    : W8TextControl(region, left, top, right, bottom)
-{
-    m_regionHelp.clear();
-}
-
 W8RangeControl::W8RangeControl(int left, int top, int right, int bottom)
 {
     for (int part = 0; part < 3; ++part)
@@ -1409,68 +1401,6 @@ void W8RangeControl::Redraw(SDL_Surface& target, bool full_redraw)
     if (m_enabled) m_artwork.draw(target, m_hovered ? 5 : 4,
         m_track.x + m_track.w - m_artwork.size(4).x,
         m_track.y + static_cast<int>(m_position * m_travel));
-}
-
-// FUNCTION: WIZ8 0x004f6680
-void W8HelpTextControl::SetRegionHelp(std::string_view text)
-{
-    if (!text.empty()) {
-        m_regionHelp = text;
-    }
-}
-
-// FUNCTION: WIZ8 0x004f66b0
-void W8HelpTextControl::OnMouseEnter(int event)
-{
-    PushButtonSoundScheme(0, true);
-    W8TextControl::OnMouseEnter(event);
-    if (m_regionHelp.size() > 1 && m_region != -1) {
-        ::SetRegionHelpText(m_regionHelp);
-        g_regions[m_region].help_enabled = true;
-        return;
-    }
-    if (m_region != -1) {
-        g_regions[m_region].help_enabled = false;
-    }
-}
-
-// FUNCTION: WIZ8 0x005b7cb0
-void W8HelpTextControl::OnLeftButtonDown(int event)
-{
-    PushButtonSoundScheme(0, true);
-    W8TextControl::OnLeftButtonDown(event);
-}
-
-// FUNCTION: WIZ8 0x004f6720
-void W8HelpTextControl::OnRightButtonDown(int event)
-{
-    if (m_onSecondary == 0) {
-        PushButtonSoundScheme(0, true);
-    }
-    W8TextControl::OnRightButtonDown(event);
-}
-
-// FUNCTION: WIZ8 0x005b7cd0
-void W8HelpTextControl::OnLeftButtonUp(int event)
-{
-    PushButtonSoundScheme(0, true);
-    W8TextControl::OnLeftButtonUp(event);
-}
-
-// FUNCTION: WIZ8 0x004f6780
-void W8HelpTextControl::OnRightButtonUp(int event)
-{
-    if (m_onSecondary == 0) {
-        PushButtonSoundScheme(0, true);
-    }
-    W8TextControl::OnRightButtonUp(event);
-}
-
-// FUNCTION: WIZ8 0x004f6810
-void W8HelpTextControl::OnLeftButtonDoubleClick(int event)
-{
-    PushButtonSoundScheme(0, true);
-    W8TextControl::OnLeftButtonDoubleClick(event);
 }
 
 /* Enables or disables the whole panel: the panel's own flag, then every child's,
