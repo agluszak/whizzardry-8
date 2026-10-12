@@ -32,7 +32,8 @@ live layers and maintains hover, capture, modal scopes and the tooltip timer.
 
 The numeric region registry, templates, IDs, slot recycling, binding generations,
 `OwnedRegion`, `ScreenRegionSet`, `RegionSetView`, `ExclusiveRegionSet`, and region
-handler adapters are deleted. Gameplay pause/mouselook policy remains in gameplay
+handler adapters and the paired global input-sink protocol are deleted.
+Gameplay pause/mouselook policy remains in gameplay
 controllers, separate from modal UI ownership.
 
 ## Controls and painting

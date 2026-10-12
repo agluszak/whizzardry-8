@@ -2659,6 +2659,7 @@ void SetMainGameMode(W8MainGameMode mode)
 
 unsigned char ProcessMainGameInput(void)
 {
+    if (IsModalOpen()) return false;
     return PumpUiInput({
         .before = [](const InputEvent& input) {
             if (g_mouselook_active && HandleMouselookInput(&input)) return InputRoute::Handled;
@@ -2667,7 +2668,6 @@ unsigned char ProcessMainGameInput(void)
             return InputRoute::Pass;
         },
         .unhandled = [](const InputEvent& input) {
-            if (InputSinkCaptured()) return InputRoute::Handled;
             switch (input.type) {
             case InputEventType::LeftButtonDown:
             case InputEventType::LeftButtonUp:
@@ -2681,7 +2681,7 @@ unsigned char ProcessMainGameInput(void)
             }
             return InputRoute::Handled;
         },
-        .track_hover = !InputSinkCaptured() && !g_main_input->resume_world,
+        .track_hover = !g_main_input->resume_world,
     });
 }
 
@@ -2756,7 +2756,6 @@ update_screen:
             PauseMainGameWorld();
         }
         if (!g_modal_owner->ProcessInput()) {
-            ReleaseInputSinkCapture();
             g_modal_owner.reset();
             if (g_pending_main_game_dialog) {
                 g_modal_owner = std::move(g_pending_main_game_dialog);
@@ -4180,7 +4179,6 @@ void ShowMainGameNoticeLine(std::string_view text, W8DialogDestroyCallback callb
     dialog->SetMessage(text, 1, 0x32, confirmation, cancel, true, true, 0, 0x15e);
     SetDialogDestroyCallback(dialog, callback);
     g_modal_owner.reset(dialog);
-    CaptureInputSink();
 }
 
 /* Note that the party's state changed. The combat half is only asked for while
@@ -4388,7 +4386,6 @@ void RequestLevelTransition(int level, int entry, unsigned char flag)
                            0x15e);
         SetDialogDestroyCallback(dialog, OnEnterLevelDialogClosed);
         g_modal_owner.reset(dialog);
-        CaptureInputSink();
         return;
     }
     BeginLevelTransition();
@@ -4725,7 +4722,6 @@ apply_mode_tail:
 void OpenModal(std::unique_ptr<ModalContent> owner)
 {
     g_modal_owner = std::move(owner);
-    CaptureInputSink();
 }
 
 /* Re-sync each party slot's region set and portrait hit region with the
@@ -6662,7 +6658,6 @@ void OpenMonsterInfoDialog(int location_id)
     dialog->SetText("");
     dialog->m_destroy_callback = InvalidateMainGameScreen;
     g_modal_owner.reset(dialog);
-    CaptureInputSink();
 }
 
 /* Open the assay dialog over the main game screen. A live modal dialog is
@@ -6683,7 +6678,6 @@ void OpenAssayDialog(W8ItemInstance* item, int character_slot)
     dialog->SetOrigin(g_info_dialog_x, 0x48);
     dialog->m_destroy_callback = InvalidateMainGameScreen;
     g_modal_owner.reset(dialog);
-    CaptureInputSink();
 }
 
 /* Queue `party_slot` for the pending screen and unwind whichever main-game

@@ -57,7 +57,6 @@ InputEvent PointerMotion(SDL_Point point)
 struct UiState {
     std::vector<UiLayer*> layers, modals;
     HitTarget* tooltip = nullptr;
-    bool sink = false;
 
     bool allowed(const UiLayer& layer) const
     {
@@ -87,7 +86,6 @@ struct UiState {
     }
     HitTarget* at(SDL_Point point) const
     {
-        if (sink && modals.empty()) return nullptr;
         // Text editors sit above their hosting plate and use the cursor tip.
         for (const bool text : {true, false}) {
             for (auto* layer : layers) {
@@ -304,10 +302,8 @@ void UpdateUiPointer(int x, int y)
     State().motion(PointerMotion({x, y}));
 }
 SDL_Point UiPointerPosition() { return g_ui.pointer; }
+bool UiModalActive() { return !State().modals.empty(); }
 void ReleaseUiCapture() { if (g_ui.captured) g_ui.captured->releaseCapture(); }
-void CaptureInputSink() { ClearUiHover(); ReleaseUiCapture(); State().sink = true; }
-void ReleaseInputSinkCapture() { State().sink = false; }
-bool InputSinkCaptured() { return State().sink; }
 
 bool DispatchUiInput(const InputEvent* input)
 {
@@ -332,7 +328,7 @@ bool DispatchUiInput(const InputEvent* input)
         static_cast<w8_ulong>(input->position.x) | (static_cast<w8_ulong>(input->position.y) << 16), g_current_screen_state.id);
 #endif
     auto* target = state.live(g_ui.captured) ? g_ui.captured : state.at(input->position);
-    if (!target) return state.sink && state.modals.empty();
+    if (!target) return false;
     state.hideTooltip();
     g_ui_help_clock = w8_get_ticks() + g_ui_help_delay;
     const auto mask = button == UiPointerButton::Left ? SDL_BUTTON_LMASK : SDL_BUTTON_RMASK;
@@ -364,7 +360,6 @@ void ResetUiInput()
     state.hideTooltip();
     ReleaseUiCapture();
     g_ui.ClearPointer();
-    state.sink = false;
     for (auto* layer : state.layers) {
         layer->setEnabled(false);
     }

@@ -290,7 +290,7 @@ private:
 public:
     std::deque<W8ButtonWidget> m_buttons; /* minus/plus, frames, accept/cancel */
     W8TextBuffer* m_texts[14];
-    W8DialogNumericInput* m_count_input;
+    std::unique_ptr<W8DialogNumericInput> m_count_input;
     /* The numeric field while a click or keypress owns it. */
     W8DialogNumericInput* m_active_input;
     int m_remaining; /* the count left in the source stack */

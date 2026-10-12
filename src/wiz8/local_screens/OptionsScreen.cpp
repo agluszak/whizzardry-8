@@ -50,6 +50,7 @@
 #include "input.h"
 #include "surrender/srColorSurface.h"
 #include "dialog_code/MessageDialogBase.h"
+#include "wiz8/dialog_code/DialogInterface.h"
 #include "difficulty.h"
 #include "file_time.h"
 #include "layouts/world.h"

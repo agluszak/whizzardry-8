@@ -23,10 +23,6 @@ enum W8PartyConfirmationAction {
     W8_PARTY_CONFIRM_LEAVE = 5
 };
 
-/* Region-set slots the party-selection party builder shares between its panels.
-   A panel acquires a slot by address; an unused slot is zero, so the caller
-   allocates from the static region catalog on first use. */
-
 /* One byte per portrait, nonzero for the portraits that carry
    animation frames. */
 extern unsigned char g_portrait_frame_flags[0x50];

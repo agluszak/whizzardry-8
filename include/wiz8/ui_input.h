@@ -32,9 +32,7 @@ SDL_Point UiPointerPosition();
 bool DispatchUiInput(const InputEvent* event);
 void ResetUiInput();
 void ClearUiHover();
-void CaptureInputSink();
-void ReleaseInputSinkCapture();
-bool InputSinkCaptured();
+bool UiModalActive();
 void ReleaseUiCapture();
 std::size_t LiveUiTargetCount();
 std::size_t LiveUiLayerCount();
@@ -48,7 +46,7 @@ enum class InputRoute { Pass, Handled, Stop };
 
 /* How a screen or modal routes its frame's input. Each queued event is
    offered once: `before` may claim it ahead of the UI (gameplay pointer
-   capture, a focused text field); otherwise the active region tree (the
+   capture, a focused text field); otherwise the active input layers (the
    innermost modal scope, else the screen) dispatches it when `ui_accepts`
    allows, and `consumed` or `unhandled` applies the caller's policy.
    Pass and Handled continue draining; Stop leaves the rest for next frame. */

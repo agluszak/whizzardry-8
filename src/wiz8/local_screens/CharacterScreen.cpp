@@ -200,7 +200,6 @@ void W8CharacterScreen::UpdateDialog()
             }
         }
         if (!m_dialog->ProcessInput()) {
-            ReleaseInputSinkCapture();
             m_navigation_dirty = true;
             m_pages[m_page_index]->Prepare();
             m_header_dirty = true;
@@ -245,7 +244,7 @@ void W8CharacterScreen::ShowSpellInfo(int value)
     m_dialog_response = 0;
     m_dialog = new W8SpellInfoDialog(value);
     m_dialog->SetText("");
-    CaptureInputSink();
+    m_dialog->InputLayer().setModal(true);
 }
 
 // FUNCTION: WIZ8 0x005b06a0
@@ -254,7 +253,7 @@ void W8CharacterScreen::ShowProfessionInfo(W8Profession profession)
     m_dialog_response = 0;
     m_dialog = new W8ProfessionInfoDialog(profession);
     m_dialog->SetText("");
-    CaptureInputSink();
+    m_dialog->InputLayer().setModal(true);
 }
 
 // FUNCTION: WIZ8 0x005b0730
@@ -263,7 +262,7 @@ void W8CharacterScreen::ShowRaceInfo(W8Race race)
     m_dialog_response = 0;
     m_dialog = new W8RaceInfoDialog(race);
     m_dialog->SetText("");
-    CaptureInputSink();
+    m_dialog->InputLayer().setModal(true);
 }
 
 // FUNCTION: WIZ8 0x005b07c0
@@ -272,7 +271,7 @@ void W8CharacterScreen::ShowPrimaryAttributeInfo(W8Attribute attribute)
     m_dialog_response = 0;
     m_dialog = new W8AttributeInfoDialog(attribute);
     m_dialog->SetText("");
-    CaptureInputSink();
+    m_dialog->InputLayer().setModal(true);
 }
 
 // FUNCTION: WIZ8 0x005b0850
@@ -281,7 +280,7 @@ void W8CharacterScreen::ShowSecondaryAttributeInfo(unsigned int attribute)
     m_dialog_response = 0;
     m_dialog = new W8SecondaryAttributeInfoDialog(attribute);
     m_dialog->SetText("");
-    CaptureInputSink();
+    m_dialog->InputLayer().setModal(true);
 }
 
 // FUNCTION: WIZ8 0x005b08e0
@@ -294,7 +293,7 @@ void W8CharacterScreen::ShowSkillInfo(W8Skill value)
         m_dialog = new W8SkillInfoDialog(value, false, false, false);
     }
     m_dialog->SetText("");
-    CaptureInputSink();
+    m_dialog->InputLayer().setModal(true);
 }
 
 void W8CharacterScreen::DrawNavigation(SDL_Surface& target)
@@ -326,7 +325,7 @@ void W8CharacterScreen::ShowCharacterSummary()
 {
     m_dialog_response = 1;
     m_dialog = CreateCharacterSummaryDialog(&m_character);
-    CaptureInputSink();
+    m_dialog->InputLayer().setModal(true);
 }
 
 // FUNCTION: WIZ8 0x005b0b50
@@ -581,7 +580,7 @@ void W8CharacterScreen::ShowMessage(std::string_view text, int confirmation, int
         static_cast<W8MessageDialogBase*>(m_dialog)->SetClientExtent(0xfa, 200);
         static_cast<W8MessageDialogBase*>(m_dialog)->SetMessage(text, 1, 0x32, true, confirmation,
                                                                 true, true, 0, 0x15e);
-        CaptureInputSink();
+        m_dialog->InputLayer().setModal(true);
         m_capture_dialog_result = true;
     }
 }
@@ -712,6 +711,7 @@ void CharacterScreenFrame(void)
     W8CharacterScreen* screen = g_character_screen.get();
     PumpUiInput({
         .before = [screen](const InputEvent& input) {
+            if (screen->m_dialog) return InputRoute::Stop;
             screen->m_pages[screen->m_page_index]->HandleInput(&input);
             return InputRoute::Pass;
         },

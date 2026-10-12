@@ -7,7 +7,7 @@
 #include "sprite.h"
 
 bool IsVoiceMuted(void);
-/* The audio panels pass the raw W8TextControl mask bit (0 or 2) through. */
+/* Audio panels pass 0 or 2 for the enabled setting. */
 void SetVoiceMuted(unsigned char muted);
 
 struct W8Character;

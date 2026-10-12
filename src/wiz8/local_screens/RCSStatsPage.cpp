@@ -825,7 +825,6 @@ UiResult HandleCampSkillList(const UiPointerEvent& event, int category)
    demo 0x005CFAD0..0x005D0FE0 inside the same hull. */
 
 // VTABLE: WIZ8 0x005ef57c W8CharacterPage
-// VTABLE: WIZ8 0x005ef570 W8TextControl::Listener
 // class W8CharacterPersonalityPage
 // FUNCTION: WIZ8 0x005c6460
 void W8CharacterPersonalityPage::SetCharacter(W8Character* character,

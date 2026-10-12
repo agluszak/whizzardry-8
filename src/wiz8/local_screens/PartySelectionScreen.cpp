@@ -1049,7 +1049,7 @@ void W8PartySelectionController::OpenNotification(std::string_view message, bool
     m_dialog->SetClientExtent(0xfa, 200);
     m_dialog->SetMessage(message, 1, 0x32, true, allow_cancel, true, true, 0,
                          0x15e);
-    CaptureInputSink();
+    m_dialog->InputLayer().setModal(true);
 }
 
 void W8PartySelectionController::ApplyPartySelectionConfirmation(W8PartyConfirmationAction,
@@ -1250,12 +1250,12 @@ void PartySelectionScreenFrame(void)
         if (!controller->m_dialog->is_open) {
             bool result = controller->m_dialog->accepted;
             controller->m_dialog.reset();
-            ReleaseInputSinkCapture();
             controller->InvalidatePartySelectionComposition();
             controller->ApplyPartySelectionConfirmation(controller->m_confirmation_action, result);
         }
     }
     PumpUiInput({.unhandled = [&](const InputEvent& input) {
+        if (controller->m_dialog) return InputRoute::Stop;
         if (!controller->HandleNameInput(input) &&
             (input.type == InputEventType::KeyDown || input.type == InputEventType::KeyRepeat)) {
             switch (input.key) {

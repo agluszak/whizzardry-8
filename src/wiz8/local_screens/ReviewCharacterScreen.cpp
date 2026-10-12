@@ -1200,7 +1200,6 @@ void CampScreenFrame(void)
     }
     ServiceMusicPlaylist();
     if (g_camp_screen->dialog && !ProcessDialogInput(g_camp_screen->dialog.get())) {
-        ReleaseInputSinkCapture();
         g_camp_screen->dialog.reset();
         g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_ALL;
     }
@@ -1212,6 +1211,7 @@ void CampScreenFrame(void)
     SGPMouseGetPos(&point);
     UpdateUiPointer(point.x, point.y);
     PumpUiInput({.unhandled = [&](const InputEvent& input) {
+        if (g_camp_screen->dialog) return InputRoute::Stop;
         if (input.type == InputEventType::KeyDown) {
             if (input.key == VK_ESCAPE) {
                 if (g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_NONE ||
@@ -1281,9 +1281,6 @@ unsigned char CampScreenLeave(int)
     DestroyCampButtonPanel();
     DestroyCampItemControls();
     DestroyCampHeaderButtons();
-    if (g_camp_screen->dialog) {
-        ReleaseInputSinkCapture();
-    }
     g_camp_screen.reset();
     ResetUiInput();
     if (gXStatus.fCampMode) {
@@ -1625,7 +1622,7 @@ void SetCampHeaderMode(W8CampHeaderMode mode)
 void DisplayCampDialog(std::unique_ptr<W8DialogBase> dialog)
 {
     g_camp_screen->dialog = std::move(dialog);
-    CaptureInputSink();
+    g_camp_screen->dialog->InputLayer().setModal(true);
 }
 
 void ShowCampNoticeLine(std::string_view text, W8DialogDestroyCallback callback, bool confirmation,
@@ -2312,7 +2309,6 @@ void BeginEndgameSequence(void)
         endgame_variant = true;
     }
     ResetUiInput();
-    CaptureInputSink();
     VideoRemoveToolTip();
     g_level_block->transition_pending = true;
     g_level_block->review_transition_active = true;
@@ -2424,7 +2420,6 @@ void BeginPartyDeath(void)
     wiz8::sound::play("Data\\Sound\\Misc\\PartyDead.wav");
     StartMusicResource("CombatLose.MPL", 0, 1);
     ResetUiInput();
-    CaptureInputSink();
     VideoRemoveToolTip();
     g_level_block->transition_pending = true;
     BeginScreenFade(1, 0, 0x7d0, DrawPartyDeathScreen, true, 0);
@@ -2499,7 +2494,6 @@ void DrawPartyDeathScreen(void)
    party death just stops the playlist. */
 void EndReviewTransition(void)
 {
-    ReleaseInputSinkCapture();
     if (g_ending_sound != nullptr) {
         wiz8::sound::stop(g_ending_sound);
         g_ending_sound = nullptr;

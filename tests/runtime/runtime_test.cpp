@@ -627,7 +627,7 @@ void StartGame(Game& game)
          ++press)
     {
         game.click_at(430, 447);
-        if (InputSinkCaptured())
+        if (UiModalActive())
             game.key(SDLK_RETURN);
     }
     game.wait_screen("main-game", W8_SCREEN_MAIN_GAME, 60);

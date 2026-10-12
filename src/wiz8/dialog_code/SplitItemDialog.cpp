@@ -2,6 +2,7 @@
 #include <fmt/format.h>
 #include <SDL3/SDL_rect.h>
 #include <string>
+#include <memory>
 #include <algorithm>
 #include <cctype>
 #include <vector>
@@ -79,7 +80,6 @@ W8SplitItemDialog::W8SplitItemDialog(W8ItemSplitMode mode, W8ItemInstance* item,
     for (index = 0; index < 14; ++index) {
         m_texts[index] = 0;
     }
-    m_count_input = 0;
     m_remaining = item->stack_count;
     m_stack_total = item->stack_count;
     if (count == -1) {
@@ -164,11 +164,7 @@ void W8SplitItemDialog::DestroyControls()
     W8DialogBase::DestroyControls();
     DestroyButtons();
     DestroyTextBuffers();
-    if (m_count_input != 0) {
-        NoOp();
-        delete m_count_input;
-        m_count_input = 0;
-    }
+    m_count_input.reset();
 }
 
 // FUNCTION: WIZ8 0x005DD480
@@ -282,14 +278,8 @@ bool W8SplitItemDialog::CreateNumericInput()
     bounds.top = g_split_count_field_bounds.top + m_y;
     bounds.right = g_split_count_field_bounds.right + m_x;
     bounds.bottom = g_split_count_field_bounds.bottom + m_y;
-    m_count_input = new W8DialogNumericInput(0, &bounds, split_count, g_wiz_text_font_secondary,
+    m_count_input = std::make_unique<W8DialogNumericInput>(0, &bounds, split_count, g_wiz_text_font_secondary,
                                              this, &m_buttons[3]);
-    if (m_count_input == 0) {
-        NoOp();
-        delete m_count_input;
-        m_count_input = 0;
-        return false;
-    }
     m_count_input->m_maximum = m_stack_total;
     return true;
 }
@@ -622,5 +612,5 @@ void W8SplitItemDialog::OnCountFieldClick(W8ButtonWidget* button)
     point.x -= g_split_count_field_bounds.left;
     point.y -= g_split_count_field_bounds.top;
     dialog->m_count_input->SetActive(true, &point);
-    dialog->m_active_input = dialog->m_count_input;
+    dialog->m_active_input = dialog->m_count_input.get();
 }

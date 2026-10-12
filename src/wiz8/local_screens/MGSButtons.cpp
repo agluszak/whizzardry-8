@@ -104,13 +104,8 @@ std::unique_ptr<SubMenu> submenu;
 
 void DestroySubMenuPanel() { submenu.reset(); }
 
-/* The five caption rows; BuildSubMenuPanel news 0xb8-byte objects
-   through the W8TextControl constructor. Five is the retail bound: the next
-   known global starts at 0x0069B900. Menu 0 considers five actions then adds
-   a cancel row at index built - 1, which could look like a sixth write - but
-   Berserk requires the fighter-only trait 0x14 while Pray requires the
-   priest-only trait 0x0b and iProfession is a single index, so menu 0
-   never has all five actions available and built stays <= 5. */
+/* Five caption rows suffice: Berserk and Pray require mutually exclusive
+   professions, leaving room for the cancel action. */
 // GLOBAL: WIZ8 0x0069B8EC
 
 
