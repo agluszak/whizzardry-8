@@ -33,5 +33,7 @@ void DisablePartyMovementRegions(void);
 unsigned char HandlePartyMovement(float* real_elapsed, float* frame_elapsed);
 
 void InvalidatePartyMovementPanel(void);
+/* Free-turn / cancel-party-movement button region callback (ids 0 and 1). */
+unsigned char FreeTurnButtonRegionEvent(const InputEvent* event, W8Region* region, unsigned short);
 void DisableFreeTurnButton(void);
 void EnableFreeTurnButton(void);

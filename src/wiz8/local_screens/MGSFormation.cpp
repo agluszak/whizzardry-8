@@ -83,9 +83,9 @@ static constexpr std::array<RegionTemplate, 19> g_formation_region_templates{{
     {0x00000001, 0, 0, 0, 0, FormationCellRegionEvent, 12, false, -1},
     {0x00000001, 0, 0, 0, 0, FormationCellRegionEvent, 13, false, -1},
     {0x00000001, 0, 0, 0, 0, FormationCellRegionEvent, 14, false, -1},
-    {0x00000001, 0, 0, 0, 0, nullptr, 0, true, 1981},
-    {0x00000001, 0, 0, 0, 0, nullptr, 1, true, 1982},
-    {0x00000001, 0, 0, 0, 0, nullptr, 2, true, 1983},
+    {0x00000001, 0, 0, 0, 0, FormationActionRegionEvent, 0, true, 1981},
+    {0x00000001, 0, 0, 0, 0, FormationActionRegionEvent, 1, true, 1982},
+    {0x00000001, 0, 0, 0, 0, FormationActionRegionEvent, 2, true, 1983},
     {0x00000001, 214, 60, 427, 303, FormationBackgroundRegionEvent, 0, false, -1},
 }};
 ScreenRegionSet g_formation_regions{g_formation_region_templates, 0x1b};
@@ -559,6 +559,16 @@ unsigned char FormationCellRegionEvent(const InputEvent* event, W8Region* region
         SetTooltipSubject(7, g_formation_cell_slots[id]);
     }
     return 1;
+}
+
+// FUNCTION: WIZ8 0x005b2cb0
+unsigned char FormationActionRegionEvent(const InputEvent* event, W8Region* region, unsigned short id)
+{
+    if (!gXStatus.fReviewCharacterMode) {
+        return 0;
+    }
+    return DispatchButtonRegionEvent(event, region,
+                                     g_formation_action_buttons[id]);
 }
 
 // FUNCTION: WIZ8 0x005b2d70

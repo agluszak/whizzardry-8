@@ -1061,6 +1061,21 @@ unsigned char ItemPoolRegionHandler(const InputEvent* event, W8Region* region, u
     return 1;
 }
 
+/* Reason 0x40/0x8 press the tab control, 0x10 releases it, and the 0x400
+   enter/leave transition forwards the matching mouse events. */
+// FUNCTION: WIZ8 0x005BBBB0
+unsigned char RealmTabRegionHandler(const InputEvent* event, W8Region* region, unsigned short id)
+{
+    return DispatchButtonRegionEvent(event, region,
+                                     g_camp_item_filter_buttons[id]);
+}
+
+// FUNCTION: WIZ8 0x005BBC70
+unsigned char PanelTabRegionHandler(const InputEvent* event, W8Region* region, unsigned short id)
+{
+    return DispatchButtonRegionEvent(event, region, g_camp_action_buttons[id]);
+}
+
 // FUNCTION: WIZ8 0x005BBD30
 void SetItemTooltip(W8ItemInstance* item, W8Region* region)
 {

@@ -79,6 +79,7 @@ void EnableConditionButtons(void);
 /* Region callbacks the eight portrait level-up buttons and condition buttons
    share. */
 unsigned char PortraitControlRegionEvent(const InputEvent* event, W8Region* region, unsigned short);
+unsigned char ConditionButtonRegionEvent(const InputEvent* event, W8Region* region, unsigned short);
 
 /* Main-game portrait overlay helpers used when a party slot refreshes. */
 bool PreparePartyPortraitOverlay(unsigned int party_slot, unsigned int flags, unsigned int top);

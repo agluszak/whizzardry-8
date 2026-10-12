@@ -36,6 +36,7 @@ unsigned char FormationBoardRegionEvent(const InputEvent* event, W8Region* regio
 void OpenFormationPanel(void);
 /* Region callback the fifteen formation cells share. */
 unsigned char FormationCellRegionEvent(const InputEvent* event, W8Region* region, unsigned short);
+unsigned char FormationActionRegionEvent(const InputEvent* event, W8Region* region, unsigned short);
 unsigned char FormationBackgroundRegionEvent(const InputEvent* event, W8Region* region, unsigned short);
 /* Highlight the cell holding one party slot and un-highlight the rest. */
 void SelectFormationSlotCell(int party_slot);

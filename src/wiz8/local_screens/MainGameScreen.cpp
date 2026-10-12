@@ -2764,14 +2764,14 @@ static constexpr std::array<RegionTemplate, 8> g_main_portrait_control_templates
 
 // Retail set 0x06, regions 26-33
 static constexpr std::array<RegionTemplate, 8> g_main_condition_templates{{
-    {0x00000001, 0, 0, 0, 0, nullptr, 0, true, 1985},
-    {0x00000001, 0, 0, 0, 0, nullptr, 1, true, 1985},
-    {0x00000001, 0, 0, 0, 0, nullptr, 2, true, 1985},
-    {0x00000001, 0, 0, 0, 0, nullptr, 3, true, 1985},
-    {0x00000001, 0, 0, 0, 0, nullptr, 4, true, 1985},
-    {0x00000001, 0, 0, 0, 0, nullptr, 5, true, 1985},
-    {0x00000001, 0, 0, 0, 0, nullptr, 6, true, 1985},
-    {0x00000001, 0, 0, 0, 0, nullptr, 7, true, 1985},
+    {0x00000001, 0, 0, 0, 0, ConditionButtonRegionEvent, 0, true, 1985},
+    {0x00000001, 0, 0, 0, 0, ConditionButtonRegionEvent, 1, true, 1985},
+    {0x00000001, 0, 0, 0, 0, ConditionButtonRegionEvent, 2, true, 1985},
+    {0x00000001, 0, 0, 0, 0, ConditionButtonRegionEvent, 3, true, 1985},
+    {0x00000001, 0, 0, 0, 0, ConditionButtonRegionEvent, 4, true, 1985},
+    {0x00000001, 0, 0, 0, 0, ConditionButtonRegionEvent, 5, true, 1985},
+    {0x00000001, 0, 0, 0, 0, ConditionButtonRegionEvent, 6, true, 1985},
+    {0x00000001, 0, 0, 0, 0, ConditionButtonRegionEvent, 7, true, 1985},
 }};
 
 // Retail set 0x0f, regions 34-81
@@ -2851,11 +2851,11 @@ static constexpr std::array<RegionTemplate, 2> g_main_formation_board_templates{
 
 // Retail set 0x27, regions 194-199
 static constexpr std::array<RegionTemplate, 6> g_main_submenu_templates{{
-    {0x00000001, 0, 0, 0, 0, nullptr, 0, true, -1},
-    {0x00000001, 0, 0, 0, 0, nullptr, 1, true, -1},
-    {0x00000001, 0, 0, 0, 0, nullptr, 2, true, -1},
-    {0x00000001, 0, 0, 0, 0, nullptr, 3, true, -1},
-    {0x00000001, 0, 0, 0, 0, nullptr, 4, true, -1},
+    {0x00000001, 0, 0, 0, 0, SubMenuRowRegionEvent, 0, true, -1},
+    {0x00000001, 0, 0, 0, 0, SubMenuRowRegionEvent, 1, true, -1},
+    {0x00000001, 0, 0, 0, 0, SubMenuRowRegionEvent, 2, true, -1},
+    {0x00000001, 0, 0, 0, 0, SubMenuRowRegionEvent, 3, true, -1},
+    {0x00000001, 0, 0, 0, 0, SubMenuRowRegionEvent, 4, true, -1},
     {0x00000001, 0, 0, 0, 0, SubMenuBackgroundRegionEvent, 0, false, -1},
 }};
 

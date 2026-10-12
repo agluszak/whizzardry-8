@@ -1406,3 +1406,15 @@ void UpdateConditionButtons(void)
     g_condition_buttons_panel->Redraw(false);
 }
 
+// FUNCTION: WIZ8 0x0059C260
+unsigned char ConditionButtonRegionEvent(const InputEvent* event, W8Region* region, unsigned short id)
+{
+    switch (event->type) {
+    case InputEventType::LeftButtonDown:
+    case InputEventType::LeftButtonUp:
+    case InputEventType::MouseMove:
+        return DispatchButtonRegionEvent(event, region, g_condition_buttons[id]);
+    default:
+        return 0;
+    }
+}

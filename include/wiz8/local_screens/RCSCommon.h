@@ -95,6 +95,10 @@ unsigned char CampDismissPortraitRegionEvent(const InputEvent* event, W8Region* 
 unsigned char CampPortraitSlotRegionEvent(const InputEvent* event, W8Region* region, unsigned short);
 unsigned char CampOpenCharacterScreenRegionEvent(const InputEvent* event, W8Region* region, unsigned short);
 unsigned char CampProfessionHistoryRegionEvent(const InputEvent* event, W8Region* region, unsigned short);
+unsigned char CampPageButtonRegionEvent(const InputEvent* event, W8Region* region, unsigned short);
+unsigned char CampItemActionRegionEvent(const InputEvent* event, W8Region* region, unsigned short);
+unsigned char CampLevelUpButtonRegionEvent(const InputEvent* event, W8Region* region, unsigned short);
+unsigned char CampDismissButtonRegionEvent(const InputEvent* event, W8Region* region, unsigned short);
 
 void CreateRcsLevelUpPanel(void);
 void DestroyRcsLevelUpPanel(void);

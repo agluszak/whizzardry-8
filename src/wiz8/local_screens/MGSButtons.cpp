@@ -882,6 +882,61 @@ unsigned char SubMenuBackgroundRegionEvent(const InputEvent* event, W8Region* re
     return (region->flags >> 4) & 1;
 }
 
+// FUNCTION: WIZ8 0x00598DB0
+unsigned char SubMenuRowRegionEvent(const InputEvent* event, W8Region* region, unsigned short id)
+{
+    W8PartySlotRow* party_row;
+    W8ItemInstance* item;
+    std::string name;
+    int slot;
+
+    if (g_level_block->combat_end_notification == -1) {
+        return 0;
+    }
+    RequestRedraw(W8_MAIN_REDRAW_FRAME);
+    switch (event->type) {
+    case InputEventType::RightButtonDown:
+        g_submenu_rows[id]->OnRightButtonDown(0);
+        region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
+        return 1;
+    case InputEventType::LeftButtonDown:
+    case InputEventType::LeftButtonUp:
+        return DispatchButtonRegionEvent(event, region, g_submenu_rows[id]);
+    case InputEventType::RightButtonUp:
+        g_submenu_rows[id]->OnRightButtonUp(0);
+        if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) != 0) {
+            region->flags &= ~W8_REGION_RIGHT_BUTTON_HELD;
+        }
+        return 1;
+    case InputEventType::MouseMove:
+        if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
+            g_submenu_rows[id]->OnMouseLeave(0);
+            return 1;
+        }
+        if ((region->flags & W8_REGION_MOUSE_ENTER) == 0) {
+            return 0;
+        }
+        if (g_level_block->combat_end_notification == 3 &&
+            g_submenu_entries[id] == 2) {
+            SetRegionHelpForceEnabled(true);
+            slot = g_status.selected_character;
+            if (!CanPartySlotUseRecordedItem(slot)) {
+                SetRegionHelpText(g_localized_strings[0x5d]);
+            } else {
+                party_row = &g_status.buffers.XChar[slot];
+                item = FindCharacterItemAt(slot, party_row->item_origin, party_row->item_slot);
+                name = FormatItemDisplayName(item, false);
+                SetRegionHelpText(fmt::format("{}: {}", g_localized_strings[0x5d], name));
+            }
+        }
+        g_submenu_rows[id]->OnMouseEnter(0);
+        return 1;
+    default:
+        break;
+    }
+    return 0;
+}
+
 // FUNCTION: WIZ8 0x00596FE0
 void DrawSubMenuCharacterAction(void)
 {
@@ -1254,24 +1309,6 @@ void EnableSubMenuRegions(void)
     }
 }
 
-/* The items submenu's reuse-item row names the item in its tooltip. */
-static void DescribeSubMenuRow(int row)
-{
-    if (g_level_block->combat_end_notification != 3 || g_submenu_entries[row] != 2) {
-        return;
-    }
-    SetRegionHelpForceEnabled(true);
-    const int slot = g_status.selected_character;
-    if (!CanPartySlotUseRecordedItem(slot)) {
-        SetRegionHelpText(g_localized_strings[0x5d]);
-        return;
-    }
-    const auto& party_row = g_status.buffers.XChar[slot];
-    auto* item = FindCharacterItemAt(slot, party_row.item_origin, party_row.item_slot);
-    SetRegionHelpText(
-        fmt::format("{}: {}", g_localized_strings[0x5d], FormatItemDisplayName(item, false)));
-}
-
 // FUNCTION: WIZ8 0x00595850
 unsigned char BuildSubMenuPanel(short notification)
 {
@@ -1397,7 +1434,6 @@ unsigned char BuildSubMenuPanel(short notification)
         }
         AssignSubMenuCallback(g_submenu_rows[index], menu, entry);
         g_submenu_rows[index]->m_onSecondary = DestroySubMenuControls;
-        g_submenu_rows[index]->m_onMouseEnter = [index] { DescribeSubMenuRow(index); };
         (*g_main_submenu_regions)[index].SetHelp(true, g_submenu_entry_help_ids[menu * 5 + entry]);
     }
     g_submenu_rows[built - 1] =

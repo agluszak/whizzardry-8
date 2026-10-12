@@ -221,8 +221,8 @@ W8CampScreenRegion g_camp_screen_regions[12] = {
 
 // Retail set 0x29, regions 231-243
 static constexpr std::array<RegionTemplate, 13> g_camp_main_templates{{
-    {0x00000001, 0, 0, 0, 0, nullptr, 0, true, 1984},
-    {0x00000001, 0, 0, 0, 0, nullptr, 0, true, 2387},
+    {0x00000001, 0, 0, 0, 0, CampLevelUpButtonRegionEvent, 0, true, 1984},
+    {0x00000001, 0, 0, 0, 0, CampDismissButtonRegionEvent, 0, true, 2387},
     {0x00000001, 164, 12, 254, 84, CampDismissPortraitRegionEvent, 0, true, 2368},
     {0x00000001, 0, 0, 0, 0, CampPortraitSlotRegionEvent, 0, false, -1},
     {0x00000001, 0, 0, 0, 0, CampPortraitSlotRegionEvent, 1, false, -1},
@@ -270,15 +270,15 @@ static constexpr std::array<RegionTemplate, 17> g_camp_item_pool_templates{{
     {0x00000001, 0, 0, 0, 0, ItemPoolRegionHandler, 5, true, -1},
     {0x00000001, 0, 0, 0, 0, ItemPoolRegionHandler, 6, true, -1},
     {0x00000001, 0, 0, 0, 0, ItemPoolRegionHandler, 7, true, -1},
-    {0x00000001, 0, 0, 0, 0, nullptr, 0, true, 2378},
-    {0x00000001, 0, 0, 0, 0, nullptr, 1, true, 2379},
-    {0x00000001, 0, 0, 0, 0, nullptr, 2, true, 2380},
-    {0x00000001, 0, 0, 0, 0, nullptr, 3, true, 2381},
-    {0x00000001, 0, 0, 0, 0, nullptr, 4, true, 2382},
-    {0x00000001, 0, 0, 0, 0, nullptr, 5, true, 2383},
-    {0x00000001, 0, 0, 0, 0, nullptr, 6, true, 2384},
-    {0x00000001, 0, 0, 0, 0, nullptr, 0, true, 2385},
-    {0x00000001, 0, 0, 0, 0, nullptr, 1, true, 2386},
+    {0x00000001, 0, 0, 0, 0, RealmTabRegionHandler, 0, true, 2378},
+    {0x00000001, 0, 0, 0, 0, RealmTabRegionHandler, 1, true, 2379},
+    {0x00000001, 0, 0, 0, 0, RealmTabRegionHandler, 2, true, 2380},
+    {0x00000001, 0, 0, 0, 0, RealmTabRegionHandler, 3, true, 2381},
+    {0x00000001, 0, 0, 0, 0, RealmTabRegionHandler, 4, true, 2382},
+    {0x00000001, 0, 0, 0, 0, RealmTabRegionHandler, 5, true, 2383},
+    {0x00000001, 0, 0, 0, 0, RealmTabRegionHandler, 6, true, 2384},
+    {0x00000001, 0, 0, 0, 0, PanelTabRegionHandler, 0, true, 2385},
+    {0x00000001, 0, 0, 0, 0, PanelTabRegionHandler, 1, true, 2386},
 }};
 
 // Retail set 0x2c, regions 281-286
@@ -293,23 +293,23 @@ static constexpr std::array<RegionTemplate, 6> g_camp_spell_list_templates{{
 
 // Retail set 0x2d, regions 287-291
 static constexpr std::array<RegionTemplate, 5> g_camp_page_templates{{
-    {0x00000001, 0, 0, 0, 0, nullptr, 0, true, 2364},
-    {0x00000001, 0, 0, 0, 0, nullptr, 1, true, 2367},
-    {0x00000001, 0, 0, 0, 0, nullptr, 2, true, 2366},
-    {0x00000001, 0, 0, 0, 0, nullptr, 3, true, 2365},
-    {0x00000001, 0, 0, 0, 0, nullptr, 4, true, 2368},
+    {0x00000001, 0, 0, 0, 0, CampPageButtonRegionEvent, 0, true, 2364},
+    {0x00000001, 0, 0, 0, 0, CampPageButtonRegionEvent, 1, true, 2367},
+    {0x00000001, 0, 0, 0, 0, CampPageButtonRegionEvent, 2, true, 2366},
+    {0x00000001, 0, 0, 0, 0, CampPageButtonRegionEvent, 3, true, 2365},
+    {0x00000001, 0, 0, 0, 0, CampPageButtonRegionEvent, 4, true, 2368},
 }};
 
 // Retail set 0x2e, regions 292-299
 static constexpr std::array<RegionTemplate, 8> g_camp_item_action_templates{{
-    {0x00000001, 0, 0, 0, 0, nullptr, 0, true, 2369},
-    {0x00000001, 0, 0, 0, 0, nullptr, 1, true, 2370},
-    {0x00000001, 0, 0, 0, 0, nullptr, 2, true, 2371},
-    {0x00000001, 0, 0, 0, 0, nullptr, 3, true, 2372},
-    {0x00000001, 0, 0, 0, 0, nullptr, 4, true, 2373},
-    {0x00000001, 0, 0, 0, 0, nullptr, 5, true, 2374},
-    {0x00000001, 0, 0, 0, 0, nullptr, 6, true, 2375},
-    {0x00000001, 0, 0, 0, 0, nullptr, 7, true, 2376},
+    {0x00000001, 0, 0, 0, 0, CampItemActionRegionEvent, 0, true, 2369},
+    {0x00000001, 0, 0, 0, 0, CampItemActionRegionEvent, 1, true, 2370},
+    {0x00000001, 0, 0, 0, 0, CampItemActionRegionEvent, 2, true, 2371},
+    {0x00000001, 0, 0, 0, 0, CampItemActionRegionEvent, 3, true, 2372},
+    {0x00000001, 0, 0, 0, 0, CampItemActionRegionEvent, 4, true, 2373},
+    {0x00000001, 0, 0, 0, 0, CampItemActionRegionEvent, 5, true, 2374},
+    {0x00000001, 0, 0, 0, 0, CampItemActionRegionEvent, 6, true, 2375},
+    {0x00000001, 0, 0, 0, 0, CampItemActionRegionEvent, 7, true, 2376},
 }};
 
 // Retail set 0x2f, region 300

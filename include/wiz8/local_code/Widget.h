@@ -89,8 +89,6 @@ public:
     std::function<void()> m_onSecondary;
     std::function<void()> m_onRightButtonDown;
     std::function<void()> m_onDoubleClick;
-    /* Runs after OnMouseEnter, e.g. to word the hover tooltip. */
-    std::function<void()> m_onMouseEnter;
 
 private:
     void UpdateRegionBounds();

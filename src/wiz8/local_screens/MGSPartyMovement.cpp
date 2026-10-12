@@ -54,8 +54,8 @@ unsigned int g_party_movement_animation_frame;
 
 // Retail set 0x1c, regions 200-201.
 static constexpr std::array<RegionTemplate, 2> g_party_movement_region_templates{{
-    {0x00000001, 0, 0, 0, 0, nullptr, 0, true, 37},
-    {0x00000001, 0, 0, 0, 0, nullptr, 1, true, 38},
+    {0x00000001, 0, 0, 0, 0, FreeTurnButtonRegionEvent, 0, true, 37},
+    {0x00000001, 0, 0, 0, 0, FreeTurnButtonRegionEvent, 1, true, 38},
 }};
 ScreenRegionSet g_party_movement_regions{g_party_movement_region_templates, 0x1c};
 
@@ -273,6 +273,14 @@ void DrawPartyMovementGauge(short right, short image, bool panel_live, int capti
 void InvalidatePartyMovementPanel(void)
 {
     g_party_movement_panel->InvalidateAll();
+}
+
+unsigned char FreeTurnButtonRegionEvent(const InputEvent* event, W8Region* region, unsigned short id)
+{
+    if (!gXStatus.fPartyMovementUi) {
+        return 0;
+    }
+    return DispatchButtonRegionEvent(event, region, g_party_movement_buttons[id]);
 }
 
 void DisableFreeTurnButton(void)
