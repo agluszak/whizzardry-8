@@ -111,19 +111,6 @@ int GetSpellCastingPowerIndex(void)
 
 static void CreateSpellCastingViewControls(void);
 void ReleaseSpellCastingViewControls(void);
-static void SelectFireSpellRealm(void);
-static void SelectWaterSpellRealm(void);
-static void SelectAirSpellRealm(void);
-static void SelectEarthSpellRealm(void);
-static void SelectMentalSpellRealm(void);
-static void SelectDivineSpellRealm(void);
-static void SelectSpellPowerPip0(void);
-static void SelectSpellPowerPip1(void);
-static void SelectSpellPowerPip2(void);
-static void SelectSpellPowerPip3(void);
-static void SelectSpellPowerPip4(void);
-static void SelectSpellPowerPip5(void);
-static void SelectSpellPowerPip6(void);
 static void SelectSpellPowerPip7(void);
 static void SelectSpellPowerPip8(void);
 static void SpellCastingDialogResult(W8DialogBase* dialog);
@@ -184,12 +171,11 @@ static void CreateSpellCastingViewControls(void)
     gpSCSV->realm_buttons[3]->UpdateTextBounds(0x91, 0x23, 200, 0x39);
     gpSCSV->realm_buttons[4]->UpdateTextBounds(0x1e, 0x39, 0x55, 0x4f);
     gpSCSV->realm_buttons[5]->UpdateTextBounds(0x85, 0x39, 0xbc, 0x4f);
-    gpSCSV->realm_buttons[0]->m_primaryActivationCallback = SelectFireSpellRealm;
-    gpSCSV->realm_buttons[1]->m_primaryActivationCallback = SelectWaterSpellRealm;
-    gpSCSV->realm_buttons[2]->m_primaryActivationCallback = SelectAirSpellRealm;
-    gpSCSV->realm_buttons[3]->m_primaryActivationCallback = SelectEarthSpellRealm;
-    gpSCSV->realm_buttons[4]->m_primaryActivationCallback = SelectMentalSpellRealm;
-    gpSCSV->realm_buttons[5]->m_primaryActivationCallback = SelectDivineSpellRealm;
+    for (int realm = W8_SPELL_REALM_FIRE; realm < W8_SPELL_REALM_COUNT; ++realm) {
+        gpSCSV->realm_buttons[realm]->m_onPrimary = [realm] {
+            SelectSpellCastingRealm(static_cast<W8SpellRealm>(realm));
+        };
+    }
 
     gpSCSV->realm_icons[0] = panel->EmplaceControl<W8TextControl>(-1, 0x55, 0xf, 0x67, 0x21, CatalogArtwork::Load(0x193, 0), W8SpriteStates{.normal = static_cast<int>(g_spell_realm_animations[0].initial_frame), .disabled = static_cast<int>(g_spell_realm_animations[0].frame_count)});
     gpSCSV->realm_icons[1] = panel->EmplaceControl<W8TextControl>(-1, 0x73, 0xf, 0x85, 0x21, CatalogArtwork::Load(0x194, 0), W8SpriteStates{.normal = static_cast<int>(g_spell_realm_animations[1].initial_frame), .disabled = static_cast<int>(g_spell_realm_animations[1].frame_count)});
@@ -227,15 +213,11 @@ static void CreateSpellCastingViewControls(void)
     for (index = 0; index < W8_SPELL_POWER_PIP_COUNT; ++index) {
         gpSCSV->power_controls[index]->AddLayoutFlags(g_W8TextControlLayoutToggle);
     }
-    gpSCSV->power_controls[0]->m_primaryActivationCallback = SelectSpellPowerPip0;
-    gpSCSV->power_controls[1]->m_primaryActivationCallback = SelectSpellPowerPip1;
-    gpSCSV->power_controls[2]->m_primaryActivationCallback = SelectSpellPowerPip2;
-    gpSCSV->power_controls[3]->m_primaryActivationCallback = SelectSpellPowerPip3;
-    gpSCSV->power_controls[4]->m_primaryActivationCallback = SelectSpellPowerPip4;
-    gpSCSV->power_controls[5]->m_primaryActivationCallback = SelectSpellPowerPip5;
-    gpSCSV->power_controls[6]->m_primaryActivationCallback = SelectSpellPowerPip6;
-    gpSCSV->power_controls[7]->m_primaryActivationCallback = SelectSpellPowerPip7;
-    gpSCSV->power_controls[8]->m_primaryActivationCallback = SelectSpellPowerPip8;
+    for (int pip = 0; pip < 7; ++pip) {
+        gpSCSV->power_controls[pip]->m_onPrimary = [pip] { SelectSpellPowerLevel(pip); };
+    }
+    gpSCSV->power_controls[7]->m_onPrimary = SelectSpellPowerPip7;
+    gpSCSV->power_controls[8]->m_onPrimary = SelectSpellPowerPip8;
 
     gpSCSV->power_controls[W8_SPELL_NAME_CONTROL] =
         panel->EmplaceControl<W8TextControl>(g_spell_casting_regions->index(15), 0xe, 10, 0x30, 0x18,
@@ -245,7 +227,7 @@ static void CreateSpellCastingViewControls(void)
     gpSCSV->power_controls[W8_SPELL_CANCEL_CONTROL] =
         panel->EmplaceControl<W8TextControl>(g_spell_casting_regions->index(16), 0x96, 6, 0xb1, 0x21,
                           CatalogArtwork::Load(0x8e, 0), W8SpriteStates{.normal = 4, .alternate_normal = 5, .alternate_pressed = 6, .disabled = 7});
-    gpSCSV->power_controls[W8_SPELL_CANCEL_CONTROL]->m_primaryActivationCallback =
+    gpSCSV->power_controls[W8_SPELL_CANCEL_CONTROL]->m_onPrimary =
         ResetSpellCastingSelection;
 
     gpSCSV->panels[0]->SetActive(true);
@@ -806,42 +788,6 @@ void InvalidateSpellCastingDescription(void)
     gpSCSV->panels[1]->InvalidateAll();
 }
 
-// FUNCTION: WIZ8 0x005A0320
-static void SelectFireSpellRealm(void)
-{
-    SelectSpellCastingRealm(W8_SPELL_REALM_FIRE);
-}
-
-// FUNCTION: WIZ8 0x005A0330
-static void SelectWaterSpellRealm(void)
-{
-    SelectSpellCastingRealm(W8_SPELL_REALM_WATER);
-}
-
-// FUNCTION: WIZ8 0x005A0340
-static void SelectAirSpellRealm(void)
-{
-    SelectSpellCastingRealm(W8_SPELL_REALM_AIR);
-}
-
-// FUNCTION: WIZ8 0x005A0350
-static void SelectEarthSpellRealm(void)
-{
-    SelectSpellCastingRealm(W8_SPELL_REALM_EARTH);
-}
-
-// FUNCTION: WIZ8 0x005A0360
-static void SelectMentalSpellRealm(void)
-{
-    SelectSpellCastingRealm(W8_SPELL_REALM_MENTAL);
-}
-
-// FUNCTION: WIZ8 0x005A0370
-static void SelectDivineSpellRealm(void)
-{
-    SelectSpellCastingRealm(W8_SPELL_REALM_DIVINE);
-}
-
 /* Switches the view to another realm: the old realm's icon returns to its
    first frame and the new one starts its frame timer, then the whole
    selection state resets. */
@@ -870,48 +816,6 @@ static void SelectSpellCastingRealm(W8SpellRealm realm)
         gpSCSV->realm_buttons[realm]->EnableSecondaryState(false);
         gpSCSV->realm_buttons[realm]->Invalidate(false);
     }
-}
-
-// FUNCTION: WIZ8 0x005A0500
-static void SelectSpellPowerPip0(void)
-{
-    SelectSpellPowerLevel(0);
-}
-
-// FUNCTION: WIZ8 0x005A0510
-static void SelectSpellPowerPip1(void)
-{
-    SelectSpellPowerLevel(1);
-}
-
-// FUNCTION: WIZ8 0x005A0520
-static void SelectSpellPowerPip2(void)
-{
-    SelectSpellPowerLevel(2);
-}
-
-// FUNCTION: WIZ8 0x005A0530
-static void SelectSpellPowerPip3(void)
-{
-    SelectSpellPowerLevel(3);
-}
-
-// FUNCTION: WIZ8 0x005A0540
-static void SelectSpellPowerPip4(void)
-{
-    SelectSpellPowerLevel(4);
-}
-
-// FUNCTION: WIZ8 0x005A0550
-static void SelectSpellPowerPip5(void)
-{
-    SelectSpellPowerLevel(5);
-}
-
-// FUNCTION: WIZ8 0x005A0560
-static void SelectSpellPowerPip6(void)
-{
-    SelectSpellPowerLevel(6);
 }
 
 /* The seventh power pip: while its secondary state is lit it clears the lower
@@ -1026,7 +930,6 @@ void SelectSpellPowerLevel(int power_level)
 static void PreviewSpellPowerPipHover(int power_level)
 {
     W8TextControl* spell_name;
-    Controls* panel;
     std::string text;
 
     if (power_level < 7) {

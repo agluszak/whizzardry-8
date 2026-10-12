@@ -103,12 +103,12 @@ static constexpr std::array<RegionTemplate, 5> g_use_item_select_region_template
 ScreenRegionSet g_use_item_select_regions{g_use_item_select_region_templates, 0x1a};
 
 void UpdateUseItemScrollButtons(void);
+static void SelectUseItemScrollMode(int mode);
 static void RebuildUseItemSelectList(int mode, W8ItemInstance* select);
 static bool AppendUseItemListEntry(W8ItemInstance* item, W8ItemInstance* select,
                                    unsigned char pass);
 bool IsUseItemFilteredOut(W8ItemInstance* item);
 static void UseItemSelectScrollUp(void);
-static void UseItemSelectScrollDown(void);
 static void UseItemSelectFilterToggle(void);
 static void UseItemSelectAssayButton(void);
 static void CreateUseItemSelectControls(void);
@@ -135,8 +135,8 @@ static void CreateUseItemSelectControls(void)
         panel->EmplaceControl<W8TextControl>(0xffffffff, 4, 4, 0x89, 0x13);
     g_use_item_select_scroll_buttons[0]->AddLayoutFlags(g_W8TextControlLayoutToggle);
     g_use_item_select_scroll_buttons[1]->AddLayoutFlags(g_W8TextControlLayoutToggle);
-    g_use_item_select_scroll_buttons[0]->m_primaryActivationCallback = UseItemSelectScrollUp;
-    g_use_item_select_scroll_buttons[1]->m_primaryActivationCallback = UseItemSelectScrollDown;
+    g_use_item_select_scroll_buttons[0]->m_onPrimary = UseItemSelectScrollUp;
+    g_use_item_select_scroll_buttons[1]->m_onPrimary = [] { SelectUseItemScrollMode(1); };
     g_use_item_select_scroll_buttons[2]->m_textBuffer.SetLayoutMode(g_W8TextBufferAlignMiddle |
                                                                     g_W8TextBufferAlignCenter);
     g_use_item_select_scroll_buttons[2]->m_textBuffer.SetText(g_localized_strings[0x77a],
@@ -166,15 +166,15 @@ static void CreateUseItemSelectControls(void)
     g_use_item_select_controls[4]->AddLayoutFlags(g_W8TextControlLayoutToggle);
     g_use_item_select_controls[5]->AddLayoutFlags(g_W8TextControlLayoutToggle);
     g_use_item_select_controls[6]->AddLayoutFlags(g_W8TextControlLayoutToggle);
-    g_use_item_select_controls[0]->m_primaryActivationCallback = UseItemSelectAssayButton;
-    g_use_item_select_controls[0]->m_secondaryActivationCallback = UseItemSelectAssayButton;
-    g_use_item_select_controls[1]->m_primaryActivationCallback = NoOp;
-    g_use_item_select_controls[2]->m_primaryActivationCallback = NoOp;
-    g_use_item_select_controls[3]->m_primaryActivationCallback = UseItemSelectFilterToggle;
-    g_use_item_select_controls[4]->m_primaryActivationCallback = NoOp;
-    g_use_item_select_controls[5]->m_primaryActivationCallback = NoOp;
-    g_use_item_select_controls[6]->m_primaryActivationCallback = NoOp;
-    g_use_item_select_controls[8]->m_primaryActivationCallback = CloseUseItemSelection;
+    g_use_item_select_controls[0]->m_onPrimary = UseItemSelectAssayButton;
+    g_use_item_select_controls[0]->m_onSecondary = UseItemSelectAssayButton;
+    g_use_item_select_controls[1]->m_onPrimary = NoOp;
+    g_use_item_select_controls[2]->m_onPrimary = NoOp;
+    g_use_item_select_controls[3]->m_onPrimary = UseItemSelectFilterToggle;
+    g_use_item_select_controls[4]->m_onPrimary = NoOp;
+    g_use_item_select_controls[5]->m_onPrimary = NoOp;
+    g_use_item_select_controls[6]->m_onPrimary = NoOp;
+    g_use_item_select_controls[8]->m_onPrimary = CloseUseItemSelection;
     for (auto& select_panel : g_use_item_select_panels) {
         select_panel->SetActive(true);
     }
@@ -427,12 +427,6 @@ void UpdateUseItemScrollButtons(void)
         g_use_item_select_scroll_buttons[0]->SetEnabled(true);
         g_use_item_select_scroll_buttons[0]->Invalidate(false);
     }
-}
-
-// FUNCTION: WIZ8 0x0059D7E0
-static void UseItemSelectScrollDown(void)
-{
-    SelectUseItemScrollMode(1);
 }
 
 // FUNCTION: WIZ8 0x0059D830

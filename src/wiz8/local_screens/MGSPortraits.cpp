@@ -1217,7 +1217,7 @@ void CreateLevelButtons(void)
         g_portrait_controls[uiSlot] =
             g_portrait_panel->EmplaceControl<W8TextControl>(g_main_portrait_controls->index(uiSlot), column_x + 0x19, row_y + 0x46,
                               column_x + 0x2b, row_y + 0x58, CatalogArtwork::Load(0xa7, 0), W8SpriteStates{.normal = 0, .pressed = 2, .alternate_normal = 1, .alternate_pressed = 4, .disabled = 3});
-        g_portrait_controls[uiSlot]->m_primaryActivationCallback = OnLevelButtonActivate;
+        g_portrait_controls[uiSlot]->m_onPrimary = OnLevelButtonActivate;
         if (g_portrait_controls[uiSlot] == 0) {
             srAssertFail("gpLevelButtons[uiSlot]",
                          "C:\\Projects\\Wizardry 8\\Local Screens\\MGSPortraits.cpp", 0x8f7, 0);

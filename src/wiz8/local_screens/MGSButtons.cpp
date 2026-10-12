@@ -1433,7 +1433,7 @@ unsigned char BuildSubMenuPanel(short notification)
             return 0;
         }
         AssignSubMenuCallback(g_submenu_rows[index], menu, entry);
-        g_submenu_rows[index]->m_secondaryActivationCallback = DestroySubMenuControls;
+        g_submenu_rows[index]->m_onSecondary = DestroySubMenuControls;
         (*g_main_submenu_regions)[index].SetHelp(true, g_submenu_entry_help_ids[menu * 5 + entry]);
     }
     g_submenu_rows[built - 1] =
@@ -1443,8 +1443,8 @@ unsigned char BuildSubMenuPanel(short notification)
         DestroySubMenuPanel();
         return 0;
     }
-    g_submenu_rows[built - 1]->m_primaryActivationCallback = DestroySubMenuControls;
-    g_submenu_rows[built - 1]->m_secondaryActivationCallback = DestroySubMenuControls;
+    g_submenu_rows[built - 1]->m_onPrimary = DestroySubMenuControls;
+    g_submenu_rows[built - 1]->m_onSecondary = DestroySubMenuControls;
     (*g_main_submenu_regions)[built - 1].SetHelp(true, 0x11);
     g_main_submenu_regions.Enable();
     gpSubMenuPanel->SetActive(true);
@@ -1462,50 +1462,50 @@ void AssignSubMenuCallback(W8TextControl* row, short menu, short item)
     case W8_SUBMENU_ATTACK:
         switch (item) {
         case 0:
-            row->m_primaryActivationCallback = SubMenuSelectAttack;
+            row->m_onPrimary = SubMenuSelectAttack;
             break;
         case 1:
-            row->m_primaryActivationCallback = SubMenuSelectBerserk;
+            row->m_onPrimary = SubMenuSelectBerserk;
             break;
         case 2:
-            row->m_primaryActivationCallback = SubMenuSelectBreathe;
+            row->m_onPrimary = SubMenuSelectBreathe;
             break;
         case 3:
-            row->m_primaryActivationCallback = SubMenuSelectTurnUndead;
+            row->m_onPrimary = SubMenuSelectTurnUndead;
             break;
         case 4:
-            row->m_primaryActivationCallback = SubMenuSelectPray;
+            row->m_onPrimary = SubMenuSelectPray;
             break;
         }
         break;
     case W8_SUBMENU_DEFEND:
         if (item == 0) {
-            row->m_primaryActivationCallback = SubMenuSelectDefend;
+            row->m_onPrimary = SubMenuSelectDefend;
         } else if (item == 1) {
-            row->m_primaryActivationCallback = SubMenuSelectProtect;
+            row->m_onPrimary = SubMenuSelectProtect;
         }
         break;
     case W8_SUBMENU_ITEMS:
         if (item == 0) {
-            row->m_primaryActivationCallback = SubMenuSelectEquip;
+            row->m_onPrimary = SubMenuSelectEquip;
         } else if (item == 1) {
-            row->m_primaryActivationCallback = SubMenuOpenUseItemView;
+            row->m_onPrimary = SubMenuOpenUseItemView;
         } else if (item == 2) {
-            row->m_primaryActivationCallback = SubMenuUseRecordedItem;
+            row->m_onPrimary = SubMenuUseRecordedItem;
         }
         break;
     case W8_SUBMENU_SPELLS:
         if (item == 0) {
-            row->m_primaryActivationCallback = SubMenuOpenSpellView;
+            row->m_onPrimary = SubMenuOpenSpellView;
         } else if (item == 1) {
-            row->m_primaryActivationCallback = SubMenuCastRecordedSpell;
+            row->m_onPrimary = SubMenuCastRecordedSpell;
         }
         break;
     case W8_SUBMENU_MOVE:
         if (item == 0) {
-            row->m_primaryActivationCallback = SubMenuSelectWalk;
+            row->m_onPrimary = SubMenuSelectWalk;
         } else if (item == 1) {
-            row->m_primaryActivationCallback = SubMenuSelectRun;
+            row->m_onPrimary = SubMenuSelectRun;
         }
         break;
     }

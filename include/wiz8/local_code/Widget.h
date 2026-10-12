@@ -1,11 +1,12 @@
 #pragma once
 
+#include <functional>
+
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/regions.h"
 
 /* Shared declaration owner; implementation remains in Local Code\Controls.cpp. */
 
-typedef void (*W8ControlCallback)();
 struct Controls;
 struct W8Region;
 
@@ -15,9 +16,7 @@ public:
     friend struct Controls;
 
     W8Widget()
-        : m_enabled(1), m_active(0), m_dirty(0), m_region(-1), m_pPanel(0), m_primaryActivationCallback(0), m_leftButtonDownCallback(0),
-          m_secondaryActivationCallback(0), m_rightButtonDownCallback(0),
-          m_leftDoubleClickCallback(0)
+        : m_enabled(1), m_active(0), m_dirty(0), m_region(-1), m_pPanel(0)
     {
     }
     W8Widget(unsigned int region, int left, int top, int right, int bottom);
@@ -82,12 +81,14 @@ public:
     unsigned char pad_007;
     int m_region; /* handed to DisableRegionInput unless -1 */
     Controls* m_pPanel;
-    W8ControlCallback m_primaryActivationCallback; /* invoked by text-control activation */
-    W8ControlCallback m_leftButtonDownCallback;
-    W8ControlCallback m_secondaryActivationCallback;
-    W8ControlCallback m_rightButtonDownCallback;
-    W8ControlCallback m_leftDoubleClickCallback;
     OwnedRegion m_owned_region;
+    /* Click handlers for widgets that report activation: primary and
+       secondary activation, the raw left/right press and left double-click. */
+    std::function<void()> m_onPrimary;
+    std::function<void()> m_onLeftButtonDown;
+    std::function<void()> m_onSecondary;
+    std::function<void()> m_onRightButtonDown;
+    std::function<void()> m_onDoubleClick;
 
 private:
     void UpdateRegionBounds();

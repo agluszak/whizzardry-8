@@ -288,7 +288,7 @@ static unsigned char CreateFormationPanel(void)
             return 0;
         }
         cell->AddLayoutFlags(g_W8TextControlLayoutToggle);
-        cell->m_primaryActivationCallback = SelectFormationCell;
+        cell->m_onPrimary = SelectFormationCell;
         cell = g_formation_panel->EmplaceControl<W8TextControl>(-1, left, top, left + 0x20, top + 0x20, CatalogArtwork::Load(0xa0, 0));
         g_formation_cell_overlays[index] = cell;
         if (cell == 0) {
@@ -306,9 +306,9 @@ static unsigned char CreateFormationPanel(void)
     while (*button != 0) {
         ++button;
         if (button > &g_formation_action_buttons[2]) {
-            g_formation_action_buttons[0]->m_primaryActivationCallback = AcceptFormationChanges;
-            g_formation_action_buttons[1]->m_primaryActivationCallback = CloseFormationPanel;
-            g_formation_action_buttons[2]->m_primaryActivationCallback = ResetFormationPanel;
+            g_formation_action_buttons[0]->m_onPrimary = AcceptFormationChanges;
+            g_formation_action_buttons[1]->m_onPrimary = CloseFormationPanel;
+            g_formation_action_buttons[2]->m_onPrimary = ResetFormationPanel;
             g_formation_panel->SetActive(true);
             return 1;
         }

@@ -93,8 +93,8 @@ unsigned char CreatePartyMovementPanel(void)
 
     if (g_party_movement_panel && g_party_movement_buttons[0] != 0 &&
         g_party_movement_buttons[1] != 0) {
-        g_party_movement_buttons[0]->m_primaryActivationCallback = BeginFreeTurnPhase;
-        g_party_movement_buttons[1]->m_primaryActivationCallback = CancelPartyMovement;
+        g_party_movement_buttons[0]->m_onPrimary = BeginFreeTurnPhase;
+        g_party_movement_buttons[1]->m_onPrimary = CancelPartyMovement;
         g_party_movement_regions.Enable();
         g_party_movement_panel->SetActive(true);
         g_party_movement_buttons[0]->SetActive(false);

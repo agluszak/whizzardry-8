@@ -201,15 +201,12 @@ void HideNpcQuoteBubbleRegion()
     g_npc_quote_bubble_regions.DisableInput();
 }
 
+static void ToggleNpcTradeCategory(int button, W8NpcTradeFilter filter);
 static unsigned char OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item, bool force);
 static unsigned char HandleNpcDialogueItem(W8ItemInstance* item);
 static void HandleNpcDialogueDeparture(unsigned char value);
 static void CreateNpcDialogueControls(void);
-static void ToggleNpcHandItemFilter(void);
-static void ToggleNpcAccessoryItemFilter(void);
 static void ToggleNpcCharacterUsabilityFilter(void);
-static void ToggleNpcBodyItemFilter(void);
-static void ToggleNpcOtherItemFilter(void);
 static void ToggleNpcPartyUsabilityFilter(void);
 static void SubmitNpcDialogueInput(void);
 static void SubmitNpcWhereIsQuery(void);
@@ -954,17 +951,17 @@ static void CreateNpcDialogueControls(void)
     state->dialogue_controls[W8_NPC_CONTROL_OPTION_BUTTONS + 5]->AddLayoutFlags(
         g_W8TextControlLayoutToggle);
     state->dialogue_controls[W8_NPC_CONTROL_OPTION_BUTTONS + 5]->EnableRegionHelp(0x7c7);
-    state->dialogue_controls[W8_NPC_CONTROL_OPTION_BUTTONS + 0]->m_primaryActivationCallback =
-        ToggleNpcHandItemFilter;
-    state->dialogue_controls[W8_NPC_CONTROL_OPTION_BUTTONS + 1]->m_primaryActivationCallback =
-        ToggleNpcAccessoryItemFilter;
-    state->dialogue_controls[W8_NPC_CONTROL_OPTION_BUTTONS + 2]->m_primaryActivationCallback =
+    state->dialogue_controls[W8_NPC_CONTROL_OPTION_BUTTONS + 0]->m_onPrimary =
+        [] { ToggleNpcTradeCategory(0, W8_NPC_TRADE_HAND); };
+    state->dialogue_controls[W8_NPC_CONTROL_OPTION_BUTTONS + 1]->m_onPrimary =
+        [] { ToggleNpcTradeCategory(1, W8_NPC_TRADE_ACCESSORY); };
+    state->dialogue_controls[W8_NPC_CONTROL_OPTION_BUTTONS + 2]->m_onPrimary =
         ToggleNpcCharacterUsabilityFilter;
-    state->dialogue_controls[W8_NPC_CONTROL_OPTION_BUTTONS + 3]->m_primaryActivationCallback =
-        ToggleNpcBodyItemFilter;
-    state->dialogue_controls[W8_NPC_CONTROL_OPTION_BUTTONS + 4]->m_primaryActivationCallback =
-        ToggleNpcOtherItemFilter;
-    state->dialogue_controls[W8_NPC_CONTROL_OPTION_BUTTONS + 5]->m_primaryActivationCallback =
+    state->dialogue_controls[W8_NPC_CONTROL_OPTION_BUTTONS + 3]->m_onPrimary =
+        [] { ToggleNpcTradeCategory(3, W8_NPC_TRADE_BODY); };
+    state->dialogue_controls[W8_NPC_CONTROL_OPTION_BUTTONS + 4]->m_onPrimary =
+        [] { ToggleNpcTradeCategory(4, W8_NPC_TRADE_OTHER); };
+    state->dialogue_controls[W8_NPC_CONTROL_OPTION_BUTTONS + 5]->m_onPrimary =
         ToggleNpcPartyUsabilityFilter;
 
     panel = state->dialogue_panels[1];
@@ -995,7 +992,7 @@ static void CreateNpcDialogueControls(void)
                           CatalogArtwork::Load(0x1a9, 0), W8SpriteStates{.alternate_normal = 0xe, .alternate_pressed = 0xf});
     static_cast<W8TextControl*>(state->dialogue_controls[W8_NPC_CONTROL_TEXT_23])
         ->m_textBuffer.SetText(g_localized_strings[0x741], g_wiz_text_font_secondary);
-    state->dialogue_controls[W8_NPC_CONTROL_TEXT_23]->m_primaryActivationCallback =
+    state->dialogue_controls[W8_NPC_CONTROL_TEXT_23]->m_onPrimary =
         SubmitNpcDialogueInput;
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_23]->EnableRegionHelp(0x66);
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_22] =
@@ -1003,7 +1000,7 @@ static void CreateNpcDialogueControls(void)
                           CatalogArtwork::Load(0x1a9, 0), W8SpriteStates{.alternate_normal = 0xe, .alternate_pressed = 0xf});
     static_cast<W8TextControl*>(state->dialogue_controls[W8_NPC_CONTROL_TEXT_22])
         ->m_textBuffer.SetText(g_localized_strings[0x742], g_wiz_text_font_secondary);
-    state->dialogue_controls[W8_NPC_CONTROL_TEXT_22]->m_primaryActivationCallback =
+    state->dialogue_controls[W8_NPC_CONTROL_TEXT_22]->m_onPrimary =
         SubmitNpcWhereIsQuery;
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_22]->EnableRegionHelp(0x67);
 
@@ -1083,7 +1080,7 @@ static void CreateNpcDialogueControls(void)
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_37] =
         panel->EmplaceControl<W8TextControl>(g_npc_dialogue_trade_panel_regions->index(13), 0x38, 0x22, 0x88,
                           0x34);
-    state->dialogue_controls[W8_NPC_CONTROL_TEXT_7]->m_primaryActivationCallback =
+    state->dialogue_controls[W8_NPC_CONTROL_TEXT_7]->m_onPrimary =
         BackOutNpcDialogue;
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_7]->EnableRegionHelp(0x7c8);
 }
@@ -2007,11 +2004,11 @@ static void EnterNpcServiceLayout(void)
 
 /* Reload the control after text allocation/layout, as the expanded callers do. */
 static void SetNpcDialogueAction(W8NpcDialogueControlSlot slot, int text_id,
-                                 W8ControlCallback callback)
+                                 std::function<void()> callback)
 {
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[slot])
         ->m_textBuffer.SetText(g_localized_strings[text_id], g_wiz_text_font_secondary);
-    g_npc_interaction_state->dialogue_controls[slot]->m_primaryActivationCallback = callback;
+    g_npc_interaction_state->dialogue_controls[slot]->m_onPrimary = std::move(callback);
 }
 
 /* Bring up the mode-2 dialogue layout: the option panels come up, the caption
@@ -2184,16 +2181,16 @@ void OpenNpcDialogueTranscriptLayout(void)
     SetNpcDialogueAction(W8_NPC_CONTROL_TEXT_4, 0x737, RequestNpcJoinParty);
     SetNpcDialogueAction(W8_NPC_CONTROL_TEXT_5, 0x723, PromptNpcDispositionChange);
     SetNpcDialogueAction(W8_NPC_CONTROL_TEXT_6, 0x725, LeaveNpcDialogueLayout);
-    g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_SCROLL]->m_primaryActivationCallback =
+    g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_SCROLL]->m_onPrimary =
         NoOp;
     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_SCROLL_UP_BUTTON]
-        ->m_leftButtonDownCallback = ScrollNpcDialogueUp;
+        ->m_onLeftButtonDown = ScrollNpcDialogueUp;
     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_SCROLL_DOWN_BUTTON]
-        ->m_leftButtonDownCallback = ScrollNpcDialogueDown;
+        ->m_onLeftButtonDown = ScrollNpcDialogueDown;
     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_12]
-        ->m_primaryActivationCallback = SubmitNpcDialogueKeyword;
+        ->m_onPrimary = SubmitNpcDialogueKeyword;
     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_13]
-        ->m_primaryActivationCallback = RefreshNpcDialogueTranscript;
+        ->m_onPrimary = RefreshNpcDialogueTranscript;
     SetNpcDialogueAction(W8_NPC_CONTROL_SORT_BUTTON, 0x740, SyncNpcDialogueListFilter);
     SetNpcDialogueAction(W8_NPC_CONTROL_PEOPLE_BUTTON, 0x743, SelectNpcPeopleTopics);
     SetNpcDialogueAction(W8_NPC_CONTROL_PLACES_BUTTON, 0x744, SelectNpcPlaceTopics);
@@ -2503,18 +2500,18 @@ static void OpenNpcDialogueOptionLayout(void)
     SetNpcDialogueAction(W8_NPC_CONTROL_TEXT_5, 0x72b, SelectNpcPartyItems);
     SetNpcDialogueAction(W8_NPC_CONTROL_TEXT_6, 0x72c, SelectNpcStockItems);
     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_24]
-        ->m_primaryActivationCallback = OpenNpcItemAssay;
+        ->m_onPrimary = OpenNpcItemAssay;
     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_24]
-        ->m_secondaryActivationCallback = OpenNpcItemAssay;
+        ->m_onSecondary = OpenNpcItemAssay;
     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_31]->SetEnabled(false);
     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_31]
-        ->m_primaryActivationCallback = ConfirmNpcTradeSlot;
+        ->m_onPrimary = ConfirmNpcTradeSlot;
     buffer = fmt::format("{:d}g", g_status.party_gold);
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_33])
         ->m_textBuffer.SetText(buffer, g_wiz_text_font_secondary);
     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_37]->SetEnabled(false);
     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_37]
-        ->m_primaryActivationCallback = ConfirmNpcTradeItem;
+        ->m_onPrimary = ConfirmNpcTradeItem;
     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_5]->AddLayoutFlags(
         g_W8TextControlLayoutToggle);
     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_6]->AddLayoutFlags(
@@ -3064,13 +3061,13 @@ static void OpenNpcDialogueMode5Layout(void)
     ConfigureNpcTradeCommands();
     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_31]->SetEnabled(false);
     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_31]
-        ->m_primaryActivationCallback = ConfirmNpcTradeSlot;
+        ->m_onPrimary = ConfirmNpcTradeSlot;
     buffer = fmt::format("{:d}g", g_status.party_gold);
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_33])
         ->m_textBuffer.SetText(buffer, g_wiz_text_font_secondary);
     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_37]->SetEnabled(false);
     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_37]
-        ->m_primaryActivationCallback = RestockNpcTradeStock;
+        ->m_onPrimary = RestockNpcTradeStock;
     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_5]->SetActive(false);
     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_6]->SetActive(false);
     g_npc_interaction_state->trade_filter = 0;
@@ -3156,26 +3153,6 @@ static void ToggleNpcTradeCategory(int button, W8NpcTradeFilter filter)
         g_npc_interaction_state->trade_filter &= ~filter;
     }
     RebuildNpcTradeItemList(true);
-}
-
-static void ToggleNpcHandItemFilter(void)
-{
-    ToggleNpcTradeCategory(0, W8_NPC_TRADE_HAND);
-}
-
-static void ToggleNpcAccessoryItemFilter(void)
-{
-    ToggleNpcTradeCategory(1, W8_NPC_TRADE_ACCESSORY);
-}
-
-static void ToggleNpcBodyItemFilter(void)
-{
-    ToggleNpcTradeCategory(3, W8_NPC_TRADE_BODY);
-}
-
-static void ToggleNpcOtherItemFilter(void)
-{
-    ToggleNpcTradeCategory(4, W8_NPC_TRADE_OTHER);
 }
 
 /* The "usable by the selected character" toggle is exclusive with the

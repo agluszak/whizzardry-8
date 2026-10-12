@@ -2610,8 +2610,8 @@ void W8NpcDialogueScrollWidget::OnLeftButtonDown(int event)
 {
     if (m_active && m_enabled) {
         m_flags |= 1;
-        if (m_leftButtonDownCallback) {
-            m_leftButtonDownCallback();
+        if (m_onLeftButtonDown) {
+            m_onLeftButtonDown();
         }
     }
 }
@@ -2620,8 +2620,8 @@ void W8NpcDialogueScrollWidget::OnLeftButtonUp(int event)
 {
     if (m_active && m_enabled && (m_flags & 1)) {
         m_flags &= ~1u;
-        if (m_primaryActivationCallback) {
-            m_primaryActivationCallback();
+        if (m_onPrimary) {
+            m_onPrimary();
         }
     }
 }

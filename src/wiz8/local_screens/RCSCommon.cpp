@@ -91,12 +91,8 @@ std::unique_ptr<Controls> g_item_actions_panel;
    profession's level-band title. */
 
 /* The page and item-action button callbacks CreateCampButtonPanel
-   wires into m_primaryActivationCallback. */
-static void OnCampPageButton0(void);
-static void OnCampPageButton1(void);
-static void OnCampPageButton2(void);
-static void OnCampPageButton3(void);
-static void CampPageDismissAction(void);
+   wires into m_onPrimary. */
+static void SelectCampPageButton(int button, W8CampPage page);
 static void OnCampIdentifyItem(void);
 static void OnCampMoveItem(void);
 static void OnCampSplitStack(void);
@@ -479,7 +475,7 @@ void CreateRcsLevelUpPanel(void)
         srAssertFail("gpLevelUpButton", "C:\\Projects\\Wizardry 8\\Local Screens\\RCSCommon.cpp",
                      0x852, 0);
     }
-    g_level_up_button->m_primaryActivationCallback = OpenLevelUpCharacterScreen;
+    g_level_up_button->m_onPrimary = OpenLevelUpCharacterScreen;
     g_level_up_panel->SetActive(true);
     g_level_up_button->SetActive(false);
 }
@@ -552,7 +548,7 @@ void CreateRcsDismissPanel(void)
         srAssertFail("gpDismissButton", "C:\\Projects\\Wizardry 8\\Local Screens\\RCSCommon.cpp",
                      0x8d3, 0);
     }
-    g_dismiss_button->m_primaryActivationCallback = ShowDismissCharacterDialog;
+    g_dismiss_button->m_onPrimary = ShowDismissCharacterDialog;
     g_dismiss_panel->SetActive(true);
     g_dismiss_button->SetActive(false);
 }
@@ -1053,11 +1049,11 @@ int CreateCampButtonPanel(void)
         g_camp_page_buttons[1]->AddLayoutFlags(g_W8TextControlLayoutToggle);
         g_camp_page_buttons[2]->AddLayoutFlags(g_W8TextControlLayoutToggle);
         g_camp_page_buttons[3]->AddLayoutFlags(g_W8TextControlLayoutToggle);
-        g_camp_page_buttons[0]->m_primaryActivationCallback = OnCampPageButton0;
-        g_camp_page_buttons[1]->m_primaryActivationCallback = OnCampPageButton1;
-        g_camp_page_buttons[2]->m_primaryActivationCallback = OnCampPageButton2;
-        g_camp_page_buttons[3]->m_primaryActivationCallback = OnCampPageButton3;
-        g_camp_page_buttons[4]->m_primaryActivationCallback = CampPageDismissAction;
+        g_camp_page_buttons[0]->m_onPrimary = [] { SelectCampPageButton(0, W8_CAMP_PAGE_ITEMS); };
+        g_camp_page_buttons[1]->m_onPrimary = [] { SelectCampPageButton(1, W8_CAMP_PAGE_SPELLS); };
+        g_camp_page_buttons[2]->m_onPrimary = [] { SelectCampPageButton(2, W8_CAMP_PAGE_SKILLS); };
+        g_camp_page_buttons[3]->m_onPrimary = [] { SelectCampPageButton(3, W8_CAMP_PAGE_STATS); };
+        g_camp_page_buttons[4]->m_onPrimary = [] { DismissSelectedPartyCharacter(); };
         g_item_action_controls[W8_CAMP_ACTION_BUTTON_IDENTIFY] = g_item_actions_panel->EmplaceControl<W8TextControl>(g_camp_item_action_regions->index(0), 0, 0, 0x2c, 0x1e,
             CatalogArtwork::Load(0x112, 0), W8SpriteStates{.normal = 0, .pressed = 2, .alternate_normal = 1, .alternate_pressed = 4, .disabled = 3});
         g_item_action_controls[W8_CAMP_ACTION_BUTTON_MOVE] = g_item_actions_panel->EmplaceControl<W8TextControl>(g_camp_item_action_regions->index(1), 0x2c, 0, 0x58, 0x1e,
@@ -1100,21 +1096,21 @@ int CreateCampButtonPanel(void)
                 g_item_action_controls[W8_CAMP_ACTION_BUTTON_USE_ON_CHARACTER]->AddLayoutFlags(
                     g_W8TextControlLayoutToggle);
                 g_item_action_controls[W8_CAMP_ACTION_BUTTON_IDENTIFY]
-                    ->m_primaryActivationCallback = OnCampIdentifyItem;
-                g_item_action_controls[W8_CAMP_ACTION_BUTTON_MOVE]->m_primaryActivationCallback =
+                    ->m_onPrimary = OnCampIdentifyItem;
+                g_item_action_controls[W8_CAMP_ACTION_BUTTON_MOVE]->m_onPrimary =
                     OnCampMoveItem;
                 g_item_action_controls[W8_CAMP_ACTION_BUTTON_SPLIT_STACK]
-                    ->m_primaryActivationCallback = OnCampSplitStack;
-                g_item_action_controls[W8_CAMP_ACTION_BUTTON_USE]->m_primaryActivationCallback =
+                    ->m_onPrimary = OnCampSplitStack;
+                g_item_action_controls[W8_CAMP_ACTION_BUTTON_USE]->m_onPrimary =
                     OnCampUseItem;
-                g_item_action_controls[W8_CAMP_ACTION_BUTTON_DROP]->m_primaryActivationCallback =
+                g_item_action_controls[W8_CAMP_ACTION_BUTTON_DROP]->m_onPrimary =
                     OnCampDropItem;
                 g_item_action_controls[W8_CAMP_ACTION_BUTTON_CAST_SPELL]
-                    ->m_primaryActivationCallback = OnCampCastSpell;
+                    ->m_onPrimary = OnCampCastSpell;
                 g_item_action_controls[W8_CAMP_ACTION_BUTTON_USE_ON_ITEM]
-                    ->m_primaryActivationCallback = OnCampUseItemOnItem;
+                    ->m_onPrimary = OnCampUseItemOnItem;
                 g_item_action_controls[W8_CAMP_ACTION_BUTTON_USE_ON_CHARACTER]
-                    ->m_primaryActivationCallback = OnCampUseItemOnCharacter;
+                    ->m_onPrimary = OnCampUseItemOnCharacter;
                 g_item_actions_panel->SetActive(true);
                 g_camp_page_buttons[0]->EnableSecondaryState(false);
                 return 1;
@@ -1319,7 +1315,9 @@ void SetCampItemActionMode(char mode)
     g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_ITEM_ACTIONS;
 }
 
-/* Descriptive name for the page-button operation expanded in the callbacks. */
+/* A page button's click: while its secondary state is up, clear it on every
+   page button and switch to the button's page; then raise the pressed
+   button's secondary state. */
 static void SelectCampPageButton(int button, W8CampPage page)
 {
     if (static_cast<unsigned char>(g_camp_page_buttons[button]->m_stateFlags &
@@ -1333,39 +1331,6 @@ static void SelectCampPageButton(int button, W8CampPage page)
         SwitchCampPage(page);
     }
     g_camp_page_buttons[button]->EnableSecondaryState(false);
-}
-
-/* The five page-button callbacks share one shape: while this button's
-   secondary state is up, clear it on every page button and switch to the
-   button's page; then raise the pressed button's secondary state. */
-// FUNCTION: WIZ8 0x005b5ae0
-static void OnCampPageButton0(void)
-{
-    SelectCampPageButton(0, W8_CAMP_PAGE_ITEMS);
-}
-
-// FUNCTION: WIZ8 0x005b5b30
-static void OnCampPageButton1(void)
-{
-    SelectCampPageButton(1, W8_CAMP_PAGE_SPELLS);
-}
-
-// FUNCTION: WIZ8 0x005b5b80
-static void OnCampPageButton2(void)
-{
-    SelectCampPageButton(2, W8_CAMP_PAGE_SKILLS);
-}
-
-// FUNCTION: WIZ8 0x005b5bd0
-static void OnCampPageButton3(void)
-{
-    SelectCampPageButton(3, W8_CAMP_PAGE_STATS);
-}
-
-// FUNCTION: WIZ8 0x005b5c20
-static void CampPageDismissAction(void)
-{
-    DismissSelectedPartyCharacter();
 }
 
 /* Item-action button callbacks: while the button's secondary state is up the

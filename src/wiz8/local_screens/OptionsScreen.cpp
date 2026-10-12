@@ -1226,7 +1226,7 @@ void W8OptionsScreen::CreateControls()
             m_controls->EmplaceControl<W8OptionsMenuRowControl>(g_options_menu_rows[index])
                 ->m_button;
         if (index == 7) {
-            button->m_primaryActivationCallback = RequestScreenTransition;
+            button->m_onPrimary = RequestScreenTransition;
         } else if (index == 6) {
             button->m_listener = this;
         } else {

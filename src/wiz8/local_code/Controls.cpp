@@ -1056,8 +1056,8 @@ void W8TextControl::NotifyPrimaryActivation()
     if (m_listener != 0) {
         m_listener->OnPrimary(this);
     }
-    if (m_primaryActivationCallback != 0) {
-        m_primaryActivationCallback();
+    if (m_onPrimary != 0) {
+        m_onPrimary();
     }
 }
 
@@ -1066,8 +1066,8 @@ void W8TextControl::NotifySecondaryActivation()
     if (m_listener != 0) {
         m_listener->OnSecondary(this);
     }
-    if (m_secondaryActivationCallback != 0) {
-        m_secondaryActivationCallback();
+    if (m_onSecondary != 0) {
+        m_onSecondary();
     }
 }
 
@@ -1102,8 +1102,8 @@ void W8TextControl::OnLeftButtonDown(int event)
     }
 
     m_textBuffer.SetGeometryDirty();
-    if (m_leftButtonDownCallback != 0) {
-        m_leftButtonDownCallback();
+    if (m_onLeftButtonDown != 0) {
+        m_onLeftButtonDown();
     }
 }
 
@@ -1114,8 +1114,8 @@ void W8TextControl::OnRightButtonDown(int)
         if ((m_layoutFlags & W8_TEXT_CONTROL_SILENT) != 0) {
             PushButtonSoundScheme(0, true);
         }
-        if (m_rightButtonDownCallback != 0) {
-            m_rightButtonDownCallback();
+        if (m_onRightButtonDown != 0) {
+            m_onRightButtonDown();
         }
         return;
     }
@@ -1220,8 +1220,8 @@ void W8TextControl::OnLeftButtonDoubleClick(int)
             (m_stateFlags & g_W8TextControlStateSecondary) == 0) {
             return;
         }
-        if (m_leftDoubleClickCallback != 0) {
-            m_leftDoubleClickCallback();
+        if (m_onDoubleClick != 0) {
+            m_onDoubleClick();
         }
         return;
     }
@@ -1646,7 +1646,7 @@ void W8HelpTextControl::OnLeftButtonDown(int event)
 // FUNCTION: WIZ8 0x004f6720
 void W8HelpTextControl::OnRightButtonDown(int event)
 {
-    if (m_secondaryActivationCallback == 0) {
+    if (m_onSecondary == 0) {
         PushButtonSoundScheme(0, true);
     }
     W8TextControl::OnRightButtonDown(event);
@@ -1662,7 +1662,7 @@ void W8HelpTextControl::OnLeftButtonUp(int event)
 // FUNCTION: WIZ8 0x004f6780
 void W8HelpTextControl::OnRightButtonUp(int event)
 {
-    if (m_secondaryActivationCallback == 0) {
+    if (m_onSecondary == 0) {
         PushButtonSoundScheme(0, true);
     }
     W8TextControl::OnRightButtonUp(event);

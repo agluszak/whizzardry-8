@@ -801,7 +801,7 @@ unsigned char BuildKeyboardMenu(void)
                 return 0;
             }
             AssignKeyboardMenuCallback(menu, item, control);
-            control->m_secondaryActivationCallback = CloseKeyboardMenu;
+            control->m_onSecondary = CloseKeyboardMenu;
             g_keyboard_menu_pages[row] = menu;
             g_keyboard_menu_items[row] = item;
             (*g_keyboard_menu_regions)[row].SetHelp(true,
@@ -812,8 +812,8 @@ unsigned char BuildKeyboardMenu(void)
     g_keyboard_menu_rows[row] = g_keyboard_menu_panel->EmplaceControl<W8TextControl>(g_keyboard_menu_regions->index(row), g_keyboard_row_positions[row].x,
         g_keyboard_row_positions[row].y, g_keyboard_row_positions[row].x + 0x12,
         g_keyboard_row_positions[row].y + 0x12, CatalogArtwork::Load(0x89, 0), W8SpriteStates{.normal = 0xbd, .pressed = 0xbd, .alternate_normal = 0xbf, .alternate_pressed = 0xbf});
-    g_keyboard_menu_rows[row]->m_primaryActivationCallback = CloseKeyboardMenu;
-    g_keyboard_menu_rows[row]->m_secondaryActivationCallback = CloseKeyboardMenu;
+    g_keyboard_menu_rows[row]->m_onPrimary = CloseKeyboardMenu;
+    g_keyboard_menu_rows[row]->m_onSecondary = CloseKeyboardMenu;
     (*g_keyboard_menu_regions)[row].SetHelp(true, 0x11);
     g_keyboard_menu_panel->SetActive(true);
     RefreshKeyboardMenuRows();
@@ -920,43 +920,43 @@ void AssignKeyboardMenuCallback(short menu, short item, W8TextControl* row)
     case W8_SUBMENU_ATTACK:
         switch (item) {
         case 0:
-            row->m_primaryActivationCallback = KeyboardMenuSelectAttack;
+            row->m_onPrimary = KeyboardMenuSelectAttack;
             break;
         case 1:
-            row->m_primaryActivationCallback = KeyboardMenuSelectBerserk;
+            row->m_onPrimary = KeyboardMenuSelectBerserk;
             break;
         case 2:
-            row->m_primaryActivationCallback = KeyboardMenuSelectBreathe;
+            row->m_onPrimary = KeyboardMenuSelectBreathe;
             break;
         case 4:
-            row->m_primaryActivationCallback = KeyboardMenuSelectPray;
+            row->m_onPrimary = KeyboardMenuSelectPray;
             break;
         case 3:
-            row->m_primaryActivationCallback = KeyboardMenuSelectTurnUndead;
+            row->m_onPrimary = KeyboardMenuSelectTurnUndead;
             break;
         }
         break;
     case W8_SUBMENU_DEFEND:
         if (item == 0) {
-            row->m_primaryActivationCallback = KeyboardMenuSelectDefend;
+            row->m_onPrimary = KeyboardMenuSelectDefend;
         } else if (item == 1) {
-            row->m_primaryActivationCallback = KeyboardMenuSelectProtect;
+            row->m_onPrimary = KeyboardMenuSelectProtect;
         }
         break;
     case W8_SUBMENU_ITEMS:
         if (item == 0) {
-            row->m_primaryActivationCallback = KeyboardMenuSelectEquip;
+            row->m_onPrimary = KeyboardMenuSelectEquip;
         } else if (item == 1) {
-            row->m_primaryActivationCallback = KeyboardMenuOpenUseItemView;
+            row->m_onPrimary = KeyboardMenuOpenUseItemView;
         } else if (item == 2) {
-            row->m_primaryActivationCallback = KeyboardMenuUseRecordedItem;
+            row->m_onPrimary = KeyboardMenuUseRecordedItem;
         }
         break;
     case W8_SUBMENU_SPELLS:
         if (item == 0) {
-            row->m_primaryActivationCallback = KeyboardMenuOpenSpellView;
+            row->m_onPrimary = KeyboardMenuOpenSpellView;
         } else if (item == 1) {
-            row->m_primaryActivationCallback = KeyboardMenuCastRecordedSpell;
+            row->m_onPrimary = KeyboardMenuCastRecordedSpell;
         }
         break;
     }

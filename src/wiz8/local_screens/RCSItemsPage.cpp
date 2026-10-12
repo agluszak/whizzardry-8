@@ -1282,8 +1282,8 @@ int CreateCampActionPanel(void)
         ++index;
         if (index > 1) {
             g_camp_action_buttons[1]->AddLayoutFlags(g_W8TextControlLayoutToggle);
-            g_camp_action_buttons[0]->m_primaryActivationCallback = UnequipBothHands;
-            g_camp_action_buttons[1]->m_primaryActivationCallback = TogglePartyRowFlag;
+            g_camp_action_buttons[0]->m_onPrimary = UnequipBothHands;
+            g_camp_action_buttons[1]->m_onPrimary = TogglePartyRowFlag;
             g_camp_action_panel->SetActive(true);
             return 1;
         }
@@ -1376,15 +1376,15 @@ int CreateItemsTabPanel(void)
             for (index = 0; index < 6; ++index) {
                 g_camp_item_filter_buttons[index]->AddLayoutFlags(g_W8TextControlLayoutToggle);
             }
-            g_camp_item_filter_buttons[0]->m_primaryActivationCallback = ToggleCampHandItemFilter;
-            g_camp_item_filter_buttons[1]->m_primaryActivationCallback = ToggleCampBodyItemFilter;
-            g_camp_item_filter_buttons[2]->m_primaryActivationCallback = ToggleCampOtherItemFilter;
-            g_camp_item_filter_buttons[3]->m_primaryActivationCallback =
+            g_camp_item_filter_buttons[0]->m_onPrimary = ToggleCampHandItemFilter;
+            g_camp_item_filter_buttons[1]->m_onPrimary = ToggleCampBodyItemFilter;
+            g_camp_item_filter_buttons[2]->m_onPrimary = ToggleCampOtherItemFilter;
+            g_camp_item_filter_buttons[3]->m_onPrimary =
                 ToggleCampAccessoryItemFilter;
-            g_camp_item_filter_buttons[4]->m_primaryActivationCallback = ToggleCampUsabilityFilter;
-            g_camp_item_filter_buttons[5]->m_primaryActivationCallback =
+            g_camp_item_filter_buttons[4]->m_onPrimary = ToggleCampUsabilityFilter;
+            g_camp_item_filter_buttons[5]->m_onPrimary =
                 ToggleCampUnidentifiedItemFilter;
-            g_camp_item_filter_buttons[6]->m_primaryActivationCallback = SortCampItemPool;
+            g_camp_item_filter_buttons[6]->m_onPrimary = SortCampItemPool;
             g_camp_item_filter_panel->SetActive(true);
             return 1;
         }
@@ -1532,25 +1532,25 @@ int CreateCampSecondaryPanel(void)
                                                 top + 0x8c);
     g_camp_info_labels[3] = panel->EmplaceControl<W8CampInfoLabel>(-1, left, top + 0x8e, right,
                                                 top + 0x9a);
-    g_camp_stat_labels[0]->m_secondaryActivationCallback = OpenStrengthInfoDialog;
-    g_camp_stat_labels[1]->m_secondaryActivationCallback = OpenIntelligenceInfoDialog;
-    g_camp_stat_labels[2]->m_secondaryActivationCallback = OpenPietyInfoDialog;
-    g_camp_stat_labels[3]->m_secondaryActivationCallback = OpenVitalityInfoDialog;
-    g_camp_stat_labels[4]->m_secondaryActivationCallback = OpenDexterityInfoDialog;
-    g_camp_stat_labels[5]->m_secondaryActivationCallback = OpenSpeedInfoDialog;
-    g_camp_stat_labels[6]->m_secondaryActivationCallback = OpenSensesInfoDialog;
-    g_camp_info_labels[0]->m_secondaryActivationCallback = OpenSecondaryAttributeInfoDialog0;
-    g_camp_info_labels[1]->m_secondaryActivationCallback = OpenSecondaryAttributeInfoDialog1;
-    g_camp_info_labels[2]->m_secondaryActivationCallback = OpenSecondaryAttributeInfoDialog3;
-    g_camp_info_labels[3]->m_secondaryActivationCallback = OpenSecondaryAttributeInfoDialog3;
+    g_camp_stat_labels[0]->m_onSecondary = OpenStrengthInfoDialog;
+    g_camp_stat_labels[1]->m_onSecondary = OpenIntelligenceInfoDialog;
+    g_camp_stat_labels[2]->m_onSecondary = OpenPietyInfoDialog;
+    g_camp_stat_labels[3]->m_onSecondary = OpenVitalityInfoDialog;
+    g_camp_stat_labels[4]->m_onSecondary = OpenDexterityInfoDialog;
+    g_camp_stat_labels[5]->m_onSecondary = OpenSpeedInfoDialog;
+    g_camp_stat_labels[6]->m_onSecondary = OpenSensesInfoDialog;
+    g_camp_info_labels[0]->m_onSecondary = OpenSecondaryAttributeInfoDialog0;
+    g_camp_info_labels[1]->m_onSecondary = OpenSecondaryAttributeInfoDialog1;
+    g_camp_info_labels[2]->m_onSecondary = OpenSecondaryAttributeInfoDialog3;
+    g_camp_info_labels[3]->m_onSecondary = OpenSecondaryAttributeInfoDialog3;
     for (index = 0; index < 4; ++index) {
         g_camp_info_labels[index]->EnableRegionHelp(0x958);
     }
-    g_camp_help_text->m_secondaryActivationCallback = OpenSecondaryAttributeInfoDialog4;
+    g_camp_help_text->m_onSecondary = OpenSecondaryAttributeInfoDialog4;
     g_camp_page_tabs[0]->AddLayoutFlags(g_W8TextControlLayoutToggle);
     g_camp_page_tabs[1]->AddLayoutFlags(g_W8TextControlLayoutToggle);
-    g_camp_page_tabs[0]->m_primaryActivationCallback = ShowCampItemsPage;
-    g_camp_page_tabs[1]->m_primaryActivationCallback = ShowCampCharacterPage;
+    g_camp_page_tabs[0]->m_onPrimary = ShowCampItemsPage;
+    g_camp_page_tabs[1]->m_onPrimary = ShowCampCharacterPage;
     g_camp_page_tabs[0]->EnableRegionHelp(0x95d);
     g_camp_page_tabs[1]->EnableRegionHelp(0x95e);
     panel->SetActive(true);
