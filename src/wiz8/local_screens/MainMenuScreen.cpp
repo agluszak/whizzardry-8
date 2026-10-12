@@ -35,7 +35,6 @@
 #include "Font.h"
 #include "himage.h"
 #include "image.h"
-#include "dialog_code/DialogBase.h"
 
 
 /* The screen's own state. */
