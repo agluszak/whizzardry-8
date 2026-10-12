@@ -16,6 +16,14 @@
    SavantTower and Arnika translation units. Level 0x1b is the
    Arnika_Trynton map in the retail level table. */
 
+/* Turns on a named spawn generator when the level defines it. */
+static void EnableMonGenerator(const char* name)
+{
+    if (MonGen* generator = FindMonGenByName(name); generator != 0) {
+        generator->flags |= 1;
+    }
+}
+
 /* The "Liche" crypt callback: without item 0x15d in hand and before the
    trigger's action has fired it only answers with level message 6. Otherwise
    it answers with message 7, marks the lich dead (1000 experience the first
@@ -23,7 +31,6 @@
 // FUNCTION: WIZ8 0x004E05F0
 bool ConnectiveTissueLiche(Trigger* pTrigger)
 {
-    MonGen* generator;
 
     if (GetItemInHand() != 0x15d && pTrigger->action == 0) {
         ShowLevelMessage(6);
@@ -35,29 +42,11 @@ bool ConnectiveTissueLiche(Trigger* pTrigger)
         CreateLocationVar("LicheDead", 1);
         AwardPartyExperience(0x3e8, 0);
     }
-    generator = FindMonGenByName("UNDEAD01");
-    if (generator != 0) {
-        generator->flags |= 1;
-    }
-    generator = FindMonGenByName("UNDEAD02");
-    if (generator != 0) {
-        generator->flags |= 1;
-    }
-    generator = FindMonGenByName("UNDEAD03");
-    if (generator != 0) {
-        generator->flags |= 1;
-    }
-    generator = FindMonGenByName("UNDEAD04");
-    if (generator != 0) {
-        generator->flags |= 1;
-    }
-    generator = FindMonGenByName("UNDEAD05");
-    if (generator != 0) {
-        generator->flags |= 1;
-    }
-    generator = FindMonGenByName("UNDEAD06");
-    if (generator != 0) {
-        generator->flags |= 1;
-    }
+    EnableMonGenerator("UNDEAD01");
+    EnableMonGenerator("UNDEAD02");
+    EnableMonGenerator("UNDEAD03");
+    EnableMonGenerator("UNDEAD04");
+    EnableMonGenerator("UNDEAD05");
+    EnableMonGenerator("UNDEAD06");
     return true;
 }
