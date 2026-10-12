@@ -569,7 +569,6 @@ static void BeginFormationDrag()
     g_formation_drag_cell = g_formation_active_cell;
     // The dragged chip follows the pointer; the drop must reach the cell under
     // it rather than the button region that captured the initial press.
-    ClearActiveRegionIfMatches(g_formation_cell_controls[g_formation_drag_cell]->m_region);
     g_formation_cell_slots[g_formation_active_cell] = -1;
     SGPMouseGetPos(&point);
     ClearMouseSurface();
