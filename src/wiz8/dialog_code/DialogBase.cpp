@@ -1,6 +1,7 @@
 #include <SDL3/SDL_rect.h>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/dialog_code/DialogBase.h"
@@ -13,7 +14,12 @@
 #include "wiz8/dialog_code/ButtonAppearance.h"
 
 // GLOBAL: WIZ8 0x0069CA28
-int g_live_dialog_count;
+static std::vector<W8DialogBase*> g_live_dialogs;
+
+W8DialogBase* TopLiveDialog()
+{
+    return g_live_dialogs.empty() ? nullptr : g_live_dialogs.back();
+}
 
 void W8DialogBase::CreateCloseButton(W8ButtonWidget& button, int left, int top)
 {
@@ -55,7 +61,7 @@ W8DialogBase::W8DialogBase()
     m_keep_open = true;
     m_destroy_callback = 0;
     m_destroy_callback_context = 0;
-    ++g_live_dialog_count;
+    g_live_dialogs.push_back(this);
     m_right_button_down = false;
 }
 
@@ -67,7 +73,7 @@ W8DialogBase::~W8DialogBase()
         m_destroy_callback(this);
     }
     DestroyControls();
-    --g_live_dialog_count;
+    std::erase(g_live_dialogs, this);
 }
 
 // FUNCTION: WIZ8 0x005dc890

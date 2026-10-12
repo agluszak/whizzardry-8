@@ -142,7 +142,7 @@ public:
     W8DialogBase* m_owner;
 
 private:
-    /* Snapshot of the live-dialog count; dispatch ignores events when a
-       nested dialog has changed that count. */
-    int m_live_dialog_count;
+    /* The dialog that was innermost when this button was made; the button
+       only takes input while that dialog is still the innermost one. */
+    W8DialogBase* m_layer;
 };

@@ -152,7 +152,7 @@ W8ButtonWidget::W8ButtonWidget()
       m_right_callback(nullptr), m_move_callback(nullptr), m_double_click_callback(nullptr),
       m_left_toggles(false), m_right_toggles(false), silent(false),
       hover_silent(false), m_repeat_enabled(false), m_owner(nullptr),
-      m_live_dialog_count(g_live_dialog_count)
+      m_layer(TopLiveDialog())
 {
     m_dirty = true;
 }
@@ -285,7 +285,7 @@ void W8ButtonWidget::ActivateSecondary(int) { HandleMouseEvent(REGION_REASON_RBU
 
 void W8ButtonWidget::HandleMouseEvent(std::int32_t reason)
 {
-    if (m_live_dialog_count != g_live_dialog_count) return;
+    if (m_layer != TopLiveDialog()) return;
     if (!m_left_callback && !m_right_callback && !m_move_callback && !m_double_click_callback) return;
     if (reason & REGION_REASON_LOST_MOUSE) {
         m_armed_buttons = m_repeated_buttons = 0;
