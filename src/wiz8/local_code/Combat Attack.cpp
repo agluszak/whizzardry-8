@@ -1670,7 +1670,7 @@ int ContinueMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record)
 {
     W8SpellEffectResult* report = &g_combat_state->attack_report;
     W8SpellEffectResult local_report;
-    W8MonsterCombatState* combat = monster_info->pCombat;
+    W8MonsterCombatState* combat = monster_info->pCombat.get();
     unsigned int attack_index = combat->attack_index;
     W8AttackMode action_detail = static_cast<W8AttackMode>(monster_info->action_detail);
     W8MonsterAttack* attack = &record->attacks[attack_index];
@@ -2019,7 +2019,7 @@ bool StartMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record)
     if (record == 0) {
         srAssertFail("pMonsterDB != NULL", COMBAT_ATTACK_CPP, 0x6f5, 0);
     }
-    combat = monster_info->pCombat;
+    combat = monster_info->pCombat.get();
     if (combat == 0) {
         srAssertFail("pCmbt != NULL", COMBAT_ATTACK_CPP, 0x6f8, 0);
     }
@@ -2122,7 +2122,7 @@ static void AppendAttackWeaponName(std::string_view name, int mode)
 void AnnounceMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record,
                            char target_changed)
 {
-    W8MonsterCombatState* combat = monster_info->pCombat;
+    W8MonsterCombatState* combat = monster_info->pCombat.get();
     W8AttackMode action_detail = static_cast<W8AttackMode>(monster_info->action_detail);
     unsigned int attack = combat->attack_index;
     W8MonsterAttack* pAttack = &record->attacks[attack];
@@ -2211,7 +2211,7 @@ void AnnounceMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record,
         g_combat_state->attack_message += GetMonsterName(second, 0, 0);
         palette = 9;
         if (range <= W8_RANGE_SHORT && IsMonsterFacingMonster(second, monster_info) == 0) {
-            second_combat = second->pCombat;
+            second_combat = second->pCombat.get();
             notices = false;
             if (second->hp_current != 0 && second->stamina != 0 &&
                 second->highest_condition < W8_CONDITION_WEBBED &&
@@ -2533,7 +2533,7 @@ int ResolveCharacterAttackDamage(int party_slot, int hand, W8AttackMode attack_m
 int GetMonsterAttackScore(W8MonsterInfo* monster_info, W8MonsterAttack* attack,
                           W8AttackMode attack_mode, char ignore_target_defenses)
 {
-    W8MonsterCombatState* combat = monster_info->pCombat;
+    W8MonsterCombatState* combat = monster_info->pCombat.get();
     int score = monster_info->modifiers.hit_bonus * 5 + attack->attack_score;
     score += AttackModeMod(0, attack_mode);
     if (g_combat_state != nullptr) {
