@@ -159,11 +159,10 @@ bool RegionContainsInputPoint(unsigned int region_index, unsigned short x, unsig
 {
     const auto& region = g_regions[region_index];
     if (dispatch_coordinates && region.text_field) {
-        return RegionContainsPoint(
-            region_index, static_cast<unsigned short>(static_cast<int>(x) - g_cursor_hotspot_x),
-            static_cast<unsigned short>(static_cast<int>(y) - g_cursor_hotspot_y));
+        return region.ContainsPoint(static_cast<unsigned short>(static_cast<int>(x) - g_cursor_hotspot_x),
+                                    static_cast<unsigned short>(static_cast<int>(y) - g_cursor_hotspot_y));
     }
-    return RegionContainsPoint(region_index, x, y);
+    return region.ContainsPoint(x, y);
 }
 }
 
@@ -742,122 +741,54 @@ unsigned char ClearActiveRegionIfMatches(unsigned int region_index)
 }
 
 // FUNCTION: WIZ8 0x004f21d0
+bool PumpUiInput(const UiInputPolicy& policy)
+{
+    if (policy.track_hover) {
+        SDL_Point mouse;
+        SGPMouseGetPos(&mouse);
+        UpdateRegionMousePosition(mouse.x, mouse.y);
+    }
+    bool drained = false;
+    InputEvent input;
+    while (DequeueEvent(&input)) {
+        drained = true;
+        auto route = policy.before ? policy.before(input) : InputRoute::Pass;
+        if (route == InputRoute::Pass) {
+            const bool consumed = (!policy.ui_accepts || policy.ui_accepts(input)) &&
+                                  DispatchRegionInput(&input) != 0;
+            const auto& next = consumed ? policy.consumed : policy.unhandled;
+            route = next ? next(input) : InputRoute::Handled;
+        }
+        if (route == InputRoute::Stop) break;
+    }
+    return drained;
+}
+
 unsigned int GetForcedRegion(void)
 {
     return g_captured_region_index;
 }
 
-// FUNCTION: WIZ8 0x004f21e0
-void RegionSetEnable(unsigned int region_set_index)
+void W8RegionSet::SetInputEnabled(bool enabled) const
 {
-    if (region_set_index >= g_region_sets.size()) {
-        srAssertFail("uiRegionSetIndex < guiRegsetCount",
-                     "C:\\Projects\\Wizardry 8\\Local Code\\RegionManager.cpp", 0x22b, 0);
-    }
-    g_region_sets[region_set_index].enabled = 1;
+    for (auto index : Regions()) g_regions[index].SetInputEnabled(enabled);
 }
 
-// FUNCTION: WIZ8 0x004f2220
-void RegionSetDisable(unsigned int region_set_index)
+bool W8Region::ContainsPoint(int x, int y) const
 {
-    if (region_set_index >= g_region_sets.size()) {
-        srAssertFail("uiRegionSetIndex < guiRegsetCount",
-                     "C:\\Projects\\Wizardry 8\\Local Code\\RegionManager.cpp", 0x234, 0);
-    }
-    g_region_sets[region_set_index].enabled = 0;
-}
-
-// FUNCTION: WIZ8 0x004f2260
-void EnableRegionSetInput(unsigned int region_set_index)
-{
-    for (auto index : g_region_sets.at(region_set_index).Regions())
-        g_regions[index].flags &= ~W8_REGION_INPUT_MODE_MASK;
-}
-
-// FUNCTION: WIZ8 0x004f22f0
-void DisableRegionSetInput(unsigned int region_set_index)
-{
-    for (auto index : g_region_sets.at(region_set_index).Regions())
-        g_regions[index].flags = (g_regions[index].flags & ~W8_REGION_INPUT_MODE_MASK) | W8_REGION_INPUT_DISABLED;
-}
-
-// FUNCTION: WIZ8 0x004f2380
-void EnableRegionInput(unsigned int region_index)
-{
-    if (region_index >= g_regions.size()) {
-        srAssertFail("uiRegionIndex < guiRegionCount",
-                     "C:\\Projects\\Wizardry 8\\Local Code\\RegionManager.cpp", 0x259, 0);
-    }
-    g_regions[region_index].flags &= 0xfff3;
-}
-
-// FUNCTION: WIZ8 0x004f23d0
-void DisableRegionInput(unsigned int region_index)
-{
-    if (region_index >= g_regions.size()) {
-        srAssertFail("uiRegionIndex < guiRegionCount",
-                     "C:\\Projects\\Wizardry 8\\Local Code\\RegionManager.cpp", 0x262, 0);
-    }
-    unsigned int flags = g_regions[region_index].flags;
-    flags &= 0xfff3;
-    flags |= W8_REGION_INPUT_DISABLED;
-    g_regions[region_index].flags = flags;
-}
-
-// FUNCTION: WIZ8 0x004f2420
-void SetRegionBounds(unsigned int region_index, unsigned short x1, unsigned short y1,
-                     unsigned short x2, unsigned short y2)
-{
-    if (region_index >= g_regions.size()) {
-        srAssertFail("uiRegionIndex < guiRegionCount",
-                     "C:\\Projects\\Wizardry 8\\Local Code\\RegionManager.cpp", 0x27d, 0);
-    }
-    g_regions[region_index].x1 = x1;
-    g_regions[region_index].y1 = y1;
-    g_regions[region_index].x2 = x2;
-    g_regions[region_index].y2 = y2;
-}
-
-// FUNCTION: WIZ8 0x004f2490
-bool RegionContainsPoint(unsigned int region_index, unsigned short x, unsigned short y)
-{
-    W8Region* region;
-
-    if (region_index >= g_regions.size()) {
-        srAssertFail("uiRegionIndex < guiRegionCount",
-                     "C:\\Projects\\Wizardry 8\\Local Code\\RegionManager.cpp", 0x2a4, 0);
-    }
-    region = &g_regions[region_index];
-    switch (region->flags & W8_REGION_MODE_MASK) {
+    switch (flags & W8_REGION_MODE_MASK) {
     case W8_REGION_RECTANGLE: {
         const SDL_Point point{x, y};
-        const SDL_Rect bounds{region->x1, region->y1,
-                              region->x2 - region->x1 + 1, region->y2 - region->y1 + 1};
+        const SDL_Rect bounds{x1, y1, x2 - x1 + 1, y2 - y1 + 1};
         return SDL_PointInRect(&point, &bounds);
     }
     case W8_REGION_CIRCLE: {
-        short delta_x = x - region->x1;
-        short delta_y = y - region->y1;
-        if (delta_x * delta_x + delta_y * delta_y <= region->x2 * region->x2) {
-            return true;
-        }
-        break;
+        const short delta_x = static_cast<short>(x - x1);
+        const short delta_y = static_cast<short>(y - y1);
+        return delta_x * delta_x + delta_y * delta_y <= x2 * x2;
     }
+    default: return false;
     }
-    return false;
-}
-
-// FUNCTION: WIZ8 0x004f2550
-bool RegionHasFlags(unsigned int region_index, unsigned int flags)
-{
-    bool has_flags;
-
-    if (region_index >= g_regions.size()) {
-        srAssertFail("uiRegionIndex < guiRegionCount",
-                     "C:\\Projects\\Wizardry 8\\Local Code\\RegionManager.cpp", 0x2c6, 0);
-    }
-    has_flags = (g_regions[region_index].flags & flags) != 0;
-    return has_flags;
 }
 
 // FUNCTION: WIZ8 0x004f25a0
@@ -963,7 +894,7 @@ void DestroyRegionSet(unsigned int region_set_index)
         return;
     }
 
-    RegionSetDisable(region_set_index);
+    g_region_sets.at(region_set_index).enabled = 0;
     const auto active_regions = g_region_sets[region_set_index].Regions();
     const std::vector<unsigned int> region_indices(active_regions.begin(), active_regions.end());
     for (const auto region_index : region_indices) {
@@ -977,7 +908,7 @@ unsigned int ControlRegionSetIndex(void)
     if (g_control_region_set == 0) {
         g_control_region_set = CreateRegionSet();
     }
-    RegionSetEnable(g_control_region_set);
+    g_region_sets.at(g_control_region_set).enabled = 1;
     return g_control_region_set;
 }
 
@@ -1141,22 +1072,22 @@ OwnedRegionSet::~OwnedRegionSet()
 
 void OwnedRegionSet::Enable()
 {
-    if (set_ != 0) RegionSetEnable(set_);
+    if (set_ != 0) g_region_sets.at(set_).enabled = 1;
 }
 
 void OwnedRegionSet::Disable()
 {
-    if (set_ != 0) RegionSetDisable(set_);
+    if (set_ != 0) g_region_sets.at(set_).enabled = 0;
 }
 
 void OwnedRegionSet::EnableInput()
 {
-    if (set_ != 0) EnableRegionSetInput(set_);
+    if (set_ != 0) g_region_sets.at(set_).SetInputEnabled(true);
 }
 
 void OwnedRegionSet::DisableInput()
 {
-    if (set_ != 0) DisableRegionSetInput(set_);
+    if (set_ != 0) g_region_sets.at(set_).SetInputEnabled(false);
 }
 
 bool OwnedRegionSet::IsEnabled() const
@@ -1232,12 +1163,22 @@ RegionSetView::~RegionSetView()
 
 void RegionSetView::Enable()
 {
-    if (set_ != 0) RegionSetEnable(set_);
+    if (set_ != 0) g_region_sets.at(set_).enabled = 1;
 }
 
 void RegionSetView::Disable()
 {
-    if (set_ != 0) RegionSetDisable(set_);
+    if (set_ != 0) g_region_sets.at(set_).enabled = 0;
+}
+
+void RegionSetView::EnableInput()
+{
+    if (set_ != 0) g_region_sets.at(set_).SetInputEnabled(true);
+}
+
+void RegionSetView::DisableInput()
+{
+    if (set_ != 0) g_region_sets.at(set_).SetInputEnabled(false);
 }
 
 bool RegionSetView::IsEnabled() const
@@ -1289,6 +1230,13 @@ const W8Region& OwnedRegion::region() const
     return g_regions[index_];
 }
 
+W8Region& OwnedRegionSet::operator[](std::size_t index)
+{
+    const auto region = regions_.at(index).index();
+    if (region == 0) throw std::logic_error("Accessing an unowned region slot");
+    return g_regions.at(region);
+}
+
 void OwnedRegion::reset()
 {
     if (*this) RemoveRegionFromSet(set_, index_);
@@ -1323,7 +1271,7 @@ void UnbindWidgetRegion(unsigned int region_index, W8Widget* widget, OwnedRegion
     auto& region = g_regions[region_index];
     if (region.widget != widget) return;
 
-    DisableRegionInput(region_index);
+    g_regions[region_index].SetInputEnabled(false);
     if (region.flags & W8_REGION_HELP_SHOWN) VideoRemoveToolTip();
     region.flags &= ~(W8_REGION_MOUSE_STATE_MASK | W8_REGION_HELP_SHOWN);
     region.widget = nullptr;
@@ -1353,17 +1301,6 @@ void SetRegionCallback(unsigned int region_index, W8RegionCallback callback,
     g_regions[region_index].callback_id = callback_id;
 }
 
-// FUNCTION: WIZ8 0x004f2a30
-void SetRegionHelp(unsigned int region_index, bool enabled, int help_text_id)
-{
-    if (region_index >= g_regions.size()) {
-        srAssertFail("uiRegionIndex < guiRegionCount",
-                     "C:\\Projects\\Wizardry 8\\Local Code\\RegionManager.cpp", 0x506, 0);
-    }
-    g_regions[region_index].help_enabled = enabled;
-    g_regions[region_index].help_text_id = help_text_id;
-}
-
 /* Send the current hot region a mouse-leave transition at the live cursor
    position, then relinquish its help and hover state. */
 // FUNCTION: WIZ8 0x004f2a80
@@ -1386,26 +1323,6 @@ void ClearHotRegion(void)
             g_current_region_index = 0;
         }
     }
-}
-
-// FUNCTION: WIZ8 0x004f2bb0
-void EnableRegionHelp(unsigned int region_index)
-{
-    if (region_index >= g_regions.size()) {
-        srAssertFail("uiRegionIndex < guiRegionCount",
-                     "C:\\Projects\\Wizardry 8\\Local Code\\RegionManager.cpp", 0x558, 0);
-    }
-    g_regions[region_index].help_enabled = true;
-}
-
-// FUNCTION: WIZ8 0x004f2bf0
-void DisableRegionHelp(unsigned int region_index)
-{
-    if (region_index >= g_regions.size()) {
-        srAssertFail("uiRegionIndex < guiRegionCount",
-                     "C:\\Projects\\Wizardry 8\\Local Code\\RegionManager.cpp", 0x55f, 0);
-    }
-    g_regions[region_index].help_enabled = false;
 }
 
 /* Drops every region back to its resting state. The three tracked regions are

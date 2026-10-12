@@ -18,16 +18,22 @@ void ProcessNumericDialogInputEvents(Dialog* dialog, Field*& active_field,
                                      bool (Dialog::*handle_event)(const InputEvent*))
 {
     dialog->BeginModalInput();
-    W8DialogBase::DrainModalInput([&](const InputEvent& input) {
-        if (input.type == InputEventType::LeftButtonUp && active_field != 0) {
-            active_field->SetActive(false);
-        }
-        if (input.type == InputEventType::LeftButtonRepeat || input.type == InputEventType::RightButtonRepeat) {
-            DispatchRegionInput(&input);
-        } else if (!DispatchRegionInput(&input)) {
-            (dialog->*handle_event)(&input);
-        }
-        return true;
+    PumpUiInput({
+        .before =
+            [&](const InputEvent& input) {
+                if (input.type == InputEventType::LeftButtonUp && active_field != 0) {
+                    active_field->SetActive(false);
+                }
+                return InputRoute::Pass;
+            },
+        .unhandled =
+            [&](const InputEvent& input) {
+                if (input.type != InputEventType::LeftButtonRepeat &&
+                    input.type != InputEventType::RightButtonRepeat) {
+                    (dialog->*handle_event)(&input);
+                }
+                return InputRoute::Handled;
+            },
     });
 }
 

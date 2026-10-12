@@ -165,7 +165,7 @@ void ShowNpcQuoteBubbleRegion(int x1, int y1, int x2, int y2)
 {
     if (!g_npc_quote_bubble_regions) return;
     const auto region_index = g_npc_quote_bubble_regions->index(0);
-    SetRegionBounds(region_index, static_cast<unsigned short>(x1), static_cast<unsigned short>(y1),
+    g_regions[region_index].SetBounds(static_cast<unsigned short>(x1), static_cast<unsigned short>(y1),
                     static_cast<unsigned short>(x2), static_cast<unsigned short>(y2));
     g_npc_quote_bubble_regions->Enable();
     g_npc_quote_bubble_regions.EnableInput();
@@ -703,7 +703,7 @@ static unsigned char OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item,
         g_npc_interaction_state->saved_main_ui_mode = g_settings.main_ui_mode;
     }
     CreateNpcDialogueControls();
-    SetRegionBounds(g_npc_dialogue_options_panel_regions->index(8), 0x17, 0x166, 0x269, 0x1c2);
+    (*g_npc_dialogue_options_panel_regions)[8].SetBounds(0x17, 0x166, 0x269, 0x1c2);
     g_level_block->text_box_visible = false;
     EnableDialogueTextBoxRegions();
     SetTextBoxScrollInput(true);
@@ -2205,7 +2205,7 @@ void OpenNpcDialogueTranscriptLayout(void)
         if (g_status.buffers.XChar[index].fOccupied) {
             DisableMainGamePortraitSlot(index);
 
-            DisableRegionInput(g_main_portrait_edge_regions->index(index));
+            (*g_main_portrait_edge_regions)[index].SetInputEnabled(false);
         }
     }
     if (g_npc_interaction_state->dialogue_npc->record->merchant != 0) {
@@ -2247,7 +2247,7 @@ static void CloseNpcDialogueTranscriptLayout(void)
         if (g_status.buffers.XChar[index].fOccupied) {
             EnableMainGamePortraitSlot(index);
 
-            EnableRegionInput(g_main_portrait_edge_regions->index(index));
+            (*g_main_portrait_edge_regions)[index].SetInputEnabled(true);
         }
     }
 }

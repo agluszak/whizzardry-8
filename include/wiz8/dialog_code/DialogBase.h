@@ -52,18 +52,6 @@ public:
     virtual void OnRightButtonUp();
     virtual void OnMouseWheel(int delta);
 
-    template <class HandleInput>
-    static void DrainModalInput(HandleInput&& handle_input)
-    {
-        InputEvent input;
-
-        const auto mouse = GetRegionMousePosition();
-        UpdateRegionMousePosition(mouse.x, mouse.y);
-        while (DequeueEvent(&input) == 1) {
-            if (!handle_input(input)) break;
-        }
-    }
-
     friend void SetDialogDestroyCallback(W8DialogBase* dialog, W8DialogDestroyCallback callback);
     friend class W8DialogNumericInput;
     template <class Dialog, class Field>

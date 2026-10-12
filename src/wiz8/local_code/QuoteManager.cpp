@@ -902,7 +902,7 @@ void SetPartyPortraitEventBounds(unsigned int slot, unsigned short x, unsigned s
     auto& regions = PartyPortraitEventRegions();
     if (slot >= regions.size()) return;
     regions[slot].Create();
-    SetRegionBounds(regions[slot]->index(0), x, y, right, bottom);
+    (*regions[slot])[0].SetBounds(x, y, right, bottom);
 }
 void EnablePartyPortraitEvent(unsigned int slot)
 {

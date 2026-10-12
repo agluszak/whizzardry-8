@@ -400,14 +400,18 @@ void W8ListBoxDialog::Draw()
 bool W8ListBoxDialog::ProcessInput()
 {
     BeginModalInput();
-    DrainModalInput([this](const InputEvent& input) {
-        if (DispatchRegionInput(&input)) return m_keep_open;
-        if (input.type == InputEventType::MouseWheel) {
-            SetCurrentLine(m_selected_line - input.wheel);
-        } else {
-            HandleInputEvent(&input);
-        }
-        return m_keep_open;
+    const auto route = [this] { return m_keep_open ? InputRoute::Handled : InputRoute::Stop; };
+    PumpUiInput({
+        .consumed = [&](const InputEvent&) { return route(); },
+        .unhandled =
+            [&](const InputEvent& input) {
+                if (input.type == InputEventType::MouseWheel) {
+                    SetCurrentLine(m_selected_line - input.wheel);
+                } else {
+                    HandleInputEvent(&input);
+                }
+                return route();
+            },
     });
     if (!m_keep_open) EndModalInput();
     return m_keep_open;
@@ -1308,19 +1312,25 @@ int W8TriggerItemPickerDialog::AddItem(W8WorldItem* item)
 bool W8TriggerItemPickerDialog::ProcessInput()
 {
     BeginModalInput();
-    DrainModalInput([this](const InputEvent& input) {
-        if ((input.type == InputEventType::LeftButtonDown || input.type == InputEventType::RightButtonDown) &&
-            ProcessPendingEvent()) {
-            return true;
-        }
-        if (HitTestPartyPortrait(&input) != 0) return true;
-        if (DispatchRegionInput(&input)) return m_keep_open;
-        if (input.type == InputEventType::MouseWheel) {
-            SetFirstVisible(m_first_item - input.wheel);
-        } else {
-            HandleInputEvent(&input);
-        }
-        return m_keep_open;
+    const auto route = [this] { return m_keep_open ? InputRoute::Handled : InputRoute::Stop; };
+    PumpUiInput({
+        .before =
+            [this](const InputEvent& input) {
+                const bool button_down = input.type == InputEventType::LeftButtonDown ||
+                                         input.type == InputEventType::RightButtonDown;
+                return button_down && ProcessPendingEvent() ? InputRoute::Handled
+                                                            : InputRoute::Pass;
+            },
+        .consumed = [&](const InputEvent&) { return route(); },
+        .unhandled =
+            [&](const InputEvent& input) {
+                if (input.type == InputEventType::MouseWheel) {
+                    SetFirstVisible(m_first_item - input.wheel);
+                } else {
+                    HandleInputEvent(&input);
+                }
+                return route();
+            },
     });
     if (!m_keep_open) EndModalInput();
     return m_keep_open;

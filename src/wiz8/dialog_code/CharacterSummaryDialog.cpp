@@ -179,18 +179,27 @@ bool W8CharacterSummaryDialog::ProcessInput()
                             g_character_event_full_volume);
     }
     bool keep_open = m_keep_open;
-    DrainModalInput([this, &keep_open](const InputEvent& input) {
-        if (input.type == InputEventType::LeftButtonDown || input.type == InputEventType::LeftButtonRepeat ||
-            input.type == InputEventType::RightButtonDown) {
-            m_keep_open = false;
-        }
-        if (!DispatchRegionInput(&input)) {
-            keep_open = HandleInputEvent(&input);
-            if (!keep_open) EndModalInput();
-            return false;
-        }
-        keep_open = m_keep_open;
-        return true;
+    PumpUiInput({
+        .before =
+            [this](const InputEvent& input) {
+                if (input.type == InputEventType::LeftButtonDown ||
+                    input.type == InputEventType::LeftButtonRepeat ||
+                    input.type == InputEventType::RightButtonDown) {
+                    m_keep_open = false;
+                }
+                return InputRoute::Pass;
+            },
+        .consumed =
+            [this, &keep_open](const InputEvent&) {
+                keep_open = m_keep_open;
+                return InputRoute::Handled;
+            },
+        .unhandled =
+            [this, &keep_open](const InputEvent& input) {
+                keep_open = HandleInputEvent(&input);
+                if (!keep_open) EndModalInput();
+                return InputRoute::Stop;
+            },
     });
     if (!keep_open) EndModalInput();
     return keep_open;

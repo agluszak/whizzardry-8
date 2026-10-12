@@ -1276,18 +1276,17 @@ void CampScreenInitializeRegions(void)
     for (index = 0; index < 8; ++index) {
         unsigned short x = static_cast<unsigned short>((index & 1) * 0x30 + 6);
         unsigned short y = static_cast<unsigned short>((index >> 1) * 0x27 + 5);
-        SetRegionBounds(g_camp_main_regions->index(kCampPartyPortraitRegionOffset + index), x, y,
+        (*g_camp_main_regions)[kCampPartyPortraitRegionOffset + index].SetBounds(x, y,
                         x + 0x2d, y + 0x24);
     }
     for (index = 0; index < 8; ++index) {
         unsigned short x = static_cast<unsigned short>((index & 1) * 0x31 + 0xb);
         unsigned short y = static_cast<unsigned short>((index >> 1) * 0x39 + 0xc0);
-        SetRegionBounds(g_camp_inventory_regions->index(index), x, y, x + 0x2e, y + 0x36);
+        (*g_camp_inventory_regions)[index].SetBounds(x, y, x + 0x2e, y + 0x36);
     }
     for (index = 0; index < 12; ++index) {
         const W8CampScreenRegion& region = g_camp_screen_regions[index];
-        SetRegionBounds(g_camp_inventory_regions->index(kCampEquipmentRegionOffset + index),
-                        static_cast<unsigned short>(region.x),
+        (*g_camp_inventory_regions)[kCampEquipmentRegionOffset + index].SetBounds(static_cast<unsigned short>(region.x),
                         static_cast<unsigned short>(region.y),
                         static_cast<unsigned short>(region.x + region.width),
                         static_cast<unsigned short>(region.y + region.height));
@@ -1295,7 +1294,7 @@ void CampScreenInitializeRegions(void)
     for (index = 0; index < 8; ++index) {
         unsigned short x = static_cast<unsigned short>((index & 1) * 0x31 + 0x200);
         unsigned short y = static_cast<unsigned short>((index >> 1) * 0x39 + 0xc0);
-        SetRegionBounds(g_camp_item_pool_regions->index(index), x, y, x + 0x2e, y + 0x36);
+        (*g_camp_item_pool_regions)[index].SetBounds(x, y, x + 0x2e, y + 0x36);
     }
 }
 
@@ -1309,7 +1308,7 @@ void LayoutCampSecondaryRegions(void)
     for (index = 0; index < 6; ++index) {
         unsigned short x = static_cast<unsigned short>((index % 3) * 0xd5 + 0x1d);
         unsigned short y = static_cast<unsigned short>((index / 3) * 0x8c + 0xc3);
-        SetRegionBounds(g_camp_spell_list_regions->index(index), x, y, x + 0x99, y + 0x65);
+        (*g_camp_spell_list_regions)[index].SetBounds(x, y, x + 0x99, y + 0x65);
     }
 }
 
@@ -1443,9 +1442,8 @@ void CampScreenFrame(void)
     SDL_Point point;
     SGPMouseGetPos(&point);
     g_camp_screen->hover_region = UpdateRegionMousePosition(point.x, point.y);
-    InputEvent input;
-    while (DequeueEvent(&input) == 1) {
-        if (!DispatchRegionInput(&input) && input.type == InputEventType::KeyDown) {
+    PumpUiInput({.unhandled = [&](const InputEvent& input) {
+        if (input.type == InputEventType::KeyDown) {
             if (input.key == VK_ESCAPE) {
                 if (g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_NONE ||
                     g_camp_screen->page != W8_CAMP_PAGE_ITEMS) {
@@ -1478,7 +1476,8 @@ void CampScreenFrame(void)
                 ShowCampNoticeLine(g_localized_strings[0x832], OnQuitGameDialogClosed, true, true);
             }
         }
-    }
+        return InputRoute::Handled;
+    }, .track_hover = false});
     if (g_camp_screen->page == W8_CAMP_PAGE_SPELLS &&
         !TimeUntilDeadline(g_camp_screen->animation_timer)) {
         for (unsigned int realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
@@ -1655,10 +1654,10 @@ done:
 void SyncReviewCharInputRegion(void)
 {
     if (giReviewCharSlot != -1 && g_status.buffers.XChar[giReviewCharSlot].npc_index != -1) {
-        DisableRegionInput(g_camp_main_regions->index(kCampCharacterHeaderRegionOffset));
+        (*g_camp_main_regions)[kCampCharacterHeaderRegionOffset].SetInputEnabled(false);
         return;
     }
-    EnableRegionInput(g_camp_main_regions->index(kCampCharacterHeaderRegionOffset));
+    (*g_camp_main_regions)[kCampCharacterHeaderRegionOffset].SetInputEnabled(true);
 }
 
 /* Switch the active camp page: tear the old page down, record the new index,
@@ -1685,12 +1684,12 @@ void ActivateCampPage(void)
     }
     if (giReviewCharSlot == -1) {
         for (index = 0; index < 8; ++index) {
-            DisableRegionInput(g_camp_main_regions->index(kCampPartyPortraitRegionOffset + index));
+            (*g_camp_main_regions)[kCampPartyPortraitRegionOffset + index].SetInputEnabled(false);
         }
     } else if (g_status.buffers.XChar[giReviewCharSlot].npc_index == -1) {
-        EnableRegionInput(g_camp_main_regions->index(kCampCharacterHeaderRegionOffset));
+        (*g_camp_main_regions)[kCampCharacterHeaderRegionOffset].SetInputEnabled(true);
     } else {
-        DisableRegionInput(g_camp_main_regions->index(kCampCharacterHeaderRegionOffset));
+        (*g_camp_main_regions)[kCampCharacterHeaderRegionOffset].SetInputEnabled(false);
     }
     state->header_mode = W8_CAMP_HEADER_SUMMARY;
     state->redraw_flags |= 0x7ff;

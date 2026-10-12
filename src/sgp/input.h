@@ -125,6 +125,20 @@ std::uint16_t GameKeyFromSdl(SDL_Scancode scancode, SDL_Keycode key);
 std::uint16_t TranslateKeyToCharacter(std::uint16_t key, std::uint16_t modifiers);
 std::uint16_t TranslateCharacterToKey(std::uint16_t character);
 
+/* Pointer button presses, releases and repeats (not moves, wheel or double-clicks). */
+inline bool IsMouseButtonEvent(const InputEvent& event)
+{
+    switch (event.type) {
+    case InputEventType::LeftButtonDown:
+    case InputEventType::LeftButtonUp:
+    case InputEventType::LeftButtonRepeat:
+    case InputEventType::RightButtonDown:
+    case InputEventType::RightButtonUp:
+    case InputEventType::RightButtonRepeat: return true;
+    default: return false;
+    }
+}
+
 /* Key presses and committed text: the events a text field consumes. */
 inline bool IsTypingEvent(const InputEvent& event)
 {

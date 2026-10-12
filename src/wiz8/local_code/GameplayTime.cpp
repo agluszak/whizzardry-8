@@ -95,7 +95,7 @@ static void BeginPartyCamping()
     SetNpcQuoteBubbleVisible(false, {}, 0, -1, 0xffffffff);
     BeginSurprise();
     gXStatus.fSurprisePossible = true;
-    EnableRegionInput(g_game_time_combat_bar_region->index(0));
+    (*g_game_time_combat_bar_region)[0].SetInputEnabled(true);
     ActivateDialogRegion(g_game_time_combat_bar_region->index(0));
     gXStatus.surprise_deadline_turns = 0;
     CreateSurpriseFade();
@@ -340,7 +340,7 @@ void EndSurprise(void)
     gXStatus.fSurprisePossible = false;
     ResolveSurpriseWake();
     ClearActiveRegionIfMatches(g_game_time_combat_bar_region->index(0));
-    DisableRegionInput(g_game_time_combat_bar_region->index(0));
+    (*g_game_time_combat_bar_region)[0].SetInputEnabled(false);
 
     std::string text;
     if (!gXStatus.surprise_unengaged) {

@@ -648,34 +648,25 @@ void ProcessMessageBoxInput(void)
 {
     if (!g_message_box || g_message_box->state != 2) return;
 
-    W8DialogBase::DrainModalInput([](const InputEvent& input) {
-        switch (input.type) {
-        case InputEventType::LeftButtonDown:
-        case InputEventType::LeftButtonUp:
-        case InputEventType::LeftButtonRepeat:
-        case InputEventType::RightButtonDown:
-        case InputEventType::RightButtonUp:
-        case InputEventType::RightButtonRepeat:
-            DispatchRegionInput(&input);
-            break;
-        case InputEventType::KeyDown:
-            switch (toupper(input.key)) {
-            case '\r':
-            case ' ':
-            case 'Y':
-                g_message_box->state = 1;
-                g_message_box->accepted = true;
-                break;
-            case 27:
-            case 'N':
-                g_message_box->accepted = !g_message_box->has_cancel;
-                g_message_box->state = 1;
-                break;
-            }
-            break;
-        default:
-            break;
-        }
-        return true;
+    PumpUiInput({
+        .ui_accepts = IsMouseButtonEvent,
+        .unhandled =
+            [](const InputEvent& input) {
+                if (input.type != InputEventType::KeyDown) return InputRoute::Handled;
+                switch (toupper(input.key)) {
+                case '\r':
+                case ' ':
+                case 'Y':
+                    g_message_box->state = 1;
+                    g_message_box->accepted = true;
+                    break;
+                case 27:
+                case 'N':
+                    g_message_box->accepted = !g_message_box->has_cancel;
+                    g_message_box->state = 1;
+                    break;
+                }
+                return InputRoute::Handled;
+            },
     });
 }

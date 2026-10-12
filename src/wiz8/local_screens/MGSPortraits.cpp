@@ -1135,9 +1135,9 @@ void EnablePortraitAdvanceRegions(void)
     for (int party_slot = 0; party_slot < 8; ++party_slot) {
         if (!IsCharacterReadyToAdvance(party_slot) ||
             g_status.buffers.XChar[party_slot].portrait_advance == 0) {
-            DisableRegionInput(g_main_portrait_controls->index(party_slot));
+            (*g_main_portrait_controls)[party_slot].SetInputEnabled(false);
         } else {
-            EnableRegionInput(g_main_portrait_controls->index(party_slot));
+            (*g_main_portrait_controls)[party_slot].SetInputEnabled(true);
         }
     }
 }

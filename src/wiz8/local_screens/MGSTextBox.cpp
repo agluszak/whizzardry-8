@@ -317,9 +317,9 @@ static void SetTextBoxRegionInput(TextBoxRegion first, std::size_t count, bool e
     for (std::size_t offset = 0; offset < count; ++offset) {
         const unsigned int index = TextBoxRegionIndex(first) + static_cast<unsigned int>(offset);
         if (enabled) {
-            EnableRegionInput(index);
+            g_regions[index].SetInputEnabled(true);
         } else {
-            DisableRegionInput(index);
+            g_regions[index].SetInputEnabled(false);
         }
     }
 }
@@ -350,17 +350,13 @@ void SetTextBoxRegionBounds(int left, int top, int right, int bottom)
     g_level_block->text_box_bottom = bottom;
     if (!g_text_box_regions) return;
     right_u = static_cast<unsigned short>(right);
-    SetRegionBounds(TextBoxRegionIndex(TextBoxRegion::Body),
-                    static_cast<unsigned short>(left), static_cast<unsigned short>(top), right_u,
+    g_regions[TextBoxRegionIndex(TextBoxRegion::Body)].SetBounds(static_cast<unsigned short>(left), static_cast<unsigned short>(top), right_u,
                     static_cast<unsigned short>(bottom));
-    SetRegionBounds(TextBoxRegionIndex(TextBoxRegion::ScrollUp),
-                    static_cast<unsigned short>(right_u + 5), 0x16b,
+    g_regions[TextBoxRegionIndex(TextBoxRegion::ScrollUp)].SetBounds(static_cast<unsigned short>(right_u + 5), 0x16b,
                     static_cast<unsigned short>(right_u + 0x14), 0x17a);
-    SetRegionBounds(TextBoxRegionIndex(TextBoxRegion::ScrollDown),
-                    static_cast<unsigned short>(right_u + 5), 0x1ad,
+    g_regions[TextBoxRegionIndex(TextBoxRegion::ScrollDown)].SetBounds(static_cast<unsigned short>(right_u + 5), 0x1ad,
                     static_cast<unsigned short>(right_u + 0x14), 0x1bc);
-    SetRegionBounds(TextBoxRegionIndex(TextBoxRegion::ScrollThumb),
-                    static_cast<unsigned short>(right_u + 9), 0x17b,
+    g_regions[TextBoxRegionIndex(TextBoxRegion::ScrollThumb)].SetBounds(static_cast<unsigned short>(right_u + 9), 0x17b,
                     static_cast<unsigned short>(right_u + 0x10), 0x1ac);
 }
 

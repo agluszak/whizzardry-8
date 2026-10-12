@@ -791,7 +791,8 @@ void W8OptionsKeyboardPanel::Populate()
 void W8OptionsKeyboardPanel::Invalidate(const W8ControlsRect* bounds)
 {
     Controls::Invalidate(bounds);
-    g_options_screen->m_menu_set->Invalidate(0);
+    // ~W8OptionsScreen deactivates its panels after OptionsScreenLeave has cleared the global.
+    if (g_options_screen) g_options_screen->m_menu_set->Invalidate(0);
 }
 
 void W8OptionsKeyboardPanel::OnPrimary(W8TextControl*)
@@ -1889,7 +1890,6 @@ unsigned char OptionsScreenEnter()
 void OptionsScreenFrame()
 {
     SDL_Point point;
-    InputEvent input;
 
     if (g_dev_mode) {
         RequestExitScreen();
@@ -1924,13 +1924,17 @@ void OptionsScreenFrame()
         screen->m_modal_closing = false;
     }
 
-    UpdateRegionMousePosition(point.x, point.y);
-    while (DequeueEvent(&input) == 1) {
-        if (!screen->ProcessInput(&input) && !DispatchRegionInput(&input) &&
-            input.type == InputEventType::KeyDown && input.key == VK_ESCAPE) {
-            RequestScreenTransition();
-        }
-    }
+    PumpUiInput({
+        .before = [screen](const InputEvent& input) {
+            return screen->ProcessInput(&input) ? InputRoute::Handled : InputRoute::Pass;
+        },
+        .unhandled = [](const InputEvent& input) {
+            if (input.type == InputEventType::KeyDown && input.key == VK_ESCAPE) {
+                RequestScreenTransition();
+            }
+            return InputRoute::Handled;
+        },
+    });
     screen->Redraw();
     if (g_options_first_frame) {
         SetRendererAutoFlipEnabled(false);

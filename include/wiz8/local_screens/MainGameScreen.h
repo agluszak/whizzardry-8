@@ -423,7 +423,6 @@ void ResetMainGameScreenState(void);
 
 void RefreshTrackedPortraitOverlay(void);
 /* Which party portrait the pointer is over, if any. */
-unsigned char HitTestPartyPortrait(const InputEvent* event);
 void ClearCombatSelection(void);
 void UpdateWorldViewCursor(const InputEvent* event, W8TargetNeed target_needed);
 void RequestRefreshPartyState(void);
