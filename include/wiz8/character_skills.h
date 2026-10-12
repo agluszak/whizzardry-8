@@ -83,7 +83,7 @@ void PostSkillIncreaseNotices(const W8SkillNoticePayload* notices);
 std::string FormatSkillIncreaseNoticeText(int party_slot, bool continue_line, W8Skill skill_id);
 
 /* 0x005542E0: drain the deferred per-slot skill-increase flags into one or
-   more W8_NPC_MSG_SKILL_NOTICES message-box lines. */
+   more queued skill-notice portrait messages. */
 void FlushDeferredSkillNotices(void);
 /* 0x0068506D: a deferred skill-increase notice is queued for the text box. */
 

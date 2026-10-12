@@ -538,7 +538,7 @@ void QueueNpcScriptNotice(W8NpcState* npc, W8ItemInstance* item, int line, bool 
     } else {
         EmptyItemRecord(&g_pending_notice.item, 0, true);
     }
-    QueueNpcMessageLine(W8_NPC_MSG_DISPATCH_PENDING_NOTICE, 0);
+    QueueNpcAction(W8NpcCommand::dispatch_pending_notice);
     g_pending_notice_queued = true;
 }
 
@@ -1994,7 +1994,7 @@ static void OnNpcDispositionPromptClosed(W8DialogBase* dialog)
     if (GetDialogResult(dialog)) {
         SetNpcDispositionBand(g_npc_interaction_state->dialogue_npc, W8_NPC_BAND_HOSTILE);
         QueueNpcScriptLine(0x18, false, false, false);
-        QueueNpcMessageLine(W8_NPC_MSG_CLOSE_RESUME_NPC, 0);
+        QueueNpcAction(W8NpcCommand::close_and_resume_npc);
     }
 }
 
@@ -2084,7 +2084,7 @@ static void SelectNpcDialogueService(void)
     band = GetNpcDispositionBand(g_npc_interaction_state->dialogue_npc);
     if (band == W8_NPC_BAND_FRIENDLY) {
         QueueNpcScriptLine(4, false, false, false);
-        QueueNpcMessageLine(W8_NPC_MSG_REOPEN_TRANSCRIPT, 0);
+        QueueNpcAction(W8NpcCommand::reopen_transcript);
         return;
     }
     if (band == W8_NPC_BAND_NEUTRAL) {
@@ -2093,7 +2093,7 @@ static void SelectNpcDialogueService(void)
     }
     SetNpcDispositionBand(g_npc_interaction_state->dialogue_npc, W8_NPC_BAND_HOSTILE);
     QueueNpcScriptLine(0x18, false, false, false);
-    QueueNpcMessageLine(W8_NPC_MSG_CLOSE_RESUME_NPC, 0);
+    QueueNpcAction(W8NpcCommand::close_and_resume_npc);
 }
 
 /* The "Talk" option button: friendly NPCs leave the dialogue outright,
@@ -2118,7 +2118,7 @@ static void SelectNpcDialogueTalk(void)
     }
     SetNpcDispositionBand(g_npc_interaction_state->dialogue_npc, W8_NPC_BAND_HOSTILE);
     QueueNpcScriptLine(0x18, false, false, false);
-    QueueNpcMessageLine(W8_NPC_MSG_CLOSE_RESUME_NPC, 0);
+    QueueNpcAction(W8NpcCommand::close_and_resume_npc);
 }
 
 /* The "Exit" option button: close the option row, mark the dialogue as leaving
@@ -2289,8 +2289,7 @@ static void RequestNpcJoinParty(void)
         }
         if (CanNpcJoinParty(g_npc_interaction_state->dialogue_npc)) {
             QueueNpcScriptLine(0xd, false, false, false);
-            QueueNpcMessageLine(W8_NPC_MSG_FOCUS_NPC,
-                                g_npc_interaction_state->dialogue_npc->name_style);
+            QueueNpcAction(W8NpcRecruit{g_npc_interaction_state->dialogue_npc->name_style});
             return;
         }
     }

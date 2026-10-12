@@ -81,7 +81,7 @@ void SpeakNpcSubquote(W8NpcScriptQuote* quote, unsigned char subquote_index, boo
                       bool force_npc_voice);
 /* Add a keyword a quote entry of `kind` teaches to the dialogue keyword lists. */
 void ApplyScriptedDialogueKeyword(int kind, const char* text);
-/* Build a W8_NPC_MSG_QUOTE_ENTRY line for `entry` carrying
+/* Build a W8NpcQueuedEntry line for `entry` carrying
    `continuation_quote`; prepend != 0 inserts it at the queue front. */
 void QueueNpcQuoteEntry(int quote_index, int entry_index, int continuation_quote, bool prepend);
 /* The first argument is a pointer into a character or party item
@@ -97,7 +97,6 @@ void UpdateNpcDialogueVoiceAndCursor(void);
 void ProcessNpcScriptingFrame(void);
 void SetNpcScriptEventActive(unsigned char value);
 bool IsSedexusCaptureActive(void);
-void QueueNpcMessageLine(W8NpcMessageKind kind, int argument);
 /* Resolves NPC-name, named-person, and region keywords to a quote
    id; returns -1 when nothing matches. */
 int FindNpcNameOrPlaceQuote(W8NpcState* npc, std::string_view text);

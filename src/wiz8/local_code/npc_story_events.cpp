@@ -340,83 +340,83 @@ static void NpcScriptSavantHackDone(W8Monster* monster)
     g_status.savant_hack_tick = int(uint32_t(w8_get_ticks()));
 }
 
-bool RunNpcStoryEvent(W8NpcMessageKind kind, int argument)
+void RunNpcStoryAction(W8NpcStoryAction action)
 {
     W8NpcState* npc;
 
-    switch (kind) {
-    case W8_NPC_MSG_BEGIN_ENDGAME:
+    switch (action) {
+    case W8NpcStoryAction::begin_endgame:
         ClearMainGameTargetState();
         BeginEndgameSequence();
         break;
-    case W8_NPC_MSG_TURN_TO_BOOK:
+    case W8NpcStoryAction::turn_to_book:
         BeginScreenFade(0, 0, 500, NpcScriptTurnToBook, true, 1);
         break;
-    case W8_NPC_MSG_PHOONZANG_NOTICE:
+    case W8NpcStoryAction::phoonzang_notice:
         npc = GetNpcStateByKind(0x87);
         if (npc != 0) {
             QueueNpcScriptNotice(npc, 0, -1, false, 0);
         }
         break;
-    case W8_NPC_MSG_MOVE_GARI: {
+    case W8NpcStoryAction::move_gari: {
         EndNpcDialogueSession(false);
         BeginScriptedWorldAction();
         SetMonsterGroupScript(0x162, "MoveGari.msf");
         break;
     }
-    case W8_NPC_MSG_MOVE_RUBBLE: {
+    case W8NpcStoryAction::move_rubble: {
         EndNpcDialogueSession(false);
         BeginScriptedWorldAction();
         SetMonsterGroupScript(0x83, "MoveRubble.msf");
         break;
     }
-    case W8_NPC_MSG_MILANO_RAT_DOOR: {
+    case W8NpcStoryAction::milano_rat_door: {
         Trigger* door = FindRequiredTriggerByName("RatDoor02");
         door->CompleteItemInteraction();
         EndNpcDialogueSession(false);
         SetMonsterGroupScript(0xcf, "Milano.msf");
         break;
     }
-    case W8_NPC_MSG_SPAWN_ALFIE_CHAOS:
+    case W8NpcStoryAction::spawn_alfie_chaos:
         SpawnAlfieChaos(0);
         break;
-    case W8_NPC_MSG_SPAWN_ALFIE_LIFE:
+    case W8NpcStoryAction::spawn_alfie_life:
         SpawnAlfieLife(0);
         break;
-    case W8_NPC_MSG_SPAWN_ALFIE_KNOW:
+    case W8NpcStoryAction::spawn_alfie_know:
         SpawnAlfieKnow(0);
         break;
-    case W8_NPC_MSG_REMOVE_ALETHEIDES_AD: {
+    case W8NpcStoryAction::remove_aletheides_ad: {
         EndNpcDialogueSession(false);
         if (W8MonsterInfo* monster_info = FindNpcKindMonster(0x2e)) {
             RemoveMonsterNow(monster_info);
         }
         break;
     }
-    case W8_NPC_MSG_REMOVE_ALETHEIDES_CM: {
+    case W8NpcStoryAction::remove_aletheides_cm: {
         EndNpcDialogueSession(false);
         if (W8MonsterInfo* monster_info = FindNpcKindMonster(0x2d)) {
             RemoveMonsterNow(monster_info);
         }
         break;
     }
-    case W8_NPC_MSG_REMOVE_ALETHEIDES_DD: {
+    case W8NpcStoryAction::remove_aletheides_dd: {
         EndNpcDialogueSession(false);
         if (W8MonsterInfo* monster_info = FindNpcKindMonster(0x2f)) {
             RemoveMonsterNow(monster_info);
         }
         break;
     }
-    case W8_NPC_MSG_MOVE_SAVANT: {
+    case W8NpcStoryAction::move_savant: {
         EndNpcDialogueSession(false);
         ResetLevelDataVectors();
         SetMonsterGroupScript(0xc2, "MoveSavant.msf");
         break;
     }
-    case W8_NPC_MSG_ALETHEIDES_LEAVES:
+    case W8NpcStoryAction::aletheides_leaves:
         RemoveAletheides();
         break;
-    case W8_NPC_MSG_MOOK_COMMENT: {
+    case W8NpcStoryAction::mook_comment: {
         unsigned int eligible = 0;
         int party_slot;
         for (party_slot = 2; party_slot < 8; ++party_slot) {
@@ -439,10 +439,10 @@ bool RunNpcStoryEvent(W8NpcMessageKind kind, int argument)
         }
         break;
     }
-    case W8_NPC_MSG_SEDEXUS_PASSOUT:
+    case W8NpcStoryAction::sedexus_passout:
         ResolveSedexusCapture();
         break;
-    case W8_NPC_MSG_HENCHMAN_LEAVES: {
+    case W8NpcStoryAction::henchman_leaves: {
         EndNpcDialogueSession(false);
         if (W8MonsterInfo* monster_info = FindMonsterGroupLeader(0xdc)) {
             StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_ATTACK_SPECIAL,
@@ -452,7 +452,7 @@ bool RunNpcStoryEvent(W8NpcMessageKind kind, int argument)
         ClearMainGameTargetState();
         break;
     }
-    case W8_NPC_MSG_PRINCE_DISAPPEARS: {
+    case W8NpcStoryAction::prince_disappears: {
         EndNpcDialogueSession(false);
         if (W8MonsterInfo* monster_info = FindMonsterGroupLeader(0x1ab)) {
             monster_info->p3D->BeginFadeOutAndRemove(W8_MONSTER_REMOVAL_NONE);
@@ -462,29 +462,29 @@ bool RunNpcStoryEvent(W8NpcMessageKind kind, int argument)
         }
         break;
     }
-    case W8_NPC_MSG_PRINCE_NOT_HOME: {
+    case W8NpcStoryAction::prince_not_home: {
         EndNpcDialogueSession(false);
         if (W8MonsterInfo* monster_info = FindMonsterGroupLeader(0x1aa)) {
             monster_info->p3D->BeginFadeOutAndRemove(W8_MONSTER_REMOVAL_NONE);
         }
         break;
     }
-    case W8_NPC_MSG_PILLARGATE_LURE: {
+    case W8NpcStoryAction::pillargate_lure: {
         RunNamedTrigger("pillargate05", -1);
         FadeOutNpcKindMonster(0x3f);
         break;
     }
-    case W8_NPC_MSG_PILLARGATE_MADEUS: {
+    case W8NpcStoryAction::pillargate_madeus: {
         RunNamedTrigger("pillargate04", -1);
         FadeOutNpcKindMonster(0x3e);
         break;
     }
-    case W8_NPC_MSG_PILLARGATE_ASAIZ: {
+    case W8NpcStoryAction::pillargate_asaiz: {
         RunNamedTrigger("pillargate01", -1);
         FadeOutNpcKindMonster(0x3d);
         break;
     }
-    case W8_NPC_MSG_BALBRAK_HOME: {
+    case W8NpcStoryAction::balbrak_home: {
         W8MonsterInfo* monster_info = FindNpcKindMonster(0xc);
         srVector3T<float> position;
         if (monster_info != 0 && FindEntityByName("NP_Balbrakhome", &position, 0, 0)) {
@@ -492,7 +492,7 @@ bool RunNpcStoryEvent(W8NpcMessageKind kind, int argument)
         }
         break;
     }
-    case W8_NPC_MSG_CALL_HENCHMAN: {
+    case W8NpcStoryAction::call_henchman: {
         EndNpcDialogueSession(false);
         BeginScriptedWorldAction();
         if (W8MonsterInfo* monster_info = FindMonsterGroupLeader(0x112)) {
@@ -502,7 +502,7 @@ bool RunNpcStoryEvent(W8NpcMessageKind kind, int argument)
         }
         break;
     }
-    case W8_NPC_MSG_MOVE_TO_BOOK: {
+    case W8NpcStoryAction::move_to_book: {
         EndNpcDialogueSession(false);
         SetMonsterGroupScript(0x1b4, "belapath1.msf");
         Trigger* trigger = FindTriggerByName("CC_TRIGGERPLANE3");
@@ -516,7 +516,7 @@ bool RunNpcStoryEvent(W8NpcMessageKind kind, int argument)
         }
         break;
     }
-    case W8_NPC_MSG_MOVE_TO_BOOK2: {
+    case W8NpcStoryAction::move_to_book2: {
         Trigger* trigger = FindTriggerByName("CC_TRIGGERPLANE3");
         if (trigger != 0) {
             trigger->flags |= W8_TRIGGER_ON;
@@ -528,7 +528,7 @@ bool RunNpcStoryEvent(W8NpcMessageKind kind, int argument)
         }
         break;
     }
-    case W8_NPC_MSG_SAVANT_APPEARS: {
+    case W8NpcStoryAction::savant_appears: {
         srVector3T<float> position;
         if (FindEntityByName("NP_DS1", &position, 0, 0)) {
             W8MonsterGroup* group = SpawnMonsters(0x234, 1, &position, 0, true, false, false);
@@ -544,7 +544,7 @@ bool RunNpcStoryEvent(W8NpcMessageKind kind, int argument)
         }
         break;
     }
-    case W8_NPC_MSG_PHOONZANG_SPLIT: {
+    case W8NpcStoryAction::phoonzang_split: {
         W8MonsterInfo* monster_info = FindNpcKindMonster(0x84);
         if (monster_info != 0) {
             StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_SPECIAL, W8_ANIMATION_PLAY_ONCE);
@@ -563,7 +563,7 @@ bool RunNpcStoryEvent(W8NpcMessageKind kind, int argument)
         }
         break;
     }
-    case W8_NPC_MSG_REMOVE_RPC_VI:
+    case W8NpcStoryAction::remove_rpc_vi:
         if (NpcLeadHasNameStyle(W8_NPC_VI_DOMINA)) {
             npc = GetNpcStateByKind(0x18);
             if (npc != 0) {
@@ -582,27 +582,27 @@ bool RunNpcStoryEvent(W8NpcMessageKind kind, int argument)
             }
         }
         break;
-    case W8_NPC_MSG_MOVE_GOLEM: {
+    case W8NpcStoryAction::move_golem: {
         EndNpcDialogueSession(false);
         BeginScriptedWorldAction();
         SetMonsterGroupScript(0x13e, "MoveGolem.msf");
         break;
     }
-    case W8_NPC_MSG_SAVANT_HACK: {
+    case W8NpcStoryAction::savant_hack: {
         if (W8MonsterInfo* monster_info = FindMonsterGroupLeader(0x1b6)) {
             StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_SPELL, W8_ANIMATION_PLAY_ONCE);
             monster_info->p3D->SetCycleCallback(0x19, NpcScriptSavantHackDone);
         }
         break;
     }
-    case W8_NPC_MSG_TRIGGER_FIX: {
+    case W8NpcStoryAction::trigger_fix: {
         RunNamedTrigger("triggerFix", -1);
         break;
     }
-    case W8_NPC_MSG_ENDGAME_SCREEN:
+    case W8NpcStoryAction::endgame_screen:
         BeginScreenFade(0, 0, 500, NpcScriptEndgameScreen, true, 1);
         break;
-    case W8_NPC_MSG_MOVE_BELA: {
+    case W8NpcStoryAction::move_bela: {
         EndNpcDialogueSession(false);
         ResetLevelDataVectors();
         SetMonsterGroupScript(0x18c, "MoveBela.msf");
@@ -612,16 +612,16 @@ bool RunNpcStoryEvent(W8NpcMessageKind kind, int argument)
         }
         break;
     }
-    case W8_NPC_MSG_PATH2_TRIGGER: {
+    case W8NpcStoryAction::path2_trigger: {
         RunNamedTrigger("Path2Trigger", -1);
         break;
     }
-    case W8_NPC_MSG_REMOVE_SHAMAN: {
+    case W8NpcStoryAction::remove_shaman: {
         EndNpcDialogueSession(false);
         RemoveNpcKindMonster(0x4d);
         break;
     }
-    case W8_NPC_MSG_REMOVE_JANETTE: {
+    case W8NpcStoryAction::remove_janette: {
         EndNpcDialogueSession(false);
         W8MonsterInfo* monster_info = FindNpcKindMonster(0x62);
         if (monster_info != 0) {
@@ -633,24 +633,21 @@ bool RunNpcStoryEvent(W8NpcMessageKind kind, int argument)
         }
         break;
     }
-    case W8_NPC_MSG_SEDEXUS_LEAVES: {
+    case W8NpcStoryAction::sedexus_leaves: {
         EndNpcDialogueSession(false);
         SetTriggerVariableByName("LezboDemonAppeared", 0);
         RemoveNpcKindMonster(0x40);
         break;
     }
-    case W8_NPC_MSG_REMOVE_SEDEXUS_RIFT: {
+    case W8NpcStoryAction::remove_sedexus_rift: {
         EndNpcDialogueSession(false);
         RemoveNpcKindMonster(0x42);
         break;
     }
-    case W8_NPC_MSG_REMOVE_MARTEN: {
+    case W8NpcStoryAction::remove_marten: {
         EndNpcDialogueSession(false);
         RemoveNpcKindMonster(100);
         break;
     }
-    default:
-        return false;
     }
-    return true;
 }

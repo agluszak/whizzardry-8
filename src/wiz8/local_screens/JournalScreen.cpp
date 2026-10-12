@@ -26,7 +26,6 @@
 #include "wiz8/fact_state.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/layouts/gameplay_databases.h"
-#include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/regions.h"
@@ -117,7 +116,7 @@ void RecordFactChangeForJournal(W8FactId fact_id)
         return;
     }
     if (gXStatus.fNpcDialogueMode) {
-        QueueNpcMessageLine(W8_NPC_MSG_JOURNAL_QUOTE, 0);
+        QueueNpcAction(W8NpcCommand::journal_quote);
         return;
     }
     int range = GetTextBoxScrollRange();
