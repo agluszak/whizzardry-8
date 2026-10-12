@@ -1230,6 +1230,13 @@ const W8Region& OwnedRegion::region() const
     return g_regions[index_];
 }
 
+W8Region& OwnedRegionSet::operator[](std::size_t index)
+{
+    const auto region = regions_.at(index).index();
+    if (region == 0) throw std::logic_error("Accessing an unowned region slot");
+    return g_regions.at(region);
+}
+
 void OwnedRegion::reset()
 {
     if (*this) RemoveRegionFromSet(set_, index_);

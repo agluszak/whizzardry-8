@@ -194,7 +194,9 @@ public:
 
     unsigned int set() const { return set_; }
     std::size_t size() const { return regions_.size(); }
-    W8Region& operator[](std::size_t index) { return regions_.at(index).region(); }
+    // Slots stay owned while a widget or callback rebinds them, so index access does not
+    // check the binding generation.
+    W8Region& operator[](std::size_t index);
     unsigned int index(std::size_t index) const { return regions_.at(index).index(); }
     void Enable();
     void Disable();
