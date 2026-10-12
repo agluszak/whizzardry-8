@@ -2,6 +2,7 @@
 #define WIZ8_XSTATUS_H
 
 #include <utility>
+#include <memory>
 
 #include <vector>
 struct W8MonsterGroup;
@@ -55,11 +56,19 @@ struct W8XStatus {
        Retail compares it unsigned (JA/JBE/SETA), never signed. */
     unsigned int hostile_monster_count;
     int item_manager_pending;              /* 0x8f1 */
-    std::vector<W8MonsterInfo*> monsters; /* 0x8f5: 0x00683FAD */
+    std::vector<W8MonsterInfo*> monsters; /* 0x8f5: borrowed, 0x00683FAD */
     std::vector<W8MonsterGroup*> monster_groups; /* 0x8f9: 0x00683FB1 */
     std::vector<W8WorldItem*> world_items; /* 0x8fd */
-    std::vector<W8MonsterInfo*> unborn_monsters; /* 0x901 */
+    std::vector<W8MonsterInfo*> unborn_monsters; /* 0x901: borrowed, like monsters */
     std::vector<W8MonsterGroup*> encounter_groups; /* 0x905 */
+    // Both monster registries index these stable objects; moving a member from
+    // unborn to live changes only its registry, never who owns it.
+    std::vector<std::unique_ptr<W8MonsterInfo>> owned_monster_infos;
+
+    void DestroyOwnedMonsterInfo(W8MonsterInfo* info)
+    {
+        std::erase_if(owned_monster_infos, [info](const auto& owner) { return owner.get() == info; });
+    }
     unsigned char unknown_049[4];
     bool fSurprisePossible; /* 0x90d: 0x00683FC5 */
     /* 0x90e: set when surprise starts with no character engaged; phase 1 waits
