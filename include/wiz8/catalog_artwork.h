@@ -18,7 +18,7 @@ public:
               BitmapKey key = BitmapKey::Transparent) const;
     void drawAndInvalidate(SDL_Surface& target, int image, int x, int y, SpriteDraw options = {},
                            BitmapKey key = BitmapKey::Transparent) const;
-    void invalidate(int image, int x, int y, int flags) const;
+    void invalidate(int image, int x, int y) const;
     SDL_Point size(int image) const;
     SDL_Point position(int image) const;
     int imageOffset() const;

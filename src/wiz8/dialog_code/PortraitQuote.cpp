@@ -273,7 +273,7 @@ void QuoteBubble::draw(SDL_Surface& target, int x, int y) const
 {
     BlitImage(target, x, y, *surface_, nullptr);
     if (&target == &GetFrameBufferSurface())
-        InvalidateRegion(x, y, x + width(), y + height(), 0);
+        InvalidateRegion(x, y, x + width(), y + height());
 }
 
 int QuoteBubble::width() const { return surface_->w; }

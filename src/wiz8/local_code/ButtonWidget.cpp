@@ -26,7 +26,7 @@ void W8ButtonWidget::Draw()
                            g_hover_region_index == static_cast<unsigned int>(m_region);
         DrawButtonAppearance(GetFrameBufferSurface(), m_appearance, ScreenBounds(), m_visual);
         const auto bounds = ScreenBounds();
-        InvalidateRegion(bounds.x, bounds.y, bounds.x + bounds.w, bounds.y + bounds.h, 0);
+        InvalidateRegion(bounds.x, bounds.y, bounds.x + bounds.w, bounds.y + bounds.h);
         m_dirty = false;
     }
 }

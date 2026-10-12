@@ -9,7 +9,7 @@ void RefreshFormationPanel(bool show_portraits)
     if (g_formation_panel->m_fEnabled) {
         if (show_portraits) {
             g_formation_panel->Invalidate(0);
-            InvalidateRegion(0xd6, 0x3c, 0x1ab, 0x12f, 0);
+            InvalidateRegion(0xd6, 0x3c, 0x1ab, 0x12f);
         }
         g_formation_panel->Redraw();
     }

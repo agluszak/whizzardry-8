@@ -1338,7 +1338,7 @@ void RenderAutomapFrame(void)
             surface->setFilter(&srBoxFilter);
             surface->blit(0xc, 0x20, *g_automap_surface, 0xc, 0x20, 0x1d3, 0x1d3);
             RenderAutomapMarkers();
-            InvalidateRegion(0xc, 0x20, 0x1d3, 0x1d3, 0);
+            InvalidateRegion(0xc, 0x20, 0x1d3, 0x1d3);
             SetRendererAutoFlipEnabled(false);
             RenderFrame();
             SetRendererAutoFlipEnabled(true);
@@ -1430,7 +1430,7 @@ unsigned char ShowAutomapNoteTooltip(W8AutomapNote* note)
             if (rect.right != rect.left && -1 < rect.right - rect.left && rect.bottom != rect.top &&
                 -1 < rect.bottom - rect.top) {
                 RestoreAutomapRect(&rect);
-                InvalidateScreenRects(&rect, 1, 0);
+                InvalidateScreenRects(&rect, 1);
                 return 1;
             }
         }

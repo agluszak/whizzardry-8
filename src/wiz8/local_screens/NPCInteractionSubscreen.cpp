@@ -2264,7 +2264,7 @@ static void CloseNpcDialogueTranscriptLayout(void)
     static_cast<W8NpcDialogueTextController*>(g_npc_interaction_state->dialogue_panels[2])
         ->ClearBackground();
     ClearSurfaceRect(0x1dc, 0x11b, 0x269, 0x1c2);
-    InvalidateRegion(0x1dc, 0x11b, 0x269, 0x1c2, 0);
+    InvalidateRegion(0x1dc, 0x11b, 0x269, 0x1c2);
     for (index = 0; index < 8; ++index) {
         if (g_status.buffers.XChar[index].fOccupied) {
             EnableMainGamePortraitSlot(index);
@@ -4285,7 +4285,7 @@ void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQu
             InvalidateRegion(
                 g_npc_interaction_state->quote_x, g_npc_interaction_state->quote_y,
                 g_npc_interaction_state->quote_x + g_npc_interaction_state->quote_width,
-                g_npc_interaction_state->quote_y + g_npc_interaction_state->quote_height, 0);
+                g_npc_interaction_state->quote_y + g_npc_interaction_state->quote_height);
         }
         RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
         RequestRedraw(W8_MAIN_REDRAW_PORTRAITS);
@@ -4372,7 +4372,7 @@ static void SetNpcDialogueHidden(char value)
         static_cast<W8NpcDialogueTextController*>(g_npc_interaction_state->dialogue_panels[2])
             ->ClearBackground();
         ClearSurfaceRect(0x1dc, 0x11b, 0x269, 0x1c2);
-        InvalidateRegion(0x1dc, 0x11b, 0x269, 0x1c2, 0);
+        InvalidateRegion(0x1dc, 0x11b, 0x269, 0x1c2);
         RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_1);
         RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_3);
         RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_5);
@@ -4759,7 +4759,7 @@ unsigned char SetNpcDialoguePanelVisible(unsigned char value)
                 g_npc_interaction_state->dialogue_panels[2]);
             controller->ClearBackground();
             ClearSurfaceRect(0x1dc, 0x11b, 0x269, 0x1c2);
-            InvalidateRegion(0x1dc, 0x11b, 0x269, 0x1c2, 0);
+            InvalidateRegion(0x1dc, 0x11b, 0x269, 0x1c2);
             RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_1);
             RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_3);
             RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_5);

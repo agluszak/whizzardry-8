@@ -35,7 +35,10 @@ extern void ShutdownVideoScenes(void);
 extern void SuspendVideoManager(void);
 extern bool RestoreVideoManager(void);
 extern void GetCurrentVideoSettings(std::uint16_t* usWidth, std::uint16_t* usHeight, std::uint8_t* ubBitDepth);
-extern void InvalidateRegion(std::int32_t iLeft, std::int32_t iTop, std::int32_t iRight, std::int32_t iBottom, std::uint32_t uiFlags);
+/* Mark a game-space rectangle of the UI canvas for upload this frame. */
+void InvalidateRegion(int left, int top, int right, int bottom);
+/* The pending UI upload rectangle, cleared by the call. */
+SDL_Rect TakeUiUpload();
 extern void PrintScreen(void);
 
 void VideoCaptureToggle(void);
@@ -75,7 +78,7 @@ bool HasScreenTransitionObjects(void); /* 0x004297D0 */
 /* 0x00422EC0: invalidate each rectangle in a run. */
 struct W8ScreenRect;
 
-void InvalidateScreenRects(W8ScreenRect* rects, unsigned int count, int flags);
+void InvalidateScreenRects(W8ScreenRect* rects, unsigned int count);
 
 /* Renderer state and helpers shared by the product C++ consumers. */
 extern bool g_auto_capture;
@@ -134,8 +137,7 @@ void SetModelInstance2DDisplayState(stModelInstance2D* object, unsigned char sta
 void ClearNodeFlag(srNode* node);
 /* 0x00425840: rotate an srNode in degrees and invalidate the renderer mode. */
 void RotateNodeInDegrees(srNode* node, int degrees);
-/* 0x00425950: drop a 2D node from the surface-tile table, invalidate its
-   model's texture, and release the node. */
+/* Invalidate a 2D node's model texture and release the node. */
 void ReleaseSurfaceNode(srNode* node);
 /* 0x00427E70: surface-lock helper used while installing a drag cursor. */
 bool ClearMouseSurface(void);
@@ -211,8 +213,6 @@ extern srGERD* g_secondary_gerd;
 extern stSurface2D* g_surface_node;
 extern std::shared_ptr<srMaterial> g_blit_material;
 extern std::shared_ptr<srColorSurface> g_mouse_surface;
-extern srNode* g_surface_nodes[0x12c0];
-extern unsigned char g_block[0x12c0];
 extern srModelInstance* g_current_model_instance;
 extern int g_renderer_mode;
 extern int g_overlay_render_mode;
@@ -227,7 +227,6 @@ struct W8ViewportRect {
     int bottom;
 };
 extern W8ViewportRect g_viewport;
-extern int g_dirty_tile_count;
 extern int g_resident_texture_policy;
 extern unsigned char g_world_render_enabled;
 extern bool g_world_blacked_out;

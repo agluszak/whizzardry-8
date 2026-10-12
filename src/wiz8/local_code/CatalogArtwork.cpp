@@ -782,8 +782,7 @@ void DrawSpriteAndInvalidate(SDL_Surface& target, const SpriteSheet& sprites, in
     DrawSprite(target, sprites, static_cast<std::size_t>(image), left, top, options);
     const auto [width, height] = GetSpriteSize(sprites, image);
     if (width != 0 && height != 0)
-        InvalidateRegion(left, top, left + width, top + height,
-                         options.blend == SpriteBlend::Transparent);
+        InvalidateRegion(left, top, left + width, top + height);
 }
 
 std::pair<int, int> GetSpriteSize(const SpriteSheet& sprites, int image)
@@ -839,11 +838,11 @@ void CatalogArtwork::draw(SDL_Surface& target, int image, int x, int y, SpriteDr
                    .mirror = options.mirror});
 }
 
-void CatalogArtwork::invalidate(int image, int x, int y, int flags) const
+void CatalogArtwork::invalidate(int image, int x, int y) const
 {
     const SDL_Point extent = size(image);
     if (extent.x != 0 && extent.y != 0)
-        InvalidateRegion(x, y, x + extent.x, y + extent.y, flags);
+        InvalidateRegion(x, y, x + extent.x, y + extent.y);
 }
 
 SDL_Point CatalogArtwork::size(int image) const
@@ -897,5 +896,5 @@ void CatalogArtwork::drawAndInvalidate(SDL_Surface& target, int image, int x, in
         return;
     }
     draw(target, image, x, y, options, key);
-    invalidate(image, x, y, key == BitmapKey::Transparent && !options.mirror);
+    invalidate(image, x, y);
 }

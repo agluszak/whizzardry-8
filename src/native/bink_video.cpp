@@ -89,7 +89,7 @@ unsigned char W8BinkVideo::CopyFrameToPrimarySurface()
 {
     if (!m_handle || !copy(m_handle->frame(), &GetFrameBufferSurface()))
         return 0;
-    InvalidateRegion(0, 0, m_handle->frame().width, m_handle->frame().height, 0);
+    InvalidateRegion(0, 0, m_handle->frame().width, m_handle->frame().height);
     return 1;
 }
 unsigned char W8BinkVideo::CopyFrameToTargetSurface()

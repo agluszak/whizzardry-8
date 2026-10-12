@@ -1012,7 +1012,7 @@ void DrawDialogueTextInputLines(int x, int y, unsigned int first_line)
         y += 11;
         if (y >= g_level_block->text_box_bottom) break;
     }
-    InvalidateRegion(x, first_y, x + maximum_width, y, 0);
+    InvalidateRegion(x, first_y, x + maximum_width, y);
 
 }
 
@@ -1512,7 +1512,7 @@ void RedrawTextBoxBody(bool skip_invalidate)
 
     if (!skip_invalidate) {
         InvalidateRegion(g_level_block->text_box_left, g_level_block->text_box_top,
-                         g_level_block->text_box_right, g_level_block->text_box_bottom, 0);
+                         g_level_block->text_box_right, g_level_block->text_box_bottom);
     }
 
     text_box = g_status.text_line_cursor;
@@ -1657,7 +1657,7 @@ void RedrawTextBoxScrollChrome(void)
     }
 
     InvalidateRegion(g_level_block->text_box_right + 5, 0x16b, g_level_block->text_box_right + 0x1e,
-                     0x1c1, 0);
+                     0x1c1);
     RedrawTextBoxBody(false);
     if (g_level_block->dialogue_text_input_open && g_level_block->dialogue_text_input != 0) {
         g_level_block->dialogue_text_input->dirty = true;

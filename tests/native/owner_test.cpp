@@ -1533,17 +1533,19 @@ void generic_button_images()
 
     initialize_test_framebuffer();
     ConfigureFontRendering(CreateEnglishTransTable());
-    const int dirty_before = g_dirty_tile_count;
+    TakeUiUpload();
     const SDL_Point invalidation_at{16, 16};
     const int invalidated_width = primary.textWidth("A");
     const int invalidated_height = primary.height();
     REQUIRE(invalidated_width > 0);
     REQUIRE(invalidated_height > 0);
-    const int expected_dirty_tiles =
-        ((invalidation_at.x + invalidated_width + 7) / 8 - invalidation_at.x / 8) *
-        ((invalidation_at.y + invalidated_height + 7) / 8 - invalidation_at.y / 8);
     DrawTextAndInvalidate(GetFrameBufferSurface(), primary, invalidation_at, "A");
-    REQUIRE(g_dirty_tile_count - dirty_before == expected_dirty_tiles);
+    const SDL_Rect drawn{invalidation_at.x, invalidation_at.y, invalidated_width,
+                         invalidated_height};
+    const auto upload = TakeUiUpload();
+    SDL_Rect covered;
+    REQUIRE(SDL_GetRectIntersection(&upload, &drawn, &covered));
+    REQUIRE(SDL_RectsEqual(&covered, &drawn));
 
     // Explicit-buffer rendering must use its font argument, even when the
     // current surface font has a different palette.
@@ -2163,12 +2165,20 @@ TEST_CASE("CatalogArtwork renders sprite storage", "[owner][image][catalog]")
     REQUIRE(SDL_FillSurfaceRect(&framebuffer, nullptr, 0x07e0));
     sprites.draw(framebuffer, 0, 10, 10);
     REQUIRE(surface_pixel(framebuffer, 12, 13) == sprites.spriteSheet()->colors[1]);
-    const int sprite_dirty_before = g_dirty_tile_count;
+    TakeUiUpload();
     sprites.drawAndInvalidate(framebuffer, 0, 20, 20);
-    REQUIRE(g_dirty_tile_count > sprite_dirty_before);
-    const int explicit_dirty_before = g_dirty_tile_count;
-    sprites.invalidate(0, 30, 30, 2);
-    REQUIRE(g_dirty_tile_count > explicit_dirty_before);
+    {
+        const auto upload = TakeUiUpload();
+        const SDL_Point corner{20, 20};
+        REQUIRE(SDL_PointInRect(&corner, &upload));
+    }
+    TakeUiUpload();
+    sprites.invalidate(0, 30, 30);
+    {
+        const auto upload = TakeUiUpload();
+        const SDL_Point corner{30, 30};
+        REQUIRE(SDL_PointInRect(&corner, &upload));
+    }
     REQUIRE_THROWS_AS(sprites.drawRect(framebuffer, {0, 0, 1, 1}, 40, 40),
                       std::logic_error);
 }
@@ -2188,9 +2198,13 @@ TEST_CASE("CatalogArtwork renders bitmap storage with mirror key semantics", "[o
     bitmap.draw(framebuffer, 0, 50, 50);
     REQUIRE(surface_pixel(framebuffer, 50, 50) == 0x07e0);
     REQUIRE(surface_pixel(framebuffer, 51, 50) == red);
-    const int bitmap_dirty_before = g_dirty_tile_count;
+    TakeUiUpload();
     bitmap.drawAndInvalidate(framebuffer, 0, 60, 60);
-    REQUIRE(g_dirty_tile_count > bitmap_dirty_before);
+    {
+        const auto upload = TakeUiUpload();
+        const SDL_Point corner{60, 60};
+        REQUIRE(SDL_PointInRect(&corner, &upload));
+    }
 
     REQUIRE(SDL_FillSurfaceRect(&framebuffer, nullptr, 0x07e0));
     bitmap.draw(framebuffer, 0, 70, 70, {.mirror = true});

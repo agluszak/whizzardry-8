@@ -986,14 +986,14 @@ void ReportStartupMessage(std::string_view message)
                                   text_options);
             index += 0xd;
         }
-        InvalidateRegion(0, 400, 0x27f, 0x1df, 4);
+        InvalidateRegion(0, 400, 0x27f, 0x1df);
     } else {
         index = (g_status_cursor - 1) * 0xd;
         top = index + 400;
         ClearSurfaceRect(0, top, 0x27f, g_status_cursor * 0xd + 400);
         DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font, {1, index + 0x191}, *line,
                               text_options);
-        InvalidateRegion(0, top, 0x27f, g_status_cursor * 0xd + 400, 4);
+        InvalidateRegion(0, top, 0x27f, g_status_cursor * 0xd + 400);
     }
     g_status_scroll = scroll;
     RenderFrame();
@@ -1753,7 +1753,7 @@ void W8Octree::OctBuildOptions(char* stem)
                 DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font,
                                       {1, 0x184 + line * 0xd}, display, text_options);
             }
-            InvalidateRegion(0, 0x183, 0x27f, 0x1df, 4);
+            InvalidateRegion(0, 0x183, 0x27f, 0x1df);
             while (gfProgramIsRunning && DequeueEvent(&atom) == 0) {
                 RenderFrame();
                 RenderFrame();
@@ -1869,7 +1869,7 @@ accepted:
     if (display.size() < 90) display.append(90 - display.size(), ' ');
     DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font, {1, 0x184}, display,
                           text_options);
-    InvalidateRegion(0, 0x183, 0x27f, 0x1df, 4);
+    InvalidateRegion(0, 0x183, 0x27f, 0x1df);
     RenderFrame();
     RenderFrame();
     PublishLightDirection(&colour_saved);

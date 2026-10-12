@@ -4774,6 +4774,7 @@ void W8PathingService::DrawPathPosition(const glm::vec3& position, unsigned char
                         (node->cell_x + g_float_half) * grid_scale + level_bounds.minimum.x,
                         (node->path_height - 1) * span + level_bounds.minimum.y,
                         (node->cell_z + g_float_half) * grid_scale + level_bounds.minimum.z);
+                    // NOLINTNEXTLINE(misc-include-cleaner)
                     node->score = glm::length(node->position.glmValue() - position);
                     if (node->score < g_path_search_visualization_limit) {
                         W8PathHeapEntry pending;
@@ -5718,7 +5719,7 @@ unsigned int W8PathingService::EditWaypointLinkFlags(const char* title, unsigned
                                   {0x1f, 0x65 + static_cast<int>(line) * 0xd}, wide[line],
                                   text_options);
         }
-        InvalidateRegion(0x1e, 0x64, 0x262, 0xcc, 4);
+        InvalidateRegion(0x1e, 0x64, 0x262, 0xcc);
         if (DequeueEvent(&atom) == 0) {
             do {
                 RenderFrame();
@@ -5820,7 +5821,7 @@ unsigned int W8PathingService::EditWaypointLinkFlags(const char* title, unsigned
                               {0x1f, 0x65 + static_cast<int>(line) * 0xd}, wide[line],
                               text_options);
     }
-    InvalidateRegion(0x1e, 0x64, 0x262, 0xd9, 4);
+    InvalidateRegion(0x1e, 0x64, 0x262, 0xd9);
     RenderFrame();
     RenderFrame();
     for (index = 0; index < 9; ++index) {

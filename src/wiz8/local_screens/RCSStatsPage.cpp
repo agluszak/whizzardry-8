@@ -265,7 +265,7 @@ void DrawCampStatsPage(void)
         g_camp_screen->stats_range->m_range->Invalidate(0);
     }
     if ((g_camp_screen->redraw_flags & W8_CAMP_REDRAW_EFFECT_LIST) != 0) {
-        InvalidateRegion(0x15d, 0xbe, 0x260, 0x1b5, 0);
+        InvalidateRegion(0x15d, 0xbe, 0x260, 0x1b5);
         CatalogArtwork::Load(0x1b6, 0).drawRect(GetFrameBufferSurface(), SDL_Rect{0, 0, (0x260) - (0x15d), (0x1b5) - (0xbe)}, 0x15d, 0xbe);
         DrawCampEffectList();
     }

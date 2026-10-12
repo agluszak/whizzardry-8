@@ -18,6 +18,7 @@
 #include <exception>
 #include <stdexcept>
 #include <string>
+#include <span>
 #include <utility>
 #include <vector>
 
@@ -103,7 +104,12 @@ unsigned char CopySurfaceWithBorder(srColorSurface* surface, const W8ControlsRec
                                     SDL_Surface& source, float* scale_x, float* scale_y,
                                     float* mapping_x, float* mapping_y);
 void SaveJpegScreenshot(void);
-void FlushDirtyTiles(void);
+static void FlushUiUpload();
+
+/* The CPU frame buffer is the game-space UI canvas and g_surface_node's
+   persistent tile textures mirror it on the GPU. Invalidation accumulates one
+   bounding rectangle, uploaded once per frame before composition. */
+static SDL_Rect g_ui_upload{};
 
 /*
  * The renderer window and extension loading gate the native application initializes after the
@@ -147,10 +153,6 @@ int g_fps_frame_count;
 uint64_t g_fps_window_tick;
 /* Per-page counters reset as each overlay page is retired; retail stores
    through g_active_page as an index, so this is one two-entry array. */
-// GLOBAL: WIZ8 0x6596dc
-int g_overlay_page_counters[2];
-// GLOBAL: WIZ8 0x6596e8
-unsigned char g_page_full_redraw[2];
 // GLOBAL: WIZ8 0x6595f8
 // GLOBAL: WIZ8 0x659710
 bool g_video_active;
@@ -207,8 +209,6 @@ srCamera* g_square_camera;
 std::shared_ptr<srColorSurface> g_mouse_surface;
 // GLOBAL: WIZ8 0x65967c
 std::shared_ptr<srMaterial> g_blit_material;
-// GLOBAL: WIZ8 0x654adc
-srNode* g_surface_nodes[0x12c0];
 // GLOBAL: WIZ8 0x6595dc
 int g_surface_opaque_shader_bits;
 // GLOBAL: WIZ8 0x654ad8
@@ -226,14 +226,10 @@ extern const float g_viewport_x_scale = 1.0f / 640.0f;
 // GLOBAL: WIZ8 0x5ebb20
 extern const float g_viewport_y_scale = 1.0f / 480.0f;
 
-// GLOBAL: WIZ8 0x652ddc
-unsigned char g_tile_dirty_flags[0x12c0];
 // GLOBAL: WIZ8 0x006596e4
 unsigned int g_active_page;
 // GLOBAL: WIZ8 0x006596d4
 int g_video_inspector_mode;
-// GLOBAL: WIZ8 0x6596d8
-int g_dirty_tile_count;
 // GLOBAL: WIZ8 0x006596ec
 int g_overlay_render_mode;
 // GLOBAL: WIZ8 0x006596f0
@@ -306,18 +302,14 @@ void AssertFailureHandler(const char* expression, const char* file, w8_long line
 
 /* Reset both framebuffer pages and discard transient scene instances.
    Callers select whether to invalidate all dirty blocks or the normal region. */
-static void ResetVideoDirtyState(int invalidate_flag)
+static void ResetVideoDirtyState()
 {
-    memset(g_tile_dirty_flags, 0, sizeof(g_tile_dirty_flags));
-    const unsigned int active = g_active_page;
-    g_page_full_redraw[active ^ 1] = 0;
-    g_page_full_redraw[active] = 0;
-    g_dirty_tile_count = 0;
+    g_ui_upload = {};
     PurgeInactiveSceneInstances(g_scene_prerender0);
     PurgeInactiveSceneInstances(g_scene_overlay0);
     PurgeInactiveSceneInstances(g_scene_prerender1);
     PurgeInactiveSceneInstances(g_scene_overlay1);
-    InvalidateRegion(0, 0, 640, 480, invalidate_flag);
+    InvalidateRegion(0, 0, 640, 480);
 }
 
 /* Clear the software-facing frame and retire every transient 2D overlay.
@@ -329,8 +321,7 @@ void ResetVideoFrameState(void)
 {
     const auto& description = *primarySurface;
     memset(description.pixels, 0, description.pitch * 480);
-    memset(g_surface_nodes, 0, sizeof(g_surface_nodes));
-    ResetVideoDirtyState(0);
+    ResetVideoDirtyState();
 }
 
 /* Brings the renderer up, shows the window and, when the INSPECTOR switch was
@@ -344,10 +335,6 @@ bool InitializeVideoManager(void)
     SetPickedModelInstance(0);
     g_fps_frame_count = 0;
     g_fps_window_tick = w8_get_ticks();
-    g_overlay_page_counters[0] = 0;
-    g_overlay_page_counters[1] = 0;
-    g_page_full_redraw[0] = 0;
-    g_page_full_redraw[1] = 0;
     Initialize16BitPixelFormatMasks();
     if (!CreateWizardryWindow()) {
         return 0;
@@ -373,7 +360,7 @@ bool InitializeVideoManager(void)
             SDL_ShowWindow(ghWindow);
             SDL_RestoreWindow(ghWindow);
             SDL_RaiseWindow(ghWindow);
-            ResetVideoDirtyState(0);
+            ResetVideoDirtyState();
             SetRendererModePair();
         }
     }
@@ -598,7 +585,7 @@ unsigned char FinishVideoPresentation(void)
 {
     videoSurfaceOwner.reset();
     g_flush_pending = true;
-    InvalidateRegion(0, 0, 640, 480, 0);
+    InvalidateRegion(0, 0, 640, 480);
     return 1;
 }
 
@@ -636,7 +623,7 @@ void VideoFullScreen(bool enabled)
 // FUNCTION: WIZ8 0x00422f10
 void ResetTransientRenderScenes(void)
 {
-    ResetVideoDirtyState(0);
+    ResetVideoDirtyState();
 }
 
 /* Same dirty-block / transient-scene reset as ResetTransientRenderScenes, but
@@ -644,7 +631,7 @@ void ResetTransientRenderScenes(void)
 // FUNCTION: WIZ8 0x00423150
 void ClearVideoDirtyBlocks(void)
 {
-    ResetVideoDirtyState(1);
+    ResetVideoDirtyState();
 }
 
 // FUNCTION: WIZ8 0x004277e0
@@ -683,7 +670,7 @@ bool RestoreVideoManager(void)
         SDL_RestoreWindow(ghWindow);
         if (g_gerd->isWindowOpen() != 0 || OpenRendererWindow()) {
             SDL_RaiseWindow(ghWindow);
-            ResetVideoDirtyState(0);
+            ResetVideoDirtyState();
             SetRendererModePair();
         }
     }
@@ -856,7 +843,7 @@ void RenderFrame(void)
     g_gerd->setClearColor(clear_color.x, clear_color.y, clear_color.z, 1.0f);
     SyncSystemCursor();
     UpdateRegionHelp();
-    FlushDirtyTiles();
+    FlushUiUpload();
     if (g_gerd != 0) {
         g_gerd->resetStatistics();
     }
@@ -967,8 +954,6 @@ void RenderFrame(void)
 
     next_page = g_active_page ^ 1;
     g_active_page = next_page;
-    g_overlay_page_counters[next_page] = 0;
-    g_page_full_redraw[next_page] = 0;
     ++g_fps_frame_count;
     retire_prerender = next_page ? g_scene_prerender1 : g_scene_prerender0;
     retire_overlay = next_page ? g_scene_overlay1 : g_scene_overlay0;
@@ -1531,40 +1516,14 @@ unsigned char InitializeMouseCursorScene(void)
     return 1;
 }
 
-/* Dirty-rectangle tracking and surface updates. */
-/*
- * Marks a rectangle dirty on the current page.
- *
- * The screen is tracked as an 80x60 grid of eight-pixel cells - 0x50 cells per
- * row, which is 640/8 - and this walks the cells a rectangle covers, handing
- * each to InvalidateDirtyTile. A page already marked whole is skipped outright, and a
- * rectangle that turns out to cover the whole 640x480 marks it whole.
- *
- * InvalidateDirtyTile performs the per-cell write; the flag bits the caller passes
- * are only known by which bits they set.
- */
-
 // GLOBAL: WIZ8 0x65970d
 unsigned char g_world_render_enabled;
-// GLOBAL: WIZ8 0x6596ea
-bool g_viewport_tiles_dirty;
-/* The initial full-screen invalidation runs before any 2D node occupies the
-   tile table. A cell occupied by a 2D instance releases that instance and
-   recursively invalidates the cells its extent covers; the flags the caller
-   passes only mark this cell. */
-/* Retire a 2D node: clear every tile-table slot that references it, invalidate
-   the texture its model still exposes, and release the node itself. */
-// FUNCTION: WIZ8 0x00425950
+
+/* Retire a 2D node: invalidate the texture its model exposes and release it. */
 void ReleaseSurfaceNode(srNode* node)
 {
     if (node == 0) {
         return;
-    }
-    for (int index = 0; index < 0x12c0; ++index) {
-        if (g_surface_nodes[index] == node) {
-            g_surface_nodes[index] = 0;
-            g_tile_dirty_flags[index] = 0;
-        }
     }
     srMeshModel* model =
         static_cast<srMeshModel*>(static_cast<stModelInstance2D*>(node)->getModel());
@@ -1577,171 +1536,34 @@ void ReleaseSurfaceNode(srNode* node)
     delete node;
 }
 
-// FUNCTION: WIZ8 0x004259b0
-static void InvalidateDirtyTile(int cell, unsigned int flags)
+void InvalidateRegion(int left, int top, int right, int bottom)
 {
-    stModelInstance2D* node = static_cast<stModelInstance2D*>(g_surface_nodes[cell]);
-
-    if (node != 0) {
-        short position_x = node->render_state.position_x;
-        short position_y = node->render_state.position_y;
-        int columns = node->GetScaledWidth() >> 3;
-        int rows = node->GetScaledHeight() >> 3;
-
-        for (int index = 0; index != 0x12c0; ++index) {
-            if (g_surface_nodes[index] == node) {
-                g_surface_nodes[index] = 0;
-                g_tile_dirty_flags[index] = 0;
-            }
-        }
-        srMeshModel* model = static_cast<srMeshModel*>(node->getModel());
-        if (model != 0) {
-            srTextureIFace* texture = model->getTexture(0, 0);
-            if (texture != 0) {
-                texture->invalidate();
-            }
-        }
-        delete node;
-        int start = (position_y >> 3) * 0x50 + (position_x >> 3);
-        for (int row = rows; row != 0; --row) {
-            int row_cell = start;
-            for (int column = columns; column != 0; --column) {
-                InvalidateDirtyTile(row_cell, 0);
-                ++row_cell;
-            }
-            start += 0x50;
-        }
-    }
-    unsigned char state = g_tile_dirty_flags[cell] | static_cast<unsigned char>(flags) | 0x40;
-    g_tile_dirty_flags[cell] = state;
-    ++g_dirty_tile_count;
-    int bottom = (cell / 0x50) * 8 + 8;
-    int top = (cell / 0x50) * 8;
-    int right = (cell % 0x50) * 8 + 8;
-    int left = (cell % 0x50) * 8;
-    if (g_world_render_enabled &&
-        ((g_viewport.left <= left && left <= g_viewport.right) ||
-         (g_viewport.left <= right && right <= g_viewport.right)) &&
-        ((g_viewport.top <= top && top <= g_viewport.bottom) ||
-         (g_viewport.top <= bottom && bottom <= g_viewport.bottom))) {
-        g_tile_dirty_flags[cell] = state | 3;
-        g_viewport_tiles_dirty = true;
-    }
+    constexpr SDL_Rect screen{0, 0, 640, 480};
+    const SDL_Rect area{left, top, right - left, bottom - top};
+    SDL_Rect clipped;
+    if (!SDL_GetRectIntersection(&area, &screen, &clipped)) return;
+    if (SDL_RectEmpty(&g_ui_upload)) g_ui_upload = clipped;
+    else SDL_GetRectUnion(&g_ui_upload, &clipped, &g_ui_upload);
 }
 
-// FUNCTION: WIZ8 0x00422d50
-void InvalidateRegion(int left, int top, int right, int bottom, unsigned int flags)
+void InvalidateScreenRects(W8ScreenRect* rects, unsigned int count)
 {
-    unsigned char cell_flags;
-    unsigned int clipped_left;
-    unsigned int clipped_right;
-    unsigned int x;
-
-    cell_flags = 0;
-    if (g_page_full_redraw[g_active_page] == 0) {
-        clipped_right = 0x280;
-        /* The low clamp is a conditional expression because the original is
-           branchless there and branches on the high one, and it is written
-           <= 0 rather than < 1: the two are the same test and VC6 encodes them
-           differently, setle against setl. */
-        clipped_left = left <= 0 ? 0 : left;
-        if (static_cast<int>(clipped_left) > 0x27f) {
-            clipped_left = 0x280;
-        }
-        top = top <= 0 ? 0 : top;
-        if (top > 0x1df) {
-            top = 0x1e0;
-        }
-        /* Rounded up to the next cell boundary, with C's truncating division so
-           a negative right edge collapses rather than wrapping. */
-        right = ((right + 7) / 8) * 8;
-        if (right <= 0 || right < 0x280) {
-            clipped_right = right <= 0 ? 0 : right;
-        }
-        bottom = ((bottom + 7) / 8) * 8;
-        if (bottom <= 0 || bottom < 0x1e0) {
-            bottom = bottom <= 0 ? 0 : bottom;
-        } else {
-            bottom = 0x1e0;
-        }
-        if (static_cast<int>(clipped_right - clipped_left) > 0 && bottom - top > 0) {
-            if (clipped_right - clipped_left == 0x280 && bottom - top == 0x1e0) {
-                g_page_full_redraw[g_active_page] = 1;
-            }
-            if (flags & 4) {
-                cell_flags = 0x80;
-            }
-            if (flags & 1) {
-                cell_flags |= 2;
-            }
-            for (; top < bottom; top = top + 8) {
-                if (static_cast<int>(clipped_left) < static_cast<int>(clipped_right)) {
-                    x = clipped_left;
-                    do {
-                        InvalidateDirtyTile(static_cast<int>(x) / 8 + (top / 8) * 0x50, cell_flags);
-                        x += 8;
-                    } while (static_cast<int>(x) < static_cast<int>(clipped_right));
-                }
-            }
-        }
-    }
+    for (const auto& rect : std::span(rects, count))
+        InvalidateRegion(rect.left, rect.top, rect.right, rect.bottom);
 }
 
-/* Invalidate each rectangle in a run; a flagged region cancels the rest. */
-// FUNCTION: WIZ8 0x00422ec0
-void InvalidateScreenRects(W8ScreenRect* rects, unsigned int count, int flags)
+SDL_Rect TakeUiUpload()
 {
-    unsigned int index;
-
-    for (index = 0; index < count; ++index) {
-        if (g_page_full_redraw[g_active_page] != 0) {
-            return;
-        }
-        InvalidateRegion(rects[index].left, rects[index].top, rects[index].right,
-                         rects[index].bottom, flags);
-    }
+    return std::exchange(g_ui_upload, SDL_Rect{});
 }
 
-/* Coalesces dirty 8x8 cells into rectangular texture updates, clearing only
-   the uploaded bit and preserving the lower per-cell state for each page. */
-// FUNCTION: WIZ8 0x00425b40
-void FlushDirtyTiles(void)
+static void FlushUiUpload()
 {
-
-    if (g_dirty_tile_count == 0) {
-        return;
-    }
+    const auto upload = TakeUiUpload();
+    if (SDL_RectEmpty(&upload)) return;
     const auto& description = *primarySurface;
-    for (int row = 0; row != 60; ++row) {
-        int column = 0;
-        while (column < 80) {
-            int cell = row * 80 + column;
-            if ((g_tile_dirty_flags[cell] & 0x40) == 0) {
-                ++column;
-                continue;
-            }
-
-            int width = 0;
-            while (column + width < 80 && (g_tile_dirty_flags[cell + width] & 0x40) != 0) {
-                ++width;
-            }
-            int height = 0;
-            while (row + height < 60 && (g_tile_dirty_flags[cell + height * 80] & 0x40) != 0) {
-                ++height;
-            }
-
-            g_surface_node->updateRectangle(g_gerd, description.pixels, description.pitch,
-                                            column * 8, row * 8, (column + width) * 8,
-                                            (row + height) * 8);
-            for (int y = 0; y != height; ++y) {
-                for (int x = 0; x != width; ++x) {
-                    g_tile_dirty_flags[cell + y * 80 + x] &= 0x3f;
-                }
-            }
-            column += width;
-        }
-    }
-    g_dirty_tile_count = 0;
+    g_surface_node->updateRectangle(g_gerd, description.pixels, description.pitch, upload.x,
+                                    upload.y, upload.x + upload.w, upload.y + upload.h);
 }
 
 /* Viewport. */
@@ -1849,7 +1671,7 @@ void DrawVideoInspector(int left, unsigned int top)
             }
         }
     }
-    InvalidateRegion(left, top, left + 0x113, bottom, 0);
+    InvalidateRegion(left, top, left + 0x113, bottom);
     if (g_gerd != 0) {
         const auto statistics = g_gerd->getStatistics();
         g_smfnt_font.setPalette(g_font_state_palettes[W8_FONT_PALETTE_YELLOW]);
@@ -1952,7 +1774,7 @@ void PresentMenuOverlayFrame(void)
 {
     srNode::ProcessInfo process;
 
-    FlushDirtyTiles();
+    FlushUiUpload();
     g_gerd->beginFrame();
     process.renderer = g_gerd;
     g_surface_node->process(process, srNode::PROCESS_RENDER);
@@ -2069,14 +1891,11 @@ unsigned char InitializeRendererSceneObjects(void)
     material->setSpecular(material_value);
     material->setOpacity(1.0);
 
-    memset(g_surface_nodes, 0, sizeof(g_surface_nodes));
-    memset(g_tile_dirty_flags, 0, sizeof(g_tile_dirty_flags));
     g_viewport.left = 0;
     g_viewport.top = 0;
     g_viewport.right = 0;
     g_surface_opaque_shader_bits = 0x100a017;
     g_surface_alpha_blend_shader_bits = 0x100c0b7;
-    g_dirty_tile_count = 0;
     g_viewport.bottom = 0;
 
     /* Shares the CPU surface's pixels, so they outlive its recreation. */

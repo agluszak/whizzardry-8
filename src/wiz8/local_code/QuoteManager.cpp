@@ -988,7 +988,7 @@ void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned i
             int left = quote->x;
             int top = quote->y;
             ClearSurfaceRect(left, top, quote->width + left, quote->height + top);
-            InvalidateRegion(left, top, quote->width + left, quote->height + top, 0);
+            InvalidateRegion(left, top, quote->width + left, quote->height + top);
         }
         DisablePartyPortraitEvent(party_slot);
         if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
@@ -2023,7 +2023,7 @@ bool BlitPartyPortraitAnimation(int portrait, int left, int top, SpriteDraw opti
             other.bottom = height + other.top;
             rect = UnionScreenRects(other, rect);
         }
-        InvalidateScreenRects(&rect, 1, 0);
+        InvalidateScreenRects(&rect, 1);
         state->rendered_portrait_pose = state->portrait_pose;
         state->portrait_pose_dirty = false;
     }
@@ -2065,7 +2065,7 @@ bool BlitPartyPortraitAnimation(int portrait, int left, int top, SpriteDraw opti
             other.bottom = height + other.top;
             rect = UnionScreenRects(other, rect);
         }
-        InvalidateScreenRects(&rect, 1, 0);
+        InvalidateScreenRects(&rect, 1);
         state->rendered_portrait_frame = state->portrait_frame;
         state->portrait_frame_dirty = false;
     }
