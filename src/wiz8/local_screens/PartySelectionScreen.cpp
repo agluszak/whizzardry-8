@@ -1965,7 +1965,6 @@ unsigned char PartySelectionScreenLeave(int leaving)
 // FUNCTION: WIZ8 0x005c3120
 void PartySelectionScreenFrame(void)
 {
-    InputEvent input;
     SDL_Point point;
 
     if (g_dev_mode) {
@@ -1983,13 +1982,8 @@ void PartySelectionScreenFrame(void)
             controller->ApplyPartySelectionConfirmation(controller->m_confirmation_action, result);
         }
     }
-    if (controller->m_input_handler) {
-        UpdateRegionMousePosition(point.x, point.y);
-    }
-    UpdateRegionMousePosition(point.x, point.y);
-    while (DequeueEvent(&input) == 1) {
-        if (!DispatchRegionInput(&input) &&
-            (!controller->m_input_handler || !controller->m_input_handler->HandleInput(&input)) &&
+    PumpUiInput({.unhandled = [&](const InputEvent& input) {
+        if ((!controller->m_input_handler || !controller->m_input_handler->HandleInput(&input)) &&
             (input.type == InputEventType::KeyDown || input.type == InputEventType::KeyRepeat)) {
             switch (input.key) {
             case VK_RETURN:
@@ -2039,7 +2033,8 @@ void PartySelectionScreenFrame(void)
                 break;
             }
         }
-    }
+        return InputRoute::Handled;
+    }});
     UpdateCharacterEventState();
     controller->DrawPartySelectionComposition();
     RenderFrame();

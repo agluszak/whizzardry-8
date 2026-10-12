@@ -3126,35 +3126,28 @@ void SetMainGameMode(W8MainGameMode mode)
 
 unsigned char ProcessMainGameInput(void)
 {
-    SDL_Point mouse;
-    SGPMouseGetPos(&mouse);
-    if (GetForcedRegion() == 0) {
-        UpdateRegionMousePosition(mouse.x, mouse.y);
-    }
-
-    bool handled = false;
-    InputEvent input;
-    while (DequeueEvent(&input)) {
-        handled = true;
-        if ((!g_mouselook_active || HandleMouselookInput(&input) == 0) &&
-            DispatchRegionInput(&input) == 0 && GetForcedRegion() == 0) {
+    return PumpUiInput({
+        .before = [](const InputEvent& input) {
+            return g_mouselook_active && HandleMouselookInput(&input) != 0 ? InputRoute::Handled
+                                                                           : InputRoute::Pass;
+        },
+        .unhandled = [](const InputEvent& input) {
+            if (GetForcedRegion() != 0) return InputRoute::Handled;
             switch (input.type) {
             case InputEventType::LeftButtonDown:
             case InputEventType::LeftButtonUp:
             case InputEventType::RightButtonDown:
-            case InputEventType::RightButtonUp:
-                break;
-            default:
-                if (HandleDialogueTextInput(&input) == 0 &&
-                    HandleMainGameInputEvent(&input) == 0) {
-                    ResetMainGameMode();
-                    return 1;
-                }
-                break;
+            case InputEventType::RightButtonUp: return InputRoute::Handled;
+            default: break;
             }
-        }
-    }
-    return handled;
+            if (HandleDialogueTextInput(&input) == 0 && HandleMainGameInputEvent(&input) == 0) {
+                ResetMainGameMode();
+                return InputRoute::Stop;
+            }
+            return InputRoute::Handled;
+        },
+        .track_hover = GetForcedRegion() == 0,
+    });
 }
 
 /* The active screen's frame, including modal input and pending transitions. */
@@ -7062,30 +7055,6 @@ void TryMGSActionKey(W8MGSAction command)
     }
 }
 
-/* Which party portrait the pointer is over, if any. The slots are walked
-   against two runs of region numbers at once - one starting at 0x24 six apart
-   and one at 0x5a one apart - and only two event kinds are answered. */
-unsigned char HitTestPartyPortrait(const InputEvent* event)
-{
-    unsigned int region = 0x24;
-    int slot = 0;
-
-    while (!g_status.buffers.XChar[slot].fOccupied ||
-           (g_level_block->hover_region !=
-                g_main_portrait_regions->index(slot * 6 + kPortraitWorldRegionOffset) &&
-            g_level_block->hover_region != g_main_portrait_edge_regions->index(slot))) {
-        region += 6;
-        ++slot;
-        if (region > 0x53) {
-            return 0;
-        }
-    }
-    if (event->type == InputEventType::LeftButtonDown || event->type == InputEventType::LeftButtonUp) {
-        return DispatchRegionInput(event);
-    }
-    return 0;
-}
-
 /* The panel flags and the modal-dialog frame hooks. The gXStatus.world_update_blocked state
    is declared in MainGameScreen.h so the renderer consumes the same object. */
 
@@ -7112,19 +7081,6 @@ void LoadMainGameCursorResources(void)
     }
 }
 
-unsigned int DispatchMainGameMouseButtons(const InputEvent* input)
-{
-    switch (input->type) {
-    case InputEventType::LeftButtonDown:
-    case InputEventType::LeftButtonUp:
-    case InputEventType::RightButtonDown:
-    case InputEventType::RightButtonUp:
-        DispatchRegionInput(input);
-        return 1;
-    default:
-        return 0;
-    }
-}
 /* Input routed here while mouselook is latched: the left button arms the
    look flag, and each mouse move accumulates yaw/pitch from the offset off
    the 320x240 anchor before recentering the cursor. Smoothing defers the

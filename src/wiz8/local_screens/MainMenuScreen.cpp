@@ -258,8 +258,6 @@ static bool HandleDeveloperModeKey(const InputEvent* input)
    renderer transaction. */
 void MainMenuScreenFrame()
 {
-    SDL_Point point;
-    InputEvent input;
 
     if (g_dev_mode) {
         RequestExitScreen();
@@ -275,10 +273,8 @@ void MainMenuScreenFrame()
     } else if (IsMessageBoxActive()) {
         ProcessMessageBoxInput();
     } else {
-        SGPMouseGetPos(&point);
-        UpdateRegionMousePosition(point.x, point.y);
-        while (DequeueEvent(&input) == 1) {
-            if (!DispatchRegionInput(&input) && input.type == InputEventType::KeyDown) {
+        PumpUiInput({.unhandled = [&](const InputEvent& input) {
+            if (input.type == InputEventType::KeyDown) {
                 if (HandleDeveloperModeKey(&input)) {
                     if (g_dev_mode) {
                         g_wiz_text_font_secondary.resetPalette();
@@ -332,7 +328,8 @@ void MainMenuScreenFrame()
                     }
                 }
             }
-        }
+            return InputRoute::Handled;
+        }});
     }
 
     NoOp();

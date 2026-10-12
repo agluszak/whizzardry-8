@@ -1442,9 +1442,8 @@ void CampScreenFrame(void)
     SDL_Point point;
     SGPMouseGetPos(&point);
     g_camp_screen->hover_region = UpdateRegionMousePosition(point.x, point.y);
-    InputEvent input;
-    while (DequeueEvent(&input) == 1) {
-        if (!DispatchRegionInput(&input) && input.type == InputEventType::KeyDown) {
+    PumpUiInput({.unhandled = [&](const InputEvent& input) {
+        if (input.type == InputEventType::KeyDown) {
             if (input.key == VK_ESCAPE) {
                 if (g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_NONE ||
                     g_camp_screen->page != W8_CAMP_PAGE_ITEMS) {
@@ -1477,7 +1476,8 @@ void CampScreenFrame(void)
                 ShowCampNoticeLine(g_localized_strings[0x832], OnQuitGameDialogClosed, true, true);
             }
         }
-    }
+        return InputRoute::Handled;
+    }, .track_hover = false});
     if (g_camp_screen->page == W8_CAMP_PAGE_SPELLS &&
         !TimeUntilDeadline(g_camp_screen->animation_timer)) {
         for (unsigned int realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {

@@ -57,20 +57,15 @@ unsigned char ExitScreenEnter(void)
 // FUNCTION: WIZ8 0x005917e0
 void ExitScreenFrame(void)
 {
-    InputEvent input;
 
     RenderFrame();
-    while (DequeueEvent(&input) == 1) {
-        if (!DispatchRegionInput(&input)) {
-            switch (input.type) {
-            case InputEventType::KeyDown:
-                gfProgramIsRunning = 0;
-                break;
-            default:
-                break;
-            }
-        }
-    }
+    PumpUiInput({
+        .unhandled = [](const InputEvent& input) {
+            if (input.type == InputEventType::KeyDown) gfProgramIsRunning = 0;
+            return InputRoute::Handled;
+        },
+        .track_hover = false,
+    });
     if (!IsLeftButtonHeld() && !IsRightButtonHeld()) {
         if (gfProgramIsRunning != 0) {
             return;

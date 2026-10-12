@@ -1889,7 +1889,6 @@ unsigned char OptionsScreenEnter()
 void OptionsScreenFrame()
 {
     SDL_Point point;
-    InputEvent input;
 
     if (g_dev_mode) {
         RequestExitScreen();
@@ -1924,13 +1923,17 @@ void OptionsScreenFrame()
         screen->m_modal_closing = false;
     }
 
-    UpdateRegionMousePosition(point.x, point.y);
-    while (DequeueEvent(&input) == 1) {
-        if (!screen->ProcessInput(&input) && !DispatchRegionInput(&input) &&
-            input.type == InputEventType::KeyDown && input.key == VK_ESCAPE) {
-            RequestScreenTransition();
-        }
-    }
+    PumpUiInput({
+        .before = [screen](const InputEvent& input) {
+            return screen->ProcessInput(&input) ? InputRoute::Handled : InputRoute::Pass;
+        },
+        .unhandled = [](const InputEvent& input) {
+            if (input.type == InputEventType::KeyDown && input.key == VK_ESCAPE) {
+                RequestScreenTransition();
+            }
+            return InputRoute::Handled;
+        },
+    });
     screen->Redraw();
     if (g_options_first_frame) {
         SetRendererAutoFlipEnabled(false);

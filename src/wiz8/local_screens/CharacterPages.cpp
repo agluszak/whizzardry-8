@@ -268,5 +268,5 @@ void W8CharacterPage::Prepare()
 // FUNCTION: WIZ8 0x005affc0
 void W8CharacterPage::AddEntry(W8CharacterPageEntry* entry) { m_entries.emplace_back(entry); }
 
-void W8CharacterPage::HandleInput(InputEvent*) {}
+void W8CharacterPage::HandleInput(const InputEvent*) {}
 void W8CharacterPage::Refresh() {}

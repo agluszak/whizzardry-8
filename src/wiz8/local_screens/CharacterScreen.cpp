@@ -734,15 +734,15 @@ unsigned char CharacterScreenLeave(int leaving)
 // FUNCTION: WIZ8 0x005b18e0
 void CharacterScreenFrame(void)
 {
-    SDL_Point point;
-    InputEvent input;
-    SGPMouseGetPos(&point);
     g_character_screen->UpdateDialog();
-    UpdateRegionMousePosition(point.x, point.y);
-    while (DequeueEvent(&input) == 1) {
-        W8CharacterScreen* screen = g_character_screen.get();
-        screen->m_pages[screen->m_page_index]->HandleInput(&input);
-        if (!DispatchRegionInput(&input) && input.type == InputEventType::KeyDown) {
+    W8CharacterScreen* screen = g_character_screen.get();
+    PumpUiInput({
+        .before = [screen](const InputEvent& input) {
+            screen->m_pages[screen->m_page_index]->HandleInput(&input);
+            return InputRoute::Pass;
+        },
+        .unhandled = [screen](const InputEvent& input) {
+        if (input.type == InputEventType::KeyDown) {
             if (input.key == VK_RETURN || input.key == VK_RIGHT || input.key == 0x4e) {
                 screen->AdvancePage(true);
             } else if (input.key == VK_ESCAPE) {
@@ -760,8 +760,9 @@ void CharacterScreenFrame(void)
                     screen->SelectPage(index);
             }
         }
-    }
-    W8CharacterScreen* screen = g_character_screen.get();
+        return InputRoute::Handled;
+        },
+    });
     if (screen->m_header_dirty)
         screen->DrawHeader();
     screen->m_pages[screen->m_page_index]->Redraw();

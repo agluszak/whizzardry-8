@@ -198,19 +198,21 @@ bool W8NpcDialog::ProcessInput()
 {
     BeginModalInput();
     bool returned_early = false;
-    DrainModalInput([this, &returned_early](const InputEvent& input) {
-        if (!IsTypingEvent(input) || static_cast<char>(HandleTextInput(&input)) == 0) {
+    PumpUiInput({
+        .before = [this, &returned_early](const InputEvent& input) {
+            if (IsTypingEvent(input) && static_cast<char>(HandleTextInput(&input)) != 0) {
+                return InputRoute::Handled;
+            }
             if (input.type == InputEventType::KeyDown && input.key == VK_RETURN &&
                 m_message->kind == W8_NPC_ENTRY_KEYWORD_INPUT) {
                 m_input_text = GetTextFromField(m_input_field);
                 g_npc_dialog->m_keep_open = false;
                 EndModalInput();
                 returned_early = true;
-                return false;
+                return InputRoute::Stop;
             }
-            DispatchRegionInput(&input);
-        }
-        return true;
+            return InputRoute::Pass;
+        },
     });
     if (returned_early) return true;
     if (!m_keep_open) EndModalInput();

@@ -442,13 +442,9 @@ unsigned char JournalScreenLeave(int)
 // FUNCTION: WIZ8 0x005be110
 void JournalScreenFrame(void)
 {
-    SDL_Point point;
-    InputEvent input;
 
-    SGPMouseGetPos(&point);
-    UpdateRegionMousePosition(point.x, point.y);
-    while (DequeueEvent(&input) == 1) {
-        if (!DispatchRegionInput(&input) && input.type == InputEventType::KeyDown) {
+    PumpUiInput({.unhandled = [&](const InputEvent& input) {
+        if (input.type == InputEventType::KeyDown) {
             if (input.key == VK_ESCAPE) {
                 RequestScreenTransition();
             } else if (input.key == VK_LEFT && g_journal_page > 0) {
@@ -460,7 +456,8 @@ void JournalScreenFrame(void)
                 g_journal_panel->Refresh();
             }
         }
-    }
+        return InputRoute::Handled;
+    }});
     g_journal_panel->Redraw();
     RenderFrame();
 }

@@ -741,6 +741,29 @@ unsigned char ClearActiveRegionIfMatches(unsigned int region_index)
 }
 
 // FUNCTION: WIZ8 0x004f21d0
+bool PumpUiInput(const UiInputPolicy& policy)
+{
+    if (policy.track_hover) {
+        SDL_Point mouse;
+        SGPMouseGetPos(&mouse);
+        UpdateRegionMousePosition(mouse.x, mouse.y);
+    }
+    bool drained = false;
+    InputEvent input;
+    while (DequeueEvent(&input)) {
+        drained = true;
+        auto route = policy.before ? policy.before(input) : InputRoute::Pass;
+        if (route == InputRoute::Pass) {
+            const bool consumed = (!policy.ui_accepts || policy.ui_accepts(input)) &&
+                                  DispatchRegionInput(&input) != 0;
+            const auto& next = consumed ? policy.consumed : policy.unhandled;
+            route = next ? next(input) : InputRoute::Handled;
+        }
+        if (route == InputRoute::Stop) break;
+    }
+    return drained;
+}
+
 unsigned int GetForcedRegion(void)
 {
     return g_captured_region_index;

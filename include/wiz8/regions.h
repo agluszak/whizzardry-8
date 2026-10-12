@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <deque>
 #include <optional>
 #include <span>
@@ -321,8 +322,29 @@ void UnbindWidgetRegion(unsigned int region_index, W8Widget* widget, OwnedRegion
 std::int32_t RegionReasonForInput(const W8Region& region, const InputEvent& input);
 unsigned char ClearActiveRegionIfMatches(unsigned int region_index);
 void ActivateDialogRegion(unsigned int region_index); /* 0x004F2040 */
-/* 0x004F1910 returns the byte produced by the selected region callback. */
+/* Dispatch one already-dequeued event to the active region tree; PumpUiInput
+   is the frame entry point. Returns the byte produced by the region callback. */
 unsigned char DispatchRegionInput(const InputEvent* event);
+
+enum class InputRoute { Pass, Handled, Stop };
+
+/* How a screen or modal routes its frame's input. Each queued event is
+   offered once: `before` may claim it ahead of the UI (gameplay pointer
+   capture, a focused text field); otherwise the active region tree (the
+   innermost modal scope, else the screen) dispatches it when `ui_accepts`
+   allows, and `consumed` or `unhandled` applies the caller's policy.
+   Pass and Handled continue draining; Stop leaves the rest for next frame. */
+struct UiInputPolicy {
+    std::function<InputRoute(const InputEvent&)> before;
+    std::function<bool(const InputEvent&)> ui_accepts;
+    std::function<InputRoute(const InputEvent&)> consumed;
+    std::function<InputRoute(const InputEvent&)> unhandled;
+    /* Refresh pointer hover from the current mouse position before draining. */
+    bool track_hover = true;
+};
+
+/* The single input-queue drain. Returns whether any event was dequeued. */
+bool PumpUiInput(const UiInputPolicy& policy);
 
 void SetRegionHelpForceEnabled(bool enabled);
 void EnableRegionHelpFlag(W8Region* region);

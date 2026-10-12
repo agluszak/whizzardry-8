@@ -585,7 +585,7 @@ void W8CharacterStatsPage::GetNavigationState(bool* next_enabled, bool* exit_ena
 
 /* A click anywhere closes an expanded row's record list. */
 // FUNCTION: WIZ8 0x005ca5e0
-void W8CharacterStatsPage::HandleInput(InputEvent* input)
+void W8CharacterStatsPage::HandleInput(const InputEvent* input)
 {
     if (input->type != InputEventType::LeftButtonDown && input->type != InputEventType::RightButtonDown) {
         return;

@@ -994,7 +994,7 @@ void W8CharacterPersonalityPage::GetNavigationState(bool* next_enabled, bool* ex
 }
 
 // FUNCTION: WIZ8 0x005c6a60
-void W8CharacterPersonalityPage::HandleInput(InputEvent* input)
+void W8CharacterPersonalityPage::HandleInput(const InputEvent* input)
 {
     if (m_screen->HasDialog())
         return;

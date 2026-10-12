@@ -245,14 +245,18 @@ bool W8MessageDialogBase::ProcessInput()
 {
     BeginModalInput();
     bool keep_open = is_open;
-    DrainModalInput([this, &keep_open](const InputEvent& input) {
-        if (DispatchRegionInput(&input)) {
-            keep_open = is_open;
-            return true;
-        }
-        keep_open = HandleInput(&input);
-        if (!keep_open) EndModalInput();
-        return false;
+    PumpUiInput({
+        .consumed =
+            [this, &keep_open](const InputEvent&) {
+                keep_open = is_open;
+                return InputRoute::Handled;
+            },
+        .unhandled =
+            [this, &keep_open](const InputEvent& input) {
+                keep_open = HandleInput(&input);
+                if (!keep_open) EndModalInput();
+                return InputRoute::Stop;
+            },
     });
     if (!keep_open) EndModalInput();
     return keep_open;

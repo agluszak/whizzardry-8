@@ -820,14 +820,14 @@ W8AutomapNote* CreateAutomapNote(const glm::vec2* position, int layer, std::stri
 
 void AutomapScreenFrame(void)
 {
-    InputEvent input;
-    while (DequeueEvent(&input) == 1) {
+    PumpUiInput({
+        .before = [](const InputEvent& input) {
         if (g_automap_editing_note) {
             HandleAutomapNoteInput(&input);
-            continue;
+            return InputRoute::Handled;
         }
         if (HandleAutomapKey(&input))
-            continue;
+            return InputRoute::Handled;
         if (!IsCursorInsideViewport()) {
             if (g_automap_cursor_inside) {
                 g_automap_cursor_inside = false;
@@ -836,19 +836,7 @@ void AutomapScreenFrame(void)
             SDL_Point point;
             SGPMouseGetPos(&point);
             UpdateRegionMousePosition(point.x, point.y);
-            switch (input.type) {
-            case InputEventType::LeftButtonDown:
-            case InputEventType::LeftButtonRepeat:
-            case InputEventType::LeftButtonUp:
-            case InputEventType::RightButtonDown:
-            case InputEventType::RightButtonUp:
-            case InputEventType::RightButtonRepeat:
-                DispatchRegionInput(&input);
-                break;
-            default:
-                break;
-            }
-            continue;
+            return InputRoute::Pass;
         }
         if (!g_automap_cursor_inside) {
             g_automap_cursor_inside = true;
@@ -922,7 +910,7 @@ void AutomapScreenFrame(void)
                     DisableCursorScene();
                     glm::dvec3 scale(0.44f, 0.44f, 0.44f);
                     g_automap_party_marker->setScale(scale);
-                    continue;
+                    return InputRoute::Handled;
                 }
             }
             float factor = (1.0f / (g_automap_zoom * 0.00004f)) * 0.44f;
@@ -930,7 +918,11 @@ void AutomapScreenFrame(void)
             g_automap_party_marker->setScale(scale);
             EnableCursorScene();
         }
-    }
+        return InputRoute::Handled;
+        },
+        .ui_accepts = IsMouseButtonEvent,
+        .track_hover = false,
+    });
     bool moved = false;
     if (IsKeyHeld(VK_LEFT)) {
         g_automap_position.x -= g_float_thirty_five_hundredths * g_automap_zoom;
