@@ -248,23 +248,55 @@ unsigned char SpawnAscensionAmbush(void)
     return 1;
 }
 
+/* The B-side callbacks arm their A partner, and once the Aletheides flag is
+   set dismiss the bound monster and clear the flag. */
+static bool armAletheidesPartner(const char* partner, const char* active_var)
+{
+    Trigger* partner_trigger = FindTriggerByName(partner);
+
+    if (partner_trigger != 0) {
+        partner_trigger->flags |= W8_TRIGGER_ENABLED;
+    }
+    if (GetLocationVarIDByName(active_var) != -1 && GetLocationVarValueByName(active_var) != 0) {
+        RemoveAletheides();
+        SetTriggerVariableByName(active_var, 0);
+    }
+    return true;
+}
+
+/* The A-side callbacks are inert while the flag is set. Otherwise Aletheides
+   answers, and the party carrying the relic gets the exchange and the Alfie
+   spawn. */
+static bool answerAletheides(Trigger* pTrigger, const char* active_var, int relic_item,
+                             W8NpcStoryAction spawn)
+{
+    if (GetLocationVarIDByName(active_var) == -1) {
+        CreateLocationVar(active_var, 0);
+    }
+    if (GetLocationVarValueByName(active_var) != 0) {
+        return false;
+    }
+    QueueNpcAction(W8NpcCommand::begin_scripted_world_action);
+    QueueNpcAction(W8NpcPortraitString{0x71e});
+    if (!FindItemOnParty(relic_item, 0, 0, 2, 0)) {
+        QueueNpcAction(W8NpcPortraitString{0x71f});
+    } else {
+        SetTriggerVariableByName(active_var, 1);
+        QueueNpcAction(W8NpcPortraitString{0x720});
+        QueueNpcAction(spawn);
+    }
+    QueueNpcAction(W8NpcCommand::clear_target_state);
+    pTrigger->flags &= ~W8_TRIGGER_ENABLED;
+    return true;
+}
+
 /* The ChaosBTrigger activation callback: arm ChaosATrigger, and once
    AlethidiesChaosActive is set dismiss the bound Aletheides monster and clear
    the variable. */
 // FUNCTION: WIZ8 0x004DFF90
 bool AscensionChaosBTrigger(Trigger* pTrigger)
 {
-    Trigger* chaos_a = FindTriggerByName("ChaosATrigger");
-
-    if (chaos_a != 0) {
-        chaos_a->flags |= W8_TRIGGER_ENABLED;
-    }
-    if (GetLocationVarIDByName("AlethidiesChaosActive") != -1 &&
-        GetLocationVarValueByName("AlethidiesChaosActive") != 0) {
-        RemoveAletheides();
-        SetTriggerVariableByName("AlethidiesChaosActive", 0);
-    }
-    return true;
+    return armAletheidesPartner("ChaosATrigger", "AlethidiesChaosActive");
 }
 
 /* The ChaosATrigger activation callback: while AlethidiesChaosActive is set
@@ -274,24 +306,7 @@ bool AscensionChaosBTrigger(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004DFFF0
 bool AscensionChaosATrigger(Trigger* pTrigger)
 {
-    if (GetLocationVarIDByName("AlethidiesChaosActive") == -1) {
-        CreateLocationVar("AlethidiesChaosActive", 0);
-    }
-    if (GetLocationVarValueByName("AlethidiesChaosActive") != 0) {
-        return false;
-    }
-    QueueNpcAction(W8NpcCommand::begin_scripted_world_action);
-    QueueNpcAction(W8NpcPortraitString{0x71e});
-    if (!FindItemOnParty(0x244, 0, 0, 2, 0)) {
-        QueueNpcAction(W8NpcPortraitString{0x71f});
-    } else {
-        SetTriggerVariableByName("AlethidiesChaosActive", 1);
-        QueueNpcAction(W8NpcPortraitString{0x720});
-        QueueNpcAction(W8NpcStoryAction::spawn_alfie_chaos);
-    }
-    QueueNpcAction(W8NpcCommand::clear_target_state);
-    pTrigger->flags &= ~W8_TRIGGER_ENABLED;
-    return true;
+    return answerAletheides(pTrigger, "AlethidiesChaosActive", 0x244, W8NpcStoryAction::spawn_alfie_chaos);
 }
 
 /* The LifeBTrigger activation callback: arm LifeATrigger, and once
@@ -300,17 +315,7 @@ bool AscensionChaosATrigger(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004E00B0
 bool AscensionLifeBTrigger(Trigger* pTrigger)
 {
-    Trigger* life_a = FindTriggerByName("LifeATrigger");
-
-    if (life_a != 0) {
-        life_a->flags |= W8_TRIGGER_ENABLED;
-    }
-    if (GetLocationVarIDByName("AlethidiesLifeActive") != -1 &&
-        GetLocationVarValueByName("AlethidiesLifeActive") != 0) {
-        RemoveAletheides();
-        SetTriggerVariableByName("AlethidiesLifeActive", 0);
-    }
-    return true;
+    return armAletheidesPartner("LifeATrigger", "AlethidiesLifeActive");
 }
 
 /* The LifeATrigger activation callback: while AlethidiesLifeActive is set the
@@ -319,24 +324,7 @@ bool AscensionLifeBTrigger(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004E0110
 bool AscensionLifeATrigger(Trigger* pTrigger)
 {
-    if (GetLocationVarIDByName("AlethidiesLifeActive") == -1) {
-        CreateLocationVar("AlethidiesLifeActive", 0);
-    }
-    if (GetLocationVarValueByName("AlethidiesLifeActive") != 0) {
-        return false;
-    }
-    QueueNpcAction(W8NpcCommand::begin_scripted_world_action);
-    QueueNpcAction(W8NpcPortraitString{0x71e});
-    if (!FindItemOnParty(0x242, 0, 0, 2, 0)) {
-        QueueNpcAction(W8NpcPortraitString{0x71f});
-    } else {
-        SetTriggerVariableByName("AlethidiesLifeActive", 1);
-        QueueNpcAction(W8NpcPortraitString{0x720});
-        QueueNpcAction(W8NpcStoryAction::spawn_alfie_life);
-    }
-    QueueNpcAction(W8NpcCommand::clear_target_state);
-    pTrigger->flags &= ~W8_TRIGGER_ENABLED;
-    return true;
+    return answerAletheides(pTrigger, "AlethidiesLifeActive", 0x242, W8NpcStoryAction::spawn_alfie_life);
 }
 
 /* The KnowBTrigger activation callback: arm KnowATrigger, and once
@@ -345,17 +333,7 @@ bool AscensionLifeATrigger(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004E01D0
 bool AscensionKnowBTrigger(Trigger* pTrigger)
 {
-    Trigger* know_a = FindTriggerByName("KnowATrigger");
-
-    if (know_a != 0) {
-        know_a->flags |= W8_TRIGGER_ENABLED;
-    }
-    if (GetLocationVarIDByName("AlethidiesKnowActive") != -1 &&
-        GetLocationVarValueByName("AlethidiesKnowActive") != 0) {
-        RemoveAletheides();
-        SetTriggerVariableByName("AlethidiesKnowActive", 0);
-    }
-    return true;
+    return armAletheidesPartner("KnowATrigger", "AlethidiesKnowActive");
 }
 
 /* The KnowATrigger activation callback: while AlethidiesKnowActive is set the
@@ -364,24 +342,7 @@ bool AscensionKnowBTrigger(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004E0230
 bool AscensionKnowATrigger(Trigger* pTrigger)
 {
-    if (GetLocationVarIDByName("AlethidiesKnowActive") == -1) {
-        CreateLocationVar("AlethidiesKnowActive", 0);
-    }
-    if (GetLocationVarValueByName("AlethidiesKnowActive") != 0) {
-        return false;
-    }
-    QueueNpcAction(W8NpcCommand::begin_scripted_world_action);
-    QueueNpcAction(W8NpcPortraitString{0x71e});
-    if (!FindItemOnParty(0x243, 0, 0, 2, 0)) {
-        QueueNpcAction(W8NpcPortraitString{0x71f});
-    } else {
-        SetTriggerVariableByName("AlethidiesKnowActive", 1);
-        QueueNpcAction(W8NpcPortraitString{0x720});
-        QueueNpcAction(W8NpcStoryAction::spawn_alfie_know);
-    }
-    QueueNpcAction(W8NpcCommand::clear_target_state);
-    pTrigger->flags &= ~W8_TRIGGER_ENABLED;
-    return true;
+    return answerAletheides(pTrigger, "AlethidiesKnowActive", 0x243, W8NpcStoryAction::spawn_alfie_know);
 }
 
 /* The second RampUp activation callback: spawn the Dark Savant (0xc2) and
