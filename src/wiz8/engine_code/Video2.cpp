@@ -1818,6 +1818,16 @@ unsigned char InitializeMouseSurface(void)
     return 1;
 }
 
+/* A black, fog-free scene with no parent, used for the 2D overlay layers. */
+static srScene* createOverlayScene(const char* name)
+{
+    auto* scene = new srScene(static_cast<srNode*>(0));
+    scene->setName(name);
+    scene->setAmbientLight(0.0f, 0.0f, 0.0f);
+    scene->setFogColor(0.0f, 0.0f, 0.0f);
+    return scene;
+}
+
 // FUNCTION: WIZ8 0x00423500
 unsigned char InitializeRendererSceneObjects(void)
 {
@@ -1828,45 +1838,21 @@ unsigned char InitializeRendererSceneObjects(void)
 
     InitializeMouseSurface();
     g_modeler = new srModeler;
-    g_scene_permanent = new srScene(static_cast<srNode*>(0));
-    g_scene_permanent->setName("2D Permanent Overlay Scene");
-    g_scene_permanent->setAmbientLight(0.0f, 0.0f, 0.0f);
-    g_scene_permanent->setFogColor(0.0f, 0.0f, 0.0f);
+    g_scene_permanent = createOverlayScene("2D Permanent Overlay Scene");
 
-    g_scene_user = new srScene(static_cast<srNode*>(0));
-    g_scene_user->setName("2D User Overlay Scene");
-    g_scene_user->setAmbientLight(0.0f, 0.0f, 0.0f);
-    g_scene_user->setFogColor(0.0f, 0.0f, 0.0f);
+    g_scene_user = createOverlayScene("2D User Overlay Scene");
 
-    g_scene_fullscreen = new srScene(static_cast<srNode*>(0));
-    g_scene_fullscreen->setName("Full Screen Overlay Scene");
-    g_scene_fullscreen->setAmbientLight(0.0f, 0.0f, 0.0f);
-    g_scene_fullscreen->setFogColor(0.0f, 0.0f, 0.0f);
+    g_scene_fullscreen = createOverlayScene("Full Screen Overlay Scene");
 
-    g_scene_overlay0 = new srScene(static_cast<srNode*>(0));
-    g_scene_overlay0->setName("2D Overlay Scene (0)");
-    g_scene_overlay0->setAmbientLight(0.0f, 0.0f, 0.0f);
-    g_scene_overlay0->setFogColor(0.0f, 0.0f, 0.0f);
+    g_scene_overlay0 = createOverlayScene("2D Overlay Scene (0)");
 
-    g_scene_overlay1 = new srScene(static_cast<srNode*>(0));
-    g_scene_overlay1->setName("2D Overlay Scene (1)");
-    g_scene_overlay1->setAmbientLight(0.0f, 0.0f, 0.0f);
-    g_scene_overlay1->setFogColor(0.0f, 0.0f, 0.0f);
+    g_scene_overlay1 = createOverlayScene("2D Overlay Scene (1)");
 
-    g_scene_square = new srScene(static_cast<srNode*>(0));
-    g_scene_square->setName("2D Square Overlay Scene");
-    g_scene_square->setAmbientLight(0.0f, 0.0f, 0.0f);
-    g_scene_square->setFogColor(0.0f, 0.0f, 0.0f);
+    g_scene_square = createOverlayScene("2D Square Overlay Scene");
 
-    g_scene_prerender0 = new srScene(static_cast<srNode*>(0));
-    g_scene_prerender0->setName("2D Pre-render Overlay Scene (0)");
-    g_scene_prerender0->setAmbientLight(0.0f, 0.0f, 0.0f);
-    g_scene_prerender0->setFogColor(0.0f, 0.0f, 0.0f);
+    g_scene_prerender0 = createOverlayScene("2D Pre-render Overlay Scene (0)");
 
-    g_scene_prerender1 = new srScene(static_cast<srNode*>(0));
-    g_scene_prerender1->setName("2D Pre-render Overlay Scene (1)");
-    g_scene_prerender1->setAmbientLight(0.0f, 0.0f, 0.0f);
-    g_scene_prerender1->setFogColor(0.0f, 0.0f, 0.0f);
+    g_scene_prerender1 = createOverlayScene("2D Pre-render Overlay Scene (1)");
 
     g_overlay_camera = new srCamera(static_cast<srNode*>(0));
     g_overlay_camera->setName("2D Overlay Camera");
