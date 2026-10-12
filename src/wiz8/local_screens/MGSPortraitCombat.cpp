@@ -311,7 +311,7 @@ static void SubMenuButtonUseItem(W8ButtonWidget* button)
     }
     if (gXStatus.fCombatMode) {
         OpenSubMenuPanel(3);
-        g_captured_region_index = 0;
+        g_ui.captured = 0;
         return;
     }
     OpenUseItemSelectView(g_status.selected_character);

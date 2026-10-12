@@ -261,9 +261,9 @@ unsigned int new_test_region_set()
 struct RegionStateSnapshot {
     std::vector<unsigned int> set_enabled;
     std::vector<unsigned int> region_flags;
-    unsigned int current = g_current_region_index;
-    unsigned int captured = g_captured_region_index;
-    unsigned int hover = g_hover_region_index;
+    unsigned int current = g_ui.current;
+    unsigned int captured = g_ui.captured;
+    unsigned int hover = g_ui.hover;
     int help_delay = g_region_help_delay;
     bool help_force_enabled = g_region_help_force_enabled;
 
@@ -286,9 +286,9 @@ struct RegionStateSnapshot {
              index < region_flags.size() && index < g_regions.size(); ++index) {
             g_regions[index].flags = region_flags[index];
         }
-        g_current_region_index = current;
-        g_captured_region_index = captured;
-        g_hover_region_index = hover;
+        g_ui.current = current;
+        g_ui.captured = captured;
+        g_ui.hover = hover;
         g_region_help_delay = help_delay;
         g_region_help_force_enabled = help_force_enabled;
     }
@@ -343,7 +343,7 @@ unsigned char nested_region_callback(const InputEvent* event, W8Region*, unsigne
 {
     if (event->type == InputEventType::LeftButtonDown) {
         nested_region_events.push_back(InputEventType::LeftButtonDown);
-        g_captured_region_index = nested_region_index;
+        g_ui.captured = nested_region_index;
         const auto up = mouse_atom(InputEventType::LeftButtonUp, 100, 100);
         DispatchRegionInput(&up);
     } else if (event->type == InputEventType::LeftButtonUp) {
@@ -367,7 +367,7 @@ void region_nested_input()
         dispatch_mouse(InputEventType::LeftButtonDown, 10, 10);
     }
     REQUIRE((nested_region_events == std::vector<InputEventType>{InputEventType::LeftButtonDown, InputEventType::LeftButtonUp}));
-    REQUIRE(g_captured_region_index == 0);
+    REQUIRE(g_ui.captured == 0);
 
     const auto region_count = g_regions.size();
     for (unsigned repeat = 0; repeat < 32; ++repeat) {
@@ -405,12 +405,12 @@ void owned_region_captures_across_frames()
     ExclusiveRegionSet scope(set);
 
     dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
-    REQUIRE(g_captured_region_index == region.index());
+    REQUIRE(g_ui.captured == region.index());
     UpdateRegionMousePosition(100, 100);
-    REQUIRE(g_captured_region_index == region.index());
+    REQUIRE(g_ui.captured == region.index());
     dispatch_mouse(InputEventType::LeftButtonUp, 100, 100);
 
-    REQUIRE(g_captured_region_index == 0);
+    REQUIRE(g_ui.captured == 0);
     REQUIRE(std::find(handler.reasons.begin(), handler.reasons.end(),
                       REGION_REASON_LBUTTON_DWN) != handler.reasons.end());
     REQUIRE(std::find(handler.reasons.begin(), handler.reasons.end(),
@@ -430,7 +430,7 @@ void modal_scope_persists_across_frames()
     UpdateRegionMousePosition(5, 5);
     UpdateRegionMousePosition(5, 5);
 
-    REQUIRE(g_hover_region_index == region);
+    REQUIRE(g_ui.hover == region);
     REQUIRE(std::count_if(region_events.begin(), region_events.end(), [](const auto& event) {
                 return event.second == REGION_REASON_GAIN_MOUSE;
             }) == 1);
@@ -449,14 +449,14 @@ void modal_scope_preserves_capture_across_frames()
     std::optional<ExclusiveRegionSet> scope;
     scope.emplace(button_set);
     dispatch_mouse(InputEventType::LeftButtonDown, 15, 15);
-    REQUIRE(g_captured_region_index == region.index());
+    REQUIRE(g_ui.captured == region.index());
     UpdateRegionMousePosition(100, 100);
-    REQUIRE(g_captured_region_index == region.index());
+    REQUIRE(g_ui.captured == region.index());
     dispatch_mouse(InputEventType::LeftButtonUp, 100, 100);
 
     REQUIRE(std::find(handler.reasons.begin(), handler.reasons.end(),
                       REGION_REASON_LBUTTON_UP) != handler.reasons.end());
-    REQUIRE(g_captured_region_index == 0);
+    REQUIRE(g_ui.captured == 0);
 }
 
 void exclusive_scopes_destroy_out_of_order()
@@ -475,15 +475,15 @@ void exclusive_scopes_destroy_out_of_order()
     std::optional<ExclusiveRegionSet> inner_scope;
     outer_scope.emplace(outer_set);
     UpdateRegionMousePosition(5, 5);
-    REQUIRE(g_hover_region_index == outer_region);
+    REQUIRE(g_ui.hover == outer_region);
     inner_scope.emplace(inner_set);
     outer_scope.reset();
     UpdateRegionMousePosition(25, 5);
-    REQUIRE(g_hover_region_index == inner_region);
+    REQUIRE(g_ui.hover == inner_region);
     inner_scope.reset();
-    REQUIRE(g_hover_region_index == 0);
+    REQUIRE(g_ui.hover == 0);
     UpdateRegionMousePosition(45, 5);
-    REQUIRE(g_hover_region_index == fallback_region);
+    REQUIRE(g_ui.hover == fallback_region);
 }
 
 void reset_regions_preserves_hidden_buttons()
@@ -504,7 +504,7 @@ void reset_regions_preserves_hidden_buttons()
     REQUIRE(g_region_sets[button_set].enabled == 1);
     REQUIRE((g_regions[region_index].flags & W8_REGION_INPUT_DISABLED) != 0);
     UpdateRegionMousePosition(75, 75);
-    REQUIRE(g_hover_region_index != region_index);
+    REQUIRE(g_ui.hover != region_index);
 }
 
 void later_region_set_precedes_button_set()
@@ -523,7 +523,7 @@ void later_region_set_precedes_button_set()
     region_events.clear();
 
     UpdateRegionMousePosition(105, 105);
-    REQUIRE(g_hover_region_index == screen_region);
+    REQUIRE(g_ui.hover == screen_region);
     dispatch_mouse(InputEventType::LeftButtonDown, 105, 105);
 
     REQUIRE(std::find(region_events.begin(), region_events.end(),
@@ -544,21 +544,21 @@ void owned_region_move_and_teardown()
     owned.region().SetBounds(10, 10, 30, 30);
     const auto index = owned.index();
     UpdateRegionMousePosition(15, 15);
-    REQUIRE(g_hover_region_index == index);
+    REQUIRE(g_ui.hover == index);
     dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
-    REQUIRE(g_captured_region_index == index);
+    REQUIRE(g_ui.captured == index);
 
     {
         OwnedRegion moved(std::move(owned));
         REQUIRE_FALSE(owned);
         owned.reset();
         REQUIRE(g_regions[index].handler == &handler);
-        REQUIRE(g_captured_region_index == index);
-        REQUIRE(g_hover_region_index == index);
+        REQUIRE(g_ui.captured == index);
+        REQUIRE(g_ui.hover == index);
     }
     REQUIRE(g_regions[index].handler == nullptr);
-    REQUIRE(g_captured_region_index == 0);
-    REQUIRE(g_hover_region_index == 0);
+    REQUIRE(g_ui.captured == 0);
+    REQUIRE(g_ui.hover == 0);
 }
 void owned_region_set_templates_and_teardown()
 {
@@ -600,7 +600,7 @@ void owned_region_set_templates_and_teardown()
         regions->Enable();
         region_events.clear();
         dispatch_mouse(InputEventType::LeftButtonDown, 45, 15, true);
-        REQUIRE(g_captured_region_index == regions->index(1));
+        REQUIRE(g_ui.captured == regions->index(1));
         REQUIRE(std::find(region_events.begin(), region_events.end(),
                           std::pair<int, int>{12, left_button_down}) != region_events.end());
         dispatch_mouse(InputEventType::LeftButtonUp, 45, 15);
@@ -612,12 +612,12 @@ void owned_region_set_templates_and_teardown()
 
         regions->Enable();
         UpdateRegionMousePosition(45, 15);
-        REQUIRE(g_hover_region_index == regions->index(1));
+        REQUIRE(g_ui.hover == regions->index(1));
         dispatch_mouse(InputEventType::LeftButtonDown, 45, 15, true);
-        REQUIRE(g_captured_region_index == regions->index(1));
+        REQUIRE(g_ui.captured == regions->index(1));
         regions.reset();
-        REQUIRE(g_hover_region_index == 0);
-        REQUIRE(g_captured_region_index == 0);
+        REQUIRE(g_ui.hover == 0);
+        REQUIRE(g_ui.captured == 0);
         scope.reset();
     }
 
@@ -658,14 +658,14 @@ void region_set_views_share_owned_regions()
             view.Enable();
             region_events.clear();
             dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
-            REQUIRE(g_captured_region_index == source.index(0));
+            REQUIRE(g_ui.captured == source.index(0));
             REQUIRE(std::find(region_events.begin(), region_events.end(),
                               std::pair<int, int>{21, left_button_down}) != region_events.end());
             dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
 
             region_events.clear();
             dispatch_mouse(InputEventType::LeftButtonDown, 45, 15, true);
-            REQUIRE(g_captured_region_index == source.index(1));
+            REQUIRE(g_ui.captured == source.index(1));
             REQUIRE(std::find(region_events.begin(), region_events.end(),
                               std::pair<int, int>{22, left_button_down}) != region_events.end());
             dispatch_mouse(InputEventType::LeftButtonUp, 45, 15);
@@ -782,10 +782,10 @@ void input_sink_capture_can_be_released()
     RegionStateSnapshot saved_state;
     ResetRegions();
     CaptureInputSink();
-    const auto sink_index = g_captured_region_index;
+    const auto sink_index = g_ui.captured;
     REQUIRE(sink_index != 0);
     ReleaseInputSinkCapture();
-    REQUIRE(g_captured_region_index == 0);
+    REQUIRE(g_ui.captured == 0);
 
     // The released sink must not keep swallowing clicks at its zero-sized origin.
     constexpr std::array<RegionTemplate, 1> origin_templates{{
@@ -801,9 +801,9 @@ void input_sink_capture_can_be_released()
     OwnedRegionSet other{templates};
     other.Enable();
     ActivateDialogRegion(other.index(0));
-    REQUIRE(g_captured_region_index == other.index(0));
+    REQUIRE(g_ui.captured == other.index(0));
     ReleaseInputSinkCapture();
-    REQUIRE(g_captured_region_index == other.index(0));
+    REQUIRE(g_ui.captured == other.index(0));
     ClearActiveRegionIfMatches(other.index(0));
 }
 
@@ -898,13 +898,13 @@ void owned_regions_honor_priority()
 
     ExclusiveRegionSet scope(set);
     dispatch_mouse(InputEventType::MouseMove, 10, 10);
-    REQUIRE(g_hover_region_index == high.index());
+    REQUIRE(g_ui.hover == high.index());
     dispatch_mouse(InputEventType::LeftButtonDown, 10, 10, true);
-    REQUIRE(g_captured_region_index == high.index());
+    REQUIRE(g_ui.captured == high.index());
     REQUIRE(high_handler.reasons.back() == REGION_REASON_LBUTTON_DWN);
     REQUIRE(low_handler.reasons.empty());
     dispatch_mouse(InputEventType::LeftButtonUp, 10, 10);
-    REQUIRE(g_captured_region_index == 0);
+    REQUIRE(g_ui.captured == 0);
 }
 
 void image_and_sprite_ownership()
@@ -994,9 +994,9 @@ void text_input_ownership()
             {
                 ExclusiveRegionSet scope(ControlRegionSetIndex());
                 dispatch_mouse(InputEventType::LeftButtonDown, 5, 5);
-                REQUIRE(g_captured_region_index == region_index);
+                REQUIRE(g_ui.captured == region_index);
                 dispatch_mouse(InputEventType::LeftButtonUp, 100, 100);
-                REQUIRE(g_captured_region_index == 0);
+                REQUIRE(g_ui.captured == 0);
             }
             // A field wins over its hosting panel, whose set is scanned before the control set.
             constexpr std::array<RegionTemplate, 1> panel_templates{{
@@ -1006,9 +1006,9 @@ void text_input_ownership()
             panel.Enable();
             panel.EnableInput();
             dispatch_mouse(InputEventType::LeftButtonDown, 5, 5);
-            REQUIRE(g_captured_region_index == region_index);
+            REQUIRE(g_ui.captured == region_index);
             dispatch_mouse(InputEventType::LeftButtonUp, 100, 100);
-            REQUIRE(g_captured_region_index == 0);
+            REQUIRE(g_ui.captured == 0);
         }
         outer.Remove(middle);
         REQUIRE(outer.ByteLength(last) == 5);

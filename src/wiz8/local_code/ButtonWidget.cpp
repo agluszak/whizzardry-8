@@ -23,7 +23,7 @@ void W8ButtonWidget::Draw()
 {
     if (m_dirty && OwnsRegion() && (Region().flags & W8_REGION_INPUT_DISABLED) == 0) {
         m_visual.hovered = (Region().flags & W8_REGION_MOUSE_ENTER) != 0 ||
-                           g_hover_region_index == static_cast<unsigned int>(m_region);
+                           g_ui.hover == static_cast<unsigned int>(m_region);
         DrawButtonAppearance(GetFrameBufferSurface(), m_appearance, ScreenBounds(), m_visual);
         const auto bounds = ScreenBounds();
         InvalidateRegion(bounds.x, bounds.y, bounds.x + bounds.w, bounds.y + bounds.h);

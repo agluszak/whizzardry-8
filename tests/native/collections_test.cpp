@@ -200,9 +200,9 @@ TEST_CASE("widget_region_lifetimes")
         REQUIRE(g_regions[reused_region].flags == W8_REGION_RECTANGLE);
     }
     // Destroying a captured/hovered widget also releases those global views.
-    g_captured_region_index = g_current_region_index = g_hover_region_index = reused_region;
+    g_ui.captured = g_ui.current = g_ui.hover = reused_region;
     delete replacement;
-    REQUIRE((g_captured_region_index == 0 && g_current_region_index == 0 && g_hover_region_index == 0));
+    REQUIRE((g_ui.captured == 0 && g_ui.current == 0 && g_ui.hover == 0));
     REQUIRE(rebuilt_panel.ControlCount() == 0);
     REQUIRE(DispatchWidgetRegion(event, g_regions[reused_region]) == 0);
 
@@ -231,11 +231,11 @@ TEST_CASE("widget_region_lifetimes")
         outgoing->SetActive(true);
         g_regions[outgoing_region].flags |= W8_REGION_MOUSE_ENTER;
     };
-    g_hover_region_index = g_current_region_index = outgoing_region;
+    g_ui.hover = g_ui.current = outgoing_region;
     REQUIRE(UpdateRegionMousePosition(100, 100) == 0);
     REQUIRE(g_regions[outgoing_region].handler == outgoing);
     REQUIRE(g_regions[outgoing_region].flags & W8_REGION_MOUSE_ENTER);
-    REQUIRE(g_hover_region_index == 0);
+    REQUIRE(g_ui.hover == 0);
     hover_panel.EnableRegionSet(false);
 }
 
