@@ -1,6 +1,8 @@
 #ifndef WIZ8_LAYOUTS_ENCOUNTER_TABLES_H
 #define WIZ8_LAYOUTS_ENCOUNTER_TABLES_H
 
+
+#include <cstdint>
 #pragma pack(push, 1)
 
 enum W8EncounterTimeCondition {
@@ -10,11 +12,11 @@ enum W8EncounterTimeCondition {
 };
 
 struct W8EncounterTableDiskHeader {
-    unsigned char record_kind; /* 0x000: four in the reviewed corpus */
+    std::uint8_t record_kind; /* 0x000: four in the reviewed corpus */
     char name[256];            /* 0x001 */
-    unsigned int unknown_101;  /* 0x101 */
-    unsigned short version;    /* 0x105: two in the reviewed corpus */
-    unsigned char entry_count; /* 0x107 */
+    std::uint32_t unknown_101;  /* 0x101 */
+    std::uint16_t version;    /* 0x105: two in the reviewed corpus */
+    std::uint8_t entry_count; /* 0x107 */
 }; /* 0x108 */
 
 struct W8EncounterScriptName {

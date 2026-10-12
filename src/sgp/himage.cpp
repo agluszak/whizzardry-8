@@ -64,28 +64,28 @@ bool safe_dimensions(std::size_t width, std::size_t height)
            width * height <= max_image_bytes / 4;
 }
 
-unsigned little_word(const std::uint8_t* bytes)
+std::uint32_t little_word(const std::uint8_t* bytes)
 {
-    return bytes[0] | (unsigned(bytes[1]) << 8);
+    return bytes[0] | (std::uint32_t(bytes[1]) << 8);
 }
 
 void set_palette(SDL_Surface& surface, const Palette8& colors)
 {
     std::unique_ptr<SDL_Palette, decltype(&SDL_DestroyPalette)> palette(
-        SDL_CreatePalette(int(colors.size())), SDL_DestroyPalette);
-    if (!palette || !SDL_SetPaletteColors(palette.get(), colors.data(), 0, int(colors.size())) ||
+        SDL_CreatePalette(std::int32_t(colors.size())), SDL_DestroyPalette);
+    if (!palette || !SDL_SetPaletteColors(palette.get(), colors.data(), 0, std::int32_t(colors.size())) ||
         !SDL_SetSurfacePalette(&surface, palette.get()))
         throw std::runtime_error(SDL_GetError());
 }
 
-BitmapImage bitmap_from_pixels(int width, int height, SDL_PixelFormat format,
+BitmapImage bitmap_from_pixels(std::int32_t width, std::int32_t height, SDL_PixelFormat format,
                                std::span<const std::uint8_t> pixels)
 {
     BitmapImage surface(SDL_CreateSurface(width, height, format), SDL_DestroySurface);
     if (!surface)
         throw std::runtime_error(SDL_GetError());
     const std::size_t row_bytes = std::size_t(width) * SDL_BYTESPERPIXEL(format);
-    for (int y = 0; y < height; ++y)
+    for (std::int32_t y = 0; y < height; ++y)
         std::copy_n(pixels.data() + y * row_bytes, row_bytes,
                     static_cast<std::uint8_t*>(surface->pixels) + y * surface->pitch);
     return surface;
@@ -135,15 +135,15 @@ bool valid_image_header(const std::vector<std::uint8_t>& bytes, ImageFormat form
                 continue;
             if (bytes.size() - position < 2)
                 return false;
-            const std::size_t length = (unsigned(bytes[position]) << 8) | bytes[position + 1];
+            const std::size_t length = (std::uint32_t(bytes[position]) << 8) | bytes[position + 1];
             if (length < 2 || length > bytes.size() - position)
                 return false;
             if (marker >= 0xc0 && marker <= 0xcf && marker != 0xc4 && marker != 0xc8 && marker != 0xcc)
             {
                 if (length < 8)
                     return false;
-                const auto height = (unsigned(bytes[position + 3]) << 8) | bytes[position + 4];
-                const auto width = (unsigned(bytes[position + 5]) << 8) | bytes[position + 6];
+                const auto height = (std::uint32_t(bytes[position + 3]) << 8) | bytes[position + 4];
+                const auto width = (std::uint32_t(bytes[position + 5]) << 8) | bytes[position + 6];
                 return safe_dimensions(width, height);
             }
             position += length;
@@ -181,9 +181,9 @@ BitmapImage load_ordinary_image(wiz8::File& file, ImageFormat format)
         // Colour-mapped TGA palettes start at their declared first entry.
         Palette8 colors{};
         colors.fill({0, 0, 0, SDL_ALPHA_OPAQUE});
-        const unsigned first_color = format == ImageFormat::tga &&
+        const std::uint32_t first_color = format == ImageFormat::tga &&
             (bytes[2] == 1 || bytes[2] == 9) ? little_word(bytes.data() + 3) : 0;
-        std::transform(palette->colors, palette->colors + std::min(unsigned(palette->ncolors), 256 - first_color),
+        std::transform(palette->colors, palette->colors + std::min(std::uint32_t(palette->ncolors), 256 - first_color),
             colors.begin() + first_color, [](const SDL_Color& color) {
                 return SDL_Color{color.r, color.g, color.b, SDL_ALPHA_OPAQUE};
             });
@@ -344,7 +344,7 @@ std::optional<DecodedImage> LoadImage(std::string_view filename)
         return load_ordinary_image(*file, format);
     } catch (const std::exception& error) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Loading image %.*s: %s",
-                     static_cast<int>(filename.size()), filename.data(), error.what());
+                     static_cast<std::int32_t>(filename.size()), filename.data(), error.what());
         return std::nullopt;
     }
 }
@@ -416,7 +416,7 @@ std::uint16_t Get16BPPColor(SDL_Color color)
 // Modification History :
 // Dec 15th 1996 -> modified for use by Wizardry
 
-std::optional<std::uint8_t> SpriteFrame::paletteIndexAt(int x, int y) const
+std::optional<std::uint8_t> SpriteFrame::paletteIndexAt(std::int32_t x, std::int32_t y) const
 {
     if (x < 0 || y < 0 || x >= width || y >= height || indices.empty()) return std::nullopt;
     const auto value = indices[std::size_t(y) * width + x];

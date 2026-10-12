@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <vector>
 #include "glm/ext/vector_float3.hpp"
 
@@ -19,12 +20,12 @@ struct W8ReadLevelInfo {
     const char* mesh_filename; /* 0x0c */
 };
 
-unsigned char ReadLevel(W8World* world, wiz8::File* handle, bool use_octree, const char* bitmap_folder);
-unsigned char ReadWorldParticles(W8ReadLevelInfo* info, srNode* scene,
+std::uint8_t ReadLevel(W8World* world, wiz8::File* handle, bool use_octree, const char* bitmap_folder);
+std::uint8_t ReadWorldParticles(W8ReadLevelInfo* info, srNode* scene,
                                  std::vector<stParticle*>* particles);
 
 // Append a complete named-position section; failure leaves the destination unchanged.
 bool ReadNamedPositions(wiz8::File* file, std::vector<W8NamedPosition>& positions);
 
 // Camera entries and paths are committed together after the full table loads.
-unsigned char ReadWorldCameras(W8ReadLevelInfo* info, W8World* world);
+std::uint8_t ReadWorldCameras(W8ReadLevelInfo* info, W8World* world);

@@ -1,8 +1,9 @@
 #pragma once
 
-unsigned char InitializeMenuFonts(void);
+std::uint8_t InitializeMenuFonts(void);
 void ReleaseMenuFonts();
 
+#include <cstdint>
 #include "Font.h"
 
 /* Game-specific bitmap font roles and owned notice palettes. */

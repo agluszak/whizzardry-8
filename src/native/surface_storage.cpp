@@ -26,31 +26,31 @@ void ConvertCpuPixels(void* destination, const void* source, size_t count,
 {
     if (count == 0)
         return;
-    const unsigned source_bytes = SDL_BYTESPERPIXEL(source_format);
-    const unsigned destination_bytes = SDL_BYTESPERPIXEL(destination_format);
+    const std::uint32_t source_bytes = SDL_BYTESPERPIXEL(source_format);
+    const std::uint32_t destination_bytes = SDL_BYTESPERPIXEL(destination_format);
     if (source_bytes == 0 || source_bytes > 4 || destination_bytes == 0 ||
         destination_bytes > 4 || SDL_ISPIXELFORMAT_FOURCC(source_format) ||
         SDL_ISPIXELFORMAT_FOURCC(destination_format))
         throw std::runtime_error("Unsupported SDL pixel conversion format");
-    if (count > size_t(std::numeric_limits<int>::max() / 4))
+    if (count > size_t(std::numeric_limits<std::int32_t>::max() / 4))
         throw std::length_error("Pixel conversion row is too large");
-    const int source_pitch = int(count) * int(source_bytes);
-    const int destination_pitch = int(count) * int(destination_bytes);
-    std::vector<unsigned char> snapshot;
+    const std::int32_t source_pitch = std::int32_t(count) * std::int32_t(source_bytes);
+    const std::int32_t destination_pitch = std::int32_t(count) * std::int32_t(destination_bytes);
+    std::vector<std::uint8_t> snapshot;
     const auto source_address = reinterpret_cast<uintptr_t>(source);
     const auto destination_address = reinterpret_cast<uintptr_t>(destination);
     if (destination_address < source_address + source_pitch &&
         source_address < destination_address + destination_pitch) {
-        const auto* bytes = static_cast<const unsigned char*>(source);
+        const auto* bytes = static_cast<const std::uint8_t*>(source);
         snapshot.assign(bytes, bytes + source_pitch);
         source = snapshot.data();
     }
-    require_sdl(SDL_ConvertPixels(int(count), 1, source_format, source, source_pitch,
+    require_sdl(SDL_ConvertPixels(std::int32_t(count), 1, source_format, source, source_pitch,
                                   destination_format, destination, destination_pitch));
 }
 
-SDLSurfaceOwner CreateCpuStorage(int width, int height, SDL_PixelFormat format,
-                                 void* pixels, int pitch)
+SDLSurfaceOwner CreateCpuStorage(std::int32_t width, std::int32_t height, SDL_PixelFormat format,
+                                 void* pixels, std::int32_t pitch)
 {
     SDLSurfaceOwner result{pitch >= 0 ? SDL_CreateSurfaceFrom(width, height, format, pixels, pitch)
                                       : SDL_CreateSurface(width, height, format),

@@ -2,6 +2,7 @@
 
 struct srBoundingBox;
 
+#include <cstdint>
 #include <memory>
 #include <array>
 #include <span>
@@ -32,29 +33,29 @@ void RemoveMonsterFromWorldList(W8World*, W8Monster* monster);
 void AddMonsterToWorld(W8World*, W8Monster* monster);
 void AddItemToWorld(W8World*, W8Item* item);
 void RemoveItemFromWorld(W8World*, W8Item* item);
-void SetModelInstanceChainExclusionMask(srModelInstance* node, int value);
+void SetModelInstanceChainExclusionMask(srModelInstance* node, std::int32_t value);
 std::unique_ptr<stModelInstance> DuplicateModelInstance(const stModelInstance& instance);
 void UpdateWorldMonsters(W8World* world);
 void WorldUpdateProps(W8World* world);
-int WorldGetPropCount(W8World*);             /* 0x0046E600 */
-W8Prop* WorldGetPropAt(W8World*, int index); /* 0x0046E620 */
-void SetWorldSceneMeshShaderLowBits(W8World* owner, int argument);
-void SetWorldSceneMeshShaderBit3(W8World* owner, int argument);
+std::int32_t WorldGetPropCount(W8World*);             /* 0x0046E600 */
+W8Prop* WorldGetPropAt(W8World*, std::int32_t index); /* 0x0046E620 */
+void SetWorldSceneMeshShaderLowBits(W8World* owner, std::int32_t argument);
+void SetWorldSceneMeshShaderBit3(W8World* owner, std::int32_t argument);
 void FinalizeStaticScene(srScene* scene);
 // Factories return detached instances. Scene ownership requires explicit adoption.
 std::unique_ptr<stModelInstance> CreateModelInstance(std::shared_ptr<stMeshModel> model);
 
-unsigned char FinalizeWorldScenes(srNode* node, srNode* dynamic_scene);
+std::uint8_t FinalizeWorldScenes(srNode* node, srNode* dynamic_scene);
 /* Mark an instance lit and bake dynamic-scene lights once (render_flags bit 1). */
-unsigned char BakeInstanceVertexLightingIfNeeded(stModelInstance* instance,
+std::uint8_t BakeInstanceVertexLightingIfNeeded(stModelInstance* instance,
                                                  srNode* dynamic_scene); /* 0x0046F4A0 */
-unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* lights,
+std::uint8_t BakeInstanceVertexLighting(stModelInstance* instance, srNode* lights,
                                          bool walk_chain);
-void SetSceneMeshShaderBit3(srNode* node, int argument);
-void SetSceneMeshShaderLowBits(srNode* node, int argument);
+void SetSceneMeshShaderBit3(srNode* node, std::int32_t argument);
+void SetSceneMeshShaderLowBits(srNode* node, std::int32_t argument);
 /* 0x0046F760: assign every live world's mesh vertex-light table index and
    mark the mesh dirty for rebake (automap lighting uses table 1). */
-void SetWorldMeshVertexLightTable(W8World* world, int table);
+void SetWorldMeshVertexLightTable(W8World* world, std::int32_t table);
 
 /* Report whether a point satisfies all six frustum planes. */
 bool PointInsideFrustum(const glm::vec3& point, std::span<const W8Plane, 6> planes);
@@ -63,7 +64,7 @@ bool PointInsideFrustum(const glm::vec3& point, std::span<const W8Plane, 6> plan
 bool SphereInsideFrustum(const glm::vec3& point, float radius, std::span<const W8Plane, 6> planes);
 /* Point-in-triangle test via dominant-axis projection: `axis` selects the two
    planar components used. */
-bool PointInsideTriangle(std::span<const glm::vec3, 3> vertices, unsigned axis,
+bool PointInsideTriangle(std::span<const glm::vec3, 3> vertices, std::uint32_t axis,
                          const glm::vec3& point);
 /* Build the six frustum planes from the eight sorted corner points. */
 std::array<W8Plane, 6> BuildFrustumPlanes(std::span<const glm::vec3, 8> points);

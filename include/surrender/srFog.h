@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <utility>
 
 #include "srIlluminator.h"
@@ -36,7 +37,7 @@ public:
 public:
 
     using srClassSupport<srFog, srIlluminator, 0x1210>::process;
-    virtual SR_DLL_IMPORT int isActive(srVertexPipe& pipe) override;
+    virtual SR_DLL_IMPORT std::int32_t isActive(srVertexPipe& pipe) override;
     virtual SR_DLL_IMPORT void process(srVertexPipe& pipe) override;
 
     double fog_start; /* 0x150 */

@@ -49,8 +49,8 @@
 
 class srModel;
 
-static int assertions = 0;
-static void assertion(const char* expression, const char* path, w8_long line, const char* message)
+static std::int32_t assertions = 0;
+static void assertion(const char* expression, const char* path, std::int32_t line, const char* message)
 {
     if (strcmp(expression, "native probe") || strcmp(path, "imports_test.cpp") || line != 42 ||
         strcmp(message, "value 7"))
@@ -60,7 +60,7 @@ static void assertion(const char* expression, const char* path, w8_long line, co
     }
     ++assertions;
 }
-static int destroyed_nodes = 0;
+static std::int32_t destroyed_nodes = 0;
 struct ClientNode : srNode
 {
     bool transformDirty() const { return testNotify(NOTIFY_TRANSFORM_DIRTY) != 0; }
@@ -85,10 +85,10 @@ struct ClientTextureFile : srTextureFile
     }
 };
 // Compares a 3x2 BGRA32 surface with the 20-byte-pitch fixture rows.
-static bool samePixels(srColorSurface& surface, const unsigned char* pixels)
+static bool samePixels(srColorSurface& surface, const std::uint8_t* pixels)
 {
-    const auto* data = static_cast<const unsigned char*>(surface.getDataPtr());
-    for (int row = 0; row < 2; ++row) {
+    const auto* data = static_cast<const std::uint8_t*>(surface.getDataPtr());
+    for (std::int32_t row = 0; row < 2; ++row) {
         if (std::memcmp(data + row * surface.getPitch(), pixels + row * 20, 12) != 0) {
             return false;
         }
@@ -96,11 +96,11 @@ static bool samePixels(srColorSurface& surface, const unsigned char* pixels)
     return true;
 }
 
-static int surface_storage()
+static std::int32_t surface_storage()
 {
-    std::array<unsigned char, 40> pixels;
+    std::array<std::uint8_t, 40> pixels;
     for (std::size_t index = 0; index < pixels.size(); ++index)
-        pixels[index] = static_cast<unsigned char>(index * 7);
+        pixels[index] = static_cast<std::uint8_t>(index * 7);
     const auto original = pixels;
     auto palette = std::make_shared<srPalette>();
     const auto references = palette.use_count();
@@ -132,21 +132,21 @@ static int surface_storage()
         REQUIRE(samePixels(assigned, pixels.data()));
         REQUIRE(palette.use_count() == references + 2);
         REQUIRE(assigned.resize(7, 5));
-        auto* begin = static_cast<unsigned char*>(assigned.getDataPtr());
+        auto* begin = static_cast<std::uint8_t*>(assigned.getDataPtr());
         REQUIRE(std::all_of(begin, begin + assigned.getDataSize(), [](auto value) { return value == 0; }));
         assigned.fill(0xff336699);
         REQUIRE(assigned.rescale(3, 2));
-        for (int y = 0; y < 2; ++y)
-            for (int x = 0; x < 3; ++x)
+        for (std::int32_t y = 0; y < 2; ++y)
+            for (std::int32_t x = 0; x < 3; ++x)
                 REQUIRE(assigned.getPixelRaw(x, y) == 0xff336699);
         REQUIRE(assigned.changePixelFormat(format, 1));
         REQUIRE((assigned.getPitch() >= 9 && assigned.getPixelRaw(0, 0) == 0x996633));
         REQUIRE(assigned.getPixel(0, 0) == 0xff336699);
 
-        std::array<unsigned char, 4> other_pixels{1, 2, 3, 4};
+        std::array<std::uint8_t, 4> other_pixels{1, 2, 3, 4};
         srColorSurface other_borrowed(srPixelConvert::SURFACE_BGRA32, other_pixels.data(), 1, 1, 4);
         other_borrowed = borrowed;
-        REQUIRE(other_pixels == (std::array<unsigned char, 4>{1, 2, 3, 4}));
+        REQUIRE(other_pixels == (std::array<std::uint8_t, 4>{1, 2, 3, 4}));
         REQUIRE(other_borrowed.getDataPtr() != pixels.data());
         REQUIRE(other_borrowed.resize(2, 2));
     }
@@ -166,7 +166,7 @@ static int surface_storage()
 }
 
 // Instances, including copies, share ownership of their model.
-static int shared_model_lifetimes()
+static std::int32_t shared_model_lifetimes()
 {
     auto model = std::make_shared<srMeshModel>(0, 0);
     std::weak_ptr<srModel> lifetime = model;
@@ -183,7 +183,7 @@ static int shared_model_lifetimes()
 }
 
 // Maps share their source surface; copies of dimensions also keep the palette alive.
-static int shared_surface_lifetimes()
+static std::int32_t shared_surface_lifetimes()
 {
     struct Map : srTextureMap {
         using srTextureMap::srTextureMap;
@@ -226,9 +226,9 @@ TEST_CASE("imports_test")
     {
         srModeler modeler;
         srModeler::Triangle triangle;
-        for (int row = 0; row < 2; ++row)
+        for (std::int32_t row = 0; row < 2; ++row)
         {
-            for (int vertex = 0; vertex < 3; ++vertex)
+            for (std::int32_t vertex = 0; vertex < 3; ++vertex)
                 triangle.vertices[vertex].position =
                     glm::vec3(row * 10 + vertex, row * 20 + vertex, -vertex);
             modeler.addTriangle(triangle);
@@ -240,12 +240,12 @@ TEST_CASE("imports_test")
     }
     struct alignas(8) WordPair
     {
-        unsigned int padding;
+        std::uint32_t padding;
         srQuadWord value;
     } words{0, {7, 1}};
     static_assert(offsetof(WordPair, value) == 4, "exercise four-byte aligned word pair");
     REQUIRE(double(words.value) == 4294967303.0);
-    for (int mode : {FE_TONEAREST, FE_DOWNWARD, FE_UPWARD, FE_TOWARDZERO})
+    for (std::int32_t mode : {FE_TONEAREST, FE_DOWNWARD, FE_UPWARD, FE_TOWARDZERO})
     {
         REQUIRE(fesetround(mode) == 0);
         const double inputs[] = {0.0,
@@ -262,15 +262,15 @@ TEST_CASE("imports_test")
         for (volatile double input : inputs)
         {
             feclearexcept(FE_ALL_EXCEPT);
-            const w8_long actual = srFloatToInt(input);
+            const std::int32_t actual = srFloatToInt(input);
             const bool invalid = fetestexcept(FE_INVALID);
 #if defined(__i386__) || defined(__x86_64__)
-            w8_long retail;
-            unsigned short saved_control, status;
+            std::int32_t retail;
+            std::uint16_t saved_control, status;
             asm volatile("fnstcw %0" : "=m"(saved_control));
-            const unsigned rounding = mode == FE_DOWNWARD ? 1 : mode == FE_UPWARD ? 2
+            const std::uint32_t rounding = mode == FE_DOWNWARD ? 1 : mode == FE_UPWARD ? 2
                                        : mode == FE_TOWARDZERO ? 3 : 0;
-            const unsigned short control = (saved_control & ~0x0c00u) | (rounding << 10);
+            const std::uint16_t control = (saved_control & ~0x0c00u) | (rounding << 10);
             // The Windows x64 CRT controls SSE, not the oracle's x87 state.
             asm volatile("fldcw %0; fnclex" : : "m"(control));
             asm volatile("fldl %2; fistpl %0; fnstsw %1"
@@ -293,7 +293,7 @@ TEST_CASE("imports_test")
     REQUIRE(shared_surface_lifetimes() == 0);
     REQUIRE(shared_model_lifetimes() == 0);
     {
-        const int before_destruction = destroyed_nodes;
+        const std::int32_t before_destruction = destroyed_nodes;
         srScene* scene = new srScene;
         auto child = new ClientNode;
         child->setParent(scene, 0);
@@ -341,7 +341,7 @@ TEST_CASE("imports_test")
                 const auto& point = vectors.values[point_index];
                 const auto v = point.glmValue();
                 // Keep the comparison order for NaNs in recovered bounds.
-                for (int c = 0; c < 3; ++c) {
+                for (std::int32_t c = 0; c < 3; ++c) {
                     if (v[c] >= lower[c]) {
                         if (v[c] > upper[c])
                             upper[c] = v[c];
@@ -424,7 +424,7 @@ TEST_CASE("imports_test")
         sampler.insert(11);
         REQUIRE((sampler.getNumSymbols() == 2 && sampler.getSymbolFrequency(0) == 2));
         // Exercise a branching symbol tree, as used by octree alpha bits.
-        const w8_ulong values[] = {10, 10, 11, 12, 13, 10, 13, 14, 0xffffffff};
+        const std::uint32_t values[] = {10, 10, 11, 12, 13, 10, 13, 14, 0xffffffff};
         srHuffman::Sampler tree_sampler;
         for (auto value : values)
             tree_sampler.insert(value);
@@ -441,7 +441,7 @@ TEST_CASE("imports_test")
             bits.flush();
         }
         // Captured from main's pre-consolidation stream/Huffman implementation.
-        const unsigned char golden[] = {
+        const std::uint8_t golden[] = {
             0x06,0x00,0x00,0x00,0x60,0x02,0x00,0x00,0x00,0x2e,0x00,0x00,0x00,
             0x64,0x00,0x00,0x00,0xd0,0x01,0x00,0x00,0xe0,0xff,0xff,0xff,0xbf,
             0x0d,0x00,0x00,0x00,0x15,0x00,0x00,0x00,0x1e,0xec,0x64

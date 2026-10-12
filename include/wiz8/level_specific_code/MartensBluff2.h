@@ -1,5 +1,7 @@
 #pragma once
 
+
+#include <cstdint>
 class Trigger;
 
 /* Level 6 (MartensBluff2) master function and activation callbacks,
@@ -7,9 +9,9 @@ class Trigger;
 void MartensBluff2Setup(void);
 bool TriggerArrowTrap(Trigger* pTrigger);
 bool MartensBluff2Spikeballtrigger(Trigger* pTrigger);
-void MartensBluff2Spikeball(int command);
-void MartensBluff2MonsterCrusher(int command);
-void MartensBluff2IdolGas(int command);
+void MartensBluff2Spikeball(std::int32_t command);
+void MartensBluff2MonsterCrusher(std::int32_t command);
+void MartensBluff2IdolGas(std::int32_t command);
 void MartensBluff2IdolGasVictim(void);
 bool MartensBluff2DoorBolt(Trigger* pTrigger);
 bool MartensBluff2DummyLever(Trigger* pTrigger);

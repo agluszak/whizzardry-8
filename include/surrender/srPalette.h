@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include "srARGB.h"
 #include "srTypeRegistry.h"
 
@@ -20,8 +21,8 @@ public:
     public:
         Quantizer();
         // FUNCTION: SURRENDER 0x10004B40
-        Quantizer(srARGB* colors, w8_long color_count, unsigned char* duplicates,
-                  unsigned char red_bits, unsigned char green_bits, unsigned char blue_bits)
+        Quantizer(srARGB* colors, std::int32_t color_count, std::uint8_t* duplicates,
+                  std::uint8_t red_bits, std::uint8_t green_bits, std::uint8_t blue_bits)
         {
             setPalette(colors, color_count, duplicates, red_bits, green_bits, blue_bits);
         }
@@ -29,43 +30,43 @@ public:
         Quantizer(const Quantizer& other) = default;
         // Retail destructor: SURRENDER 0x10004B80 (implicit destruction).
 
-        void setPalette(srARGB* colors, w8_long color_count, unsigned char* duplicates,
-                        unsigned char red_bits, unsigned char green_bits, unsigned char blue_bits);
-        unsigned char quantize(const srARGB& color);
-        unsigned char quantize(unsigned char red, unsigned char green, unsigned char blue);
-        void quantize(unsigned char* indices, const srARGB* colors, w8_long color_count);
+        void setPalette(srARGB* colors, std::int32_t color_count, std::uint8_t* duplicates,
+                        std::uint8_t red_bits, std::uint8_t green_bits, std::uint8_t blue_bits);
+        std::uint8_t quantize(const srARGB& color);
+        std::uint8_t quantize(std::uint8_t red, std::uint8_t green, std::uint8_t blue);
+        void quantize(std::uint8_t* indices, const srARGB* colors, std::int32_t color_count);
 
     private:
         struct Entry {
-            w8_ulong red;
-            w8_ulong green;
-            w8_ulong blue;
-            w8_ulong index;
+            std::uint32_t red;
+            std::uint32_t green;
+            std::uint32_t blue;
+            std::uint32_t index;
         };
 
         void checkLuts();
-        void initRG(w8_long red_lo, w8_long red_hi, w8_long green_lo, w8_long green_hi);
-        unsigned char findRG(w8_long red, w8_long green);
+        void initRG(std::int32_t red_lo, std::int32_t red_hi, std::int32_t green_lo, std::int32_t green_hi);
+        std::uint8_t findRG(std::int32_t red, std::int32_t green);
         void createRGTable();
-        void initRGB(w8_long red, w8_long green, w8_long blue_lo, w8_long blue_hi);
-        unsigned char findRGB(w8_long blue);
-        void partitionRGB(w8_long blue_lo, w8_long blue_hi);
+        void initRGB(std::int32_t red, std::int32_t green, std::int32_t blue_lo, std::int32_t blue_hi);
+        std::uint8_t findRGB(std::int32_t blue);
+        void partitionRGB(std::int32_t blue_lo, std::int32_t blue_hi);
         void createRGBTable();
 
-        static int initialized;
+        static std::int32_t initialized;
 
-        unsigned char lut_rg[0x10000];  /* 0x00000 */
-        unsigned char lut_rgb[0x10000]; /* 0x10000 */
+        std::uint8_t lut_rg[0x10000];  /* 0x00000 */
+        std::uint8_t lut_rgb[0x10000]; /* 0x10000 */
         srARGB palette[0x100];          /* 0x20000 */
-        unsigned char duplicate[0x100]; /* 0x20400 */
-        w8_long color_count;               /* 0x20500 */
-        w8_ulong red_bits;         /* 0x20504 */
-        w8_ulong green_bits;       /* 0x20508 */
-        w8_ulong blue_bits;        /* 0x2050c */
+        std::uint8_t duplicate[0x100]; /* 0x20400 */
+        std::int32_t color_count;               /* 0x20500 */
+        std::uint32_t red_bits;         /* 0x20504 */
+        std::uint32_t green_bits;       /* 0x20508 */
+        std::uint32_t blue_bits;        /* 0x2050c */
         Entry entries[0x100];           /* 0x20510 */
-        w8_long entry_count;               /* 0x21510 */
-        unsigned char* lut_row;         /* 0x21514 */
-        w8_long rg_dist[0x100];            /* 0x21518 */
+        std::int32_t entry_count;               /* 0x21510 */
+        std::uint8_t* lut_row;         /* 0x21514 */
+        std::int32_t rg_dist[0x100];            /* 0x21518 */
     };
 
     /* Color sampler. Sampled colors are quantized to sample_bits per channel and accumulated in a
@@ -75,50 +76,50 @@ public:
     public:
         struct ColorEntry {
             srARGB color;
-            w8_long count;
+            std::int32_t count;
         };
 
-        Sampler(w8_long sample_limit = 0);
+        Sampler(std::int32_t sample_limit = 0);
         // FUNCTION: SURRENDER 0x10004BA0
         Sampler(const Sampler& other) = default;
         // Retail destructor: SURRENDER 0x10006930 (implicit destruction).
 
-        w8_long getColorCount();
-        w8_long getOutputPaletteSize();
-        w8_long getSampleCount();
+        std::int32_t getColorCount();
+        std::int32_t getOutputPaletteSize();
+        std::int32_t getSampleCount();
         double getSampleFactor();
-        w8_long getSampleBits();
-        void setOutputPaletteSize(w8_long size);
-        void setSampleBits(w8_long bits);
+        std::int32_t getSampleBits();
+        void setOutputPaletteSize(std::int32_t size);
+        void setSampleBits(std::int32_t bits);
         void setSampleFactor(double factor);
         void discard();
-        void removeMaskColor(w8_long index);
-        void setMaskColor(w8_long index, const srARGB& color);
-        void addColor(const srARGB& color, w8_long weight);
-        void addColors(const srARGB* colors, w8_long color_count, w8_long weight);
-        void addSurface(const char* name, w8_long weight);
-        void addSurface(srColorSurfaceIFace& surface, w8_long weight);
-        void addSurfaces(srColorSurfaceIFace** surfaces, w8_long surface_count, w8_long weight);
+        void removeMaskColor(std::int32_t index);
+        void setMaskColor(std::int32_t index, const srARGB& color);
+        void addColor(const srARGB& color, std::int32_t weight);
+        void addColors(const srARGB* colors, std::int32_t color_count, std::int32_t weight);
+        void addSurface(const char* name, std::int32_t weight);
+        void addSurface(srColorSurfaceIFace& surface, std::int32_t weight);
+        void addSurfaces(srColorSurfaceIFace** surfaces, std::int32_t surface_count, std::int32_t weight);
         std::shared_ptr<srPalette> createOptimalPalette();
         void dump(std::ostream& stream);
 
     private:
         void shiftDown(srARGB& color);
         void shiftUp(srARGB& color);
-        void reallocColors(w8_long capacity);
+        void reallocColors(std::int32_t capacity);
 
-        w8_long sample_limit;               /* 0x000 */
+        std::int32_t sample_limit;               /* 0x000 */
         double sample_factor;            /* 0x008 */
-        w8_long sample_bits;                /* 0x010 */
-        w8_long color_count;                /* 0x014 */
-        w8_long sample_count;               /* 0x018 */
-        w8_long capacity;                   /* 0x01c */
-        w8_long output_palette_size;        /* 0x020 */
-        unsigned char mask_flags[0x100]; /* 0x024 */
+        std::int32_t sample_bits;                /* 0x010 */
+        std::int32_t color_count;                /* 0x014 */
+        std::int32_t sample_count;               /* 0x018 */
+        std::int32_t capacity;                   /* 0x01c */
+        std::int32_t output_palette_size;        /* 0x020 */
+        std::uint8_t mask_flags[0x100]; /* 0x024 */
         srARGB mask_colors[0x100];       /* 0x124 */
         std::vector<ColorEntry> colors;
-        std::vector<w8_long> links;
-        w8_long buckets[0x8000];            /* 0x52c */
+        std::vector<std::int32_t> links;
+        std::int32_t buckets[0x8000];            /* 0x52c */
     };
 
     /* Optimal-palette builder; an octree over the sampled 5-5-5 color space. Level arrays hold
@@ -128,11 +129,11 @@ public:
     public:
         struct PaletteInfo {
             const Sampler::ColorEntry* colors; /* 0x00 */
-            w8_long color_count;                  /* 0x04 */
-            w8_long palette_size;                 /* 0x08 */
+            std::int32_t color_count;                  /* 0x04 */
+            std::int32_t palette_size;                 /* 0x08 */
             const srARGB* mask_colors;         /* 0x0c */
-            const unsigned char* mask_flags;   /* 0x10 */
-            w8_long mask_count;                   /* 0x14 */
+            const std::uint8_t* mask_flags;   /* 0x10 */
+            std::int32_t mask_count;                   /* 0x14 */
         };
 
         static std::shared_ptr<srPalette> createOptimalPalette(const PaletteInfo& info);
@@ -140,24 +141,24 @@ public:
     private:
         struct HashEntry {
             HashEntry* next;
-            w8_ulong color;
-            w8_long count;
+            std::uint32_t color;
+            std::int32_t count;
         };
 
         struct Leaf {
-            w8_ulong color;
-            w8_long weight;
+            std::uint32_t color;
+            std::int32_t weight;
             double error;
         };
 
         struct Node {
             double err_min;      /* 0x00 */
             double err_total;    /* 0x08 */
-            w8_ulong color; /* 0x10 */
+            std::uint32_t color; /* 0x10 */
             srARGB bound_lo;     /* 0x14 */
             srARGB bound_hi;     /* 0x18 */
             Leaf* leaves;        /* 0x1c */
-            w8_long leaf_count;     /* 0x20 */
+            std::int32_t leaf_count;     /* 0x20 */
             Node* parent;        /* 0x24 */
             Node* children[8];   /* 0x28 */
         };
@@ -179,23 +180,23 @@ public:
 
     static SR_DLL_IMPORT const char* sGetClassName();
 
-    SR_DLL_IMPORT srPalette(srARGB* colors = 0, w8_long color_count = 1);
+    SR_DLL_IMPORT srPalette(srARGB* colors = 0, std::int32_t color_count = 1);
 
     SR_DLL_IMPORT srPalette& operator=(const srPalette& other);
 
     virtual SR_DLL_IMPORT void dump(std::ostream& stream) override;
 
-    SR_DLL_IMPORT srARGB getColor(w8_long index) const;
+    SR_DLL_IMPORT srARGB getColor(std::int32_t index) const;
     SR_DLL_IMPORT const srARGB* getPaletteDataPtr();
-    SR_DLL_IMPORT w8_long getPaletteSize() const;
-    SR_DLL_IMPORT int matchPalette(const srARGB* const colors, w8_long color_count) const;
-    SR_DLL_IMPORT unsigned char quantize(const srARGB& color);
-    SR_DLL_IMPORT void quantize(unsigned char* const indices, const srARGB* const colors,
-                                w8_long color_count);
+    SR_DLL_IMPORT std::int32_t getPaletteSize() const;
+    SR_DLL_IMPORT std::int32_t matchPalette(const srARGB* const colors, std::int32_t color_count) const;
+    SR_DLL_IMPORT std::uint8_t quantize(const srARGB& color);
+    SR_DLL_IMPORT void quantize(std::uint8_t* const indices, const srARGB* const colors,
+                                std::int32_t color_count);
     SR_DLL_IMPORT void releaseQuantizer();
-    SR_DLL_IMPORT void setColor(w8_long index, const srARGB& color);
-    SR_DLL_IMPORT void setColors(w8_long destination_index, const srARGB* const colors,
-                                 w8_long color_count);
+    SR_DLL_IMPORT void setColor(std::int32_t index, const srARGB& color);
+    SR_DLL_IMPORT void setColors(std::int32_t destination_index, const srARGB* const colors,
+                                 std::int32_t color_count);
     SR_DLL_IMPORT void update();
 
 public:
@@ -205,9 +206,9 @@ public:
 private:
     SR_DLL_IMPORT void updateQuantizer();
 
-    w8_ulong flags;
+    std::uint32_t flags;
     std::vector<srARGB> colors;
-    w8_long color_count;
+    std::int32_t color_count;
     std::unique_ptr<Quantizer> quantizer;
 };
 

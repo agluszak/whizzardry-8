@@ -1,6 +1,7 @@
 #ifndef WIZ8_LAYOUTS_TARGETING_H
 #define WIZ8_LAYOUTS_TARGETING_H
 
+#include <cstdint>
 #include "surrender/srMath.h"
 
 struct W8ItemInstance;
@@ -22,8 +23,8 @@ enum W8TargetSourceKind {
 
 struct W8TargetSource {
     W8TargetSourceKind iType; /* 0x00 */
-    int iChar;                /* 0x04, -1 when empty */
-    int iMonsterID;           /* 0x08, -1 when empty */
+    std::int32_t iChar;                /* 0x04, -1 when empty */
+    std::int32_t iMonsterID;           /* 0x08, -1 when empty */
     /* 0x0c: the world point, for a source that is a place rather than
        somebody. Note that this is not where the combat slot keeps its own
        point - that one has a group id at 0x0c and the point at 0x10 - so the
@@ -31,9 +32,9 @@ struct W8TargetSource {
     srVector3T<float> point;
     /* 0x18: system-driven cast (retaliation/AI/trap): skips the backfire
        check and counts as already reported. */
-    unsigned char auto_cast;
+    std::uint8_t auto_cast;
     /* 0x19: the name-known flag SpellTargetString reads. */
-    unsigned char name_known;
+    std::uint8_t name_known;
     /* 0x1a: the cast's aim was already resolved; MonsterCanAimSpell retargeting
        is skipped. */
     bool aim_resolved;
@@ -41,17 +42,17 @@ struct W8TargetSource {
     bool fBackfire;   /* 0x1c */
     /* 0x1d: the cast's source was resolved to a point, not a creature;
        missile/spell paths then skip the monster's spell vertex. */
-    unsigned char point_source;
+    std::uint8_t point_source;
     /* 0x1e: the attack's target ended up different from the one the slot row
        aimed at - a fumble reroll or a guardian interception replaced it. */
-    unsigned char target_diverted;
+    std::uint8_t target_diverted;
     /* 0x1f: the precomputed cast difficulty item/tracked sources carry; the
        spell engine reads it back when name_known skips recomputation. */
-    unsigned char spell_difficulty;
-    unsigned char unknown_20;
+    std::uint8_t spell_difficulty;
+    std::uint8_t unknown_20;
     /* 0x21: set on sources the item-spell path builds. */
-    unsigned char item_cast;
-    unsigned char unknown_22[0x12];
+    std::uint8_t item_cast;
+    std::uint8_t unknown_22[0x12];
 }; /* 0x34 */
 
 /* The target-kind domain a combat slot's leading field takes. The kinds that
@@ -100,9 +101,9 @@ enum W8TargetHighlight {
    -1 and no room for the tail. Its disk form is wiz8::retail::CombatTarget. */
 struct W8CombatSlot {
     W8TargetKind iType;
-    int iChar;      /* -1 when empty */
-    int iMonsterID; /* -1 when empty */
-    int iGroupID;   /* -1 when empty */
+    std::int32_t iChar;      /* -1 when empty */
+    std::int32_t iMonsterID; /* -1 when empty */
+    std::int32_t iGroupID;   /* -1 when empty */
     srVector3T<float> point;
     /* The item aimed at, for the one kind that aims at one. */
     W8ItemInstance* pPCItem;
@@ -127,11 +128,11 @@ enum W8PartyActionStatus {
    is why every reader takes a pointer to it. */
 union W8ActionDetailBlock {
     struct {
-        int power_level;
-        int unused;
+        std::int32_t power_level;
+        std::int32_t unused;
     } spell;
     struct {
-        int kind;
+        std::int32_t kind;
         W8ItemInstance* item;
     } item_use;
 };

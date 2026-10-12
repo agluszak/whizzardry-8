@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <iosfwd>
 
 class srShader;
@@ -101,7 +102,7 @@ public:
     };
 
     /* Packed-field range test. */
-    int isValid() const
+    std::int32_t isValid() const
     {
         return !((value & PASS_MASK) > PASS_ALWAYS || (value >> DEPTH_WRITE_SHIFT & 0x1) > 1 ||
                  (value >> COLOR_WRITE_SHIFT & 0x1) > 1 ||
@@ -118,6 +119,6 @@ public:
                  (value >> DETAILALPHA1_SHIFT & 0x7) > DETAILALPHA_INVSCALE);
     }
 
-    w8_ulong value;
+    std::uint32_t value;
 };
 

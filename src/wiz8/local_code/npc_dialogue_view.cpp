@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <fmt/chrono.h> // IWYU pragma: keep - std::tm formatter specialization.
 #include <fmt/format.h>
 #include <fmt/printf.h>
@@ -36,11 +37,11 @@
 
 static void FinishNpcVoicePlayback(bool resume_script);
 
-static int g_empty_quote_text_index;
+static std::int32_t g_empty_quote_text_index;
 
 /* What the dialogue presentation is showing. A quote stays presented through
    its voice and the hold after it; a portrait message only through its hold. */
-enum class W8NpcPresentation : unsigned char { none, quote, portrait_message };
+enum class W8NpcPresentation : std::uint8_t { none, quote, portrait_message };
 
 static W8NpcPresentation g_presentation;
 static W8NpcSpeech g_speech;
@@ -116,11 +117,11 @@ static void NpcVoiceEosCallback()
    party slot's monster-manager entry or on the dialogue speech for ungrouped
    NPCs. notice_only routes the text through ShowNotice instead. */
 // FUNCTION: WIZ8 0x00525350
-W8NpcSubquoteOutcome SpeakNpcSubquote(W8NpcScriptQuote* quote, unsigned char subquote_index,
+W8NpcSubquoteOutcome SpeakNpcSubquote(W8NpcScriptQuote* quote, std::uint8_t subquote_index,
                                       bool notice_only, bool force_npc_voice)
 {
     W8NpcState* const speaker = g_npc_dialogue.speaker();
-    const int current_quote = g_npc_dialogue.current_quote();
+    const std::int32_t current_quote = g_npc_dialogue.current_quote();
     W8MonsterManagerEntry* entry;
     W8Monster* monster;
     std::string voice_dir;
@@ -130,7 +131,7 @@ W8NpcSubquoteOutcome SpeakNpcSubquote(W8NpcScriptQuote* quote, unsigned char sub
     std::string plain_text;
     std::string prefixed_text;
 
-    static const int s_empty_quote_text_ids[2] = {1867, 1868};
+    static const std::int32_t s_empty_quote_text_ids[2] = {1867, 1868};
 
     if (quote->dialogue_alert != 0) {
         voice_path = "Data\\Sound\\NPCs\\Dialogue Alert.wav";
@@ -241,7 +242,7 @@ W8NpcSubquoteOutcome SpeakNpcSubquote(W8NpcScriptQuote* quote, unsigned char sub
 static void FinishNpcVoicePlayback(bool resume_script)
 {
     W8NpcState* const speaker = g_npc_dialogue.speaker();
-    const int current_quote = g_npc_dialogue.current_quote();
+    const std::int32_t current_quote = g_npc_dialogue.current_quote();
     if (g_presentation == W8NpcPresentation::portrait_message) {
         g_presentation = W8NpcPresentation::none;
         SetNpcQuoteBubbleVisible(false, {}, 0, -1, -1);
@@ -300,9 +301,9 @@ void ShowNpcPortraitMessage(std::string_view text, W8QuoteNotice notice)
 void RestoreCurrentNpcQuoteBubble(void)
 {
     W8NpcState* const speaker = g_npc_dialogue.speaker();
-    const int current_quote = g_npc_dialogue.current_quote();
+    const std::int32_t current_quote = g_npc_dialogue.current_quote();
     W8NpcScriptFile* script_file = speaker != 0 ? speaker->script_file : 0;
-    if (script_file != 0 && current_quote < static_cast<int>(script_file->quote_count)) {
+    if (script_file != 0 && current_quote < static_cast<std::int32_t>(script_file->quote_count)) {
         SetNpcQuoteBubbleVisible(false, {}, script_file->quotes.data() + current_quote,
                                  current_quote, 0xffffffff);
         return;

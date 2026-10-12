@@ -1,5 +1,7 @@
 #pragma once
 
+
+#include <cstdint>
 class Trigger;
 
 /* Level 5 (MartensBluff1) master function and activation callbacks,
@@ -13,12 +15,12 @@ bool MartensBluff1GasSwitch(Trigger* pTrigger);
 bool MartensBluff1JDoorController(Trigger* pTrigger);
 bool MartensBluff1Controller(Trigger* pTrigger);
 bool MartensBluff1TransportSpawn(void);
-void MartensBluff1Transporter(int command);
+void MartensBluff1Transporter(std::int32_t command);
 bool MartensBluff1Teleporter(Trigger* pTrigger);
 bool MartensBluff1ButtonGigas(Trigger* pTrigger);
 bool MartensBluff1ButtonTrang(Trigger* pTrigger);
 bool MartensBluff1ButtonRift(Trigger* pTrigger);
 bool MartensBluff1ButtonMaten(Trigger* pTrigger);
-bool MartensBluff1TeleportState(int new_state);
+bool MartensBluff1TeleportState(std::int32_t new_state);
 bool MartensBluff1WireTrigger(Trigger* pTrigger);
 bool MartensBluff1MartenBook(Trigger* pTrigger);

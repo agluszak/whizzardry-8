@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/MonsterManager.h"
@@ -6,9 +7,9 @@
 #include "wiz8/layouts/game_status.h"
 #include "conditions.h"
 
-static void ScaleValueForDifficulty(int* value, bool fights_for_monsters)
+static void ScaleValueForDifficulty(std::int32_t* value, bool fights_for_monsters)
 {
-    int multiplier;
+    std::int32_t multiplier;
     switch (g_settings.difficulty) {
     case 0:
         multiplier = fights_for_monsters ? 3 : 7;
@@ -23,14 +24,14 @@ static void ScaleValueForDifficulty(int* value, bool fights_for_monsters)
 }
 
 // FUNCTION: WIZ8 0x0055cc00
-void ScaleValueForCharacterDifficulty(int party_slot, int* value)
+void ScaleValueForCharacterDifficulty(std::int32_t party_slot, std::int32_t* value)
 {
     ScaleValueForDifficulty(value,
         g_status.buffers.Char[party_slot].uiCondition[W8_CONDITION_TURNCOAT] > 0);
 }
 
 // FUNCTION: WIZ8 0x0055ccb0
-void ScaleValueForMonsterDifficulty(W8MonsterInfo* monster_info, int* value)
+void ScaleValueForMonsterDifficulty(W8MonsterInfo* monster_info, std::int32_t* value)
 {
     switch (monster_info->ubDisposition) {
     case W8_DISPOSITION_HOSTILE:

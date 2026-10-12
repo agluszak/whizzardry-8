@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "wiz8/local_screens/MGSPortraits.h"
 #include "wiz8/local_screens/MGSButtons.h"
 #include "wiz8/local_code/CombatAttack.h"
@@ -10,9 +11,9 @@
    status. Most actions map to a fixed base; attacks pick per weapon skill and
    spells per realm, and the status selects the frame variant beside it. */
 // FUNCTION: WIZ8 0x0059A180
-short GetCombatPortraitImage(W8ActionKind action, int detail, char status, short slot)
+std::int16_t GetCombatPortraitImage(W8ActionKind action, std::int32_t detail, char status, std::int16_t slot)
 {
-    int image;
+    std::int32_t image;
 
     switch (action) {
     case W8_ACTION_ATTACK:

@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <memory>
 #include <algorithm>
 #include <SDL3/SDL_pixels.h>
@@ -73,7 +74,7 @@ struct W8NpcState;
 
 /* Realm-name string ids for the spell-casting realm-button tooltips. */
 // GLOBAL: WIZ8 0x0064C840
-static int g_spell_realm_help_string_ids[6] = {0x27, 0x28, 0x29, 0x2a, 0x2b, 0x2c};
+static std::int32_t g_spell_realm_help_string_ids[6] = {0x27, 0x28, 0x29, 0x2a, 0x2b, 0x2c};
 
 
 // GLOBAL: WIZ8 0x0069BF3C
@@ -101,7 +102,7 @@ static constexpr std::array<RegionTemplate, 17> g_spell_casting_region_templates
 }};
 ScreenRegionSet g_spell_casting_regions{g_spell_casting_region_templates, 0x19};
 
-int GetSpellCastingPowerIndex(void)
+std::int32_t GetSpellCastingPowerIndex(void)
 {
     if (!gpSCSV) {
         return -1;
@@ -127,17 +128,17 @@ static void SelectSpellPowerPip6(void);
 static void SelectSpellPowerPip7(void);
 static void SelectSpellPowerPip8(void);
 static void SpellCastingDialogResult(W8DialogBase* dialog);
-static void PreviewSpellPowerPipHover(int power_level);
+static void PreviewSpellPowerPipHover(std::int32_t power_level);
 void UpdateSpellRealmPointDisplays(void);
 static void UpdateSpellPowerPips(void);
-static void RefreshSpellPowerPip(int pip);
-static void RebuildSpellCastingList(int spell_id);
-static void SetSpellListLineColor(int index, char color);
-static void SelectSpellCastingRow(int index);
+static void RefreshSpellPowerPip(std::int32_t pip);
+static void RebuildSpellCastingList(std::int32_t spell_id);
+static void SetSpellListLineColor(std::int32_t index, char color);
+static void SelectSpellCastingRow(std::int32_t index);
 static void SelectSpellCastingRealm(W8SpellRealm realm);
-static void SelectSpellCastingListRow(int index);
+static void SelectSpellCastingListRow(std::int32_t index);
 void TryCommitSpellCast(void);
-void ShowSpellCastingError(int spell_id);
+void ShowSpellCastingError(std::int32_t spell_id);
 
 /* Builds the three spell-casting panels and all of their controls: the six
    realm buttons with their animated icons, the nine power-level pips, the
@@ -146,7 +147,7 @@ void ShowSpellCastingError(int spell_id);
 static void CreateSpellCastingViewControls(void)
 {
     Controls* panel;
-    unsigned int index;
+    std::uint32_t index;
 
     gpSCSV->panels[0] = std::make_unique<Controls>(0x17, 0x166, 0xe5, 0x1c2, CatalogArtwork::Load(400, 0), 0);
     gpSCSV->panels[1] = std::make_unique<Controls>(0xe6, 0x166, 0x1a3, 0x1c2, CatalogArtwork::Load(400, 0), 1);
@@ -290,7 +291,7 @@ void ReleaseSpellCastingViewControls(void)
    view state, swaps the game mode, builds the panels and redirects the region
    sets the view takes over. */
 // FUNCTION: WIZ8 0x0059F0E0
-unsigned char OpenSpellCastingView(int party_slot)
+std::uint8_t OpenSpellCastingView(std::int32_t party_slot)
 {
     W8MainUiMode mode;
 
@@ -338,7 +339,7 @@ unsigned char OpenSpellCastingView(int party_slot)
 // FUNCTION: WIZ8 0x0059F2B0
 void CloseSpellCastingView(void)
 {
-    int location_id;
+    std::int32_t location_id;
     W8NpcDialogueLayout interact_id;
     W8NpcState* npc;
 
@@ -411,7 +412,7 @@ static void ClearSpellCastingChoice()
    realm/power displays, then either restores the pending cast's realm and
    list or clears a realm the new caster has no spell points in. */
 // FUNCTION: WIZ8 0x0059F490
-void SelectSpellCastingCharacter(int party_slot)
+void SelectSpellCastingCharacter(std::int32_t party_slot)
 {
     W8SpellRealm realm;
 
@@ -426,7 +427,7 @@ void SelectSpellCastingCharacter(int party_slot)
     UpdateSpellRealmPointDisplays();
     ClearSpellCastingChoice();
     if (GetAffordableSpellPowerLevel(party_slot) != 0) {
-        int spell_id = g_status.buffers.XChar[party_slot].spell_id;
+        std::int32_t spell_id = g_status.buffers.XChar[party_slot].spell_id;
         SelectSpellCastingRealm(g_spell_records[spell_id].realm);
         if (spell_id == W8_SPELL_IDENTIFY_ITEM) {
             gpSCSV->uiSpellIndex = -1;
@@ -454,7 +455,7 @@ void SelectSpellCastingCharacter(int party_slot)
 // FUNCTION: WIZ8 0x0059F660
 void UpdateSpellRealmPointDisplays(void)
 {
-    int realm;
+    std::int32_t realm;
 
     for (realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
         bool has_realm = gpSCSV->caster->sp_max[realm] != 0;
@@ -474,7 +475,7 @@ void UpdateSpellRealmPointDisplays(void)
    seventh pip live out of combat and class two shows the max pip alone. */
 static void RefreshAvailableSpellPowerPips()
 {
-    unsigned int pip;
+    std::uint32_t pip;
     for (pip = 0; pip < gpSCSV->uiPowerLevels; ++pip) {
         RefreshSpellPowerPip(pip);
     }
@@ -488,7 +489,7 @@ static void RefreshAvailableSpellPowerPips()
 // FUNCTION: WIZ8 0x0059F710
 static void UpdateSpellPowerPips(void)
 {
-    unsigned int pip;
+    std::uint32_t pip;
     W8SpellCastRating rating;
 
     if (gpSCSV->uiPowerLevels == 0 || gpSCSV->iSpellPowerClass == W8_SPELL_POWER_FIXED) {
@@ -541,11 +542,11 @@ static void UpdateSpellPowerPips(void)
 /* Recomputes one pip's four sprite frames from the spell's safety rating at
    the level the pip stands for; pips seven and eight price the max cast. */
 // FUNCTION: WIZ8 0x0059F9D0
-static void RefreshSpellPowerPip(int pip)
+static void RefreshSpellPowerPip(std::int32_t pip)
 {
     W8SpellCastRating rating;
-    int level;
-    int frame;
+    std::int32_t level;
+    std::int32_t frame;
     W8TextControl* control;
 
     if (gpSCSV->uiSpellToCast == 0) {
@@ -574,7 +575,7 @@ static void RefreshSpellPowerPip(int pip)
     }
 }
 
-static void AppendSpellCastingListEntry(int id, W8SpellRuntimeRecord* spell, char color)
+static void AppendSpellCastingListEntry(std::int32_t id, W8SpellRuntimeRecord* spell, char color)
 {
     ++gpSCSV->uiSpellsInList;
     gpSCSV->uiSpells[gpSCSV->uiSpellsInList - 1] = id;
@@ -590,12 +591,12 @@ static void AppendSpellCastingListEntry(int id, W8SpellRuntimeRecord* spell, cha
    pass one appends the unaffordable and blocked ones with their own colors.
    A nonzero spell id scrolls the list to and selects that spell's row. */
 // FUNCTION: WIZ8 0x0059FAD0
-static void RebuildSpellCastingList(int spell_id)
+static void RebuildSpellCastingList(std::int32_t spell_id)
 {
-    int index;
+    std::int32_t index;
     W8SpellRealm realm;
-    int selected;
-    unsigned char pass;
+    std::int32_t selected;
+    std::uint8_t pass;
     W8SpellRuntimeRecord* spell;
 
     selected = -1;
@@ -608,13 +609,13 @@ static void RebuildSpellCastingList(int spell_id)
         gpSCSV->uiSpells[index] = 0;
         gpSCSV->alt_colors[index] = 0xff;
     }
-    if (gpSCSV->caster->skill_unlocks[static_cast<int>(W8_SKILL_FIRE_MAGIC) + realm] != 0) {
+    if (gpSCSV->caster->skill_unlocks[static_cast<std::int32_t>(W8_SKILL_FIRE_MAGIC) + realm] != 0) {
         pass = 0;
         do {
             index = 0;
             while (index <
-                   static_cast<int>(gpSCSV->caster->skill_unlocks[static_cast<int>(W8_SKILL_FIRE_MAGIC) + realm])) {
-                int id = gpSCSV->learned.spell_ids_by_realm[realm][index];
+                   static_cast<std::int32_t>(gpSCSV->caster->skill_unlocks[static_cast<std::int32_t>(W8_SKILL_FIRE_MAGIC) + realm])) {
+                std::int32_t id = gpSCSV->learned.spell_ids_by_realm[realm][index];
                 gpSCSV->override_spell = id;
                 spell = &g_spell_records[id];
                 if (spell->spell_point_cost <= gpSCSV->caster->iSPLeft[realm] &&
@@ -665,12 +666,12 @@ static void RebuildSpellCastingList(int spell_id)
 /* Recolours one spell-list line; -1 keeps the row's own color, or the
    selected-row color when the row is the selected spell. */
 // FUNCTION: WIZ8 0x0059FFA0
-static void SetSpellListLineColor(int index, char color)
+static void SetSpellListLineColor(std::int32_t index, char color)
 {
     W8MessageStorageRecord* line;
     size_t length;
 
-    if (gpSCSV->uiSpellsInList < static_cast<unsigned int>(index)) {
+    if (gpSCSV->uiSpellsInList < static_cast<std::uint32_t>(index)) {
         srAssertFail("uiSpellIndex <= gpSCSV->uiSpellsInList", SPELLCASTING_CPP, 0x3df, 0);
     }
     if (color == -1) {
@@ -693,9 +694,9 @@ static void SetSpellListLineColor(int index, char color)
 /* Marks one spell-list row as selected, restoring the previous row's own
    color first; -1 just clears the selection. */
 // FUNCTION: WIZ8 0x005A0040
-static void SelectSpellCastingRow(int index)
+static void SelectSpellCastingRow(std::int32_t index)
 {
-    int previous;
+    std::int32_t previous;
 
     if (index == -1) {
         if (gpSCSV->selected_spell_index != -1) {
@@ -708,7 +709,7 @@ static void SelectSpellCastingRow(int index)
         if (index < 0) {
             srAssertFail("iSpellIndex >= 0", SPELLCASTING_CPP, 0x406, 0);
         }
-        if (index > static_cast<int>(gpSCSV->uiSpellsInList)) {
+        if (index > static_cast<std::int32_t>(gpSCSV->uiSpellsInList)) {
             srAssertFail("iSpellIndex <= (INT32) gpSCSV->uiSpellsInList", SPELLCASTING_CPP, 0x407,
                          0);
         }
@@ -726,7 +727,7 @@ static void SelectSpellCastingRow(int index)
    realm and list row. The interact and location ids ride along so a pending
    interaction can resume after the cast. */
 // FUNCTION: WIZ8 0x005A0110
-void BeginSpellCast(int spell_id, int location_id, W8NpcDialogueLayout interact_id)
+void BeginSpellCast(std::int32_t spell_id, std::int32_t location_id, W8NpcDialogueLayout interact_id)
 {
     W8SpellRealm realm;
 
@@ -782,7 +783,7 @@ void BeginSpellCast(int spell_id, int location_id, W8NpcDialogueLayout interact_
 // FUNCTION: WIZ8 0x005A0270
 void SetSpellCastingPanelsActive(bool active)
 {
-    int index;
+    std::int32_t index;
     bool text_pending;
 
     text_pending = false;
@@ -931,9 +932,9 @@ static void SelectSpellPowerPip6(void)
 // FUNCTION: WIZ8 0x005A0570
 static void SelectSpellPowerPip7(void)
 {
-    int pip;
+    std::int32_t pip;
 
-    if (static_cast<unsigned char>(gpSCSV->power_controls[7]->m_stateFlags &
+    if (static_cast<std::uint8_t>(gpSCSV->power_controls[7]->m_stateFlags &
                                    g_W8TextControlStateSecondary) != 0) {
         for (pip = 0; pip < 7; ++pip) {
             W8TextControl* control = gpSCSV->power_controls[pip];
@@ -960,7 +961,7 @@ static void SelectSpellPowerPip7(void)
 // FUNCTION: WIZ8 0x005A0660
 static void SelectSpellPowerPip8(void)
 {
-    if (static_cast<unsigned char>(gpSCSV->power_controls[8]->m_stateFlags &
+    if (static_cast<std::uint8_t>(gpSCSV->power_controls[8]->m_stateFlags &
                                    g_W8TextControlStateSecondary) != 0) {
         gpSCSV->power_controls[W8_SPELL_NAME_CONTROL]->m_textBuffer.SetRenderMode(4);
         gpSCSV->power_controls[W8_SPELL_NAME_CONTROL]->m_textBuffer.SetText(
@@ -976,14 +977,14 @@ static void SelectSpellPowerPip8(void)
 /* Records the chosen power level: pips through the level light, pips above it
    go dark, and the name label shows the cast's total cost. */
 // FUNCTION: WIZ8 0x005A06F0
-void SelectSpellPowerLevel(int power_level)
+void SelectSpellPowerLevel(std::int32_t power_level)
 {
-    int pip;
+    std::int32_t pip;
     std::string text;
 
     gpSCSV->panels[2]->Invalidate(0);
     if (power_level == -1 ||
-        (static_cast<unsigned char>(gpSCSV->power_controls[power_level]->m_stateFlags &
+        (static_cast<std::uint8_t>(gpSCSV->power_controls[power_level]->m_stateFlags &
                                     g_W8TextControlStateSecondary) == 0 &&
          gpSCSV->iSpellPower == power_level)) {
         for (pip = 0; pip < 7; ++pip) {
@@ -992,7 +993,7 @@ void SelectSpellPowerLevel(int power_level)
         gpSCSV->iSpellPower = -1;
         if (gpSCSV->iSpellPowerClass == W8_SPELL_POWER_MAXIMUM) {
             gpSCSV->power_controls[8]->EnableSecondaryState(false);
-            if (static_cast<unsigned char>(gpSCSV->power_controls[8]->m_stateFlags &
+            if (static_cast<std::uint8_t>(gpSCSV->power_controls[8]->m_stateFlags &
                                            g_W8TextControlStateSecondary) == 0) {
                 gpSCSV->power_controls[8]->EnableSecondaryState(false);
             } else {
@@ -1034,7 +1035,7 @@ void SelectSpellPowerLevel(int power_level)
    cast cost for the hovered level (or restores the selected cost / empty
    label when the pointer leaves). Only power classes 0 and 1 participate. */
 // FUNCTION: WIZ8 0x005A0910
-static void PreviewSpellPowerPipHover(int power_level)
+static void PreviewSpellPowerPipHover(std::int32_t power_level)
 {
     W8TextControl* spell_name;
     Controls* panel;
@@ -1047,8 +1048,8 @@ static void PreviewSpellPowerPipHover(int power_level)
                                    gpSCSV->power_controls[power_level]->m_enabled))) {
             spell_name = gpSCSV->power_controls[W8_SPELL_NAME_CONTROL];
             panel = gpSCSV->panels[2].get();
-            const int left = spell_name->m_left + panel->m_bounds.left;
-            const int top = spell_name->m_top + panel->m_bounds.top;
+            const std::int32_t left = spell_name->m_left + panel->m_bounds.left;
+            const std::int32_t top = spell_name->m_top + panel->m_bounds.top;
             const SDL_Rect bounds{left, top, spell_name->m_right - spell_name->m_left,
                                   spell_name->m_bottom - spell_name->m_top};
             SDL_FillSurfaceRect(&GetFrameBufferSurface(), &bounds,
@@ -1082,7 +1083,7 @@ static void PreviewSpellPowerPipHover(int power_level)
 // FUNCTION: WIZ8 0x005A0AE0
 static void SpellCastingDialogResult(W8DialogBase* dialog)
 {
-    int index;
+    std::int32_t index;
 
     index = gpSCSV->uiSpellIndex;
     if (GetDialogResult(dialog)) {
@@ -1128,7 +1129,7 @@ void CommitSpellCastingSelection(void)
    realm button, invalidates its icon, and on enter sets the realm tooltip
    (plain name when disabled, or name with skill level when enabled). */
 // FUNCTION: WIZ8 0x005A0C80
-unsigned char SpellRealmButtonRegionEvent(const InputEvent* event, W8Region* region)
+std::uint8_t SpellRealmButtonRegionEvent(const InputEvent* event, W8Region* region)
 {
     const InputEventType us_event = event->type;
 
@@ -1154,7 +1155,7 @@ unsigned char SpellRealmButtonRegionEvent(const InputEvent* event, W8Region* reg
             return 1;
         }
         if ((region->flags & W8_REGION_MOUSE_ENTER) != 0) {
-            unsigned int realm = region->callback_id;
+            std::uint32_t realm = region->callback_id;
             gpSCSV->realm_buttons[realm]->OnMouseEnter(0);
             if (!gpSCSV->realm_buttons[realm]->m_enabled) {
                 SetRegionHelpText(g_localized_strings[g_spell_realm_help_string_ids[realm]]);
@@ -1176,10 +1177,10 @@ unsigned char SpellRealmButtonRegionEvent(const InputEvent* event, W8Region* reg
 /* Power-pip / cancel-button region callback (ids 0..8 and 10). While
    input_blocked is set the handler swallows input. */
 // FUNCTION: WIZ8 0x005A0E50
-unsigned char SpellPowerPipRegionEvent(const InputEvent* event, W8Region* region)
+std::uint8_t SpellPowerPipRegionEvent(const InputEvent* event, W8Region* region)
 {
     InputEventType us_event;
-    unsigned int callback_id;
+    std::uint32_t callback_id;
 
     if (gpSCSV->input_blocked) {
         return 1;
@@ -1226,10 +1227,10 @@ unsigned char SpellPowerPipRegionEvent(const InputEvent* event, W8Region* region
    the box clears the hover row. The held bits are armed on button down but are
    never cleared on release. */
 // FUNCTION: WIZ8 0x005A0F70
-unsigned char SpellCastTextBoxRegionEvent(const InputEvent* event, W8Region* region)
+std::uint8_t SpellCastTextBoxRegionEvent(const InputEvent* event, W8Region* region)
 {
     W8SpellInfoDialog* dialog;
-    int line;
+    std::int32_t line;
 
     if (g_status.selected_character == -1) {
         return 0;
@@ -1239,7 +1240,7 @@ unsigned char SpellCastTextBoxRegionEvent(const InputEvent* event, W8Region* reg
     }
     line = g_level_block->text_lines[g_status.text_line_cursor] +
            (GetEventCursorY(event) - region->y1) / 0xb;
-    if (line >= static_cast<int>(gpSCSV->uiSpellsInList) || line < -1) {
+    if (line >= static_cast<std::int32_t>(gpSCSV->uiSpellsInList) || line < -1) {
         line = -1;
     }
     if (line != gpSCSV->selected_spell_index) {
@@ -1285,7 +1286,7 @@ unsigned char SpellCastTextBoxRegionEvent(const InputEvent* event, W8Region* reg
 }
 
 // FUNCTION: WIZ8 0x005A1140
-unsigned char IgnoreSpellCastingInput(const InputEvent* event, W8Region*)
+std::uint8_t IgnoreSpellCastingInput(const InputEvent* event, W8Region*)
 {
     return 0;
 }
@@ -1293,15 +1294,15 @@ unsigned char IgnoreSpellCastingInput(const InputEvent* event, W8Region*)
 /* The spell-list row click: re-colors the rows, remembers the spell, then
    either prices its power levels or reports why it cannot be cast. */
 // FUNCTION: WIZ8 0x005A1150
-static void SelectSpellCastingListRow(int index)
+static void SelectSpellCastingListRow(std::int32_t index)
 {
     char color;
-    int cost;
+    std::int32_t cost;
     W8SpellPowerClass power_class;
-    int previous;
-    int spell_id;
+    std::int32_t previous;
+    std::int32_t spell_id;
     W8SpellTargetType target_type;
-    unsigned int levels;
+    std::uint32_t levels;
     W8TargetNeed needed;
 
     previous = gpSCSV->uiSpellIndex;
@@ -1359,9 +1360,9 @@ void SetSpellCastingMode(W8MainUiMode value)
 }
 
 // FUNCTION: WIZ8 0x005A1350
-int GetSpellCastingSelection(void)
+std::int32_t GetSpellCastingSelection(void)
 {
-    int result;
+    std::int32_t result;
 
     result = gpSCSV->override_spell;
     if (result == 0) {
@@ -1409,7 +1410,7 @@ void TryCommitSpellCast(void)
 /* Shows the notice line naming why a spell cannot be cast, then clears the
    detail spell. */
 // FUNCTION: WIZ8 0x005A14D0
-void ShowSpellCastingError(int spell_id)
+void ShowSpellCastingError(std::int32_t spell_id)
 {
     gpSCSV->override_spell = spell_id;
     if (!SpellUsableNow(spell_id, false)) {

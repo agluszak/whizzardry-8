@@ -79,7 +79,7 @@ constexpr std::array<RegionTemplate, 8> kTextBoxRegionTemplates{{
     {0x00000001, 128, 358, 511, 450, TextBoxMuteRegionEvent, 0, false, -1},
 }};
 
-unsigned int TextBoxRegionIndex(TextBoxRegion region)
+std::uint32_t TextBoxRegionIndex(TextBoxRegion region)
 {
     return g_text_box_regions->index(static_cast<std::size_t>(region));
 }
@@ -93,17 +93,17 @@ static std::optional<RegionSetView> g_dialogue_text_box_region_view;
    its first word is a UTF-16 unit count. The obsolete list-pointer word
    remains reserved on disk and is always written as zero. */
 struct W8MessageStorageDiskRecord {
-    w8_ulong character_count;
-    unsigned char font_palette;
-    unsigned char highlight_color;
-    unsigned char highlight_start;
-    unsigned char highlight_stop;
+    std::uint32_t character_count;
+    std::uint8_t font_palette;
+    std::uint8_t highlight_color;
+    std::uint8_t highlight_start;
+    std::uint8_t highlight_stop;
     std::uint32_t clock; // Retail stores 32 bits; live deadlines use the native 64-bit clock.
     std::uint32_t saved_remaining_ms;
-    int link;
-    int length;
-    w8_ulong serialized_entries_18_bits;
-    unsigned char trailing_bytes[8];
+    std::int32_t link;
+    std::int32_t length;
+    std::uint32_t serialized_entries_18_bits;
+    std::uint8_t trailing_bytes[8];
 };
 
 static_assert(sizeof(W8MessageStorageDiskRecord) == 0x24,
@@ -126,13 +126,13 @@ static_assert(offsetof(W8MessageStorageDiskRecord, serialized_entries_18_bits) =
               "W8MessageStorageDiskRecord_entries_bits_offset");
 static_assert(offsetof(W8MessageStorageDiskRecord, trailing_bytes) == 0x1c,
               "W8MessageStorageDiskRecord_trailing_offset");
-static_assert(sizeof(w8_ulong) == 4, "W8MessageStorageDiskRecord_requires_32_bit_words");
+static_assert(sizeof(std::uint32_t) == 4, "W8MessageStorageDiskRecord_requires_32_bit_words");
 // GLOBAL: WIZ8 0x0069b7b8
-static unsigned char g_text_box_mode;
+static std::uint8_t g_text_box_mode;
 // GLOBAL: WIZ8 0x0069b7bc
-int g_notice_line_count;
+std::int32_t g_notice_line_count;
 // GLOBAL: WIZ8 0x0064bd54
-static int g_text_box_value = W8_FONT_PALETTE_BEIGE;
+static std::int32_t g_text_box_value = W8_FONT_PALETTE_BEIGE;
 /* The screen the text box belongs to; its two panels sit at 0x0c
    and 0x14. */
 
@@ -143,8 +143,8 @@ static int g_text_box_value = W8_FONT_PALETTE_BEIGE;
 // GLOBAL: WIZ8 0x0068f2d8
 W8MessageStorageRecord g_message_storage[4][0x15e];
 
-static void AppendNoticeLine(unsigned char font_palette, std::string_view text, short text_box,
-                             int wrapped_line);
+static void AppendNoticeLine(std::uint8_t font_palette, std::string_view text, std::int16_t text_box,
+                             std::int32_t wrapped_line);
 
 // Rebuild byte ranges and pixel hit boxes when the text or font changes.
 void W8MessageStorageRecord::RebuildEntries()
@@ -160,15 +160,15 @@ void W8MessageStorageRecord::RebuildEntries()
         const auto width =
             g_level_block->text_box_font->textWidth(value.substr(start, end - start));
         entries.push_back(
-            {start, end - 1, x, static_cast<short>(x + width), W8_NOTICE_WORD_NORMAL, false});
+            {start, end - 1, x, static_cast<std::int16_t>(x + width), W8_NOTICE_WORD_NORMAL, false});
         start = end;
     }
 }
 
 void ResetMessageStorage(void)
 {
-    int row;
-    int index;
+    std::int32_t row;
+    std::int32_t index;
 
     for (row = 0; row < 4; ++row) {
         for (index = 0; index < 0x15e; ++index) {
@@ -181,14 +181,14 @@ void ResetMessageStorage(void)
     }
 }
 
-static void ReleaseMessageRow(int row)
+static void ReleaseMessageRow(std::int32_t row)
 {
     for (auto& record : g_message_storage[row]) {
         record = {};
     }
 }
 
-void ResetEditorStatusLine(short line)
+void ResetEditorStatusLine(std::int16_t line)
 {
     if (line == -1) {
         line = g_status.text_line_cursor;
@@ -211,7 +211,7 @@ void ResetEditorStatusLine(short line)
 /* Shared default-box selection in notice formatting, wrapping and line
    updates. The descriptive name covers the repeated operation; explicit box
    numbers pass through unchanged. */
-static short ResolveNoticeTextBox(short text_box)
+static std::int16_t ResolveNoticeTextBox(std::int16_t text_box)
 {
     if (text_box == W8_NOTICE_TEXT_BOX_AUTOMATIC) {
         if ((gXStatus.fNpcDialogueMode && !CanOpenNpcDialogue()) || gXStatus.fCampMode) {
@@ -225,8 +225,8 @@ static short ResolveNoticeTextBox(short text_box)
     return text_box;
 }
 
-static void AppendNoticeLine(unsigned char font_palette, std::string_view text, short text_box,
-                             int wrapped_line)
+static void AppendNoticeLine(std::uint8_t font_palette, std::string_view text, std::int16_t text_box,
+                             std::int32_t wrapped_line)
 {
     text_box = ResolveNoticeTextBox(text_box);
     if (g_current_screen_state.id != W8_SCREEN_MAIN_GAME &&
@@ -237,7 +237,7 @@ static void AppendNoticeLine(unsigned char font_palette, std::string_view text, 
     }
     if (g_status.text_box_lines_used[text_box] == 350) {
         W8MessageStorageRecord* first = &g_message_storage[text_box][0];
-        for (int i = 0; i < 349; ++i) {
+        for (std::int32_t i = 0; i < 349; ++i) {
             first[i] = std::move(first[i + 1]);
         }
         first[349] = {};
@@ -249,7 +249,7 @@ static void AppendNoticeLine(unsigned char font_palette, std::string_view text, 
             }
         }
     }
-    unsigned int index = g_status.text_box_lines_used[text_box];
+    std::uint32_t index = g_status.text_box_lines_used[text_box];
     W8MessageStorageRecord* record = &g_message_storage[text_box][index];
     record->text.assign(text);
     record->RebuildEntries();
@@ -267,7 +267,7 @@ static void AppendNoticeLine(unsigned char font_palette, std::string_view text, 
         g_status.text_box_lines_shown[3] = g_status.text_box_lines_used[3];
         g_level_block->text_lines[3] = g_status.text_box_lines_used[3];
         W8MessageStorageRecord* last = &g_message_storage[3][g_status.text_box_lines_shown[3] - 1];
-        unsigned int delay =
+        std::uint32_t delay =
             g_settings.text_display_delay_ms * (wiz8::text::grapheme_count(last->text) * 100 / 20 + 100) / 100;
         if (delay > 60000) {
             delay = 60000;
@@ -315,7 +315,7 @@ static void SetTextBoxRegionInput(TextBoxRegion first, std::size_t count, bool e
 {
     if (!g_text_box_regions) return;
     for (std::size_t offset = 0; offset < count; ++offset) {
-        const unsigned int index = TextBoxRegionIndex(first) + static_cast<unsigned int>(offset);
+        const std::uint32_t index = TextBoxRegionIndex(first) + static_cast<std::uint32_t>(offset);
         if (enabled) {
             EnableRegionInput(index);
         } else {
@@ -340,32 +340,32 @@ void SetTextBoxMuteInput(bool enabled)
 }
 
 /* Store the dialogue text-box rectangle and re-seat its body and scroll regions. */
-void SetTextBoxRegionBounds(int left, int top, int right, int bottom)
+void SetTextBoxRegionBounds(std::int32_t left, std::int32_t top, std::int32_t right, std::int32_t bottom)
 {
-    unsigned short right_u;
+    std::uint16_t right_u;
 
     g_level_block->text_box_left = left;
     g_level_block->text_box_top = top;
     g_level_block->text_box_right = right;
     g_level_block->text_box_bottom = bottom;
     if (!g_text_box_regions) return;
-    right_u = static_cast<unsigned short>(right);
+    right_u = static_cast<std::uint16_t>(right);
     SetRegionBounds(TextBoxRegionIndex(TextBoxRegion::Body),
-                    static_cast<unsigned short>(left), static_cast<unsigned short>(top), right_u,
-                    static_cast<unsigned short>(bottom));
+                    static_cast<std::uint16_t>(left), static_cast<std::uint16_t>(top), right_u,
+                    static_cast<std::uint16_t>(bottom));
     SetRegionBounds(TextBoxRegionIndex(TextBoxRegion::ScrollUp),
-                    static_cast<unsigned short>(right_u + 5), 0x16b,
-                    static_cast<unsigned short>(right_u + 0x14), 0x17a);
+                    static_cast<std::uint16_t>(right_u + 5), 0x16b,
+                    static_cast<std::uint16_t>(right_u + 0x14), 0x17a);
     SetRegionBounds(TextBoxRegionIndex(TextBoxRegion::ScrollDown),
-                    static_cast<unsigned short>(right_u + 5), 0x1ad,
-                    static_cast<unsigned short>(right_u + 0x14), 0x1bc);
+                    static_cast<std::uint16_t>(right_u + 5), 0x1ad,
+                    static_cast<std::uint16_t>(right_u + 0x14), 0x1bc);
     SetRegionBounds(TextBoxRegionIndex(TextBoxRegion::ScrollThumb),
-                    static_cast<unsigned short>(right_u + 9), 0x17b,
-                    static_cast<unsigned short>(right_u + 0x10), 0x1ac);
+                    static_cast<std::uint16_t>(right_u + 9), 0x17b,
+                    static_cast<std::uint16_t>(right_u + 0x10), 0x1ac);
 }
 
-void ShowNotice(unsigned int font_palette, std::string_view text_view, short text_box,
-                unsigned int wrap_width, bool force_dialog)
+void ShowNotice(std::uint32_t font_palette, std::string_view text_view, std::int16_t text_box,
+                std::uint32_t wrap_width, bool force_dialog)
 {
     const std::string owned_text(text_view);
     const std::string_view text = owned_text;
@@ -386,12 +386,12 @@ void ShowNotice(unsigned int font_palette, std::string_view text_view, short tex
             g_status.long_quote = 0;
         }
         g_level_block->text_lines[8 + text_box] = 0;
-        if (static_cast<unsigned int>(g_level_block->text_box_font->textWidth(text)) <
+        if (static_cast<std::uint32_t>(g_level_block->text_box_font->textWidth(text)) <
             wrap_width) {
-            AppendNoticeLine(static_cast<unsigned char>(font_palette), text, text_box, 0);
+            AppendNoticeLine(static_cast<std::uint8_t>(font_palette), text, text_box, 0);
         } else {
             std::string_view remaining(text);
-            int line_index = 0;
+            std::int32_t line_index = 0;
             while (!remaining.empty()) {
                 std::size_t end = 0, last_space = 0;
                 while (end < remaining.size() && remaining[end] != '\n') {
@@ -404,7 +404,7 @@ void ShowNotice(unsigned int font_palette, std::string_view text_view, short tex
                     if (end < remaining.size() && (remaining[end] == ' ' || remaining[end] == '\t')) last_space = end;
                 }
                 const auto line = remaining.substr(0, end);
-                AppendNoticeLine(static_cast<unsigned char>(font_palette), line, text_box, line_index++);
+                AppendNoticeLine(static_cast<std::uint8_t>(font_palette), line, text_box, line_index++);
                 remaining.remove_prefix(end);
                 if (!remaining.empty() && remaining.front() == '\n') remaining.remove_prefix(1);
                 if (!remaining.empty()) g_level_block->text_lines[8 + text_box] = line_index == 1 ? line.size() : ~0U;
@@ -426,13 +426,13 @@ void ShowNotice(unsigned int font_palette, std::string_view text_view, short tex
 
 void ReleaseMessageStorage(void)
 {
-    for (int row = 0; row < 4; ++row) {
+    for (std::int32_t row = 0; row < 4; ++row) {
         ReleaseMessageRow(row);
     }
 }
 
 /* How many lines the text box can still be scrolled through. */
-int GetTextBoxScrollRange(void)
+std::int32_t GetTextBoxScrollRange(void)
 {
     return g_level_block->text_box_right - g_level_block->text_box_left;
 }
@@ -441,13 +441,13 @@ int GetTextBoxScrollRange(void)
    per region the used-line count followed by each 0x24-byte record and its
    wide string. The record's first word is the string count including its
    terminator; its +0x18 pointer word is unused. */
-unsigned char SaveMessageStorage(wiz8::File& file)
+std::uint8_t SaveMessageStorage(wiz8::File& file)
 {
     W8MessageStorageDiskRecord disk_record;
     W8MessageStorageRecord* live_record;
-    int format = 1;
-    unsigned int region;
-    unsigned int index;
+    std::int32_t format = 1;
+    std::uint32_t region;
+    std::uint32_t index;
 
     file.write(&format, 4);
     for (region = 0; region < 4; ++region) {
@@ -456,18 +456,18 @@ unsigned char SaveMessageStorage(wiz8::File& file)
             live_record = &g_message_storage[region][index];
             disk_record.character_count =
                 !live_record->text.empty()
-                    ? static_cast<w8_ulong>(wiz8::text::to_utf16(live_record->text).size() + 1)
+                    ? static_cast<std::uint32_t>(wiz8::text::to_utf16(live_record->text).size() + 1)
                     : 0;
             disk_record.font_palette = live_record->font_palette;
             disk_record.highlight_color = live_record->highlight_color;
-            disk_record.highlight_start = static_cast<unsigned char>(std::min<std::size_t>(255, wiz8::text::to_utf16(
+            disk_record.highlight_start = static_cast<std::uint8_t>(std::min<std::size_t>(255, wiz8::text::to_utf16(
                 std::string_view(live_record->text).substr(0, live_record->highlight_start)).size()));
-            disk_record.highlight_stop = static_cast<unsigned char>(std::min<std::size_t>(255, wiz8::text::to_utf16(
+            disk_record.highlight_stop = static_cast<std::uint8_t>(std::min<std::size_t>(255, wiz8::text::to_utf16(
                 std::string_view(live_record->text).substr(0, live_record->highlight_stop)).size()));
             disk_record.clock = static_cast<std::uint32_t>(live_record->clock);
             disk_record.saved_remaining_ms = live_record->saved_remaining_ms;
             disk_record.link = live_record->link;
-            disk_record.length = live_record->length < 0 ? -1 : static_cast<int>(
+            disk_record.length = live_record->length < 0 ? -1 : static_cast<std::int32_t>(
                 wiz8::text::to_utf16(std::string_view(live_record->text).substr(
                     0, live_record->length)).size());
             // Runtime word ranges are rebuilt after loading; disk pointer bits are unused.
@@ -491,14 +491,14 @@ unsigned char SaveMessageStorage(wiz8::File& file)
    serialized +0x18 pointer bits are discarded. Saves older than the prepath
    link-height constant never wrote a fourth region, so its count is forced to
    zero without consuming a count slot. */
-unsigned char LoadMessageStorage(wiz8::File& file)
+std::uint8_t LoadMessageStorage(wiz8::File& file)
 try
 {
     W8MessageStorageDiskRecord disk_record;
     W8MessageStorageRecord* live_record;
-    int format;
-    unsigned int region;
-    unsigned int index;
+    std::int32_t format;
+    std::uint32_t region;
+    std::uint32_t index;
 
     ReleaseMessageStorage();
     file.read_exact(&format, 4);
@@ -545,19 +545,19 @@ try
 catch (const std::exception&) { return false; }
 
 /* The selected wrapped-line start for one text box. NPC trade uses box 2. */
-int GetSelectedTextLine(int index)
+std::int32_t GetSelectedTextLine(std::int32_t index)
 {
     return g_level_block->selected_text_lines[index];
 }
 
 /* Clear one box's hover or selection highlight and request a repaint. */
-void ClearHoveredTextLine(int index)
+void ClearHoveredTextLine(std::int32_t index)
 {
     g_level_block->hovered_text_lines[index] = -1;
     RedrawTextBox();
 }
 
-void ClearSelectedTextLine(int index)
+void ClearSelectedTextLine(std::int32_t index)
 {
     g_level_block->selected_text_lines[index] = -1;
     RedrawTextBox();
@@ -596,7 +596,7 @@ void ScrollTextBoxToCursor(void)
 /* Append text onto a box's current line, growing its string in place; the
    optional second argument is the box, -1 for the one the current game mode
    posts to. */
-void AppendTextBoxLine(std::string_view text, short text_box)
+void AppendTextBoxLine(std::string_view text, std::int16_t text_box)
 {
     text_box = ResolveNoticeTextBox(text_box);
     auto& line = g_message_storage[text_box][g_status.text_box_lines_used[text_box] - 1];
@@ -607,7 +607,7 @@ void AppendTextBoxLine(std::string_view text, short text_box)
 void ScrollDialogueTextBoxToLine(void)
 {
     W8DialogueTextState* input;
-    int offset;
+    std::int32_t offset;
 
     if (IsNpcDialogueTextInputActive()) {
         return;
@@ -640,8 +640,8 @@ void ScrollDialogueTextBoxToLine(void)
    line was wrapped, the box's split position says where the second row
    begins: a span ending before it recolours the previous row alone, one
    crossing it is cut in two, and one past it moves down by the split. */
-void HighlightTextBoxRange(unsigned char color, std::size_t start, std::size_t stop,
-                           short text_box)
+void HighlightTextBoxRange(std::uint8_t color, std::size_t start, std::size_t stop,
+                           std::int16_t text_box)
 {
     W8MessageStorageRecord* line;
     W8MessageStorageRecord* previous;
@@ -657,7 +657,7 @@ void HighlightTextBoxRange(unsigned char color, std::size_t start, std::size_t s
         srAssertFail("gStatus.uiTextBoxLinesUsed[iTextBuffer] > 0", MGS_TEXT_BOX_CPP, 0x261, 0);
     }
     line = &g_message_storage[text_box][g_status.text_box_lines_used[text_box] - 1];
-    if (g_level_block->text_lines[8 + text_box] == static_cast<unsigned int>(-1)) {
+    if (g_level_block->text_lines[8 + text_box] == static_cast<std::uint32_t>(-1)) {
         return;
     }
     if (g_level_block->text_lines[8 + text_box] == 0) {
@@ -691,7 +691,7 @@ void HighlightTextBoxRange(unsigned char color, std::size_t start, std::size_t s
    and the continuation links rebuild, while the line keeps its channel,
    highlight span and clock. With the merge mode off the text posts as a new
    line instead. A -1 box means the one the current game mode posts to. */
-void AppendToLastTextLine(std::string_view text, short text_box)
+void AppendToLastTextLine(std::string_view text, std::int16_t text_box)
 {
     if (g_current_screen_state.id != W8_SCREEN_MAIN_GAME &&
         g_current_screen_state.id != W8_SCREEN_CAMP) {
@@ -708,9 +708,9 @@ void AppendToLastTextLine(std::string_view text, short text_box)
     }
     W8MessageStorageRecord* line = &g_message_storage[text_box][*lines_used - 1];
     const auto merged = fmt::format("{}{}", line->text, text);
-    unsigned char channel = line->font_palette;
-    int link = line->link;
-    unsigned char color = line->highlight_color;
+    std::uint8_t channel = line->font_palette;
+    std::int32_t link = line->link;
+    std::uint8_t color = line->highlight_color;
     std::size_t stop = line->highlight_stop;
     std::size_t start = line->highlight_start;
     line->text.clear();
@@ -729,7 +729,7 @@ void AppendToLastTextLine(std::string_view text, short text_box)
     }
     if (link != 0) {
         W8MessageStorageRecord* last = &g_message_storage[text_box][*lines_used - 1];
-        int propagated = 0;
+        std::int32_t propagated = 0;
         if (last->link != -1 && last->link + 1 > 0) {
             W8MessageStorageRecord* entry = last;
             do {
@@ -743,7 +743,7 @@ void AppendToLastTextLine(std::string_view text, short text_box)
 
 /* The dirty byte of the dormant typed-dialogue input state, or nothing when
    no input is open. */
-unsigned char GetOpenDialogueFlag(void)
+std::uint8_t GetOpenDialogueFlag(void)
 {
     if (g_level_block->dialogue_text_input_open && g_level_block->dialogue_text_input != 0) {
         return g_level_block->dialogue_text_input->dirty;
@@ -752,9 +752,9 @@ unsigned char GetOpenDialogueFlag(void)
 }
 
 /* Retail expands this scan in the editor handlers without a separate emission. */
-static unsigned int FindDialogueTextLine(const W8DialogueTextState* input)
+static std::uint32_t FindDialogueTextLine(const W8DialogueTextState* input)
 {
-    unsigned int line = 1;
+    std::uint32_t line = 1;
     while (line < input->line_count && input->cursor >= input->line_offsets[line]) {
         ++line;
     }
@@ -764,7 +764,7 @@ static unsigned int FindDialogueTextLine(const W8DialogueTextState* input)
 /* Retail returns 7 when the text box is in a multi-line mode (spell / item /
    camp / NPC dialogue with the transcript collapsed); otherwise 1. The image
    retains this out-of-line emission while VC6 inlines it at other callers. */
-int GetTextBoxVisibleLineCount(void)
+std::int32_t GetTextBoxVisibleLineCount(void)
 {
     bool dialogue = gXStatus.fNpcDialogueMode;
     if (dialogue) {
@@ -778,14 +778,14 @@ int GetTextBoxVisibleLineCount(void)
     return 7;
 }
 
-void PostCharacterNotice(int party_slot, std::string_view text, int context)
+void PostCharacterNotice(std::int32_t party_slot, std::string_view text, std::int32_t context)
 {
     const std::string_view separator = (text.starts_with("'") || text.starts_with(":"))
                                           ? std::string_view{} : g_W8TextSeparator;
     ShowNotice(W8_FONT_PALETTE_WHITE,
                fmt::format("{}{}{}", g_status.buffers.Char[party_slot].name, separator, text),
                context);
-    int stop = g_status.buffers.Char[party_slot].name.size();
+    std::int32_t stop = g_status.buffers.Char[party_slot].name.size();
     if (text.starts_with("'")) {
         ++stop;
         if (text.starts_with("'s")) {
@@ -797,9 +797,9 @@ void PostCharacterNotice(int party_slot, std::string_view text, int context)
 
 
 /* Retail expands this calculation at its callers and has no separate emission. */
-static unsigned int GetTextBoxLineCount(short text_box)
+static std::uint32_t GetTextBoxLineCount(std::int16_t text_box)
 {
-    unsigned int count = g_status.text_box_lines_shown[text_box];
+    std::uint32_t count = g_status.text_box_lines_shown[text_box];
     if (g_level_block->dialogue_text_input_open && g_level_block->dialogue_text_input != 0 &&
         g_level_block->dialogue_text_input->text_box == text_box) {
         count += g_level_block->dialogue_text_input->line_count;
@@ -812,13 +812,13 @@ static unsigned int GetTextBoxLineCount(short text_box)
    that box. */
 bool CurrentDialogueLineHasContent(void)
 {
-    short text_box = g_status.text_line_cursor;
+    std::int16_t text_box = g_status.text_line_cursor;
 
     return g_level_block->text_lines[text_box] + GetTextBoxVisibleLineCount() <
            GetTextBoxLineCount(text_box);
 }
 
-void AdvanceNoticeLine(short text_box)
+void AdvanceNoticeLine(std::int16_t text_box)
 {
     if (text_box == W8_NOTICE_TEXT_BOX_AUTOMATIC) {
         text_box = g_status.text_line_cursor;
@@ -829,13 +829,13 @@ void AdvanceNoticeLine(short text_box)
     }
     W8MessageStorageRecord* record =
         &g_message_storage[text_box][g_status.text_box_lines_shown[text_box]];
-    unsigned int delay =
+    std::uint32_t delay =
         g_settings.text_display_delay_ms * (wiz8::text::grapheme_count(record->text) * 100 / 20 + 100) / 100;
     if (delay > 60000) {
         delay = 60000;
     }
     record->clock = w8_get_ticks() + (delay);
-    unsigned int shown = ++g_status.text_box_lines_shown[text_box];
+    std::uint32_t shown = ++g_status.text_box_lines_shown[text_box];
     if (g_level_block->text_scroll_drag_idle) {
         if (gXStatus.fNpcDialogueMode && g_npc_interaction_state->text_box_collapsed) {
             ScrollTextBoxTo(shown);
@@ -846,7 +846,7 @@ void AdvanceNoticeLine(short text_box)
                 ScrollTextBoxTo(shown);
                 g_combat_state->notice_scroll_pending = false;
             } else if (shown == 350) {
-                unsigned int scroll = g_level_block->text_lines[text_box];
+                std::uint32_t scroll = g_level_block->text_lines[text_box];
                 if (scroll >= 344) {
                     ScrollTextBoxTo(scroll - 1);
                 } else if (scroll <= 342) {
@@ -863,23 +863,23 @@ void AdvanceNoticeLine(short text_box)
     RedrawTextBox();
 }
 
-void ScrollTextBoxTo(int line)
+void ScrollTextBoxTo(std::int32_t line)
 {
-    short text_box = g_status.text_line_cursor;
-    unsigned int input_lines;
+    std::int16_t text_box = g_status.text_line_cursor;
+    std::uint32_t input_lines;
     if (!g_level_block->dialogue_text_input_open || g_level_block->dialogue_text_input == 0 ||
         g_level_block->dialogue_text_input->text_box != text_box) {
         input_lines = 0;
     } else {
         input_lines = g_level_block->dialogue_text_input->line_count;
     }
-    unsigned int count = g_status.text_box_lines_shown[text_box];
-    unsigned int visible = GetTextBoxVisibleLineCount();
+    std::uint32_t count = g_status.text_box_lines_shown[text_box];
+    std::uint32_t visible = GetTextBoxVisibleLineCount();
     if (input_lines + count <= visible) {
         return;
     }
-    unsigned int previous = g_level_block->text_lines[text_box];
-    unsigned int target = static_cast<unsigned int>(line);
+    std::uint32_t previous = g_level_block->text_lines[text_box];
+    std::uint32_t target = static_cast<std::uint32_t>(line);
     if (target + visible <= count + input_lines) {
         if (target > 349) {
             target = 350;
@@ -900,22 +900,22 @@ void ScrollTextBoxTo(int line)
     }
 }
 
-void ScrollTextBoxUp(int lines)
+void ScrollTextBoxUp(std::int32_t lines)
 {
-    short text_box = g_status.text_line_cursor;
-    unsigned int previous = g_level_block->text_lines[text_box];
+    std::int16_t text_box = g_status.text_line_cursor;
+    std::uint32_t previous = g_level_block->text_lines[text_box];
     if (previous == 0) {
         return;
     }
 
-    unsigned int amount = static_cast<unsigned int>(lines);
+    std::uint32_t amount = static_cast<std::uint32_t>(lines);
     if (previous < amount) {
         g_level_block->text_lines[text_box] = 0;
     } else {
         g_level_block->text_lines[text_box] = previous - amount;
     }
 
-    unsigned int current = g_level_block->text_lines[text_box];
+    std::uint32_t current = g_level_block->text_lines[text_box];
     if (current == previous) {
         return;
     }
@@ -928,23 +928,23 @@ void ScrollTextBoxUp(int lines)
     RedrawTextBox();
 }
 
-void ScrollTextBoxDown(int lines)
+void ScrollTextBoxDown(std::int32_t lines)
 {
-    short text_box = g_status.text_line_cursor;
-    unsigned int count = GetTextBoxLineCount(text_box);
-    unsigned int visible = GetTextBoxVisibleLineCount();
-    unsigned int previous = g_level_block->text_lines[text_box];
+    std::int16_t text_box = g_status.text_line_cursor;
+    std::uint32_t count = GetTextBoxLineCount(text_box);
+    std::uint32_t visible = GetTextBoxVisibleLineCount();
+    std::uint32_t previous = g_level_block->text_lines[text_box];
     if (previous + visible >= count) {
         return;
     }
 
-    if (previous + visible + static_cast<unsigned int>(lines) <= count) {
+    if (previous + visible + static_cast<std::uint32_t>(lines) <= count) {
         g_level_block->text_lines[text_box] = previous + lines;
     } else {
         g_level_block->text_lines[text_box] = count - visible;
     }
 
-    unsigned int current = g_level_block->text_lines[text_box];
+    std::uint32_t current = g_level_block->text_lines[text_box];
     if (current == previous) {
         return;
     }
@@ -960,12 +960,12 @@ void ScrollTextBoxDown(int lines)
 /* Draw the dormant typed-dialogue editor's caret: a vertical bar on the row
    holding the insertion point, offset by the first-line prefix and the
    pixel length of the text before the cursor. */
-static void DrawDialogueTextCursor(int x, int y)
+static void DrawDialogueTextCursor(std::int32_t x, std::int32_t y)
 {
     W8DialogueTextState* input = g_level_block->dialogue_text_input.get();
-    unsigned int line = FindDialogueTextLine(input);
-    unsigned int hidden = 0;
-    short text_box = g_status.text_line_cursor;
+    std::uint32_t line = FindDialogueTextLine(input);
+    std::uint32_t hidden = 0;
+    std::int16_t text_box = g_status.text_line_cursor;
     if (g_status.text_box_lines_shown[text_box] < g_level_block->text_lines[text_box]) {
         hidden = g_level_block->text_lines[text_box] - g_status.text_box_lines_shown[text_box];
     }
@@ -973,23 +973,23 @@ static void DrawDialogueTextCursor(int x, int y)
         return;
     }
 
-    int x_offset = 0;
+    std::int32_t x_offset = 0;
     if (line == 1 && !input->first_line_prefix.empty()) {
         x_offset = g_level_block->text_box_font->textWidth(input->first_line_prefix);
     }
-    unsigned int start = input->line_offsets[line - 1];
+    std::uint32_t start = input->line_offsets[line - 1];
     x_offset +=
         g_level_block->text_box_font->prefixWidth(std::string_view(input->text).substr(start), input->cursor - start);
 
-    int y_line = y + (line - hidden - 1) * 0xb;
+    std::int32_t y_line = y + (line - hidden - 1) * 0xb;
     if (y_line < g_level_block->text_box_bottom) {
-        unsigned int bottom = g_level_block->text_box_bottom;
-        unsigned int y_end = y_line + g_level_block->text_box_font->height();
+        std::uint32_t bottom = g_level_block->text_box_bottom;
+        std::uint32_t y_end = y_line + g_level_block->text_box_font->height();
         if (bottom <= y_end) {
             y_end = bottom;
         }
-        int x_cursor = x + x_offset + 1;
-        const SDL_Rect cursor{ x_cursor, y_line, 1, static_cast<int>(y_end - y_line + 1) };
+        std::int32_t x_cursor = x + x_offset + 1;
+        const SDL_Rect cursor{ x_cursor, y_line, 1, static_cast<std::int32_t>(y_end - y_line + 1) };
         SDL_FillSurfaceRect(&GetFrameBufferSurface(), &cursor, 0xff00);
     }
 }
@@ -997,16 +997,16 @@ static void DrawDialogueTextCursor(int x, int y)
 /* Print the dormant typed-dialogue editor's wrapped lines starting at
    first_line, temporarily terminating each row at the next line's start
    offset; tracks the widest row and invalidates the printed rectangle. */
-void DrawDialogueTextInputLines(int x, int y, unsigned int first_line)
+void DrawDialogueTextInputLines(std::int32_t x, std::int32_t y, std::uint32_t first_line)
 {
     auto* input = g_level_block->dialogue_text_input.get();
-    const int first_y = y;
-    int maximum_width = 0;
+    const std::int32_t first_y = y;
+    std::int32_t maximum_width = 0;
     for (std::size_t line = first_line; line < input->line_offsets.size(); ++line) {
         auto start = input->line_offsets[line];
         auto end = line + 1 < input->line_offsets.size() ? input->line_offsets[line + 1] : input->text.size();
         auto text = std::string_view(input->text).substr(start, end - start);
-        int draw_x = x;
+        std::int32_t draw_x = x;
         if (line == 0 && !input->first_line_prefix.empty()) {
             DrawText(GetFrameBufferSurface(), *g_level_block->text_box_font, {draw_x, y}, input->first_line_prefix);
             draw_x += g_level_block->text_box_font->textWidth(input->first_line_prefix);
@@ -1026,8 +1026,8 @@ void RedrawDialogueTextInput(void)
 {
     W8DialogueTextState* input = g_level_block->dialogue_text_input.get();
     if ((input->dirty || input->cursor_dirty != 0)) {
-        short text_box = g_status.text_line_cursor;
-        int offset = g_status.text_box_lines_shown[text_box] - g_level_block->text_lines[text_box];
+        std::int16_t text_box = g_status.text_line_cursor;
+        std::int32_t offset = g_status.text_box_lines_shown[text_box] - g_level_block->text_lines[text_box];
         if (offset < 7) {
             {
                 SDL_Rect clip{g_level_block->text_box_left, g_level_block->text_box_top,
@@ -1036,7 +1036,7 @@ void RedrawDialogueTextInput(void)
                 ScopedClipRect clipping(GetFrameBufferSurface(), clip);
                 g_level_block->text_box_font->setPalette(g_level_block->palette);
 
-                int y = g_level_block->text_box_top + offset * 0xb;
+                std::int32_t y = g_level_block->text_box_top + offset * 0xb;
                 if (y < g_level_block->text_box_top) {
                     y = g_level_block->text_box_top;
                 }
@@ -1045,7 +1045,7 @@ void RedrawDialogueTextInput(void)
                         DrawDialogueTextCursor(g_level_block->text_box_left, y);
                     }
                 } else {
-                    unsigned int first_line = 0;
+                    std::uint32_t first_line = 0;
                     if (offset < 0) {
                         first_line = g_level_block->text_lines[text_box] -
                                      g_status.text_box_lines_shown[text_box];
@@ -1084,7 +1084,7 @@ void InvalidateDialogueTextCursor(void)
     InvalidateMainGameActionPanelRect(&bounds);
 }
 
-static void RewrapDialogueTextFromLine(unsigned int)
+static void RewrapDialogueTextFromLine(std::uint32_t)
 {
     auto& input = *g_level_block->dialogue_text_input;
     input.line_offsets = {0};
@@ -1094,7 +1094,7 @@ static void RewrapDialogueTextFromLine(unsigned int)
         auto end = wiz8::text::next_grapheme(input.text, position);
         auto width = g_level_block->text_box_font->textWidth(std::string_view(input.text).substr(line_start, end - line_start));
         if (line_start == 0) width += g_level_block->text_box_font->textWidth(input.first_line_prefix);
-        if (width > static_cast<int>(input.wrap_width) && position > line_start) {
+        if (width > static_cast<std::int32_t>(input.wrap_width) && position > line_start) {
             line_start = last_break > line_start ? last_break : position;
             input.line_offsets.push_back(line_start);
         }
@@ -1116,7 +1116,7 @@ static void InsertDialogueTextCharacter(char32_t character)
     InvalidateDialogueTextCursor();
 }
 
-void DeleteDialogueTextCharacter(unsigned int key)
+void DeleteDialogueTextCharacter(std::uint32_t key)
 {
     auto& input = *g_level_block->dialogue_text_input;
     if (key == 8 && input.cursor) {
@@ -1131,16 +1131,16 @@ void DeleteDialogueTextCharacter(unsigned int key)
     InvalidateDialogueTextCursor();
 }
 
-unsigned char TextBoxScrollThumbRegionEvent(const InputEvent* input_event, W8Region* region)
+std::uint8_t TextBoxScrollThumbRegionEvent(const InputEvent* input_event, W8Region* region)
 {
     PushButtonSoundScheme(0, true);
     if (input_event->type != InputEventType::MouseMove) {
         return 0;
     }
 
-    short text_box = g_status.text_line_cursor;
-    unsigned int visible_lines = GetTextBoxVisibleLineCount();
-    unsigned int line_count = GetTextBoxLineCount(text_box);
+    std::int16_t text_box = g_status.text_line_cursor;
+    std::uint32_t visible_lines = GetTextBoxVisibleLineCount();
+    std::uint32_t line_count = GetTextBoxLineCount(text_box);
     if (line_count <= visible_lines) {
         return 0;
     }
@@ -1162,7 +1162,7 @@ unsigned char TextBoxScrollThumbRegionEvent(const InputEvent* input_event, W8Reg
         ActivateDialogRegion(
             TextBoxRegionIndex(TextBoxRegion::ScrollThumb));
     }
-    int position = GetEventCursorY(input_event) - region->y1 - 1;
+    std::int32_t position = GetEventCursorY(input_event) - region->y1 - 1;
     if (position < 0) {
         position = 0;
     } else {
@@ -1172,9 +1172,9 @@ unsigned char TextBoxScrollThumbRegionEvent(const InputEvent* input_event, W8Reg
         }
     }
 
-    unsigned int previous = g_level_block->text_lines[text_box];
+    std::uint32_t previous = g_level_block->text_lines[text_box];
     g_level_block->text_lines[text_box] = (line_count - visible_lines) * position / 0x2f;
-    unsigned int current = g_level_block->text_lines[text_box];
+    std::uint32_t current = g_level_block->text_lines[text_box];
     if (current != previous) {
         g_level_block->text_content_region = current != 0 ? kUpArrowEnabled : kUpArrowDisabled;
         g_level_block->dialogue_content_region =
@@ -1185,9 +1185,9 @@ unsigned char TextBoxScrollThumbRegionEvent(const InputEvent* input_event, W8Reg
     return 1;
 }
 
-unsigned char TextBoxScrollUpRegionEvent(const InputEvent* event, W8Region* region)
+std::uint8_t TextBoxScrollUpRegionEvent(const InputEvent* event, W8Region* region)
 {
-    short text_box = g_status.text_line_cursor;
+    std::int16_t text_box = g_status.text_line_cursor;
     if (g_level_block->text_lines[text_box] == 0) {
         PushButtonSoundScheme(0, true);
     }
@@ -1233,11 +1233,11 @@ unsigned char TextBoxScrollUpRegionEvent(const InputEvent* event, W8Region* regi
     return 1;
 }
 
-unsigned char TextBoxScrollDownRegionEvent(const InputEvent* event, W8Region* region)
+std::uint8_t TextBoxScrollDownRegionEvent(const InputEvent* event, W8Region* region)
 {
-    short text_box = g_status.text_line_cursor;
-    unsigned int visible = GetTextBoxVisibleLineCount();
-    unsigned int count = GetTextBoxLineCount(text_box);
+    std::int16_t text_box = g_status.text_line_cursor;
+    std::uint32_t visible = GetTextBoxVisibleLineCount();
+    std::uint32_t count = GetTextBoxLineCount(text_box);
     if (g_level_block->text_lines[text_box] + visible >= count) {
         PushButtonSoundScheme(0, true);
     }
@@ -1282,11 +1282,11 @@ unsigned char TextBoxScrollDownRegionEvent(const InputEvent* event, W8Region* re
     return 1;
 }
 
-unsigned char TextBoxBodyRegionEvent(const InputEvent* event, W8Region* region)
+std::uint8_t TextBoxBodyRegionEvent(const InputEvent* event, W8Region* region)
 {
     PushButtonSoundScheme(0, true);
     if (event->type == InputEventType::MouseWheel) {
-        short delta = event->wheel;
+        std::int16_t delta = event->wheel;
         if (delta < 0) {
             ScrollTextBoxDown(-delta);
         } else {
@@ -1316,7 +1316,7 @@ unsigned char TextBoxBodyRegionEvent(const InputEvent* event, W8Region* region)
     return SpellCastTextBoxRegionEvent(event, region);
 }
 
-unsigned char TextBoxChannelTabRegionEvent(const InputEvent* event, W8Region* region)
+std::uint8_t TextBoxChannelTabRegionEvent(const InputEvent* event, W8Region* region)
 {
     SDL_Point mouse_pos;
 
@@ -1326,20 +1326,20 @@ unsigned char TextBoxChannelTabRegionEvent(const InputEvent* event, W8Region* re
         return 0;
     }
 
-    g_status.text_line_cursor = static_cast<short>(region->callback_id);
+    g_status.text_line_cursor = static_cast<std::int16_t>(region->callback_id);
     region->flags |= W8_REGION_LEFT_BUTTON_HELD;
     RedrawTextBox();
 
-    short text_box = g_status.text_line_cursor;
+    std::int16_t text_box = g_status.text_line_cursor;
     if (g_level_block->text_lines[text_box] == 0) {
         g_level_block->text_content_region = kUpArrowDisabled;
     } else {
         g_level_block->text_content_region = kUpArrowEnabled;
     }
 
-    unsigned int visible = GetTextBoxVisibleLineCount();
-    unsigned int count = GetTextBoxLineCount(text_box);
-    unsigned int scroll = g_level_block->text_lines[text_box];
+    std::uint32_t visible = GetTextBoxVisibleLineCount();
+    std::uint32_t count = GetTextBoxLineCount(text_box);
+    std::uint32_t scroll = g_level_block->text_lines[text_box];
     if (scroll + visible < count) {
         g_level_block->dialogue_content_region = kDownArrowEnabled;
     } else {
@@ -1360,13 +1360,13 @@ unsigned char TextBoxChannelTabRegionEvent(const InputEvent* event, W8Region* re
 
 /* Background mute for the message/text-box plates that share this catalog
    callback - suppress the default region click sound and swallow the event. */
-unsigned char TextBoxMuteRegionEvent(const InputEvent*, W8Region*)
+std::uint8_t TextBoxMuteRegionEvent(const InputEvent*, W8Region*)
 {
     PushButtonSoundScheme(0, true);
     return 0;
 }
 
-unsigned char HandleDialogueTextInput(const InputEvent* input_event)
+std::uint8_t HandleDialogueTextInput(const InputEvent* input_event)
 {
     if (!g_level_block->dialogue_text_input_open ||
         (input_event->modifiers & (CTRL_DOWN | ALT_DOWN)) != 0) {
@@ -1380,7 +1380,7 @@ unsigned char HandleDialogueTextInput(const InputEvent* input_event)
     if (input_event->type != InputEventType::KeyDown && input_event->type != InputEventType::KeyRepeat) {
         return 1;
     }
-    unsigned int key = input_event->key;
+    std::uint32_t key = input_event->key;
     switch (key) {
     case 8:
     case 0x2e:
@@ -1433,7 +1433,7 @@ unsigned char HandleDialogueTextInput(const InputEvent* input_event)
     }
 
     char character = TranslateKeyToCharacter(
-        static_cast<unsigned short>(key), static_cast<unsigned char>(input_event->modifiers));
+        static_cast<std::uint16_t>(key), static_cast<std::uint8_t>(input_event->modifiers));
     if ((character >= '0' && character <= '9') || (character >= 'A' && character <= 'Z') ||
         (character >= 'a' && character <= 'z') || (character >= '!' && character <= '/') ||
         (character >= ':' && character <= '@') || (character >= '[' && character <= '_') ||
@@ -1446,12 +1446,12 @@ unsigned char HandleDialogueTextInput(const InputEvent* input_event)
 
 /* The text box's mode, and the setter that also records a value when one is
    given - passing -1 leaves the value alone. */
-unsigned char GetTextBoxMode(void)
+std::uint8_t GetTextBoxMode(void)
 {
     return g_text_box_mode;
 }
 
-void SetTextBoxMode(unsigned char mode, int value)
+void SetTextBoxMode(std::uint8_t mode, std::int32_t value)
 {
     g_text_box_mode = mode;
     if (value != -1) {
@@ -1460,22 +1460,22 @@ void SetTextBoxMode(unsigned char mode, int value)
 }
 
 /* Draw clickable notice-word overlays for one painted line. */
-static void DrawNoticeWordOverlays(W8MessageStorageRecord* line, int x, int y);
+static void DrawNoticeWordOverlays(W8MessageStorageRecord* line, std::int32_t x, std::int32_t y);
 
 /* Paint one message-storage line at (x, y). hovered_line / selected_line
    select alternate palettes for the editor slot highlights; skip_invalidate
    is forwarded from RedrawTextBoxBody and skips the word-overlay pass when
    set. Retail reuses the leading bytes of the level block as a wchar scratch. */
-static void DrawTextBoxLine(W8MessageStorageRecord* line, int x, int y, bool hovered_line,
+static void DrawTextBoxLine(W8MessageStorageRecord* line, std::int32_t x, std::int32_t y, bool hovered_line,
                             bool selected_line, bool skip_invalidate)
 {
     if (skip_invalidate) { DrawNoticeWordOverlays(line, x, y); return; }
     auto text = std::string_view(line->text);
     auto foreground = selected_line ? W8_FONT_PALETTE_BLUE : hovered_line ? W8_FONT_PALETTE_YELLOW : line->font_palette;
-    auto set_palette = [&](unsigned int index) {
+    auto set_palette = [&](std::uint32_t index) {
         g_level_block->text_box_font->setPalette(index < W8_FONT_PALETTE_TEXT_BOX ? g_font_state_palettes[index] : g_level_block->palette);
     };
-    auto draw = [&](std::string_view span, unsigned int palette) {
+    auto draw = [&](std::string_view span, std::uint32_t palette) {
         set_palette(palette);
         DrawTextAndInvalidate(GetFrameBufferSurface(), *g_level_block->text_box_font, {x, y}, span);
         x += g_level_block->text_box_font->textWidth(span);
@@ -1502,15 +1502,15 @@ static void DrawTextBoxLine(W8MessageStorageRecord* line, int x, int y, bool hov
    invalidate the text rectangle first. */
 void RedrawTextBoxBody(bool skip_invalidate)
 {
-    short text_box;
-    unsigned int shown;
-    unsigned int scroll;
-    unsigned int editor_lines;
-    unsigned int rows;
-    unsigned int row;
-    int y_offset;
-    int x;
-    int line_index;
+    std::int16_t text_box;
+    std::uint32_t shown;
+    std::uint32_t scroll;
+    std::uint32_t editor_lines;
+    std::uint32_t rows;
+    std::uint32_t row;
+    std::int32_t y_offset;
+    std::int32_t x;
+    std::int32_t line_index;
     W8MessageStorageRecord* line;
     bool can_scroll_down;
 
@@ -1545,7 +1545,7 @@ void RedrawTextBoxBody(bool skip_invalidate)
     }
 
     if (g_level_block->action_panel_visible == 0 && !g_level_block->mipe_editing) {
-        can_scroll_down = scroll + static_cast<unsigned int>(GetTextBoxVisibleLineCount()) <
+        can_scroll_down = scroll + static_cast<std::uint32_t>(GetTextBoxVisibleLineCount()) <
                           GetTextBoxLineCount(text_box);
         if (!can_scroll_down &&
             TimeUntilDeadline(g_message_storage[text_box][scroll + rows - 1].clock) == 0) {
@@ -1563,8 +1563,8 @@ void RedrawTextBoxBody(bool skip_invalidate)
 
         y_offset = 0;
         for (row = 0; row < rows; ++row) {
-            line_index = static_cast<int>(scroll + row);
-            if (static_cast<unsigned int>(line_index) < 0x15e) {
+            line_index = static_cast<std::int32_t>(scroll + row);
+            if (static_cast<std::uint32_t>(line_index) < 0x15e) {
                 line = &g_message_storage[text_box][line_index];
                 if (!line->text.empty()) {
                     if (text_box == 3 || !g_level_block->text_box_visible) {
@@ -1595,11 +1595,11 @@ void RedrawTextBoxBody(bool skip_invalidate)
 void RedrawTextBoxScrollChrome(void)
 {
     SDL_Rect clip;
-    short text_box;
-    unsigned int scroll;
-    unsigned int line_count;
-    int visible;
-    int thumb_y;
+    std::int16_t text_box;
+    std::uint32_t scroll;
+    std::uint32_t line_count;
+    std::int32_t visible;
+    std::int32_t thumb_y;
 
     auto& framebuffer = GetFrameBufferSurface();
     SDL_GetSurfaceClipRect(&framebuffer, &clip);
@@ -1632,7 +1632,7 @@ void RedrawTextBoxScrollChrome(void)
 
         line_count = GetTextBoxLineCount(text_box);
         visible = GetTextBoxVisibleLineCount();
-        if (scroll + static_cast<unsigned int>(visible) < line_count) {
+        if (scroll + static_cast<std::uint32_t>(visible) < line_count) {
             if (g_level_block->dialogue_content_region == kDownArrowDisabled) {
                 g_level_block->dialogue_content_region = kDownArrowEnabled;
             }
@@ -1654,8 +1654,8 @@ void RedrawTextBoxScrollChrome(void)
             break;
         }
 
-        if (line_count > static_cast<unsigned int>(visible)) {
-            thumb_y = static_cast<int>(scroll * 0x28 / (line_count - visible)) + 0x17b;
+        if (line_count > static_cast<std::uint32_t>(visible)) {
+            thumb_y = static_cast<std::int32_t>(scroll * 0x28 / (line_count - visible)) + 0x17b;
             CatalogArtwork::Load(0x86, 0).draw(GetFrameBufferSurface(), 4, g_level_block->text_box_right + 5, thumb_y);
         }
     }
@@ -1681,9 +1681,9 @@ void RedrawTextBoxComplete(void)
 /* The last message on the current line whose clock has stopped, searched from
    the newest backwards - so the first one found is the most recent finished
    message rather than the oldest. */
-int FindStoppedTextLine(void)
+std::int32_t FindStoppedTextLine(void)
 {
-    int index = g_status.text_box_lines_shown[g_status.text_line_cursor];
+    std::int32_t index = g_status.text_box_lines_shown[g_status.text_line_cursor];
 
     if (index == 0) {
         return -1;
@@ -1701,7 +1701,7 @@ int FindStoppedTextLine(void)
 char TextBoxHandleKey(const InputEvent* event)
 {
     W8MainGameTextPanel* panel = g_main_game_screen->m_text_panel.get();
-    int before = panel->m_selection;
+    std::int32_t before = panel->m_selection;
     char handled;
 
     handled = panel->m_key_handler->HandleKey(event->key);
@@ -1722,17 +1722,17 @@ char TextBoxHandleKey(const InputEvent* event)
    backfire the disarm chance is `level * 5 + 0x32 - m_difficulty * 6`, a
    success parks the screen in state 7 (8 on a miss), and either way the text
    and action panels go quiet for a 1.5 second timer. */
-void AttemptTrapDisarm(int level, int /*flag*/, char backfire)
+void AttemptTrapDisarm(std::int32_t level, std::int32_t /*flag*/, char backfire)
 {
     W8MainGameScreen* screen = g_main_game_screen.get();
-    int chance;
+    std::int32_t chance;
 
     if (backfire != 0) {
         chance = 0;
     } else {
         chance = level * 5 + 0x32 + screen->m_difficulty * -6;
     }
-    if (static_cast<int>(Random(100)) < chance) {
+    if (static_cast<std::int32_t>(Random(100)) < chance) {
         screen->m_disarm_state = 7;
     } else {
         screen->m_disarm_state = 8;
@@ -1744,7 +1744,7 @@ void AttemptTrapDisarm(int level, int /*flag*/, char backfire)
     screen->m_timer.Restart();
 }
 
-void SetKnockKnockTarget(int target, int /*flag*/, int /*backfire*/)
+void SetKnockKnockTarget(std::int32_t target, std::int32_t /*flag*/, std::int32_t /*backfire*/)
 {
     W8MainGameScreen* screen = g_main_game_screen.get();
 
@@ -1757,7 +1757,7 @@ void SetKnockKnockTarget(int target, int /*flag*/, int /*backfire*/)
     screen->m_text_panel->m_target_changed = true;
 }
 
-void SelectTextBox(short text_box)
+void SelectTextBox(std::int16_t text_box)
 {
     g_status.text_line_cursor = text_box;
     RedrawTextBox();
@@ -1780,12 +1780,12 @@ void SelectTextBox(short text_box)
     g_level_block->dialogue_content_region = can_scroll ? kDownArrowEnabled : kDownArrowDisabled;
 }
 
-static void SelectWrappedTextLine(int line, int box, int (&selection)[4])
+static void SelectWrappedTextLine(std::int32_t line, std::int32_t box, std::int32_t (&selection)[4])
 {
     if (line < 0x15e) {
-        unsigned int first = g_level_block->text_lines[g_status.text_line_cursor];
-        if (first <= static_cast<unsigned int>(line) &&
-            static_cast<unsigned int>(line) < first + 7) {
+        std::uint32_t first = g_level_block->text_lines[g_status.text_line_cursor];
+        if (first <= static_cast<std::uint32_t>(line) &&
+            static_cast<std::uint32_t>(line) < first + 7) {
             W8MessageStorageRecord* record = &g_message_storage[box][line];
             while (record->link != 0 && line != 0) {
                 --line;
@@ -1797,28 +1797,28 @@ static void SelectWrappedTextLine(int line, int box, int (&selection)[4])
     }
 }
 
-void SetHoveredTextLine(int line, int index)
+void SetHoveredTextLine(std::int32_t line, std::int32_t index)
 {
     SelectWrappedTextLine(line, index, g_level_block->hovered_text_lines);
 }
 
-void ClearTextLineEntry(int index)
+void ClearTextLineEntry(std::int32_t index)
 {
     g_level_block->text_lines[index] = 0;
 }
 
-int GetHoveredTextLine(int index)
+std::int32_t GetHoveredTextLine(std::int32_t index)
 {
     return g_level_block->hovered_text_lines[index];
 }
 
-void SetSelectedTextLine(int line, int index)
+void SetSelectedTextLine(std::int32_t line, std::int32_t index)
 {
     SelectWrappedTextLine(line, index, g_level_block->selected_text_lines);
 }
 
-static void DrawNoticeWordOverlay(const W8MessageStorageRecord* line, W8NoticeWord* word, int x,
-                                  int y)
+static void DrawNoticeWordOverlay(const W8MessageStorageRecord* line, W8NoticeWord* word, std::int32_t x,
+                                  std::int32_t y)
 {
     std::string word_text;
     word_text = line->text.substr(word->start, word->end - word->start + 1);
@@ -1826,7 +1826,7 @@ static void DrawNoticeWordOverlay(const W8MessageStorageRecord* line, W8NoticeWo
     word->redraw = false;
 }
 
-static void DrawNoticeWordOverlays(W8MessageStorageRecord* line, int x, int y)
+static void DrawNoticeWordOverlays(W8MessageStorageRecord* line, std::int32_t x, std::int32_t y)
 {
     for (auto& entry : line->entries) {
         auto* word = &entry;
@@ -1850,7 +1850,7 @@ static void DrawNoticeWordOverlays(W8MessageStorageRecord* line, int x, int y)
     }
 }
 
-static void ClearNoticeWordState(int text_box, bool selected, bool redraw)
+static void ClearNoticeWordState(std::int32_t text_box, bool selected, bool redraw)
 {
     for (auto& line : g_message_storage[text_box]) {
         for (auto& word : line.entries) {
@@ -1865,19 +1865,19 @@ static void ClearNoticeWordState(int text_box, bool selected, bool redraw)
     }
 }
 
-void ResetUsedNoticeWords(int text_box, bool redraw)
+void ResetUsedNoticeWords(std::int32_t text_box, bool redraw)
 {
     ClearNoticeWordState(text_box, true, redraw);
 }
 
-void ClearNoticeWordHover(int text_box, bool redraw)
+void ClearNoticeWordHover(std::int32_t text_box, bool redraw)
 {
     ClearNoticeWordState(text_box, false, redraw);
 }
 
-static int GetNoticeLineLeft(int text_box, int line)
+static std::int32_t GetNoticeLineLeft(std::int32_t text_box, std::int32_t line)
 {
-    int x_base;
+    std::int32_t x_base;
     if (g_status.text_line_cursor == 3 || !g_level_block->text_box_visible) {
         x_base = g_level_block->text_box_left;
     } else {
@@ -1889,16 +1889,16 @@ static int GetNoticeLineLeft(int text_box, int line)
     return x_base;
 }
 
-void HighlightNoticeWordAt(int text_box, unsigned short x, unsigned short y)
+void HighlightNoticeWordAt(std::int32_t text_box, std::uint16_t x, std::uint16_t y)
 {
-    int line;
-    int x_base;
-    int offset;
+    std::int32_t line;
+    std::int32_t x_base;
+    std::int32_t offset;
 
     ClearNoticeWordHover(text_box, false);
     if (g_level_block->text_box_top <= y && y <= g_level_block->text_box_bottom) {
         line = g_level_block->text_lines[text_box] + (y - g_level_block->text_box_top) / 0xb;
-        if (line < static_cast<int>(g_status.text_box_lines_shown[text_box])) {
+        if (line < static_cast<std::int32_t>(g_status.text_box_lines_shown[text_box])) {
             x_base = GetNoticeLineLeft(text_box, line);
             offset = x - x_base;
             for (auto& entry : g_message_storage[text_box][line].entries) {
@@ -1913,15 +1913,15 @@ void HighlightNoticeWordAt(int text_box, unsigned short x, unsigned short y)
     }
 }
 
-W8NoticeWord* HitTestNoticeWord(int text_box, unsigned short x, unsigned short y, int* line_out)
+W8NoticeWord* HitTestNoticeWord(std::int32_t text_box, std::uint16_t x, std::uint16_t y, std::int32_t* line_out)
 {
-    int line;
-    int x_base;
-    int offset;
+    std::int32_t line;
+    std::int32_t x_base;
+    std::int32_t offset;
 
     if (g_level_block->text_box_top <= y && y <= g_level_block->text_box_bottom) {
         line = g_level_block->text_lines[text_box] + (y - g_level_block->text_box_top) / 0xb;
-        if (line < static_cast<int>(g_status.text_box_lines_shown[text_box])) {
+        if (line < static_cast<std::int32_t>(g_status.text_box_lines_shown[text_box])) {
             x_base = GetNoticeLineLeft(text_box, line);
             offset = x - x_base;
             for (auto& entry : g_message_storage[text_box][line].entries) {
@@ -1936,7 +1936,7 @@ W8NoticeWord* HitTestNoticeWord(int text_box, unsigned short x, unsigned short y
     return 0;
 }
 
-std::string CopyNoticeWordText(const W8NoticeWord* word, int text_box, int line)
+std::string CopyNoticeWordText(const W8NoticeWord* word, std::int32_t text_box, std::int32_t line)
 {
     return g_message_storage[text_box][line].text.substr(word->start, word->end - word->start + 1);
 }
@@ -1954,14 +1954,14 @@ void PostMonsterNotice(W8MonsterInfo* monster_info, std::string_view text)
    only fills `merged` when the run index range is non-empty, so a failing
    (but returning) srAssertFail left it uninitialized at ShowNoticeLine; the recovery keeps that
    read. */
-void RefreshTextBoxMode(unsigned short mode)
+void RefreshTextBoxMode(std::uint16_t mode)
 {
     std::string merged;
     W8MessageStorageRecord* line;
-    unsigned int last_line;
-    unsigned int group_lines;
-    unsigned int first_line;
-    unsigned int index;
+    std::uint32_t last_line;
+    std::uint32_t group_lines;
+    std::uint32_t first_line;
+    std::uint32_t index;
     size_t length;
 
     if (g_current_screen_state.id != W8_SCREEN_MAIN_GAME &&
@@ -1979,7 +1979,7 @@ void RefreshTextBoxMode(unsigned short mode)
             mode = IsNpcDialogueTextBoxActive() ? 0 : 2;
         }
     }
-    int text_box = static_cast<short>(mode);
+    std::int32_t text_box = static_cast<std::int16_t>(mode);
     if (g_status.text_box_lines_used[text_box] == 0) {
         srAssertFail("gStatus.uiTextBoxLinesUsed[iTextBuffer] > 0", MGS_TEXT_BOX_CPP, 0x109e, 0);
     }
@@ -2008,10 +2008,10 @@ void RefreshTextBoxMode(unsigned short mode)
 }
 
 /* Shared row hover for the NPC and use-item lists in text box two. */
-void HighlightNoticeRow(int line)
+void HighlightNoticeRow(std::int32_t line)
 {
     ClearHoveredTextLine(2);
-    if (line < static_cast<int>(g_status.text_box_lines_shown[2])) {
+    if (line < static_cast<std::int32_t>(g_status.text_box_lines_shown[2])) {
         SetHoveredTextLine(g_level_block->text_lines[2] + line, 2);
     }
     RedrawTextBox();

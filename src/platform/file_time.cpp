@@ -56,9 +56,9 @@ CivilTime file_time_to_utc(DiskFileTime time) noexcept
     const auto era = day_count / days_per_era;
     const auto date = year_month_day{epoch + days{day_count % days_per_era}};
     const auto seconds = (ticks % ticks_per_day) / ticks_per_second;
-    return {int(date.year()) + int(era * 400), unsigned(date.month()), unsigned(date.day()),
-            unsigned(seconds / 3600), unsigned((seconds % 3600) / 60), unsigned(seconds % 60),
-            unsigned(ticks % ticks_per_second),
+    return {std::int32_t(date.year()) + std::int32_t(era * 400), std::uint32_t(date.month()), std::uint32_t(date.day()),
+            std::uint32_t(seconds / 3600), std::uint32_t((seconds % 3600) / 60), std::uint32_t(seconds % 60),
+            std::uint32_t(ticks % ticks_per_second),
             weekday{epoch + days{day_count}}.c_encoding()};
 }
 DiskFileTime file_time_from_utc(const CivilTime& time)
@@ -80,8 +80,8 @@ DiskFileTime file_time_from_utc(const CivilTime& time)
     return DiskFileTime::from_ticks(days * ticks_per_day + remainder);
 }
 SDL_DateTime current_local_time() { return local_now(); }
-int current_utc_offset_seconds() { return local_now().utc_offset; }
-DiskFileTime file_time_with_legacy_local_bias(DiskFileTime utc, int seconds_east) noexcept
+std::int32_t current_utc_offset_seconds() { return local_now().utc_offset; }
+DiskFileTime file_time_with_legacy_local_bias(DiskFileTime utc, std::int32_t seconds_east) noexcept
 {
     const auto shift = std::int64_t(seconds_east) * std::int64_t(ticks_per_second);
     return DiskFileTime::from_ticks(utc.ticks() + std::uint64_t(shift));

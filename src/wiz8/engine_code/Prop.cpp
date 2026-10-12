@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "glm/ext/vector_double3.hpp"
 #include <array>
 #include "surrender/srBoundingBox.h"
@@ -104,9 +105,9 @@ W8PropRepresentation::W8PropRepresentation(const W8PropRepresentation& other)
 // FUNCTION: WIZ8 0x0044ae30
 W8PropRepresentation::~W8PropRepresentation()
 {
-    int index;
+    std::int32_t index;
 
-    for (index = 0; index < static_cast<int>(slots.size()); ++index) {
+    for (index = 0; index < static_cast<std::int32_t>(slots.size()); ++index) {
         delete slots[index];
     }
     slots.clear();
@@ -124,15 +125,15 @@ W8AnimRepBase* W8PropRepresentation::Clone()
 // FUNCTION: WIZ8 0x0044e010
 void UpdateWorldProps(W8World* world)
 {
-    unsigned int count;
-    int index;
+    std::uint32_t count;
+    std::int32_t index;
 
     if (world == 0) {
         srAssertFail("pWorld",
                      "C:\\Projects\\Wizardry 8\\Engine Code\\Prop.cpp", 0x969, 0);
     }
     count = world->plsProps.size();
-    for (index = 0; index < static_cast<int>(count); ++index) {
+    for (index = 0; index < static_cast<std::int32_t>(count); ++index) {
         W8Prop* prop = GetWorldProp(world, index);
         Trigger* trigger;
 
@@ -157,12 +158,12 @@ W8Prop::~W8Prop()
 // FUNCTION: WIZ8 0x0044db60
 W8Prop* FindPropByName(W8World* world, const char* name)
 {
-    int index;
+    std::int32_t index;
 
     if (world != 0 && name != 0) {
-        unsigned int count = world->plsProps.size();
+        std::uint32_t count = world->plsProps.size();
 
-        for (index = 0; index < static_cast<int>(count); ++index) {
+        for (index = 0; index < static_cast<std::int32_t>(count); ++index) {
             W8Prop* prop = GetWorldProp(world, index);
             if (prop->m_name != 0 && _stricmp(prop->m_name, name) == 0) {
                 return prop;
@@ -194,7 +195,7 @@ void W8Prop::SetAnimationSpeed(float speed)
 
 /* Four accessors reaching through the owned member at 0x14. */
 // FUNCTION: WIZ8 0x0044d4f0
-unsigned char W8Prop::GetActivationState()
+std::uint8_t W8Prop::GetActivationState()
 {
     return this->Rep()->active;
 }
@@ -243,7 +244,7 @@ Trigger* W8Prop::GetGDPropOwnerTrigger()
 /* Store activation state, restarting the animation clock whenever the old
    state is inactive. The raw byte is retained by save/load. */
 // FUNCTION: WIZ8 0x0044d4b0
-void W8Prop::SetActivationState(unsigned char value)
+void W8Prop::SetActivationState(std::uint8_t value)
 {
     if (Rep()->active == 0) {
         m_pTimer->Restart();
@@ -262,7 +263,7 @@ std::optional<srVector3T<float>> W8Prop::GetCenterPosition()
 // GLOBAL: WIZ8 0x00659A60
 static Trigger* g_selected_prop_trigger;
 // GLOBAL: WIZ8 0x00607B98
-static int g_selected_prop_index = -1;
+static std::int32_t g_selected_prop_index = -1;
 
 /* Whether the renderer's currently selected model instance is one of the
    instances this prop's animation dispatches.  With a running animation every
@@ -272,17 +273,17 @@ static int g_selected_prop_index = -1;
 bool W8Prop::IsPickedProp(W8World* world)
 {
     srModelInstance* instance;
-    unsigned char frame;
-    unsigned int count;
-    int index;
+    std::uint8_t frame;
+    std::uint32_t count;
+    std::int32_t index;
 
     if (Rep()->active == 0) {
         return false;
     }
     if (AnimationIsRunning(Rep()->animation) == 1) {
         count = AnimObjListCount(Rep()->animation, 2);
-        for (index = 0; index < static_cast<int>(count); ++index) {
-            instance = AnimObjDispatchList(Rep()->animation, 2, static_cast<signed char>(index));
+        for (index = 0; index < static_cast<std::int32_t>(count); ++index) {
+            instance = AnimObjDispatchList(Rep()->animation, 2, static_cast<std::int8_t>(index));
             if (GetPickedModelInstance() == instance) {
                 return true;
             }
@@ -307,8 +308,8 @@ bool ResolvePickedProp(W8World* world)
 {
     srModelInstance* selected;
     srVector3T<float> camera_position;
-    unsigned int prop_count;
-    int prop_index;
+    std::uint32_t prop_count;
+    std::int32_t prop_index;
     bool valid;
 
     g_selected_prop_trigger = 0;
@@ -321,11 +322,11 @@ bool ResolvePickedProp(W8World* world)
     valid = true;
     camera_position = cameraLocation();
     prop_count = world->plsProps.size();
-    for (prop_index = 0; prop_index < static_cast<int>(prop_count); ++prop_index) {
+    for (prop_index = 0; prop_index < static_cast<std::int32_t>(prop_count); ++prop_index) {
         W8Prop* prop;
         W8PropRepresentation* representation;
         srModelInstance* instance;
-        int instance_index;
+        std::int32_t instance_index;
 
         if (!valid) {
             return false;
@@ -341,10 +342,10 @@ bool ResolvePickedProp(W8World* world)
 
         instance = 0;
         if (AnimationIsRunning(representation->animation) == 1) {
-            int count = static_cast<int>(AnimObjListCount(representation->animation, 2));
+            std::int32_t count = static_cast<std::int32_t>(AnimObjListCount(representation->animation, 2));
             for (instance_index = 0; instance_index < count; ++instance_index) {
                 instance = AnimObjDispatchList(representation->animation, 2,
-                                               static_cast<signed char>(instance_index));
+                                               static_cast<std::int8_t>(instance_index));
                 if (GetPickedModelInstance() == instance) {
                     break;
                 }
@@ -390,7 +391,7 @@ bool ResolvePickedProp(W8World* world)
 
 /* Start or stop the prop's own animation, whichever it is not doing. */
 // FUNCTION: WIZ8 0x0044ba00
-srModelInstance* W8PropRepresentation::ToggleAnimation(int argument)
+srModelInstance* W8PropRepresentation::ToggleAnimation(std::int32_t argument)
 {
     if (AnimationIsRunning(animation) == 0) {
         return AnimObjDispatch(animation, 2, argument);
@@ -402,24 +403,24 @@ srModelInstance* W8PropRepresentation::ToggleAnimation(int argument)
    The slot's first byte is the target frame; the current subcycle and that
    frame become the ordered range the animation plays through. */
 // FUNCTION: WIZ8 0x0044ba50
-unsigned char W8PropRepresentation::SelectAnimationSlot(unsigned char tag)
+std::uint8_t W8PropRepresentation::SelectAnimationSlot(std::uint8_t tag)
 {
-    int index;
+    std::int32_t index;
 
-    for (index = 0; index < static_cast<int>(slots.size()); ++index) {
+    for (index = 0; index < static_cast<std::int32_t>(slots.size()); ++index) {
         W8PropAnimationSegment* slot = slots[index];
 
         if (slot->tag == tag) {
-            signed char selected = slot->frame;
+            std::int8_t selected = slot->frame;
 
             if (selected < 0) {
                 return 0;
             }
             first_frame = subcycle;
-            last_frame = static_cast<unsigned char>(selected);
-            if (static_cast<unsigned char>(selected) < subcycle) {
+            last_frame = static_cast<std::uint8_t>(selected);
+            if (static_cast<std::uint8_t>(selected) < subcycle) {
                 last_frame = subcycle;
-                first_frame = static_cast<unsigned char>(selected);
+                first_frame = static_cast<std::uint8_t>(selected);
             }
             if (last_frame > subcycle) {
                 frame_direction = W8_ANIMATION_FORWARD;
@@ -437,11 +438,11 @@ unsigned char W8PropRepresentation::SelectAnimationSlot(unsigned char tag)
    own leading byte rather than used as an index, so the slots need not be in
    tag order. */
 // FUNCTION: WIZ8 0x0044bae0
-int W8PropRepresentation::FindCurrentAnimationSlot()
+std::int32_t W8PropRepresentation::FindCurrentAnimationSlot()
 {
-    int index;
+    std::int32_t index;
 
-    for (index = 0; index < static_cast<int>(slots.size()); ++index) {
+    for (index = 0; index < static_cast<std::int32_t>(slots.size()); ++index) {
         if (slots[index]->frame == first_frame) {
             return index;
         }
@@ -450,13 +451,13 @@ int W8PropRepresentation::FindCurrentAnimationSlot()
 }
 
 // FUNCTION: WIZ8 0x0044bb20
-unsigned char W8PropRepresentation::AdvanceAnimationSegment()
+std::uint8_t W8PropRepresentation::AdvanceAnimationSegment()
 {
-    int count;
-    int index;
-    int segment;
+    std::int32_t count;
+    std::int32_t index;
+    std::int32_t segment;
 
-    count = static_cast<int>(slots.size());
+    count = static_cast<std::int32_t>(slots.size());
     if (count < 3) {
         return 0;
     }
@@ -480,12 +481,12 @@ unsigned char W8PropRepresentation::AdvanceAnimationSegment()
     frame_direction = W8_ANIMATION_FORWARD;
     animation_playing = 1;
     subcycle = first_frame;
-    return static_cast<unsigned char>(segment);
+    return static_cast<std::uint8_t>(segment);
 }
 
 /* The same toggle reached through the prop rather than through the member. */
 // FUNCTION: WIZ8 0x0044d500
-srModelInstance* W8Prop::ToggleRepAnimation(int argument)
+srModelInstance* W8Prop::ToggleRepAnimation(std::int32_t argument)
 {
     W8PropRepresentation* rep = Rep();
 
@@ -501,7 +502,7 @@ srModelInstance* W8Prop::ToggleRepAnimation(int argument)
 srModelInstance* W8Prop::ToggleRepAnimationDefault()
 {
     W8PropRepresentation* rep = Rep();
-    unsigned char argument = rep->subcycle;
+    std::uint8_t argument = rep->subcycle;
 
     if (!AnimationIsRunning(rep->animation)) {
         return AnimObjDispatch(rep->animation, 2, argument);
@@ -529,7 +530,7 @@ void W8Prop::SetAnimationDirection(W8AnimationDirection direction)
 /* Set the live representation state. When requested, choose the direction
    and endpoint of the transition from the current and target animation tags. */
 // FUNCTION: WIZ8 0x0044da80
-void W8Prop::SetRepresentationActive(unsigned char active, bool update_animation)
+void W8Prop::SetRepresentationActive(std::uint8_t active, bool update_animation)
 {
     Rep()->animation_playing = active;
     if (active == 0) {
@@ -566,8 +567,8 @@ void W8Prop::SetRepresentationActive(unsigned char active, bool update_animation
 void W8Prop::UpdatePropAnimation()
 {
     W8PropRepresentation* rep = Rep();
-    unsigned int total;
-    int frames;
+    std::uint32_t total;
+    std::int32_t frames;
 
     if (rep->active == 0 &&
         (rep->animation_behaviour != W8_ANIMATION_PLAY_ONCE || rep->animation_playing == 0) &&
@@ -577,12 +578,12 @@ void W8Prop::UpdatePropAnimation()
     total = AnimObjValue(rep->animation, 2);
     anim_frame_fraction = 0.0f;
     if (rep->pending_subcycle != 0xffff) {
-        if (static_cast<short>(rep->pending_subcycle) < static_cast<int>(total)) {
-            rep->subcycle = static_cast<unsigned char>(rep->pending_subcycle);
+        if (static_cast<std::int16_t>(rep->pending_subcycle) < static_cast<std::int32_t>(total)) {
+            rep->subcycle = static_cast<std::uint8_t>(rep->pending_subcycle);
         }
         rep->pending_subcycle = 0xffff;
     }
-    if (static_cast<int>(total) < 2 || rep->animation_running) {
+    if (static_cast<std::int32_t>(total) < 2 || rep->animation_running) {
         return;
     }
     if (rep->animation_playing == 0 && rep->random_play &&
@@ -608,9 +609,9 @@ void W8Prop::UpdatePropAnimation()
     }
     anim_frame_fraction = m_pTimer->GetProgress();
     BuildOrRefreshPathingRepresentation();
-    frames = static_cast<int>(anim_frame_fraction);
+    frames = static_cast<std::int32_t>(anim_frame_fraction);
     anim_frame_fraction -= frames;
-    rep->frame_steps = static_cast<unsigned char>(frames);
+    rep->frame_steps = static_cast<std::uint8_t>(frames);
     if (frames != 0) {
         W8AnimObj* animation;
 
@@ -639,23 +640,23 @@ void W8Prop::UpdatePropAnimation()
 // FUNCTION: WIZ8 0x0044c200
 void W8Prop::ApplyAnimationPaths(W8World* world)
 {
-    unsigned int count;
-    int index;
+    std::uint32_t count;
+    std::int32_t index;
 
     if (world == 0) {
         srAssertFail("pWorld", PROP_CPP, 0x3db, 0);
     }
     if (AnimationIsRunning(Rep()->animation) == 1) {
         count = AnimObjListCount(Rep()->animation, 2);
-        for (index = 0; index < static_cast<int>(count); ++index) {
+        for (index = 0; index < static_cast<std::int32_t>(count); ++index) {
             stModelInstance* mesh = static_cast<stModelInstance*>(
-                AnimObjDispatchList(Rep()->animation, 2, static_cast<signed char>(index)));
+                AnimObjDispatchList(Rep()->animation, 2, static_cast<std::int8_t>(index)));
             W8PathAI* path;
 
             if (mesh == 0) {
                 srAssertFail("psrMesh", PROP_CPP, 0x3ea, 0);
             }
-            path = AnimObjListEntry(Rep()->animation, 2, static_cast<signed char>(index));
+            path = AnimObjListEntry(Rep()->animation, 2, static_cast<std::int8_t>(index));
             if (path != 0) {
                 srVector3T<float> location;
 
@@ -675,22 +676,22 @@ void W8Prop::ApplyAnimationPaths(W8World* world)
    step larger than the counter range folds through whole trips.  The new
    value is clamped and pushed to every bound path. */
 // FUNCTION: WIZ8 0x0044c310
-void W8Prop::AdvanceAnimationValue(int frames, char total)
+void W8Prop::AdvanceAnimationValue(std::int32_t frames, char total)
 {
     W8PropRepresentation* rep = Rep();
-    unsigned int frame = rep->subcycle;
+    std::uint32_t frame = rep->subcycle;
     char behaviour = rep->frame_method;
-    int end = rep->last_frame;
-    int start = rep->first_frame;
-    unsigned int count;
-    int index;
+    std::int32_t end = rep->last_frame;
+    std::int32_t start = rep->first_frame;
+    std::uint32_t count;
+    std::int32_t index;
 
     if (behaviour == W8_ANIMATION_RANDOM_FRAME) {
-        rep->subcycle = static_cast<unsigned char>(Random(total));
+        rep->subcycle = static_cast<std::uint8_t>(Random(total));
     } else if (rep->animation_behaviour == W8_ANIMATION_PLAY_ONCE) {
         if (rep->frame_direction == W8_ANIMATION_FORWARD) {
-            if (static_cast<int>(frame) + frames < end) {
-                rep->subcycle = static_cast<unsigned char>(frame + frames);
+            if (static_cast<std::int32_t>(frame) + frames < end) {
+                rep->subcycle = static_cast<std::uint8_t>(frame + frames);
             } else {
                 rep->subcycle = rep->last_frame;
                 rep->animation_playing = 0;
@@ -701,8 +702,8 @@ void W8Prop::AdvanceAnimationValue(int frames, char total)
                 gXStatus.sight_refresh_pending = true;
             }
         } else if (rep->frame_direction == W8_ANIMATION_REVERSE) {
-            if (static_cast<int>(frame) - frames > start) {
-                rep->subcycle = static_cast<unsigned char>(frame - frames);
+            if (static_cast<std::int32_t>(frame) - frames > start) {
+                rep->subcycle = static_cast<std::uint8_t>(frame - frames);
             } else {
                 rep->subcycle = rep->first_frame;
                 rep->animation_playing = 0;
@@ -714,65 +715,65 @@ void W8Prop::AdvanceAnimationValue(int frames, char total)
             }
         }
     } else {
-        int range = end - start;
+        std::int32_t range = end - start;
 
         if (frames < range) {
             if (rep->frame_direction == W8_ANIMATION_FORWARD) {
                 frame += frames;
-                if (static_cast<int>(frame) <= end) {
-                    rep->subcycle = static_cast<unsigned char>(frame);
+                if (static_cast<std::int32_t>(frame) <= end) {
+                    rep->subcycle = static_cast<std::uint8_t>(frame);
                 } else if (behaviour == W8_ANIMATION_PING_PONG) {
                     rep->frame_direction = W8_ANIMATION_REVERSE;
-                    rep->subcycle = static_cast<unsigned char>(2 * end - static_cast<int>(frame));
+                    rep->subcycle = static_cast<std::uint8_t>(2 * end - static_cast<std::int32_t>(frame));
                 } else {
-                    rep->subcycle = static_cast<unsigned char>(static_cast<int>(frame) - range - 1);
+                    rep->subcycle = static_cast<std::uint8_t>(static_cast<std::int32_t>(frame) - range - 1);
                 }
             } else if (rep->frame_direction == W8_ANIMATION_REVERSE) {
                 frame -= frames;
-                if (static_cast<int>(frame) >= start) {
-                    rep->subcycle = static_cast<unsigned char>(frame);
+                if (static_cast<std::int32_t>(frame) >= start) {
+                    rep->subcycle = static_cast<std::uint8_t>(frame);
                 } else if (behaviour == W8_ANIMATION_PING_PONG) {
-                    rep->subcycle = static_cast<unsigned char>(2 * start - static_cast<int>(frame));
+                    rep->subcycle = static_cast<std::uint8_t>(2 * start - static_cast<std::int32_t>(frame));
                     rep->frame_direction = W8_ANIMATION_FORWARD;
                 } else {
-                    rep->subcycle = static_cast<unsigned char>(range + static_cast<int>(frame) + 1);
+                    rep->subcycle = static_cast<std::uint8_t>(range + static_cast<std::int32_t>(frame) + 1);
                 }
             }
         } else if (rep->frame_direction == W8_ANIMATION_FORWARD) {
-            int effective = static_cast<int>(frame) - start + frames;
+            std::int32_t effective = static_cast<std::int32_t>(frame) - start + frames;
 
             if (behaviour == W8_ANIMATION_PING_PONG) {
-                int trips = effective / range;
-                int remainder = effective - trips * range;
+                std::int32_t trips = effective / range;
+                std::int32_t remainder = effective - trips * range;
 
                 if (trips % 2 == 0) {
-                    rep->subcycle = static_cast<unsigned char>(start + remainder);
+                    rep->subcycle = static_cast<std::uint8_t>(start + remainder);
                 } else {
                     rep->frame_direction = W8_ANIMATION_REVERSE;
-                    rep->subcycle = static_cast<unsigned char>(end - remainder);
+                    rep->subcycle = static_cast<std::uint8_t>(end - remainder);
                 }
             } else {
-                rep->subcycle = static_cast<unsigned char>(start + effective -
+                rep->subcycle = static_cast<std::uint8_t>(start + effective -
                                                            effective / (range + 1) * (range + 1));
             }
         } else if (rep->frame_direction == W8_ANIMATION_REVERSE) {
-            int effective = 2 * start - static_cast<int>(frame) + frames;
+            std::int32_t effective = 2 * start - static_cast<std::int32_t>(frame) + frames;
 
             if (behaviour == W8_ANIMATION_PING_PONG) {
-                int trips = effective / range;
-                int remainder = effective - trips * range;
+                std::int32_t trips = effective / range;
+                std::int32_t remainder = effective - trips * range;
 
                 if (trips % 2 == 0) {
-                    rep->subcycle = static_cast<unsigned char>(start + remainder);
+                    rep->subcycle = static_cast<std::uint8_t>(start + remainder);
                     rep->frame_direction = W8_ANIMATION_FORWARD;
                 } else {
-                    rep->subcycle = static_cast<unsigned char>(end - remainder);
+                    rep->subcycle = static_cast<std::uint8_t>(end - remainder);
                 }
             } else {
-                int folded = effective - 1;
+                std::int32_t folded = effective - 1;
 
                 rep->subcycle =
-                    static_cast<unsigned char>(end + folded / (range + 1) * (range + 1) - folded);
+                    static_cast<std::uint8_t>(end + folded / (range + 1) * (range + 1) - folded);
             }
         }
     }
@@ -783,8 +784,8 @@ void W8Prop::AdvanceAnimationValue(int frames, char total)
     }
     if (AnimationIsRunning(rep->animation) == 1) {
         count = AnimObjListCount(rep->animation, 2);
-        for (index = 0; index < static_cast<int>(count); ++index) {
-            W8PathAI* path = AnimObjListEntry(rep->animation, 2, static_cast<signed char>(index));
+        for (index = 0; index < static_cast<std::int32_t>(count); ++index) {
+            W8PathAI* path = AnimObjListEntry(rep->animation, 2, static_cast<std::int8_t>(index));
 
             if (path != 0) {
                 PathAISetValue(path, static_cast<float>(rep->subcycle));
@@ -840,7 +841,7 @@ char W8Prop::NextAnimationValue()
 // FUNCTION: WIZ8 0x0044e130
 srVector3T<float> W8Prop::GetDelta()
 {
-    unsigned char next = static_cast<unsigned char>(NextAnimationValue());
+    std::uint8_t next = static_cast<std::uint8_t>(NextAnimationValue());
 
     if (abs(next - Rep()->subcycle) == 1) {
         return animation_position - previous_animation_position;
@@ -852,7 +853,7 @@ srVector3T<float> W8Prop::GetDelta()
    action pointer for non-door actions, then dereferences it when the lock
    state does not short-circuit the test. */
 // FUNCTION: WIZ8 0x0044e0c0
-bool W8Prop::CanBeUsedFrom(int path_x, int path_z, bool notify)
+bool W8Prop::CanBeUsedFrom(std::int32_t path_x, std::int32_t path_z, bool notify)
 {
     Trigger* owner;
     W8TriggerActionData* action;
@@ -874,8 +875,8 @@ bool W8Prop::CanBeUsedFrom(int path_x, int path_z, bool notify)
         static_cast<W8DoorTriggerActionData*>(action)->locked) {
         return false;
     }
-    if (!m_gd_prop->ContainsPathCoordinate(static_cast<unsigned short>(path_x),
-                                           static_cast<unsigned short>(path_z))) {
+    if (!m_gd_prop->ContainsPathCoordinate(static_cast<std::uint16_t>(path_x),
+                                           static_cast<std::uint16_t>(path_z))) {
         return false;
     }
     if (notify) {
@@ -890,12 +891,12 @@ bool W8Prop::CanBeUsedFrom(int path_x, int path_z, bool notify)
 // FUNCTION: WIZ8 0x0044c670
 void W8Prop::ApplyAnimationFrame()
 {
-    unsigned int count;
-    int index;
+    std::uint32_t count;
+    std::int32_t index;
 
     if (AnimationIsRunning(static_cast<W8PropRepresentation*>(m_pRep)->animation) != 1) {
         W8PropRepresentation* rep = static_cast<W8PropRepresentation*>(m_pRep);
-        unsigned char frame = rep->subcycle;
+        std::uint8_t frame = rep->subcycle;
         srModelInstance* mesh;
         W8PathAI* path;
 
@@ -917,17 +918,17 @@ void W8Prop::ApplyAnimationFrame()
     }
 
     count = AnimObjListCount(static_cast<W8PropRepresentation*>(m_pRep)->animation, 2);
-    for (index = 0; index < static_cast<int>(count); ++index) {
+    for (index = 0; index < static_cast<std::int32_t>(count); ++index) {
         srModelInstance* mesh =
             AnimObjDispatchList(static_cast<W8PropRepresentation*>(m_pRep)->animation, 2,
-                                static_cast<signed char>(index));
+                                static_cast<std::int8_t>(index));
         W8PathAI* path;
 
         if (mesh == 0) {
             srAssertFail("psrMesh", PROP_CPP, 0x56f, 0);
         }
         path = AnimObjListEntry(static_cast<W8PropRepresentation*>(m_pRep)->animation, 2,
-                                static_cast<signed char>(index));
+                                static_cast<std::int8_t>(index));
         if (path != 0) {
             srVector3T<float> location;
 
@@ -953,10 +954,10 @@ void W8Prop::ApplyAnimationFrame()
 // FUNCTION: WIZ8 0x0044c830
 void W8Prop::AttachAnimationInstances(W8World* world)
 {
-    int index;
-    int count;
+    std::int32_t index;
+    std::int32_t count;
     bool has_scales;
-    unsigned char next_frame;
+    std::uint8_t next_frame;
     stModelInstance* instance;
     stMeshModel* mesh;
     W8PathAI* path;
@@ -983,10 +984,10 @@ void W8Prop::AttachAnimationInstances(W8World* world)
     }
     if (AnimationIsRunning(Rep()->animation) == 1) {
         has_scales = false;
-        count = static_cast<int>(AnimObjListCount(Rep()->animation, 2));
+        count = static_cast<std::int32_t>(AnimObjListCount(Rep()->animation, 2));
         for (index = 0; index < count; ++index) {
             instance = static_cast<stModelInstance*>(
-                AnimObjDispatchList(Rep()->animation, 2, static_cast<signed char>(index)));
+                AnimObjDispatchList(Rep()->animation, 2, static_cast<std::int8_t>(index)));
             if (instance == 0) {
                 srAssertFail("psrMesh", PROP_CPP, 0x5b4, 0);
             }
@@ -1002,11 +1003,11 @@ void W8Prop::AttachAnimationInstances(W8World* world)
             if (mesh != 0 && (mesh->flags & W8_MESH_SORTED_RENDERING) != 0 && trigger == 0) {
                 instance->render_flags |= stModelInstance::RENDER_NO_PICK;
             }
-            path = AnimObjListEntry(Rep()->animation, 2, static_cast<signed char>(index));
+            path = AnimObjListEntry(Rep()->animation, 2, static_cast<std::int8_t>(index));
             if (path == 0) {
                 continue;
             }
-            next_frame = static_cast<unsigned char>(NextAnimationValue());
+            next_frame = static_cast<std::uint8_t>(NextAnimationValue());
             if (next_frame > Rep()->last_frame) {
                 anim_frame_fraction = 0.0f;
             }
@@ -1115,8 +1116,8 @@ void W8Prop::AttachAnimationInstances(W8World* world)
 void W8Prop::DetachAnimationInstances(W8World* world)
 {
     stModelInstance* instance;
-    unsigned int count;
-    int index;
+    std::uint32_t count;
+    std::int32_t index;
 
     if (world == 0) {
         srAssertFail("pWorld", PROP_CPP, 0x66b, 0);
@@ -1124,9 +1125,9 @@ void W8Prop::DetachAnimationInstances(W8World* world)
     Rep()->saved_subcycle = Rep()->subcycle;
     if (AnimationIsRunning(Rep()->animation) == 1) {
         count = AnimObjListCount(Rep()->animation, 2);
-        for (index = 0; index < static_cast<int>(count); ++index) {
+        for (index = 0; index < static_cast<std::int32_t>(count); ++index) {
             instance = static_cast<stModelInstance*>(
-                AnimObjDispatchList(Rep()->animation, 2, static_cast<signed char>(index)));
+                AnimObjDispatchList(Rep()->animation, 2, static_cast<std::int8_t>(index)));
             if (instance == 0) {
                 srAssertFail("psrMesh", PROP_CPP, 0x678, 0);
             }
@@ -1134,7 +1135,7 @@ void W8Prop::DetachAnimationInstances(W8World* world)
             instance->setParent(0, 1);
         }
     } else {
-        unsigned char frame = Rep()->subcycle;
+        std::uint8_t frame = Rep()->subcycle;
 
         if (AnimationIsRunning(Rep()->animation) == 0) {
             instance = static_cast<stModelInstance*>(AnimObjDispatch(Rep()->animation, 2, frame));
@@ -1159,10 +1160,10 @@ void W8Prop::DetachAnimationInstances(W8World* world)
 bool W8Prop::LoadAnimationState(wiz8::File& hFile)
 try
 {
-    unsigned char unused;
-    unsigned int count;
-    int index;
-    int total;
+    std::uint8_t unused;
+    std::uint32_t count;
+    std::int32_t index;
+    std::int32_t total;
     bool success;
     W8PathAI* path;
 
@@ -1173,20 +1174,20 @@ try
               (hFile.read(&Rep()->animation_playing, 1).bytes == static_cast<std::size_t>(1)) != 0 &&
               (hFile.read(&unused, 1).bytes == static_cast<std::size_t>(1)) != 0;
     if (Rep()->animation != 0) {
-        total = static_cast<int>(AnimObjValue(Rep()->animation, 2));
+        total = static_cast<std::int32_t>(AnimObjValue(Rep()->animation, 2));
         if (Rep()->last_frame >= total) {
-            Rep()->last_frame = static_cast<unsigned char>(total - 1);
+            Rep()->last_frame = static_cast<std::uint8_t>(total - 1);
         }
         if (Rep()->first_frame >= total) {
-            Rep()->first_frame = static_cast<unsigned char>(total - 1);
+            Rep()->first_frame = static_cast<std::uint8_t>(total - 1);
         }
         if (Rep()->subcycle >= total) {
-            Rep()->subcycle = static_cast<unsigned char>(total - 1);
+            Rep()->subcycle = static_cast<std::uint8_t>(total - 1);
         }
         if (AnimationIsRunning(Rep()->animation) == 1) {
             count = AnimObjListCount(Rep()->animation, 2);
-            for (index = 0; index < static_cast<int>(count); ++index) {
-                path = AnimObjListEntry(Rep()->animation, 2, static_cast<signed char>(index));
+            for (index = 0; index < static_cast<std::int32_t>(count); ++index) {
+                path = AnimObjListEntry(Rep()->animation, 2, static_cast<std::int8_t>(index));
                 if (path != 0) {
                     PathAISetValue(path, static_cast<float>(Rep()->subcycle));
                 }
@@ -1210,7 +1211,7 @@ std::optional<srBoundingBox> W8Prop::GetBounds()
     if (!bounds)
         return std::nullopt;
     const auto total = AnimObjValue(animation, 2);
-    for (unsigned int frame = 1; frame < total; ++frame) {
+    for (std::uint32_t frame = 1; frame < total; ++frame) {
         const auto frame_bounds = AnimObjGetBounds(animation, 2, frame);
         if (!frame_bounds)
             return std::nullopt;
@@ -1223,7 +1224,7 @@ std::optional<srBoundingBox> W8Prop::GetBounds()
    requires a transitive animation with one mesh, then either constructs the
    owned GDProp or reinitializes it for the current animation frame. */
 // FUNCTION: WIZ8 0x0044dea0
-int W8Prop::BuildOrRefreshPathingRepresentation()
+std::int32_t W8Prop::BuildOrRefreshPathingRepresentation()
 {
     srModelInstance* instance;
 
@@ -1242,11 +1243,11 @@ int W8Prop::BuildOrRefreshPathingRepresentation()
     }
 
     if (m_gd_prop == 0) {
-        m_gd_prop = new GDProp(instance, m_name, static_cast<unsigned short>(Rep()->subcycle),
+        m_gd_prop = new GDProp(instance, m_name, static_cast<std::uint16_t>(Rep()->subcycle),
                                Rep()->footstep_surface, Rep()->footstep_material);
     } else {
         if ((flags & W8_PROP_ANIMATION_GEOMETRY_DIRTY) != 0) {
-            m_gd_prop->Initialize(instance, true, static_cast<unsigned short>(Rep()->subcycle),
+            m_gd_prop->Initialize(instance, true, static_cast<std::uint16_t>(Rep()->subcycle),
                                   Rep()->footstep_surface, Rep()->footstep_material);
         } else {
             m_gd_prop->Initialize(instance, false, 0, Rep()->footstep_surface,
@@ -1351,15 +1352,15 @@ try
 {
     wiz8::File* hFile;
     bool success;
-    signed char version;
-    unsigned char frame_count = 0;
-    unsigned char option_byte = 0;
-    unsigned char attach_flag = 0;
+    std::int8_t version;
+    std::uint8_t frame_count = 0;
+    std::uint8_t option_byte = 0;
+    std::uint8_t attach_flag = 0;
     float playback_scale = 0.0f;
-    unsigned int flag_bits = 0;
+    std::uint32_t flag_bits = 0;
     W8AnimObj* animation = 0;
     bool result = false;
-    w8_long fail_line;
+    std::int32_t fail_line;
 
     if (info == 0 || info->hFile == 0 || prop == 0) {
         srAssertFail("pInfo && pInfo->hFile && pProp", PROP_CPP, 0xae, 0);
@@ -1367,10 +1368,10 @@ try
     hFile = info->hFile;
     success = (hFile->read(&version, 1).bytes == static_cast<std::size_t>(1));
     if (version < 4) {
-        unsigned char b0 = 0;
-        unsigned char b1 = 0;
-        unsigned char b2 = 0;
-        int ok;
+        std::uint8_t b0 = 0;
+        std::uint8_t b1 = 0;
+        std::uint8_t b2 = 0;
+        std::int32_t ok;
         W8AniMesh* mesh;
 
         if (!success || (success = (hFile->read(&b0, 1).bytes == static_cast<std::size_t>(1)), !success) ||
@@ -1419,10 +1420,10 @@ try
         animation->playback_scale = playback_scale;
         this->animation = animation;
     } else {
-        unsigned int entry_index;
-        unsigned int list_count;
-        signed char slot_count;
-        int slot_i;
+        std::uint32_t entry_index;
+        std::uint32_t list_count;
+        std::int8_t slot_count;
+        std::int32_t slot_i;
 
         flag_bits = 0;
         info->mesh_filename = 0;
@@ -1454,7 +1455,7 @@ try
         }
         if (version > 6) {
             char* buffer = new char[0x40];
-            int length = -1;
+            std::int32_t length = -1;
             char* scan = buffer;
 
             hFile->read_exact(buffer, 0x40);
@@ -1477,14 +1478,14 @@ try
             slot_count = 0;
             hFile->read_exact(&slot_count, 1);
             for (slot_i = 0; slot_i < slot_count; ++slot_i) {
-                unsigned short frame_tmp = 0;
-                unsigned short tag_tmp = 0;
+                std::uint16_t frame_tmp = 0;
+                std::uint16_t tag_tmp = 0;
                 W8PropAnimationSegment* slot = new W8PropAnimationSegment;
 
                 hFile->read_exact(&frame_tmp, 2);
-                slot->frame = static_cast<signed char>(frame_tmp);
+                slot->frame = static_cast<std::int8_t>(frame_tmp);
                 hFile->read_exact(&tag_tmp, 2);
-                slot->tag = static_cast<unsigned char>(tag_tmp);
+                slot->tag = static_cast<std::uint8_t>(tag_tmp);
                 if (frame_count <= frame_tmp) {
                     srAssertFail(
                         "(usTemp < (UINT16)ubNumFrames)", /* c-style-cast-ok: verbatim assert text
@@ -1492,8 +1493,8 @@ try
                         PROP_CPP, 0x11f,
                         fmt::format(
                             "{} Prop Error:Segment {:d} frame number is out of range ({:d})",
-                            prop->m_name, static_cast<unsigned int>(tag_tmp),
-                            static_cast<unsigned int>(frame_tmp)));
+                            prop->m_name, static_cast<std::uint32_t>(tag_tmp),
+                            static_cast<std::uint32_t>(frame_tmp)));
                 }
                 this->slots.push_back(slot);
             }
@@ -1514,7 +1515,7 @@ try
 
             if (AnimationIsRunning(this->animation) == 0) {
                 instance =
-                    AnimObjDispatch(this->animation, 2, static_cast<unsigned char>(entry_index));
+                    AnimObjDispatch(this->animation, 2, static_cast<std::uint8_t>(entry_index));
             } else {
                 instance = AnimObjDispatchList(this->animation, 2, 0);
             }
@@ -1541,7 +1542,7 @@ try
         }
         list_count = AnimObjListCount(animation, 2);
         for (entry_index = 0; entry_index < list_count; ++entry_index) {
-            W8PathAI* path = AnimObjListEntry(animation, 2, static_cast<signed char>(entry_index));
+            W8PathAI* path = AnimObjListEntry(animation, 2, static_cast<std::int8_t>(entry_index));
             if (path != 0) {
                 path->looping = true;
                 path->discrete_mode = true;
@@ -1567,9 +1568,9 @@ try
 
     if (animation->path_lists == 0) {
         W8AniMesh* mesh = AnimObjEntry(animation, 2, 0);
-        unsigned char value_count = AniMeshValue(mesh);
+        std::uint8_t value_count = AniMeshValue(mesh);
         stModelInstance* frame = GetAniMeshFrame(mesh, 0);
-        unsigned int frame_i;
+        std::uint32_t frame_i;
 
         if (frame == 0) {
             srAssertFail("psrMesh", PROP_CPP, 0x182, 0);
@@ -1607,15 +1608,15 @@ try
                 InitializeStateDrivenPropVariables(trigger);
             }
             if (trigger->trigger_kind == 1 && trigger->initial_action == 8) {
-                unsigned int path_count;
-                unsigned int path_i;
+                std::uint32_t path_count;
+                std::uint32_t path_i;
 
                 this->animation_running = true;
                 if (AnimationIsRunning(this->animation) == 1) {
                     path_count = AnimObjListCount(this->animation, 2);
                     for (path_i = 0; path_i < path_count; ++path_i) {
                         W8PathAI* path =
-                            AnimObjListEntry(this->animation, 2, static_cast<signed char>(path_i));
+                            AnimObjListEntry(this->animation, 2, static_cast<std::int8_t>(path_i));
                         path->step_by_node = 1;
                     }
                 }
@@ -1637,7 +1638,7 @@ try
     }
 
     if (version >= 9) {
-        unsigned char extra = 0;
+        std::uint8_t extra = 0;
 
         if (result) {
             success = (hFile->read(&extra, 1).bytes == static_cast<std::size_t>(1));
@@ -1656,8 +1657,8 @@ try
     this->first_frame = 0;
     this->subcycle = 0;
     {
-        unsigned int frames = AnimObjValue(animation, 2);
-        this->last_frame = static_cast<unsigned char>(frames) - 1;
+        std::uint32_t frames = AnimObjValue(animation, 2);
+        this->last_frame = static_cast<std::uint8_t>(frames) - 1;
     }
     return result;
 
@@ -1675,11 +1676,11 @@ fail_with_result:
 /* The prop representation's current animation value, or -1 while it owns no
    animation. */
 // FUNCTION: WIZ8 0x0044ebe0
-int W8Prop::GetAnimationState() const
+std::int32_t W8Prop::GetAnimationState() const
 {
     W8AnimObj* animation = Rep()->animation;
     if (animation != 0) {
-        return static_cast<int>(AnimObjValue(animation, 2));
+        return static_cast<std::int32_t>(AnimObjValue(animation, 2));
     }
     return -1;
 }
@@ -1695,29 +1696,29 @@ void W8Prop::CollectModelInstances(std::vector<stModelInstance*>& instances)
         return;
     }
     if (!AnimationIsRunning(animation)) {
-        for (int group = 0; group < 3; ++group) {
+        for (std::int32_t group = 0; group < 3; ++group) {
             W8AniMesh* mesh = animation->entries[group].get();
             if (mesh == 0) {
                 continue;
             }
-            int frame_count = AniMeshValue(mesh);
+            std::int32_t frame_count = AniMeshValue(mesh);
             if (mesh->flags.single_instance) {
                 instances.push_back(GetAniMeshFrame(mesh, 0));
             } else {
-                for (int frame = 0; frame < frame_count; ++frame) {
+                for (std::int32_t frame = 0; frame < frame_count; ++frame) {
                     instances.push_back(GetAniMeshFrame(mesh, frame));
                 }
             }
         }
     } else if (AnimationIsRunning(animation) == 1) {
-        for (int group = 0; group < 3; ++group) {
+        for (std::int32_t group = 0; group < 3; ++group) {
             for (const auto& owned_mesh : animation->meshes[group]) {
                 auto* mesh = owned_mesh.get();
                 if (mesh == 0) {
                     continue;
                 }
-                int frame_count = AniMeshValue(mesh);
-                for (int frame = 0; frame < frame_count; ++frame) {
+                std::int32_t frame_count = AniMeshValue(mesh);
+                for (std::int32_t frame = 0; frame < frame_count; ++frame) {
                     instances.push_back(GetAniMeshFrame(mesh, frame));
                 }
             }
@@ -1733,10 +1734,10 @@ void W8Prop::CollectModelInstances(std::vector<stModelInstance*>& instances)
 // FUNCTION: WIZ8 0x0044e830
 void SaveWorldProps(W8World* world, wiz8::File& handle)
 {
-    int index;
-    int count;
-    unsigned int signature;
-    unsigned int version;
+    std::int32_t index;
+    std::int32_t count;
+    std::uint32_t signature;
+    std::uint32_t version;
     char name[0x40];
     W8Prop* prop;
 
@@ -1744,7 +1745,7 @@ void SaveWorldProps(W8World* world, wiz8::File& handle)
     version = 1;
     handle.write(&signature, 4);
     handle.write(&version, 4);
-    count = static_cast<int>(world->plsProps.size());
+    count = static_cast<std::int32_t>(world->plsProps.size());
     handle.write(&count, 4);
     for (index = 0; index < count; ++index) {
         prop = GetWorldProp(world, index);
@@ -1767,12 +1768,12 @@ void SaveWorldProps(W8World* world, wiz8::File& handle)
 // FUNCTION: WIZ8 0x0044e9a0
 void LoadWorldProps(W8World* world, wiz8::File& handle)
 {
-    int index;
-    int count;
-    int entries;
-    int key;
-    unsigned int signature;
-    unsigned int version;
+    std::int32_t index;
+    std::int32_t count;
+    std::int32_t entries;
+    std::int32_t key;
+    std::uint32_t signature;
+    std::uint32_t version;
     char name[0x40];
     W8Prop* prop;
     W8Prop* entry;
@@ -1783,8 +1784,8 @@ void LoadWorldProps(W8World* world, wiz8::File& handle)
         for (index = 0; index < count; ++index) {
             handle.read_exact(&key, 4);
             prop = 0;
-            entries = static_cast<int>(world->plsProps.size());
-            for (int entry_index = 0; entry_index < entries; ++entry_index) {
+            entries = static_cast<std::int32_t>(world->plsProps.size());
+            for (std::int32_t entry_index = 0; entry_index < entries; ++entry_index) {
                 entry = GetWorldProp(world, entry_index);
                 if (entry->id == key) {
                     prop = entry;
@@ -1819,7 +1820,7 @@ void LoadWorldProps(W8World* world, wiz8::File& handle)
 /* The renderer owns the selected model instance. Without one, retail also
    resets the cached prop index to -1 before returning it. */
 // FUNCTION: WIZ8 0x0044DA60
-int GetSelectedPropIndex(void)
+std::int32_t GetSelectedPropIndex(void)
 {
     if (GetPickedModelInstance() == 0) {
         return g_selected_prop_index = -1;

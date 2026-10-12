@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <memory>
 #include <vector>
 
@@ -23,7 +24,7 @@ public:
     stTexture2D();
     virtual ~stTexture2D() override;
     stTexture2D& operator=(const stTexture2D&) = default;
-    virtual w8_ulong getTextureFrameHandle() override;
+    virtual std::uint32_t getTextureFrameHandle() override;
     virtual void getMipmapData(const MultiRequest& request) override;
     virtual void getMipmapLevelPartial(PartialRequest& request) override;
     virtual void invalidate() override;
@@ -32,11 +33,11 @@ protected:
     virtual void setupDefaultValues() override;
 
 public:
-    int left;                     /* 0x54 */
-    int top;                      /* 0x58 */
-    int right;                    /* 0x5c */
-    int bottom;                   /* 0x60 */
-    w8_ulong frame_handle;   /* 0x64 */
+    std::int32_t left;                     /* 0x54 */
+    std::int32_t top;                      /* 0x58 */
+    std::int32_t right;                    /* 0x5c */
+    std::int32_t bottom;                   /* 0x60 */
+    std::uint32_t frame_handle;   /* 0x64 */
     std::shared_ptr<srColorSurfaceIFace> surface; /* 0x68 */
 };
 
@@ -51,7 +52,7 @@ public:
         return "stSurface2D";
     }
 
-    stSurface2D(std::shared_ptr<srColorSurfaceIFace> surface, int width, int height, srNode* parent, int tile_size);
+    stSurface2D(std::shared_ptr<srColorSurfaceIFace> surface, std::int32_t width, std::int32_t height, srNode* parent, std::int32_t tile_size);
 
     virtual void traverse(TraverseInfo& info) override;
     virtual void process(const ProcessInfo& info, e_processType type) override;
@@ -61,25 +62,25 @@ public:
     void setScale(float scale); /* 0x0047E560 */
     /* The ortho tile render pass; process() forwards the renderer to it. */
     void DrawTiles(srGERD* renderer); /* 0x0047E100 */
-    void enableTextureUpdateFlags(unsigned int flag);
+    void enableTextureUpdateFlags(std::uint32_t flag);
     void setAlphaTestEnabled(bool enabled);
     void invalidateTiles();
-    void updateRectangle(srGERD* renderer, void* pixels, w8_long pitch, int left, int top, int right,
-                         int bottom);
+    void updateRectangle(srGERD* renderer, void* pixels, std::int32_t pitch, std::int32_t left, std::int32_t top, std::int32_t right,
+                         std::int32_t bottom);
 
-    int vertex_array_mask;               /* 0x13c */
-    unsigned int shader_bits;            /* 0x140 */
-    int tile_size;                       /* 0x144 */
-    int columns;                         /* 0x148 */
-    int rows;                            /* 0x14c */
-    int width;                           /* 0x154 */
-    int height;                          /* 0x158 */
+    std::int32_t vertex_array_mask;               /* 0x13c */
+    std::uint32_t shader_bits;            /* 0x140 */
+    std::int32_t tile_size;                       /* 0x144 */
+    std::int32_t columns;                         /* 0x148 */
+    std::int32_t rows;                            /* 0x14c */
+    std::int32_t width;                           /* 0x154 */
+    std::int32_t height;                          /* 0x158 */
     std::vector<std::unique_ptr<stTexture2D>> tiles;
     float tile_u;                        /* 0x160 */
     float tile_v;                        /* 0x164 */
-    int field_168;
+    std::int32_t field_168;
     float field_16c;
     float texture_coordinates[4][2]; /* 0x170: u, v per corner */
     float scale;                     /* 0x190 */
-    int texture_update_flags;
+    std::int32_t texture_update_flags;
 };

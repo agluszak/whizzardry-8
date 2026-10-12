@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <memory>
@@ -34,12 +35,12 @@ static W8NpcDialog* g_npc_dialog;
 
 
 // FUNCTION: WIZ8 0x005DA6B0
-W8NpcDialog::W8NpcDialog(W8NpcQuoteEntry* message, int aux_data)
+W8NpcDialog::W8NpcDialog(W8NpcQuoteEntry* message, std::int32_t aux_data)
 {
-    short height = 0x46;
-    short max_width = -1;
-    short width = 0;
-    int index;
+    std::int16_t height = 0x46;
+    std::int16_t max_width = -1;
+    std::int16_t width = 0;
+    std::int32_t index;
     std::string line;
 
     SetBackground("Data\\Dialogs\\DialogBackground.sti", 0);
@@ -57,7 +58,7 @@ W8NpcDialog::W8NpcDialog(W8NpcQuoteEntry* message, int aux_data)
         }
         for (index = 0; index < message->sub_entry_count; ++index) {
             line = message->sub_entries[index].text;
-            short length = g_wiz_text_mono_font.textWidth(line);
+            std::int16_t length = g_wiz_text_mono_font.textWidth(line);
             if (max_width < length) {
                 max_width = length;
             }
@@ -66,7 +67,7 @@ W8NpcDialog::W8NpcDialog(W8NpcQuoteEntry* message, int aux_data)
         width = (m_text_width + 0xa) * message->sub_entry_count + 0x1e;
     } else if (opcode == W8_NPC_ENTRY_PRICE_CHECK || opcode == W8_NPC_ENTRY_ALWAYS_PRICE_CHECK) {
         m_compact_options = false;
-        short length = g_wiz_text_mono_font.textWidth(g_localized_strings[0x7df]);
+        std::int16_t length = g_wiz_text_mono_font.textWidth(g_localized_strings[0x7df]);
         height = 0x50;
         m_text_width = length + 6;
         width = m_text_width * 2 + 0x32;
@@ -91,23 +92,23 @@ W8NpcDialog::~W8NpcDialog()
 }
 
 // FUNCTION: WIZ8 0x005DA8B0
-int W8NpcDialog::CreateControls()
+std::int32_t W8NpcDialog::CreateControls()
 {
-    int index;
+    std::int32_t index;
     std::string line;
     W8ControlsRect bounds;
 
     W8DialogBase::CreateControls();
     if (m_message->kind == W8_NPC_ENTRY_OPTIONS) {
-        int x =
-            (m_width - static_cast<short>((m_text_width + 10) * m_message->sub_entry_count - 10)) /
+        std::int32_t x =
+            (m_width - static_cast<std::int16_t>((m_text_width + 10) * m_message->sub_entry_count - 10)) /
             2;
         for (index = 0; index < m_message->sub_entry_count; ++index) {
             line = m_message->sub_entries[index].text;
             m_buttons[index] = std::make_unique<W8ButtonWidget>();
             m_buttons[index]->ConfigureTextButton(
-                line, g_wiz_text_mono_font, 4, 5, static_cast<short>(m_x + x),
-                static_cast<short>(m_y + 0x23), m_text_width, 0x14, OptionSelected, index);
+                line, g_wiz_text_mono_font, 4, 5, static_cast<std::int16_t>(m_x + x),
+                static_cast<std::int16_t>(m_y + 0x23), m_text_width, 0x14, OptionSelected, index);
             x += m_text_width + 10;
         }
         bounds.left = m_x + 10;
@@ -119,15 +120,15 @@ int W8NpcDialog::CreateControls()
                              g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
     } else if (m_message->kind == W8_NPC_ENTRY_PRICE_CHECK ||
                m_message->kind == W8_NPC_ENTRY_ALWAYS_PRICE_CHECK) {
-        short x = static_cast<short>((m_width - static_cast<short>((m_text_width + 5) * 2)) / 2);
+        std::int16_t x = static_cast<std::int16_t>((m_width - static_cast<std::int16_t>((m_text_width + 5) * 2)) / 2);
         m_buttons[0] = std::make_unique<W8ButtonWidget>();
         m_buttons[0]->ConfigureTextButton(
-            g_localized_strings[0x7df], g_wiz_text_mono_font, 4, 5, static_cast<short>(m_x + x),
-            static_cast<short>(m_y + 0x1e), m_text_width, 0x14, OptionSelected, 0);
+            g_localized_strings[0x7df], g_wiz_text_mono_font, 4, 5, static_cast<std::int16_t>(m_x + x),
+            static_cast<std::int16_t>(m_y + 0x1e), m_text_width, 0x14, OptionSelected, 0);
         m_buttons[1] = std::make_unique<W8ButtonWidget>();
         m_buttons[1]->ConfigureTextButton(g_localized_strings[0x7e0], g_wiz_text_mono_font, 4, 5,
-                                          static_cast<short>(m_x + x + m_text_width + 10),
-                                          static_cast<short>(m_y + 0x1e), m_text_width, 0x14,
+                                          static_cast<std::int16_t>(m_x + x + m_text_width + 10),
+                                          static_cast<std::int16_t>(m_y + 0x1e), m_text_width, 0x14,
                                           OptionSelected, 1);
         line = fmt::sprintf(g_localized_strings[0x7e5], g_npc_dialogue.price_check()->price);
         bounds.left = m_x + 10;
@@ -164,7 +165,7 @@ int W8NpcDialog::CreateControls()
 // FUNCTION: WIZ8 0x005DAE00
 void W8NpcDialog::Draw()
 {
-    int index;
+    std::int32_t index;
     if ((m_dirty_flags & W8_DIALOG_DIRTY_REDRAW) != 0) {
         if (!m_initialized) {
             CreateControls();
@@ -220,7 +221,7 @@ bool W8NpcDialog::ProcessInput()
 // FUNCTION: WIZ8 0x005DB150
 void W8NpcDialog::OptionSelected(W8ButtonWidget* button)
 {
-    g_npc_dialog->m_selected_option = static_cast<unsigned char>(button->GetUserData());
+    g_npc_dialog->m_selected_option = static_cast<std::uint8_t>(button->GetUserData());
     g_npc_dialog->m_keep_open = false;
 }
 

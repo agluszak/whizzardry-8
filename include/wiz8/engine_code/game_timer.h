@@ -1,20 +1,21 @@
 #pragma once
 
+#include <cstdint>
 #include "wiz8/layouts/game_status.h"
 #include "surrender/srClock.h"
 #include "compat/compiler.h"
 
 namespace wiz8 { class File; }
 
-extern int g_shared_timer_pause_base;
-extern int g_shared_timer_pause_time;
+extern std::int32_t g_shared_timer_pause_base;
+extern std::int32_t g_shared_timer_pause_time;
 extern bool g_shared_timer_paused;
 extern bool g_shared_timer_flag0;
 extern bool g_level_motion_resume_pending;
 extern srClock* g_shared_timer_base;
 
 /* The shared game timer counts in 1/10000-second units. */
-inline constexpr w8_ulong W8_SHARED_TIMER_TICKS_PER_SECOND = 10000;
+inline constexpr std::uint32_t W8_SHARED_TIMER_TICKS_PER_SECOND = 10000;
 
 void PauseSharedGameTimers(void);
 void ResumeSharedGameTimers(void);
@@ -28,17 +29,17 @@ public:
     struct Flags {
         bool raw_time : 1;
         bool one_shot : 1;
-        unsigned char reserved_low : 1;
+        std::uint8_t reserved_low : 1;
         bool paused : 1;
         bool slow_scale : 1;
-        unsigned char reserved_high : 3;
-        unsigned char reserved_byte;
+        std::uint8_t reserved_high : 3;
+        std::uint8_t reserved_byte;
     };
 
     W8GameTimer();
     W8GameTimer(float duration, bool raw_time);
     virtual ~W8GameTimer();
-    int ReadClock() const
+    std::int32_t ReadClock() const
     {
         switch (m_clock_mode) {
         case W8_TIMER_CLOCK_GAME:
@@ -55,7 +56,7 @@ public:
         }
         return m_shared->ticks(W8_SHARED_TIMER_TICKS_PER_SECOND);
     }
-    int GetTime();
+    std::int32_t GetTime();
     void SetMode(W8TimerClock mode);
     void SetDuration(float duration);
     void Restart();
@@ -69,9 +70,9 @@ public:
     W8TimerClock m_clock_mode; /* 0x04: 1 reads the game clock */
     Flags m_flags;             /* 0x08: runtime clock state; save/load uses progress and scale */
     srClock* m_shared;         /* 0x0c */
-    int m_start;               /* 0x10 */
-    int m_end;                 /* 0x14: start + duration */
-    int m_duration;            /* 0x18: 10000 */
+    std::int32_t m_start;               /* 0x10 */
+    std::int32_t m_end;                 /* 0x14: start + duration */
+    std::int32_t m_duration;            /* 0x18: 10000 */
     float m_duration_seconds;  /* 0x1c */
     float m_duration_scale;    /* 0x20 */
 };

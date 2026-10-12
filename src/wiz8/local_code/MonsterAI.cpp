@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <fmt/format.h>
 #include <vector>
 #include <cmath>
@@ -68,22 +69,22 @@ static bool g_out_of_combat_rtai_enabled = true;
 /* The frame counter the staggered group update rotates through the group
    list, one fifth per frame with a full-distance pass every twentieth. */
 // GLOBAL: WIZ8 0x0068D520
-static unsigned int g_monster_group_tick = 0;
+static std::uint32_t g_monster_group_tick = 0;
 
-static W8MonsterInfo* GetGroupMemberInfo(W8MonsterGroup* group, unsigned int index);
+static W8MonsterInfo* GetGroupMemberInfo(W8MonsterGroup* group, std::uint32_t index);
 static void QueueMonsterAction(W8MonsterInfo* monster_info, W8MonsterActionKind action_kind,
-                               int action_detail, int attack_index, W8TargetKind target_kind,
-                               int target_value);
+                               std::int32_t action_detail, std::int32_t attack_index, W8TargetKind target_kind,
+                               std::int32_t target_value);
 
 /* 125000, the cap on how far a monster will walk to investigate a heard
    noise. */
 // GLOBAL: WIZ8 0x00617AE8
-int g_noise_investigate_radius_cap = 125000;
+std::int32_t g_noise_investigate_radius_cap = 125000;
 
 /* Two dwords per special-attack kind; only the leading dword is
    read here. */
 // GLOBAL: WIZ8 0x0061EEFC
-int g_special_attack_table[32][2] = {
+std::int32_t g_special_attack_table[32][2] = {
     {0, 0}, {1, 0}, {1, 0}, {2, 3}, {4, 0}, {1, 1}, {1, 1}, {1, 0}, {5, 4}, {5, 0}, {1, 5},
     {1, 1}, {1, 0}, {1, 0}, {1, 0}, {1, 0}, {1, 0}, {1, 0}, {1, 0}, {1, 1}, {1, 5}, {1, 0},
     {1, 1}, {1, 0}, {6, 0}, {6, 0}, {6, 0}, {6, 0}, {6, 0}, {6, 0}, {5, 0}, {6, 0},
@@ -94,7 +95,7 @@ int g_special_attack_table[32][2] = {
    monster side indexes effect_slots, the party side the matching rows
    in g_status. */
 // GLOBAL: WIZ8 0x00616D84
-int g_being_effect_slot_spells[12] = {
+std::int32_t g_being_effect_slot_spells[12] = {
     W8_SPELL_ARMORPLATE, W8_SPELL_CHAMELEON,    W8_SPELL_DETECT_SECRETS, W8_SPELL_ENCHANTED_BLADE,
     W8_SPELL_LIGHT,      W8_SPELL_MAGIC_SCREEN, W8_SPELL_MISSILE_SHIELD, W8_SPELL_SHADOW_HOUND,
     W8_SPELL_X_RAY,      W8_SPELL_NONE,         W8_SPELL_NONE,           W8_SPELL_NONE,
@@ -103,7 +104,7 @@ int g_being_effect_slot_spells[12] = {
 /* The combat-state spell per effect slot, walked against
    W8CombatState::effect_slots and the monster's combat_effects. */
 // GLOBAL: WIZ8 0x00616DB4
-int g_combat_effect_slot_spells[9] = {
+std::int32_t g_combat_effect_slot_spells[9] = {
     W8_SPELL_ARMORMELT, W8_SPELL_ACID_BOMB,   W8_SPELL_TOXIC_CLOUD,
     W8_SPELL_FIRESTORM, W8_SPELL_DEATH_CLOUD, W8_SPELL_DRAINING_CLOUD,
     W8_SPELL_NONE,      W8_SPELL_NONE,        W8_SPELL_NONE,
@@ -115,7 +116,7 @@ int g_combat_effect_slot_spells[9] = {
    0x00616DF0 — is the spell-point budget/failure percentage indexed by cost
    band that Magic.cpp's failure and power-level readers consume. */
 // GLOBAL: WIZ8 0x00616DD8
-int g_combat_effect_slot_spells_and_cast_success[23] = {
+std::int32_t g_combat_effect_slot_spells_and_cast_success[23] = {
     W8_SPELL_BLESS,
     W8_SPELL_ELEMENT_SHIELD,
     W8_SPELL_SOUL_SHIELD,
@@ -143,7 +144,7 @@ int g_combat_effect_slot_spells_and_cast_success[23] = {
 
 /* The per-slot weights ChooseMonsterSpell rolls against. */
 // GLOBAL: WIZ8 0x0061CC14
-static int g_spell_cast_weights[10] = {5, 5, 5, 10, 10, 10, 10, 15, 15, 15};
+static std::int32_t g_spell_cast_weights[10] = {5, 5, 5, 10, 10, 10, 10, 15, 15, 15};
 
 /* 1500.0, the "close enough" distance for patrol points and heard
    noises. */
@@ -200,7 +201,7 @@ void UpdateMonsterGroups(bool staggered)
     W8MonsterInfo* monster_info;
     srVector3T<float> camera_position;
     float nearest_distance;
-    unsigned int group_list_index;
+    std::uint32_t group_list_index;
 
     if (!AnyCharacterActive()) {
         return;
@@ -279,7 +280,7 @@ W8SightState GetMonsterGroupPartySightState(W8MonsterGroup* monster_group)
 {
     W8MonsterInfo* monster_info;
     W8MonsterRecord* record;
-    unsigned int index;
+    std::uint32_t index;
     W8SightState result;
 
     result = W8_SIGHT_UNSEEN;
@@ -292,7 +293,7 @@ W8SightState GetMonsterGroupPartySightState(W8MonsterGroup* monster_group)
         return W8_SIGHT_UNSEEN;
     }
     for (index = 0; index < monster_group->MemberIds().size(); ++index) {
-        int location_id;
+        std::int32_t location_id;
 
         location_id = monster_group->MemberLocationId(index);
         monster_info = FindMonster(location_id);
@@ -320,7 +321,7 @@ W8SightState GetMonsterGroupPartySightState(W8MonsterGroup* monster_group)
 void DoMonsterRTAI(W8MonsterInfo* monster_info, bool engage)
 {
     bool update;
-    unsigned char decision;
+    std::uint8_t decision;
 
     update = false;
     decision = W8_RT_AI_IDLE;
@@ -328,8 +329,8 @@ void DoMonsterRTAI(W8MonsterInfo* monster_info, bool engage)
         W8MonsterRecord* record;
         W8MonsterGroup* monster_group;
         W8Navigator* navigator;
-        unsigned char best_range;
-        unsigned int attack;
+        std::uint8_t best_range;
+        std::uint32_t attack;
 
         if (monster_info->fInCombat) {
             return;
@@ -391,7 +392,7 @@ void DoMonsterRTAI(W8MonsterInfo* monster_info, bool engage)
                     }
                     break;
                 case W8_DISPOSITION_HOSTILE:
-                    decision = static_cast<unsigned char>(
+                    decision = static_cast<std::uint8_t>(
                                    monster_info->hp_current * 100 / monster_info->uiHPMax <= 0x14) +
                                1;
                     if (monster_info->p3D->movement_stopped) {
@@ -414,7 +415,7 @@ void DoMonsterRTAI(W8MonsterInfo* monster_info, bool engage)
         }
     }
     if ((monster_info->ai_mode & W8_MONSTER_AI_REAPPLY_MODE) != 0) {
-        unsigned char mode;
+        std::uint8_t mode;
 
         mode = monster_info->ai_mode & W8_MONSTER_AI_MODE_MASK;
         if (mode != W8_RT_AI_PATROL_AREA &&
@@ -445,7 +446,7 @@ void DoMonsterRTAI(W8MonsterInfo* monster_info, bool engage)
    point is reached, a fresh look-around delay just counts down, and a heard
    noise is investigated while the path to it still looks cheap enough. */
 // FUNCTION: WIZ8 0x005308C0
-bool ChooseMonsterRTAIMode(W8MonsterInfo* monster_info, unsigned char* decision)
+bool ChooseMonsterRTAIMode(W8MonsterInfo* monster_info, std::uint8_t* decision)
 {
     W8Monster* monster;
     bool changed;
@@ -519,8 +520,8 @@ bool ChooseMonsterRTAIMode(W8MonsterInfo* monster_info, unsigned char* decision)
                 srVector3T<float> noise_position;
                 srVector3T<float> position;
                 float range;
-                int radius;
-                int hops;
+                std::int32_t radius;
+                std::int32_t hops;
 
                 noise_position = monster_info->heard_noise_position;
                 radius = monster_info->heard_noise_radius * 3 / 2;
@@ -531,7 +532,7 @@ bool ChooseMonsterRTAIMode(W8MonsterInfo* monster_info, unsigned char* decision)
                 position = monster->GetPosition();
                 if (g_octree->TestNoiseLineOfSight(&position, &noise_position, &range, &hops) !=
                         0 &&
-                    NoiseHearingMargin(monster_info->heard_noise_radius, static_cast<int>(range),
+                    NoiseHearingMargin(monster_info->heard_noise_radius, static_cast<std::int32_t>(range),
                                        hops) > 0) {
                     mode = W8_RT_AI_INVESTIGATE_NOISE;
                     changed = true;
@@ -576,8 +577,8 @@ bool ChooseMonsterRTAIMode(W8MonsterInfo* monster_info, unsigned char* decision)
             case W8_MONSTER_ORDER_RANDOM_POINT_PATROL: {
                 srVector3T<float> delta;
                 srVector3T<float> patrol;
-                int count;
-                int next;
+                std::int32_t count;
+                std::int32_t next;
 
                 mode = W8_RT_AI_MOVE_TO_PATROL_POINT;
                 monster->GetPatrolPoint(&patrol);
@@ -585,11 +586,11 @@ bool ChooseMonsterRTAIMode(W8MonsterInfo* monster_info, unsigned char* decision)
                 if (delta.Length() >= g_double_fifteen_hundred) {
                     break;
                 }
-                count = static_cast<int>(monster->vector.size());
+                count = static_cast<std::int32_t>(monster->vector.size());
                 if (monster->order_mode == W8_MONSTER_ORDER_POINT_PATROL) {
                     next = monster->patrol_index + 1;
                     if (next < count) {
-                        monster->patrol_index = static_cast<signed char>(next);
+                        monster->patrol_index = static_cast<std::int8_t>(next);
                     } else {
                         monster->patrol_index = 0;
                     }
@@ -598,11 +599,11 @@ bool ChooseMonsterRTAIMode(W8MonsterInfo* monster_info, unsigned char* decision)
                 } else if ((monster_info->ai_mode & W8_MONSTER_AI_MODE_MASK) ==
                            W8_RT_AI_MOVE_TO_PATROL_POINT) {
                     do {
-                        next = static_cast<signed char>(Random(count));
+                        next = static_cast<std::int8_t>(Random(count));
                     } while (next == monster->patrol_index);
-                    monster->patrol_index = static_cast<signed char>(next);
+                    monster->patrol_index = static_cast<std::int8_t>(next);
                 } else {
-                    monster->patrol_index = static_cast<signed char>(Random(count));
+                    monster->patrol_index = static_cast<std::int8_t>(Random(count));
                 }
                 changed = true;
                 break;
@@ -619,7 +620,7 @@ bool ChooseMonsterRTAIMode(W8MonsterInfo* monster_info, unsigned char* decision)
     if (mode != static_cast<char>(monster_info->ai_mode)) {
         changed = true;
     }
-    *decision = static_cast<unsigned char>(mode);
+    *decision = static_cast<std::uint8_t>(mode);
     return changed;
 }
 
@@ -651,7 +652,7 @@ static void HandleMonsterPatrolFailure(W8MonsterInfo* monster_info)
    is folded back to zero so ai_mode records what actually happened. Bit 0x80
    of the decision rides in alongside the mode and only case 6 consumes it. */
 // FUNCTION: WIZ8 0x00530f10
-void ApplyMonsterRTAIDecision(W8MonsterInfo* monster_info, unsigned char decision)
+void ApplyMonsterRTAIDecision(W8MonsterInfo* monster_info, std::uint8_t decision)
 {
     W8Monster* monster = monster_info->p3D;
     W8MonsterGroup* monster_group;
@@ -661,9 +662,9 @@ void ApplyMonsterRTAIDecision(W8MonsterInfo* monster_info, unsigned char decisio
     W8SpellVisual* visual;
     srVector3T<float> position;
     srVector3T<float> patrol_point;
-    unsigned char best_range;
-    unsigned int attack;
-    unsigned int index;
+    std::uint8_t best_range;
+    std::uint32_t attack;
+    std::uint32_t index;
 
     switch (decision & W8_MONSTER_AI_MODE_MASK) {
     case W8_RT_AI_CHARGE_PARTY:
@@ -786,7 +787,7 @@ void DestroyMonsterActionQueue(W8MonsterInfo* monster_info)
 // FUNCTION: WIZ8 0x005314f0
 void UpdateAllMonsterAI(void)
 {
-    unsigned int index;
+    std::uint32_t index;
     W8MonsterInfo* monster_info;
 
     for (index = 0; index < gXStatus.monsters.size(); ++index) {
@@ -816,9 +817,9 @@ void UpdateMonsterAI(W8MonsterInfo* monster_info)
 {
     W8MonsterRecord* record;
     W8RangeCategory range_category;
-    unsigned int chance;
-    unsigned char rating;
-    unsigned int spell;
+    std::uint32_t chance;
+    std::uint8_t rating;
+    std::uint32_t spell;
     W8CombatSlot chosen;
     float hp_ratio;
     bool backs_off;
@@ -948,11 +949,11 @@ bool MonsterGroupCanEngage(W8MonsterGroup* monster_group)
     W8MonsterInfo* member;
     W8MonsterInfo* leader;
     W8MonsterRecord* record;
-    unsigned int index;
-    unsigned int spell;
+    std::uint32_t index;
+    std::uint32_t spell;
     float distance;
     bool waypoint_checked = false;
-    unsigned char waypoint_result = 0;
+    std::uint8_t waypoint_result = 0;
     srVector3T<float> source;
     srVector3T<float> destination;
 
@@ -1028,10 +1029,10 @@ members:
    record without an explicit advance chance advances unless its behavior byte
    says otherwise. */
 // FUNCTION: WIZ8 0x00531c00
-unsigned int MonsterAdvanceChance(W8MonsterInfo* monster_info, W8MonsterRecord* record)
+std::uint32_t MonsterAdvanceChance(W8MonsterInfo* monster_info, W8MonsterRecord* record)
 {
-    unsigned int hp_percent;
-    unsigned int result = 0;
+    std::uint32_t hp_percent;
+    std::uint32_t result = 0;
     W8CombatSlot chosen;
     float distance;
 
@@ -1074,19 +1075,19 @@ void BuildMonsterActionQueue(W8MonsterInfo* monster_info, bool target_locked, bo
 {
     W8MonsterInfo* other;
     W8MonsterRecord* record;
-    unsigned int index;
-    unsigned int attack;
-    unsigned int mode_bit;
-    unsigned int char_lo;
-    unsigned int char_hi;
-    unsigned int monster_lo;
-    unsigned int monster_hi;
-    unsigned int attack_lo;
-    unsigned int attack_hi;
+    std::uint32_t index;
+    std::uint32_t attack;
+    std::uint32_t mode_bit;
+    std::uint32_t char_lo;
+    std::uint32_t char_hi;
+    std::uint32_t monster_lo;
+    std::uint32_t monster_hi;
+    std::uint32_t attack_lo;
+    std::uint32_t attack_hi;
     bool scan_chars = false;
     bool scan_monsters = false;
-    unsigned char avoided[8] = {0};
-    unsigned char resisted[8] = {0};
+    std::uint8_t avoided[8] = {0};
+    std::uint8_t resisted[8] = {0};
     bool friendly_targets;
     W8Disposition disposition_needed;
 
@@ -1233,8 +1234,8 @@ targets_chosen:
    break so two equal decisions do not always resolve the same way. */
 // FUNCTION: WIZ8 0x00532360
 static void QueueMonsterAction(W8MonsterInfo* monster_info, W8MonsterActionKind action_kind,
-                               int action_detail, int attack_index, W8TargetKind target_kind,
-                               int target_value)
+                               std::int32_t action_detail, std::int32_t attack_index, W8TargetKind target_kind,
+                               std::int32_t target_value)
 {
     auto& entry = monster_info->pCombat->actions->emplace_back();
     entry.action_kind = action_kind;
@@ -1249,7 +1250,7 @@ static void QueueMonsterAction(W8MonsterInfo* monster_info, W8MonsterActionKind 
     } else if (target_kind == W8_TARGET_KIND_MONSTER) {
         entry.target.iMonsterID = target_value;
     }
-    entry.tie_break = static_cast<unsigned char>(Random(100)) + 1;
+    entry.tie_break = static_cast<std::uint8_t>(Random(100)) + 1;
 }
 
 /* Build the monster's list of possible actions and take one of them at
@@ -1294,7 +1295,7 @@ bool ChooseRandomMonsterAction(W8MonsterInfo* monster_info, bool target_locked, 
    and fire spells under camera sway pass, and `needs_target` also demands a
    target to aim at. */
 // FUNCTION: WIZ8 0x00532550
-bool IsSpellUsableByMonster(W8MonsterInfo* monster_info, int spell_id, bool needs_target)
+bool IsSpellUsableByMonster(W8MonsterInfo* monster_info, std::int32_t spell_id, bool needs_target)
 {
     if (spell_id == W8_SPELL_NONE) {
         return false;
@@ -1327,7 +1328,7 @@ bool IsSpellUsableByMonster(W8MonsterInfo* monster_info, int spell_id, bool need
 /* Pick where the spell lands: collect every slot the spell may be cast at
    and take one at random into the monster's stored target. */
 // FUNCTION: WIZ8 0x005326F0
-bool AimMonsterAtSpellTarget(W8MonsterInfo* monster_info, int spell_id)
+bool AimMonsterAtSpellTarget(W8MonsterInfo* monster_info, std::int32_t spell_id)
 {
     std::vector<W8CombatSlot> targets;
 
@@ -1335,7 +1336,7 @@ bool AimMonsterAtSpellTarget(W8MonsterInfo* monster_info, int spell_id)
     if (targets.empty()) {
         return false;
     }
-    monster_info->Target = targets[Random(static_cast<int>(targets.size()))];
+    monster_info->Target = targets[Random(static_cast<std::int32_t>(targets.size()))];
     return true;
 }
 
@@ -1345,21 +1346,21 @@ bool AimMonsterAtSpellTarget(W8MonsterInfo* monster_info, int spell_id)
    and accepted when at least half of them take the spell. The per-spell
    switch then vetoes targets the spell would not help or cannot affect. */
 // FUNCTION: WIZ8 0x005327E0
-bool MonsterSpellTargetOK(W8MonsterInfo* monster_info, int spell_id, W8CombatSlot* combat_slot)
+bool MonsterSpellTargetOK(W8MonsterInfo* monster_info, std::int32_t spell_id, W8CombatSlot* combat_slot)
 {
     W8MonsterInfo* target = 0;
     W8Character* character = 0;
     W8MonsterRecord* record = 0;
-    int hp = 0;
-    int hp_max = 0;
-    int stat = 0;
-    int stat_max = 0;
+    std::int32_t hp = 0;
+    std::int32_t hp_max = 0;
+    std::int32_t stat = 0;
+    std::int32_t stat_max = 0;
     w8_unaligned_uint* condition_turns = 0;
     W8Enchantment* enchantments = 0;
     /* 0x00532EE3 and 0x00532F38 test the marker count signed and 0x00532F89
        compares the index signed. */
-    int index;
-    unsigned int duration;
+    std::int32_t index;
+    std::uint32_t duration;
 
     if (GetSpellTargetType(spell_id, false) == W8_TARGET_TYPE_POINT) {
         return true;
@@ -1374,20 +1375,20 @@ bool MonsterSpellTargetOK(W8MonsterInfo* monster_info, int spell_id, W8CombatSlo
         enchantments = character->enchantments;
     } else {
         if (combat_slot->iType != W8_TARGET_KIND_MONSTER) {
-            std::vector<int> monster_markers;
-            std::vector<int> party_markers;
+            std::vector<std::int32_t> monster_markers;
+            std::vector<std::int32_t> party_markers;
             W8TargetSource source;
             W8CombatSlot probe;
-            unsigned int valid = 0;
-            int total = 0;
-            unsigned int power_level;
+            std::uint32_t valid = 0;
+            std::int32_t total = 0;
+            std::uint32_t power_level;
 
             SetTargetSourceToMonster(monster_info, &source);
             power_level = ChooseMonsterSpellPowerLevel(
                 monster_info, GetMonsterDataForInfo(monster_info), spell_id);
             PopulateSpellTargetMarkers(spell_id, power_level, &source, combat_slot,
                                        monster_markers, party_markers, 0);
-            for (index = 0; index < static_cast<int>(party_markers.size()); ++index) {
+            for (index = 0; index < static_cast<std::int32_t>(party_markers.size()); ++index) {
                 ++total;
                 ResetCombatSlot(&probe);
                 probe.iType = W8_TARGET_KIND_CHARACTER;
@@ -1396,7 +1397,7 @@ bool MonsterSpellTargetOK(W8MonsterInfo* monster_info, int spell_id, W8CombatSlo
                     ++valid;
                 }
             }
-            for (index = 0; index < static_cast<int>(monster_markers.size()); ++index) {
+            for (index = 0; index < static_cast<std::int32_t>(monster_markers.size()); ++index) {
                 ++total;
                 ResetCombatSlot(&probe);
                 probe.iType = W8_TARGET_KIND_MONSTER;
@@ -1773,16 +1774,16 @@ bool MonsterSpellTargetOK(W8MonsterInfo* monster_info, int spell_id, W8CombatSlo
    a true return vetoes the cast, since the AI does not turn neutrals hostile
    by accident. */
 // FUNCTION: WIZ8 0x005330E0
-bool SpellAreaHitsNeutralMonster(W8MonsterInfo* monster_info, int spell_id,
+bool SpellAreaHitsNeutralMonster(W8MonsterInfo* monster_info, std::int32_t spell_id,
                                  W8CombatSlot* combat_slot)
 {
-    std::vector<int> monster_markers;
-    std::vector<int> party_markers;
+    std::vector<std::int32_t> monster_markers;
+    std::vector<std::int32_t> party_markers;
     W8TargetSource source;
     /* 0x005331B5 tests the marker count signed. */
-    int index;
+    std::int32_t index;
     W8MonsterInfo* target;
-    unsigned int power_level;
+    std::uint32_t power_level;
 
     if (!MonsterCanAimSpell(spell_id)) {
         return false;
@@ -1792,7 +1793,7 @@ bool SpellAreaHitsNeutralMonster(W8MonsterInfo* monster_info, int spell_id,
         ChooseMonsterSpellPowerLevel(monster_info, GetMonsterDataForInfo(monster_info), spell_id);
     PopulateSpellTargetMarkers(spell_id, power_level, &source, combat_slot, monster_markers,
                                party_markers, 0);
-    for (index = 0; index < static_cast<int>(monster_markers.size()); ++index) {
+    for (index = 0; index < static_cast<std::int32_t>(monster_markers.size()); ++index) {
         target = FindMonster(monster_markers[index]);
         if (target->ubDisposition == W8_DISPOSITION_NEUTRAL) {
             return true;
@@ -1805,18 +1806,18 @@ bool SpellAreaHitsNeutralMonster(W8MonsterInfo* monster_info, int spell_id,
    its weight from the fixed table, then a roll under the total walks them
    down. The assertion names the original local, uiCastableSpellCnt. */
 // FUNCTION: WIZ8 0x00533260
-int ChooseMonsterSpell(W8MonsterInfo* monster_info, W8MonsterRecord* record)
+std::int32_t ChooseMonsterSpell(W8MonsterInfo* monster_info, W8MonsterRecord* record)
 {
-    int weights[10] = {0};
-    int spell_ids[10];
-    unsigned int count = 0;
-    int total = 0;
-    int slot;
-    int roll;
-    unsigned int index;
+    std::int32_t weights[10] = {0};
+    std::int32_t spell_ids[10];
+    std::uint32_t count = 0;
+    std::int32_t total = 0;
+    std::int32_t slot;
+    std::int32_t roll;
+    std::uint32_t index;
 
     for (slot = 0; slot < 10; ++slot) {
-        int spell_id = record->spells[slot];
+        std::int32_t spell_id = record->spells[slot];
         if (IsSpellUsableByMonster(monster_info, spell_id, true)) {
             weights[count] = g_spell_cast_weights[slot];
             spell_ids[count] = spell_id;
@@ -1841,18 +1842,18 @@ int ChooseMonsterSpell(W8MonsterInfo* monster_info, W8MonsterRecord* record)
    the reachability helpers run and are restored afterwards; spell 0x77 asks
    for a place to flee to, everything else is a cast. */
 // FUNCTION: WIZ8 0x00533320
-void CollectMonsterSpellTargets(W8MonsterInfo* monster_info, int spell_id,
+void CollectMonsterSpellTargets(W8MonsterInfo* monster_info, std::int32_t spell_id,
                                 std::vector<W8CombatSlot>& targets)
 {
     W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
-    int saved_detail = monster_info->action_detail;
+    std::int32_t saved_detail = monster_info->action_detail;
     W8MonsterActionKind saved_kind = monster_info->action_kind;
-    int sight_kind;
+    std::int32_t sight_kind;
     W8SpellTargetType target_type;
     W8CombatSlot slot;
     W8MonsterGroup* monster_group;
     W8MonsterInfo* member;
-    unsigned int index;
+    std::uint32_t index;
 
     if (spell_id == W8_SPELL_SPECIAL_ATTACK_CONE) {
         sight_kind = 3;
@@ -2024,7 +2025,7 @@ void CollectMonsterSpellTargets(W8MonsterInfo* monster_info, int spell_id,
    types aim at the world; anything else either needs no aim at all or has to
    pass the slot check. */
 // FUNCTION: WIZ8 0x00534290
-bool CanMonsterAimSpell(W8MonsterInfo* monster_info, int spell_id)
+bool CanMonsterAimSpell(W8MonsterInfo* monster_info, std::int32_t spell_id)
 {
     W8SpellTargetType target_type = GetSpellTargetType(spell_id, false);
 
@@ -2050,11 +2051,11 @@ void CheckMonsterGroupsLeaveCombat(void)
     W8MonsterInfo* member;
     W8MonsterInfo* leader;
     W8MonsterInfo* other;
-    unsigned int group_index;
-    unsigned int index;
-    unsigned int member_index;
-    int engaged = 0;
-    int sight;
+    std::uint32_t group_index;
+    std::uint32_t index;
+    std::uint32_t member_index;
+    std::int32_t engaged = 0;
+    std::int32_t sight;
     float nearest;
     float reach;
     float minimum;
@@ -2133,7 +2134,7 @@ void CheckMonsterGroupsLeaveCombat(void)
 // FUNCTION: WIZ8 0x00534690
 bool MonsterHasNoVisibleEnemy(W8MonsterInfo* monster_info, bool party_only)
 {
-    unsigned int index;
+    std::uint32_t index;
     W8MonsterInfo* other;
     W8VisibilityRecord* record;
 
@@ -2169,7 +2170,7 @@ bool MonsterHasNoVisibleEnemy(W8MonsterInfo* monster_info, bool party_only)
 bool MonsterGroupHasVisibleTarget(W8MonsterGroup* monster_group, bool party_only,
                                   W8VisibleTargetFilter hostility, bool within_reach)
 {
-    unsigned int index;
+    std::uint32_t index;
     W8MonsterInfo* member;
 
     if (monster_group == 0) {
@@ -2195,8 +2196,8 @@ bool MonsterHasVisibleTarget(W8MonsterInfo* monster_info, bool party_only,
                              W8VisibleTargetFilter hostility, bool within_reach)
 {
     float reach;
-    int sight;
-    unsigned int index;
+    std::int32_t sight;
+    std::uint32_t index;
     W8MonsterInfo* other;
     W8VisibilityRecord* record;
     W8Disposition disposition;
@@ -2277,8 +2278,8 @@ bool CanMonsterFlee(W8MonsterInfo* monster_info, W8MonsterRecord* record, bool e
     if (gXStatus.fCombatMode && monster_info->pCombat->special_cooldown != 0) {
         return false;
     }
-    if (static_cast<unsigned int>(monster_info->stamina) <
-        static_cast<unsigned int>(monster_info->stamina_max) / 10) {
+    if (static_cast<std::uint32_t>(monster_info->stamina) <
+        static_cast<std::uint32_t>(monster_info->stamina_max) / 10) {
         return false;
     }
     if (monster_info->uiCondition[W8_CONDITION_SILENCED] != 0 &&
@@ -2328,7 +2329,7 @@ bool AimFleeingMonster(W8MonsterInfo* monster_info, const W8MonsterRecord* recor
 // FUNCTION: WIZ8 0x00535150
 bool IsMonsterActionUsable(W8MonsterInfo* monster_info)
 {
-    int spell_id;
+    std::int32_t spell_id;
 
     switch (monster_info->action_kind) {
     case W8_MONSTER_ACTION_ATTACK:
@@ -2367,8 +2368,8 @@ bool IsMonsterActionUsable(W8MonsterInfo* monster_info)
 // FUNCTION: WIZ8 0x005324b0
 float GetGroupNearestDistance(W8MonsterGroup* group)
 {
-    unsigned int index;
-    int location_id;
+    std::uint32_t index;
+    std::int32_t location_id;
     W8MonsterInfo* monster_info;
     float furthest = 999999.0f;
     float distance;
@@ -2395,12 +2396,12 @@ float GetGroupNearestDistance(W8MonsterGroup* group)
    nothing to be in range of; failing the test falls back on where the party
    is standing. */
 // FUNCTION: WIZ8 0x00534d50
-short IsMonsterControlPointInRange(W8MonsterInfo* monster_info)
+std::int16_t IsMonsterControlPointInRange(W8MonsterInfo* monster_info)
 {
     W8SpellEffectEntry* effect = FindMonsterControlSpellEffect();
     W8SpellVisual* visual;
     W8Navigator* anchor_navigator;
-    short in_range;
+    std::int16_t in_range;
     srVector3T<float> party;
 
     if (effect == 0) {
@@ -2423,12 +2424,12 @@ short IsMonsterControlPointInRange(W8MonsterInfo* monster_info)
    hostile to accept the spell; the probe is the same MonsterSpellTargetOK
    the cast itself would face. */
 // FUNCTION: WIZ8 0x00534DD0
-bool MonsterGroupHalfSpellTargetsValid(W8MonsterInfo* monster_info, int spell_id,
+bool MonsterGroupHalfSpellTargetsValid(W8MonsterInfo* monster_info, std::int32_t spell_id,
                                        W8MonsterGroup* target_group)
 {
-    unsigned int valid = 0;
-    int eligible = 0;
-    unsigned int index;
+    std::uint32_t valid = 0;
+    std::int32_t eligible = 0;
+    std::uint32_t index;
     W8MonsterInfo* member;
     W8CombatSlot slot;
 
@@ -2436,7 +2437,7 @@ bool MonsterGroupHalfSpellTargetsValid(W8MonsterInfo* monster_info, int spell_id
         srAssertFail("pTargetMonsterGroup", MONSTER_AI_CPP, 0xdc4, 0);
     }
     for (index = 0; index < target_group->MemberIds().size(); ++index) {
-        int location_id = target_group->MemberLocationId(index);
+        std::int32_t location_id = target_group->MemberLocationId(index);
         member = FindMonster(location_id);
         if (member->fActive && member->hp_current != 0 &&
             member->highest_condition < W8_CONDITION_DEAD && member->fInCombat &&
@@ -2456,11 +2457,11 @@ bool MonsterGroupHalfSpellTargetsValid(W8MonsterInfo* monster_info, int spell_id
 /* Whether at least half of the party members the caster is hostile to accept
    the spell. */
 // FUNCTION: WIZ8 0x00534EF0
-bool PartyHalfSpellTargetsValid(W8MonsterInfo* monster_info, int spell_id)
+bool PartyHalfSpellTargetsValid(W8MonsterInfo* monster_info, std::int32_t spell_id)
 {
-    unsigned int valid = 0;
-    int eligible = 0;
-    unsigned int index;
+    std::uint32_t valid = 0;
+    std::int32_t eligible = 0;
+    std::uint32_t index;
     W8CombatSlot slot;
 
     for (index = 0; index < W8_PARTY_SLOT_COUNT; ++index) {
@@ -2486,8 +2487,8 @@ bool PartyHalfSpellTargetsValid(W8MonsterInfo* monster_info, int spell_id)
 // FUNCTION: WIZ8 0x00534FC0
 bool MonsterGroupHasReinforcement(W8MonsterGroup* monster_group)
 {
-    unsigned int index;
-    unsigned int other_index;
+    std::uint32_t index;
+    std::uint32_t other_index;
     W8MonsterInfo* member;
     W8MonsterInfo* other;
     float member_distance;
@@ -2529,7 +2530,7 @@ bool MonsterGroupHasReinforcement(W8MonsterGroup* monster_group)
 /* Member info by group list position: entry id at the index, resolved through
    the location index to the script part. Assert lines 3199/3204 pin it late
    in the original file. */
-static W8MonsterInfo* GetGroupMemberInfo(W8MonsterGroup* group, unsigned int index)
+static W8MonsterInfo* GetGroupMemberInfo(W8MonsterGroup* group, std::uint32_t index)
 {
     if (group == 0) {
         srAssertFail("pMonsterGroup", MONSTER_AI_CPP, 3199, 0);
@@ -2547,10 +2548,10 @@ void UpdateMonsterGroupEngagement(void)
     W8MonsterGroup* group;
     W8MonsterGroup* allied;
     W8MonsterInfo* member;
-    unsigned int group_index;
-    unsigned int index;
-    int allied_index;
-    int member_starting;
+    std::uint32_t group_index;
+    std::uint32_t index;
+    std::int32_t allied_index;
+    std::int32_t member_starting;
 
     if (g_combat_state->combat_update_count <= 2) {
         return;
@@ -2565,7 +2566,7 @@ void UpdateMonsterGroupEngagement(void)
         for (index = 0; index < group->MemberIds().size(); ++index) {
             member = FindMonster(group->MemberLocationId(index));
             if (member->fActive && member->fInCombat &&
-                static_cast<unsigned int>(member->pCombat->settle_ticks) < 3) {
+                static_cast<std::uint32_t>(member->pCombat->settle_ticks) < 3) {
                 member_starting = 1;
                 break;
             }
@@ -2576,7 +2577,7 @@ void UpdateMonsterGroupEngagement(void)
                 for (index = 0; index < allied->MemberIds().size(); ++index) {
                     member = FindMonster(allied->MemberLocationId(index));
                     if (member->fActive && member->fInCombat &&
-                        static_cast<unsigned int>(member->pCombat->settle_ticks) < 3) {
+                        static_cast<std::uint32_t>(member->pCombat->settle_ticks) < 3) {
                         member_starting = 1;
                         break;
                     }
@@ -2591,12 +2592,12 @@ void UpdateMonsterGroupEngagement(void)
 /* Whether the spell's markers catch at least one party member when cast at
    `slot`. */
 // FUNCTION: WIZ8 0x005353E0
-bool MonsterSpellHasPartyTarget(W8MonsterInfo* monster_info, int spell_id, W8CombatSlot* slot)
+bool MonsterSpellHasPartyTarget(W8MonsterInfo* monster_info, std::int32_t spell_id, W8CombatSlot* slot)
 {
-    std::vector<int> monster_markers;
-    std::vector<int> party_markers;
+    std::vector<std::int32_t> monster_markers;
+    std::vector<std::int32_t> party_markers;
     W8TargetSource source;
-    unsigned int power_level;
+    std::uint32_t power_level;
 
     SetTargetSourceToMonster(monster_info, &source);
     power_level =
@@ -2615,7 +2616,7 @@ void CheckMonsterGroupsEnterCombat(void)
 {
     W8MonsterGroup* group;
     W8MonsterRecord* record;
-    unsigned int index;
+    std::uint32_t index;
 
     RefreshAllSight();
     for (index = 0; index < gXStatus.monster_groups.size(); ++index) {
@@ -2650,8 +2651,8 @@ bool ShouldMonsterGroupEnterCombat(W8MonsterGroup* monster_group)
 {
     W8MonsterInfo* leader;
     W8MonsterInfo* member;
-    unsigned int index;
-    int sight;
+    std::uint32_t index;
+    std::int32_t sight;
     float reach;
     float minimum;
     float path_distance;

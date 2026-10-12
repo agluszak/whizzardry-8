@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include "wiz8/engine_code/GrCycle.h"
 #include "wiz8/engine_code/SpellEmitterHost.h"
 
@@ -42,28 +43,28 @@ public:
     virtual ~W8SpellVisual() override;
 
     virtual void UpdateRepresentation(W8World* world) override;
-    virtual signed char GetNumSubCycles() override;
-    virtual bool IsCycleSupported(signed char cycle) override;
-    virtual signed char GetTotalAnimationCount() override;
+    virtual std::int8_t GetNumSubCycles() override;
+    virtual bool IsCycleSupported(std::int8_t cycle) override;
+    virtual std::int8_t GetTotalAnimationCount() override;
     virtual float GetCurrentAnimationScale() override;
     virtual W8EmitterHost* GetRepresentation() override;
-    virtual void SetCycle(signed char cycle) override;
+    virtual void SetCycle(std::int8_t cycle) override;
     virtual W8AnimObj* GetCurrentAnimation() override;
-    virtual void AdvanceAnimationFrame(int value, int flags) override;
+    virtual void AdvanceAnimationFrame(std::int32_t value, std::int32_t flags) override;
     virtual W8AniMesh* GetCurrentAniMesh() override;
 
     virtual void StartIfHostActive(); /* 0x004ABDC0 */
     /* Search backward from a subcycle for the first cycle this visual
        supports; returns -1 when none does. */
-    virtual int FindSupportedCycle(int group, int subcycle);
+    virtual std::int32_t FindSupportedCycle(std::int32_t group, std::int32_t subcycle);
     /* Kind-indexed query over the emitter host's current state; only ever
        called with kind 7 by StartIfHostActive. */
-    int QueryHostStateByKind(int kind);
+    std::int32_t QueryHostStateByKind(std::int32_t kind);
 
     /* Selects the update mode and the cycle group the resource loader
        matches shared visuals by. */
     W8SpellVisualMode mode;
-    int value_1dc;
+    std::int32_t value_1dc;
     W8SpellEmitterHost* host; /* 0x1e0 */
     /* Set once the host's animation no longer needs ticking, or forced when
        the owning effect releases it; the world updater deletes a finished
@@ -78,9 +79,9 @@ public:
        mode-3 updates then skip the monster/camera follow logic. */
     bool fixed_transform;
     float scale0;
-    int location_id;
-    int effect_value; /* 0x1f0: spawn `value` payload */
-    int flags0;       /* 0x1f4 */
+    std::int32_t location_id;
+    std::int32_t effect_value; /* 0x1f0: spawn `value` payload */
+    std::int32_t flags0;       /* 0x1f4 */
 };
 
 /* Secondary vftable 0x005ecf2c keeps the W8Navigator subobject at +0x18. */

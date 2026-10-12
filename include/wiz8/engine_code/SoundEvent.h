@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include "wiz8/audio_resources.h"
 
 #include <memory>
@@ -27,35 +28,35 @@ enum W8SoundEventKind {
 class W8SoundEvent {
 public:
     W8SoundEvent() = default;
-    W8SoundEvent(W8SoundEventKind kind, int cycle, int frame, int subcycle,
+    W8SoundEvent(W8SoundEventKind kind, std::int32_t cycle, std::int32_t frame, std::int32_t subcycle,
                  std::string wave_name, bool looping);
     W8SoundEvent(const W8SoundEvent&) = delete;
     W8SoundEvent& operator=(const W8SoundEvent&) = delete;
     ~W8SoundEvent();
 
-    bool Play(const srVector3T<float>& position, int cycle);
+    bool Play(const srVector3T<float>& position, std::int32_t cycle);
 
     W8SoundEventKind kind = W8_SOUND_EVENT_NONE;
-    int cycle = -1;
-    int frame = -1;
-    int subcycle = 0;
+    std::int32_t cycle = -1;
+    std::int32_t frame = -1;
+    std::int32_t subcycle = 0;
     std::string wave_name;
-    int pitch = 0;
-    int volume_min = 0;
-    int volume_max = 0;
+    std::int32_t pitch = 0;
+    std::int32_t volume_min = 0;
+    std::int32_t volume_max = 0;
     wiz8::sound::Playback sound_handle = nullptr;
-    unsigned char probability = 100;
+    std::uint8_t probability = 100;
     bool looping = false;
-    int location_id = 0;
+    std::int32_t location_id = 0;
     float falloff = 12500.0f;
-    int footstep_volume = 10;
-    int footstep_combat_volume = 30;
+    std::int32_t footstep_volume = 10;
+    std::int32_t footstep_combat_volume = 30;
 };
 
 
 void UpdateSoundEvents(const std::vector<std::unique_ptr<W8SoundEvent>>& events,
-                       const srVector3T<float>& position, unsigned int event_mask,
-                       int cycle, int frame, int subcycle);
+                       const srVector3T<float>& position, std::uint32_t event_mask,
+                       std::int32_t cycle, std::int32_t frame, std::int32_t subcycle);
 
 /* Reports the ground height, surface and material at one position through the
    level's game data: settles a probe with settleToGround and reads the hit

@@ -117,7 +117,7 @@ W8CampScreenState::~W8CampScreenState()
     character_info.reset();
 }
 // GLOBAL: WIZ8 0x0064cbe8
-int giReviewCharSlot = -1;
+std::int32_t giReviewCharSlot = -1;
 // GLOBAL: WIZ8 0x0069c0f8
 W8Character* g_review_character;
 // GLOBAL: WIZ8 0x0069c0fc
@@ -127,17 +127,17 @@ W8Character* g_camp_character;
 // GLOBAL: WIZ8 0x0069c104
 bool g_camp_character_pending;
 // GLOBAL: WIZ8 0x0069c10c
-w8_ulong g_fade_tick_base;
+std::uint32_t g_fade_tick_base;
 // GLOBAL: WIZ8 0x0069c110
 void (*g_fade_callback)(void);
 // GLOBAL: WIZ8 0x0069c114
-unsigned char g_fade_flag;
+std::uint8_t g_fade_flag;
 // GLOBAL: WIZ8 0x0069c118
-unsigned int g_fade_duration;
+std::uint32_t g_fade_duration;
 // GLOBAL: WIZ8 0x0069c11c
 std::unique_ptr<stModelInstance2D> g_fade_overlay;
 // GLOBAL: WIZ8 0x0069c120
-int g_fade_out;
+std::int32_t g_fade_out;
 // GLOBAL: WIZ8 0x0069c124
 wiz8::sound::Playback g_ending_sound;
 // GLOBAL: WIZ8 0x0069c128
@@ -149,7 +149,7 @@ void DrawCampCharacterInfo(void);
 void DrawCampBackpackItems(void);
 void DrawCampEquipmentItems(void);
 void DrawCampItemPool(void);
-void DrawCampItemQuantity(W8ItemInstance* item, int left, int top, int width);
+void DrawCampItemQuantity(W8ItemInstance* item, std::int32_t left, std::int32_t top, std::int32_t width);
 void ActivateCampPage(void);
 void DeactivateCampPage(void);
 void DrawCampScreen(void);
@@ -181,11 +181,11 @@ std::unique_ptr<Controls> g_camp_item_filter_panel;
 /* The font-state palette index selected for each load category
    while the weight line is drawn; zero leaves the default palette in place. */
 // GLOBAL: WIZ8 0x00648C48
-int g_load_category_palettes[5] = {0xf, 3, 1, 5, 0};
+std::int32_t g_load_category_palettes[5] = {0xf, 3, 1, 5, 0};
 
 /* One portrait frame per race and gender, race-major in threes. */
 // GLOBAL: WIZ8 0x0064CDA0
-int g_race_portrait_images[0x30] = {
+std::int32_t g_race_portrait_images[0x30] = {
     0x125, 0x126, 0x125, 0x127, 0x128, 0x127, 0x129, 0x12a, 0x129, 0x12b, 0x12c, 0x12b,
     0x12d, 0x12e, 0x12d, 0x12f, 0x130, 0x12f, 0x131, 0x132, 0x131, 0x133, 0x134, 0x133,
     0x135, 0x136, 0x135, 0x137, 0x138, 0x137, 0x139, 0x13a, 0x139, 0x13b, 0x13b, 0x13b,
@@ -195,7 +195,7 @@ int g_race_portrait_images[0x30] = {
 /* The seven attribute label message ids, drawn top to bottom on
    the secondary panel. The last two entries swap relative to attribute order. */
 // GLOBAL: WIZ8 0x0064DD30
-int g_attribute_label_ids[7] = {0x924, 0x925, 0x926, 0x927, 0x928, 0x92a, 0x929};
+std::int32_t g_attribute_label_ids[7] = {0x924, 0x925, 0x926, 0x927, 0x928, 0x92a, 0x929};
 
 /* The help-line weight breakdown, "<personal>: n, <party>: n". */
 
@@ -335,8 +335,8 @@ ScreenRegionSet g_camp_overlay_regions{g_camp_overlay_templates, 0x30};
 void SetCampSpellRangesEnabled(bool enable)
 {
     W8CampSpellRange* spell_range;
-    int realm;
-    int second;
+    std::int32_t realm;
+    std::int32_t second;
 
     for (realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
         spell_range = g_camp_screen->spell_ranges[realm].get();
@@ -358,8 +358,8 @@ void SetCampSpellRangesEnabled(bool enable)
 void RefreshCampSpellRanges(void)
 {
     W8CampSpellRange* spell_range;
-    int realm;
-    int second;
+    std::int32_t realm;
+    std::int32_t second;
 
     for (realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
         spell_range = g_camp_screen->spell_ranges[realm].get();
@@ -383,14 +383,14 @@ void DrawCampSpellPages(void)
     W8CampScreenState* state;
     W8Character* character = g_review_character;
     const W8SpellRealmAnimation* animation;
-    int realm;
-    int row;
-    int left;
-    int top;
-    int row_top;
-    int spell_id;
-    int width;
-    unsigned int visible;
+    std::int32_t realm;
+    std::int32_t row;
+    std::int32_t left;
+    std::int32_t top;
+    std::int32_t row_top;
+    std::int32_t spell_id;
+    std::int32_t width;
+    std::uint32_t visible;
     Palette16 palette;
 
     if ((g_camp_screen->redraw_flags & W8_CAMP_REDRAW_RESISTANCES) != 0 &&
@@ -427,7 +427,7 @@ void DrawCampSpellPages(void)
                 visible = 8;
             }
             row_top = top + 0x19;
-            for (row = 0; static_cast<unsigned int>(row) < visible; ++row) {
+            for (row = 0; static_cast<std::uint32_t>(row) < visible; ++row) {
                 spell_id =
                     g_camp_screen->learned_spells
                         .spell_ids_by_realm[realm]
@@ -478,10 +478,10 @@ void DrawCampResistances(void)
     W8Character* character = g_review_character;
     const W8SpellRealmAnimation* animation;
     std::string text;
-    int index;
-    int left;
-    int top;
-    int width;
+    std::int32_t index;
+    std::int32_t left;
+    std::int32_t top;
+    std::int32_t width;
 
     CatalogArtwork::Load(0x140, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0x136, 0);
     text = g_localized_strings[0x8ca];
@@ -503,13 +503,13 @@ void DrawCampResistances(void)
    event's cursor position picks the highlighted row within the eight visible
    ones, wheel input scrolls the realm's range control, and activating a valid
    row opens its spell info dialog. */
-unsigned char SpellListRegionHandler(const InputEvent* event, W8Region* region)
+std::uint8_t SpellListRegionHandler(const InputEvent* event, W8Region* region)
 {
-    unsigned short realm;
-    int row;
-    unsigned int visible;
-    int delta;
-    int count;
+    std::uint16_t realm;
+    std::int32_t row;
+    std::uint32_t visible;
+    std::int32_t delta;
+    std::int32_t count;
 
     PushButtonSoundScheme(0, true);
     realm = region->callback_id;
@@ -519,7 +519,7 @@ unsigned char SpellListRegionHandler(const InputEvent* event, W8Region* region)
     if (visible >= 8) {
         visible = 8;
     }
-    if (row >= static_cast<int>(visible)) {
+    if (row >= static_cast<std::int32_t>(visible)) {
         row = -1;
     }
     if (row != g_camp_screen->selected_spell_row) {
@@ -579,7 +579,7 @@ unsigned char SpellListRegionHandler(const InputEvent* event, W8Region* region)
 }
 
 /* Open the spell info dialog for one spell id off the camp spell lists. */
-void OpenSpellInfoDialog(unsigned int spell_id)
+void OpenSpellInfoDialog(std::uint32_t spell_id)
 {
     auto dialog = std::make_unique<W8SpellInfoDialog>(spell_id);
     dialog->SetText("");
@@ -628,10 +628,10 @@ void DrawCampCharacterInfo(void)
 {
     W8CampScreenState* state = g_camp_screen.get();
     W8Character* character = g_review_character;
-    int index;
-    int realm;
-    int top;
-    unsigned int filled;
+    std::int32_t index;
+    std::int32_t realm;
+    std::int32_t top;
+    std::uint32_t filled;
     SDL_Rect clip;
 
     if (state->info_page != W8_CAMP_INFO_PAGE_ITEMS) {
@@ -648,7 +648,7 @@ void DrawCampCharacterInfo(void)
             filled = 0x67;
         }
         if (filled != 0) {
-            clip = {0x1c0, 0, static_cast<int>(filled), 0x1e0};
+            clip = {0x1c0, 0, static_cast<std::int32_t>(filled), 0x1e0};
             ScopedClipRect clipped(GetFrameBufferSurface(), clip);
             CatalogArtwork::Load(0x11d, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0x1c0, 0x26);
         }
@@ -702,7 +702,7 @@ void DrawCampCharacterInfo(void)
     }
     top = 0xd;
     for (realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
-        unsigned int frame;
+        std::uint32_t frame;
         if (character->sp_max[realm] == 0) {
             frame = g_spell_realm_animations[realm].frame_count;
         } else {
@@ -736,12 +736,12 @@ void DrawCampBackpackItems(void)
 {
     W8CampScreenState* state = g_camp_screen.get();
     W8Character* character = g_review_character;
-    unsigned int slot;
-    int left;
-    int top;
-    int right;
-    int bottom;
-    int item_id;
+    std::uint32_t slot;
+    std::int32_t left;
+    std::int32_t top;
+    std::int32_t right;
+    std::int32_t bottom;
+    std::int32_t item_id;
 
     if ((state->item_redraw_flags & W8_CAMP_ITEM_REDRAW_BACKPACK_HEADER) != 0) {
         CatalogArtwork::Load(0x114, 0).drawAndInvalidate(GetFrameBufferSurface(), 1, 0, 0xa5);
@@ -790,9 +790,9 @@ void DrawCampEquipmentItems(void)
     W8CampScreenState* state = g_camp_screen.get();
     W8Character* character = g_review_character;
     const W8CampScreenRegion* region;
-    unsigned int slot;
-    int item_id;
-    int frame;
+    std::uint32_t slot;
+    std::int32_t item_id;
+    std::int32_t frame;
 
     if ((state->item_redraw_flags & W8_CAMP_ITEM_REDRAW_PAPER_DOLL) != 0) {
         CatalogArtwork::Load(0x114, 0).drawAndInvalidate(GetFrameBufferSurface(), 2, 0x71, 0xa5);
@@ -810,7 +810,7 @@ void DrawCampEquipmentItems(void)
         item_id = character->EquippedItem[slot].iItemNo;
         if (item_id == -1) {
             if (slot == 7 || slot == 9) {
-                int paired =
+                std::int32_t paired =
                     character->EquippedItem[GetPairedEquipSlot(static_cast<W8EquipSlot>(slot))]
                         .iItemNo;
                 if (paired != -1 && (g_item_records[paired].flags & W8_ITEM_FLAG_TWO_HANDED) != 0) {
@@ -823,7 +823,7 @@ void DrawCampEquipmentItems(void)
             DrawCampItemQuantity(&character->EquippedItem[slot], region->x + 2,
                                  region->y + region->height - 0xd, region->width - 4);
             if (!character->EquippedItem[slot].identified) {
-                CatalogArtwork::Load(0x11b, 0).draw(GetFrameBufferSurface(), static_cast<short>(region->unidentified_frame), region->x, region->y);
+                CatalogArtwork::Load(0x11b, 0).draw(GetFrameBufferSurface(), static_cast<std::int16_t>(region->unidentified_frame), region->x, region->y);
             }
         }
         switch (slot) {
@@ -862,7 +862,7 @@ void DrawCampEquipmentItems(void)
                 }
             } else if (state->item_action == W8_CAMP_ITEM_ACTION_MOVE ||
                        !CanEquipItemInSlot(character, g_status.item_in_hand.iItemNo,
-                                           static_cast<unsigned char>(slot), true) ||
+                                           static_cast<std::uint8_t>(slot), true) ||
                        !CanCharacterUseItem(character, g_status.item_in_hand.iItemNo)) {
                 if (!g_status.item_in_cursor || state->item_action != W8_CAMP_ITEM_ACTION_MOVE) {
                     continue;
@@ -876,7 +876,7 @@ void DrawCampEquipmentItems(void)
             if (!g_status.item_in_cursor || state->item_action == W8_CAMP_ITEM_ACTION_MOVE ||
                 !IsPartySlotEligible(giReviewCharSlot) ||
                 !CanEquipItemInSlot(character, g_status.item_in_hand.iItemNo,
-                                    static_cast<unsigned char>(slot), true) ||
+                                    static_cast<std::uint8_t>(slot), true) ||
                 !CanCharacterUseItem(character, g_status.item_in_hand.iItemNo)) {
                 continue;
             }
@@ -892,12 +892,12 @@ void DrawCampItemPool(void)
 {
     W8CampScreenState* state = g_camp_screen.get();
     W8Character* character = g_review_character;
-    unsigned int visible;
-    unsigned int i;
-    int left;
-    int top;
-    int right;
-    int bottom;
+    std::uint32_t visible;
+    std::uint32_t i;
+    std::int32_t left;
+    std::int32_t top;
+    std::int32_t right;
+    std::int32_t bottom;
     W8ItemInstance* item;
 
     if ((state->item_redraw_flags & W8_CAMP_ITEM_REDRAW_POOL_HEADER) != 0) {
@@ -971,10 +971,10 @@ void DrawCampItemPool(void)
 /* The stack count or charge figure in a cell's bottom-right corner, keyed off
    the item record's quantity kind; charge figures ride the alternate font
    palettes and restore the default afterwards. */
-void DrawCampItemQuantity(W8ItemInstance* item, int left, int top, int width)
+void DrawCampItemQuantity(W8ItemInstance* item, std::int32_t left, std::int32_t top, std::int32_t width)
 {
     W8CampScreenState* state = g_camp_screen.get();
-    int height;
+    std::int32_t height;
 
     switch (g_item_records[item->iItemNo].quantity_kind) {
     case W8_ITEM_QUANTITY_STACK:
@@ -1057,7 +1057,7 @@ void W8CampCharacterInfo::OnPrimary(W8TextControl* control)
 }
 
 // GLOBAL: WIZ8 0x0061e798
-unsigned short g_camp_armor_class_labels[12] = {1052, 1053, 1054, 1055, 1056, 1057,
+std::uint16_t g_camp_armor_class_labels[12] = {1052, 1053, 1054, 1055, 1056, 1057,
                                                 1058, 1059, 1060, 1061, 1062, 1063};
 
 void W8CampCharacterInfo::Redraw()
@@ -1124,15 +1124,15 @@ void W8CampCharacterInfo::Redraw()
             ItemHasSingledOutGenericName(
                 g_review_character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo) &&
             !g_review_character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].identified;
-        for (unsigned int hand = 0; hand < 2; ++hand) {
+        for (std::uint32_t hand = 0; hand < 2; ++hand) {
             W8HandAttack* attack = &g_review_character->Hand[hand];
             if (!attack->in_play)
                 continue;
-            int x = hand ? 600 : 0x1d6;
+            std::int32_t x = hand ? 600 : 0x1d6;
             if (g_review_character->EquippedItem[hand + 6].iItemNo != -1 &&
                 (!g_review_character->EquippedItem[hand + 6].identified ||
                  (hand == 0 && unknown_partner))) {
-                for (int row = 0; row < 8; ++row) {
+                for (std::int32_t row = 0; row < 8; ++row) {
                     DrawRcsText("?", x, 0x30 + row * 14, 0x20,
                                 g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
                 }
@@ -1152,15 +1152,15 @@ void W8CampCharacterInfo::Redraw()
             }
             W8Dice dice;
             GetCharacterHandDamageDice(g_review_character, hand, &dice);
-            unsigned int damage_bonus = GetCharacterHandDamageBonus(g_review_character, hand);
-            unsigned int minimum = (dice.Minimum() * (100 + damage_bonus) + 50) / 100;
-            unsigned int maximum = (dice.Maximum() * (100 + damage_bonus) + 50) / 100;
+            std::uint32_t damage_bonus = GetCharacterHandDamageBonus(g_review_character, hand);
+            std::uint32_t minimum = (dice.Minimum() * (100 + damage_bonus) + 50) / 100;
+            std::uint32_t maximum = (dice.Maximum() * (100 + damage_bonus) + 50) / 100;
             if (minimum < 2)
                 minimum = 1;
             if (maximum < 2)
                 maximum = 1;
-            int hit_bonus = attack->hit_bonus + g_review_character->bonus.hit_bonus;
-            int skill_bonus =
+            std::int32_t hit_bonus = attack->hit_bonus + g_review_character->bonus.hit_bonus;
+            std::int32_t skill_bonus =
                 (attack->attack_score < 0 ? attack->attack_score - 2 : attack->attack_score + 2) /
                 5;
             g_camp_screen->text_buffer =
@@ -1175,7 +1175,7 @@ void W8CampCharacterInfo::Redraw()
             g_camp_screen->text_buffer += g_localized_strings[0x95b];
             g_camp_screen->text_buffer += fmt::format(" {:d}, ", dice.Maximum());
             g_camp_screen->text_buffer += g_localized_strings[0x95a];
-            g_camp_screen->text_buffer += fmt::format(" {:+d}%", static_cast<int>(damage_bonus));
+            g_camp_screen->text_buffer += fmt::format(" {:+d}%", static_cast<std::int32_t>(damage_bonus));
             m_values[hand + 2]->SetRegionHelp(g_camp_screen->text_buffer);
             g_camp_screen->text_buffer = fmt::format("{:d}", skill_bonus + hit_bonus);
             DrawRcsText(g_camp_screen->text_buffer, x, 0x4c, 0x20,
@@ -1198,23 +1198,23 @@ void W8CampCharacterInfo::Redraw()
                 fmt::format("{:+d}", attack->attack_bonus + g_review_character->bonus.attack_bonus);
             DrawRcsText(g_camp_screen->text_buffer, x, 0x84, 0x20,
                         g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
-            g_camp_screen->text_buffer = fmt::format("{:+d}%", static_cast<int>(damage_bonus));
+            g_camp_screen->text_buffer = fmt::format("{:+d}%", static_cast<std::int32_t>(damage_bonus));
             DrawRcsText(g_camp_screen->text_buffer, x, 0x92, 0x20,
                         g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
         }
     } else {
         DrawRcsText(g_localized_strings[0x8be], 0x15b, 10, 0x11d,
                     g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
-        for (unsigned int component = 0; component < 12; ++component) {
+        for (std::uint32_t component = 0; component < 12; ++component) {
             if (component == 11 &&
                 g_review_character->armor_class_components[W8_AC_COMPONENT_REFLEXTION] == 0)
                 continue;
-            int y = (component % 6) * 14 + 0x22;
-            int label_x = component / 6 ? 0x1ef : 0x15e;
-            int value_x = component / 6 ? 600 : 0x1c7;
+            std::int32_t y = (component % 6) * 14 + 0x22;
+            std::int32_t label_x = component / 6 ? 0x1ef : 0x15e;
+            std::int32_t value_x = component / 6 ? 600 : 0x1c7;
             DrawRcsText(g_localized_strings[g_camp_armor_class_labels[component]], label_x, y, 0x67,
                         g_W8TextBufferAlignMiddle | g_W8TextBufferAlignLeft);
-            int value = g_review_character->armor_class_components[component];
+            std::int32_t value = g_review_character->armor_class_components[component];
             if (value) {
                 g_camp_screen->text_buffer = fmt::format("{:+d}", value);
                 DrawRcsText(g_camp_screen->text_buffer, value_x, y, 0x20,
@@ -1249,8 +1249,8 @@ void W8CampItemRange::OnRangeChanged(W8RangeControl*)
 W8CampSpellRange::W8CampSpellRange(W8SpellRealm realm)
 {
     m_realm = realm;
-    int x = (realm % 3) * 0xd5;
-    int y = (realm / 3) * 0x8c;
+    std::int32_t x = (realm % 3) * 0xd5;
+    std::int32_t y = (realm / 3) * 0x8c;
     m_range = new W8RangeControl(x + 0xbb, y + 0xc3, x + 0xcd, y + 0x129);
     m_range->m_listener = this;
     m_range->SetEnabled(true);
@@ -1272,29 +1272,29 @@ void W8CampSpellRange::OnRangeChanged(W8RangeControl*)
    record are read here, so the remaining five stay positional. */
 void CampScreenInitializeRegions(void)
 {
-    unsigned int index;
+    std::uint32_t index;
     for (index = 0; index < 8; ++index) {
-        unsigned short x = static_cast<unsigned short>((index & 1) * 0x30 + 6);
-        unsigned short y = static_cast<unsigned short>((index >> 1) * 0x27 + 5);
+        std::uint16_t x = static_cast<std::uint16_t>((index & 1) * 0x30 + 6);
+        std::uint16_t y = static_cast<std::uint16_t>((index >> 1) * 0x27 + 5);
         SetRegionBounds(g_camp_main_regions->index(kCampPartyPortraitRegionOffset + index), x, y,
                         x + 0x2d, y + 0x24);
     }
     for (index = 0; index < 8; ++index) {
-        unsigned short x = static_cast<unsigned short>((index & 1) * 0x31 + 0xb);
-        unsigned short y = static_cast<unsigned short>((index >> 1) * 0x39 + 0xc0);
+        std::uint16_t x = static_cast<std::uint16_t>((index & 1) * 0x31 + 0xb);
+        std::uint16_t y = static_cast<std::uint16_t>((index >> 1) * 0x39 + 0xc0);
         SetRegionBounds(g_camp_inventory_regions->index(index), x, y, x + 0x2e, y + 0x36);
     }
     for (index = 0; index < 12; ++index) {
         const W8CampScreenRegion& region = g_camp_screen_regions[index];
         SetRegionBounds(g_camp_inventory_regions->index(kCampEquipmentRegionOffset + index),
-                        static_cast<unsigned short>(region.x),
-                        static_cast<unsigned short>(region.y),
-                        static_cast<unsigned short>(region.x + region.width),
-                        static_cast<unsigned short>(region.y + region.height));
+                        static_cast<std::uint16_t>(region.x),
+                        static_cast<std::uint16_t>(region.y),
+                        static_cast<std::uint16_t>(region.x + region.width),
+                        static_cast<std::uint16_t>(region.y + region.height));
     }
     for (index = 0; index < 8; ++index) {
-        unsigned short x = static_cast<unsigned short>((index & 1) * 0x31 + 0x200);
-        unsigned short y = static_cast<unsigned short>((index >> 1) * 0x39 + 0xc0);
+        std::uint16_t x = static_cast<std::uint16_t>((index & 1) * 0x31 + 0x200);
+        std::uint16_t y = static_cast<std::uint16_t>((index >> 1) * 0x39 + 0xc0);
         SetRegionBounds(g_camp_item_pool_regions->index(index), x, y, x + 0x2e, y + 0x36);
     }
 }
@@ -1305,20 +1305,20 @@ void CampScreenInitializeRegions(void)
    hold. */
 void LayoutCampSecondaryRegions(void)
 {
-    unsigned int index;
+    std::uint32_t index;
     for (index = 0; index < 6; ++index) {
-        unsigned short x = static_cast<unsigned short>((index % 3) * 0xd5 + 0x1d);
-        unsigned short y = static_cast<unsigned short>((index / 3) * 0x8c + 0xc3);
+        std::uint16_t x = static_cast<std::uint16_t>((index % 3) * 0xd5 + 0x1d);
+        std::uint16_t y = static_cast<std::uint16_t>((index / 3) * 0x8c + 0xc3);
         SetRegionBounds(g_camp_spell_list_regions->index(index), x, y, x + 0x99, y + 0x65);
     }
 }
 
-unsigned char CampScreenEnter(void)
+std::uint8_t CampScreenEnter(void)
 {
     ClearPrimarySurface();
     g_review_character = static_cast<W8Character*>(g_current_screen_state.parameter_3);
     giReviewCharSlot = g_current_screen_state.parameter_2;
-    unsigned char initial_item_action;
+    std::uint8_t initial_item_action;
     if (g_current_screen_state.parameter_4 == 0) {
         g_camp_identifying_character = 0;
         initial_item_action = W8_CAMP_ITEM_ACTION_NONE;
@@ -1344,7 +1344,7 @@ unsigned char CampScreenEnter(void)
     CampScreenInitializeRegions();
     LayoutCampSecondaryRegions();
     g_camp_screen->item_action = initial_item_action;
-    for (unsigned int filter = 0; filter < W8_CAMP_ITEM_FILTER_COUNT; ++filter) {
+    for (std::uint32_t filter = 0; filter < W8_CAMP_ITEM_FILTER_COUNT; ++filter) {
         g_camp_screen->item_filters[filter] = 0;
     }
     g_camp_screen->item_timer_active = false;
@@ -1358,7 +1358,7 @@ unsigned char CampScreenEnter(void)
     g_camp_screen->page = W8_CAMP_PAGE_ITEMS;
     g_camp_screen->info_page = W8_CAMP_INFO_PAGE_ITEMS;
     g_camp_screen->item_range = std::make_unique<W8CampItemRange>();
-    for (int range_index = 0; range_index < 6; ++range_index) {
+    for (std::int32_t range_index = 0; range_index < 6; ++range_index) {
         g_camp_screen->spell_ranges[range_index] =
             std::make_unique<W8CampSpellRange>(static_cast<W8SpellRealm>(range_index));
     }
@@ -1371,13 +1371,13 @@ unsigned char CampScreenEnter(void)
     g_camp_screen->item_icons_drawn = false;
     ActivateCampPage();
     g_camp_screen->animation_timer = w8_get_ticks() + (50);
-    for (unsigned int animation = 0; animation < 6; ++animation) {
+    for (std::uint32_t animation = 0; animation < 6; ++animation) {
         g_camp_screen->animation_frames[animation] =
             Random(g_spell_realm_animations[animation].frame_count);
     }
     if (gXStatus.fCombatMode && g_combat_state->equip_phase) {
         if (g_combat_state->equip_pending == 1) {
-            for (int slot = 0; slot < 8; ++slot) {
+            for (std::int32_t slot = 0; slot < 8; ++slot) {
                 if (g_status.buffers.XChar[slot].fOccupied && IsPartySlotEligible(slot) &&
                     g_status.buffers.XChar[slot].pending_action == W8_ACTION_EQUIP) {
                     g_camp_screen->text_buffer = fmt::format(
@@ -1386,8 +1386,8 @@ unsigned char CampScreenEnter(void)
                 }
             }
         } else {
-            unsigned char count = 0;
-            for (int slot = 0; slot < 8; ++slot) {
+            std::uint8_t count = 0;
+            for (std::int32_t slot = 0; slot < 8; ++slot) {
                 if (g_status.buffers.XChar[slot].fOccupied && IsPartySlotEligible(slot) &&
                     g_status.buffers.XChar[slot].pending_action == W8_ACTION_EQUIP) {
                     ++count;
@@ -1481,7 +1481,7 @@ void CampScreenFrame(void)
     }
     if (g_camp_screen->page == W8_CAMP_PAGE_SPELLS &&
         !TimeUntilDeadline(g_camp_screen->animation_timer)) {
-        for (unsigned int realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
+        for (std::uint32_t realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
             ++g_camp_screen->animation_frames[realm];
             if (g_camp_screen->animation_frames[realm] ==
                 g_spell_realm_animations[realm].frame_count) {
@@ -1503,7 +1503,7 @@ void CampScreenFrame(void)
     DrawCampScreen();
 }
 
-unsigned char CampScreenLeave(int)
+std::uint8_t CampScreenLeave(std::int32_t)
 {
     DeactivateCampPage();
     g_smfnt_font.resetPalette();
@@ -1567,7 +1567,7 @@ void DismissSelectedPartyCharacter(void)
 void DrawCampScreen(void)
 {
     W8CampScreenState* state = g_camp_screen.get();
-    unsigned int index;
+    std::uint32_t index;
 
     NoOp();
     if (!IsKeyHeld(VK_CONTROL) && state->item_icons_drawn) {
@@ -1677,7 +1677,7 @@ void SwitchCampPage(W8CampPage page)
 void ActivateCampPage(void)
 {
     W8CampScreenState* state = g_camp_screen.get();
-    unsigned int index;
+    std::uint32_t index;
 
     g_camp_main_regions.Enable();
     if (state->page != W8_CAMP_PAGE_ITEMS) {
@@ -1736,7 +1736,7 @@ void ActivateCampPage(void)
 void DeactivateCampPage(void)
 {
     W8CampScreenState* state = g_camp_screen.get();
-    unsigned int index;
+    std::uint32_t index;
 
     switch (state->page) {
     case W8_CAMP_PAGE_ITEMS:
@@ -1776,7 +1776,7 @@ void DeactivateCampPage(void)
    point regeneration rates. */
 void DrawCampRegenStats(void)
 {
-    unsigned int index;
+    std::uint32_t index;
 
     g_calligraphy_font.setShade(Font::kNormalShade);
     g_calligraphy_font.setShade(0);
@@ -1792,7 +1792,7 @@ void DrawCampRegenStats(void)
     g_calligraphy_font.setShade(Font::kNormalShade);
     for (index = 0; index < 6; ++index) {
         DrawTextAndInvalidate(GetFrameBufferSurface(), g_calligraphy_font,
-                              {static_cast<int>(index * 0x14 + 0x1fe), 0x23},
+                              {static_cast<std::int32_t>(index * 0x14 + 0x1fe), 0x23},
                               fmt::format("{:6.3f}/", g_review_character->spell_regen_rates[index * 2]));
     }
 }
@@ -1800,7 +1800,7 @@ void DrawCampRegenStats(void)
 /* Equip-slot-group item filters are exclusive: selecting one clears the others. */
 void ClearOtherCampItemGroupFilters(W8CampItemFilter filter)
 {
-    unsigned int index;
+    std::uint32_t index;
 
     for (index = 2; index < 6; ++index) {
         if (index != filter) {
@@ -1816,11 +1816,11 @@ void ClearOtherCampItemGroupFilters(W8CampItemFilter filter)
    inside an emptied or shrunken list. */
 void RebuildCampItemList(void)
 {
-    unsigned int index;
-    unsigned char filter;
+    std::uint32_t index;
+    std::uint8_t filter;
     W8ItemInstance* pool;
     W8RangeControl* scrollbar;
-    int rows;
+    std::int32_t rows;
 
     g_camp_screen->item_list_count = 0;
     filter = 0;
@@ -1836,7 +1836,7 @@ void RebuildCampItemList(void)
              CanCharacterUseItem(g_review_character, pool->iItemNo)) &&
             (g_camp_screen->item_filters[W8_CAMP_ITEM_FILTER_UNIDENTIFIED] == 0 ||
              !pool->identified) &&
-            (filter == 0 || (filter & static_cast<unsigned char>(
+            (filter == 0 || (filter & static_cast<std::uint8_t>(
                                           1 << GetItemEquipSlotGroup(pool->iItemNo))) != 0)) {
             g_camp_screen->item_list[g_camp_screen->item_list_count] = index;
             ++g_camp_screen->item_list_count;
@@ -1916,20 +1916,20 @@ static void RefreshCampItemOrigin(W8ItemOrigin origin, W8EquipSlot equip_slot)
     }
 }
 
-void HandleCampItemClick(W8ItemInstance* item, unsigned int slot_index, W8ItemOrigin origin)
+void HandleCampItemClick(W8ItemInstance* item, std::uint32_t slot_index, W8ItemOrigin origin)
 {
     W8CombatSlot target;
-    short related_kind;
+    std::int16_t related_kind;
     bool changed = false;
     bool merged = false;
     bool partially_merged = false;
     bool merge_tried = false;
     bool same_kind = false;
     bool choose_character;
-    unsigned int index;
-    unsigned int old_pool_count;
-    int result;
-    int party_slot;
+    std::uint32_t index;
+    std::uint32_t old_pool_count;
+    std::int32_t result;
+    std::int32_t party_slot;
     W8EquipSlot paired_slot;
     W8EquipSlot equip_slot = static_cast<W8EquipSlot>(slot_index);
     bool reidentify;
@@ -1943,7 +1943,7 @@ void HandleCampItemClick(W8ItemInstance* item, unsigned int slot_index, W8ItemOr
                      __FILE__, 0x4e5,
                      0);
     }
-    if (static_cast<unsigned int>(origin) >= W8_ITEM_ORIGIN_COUNT) {
+    if (static_cast<std::uint32_t>(origin) >= W8_ITEM_ORIGIN_COUNT) {
         srAssertFail("uiSlotType < SLOT_TYPE_COUNT",
                      __FILE__, 0x4e6,
                      0);
@@ -2319,7 +2319,7 @@ void HandleCampItemClick(W8ItemInstance* item, unsigned int slot_index, W8ItemOr
     g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_PORTRAIT;
 }
 
-void TakeItemUnitToHand(W8ItemInstance* item, unsigned short slot, W8ItemOrigin origin)
+void TakeItemUnitToHand(W8ItemInstance* item, std::uint16_t slot, W8ItemOrigin origin)
 {
     W8ItemInstance single;
     bool moved = false;
@@ -2372,7 +2372,7 @@ void TakeItemUnitToHand(W8ItemInstance* item, unsigned short slot, W8ItemOrigin 
    the caller may proceed. force ignores the same-character early out. */
 bool ResolvePendingCampCharacter(bool force)
 {
-    unsigned int slot;
+    std::uint32_t slot;
     std::string text;
 
     if (g_camp_character_pending && (g_camp_character != g_review_character || force)) {
@@ -2410,7 +2410,7 @@ void MarkCampCharacterPending(W8ItemInstance* item)
 /* Whether the camp item action may proceed for the reviewed slot: outside
    combat always; in combat the sleeping/paralyzed/unconscious/dead conditions
    and the equip-in-progress actions each carry their own refusal message. */
-bool IsCampActionAllowed(int party_slot)
+bool IsCampActionAllowed(std::int32_t party_slot)
 {
     std::string message;
     W8PartySlotRow* row;
@@ -2472,10 +2472,10 @@ bool IsEquippableItemClass(W8ItemInstance* item)
 /* Books a party slot's spell cast: stamps the row's cast-spell action with
    the spell id, power level and target, spends the spell points and fatigues
    the caster, then plays fizzle/learned/general-cast audio for the result. */
-int CommitPartySlotSpell(int party_slot, int spell_id, int power_level, W8CombatSlot* target)
+std::int32_t CommitPartySlotSpell(std::int32_t party_slot, std::int32_t spell_id, std::int32_t power_level, W8CombatSlot* target)
 {
-    int cost;
-    int result;
+    std::int32_t cost;
+    std::int32_t result;
     W8PartySlotRow* row;
 
     StartBreathCycle(party_slot, false);
@@ -2507,10 +2507,10 @@ int CommitPartySlotSpell(int party_slot, int spell_id, int power_level, W8Combat
    cost (or the standard use-item cost when no use happened). The audio cues
    mirror the spell path: fizzle, learned for a successful identify, general
    magic otherwise. */
-int CommitPartySlotItemUse(int party_slot, W8ItemInstance* item, W8CombatSlot* target)
+std::int32_t CommitPartySlotItemUse(std::int32_t party_slot, W8ItemInstance* item, W8CombatSlot* target)
 {
-    int uses;
-    int result;
+    std::int32_t uses;
+    std::int32_t result;
     W8PartySlotRow* row;
     W8ItemInstance* used;
 
@@ -2543,8 +2543,8 @@ int CommitPartySlotItemUse(int party_slot, W8ItemInstance* item, W8CombatSlot* t
 
 void BeginEndgameSequence(void)
 {
-    int fade_to_black = 0;
-    int fade_code = 0x5dc;
+    std::int32_t fade_to_black = 0;
+    std::int32_t fade_code = 0x5dc;
     bool endgame_variant = false;
 
     g_status.endgame_started = true;
@@ -2568,7 +2568,7 @@ void BeginEndgameSequence(void)
    fade state. `callback` runs from UpdateScreenFade once the ramp
    finishes. `fade_to_black` selects the subtractive ramp (white quad
    darkening to black); `fade_out` selects the direction the opacity runs. */
-void BeginScreenFade(int fade_to_black, int fade_out, int duration, void (*callback)(void),
+void BeginScreenFade(std::int32_t fade_to_black, std::int32_t fade_out, std::int32_t duration, void (*callback)(void),
                      bool fullscreen_scene_last, char render_each_tick)
 {
     srShader shader;
@@ -2612,12 +2612,12 @@ void BeginScreenFade(int fade_to_black, int fade_out, int duration, void (*callb
    frame per tick while g_fade_flag is set. On completion a
    fade-in snaps the quad opaque and renders twice, then the overlay is
    released and the stored callback runs. Returns g_fade_flag. */
-unsigned char UpdateScreenFade(void)
+std::uint8_t UpdateScreenFade(void)
 {
     if (!g_level_block->review_transition_done) {
         return 0;
     }
-    w8_ulong elapsed = w8_get_ticks() - g_fade_tick_base;
+    std::uint32_t elapsed = w8_get_ticks() - g_fade_tick_base;
     if (g_fade_duration < elapsed) {
         g_level_block->review_transition_done = false;
         if (g_fade_out == 0) {
@@ -2766,11 +2766,11 @@ void EndReviewTransition(void)
    credits-screen handoff and autosave arming. */
 void ShowEndingScreen(void)
 {
-    int fade_to_black;
+    std::int32_t fade_to_black;
     bool schedule_fade;
     const char* music;
     const char* sound;
-    int image;
+    std::int32_t image;
     std::string text;
     W8ControlsRect bounds;
 

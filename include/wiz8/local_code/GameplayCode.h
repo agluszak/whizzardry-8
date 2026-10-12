@@ -1,5 +1,7 @@
 #pragma once
 
+
+#include <cstdint>
 struct W8Character;
 
 /* W8Character::armor_class_by_location and gubLocalACPercent share this order.
@@ -35,27 +37,27 @@ enum W8ArmorClassComponent {
     W8_AC_COMPONENT_COUNT = 13
 };
 
-void AdvanceCharacterToLevel(W8Character* character, unsigned int level);
+void AdvanceCharacterToLevel(W8Character* character, std::uint32_t level);
 bool AnyCharacterActive(void);
 void CalcInitiative(W8Character* character);
 void CalcAttacks(W8Character* character);
 void CalcArmorClasses(W8Character* character);
 /* The percentage of hits that land on each character armor location. */
-extern unsigned char gubLocalACPercent[W8_ARMOR_LOCATION_COUNT];
+extern std::uint8_t gubLocalACPercent[W8_ARMOR_LOCATION_COUNT];
 void CalcCharacterLevelBand(W8Character* character);
 
 void CalcCharacterTableValue(W8Character* character);
-int CountActiveCharacters(void);
-unsigned int FindFreePartySlot(unsigned int first, unsigned int last);
+std::int32_t CountActiveCharacters(void);
+std::uint32_t FindFreePartySlot(std::uint32_t first, std::uint32_t last);
 
 void RefreshLevelUpReadyNotices(void);
-int AddCharacterToParty(W8Character* character, int slot);
+std::int32_t AddCharacterToParty(W8Character* character, std::int32_t slot);
 /* Remove a slot's character from the party; fSaveCharData
    persists it back to its NPC record first. */
-bool RemoveCharacterFromParty(int party_slot, bool save_character_data);
+bool RemoveCharacterFromParty(std::int32_t party_slot, bool save_character_data);
 
-void AwardPartyExperience(int value, int mode);
-bool IsCharacterReadyToAdvance(int party_slot);
+void AwardPartyExperience(std::int32_t value, std::int32_t mode);
+bool IsCharacterReadyToAdvance(std::int32_t party_slot);
 void CalcXPGoal(W8Character* character);
 void DeriveCharacterPersonality(W8Character* character);
 /* Rerolls personality/voice until no party member shares the
@@ -65,9 +67,9 @@ void EnsureUniquePartyVoice(W8Character* character);
    trap interaction; with no interaction open it just prints the refusal
    notice. The lock-interaction owner lives past MainGameScreen.h, which this
    task does not expand. */
-void CastSpellAtLockInteraction(unsigned int level, int flag, int backfire);
-unsigned int GetAveragePartyLevel(void);
-unsigned char RecruitCharacterIntoParty(W8Character* character, W8Character* record,
+void CastSpellAtLockInteraction(std::uint32_t level, std::int32_t flag, std::int32_t backfire);
+std::uint32_t GetAveragePartyLevel(void);
+std::uint8_t RecruitCharacterIntoParty(W8Character* character, W8Character* record,
                                         bool buy_equipment);
 bool AnyMonsterEngaged(void);
 /* On a level-motion override, roll `pow(8.0, fall + 0.7)` d6 of

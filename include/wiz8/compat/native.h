@@ -35,7 +35,6 @@
 #define __stdcall
 #define __fastcall
 #define __forceinline inline __attribute__((always_inline))
-#define __int64 long long
 
 #define _stricmp strcasecmp
 #define _strnicmp strncasecmp

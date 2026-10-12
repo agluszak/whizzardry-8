@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <fmt/format.h>
 #include <memory>
 #include <optional>
@@ -75,11 +76,11 @@ static W8CharacterStatsRecord g_character_gender_default_record = {
 
 /* The six resistance icons drawn beside the stats page's resistance values. */
 // GLOBAL: WIZ8 0x0064ce60
-int g_character_resistance_images[6] = {
+std::int32_t g_character_resistance_images[6] = {
     0x193, 0x194, 0x195, 0x196, 0x197, 0x198,
 };
 // GLOBAL: WIZ8 0x0061e530
-unsigned short g_character_trait_name_ids[0x20] = {
+std::uint16_t g_character_trait_name_ids[0x20] = {
     0x328, 0x329, 0x32a, 0x32b, 0x32c, 0x32d, 0x32e, 0x32f, 0x330, 0x331, 0x332,
     0x333, 0x334, 0x335, 0x336, 0x337, 0x338, 0x339, 0x33a, 0x33b, 0x33c, 0x33d,
     0x33e, 0x33f, 0x340, 0x341, 0x342, 0x343, 0x344, 0x345, 0x346, 0x347,
@@ -102,21 +103,21 @@ static char g_zero_slash_zero[] = "0/0";
 // VTABLE: WIZ8 0x005ef700 W8CharacterStatsRecordControl
 class W8CharacterStatsRecordControl : public W8TextControl {
 public:
-    W8CharacterStatsRecordControl(Controls* owner, int top, int height,
-                                  const W8CharacterStatsRecord* record, int variant);
+    W8CharacterStatsRecordControl(Controls* owner, std::int32_t top, std::int32_t height,
+                                  const W8CharacterStatsRecord* record, std::int32_t variant);
     virtual void Redraw(bool full_redraw) override;
-    virtual void OnMouseEnter(int event) override;
-    virtual void OnMouseLeave(int event) override;
-    virtual void OnRightButtonUp(int event) override;
+    virtual void OnMouseEnter(std::int32_t event) override;
+    virtual void OnMouseLeave(std::int32_t event) override;
+    virtual void OnRightButtonUp(std::int32_t event) override;
 
     const W8CharacterStatsRecord* m_record;
-    unsigned char m_variant;
-    unsigned char pad_0bd[3];
-    int m_text_offset;
+    std::uint8_t m_variant;
+    std::uint8_t pad_0bd[3];
+    std::int32_t m_text_offset;
 };
 
 // FUNCTION: WIZ8 0x005c8e70
-W8CharacterStatsValue::W8CharacterStatsValue(Controls* owner, int x, int y,
+W8CharacterStatsValue::W8CharacterStatsValue(Controls* owner, std::int32_t x, std::int32_t y,
                                              const W8CharacterStatsRecord* default_record)
     : W8TextControl(owner, 0xffffffff, x, y, 0, 0, CatalogArtwork::Load(0x104, 0), 1, 1, 2, 2, 3),
       m_default_record(default_record)
@@ -147,17 +148,17 @@ void W8CharacterStatsValue::Redraw(bool full_redraw)
     if (!m_active || m_pPanel == 0) {
         return;
     }
-    int left = m_pPanel->m_bounds.left + m_left + 2;
-    int top = m_pPanel->m_bounds.top + m_top + 1;
+    std::int32_t left = m_pPanel->m_bounds.left + m_left + 2;
+    std::int32_t top = m_pPanel->m_bounds.top + m_top + 1;
     const W8CharacterStatsRecord* record = m_record;
-    unsigned int image = m_enabled ? record->image_enabled : record->image_disabled;
+    std::uint32_t image = m_enabled ? record->image_enabled : record->image_disabled;
     CatalogArtwork::Load(record->object, 0).draw(GetFrameBufferSurface(), image, left, top);
 }
 
 /* Force the control enabled while the base handles the right-button release,
    so a disabled value can still raise its info callback. */
 // FUNCTION: WIZ8 0x005c92f0
-void W8CharacterStatsValue::OnRightButtonUp(int event)
+void W8CharacterStatsValue::OnRightButtonUp(std::int32_t event)
 {
     bool enabled = m_enabled;
     m_enabled = true;
@@ -166,14 +167,14 @@ void W8CharacterStatsValue::OnRightButtonUp(int event)
 }
 
 // FUNCTION: WIZ8 0x005c9060
-W8CharacterStatsRecordControl::W8CharacterStatsRecordControl(Controls* owner, int top, int height,
+W8CharacterStatsRecordControl::W8CharacterStatsRecordControl(Controls* owner, std::int32_t top, std::int32_t height,
                                                              const W8CharacterStatsRecord* record,
-                                                             int variant)
+                                                             std::int32_t variant)
     : W8TextControl(owner, 0xffffffff, 0, top, 0x7e, top + height, CatalogArtwork::Load(0x104, 0), 0, 0, 0, 0, 0)
 {
     m_record = record;
-    m_variant = static_cast<unsigned char>(variant);
-    int text = 0;
+    m_variant = static_cast<std::uint8_t>(variant);
+    std::int32_t text = 0;
     if (variant == 0) {
         text = 4;
         m_text_offset = 2;
@@ -206,15 +207,15 @@ void W8CharacterStatsRecordControl::Redraw(bool full_redraw)
     if (!m_active || m_pPanel == 0) {
         return;
     }
-    int left = m_pPanel->m_bounds.left + m_left + 2;
-    int top = m_pPanel->m_bounds.top + m_text_offset + m_top + 1;
+    std::int32_t left = m_pPanel->m_bounds.left + m_left + 2;
+    std::int32_t top = m_pPanel->m_bounds.top + m_text_offset + m_top + 1;
     const W8CharacterStatsRecord* record = m_record;
-    unsigned int image = m_enabled ? record->image_enabled : record->image_disabled;
+    std::uint32_t image = m_enabled ? record->image_enabled : record->image_disabled;
     CatalogArtwork::Load(record->object, 0).draw(GetFrameBufferSurface(), image, left, top);
 }
 
 // FUNCTION: WIZ8 0x005c9290
-void W8CharacterStatsRecordControl::OnMouseEnter(int event)
+void W8CharacterStatsRecordControl::OnMouseEnter(std::int32_t event)
 {
     W8TextControl::OnMouseEnter(event);
     if (m_active && m_enabled) {
@@ -223,7 +224,7 @@ void W8CharacterStatsRecordControl::OnMouseEnter(int event)
 }
 
 // FUNCTION: WIZ8 0x005c92c0
-void W8CharacterStatsRecordControl::OnMouseLeave(int event)
+void W8CharacterStatsRecordControl::OnMouseLeave(std::int32_t event)
 {
     W8TextControl::OnMouseLeave(event);
     if (m_active) {
@@ -234,7 +235,7 @@ void W8CharacterStatsRecordControl::OnMouseLeave(int event)
 
 /* Retail ICF shares this right-button release with the value control's
    retained body at 0x005c92f0; this source override stays unmarked. */
-void W8CharacterStatsRecordControl::OnRightButtonUp(int event)
+void W8CharacterStatsRecordControl::OnRightButtonUp(std::int32_t event)
 {
     bool enabled = m_enabled;
     m_enabled = true;
@@ -243,13 +244,13 @@ void W8CharacterStatsRecordControl::OnRightButtonUp(int event)
 }
 
 // FUNCTION: WIZ8 0x005c9310
-void W8CharacterStatsRow::Initialize(Controls* owner, int x, int y,
-                                     int count, const W8CharacterStatsRecord* table,
-                                     const W8CharacterStatsRecord* default_record, int help_first,
-                                     int help_second, int help_value)
+void W8CharacterStatsRow::Initialize(Controls* owner, std::int32_t x, std::int32_t y,
+                                     std::int32_t count, const W8CharacterStatsRecord* table,
+                                     const W8CharacterStatsRecord* default_record, std::int32_t help_first,
+                                     std::int32_t help_second, std::int32_t help_value)
 {
     m_table = table;
-    m_count = static_cast<unsigned short>(count);
+    m_count = static_cast<std::uint16_t>(count);
     m_x = owner->m_bounds.left + x;
     m_y = owner->m_bounds.top + y;
     if (count == 0) {
@@ -282,15 +283,15 @@ void W8CharacterStatsRow::BuildSubpanel()
 {
     if (!m_subpanel) {
         m_subpanel = std::make_unique<Controls>(m_x + 0x9e, m_y + 1, m_x + 0x11c,
-                                                m_y + 5 + static_cast<unsigned int>(m_count) * 0x16,
+                                                m_y + 5 + static_cast<std::uint32_t>(m_count) * 0x16,
                                                 std::nullopt, -1);
         m_subpanel->CreateRegionSet();
         m_subpanel_entries.assign(m_count, nullptr);
 
-        for (unsigned int index = 0; index < m_count; ++index) {
-            int variant;
-            int top;
-            int height;
+        for (std::uint32_t index = 0; index < m_count; ++index) {
+            std::int32_t variant;
+            std::int32_t top;
+            std::int32_t height;
             if (index == 0) {
                 variant = 0;
                 top = 0;
@@ -311,7 +312,7 @@ void W8CharacterStatsRow::BuildSubpanel()
     }
     m_subpanel->SetEnabled(true);
     m_subpanel->EnableRegionSet(true);
-    for (unsigned int index = 0; index < m_count; ++index) {
+    for (std::uint32_t index = 0; index < m_count; ++index) {
         m_subpanel_entries[index]->SetEnabled(m_table[index].enabled);
     }
 }
@@ -329,14 +330,14 @@ void W8CharacterStatsRow::Invalidate()
 /* Select one record by index, updating the value control and telling the
    owning page when the selection actually moved. */
 // FUNCTION: WIZ8 0x005c96c0
-void W8CharacterStatsRow::SetValue(int index)
+void W8CharacterStatsRow::SetValue(std::int32_t index)
 {
     if (index == -1) {
         m_value_control->SetRecord(0);
     } else {
         m_value_control->SetRecord(&m_table[index]);
     }
-    int previous = m_index;
+    std::int32_t previous = m_index;
     m_index = index;
     m_value_control->Invalidate(true);
     if (m_listener != 0 && previous != index) {
@@ -357,7 +358,7 @@ void W8CharacterStatsRow::Collapse()
 void W8CharacterStatsRow::CollapseIfNotHovered()
 {
     if (m_subpanel != 0 && m_subpanel->m_fEnabled) {
-        int index = 0;
+        std::int32_t index = 0;
         while (index < m_count) {
             if (m_subpanel_entries[index]->m_alternateTextEnabled) {
                 return;
@@ -374,8 +375,8 @@ void W8CharacterStatsRow::CollapseIfNotHovered()
 void W8CharacterStatsRow::OnPrimary(W8TextControl* control)
 {
     if (control == m_decrement) {
-        int previous = m_index;
-        int index = previous - 1;
+        std::int32_t previous = m_index;
+        std::int32_t index = previous - 1;
         if (index >= 0) {
             const W8CharacterStatsRecord* record = &m_table[index];
             do {
@@ -400,8 +401,8 @@ void W8CharacterStatsRow::OnPrimary(W8TextControl* control)
             SetValue(index);
         }
     } else if (control == m_increment) {
-        int previous = m_index;
-        int index;
+        std::int32_t previous = m_index;
+        std::int32_t index;
         for (index = previous + 1; index < m_count; ++index) {
             if (m_table[index].enabled != 0) {
                 SetValue(index);
@@ -431,7 +432,7 @@ void W8CharacterStatsRow::OnPrimary(W8TextControl* control)
             Collapse();
         }
     } else {
-        for (int index = 0; index < m_count; ++index) {
+        for (std::int32_t index = 0; index < m_count; ++index) {
             if (control == m_subpanel_entries[index]) {
                 control->OnMouseLeave(0);
                 SetValue(index);
@@ -450,7 +451,7 @@ void W8CharacterStatsRow::OnSecondary(W8TextControl* control)
                 m_listener->OnRowInfoRequested(this, m_index);
             }
         } else {
-            for (int index = 0; index < m_count; ++index) {
+            for (std::int32_t index = 0; index < m_count; ++index) {
                 if (control == m_subpanel_entries[index]) {
                     control->OnMouseLeave(0);
                     m_listener->OnRowInfoRequested(this, index);
@@ -474,7 +475,7 @@ void W8CharacterStatsPage::Activate()
 {
     EnableRegionSet(true);
     Refresh();
-    for (int index = 0; index < 5; ++index) {
+    for (std::int32_t index = 0; index < 5; ++index) {
         m_attribute_controls[index]->SetActive(true);
         m_attribute_controls[index]->SetEnabled(true);
     }
@@ -496,7 +497,7 @@ void W8CharacterStatsPage::Deactivate()
 // FUNCTION: WIZ8 0x005ca200
 void W8CharacterStatsPage::UpdateRowValues()
 {
-    unsigned char eligible[15];
+    std::uint8_t eligible[15];
 
     if (m_mode == 0) {
         if (m_character->iProfession == W8_PROFESSION_VALKYRIE) {
@@ -508,7 +509,7 @@ void W8CharacterStatsPage::UpdateRowValues()
     } else if (m_mode == 2) {
         DetermineEligibleProfessions(m_character, m_creation_state, eligible);
     }
-    for (int index = 0; index < 15; ++index) {
+    for (std::int32_t index = 0; index < 15; ++index) {
         if (m_mode == 0) {
             g_character_profession_records[index].enabled = 1;
         } else if (m_mode == 2) {
@@ -538,7 +539,7 @@ void W8CharacterStatsPage::Refresh()
 {
     UpdateRowValues();
     if (m_character->iRace != W8_RACE_NONE || m_character->iProfession != W8_PROFESSION_NONE) {
-        for (int index = 0; index < static_cast<int>(m_entries.size()); ++index) {
+        for (std::int32_t index = 0; index < static_cast<std::int32_t>(m_entries.size()); ++index) {
             if (!m_rows_initialized) {
                 m_entries[index]->SetEnabled(true);
             }
@@ -557,7 +558,7 @@ void W8CharacterStatsPage::Accept()
     Invalidate(0);
     m_dirty = true;
     m_screen->UpdateNavigation(this);
-    for (int index = 0; index < static_cast<int>(m_entries.size()); ++index) {
+    for (std::int32_t index = 0; index < static_cast<std::int32_t>(m_entries.size()); ++index) {
         m_entries[index]->UpdateButtons();
     }
 }
@@ -576,7 +577,7 @@ void W8CharacterStatsPage::GetNavigationState(bool* next_enabled, bool* exit_ena
     *exit_enabled =
         m_creation_state->attribute_points_remaining < m_creation_state->attribute_points_total;
     if (*next_enabled != nav_next_state) {
-        for (int index = 0; index < static_cast<int>(m_entries.size()); ++index) {
+        for (std::int32_t index = 0; index < static_cast<std::int32_t>(m_entries.size()); ++index) {
             m_entries[index]->SetIncrementAllowed(!*next_enabled);
         }
         nav_next_state = *next_enabled;
@@ -600,7 +601,7 @@ void W8CharacterStatsPage::HandleInput(InputEvent* input)
    Only skills 0x22..0x27 are walked: retail's end bound is the attribute
    field of g_skill_attributes[0x28], so the last skill is never offered. */
 // FUNCTION: WIZ8 0x005ca730
-void W8CharacterStatsPage::AdjustEntry(W8CharacterPageEntry* entry, int delta)
+void W8CharacterStatsPage::AdjustEntry(W8CharacterPageEntry* entry, std::int32_t delta)
 {
     entry->MarkDirty();
     m_dirty = true;
@@ -609,8 +610,8 @@ void W8CharacterStatsPage::AdjustEntry(W8CharacterPageEntry* entry, int delta)
     Invalidate(0);
     m_screen->UpdateNavigation(this);
     if (m_character->attributes[entry->m_id].base >= 100) {
-        for (int skill = 0x22; skill < 0x28; ++skill) {
-            if (g_skill_attributes[skill].attribute_1 == static_cast<int>(entry->m_id) &&
+        for (std::int32_t skill = 0x22; skill < 0x28; ++skill) {
+            if (g_skill_attributes[skill].attribute_1 == static_cast<std::int32_t>(entry->m_id) &&
                 m_character->skills[skill].active) {
                 m_screen->ShowDescription(entry->m_id, skill);
             }
@@ -627,7 +628,7 @@ void W8CharacterStatsPage::ShowEntryInfo(W8CharacterPageEntry* entry)
 /* A value row moved: rerun the whole creation rebuild for the new
    profession, race or sex, then refresh the row controls. */
 // FUNCTION: WIZ8 0x005ca800
-void W8CharacterStatsPage::OnRowValueChanged(W8CharacterStatsRow* row, int value)
+void W8CharacterStatsPage::OnRowValueChanged(W8CharacterStatsRow* row, std::int32_t value)
 {
     if (row == m_profession_row) {
         RebuildLevelUpPoolsForProfession(m_character, m_creation_state,
@@ -654,10 +655,10 @@ void W8CharacterStatsPage::SetRowControlsActive(W8CharacterStatsRow* row, bool a
     } else {
         m_gender_row->m_increment->SetActive(active);
     }
-    for (int entry_index = 0; entry_index < static_cast<int>(m_entries.size()); ++entry_index) {
+    for (std::int32_t entry_index = 0; entry_index < static_cast<std::int32_t>(m_entries.size()); ++entry_index) {
         m_entries[entry_index]->SetHelpActive(active);
     }
-    for (int control_index = 0; control_index < 5; ++control_index) {
+    for (std::int32_t control_index = 0; control_index < 5; ++control_index) {
         m_attribute_controls[control_index]->SetActive(active);
     }
 }
@@ -680,7 +681,7 @@ void W8CharacterStatsPage::OnRowCollapsed(W8CharacterStatsRow* row)
 
 /* Right-clicking a row's value asks the screen for that entry's info. */
 // FUNCTION: WIZ8 0x005caa20
-void W8CharacterStatsPage::OnRowInfoRequested(W8CharacterStatsRow* row, int value)
+void W8CharacterStatsPage::OnRowInfoRequested(W8CharacterStatsRow* row, std::int32_t value)
 {
     if (row == m_profession_row) {
         m_screen->ShowProfessionInfo(static_cast<W8Profession>(value));
@@ -701,7 +702,7 @@ void W8CharacterStatsPage::OnPrimary(W8TextControl*) {}
 // FUNCTION: WIZ8 0x005caa50
 void W8CharacterStatsPage::OnSecondary(W8TextControl* control)
 {
-    for (unsigned int index = 0; index < 5; ++index) {
+    for (std::uint32_t index = 0; index < 5; ++index) {
         if (control == m_attribute_controls[index]) {
             m_screen->ShowSecondaryAttributeInfo(index);
         }
@@ -721,7 +722,7 @@ void W8CharacterStatsPage::Prepare()
    corner controls, then the profession/race/sex list state. */
 // FUNCTION: WIZ8 0x005c9c80
 void W8CharacterStatsPage::SetCharacter(W8Character* character,
-                                        W8CharacterCreationState* creation_state, int mode)
+                                        W8CharacterCreationState* creation_state, std::int32_t mode)
 {
     W8CharacterPage::SetCharacter(character, creation_state, mode);
     m_profession_row = new W8CharacterStatsRow;
@@ -779,7 +780,7 @@ void W8CharacterStatsPage::SetCharacter(W8Character* character,
         m_gender_row->m_value_control->SetEnabled(false);
     }
 
-    for (int attribute_index = 0; attribute_index < 7; ++attribute_index) {
+    for (std::int32_t attribute_index = 0; attribute_index < 7; ++attribute_index) {
         W8CharacterPageEntry* entry =
             new W8CharacterPageEntry(this, 0xe5, 0x1b + attribute_index * 0xe, false);
         AddEntry(entry);
@@ -794,7 +795,7 @@ void W8CharacterStatsPage::SetCharacter(W8Character* character,
     nav_next_state = false;
     m_rows_initialized = false;
 
-    for (int control_index = 0; control_index < 5; ++control_index) {
+    for (std::int32_t control_index = 0; control_index < 5; ++control_index) {
         W8TextControl* control =
             new W8TextControl(this, 0xffffffff, 0xf3, 0xba + control_index * 0xe, 0x195, 0xba + control_index * 0xe + 0xc, std::nullopt, -1, -1, -1, -1, -1);
         m_attribute_controls[control_index] = control;
@@ -817,10 +818,10 @@ W8CharacterStatsPage::~W8CharacterStatsPage()
 // FUNCTION: WIZ8 0x005cab20
 void W8CharacterStatsPage::Redraw()
 {
-    bool redraw = static_cast<unsigned char>(m_fEnabled && m_fDirty);
+    bool redraw = static_cast<std::uint8_t>(m_fEnabled && m_fDirty);
     W8TextBuffer text;
-    int left = m_bounds.left;
-    int top = m_bounds.top;
+    std::int32_t left = m_bounds.left;
+    std::int32_t top = m_bounds.top;
     W8CharacterPage::Redraw();
     if (redraw) {
         W8ControlsRect bounds;
@@ -847,7 +848,7 @@ void W8CharacterStatsPage::Redraw()
         bounds.top = top + 0x7e;
         bounds.bottom = top + 0x8a;
         bounds.left = left + 0x116;
-        int saved_right = bounds.right;
+        std::int32_t saved_right = bounds.right;
         text.RenderString(&bounds, g_localized_strings[0x87], g_wiz_text_font_secondary, false,
                           GetFrameBufferSurface());
 
@@ -865,9 +866,9 @@ void W8CharacterStatsPage::Redraw()
         bounds.top = top + 0xbb;
         bounds.right = left + 0xe6;
         if (m_character->iProfession != W8_PROFESSION_NONE || m_character->iRace != W8_RACE_NONE) {
-            unsigned char available[0x20];
-            unsigned int available_count = 0;
-            for (int trait = 0; trait < 0x20; ++trait) {
+            std::uint8_t available[0x20];
+            std::uint32_t available_count = 0;
+            for (std::int32_t trait = 0; trait < 0x20; ++trait) {
                 if (CharacterHasTrait(m_character, static_cast<W8Trait>(trait))) {
                     available[trait] = 1;
                     ++available_count;
@@ -875,7 +876,7 @@ void W8CharacterStatsPage::Redraw()
                     available[trait] = 0;
                 }
             }
-            int line_height = (available_count < 8) + 0xd;
+            std::int32_t line_height = (available_count < 8) + 0xd;
             if (m_character->iProfession != W8_PROFESSION_NONE) {
                 text.SetLayoutBounds(&bounds, true, true);
                 text.RenderString(
@@ -887,7 +888,7 @@ void W8CharacterStatsPage::Redraw()
                     g_wiz_text_font_secondary, false, GetFrameBufferSurface());
                 bounds.top += line_height;
             }
-            for (int trait_index = 0; trait_index < 0x20; ++trait_index) {
+            for (std::int32_t trait_index = 0; trait_index < 0x20; ++trait_index) {
                 if (available[trait_index] != 0) {
                     text.RenderString(&bounds,
                                       g_localized_strings[g_character_trait_name_ids[trait_index]],
@@ -971,22 +972,22 @@ void W8CharacterStatsPage::Redraw()
         text.RenderString(&bounds, g_localized_strings[0xb9], g_wiz_text_font_secondary, false,
                           GetFrameBufferSurface());
         if (m_character->iRace != W8_RACE_NONE || m_character->iProfession != W8_PROFESSION_NONE) {
-            for (int realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
+            for (std::int32_t realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
                 bool first_column = (realm & 1) == 0;
                 bounds.left = (realm / 2) * 0x3f + 0x39 + left;
                 bounds.top = (first_column ? 0x157 : 0x171) + top;
                 bounds.bottom = bounds.top + 0xe;
                 bounds.right = bounds.left + 0x21;
                 text.SetLayoutBounds(&bounds, true, true);
-                int value = m_character->resistances[realm].total - 0x19;
+                std::int32_t value = m_character->resistances[realm].total - 0x19;
                 std::string value_text =
                     value == 0 ? std::string(g_dash) : fmt::format("{:+d}", value);
                 text.RenderString(value_text, g_wiz_text_font_secondary, false, GetFrameBufferSurface());
             }
         }
-        for (int realm_index = 0; realm_index < 6; ++realm_index) {
+        for (std::int32_t realm_index = 0; realm_index < 6; ++realm_index) {
             bool first_column = (realm_index & 1) == 0;
-            int frame_top = (first_column ? 0x155 : 0x16f) + top;
+            std::int32_t frame_top = (first_column ? 0x155 : 0x16f) + top;
             CatalogArtwork::Load(g_character_resistance_images[realm_index], 0).drawAndInvalidate(GetFrameBufferSurface(), g_spell_realm_animations[realm_index].initial_frame, (realm_index / 2) * 0x3f + 0x23 + left, frame_top);
         }
 
@@ -1008,7 +1009,7 @@ void W8CharacterStatsPage::Redraw()
                 g_localized_strings[g_character_skill_name_ids
                                   [g_profession_bonus_skills[m_character->iProfession]]],
                 g_wiz_text_font_secondary, false, GetFrameBufferSurface());
-            for (int index = 0; index < 4; ++index) {
+            for (std::int32_t index = 0; index < 4; ++index) {
                 if (g_profession_skills[m_character->iProfession][index] != -1) {
                     bounds.top += 0xe;
                     bounds.bottom += 0xe;
@@ -1041,7 +1042,7 @@ void W8CharacterStatsPage::Redraw()
     if (m_prepared) {
         W8ControlsRect bounds = {4, 0xec, 0xc2, 0x162};
         text.SetLayoutBounds(&bounds, true, true);
-        int text_id;
+        std::int32_t text_id;
         if (m_mode == 0) {
             text_id = 0xe5;
         } else if (m_character->iRace == W8_RACE_ANDROID) {
@@ -1072,7 +1073,7 @@ void W8CharacterStatsPage::Redraw()
         bounds.bottom = 0x19b;
         CatalogArtwork::Load(0x107, 0).draw(GetFrameBufferSurface(), 5, 0x8f, 0x184);
         text.SetLayoutBounds(&bounds, true, true);
-        int total = m_creation_state->attribute_points_total;
+        std::int32_t total = m_creation_state->attribute_points_total;
         std::string points_text =
             total < 1
                 ? g_zero_slash_zero

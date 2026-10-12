@@ -123,7 +123,7 @@ static void character_file_contracts(const std::filesystem::path& assets,
         REQUIRE(std::filesystem::file_size(saved) == 4 + wiz8::retail::kCharacterBytes);
         REQUIRE(!std::filesystem::exists(assets / "Saves" / "Characters" / filename));
         std::ifstream encoded(saved, std::ios::binary);
-        unsigned int size = 0;
+        std::uint32_t size = 0;
         encoded.read(reinterpret_cast<char*>(&size), sizeof(size));
         REQUIRE((encoded.good() && size == wiz8::retail::kCharacterBytes));
         encoded.close();
@@ -150,7 +150,7 @@ static void character_file_contracts(const std::filesystem::path& assets,
     W8Character blocked{};
     blocked.name = "Blocked";
     std::filesystem::create_directory(user / "Saves" / "Characters" / "Blocked.CHR");
-    static unsigned failed_saves = 0;
+    static std::uint32_t failed_saves = 0;
     REQUIRE(!SaveCharacter(&blocked, -1, false, [] { ++failed_saves; }));
     REQUIRE(failed_saves == 1);
 
@@ -180,10 +180,10 @@ static void character_file_contracts(const std::filesystem::path& assets,
 static void unicode_database_contracts()
 {
     wiz8::create_directory("Data/Databases");
-    const unsigned count = 2;
+    const std::uint32_t count = 2;
     auto items = wiz8::open_file("Data/Databases/Items.DBS", wiz8::OpenMode::replace);
     items->write(&count, 4);
-    for (unsigned i = 0; i < count; ++i) {
+    for (std::uint32_t i = 0; i < count; ++i) {
         W8ItemDatabaseRecord item{};
         item.display_name = i ? "药水😀" : "Épée";
         item.value = 100 + i;
@@ -199,7 +199,7 @@ static void unicode_database_contracts()
     g_item_records = nullptr;
     auto monsters = wiz8::open_file("Data/Databases/Monsters.DBS", wiz8::OpenMode::replace);
     monsters->write(&count, 4);
-    for (unsigned i = 0; i < count; ++i) {
+    for (std::uint32_t i = 0; i < count; ++i) {
         W8MonsterRecord monster{};
         monster.name0 = i ? "怪物😀" : "Élan";
         monster.name1 = i ? "怪物们" : "Élans";
@@ -228,9 +228,9 @@ static void unicode_file_contracts()
         wiz8::text::to_utf16le(text, bytes);
         if (encrypted) {
             for (std::size_t index = 0; index < bytes.size(); index += 2) {
-                auto unit = std::to_integer<unsigned>(bytes[index]) |
-                            (std::to_integer<unsigned>(bytes[index + 1]) << 8);
-                unit = static_cast<unsigned short>(~(unit - 0x9697));
+                auto unit = std::to_integer<std::uint32_t>(bytes[index]) |
+                            (std::to_integer<std::uint32_t>(bytes[index + 1]) << 8);
+                unit = static_cast<std::uint16_t>(~(unit - 0x9697));
                 bytes[index] = static_cast<std::byte>(unit & 255);
                 bytes[index + 1] = static_cast<std::byte>(unit >> 8);
             }
@@ -240,18 +240,18 @@ static void unicode_file_contracts()
     const std::string name = "é中😀";
     for (bool encrypted : {false, true}) {
         auto file = wiz8::open_file("Data/Strings/unicode.msg", wiz8::OpenMode::replace);
-        const unsigned char header[5] = {0, 0, 0, 0, static_cast<unsigned char>(encrypted)};
+        const std::uint8_t header[5] = {0, 0, 0, 0, static_cast<std::uint8_t>(encrypted)};
         file->write(header, sizeof(header));
         const auto bytes = retail_bytes(name, encrypted);
-        const int length = bytes.size() / 2;
-        const unsigned first = 123, second = 456;
+        const std::int32_t length = bytes.size() / 2;
+        const std::uint32_t first = 123, second = 456;
         file->write(&first, 4); file->write(&second, 4); file->write(&length, 4);
         file->write(bytes.data(), bytes.size());
-        const int offset = 5, count = 1, tail = 0;
+        const std::int32_t offset = 5, count = 1, tail = 0;
         file->write(&offset, 4); file->write(&count, 4); file->write(&tail, 4);
         file->close();
         std::string output;
-        unsigned metadata0 = 0, metadata1 = 0;
+        std::uint32_t metadata0 = 0, metadata1 = 0;
         REQUIRE((!(output = GetStringFromStringDatabase("Data/Strings/unicode.msg", 0, &metadata0, &metadata1)).empty()));
         REQUIRE((std::string(output) == name && metadata0 == 123 && metadata1 == 456));
         REQUIRE(!(!(output = GetStringFromStringDatabase("Data/Strings/unicode.msg", -1, nullptr, nullptr)).empty()));
@@ -260,9 +260,9 @@ static void unicode_file_contracts()
         REQUIRE((complete = GetStringFromStringDatabase("Data/Strings/unicode.msg", 0, nullptr, nullptr)) == name);
     }
     auto file = wiz8::open_file("Data/Strings/unicode.dat", wiz8::OpenMode::replace);
-    const int count = 1;
+    const std::int32_t count = 1;
     const auto bytes = retail_bytes("é中😀 %S %hs %s", true);
-    const int length = bytes.size();
+    const std::int32_t length = bytes.size();
     file->write(&count, 4); file->write(&length, 4); file->write(bytes.data(), bytes.size());
     file->close();
     LoadLocalizedStrings("Data/Strings/unicode.dat");
@@ -376,21 +376,21 @@ static void keyword_file_contracts()
 static void path_record_contracts()
 {
     constexpr auto filename = "Data/path-records.bin";
-    auto write_header = [](wiz8::File& file, unsigned char version, int count) {
-        const unsigned char kind = 0;
+    auto write_header = [](wiz8::File& file, std::uint8_t version, std::int32_t count) {
+        const std::uint8_t kind = 0;
         const float position = 0;
-        const unsigned int unknown = 17;
+        const std::uint32_t unknown = 17;
         file.write(&kind, 1);
         file.write(&version, 1);
         file.write(&position, 4);
         file.write(&unknown, 4);
         file.write(&count, 4);
     };
-    for (unsigned char version : {1, 2}) {
+    for (std::uint8_t version : {1, 2}) {
         {
             auto file = wiz8::open_file(filename, wiz8::OpenMode::replace);
             write_header(*file, version, 2);
-            for (int i = 0; i < 2; ++i) {
+            for (std::int32_t i = 0; i < 2; ++i) {
                 const float point[] = {static_cast<float>(i), 0, 0};
                 const float angle_axis[] = {0, 0, 1, 0};
                 const float scale[] = {2, 3, 4};
@@ -432,7 +432,7 @@ static void path_record_contracts()
         PathAIPosition(path.get(), &point);
         REQUIRE((point.x == 125));
     }
-    for (int count : {-1, 0, 1}) {
+    for (std::int32_t count : {-1, 0, 1}) {
         {
             auto file = wiz8::open_file(filename, wiz8::OpenMode::replace);
             write_header(*file, 2, count); // No point payload: count 1 is truncated.
@@ -449,25 +449,25 @@ static void path_record_contracts()
 static void animation_record_contracts()
 {
     constexpr auto filename = "Data/animation-records.dat";
-    for (unsigned char flag : {0, 255}) {
+    for (std::uint8_t flag : {0, 255}) {
         {
             auto file = wiz8::open_file(filename, wiz8::OpenMode::replace);
-            const unsigned char header[] = {11, 0, flag, 0, 0, 0, flag};
+            const std::uint8_t header[] = {11, 0, flag, 0, 0, 0, flag};
             file->write(header, sizeof(header));
             const float speed = 15, chance = 1;
             file->write(&speed, sizeof(speed));
-            const unsigned char frames[] = {0, 1, flag};
+            const std::uint8_t frames[] = {0, 1, flag};
             file->write(frames, sizeof(frames));
             file->write(&chance, sizeof(chance));
-            const unsigned char reserved[50]{};
+            const std::uint8_t reserved[50]{};
             file->write(reserved, sizeof(reserved));
-            const unsigned char count = 2;
+            const std::uint8_t count = 2;
             file->write(&count, 1);
-            for (int i = 0; i < 2; ++i) {
+            for (std::int32_t i = 0; i < 2; ++i) {
                 const float bounds[] = {-1, -2, -3, 1, 2, 3};
                 file->write(bounds, sizeof(bounds));
             }
-            const unsigned char zero = 0;
+            const std::uint8_t zero = 0;
             file->write(&zero, 1); // No lights.
             if (!flag) file->write(&zero, 1); // No standalone path.
             file->write(&zero, 1); // Version 10's reserved byte.
@@ -522,9 +522,9 @@ static void animation_record_contracts()
 static void animated_mesh_cache_contracts()
 {
     REQUIRE((g_animesh_cache_list.empty()));
-    const int old_limit = g_animesh_cache_limit;
-    const int old_bytes = g_animesh_cache_bytes;
-    const int old_stamp = g_animesh_cache_stamp;
+    const std::int32_t old_limit = g_animesh_cache_limit;
+    const std::int32_t old_bytes = g_animesh_cache_bytes;
+    const std::int32_t old_stamp = g_animesh_cache_stamp;
     REQUIRE_FALSE(GetAniMeshBounds(nullptr));
     {
         W8AniMesh mesh;
@@ -547,7 +547,7 @@ static void animated_mesh_cache_contracts()
     constexpr auto filename = "Data/empty-animation-mesh.dat";
     {
         auto file = wiz8::open_file(filename, wiz8::OpenMode::replace);
-        const unsigned char frame_count = 0;
+        const std::uint8_t frame_count = 0;
         file->write(&frame_count, 1);
     }
     {
@@ -595,7 +595,7 @@ static void graphical_object_ownership_contracts()
     auto event = std::make_unique<W8SoundEvent>(W8_SOUND_EVENT_FRAME, 1, 2, 3, "step.wav", true);
     auto* first = event.get();
     original.AddSoundEvent(std::move(event));
-    for (int i = 0; i < 20; ++i) {
+    for (std::int32_t i = 0; i < 20; ++i) {
         original.AddSoundEvent(std::make_unique<W8SoundEvent>(W8_SOUND_EVENT_CYCLE, i, 0, 0, "other.wav", false));
     }
     REQUIRE((original.sound_events.front().get() == first));
@@ -651,18 +651,18 @@ static void encounter_table_contracts()
 {
     wiz8::create_directory("Data/Databases");
     constexpr auto path = "Data/Databases/EncounterTables.dbs";
-    for (unsigned short version : {1, 2}) {
+    for (std::uint16_t version : {1, 2}) {
         {
             auto file = wiz8::open_file(path, wiz8::OpenMode::replace);
-            const int count = 1;
+            const std::int32_t count = 1;
             const char name[256] = "Wilderness";
             W8EncounterTableDiskHeader header = {4, "Forest", 7, version, 2};
-            const unsigned short species[] = {12, 34};
-            const unsigned char rarity[] = {3, 70};
-            const unsigned char time[] = {W8_ENCOUNTER_DAY, W8_ENCOUNTER_ANY_TIME};
-            const unsigned char challenge[] = {5, 20};
+            const std::uint16_t species[] = {12, 34};
+            const std::uint8_t rarity[] = {3, 70};
+            const std::uint8_t time[] = {W8_ENCOUNTER_DAY, W8_ENCOUNTER_ANY_TIME};
+            const std::uint8_t challenge[] = {5, 20};
             const W8EncounterScriptName scripts[] = {{"first.msf"}, {"second.msf"}};
-            const unsigned char flags = 0x42;
+            const std::uint8_t flags = 0x42;
             file->write(&count, sizeof(count));
             file->write(name, sizeof(name));
             file->write(&count, sizeof(count));
@@ -694,7 +694,7 @@ static void encounter_table_contracts()
     // Failed loads must not publish partially populated parallel data.
     {
         auto file = wiz8::open_file(path, wiz8::OpenMode::replace);
-        const int count = 1;
+        const std::int32_t count = 1;
         file->write(&count, sizeof(count));
     }
     REQUIRE(!InitializeEncounterTables());
@@ -725,7 +725,7 @@ static void current_game_character_contracts()
     REQUIRE(LoadCharacterFromCurrentGame("Bob.CHR", &loaded));
     REQUIRE(wiz8::retail::encode(loaded) == wiz8::retail::encode(second));
     REQUIRE((chunks.OpenRead("Saves\\CurrentGame.SAV") && chunks.ChunkCount() == 2));
-    for (int index = 0; index < 2; ++index) {
+    for (std::int32_t index = 0; index < 2; ++index) {
         REQUIRE((chunks.OpenChunk(0, 0) && chunks.CurrentChunkId() == 0x52414843));
         REQUIRE(!chunks.CurrentChunkAtEnd());
         REQUIRE(chunks.CurrentChunkExtent() == 64 + 4 + W8_CHARACTER_SERIALIZED_SIZE);
@@ -767,7 +767,7 @@ static void current_game_character_contracts()
         REQUIRE(LoadCharacterFromCurrentGame("Vi.CHR", &loaded));
         REQUIRE(wiz8::retail::encode(loaded) == wiz8::retail::encode(first));
     }
-    for (unsigned level = 10; level < 20; ++level) {
+    for (std::uint32_t level = 10; level < 20; ++level) {
         first.uiExpLevel = level;
         REQUIRE(SaveCharacterToCurrentGame("Vi.CHR", 0, &first));
         REQUIRE(LoadCharacterFromCurrentGame("Vi.CHR", &loaded));
@@ -780,7 +780,7 @@ static void current_game_character_contracts()
     REQUIRE(chunks.OpenWrite("Saves\\CurrentGame.SAV"));
     REQUIRE(chunks.OpenChunk(0x52414843, 0));
     char name[64] = "Vi.CHR";
-    unsigned size = W8_CHARACTER_SERIALIZED_SIZE;
+    std::uint32_t size = W8_CHARACTER_SERIALIZED_SIZE;
     chunks.Write(name, sizeof(name), nullptr);
     chunks.Write(&size, sizeof(size), nullptr);
     chunks.Write(&first, 1, nullptr);
@@ -830,15 +830,15 @@ static void save_file_contracts(const std::filesystem::path& user)
     REQUIRE(file);
     SDL_PathInfo info{};
     REQUIRE(SDL_GetPathInfo(wiz8::path_to_utf8(user / "Saves" / "Timestamp.SAV").c_str(), &info));
-    const int offset = wiz8::current_utc_offset_seconds();
+    const std::int32_t offset = wiz8::current_utc_offset_seconds();
     auto created = file->times().created;
     REQUIRE(created.ticks() ==
           wiz8::file_time_with_legacy_local_bias(wiz8::file_time_from_sdl(info.create_time), offset).ticks());
 
     // SaveGame's unchanged masks apply independently to the packed dwords.
-    constexpr unsigned masks[] = {0x6b24e9f0u, 0xe77c28c1u};
+    constexpr std::uint32_t masks[] = {0x6b24e9f0u, 0xe77c28c1u};
     static_assert(sizeof(g_status.save_filetime_xor) == 8);
-    unsigned words[] = {created.low ^ masks[0], created.high ^ masks[1]};
+    std::uint32_t words[] = {created.low ^ masks[0], created.high ^ masks[1]};
     file->write(words, sizeof(words));
     REQUIRE(file->tell() == 8);
     std::filesystem::last_write_time(user / "Saves" / "Timestamp.SAV",
@@ -847,7 +847,7 @@ static void save_file_contracts(const std::filesystem::path& user)
     REQUIRE(later.ticks() == created.ticks());
     file.reset();
     std::ifstream encoded(user / "Saves" / "Timestamp.SAV", std::ios::binary);
-    unsigned stored[2]{};
+    std::uint32_t stored[2]{};
     encoded.read(reinterpret_cast<char*>(stored), sizeof(stored));
     REQUIRE((encoded.gcount() == 8 && stored[0] == words[0] && stored[1] == words[1]));
     encoded.close();
@@ -864,11 +864,11 @@ static void save_file_contracts(const std::filesystem::path& user)
           wiz8::file_time_with_legacy_local_bias(wiz8::file_time_from_sdl(info.modify_time), offset).ticks());
     file.reset();
     // Fixed epoch pair encodes the same eight bytes; no record layout changed.
-    const unsigned epoch_masked[] = {epoch.low ^ masks[0], epoch.high ^ masks[1]};
+    const std::uint32_t epoch_masked[] = {epoch.low ^ masks[0], epoch.high ^ masks[1]};
     REQUIRE((epoch_masked[0] == 0xbe1a69f0u && epoch_masked[1] == 0xe6e1991fu));
 
     const auto now = std::filesystem::file_time_type::clock::now();
-    for (int slot = 1; slot <= 3; ++slot)
+    for (std::int32_t slot = 1; slot <= 3; ++slot)
     {
         const auto name = "Quick " + std::to_string(slot) + ".SAV";
         std::ofstream save(user / "Saves" / name, std::ios::binary);
@@ -936,7 +936,7 @@ static void global_status_record()
     W8GlobalStatus status = {};
     status.buffers.Char = characters;
     status.buffers.XChar = rows;
-    for (int slot = 0; slot < 8; ++slot) {
+    for (std::int32_t slot = 0; slot < 8; ++slot) {
         rows[slot].fOccupied = true;
         rows[slot].pending_action = W8_ACTION_ATTACK;
         rows[slot].attack_mode[0] = 100 + slot;
@@ -954,13 +954,13 @@ static void global_status_record()
     chunks.Close();
     REQUIRE((chunks.OpenRead(path) && chunks.OpenChunk(0, 0)));
     REQUIRE(chunks.CurrentChunkId() == 0x41545347);
-    unsigned size = 0, count = 0;
+    std::uint32_t size = 0, count = 0;
     REQUIRE((chunks.Read(&size, sizeof(size), &count) && count == sizeof(size) && size == 0x49c2));
-    unsigned char bytes[0x49c2];
+    std::uint8_t bytes[0x49c2];
     REQUIRE((chunks.Read(bytes, sizeof(bytes), &count) && count == sizeof(bytes)));
     const auto status_image = wiz8::retail::encode(status);
     REQUIRE(!memcmp(bytes, status_image.data(), sizeof(bytes)));
-    unsigned gold, turns;
+    std::uint32_t gold, turns;
     memcpy(&gold, bytes + 0x19, sizeof(gold));
     memcpy(&turns, bytes + 0x19d8, sizeof(turns));
     REQUIRE((gold == 0x12345678 && turns == 0x87654321));
@@ -968,16 +968,16 @@ static void global_status_record()
     memcpy(position, bytes + 0x22a7, sizeof(position));
     REQUIRE((position[0] == 1 && position[1] == 2 && position[2] == 3));
     // Verify each record's prefix and stride independently of native sizeof.
-    for (int slot = 0; slot < 8; ++slot) {
+    for (std::int32_t slot = 0; slot < 8; ++slot) {
         REQUIRE((chunks.Read(&size, 4, &count) && size == 0x1862));
         std::array<std::byte, 0x1862> character_bytes;
         REQUIRE(chunks.Read(character_bytes.data(), character_bytes.size(), &count));
     }
-    for (int slot = 0; slot < 8; ++slot) {
+    for (std::int32_t slot = 0; slot < 8; ++slot) {
         REQUIRE((chunks.Read(&size, 4, &count) && size == 0x106));
         std::array<std::byte, 0x106> party_bytes;
         REQUIRE(chunks.Read(party_bytes.data(), party_bytes.size(), &count));
-        int attack_mode;
+        std::int32_t attack_mode;
         float fatigue;
         std::memcpy(&attack_mode, party_bytes.data() + 5, 4);
         std::memcpy(&fatigue, party_bytes.data() + 0xf6, 4);
@@ -995,7 +995,7 @@ static void global_status_record()
     REQUIRE((chunks.OpenRead(path) && chunks.OpenChunk(0, 0)));
     LoadGameStatus(&chunks, &restored);
     REQUIRE(restored.party_gold == status.party_gold);
-    for (int slot = 0; slot < 8; ++slot) {
+    for (std::int32_t slot = 0; slot < 8; ++slot) {
         REQUIRE(restored_rows[slot].fOccupied);
         REQUIRE(restored_rows[slot].attack_mode[0] == 100 + slot);
         REQUIRE(restored_rows[slot].movement_fatigue == 1.25f + slot);
@@ -1019,7 +1019,7 @@ static void packed_camera_angles()
     W8CameraAngleRecord yaw, pitch;
     memcpy(yaw, packed.state.yaw, sizeof(yaw));
     memcpy(pitch, packed.state.pitch, sizeof(pitch));
-    for (unsigned i = 0; i < 6; ++i) REQUIRE((yaw[i] == 0 && pitch[i] == 0));
+    for (std::uint32_t i = 0; i < 6; ++i) REQUIRE((yaw[i] == 0 && pitch[i] == 0));
     yaw[0] = 0.5f;
     pitch[0] = 0.25f;
     yaw[5] = 123.0f;
@@ -1101,24 +1101,24 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and failure recovery", "[save]
     NpcGlobalGuard globals;
     const auto path = root / wiz8::path_from_utf8("npc-雪.bin");
     W8NpcDatabaseRecord database[3] = {};
-    for (unsigned char index = 0; index < 3; ++index) database[index].kind = index;
+    for (std::uint8_t index = 0; index < 3; ++index) database[index].kind = index;
     g_npc_records = database;
     // All three database nodes are supplied by the serialized states below.
     gXStatus.uiNpcsInDatabase = 3;
     W8Character unrelated = {};
     // A small word that a process-local handle table could have resolved.
-    const unsigned int live_handle = 1;
-    const unsigned char version = GENERATE(static_cast<unsigned char>(2), static_cast<unsigned char>(3));
+    const std::uint32_t live_handle = 1;
+    const std::uint8_t version = GENERATE(static_cast<std::uint8_t>(2), static_cast<std::uint8_t>(3));
     CAPTURE(version);
     {
         std::ofstream out(path, std::ios::binary | std::ios::trunc);
         write(out, version);
         write(out, 3u);
-        const unsigned int markers[] = {0x12345678u, live_handle, 0};
-        for (unsigned int i = 0; i < 3; ++i)
+        const std::uint32_t markers[] = {0x12345678u, live_handle, 0};
+        for (std::uint32_t i = 0; i < 3; ++i)
         {
             wiz8::retail::NpcState disk = {};
-            disk.name_style = static_cast<unsigned char>(i);
+            disk.name_style = static_cast<std::uint8_t>(i);
             disk.character = markers[i];
             write(out, disk);
             if (markers[i])
@@ -1128,7 +1128,7 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and failure recovery", "[save]
                 character.record_version = 2;
                 if (version == 3)
                 {
-                    write(out, static_cast<unsigned int>(wiz8::retail::kCharacterBytes));
+                    write(out, static_cast<std::uint32_t>(wiz8::retail::kCharacterBytes));
                 }
                 const auto image = wiz8::retail::encode(character);
                 out.write(reinterpret_cast<const char*>(image.data()),
@@ -1137,7 +1137,7 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and failure recovery", "[save]
             }
         }
         // Version >= 2 follows the states with an item count for each NPC.
-        for (unsigned int i = 0; i < 3; ++i)
+        for (std::uint32_t i = 0; i < 3; ++i)
         {
             write(out, 0u);
         }
@@ -1146,8 +1146,8 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and failure recovery", "[save]
         auto file = wiz8::open_host_file(path);
         REQUIRE(file);
         LoadNpcStates(*file);
-        REQUIRE(static_cast<int>(g_npc_states.size()) == 3);
-        for (unsigned int i = 0; i < 3; ++i)
+        REQUIRE(static_cast<std::int32_t>(g_npc_states.size()) == 3);
+        for (std::uint32_t i = 0; i < 3; ++i)
         {
             W8NpcState* npc = g_npc_states[i];
             REQUIRE(npc->record == &database[i]);
@@ -1162,7 +1162,7 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and failure recovery", "[save]
                 REQUIRE(npc->character == 0);
             }
         }
-        unsigned int trailer;
+        std::uint32_t trailer;
         file->read_exact(&trailer, sizeof(trailer));
         REQUIRE(trailer == 0xdecafbadU);
         file.reset();
@@ -1186,7 +1186,7 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and failure recovery", "[save]
         file = wiz8::open_host_file(root / "roundtrip.npct");
         LoadNpcStates(*file);
         REQUIRE(g_npc_states.size() == 3);
-        for (int index = 0; index < 3; ++index) {
+        for (std::int32_t index = 0; index < 3; ++index) {
             auto* npc = g_npc_states[index];
             REQUIRE((npc->record == &database[index] && !npc->items));
             if (index < 2) REQUIRE((npc->character && npc->character->name[0] == L'A' + index));
@@ -1195,10 +1195,10 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and failure recovery", "[save]
         file.reset();
         const auto previous = g_npc_states;
         auto* previous_npc = previous[0];
-        for (int malformed = 0; malformed < 4; ++malformed) {
+        for (std::int32_t malformed = 0; malformed < 4; ++malformed) {
             CAPTURE(version, malformed);
             std::ofstream bad(path, std::ios::binary | std::ios::trunc);
-            write(bad, static_cast<unsigned char>(3));
+            write(bad, static_cast<std::uint8_t>(3));
             write(bad, malformed == 0 ? UINT32_MAX : 1u);
             wiz8::retail::NpcState disk{};
             disk.name_style = malformed == 1 ? 255 : 0;
@@ -1246,9 +1246,9 @@ TEST_CASE_METHOD(SaveFixture, "Current-game character replacement", "[save][reco
 TEST_CASE_METHOD(SaveFixture, "NPC script records and truncated streams", "[save][npc]")
 {
     // A small word that a process-local handle table could have resolved.
-    const unsigned int live_handle = 1;
+    const std::uint32_t live_handle = 1;
     const auto script_path = user / "Saves" / "dialogue.nsf";
-    const unsigned int marker = GENERATE_COPY(0x12345678u, live_handle, 0u);
+    const std::uint32_t marker = GENERATE_COPY(0x12345678u, live_handle, 0u);
     CAPTURE(marker);
     {
         std::ofstream out(script_path, std::ios::binary | std::ios::trunc);
@@ -1258,19 +1258,19 @@ TEST_CASE_METHOD(SaveFixture, "NPC script records and truncated streams", "[save
         write(out, disk);
         if (marker)
         {
-            write(out, static_cast<unsigned short>(4));
+            write(out, static_cast<std::uint16_t>(4));
             out.write("name", 4);
         }
         wiz8::retail::nsf::Quote quote = {};
         quote.entry_count = 1;
-        const unsigned int present = marker ? marker : 0x87654321u;
+        const std::uint32_t present = marker ? marker : 0x87654321u;
         memcpy(&quote.subquotes, &present, sizeof(present));
         write(out, quote);
-        write(out, static_cast<unsigned char>(2));
-        write(out, static_cast<unsigned short>(4));
+        write(out, static_cast<std::uint8_t>(2));
+        write(out, static_cast<std::uint16_t>(4));
         const char16_t text[] = {u'é', u'中', 0xd83d, 0xde00};
         out.write(reinterpret_cast<const char*>(text), sizeof(text));
-        write(out, static_cast<unsigned short>(0));
+        write(out, static_cast<std::uint16_t>(0));
         wiz8::retail::nsf::Entry entry = {};
         entry.sub_entry_count = 2;
         write(out, entry);
@@ -1278,7 +1278,7 @@ TEST_CASE_METHOD(SaveFixture, "NPC script records and truncated streams", "[save
         sub.operand = 11;
         memcpy(&sub.text, &present, sizeof(present));
         write(out, sub);
-        write(out, static_cast<unsigned short>(4));
+        write(out, static_cast<std::uint16_t>(4));
         out.write("line", 4);
         sub.text = 0;
         sub.operand = 22;
@@ -1332,7 +1332,7 @@ TEST_CASE_METHOD(SaveFixture, "AI conditions and save slot naming", "[save][reco
     W8CombatSlot target = {};
     target.iType = W8_TARGET_KIND_CHARACTER;
     target.iChar = 0;
-    REQUIRE(reinterpret_cast<uintptr_t>(character.uiCondition) % alignof(unsigned int) == 0);
+    REQUIRE(reinterpret_cast<uintptr_t>(character.uiCondition) % alignof(std::uint32_t) == 0);
     REQUIRE(MonsterSpellTargetOK(nullptr, W8_SPELL_SLEEP, &target));
     character.uiCondition[W8_CONDITION_ASLEEP] = 1;
     REQUIRE(!MonsterSpellTargetOK(nullptr, W8_SPELL_SLEEP, &target));
@@ -1352,13 +1352,13 @@ TEST_CASE_METHOD(SaveFixture, "AI conditions and save slot naming", "[save][reco
     triangle.point.Set(0, 3, 3);
     REQUIRE(!PointInsideTriangle(runtimeTriangle(triangle.vertices), 0, triangle.point.glmValue()));
     REQUIRE(BuildLevelStatusPath(56) == "Levels\\Test\\DefaultLevel.STS");
-    for (int index = 0; index < 10; ++index) {
+    for (std::int32_t index = 0; index < 10; ++index) {
         const auto name = index == 0 ? std::string("Ending") : "Ending" + std::to_string(index);
         auto file = wiz8::open_file("Saves/" + name + ".SAV", wiz8::OpenMode::replace);
         file->close();
     }
     REQUIRE(FindFreeEndingSaveName() == std::optional<std::string>{"Ending10"});
-    for (int index = 10; index < 20; ++index) {
+    for (std::int32_t index = 10; index < 20; ++index) {
         auto file = wiz8::open_file("Saves/Ending" + std::to_string(index) + ".SAV", wiz8::OpenMode::replace);
         file->close();
     }

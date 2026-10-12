@@ -13,18 +13,18 @@
 #include <vector>
 
 struct W8ChunkHead {
-    unsigned int chunk_id; /* 0x00 */
-    unsigned char grouped; /* 0x04 */
-    unsigned char at_end;  /* 0x05 */
-    unsigned char unknown_06[2];
-    int extent; /* 0x08 */
+    std::uint32_t chunk_id; /* 0x00 */
+    std::uint8_t grouped; /* 0x04 */
+    std::uint8_t at_end;  /* 0x05 */
+    std::uint8_t unknown_06[2];
+    std::int32_t extent; /* 0x08 */
 };
 
 // A chunk id is its four-character code stored little-endian.
-constexpr unsigned int W8ChunkId(const char (&tag)[5])
+constexpr std::uint32_t W8ChunkId(const char (&tag)[5])
 {
-    return static_cast<unsigned char>(tag[0]) | static_cast<unsigned char>(tag[1]) << 8 |
-           static_cast<unsigned char>(tag[2]) << 16 | static_cast<unsigned>(static_cast<unsigned char>(tag[3])) << 24;
+    return static_cast<std::uint8_t>(tag[0]) | static_cast<std::uint8_t>(tag[1]) << 8 |
+           static_cast<std::uint8_t>(tag[2]) << 16 | static_cast<std::uint32_t>(static_cast<std::uint8_t>(tag[3])) << 24;
 }
 
 // Runtime navigation is owned value storage; only the ten-byte disk header
@@ -35,9 +35,9 @@ private:
     std::shared_ptr<wiz8::File> m_hFile;
     bool m_fWriting = false;
     std::vector<W8ChunkHead> m_heads;
-    std::vector<int> m_group_counts;
+    std::vector<std::int32_t> m_group_counts;
     std::vector<std::int64_t> m_offsets;
-    std::vector<int> m_group_progress;
+    std::vector<std::int32_t> m_group_progress;
 
 public:
     W8Chunk() = default;
@@ -63,13 +63,13 @@ public:
     bool SkipCurrentChunk();
     bool OpenGroup();
     bool ReleaseGroup();
-    unsigned int CurrentChunkId();
-    int CurrentChunkExtent();
+    std::uint32_t CurrentChunkId();
+    std::int32_t CurrentChunkExtent();
     std::int64_t CurrentChunkEnd() const;
-    int ChunkCount();
-    bool OpenChunk(unsigned int chunk_id, unsigned char grouped);
-    unsigned char Read(void* buffer, unsigned int size, unsigned int* transferred);
-    unsigned char Write(const void* buffer, unsigned int size, unsigned int* transferred);
+    std::int32_t ChunkCount();
+    bool OpenChunk(std::uint32_t chunk_id, std::uint8_t grouped);
+    std::uint8_t Read(void* buffer, std::uint32_t size, std::uint32_t* transferred);
+    std::uint8_t Write(const void* buffer, std::uint32_t size, std::uint32_t* transferred);
 
     // Payload transfer within the active chunk. Reads never cross its extent;
     // both directions throw instead of reporting partial transfers.
@@ -96,7 +96,7 @@ public:
     // Write one complete chunk: body transfers the payload and the header
     // extent is patched when it returns. A body that leaves a nested chunk
     // open is rejected. Failures throw; the caller abandons the file.
-    template<class F> void WriteChunk(unsigned int chunk_id, F&& body)
+    template<class F> void WriteChunk(std::uint32_t chunk_id, F&& body)
     {
         if (!m_fWriting || chunk_id == 0) throw std::logic_error("invalid RIFF chunk write");
         OpenChunk(chunk_id, 0);
@@ -107,7 +107,7 @@ public:
     }
     // A grouped chunk: body writes the group's prefix and its child chunks,
     // and the child count is patched when it returns.
-    template<class F> void WriteGroup(unsigned int chunk_id, F&& body)
+    template<class F> void WriteGroup(std::uint32_t chunk_id, F&& body)
     {
         WriteChunk(chunk_id, [&] {
             OpenGroup();
@@ -131,12 +131,12 @@ public:
     // the walk by returning false.
     template<class F> void ForEachChunk(F&& visit)
     {
-        for (int index = 0, count = ChunkCount(); index < count; ++index) {
+        for (std::int32_t index = 0, count = ChunkCount(); index < count; ++index) {
             OpenChunk(0, 0);
             const auto depth = m_heads.size();
             bool more = true;
             if (!CurrentChunkAtEnd()) {
-                if constexpr (std::is_void_v<std::invoke_result_t<F&, unsigned int>>)
+                if constexpr (std::is_void_v<std::invoke_result_t<F&, std::uint32_t>>)
                     visit(CurrentChunkId());
                 else
                     more = visit(CurrentChunkId());
@@ -150,7 +150,7 @@ public:
     void RewindCurrentChunk();
     void SetCurrentChunkAtEnd();
     bool ReleaseCurrentChunk();
-    unsigned char CurrentChunkAtEnd();
+    std::uint8_t CurrentChunkAtEnd();
 private:
     W8ChunkHead& CurrentHead();
 };

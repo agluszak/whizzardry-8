@@ -27,15 +27,15 @@
 // GLOBAL: WIZ8 0x0069C4A8
 static std::vector<W8CreditLine> g_credit_lines;
 // GLOBAL: WIZ8 0x0069C494
-static int g_credit_elapsed_steps;
+static std::int32_t g_credit_elapsed_steps;
 // GLOBAL: WIZ8 0x0069C498
 static bool g_credit_redraw;
 // GLOBAL: WIZ8 0x0069C49C
-static w8_ulong g_credit_started_at;
+static std::uint32_t g_credit_started_at;
 // GLOBAL: WIZ8 0x0069C4A0
-static int g_credit_y;
+static std::int32_t g_credit_y;
 // GLOBAL: WIZ8 0x0069C4A4
-static int g_credit_line;
+static std::int32_t g_credit_line;
 
 /* Read one wide line, stopping at a newline, capacity, or the end of the
    stream. Answers whether the line ended at a newline; trailing carriage
@@ -59,7 +59,7 @@ std::optional<std::string> ReadRetailTextLine(wiz8::File* handle)
 }
 
 // FUNCTION: WIZ8 0x005bc130
-unsigned char CreditsScreenEnter(void)
+std::uint8_t CreditsScreenEnter(void)
 try
 {
     std::unique_ptr<wiz8::File> handle;
@@ -120,7 +120,7 @@ try
 catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x005bc420
-unsigned char CreditsScreenLeave(int)
+std::uint8_t CreditsScreenLeave(std::int32_t)
 {
     g_credit_lines.clear();
     ResetRegions();
@@ -143,7 +143,7 @@ void CreditsScreenFrame(void)
             RequestScreenTransition();
     }
 
-    int steps = (w8_get_ticks() - g_credit_started_at) / 35 - g_credit_elapsed_steps;
+    std::int32_t steps = (w8_get_ticks() - g_credit_started_at) / 35 - g_credit_elapsed_steps;
     if (steps >= 1) {
         g_credit_elapsed_steps += steps;
         g_credit_redraw = true;
@@ -164,8 +164,8 @@ void CreditsScreenFrame(void)
     }
 
     CatalogArtwork::Load(0xe9, 0).draw(GetFrameBufferSurface(), 0, 0, 0, {}, BitmapKey::Opaque);
-    int y = g_credit_y;
-    for (int index = g_credit_line; index < g_credit_lines.size() && y <= 0x1df; ++index) {
+    std::int32_t y = g_credit_y;
+    for (std::int32_t index = g_credit_line; index < g_credit_lines.size() && y <= 0x1df; ++index) {
         const W8CreditLine* entry = &g_credit_lines[index];
         if ((entry->flags & 4) == 0) {
             Font& font = (entry->flags & 1) ? g_options_title_font : g_options_detail_font;

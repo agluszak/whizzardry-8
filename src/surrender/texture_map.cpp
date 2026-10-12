@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "surrender/stream_scope.h"
 #include <ostream>
 #include <memory>
@@ -60,7 +61,7 @@ void srTextureMap::invalidate()
 }
 
 // FUNCTION: SURRENDER 0x100604B0
-w8_ulong srTextureMap::getTextureFrameHandle()
+std::uint32_t srTextureMap::getTextureFrameHandle()
 {
     return frame_handle;
 }

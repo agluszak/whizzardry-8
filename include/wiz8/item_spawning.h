@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <vector>
 #include <algorithm>
 #include "wiz8/engine_code/Item.h"
@@ -17,44 +18,44 @@ enum {
 
 /* A world item. Saves store it as wiz8::retail::WorldItem. */
 struct W8WorldItem {
-    int runtime_id;      /* 0x00 */
+    std::int32_t runtime_id;      /* 0x00 */
     W8Item* p3D; /* 0x04: assertion-proven pItemInfo->p3D; owns the live world entity */
     bool fActive;        /* 0x08: assertion-proven pItemInfo->fActive */
     W8ItemInstance item; /* 0x09 */
     srVector3T<float> position; /* 0x15 */
-    unsigned char unknown_21[4];
+    std::uint8_t unknown_21[4];
     /* Saved W8ItemRep flag word; level restore clears RADAR_SEEN. */
-    int entity_flags;
-    unsigned int flags; /* 0x29: W8_WORLD_ITEM_* masks */
+    std::int32_t entity_flags;
+    std::uint32_t flags; /* 0x29: W8_WORLD_ITEM_* masks */
     /* Both established by the LoadSaveGame.cpp serializers: the marker is set
        to 1 before each record is written, and the chain is walked and rebuilt
        through the link. The link is written to the file and reloaded with the
        record, so on disk it only records that another entry follows. */
-    int saved_marker;  /* 0x2d */
+    std::int32_t saved_marker;  /* 0x2d */
     W8WorldItem* next; /* 0x31 */
     /* 0x35: vertical velocity while flag bit 1 (falling) is set; cleared on
        ground settle. */
     float vertical_velocity;
-    int sector_id; /* 0x39 */
-    unsigned char unknown_3d[0x70];
+    std::int32_t sector_id; /* 0x39 */
+    std::uint8_t unknown_3d[0x70];
 };
 
 W8WorldItem* CreateWorldItem(W8ItemInstance* item, const srVector3T<float>* position,
-                             int entity_flags, bool add_to_world);
+                             std::int32_t entity_flags, bool add_to_world);
 W8WorldItem* GetNextWorldItem(bool restart);
-unsigned char SettleWorldItem(W8WorldItem* item);
-W8WorldItem* SpawnItem(int item_id, const srVector3T<float>* position, int entity_flags,
+std::uint8_t SettleWorldItem(W8WorldItem* item);
+W8WorldItem* SpawnItem(std::int32_t item_id, const srVector3T<float>* position, std::int32_t entity_flags,
                        bool add_to_world);
 
-bool ItemHasFlags(const W8WorldItem* item, unsigned int mask);
-void SetItemFlags(W8WorldItem* item, unsigned int mask, bool enabled);
-void SetItemAndEntityFlags(W8WorldItem* item, unsigned int mask, bool enabled);
-int ItemInfoGetNumInGroup(W8WorldItem* item);
+bool ItemHasFlags(const W8WorldItem* item, std::uint32_t mask);
+void SetItemFlags(W8WorldItem* item, std::uint32_t mask, bool enabled);
+void SetItemAndEntityFlags(W8WorldItem* item, std::uint32_t mask, bool enabled);
+std::int32_t ItemInfoGetNumInGroup(W8WorldItem* item);
 void ItemInfoAddToGroup(W8WorldItem* group, W8WorldItem* item);
 W8WorldItem* ItemInfoRemoveFromGroup(W8WorldItem* group, W8WorldItem* item);
 W8WorldItem* ItemInfoGroupGetNext(W8WorldItem* item);
-int ItemInfoMakeGroupList(W8WorldItem* item, std::vector<W8WorldItem*>& out);
+std::int32_t ItemInfoMakeGroupList(W8WorldItem* item, std::vector<W8WorldItem*>& out);
 bool ItemInfoIsWorldPersistent(const W8WorldItem* item);
 void FreeWorldItemGroup(W8WorldItem* item);
 void ActivateItem(W8WorldItem* item);
-int FindItemRecordByName(const char* name);
+std::int32_t FindItemRecordByName(const char* name);

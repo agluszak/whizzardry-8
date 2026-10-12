@@ -1,11 +1,12 @@
+#include <cstdint>
 #include "Font.h"
 #pragma once
 
 extern Font g_level_load_font; /* Font used for level-load and
                                         party-death/ending overlay text */
 
-unsigned char PleaseWaitScreenInitialize(void);
-unsigned char PleaseWaitScreenEnter(void);
+std::uint8_t PleaseWaitScreenInitialize(void);
+std::uint8_t PleaseWaitScreenEnter(void);
 void PleaseWaitScreenFrame(void);
-unsigned char PleaseWaitScreenLeave(int leaving);
+std::uint8_t PleaseWaitScreenLeave(std::int32_t leaving);
 void UpdatePleaseWaitLoadFrame(void);

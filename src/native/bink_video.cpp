@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "wiz8/bink_video.h"
 
 #include <SDL3/SDL_pixels.h>
@@ -26,8 +27,8 @@ bool copy(const W8NativeVideo::Frame& frame, SDL_Surface* target)
         return false;
     if (!target->pixels)
         return false;
-    for (int y = 0; y < frame.height; ++y)
-        memcpy(static_cast<unsigned char*>(target->pixels) + y * target->pitch,
+    for (std::int32_t y = 0; y < frame.height; ++y)
+        memcpy(static_cast<std::uint8_t*>(target->pixels) + y * target->pitch,
                frame.pixels.data() + y * frame.width, frame.width * 2);
     return true;
 }
@@ -40,7 +41,7 @@ W8BinkVideo::~W8BinkVideo()
 {
     delete m_handle;
 }
-unsigned char W8BinkVideo::Open(const char* path, int flags)
+std::uint8_t W8BinkVideo::Open(const char* path, std::int32_t flags)
 {
     // Retail can open the next intro on the same owner. Stop the old audio first.
     delete m_handle;
@@ -61,7 +62,7 @@ unsigned char W8BinkVideo::Open(const char* path, int flags)
         return 0;
     }
 }
-unsigned char W8BinkVideo::UpdateFrame()
+std::uint8_t W8BinkVideo::UpdateFrame()
 {
     if (!m_handle)
         return 0;
@@ -85,14 +86,14 @@ unsigned char W8BinkVideo::UpdateFrame()
         return 1;
     }
 }
-unsigned char W8BinkVideo::CopyFrameToPrimarySurface()
+std::uint8_t W8BinkVideo::CopyFrameToPrimarySurface()
 {
     if (!m_handle || !copy(m_handle->frame(), &GetFrameBufferSurface()))
         return 0;
     InvalidateRegion(0, 0, m_handle->frame().width, m_handle->frame().height, 0);
     return 1;
 }
-unsigned char W8BinkVideo::CopyFrameToTargetSurface()
+std::uint8_t W8BinkVideo::CopyFrameToTargetSurface()
 {
     return m_handle && copy(m_handle->frame(), m_target);
 }

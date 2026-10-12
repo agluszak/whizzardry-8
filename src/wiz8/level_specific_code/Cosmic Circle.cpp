@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "wiz8/level_specific_code/CosmicCircle.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/World.h"
@@ -71,8 +72,8 @@ void CosmicCircleSetup(void)
     srVector3T<float> positionPhoonzang;
     W8MonsterGroup* group;
     Trigger* pTrigger;
-    int uiMonsterID;
-    unsigned int index;
+    std::int32_t uiMonsterID;
+    std::uint32_t index;
 
     if (!g_status.world_suspended && !g_status.cc_arena_spawned) {
         if (FindEntityByName("NP_ALTHEIDESARENA", &positionAltheides, 0, 0)) {

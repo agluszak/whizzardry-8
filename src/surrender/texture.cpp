@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "surrender/stream_scope.h"
 #include <cstddef>
 #include <ostream>
@@ -21,7 +22,7 @@ static const char* s_flag_names3;
 
 // GLOBAL: SURRENDER 0x100A4A1C
 // srTexture::_frameHandle
-w8_ulong srTexture::_frameHandle;
+std::uint32_t srTexture::_frameHandle;
 
 // FUNCTION: SURRENDER 0x1005EDE0
 const char* srTexture::sGetClassName()
@@ -170,14 +171,14 @@ void srTexture::dump(std::ostream& stream)
 }
 
 // FUNCTION: SURRENDER 0x1005EEF0
-w8_ulong srTexture::getNewFrameHandle()
+std::uint32_t srTexture::getNewFrameHandle()
 {
     _frameHandle = _frameHandle + 1;
     return _frameHandle;
 }
 
 // FUNCTION: SURRENDER 0x1005EA90
-void srTexture::invalidateFrameHandle(w8_ulong handle)
+void srTexture::invalidateFrameHandle(std::uint32_t handle)
 {
     for (srGERD* device = srGERD::getFirstOpen(); device != 0; device = device->getNextOpen()) {
         device->invalidateTextureByFrameHandle(handle);
@@ -341,7 +342,7 @@ void srTexture::disableHint(e_hint hint)
 }
 
 // FUNCTION: SURRENDER 0x1005EDC0
-int srTexture::isHintEnabled(e_hint hint) const
+std::int32_t srTexture::isHintEnabled(e_hint hint) const
 {
     return (texture_dimensions_.hints & (1 << hint)) != 0;
 }
@@ -359,15 +360,15 @@ void srTexture::setCompression(e_compression compression)
 }
 
 // FUNCTION: SURRENDER 0x1005EF00
-w8_ulong srTexture::getNewFrameHandles(w8_ulong count)
+std::uint32_t srTexture::getNewFrameHandles(std::uint32_t count)
 {
-    w8_ulong first = _frameHandle + 1;
+    std::uint32_t first = _frameHandle + 1;
     _frameHandle = _frameHandle + count;
     return first;
 }
 
 // FUNCTION: SURRENDER 0x1005EDF0
-w8_ulong srTexture::getTextureFrameHandle()
+std::uint32_t srTexture::getTextureFrameHandle()
 {
     return 0;
 }

@@ -13,9 +13,9 @@ const char* g_button_sound_paths[4][4] = {{0, 0, 0, 0},
                                           {0, 0, g_button_click_2, g_button_click_1},
                                           {g_button_whoosh, 0, g_button_click_2, g_button_click_1}};
 // GLOBAL: WIZ8 0x0062A498
-static int g_button_sound_scheme_stack[32] = {1};
+static std::int32_t g_button_sound_scheme_stack[32] = {1};
 // GLOBAL: WIZ8 0x0062A518
-static int g_button_sound_override = -1;
+static std::int32_t g_button_sound_override = -1;
 
 // GLOBAL: WIZ8 0x0062A51C
 char g_button_click_1[] = "Data\\Sound\\Misc\\Interface Click 01.wav";
@@ -28,14 +28,14 @@ char g_button_whoosh[] = "Data\\Sound\\Misc\\Interface Whoosh 01 Soft.wav";
    original top name and the SCHEME_STACK_SIZE spelling; the body establishes
    the 32-entry capacity and pre-increment push convention. */
 // GLOBAL: WIZ8 0x0068DE38
-static int g_button_sound_scheme_stack_top;
+static std::int32_t g_button_sound_scheme_stack_top;
 // GLOBAL: WIZ8 0x0068DE3C
-static uint64_t g_button_sound_cooldown;
+static std::uint64_t g_button_sound_cooldown;
 
 // FUNCTION: WIZ8 0x00558720
-void PlayButtonSound(int sound_id)
+void PlayButtonSound(std::int32_t sound_id)
 {
-    int scheme = g_button_sound_override;
+    std::int32_t scheme = g_button_sound_override;
     if (scheme < 0) {
         if (g_button_sound_scheme_stack_top < 0) {
             return;
@@ -63,7 +63,7 @@ void PlayButtonSound(int sound_id)
 }
 
 // FUNCTION: WIZ8 0x005587c0
-void PushButtonSoundScheme(int scheme, bool replace_current)
+void PushButtonSoundScheme(std::int32_t scheme, bool replace_current)
 {
     if (replace_current) {
         g_button_sound_override = scheme;

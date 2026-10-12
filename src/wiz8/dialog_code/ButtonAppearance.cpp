@@ -46,7 +46,7 @@ ButtonImage ButtonGraphics::Load(std::string_view filename, std::int32_t grayed,
 {
     const std::array frames{grayed, off_normal, off_hilite, on_normal, on_hilite};
     if (filename.empty() || std::all_of(frames.begin(), frames.end(),
-                                      [](int frame) { return frame == BUTTON_NO_IMAGE; }))
+                                      [](std::int32_t frame) { return frame == BUTTON_NO_IMAGE; }))
         return {};
 
     auto image = std::make_shared<ButtonGraphics>();
@@ -55,7 +55,7 @@ ButtonImage ButtonGraphics::Load(std::string_view filename, std::int32_t grayed,
         return {};
 
     image->MaxWidth = image->MaxHeight = 0;
-    for (const int index : frames) {
+    for (const std::int32_t index : frames) {
         if (index == BUTTON_NO_IMAGE)
             continue;
         if (index < 0 ||
@@ -85,12 +85,12 @@ ButtonImage ButtonGraphics::Load(std::shared_ptr<const SpriteSheet> sprites,
 {
     const std::array frames{grayed, off_normal, off_hilite, on_normal, on_hilite};
     if (!sprites || std::all_of(frames.begin(), frames.end(),
-                                [](int frame) { return frame == BUTTON_NO_IMAGE; }))
+                                [](std::int32_t frame) { return frame == BUTTON_NO_IMAGE; }))
         return {};
 
     auto image = std::make_shared<ButtonGraphics>();
     image->sprites = std::move(sprites);
-    for (const int index : frames) {
+    for (const std::int32_t index : frames) {
         if (index == BUTTON_NO_IMAGE)
             continue;
         if (index < 0 || static_cast<std::size_t>(index) >= image->object().frames.size()) {
@@ -392,7 +392,7 @@ static std::int8_t DrawGenericButton(SDL_Surface& target, const ButtonAppearance
                    {b->generic_image->offset_x, b->generic_image->offset_y});
     }
 
-    const auto draw_frame = [&](std::size_t frame, int x, int y) {
+    const auto draw_frame = [&](std::size_t frame, std::int32_t x, std::int32_t y) {
         DrawSprite(target, BPic, frame, x, y);
     };
 
@@ -421,13 +421,13 @@ static std::int8_t DrawGenericButton(SDL_Surface& target, const ButtonAppearance
 
     if (hremain != 0) {
         q = NumChunksHigh;
-        const int y = b->bounds.y + q * iBorderHeight - (iBorderHeight - hremain);
+        const std::int32_t y = b->bounds.y + q * iBorderHeight - (iBorderHeight - hremain);
         draw_frame(3, b->bounds.x, y);
         draw_frame(4, cx, y);
     }
 
     for (q = 1; q < NumChunksHigh; q++) {
-        const int y = b->bounds.y + q * iBorderHeight;
+        const std::int32_t y = b->bounds.y + q * iBorderHeight;
         draw_frame(3, b->bounds.x, y);
         draw_frame(4, cx, y);
     }

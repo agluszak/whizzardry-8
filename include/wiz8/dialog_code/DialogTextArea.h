@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "Font.h"
 #pragma once
 
@@ -11,9 +12,9 @@
 #include "wiz8/dialog_code/DialogTextEntry.h"
 #include "compat/compiler.h"
 
-extern const unsigned int g_W8DialogTextAreaNoWrap;
-extern const unsigned int g_W8DialogTextAreaPointSelection;
-extern const unsigned int g_W8DialogTextAreaShortenText;
+extern const std::uint32_t g_W8DialogTextAreaNoWrap;
+extern const std::uint32_t g_W8DialogTextAreaPointSelection;
+extern const std::uint32_t g_W8DialogTextAreaShortenText;
 
 /* Two instances of this pointer-vector specialization are embedded in
    W8DialogTextArea. */
@@ -28,42 +29,42 @@ class W8DialogTextArea {
 public:
     W8DialogTextArea();
     ~W8DialogTextArea() = default;
-    void Configure(const W8ControlsRect* bounds, Font& font, unsigned int flags);
+    void Configure(const W8ControlsRect* bounds, Font& font, std::uint32_t flags);
     void Draw(bool force);
-    void SetFirstVisibleLine(int line);
-    int GetTotalLineCount();
-    unsigned int GetLineHeight();
-    void SetEntrySpacing(int lines);
-    void SetLineHeight(unsigned int height);
-    bool SelectEntry(int index);
+    void SetFirstVisibleLine(std::int32_t line);
+    std::int32_t GetTotalLineCount();
+    std::uint32_t GetLineHeight();
+    void SetEntrySpacing(std::int32_t lines);
+    void SetLineHeight(std::uint32_t height);
+    bool SelectEntry(std::int32_t index);
     bool ClearSelection();
-    std::optional<std::string_view> GetEntryText(unsigned int index) const;
-    unsigned int HitTestEntry(int x, int y);
-    bool UpdateSelectionFromPoint(int x, int y);
+    std::optional<std::string_view> GetEntryText(std::uint32_t index) const;
+    std::uint32_t HitTestEntry(std::int32_t x, std::int32_t y);
+    bool UpdateSelectionFromPoint(std::int32_t x, std::int32_t y);
     bool ClearPointSelection();
-    std::optional<std::string_view> GetVisibleEntryText(unsigned int index) const;
-    bool HighlightVisibleEntry(int index);
+    std::optional<std::string_view> GetVisibleEntryText(std::uint32_t index) const;
+    bool HighlightVisibleEntry(std::int32_t index);
     bool ClearEntryHighlight();
-    W8DialogTextEntry* GetEntry(unsigned int index);
-    int GetOwningEntryIndex(int visible_index);
-    void SetEntryMarked(int index, bool state);
-    int AddEntry(std::string_view prefix, std::string_view text, unsigned int prefix_palette,
-                 unsigned int text_palette, unsigned char category);
-    void RemoveEntry(unsigned int index);
+    W8DialogTextEntry* GetEntry(std::uint32_t index);
+    std::int32_t GetOwningEntryIndex(std::int32_t visible_index);
+    void SetEntryMarked(std::int32_t index, bool state);
+    std::int32_t AddEntry(std::string_view prefix, std::string_view text, std::uint32_t prefix_palette,
+                 std::uint32_t text_palette, std::uint8_t category);
+    void RemoveEntry(std::uint32_t index);
     void RebuildVisibleEntries();
-    void SetCategoryFilter(signed char category);
+    void SetCategoryFilter(std::int8_t category);
     void SetSorted(bool sorted);
     bool ScrollDown(bool check_only);
     bool ScrollUp(bool check_only);
-    void SetFirstVisibleEntry(unsigned int index);
+    void SetFirstVisibleEntry(std::uint32_t index);
 
 private:
-    unsigned int FindVisibleEntryAtLine(unsigned int target, unsigned int spacing);
+    std::uint32_t FindVisibleEntryAtLine(std::uint32_t target, std::uint32_t spacing);
 
     W8ControlsRect m_bounds; /* passed to entry construction */
     Font* m_font;
-    int m_first_visible_entry;
-    int m_first_visible_line;
+    std::int32_t m_first_visible_entry;
+    std::int32_t m_first_visible_line;
     std::vector<std::unique_ptr<W8DialogTextEntry>> m_all_lines; /* owns entries */
     std::vector<W8DialogTextEntry*> m_visible_lines; /* non-owning view */
     bool m_layout_initialized;
@@ -75,14 +76,14 @@ public:
 
 private:
     bool m_selection_dirty; /* repaint after a selection change */
-    unsigned char unknown_03f;
-    int m_entry_spacing;
-    int m_behavior_flags;
-    int m_line_height_override;
-    int m_selected_visible_entry;
-    int m_highlighted_entry; /* visible entry index, -1 when clear */
+    std::uint8_t unknown_03f;
+    std::int32_t m_entry_spacing;
+    std::int32_t m_behavior_flags;
+    std::int32_t m_line_height_override;
+    std::int32_t m_selected_visible_entry;
+    std::int32_t m_highlighted_entry; /* visible entry index, -1 when clear */
     bool m_relayout_needed;
-    signed char m_category_filter;
+    std::int8_t m_category_filter;
     bool m_sorted;
-    unsigned char unknown_057;
+    std::uint8_t unknown_057;
 };

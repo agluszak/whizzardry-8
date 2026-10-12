@@ -1,6 +1,7 @@
 #ifndef WIZ8_XSTATUS_H
 #define WIZ8_XSTATUS_H
 
+#include <cstdint>
 #include <utility>
 
 #include <vector>
@@ -27,13 +28,13 @@ class W8GameTimer;
 // Live state, not a disk record. Offset comments refer to retail layout.
 struct W8XStatus {
     W8MonsterManagerEntry monster_manager_entries[8]; /* 0x000: 0x006836B8 */
-    unsigned int uiItemsInDatabase;                   /* 0x8c0: 0x00683F78 */
-    unsigned int uiItemTablesInDatabase;              /* 0x8c4 */
-    unsigned int uiItemTableCategories;               /* 0x8c8 */
-    unsigned int uiMonstersInDatabase;                /* 0x8cc */
-    unsigned int uiNpcsInDatabase;                    /* 0x8d0 */
-    unsigned int uiFactsInDatabase;                   /* 0x8d4 */
-    unsigned int uiLevelsInDatabase;                  /* 0x8d8 */
+    std::uint32_t uiItemsInDatabase;                   /* 0x8c0: 0x00683F78 */
+    std::uint32_t uiItemTablesInDatabase;              /* 0x8c4 */
+    std::uint32_t uiItemTableCategories;               /* 0x8c8 */
+    std::uint32_t uiMonstersInDatabase;                /* 0x8cc */
+    std::uint32_t uiNpcsInDatabase;                    /* 0x8d0 */
+    std::uint32_t uiFactsInDatabase;                   /* 0x8d4 */
+    std::uint32_t uiLevelsInDatabase;                  /* 0x8d8 */
     bool fCombatMode;                                 /* 0x8dc: 0x00683F94 */
     bool fSpellCastMode;                              /* 0x8dd: 0x00683F95 */
     bool fItemSelectMode;                             /* 0x8de: 0x00683F96 */
@@ -49,26 +50,26 @@ struct W8XStatus {
     /* 0x027: re-check level-up notices when the UI is idle again. */
     bool level_up_notice;
     bool fEncumbranceDirty;   /* 0x8e8: pending party-weight recalc */
-    int active_monster_count; /* 0x8e9 */
+    std::int32_t active_monster_count; /* 0x8e9 */
     /* 0x8ed: active in-combat monsters with DISP_HOSTILE, recomputed by
        RecountCombatMonsters; nonzero starts combat and blocks ending it.
        Retail compares it unsigned (JA/JBE/SETA), never signed. */
-    unsigned int hostile_monster_count;
-    int item_manager_pending;              /* 0x8f1 */
+    std::uint32_t hostile_monster_count;
+    std::int32_t item_manager_pending;              /* 0x8f1 */
     std::vector<W8MonsterInfo*> monsters; /* 0x8f5: 0x00683FAD */
     std::vector<W8MonsterGroup*> monster_groups; /* 0x8f9: 0x00683FB1 */
     std::vector<W8WorldItem*> world_items; /* 0x8fd */
     std::vector<W8MonsterInfo*> unborn_monsters; /* 0x901 */
     std::vector<W8MonsterGroup*> encounter_groups; /* 0x905 */
-    unsigned char unknown_049[4];
+    std::uint8_t unknown_049[4];
     bool fSurprisePossible; /* 0x90d: 0x00683FC5 */
     /* 0x90e: set when surprise starts with no character engaged; phase 1 waits
        only while this is clear. */
     bool surprise_unengaged;
     /* 0x90f: uiTurnsElapsed deadline the phase-1 hold compares against. */
-    unsigned int surprise_deadline_turns;
+    std::uint32_t surprise_deadline_turns;
     /* 0x913: 0 = fade in, 1 = hold, 2 = fade out / resolve. */
-    unsigned short surprise_phase;
+    std::uint16_t surprise_phase;
     bool fPartyMovementUi;      /* 0x915: 0x00683FCD; region set 0x1c / panels */
     bool fPartyMovementMode;    /* 0x916: 0x00683FCE */
     float flPartyMoveDistLimit; /* 0x917 */
@@ -78,20 +79,20 @@ struct W8XStatus {
     /* 0x91f: 0x00683FD7. InitializeGameplayRuntimeObjects stores the queue
        here; a standalone BSS pointer at this address is the same member. */
     W8CharacterEventQueue* character_event_queue;
-    int iCurrentCursor;          /* 0x923 */
-    int current_cursor_frame;    /* 0x927 */
-    uint64_t current_cursor_time;   /* 0x92b */
+    std::int32_t iCurrentCursor;          /* 0x923 */
+    std::int32_t current_cursor_frame;    /* 0x927 */
+    std::uint64_t current_cursor_time;   /* 0x92b */
     W8TargetNeed iTargetingMode; /* 0x92f: 0x00683FE7 */
     /* 0x933: the formation screen's edit buffer - MGSFormation snapshots the
        live formation here on open, edits the copy, and either reconciles it
        back or diffs it against live on accept. */
     W8PartyFormationState edited_formation;
-    std::vector<int> target_markers; /* 0x9b7: 0x0068406F */
+    std::vector<std::int32_t> target_markers; /* 0x9b7: 0x0068406F */
     srVector3T<float> target_position;        /* 0x9c7: 0x0068407F */
     W8CombatSlot shared_target;               /* 0x9d3: 0x0068408B */
     W8ActionDetailBlock shared_action_detail; /* 0x9f3: 0x006840AB */
-    int picked_monster;                       /* 0x9fb: 0x006840B3 */
-    int picked_group;                         /* 0x9ff: 0x006840B7 */
+    std::int32_t picked_monster;                       /* 0x9fb: 0x006840B3 */
+    std::int32_t picked_group;                         /* 0x9ff: 0x006840B7 */
     /* 0xa03: one-shot latch set when the combat/party panels refresh; the next
        UpdateMonsterSight pass consumes and clears it. */
     bool sight_refresh_pending;
@@ -99,10 +100,10 @@ struct W8XStatus {
     /* 0xa05: user-pause latch set by ToggleMainGamePause alongside
        PauseMainGameWorld; cleared by the resume paths. */
     bool world_paused;
-    unsigned short review_character_slot;        /* 0xa06: 0x006840BE */
-    int held_item_source;                        /* 0xa08: 0x006840C0 */
-    unsigned char held_item_origin;              /* 0xa0c: 0x006840C4 */
-    unsigned short held_item_slot;               /* 0xa0d: 0x006840C5 */
+    std::uint16_t review_character_slot;        /* 0xa06: 0x006840BE */
+    std::int32_t held_item_source;                        /* 0xa08: 0x006840C0 */
+    std::uint8_t held_item_origin;              /* 0xa0c: 0x006840C4 */
+    std::uint16_t held_item_slot;               /* 0xa0d: 0x006840C5 */
     W8MonsterRecord* monster_record_cache[1000]; /* 0xa0f: 0x006840C7 */
     W8GameTimer* gameplay_timer;                 /* 0x19af: 0x00685067 */
     bool save_notice_shown;                      /* 0x19b3: 0x0068506B */
@@ -119,15 +120,15 @@ struct W8XStatus {
     bool assay_professions_tab;
     bool item_drag_active;              /* 0x19b9: 0x00685071 */
     W8ItemInstance* dragged_item;       /* 0x19ba: 0x00685072 */
-    unsigned char dragged_item_origin;  /* 0x19be: 0x00685076 */
-    signed char dragged_character_slot; /* 0x19bf: 0x00685077 */
-    uint64_t spell_cooldown_clocks[14];    /* 0x19c0: 0x00685078 */
-    uint64_t combat_countdown;             /* 0x19f8: 0x006850B0 */
-    unsigned char combat_difficulty;    /* 0x19fc: 0x006850B4 */
+    std::uint8_t dragged_item_origin;  /* 0x19be: 0x00685076 */
+    std::int8_t dragged_character_slot; /* 0x19bf: 0x00685077 */
+    std::uint64_t spell_cooldown_clocks[14];    /* 0x19c0: 0x00685078 */
+    std::uint64_t combat_countdown;             /* 0x19f8: 0x006850B0 */
+    std::uint8_t combat_difficulty;    /* 0x19fc: 0x006850B4 */
     bool party_moving;                  /* 0x19fd: 0x006850B5 */
-    int saved_encounter_budget;         /* 0x19fe: 0x006850B6 */
-    int mipe_cube_serial;               /* 0x1a02: 0x006850BA */
-    int hostile_group_count;            /* 0x1a06: 0x006850BE */
+    std::int32_t saved_encounter_budget;         /* 0x19fe: 0x006850B6 */
+    std::int32_t mipe_cube_serial;               /* 0x1a02: 0x006850BA */
+    std::int32_t hostile_group_count;            /* 0x1a06: 0x006850BE */
 };
 
 extern W8XStatus gXStatus;
@@ -143,7 +144,7 @@ inline void ClearItemDrag(void)
 }
 
 /* Typed element access for the homogeneous gXStatus lists. */
-inline W8MonsterInfo* GetMonsterListEntry(int index)
+inline W8MonsterInfo* GetMonsterListEntry(std::int32_t index)
 {
     if (index < 0 || std::cmp_greater_equal(index, gXStatus.monsters.size())) {
         return nullptr;
@@ -151,7 +152,7 @@ inline W8MonsterInfo* GetMonsterListEntry(int index)
     return gXStatus.monsters[index];
 }
 
-inline W8MonsterInfo* GetUnbornMonsterEntry(int index)
+inline W8MonsterInfo* GetUnbornMonsterEntry(std::int32_t index)
 {
     if (index < 0 || std::cmp_greater_equal(index, gXStatus.unborn_monsters.size())) {
         return nullptr;
@@ -159,7 +160,7 @@ inline W8MonsterInfo* GetUnbornMonsterEntry(int index)
     return gXStatus.unborn_monsters[index];
 }
 
-inline W8WorldItem* GetWorldItemListEntry(int index)
+inline W8WorldItem* GetWorldItemListEntry(std::int32_t index)
 {
     if (index < 0 || std::cmp_greater_equal(index, gXStatus.world_items.size())) {
         return nullptr;
@@ -167,7 +168,7 @@ inline W8WorldItem* GetWorldItemListEntry(int index)
     return gXStatus.world_items[index];
 }
 
-inline W8MonsterGroup* GetMonsterGroupEncounter(int index)
+inline W8MonsterGroup* GetMonsterGroupEncounter(std::int32_t index)
 {
     if (index < 0 || std::cmp_greater_equal(index, gXStatus.encounter_groups.size())) {
         return nullptr;

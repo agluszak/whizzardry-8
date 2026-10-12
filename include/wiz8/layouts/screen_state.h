@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <string>
 #ifndef WIZ8_LAYOUTS_SCREEN_STATE_H
 #define WIZ8_LAYOUTS_SCREEN_STATE_H
@@ -21,11 +22,11 @@ enum W8ScreenId {
 };
 
 struct W8ScreenStateHandlers {
-    unsigned char (*initialize)(void);
-    unsigned char (*enter)(void);
+    std::uint8_t (*initialize)(void);
+    std::uint8_t (*enter)(void);
     void (*frame)(void);
-    unsigned char (*leave)(int leaving); /* 0 = suspend, 1 = discard */
-    unsigned char (*finalize)(void);
+    std::uint8_t (*leave)(std::int32_t leaving); /* 0 = suspend, 1 = discard */
+    std::uint8_t (*finalize)(void);
 };
 
 
@@ -41,9 +42,9 @@ struct W8ScreenStateHandlers {
    mode 2 hands to SaveGame. */
 struct W8ScreenStateRuntime {
     W8ScreenId id;     /* 0x00 */
-    int mode;          /* 0x04 */
-    int parameter;     /* 0x08 */
-    int parameter_2;   /* 0x0c */
+    std::int32_t mode;          /* 0x04 */
+    std::int32_t parameter;     /* 0x08 */
+    std::int32_t parameter_2;   /* 0x0c */
     void* parameter_3; /* 0x10: destination screen interprets by id and mode */
     /* 0x14: identifying PC for camp entry (gpIdentifyingPC); null when
        camp opens without an identify/use-item handoff. Not the entry mode —

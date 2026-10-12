@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <source_location>
@@ -80,7 +81,7 @@
 // GLOBAL: WIZ8 0x005ed4f0
 const float g_monster_record_float_scale = 20.0f;
 // GLOBAL: WIZ8 0x00683698
-int g_monster_info_iterator_index;
+std::int32_t g_monster_info_iterator_index;
 
 #define MONSTER_MANAGER_CPP "C:\\Projects\\Wizardry 8\\Local Code\\MonsterManager.cpp"
 #define MAX_MONSTERS_IN_DATABASE 1000
@@ -92,14 +93,14 @@ void DestroyMonsterActionQueue(W8MonsterInfo* monster_info);
 enum { W8_CYCLE_NONE = 0xff, W8_CYCLE_STOP = 0x14, W8_CYCLE_DEATH = 0x15 };
 /* The character array the alternate-name form indexes, and the slot it uses. */
 
-static bool RemoveMonsterAt(unsigned int monster_list_index, bool destroy_monster);
+static bool RemoveMonsterAt(std::uint32_t monster_list_index, bool destroy_monster);
 
 // FUNCTION: WIZ8 0x004e3930
 W8MonsterInfo* CreateMonsterInfo(W8MonsterGroup* group, W8MonsterRecord* record,
                                  srVector3T<float>* position)
 {
     W8MonsterInfo* monster_info = static_cast<W8MonsterInfo*>(malloc(sizeof(W8MonsterInfo)));
-    int value;
+    std::int32_t value;
 
     if (monster_info == 0) {
         return 0;
@@ -149,7 +150,7 @@ W8MonsterInfo* CreateMonsterInfo(W8MonsterGroup* group, W8MonsterRecord* record,
     ++group->member_count;
     ++group->active_member_count;
     RequestRedrawParty();
-    g_octree->VisitPointCopy(static_cast<unsigned short>(monster_info->location_id), position);
+    g_octree->VisitPointCopy(static_cast<std::uint16_t>(monster_info->location_id), position);
     return monster_info;
 }
 
@@ -211,7 +212,7 @@ void ActivateMonsterInWorld(W8MonsterInfo* monster_info)
         MonsterSetFacing(monster_info->p3D, monster_info->derived);
         RebuildMonsterDerivedStats(monster_info->location_id);
         monster_info->p3D->movement.leadership_rank =
-            static_cast<unsigned int>(record->effective_level) * 0x10000U +
+            static_cast<std::uint32_t>(record->effective_level) * 0x10000U +
             monster_info->location_id;
         MonsterSetLocationId(monster_info->p3D, monster_info->location_id);
         monster_info->p3D->pending_finalize = false;
@@ -223,15 +224,15 @@ void ActivateMonsterInWorld(W8MonsterInfo* monster_info)
     camera_position = cameraLocation(*GetWorld());
     MonsterSelectLOD(monster_info->p3D, &camera_position);
     UpdateCycleRepresentation(monster_info->p3D, GetWorld());
-    g_octree->VisitPointCopy(static_cast<unsigned short>(monster_info->location_id),
+    g_octree->VisitPointCopy(static_cast<std::uint16_t>(monster_info->location_id),
                              &monster_info->position);
     monster_info->fActive = true;
     ++gXStatus.active_monster_count;
     if (monster_info->p3D != 0) {
-        int damage_stage_count = monster_info->p3D->GetDamageStageCount();
+        std::int32_t damage_stage_count = monster_info->p3D->GetDamageStageCount();
         if (damage_stage_count > 1) {
-            int damage_stage =
-                ((monster_info->uiHPMax - static_cast<int>(monster_info->hp_current)) *
+            std::int32_t damage_stage =
+                ((monster_info->uiHPMax - static_cast<std::int32_t>(monster_info->hp_current)) *
                  damage_stage_count) /
                 monster_info->uiHPMax;
             if (damage_stage >= damage_stage_count - 1) {
@@ -313,7 +314,7 @@ void ActivateMonster(W8MonsterInfo* monster_info, W8MonsterActivationMode mode)
 // FUNCTION: WIZ8 0x004e4600
 void ClearMonsterPathAndResume(W8MonsterInfo* monster_info)
 {
-    int result;
+    std::int32_t result;
 
     if (monster_info == 0) {
         srAssertFail("pMonsterInfo != NULL", MONSTER_MANAGER_CPP, 0x2f7, 0);
@@ -348,11 +349,11 @@ void MonsterStartsDying(W8MonsterInfo* monster_info, bool display_message)
 // FUNCTION: WIZ8 0x004E46F0
 void RecordMonsterKill(W8MonsterInfo* monster_info, bool announce)
 {
-    int killer_party_slot = -1;
+    std::int32_t killer_party_slot = -1;
     if (monster_info == 0) {
         srAssertFail("pMonsterInfo != NULL", MONSTER_MANAGER_CPP, 0x5e9, 0);
     }
-    unsigned int monster_species = monster_info->monster_species;
+    std::uint32_t monster_species = monster_info->monster_species;
     if (monster_species >= MAX_MONSTERS_IN_DATABASE) {
         srAssertFail("uiMonsterSpecies < MAX_MONSTERS_IN_DATABASE", MONSTER_MANAGER_CPP, 0x5f3, 0);
     }
@@ -368,8 +369,8 @@ void RecordMonsterKill(W8MonsterInfo* monster_info, bool announce)
             }
         }
     }
-    unsigned int monster_list_index = MonsterGetIndexByLocationID(monster_info->location_id);
-    unsigned int notice_channel;
+    std::uint32_t monster_list_index = MonsterGetIndexByLocationID(monster_info->location_id);
+    std::uint32_t notice_channel;
     if (TargetSourceIsCharacter(&monster_info->condition_target, 0)) {
         killer_party_slot = monster_info->condition_target.iChar;
         if (killer_party_slot != -1 &&
@@ -412,7 +413,7 @@ void RecordMonsterKill(W8MonsterInfo* monster_info, bool announce)
             goto done;
         }
     }
-    ApplyFactionChange(0, 1, static_cast<signed char>(record->faction_id), monster_list_index);
+    ApplyFactionChange(0, 1, static_cast<std::int8_t>(record->faction_id), monster_list_index);
 done:
     MonsterKilled(record->record_id, killer_party_slot);
     if (monster_info->fInCombat && ((monster_info->ubDisposition == W8_DISPOSITION_HOSTILE &&
@@ -427,24 +428,24 @@ done:
             W8Character* killer = &g_status.buffers.Char[killer_party_slot];
             ++killer->kill_count;
             if (record->significant_kill != 0) {
-                unsigned int level_total = 0;
-                int occupied = 0;
-                for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
+                std::uint32_t level_total = 0;
+                std::int32_t occupied = 0;
+                for (std::int32_t slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
                     if (g_status.buffers.XChar[slot].fOccupied) {
                         level_total += g_status.buffers.Char[slot].uiExpLevel;
                         ++occupied;
                     }
                 }
-                int share = occupied == 0
+                std::int32_t share = occupied == 0
                                 ? 1
-                                : static_cast<int>(level_total / static_cast<double>(occupied));
-                if (share + 2 <= static_cast<int>(record->effective_level)) {
+                                : static_cast<std::int32_t>(level_total / static_cast<double>(occupied));
+                if (share + 2 <= static_cast<std::int32_t>(record->effective_level)) {
                     QueueCharacterEvent(killer, g_effect25, 0, g_character_event_no_flags,
                                         g_character_event_full_volume);
                 }
             }
         }
-        unsigned int experience = record->experience_override;
+        std::uint32_t experience = record->experience_override;
         if (experience == 0) {
             experience = record->experience;
             if (experience == 0) {
@@ -459,10 +460,10 @@ done:
 }
 
 // FUNCTION: WIZ8 0x004e5550
-unsigned int MonsterGetIndexByLocationID(int location_id, bool assert_on_failure,
+std::uint32_t MonsterGetIndexByLocationID(std::int32_t location_id, bool assert_on_failure,
                                          std::source_location caller)
 {
-    unsigned int index;
+    std::uint32_t index;
     W8MonsterInfo* monster;
 
     for (index = 0; index < gXStatus.monsters.size(); ++index) {
@@ -488,11 +489,11 @@ unsigned int MonsterGetIndexByLocationID(int location_id, bool assert_on_failure
 }
 
 // FUNCTION: WIZ8 0x004e5620
-W8MonsterInfo* MonsterGetScriptPartByLocationIndex(unsigned int monster_list_index)
+W8MonsterInfo* MonsterGetScriptPartByLocationIndex(std::uint32_t monster_list_index)
 {
     W8MonsterInfo* result;
     std::string detail;
-    int line;
+    std::int32_t line;
 
     if (monster_list_index < 10000 || monster_list_index >= 20000) {
         if (monster_list_index >= gXStatus.monsters.size()) {
@@ -527,7 +528,7 @@ W8MonsterInfo* MonsterGetScriptPartByLocationIndex(unsigned int monster_list_ind
 }
 
 // FUNCTION: WIZ8 0x004e57c0
-W8MonsterRecord* MonsterDBFromSpecies(unsigned int monster_species)
+W8MonsterRecord* MonsterDBFromSpecies(std::uint32_t monster_species)
 {
     W8MonsterRecord* record;
 
@@ -559,11 +560,11 @@ W8MonsterRecord* GetMonsterDataForInfo(W8MonsterInfo* monster_info)
 }
 
 // FUNCTION: WIZ8 0x004e5840
-W8MonsterInfo* FindMonster(int location_id, bool assert_on_failure,
+W8MonsterInfo* FindMonster(std::int32_t location_id, bool assert_on_failure,
                                  std::source_location caller)
 {
     W8MonsterInfo* monster = 0;
-    unsigned int index;
+    std::uint32_t index;
 
     index = MonsterGetIndexByLocationID(location_id, false);
     if (index != 0xffffffff) {
@@ -578,7 +579,7 @@ W8MonsterInfo* FindMonster(int location_id, bool assert_on_failure,
 }
 
 // FUNCTION: WIZ8 0x004e58b0
-W8MonsterRecord* GetMonsterDataByLocationID(int location_id)
+W8MonsterRecord* GetMonsterDataByLocationID(std::int32_t location_id)
 {
     W8MonsterInfo* monster;
 
@@ -590,7 +591,7 @@ W8MonsterRecord* GetMonsterDataByLocationID(int location_id)
 }
 
 // FUNCTION: WIZ8 0x004e5950
-W8Monster* GetMonsterByLocationID(int location_id)
+W8Monster* GetMonsterByLocationID(std::int32_t location_id)
 {
     if (location_id != -1) {
         if (W8MonsterInfo* monster_info = FindMonster(location_id, false)) {
@@ -625,10 +626,10 @@ void UpdateMonsterDamageAppearance(W8MonsterInfo* monster_info)
     W8Monster* monster = monster_info->p3D;
 
     if (monster != 0) {
-        int count = monster->GetDamageStageCount();
+        std::int32_t count = monster->GetDamageStageCount();
         if (count > 1) {
-            int value =
-                ((monster_info->uiHPMax - static_cast<int>(monster_info->hp_current)) * count) /
+            std::int32_t value =
+                ((monster_info->uiHPMax - static_cast<std::int32_t>(monster_info->hp_current)) * count) /
                 monster_info->uiHPMax;
             if (value >= count - 1) {
                 value = count - 1;
@@ -642,13 +643,13 @@ void UpdateMonsterDamageAppearance(W8MonsterInfo* monster_info)
 W8MonsterInfo* GetNextMonsterInfo(bool reset_iterator)
 {
     W8MonsterInfo* result = 0;
-    int index;
+    std::int32_t index;
 
     if (reset_iterator) {
         g_monster_info_iterator_index = 0;
     }
     if (g_monster_info_iterator_index <
-        static_cast<int>(gXStatus.monsters.size())) {
+        static_cast<std::int32_t>(gXStatus.monsters.size())) {
         index = g_monster_info_iterator_index++;
         result = GetMonsterListEntry(index);
     }
@@ -656,7 +657,7 @@ W8MonsterInfo* GetNextMonsterInfo(bool reset_iterator)
 }
 
 // FUNCTION: WIZ8 0x004e5af0
-int GetMonsterQuadrant(W8MonsterInfo* monster_info)
+std::int32_t GetMonsterQuadrant(W8MonsterInfo* monster_info)
 {
     if (monster_info == 0) {
         srAssertFail("pMonsterInfo", MONSTER_MANAGER_CPP, 0x6b9, 0);
@@ -665,7 +666,7 @@ int GetMonsterQuadrant(W8MonsterInfo* monster_info)
 }
 
 // FUNCTION: WIZ8 0x004e5b50
-int GetMonsterCycleFallbackValue(unsigned int monster_species)
+std::int32_t GetMonsterCycleFallbackValue(std::uint32_t monster_species)
 {
     W8MonsterRecord* record;
 
@@ -685,7 +686,7 @@ int GetMonsterCycleFallbackValue(unsigned int monster_species)
 // FUNCTION: WIZ8 0x004e5c00
 void ProcessMonstersAtCombatEnd(bool forced_cleanup)
 {
-    unsigned int index;
+    std::uint32_t index;
 
     for (index = 0; index < gXStatus.monsters.size(); ++index) {
         W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(index);
@@ -711,11 +712,11 @@ void ProcessMonstersAtCombatEnd(bool forced_cleanup)
 // FUNCTION: WIZ8 0x004e5d00
 void ConvertMonsterAttributes(W8MonsterInfo* monster_info)
 {
-    for (unsigned int monster_attribute = 0; monster_attribute < W8_MONSTER_ATTR_COUNT;
+    for (std::uint32_t monster_attribute = 0; monster_attribute < W8_MONSTER_ATTR_COUNT;
          ++monster_attribute) {
         W8MonsterRecord* record;
         W8Attribute attribute_index;
-        int value;
+        std::int32_t value;
 
         record = GetMonsterDataForInfo(monster_info);
         value = record->attribute_values[monster_attribute];
@@ -747,14 +748,14 @@ void ConvertMonsterAttributes(W8MonsterInfo* monster_info)
 
         value += monster_info->modifiers.attribute_adjustments[attribute_index];
         ClampInteger(&value, 1, 125);
-        monster_info->attributes[monster_attribute] = static_cast<unsigned char>(value);
+        monster_info->attributes[monster_attribute] = static_cast<std::uint8_t>(value);
     }
 }
 
 // FUNCTION: WIZ8 0x004e5e50
-W8MonsterInfo* FindMonsterInfoBySpecies(unsigned int monster_species)
+W8MonsterInfo* FindMonsterInfoBySpecies(std::uint32_t monster_species)
 {
-    unsigned int index;
+    std::uint32_t index;
     W8MonsterInfo* monster_info;
 
     for (index = 0; index < gXStatus.monsters.size(); ++index) {
@@ -769,7 +770,7 @@ W8MonsterInfo* FindMonsterInfoBySpecies(unsigned int monster_species)
 // FUNCTION: WIZ8 0x004e5ea0
 void ResetLivingMonstersAfterCombat(void)
 {
-    unsigned int index;
+    std::uint32_t index;
 
     for (index = 0; index < gXStatus.monsters.size(); ++index) {
         W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(index);
@@ -786,7 +787,7 @@ void ResetLivingMonstersAfterCombat(void)
 
 /* Descriptive name for the complete list-entry teardown expanded in the
    immediate removal, ungrouped cleanup and per-frame fade paths. */
-static void DestroyMonsterListEntry(unsigned int index)
+static void DestroyMonsterListEntry(std::uint32_t index)
 {
     W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(index);
     DeactivateMonster(monster_info);
@@ -799,7 +800,7 @@ static void DestroyMonsterListEntry(unsigned int index)
         DeleteMonster(monster_info->p3D);
         monster_info->p3D = 0;
     }
-    g_octree->UnregisterLocationObjects(static_cast<unsigned short>(monster_info->location_id));
+    g_octree->UnregisterLocationObjects(static_cast<std::uint16_t>(monster_info->location_id));
     ReleaseNpcBinding(monster_info->bound_npc_index);
     void* removed = gXStatus.monsters[index];
     gXStatus.monsters.erase(gXStatus.monsters.begin() + index);
@@ -811,7 +812,7 @@ static void DestroyMonsterListEntry(unsigned int index)
 // FUNCTION: WIZ8 0x004e5f00
 void DestroyUngroupedMonsters(void)
 {
-    unsigned int index;
+    std::uint32_t index;
 
     for (index = 0; index < gXStatus.monsters.size(); ++index) {
         W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(index);
@@ -868,7 +869,7 @@ void MonsterInfoSetMotionless(W8MonsterInfo* monster_info, bool motionless)
             }
         }
     } else if (!previous) {
-        signed char cycle_value = monster->m_pRep->pending_cycle;
+        std::int8_t cycle_value = monster->m_pRep->pending_cycle;
 
         if (cycle_value != -1) {
             if (cycle_value == 0x14) {
@@ -934,7 +935,7 @@ W8MonsterInfo* FindNearestMonsterInfo(const srVector3T<float>* position, double 
 static void InitializeMonsterRuntimeStatsFor(W8MonsterInfo* monster_info)
 {
     W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
-    int value = RollDice(&record->hit_points);
+    std::int32_t value = RollDice(&record->hit_points);
     monster_info->uiHPMax = value;
     monster_info->hp_current = value;
     value = RollDice(&record->stamina_dice);
@@ -950,7 +951,7 @@ static void InitializeMonsterRuntimeStatsFor(W8MonsterInfo* monster_info)
 // FUNCTION: WIZ8 0x004e6370
 void InitializeMonsterRuntimeStats(void)
 {
-    unsigned int index;
+    std::uint32_t index;
 
     for (index = 0; index < gXStatus.monsters.size(); ++index) {
         InitializeMonsterRuntimeStatsFor(GetMonsterListEntry(index));
@@ -976,10 +977,10 @@ float CalculateMonsterScale(W8MonsterInfo* monster_info)
         srAssertFail("pMonsterInfo != NULL", MONSTER_MANAGER_CPP, 0x5e9, 0);
     }
     W8MonsterRecord* record = MonsterDBFromSpecies(monster_info->monster_species);
-    int minimum_hp = record->hit_points.Minimum();
-    int maximum_hp = record->hit_points.Maximum();
+    std::int32_t minimum_hp = record->hit_points.Minimum();
+    std::int32_t maximum_hp = record->hit_points.Maximum();
     float scale =
-        ((maximum - minimum) * (static_cast<unsigned int>(monster_info->uiHPMax) - minimum_hp)) /
+        ((maximum - minimum) * (static_cast<std::uint32_t>(monster_info->uiHPMax) - minimum_hp)) /
             (maximum_hp - minimum_hp) +
         minimum;
     float result = (maximum - minimum) * (Random(1000) * 0.0004f - 0.2f) + scale;
@@ -994,17 +995,17 @@ float CalculateMonsterScale(W8MonsterInfo* monster_info)
 }
 
 // FUNCTION: WIZ8 0x004e67a0
-void TryStartMonsterCycle2(W8MonsterInfo* monster_info, W8Monster* monster, int query_state)
+void TryStartMonsterCycle2(W8MonsterInfo* monster_info, W8Monster* monster, std::int32_t query_state)
 {
     if (monster_info->fActive && monster_info->hp_current > 0 &&
         monster_info->uiCondition[W8_CONDITION_DEAD] == 0 &&
         monster_info->within_viewing_distance && query_state == 1) {
-        int result = MonsterQuery(monster, W8_MONSTER_QUERY_AT_PLAYBACK_END);
+        std::int32_t result = MonsterQuery(monster, W8_MONSTER_QUERY_AT_PLAYBACK_END);
 
         if (result != 0 && !monster_info->fMotionless) {
             monster->runtime_flags |= 0x80;
             if (MonsterIsCycleSupported(monster, 2)) {
-                signed char cycle = monster->m_pRep->pending_cycle;
+                std::int8_t cycle = monster->m_pRep->pending_cycle;
 
                 if (cycle == 2 || !monster->IsCycleInterruptable(cycle) ||
                     (gXStatus.fCombatMode && g_combat_state->eCombatActionStatus != 0 &&
@@ -1012,7 +1013,7 @@ void TryStartMonsterCycle2(W8MonsterInfo* monster_info, W8Monster* monster, int 
                     return;
                 }
                 W8MonsterGroup* group = FindMonsterGroup(monster_info->monster_group_id);
-                unsigned int chance = group->member_count * 20;
+                std::uint32_t chance = group->member_count * 20;
 
                 if (!gXStatus.fNpcDialogueMode && Random(chance) == 0) {
                     StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_SPICE, W8_ANIMATION_PLAY_ONCE);
@@ -1026,9 +1027,9 @@ void TryStartMonsterCycle2(W8MonsterInfo* monster_info, W8Monster* monster, int 
    the optional +0x26b override and otherwise uses the +0x181 base. The same
    effective value is also used as an HP-weighted combat-difficulty proxy. */
 // FUNCTION: WIZ8 0x004e6780
-unsigned int GetMonsterExperience(const W8MonsterRecord* record)
+std::uint32_t GetMonsterExperience(const W8MonsterRecord* record)
 {
-    unsigned int value = record->experience_override;
+    std::uint32_t value = record->experience_override;
 
     if (value <= 0) {
         value = record->experience;
@@ -1039,7 +1040,7 @@ unsigned int GetMonsterExperience(const W8MonsterRecord* record)
 // FUNCTION: WIZ8 0x004e68c0
 bool AnyMonsterDying(void)
 {
-    unsigned int index;
+    std::uint32_t index;
     W8MonsterInfo* monster_info;
 
     for (index = 0; index < gXStatus.monsters.size(); ++index) {
@@ -1077,7 +1078,7 @@ bool InitializeMonsterManagerState(void)
    entry zero rather than walking it, then releases the four gXStatus lists and
    the species-indexed record cache. */
 // FUNCTION: WIZ8 0x004e3820
-unsigned char ShutdownMonsterManager(void)
+std::uint8_t ShutdownMonsterManager(void)
 {
 
     while (!gXStatus.monsters.empty()) {
@@ -1090,7 +1091,7 @@ unsigned char ShutdownMonsterManager(void)
     gXStatus.unborn_monsters.clear();
     gXStatus.encounter_groups.clear();
     // Direct member access retains the packed cache's alignment information.
-    for (int index = 0; index < MAX_MONSTERS_IN_DATABASE; ++index) {
+    for (std::int32_t index = 0; index < MAX_MONSTERS_IN_DATABASE; ++index) {
         if (gXStatus.monster_record_cache[index] != 0) {
             delete gXStatus.monster_record_cache[index];
             gXStatus.monster_record_cache[index] = 0;
@@ -1100,7 +1101,7 @@ unsigned char ShutdownMonsterManager(void)
 }
 
 // FUNCTION: WIZ8 0x004e3af0
-static bool RemoveMonsterAt(unsigned int monster_list_index, bool destroy_monster)
+static bool RemoveMonsterAt(std::uint32_t monster_list_index, bool destroy_monster)
 {
     W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_list_index);
 
@@ -1225,7 +1226,7 @@ void MonsterInfoEnterCombat(W8MonsterInfo* monster_info)
 // FUNCTION: WIZ8 0x004e4500
 void MonsterInfoLeaveCombat(W8MonsterInfo* monster_info)
 {
-    unsigned int index;
+    std::uint32_t index;
     W8EffectSlot* entry;
 
     if (!gXStatus.fCombatMode) {
@@ -1311,7 +1312,7 @@ void TogglePartyCombatStance(void)
 // FUNCTION: WIZ8 0x004e6a80
 void ToggleCombatMode(void)
 {
-    unsigned int group_list_index;
+    std::uint32_t group_list_index;
     W8MonsterGroup* monster_group;
     W8Missile* missile;
 
@@ -1368,15 +1369,15 @@ void ToggleCombatMode(void)
    The combat-mode query on the way in is made for its effect: its result is
    discarded here. */
 // FUNCTION: WIZ8 0x004e4db0
-void StartMonsterCycle(W8MonsterInfo* monster_info, int cycle, int behavior)
+void StartMonsterCycle(W8MonsterInfo* monster_info, std::int32_t cycle, std::int32_t behavior)
 {
     W8Monster* monster = monster_info->p3D;
-    unsigned char pending;
+    std::uint8_t pending;
     std::string detail;
-    int line;
+    std::int32_t line;
 
-    if (static_cast<signed char>(behavior) == W8_ANIMATION_NEVER_STOP &&
-        !monster->IsCycleInterruptable(static_cast<signed char>(cycle))) {
+    if (static_cast<std::int8_t>(behavior) == W8_ANIMATION_NEVER_STOP &&
+        !monster->IsCycleInterruptable(static_cast<std::int8_t>(cycle))) {
         detail = "Trying to set a NEVER_STOP behaviour with an uninterruptable cycle!";
         line = 0x46f;
     } else {
@@ -1385,8 +1386,8 @@ void StartMonsterCycle(W8MonsterInfo* monster_info, int cycle, int behavior)
             MonsterQuery(monster, W8_MONSTER_QUERY_CYCLE);
         }
         if (pending != W8_CYCLE_STOP && pending != W8_CYCLE_NONE &&
-            !monster->IsCycleInterruptable(static_cast<signed char>(pending))) {
-            if (static_cast<signed char>(cycle) == W8_CYCLE_STOP) {
+            !monster->IsCycleInterruptable(static_cast<std::int8_t>(pending))) {
+            if (static_cast<std::int8_t>(cycle) == W8_CYCLE_STOP) {
                 return;
             }
             srAssertFail(
@@ -1394,15 +1395,15 @@ void StartMonsterCycle(W8MonsterInfo* monster_info, int cycle, int behavior)
                 fmt::format(
                     "{} starting new cycle ({}) with an uninterruptable cycle pending ({})!",
                     GetMonsterName(monster_info, 0, 0),
-                    g_cycle_names[static_cast<signed char>(cycle)].name,
-                    g_cycle_names[static_cast<signed char>(pending)].name));
+                    g_cycle_names[static_cast<std::int8_t>(cycle)].name,
+                    g_cycle_names[static_cast<std::int8_t>(pending)].name));
             return;
         }
-        if (static_cast<signed char>(cycle) == W8_CYCLE_STOP ||
-            static_cast<signed char>(cycle) == W8_CYCLE_DEATH ||
-            static_cast<signed char>(cycle) == 0 || !monster_info->fMotionless) {
+        if (static_cast<std::int8_t>(cycle) == W8_CYCLE_STOP ||
+            static_cast<std::int8_t>(cycle) == W8_CYCLE_DEATH ||
+            static_cast<std::int8_t>(cycle) == 0 || !monster_info->fMotionless) {
             MonsterSetAnimating(monster, true);
-            MonsterSetRuntimeBehaviour(monster, static_cast<signed char>(behavior));
+            MonsterSetRuntimeBehaviour(monster, static_cast<std::int8_t>(behavior));
             MonsterSetPendingCycle(monster, cycle);
             monster->m_pRep->pending_subcycle = 0;
             MonsterSubmitTargetValue(monster);
@@ -1422,7 +1423,7 @@ void StartMonsterCycle(W8MonsterInfo* monster_info, int cycle, int behavior)
 // FUNCTION: WIZ8 0x004e4ee0
 void ProcessMonsterManagerFrame(void)
 {
-    unsigned int monster_list_index;
+    std::uint32_t monster_list_index;
 
     for (monster_list_index = 0; monster_list_index < gXStatus.monsters.size(); ++monster_list_index) {
         W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_list_index);
@@ -1442,7 +1443,7 @@ void ProcessMonsterManagerFrame(void)
             --monster_list_index;
         } else {
             if ((monster->runtime_flags & W8_MONSTER_PARKED) == 0) {
-                int query_state = MonsterQuery(monster, W8_MONSTER_QUERY_CYCLE);
+                std::int32_t query_state = MonsterQuery(monster, W8_MONSTER_QUERY_CYCLE);
                 TryStartMonsterCycle2(monster_info, monster, query_state);
                 if (MonsterQuery(monster, W8_MONSTER_QUERY_CYCLE_COMPLETE) != 0) {
                     if (gXStatus.fCombatMode && query_state == 0x12) {
@@ -1500,7 +1501,7 @@ void ProcessMonsterManagerFrame(void)
    already dying, and says so on the debug channel rather than asserting. */
 // FUNCTION: WIZ8 0x004e5150
 std::string GetMonsterName(W8MonsterInfo* monster_info, W8MonsterRecord* record,
-                        unsigned char name_form)
+                        std::uint8_t name_form)
 {
     W8MonsterGroup* monster_group;
 
@@ -1534,7 +1535,7 @@ float GetAveragePartyMemberLevel(void)
 {
     float total = 0.0f;
     float count = 0.0f;
-    for (int party_slot = 0; party_slot < 6; ++party_slot) {
+    for (std::int32_t party_slot = 0; party_slot < 6; ++party_slot) {
         if (g_status.buffers.XChar[party_slot].fOccupied) {
             total += g_status.buffers.Char[party_slot].uiExpLevel;
             count += 1.0f;
@@ -1546,11 +1547,11 @@ float GetAveragePartyMemberLevel(void)
 }
 
 // FUNCTION: WIZ8 0x00554490
-unsigned int GetBestPartySkillLevel(W8Skill skill_index, int* party_slot)
+std::uint32_t GetBestPartySkillLevel(W8Skill skill_index, std::int32_t* party_slot)
 {
-    unsigned int best_level = 0;
-    int best_slot = -1;
-    for (int index = 0; index < 8; ++index) {
+    std::uint32_t best_level = 0;
+    std::int32_t best_slot = -1;
+    for (std::int32_t index = 0; index < 8; ++index) {
         W8Character* character = &g_status.buffers.Char[index];
         if (g_status.buffers.XChar[index].fOccupied && character->hp_current != 0 &&
             character->highest_condition < W8_CONDITION_TURNCOAT &&
@@ -1571,7 +1572,7 @@ unsigned int GetBestPartySkillLevel(W8Skill skill_index, int* party_slot)
 std::string FormatMonsterHealth(W8MonsterInfo* monster_info)
 {
     bool suppress_exact_health = false;
-    unsigned int health_knowledge;
+    std::uint32_t health_knowledge;
 
     if (monster_info->ubDisposition != W8_DISPOSITION_HOSTILE) {
         W8MonsterRecord* record;
@@ -1591,20 +1592,20 @@ std::string FormatMonsterHealth(W8MonsterInfo* monster_info)
     } else {
         float average_party_level = GetAveragePartyMemberLevel();
         W8MonsterRecord* record;
-        int best_party_slot;
-        int monster_level;
+        std::int32_t best_party_slot;
+        std::int32_t monster_level;
 
         record = GetMonsterDataForInfo(monster_info);
         monster_level = record->display_level;
         health_knowledge = GetBestPartySkillLevel(W8_SKILL_MYTHOLOGY, &best_party_slot);
-        if (static_cast<int>(average_party_level) < monster_level) {
+        if (static_cast<std::int32_t>(average_party_level) < monster_level) {
             float adjusted_knowledge = health_knowledge -
                                        (monster_level - average_party_level) * g_float_three +
                                        g_float_half;
             if (adjusted_knowledge < g_float_zero) {
                 adjusted_knowledge = g_float_zero;
             }
-            health_knowledge = static_cast<unsigned int>(adjusted_knowledge);
+            health_knowledge = static_cast<std::uint32_t>(adjusted_knowledge);
         }
     }
 
@@ -1620,7 +1621,7 @@ std::string FormatMonsterHealth(W8MonsterInfo* monster_info)
 }
 
 /* Blind, incapacitated and unoccupied party members cannot sense monsters. */
-static bool CanNoticeMonsterGroup(unsigned int slot)
+static bool CanNoticeMonsterGroup(std::uint32_t slot)
 {
     const W8Character& character = g_status.buffers.Char[slot];
     return g_status.buffers.XChar[slot].fOccupied && character.hp_current != 0 &&
@@ -1633,7 +1634,7 @@ void DetectMonsterGroups(void)
 {
     bool noticed = false;
 
-    for (unsigned int group_index = 0; group_index < gXStatus.monster_groups.size(); ++group_index) {
+    for (std::uint32_t group_index = 0; group_index < gXStatus.monster_groups.size(); ++group_index) {
         W8MonsterGroup* group = GetMonsterGroupByListIndex(group_index);
         if (!group->members_active || (group->alternate_name && group->group_state[0] != 0) ||
             (gXStatus.fCombatMode && !group->fInCombat) ||
@@ -1642,22 +1643,22 @@ void DetectMonsterGroups(void)
         }
         if (!group->alternate_name) {
             W8MonsterRecord* record = MonsterGroupGetRecord(group);
-            int best_slot = -1;
-            unsigned int best_margin = 0;
-            for (unsigned int slot = 0; slot < 8; ++slot) {
+            std::int32_t best_slot = -1;
+            std::uint32_t best_margin = 0;
+            for (std::uint32_t slot = 0; slot < 8; ++slot) {
                 if (!CanNoticeMonsterGroup(slot))
                     continue;
                 W8Character* character = &g_status.buffers.Char[slot];
-                int score =
+                std::int32_t score =
                     (character->monster_awareness[group->monster_id] - record->effective_level) *
                         3 +
                     character->attributes[W8_ATTRIBUTE_INTELLIGENCE].effective / 10 +
                     character->skills[W8_SKILL_MYTHOLOGY].level;
-                int roll = Random(100);
+                std::int32_t roll = Random(100);
                 if (roll >= score) {
                     continue;
                 }
-                unsigned int margin = score - roll;
+                std::uint32_t margin = score - roll;
                 if (character->skills[W8_SKILL_MYTHOLOGY].active) {
                     PracticeCharacterSkill(character, W8_SKILL_MYTHOLOGY, 10, false);
                 }
@@ -1671,7 +1672,7 @@ void DetectMonsterGroups(void)
                                                             GetMonsterGroupName(group)));
                 group->alternate_name = true;
                 bool vowel;
-                switch (toupper(static_cast<unsigned char>(GetMonsterGroupName(group).front()))) {
+                switch (toupper(static_cast<std::uint8_t>(GetMonsterGroupName(group).front()))) {
                 case 'A':
                 case 'E':
                 case 'I':
@@ -1695,17 +1696,17 @@ void DetectMonsterGroups(void)
             }
         }
         if (group->group_state[0] == 0) {
-            for (unsigned int slot = 0; slot < 8; ++slot) {
+            for (std::uint32_t slot = 0; slot < 8; ++slot) {
                 if (!CanNoticeMonsterGroup(slot))
                     continue;
                 W8Character* character = &g_status.buffers.Char[slot];
-                unsigned int awareness =
+                std::uint32_t awareness =
                     character->monster_awareness[group->monster_id] + group->member_count;
                 if (awareness > 0xff) {
                     awareness = 0xff;
                 }
                 character->monster_awareness[group->monster_id] =
-                    static_cast<unsigned char>(awareness);
+                    static_cast<std::uint8_t>(awareness);
             }
             group->group_state[0] = 1;
         }
@@ -1718,22 +1719,22 @@ void DetectMonsterGroups(void)
 // FUNCTION: WIZ8 0x004E6CE0
 void EvaluateCombatDifficulty(void)
 {
-    unsigned int hostile_experience = 0;
-    unsigned int eligible_count = 0;
-    unsigned int party_levels = 0;
-    unsigned int monster_index;
-    int slot;
+    std::uint32_t hostile_experience = 0;
+    std::uint32_t eligible_count = 0;
+    std::uint32_t party_levels = 0;
+    std::uint32_t monster_index;
+    std::int32_t slot;
 
     for (monster_index = 0; monster_index < gXStatus.monsters.size(); ++monster_index) {
         W8MonsterInfo* monster = MonsterGetScriptPartByLocationIndex(monster_index);
         if (monster->fInCombat && monster->ubDisposition == W8_DISPOSITION_HOSTILE &&
             monster->hp_current > 0 && monster->highest_condition < W8_CONDITION_DEAD) {
-            unsigned int health_percent = monster->hp_current * 100 / monster->uiHPMax;
+            std::uint32_t health_percent = monster->hp_current * 100 / monster->uiHPMax;
             hostile_experience +=
                 GetMonsterExperience(GetMonsterDataForInfo(monster)) * health_percent / 100;
         }
     }
-    unsigned int threat_level = EstimateCombatThreatLevel(hostile_experience);
+    std::uint32_t threat_level = EstimateCombatThreatLevel(hostile_experience);
     if (threat_level == 0) {
         threat_level = 1;
     }
@@ -1748,9 +1749,9 @@ void EvaluateCombatDifficulty(void)
         if (slot < 2) {
             W8NpcState* npc = GetNpcState(row->npc_index);
             if (npc != 0) {
-                int faction = npc->record->faction;
+                std::int32_t faction = npc->record->faction;
                 if (faction != 0 && faction != 1) {
-                    for (unsigned int group_index = 0;
+                    for (std::uint32_t group_index = 0;
                          group_index <
                          gXStatus.monster_groups.size();
                          ++group_index) {
@@ -1771,14 +1772,14 @@ void EvaluateCombatDifficulty(void)
         }
     }
 
-    unsigned int party_power = 0;
+    std::uint32_t party_power = 0;
     if (eligible_count > 0) {
-        party_power = static_cast<unsigned int>(
+        party_power = static_cast<std::uint32_t>(
             party_levels / pow(static_cast<double>(eligible_count) * g_float_six, g_double_half) +
             g_double_half);
     }
-    int relative_strength = static_cast<int>(party_power * 100 / threat_level) - 100;
-    unsigned char difficulty;
+    std::int32_t relative_strength = static_cast<std::int32_t>(party_power * 100 / threat_level) - 100;
+    std::uint8_t difficulty;
     if (relative_strength >= 20) {
         difficulty = 0;
     } else if (relative_strength <= -20) {
@@ -1801,7 +1802,7 @@ void EvaluateCombatDifficulty(void)
     if ((g_combat_state != 0 && g_combat_state->party_surprised) ||
         TimeUntilDeadline(gXStatus.combat_countdown) == 0 ||
         difficulty != gXStatus.combat_difficulty) {
-        unsigned int event_type;
+        std::uint32_t event_type;
         switch (difficulty) {
         case 0:
             event_type = g_effect18;

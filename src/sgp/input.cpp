@@ -45,16 +45,16 @@ void release_held_input()
 /* The only window <-> 640x480 design-space conversion. */
 SDL_Point window_to_game(float x, float y)
 {
-    int width = 0, height = 0;
+    std::int32_t width = 0, height = 0;
     if (!SDL_GetWindowSize(input_window, &width, &height) || width <= 0 || height <= 0)
         return state.mouse;
-    return {std::clamp(int(std::floor(x * 640 / width)), 0, 639),
-            std::clamp(int(std::floor(y * 480 / height)), 0, 479)};
+    return {std::clamp(std::int32_t(std::floor(x * 640 / width)), 0, 639),
+            std::clamp(std::int32_t(std::floor(y * 480 / height)), 0, 479)};
 }
 
 SDL_FPoint game_to_window(SDL_Point point)
 {
-    int width = 0, height = 0;
+    std::int32_t width = 0, height = 0;
     SDL_GetWindowSize(input_window, &width, &height);
     return {float(point.x * width) / 640, float(point.y * height) / 480};
 }
@@ -224,7 +224,7 @@ void handle_wheel(const SDL_MouseWheelEvent& event)
     state.mouse = window_to_game(event.mouse_x, event.mouse_y);
     wheel_remainder += (event.direction == SDL_MOUSEWHEEL_FLIPPED ? -1.f : 1.f) * event.y;
     while (std::abs(wheel_remainder) >= 1) {
-        const int detent = wheel_remainder > 0 ? 1 : -1;
+        const std::int32_t detent = wheel_remainder > 0 ? 1 : -1;
         wheel_remainder -= float(detent);
         push({.type = InputEventType::MouseWheel, .position = state.mouse, .wheel = detent});
     }
@@ -355,7 +355,7 @@ bool DequeueEvent(InputEvent* event)
     return true;
 }
 
-bool WarpGameMouse(SDL_Window* window, int x, int y)
+bool WarpGameMouse(SDL_Window* window, std::int32_t x, std::int32_t y)
 {
     if (!window || window != input_window)
         return false;
@@ -391,7 +391,7 @@ std::uint16_t KeyFromBindingName(std::string_view name)
     for (const KeyName& entry : key_names)
         if (entry.name == name)
             return entry.key;
-    return name.size() == 1 ? TranslateCharacterToKey(static_cast<unsigned char>(name[0])) : 0;
+    return name.size() == 1 ? TranslateCharacterToKey(static_cast<std::uint8_t>(name[0])) : 0;
 }
 
 // FUNCTION: WIZ8 0x00402780

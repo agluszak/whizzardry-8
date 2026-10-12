@@ -215,8 +215,8 @@ void DrawText(SDL_Surface& target, Font& font, SDL_Point at, std::string_view te
     SDL_Rect clip{};
     SDL_GetSurfaceClipRect(&target, &clip);
     const auto& sprites = *font.glyphs;
-    int x = at.x;
-    int y = at.y;
+    std::int32_t x = at.x;
+    std::int32_t y = at.y;
     for (std::size_t offset = 0; offset < text.size();) {
         const auto glyph = GetIndex(wiz8::text::next(text, offset));
         if (glyph < 0 || static_cast<std::size_t>(glyph) >= sprites.frames.size())

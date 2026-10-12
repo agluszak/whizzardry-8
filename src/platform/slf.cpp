@@ -134,7 +134,7 @@ void refresh_asset_archives()
             }
         }
     }
-    for (int patch = 0; patch < 50; ++patch)
+    for (std::int32_t patch = 0; patch < 50; ++patch)
     {
         char path[32];
         SDL_snprintf(path, sizeof(path), "C:\\Patches\\Patch.%03d", patch);

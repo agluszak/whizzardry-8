@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <fmt/printf.h>
 #include <string>
 #include <cstring>
@@ -20,7 +21,7 @@
 W8FactionRuntimeRecord g_factions[W8_FACTION_COUNT];
 
 // GLOBAL: WIZ8 0x0068D528
-unsigned char g_faction_relations[W8_FACTION_COUNT][W8_FACTION_COUNT];
+std::uint8_t g_faction_relations[W8_FACTION_COUNT][W8_FACTION_COUNT];
 
 /* Zero both tables, then write the starting relation cells and the per-faction
    disposition scores. The two low scores are the hostile bands the faction
@@ -110,9 +111,9 @@ void ResetFactions(void)
 }
 
 // FUNCTION: WIZ8 0x00535ad0
-W8FactionDisposition GetFactionDisposition(signed char faction)
+W8FactionDisposition GetFactionDisposition(std::int8_t faction)
 {
-    signed char disposition_score;
+    std::int8_t disposition_score;
 
     if (faction < 0) {
         srAssertFail("bFaction >= 0", "C:\\Projects\\Wizardry 8\\Local Code\\Factions.cpp", 0xaf,
@@ -136,7 +137,7 @@ W8FactionDisposition GetFactionDisposition(signed char faction)
 /* The g_localized_strings name id for each faction row; the two filler
    factions reuse the unaligned name. */
 // GLOBAL: WIZ8 0x0061EACC
-static unsigned short g_faction_name_ids[W8_FACTION_COUNT] = {
+static std::uint16_t g_faction_name_ids[W8_FACTION_COUNT] = {
     0x5a1, 0x5a2, 0x5a3, 0x5a4, 0x5a5, 0x5a6, 0x5a7, 0x5a8, 0x5a9, 0x5aa, 0x5ab,
     0x5ac, 0x5ad, 0x5ae, 0x5af, 0x5b0, 0x5b1, 0x5b2, 0x5b3, 0x5a1, 0x5a1,
 };
@@ -145,7 +146,7 @@ static unsigned short g_faction_name_ids[W8_FACTION_COUNT] = {
    band actually moved, stamp the world clock and post the worsened/improved
    notice naming the faction. */
 // FUNCTION: WIZ8 0x00535B40
-void SetFactionDispositionBand(signed char faction, signed char band)
+void SetFactionDispositionBand(std::int8_t faction, std::int8_t band)
 {
     std::string notice;
     W8FactionDisposition old_band;
@@ -181,7 +182,7 @@ void SetFactionDispositionBand(signed char faction, signed char band)
    live score band while any other target is answered by the static relation
    matrix, reporting friendly unless the stored relation is neutral. */
 // FUNCTION: WIZ8 0x00535C50
-W8FactionDisposition GetFactionDispositionToward(signed char faction, signed char other)
+W8FactionDisposition GetFactionDispositionToward(std::int8_t faction, std::int8_t other)
 {
     if (other == W8_FACTION_PARTY) {
         return GetFactionDisposition(faction);
@@ -195,7 +196,7 @@ W8FactionDisposition GetFactionDispositionToward(signed char faction, signed cha
    witnessed offense (value is the victim's monster location index) while
    modes 1..3 apply value as a direct disposition delta. */
 // FUNCTION: WIZ8 0x00535CF0
-void ApplyFactionChange(char mode, char op, signed char faction, int value)
+void ApplyFactionChange(char mode, char op, std::int8_t faction, std::int32_t value)
 {
     if (op == 1 && faction != 0 && faction != 1) {
         if (mode != 0) {
@@ -213,7 +214,7 @@ void ApplyFactionChange(char mode, char op, signed char faction, int value)
    outside the file are meant to use. The index arithmetic is the 14-byte
    record stride the reviewed table already establishes. */
 // FUNCTION: WIZ8 0x00535d30
-signed char GetFactionDispositionScore(signed char faction)
+std::int8_t GetFactionDispositionScore(std::int8_t faction)
 {
     return g_factions[faction].disposition_score;
 }
@@ -223,7 +224,7 @@ signed char GetFactionDispositionScore(signed char faction)
    already hostile; everyone else loses a record-scaled amount that grows as
    the offense count climbs. */
 // FUNCTION: WIZ8 0x00535D50
-void RecordFactionOffense(signed char faction, unsigned int victim_location_index)
+void RecordFactionOffense(std::int8_t faction, std::uint32_t victim_location_index)
 {
     W8MonsterInfo* monster_info;
     W8MonsterRecord* record;
@@ -272,11 +273,11 @@ void RecordFactionOffense(signed char faction, unsigned int victim_location_inde
    naming the faction. The bounds asserts genuinely run twice - before the
    read and again before the band check. */
 // FUNCTION: WIZ8 0x00535EA0
-void AdjustFactionDisposition(signed char faction, char delta)
+void AdjustFactionDisposition(std::int8_t faction, char delta)
 {
     std::string notice;
-    signed char score;
-    signed char old_score;
+    std::int8_t score;
+    std::int8_t old_score;
     W8FactionDisposition old_band;
     W8FactionDisposition new_band;
     char palette;
@@ -323,7 +324,7 @@ void SaveFactionState(wiz8::File& file)
 // FUNCTION: WIZ8 0x00536070
 void LoadFactionState(wiz8::File& file)
 {
-    unsigned char relations[W8_FACTION_COUNT][W8_FACTION_COUNT];
+    std::uint8_t relations[W8_FACTION_COUNT][W8_FACTION_COUNT];
     W8FactionRuntimeRecord factions[W8_FACTION_COUNT];
 
     file.read_exact(relations, sizeof(relations));

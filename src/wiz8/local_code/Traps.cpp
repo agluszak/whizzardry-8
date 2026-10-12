@@ -46,7 +46,7 @@ static char g_record_mode_line[0x1000];
 // GLOBAL: WIZ8 0x0069da6c
 static bool g_record_mode_active;
 // GLOBAL: WIZ8 0x0069da70
-static int g_record_mode_length;
+static std::int32_t g_record_mode_length;
 
 // GLOBAL: WIZ8 0x00650384
 static char s_record_mode_prompt[] = "Type in your text, then ENTER or ESC.";
@@ -65,10 +65,10 @@ static char s_delete_log[] = "DELETE LOG";
 /* Per-device spell/notice table; TriggerTrapDevice reads
    the effect spell id at index device + 0xb. */
 // GLOBAL: WIZ8 0x006504E8
-int g_table2[] = {10,  25, 35, 40, 50, 60, 70, 80,  90,  100, 110, 121, 122,
+std::int32_t g_table2[] = {10,  25, 35, 40, 50, 60, 70, 80,  90,  100, 110, 121, 122,
                   123, 24, 47, 36, 37, 60, 70, 124, 125, 126, 86,  127, 91};
 // GLOBAL: WIZ8 0x00650434
-static unsigned char g_table1[15][8] = {
+static std::uint8_t g_table1[15][8] = {
     {0, 1, 0, 0, 0, 1, 0, 0}, {0, 1, 0, 1, 0, 0, 0, 0}, {0, 0, 1, 0, 0, 1, 0, 0},
     {0, 0, 0, 0, 1, 1, 0, 0}, {0, 0, 1, 1, 0, 0, 0, 1}, {1, 1, 0, 0, 1, 0, 0, 0},
     {0, 0, 1, 0, 1, 0, 1, 0}, {1, 0, 0, 1, 0, 1, 0, 0}, {0, 0, 1, 1, 1, 0, 0, 0},
@@ -85,7 +85,7 @@ void WriteRecordModeEntry(void)
     char location_code[32];
     std::string line;
     std::unique_ptr<wiz8::File> file;
-    unsigned int length;
+    std::uint32_t length;
 
     file = [&]() { try { return wiz8::open_file(s_data_notes_txt, wiz8::OpenMode::replace); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (file != 0) {
@@ -217,7 +217,7 @@ char HandleRecordModeKey(const InputEvent* input, void (*prompt)(void))
 }
 
 // FUNCTION: WIZ8 0x005E3730
-unsigned char GetTable650434Entry(int row, int column)
+std::uint8_t GetTable650434Entry(std::int32_t row, std::int32_t column)
 {
     return g_table1[row][column];
 }
@@ -226,7 +226,7 @@ unsigned char GetTable650434Entry(int row, int column)
    subtracted from the trigger's device count before extra targets and power
    are rolled. */
 // GLOBAL: WIZ8 0x006504AC
-static int g_trap_difficulty[W8_TRAP_TYPE_COUNT] = {1, 1, 2, 2, 3, 3, 3, 4, 5, 5, 5, 6, 6, 7, 7};
+static std::int32_t g_trap_difficulty[W8_TRAP_TYPE_COUNT] = {1, 1, 2, 2, 3, 3, 3, 4, 5, 5, 5, 6, 6, 7, 7};
 
 /* Roll the trigger's trap type (device_id) on first interaction: rejection-
    sample the fifteen-row trap table until a type whose per-type difficulty
@@ -235,8 +235,8 @@ static int g_trap_difficulty[W8_TRAP_TYPE_COUNT] = {1, 1, 2, 2, 3, 3, 3, 4, 5, 5
 void SelectTrapType(Trigger* trigger)
 {
     W8LockState* lock_state;
-    int budget;
-    int type;
+    std::int32_t budget;
+    std::int32_t type;
 
     lock_state = &trigger->lock_state;
     if (lock_state == 0) {
@@ -255,7 +255,7 @@ void SelectTrapType(Trigger* trigger)
 // FUNCTION: WIZ8 0x005E3780
 void CompleteTrapDisarm(Trigger* trigger)
 {
-    int type;
+    std::int32_t type;
     std::string text;
 
     trigger->CompleteItemInteraction();
@@ -270,12 +270,12 @@ void CompleteTrapDisarm(Trigger* trigger)
 }
 
 // FUNCTION: WIZ8 0x005E3800
-static void DischargeTrapSpell(srVector3T<float> point, int spell_id, unsigned int power_level,
-                               int num_targets)
+static void DischargeTrapSpell(srVector3T<float> point, std::int32_t spell_id, std::uint32_t power_level,
+                               std::int32_t num_targets)
 {
-    int index;
-    int eligible;
-    std::vector<int> targets;
+    std::int32_t index;
+    std::int32_t eligible;
+    std::vector<std::int32_t> targets;
     W8CombatSlot target;
     W8TargetSource source;
 
@@ -303,8 +303,8 @@ static void DischargeTrapSpell(srVector3T<float> point, int spell_id, unsigned i
         if (num_targets >= eligible) {
             num_targets = eligible;
         }
-        while (static_cast<int>(targets.size()) > num_targets) {
-            index = Random(static_cast<int>(targets.size()));
+        while (static_cast<std::int32_t>(targets.size()) > num_targets) {
+            index = Random(static_cast<std::int32_t>(targets.size()));
             if (targets[index] != g_status.selected_character) {
                 targets.erase(targets.begin() + index);
             }
@@ -317,10 +317,10 @@ static void DischargeTrapSpell(srVector3T<float> point, int spell_id, unsigned i
 // FUNCTION: WIZ8 0x005E3AB0
 void ResolveSprungTrap(Trigger* trigger)
 {
-    int devices;
-    int type;
-    int count;
-    int power;
+    std::int32_t devices;
+    std::int32_t type;
+    std::int32_t count;
+    std::int32_t power;
     std::string result;
     std::string text;
     srVector3T<float> point;
@@ -337,13 +337,13 @@ void ResolveSprungTrap(Trigger* trigger)
     }
     text = fmt::format("{} {}", g_localized_strings[g_trap_name_string_ids[type]], result);
     ShowString(text);
-    count = devices - static_cast<int>(Random(devices / 2));
+    count = devices - static_cast<std::int32_t>(Random(devices / 2));
     power = 4;
     if (devices > g_trap_difficulty[type]) {
         devices -= g_trap_difficulty[type];
         power = devices + 4;
         if (power > 7) {
-            count += static_cast<int>(Random(devices - 3));
+            count += static_cast<std::int32_t>(Random(devices - 3));
             power = 7;
         }
     }

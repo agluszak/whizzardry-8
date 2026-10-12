@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <string>
 #include <memory>
 #ifndef WIZ8_LOCAL_CODE_SPELL_EFFECT_H
@@ -20,8 +21,8 @@ class W8Missile;
    carries no text; kind 3 carries its own inline text. The message pass
    owns it until posting. */
 struct W8SpellDamageReport {
-    int kind;
-    int value;
+    std::int32_t kind;
+    std::int32_t value;
     std::string text;
 };
 
@@ -35,16 +36,16 @@ struct W8SpellEffectDefinition {
     W8Dice magnitude;
     /* The percentage chance of each condition the effect can inflict,
        rolled by ApplyEffectConditions. */
-    unsigned char condition_chances[W8_ATTACK_EFFECT_COUNT];
-    int power_level;
+    std::uint8_t condition_chances[W8_ATTACK_EFFECT_COUNT];
+    std::int32_t power_level;
     /* Flat base added to the effect dice (SetDice's `base`); sourced
        from the attack's missile_magnitude, the item's missile_magnitude, or
        the missile table's magnitude_base. */
-    int magnitude_base;
-    int duration_scale;
-    unsigned int percent;
-    int duration_base;
-    int duration_per_power;
+    std::int32_t magnitude_base;
+    std::int32_t duration_scale;
+    std::uint32_t percent;
+    std::int32_t duration_base;
+    std::int32_t duration_per_power;
 };
 
 /* What one missile or queued effect accumulates while it resolves: the total
@@ -52,14 +53,14 @@ struct W8SpellEffectDefinition {
    handed to the message pass. Both the missile and the effect embed this at
    their own offset. */
 struct W8SpellEffectResult {
-    unsigned int amount;
-    unsigned int count;
-    unsigned int condition_counts[W8_CONDITION_COUNT];
+    std::uint32_t amount;
+    std::uint32_t count;
+    std::uint32_t condition_counts[W8_CONDITION_COUNT];
     std::vector<std::unique_ptr<W8SpellDamageReport>> reports;
     /* The per-kind totals the notice pass folds into its messages;
        [3] and [4] are the running damage totals the character and monster
        damage paths add to. */
-    unsigned int notice_values[6];
+    std::uint32_t notice_values[6];
     /* The report came from a non-verbose resolution pass and still
        needs to be folded into the shared attack report. */
     bool deferred;
@@ -91,8 +92,8 @@ struct W8SpellEffectEntry {
         result = {};
     }
 
-    int kind;
-    int turns_remaining;
+    std::int32_t kind;
+    std::int32_t turns_remaining;
     /* The cast's original source. */
     W8TargetSource OrigSource;
     /* The cast's original target slot, copied beside OrigSource before any
@@ -109,8 +110,8 @@ struct W8SpellEffectEntry {
        CollectHostileMonsters gathers at 0x0e0, and a second index list at
        0x0f0 used both as party-slot indices and as monster-manager entry
        indices depending on the effect path. */
-    std::vector<int> monster_ids;
-    std::vector<int> target_indices;
+    std::vector<std::int32_t> monster_ids;
+    std::vector<std::int32_t> target_indices;
     /* Spawned visuals and owned missiles. Their constructors
        install a base vector table followed by the derived table. */
     std::vector<W8SpellVisual*> spell_visuals;
@@ -145,6 +146,6 @@ void UpdateSpellEffects(void);
    that owns it. */
 void AbsorbMissileDamage(W8Missile* missile);
 void ReportSpellResult(W8SpellEffectEntry* effect);
-void SpawnLureEffects(W8SpellEffectEntry* owner, int argument, W8CombatSlot* target);
+void SpawnLureEffects(W8SpellEffectEntry* owner, std::int32_t argument, W8CombatSlot* target);
 
 #endif

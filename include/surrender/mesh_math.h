@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include "glm/ext/vector_int3.hpp"
 
 #include <cstddef>
@@ -15,11 +16,11 @@
 namespace srMeshMath {
 // UV tables may keep indices outside the geometry permutation. Other callers
 // require every corner to have a corresponding entry in the map.
-inline glm::ivec3 remapTriangle(glm::ivec3 triangle, std::span<const w8_ulong> indices,
+inline glm::ivec3 remapTriangle(glm::ivec3 triangle, std::span<const std::uint32_t> indices,
                                 bool retain_external = false)
 {
-    for (int corner = 0; corner < 3; ++corner) {
-        const auto index = static_cast<w8_ulong>(triangle[corner]);
+    for (std::int32_t corner = 0; corner < 3; ++corner) {
+        const auto index = static_cast<std::uint32_t>(triangle[corner]);
         if (index < indices.size()) triangle[corner] = indices[index];
         else if (!retain_external) throw std::out_of_range("Mesh corner index out of range");
     }
@@ -39,7 +40,7 @@ template<glm::length_t Components>
 std::vector<glm::vec3> vertexNormalSums(std::span<const glm::ivec3> triangles,
                                       std::span<const glm::vec<Components, float>> normals,
                                       std::size_t vertex_count,
-                                      std::span<const w8_ulong> shade_indices = {})
+                                      std::span<const std::uint32_t> shade_indices = {})
 {
     std::vector<glm::vec3> sums(vertex_count, glm::vec3(0));
     for (std::size_t polygon = 0; polygon < triangles.size(); ++polygon) {

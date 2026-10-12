@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <SDL3/SDL_pixels.h>
 #include "Types.h"
 #include <SDL3/SDL_rect.h>
@@ -39,7 +40,7 @@
  * .cpp / local_code/ placement remains a recovery choice.
  */
 
-typedef void (*INPUT_CALLBACK)(unsigned char index, int active);
+typedef void (*INPUT_CALLBACK)(std::uint8_t index, std::int32_t active);
 
 /* The allocation at 0x005D39B0 is 0x6c bytes. Sir-Tech's released
    Text_Input.c establishes the inherited members through InputCallback.
@@ -47,28 +48,28 @@ typedef void (*INPUT_CALLBACK)(unsigned char index, int active);
    +0x60 selects the alternate inactive-field background, and +0x61 suppresses
    both mouse callbacks. 0x62-0x63 only align the following list links. */
 struct TEXTINPUTNODE {
-    unsigned char ubID;
-    unsigned char _padding01;
-    short usInputType;
+    std::uint8_t ubID;
+    std::uint8_t _padding01;
+    std::int16_t usInputType;
     std::size_t max_code_units; // retail name/editor limit
-    unsigned char _padding05[3];
+    std::uint8_t _padding05[3];
     std::string szString;
     // bool-byte-ok: JA2 declares fEnabled as BOOLEAN (UINT8)
-    unsigned char fEnabled;
+    std::uint8_t fEnabled;
     bool fUserField;
-    unsigned char _padding0f;
-    unsigned int region_index = 0;
+    std::uint8_t _padding0f;
+    std::uint32_t region_index = 0;
     INPUT_CALLBACK InputCallback;
     bool fUseInactiveTextFieldColor; /* Wizardry extension at +0x60 */
     bool fBlockMouseCallbacks;       /* Wizardry extension at +0x61 */
-    unsigned char _padding62[2];
+    std::uint8_t _padding62[2];
     std::unique_ptr<TEXTINPUTNODE> next;
     TEXTINPUTNODE* prev;
 
 };
 
 namespace {
-int g_text_field_input_x = 0;
+std::int32_t g_text_field_input_x = 0;
 SDL_MouseButtonFlags g_text_field_input_buttons = 0;
 
 W8Region& TextFieldRegion(const TEXTINPUTNODE* field)
@@ -79,7 +80,7 @@ W8Region& TextFieldRegion(const TEXTINPUTNODE* field)
     return g_regions[index];
 }
 
-unsigned char TextFieldRegionEvent(const InputEvent* event, W8Region* region)
+std::uint8_t TextFieldRegionEvent(const InputEvent* event, W8Region* region)
 {
     auto* field = region->text_field;
     if (!field) return 0;
@@ -111,22 +112,22 @@ unsigned char TextFieldRegionEvent(const InputEvent* event, W8Region* region)
    0x005D35E0 fills the same fixed layout for its three presentation modes. */
 struct TextInputColors {
     Font* usFont;
-    unsigned short usTextFieldColor;
-    unsigned char ubForeColor;
-    unsigned char ubShadowColor;
-    unsigned char ubHiForeColor;
-    unsigned char ubHiShadowColor;
-    unsigned char ubHiBackColor;
+    std::uint16_t usTextFieldColor;
+    std::uint8_t ubForeColor;
+    std::uint8_t ubShadowColor;
+    std::uint8_t ubHiForeColor;
+    std::uint8_t ubHiShadowColor;
+    std::uint8_t ubHiBackColor;
     bool fBevelling;
-    unsigned short usBrighterColor;
-    unsigned short usDarkerColor;
-    unsigned short usCursorColor;
+    std::uint16_t usBrighterColor;
+    std::uint16_t usDarkerColor;
+    std::uint16_t usCursorColor;
     bool fUseDisabledAutoShade;
-    unsigned char ubDisabledForeColor;
-    unsigned char ubDisabledShadowColor;
-    unsigned char _padding13;
-    unsigned short usDisabledTextFieldColor;
-    unsigned short usInactiveTextFieldColor;
+    std::uint8_t ubDisabledForeColor;
+    std::uint8_t ubDisabledShadowColor;
+    std::uint8_t _padding13;
+    std::uint16_t usDisabledTextFieldColor;
+    std::uint16_t usInactiveTextFieldColor;
 };
 
 struct STACKTEXTINPUTNODE {
@@ -166,7 +167,7 @@ static std::size_t gubVisibleStart;
 // GLOBAL: WIZ8 0x0069C7E9
 static std::size_t gubMouseDownPos;
 // GLOBAL: WIZ8 0x0069C5D8
-static int gsCursorX;
+static std::int32_t gsCursorX;
 // GLOBAL: WIZ8 0x0069C7E4
 static size_t guiVisibleCount;
 
@@ -202,7 +203,7 @@ void InitTextInputMode(Font& font)
 }
 
 // FUNCTION: WIZ8 0x005D3520
-void InitTextInputModeWithScheme(int mode)
+void InitTextInputModeWithScheme(std::int32_t mode)
 {
     Assert(mode >= 0 && mode <= 2);
     InitTextInputMode(mode == 0 ? g_font12point1 : g_wiz_text_mono_font);
@@ -318,9 +319,9 @@ void KillTextInputMode(void)
 }
 
 // FUNCTION: WIZ8 0x005D39B0
-char AddTextInputField(int left, int top, int width, int height, int priority, std::string_view text,
-                       std::size_t capacity, short input_type,
-                       unsigned char use_inactive_text_field_color)
+char AddTextInputField(std::int32_t left, std::int32_t top, std::int32_t width, std::int32_t height, std::int32_t priority, std::string_view text,
+                       std::size_t capacity, std::int16_t input_type,
+                       std::uint8_t use_inactive_text_field_color)
 {
     auto owner = std::make_unique<TEXTINPUTNODE>();
     auto* field = owner.get();
@@ -356,16 +357,16 @@ char AddTextInputField(int left, int top, int width, int height, int priority, s
     field->region_index = AddRegionToSet(ControlRegionSetIndex(), priority);
     auto& region = g_regions[field->region_index];
     region.text_field = field;
-    SetRegionBounds(field->region_index, static_cast<unsigned short>(left),
-                    static_cast<unsigned short>(top), static_cast<unsigned short>(left + width),
-                    static_cast<unsigned short>(top + height));
+    SetRegionBounds(field->region_index, static_cast<std::uint16_t>(left),
+                    static_cast<std::uint16_t>(top), static_cast<std::uint16_t>(left + width),
+                    static_cast<std::uint16_t>(top + height));
     SetRegionCallback(field->region_index, TextFieldRegionEvent, field->ubID);
     field->fUseInactiveTextFieldColor = use_inactive_text_field_color;
     return field->ubID;
 }
 
 // FUNCTION: WIZ8 0x005D3B40
-void RemoveTextInputField(int index)
+void RemoveTextInputField(std::int32_t index)
 {
     TEXTINPUTNODE* field = gpTextInputHead.get();
     while (field != 0 && field->ubID != index)
@@ -395,7 +396,7 @@ void RemoveTextInputField(int index)
 }
 
 // FUNCTION: WIZ8 0x005D3C10
-void SetInputFieldText(unsigned char index, std::string_view text)
+void SetInputFieldText(std::uint8_t index, std::string_view text)
 {
     for (auto* field = gpTextInputHead.get(); field; field = field->next.get()) {
         if (field->ubID != index) continue;
@@ -407,7 +408,7 @@ void SetInputFieldText(unsigned char index, std::string_view text)
 }
 
 // FUNCTION: WIZ8 0x005D3BF0
-short GetActiveTextInputField(void)
+std::int16_t GetActiveTextInputField(void)
 {
     if (gpActive != 0)
         return gpActive->ubID;
@@ -415,7 +416,7 @@ short GetActiveTextInputField(void)
 }
 
 // FUNCTION: WIZ8 0x005D3CC0
-std::string GetTextFromField(unsigned char index)
+std::string GetTextFromField(std::uint8_t index)
 {
     for (auto* field = gpTextInputHead.get(); field; field = field->next.get())
         if (field->ubID == index) return field->szString;
@@ -423,7 +424,7 @@ std::string GetTextFromField(unsigned char index)
 }
 
 // FUNCTION: WIZ8 0x005D3D00
-std::size_t GetTextInputFieldByteLength(unsigned char index)
+std::size_t GetTextInputFieldByteLength(std::uint8_t index)
 {
     for (TEXTINPUTNODE* field = gpTextInputHead.get(); field != 0; field = field->next.get()) {
         if (field->ubID == index)
@@ -538,7 +539,7 @@ static void DeleteHighlightedText(std::size_t first, std::size_t last)
 }
 
 // FUNCTION: WIZ8 0x005D3F50
-unsigned int HandleTextInput(const InputEvent* input)
+std::uint32_t HandleTextInput(const InputEvent* input)
 {
     const bool committed = input->type == InputEventType::Text;
     const char32_t committed_character = input->text;
@@ -708,7 +709,7 @@ unsigned int HandleTextInput(const InputEvent* input)
 
     default: {
         char32_t character = committed ? committed_character :
-            TranslateKeyToCharacter(static_cast<unsigned short>(input->key), input->modifiers);
+            TranslateKeyToCharacter(static_cast<std::uint16_t>(input->key), input->modifiers);
         if (!committed && NativeTextInputEnabled()) return 1;
         if (character == 0)
             return 1;
@@ -720,7 +721,7 @@ unsigned int HandleTextInput(const InputEvent* input)
             }
         }
 
-        unsigned short input_type = static_cast<unsigned short>(gpActive->usInputType);
+        std::uint16_t input_type = static_cast<std::uint16_t>(gpActive->usInputType);
         if (input_type > 0x0fff) {
             HandleExclusiveInput(character);
             return 1;
@@ -762,9 +763,9 @@ unsigned int HandleTextInput(const InputEvent* input)
 }
 
 // FUNCTION: WIZ8 0x005D4970
-void HandleExclusiveInput(unsigned short character)
+void HandleExclusiveInput(std::uint16_t character)
 {
-    short input_type = gpActive->usInputType;
+    std::int16_t input_type = gpActive->usInputType;
     if (input_type == 0x1000) {
         if (IsUppercaseCharacter(character) == 0 && IsLowercaseCharacter(character) == 0 &&
             (character < '0' || character > '9') && character != '_' && character != '.') {
@@ -783,7 +784,7 @@ void HandleExclusiveInput(unsigned short character)
             }
             if (IsUppercaseCharacter(character) == 0)
                 return;
-            AddChar(static_cast<unsigned short>(ToLowercaseCharacter(character)));
+            AddChar(static_cast<std::uint16_t>(ToLowercaseCharacter(character)));
             return;
         }
         if (character >= '0' && character <= '9')
@@ -848,9 +849,9 @@ void AddChar(char32_t character)
 }
 
 static std::size_t FindTextInputMousePosition(TEXTINPUTNODE* field, std::size_t start,
-                                             int mouse_offset)
+                                             std::int32_t mouse_offset)
 {
-    int previous_width = 0;
+    std::int32_t previous_width = 0;
     for (auto position = start; position < field->szString.size();) {
         const auto end = wiz8::text::next_grapheme(field->szString, position);
         const auto width = pColors->usFont->textWidth(std::string_view(field->szString).substr(start, end - start));
@@ -862,14 +863,14 @@ static std::size_t FindTextInputMousePosition(TEXTINPUTNODE* field, std::size_t 
 }
 
 // FUNCTION: WIZ8 0x005D4CB0
-void MouseMovedInTextRegionCallback(TEXTINPUTNODE* field, int reason)
+void MouseMovedInTextRegionCallback(TEXTINPUTNODE* field, std::int32_t reason)
 {
     if (!field) return;
     if (IsModalOpen())
         return;
 
     if (field->fBlockMouseCallbacks) return;
-    int field_index = field->ubID;
+    std::int32_t field_index = field->ubID;
 
     if ((reason & REGION_REASON_GAIN_MOUSE) != 0)
         SetTargetCursor(GetTextInputCursor());
@@ -904,7 +905,7 @@ void MouseMovedInTextRegionCallback(TEXTINPUTNODE* field, int reason)
         return;
 
     std::size_t position = gubParkingPos;
-    int mouse_offset = g_text_field_input_x - TextFieldRegion(current_field).x1;
+    std::int32_t mouse_offset = g_text_field_input_x - TextFieldRegion(current_field).x1;
     position = FindTextInputMousePosition(current_field, position, mouse_offset);
 
     if (position == gubMouseDownPos) {
@@ -926,10 +927,10 @@ void MouseMovedInTextRegionCallback(TEXTINPUTNODE* field, int reason)
 }
 
 // FUNCTION: WIZ8 0x005D4F10
-void MouseClickedInTextRegionCallback(TEXTINPUTNODE* field, int reason)
+void MouseClickedInTextRegionCallback(TEXTINPUTNODE* field, std::int32_t reason)
 {
     if (!field) return;
-    int field_index = field->ubID;
+    std::int32_t field_index = field->ubID;
     if (IsModalOpen())
         return;
 
@@ -950,7 +951,7 @@ void MouseClickedInTextRegionCallback(TEXTINPUTNODE* field, int reason)
         if (field->fUserField) {
             position = 0;
         } else {
-            int mouse_offset = g_text_field_input_x - TextFieldRegion(field).x1;
+            std::int32_t mouse_offset = g_text_field_input_x - TextFieldRegion(field).x1;
             position = FindTextInputMousePosition(field, gubParkingPos, mouse_offset);
         }
         SetTextInputCursor(position);
@@ -1009,7 +1010,7 @@ void MouseClickedInTextRegionCallback(TEXTINPUTNODE* field, int reason)
             position = 0;
         } else {
             TEXTINPUTNODE* field = gpActive;
-            int mouse_offset = g_text_field_input_x - TextFieldRegion(field).x1;
+            std::int32_t mouse_offset = g_text_field_input_x - TextFieldRegion(field).x1;
             position = FindTextInputMousePosition(field, position, mouse_offset);
         }
         if (position == gubMouseDownPos)
@@ -1022,10 +1023,10 @@ void MouseClickedInTextRegionCallback(TEXTINPUTNODE* field, int reason)
 void RenderBackgroundField(TEXTINPUTNODE* field)
 {
     TextInputColors* style = pColors.get();
-    int left = TextFieldRegion(field).x1;
-    int top = TextFieldRegion(field).y1;
-    int right = TextFieldRegion(field).x2;
-    int bottom = TextFieldRegion(field).y2;
+    std::int32_t left = TextFieldRegion(field).x1;
+    std::int32_t top = TextFieldRegion(field).y1;
+    std::int32_t right = TextFieldRegion(field).x2;
+    std::int32_t bottom = TextFieldRegion(field).y2;
 
     if (style->fBevelling) {
         const SDL_Rect darker{left, top, right - left, bottom - top};
@@ -1034,7 +1035,7 @@ void RenderBackgroundField(TEXTINPUTNODE* field)
         SDL_FillSurfaceRect(&GetFrameBufferSurface(), &brighter, style->usBrighterColor);
     }
 
-    unsigned short colour;
+    std::uint16_t colour;
     if (field->fEnabled == 0 && !style->fUseDisabledAutoShade)
         colour = style->usDisabledTextFieldColor;
     else
@@ -1074,13 +1075,13 @@ void RenderActiveTextField(void)
                     gubCursorPos, field->szString.c_str(), &gsCursorX, &guiVisibleCount);
             }
             if (gfHiliteMode)
-                gubEndHilite = static_cast<unsigned char>(guiVisibleCount + gubVisibleStart);
+                gubEndHilite = static_cast<std::uint8_t>(guiVisibleCount + gubVisibleStart);
         }
     }
 
     {
-        unsigned short font_height = pColors->usFont->height();
-        unsigned int vertical_offset =
+        std::uint16_t font_height = pColors->usFont->height();
+        std::uint32_t vertical_offset =
             (TextFieldRegion(field).y2 - TextFieldRegion(field).y1 - font_height) / 2;
         RenderBackgroundField(field);
 
@@ -1095,8 +1096,8 @@ void RenderActiveTextField(void)
         }
 
         for (size_t index = 0; index < guiVisibleCount && visible[index];) {
-            short prefix = pColors->usFont->prefixWidth(const_cast<char*>(visible), index);
-            unsigned char background;
+            std::int16_t prefix = pColors->usFont->prefixWidth(const_cast<char*>(visible), index);
+            std::uint8_t background;
             TextOptions options;
             if (has_selection &&
                 selection_first <= gubParkingPos + index &&
@@ -1122,15 +1123,15 @@ void RenderActiveTextField(void)
             const std::string glyph(visible + index, end - index);
             DrawText(GetFrameBufferSurface(), *pColors->usFont,
                      {TextFieldRegion(field).x1 + prefix + 3,
-                      static_cast<int>(TextFieldRegion(field).y1 + vertical_offset)},
+                      static_cast<std::int32_t>(TextFieldRegion(field).y1 + vertical_offset)},
                      glyph, options);
             index = end;
         }
 
         if (gfEditingText && !field->fUserField && !IsLeftButtonHeld() &&
             w8_get_ticks() % 1000 < 500) {
-            int left = TextFieldRegion(field).x1 + gsCursorX;
-            int top = TextFieldRegion(field).y1 + vertical_offset;
+            std::int32_t left = TextFieldRegion(field).x1 + gsCursorX;
+            std::int32_t top = TextFieldRegion(field).y1 + vertical_offset;
             const SDL_Rect cursor{left, top, 1, font_height};
             SDL_FillSurfaceRect(&GetFrameBufferSurface(), &cursor, pColors->usCursorColor);
         }
@@ -1146,7 +1147,7 @@ void RenderInactiveTextFieldNode(TEXTINPUTNODE* field)
 
     const bool disabled = field->fEnabled == 0 && pColors->fUseDisabledAutoShade;
     {
-        unsigned char shadow;
+        std::uint8_t shadow;
         TextOptions options;
         if (disabled) {
             options.colors.foreground =
@@ -1159,8 +1160,8 @@ void RenderInactiveTextFieldNode(TEXTINPUTNODE* field)
         options.colors.shadow = pColors->usFont->color(shadow);
         if (options.colors.shadow == 0 && shadow != 0)
             options.colors.shadow = 1;
-        unsigned short font_height = pColors->usFont->height();
-        unsigned int vertical_offset =
+        std::uint16_t font_height = pColors->usFont->height();
+        std::uint32_t vertical_offset =
             (TextFieldRegion(field).y2 - TextFieldRegion(field).y1 - font_height) / 2;
         options.colors.background = pColors->usFont->color(0);
         options.mono = true;
@@ -1168,14 +1169,14 @@ void RenderInactiveTextFieldNode(TEXTINPUTNODE* field)
 
         const char* visible = field->szString.c_str();
         for (size_t index = 0; visible[index];) {
-            short prefix = pColors->usFont->prefixWidth(field->szString.c_str(), index);
+            std::int16_t prefix = pColors->usFont->prefixWidth(field->szString.c_str(), index);
             if (TextFieldRegion(field).x2 - TextFieldRegion(field).x1 - 10 < prefix + 3) break;
             std::size_t end = index;
             wiz8::text::next(visible, end);
             const std::string glyph(visible + index, end - index);
             DrawText(GetFrameBufferSurface(), *pColors->usFont,
                      {TextFieldRegion(field).x1 + prefix + 3,
-                      static_cast<int>(TextFieldRegion(field).y1 + vertical_offset)},
+                      static_cast<std::int32_t>(TextFieldRegion(field).y1 + vertical_offset)},
                      glyph, options);
             index = end;
         }
@@ -1216,8 +1217,8 @@ bool EditingText(void)
 }
 
 // FUNCTION: WIZ8 0x005D5A10
-std::size_t CalculateCursorPos(int width, std::size_t cursor, std::string_view text,
-                              int* cursor_width, size_t* visible_count)
+std::size_t CalculateCursorPos(std::int32_t width, std::size_t cursor, std::string_view text,
+                              std::int32_t* cursor_width, size_t* visible_count)
 {
     cursor = std::min(cursor, text.size());
     auto start = std::min(gubVisibleStart, cursor);
@@ -1266,7 +1267,7 @@ void SelectAllText(void)
     if (field->fUserField) {
         position = 0;
     } else {
-        int mouse_offset = g_text_field_input_x - TextFieldRegion(field).x1;
+        std::int32_t mouse_offset = g_text_field_input_x - TextFieldRegion(field).x1;
         position = FindTextInputMousePosition(field, position, mouse_offset);
     }
 
@@ -1301,7 +1302,7 @@ void SelectAllText(void)
 /* Sets whether the named field's mouse region callback is
    suppressed; the NPC dialogue toggles it on field 0 while the modal is up. */
 // FUNCTION: WIZ8 0x005D5DA0
-void SetInputFieldBlocksMouseCallback(unsigned char field_id, bool blocks)
+void SetInputFieldBlocksMouseCallback(std::uint8_t field_id, bool blocks)
 {
     TEXTINPUTNODE* field = gpTextInputHead.get();
     if (field != 0) {

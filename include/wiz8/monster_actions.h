@@ -1,5 +1,7 @@
 #pragma once
 
+
+#include <cstdint>
 /* The monster action domain is distinct from the party's W8ActionKind.
    AI decisions and the queued/committed records use the same signed word.
    ExecuteMonsterAction and MonsterActionFatigueCost consume -1 through 9. */
@@ -25,7 +27,7 @@ enum W8MonsterControlState {
 };
 
 /* BEGINORDERS scripts and save records store this signed byte. */
-typedef signed char W8MonsterOrderMode;
+typedef std::int8_t W8MonsterOrderMode;
 
 enum {
     W8_MONSTER_ORDER_NONE = -1,
@@ -107,7 +109,7 @@ enum W8MonsterScriptCommand {
 };
 
 /* Fade direction is signed; delayed removal precedes the outward fade. */
-typedef signed char W8MonsterFadeState;
+typedef std::int8_t W8MonsterFadeState;
 enum {
     W8_MONSTER_FADE_DELAYED_REMOVAL = -2,
     W8_MONSTER_FADE_OUT = -1,
@@ -116,7 +118,7 @@ enum {
 };
 
 /* Completion effects for monsters removed by level/NPC scripts. */
-typedef signed char W8MonsterRemovalState;
+typedef std::int8_t W8MonsterRemovalState;
 enum {
     W8_MONSTER_REMOVAL_NONE = 0,
     W8_MONSTER_REMOVAL_RETURN_BALBRAK_HOME = 2,

@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "wiz8/engine_code/SoundEvent.h"
 
 #include <glm/ext/quaternion_trigonometric.hpp>
@@ -33,7 +34,7 @@ W8SoundEvent::~W8SoundEvent()
 /* The wave name is copied into storage the event owns and its destructor
    releases. */
 // FUNCTION: WIZ8 0x004d57a0
-W8SoundEvent::W8SoundEvent(W8SoundEventKind kind, int cycle, int frame, int subcycle,
+W8SoundEvent::W8SoundEvent(W8SoundEventKind kind, std::int32_t cycle, std::int32_t frame, std::int32_t subcycle,
                          std::string wave_name, bool looping)
     : kind(kind), cycle(cycle), frame(frame), subcycle(subcycle),
       wave_name(std::move(wave_name)), looping(looping)
@@ -41,21 +42,21 @@ W8SoundEvent::W8SoundEvent(W8SoundEventKind kind, int cycle, int frame, int subc
 }
 
 // GLOBAL: WIZ8 0x0061095c
-static int g_last_sound_event = -1;
+static std::int32_t g_last_sound_event = -1;
 
 // GLOBAL: WIZ8 0x00683420
-static int g_previous_footstep_variant;
+static std::int32_t g_previous_footstep_variant;
 
 /* For every bit of the caller's mask, append the events of that kind whose
    own classification matches, then play one of them at random without
    repeating the previous choice for as long as a second candidate exists. */
 // FUNCTION: WIZ8 0x004d5890
 void UpdateSoundEvents(const std::vector<std::unique_ptr<W8SoundEvent>>& events,
-                       const srVector3T<float>& position, unsigned int event_mask,
-                       int cycle, int frame, int subcycle)
+                       const srVector3T<float>& position, std::uint32_t event_mask,
+                       std::int32_t cycle, std::int32_t frame, std::int32_t subcycle)
 {
     std::vector<W8SoundEvent*> candidates;
-    for (unsigned int bit = 1; bit != 0; bit <<= 1) {
+    for (std::uint32_t bit = 1; bit != 0; bit <<= 1) {
         if ((bit & event_mask) == 0) continue;
         candidates.clear();
         for (const auto& event : events) {
@@ -70,9 +71,9 @@ void UpdateSoundEvents(const std::vector<std::unique_ptr<W8SoundEvent>>& events,
             candidates.push_back(event.get());
         }
         if (candidates.empty()) continue;
-        int selected;
+        std::int32_t selected;
         do {
-            selected = static_cast<int>(Random(candidates.size()));
+            selected = static_cast<std::int32_t>(Random(candidates.size()));
         } while (candidates.size() > 1 && selected == g_last_sound_event);
         if (candidates[selected]->Play(position, cycle)) g_last_sound_event = selected;
     }
@@ -82,7 +83,7 @@ void UpdateSoundEvents(const std::vector<std::unique_ptr<W8SoundEvent>>& events,
    the event's own routing, rotate the listener offset into the camera frame,
    and let the ground/step branch rebuild the wave name before the play. */
 // FUNCTION: WIZ8 0x004d5a10
-bool W8SoundEvent::Play(const srVector3T<float>& position, int cycle)
+bool W8SoundEvent::Play(const srVector3T<float>& position, std::int32_t cycle)
 {
     W8Monster* monster = 0;
     bool track_sound = false;
@@ -91,7 +92,7 @@ bool W8SoundEvent::Play(const srVector3T<float>& position, int cycle)
         return false;
     }
     float angle = -GetCameraYawRadians();
-    unsigned int base_volume = 0x78;
+    std::uint32_t base_volume = 0x78;
     srVector3T<float> camera_position = cameraLocation();
     srVector3T<float> camera_offset = camera_position - position;
     if (camera_offset.Length() < falloff) {
@@ -111,7 +112,7 @@ bool W8SoundEvent::Play(const srVector3T<float>& position, int cycle)
             }
         } else {
             base_volume =
-                static_cast<unsigned int>(Random(volume_max - volume_min + 1)) + volume_min;
+                static_cast<std::uint32_t>(Random(volume_max - volume_min + 1)) + volume_min;
         }
 
         glm::mat3 rotation;
@@ -121,16 +122,16 @@ bool W8SoundEvent::Play(const srVector3T<float>& position, int cycle)
 
         srVector3T<float> offset = position - camera_position;
         srVector3T<float> transformed = rotation * offset.glmValue();
-        unsigned int event_volume = static_cast<unsigned int>(
+        std::uint32_t event_volume = static_cast<std::uint32_t>(
             (g_float_one - camera_offset.Length() / falloff) * base_volume);
         event_volume = (GetSoundEffectsVolume() * event_volume) / 0x7f;
         if (event_volume != 0) {
 
             if (kind == W8_SOUND_EVENT_FOOTSTEP) {
-                int variant;
-                int attempts = 0;
+                std::int32_t variant;
+                std::int32_t attempts = 0;
                 do {
-                    variant = static_cast<int>(Random(4)) + 1;
+                    variant = static_cast<std::int32_t>(Random(4)) + 1;
                     ++attempts;
                     if (variant != g_previous_footstep_variant) {
                         break;

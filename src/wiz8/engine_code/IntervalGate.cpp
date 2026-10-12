@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "wiz8/engine_code/IntervalGate.h"
 
 #include <cstddef>
@@ -27,14 +28,14 @@ void W8IntervalGate::Arm()
 }
 
 // FUNCTION: WIZ8 0x0043A5D0
-unsigned int W8IntervalGate::PollElapsedIntervals()
+std::uint32_t W8IntervalGate::PollElapsedIntervals()
 {
     if (m_finished) {
         return 1;
     }
-    unsigned int intervals = static_cast<unsigned int>(ReadClock() - m_start) /
-                             static_cast<unsigned int>(m_end - m_start);
-    if (static_cast<int>(intervals) > 0) {
+    std::uint32_t intervals = static_cast<std::uint32_t>(ReadClock() - m_start) /
+                             static_cast<std::uint32_t>(m_end - m_start);
+    if (static_cast<std::int32_t>(intervals) > 0) {
         if (m_flags.one_shot) {
             m_finished = true;
             return intervals;
@@ -55,7 +56,7 @@ try
     bool loaded = (handle.read(&m_duration_seconds, sizeof(m_duration_seconds)).bytes == static_cast<std::size_t>(sizeof(m_duration_seconds)));
     if (loaded != 0) {
         m_start = ReadClock();
-        m_duration = static_cast<int>(m_duration_seconds * m_duration_scale * 10000.0f);
+        m_duration = static_cast<std::int32_t>(m_duration_seconds * m_duration_scale * 10000.0f);
         m_end = m_start + m_duration;
     }
     return loaded;
@@ -67,9 +68,9 @@ bool W8IntervalGate::Save(wiz8::File& handle)
 {
     float elapsed;
     if (!m_flags.one_shot) {
-        int sample = ReadClock();
-        float progress = static_cast<unsigned int>(sample - m_start) /
-                         static_cast<float>(static_cast<unsigned int>(m_end - m_start));
+        std::int32_t sample = ReadClock();
+        float progress = static_cast<std::uint32_t>(sample - m_start) /
+                         static_cast<float>(static_cast<std::uint32_t>(m_end - m_start));
         // The on-disk pair and its OR-combined result mirror W8GameTimer::Load.
         bool saved = (handle.write(&progress, sizeof(progress)), true);
         saved |= (handle.write(&m_duration_scale, sizeof(m_duration_scale)), true);

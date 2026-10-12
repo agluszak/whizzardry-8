@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <variant>
 
@@ -9,19 +10,19 @@ struct W8NpcState;
    The experience appender at 0x004eef10 allocates 8 bytes; the skill appenders
    at 0x00553f10/0x005542e0 allocate 0x11 bytes with count/slot/skill columns. */
 struct W8ExperienceNoticePayload {
-    unsigned int amount;
-    unsigned char alternate_message;
+    std::uint32_t amount;
+    std::uint8_t alternate_message;
 };
 
 struct W8SkillNoticePayload {
-    signed char count;
-    signed char party_slots[8];
-    signed char skills[8];
+    std::int8_t count;
+    std::int8_t party_slots[8];
+    std::int8_t skills[8];
 };
 
 
 struct W8LevelUpNotice {
-    int party_slot;
+    std::int32_t party_slot;
 };
 
 /* Work a portrait bubble owes on dismissal; empty for plain text bubbles. */
@@ -30,7 +31,7 @@ using W8QuoteNotice =
 
 /* Quest-specific world changes a script fact or level script queues behind
    the conversation. RunNpcStoryAction (npc_story_events.cpp) performs them. */
-enum class W8NpcStoryAction : unsigned char {
+enum class W8NpcStoryAction : std::uint8_t {
     spawn_alfie_chaos,
     spawn_alfie_life,
     spawn_alfie_know,
@@ -74,7 +75,7 @@ enum class W8NpcStoryAction : unsigned char {
 };
 
 /* Queued actions that carry no data. */
-enum class W8NpcCommand : unsigned char {
+enum class W8NpcCommand : std::uint8_t {
     close_dialogue,            /* close dialogue; set g_npc_dialogue_closed */
     close_and_resume_npc,      /* close dialogue; ResumeNpc on the dialogue NPC */
     reopen_transcript,         /* CloseNpcDialogueLayout + transcript layout */
@@ -91,7 +92,7 @@ enum class W8NpcCommand : unsigned char {
 
 /* Run `quote_index` of the queuing NPC's script. */
 struct W8NpcQueuedQuote {
-    int quote_index;
+    std::int32_t quote_index;
     bool mark_pending;     /* record quote_index as pending */
     bool suppress_entries; /* skip the price-check and pending-quote entry scans */
 };
@@ -100,9 +101,9 @@ struct W8NpcQueuedQuote {
    script and resolved at dispatch, so a script reload can only make it drop
    out, never dangle. */
 struct W8NpcQueuedEntry {
-    int quote_index;
-    int entry_index;
-    int continuation_quote;
+    std::int32_t quote_index;
+    std::int32_t entry_index;
+    std::int32_t continuation_quote;
 };
 
 /* Portrait message text and the notice its bubble posts on dismissal. The
@@ -115,47 +116,47 @@ struct W8NpcQueuedNotice {
 
 /* Recruit the NPC of `npc_kind` and restart the conversation with it. */
 struct W8NpcRecruit {
-    int npc_kind;
+    std::int32_t npc_kind;
 };
 
 /* Dismiss the NPC in `party_slot` from the party. */
 struct W8NpcDismiss {
-    int party_slot;
+    std::int32_t party_slot;
 };
 
 /* Queue character event `event_type` on a random party speaker. */
 struct W8NpcPartySpeakerEvent {
-    unsigned int event_type;
+    std::uint32_t event_type;
 };
 
 /* Queue `party_slot`'s level-up reaction (character event g_effect1). */
 struct W8NpcLevelUpReaction {
-    int party_slot;
+    std::int32_t party_slot;
 };
 
 /* Queue `party_slot`'s scripted NPC line (character event 0x18). */
 struct W8NpcPartyScriptLine {
-    int party_slot;
+    std::int32_t party_slot;
 };
 
 /* Show g_localized_strings[`string_index`] as a portrait message. */
 struct W8NpcPortraitString {
-    int string_index;
+    std::int32_t string_index;
 };
 
 /* Mark `party_slot` missing indefinitely (the condition-13 scene). */
 struct W8NpcMarkMissing {
-    int party_slot;
+    std::int32_t party_slot;
 };
 
 /* Take the NPC in `party_slot` out of combat and the party. */
 struct W8NpcLeaveCombat {
-    int party_slot;
+    std::int32_t party_slot;
 };
 
 /* Ask the player to confirm travel to `level`. */
 struct W8NpcTravelConfirm {
-    int level;
+    std::int32_t level;
 };
 
 using W8NpcAction =
@@ -166,6 +167,6 @@ using W8NpcAction =
 
 /* One queued action and the speaker it was queued for. */
 struct W8MessageBoxLine {
-    int npc_kind; /* record kind of the speaking NPC, or -1; resolved when the line runs */
+    std::int32_t npc_kind; /* record kind of the speaking NPC, or -1; resolved when the line runs */
     W8NpcAction action;
 };

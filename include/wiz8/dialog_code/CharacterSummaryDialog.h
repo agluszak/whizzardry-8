@@ -19,12 +19,12 @@ class W8CharacterSummaryDialog : public W8DialogBase {
 public:
     explicit W8CharacterSummaryDialog(W8Character* character);
     virtual ~W8CharacterSummaryDialog() override;
-    virtual int CreateControls() override;
+    virtual std::int32_t CreateControls() override;
     virtual void DestroyControls() override;
     virtual void Draw() override;
     virtual W8DialogKind GetDialogType() override;
     virtual bool ProcessInput() override;
-    virtual void OnNumericInputChanged(int value) override;
+    virtual void OnNumericInputChanged(std::int32_t value) override;
 
     void DrawPortraitAnimationFrame();
 
@@ -35,16 +35,16 @@ private:
     bool m_voice_started;
     W8TextBuffer* m_quote_text;
     W8DialogNumericInput* m_numeric_input;
-    int m_remaining;
-    int m_taken;
-    int m_total;
-    int m_field_070;
+    std::int32_t m_remaining;
+    std::int32_t m_taken;
+    std::int32_t m_total;
+    std::int32_t m_field_070;
     W8Character* m_character;
     W8Character m_saved_character;
     W8MonsterManagerEntry m_saved_monster_entry;
     W8PartySlotRow m_saved_party_row;
     /* Select the original character instead of the temporary party-slot copy. */
-    unsigned char m_use_original_character;
+    std::uint8_t m_use_original_character;
     bool m_portrait_clock_started;
-    uint64_t m_portrait_clock;
+    std::uint64_t m_portrait_clock;
 };

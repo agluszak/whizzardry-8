@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include "wiz8/engine_code/OctBuildTree.h"
 #include "wiz8/engine_code/OctPreTree.h"
 
@@ -11,7 +12,7 @@ bool InsertBuildSurfaceChildren(W8OctSpatialState* parent, W8OctSpatialState& ch
                                 InsertChild insert_child)
 {
     bool inserted = false;
-    for (unsigned octant = 0; octant < 8; ++octant) {
+    for (std::uint32_t octant = 0; octant < 8; ++octant) {
         child.setChildBounds(*parent, octant, extent);
         if (!overlaps(child)) continue;
         auto*& node = parent->m_root->children[octant];
@@ -26,7 +27,7 @@ bool InsertBuildSurfaceChildren(W8OctSpatialState* parent, W8OctSpatialState& ch
 template<class Visit>
 void visitBuildChildren(const W8OctSpatialState& parent, W8OctSpatialState& child, Visit visit)
 {
-    for (unsigned octant = 0; octant < 8; ++octant) {
+    for (std::uint32_t octant = 0; octant < 8; ++octant) {
         if (auto* node = parent.m_root->children[octant]) {
             child.setChildBounds(parent, octant, child.m_extent);
             child.m_root = node;

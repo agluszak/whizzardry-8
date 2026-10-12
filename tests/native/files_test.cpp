@@ -81,7 +81,7 @@ static std::string slf_bytes()
     bytes += "archive!packed!";
     bytes.append(reinterpret_cast<char*>(entries), sizeof(entries));
     // Serialized FILETIME stays a low/high pair at the fixed directory offset.
-    REQUIRE(static_cast<unsigned char>(bytes[sizeof(header) + 15 + 268]) == 1);
+    REQUIRE(static_cast<std::uint8_t>(bytes[sizeof(header) + 15 + 268]) == 1);
     return bytes;
 }
 struct FileFixture
@@ -188,14 +188,14 @@ TEST_CASE_METHOD(FileFixture, "Host paths, overlays and streams", "[filesystem][
         W8Chunk chunk;
         REQUIRE((!chunk.OpenRead(path) && !chunk.IsOpen()));
         REQUIRE(chunk.OpenWrite(path));
-        const unsigned word = 0x12345678;
+        const std::uint32_t word = 0x12345678;
         REQUIRE(chunk.OpenChunk(0x54534554, false));
         REQUIRE(chunk.Write(&word, sizeof(word), nullptr));
         REQUIRE(chunk.ReleaseCurrentChunk());
         chunk.Close();
         REQUIRE((chunk.OpenRead(path) && chunk.ChunkCount() == 1));
         REQUIRE((chunk.OpenChunk(0, false) && chunk.CurrentChunkId() == 0x54534554));
-        unsigned loaded = 0;
+        std::uint32_t loaded = 0;
         REQUIRE((chunk.Read(&loaded, sizeof(loaded), nullptr) && loaded == word));
         REQUIRE(chunk.ReleaseCurrentChunk());
         chunk.Close();
@@ -221,7 +221,7 @@ TEST_CASE_METHOD(FileFixture, "Host paths, overlays and streams", "[filesystem][
         });
         chunk.WriteChunk(W8ChunkId("TAIL"), [] {});
         chunk.Close();
-        const unsigned char golden[] = {
+        const std::uint8_t golden[] = {
             'R', 'I', 'F', 'F', 1, 0, 44, 0, 0, 0, 2, 0, 0, 0,
             'G', 'R', 'P', '1', 1, 0, 20, 0, 0, 0, 1, 0, 0, 0, 7, 0, 0, 0,
             'L', 'E', 'A', 'F', 0, 0, 2, 0, 0, 0, 0xef, 0xbe,
@@ -229,14 +229,14 @@ TEST_CASE_METHOD(FileFixture, "Host paths, overlays and streams", "[filesystem][
         REQUIRE(contents(user / "Saves" / "Scoped.SAV") ==
                 std::string(reinterpret_cast<const char*>(golden), sizeof(golden)));
 
-        std::vector<unsigned> visited;
+        std::vector<std::uint32_t> visited;
         REQUIRE(chunk.OpenRead(path));
-        chunk.ForEachChunk([&](unsigned id) {
+        chunk.ForEachChunk([&](std::uint32_t id) {
             visited.push_back(id);
             if (id != W8ChunkId("GRP1")) return;
             chunk.ReadGroup([&] {
-                REQUIRE(chunk.ReadValue<int>() == 7);
-                chunk.ForEachChunk([&](unsigned leaf) {
+                REQUIRE(chunk.ReadValue<std::int32_t>() == 7);
+                chunk.ForEachChunk([&](std::uint32_t leaf) {
                     visited.push_back(leaf);
                     REQUIRE(chunk.RemainingBytes() == 2);
                     REQUIRE_THROWS_AS(chunk.ReadValue<std::uint32_t>(), std::runtime_error);
@@ -245,13 +245,13 @@ TEST_CASE_METHOD(FileFixture, "Host paths, overlays and streams", "[filesystem][
             });
         });
         chunk.Close();
-        REQUIRE(visited == std::vector<unsigned>{W8ChunkId("GRP1"), W8ChunkId("LEAF"), W8ChunkId("TAIL")});
+        REQUIRE(visited == std::vector<std::uint32_t>{W8ChunkId("GRP1"), W8ChunkId("LEAF"), W8ChunkId("TAIL")});
         // A visitor returning false ends the walk after releasing its chunk.
         visited.clear();
         REQUIRE(chunk.OpenRead(path));
-        chunk.ForEachChunk([&](unsigned id) { visited.push_back(id); return false; });
+        chunk.ForEachChunk([&](std::uint32_t id) { visited.push_back(id); return false; });
         chunk.Close();
-        REQUIRE(visited == std::vector<unsigned>{W8ChunkId("GRP1")});
+        REQUIRE(visited == std::vector<std::uint32_t>{W8ChunkId("GRP1")});
     }
 #if defined(__unix__) || defined(__APPLE__)
     const auto limited_path = root / "write-limit.bin";
@@ -466,7 +466,7 @@ TEST_CASE_METHOD(FileFixture, "SLF archives and invalid records", "[filesystem][
     memcpy(invalid.data() + sizeof(wiz8::SlfHeader) + 15, &entry, sizeof(entry));
     fixture(assets / "data" / "InvalidEntry.slf", invalid);
     REQUIRE_THROWS_AS(([&] { wiz8::mount_slf("Data/InvalidEntry.slf"); })(), std::exception);
-    for (int corruption = 0; corruption < 4; ++corruption) {
+    for (std::int32_t corruption = 0; corruption < 4; ++corruption) {
         auto bytes = archive_bytes;
         wiz8::SlfHeader header{};
         memcpy(&header, bytes.data(), sizeof(header));
@@ -493,7 +493,7 @@ TEST_CASE_METHOD(FileFixture, "SLF archives and invalid records", "[filesystem][
     stale_archive.reset();
     fixture(assets / "data" / "DATA.SLF", archive_bytes);
     std::vector<std::unique_ptr<wiz8::File>> readers;
-    for (unsigned i = 0; i < 45; ++i) {
+    for (std::uint32_t i = 0; i < 45; ++i) {
         auto reader = wiz8::open_file(i % 2 ? "Data/archiveonly.bin" : "Saves/CurrentGame.SAV");
         REQUIRE((read_bytes(*reader, 4) == (i % 2 ? "arch" : "user")));
         readers.push_back(std::move(reader));

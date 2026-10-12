@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <optional>
 #include <fmt/format.h>
 #include <memory>
@@ -38,20 +39,20 @@ extern const double g_double_zero = 0.0;
    limit, the unused 1 MiB secondary limit the initializer still writes, and
    the list EnforceAniMeshMemoryLimit walks. */
 // GLOBAL: WIZ8 0x0065be80
-int g_animesh_cache_stamp;
+std::int32_t g_animesh_cache_stamp;
 // GLOBAL: WIZ8 0x0065be84
-int g_animesh_cache_bytes;
+std::int32_t g_animesh_cache_bytes;
 // GLOBAL: WIZ8 0x0065be88
-int g_animesh_cache_limit;
+std::int32_t g_animesh_cache_limit;
 // GLOBAL: WIZ8 0x0065be8c
-int g_animesh_cache_secondary_limit;
+std::int32_t g_animesh_cache_secondary_limit;
 // GLOBAL: WIZ8 0x0065be90
 std::vector<W8AniMesh*> g_animesh_cache_list;
 
 /* The two caller-provided values override the original 16 MiB and 1 MiB
    defaults only when positive. Startup passes -1 for both. */
 // FUNCTION: WIZ8 0x004b5780
-void InitializeAniMeshCache(int primary_limit, int secondary_limit)
+void InitializeAniMeshCache(std::int32_t primary_limit, std::int32_t secondary_limit)
 {
     g_animesh_cache_stamp = 0;
     g_animesh_cache_bytes = 0;
@@ -120,7 +121,7 @@ bool LoadAniMeshFromInfo(W8ReadLevelInfo* info, W8AniMesh* mesh, bool load_all)
 }
 
 // FUNCTION: WIZ8 0x004b5c10
-float GetAniMeshFrameRadius(W8AniMesh* mesh, unsigned char frame)
+float GetAniMeshFrameRadius(W8AniMesh* mesh, std::uint8_t frame)
 {
     auto* instance = GetAniMeshFrame(mesh, frame);
     if (!instance || !instance->getModel())
@@ -136,9 +137,9 @@ try
     std::unique_ptr<wiz8::File> opened;
     wiz8::File* handle = file;
     std::string instance_name;
-    unsigned char frame_count;
-    unsigned char frame_index;
-    unsigned char loaded_count;
+    std::uint8_t frame_count;
+    std::uint8_t frame_index;
+    std::uint8_t loaded_count;
     std::unique_ptr<stModelInstance> loaded_instance;
     W8ReadLevelInfo info;
 
@@ -289,7 +290,7 @@ try
 {
     std::unique_ptr<wiz8::File> opened;
     wiz8::File* handle = file;
-    unsigned char frame_count, frame_index, loaded_count;
+    std::uint8_t frame_count, frame_index, loaded_count;
     bool success;
     W8ReadLevelInfo info;
     if (handle == 0) {
@@ -349,7 +350,7 @@ bool UnloadAniMesh(W8AniMesh* mesh, bool force)
 }
 
 // FUNCTION: WIZ8 0x004b6550
-stModelInstance* GetAniMeshFrame(W8AniMesh* mesh, unsigned char frame)
+stModelInstance* GetAniMeshFrame(W8AniMesh* mesh, std::uint8_t frame)
 {
     stModelInstance* instance;
     char message[0x80];
@@ -376,7 +377,7 @@ stModelInstance* GetAniMeshFrame(W8AniMesh* mesh, unsigned char frame)
 }
 
 // FUNCTION: WIZ8 0x004b64f0
-unsigned char AniMeshValue(W8AniMesh* mesh)
+std::uint8_t AniMeshValue(W8AniMesh* mesh)
 {
     if (mesh == 0) {
         srAssertFail("pAniMesh", ANI_MESH_CPP, 0x2be, 0);
@@ -432,8 +433,8 @@ void EnforceAniMeshMemoryLimit(W8AniMesh* current)
         W8AniMesh* oldest = nullptr;
         for (auto* candidate : g_animesh_cache_list) {
             if (!candidate || candidate == current || candidate->flags.cache_protected) continue;
-            if (!oldest || static_cast<unsigned int>(candidate->last_used) <
-                           static_cast<unsigned int>(oldest->last_used)) {
+            if (!oldest || static_cast<std::uint32_t>(candidate->last_used) <
+                           static_cast<std::uint32_t>(oldest->last_used)) {
                 oldest = candidate;
             }
         }

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include "surrender/srMath.h"
 
 struct W8MonsterInfo;
@@ -14,7 +15,7 @@ void RefreshOutwardSightForAllMonsters(void);
 void RefreshInwardSightForAllMonsters(void);
 void RefreshMonsterSight(W8MonsterInfo* monster_info);
 void ResetAndRefreshAllSight(void);
-unsigned int AgeAllMonsterSight(void);
+std::uint32_t AgeAllMonsterSight(void);
 void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bounds);
 
 /* Monster-to-monster sight after line of sight is already clear. */
@@ -26,10 +27,10 @@ bool CanMonsterSeeMonster(W8MonsterInfo* source, W8MonsterInfo* target, W8Visibi
    a -10 or -5 penalty per unit depending on
    skip_field_of_view, and sight_override forces full range. */
 float ComputeSightThreshold(srVector3T<float> observer_position, srVector3T<float> target_position,
-                            float observer_yaw, unsigned int perception_attribute,
-                            unsigned char ranged_bonus, bool blinded, bool extended_sight_active,
-                            int penalty_source, int penalty_modifier, int skip_field_of_view,
-                            unsigned char sight_override, float distance);
+                            float observer_yaw, std::uint32_t perception_attribute,
+                            std::uint8_t ranged_bonus, bool blinded, bool extended_sight_active,
+                            std::int32_t penalty_source, std::int32_t penalty_modifier, std::int32_t skip_field_of_view,
+                            std::uint8_t sight_override, float distance);
 
 bool MonsterGroupHasVisibleThreat(W8MonsterGroup* group);
 bool IsSightRangeOverridden(void);
@@ -39,7 +40,7 @@ char GetMonsterSpellSightIndex(const W8MonsterInfo* monster);
 extern const float g_sight_default;
 
 bool IsVisibleUnderConditions(const W8MonsterInfo* monster, const W8VisibilityRecord* row,
-                              int kind);
+                              std::int32_t kind);
 /* Whether one group's leader member can see the other's: far-clip distance
    first, then the outward sight record and a line-of-sight trace. */
 bool MonsterGroupCanSeeGroup(W8MonsterGroup* source, W8MonsterGroup* target);

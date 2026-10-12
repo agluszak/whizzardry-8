@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <optional>
 #include "surrender/srBoundingBox.h"
 #include <memory>
@@ -30,37 +31,37 @@ struct W8AniMesh {
     };
 
     State flags{};
-    unsigned char frame_count{};
+    std::uint8_t frame_count{};
     std::vector<std::unique_ptr<stModelInstance>> meshes;
     glm::vec3 bounds_minimum{0, 0, 0};
     glm::vec3 bounds_maximum{0, 0, 0};
     float radius{};
-    unsigned int loaded_bytes{};
-    signed char list_index{};
+    std::uint32_t loaded_bytes{};
+    std::int8_t list_index{};
     std::string bitmap_directory;
     std::string filename;
-    int file_offset{};
+    std::int32_t file_offset{};
     W8World* world{};
-    int last_used{};
+    std::int32_t last_used{};
 };
 
-extern int g_animesh_cache_stamp;
-extern int g_animesh_cache_bytes;
-extern int g_animesh_cache_limit;
-extern int g_animesh_cache_secondary_limit;
+extern std::int32_t g_animesh_cache_stamp;
+extern std::int32_t g_animesh_cache_bytes;
+extern std::int32_t g_animesh_cache_limit;
+extern std::int32_t g_animesh_cache_secondary_limit;
 extern std::vector<W8AniMesh*> g_animesh_cache_list;
 
-void InitializeAniMeshCache(int primary_limit, int secondary_limit);
+void InitializeAniMeshCache(std::int32_t primary_limit, std::int32_t secondary_limit);
 void FreeAniMeshCache(void);
 
-float GetAniMeshFrameRadius(W8AniMesh* mesh, unsigned char frame);
+float GetAniMeshFrameRadius(W8AniMesh* mesh, std::uint8_t frame);
 std::optional<srBoundingBox> GetAniMeshBounds(W8AniMesh* mesh);
 bool LoadAniMesh(wiz8::File* file, W8AniMesh* mesh, bool load_all);
 bool LoadAniMeshFromInfo(W8ReadLevelInfo* info, W8AniMesh* mesh, bool load_all);
 bool UnloadAniMesh(W8AniMesh* mesh, bool force);
-stModelInstance* GetAniMeshFrame(W8AniMesh* mesh, unsigned char frame);
+stModelInstance* GetAniMeshFrame(W8AniMesh* mesh, std::uint8_t frame);
 
-unsigned char AniMeshValue(W8AniMesh* mesh);
+std::uint8_t AniMeshValue(W8AniMesh* mesh);
 bool AniMeshRadius(W8AniMesh* mesh, float* radius);
 /* Two parameters, not three: the retail body reads its flag from the second
    stack slot, and GrCycle's 0x004A7470 pushes exactly the pair. */

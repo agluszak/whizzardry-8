@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <SDL3/SDL_pixels.h>
 #include "wiz8/regions.h"
 #include "wiz8/layouts/screen_state.h"
@@ -17,7 +18,7 @@
    Local Screens\MGSKeyboard.cpp (lower 0x00591960). */
 
 // GLOBAL: WIZ8 0x0064c1c8
-int g_selected_party_slot = -1;
+std::int32_t g_selected_party_slot = -1;
 
 // FUNCTION: WIZ8 0x00591780
 void RequestExitScreen(void)
@@ -26,7 +27,7 @@ void RequestExitScreen(void)
 }
 
 // FUNCTION: WIZ8 0x00593320
-int GetSelectedPartySlot(void)
+std::int32_t GetSelectedPartySlot(void)
 {
     return g_selected_party_slot;
 }
@@ -35,9 +36,9 @@ int GetSelectedPartySlot(void)
    near-black 0x010101 and puts one video-object frame over it, which is the
    shape record 1's much larger main-menu entry starts with too. */
 // FUNCTION: WIZ8 0x00591790
-unsigned char ExitScreenEnter(void)
+std::uint8_t ExitScreenEnter(void)
 {
-    unsigned short colour;
+    std::uint16_t colour;
 
     ResetVideoFrameState();
     UpdateHeldItemCursor();

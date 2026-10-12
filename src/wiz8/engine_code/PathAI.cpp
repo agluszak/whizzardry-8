@@ -31,7 +31,7 @@
 void NoOp(void) {}
 
 // FUNCTION: WIZ8 0x004a9260
-bool PathAIUpdate(W8AIRecord* record, signed char direction)
+bool PathAIUpdate(W8AIRecord* record, std::int8_t direction)
 {
     if (record == 0) {
         return false;
@@ -51,11 +51,11 @@ bool LoadPathAI(W8PathAI** output, wiz8::File* handle)
 try
 {
     if (!output) return false;
-    unsigned char version;
+    std::uint8_t version;
     handle->read_exact(&version, sizeof(version));
     if (version != 0) return false;
     auto path = std::make_unique<W8PathAI>();
-    int point_count;
+    std::int32_t point_count;
     handle->read_exact(&path->version, 1);
     handle->read_exact(&path->position, 4);
     handle->read_exact(&path->unknown_08, 4);
@@ -67,7 +67,7 @@ try
     }
     path->rotations.resize(point_count);
     if (path->version == 2) path->scales.resize(point_count);
-    for (int index = 0; index < point_count; ++index) {
+    for (std::int32_t index = 0; index < point_count; ++index) {
         srVector3T<float> point, axis;
         float angle;
         handle->read_exact(&point.x, 4);
@@ -187,7 +187,7 @@ bool PathAINextPoint(W8PathAI* path, srVector3T<float>* point)
     if (path == 0 || path->nodes.empty()) {
         return false;
     }
-    if (path->point_index >= static_cast<unsigned int>(path->nodes.size())) {
+    if (path->point_index >= static_cast<std::uint32_t>(path->nodes.size())) {
         if (!path->looping) {
             return false;
         }
@@ -202,7 +202,7 @@ bool PathAINextPoint(W8PathAI* path, srVector3T<float>* point)
 bool PathAIIsComplete(W8PathAI* path)
 {
     if (path != 0 && !path->nodes.empty() &&
-        (path->point_index < static_cast<unsigned int>(path->nodes.size()) ||
+        (path->point_index < static_cast<std::uint32_t>(path->nodes.size()) ||
          path->looping)) {
         return false;
     }
@@ -240,7 +240,7 @@ void PathAIAdvanceByDistance(W8PathAI* path, float distance)
     srVector3T<float> position;
     srVector3T<float>* next;
     srVector3T<float>* current;
-    unsigned int index;
+    std::uint32_t index;
     float remaining;
     float segment;
 
@@ -260,7 +260,7 @@ void PathAIAdvanceByDistance(W8PathAI* path, float distance)
         path->position = g_float_one;
         path->interpolation_fraction = g_float_one;
         path->distance_travelled = path->total_length;
-        path->point_index = static_cast<int>(path->nodes.size()) - 1;
+        path->point_index = static_cast<std::int32_t>(path->nodes.size()) - 1;
         return;
     }
     remaining = distance;
@@ -275,8 +275,8 @@ void PathAIAdvanceByDistance(W8PathAI* path, float distance)
         path->point_index = index;
         remaining -= segment;
         path->interpolation_fraction = g_float_zero;
-        if (static_cast<int>(path->nodes.size()) - 1U <= index) {
-            path->point_index = static_cast<int>(path->nodes.size()) - 1;
+        if (static_cast<std::int32_t>(path->nodes.size()) - 1U <= index) {
+            path->point_index = static_cast<std::int32_t>(path->nodes.size()) - 1;
             path->position = g_float_one;
             path->interpolation_fraction = g_float_one;
             return;
@@ -292,14 +292,14 @@ void PathAIAdvanceByDistance(W8PathAI* path, float distance)
 // FUNCTION: WIZ8 0x004aa160
 void PathAIAdvanceNormalized(W8PathAI* path, float amount)
 {
-    unsigned int index;
+    std::uint32_t index;
     float position;
 
-    position = amount * path->speed / static_cast<int>(path->nodes.size()) + path->position;
+    position = amount * path->speed / static_cast<std::int32_t>(path->nodes.size()) + path->position;
     path->position = position;
     if (position < g_float_one) {
-        position *= static_cast<int>(path->nodes.size());
-        index = static_cast<unsigned int>(position);
+        position *= static_cast<std::int32_t>(path->nodes.size());
+        index = static_cast<std::uint32_t>(position);
         path->point_index = index;
         path->interpolation_fraction = position - index;
         return;
@@ -308,7 +308,7 @@ void PathAIAdvanceNormalized(W8PathAI* path, float amount)
         path->position = g_float_one;
         path->interpolation_fraction = g_float_one;
         path->distance_travelled = path->total_length;
-        path->point_index = static_cast<int>(path->nodes.size()) - 1;
+        path->point_index = static_cast<std::int32_t>(path->nodes.size()) - 1;
         return;
     }
     path->position = g_float_zero;
@@ -318,10 +318,10 @@ void PathAIAdvanceNormalized(W8PathAI* path, float amount)
 }
 
 // FUNCTION: WIZ8 0x004aa1f0
-bool PathAITick(W8PathAI* path, signed char direction)
+bool PathAITick(W8PathAI* path, std::int8_t direction)
 {
-    uint64_t now;
-    uint64_t elapsed;
+    std::uint64_t now;
+    std::uint64_t elapsed;
     float amount;
     float point_count;
 
@@ -366,7 +366,7 @@ bool PathAITick(W8PathAI* path, signed char direction)
             }
         } else if (path->looping) {
             path->last_update_tick = now;
-            path->position = static_cast<int>(path->nodes.size()) - g_float_one;
+            path->position = static_cast<std::int32_t>(path->nodes.size()) - g_float_one;
             return true;
         }
         path->position = g_float_zero;
@@ -380,10 +380,10 @@ void PathAIPosition(W8PathAI* path, srVector3T<float>* value)
 {
     if (!path || path->nodes.empty()) return;
     if (!path->animated) {
-        int index = path->discrete_mode
+        std::int32_t index = path->discrete_mode
                         ? srFloatToInt(path->position + g_double_one_tenth)
                         : srFloatToInt((path->nodes.size() - 1) * path->position + g_double_half);
-        index = std::min(index, static_cast<int>(path->nodes.size()) - 1);
+        index = std::min(index, static_cast<std::int32_t>(path->nodes.size()) - 1);
         if (index >= 0) *value = path->nodes[index];
         return;
     }
@@ -408,7 +408,7 @@ const double g_slerp_epsilon = 1.1920928955078125e-07;
 // FUNCTION: WIZ8 0x004aa520
 void PathAIApply(W8PathAI* path, srNode* target)
 {
-    int index;
+    std::int32_t index;
     float blend;
     srNode* node;
     srVector3T<float>* scale_vector;
@@ -434,7 +434,7 @@ void PathAIApply(W8PathAI* path, srNode* target)
         } while (node != 0);
     }
 
-    if (0 < static_cast<int>(path->nodes.size())) {
+    if (0 < static_cast<std::int32_t>(path->nodes.size())) {
         if (!path->discrete_mode) {
             blend = path->interpolation_fraction;
             index = path->point_index;
@@ -442,8 +442,8 @@ void PathAIApply(W8PathAI* path, srNode* target)
             index = srFloatToInt(path->position + g_double_one_tenth);
             blend = -1.0f;
         }
-        if (static_cast<int>(path->nodes.size()) - 1 <= index) {
-            index = static_cast<int>(path->nodes.size()) - 1;
+        if (static_cast<std::int32_t>(path->nodes.size()) - 1 <= index) {
+            index = static_cast<std::int32_t>(path->nodes.size()) - 1;
             blend = -1.0f;
         }
 

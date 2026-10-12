@@ -1,4 +1,5 @@
 
+#include <cstdint>
 #include "surrender/srIlluminator.h"
 #include "surrender/srGERD.h"
 #include "compat/compiler.h"
@@ -57,13 +58,13 @@ const char* srIlluminator::sGetClassName()
 }
 
 // FUNCTION: SURRENDER 0x1004CAF0
-void srIlluminator::setGroupMask(w8_ulong mask)
+void srIlluminator::setGroupMask(std::uint32_t mask)
 {
     group_mask = mask;
 }
 
 // FUNCTION: SURRENDER 0x1004CB00
-w8_ulong srIlluminator::getGroupMask() const
+std::uint32_t srIlluminator::getGroupMask() const
 {
     return group_mask;
 }

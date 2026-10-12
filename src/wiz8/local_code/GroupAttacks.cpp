@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <string>
@@ -72,7 +73,7 @@ static W8SpellRealm g_special_attack_realm_table[32] = {
 /* Whether a special attack kind still fires while the attacker's spellcasting
    is blocked: kinds 5-7 and 0x19-0x1d minus 0x1b ignore the block. */
 // FUNCTION: WIZ8 0x00556050
-bool MonsterSpecialAttackHonorsCastingBlock(int special_attack_kind)
+bool MonsterSpecialAttackHonorsCastingBlock(std::int32_t special_attack_kind)
 {
     switch (special_attack_kind) {
     case 5:
@@ -87,11 +88,11 @@ bool MonsterSpecialAttackHonorsCastingBlock(int special_attack_kind)
     return false;
 }
 
-static unsigned int RollSpecialAttackSum(unsigned int bound)
+static std::uint32_t RollSpecialAttackSum(std::uint32_t bound)
 {
-    unsigned int first = Random(bound);
-    unsigned int second = Random(bound);
-    unsigned int third = Random(bound);
+    std::uint32_t first = Random(bound);
+    std::uint32_t second = Random(bound);
+    std::uint32_t third = Random(bound);
     return first + second + third;
 }
 
@@ -101,35 +102,35 @@ static unsigned int RollSpecialAttackSum(unsigned int bound)
    monster source off its missile value and current runtime stat - and a kind
    five table doubles it. Kind six delegates to the summon. */
 // FUNCTION: WIZ8 0x005560A0
-void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
-                               W8CombatSlot* pAttackerSlot, std::vector<int> char_targets,
-                               std::vector<int> monster_targets)
+void ResolveMonsterGroupAttack(std::int32_t special_attack_kind, W8TargetSource* pSource,
+                               W8CombatSlot* pAttackerSlot, std::vector<std::int32_t> char_targets,
+                               std::vector<std::int32_t> monster_targets)
 {
     bool announce;
-    int iTarget;
-    int iChar;
-    int iMonsterID;
-    int i;
-    int drain;
+    std::int32_t iTarget;
+    std::int32_t iChar;
+    std::int32_t iMonsterID;
+    std::int32_t i;
+    std::int32_t drain;
     W8MonsterInfo* monster_info;
     W8MonsterRecord* record;
     W8CombatSlot target;
-    unsigned int uiHits[2];
-    unsigned int uiTotals[2];
-    unsigned int uiBounds[2];
-    unsigned int uiMinRoll;
-    unsigned int uiBound;
-    unsigned int uiDamage;
-    int extra;
+    std::uint32_t uiHits[2];
+    std::uint32_t uiTotals[2];
+    std::uint32_t uiBounds[2];
+    std::uint32_t uiMinRoll;
+    std::uint32_t uiBound;
+    std::uint32_t uiDamage;
+    std::int32_t extra;
     bool resolved;
     std::string text;
 
     announce = static_cast<char>(g_settings.verbose_combat_messages);
     if (pSource->iType == W8_TARGET_SOURCE_CHARACTER) {
-        unsigned int level;
-        unsigned int bound;
-        unsigned int stamina;
-        unsigned int stamina_max;
+        std::uint32_t level;
+        std::uint32_t bound;
+        std::uint32_t stamina;
+        std::uint32_t stamina_max;
 
         iChar = pSource->iChar;
         level = g_status.buffers.Char[iChar].uiExpLevel;
@@ -149,7 +150,7 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
         }
         uiBounds[0] = uiBounds[1];
     } else if (pSource->iType == W8_TARGET_SOURCE_MONSTER) {
-        unsigned int value;
+        std::uint32_t value;
 
         monster_info = FindMonster(pSource->iMonsterID);
         record = GetMonsterDataForInfo(monster_info);
@@ -159,14 +160,14 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
             value = 0xf;
         }
         uiMinRoll =
-            (static_cast<unsigned int>(monster_info->stamina) * (record->effective_level + value)) /
-            static_cast<unsigned int>(monster_info->stamina_max);
+            (static_cast<std::uint32_t>(monster_info->stamina) * (record->effective_level + value)) /
+            static_cast<std::uint32_t>(monster_info->stamina_max);
         if (uiMinRoll == 0) {
             uiMinRoll = 1;
         }
-        uiBounds[0] = (static_cast<unsigned int>(monster_info->stamina) *
+        uiBounds[0] = (static_cast<std::uint32_t>(monster_info->stamina) *
                        (record->effective_level + value + 5)) /
-                      static_cast<unsigned int>(monster_info->stamina_max);
+                      static_cast<std::uint32_t>(monster_info->stamina_max);
         if (uiBounds[0] == 0) {
             uiBounds[0] = 1;
         }
@@ -185,7 +186,7 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
         uiTotals[0] = 0;
         uiHits[1] = 0;
         uiTotals[1] = 0;
-        for (iTarget = 0; iTarget < static_cast<int>(char_targets.size()); ++iTarget) {
+        for (iTarget = 0; iTarget < static_cast<std::int32_t>(char_targets.size()); ++iTarget) {
             iChar = char_targets[iTarget];
             if (iChar == -1) {
                 srAssertFail("iTargetChar != BAD_INDEX", GROUP_ATTACKS_CPP, 0xdc, 0);
@@ -291,7 +292,7 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
                 }
             }
         }
-        for (iTarget = 0; iTarget < static_cast<int>(monster_targets.size()); ++iTarget) {
+        for (iTarget = 0; iTarget < static_cast<std::int32_t>(monster_targets.size()); ++iTarget) {
             iMonsterID = monster_targets[iTarget];
             if (iMonsterID == -1) {
                 srAssertFail("iTargetMonsterID != BAD_INDEX", GROUP_ATTACKS_CPP, 0x169, 0);
@@ -452,15 +453,15 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
    Kinds 0x18..0x1d and 0x1f map to fixed species; anything else keeps the
    kind id. */
 // FUNCTION: WIZ8 0x00556B10
-void SpawnSummonedMonsterGroup(int special_attack_kind, W8TargetSource* pSource,
+void SpawnSummonedMonsterGroup(std::int32_t special_attack_kind, W8TargetSource* pSource,
                                W8CombatSlot* pAttackerSlot)
 {
     W8MonsterRecord* record;
-    int count;
+    std::int32_t count;
     srVector3T<float>* position;
     W8MonsterGroup* group;
     W8MonsterInfo* monster_info;
-    int disposition;
+    std::int32_t disposition;
     bool placed;
     float yaw;
 

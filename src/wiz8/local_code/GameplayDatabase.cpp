@@ -39,7 +39,7 @@ W8FactDatabaseRecord* g_fact_records;
 W8ItemDatabaseRecord* g_item_records;
 /* The six item stacks granted by the new-game status reset. */
 // GLOBAL: WIZ8 0x006164DC
-unsigned int g_starting_item_ids[6] = {0x14f, 0x14f, 0x15a, 0x15a, 0x15b, 0x155};
+std::uint32_t g_starting_item_ids[6] = {0x14f, 0x14f, 0x15a, 0x15a, 0x15b, 0x155};
 // GLOBAL: WIZ8 0x006836A4
 W8LevelDatabaseRecord* g_level_records;
 // GLOBAL: WIZ8 0x006836A0
@@ -51,7 +51,7 @@ std::string* g_item_table_category_names;
 // GLOBAL: WIZ8 0x0065BE1C
 W8SpellRuntimeRecord* g_spell_records;
 // GLOBAL: WIZ8 0x0065BE18
-unsigned int g_spell_database_version;
+std::uint32_t g_spell_database_version;
 #define GAMEPLAY_DATABASE_CPP "C:\\Projects\\Wizardry 8\\Local Code\\GameplayDatabase.cpp"
 
 namespace {
@@ -65,7 +65,7 @@ bool InitializeItemDatabase(void)
 try
 {
     auto handle = wiz8::open_file("Data\\Databases\\Items.DBS", wiz8::OpenMode::read);
-    unsigned int count;
+    std::uint32_t count;
     auto records = wiz8::retail::read_database<W8ItemDatabaseRecord>(*handle, count);
     item_records = std::move(records);
     g_item_records = item_records.get();
@@ -81,11 +81,11 @@ bool InitializeItemTables(void)
 try
 {
     auto handle = wiz8::open_file("Data\\Databases\\ItemTables.DBS", wiz8::OpenMode::read);
-    unsigned int category_count;
+    std::uint32_t category_count;
     handle->read_exact(&category_count, sizeof(category_count));
     const auto remaining = handle->size() - handle->tell();
-    if (remaining < std::int64_t(sizeof(unsigned int)) ||
-        category_count > (remaining - std::int64_t(sizeof(unsigned int))) / 0x100) {
+    if (remaining < std::int64_t(sizeof(std::uint32_t)) ||
+        category_count > (remaining - std::int64_t(sizeof(std::uint32_t))) / 0x100) {
         return false;
     }
     std::vector<std::string> categories(category_count);
@@ -97,7 +97,7 @@ try
         category.assign(bytes.begin(), end);
     }
 
-    unsigned int table_count;
+    std::uint32_t table_count;
     handle->read_exact(&table_count, sizeof(table_count));
     if (table_count > (handle->size() - handle->tell()) / std::int64_t(sizeof(W8ItemTableRecord))) {
         return false;
@@ -122,7 +122,7 @@ catch (const std::exception&) { return false; }
 
 /* Seeks straight to one record and strips the four name suffixes. */
 // FUNCTION: WIZ8 0x0054a8a0
-bool LoadMonsterDatabaseRecord(unsigned int uiMonsterIndex, W8MonsterRecord* record)
+bool LoadMonsterDatabaseRecord(std::uint32_t uiMonsterIndex, W8MonsterRecord* record)
 try
 {
     if (!(uiMonsterIndex < gXStatus.uiMonstersInDatabase)) {
@@ -175,7 +175,7 @@ bool LoadMonsterDatabase(W8MonsterRecord** records)
 try
 {
     auto handle = wiz8::open_file("Data\\Databases\\Monsters.DBS", wiz8::OpenMode::read);
-    unsigned int count;
+    std::uint32_t count;
     handle->read_exact(&count, sizeof(count));
     if (count > std::size(gXStatus.monster_record_cache) ||
         count > (handle->size() - handle->tell()) / std::int64_t(wiz8::retail::kMonsterRecordBytes)) {
@@ -183,7 +183,7 @@ try
     }
     if (records) {
         auto block = std::make_unique<W8MonsterRecord[]>(count);
-        for (unsigned i = 0; i < count; ++i) wiz8::retail::read_exact(*handle, block[i]);
+        for (std::uint32_t i = 0; i < count; ++i) wiz8::retail::read_exact(*handle, block[i]);
         *records = block.release();
     }
     gXStatus.uiMonstersInDatabase = count;
@@ -193,7 +193,7 @@ catch (const std::exception&) { return false; }
 
 /* The range sibling of LoadMonsterDatabaseRecord reads an inclusive span. */
 // FUNCTION: WIZ8 0x0054a9a0
-bool LoadMonsterDatabaseRange(unsigned int uiStartIndex, unsigned int uiEndIndex,
+bool LoadMonsterDatabaseRange(std::uint32_t uiStartIndex, std::uint32_t uiEndIndex,
                               W8MonsterRecord* records)
 try
 {
@@ -221,7 +221,7 @@ catch (const std::exception&) { return false; }
 void DestroyNpcDatabase(void)
 {
     if (g_npc_records) {
-        for (unsigned int index = 0; index < gXStatus.uiNpcsInDatabase; ++index) {
+        for (std::uint32_t index = 0; index < gXStatus.uiNpcsInDatabase; ++index) {
             if (g_npc_records[index].item_stock_rules) {
                 std::vector<W8NpcItemStockRule*>* rules = g_npc_records[index].item_stock_rules;
                 wiz8::remove_all_and_delete_in_order(*rules);

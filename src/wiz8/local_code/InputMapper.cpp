@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <fmt/format.h>
 #include <string>
 #include <utility>
@@ -24,7 +25,7 @@
 #pragma pack(push, 1)
 struct MGSKeyName {
     const char* name;
-    unsigned short key;
+    std::uint16_t key;
 };
 
 // GLOBAL: WIZ8 0x00647770
@@ -45,7 +46,7 @@ static MGSKeyName g_mgs_key_names[] = {
 #pragma pack(pop)
 
 // FUNCTION: WIZ8 0x0055D800
-unsigned char MGSKeyboard::LoadDefaults(const char* path)
+std::uint8_t MGSKeyboard::LoadDefaults(const char* path)
 {
     bool loaded_binding = false;
     std::unique_ptr<wiz8::File> handle = [&]() { try { return wiz8::open_file((char*)path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
@@ -55,7 +56,7 @@ unsigned char MGSKeyboard::LoadDefaults(const char* path)
     }
 
     std::string line;
-    unsigned char more;
+    std::uint8_t more;
     while (!(handle->tell() >= handle->size())) {
         auto line_result = ReadRetailTextLine(handle.get());
         if (!line_result) break;
@@ -74,23 +75,23 @@ unsigned char MGSKeyboard::LoadDefaults(const char* path)
             continue;
         }
 
-        unsigned short key = *token;
-        int index;
+        std::uint16_t key = *token;
+        std::int32_t index;
         for (index = 0;
-             index < static_cast<int>(sizeof(g_mgs_key_names) / sizeof(g_mgs_key_names[0]));
+             index < static_cast<std::int32_t>(sizeof(g_mgs_key_names) / sizeof(g_mgs_key_names[0]));
              ++index) {
             if (strcmp(token, g_mgs_key_names[index].name) == 0) {
                 key = g_mgs_key_names[index].key;
                 break;
             }
         }
-        if (index == static_cast<int>(sizeof(g_mgs_key_names) / sizeof(g_mgs_key_names[0]))) {
+        if (index == static_cast<std::int32_t>(sizeof(g_mgs_key_names) / sizeof(g_mgs_key_names[0]))) {
             if (strlen(token) != 1 || (key = TranslateCharacterToKey(key)) == 0) {
                 continue;
             }
         }
 
-        unsigned short modifiers = 0;
+        std::uint16_t modifiers = 0;
         while ((token = strtok(0, " \t\r\n")) != 0) {
             if (strcmp(token, "SHIFT_DOWN") == 0) {
                 modifiers |= SHIFT_DOWN;
@@ -107,7 +108,7 @@ unsigned char MGSKeyboard::LoadDefaults(const char* path)
         binding->active = 1;
         binding->command = command;
 
-        int old_index = FindBinding(command);
+        std::int32_t old_index = FindBinding(command);
         if (old_index != -1) {
             m_command_index.erase(command);
             m_bindings.erase(m_bindings.begin() + old_index);

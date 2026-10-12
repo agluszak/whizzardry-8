@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <functional>
 #include <initializer_list>
 #include <string_view>
@@ -29,7 +30,7 @@ void SetSecondaryWorld(W8World* world)
     g_secondary_world = world;
 }
 
-static void VisitNodes(srNode* node, w8_ulong class_id, const std::function<void(srNode*)>& visit)
+static void VisitNodes(srNode* node, std::uint32_t class_id, const std::function<void(srNode*)>& visit)
 {
     for (; node != 0; node = node->getNext()) {
         if (node->matchClassID(class_id)) {
@@ -39,7 +40,7 @@ static void VisitNodes(srNode* node, w8_ulong class_id, const std::function<void
     }
 }
 
-srNode* FindWorldNode(std::string_view name, w8_ulong class_id)
+srNode* FindWorldNode(std::string_view name, std::uint32_t class_id)
 {
     for (W8World* world : {g_world, g_secondary_world}) {
         if (world != 0 && world->static_scene != 0) {
@@ -51,7 +52,7 @@ srNode* FindWorldNode(std::string_view name, w8_ulong class_id)
     return 0;
 }
 
-void ForEachWorldNode(w8_ulong class_id, const std::function<void(srNode*)>& visit)
+void ForEachWorldNode(std::uint32_t class_id, const std::function<void(srNode*)>& visit)
 {
     for (W8World* world : {g_world, g_secondary_world}) {
         if (world != 0 && world->static_scene != 0) {

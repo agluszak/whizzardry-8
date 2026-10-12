@@ -1,6 +1,7 @@
 #ifndef WIZ8_ENGINE_CODE_ANIM_REP_H
 #define WIZ8_ENGINE_CODE_ANIM_REP_H
 
+#include <cstdint>
 #include "surrender/srMath.h"
 #include "compat/compiler.h"
 #include "glm/ext/matrix_float3x3.hpp"
@@ -39,15 +40,15 @@ enum W8AnimationBehaviour {
 
 /* The 2D instance has a different sixteen-byte block at the same class offset. */
 struct W8ModelInstance2DRenderState {
-    w8_ulong render_depth;
-    unsigned short width;
-    unsigned short height;
-    short position_x;
-    short position_y;
-    unsigned char display_state;
+    std::uint32_t render_depth;
+    std::uint16_t width;
+    std::uint16_t height;
+    std::int16_t position_x;
+    std::int16_t position_y;
+    std::uint8_t display_state;
     /* 0x0d: enables the pulsing glow pass over mesh.materials[0]. */
     bool glow_enabled;
-    unsigned char padding_0e[2];
+    std::uint8_t padding_0e[2];
 };
 
 /* Prop.cpp writes the triples at 0x074 and 0x080 as x/y/z bounds and the word
@@ -86,7 +87,7 @@ public:
     float instance_scale;
     bool flag;
     bool apply_instance_scale;
-    unsigned char padding_062[2];
+    std::uint8_t padding_062[2];
 };
 
 /* AnimRep.cpp's constructor and copy constructor extend the root through
@@ -98,43 +99,43 @@ class W8AnimRep : public W8AnimRepBase {
 public:
     W8AnimRep();
     W8AnimRep(const W8AnimRep& other);
-    void SetFrameMethod(signed char method);
+    void SetFrameMethod(std::int8_t method);
 
 public:
     /* Current frame/subcycle. GrCycle advances it and all derived renderers
        use it to select the live mesh, event, particle, and light state. */
-    unsigned char subcycle;
-    unsigned char padding_065;
+    std::uint8_t subcycle;
+    std::uint8_t padding_065;
     /* 0xffff means no queued subcycle; ApplyPendingCycle consumes and clears
        this only after the pending cycle is accepted. */
-    unsigned short pending_subcycle;
+    std::uint16_t pending_subcycle;
     /* Frame-advance timestamp; GrCycle subtracts it from the current time. */
-    unsigned int timer;
-    unsigned char
+    std::uint32_t timer;
+    std::uint8_t
         active; /* bool-byte-ok: SetActivationState stores and GetActivationState returns the caller's byte. */
-    unsigned char
+    std::uint8_t
         animation_playing; /* bool-byte-ok: copied directly from file-backed W8AnimObj byte. */
     /* W8AnimationDirection, retained as a byte in the representation. */
-    unsigned char frame_direction;
+    std::uint8_t frame_direction;
     /* SetFrameMethod checks the retail DIR_FIRST..DIR_LAST range; endpoint
        behavior 1 wraps and 2 reverses in AdvanceAnimationFrame. */
-    unsigned char frame_method;
-    unsigned char animation_behaviour; /* W8AnimationBehaviour */
+    std::uint8_t frame_method;
+    std::uint8_t animation_behaviour; /* W8AnimationBehaviour */
     /* 0xff means no pending change. ApplyPendingCycle applies it to the
        selected representation, then clears the old object's slot. */
-    unsigned char pending_behaviour;
-    unsigned char padding_072[2];
+    std::uint8_t pending_behaviour;
+    std::uint8_t padding_072[2];
     /* Prop computes this pair from the animation's bounds, and stores the
        scaled extent in +0x8c. Other representation families inherit the
        storage even when their own use is not yet established. */
     srVector3T<float> bounds_min;
     srVector3T<float> bounds_max;
     float bounds_extent;
-    unsigned int value;
+    std::uint32_t value;
     /* The ordered frame range GrCycle plays between. */
-    unsigned char first_frame;
-    unsigned char last_frame;
-    unsigned char padding_096[2];
+    std::uint8_t first_frame;
+    std::uint8_t last_frame;
+    std::uint8_t padding_096[2];
 };
 
 extern float g_lod_range_default0;

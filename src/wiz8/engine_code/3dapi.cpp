@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "glm/geometric.hpp"
 #include <cstdlib>
 #include <cstddef>
@@ -77,7 +78,7 @@ class srModelInstance;
 bool g_renderer_ready = true;
 
 // GLOBAL: WIZ8 0x00607d80
-static int g_game_data_runtime_pending = 1;
+static std::int32_t g_game_data_runtime_pending = 1;
 
 // GLOBAL: WIZ8 0x005ec240
 const double g_automap_refresh_distance_squared = 250000.0;
@@ -104,7 +105,7 @@ bool g_world_update_requested = true;
    and ReadLevel parsers remain their original owners; this routine establishes
    their order, inputs, and rollback-visible world  */
 // FUNCTION: WIZ8 0x0044F5F0
-unsigned char LoadWorld(W8World* world, char* level_file_name, const char* level_folder,
+std::uint8_t LoadWorld(W8World* world, char* level_file_name, const char* level_folder,
                         const char* asset_folder, bool use_octree)
 {
     char extension[4];
@@ -184,7 +185,7 @@ unsigned char LoadWorld(W8World* world, char* level_file_name, const char* level
     if (handle == 0) {
         srAssertFail("hFile", THREE_D_API_CPP, 0x1d8, "Could not open level file.");
     }
-    unsigned char success = ReadLevel(world, handle.get(), use_octree, material_folder);
+    std::uint8_t success = ReadLevel(world, handle.get(), use_octree, material_folder);
     if (handle) handle->close();
     handle.reset();
     if (success == 0) {
@@ -238,8 +239,8 @@ void UpdateWorlds(void)
                                      (g_combat_state->round_active || gXStatus.fPartyMovementMode));
 
     {
-        int count = static_cast<int>(g_worlds.size());
-        for (int index = 0; index < count; ++index) {
+        std::int32_t count = static_cast<std::int32_t>(g_worlds.size());
+        for (std::int32_t index = 0; index < count; ++index) {
             UpdateWorld(g_worlds[index]);
         }
     }
@@ -288,9 +289,9 @@ void UpdateWorld(W8World* world)
 // FUNCTION: WIZ8 0x0044f5b0
 void DetachAllWorldItems(void)
 {
-    int count = static_cast<int>(g_worlds.size());
+    std::int32_t count = static_cast<std::int32_t>(g_worlds.size());
 
-    for (int index = 0; index < count; ++index) {
+    for (std::int32_t index = 0; index < count; ++index) {
         DetachWorldItemMeshes(g_worlds[index]);
     }
 }
@@ -314,7 +315,7 @@ static float g_camera_sway_vertical_phase;
    active: both phases run in degrees per second, wrap at a full turn and
    offset the view plane through sine. */
 // FUNCTION: WIZ8 0x00450080
-void SetCameraSwayMode(srCamera* camera, int mode)
+void SetCameraSwayMode(srCamera* camera, std::int32_t mode)
 {
     float elapsed = MoveTimer(2);
 
@@ -433,7 +434,7 @@ void DestroyWorld(W8World* world)
    skipped there. Function-local statics keep the last refresh position and the
    last applied rotation; their atexit thunks are at 0x00450070 / 0x00450060. */
 // FUNCTION: WIZ8 0x0044FC20
-void UpdateWorldCameraAndPaths(W8World* world, unsigned int flags)
+void UpdateWorldCameraAndPaths(W8World* world, std::uint32_t flags)
 {
     static glm::vec3 s_last_automap_refresh_position(0);
     static glm::mat3 s_saved_camera_rotation(1);
@@ -445,8 +446,8 @@ void UpdateWorldCameraAndPaths(W8World* world, unsigned int flags)
     W8PathAI* path;
     float yaw;
     float pitch;
-    int camera_count;
-    int index;
+    std::int32_t camera_count;
+    std::int32_t index;
 
     RefreshDirtyAutomap();
     camera_position = cameraLocation();
@@ -501,7 +502,7 @@ void UpdateWorldCameraAndPaths(W8World* world, unsigned int flags)
         world->camera->setRotation(s_saved_camera_rotation);
     }
     SetCameraSwayMode(world->camera, 0);
-    camera_count = static_cast<int>(world->plsCameras.size());
+    camera_count = static_cast<std::int32_t>(world->plsCameras.size());
     if (camera_count != 0) {
         for (index = 0; index < camera_count; ++index) {
             camera_path = GetWorldCameraPath(world, index);
@@ -521,7 +522,7 @@ void UpdateWorldCameraAndPaths(W8World* world, unsigned int flags)
                 }
                 ApplyCameraRotation(&path_rotation);
                 if (path->discrete_mode != 0) {
-                    if (path->position >= static_cast<int>(path->nodes.size()) - g_float_one) {
+                    if (path->position >= static_cast<std::int32_t>(path->nodes.size()) - g_float_one) {
                         UpdateCameraPathState(world, camera_path, 0);
                     }
                 } else if (path->position >= g_double_one) {
@@ -545,9 +546,9 @@ void MarkRendererReady(void)
 stParticle* FindParticleByName(W8World* world, const char* name)
 {
     if (world != 0) {
-        int count = static_cast<int>(world->particles.size());
+        std::int32_t count = static_cast<std::int32_t>(world->particles.size());
 
-        for (int index = 0; index < count; ++index) {
+        for (std::int32_t index = 0; index < count; ++index) {
             stParticle* particle = world->particles[index];
 
             if (_stricmp(particle->getName().c_str(), name) == 0) {
@@ -615,7 +616,7 @@ void UpdateWorldMeshAfterLoad(void)
 }
 
 // FUNCTION: WIZ8 0x00451110
-unsigned char ForwardLoadWorld(W8World* world, char* level_file_name, const char* level_folder,
+std::uint8_t ForwardLoadWorld(W8World* world, char* level_file_name, const char* level_folder,
                                const char* asset_folder, bool use_octree)
 {
     return LoadWorld(world, level_file_name, level_folder, asset_folder, use_octree);
@@ -624,7 +625,7 @@ unsigned char ForwardLoadWorld(W8World* world, char* level_file_name, const char
 /* Report a failed assertion with no message of its own, so the expression and
    the site are all the caller has to give. */
 // FUNCTION: WIZ8 0x00450780
-void ReportAssertion(const char* expression, const char* source_path, w8_long line)
+void ReportAssertion(const char* expression, const char* source_path, std::int32_t line)
 {
     srAssertFail(expression, source_path, line, 0);
 }
@@ -752,7 +753,7 @@ W8World* GetSecondaryWorld(void)
 /* Runtime/debug adjustment dispatcher for the active world's clipping and
    environment controls. Bits not handled here are intentionally ignored. */
 // FUNCTION: WIZ8 0x00450210
-void ApplyWorldUpdateFlags(W8World* world, unsigned int flags)
+void ApplyWorldUpdateFlags(W8World* world, std::uint32_t flags)
 {
     float scale;
 
@@ -801,13 +802,13 @@ void ApplyWorldUpdateFlags(W8World* world, unsigned int flags)
 }
 
 // FUNCTION: WIZ8 0x004503B0
-int ForwardSelectedPropIndex(W8World*, int, int)
+std::int32_t ForwardSelectedPropIndex(W8World*, std::int32_t, std::int32_t)
 {
     return GetSelectedPropIndex();
 }
 
 // FUNCTION: WIZ8 0x00451150
-bool ForwardActivateSelectedProp(W8World*, int, int, int)
+bool ForwardActivateSelectedProp(W8World*, std::int32_t, std::int32_t, std::int32_t)
 {
     return ActivateSelectedProp();
 }
@@ -831,8 +832,8 @@ bool FindEntityByName(const char* name, srVector3T<float>* position, float* angl
         return true;
     }
 
-    int count = static_cast<int>(g_world->named_positions.size());
-    for (int index = 0; index < count; ++index) {
+    std::int32_t count = static_cast<std::int32_t>(g_world->named_positions.size());
+    for (std::int32_t index = 0; index < count; ++index) {
         const W8NamedPosition* entry = &g_world->named_positions[index];
         if (_stricmp(name, entry->name) == 0) {
             *position = entry->position;
@@ -851,7 +852,7 @@ bool FindEntityByName(const char* name, srVector3T<float>* position, float* angl
 /* Push a candidate position clear of static geometry, then reject it when it
    overlaps another world item or monster. */
 // FUNCTION: WIZ8 0x00451390
-unsigned char AdjustWorldCollisionPosition(float radius, srVector3T<float>* position,
+std::uint8_t AdjustWorldCollisionPosition(float radius, srVector3T<float>* position,
                                            bool check_items, bool check_monsters)
 {
     float threshold = radius * g_path_endpoint_scale;
@@ -924,7 +925,7 @@ unsigned char AdjustWorldCollisionPosition(float radius, srVector3T<float>* posi
 /* Try the requested point first, then the two retail half-turn probe points
    around it; only an unobstructed probe is handed to the overlap resolver. */
 // FUNCTION: WIZ8 0x00451800
-unsigned char FindNearbyFreePosition(float radius, srVector3T<float>* position, bool check_items,
+std::uint8_t FindNearbyFreePosition(float radius, srVector3T<float>* position, bool check_items,
                                      bool check_monsters)
 {
     srVector3T<float> candidate = *position;

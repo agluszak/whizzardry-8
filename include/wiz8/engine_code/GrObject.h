@@ -3,6 +3,7 @@
 /* Engine Code\GrObject.cpp owns these declarations. GrObject.cpp, Navigator.cpp
    and GrCycle.cpp have separate direct headers. */
 
+#include <cstdint>
 #include <vector>
 #include <memory>
 
@@ -30,8 +31,8 @@ public:
     void AddSoundEvent(std::unique_ptr<W8SoundEvent> event);
 
 public:
-    unsigned char kind;
-    int id;
+    std::uint8_t kind;
+    std::int32_t id;
     std::unique_ptr<W8AIRecord> m_pAI;
     std::vector<std::unique_ptr<W8SoundEvent>> sound_events;
     // Prop and Item own their representation; the base never copies it.
@@ -40,5 +41,5 @@ public:
 };
 
 /* The shared object-id counter both lifecycle callers advance. */
-int AllocateGrObjectId(void);
+std::int32_t AllocateGrObjectId(void);
 void ResetGrObjectIdCounter(void);

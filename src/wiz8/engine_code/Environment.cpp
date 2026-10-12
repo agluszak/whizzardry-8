@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <glm/ext/quaternion_trigonometric.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <cstring>
@@ -42,7 +43,7 @@
 #define ENVIRONMENT_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\Environment.cpp"
 
 // GLOBAL: WIZ8 0x0060a3a8
-int g_environment_lighting_mode = 2;
+std::int32_t g_environment_lighting_mode = 2;
 
 // GLOBAL: WIZ8 0x0065b9ad
 bool g_fog_enabled;
@@ -50,7 +51,7 @@ bool g_fog_enabled;
 // GLOBAL: WIZ8 0x0065b9ae
 bool g_sky_enabled;
 // GLOBAL: WIZ8 0x0065B9A8
-static w8_ulong g_tick;
+static std::uint32_t g_tick;
 /* 0x00659AB4: the world being rendered. Its sky node is the one field these
    two bodies reach, and it is the same W8World the 3d code walks. */
 
@@ -73,9 +74,9 @@ float g_environment_transition_rate;
 /* Tick baseline for the active lighting transition; rewritten every frame the
    transition body advances the light scale. */
 // GLOBAL: WIZ8 0x0065b9bc
-w8_ulong g_environment_transition_tick;
+std::uint32_t g_environment_transition_tick;
 // GLOBAL: WIZ8 0x0060a3ac
-int g_last_light_phase = -1;
+std::int32_t g_last_light_phase = -1;
 // GLOBAL: WIZ8 0x0060a395
 bool g_environment_colour_refresh = true;
 
@@ -91,7 +92,7 @@ W8MaterialMapper::W8MaterialMapper()
 }
 
 // FUNCTION: WIZ8 0x00482040
-int W8MaterialMapper::isActive(srVertexPipe&)
+std::int32_t W8MaterialMapper::isActive(srVertexPipe&)
 {
     return 1;
 }
@@ -107,7 +108,7 @@ void W8MaterialMapper::process(srVertexPipe& pipe)
     if (!pipe.isChannelAvailable(srVertexProcessor::CHANNEL_ST0)) {
         return;
     }
-    w8_ulong count = pipe.getVertexCount();
+    std::uint32_t count = pipe.getVertexCount();
     glm::vec2* coordinates = pipe.getST(0, 0);
 
     offset_x = scroll_rate_u * g_frame_elapsed + scroll_u;
@@ -115,7 +116,7 @@ void W8MaterialMapper::process(srVertexPipe& pipe)
     offset_y = scroll_rate_v * g_frame_elapsed + scroll_v;
     scroll_v = offset_y - static_cast<float>(floor(offset_y));
 
-    for (w8_ulong index = 0; index < count; ++index) {
+    for (std::uint32_t index = 0; index < count; ++index) {
         coordinates[index].x += scroll_u;
         coordinates[index].y += scroll_v;
     }
@@ -138,9 +139,9 @@ void ClearEnvironmentObjects(void)
    clock, prop placement, and gradient animation remain one update rather than
    parallel timers. */
 // FUNCTION: WIZ8 0x00482a20
-void AdvanceEnvironmentTime(int elapsed)
+void AdvanceEnvironmentTime(std::int32_t elapsed)
 {
-    unsigned int time = g_status.game_time_ms + elapsed;
+    std::uint32_t time = g_status.game_time_ms + elapsed;
     if (time > 86399999U) {
         ++g_status.game_time_days;
     }
@@ -185,10 +186,10 @@ void AdvanceEnvironmentTime(int elapsed)
         opposite->Rep()->SetLocation(&g_celestial_origin);
     }
 
-    unsigned int phase = ((g_status.game_time_ms / 1000U) << 8) / 86400U;
-    for (int index = 0; index < 3; ++index) {
+    std::uint32_t phase = ((g_status.game_time_ms / 1000U) << 8) / 86400U;
+    for (std::int32_t index = 0; index < 3; ++index) {
         if (auto animation = g_sky_gradient_animations[index].lock()) {
-            animation->frame = static_cast<int>(phase);
+            animation->frame = static_cast<std::int32_t>(phase);
         }
     }
 }
@@ -199,11 +200,11 @@ void AdvanceEnvironmentTime(int elapsed)
 static void AdvanceEnvironmentClock(void)
 {
     if (g_environment_time_enabled) {
-        w8_ulong now = w8_get_ticks();
-        w8_ulong elapsed = now - g_tick;
+        std::uint32_t now = w8_get_ticks();
+        std::uint32_t elapsed = now - g_tick;
         if (elapsed != 0) {
             AdvanceEnvironmentTime(
-                static_cast<int>(static_cast<double>(elapsed) * g_view_distance));
+                static_cast<std::int32_t>(static_cast<double>(elapsed) * g_view_distance));
         }
     }
 }
@@ -269,12 +270,12 @@ static void ClampEnvironmentComponent(float& component)
 static bool ReadColourTable(wiz8::File* file, EnvironmentColour (&colours)[256])
 try
 {
-    unsigned char components[256 * 3];
+    std::uint8_t components[256 * 3];
     memset(components, 0xff, sizeof(components));
     if (!file || file->read(components, sizeof(components)).bytes != sizeof(components))
         return false;
 
-    for (int index = 0; index < 256; ++index) {
+    for (std::int32_t index = 0; index < 256; ++index) {
         colours[index].x = components[index * 3] * (1.0f / 255.0f);
         colours[index].y = components[index * 3 + 1] * (1.0f / 255.0f);
         colours[index].z = components[index * 3 + 2] * (1.0f / 255.0f);
@@ -301,7 +302,7 @@ bool ReadEnvironmentColourTable(wiz8::File* file)
 
 static void BuildColourRamp(EnvironmentColour (&colours)[256])
 {
-    for (int index = 0; index < 256; ++index) {
+    for (std::int32_t index = 0; index < 256; ++index) {
         const float value = (index < 128 ? index : 255 - index) * (1.0f / 127.0f);
         colours[index] = value;
     }
@@ -325,11 +326,11 @@ void BuildLightColourRamp(void)
 void UpdateEnvironmentLight(void)
 {
     AdvanceEnvironmentClock();
-    unsigned int phase = ((g_status.game_time_ms / 1000U) << 8) / 86400U;
-    if (phase != static_cast<unsigned int>(g_last_light_phase)) {
+    std::uint32_t phase = ((g_status.game_time_ms / 1000U) << 8) / 86400U;
+    if (phase != static_cast<std::uint32_t>(g_last_light_phase)) {
         g_light_direction = g_environment_colours1[phase];
         PublishLightDirection(&g_environment_colours1[phase]);
-        g_last_light_phase = static_cast<int>(phase);
+        g_last_light_phase = static_cast<std::int32_t>(phase);
     }
 }
 
@@ -386,13 +387,13 @@ float GetViewDistance(void)
 }
 
 // FUNCTION: WIZ8 0x00482a10
-unsigned char GetEnvironmentFlag(void)
+std::uint8_t GetEnvironmentFlag(void)
 {
     return g_environment_time_enabled;
 }
 
 // FUNCTION: WIZ8 0x004842f0
-int GetEnvironmentValue(void)
+std::int32_t GetEnvironmentValue(void)
 {
     return g_environment_lighting_mode;
 }
@@ -423,7 +424,7 @@ void EnableSky(void)
 }
 
 // GLOBAL: WIZ8 0x0060a3b0
-int g_last_environment_colour_phase = -1;
+std::int32_t g_last_environment_colour_phase = -1;
 
 /* Advance the clock-driven sky and refresh the world's environment colour
    from the day-phase table when the phase turns over. */
@@ -431,11 +432,11 @@ int g_last_environment_colour_phase = -1;
 void RefreshEnvironment(void)
 {
     AdvanceEnvironmentClock();
-    unsigned int phase = ((g_status.game_time_ms / 1000U) << 8) / 86400U;
-    if (phase != static_cast<unsigned int>(g_last_environment_colour_phase)) {
+    std::uint32_t phase = ((g_status.game_time_ms / 1000U) << 8) / 86400U;
+    if (phase != static_cast<std::uint32_t>(g_last_environment_colour_phase)) {
         EnvironmentColour colour = g_environment_colours0[phase];
         SetWorldEnvironmentColour(g_world, colour);
-        g_last_environment_colour_phase = static_cast<int>(phase);
+        g_last_environment_colour_phase = static_cast<std::int32_t>(phase);
     }
 }
 
@@ -542,8 +543,8 @@ void BeginWorldLightingFade(float duration)
 // FUNCTION: WIZ8 0x00484300
 void UpdateEnvironmentLighting(void)
 {
-    w8_ulong now = w8_get_ticks();
-    w8_ulong elapsed = now - g_environment_transition_tick;
+    std::uint32_t now = w8_get_ticks();
+    std::uint32_t elapsed = now - g_environment_transition_tick;
     W8World* world;
     float scale;
     float intensity;
@@ -815,7 +816,7 @@ void SetSkyNodeVisible(bool visible)
    floor, falls through to mode 2 which disables the node. Mode 3 re-enables
    the node without touching the intensity. */
 // FUNCTION: WIZ8 0x00483E80
-void SetCameraLightMode(int mode)
+void SetCameraLightMode(std::int32_t mode)
 {
     stLight* camera_light;
     float intensity;
@@ -855,14 +856,14 @@ void SetCameraLightMode(int mode)
 }
 
 // FUNCTION: WIZ8 0x00482720
-void SetGameTimeMilliseconds(int value)
+void SetGameTimeMilliseconds(std::int32_t value)
 {
     g_status.game_time_ms = value;
     g_tick = w8_get_ticks();
 }
 
 // FUNCTION: WIZ8 0x00482740
-void SetGameTimeDays(int value)
+void SetGameTimeDays(std::int32_t value)
 {
     g_status.game_time_days = value;
 }
@@ -895,7 +896,7 @@ void InitializeLevelEnvironment(void)
             srVector3T<float> midpoint = (sun + moon) * 0.5;
             g_celestial_orbit_radius = delta.Length() * 0.5f;
             g_celestial_origin = midpoint;
-            for (int index = 0; index < 3; ++index) {
+            for (std::int32_t index = 0; index < 3; ++index) {
                 const char* name = g_sky_gradient_names[index];
                 std::shared_ptr<stTextureAnim> animation = g_texture_animations.find(name);
                 g_sky_gradient_animations[index] = animation;
@@ -906,7 +907,7 @@ void InitializeLevelEnvironment(void)
         }
     }
     AdvanceEnvironmentClock();
-    unsigned int phase = ((g_status.game_time_ms / 1000U) << 8) / 86400U;
+    std::uint32_t phase = ((g_status.game_time_ms / 1000U) << 8) / 86400U;
     SetWorldEnvironmentColour(g_world, g_environment_colours0[phase]);
     g_light_direction = g_environment_colours1[phase];
     PublishLightDirection(&g_environment_colours1[phase]);

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include "srMaterialIFace.h"
 #include "srMath.h"
 #include "srTypeRegistry.h"
@@ -54,7 +55,7 @@ public:
     float getShininess() const;
     glm::vec4 getSpecular() const;
     float getTranslucency() const;
-    int isEnabled(e_oper operation) const;
+    std::int32_t isEnabled(e_oper operation) const;
     // FUNCTION: SURRENDER 0x10034930 SYMBOL
     // RECOMP: ?setAmbient@srMaterial@@QAEXABV?$srVector4T@M@@@Z
     void setAmbient(const glm::vec4& ambient)
@@ -103,5 +104,5 @@ public:
     srVertexProcessor::MaterialInfo parms; /* 0x18 */
     srFlags<e_oper> operations;            /* 0x6c */
     srVertexProcessor* mapper;             /* 0x70 */
-    int dirty;                             /* 0x74 */
+    std::int32_t dirty;                             /* 0x74 */
 };

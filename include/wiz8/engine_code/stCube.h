@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include "surrender/srMath.h"
 #include "compat/compiler.h"
 
@@ -25,13 +26,13 @@ public:
     virtual ~W8WorldCursorNode() {}
     /* 0x0048D050: copy the node's world location out; answers 0 when the node
        chain is absent. */
-    unsigned char GetLocation(srVector3T<float>* position);
+    std::uint8_t GetLocation(srVector3T<float>* position);
     srNode* node; /* 0x04 */
-    unsigned int value_08;
-    int parameters[3];   /* 0x0c, 0x10, 0x14 */
+    std::uint32_t value_08;
+    std::int32_t parameters[3];   /* 0x0c, 0x10, 0x14 */
     void* pUserdata;     /* 0x18 */
-    int userdata_size;   /* 0x1c */
-    w8_ulong color; /* 0x20 */
+    std::int32_t userdata_size;   /* 0x1c */
+    std::uint32_t color; /* 0x20 */
     char name[0x20];
 };
 
@@ -41,13 +42,13 @@ W8WorldCursorNode* CreateWorldCursorCube(void);
 void DrawWorldCursorNodeLabel(W8WorldCursorNode* entry);
 void MoveWorldCursorNode(W8WorldCursorNode* entry, srVector3T<float>* position);
 void DestroyWorldCursorCube(W8WorldCursorNode* entry);
-int GetWorldCursorNodeParameter(W8WorldCursorNode* entry, int index);
-void SetWorldCursorNodeParameter(W8WorldCursorNode* entry, int index, int value);
+std::int32_t GetWorldCursorNodeParameter(W8WorldCursorNode* entry, std::int32_t index);
+void SetWorldCursorNodeParameter(W8WorldCursorNode* entry, std::int32_t index, std::int32_t value);
 /* Answer the next table node after `after` whose world-space bounds contain
    `point`; a null `after` starts the walk at the head of the table. */
 W8WorldCursorNode* FindWorldCursorNodeAtPoint(W8WorldCursorNode* after, srVector3T<float>* point);
 /* Allocate the node's userdata scratch, or release it when `size` is zero. */
-void SetWorldCursorNodeUserdataSize(W8WorldCursorNode* entry, int size);
+void SetWorldCursorNodeUserdataSize(W8WorldCursorNode* entry, std::int32_t size);
 void ScaleWorldCursorNodeX(W8WorldCursorNode* entry, double scale);
 void ScaleWorldCursorNodeY(W8WorldCursorNode* entry, double scale);
 void ScaleWorldCursorNodeZ(W8WorldCursorNode* entry, double scale);
@@ -56,17 +57,17 @@ void SetWorldCursorNodeColorComponents(W8WorldCursorNode* entry, float red, floa
 /* 0x0048DCA0 forwards to the full label painter at 0x0048DCB0. */
 void RefreshWorldCursorNodeLabel(W8WorldCursorNode* entry);
 /* Return the indexed cursor node, or the first node when the index is past the end. */
-W8WorldCursorNode* GetWorldCursorNode(int index);
+W8WorldCursorNode* GetWorldCursorNode(std::int32_t index);
 void AttachWorldCursorNode(W8WorldCursorNode* entry, bool attached);
 /* 0x0048F110: copy `name` into the node's 0x20-byte name with a forced
    terminator. */
 void SetWorldCursorNodeName(W8WorldCursorNode* entry, const char* name);
-void SetWorldCursorNodeColor(W8WorldCursorNode* entry, w8_ulong color);
+void SetWorldCursorNodeColor(W8WorldCursorNode* entry, std::uint32_t color);
 /* 0x0048E3E0: the world-cursor node under the screen point, or 0. */
-W8WorldCursorNode* PickWorldCursorNodeAtScreenPoint(int x, int y);
+W8WorldCursorNode* PickWorldCursorNodeAtScreenPoint(std::int32_t x, std::int32_t y);
 void DrawWorldBox(W8World* world, srVector3T<float> minimum, srVector3T<float> maximum,
-                  w8_ulong color);
-unsigned char SaveWorldCursorNodeStates(wiz8::File& handle);
-unsigned char SaveWorldCursorNodes(wiz8::File& handle);
-unsigned int LoadWorldCursorNodes(wiz8::File& handle);
-unsigned int LoadWorldCursorNodeStates(wiz8::File& handle);
+                  std::uint32_t color);
+std::uint8_t SaveWorldCursorNodeStates(wiz8::File& handle);
+std::uint8_t SaveWorldCursorNodes(wiz8::File& handle);
+std::uint32_t LoadWorldCursorNodes(wiz8::File& handle);
+std::uint32_t LoadWorldCursorNodeStates(wiz8::File& handle);

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <memory>
 #include <span>
 
@@ -20,29 +21,29 @@ public:
     enum e_compression { COMPRESSION_DEFAULT = 4 };
     /* Copies retain shared palette ownership; the output object must be constructed. */
     struct Dimensions {
-        w8_ulong width;
-        w8_ulong height;
+        std::uint32_t width;
+        std::uint32_t height;
         std::shared_ptr<srPalette> palette;
         srPixelConvert::PixelFormat format;
-        w8_ulong hints;
+        std::uint32_t hints;
         e_compression compression;
         srFilter* filter;
     };
     struct MultiRequest {
         // destinations[0] is first_level; each subsequent slot is the next mip.
-        w8_ulong first_level;
+        std::uint32_t first_level;
         std::span<srColorSurfaceIFace* const> destinations;
     };
     /* srGERD::setTextureSubImage packs the level-0 dimensions and the target
        mipmap level ahead of the clipped destination rect. */
     struct PartialRequest {
-        w8_ulong width;
-        w8_ulong height;
-        w8_long mipmap_level;
-        w8_long destination_x;
-        w8_long destination_y;
-        w8_long source_right;
-        w8_long source_bottom;
+        std::uint32_t width;
+        std::uint32_t height;
+        std::int32_t mipmap_level;
+        std::int32_t destination_x;
+        std::int32_t destination_y;
+        std::int32_t source_right;
+        std::int32_t source_bottom;
         srColorSurfaceIFace* destination;
     };
     /* Packed filter/wrap/mipmap state and the mipmap bias. */
@@ -60,7 +61,7 @@ public:
             WRAP_T_SHIFT = 13,
             WRAP_T_MASK = 0x2000u
         };
-        w8_ulong packed_state;
+        std::uint32_t packed_state;
         float mipmap_bias;
     };
     /* srTexture::dump: NONE / FASTEST / GOOD / BEST, else DEFAULT.
@@ -102,7 +103,7 @@ public:
     }
 
     /* srTextureFile's vftable is this interface exactly. */
-    virtual w8_ulong getTextureFrameHandle() = 0;
+    virtual std::uint32_t getTextureFrameHandle() = 0;
     virtual float getPriority() = 0;
     virtual Dimensions getDimensions() = 0;
     virtual void getMipmapData(const MultiRequest& request) = 0;

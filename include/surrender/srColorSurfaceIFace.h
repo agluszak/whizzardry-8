@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <SDL3/SDL_rect.h>
 
 #include <memory>
@@ -21,19 +22,19 @@ class srColorSurfaceIFace
     : public srClassSupport<srColorSurfaceIFace, srClass, 0x3100> {
 public:
     struct Rectangle {
-        w8_long left;
-        w8_long top;
-        w8_long right;
-        w8_long bottom;
+        std::int32_t left;
+        std::int32_t top;
+        std::int32_t right;
+        std::int32_t bottom;
     };
 
     enum { CLAMP_HORIZONTAL = 0x01u, CLAMP_VERTICAL = 0x02u };
 
     struct SurfaceDesc {
-        w8_ulong width;
-        w8_ulong height;
-        w8_ulong pitch;
-        w8_ulong clamp_modes;
+        std::uint32_t width;
+        std::uint32_t height;
+        std::uint32_t pitch;
+        std::uint32_t clamp_modes;
         srFilter* filter;
         srPixelConvert::PixelFormat pixel_format;
     };
@@ -46,54 +47,54 @@ public:
     static SR_DLL_IMPORT const char* sGetClassName();
 
     virtual SR_DLL_IMPORT void dump(std::ostream& stream) override;
-    virtual SR_DLL_IMPORT w8_ulong getPixel(w8_long x, w8_long y);
-    virtual SR_DLL_IMPORT void setPixel(w8_long x, w8_long y, w8_ulong pixel);
-    virtual SR_DLL_IMPORT w8_ulong getPixelRaw(w8_long x, w8_long y);
-    virtual SR_DLL_IMPORT void setPixelRaw(w8_long x, w8_long y, w8_ulong pixel);
-    virtual SR_DLL_IMPORT void getPixelColumn(w8_ulong* pixels, w8_long x, w8_long y_start,
-                                              w8_long y_end);
-    virtual SR_DLL_IMPORT void setPixelColumn(const w8_ulong* pixels, w8_long x, w8_long y_start,
-                                              w8_long y_end);
+    virtual SR_DLL_IMPORT std::uint32_t getPixel(std::int32_t x, std::int32_t y);
+    virtual SR_DLL_IMPORT void setPixel(std::int32_t x, std::int32_t y, std::uint32_t pixel);
+    virtual SR_DLL_IMPORT std::uint32_t getPixelRaw(std::int32_t x, std::int32_t y);
+    virtual SR_DLL_IMPORT void setPixelRaw(std::int32_t x, std::int32_t y, std::uint32_t pixel);
+    virtual SR_DLL_IMPORT void getPixelColumn(std::uint32_t* pixels, std::int32_t x, std::int32_t y_start,
+                                              std::int32_t y_end);
+    virtual SR_DLL_IMPORT void setPixelColumn(const std::uint32_t* pixels, std::int32_t x, std::int32_t y_start,
+                                              std::int32_t y_end);
     virtual SR_DLL_IMPORT std::shared_ptr<srPalette> getPalette();
     virtual SR_DLL_IMPORT void setPalette(std::shared_ptr<srPalette> palette);
     virtual SR_DLL_IMPORT void* getDataPtr();
-    virtual SR_DLL_IMPORT w8_long getDataSize();
-    virtual SR_DLL_IMPORT int resize(w8_long width, w8_long height);
-    virtual SR_DLL_IMPORT int rescale(w8_long width, w8_long height);
-    virtual SR_DLL_IMPORT int changePixelFormat(const srPixelConvert::PixelFormat& format,
-                                                int preserve);
-    virtual SR_DLL_IMPORT void fill(w8_ulong pixel);
-    virtual void fillRectangle(SDL_Rect rectangle, w8_ulong pixel);
-    virtual SR_DLL_IMPORT void setHLine(w8_long y, w8_long x_start, w8_long x_end, w8_ulong pixel);
-    virtual SR_DLL_IMPORT void setVLine(w8_long x, w8_long y_start, w8_long y_end, w8_ulong pixel);
-    virtual SR_DLL_IMPORT void setLine(w8_long x0, w8_long y0, w8_long x1, w8_long y1, w8_ulong pixel);
-    virtual SR_DLL_IMPORT void blit(w8_long x, w8_long y, srColorSurfaceIFace& source, w8_long source_x,
-                                    w8_long source_y, w8_long width, w8_long height);
+    virtual SR_DLL_IMPORT std::int32_t getDataSize();
+    virtual SR_DLL_IMPORT std::int32_t resize(std::int32_t width, std::int32_t height);
+    virtual SR_DLL_IMPORT std::int32_t rescale(std::int32_t width, std::int32_t height);
+    virtual SR_DLL_IMPORT std::int32_t changePixelFormat(const srPixelConvert::PixelFormat& format,
+                                                std::int32_t preserve);
+    virtual SR_DLL_IMPORT void fill(std::uint32_t pixel);
+    virtual void fillRectangle(SDL_Rect rectangle, std::uint32_t pixel);
+    virtual SR_DLL_IMPORT void setHLine(std::int32_t y, std::int32_t x_start, std::int32_t x_end, std::uint32_t pixel);
+    virtual SR_DLL_IMPORT void setVLine(std::int32_t x, std::int32_t y_start, std::int32_t y_end, std::uint32_t pixel);
+    virtual SR_DLL_IMPORT void setLine(std::int32_t x0, std::int32_t y0, std::int32_t x1, std::int32_t y1, std::uint32_t pixel);
+    virtual SR_DLL_IMPORT void blit(std::int32_t x, std::int32_t y, srColorSurfaceIFace& source, std::int32_t source_x,
+                                    std::int32_t source_y, std::int32_t width, std::int32_t height);
     virtual SR_DLL_IMPORT void copy(srColorSurfaceIFace& source);
     virtual SR_DLL_IMPORT void flipRectangle(const Rectangle& rectangle);
-    virtual void getPixelRow(w8_ulong* pixels, w8_long y, w8_long x_start, w8_long x_end) = 0;
-    virtual void setPixelRow(const w8_ulong* pixels, w8_long y, w8_long x_start, w8_long x_end) = 0;
-    virtual void getPixelRowRaw(void* pixels, w8_long y, w8_long x_start, w8_long x_end) = 0;
-    virtual void setPixelRowRaw(const void* pixels, w8_long y, w8_long x_start, w8_long x_end) = 0;
+    virtual void getPixelRow(std::uint32_t* pixels, std::int32_t y, std::int32_t x_start, std::int32_t x_end) = 0;
+    virtual void setPixelRow(const std::uint32_t* pixels, std::int32_t y, std::int32_t x_start, std::int32_t x_end) = 0;
+    virtual void getPixelRowRaw(void* pixels, std::int32_t y, std::int32_t x_start, std::int32_t x_end) = 0;
+    virtual void setPixelRowRaw(const void* pixels, std::int32_t y, std::int32_t x_start, std::int32_t x_end) = 0;
 
-    SR_DLL_IMPORT void clampCoordinates(w8_long& x, w8_long& y);
+    SR_DLL_IMPORT void clampCoordinates(std::int32_t& x, std::int32_t& y);
     SR_DLL_IMPORT void flipHorizontal();
     SR_DLL_IMPORT void flipVertical();
     SR_DLL_IMPORT double getAspectRatio() const;
-    SR_DLL_IMPORT w8_long getClampedX(w8_long x) const;
-    SR_DLL_IMPORT w8_long getClampedY(w8_long y) const;
+    SR_DLL_IMPORT std::int32_t getClampedX(std::int32_t x) const;
+    SR_DLL_IMPORT std::int32_t getClampedY(std::int32_t y) const;
     SR_DLL_IMPORT srFilter* getFilter() const;
 // FUNCTION: SURRENDER 0x100598F0 SYMBOL
 // RECOMP: ?getHeight@srColorSurfaceIFace@@QBEJXZ
 
-    w8_long getHeight() const
+    std::int32_t getHeight() const
     {
         return height;
     }
 // FUNCTION: SURRENDER 0x100599E0 SYMBOL
 // RECOMP: ?getPitch@srColorSurfaceIFace@@QBEJXZ
 
-    w8_long getPitch() const
+    std::int32_t getPitch() const
     {
         return pitch;
     }
@@ -104,13 +105,13 @@ public:
 
     SurfaceDesc getSurfaceDesc() const
     {
-        return {static_cast<w8_ulong>(width), static_cast<w8_ulong>(height),
-                static_cast<w8_ulong>(pitch), clamp_modes, filter, pixel_format};
+        return {static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height),
+                static_cast<std::uint32_t>(pitch), clamp_modes, filter, pixel_format};
     }
 // FUNCTION: SURRENDER 0x10059A60 SYMBOL
 // RECOMP: ?getWidth@srColorSurfaceIFace@@QBEJXZ
 
-    w8_long getWidth() const
+    std::int32_t getWidth() const
     {
         return width;
     }
@@ -121,8 +122,8 @@ public:
     {
         this->filter = filter;
     }
-    SR_DLL_IMPORT void setHClampMode(int enabled);
-    SR_DLL_IMPORT void setVClampMode(int enabled);
+    SR_DLL_IMPORT void setHClampMode(std::int32_t enabled);
+    SR_DLL_IMPORT void setVClampMode(std::int32_t enabled);
 
 protected:
     virtual SR_DLL_IMPORT void copyNoScaling(srColorSurfaceIFace& source);
@@ -133,19 +134,19 @@ protected:
     virtual SR_DLL_IMPORT void minify(srColorSurfaceIFace& source);
 
     SR_DLL_IMPORT void copySurfaceParameters(const srColorSurfaceIFace& source);
-    SR_DLL_IMPORT int isPixelFormatCompatible(const srColorSurfaceIFace& source) const;
+    SR_DLL_IMPORT std::int32_t isPixelFormatCompatible(const srColorSurfaceIFace& source) const;
     SR_DLL_IMPORT void setSurfaceDesc(const SurfaceDesc& description);
 
     friend class stTextureFile;
-    friend void __stdcall LoadSurfacePixels(int handle, srColorSurface* surface,
+    friend void __stdcall LoadSurfacePixels(std::int32_t handle, srColorSurface* surface,
                                             const W8TgaHeader* header);
     friend class srColorSurface;
 
-    unsigned char unknown_18_[0x04]{};
-    w8_long width;
-    w8_long height;
-    w8_long pitch;
-    w8_ulong clamp_modes;
+    std::uint8_t unknown_18_[0x04]{};
+    std::int32_t width;
+    std::int32_t height;
+    std::int32_t pitch;
+    std::uint32_t clamp_modes;
     srFilter* filter;
     srPixelConvert::PixelFormat pixel_format;
 };

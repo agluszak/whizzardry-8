@@ -34,9 +34,9 @@ namespace {
 constexpr std::size_t kMaxSwitchTriggers = 1000;
 constexpr std::size_t kMaxTriggerPlanes = 1000;
 constexpr std::size_t kMaxLinkedRecords = 100;
-constexpr int kMaxMeshVertices = 100000;
-constexpr int kMaxMeshFaces = 200000;
-constexpr int kMaxTransformMaterials = 500;
+constexpr std::int32_t kMaxMeshVertices = 100000;
+constexpr std::int32_t kMaxMeshFaces = 200000;
+constexpr std::int32_t kMaxTransformMaterials = 500;
 /* Material records before version 4 stop short of the texture modes. */
 constexpr std::size_t kMaterialRecordV3Bytes = offsetof(W8MaterialRecord, texture_modes);
 /* Particle systems before version 2 stop short of the attachment key. */
@@ -181,9 +181,9 @@ template<class IO, class Path> void TransferPathAI(IO& io, Path& path)
     io.field(path.position);
     io.field(path.unknown_06);
     if (path.IsScaled()) {
-        TransferArray<int>(io, path.scaled_paths);
+        TransferArray<std::int32_t>(io, path.scaled_paths);
     } else {
-        TransferArray<int>(io, path.paths);
+        TransferArray<std::int32_t>(io, path.paths);
     }
 }
 
@@ -231,8 +231,8 @@ template<class IO, class Mesh> void TransferMesh(IO& io, Mesh& mesh)
         io.array(mesh.vertices, mesh.num_vertices);
     } else {
         io.field(mesh.lod_mode);
-        short lod_count{};
-        if constexpr (!IO::reading) lod_count = DiskCount<short>(mesh.LodCount());
+        std::int16_t lod_count{};
+        if constexpr (!IO::reading) lod_count = DiskCount<std::int16_t>(mesh.LodCount());
         io.field(lod_count);
         if constexpr (IO::reading) {
             ValidateRecordCount(lod_count, sizeof(void*), io.file);
@@ -266,7 +266,7 @@ template<class IO, class Mesh> void TransferMesh(IO& io, Mesh& mesh)
         io.array(mesh.faces, mesh.num_faces);
         if constexpr (IO::reading) {
             for (const auto& face : mesh.faces)
-                for (int vertex : face.vertices)
+                for (std::int32_t vertex : face.vertices)
                     if (vertex < 0 || vertex >= mesh.num_vertices) throw LevelError("face vertex out of range");
         }
     }
@@ -476,7 +476,7 @@ template<class IO, class Super> void TransferSuper(IO& io, Super& trigger)
         } else if (trigger.placement_kind == 2) {
             io.field(io.present(trigger.plane));
         }
-        unsigned char has_hotspot = trigger.hotspot.has_value();
+        std::uint8_t has_hotspot = trigger.hotspot.has_value();
         io.field(has_hotspot);
         if (has_hotspot) io.field(io.present(trigger.hotspot));
     }
@@ -535,14 +535,14 @@ enum class FrameKind { morph, transform };
 
 /* A channel's frames. A morph whose first frame is an LOD mesh stores only
    that frame; transforms store every frame. */
-template<class IO, class Frames> void TransferFrames(IO& io, Frames& frames, int count, FrameKind kind)
+template<class IO, class Frames> void TransferFrames(IO& io, Frames& frames, std::int32_t count, FrameKind kind)
 {
     io.records(frames, count);
     for (auto& frame : frames) {
         io.field(frame.flags);
         TransferMesh(io, frame.mesh);
-        short texture_count{};
-        if constexpr (!IO::reading) texture_count = DiskCount<short>(frame.textures.size());
+        std::int16_t texture_count{};
+        if constexpr (!IO::reading) texture_count = DiskCount<std::int16_t>(frame.textures.size());
         io.field(texture_count);
         if constexpr (IO::reading) {
             if (kind == FrameKind::transform && texture_count > kMaxTransformMaterials) {
@@ -577,14 +577,14 @@ template<class IO, class AnimObj> void TransferAnimObj(IO& io, AnimObj& anim)
     }
     io.field(anim.discarded);
     io.array(anim.channel_counts, animation_count);
-    if (anim.version >= 7) TransferArray<unsigned char>(io, anim.bounds);
+    if (anim.version >= 7) TransferArray<std::uint8_t>(io, anim.bounds);
     if (anim.version >= 8) {
-        TransferRecords<signed char>(io, anim.anim_lights,
+        TransferRecords<std::int8_t>(io, anim.anim_lights,
                                      [](auto& io, auto& light) { TransferAnimLight(io, light); });
     }
     if (anim.path_lists == 0) {
         if (anim.version >= 9) {
-            unsigned char has_path_ai = anim.path_ai.has_value();
+            std::uint8_t has_path_ai = anim.path_ai.has_value();
             io.field(has_path_ai);
             if (has_path_ai) TransferPathAI(io, io.present(anim.path_ai));
         }
@@ -688,7 +688,7 @@ template<class IO, class Camera> void TransferCamera(IO& io, Camera& camera)
 template<class IO, class Monster> void TransferMonster(IO& io, Monster& monster)
 {
     W8LevelFileMonsterHeader header = monster.header;
-    if constexpr (!IO::reading) header.path_node_count = DiskCount<int>(monster.path.size());
+    if constexpr (!IO::reading) header.path_node_count = DiskCount<std::int32_t>(monster.path.size());
     io.field(header);
     if constexpr (IO::reading) monster.header = header;
     io.array(monster.path, header.path_node_count);
@@ -729,26 +729,26 @@ try {
     LevelReader io{file};
     TransferMesh(io, level->mesh);
 
-    short texture_count;
+    std::int16_t texture_count;
     io.field(texture_count);
     if (texture_count == 0) return nullptr;
     io.records(level->textures, texture_count);
     for (auto& material : level->textures) TransferMaterial(io, material);
 
-    TransferRecords<short>(io, level->lights, [](auto& io, auto& light) { TransferLight(io, light); });
-    TransferRecords<int>(io, level->monsters, [](auto& io, auto& monster) { TransferMonster(io, monster); });
-    TransferArray<int>(io, level->items);
+    TransferRecords<std::int16_t>(io, level->lights, [](auto& io, auto& light) { TransferLight(io, light); });
+    TransferRecords<std::int32_t>(io, level->monsters, [](auto& io, auto& monster) { TransferMonster(io, monster); });
+    TransferArray<std::int32_t>(io, level->items);
     io.field(level->missile_count);
     ValidateRecordCount(level->missile_count, 1, file);
-    TransferRecords<int>(io, level->props, [](auto& io, auto& prop) { TransferProp(io, prop); });
-    TransferRecords<int>(io, level->bitmaps, [](auto& io, auto& prop) { TransferProp(io, prop); });
-    TransferRecords<int>(io, level->cameras, [](auto& io, auto& camera) { TransferCamera(io, camera); });
+    TransferRecords<std::int32_t>(io, level->props, [](auto& io, auto& prop) { TransferProp(io, prop); });
+    TransferRecords<std::int32_t>(io, level->bitmaps, [](auto& io, auto& prop) { TransferProp(io, prop); });
+    TransferRecords<std::int32_t>(io, level->cameras, [](auto& io, auto& camera) { TransferCamera(io, camera); });
     io.field(level->has_block);
     if (level->has_block != 0) TransferBlock(io, level->block);
-    TransferRecords<int>(io, level->triggers, [](auto& io, auto& trigger) { TransferTrigger(io, trigger); });
+    TransferRecords<std::int32_t>(io, level->triggers, [](auto& io, auto& trigger) { TransferTrigger(io, trigger); });
     io.field(level->camera_mode);
 
-    int clipping_plane_count;
+    std::int32_t clipping_plane_count;
     io.field(clipping_plane_count);
     ValidateRecordCount(clipping_plane_count, sizeof(W8LevelFileClippingPlaneRecord), file);
     if (clipping_plane_count != 0) {
@@ -757,16 +757,16 @@ try {
     }
 
     io.field(level->environment_offset);
-    TransferRecords<int>(io, level->particle_systems,
+    TransferRecords<std::int32_t>(io, level->particle_systems,
                          [](auto& io, auto& system) { TransferParticleSystem(io, system); });
-    TransferArray<int>(io, level->named_positions);
+    TransferArray<std::int32_t>(io, level->named_positions);
     for (const auto& position : level->named_positions) {
         if (!std::memchr(position.name, '\0', sizeof(position.name))) return nullptr;
         ReportBuildStatus(5, fmt::format("Named Position: {} ({:f}, {:f}, {:f})\n", position.name,
                                          position.position.x, position.position.y, position.position.z));
     }
     io.field(level->unknown_6b9);
-    level->read_end_position = static_cast<int>(file.tell());
+    level->read_end_position = static_cast<std::int32_t>(file.tell());
 
     const auto parts = CollectTriggerParts(*level);
     if (parts.switches.size() > kMaxSwitchTriggers || parts.planes.size() > kMaxTriggerPlanes ||
@@ -782,54 +782,54 @@ try {
    then the rest of the source file copied unchanged. */
 // FUNCTION: WIZ8 0x004D07C0
 bool WriteLevelFile(wiz8::File& file, wiz8::File& remainder, const W8LevelFile& level,
-                    std::span<OctMeshModel> models, int mesh_count)
+                    std::span<OctMeshModel> models, std::int32_t mesh_count)
 try {
     LevelWriter io{file};
-    io.field(DiskCount<unsigned int>(models.size()));
+    io.field(DiskCount<std::uint32_t>(models.size()));
     io.field(mesh_count);
-    const short texture_count = DiskCount<short>(level.textures.size());
+    const std::int16_t texture_count = DiskCount<std::int16_t>(level.textures.size());
     io.field(texture_count);
     if (texture_count == 0) return false;
     for (const auto& material : level.textures) TransferMaterial(io, material);
-    const int separator = texture_count;
+    const std::int32_t separator = texture_count;
     io.field(separator);
 
     for (auto& model : models) model.Write(file);
     io.field(separator);
-    TransferRecords<short>(io, level.lights, [](auto& io, auto& light) { TransferLight(io, light); });
+    TransferRecords<std::int16_t>(io, level.lights, [](auto& io, auto& light) { TransferLight(io, light); });
     io.field(separator);
-    TransferRecords<int>(io, level.monsters, [](auto& io, auto& monster) { TransferMonster(io, monster); });
+    TransferRecords<std::int32_t>(io, level.monsters, [](auto& io, auto& monster) { TransferMonster(io, monster); });
     io.field(separator);
-    TransferArray<int>(io, level.items);
+    TransferArray<std::int32_t>(io, level.items);
     io.field(separator);
     io.field(level.missile_count);
     io.field(separator);
-    TransferRecords<int>(io, level.props, [](auto& io, auto& prop) { TransferProp(io, prop); });
+    TransferRecords<std::int32_t>(io, level.props, [](auto& io, auto& prop) { TransferProp(io, prop); });
     io.field(separator);
-    TransferRecords<int>(io, level.bitmaps, [](auto& io, auto& prop) { TransferProp(io, prop); });
+    TransferRecords<std::int32_t>(io, level.bitmaps, [](auto& io, auto& prop) { TransferProp(io, prop); });
     io.field(separator);
-    TransferRecords<int>(io, level.cameras, [](auto& io, auto& camera) { TransferCamera(io, camera); });
+    TransferRecords<std::int32_t>(io, level.cameras, [](auto& io, auto& camera) { TransferCamera(io, camera); });
     io.field(separator);
     io.field(level.has_block);
     if (level.has_block != 0) TransferBlock(io, level.block);
     io.field(separator);
-    TransferRecords<int>(io, level.triggers, [](auto& io, auto& trigger) { TransferTrigger(io, trigger); });
+    TransferRecords<std::int32_t>(io, level.triggers, [](auto& io, auto& trigger) { TransferTrigger(io, trigger); });
     io.field(separator);
     io.field(level.camera_mode);
-    io.field(DiskCount<int>(level.clipping_planes.size()));
+    io.field(DiskCount<std::int32_t>(level.clipping_planes.size()));
     if (!level.clipping_planes.empty()) {
         io.field(level.clipping_plane_version);
         io.array(level.clipping_planes, static_cast<std::int64_t>(level.clipping_planes.size()));
     }
     io.field(separator);
     io.field(level.environment_offset);
-    TransferRecords<int>(io, level.particle_systems,
+    TransferRecords<std::int32_t>(io, level.particle_systems,
                          [](auto& io, auto& system) { TransferParticleSystem(io, system); });
     io.field(separator);
-    TransferArray<int>(io, level.named_positions);
+    TransferArray<std::int32_t>(io, level.named_positions);
     io.field(separator);
     io.field(GetAutomapGridCellSize());
-    TransferArray<int>(io, level.automap_nodes);
+    TransferArray<std::int32_t>(io, level.automap_nodes);
     io.field(separator);
     io.field(level.unknown_6b9);
 
@@ -950,7 +950,7 @@ bool WriteAnimObjFile(wiz8::File& file, const W8LevelFileAnimObj& anim_obj)
 }
 
 // FUNCTION: WIZ8 0x004D4CB0
-bool ReadPropsFile(wiz8::File& file, int count, std::vector<W8LevelFileProp>& props)
+bool ReadPropsFile(wiz8::File& file, std::int32_t count, std::vector<W8LevelFileProp>& props)
 {
     return ReadRecord(file, props, [count](auto& io, auto& records) {
         io.records(records, count);

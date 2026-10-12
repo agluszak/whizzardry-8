@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <memory>
 #include <SDL3/SDL_rect.h>
 #include <string_view>
@@ -28,11 +29,11 @@ enum W8CampItemActionButton {
 
 /* Attribute and resistance bars use the same base/bonus/penalty strips and
    invalidate every drawn segment. Skill bars have a different invalidation policy. */
-inline void DrawCampValueBar(unsigned int value, unsigned int base, int left, int top)
+inline void DrawCampValueBar(std::uint32_t value, std::uint32_t base, std::int32_t left, std::int32_t top)
 {
-    unsigned int filled;
-    unsigned int extra;
-    unsigned int missing;
+    std::uint32_t filled;
+    std::uint32_t extra;
+    std::uint32_t missing;
     if (value < base) {
         filled = value;
         extra = 0;
@@ -67,14 +68,14 @@ inline void DrawCampValueBar(unsigned int value, unsigned int base, int left, in
 void DrawCampHeader(void);
 void DrawCampVitals(void);
 void DrawCampHands(void);
-int CreateCampButtonPanel(void);
+std::int32_t CreateCampButtonPanel(void);
 void DestroyCampButtonPanel(void);
 void RefreshCampItemActions(bool invalidate);
 void SetCampItemActionMode(char mode);
-void SelectCampCharacter(int slot);
+void SelectCampCharacter(std::int32_t slot);
 /* Right-click on a camp portrait while holding an item: refuse with a notice
    for dead/insane/stoned, else try AddItemToCharacter. */
-void TryGiveHeldItemToCampPortrait(int slot);
+void TryGiveHeldItemToCampPortrait(std::int32_t slot);
 
 void RedrawRcsLevelUpPanel(void);
 void RedrawRcsDismissPanel(void);
@@ -91,14 +92,14 @@ extern W8TextControl* g_item_action_controls[W8_CAMP_ACTION_BUTTON_COUNT];
    the page and item-action strips to. */
 extern std::unique_ptr<Controls> g_item_actions_panel;
 
-unsigned char CampDismissPortraitRegionEvent(const InputEvent* event, W8Region* region);
-unsigned char CampPortraitSlotRegionEvent(const InputEvent* event, W8Region* region);
-unsigned char CampOpenCharacterScreenRegionEvent(const InputEvent* event, W8Region* region);
-unsigned char CampProfessionHistoryRegionEvent(const InputEvent* event, W8Region* region);
-unsigned char CampPageButtonRegionEvent(const InputEvent* event, W8Region* region);
-unsigned char CampItemActionRegionEvent(const InputEvent* event, W8Region* region);
-unsigned char CampLevelUpButtonRegionEvent(const InputEvent* event, W8Region* region);
-unsigned char CampDismissButtonRegionEvent(const InputEvent* event, W8Region* region);
+std::uint8_t CampDismissPortraitRegionEvent(const InputEvent* event, W8Region* region);
+std::uint8_t CampPortraitSlotRegionEvent(const InputEvent* event, W8Region* region);
+std::uint8_t CampOpenCharacterScreenRegionEvent(const InputEvent* event, W8Region* region);
+std::uint8_t CampProfessionHistoryRegionEvent(const InputEvent* event, W8Region* region);
+std::uint8_t CampPageButtonRegionEvent(const InputEvent* event, W8Region* region);
+std::uint8_t CampItemActionRegionEvent(const InputEvent* event, W8Region* region);
+std::uint8_t CampLevelUpButtonRegionEvent(const InputEvent* event, W8Region* region);
+std::uint8_t CampDismissButtonRegionEvent(const InputEvent* event, W8Region* region);
 
 void CreateRcsLevelUpPanel(void);
 void DestroyRcsLevelUpPanel(void);
@@ -106,10 +107,10 @@ void UpdateRcsLevelUpPanel(void);
 void CreateRcsDismissPanel(void);
 void DestroyRcsDismissPanel(void);
 void UpdateRcsDismissPanel(void);
-void DrawRcsText(std::string_view text, int left, int top, int width, unsigned int layout_mode);
-void DrawRcsBoldText(std::string_view text, int left, int top, int width, unsigned int layout_mode);
-void DrawTallRcsText(std::string_view text, int left, int top, int width, unsigned int layout_mode);
+void DrawRcsText(std::string_view text, std::int32_t left, std::int32_t top, std::int32_t width, std::uint32_t layout_mode);
+void DrawRcsBoldText(std::string_view text, std::int32_t left, std::int32_t top, std::int32_t width, std::uint32_t layout_mode);
+void DrawTallRcsText(std::string_view text, std::int32_t left, std::int32_t top, std::int32_t width, std::uint32_t layout_mode);
 /* Like DrawRcsText but the box height is caller-provided and the
    text is rendered through mprintf with the current font. */
-void DrawRcsTextJustified(std::string_view text, int left, int top, int width, int height,
-                          unsigned int layout_mode);
+void DrawRcsTextJustified(std::string_view text, std::int32_t left, std::int32_t top, std::int32_t width, std::int32_t height,
+                          std::uint32_t layout_mode);

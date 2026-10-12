@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <optional>
 #include <iterator>
 #include <memory>
@@ -28,23 +29,23 @@ W8AnimObj::W8AnimObj() = default;
 W8AnimObj::~W8AnimObj() = default;
 
 // FUNCTION: WIZ8 0x004a05c0
-bool AnimObjReadFromFile(W8ReadLevelInfo* info, W8AnimObj* animation, int load_all,
-                                  std::vector<stLight*>* light_list, int)
+bool AnimObjReadFromFile(W8ReadLevelInfo* info, W8AnimObj* animation, std::int32_t load_all,
+                                  std::vector<stLight*>* light_list, std::int32_t)
 try
 {
-    unsigned char version = 0;
+    std::uint8_t version = 0;
     bool success;
-    unsigned char discarded[50];
-    unsigned char channel_bytes[8];
+    std::uint8_t discarded[50];
+    std::uint8_t channel_bytes[8];
     wiz8::File* handle;
-    int index;
+    std::int32_t index;
 
     if (info == 0 || info->hFile == 0 || animation == 0) {
         srAssertFail("pInfo && pInfo->hFile && pao", ANIM_OBJ_CPP, 0xef, 0);
     }
     handle = info->hFile;
     const auto read_flag = [handle](bool& flag) {
-        unsigned char value;
+        std::uint8_t value;
         handle->read_exact(&value, 1);
         flag = value != 0;
         return true;
@@ -83,12 +84,12 @@ try
     if (!success) {
         srAssertFail("fSuccess", ANIM_OBJ_CPP, 0x117, 0);
     }
-    for (index = 0; index < static_cast<signed char>(animation->group_count); ++index) {
+    for (index = 0; index < static_cast<std::int8_t>(animation->group_count); ++index) {
         success = success && (handle->read(&channel_bytes[index], 1).bytes == static_cast<std::size_t>(1));
     }
 
     if (version > 6) {
-        unsigned char frames;
+        std::uint8_t frames;
         handle->read_exact(&frames, 1);
         animation->frame_bounds.resize(frames);
         for (auto& bounds : animation->frame_bounds) {
@@ -101,13 +102,13 @@ try
     }
 
     if (version > 7) {
-        unsigned char light_count;
+        std::uint8_t light_count;
         srVector3T<float> color(1.0f, 1.0f, 1.0f);
         handle->read_exact(&light_count, 1);
-        for (index = 0; index < static_cast<signed char>(light_count); ++index) {
-            unsigned char light_version;
-            unsigned char definition_kind = 0;
-            unsigned char ignored;
+        for (index = 0; index < static_cast<std::int8_t>(light_count); ++index) {
+            std::uint8_t light_version;
+            std::uint8_t definition_kind = 0;
+            std::uint8_t ignored;
             srVector3T<float> position;
             float range;
             float intensity;
@@ -143,14 +144,14 @@ try
                 definition = typed;
             } else if (definition_kind == 2) {
                 stKeyframedLightDefinition* typed = new stKeyframedLightDefinition;
-                int previous = 0;
-                int key;
+                std::int32_t previous = 0;
+                std::int32_t key;
 
                 handle->read_exact(&ignored, 1);
                 handle->read_exact(&typed->start_frame, 4);
                 handle->read_exact(&typed->end_frame, 4);
                 for (key = 0; key < 6; ++key) {
-                    int frame;
+                    std::int32_t frame;
                     float value;
                     srVector3T<float> vector;
 
@@ -161,13 +162,13 @@ try
                         frame = previous + 1;
                     }
                     if (typed->end_frame <= frame) {
-                        frame = static_cast<int>(typed->end_frame);
+                        frame = static_cast<std::int32_t>(typed->end_frame);
                     }
                     previous = frame;
                     typed->key_frames.push_back(frame);
                     typed->key_intensities.push_back(value);
                     typed->key_colors.push_back(vector);
-                    if (static_cast<int>(typed->key_frames.size()) == 1) {
+                    if (static_cast<std::int32_t>(typed->key_frames.size()) == 1) {
                         typed->frame_sums.push_back(frame);
                     } else {
                         typed->frame_sums.push_back(typed->frame_sums.back() + frame);
@@ -195,7 +196,7 @@ try
     }
 
     if (!animation->path_lists && version > 8) {
-        unsigned char has_path;
+        std::uint8_t has_path;
         handle->read_exact(&has_path, 1);
         if (has_path != 0) {
             W8PathAI* path = 0;
@@ -207,20 +208,20 @@ try
             path->animated = false;
             path->speed = animation->playback_scale;
             animation->path.reset(path);
-            animation->frame_count = static_cast<unsigned char>(path->nodes.size());
+            animation->frame_count = static_cast<std::uint8_t>(path->nodes.size());
         }
     }
     if (version > 9) {
-        unsigned char ignored;
+        std::uint8_t ignored;
         success = success && (handle->read(&ignored, 1).bytes == static_cast<std::size_t>(1));
     }
 
     if (!animation->path_lists) {
-        int mesh_index;
-        for (mesh_index = 0; mesh_index < static_cast<signed char>(animation->group_count);
+        std::int32_t mesh_index;
+        for (mesh_index = 0; mesh_index < static_cast<std::int8_t>(animation->group_count);
              ++mesh_index) {
             auto mesh = std::make_unique<W8AniMesh>();
-            signed char channel = 0;
+            std::int8_t channel = 0;
 
             success = success && (handle->read(&channel, 1).bytes == static_cast<std::size_t>(1));
             mesh->list_index = channel;
@@ -231,10 +232,10 @@ try
             }
         }
     } else {
-        int group;
-        for (group = 0; group < static_cast<signed char>(animation->group_count); ++group) {
-            signed char entry_count;
-            int entry;
+        std::int32_t group;
+        for (group = 0; group < static_cast<std::int8_t>(animation->group_count); ++group) {
+            std::int8_t entry_count;
+            std::int32_t entry;
             success = (handle->read(&entry_count, 1).bytes == static_cast<std::size_t>(1));
             if (!success) {
                 srAssertFail("fSuccess", ANIM_OBJ_CPP, 0x200, 0);
@@ -242,7 +243,7 @@ try
             for (entry = 0; entry < entry_count; ++entry) {
                 auto mesh = std::make_unique<W8AniMesh>();
                 W8PathAI* path = 0;
-                signed char channel;
+                std::int8_t channel;
                 const char* saved_filename;
 
                 if (!(handle->read(&channel, 1).bytes == static_cast<std::size_t>(1))) {
@@ -267,7 +268,7 @@ try
                 path->discrete_mode = true;
                 path->animated = false;
                 path->speed = animation->playback_scale;
-                animation->frame_count = static_cast<unsigned char>(path->nodes.size());
+                animation->frame_count = static_cast<std::uint8_t>(path->nodes.size());
             }
         }
     }
@@ -283,7 +284,7 @@ try
         if (mesh == 0) {
             animation->end_frame = animation->start_frame;
         } else if (!animation->path_lists) {
-            animation->end_frame = static_cast<unsigned char>(AniMeshValue(mesh) - 1);
+            animation->end_frame = static_cast<std::uint8_t>(AniMeshValue(mesh) - 1);
         } else {
             animation->end_frame = animation->frame_count - 1;
         }
@@ -302,7 +303,7 @@ W8AnimObj::W8AnimObj(const W8AnimObj& other)
       start_frame(other.start_frame), end_frame(other.end_frame), frame_count(other.frame_count),
       frame_bounds(other.frame_bounds)
 {
-    for (int group = 0; group < 3; ++group) {
+    for (std::int32_t group = 0; group < 3; ++group) {
         if (other.entries[group]) entries[group] = std::make_unique<W8AniMesh>(*other.entries[group]);
         meshes[group].reserve(other.meshes[group].size());
         for (const auto& mesh : other.meshes[group]) {
@@ -324,8 +325,8 @@ W8AnimObj::W8AnimObj(const W8AnimObj& other)
 /* Cache the frame's mesh bounds. Retail applies each path but merges the
    untransformed mesh boxes; the discarded transformed box is not part of the result. */
 // FUNCTION: WIZ8 0x004a1710
-std::optional<srBoundingBox> AnimObjGetBounds(W8AnimObj* animation, signed char list_index,
-                                            unsigned int frame)
+std::optional<srBoundingBox> AnimObjGetBounds(W8AnimObj* animation, std::int8_t list_index,
+                                            std::uint32_t frame)
 {
     if (!animation || list_index < 0 ||
         std::cmp_greater_equal(list_index, std::size(animation->entries)))
@@ -355,10 +356,10 @@ std::optional<srBoundingBox> AnimObjGetBounds(W8AnimObj* animation, signed char 
                 return std::nullopt;
             bounds->include(*mesh_bounds);
         }
-        auto* instance = AnimObjDispatchList(animation, list_index, static_cast<signed char>(index));
+        auto* instance = AnimObjDispatchList(animation, list_index, static_cast<std::int8_t>(index));
         if (!instance)
             return std::nullopt;
-        if (auto* path = AnimObjListEntry(animation, list_index, static_cast<signed char>(index))) {
+        if (auto* path = AnimObjListEntry(animation, list_index, static_cast<std::int8_t>(index))) {
             const float saved = PathAIGetValue(path);
             PathAISetValue(path, static_cast<float>(index));
             PathAIApply(path, static_cast<stModelInstance*>(instance));
@@ -392,7 +393,7 @@ void TransformBounds(const glm::mat3* rotation, const srVector3T<float>* transla
 /* While the object is inactive the selected owned entry supplies the value;
    once active, AnimObj keeps the live value in its own byte at 0x16. */
 // FUNCTION: WIZ8 0x004a15d0
-unsigned int AnimObjValue(W8AnimObj* animation, signed char index)
+std::uint32_t AnimObjValue(W8AnimObj* animation, std::int8_t index)
 {
     if (animation == 0) {
         srAssertFail("pao", ANIM_OBJ_CPP, 0x291, 0);
@@ -404,13 +405,13 @@ unsigned int AnimObjValue(W8AnimObj* animation, signed char index)
 }
 
 // FUNCTION: WIZ8 0x004a1620
-unsigned int AnimObjListCount(W8AnimObj* animation, signed char index)
+std::uint32_t AnimObjListCount(W8AnimObj* animation, std::int8_t index)
 {
     return animation->meshes[index].size();
 }
 
 // FUNCTION: WIZ8 0x004a16c0
-W8PathAI* AnimObjListEntry(W8AnimObj* animation, signed char list_index, signed char entry_index)
+W8PathAI* AnimObjListEntry(W8AnimObj* animation, std::int8_t list_index, std::int8_t entry_index)
 {
     if (animation == 0) {
         srAssertFail("pao", ANIM_OBJ_CPP, 0x2d3, 0);
@@ -435,7 +436,7 @@ bool AnimationIsRunning(W8AnimObj* animation)
 }
 
 // FUNCTION: WIZ8 0x004a14d0
-srModelInstance* AnimObjDispatch(W8AnimObj* animation, signed char list_index, unsigned char value)
+srModelInstance* AnimObjDispatch(W8AnimObj* animation, std::int8_t list_index, std::uint8_t value)
 {
     W8AniMesh* entry;
 
@@ -461,8 +462,8 @@ srModelInstance* AnimObjDispatch(W8AnimObj* animation, signed char list_index, u
 }
 
 // FUNCTION: WIZ8 0x004a1560
-srModelInstance* AnimObjDispatchList(W8AnimObj* animation, signed char list_index,
-                                     signed char entry_index)
+srModelInstance* AnimObjDispatchList(W8AnimObj* animation, std::int8_t list_index,
+                                     std::int8_t entry_index)
 {
     W8AniMesh* entry;
 
@@ -483,7 +484,7 @@ srModelInstance* AnimObjDispatchList(W8AnimObj* animation, signed char list_inde
 }
 
 // FUNCTION: WIZ8 0x004a1660
-W8AniMesh* AnimObjEntry(W8AnimObj* animation, signed char list_index, unsigned int entry_index)
+W8AniMesh* AnimObjEntry(W8AnimObj* animation, std::int8_t list_index, std::uint32_t entry_index)
 {
     if (animation == 0) {
         srAssertFail("pao", ANIM_OBJ_CPP, 0x2bd, 0);
@@ -509,12 +510,12 @@ stLightDefinition::~stLightDefinition() = default;
 stLightDefinition* stKeyframedLightDefinition::Clone() const
 {
     stKeyframedLightDefinition* copy = new stKeyframedLightDefinition;
-    int index;
+    std::int32_t index;
 
     if (copy == 0) {
         srAssertFail("pNew", "..\\Engine Code\\Include\\stLight.hpp", 0x93, 0);
     }
-    for (index = 0; index < static_cast<int>(key_frames.size()); ++index) {
+    for (index = 0; index < static_cast<std::int32_t>(key_frames.size()); ++index) {
         copy->frame_sums.push_back(frame_sums[index]);
         copy->key_frames.push_back(key_frames[index]);
         copy->key_intensities.push_back(key_intensities[index]);
@@ -528,7 +529,7 @@ stLightDefinition* stKeyframedLightDefinition::Clone() const
 }
 
 // FUNCTION: WIZ8 0x004a2580
-bool stKeyframedLightDefinition::IsEnabledForSubcycle(unsigned char subcycle)
+bool stKeyframedLightDefinition::IsEnabledForSubcycle(std::uint8_t subcycle)
 {
     if (key_frames[0] <= time && time <= key_frames.back()) {
         return true;

@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <catch2/catch_test_macros.hpp>
 #include <SDL3/SDL_iostream.h>
 #include <SDL3/SDL_properties.h>
@@ -91,8 +92,8 @@ TEST_CASE("binary_io_test")
     catch (const std::exception&) { rejected = true; }
     REQUIRE(rejected);
     REQUIRE(bits.peekByte() == 0); // Padding is for lookahead, not consumption.
-    for (const auto rewind : {w8_long(-1), std::numeric_limits<w8_long>::min(),
-                             w8_long(17), std::numeric_limits<w8_long>::max()}) {
+    for (const auto rewind : {std::int32_t(-1), std::numeric_limits<std::int32_t>::min(),
+                             std::int32_t(17), std::numeric_limits<std::int32_t>::max()}) {
         rejected = false;
         try { bits.rewind(rewind); } catch (const std::out_of_range&) { rejected = true; }
         REQUIRE((rejected && bits.peekByte() == 0));
@@ -115,7 +116,7 @@ TEST_CASE("binary_io_test")
     long_bits[127] = 0x81; long_bits[128] = 0x42; long_bits[129] = 0xff;
     auto long_input = srIO::own(SDL_IOFromConstMem(long_bits.data(), long_bits.size()));
     srHuffman::BitIStream long_reader(long_input.get());
-    for (unsigned i = 0; i < 127; ++i) REQUIRE(long_reader.get(8) == 0);
+    for (std::uint32_t i = 0; i < 127; ++i) REQUIRE(long_reader.get(8) == 0);
     REQUIRE(long_reader.get(24) == 0xff4281);
     long_reader.rewind(24);
     REQUIRE((long_reader.get(24) == 0xff4281 && long_reader.peekByte() == 0));

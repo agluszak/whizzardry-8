@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -116,7 +117,7 @@ bool Trynnie2MeatBox(Trigger* pTrigger)
 {
     W8MonsterGroup* group;
     W8MonsterInfo* info;
-    int item_id;
+    std::int32_t item_id;
 
     group = FindFirstMonsterByID(0x1d4);
     if (group == 0 || !g_status.item_in_cursor) {
@@ -192,7 +193,7 @@ bool Trynnie2UseItem(W8ItemInstance* item)
 bool Trynnie2UrnTrigger(Trigger* pTrigger)
 {
     MonGen* generator;
-    unsigned int count;
+    std::uint32_t count;
 
     count = 0;
     if (GetLocationVarValueByName("Urn1") > 0) {

@@ -19,20 +19,20 @@ static void checkConsumers()
 {
     // First-seen symbol order, repeated symbols (including index zero), and
     // enough distinct values to grow/rehash the lookup several times.
-    std::vector<w8_ulong> values;
+    std::vector<std::uint32_t> values;
     srHuffman::Sampler sampler;
-    for (w8_ulong i = 0; i < 512; ++i) {
+    for (std::uint32_t i = 0; i < 512; ++i) {
         const auto symbol = i * 1024;
         values.push_back(symbol);
         sampler.insert(symbol);
     }
-    for (w8_ulong i = 0; i < 1024; ++i) {
+    for (std::uint32_t i = 0; i < 1024; ++i) {
         const auto symbol = (i % 7) * 1024;
         values.push_back(symbol);
         sampler.insert(symbol);
     }
     REQUIRE(sampler.getNumSymbols() == 512);
-    for (w8_ulong i = 0; i < 512; ++i) {
+    for (std::uint32_t i = 0; i < 512; ++i) {
         REQUIRE(sampler.getSymbolValue(i) == i * 1024);
         REQUIRE(sampler.getSymbolFrequency(i) == 1 + (i < 7 ? 146 + (i < 2) : 0));
     }
@@ -50,7 +50,7 @@ static void checkConsumers()
     const auto size = SDL_GetIOSize(io.get());
     const auto* bytes = static_cast<const Uint8*>(SDL_GetPointerProperty(
         SDL_GetIOProperties(io.get()), SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr));
-    uint64_t hash = 14695981039346656037ull;
+    std::uint64_t hash = 14695981039346656037ull;
     for (Sint64 i = 0; i < size; ++i) hash = (hash ^ bytes[i]) * 1099511628211ull;
     // Captured before replacing srHashTable; protects tie-breaking and wire bytes.
     REQUIRE((size == 2470 && hash == 9655952702272475046ull));
@@ -68,11 +68,11 @@ static void checkConsumers()
         void setupDefaultValues() override {}
     } textures[2];
     srGERD::Renderer::TextureSetKey key{nullptr, nullptr, {}};
-    for (w8_ulong i = 0; i < 512; ++i) {
+    for (std::uint32_t i = 0; i < 512; ++i) {
         key.shader.value = i;
         REQUIRE(cache.intern(key) == i);
     }
-    for (w8_ulong i = 0; i < 512; ++i) {
+    for (std::uint32_t i = 0; i < 512; ++i) {
         key.shader.value = i;
         REQUIRE(cache.intern(key) == i);
         REQUIRE(cache.sets[i].shader.value == i);

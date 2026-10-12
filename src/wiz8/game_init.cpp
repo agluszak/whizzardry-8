@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <cstring>
 #include <optional>
 #include <string>
@@ -40,7 +41,7 @@
  */
 
 // FUNCTION: WIZ8 0x004e2f40
-unsigned char InitializeGame(size_t& initialized_screens)
+std::uint8_t InitializeGame(size_t& initialized_screens)
 {
     const auto version = FormatVersionBanner(true, true, true);
     bool ok;
@@ -53,7 +54,7 @@ unsigned char InitializeGame(size_t& initialized_screens)
     g_current_screen_state.id = W8_SCREEN_NONE;
     g_pending_screen_state.id = W8_SCREEN_NONE;
     g_screen_return_stack.clear();
-    for (int screen = 0; screen < W8_SCREEN_COUNT; ++screen) {
+    for (std::int32_t screen = 0; screen < W8_SCREEN_COUNT; ++screen) {
         initialized_screens = screen + 1;
         if (!g_screen_handlers[screen].initialize()) {
             return 0;
@@ -112,7 +113,7 @@ unsigned char InitializeGame(size_t& initialized_screens)
     if (!InitializeMusicPlaylist()) {
         return 0;
     }
-    ok = static_cast<unsigned char>(0x4000000 < GetTotalPhysicalMemory());
+    ok = static_cast<std::uint8_t>(0x4000000 < GetTotalPhysicalMemory());
     g_texture_cache_enabled = ok;
     return 1;
 }

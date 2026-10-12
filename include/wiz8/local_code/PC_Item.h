@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <string>
 #pragma once
 
@@ -23,76 +24,76 @@ extern W8Skill g_item_spell_presentation[11];
 /* The paper-doll icon of each of the twelve equipment slots. The
    two alternate-set hand slots have none, which is exactly the value the
    bound-item predicates refuse to hold a binding behind. */
-extern int g_equip_slot_icons[12];
-int GetItemInHand(void);
+extern std::int32_t g_equip_slot_icons[12];
+std::int32_t GetItemInHand(void);
 
 void SetHandType(W8Character* character, W8EquipSlot equip_slot);
-unsigned int GetEquipmentBindingDifficulty(int character_index);
-bool CompatiblePartnerItems(int weapon_item_id, int off_hand_item_id);
-bool ItemUsesShots(int item_id);
+std::uint32_t GetEquipmentBindingDifficulty(std::int32_t character_index);
+bool CompatiblePartnerItems(std::int32_t weapon_item_id, std::int32_t off_hand_item_id);
+bool ItemUsesShots(std::int32_t item_id);
 W8EquipSlot GetPairedEquipSlot(W8EquipSlot equip_slot);
 std::string GetItemDisplayName(const W8ItemInstance* item);
 
-bool ItemHasSingledOutGenericName(int item_id);
+bool ItemHasSingledOutGenericName(std::int32_t item_id);
 
 enum { W8_GENERIC_ITEM_NAME_COUNT = 147 };
 /* The per-item-class notice index. */
-extern unsigned short g_generic_item_name_notice[W8_GENERIC_ITEM_NAME_COUNT];
+extern std::uint16_t g_generic_item_name_notice[W8_GENERIC_ITEM_NAME_COUNT];
 /* One lazily built generic name per unidentified-name index. */
 extern std::string g_generic_item_names[W8_GENERIC_ITEM_NAME_COUNT];
 /* The message ids for what an item use did, read at every other entry; the
    last six are the item property labels. */
 enum { W8_ITEM_PROPERTY_MESSAGE_FIRST = 19 };
-extern unsigned short g_item_use_messages[25];
+extern std::uint16_t g_item_use_messages[25];
 
 bool AddItemToParty(W8ItemInstance* item, bool announce, bool skip_stacking);
 bool AddItemToPartyOrDrop(W8ItemInstance* item, bool announce);
 bool AddItemToCharacter(W8Character* character, W8ItemInstance* item, bool equip_if_possible,
                         bool announce, bool skip_stacking);
-void GetOriginOfCharacterItem(int character_index, W8ItemInstance* item, unsigned char* origin,
-                              unsigned short* slot);
+void GetOriginOfCharacterItem(std::int32_t character_index, W8ItemInstance* item, std::uint8_t* origin,
+                              std::uint16_t* slot);
 
 void UnequipUnusableItems(W8Character* character);
 void EmptyItemRecord(W8ItemInstance* item, W8Character* character, bool refresh);
 void EmptyAllCarriedItems(W8Character* character);
 bool TryIdentifyItemFor(W8Character* character, W8ItemInstance* item);
-int GetItemSpell(const W8ItemInstance* item);
+std::int32_t GetItemSpell(const W8ItemInstance* item);
 W8RangeCategory GetItemSpellRange(const W8ItemInstance* item);
-void ApplyIdentifyAttempt(W8ItemInstance* item, unsigned int strength, unsigned int percent);
+void ApplyIdentifyAttempt(W8ItemInstance* item, std::uint32_t strength, std::uint32_t percent);
 /* Reveal one character's worn bindings; 0 none bound, 1 some
    still hidden, 2 all revealed. */
-int RevealCharacterItemBindings(unsigned int party_slot, int strength, unsigned int percent);
+std::int32_t RevealCharacterItemBindings(std::uint32_t party_slot, std::int32_t strength, std::uint32_t percent);
 std::string FormatItemDisplayName(const W8ItemInstance* item, bool include_quantity);
-unsigned int GetItemStackValue(const W8ItemInstance* item);
-bool FindItemOnCharacter(W8Character* character, int item_id, W8ItemInstance** found,
-                         int include_backpack, const W8ItemInstance* resume_after);
+std::uint32_t GetItemStackValue(const W8ItemInstance* item);
+bool FindItemOnCharacter(W8Character* character, std::int32_t item_id, W8ItemInstance** found,
+                         std::int32_t include_backpack, const W8ItemInstance* resume_after);
 /* The whole-party counterpart. It tests the item in hand and the
    party item pool as well as the character slots, and reports which character
    held the match through the second output. */
-bool FindItemOnParty(int item_id, W8ItemInstance** found, W8Character** found_character,
-                     int include_backpack, const W8ItemInstance* resume_after);
+bool FindItemOnParty(std::int32_t item_id, W8ItemInstance** found, W8Character** found_character,
+                     std::int32_t include_backpack, const W8ItemInstance* resume_after);
 /* The whole-party item count; the pool joins the scan when the
    caller asks for it. */
-unsigned int CountItemOnParty(int item_id, W8ItemInstance** found, W8Character** first_holder,
-                              int include_backpack);
+std::uint32_t CountItemOnParty(std::int32_t item_id, W8ItemInstance** found, W8Character** first_holder,
+                              std::int32_t include_backpack);
 /* Whether every occupied party slot carries one item. */
-bool EveryCharacterHasItem(int item_id, int include_backpack);
-unsigned int GetItemUnitWeight(const W8ItemInstance* item);
-unsigned int GetItemStackWeight(const W8ItemInstance* item);
-unsigned char GetItemEquipClass(const W8ItemInstance* item);
-W8EquipSlot GetItemDefaultEquipSlot(int item_id);
+bool EveryCharacterHasItem(std::int32_t item_id, std::int32_t include_backpack);
+std::uint32_t GetItemUnitWeight(const W8ItemInstance* item);
+std::uint32_t GetItemStackWeight(const W8ItemInstance* item);
+std::uint8_t GetItemEquipClass(const W8ItemInstance* item);
+W8EquipSlot GetItemDefaultEquipSlot(std::int32_t item_id);
 W8Skill GetItemSpellPresentation(const W8ItemDatabaseRecord* record);
-unsigned short GetItemEquipSlotMask(int item_id, bool primary_off_hand_free,
+std::uint16_t GetItemEquipSlotMask(std::int32_t item_id, bool primary_off_hand_free,
                                     bool alternate_off_hand_free, bool primary_main_hand_free,
                                     bool alternate_main_hand_free);
-void CreateItemIntoHandOrPool(int item_id, bool quality);
-void AddPartyGold(int amount, bool announce);
+void CreateItemIntoHandOrPool(std::int32_t item_id, bool quality);
+void AddPartyGold(std::int32_t amount, bool announce);
 
 void CopyItemInstance(W8ItemInstance* destination, W8ItemInstance* source, W8Character* character,
                       bool refresh);
 void SortPartyItemPool(void);
 void RefreshAfterItemRecordChange(W8ItemInstance* item, W8Character* character, bool refresh);
-void ReplaceOrCreateItem(W8ItemInstance* item, int item_id, bool maximum_quantity,
+void ReplaceOrCreateItem(W8ItemInstance* item, std::int32_t item_id, bool maximum_quantity,
                          bool force_identified, bool mark_special);
 void SwapItemInstances(W8ItemInstance* item, W8ItemInstance* destination, W8Character* character,
                        bool refresh);
@@ -104,22 +105,22 @@ void DeliverExceptionalItemReaction(W8ItemInstance* item, bool choose_character,
                                     W8Character* character);
 /* How many of one item a character holds, counting a stack as its count and
    anything else as one, and optionally reporting the first slot it is in. */
-int CountItemOnCharacter(W8Character* character, int item_id, W8ItemInstance** first,
-                         int include_backpack);
+std::int32_t CountItemOnCharacter(W8Character* character, std::int32_t item_id, W8ItemInstance** first,
+                         std::int32_t include_backpack);
 /* Move the departing character's soul-bound equipment to the
    party pool or the held-item display before the slot is released. */
 void StashDepartingCharacterItems(W8Character* character);
-void StagePartySlotItemUse(int party_slot, W8ItemInstance* item, const W8CombatSlot* target);
-bool PartyAttemptsToIdentifyItem(W8ItemInstance* item, int);
+void StagePartySlotItemUse(std::int32_t party_slot, W8ItemInstance* item, const W8CombatSlot* target);
+bool PartyAttemptsToIdentifyItem(W8ItemInstance* item, std::int32_t);
 
 bool CanItemLeaveItsSlot(const W8ItemInstance* item);
 bool IsItemWornByCharacter(W8Character* character, const W8ItemInstance* item);
 bool IsItemCarriedByCharacter(W8Character* character, const W8ItemInstance* item);
-bool DropItemInHand(int unused);
+bool DropItemInHand(std::int32_t unused);
 void BindEquippedItem(W8Character* character, W8EquipSlot equip_slot);
 bool CanUnequipSlotItem(const W8Character* character, W8EquipSlot equip_slot);
 bool AreAllHandSlotsEmpty(const W8Character* character);
-bool CanEquipItemInSlot(W8Character* character, int item_id, unsigned char equip_slot,
+bool CanEquipItemInSlot(W8Character* character, std::int32_t item_id, std::uint8_t equip_slot,
                         bool ignore_worn_items);
 /* Merges the held stack into one existing stack, announcing on
    refusal. */
@@ -129,7 +130,7 @@ bool MergeItems(W8Character* character, W8ItemInstance* item);
 bool ItemsShareEquipClass(const W8ItemInstance* first, const W8ItemInstance* second);
 bool ItemsShareUnidentifiedName(const W8ItemInstance* first, const W8ItemInstance* second);
 
-bool CanCharacterUseItem(const W8Character* character, int item_id);
+bool CanCharacterUseItem(const W8Character* character, std::int32_t item_id);
 
 /* Equip-slot bucket used by the items-page realm filters: body locations are
    Head/Torso/Feet/Legs/Hands, accessory slots are Misc #1/#2 and Cloak, and
@@ -140,98 +141,98 @@ enum W8ItemEquipSlotGroup {
     W8_ITEM_EQUIP_GROUP_ACCESSORY = 4,
     W8_ITEM_EQUIP_GROUP_OTHER = 5
 };
-W8ItemEquipSlotGroup GetItemEquipSlotGroup(int item_id);
+W8ItemEquipSlotGroup GetItemEquipSlotGroup(std::int32_t item_id);
 
-unsigned int CountIdentifyAttemptsNeeded(W8ItemInstance* item, unsigned int percent);
+std::uint32_t CountIdentifyAttemptsNeeded(W8ItemInstance* item, std::uint32_t percent);
 
 bool ItemClassNormalizesTarget(const W8ItemDatabaseRecord* record);
 
 bool StoreItemWithCharacterOrParty(W8Character* character, W8ItemInstance* item, bool party_first,
                                    bool announce, bool equip_if_possible);
-bool ItemHasHiddenProperties(int item_id);
+bool ItemHasHiddenProperties(std::int32_t item_id);
 /* Find the first equipped, or optionally carried, item with a matching
    unidentified database name kind. */
-bool FindCharacterItemByDatabaseKind(W8Character* character, short item_kind, W8ItemInstance** out,
-                                     int include_backpack);
+bool FindCharacterItemByDatabaseKind(W8Character* character, std::int16_t item_kind, W8ItemInstance** out,
+                                     std::int32_t include_backpack);
 
 /* Per-item-class notice index into g_localized_strings used for the
    unidentified ("Uncursed item" style) display name. */
-unsigned short GetItemUnidentifiedNameIndex(const W8ItemInstance* item);
+std::uint16_t GetItemUnidentifiedNameIndex(const W8ItemInstance* item);
 
 /* Gold price of a stack in the active trade context. price_kind uses
    W8TradePriceKind values. */
-int CalculateTradeStackPrice(W8NpcState* npc, W8ItemInstance* item, char price_kind);
+std::int32_t CalculateTradeStackPrice(W8NpcState* npc, W8ItemInstance* item, char price_kind);
 /* Whether any occupied, conscious party member can use the item. */
-bool AnyPartyMemberCanUseItem(int item_id);
+bool AnyPartyMemberCanUseItem(std::int32_t item_id);
 
-extern unsigned char g_party_has_slope_override_item;
+extern std::uint8_t g_party_has_slope_override_item;
 
-void BindCharacterItems(int party_slot, bool announce);
+void BindCharacterItems(std::int32_t party_slot, bool announce);
 /* Whether an item is bound to whoever is wearing it, which is what stops it
    being taken off or swapped away. */
 bool IsItemBoundToWearer(const W8ItemInstance* item);
-W8ItemInstance* FindCharacterItemAt(int party_slot, unsigned char origin, unsigned short slot);
+W8ItemInstance* FindCharacterItemAt(std::int32_t party_slot, std::uint8_t origin, std::uint16_t slot);
 void RemoveCharacterItem(W8Character* character, W8ItemInstance* item, bool remove_exhausted);
-bool RemovePartyItemByID(int item_id, bool remove_all);
+bool RemovePartyItemByID(std::int32_t item_id, bool remove_all);
 
-bool CanUseItemForAction(int party_slot, const W8ItemInstance* item);
+bool CanUseItemForAction(std::int32_t party_slot, const W8ItemInstance* item);
 
 /* Camp item operations: paired hand compatibility, merge-kind lookup, and
    insertion into the party's item pool. */
-bool GetItemMergeKind(int item_id, short* related_kind);
-bool HeldItemFitsPairedSlot(int party_slot, W8EquipSlot equip_slot);
-bool InsertItemIntoPartyPool(W8ItemInstance* item, int index);
-W8EquipSlot ChooseCharacterEquipSlot(W8Character* character, int item_id);
+bool GetItemMergeKind(std::int32_t item_id, std::int16_t* related_kind);
+bool HeldItemFitsPairedSlot(std::int32_t party_slot, W8EquipSlot equip_slot);
+bool InsertItemIntoPartyPool(W8ItemInstance* item, std::int32_t index);
+W8EquipSlot ChooseCharacterEquipSlot(W8Character* character, std::int32_t item_id);
 
 /* Fill an equipment slot from the item that pairs with the given
    one - the alternate hand when its own item is compatible, otherwise the
    named item found anywhere on the character. */
-void EquipMatchingPartnerItem(W8Character* character, W8ItemInstance* item, int item_id,
+void EquipMatchingPartnerItem(W8Character* character, W8ItemInstance* item, std::int32_t item_id,
                               W8EquipSlot equip_slot);
 void MergeMatchingPartnerItem(W8Character* character, W8ItemInstance* item);
 
 /* Hand one item to a party member, preferring the character or the
    party pool according to the flag exactly as StoreItemWithCharacterOrParty
    does, and then consume the source record. */
-bool GiveItemToCharacterOrParty(int uiChar, W8ItemInstance* item, bool party_first);
+bool GiveItemToCharacterOrParty(std::int32_t uiChar, W8ItemInstance* item, bool party_first);
 
 /* The item-in-hand form of the same store, reached from the
    portrait screen, after the whole party has had its identification attempt. */
-bool GiveHeldItemToCharacterOrParty(int uiChar, bool party_first);
+bool GiveHeldItemToCharacterOrParty(std::int32_t uiChar, bool party_first);
 
 /* Use one item as a character's action. `out_uses` receives the
    fatigue cost of the attempt, or -1 when nothing was attempted. */
-unsigned char UseItem(W8Character* character, W8ItemInstance* item, int* out_uses);
+std::uint8_t UseItem(W8Character* character, W8ItemInstance* item, std::int32_t* out_uses);
 
 /* How hard one attempt at an item's spell is for a character of this skill
    level. */
-unsigned int GetItemUseDifficulty(const W8Character* character, W8Skill skill,
-                                  unsigned int skill_level, unsigned int spell_id,
-                                  unsigned int power);
-int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int power);
+std::uint32_t GetItemUseDifficulty(const W8Character* character, W8Skill skill,
+                                  std::uint32_t skill_level, std::uint32_t spell_id,
+                                  std::uint32_t power);
+std::int32_t CastItemSpell(W8Character* character, W8ItemInstance* item, std::uint32_t power);
 
 void AimItemUseAtCurrentTarget(W8Character* character, W8ItemInstance* item);
-bool SwapWeaponSetSlots(int party_slot, bool announce, bool refresh);
+bool SwapWeaponSetSlots(std::int32_t party_slot, bool announce, bool refresh);
 void SplitThrowableStackBetweenHands(W8Character* character, W8EquipSlot equip_slot);
-void RemovePartyPoolEntry(unsigned int index);
-bool FindItemByDatabaseKindOnParty(unsigned short item_kind, W8ItemInstance** found,
-                                   W8Character** found_character, int include_backpack);
-void EmptyBackpackSlot(W8Character* character, int slot);
-void EmptyPartyPoolEntry(int index);
+void RemovePartyPoolEntry(std::uint32_t index);
+bool FindItemByDatabaseKindOnParty(std::uint16_t item_kind, W8ItemInstance** found,
+                                   W8Character** found_character, std::int32_t include_backpack);
+void EmptyBackpackSlot(W8Character* character, std::int32_t slot);
+void EmptyPartyPoolEntry(std::int32_t index);
 void UpgradeProfessionClassItem(W8Character* character);
 
-int __cdecl CompareItemsForPool(const void* first, const void* second);
+std::int32_t __cdecl CompareItemsForPool(const void* first, const void* second);
 void UpdateGadgeteerOmnigun(W8Character* character);
 void BindEveryPartyItem(void);
 /* Whether the item's equip class is directly usable (0x17/0x19). */
 bool IsUsableItemClass(W8ItemInstance* item);
 /* Validate an item's embedded spell for use now; nonzero reports
    use blocked with the reason notice queued through the callback. */
-bool ValidateItemSpellUse(int character_index, W8ItemInstance* item,
+bool ValidateItemSpellUse(std::int32_t character_index, W8ItemInstance* item,
                           W8DialogDestroyCallback callback);
 bool CharacterHasServiceItem(W8Character* character);
-int CountUsableCharacterItems(W8Character* character);
+std::int32_t CountUsableCharacterItems(W8Character* character);
 /* Take gold from the party, clamping at zero. */
-void SpendPartyGold(unsigned int amount);
+void SpendPartyGold(std::uint32_t amount);
 /* Add recharge uses to a stackable item (hourly tick, item 0x266). */
 void AddItemUses(W8ItemInstance* item, char uses);

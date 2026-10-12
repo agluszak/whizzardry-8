@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <optional>
 #include "glm/ext/vector_float4.hpp"
 
@@ -71,11 +72,11 @@ template<class ConfigureSide, class ShaderAt>
 void drawSides(srGERD& renderer, const srMeshModel::TriMesh& mesh,
                ConfigureSide configure, ShaderAt shaderAt)
 {
-    for (w8_long side = 1; side >= 0; --side) {
+    for (std::int32_t side = 1; side >= 0; --side) {
         if ((mesh.control_flags & (1u << side)) == 0) continue;
         auto& pipeline = srTriMeshPipeline::beginMesh(renderer, mesh);
         const auto material_side = configure(pipeline, side);
-        for (w8_long pass = 0; pass < mesh.pass_count; ++pass)
+        for (std::int32_t pass = 0; pass < mesh.pass_count; ++pass)
             pipeline.AppendMeshPass(mesh, pass, material_side, shaderAt(pass));
         pipeline.FlushIfCurrent();
     }

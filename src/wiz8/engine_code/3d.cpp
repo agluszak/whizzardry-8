@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <algorithm>
 #include <ranges>
 #include "surrender/plane_math.h"
@@ -64,9 +65,9 @@ void UpdateWorldMonsters(W8World* world)
     srVector3T<float> position;
     position = camera_location;
 
-    unsigned int count = world->plsMonsters.size();
+    std::uint32_t count = world->plsMonsters.size();
     UpdateNearestMonsterGroupMembers();
-    for (int index = 0; index < static_cast<int>(count); ++index) {
+    for (std::int32_t index = 0; index < static_cast<std::int32_t>(count); ++index) {
         W8Monster* monster = world->plsMonsters[index];
         if (monster != 0) {
             monster->DetachRepresentation(world);
@@ -85,8 +86,8 @@ void DetachWorldItemMeshes(W8World* world)
     if (world == 0) {
         srAssertFail("pWorld", THREE_D_CPP, 0x135, 0);
     }
-    unsigned int count = world->plsItems.size();
-    for (int index = 0; index < static_cast<int>(count); ++index) {
+    std::uint32_t count = world->plsItems.size();
+    for (std::int32_t index = 0; index < static_cast<std::int32_t>(count); ++index) {
         W8Item* item = world->plsItems[index];
         if (item != 0) {
             item->DetachMesh(world);
@@ -133,7 +134,7 @@ void FinalizeStaticScene(srScene* scene)
    light. "Sun"-prefixed lights bake into the sunlight array instead and are
    skipped here. `walk_chain` limits the light walk to the first sibling. */
 // FUNCTION: WIZ8 0x0046E8A0
-unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* lights, bool walk_chain)
+std::uint8_t BakeInstanceVertexLighting(stModelInstance* instance, srNode* lights, bool walk_chain)
 {
     auto world = instance->getWorldSpaceMatrix<glm::mat4>();
     const auto normal_matrix = glm::transpose(glm::inverse(glm::mat3(world)));
@@ -163,7 +164,7 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
         world_vertices.resize(count);
         world_normals.resize(count);
         material_colors.resize(count);
-        for (int i = 0; i < count; ++i) {
+        for (std::int32_t i = 0; i < count; ++i) {
             world_vertices[i] = glm::vec3(world * glm::vec4(vertices[i], 1));
             world_normals[i] = normalizedOrZero(normal_matrix * normals[i]);
             auto* material =
@@ -183,7 +184,7 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
             if (!box.overlaps({position - range, position + range}))
                 continue;
             mesh->flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
-            for (int i = 0; i < count; ++i) {
+            for (std::int32_t i = 0; i < count; ++i) {
                 const auto direction = world_vertices[i] - position;
                 const float distance = glm::length(direction);
                 if (distance > range)
@@ -204,7 +205,7 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
    instance under one static-scene subtree. render_flags bit 1 is the instance's
    own lit marker; the child-chain exclusion update uses the shared helper. */
 // FUNCTION: WIZ8 0x0046F410
-unsigned char FinalizeWorldScenes(srNode* node, srNode* dynamic_scene)
+std::uint8_t FinalizeWorldScenes(srNode* node, srNode* dynamic_scene)
 {
     for (; node != 0; node = node->next_sibling_) {
         if (node->first_child_ != 0) {
@@ -220,7 +221,7 @@ unsigned char FinalizeWorldScenes(srNode* node, srNode* dynamic_scene)
 /* Bake dynamic-scene lights into one not-yet-lit model instance. render_flags
    bit 1 is the lit marker. */
 // FUNCTION: WIZ8 0x0046F4A0
-unsigned char BakeInstanceVertexLightingIfNeeded(stModelInstance* instance, srNode* dynamic_scene)
+std::uint8_t BakeInstanceVertexLightingIfNeeded(stModelInstance* instance, srNode* dynamic_scene)
 {
     srNode* lights = dynamic_scene->first_child_;
 
@@ -236,7 +237,7 @@ unsigned char BakeInstanceVertexLightingIfNeeded(stModelInstance* instance, srNo
    there is no octree) and point its vertex-light table index at `table`, then
    raise flags bit 1 so the next bake uses that table. */
 // FUNCTION: WIZ8 0x0046F760
-void SetWorldMeshVertexLightTable(W8World* world, int table)
+void SetWorldMeshVertexLightTable(W8World* world, std::int32_t table)
 {
     if (world->octree == 0) {
         for (stMeshModel* model : stMeshModel::Meshes(static_cast<stMeshModel*>(world->update_mesh_source->getModel()))) {
@@ -244,7 +245,7 @@ void SetWorldMeshVertexLightTable(W8World* world, int table)
             model->flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
         }
     } else {
-        for (unsigned int mesh = 0; mesh < world->octree->m_meshCount; ++mesh) {
+        for (std::uint32_t mesh = 0; mesh < world->octree->m_meshCount; ++mesh) {
             srModelInstance* instance = world->psrMeshes[mesh];
             if (instance != 0) {
                 for (stMeshModel* model : stMeshModel::Meshes(static_cast<stMeshModel*>(instance->getModel()))) {
@@ -420,15 +421,15 @@ void ConfigureWorldLight(srLight* light, float range)
 // FUNCTION: WIZ8 0x0046ded0
 void WorldUpdateProps(W8World* world)
 {
-    int count;
-    int index;
+    std::int32_t count;
+    std::int32_t index;
     W8Prop* prop;
 
     if (!world) {
         srAssertFail("pWorld", "C:\\Projects\\Wizardry 8\\Engine Code\\3d.cpp",
                      0x158, 0);
     }
-    count = static_cast<int>(world->plsProps.size());
+    count = static_cast<std::int32_t>(world->plsProps.size());
     for (index = 0; index < count; index++) {
         prop = GetWorldProp(world, index);
         if (prop) {
@@ -442,9 +443,9 @@ void WorldUpdateProps(W8World* world)
 // FUNCTION: WIZ8 0x0046df50
 void WorldUpdateLights(W8World* world)
 {
-    int count = static_cast<int>(world->lights_to_update.size());
+    std::int32_t count = static_cast<std::int32_t>(world->lights_to_update.size());
 
-    for (int index = 0; index < count; ++index) {
+    for (std::int32_t index = 0; index < count; ++index) {
         world->lights_to_update[index]->Update();
     }
 }
@@ -469,22 +470,22 @@ void RemoveItemFromWorld(W8World*, W8Item* item)
    discarded by the wrapper itself, which is what makes these thin forwarders
    rather than accessors. */
 // FUNCTION: WIZ8 0x0046e600
-int WorldGetPropCount(W8World*) { return g_world->plsProps.size(); }
+std::int32_t WorldGetPropCount(W8World*) { return g_world->plsProps.size(); }
 
 // FUNCTION: WIZ8 0x0046e620
-W8Prop* WorldGetPropAt(W8World*, int index)
+W8Prop* WorldGetPropAt(W8World*, std::int32_t index)
 {
     return GetWorldProp(g_world, index);
 }
 
 // FUNCTION: WIZ8 0x0046e860
-void SetWorldSceneMeshShaderLowBits(W8World* owner, int argument)
+void SetWorldSceneMeshShaderLowBits(W8World* owner, std::int32_t argument)
 {
     SetSceneMeshShaderLowBits(owner->static_scene, argument);
 }
 
 // FUNCTION: WIZ8 0x0046e880
-void SetWorldSceneMeshShaderBit3(W8World* owner, int argument)
+void SetWorldSceneMeshShaderBit3(W8World* owner, std::int32_t argument)
 {
     SetSceneMeshShaderBit3(owner->static_scene, argument);
 }
@@ -493,7 +494,7 @@ void SetWorldSceneMeshShaderBit3(W8World* owner, int argument)
    every model instance; the instance's flags bit zero selects the off
    state. */
 // FUNCTION: WIZ8 0x0046e640
-void SetSceneMeshShaderBit3(srNode* node, int argument)
+void SetSceneMeshShaderBit3(srNode* node, std::int32_t argument)
 {
     srShader shader;
     for (; node != 0; node = node->next_sibling_) {
@@ -511,11 +512,11 @@ void SetSceneMeshShaderBit3(srNode* node, int argument)
                     }
                     mesh->setShader(shader, 0);
                 } else if (clear) {
-                    for (w8_long index = 0; index < mesh->polygon_count; ++index) {
+                    for (std::int32_t index = 0; index < mesh->polygon_count; ++index) {
                         polygon_shader[index].value &= ~srShader::MASK_DEPTH_WRITE;
                     }
                 } else {
-                    for (w8_long index = 0; index < mesh->polygon_count; ++index) {
+                    for (std::int32_t index = 0; index < mesh->polygon_count; ++index) {
                         polygon_shader[index].value |= srShader::MASK_DEPTH_WRITE;
                     }
                 }
@@ -530,7 +531,7 @@ void SetSceneMeshShaderBit3(srNode* node, int argument)
 /* The sibling walker that leaves PASS bit 2 clear and writes the low three
    bits: PASS_ALWAYS when the argument is zero, otherwise PASS_LEQUAL. */
 // FUNCTION: WIZ8 0x0046e750
-void SetSceneMeshShaderLowBits(srNode* node, int argument)
+void SetSceneMeshShaderLowBits(srNode* node, std::int32_t argument)
 {
     srShader shader;
     for (; node != 0; node = node->next_sibling_) {
@@ -549,11 +550,11 @@ void SetSceneMeshShaderLowBits(srNode* node, int argument)
                     }
                     mesh->setShader(shader, 0);
                 } else if (argument == 0) {
-                    for (w8_long index = 0; index < mesh->polygon_count; ++index) {
+                    for (std::int32_t index = 0; index < mesh->polygon_count; ++index) {
                         polygon_shader[index].value |= srShader::PASS_ALWAYS;
                     }
                 } else {
-                    for (w8_long index = 0; index < mesh->polygon_count; ++index) {
+                    for (std::int32_t index = 0; index < mesh->polygon_count; ++index) {
                         polygon_shader[index].value =
                             (polygon_shader[index].value & 0xfffffffb) | srShader::PASS_LEQUAL;
                     }
@@ -567,7 +568,7 @@ void SetSceneMeshShaderLowBits(srNode* node, int argument)
 }
 
 // FUNCTION: WIZ8 0x0046f4f0
-void SetModelInstanceChainExclusionMask(srModelInstance* node, int value)
+void SetModelInstanceChainExclusionMask(srModelInstance* node, std::int32_t value)
 {
     for (; node != 0; node = static_cast<srModelInstance*>(node->first_child_)) {
         node->setExclusionMask(value);
@@ -668,7 +669,7 @@ bool PointInsideFrustum(const glm::vec3& point, std::span<const W8Plane, 6> plan
    coordinate toggles the inside flag when its interpolation crosses the
    first. */
 // FUNCTION: WIZ8 0x0046d530
-bool PointInsideTriangle(std::span<const glm::vec3, 3> vertices, unsigned axis,
+bool PointInsideTriangle(std::span<const glm::vec3, 3> vertices, std::uint32_t axis,
                          const glm::vec3& point)
 {
     return srTriangleProjection::contains(vertices, axis, point,
@@ -678,10 +679,10 @@ bool PointInsideTriangle(std::span<const glm::vec3, 3> vertices, unsigned axis,
 // FUNCTION: WIZ8 0x0046d7e0
 std::array<W8Plane, 6> BuildFrustumPlanes(std::span<const glm::vec3, 8> points)
 {
-    constexpr std::array<std::array<unsigned, 3>, 6> corners{{
+    constexpr std::array<std::array<std::uint32_t, 3>, 6> corners{{
         {1, 5, 4}, {6, 7, 3}, {0, 2, 3}, {4, 5, 7}, {4, 6, 2}, {1, 3, 7}}};
     std::array<W8Plane, 6> planes;
-    for (unsigned plane = 0; plane < planes.size(); ++plane) {
+    for (std::uint32_t plane = 0; plane < planes.size(); ++plane) {
         const auto& indices = corners[plane];
         planes[plane] = trianglePlane(points[indices[0]], points[indices[1]], points[indices[2]]);
     }
@@ -694,9 +695,9 @@ std::array<glm::vec3, 8> sortedFrustumCorners(std::span<const glm::vec3, 8> poin
 {
     std::array<glm::vec3, 8> sorted;
     std::ranges::copy(points, sorted.begin());
-    constexpr std::array<std::pair<unsigned, unsigned>, 3> passes{{{1, 8}, {2, 4}, {0, 2}}};
+    constexpr std::array<std::pair<std::uint32_t, std::uint32_t>, 3> passes{{{1, 8}, {2, 4}, {0, 2}}};
     for (const auto [axis, run] : passes)
-        for (unsigned start = 0; start < sorted.size(); start += run)
+        for (std::uint32_t start = 0; start < sorted.size(); start += run)
             std::stable_sort(sorted.begin() + start, sorted.begin() + start + run,
                              [axis](const auto& a, const auto& b) { return a[axis] < b[axis]; });
     return sorted;
@@ -714,9 +715,9 @@ bool SphereInsideFrustum(const glm::vec3& point, float radius, std::span<const W
 // FUNCTION: WIZ8 0x0046d920
 bool BoundsInsideFrustum(const W8OctRegionVolume& volume, const srBoundingBox& bounds)
 {
-    for (unsigned corner = 0; corner < 8; ++corner)
+    for (std::uint32_t corner = 0; corner < 8; ++corner)
         if (PointInsideFrustum(bounds.corner(corner), volume.m_planes)) return true;
-    for (unsigned corner = 1; corner < 9; ++corner)
+    for (std::uint32_t corner = 1; corner < 9; ++corner)
         if (bounds.containsHalfOpen(volume.m_points[corner].glmValue())) return true;
     return false;
 }

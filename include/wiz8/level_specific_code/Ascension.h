@@ -1,19 +1,21 @@
 #pragma once
 
+
+#include <cstdint>
 class Trigger;
 
 /* Level Specific Code\Ascension.cpp helpers (Ascension Peak). */
 /* How many of the three Ascension Peak relic items (0x242-0x244) the party
    carries; the type-5 world-cursor handler gates "AP_SeenBodies" on it. */
-int CountAscensionPeakItems(void);                /* 0x004DF810 */
-unsigned char AscensionPeakInit(void);            /* 0x004DF870 */
-unsigned char SpawnAlfieChaos(int);               /* 0x004DFAE0 */
-unsigned char SpawnAlfieLife(int);                /* 0x004DFB40 */
-unsigned char SpawnAlfieKnow(int);                /* 0x004DFB80 */
+std::int32_t CountAscensionPeakItems(void);                /* 0x004DF810 */
+std::uint8_t AscensionPeakInit(void);            /* 0x004DF870 */
+std::uint8_t SpawnAlfieChaos(std::int32_t);               /* 0x004DFAE0 */
+std::uint8_t SpawnAlfieLife(std::int32_t);                /* 0x004DFB40 */
+std::uint8_t SpawnAlfieKnow(std::int32_t);                /* 0x004DFB80 */
 void AscensionAvalanche(bool command);            /* 0x004DFBC0 */
-void AscensionLandShaker(int command);            /* 0x004DFD70 */
+void AscensionLandShaker(std::int32_t command);            /* 0x004DFD70 */
 bool AscensionRampUp(Trigger* pTrigger);          /* 0x004DFE60 */
-unsigned char SpawnAscensionAmbush(void);         /* 0x004DFEA0 */
+std::uint8_t SpawnAscensionAmbush(void);         /* 0x004DFEA0 */
 bool AscensionChaosBTrigger(Trigger* pTrigger);   /* 0x004DFF90 */
 bool AscensionChaosATrigger(Trigger* pTrigger);   /* 0x004DFFF0 */
 bool AscensionLifeBTrigger(Trigger* pTrigger);    /* 0x004E00B0 */

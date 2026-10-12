@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <cmath>
 #include <cstdlib>
 #include <glm/gtx/rotate_vector.hpp>
@@ -243,7 +244,7 @@ void GDCamera::SetOrientationImmediate(float pitch, float angle)
 }
 
 // FUNCTION: WIZ8 0x00476F90
-unsigned char GDCamera::LookAt(const srVector3T<float>* target, bool preserve_pitch)
+std::uint8_t GDCamera::LookAt(const srVector3T<float>* target, bool preserve_pitch)
 {
     if (!CanTrackTarget())
         return 0;
@@ -257,7 +258,7 @@ unsigned char GDCamera::LookAt(const srVector3T<float>* target, bool preserve_pi
 }
 
 // FUNCTION: WIZ8 0x00477180
-unsigned char GDCamera::ComputeTrackingOrientation(const srVector3T<float>* target, float* angle,
+std::uint8_t GDCamera::ComputeTrackingOrientation(const srVector3T<float>* target, float* angle,
                                                    float* pitch)
 {
     float lower_margin = -g_camera_vertical_margin;
@@ -299,7 +300,7 @@ unsigned char GDCamera::ComputeTrackingOrientation(const srVector3T<float>* targ
 }
 
 // FUNCTION: WIZ8 0x00477440
-unsigned char GDCamera::BeginOrientationTransition(float target_pitch, float target_angle,
+std::uint8_t GDCamera::BeginOrientationTransition(float target_pitch, float target_angle,
                                                    bool force)
 {
     if (!force && !CanTrackTarget())

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <cstddef>
 
-unsigned char InitializeGame(size_t& initialized_screens);
+std::uint8_t InitializeGame(size_t& initialized_screens);

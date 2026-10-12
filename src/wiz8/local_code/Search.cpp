@@ -52,7 +52,7 @@ std::vector<W8Searchable*> g_searchables;
 // GLOBAL: WIZ8 0x00689fb8
 W8SearchableView g_search_view;
 // GLOBAL: WIZ8 0x00689fcc
-uint64_t g_search_pulse_clock;
+std::uint64_t g_search_pulse_clock;
 
 /* 10000.0: the unit search radius PickBestSearcher scales by score, and the
    collector's outer range gate. */
@@ -95,11 +95,11 @@ void W8Searchable::Reveal()
 // FUNCTION: WIZ8 0x00516ba0
 W8SearchableView* CollectSearchablesInView(void)
 {
-    int total = static_cast<int>(g_searchables.size());
+    std::int32_t total = static_cast<std::int32_t>(g_searchables.size());
     srVector3T<float> camera = cameraLocation();
     g_search_view.items.clear();
     g_search_view.cursor = -1;
-    for (int index = 0; index < total; ++index) {
+    for (std::int32_t index = 0; index < total; ++index) {
         W8Searchable* searchable = g_searchables[index];
         srVector3T<float> position;
         searchable->GetPosition(&position);
@@ -154,7 +154,7 @@ void RegisterSearchableTrigger(Trigger* trigger)
 // FUNCTION: WIZ8 0x00516fe0
 void UnregisterSearchableTrigger(Trigger* trigger)
 {
-    for (int index = 0; index < static_cast<int>(g_searchables.size()); ++index) {
+    for (std::int32_t index = 0; index < static_cast<std::int32_t>(g_searchables.size()); ++index) {
         W8Searchable* searchable = g_searchables[index];
         if (searchable->trigger == trigger) {
             wiz8::erase_first(g_searchables, searchable);
@@ -223,7 +223,7 @@ void RunSearchPulse(void)
             if (view != 0) {
                 for (;;) {
                     ++view->cursor;
-                    if (static_cast<int>(view->items.size()) <= view->cursor) {
+                    if (static_cast<std::int32_t>(view->items.size()) <= view->cursor) {
                         --view->cursor;
                         break;
                     }
@@ -231,7 +231,7 @@ void RunSearchPulse(void)
                     if (searchable == 0) {
                         break;
                     }
-                    int slot = searchable->PickBestSearcher();
+                    std::int32_t slot = searchable->PickBestSearcher();
                     if (slot != -1) {
                         W8Character* character = &g_status.buffers.Char[slot];
                         if (searchable->world_item == 0) {
@@ -242,7 +242,7 @@ void RunSearchPulse(void)
                             } else {
                                 QueueCharacterEvent(character, g_effect16, 0, g_effect_argument0,
                                                     g_character_event_full_volume);
-                                int message = searchable->trigger->m_lData1;
+                                std::int32_t message = searchable->trigger->m_lData1;
                                 found = true;
                                 if (message >= 0) {
                                     const char* folder = GetLevelFolderName(GetLoadedLevelID());
@@ -260,7 +260,7 @@ void RunSearchPulse(void)
                             }
                         } else {
                             PartyAttemptsToIdentifyItem(&searchable->world_item->item, 0);
-                            unsigned int event_type = g_search_found_item_event;
+                            std::uint32_t event_type = g_search_found_item_event;
                             if (Random(2) != 0) {
                                 event_type = g_search_found_item_event_alt;
                             }
@@ -284,7 +284,7 @@ void RunSearchPulse(void)
                 (g_level_data->flags & W8_LEVEL_FLAG_FAST_MOVEMENT) != 0) {
                 /* Retail scans the party for a live member carrying the
                    Scouting skill and then discards the result. */
-                for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
+                for (std::int32_t slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
                     W8Character* character = &g_status.buffers.Char[slot];
                     if (g_status.buffers.XChar[slot].fOccupied && character->hp_current != 0 &&
                         character->highest_condition < W8_CONDITION_TURNCOAT &&
@@ -309,27 +309,27 @@ void RunSearchPulse(void)
    force-picks random eligible members without practicing the skill. The pick
    must also reach this searchable's position. */
 // FUNCTION: WIZ8 0x00517560
-int W8Searchable::PickBestSearcher()
+std::int32_t W8Searchable::PickBestSearcher()
 {
-    unsigned int best_score = 0;
-    int best_slot = -1;
+    std::uint32_t best_score = 0;
+    std::int32_t best_slot = -1;
     bool earned = false;
-    for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
+    for (std::int32_t slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
         W8Character* character = &g_status.buffers.Char[slot];
         if (!g_status.buffers.XChar[slot].fOccupied || character->hp_current == 0 ||
             character->highest_condition >= W8_CONDITION_TURNCOAT) {
             continue;
         }
         if (CharacterHasTrait(character, W8_TRAIT_SEARCH) || g_status.search_mode != 0) {
-            unsigned int level = character->skills[W8_SKILL_SCOUTING].level;
-            unsigned int base = level >> 1;
+            std::uint32_t level = character->skills[W8_SKILL_SCOUTING].level;
+            std::uint32_t base = level >> 1;
             if ((g_level_data->flags & W8_LEVEL_FLAG_FAST_MOVEMENT) != 0) {
                 base = level >> 2;
             }
-            unsigned int score = 0;
+            std::uint32_t score = 0;
             if (base != 0 || (g_status.search_mode != 0 &&
                               (g_level_data->flags & W8_LEVEL_FLAG_FAST_MOVEMENT) == 0)) {
-                unsigned int attribute = character->attributes[W8_ATTRIBUTE_SENSES].effective;
+                std::uint32_t attribute = character->attributes[W8_ATTRIBUTE_SENSES].effective;
                 if (attribute < 0x33) {
                     score = base + attribute / 5;
                 } else if (attribute < 0x51) {

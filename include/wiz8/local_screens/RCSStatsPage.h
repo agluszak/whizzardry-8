@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include "wiz8/regions.h"
 #include "wiz8/local_code/Controls.h"
 #include "wiz8/local_code/RangeControl.h"
@@ -16,11 +17,11 @@ struct W8CampEffectEntry {
     bool visible;        /* passes the current filter */
     bool beneficial;
     bool detrimental;
-    int kind;        /* 0 condition, 1 enchantment, 2 equipment */
-    int index;       /* condition, enchantment or equipment-slot index */
-    int enchantment; /* the enchantment id for kind 1 */
-    int turns;       /* remaining turns; 9999 is permanent */
-    int lines;       /* rendered height in 0xe-pixel lines */
+    std::int32_t kind;        /* 0 condition, 1 enchantment, 2 equipment */
+    std::int32_t index;       /* condition, enchantment or equipment-slot index */
+    std::int32_t enchantment; /* the enchantment id for kind 1 */
+    std::int32_t turns;       /* remaining turns; 9999 is permanent */
+    std::int32_t lines;       /* rendered height in 0xe-pixel lines */
 };
 
 /* Camp stats page (page 1) and skills page (page 2) machinery. The scrollbar and
@@ -61,6 +62,6 @@ void FilterCampEffectList(void);
    2; DisableCampSkillRegions releases them on camp leave. */
 void CreateCampSkillRegions(void);
 void DisableCampSkillRegions(void);
-unsigned char CampSkillListRegionHandler(const InputEvent* event, W8Region* region);
+std::uint8_t CampSkillListRegionHandler(const InputEvent* event, W8Region* region);
 
 extern ScreenRegionSet g_camp_skill_regions;

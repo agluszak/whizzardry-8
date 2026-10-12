@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <memory>
 #include <SDL3/SDL_surface.h>
 #include <SDL3/SDL_rect.h>
@@ -61,10 +62,10 @@
    camp region table registers for the backpack, equipment, item-pool,
    realm-tab and panel-tab areas. */
 
-static void DrawCampItemLabel(W8ItemInstance* item, int left, int top, char flag);
+static void DrawCampItemLabel(W8ItemInstance* item, std::int32_t left, std::int32_t top, char flag);
 
 // GLOBAL: WIZ8 0x0069C0EC
-int giCasterCharSlot;
+std::int32_t giCasterCharSlot;
 
 // GLOBAL: WIZ8 0x0069C424
 W8ItemInstance* g_split_item_source;
@@ -73,7 +74,7 @@ W8ItemInstance* g_split_item_source;
 /* The twelve equip-slot label message ids indexed by region
    callback_id. */
 // GLOBAL: WIZ8 0x0061E7C4
-unsigned short g_equip_slot_label_ids[12] = {
+std::uint16_t g_equip_slot_label_ids[12] = {
     0x433, 0x434, 0x435, 0x436, 0x437, 0x438, 0x439, 0x43a, 0x43b, 0x43c, 0x43d, 0x43e,
 };
 
@@ -96,7 +97,7 @@ void ShowCampCharacterPage(void)
 // FUNCTION: WIZ8 0x005B9FD0
 void SetCampInfoPageMode(char mode)
 {
-    int index;
+    std::int32_t index;
 
     switch (mode) {
     default:
@@ -226,7 +227,7 @@ void OpenAttributeInfoDialog(W8Attribute attribute)
 }
 
 // FUNCTION: WIZ8 0x005BA310
-void OpenSecondaryAttributeInfoDialog(unsigned int uiIndex)
+void OpenSecondaryAttributeInfoDialog(std::uint32_t uiIndex)
 {
     DisplayCampDialog(std::make_unique<W8SecondaryAttributeInfoDialog>(uiIndex));
 }
@@ -277,7 +278,7 @@ void OpenSplitStackDialog(W8ItemInstance* item)
 // FUNCTION: WIZ8 0x005BA4F0
 void UseCampItem(W8ItemInstance* item)
 {
-    unsigned short slot;
+    std::uint16_t slot;
 
     if (ValidateItemSpellUse(giReviewCharSlot, item, 0)) {
         SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
@@ -317,11 +318,11 @@ void MergeItemStacksWithHeld(W8ItemInstance* item)
 }
 
 // FUNCTION: WIZ8 0x005BA620
-void ReportCastResult(int party_slot)
+void ReportCastResult(std::int32_t party_slot)
 {
     std::string text;
     W8Character* character;
-    int result;
+    std::int32_t result;
 
     StartBreathCycle(giReviewCharSlot, false);
     result = RevealCharacterItemBindingsByProfession(giReviewCharSlot, party_slot);
@@ -384,7 +385,7 @@ void UseHeldItemOnItem(W8ItemInstance* item)
 }
 
 // FUNCTION: WIZ8 0x005BA8E0
-void TargetCharacterWithHeldItem(unsigned int uiTargetChar)
+void TargetCharacterWithHeldItem(std::uint32_t uiTargetChar)
 {
     W8CombatSlot target;
 
@@ -419,7 +420,7 @@ void TargetCharacterWithHeldItem(unsigned int uiTargetChar)
 }
 
 // FUNCTION: WIZ8 0x005BAA10
-int CanCharacterUseItemEntry(W8Character* character, W8ItemInstance* item)
+std::int32_t CanCharacterUseItemEntry(W8Character* character, W8ItemInstance* item)
 {
     if (CanCharacterActivateItem(character, item) || CanCastFromItem(character, item) ||
         IsUsableItemClass(item)) {
@@ -444,16 +445,16 @@ void SplitStackDialogResult(W8DialogBase* dialog)
     W8ItemInstance split;
     W8ItemInstance* destination;
     W8Character* character;
-    unsigned int count;
-    unsigned char remaining;
-    unsigned char carried;
+    std::uint32_t count;
+    std::uint8_t remaining;
+    std::uint8_t carried;
 
     if (static_cast<W8SplitItemDialog*>(dialog)->split_result != g_item_split_confirm_result) {
         return;
     }
     count = static_cast<W8SplitItemDialog*>(dialog)->split_count;
-    remaining = g_split_item_source->stack_count - static_cast<unsigned char>(count);
-    carried = static_cast<unsigned char>(count);
+    remaining = g_split_item_source->stack_count - static_cast<std::uint8_t>(count);
+    carried = static_cast<std::uint8_t>(count);
     if (count == 0) {
         return;
     }
@@ -473,18 +474,18 @@ void SplitStackDialogResult(W8DialogBase* dialog)
              gXStatus.held_item_origin == W8_ITEM_ORIGIN_EQUIPPED)) {
             character = g_status.buffers.Char + gXStatus.held_item_source;
             if (gXStatus.held_item_origin == W8_ITEM_ORIGIN_EQUIPPED) {
-                if (character->EquippedItem[static_cast<short>(gXStatus.held_item_slot)].iItemNo ==
+                if (character->EquippedItem[static_cast<std::int16_t>(gXStatus.held_item_slot)].iItemNo ==
                         -1 &&
                     CanEquipItemInSlot(character, g_status.item_in_hand.iItemNo,
-                                       static_cast<unsigned char>(gXStatus.held_item_slot),
+                                       static_cast<std::uint8_t>(gXStatus.held_item_slot),
                                        false) &&
                     CanCharacterUseItem(character, g_status.item_in_hand.iItemNo)) {
                     destination =
-                        character->EquippedItem + static_cast<short>(gXStatus.held_item_slot);
+                        character->EquippedItem + static_cast<std::int16_t>(gXStatus.held_item_slot);
                 }
-            } else if (character->backpack[static_cast<short>(gXStatus.held_item_slot)].iItemNo ==
+            } else if (character->backpack[static_cast<std::int16_t>(gXStatus.held_item_slot)].iItemNo ==
                        -1) {
-                destination = character->backpack + static_cast<short>(gXStatus.held_item_slot);
+                destination = character->backpack + static_cast<std::int16_t>(gXStatus.held_item_slot);
             }
         }
         if (destination == 0 &&
@@ -506,7 +507,7 @@ void SplitStackDialogResult(W8DialogBase* dialog)
             carried = g_status.item_in_hand.stack_count;
         } else {
             split = *g_split_item_source;
-            split.stack_count = static_cast<unsigned char>(count);
+            split.stack_count = static_cast<std::uint8_t>(count);
             g_split_item_source->stack_count = remaining;
             CopyItemInstance(&g_status.item_in_hand, &split, 0, true);
             gXStatus.held_item_source = giReviewCharSlot;
@@ -529,7 +530,7 @@ void SplitStackDialogResult(W8DialogBase* dialog)
    selects which use paths are live, and iTargetingMode selects what the item
    cursor is allowed to target. */
 // FUNCTION: WIZ8 0x005BAD20
-void UpdateItemCursorForState(int flag, W8ItemInstance* item, int slot)
+void UpdateItemCursorForState(std::int32_t flag, W8ItemInstance* item, std::int32_t slot)
 {
     if (g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_NONE) {
         return;
@@ -731,7 +732,7 @@ void SortCampItemPool(void)
 void ToggleCampItemFilter(W8CampItemFilterButton tab)
 {
     W8CampItemFilter filter;
-    int index;
+    std::int32_t index;
 
     switch (tab) {
     case W8_CAMP_ITEM_FILTER_BUTTON_HAND:
@@ -796,9 +797,9 @@ static void ShowCampItemInfo(W8ItemInstance* item)
 }
 
 // FUNCTION: WIZ8 0x005BB350
-unsigned char BackpackRegionHandler(const InputEvent* event, W8Region* region)
+std::uint8_t BackpackRegionHandler(const InputEvent* event, W8Region* region)
 {
-    int slot;
+    std::int32_t slot;
     W8ItemInstance* item;
 
     slot = region->callback_id;
@@ -861,10 +862,10 @@ unsigned char BackpackRegionHandler(const InputEvent* event, W8Region* region)
 }
 
 // FUNCTION: WIZ8 0x005BB560
-unsigned char EquipSlotRegionHandler(const InputEvent* event, W8Region* region)
+std::uint8_t EquipSlotRegionHandler(const InputEvent* event, W8Region* region)
 {
-    int slot;
-    int delay;
+    std::int32_t slot;
+    std::int32_t delay;
     W8ItemInstance* item;
     std::string name;
 
@@ -873,7 +874,7 @@ unsigned char EquipSlotRegionHandler(const InputEvent* event, W8Region* region)
     if (item->iItemNo == -1 &&
         (!g_status.item_in_cursor || g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_MOVE ||
          !CanEquipItemInSlot(g_review_character, g_status.item_in_hand.iItemNo,
-                             static_cast<unsigned char>(slot), true) ||
+                             static_cast<std::uint8_t>(slot), true) ||
          !CanCharacterUseItem(g_review_character, g_status.item_in_hand.iItemNo))) {
         PushButtonSoundScheme(0, true);
     }
@@ -893,7 +894,7 @@ unsigned char EquipSlotRegionHandler(const InputEvent* event, W8Region* region)
         if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
             HandleCampItemClick(item, slot, W8_ITEM_ORIGIN_EQUIPPED);
             delay = g_settings.tooltip_delay_ms;
-            if (static_cast<unsigned int>(delay) > 300) {
+            if (static_cast<std::uint32_t>(delay) > 300) {
                 delay = 300;
             }
             SetRegionHelpDelay(delay);
@@ -924,7 +925,7 @@ unsigned char EquipSlotRegionHandler(const InputEvent* event, W8Region* region)
                 UpdateItemCursorForState(1, item, 0);
                 EnableRegionHelpFlag(region);
                 delay = g_settings.tooltip_delay_ms;
-                if (static_cast<unsigned int>(delay) > 300) {
+                if (static_cast<std::uint32_t>(delay) > 300) {
                     delay = 300;
                 }
                 SetRegionHelpDelay(delay);
@@ -958,12 +959,12 @@ unsigned char EquipSlotRegionHandler(const InputEvent* event, W8Region* region)
 }
 
 // FUNCTION: WIZ8 0x005BB900
-unsigned char ItemPoolRegionHandler(const InputEvent* event, W8Region* region)
+std::uint8_t ItemPoolRegionHandler(const InputEvent* event, W8Region* region)
 {
-    unsigned int slot;
-    unsigned int pool_index;
-    int delta;
-    int count;
+    std::uint32_t slot;
+    std::uint32_t pool_index;
+    std::int32_t delta;
+    std::int32_t count;
     W8ItemInstance* item;
 
     slot = region->callback_id;
@@ -1064,14 +1065,14 @@ unsigned char ItemPoolRegionHandler(const InputEvent* event, W8Region* region)
 /* Reason 0x40/0x8 press the tab control, 0x10 releases it, and the 0x400
    enter/leave transition forwards the matching mouse events. */
 // FUNCTION: WIZ8 0x005BBBB0
-unsigned char RealmTabRegionHandler(const InputEvent* event, W8Region* region)
+std::uint8_t RealmTabRegionHandler(const InputEvent* event, W8Region* region)
 {
     return DispatchButtonRegionEvent(event, region,
                                      g_camp_item_filter_buttons[region->callback_id]);
 }
 
 // FUNCTION: WIZ8 0x005BBC70
-unsigned char PanelTabRegionHandler(const InputEvent* event, W8Region* region)
+std::uint8_t PanelTabRegionHandler(const InputEvent* event, W8Region* region)
 {
     return DispatchButtonRegionEvent(event, region, g_camp_action_buttons[region->callback_id]);
 }
@@ -1079,12 +1080,12 @@ unsigned char PanelTabRegionHandler(const InputEvent* event, W8Region* region)
 // FUNCTION: WIZ8 0x005BBD30
 void SetItemTooltip(W8ItemInstance* item, W8Region* region)
 {
-    int delay;
+    std::int32_t delay;
     std::string name;
     const W8ItemDatabaseRecord* record;
 
     delay = g_settings.tooltip_delay_ms;
-    if (static_cast<unsigned int>(delay) > 300) {
+    if (static_cast<std::uint32_t>(delay) > 300) {
         delay = 300;
     }
     SetRegionHelpDelay(delay);
@@ -1115,9 +1116,9 @@ void SetItemTooltip(W8ItemInstance* item, W8Region* region)
 // FUNCTION: WIZ8 0x005bbe30
 void DrawCampItemIcons(void)
 {
-    unsigned int index;
-    unsigned int count;
-    int y;
+    std::uint32_t index;
+    std::uint32_t count;
+    std::int32_t y;
     const W8CampScreenRegion* region;
     W8ItemInstance* item;
     W8Character* character = g_review_character;
@@ -1164,13 +1165,13 @@ void DrawCampItemIcons(void)
    background, the text and a one-pixel outline are painted straight into the
    locked primary surface. */
 // FUNCTION: WIZ8 0x005bbf40
-static void DrawCampItemLabel(W8ItemInstance* item, int left, int top, char flag)
+static void DrawCampItemLabel(W8ItemInstance* item, std::int32_t left, std::int32_t top, char flag)
 {
     std::string name;
     W8ControlsRect bounds;
     W8TextBuffer* text;
-    int width;
-    int height;
+    std::int32_t width;
+    std::int32_t height;
 
     name = FormatItemDisplayName(item, false);
     g_camp_screen->text_buffer = name;
@@ -1217,24 +1218,24 @@ static void DrawCampItemLabel(W8ItemInstance* item, int left, int top, char flag
 // VTABLE: WIZ8 0x005ef2b0
 class W8CampInfoLabel : public W8TextControl {
 public:
-    W8CampInfoLabel(Controls* panel, unsigned int region, int left, int top, int right, int bottom,
-                    std::optional<CatalogArtwork> image_artwork, int normal_sprite, int pressed_sprite,
-                    int alternate_normal_sprite, int alternate_pressed_sprite, int disabled_sprite)
+    W8CampInfoLabel(Controls* panel, std::uint32_t region, std::int32_t left, std::int32_t top, std::int32_t right, std::int32_t bottom,
+                    std::optional<CatalogArtwork> image_artwork, std::int32_t normal_sprite, std::int32_t pressed_sprite,
+                    std::int32_t alternate_normal_sprite, std::int32_t alternate_pressed_sprite, std::int32_t disabled_sprite)
         : W8TextControl(panel, region, left, top, right, bottom, std::move(image_artwork),
                         normal_sprite, pressed_sprite, alternate_normal_sprite,
                         alternate_pressed_sprite, disabled_sprite)
     {
     }
 
-    virtual void OnMouseEnter(int event) override;
-    virtual void OnLeftButtonDown(int event) override;
-    virtual void OnLeftButtonUp(int event) override;
-    virtual void OnLeftButtonDoubleClick(int event) override;
+    virtual void OnMouseEnter(std::int32_t event) override;
+    virtual void OnLeftButtonDown(std::int32_t event) override;
+    virtual void OnLeftButtonUp(std::int32_t event) override;
+    virtual void OnLeftButtonDoubleClick(std::int32_t event) override;
 };
 
 /* Identical body to W8HelpTextControl::OnLeftButtonDown; ICF folds it to
    0x005B7CB0. */
-void W8CampInfoLabel::OnLeftButtonDown(int event)
+void W8CampInfoLabel::OnLeftButtonDown(std::int32_t event)
 {
     PushButtonSoundScheme(0, true);
     W8TextControl::OnLeftButtonDown(event);
@@ -1242,21 +1243,21 @@ void W8CampInfoLabel::OnLeftButtonDown(int event)
 
 /* Identical body to W8HelpTextControl::OnLeftButtonUp; ICF folds it to
    0x005B7CD0. */
-void W8CampInfoLabel::OnLeftButtonUp(int event)
+void W8CampInfoLabel::OnLeftButtonUp(std::int32_t event)
 {
     PushButtonSoundScheme(0, true);
     W8TextControl::OnLeftButtonUp(event);
 }
 
 // FUNCTION: WIZ8 0x005b7c90
-void W8CampInfoLabel::OnMouseEnter(int event)
+void W8CampInfoLabel::OnMouseEnter(std::int32_t event)
 {
     PushButtonSoundScheme(0, true);
     W8TextControl::OnMouseEnter(event);
 }
 
 // FUNCTION: WIZ8 0x005b7cf0
-void W8CampInfoLabel::OnLeftButtonDoubleClick(int event)
+void W8CampInfoLabel::OnLeftButtonDoubleClick(std::int32_t event)
 {
     PushButtonSoundScheme(0, true);
     W8TextControl::OnLeftButtonDoubleClick(event);
@@ -1265,9 +1266,9 @@ void W8CampInfoLabel::OnLeftButtonDoubleClick(int event)
 /* The bottom-left panel and its two buttons: drop the held equipment and
    toggle the character's party-row flag. */
 // FUNCTION: WIZ8 0x005b9070
-int CreateCampActionPanel(void)
+std::int32_t CreateCampActionPanel(void)
 {
-    int index;
+    std::int32_t index;
 
     g_camp_action_panel.reset();
     for (index = 0; index < 2; ++index) {
@@ -1345,9 +1346,9 @@ void RefreshCampActionPanel(bool invalidate)
 /* The right-hand panel of seven tabs: the six realm filters and the pool sort
    button. */
 // FUNCTION: WIZ8 0x005b9350
-int CreateItemsTabPanel(void)
+std::int32_t CreateItemsTabPanel(void)
 {
-    int index;
+    std::int32_t index;
 
     g_camp_item_filter_panel.reset();
     for (index = 0; index < 7; ++index) {
@@ -1419,8 +1420,8 @@ void ReleaseItemsTabPanel(void)
 // FUNCTION: WIZ8 0x005b97b0
 void UpdateCampItemFilters(void)
 {
-    int index;
-    unsigned char flag;
+    std::int32_t index;
+    std::uint8_t flag;
 
     for (index = 0; index < 7; ++index) {
         g_camp_item_filter_buttons[index]->SetActive(true);
@@ -1464,7 +1465,7 @@ void UpdateCampItemFilters(void)
 // FUNCTION: WIZ8 0x005b98c0
 void DisableItemsRealmTabs(void)
 {
-    int index;
+    std::int32_t index;
 
     for (index = 0; index < 7; ++index) {
         g_camp_item_filter_buttons[index]->SetActive(false);
@@ -1485,13 +1486,13 @@ void RefreshItemsTabPanel(bool invalidate)
    are W8CampInfoLabel controls created with absolute coordinates
    relative to the panel origin. */
 // FUNCTION: WIZ8 0x005b9900
-int CreateCampSecondaryPanel(void)
+std::int32_t CreateCampSecondaryPanel(void)
 {
     Controls* panel;
-    int index;
-    int left;
-    int right;
-    int top;
+    std::int32_t index;
+    std::int32_t left;
+    std::int32_t right;
+    std::int32_t top;
 
     g_camp_secondary_panel.reset();
     for (index = 0; index < 2; ++index) {
@@ -1590,7 +1591,7 @@ void InvalidateCampPanel(void)
 // FUNCTION: WIZ8 0x005b9f00
 void EnableCampSecondaryPanel(void)
 {
-    int index;
+    std::int32_t index;
 
     g_camp_secondary_panel->EnableRegionSet(true);
     for (index = 0; index < 2; ++index) {
@@ -1607,7 +1608,7 @@ void EnableCampSecondaryPanel(void)
 // FUNCTION: WIZ8 0x005b9f60
 void DisableCampSecondaryPanel(void)
 {
-    int index;
+    std::int32_t index;
 
     g_camp_secondary_panel->EnableRegionSet(false);
     for (index = 0; index < 2; ++index) {

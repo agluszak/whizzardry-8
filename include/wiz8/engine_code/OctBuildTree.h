@@ -1,6 +1,7 @@
 #ifndef WIZ8_ENGINE_CODE_OCT_BUILD_TREE_H
 #define WIZ8_ENGINE_CODE_OCT_BUILD_TREE_H
 
+#include <cstdint>
 #include <optional>
 
 #include <deque>
@@ -25,21 +26,21 @@ struct W8OctBuildNode {
     W8OctBuildNode();
     ~W8OctBuildNode();
 
-    unsigned char RearrangeNodePolys(short current_depth, short target_depth);
-    std::vector<void*> linkedSurfaces(short current_depth, short target_depth, short mode) const;
-    std::vector<void*> storedSurfaces(short mode) const;
-    w8_ulong ConvertToOctPreTree(unsigned short depth, OctPreTree* tree);
+    std::uint8_t RearrangeNodePolys(std::int16_t current_depth, std::int16_t target_depth);
+    std::vector<void*> linkedSurfaces(std::int16_t current_depth, std::int16_t target_depth, std::int16_t mode) const;
+    std::vector<void*> storedSurfaces(std::int16_t mode) const;
+    std::uint32_t ConvertToOctPreTree(std::uint16_t depth, OctPreTree* tree);
 
     union {
         W8OctBuildNode* children[8];
         W8OctBuildLink* links[8];
         void** surface_arrays[8]; /* elements follow the insert mode */
-        unsigned short* region_arrays[8];
+        std::uint16_t* region_arrays[8];
     };
-    unsigned short region;
-    unsigned short leaf_kind;
-    unsigned short provisional_region;
-    unsigned short positional;
+    std::uint16_t region;
+    std::uint16_t leaf_kind;
+    std::uint16_t provisional_region;
+    std::uint16_t positional;
 };
 
 /* A zero-storage node variant with independently evidenced behavior: its
@@ -58,36 +59,36 @@ struct W8CountedOctBuildNode : W8OctBuildNode {
    this type. */
 struct W8OctBuildTree {
     W8OctBuildTree(float leaf_size, std::optional<srBoundingBox> bounds,
-                   unsigned short item_limit, short extent_mode);
+                   std::uint16_t item_limit, std::int16_t extent_mode);
     ~W8OctBuildTree();
 
-    unsigned char InsertSurface(W8GDSurface* surface, w8_ulong mode);
-    unsigned char InsertSurfaceRecursive(W8OctSpatialState* working, W8GDSurface* surface,
-                                         const glm::vec3& planeNormal, w8_ulong mode);
+    std::uint8_t InsertSurface(W8GDSurface* surface, std::uint32_t mode);
+    std::uint8_t InsertSurfaceRecursive(W8OctSpatialState* working, W8GDSurface* surface,
+                                         const glm::vec3& planeNormal, std::uint32_t mode);
     std::vector<W8GDSurface*> queryAlongSegment(const glm::vec3& origin,
                                                const glm::vec3& delta, float extent,
-                                               unsigned short kind);
+                                               std::uint16_t kind);
     /* Append `payload` to the node's `kind` link list, growing the tail and
        raising the leaf counter plus the tree's deepest-list watermark. */
-    void AppendLink(W8OctBuildNode* node, void* payload, short kind);
+    void AppendLink(W8OctBuildNode* node, void* payload, std::int16_t kind);
     W8OctSpatialState spatial;
     /* Deque appends preserve the addresses stored in node link chains. */
     std::deque<W8OctBuildLink> links;
-    w8_ulong leaf_polygon_count;
-    w8_ulong gd_surface_count;
-    w8_ulong leaf_count;
-    unsigned short max_leaf_regions;
-    unsigned short unknown_ae;
-    w8_ulong region_assignments;
+    std::uint32_t leaf_polygon_count;
+    std::uint32_t gd_surface_count;
+    std::uint32_t leaf_count;
+    std::uint16_t max_leaf_regions;
+    std::uint16_t unknown_ae;
+    std::uint32_t region_assignments;
     bool use_owned_nodes;
-    unsigned char unknown_b5[3];
-    w8_ulong deepest_link_list;
+    std::uint8_t unknown_b5[3];
+    std::uint32_t deepest_link_list;
 
 private:
     struct SurfaceCollector;
     void collectRecursive(const W8OctSpatialState& state, const srBoundingBox& bounds,
-                          short kind, SurfaceCollector& collector) const;
-    void collectLeaf(W8OctBuildNode* node, short depth, short kind,
+                          std::int16_t kind, SurfaceCollector& collector) const;
+    void collectLeaf(W8OctBuildNode* node, std::int16_t depth, std::int16_t kind,
                      SurfaceCollector& collector) const;
 };
 

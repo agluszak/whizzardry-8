@@ -1,3 +1,5 @@
 #pragma once
 
-unsigned char EstimateCombatThreatLevel(unsigned int experience);
+
+#include <cstdint>
+std::uint8_t EstimateCombatThreatLevel(std::uint32_t experience);

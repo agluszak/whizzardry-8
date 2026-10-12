@@ -1,8 +1,10 @@
 #pragma once
 
+
+#include <cstdint>
 struct W8ControlsRect {
-    int left;
-    int top;
-    int right;
-    int bottom;
+    std::int32_t left;
+    std::int32_t top;
+    std::int32_t right;
+    std::int32_t bottom;
 };

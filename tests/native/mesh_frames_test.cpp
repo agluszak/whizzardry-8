@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "glm/ext/vector_float3.hpp"
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_approx.hpp>
@@ -34,7 +35,7 @@ static_assert(std::is_nothrow_move_constructible_v<stMeshModel::Skin>);
 static bool frame_storage()
 {
     const auto registered = g_mesh_models.size();
-    const int initial_bytes = g_decompressed_mesh_bytes;
+    const std::int32_t initial_bytes = g_decompressed_mesh_bytes;
     {
         stMeshModel mesh(1, 3);
         REQUIRE(mesh.frames.empty());
@@ -52,15 +53,15 @@ static bool frame_storage()
             REQUIRE(frame.compressed_vertex_normals.size() == 9);
             REQUIRE(frame.compressed_polygon_normals.size() == 3);
             REQUIRE(std::all_of(frame.compressed_locations.begin(), frame.compressed_locations.end(),
-                              [](short value) { return value == 0; }));
+                              [](std::int16_t value) { return value == 0; }));
             REQUIRE((!frame.locations && !frame.vertex_normals && !frame.polygon_normals));
         }
         auto* polygon = mesh.getPolyVertex();
         polygon->x = 0;
         polygon->y = 1;
         polygon->z = 2;
-        const std::array<short, 9> first{0, 0, 0, 2, 0, 0, 0, 2, 0};
-        const std::array<short, 9> second{4, 0, 0, 6, 0, 0, 4, 2, 0};
+        const std::array<std::int16_t, 9> first{0, 0, 0, 2, 0, 0, 0, 2, 0};
+        const std::array<std::int16_t, 9> second{4, 0, 0, 6, 0, 0, 4, 2, 0};
         auto* compressed = mesh.GetVertex(0);
         std::copy(first.begin(), first.end(), compressed);
         mesh.InitializeVertexFrames(2); // ReadMesh repeats initialization for every frame.
@@ -70,9 +71,9 @@ static bool frame_storage()
         std::copy(second.begin(), second.end(), mesh.GetVertex(1));
         mesh.FinalizeVertexFrame(0);
         mesh.FinalizeVertexFrame(1);
-        const std::vector<unsigned char> vertex_normals{0, 0, 127, 0, 0, 127, 0, 0, 127};
+        const std::vector<std::uint8_t> vertex_normals{0, 0, 127, 0, 0, 127, 0, 0, 127};
         REQUIRE(mesh.frames[0].compressed_vertex_normals == vertex_normals);
-        REQUIRE(mesh.frames[0].compressed_polygon_normals == std::vector<unsigned char>({0, 0, 127}));
+        REQUIRE(mesh.frames[0].compressed_polygon_normals == std::vector<std::uint8_t>({0, 0, 127}));
         REQUIRE(!mesh.frames[0].locations);
         REQUIRE(g_decompressed_mesh_bytes == initial_bytes); // Normal-builder scratch is not a cache.
 
@@ -108,7 +109,7 @@ static bool frame_storage()
         bounds = mesh.GetFrameBounds(-1);
         REQUIRE((bounds.minimum == glm::vec3(0.0f, 0.0f, 0.0f) &&
                  bounds.minimum == bounds.maximum));
-        const int cache_bytes = (3 + 3 + 3 + 1) * sizeof(glm::vec3);
+        const std::int32_t cache_bytes = (3 + 3 + 3 + 1) * sizeof(glm::vec3);
         REQUIRE(g_decompressed_mesh_bytes == initial_bytes + cache_bytes);
         REQUIRE(mesh.ReleaseDecompressedFrames() == cache_bytes);
         REQUIRE(mesh.ReleaseDecompressedFrames() == 0);
@@ -134,7 +135,7 @@ static bool frame_storage()
 
 static bool writable_and_empty_caches()
 {
-    const int initial_bytes = g_decompressed_mesh_bytes;
+    const std::int32_t initial_bytes = g_decompressed_mesh_bytes;
     {
         stMeshModel mesh(0, 1);
         mesh.InitializeVertexFrames(1);
@@ -177,7 +178,7 @@ static bool writable_and_empty_caches()
 
 static bool eviction_and_borrowed_outputs()
 {
-    const int initial_bytes = g_decompressed_mesh_bytes;
+    const std::int32_t initial_bytes = g_decompressed_mesh_bytes;
     {
         stMeshModel old_mesh(0, 1), recent_mesh(0, 1), drained_mesh(0, 1);
         old_mesh.InitializeVertexFrames(1);
@@ -199,7 +200,7 @@ static bool eviction_and_borrowed_outputs()
     {
         // Two location frames and normals exceed the 8 MiB budget. Loading the
         // second frame or normals must not invalidate the first borrowed output.
-        constexpr int vertices = 240000;
+        constexpr std::int32_t vertices = 240000;
         stMeshModel other(0, 1), mesh(0, vertices);
         other.InitializeVertexFrames(1);
         other.GetVertexLocations(0, true, 0.0f);
@@ -225,7 +226,7 @@ static bool eviction_and_borrowed_outputs()
 static bool part_ownership()
 {
     const auto registered = g_mesh_models.size();
-    const int initial_bytes = g_decompressed_mesh_bytes;
+    const std::int32_t initial_bytes = g_decompressed_mesh_bytes;
     {
         stMeshModel original(0, 1);
         original.InitializeVertexFrames(1);
@@ -255,15 +256,15 @@ static bool loaded_model_ownership()
     }
     materials[2].render_flags.value = 0x2517;
     W8ReadMeshFace faces[3]{};
-    for (int face = 0; face < 3; ++face) {
+    for (std::int32_t face = 0; face < 3; ++face) {
         faces[face].material_index = face;
-        for (int corner = 0; corner < 3; ++corner) {
+        for (std::int32_t corner = 0; corner < 3; ++corner) {
             faces[face].vertices[corner] = face * 3 + corner;
         }
     }
-    std::vector<short> mapped_values, mapped_keys;
-    unsigned int mesh_count = 0;
-    std::vector<std::vector<int>> maps;
+    std::vector<std::int16_t> mapped_values, mapped_keys;
+    std::uint32_t mesh_count = 0;
+    std::vector<std::vector<std::int32_t>> maps;
     auto model = BuildSingleLevelMesh(3, faces, 9, materials, &mesh_count, maps, &mapped_values,
                                      &mapped_keys);
     REQUIRE((model && mesh_count == 2 && maps.size() == 2));
@@ -287,7 +288,7 @@ static bool loaded_model_ownership()
 
 class TestTexture : public srTexture {
 public:
-    inline static int destroyed = 0;
+    inline static std::int32_t destroyed = 0;
     void invalidate() override {}
     void setupDefaultValues() override {}
     ~TestTexture() override { ++destroyed; }
@@ -295,7 +296,7 @@ public:
 
 static bool skins_and_automap()
 {
-    const int destroyed = TestTexture::destroyed;
+    const std::int32_t destroyed = TestTexture::destroyed;
     {
         std::shared_ptr<srTextureIFace> blank = std::make_shared<TestTexture>();
         std::shared_ptr<srTextureIFace> visible = std::make_shared<TestTexture>();
@@ -309,15 +310,15 @@ static bool skins_and_automap()
             base[1] = visible;
             std::string cycle(400, 'c');
             std::string first_name = cycle + '0';
-            const int first = mesh.CreateSkinTable(first_name, -1);
+            const std::int32_t first = mesh.CreateSkinTable(first_name, -1);
             REQUIRE(first == 0);
             first_name[0] = 'x';
             REQUIRE(mesh.skins[0].name == cycle + '0'); // Owned, not the caller's mutable name.
             REQUIRE(mesh.CreateSkinTable(cycle + '0', -1) == -1);
-            const int second = mesh.CreateSkinTable("second1", first);
+            const std::int32_t second = mesh.CreateSkinTable("second1", first);
             auto* second_textures = mesh.GetTextureTable(second);
             REQUIRE((second == 1 && second_textures[0] == blank));
-            const int third = mesh.CreateSkinTable("third2", second);
+            const std::int32_t third = mesh.CreateSkinTable("third2", second);
             REQUIRE(!mesh.GetActivePolygons(second, false));
             auto selection = mesh.GetActivePolygons(second, true);
             REQUIRE((selection && selection->size() == 2 && (*selection)[0] == 1 && (*selection)[1] == 2));
@@ -359,7 +360,7 @@ static bool skins_and_automap()
             const auto empty_automap = mesh.GetActivePolygons(-1, true);
             REQUIRE(empty_automap);
             REQUIRE(empty_automap->empty());
-            const int all_blank = mesh.CreateSkinTable("all-blank", -1);
+            const std::int32_t all_blank = mesh.CreateSkinTable("all-blank", -1);
             const auto empty_skin = mesh.GetActivePolygons(all_blank, true);
             REQUIRE(empty_skin);
             REQUIRE(empty_skin->empty());

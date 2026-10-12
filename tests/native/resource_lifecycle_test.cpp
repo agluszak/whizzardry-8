@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <array>
 #include <catch2/catch_test_macros.hpp>
 #include <filesystem>
@@ -110,7 +111,7 @@ static void queued_state_teardown()
 {
     AddDialogueTranscriptKeyword("Monastery", 0);
     AddDialogueTranscriptKeyword("Arnika", 0);
-    REQUIRE((static_cast<int>(g_npc_interaction_state->dialogue_transcript.size()) == 2));
+    REQUIRE((static_cast<std::int32_t>(g_npc_interaction_state->dialogue_transcript.size()) == 2));
     ClearNpcDialogueTranscript();
     ClearNpcDialogueTranscript();
     REQUIRE((g_npc_interaction_state->dialogue_transcript.size() == 0));
@@ -205,7 +206,7 @@ TEST_CASE_METHOD(SpellVisualFixture, "Spell visual fallback and registration", "
 {
     W8SpellVisual named, generic;
     named.mode = generic.mode = W8_SPELL_VISUAL_EXPLOSION;
-    const int first_cycle = W8_SPELL_VISUAL_EXPLOSION * 7;
+    const std::int32_t first_cycle = W8_SPELL_VISUAL_EXPLOSION * 7;
     generic.host->emitters[first_cycle + 1] = new W8AnimObj;
     RegisterGrCycle("Named", &named);
     RegisterGrCycle("Generic", &generic);
@@ -252,7 +253,7 @@ static void CheckEmitterCloneLifetime()
     auto source = std::make_unique<Host>();
     source->value_0ac = 11;
     source->value_0b0 = 22;
-    const int cycle = static_cast<int>(std::size(source->emitters)) - 1;
+    const std::int32_t cycle = static_cast<std::int32_t>(std::size(source->emitters)) - 1;
     source->emitters[cycle] = new W8AnimObj;
     source->emitters[cycle]->playback_scale = 3.5f;
     source->emitter_playback_scales[cycle] = 7.25f;

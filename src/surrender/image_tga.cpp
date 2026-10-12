@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <SDL3_image/SDL_image.h>
 #include <SDL3/SDL_begin_code.h>
 #include <SDL3/SDL_error.h>
@@ -23,7 +24,7 @@
 
 namespace srImage {
 namespace tga {
-inline unsigned word(const Uint8* data) { return data[0] | unsigned(data[1]) << 8; }
+inline std::uint32_t word(const Uint8* data) { return data[0] | std::uint32_t(data[1]) << 8; }
 
 // Normalize only metadata SDL_image does not support. Pixel/RLE decoding stays in SDL_image.
 struct Input {
@@ -84,8 +85,8 @@ struct Input {
     }
 };
 
-inline bool validatePixels(SDL_IOStream* io, unsigned start, Uint64 pixels,
-                           unsigned bytes, bool rle)
+inline bool validatePixels(SDL_IOStream* io, std::uint32_t start, Uint64 pixels,
+                           std::uint32_t bytes, bool rle)
 {
     if (SDL_SeekIO(io, start, SDL_IO_SEEK_SET) < 0) return false;
     if (!rle)
@@ -93,7 +94,7 @@ inline bool validatePixels(SDL_IOStream* io, unsigned start, Uint64 pixels,
     while (pixels) {
         Uint8 packet;
         if (!SDL_ReadU8(io, &packet)) return false;
-        const unsigned count = (packet & 127) + 1;
+        const std::uint32_t count = (packet & 127) + 1;
         if (count > pixels || SDL_SeekIO(io, (packet & 128 ? 1 : count) * bytes,
                                        SDL_IO_SEEK_CUR) < 0)
             return false;
@@ -112,10 +113,10 @@ std::unique_ptr<srColorSurface> loadTga(SDL_IOStream* source)
             SDL_SeekIO(source, 0, SDL_IO_SEEK_SET) < 0) return nullptr;
         std::vector<Uint8> prefix(18);
         if (SDL_ReadIO(source, prefix.data(), 18) != 18) return nullptr;
-        const unsigned type = prefix[2], depth = prefix[16], descriptor = prefix[17];
-        const unsigned origin = tga::word(prefix.data() + 3), count = tga::word(prefix.data() + 5);
-        const unsigned palette_bits = prefix[7], palette_bytes = (palette_bits + 7) / 8;
-        unsigned width = tga::word(prefix.data() + 12), height = tga::word(prefix.data() + 14);
+        const std::uint32_t type = prefix[2], depth = prefix[16], descriptor = prefix[17];
+        const std::uint32_t origin = tga::word(prefix.data() + 3), count = tga::word(prefix.data() + 5);
+        const std::uint32_t palette_bits = prefix[7], palette_bytes = (palette_bits + 7) / 8;
+        std::uint32_t width = tga::word(prefix.data() + 12), height = tga::word(prefix.data() + 14);
         const bool palette_only = type == 0;
         const bool indexed = palette_only || type == 1 || type == 9;
         const bool gray = type == 3 || type == 11;
@@ -129,7 +130,7 @@ std::unique_ptr<srColorSurface> loadTga(SDL_IOStream* source)
                             (palette_bits != 16 && palette_bits != 24 && palette_bits != 32))) ||
             (palette_only && !has_palette))
             return nullptr;
-        const unsigned metadata = 18 + prefix[0] + (has_palette ? count * palette_bytes : 0);
+        const std::uint32_t metadata = 18 + prefix[0] + (has_palette ? count * palette_bytes : 0);
         if (metadata > size) return nullptr;
         std::vector<Uint8> palette_data(has_palette ? count * palette_bytes : 0);
         if (SDL_SeekIO(source, 18 + prefix[0], SDL_IO_SEEK_SET) < 0 ||
@@ -140,7 +141,7 @@ std::unique_ptr<srColorSurface> loadTga(SDL_IOStream* source)
             core_palette = srCore.getPalette();
             if (!core_palette) return nullptr;
             palette_data.resize(256 * 3);
-            for (unsigned i = 0; i < 256; ++i) {
+            for (std::uint32_t i = 0; i < 256; ++i) {
                 const srARGB color = core_palette->getColor(i);
                 palette_data[i * 3] = color.blue;
                 palette_data[i * 3 + 1] = color.green;
@@ -157,19 +158,19 @@ std::unique_ptr<srColorSurface> loadTga(SDL_IOStream* source)
             prefix[13] = prefix[15] = 0; prefix[16] = 8;
         }
         prefix.insert(prefix.end(), palette_data.begin(), palette_data.end());
-        const unsigned pixel_start = prefix.size();
+        const std::uint32_t pixel_start = prefix.size();
         if (palette_only) prefix.push_back(origin);
         const Sint64 normalized_size = prefix.size() + size - metadata;
         tga::Input normalized{source, std::move(prefix), metadata, normalized_size};
         auto io = normalized.open();
-        const unsigned bytes = palette_only ? 1 : depth / 8;
+        const std::uint32_t bytes = palette_only ? 1 : depth / 8;
         if (!io || !tga::validatePixels(io.get(), pixel_start, Uint64(width) * height,
                                         bytes, type >= 9) ||
             SDL_SeekIO(io.get(), 0, SDL_IO_SEEK_SET) < 0)
             return nullptr;
         Surface decoded(IMG_LoadTGA_IO(io.get()), SDL_DestroySurface);
-        if (!decoded || normalized.failed || decoded->w != int(width) ||
-            decoded->h != int(height)) return nullptr;
+        if (!decoded || normalized.failed || decoded->w != std::int32_t(width) ||
+            decoded->h != std::int32_t(height)) return nullptr;
         const auto format = indexed ? srPixelConvert::SURFACE_P8 : gray ? srPixelConvert::SURFACE_L8 :
             depth == 16 ? ((descriptor & 15) ? srPixelConvert::SURFACE_ARGB1555 : srPixelConvert::SURFACE_RGB555) :
             depth == 24 ? srPixelConvert::SURFACE_BGR24 :
@@ -181,18 +182,18 @@ std::unique_ptr<srColorSurface> loadTga(SDL_IOStream* source)
                 surface->setPalette(core_palette);
             } else {
                 const auto* palette = SDL_GetSurfacePalette(decoded.get());
-                if (!palette || unsigned(palette->ncolors) != count) return nullptr;
+                if (!palette || std::uint32_t(palette->ncolors) != count) return nullptr;
                 std::array<srARGB, 256> colors{};
                 SDL_memset(colors.data(), 0, sizeof(colors));
-                for (unsigned i = 0; i < count; ++i) {
+                for (std::uint32_t i = 0; i < count; ++i) {
                     colors[origin + i].red = palette->colors[i].r;
                     colors[origin + i].green = palette->colors[i].g;
                     colors[origin + i].blue = palette->colors[i].b;
                     colors[origin + i].alpha = palette_bits == 32 ? palette_data[i * 4 + 3] : 255;
                 }
-                for (unsigned y = 0; y < height; ++y) {
+                for (std::uint32_t y = 0; y < height; ++y) {
                     const auto* row = static_cast<const Uint8*>(surface->getDataPtr()) + size_t(y) * surface->getPitch();
-                    for (unsigned x = 0; x < width; ++x)
+                    for (std::uint32_t x = 0; x < width; ++x)
                         if (row[x] < origin || row[x] >= origin + count) return nullptr;
                 }
                 auto generated = std::make_shared<srPalette>(colors.data(), origin + count);

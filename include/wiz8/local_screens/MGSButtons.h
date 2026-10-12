@@ -28,8 +28,8 @@ extern std::array<W8ButtonWidget, 6> g_layout_arrow_buttons;
 extern std::array<W8ButtonWidget, 5> g_combat_stance_buttons;
 extern std::array<W8ButtonWidget, 3> g_roof_buttons;
 extern W8ButtonWidget g_options_disk_button;
-extern short g_submenu_entry_count;
-extern uint64_t g_submenu_clock;
+extern std::int16_t g_submenu_entry_count;
+extern std::uint64_t g_submenu_clock;
 extern bool g_submenu_close_pending;
 /* The cancel row lands at [built-1] where built is the available-entry count
    plus one, so five rows only suffice because Berserk (fighter trait 0x14) and
@@ -37,27 +37,27 @@ extern bool g_submenu_close_pending;
 extern W8TextControl* g_submenu_rows[5];
 extern std::array<W8ButtonWidget, 9> g_submenu_buttons;
 /* The action-kind message indexes the caption draw maps through. */
-extern unsigned short g_action_kind_message_ids[12];
+extern std::uint16_t g_action_kind_message_ids[12];
 /* Which menu the open sub-menu panel serves (W8SubMenuPage value), each row's
    entry index and each row's W8SubMenuEntryState, stored as shorts. */
-extern short g_submenu_menu;
-extern short g_submenu_entries[6];
-extern short g_submenu_entry_states[5];
+extern std::int16_t g_submenu_menu;
+extern std::int16_t g_submenu_entries[6];
+extern std::int16_t g_submenu_entry_states[5];
 
 /* Invalidate (when asked) then redraw the sub-menu panel. */
 void RefreshSubMenuPanel(bool invalidate);
 /* Close and rebuild the sub menu around the saved combat-end notification. */
 void ResetSubMenuPanel(void);
 /* Create and lay out the two scroll-arrow buttons. */
-unsigned char CreateSubMenuScrollButtons(void);
+std::uint8_t CreateSubMenuScrollButtons(void);
 /* Create the close/formation panel buttons. */
-unsigned char CreateSubMenuPanelButtons(void);
+std::uint8_t CreateSubMenuPanelButtons(void);
 /* Create the options-disk button. */
-unsigned char CreateOptionsDiskButton(void);
+std::uint8_t CreateOptionsDiskButton(void);
 /* Create the five combat-stance buttons. */
-unsigned char CreateCombatStanceButtons(void);
+std::uint8_t CreateCombatStanceButtons(void);
 /* Create the three roof/viewpoint buttons. */
-unsigned char CreateRoofButtons(void);
+std::uint8_t CreateRoofButtons(void);
 /* Draw roof chrome, mark the three buttons dirty, sync state, and request the
    0x100000 redraw bit. */
 void RedrawRoofButtons(void);
@@ -69,7 +69,7 @@ void SyncRoofButtonPressedState(void);
    live action-panel / formation-board / radar-map visibility flags. */
 void RedrawLayoutArrowButtons(void);
 /* Create the six layout-arrow buttons. */
-unsigned char CreateLayoutArrowButtons(void);
+std::uint8_t CreateLayoutArrowButtons(void);
 /* MainGameScreenEnter's interface-button bank: submenu, scroll, panel,
    options disk, combat stance, roof, and layout arrows. */
 void CreateMainGameInterfaceButtons(void);
@@ -123,32 +123,32 @@ void SubMenuSelectWalk(void);
 
 /* Applies SetTooltipEnabled to all nine bank buttons, both scroll arrows and
    both panel buttons; the submenu rebuild paths call it around teardown. */
-void SetSubMenuButtonTooltips(int enabled);
+void SetSubMenuButtonTooltips(std::int32_t enabled);
 /* Region callback for the sub-menu background: right-up tears the panel down. */
 /* Enable/disable the scroll, roof and layout button
    banks around the surprise/camp sequence. */
 void EnableMenuButtonBanks(void);
 void DisableMenuButtonBanks(void);
-unsigned char SubMenuBackgroundRegionEvent(const InputEvent* event, W8Region* region);
+std::uint8_t SubMenuBackgroundRegionEvent(const InputEvent* event, W8Region* region);
 /* Region callback the five sub-menu rows share. */
-unsigned char SubMenuRowRegionEvent(const InputEvent* event, W8Region* region);
+std::uint8_t SubMenuRowRegionEvent(const InputEvent* event, W8Region* region);
 
 /* Enable the panel region set and one input region per live row. */
 void EnableSubMenuRegions(void);
 /* Descriptive name for the complete submenu opening operation expanded in
    the button callbacks and reopen/reset paths. */
-void OpenSubMenuPanel(short notification);
+void OpenSubMenuPanel(std::int16_t notification);
 /* Build the panel and one row per available entry of the notification's
    menu. */
-unsigned char BuildSubMenuPanel(short notification);
+std::uint8_t BuildSubMenuPanel(std::int16_t notification);
 /* Install the row's primary callback for its (W8SubMenuPage, entry) pair. */
-void AssignSubMenuCallback(W8TextControl* row, short menu, short item);
+void AssignSubMenuCallback(W8TextControl* row, std::int16_t menu, std::int16_t item);
 /* The row availability states the refresh maps icon frames through. */
-W8SubMenuEntryState GetSubMenuEntryState(short menu, short item, int party_slot);
+W8SubMenuEntryState GetSubMenuEntryState(std::int16_t menu, std::int16_t item, std::int32_t party_slot);
 /* Store the (W8SubMenuPage, entry) pair's pending command in the level block. */
-void MapSubMenuSelection(short menu, short item);
+void MapSubMenuSelection(std::int16_t menu, std::int16_t item);
 /* Whether the slot may perform the pending command, in entry-state terms:
    USABLE/UNUSABLE or the _SELECTED variant when it is already queued. */
-W8SubMenuEntryState CheckSubMenuActionUsable(int party_slot);
+W8SubMenuEntryState CheckSubMenuActionUsable(std::int32_t party_slot);
 
-int GetAttackMenuWeaponOffset(W8Skill skill);
+std::int32_t GetAttackMenuWeaponOffset(W8Skill skill);

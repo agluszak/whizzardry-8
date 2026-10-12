@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include "wiz8/engine_code/game_timer.h"
 #include "compat/compiler.h"
 
@@ -14,7 +15,7 @@ public:
     W8IntervalGate(float duration, bool raw_time, bool one_shot);
     /* 0x0043A500 */
     void Arm();                          /* 0x0043A530 */
-    unsigned int PollElapsedIntervals(); /* 0x0043A5D0 */
+    std::uint32_t PollElapsedIntervals(); /* 0x0043A5D0 */
     bool IsFinished() const
     {
         return m_finished;

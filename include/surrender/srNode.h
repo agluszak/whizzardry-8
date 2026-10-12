@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <atomic>
 #include "glm/ext/vector_double3.hpp"
 #include <type_traits>
@@ -25,7 +26,7 @@ public:
     public:
         struct Entry {
             srNode* node;
-            w8_ulong value;
+            std::uint32_t value;
         };
 
         std::vector<srNode*> nodes;   /* 0x00 */
@@ -44,7 +45,7 @@ public:
         glm::vec3 maximum;
         glm::vec3 center;
         float radius;
-        int state;
+        std::int32_t state;
     };
 
     enum e_processType {
@@ -110,21 +111,21 @@ protected:
     }
 
 protected:
-    virtual SR_DLL_IMPORT int processSignal(w8_ulong signal, void* value);
+    virtual SR_DLL_IMPORT std::int32_t processSignal(std::uint32_t signal, void* value);
     SR_DLL_IMPORT void clearNotify(e_notify notification);
     SR_DLL_IMPORT void setNotify(e_notify notification);
-    SR_DLL_IMPORT int testNotify(e_notify notification) const;
+    SR_DLL_IMPORT std::int32_t testNotify(e_notify notification) const;
 
 public:
-    SR_DLL_IMPORT void dumpHierarchy(std::ostream& stream, w8_long indent) const;
+    SR_DLL_IMPORT void dumpHierarchy(std::ostream& stream, std::int32_t indent) const;
     SR_DLL_IMPORT srNode* findChild(std::string_view name) const;
-    SR_DLL_IMPORT srNode* findChildByNameAndType(std::string_view name, w8_ulong class_id) const;
+    SR_DLL_IMPORT srNode* findChildByNameAndType(std::string_view name, std::uint32_t class_id) const;
     SR_DLL_IMPORT srNode* findParent(std::string_view name) const;
-    SR_DLL_IMPORT srNode* findParentByType(w8_ulong class_id) const;
+    SR_DLL_IMPORT srNode* findParentByType(std::uint32_t class_id) const;
     SR_DLL_IMPORT srNode* getChild() const;
-    SR_DLL_IMPORT w8_long getChildCount() const;
+    SR_DLL_IMPORT std::int32_t getChildCount() const;
     SR_DLL_IMPORT std::string getFullPath() const;
-    SR_DLL_IMPORT w8_long getHierarchyLevel() const;
+    SR_DLL_IMPORT std::int32_t getHierarchyLevel() const;
     SR_DLL_IMPORT srNode* getNext() const;
     // FUNCTION: SURRENDER 0x10051A40 SYMBOL
     // RECOMP: ?getParent@srNode@@QBEPAV1@XZ
@@ -133,9 +134,9 @@ public:
         return parent_;
     }
     SR_DLL_IMPORT srNode* getPrev() const;
-    SR_DLL_IMPORT int isChildOf(const srNode& node) const;
-    SR_DLL_IMPORT int isParentOf(const srNode& node) const;
-    static SR_DLL_IMPORT int isSceneGraphLocked();
+    SR_DLL_IMPORT std::int32_t isChildOf(const srNode& node) const;
+    SR_DLL_IMPORT std::int32_t isParentOf(const srNode& node) const;
+    static SR_DLL_IMPORT std::int32_t isSceneGraphLocked();
     static SR_DLL_IMPORT void lockSceneGraph();
     static SR_DLL_IMPORT void unlockSceneGraph();
 
@@ -180,7 +181,7 @@ public:
     {
         const auto world = getWorldSpaceMatrix<glm::mat<4, 3, typename Matrix::value_type>>();
         Matrix result(world);
-        for (int column = 0; column < 3; ++column)
+        for (std::int32_t column = 0; column < 3; ++column)
             result[column] = normalizedOrZero(result[column]);
         return result;
     }
@@ -206,7 +207,7 @@ public:
     SR_DLL_IMPORT void rotateZ(double angle);
     // Reparenting changes scene membership and preserves the ownership mode.
     // Independently owned nodes remain borrowed until adoptChild transfers them.
-    SR_DLL_IMPORT int setParent(srNode* parent, int preserve_world_transform);
+    SR_DLL_IMPORT std::int32_t setParent(srNode* parent, std::int32_t preserve_world_transform);
     SR_DLL_IMPORT void setLocation(const glm::dvec3& location);
     SR_DLL_IMPORT void setLocation(double x, double y, double z);
     SR_DLL_IMPORT void setLocationX(double x);
@@ -229,8 +230,8 @@ public:
     SR_DLL_IMPORT void notifyChildren(const srFlags<e_notify>& notifications);
     SR_DLL_IMPORT void notifyDependent();
     SR_DLL_IMPORT void notifyParents(const srFlags<e_notify>& notifications);
-    SR_DLL_IMPORT void signal(w8_ulong signal, void* value);
-    SR_DLL_IMPORT int testFlag(e_flag flag) const;
+    SR_DLL_IMPORT void signal(std::uint32_t signal, void* value);
+    SR_DLL_IMPORT std::int32_t testFlag(e_flag flag) const;
     SR_DLL_IMPORT void yawAt(const glm::dvec3& target, double amount);
     SR_DLL_IMPORT void yawAt(const srNode* target, double amount);
 
@@ -238,7 +239,7 @@ public:
     void detach();
 
     // Transfer an independently owned node into this owning scene subtree.
-    template<class T> T* adoptChild(std::unique_ptr<T> child, int preserve_world_transform = 0)
+    template<class T> T* adoptChild(std::unique_ptr<T> child, std::int32_t preserve_world_transform = 0)
     {
         std::lock_guard access(sceneGraphCSect);
         if (!child || !child->setParent(this, preserve_world_transform)) return nullptr;
@@ -248,22 +249,22 @@ public:
 
 private:
     bool parent_owns_ = true;
-    void moveAlongAxis(unsigned axis, double distance);
-    void setLocationComponent(unsigned component, double value);
-    void turnWorldSpaceAxisToward(unsigned axis, const glm::dvec3& direction, double amount);
+    void moveAlongAxis(std::uint32_t axis, double distance);
+    void setLocationComponent(std::uint32_t component, double value);
+    void turnWorldSpaceAxisToward(std::uint32_t axis, const glm::dvec3& direction, double amount);
     SR_DLL_IMPORT void checkTransformation() const;
-    SR_DLL_IMPORT srNode* findChildByNameAndTypeInternal(std::string_view name, w8_ulong class_id);
+    SR_DLL_IMPORT srNode* findChildByNameAndTypeInternal(std::string_view name, std::uint32_t class_id);
     SR_DLL_IMPORT srNode* findChildInternal(std::string_view name);
-    SR_DLL_IMPORT srNode* findParentByTypeInternal(w8_ulong class_id);
+    SR_DLL_IMPORT srNode* findParentByTypeInternal(std::uint32_t class_id);
     SR_DLL_IMPORT srNode* findParentInternal(std::string_view name);
     SR_DLL_IMPORT void getFullPathInternal(std::string& path) const;
     SR_DLL_IMPORT void setWSDirty();
-    SR_DLL_IMPORT void signalInternal(w8_ulong signal, void* value);
+    SR_DLL_IMPORT void signalInternal(std::uint32_t signal, void* value);
     SR_DLL_IMPORT void unlink();
     SR_DLL_IMPORT void updateTransformation() const;
 
     static SR_DLL_IMPORT std::recursive_mutex sceneGraphCSect;
-    static SR_DLL_IMPORT std::atomic<w8_long> sceneGraphLockCount;
+    static SR_DLL_IMPORT std::atomic<std::int32_t> sceneGraphLockCount;
 
     glm::dmat3 rotation; /* 0x018 */
     glm::dvec3 location; /* 0x060 */

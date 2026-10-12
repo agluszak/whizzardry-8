@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <fmt/format.h>
 #include <vector>
 #include <cmath>
@@ -45,7 +46,7 @@
 #include "surrender/srMath.h"
 
 // GLOBAL: WIZ8 0x0068C518
-int g_event_sight_blocked = g_first_remapped_event + 30;
+std::int32_t g_event_sight_blocked = g_first_remapped_event + 30;
 
 #define COMBAT_RANGE_CPP "C:\\Projects\\Wizardry 8\\Local Code\\Combat Range.cpp"
 
@@ -72,10 +73,10 @@ const float g_float_twelve_thousand_five_hundred = 12500.0f;
    party for an opposing-side member the chosen action could actually
    strike. */
 // FUNCTION: WIZ8 0x00518e30
-bool CanPartySlotAttackAnyTarget(int party_slot, W8TargetingContext category, int flag, bool hand)
+bool CanPartySlotAttackAnyTarget(std::int32_t party_slot, W8TargetingContext category, std::int32_t flag, bool hand)
 {
     char side;
-    int first = party_slot;
+    std::int32_t first = party_slot;
 
     if (!gXStatus.fCombatMode || !g_combat_state->characters[party_slot].berserk) {
         side = hand;
@@ -85,13 +86,13 @@ bool CanPartySlotAttackAnyTarget(int party_slot, W8TargetingContext category, in
     side = (side != 0) + 1;
     bool live_groups = CombatAllowsLiveGroups();
     if (flag != 1) {
-        unsigned int index;
+        std::uint32_t index;
         for (index = 0; index < gXStatus.monsters.size(); ++index) {
             W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(index);
             if (monster_info->fActive && monster_info->hp_current != 0 &&
                 monster_info->highest_condition < W8_CONDITION_DEAD &&
                 (live_groups || MonsterVsCharDisposition(first, monster_info) == side)) {
-                for (unsigned int reach_hand = 0; reach_hand < 2; ++reach_hand) {
+                for (std::uint32_t reach_hand = 0; reach_hand < 2; ++reach_hand) {
                     if (CanHandReachTarget(first, reach_hand) &&
                         CanPartyMemberAimAtMonster(first, reach_hand, monster_info, category,
                                                    false)) {
@@ -103,10 +104,10 @@ bool CanPartySlotAttackAnyTarget(int party_slot, W8TargetingContext category, in
     }
     if (category == W8_TARGETING_CONTEXT_OUT_OF_COMBAT || category == W8_TARGETING_CONTEXT_ATTACK) {
         W8Character* character = &g_status.buffers.Char[first];
-        for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
+        for (std::int32_t slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
             if (slot != first && CanPartySlotParticipate(slot) &&
                 CharacterVsCharacterDisposition(first, slot) == side) {
-                for (unsigned int reach_hand = 0; reach_hand < 2; ++reach_hand) {
+                for (std::uint32_t reach_hand = 0; reach_hand < 2; ++reach_hand) {
                     if (!CanHandReachTarget(first, reach_hand)) {
                         continue;
                     }
@@ -114,7 +115,7 @@ bool CanPartySlotAttackAnyTarget(int party_slot, W8TargetingContext category, in
                         return true;
                     }
                     W8ActionKind kind;
-                    int action;
+                    std::int32_t action;
                     W8ActionDetailBlock* detail;
                     ChooseCombatAction(first, category, &kind, &action, 0, &detail);
                     W8RangeCategory range;
@@ -165,7 +166,7 @@ bool CanPartySlotAttackAnyTarget(int party_slot, W8TargetingContext category, in
    spell's distance and its line of sight, and a group target defers to the
    shared group range test. */
 // FUNCTION: WIZ8 0x00519180
-bool CharacterActionReachesTarget(int party_slot, int hand, W8TargetingContext context)
+bool CharacterActionReachesTarget(std::int32_t party_slot, std::int32_t hand, W8TargetingContext context)
 {
     W8CombatSlot* target = GetTargetBlockForContext(party_slot, context);
     context = ResolveTargetingContext(party_slot, context);
@@ -178,7 +179,7 @@ bool CharacterActionReachesTarget(int party_slot, int hand, W8TargetingContext c
         return CanPartyMemberAimAtMonster(party_slot, hand, monster_info, context, false);
     }
     if (target->iType == W8_TARGET_KIND_CHARACTER) {
-        int target_slot = target->iChar;
+        std::int32_t target_slot = target->iChar;
         if (static_cast<char>(party_slot) != target_slot) {
             W8RangeCategory range = GetCharActionRange(party_slot, hand, context);
             if (range == W8_RANGE_NONE) {
@@ -199,7 +200,7 @@ bool CharacterActionReachesTarget(int party_slot, int hand, W8TargetingContext c
         camera = cameraLocation();
         camera_top = cameraLocation();
         point = target->point;
-        unsigned int spell_id = GetActionSpellLikeId(party_slot, context);
+        std::uint32_t spell_id = GetActionSpellLikeId(party_slot, context);
         if (spell_id == W8_SPELL_NONE) {
             srAssertFail("uiSpell != SPELL_NONE", COMBAT_RANGE_CPP, 0xee, 0);
         }
@@ -250,14 +251,14 @@ bool CharacterActionReachesTarget(int party_slot, int hand, W8TargetingContext c
    rows between slot and monster) and selects the aim flag. An allowed aim
    then has to pass the band distance to the monster. */
 // FUNCTION: WIZ8 0x005194e0
-bool CanPartyMemberAimAtMonster(int party_slot, int hand, W8MonsterInfo* monster_info,
+bool CanPartyMemberAimAtMonster(std::int32_t party_slot, std::int32_t hand, W8MonsterInfo* monster_info,
                                 W8TargetingContext context, bool notify_failure)
 {
     W8ActionDetailBlock* detail_block;
     bool flag;
     W8ActionKind action;
-    int detail;
-    int range;
+    std::int32_t detail;
+    std::int32_t range;
     char rows;
 
     if (monster_info->party_threat.sight_state != W8_SIGHT_SEEN) {
@@ -343,7 +344,7 @@ bool CanPartyMemberAimAtMonster(int party_slot, int hand, W8MonsterInfo* monster
    chosen action has to have a range, and melee range additionally has to get
    past the front rank. */
 // FUNCTION: WIZ8 0x005197c0
-bool CharacterActionReachesSlot(int party_slot, int hand, int target_slot,
+bool CharacterActionReachesSlot(std::int32_t party_slot, std::int32_t hand, std::int32_t target_slot,
                                 W8TargetingContext context)
 {
     if (static_cast<char>(party_slot) == target_slot) {
@@ -351,7 +352,7 @@ bool CharacterActionReachesSlot(int party_slot, int hand, int target_slot,
     }
     W8Character* character = &g_status.buffers.Char[party_slot];
     W8ActionKind kind;
-    int action;
+    std::int32_t action;
     W8ActionDetailBlock* detail;
     ChooseCombatAction(party_slot, context, &kind, &action, 0, &detail);
     W8RangeCategory range;
@@ -393,7 +394,7 @@ bool CharacterActionReachesSlot(int party_slot, int hand, int target_slot,
    The character becomes the source for the shared range test; a miss can
    queue the character's complaint event when `notify` asks for it. */
 // FUNCTION: WIZ8 0x00519920
-bool IsSlotInRangeOfGroup(int party_slot, int group_id, W8TargetingContext context, bool notify)
+bool IsSlotInRangeOfGroup(std::int32_t party_slot, std::int32_t group_id, W8TargetingContext context, bool notify)
 {
     W8TargetSource source;
     W8MonsterGroup* group;
@@ -420,12 +421,12 @@ bool IsSlotInRangeOfGroup(int party_slot, int group_id, W8TargetingContext conte
    weapon's reach for the asked hand, a move acts at long range, spells and
    item uses ask their spell record, and anything unknown has no range. */
 // FUNCTION: WIZ8 0x005199f0
-W8RangeCategory GetCharActionRange(int party_slot, int hand, W8TargetingContext context)
+W8RangeCategory GetCharActionRange(std::int32_t party_slot, std::int32_t hand, W8TargetingContext context)
 {
     W8Character* character = &g_status.buffers.Char[party_slot];
     W8ActionDetailBlock* detail_block;
     W8ActionKind action;
-    int detail;
+    std::int32_t detail;
 
     ChooseCombatAction(party_slot, context, &action, &detail, 0, &detail_block);
     switch (action) {
@@ -454,9 +455,9 @@ W8RangeCategory GetCharActionRange(int party_slot, int hand, W8TargetingContext 
    hand actually in play carrying a melee or thrown wield kind has a range to
    report at all. */
 // FUNCTION: WIZ8 0x00519ac0
-W8RangeCategory GetCharAttackRange(const W8Character* character, unsigned int hand)
+W8RangeCategory GetCharAttackRange(const W8Character* character, std::uint32_t hand)
 {
-    unsigned int index;
+    std::uint32_t index;
     W8RangeCategory best;
     W8RangeCategory range;
 
@@ -495,7 +496,7 @@ W8RangeCategory GetBestHandRangeCategory(const W8Character* character)
 {
     W8RangeCategory best = W8_RANGE_NONE;
     W8RangeCategory category;
-    unsigned int hand;
+    std::uint32_t hand;
 
     for (hand = 0; hand < 2; ++hand) {
         if (character->Hand[hand].in_play) {
@@ -523,14 +524,14 @@ bool RangeCategoryUsesSightCondition(const W8MonsterInfo* monster, W8RangeCatego
    combat, berserk forces the friendly band. Party members and other monsters defer to the corresponding
    MonsterAttackReachesCharacter/Monster helpers. */
 // FUNCTION: WIZ8 0x00519c00
-bool MonsterAttackReachesAnyone(W8MonsterInfo* monster_info, unsigned int attack,
+bool MonsterAttackReachesAnyone(W8MonsterInfo* monster_info, std::uint32_t attack,
                                 bool friendly_targets)
 {
     W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
     W8Disposition disposition_needed;
-    int party_slot;
-    unsigned int index;
-    unsigned int count;
+    std::int32_t party_slot;
+    std::uint32_t index;
+    std::uint32_t count;
     W8MonsterInfo* other;
 
     if (!monster_info->fInCombat || !monster_info->pCombat->berserk) {
@@ -574,7 +575,7 @@ bool MonsterAttackReachesAnyone(W8MonsterInfo* monster_info, unsigned int attack
     return false;
 }
 
-static int GetMonsterActionSightIndex(W8MonsterInfo* monster_info, unsigned int attack)
+static std::int32_t GetMonsterActionSightIndex(W8MonsterInfo* monster_info, std::uint32_t attack)
 {
     if (monster_info->action_kind == W8_MONSTER_ACTION_ATTACK) {
         W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
@@ -588,10 +589,10 @@ static int GetMonsterActionSightIndex(W8MonsterInfo* monster_info, unsigned int 
 }
 
 static W8RangeCategory GetMonsterPartyTargetRange(W8MonsterInfo* monster_info,
-                                                  W8MonsterRecord* record, unsigned int attack,
-                                                  int party_slot)
+                                                  W8MonsterRecord* record, std::uint32_t attack,
+                                                  std::int32_t party_slot)
 {
-    int sight_index;
+    std::int32_t sight_index;
     W8RangeCategory range;
 
     if (monster_info->player_visibility.sight_state != W8_SIGHT_SEEN) {
@@ -620,7 +621,7 @@ static W8RangeCategory GetMonsterPartyTargetRange(W8MonsterInfo* monster_info,
    touch/short reach by CountRowsBetween. */
 // FUNCTION: WIZ8 0x0051a2f0
 bool MonsterAttackReachesCharacter(W8MonsterInfo* monster_info, W8MonsterRecord* record,
-                                   unsigned int attack, int party_slot)
+                                   std::uint32_t attack, std::int32_t party_slot)
 {
     W8RangeCategory range = GetMonsterPartyTargetRange(monster_info, record, attack, party_slot);
     if (range == W8_RANGE_NONE) {
@@ -639,10 +640,10 @@ bool MonsterAttackReachesCharacter(W8MonsterInfo* monster_info, W8MonsterRecord*
    mon-to-mon visibility row rather than the party record. */
 // FUNCTION: WIZ8 0x0051a510
 bool MonsterAttackReachesMonster(W8MonsterInfo* monster_info, W8MonsterRecord* record,
-                                 unsigned int attack, W8MonsterInfo* target)
+                                 std::uint32_t attack, W8MonsterInfo* target)
 {
     W8VisibilityRecord* visibility;
-    int sight_index;
+    std::int32_t sight_index;
     W8RangeCategory range;
 
     if (record->untargetable != 0) {
@@ -682,14 +683,14 @@ bool MonsterAttackReachesMonster(W8MonsterInfo* monster_info, W8MonsterRecord* r
 W8RangeCategory GetBestMonsterAttackRange(const W8MonsterRecord* record, bool close_quarters_only)
 {
     W8RangeCategory best = W8_RANGE_NONE;
-    int attack;
-    unsigned char category;
+    std::int32_t attack;
+    std::uint8_t category;
 
     for (attack = 0; attack < W8_MAX_MONSTER_ATTACKS; ++attack) {
         if (record->attacks[attack].fHasAttack != 0) {
             category = record->attacks[attack].range_category;
             if ((!close_quarters_only || category < W8_RANGE_LONG) &&
-                static_cast<int>(category) > best) {
+                static_cast<std::int32_t>(category) > best) {
                 best = static_cast<W8RangeCategory>(category);
             }
         }
@@ -701,16 +702,16 @@ W8RangeCategory GetBestMonsterAttackRange(const W8MonsterRecord* record, bool cl
    kinds, then the furthest castable spell band when the gates allow. */
 // FUNCTION: WIZ8 0x0051a840
 W8RangeCategory GetMonsterBestRangeCategory(W8MonsterInfo* monster_info,
-                                            bool skip_capability_checks, int* out_sight)
+                                            bool skip_capability_checks, std::int32_t* out_sight)
 {
     W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
     W8RangeCategory best = W8_RANGE_NONE;
-    int attack;
-    int spell;
+    std::int32_t attack;
+    std::int32_t spell;
 
     for (attack = 0; attack < W8_MAX_MONSTER_ATTACKS; ++attack) {
         if (record->attacks[attack].fHasAttack != 0 &&
-            static_cast<int>(record->attacks[attack].range_category) > best) {
+            static_cast<std::int32_t>(record->attacks[attack].range_category) > best) {
             best = static_cast<W8RangeCategory>(record->attacks[attack].range_category);
         }
     }
@@ -740,16 +741,16 @@ W8RangeCategory GetMonsterBestRangeCategory(W8MonsterInfo* monster_info,
     }
 
     for (spell = 0; spell < 10; ++spell) {
-        unsigned int spell_id = record->spells[spell];
+        std::uint32_t spell_id = record->spells[spell];
 
         if (!MonsterCanAimSpell(spell_id)) {
             continue;
         }
         if (!skip_capability_checks &&
-            !IsSpellUsableByMonster(monster_info, static_cast<int>(spell_id), true)) {
+            !IsSpellUsableByMonster(monster_info, static_cast<std::int32_t>(spell_id), true)) {
             continue;
         }
-        if (static_cast<int>(best) < static_cast<int>(g_spell_records[spell_id].range_category)) {
+        if (static_cast<std::int32_t>(best) < static_cast<std::int32_t>(g_spell_records[spell_id].range_category)) {
             best = g_spell_records[spell_id].range_category;
             *out_sight = GetMonsterSpellSightIndex(monster_info);
         }
@@ -762,7 +763,7 @@ W8RangeCategory GetMonsterBestRangeCategory(W8MonsterInfo* monster_info,
    none. A plain attack takes it from the attack itself, which has to exist. */
 // FUNCTION: WIZ8 0x0051a730
 W8RangeCategory GetMonsterActionRangeCategory(const W8MonsterInfo* monster_info,
-                                              const W8MonsterRecord* record, unsigned int attack)
+                                              const W8MonsterRecord* record, std::uint32_t attack)
 {
     switch (monster_info->action_kind) {
     case W8_MONSTER_ACTION_ATTACK:
@@ -791,7 +792,7 @@ W8RangeCategory GetMonsterActionRangeCategory(const W8MonsterInfo* monster_info,
 // FUNCTION: WIZ8 0x0051a9a0
 float CalcRangeDistance(W8RangeCategory range_category)
 {
-    unsigned int steps = 0;
+    std::uint32_t steps = 0;
 
     switch (range_category) {
     case W8_RANGE_NONE:
@@ -848,7 +849,7 @@ float CalcRangeDistanceFromParty(W8RangeCategory range_category)
    stand between the monster and `party_slot`. Exhausting the category marks it
    unreachable (-1). */
 // FUNCTION: WIZ8 0x0051abe0
-void CloseFormationGap(W8MonsterInfo* monster_info, int party_slot, W8RangeCategory* range_category)
+void CloseFormationGap(W8MonsterInfo* monster_info, std::int32_t party_slot, W8RangeCategory* range_category)
 {
     char crossable;
 
@@ -874,11 +875,11 @@ void CloseFormationGap(W8MonsterInfo* monster_info, int party_slot, W8RangeCateg
 
 /* Whether anybody standing ahead of this position is still in formation. */
 // FUNCTION: WIZ8 0x0051ae60
-bool AnyoneStandsAhead(unsigned char position)
+bool AnyoneStandsAhead(std::uint8_t position)
 {
-    unsigned char found = 0;
-    unsigned int index;
-    signed char slot;
+    std::uint8_t found = 0;
+    std::uint32_t index;
+    std::int8_t slot;
 
     for (index = 0; index < W8_FORMATION_ROW_WIDTH; ++index) {
         slot = g_status.formation.bOccupantChar[position][index];
@@ -894,17 +895,17 @@ bool AnyoneStandsAhead(unsigned char position)
    occupied, plus one more when the gap is exactly two rows and either that
    row or the front rank screens. */
 // FUNCTION: WIZ8 0x0051aec0
-char CountRowsBetween(int party_slot, W8MonsterInfo* monster_info)
+char CountRowsBetween(std::int32_t party_slot, W8MonsterInfo* monster_info)
 {
-    unsigned char monster_quadrant = static_cast<unsigned char>(GetMonsterQuadrant(monster_info));
-    signed char party_quadrant = g_status.formation.positions[party_slot].bQuadrant;
+    std::uint8_t monster_quadrant = static_cast<std::uint8_t>(GetMonsterQuadrant(monster_info));
+    std::int8_t party_quadrant = g_status.formation.positions[party_slot].bQuadrant;
     char rows = 0;
-    unsigned int index;
-    signed char slot;
-    int gap;
+    std::uint32_t index;
+    std::int8_t slot;
+    std::int32_t gap;
     char found_front;
 
-    if (monster_quadrant == static_cast<unsigned char>(party_quadrant)) {
+    if (monster_quadrant == static_cast<std::uint8_t>(party_quadrant)) {
         return 0;
     }
 
@@ -925,7 +926,7 @@ char CountRowsBetween(int party_slot, W8MonsterInfo* monster_info)
         return rows;
     }
 
-    gap = static_cast<int>(monster_quadrant) - party_quadrant;
+    gap = static_cast<std::int32_t>(monster_quadrant) - party_quadrant;
     if (gap < 0) {
         gap = -gap;
     }
@@ -952,14 +953,14 @@ char CountRowsBetween(int party_slot, W8MonsterInfo* monster_info)
 /* Whether the front rank stands between two positions. Only positions exactly
    two rows apart can be screened, and the fifth row is never in the way. */
 // FUNCTION: WIZ8 0x0051b000
-bool FrontRankScreens(unsigned int from_position, unsigned int to_position)
+bool FrontRankScreens(std::uint32_t from_position, std::uint32_t to_position)
 {
-    unsigned char from_row = g_status.formation.positions[from_position].bQuadrant;
-    unsigned char to_row = g_status.formation.positions[to_position].bQuadrant;
-    int rows_apart;
-    int found;
-    unsigned int index;
-    signed char slot;
+    std::uint8_t from_row = g_status.formation.positions[from_position].bQuadrant;
+    std::uint8_t to_row = g_status.formation.positions[to_position].bQuadrant;
+    std::int32_t rows_apart;
+    std::int32_t found;
+    std::uint32_t index;
+    std::int8_t slot;
 
     if (from_row == to_row) {
         return false;
@@ -967,7 +968,7 @@ bool FrontRankScreens(unsigned int from_position, unsigned int to_position)
     if (from_row == 4 || to_row == 4) {
         return false;
     }
-    rows_apart = from_row - static_cast<signed char>(to_row);
+    rows_apart = from_row - static_cast<std::int8_t>(to_row);
     if (rows_apart < 0) {
         rows_apart = -rows_apart;
     }
@@ -990,17 +991,17 @@ bool FrontRankScreens(unsigned int from_position, unsigned int to_position)
    them is picked at random, or -1 when nobody qualifies. The berserk and
    turncoat paths use it to pick a victim. */
 // FUNCTION: WIZ8 0x0051b0a0
-int PickReachableSlotByDisposition(int party_slot, W8Disposition relationship)
+std::int32_t PickReachableSlotByDisposition(std::int32_t party_slot, W8Disposition relationship)
 {
-    int candidates[8];
-    int* next = candidates;
-    int count = 0;
-    for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
+    std::int32_t candidates[8];
+    std::int32_t* next = candidates;
+    std::int32_t count = 0;
+    for (std::int32_t slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
         if (slot == party_slot || !CanPartySlotParticipate(slot) ||
             CharacterVsCharacterDisposition(party_slot, slot) != relationship) {
             continue;
         }
-        for (unsigned int hand = 0; hand < 2; ++hand) {
+        for (std::uint32_t hand = 0; hand < 2; ++hand) {
             if (!CanHandReachTarget(party_slot, hand)) {
                 continue;
             }
@@ -1043,7 +1044,7 @@ void InitializeMonsterRangeCapabilities(W8MonsterInfo* monster_info, const W8Mon
     monster_info->unknown_37b = 1;
 
     W8RangeCategory best_range = W8_RANGE_NONE;
-    for (unsigned int attack = 0; attack < W8_MAX_MONSTER_ATTACKS; ++attack) {
+    for (std::uint32_t attack = 0; attack < W8_MAX_MONSTER_ATTACKS; ++attack) {
         if (record->attacks[attack].fHasAttack != 0 &&
             best_range < record->attacks[attack].range_category) {
             best_range = static_cast<W8RangeCategory>(record->attacks[attack].range_category);
@@ -1060,7 +1061,7 @@ void InitializeMonsterRangeCapabilities(W8MonsterInfo* monster_info, const W8Mon
 }
 
 // FUNCTION: WIZ8 0x0051b3f0
-unsigned char TraceModeRejectsNoHit(int mode)
+std::uint8_t TraceModeRejectsNoHit(std::int32_t mode)
 {
     switch (mode) {
     case 0:
@@ -1070,7 +1071,7 @@ unsigned char TraceModeRejectsNoHit(int mode)
     case 3:
         return 1;
     default:
-        return static_cast<unsigned char>(mode);
+        return static_cast<std::uint8_t>(mode);
     }
 }
 
@@ -1078,7 +1079,7 @@ unsigned char TraceModeRejectsNoHit(int mode)
    the nearest hostile visible monster. Answers the chosen distance and fills
    the target kind and monster id when applicable. */
 // FUNCTION: WIZ8 0x0051ac30
-float MonsterChooseTarget(W8MonsterInfo* monster_info, W8CombatSlot* out, int kind)
+float MonsterChooseTarget(W8MonsterInfo* monster_info, W8CombatSlot* out, std::int32_t kind)
 {
     float best = 999999.0f;
 
@@ -1089,9 +1090,9 @@ float MonsterChooseTarget(W8MonsterInfo* monster_info, W8CombatSlot* out, int ki
         out->iType = W8_TARGET_KIND_CHARACTER;
     }
     if (out->iType == W8_TARGET_KIND_NONE || !monster_info->pCombat->reconsider_action) {
-        unsigned int count = gXStatus.monsters.size();
+        std::uint32_t count = gXStatus.monsters.size();
 
-        for (unsigned int index = 0; index < count; ++index) {
+        for (std::uint32_t index = 0; index < count; ++index) {
             W8MonsterInfo* other = MonsterGetScriptPartByLocationIndex(index);
 
             if (other != monster_info && other->fActive && other->hp_current != 0 &&
@@ -1118,12 +1119,12 @@ float MonsterChooseTarget(W8MonsterInfo* monster_info, W8CombatSlot* out, int ki
    every member. */
 // FUNCTION: WIZ8 0x00519f80
 bool MonsterActionReachesTarget(W8MonsterInfo* monster_info, W8MonsterRecord* record,
-                                unsigned int attack, W8CombatSlot* target)
+                                std::uint32_t attack, W8CombatSlot* target)
 {
     W8RangeCategory range;
 
     if (target->iType == W8_TARGET_KIND_CHARACTER) {
-        int party_slot = target->iChar;
+        std::int32_t party_slot = target->iChar;
         range = GetMonsterPartyTargetRange(monster_info, record, attack, party_slot);
         if (range == W8_RANGE_NONE) {
             return false;
@@ -1135,7 +1136,7 @@ bool MonsterActionReachesTarget(W8MonsterInfo* monster_info, W8MonsterRecord* re
         W8MonsterInfo* target_monster = FindMonster(target->iMonsterID);
         return MonsterAttackReachesMonster(monster_info, record, attack, target_monster);
     } else if (target->iType == W8_TARGET_KIND_PARTY) {
-        int party_slot = GetRandomCharacter(1, 1, -1, -1);
+        std::int32_t party_slot = GetRandomCharacter(1, 1, -1, -1);
         range = GetMonsterPartyTargetRange(monster_info, record, attack, party_slot);
         if (range == W8_RANGE_NONE) {
             return false;
@@ -1153,13 +1154,13 @@ bool MonsterActionReachesTarget(W8MonsterInfo* monster_info, W8MonsterRecord* re
 }
 
 // FUNCTION: WIZ8 0x0051ad60
-int FindNearestVisibleGroupMonster(W8MonsterInfo* monster_info, int group_id, int kind)
+std::int32_t FindNearestVisibleGroupMonster(W8MonsterInfo* monster_info, std::int32_t group_id, std::int32_t kind)
 {
-    int best_id = -1;
+    std::int32_t best_id = -1;
     float best = 999999.0f;
     W8MonsterGroup* group = FindMonsterGroup(group_id);
-    for (unsigned int index = 0; index < group->MemberIds().size(); ++index) {
-        int location_id = group->MemberLocationId(index);
+    for (std::uint32_t index = 0; index < group->MemberIds().size(); ++index) {
+        std::int32_t location_id = group->MemberLocationId(index);
         W8MonsterInfo* target = FindMonster(location_id);
         if (target->fActive && target->hp_current != 0 && target->fInCombat) {
             W8VisibilityRecord* row = FindMonToMonVisibility(monster_info, target);
@@ -1179,7 +1180,7 @@ int FindNearestVisibleGroupMonster(W8MonsterInfo* monster_info, int group_id, in
    monster's height offset, shifted by the delta between its navigator
    position and the muzzle/hand point when that point resolves. */
 // FUNCTION: WIZ8 0x0051b320
-void GetMonsterAttackSourceOffset(W8Monster* monster, int kind, srVector3T<float>* out)
+void GetMonsterAttackSourceOffset(W8Monster* monster, std::int32_t kind, srVector3T<float>* out)
 {
     out->Set(0.0f, monster->movement.height_offset, 0.0f);
     if (kind == 1) {

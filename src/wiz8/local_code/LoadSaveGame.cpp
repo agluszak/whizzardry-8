@@ -115,44 +115,44 @@ char g_save_extension[] = "SAV";
 namespace {
 
 /* Save and level-status chunk ids. */
-constexpr unsigned int W8_CHUNK_GAME_STATUS = W8ChunkId("GSTA");
-constexpr unsigned int W8_CHUNK_GAME_VERSION = W8ChunkId("GVER");
-constexpr unsigned int W8_CHUNK_SCREENSHOT = W8ChunkId("SHOT");
-constexpr unsigned int W8_CHUNK_MESSAGE_STORAGE = W8ChunkId("TEXT");
-constexpr unsigned int W8_CHUNK_LOCATION_VARIABLES = W8ChunkId("TVAR");
-constexpr unsigned int W8_CHUNK_NPC_TRANSCRIPT = W8ChunkId("NPCI");
-constexpr unsigned int W8_CHUNK_NPC_STATES = W8ChunkId("NPCT");
-constexpr unsigned int W8_CHUNK_FACT_STATE = W8ChunkId("NPCF");
-constexpr unsigned int W8_CHUNK_FACTION_STATE = W8ChunkId("FATA");
-constexpr unsigned int W8_CHUNK_JOURNAL = W8ChunkId("JRNL");
-constexpr unsigned int W8_CHUNK_MONSTER_CONTROL = W8ChunkId("HYPN");
-constexpr unsigned int W8_CHUNK_CHARACTER = W8ChunkId("CHAR");
-constexpr unsigned int W8_CHUNK_LEVEL_STATUS = W8ChunkId("LVLS");
-constexpr unsigned int W8_CHUNK_STATUS_HEADER = W8ChunkId("STAT");
-constexpr unsigned int W8_CHUNK_MONSTERS = W8ChunkId("MONS");
-constexpr unsigned int W8_CHUNK_WORLD_ITEMS = W8ChunkId("ITEM");
-constexpr unsigned int W8_CHUNK_CURSOR_NODES = W8ChunkId("CUBE");
-constexpr unsigned int W8_CHUNK_ENCOUNTERS = W8ChunkId("MONG");
-constexpr unsigned int W8_CHUNK_TRIGGER_LOCKS = W8ChunkId("LOCK");
-constexpr unsigned int W8_CHUNK_TRIGGER_ACTIONS = W8ChunkId("TRES");
-constexpr unsigned int W8_CHUNK_AUTOMAP_NOTES = W8ChunkId("AUTO");
-constexpr unsigned int W8_CHUNK_TRIGGERS = W8ChunkId("TRIG");
-constexpr unsigned int W8_CHUNK_PROPS = W8ChunkId("APST");
-constexpr unsigned int W8_CHUNK_CURSOR_NODE_STATES = W8ChunkId("CUBS");
-constexpr unsigned int W8_CHUNK_MONSTER_GENERATORS = W8ChunkId("MGNS");
-constexpr unsigned int W8_CHUNK_TRIGGER_STATES = W8ChunkId("LCKS");
-constexpr unsigned int W8_CHUNK_AMBIENT_SOUNDS = W8ChunkId("AMBS");
-constexpr unsigned int W8_CHUNK_PARTICLES = W8ChunkId("PART");
-constexpr unsigned int W8_CHUNK_LIGHTS = W8ChunkId("LGHT");
+constexpr std::uint32_t W8_CHUNK_GAME_STATUS = W8ChunkId("GSTA");
+constexpr std::uint32_t W8_CHUNK_GAME_VERSION = W8ChunkId("GVER");
+constexpr std::uint32_t W8_CHUNK_SCREENSHOT = W8ChunkId("SHOT");
+constexpr std::uint32_t W8_CHUNK_MESSAGE_STORAGE = W8ChunkId("TEXT");
+constexpr std::uint32_t W8_CHUNK_LOCATION_VARIABLES = W8ChunkId("TVAR");
+constexpr std::uint32_t W8_CHUNK_NPC_TRANSCRIPT = W8ChunkId("NPCI");
+constexpr std::uint32_t W8_CHUNK_NPC_STATES = W8ChunkId("NPCT");
+constexpr std::uint32_t W8_CHUNK_FACT_STATE = W8ChunkId("NPCF");
+constexpr std::uint32_t W8_CHUNK_FACTION_STATE = W8ChunkId("FATA");
+constexpr std::uint32_t W8_CHUNK_JOURNAL = W8ChunkId("JRNL");
+constexpr std::uint32_t W8_CHUNK_MONSTER_CONTROL = W8ChunkId("HYPN");
+constexpr std::uint32_t W8_CHUNK_CHARACTER = W8ChunkId("CHAR");
+constexpr std::uint32_t W8_CHUNK_LEVEL_STATUS = W8ChunkId("LVLS");
+constexpr std::uint32_t W8_CHUNK_STATUS_HEADER = W8ChunkId("STAT");
+constexpr std::uint32_t W8_CHUNK_MONSTERS = W8ChunkId("MONS");
+constexpr std::uint32_t W8_CHUNK_WORLD_ITEMS = W8ChunkId("ITEM");
+constexpr std::uint32_t W8_CHUNK_CURSOR_NODES = W8ChunkId("CUBE");
+constexpr std::uint32_t W8_CHUNK_ENCOUNTERS = W8ChunkId("MONG");
+constexpr std::uint32_t W8_CHUNK_TRIGGER_LOCKS = W8ChunkId("LOCK");
+constexpr std::uint32_t W8_CHUNK_TRIGGER_ACTIONS = W8ChunkId("TRES");
+constexpr std::uint32_t W8_CHUNK_AUTOMAP_NOTES = W8ChunkId("AUTO");
+constexpr std::uint32_t W8_CHUNK_TRIGGERS = W8ChunkId("TRIG");
+constexpr std::uint32_t W8_CHUNK_PROPS = W8ChunkId("APST");
+constexpr std::uint32_t W8_CHUNK_CURSOR_NODE_STATES = W8ChunkId("CUBS");
+constexpr std::uint32_t W8_CHUNK_MONSTER_GENERATORS = W8ChunkId("MGNS");
+constexpr std::uint32_t W8_CHUNK_TRIGGER_STATES = W8ChunkId("LCKS");
+constexpr std::uint32_t W8_CHUNK_AMBIENT_SOUNDS = W8ChunkId("AMBS");
+constexpr std::uint32_t W8_CHUNK_PARTICLES = W8ChunkId("PART");
+constexpr std::uint32_t W8_CHUNK_LIGHTS = W8ChunkId("LGHT");
 
 /* Localized strings the autosave notices use. */
-constexpr int W8_STRING_AUTOSAVE_STARTING = 0x783;
-constexpr int W8_STRING_AUTOSAVE_SUCCEEDED = 0x784;
-constexpr int W8_STRING_AUTOSAVE_FAILED = 0x785;
+constexpr std::int32_t W8_STRING_AUTOSAVE_STARTING = 0x783;
+constexpr std::int32_t W8_STRING_AUTOSAVE_SUCCEEDED = 0x784;
+constexpr std::int32_t W8_STRING_AUTOSAVE_FAILED = 0x785;
 
 /* The game version written to GVER; a save without GVER predates it. */
 struct SaveVersion {
-    int major, minor, patch;
+    std::int32_t major, minor, patch;
 };
 constexpr SaveVersion kCurrentSaveVersion{1, 2, 4};
 constexpr SaveVersion kUnversionedSave{1, 0, 0};
@@ -162,18 +162,18 @@ constexpr std::string_view kAutoSaveName = "AutoSave";
 
 /* Monster groups and monsters beyond the live lists (encounter groups and
    unborn monsters) are addressed from this list index on. */
-constexpr unsigned int kSecondaryListBase = 10000;
+constexpr std::uint32_t kSecondaryListBase = 10000;
 
 /* The fixed STAT record. Only the leading counters and the status block are
    established; the tail is written as zeros and ignored on load. */
 struct W8StatusHeader {
     float version;
-    int next_group_id;
-    int next_monster_location_id;
-    int next_world_item_id;
-    int next_trigger_id;
-    unsigned char status_block[0x100];
-    unsigned char unknown_114[0x200];
+    std::int32_t next_group_id;
+    std::int32_t next_monster_location_id;
+    std::int32_t next_world_item_id;
+    std::int32_t next_trigger_id;
+    std::uint8_t status_block[0x100];
+    std::uint8_t unknown_114[0x200];
 };
 static_assert(sizeof(W8StatusHeader) == 0x314);
 constexpr float kStatusHeaderVersion = 2.0f;
@@ -186,7 +186,7 @@ std::string SaveSlotPath(std::string_view name)
     return fmt::format("Saves\\{}.{}", name, g_save_extension);
 }
 
-std::string QuickSaveName(int slot)
+std::string QuickSaveName(std::int32_t slot)
 {
     return fmt::format("Quick {}", slot);
 }
@@ -252,13 +252,13 @@ struct DetachedStatus {
 /* Find the top-level LVLS group saved for `level` (the first group when no
    level is given) and run `body` inside it, after the group's level number.
    Returns whether a group was found. */
-template<class F> bool WithLevelGroup(W8Chunk& chunk, std::optional<int> level, F&& body)
+template<class F> bool WithLevelGroup(W8Chunk& chunk, std::optional<std::int32_t> level, F&& body)
 {
     bool found = false;
-    chunk.ForEachChunk([&](unsigned int id) {
+    chunk.ForEachChunk([&](std::uint32_t id) {
         if (id != W8_CHUNK_LEVEL_STATUS) return true;
         chunk.ReadGroup([&] {
-            const auto saved_level = chunk.ReadValue<int>();
+            const auto saved_level = chunk.ReadValue<std::int32_t>();
             if (level && saved_level != *level) return;
             found = true;
             body();
@@ -270,25 +270,25 @@ template<class F> bool WithLevelGroup(W8Chunk& chunk, std::optional<int> level, 
 
 /* Read the current LVLS group's level number and rewind to the start of the
    chunk, ready for it to be copied whole. */
-int PeekGroupLevel(W8Chunk& chunk)
+std::int32_t PeekGroupLevel(W8Chunk& chunk)
 {
-    int level;
+    std::int32_t level;
     chunk.ReadGroup([&] { chunk.ReadValue(level); });
     chunk.RewindCurrentChunk();
     return level;
 }
 
 /* The ITEM section's record count, checked against the bytes left. */
-unsigned int ReadWorldItemCount(W8Chunk& chunk)
+std::uint32_t ReadWorldItemCount(W8Chunk& chunk)
 {
-    const auto count = chunk.ReadValue<unsigned int>();
+    const auto count = chunk.ReadValue<std::uint32_t>();
     if (count > static_cast<std::uint64_t>(chunk.RemainingBytes()) / sizeof(wiz8::retail::WorldItem))
         throw std::runtime_error("invalid item section count");
     return count;
 }
 
 /* CHAR chunks lead with the record's NUL-terminated 64-byte file name. */
-constexpr int kCharacterNameBytes = 64;
+constexpr std::int32_t kCharacterNameBytes = 64;
 
 bool ReadCharacterNameMatches(W8Chunk& chunk, std::string_view path)
 {
@@ -299,8 +299,8 @@ bool ReadCharacterNameMatches(W8Chunk& chunk, std::string_view path)
 
 template<class F> void ForEachShownMessage(F&& visit)
 {
-    for (int box = 0; box < 4; ++box) {
-        for (unsigned int line = 0; line < g_status.text_box_lines_shown[box]; ++line) {
+    for (std::int32_t box = 0; box < 4; ++box) {
+        for (std::uint32_t line = 0; line < g_status.text_box_lines_shown[box]; ++line) {
             visit(g_message_storage[box][line]);
         }
     }
@@ -357,15 +357,15 @@ template<class Entry, class Field> void ForEachMonsterControlField(Entry& effect
 
 /* Monster save records follow the W8MonsterInfo image with versioned
    sections. Version 7 writes all of them. */
-constexpr unsigned int kMonsterRecordVersion = 7;
-constexpr unsigned int kMonsterGroupRecordVersion = 3;
-constexpr unsigned int kMonsterHasMovement = 0x20000000;
+constexpr std::uint32_t kMonsterRecordVersion = 7;
+constexpr std::uint32_t kMonsterGroupRecordVersion = 3;
+constexpr std::uint32_t kMonsterHasMovement = 0x20000000;
 
 struct SavedMonsterScript {
     char name[0x40]{};
     W8MonsterScriptCommand wait{};
-    int line = 0;
-    std::vector<unsigned char> conditions;
+    std::int32_t line = 0;
+    std::vector<std::uint8_t> conditions;
 
     static SavedMonsterScript Capture(const W8Monster& monster)
     {
@@ -383,7 +383,7 @@ struct SavedMonsterScript {
         chunk.WriteBytes(name, sizeof(name));
         chunk.WriteValue(wait);
         chunk.WriteValue(line);
-        chunk.WriteValue(static_cast<int>(conditions.size()));
+        chunk.WriteValue(static_cast<std::int32_t>(conditions.size()));
         chunk.WriteBytes(conditions.data(), conditions.size());
     }
     static SavedMonsterScript Read(W8Chunk& chunk)
@@ -393,7 +393,7 @@ struct SavedMonsterScript {
         if (!memchr(script.name, '\0', sizeof(script.name))) throw std::runtime_error("unterminated monster script name");
         chunk.ReadValue(script.wait);
         chunk.ReadValue(script.line);
-        const auto count = chunk.ReadValue<int>();
+        const auto count = chunk.ReadValue<std::int32_t>();
         if (count < 0 || count > chunk.RemainingBytes()) throw std::runtime_error("invalid monster script conditions");
         script.conditions.resize(count);
         chunk.ReadBytes(script.conditions.data(), script.conditions.size());
@@ -467,7 +467,7 @@ struct SavedMonsterOrders {
     bool deaf = false;
     float patrol_distance = 0;
     float patrol_variation = 0;
-    signed char patrol_index = 0;
+    std::int8_t patrol_index = 0;
     std::vector<srVector3T<float>> points;
     std::optional<srVector3T<float>> direction;
     std::optional<bool> face_party;
@@ -500,30 +500,30 @@ struct SavedMonsterOrders {
         chunk.WriteValue(patrol_distance);
         chunk.WriteValue(patrol_variation);
         chunk.WriteValue(patrol_index);
-        chunk.WriteValue(static_cast<int>(points.size()));
+        chunk.WriteValue(static_cast<std::int32_t>(points.size()));
         chunk.WriteBytes(points.data(), points.size() * sizeof(points[0]));
         chunk.WriteValue(direction.value());
         chunk.WriteValue(face_party.value());
         chunk.WriteValue(stay_home.value());
     }
-    static SavedMonsterOrders Read(W8Chunk& chunk, unsigned int version)
+    static SavedMonsterOrders Read(W8Chunk& chunk, std::uint32_t version)
     {
         SavedMonsterOrders orders;
-        orders.defining_orders = chunk.ReadValue<unsigned char>() != 0;
+        orders.defining_orders = chunk.ReadValue<std::uint8_t>() != 0;
         chunk.ReadValue(orders.order_mode);
-        orders.orders_finished = chunk.ReadValue<unsigned char>() != 0;
-        orders.deaf = chunk.ReadValue<unsigned char>() != 0;
+        orders.orders_finished = chunk.ReadValue<std::uint8_t>() != 0;
+        orders.deaf = chunk.ReadValue<std::uint8_t>() != 0;
         chunk.ReadValue(orders.patrol_distance);
         chunk.ReadValue(orders.patrol_variation);
         chunk.ReadValue(orders.patrol_index);
-        const auto count = chunk.ReadValue<int>();
+        const auto count = chunk.ReadValue<std::int32_t>();
         if (count < 0 || count > chunk.RemainingBytes() / std::int64_t{sizeof(srVector3T<float>)})
             throw std::runtime_error("invalid monster patrol points");
         orders.points.resize(count);
         chunk.ReadBytes(orders.points.data(), orders.points.size() * sizeof(orders.points[0]));
         if (version >= 4) orders.direction = chunk.ReadValue<srVector3T<float>>();
-        if (version >= 6) orders.face_party = chunk.ReadValue<unsigned char>() != 0;
-        if (version >= 7) orders.stay_home = chunk.ReadValue<unsigned char>() != 0;
+        if (version >= 6) orders.face_party = chunk.ReadValue<std::uint8_t>() != 0;
+        if (version >= 7) orders.stay_home = chunk.ReadValue<std::uint8_t>() != 0;
         return orders;
     }
     void Apply(W8MonsterInfo& info, W8Monster& monster) const
@@ -552,12 +552,12 @@ struct SavedMonsterOrders {
 void RestoreMonsterSpellIcons(const W8MonsterInfo& info, W8Monster* monster)
 {
     if (info.highest_condition != W8_CONDITION_NONE) {
-        for (int index = 0; index < W8_CONDITION_COUNT; ++index) {
+        for (std::int32_t index = 0; index < W8_CONDITION_COUNT; ++index) {
             if (info.uiCondition[index] != 0)
                 SetMonsterSpellIcon(monster, static_cast<W8MonsterSpellIconId>(index - 1), true);
         }
     }
-    for (int index = 0; index < 8; ++index) {
+    for (std::int32_t index = 0; index < 8; ++index) {
         if (info.enchantments[index].turns != 0)
             SetMonsterSpellIcon(monster, static_cast<W8MonsterSpellIconId>(index + 0x10), true);
     }
@@ -573,7 +573,7 @@ void RestoreMonsterSpellIcons(const W8MonsterInfo& info, W8Monster* monster)
    position and yaw refreshed while the monster is live, then the script,
    unborn, movement and order sections. */
 // FUNCTION: WIZ8 0x005147a0
-void WriteMonsterRecord(W8Chunk& chunk, unsigned int list_index)
+void WriteMonsterRecord(W8Chunk& chunk, std::uint32_t list_index)
 {
     auto* info = MonsterGetScriptPartByLocationIndex(list_index);
     if (!info || !info->p3D) throw std::runtime_error("missing monster");
@@ -586,14 +586,14 @@ void WriteMonsterRecord(W8Chunk& chunk, unsigned int list_index)
     chunk.WriteValue(kMonsterRecordVersion);
     wiz8::retail::write_sized(chunk, *info);
 
-    const unsigned char has_script = monster.script != nullptr;
+    const std::uint8_t has_script = monster.script != nullptr;
     chunk.WriteValue(has_script);
     if (has_script) SavedMonsterScript::Capture(monster).Write(chunk);
 
-    const unsigned char unborn = std::ranges::contains(gXStatus.unborn_monsters, info);
+    const std::uint8_t unborn = std::ranges::contains(gXStatus.unborn_monsters, info);
     chunk.WriteValue(unborn);
 
-    const unsigned char has_movement = !monster.linked_navigator && (monster.flags & kMonsterHasMovement) != 0;
+    const std::uint8_t has_movement = !monster.linked_navigator && (monster.flags & kMonsterHasMovement) != 0;
     chunk.WriteValue(has_movement);
     if (has_movement) SavedMonsterMovement::Capture(monster).Write(chunk);
 
@@ -611,14 +611,14 @@ template<class T> MallocPtr<T> AllocateZeroed()
 
 void WriteWorldItems(W8Chunk& chunks)
 {
-    const unsigned int count = gXStatus.world_items.size();
+    const std::uint32_t count = gXStatus.world_items.size();
     chunks.WriteValue(count);
-    for (unsigned int index = 0; index < count; ++index)
+    for (std::uint32_t index = 0; index < count; ++index)
         RequireSection(SaveItemFile(chunks.Stream(), ItemInfo(index)), "world item");
 }
 
 /* Apply one child of the matching LVLS group. */
-void LoadLevelSection(W8Chunk& chunk, unsigned int chunk_id)
+void LoadLevelSection(W8Chunk& chunk, std::uint32_t chunk_id)
 {
     auto& file = chunk.Stream();
     switch (chunk_id) {
@@ -626,15 +626,15 @@ void LoadLevelSection(W8Chunk& chunk, unsigned int chunk_id)
         RequireSection(LoadStatusHeader(&chunk), "status header");
         break;
     case W8_CHUNK_MONSTERS: {
-        const auto group_count = chunk.ReadValue<unsigned int>();
-        const auto monster_count = chunk.ReadValue<unsigned int>();
+        const auto group_count = chunk.ReadValue<std::uint32_t>();
+        const auto monster_count = chunk.ReadValue<std::uint32_t>();
         // Each group is at least its size word, each monster its version, size and flag.
         if (std::uint64_t{group_count} * 4 + std::uint64_t{monster_count} * 9 >
             static_cast<std::uint64_t>(chunk.RemainingBytes()))
             throw std::runtime_error("invalid monster section counts");
-        for (unsigned int index = 0; index < group_count; ++index)
+        for (std::uint32_t index = 0; index < group_count; ++index)
             RequireSection(LoadMonsterGroup(&chunk), "monster group");
-        for (unsigned int index = 0; index < monster_count; ++index)
+        for (std::uint32_t index = 0; index < monster_count; ++index)
             RequireSection(LoadMonster(&chunk), "monster");
         ReapplyMonsterGroupFormations();
         RepairMonsterGroupLeaderLinks();
@@ -673,7 +673,7 @@ void LoadLevelSection(W8Chunk& chunk, unsigned int chunk_id)
 // FUNCTION: WIZ8 0x00514d50
 void CopyCurrentGameChunks(W8Chunk& source, W8Chunk& destination)
 {
-    source.ForEachChunk([&](unsigned int id) {
+    source.ForEachChunk([&](std::uint32_t id) {
         if (id == W8_CHUNK_LEVEL_STATUS) {
             if (PeekGroupLevel(source) == g_status.current_level) return;
         } else if (id != W8_CHUNK_CHARACTER) {
@@ -698,7 +698,7 @@ std::string_view AutoSaveSlotName()
     return g_status.iron_man ? GetLastSaveName() : kAutoSaveName;
 }
 
-void ShowMainGameNotice(int string_id)
+void ShowMainGameNotice(std::int32_t string_id)
 {
     if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME)
         ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[string_id]);
@@ -709,16 +709,16 @@ void ShowMainGameNotice(int string_id)
 /* 0x0061A134/0x0061A138: the masks an iron-man save XORs its file's creation
    time with before storing it in the status block. */
 // GLOBAL: WIZ8 0x0061A134
-static unsigned int g_save_filetime_xor_low = 0x6b24e9f0;
+static std::uint32_t g_save_filetime_xor_low = 0x6b24e9f0;
 // GLOBAL: WIZ8 0x0061A138
-static unsigned int g_save_filetime_xor_high = 0xe77c28c1;
+static std::uint32_t g_save_filetime_xor_high = 0xe77c28c1;
 
 /* The path of a loose character file. Before the game starts characters live
    under Saves\Characters (slot -1) or Saves\NPCs; in a started game, a slot
    whose flag is clear still reads Saves\NPCs and every other name is a CHAR
    record of the current save. */
 // FUNCTION: WIZ8 0x00514fa0
-std::string BuildCharacterFilePath(std::string_view filename, int slot)
+std::string BuildCharacterFilePath(std::string_view filename, std::int32_t slot)
 {
     if (!g_status.game_started)
         return fmt::format("{}\\{}", slot == -1 ? "Saves\\Characters" : "Saves\\NPCs", filename);
@@ -728,7 +728,7 @@ std::string BuildCharacterFilePath(std::string_view filename, int slot)
 }
 
 // FUNCTION: WIZ8 0x00514ec0
-std::string BuildCharacterPath(std::string_view name, int slot)
+std::string BuildCharacterPath(std::string_view name, std::int32_t slot)
 {
     return BuildCharacterFilePath(fmt::format("{}.CHR", name), slot);
 }
@@ -736,7 +736,7 @@ std::string BuildCharacterPath(std::string_view name, int slot)
 /* Load one character record from its loose file, or from the current save's
    CHAR chunks in a started game. A failure clears the record and may report. */
 // FUNCTION: WIZ8 0x005152b0
-bool LoadCharacter(std::string_view name, W8Character* character, int slot, bool report_failure)
+bool LoadCharacter(std::string_view name, W8Character* character, std::int32_t slot, bool report_failure)
 try
 {
     bool loaded = false;
@@ -773,10 +773,10 @@ void FillCurrentSaveSlot(W8SaveSlot& slot)
     slot.iron_man = g_status.iron_man;
     const auto now = wiz8::current_local_time();
     slot.timestamp = {
-        now.year, static_cast<unsigned>(now.month), static_cast<unsigned>(now.day),
-        static_cast<unsigned>(now.hour), static_cast<unsigned>(now.minute),
-        static_cast<unsigned>(now.second), static_cast<unsigned>(now.nanosecond / 100),
-        static_cast<unsigned>(now.day_of_week)};
+        now.year, static_cast<std::uint32_t>(now.month), static_cast<std::uint32_t>(now.day),
+        static_cast<std::uint32_t>(now.hour), static_cast<std::uint32_t>(now.minute),
+        static_cast<std::uint32_t>(now.second), static_cast<std::uint32_t>(now.nanosecond / 100),
+        static_cast<std::uint32_t>(now.day_of_week)};
     CaptureSaveScreenshot(slot.screenshot);
     slot.version_major = kCurrentSaveVersion.major;
     slot.version_minor = kCurrentSaveVersion.minor;
@@ -786,7 +786,7 @@ void FillCurrentSaveSlot(W8SaveSlot& slot)
 /* Read one save's listing entry: its status, version and screenshot. Saves
    without a status, flagged saves and saves past the endgame are not listed. */
 static std::unique_ptr<W8SaveSlot> ReadSaveSlot(const std::string& name, const wiz8::FileStatus& metadata,
-                                                int utc_offset)
+                                                std::int32_t utc_offset)
 {
     W8Chunk chunks;
     if (!chunks.OpenRead("Saves\\" + name)) return nullptr;
@@ -797,7 +797,7 @@ static std::unique_ptr<W8SaveSlot> ReadSaveSlot(const std::string& name, const w
     slot->version_major = kUnversionedSave.major;
     slot->version_minor = kUnversionedSave.minor;
     slot->version_patch = kUnversionedSave.patch;
-    chunks.ForEachChunk([&](unsigned int id) {
+    chunks.ForEachChunk([&](std::uint32_t id) {
         switch (id) {
         case W8_CHUNK_GAME_STATUS:
             LoadGameStatus(&chunks, &saved.status);
@@ -860,14 +860,14 @@ catch (const std::exception&) { return false; }
 /* The level a save was made on, read from its status chunk alone; 0 when the
    save cannot be read. */
 // FUNCTION: WIZ8 0x00512290
-int GetSaveGameLevel(std::string_view slot_name)
+std::int32_t GetSaveGameLevel(std::string_view slot_name)
 try
 {
     W8Chunk chunks;
     if (!chunks.OpenRead(SaveSlotPath(slot_name))) return 0;
     DetachedStatus saved;
     bool found = false;
-    chunks.ForEachChunk([&](unsigned int id) {
+    chunks.ForEachChunk([&](std::uint32_t id) {
         if (id != W8_CHUNK_GAME_STATUS) return true;
         LoadGameStatus(&chunks, &saved.status);
         found = true;
@@ -915,7 +915,7 @@ static void WriteGame(std::string_view name, const W8SaveScreenshot* screenshot,
     PrepareStatusForSave(chunks.Stream());
     {
         // The text-line cursor's transient state 2 is saved as 0.
-        const short cursor = g_status.text_line_cursor;
+        const std::int16_t cursor = g_status.text_line_cursor;
         ScopeExit restore([&] { g_status.text_line_cursor = cursor; });
         if (cursor == 2) g_status.text_line_cursor = 0;
         SaveGlobalStatus(&chunks, &g_status);
@@ -967,7 +967,7 @@ catch (const std::exception&) { return false; }
    as the original does. Level 56 is the default test level and later levels
    are lettered test levels. */
 // FUNCTION: WIZ8 0x00512e80
-std::string BuildLevelStatusPath(unsigned int level)
+std::string BuildLevelStatusPath(std::uint32_t level)
 {
     if (level == 56) return "Levels\\Test\\DefaultLevel.STS";
     if (level < 56)
@@ -1003,7 +1003,7 @@ try
     if (wiz8::file_status(path)) {
         W8Chunk source;
         if (!source.OpenRead(path)) return false;
-        source.ForEachChunk([&](unsigned int id) {
+        source.ForEachChunk([&](std::uint32_t id) {
             if (id == W8_CHUNK_LEVEL_STATUS && PeekGroupLevel(source) == g_status.current_level) return;
             RequireSection(transaction.chunks.CopyCurrentChunkFrom(&source), "level status copy");
         });
@@ -1067,22 +1067,22 @@ catch (const std::exception&) { return false; }
 bool SaveMonsterStatus(W8Chunk* chunks)
 try
 {
-    const auto list_index = [](unsigned int index, std::size_t live) {
-        return index < live ? index : static_cast<unsigned int>(index - live + kSecondaryListBase);
+    const auto list_index = [](std::uint32_t index, std::size_t live) {
+        return index < live ? index : static_cast<std::uint32_t>(index - live + kSecondaryListBase);
     };
-    const unsigned int group_count = gXStatus.monster_groups.size() + gXStatus.encounter_groups.size();
-    const unsigned int monster_count = gXStatus.monsters.size() + gXStatus.unborn_monsters.size();
+    const std::uint32_t group_count = gXStatus.monster_groups.size() + gXStatus.encounter_groups.size();
+    const std::uint32_t monster_count = gXStatus.monsters.size() + gXStatus.unborn_monsters.size();
     chunks->WriteValue(group_count);
     chunks->WriteValue(monster_count);
-    for (unsigned int index = 0; index < group_count; ++index) {
+    for (std::uint32_t index = 0; index < group_count; ++index) {
         W8MonsterGroup* group = GetMonsterGroupByListIndex(list_index(index, gXStatus.monster_groups.size()));
         if (!group) return false;
         group->version = kMonsterGroupRecordVersion;
         wiz8::retail::write_sized(*chunks, *group);
-        const unsigned char encountered = std::ranges::contains(gXStatus.encounter_groups, group);
+        const std::uint8_t encountered = std::ranges::contains(gXStatus.encounter_groups, group);
         chunks->WriteValue(encountered);
     }
-    for (unsigned int index = 0; index < monster_count; ++index)
+    for (std::uint32_t index = 0; index < monster_count; ++index)
         WriteMonsterRecord(*chunks, list_index(index, gXStatus.monsters.size()));
     return true;
 }
@@ -1090,7 +1090,7 @@ catch (const std::exception&) { return false; }
 
 /* Apply a status file's group for `level`. */
 // FUNCTION: WIZ8 0x005135d0
-bool LoadLevelStatus(const char* path, int level)
+bool LoadLevelStatus(const char* path, std::int32_t level)
 try
 {
     W8Chunk chunk;
@@ -1105,12 +1105,12 @@ catch (const std::exception&) { return false; }
    the level's shipped status is folded in first, so the saved sections land
    on top of the level's baseline. */
 // FUNCTION: WIZ8 0x00513650
-bool LoadItemStatus(W8Chunk* chunk, int level)
+bool LoadItemStatus(W8Chunk* chunk, std::int32_t level)
 try
 {
     return WithLevelGroup(*chunk, level, [&] {
         if (!g_level_status_loading) LoadDefaultLevelStatus(level);
-        chunk->ForEachChunk([&](unsigned int section) { LoadLevelSection(*chunk, section); });
+        chunk->ForEachChunk([&](std::uint32_t section) { LoadLevelSection(*chunk, section); });
     });
 }
 catch (const std::exception&) { return false; }
@@ -1118,7 +1118,7 @@ catch (const std::exception&) { return false; }
 /* Fold a level's shipped status file into the live state: only its cursor
    nodes, encounter generators and trigger records. */
 // FUNCTION: WIZ8 0x005139c0
-bool LoadDefaultLevelStatus(unsigned int level)
+bool LoadDefaultLevelStatus(std::uint32_t level)
 try
 {
     W8LevelInfo info;
@@ -1129,7 +1129,7 @@ try
     if (!chunk.OpenRead(BuildLevelStatusPath(level))) return false;
     WithLevelGroup(chunk, std::nullopt, [&] {
         auto& file = chunk.Stream();
-        chunk.ForEachChunk([&](unsigned int section) {
+        chunk.ForEachChunk([&](std::uint32_t section) {
             switch (section) {
             case W8_CHUNK_TRIGGER_LOCKS: LoadTriggerRuntimeStates(file); break;
             case W8_CHUNK_CURSOR_NODES: LoadWorldCursorNodes(file); break;
@@ -1152,15 +1152,15 @@ try
     auto owner = AllocateZeroed<W8MonsterGroup>();
     auto& group = *owner;
     wiz8::retail::read_sized(*chunk, group);
-    const bool is_encounter = group.version >= 2 && chunk->ReadValue<unsigned char>() != 0;
+    const bool is_encounter = group.version >= 2 && chunk->ReadValue<std::uint8_t>() != 0;
     if (group.version < 3) group.forced_neutral = false;
 
-    if (static_cast<unsigned int>(group.monster_id) >= std::size(gXStatus.monster_record_cache)) return false;
+    if (static_cast<std::uint32_t>(group.monster_id) >= std::size(gXStatus.monster_record_cache)) return false;
     const auto* record = MonsterDBFromSpecies(group.monster_id);
     if (!record) return false;
     if (record->deleted) return true;
 
-    auto members = std::make_unique<std::vector<int>>();
+    auto members = std::make_unique<std::vector<std::int32_t>>();
     auto& list = is_encounter ? gXStatus.encounter_groups : gXStatus.monster_groups;
     list.reserve(list.size() + 1);
     // The group list owns the group and the group its member list from here on.
@@ -1186,22 +1186,22 @@ try
 {
     auto owner = AllocateZeroed<W8MonsterInfo>();
     auto& info = *owner;
-    const auto version = chunk->ReadValue<unsigned int>();
+    const auto version = chunk->ReadValue<std::uint32_t>();
     wiz8::retail::read_sized(*chunk, info);
     std::optional<SavedMonsterScript> script;
-    if (chunk->ReadValue<unsigned char>()) script = SavedMonsterScript::Read(*chunk);
+    if (chunk->ReadValue<std::uint8_t>()) script = SavedMonsterScript::Read(*chunk);
     info.fActive = false;
     info.p3D = nullptr;
     info.fInCombat = false;
     info.pCombat = nullptr;
-    const bool unborn = version >= 5 && chunk->ReadValue<unsigned char>() != 0;
+    const bool unborn = version >= 5 && chunk->ReadValue<std::uint8_t>() != 0;
     std::optional<SavedMonsterMovement> movement;
-    if (version >= 2 && chunk->ReadValue<unsigned char>()) movement = SavedMonsterMovement::Read(*chunk);
+    if (version >= 2 && chunk->ReadValue<std::uint8_t>()) movement = SavedMonsterMovement::Read(*chunk);
     std::optional<SavedMonsterOrders> orders;
     if (version >= 3) orders = SavedMonsterOrders::Read(*chunk, version);
 
     for (const auto& effect : info.effect_slots) {
-        if (effect.duration && static_cast<unsigned int>(effect.effect_id) >= std::size(g_effect_visual_table))
+        if (effect.duration && static_cast<std::uint32_t>(effect.effect_id) >= std::size(g_effect_visual_table))
             return false;
     }
     if (info.monster_species >= std::size(gXStatus.monster_record_cache)) return false;
@@ -1215,8 +1215,8 @@ try
     monsters.reserve(monsters.size() + 1);
     group->monsters->push_back(info.location_id);
     monsters.push_back(owner.release());
-    const auto leader = static_cast<unsigned int>(group->leader_location_id);
-    if (leader == WIZ8_DEBUG_UNINITIALIZED_HEAP_PATTERN || leader < static_cast<unsigned int>(info.location_id))
+    const auto leader = static_cast<std::uint32_t>(group->leader_location_id);
+    if (leader == WIZ8_DEBUG_UNINITIALIZED_HEAP_PATTERN || leader < static_cast<std::uint32_t>(info.location_id))
         group->leader_location_id = info.location_id;
     ++group->member_count;
     RequestRedrawParty();
@@ -1344,7 +1344,7 @@ bool SaveGameExists(void)
    On failure either the save-failed notice is shown, taking the continuation
    with it, or the continuation runs at once. */
 // FUNCTION: WIZ8 0x00515090
-bool SaveCharacter(W8Character* character, int slot, bool report_failure,
+bool SaveCharacter(W8Character* character, std::int32_t slot, bool report_failure,
                    void (*continuation)(void))
 try
 {
@@ -1379,14 +1379,14 @@ catch (const std::exception&) { return false; }
 /* Replace every CHAR chunk with this name in the current save by one new
    record. Malformed CHAR payloads are skipped by loading and can be replaced. */
 // FUNCTION: WIZ8 0x005155b0
-bool SaveCharacterToCurrentGame(std::string_view path, int /*slot*/, W8Character* character)
+bool SaveCharacterToCurrentGame(std::string_view path, std::int32_t /*slot*/, W8Character* character)
 try
 {
     if (path.empty() || !character || path.size() >= kCharacterNameBytes) return false;
     W8Chunk source;
     if (!source.OpenRead(kCurrentGamePath)) return false;
     SaveTransaction transaction(kCurrentGamePath);
-    source.ForEachChunk([&](unsigned int id) {
+    source.ForEachChunk([&](std::uint32_t id) {
         if (id == W8_CHUNK_CHARACTER && source.CurrentChunkExtent() >= kCharacterNameBytes) {
             if (ReadCharacterNameMatches(source, path)) return;
             source.RewindCurrentChunk();
@@ -1414,10 +1414,10 @@ try
     W8Chunk chunk;
     if (!chunk.OpenRead(kCurrentGamePath)) return false;
     std::optional<W8Character> found;
-    chunk.ForEachChunk([&](unsigned int id) {
+    chunk.ForEachChunk([&](std::uint32_t id) {
         if (id != W8_CHUNK_CHARACTER || chunk.CurrentChunkExtent() < kCharacterNameBytes + 4) return;
         const bool matches = ReadCharacterNameMatches(chunk, path);
-        const auto size = chunk.ReadValue<unsigned int>();
+        const auto size = chunk.ReadValue<std::uint32_t>();
         if (!matches || size > W8_CHARACTER_SERIALIZED_SIZE || size > chunk.RemainingBytes()) return;
         W8Character saved{};
         wiz8::retail::read_exact(chunk, saved, size);
@@ -1476,7 +1476,7 @@ bool TakePendingSaveFlag(void)
 }
 
 // FUNCTION: WIZ8 0x00512f70
-unsigned char SaveSlotFileExists(std::string_view slot_name)
+std::uint8_t SaveSlotFileExists(std::string_view slot_name)
 {
     return IsRegularFile(SaveSlotPath(slot_name));
 }
@@ -1527,8 +1527,8 @@ void SaveMonsterControlSpellEffect(W8Chunk* chunks)
 std::optional<std::string> SelectQuickSaveSlotForWrite()
 try
 {
-    std::optional<std::pair<int, std::uint64_t>> oldest;
-    for (int slot = 1; slot <= 3; ++slot) {
+    std::optional<std::pair<std::int32_t, std::uint64_t>> oldest;
+    for (std::int32_t slot = 1; slot <= 3; ++slot) {
         const auto path = SaveSlotPath(QuickSaveName(slot));
         if (!wiz8::file_status(path)) return QuickSaveName(slot);
         const auto ticks = wiz8::open_file(path)->times().modified.ticks();
@@ -1544,8 +1544,8 @@ catch (const std::exception&) { return {}; }
 std::optional<std::string> FindStartupQuickSave()
 try
 {
-    std::optional<std::pair<int, std::uint64_t>> newest;
-    for (int slot = 1; slot <= 3; ++slot) {
+    std::optional<std::pair<std::int32_t, std::uint64_t>> newest;
+    for (std::int32_t slot = 1; slot <= 3; ++slot) {
         const auto path = SaveSlotPath(QuickSaveName(slot));
         if (!IsRegularFile(path)) continue;
         const auto ticks = wiz8::open_file(path)->times().modified.ticks();
@@ -1575,14 +1575,14 @@ void LoadGameStatus(W8Chunk* chunks, W8GlobalStatus* status)
     wiz8::retail::read_sized(*chunks, saved);
     if (saved.buffers.save_version < 1.1f) {
         // Before 1.1 there were three message boxes, stored in a legacy pair.
-        for (int box = 0; box < 3; ++box) {
+        for (std::int32_t box = 0; box < 3; ++box) {
             saved.text_box_lines_used[box] = saved.legacy_text_box_lines[0][box];
             saved.text_box_lines_shown[box] = saved.legacy_text_box_lines[1][box];
         }
         saved.text_box_lines_used[3] = 0;
         saved.text_box_lines_shown[3] = 0;
     }
-    for (int box = 0; box < 4; ++box) {
+    for (std::int32_t box = 0; box < 4; ++box) {
         if (saved.text_box_lines_used[box] > std::size(g_message_storage[box]) ||
             saved.text_box_lines_shown[box] > std::size(g_message_storage[box]))
             throw std::runtime_error("invalid message storage count");
@@ -1603,15 +1603,15 @@ void LoadGameStatus(W8Chunk* chunks, W8GlobalStatus* status)
     RebuildPartyStatus(&status->formation, party_rows);
     if (status != &g_status) return;
 
-    for (int slot = 0; slot < 8; ++slot) {
+    for (std::int32_t slot = 0; slot < 8; ++slot) {
         auto& party_row = party_rows[slot];
-        const auto origin = static_cast<signed char>(party_row.item_origin);
-        const auto item_slot = static_cast<short>(party_row.item_slot);
+        const auto origin = static_cast<std::int8_t>(party_row.item_origin);
+        const auto item_slot = static_cast<std::int16_t>(party_row.item_slot);
         W8ItemInstance* item = nullptr;
         if (party_row.fOccupied && party_row.pending_action == W8_ACTION_USE_ITEM && origin != -1 &&
             item_slot != -1) {
-            item = FindCharacterItemAt(slot, static_cast<unsigned char>(origin),
-                                      static_cast<unsigned short>(item_slot));
+            item = FindCharacterItemAt(slot, static_cast<std::uint8_t>(origin),
+                                      static_cast<std::uint16_t>(item_slot));
         }
         party_row.pending_action_detail.item_use.item = item;
         party_row.action_detail1.item_use.item = nullptr;
@@ -1628,26 +1628,26 @@ void SaveGlobalStatus(W8Chunk* chunks, W8GlobalStatus* status)
 {
     chunks->WriteChunk(W8_CHUNK_GAME_STATUS, [&] {
         wiz8::retail::write_sized(*chunks, *status);
-        for (int slot = 0; slot != 8; ++slot) wiz8::retail::write_sized(*chunks, status->buffers.Char[slot]);
-        for (int slot = 0; slot != 8; ++slot) wiz8::retail::write_sized(*chunks, status->buffers.XChar[slot]);
+        for (std::int32_t slot = 0; slot != 8; ++slot) wiz8::retail::write_sized(*chunks, status->buffers.Char[slot]);
+        for (std::int32_t slot = 0; slot != 8; ++slot) wiz8::retail::write_sized(*chunks, status->buffers.XChar[slot]);
     });
 }
 
 /* Load one level's world items from the current save without listing them. */
 // FUNCTION: WIZ8 0x00516070
-bool LoadSavedLevelItems(int level, std::vector<W8WorldItem*>& items)
+bool LoadSavedLevelItems(std::int32_t level, std::vector<W8WorldItem*>& items)
 try
 {
     W8Chunk chunk;
     if (!chunk.OpenRead(kCurrentGamePath)) return false;
     const bool found = WithLevelGroup(chunk, level, [&] {
-        chunk.ForEachChunk([&](unsigned int section) {
+        chunk.ForEachChunk([&](std::uint32_t section) {
             if (section != W8_CHUNK_WORLD_ITEMS) return;
             const auto count = ReadWorldItemCount(chunk);
-            if (count > static_cast<unsigned int>(std::numeric_limits<int>::max() - items.size()))
+            if (count > static_cast<std::uint32_t>(std::numeric_limits<std::int32_t>::max() - items.size()))
                 throw std::runtime_error("too many world items");
             items.reserve(items.size() + count);
-            for (unsigned int index = 0; index < count; ++index) {
+            for (std::uint32_t index = 0; index < count; ++index) {
                 W8WorldItem* item = LoadItem(chunk.Stream(), false);
                 RequireSection(item != nullptr, "world item");
                 items.push_back(item);
@@ -1664,7 +1664,7 @@ catch (const std::exception&) { return false; }
 std::optional<std::string> FindFreeEndingSaveName()
 try
 {
-    for (int index = 0; index <= 20; ++index) {
+    for (std::int32_t index = 0; index <= 20; ++index) {
         auto name = index == 0 ? std::string("Ending") : fmt::format("Ending{}", index);
         if (!IsRegularFile(SaveSlotPath(name))) return name;
     }
@@ -1684,7 +1684,7 @@ try
     W8Chunk chunks;
     if (!chunks.OpenRead(kCurrentGamePath)) return false;
     auto& file = chunks.Stream();
-    chunks.ForEachChunk([&](unsigned int id) {
+    chunks.ForEachChunk([&](std::uint32_t id) {
         switch (id) {
         case W8_CHUNK_GAME_STATUS: LoadGameStatus(&chunks, &g_status); break;
         case W8_CHUNK_MESSAGE_STORAGE: LoadMessageStorage(file); break;

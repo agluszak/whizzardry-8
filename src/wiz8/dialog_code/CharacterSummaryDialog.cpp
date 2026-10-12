@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <cctype>
 #include <cstring>
 
@@ -48,7 +49,7 @@ W8CharacterSummaryDialog::~W8CharacterSummaryDialog()
 }
 
 // FUNCTION: WIZ8 0x005e04e0
-int W8CharacterSummaryDialog::CreateControls()
+std::int32_t W8CharacterSummaryDialog::CreateControls()
 {
     W8DialogBase::CreateControls();
     m_field_070 = 0;
@@ -87,7 +88,7 @@ bool W8CharacterSummaryDialog::CreateQuoteText()
 {
     W8TextBuffer** buffers[] = {&m_quote_text};
 
-    for (int index = 0; index < 1; ++index) {
+    for (std::int32_t index = 0; index < 1; ++index) {
         W8ControlsRect absolute = {g_character_summary_quote_bounds[index].left + m_x,
                                    g_character_summary_quote_bounds[index].top + m_y,
                                    g_character_summary_quote_bounds[index].right + m_x,
@@ -134,7 +135,7 @@ void W8CharacterSummaryDialog::DrawPortraitAnimationFrame()
 }
 
 // FUNCTION: WIZ8 0x005e0860
-void W8CharacterSummaryDialog::OnNumericInputChanged(int value)
+void W8CharacterSummaryDialog::OnNumericInputChanged(std::int32_t value)
 {
     if (value == 0) {
         m_taken = m_numeric_input->m_value;
@@ -146,7 +147,7 @@ void W8CharacterSummaryDialog::OnNumericInputChanged(int value)
 bool W8CharacterSummaryDialog::HandleInputEvent(const InputEvent* input)
 {
     W8DialogNumericInput* inputs[] = {m_numeric_input};
-    for (int index = 0; index < 1; ++index) {
+    for (std::int32_t index = 0; index < 1; ++index) {
         if (inputs[index] != 0 && inputs[index]->m_active) {
             if (inputs[index]->HandleInput(input)) {
                 return true;

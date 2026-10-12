@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include "wiz8/engine_code/game_timer.h"
 #include "compat/compiler.h"
 
@@ -24,7 +25,7 @@ private:
     float m_max_frame_delta;
     /* 0x28: elapsed ticks scaled into duration units, clamped to m_max_frame_delta. */
     float m_frame_delta;
-    unsigned int m_elapsed_ticks;
+    std::uint32_t m_elapsed_ticks;
     /* 0x30: running total of the scaled deltas. */
     float m_elapsed;
 };

@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <SDL3/SDL_surface.h>
 #include <fmt/format.h>
 #include <SDL3/SDL_rect.h>
@@ -27,7 +28,7 @@
 static std::string g_numeric_input_text;
 
 // FUNCTION: WIZ8 0x005e1460
-W8DialogNumericInput::W8DialogNumericInput(int control_id, const W8ControlsRect* bounds, int value,
+W8DialogNumericInput::W8DialogNumericInput(std::int32_t control_id, const W8ControlsRect* bounds, std::int32_t value,
                                            Font& font, W8DialogBase* dialog, W8ButtonWidget* button)
 {
     m_font = &font;
@@ -42,7 +43,7 @@ W8DialogNumericInput::W8DialogNumericInput(int control_id, const W8ControlsRect*
 }
 
 // FUNCTION: WIZ8 0x005e14c0
-void W8DialogNumericInput::SetValue(int value)
+void W8DialogNumericInput::SetValue(std::int32_t value)
 {
     m_value = value;
     m_dirty = true;
@@ -69,11 +70,11 @@ void W8DialogNumericInput::SetActive(bool active, const SDL_Point* point)
     }
     g_numeric_input_text = fmt::format("{:d}", m_value);
     size_t length = g_numeric_input_text.size();
-    unsigned int count = 0;
+    std::uint32_t count = 0;
     m_caret = -1;
     std::size_t suffix = length - 1;
     for (; count < length; ++count, --suffix) {
-        short suffix_width = m_font->textWidth(std::string_view(g_numeric_input_text).substr(suffix));
+        std::int16_t suffix_width = m_font->textWidth(std::string_view(g_numeric_input_text).substr(suffix));
         if ((m_bounds.right - point->x) - m_bounds.left < suffix_width) {
             m_caret = count;
             break;
@@ -99,20 +100,20 @@ void W8DialogNumericInput::Draw(bool force)
     SDL_Rect text_clip{m_bounds.left, m_bounds.top, m_bounds.right - m_bounds.left,
                        m_bounds.bottom - m_bounds.top};
     ScopedClipRect clipping(GetFrameBufferSurface(), text_clip);
-    unsigned short font_height = m_font->height();
-    int text_y = m_bounds.top + std::max(0, (m_bounds.bottom - m_bounds.top - font_height) / 2);
-    int text_x = m_bounds.right - m_font->textWidth(g_numeric_input_text);
+    std::uint16_t font_height = m_font->height();
+    std::int32_t text_y = m_bounds.top + std::max(0, (m_bounds.bottom - m_bounds.top - font_height) / 2);
+    std::int32_t text_x = m_bounds.right - m_font->textWidth(g_numeric_input_text);
     if (text_x <= m_bounds.left) {
         text_x = m_bounds.left;
     }
     DrawTextAndInvalidate(GetFrameBufferSurface(), *m_font, {text_x, text_y},
                           g_numeric_input_text);
     if (m_active && m_caret != -1) {
-        int caret_x =
+        std::int32_t caret_x =
             m_bounds.right - m_font->textWidth(std::string_view(g_numeric_input_text).substr(length - m_caret)) - 1;
         font_height = m_font->height();
-        int caret_top = m_bounds.top + std::max(0, (m_bounds.bottom - m_bounds.top - font_height) / 2);
-        int caret_bottom = m_bounds.bottom;
+        std::int32_t caret_top = m_bounds.top + std::max(0, (m_bounds.bottom - m_bounds.top - font_height) / 2);
+        std::int32_t caret_bottom = m_bounds.bottom;
         if (caret_top + m_font->height() < caret_bottom) {
             caret_bottom = caret_top + m_font->height();
         }
@@ -136,7 +137,7 @@ void W8DialogNumericInput::TypeDigit(char digit)
         g_numeric_input_text = fmt::format("{:d}", m_value);
         size_t length = g_numeric_input_text.size();
         if (length < 10) {
-            unsigned int value;
+            std::uint32_t value;
             g_numeric_input_text.insert(length - m_caret, 1, digit);
             std::from_chars(g_numeric_input_text.data(), g_numeric_input_text.data() + g_numeric_input_text.size(), value);
             if (value <= m_maximum) {
@@ -151,7 +152,7 @@ void W8DialogNumericInput::TypeDigit(char digit)
     }
 }
 
-static void RemoveNumericInputCharacter(unsigned int position, unsigned int length)
+static void RemoveNumericInputCharacter(std::uint32_t position, std::uint32_t length)
 {
     if (position < length) g_numeric_input_text.erase(position, 1);
 }
@@ -162,7 +163,7 @@ void W8DialogNumericInput::DeleteForward()
     if (m_active && m_caret != 0) {
         g_numeric_input_text = fmt::format("{:d}", m_value);
         size_t length = g_numeric_input_text.size();
-        unsigned int position = length - m_caret;
+        std::uint32_t position = length - m_caret;
         RemoveNumericInputCharacter(position, length);
         --m_caret;
         if (length == 1) {
@@ -180,10 +181,10 @@ void W8DialogNumericInput::Backspace()
     if (m_active) {
         g_numeric_input_text = fmt::format("{:d}", m_value);
         size_t length = g_numeric_input_text.size();
-        if (length != 0 && m_caret != static_cast<int>(length)) {
-            unsigned int position = (length - m_caret) - 1;
+        if (length != 0 && m_caret != static_cast<std::int32_t>(length)) {
+            std::uint32_t position = (length - m_caret) - 1;
             RemoveNumericInputCharacter(position, length);
-            if (m_caret == static_cast<int>(length)) {
+            if (m_caret == static_cast<std::int32_t>(length)) {
                 --m_caret;
             }
             if (length == 1) {
@@ -247,7 +248,7 @@ bool W8DialogNumericInput::HandleInput(const InputEvent* input)
         break;
     case 0x27:
         if (m_active && m_caret != -1) {
-            int next = m_caret - 1;
+            std::int32_t next = m_caret - 1;
             m_dirty = true;
             m_caret = next < 0 ? 0 : next;
             m_button->m_dirty = true;
@@ -258,7 +259,7 @@ bool W8DialogNumericInput::HandleInput(const InputEvent* input)
         if (m_active && m_caret != -1) {
             g_numeric_input_text = fmt::format("{:d}", m_value);
             size_t length = g_numeric_input_text.size();
-            unsigned int next = m_caret + 1;
+            std::uint32_t next = m_caret + 1;
             if (next <= length) {
                 length = next;
             }

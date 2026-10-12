@@ -13,7 +13,7 @@ class srScene;
 
 extern srModelInstance* g_cursor_node;
 extern srScene* g_cursor_scene;
-unsigned char InitializeMouseCursorScene(void);
+std::uint8_t InitializeMouseCursorScene(void);
 
 class srTextureIFace;
 
@@ -22,8 +22,8 @@ bool SetMouseCursorFromVideoObject(const SpriteSheet& sprites, std::uint16_t reg
 void BlitToMouseCursor(const SpriteSheet& sprites, std::uint16_t region, std::uint16_t x,
                        std::uint16_t y);
 void RefreshMouseCursorTexture(void);
-bool ResizeMouseCursorSurface(int width, int height);      /* 0x00427c90 */
-void SetMouseCursorHotspot(short hotspot_x, short hotspot_y); /* 0x00427f00 */
+bool ResizeMouseCursorSurface(std::int32_t width, std::int32_t height);      /* 0x00427c90 */
+void SetMouseCursorHotspot(std::int16_t hotspot_x, std::int16_t hotspot_y); /* 0x00427f00 */
 void SetMouseCursorTexture(std::shared_ptr<srTextureIFace> texture);          /* 0x00429170 */
 void SyncSystemCursor(void);                                  /* 0x00428340 */
 
@@ -38,28 +38,28 @@ enum {
     W8_CURSOR_MAP_LOAD = 9
 };
 
-extern int g_cursor_width;
-extern int g_cursor_height;
-extern int g_cursor_hotspot_x;
-extern int g_cursor_hotspot_y;
+extern std::int32_t g_cursor_width;
+extern std::int32_t g_cursor_height;
+extern std::int32_t g_cursor_hotspot_x;
+extern std::int32_t g_cursor_hotspot_y;
 
 /* 0x00428580 and 0x004285A0: the packed atom mouse position projected into
    screen space by the current cursor hotspot. */
-int GetEventCursorX(const InputEvent* atom);
-int GetEventCursorY(const InputEvent* atom);
+std::int32_t GetEventCursorX(const InputEvent* atom);
+std::int32_t GetEventCursorY(const InputEvent* atom);
 
-void PositionMouseCursor(int x, int y, bool reset_tick);
+void PositionMouseCursor(std::int32_t x, std::int32_t y, bool reset_tick);
 /* 0x00428220: milliseconds since PositionMouseCursor last stamped the move
    tick. */
-unsigned int GetMillisecondsSinceCursorMove(void);
+std::uint32_t GetMillisecondsSinceCursorMove(void);
 /* 0x00428520: whether the current cursor hotspot is inside the inclusive
    rectangle (left, top, right, bottom). */
-bool IsCursorInRectangle(int left, int top, int right, int bottom);
-unsigned char GetCursorPositionInViewport(glm::vec2* position);
+bool IsCursorInRectangle(std::int32_t left, std::int32_t top, std::int32_t right, std::int32_t bottom);
+std::uint8_t GetCursorPositionInViewport(glm::vec2* position);
 /* The tracked cursor tip in normalized screen coordinates. */
 glm::vec2 GetCursorScaledPosition();
 void UpdateHeldItemCursor(void);
 void ClearHeldItemDisplay(void);
-void SetItemCursor(int overlay_video_object); /* 0x0055F160 */
+void SetItemCursor(std::int32_t overlay_video_object); /* 0x0055F160 */
 
 #endif

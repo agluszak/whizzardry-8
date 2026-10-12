@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include "surrender/srGERD.h"
 #include "surrender/srNode.h"
 #include "glm/ext/matrix_float2x2.hpp"
@@ -50,7 +51,7 @@ public:
     float angle;
     float depth;
     float width;
-    unsigned char padding_144[4];
+    std::uint8_t padding_144[4];
 
 private:
     void renderGroundShadow(srGERD& renderer); /* 0x004D66A0 */

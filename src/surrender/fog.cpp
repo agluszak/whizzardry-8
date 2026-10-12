@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <algorithm>
 #include <ostream>
 #include <cstddef>
@@ -49,7 +50,7 @@ std::pair<double, double> srFog::getRange() const
 }
 
 // FUNCTION: SURRENDER 0x1004B6F0
-int srFog::isActive(srVertexPipe& pipe)
+std::int32_t srFog::isActive(srVertexPipe& pipe)
 {
     if ((group_mask & pipe.getExclusionMask()) != 0) {
         return 0;
@@ -94,7 +95,7 @@ void srFog::process(srVertexPipe& pipe)
     if (pipe.isChannelAvailable(srVertexProcessor::CHANNEL_FOG)) {
         const auto sphere = pipe.getEyeSpaceBoundingSphere();
         double limit = sphere.radius + fog_end;
-        w8_long count = (w8_long)pipe.getVertexCount();
+        std::int32_t count = (std::int32_t)pipe.getVertexCount();
         if (glm::dot(sphere.center, sphere.center) <= limit * limit) {
             if (fog_end == fog_start) {
                 scale = 1e+08f;

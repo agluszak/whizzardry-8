@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <string>
 
 #include "wiz8/local_code/NPCScripting.h"
@@ -16,9 +17,9 @@ void ClearMainGameTargetState(void);
 bool ShouldDeferCharacterEventForNpcScript(bool require_group_entry);
 /* 0x005294C0: format the bound NPC's quote for one event type into the wide
    output. */
-std::string GetNpcQuoteText(W8NpcState* npc, int type);
+std::string GetNpcQuoteText(W8NpcState* npc, std::int32_t type);
 
-bool IsPartySlotEligible(int slot);
+bool IsPartySlotEligible(std::int32_t slot);
 void ClearNpcMessageQueue(void); /* 0x00524C50 */
 
 std::string FormatNpcVoiceSoundPath(W8NpcState* npc);

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_int3.hpp"
 #include <vector>
@@ -16,17 +17,17 @@ public:
 
 private:
     struct Node {
-        int index;
+        std::int32_t index;
         Node* next;
         Node* prev;
     };
 
-    int satisfyConstraints(const Node* vertex);
+    std::int32_t satisfyConstraints(const Node* vertex);
 
     // Sized once: clipping only unlinks nodes, preserving every node address.
     std::vector<Node> nodes;
     Node* current = nullptr;
-    int remaining;
+    std::int32_t remaining;
     std::span<const glm::vec2> points;
 };
 

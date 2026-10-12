@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <algorithm>
 #include <cstdlib>
 #include <memory>
@@ -33,7 +34,7 @@ stTextureAnim::stTextureAnim(const stTextureAnim& other)
 }
 
 // FUNCTION: WIZ8 0x00485400
-void stTextureAnim::SetFrame(int frame)
+void stTextureAnim::SetFrame(std::int32_t frame)
 {
     this->frame = frame;
     frame_tick = w8_get_ticks();
@@ -48,7 +49,7 @@ void stTextureAnim::AddTexture(std::shared_ptr<srTextureIFace> texture)
 // FUNCTION: WIZ8 0x004854B0
 void stTextureAnim::UpdateFrame()
 {
-    const int count = static_cast<int>(textures.size());
+    const std::int32_t count = static_cast<std::int32_t>(textures.size());
 
     if (animation_mode == W8_TEXTURE_ANIM_MANUAL) {
         return;
@@ -56,7 +57,7 @@ void stTextureAnim::UpdateFrame()
 
     if (trigger_mode == W8_TEXTURE_TRIGGER_RANDOM_FRAME) {
         if (rand() / static_cast<float>(RAND_MAX) < probability) {
-            frame = static_cast<int>(rand() / static_cast<float>(RAND_MAX) * count);
+            frame = static_cast<std::int32_t>(rand() / static_cast<float>(RAND_MAX) * count);
         }
         return;
     }
@@ -76,10 +77,10 @@ void stTextureAnim::UpdateFrame()
         return;
     }
 
-    const int elapsed_frames =
-        static_cast<int>((w8_get_ticks() - frame_tick) * frame_rate * g_float_one_thousandth);
+    const std::int32_t elapsed_frames =
+        static_cast<std::int32_t>((w8_get_ticks() - frame_tick) * frame_rate * g_float_one_thousandth);
     if (animation_mode == W8_TEXTURE_ANIM_LOOP) {
-        int next = (direction * elapsed_frames) % count;
+        std::int32_t next = (direction * elapsed_frames) % count;
         if (next < frame) {
             frame = 0;
             running = false;
@@ -109,14 +110,14 @@ void stTextureAnim::UpdateFrame()
 }
 
 // FUNCTION: WIZ8 0x00485730
-int stTextureAnim::IsFinished() const
+std::int32_t stTextureAnim::IsFinished() const
 {
     return animation_mode == W8_TEXTURE_ANIM_PLAY_ONCE &&
-           frame == std::max(static_cast<int>(textures.size()) - 1, 0);
+           frame == std::max(static_cast<std::int32_t>(textures.size()) - 1, 0);
 }
 
 // FUNCTION: WIZ8 0x004856F0
-w8_ulong stTextureAnim::getTextureFrameHandle()
+std::uint32_t stTextureAnim::getTextureFrameHandle()
 {
     UpdateFrame();
     if ((texture_flags_ & (1UL << FLAG_DIRTY_DEFAULTS)) != 0) {
@@ -179,7 +180,7 @@ void stTextureAnim::setupDefaultValues()
 }
 
 // FUNCTION: WIZ8 0x004857B0
-unsigned char stTextureAnim::Prepare()
+std::uint8_t stTextureAnim::Prepare()
 {
     auto* file = textures.empty() ? nullptr : sr_cast<stTextureFile>(textures[0]);
     if (file != 0) {

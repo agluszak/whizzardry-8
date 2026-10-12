@@ -1,27 +1,28 @@
 #ifndef WIZ8_LAYOUTS_PARTY_FORMATION_H
 #define WIZ8_LAYOUTS_PARTY_FORMATION_H
 
+#include <cstdint>
 #include <stddef.h>
 
 #pragma pack(push, 1)
 
 struct W8PartyFormationPosition {
     /* The row the slot stands in, -1 while unseated. */
-    signed char bQuadrant;
+    std::int8_t bQuadrant;
     /* The quadrant remembered while the slot is unseated by death; the
        revival path in UpdateFormationSlotState re-seats into it and then
        clears it. */
-    signed char bOldQuadrant;
-    signed char bQuadrantSlot;
-    signed char facing;
-    unsigned char unknown_04[8];
+    std::int8_t bOldQuadrant;
+    std::int8_t bQuadrantSlot;
+    std::int8_t facing;
+    std::uint8_t unknown_04[8];
 };
 
 struct W8PartyFormationState {
-    signed char bOccupantChar[5][3];
-    unsigned char ubQuadrantOccupants[5]; /* 0x0f */
+    std::int8_t bOccupantChar[5][3];
+    std::uint8_t ubQuadrantOccupants[5]; /* 0x0f */
     W8PartyFormationPosition positions[8];
-    unsigned char unknown_74[0x10];
+    std::uint8_t unknown_74[0x10];
 };
 
 #pragma pack(pop)

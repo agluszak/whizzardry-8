@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include "srColorSurface.h"
 
 #include <SDL3/SDL_iostream.h>
@@ -14,9 +15,9 @@ std::unique_ptr<srColorSurfaceIFace> load(const char* path);
 bool describe(srColorSurfaceIFace::SurfaceDesc& description, const char* path, SDL_IOStream* stream);
 bool describe(srColorSurfaceIFace::SurfaceDesc& description, const char* path, wiz8::File& file);
 void describe(srColorSurfaceIFace::SurfaceDesc& description, const char* path);
-void save(const char* path, SDL_IOStream* stream, srColorSurfaceIFace& surface, int quality = 100);
-void save(const char* path, wiz8::File& file, srColorSurfaceIFace& surface, int quality = 100);
-void save(const char* path, srColorSurfaceIFace& surface, int quality = 100);
+void save(const char* path, SDL_IOStream* stream, srColorSurfaceIFace& surface, std::int32_t quality = 100);
+void save(const char* path, wiz8::File& file, srColorSurfaceIFace& surface, std::int32_t quality = 100);
+void save(const char* path, srColorSurfaceIFace& surface, std::int32_t quality = 100);
 
 // Retail TGA metadata includes global palettes, palette-only files and mirrored origins.
 std::unique_ptr<srColorSurface> loadTga(SDL_IOStream* stream);

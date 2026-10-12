@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <fmt/printf.h>
 #include <cmath>
 #include <cstring>
@@ -59,15 +60,15 @@ void CopyPartyFormationState(W8PartyFormationState* dst, const W8PartyFormationS
 void ReconcilePartyFormation(W8PartyFormationState* edited, W8PartyFormationState* live)
 {
     W8PartyFormationState working;
-    int slot;
-    int index;
-    int row;
-    signed char column;
+    std::int32_t slot;
+    std::int32_t index;
+    std::int32_t row;
+    std::int8_t column;
 
     InitializePartyFormation(&working);
     for (slot = 0; slot < 8; ++slot) {
         const W8Character* character = &g_status.buffers.Char[slot];
-        signed char row;
+        std::int8_t row;
         bool row_changed;
 
         if (!g_status.buffers.XChar[slot].fOccupied || character->hp_current <= 0 ||
@@ -112,7 +113,7 @@ void ReconcilePartyFormation(W8PartyFormationState* edited, W8PartyFormationStat
                 column = -1;
                 for (index = 0; index < 3; ++index) {
                     if (working.bOccupantChar[row][index] == -1) {
-                        column = static_cast<signed char>(index);
+                        column = static_cast<std::int8_t>(index);
                         break;
                     }
                 }
@@ -127,11 +128,11 @@ void ReconcilePartyFormation(W8PartyFormationState* edited, W8PartyFormationStat
                     slot, fmt::sprintf(g_localized_strings[0x249], &g_formation_row_names[row][0]));
             }
         } else {
-            signed char new_rows[3] = {4, 2, 3};
+            std::int8_t new_rows[3] = {4, 2, 3};
             bool placed = false;
 
             for (index = 0; !placed && index < 3; ++index) {
-                signed char new_row = new_rows[index];
+                std::int8_t new_row = new_rows[index];
 
                 for (column = 0; column < 3; ++column) {
                     if (working.bOccupantChar[new_row][column] == -1) {
@@ -163,14 +164,14 @@ void ReconcilePartyFormation(W8PartyFormationState* edited, W8PartyFormationStat
    quadrant zero is the 90 degrees centred on straight ahead rather than the 90
    beginning there. */
 // FUNCTION: WIZ8 0x00555f30
-int GetQuadrantForPosition(srVector3T<float> position)
+std::int32_t GetQuadrantForPosition(srVector3T<float> position)
 {
     srVector3T<float> party;
-    int bearing;
+    std::int32_t bearing;
 
     party = cameraLocation();
     /* The heading comes back in radians; the party facing is kept in degrees. */
-    bearing = static_cast<int>(NormalizeAngle(GetHeadingAngle(&party, &position)) * 57.295776f);
+    bearing = static_cast<std::int32_t>(NormalizeAngle(GetHeadingAngle(&party, &position)) * 57.295776f);
     bearing -= g_status.party_facing;
     if (bearing < 0) {
         bearing += W8_DEGREES_PER_TURN;
@@ -201,7 +202,7 @@ const float g_facing_tolerance0 = 0.05f;
 /* Whether one character can hold a place in the formation at all: they have to
    be alive and in better shape than the party sweeps demand. */
 // FUNCTION: WIZ8 0x005549e0
-bool CanHoldFormationPlace(int party_slot)
+bool CanHoldFormationPlace(std::int32_t party_slot)
 {
     const W8Character* character = &g_status.buffers.Char[party_slot];
 
@@ -247,24 +248,24 @@ static bool g_combat_preserve_party_facing;
 // FUNCTION: WIZ8 0x005552F0
 void SyncPartyFacingFromCamera(void)
 {
-    unsigned int yaw;
+    std::uint32_t yaw;
     bool movement_stopped;
 
-    yaw = static_cast<unsigned int>(GetCameraYawDegrees()) % W8_DEGREES_PER_TURN;
+    yaw = static_cast<std::uint32_t>(GetCameraYawDegrees()) % W8_DEGREES_PER_TURN;
     movement_stopped = IsLevelMovementStopped();
     if ((!gXStatus.fCombatMode || !g_combat_preserve_party_facing) && !movement_stopped) {
-        g_status.party_facing = static_cast<int>(yaw);
+        g_status.party_facing = static_cast<std::int32_t>(yaw);
         if (yaw != g_status.party_heading) {
             g_status.party_heading = yaw;
             UpdateFormationCompass();
-            if (static_cast<unsigned int>(GetCameraYawDegrees()) % W8_DEGREES_PER_TURN != yaw) {
+            if (static_cast<std::uint32_t>(GetCameraYawDegrees()) % W8_DEGREES_PER_TURN != yaw) {
                 SetCameraYawDegrees(static_cast<float>(yaw));
             }
         }
     } else if (yaw != g_status.party_heading) {
         g_status.party_heading = yaw;
         UpdateFormationCompass();
-        if (static_cast<unsigned int>(GetCameraYawDegrees()) % W8_DEGREES_PER_TURN != yaw) {
+        if (static_cast<std::uint32_t>(GetCameraYawDegrees()) % W8_DEGREES_PER_TURN != yaw) {
             SetCameraYawDegrees(static_cast<float>(yaw));
         }
     }
@@ -273,16 +274,16 @@ void SyncPartyFacingFromCamera(void)
 /* Turn the party to a new heading, moving the camera with it unless it is
    already looking that way. */
 // FUNCTION: WIZ8 0x005553c0
-unsigned int TurnPartyTo(unsigned int degrees)
+std::uint32_t TurnPartyTo(std::uint32_t degrees)
 {
-    unsigned int previous;
+    std::uint32_t previous;
 
     g_status.party_facing = degrees;
     previous = g_status.party_heading;
     if (degrees != g_status.party_heading) {
         g_status.party_heading = degrees;
         UpdateFormationCompass();
-        unsigned int camera_yaw = static_cast<unsigned int>(GetCameraYawDegrees());
+        std::uint32_t camera_yaw = static_cast<std::uint32_t>(GetCameraYawDegrees());
         previous = camera_yaw / W8_DEGREES_PER_TURN;
         if (camera_yaw % W8_DEGREES_PER_TURN != degrees) {
             SetCameraYawDegrees(static_cast<float>(degrees));
@@ -294,14 +295,14 @@ unsigned int TurnPartyTo(unsigned int degrees)
 /* The same turn, with the option of snapping the camera round rather than
    swinging it. */
 // FUNCTION: WIZ8 0x00555420
-void TurnPartyToImmediate(unsigned int degrees, char snap)
+void TurnPartyToImmediate(std::uint32_t degrees, char snap)
 {
     if (degrees == g_status.party_heading) {
         return;
     }
     g_status.party_heading = degrees;
     UpdateFormationCompass();
-    if (static_cast<unsigned int>(GetCameraYawDegrees()) % W8_DEGREES_PER_TURN == degrees) {
+    if (static_cast<std::uint32_t>(GetCameraYawDegrees()) % W8_DEGREES_PER_TURN == degrees) {
         return;
     }
     if (snap) {
@@ -315,16 +316,16 @@ void TurnPartyToImmediate(unsigned int degrees, char snap)
    the selected slot's formation facing and swing the camera to match -
    snapping or gliding per the rotation style. */
 // FUNCTION: WIZ8 0x005554a0
-void FaceCameraToSelection(int party_slot)
+void FaceCameraToSelection(std::int32_t party_slot)
 {
-    unsigned int heading;
+    std::uint32_t heading;
 
     if (g_settings.camera_rotation_mode != W8_CAMERA_ROTATION_SELECTED_CHARACTER ||
         g_status.selected_character != party_slot) {
         return;
     }
     heading = g_status.party_facing +
-              static_cast<unsigned char>(g_status.formation.positions[party_slot].facing) *
+              static_cast<std::uint8_t>(g_status.formation.positions[party_slot].facing) *
                   W8_DEGREES_PER_QUADRANT;
     TurnPartyToImmediate(heading, g_settings.camera_rotation_style);
 }
@@ -332,9 +333,9 @@ void FaceCameraToSelection(int party_slot)
 /* Face one position the way the rules say it should, unless the rules have no
    preference or it already faces that way. */
 // FUNCTION: WIZ8 0x005557e0
-void FacePositionAsDecided(int position, int target_position)
+void FacePositionAsDecided(std::int32_t position, std::int32_t target_position)
 {
-    signed char facing = DecideFacingForPosition(position, target_position);
+    std::int8_t facing = DecideFacingForPosition(position, target_position);
 
     if (facing != W8_FACING_ANY && g_status.formation.positions[position].facing != facing) {
         g_status.formation.positions[position].facing = facing;
@@ -345,9 +346,9 @@ void FacePositionAsDecided(int position, int target_position)
 /* Whether a position already faces the way the rules want. No preference
    always agrees. */
 // FUNCTION: WIZ8 0x00555920
-bool PositionFacesAsDecided(int position, int target_position)
+bool PositionFacesAsDecided(std::int32_t position, std::int32_t target_position)
 {
-    signed char facing = DecideFacingForPosition(position, target_position);
+    std::int8_t facing = DecideFacingForPosition(position, target_position);
 
     if (facing == W8_FACING_ANY) {
         return true;
@@ -358,10 +359,10 @@ bool PositionFacesAsDecided(int position, int target_position)
 /* Whether a position is facing exactly away from where the rules want it -
    two of the four facings apart. */
 // FUNCTION: WIZ8 0x00555c20
-bool PositionFacesOppositeToDecided(int target_position, int position)
+bool PositionFacesOppositeToDecided(std::int32_t target_position, std::int32_t position)
 {
-    signed char facing = DecideFacingForPosition(position, target_position);
-    int difference;
+    std::int8_t facing = DecideFacingForPosition(position, target_position);
+    std::int32_t difference;
 
     if (facing == W8_FACING_ANY) {
         return false;
@@ -376,7 +377,7 @@ bool PositionFacesOppositeToDecided(int target_position, int position)
 /* Whether the party is looking far enough away from a point to count as not
    facing it, measured as the shortest way round. */
 // FUNCTION: WIZ8 0x00555d60
-bool IsPartyLookingAwayFrom(int, W8MonsterInfo* monster_info)
+bool IsPartyLookingAwayFrom(std::int32_t, W8MonsterInfo* monster_info)
 {
     srVector3T<float> monster_position = monster_info->p3D->GetPosition();
     srVector3T<float> party_position = g_startup_world->GetPosition();
@@ -391,10 +392,10 @@ bool IsPartyLookingAwayFrom(int, W8MonsterInfo* monster_info)
    target sits in the centre, and the no-facing code 4 when either side is
    unseated or both match. */
 // FUNCTION: WIZ8 0x00555e70
-signed char DecideFacingForPosition(int position, int target_position)
+std::int8_t DecideFacingForPosition(std::int32_t position, std::int32_t target_position)
 {
-    signed char source = g_status.formation.positions[position].bQuadrant;
-    signed char target = g_status.formation.positions[target_position].bQuadrant;
+    std::int8_t source = g_status.formation.positions[position].bQuadrant;
+    std::int8_t target = g_status.formation.positions[target_position].bQuadrant;
 
     if (source == -1) {
         srAssertFail("bSourceQuadrant != -1", FORMATION_CPP, 0x40d, 0);
@@ -450,13 +451,13 @@ char g_formation_row_names[5][20] = {
    take: an empty row, or one whose lead column is already open, seats it in
    column 0; a lone leader moves over to column 1 and the newcomer takes column
    2. A full row has no room (-1). */
-static signed char MakeRoomInFormationRow(W8PartyFormationState* formation, int row)
+static std::int8_t MakeRoomInFormationRow(W8PartyFormationState* formation, std::int32_t row)
 {
     switch (formation->ubQuadrantOccupants[row]) {
     case 0:
         return 0;
     case 1: {
-        signed char leader = formation->bOccupantChar[row][0];
+        std::int8_t leader = formation->bOccupantChar[row][0];
         if (leader == -1) {
             srAssertFail("iChar != -1", FORMATION_CPP, 0x159, 0);
         }
@@ -479,16 +480,16 @@ static signed char MakeRoomInFormationRow(W8PartyFormationState* formation, int 
    column and puts the joiner in the third; a row already holding two takes
    the joiner directly. */
 // FUNCTION: WIZ8 0x00554ae0
-void PlaceCharacterInFormation(W8PartyFormationState* formation, int slot)
+void PlaceCharacterInFormation(W8PartyFormationState* formation, std::int32_t slot)
 {
-    unsigned char row_order[3] = {0, 4, 2};
+    std::uint8_t row_order[3] = {0, 4, 2};
     W8PartyFormationPosition* position = &formation->positions[slot];
 
     position->bQuadrant = 0xff;
     position->bQuadrantSlot = -1;
-    for (unsigned int index = 0; index < 3; ++index) {
-        unsigned char row = row_order[index];
-        signed char seat = MakeRoomInFormationRow(formation, row);
+    for (std::uint32_t index = 0; index < 3; ++index) {
+        std::uint8_t row = row_order[index];
+        std::int8_t seat = MakeRoomInFormationRow(formation, row);
         if (seat != -1) {
             SetFormationPosition(formation, slot, row, seat, true, true, true);
             return;
@@ -502,11 +503,11 @@ void PlaceCharacterInFormation(W8PartyFormationState* formation, int slot)
    the positions left in the old row, and the announce flag posts the row
    name to the slot. */
 // FUNCTION: WIZ8 0x00554dd0
-void CompactFormationRow(W8PartyFormationState* formation, unsigned char row)
+void CompactFormationRow(W8PartyFormationState* formation, std::uint8_t row)
 {
-    signed char last_free = -1;
-    signed char column;
-    int slot;
+    std::int8_t last_free = -1;
+    std::int8_t column;
+    std::int32_t slot;
 
     switch (formation->ubQuadrantOccupants[row]) {
     case 1:
@@ -533,15 +534,15 @@ void CompactFormationRow(W8PartyFormationState* formation, unsigned char row)
 }
 
 // FUNCTION: WIZ8 0x00554bd0
-void SetFormationPosition(W8PartyFormationState* formation, int slot, signed char new_row,
-                          signed char new_column, bool announce, bool detach, bool update_facing)
+void SetFormationPosition(W8PartyFormationState* formation, std::int32_t slot, std::int8_t new_row,
+                          std::int8_t new_column, bool announce, bool detach, bool update_facing)
 {
     W8PartyFormationPosition* position = &formation->positions[slot];
-    signed char old_row = position->bQuadrant;
-    signed char old_column = position->bQuadrantSlot;
+    std::int8_t old_row = position->bQuadrant;
+    std::int8_t old_column = position->bQuadrantSlot;
 
     if (old_row != -1) {
-        signed char* occupant = &formation->bOccupantChar[old_row][old_column];
+        std::int8_t* occupant = &formation->bOccupantChar[old_row][old_column];
         if (*occupant == -1) {
             srAssertFail("pFormation->bOccupantChar[bOldQuadrant][bOldSlot] != -1", FORMATION_CPP,
                          0x18e, 0);
@@ -556,7 +557,7 @@ void SetFormationPosition(W8PartyFormationState* formation, int slot, signed cha
     position->bQuadrant = new_row;
     position->bQuadrantSlot = new_column;
     if (new_row != -1) {
-        signed char* occupant = &formation->bOccupantChar[new_row][new_column];
+        std::int8_t* occupant = &formation->bOccupantChar[new_row][new_column];
         if (*occupant != -1) {
             srAssertFail("pFormation->bOccupantChar[bNewQuadrant][bNewSlot] == -1", FORMATION_CPP,
                          0x19d, 0);
@@ -565,7 +566,7 @@ void SetFormationPosition(W8PartyFormationState* formation, int slot, signed cha
             srAssertFail("pFormation->ubQuadrantOccupants[bNewQuadrant] < MAX_CHARS_PER_QUADRANT",
                          FORMATION_CPP, 0x19e, 0);
         }
-        *occupant = static_cast<signed char>(slot);
+        *occupant = static_cast<std::int8_t>(slot);
         ++formation->ubQuadrantOccupants[new_row];
         if (update_facing) {
             switch (new_row) {
@@ -614,13 +615,13 @@ void SetFormationPosition(W8PartyFormationState* formation, int slot, signed cha
    the usual seating rules, or placed like a joiner when it had none. The
    remembered quadrant is cleared once the slot is dealt with. */
 // FUNCTION: WIZ8 0x00554e70
-void UpdateFormationSlotState(W8PartyFormationState* formation, int slot)
+void UpdateFormationSlotState(W8PartyFormationState* formation, std::int32_t slot)
 {
-    signed char row_order[3] = {0, 4, 2};
+    std::int8_t row_order[3] = {0, 4, 2};
     W8PartyFormationPosition* position = &formation->positions[slot];
-    int row;
-    signed char seat;
-    int index;
+    std::int32_t row;
+    std::int8_t seat;
+    std::int32_t index;
 
     if (g_status.buffers.Char[slot].highest_condition >= W8_CONDITION_DEAD) {
         if (position->bQuadrant == -1) {
@@ -662,9 +663,9 @@ void UpdateFormationSlotState(W8PartyFormationState* formation, int slot)
    holding two puts it in the free lead column. A full row refuses with a
    notice naming the row. */
 // FUNCTION: WIZ8 0x00555080
-void SeatFormationSlotInRow(W8PartyFormationState* formation, int slot, int row)
+void SeatFormationSlotInRow(W8PartyFormationState* formation, std::int32_t slot, std::int32_t row)
 {
-    signed char seat = MakeRoomInFormationRow(formation, row);
+    std::int8_t seat = MakeRoomInFormationRow(formation, row);
 
     if (seat != -1) {
         SetFormationPosition(formation, slot, row, seat, false, true, true);
@@ -679,7 +680,7 @@ void SeatFormationSlotInRow(W8PartyFormationState* formation, int slot, int row)
    vacated. When the second slot holds no quadrant, the first is seated in the
    row the second last occupied instead. */
 // FUNCTION: WIZ8 0x00555160
-void SwapFormationSlots(W8PartyFormationState* formation, int slot_a, int slot_b)
+void SwapFormationSlots(W8PartyFormationState* formation, std::int32_t slot_a, std::int32_t slot_b)
 {
     W8PartyFormationPosition* position_a = &formation->positions[slot_a];
     W8PartyFormationPosition* position_b = &formation->positions[slot_b];
@@ -688,10 +689,10 @@ void SwapFormationSlots(W8PartyFormationState* formation, int slot_a, int slot_b
         srAssertFail("uiChar1 != uiChar2", FORMATION_CPP, 0x296, 0);
     }
     if (position_b->bQuadrant != -1) {
-        signed char row_a = position_a->bQuadrant;
-        signed char column_a = position_a->bQuadrantSlot;
-        signed char row_b = position_b->bQuadrant;
-        signed char column_b = position_b->bQuadrantSlot;
+        std::int8_t row_a = position_a->bQuadrant;
+        std::int8_t column_a = position_a->bQuadrantSlot;
+        std::int8_t row_b = position_b->bQuadrant;
+        std::int8_t column_b = position_b->bQuadrantSlot;
 
         SetFormationPosition(formation, slot_a, -1, -1, false, false, true);
         SetFormationPosition(formation, slot_b, row_a, column_a, false, false, true);
@@ -702,8 +703,8 @@ void SwapFormationSlots(W8PartyFormationState* formation, int slot_a, int slot_b
         return;
     }
     {
-        int row = position_b->bOldQuadrant;
-        signed char seat;
+        std::int32_t row = position_b->bOldQuadrant;
+        std::int8_t seat;
 
         seat = MakeRoomInFormationRow(formation, row);
         if (seat != -1) {
@@ -721,7 +722,7 @@ void SwapFormationSlots(W8PartyFormationState* formation, int slot_a, int slot_b
 // FUNCTION: WIZ8 0x00555FA0
 void RebuildPartyStatus(W8PartyFormationState* status, const W8PartySlotRow* party_rows)
 {
-    unsigned int slot;
+    std::uint32_t slot;
     for (slot = 0; slot < 8; ++slot) {
         if (!party_rows[slot].fOccupied && status->positions[slot].bQuadrant != -1 &&
             status->positions[slot].bQuadrantSlot != -1) {
@@ -733,7 +734,7 @@ void RebuildPartyStatus(W8PartyFormationState* status, const W8PartySlotRow* par
 /* Whether the monster currently faces the party's own position, inside the
    usual facing tolerance - the mirror of IsPartyLookingAt. */
 // FUNCTION: WIZ8 0x00555a60
-int IsMonsterFacingParty(W8MonsterInfo* monster_info)
+std::int32_t IsMonsterFacingParty(W8MonsterInfo* monster_info)
 {
     srVector3T<float> party_position = g_startup_world->GetPosition();
     return IsPartyLookingAt(monster_info, party_position);
@@ -741,7 +742,7 @@ int IsMonsterFacingParty(W8MonsterInfo* monster_info)
 
 /* Whether the first monster faces the second, inside the usual tolerance. */
 // FUNCTION: WIZ8 0x00555b00
-int IsMonsterFacingMonster(W8MonsterInfo* first, W8MonsterInfo* second)
+std::int32_t IsMonsterFacingMonster(W8MonsterInfo* first, W8MonsterInfo* second)
 {
     srVector3T<float> second_position = second->p3D->GetPosition();
     return IsPartyLookingAt(first, second_position);
@@ -750,7 +751,7 @@ int IsMonsterFacingMonster(W8MonsterInfo* first, W8MonsterInfo* second)
 /* Whether the second monster is looking away from the first, measured the
    shortest way round like IsPartyLookingAwayFrom. */
 // FUNCTION: WIZ8 0x00555de0
-int IsMonsterLookingAwayFrom(W8MonsterInfo* first, W8MonsterInfo* second)
+std::int32_t IsMonsterLookingAwayFrom(W8MonsterInfo* first, W8MonsterInfo* second)
 {
     srVector3T<float> first_position = first->p3D->GetPosition();
     srVector3T<float> second_position = second->p3D->GetPosition();
@@ -768,10 +769,10 @@ int IsMonsterLookingAwayFrom(W8MonsterInfo* first, W8MonsterInfo* second)
    The facing checks use GetQuadrantForPosition and share the same
    invalid-quadrant assertion. */
 // FUNCTION: WIZ8 0x00555960
-bool IsCharacterFacingMonster(int party_slot, W8MonsterInfo* monster_info)
+bool IsCharacterFacingMonster(std::int32_t party_slot, W8MonsterInfo* monster_info)
 {
     srVector3T<float> monster_position = monster_info->p3D->GetPosition();
-    signed char side;
+    std::int8_t side;
 
     switch (GetQuadrantForPosition(monster_position)) {
     case 0:
@@ -795,10 +796,10 @@ bool IsCharacterFacingMonster(int party_slot, W8MonsterInfo* monster_info)
 
 /* Turn the character's formation facing toward the side the monster is on. */
 // FUNCTION: WIZ8 0x00555820
-void TurnCharacterTowardMonster(int party_slot, W8MonsterInfo* monster_info)
+void TurnCharacterTowardMonster(std::int32_t party_slot, W8MonsterInfo* monster_info)
 {
     srVector3T<float> monster_position = monster_info->p3D->GetPosition();
-    signed char side;
+    std::int8_t side;
 
     switch (GetQuadrantForPosition(monster_position)) {
     case 0:
@@ -826,11 +827,11 @@ void TurnCharacterTowardMonster(int party_slot, W8MonsterInfo* monster_info)
 /* Whether the monster sits on the side opposite the one the character faces -
    the being-snuck-up-on test. */
 // FUNCTION: WIZ8 0x00555c60
-int IsMonsterBehindCharacter(W8MonsterInfo* monster_info, int party_slot)
+std::int32_t IsMonsterBehindCharacter(W8MonsterInfo* monster_info, std::int32_t party_slot)
 {
     srVector3T<float> monster_position = monster_info->p3D->GetPosition();
-    signed char side;
-    int difference;
+    std::int8_t side;
+    std::int32_t difference;
 
     switch (GetQuadrantForPosition(monster_position)) {
     case 0:
@@ -857,9 +858,9 @@ int IsMonsterBehindCharacter(W8MonsterInfo* monster_info, int party_slot)
 }
 
 // FUNCTION: WIZ8 0x00555560
-void FaceCharacterTowardCombatTarget(int party_slot, W8CombatSlot* target)
+void FaceCharacterTowardCombatTarget(std::int32_t party_slot, W8CombatSlot* target)
 {
-    signed char facing;
+    std::int8_t facing;
     srVector3T<float> position;
     bool has_position = false;
 

@@ -1,6 +1,8 @@
 #ifndef WIZ8_FACT_STATE_H
 #define WIZ8_FACT_STATE_H
 
+
+#include <cstdint>
 namespace wiz8 {
 class File;
 }
@@ -8,7 +10,7 @@ class File;
 /* 1000 entries, indices 0..999, stored at 0x00689B78 and ending exactly at
    g_npc_name_buffer. GetFact/SetFact check fact_id > 1000, so index 1000
    historically aliases g_npc_name_buffer[0]. Native storage has no such alias. */
-extern unsigned char g_fact_values[1000];
+extern std::uint8_t g_fact_values[1000];
 extern bool g_fact_notifications_suppressed;
 
 /* All 807 names and ids come from retail Data\Databases\FACT.DBS.
@@ -823,13 +825,13 @@ enum W8FactId {
     W8_FACT_LAVALORD_DIE = 0x326,
 };
 
-unsigned char GetFact(W8FactId fact_id);
-unsigned char EvaluateFact(W8FactId fact_id); /* 0x005080F0 */
-void HandleFactChange(W8FactId fact_id, unsigned char value);
+std::uint8_t GetFact(W8FactId fact_id);
+std::uint8_t EvaluateFact(W8FactId fact_id); /* 0x005080F0 */
+void HandleFactChange(W8FactId fact_id, std::uint8_t value);
 /* Scripted consequences of an NPC-bound monster's death; lives in NPC
    Scripting Facts.cpp, driven by MonsterManager's death switch. */
-void HandleScriptedNpcDeath(unsigned int monster_list_index); /* 0x00508D70 */
-void SetFact(W8FactId fact_id, unsigned char value, bool suppress_side_effects);
+void HandleScriptedNpcDeath(std::uint32_t monster_list_index); /* 0x00508D70 */
+void SetFact(W8FactId fact_id, std::uint8_t value, bool suppress_side_effects);
 void SaveFactState(wiz8::File& save_handle);
 void InitializeFactState(void);
 void LoadFactState(wiz8::File& save_handle);

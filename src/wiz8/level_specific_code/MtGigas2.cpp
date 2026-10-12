@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "wiz8/level_specific_code/MtGigas2.h"
 
 #include <vector>
@@ -44,7 +45,7 @@ static stSound3D* g_mt_gigas_alarm_sound;
 static W8IntervalGate* g_mt_gigas_alarm_gate;
 
 static void MtGigas2WireShock(void);
-static void MtGigas2UmpaniAlarm(int command);
+static void MtGigas2UmpaniAlarm(std::int32_t command);
 
 /* Level-load restore. Recreates the wire-panel location variable (armed but
    untouched reads back -1), re-runs the three wire triggers when the panel
@@ -63,7 +64,7 @@ void MtGigas2Setup(void)
         CreateLocationVar("WirePanel", -1);
     }
     if (GetLocationVarIDByName("UmpaniAlarm") != -1) {
-        int alarm = GetLocationVarValueByName("UmpaniAlarm");
+        std::int32_t alarm = GetLocationVarValueByName("UmpaniAlarm");
         if (alarm != 0) {
             MtGigas2UmpaniAlarm(alarm);
         }
@@ -96,8 +97,8 @@ bool MtGigas2Train(Trigger* pTrigger)
 {
     W8NpcState* npc;
     W8ItemInstance* item;
-    int item_id;
-    int value;
+    std::int32_t item_id;
+    std::int32_t value;
 
     if (gXStatus.fNpcDialogueMode) {
         return false;
@@ -130,7 +131,7 @@ bool MtGigas2Train(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004DB420
 bool MtGigas2RedWire(Trigger* pTrigger)
 {
-    int value = GetLocationVarValueByName("WirePanel");
+    std::int32_t value = GetLocationVarValueByName("WirePanel");
 
     if (value == 3) {
         return true;
@@ -148,7 +149,7 @@ bool MtGigas2RedWire(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004DB460
 bool MtGigas2BlueWire(Trigger* pTrigger)
 {
-    int value = GetLocationVarValueByName("WirePanel");
+    std::int32_t value = GetLocationVarValueByName("WirePanel");
 
     if (value == 3) {
         return true;
@@ -167,7 +168,7 @@ bool MtGigas2BlueWire(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004DB4A0
 bool MtGigas2YellowWire(Trigger* pTrigger)
 {
-    int value = GetLocationVarValueByName("WirePanel");
+    std::int32_t value = GetLocationVarValueByName("WirePanel");
     Trigger* wire;
 
     if (value == 3) {
@@ -256,12 +257,12 @@ bool MtGigas2TopDoor1(Trigger* pTrigger)
     return false;
 }
 
-static bool ActivateMtGigasOfficer(int door_bit, const char* door_name, int npc_kind)
+static bool ActivateMtGigasOfficer(std::int32_t door_bit, const char* door_name, std::int32_t npc_kind)
 {
     if (gXStatus.fNpcDialogueMode) {
         return false;
     }
-    int doors = 0;
+    std::int32_t doors = 0;
     if (GetLocationVarIDByName("ObstacleDoors") != -1) {
         doors = GetLocationVarValueByName("ObstacleDoors");
     }
@@ -319,7 +320,7 @@ bool MtGigas2LaserAlarm(Trigger* pTrigger)
    seconds). Unlike ControlCampAlarm the gate and sound are only created when
    both are absent, and finishing stops the sound but keeps its node. */
 // FUNCTION: WIZ8 0x004DB860
-static void MtGigas2UmpaniAlarm(int command)
+static void MtGigas2UmpaniAlarm(std::int32_t command)
 {
     srVector3T<float> position;
 
@@ -331,11 +332,11 @@ static void MtGigas2UmpaniAlarm(int command)
             return;
         }
         position = glm::vec3(GetWorld()->camera->getLocation());
-        if (static_cast<unsigned int>(command) > 0x1e) {
+        if (static_cast<std::uint32_t>(command) > 0x1e) {
             command = 0x1e;
         }
         g_mt_gigas_alarm_gate =
-            new W8IntervalGate(static_cast<float>(static_cast<unsigned int>(command)), false, true);
+            new W8IntervalGate(static_cast<float>(static_cast<std::uint32_t>(command)), false, true);
         g_mt_gigas_alarm_sound =
             CreateAndPlaySoundNode("Data\\Sound\\VOCs\\VOC_HLLIntruder\\VOC_HLLIntruder_003.wav",
                                    position, 1.0f, 75.0f, true);

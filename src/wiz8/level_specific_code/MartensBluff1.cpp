@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <vector>
 #include <string>
 
@@ -65,7 +66,7 @@ void MartensBluff1Setup(void)
     srVector3T<float> trigger_position;
     Trigger* pTrigger;
     stParticle* particle;
-    int dial_state;
+    std::int32_t dial_state;
 
     FindTriggerByName("Gas-Switch");
     g_door_controller = FindTriggerByName("J-Doorcontroller");
@@ -78,7 +79,7 @@ void MartensBluff1Setup(void)
         Random(8);
         CreateLocationVar("DialState", 0x470111);
     }
-    MartensBluff1Transporter(static_cast<int>(0xEFFFFFFF));
+    MartensBluff1Transporter(static_cast<std::int32_t>(0xEFFFFFFF));
     position = glm::vec3(GetWorld()->camera->getLocation());
     pTrigger = FindTriggerByName("MR101");
     if (pTrigger != 0 && (pTrigger->flags & W8_TRIGGER_POSITIONED) != 0) {
@@ -143,7 +144,7 @@ bool MartensBluff1FHandlock(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004DEE10
 bool MartensBluff1DialA(Trigger* pTrigger)
 {
-    int state;
+    std::int32_t state;
 
     if (g_door_controller == 0) {
         return false;
@@ -158,7 +159,7 @@ bool MartensBluff1DialA(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004DEE50
 bool MartensBluff1DialB(Trigger* pTrigger)
 {
-    int state;
+    std::int32_t state;
 
     if (g_door_controller == 0) {
         return false;
@@ -173,7 +174,7 @@ bool MartensBluff1DialB(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004DEEA0
 bool MartensBluff1DialC(Trigger* pTrigger)
 {
-    int state;
+    std::int32_t state;
 
     if (g_door_controller == 0) {
         return false;
@@ -191,7 +192,7 @@ bool MartensBluff1DialC(Trigger* pTrigger)
 bool MartensBluff1GasSwitch(Trigger* pTrigger)
 {
     stParticle* particle;
-    int state;
+    std::int32_t state;
 
     if (g_door_controller == 0) {
         return false;
@@ -231,7 +232,7 @@ bool MartensBluff1JDoorController(Trigger* pTrigger)
 {
     srVector3T<float> position;
     stParticle* particle;
-    int state;
+    std::int32_t state;
 
     if (g_door_controller == 0 || pTrigger->running) {
         return false;
@@ -289,7 +290,7 @@ bool MartensBluff1TransportSpawn(void)
     srVector3T<float> position_b;
     W8MonsterGroup* group;
     W8MonsterInfo* info;
-    int location_id;
+    std::int32_t location_id;
 
     if (GetFact(W8_FACT_TRANG_TELEPORTER_TOAST)) {
         return false;
@@ -322,13 +323,13 @@ bool MartensBluff1TransportSpawn(void)
    fires the transporter spawn each time the gate elapses until the spawn
    reports the fact already set, then deletes the gate and unregisters. */
 // FUNCTION: WIZ8 0x004DF260
-void MartensBluff1Transporter(int command)
+void MartensBluff1Transporter(std::int32_t command)
 {
     g_remove_current_master_function = false;
     if (command != 0) {
-        int progress = 0;
+        std::int32_t progress = 0;
 
-        if (command == static_cast<int>(0xEFFFFFFF)) {
+        if (command == static_cast<std::int32_t>(0xEFFFFFFF)) {
             if (GetFact(W8_FACT_TRANG_TELEPORTER_TOAST)) {
                 return;
             }
@@ -348,7 +349,7 @@ void MartensBluff1Transporter(int command)
             return;
         }
         if (g_transport_gate != 0) {
-            progress = static_cast<int>(g_transport_gate->GetProgress() * g_octree_cell_scale);
+            progress = static_cast<std::int32_t>(g_transport_gate->GetProgress() * g_octree_cell_scale);
         }
         if (GetLocationVarIDByName("TransportSpawn") == -1) {
             CreateLocationVar("TransportSpawn", progress);
@@ -379,7 +380,7 @@ void MartensBluff1Transporter(int command)
 // FUNCTION: WIZ8 0x004DF4A0
 bool MartensBluff1Teleporter(Trigger* pTrigger)
 {
-    int state;
+    std::int32_t state;
 
     if (GetLocationVarIDByName("TeleporterState") == -1) {
         CreateLocationVar("TeleporterState", 0);
@@ -457,11 +458,11 @@ bool MartensBluff1ButtonMaten(Trigger* pTrigger)
    that pad's button trigger before writing the new state. The re-entrancy
    flag keeps the button callbacks from recursing back in. */
 // FUNCTION: WIZ8 0x004DF5C0
-bool MartensBluff1TeleportState(int new_state)
+bool MartensBluff1TeleportState(std::int32_t new_state)
 {
     Trigger* pTelTrigger;
     Trigger* pOldButtonTrigger;
-    int state;
+    std::int32_t state;
 
     pTelTrigger = FindRequiredTriggerByName("MR109");
     if (GetLocationVarIDByName("TeleporterState") == -1) {

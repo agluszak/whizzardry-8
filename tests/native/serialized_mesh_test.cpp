@@ -43,9 +43,9 @@ template<class T> void Write(wiz8::File& file, const T& value)
     file.write(&value, sizeof(value));
 }
 
-void WriteMesh(wiz8::File& file, int predecessor, int texture_index = 0)
+void WriteMesh(wiz8::File& file, std::int32_t predecessor, std::int32_t texture_index = 0)
 {
-    const std::array<int, 7> header{0, 3, 3, 1, predecessor, -1, 0};
+    const std::array<std::int32_t, 7> header{0, 3, 3, 1, predecessor, -1, 0};
     Write(file, header);
     const std::array<srVector3T<float>, 3> locations{
         srVector3T<float>(0, 0, 0), srVector3T<float>(1, 0, 0), srVector3T<float>(0, 1, 0)};
@@ -53,7 +53,7 @@ void WriteMesh(wiz8::File& file, int predecessor, int texture_index = 0)
     const std::array<glm::vec2, 3> uv{
         glm::vec2(0, 0), glm::vec2(1, 0), glm::vec2(0, 1)};
     Write(file, uv);
-    const std::array<int, 3> triangle{0, 1, 2};
+    const std::array<std::int32_t, 3> triangle{0, 1, 2};
     Write(file, triangle); // UV indices.
     Write(file, triangle); // Vertex indices.
     Write(file, texture_index); // Texture index.
@@ -71,7 +71,7 @@ void WriteFixture(const std::filesystem::path& path, bool duplicate_successor, b
     auto file = wiz8::open_host_file(path, wiz8::OpenMode::replace);
     Write(*file, 4u); // Two roots and two successors.
     Write(*file, 2u);
-    Write(*file, short{2});
+    Write(*file, std::int16_t{2});
     W8MaterialRecord material{};
     material.version = 1;
     file->write(&material, 0x11a);
@@ -90,15 +90,15 @@ void WriteAnimatedFixture(const std::filesystem::path& path)
     Write(*file, 3); // Format with flags and transform.
     Write(*file, 3); // Vertices.
     Write(*file, 1); // Faces.
-    Write(*file, static_cast<unsigned char>(W8_LEVEL_MESH_LOD_VERTICES |
+    Write(*file, static_cast<std::uint8_t>(W8_LEVEL_MESH_LOD_VERTICES |
                                           W8_LEVEL_MESH_SHORT_LOD_VERTICES));
     const std::array<float, 10> transform{0, 0, 0, 0, 0, 1, 0, 1, 1, 1};
     Write(*file, transform);
-    Write(*file, static_cast<unsigned char>(2));
-    Write(*file, short{2});
+    Write(*file, static_cast<std::uint8_t>(2));
+    Write(*file, std::int16_t{2});
     Write(*file, 1000.0f);
-    const std::array<short, 9> first{0, 0, 0, 2, 0, 0, 0, 2, 0};
-    const std::array<short, 9> second{4, 0, 0, 6, 0, 0, 4, 2, 0};
+    const std::array<std::int16_t, 9> first{0, 0, 0, 2, 0, 0, 0, 2, 0};
+    const std::array<std::int16_t, 9> second{4, 0, 0, 6, 0, 0, 4, 2, 0};
     Write(*file, first);
     Write(*file, second);
     W8SerializedMeshFace face{};
@@ -106,7 +106,7 @@ void WriteAnimatedFixture(const std::filesystem::path& path)
     face.vertices[1] = 1;
     face.vertices[2] = 2;
     Write(*file, face);
-    Write(*file, short{1});
+    Write(*file, std::int16_t{1});
     W8MaterialRecord material{};
     material.version = 1;
     file->write(&material, 0x11a);
@@ -141,7 +141,7 @@ bool LoadAnimated(const std::filesystem::path& path)
 
 bool LoadCycles(const std::filesystem::path& path)
 {
-    for (int cycle = 0; cycle != 3; ++cycle) {
+    for (std::int32_t cycle = 0; cycle != 3; ++cycle) {
         auto file = wiz8::open_host_file(path);
         W8ReadLevelInfo info{};
         W8World world{};
@@ -241,12 +241,12 @@ TEST_CASE("serialized_mesh_test")
     {
         // A failed reload must leave no dangling pointers to the old scene roots.
         struct TrackedInstance : srModelInstance {
-            int& destroyed;
-            TrackedInstance(srNode* parent, int& destroyed)
+            std::int32_t& destroyed;
+            TrackedInstance(srNode* parent, std::int32_t& destroyed)
                 : srModelInstance(parent), destroyed(destroyed) {}
             ~TrackedInstance() override { ++destroyed; }
         };
-        int destroyed = 0;
+        std::int32_t destroyed = 0;
         srScene scene(nullptr);
         W8World world{};
         world.static_scene = &scene;
@@ -282,8 +282,8 @@ TEST_CASE("Animation frame streams retain morph and transform formats")
     for (bool transform : {false, true}) for (bool lod : {false, true}) {
         {
             auto file = wiz8::open_host_file(input, wiz8::OpenMode::replace);
-            Write(*file, std::array<unsigned char, 7>{1, 1, 1, 1, 0, 0,
-                                                     static_cast<unsigned char>(transform)});
+            Write(*file, std::array<std::uint8_t, 7>{1, 1, 1, 1, 0, 0,
+                                                     static_cast<std::uint8_t>(transform)});
             Write(*file, std::array<char, 50>{});
             Write(*file, char{1}); // Group count.
             if (transform) Write(*file, char{1}); // Transform count.
@@ -291,15 +291,15 @@ TEST_CASE("Animation frame streams retain morph and transform formats")
             Write(*file, char{2}); // Frame count, including frames inside the LOD mesh.
             const std::array<srVector3, 3> vertices{srVector3(0, 0, 0), srVector3(1, 0, 0),
                                                   srVector3(0, 1, 0)};
-            const int serialized_frames = !transform && lod ? 1 : 2;
-            for (int frame = 0; frame < serialized_frames; ++frame) {
-                Write(*file, static_cast<unsigned char>(frame));
-                Write(*file, std::array<int, 3>{3, 3, 1});
-                Write(*file, static_cast<unsigned char>(lod ? W8_LEVEL_MESH_LOD_VERTICES : 0));
+            const std::int32_t serialized_frames = !transform && lod ? 1 : 2;
+            for (std::int32_t frame = 0; frame < serialized_frames; ++frame) {
+                Write(*file, static_cast<std::uint8_t>(frame));
+                Write(*file, std::array<std::int32_t, 3>{3, 3, 1});
+                Write(*file, static_cast<std::uint8_t>(lod ? W8_LEVEL_MESH_LOD_VERTICES : 0));
                 Write(*file, std::array<float, 10>{0, 0, 0, 0, 0, 1, 0, 1, 1, 1});
                 if (lod) {
                     Write(*file, char{0});
-                    Write(*file, short{2});
+                    Write(*file, std::int16_t{2});
                     Write(*file, vertices);
                 }
                 Write(*file, vertices);
@@ -307,7 +307,7 @@ TEST_CASE("Animation frame streams retain morph and transform formats")
                 face.vertices[1] = 1;
                 face.vertices[2] = 2;
                 Write(*file, face);
-                Write(*file, short{1});
+                Write(*file, std::int16_t{1});
                 W8MaterialRecord material{};
                 material.version = 1;
                 file->write(&material, 0x11a);
@@ -350,10 +350,10 @@ TEST_CASE("Octree mesh writer consumes arrays in disk order")
     const std::array<srVector3T<float>, 3> locations{
         srVector3T<float>(1, 2, 3), srVector3T<float>(4, 5, 6), srVector3T<float>(7, 8, 9)};
     const std::array<glm::vec2, 3> uv{glm::vec2(1, 2), glm::vec2(3, 4), glm::vec2(5, 6)};
-    const std::array<int, 3> materials{2, 3, 5};
+    const std::array<std::int32_t, 3> materials{2, 3, 5};
     const std::array<glm::ivec3, 1> uv_indices{glm::ivec3(0, 2, 1)};
     const std::array<glm::ivec3, 1> vertices{glm::ivec3(2, 1, 0)};
-    const std::array<int, 1> textures{7};
+    const std::array<std::int32_t, 1> textures{7};
     const std::array<srVector3T<float>, 3> normals{
         srVector3T<float>(0, 0, 1), srVector3T<float>(0, 1, 0), srVector3T<float>(1, 0, 0)};
     const std::array<srVector3T<float>, 3> lights{
@@ -370,11 +370,11 @@ TEST_CASE("Octree mesh writer consumes arrays in disk order")
         std::ifstream input(path, std::ios::binary);
         return std::string(std::istreambuf_iterator<char>{input}, {});
     };
-    for (short version : {0, 1, 2}) {
-        for (int material : {0, -1}) {
+    for (std::int16_t version : {0, 1, 2}) {
+        for (std::int32_t material : {0, -1}) {
             {
                 auto file = wiz8::open_host_file(expected_path, wiz8::OpenMode::replace);
-                Write(*file, std::array<int, 7>{4 | (version << 8), 3, 3, 1, 11, 13, material});
+                Write(*file, std::array<std::int32_t, 7>{4 | (version << 8), 3, 3, 1, 11, 13, material});
                 Write(*file, locations); Write(*file, uv);
                 if (material < 0) Write(*file, materials);
                 Write(*file, std::array<std::int32_t, 3>{0, 2, 1});
@@ -401,7 +401,7 @@ TEST_CASE("Octree mesh writer consumes arrays in disk order")
                 if (version) {
                     mesh.m_sun_lights = static_cast<float**>(std::calloc(version, sizeof(float*)));
                     REQUIRE(mesh.m_sun_lights);
-                    for (short index = 0; index < version; ++index) mesh.m_sun_lights[index] = copy(sun);
+                    for (std::int16_t index = 0; index < version; ++index) mesh.m_sun_lights[index] = copy(sun);
                 }
                 auto file = wiz8::open_host_file(output_path, wiz8::OpenMode::replace);
                 if (inject_failure) {

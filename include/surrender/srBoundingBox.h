@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include "glm/ext/vector_float3.hpp"
 
 #include "srMath.h"
@@ -60,7 +61,7 @@ struct srBoundingBox {
         return (minimum + maximum) * 0.5f;
     }
 
-    glm::vec3 corner(unsigned index) const
+    glm::vec3 corner(std::uint32_t index) const
     {
         return glm::mix(minimum, maximum, glm::bvec3(index & 4, index & 2, index & 1));
     }
@@ -77,7 +78,7 @@ struct srBoundingBox {
     {
         const glm::vec3 first = transform(minimum);
         srBoundingBox result{first, first};
-        for (unsigned corner = 1; corner < 8; ++corner) {
+        for (std::uint32_t corner = 1; corner < 8; ++corner) {
             result.include(transform(this->corner(corner)));
         }
         return result;

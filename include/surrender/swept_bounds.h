@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include "surrender/srBoundingBox.h"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/geometric.hpp"
@@ -12,7 +13,7 @@ inline srBoundingBox sweptBounds(const glm::vec3& origin, const glm::vec3& delta
     const float length = glm::length(delta);
     if (length > extent) extent = length;
     srBoundingBox bounds;
-    for (int axis = 0; axis < 3; ++axis) {
+    for (std::int32_t axis = 0; axis < 3; ++axis) {
         if (delta[axis] > 0) {
             bounds.minimum[axis] = origin[axis] - extent;
             bounds.maximum[axis] = extent + origin[axis] + delta[axis];

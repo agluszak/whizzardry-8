@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "wiz8/engine_code/GrObject.h"
 
 #include <memory>
@@ -33,10 +34,10 @@ void W8GrObject::AddSoundEvent(std::unique_ptr<W8SoundEvent> event)
 }
 
 // GLOBAL: WIZ8 0x0060dfac
-static int g_gr_object_id_counter = 1;
+static std::int32_t g_gr_object_id_counter = 1;
 
 // FUNCTION: WIZ8 0x004B6D10
-int AllocateGrObjectId(void)
+std::int32_t AllocateGrObjectId(void)
 {
     ++g_gr_object_id_counter;
     return g_gr_object_id_counter;

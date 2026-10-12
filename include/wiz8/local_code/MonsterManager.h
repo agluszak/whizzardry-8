@@ -34,10 +34,10 @@ struct W8CharacterEvent;
 
 struct W8PortraitQuoteState {
     std::optional<QuoteBubble> bubble;
-    unsigned short x;
-    unsigned short y;
-    unsigned short width;
-    unsigned short height;
+    std::uint16_t x;
+    std::uint16_t y;
+    std::uint16_t width;
+    std::uint16_t height;
 };
 
 /* One party-slot record; eight of these lead gXStatus. The reset clears a
@@ -48,18 +48,18 @@ struct W8MonsterManagerEntry {
     wiz8::sound::Playback voice_sound_handle;
     W8MouthGapTrack mouth_gap;
     W8PortraitQuoteState quote;
-    unsigned char unknown_025[0x4c];
+    std::uint8_t unknown_025[0x4c];
     W8CharacterEvent* active_character_event;
     // These are the frames last painted, not the preceding animation states.
-    int rendered_portrait_frame;
-    int portrait_frame;
-    uint64_t portrait_frame_clock;
-    unsigned int voice_time_remaining_ms;
-    int rendered_portrait_pose;
-    int portrait_pose;
-    int target_portrait_pose;
-    uint64_t portrait_pose_clock;
-    uint64_t portrait_idle_clock;
+    std::int32_t rendered_portrait_frame;
+    std::int32_t portrait_frame;
+    std::uint64_t portrait_frame_clock;
+    std::uint32_t voice_time_remaining_ms;
+    std::int32_t rendered_portrait_pose;
+    std::int32_t portrait_pose;
+    std::int32_t target_portrait_pose;
+    std::uint64_t portrait_pose_clock;
+    std::uint64_t portrait_idle_clock;
     bool portrait_blink_closing;
     bool portrait_pose_dirty;
     bool portrait_frame_dirty;
@@ -76,16 +76,16 @@ struct W8MonsterManagerEntry {
     bool damage_splat_active;
     bool damage_splat_death_variant;
     bool dead_portrait_revealed;
-    int damage_splat_amount;
-    int damage_splat_frame;
-    int damage_splat_end_frame;
-    unsigned char damage_splat_catalog;
+    std::int32_t damage_splat_amount;
+    std::int32_t damage_splat_frame;
+    std::int32_t damage_splat_end_frame;
+    std::uint8_t damage_splat_catalog;
     /* The last-drawn portrait vitals, so the dirty flag is raised only when
        the computed bars or the numeric hit-point display actually changed. */
-    int cached_hp_bar;
-    int cached_stamina_bar;
-    int cached_spell_bar;
-    int cached_hp;
+    std::int32_t cached_hp_bar;
+    std::int32_t cached_stamina_bar;
+    std::int32_t cached_spell_bar;
+    std::int32_t cached_hp;
     bool portrait_stats_dirty;
     /* The spell/condition effect-icon flash over the portrait.
        The setup derives the icon's catalog base from the spell's
@@ -93,12 +93,12 @@ struct W8MonsterManagerEntry {
        portrait_fx_clock cadence with the damage splat, and likewise uses -1 as
        the deferred-start frame. */
     bool effect_icon_active;
-    int effect_icon_frame;
-    int effect_icon_catalog;
-    int effect_icon_end_frame;
+    std::int32_t effect_icon_frame;
+    std::int32_t effect_icon_catalog;
+    std::int32_t effect_icon_end_frame;
     /* The shared 100 ms frame clock both portrait animations tick on;
        the ticker rearms it whenever it expires. */
-    uint64_t portrait_fx_clock;
+    std::uint64_t portrait_fx_clock;
     /* Set when the keyboard SELECT_PC command pins the pending portrait
        refresh, so the formation sync does not auto-release it. */
     bool portrait_refresh_pinned;
@@ -114,9 +114,9 @@ struct W8MonsterManagerEntry {
     bool combat_portrait_dirty;
     /* The acting combatant's portrait pulse - a countdown clock that rearms
        the 1..0xc brightness phase. */
-    uint64_t acting_portrait_pulse_clock;
-    unsigned short acting_portrait_pulse;
-    std::vector<int> highlighted_monsters;
+    std::uint64_t acting_portrait_pulse_clock;
+    std::uint16_t acting_portrait_pulse;
+    std::vector<std::int32_t> highlighted_monsters;
     /* The character has reached its experience goal; set once to post
        the level-up notice line and cleared when the character is no longer
        ready to advance. */
@@ -131,10 +131,10 @@ struct W8MonsterManagerEntry {
     /* Set around SwapItemInstances so the autoswap-weapons check does
        not fire on the intermediate item states. */
     bool item_swap_in_progress;
-    unsigned int pending_event_type; /* last queued portrait event type */
+    std::uint32_t pending_event_type; /* last queued portrait event type */
 };
 
-W8MonsterRecord* MonsterDBFromSpecies(unsigned int monster_species);
+W8MonsterRecord* MonsterDBFromSpecies(std::uint32_t monster_species);
 W8MonsterInfo* CreateMonsterInfo(W8MonsterGroup* group, W8MonsterRecord* record,
                                  srVector3T<float>* position);
 
@@ -144,10 +144,10 @@ W8MonsterInfo* CreateMonsterInfo(W8MonsterGroup* group, W8MonsterRecord* record,
    tie-break so equal decisions do not always resolve the same way. */
 struct W8MonsterAction {
     W8MonsterActionKind action_kind;
-    int action_detail;
-    int attack_index;
+    std::int32_t action_detail;
+    std::int32_t attack_index;
     W8CombatSlot target;
-    unsigned char tie_break;
+    std::uint8_t tie_break;
 };
 
 enum { W8_MONSTER_ATTR_COUNT = 5 };
@@ -170,22 +170,22 @@ enum {
 struct W8MonsterCombatState {
     /* The phase of the round this monster next acts on, zero when it
        has finished acting. */
-    unsigned int phase;
+    std::uint32_t phase;
     bool active;
     /* The round's attack count staged beside attacks_per_round when a
        chosen attack is committed; a four-byte store. */
-    unsigned int attacks_per_round0; /* runtime copy of the record field */
+    std::uint32_t attacks_per_round0; /* runtime copy of the record field */
     /* How many attacks it gets this round, which is what divides the
        remaining phases between them. */
-    int attacks_per_round;
+    std::int32_t attacks_per_round;
     /* Swings left in the current attack, rolled from the record's
        swings_per_round when the attack starts and read back for the
        announcement message. */
-    unsigned int uiSwingsRemaining;
+    std::uint32_t uiSwingsRemaining;
     /* The attack index Monster.cpp launches when combat has already
        selected this monster. It is asserted below MAX_MONSTER_ATTACKS before
        indexing the database record. */
-    unsigned int attack_index;
+    std::uint32_t attack_index;
     /* Berserk latch: interrupt case 8 raises it so the monster attacks
        indiscriminately (friends included); Combat Range counts allies as
        hostile while set. */
@@ -193,32 +193,32 @@ struct W8MonsterCombatState {
     /* The queue of actions the monster's AI has decided on, one
        W8MonsterAction each. The AI owns the list and destroys it outright. */
     std::vector<W8MonsterAction>* actions;
-    int character_hate[9];
+    std::int32_t character_hate[9];
     W8EffectSlot combat_effects[9];   /* 0x03e .. 0x0d7 */
     W8EffectSlot combat_effects_2[6]; /* 0x0d7 .. 0x13d */
     /* How many times the monster already rolled to notice an attacker
        this round, the same scheme as the character row's spot_attempts. */
-    int spot_attempts;
+    std::int32_t spot_attempts;
     /* The monster's pending-action repick count, the same scheme as
        the character row's pending_action_repick_count; the attack-score
        surprise penalty scales with it. */
-    unsigned int pending_action_repick_count;
+    std::uint32_t pending_action_repick_count;
     /* The special/breath attack is available this round. */
     bool special_ready;
     /* Rounds until the special attack can fire again, loaded from the
        record's special_attack_cooldown after each use. */
-    unsigned char special_cooldown;
+    std::uint8_t special_cooldown;
     /* The round's interception count, checked against the record's
        attacks_per_round before another intercept is allowed and bumped on
        each successful one. */
-    unsigned int interception_count;
+    std::uint32_t interception_count;
     /* The monster is committed to advancing on the party. Set when the
        action executor starts the advance and cleared when an enemy is inside
        short range or when the forcing condition is removed. */
     bool advancing;
     /* Combat ticks since the member last acted; the AI treats a value
        under three as still settling. */
-    int settle_ticks;
+    std::int32_t settle_ticks;
     /* The monster's turn has been set up already, so the setup runs
        once per turn however often it is asked for. */
     bool turn_started;
@@ -239,7 +239,7 @@ struct W8MonsterCombatState {
    use-bounds flag IsVisibleToPlayer consumes, and its two sight flags. The
    per-turn reset zeroes all 0x30 bytes together, which fixes the extent. */
 struct W8PartyThreatRecord {
-    int about_location_id; /* zero in the party-side visibility record */
+    std::int32_t about_location_id; /* zero in the party-side visibility record */
     /* W8SightState - live-threat gate for the group sight query;
        combat, radar, automap and AI read it. */
     W8SightState sight_state;
@@ -250,7 +250,7 @@ struct W8PartyThreatRecord {
     /* The party-detection result after the per-observer threshold and
        camouflage checks run. */
     bool party_detected;
-    int last_seen_clock; /* cleared by the per-turn reset */
+    std::int32_t last_seen_clock; /* cleared by the per-turn reset */
     /* Where the monster stood (eye height) when the party last saw it;
        the radar places a recently-seen blip from it (retail 0x005A2B8D
        reads +0x0c). Sight's store at 0x0050531E fills it from the
@@ -264,7 +264,7 @@ struct W8PartyThreatRecord {
     /* The immediate IsVisibleToPlayer result; gates notices, camera
        and path behavior. */
     bool visible_to_player;
-    unsigned char unknown_26[0x0a];
+    std::uint8_t unknown_26[0x0a];
 };
 
 #pragma pack(push, 1)
@@ -273,31 +273,31 @@ struct W8PartyThreatRecord {
    the observer's position at 0x10 and the observed entity's at 0x1c as
    ordinary floats. The reset zeroes exactly its 0x31 bytes. */
 struct W8VisibilityRecord {
-    int about_location_id;    /* 0x00; always zero in the party record */
+    std::int32_t about_location_id;    /* 0x00; always zero in the party record */
     W8SightState sight_state; /* W8SightState */
     /* Two sight-flag pairs - GetMonsterSightFlags writes [0]/[2], and
        the missile/spell vertex traces overwrite [1]/[3]. */
     bool los_flags[4];
-    unsigned char unknown_09[2];
+    std::uint8_t unknown_09[2];
     /* The CanMonsterSeeMonster result for mon-to-mon records; the
        party-facing record stores its visible_to_player result here. */
     bool can_see;
-    int last_seen_clock;
+    std::int32_t last_seen_clock;
     srVector3T<float> subject_position; /* the observer */
     srVector3T<float> target_position;  /* the observed */
     bool line_of_sight;
-    unsigned char unknown_29[8];
+    std::uint8_t unknown_29[8];
 };
 
-using W8MonsterVisibility = std::unordered_map<int, W8VisibilityRecord>;
+using W8MonsterVisibility = std::unordered_map<std::int32_t, W8VisibilityRecord>;
 
 #pragma pack(pop)
 
 /* A live monster. Saves store it as wiz8::retail::MonsterInfo. */
 struct W8MonsterInfo {
-    int location_id;
-    int monster_group_id;
-    unsigned int monster_species;
+    std::int32_t location_id;
+    std::int32_t monster_group_id;
+    std::uint32_t monster_species;
     W8Monster* p3D;
     /* Allocated while the monster is in combat. */
     W8MonsterCombatState* pCombat;
@@ -308,14 +308,14 @@ struct W8MonsterInfo {
     /* The spawn position; the facing yaw toward the camera follows. */
     srVector3T<float> position;
     float derived; /* camera-facing yaw over position */
-    int uiHPMax;
-    unsigned int hp_current; /* unsigned conversion at 0053164B */
-    int stamina_max;         /* initialized from MONSTERS.DBS dice */
-    int stamina;             /* initialized to the same roll */
+    std::int32_t uiHPMax;
+    std::uint32_t hp_current; /* unsigned conversion at 0053164B */
+    std::int32_t stamina_max;         /* initialized from MONSTERS.DBS dice */
+    std::int32_t stamina;             /* initialized to the same roll */
     /* The position and radius of the last noise this monster heard;
        Noise.cpp writes the heard position and the radius that carried. */
     srVector3T<float> heard_noise_position;
-    int heard_noise_radius;
+    std::int32_t heard_noise_radius;
     /* The hit-point regeneration rate and its fractional accumulator. */
     float hp_regen_rate;
     float hp_regen_accumulator;
@@ -325,22 +325,22 @@ struct W8MonsterInfo {
        entry - condition two doubles its action fatigue at 0x05f, eight blocks
        its spellcasting at 0x077, thirteen makes it hostile at 0x08b, fifteen
        at 0x093 and seventeen is exhaustion at 0x09b. */
-    unsigned int uiCondition[W8_CONDITION_COUNT];
+    std::uint32_t uiCondition[W8_CONDITION_COUNT];
     W8Enchantment enchantments[8];
     /* Highest set uiCondition index; 0x12 when deactivated. */
     W8Condition highest_condition;
     /* The argument a condition carries when a monster's conditions are
        copied onto a character. */
-    int condition_argument;
+    std::int32_t condition_argument;
     W8EffectSlot effect_slots[12];
     W8GameplayModifierBlock modifiers;
-    int fatigue_band; /* derived from stamina */
+    std::int32_t fatigue_band; /* derived from stamina */
     /* Countdown set on pathing failure (0x14) or after a long stall
        (0x1e); each AI tick decrements it, and reaching zero clears
        heard_noise_margin. Also gates the face-party proximity check. */
-    unsigned char pathing_cooldown;
-    unsigned char attributes[W8_MONSTER_ATTR_COUNT]; /* values clamped to 1..125 */
-    unsigned char condition_binding_mask;
+    std::uint8_t pathing_cooldown;
+    std::uint8_t attributes[W8_MONSTER_ATTR_COUNT]; /* values clamped to 1..125 */
+    std::uint8_t condition_binding_mask;
     bool within_viewing_distance; /* cycle-2 eligibility gate */
     bool fMotionless;
     float scale; /* HP-dependent live Monster scale */
@@ -350,11 +350,11 @@ struct W8MonsterInfo {
     /* Movement-stall tick counter - incremented each watch tick while
        the monster is unlinked, floored at 2 on pathing failure, reset when
        the watch cycle clears. */
-    signed char movement_stall_ticks;
+    std::int8_t movement_stall_ticks;
     /* Monster AI mode in the low nibble (0..8), bit 0x80 marks a
        pending decision write, bit 0x10 set on load. */
-    unsigned char ai_mode;
-    unsigned char unknown_256[0x30];
+    std::uint8_t ai_mode;
+    std::uint8_t unknown_256[0x30];
     W8PartyThreatRecord party_threat;
     /* What this monster can see of other monsters, one heap record per
        other monster. The two release paths own it: one drops every record
@@ -368,7 +368,7 @@ struct W8MonsterInfo {
     /* Charm strength; clearing it posts a notice and drops the charmed icon.
        The NPC price check reads it as a percentage discount on the quoted
        price. */
-    signed char charm_strength;
+    std::int8_t charm_strength;
     /* The committed attack already launched its missile; asserted by
        ContinueMonsterAttack when an out-of-range attack reports no release. */
     bool fMissileReleased;
@@ -379,24 +379,24 @@ struct W8MonsterInfo {
        is enumerated by MonsterActionFatigueCost, whose error text names it. */
     W8MonsterActionKind action_kind;
     /* Qualifies action kind zero; three costs markedly more. */
-    int action_detail;
-    unsigned int spell_power_level;
-    unsigned char unknown_2ed[4];
+    std::int32_t action_detail;
+    std::uint32_t spell_power_level;
+    std::uint8_t unknown_2ed[4];
     /* This script part's bound NPC slot in g_npc_states, released when
        the entry is destroyed. */
-    int bound_npc_index;
+    std::int32_t bound_npc_index;
     /* Remaining noise-hearing margin, refreshed by nearby sounds and
        cleared when pathing cooldown expires. */
-    int heard_noise_margin;
+    std::int32_t heard_noise_margin;
     /* Live spell-point pool; spell-budget calculations add it to the
        database base, and group attacks drain it. */
-    unsigned int spell_points;
+    std::uint32_t spell_points;
     W8MonsterControlState control_state; /* Lure success/resistance state */
     bool saved_mirror_x;
     /* The two alternating look-around timers the aging pass
        counts down and rearms from the monster's look frequency/duration. */
-    unsigned char look_time;
-    unsigned char pause_time;
+    std::uint8_t look_time;
+    std::uint8_t pause_time;
     /* The condition's own target source, copied in whole by the
        condition setter. */
     W8TargetSource condition_target;
@@ -404,36 +404,36 @@ struct W8MonsterInfo {
     /* Location id of the elemental Summon Elemental bound to
        this monster, -1 while none is bound; a bound monster cannot be picked
        again. */
-    int elemental_summon;
+    std::int32_t elemental_summon;
     W8VisibilityRecord player_visibility;
-    unsigned char unknown_379;
+    std::uint8_t unknown_379;
     bool has_projectile_origin;
-    unsigned char unknown_37b;
+    std::uint8_t unknown_37b;
     bool has_spell_origin;
-    unsigned char unknown_37d[0xa8];
+    std::uint8_t unknown_37d[0xa8];
 };
 
-W8MonsterInfo* MonsterGetScriptPartByLocationIndex(unsigned int monster_list_index);
+W8MonsterInfo* MonsterGetScriptPartByLocationIndex(std::uint32_t monster_list_index);
 bool InitializeMonsterManagerState(void);
 void ActivateMonsterInWorld(W8MonsterInfo* monster_info);
 void ActivateMonster(W8MonsterInfo* monster_info, W8MonsterActivationMode mode);
 void ClearMonsterPathAndResume(W8MonsterInfo* monster_info);
 void MonsterStartsDying(W8MonsterInfo* monster_info, bool display_message);
 W8MonsterRecord* GetMonsterDataForInfo(W8MonsterInfo* monster_info);
-unsigned int MonsterGetIndexByLocationID(int location_id, bool assert_on_failure = true,
+std::uint32_t MonsterGetIndexByLocationID(std::int32_t location_id, bool assert_on_failure = true,
                                          std::source_location caller = std::source_location::current());
-W8MonsterInfo* FindMonster(int location_id, bool assert_on_failure = true,
+W8MonsterInfo* FindMonster(std::int32_t location_id, bool assert_on_failure = true,
                                  std::source_location caller = std::source_location::current());
-W8MonsterRecord* GetMonsterDataByLocationID(int location_id);
-W8Monster* GetMonsterByLocationID(int location_id);
+W8MonsterRecord* GetMonsterDataByLocationID(std::int32_t location_id);
+W8Monster* GetMonsterByLocationID(std::int32_t location_id);
 float GetMonsterCombatMoveRange(W8MonsterInfo* monster_info);
 void UpdateMonsterDamageAppearance(W8MonsterInfo* monster_info);
 W8MonsterInfo* GetNextMonsterInfo(bool reset_iterator);
-int GetMonsterQuadrant(W8MonsterInfo* monster_info);
-int GetMonsterCycleFallbackValue(unsigned int monster_species);
+std::int32_t GetMonsterQuadrant(W8MonsterInfo* monster_info);
+std::int32_t GetMonsterCycleFallbackValue(std::uint32_t monster_species);
 void ProcessMonstersAtCombatEnd(bool forced_cleanup);
 void ConvertMonsterAttributes(W8MonsterInfo* monster_info);
-W8MonsterInfo* FindMonsterInfoBySpecies(unsigned int monster_species);
+W8MonsterInfo* FindMonsterInfoBySpecies(std::uint32_t monster_species);
 void ResetLivingMonstersAfterCombat(void);
 void DestroyUngroupedMonsters(void);
 void SetMonsterControlState(W8MonsterInfo* monster_info, W8MonsterControlState control_state);
@@ -442,22 +442,22 @@ void MoveMonsterToLiveList(W8MonsterInfo* monster_info);
 W8MonsterInfo* FindNearestMonsterInfo(const srVector3T<float>* position, double maximum_distance);
 void InitializeMonsterRuntimeStats(void);
 float CalculateMonsterScale(W8MonsterInfo* monster_info);
-void TryStartMonsterCycle2(W8MonsterInfo* monster_info, W8Monster* monster, int query_state);
+void TryStartMonsterCycle2(W8MonsterInfo* monster_info, W8Monster* monster, std::int32_t query_state);
 void ProcessMonsterManagerFrame(void);
 std::string FormatMonsterHealth(W8MonsterInfo* monster_info);
-unsigned int GetMonsterExperience(const W8MonsterRecord* record);
+std::uint32_t GetMonsterExperience(const W8MonsterRecord* record);
 bool AnyMonsterDying(void);
 float GetAveragePartyMemberLevel(void);
 /* The highest `skills[skill_index].level` among live party members;
    `party_slot` receives the best member's slot. */
-unsigned int GetBestPartySkillLevel(W8Skill skill_index, int* party_slot);
+std::uint32_t GetBestPartySkillLevel(W8Skill skill_index, std::int32_t* party_slot);
 
-void StartMonsterCycle(W8MonsterInfo* monster_info, int cycle, int behavior);
+void StartMonsterCycle(W8MonsterInfo* monster_info, std::int32_t cycle, std::int32_t behavior);
 void MonsterInfoLeaveCombat(W8MonsterInfo* monster_info);
-unsigned char ShutdownMonsterManager(void);
+std::uint8_t ShutdownMonsterManager(void);
 
 std::string GetMonsterName(W8MonsterInfo* monster_info, W8MonsterRecord* record,
-                        unsigned char name_form);
+                        std::uint8_t name_form);
 bool RemoveMonster(W8MonsterInfo* monster_info, bool destroy_monster);
 void MonsterInfoEnterCombat(W8MonsterInfo* monster_info);
 void DeactivateMonster(W8MonsterInfo* monster_info);
@@ -470,6 +470,6 @@ void EvaluateCombatDifficulty(void);
    faction fallout, and bank the kill count and experience when it fought. */
 void RecordMonsterKill(W8MonsterInfo* monster_info, bool announce);
 /* Record a kill fact for a monster record and the killer party slot. */
-void MonsterKilled(int record_id, int killer_party_slot);
+void MonsterKilled(std::int32_t record_id, std::int32_t killer_party_slot);
 
 #endif

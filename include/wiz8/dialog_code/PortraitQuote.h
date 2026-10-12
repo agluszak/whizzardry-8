@@ -13,12 +13,12 @@ struct SDL_Surface;
 class QuoteBubble {
 public:
     /* Returns nullopt when `text` does not fit a bubble at most `max_width` wide. */
-    static std::optional<QuoteBubble> layout(std::string_view text, int max_width,
+    static std::optional<QuoteBubble> layout(std::string_view text, std::int32_t max_width,
                                              std::optional<std::uint8_t> text_colour);
 
-    void draw(SDL_Surface& target, int x, int y) const;
-    int width() const;
-    int height() const;
+    void draw(SDL_Surface& target, std::int32_t x, std::int32_t y) const;
+    std::int32_t width() const;
+    std::int32_t height() const;
     std::string_view text() const { return text_; }
 
 private:

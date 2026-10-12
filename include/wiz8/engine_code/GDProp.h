@@ -1,6 +1,7 @@
 #ifndef WIZ8_ENGINE_CODE_GDPROP_H
 #define WIZ8_ENGINE_CODE_GDPROP_H
 
+#include <cstdint>
 #include <vector>
 #include <span>
 #include "glm/ext/vector_int2.hpp"
@@ -28,8 +29,8 @@ class GDProp {
         bool door : 1;
         bool unattached : 1;
         bool door_usable : 1;
-        unsigned char reserved : 4;
-        unsigned char reserved_byte;
+        std::uint8_t reserved : 4;
+        std::uint8_t reserved_byte;
     };
 
     friend class W8Prop;
@@ -42,8 +43,8 @@ class GDProp {
     friend class OctPreTree;
     friend struct W8GameData;
     /* The sector item lists are built by the GDProp.cpp free helpers. */
-    friend void AddItemToSector(int sector, W8WorldItem* item);
-    friend void RemoveItemFromSector(int sector, W8WorldItem* item);
+    friend void AddItemToSector(std::int32_t sector, W8WorldItem* item);
+    friend void RemoveItemFromSector(std::int32_t sector, W8WorldItem* item);
 
 public:
     /* The zero-initializing default used by GDPreProp; retail only emits it
@@ -64,47 +65,47 @@ public:
         m_path_bounds.max_x = 0;
         m_path_bounds.min_x = 0;
     }
-    GDProp(srModelInstance* instance, const char* path_name, unsigned short prop_number,
-           unsigned char footstep_surface, unsigned char footstep_material); /* 0x004B6E00 */
+    GDProp(srModelInstance* instance, const char* path_name, std::uint16_t prop_number,
+           std::uint8_t footstep_surface, std::uint8_t footstep_material); /* 0x004B6E00 */
     ~GDProp();                                                               /* 0x004B6ED0 */
     void BindTrigger(Trigger* owner);
-    bool ContainsPathCoordinate(unsigned short x, unsigned short y) const;
+    bool ContainsPathCoordinate(std::uint16_t x, std::uint16_t y) const;
     bool HasSupportedItems();
     /* Rebuilds m_pVertices/m_pGDSurfaces for the given animation frame of the
        level prop's transforms. */
-    void ApplyAnimFrame(unsigned short frame, const W8LevelFileAnimObj& anim);
+    void ApplyAnimFrame(std::uint16_t frame, const W8LevelFileAnimObj& anim);
     /* Rebuild the cached vertex and path bounds and return the complete box. */
     srBoundingBox computeBounds();
     /* Box-vs-bound test used by the pre-tree path obstruction pass. */
     bool boundsOverlap(const srBoundingBox& box);
-    std::span<const unsigned short> conditionalEdges() const { return m_path_edges; }
-    std::span<const unsigned short> conditionalWaypoints() const { return m_path_waypoints; }
+    std::span<const std::uint16_t> conditionalEdges() const { return m_path_edges; }
+    std::span<const std::uint16_t> conditionalWaypoints() const { return m_path_waypoints; }
     /* Appends the index to the waypoint list when the grid point lies inside
        the path bounds; the prop owns the counted list. */
-    unsigned char RegisterPathSurface(unsigned int index, const glm::ivec2& point);
+    std::uint8_t RegisterPathSurface(std::uint32_t index, const glm::ivec2& point);
     /* Appends the index to the link list when the segment touches the path
        bounds (one-cell tolerance on the crossed sides). */
-    unsigned char RegisterPathVertex(unsigned int index, const glm::ivec2& point,
+    std::uint8_t RegisterPathVertex(std::uint32_t index, const glm::ivec2& point,
                                      const glm::ivec2& second);
 
 private:
-    void Initialize(srModelInstance* instance, bool attach, unsigned short prop_number,
-                    unsigned char footstep_surface,
-                    unsigned char footstep_material); /* 0x004B7060 */
+    void Initialize(srModelInstance* instance, bool attach, std::uint16_t prop_number,
+                    std::uint8_t footstep_surface,
+                    std::uint8_t footstep_material); /* 0x004B7060 */
     void PrepareGeometry(srModelInstance* instance);
-    void AppendMeshFaces(const W8LevelFileMesh& mesh, int vertex_base);
+    void AppendMeshFaces(const W8LevelFileMesh& mesh, std::int32_t vertex_base);
     /* Appends the mesh's vertices/faces transformed by one animation path
        record (position/angle/axis/scale floats); called once per transform
        channel by ApplyAnimFrame. */
     void appendMeshGeometry(const W8LevelFileScaledPathNode& node, const W8LevelFileMesh& mesh);
 
     Flags m_flags;                        /* 0x00 */
-    unsigned short m_prop_number;         /* 0x02 */
-    unsigned int m_path_handle;           /* 0x04 */
-    std::vector<unsigned short> m_path_edges;
-    std::vector<unsigned short> m_path_waypoints;
-    int m_surface_count;                  /* 0x14; m_pGDSurfaces count */
-    int m_vertex_count;                   /* 0x18; m_pVertices count */
+    std::uint16_t m_prop_number;         /* 0x02 */
+    std::uint32_t m_path_handle;           /* 0x04 */
+    std::vector<std::uint16_t> m_path_edges;
+    std::vector<std::uint16_t> m_path_waypoints;
+    std::int32_t m_surface_count;                  /* 0x14; m_pGDSurfaces count */
+    std::int32_t m_vertex_count;                   /* 0x18; m_pVertices count */
     W8GDSurface* m_pGDSurfaces;           /* 0x1c */
     srVector3T<float>* m_pVertices;       /* 0x20 */
     Trigger* m_trigger;                   /* 0x24: installed by 0x004B7470 */
@@ -126,10 +127,10 @@ public:
     /* Zero-initializing default ctor at 0x004B7BC0; required for
        `new GDPreProp[n]` in CreatePathProps. */
     GDPreProp();
-    unsigned short last_frame; /* 0x58 */
+    std::uint16_t last_frame; /* 0x58 */
 }; /* 0x5c */
 
-void AddItemToSector(int sector, W8WorldItem* item);      /* 0x004B7AD0 */
-void RemoveItemFromSector(int sector, W8WorldItem* item); /* 0x004B7B50 */
+void AddItemToSector(std::int32_t sector, W8WorldItem* item);      /* 0x004B7AD0 */
+void RemoveItemFromSector(std::int32_t sector, W8WorldItem* item); /* 0x004B7B50 */
 
 #endif

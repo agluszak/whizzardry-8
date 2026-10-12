@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <string>
@@ -38,9 +39,9 @@
 /* Original translation-unit ownership is unknown; surrounding anchors do not resolve it. */
 
 
-unsigned int GetCharacterSkillNoticeValue(W8Character* character, W8Skill skill_id)
+std::uint32_t GetCharacterSkillNoticeValue(W8Character* character, W8Skill skill_id)
 {
-    unsigned int value = character->skills[skill_id].points;
+    std::uint32_t value = character->skills[skill_id].points;
     if (skill_id == g_profession_bonus_skills[character->iProfession]) {
         value = value * 125 / 100;
     }
@@ -49,11 +50,11 @@ unsigned int GetCharacterSkillNoticeValue(W8Character* character, W8Skill skill_
 
 void PostSkillIncreaseNotices(const W8SkillNoticePayload* notices)
 {
-    for (int index = 0; index < notices->count; ++index) {
-        int slot = notices->party_slots[index];
+    for (std::int32_t index = 0; index < notices->count; ++index) {
+        std::int32_t slot = notices->party_slots[index];
         W8Skill skill = static_cast<W8Skill>(notices->skills[index]);
         W8Character* character = &g_status.buffers.Char[slot];
-        unsigned int value = GetCharacterSkillNoticeValue(character, skill);
+        std::uint32_t value = GetCharacterSkillNoticeValue(character, skill);
         PostCharacterNotice(
             slot, fmt::sprintf(g_localized_strings[0x1d9],
                                g_localized_strings[g_character_skill_name_ids[skill]], value));
@@ -61,12 +62,12 @@ void PostSkillIncreaseNotices(const W8SkillNoticePayload* notices)
 }
 
 // FUNCTION: WIZ8 0x00554170
-std::string FormatSkillIncreaseNoticeText(int party_slot, bool continue_line, W8Skill skill_id)
+std::string FormatSkillIncreaseNoticeText(std::int32_t party_slot, bool continue_line, W8Skill skill_id)
 {
     auto* character = &g_status.buffers.Char[party_slot];
     std::string text = continue_line ? " \n  " : " ";
     utf8::append(0xb4, std::back_inserter(text));
-    utf8::append(GetPartyOrderTextColor(static_cast<signed char>(g_status.buffers.XChar[party_slot].party_order_index)), std::back_inserter(text));
+    utf8::append(GetPartyOrderTextColor(static_cast<std::int8_t>(g_status.buffers.XChar[party_slot].party_order_index)), std::back_inserter(text));
     text += " " + fmt::format("{}'s", character->name) + " ";
     utf8::append(0xb5, std::back_inserter(text));
     text += " " + fmt::sprintf(g_localized_strings[0x1db],
@@ -78,13 +79,13 @@ std::string FormatSkillIncreaseNoticeText(int party_slot, bool continue_line, W8
 // FUNCTION: WIZ8 0x005542E0
 void FlushDeferredSkillNotices(void)
 {
-    int count;
+    std::int32_t count;
     bool have_line;
     std::string text;
     W8SkillNoticePayload extra{};
-    int slot;
-    unsigned int skill_id;
-    unsigned int length;
+    std::int32_t slot;
+    std::uint32_t skill_id;
+    std::uint32_t length;
 
     count = 0;
     have_line = false;
@@ -103,8 +104,8 @@ void FlushDeferredSkillNotices(void)
             if (!gXStatus.monster_manager_entries[slot].skill_notice_pending[skill_id]) {
                 continue;
             }
-            extra.party_slots[count] = static_cast<signed char>(slot);
-            extra.skills[count] = static_cast<signed char>(skill_id);
+            extra.party_slots[count] = static_cast<std::int8_t>(slot);
+            extra.skills[count] = static_cast<std::int8_t>(skill_id);
             ++count;
             text += FormatSkillIncreaseNoticeText(slot, have_line, static_cast<W8Skill>(skill_id));
             have_line = true;
@@ -120,7 +121,7 @@ void FlushDeferredSkillNotices(void)
         }
     }
     if (have_line) {
-        extra.count = static_cast<signed char>(count);
+        extra.count = static_cast<std::int8_t>(count);
         g_npc_dialogue.QueuePortraitMessage(std::move(text), extra);
     }
     for (slot = 0; slot < 8; ++slot) {
@@ -212,7 +213,7 @@ W8RaceResistanceProfile g_race_resistance_profiles[W8_RACE_COUNT] = {
 // FUNCTION: WIZ8 0x00547940
 bool CharacterHasTrait(const W8Character* character, W8Trait trait)
 {
-    unsigned int index;
+    std::uint32_t index;
 
     if (character == 0) {
         return false;
@@ -240,7 +241,7 @@ bool CharacterHasTrait(const W8Character* character, W8Trait trait)
     return false;
 }
 
-static float ScaleValueByLevel(unsigned int level, float base)
+static float ScaleValueByLevel(std::uint32_t level, float base)
 {
     if (level > 0x14) {
         return base;
@@ -260,7 +261,7 @@ float ScaleValueByProfessionLevel(W8Character* character, W8Trait, float base)
 }
 
 // FUNCTION: WIZ8 0x00547a00
-float ScaleValueByMonsterLevel(W8MonsterRecord* record, int, float base)
+float ScaleValueByMonsterLevel(W8MonsterRecord* record, std::int32_t, float base)
 {
     return ScaleValueByLevel(record->effective_level, base);
 }
@@ -271,27 +272,27 @@ float ScaleValueByMonsterLevel(W8MonsterRecord* record, int, float base)
    from a scaled share of the maximum once per combat, a scaled share of the
    current pool every other time. */
 // FUNCTION: WIZ8 0x00547A50
-void CheatDeathRevive(int party_slot)
+void CheatDeathRevive(std::int32_t party_slot)
 {
     W8Character* character = &g_status.buffers.Char[party_slot];
 
     PostCharacterNotice(party_slot, g_localized_strings[0x173]);
     SetCharacterCondition(party_slot, W8_CONDITION_UNCONSCIOUS,
                           character->uiCondition[W8_CONDITION_UNCONSCIOUS] -
-                              static_cast<int>(ScaleValueByProfessionLevel(
+                              static_cast<std::int32_t>(ScaleValueByProfessionLevel(
                                   character, W8_TRAIT_CHEAT_DEATH, g_float_five)) +
                               7,
                           0, 0, 1);
     if (g_combat_state != 0 && !g_combat_state->characters[party_slot].cheat_death_used) {
         character->hp_current =
-            (Random(static_cast<unsigned int>(ScaleValueByProfessionLevel(
+            (Random(static_cast<std::uint32_t>(ScaleValueByProfessionLevel(
                  character, W8_TRAIT_CHEAT_DEATH,
-                 static_cast<unsigned int>(character->uiHPMax) * g_float_half))) +
+                 static_cast<std::uint32_t>(character->uiHPMax) * g_float_half))) +
              0x32) *
             character->uiHPMax / 100;
         g_combat_state->characters[party_slot].cheat_death_used = true;
     } else {
-        character->hp_current = Random(static_cast<unsigned int>(ScaleValueByProfessionLevel(
+        character->hp_current = Random(static_cast<std::uint32_t>(ScaleValueByProfessionLevel(
                                     character, W8_TRAIT_CHEAT_DEATH, character->hp_current))) +
                                 1;
     }
@@ -300,7 +301,7 @@ void CheatDeathRevive(int party_slot)
 /* Reveal the target's item bindings with a strength banded by the party
    slot's level in its current profession: level/4 + 1, zero percent. */
 // FUNCTION: WIZ8 0x00548E20
-int RevealCharacterItemBindingsByProfession(int party_slot, unsigned int target_slot)
+std::int32_t RevealCharacterItemBindingsByProfession(std::int32_t party_slot, std::uint32_t target_slot)
 {
     W8Character* character = &g_status.buffers.Char[party_slot];
     return RevealCharacterItemBindings(
@@ -311,7 +312,7 @@ int RevealCharacterItemBindingsByProfession(int party_slot, unsigned int target_
    level, maximum level} triples; -1 in the maximum opens the top end and the
    {-1,0,0} row terminates the walk. */
 // GLOBAL: WIZ8 0x00616FE0
-static int g_alchemist_brew_recipes[][3] = {
+static std::int32_t g_alchemist_brew_recipes[][3] = {
     {335, 1, 2},   {346, 2, 4},   {336, 3, 5},   {264, 4, -1},  {345, 5, 9},   {337, 6, 12},
     {317, 6, 12},  {269, 3, 8},   {334, 6, 9},   {347, 6, 12},  {341, 10, 13}, {342, 11, 14},
     {348, 13, 15}, {339, 17, -1}, {429, 18, -1}, {598, 5, 8},   {46, 6, 9},    {47, 7, 10},
@@ -329,12 +330,12 @@ static int g_alchemist_brew_recipes[][3] = {
 void BrewAlchemistPotion(W8Character* character)
 {
     W8ItemInstance item;
-    unsigned int slot = CharacterPointerToPartySlot(character);
-    unsigned int made = 0;
-    int alchemy;
-    const int* recipe;
-    unsigned int recipes;
-    unsigned int pick;
+    std::uint32_t slot = CharacterPointerToPartySlot(character);
+    std::uint32_t made = 0;
+    std::int32_t alchemy;
+    const std::int32_t* recipe;
+    std::uint32_t recipes;
+    std::uint32_t pick;
 
     if (g_status.buffers.XChar[slot].fOccupied &&
         character->highest_condition < W8_CONDITION_UNCONSCIOUS &&
@@ -375,24 +376,24 @@ bool IsCharacterSkillAvailable(W8Character* character, W8Skill skill_id,
                                const bool* expert_realm_flags)
 {
     W8Profession profession;
-    unsigned int index;
-    int magic_offset;
+    std::uint32_t index;
+    std::int32_t magic_offset;
 
     if (g_profession_skill_availability[skill_id][character->iProfession] == 0) {
         return false;
     }
     if (CharacterHasTrait(character, W8_TRAIT_CANNOT_LEARN)) {
-        if (static_cast<unsigned int>(skill_id) >= W8_SKILL_SPELLBOOK_WIZARDRY &&
-            static_cast<unsigned int>(skill_id) <= W8_SKILL_SPELLBOOK_PSIONICS) {
+        if (static_cast<std::uint32_t>(skill_id) >= W8_SKILL_SPELLBOOK_WIZARDRY &&
+            static_cast<std::uint32_t>(skill_id) <= W8_SKILL_SPELLBOOK_PSIONICS) {
             return false;
         }
-        if (static_cast<unsigned int>(skill_id) >= W8_SKILL_FIRE_MAGIC &&
-            static_cast<unsigned int>(skill_id) <= W8_SKILL_DIVINE_MAGIC) {
+        if (static_cast<std::uint32_t>(skill_id) >= W8_SKILL_FIRE_MAGIC &&
+            static_cast<std::uint32_t>(skill_id) <= W8_SKILL_DIVINE_MAGIC) {
             return false;
         }
     }
-    if (static_cast<unsigned int>(skill_id) >= W8_SKILL_FIRE_MAGIC &&
-        static_cast<unsigned int>(skill_id) <= W8_SKILL_DIVINE_MAGIC) {
+    if (static_cast<std::uint32_t>(skill_id) >= W8_SKILL_FIRE_MAGIC &&
+        static_cast<std::uint32_t>(skill_id) <= W8_SKILL_DIVINE_MAGIC) {
         for (index = 0x18; index <= 0x1b; ++index) {
             if (character->skills[index].active) {
                 break;
@@ -417,8 +418,8 @@ bool IsCharacterSkillAvailable(W8Character* character, W8Skill skill_id,
                 return true;
             }
         }
-        if (static_cast<unsigned int>(skill_id) >= W8_SKILL_POWER_STRIKE &&
-            static_cast<unsigned int>(skill_id) <= W8_SKILL_EAGLE_EYE) {
+        if (static_cast<std::uint32_t>(skill_id) >= W8_SKILL_POWER_STRIKE &&
+            static_cast<std::uint32_t>(skill_id) <= W8_SKILL_EAGLE_EYE) {
             return character->attributes[skill_id - 0x22].base >= 100;
         }
         switch (skill_id) {
@@ -446,10 +447,10 @@ bool IsCharacterSkillAvailable(W8Character* character, W8Skill skill_id,
 // FUNCTION: WIZ8 0x005539e0
 void ResetCharacterAttributes(W8Character* character)
 {
-    unsigned int index;
+    std::uint32_t index;
 
     for (index = 0; index < 7; ++index) {
-        int value =
+        std::int32_t value =
             character->bonus.attribute_adjustments[index] + character->attributes[index].base;
         ClampInteger(&value, 1, 0x7d);
         character->attributes[index].effective = value;
@@ -458,11 +459,11 @@ void ResetCharacterAttributes(W8Character* character)
     InitializeSkillBaseLevels(character);
 }
 
-static int GetEffectiveSkillLevel(const W8Character* character, W8Skill skill_id)
+static std::int32_t GetEffectiveSkillLevel(const W8Character* character, W8Skill skill_id)
 {
-    int level = character->skills[skill_id].points;
+    std::int32_t level = character->skills[skill_id].points;
     if (skill_id == g_profession_bonus_skills[character->iProfession]) {
-        unsigned int bonus = static_cast<unsigned int>(level * 0x19) / 100;
+        std::uint32_t bonus = static_cast<std::uint32_t>(level * 0x19) / 100;
         if (bonus == 0) {
             bonus = 1;
         }
@@ -480,7 +481,7 @@ static int GetEffectiveSkillLevel(const W8Character* character, W8Skill skill_id
 // FUNCTION: WIZ8 0x00553a60
 void ResetCharacterSkills(W8Character* character)
 {
-    unsigned int index;
+    std::uint32_t index;
 
     for (index = 0; index < 0x29; ++index) {
         character->skills[index].level =
@@ -498,7 +499,7 @@ void ResetCharacterSkills(W8Character* character)
 // FUNCTION: WIZ8 0x00553AD0
 void ApplyAttributeChange(W8Character* character, W8Attribute attribute)
 {
-    int skill_id = attribute + 0x22;
+    std::int32_t skill_id = attribute + 0x22;
 
     if (character->attributes[attribute].base >= 0x64) {
         if (!character->skills[skill_id].active) {
@@ -523,8 +524,8 @@ void ApplyAttributeChange(W8Character* character, W8Attribute attribute)
             }
         }
     }
-    int effective = character->bonus.attribute_adjustments[attribute] +
-                    static_cast<int>(character->attributes[attribute].base);
+    std::int32_t effective = character->bonus.attribute_adjustments[attribute] +
+                    static_cast<std::int32_t>(character->attributes[attribute].base);
     ClampInteger(&effective, 1, 0x7d);
     character->attributes[attribute].effective = effective;
     UnequipUnusableItems(character);
@@ -553,7 +554,7 @@ void ApplySkillChange(W8Character* character, W8Skill skill_id)
 // FUNCTION: WIZ8 0x00553c90
 void InitializeSkillBaseLevels(W8Character* character)
 {
-    for (int index = 0; index < 0x29; ++index) {
+    for (std::int32_t index = 0; index < 0x29; ++index) {
         W8Attribute first = g_skill_attributes[index].attribute_1;
         W8Attribute second = g_skill_attributes[index].attribute_2;
         character->skills[index].base_level =
@@ -568,7 +569,7 @@ void InitializeSkillBaseLevels(W8Character* character)
 void RefreshCharacterSkillAvailability(W8Character* character)
 {
     bool expert_realm_flags[8];
-    int index;
+    std::int32_t index;
 
     for (index = 0; index < 8; ++index) {
         expert_realm_flags[index] = false;
@@ -600,9 +601,9 @@ void RefreshCharacterSkillAvailability(W8Character* character)
 /* A quarter of the skill's current value, never below one. The bonus skill's
    level gets this added after the profession assignment. */
 // FUNCTION: WIZ8 0x00553ee0
-unsigned int GetSkillQuarterValue(W8Character* character, W8Skill skill_id)
+std::uint32_t GetSkillQuarterValue(W8Character* character, W8Skill skill_id)
 {
-    unsigned int value = (character->skills[skill_id].points * 0x19) / 100;
+    std::uint32_t value = (character->skills[skill_id].points * 0x19) / 100;
     if (value == 0) {
         value = 1;
     }
@@ -617,12 +618,12 @@ unsigned int GetSkillQuarterValue(W8Character* character, W8Skill skill_id)
    uses, then reports immediately on the idle main-game screen or defers the
    notice into the portrait slot's per-skill flag array. */
 // FUNCTION: WIZ8 0x00553F10
-void PracticeCharacterSkill(W8Character* character, W8Skill skill_id, int usage_points,
+void PracticeCharacterSkill(W8Character* character, W8Skill skill_id, std::int32_t usage_points,
                             bool suppress_notification)
 {
     bool improved;
-    unsigned int slot;
-    unsigned int threshold;
+    std::uint32_t slot;
+    std::uint32_t threshold;
 
     improved = false;
     if (usage_points != 0 &&
@@ -669,12 +670,12 @@ void PracticeCharacterSkill(W8Character* character, W8Skill skill_id, int usage_
                     g_current_screen_state.id == W8_SCREEN_MAIN_GAME && IsScreenIdle() &&
                     !suppress_notification) {
                     std::string text;
-                    unsigned int length = 0;
+                    std::uint32_t length = 0;
                     text += FormatSkillIncreaseNoticeText(slot, false, skill_id);
                     W8SkillNoticePayload extra{};
                     extra.count = 1;
-                    extra.party_slots[0] = static_cast<signed char>(slot);
-                    extra.skills[0] = static_cast<signed char>(skill_id);
+                    extra.party_slots[0] = static_cast<std::int8_t>(slot);
+                    extra.skills[0] = static_cast<std::int8_t>(skill_id);
                     g_npc_dialogue.QueuePortraitMessage(std::move(text), extra);
                     return;
                 }
@@ -739,7 +740,7 @@ W8SkillAttributes g_skill_attributes[0x29] = {
     {4, W8_SKILL_IMPORT_DISABLED, W8_ATTRIBUTE_SENSES, W8_ATTRIBUTE_SENSES},
 };
 // GLOBAL: WIZ8 0x00615840
-int g_profession_skill_availability[0x29][15] = {
+std::int32_t g_profession_skill_availability[0x29][15] = {
     {1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 0, 0, 0, 0},
     {1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
     {1, 1, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0},
@@ -820,6 +821,6 @@ W8Skill g_profession_skills[15][4] = {
     {W8_SKILL_FIRE_MAGIC, W8_SKILL_WATER_MAGIC, W8_SKILL_AIR_MAGIC, W8_SKILL_MENTAL_MAGIC},
 };
 // GLOBAL: WIZ8 0x00616310
-int g_profession_magic_level_offsets[15] = {
+std::int32_t g_profession_magic_level_offsets[15] = {
     -255, -4, -4, -4, -4, -4, -4, -255, -255, -255, 0, 0, 0, 0, 0,
 };

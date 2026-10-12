@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "image_assets.h"
 
 #include <SDL3/SDL_surface.h>
@@ -15,7 +16,7 @@ std::string cache_key(std::string_view path)
 {
     std::string key;
     key.reserve(path.size());
-    for (unsigned char character : path) {
+    for (std::uint8_t character : path) {
         if (character == '/')
             key.push_back('\\');
         else if (character >= 'A' && character <= 'Z')

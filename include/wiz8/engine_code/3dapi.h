@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include "compat/compiler.h"
 
 template <class T> class srVector3T;
@@ -18,8 +19,8 @@ extern bool g_world_update_requested;
 
 /* 0x00450780: the three-argument assert the main-game code paths use; it
    forwards to the four-argument SurRender export. */
-void ReportAssertion(const char* expression, const char* source_path, w8_long line);
-void UpdateWorldCameraAndPaths(W8World* world, unsigned int flags);
+void ReportAssertion(const char* expression, const char* source_path, std::int32_t line);
+void UpdateWorldCameraAndPaths(W8World* world, std::uint32_t flags);
 /* Debug world controls combine these bits in unsigned int storage. */
 enum {
     W8_WORLD_INCREASE_FAR_CLIP = 0x01u,
@@ -31,12 +32,12 @@ enum {
     W8_WORLD_DECREASE_ENVIRONMENT = 0x200u,
     W8_WORLD_CHANGE_FAR_CLIP = W8_WORLD_INCREASE_FAR_CLIP | W8_WORLD_DECREASE_FAR_CLIP
 };
-void ApplyWorldUpdateFlags(W8World* world, unsigned int flags);
+void ApplyWorldUpdateFlags(W8World* world, std::uint32_t flags);
 /* Retail call sites push world/x/y; the body ignores them and reads the
    renderer's selected prop index. */
-int ForwardSelectedPropIndex(W8World* world, int x, int y);
+std::int32_t ForwardSelectedPropIndex(W8World* world, std::int32_t x, std::int32_t y);
 /* Retail call sites push world/mode/x/y; the body ignores them and runs the
    selected prop trigger when one is latched. */
-bool ForwardActivateSelectedProp(W8World* world, int mode, int x, int y);
-void SetCameraSwayMode(srCamera* camera, int mode);
+bool ForwardActivateSelectedProp(W8World* world, std::int32_t mode, std::int32_t x, std::int32_t y);
+void SetCameraSwayMode(srCamera* camera, std::int32_t mode);
 void WorldSetCameraLocation(W8World* world, const srVector3T<float>* location); /* 0x00450420 */

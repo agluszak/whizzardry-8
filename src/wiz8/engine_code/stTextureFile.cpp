@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <cstring>
 #include <exception>
 #include <memory>
@@ -12,7 +13,7 @@
 #include "surrender/srImageIO.h"
 #include "surrender/srColorSurfaceIFace.h"
 
-std::unique_ptr<srColorSurface> __stdcall LoadSurface(wiz8::File* handle, w8_long*)
+std::unique_ptr<srColorSurface> __stdcall LoadSurface(wiz8::File* handle, std::int32_t*)
 {
     return handle ? srImage::loadTga(*handle) : nullptr;
 }
@@ -36,7 +37,7 @@ void stTextureFile::releaseSurface()
 }
 
 // FUNCTION: WIZ8 0x0047C630
-stTextureFile::stTextureFile(const char* file_name, int cached)
+stTextureFile::stTextureFile(const char* file_name, std::int32_t cached)
     : cached(0), file_name(0), surface(nullptr), frame_handle(getNewFrameHandle()), has_alpha(0)
 {
     /* Retail stores 0 then conditionally stores 1: the authored value is the
@@ -63,7 +64,7 @@ stTextureFile& stTextureFile::operator=(const stTextureFile& other)
 }
 
 // FUNCTION: WIZ8 0x0047C5F0
-w8_ulong stTextureFile::getTextureFrameHandle()
+std::uint32_t stTextureFile::getTextureFrameHandle()
 {
     if ((texture_flags_ & LOAD_FAILED) != 0) {
         return 0;
@@ -123,7 +124,7 @@ void stTextureFile::loadSurface()
 {
     /* The second LoadSurface argument is an out-pointer the callee ignores;
        the caller still initializes the dword it passes. */
-    w8_long unused = 0;
+    std::int32_t unused = 0;
 
     if (surface != 0) {
         invalidate();

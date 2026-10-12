@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <vector>
@@ -53,7 +54,7 @@ void RecountCombatMonsters(void)
 {
     gXStatus.hostile_monster_count = 0;
     gXStatus.hostile_group_count = 0;
-    for (unsigned int index = 0; index < gXStatus.monsters.size(); ++index) {
+    for (std::uint32_t index = 0; index < gXStatus.monsters.size(); ++index) {
         W8MonsterInfo* monster = MonsterGetScriptPartByLocationIndex(index);
         if (monster->fActive && monster->fInCombat) {
             if (monster->ubDisposition == W8_DISPOSITION_HOSTILE) {
@@ -78,8 +79,8 @@ W8Disposition MonsterHostility(W8MonsterInfo* first, W8MonsterInfo* second)
 {
     W8MonsterRecord* first_record;
     W8MonsterRecord* second_record;
-    unsigned int first_faction;
-    unsigned int second_faction;
+    std::uint32_t first_faction;
+    std::uint32_t second_faction;
 
     if (first->monster_species == W8_NEUTRAL_SPECIES_224 ||
         second->monster_species == W8_NEUTRAL_SPECIES_224) {
@@ -113,7 +114,7 @@ W8Disposition MonsterHostility(W8MonsterInfo* first, W8MonsterInfo* second)
    character carries condition thirteen the hostile and friendly bands swap;
    otherwise the monster's band is returned unchanged. */
 // FUNCTION: WIZ8 0x00546f10
-W8Disposition MonsterVsCharDisposition(int character_slot, W8MonsterInfo* monster_info)
+W8Disposition MonsterVsCharDisposition(std::int32_t character_slot, W8MonsterInfo* monster_info)
 {
     W8Disposition disposition;
 
@@ -136,10 +137,10 @@ W8Disposition MonsterVsCharDisposition(int character_slot, W8MonsterInfo* monste
 }
 
 // FUNCTION: WIZ8 0x00547010
-W8Disposition CharacterVsCharacterDisposition(int first, int second)
+W8Disposition CharacterVsCharacterDisposition(std::int32_t first, std::int32_t second)
 {
     W8Character* characters = g_status.buffers.Char;
-    unsigned int first_turns = characters[first].uiCondition[W8_CONDITION_TURNCOAT];
+    std::uint32_t first_turns = characters[first].uiCondition[W8_CONDITION_TURNCOAT];
     if (first_turns == 0 && characters[second].uiCondition[W8_CONDITION_TURNCOAT] == 0) {
         return W8_DISPOSITION_FRIENDLY;
     }
@@ -175,9 +176,9 @@ W8Disposition GetOppositeDisposition(W8TargetSource* source)
 }
 
 // FUNCTION: WIZ8 0x00547120
-void ProvokeListedMonsterGroups(W8TargetSource* source, const std::vector<int>& monsters)
+void ProvokeListedMonsterGroups(W8TargetSource* source, const std::vector<std::int32_t>& monsters)
 {
-    int own_monster_id = -1;
+    std::int32_t own_monster_id = -1;
     if (GetOppositeDisposition(source) == W8_DISPOSITION_NEUTRAL) {
         return;
     }
@@ -187,7 +188,7 @@ void ProvokeListedMonsterGroups(W8TargetSource* source, const std::vector<int>& 
     W8CombatSlot target;
     ResetCombatSlot(&target);
     target.iType = W8_TARGET_KIND_MONSTER;
-    for (int monster_id : monsters) {
+    for (std::int32_t monster_id : monsters) {
         if (monster_id == own_monster_id) {
             continue;
         }
@@ -206,7 +207,7 @@ void MakeTargetGroupHostile(W8TargetSource* source, W8CombatSlot* target)
     if (hostility == 0 || !IsTargetStillPresent(target)) {
         return;
     }
-    int group_id;
+    std::int32_t group_id;
     W8MonsterGroup* group;
     if (target->iType == W8_TARGET_KIND_MONSTER) {
         if (target->iMonsterID == -1) {
@@ -222,12 +223,12 @@ void MakeTargetGroupHostile(W8TargetSource* source, W8CombatSlot* target)
             return;
         }
         group = FindMonsterGroup(target->iGroupID);
-        unsigned int index = 0;
+        std::uint32_t index = 0;
         if (group->MemberIds().empty()) {
             return;
         }
         while (true) {
-            int monster_id = group->MemberLocationId(index);
+            std::int32_t monster_id = group->MemberLocationId(index);
             W8MonsterInfo* monster_info = FindMonster(monster_id);
             if (monster_info->uiCondition[W8_CONDITION_TURNCOAT] == 0) {
                 break;
@@ -253,10 +254,10 @@ void MakeTargetGroupHostile(W8TargetSource* source, W8CombatSlot* target)
    spells (and item-spells) whose target type sits in the enemy band. */
 // FUNCTION: WIZ8 0x00547310
 bool CharacterActionTargetsEnemies(W8Character* character, W8ActionKind action_kind,
-                                   int action_detail, W8ActionDetailBlock* detail)
+                                   std::int32_t action_detail, W8ActionDetailBlock* detail)
 {
     W8ItemInstance* item;
-    unsigned char spell_id;
+    std::uint8_t spell_id;
     W8SpellTargetType target_type;
 
     switch (action_kind) {
@@ -304,8 +305,8 @@ bool CharacterActionTargetsEnemies(W8Character* character, W8ActionKind action_k
 
 /* Monster actions 0 and 3 always count as enemy-aimed; action 2 is a spell id. */
 // FUNCTION: WIZ8 0x00547440
-bool MonsterActionTargetsEnemies(W8MonsterActionKind action_kind, int action_detail,
-                                 unsigned int* spell_power_level)
+bool MonsterActionTargetsEnemies(W8MonsterActionKind action_kind, std::int32_t action_detail,
+                                 std::uint32_t* spell_power_level)
 {
     W8SpellTargetType target_type;
 
@@ -334,7 +335,7 @@ bool MonsterActionTargetsEnemies(W8MonsterActionKind action_kind, int action_det
 /* Whether a spell id can be aimed by monster AI: inside the spell table, not
    one of the two self-only kinds, and carrying a middle target type. */
 // FUNCTION: WIZ8 0x005474B0
-bool MonsterCanAimSpell(int spell_id)
+bool MonsterCanAimSpell(std::int32_t spell_id)
 {
     if (spell_id > 0x95) {
         srAssertFail("iType < SPELL_COUNT",
@@ -358,21 +359,21 @@ bool CombatAllowsLiveGroups(void)
 }
 
 // GLOBAL: WIZ8 0x0061ec0c
-static unsigned short g_group_hostility_notice_ids[3] = {511, 512, 513};
+static std::uint16_t g_group_hostility_notice_ids[3] = {511, 512, 513};
 
 // GLOBAL: WIZ8 0x0061ec14
-int g_monster_special_attack_name_ids[12] = {0,    1598, 1599, 1600, 1601, 1602,
+std::int32_t g_monster_special_attack_name_ids[12] = {0,    1598, 1599, 1600, 1601, 1602,
                                              1603, 1604, 1605, 1606, 1607, 1608};
 
 // FUNCTION: WIZ8 0x00547540
-void SetMonsterGroupHostilityByID(int group_id, unsigned int hostility, bool recurse)
+void SetMonsterGroupHostilityByID(std::int32_t group_id, std::uint32_t hostility, bool recurse)
 {
     W8MonsterGroup* group = FindMonsterGroup(group_id);
     SetMonsterGroupHostility(group, hostility, recurse);
 }
 
 // FUNCTION: WIZ8 0x00547570
-void SetMonsterGroupHostility(W8MonsterGroup* group, unsigned int hostility, bool recurse)
+void SetMonsterGroupHostility(W8MonsterGroup* group, std::uint32_t hostility, bool recurse)
 {
     if (MonsterGroupAllMembersDying(group)) {
         return;
@@ -383,27 +384,27 @@ void SetMonsterGroupHostility(W8MonsterGroup* group, unsigned int hostility, boo
         return;
     }
     W8Disposition previous = group->ubDisposition;
-    if (previous == static_cast<unsigned char>(hostility)) {
+    if (previous == static_cast<std::uint8_t>(hostility)) {
         return;
     }
-    group->ubDisposition = static_cast<unsigned char>(hostility);
+    group->ubDisposition = static_cast<std::uint8_t>(hostility);
     group->forced_neutral = false;
     if (MonsterGroupHasVisibleThreat(group)) {
         ShowNotice(
             9,
             fmt::format("{} {} {}!", GetMonsterGroupName(group),
                         g_localized_strings[0x1d7 + (group->member_count != 1)],
-                        g_localized_strings[g_group_hostility_notice_ids[static_cast<unsigned char>(
+                        g_localized_strings[g_group_hostility_notice_ids[static_cast<std::uint8_t>(
                             hostility)]]));
     }
     group->hostility_set_at = g_status.world_clock;
     if (previous != 0) {
         SetTargetToGroup(group->group_id, true);
     }
-    for (unsigned int index = 0; index < group->MemberIds().size(); ++index) {
-        int location_id = group->MemberLocationId(index);
+    for (std::uint32_t index = 0; index < group->MemberIds().size(); ++index) {
+        std::int32_t location_id = group->MemberLocationId(index);
         W8MonsterInfo* monster = FindMonster(location_id);
-        SetMonsterHostility(monster, static_cast<unsigned char>(hostility));
+        SetMonsterHostility(monster, static_cast<std::uint8_t>(hostility));
     }
     if (group->leader_group_id != 0) {
         SetMonsterGroupHostility(FindMonsterGroup(group->leader_group_id),
@@ -457,13 +458,13 @@ void SetMonsterHostility(W8MonsterInfo* monster, W8Disposition hostility)
 }
 
 // FUNCTION: WIZ8 0x00547bf0
-bool CanPartySlotTurnUndead(int party_slot)
+bool CanPartySlotTurnUndead(std::int32_t party_slot)
 {
     if (!CharacterHasTrait(&g_status.buffers.Char[party_slot], W8_TRAIT_TURN_UNDEAD) ||
         g_combat_state == 0 || g_combat_state->characters[party_slot].turn_undead_used) {
         return false;
     }
-    for (unsigned int index = 0; index < gXStatus.monsters.size(); ++index) {
+    for (std::uint32_t index = 0; index < gXStatus.monsters.size(); ++index) {
         W8MonsterInfo* monster = MonsterGetScriptPartByLocationIndex(index);
         if (monster->fActive && monster->fInCombat &&
             monster->ubDisposition == W8_DISPOSITION_HOSTILE && monster->hp_current != 0 &&
@@ -475,10 +476,10 @@ bool CanPartySlotTurnUndead(int party_slot)
 }
 
 // FUNCTION: WIZ8 0x00547cb0
-int TurnUndead(int party_slot, int* out_cost, bool check)
+std::int32_t TurnUndead(std::int32_t party_slot, std::int32_t* out_cost, bool check)
 {
-    std::vector<int> monsters;
-    std::vector<int> party;
+    std::vector<std::int32_t> monsters;
+    std::vector<std::int32_t> party;
     if (check) {
         if (!CanPartySlotTurnUndead(party_slot)) {
             PostCharacterNotice(
@@ -491,7 +492,7 @@ int TurnUndead(int party_slot, int* out_cost, bool check)
     W8TargetSource source;
     SetTargetSourceToCharacter(party_slot, &source);
     source.aim_resolved = true;
-    int power;
+    std::int32_t power;
     if (!check) {
         power = g_status.buffers.Char[party_slot].profession_levels[W8_PROFESSION_BISHOP] + 10 +
                 g_status.buffers.Char[party_slot].profession_levels[W8_PROFESSION_PRIEST];
@@ -509,10 +510,10 @@ int TurnUndead(int party_slot, int* out_cost, bool check)
         return 0;
     }
     SetTextBoxMode(1, -1);
-    unsigned int spell_power = power / static_cast<int>(monsters.size());
+    std::uint32_t spell_power = power / static_cast<std::int32_t>(monsters.size());
     if (spell_power == 0) {
-        while (power < static_cast<int>(monsters.size())) {
-            monsters.erase(monsters.begin() + Random(static_cast<int>(monsters.size())));
+        while (power < static_cast<std::int32_t>(monsters.size())) {
+            monsters.erase(monsters.begin() + Random(static_cast<std::int32_t>(monsters.size())));
         }
         spell_power = 1;
     } else if (spell_power > 6) {
@@ -523,17 +524,17 @@ int TurnUndead(int party_slot, int* out_cost, bool check)
     if (out_cost != 0) {
         *out_cost = CharacterActionFatigueCost(party_slot, W8_ACTION_TURN_UNDEAD);
     }
-    return static_cast<int>(monsters.size());
+    return static_cast<std::int32_t>(monsters.size());
 }
 
 // FUNCTION: WIZ8 0x00547f40
-bool CanPartySlotPray(int party_slot)
+bool CanPartySlotPray(std::int32_t party_slot)
 {
     if (!CharacterHasTrait(&g_status.buffers.Char[party_slot], W8_TRAIT_PRAY) ||
         g_combat_state == 0 || g_combat_state->characters[party_slot].pray_used) {
         return false;
     }
-    for (unsigned int index = 0; index < gXStatus.monsters.size(); ++index) {
+    for (std::uint32_t index = 0; index < gXStatus.monsters.size(); ++index) {
         W8MonsterInfo* monster = MonsterGetScriptPartByLocationIndex(index);
         if (monster->fActive && monster->fInCombat &&
             monster->ubDisposition == W8_DISPOSITION_HOSTILE && monster->hp_current != 0) {
@@ -544,13 +545,13 @@ bool CanPartySlotPray(int party_slot)
 }
 
 // GLOBAL: WIZ8 0x0061DD38
-static int g_pray_roll_weights[14] = {5, 5, 10, 10, 10, 20, 10, 10, 10, 5, 5, 5, 5, 5};
+static std::int32_t g_pray_roll_weights[14] = {5, 5, 10, 10, 10, 20, 10, 10, 10, 5, 5, 5, 5, 5};
 
 /* Fourteen cumulative weights followed by their grand total (0x0068D84C).
    Retail folds the table with one walk to the end of this single block. */
 #define PRAY_ROLL_TIERS 14
 // GLOBAL: WIZ8 0x0068D814
-static int g_pray_roll_sums[PRAY_ROLL_TIERS + 1];
+static std::int32_t g_pray_roll_sums[PRAY_ROLL_TIERS + 1];
 
 // GLOBAL: WIZ8 0x00619788
 static char g_pray_dash[] = " -- ";
@@ -561,32 +562,32 @@ static char g_pray_dash[] = " -- ";
    how long the fight has run and by the combat difficulty. The selected tier
    retries downward through the table until an action lands. */
 // FUNCTION: WIZ8 0x00547FE0
-int CharacterPrayAction(int party_slot)
+std::int32_t CharacterPrayAction(std::int32_t party_slot)
 {
     W8Character* character = &g_status.buffers.Char[party_slot];
-    std::vector<int> monster_targets;
+    std::vector<std::int32_t> monster_targets;
     bool found = false;
     bool prayed = false;
-    int outcome;
+    std::int32_t outcome;
     W8TargetSource source;
     W8CombatSlot target;
-    unsigned int cost;
-    unsigned int power_level;
-    unsigned int roll;
-    unsigned int in_range;
-    unsigned int index;
-    int action;
-    int pick;
-    int best;
+    std::uint32_t cost;
+    std::uint32_t power_level;
+    std::uint32_t roll;
+    std::uint32_t in_range;
+    std::uint32_t index;
+    std::int32_t action;
+    std::int32_t pick;
+    std::int32_t best;
 
     if (!CanPartySlotPray(party_slot)) {
         return 0;
     }
     if (g_pray_roll_sums[PRAY_ROLL_TIERS] == 0) {
-        int* const end = g_pray_roll_sums + PRAY_ROLL_TIERS + 1;
+        std::int32_t* const end = g_pray_roll_sums + PRAY_ROLL_TIERS + 1;
         for (index = 0; index < PRAY_ROLL_TIERS; ++index) {
-            const int weight = g_pray_roll_weights[index];
-            for (int* sum = &g_pray_roll_sums[index]; sum < end; ++sum) {
+            const std::int32_t weight = g_pray_roll_weights[index];
+            for (std::int32_t* sum = &g_pray_roll_sums[index]; sum < end; ++sum) {
                 *sum += weight;
             }
         }
@@ -597,8 +598,8 @@ int CharacterPrayAction(int party_slot)
     ResetCombatSlot(&target);
     PostCharacterNotice(party_slot, g_localized_strings[0x174]);
     cost = CharacterActionFatigueCost(party_slot, W8_ACTION_PRAY);
-    if (character->stamina < static_cast<int>(cost) &&
-        character->stamina < static_cast<int>(Random(cost))) {
+    if (character->stamina < static_cast<std::int32_t>(cost) &&
+        character->stamina < static_cast<std::int32_t>(Random(cost))) {
         PostCharacterNotice(party_slot, g_localized_strings[0x175]);
         return cost;
     }
@@ -621,13 +622,13 @@ int CharacterPrayAction(int party_slot)
     action = 0;
     for (index = 0; index < 14; ++index) {
         action = index;
-        if (static_cast<int>(roll) <= g_pray_roll_sums[index]) {
+        if (static_cast<std::int32_t>(roll) <= g_pray_roll_sums[index]) {
             break;
         }
         action = 0;
     }
     power_level =
-        static_cast<unsigned int>(character->profession_levels[character->iProfession]) / 3 + 2;
+        static_cast<std::uint32_t>(character->profession_levels[character->iProfession]) / 3 + 2;
     while (!prayed) {
         --action;
         switch (action) {
@@ -741,7 +742,7 @@ int CharacterPrayAction(int party_slot)
             for (index = 0; index < 8; ++index) {
                 W8Character* member = &g_status.buffers.Char[index];
                 if (CanPartySlotParticipate(index) &&
-                    member->hp_current < static_cast<unsigned int>(member->uiHPMax) &&
+                    member->hp_current < static_cast<std::uint32_t>(member->uiHPMax) &&
                     (best == -1 || member->hp_current < g_status.buffers.Char[best].hp_current)) {
                     best = index;
                 }
@@ -908,7 +909,7 @@ void AlertSameFactionGroups(W8MonsterGroup* monster_group)
 {
     W8MonsterRecord* record = MonsterGroupGetRecord(monster_group);
     if (record->faction_id != 0) {
-        for (unsigned int index = 0; index < gXStatus.monster_groups.size(); ++index) {
+        for (std::uint32_t index = 0; index < gXStatus.monster_groups.size(); ++index) {
             W8MonsterGroup* other = GetMonsterGroupByListIndex(index);
             W8MonsterRecord* other_record = MonsterGroupGetRecord(other);
             if (other != monster_group &&

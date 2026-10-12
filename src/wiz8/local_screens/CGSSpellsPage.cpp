@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <fmt/format.h>
 #include <SDL3/SDL_rect.h>
 #include <string>
@@ -35,36 +36,36 @@ W8SpellRealmAnimation g_spell_realm_animations[6] = {{486, 22, 3}, {487, 18, 8},
 // VTABLE: WIZ8 0x005ef610 W8RangeListener
 class W8CharacterSpellList : public W8Widget, public W8RangeListener {
 public:
-    W8CharacterSpellList(Controls* owner, int x, int y, W8CharacterSpellEntry* entries);
+    W8CharacterSpellList(Controls* owner, std::int32_t x, std::int32_t y, W8CharacterSpellEntry* entries);
     virtual ~W8CharacterSpellList() override;
     virtual void Redraw(bool force) override;
-    virtual void OnMouseEnter(int event) override;
-    virtual void OnMouseLeave(int event) override;
-    virtual void OnMouseMove(int event) override;
-    virtual void AdjustValue(int steps) override;
-    virtual void OnLeftButtonDown(int event) override;
-    virtual void OnRightButtonDown(int event) override;
-    virtual void OnLeftButtonUp(int event) override;
-    virtual void OnRightButtonUp(int event) override;
+    virtual void OnMouseEnter(std::int32_t event) override;
+    virtual void OnMouseLeave(std::int32_t event) override;
+    virtual void OnMouseMove(std::int32_t event) override;
+    virtual void AdjustValue(std::int32_t steps) override;
+    virtual void OnLeftButtonDown(std::int32_t event) override;
+    virtual void OnRightButtonDown(std::int32_t event) override;
+    virtual void OnLeftButtonUp(std::int32_t event) override;
+    virtual void OnRightButtonUp(std::int32_t event) override;
     virtual void OnRangeChanged(W8RangeControl* range) override;
-    void SetEntryCount(int count);
+    void SetEntryCount(std::int32_t count);
 
 private:
-    int GetMouseEntry();
+    std::int32_t GetMouseEntry();
 
 public:
     W8RangeControl* m_range;
     W8CharacterSpellEntry* m_entries;
-    int m_first_entry;
-    int m_entry_count;
-    int m_hovered_entry;
-    int m_scroll_offset;
+    std::int32_t m_first_entry;
+    std::int32_t m_entry_count;
+    std::int32_t m_hovered_entry;
+    std::int32_t m_scroll_offset;
     W8CharacterSpellListListener* m_listener;
-    int m_x;
-    int m_y;
+    std::int32_t m_x;
+    std::int32_t m_y;
 };
 
-W8CharacterSpellList::W8CharacterSpellList(Controls* owner, int x, int y,
+W8CharacterSpellList::W8CharacterSpellList(Controls* owner, std::int32_t x, std::int32_t y,
                                            W8CharacterSpellEntry* entries)
     : W8Widget(owner, 0xffffffff, x + 0x1a, y + 0x19, x + 0xb4, y + 0x79), m_range(0),
       m_entries(entries), m_hovered_entry(-1), m_scroll_offset(0), m_listener(0),
@@ -79,7 +80,7 @@ W8CharacterSpellList::~W8CharacterSpellList()
 }
 
 // FUNCTION: WIZ8 0x005c7e10
-void W8CharacterSpellList::SetEntryCount(int count)
+void W8CharacterSpellList::SetEntryCount(std::int32_t count)
 {
     if (!m_range) {
         m_range = new W8RangeControl(m_pPanel->m_bounds.left + m_x + 0xb8,
@@ -103,16 +104,16 @@ void W8CharacterSpellList::SetEntryCount(int count)
 void W8CharacterSpellList::Redraw(bool force)
 {
     if (m_active && (m_dirty || force)) {
-        int left = m_left + m_pPanel->m_bounds.left;
-        int top = m_top + m_pPanel->m_bounds.top;
-        int right = m_right + m_pPanel->m_bounds.left;
-        int bottom = m_bottom + m_pPanel->m_bounds.top;
+        std::int32_t left = m_left + m_pPanel->m_bounds.left;
+        std::int32_t top = m_top + m_pPanel->m_bounds.top;
+        std::int32_t right = m_right + m_pPanel->m_bounds.left;
+        std::int32_t bottom = m_bottom + m_pPanel->m_bounds.top;
         InvalidateRegion(left, top, right, bottom, 0);
         CatalogArtwork::Load(0x1b6, 0).drawRect(GetFrameBufferSurface(), SDL_Rect{0, 0, (right) - (left), (bottom) - (top)}, left, top);
-        int y = top + 1;
+        std::int32_t y = top + 1;
         g_wiz_text_font_secondary.resetPalette();
         g_wiz_text_font_secondary.setShade(Font::kNormalShade);
-        for (int index = m_first_entry + m_scroll_offset;
+        for (std::int32_t index = m_first_entry + m_scroll_offset;
              index < m_first_entry + m_scroll_offset + 7; ++index) {
             if (index >= m_first_entry + m_entry_count)
                 break;
@@ -139,20 +140,20 @@ void W8CharacterSpellList::Redraw(bool force)
 }
 
 /* Shared with other widget classes at 0x004F58C0. */
-void W8CharacterSpellList::OnMouseEnter(int)
+void W8CharacterSpellList::OnMouseEnter(std::int32_t)
 {
     PushButtonSoundScheme(0, true);
 }
 
 // FUNCTION: WIZ8 0x005c8100
-void W8CharacterSpellList::OnMouseLeave(int event)
+void W8CharacterSpellList::OnMouseLeave(std::int32_t event)
 {
     m_hovered_entry = -1;
-    Invalidate(static_cast<unsigned char>(event));
+    Invalidate(static_cast<std::uint8_t>(event));
 }
 
 /* Shared hit test; the callers retain their distinct > and >= bounds. */
-int W8CharacterSpellList::GetMouseEntry()
+std::int32_t W8CharacterSpellList::GetMouseEntry()
 {
     SDL_Point mouse;
     SGPMouseGetPos(&mouse);
@@ -160,9 +161,9 @@ int W8CharacterSpellList::GetMouseEntry()
 }
 
 // FUNCTION: WIZ8 0x005c8120
-void W8CharacterSpellList::OnMouseMove(int)
+void W8CharacterSpellList::OnMouseMove(std::int32_t)
 {
-    int entry = GetMouseEntry();
+    std::int32_t entry = GetMouseEntry();
     if (entry > m_first_entry + m_entry_count)
         entry = -1;
     if (entry != m_hovered_entry) {
@@ -172,42 +173,42 @@ void W8CharacterSpellList::OnMouseMove(int)
 }
 
 // FUNCTION: WIZ8 0x005c8190
-void W8CharacterSpellList::OnLeftButtonDown(int)
+void W8CharacterSpellList::OnLeftButtonDown(std::int32_t)
 {
-    int entry = GetMouseEntry();
+    std::int32_t entry = GetMouseEntry();
     if (entry >= m_first_entry + m_entry_count) {
         PushButtonSoundScheme(0, true);
     }
 }
 
 /* Folded with OnLeftButtonDown at 0x005C8190. */
-void W8CharacterSpellList::OnRightButtonDown(int)
+void W8CharacterSpellList::OnRightButtonDown(std::int32_t)
 {
-    int entry = GetMouseEntry();
+    std::int32_t entry = GetMouseEntry();
     if (entry >= m_first_entry + m_entry_count) {
         PushButtonSoundScheme(0, true);
     }
 }
 
 // FUNCTION: WIZ8 0x005c81f0
-void W8CharacterSpellList::OnLeftButtonUp(int event)
+void W8CharacterSpellList::OnLeftButtonUp(std::int32_t event)
 {
-    int entry = GetMouseEntry();
+    std::int32_t entry = GetMouseEntry();
     if (entry >= m_first_entry + m_entry_count) {
         PushButtonSoundScheme(0, true);
         return;
     }
     if (m_entries[entry].fSelectable) {
-        Invalidate(static_cast<unsigned char>(event));
+        Invalidate(static_cast<std::uint8_t>(event));
         if (m_listener)
             m_listener->SelectSpell(entry);
     }
 }
 
 // FUNCTION: WIZ8 0x005c8280
-void W8CharacterSpellList::OnRightButtonUp(int)
+void W8CharacterSpellList::OnRightButtonUp(std::int32_t)
 {
-    int entry = GetMouseEntry();
+    std::int32_t entry = GetMouseEntry();
     if (entry >= m_first_entry + m_entry_count) {
         PushButtonSoundScheme(0, true);
         return;
@@ -217,7 +218,7 @@ void W8CharacterSpellList::OnRightButtonUp(int)
 }
 
 // FUNCTION: WIZ8 0x005c82f0
-void W8CharacterSpellList::AdjustValue(int steps)
+void W8CharacterSpellList::AdjustValue(std::int32_t steps)
 {
     m_range->AdjustValue(steps);
 }
@@ -231,11 +232,11 @@ void W8CharacterSpellList::OnRangeChanged(W8RangeControl* range)
 
 // FUNCTION: WIZ8 0x005c83d0
 void W8CharacterSpellsPage::SetCharacter(W8Character* character,
-                                         W8CharacterCreationState* creation_state, int mode)
+                                         W8CharacterCreationState* creation_state, std::int32_t mode)
 {
     W8CharacterPage::SetCharacter(character, creation_state, mode);
     CreateRegionSet();
-    for (int realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
+    for (std::int32_t realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
         m_realms[realm] =
             new W8CharacterSpellList(this, (realm % 2) * 215 + 13, (realm / 2) * 130 + 8,
                                      m_SpellData);
@@ -248,7 +249,7 @@ void W8CharacterSpellsPage::Activate()
 {
     EnableRegionSet(true);
     UpdateSpellLists();
-    for (int realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
+    for (std::int32_t realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
         m_realms[realm]->m_range->EnableRegionSet(true);
     }
     m_dirty = true;
@@ -259,7 +260,7 @@ void W8CharacterSpellsPage::Activate()
 void W8CharacterSpellsPage::Deactivate()
 {
     EnableRegionSet(false);
-    for (int realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
+    for (std::int32_t realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
         m_realms[realm]->m_range->EnableRegionSet(false);
     }
 }
@@ -269,7 +270,7 @@ void W8CharacterSpellsPage::Deactivate()
 // FUNCTION: WIZ8 0x005C8730
 void W8CharacterSpellsPage::Accept()
 {
-    for (int index = 0; index < 0x72; ++index) {
+    for (std::int32_t index = 0; index < 0x72; ++index) {
         m_SpellData[index].selected = false;
     }
     ResetSpellSelections(m_character, m_creation_state);
@@ -323,7 +324,7 @@ void W8CharacterSpellsPage::Redraw()
     }
 
     if (redraw) {
-        for (int realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
+        for (std::int32_t realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
             if (m_realms[realm]->m_entry_count == 0) {
                 continue;
             }
@@ -359,9 +360,9 @@ void W8CharacterSpellsPage::Redraw()
         }
     }
 
-    int elapsed = static_cast<int>(anim_timer.GetProgress());
+    std::int32_t elapsed = static_cast<std::int32_t>(anim_timer.GetProgress());
     if (elapsed > 0 || redraw) {
-        for (int realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
+        for (std::int32_t realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
             const W8SpellRealmAnimation& animation = g_spell_realm_animations[realm];
             if (m_realms[realm]->m_entry_count != 0 && elapsed != 0) {
                 m_animation_frames[realm] =
@@ -372,7 +373,7 @@ void W8CharacterSpellsPage::Redraw()
             }
         }
     }
-    for (int realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
+    for (std::int32_t realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
         m_realms[realm]->m_range->Redraw();
     }
 }
@@ -386,12 +387,12 @@ void W8CharacterSpellsPage::Refresh()
 // FUNCTION: WIZ8 0x005c85a0
 void W8CharacterSpellsPage::UpdateSpellLists()
 {
-    int entry = 0;
-    for (int realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
+    std::int32_t entry = 0;
+    for (std::int32_t realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
         m_animation_frames[realm] = g_spell_realm_animations[realm].initial_frame;
-        int first = entry;
+        std::int32_t first = entry;
         for (char pass = 0; pass < 2; ++pass) {
-            for (unsigned int spell = 0; spell < 0x72; ++spell) {
+            for (std::uint32_t spell = 0; spell < 0x72; ++spell) {
                 if (g_spell_records[spell].realm == realm) {
                     switch (m_character->spell_learned[spell]) {
                     case -1:
@@ -432,7 +433,7 @@ void W8CharacterSpellsPage::GetNavigationState(bool* next_enabled, bool* exit_en
 /* Retail emits this with the W8CharacterSpellListListener-adjusted `this`
    (page + 0x70): the slot is only ever dispatched through that base. */
 // FUNCTION: WIZ8 0x005c87b0
-void W8CharacterSpellsPage::SelectSpell(unsigned int uiSelected)
+void W8CharacterSpellsPage::SelectSpell(std::uint32_t uiSelected)
 {
     if (!m_SpellData[uiSelected].fSelectable) {
         srAssertFail("m_SpellData[uiSelected].fSelectable",
@@ -443,7 +444,7 @@ void W8CharacterSpellsPage::SelectSpell(unsigned int uiSelected)
         DeselectCreationSpell(m_character, m_creation_state, m_SpellData[uiSelected].spell);
     } else {
         if (m_creation_state->spell_points_remaining == 0) {
-            for (unsigned int index = 0; index < 0x72; ++index) {
+            for (std::uint32_t index = 0; index < 0x72; ++index) {
                 if (m_SpellData[index].selected &&
                     (index != m_last_selected || m_creation_state->spell_points_total == 1)) {
                     m_SpellData[index].selected = false;
@@ -463,7 +464,7 @@ void W8CharacterSpellsPage::SelectSpell(unsigned int uiSelected)
 }
 
 // FUNCTION: WIZ8 0x005c88a0
-void W8CharacterSpellsPage::ShowSpellInfo(unsigned int entry)
+void W8CharacterSpellsPage::ShowSpellInfo(std::uint32_t entry)
 {
     m_screen->ShowSpellInfo(m_SpellData[entry].spell);
 }

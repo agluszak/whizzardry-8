@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/engine_code/AniMesh.h"
 #include "wiz8/engine_code/Navigator.h"
@@ -18,7 +19,7 @@ extern const float g_startup_near_limit = 250.0f;
 
 /* Original translation-unit ownership of startup navigation and its globals is unknown. */
 // FUNCTION: WIZ8 0x0044f060
-unsigned char InitializeStartupNavigation(void)
+std::uint8_t InitializeStartupNavigation(void)
 {
     W8Navigator* navigator;
 

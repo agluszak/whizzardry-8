@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "glm/ext/vector_int3.hpp"
 #include <algorithm>
 #include <array>
@@ -99,9 +100,9 @@ void stParticle::SetParticleScale(float scale)
 // FUNCTION: WIZ8 0x0049B150
 void SaveParticleStates(wiz8::File& handle)
 {
-    unsigned char version = 1;
+    std::uint8_t version = 1;
     char name[0x80] = "";
-    int count = 0;
+    std::int32_t count = 0;
 
     handle.write(&version, sizeof(version));
 
@@ -126,15 +127,15 @@ void SaveParticleStates(wiz8::File& handle)
 // FUNCTION: WIZ8 0x0049B3B0
 void LoadParticleStates(wiz8::File& handle)
 {
-    unsigned char version;
-    int count = 0;
+    std::uint8_t version;
+    std::int32_t count = 0;
     char name[0x80] = "";
 
     handle.read_exact(&version, sizeof(version));
     handle.read_exact(&count, sizeof(count));
 
-    for (int index = 0; index < count; ++index) {
-        unsigned char active;
+    for (std::int32_t index = 0; index < count; ++index) {
+        std::uint8_t active;
         handle.read_exact(name, sizeof(name));
         handle.read_exact(&active, sizeof(active));
 
@@ -145,7 +146,7 @@ void LoadParticleStates(wiz8::File& handle)
     }
 }
 
-void stParticle::AllocateParticles(unsigned int count)
+void stParticle::AllocateParticles(std::uint32_t count)
 {
     if (count >= 10000) {
         srAssertFail("cnt < 10000", ST_PARTICLE_CPP, 0x41, 0);
@@ -160,8 +161,8 @@ void stParticle::AllocateParticles(unsigned int count)
     texcoords.resize(count * 4);
     alphas.assign(count * 4, 1.0f);
     triangles.resize(count * 2);
-    for (unsigned int index = 0; index < count; ++index) {
-        int vertex = static_cast<int>(index * 4);
+    for (std::uint32_t index = 0; index < count; ++index) {
+        std::int32_t vertex = static_cast<std::int32_t>(index * 4);
         triangles[index * 2] = glm::ivec3{vertex, vertex + 1, vertex + 2};
         triangles[index * 2 + 1] = glm::ivec3{vertex + 2, vertex + 3, vertex};
         texcoords[vertex] = glm::vec2(0.0f, 0.0f);
@@ -172,7 +173,7 @@ void stParticle::AllocateParticles(unsigned int count)
 }
 
 // FUNCTION: WIZ8 0x00497AF0
-stParticle::stParticle(srNode* parent, int count)
+stParticle::stParticle(srNode* parent, std::int32_t count)
     : srClassSupport<stParticle, srNode, 0x10009>(static_cast<srNode*>(0))
 {
     setParent(parent, 1);
@@ -252,13 +253,13 @@ stParticle::stParticle(const stParticle& other)
 }
 
 // FUNCTION: WIZ8 0x00499A50
-std::optional<unsigned int> stParticle::activateParticle(bool replaceWhenFull)
+std::optional<std::uint32_t> stParticle::activateParticle(bool replaceWhenFull)
 {
     if (particle_count == 0 || (emission_limit != 0 && emission_count >= emission_limit)) {
         return std::nullopt;
     }
 
-    unsigned int index;
+    std::uint32_t index;
     for (index = 0; index < particle_count; ++index) {
         if (particle_active[index] == 0) {
             break;
@@ -270,8 +271,8 @@ std::optional<unsigned int> stParticle::activateParticle(bool replaceWhenFull)
             return std::nullopt;
         }
 
-        unsigned int oldest = 0;
-        unsigned int candidate;
+        std::uint32_t oldest = 0;
+        std::uint32_t candidate;
         for (candidate = 0; candidate < particle_count; ++candidate) {
             if (birth_ticks[candidate] < birth_ticks[oldest] && particle_active[candidate] != 0) {
                 oldest = candidate;
@@ -354,7 +355,7 @@ std::optional<unsigned int> stParticle::activateParticle(bool replaceWhenFull)
 }
 
 // FUNCTION: WIZ8 0x00499F70
-void stParticle::DeactivateParticle(unsigned int index)
+void stParticle::DeactivateParticle(std::uint32_t index)
 {
     if (particle_active[index]) {
         particle_active[index] = false;
@@ -366,14 +367,14 @@ void stParticle::DeactivateParticle(unsigned int index)
 // FUNCTION: WIZ8 0x00499FA0
 void stParticle::Update()
 {
-    unsigned int now = g_shared_timer_base->milliseconds();
+    std::uint32_t now = g_shared_timer_base->milliseconds();
     if (now - last_emitted_at < emission_gap) {
         return;
     }
 
     last_emitted_at = now;
     if (active_particle_count != 0) {
-        unsigned int elapsed_ticks = now - last_integration_tick;
+        std::uint32_t elapsed_ticks = now - last_integration_tick;
 
         glm::mat3 rotation;
         rotation = getRotation<glm::mat3>();
@@ -387,15 +388,15 @@ void stParticle::Update()
         const auto acceleration_step = glm::vec3(
             glm::dvec3(acceleration) * (elapsed * g_double_one_thousandth));
 
-        unsigned int index;
+        std::uint32_t index;
         for (index = 0; index < particle_count; ++index) {
             if (particle_active[index] == 0) {
                 continue;
             }
 
-            unsigned int vertex = index * 4;
+            std::uint32_t vertex = index * 4;
             if (expiry_mode == W8_PARTICLE_EXPIRY_TIMED) {
-                unsigned int expires_at = birth_ticks[index] + lifetime_ms;
+                std::uint32_t expires_at = birth_ticks[index] + lifetime_ms;
                 if (expires_at < now) {
                     DeactivateParticle(index);
                     continue;
@@ -463,7 +464,7 @@ void stParticle::Update()
         return;
     }
 
-    unsigned int emission_elapsed = now - last_emission_tick;
+    std::uint32_t emission_elapsed = now - last_emission_tick;
     if (emission_elapsed < emission_interval) {
         return;
     }
@@ -478,7 +479,7 @@ void stParticle::Update()
     }
 
     for (;;) {
-        unsigned int lag = now - emission_interval - last_emission_tick;
+        std::uint32_t lag = now - emission_interval - last_emission_tick;
         const auto activated = activateParticle(replace_when_full);
         if (!activated) {
             last_emission_tick = now;
@@ -560,15 +561,15 @@ void stParticle::PrepareRenderer(const glm::mat4& view)
     basis *= normalization;
     const float scale = float(particle_size) * size_scale;
     std::array<glm::vec3, 4> offsets;
-    for (unsigned corner = 0; corner < corners.size(); ++corner)
+    for (std::uint32_t corner = 0; corner < corners.size(); ++corner)
         offsets[corner] = (basis * corners[corner]) * scale;
 
     float phase = 0;
     if (flutter_mode != W8_PARTICLE_FLUTTER_NONE && flutter_period != 0)
         phase = float(g_shared_timer_base->milliseconds() % flutter_period) /
-                int(flutter_period) * g_camera_angle_period;
+                std::int32_t(flutter_period) * g_camera_angle_period;
     const float flutter = float(std::sin(phase)) * flutter_amplitude * size_scale;
-    for (unsigned index = 0; index < particle_count; ++index) {
+    for (std::uint32_t index = 0; index < particle_count; ++index) {
         auto position = particle_positions[index];
         if (flutter_mode != W8_PARTICLE_FLUTTER_NONE && velocities[index].y < 0) {
             float amount = flutter;
@@ -577,7 +578,7 @@ void stParticle::PrepareRenderer(const glm::mat4& view)
                           g_particle_flutter_displacement_scale;
             position += glm::vec3(glm::rotateY(glm::dvec3(amount, 0, 0), double(flutter_angles[index])));
         }
-        for (unsigned corner = 0; corner < corners.size(); ++corner)
+        for (std::uint32_t corner = 0; corner < corners.size(); ++corner)
             vertex_positions[index * 4 + corner] = position + offsets[corner];
     }
 }
@@ -654,14 +655,14 @@ void stParticle::SubmitToRenderer(srGERD* renderer)
     /* Two indices per surviving particle, rebuilt only after a deactivation
        has marked the pairs stale. */
     if ((update_flags & W8_PARTICLE_ACTIVE_TRIANGLES_DIRTY) != 0) {
-        unsigned int written = 0;
-        for (unsigned int index = 0; index < particle_count; ++index) {
+        std::uint32_t written = 0;
+        for (std::uint32_t index = 0; index < particle_count; ++index) {
             if (particle_active[index] != 0) {
                 active_triangles[written++] = index * 2;
                 active_triangles[written++] = index * 2 + 1;
             }
         }
-        update_flags &= ~static_cast<unsigned int>(W8_PARTICLE_ACTIVE_TRIANGLES_DIRTY);
+        update_flags &= ~static_cast<std::uint32_t>(W8_PARTICLE_ACTIVE_TRIANGLES_DIRTY);
     }
 
     renderer->pushEnable();
@@ -726,7 +727,7 @@ void stParticle::SetTexture(std::shared_ptr<srTextureIFace> texture)
     texture_frames.clear();
     if (auto* animation = sr_cast<stTextureAnim>(texture)) {
         texture_frames.resize(particle_count * 2);
-        for (unsigned int i = 0; i < texture_frames.size(); i += 2) {
+        for (std::uint32_t i = 0; i < texture_frames.size(); i += 2) {
             texture_frames[i] = texture_frames[i + 1] = std::make_shared<stTextureAnim>(*animation);
         }
     }
@@ -734,10 +735,10 @@ void stParticle::SetTexture(std::shared_ptr<srTextureIFace> texture)
 }
 
 // FUNCTION: WIZ8 0x0049acd0
-void stParticle::SetActive(unsigned char active)
+void stParticle::SetActive(std::uint8_t active)
 {
     if (active != 0 && emitting == 0) {
-        unsigned int now = g_shared_timer_base->milliseconds();
+        std::uint32_t now = g_shared_timer_base->milliseconds();
         last_integration_tick = now;
         last_emission_tick = now;
     }
@@ -745,7 +746,7 @@ void stParticle::SetActive(unsigned char active)
 }
 
 // FUNCTION: WIZ8 0x0049ac30
-unsigned char stParticle::ReplaceTexture(const char* old_name,
+std::uint8_t stParticle::ReplaceTexture(const char* old_name,
                                          std::shared_ptr<srTextureIFace> replacement)
 {
     if ((sr_cast<stTextureFile>(texture) || sr_cast<stTextureAnim>(texture)) &&

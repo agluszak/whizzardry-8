@@ -96,10 +96,10 @@
 
 srModelInstance* Video2DRectToSquarePolygon(const W8ControlsRect* rect, SDL_Surface& source,
                                             srNode* parent,
-                                            unsigned char overlay);
+                                            std::uint8_t overlay);
 srModelInstance* Video2DRectToPolygon(const W8ControlsRect* rect, SDL_Surface& source,
-                                      srNode* parent, unsigned char overlay);
-unsigned char CopySurfaceWithBorder(srColorSurface* surface, const W8ControlsRect* rect,
+                                      srNode* parent, std::uint8_t overlay);
+std::uint8_t CopySurfaceWithBorder(srColorSurface* surface, const W8ControlsRect* rect,
                                     SDL_Surface& source, float* scale_x, float* scale_y,
                                     float* mapping_x, float* mapping_y);
 void SaveJpegScreenshot(void);
@@ -118,39 +118,39 @@ SDL_Window* ghWindow;
 // GLOBAL: WIZ8 0x603c38
 bool g_world_pick_enabled = true;
 // GLOBAL: WIZ8 0x603c4c
-unsigned char g_fullscreen_scene_last = 1;
+std::uint8_t g_fullscreen_scene_last = 1;
 // GLOBAL: WIZ8 0x603c60
 bool g_cursor_scene_enabled = true;
 // GLOBAL: WIZ8 0x603c6d
 bool g_overlay_scenes_enabled = true;
 // GLOBAL: WIZ8 0x603c68
-int g_frame_reset_interval = 50;
+std::int32_t g_frame_reset_interval = 50;
 // GLOBAL: WIZ8 0x603c39
-unsigned char g_fullscreen = 1;
+std::uint8_t g_fullscreen = 1;
 // GLOBAL: WIZ8 0x603c3a
 bool g_flush_pending = true;
 // GLOBAL: WIZ8 0x603c3c
-int g_screen_width = 640;
+std::int32_t g_screen_width = 640;
 // GLOBAL: WIZ8 0x603c40
-int g_screen_height = 480;
+std::int32_t g_screen_height = 480;
 // GLOBAL: WIZ8 0x603c44
-int g_screen_depth = 16;
+std::int32_t g_screen_depth = 16;
 // GLOBAL: WIZ8 0x603c48
-int g_pixel_format = 9;
+std::int32_t g_pixel_format = 9;
 // GLOBAL: WIZ8 0x603d74
-int g_renderer_mode = 1;
+std::int32_t g_renderer_mode = 1;
 // GLOBAL: WIZ8 0x65962c
 srModelInstance* g_current_model_instance;
 // GLOBAL: WIZ8 0x6596fc
-int g_fps_frame_count;
+std::int32_t g_fps_frame_count;
 // GLOBAL: WIZ8 0x659700
-uint64_t g_fps_window_tick;
+std::uint64_t g_fps_window_tick;
 /* Per-page counters reset as each overlay page is retired; retail stores
    through g_active_page as an index, so this is one two-entry array. */
 // GLOBAL: WIZ8 0x6596dc
-int g_overlay_page_counters[2];
+std::int32_t g_overlay_page_counters[2];
 // GLOBAL: WIZ8 0x6596e8
-unsigned char g_page_full_redraw[2];
+std::uint8_t g_page_full_redraw[2];
 // GLOBAL: WIZ8 0x6595f8
 // GLOBAL: WIZ8 0x659710
 bool g_video_active;
@@ -174,7 +174,7 @@ static SDLSurfaceOwner primarySurface{nullptr, SDL_DestroySurface};
 SDLSurfaceOwner videoSurfaceOwner{nullptr, SDL_DestroySurface};
 
 // GLOBAL: WIZ8 0x600088
-unsigned int g_color_key = 0x3def;
+std::uint32_t g_color_key = 0x3def;
 // GLOBAL: WIZ8 0x65963c
 srModeler* g_modeler;
 // GLOBAL: WIZ8 0x659640
@@ -210,9 +210,9 @@ std::shared_ptr<srMaterial> g_blit_material;
 // GLOBAL: WIZ8 0x654adc
 srNode* g_surface_nodes[0x12c0];
 // GLOBAL: WIZ8 0x6595dc
-int g_surface_opaque_shader_bits;
+std::int32_t g_surface_opaque_shader_bits;
 // GLOBAL: WIZ8 0x654ad8
-int g_surface_alpha_blend_shader_bits;
+std::int32_t g_surface_alpha_blend_shader_bits;
 // GLOBAL: WIZ8 0x6595e8
 W8ViewportRect g_viewport;
 // GLOBAL: WIZ8 0x00659AB4
@@ -227,25 +227,25 @@ extern const float g_viewport_x_scale = 1.0f / 640.0f;
 extern const float g_viewport_y_scale = 1.0f / 480.0f;
 
 // GLOBAL: WIZ8 0x652ddc
-unsigned char g_tile_dirty_flags[0x12c0];
+std::uint8_t g_tile_dirty_flags[0x12c0];
 // GLOBAL: WIZ8 0x006596e4
-unsigned int g_active_page;
+std::uint32_t g_active_page;
 // GLOBAL: WIZ8 0x006596d4
-int g_video_inspector_mode;
+std::int32_t g_video_inspector_mode;
 // GLOBAL: WIZ8 0x6596d8
-int g_dirty_tile_count;
+std::int32_t g_dirty_tile_count;
 // GLOBAL: WIZ8 0x006596ec
-int g_overlay_render_mode;
+std::int32_t g_overlay_render_mode;
 // GLOBAL: WIZ8 0x006596f0
-int g_paired_render_mode;
+std::int32_t g_paired_render_mode;
 // GLOBAL: WIZ8 0x659668
-const int* g_overlay_viewport;
+const std::int32_t* g_overlay_viewport;
 // GLOBAL: WIZ8 0x65966c
 srClass* g_render_object0;
 // GLOBAL: WIZ8 0x659678
 srClass* g_render_object1;
 // GLOBAL: WIZ8 0x65409c
-uint64_t g_last_capture_tick;
+std::uint64_t g_last_capture_tick;
 // GLOBAL: WIZ8 0x659704
 float g_frames_per_second;
 // GLOBAL: WIZ8 0x659708
@@ -263,26 +263,26 @@ std::shared_ptr<srTexture> g_cursor_texture;
 // GLOBAL: WIZ8 0x659694
 srModelInstance* g_cursor_node;
 // GLOBAL: WIZ8 0x659698
-uint64_t g_cursor_move_tick;
+std::uint64_t g_cursor_move_tick;
 // GLOBAL: WIZ8 0x654ad0
-int g_cursor_width;
+std::int32_t g_cursor_width;
 // GLOBAL: WIZ8 0x654ad4
-int g_cursor_height;
+std::int32_t g_cursor_height;
 // GLOBAL: WIZ8 0x6596b4
-int g_cursor_image_width;
+std::int32_t g_cursor_image_width;
 // GLOBAL: WIZ8 0x6596b8
-int g_cursor_image_height;
+std::int32_t g_cursor_image_height;
 // GLOBAL: WIZ8 0x00603c50
 double g_cursor_image_u_extent = 1.0;
 // GLOBAL: WIZ8 0x00603c58
 double g_cursor_image_v_extent = 1.0;
 // GLOBAL: WIZ8 0x6596bc
-int g_cursor_hotspot_x;
+std::int32_t g_cursor_hotspot_x;
 // GLOBAL: WIZ8 0x6596c0
-int g_cursor_hotspot_y;
+std::int32_t g_cursor_hotspot_y;
 
 // FUNCTION: WIZ8 0x00428ab0
-void AssertFailureHandler(const char* expression, const char* file, w8_long line, const char* message)
+void AssertFailureHandler(const char* expression, const char* file, std::int32_t line, const char* message)
 {
     char text[2048];
     strcpy(text, "ERROR: You are viewing a message intended for the developers of "
@@ -306,10 +306,10 @@ void AssertFailureHandler(const char* expression, const char* file, w8_long line
 
 /* Reset both framebuffer pages and discard transient scene instances.
    Callers select whether to invalidate all dirty blocks or the normal region. */
-static void ResetVideoDirtyState(int invalidate_flag)
+static void ResetVideoDirtyState(std::int32_t invalidate_flag)
 {
     memset(g_tile_dirty_flags, 0, sizeof(g_tile_dirty_flags));
-    const unsigned int active = g_active_page;
+    const std::uint32_t active = g_active_page;
     g_page_full_redraw[active ^ 1] = 0;
     g_page_full_redraw[active] = 0;
     g_dirty_tile_count = 0;
@@ -468,7 +468,7 @@ void Initialize16BitPixelFormatMasks(void)
    is preserved here; AdjustWindowRect turns the four stored client bounds into
    the outer window rectangle before CreateWindowEx. */
 // FUNCTION: WIZ8 0x00425ec0
-unsigned char CreateWizardryWindow(void)
+std::uint8_t CreateWizardryWindow(void)
 {
     ghWindow = W8CreateGameWindow(g_screen_width, g_screen_height, g_fullscreen != 0);
     return ghWindow != 0;
@@ -481,7 +481,7 @@ void ReleasePrimarySurface(void)
     primarySurface.reset();
 }
 
-unsigned char InitializePrimarySurface(void)
+std::uint8_t InitializePrimarySurface(void)
 {
     if (g_sgp_pixel_format == SDL_PIXELFORMAT_UNKNOWN)
         return 0;
@@ -506,7 +506,7 @@ bool SetupDisablesAudio()
 }
 
 // FUNCTION: WIZ8 0x00422240
-unsigned char InitializeVideoDevice(void)
+std::uint8_t InitializeVideoDevice(void)
 try
 {
     std::istringstream config;
@@ -563,7 +563,7 @@ try
     }
 
     // reinterpret-ok: SurRender takes the window handle as an integer
-    if (g_gerd->createContext(reinterpret_cast<w8_ulong_ptr>(ghWindow)) != srGERD::ERROR_NONE ||
+    if (g_gerd->createContext(reinterpret_cast<std::uintptr_t>(ghWindow)) != srGERD::ERROR_NONE ||
         !OpenRendererWindow()) return 0;
     srAssertSetFunc(AssertFailureHandler);
     s_setup_disables_audio = _strnicmp(audio_setting, "none", 4) == 0;
@@ -574,7 +574,7 @@ catch (const std::exception&) { return false; }
 /* Applies the configured window style, asks SurRender for the matching display
    mode in fullscreen operation, and opens the renderer output window. */
 // FUNCTION: WIZ8 0x00422800
-unsigned char OpenRendererWindow(void)
+std::uint8_t OpenRendererWindow(void)
 {
     if (!W8ConfigureGameWindow(ghWindow, g_fullscreen != 0, g_screen_width, g_screen_height))
         return 0;
@@ -594,7 +594,7 @@ SDL_Surface* BeginVideoPresentation(void)
 }
 
 // FUNCTION: WIZ8 0x004234A0
-unsigned char FinishVideoPresentation(void)
+std::uint8_t FinishVideoPresentation(void)
 {
     videoSurfaceOwner.reset();
     g_flush_pending = true;
@@ -693,7 +693,7 @@ bool RestoreVideoManager(void)
 /* The mode the engine falls back to: 640x480 at 16bpp, reported height first.
    Nothing here reads a configuration - the three constants are inline. */
 // FUNCTION: WIZ8 0x00422af0
-void GetCurrentVideoSettings(unsigned short* height, unsigned short* width, unsigned char* depth)
+void GetCurrentVideoSettings(std::uint16_t* height, std::uint16_t* width, std::uint8_t* depth)
 {
     *height = 0x1e0;
     *width = 0x280;
@@ -701,7 +701,7 @@ void GetCurrentVideoSettings(unsigned short* height, unsigned short* width, unsi
 }
 
 // FUNCTION: WIZ8 0x00421ff0
-unsigned char ClearPrimarySurface(void)
+std::uint8_t ClearPrimarySurface(void)
 {
     SDL_FillSurfaceRect(primarySurface.get(), nullptr, 0);
     return 1;
@@ -737,19 +737,19 @@ static RuntimeWorldRenderData ObserveWorldRenderState();
 #endif
 
 // FUNCTION: WIZ8 0x00427850
-void RenderScene(srScene* scene, srCamera* camera, const int* viewport, bool preserve_fog)
+void RenderScene(srScene* scene, srCamera* camera, const std::int32_t* viewport, bool preserve_fog)
 {
-    w8_ulong width = g_gerd->getWidth();
-    w8_ulong height = g_gerd->getHeight();
+    std::uint32_t width = g_gerd->getWidth();
+    std::uint32_t height = g_gerd->getHeight();
 
     if (scene == 0 || scene->getChildCount() == 0) {
         return;
     }
     if (viewport != 0) {
-        w8_ulong left = viewport[0] * width / 640;
-        w8_ulong top = viewport[1] * height / 480;
-        w8_ulong viewport_width = (viewport[2] - viewport[0]) * width / 640;
-        w8_ulong viewport_height = (viewport[3] - viewport[1]) * height / 480;
+        std::uint32_t left = viewport[0] * width / 640;
+        std::uint32_t top = viewport[1] * height / 480;
+        std::uint32_t viewport_width = (viewport[2] - viewport[0]) * width / 640;
+        std::uint32_t viewport_height = (viewport[3] - viewport[1]) * height / 480;
         g_gerd->setViewPort(left, top, viewport_width, viewport_height);
         g_gerd->setScissor(left, top, viewport_width, viewport_height);
 #ifdef WIZ8_RUNTIME_TESTS
@@ -787,7 +787,7 @@ static RuntimeWorldRenderData ObserveWorldRenderState()
                  (g_render_mesh_sky ? 16UL : 0UL) | (g_world_pick_enabled ? 32UL : 0UL);
     data.scene_children = g_world->static_scene->getChildCount();
     if (g_world->octree != 0 && !g_world->psrMeshes.empty()) {
-        for (w8_ulong index = 0; index < g_world->octree->m_meshCount; ++index) {
+        for (std::uint32_t index = 0; index < g_world->octree->m_meshCount; ++index) {
             srModelInstance* instance = g_world->psrMeshes[index];
             if (instance != 0 && !instance->testFlag(srNode::FLAG_DISABLE)) {
                 ++data.visible_meshes;
@@ -823,8 +823,8 @@ void RenderFrame(void)
     EnvironmentColour clear_color;
     srVector3T<float> saved_world_position;
     srVector3T<float> shifted_world_position;
-    unsigned int next_page;
-    w8_ulong now;
+    std::uint32_t next_page;
+    std::uint32_t now;
     float elapsed;
     float frames_per_second;
     srScene* first_page;
@@ -874,8 +874,8 @@ void RenderFrame(void)
         }
     } else if (g_world_blacked_out || !g_render_mesh_sky || g_secondary_world == 0) {
     clear_viewport: {
-        w8_ulong height = g_gerd->getHeight();
-        w8_ulong width = g_gerd->getWidth();
+        std::uint32_t height = g_gerd->getHeight();
+        std::uint32_t width = g_gerd->getWidth();
         g_gerd->setScissor(g_viewport.left * width / 640, g_viewport.top * height / 480,
                            (g_viewport.right - g_viewport.left) * width / 640,
                            (g_viewport.bottom - g_viewport.top) * height / 480);
@@ -906,8 +906,8 @@ void RenderFrame(void)
             g_viewport.bottom < g_cursor_hotspot_y + g_cursor_height) {
             RenderScene(g_world->static_scene, g_world->camera, &g_viewport.left, true);
         } else {
-            int half_width = (g_viewport.right - g_viewport.left) / 2;
-            int half_height = (g_viewport.bottom - g_viewport.top) / 2;
+            std::int32_t half_width = (g_viewport.right - g_viewport.left) / 2;
+            std::int32_t half_height = (g_viewport.bottom - g_viewport.top) / 2;
             srGERD::Pick pick;
             pick.position.x = (g_cursor_hotspot_x - half_width - g_viewport.left + g_cursor_width) /
                               static_cast<float>(half_width);
@@ -934,7 +934,7 @@ void RenderFrame(void)
     if (getenv("WIZ8_RUNTIME_HIDE_OVERLAY") == 0)
 #endif
         if (g_overlay_scenes_enabled) {
-            const int* overlay_viewport = g_overlay_viewport;
+            const std::int32_t* overlay_viewport = g_overlay_viewport;
             if (!g_fullscreen_scene_last) {
                 RenderScene(g_scene_fullscreen, g_overlay_camera, overlay_viewport, false);
             }
@@ -996,7 +996,7 @@ void RenderFrame(void)
    otherwise the stored game viewport globals apply. SaveGame uses it for the
    SHOT screenshot; the automap uses it for its backdrop. */
 // FUNCTION: WIZ8 0x00426f80
-unsigned char RenderWorldToSurface(srColorSurface* target, W8ScreenRect* rect,
+std::uint8_t RenderWorldToSurface(srColorSurface* target, W8ScreenRect* rect,
                                    bool render_secondary)
 {
     srGERD* gerd = g_secondary_gerd;
@@ -1125,7 +1125,7 @@ void SetWorldModelPickingEnabled(bool enabled)
 // FUNCTION: WIZ8 0x00424EB0
 srModelInstance* MakePolygonBrush(srNode* parent, std::shared_ptr<srColorSurfaceIFace> surface, double width,
                                   double height, float mapping_x, float mapping_y,
-                                  float mapping_width, float mapping_height, unsigned char overlay)
+                                  float mapping_width, float mapping_height, std::uint8_t overlay)
 {
     std::shared_ptr<srMeshModel> model;
     stModelInstance2D* instance;
@@ -1166,8 +1166,8 @@ srModelInstance* MakePolygonBrush(srNode* parent, std::shared_ptr<srColorSurface
     instance = new stModelInstance2D(parent);
     instance->setName("Video2DMakePolygonBrush");
     instance->SetModel(model);
-    instance->configure2D(static_cast<unsigned short>(width * 640.0),
-                          static_cast<unsigned short>(height * 480.0));
+    instance->configure2D(static_cast<std::uint16_t>(width * 640.0),
+                          static_cast<std::uint16_t>(height * 480.0));
     return instance;
 }
 
@@ -1177,8 +1177,8 @@ stModelInstance2D* CreateSpriteFromTexture(std::shared_ptr<srTextureIFace> textu
                                            bool keep_aspect, bool overlay)
 {
     srShader shader;
-    int w = static_cast<int>(width * 640.0);
-    int h = static_cast<int>(height * 480.0);
+    std::int32_t w = static_cast<std::int32_t>(width * 640.0);
+    std::int32_t h = static_cast<std::int32_t>(height * 480.0);
 
     auto model = std::make_shared<srMeshModel>(0L, 0L);
     model->setName("Video2DMakePolygonBrush");
@@ -1204,8 +1204,8 @@ stModelInstance2D* CreateSpriteFromTexture(std::shared_ptr<srTextureIFace> textu
 
     stModelInstance2D* instance = new stModelInstance2D(0);
     if (instance) {
-        instance->render_state.width = static_cast<unsigned short>(w);
-        instance->render_state.height = static_cast<unsigned short>(h);
+        instance->render_state.width = static_cast<std::uint16_t>(w);
+        instance->render_state.height = static_cast<std::uint16_t>(h);
         instance->setName("Video2DMakePolygonBrush");
         instance->SetModel(model);
         if (overlay) {
@@ -1217,7 +1217,7 @@ stModelInstance2D* CreateSpriteFromTexture(std::shared_ptr<srTextureIFace> textu
 
 // FUNCTION: WIZ8 0x00484A40
 bool BlitVideoObjectToColorSurface(const SpriteSheet& sprites, std::uint16_t region,
-                                   srColorSurface& destination, int x, int y)
+                                   srColorSurface& destination, std::int32_t x, std::int32_t y)
 {
     if (region >= sprites.frames.size()) {
         return false;
@@ -1235,7 +1235,7 @@ bool BlitVideoObjectToColorSurface(const SpriteSheet& sprites, std::uint16_t reg
     return true;
 }
 
-static void MoveSystemCursor(int x, int y)
+static void MoveSystemCursor(std::int32_t x, std::int32_t y)
 {
     /* The client space is the fixed 640x480 design space, so client and
        screen coordinates coincide. */
@@ -1243,9 +1243,9 @@ static void MoveSystemCursor(int x, int y)
 }
 
 // FUNCTION: WIZ8 0x00427c90
-bool ResizeMouseCursorSurface(int width, int height)
+bool ResizeMouseCursorSurface(std::int32_t width, std::int32_t height)
 {
-    int extent;
+    std::int32_t extent;
     float mapping_scale;
 
     if (g_cursor_image_width == width && g_cursor_image_height == height) {
@@ -1286,10 +1286,10 @@ bool ResizeMouseCursorSurface(int width, int height)
 /* Move the OS/system cursor when the hotspot changes, then resync the rendered
    cursor. */
 // FUNCTION: WIZ8 0x00427f00
-void SetMouseCursorHotspot(short hotspot_x, short hotspot_y)
+void SetMouseCursorHotspot(std::int16_t hotspot_x, std::int16_t hotspot_y)
 {
-    int x;
-    int y;
+    std::int32_t x;
+    std::int32_t y;
 
     if (g_cursor_hotspot_x != hotspot_x || g_cursor_hotspot_y != hotspot_y) {
         x = g_cursor_width - hotspot_x + g_cursor_hotspot_x;
@@ -1305,8 +1305,8 @@ void SetMouseCursorHotspot(short hotspot_x, short hotspot_y)
 bool SetMouseCursorFromVideoObject(const SpriteSheet& sprites, std::uint16_t region,
                                    std::int16_t offset_x, std::int16_t offset_y)
 {
-    int x;
-    int y;
+    std::int32_t x;
+    std::int32_t y;
 
     if (region >= sprites.frames.size()) {
         return false;
@@ -1370,20 +1370,20 @@ bool IsCursorImageInsideViewport(void)
 // FUNCTION: WIZ8 0x00428070
 bool IsCursorInsideViewport(void)
 {
-    int x = g_cursor_hotspot_x + g_cursor_width;
-    int y = g_cursor_hotspot_y + g_cursor_height;
+    std::int32_t x = g_cursor_hotspot_x + g_cursor_width;
+    std::int32_t y = g_cursor_hotspot_y + g_cursor_height;
     return x >= g_viewport.left && y >= g_viewport.top && x <= g_viewport.right &&
            y <= g_viewport.bottom;
 }
 
 // FUNCTION: WIZ8 0x004280c0
-void WarpSystemCursor(int x, int y)
+void WarpSystemCursor(std::int32_t x, std::int32_t y)
 {
     WarpGameMouse(ghWindow, x, y);
 }
 
 // FUNCTION: WIZ8 0x00428140
-void PositionMouseCursor(int width, int height, bool reset_tick)
+void PositionMouseCursor(std::int32_t width, std::int32_t height, bool reset_tick)
 {
     glm::dvec3 location;
 
@@ -1405,7 +1405,7 @@ void PositionMouseCursor(int width, int height, bool reset_tick)
 /* Milliseconds since the cursor last moved (or was repositioned with the
    reset-tick arm). */
 // FUNCTION: WIZ8 0x00428220
-unsigned int GetMillisecondsSinceCursorMove(void)
+std::uint32_t GetMillisecondsSinceCursorMove(void)
 {
     return w8_get_ticks() - g_cursor_move_tick;
 }
@@ -1413,10 +1413,10 @@ unsigned int GetMillisecondsSinceCursorMove(void)
 /* The tracked cursor as viewport-relative 0..1 coordinates, or zero when it
    lies outside. Same tracked position and viewport as the query above. */
 // FUNCTION: WIZ8 0x00428230
-unsigned char GetCursorPositionInViewport(glm::vec2* position)
+std::uint8_t GetCursorPositionInViewport(glm::vec2* position)
 {
-    int x = g_cursor_hotspot_x + g_cursor_width;
-    int y = g_cursor_hotspot_y + g_cursor_height;
+    std::int32_t x = g_cursor_hotspot_x + g_cursor_width;
+    std::int32_t y = g_cursor_hotspot_y + g_cursor_height;
     if (x >= g_viewport.left && y >= g_viewport.top && x <= g_viewport.right &&
         y <= g_viewport.bottom) {
         position->x =
@@ -1480,7 +1480,7 @@ void SGPMouseGetPos(SDL_Point* point)
 }
 
 // FUNCTION: WIZ8 0x00428520
-bool IsCursorInRectangle(int left, int top, int right, int bottom)
+bool IsCursorInRectangle(std::int32_t left, std::int32_t top, std::int32_t right, std::int32_t bottom)
 {
     SDL_Point point;
 
@@ -1491,20 +1491,20 @@ bool IsCursorInRectangle(int left, int top, int right, int bottom)
 /* The atom's packed mouse position plus the cursor hotspot, split into the
    screen-space x and y region input works in. */
 // FUNCTION: WIZ8 0x00428580
-int GetEventCursorX(const InputEvent* atom)
+std::int32_t GetEventCursorX(const InputEvent* atom)
 {
     return atom->position.x + g_cursor_hotspot_x;
 }
 
 // FUNCTION: WIZ8 0x004285a0
-int GetEventCursorY(const InputEvent* atom)
+std::int32_t GetEventCursorY(const InputEvent* atom)
 {
     return atom->position.y + g_cursor_hotspot_y;
 }
 
 /* Creates the shipped 128x128 mouse polygon inside its dedicated scene. */
 // FUNCTION: WIZ8 0x004285c0
-unsigned char InitializeMouseCursorScene(void)
+std::uint8_t InitializeMouseCursorScene(void)
 {
     srScene* cursor_scene = new srScene(static_cast<srNode*>(0));
     cursor_scene->setAmbientLight(0.0f, 0.0f, 0.0f);
@@ -1545,7 +1545,7 @@ unsigned char InitializeMouseCursorScene(void)
  */
 
 // GLOBAL: WIZ8 0x65970d
-unsigned char g_world_render_enabled;
+std::uint8_t g_world_render_enabled;
 // GLOBAL: WIZ8 0x6596ea
 bool g_viewport_tiles_dirty;
 /* The initial full-screen invalidation runs before any 2D node occupies the
@@ -1560,7 +1560,7 @@ void ReleaseSurfaceNode(srNode* node)
     if (node == 0) {
         return;
     }
-    for (int index = 0; index < 0x12c0; ++index) {
+    for (std::int32_t index = 0; index < 0x12c0; ++index) {
         if (g_surface_nodes[index] == node) {
             g_surface_nodes[index] = 0;
             g_tile_dirty_flags[index] = 0;
@@ -1578,17 +1578,17 @@ void ReleaseSurfaceNode(srNode* node)
 }
 
 // FUNCTION: WIZ8 0x004259b0
-static void InvalidateDirtyTile(int cell, unsigned int flags)
+static void InvalidateDirtyTile(std::int32_t cell, std::uint32_t flags)
 {
     stModelInstance2D* node = static_cast<stModelInstance2D*>(g_surface_nodes[cell]);
 
     if (node != 0) {
-        short position_x = node->render_state.position_x;
-        short position_y = node->render_state.position_y;
-        int columns = node->GetScaledWidth() >> 3;
-        int rows = node->GetScaledHeight() >> 3;
+        std::int16_t position_x = node->render_state.position_x;
+        std::int16_t position_y = node->render_state.position_y;
+        std::int32_t columns = node->GetScaledWidth() >> 3;
+        std::int32_t rows = node->GetScaledHeight() >> 3;
 
-        for (int index = 0; index != 0x12c0; ++index) {
+        for (std::int32_t index = 0; index != 0x12c0; ++index) {
             if (g_surface_nodes[index] == node) {
                 g_surface_nodes[index] = 0;
                 g_tile_dirty_flags[index] = 0;
@@ -1602,23 +1602,23 @@ static void InvalidateDirtyTile(int cell, unsigned int flags)
             }
         }
         delete node;
-        int start = (position_y >> 3) * 0x50 + (position_x >> 3);
-        for (int row = rows; row != 0; --row) {
-            int row_cell = start;
-            for (int column = columns; column != 0; --column) {
+        std::int32_t start = (position_y >> 3) * 0x50 + (position_x >> 3);
+        for (std::int32_t row = rows; row != 0; --row) {
+            std::int32_t row_cell = start;
+            for (std::int32_t column = columns; column != 0; --column) {
                 InvalidateDirtyTile(row_cell, 0);
                 ++row_cell;
             }
             start += 0x50;
         }
     }
-    unsigned char state = g_tile_dirty_flags[cell] | static_cast<unsigned char>(flags) | 0x40;
+    std::uint8_t state = g_tile_dirty_flags[cell] | static_cast<std::uint8_t>(flags) | 0x40;
     g_tile_dirty_flags[cell] = state;
     ++g_dirty_tile_count;
-    int bottom = (cell / 0x50) * 8 + 8;
-    int top = (cell / 0x50) * 8;
-    int right = (cell % 0x50) * 8 + 8;
-    int left = (cell % 0x50) * 8;
+    std::int32_t bottom = (cell / 0x50) * 8 + 8;
+    std::int32_t top = (cell / 0x50) * 8;
+    std::int32_t right = (cell % 0x50) * 8 + 8;
+    std::int32_t left = (cell % 0x50) * 8;
     if (g_world_render_enabled &&
         ((g_viewport.left <= left && left <= g_viewport.right) ||
          (g_viewport.left <= right && right <= g_viewport.right)) &&
@@ -1630,12 +1630,12 @@ static void InvalidateDirtyTile(int cell, unsigned int flags)
 }
 
 // FUNCTION: WIZ8 0x00422d50
-void InvalidateRegion(int left, int top, int right, int bottom, unsigned int flags)
+void InvalidateRegion(std::int32_t left, std::int32_t top, std::int32_t right, std::int32_t bottom, std::uint32_t flags)
 {
-    unsigned char cell_flags;
-    unsigned int clipped_left;
-    unsigned int clipped_right;
-    unsigned int x;
+    std::uint8_t cell_flags;
+    std::uint32_t clipped_left;
+    std::uint32_t clipped_right;
+    std::uint32_t x;
 
     cell_flags = 0;
     if (g_page_full_redraw[g_active_page] == 0) {
@@ -1645,7 +1645,7 @@ void InvalidateRegion(int left, int top, int right, int bottom, unsigned int fla
            <= 0 rather than < 1: the two are the same test and VC6 encodes them
            differently, setle against setl. */
         clipped_left = left <= 0 ? 0 : left;
-        if (static_cast<int>(clipped_left) > 0x27f) {
+        if (static_cast<std::int32_t>(clipped_left) > 0x27f) {
             clipped_left = 0x280;
         }
         top = top <= 0 ? 0 : top;
@@ -1664,7 +1664,7 @@ void InvalidateRegion(int left, int top, int right, int bottom, unsigned int fla
         } else {
             bottom = 0x1e0;
         }
-        if (static_cast<int>(clipped_right - clipped_left) > 0 && bottom - top > 0) {
+        if (static_cast<std::int32_t>(clipped_right - clipped_left) > 0 && bottom - top > 0) {
             if (clipped_right - clipped_left == 0x280 && bottom - top == 0x1e0) {
                 g_page_full_redraw[g_active_page] = 1;
             }
@@ -1675,12 +1675,12 @@ void InvalidateRegion(int left, int top, int right, int bottom, unsigned int fla
                 cell_flags |= 2;
             }
             for (; top < bottom; top = top + 8) {
-                if (static_cast<int>(clipped_left) < static_cast<int>(clipped_right)) {
+                if (static_cast<std::int32_t>(clipped_left) < static_cast<std::int32_t>(clipped_right)) {
                     x = clipped_left;
                     do {
-                        InvalidateDirtyTile(static_cast<int>(x) / 8 + (top / 8) * 0x50, cell_flags);
+                        InvalidateDirtyTile(static_cast<std::int32_t>(x) / 8 + (top / 8) * 0x50, cell_flags);
                         x += 8;
-                    } while (static_cast<int>(x) < static_cast<int>(clipped_right));
+                    } while (static_cast<std::int32_t>(x) < static_cast<std::int32_t>(clipped_right));
                 }
             }
         }
@@ -1689,9 +1689,9 @@ void InvalidateRegion(int left, int top, int right, int bottom, unsigned int fla
 
 /* Invalidate each rectangle in a run; a flagged region cancels the rest. */
 // FUNCTION: WIZ8 0x00422ec0
-void InvalidateScreenRects(W8ScreenRect* rects, unsigned int count, int flags)
+void InvalidateScreenRects(W8ScreenRect* rects, std::uint32_t count, std::int32_t flags)
 {
-    unsigned int index;
+    std::uint32_t index;
 
     for (index = 0; index < count; ++index) {
         if (g_page_full_redraw[g_active_page] != 0) {
@@ -1712,20 +1712,20 @@ void FlushDirtyTiles(void)
         return;
     }
     const auto& description = *primarySurface;
-    for (int row = 0; row != 60; ++row) {
-        int column = 0;
+    for (std::int32_t row = 0; row != 60; ++row) {
+        std::int32_t column = 0;
         while (column < 80) {
-            int cell = row * 80 + column;
+            std::int32_t cell = row * 80 + column;
             if ((g_tile_dirty_flags[cell] & 0x40) == 0) {
                 ++column;
                 continue;
             }
 
-            int width = 0;
+            std::int32_t width = 0;
             while (column + width < 80 && (g_tile_dirty_flags[cell + width] & 0x40) != 0) {
                 ++width;
             }
-            int height = 0;
+            std::int32_t height = 0;
             while (row + height < 60 && (g_tile_dirty_flags[cell + height * 80] & 0x40) != 0) {
                 ++height;
             }
@@ -1733,8 +1733,8 @@ void FlushDirtyTiles(void)
             g_surface_node->updateRectangle(g_gerd, description.pixels, description.pitch,
                                             column * 8, row * 8, (column + width) * 8,
                                             (row + height) * 8);
-            for (int y = 0; y != height; ++y) {
-                for (int x = 0; x != width; ++x) {
+            for (std::int32_t y = 0; y != height; ++y) {
+                for (std::int32_t x = 0; x != width; ++x) {
                     g_tile_dirty_flags[cell + y * 80 + x] &= 0x3f;
                 }
             }
@@ -1748,7 +1748,7 @@ void FlushDirtyTiles(void)
 /* Scale a 640x480 design-space rect onto the GERD viewport and remember it;
    no-ops when the stored bounds already match. */
 // FUNCTION: WIZ8 0x00425C90
-void SetAutomapScaledViewport(int left, int top, int right, int bottom)
+void SetAutomapScaledViewport(std::int32_t left, std::int32_t top, std::int32_t right, std::int32_t bottom)
 {
     if (left == g_viewport.left && top == g_viewport.top && right == g_viewport.right &&
         bottom == g_viewport.bottom) {
@@ -1766,7 +1766,7 @@ void SetAutomapScaledViewport(int left, int top, int right, int bottom)
 /* Sets the viewport and rebuilds the camera view plane to match it. */
 
 // FUNCTION: WIZ8 0x00426250
-void SetViewport(int left, int top, int right, int bottom)
+void SetViewport(std::int32_t left, std::int32_t top, std::int32_t right, std::int32_t bottom)
 {
     float fractional_left;
     float fractional_top;
@@ -1820,15 +1820,15 @@ void PrintScreen(void)
    the frame-rate line always, the object/poly/vertex counters, texture and
    pagefile memory in mode 2, or the scaled camera position in mode 3. */
 // FUNCTION: WIZ8 0x00427460
-void DrawVideoInspector(int left, unsigned int top)
+void DrawVideoInspector(std::int32_t left, std::uint32_t top)
 {
     srVector3T<float> position;
-    unsigned int bottom;
-    unsigned char* row;
-    int rows;
+    std::uint32_t bottom;
+    std::uint8_t* row;
+    std::int32_t rows;
     /* Retail left the band height uninitialised for inspector modes outside
        1..3 and read that storage into bottom; natively it starts at zero. */
-    int height = 0;
+    std::int32_t height = 0;
 
     if (g_video_inspector_mode == 1) {
         height = 0xb;
@@ -1841,7 +1841,7 @@ void DrawVideoInspector(int left, unsigned int top)
     const auto& description = *primarySurface;
     if (description.pixels != 0) {
         if (top < bottom) {
-            row = static_cast<unsigned char*>(description.pixels) + description.pitch * top +
+            row = static_cast<std::uint8_t*>(description.pixels) + description.pitch * top +
                   left * 2;
             for (rows = bottom - top; rows != 0; --rows) {
                 memset(row, 0, 0x226);
@@ -1853,8 +1853,8 @@ void DrawVideoInspector(int left, unsigned int top)
     if (g_gerd != 0) {
         const auto statistics = g_gerd->getStatistics();
         g_smfnt_font.setPalette(g_font_state_palettes[W8_FONT_PALETTE_YELLOW]);
-        const int text_left = static_cast<int>(left);
-        const int text_top = static_cast<int>(top);
+        const std::int32_t text_left = static_cast<std::int32_t>(left);
+        const std::int32_t text_top = static_cast<std::int32_t>(top);
         DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font, {text_left, text_top},
                               fmt::format("FR: {:4.1f}", g_frames_per_second));
         if (g_video_inspector_mode == 2) {
@@ -1883,7 +1883,7 @@ void DrawVideoInspector(int left, unsigned int top)
             DrawTextAndInvalidate(
                 GetFrameBufferSurface(), g_smfnt_font, {text_left, text_top + 0x78},
                 fmt::format("MM: {:d}K",
-                            static_cast<unsigned int>(g_decompressed_mesh_bytes) >> 10));
+                            static_cast<std::uint32_t>(g_decompressed_mesh_bytes) >> 10));
             return;
         }
         if (g_video_inspector_mode == 3) {
@@ -1969,7 +1969,7 @@ void SetPrimarySurfaceTextureHint2Enabled(bool enabled)
 }
 
 // FUNCTION: WIZ8 0x00424040
-unsigned char InitializeMouseSurface(void)
+std::uint8_t InitializeMouseSurface(void)
 {
     if (g_pixel_format == 7) {
         g_mouse_surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_RGB565, 128UL, 128UL);
@@ -1986,7 +1986,7 @@ unsigned char InitializeMouseSurface(void)
 }
 
 // FUNCTION: WIZ8 0x00423500
-unsigned char InitializeRendererSceneObjects(void)
+std::uint8_t InitializeRendererSceneObjects(void)
 {
     srCamera::Rect view;
     std::shared_ptr<srMaterial> material;
@@ -2099,12 +2099,12 @@ unsigned char InitializeRendererSceneObjects(void)
 }
 
 // FUNCTION: WIZ8 0x004263f0
-void ClearSurfaceRect(int left, unsigned int top, int right, unsigned int bottom)
+void ClearSurfaceRect(std::int32_t left, std::uint32_t top, std::int32_t right, std::uint32_t bottom)
 {
     if (top >= bottom || left >= right)
         return;
-    const SDL_Rect rectangle{left, static_cast<int>(top), right - left,
-                             static_cast<int>(bottom - top)};
+    const SDL_Rect rectangle{left, static_cast<std::int32_t>(top), right - left,
+                             static_cast<std::int32_t>(bottom - top)};
     SDL_FillSurfaceRect(primarySurface.get(), &rectangle, 0);
 }
 
@@ -2118,7 +2118,7 @@ void PurgeInactiveSceneInstances(srScene* scene)
     node = scene->first_child_;
     while (node) {
         srNode* next = node->next_sibling_;
-        unsigned char display_state = 3;
+        std::uint8_t display_state = 3;
         if (auto* instance = sr_cast<stModelInstance>(node)) {
             /* Retail also applies the 2D byte test to 3D highlight alpha.
                This representation read does not establish a 3D state member. */
@@ -2154,14 +2154,14 @@ void SetPickedModelInstance(srModelInstance* value)
 }
 
 // FUNCTION: WIZ8 0x00428010
-unsigned char DisableCursorScene(void)
+std::uint8_t DisableCursorScene(void)
 {
     g_cursor_scene_enabled = false;
     return 1;
 }
 
 // FUNCTION: WIZ8 0x00428020
-unsigned char EnableCursorScene(void)
+std::uint8_t EnableCursorScene(void)
 {
     g_cursor_scene_enabled = true;
     return 1;
@@ -2184,7 +2184,7 @@ void ReleaseObject(stModelInstance2D* object)
 /* Rotate a 2D sprite node by `degrees` about z and dirty the renderer mode
    word its overlay_scene_flag bit 0 selects. */
 // FUNCTION: WIZ8 0x00425840
-void RotateNodeInDegrees(srNode* node, int degrees)
+void RotateNodeInDegrees(srNode* node, std::int32_t degrees)
 {
     node->setRotation(0.0, 0.0, 3.141592653589793 * g_float_inverse_half_turn_degrees * degrees);
     if ((static_cast<stModelInstance2D*>(node)->overlay_scene_flag & 1) != 0) {
@@ -2220,13 +2220,13 @@ void SetMouseCursorTexture(std::shared_ptr<srTextureIFace> texture)
 }
 
 // FUNCTION: WIZ8 0x004291C0
-unsigned char GetRendererModeByte(void)
+std::uint8_t GetRendererModeByte(void)
 {
-    return static_cast<unsigned char>(g_renderer_mode);
+    return static_cast<std::uint8_t>(g_renderer_mode);
 }
 
 // FUNCTION: WIZ8 0x00429200
-void SetOverlayViewport(const int* value)
+void SetOverlayViewport(const std::int32_t* value)
 {
     g_overlay_viewport = value;
 }
@@ -2245,7 +2245,7 @@ void SetSurfaceScale(float scale)
 }
 
 // FUNCTION: WIZ8 0x004298E0
-void SetFullscreenSceneLast(unsigned char value)
+void SetFullscreenSceneLast(std::uint8_t value)
 {
     g_fullscreen_scene_last = value;
 }
@@ -2275,7 +2275,7 @@ bool VideoIsFullScreen(void)
 }
 
 // FUNCTION: WIZ8 0x00428b80
-int VideoDumpMemoryLeaks(void)
+std::int32_t VideoDumpMemoryLeaks(void)
 {
     return 0;
 }
@@ -2306,9 +2306,9 @@ void VideoCaptureToggle(void) {}
 // GLOBAL: WIZ8 0x006596f4
 bool g_auto_capture;
 // GLOBAL: WIZ8 0x00659724
-int g_screenshot_index;
+std::int32_t g_screenshot_index;
 // GLOBAL: WIZ8 0x00659728
-int g_screenshot_page;
+std::int32_t g_screenshot_page;
 
 // FUNCTION: WIZ8 0x004229e0
 void SaveJpegScreenshot(void)
@@ -2318,13 +2318,13 @@ void SaveJpegScreenshot(void)
         char filename[32];
 
         if (g_auto_capture) {
-            int screenshot_index = g_screenshot_index++;
+            std::int32_t screenshot_index = g_screenshot_index++;
             sprintf(filename, "Wiz8%5.5d.JPG", screenshot_index);
             PauseSharedGameTimers();
             srImage::save(filename, *surface, 35);
             ResumeSharedGameTimers();
         } else {
-            int screenshot_index = g_screenshot_index++;
+            std::int32_t screenshot_index = g_screenshot_index++;
             sprintf(filename, "Wiz8%5.5d.JPG", screenshot_index);
             srImage::save(filename, *surface);
         }
@@ -2336,9 +2336,9 @@ void SaveJpegScreenshot(void)
 /* Tooltip placement state. The left/top pair records the last position the
    tooltip builder used; the scale participates in the texture mapping. */
 // GLOBAL: WIZ8 0x00654ab8
-int g_help_box_x;
+std::int32_t g_help_box_x;
 // GLOBAL: WIZ8 0x00654abc
-int g_help_box_y;
+std::int32_t g_help_box_y;
 
 // GLOBAL: WIZ8 0x005ebe88
 const double g_inverse_screen_height = 0.0020833333333333333;
@@ -2350,20 +2350,20 @@ const double g_double_three_quarters = 0.75;
 /* Pack normalized alpha/red/green/blue into the surface's high-to-low
    bytes, using the current x87 rounding mode. */
 // FUNCTION: WIZ8 0x00429700
-void __fastcall PackColourBytes(unsigned char* colour, double alpha, double red, double green,
+void __fastcall PackColourBytes(std::uint8_t* colour, double alpha, double red, double green,
                                 double blue)
 {
-    colour[3] = static_cast<unsigned char>(srFloatToInt(alpha * g_color_byte_scale));
-    colour[2] = static_cast<unsigned char>(srFloatToInt(red * g_color_byte_scale));
-    colour[1] = static_cast<unsigned char>(srFloatToInt(green * g_color_byte_scale));
-    colour[0] = static_cast<unsigned char>(srFloatToInt(blue * g_color_byte_scale));
+    colour[3] = static_cast<std::uint8_t>(srFloatToInt(alpha * g_color_byte_scale));
+    colour[2] = static_cast<std::uint8_t>(srFloatToInt(red * g_color_byte_scale));
+    colour[1] = static_cast<std::uint8_t>(srFloatToInt(green * g_color_byte_scale));
+    colour[0] = static_cast<std::uint8_t>(srFloatToInt(blue * g_color_byte_scale));
 }
 
 /* Places one tooltip node at a screen position in normalized coordinates.
    With positional set, the position is snapped to the renderer's pixel grid;
    the node keeps the screen x/y in its right/bottom extent fields. */
 // FUNCTION: WIZ8 0x004255F0
-void PositionToolTipNode(srNode* node, int x, int y, bool positional)
+void PositionToolTipNode(srNode* node, std::int32_t x, std::int32_t y, bool positional)
 {
     stModelInstance2D* instance = static_cast<stModelInstance2D*>(node);
     double position_x = x * g_inverse_screen_width;
@@ -2371,17 +2371,17 @@ void PositionToolTipNode(srNode* node, int x, int y, bool positional)
 
     if (positional && g_gerd != 0) {
         double whole;
-        w8_long width = g_gerd->getWidth();
+        std::int32_t width = g_gerd->getWidth();
         double fraction = modf(width * position_x, &whole);
         position_x -= fraction / width;
-        w8_long height = g_gerd->getHeight();
+        std::int32_t height = g_gerd->getHeight();
         fraction = modf(height * position_y, &whole);
         position_y -= fraction / height;
     }
 
-    int width = instance->GetScaledWidth();
+    std::int32_t width = instance->GetScaledWidth();
     double half_width = width * g_inverse_screen_width * g_double_half;
-    int height = instance->GetScaledHeight();
+    std::int32_t height = instance->GetScaledHeight();
     double half_height = height * g_inverse_screen_height * g_double_half;
 
     glm::dvec3 location;
@@ -2395,8 +2395,8 @@ void PositionToolTipNode(srNode* node, int x, int y, bool positional)
     }
     node->setLocation(location);
     SetOverlayRenderMode();
-    instance->render_state.position_x = static_cast<short>(x);
-    instance->render_state.position_y = static_cast<short>(y);
+    instance->render_state.position_x = static_cast<std::int16_t>(x);
+    instance->render_state.position_y = static_cast<std::int16_t>(y);
 }
 
 /* Builds a square power-of-two polygon brush from a surface rectangle. The
@@ -2405,16 +2405,16 @@ void PositionToolTipNode(srNode* node, int x, int y, bool positional)
    overlay scene. */
 // FUNCTION: WIZ8 0x00424560
 srModelInstance* Video2DRectToSquarePolygon(const W8ControlsRect* rect, SDL_Surface& source,
-                                            srNode* parent, unsigned char overlay)
+                                            srNode* parent, std::uint8_t overlay)
 {
-    int extent = (rect->bottom - rect->top) + 2;
-    int width_extent = (rect->right - rect->left) + 2;
+    std::int32_t extent = (rect->bottom - rect->top) + 2;
+    std::int32_t width_extent = (rect->right - rect->left) + 2;
     double width = rect->right * g_inverse_screen_width - rect->left * g_inverse_screen_width;
     if (extent < width_extent) {
         extent = width_extent;
     }
     if (extent <= 0x100) {
-        w8_ulong size;
+        std::uint32_t size;
         if (extent > 0x80) {
             size = 0x100;
         } else if (extent > 0x40) {
@@ -2439,10 +2439,10 @@ srModelInstance* Video2DRectToSquarePolygon(const W8ControlsRect* rect, SDL_Surf
                                                      scale_y, mapping_x, mapping_y, overlay);
             node->setName("Video2DRectToSquarePolygon");
             stModelInstance2D* instance = static_cast<stModelInstance2D*>(node);
-            instance->render_state.display_state = static_cast<unsigned char>(g_active_page);
+            instance->render_state.display_state = static_cast<std::uint8_t>(g_active_page);
             instance->overlay_scene_flag |= 1;
-            instance->render_state.width = static_cast<unsigned short>(size);
-            instance->render_state.height = static_cast<unsigned short>(size);
+            instance->render_state.width = static_cast<std::uint16_t>(size);
+            instance->render_state.height = static_cast<std::uint16_t>(size);
             PositionToolTipNode(node, rect->left, rect->top, false);
             return node;
         }
@@ -2454,10 +2454,10 @@ srModelInstance* Video2DRectToSquarePolygon(const W8ControlsRect* rect, SDL_Surf
    records the resulting 2D instance extents. */
 // FUNCTION: WIZ8 0x004253F0
 stModelInstance2D* CreateSpriteFromVideoSurface(SDL_Surface& surface, const W8ControlsRect* bounds,
-                                                int square, int, char overlay)
+                                                std::int32_t square, std::int32_t, char overlay)
 {
-    unsigned short width;
-    unsigned short height;
+    std::uint16_t width;
+    std::uint16_t height;
     W8ControlsRect source_rect;
     srModelInstance* node;
     stModelInstance2D* instance;
@@ -2471,10 +2471,10 @@ stModelInstance2D* CreateSpriteFromVideoSurface(SDL_Surface& surface, const W8Co
         width = surface.w;
         height = surface.h;
     } else {
-        width = static_cast<unsigned short>(static_cast<short>(bounds->right) -
-                                            static_cast<short>(bounds->left));
-        height = static_cast<unsigned short>(static_cast<short>(bounds->bottom) -
-                                             static_cast<short>(bounds->top));
+        width = static_cast<std::uint16_t>(static_cast<std::int16_t>(bounds->right) -
+                                            static_cast<std::int16_t>(bounds->left));
+        height = static_cast<std::uint16_t>(static_cast<std::int16_t>(bounds->bottom) -
+                                             static_cast<std::int16_t>(bounds->top));
         source_rect.left = bounds->left;
         source_rect.top = bounds->top;
         source_rect.right = bounds->right;
@@ -2502,7 +2502,7 @@ stModelInstance2D* CreateSpriteFromVideoSurface(SDL_Surface& surface, const W8Co
     instance = static_cast<stModelInstance2D*>(node);
     if (instance != 0) {
         if (mode != 0) {
-            unsigned short extent = width;
+            std::uint16_t extent = width;
             if (width <= height) {
                 extent = height;
             }
@@ -2523,7 +2523,7 @@ stModelInstance2D* CreateSpriteFromVideoSurface(SDL_Surface& surface, const W8Co
 /* Builds a solid-color quad sprite. Width/height are pixel counts; color becomes
    the material emissive. Radar blip templates are the observed callers. */
 // FUNCTION: WIZ8 0x00424790
-stModelInstance2D* CreateColoredPolygonSprite(int width, int height, const glm::vec4* color,
+stModelInstance2D* CreateColoredPolygonSprite(std::int32_t width, std::int32_t height, const glm::vec4* color,
                                               bool fullscreen)
 {
     double scale_x = width * g_inverse_screen_width;
@@ -2555,8 +2555,8 @@ stModelInstance2D* CreateColoredPolygonSprite(int width, int height, const glm::
     shader.value = 0x2417;
     model->setShader(shader, 0);
 
-    instance->render_state.width = static_cast<unsigned short>(width);
-    instance->render_state.height = static_cast<unsigned short>(height);
+    instance->render_state.width = static_cast<std::uint16_t>(width);
+    instance->render_state.height = static_cast<std::uint16_t>(height);
     SetModelInstance2DDisplayState(instance, 3);
     if (fullscreen) {
         instance->setParent(g_scene_fullscreen, 1);
@@ -2565,20 +2565,20 @@ stModelInstance2D* CreateColoredPolygonSprite(int width, int height, const glm::
 }
 
 // FUNCTION: WIZ8 0x004255c0
-stModelInstance2D* CreateSpriteFromSurface(SDL_Surface& image, const W8ControlsRect* rect, int mode,
-                                           int unused, int overlay)
+stModelInstance2D* CreateSpriteFromSurface(SDL_Surface& image, const W8ControlsRect* rect, std::int32_t mode,
+                                           std::int32_t unused, std::int32_t overlay)
 {
     return CreateSpriteFromVideoSurface(image, rect, mode, unused, overlay);
 }
 
 // FUNCTION: WIZ8 0x004257D0
-void Position2DNodeUnsnapped(srNode* node, int x, int y)
+void Position2DNodeUnsnapped(srNode* node, std::int32_t x, std::int32_t y)
 {
     PositionToolTipNode(node, x, y, false);
 }
 
 // FUNCTION: WIZ8 0x004264F0
-void SetModelInstance2DDisplayState(stModelInstance2D* object, unsigned char state)
+void SetModelInstance2DDisplayState(stModelInstance2D* object, std::uint8_t state)
 {
     object->render_state.display_state = state;
 }
@@ -2607,7 +2607,7 @@ void VideoPositionToolTip(std::int32_t x, std::int32_t y)
    repeating its border one pixel outward, and reports the texture mapping
    scales for the resulting polygon brush. */
 // FUNCTION: WIZ8 0x00428B90
-unsigned char CopySurfaceWithBorder(srColorSurface* surface, const W8ControlsRect* rect,
+std::uint8_t CopySurfaceWithBorder(srColorSurface* surface, const W8ControlsRect* rect,
                                     SDL_Surface& source, float* scale_x, float* scale_y,
                                     float* mapping_x, float* mapping_y)
 {
@@ -2615,13 +2615,13 @@ unsigned char CopySurfaceWithBorder(srColorSurface* surface, const W8ControlsRec
         mapping_x == 0 || mapping_y == 0) {
         return 0;
     }
-    int width = (rect->right > 0x27f ? 0x280 : rect->right) - rect->left;
-    int height = (rect->bottom > 0x1df ? 0x1e0 : rect->bottom) - rect->top;
-    int right = width + 1;
-    int bottom = height + 1;
+    std::int32_t width = (rect->right > 0x27f ? 0x280 : rect->right) - rect->left;
+    std::int32_t height = (rect->bottom > 0x1df ? 0x1e0 : rect->bottom) - rect->top;
+    std::int32_t right = width + 1;
+    std::int32_t bottom = height + 1;
 
-    const int source_width = rect->left + width;
-    const int source_height = rect->top + height;
+    const std::int32_t source_width = rect->left + width;
+    const std::int32_t source_height = rect->top + height;
     if (rect->left < 0 || rect->top < 0 || width <= 0 || height <= 0 ||
         source_width > source.w || source_height > source.h) {
         return 0;
@@ -2640,8 +2640,8 @@ unsigned char CopySurfaceWithBorder(srColorSurface* surface, const W8ControlsRec
         !SDL_SetSurfaceBlendMode(destination_view.get(), SDL_BLENDMODE_NONE)) {
         return 0;
     }
-    const auto copy = [&](int destination_x, int destination_y, int source_x, int source_y,
-                          int copy_width, int copy_height) {
+    const auto copy = [&](std::int32_t destination_x, std::int32_t destination_y, std::int32_t source_x, std::int32_t source_y,
+                          std::int32_t copy_width, std::int32_t copy_height) {
         SDL_Rect source_rect{source_x, source_y, copy_width, copy_height};
         SDL_Rect destination_rect{destination_x, destination_y, copy_width, copy_height};
         return SDL_BlitSurface(source_view.get(), &source_rect, destination_view.get(),
@@ -2675,12 +2675,12 @@ unsigned char CopySurfaceWithBorder(srColorSurface* surface, const W8ControlsRec
    repeats its border, and the node records the rectangle extents. */
 // FUNCTION: WIZ8 0x00424280
 srModelInstance* Video2DRectToPolygon(const W8ControlsRect* rect, SDL_Surface& source,
-                                      srNode* parent, unsigned char overlay)
+                                      srNode* parent, std::uint8_t overlay)
 {
     double left = rect->left * g_inverse_screen_width;
-    int extent = rect->right - rect->left;
+    std::int32_t extent = rect->right - rect->left;
     double top = rect->top * g_inverse_screen_height;
-    int rect_height = rect->bottom - rect->top;
+    std::int32_t rect_height = rect->bottom - rect->top;
     double width = rect->right * g_inverse_screen_width - left;
     double height = rect->bottom * g_inverse_screen_height - top;
 
@@ -2710,8 +2710,8 @@ srModelInstance* Video2DRectToPolygon(const W8ControlsRect* rect, SDL_Surface& s
         }
     }
 
-    auto surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, static_cast<w8_ulong>(extent),
-                               static_cast<w8_ulong>(extent));
+    auto surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, static_cast<std::uint32_t>(extent),
+                               static_cast<std::uint32_t>(extent));
     surface->setFilter(&srBoxFilter);
     float scale_x;
     float scale_y;
@@ -2726,11 +2726,11 @@ srModelInstance* Video2DRectToPolygon(const W8ControlsRect* rect, SDL_Surface& s
                                              mapping_x, mapping_y, overlay);
     if (node != 0) {
         stModelInstance2D* instance = static_cast<stModelInstance2D*>(node);
-        instance->render_state.display_state = static_cast<unsigned char>(g_active_page);
-        instance->render_state.width = static_cast<unsigned short>(rect->right - rect->left);
-        instance->render_state.height = static_cast<unsigned short>(rect->bottom - rect->top);
-        instance->render_state.position_x = static_cast<short>(rect->left);
-        instance->render_state.position_y = static_cast<short>(rect->top);
+        instance->render_state.display_state = static_cast<std::uint8_t>(g_active_page);
+        instance->render_state.width = static_cast<std::uint16_t>(rect->right - rect->left);
+        instance->render_state.height = static_cast<std::uint16_t>(rect->bottom - rect->top);
+        instance->render_state.position_x = static_cast<std::int16_t>(rect->left);
+        instance->render_state.position_y = static_cast<std::int16_t>(rect->top);
         glm::dvec3 location;
         location = glm::dvec3(width * g_double_half + left, g_double_one - (height * g_double_half + top),
                      -0.0001);
@@ -2761,11 +2761,11 @@ void VideoToolTip(std::string_view text)
     if (buffer == 0) {
         return;
     }
-    g_help_box_width = static_cast<int>(buffer->m_maxLineWidth) + 4;
+    g_help_box_width = static_cast<std::int32_t>(buffer->m_maxLineWidth) + 4;
     g_help_box_height = g_font10arial.height() * buffer->m_lineCount + 2;
     surface->fill(0);
     void* data = surface->getDataPtr();
-    for (int y = 0; y < g_help_box_height; ++y)
+    for (std::int32_t y = 0; y < g_help_box_height; ++y)
         surface->setHLine(y, 0, g_help_box_width, 0xff000000u);
     SDLSurfaceOwner text_surface{
         SDL_CreateSurfaceFrom(surface->getWidth(), surface->getHeight(), SDL_PIXELFORMAT_RGB565,
@@ -2773,7 +2773,7 @@ void VideoToolTip(std::string_view text)
         SDL_DestroySurface};
     if (text_surface)
         buffer->RenderText(*text_surface, 2, 1, true);
-    w8_ulong border_colour;
+    std::uint32_t border_colour;
     PackColourToLong(&border_colour, 1.0, 0.93, 0.6, 0.33);
     surface->setHLine(0, 0, g_help_box_width, border_colour);
     surface->setHLine(g_help_box_height - 1, 0, g_help_box_width, border_colour);
@@ -2793,9 +2793,9 @@ void VideoToolTip(std::string_view text)
         g_tooltip_nodes.push_back(static_cast<stModelInstance2D*>(node));
     }
 
-    int position_y = g_cursor_height - g_help_box_height;
-    int position_x = g_cursor_width;
-    int offset = position_x;
+    std::int32_t position_y = g_cursor_height - g_help_box_height;
+    std::int32_t position_x = g_cursor_width;
+    std::int32_t offset = position_x;
     for (auto* node : g_tooltip_nodes) {
         PositionToolTipNode(node, offset, position_y, true);
         offset += node->GetScaledWidth();
@@ -2808,10 +2808,10 @@ void VideoToolTip(std::string_view text)
 /* Renderer configuration helpers reached from the video device, not the
    persisted configuration block. */
 // GLOBAL: WIZ8 0x659714
-int g_resident_texture_policy;
+std::int32_t g_resident_texture_policy;
 
 // FUNCTION: WIZ8 0x004266e0
-void SetResidentTexturePolicy(int policy)
+void SetResidentTexturePolicy(std::int32_t policy)
 {
     if (policy != g_resident_texture_policy) {
         g_gerd->invalidateResidentTextures();
@@ -2831,7 +2831,7 @@ void SetSwapInterval(bool enabled)
 }
 
 // FUNCTION: WIZ8 0x00426740
-void SetTextureCacheSize(w8_ulong bytes)
+void SetTextureCacheSize(std::uint32_t bytes)
 {
     if (bytes > 0x7fffff && bytes != g_gerd->getTextureCacheSize()) {
         g_gerd->invalidateResidentTextures();
@@ -2841,7 +2841,7 @@ void SetTextureCacheSize(w8_ulong bytes)
 }
 
 // FUNCTION: WIZ8 0x00428e60
-unsigned int GetTotalPhysicalMemory(void)
+std::uint32_t GetTotalPhysicalMemory(void)
 {
     return W8TotalPhysicalMemory();
 }
@@ -2850,13 +2850,13 @@ unsigned int GetTotalPhysicalMemory(void)
    at start_frame. use_argb1555 selects SURFACE_ARGB1555 versus SURFACE_RGB555 for
    each frame surface. The setName string is the retail identity. */
 // FUNCTION: WIZ8 0x00428E90
-std::shared_ptr<stTextureAnim> VideoVObjectToTextureAnim(const SpriteSheet& sprites, unsigned short start_frame,
-                                         unsigned short frame_count, bool use_argb1555)
+std::shared_ptr<stTextureAnim> VideoVObjectToTextureAnim(const SpriteSheet& sprites, std::uint16_t start_frame,
+                                         std::uint16_t frame_count, bool use_argb1555)
 {
-    unsigned short frame;
-    unsigned short end_frame;
-    w8_ulong extent;
-    unsigned short largest;
+    std::uint16_t frame;
+    std::uint16_t end_frame;
+    std::uint32_t extent;
+    std::uint16_t largest;
 
 
     auto animation = std::make_shared<stTextureAnim>();
@@ -2864,7 +2864,7 @@ std::shared_ptr<stTextureAnim> VideoVObjectToTextureAnim(const SpriteSheet& spri
     animation->setMipmapBias(-8.0f);
 
     frame = start_frame;
-    end_frame = static_cast<unsigned short>(start_frame + frame_count);
+    end_frame = static_cast<std::uint16_t>(start_frame + frame_count);
     while (frame < end_frame) {
         if (frame < sprites.frames.size()) {
             const SpriteFrame& properties = sprites.frames[frame];
@@ -2887,7 +2887,7 @@ std::shared_ptr<stTextureAnim> VideoVObjectToTextureAnim(const SpriteSheet& spri
                     extent = 0x100;
                 }
             } else {
-                extent = static_cast<w8_ulong>(-1);
+                extent = static_cast<std::uint32_t>(-1);
             }
 
             std::shared_ptr<srColorSurface> surface;
@@ -2921,7 +2921,7 @@ std::shared_ptr<stTextureAnim> VideoVObjectToTextureAnim(const SpriteSheet& spri
 }
 
 // FUNCTION: WIZ8 0x00429800
-int GetRendererFamily(void)
+std::int32_t GetRendererFamily(void)
 {
     char name[128];
     if (!g_gerd) {
@@ -2951,12 +2951,12 @@ void SetDisplayGamma(float value)
    option forced off, draw the node between the camera's bracketing
    passes, restore the option and return the sampled statistic. */
 // FUNCTION: WIZ8 0x00428830
-unsigned int MeasureNodeRenderWithoutPositionalOption(srNode* node)
+std::uint32_t MeasureNodeRenderWithoutPositionalOption(srNode* node)
 {
     if (g_gerd != 0 && g_gerd->isEnabled(srGERD::ENABLE_AUTO_FLIP)) {
         g_gerd->toggle(srGERD::ENABLE_AUTO_FLIP);
     }
-    unsigned int pixels_drawn = MeasureNodeRender(node);
+    std::uint32_t pixels_drawn = MeasureNodeRender(node);
     if (g_gerd != 0 && !g_gerd->isEnabled(srGERD::ENABLE_AUTO_FLIP)) {
         g_gerd->toggle(srGERD::ENABLE_AUTO_FLIP);
     }
@@ -2982,7 +2982,7 @@ void BeginRenderProbe(void)
 /* Draw the node between the camera's bracketing passes and return the
    renderer statistic the probe samples. */
 // FUNCTION: WIZ8 0x004289e0
-unsigned int MeasureNodeRender(srNode* node)
+std::uint32_t MeasureNodeRender(srNode* node)
 {
     srNode::ProcessInfo process;
 
@@ -2998,7 +2998,7 @@ unsigned int MeasureNodeRender(srNode* node)
     g_gerd->endFrame();
     g_gerd->flushRenderers();
     const auto statistics = g_gerd->getStatistics();
-    return static_cast<unsigned int>(statistics.pixels_drawn);
+    return static_cast<std::uint32_t>(statistics.pixels_drawn);
 }
 
 /* Close the render-probe pass: restore renderer option 4 and present. */
@@ -3105,13 +3105,13 @@ srNode* MakePosterQuad(std::shared_ptr<srTextureIFace> texture, float width, flo
 }
 
 // FUNCTION: WIZ8 0x00425590
-void DrawColorSurface(srColorSurface* surface, int x, int y)
+void DrawColorSurface(srColorSurface* surface, std::int32_t x, std::int32_t y)
 {
     g_primary_color_surface->blit(x, y, *surface, 0, 0, surface->getWidth(), surface->getHeight());
 }
 
 // FUNCTION: WIZ8 0x00425DA0
-void SetWorldScaledViewport(int left, int top, int right, int bottom)
+void SetWorldScaledViewport(std::int32_t left, std::int32_t top, std::int32_t right, std::int32_t bottom)
 {
     if (left == g_viewport.left && top == g_viewport.top && right == g_viewport.right &&
         bottom == g_viewport.bottom) {
@@ -3133,7 +3133,7 @@ store:
 }
 
 // FUNCTION: WIZ8 0x00426490
-void DrawBufferLine(w8_long x0, w8_long y0, w8_long x1, w8_long y1, w8_ulong* pixel)
+void DrawBufferLine(std::int32_t x0, std::int32_t y0, std::int32_t x1, std::int32_t y1, std::uint32_t* pixel)
 {
     if (x0 != 0 && y0 != 0 && x1 != 0 && y1 != 0) {
         srColorSurfaceIFace* surface = g_gerd->lockBuffer();
@@ -3156,7 +3156,7 @@ void SetPickKey(void* key)
 {
     if (g_gerd) {
         g_gerd->setPickKey(
-            reinterpret_cast<w8_ulong_ptr>(key)); // reinterpret-ok: opaque pick token
+            reinterpret_cast<std::uintptr_t>(key)); // reinterpret-ok: opaque pick token
     }
 }
 

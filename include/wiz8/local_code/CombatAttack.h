@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <vector>
 struct W8CombatSlot;
 
@@ -24,30 +25,30 @@ enum { W8_MONSTER_HIT_LOCATIONS = 7, W8_MONSTER_BODY_TYPES = 6 };
 
 /* GppStringList indices naming each character hit location,
    paired with a second form the missile hit does not use. */
-extern unsigned short g_pc_hit_location_labels[5][2];
+extern std::uint16_t g_pc_hit_location_labels[5][2];
 /* GppStringList indices naming each monster hit location for
    each body type. */
-extern unsigned short g_monster_hit_location_labels[W8_MONSTER_HIT_LOCATIONS]
+extern std::uint16_t g_monster_hit_location_labels[W8_MONSTER_HIT_LOCATIONS]
                                                    [W8_MONSTER_BODY_TYPES];
 
 /* GppStringList indices naming the sixteen secondary hit effects the
    missile_values arrays on monster attacks and item records carry. */
-extern unsigned short g_attack_effect_name_ids[W8_ATTACK_EFFECT_COUNT];
+extern std::uint16_t g_attack_effect_name_ids[W8_ATTACK_EFFECT_COUNT];
 /* Paired label ids for the nine W8ItemDatabaseRecord::attack_flags bits;
    AssayDialog reads the first of each pair, combat logging the second. */
-extern unsigned short g_attack_flag_name_ids[9][2];
+extern std::uint16_t g_attack_flag_name_ids[9][2];
 /* Label ids for an item's special-category byte, also indexed by the MIPE
    editor's category selector. */
-extern unsigned short g_special_category_name_ids[42];
+extern std::uint16_t g_special_category_name_ids[42];
 
 /* The missile attack paths hand FireMissileSourceToTarget the W8SpellEffectDefinition
    the fired missile stores: the weapon or monster attack's dice magnitude and
    per-condition chances ride the same record a spell effect definition does. */
 void ClearAttackBlock(W8SpellEffectDefinition* block);
-W8Missile* FireMissileSourceToTarget(int missile_type, W8TargetSource* source, W8CombatSlot* target,
+W8Missile* FireMissileSourceToTarget(std::int32_t missile_type, W8TargetSource* source, W8CombatSlot* target,
                                      W8SpellEffectDefinition* attack, bool use_default_accuracy,
-                                     W8RangeCategory range_category, int accuracy);
-void ScatterMissileAimPoint(const srVector3T<float>* from, srVector3T<float>* to, int accuracy,
+                                     W8RangeCategory range_category, std::int32_t accuracy);
+void ScatterMissileAimPoint(const srVector3T<float>* from, srVector3T<float>* to, std::int32_t accuracy,
                             bool blind);
 
 /* A physical missile reached its combat target - announce the
@@ -59,7 +60,7 @@ void ResolveMissileHit(W8Missile* missile, bool deflected);
 void ResolveSpellMissileHit(W8Missile* missile);
 /* The armour class a hit at one location must beat, for the
    attack mode used. */
-int TargetArmorClassAtLocation(W8CombatSlot* target, W8AttackMode attack_mode, int hit_location);
+std::int32_t TargetArmorClassAtLocation(W8CombatSlot* target, W8AttackMode attack_mode, std::int32_t hit_location);
 /* Roll the effect definition's condition chances against the
    target and apply the ones that take, reporting into `result` when one is
    given. */
@@ -73,11 +74,11 @@ struct W8MonsterAttack;
 /* Whether a character could attack what `target` names - a party member who
    is in play and not screened by the front rank, or a monster who is engaged,
    alive, targetable and within the character's reach. */
-bool CharacterHasAttackOn(int party_slot, W8CombatSlot* target);
+bool CharacterHasAttackOn(std::int32_t party_slot, W8CombatSlot* target);
 /* Whether the character can berserk - has the fighter's ability (trait
    W8_TRAIT_BERSERK), a hand that can reach, and a primary hand that fights at
    short range or closer. The attack sub-menu entry it gates is "Berserk". */
-bool CanCharacterBerserk(int party_slot);
+bool CanCharacterBerserk(std::int32_t party_slot);
 /* Whether a friendly, higher-level combatant qualifies for protection. */
 bool CanMonsterProtectCombatant(W8MonsterInfo* monster_info, W8CombatSlot* target);
 /* Whether an active, living bodyguard can protect another combatant. */
@@ -96,68 +97,68 @@ enum {
    though the monster were idle. `friendly_targets` selects friendly rather than hostile targets.
    RateMonsterBestAttack answers zero as soon as any attack is usable, one for a
    motionless monster, and otherwise the highest reason it saw. */
-unsigned char RateMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record,
-                                unsigned int attack, int, bool friendly_targets);
-unsigned char RateMonsterBestAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record,
+std::uint8_t RateMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record,
+                                std::uint32_t attack, std::int32_t, bool friendly_targets);
+std::uint8_t RateMonsterBestAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record,
                                     bool friendly_targets);
-bool CanAnyHandReachTarget(int party_slot);
+bool CanAnyHandReachTarget(std::int32_t party_slot);
 /* Whether `hand` is in play and has a range category at all. */
-bool CanHandReachTarget(int party_slot, unsigned int hand);
-bool CanCharacterAttack(int party_slot);
+bool CanHandReachTarget(std::int32_t party_slot, std::uint32_t hand);
+bool CanCharacterAttack(std::int32_t party_slot);
 struct W8Character;
 
-void GetCharacterHandDamageDice(const W8Character* character, int hand, W8Dice* dice);
-int GetCharacterHandDamageBonus(const W8Character* character, int hand);
+void GetCharacterHandDamageDice(const W8Character* character, std::int32_t hand, W8Dice* dice);
+std::int32_t GetCharacterHandDamageBonus(const W8Character* character, std::int32_t hand);
 
-int GetHandAttackValue(int party_slot, unsigned int hand);
+std::int32_t GetHandAttackValue(std::int32_t party_slot, std::uint32_t hand);
 W8MonsterCycle NormalizeMonsterCycle(W8MonsterCycle attack_mode);
-W8AttackMode ChooseAttackMode(unsigned int attack_modes);
+W8AttackMode ChooseAttackMode(std::uint32_t attack_modes);
 
 /* How much of a hit a monster actually takes - its own adjustment
    and the record's reduction add, the remainder is taken as a percentage
    rounding to nearest, and nothing goes below zero. */
-int ApplyDamageReduction(const W8MonsterInfo* monster_info, const W8MonsterRecord* record,
-                         int damage);
+std::int32_t ApplyDamageReduction(const W8MonsterInfo* monster_info, const W8MonsterRecord* record,
+                         std::int32_t damage);
 /* The character-side counterpart - the character's own reduction
    taken the same way, and having the damage-reduction skill practises it. */
-int ApplyCharacterDamageReduction(W8Character* character, int damage);
+std::int32_t ApplyCharacterDamageReduction(W8Character* character, std::int32_t damage);
 
-int ChooseCharacterAttackHand(int party_slot);
-void PrepareCharacterAttacks(int party_slot);
-int GetTargetArmorClassModifier(W8CombatSlot* target, W8AttackMode attack_mode);
-W8AttackMode CharChooseHandAttackMode(W8Character* character, int hand);
+std::int32_t ChooseCharacterAttackHand(std::int32_t party_slot);
+void PrepareCharacterAttacks(std::int32_t party_slot);
+std::int32_t GetTargetArmorClassModifier(W8CombatSlot* target, W8AttackMode attack_mode);
+W8AttackMode CharChooseHandAttackMode(W8Character* character, std::int32_t hand);
 std::string SpellTargetString(W8TargetSource* source, W8CombatSlot* target);
-int GetTargetArmorClass(W8CombatSlot* target, W8AttackMode attack_mode);
-bool BlockedForSpecialReason(int weapon_class, W8CombatSlot* target, int attack_value,
-                             int armor_value, unsigned int palette);
-unsigned int CapAttackDamageByTargetHealth(unsigned int damage);
+std::int32_t GetTargetArmorClass(W8CombatSlot* target, W8AttackMode attack_mode);
+bool BlockedForSpecialReason(std::int32_t weapon_class, W8CombatSlot* target, std::int32_t attack_value,
+                             std::int32_t armor_value, std::uint32_t palette);
+std::uint32_t CapAttackDamageByTargetHealth(std::uint32_t damage);
 void StartMonsterAttackCycle(W8MonsterInfo* monster_info, W8AttackMode action_detail);
-void ReportCharacterAttackResult(int party_slot, W8SpellEffectResult* report);
+void ReportCharacterAttackResult(std::int32_t party_slot, W8SpellEffectResult* report);
 void ReportMonsterAttackResult(W8MonsterInfo* monster_info, W8SpellEffectResult* report);
 /* The monster side of the attack-score pipeline - the attack's
    own score plus modifier, mode, surprise, armour and attribute terms; ignore_target_defenses
    selects the fumble-redirect variant. */
-int GetMonsterAttackScore(W8MonsterInfo* monster_info, W8MonsterAttack* attack,
+std::int32_t GetMonsterAttackScore(W8MonsterInfo* monster_info, W8MonsterAttack* attack,
                           W8AttackMode attack_mode, char ignore_target_defenses);
 /* Roll the running monster attack's damage dice and reduce them
    by the target's damage reduction, reporting the dice count. */
-int ResolveMonsterAttackDamage(W8MonsterInfo* monster_info, W8MonsterAttack* attack,
-                               unsigned int* out_dice_count);
+std::int32_t ResolveMonsterAttackDamage(W8MonsterInfo* monster_info, W8MonsterAttack* attack,
+                               std::uint32_t* out_dice_count);
 /* Build the candidate list the monster's fumbled or repicked
    attack chooses a new target from. */
 void BuildMonsterTargetList(W8MonsterInfo* monster_info, W8MonsterRecord* record,
-                            unsigned int attack, std::vector<W8CombatSlot>& out_list);
+                            std::uint32_t attack, std::vector<W8CombatSlot>& out_list);
 /* Announce a friendly-fire strike and highlight the name on the
    other side's notice palette when the two sides differ. */
 void AnnounceAccidentalStrike(W8TargetSource* source, W8CombatSlot* target);
 /* Whether a character catches the incoming attack in time to turn toward it. */
-bool CharacterNoticesAttacker(int party_slot);
+bool CharacterNoticesAttacker(std::int32_t party_slot);
 /* Begin one of the monster's attacks for the round. */
 bool StartMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record);
 /* Bodyguard readiness for the selected protection target. */
 bool CanMonsterProtectTarget(W8MonsterInfo* monster_info);
 /* The character counterpart of the same six checks. */
-bool CanCharacterAttackItsTarget(int party_slot);
+bool CanCharacterAttackItsTarget(std::int32_t party_slot);
 /* Build the monster attack announcement message and aim it at the target. */
 void AnnounceMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record,
                            char target_changed);
@@ -165,23 +166,23 @@ void AnnounceMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record,
    hit and fumble-redirect chances, resolves guardian interception, picks the
    hit location, rolls penetration, applies damage and the struck target's
    retaliation enchantment, then decides whether the monster keeps swinging. */
-int ContinueMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record);
+std::int32_t ContinueMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record);
 /* Start one of the character's attacks for the round: validates the hand and
    target, rolls the swings, announces the attack and dispatches the missile or
    melee event. */
-bool StartCharacterAttack(int party_slot, W8AttackMode attack_mode);
+bool StartCharacterAttack(std::int32_t party_slot, W8AttackMode attack_mode);
 /* Resolve one of the character's queued swings - plays the
    attack sound on the first pass, rolls fumble redirection and guardian
    interception, picks the hit location, rolls penetration, applies damage
    and enchantments, consumes the item, and answers whether the attack
    continues. */
-int ResolveCharacterAttack(int party_slot);
+std::int32_t ResolveCharacterAttack(std::int32_t party_slot);
 /* A fumbled swing queues its reaction event - half the time the
    attacker himself, otherwise the fumbled victim or a random party member
    answers. */
-void QueueFumbleReaction(int party_slot);
+void QueueFumbleReaction(std::int32_t party_slot);
 /* A defender guarding the attack's target may interpose and
    become the struck target instead; answers whether the target changed. */
-int ResolveGuardianInterception(W8TargetSource* source, W8CombatSlot* target);
-void FireCharacterItemMissile(int party_slot, W8Character* pc, W8CombatCharacterRow* row,
+std::int32_t ResolveGuardianInterception(W8TargetSource* source, W8CombatSlot* target);
+void FireCharacterItemMissile(std::int32_t party_slot, W8Character* pc, W8CombatCharacterRow* row,
                               W8RangeCategory range_category);

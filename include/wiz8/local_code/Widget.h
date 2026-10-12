@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/regions.h"
 
@@ -21,17 +22,17 @@ public:
           m_leftDoubleClickCallback(0)
     {
     }
-    W8Widget(Controls* owner, unsigned int region, int left, int top, int right, int bottom);
+    W8Widget(Controls* owner, std::uint32_t region, std::int32_t left, std::int32_t top, std::int32_t right, std::int32_t bottom);
 
     W8Widget(const W8Widget&) = delete;
     W8Widget& operator=(const W8Widget&) = delete;
 
     // Transfer a panel-owned child; detach with Controls::TakeControl instead.
     void SetPanel(Controls& panel);
-    void SetRegion(unsigned int region);
+    void SetRegion(std::uint32_t region);
     void Invalidate(bool immediate);
     void SetActive(bool active);
-    void EnableRegionHelp(int help_text_id);
+    void EnableRegionHelp(std::int32_t help_text_id);
     void DisableRegionHelp();
 
     virtual ~W8Widget();
@@ -40,26 +41,26 @@ public:
     /* Default hooks; Redraw's flag is the panel's dirty state. */
     // FUNCTION: WIZ8 0x005b1be0
     virtual void Redraw(bool) {}
-    virtual void SetBounds(int left, int top, int right, int bottom);
+    virtual void SetBounds(std::int32_t left, std::int32_t top, std::int32_t right, std::int32_t bottom);
     virtual void SetBoundsFromRect(const W8ControlsRect* bounds);
-    virtual void AddLayoutFlags(unsigned int) {}
+    virtual void AddLayoutFlags(std::uint32_t) {}
     virtual void SetAlternateTextEnabled(bool) {}
-    virtual void OnMouseEnter(int) {}
-    virtual void OnMouseLeave(int) {}
-    virtual void OnMouseMove(int) {}
-    virtual void AdjustValue(int) {}
-    virtual void OnLeftButtonDown(int) {}
-    virtual void OnRightButtonDown(int) {}
-    virtual void OnLeftButtonUp(int) {}
-    virtual void OnRightButtonUp(int) {}
-    virtual void OnLeftButtonDoubleClick(int) {}
-    virtual void ActivatePrimary(int) {}
-    virtual void ActivateSecondary(int) {}
+    virtual void OnMouseEnter(std::int32_t) {}
+    virtual void OnMouseLeave(std::int32_t) {}
+    virtual void OnMouseMove(std::int32_t) {}
+    virtual void AdjustValue(std::int32_t) {}
+    virtual void OnLeftButtonDown(std::int32_t) {}
+    virtual void OnRightButtonDown(std::int32_t) {}
+    virtual void OnLeftButtonUp(std::int32_t) {}
+    virtual void OnRightButtonUp(std::int32_t) {}
+    virtual void OnLeftButtonDoubleClick(std::int32_t) {}
+    virtual void ActivatePrimary(std::int32_t) {}
+    virtual void ActivateSecondary(std::int32_t) {}
 
 protected:
     bool OwnsRegion() const;
     void ReleaseRegion();
-    void UpdateRegionBounds(int left, int top, int right, int bottom);
+    void UpdateRegionBounds(std::int32_t left, std::int32_t top, std::int32_t right, std::int32_t bottom);
 
 public:
     /* Read from outside the class by Local Screens\RCSCommon.cpp, which is what
@@ -67,15 +68,15 @@ public:
     bool m_enabled; /* interaction and enabled appearance */
     bool m_active;  /* panel participation and region input */
     bool m_dirty;   /* pending widget redraw */
-    unsigned char pad_007;
+    std::uint8_t pad_007;
     /* The widget's rectangle, relative to the owner's origin. The
        constructor adds the origin to all four before handing them to the
        region, which is what makes right and bottom edges rather than a size. */
-    int m_left;
-    int m_top;
-    int m_right;
-    int m_bottom;
-    int m_region; /* handed to DisableRegionInput unless -1 */
+    std::int32_t m_left;
+    std::int32_t m_top;
+    std::int32_t m_right;
+    std::int32_t m_bottom;
+    std::int32_t m_region; /* handed to DisableRegionInput unless -1 */
     Controls* m_pPanel;
     W8ControlCallback m_primaryActivationCallback; /* invoked by text-control activation */
     W8ControlCallback m_leftButtonDownCallback;

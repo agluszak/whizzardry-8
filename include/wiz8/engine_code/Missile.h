@@ -1,9 +1,10 @@
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <vector>
 
-unsigned char LoadMissileDatabase(void);
+std::uint8_t LoadMissileDatabase(void);
 void ReleaseMissileDatabase(void);
 
 #include "wiz8/attack_modes.h"
@@ -42,15 +43,15 @@ struct W8AIMissile : W8AIRecord {
     W8Missile* missile{};
     /* Half-tick baseline (milliseconds()>>1) the delta against the current
        half-tick is clamped to 0xfa. */
-    int last_half_tick{};
+    std::int32_t last_half_tick{};
     float elapsed{};
     float limit{};
     bool unknown_1c{};
-    unsigned char padding_1d[3];
+    std::uint8_t padding_1d[3];
 };
 
-unsigned char UpdateMissileAI(W8AIMissile* record);
-float AdvanceMissileAI(W8AIMissile* record, srVector3T<float>* out, unsigned int steps);
+std::uint8_t UpdateMissileAI(W8AIMissile* record);
+float AdvanceMissileAI(W8AIMissile* record, srVector3T<float>* out, std::uint32_t steps);
 
 /* The missile constructor allocates this complete 0x108-byte representation,
    invokes W8EmitterHost on the same receiver, constructs the two light-list
@@ -62,15 +63,15 @@ public:
     W8MissileRep(const W8MissileRep& other);
     virtual ~W8MissileRep() override;
     virtual W8AnimRepBase* Clone() override;
-    virtual srModelInstance* SetCycleFrameLod(signed char cycle, signed char frame,
-                                              signed char lod) override;
-    virtual unsigned int ApplyEmitterSetting(signed char emitter) override;
-    virtual W8AniMesh* GetEmitterAniMesh(signed char emitter) override;
-    unsigned char ReadCycleData(W8ReadLevelInfo* info, W8Missile* missile, int cycle_index, int);
+    virtual srModelInstance* SetCycleFrameLod(std::int8_t cycle, std::int8_t frame,
+                                              std::int8_t lod) override;
+    virtual std::uint32_t ApplyEmitterSetting(std::int8_t emitter) override;
+    virtual W8AniMesh* GetEmitterAniMesh(std::int8_t emitter) override;
+    std::uint8_t ReadCycleData(W8ReadLevelInfo* info, W8Missile* missile, std::int32_t cycle_index, std::int32_t);
 
-    unsigned int value_0ac;
-    unsigned int value_0b0;
-    unsigned char unknown_0b4[0x24];
+    std::uint32_t value_0ac;
+    std::uint32_t value_0b0;
+    std::uint8_t unknown_0b4[0x24];
     W8AnimObj* emitters[2];
     float emitter_playback_scales[2];
     std::vector<std::vector<stLight*>*> light_lists[2];
@@ -86,14 +87,14 @@ public:
     virtual ~W8Missile() override;
 
     virtual void UpdateRepresentation(W8World* world) override;
-    virtual signed char GetNumSubCycles() override;
-    virtual bool IsCycleSupported(signed char cycle) override;
-    virtual signed char GetTotalAnimationCount() override;
+    virtual std::int8_t GetNumSubCycles() override;
+    virtual bool IsCycleSupported(std::int8_t cycle) override;
+    virtual std::int8_t GetTotalAnimationCount() override;
     virtual float GetCurrentAnimationScale() override;
     virtual W8EmitterHost* GetRepresentation() override;
-    virtual void SetCycle(signed char cycle) override;
+    virtual void SetCycle(std::int8_t cycle) override;
     virtual W8AnimObj* GetCurrentAnimation() override;
-    virtual void AdvanceAnimationFrame(int value, int flags) override;
+    virtual void AdvanceAnimationFrame(std::int32_t value, std::int32_t flags) override;
     virtual W8AniMesh* GetCurrentAniMesh() override;
     virtual void StartIfHostActive(); /* 0x004A4050 */
     /* Decide what the missile struck - the party or a live monster - record it
@@ -101,7 +102,7 @@ public:
        the hit to Combat Attack.cpp or leave it for the combat engine. */
     virtual bool OnCollision(W8Navigator* other) override; /* 0x004A4720 */
 
-    w8_ulong GetAnimationState(int mode);
+    std::uint32_t GetAnimationState(std::int32_t mode);
     void DetonateMissileSpell();
     void DestroyMissile();          /* 0x004A4180 */
     void AnnounceCollisionTarget(); /* 0x004A4AC0 */
@@ -114,7 +115,7 @@ public:
     bool BlocksEndingCombat();
 
 public:
-    int missile_table_index;
+    std::int32_t missile_table_index;
     /* Assertion-backed original spelling. Distinct from GrObject::m_pRep at
        +0x14; GetRepresentation() returns this GrCycle-tail slot at +0x1dc. */
 #if defined(__clang__)
@@ -132,7 +133,7 @@ public:
     bool impacting;
     /* Set once the missile no longer blocks combat end (BlocksEndingCombat
        returned 0 or combat already resolved). */
-    unsigned char block_released;
+    std::uint8_t block_released;
     bool gravity;
     bool align_camera;
     bool explode_ground;
@@ -141,7 +142,7 @@ public:
     void* value_1e8;
     void* value_1ec;
     float lifetime;
-    int flags0;
+    std::int32_t flags0;
     float duration;
     W8SpellEffectDefinition definition;
     W8TargetSource m_Source;
@@ -150,20 +151,20 @@ public:
        folded into the owning spell effect by 0x00500460. */
     W8SpellEffectResult result;
     bool retargeted; /* the missile struck something other than its intended target */
-    unsigned char padding_323[5];
+    std::uint8_t padding_323[5];
 };
 
 /* Secondary vftable 0x005ecdf4 keeps the W8Navigator subobject at +0x18. */
 
-W8Missile* FireMissile(unsigned int missile_table_index, srVector3T<float>* source,
-                       srVector3T<float>* target, float flight_speed, unsigned int trace_mask,
-                       unsigned int block_released, float duration);
+W8Missile* FireMissile(std::uint32_t missile_table_index, srVector3T<float>* source,
+                       srVector3T<float>* target, float flight_speed, std::uint32_t trace_mask,
+                       std::uint32_t block_released, float duration);
 /* The world position `character_index`'s current hand fires a missile from:
    the camera's launch point swung to the wielding side. */
-void GetCharacterProjectilePosition(unsigned int character_index, srVector3T<float>* position);
+void GetCharacterProjectilePosition(std::uint32_t character_index, srVector3T<float>* position);
 void DestroyAllMissiles(W8World* world); /* 0x004A4210 */
 
-extern unsigned int g_missile_table_count;
+extern std::uint32_t g_missile_table_count;
 
 /* One 0x1e5-byte MissileTables.dbs runtime row. Only the fields reached by
    recovered consumers are named. */
@@ -176,30 +177,30 @@ struct W8MissileTableRecord {
     std::string cycle_name;
     float radius;             /* Retail offset 0x140: replaces the launched effect's radius */
     W8AttackMode attack_mode; /* Retail offset 0x144: the attack mode the hit is resolved with */
-    unsigned char unknown_148[8];
+    std::uint8_t unknown_148[8];
     /* Retail offset 0x150: copied into the launched effect block's magnitude_base. */
-    int magnitude_base;
+    std::int32_t magnitude_base;
     /* Retail offset 0x154: nonzero marks a spell missile - its hits resolve through
        ResolveSpellMissileHit instead of the physical hit/deflect path. */
     bool spell_missile;
     /* Retail offset 0x155: the percentage chances the missile's hit effect assigns each
        condition; CastSpellFromSource copies them into its effect block. */
-    unsigned char condition_chances[W8_ATTACK_EFFECT_COUNT];
+    std::uint8_t condition_chances[W8_ATTACK_EFFECT_COUNT];
     /* Retail offset 0x165: the missile weapon's impact sound class; MakePCHitSound bounds it
        against the 28 material-impact rows. */
-    int weapon_sound_class;
-    unsigned char unknown_169[0x7c];
+    std::int32_t weapon_sound_class;
+    std::uint8_t unknown_169[0x7c];
 };
 
 extern W8MissileTableRecord* g_missile_table;
 
 W8Missile* NextMissile(bool restart);
 
-W8Missile* AllocateMissile(int missile_table_index);
-unsigned char LoadMissileCycle(W8GrCycleLoadContext* context, const char* name,
-                               W8Missile** ppMissile, int);
+W8Missile* AllocateMissile(std::int32_t missile_table_index);
+std::uint8_t LoadMissileCycle(W8GrCycleLoadContext* context, const char* name,
+                               W8Missile** ppMissile, std::int32_t);
 
-W8Missile* CreateMissile(unsigned int missile_table_index, srVector3T<float>* source, float heading,
-                         float pitch, float flight_speed, unsigned int trace_mask,
-                         unsigned char block_released, float duration);
+W8Missile* CreateMissile(std::uint32_t missile_table_index, srVector3T<float>* source, float heading,
+                         float pitch, float flight_speed, std::uint32_t trace_mask,
+                         std::uint8_t block_released, float duration);
 void UpdateWorldMissiles(W8World* world);

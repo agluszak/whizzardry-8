@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "wiz8/local_code/Noise.h"
 
 #include <vector>
@@ -21,19 +22,19 @@
 /* The remaining audibility of a noise after distance and the per-hop region
    penalty: positive means the monster group still hears it. */
 // FUNCTION: WIZ8 0x004F0E50
-int NoiseHearingMargin(int radius, int range, int hops)
+std::int32_t NoiseHearingMargin(std::int32_t radius, std::int32_t range, std::int32_t hops)
 {
     return radius + hops * -25000 - range;
 }
 
 // FUNCTION: WIZ8 0x004F0E80
-void AlertMonsterGroupsToNoise(const srVector3T<float>* position, int radius, int flag)
+void AlertMonsterGroupsToNoise(const srVector3T<float>* position, std::int32_t radius, std::int32_t flag)
 {
     if (g_status.world_suspended) {
         return;
     }
     srVector3T<float> noise_position = *position;
-    for (unsigned int group_index = 0; group_index < gXStatus.monster_groups.size(); ++group_index) {
+    for (std::uint32_t group_index = 0; group_index < gXStatus.monster_groups.size(); ++group_index) {
         W8MonsterGroup* group = GetMonsterGroupByListIndex(group_index);
         W8MonsterInfo* info =
             FindMonster(group->leader_location_id);
@@ -49,7 +50,7 @@ void AlertMonsterGroupsToNoise(const srVector3T<float>* position, int radius, in
         }
         W8MonsterRecord* record = GetMonsterDataForInfo(info);
         srVector3T<float> monster_position = info->p3D->GetPosition();
-        int remaining = radius - static_cast<int>((monster_position - noise_position).Length());
+        std::int32_t remaining = radius - static_cast<std::int32_t>((monster_position - noise_position).Length());
         if (remaining <= 0) {
             continue;
         }
@@ -66,13 +67,13 @@ void AlertMonsterGroupsToNoise(const srVector3T<float>* position, int radius, in
         }
         if (flag == 1 && gXStatus.fCombatMode) {
             float range = static_cast<float>(radius);
-            int hops;
+            std::int32_t hops;
             if (g_octree->TestNoiseLineOfSight(&monster_position, &noise_position, &range, &hops) ==
                 0) {
                 continue;
             }
             // Truncate the float move-range to int before scaling, matching retail.
-            if (static_cast<int>(GetMonsterCombatMoveRange(info)) * 1000 < range) {
+            if (static_cast<std::int32_t>(GetMonsterCombatMoveRange(info)) * 1000 < range) {
                 continue;
             }
         }

@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <cstddef>
 #include <vector>
 
@@ -92,7 +93,7 @@ W8ScreenId g_suspended_screen_id = W8_SCREEN_NONE;
 // FUNCTION: WIZ8 0x004e3290
 void ShutdownGame(size_t initialized_screens, bool save_configuration)
 {
-    int index;
+    std::int32_t index;
 
     if (gXStatus.character_event_queue)
         gXStatus.character_event_queue->DestroyAllEvents();
@@ -110,7 +111,7 @@ void ShutdownGame(size_t initialized_screens, bool save_configuration)
     DestroyLevelDatabase();
     g_font_state_palettes = {};
     ReleaseDefaultHelpText();
-    for (index = 0; index < static_cast<int>(initialized_screens); ++index) {
+    for (index = 0; index < static_cast<std::int32_t>(initialized_screens); ++index) {
         g_screen_handlers[index].finalize();
     }
     g_screen_return_stack.clear();
@@ -157,8 +158,8 @@ void GameLoop(void)
     }
     if (g_pending_screen_state.id != W8_SCREEN_NONE && g_pending_screen_state.id != state) {
         /* Retail tests only the low byte of the count. */
-        if (static_cast<unsigned char>(
-                static_cast<int>(gXStatus.character_event_queue->active_events.size())) != 0) {
+        if (static_cast<std::uint8_t>(
+                static_cast<std::int32_t>(gXStatus.character_event_queue->active_events.size())) != 0) {
             gXStatus.character_event_queue->CompleteFirstActiveEvent();
             state = g_current_screen_state.id;
         }
@@ -197,7 +198,7 @@ void GameLoop(void)
 }
 
 // FUNCTION: WIZ8 0x004e34b0
-void GameloopExit(unsigned char release_screens)
+void GameloopExit(std::uint8_t release_screens)
 {
     W8ScreenId state;
 

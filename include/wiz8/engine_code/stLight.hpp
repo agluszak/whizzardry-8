@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <vector>
 
 #include "surrender/srLight.h"
@@ -15,7 +16,7 @@ class W8Prop;
 struct W8PathAI;
 namespace wiz8 { class File; }
 
-extern unsigned int g_light_update_flags;
+extern std::uint32_t g_light_update_flags;
 
 enum W8ParametricLightFlag {
     W8_PARAM_LIGHT_MODE_MASK = 3,
@@ -38,7 +39,7 @@ public:
     stLightDefinition() : kind(W8_LIGHT_DEFINITION_NONE) {}
     virtual ~stLightDefinition();
     virtual stLightDefinition* Clone() const = 0;
-    virtual bool IsEnabledForSubcycle(unsigned char subcycle) = 0;
+    virtual bool IsEnabledForSubcycle(std::uint8_t subcycle) = 0;
 
     W8LightDefinitionKind kind;
 };
@@ -74,7 +75,7 @@ public:
     }
 
     // FUNCTION: WIZ8 0x004A21E0
-    virtual bool IsEnabledForSubcycle(unsigned char subcycle) override
+    virtual bool IsEnabledForSubcycle(std::uint8_t subcycle) override
     {
         if (subcycle >= subcycle_min && subcycle <= subcycle_max) {
             return true;
@@ -87,7 +88,7 @@ public:
     /* flags bits 0-1 select the update mode (0 oscillating intensity, 1
        flicker, 3 one-way ramp); bit 3 lerps diffuse toward the target color,
        bit 5 ping-pongs the path direction at the ends. */
-    unsigned int flags;
+    std::uint32_t flags;
     /* Per-update flicker probability, compared against rand()/32768. */
     float flicker_chance;
     srVector3T<float> color;
@@ -101,8 +102,8 @@ public:
     /* Elapsed-time multiplier applied to the sweep step. */
     float rate;
     float path_speed;
-    int subcycle_min;
-    int subcycle_max;
+    std::int32_t subcycle_min;
+    std::int32_t subcycle_max;
 };
 
 /* Type 2: a light driven by keyframe tables stepped by keyframe_index. */
@@ -114,15 +115,15 @@ public:
         kind = W8_LIGHT_DEFINITION_KEYFRAMED;
     }
     virtual stLightDefinition* Clone() const override;
-    virtual bool IsEnabledForSubcycle(unsigned char subcycle) override;
+    virtual bool IsEnabledForSubcycle(std::uint8_t subcycle) override;
 
-    std::vector<int> frame_sums;
-    std::vector<int> key_frames;
+    std::vector<std::int32_t> frame_sums;
+    std::vector<std::int32_t> key_frames;
     std::vector<float> key_intensities;
     std::vector<srVector3T<float>> key_colors;
-    int keyframe_index;
+    std::int32_t keyframe_index;
     float time;
-    int start_frame;
+    std::int32_t start_frame;
     float end_frame;
 };
 
@@ -180,24 +181,24 @@ public:
        independent displacement loads. */
     srVector3T<float> m_position;    /* 0x228 */
     stLightDefinition* m_definition; /* 0x234: owned */
-    unsigned char m_unknown_238;     /* 0x238 */
+    std::uint8_t m_unknown_238;     /* 0x238 */
     /* Oscillation direction: zero sweeps intensity down, nonzero sweeps up. */
-    unsigned char m_direction;
+    std::uint8_t m_direction;
     /* Raised by light-toggle triggers; the save path serializes the names of
        lights carrying it so their toggled state persists in savegames. */
     bool m_save_marked; /* 0x23a */
-    unsigned char m_padding_23b;
+    std::uint8_t m_padding_23b;
     /* w8_get_ticks()/1000 timestamp of the last intensity/color update. */
     float m_level_time;
     /* Current 0..1 sweep level driving intensity and the color lerp. */
     float m_level;
     W8PathAI* path_ai; /* 0x244 */
     /* Current path entry index, advanced by m_path_direction. */
-    int m_path_index;
+    std::int32_t m_path_index;
     /* w8_get_ticks()/1000 timestamp of the last path advance. */
     float m_path_time;
     /* Path step direction, +1 or -1 under the ping-pong flag. */
-    int m_path_direction;
+    std::int32_t m_path_direction;
     W8Prop* m_prop; /* 0x254 */
 };
 
@@ -207,8 +208,8 @@ void LoadLightStates(wiz8::File& handle);
 /* Animation copies retain per-light position before assignment, detach the new
    light and register it with the world before adding it to the owned list. */
 inline std::vector<stLight*>* CloneAnimationLightList(std::vector<stLight*>* source,
-                                                      const char* file, int list_line,
-                                                      int light_line)
+                                                      const char* file, std::int32_t list_line,
+                                                      std::int32_t light_line)
 {
     std::vector<stLight*>* copy = 0;
     if (source != 0) {
@@ -217,7 +218,7 @@ inline std::vector<stLight*>* CloneAnimationLightList(std::vector<stLight*>* sou
             srAssertFail("plsNewLights", file, list_line,
                          "Out of memory creating monster light list");
         }
-        for (int index = 0; index < static_cast<int>(source->size()); ++index) {
+        for (std::int32_t index = 0; index < static_cast<std::int32_t>(source->size()); ++index) {
             stLight* light = (*source)[index];
             float x = light->positionalX();
             float y = light->positionalY();

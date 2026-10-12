@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include "wiz8/retail_records.h"
 #include "wiz8/unicode.h"
 #include "wiz8/filesystem.h"
@@ -578,8 +579,8 @@ template<class T> void read_exact(File& file, T& runtime,
     decode<T>(std::span(image).first(bytes), runtime);
 }
 // Read a count-prefixed table without publishing partially decoded records.
-template<class T> std::unique_ptr<T[]> read_database(File& file, unsigned int& count,
-    std::size_t maximum = std::numeric_limits<unsigned int>::max())
+template<class T> std::unique_ptr<T[]> read_database(File& file, std::uint32_t& count,
+    std::size_t maximum = std::numeric_limits<std::uint32_t>::max())
 {
     file.read_exact(&count, sizeof(count));
     const auto remaining = file.size() - file.tell();
@@ -588,7 +589,7 @@ template<class T> std::unique_ptr<T[]> read_database(File& file, unsigned int& c
         throw std::runtime_error("Invalid retail database record count");
     }
     auto records = count ? std::make_unique<T[]>(count) : nullptr;
-    for (unsigned int i = 0; i < count; ++i) {
+    for (std::uint32_t i = 0; i < count; ++i) {
         read_exact(file, records[i]);
     }
     return records;

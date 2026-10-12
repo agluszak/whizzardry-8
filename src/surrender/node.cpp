@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "surrender/model_view_scope.h"
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/ext/quaternion_trigonometric.hpp>
@@ -27,14 +28,14 @@
 std::recursive_mutex srNode::sceneGraphCSect;
 
 // GLOBAL: SURRENDER 0x100A49FC
-std::atomic<w8_long> srNode::sceneGraphLockCount{0};
+std::atomic<std::int32_t> srNode::sceneGraphLockCount{0};
 
 // The node repair step orthonormalizes rows, preserving its zero-row behavior.
 static void orthonormalizeRotation(glm::dmat3& rotation)
 {
     auto rows = glm::transpose(rotation);
-    for (int row = 0; row < 3; ++row) {
-        for (int earlier = 0; earlier < row; ++earlier)
+    for (std::int32_t row = 0; row < 3; ++row) {
+        for (std::int32_t earlier = 0; earlier < row; ++earlier)
             rows[row] -= rows[earlier] * glm::dot(rows[row], rows[earlier]);
         rows[row] = glm::normalize(rows[row]);
     }
@@ -64,7 +65,7 @@ void srNode::unlockSceneGraph()
 }
 
 // FUNCTION: SURRENDER 0x10050380
-int srNode::isSceneGraphLocked()
+std::int32_t srNode::isSceneGraphLocked()
 {
     return sceneGraphLockCount.load() != 0;
 }
@@ -82,7 +83,7 @@ void srNode::notifyChildren(const srFlags<e_notify>& notifications)
 {
     /* Only the bits this node has not seen yet propagate; the new set is
        re-masked at every recursion level. */
-    w8_ulong pending = ~this->notifications.value & notifications.value;
+    std::uint32_t pending = ~this->notifications.value & notifications.value;
     if (pending != 0) {
         this->notifications.value |= pending;
         for (srNode* child = first_child_; child != 0; child = child->next_sibling_) {
@@ -94,7 +95,7 @@ void srNode::notifyChildren(const srFlags<e_notify>& notifications)
 // FUNCTION: SURRENDER 0x10050410
 void srNode::notifyParents(const srFlags<e_notify>& notifications)
 {
-    w8_ulong pending = ~this->notifications.value & notifications.value;
+    std::uint32_t pending = ~this->notifications.value & notifications.value;
     if (pending != 0) {
         this->notifications.value |= pending;
         if (parent_ != 0) {
@@ -116,7 +117,7 @@ void srNode::clearNotify(e_notify notification)
 }
 
 // FUNCTION: SURRENDER 0x10050490
-int srNode::testNotify(e_notify notification) const
+std::int32_t srNode::testNotify(e_notify notification) const
 {
     return (notifications.value & (1 << notification)) != 0;
 }
@@ -169,13 +170,13 @@ srNode& srNode::operator=(const srNode& other)
 }
 
 // FUNCTION: SURRENDER 0x10050690
-int srNode::processSignal(w8_ulong signal, void* value)
+std::int32_t srNode::processSignal(std::uint32_t signal, void* value)
 {
     return 1;
 }
 
 // FUNCTION: SURRENDER 0x100506A0
-void srNode::signalInternal(w8_ulong signal, void* value)
+void srNode::signalInternal(std::uint32_t signal, void* value)
 {
     /* Depth-first walk: at each level the sibling chain is recursed first,
        then the first-child chain is iterated while processSignal keeps
@@ -193,7 +194,7 @@ void srNode::signalInternal(w8_ulong signal, void* value)
 }
 
 // FUNCTION: SURRENDER 0x100506E0
-void srNode::signal(w8_ulong signal, void* value)
+void srNode::signal(std::uint32_t signal, void* value)
 {
     if (processSignal(signal, value) != 0 && first_child_ != 0) {
         first_child_->signalInternal(signal, value);
@@ -201,9 +202,9 @@ void srNode::signal(w8_ulong signal, void* value)
 }
 
 // FUNCTION: SURRENDER 0x10050710
-w8_long srNode::getHierarchyLevel() const
+std::int32_t srNode::getHierarchyLevel() const
 {
-    w8_long level = 0;
+    std::int32_t level = 0;
     for (srNode* node = parent_; node != 0; node = node->parent_) {
         ++level;
     }
@@ -251,7 +252,7 @@ srNode::~srNode()
    rebuilds them against the new parent's inverse basis (orthonormalized by
    Gram-Schmidt) so the node's world placement survives the move. */
 // FUNCTION: SURRENDER 0x10050F00
-int srNode::setParent(srNode* parent, int preserve_world_transform)
+std::int32_t srNode::setParent(srNode* parent, std::int32_t preserve_world_transform)
 {
     std::lock_guard access(sceneGraphCSect);
     if (parent == this) {
@@ -301,9 +302,9 @@ void srNode::detach()
 }
 
 // FUNCTION: SURRENDER 0x10050B70
-w8_long srNode::getChildCount() const
+std::int32_t srNode::getChildCount() const
 {
-    w8_long count = 0;
+    std::int32_t count = 0;
     for (srNode* child = first_child_; child != 0; child = child->next_sibling_) {
         count += 1 + child->getChildCount();
     }
@@ -329,7 +330,7 @@ void srNode::unlink()
 }
 
 // FUNCTION: SURRENDER 0x10051370
-int srNode::isChildOf(const srNode& node) const
+std::int32_t srNode::isChildOf(const srNode& node) const
 {
     const srNode* current = this;
     while (current != 0) {
@@ -342,7 +343,7 @@ int srNode::isChildOf(const srNode& node) const
 }
 
 // FUNCTION: SURRENDER 0x100513A0
-int srNode::isParentOf(const srNode& node) const
+std::int32_t srNode::isParentOf(const srNode& node) const
 {
     const srNode* target = &node;
     if (target == 0) {
@@ -453,7 +454,7 @@ void srNode::clearFlag(e_flag flag)
 }
 
 // FUNCTION: SURRENDER 0x10051CB0
-int srNode::testFlag(e_flag flag) const
+std::int32_t srNode::testFlag(e_flag flag) const
 {
     return (flags.value & (1 << flag)) != 0;
 }
@@ -469,7 +470,7 @@ void srNode::setWSDirty()
 {
     /* The dirty fan-out to parents and children can rewrite the notification word, so the
        positional bit is saved first and restored after. */
-    int bounds_dirty = notifications.value & (1 << NOTIFY_BOUNDS_DIRTY);
+    std::int32_t bounds_dirty = notifications.value & (1 << NOTIFY_BOUNDS_DIRTY);
     notifyParents(srFlags<e_notify>(1u << NOTIFY_BOUNDS_DIRTY));
     notifyChildren(srFlags<e_notify>(1u << NOTIFY_TRANSFORM_DIRTY));
     notifications.set(NOTIFY_BOUNDS_DIRTY, bounds_dirty);
@@ -591,7 +592,7 @@ void srNode::setLocation(double x, double y, double z)
     setLocation(glm::dvec3(x, y, z));
 }
 
-void srNode::setLocationComponent(unsigned component, double value)
+void srNode::setLocationComponent(std::uint32_t component, double value)
 {
     if (location[component] != value) {
         location[component] = value;
@@ -710,7 +711,7 @@ void srNode::getFullPathInternal(std::string& path) const
 }
 
 // FUNCTION: SURRENDER 0x10050B10
-void srNode::dumpHierarchy(std::ostream& stream, w8_long indent) const
+void srNode::dumpHierarchy(std::ostream& stream, std::int32_t indent) const
 {
     const srNode* node = this;
     do {
@@ -751,7 +752,7 @@ srNode* srNode::findChildInternal(std::string_view name)
 }
 
 // FUNCTION: SURRENDER 0x10050860
-srNode* srNode::findChildByNameAndType(std::string_view name, w8_ulong class_id) const
+srNode* srNode::findChildByNameAndType(std::string_view name, std::uint32_t class_id) const
 {
     if (first_child_ != 0) {
         return first_child_->findChildByNameAndTypeInternal(name, class_id);
@@ -760,7 +761,7 @@ srNode* srNode::findChildByNameAndType(std::string_view name, w8_ulong class_id)
 }
 
 // FUNCTION: SURRENDER 0x100507D0
-srNode* srNode::findChildByNameAndTypeInternal(std::string_view name, w8_ulong class_id)
+srNode* srNode::findChildByNameAndTypeInternal(std::string_view name, std::uint32_t class_id)
 {
     if (name == getName() && matchClassID(class_id) != 0) {
         return this;
@@ -801,7 +802,7 @@ srNode* srNode::findParentInternal(std::string_view name)
 }
 
 // FUNCTION: SURRENDER 0x10050990
-srNode* srNode::findParentByType(w8_ulong class_id) const
+srNode* srNode::findParentByType(std::uint32_t class_id) const
 {
     if (parent_ == 0) {
         return 0;
@@ -810,7 +811,7 @@ srNode* srNode::findParentByType(w8_ulong class_id) const
 }
 
 // FUNCTION: SURRENDER 0x10050950
-srNode* srNode::findParentByTypeInternal(w8_ulong class_id)
+srNode* srNode::findParentByTypeInternal(std::uint32_t class_id)
 {
     srNode* node = this;
     while (node->matchClassID(class_id) == 0) {
@@ -831,7 +832,7 @@ void srNode::move(const glm::dvec3& offset)
     }
 }
 
-void srNode::moveAlongAxis(unsigned axis, double distance)
+void srNode::moveAlongAxis(std::uint32_t axis, double distance)
 {
     if (distance != 0) {
         location += rotation[axis] * distance;
@@ -921,7 +922,7 @@ void srNode::setWorldSpaceRotation(const glm::dmat3& rotation)
     if (parent_) {
         auto parent_world = parent_->getWorldSpaceMatrix<glm::dmat4>();
         this->rotation = glm::inverse(glm::dmat3(parent_world)) * rotation;
-        for (int column = 0; column < 3; ++column)
+        for (std::int32_t column = 0; column < 3; ++column)
             this->rotation[column] = normalizedOrZero(this->rotation[column]);
     }
     setWSDirty();
@@ -939,16 +940,16 @@ void srNode::setWorldSpaceMatrix(const glm::dmat4& matrix)
     rotation = glm::dmat3(local);
     scale =
         glm::dvec3(glm::length(rotation[0]), glm::length(rotation[1]), glm::length(rotation[2]));
-    for (int column = 0; column < 3; ++column)
+    for (std::int32_t column = 0; column < 3; ++column)
         rotation[column] /= scale[column];
     setWSDirty();
 }
 
-void srNode::turnWorldSpaceAxisToward(unsigned axis, const glm::dvec3& direction, double amount)
+void srNode::turnWorldSpaceAxisToward(std::uint32_t axis, const glm::dvec3& direction, double amount)
 {
     auto basis = getWorldSpaceRotation();
-    const unsigned numerator = axis == 0 ? 1 : 0;
-    const unsigned denominator = axis == 2 ? 1 : 2;
+    const std::uint32_t numerator = axis == 0 ? 1 : 0;
+    const std::uint32_t denominator = axis == 2 ? 1 : 2;
     const double turn = std::atan2(glm::dot(basis[numerator], direction),
                                   glm::dot(basis[denominator], direction));
     const double angle = (axis == 1 ? turn : -turn) * amount;

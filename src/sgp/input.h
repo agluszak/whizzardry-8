@@ -80,7 +80,7 @@ struct InputEvent {
     std::uint16_t key = 0;
     char32_t text = 0;
     SDL_Point position{};
-    int wheel = 0;
+    std::int32_t wheel = 0;
     SDL_MouseButtonFlags buttons = 0;
     std::uint8_t clicks = 0;
 
@@ -113,7 +113,7 @@ inline bool IsRightButtonHeld() { return GetInputState().right_button; }
 inline SDL_Point GetGameMousePosition() { return GetInputState().mouse; }
 inline void SetMouseMoveEventsEnabled(bool enabled) { GetInputState().mouse_move_events = enabled; }
 
-bool WarpGameMouse(SDL_Window* window, int x, int y);
+bool WarpGameMouse(SDL_Window* window, std::int32_t x, std::int32_t y);
 void FreeMouseCursor();
 
 void SetNativeTextInputEnabled(bool enabled);

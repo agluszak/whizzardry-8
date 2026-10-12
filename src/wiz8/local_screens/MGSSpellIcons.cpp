@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <memory>
 #include <fmt/format.h>
 #include <fmt/printf.h>
@@ -27,23 +28,23 @@
 #include "wiz8/catalog_artwork.h"
 
 // GLOBAL: WIZ8 0x0069c260
-static unsigned int g_effect_icon_help_duration;
+static std::uint32_t g_effect_icon_help_duration;
 
 // GLOBAL: WIZ8 0x0069C25C
-unsigned int g_spell_icon_count;
+std::uint32_t g_spell_icon_count;
 /* Child spell-icon text controls under g_spell_icon_strip. */
 // GLOBAL: WIZ8 0x0069C264
-static constexpr unsigned int kPartyEffectIconCount = 9;
+static constexpr std::uint32_t kPartyEffectIconCount = 9;
 static W8TextControl* g_spell_icon_rows[12];
 /* Right-side combat-effect icon rows under g_combat_effect_right_panel. */
 // GLOBAL: WIZ8 0x0069C294
 static W8TextControl* g_combat_effect_right_rows[6];
 // GLOBAL: WIZ8 0x0069C2AC
-unsigned int g_combat_effect_right_count;
+std::uint32_t g_combat_effect_right_count;
 // GLOBAL: WIZ8 0x0069C2B0
 std::unique_ptr<Controls> g_spell_icon_strip;
 // GLOBAL: WIZ8 0x0069C2B4
-unsigned int g_combat_effect_left_count;
+std::uint32_t g_combat_effect_left_count;
 // GLOBAL: WIZ8 0x0069C2B8
 std::unique_ptr<Controls> g_combat_effect_right_panel;
 // GLOBAL: WIZ8 0x0069C2BC
@@ -57,7 +58,7 @@ static W8TextControl* g_combat_effect_left_rows[9];
 static void RebuildCombatEffectHudRows(void);
 
 // FUNCTION: WIZ8 0x005AE9D0
-unsigned char CreateSpellIconHudControls(void)
+std::uint8_t CreateSpellIconHudControls(void)
 {
     g_spell_icon_strip.reset();
     g_combat_effect_left_panel.reset();
@@ -86,9 +87,9 @@ unsigned char CreateSpellIconHudControls(void)
 
 /* Strip rows are detached before destruction. Destruction can change the
    live panel/count, so each iteration reads them again and clears the observer slot. */
-static void DestroyEffectIconRows(const std::unique_ptr<Controls>& panel, W8TextControl** rows, const unsigned int& count)
+static void DestroyEffectIconRows(const std::unique_ptr<Controls>& panel, W8TextControl** rows, const std::uint32_t& count)
 {
-    for (unsigned int index = 0; index < count; ++index) {
+    for (std::uint32_t index = 0; index < count; ++index) {
         auto row = panel->TakeControl(rows[index]);
         rows[index] = nullptr;
     }
@@ -96,7 +97,7 @@ static void DestroyEffectIconRows(const std::unique_ptr<Controls>& panel, W8Text
 
 static void ClearSpellIconHudRows()
 {
-    unsigned int index;
+    std::uint32_t index;
     DestroyEffectIconRows(g_spell_icon_strip, g_spell_icon_rows, g_spell_icon_count);
     /* Retail swept twelve catalog slots downward from the last party icon,
        running three past the strip into the neighbouring set. The screen now
@@ -139,10 +140,10 @@ void RefreshSpellIconHudRows(void)
 // FUNCTION: WIZ8 0x005AEC70
 void RebuildSpellIconHudRows(void)
 {
-    int left;
-    int right;
-    int icon;
-    int slot;
+    std::int32_t left;
+    std::int32_t right;
+    std::int32_t icon;
+    std::int32_t slot;
     W8TextControl* control;
     W8EffectSlot* effect;
 
@@ -201,10 +202,10 @@ void RefreshCombatEffectHud(void)
 // FUNCTION: WIZ8 0x005AEFC0
 static void RebuildCombatEffectHudRows(void)
 {
-    int left;
-    int right;
-    int icon;
-    int slot;
+    std::int32_t left;
+    std::int32_t right;
+    std::int32_t icon;
+    std::int32_t slot;
     W8TextControl* control;
     W8EffectSlot* effect;
 
@@ -260,7 +261,7 @@ static void RebuildCombatEffectHudRows(void)
 // FUNCTION: WIZ8 0x005AF210
 void DestroyCombatEffectHudRows(void)
 {
-    unsigned int index;
+    std::uint32_t index;
 
     DestroyEffectIconRows(g_combat_effect_left_panel, g_combat_effect_left_rows,
                           g_combat_effect_left_count);
@@ -293,12 +294,12 @@ void InvalidateMainGameEffectHud(void)
     }
 }
 
-static void ShowEffectIconHelp(const W8EffectSlot* slot, bool show_duration, int assertion_line)
+static void ShowEffectIconHelp(const W8EffectSlot* slot, bool show_duration, std::int32_t assertion_line)
 {
     W8SpellRuntimeRecord* records = g_spell_records;
-    int amount = slot->amount;
-    unsigned int duration = slot->duration;
-    int effect_id = slot->effect_id;
+    std::int32_t amount = slot->amount;
+    std::uint32_t duration = slot->duration;
+    std::int32_t effect_id = slot->effect_id;
     g_effect_icon_help_duration = duration;
     std::string text = fmt::format("{}: ", records[effect_id].display_name);
     text += show_duration
@@ -308,16 +309,16 @@ static void ShowEffectIconHelp(const W8EffectSlot* slot, bool show_duration, int
 }
 
 // FUNCTION: WIZ8 0x005AED90
-void ShowPartyEffectIconHelp(int slot_index)
+void ShowPartyEffectIconHelp(std::int32_t slot_index)
 {
     ShowEffectIconHelp(&g_status.effect_slots[slot_index], true, 0x15c);
 }
 
-static unsigned int FindActiveEffectSlotIndex(const W8EffectSlot* slots, unsigned int count,
-                                              unsigned int active_index)
+static std::uint32_t FindActiveEffectSlotIndex(const W8EffectSlot* slots, std::uint32_t count,
+                                              std::uint32_t active_index)
 {
-    unsigned int match = 0;
-    for (unsigned int index = 0; index < count; ++index) {
+    std::uint32_t match = 0;
+    for (std::uint32_t index = 0; index < count; ++index) {
         if (slots[index].active) {
             if (match == active_index) {
                 return index;
@@ -330,11 +331,11 @@ static unsigned int FindActiveEffectSlotIndex(const W8EffectSlot* slots, unsigne
 
 /* All three effect strips use the same active-slot hover policy. The caller
    retains the combat guard and sound setup before supplying its current slots. */
-static unsigned char DispatchEffectIconRegionEvent(const InputEvent* event, W8Region* region,
-                                                   const W8EffectSlot* slots, unsigned int count,
-                                                   void (*show_help)(int))
+static std::uint8_t DispatchEffectIconRegionEvent(const InputEvent* event, W8Region* region,
+                                                   const W8EffectSlot* slots, std::uint32_t count,
+                                                   void (*show_help)(std::int32_t))
 {
-    unsigned int slot_index = FindActiveEffectSlotIndex(slots, count, region->callback_id);
+    std::uint32_t slot_index = FindActiveEffectSlotIndex(slots, count, region->callback_id);
     if (slot_index != count && event->type == InputEventType::MouseMove) {
         if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
             return 1;
@@ -352,7 +353,7 @@ static unsigned char DispatchEffectIconRegionEvent(const InputEvent* event, W8Re
 }
 
 // FUNCTION: WIZ8 0x005AEEA0
-unsigned char PartyEffectIconRegionEvent(const InputEvent* event, W8Region* region)
+std::uint8_t PartyEffectIconRegionEvent(const InputEvent* event, W8Region* region)
 {
     PushButtonSoundScheme(0, true);
     return DispatchEffectIconRegionEvent(event, region, g_status.effect_slots, 12,
@@ -362,13 +363,13 @@ unsigned char PartyEffectIconRegionEvent(const InputEvent* event, W8Region* regi
 /* Left combat-effect strip (nine slots at g_combat_state->effect_slots). */
 
 // FUNCTION: WIZ8 0x005AF300
-void ShowCombatLeftEffectIconHelp(int slot_index)
+void ShowCombatLeftEffectIconHelp(std::int32_t slot_index)
 {
     ShowEffectIconHelp(&g_combat_state->effect_slots[slot_index], false, 0x2e1);
 }
 
 // FUNCTION: WIZ8 0x005AF410
-void ShowCombatRightEffectIconHelp(int slot_index)
+void ShowCombatRightEffectIconHelp(std::int32_t slot_index)
 {
     ShowEffectIconHelp(&g_combat_state->effect_slots0[slot_index], true, 0x30d);
 }
@@ -377,7 +378,7 @@ void ShowCombatRightEffectIconHelp(int slot_index)
    effect slot and refresh help on enter. */
 
 // FUNCTION: WIZ8 0x005AF530
-unsigned char CombatLeftEffectIconRegionEvent(const InputEvent* event, W8Region* region)
+std::uint8_t CombatLeftEffectIconRegionEvent(const InputEvent* event, W8Region* region)
 {
     if (!gXStatus.fCombatMode) {
         return 0;
@@ -390,7 +391,7 @@ unsigned char CombatLeftEffectIconRegionEvent(const InputEvent* event, W8Region*
 /* Right combat-effect strip (six slots at g_combat_state->effect_slots0). */
 
 // FUNCTION: WIZ8 0x005AF5E0
-unsigned char CombatRightEffectIconRegionEvent(const InputEvent* event, W8Region* region)
+std::uint8_t CombatRightEffectIconRegionEvent(const InputEvent* event, W8Region* region)
 {
     if (!gXStatus.fCombatMode) {
         return 0;

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <filesystem>
 #include <random>
 #include <stdexcept>
@@ -9,7 +10,7 @@ inline std::string make_temporary_directory(const char* prefix)
 {
     std::random_device random;
     const auto base = std::filesystem::temp_directory_path();
-    for (unsigned attempt = 0; attempt < 100; ++attempt)
+    for (std::uint32_t attempt = 0; attempt < 100; ++attempt)
     {
         const auto path = base / (std::string(prefix) + "-" + std::to_string(random()));
         std::error_code error;

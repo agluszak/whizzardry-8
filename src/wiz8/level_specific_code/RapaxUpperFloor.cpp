@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "wiz8/level_specific_code/RapaxUpperFloor.h"
 
 #include <vector>
@@ -43,8 +44,8 @@ bool RapaxUpperFloorAirBox(Trigger* pTrigger)
     srVector3T<float> entity_position;
     srVector3T<float> position;
     W8WorldItem* world_item;
-    int item_id;
-    int var_id;
+    std::int32_t item_id;
+    std::int32_t var_id;
 
     if (g_status.item_in_cursor) {
         item_id = GetItemInHand();
@@ -102,7 +103,7 @@ bool RapaxUpperFloorDoorDone(Trigger* pTrigger)
     srVector3T<float> entity_position;
     srVector3T<float> position;
     W8WorldItem* world_item;
-    int item_id;
+    std::int32_t item_id;
 
     if (GetLocationVarIDByName("TMakeTreasure") != -1) {
         if (GetLocationVarValueByName("TMakeTreasure") != 0) {

@@ -32,13 +32,13 @@ void readBGRX(const srPixelConvert::ConversionInfo&);
 
 TEST_CASE("pixel conversions")
 {
-        constexpr unsigned count = 65539;
-        std::vector<w8_ulong> input(count), rotated(count), output(count);
-        for (unsigned i = 0; i < count; ++i)
+        constexpr std::uint32_t count = 65539;
+        std::vector<std::uint32_t> input(count), rotated(count), output(count);
+        for (std::uint32_t i = 0; i < count; ++i)
             input[i] = (i * 0x9e3779b9u) ^ (i >> 8);
         srPixelConvert::ConversionInfo info{rotated.data(), input.data(), count, nullptr, nullptr};
         writeABGR(info);
-        for (unsigned i = 0; i < count; ++i)
+        for (std::uint32_t i = 0; i < count; ++i)
             REQUIRE(rotated[i] == (input[i] << 8 | input[i] >> 24));
         info.source = rotated.data();
         info.dest = output.data();
@@ -50,12 +50,12 @@ TEST_CASE("pixel conversions")
         readABGR(info);
         REQUIRE(input == output);
 
-        std::vector<unsigned char> rgb(count * 3 + 2, 0xa5);
+        std::vector<std::uint8_t> rgb(count * 3 + 2, 0xa5);
         info.source = input.data();
         info.dest = rgb.data() + 1;
         writeRGB24(info);
         REQUIRE((rgb.front() == 0xa5 && rgb.back() == 0xa5));
-        for (unsigned i = 0; i < count; ++i) {
+        for (std::uint32_t i = 0; i < count; ++i) {
             REQUIRE(rgb[1 + i * 3] == (input[i] >> 16 & 255));
             REQUIRE(rgb[2 + i * 3] == (input[i] >> 8 & 255));
             REQUIRE(rgb[3 + i * 3] == (input[i] & 255));
@@ -63,26 +63,26 @@ TEST_CASE("pixel conversions")
         info.source = rgb.data() + 1;
         info.dest = output.data();
         readRGB24(info);
-        for (unsigned i = 0; i < count; ++i)
+        for (std::uint32_t i = 0; i < count; ++i)
             REQUIRE(output[i] == (input[i] | 0xff000000));
         info = {output.data(), input.data(), count, nullptr, nullptr};
         writeBGRX(info);
-        for (unsigned i = 0; i < count; ++i)
+        for (std::uint32_t i = 0; i < count; ++i)
             REQUIRE(output[i] == (input[i] & 0x00ffffff));
         info.source = output.data();
         readBGRX(info);
-        for (unsigned i = 0; i < count; ++i)
+        for (std::uint32_t i = 0; i < count; ++i)
             REQUIRE(output[i] == (input[i] | 0xff000000));
         // BGRX records may start at odd addresses, including exact in-place conversion.
-        std::vector<unsigned char> unaligned(count * sizeof(w8_ulong) + 2, 0xa5);
-        std::vector<unsigned char> masked(unaligned.size(), 0xa5);
+        std::vector<std::uint8_t> unaligned(count * sizeof(std::uint32_t) + 2, 0xa5);
+        std::vector<std::uint8_t> masked(unaligned.size(), 0xa5);
         if (count != 0)
-            std::memcpy(unaligned.data() + 1, input.data(), count * sizeof(w8_ulong));
+            std::memcpy(unaligned.data() + 1, input.data(), count * sizeof(std::uint32_t));
         info = {masked.data() + 1, unaligned.data() + 1, count, nullptr, nullptr};
         writeBGRX(info);
         REQUIRE((masked.front() == 0xa5 && masked.back() == 0xa5));
-        for (unsigned i = 0; i < count; ++i) {
-            w8_ulong pixel;
+        for (std::uint32_t i = 0; i < count; ++i) {
+            std::uint32_t pixel;
             std::memcpy(&pixel, masked.data() + 1 + i * sizeof(pixel), sizeof(pixel));
             REQUIRE(pixel == (input[i] & 0x00ffffff));
         }
@@ -91,22 +91,22 @@ TEST_CASE("pixel conversions")
         REQUIRE(std::memcmp(unaligned.data(), masked.data(), masked.size()) == 0);
         readBGRX(info);
         REQUIRE((unaligned.front() == 0xa5 && unaligned.back() == 0xa5));
-        for (unsigned i = 0; i < count; ++i) {
-            w8_ulong pixel;
+        for (std::uint32_t i = 0; i < count; ++i) {
+            std::uint32_t pixel;
             std::memcpy(&pixel, unaligned.data() + 1 + i * sizeof(pixel), sizeof(pixel));
             REQUIRE(pixel == (input[i] | 0xff000000));
         }
         info.source = masked.data() + 1;
         readBGRX(info);
         REQUIRE((count == 0 ||
-              std::memcmp(unaligned.data() + 1, output.data(), count * sizeof(w8_ulong)) == 0));
+              std::memcmp(unaligned.data() + 1, output.data(), count * sizeof(std::uint32_t)) == 0));
         output = input;
         info.source = output.data();
         info.dest = output.data();
         writeRGB24(info);
         REQUIRE(memcmp(output.data(), rgb.data() + 1, count * 3) == 0);
         readRGB24(info);
-        for (unsigned i = 0; i < count; ++i)
+        for (std::uint32_t i = 0; i < count; ++i)
             REQUIRE(output[i] == (input[i] | 0xff000000));
         // Zero length must not inspect pointers or SDL formats.
         info = {nullptr, nullptr, 0, nullptr, nullptr};
@@ -118,16 +118,16 @@ TEST_CASE("pixel conversions")
         readBGRX(info);
 
         initPixelTables();
-        std::vector<unsigned short> packed(65536);
+        std::vector<std::uint16_t> packed(65536);
         output.resize(65536);
-        for (unsigned i = 0; i < packed.size(); ++i)
+        for (std::uint32_t i = 0; i < packed.size(); ++i)
             packed[i] = i;
         info = {output.data(), packed.data(), 65536, nullptr, nullptr};
         readRGB555(info);
-        const auto expand = [](unsigned value, unsigned max) {
-            return unsigned(value * 255.f * (1.f / max) + .5f);
+        const auto expand = [](std::uint32_t value, std::uint32_t max) {
+            return std::uint32_t(value * 255.f * (1.f / max) + .5f);
         };
-        for (unsigned i = 0; i < packed.size(); ++i) {
+        for (std::uint32_t i = 0; i < packed.size(); ++i) {
             const auto red = i < 32768 ? expand(i >> 10, 31) : expand((i >> 10) - 32, 63);
             const auto expected =
                 0xff000000u | red << 16 | expand(i >> 5 & 31, 31) << 8 | expand(i & 31, 31);
@@ -135,11 +135,11 @@ TEST_CASE("pixel conversions")
         }
         info = {packed.data(), input.data(), 65536, nullptr, nullptr};
         writeRGB555(info);
-        const auto reduce = [](unsigned value) { return unsigned(value * (1. / 255.) * 31. + .5); };
-        for (unsigned i = 0; i < packed.size(); ++i)
+        const auto reduce = [](std::uint32_t value) { return std::uint32_t(value * (1. / 255.) * 31. + .5); };
+        for (std::uint32_t i = 0; i < packed.size(); ++i)
             REQUIRE(packed[i] == (reduce(input[i] >> 16 & 255) << 10 |
                                 reduce(input[i] >> 8 & 255) << 5 | reduce(input[i] & 255)));
-        std::vector<w8_ulong> sdlOutput(65536);
+        std::vector<std::uint32_t> sdlOutput(65536);
         info = {output.data(), packed.data(), 65536, nullptr, nullptr};
         readRGB555(info);
         REQUIRE(SDL_ConvertPixels(65536, 1, SDL_PIXELFORMAT_XRGB1555, packed.data(), 65536 * 2,
@@ -150,17 +150,17 @@ TEST_CASE("pixel conversions")
                             srPixelConvert::SURFACE_RGB24, srPixelConvert::SURFACE_ARGB32}) {
             srColorSurface actual(format, 7, 5), expected(format, 7, 5);
             actual.fill(0xff123456);
-            for (int y = 0; y < 5; ++y)
-                for (int x = 0; x < 7; ++x)
+            for (std::int32_t y = 0; y < 5; ++y)
+                for (std::int32_t x = 0; x < 7; ++x)
                     expected.setPixel(x, y, 0xff123456);
             actual.setHLine(2, 9, -2, 0xffabcdef);
-            for (int x = 0; x < 7; ++x)
+            for (std::int32_t x = 0; x < 7; ++x)
                 expected.setPixel(x, 2, 0xffabcdef);
             actual.setVLine(3, 8, 1, 0xff765432);
-            for (int y = 1; y < 5; ++y)
+            for (std::int32_t y = 1; y < 5; ++y)
                 expected.setPixel(3, y, 0xff765432);
-            for (int y = 0; y < 5; ++y)
-                for (int x = 0; x < 7; ++x)
+            for (std::int32_t y = 0; y < 5; ++y)
+                for (std::int32_t x = 0; x < 7; ++x)
                     REQUIRE(actual.getPixelRaw(x, y) == expected.getPixelRaw(x, y));
         }
         REQUIRE(srExit());
@@ -185,39 +185,39 @@ TEST_CASE("SurRender uses shared packed surface operations")
                         srPixelConvert::SURFACE_BGRA32}) {
         srColorSurface source(format, 7, 5);
         source.setFilter(nullptr);
-        for (int y = 0; y < 5; ++y)
-            for (int x = 0; x < 7; ++x)
+        for (std::int32_t y = 0; y < 5; ++y)
+            for (std::int32_t x = 0; x < 7; ++x)
                 source.setPixelRaw(x, y, (x + y * 7) * 0x1234567u);
         srColorSurface clone(source);
-        for (int y = 0; y < 5; ++y)
-            for (int x = 0; x < 7; ++x)
+        for (std::int32_t y = 0; y < 5; ++y)
+            for (std::int32_t x = 0; x < 7; ++x)
                 REQUIRE(clone.getPixelRaw(x, y) == source.getPixelRaw(x, y));
         clone.flipHorizontal();
-        for (int y = 0; y < 5; ++y)
-            for (int x = 0; x < 7; ++x)
+        for (std::int32_t y = 0; y < 5; ++y)
+            for (std::int32_t x = 0; x < 7; ++x)
                 REQUIRE(clone.getPixelRaw(x, y) == source.getPixelRaw(6 - x, y));
         clone = source;
         clone.flipRectangle({5, 4, 1, 1});
-        for (int y = 0; y < 5; ++y)
-            for (int x = 0; x < 7; ++x) {
+        for (std::int32_t y = 0; y < 5; ++y)
+            for (std::int32_t x = 0; x < 7; ++x) {
                 const bool inside = x >= 1 && x < 5 && y >= 1 && y < 4;
                 REQUIRE(clone.getPixelRaw(x, y) == source.getPixelRaw(inside ? 5 - x : x,
                                                                     inside ? 4 - y : y));
             }
-        for (int width : {3, 7, 14, 17}) {
+        for (std::int32_t width : {3, 7, 14, 17}) {
             srColorSurface scaled(format, width, 9);
             scaled.copy(source);
-            for (int y = 0; y < 9; ++y)
-                for (int x = 0; x < width; ++x)
+            for (std::int32_t y = 0; y < 9; ++y)
+                for (std::int32_t x = 0; x < width; ++x)
                     REQUIRE(scaled.getPixelRaw(x, y) == source.getPixelRaw(x * 7 / width, y * 5 / 9));
         }
-        for (int dx : {-2, 0, 2})
-            for (int dy : {-2, 0, 2}) {
+        for (std::int32_t dx : {-2, 0, 2})
+            for (std::int32_t dy : {-2, 0, 2}) {
                 clone = source;
                 clone.blit(dx, dy, clone, 0, 0, 7, 5);
-                for (int y = 0; y < 5; ++y)
-                    for (int x = 0; x < 7; ++x) {
-                        const int sx = x - dx, sy = y - dy;
+                for (std::int32_t y = 0; y < 5; ++y)
+                    for (std::int32_t x = 0; x < 7; ++x) {
+                        const std::int32_t sx = x - dx, sy = y - dy;
                         const bool copied = sx >= 0 && sx < 7 && sy >= 0 && sy < 5;
                         REQUIRE(clone.getPixelRaw(x, y) ==
                                 source.getPixelRaw(copied ? sx : x, copied ? sy : y));
@@ -237,27 +237,27 @@ TEST_CASE("generic rounded RGB conversion remains exact")
                      srPixelConvert::SURFACE_ARGB32, srPixelConvert::SURFACE_RGBA32}) {
         const auto f = srPixelConvert::pixelFormat(type);
         const auto functions = srPixelConvert::selectFuncs(f);
-        for (unsigned value = 0; value < 256; ++value) {
-            const w8_ulong input = value * 0x01010101u;
-            unsigned char storage[6]{};
+        for (std::uint32_t value = 0; value < 256; ++value) {
+            const std::uint32_t input = value * 0x01010101u;
+            std::uint8_t storage[6]{};
             srPixelConvert::ConversionInfo info{storage + 1, &input, 1, nullptr, &f};
             functions.write(info);
-            const auto reduce = [value](unsigned bits) {
-                return unsigned((value * (1. / 255.)) * ((1u << bits) - 1) + .5);
+            const auto reduce = [value](std::uint32_t bits) {
+                return std::uint32_t((value * (1. / 255.)) * ((1u << bits) - 1) + .5);
             };
-            const w8_ulong expected = reduce(f.red_bits) << f.red_shift |
+            const std::uint32_t expected = reduce(f.red_bits) << f.red_shift |
                 reduce(f.green_bits) << f.green_shift | reduce(f.blue_bits) << f.blue_shift |
                 reduce(f.alpha_bits) << f.alpha_shift;
-            w8_ulong packed = 0, output = 0;
+            std::uint32_t packed = 0, output = 0;
             std::memcpy(&packed, storage + 1, f.pixel_size + 1);
             REQUIRE(packed == expected);
             info.source = storage + 1;
             info.dest = &output;
             functions.read(info);
-            const auto expand = [packed](unsigned bits, unsigned shift) {
+            const auto expand = [packed](std::uint32_t bits, std::uint32_t shift) {
                 if (!bits) return 255u;
-                const unsigned max = (1u << bits) - 1;
-                return unsigned(((packed >> shift) & max) * 255.f * (1.f / max) + .5f);
+                const std::uint32_t max = (1u << bits) - 1;
+                return std::uint32_t(((packed >> shift) & max) * 255.f * (1.f / max) + .5f);
             };
             REQUIRE(output == (expand(f.red_bits, f.red_shift) << 16 |
                                expand(f.green_bits, f.green_shift) << 8 |
@@ -271,28 +271,28 @@ TEST_CASE("filtered copies preserve SurRender sampling")
 {
     REQUIRE(srInit());
     // Golden output from the previous horizontal/vertical implementations.
-    uint64_t checksum = 14695981039346656037ull;
+    std::uint64_t checksum = 14695981039346656037ull;
     const srPixelConvert::e_surfaceType formats[]{srPixelConvert::SURFACE_BGRA32,
                                                  srPixelConvert::SURFACE_RGB565};
     srFilter* filters[]{&srBellFilter, &srBSplineFilter, &srTriangleFilter};
     for (auto format : formats)
         for (auto* filter : filters)
-            for (int clamp = 0; clamp < 4; ++clamp) {
+            for (std::int32_t clamp = 0; clamp < 4; ++clamp) {
                 srColorSurface source(format, 7, 5);
                 source.setFilter(filter);
                 source.setHClampMode(clamp & 1);
                 source.setVClampMode(clamp & 2);
-                for (int y = 0; y < 5; ++y)
-                    for (int x = 0; x < 7; ++x)
+                for (std::int32_t y = 0; y < 5; ++y)
+                    for (std::int32_t x = 0; x < 7; ++x)
                         source.setPixel(x, y, (x + y * 7) * 0x9e3779b9u);
-                for (int width : {1, 3, 7, 9, 14})
-                    for (int height : {1, 3, 5, 8, 10}) {
+                for (std::int32_t width : {1, 3, 7, 9, 14})
+                    for (std::int32_t height : {1, 3, 5, 8, 10}) {
                         srColorSurface output(format, width, height);
                         output.copy(source);
-                        for (int y = 0; y < height; ++y)
-                            for (int x = 0; x < width; ++x) {
+                        for (std::int32_t y = 0; y < height; ++y)
+                            for (std::int32_t x = 0; x < width; ++x) {
                                 const auto pixel = output.getPixelRaw(x, y);
-                                for (unsigned shift = 0; shift < 32; shift += 8)
+                                for (std::uint32_t shift = 0; shift < 32; shift += 8)
                                     checksum = (checksum ^ ((pixel >> shift) & 255)) * 1099511628211ull;
                             }
                     }
@@ -303,7 +303,7 @@ TEST_CASE("filtered copies preserve SurRender sampling")
 
 TEST_CASE("Pixel format lookup returns complete independent values")
 {
-    for (int index = 0; index < 25; ++index) {
+    for (std::int32_t index = 0; index < 25; ++index) {
         const auto type = static_cast<srPixelConvert::e_surfaceType>(index);
         auto format = srPixelConvert::pixelFormat(type);
         REQUIRE(srPixelConvert::mapPixelFormat(format) == type);
@@ -317,22 +317,22 @@ TEST_CASE("Pixel format lookup returns complete independent values")
 TEST_CASE("YUV conversion preserves scatter destinations and untouched storage")
 {
     initPixelTables();
-    const std::array<w8_ulong, 8> input{0, 0x00ff0000, 0x0000ff00, 0x000000ff,
+    const std::array<std::uint32_t, 8> input{0, 0x00ff0000, 0x0000ff00, 0x000000ff,
                                        0xffffffff, 0x7f123456, 0x80010203, 0x01000000};
     const std::array formats{srPixelConvert::SURFACE_Y4U2V2, srPixelConvert::SURFACE_A8Y4U2V2};
     // Full-buffer checksums from the previous conversion bodies, including untouched bytes.
-    const std::array<uint64_t, 2> expected{8152149035273351469ull, 13038364476061159287ull};
-    for (unsigned index = 0; index < formats.size(); ++index) {
+    const std::array<std::uint64_t, 2> expected{8152149035273351469ull, 13038364476061159287ull};
+    for (std::uint32_t index = 0; index < formats.size(); ++index) {
         const auto format = srPixelConvert::pixelFormat(formats[index]);
         const auto functions = srPixelConvert::selectFuncs(format);
-        std::array<unsigned char, 2048> encoded, decoded;
+        std::array<std::uint8_t, 2048> encoded, decoded;
         encoded.fill(0x6a);
         decoded.fill(0x6a);
         srPixelConvert::ConversionInfo info{encoded.data(), input.data(), input.size(), nullptr, &format};
         functions.write(info);
         info = {decoded.data(), encoded.data(), input.size(), nullptr, &format};
         functions.read(info);
-        uint64_t checksum = 14695981039346656037ull;
+        std::uint64_t checksum = 14695981039346656037ull;
         for (auto byte : encoded) checksum = (checksum ^ byte) * 1099511628211ull;
         for (auto byte : decoded) checksum = (checksum ^ byte) * 1099511628211ull;
         REQUIRE(checksum == expected[index]);
@@ -343,7 +343,7 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Intensity and indexed decoding support u
 {
     initPixelTables();
     std::array<srARGB, 256> colors;
-    for (unsigned index = 0; index < colors.size(); ++index) {
+    for (std::uint32_t index = 0; index < colors.size(); ++index) {
         colors[index].red = index;
         colors[index].green = 255 - index;
         colors[index].blue = index ^ 0x55;
@@ -355,23 +355,23 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Intensity and indexed decoding support u
                       srPixelConvert::SURFACE_AP88}) {
         const auto format = srPixelConvert::pixelFormat(type);
         const auto functions = srPixelConvert::selectFuncs(format);
-        for (unsigned value = 0; value < 256; ++value) {
-            std::array<unsigned char, 6> input{}, output;
+        for (std::uint32_t value = 0; value < 256; ++value) {
+            std::array<std::uint8_t, 6> input{}, output;
             output.fill(0x6a);
-            const w8_ulong packed = value * 0x010101u;
+            const std::uint32_t packed = value * 0x010101u;
             std::memcpy(input.data() + 1, &packed, format.pixel_size + 1);
             srPixelConvert::ConversionInfo info{output.data() + 1, input.data() + 1, 1, &palette, &format};
             functions.read(info);
-            const unsigned mask = (1u << format.red_bits) - 1;
-            const unsigned component = (packed >> format.red_shift) & mask;
-            const unsigned alpha = format.alpha_bits == 4 ? ((packed >> format.alpha_shift) & 15) * 17
+            const std::uint32_t mask = (1u << format.red_bits) - 1;
+            const std::uint32_t component = (packed >> format.red_shift) & mask;
+            const std::uint32_t alpha = format.alpha_bits == 4 ? ((packed >> format.alpha_shift) & 15) * 17
                                                           : (packed >> format.alpha_shift) & 255;
-            const unsigned gray = format.red_bits == 4 ? component * 17 : component;
+            const std::uint32_t gray = format.red_bits == 4 ? component * 17 : component;
             const auto& color = colors[component];
-            const w8_ulong rgb = format.color_model == srPixelConvert::COLOR_INDEXED
-                ? (w8_ulong(color.red) << 16 | w8_ulong(color.green) << 8 | color.blue)
+            const std::uint32_t rgb = format.color_model == srPixelConvert::COLOR_INDEXED
+                ? (std::uint32_t(color.red) << 16 | std::uint32_t(color.green) << 8 | color.blue)
                 : gray * 0x010101u;
-            w8_ulong actual;
+            std::uint32_t actual;
             std::memcpy(&actual, output.data() + 1, sizeof(actual));
             REQUIRE(actual == (rgb | (format.alpha_bits ? alpha : 255u) << 24));
             REQUIRE(output.front() == 0x6a);
@@ -427,16 +427,16 @@ TEST_CASE("Inherited surface lines dispatch through clipped rectangle filling")
         struct RecordingSurface : srColorSurface {
             RecordingSurface() : srColorSurface(srPixelConvert::SURFACE_ARGB32, 7, 5) {}
             void* getDataPtr() override { return nullptr; }
-            void setPixel(w8_long x, w8_long y, w8_ulong) override { writes.emplace_back(x, y); }
+            void setPixel(std::int32_t x, std::int32_t y, std::uint32_t) override { writes.emplace_back(x, y); }
             std::vector<glm::ivec2> writes;
         } surface;
-        surface.setHLine(1, std::numeric_limits<int>::min(), std::numeric_limits<int>::max(), 0);
+        surface.setHLine(1, std::numeric_limits<std::int32_t>::min(), std::numeric_limits<std::int32_t>::max(), 0);
         REQUIRE(surface.writes.size() == 7);
-        for (int x = 0; x < 7; ++x) REQUIRE(surface.writes[x] == glm::ivec2(x, 1));
+        for (std::int32_t x = 0; x < 7; ++x) REQUIRE(surface.writes[x] == glm::ivec2(x, 1));
         surface.writes.clear();
-        surface.setVLine(2, std::numeric_limits<int>::max(), std::numeric_limits<int>::min(), 0);
+        surface.setVLine(2, std::numeric_limits<std::int32_t>::max(), std::numeric_limits<std::int32_t>::min(), 0);
         REQUIRE(surface.writes.size() == 5);
-        for (int y = 0; y < 5; ++y) REQUIRE(surface.writes[y] == glm::ivec2(2, y));
+        for (std::int32_t y = 0; y < 5; ++y) REQUIRE(surface.writes[y] == glm::ivec2(2, y));
         surface.writes.clear();
         surface.setHLine(5, 0, 7, 0);
         surface.setVLine(-1, 0, 5, 0);
@@ -459,7 +459,7 @@ TEST_CASE("Raw pixel row views expose packed bytes without pitch padding")
         auto row = surface.rawPixelRow(1, 1, 3);
         REQUIRE(row.size() == 6);
         row[0] ^= 0x11;
-        std::array<unsigned char, 6> copied;
+        std::array<std::uint8_t, 6> copied;
         surface.getPixelRowRaw(copied.data(), 1, 1, 3);
         REQUIRE(copied[0] == row[0]);
         copied[5] ^= 0x22;

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include "wiz8/difficulty.h"
 #include "wiz8/layouts/main_game_screen.h"
 #include "compat/compiler.h"
@@ -15,66 +16,66 @@ enum W8CameraRotationStyle { W8_CAMERA_ROTATION_SNAP = 0, W8_CAMERA_ROTATION_SMO
 void LoadGameConfiguration(void);
 bool SaveGameConfiguration(void);
 /* Bodies live in music_playlist.cpp (address-interleaved with that fragment). */
-void SetMusicVolume(unsigned char volume);
+void SetMusicVolume(std::uint8_t volume);
 bool IsMusicMuted(void);
-void SetMusicMuted(unsigned char muted);
+void SetMusicMuted(std::uint8_t muted);
 
 /* The persisted configuration block. */
 
 #pragma pack(push, 1)
 struct W8GameSettings {
-    unsigned char field_000;
-    unsigned char numeric_hit_points;
-    unsigned char unknown_002[0x4];
+    std::uint8_t field_000;
+    std::uint8_t numeric_hit_points;
+    std::uint8_t unknown_002[0x4];
     /* Mirrors W8LevelRuntimeBlock::main_ui_mode. ApplyMainGameModeFlag
        writes both together; NONE is the transient park Screens uses while it
        re-raises panels on main-game enter. */
     W8MainUiMode main_ui_mode;
-    unsigned char continuous_combat;
-    unsigned char auto_advance_character;
+    std::uint8_t continuous_combat;
+    std::uint8_t auto_advance_character;
     bool tooltips_enabled;
     W8Difficulty difficulty;
-    unsigned int text_display_delay_ms;
-    int combat_delay_ms;
-    int continuous_combat_start_delay_ms;
+    std::uint32_t text_display_delay_ms;
+    std::int32_t combat_delay_ms;
+    std::int32_t continuous_combat_start_delay_ms;
     W8CameraRotationMode camera_rotation_mode;
     W8CameraRotationStyle camera_rotation_style;
-    int tooltip_delay_ms;
-    unsigned char formation_action_panel_preference;
-    unsigned char formation_radar_map_preference;
-    unsigned char formation_board_preference;
-    unsigned char portraits_action_panel_preference;
-    unsigned char unknown_02d[0x1];
-    unsigned char sound_effects_volume;
-    unsigned char music_volume;
-    unsigned char voice_volume;
-    unsigned char footstep_volume;
-    unsigned char muted_sound_effects_volume;
-    unsigned char muted_music_volume;
-    unsigned char muted_voice_volume;
-    unsigned char field_035;
-    unsigned char invert_mouse_y;
+    std::int32_t tooltip_delay_ms;
+    std::uint8_t formation_action_panel_preference;
+    std::uint8_t formation_radar_map_preference;
+    std::uint8_t formation_board_preference;
+    std::uint8_t portraits_action_panel_preference;
+    std::uint8_t unknown_02d[0x1];
+    std::uint8_t sound_effects_volume;
+    std::uint8_t music_volume;
+    std::uint8_t voice_volume;
+    std::uint8_t footstep_volume;
+    std::uint8_t muted_sound_effects_volume;
+    std::uint8_t muted_music_volume;
+    std::uint8_t muted_voice_volume;
+    std::uint8_t field_035;
+    std::uint8_t invert_mouse_y;
     float monster_movement_speed;
-    unsigned char field_03b;
+    std::uint8_t field_03b;
     float gamma;
-    unsigned char pc_confirmations; /* options string 0x823 */
-    unsigned char mouselook_toggle;
-    unsigned char pc_subtitles; /* options string 0x824 */
-    unsigned char mouselook_smoothing;
-    unsigned char verbose_combat_messages;
-    unsigned char auto_save;
+    std::uint8_t pc_confirmations; /* options string 0x823 */
+    std::uint8_t mouselook_toggle;
+    std::uint8_t pc_subtitles; /* options string 0x824 */
+    std::uint8_t mouselook_smoothing;
+    std::uint8_t verbose_combat_messages;
+    std::uint8_t auto_save;
     bool intro_seen;
-    unsigned char field_047;
-    unsigned char monster_shadows;           /* options string 0x818 */
-    unsigned char smooth_monster_animations; /* options string 0x819 */
-    unsigned char smooth_world_animations;   /* options string 0x81a */
-    unsigned char skill_increase_messages;
-    unsigned char ctrl_right_click_info;
-    unsigned char autoswap_weapons;
-    unsigned char autotarget_spells;
-    unsigned char autoscroll_combat_messages;
-    unsigned char simplified_npc_interaction;
-    unsigned char unknown_051[0x53];
+    std::uint8_t field_047;
+    std::uint8_t monster_shadows;           /* options string 0x818 */
+    std::uint8_t smooth_monster_animations; /* options string 0x819 */
+    std::uint8_t smooth_world_animations;   /* options string 0x81a */
+    std::uint8_t skill_increase_messages;
+    std::uint8_t ctrl_right_click_info;
+    std::uint8_t autoswap_weapons;
+    std::uint8_t autotarget_spells;
+    std::uint8_t autoscroll_combat_messages;
+    std::uint8_t simplified_npc_interaction;
+    std::uint8_t unknown_051[0x53];
 };
 #pragma pack(pop)
 

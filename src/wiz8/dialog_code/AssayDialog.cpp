@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <fmt/format.h>
 #include <string_view>
 #include <string>
@@ -50,12 +51,12 @@ static W8DialogScrollBar::Resources g_assay_scroll_resources = {
     W8AssayDialog::ScrollCallback,
 };
 // GLOBAL: WIZ8 0x0064f918
-static int g_assay_scroll_x_offset = 0x160;
+static std::int32_t g_assay_scroll_x_offset = 0x160;
 // GLOBAL: WIZ8 0x0064f91c
-static int g_assay_scroll_y_offset = 0x48;
+static std::int32_t g_assay_scroll_y_offset = 0x48;
 struct W8AssayButtonOffset {
-    int x;
-    int y;
+    std::int32_t x;
+    std::int32_t y;
 };
 
 // GLOBAL: WIZ8 0x0064f920
@@ -76,19 +77,19 @@ static W8ControlsRect g_assay_text_buffer_offsets[W8_ASSAY_TEXT_BUFFER_COUNT] = 
 // GLOBAL: WIZ8 0x0064fa98
 static W8ControlsRect g_assay_text_area_offsets = {0x48, 0x4a, 0x156, 0xef};
 // GLOBAL: WIZ8 0x0064faa8
-static int g_assay_text_buffer_string_ids[W8_ASSAY_TEXT_BUFFER_COUNT] = {270, 271, 270, 272, 270};
+static std::int32_t g_assay_text_buffer_string_ids[W8_ASSAY_TEXT_BUFFER_COUNT] = {270, 271, 270, 272, 270};
 // GLOBAL: WIZ8 0x0061e7dc
-unsigned short g_equip_class_name_ids[32] = {
+std::uint16_t g_equip_class_name_ids[32] = {
     1087, 1088, 1089, 1090, 1091, 1092, 1093, 1094, 1095, 1096, 1097, 1098, 1099, 1100, 1101, 1102,
     1103, 1104, 1105, 1106, 1107, 1108, 1109, 1110, 1111, 1112, 1114, 1115, 1116, 1117, 1118, 1119};
 /* String-list label ids indexed by W8ItemDatabaseRecord::flags bit. */
 // GLOBAL: WIZ8 0x0061e938
-static unsigned short g_item_flag_name_ids[8] = {
+static std::uint16_t g_item_flag_name_ids[8] = {
     1255, 1256, 1257, 1258, 1259, 1260, 1261, 1262,
 };
 /* String-list label ids indexed by W8ItemDatabaseRecord::quantity_kind. */
 // GLOBAL: WIZ8 0x0061e948
-static unsigned short g_quantity_kind_name_ids[7] = {
+static std::uint16_t g_quantity_kind_name_ids[7] = {
     1264, 1265, 1266, 1267, 1268, 0, 1269,
 };
 // GLOBAL: WIZ8 0x0069c818
@@ -102,7 +103,7 @@ enum { NUM_RPC_RACES = 5 };
 // FUNCTION: WIZ8 0x005d6fb0
 W8AssayDialog::W8AssayDialog(W8ItemInstance* item, W8Character* character)
 {
-    int index;
+    std::int32_t index;
 
     SetExtent(0x180, 0x11d);
     SetBackground("Data\\Dialogs\\popup_iteminfo.sti", 0);
@@ -122,7 +123,7 @@ W8AssayDialog::~W8AssayDialog()
 }
 
 // FUNCTION: WIZ8 0x005d7160
-int W8AssayDialog::CreateControls()
+std::int32_t W8AssayDialog::CreateControls()
 {
     W8DialogBase::CreateControls();
     m_item_portrait_dirty = true;
@@ -170,15 +171,15 @@ static void AppendAssayEntryText(std::string_view text)
     g_assay_entry_text += text;
 }
 
-static int AppendAssayRequirements(const W8ItemRequirement* requirement, int count)
+static std::int32_t AppendAssayRequirements(const W8ItemRequirement* requirement, std::int32_t count)
 {
-    for (int index = 0; index < 2; ++index, ++requirement) {
+    for (std::int32_t index = 0; index < 2; ++index, ++requirement) {
         if (requirement->stat_id != 0xff) {
             if (count != 0) {
                 AppendAssayEntryText(g_comma_space);
             }
             std::string text =
-                g_localized_strings[g_character_description_first_ids[static_cast<signed char>(
+                g_localized_strings[g_character_description_first_ids[static_cast<std::int8_t>(
                     requirement->stat_id)]];
             AppendAssayEntryText(text);
             text = fmt::format(" {:d}", requirement->minimum);
@@ -195,10 +196,10 @@ bool W8AssayDialog::PopulateText()
     W8ControlsRect bounds;
     const W8ItemDatabaseRecord* record;
     std::string text;
-    unsigned short slot_mask;
-    unsigned int bit;
-    int index;
-    int count;
+    std::uint16_t slot_mask;
+    std::uint32_t bit;
+    std::int32_t index;
+    std::int32_t count;
     std::string modifier_text;
     char path[0x200];
     std::string description;
@@ -246,7 +247,7 @@ bool W8AssayDialog::PopulateText()
     }
     if (GetItemDefaultEquipSlot(m_item->iItemNo) != -1 &&
         g_item_records[m_item->iItemNo].equip_class != W8_ITEM_EQUIP_CLASS_AMMUNITION) {
-        unsigned int palette;
+        std::uint32_t palette;
         if (!m_item->bound) {
             text = g_localized_strings[0x8fc];
             palette = 0xf;
@@ -541,7 +542,7 @@ bool W8AssayDialog::PopulateText()
 // FUNCTION: WIZ8 0x005d9200
 void W8AssayDialog::Draw()
 {
-    int index;
+    std::int32_t index;
 
     if ((m_dirty_flags & W8_DIALOG_DIRTY_REDRAW) != 0) {
         if (!m_initialized) {
@@ -591,7 +592,7 @@ void W8AssayDialog::OnRightButtonUp()
 }
 
 // FUNCTION: WIZ8 0x005d9720
-void W8AssayDialog::OnMouseWheel(int delta)
+void W8AssayDialog::OnMouseWheel(std::int32_t delta)
 {
     m_scroll_bar.ScrollBy(delta);
 }
@@ -605,7 +606,7 @@ void W8AssayDialog::ShowTab(bool professions)
     SetProfessionIconsVisible(professions);
     m_buttons[1].SetVisible(!professions);
     SetRaceIconsVisible(!professions);
-    for (int i = 0; i < 4; ++i) {
+    for (std::int32_t i = 0; i < 4; ++i) {
         m_buttons[i].m_dirty = true;
     }
 }
@@ -639,7 +640,7 @@ void W8AssayDialog::SecondaryTabCallback(W8ButtonWidget* button)
 }
 
 // FUNCTION: WIZ8 0x005d97a0
-void W8AssayDialog::ScrollCallback(W8DialogScrollBar* scroll_bar, int first_visible_entry)
+void W8AssayDialog::ScrollCallback(W8DialogScrollBar* scroll_bar, std::int32_t first_visible_entry)
 {
     W8AssayDialog* dialog;
     if (scroll_bar != 0) {
@@ -653,11 +654,11 @@ void W8AssayDialog::ScrollCallback(W8DialogScrollBar* scroll_bar, int first_visi
 // FUNCTION: WIZ8 0x005d8850
 bool W8AssayDialog::PopulateRequirements()
 {
-    int index;
-    unsigned short us_index;
-    int button_index;
-    int frame;
-    int tooltip_index;
+    std::int32_t index;
+    std::uint16_t us_index;
+    std::int32_t button_index;
+    std::int32_t frame;
+    std::int32_t tooltip_index;
 
 
     m_buttons[0].Configure("Data\\Dialogs\\popup_iteminfo.sti", BUTTON_NO_IMAGE, 1, 1, 1, 1,
@@ -798,10 +799,10 @@ bool W8AssayDialog::PopulateRequirements()
 // FUNCTION: WIZ8 0x005d8fb0
 bool W8AssayDialog::CreateTextBuffers()
 {
-    int index;
+    std::int32_t index;
     W8ControlsRect bounds;
     W8ItemInstance* item;
-    unsigned char equip_class;
+    std::uint8_t equip_class;
     std::string text;
 
     for (index = 0; index < W8_ASSAY_TEXT_BUFFER_COUNT; ++index) {
@@ -825,7 +826,7 @@ bool W8AssayDialog::CreateTextBuffers()
     item = m_item;
     if (g_item_records[item->iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK &&
         item->stack_count > 1) {
-        unsigned int unit_weight = GetItemUnitWeight(item);
+        std::uint32_t unit_weight = GetItemUnitWeight(item);
         text = fmt::format("{:.1f} ({:.1f} {})",
                            GetItemStackWeight(m_item) * g_item_weight_display_scale,
                            unit_weight * g_item_weight_display_scale, g_localized_strings[0x117]);
@@ -839,8 +840,8 @@ bool W8AssayDialog::CreateTextBuffers()
 // FUNCTION: WIZ8 0x005d9330
 void W8AssayDialog::SetProfessionIconsVisible(bool show)
 {
-    unsigned int profession;
-    int button_index;
+    std::uint32_t profession;
+    std::int32_t button_index;
     const W8ItemDatabaseRecord* record = &g_item_records[m_item->iItemNo];
 
     for (profession = 0; profession < 15; ++profession) {
@@ -905,9 +906,9 @@ void W8AssayDialog::SetProfessionIconsVisible(bool show)
 // FUNCTION: WIZ8 0x005d9460
 void W8AssayDialog::SetRaceIconsVisible(bool show)
 {
-    unsigned int race;
-    unsigned int us_index;
-    int button_index;
+    std::uint32_t race;
+    std::uint32_t us_index;
+    std::int32_t button_index;
     const W8ItemDatabaseRecord* record = &g_item_records[m_item->iItemNo];
 
     for (race = 0; race < W8_RACE_COUNT; ++race) {

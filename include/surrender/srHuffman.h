@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <vector>
 #include "srIO.h"
 #include <unordered_map>
@@ -9,25 +10,25 @@ public:
     class BitIStream {
     public:
         SR_DLL_IMPORT BitIStream(SDL_IOStream* stream);
-        SR_DLL_IMPORT w8_ulong get(w8_ulong bits);
+        SR_DLL_IMPORT std::uint32_t get(std::uint32_t bits);
         // Padded lookahead does not consume bits; get validates consumption.
-        w8_ulong peekByte();
-        SR_DLL_IMPORT w8_ulong getBit();
-        SR_DLL_IMPORT void rewind(w8_long bits);
+        std::uint32_t peekByte();
+        SR_DLL_IMPORT std::uint32_t getBit();
+        SR_DLL_IMPORT void rewind(std::int32_t bits);
 
     private:
         BitIStream(const BitIStream& stream);
         BitIStream& operator=(const BitIStream& stream);
 
         void fetchCache(Sint64 position);
-        w8_ulong getByte(Sint64 position);
-        w8_ulong getDWord(Sint64 position);
-        w8_ulong getWordOrLess(w8_ulong bits);
+        std::uint32_t getByte(Sint64 position);
+        std::uint32_t getDWord(Sint64 position);
+        std::uint32_t getWordOrLess(std::uint32_t bits);
 
         SDL_IOStream* stream;
-        unsigned char cache[0x80]{};
+        std::uint8_t cache[0x80]{};
         size_t cache_valid = 0;
-        void requireBits(w8_ulong bits) const;
+        void requireBits(std::uint32_t bits) const;
         Sint64 cache_base;
         Sint64 bit_pos, bit_begin, bit_end;
     };
@@ -38,7 +39,7 @@ public:
         SR_DLL_IMPORT ~BitOStream();
         // Explicitly flush before inspecting output or returning success.
         void flush();
-        SR_DLL_IMPORT void put(w8_ulong value, w8_ulong bits);
+        SR_DLL_IMPORT void put(std::uint32_t value, std::uint32_t bits);
 
     private:
         BitOStream(const BitOStream& stream);
@@ -46,43 +47,43 @@ public:
 
         void flushByte();
         void flushBuffer();
-        void putBit(w8_ulong bit);
+        void putBit(std::uint32_t bit);
 
         SDL_IOStream* stream;
-        w8_ulong bytes;
-        w8_ulong bit_count;
-        w8_ulong pending;
-        unsigned char buffer[0x40];
-        w8_ulong buffered;
+        std::uint32_t bytes;
+        std::uint32_t bit_count;
+        std::uint32_t pending;
+        std::uint8_t buffer[0x40];
+        std::uint32_t buffered;
     };
 
     class Sampler {
     public:
         struct Symbol {
-            w8_ulong symbol;
-            w8_ulong frequency;
+            std::uint32_t symbol;
+            std::uint32_t frequency;
         };
 
         // FUNCTION: SURRENDER 0x10001840
         SR_DLL_IMPORT Sampler() = default;
 
-        SR_DLL_IMPORT void insert(w8_ulong symbol);
-        SR_DLL_IMPORT w8_ulong getNumSymbols() const;
-        SR_DLL_IMPORT w8_ulong getSymbolValue(w8_ulong index) const;
-        SR_DLL_IMPORT w8_ulong getSymbolFrequency(w8_ulong index) const;
+        SR_DLL_IMPORT void insert(std::uint32_t symbol);
+        SR_DLL_IMPORT std::uint32_t getNumSymbols() const;
+        SR_DLL_IMPORT std::uint32_t getSymbolValue(std::uint32_t index) const;
+        SR_DLL_IMPORT std::uint32_t getSymbolFrequency(std::uint32_t index) const;
 
     private:
-        std::unordered_map<w8_ulong, size_t> table;
+        std::unordered_map<std::uint32_t, size_t> table;
         std::vector<Symbol> symbols;
     };
 
     class Compressor {
     public:
         struct Node {
-            w8_ulong symbol;
-            w8_ulong frequency;
-            w8_ulong code;
-            w8_ulong bits;
+            std::uint32_t symbol;
+            std::uint32_t frequency;
+            std::uint32_t code;
+            std::uint32_t bits;
             Node* next;
             Node* children[2];
         };
@@ -94,7 +95,7 @@ public:
         SR_DLL_IMPORT void collectSymbols(const Sampler& sampler);
 
         // FUNCTION: SURRENDER 0x10001430
-        void compressSymbol(BitOStream& stream, w8_ulong symbol)
+        void compressSymbol(BitOStream& stream, std::uint32_t symbol)
         {
             const auto found = table.find(symbol);
             if (found != table.end()) {
@@ -102,13 +103,13 @@ public:
             }
         }
 
-        std::unordered_map<w8_ulong, Node*> table;
+        std::unordered_map<std::uint32_t, Node*> table;
         std::vector<Node> nodes;
         Node* free_list;
         Node* root;
-        w8_ulong num_symbols;
-        w8_ulong code_width;
-        w8_ulong total;
+        std::uint32_t num_symbols;
+        std::uint32_t code_width;
+        std::uint32_t total;
 
     private:
         Compressor(const Compressor& other);
@@ -116,18 +117,18 @@ public:
         void dumpNode(BitOStream& stream, Node* node);
 
     public:
-        void setupPath(Node* node, w8_ulong code, w8_ulong depth);
+        void setupPath(Node* node, std::uint32_t code, std::uint32_t depth);
     };
 
     class Decompressor {
     public:
         SR_DLL_IMPORT Decompressor(BitIStream& stream);
-        SR_DLL_IMPORT w8_ulong decompressSymbol();
-        SR_DLL_IMPORT w8_ulong getDataCount() const;
+        SR_DLL_IMPORT std::uint32_t decompressSymbol();
+        SR_DLL_IMPORT std::uint32_t getDataCount() const;
 
     private:
         struct Symbol {
-            w8_ulong symbol;
+            std::uint32_t symbol;
             Symbol* children[2];
         };
 
@@ -138,13 +139,13 @@ public:
 
         BitIStream* stream;
         std::vector<Symbol> symbols;
-        w8_ulong next_node;
-        w8_ulong code_width;
-        w8_ulong unknown_10;
-        w8_ulong num_symbols;
-        w8_ulong data_count;
+        std::uint32_t next_node;
+        std::uint32_t code_width;
+        std::uint32_t unknown_10;
+        std::uint32_t num_symbols;
+        std::uint32_t data_count;
         Symbol* lookup[0x100];
-        unsigned char depth[0x100];
+        std::uint8_t depth[0x100];
     };
 };
 

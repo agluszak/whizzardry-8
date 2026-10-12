@@ -64,7 +64,7 @@ Font g_smfnt_font;
 std::array<Palette16, 15> g_font_state_palettes;
 
 // FUNCTION: WIZ8 0x004e27a0
-unsigned char InitializeMenuFonts(void)
+std::uint8_t InitializeMenuFonts(void)
 {
     const std::array fonts{
         std::tuple{&g_large_font, "Data\\Fonts\\LargeFont.sti", FONT_GLOW_GREEN},

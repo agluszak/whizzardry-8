@@ -1,7 +1,9 @@
 #pragma once
 
+
+#include <cstdint>
 /* Animation mode is a byte in both the material record and texture object. */
-typedef unsigned char W8TextureAnimationMode;
+typedef std::uint8_t W8TextureAnimationMode;
 
 enum {
     W8_TEXTURE_ANIM_LOOP = 0,

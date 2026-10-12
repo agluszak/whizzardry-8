@@ -13,6 +13,7 @@
 #include <cstring>
 #include <filesystem>
 #include <vector>
+#include <cinttypes>
 #include <cstdint>
 #include <cstdlib>
 #include <memory>
@@ -40,10 +41,10 @@ class srScene;
 
 void PresentMenuOverlayFrame();
 void SaveJpegScreenshot();
-extern unsigned char g_fullscreen;
+extern std::uint8_t g_fullscreen;
 extern srScene* g_cursor_scene;
-unsigned char InitializeMouseCursorScene();
-void PositionMouseCursor(int, int, bool);
+std::uint8_t InitializeMouseCursorScene();
+void PositionMouseCursor(std::int32_t, std::int32_t, bool);
 struct FixtureRoot
 {
     std::filesystem::path path;
@@ -93,24 +94,24 @@ TEST_CASE("game graphics")
         const auto pitch = framebuffer.pitch;
         const auto* pixels = static_cast<const std::uint8_t*>(framebuffer.pixels);
         std::vector<std::uint16_t> expected(640 * 480);
-        for (int y = 0; y < 480; ++y)
+        for (std::int32_t y = 0; y < 480; ++y)
             memcpy(expected.data() + y * 640, pixels + y * pitch, 1280);
         REQUIRE(InitializeMouseCursorScene());
         auto cursor_object = g_image_assets.sprites("Data\\CURSORS\\2D-CURSORS.STI");
         REQUIRE(cursor_object);
         REQUIRE(SetMouseCursorFromVideoObject(*cursor_object, 0, 0, 0));
         PositionMouseCursor(480, 240, true);
-        unsigned colored = 0, matched = 0, cursor_pixels = 0;
-        for (int frame = 0; frame < 3; ++frame)
+        std::uint32_t colored = 0, matched = 0, cursor_pixels = 0;
+        for (std::int32_t frame = 0; frame < 3; ++frame)
         {
             SDL_Event event;
             while (SDL_PollEvent(&event))
                 HandleInputEvent(event);
             auto error = g_gerd->beginFrame();
             if (error != srGERD::ERROR_NONE)
-                fprintf(stderr, "begin frame %d: %d %s window %llu open %d\n", frame, int(error),
+                fprintf(stderr, "begin frame %d: %d %s window %" PRIu64 " open %d\n", frame, std::int32_t(error),
                         g_gerd->getErrorString(error),
-                        (unsigned long long)g_gerd->getWindowHandle(), g_gerd->isWindowOpen());
+                        (std::uint64_t)g_gerd->getWindowHandle(), g_gerd->isWindowOpen());
             REQUIRE(error == srGERD::ERROR_NONE);
             g_gerd->setClearColor(0, 0, 0, 1);
             g_gerd->clear(srFlags<srGERD::e_buffer>(srGERD::BUFFER_COLOR | srGERD::BUFFER_DEPTH));
@@ -122,19 +123,19 @@ TEST_CASE("game graphics")
         }
         auto buffer = g_gerd->lockBuffer();
         REQUIRE(buffer);
-        for (int y = 0; y < 480; ++y)
-            for (int x = 0; x < 640; ++x)
+        for (std::int32_t y = 0; y < 480; ++y)
+            for (std::int32_t x = 0; x < 640; ++x)
             {
-                unsigned value = buffer->getPixel(x, y), original = expected[y * 640 + x];
+                std::uint32_t value = buffer->getPixel(x, y), original = expected[y * 640 + x];
                 if (x >= 470 && x < 540 && y >= 230 && y < 300 && (value & 0xffffff))
                     ++cursor_pixels;
                 if (original & 0x7fff)
                 {
                     ++colored;
-                    int r = ((original >> 10) & 31) * 255 / 31,
+                    std::int32_t r = ((original >> 10) & 31) * 255 / 31,
                         g = ((original >> 5) & 31) * 255 / 31, b = (original & 31) * 255 / 31;
-                    if (abs(int((value >> 16) & 255) - r) <= 8 &&
-                        abs(int((value >> 8) & 255) - g) <= 8 && abs(int(value & 255) - b) <= 8)
+                    if (abs(std::int32_t((value >> 16) & 255) - r) <= 8 &&
+                        abs(std::int32_t((value >> 8) & 255) - g) <= 8 && abs(std::int32_t(value & 255) - b) <= 8)
                         ++matched;
                 }
             }
@@ -144,11 +145,11 @@ TEST_CASE("game graphics")
                                               wiz8::OpenMode::replace);
             REQUIRE(output);
             output->write("P6\n640 480\n255\n", 15);
-            for (int y = 0; y < 480; ++y)
-                for (int x = 0; x < 640; ++x)
+            for (std::int32_t y = 0; y < 480; ++y)
+                for (std::int32_t x = 0; x < 640; ++x)
                 {
-                    unsigned v = buffer->getPixel(x, y);
-                    unsigned char rgb[] = {std::uint8_t(v >> 16), std::uint8_t(v >> 8), std::uint8_t(v)};
+                    std::uint32_t v = buffer->getPixel(x, y);
+                    std::uint8_t rgb[] = {std::uint8_t(v >> 16), std::uint8_t(v >> 8), std::uint8_t(v)};
                     output->write(rgb, 3);
                 }
             output->close();
@@ -162,7 +163,7 @@ TEST_CASE("game graphics")
 
         SDL_Window* persistent_window = ghWindow;
         {
-            std::vector<uint16_t> movie_pixels;
+            std::vector<std::uint16_t> movie_pixels;
             {
                 W8NativeVideo decoded;
                 decoded.open(movie_path);
@@ -178,21 +179,21 @@ TEST_CASE("game graphics")
             RenderFrame();
             buffer = g_gerd->lockBuffer();
             REQUIRE(buffer);
-            unsigned movie_matches = 0;
-            for (int y = 0; y < 480; ++y)
-                for (int x = 0; x < 640; ++x)
+            std::uint32_t movie_matches = 0;
+            for (std::int32_t y = 0; y < 480; ++y)
+                for (std::int32_t x = 0; x < 640; ++x)
                 {
                     std::uint16_t original = x < 32 && y < 24 ? movie_pixels[y * 32 + x] : 0;
-                    unsigned actual = buffer->getPixel(x, y);
-                    int r = ((original >> 10) & 31) * 255 / 31,
+                    std::uint32_t actual = buffer->getPixel(x, y);
+                    std::int32_t r = ((original >> 10) & 31) * 255 / 31,
                         g = ((original >> 5) & 31) * 255 / 31, b = (original & 31) * 255 / 31;
-                    if (abs(int((actual >> 16) & 255) - r) > 8 ||
-                        abs(int((actual >> 8) & 255) - g) > 8 || abs(int(actual & 255) - b) > 8)
+                    if (abs(std::int32_t((actual >> 16) & 255) - r) > 8 ||
+                        abs(std::int32_t((actual >> 8) & 255) - g) > 8 || abs(std::int32_t(actual & 255) - b) > 8)
                         fprintf(stderr, "movie mismatch %d,%d: GPU %08x CPU %04x\n", x, y, actual,
                                 original);
-                    REQUIRE((abs(int((actual >> 16) & 255) - r) <= 8 &&
-                          abs(int((actual >> 8) & 255) - g) <= 8 &&
-                          abs(int(actual & 255) - b) <= 8));
+                    REQUIRE((abs(std::int32_t((actual >> 16) & 255) - r) <= 8 &&
+                          abs(std::int32_t((actual >> 8) & 255) - g) <= 8 &&
+                          abs(std::int32_t(actual & 255) - b) <= 8));
                     ++movie_matches;
                 }
             g_gerd->unlockBuffer();
@@ -202,7 +203,7 @@ TEST_CASE("game graphics")
         const auto& restored_framebuffer = GetFrameBufferSurface();
         const auto* restored_pixels = static_cast<const std::uint8_t*>(restored_framebuffer.pixels);
         REQUIRE(restored_pixels);
-        for (int y = 0; y < 480; ++y)
+        for (std::int32_t y = 0; y < 480; ++y)
             REQUIRE(memcmp(restored_pixels + y * restored_framebuffer.pitch, expected.data() + y * 640,
                          1280) == 0);
         PresentMenuOverlayFrame();

@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "surrender/channel_math.h"
 #include "surrender/lighting_math.h"
 
@@ -269,7 +270,7 @@ void srLight::process(const ProcessInfo& info, e_processType type)
 }
 
 // FUNCTION: SURRENDER 0x1004CCC0
-int srLight::isActive(srVertexPipe& pipe)
+std::int32_t srLight::isActive(srVertexPipe& pipe)
 {
     const srVertexPipe::Input* input = pipe.input;
     if ((group_mask & input->exclusion_mask) != 0) {
@@ -299,7 +300,7 @@ int srLight::isActive(srVertexPipe& pipe)
 // FUNCTION: SURRENDER 0x1004CE00
 void srLight::process(srVertexPipe& pipe)
 {
-    w8_ulong channels = channel_mask & pipe.channel_mask;
+    std::uint32_t channels = channel_mask & pipe.channel_mask;
     if (channels == 0) {
         return;
     }
@@ -309,7 +310,7 @@ void srLight::process(srVertexPipe& pipe)
         (channels & (1UL << srVertexProcessor::CHANNEL_SPECULAR)) != 0) {
         need_normals = true;
     }
-    SRDWORD count = pipe.vertex_count;
+    std::uint32_t count = pipe.vertex_count;
     float spot_factors[0x40];
     float attenuation_bank[0x40];
     float dots[0x40];
@@ -324,7 +325,7 @@ void srLight::process(srVertexPipe& pipe)
     const std::span<glm::vec3> direction_values(directions, count);
 
     if ((derived_flags & srLight::DERIVED_DIRECTIONAL) == 0) {
-        for (SRDWORD i = 0; i < count; ++i) {
+        for (std::uint32_t i = 0; i < count; ++i) {
             const auto sample = srLightingMath::directionAndDistance(light_position -
                 glm::vec3(pipe.eye_space_locations[pipe.batch_base + pipe.sub_batch_offset + i]));
             directions[i] = sample.direction;
@@ -368,7 +369,7 @@ void srLight::process(srVertexPipe& pipe)
         if ((derived_flags & srLight::DERIVED_SPOT) != 0) {
             const auto spot_direction = -spot_direction_eye;
             const float spot_scale = 1.0f / (1.0f - spot_cutoff);
-            for (SRDWORD i = 0; i < count; ++i) {
+            for (std::uint32_t i = 0; i < count; ++i) {
                 const float factor =
                     (glm::dot(directions[i], spot_direction) - spot_cutoff) * spot_scale;
                 spot_factors[i] = factor <= 0.0f ? 0.0f : factor;
@@ -472,7 +473,7 @@ void srLight::disable(e_enable flag)
 }
 
 // FUNCTION: SURRENDER 0x1004E650
-int srLight::isEnabled(e_enable flag) const
+std::int32_t srLight::isEnabled(e_enable flag) const
 {
     return (enable_flags & (1 << flag)) != 0;
 }

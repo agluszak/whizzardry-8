@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include "glm/ext/vector_int3.hpp"
 #include "glm/common.hpp"
 #include "glm/vector_relational.hpp"
@@ -41,16 +42,16 @@ void visitClippedOctreeCellBox(const glm::ivec3& first, const glm::ivec3& last,
 struct W8OctreeWalk {
     glm::ivec3 cell;
     glm::ivec3 step;
-    int major_axis;
-    int minor_axis0;
-    int minor_axis1;
-    int count;
-    int error_delta0;
-    int error0;
-    int error_reset0;
-    int error_delta1;
-    int error1;
-    int error_reset1;
+    std::int32_t major_axis;
+    std::int32_t minor_axis0;
+    std::int32_t minor_axis1;
+    std::int32_t count;
+    std::int32_t error_delta0;
+    std::int32_t error0;
+    std::int32_t error_reset0;
+    std::int32_t error_delta1;
+    std::int32_t error1;
+    std::int32_t error_reset1;
 
     /* Return false from visit to stop at the first blocking cell. A copy of
        the cursor keeps the walk reusable and callers' starting cells intact. */
@@ -58,10 +59,10 @@ struct W8OctreeWalk {
     void visitCells(Visit visit) const
     {
         auto current = cell;
-        int error_a = error0, error_b = error1;
-        for (int index = 0; index < count; ++index) {
+        std::int32_t error_a = error0, error_b = error1;
+        for (std::int32_t index = 0; index < count; ++index) {
             if (!visit(current)) return;
-            const auto step_minor = [&](int axis, int& error, int reset) {
+            const auto step_minor = [&](std::int32_t axis, std::int32_t& error, std::int32_t reset) {
                 current[axis] += step[axis];
                 error += reset;
                 return visit(current);

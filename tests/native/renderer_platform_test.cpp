@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <catch2/catch_test_macros.hpp>
 #include <chrono>
 #include <cstdio>
@@ -22,7 +23,7 @@ TEST_CASE("renderer platform")
     REQUIRE(timer.milliseconds() >= 1);
     REQUIRE(timer.ticks(10000) >= 10);
 
-    for (int cycle = 0; cycle < 3; ++cycle) {
+    for (std::int32_t cycle = 0; cycle < 3; ++cycle) {
         REQUIRE((srInit() && srCore.isInitialized()));
         {
             auto* device = srCreateSDLGPUDevice();

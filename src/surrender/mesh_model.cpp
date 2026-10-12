@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "glm/ext/vector_int3.hpp"
 #include "surrender/bounding_radius.h"
 #include <algorithm>
@@ -57,7 +58,7 @@ static const char* s_flag_names0;
 // and references that point into those tables. Validate before mutating a mesh.
 class MeshPermutation {
 public:
-    MeshPermutation(std::span<const w8_ulong> order, w8_long count) : order(order), inverse(order.size())
+    MeshPermutation(std::span<const std::uint32_t> order, std::int32_t count) : order(order), inverse(order.size())
     {
         if (order.size() != static_cast<std::size_t>(count))
             throw std::invalid_argument("Mesh permutation length mismatch");
@@ -66,7 +67,7 @@ public:
             if (order[i] >= order.size() || seen[order[i]])
                 throw std::invalid_argument("Invalid mesh permutation");
             seen[order[i]] = true;
-            inverse[order[i]] = static_cast<w8_ulong>(i);
+            inverse[order[i]] = static_cast<std::uint32_t>(i);
         }
     }
 
@@ -83,14 +84,14 @@ public:
             triangle = srMeshMath::remapTriangle(triangle, inverse, retain_external);
     }
 
-    std::span<const w8_ulong> order;
-    std::vector<w8_ulong> inverse;
+    std::span<const std::uint32_t> order;
+    std::vector<std::uint32_t> inverse;
 };
 
 // Required channels are checked for presence by the caller; optional channels
 // are skipped. Each call retains its own expression and source diagnostic.
 template<class Vector>
-static void VerifyFiniteChannel(const Vector* values, w8_long count, const char* expression, int line)
+static void VerifyFiniteChannel(const Vector* values, std::int32_t count, const char* expression, std::int32_t line)
 {
     if (!values || count <= 0) return;
     for (const auto& value : std::span(values, static_cast<std::size_t>(count)))
@@ -100,7 +101,7 @@ static void VerifyFiniteChannel(const Vector* values, w8_long count, const char*
 
 /* Bounds-checked pass/side slots; out-of-range indices are ignored. */
 // FUNCTION: SURRENDER 0x100403E0
-void srMeshModel::setShader(srShader shader, w8_long pass)
+void srMeshModel::setShader(srShader shader, std::int32_t pass)
 {
     if (pass >= 0 && pass < 4) {
         shaders[pass] = shader;
@@ -109,7 +110,7 @@ void srMeshModel::setShader(srShader shader, w8_long pass)
 }
 
 // FUNCTION: SURRENDER 0x10040400
-srShader srMeshModel::getShader(w8_long pass) const
+srShader srMeshModel::getShader(std::int32_t pass) const
 {
     if (pass >= 0 && pass < 4) {
         return shaders[pass];
@@ -120,25 +121,25 @@ srShader srMeshModel::getShader(w8_long pass) const
 }
 
 // FUNCTION: SURRENDER 0x10040330
-srMaterialIFace* srMeshModel::getMaterial(w8_long pass, e_side side) const
+srMaterialIFace* srMeshModel::getMaterial(std::int32_t pass, e_side side) const
 {
-    if (pass >= 0 && pass < 4 && (int)side >= 0 && (int)side < 2) {
+    if (pass >= 0 && pass < 4 && (std::int32_t)side >= 0 && (std::int32_t)side < 2) {
         return materials[pass][side].get();
     }
     return 0;
 }
 
 // FUNCTION: SURRENDER 0x100402E0
-void srMeshModel::setMaterial(std::shared_ptr<srMaterialIFace> material, w8_long pass, e_side side)
+void srMeshModel::setMaterial(std::shared_ptr<srMaterialIFace> material, std::int32_t pass, e_side side)
 {
-    if (pass >= 0 && pass < 4 && (int)side >= 0 && (int)side < 2) {
+    if (pass >= 0 && pass < 4 && (std::int32_t)side >= 0 && (std::int32_t)side < 2) {
         materials[pass][side] = std::move(material);
         setDirty(DIRTY_TRI_MESH);
     }
 }
 
 // FUNCTION: SURRENDER 0x100403B0
-srTextureIFace* srMeshModel::getTexture(w8_long pass, w8_long layer) const
+srTextureIFace* srMeshModel::getTexture(std::int32_t pass, std::int32_t layer) const
 {
     if (pass >= 0 && pass < 4 && layer >= 0 && layer < 2) {
         return textures[pass][layer].get();
@@ -147,7 +148,7 @@ srTextureIFace* srMeshModel::getTexture(w8_long pass, w8_long layer) const
 }
 
 // FUNCTION: SURRENDER 0x10040360
-void srMeshModel::setTexture(std::shared_ptr<srTextureIFace> texture, w8_long pass, w8_long layer)
+void srMeshModel::setTexture(std::shared_ptr<srTextureIFace> texture, std::int32_t pass, std::int32_t layer)
 {
     if (pass >= 0 && pass < 4 && layer >= 0 && layer < 2) {
         textures[pass][layer] = std::move(texture);
@@ -156,20 +157,20 @@ void srMeshModel::setTexture(std::shared_ptr<srTextureIFace> texture, w8_long pa
 }
 
 // FUNCTION: SURRENDER 0x10042800
-w8_long srMeshModel::getActivePolygonCount()
+std::int32_t srMeshModel::getActivePolygonCount()
 {
     return active_polygon_count;
 }
 
 // FUNCTION: SURRENDER 0x10042810
-void srMeshModel::setActivePolygonCount(w8_long count)
+void srMeshModel::setActivePolygonCount(std::int32_t count)
 {
     active_polygon_count = count;
     setDirty(DIRTY_TRI_MESH);
 }
 
 // FUNCTION: SURRENDER 0x10042820
-void srMeshModel::setUVCount(w8_long count)
+void srMeshModel::setUVCount(std::int32_t count)
 {
     if (count < vertex_location_count) {
         count = vertex_location_count;
@@ -188,7 +189,7 @@ void srMeshModel::setUVCount(w8_long count)
 }
 
 // FUNCTION: SURRENDER 0x10042980
-w8_long srMeshModel::getUVCount() const
+std::int32_t srMeshModel::getUVCount() const
 {
     return uv_count;
 }
@@ -243,11 +244,11 @@ glm::vec4* srMeshModel::getPolyEq()
 }
 
 // FUNCTION: SURRENDER 0x10040250
-w8_ulong* srMeshModel::getActivePolygonTable(int table)
+std::uint32_t* srMeshModel::getActivePolygonTable(std::int32_t table)
 {
     if (active_polygons.empty() && table != 0 && polygon_count != 0) {
         active_polygons.resize(polygon_count);
-        for (w8_long index = 0; index < polygon_count; ++index) {
+        for (std::int32_t index = 0; index < polygon_count; ++index) {
             active_polygons[index] = index;
         }
         setDirty(DIRTY_TRI_MESH);
@@ -269,8 +270,8 @@ glm::ivec3* srMeshModel::getPolyVertex()
 }
 
 template<class T>
-static T* GetLazyMeshTable(srMeshModel& mesh, std::vector<T>& slot, w8_long count,
-                           int create, const T& initial = T{})
+static T* GetLazyMeshTable(srMeshModel& mesh, std::vector<T>& slot, std::int32_t count,
+                           std::int32_t create, const T& initial = T{})
 {
     if (slot.empty() && create != 0 && count != 0) {
         slot.resize(count, initial);
@@ -280,16 +281,16 @@ static T* GetLazyMeshTable(srMeshModel& mesh, std::vector<T>& slot, w8_long coun
 }
 
 // FUNCTION: SURRENDER 0x10040430
-std::shared_ptr<srMaterialIFace>* srMeshModel::getVertexMaterial(w8_long vertex, e_side side, int table)
+std::shared_ptr<srMaterialIFace>* srMeshModel::getVertexMaterial(std::int32_t vertex, e_side side, std::int32_t table)
 {
-    if (vertex < 0 || vertex > 3 || (int)side < 0 || (int)side > 1) {
+    if (vertex < 0 || vertex > 3 || (std::int32_t)side < 0 || (std::int32_t)side > 1) {
         return 0;
     }
     return GetLazyMeshTable(*this, vertex_materials[vertex][side], vertex_location_count, table);
 }
 
 // FUNCTION: SURRENDER 0x10040560
-std::shared_ptr<srTextureIFace>* srMeshModel::getPolyTexture(w8_long polygon, w8_long layer, int table)
+std::shared_ptr<srTextureIFace>* srMeshModel::getPolyTexture(std::int32_t polygon, std::int32_t layer, std::int32_t table)
 {
     if (polygon < 0 || polygon > 3 || layer < 0 || layer > 1) {
         return 0;
@@ -298,7 +299,7 @@ std::shared_ptr<srTextureIFace>* srMeshModel::getPolyTexture(w8_long polygon, w8
 }
 
 // FUNCTION: SURRENDER 0x10040690
-srShader* srMeshModel::getPolyShader(w8_long polygon, int layer)
+srShader* srMeshModel::getPolyShader(std::int32_t polygon, std::int32_t layer)
 {
     if (polygon < 0 || polygon > 3) {
         return 0;
@@ -307,7 +308,7 @@ srShader* srMeshModel::getPolyShader(w8_long polygon, int layer)
 }
 
 // FUNCTION: SURRENDER 0x10040720
-glm::ivec3* srMeshModel::getPolyUVIndex(w8_long layer, int table)
+glm::ivec3* srMeshModel::getPolyUVIndex(std::int32_t layer, std::int32_t table)
 {
     if (layer < 0 || layer > 3) {
         return 0;
@@ -322,7 +323,7 @@ glm::ivec3* srMeshModel::getPolyUVIndex(w8_long layer, int table)
 }
 
 // FUNCTION: SURRENDER 0x100407E0
-glm::vec3* srMeshModel::getVertexDIG(w8_long vertex, int table)
+glm::vec3* srMeshModel::getVertexDIG(std::int32_t vertex, std::int32_t table)
 {
     if (vertex < 0 || vertex > 3) {
         return 0;
@@ -332,7 +333,7 @@ glm::vec3* srMeshModel::getVertexDIG(w8_long vertex, int table)
 }
 
 // FUNCTION: SURRENDER 0x10040A70
-glm::vec2* srMeshModel::getVertexTexCoords(w8_long vertex, w8_long layer, int table)
+glm::vec2* srMeshModel::getVertexTexCoords(std::int32_t vertex, std::int32_t layer, std::int32_t table)
 {
     if (vertex < 0 || vertex > 3 || layer < 0 || layer > 1) {
         return 0;
@@ -341,7 +342,7 @@ glm::vec2* srMeshModel::getVertexTexCoords(w8_long vertex, w8_long layer, int ta
 }
 
 // FUNCTION: SURRENDER 0x10040B80
-w8_ulong* srMeshModel::getVertexShadeIndex(int table)
+std::uint32_t* srMeshModel::getVertexShadeIndex(std::int32_t table)
 {
     if (vertex_shade_indices.empty() && table != 0 && vertex_location_count != 0) {
         vertex_shade_indices.resize(vertex_location_count, 0);
@@ -364,24 +365,24 @@ void srMeshModel::setDirtyNormals()
 }
 
 // FUNCTION: SURRENDER 0x1003CF30
-srMeshModel::srMeshModel(w8_long polygons, w8_long vertices)
+srMeshModel::srMeshModel(std::int32_t polygons, std::int32_t vertices)
 {
     reset(polygons, vertices);
 }
 
 // FUNCTION: SURRENDER 0x1003D2C0
-void srMeshModel::reset(w8_long polygons, w8_long vertices)
+void srMeshModel::reset(std::int32_t polygons, std::int32_t vertices)
 {
     /* Reset really discards table storage and its references; pass-wide material/texture/shader
        state and sort bias survive. Default destruction needs no model reset or client callbacks.
        This includes the former freeAll path at SURRENDER 0x1003DEA0. */
     tri_mesh = TriMesh{};
-    active_polygons = std::vector<w8_ulong>{};
+    active_polygons = std::vector<std::uint32_t>{};
     poly_vertices = std::vector<glm::ivec3>{};
     poly_equations = std::vector<glm::vec4>{};
     vertex_locations = std::vector<glm::vec3>{};
     vertex_normals = std::vector<glm::vec3>{};
-    vertex_shade_indices = std::vector<w8_ulong>{};
+    vertex_shade_indices = std::vector<std::uint32_t>{};
     vertex_materials = {};
     poly_textures = {};
     texcoords = {};
@@ -431,7 +432,7 @@ void srMeshModel::calculatePolygonNormals()
     glm::vec4* equations = getPolyEq();
     glm::ivec3* polygons = getPolyVertex();
     glm::vec3* vertices = getVertexLoc();
-    for (w8_long polygon = 0; polygon < polygon_count; polygon++) {
+    for (std::int32_t polygon = 0; polygon < polygon_count; polygon++) {
         const auto first = vertices[polygons[polygon].x];
         const auto normal = srMeshMath::polygonNormal(
             std::span<const glm::vec3>(vertices, vertex_location_count), polygons[polygon]);
@@ -453,8 +454,8 @@ void srMeshModel::calculateVertexNormals()
     const auto smooth = srMeshMath::vertexNormalSums(
         std::span<const glm::ivec3>(polygons, polygon_count),
         std::span<const glm::vec4>(equations, polygon_count), vertex_location_count,
-        shade_indices ? std::span<const w8_ulong>(shade_indices, vertex_location_count)
-                      : std::span<const w8_ulong>{});
+        shade_indices ? std::span<const std::uint32_t>(shade_indices, vertex_location_count)
+                      : std::span<const std::uint32_t>{});
     auto* normals = getVertexNormal();
     for (std::size_t vertex = 0; vertex < vertex_location_count; ++vertex)
         normals[vertex] = normalizedOrZero(smooth[vertex]);
@@ -464,7 +465,7 @@ void srMeshModel::calculateVertexNormals()
 void srMeshModel::scale(const glm::vec3& scale)
 {
     glm::vec3* vertices = getVertexLoc();
-    for (w8_long index = 0; index < vertex_location_count; index++) {
+    for (std::int32_t index = 0; index < vertex_location_count; index++) {
         vertices[index] *= scale;
     }
     setDirtyAll();
@@ -474,7 +475,7 @@ void srMeshModel::scale(const glm::vec3& scale)
 void srMeshModel::applyMatrix(const glm::mat3& matrix)
 {
     auto* vertices = getVertexLoc();
-    for (w8_long i = 0; i < vertex_location_count; ++i)
+    for (std::int32_t i = 0; i < vertex_location_count; ++i)
         vertices[i] = matrix * vertices[i];
     setDirtyAll();
 }
@@ -483,7 +484,7 @@ void srMeshModel::applyMatrix(const glm::mat3& matrix)
 void srMeshModel::relocateVertices(const glm::vec3& offset)
 {
     glm::vec3* vertices = getVertexLoc();
-    for (w8_long index = 0; index < vertex_location_count; index++) {
+    for (std::int32_t index = 0; index < vertex_location_count; index++) {
         vertices[index] += offset;
     }
     setDirtyAll();
@@ -539,8 +540,8 @@ void srMeshModel::flipFaces()
 {
     if (polygon_count != 0) {
         glm::ivec3* polygons = getPolyVertex();
-        for (w8_long polygon = 0; polygon < polygon_count; polygon++) {
-            w8_long first = polygons[polygon].x;
+        for (std::int32_t polygon = 0; polygon < polygon_count; polygon++) {
+            std::int32_t first = polygons[polygon].x;
             polygons[polygon].x = polygons[polygon].y;
             polygons[polygon].y = first;
         }
@@ -549,13 +550,13 @@ void srMeshModel::flipFaces()
 }
 
 // FUNCTION: SURRENDER 0x1003ED20
-w8_long srMeshModel::findClosestVertex(const glm::vec3& position)
+std::int32_t srMeshModel::findClosestVertex(const glm::vec3& position)
 {
     const auto target = position;
     float minimum = std::numeric_limits<float>::infinity();
-    w8_long closest = 0;
+    std::int32_t closest = 0;
     const auto* vertices = getVertexLoc();
-    for (w8_long i = 0; i < vertex_location_count; ++i) {
+    for (std::int32_t i = 0; i < vertex_location_count; ++i) {
         const auto offset = vertices[i] - target;
         const float distance = glm::dot(offset, offset);
         if (distance < minimum) {
@@ -588,13 +589,13 @@ void srMeshModel::updateTriMesh()
     tri_mesh.poly_equations = getPolyEq();
     tri_mesh.positions = getVertexLoc();
     tri_mesh.normals = getVertexNormal();
-    for (w8_long pass = 0; pass < 4; pass++) {
-        for (w8_long side = 0; side < 2; side++) {
+    for (std::int32_t pass = 0; pass < 4; pass++) {
+        for (std::int32_t side = 0; side < 2; side++) {
             tri_mesh.materials[pass][side] = std::static_pointer_cast<srMaterial>(materials[pass][side]);
             tri_mesh.vertex_materials[pass][side] =
                 getVertexMaterial(pass, static_cast<e_side>(side), 0);
         }
-        for (w8_long layer = 0; layer < 2; layer++) {
+        for (std::int32_t layer = 0; layer < 2; layer++) {
             tri_mesh.textures[pass][layer] = textures[pass][layer];
             tri_mesh.poly_textures[pass][layer] = getPolyTexture(pass, layer, 0);
             tri_mesh.texcoords[pass][layer] = getVertexTexCoords(pass, layer, 0);
@@ -620,7 +621,7 @@ void srMeshModel::updateTriMesh()
     }
     tri_mesh.active_polygons.reset();
     if (const auto* active = getActivePolygonTable(0)) {
-        tri_mesh.active_polygons = std::span<const w8_ulong>(active, active_polygon_count);
+        tri_mesh.active_polygons = std::span<const std::uint32_t>(active, active_polygon_count);
     }
     dirty_flags.value &= ~(1UL << DIRTY_TRI_MESH);
 }
@@ -647,7 +648,7 @@ srModel::Bounds srMeshModel::getBounds()
 
 static glm::vec4* GetVertexColorTable(srMeshModel& mesh,
     std::array<std::vector<glm::vec4>, srMeshModel::MAX_PASSES>& colors,
-    w8_long pass, int create)
+    std::int32_t pass, std::int32_t create)
 {
     if (pass < 0 || pass >= srMeshModel::MAX_PASSES) {
         return nullptr;
@@ -656,13 +657,13 @@ static glm::vec4* GetVertexColorTable(srMeshModel& mesh,
 }
 
 // FUNCTION: SURRENDER 0x100408B0
-glm::vec4* srMeshModel::getVertexSCG(w8_long vertex, int table)
+glm::vec4* srMeshModel::getVertexSCG(std::int32_t vertex, std::int32_t table)
 {
     return GetVertexColorTable(*this, scg, vertex, table);
 }
 
 // FUNCTION: SURRENDER 0x10040990
-glm::vec4* srMeshModel::getVertexDCG(w8_long vertex, int table)
+glm::vec4* srMeshModel::getVertexDCG(std::int32_t vertex, std::int32_t table)
 {
     return GetVertexColorTable(*this, dcg, vertex, table);
 }
@@ -692,28 +693,28 @@ void srMeshModel::render(srGERD& renderer)
 }
 
 // FUNCTION: SURRENDER 0x100418C0
-void srMeshModel::reindexPolygons(std::span<const w8_ulong> indices)
+void srMeshModel::reindexPolygons(std::span<const std::uint32_t> indices)
 {
     const MeshPermutation permutation(indices, polygon_count);
     if (!polygon_count) return;
     permutation.apply(getPolyEq());
     permutation.apply(getPolyVertex());
-    for (w8_long pass = 0; pass < pass_count; ++pass) {
+    for (std::int32_t pass = 0; pass < pass_count; ++pass) {
         permutation.apply(getPolyUVIndex(pass, 0));
         permutation.apply(getPolyShader(pass, 0));
-        for (w8_long layer = 0; layer < 2; ++layer)
+        for (std::int32_t layer = 0; layer < 2; ++layer)
             permutation.apply(getPolyTexture(pass, layer, 0));
     }
     if (active_polygon_count && getActivePolygonTable(0)) {
         auto* table = getActivePolygonTable(1);
-        for (w8_long i = 0; i < active_polygon_count; ++i)
+        for (std::int32_t i = 0; i < active_polygon_count; ++i)
             table[i] = permutation.inverse[table[i]];
     }
     setDirtyAll();
 }
 
 // FUNCTION: SURRENDER 0x10042230
-void srMeshModel::reindexVertices(std::span<const w8_ulong> indices)
+void srMeshModel::reindexVertices(std::span<const std::uint32_t> indices)
 {
     const MeshPermutation permutation(indices, vertex_location_count);
     if (!vertex_location_count) return;
@@ -721,19 +722,19 @@ void srMeshModel::reindexVertices(std::span<const w8_ulong> indices)
     permutation.apply(getVertexLoc());
     if (auto* shade = getVertexShadeIndex(0)) {
         permutation.apply(shade);
-        for (w8_long i = 0; i < vertex_location_count; ++i) shade[i] = permutation.inverse[shade[i]];
-        for (w8_long i = 0; i < vertex_location_count; ++i) {
+        for (std::int32_t i = 0; i < vertex_location_count; ++i) shade[i] = permutation.inverse[shade[i]];
+        for (std::int32_t i = 0; i < vertex_location_count; ++i) {
             const auto value = shade[i];
-            if (value < static_cast<w8_ulong>(i)) {
+            if (value < static_cast<std::uint32_t>(i)) {
                 shade[i] = shade[value];
                 shade[value] = value;
             }
         }
     }
-    for (w8_long pass = 0; pass < pass_count; ++pass) {
-        for (w8_long side = 0; side < 2; ++side)
+    for (std::int32_t pass = 0; pass < pass_count; ++pass) {
+        for (std::int32_t side = 0; side < 2; ++side)
             permutation.apply(getVertexMaterial(pass, static_cast<e_side>(side), 0));
-        for (w8_long table = 0; table < 2; ++table)
+        for (std::int32_t table = 0; table < 2; ++table)
             permutation.apply(getVertexTexCoords(pass, table, 0));
         permutation.apply(getVertexDIG(pass, 0));
         permutation.apply(getVertexSCG(pass, 0));
@@ -748,11 +749,11 @@ void srMeshModel::reindexVertices(std::span<const w8_ulong> indices)
 // FUNCTION: SURRENDER 0x10040C40
 void srMeshModel::verify(srRuntimeClass::e_verify mode)
 {
-    w8_long i;
-    w8_long j;
-    w8_long p;
-    w8_long s;
-    w8_long v;
+    std::int32_t i;
+    std::int32_t j;
+    std::int32_t p;
+    std::int32_t s;
+    std::int32_t v;
 
     srClass::verify(mode);
     const auto t = getTriMesh();
@@ -768,14 +769,14 @@ void srMeshModel::verify(srRuntimeClass::e_verify mode)
                          0x5d2, 0);
         }
         if (t.active_polygons) {
-            const auto active_count = static_cast<w8_long>(t.active_polygons->size());
+            const auto active_count = static_cast<std::int32_t>(t.active_polygons->size());
             if (t.polygon_count < active_count) {
                 srAssertFail("t.aPnum <= t.pnum", "D:\\srsdk1x\\sources\\corelib\\srMeshModel.cpp",
                              0x5da, 0);
             }
             for (i = 0; i < active_count; ++i) {
                 /* c-style-cast-ok: the assert text spells (SRDWORD)(t.pnum). */
-                if ((SRDWORD)t.polygon_count <= (*t.active_polygons)[i]) {
+                if ((std::uint32_t)t.polygon_count <= (*t.active_polygons)[i]) {
                     srAssertFail("t.APT[i] < (SRDWORD)(t.pnum)",
                                  "D:\\srsdk1x\\sources\\corelib\\srMeshModel.cpp", 0x5dd, 0);
                 }
@@ -868,12 +869,12 @@ void srMeshModel::verify(srRuntimeClass::e_verify mode)
 // FUNCTION: SURRENDER 0x1003EE00
 void srMeshModel::dump(std::ostream& stream)
 {
-    w8_long pass;
-    int stage;
-    w8_long polygon;
-    w8_long vertex;
-    w8_long side;
-    w8_long changes;
+    std::int32_t pass;
+    std::int32_t stage;
+    std::int32_t polygon;
+    std::int32_t vertex;
+    std::int32_t side;
+    std::int32_t changes;
 
     srModel::dump(stream);
     const srDumpStreamScope formatting(stream);
@@ -1035,14 +1036,14 @@ void srMeshModel::dump(std::ostream& stream)
     }
     stream << '\n';
     glm::ivec3* vertices = getPolyVertex();
-    w8_ulong strips = 1;
+    std::uint32_t strips = 1;
     for (pass = 0; pass < pass_count; ++pass) {
         for (polygon = 1; polygon < polygon_count; ++polygon) {
             const auto& next = vertices[polygon];
             const auto& previous = vertices[polygon - 1];
-            w8_long shared = 0;
-            for (w8_long a = 0; a < 3; ++a) {
-                for (w8_long b = 0; b < 3; ++b) {
+            std::int32_t shared = 0;
+            for (std::int32_t a = 0; a < 3; ++a) {
+                for (std::int32_t b = 0; b < 3; ++b) {
                     if (next[a] == previous[b]) {
                         ++shared;
                     }
@@ -1067,9 +1068,9 @@ void srMeshModel::dump(std::ostream& stream)
             }
         }
     }
-    w8_ulong shader_changes = 0;
-    w8_ulong texture_changes = 0;
-    w8_ulong material_changes = 0;
+    std::uint32_t shader_changes = 0;
+    std::uint32_t texture_changes = 0;
+    std::uint32_t material_changes = 0;
     for (pass = 0; pass < pass_count; ++pass) {
         if (getPolyShader(pass, 0) != 0) {
             srShader* shaders = getPolyShader(pass, 1);
@@ -1266,15 +1267,15 @@ void srTriMeshPipeline::FlushSlots()
     ++srCore.getStatisticsManager()->statistics.meshes_submitted;
     srCore.getStatisticsManager()->statistics.vertices_submitted += slot_count * vertex_count;
 
-    const auto total = active_triangles ? static_cast<w8_ulong>(active_triangles->size())
+    const auto total = active_triangles ? static_cast<std::uint32_t>(active_triangles->size())
                                        : triangle_count;
-    w8_ulong batch_limit = total;
+    std::uint32_t batch_limit = total;
     if ((this->flags & LIMIT_VERTEX_BATCHES) != 0) {
         double ratio = static_cast<double>(vertex_count) / triangle_count;
         if (ratio > 3.0f) {
             ratio = 3.0f;
         }
-        batch_limit = static_cast<w8_ulong>(1300.0f / (slot_count * ratio));
+        batch_limit = static_cast<std::uint32_t>(1300.0f / (slot_count * ratio));
         if (cull_mode == srGERD::CULL_NONE) {
             batch_limit >>= 1;
         }
@@ -1283,9 +1284,9 @@ void srTriMeshPipeline::FlushSlots()
         }
     }
 
-    w8_ulong processed = 0;
+    std::uint32_t processed = 0;
     while (processed < total) {
-        w8_ulong batch_count = total - processed;
+        std::uint32_t batch_count = total - processed;
         if (batch_count > batch_limit) {
             batch_count = batch_limit;
         }
@@ -1317,12 +1318,12 @@ void srTriMeshPipeline::FlushSlots()
                 this->vertex_arrays.resize(slot_count);
                 srVertexArray* vertex_arrays = this->vertex_arrays.data();
                 vertex_arrays[0] = renderer->allocVertexArray(slot_count * culler_output.vertexCount());
-                for (w8_ulong slot = 1; slot < slot_count; ++slot) {
+                for (std::uint32_t slot = 1; slot < slot_count; ++slot) {
                     const auto offset = renderer->first_vertex + slot * culler_output.vertexCount();
                     vertex_arrays[slot] = renderer->vertices.bind(offset);
                 }
 
-                w8_ulong processor_count = this->renderer->getVertexProcessorCount();
+                std::uint32_t processor_count = this->renderer->getVertexProcessorCount();
                 srVertexProcessor** processors = 0;
                 if (processor_count != 0) {
                     vertex_processors = this->renderer->getVertexProcessors();
@@ -1334,7 +1335,7 @@ void srTriMeshPipeline::FlushSlots()
                     this->renderer->getEnvironmentRange();
                 const auto [environment_scale, environment_inverse_scale] =
                     this->renderer->getEnvironmentScaleFactor();
-                w8_ulong exclusion_mask = this->renderer->getExclusionMask();
+                std::uint32_t exclusion_mask = this->renderer->getExclusionMask();
 
                 srVertexPipe::Input pipe_input(model_view, normal_matrix);
                 pipe_input.active_vertices = culler_output.avt;
@@ -1356,16 +1357,16 @@ void srTriMeshPipeline::FlushSlots()
                     for (auto& index : culler_output.indices) index += processed;
                 }
 
-                w8_ulong renderer_disable_mask = 0;
+                std::uint32_t renderer_disable_mask = 0;
                 if (this->renderer->getMaxTextureStages() == 1) {
                     renderer_disable_mask = (1UL << srVertexProcessor::CHANNEL_ST1) |
                                             (1UL << srVertexProcessor::CHANNEL_Q1);
                 }
 
-                for (w8_ulong pass_index = 0; pass_index < slot_count; ++pass_index) {
+                for (std::uint32_t pass_index = 0; pass_index < slot_count; ++pass_index) {
                     passes[pass_index].texcoords = records[pass_index].st_source[0];
 
-                    w8_ulong disable_mask;
+                    std::uint32_t disable_mask;
                     if (passes[pass_index].shaders != 0) {
                         srFlags<srVertexProcessor::e_channel> flags =
                             srVertexPipe::getShaderDisableMask(passes[pass_index].shaders,
@@ -1430,9 +1431,9 @@ srTriMeshPipeline& srTriMeshPipeline::beginMesh(srGERD& renderer, const srMeshMo
     pipeline.PrepareSlot();
     pipeline.sort_bias = mesh.sort_bias;
     pipeline.triangles = mesh.poly_vertices;
-    pipeline.triangle_count = static_cast<w8_ulong>(mesh.polygon_count);
+    pipeline.triangle_count = static_cast<std::uint32_t>(mesh.polygon_count);
     pipeline.positions = mesh.positions;
-    pipeline.vertex_count = static_cast<w8_ulong>(mesh.vertex_count);
+    pipeline.vertex_count = static_cast<std::uint32_t>(mesh.vertex_count);
     pipeline.vertex_extras = mesh.normals;
     pipeline.projected_vertices = mesh.poly_equations;
     pipeline.active_triangles = mesh.active_polygons;
@@ -1456,8 +1457,8 @@ void srTriMeshPipeline::SetMeshBounds(const srMeshModel::TriMesh& mesh)
     }
 }
 
-void srTriMeshPipeline::AppendMeshPass(const srMeshModel::TriMesh& mesh, w8_long pass,
-                                       w8_long material_side, srShader pass_shader)
+void srTriMeshPipeline::AppendMeshPass(const srMeshModel::TriMesh& mesh, std::int32_t pass,
+                                       std::int32_t material_side, srShader pass_shader)
 {
     current_record->flags = 0;
     current_pass->shaders = 0;
@@ -1510,7 +1511,7 @@ void srTriMeshPipeline::AppendMeshPass(const srMeshModel::TriMesh& mesh, w8_long
         current_record->st_source[1] = mesh.texcoords[pass][1];
     }
 
-    for (w8_long layer = 0; layer < 2; ++layer) {
+    for (std::int32_t layer = 0; layer < 2; ++layer) {
         if (mesh.poly_textures[pass][layer] == 0) {
             srTextureIFace* texture = mesh.textures[pass][layer].get();
             (layer == 0 ? texture0 : texture1) = texture;
@@ -1532,8 +1533,8 @@ void srMeshModel::renderTriMesh(srGERD& renderer, const TriMesh& mesh)
         const srMeshSubmission::EnableScope enabled(renderer,
             (mesh.control_flags & (1UL << CONTROL_SORTED_RENDERING)) != 0);
         srMeshSubmission::drawSides(renderer, mesh,
-            [&](srTriMeshPipeline&, w8_long side) {
-                w8_long material_side = side;
+            [&](srTriMeshPipeline&, std::int32_t side) {
+                std::int32_t material_side = side;
                 if (side == 1) {
                     renderer.setCullMode(srGERD::CULL_FRONT);
                     if (!renderer.isEnabled(srGERD::ENABLE_REVERSE_NORMALS))
@@ -1549,7 +1550,7 @@ void srMeshModel::renderTriMesh(srGERD& renderer, const TriMesh& mesh)
                 }
                 return material_side;
             },
-            [&](w8_long pass) { return mesh.shaders[pass]; });
+            [&](std::int32_t pass) { return mesh.shaders[pass]; });
     }
 }
 
@@ -1567,32 +1568,32 @@ void srMeshModel::disable(e_control control)
 }
 
 // FUNCTION: SURRENDER 0x10041870
-int srMeshModel::isEnabled(e_control control) const
+std::int32_t srMeshModel::isEnabled(e_control control) const
 {
     return (render_control.value & (1 << control)) != 0;
 }
 
 // FUNCTION: SURRENDER 0x10041890
-void srMeshModel::setPassCount(w8_long count)
+void srMeshModel::setPassCount(std::int32_t count)
 {
-    pass_count = std::clamp<w8_long>(count, 1, MAX_PASSES);
+    pass_count = std::clamp<std::int32_t>(count, 1, MAX_PASSES);
     setDirty(DIRTY_TRI_MESH);
 }
 
 // FUNCTION: SURRENDER 0x10041AC0
-w8_long srMeshModel::getPassCount() const
+std::int32_t srMeshModel::getPassCount() const
 {
     return pass_count;
 }
 
 // FUNCTION: SURRENDER 0x10041AD0
-w8_long srMeshModel::getPolygonCount() const
+std::int32_t srMeshModel::getPolygonCount() const
 {
     return polygon_count;
 }
 
 // FUNCTION: SURRENDER 0x10041AE0
-w8_long srMeshModel::getVertexCount() const
+std::int32_t srMeshModel::getVertexCount() const
 {
     return vertex_location_count;
 }

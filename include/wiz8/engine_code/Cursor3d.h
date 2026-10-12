@@ -1,5 +1,7 @@
 #pragma once
 
+
+#include <cstdint>
 template <class T> class srVector3T;
 
 /* 0x00490AF0: toggle the 3D world cursor. If a cursor exists, release it;
@@ -24,6 +26,6 @@ char MarchWorldCursorTarget(srVector3T<float>* target);
 /* 0x004921E0: resolve the world cursor's target position into the out
    vector: copy the cursor position, ground-probe its candidate offsets and
    keep the settled height. */
-int ResolveWorldCursorTarget(srVector3T<float>* position);
+std::int32_t ResolveWorldCursorTarget(srVector3T<float>* position);
 void GetWorldCursorTargetPosition(srVector3T<float>* position);
 void ResetWorldCursorRange(void); /* 0x00492530 */

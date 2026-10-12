@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <fmt/format.h>
 #include <glm/gtx/euler_angles.hpp>
 #include <cstdio>
@@ -135,7 +136,7 @@ srNode* W8Item::GetMesh()
 }
 
 // FUNCTION: WIZ8 0x0049F310
-unsigned int W8ItemRep::SetFlags(unsigned int mask, bool enabled)
+std::uint32_t W8ItemRep::SetFlags(std::uint32_t mask, bool enabled)
 {
     if (enabled) {
         flags |= mask;
@@ -232,7 +233,7 @@ try
     char* mesh_name = new char[1024];
     strcpy(mesh_name, name);
     info.mesh_filename = mesh_name;
-    unsigned char version;
+    std::uint8_t version;
     bool success = false;
     if ((file->read(&version, 1).bytes == static_cast<std::size_t>(1)) && version == 2 &&
         ReadItemFromFile(&info, &item, anonymous_mesh)) {
@@ -405,7 +406,7 @@ void W8Item::LightRadarBlip()
 /* Run an item's trigger without a source. Action states 1 and 4 return zero
    so a world-item interaction waits instead of taking the item. */
 // FUNCTION: WIZ8 0x004A0070
-unsigned char RunItemTrigger(W8Item* item)
+std::uint8_t RunItemTrigger(W8Item* item)
 {
     Trigger* trigger;
 

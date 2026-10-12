@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include "glm/ext/vector_int3.hpp"
 
 #include "glm/ext/vector_float3.hpp"
@@ -42,8 +43,8 @@ public:
     void Flush();
     void PrepareSlot();
     void SetMeshBounds(const srMeshModel::TriMesh& mesh);
-    void AppendMeshPass(const srMeshModel::TriMesh& mesh, w8_long pass,
-                        w8_long material_side, srShader pass_shader);
+    void AppendMeshPass(const srMeshModel::TriMesh& mesh, std::int32_t pass,
+                        std::int32_t material_side, srShader pass_shader);
 
     inline void FlushIfCurrent()
     {
@@ -58,11 +59,11 @@ public:
     std::vector<srVertexProcessor*> vertex_processors;
     Record* current_record;
     Pass* current_pass;
-    w8_ulong triangle_count;
-    w8_ulong vertex_count;
+    std::uint32_t triangle_count;
+    std::uint32_t vertex_count;
     /* Bit 0: run getClipMask (frustum 0x3f plus user planes in bits 6+).
        Bit 1: vertex/triangle batch-limit path. Reset/Get always set both. */
-    w8_ulong flags;
+    std::uint32_t flags;
     srMeshModel::PolygonSelection active_triangles;
     const glm::vec4* projected_vertices;
     const glm::ivec3* triangles;
@@ -75,12 +76,12 @@ public:
     glm::vec3 bounds_center;
     float bounds_radius;
     e_boundsSource bounds_source;
-    w8_ulong unknown_70;
+    std::uint32_t unknown_70;
     srShader shader;
     srTextureIFace* texture0;
     srTextureIFace* texture1;
     srMaterialIFace* material;
-    w8_ulong slot_count;
+    std::uint32_t slot_count;
     srGERD* renderer;
     std::unique_ptr<srVertexPipe> vertex_pipe;
     /* PrepareSlot may relocate these vectors; it rebinds current_record/current_pass afterwards.
@@ -91,7 +92,7 @@ public:
 
 protected:
     /* srExit releases the singleton through this protected static. */
-    friend SR_DLL_IMPORT int __cdecl srExit(void);
+    friend SR_DLL_IMPORT std::int32_t __cdecl srExit(void);
     static SR_DLL_IMPORT srTriMeshPipeline* pipe;
 
 private:

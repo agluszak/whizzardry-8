@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "Font.h"
 #pragma once
 
@@ -33,9 +34,9 @@ enum W8SplitDialogResult {
 /* The small numeric entry field embedded by the split dialogs. */
 class W8DialogNumericInput {
 public:
-    W8DialogNumericInput(int control_id, const W8ControlsRect* bounds, int value, Font& font,
+    W8DialogNumericInput(std::int32_t control_id, const W8ControlsRect* bounds, std::int32_t value, Font& font,
                          W8DialogBase* dialog, W8ButtonWidget* button);
-    void SetValue(int value);
+    void SetValue(std::int32_t value);
     void SetActive(bool active);
     void SetActive(bool active, const SDL_Point* point);
     void Draw(bool force);
@@ -55,17 +56,17 @@ public:
     W8ControlsRect m_bounds;
     /* -1 while inactive; otherwise the count of characters to the right
        of the caret. */
-    int m_caret;
+    std::int32_t m_caret;
     Font* m_font;
-    int m_value;
+    std::int32_t m_value;
     bool m_dirty;
     bool m_active;
     /* The stack total for the split dialogs; -1 is "no maximum". */
-    unsigned int m_maximum;
+    std::uint32_t m_maximum;
     W8DialogBase* m_dialog;
     W8ButtonWidget* m_button;
     /* Echoed back as the argument of m_dialog->OnNumericInputChanged. */
-    int m_control_id;
+    std::int32_t m_control_id;
 };
 
 // VTABLE: WIZ8 0x005ef7c8
@@ -73,7 +74,7 @@ class W8ListBoxDialog : public W8DialogBase {
 public:
     W8ListBoxDialog();
     virtual ~W8ListBoxDialog() override;
-    virtual int CreateControls() override;
+    virtual std::int32_t CreateControls() override;
     virtual void DestroyControls() override;
     virtual void Draw() override;
     virtual W8DialogKind GetDialogType() override;
@@ -82,10 +83,10 @@ public:
 
 private:
     /* Text-area button height divided by the dialog font height. */
-    int GetVisibleLineCount();
+    std::int32_t GetVisibleLineCount();
     /* Select a text line and scroll it into the visible range. */
-    void SetCurrentLine(int line);
-    void SetFirstVisibleLine(int line);
+    void SetCurrentLine(std::int32_t line);
+    void SetFirstVisibleLine(std::int32_t line);
     void ClearLines();
     /* Keyboard handling for the visible text list. */
     bool HandleInputEvent(const InputEvent* input);
@@ -101,8 +102,8 @@ private:
 
 public:
     std::vector<std::string> m_lines;
-    std::vector<void (*)(int)> m_field_064;
-    int m_field_074;
+    std::vector<void (*)(std::int32_t)> m_field_064;
+    std::int32_t m_field_074;
     float m_field_078; /* 0.05 */
     float m_field_07c; /* 0.2 */
     float m_field_080; /* 0.9 */
@@ -120,10 +121,10 @@ public:
     W8ButtonWidget m_ok_button;
     W8ButtonWidget m_cancel_button;
     bool m_scrollable; /* scrolling area is scrollable */
-    int m_first_visible_line;
-    int m_selected_line;
+    std::int32_t m_first_visible_line;
+    std::int32_t m_selected_line;
     GenericButtonImage edge_inlay; /* DialogEdge inlay for the text buttons */
-    short flags;
+    std::int16_t flags;
 };
 
 // VTABLE: WIZ8 0x005ef9f0
@@ -136,13 +137,13 @@ public:
     W8SplitAmountDialog();
     /* The split-size entry point; the pool total seeds both the
        remaining and total fields. */
-    W8SplitAmountDialog(int total);
+    W8SplitAmountDialog(std::int32_t total);
     virtual ~W8SplitAmountDialog() override;
-    virtual int CreateControls() override;
+    virtual std::int32_t CreateControls() override;
     virtual void DestroyControls() override;
     virtual void Draw() override;
     virtual bool ProcessInput() override;
-    virtual void OnNumericInputChanged(int value) override;
+    virtual void OnNumericInputChanged(std::int32_t value) override;
 
 private:
     /* Create and place the six dialog buttons. */
@@ -156,8 +157,8 @@ private:
     /* Push the split into the text buffers and the numeric field. */
     void UpdateTextBuffers();
     /* Keyboard handling for the plus/minus buttons and the field. */
-    void DecreaseAmount(int amount);
-    void IncreaseAmount(int amount);
+    void DecreaseAmount(std::int32_t amount);
+    void IncreaseAmount(std::int32_t amount);
     bool HandleInputEvent(const InputEvent* input);
 
     /* Per-button callbacks stored through W8ButtonWidget::Configure. */
@@ -177,9 +178,9 @@ private:
     std::unique_ptr<W8DialogNumericInput> m_split_input;
     /* The numeric field while the cursor or keyboard owns it. */
     W8DialogNumericInput* m_active_field;
-    int m_remaining; /* total minus the field value */
-    int m_taken;     /* the field value */
-    int m_total;
+    std::int32_t m_remaining; /* total minus the field value */
+    std::int32_t m_taken;     /* the field value */
+    std::int32_t m_total;
     W8SplitDialogResult m_result; /* 1 confirms, 2 cancels */
 };
 
@@ -190,13 +191,13 @@ class W8TriggerItemPickerDialog : public W8DialogBase {
 public:
     W8TriggerItemPickerDialog();
     virtual ~W8TriggerItemPickerDialog() override;
-    virtual int CreateControls() override;
+    virtual std::int32_t CreateControls() override;
     virtual void DestroyControls() override;
     virtual void Draw() override;
     virtual W8DialogKind GetDialogType() override;
     virtual bool ProcessInput() override;
 
-    int AddItem(W8WorldItem* item);
+    std::int32_t AddItem(W8WorldItem* item);
     W8WorldItem* ReturnItemsToGroup();
     void SetItemGroup(W8WorldItem* group);
 
@@ -204,19 +205,19 @@ private:
     bool CreateButtons();
     /* Clamp and apply the first visible item row. Fewer than five items force
        the first row. Out-of-range input is ignored, not clamped. */
-    void SetFirstVisible(int index);
+    void SetFirstVisible(std::int32_t index);
     /* Sync the four scroll buttons' pressed/visible state with the scroll
        offset and the per-item enable flags. */
     void RefreshScrollButtons();
-    bool IsItemSelected(int index);
-    void SetItemSelected(int index, bool selected);
-    void ToggleItem(int index, W8ButtonWidget* button);
-    static void ShowVisibleItemInfo(W8ButtonWidget* button, int row);
+    bool IsItemSelected(std::int32_t index);
+    void SetItemSelected(std::int32_t index, bool selected);
+    void ToggleItem(std::int32_t index, W8ButtonWidget* button);
+    static void ShowVisibleItemInfo(W8ButtonWidget* button, std::int32_t row);
     /* Move every flagged item to the destination: -1 copies it into the shared
        party pool, any other value gives it to that party slot's character.
        Each successful transfer unlinks the item and its flag; a failure plays
        the beep. An emptied picker closes itself. */
-    void TransferSelectedItems(int destination);
+    void TransferSelectedItems(std::int32_t destination);
     /* Handle one event the picker owns: keyboard list navigation and clicks. */
     bool HandleInputEvent(const InputEvent* input);
 
@@ -245,9 +246,9 @@ private:
 
 public:
   std::vector<W8WorldItem*> items;
-  std::vector<unsigned char> flags;
+  std::vector<std::uint8_t> flags;
   std::array<std::unique_ptr<W8ButtonWidget>, 13> m_buttons;
-  int m_first_item;
+  std::int32_t m_first_item;
   W8WorldItem* m_item_group;
 };
 
@@ -256,13 +257,13 @@ public:
 // VTABLE: WIZ8 0x005efb78
 class W8SplitItemDialog : public W8DialogBase {
 public:
-    W8SplitItemDialog(W8ItemSplitMode mode, W8ItemInstance* item, int count);
+    W8SplitItemDialog(W8ItemSplitMode mode, W8ItemInstance* item, std::int32_t count);
     virtual ~W8SplitItemDialog() override;
-    virtual int CreateControls() override;
+    virtual std::int32_t CreateControls() override;
     virtual void DestroyControls() override;
     virtual void Draw() override;
     virtual bool ProcessInput() override;
-    virtual void OnNumericInputChanged(int value) override;
+    virtual void OnNumericInputChanged(std::int32_t value) override;
 
 private:
     /* Create and place the arrow, frame, accept and cancel
@@ -300,9 +301,9 @@ public:
     W8DialogNumericInput* m_count_input;
     /* The numeric field while a click or keypress owns it. */
     W8DialogNumericInput* m_active_input;
-    int m_remaining; /* the count left in the source stack */
-    int split_count;
-    int m_stack_total; /* stack_count when the dialog opened */
+    std::int32_t m_remaining; /* the count left in the source stack */
+    std::int32_t split_count;
+    std::int32_t m_stack_total; /* stack_count when the dialog opened */
     W8SplitDialogResult split_result;
 
 private:

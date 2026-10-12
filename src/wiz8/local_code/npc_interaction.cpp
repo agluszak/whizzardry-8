@@ -1,4 +1,5 @@
 
+#include <cstdint>
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -18,7 +19,7 @@ W8NpcDialogue g_npc_dialogue;
 /* Report whether a party slot can be picked: in range, occupied, still on its
    feet, and not Turncoat or a more severe condition. */
 // FUNCTION: WIZ8 0x00524a10
-bool IsPartySlotEligible(int slot)
+bool IsPartySlotEligible(std::int32_t slot)
 {
     W8Character* character;
     bool eligible;

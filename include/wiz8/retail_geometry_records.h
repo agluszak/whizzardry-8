@@ -14,19 +14,19 @@ namespace wiz8::retail {
 #pragma pack(push, 1)
 /* The on-disk W8GDSurface; field meanings are documented there. */
 struct GDSurface {
-    unsigned int flags;
-    unsigned int index;
-    int trigger_index;
-    int edge_link[3];
-    int vertex_indices[3];
+    std::uint32_t flags;
+    std::uint32_t index;
+    std::int32_t trigger_index;
+    std::int32_t edge_link[3];
+    std::int32_t vertex_indices[3];
     W8Plane plane;
     float distance;
     std::uint32_t hit_plane;
-    unsigned char footstep_surface;
-    unsigned char footstep_material;
-    unsigned char positional[2];
+    std::uint8_t footstep_surface;
+    std::uint8_t footstep_material;
+    std::uint8_t positional[2];
     float contact_margin;
-    unsigned int chance;
+    std::uint32_t chance;
     float slope;
 };
 #pragma pack(pop)

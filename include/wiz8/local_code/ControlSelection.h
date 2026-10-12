@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include "wiz8/local_code/TextControl.h"
 #include <vector>
 #include <algorithm>
@@ -10,7 +11,7 @@ class W8ControlSelection;
 
 class W8ControlSelectionListener {
 public:
-    virtual void OnSelectionChanged(W8ControlSelection* control, int selected) = 0;
+    virtual void OnSelectionChanged(W8ControlSelection* control, std::int32_t selected) = 0;
 };
 
 /* A radio group of text controls: selecting one deselects the rest. */
@@ -19,15 +20,15 @@ class W8ControlSelection : public W8TextControl::Listener {
 public:
     W8ControlSelection();
     virtual ~W8ControlSelection() = default;
-    int AddEntry(W8TextControl* entry);
-    void SetSelected(int iSelected);
+    std::int32_t AddEntry(W8TextControl* entry);
+    void SetSelected(std::int32_t iSelected);
     virtual void OnPrimary(W8TextControl* entry) override;
     virtual void OnSecondary(W8TextControl*) override {}
 
 public:
-    int m_value_4;
-    int m_value_8;
-    int m_selectedIndex;
+    std::int32_t m_value_4;
+    std::int32_t m_value_8;
+    std::int32_t m_selectedIndex;
     std::vector<W8TextControl*> m_lsButtons;
     W8ControlSelectionListener* m_selectionListener;
 };

@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "wiz8/dialog_code/NotificationDialog.h"
 
 #include <vector>
@@ -21,7 +22,7 @@
    frame comes from the base having a destructor: an exception in any setup
    call has to unwind it. */
 // FUNCTION: WIZ8 0x005a80a0
-W8NotificationDialog::W8NotificationDialog(int message_index, bool cancel_allowed, int notify_value)
+W8NotificationDialog::W8NotificationDialog(std::int32_t message_index, bool cancel_allowed, std::int32_t notify_value)
     : notification_value(notify_value), notify_target(0)
 {
     SetOrigin(0xf0, 0xbe);

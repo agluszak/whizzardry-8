@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include "srNode.h"
 
 class srCamera;
@@ -17,10 +18,10 @@ public:
 
     struct Statistics {
         double elapsed;              /* seconds since the last reset */
-        w8_ulong render_calls;  /* scene renders accumulated */
-        w8_ulong node_calls;    /* node visits accumulated per render */
-        w8_ulong process_calls; /* per-node process calls accumulated */
-        w8_ulong value_14;
+        std::uint32_t render_calls;  /* scene renders accumulated */
+        std::uint32_t node_calls;    /* node visits accumulated per render */
+        std::uint32_t process_calls; /* per-node process calls accumulated */
+        std::uint32_t value_14;
     };
 
     srScene(srNode* parent = 0);
@@ -36,7 +37,7 @@ public:
     glm::vec3 getAmbientLight() const;
     glm::vec3 getFogColor() const;
     Statistics getStatistics() const;
-    int isEnabled(e_enable option) const;
+    std::int32_t isEnabled(e_enable option) const;
     void render(srGERD& renderer, class srCamera* camera);
     void resetStatistics();
     // FUNCTION: SURRENDER 0x10056C10

@@ -23,16 +23,16 @@
 
 
 SDL_Window* ghWindow = nullptr;
-static int screenshots = 0, captures = 0, suspensions = 0, restorations = 0, resizes = 0;
+static std::int32_t screenshots = 0, captures = 0, suspensions = 0, restorations = 0, resizes = 0;
 static std::thread::id dispatch_thread;
-static std::vector<int> clock_actions;
+static std::vector<std::int32_t> clock_actions;
 void PrintScreen() { ++screenshots; }
 void VideoCaptureToggle() { ++captures; }
 bool VideoInspectorIsEnabled() { return false; }
 void SuspendVideoManager() { ++suspensions; }
 bool RestoreVideoManager() { ++restorations; return true; }
 bool VideoResizeWindow() { ++resizes; return true; }
-float MoveTimer(int action) { clock_actions.push_back(action); return 0; }
+float MoveTimer(std::int32_t action) { clock_actions.push_back(action); return 0; }
 static SDL_WindowID id;
 static void push(SDL_Event event) { REQUIRE(SDL_PushEvent(&event)); }
 static void focus(Uint32 kind)
@@ -291,9 +291,9 @@ TEST_CASE("events_test")
     REQUIRE(events[2].buttons == SDL_BUTTON_RMASK);
     REQUIRE(events[3].buttons == 0);
     REQUIRE((events[1].clicks == 3 && events[3].clicks == 3));
-    for (unsigned i = 0; i < events.size(); ++i) {
-        REQUIRE(events[i].position.x == 20 + 20 * int(i));
-        REQUIRE(events[i].position.y == 30 + 20 * int(i));
+    for (std::uint32_t i = 0; i < events.size(); ++i) {
+        REQUIRE(events[i].position.x == 20 + 20 * std::int32_t(i));
+        REQUIRE(events[i].position.y == 30 + 20 * std::int32_t(i));
     }
 
     wheel(0.25f);
@@ -342,7 +342,7 @@ TEST_CASE("events_test")
     expect(events[0], InputEventType::KeyDown, 'F');
     expect(events[1], InputEventType::KeyUp, 'F');
 
-    uint64_t countdown = w8_get_ticks() + 100;
+    std::uint64_t countdown = w8_get_ticks() + 100;
     REQUIRE((TimeUntilDeadline(countdown) <= 100 && TimeUntilDeadline(countdown) > 0));
     REQUIRE(TimeUntilDeadline(w8_get_ticks() - 1) == 0);
     /* 64-bit deadlines never wrap: far-future stamps honestly report their
@@ -379,14 +379,14 @@ TEST_CASE("events_test")
     input();
 
     /* Ring wrap, full-queue drop and FIFO are still recovered SGP behavior. */
-    for (unsigned batch = 0; batch < 3; ++batch)
+    for (std::uint32_t batch = 0; batch < 3; ++batch)
     {
-        for (unsigned i = 0; i < 257; ++i)
-            QueueEvent(InputEventType::KeyDown, {int(batch), 0}, std::uint16_t(i));
+        for (std::uint32_t i = 0; i < 257; ++i)
+            QueueEvent(InputEventType::KeyDown, {std::int32_t(batch), 0}, std::uint16_t(i));
         events = input();
         REQUIRE(events.size() == 256);
-        for (unsigned i = 0; i < 256; ++i)
-            REQUIRE((events[i].key == i && events[i].position.x == int(batch)));
+        for (std::uint32_t i = 0; i < 256; ++i)
+            REQUIRE((events[i].key == i && events[i].position.x == std::int32_t(batch)));
     }
     gfIgnoreMessages = true;
     key(SDL_EVENT_KEY_DOWN, SDLK_Q);
@@ -400,28 +400,28 @@ TEST_CASE("events_test")
     drain_events();
     REQUIRE(!gfProgramIsRunning);
     gfIgnoreMessages = false;
-    for (int round = 0; round < 3; ++round) {
+    for (std::int32_t round = 0; round < 3; ++round) {
         REQUIRE(InitializeInputManager());
-        for (unsigned i = 0; i < 256; ++i)
-            QueueEvent(InputEventType::KeyDown, {int(i) + 100, 0}, std::uint16_t(i));
+        for (std::uint32_t i = 0; i < 256; ++i)
+            QueueEvent(InputEventType::KeyDown, {std::int32_t(i) + 100, 0}, std::uint16_t(i));
         QueueEvent(InputEventType::KeyUp, {}, 999);
         events = input();
         REQUIRE(events.size() == 256);
-        for (unsigned i = 0; i < events.size(); ++i) {
+        for (std::uint32_t i = 0; i < events.size(); ++i) {
             expect(events[i], InputEventType::KeyDown, i);
-            REQUIRE(events[i].position.x == int(i) + 100);
+            REQUIRE(events[i].position.x == std::int32_t(i) + 100);
         }
     }
-    for (unsigned queued : {254u, 255u, 256u}) {
+    for (std::uint32_t queued : {254u, 255u, 256u}) {
         REQUIRE(InitializeInputManager());
-        for (unsigned i = 0; i < queued; ++i)
+        for (std::uint32_t i = 0; i < queued; ++i)
             QueueEvent(InputEventType::KeyDown, {}, std::uint16_t(i));
         GetInputState().modifiers = SHIFT_DOWN;
         mouse(SDL_EVENT_MOUSE_BUTTON_UP, SDL_BUTTON_LEFT, 640, 480, 2);
         drain_events();
         events = input();
         REQUIRE(events.size() == 256);
-        for (unsigned i = 0; i < queued; ++i)
+        for (std::uint32_t i = 0; i < queued; ++i)
             expect(events[i], InputEventType::KeyDown, i);
         if (queued < 256) {
             expect(events[queued], InputEventType::LeftButtonUp, 0, SHIFT_DOWN);

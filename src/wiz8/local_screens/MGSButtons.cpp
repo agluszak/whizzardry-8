@@ -56,12 +56,12 @@
 #define MGSBUTTONS_CPP "C:\\Projects\\Wizardry 8\\Local Screens\\MGSButtons.cpp"
 
 // GLOBAL: WIZ8 0x0061e988
-unsigned short g_action_kind_message_ids[12] = {
+std::uint16_t g_action_kind_message_ids[12] = {
     0x050f, 0x0510, 0x0511, 0x0512, 0x0513, 0x0514, 0x0515, 0x0516, 0x0517, 0x0518, 0x0519, 0x051a,
 };
 
 // GLOBAL: WIZ8 0x0069B854
-short g_submenu_menu;
+std::int16_t g_submenu_menu;
 // GLOBAL: WIZ8 0x0069B858
 std::array<W8ButtonWidget, 2> g_submenu_scroll_buttons;
 /* [0] closes the panel (callback 0x005978D0), [1] toggles the formation
@@ -69,13 +69,13 @@ std::array<W8ButtonWidget, 2> g_submenu_scroll_buttons;
 // GLOBAL: WIZ8 0x0069B860
 std::array<W8ButtonWidget, 2> g_submenu_panel_buttons;
 // GLOBAL: WIZ8 0x0069B868
-short g_submenu_entries[6];
+std::int16_t g_submenu_entries[6];
 // GLOBAL: WIZ8 0x0069B874
-short g_submenu_entry_states[5];
+std::int16_t g_submenu_entry_states[5];
 // GLOBAL: WIZ8 0x0069B87E
-short g_submenu_entry_count;
+std::int16_t g_submenu_entry_count;
 // GLOBAL: WIZ8 0x0069B880
-uint64_t g_submenu_clock;
+std::uint64_t g_submenu_clock;
 /* Layout arrows: [0..2] left column (radar/action/formation), [3..5] right. */
 // GLOBAL: WIZ8 0x0069B884
 std::array<W8ButtonWidget, 6> g_layout_arrow_buttons;
@@ -116,9 +116,9 @@ static void MainGameLayoutRadarButton(W8ButtonWidget* button);
 static void MainGameLayoutActionPanelButton(W8ButtonWidget* button);
 static void MainGameLayoutFormationButton(W8ButtonWidget* button);
 
-int GetAttackMenuWeaponOffset(W8Skill skill)
+std::int32_t GetAttackMenuWeaponOffset(W8Skill skill)
 {
-    int base;
+    std::int32_t base;
     switch (skill) {
     case W8_SKILL_MACE_FLAIL:
         base = 3;
@@ -264,7 +264,7 @@ void SubMenuSelectWalk(void)
     ChooseSubMenuAction(W8_ACTION_WALK);
 }
 
-void OpenSubMenuPanel(short notification)
+void OpenSubMenuPanel(std::int16_t notification)
 {
     if (g_level_block->combat_end_notification != -1) {
         DestroySubMenuControls();
@@ -282,7 +282,7 @@ void OpenSubMenuPanel(short notification)
 // FUNCTION: WIZ8 0x00596CF0
 void ResetSubMenuPanel(void)
 {
-    short saved_notification;
+    std::int16_t saved_notification;
 
     saved_notification = g_level_block->combat_end_notification;
     DestroySubMenuControls();
@@ -290,9 +290,9 @@ void ResetSubMenuPanel(void)
 }
 
 // FUNCTION: WIZ8 0x00596EC0
-unsigned char CreateSubMenuScrollButtons(void)
+std::uint8_t CreateSubMenuScrollButtons(void)
 {
-    int i;
+    std::int32_t i;
 
     g_submenu_scroll_buttons[0].Configure("Data\\Main Interface\\main_scroll_arrows.sti", 3, 0, 1,
                                            2, 2, SubMenuScrollArrowUp, BUTTON_NO_CALLBACK, false,
@@ -327,9 +327,9 @@ static void SubMenuPanelFormationButton(W8ButtonWidget* button)
 }
 
 // FUNCTION: WIZ8 0x00597670
-unsigned char CreateSubMenuPanelButtons(void)
+std::uint8_t CreateSubMenuPanelButtons(void)
 {
-    int index;
+    std::int32_t index;
 
     g_submenu_panel_buttons[0].Configure(g_submenu_icons_path, 0x21, 0x1e, 0x1f, 0x20, 0x22,
                                           SubMenuPanelCloseButton, BUTTON_NO_CALLBACK, false,
@@ -357,7 +357,7 @@ static void MainGameOptionsDiskButton(W8ButtonWidget* button)
 }
 
 // FUNCTION: WIZ8 0x00597A30
-unsigned char CreateOptionsDiskButton(void)
+std::uint8_t CreateOptionsDiskButton(void)
 {
     g_options_disk_button.Configure(g_options_disk_path, 3, 0, 1, 2, 2, MainGameOptionsDiskButton,
                                      BUTTON_NO_CALLBACK, false, REGION_PRIORITY_HIGHEST, 0x41,
@@ -391,8 +391,8 @@ void RedrawOptionsDiskButton(void)
 // FUNCTION: WIZ8 0x00597D70
 void UpdateCombatStanceButtons(void)
 {
-    unsigned int stance;
-    unsigned char index;
+    std::uint32_t stance;
+    std::uint8_t index;
     bool enabled;
 
     if (!gXStatus.fCombatMode) {
@@ -429,7 +429,7 @@ void UpdateCombatStanceButtons(void)
 void RedrawCombatStanceButtons(void)
 {
     CatalogArtwork::Load(0x7e, 0).drawAndInvalidate(GetFrameBufferSurface(), 3, 0x262, 0x1c2);
-    for (int index = 0; index < 5; ++index) {
+    for (std::int32_t index = 0; index < 5; ++index) {
         g_combat_stance_buttons[index].m_dirty = true;
     }
     UpdateCombatStanceButtons();
@@ -464,9 +464,9 @@ static void MainGameCombatStanceSecondary(W8ButtonWidget* button)
 }
 
 // FUNCTION: WIZ8 0x00597B90
-unsigned char CreateCombatStanceButtons(void)
+std::uint8_t CreateCombatStanceButtons(void)
 {
-    int index;
+    std::int32_t index;
 
     g_combat_stance_buttons[0].Configure(
         g_attack_confirm_path, 3, 0, 1, 2, 2, MainGameCombatConfirmButton, BUTTON_NO_CALLBACK,
@@ -513,9 +513,9 @@ static void MainGameRoofButton2(W8ButtonWidget* button)
 }
 
 // FUNCTION: WIZ8 0x00597EE0
-unsigned char CreateRoofButtons(void)
+std::uint8_t CreateRoofButtons(void)
 {
-    int index;
+    std::int32_t index;
 
     g_roof_buttons[0].Configure(g_roof_buttons_path, 9, 0, 6, 3, 6, MainGameRoofButton0,
                                  BUTTON_NO_CALLBACK, true, REGION_PRIORITY_HIGHEST, 0x38,
@@ -547,7 +547,7 @@ unsigned char CreateRoofButtons(void)
 void RedrawRoofButtons(void)
 {
     CatalogArtwork::Load(0x85, 0).draw(GetFrameBufferSurface(), 0, 0, 0);
-    for (int index = 0; index < 3; ++index) {
+    for (std::int32_t index = 0; index < 3; ++index) {
         g_roof_buttons[index].m_dirty = true;
     }
     UpdateRoofButtons();
@@ -763,9 +763,9 @@ void RedrawLayoutArrowButtons(void)
 }
 
 // FUNCTION: WIZ8 0x005982D0
-unsigned char CreateLayoutArrowButtons(void)
+std::uint8_t CreateLayoutArrowButtons(void)
 {
-    int index;
+    std::int32_t index;
 
     g_layout_arrow_buttons[0].Configure(g_layout_arrows_path, 6, 0, 1, BUTTON_NO_IMAGE, 2,
                                          MainGameLayoutRadarButton, BUTTON_NO_CALLBACK, false,
@@ -830,7 +830,7 @@ void DestroyMainGameInterfaceButtons(void)
 
 static void SetMenuButtonBanksEnabled(bool enabled)
 {
-    int i;
+    std::int32_t i;
     for (i = 0; i < 2; ++i) {
         g_submenu_scroll_buttons[i].SetEnabled(enabled);
     }
@@ -858,7 +858,7 @@ void DisableMenuButtonBanks(void)
 }
 
 // FUNCTION: WIZ8 0x00598CD0
-unsigned char SubMenuBackgroundRegionEvent(const InputEvent* event, W8Region* region)
+std::uint8_t SubMenuBackgroundRegionEvent(const InputEvent* event, W8Region* region)
 {
     InputEventType us_event;
 
@@ -883,12 +883,12 @@ unsigned char SubMenuBackgroundRegionEvent(const InputEvent* event, W8Region* re
 }
 
 // FUNCTION: WIZ8 0x00598DB0
-unsigned char SubMenuRowRegionEvent(const InputEvent* event, W8Region* region)
+std::uint8_t SubMenuRowRegionEvent(const InputEvent* event, W8Region* region)
 {
     W8PartySlotRow* party_row;
     W8ItemInstance* item;
     std::string name;
-    int slot;
+    std::int32_t slot;
 
     if (g_level_block->combat_end_notification == -1) {
         return 0;
@@ -940,7 +940,7 @@ unsigned char SubMenuRowRegionEvent(const InputEvent* event, W8Region* region)
 // FUNCTION: WIZ8 0x00596FE0
 void DrawSubMenuCharacterAction(void)
 {
-    unsigned short slot;
+    std::uint16_t slot;
     W8Character* character;
     W8PartySlotRow* row;
     W8ActionKind action;
@@ -952,7 +952,7 @@ void DrawSubMenuCharacterAction(void)
     std::int16_t separator;
     std::int16_t trailing;
 
-    slot = static_cast<unsigned short>(g_status.selected_character);
+    slot = static_cast<std::uint16_t>(g_status.selected_character);
     if (slot > 7) {
         return;
     }
@@ -1011,7 +1011,7 @@ void DrawSubMenuCharacterAction(void)
                     width = g_smfnt_font.textWidth(text);
                     separator = g_smfnt_font.textWidth("/)");
                     trailing = g_smfnt_font.textWidth(second);
-                    if (static_cast<unsigned int>(trailing + width + separator) < 0xb9) {
+                    if (static_cast<std::uint32_t>(trailing + width + separator) < 0xb9) {
                         text += "/";
                         text += second;
                     }
@@ -1103,8 +1103,8 @@ static void UpdateSubMenuScrollButtons()
 // FUNCTION: WIZ8 0x00598810
 void RedrawSubMenuButtons(void)
 {
-    int index;
-    int frame;
+    std::int32_t index;
+    std::int32_t frame;
 
     CatalogArtwork::Load(0x7e, 0).drawAndInvalidate(GetFrameBufferSurface(), 4, 0x1e, 0x1c2);
     frame = !gXStatus.fCombatMode ? 8 : 9;
@@ -1156,11 +1156,11 @@ void SubMenuScrollArrowDown(W8ButtonWidget* button)
 // FUNCTION: WIZ8 0x00597570
 void ScrollSubMenuCharacter(char direction)
 {
-    short current;
-    short selected;
-    short slot;
+    std::int16_t current;
+    std::int16_t selected;
+    std::int16_t slot;
 
-    current = static_cast<short>(g_status.selected_character);
+    current = static_cast<std::int16_t>(g_status.selected_character);
     selected = current;
     switch (direction) {
     case 1:
@@ -1208,7 +1208,7 @@ done:
 }
 
 // FUNCTION: WIZ8 0x005990F0
-void SetSubMenuButtonTooltips(int enabled)
+void SetSubMenuButtonTooltips(std::int32_t enabled)
 {
     g_submenu_buttons[0].SetTooltipEnabled(enabled);
     g_submenu_buttons[1].SetTooltipEnabled(enabled);
@@ -1232,7 +1232,7 @@ void SetSubMenuButtonTooltips(int enabled)
 // FUNCTION: WIZ8 0x005989B0
 void UpdateMainGameButtons(void)
 {
-    int index;
+    std::int32_t index;
     bool enabled;
 
     for (index = 0; index < 9; ++index) {
@@ -1257,8 +1257,8 @@ void UpdateMainGameButtons(void)
 // FUNCTION: WIZ8 0x00598FA0
 void UpdateSubMenuAutoClose(void)
 {
-    int left;
-    int right;
+    std::int32_t left;
+    std::int32_t right;
 
     left = gpSubMenuPanel->m_bounds.left;
     switch (g_submenu_entry_count) {
@@ -1297,7 +1297,7 @@ void UpdateSubMenuAutoClose(void)
 // FUNCTION: WIZ8 0x005957E0
 void EnableSubMenuRegions(void)
 {
-    int index;
+    std::int32_t index;
 
     g_main_submenu_regions.Enable();
     EnableRegionInput(g_main_submenu_regions->index(5));
@@ -1310,18 +1310,18 @@ void EnableSubMenuRegions(void)
 }
 
 // FUNCTION: WIZ8 0x00595850
-unsigned char BuildSubMenuPanel(short notification)
+std::uint8_t BuildSubMenuPanel(std::int16_t notification)
 {
-    short index;
-    int left;
-    int menu;
-    short count = 0;
-    int built = 0;
-    int entry;
-    short message;
-    int icon_delta;
-    short state;
-    int base;
+    std::int16_t index;
+    std::int32_t left;
+    std::int32_t menu;
+    std::int16_t count = 0;
+    std::int32_t built = 0;
+    std::int32_t entry;
+    std::int16_t message;
+    std::int32_t icon_delta;
+    std::int16_t state;
+    std::int32_t base;
 
     gpSubMenuPanel.reset();
     for (index = 0; index < 5; ++index) {
@@ -1458,7 +1458,7 @@ unsigned char BuildSubMenuPanel(short notification)
 }
 
 // FUNCTION: WIZ8 0x00595EA0
-void AssignSubMenuCallback(W8TextControl* row, short menu, short item)
+void AssignSubMenuCallback(W8TextControl* row, std::int16_t menu, std::int16_t item)
 {
     switch (menu) {
     case W8_SUBMENU_ATTACK:
@@ -1514,9 +1514,9 @@ void AssignSubMenuCallback(W8TextControl* row, short menu, short item)
 }
 
 // FUNCTION: WIZ8 0x00596360
-W8SubMenuEntryState CheckSubMenuActionUsable(int party_slot)
+W8SubMenuEntryState CheckSubMenuActionUsable(std::int32_t party_slot)
 {
-    unsigned char matches;
+    std::uint8_t matches;
 
     matches = 0;
     if (g_level_block->selection_kind == g_status.buffers.XChar[party_slot].action &&
@@ -1531,7 +1531,7 @@ W8SubMenuEntryState CheckSubMenuActionUsable(int party_slot)
 }
 
 // FUNCTION: WIZ8 0x00595FE0
-W8SubMenuEntryState GetSubMenuEntryState(short menu, short item, int party_slot)
+W8SubMenuEntryState GetSubMenuEntryState(std::int16_t menu, std::int16_t item, std::int32_t party_slot)
 {
     W8SubMenuEntryState state;
     W8Character* character;
@@ -1614,7 +1614,7 @@ W8SubMenuEntryState GetSubMenuEntryState(short menu, short item, int party_slot)
 }
 
 // FUNCTION: WIZ8 0x00596240
-void MapSubMenuSelection(short menu, short item)
+void MapSubMenuSelection(std::int16_t menu, std::int16_t item)
 {
     W8ActionKind action;
     bool settled;

@@ -42,7 +42,7 @@ static std::vector<std::uint16_t> sprite_pixels(const SpriteFrame& frame)
 using Bytes = std::vector<std::uint8_t>;
 namespace fs = std::filesystem;
 
-static void word(Bytes& bytes, std::size_t offset, unsigned value)
+static void word(Bytes& bytes, std::size_t offset, std::uint32_t value)
 {
     bytes[offset] = value;
     bytes[offset + 1] = value >> 8;
@@ -68,7 +68,7 @@ static Bytes pcx()
     bytes[65] = 1;
     word(bytes, 66, 4);
     bytes.insert(bytes.end(), {0, 0xc2, 1, 99, 2, 3, 0xc1, 0xc1, 99, 12});
-    for (unsigned i = 0; i < 256; ++i)
+    for (std::uint32_t i = 0; i < 256; ++i)
     {
         bytes.push_back(i == 2 ? 255 : i == 0 ? 0 : i);
         bytes.push_back(i == 2 ? 0 : i == 0 ? 0 : i);
@@ -77,7 +77,7 @@ static Bytes pcx()
     return bytes;
 }
 
-static Bytes tga(unsigned depth, bool top, bool rle)
+static Bytes tga(std::uint32_t depth, bool top, bool rle)
 {
     Bytes bytes(18);
     bytes[2] = rle ? 10 : 2;
@@ -90,10 +90,10 @@ static Bytes tga(unsigned depth, bool top, bool rle)
         {0, 0, 0}, {1, 1, 1}, {255, 0, 0}, {0, 255, 0}, {0, 0, 255}, {23, 45, 67}}};
     if (rle)
         bytes.push_back(5); // One raw RLE packet crossing the scan-line boundary.
-    for (unsigned row = 0; row < 2; ++row)
-        for (unsigned x = 0; x < 3; ++x)
+    for (std::uint32_t row = 0; row < 2; ++row)
+        for (std::uint32_t x = 0; x < 3; ++x)
         {
-            const unsigned index = (top ? row : 1 - row) * 3 + x;
+            const std::uint32_t index = (top ? row : 1 - row) * 3 + x;
             if (depth == 16)
             {
                 bytes.push_back(packed[index]);
@@ -121,7 +121,7 @@ static Bytes indexed_tga()
     return bytes;
 }
 
-static Bytes sti_bitmap(unsigned width, unsigned height, unsigned depth, const Bytes& pixels,
+static Bytes sti_bitmap(std::uint32_t width, std::uint32_t height, std::uint32_t depth, const Bytes& pixels,
                         bool compressed)
 {
     STCIHeader header{};
@@ -152,7 +152,7 @@ static Bytes sti_bitmap(unsigned width, unsigned height, unsigned depth, const B
     Bytes bytes(sizeof(header));
     memcpy(bytes.data(), &header, sizeof(header));
     if (depth == 8)
-        for (unsigned i = 0; i < 256; ++i)
+        for (std::uint32_t i = 0; i < 256; ++i)
             bytes.insert(bytes.end(), {std::uint8_t(i), std::uint8_t(i), std::uint8_t(i)});
     bytes.insert(bytes.end(), stored.begin(), stored.end());
     return bytes;
@@ -163,10 +163,10 @@ static Bytes rgb_pcx(const std::uint8_t* rgb)
     auto bytes = pcx();
     bytes.resize(128);
     bytes[65] = 3;
-    for (unsigned row = 0; row < 2; ++row)
-        for (unsigned plane = 0; plane < 3; ++plane)
+    for (std::uint32_t row = 0; row < 2; ++row)
+        for (std::uint32_t plane = 0; plane < 3; ++plane)
         {
-            for (unsigned x = 0; x < 3; ++x)
+            for (std::uint32_t x = 0; x < 3; ++x)
             {
                 const auto value = rgb[(row * 3 + x) * 3 + plane];
                 if (value >= 0xc0)
@@ -246,10 +246,10 @@ static Palette8 bitmap_palette(const SDL_Surface& image)
 static std::vector<std::uint8_t> bitmap_bytes(const SDL_Surface& image)
 {
     const auto format = SDL_BYTESPERPIXEL(image.format) <= 2 ? image.format : SDL_PIXELFORMAT_RGB24;
-    const int row_bytes = image.w * SDL_BYTESPERPIXEL(format);
+    const std::int32_t row_bytes = image.w * SDL_BYTESPERPIXEL(format);
     std::vector<std::uint8_t> bytes(std::size_t(row_bytes) * image.h);
     if (format == image.format) {
-        for (int y = 0; y < image.h; ++y)
+        for (std::int32_t y = 0; y < image.h; ++y)
             std::copy_n(static_cast<const std::uint8_t*>(image.pixels) + y * image.pitch, row_bytes,
                         bytes.data() + std::size_t(y) * row_bytes);
     } else {
@@ -270,7 +270,7 @@ static void check_pcx(const SDL_Surface& image)
     const auto colors = bitmap_palette(image);
     const std::uint8_t expected[]{0, 1, 1, 2, 3, 0xc1};
     REQUIRE(!memcmp(bitmap_bytes(image).data(), expected, sizeof(expected)));
-    for (unsigned i = 0; i < 256; ++i)
+    for (std::uint32_t i = 0; i < 256; ++i)
     {
         REQUIRE(colors[i].r == (i == 2 ? 255 : i));
         REQUIRE(colors[i].g == (i == 2 ? 0 : i));
@@ -430,7 +430,7 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
         REQUIRE((image && SDL_BYTESPERPIXEL(image->format) >= 3 && !indexed(*image)));
         REQUIRE(!memcmp(bitmap_bytes(*image).data(), rgb, sizeof(rgb)));
     }
-    for (unsigned depth : {16u, 24u})
+    for (std::uint32_t depth : {16u, 24u})
         for (bool top : {false, true})
             for (bool rle : {false, true})
             {
@@ -485,8 +485,8 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
         std::unique_ptr<SDL_Surface, decltype(&SDL_DestroySurface)> surface(
             SDL_CreateSurface(8, 8, SDL_PIXELFORMAT_RGB24), SDL_DestroySurface);
         REQUIRE(surface);
-        for (int y = 0; y < 8; ++y)
-            for (int x = 0; x < 8; ++x)
+        for (std::int32_t y = 0; y < 8; ++y)
+            for (std::int32_t x = 0; x < 8; ++x)
             {
                 auto* pixel = static_cast<std::uint8_t*>(surface->pixels) + y * surface->pitch + x * 3;
                 pixel[0] = 240;
@@ -497,11 +497,11 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
         auto image = load("test.jpeg");
         REQUIRE((image && image->w == 8 && image->h == 8 && SDL_BYTESPERPIXEL(image->format) >= 3));
         REQUIRE_FALSE(indexed(*image));
-        for (unsigned i = 0; i < 64; ++i)
+        for (std::uint32_t i = 0; i < 64; ++i)
         {
-            CHECK(abs(int(bitmap_bytes(*image)[i * 3]) - 240) < 4);
-            CHECK(abs(int(bitmap_bytes(*image)[i * 3 + 1]) - 20) < 4);
-            CHECK(abs(int(bitmap_bytes(*image)[i * 3 + 2]) - 40) < 4);
+            CHECK(abs(std::int32_t(bitmap_bytes(*image)[i * 3]) - 240) < 4);
+            CHECK(abs(std::int32_t(bitmap_bytes(*image)[i * 3 + 1]) - 20) < 4);
+            CHECK(abs(std::int32_t(bitmap_bytes(*image)[i * 3 + 2]) - 40) < 4);
         }
     }
 
@@ -510,8 +510,8 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
 
 TEST_CASE_METHOD(ImageFixture, "STI bitmaps decode to normalized pixel data", "[image][decoding]")
 {
-    for (unsigned depth : {8u, 16u, 24u}) {
-        const unsigned width = 5, height = 3;
+    for (std::uint32_t depth : {8u, 16u, 24u}) {
+        const std::uint32_t width = 5, height = 3;
         Bytes expected(width * height * (depth / 8));
         for (std::size_t i = 0; i < expected.size(); ++i)
             expected[i] = (i * 7) ^ (i >> 5);
@@ -544,7 +544,7 @@ TEST_CASE_METHOD(ImageFixture, "Raw and zlib STI RGB masks normalize identically
                                                std::uint16_t(0x03e0 | alpha), std::uint16_t(0x001f | alpha)};
             const auto frame = ConvertBitmapToFrameSurface(*image);
             REQUIRE((frame->w == 2 && frame->h == 2));
-            for (int y = 0; y < 2; ++y)
+            for (std::int32_t y = 0; y < 2; ++y)
                 REQUIRE(!memcmp(static_cast<const std::uint8_t*>(frame->pixels) + y * frame->pitch,
                                 expected.data() + y * 2, 2 * sizeof(std::uint16_t)));
         }
@@ -596,7 +596,7 @@ TEST_CASE_METHOD(ImageFixture, "Malformed ETRLE fails before any image is expose
 {
     const Bytes runs{1, 0, 0x81, 1, 2, 0, 0x82, 1, 3, 0};
     const std::vector<STCISubImage> valid_frames{{0, 10, -2, 3, 2, 3}, {6, 4, 4, -1, 1, 3}};
-    for (unsigned corruption = 0; corruption < 8; ++corruption) {
+    for (std::uint32_t corruption = 0; corruption < 8; ++corruption) {
         auto frames = valid_frames;
         auto pixels = runs;
         if (corruption == 0) pixels[6] = 0x80; // Zero-length run in the second frame.
@@ -636,7 +636,7 @@ TEST_CASE_METHOD(ImageFixture, "STI zlib decoding respects SLF entry bounds and 
     auto first = wiz8::open_file("Data\\Good.sti");
     auto second = wiz8::open_file("Data\\Good.sti");
     first->seek(9, wiz8::SeekOrigin::begin);
-    for (unsigned repeat = 0; repeat < 3; ++repeat) {
+    for (std::uint32_t repeat = 0; repeat < 3; ++repeat) {
         auto image = load("Data\\Good.sti");
         REQUIRE(image);
         REQUIRE(bitmap_bytes(*image) == expected);
@@ -653,7 +653,7 @@ TEST_CASE_METHOD(ImageFixture, "Malformed STI zlib data fails at the loading bou
 {
     const Bytes original{0, 1, 2, 3, 4, 5};
     const auto valid = sti_bitmap(3, 2, 8, original, true);
-    for (unsigned corruption = 0; corruption < 15; ++corruption) {
+    for (std::uint32_t corruption = 0; corruption < 15; ++corruption) {
         auto bytes = valid;
         STCIHeader header;
         memcpy(&header, bytes.data(), sizeof(header));
@@ -675,7 +675,7 @@ TEST_CASE_METHOD(ImageFixture, "Malformed STI zlib data fails at the loading bou
         if (corruption == 13) bytes = sti_bitmap(3, 2, 8, {0, 1, 2, 3, 4}, true);
         if (corruption == 14) bytes = sti_bitmap(3, 2, 8, {0, 1, 2, 3, 4, 5, 6}, true);
         fixture(assets / "bad-zlib.sti", bytes);
-        for (unsigned repeat = 0; repeat < 3; ++repeat) {
+        for (std::uint32_t repeat = 0; repeat < 3; ++repeat) {
             REQUIRE_FALSE(LoadImage("bad-zlib.sti"));
         }
         fixture(assets / "good-zlib.sti", valid);
@@ -696,7 +696,7 @@ TEST_CASE_METHOD(ImageFixture, "Truncated images and rollback", "[image][validat
     for (const auto& bytes : invalid_pcx)
     {
         fixture(assets / "invalid.pcx", bytes);
-        for (unsigned repeat = 0; repeat < 10; ++repeat)
+        for (std::uint32_t repeat = 0; repeat < 10; ++repeat)
             CHECK(!load("invalid.pcx"));
     }
     std::vector<Bytes> invalid_tga{{}, Bytes(17), truncated, tga(24, true, true),

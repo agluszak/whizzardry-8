@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "wiz8/engine_code/stTextureAnim.h" // IWYU pragma: keep - complete animation type for cursor texture conversion and frame access.
 #include <string_view>
 #include <cstring>
@@ -89,7 +90,7 @@ bool IsScreenTransitionPending(void)
 
 /* Route one redraw bit to the active camp or main-game screen state. The slot
    travels as an int: the body only ever reads its low byte for the shift. */
-void RequestPartySlotRedraw(int bit)
+void RequestPartySlotRedraw(std::int32_t bit)
 {
     if (g_current_screen_state.id == W8_SCREEN_CAMP) {
         g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_PORTRAIT;
@@ -101,9 +102,9 @@ void RequestPartySlotRedraw(int bit)
 /* Refresh one party slot's on-screen presentation for the active screen:
    character and party-selection forward into their own helpers; camp marks
    the review panels dirty; main game redraws the portrait overlay. */
-void RefreshPartySlotDisplay(unsigned int party_slot)
+void RefreshPartySlotDisplay(std::uint32_t party_slot)
 {
-    unsigned int top;
+    std::uint32_t top;
     bool overlay_ready;
     bool highlighted;
 
@@ -117,7 +118,7 @@ void RefreshPartySlotDisplay(unsigned int party_slot)
         RefreshPartySelectionPortrait(party_slot);
         break;
     case W8_SCREEN_CAMP:
-        if (giReviewCharSlot == static_cast<int>(party_slot) &&
+        if (giReviewCharSlot == static_cast<std::int32_t>(party_slot) &&
             g_camp_screen->header_mode == W8_CAMP_HEADER_SUMMARY) {
             if (g_camp_screen->portrait_hovered[0] != 0) {
                 g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_PORTRAIT;
@@ -156,10 +157,10 @@ void RefreshPartySlotDisplay(unsigned int party_slot)
             overlay_ready =
                 PreparePartyPortraitOverlay(party_slot, (party_slot & 1) << 9 | 0x14, top);
             highlighted = false;
-            if (party_slot == static_cast<unsigned int>(g_level_block->highlight_override) ||
+            if (party_slot == static_cast<std::uint32_t>(g_level_block->highlight_override) ||
                 party_slot ==
-                    static_cast<unsigned int>(g_level_block->formation_highlight_party_slot) ||
-                party_slot == static_cast<unsigned int>(g_level_block->held_item_display)) {
+                    static_cast<std::uint32_t>(g_level_block->formation_highlight_party_slot) ||
+                party_slot == static_cast<std::uint32_t>(g_level_block->held_item_display)) {
                 highlighted = true;
             }
             RedrawPartyPortraitOverlay(party_slot, highlighted, overlay_ready,
@@ -176,7 +177,7 @@ void RefreshPartySlotDisplay(unsigned int party_slot)
 
 /* Text-input mode installs cursor id 8. Lives here because the address sits
    in the Screens translation unit. */
-int GetTextInputCursor(void)
+std::int32_t GetTextInputCursor(void)
 {
     return W8_CURSOR_TEXT_INPUT;
 }
@@ -184,7 +185,7 @@ int GetTextInputCursor(void)
 /* Install a named cursor, or restore the held-item / default cursor when the
    caller passes W8_CURSOR_NONE (-1). Unchanged ids are ignored; a new id resets
    the frame and applies through ApplyCurrentCursor. */
-void SetTargetCursor(int cursor)
+void SetTargetCursor(std::int32_t cursor)
 {
     if (cursor == gXStatus.iCurrentCursor) {
         return;
@@ -269,16 +270,16 @@ void ClearHeldItemDisplay(void)
 /* Inline text colors selected by party order for skill and level-up notices. */
 
 // GLOBAL: WIZ8 0x00647ccc
-static unsigned char g_party_order_text_colors[8] = {7, 4, 6, 2, 5, 8, 9, 3};
+static std::uint8_t g_party_order_text_colors[8] = {7, 4, 6, 2, 5, 8, 9, 3};
 
-unsigned char GetPartyOrderTextColor(signed char party_order)
+std::uint8_t GetPartyOrderTextColor(std::int8_t party_order)
 {
     return g_party_order_text_colors[party_order];
 }
 
 /* Draw the held item as the cursor, then blit the supplied catalog video
    object over it. A negative held item id leaves the cursor unchanged. */
-void SetItemCursor(int overlay_video_object)
+void SetItemCursor(std::int32_t overlay_video_object)
 {
     if (g_status.item_in_hand.iItemNo != -1) {
         g_status.item_in_cursor = true;
@@ -312,10 +313,10 @@ void ShowNoticeLine(std::string_view text, W8DialogDestroyCallback callback, boo
 void InitializeMainGameLevelBlock(void)
 {
     W8MainUiMode previous_mode;
-    int slot;
+    std::int32_t slot;
 
     if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME && g_level_block != 0) {
-        g_level_block->redraw_flags = static_cast<unsigned int>(-1);
+        g_level_block->redraw_flags = static_cast<std::uint32_t>(-1);
     }
     g_level_block->transition_pending = false;
     g_level_block->camera_mode = 7;
@@ -382,10 +383,10 @@ void InitializeMainGameLevelBlock(void)
     g_level_block->refresh_party_panel = 1;
     g_level_block->text_scroll_drag_idle = 1;
     SetTextBoxRegionBounds(0xa8, 0x16e, 0x1c4, 0x1ba);
-    for (int line = 0; line < 12; ++line) {
+    for (std::int32_t line = 0; line < 12; ++line) {
         g_level_block->text_lines[line] = 0;
     }
-    for (int slot_index = 0; slot_index < 4; ++slot_index) {
+    for (std::int32_t slot_index = 0; slot_index < 4; ++slot_index) {
         g_level_block->hovered_text_lines[slot_index] = -1;
         g_level_block->selected_text_lines[slot_index] = -1;
     }

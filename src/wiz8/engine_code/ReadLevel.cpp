@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <glm/ext/quaternion_trigonometric.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <cmath>
@@ -98,7 +99,7 @@ void stLevel::process(const ProcessInfo& info, e_processType)
     srGERD& renderer = *info.renderer;
     const auto transform = scopedWorldSpaceMatrix(renderer);
 
-    w8_ulong old_exclusion_mask = 0;
+    std::uint32_t old_exclusion_mask = 0;
     if (m_render_exclusion_mask != 0) {
         old_exclusion_mask = renderer.getExclusionMask();
         renderer.setExclusionMask(m_render_exclusion_mask | old_exclusion_mask);
@@ -174,19 +175,19 @@ void stLevel::process(const ProcessInfo& info, e_processType)
 namespace {
 
 struct W8LevelItemRecord {
-    int positional0;
+    std::int32_t positional0;
     srVector3T<float> position;
-    int positional2;
-    int positional3;
-    int positional4;
+    std::int32_t positional2;
+    std::int32_t positional3;
+    std::int32_t positional4;
     char item_name[20];
 };
 
 struct W8LevelLightRecord {
-    short version;
-    unsigned char create;
+    std::int16_t version;
+    std::uint8_t create;
     bool visible;
-    unsigned int flags;
+    std::uint32_t flags;
     srVector3T<float> location;
     srVector3T<float> colour;
     float intensity;
@@ -203,9 +204,9 @@ glm::vec3 g_environment_offset{0};
 // FUNCTION: WIZ8 0x004BC060
 void AssociateWorldLights(W8World* world)
 {
-    int light_index;
+    std::int32_t light_index;
 
-    for (light_index = 0; light_index < static_cast<int>(world->lights_to_update.size());
+    for (light_index = 0; light_index < static_cast<std::int32_t>(world->lights_to_update.size());
          ++light_index) {
         stLight* light = world->lights_to_update[light_index];
         stLightDefinition* definition = light->m_definition;
@@ -213,8 +214,8 @@ void AssociateWorldLights(W8World* world)
         if (definition != 0 && definition->kind == W8_LIGHT_DEFINITION_PARAMETRIC &&
             (static_cast<stParametricLightDefinition*>(definition)->flags &
              W8_PARAM_LIGHT_FLICKER) != 0) {
-            int prop_count = world->plsProps.size();
-            int prop_index;
+            std::int32_t prop_count = world->plsProps.size();
+            std::int32_t prop_index;
 
             for (prop_index = 0; prop_index < prop_count; ++prop_index) {
                 W8Prop* prop = GetWorldProp(world, prop_index);
@@ -230,12 +231,12 @@ void AssociateWorldLights(W8World* world)
 }
 
 // FUNCTION: WIZ8 0x004BBAD0
-static unsigned char ReadWorldLights(W8World* world, wiz8::File* hFile)
+static std::uint8_t ReadWorldLights(W8World* world, wiz8::File* hFile)
 try
 {
-    short light_count;
-    int index;
-    unsigned char success;
+    std::int16_t light_count;
+    std::int32_t index;
+    std::uint8_t success;
     success = (hFile->read(&light_count, sizeof(light_count)).bytes == static_cast<std::size_t>(sizeof(light_count)));
     if (!success) {
         srAssertFail("fSuccess", READ_LEVEL_CPP, 486, "Couldn't read number of lights");
@@ -345,7 +346,7 @@ try
 }
 
 // FUNCTION: WIZ8 0x004BC9D0
-unsigned char ReadWorldEnvironment(W8ReadLevelInfo* pInfo, W8World* pWorld)
+std::uint8_t ReadWorldEnvironment(W8ReadLevelInfo* pInfo, W8World* pWorld)
 try
 {
     /* Retail read these uninitialised when a FileRead chain short-circuited;
@@ -359,10 +360,10 @@ try
     float view_distance = 0.0f;
     float angle = 0.0f;
     float distance_scale;
-    unsigned char camera_mode = 0;
-    unsigned char has_light_colours = 0;
-    unsigned char has_environment_colours = 0;
-    unsigned char fog_enabled = 0;
+    std::uint8_t camera_mode = 0;
+    std::uint8_t has_light_colours = 0;
+    std::uint8_t has_environment_colours = 0;
+    std::uint8_t fog_enabled = 0;
     bool success;
 
     success = (pInfo->hFile->read(&fog_enabled, sizeof(fog_enabled)).bytes == static_cast<std::size_t>(sizeof(fog_enabled))) &&
@@ -433,7 +434,7 @@ try
 }
 
 // FUNCTION: WIZ8 0x004BCE20
-static unsigned char ReadWorldClipPlanes(W8ReadLevelInfo* pInfo, W8World* pWorld)
+static std::uint8_t ReadWorldClipPlanes(W8ReadLevelInfo* pInfo, W8World* pWorld)
 try
 {
     std::vector<srClipPlane*> clip_planes;
@@ -442,10 +443,10 @@ try
     glm::dvec3 position;
     srClipPlane* clip_plane;
     char name[64];
-    int count;
-    int index;
-    unsigned char version;
-    unsigned char success;
+    std::int32_t count;
+    std::int32_t index;
+    std::uint8_t version;
+    std::uint8_t success;
 
     if (pInfo == 0) {
         srAssertFail("pInfo", READ_LEVEL_CPP, 0x59b, 0);
@@ -494,7 +495,7 @@ try
 }
 
 // FUNCTION: WIZ8 0x004BC5E0
-static unsigned char ReadWorldProps(W8ReadLevelInfo* pInfo, W8World* pWorld,
+static std::uint8_t ReadWorldProps(W8ReadLevelInfo* pInfo, W8World* pWorld,
                                     bool mark_model_instances)
 try
 {
@@ -502,11 +503,11 @@ try
        this one vector across the complete prop loop. */
     std::vector<stModelInstance*> model_instances;
     W8Prop* prop;
-    int count;
-    int index;
-    int collidable_index;
-    int model_index;
-    unsigned char success;
+    std::int32_t count;
+    std::int32_t index;
+    std::int32_t collidable_index;
+    std::int32_t model_index;
+    std::uint8_t success;
 
     collidable_index = 0;
     if (pInfo == 0 || pInfo->hFile == 0 || pWorld == 0) {
@@ -547,7 +548,7 @@ try
 
         if (mark_model_instances && prop != 0) {
             prop->CollectModelInstances(model_instances);
-            for (model_index = 0; model_index < static_cast<int>(model_instances.size());
+            for (model_index = 0; model_index < static_cast<std::int32_t>(model_instances.size());
                  ++model_index) {
                 stModelInstance* instance = model_instances[model_index];
                 if (instance != 0) {
@@ -565,18 +566,18 @@ try
 }
 
 // FUNCTION: WIZ8 0x004BC380
-unsigned char ReadWorldItems(W8ReadLevelInfo* pInfo, W8World* pWorld)
+std::uint8_t ReadWorldItems(W8ReadLevelInfo* pInfo, W8World* pWorld)
 try
 {
-    unsigned char has_trigger;
-    int positional_value;
-    int index;
-    int count;
+    std::uint8_t has_trigger;
+    std::int32_t positional_value;
+    std::int32_t index;
+    std::int32_t count;
     W8LevelItemRecord record;
-    unsigned char positional_byte;
-    unsigned char success;
+    std::uint8_t positional_byte;
+    std::uint8_t success;
     Trigger* trigger;
-    int item_id;
+    std::int32_t item_id;
     W8WorldItem* world_item;
     W8Item* item;
 
@@ -598,10 +599,10 @@ try
         if (success) {
             (pInfo->hFile->read(&record.position, sizeof(record.position)).bytes == static_cast<std::size_t>(sizeof(record.position)));
             record.position *= g_world_scale;
-            (pInfo->hFile->read(&record.positional0, sizeof(int)).bytes == static_cast<std::size_t>(sizeof(int)));
-            (pInfo->hFile->read(&record.positional2, sizeof(int)).bytes == static_cast<std::size_t>(sizeof(int)));
-            (pInfo->hFile->read(&record.positional3, sizeof(int)).bytes == static_cast<std::size_t>(sizeof(int)));
-            (pInfo->hFile->read(&record.positional4, sizeof(int)).bytes == static_cast<std::size_t>(sizeof(int)));
+            (pInfo->hFile->read(&record.positional0, sizeof(std::int32_t)).bytes == static_cast<std::size_t>(sizeof(std::int32_t)));
+            (pInfo->hFile->read(&record.positional2, sizeof(std::int32_t)).bytes == static_cast<std::size_t>(sizeof(std::int32_t)));
+            (pInfo->hFile->read(&record.positional3, sizeof(std::int32_t)).bytes == static_cast<std::size_t>(sizeof(std::int32_t)));
+            (pInfo->hFile->read(&record.positional4, sizeof(std::int32_t)).bytes == static_cast<std::size_t>(sizeof(std::int32_t)));
             (pInfo->hFile->read(&has_trigger, sizeof(has_trigger)).bytes == static_cast<std::size_t>(sizeof(has_trigger)));
             if (has_trigger != 0) {
                 trigger = Trigger::CreateAndLoadLevelTrigger(pInfo->hFile, pInfo->world);
@@ -641,12 +642,12 @@ try
 }
 
 // FUNCTION: WIZ8 0x004BC140
-unsigned char ReadMonsterPaths(W8ReadLevelInfo* pInfo, W8World* pWorld)
+std::uint8_t ReadMonsterPaths(W8ReadLevelInfo* pInfo, W8World* pWorld)
 try
 {
-    int count;
-    int index;
-    unsigned char success;
+    std::int32_t count;
+    std::int32_t index;
+    std::uint8_t success;
     bool has_options;
     bool update_representation;
     bool active;
@@ -656,8 +657,8 @@ try
     srVector3T<float> origin;
     srVector3T<float> camera_position;
     W8MonsterGroup* group;
-    int monster_id;
-    int location_id;
+    std::int32_t monster_id;
+    std::int32_t location_id;
     W8MonsterInfo* monster_info;
     W8Monster* monster;
     W8PathAI* path;
@@ -739,23 +740,23 @@ try
 }
 
 // FUNCTION: WIZ8 0x004BC850
-unsigned char ReadWorldCameras(W8ReadLevelInfo* info, W8World* world)
+std::uint8_t ReadWorldCameras(W8ReadLevelInfo* info, W8World* world)
 try
 {
     if (!info || !info->hFile || !world) {
         return false;
     }
     auto* file = info->hFile;
-    int count;
+    std::int32_t count;
     file->read_exact(&count, sizeof(count));
     if (count < 0 || count >= 100000) {
         return false;
     }
     std::vector<std::unique_ptr<W8CameraPath>> pending;
-    for (int index = 0; index < count; ++index) {
+    for (std::int32_t index = 0; index < count; ++index) {
         auto entry = std::make_unique<W8CameraPath>();
-        int positional_0, positional_1;
-        unsigned char has_scale;
+        std::int32_t positional_0, positional_1;
+        std::uint8_t has_scale;
         float scale = 15.0f;
         file->read_exact(&positional_0, sizeof(positional_0));
         file->read_exact(&positional_1, sizeof(positional_1));
@@ -792,17 +793,17 @@ try
 }
 
 // FUNCTION: WIZ8 0x004BD0D0
-unsigned char ReadWorldParticles(W8ReadLevelInfo* pInfo, srNode* pScene,
+std::uint8_t ReadWorldParticles(W8ReadLevelInfo* pInfo, srNode* pScene,
                                  std::vector<stParticle*>* pParticles)
 try
 {
     W8LevelParticleRecord record;
-    int count;
-    int index;
+    std::int32_t count;
+    std::int32_t index;
 
     (pInfo->hFile->read(&count, sizeof(count)).bytes == static_cast<std::size_t>(sizeof(count)));
     for (index = 0; index < count; ++index) {
-        unsigned char version;
+        std::uint8_t version;
         stParticle* particle;
         glm::dvec3 axis;
         glm::dvec3 location;
@@ -934,7 +935,7 @@ try
         } else {
             particle->SetFlutter(W8_PARTICLE_FLUTTER_VELOCITY_SCALED);
             particle->flutter_amplitude = record.flutter_value;
-            particle->flutter_period = static_cast<unsigned int>(record.flutter_period);
+            particle->flutter_period = static_cast<std::uint32_t>(record.flutter_period);
         }
         if (record.attachment_key >= 0) {
             particle->attachment_key = record.attachment_key;
@@ -966,9 +967,9 @@ try
 bool ReadNamedPositions(wiz8::File* hFile, std::vector<W8NamedPosition>& named_positions)
 try
 {
-    int count;
-    int index;
-    unsigned char version;
+    std::int32_t count;
+    std::int32_t index;
+    std::uint8_t version;
 
     hFile->read_exact(&count, sizeof(count));
     if (count < 0) return false;
@@ -1010,19 +1011,19 @@ try
     }
 
 // FUNCTION: WIZ8 0x004BAFF0
-unsigned char ReadLevel(W8World* world, wiz8::File* handle, bool use_octree, const char* bitmap_folder)
+std::uint8_t ReadLevel(W8World* world, wiz8::File* handle, bool use_octree, const char* bitmap_folder)
 try
 {
     W8ReadLevelInfo info;
     std::unique_ptr<stModelInstance> level_mesh;
     srVector3T<float> environment_offset;
     char error_message[512];
-    int section_end;
-    int section_count;
-    int camera_mode;
-    int index;
-    unsigned int prop_count;
-    unsigned char success;
+    std::int32_t section_end;
+    std::int32_t section_count;
+    std::int32_t camera_mode;
+    std::int32_t index;
+    std::uint32_t prop_count;
+    std::uint8_t success;
 
     if (world == nullptr || world->static_scene == nullptr || handle == nullptr) {
         return false;
@@ -1057,7 +1058,7 @@ try
         if (meshes.empty()) {
             ShutdownWithErrorBox("ReadLevel: Error reading multi-meshes.");
         }
-        for (unsigned int mesh_index = 0; mesh_index < world->octree->m_meshCount; ++mesh_index) {
+        for (std::uint32_t mesh_index = 0; mesh_index < world->octree->m_meshCount; ++mesh_index) {
             if (meshes[mesh_index]) {
                 SetModelInstanceChainExclusionMask(meshes[mesh_index].get(), 1);
                 world->psrMeshes[mesh_index] = world->level->adoptChild(std::move(meshes[mesh_index]), 1);
@@ -1155,13 +1156,13 @@ try
 
     g_environment_offset = environment_offset.glmValue();
     prop_count = world->plsProps.size();
-    for (index = 0; index < static_cast<int>(prop_count); ++index) {
+    for (index = 0; index < static_cast<std::int32_t>(prop_count); ++index) {
         W8Prop* prop = GetWorldProp(world, index);
         W8AnimObj* animation = prop->Rep()->animation;
 
         if ((prop->flags & W8_PROP_NO_DIRECT_SUN) != 0) {
-            unsigned int animation_count = AnimObjListCount(animation, 2);
-            for (unsigned int animation_index = 0; animation_index < animation_count;
+            std::uint32_t animation_count = AnimObjListCount(animation, 2);
+            for (std::uint32_t animation_index = 0; animation_index < animation_count;
                  ++animation_index) {
                 srModelInstance* instance = prop->ToggleRepAnimation(animation_index);
                 stMeshModel* mesh = static_cast<stMeshModel*>(instance->getModel());

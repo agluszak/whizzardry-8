@@ -20,7 +20,7 @@
 #include "surrender/srDD_SDLGPU.h"
 #include "compat/native.h"
 
-SDL_Window* W8CreateGameWindow(int width, int height, bool fullscreen)
+SDL_Window* W8CreateGameWindow(std::int32_t width, std::int32_t height, bool fullscreen)
 {
     SDL_Window* window = SDL_CreateWindow("Whizzardry 8", std::max(width, 640),
                                           std::max(height, 480), SDL_WINDOW_RESIZABLE);
@@ -43,7 +43,7 @@ void W8DestroyGameWindow(SDL_Window* window)
     SetInputWindow(nullptr);
     SDL_DestroyWindow(window);
 }
-bool W8ConfigureGameWindow(SDL_Window* window, bool fullscreen, int width, int height)
+bool W8ConfigureGameWindow(SDL_Window* window, bool fullscreen, std::int32_t width, std::int32_t height)
 {
     return window && width >= 640 && height >= 480 &&
            SDL_SetWindowSize(window, width, height) &&
@@ -59,13 +59,13 @@ bool W8VideoGetClientRect(SDL_Window* window, SDL_Rect* rect)
     *rect = {0, 0, 640, 480};
     return true;
 }
-unsigned int W8TotalPhysicalMemory()
+std::uint32_t W8TotalPhysicalMemory()
 {
-    const int megabytes = SDL_GetSystemRAM();
+    const std::int32_t megabytes = SDL_GetSystemRAM();
     if (megabytes <= 0)
         return 0;
-    const uint64_t bytes = uint64_t(megabytes) * 1024 * 1024;
-    return std::min<uint64_t>(bytes, UINT_MAX);
+    const std::uint64_t bytes = std::uint64_t(megabytes) * 1024 * 1024;
+    return std::min<std::uint64_t>(bytes, UINT_MAX);
 }
 bool W8HasEnoughSaveSpace()
 {
@@ -91,7 +91,7 @@ bool W8HasEnoughSaveSpace()
     return !error && space.available != static_cast<std::uintmax_t>(-1) && space.available >= 0x10000000;
 }
 
-int W8ReadProfileInt(const char* path, const char* section, const char* key, int fallback)
+std::int32_t W8ReadProfileInt(const char* path, const char* section, const char* key, std::int32_t fallback)
 {
     std::istringstream input;
     try {

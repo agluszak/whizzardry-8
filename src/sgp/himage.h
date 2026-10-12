@@ -28,10 +28,10 @@ struct SpriteFrame {
     // Row-major palette indices 0-255 or kTransparent; opaque index 0 is not a transparent run.
     std::vector<std::uint16_t> indices;
     SDL_Point offset{};
-    int width = 0;
-    int height = 0;
+    std::int32_t width = 0;
+    std::int32_t height = 0;
 
-    std::optional<std::uint8_t> paletteIndexAt(int x, int y) const;
+    std::optional<std::uint8_t> paletteIndexAt(std::int32_t x, std::int32_t y) const;
 };
 
 struct SpriteSheet {

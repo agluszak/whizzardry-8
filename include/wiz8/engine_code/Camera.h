@@ -1,6 +1,7 @@
 #ifndef WIZ8_ENGINE_CODE_CAMERA_H
 #define WIZ8_ENGINE_CODE_CAMERA_H
 
+#include <cstdint>
 #include <memory>
 
 struct W8World;
@@ -21,7 +22,7 @@ struct W8CameraPath {
 
 /* Engine Code\Camera.cpp. The TU's only anchor; turns a camera path on and
    off for the world and dispatches the per-path end actions. */
-void UpdateCameraPathState(W8World* world, W8CameraPath* path, int active);
+void UpdateCameraPathState(W8World* world, W8CameraPath* path, std::int32_t active);
 /* 0x0048F280 is UpdateCameraPathStateByName in World.h: activate the world's
    camera path whose name0 matches `name` (case-insensitive), then dispatch
    through UpdateCameraPathState. */

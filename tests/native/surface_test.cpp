@@ -12,12 +12,12 @@
 namespace {
 using Surface = SDLSurfaceOwner;
 
-Surface surface(int width, int height)
+Surface surface(std::int32_t width, std::int32_t height)
 {
     return {SDL_CreateSurface(width, height, SDL_PIXELFORMAT_XRGB1555), SDL_DestroySurface};
 }
 
-std::uint16_t& pixel(SDL_Surface& image, int x, int y)
+std::uint16_t& pixel(SDL_Surface& image, std::int32_t x, std::int32_t y)
 {
     return static_cast<std::uint16_t*>(image.pixels)[y * image.pitch / 2 + x];
 }
@@ -32,7 +32,7 @@ TEST_CASE("SDL image blits use color keys, mirroring, and destination clip recta
     pixel(*source, 0, 0) = 0;
     pixel(*source, 1, 0) = 0x1234;
     pixel(*source, 2, 0) = 0x2345;
-    for (int x = 0; x < 5; ++x)
+    for (std::int32_t x = 0; x < 5; ++x)
         pixel(*destination, x, 0) = 0x4567;
     BlitImage(*destination, 1, 0, *source, nullptr, {.color_key = 0});
     REQUIRE(pixel(*destination, 0, 0) == 0x4567);

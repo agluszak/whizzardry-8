@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <string_view>
 #include <vector>
 #include <wiz8/asset_paths.h>
@@ -132,7 +133,7 @@ void initialize()
     }
     if (!roots.user.empty())
         roots.user = absolute(roots.user);
-    for (int i = 0; i < 3; ++i)
+    for (std::int32_t i = 0; i < 3; ++i)
     {
         const std::string key = "WIZ8_CD" + std::to_string(i + 1) + "_ROOT";
         roots.discs[i] = environment(key.c_str());
@@ -144,7 +145,7 @@ void initialize()
 }
 struct Path
 {
-    int drive = 0;
+    std::int32_t drive = 0;
     std::string relative;
     std::string physical;
 };
@@ -172,7 +173,7 @@ Path parse(const char* input)
         }
         const std::string bases[] = {roots.assets, roots.user, roots.discs[0], roots.discs[1],
                                      roots.discs[2]};
-        for (int i = 0; i < 5; ++i)
+        for (std::int32_t i = 0; i < 5; ++i)
         {
             if (!within(text, bases[i]))
                 continue;
@@ -416,7 +417,7 @@ ResolvedPath resolve_path(std::string_view input, PathDomain domain)
     return result;
 }
 
-int change_directory(const char* input)
+std::int32_t change_directory(const char* input)
 {
     std::lock_guard<std::recursive_mutex> guard(lock);
     const std::string physical = read(parse(input));

@@ -52,7 +52,7 @@
 const char* g_info_dialog_background = "Data\\Dialogs\\popup_monsterinfo.sti";
 
 // FUNCTION: WIZ8 0x005d5e30
-W8MonsterInfoDialog::W8MonsterInfoDialog(int location_id) : m_location_id(location_id)
+W8MonsterInfoDialog::W8MonsterInfoDialog(std::int32_t location_id) : m_location_id(location_id)
 {
     SetOrigin(0x9c, 0x31);
     SetExtent(0x14a, 0x10e);
@@ -60,7 +60,7 @@ W8MonsterInfoDialog::W8MonsterInfoDialog(int location_id) : m_location_id(locati
 }
 
 // FUNCTION: WIZ8 0x005d5f90
-int W8MonsterInfoDialog::CreateControls()
+std::int32_t W8MonsterInfoDialog::CreateControls()
 {
     W8DialogBase::CreateControls();
     if (!PopulateText()) {
@@ -74,7 +74,7 @@ int W8MonsterInfoDialog::CreateControls()
     resources.track_frame = 1;
     resources.on_scroll = ScrollCallback;
     m_scroll_bar.CreateControls(&resources);
-    int x = m_x;
+    std::int32_t x = m_x;
     m_scroll_bar.SetLayout(x + 0x12b, m_y + 0x26, m_text_area.GetTotalLineCount(), 0,
                            m_text_area.GetLineHeight(), 0xb9);
     m_scroll_bar.m_owner = this;
@@ -86,12 +86,12 @@ int W8MonsterInfoDialog::CreateControls()
 /* GppStringList indices naming the seven classes the monster's
    name line falls into by how far its level sits above the party average. */
 // GLOBAL: WIZ8 0x0064f614
-static int g_monster_level_name_ids[7] = {301, 302, 303, 304, 305, 306, 307};
+static std::int32_t g_monster_level_name_ids[7] = {301, 302, 303, 304, 305, 306, 307};
 
 /* Knowledge threshold and g_localized_strings label id pairs gating the
    record's six resistance entries. */
 // GLOBAL: WIZ8 0x0064f630
-static int g_monster_resistance_label_gates[6][2] = {
+static std::int32_t g_monster_resistance_label_gates[6][2] = {
     {70, 308}, {60, 309}, {40, 310}, {50, 311}, {80, 312}, {90, 313},
 };
 
@@ -101,23 +101,23 @@ bool W8MonsterInfoDialog::PopulateText()
     W8ControlsRect bounds;
     std::string text;
     bool is_npc = false;
-    unsigned int knowledge;
-    int leader_location_id;
-    int leader_group_id;
-    int count;
-    int index;
-    int slot;
+    std::uint32_t knowledge;
+    std::int32_t leader_location_id;
+    std::int32_t leader_group_id;
+    std::int32_t count;
+    std::int32_t index;
+    std::int32_t slot;
     bool has_unknown;
     bool any_shown;
-    unsigned char max_values[0x10];
-    int range_category;
+    std::uint8_t max_values[0x10];
+    std::int32_t range_category;
     std::string entry_text;
     std::string prefix;
     float combat_range;
     float average_level;
-    int monster_level;
-    int best_party_slot;
-    int sight;
+    std::int32_t monster_level;
+    std::int32_t best_party_slot;
+    std::int32_t sight;
     W8MonsterGroup* group;
     W8MonsterInfo* leader_info;
     W8Navigator* linked;
@@ -146,13 +146,13 @@ bool W8MonsterInfoDialog::PopulateText()
         knowledge = 0x7d;
     } else {
         knowledge = GetBestPartySkillLevel(W8_SKILL_MYTHOLOGY, &best_party_slot);
-        if (static_cast<int>(average_level) < monster_level) {
+        if (static_cast<std::int32_t>(average_level) < monster_level) {
             float adjusted_knowledge =
                 knowledge - (monster_level - average_level) * g_float_three + g_float_half;
             if (adjusted_knowledge < g_float_zero) {
                 adjusted_knowledge = g_float_zero;
             }
-            knowledge = static_cast<unsigned int>(adjusted_knowledge);
+            knowledge = static_cast<std::uint32_t>(adjusted_knowledge);
         }
     }
     combat_range = monster_info->p3D->GetDistanceToPlayer();
@@ -183,8 +183,8 @@ bool W8MonsterInfoDialog::PopulateText()
         prefix = g_localized_strings[0x13b];
         entry_text = g_localized_strings[0x13a];
     } else {
-        int level_class =
-            static_cast<int>(monster_level / average_level * g_float_five - g_float_one_and_a_half);
+        std::int32_t level_class =
+            static_cast<std::int32_t>(monster_level / average_level * g_float_five - g_float_one_and_a_half);
         ClampInteger(&level_class, 0, 6);
         entry_text = fmt::format("{:d} ({})", monster_level,
                                  g_localized_strings[g_monster_level_name_ids[level_class]]);
@@ -359,7 +359,7 @@ bool W8MonsterInfoDialog::PopulateText()
         text.clear();
         count = 0;
         for (index = 0; index < 0x10; ++index) {
-            unsigned char value = max_values[index];
+            std::uint8_t value = max_values[index];
             if (value != 0) {
                 if (value < 0x4b && (knowledge < 0x1e || value < 0x32) &&
                     (knowledge < 0x3c || value < 0x19) && (knowledge < 0x50 || value < 10) &&
@@ -416,7 +416,7 @@ bool W8MonsterInfoDialog::PopulateText()
     }
 
     for (index = 0; index < 6; ++index) {
-        if (g_monster_resistance_label_gates[index][0] <= static_cast<int>(knowledge)) {
+        if (g_monster_resistance_label_gates[index][0] <= static_cast<std::int32_t>(knowledge)) {
             m_text_area.AddEntry(g_localized_strings[g_monster_resistance_label_gates[index][1]],
                                  fmt::format("{:d}", record->resistances[index]), 10, 0xf, 0);
         }
@@ -455,13 +455,13 @@ void W8MonsterInfoDialog::OnRightButtonUp()
 }
 
 // FUNCTION: WIZ8 0x005d6e70
-void W8MonsterInfoDialog::OnMouseWheel(int delta)
+void W8MonsterInfoDialog::OnMouseWheel(std::int32_t delta)
 {
     m_scroll_bar.ScrollBy(delta);
 }
 
 // FUNCTION: WIZ8 0x005d6ec0
-void W8MonsterInfoDialog::ScrollCallback(W8DialogScrollBar* scroll_bar, int first_visible_entry)
+void W8MonsterInfoDialog::ScrollCallback(W8DialogScrollBar* scroll_bar, std::int32_t first_visible_entry)
 {
     W8MonsterInfoDialog* dialog = static_cast<W8MonsterInfoDialog*>(scroll_bar->m_owner);
     if (dialog != 0) {

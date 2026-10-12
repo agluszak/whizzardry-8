@@ -43,7 +43,7 @@
 class srMaterialIFace;
 class srTextureIFace;
 
-static int operator==(const srShader& left, const srShader& right)
+static std::int32_t operator==(const srShader& left, const srShader& right)
 {
     return left.value == right.value;
 }
@@ -113,16 +113,16 @@ void OptimizeMeshOrder(srMeshModel* model)
     std::vector<const srShader*> shader_tables;
     std::vector<const std::shared_ptr<srTextureIFace>*> texture_tables;
     std::vector<const std::shared_ptr<srMaterialIFace>*> material_tables;
-    for (w8_long pass = 0; pass < model->pass_count; ++pass) {
+    for (std::int32_t pass = 0; pass < model->pass_count; ++pass) {
         if (const srShader* shaders = model->getPolyShader(pass, 0)) {
             shader_tables.push_back(shaders);
         }
-        for (w8_long layer = 0; layer < 2; ++layer) {
+        for (std::int32_t layer = 0; layer < 2; ++layer) {
             if (const auto* textures = model->getPolyTexture(pass, layer, 0)) {
                 texture_tables.push_back(textures);
             }
         }
-        for (int side = 0; side < 2; ++side) {
+        for (std::int32_t side = 0; side < 2; ++side) {
             if (const auto* materials =
                     model->getVertexMaterial(pass, static_cast<srMeshModel::e_side>(side), 0)) {
                 material_tables.push_back(materials);
@@ -130,9 +130,9 @@ void OptimizeMeshOrder(srMeshModel* model)
         }
     }
 
-    std::vector<w8_ulong> polygons(polygon_count);
+    std::vector<std::uint32_t> polygons(polygon_count);
     std::iota(polygons.begin(), polygons.end(), 0);
-    std::stable_sort(polygons.begin(), polygons.end(), [&](w8_ulong left, w8_ulong right) {
+    std::stable_sort(polygons.begin(), polygons.end(), [&](std::uint32_t left, std::uint32_t right) {
         for (const srShader* shaders : shader_tables) {
             if (shaders[left].value != shaders[right].value) {
                 return shaders[left].value < shaders[right].value;
@@ -146,11 +146,11 @@ void OptimizeMeshOrder(srMeshModel* model)
         return false;
     });
 
-    std::vector<w8_ulong> first_use(vertex_count, 0);
-    w8_ulong used = 0;
+    std::vector<std::uint32_t> first_use(vertex_count, 0);
+    std::uint32_t used = 0;
     const glm::ivec3* polygon_vertices = model->getPolyVertex();
-    for (w8_ulong polygon : polygons) {
-        for (int vertex : {polygon_vertices[polygon].x, polygon_vertices[polygon].y,
+    for (std::uint32_t polygon : polygons) {
+        for (std::int32_t vertex : {polygon_vertices[polygon].x, polygon_vertices[polygon].y,
                            polygon_vertices[polygon].z}) {
             if (first_use[vertex] == 0) {
                 first_use[vertex] = ++used;
@@ -158,9 +158,9 @@ void OptimizeMeshOrder(srMeshModel* model)
         }
     }
 
-    std::vector<w8_ulong> vertices(vertex_count);
+    std::vector<std::uint32_t> vertices(vertex_count);
     std::iota(vertices.begin(), vertices.end(), 0);
-    std::stable_sort(vertices.begin(), vertices.end(), [&](w8_ulong left, w8_ulong right) {
+    std::stable_sort(vertices.begin(), vertices.end(), [&](std::uint32_t left, std::uint32_t right) {
         for (const auto* materials : material_tables) {
             if (materials[left] != materials[right]) {
                 return std::less<>{}(materials[left].get(), materials[right].get());
@@ -175,40 +175,40 @@ void OptimizeMeshOrder(srMeshModel* model)
 
 // FUNCTION: WIZ8 0x00488650
 std::shared_ptr<stMeshModel>
-BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count,
-                     const std::vector<W8MeshMaterial>& materials, unsigned int* mesh_count, std::vector<std::vector<int>>& vertex_maps,
-                     std::vector<short>* mapped_values, std::vector<short>* mapped_keys)
+BuildSingleLevelMesh(std::int32_t face_count, W8ReadMeshFace* faces, std::int32_t vertex_count,
+                     const std::vector<W8MeshMaterial>& materials, std::uint32_t* mesh_count, std::vector<std::vector<std::int32_t>>& vertex_maps,
+                     std::vector<std::int16_t>* mapped_values, std::vector<std::int16_t>* mapped_keys)
 {
     std::vector<srShader> polygon_types;
     /* Each (material, source vertex) pair becomes one vertex per polygon type. */
-    std::map<std::pair<const srMaterialIFace*, int>, int> vertex_indices[8];
-    std::vector<int> duplicated_from[8];
-    std::vector<int> duplicated_to[8];
-    std::vector<short> mapped_meshes;
-    std::vector<short> mapped_vertices;
-    int capacities[8];
-    int polygon_counts[8];
-    int vertex_counts[8];
-    int extra_uv_counts[8];
+    std::map<std::pair<const srMaterialIFace*, std::int32_t>, std::int32_t> vertex_indices[8];
+    std::vector<std::int32_t> duplicated_from[8];
+    std::vector<std::int32_t> duplicated_to[8];
+    std::vector<std::int16_t> mapped_meshes;
+    std::vector<std::int16_t> mapped_vertices;
+    std::int32_t capacities[8];
+    std::int32_t polygon_counts[8];
+    std::int32_t vertex_counts[8];
+    std::int32_t extra_uv_counts[8];
     std::array<std::vector<std::shared_ptr<srMaterialIFace>>, 8> vertex_materials;
     std::array<std::vector<std::shared_ptr<srTextureIFace>>, 8> polygon_textures;
     std::array<std::vector<glm::vec2>, 8> vertex_uvs;
     std::array<std::vector<glm::vec2>, 8> extra_uvs;
     std::array<std::vector<glm::ivec3>, 8> polygon_vertices;
     std::array<std::vector<glm::ivec3>, 8> polygon_shades;
-    std::array<std::vector<w8_ulong>, 8> vertex_shades;
+    std::array<std::vector<std::uint32_t>, 8> vertex_shades;
     std::shared_ptr<stMeshModel> first_model;
-    int type;
-    int face_index;
+    std::int32_t type;
+    std::int32_t face_index;
 
-    for (int index = 0; index < static_cast<int>(mapped_values->size()); ++index) {
+    for (std::int32_t index = 0; index < static_cast<std::int32_t>(mapped_values->size()); ++index) {
         mapped_meshes.push_back(-1);
         mapped_vertices.push_back(-1);
     }
 
     for (const W8MeshMaterial& material : materials) {
         if (wiz8::index_of(polygon_types, material.render_flags.value, &srShader::value) == -1) {
-            int capacity = 0;
+            std::int32_t capacity = 0;
             for (face_index = 0; face_index < face_count; ++face_index) {
                 W8ReadMeshFace& face = faces[face_index];
                 if (materials[face.material_index].render_flags.value == material.render_flags.value) {
@@ -219,22 +219,22 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count,
                 }
             }
             if (capacity != 0) {
-                capacities[static_cast<int>(polygon_types.size())] = capacity;
+                capacities[static_cast<std::int32_t>(polygon_types.size())] = capacity;
                 polygon_types.push_back(material.render_flags);
             }
         }
     }
 
     if (mesh_count != 0) {
-        *mesh_count = static_cast<int>(polygon_types.size());
+        *mesh_count = static_cast<std::int32_t>(polygon_types.size());
     }
-    vertex_maps.resize(static_cast<int>(polygon_types.size()));
+    vertex_maps.resize(static_cast<std::int32_t>(polygon_types.size()));
 
-    for (type = 0; type < static_cast<int>(polygon_types.size()); ++type) {
+    for (type = 0; type < static_cast<std::int32_t>(polygon_types.size()); ++type) {
         polygon_counts[type] = 0;
         vertex_counts[type] = 0;
         extra_uv_counts[type] = 0;
-        int capacity = capacities[type];
+        std::int32_t capacity = capacities[type];
         vertex_materials[type].resize(capacity * 3);
         polygon_textures[type].resize(capacity);
         vertex_uvs[type].resize(capacity * 3);
@@ -255,11 +255,11 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count,
         }
         glm::ivec3& poly = polygon_vertices[type][polygon_counts[type]];
         glm::ivec3& shade = polygon_shades[type][polygon_counts[type]];
-        for (int corner = 0; corner < 3; ++corner) {
-            int original_vertex = face.vertices[corner];
+        for (std::int32_t corner = 0; corner < 3; ++corner) {
+            std::int32_t original_vertex = face.vertices[corner];
             auto [found, inserted] = vertex_indices[type].try_emplace(
                 std::pair{material.material.get(), original_vertex}, vertex_counts[type]);
-            int vertex = found->second;
+            std::int32_t vertex = found->second;
             if (inserted) {
                 vertex_materials[type][vertex] = material.material;
                 vertex_uvs[type][vertex] = face.texture_coordinates[corner];
@@ -267,10 +267,10 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count,
                 vertex_maps[type][vertex] = original_vertex;
                 vertex_shades[type][vertex] = vertex;
                 ++vertex_counts[type];
-                for (int mapped = 0; mapped < static_cast<int>(mapped_values->size()); ++mapped) {
+                for (std::int32_t mapped = 0; mapped < static_cast<std::int32_t>(mapped_values->size()); ++mapped) {
                     if ((*mapped_values)[mapped] == original_vertex) {
-                        mapped_vertices[mapped] = static_cast<short>(vertex);
-                        mapped_meshes[mapped] = static_cast<short>(type);
+                        mapped_vertices[mapped] = static_cast<std::int16_t>(vertex);
+                        mapped_meshes[mapped] = static_cast<std::int16_t>(type);
                         break;
                     }
                 }
@@ -290,9 +290,9 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count,
         if (ReadMeshFaceNeedsSplit(face, materials)) {
             glm::ivec3& split_poly = polygon_vertices[type][polygon_counts[type]];
             glm::ivec3& split_shade = polygon_shades[type][polygon_counts[type]];
-            for (int corner = 0; corner < 3; ++corner) {
-                int source_vertex = shade[corner];
-                int vertex = vertex_counts[type];
+            for (std::int32_t corner = 0; corner < 3; ++corner) {
+                std::int32_t source_vertex = shade[corner];
+                std::int32_t vertex = vertex_counts[type];
                 vertex_materials[type][vertex] = vertex_materials[type][source_vertex];
                 vertex_shades[type][vertex] = vertex;
                 vertex_maps[type][vertex] = vertex_maps[type][source_vertex];
@@ -309,7 +309,7 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count,
         }
     }
 
-    for (type = 0; type < static_cast<int>(polygon_types.size()); ++type) {
+    for (type = 0; type < static_cast<std::int32_t>(polygon_types.size()); ++type) {
         if (capacities[type] == 0) {
             continue;
         }
@@ -320,9 +320,9 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count,
                          "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp", 0x4e7, 0);
         }
 
-        for (int mapped = 0; mapped < static_cast<int>(mapped_meshes.size()); ++mapped) {
+        for (std::int32_t mapped = 0; mapped < static_cast<std::int32_t>(mapped_meshes.size()); ++mapped) {
             if (mapped_meshes[mapped] == type) {
-                for (int entry = 0; entry < static_cast<int>(mapped_values->size()); ++entry) {
+                for (std::int32_t entry = 0; entry < static_cast<std::int32_t>(mapped_values->size()); ++entry) {
                     model->SetMappedVertex(mapped_vertices[entry], (*mapped_keys)[entry]);
                 }
                 break;
@@ -330,12 +330,12 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count,
         }
 
         std::shared_ptr<srTextureIFace>* model_textures = model->getPolyTexture(0, 0, 1);
-        for (int polygon = 0; polygon < polygon_counts[type]; ++polygon) {
+        for (std::int32_t polygon = 0; polygon < polygon_counts[type]; ++polygon) {
             model_textures[polygon] = polygon_textures[type][polygon];
         }
 
         bool one_material = true;
-        for (int vertex = 0; vertex < vertex_counts[type] - 1; ++vertex) {
+        for (std::int32_t vertex = 0; vertex < vertex_counts[type] - 1; ++vertex) {
             if (vertex_materials[type][vertex].get() != vertex_materials[type][vertex + 1].get()) {
                 one_material = false;
             }
@@ -345,7 +345,7 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count,
         } else {
             std::shared_ptr<srMaterialIFace>* model_materials =
                 model->getVertexMaterial(0, srMeshModel::SIDE_FRONT, 1);
-            for (int vertex = 0; vertex < vertex_counts[type]; ++vertex) {
+            for (std::int32_t vertex = 0; vertex < vertex_counts[type]; ++vertex) {
                 model_materials[vertex] = vertex_materials[type][vertex];
             }
         }
@@ -357,18 +357,18 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count,
         memcpy(model_uvs + vertex_counts[type], extra_uvs[type].data(),
                extra_uv_counts[type] * sizeof(glm::vec2));
         glm::ivec3* model_uv_indices = model->getPolyUVIndex(0, 1);
-        for (int uv_polygon = 0; uv_polygon < polygon_counts[type]; ++uv_polygon) {
-            for (int uv_corner = 0; uv_corner < 3; ++uv_corner) {
-                int index = polygon_vertices[type][uv_polygon][uv_corner];
+        for (std::int32_t uv_polygon = 0; uv_polygon < polygon_counts[type]; ++uv_polygon) {
+            for (std::int32_t uv_corner = 0; uv_corner < 3; ++uv_corner) {
+                std::int32_t index = polygon_vertices[type][uv_polygon][uv_corner];
                 if (index < 0) {
                     index = vertex_counts[type] + (-1 - index);
                 }
                 model_uv_indices[uv_polygon][uv_corner] = index;
             }
         }
-        w8_ulong* model_shades = model->getVertexShadeIndex(1);
+        std::uint32_t* model_shades = model->getVertexShadeIndex(1);
         memcpy(model_polygons, polygon_shades[type].data(), polygon_counts[type] * sizeof(glm::ivec3));
-        memcpy(model_shades, vertex_shades[type].data(), vertex_counts[type] * sizeof(w8_ulong));
+        memcpy(model_shades, vertex_shades[type].data(), vertex_counts[type] * sizeof(std::uint32_t));
 
         srShader shader;
         shader = polygon_types[type];
@@ -397,8 +397,8 @@ static const std::vector<W8MeshMaterial>& ReadMeshMaterials(W8ReadLevelInfo* inf
     if (!info || !info->bitmap_folder || !info->world || !info->hFile)
         throw std::invalid_argument("Missing mesh load context");
 
-    short count = 0;
-    short index;
+    std::int16_t count = 0;
+    std::int16_t index;
     info->hFile->read_exact(&count, sizeof(count));
     if (count < 1) {
         ReleaseReadMeshScratch();
@@ -471,19 +471,19 @@ static std::unique_ptr<stModelInstance> ReadSingleLevelMeshBody(
     W8ReadLevelInfo* info, const char* name, bool load_materials)
 try
 {
-    std::vector<short> mapped_values;
-    std::vector<short> mapped_keys;
-    int version = 0;
-    int vertex_count = 0;
-    int face_count = 0;
-    unsigned char flags = 0;
+    std::vector<std::int16_t> mapped_values;
+    std::vector<std::int16_t> mapped_keys;
+    std::int32_t version = 0;
+    std::int32_t vertex_count = 0;
+    std::int32_t face_count = 0;
+    std::uint8_t flags = 0;
     std::vector<srVector3T<float>> vertices;
-    std::vector<std::vector<short>> compressed_vertices;
-    short frame_count = 0;
+    std::vector<std::vector<std::int16_t>> compressed_vertices;
+    std::int16_t frame_count = 0;
     float compression_scale = 1000.0f;
     std::vector<W8ReadMeshFace> faces;
-    std::vector<std::vector<int>> vertex_maps;
-    unsigned int mesh_count = 0;
+    std::vector<std::vector<std::int32_t>> vertex_maps;
+    std::uint32_t mesh_count = 0;
     std::shared_ptr<stMeshModel> first_model;
 
     if (info == 0) {
@@ -512,13 +512,13 @@ try
     }
 
     if (version > 3) {
-        signed char mapping_count;
+        std::int8_t mapping_count;
         file->read_exact(&mapping_count, sizeof(mapping_count));
         if (mapping_count < 0)
             return {};
-        for (short index = 0; index < mapping_count; ++index) {
-            short value = 0;
-            short key = 0;
+        for (std::int16_t index = 0; index < mapping_count; ++index) {
+            std::int16_t value = 0;
+            std::int16_t key = 0;
             /* Retail 0x00485e06/0x00485e1b: the mapping key (the vertex
                marker id GetCycleMappedPosition asks for) comes first in the
                file, then the original vertex index. */
@@ -535,11 +535,11 @@ try
     if ((flags & W8_LEVEL_MESH_LOD_VERTICES) == 0) {
         vertices.resize(vertex_count);
         file->read_exact(vertices.data(), vertices.size() * sizeof(vertices[0]));
-        for (int index = 0; index < vertex_count; ++index) {
+        for (std::int32_t index = 0; index < vertex_count; ++index) {
             vertices[index] *= 500.0f;
         }
     } else {
-        unsigned char compression_type;
+        std::uint8_t compression_type;
         file->read_exact(&compression_type, sizeof(compression_type));
         file->read_exact(&frame_count, sizeof(frame_count));
         if (compression_type == 2) {
@@ -558,7 +558,7 @@ try
             compressed_vertices.resize(frame_count);
             for (auto& frame : compressed_vertices) {
                 frame.resize(static_cast<std::size_t>(vertex_count) * 3);
-                file->read_exact(frame.data(), frame.size() * sizeof(short));
+                file->read_exact(frame.data(), frame.size() * sizeof(std::int16_t));
             }
         }
     }
@@ -567,13 +567,13 @@ try
     if ((flags & W8_LEVEL_MESH_COMPRESSED_FACES) == 0) {
         std::vector<W8SerializedMeshFace> records(face_count);
         file->read_exact(records.data(), records.size() * sizeof(W8SerializedMeshFace));
-        for (int index = 0; index < face_count; ++index) faces[index] = DecodeMeshFace(records[index]);
+        for (std::int32_t index = 0; index < face_count; ++index) faces[index] = DecodeMeshFace(records[index]);
     } else {
         std::vector<W8LevelFileCompressedFace> compressed_faces(face_count);
         file->read_exact(compressed_faces.data(),
                          compressed_faces.size() * sizeof(W8LevelFileCompressedFace));
-        for (int index = 0; index < face_count; ++index) {
-            for (int vertex = 0; vertex < 3; ++vertex) {
+        for (std::int32_t index = 0; index < face_count; ++index) {
+            for (std::int32_t vertex = 0; vertex < 3; ++vertex) {
                 faces[index].vertices[vertex] = compressed_faces[index].vertex_indices[vertex];
                 faces[index].texture_coordinates[vertex] = {compressed_faces[index].texture_coordinates[vertex][0],
                     compressed_faces[index].texture_coordinates[vertex][1]};
@@ -587,8 +587,8 @@ try
     if (materials.empty()) {
         srAssertFail("uiMatCount", "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp", 0x16c, 0);
     }
-    std::vector<w8_ulong> shaders;
-    for (int index = 0; index < static_cast<int>(materials.size()); ++index) {
+    std::vector<std::uint32_t> shaders;
+    for (std::int32_t index = 0; index < static_cast<std::int32_t>(materials.size()); ++index) {
         if (!std::ranges::contains(shaders, materials[index].render_flags.value)) {
             shaders.push_back(materials[index].render_flags.value);
         }
@@ -600,7 +600,7 @@ try
         if (face.material_index < 0 || static_cast<std::size_t>(face.material_index) >= materials.size()) {
             return {};
         }
-        for (int vertex : face.vertices) {
+        for (std::int32_t vertex : face.vertices) {
             if (vertex < 0 || vertex >= vertex_count) {
                 return {};
             }
@@ -609,24 +609,24 @@ try
     first_model = BuildSingleLevelMesh(face_count, faces.data(), vertex_count, materials,
                                        &mesh_count, vertex_maps, &mapped_values, &mapped_keys);
     if ((flags & W8_LEVEL_MESH_LOD_VERTICES) == 0) {
-        int mesh_index = 0;
+        std::int32_t mesh_index = 0;
         for (stMeshModel* model : stMeshModel::Meshes(first_model.get())) {
             glm::vec3* model_vertices = model->getVertexLoc();
-            for (int index = 0; index < model->vertex_location_count; ++index) {
+            for (std::int32_t index = 0; index < model->vertex_location_count; ++index) {
                 model_vertices[index] = vertices[vertex_maps[mesh_index][index]].glmValue();
             }
             OptimizeMeshOrder(model);
             ++mesh_index;
         }
     } else {
-        for (short frame = 0; frame < frame_count; ++frame) {
-            int mesh_index = 0;
+        for (std::int16_t frame = 0; frame < frame_count; ++frame) {
+            std::int32_t mesh_index = 0;
             for (stMeshModel* model : stMeshModel::Meshes(first_model.get())) {
                 model->InitializeVertexFrames(frame_count);
                 model->vertex_compression_scale = 500.0f / compression_scale;
-                short* model_vertices = model->GetVertex(frame);
-                for (int index = 0; index < model->vertex_location_count; ++index) {
-                    int source = vertex_maps[mesh_index][index];
+                std::int16_t* model_vertices = model->GetVertex(frame);
+                for (std::int32_t index = 0; index < model->vertex_location_count; ++index) {
+                    std::int32_t source = vertex_maps[mesh_index][index];
                     model_vertices[index * 3] = compressed_vertices[frame][source * 3];
                     model_vertices[index * 3 + 1] = compressed_vertices[frame][source * 3 + 1];
                     model_vertices[index * 3 + 2] = compressed_vertices[frame][source * 3 + 2];
@@ -668,9 +668,9 @@ ReadMultipleLevelMeshes(W8ReadLevelInfo* info, std::size_t expected_count, const
 try
 {
     OctMeshModel reader;
-    unsigned int mesh_count;
-    unsigned int root_count;
-    int terminator;
+    std::uint32_t mesh_count;
+    std::uint32_t root_count;
+    std::int32_t terminator;
 
     if (info == 0) {
         return {};
@@ -700,7 +700,7 @@ try
     }
     std::vector<stMeshModel*> meshes(mesh_count);
     std::vector<std::shared_ptr<stMeshModel>> roots(mesh_count);
-    for (unsigned int mesh_index = 0; mesh_index < mesh_count; ++mesh_index) {
+    for (std::uint32_t mesh_index = 0; mesh_index < mesh_count; ++mesh_index) {
         if (g_current_screen_state.id == W8_SCREEN_PLEASE_WAIT) {
             UpdatePleaseWaitLoadFrame();
         }
@@ -708,7 +708,7 @@ try
         stMeshModel* model = owned_model.get();
         /* A linked mesh continues the model whose last mesh is its predecessor. */
         if (reader.m_link_index >= 0) {
-            if (static_cast<unsigned int>(reader.m_link_index) >= mesh_index) {
+            if (static_cast<std::uint32_t>(reader.m_link_index) >= mesh_index) {
                 throw std::runtime_error("Invalid linked mesh predecessor");
             }
             stMeshModel* predecessor = meshes[reader.m_link_index];
@@ -729,7 +729,7 @@ try
     if (terminator != -1) return {};
 
     std::vector<std::unique_ptr<stModelInstance>> pending(mesh_count);
-    for (unsigned int mesh_index = 0; mesh_index < root_count; ++mesh_index) {
+    for (std::uint32_t mesh_index = 0; mesh_index < root_count; ++mesh_index) {
         stMeshModel* model = meshes[mesh_index];
         model->setName(name ? name : "");
         if (model->head == nullptr) {
@@ -778,15 +778,15 @@ void ReleaseReadMeshScratch()
 }
 
 // FUNCTION: WIZ8 0x00487bd0
-unsigned char SkipSingleLevelMesh(W8ReadLevelInfo* info)
+std::uint8_t SkipSingleLevelMesh(W8ReadLevelInfo* info)
 try
 {
     if (info == nullptr || info->world == nullptr || info->hFile == nullptr) {
         return 0;
     }
     auto& file = *info->hFile;
-    int version, vertex_count, face_count;
-    unsigned char flags = 0;
+    std::int32_t version, vertex_count, face_count;
+    std::uint8_t flags = 0;
     file.read_exact(&version, 4);
     file.read_exact(&vertex_count, 4);
     file.read_exact(&face_count, 4);
@@ -800,7 +800,7 @@ try
         return 0;
     file.seek(skip, wiz8::SeekOrigin::current);
     if (version > 3) {
-        signed char mapping_count;
+        std::int8_t mapping_count;
         file.read_exact(&mapping_count, 1);
         if (mapping_count < 0)
             return 0;
@@ -811,8 +811,8 @@ try
     }
     skip = static_cast<std::int64_t>(vertex_count) * 12;
     if ((flags & W8_LEVEL_MESH_LOD_VERTICES) != 0) {
-        unsigned char compression;
-        short frames;
+        std::uint8_t compression;
+        std::int16_t frames;
         file.read_exact(&compression, 1);
         file.read_exact(&frames, 2);
         if (frames <= 0)
@@ -831,12 +831,12 @@ try
     if (skip > file.size() - file.tell())
         return 0;
     file.seek(skip, wiz8::SeekOrigin::current);
-    short material_count;
+    std::int16_t material_count;
     file.read_exact(&material_count, 2);
     if (material_count <= 0)
         return 0;
-    for (short index = 0; index < material_count; ++index) {
-        unsigned char material_version;
+    for (std::int16_t index = 0; index < material_count; ++index) {
+        std::uint8_t material_version;
         file.read_exact(&material_version, 1);
         skip = material_version > 3 ? 0x129 : 0x119;
         if (skip > file.size() - file.tell())

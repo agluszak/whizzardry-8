@@ -32,7 +32,7 @@ struct TemporaryDirectory
     TemporaryDirectory()
     {
         std::random_device random;
-        for (unsigned i = 0; i < 100; ++i)
+        for (std::uint32_t i = 0; i < 100; ++i)
         {
             path = fs::temp_directory_path() / ("wiz8-api-" + std::to_string(random()));
             if (fs::create_directory(path))

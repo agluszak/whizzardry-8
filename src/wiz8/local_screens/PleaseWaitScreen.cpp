@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <memory>
 #include <fmt/format.h>
 #include <SDL3/SDL_filesystem.h>
@@ -41,21 +42,21 @@
    the tail and writes the caption; the leave releases it. */
 struct W8LevelLoadDescriptor {
     std::string caption; /* 0x000, written by strcpy and sprintf */
-    int mode;              /* 0x0f0, the screen state's own mode */
-    int parameter;
-    int parameter_2;
+    std::int32_t mode;              /* 0x0f0, the screen state's own mode */
+    std::int32_t parameter;
+    std::int32_t parameter_2;
     bool waiting;    /* 0x0fc, gates the polling path */
     std::string name; /* 0x0fd, bounded only by the next field */
     std::string previous_save_name;
     W8SaveScreenshot* save_payload;
-    w8_ulong entered_tick;
-    int caption_y;
+    std::uint32_t entered_tick;
+    std::int32_t caption_y;
 };
 
 // GLOBAL: WIZ8 0x0069B7C0
 Font g_level_load_font;
 // GLOBAL: WIZ8 0x0069B7C4
-static int g_swap_disc_dialog_poll_count;
+static std::int32_t g_swap_disc_dialog_poll_count;
 // GLOBAL: WIZ8 0x0069B7C8
 std::unique_ptr<W8LevelLoadDescriptor> g_load_descriptor;
 // GLOBAL: WIZ8 0x0069B7CC
@@ -70,7 +71,7 @@ static bool g_cd_marker_present;
    the string list. Both are bounded by 0x2F, with 0xE4 as the backdrop the
    frame handler falls back to. */
 // GLOBAL: WIZ8 0x0064bf8c
-static int g_level_backdrops[W8_LEVEL_COUNT] = {
+static std::int32_t g_level_backdrops[W8_LEVEL_COUNT] = {
     0x1bc, 0x1bd, 0x1be, 0x1bf, 0x1c0, 0x1c2, 0x1c1, 0x1c3, 0x1c4, 0x1c5, 0x1c6, 0xe4,
     0x1c7, 0x1c8, 0x1c9, 0x1ca, 0x1cb, 0x1cc, 0x1cd, 0x1ce, 0x1cf, 0x1d0, 0x1d1, 0xe4,
     0x1d2, 0x1d3, 0x1d4, 0x1d5, 0xe4,  0x1d6, 0xe4,  0x1d7, 0x1d8, 0x1d9, 0xe4,  0xe4,
@@ -82,7 +83,7 @@ static int g_level_backdrops[W8_LEVEL_COUNT] = {
 /* Lifecycle record 4's initializer. The marker write is guarded, so a missing
    CD.ROM leaves the flag at its BSS zero rather than storing a comparison
    result. */
-unsigned char PleaseWaitScreenInitialize(void)
+std::uint8_t PleaseWaitScreenInitialize(void)
 {
     if ([&]() { const auto status = wiz8::file_status("CD.ROM"); return status && !status->archived && status->info.type == SDL_PATHTYPE_FILE; }()) {
         g_cd_marker_present = true;
@@ -97,7 +98,7 @@ unsigned char PleaseWaitScreenInitialize(void)
    save; modes 1 and 2 carry a name; mode 3 carries two parameters and no name.
 
    The handler accesses the shared descriptor through g_load_descriptor. */
-unsigned char PleaseWaitScreenEnter(void)
+std::uint8_t PleaseWaitScreenEnter(void)
 {
     if (!g_load_descriptor) {
         g_load_descriptor = std::make_unique<W8LevelLoadDescriptor>();
@@ -142,7 +143,7 @@ unsigned char PleaseWaitScreenEnter(void)
    check clears, reports 1.
 
    The swap-disc dialog is constructed once and retained. */
-static bool PleaseWaitScreenEnsureLevelArchive(int level)
+static bool PleaseWaitScreenEnsureLevelArchive(std::int32_t level)
 {
     if (![&]() { const auto status = wiz8::file_status("Levels\\Levels.slf"); return status && !status->archived && status->info.type == SDL_PATHTYPE_FILE; }() && g_cd_marker_present) {
         if (IsLevelCdMissing(level)) {
@@ -170,7 +171,7 @@ static bool PleaseWaitScreenEnsureLevelArchive(int level)
    expands this helper at both frame-handler call sites. */
 static void DrawPleaseWaitScreen()
 {
-    int backdrop = static_cast<unsigned int>(g_load_descriptor->parameter) < W8_LEVEL_COUNT
+    std::int32_t backdrop = static_cast<std::uint32_t>(g_load_descriptor->parameter) < W8_LEVEL_COUNT
                        ? g_level_backdrops[g_load_descriptor->parameter]
                        : 0xe4;
     CatalogArtwork::Load(backdrop, 0).draw(GetFrameBufferSurface(), 0, 0, 0);
@@ -232,7 +233,7 @@ void PleaseWaitScreenFrame(void)
         g_load_descriptor->caption = g_localized_strings[0x6f2].c_str();
         break;
     case 3:
-        if (static_cast<unsigned int>(g_load_descriptor->parameter) < W8_LEVEL_COUNT) {
+        if (static_cast<std::uint32_t>(g_load_descriptor->parameter) < W8_LEVEL_COUNT) {
             g_load_descriptor->caption = fmt::format(
                 "{} {}...", g_localized_strings[0x6f3],
                 g_localized_strings[g_level_name_indices[g_load_descriptor->parameter]]);
@@ -253,8 +254,8 @@ void PleaseWaitScreenFrame(void)
     case 0:
         if (PleaseWaitScreenEnsureLevelArchive(8)) {
             ResetLiveSessionForLoad();
-            int level;
-            int entrance;
+            std::int32_t level;
+            std::int32_t entrance;
             ChooseNewGameStartLocation(&level, &entrance);
             if (!LoadLevel(level, entrance, false)) {
                 srAssertFail("fVerify", PLEASE_WAIT_SCREEN_CPP, 279, 0);
@@ -328,7 +329,7 @@ void PleaseWaitScreenFrame(void)
    allocated; the ordinary pass only tears the frame down. Both passes run the
    teardown, which is why the release sits under the flag rather than the whole
    body. */
-unsigned char PleaseWaitScreenLeave(int leaving)
+std::uint8_t PleaseWaitScreenLeave(std::int32_t leaving)
 {
     if (leaving) {
         g_load_descriptor.reset();
@@ -344,7 +345,7 @@ unsigned char PleaseWaitScreenLeave(int leaving)
    are the same private state used by PleaseWaitScreenFrame above. */
 void UpdatePleaseWaitLoadFrame(void)
 {
-    w8_ulong tick;
+    std::uint32_t tick;
 
     wiz8::sound::service();
     ServiceMusicPlaylist();

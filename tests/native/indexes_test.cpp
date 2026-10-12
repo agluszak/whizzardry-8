@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "glm/ext/vector_int3.hpp"
 #include <catch2/catch_test_macros.hpp>
 #include <unordered_map>
@@ -13,18 +14,18 @@
 
 static bool candidateOrdering()
 {
-    std::unordered_multimap<unsigned int, int> index;
+    std::unordered_multimap<std::uint32_t, std::int32_t> index;
     InsertIndexValue(index, 7, 1);
     InsertIndexValue(index, 7, 2);
     InsertIndexValue(index, 7, 3);
     InsertUniqueIndexValue(index, 7, 2);
     // Growth must not reverse the candidates of an existing key.
-    for (unsigned int key = 100; key < 10000; ++key) InsertIndexValue(index, key, 4);
+    for (std::uint32_t key = 100; key < 10000; ++key) InsertIndexValue(index, key, 4);
     index.rehash(index.bucket_count() * 2);
     auto [first, last] = index.equal_range(7);
-    std::vector<int> values;
+    std::vector<std::int32_t> values;
     for (auto item = first; item != last; ++item) values.push_back(item->second);
-    REQUIRE((values == std::vector<int>{3, 2, 1}));
+    REQUIRE((values == std::vector<std::int32_t>{3, 2, 1}));
     RemoveIndexValue(index, 7, 2);
     REQUIRE(LookupIndexValue(index, 7) == 3);
     RemoveIndexValue(index, 7);
@@ -33,9 +34,9 @@ static bool candidateOrdering()
     REQUIRE(LookupIndexValue(index, 7) == 0);
 
     // Index destruction and rehashing never destroy or relocate the pointee.
-    int borrowed = 42;
+    std::int32_t borrowed = 42;
     {
-        std::unordered_multimap<unsigned int, int*> pointers;
+        std::unordered_multimap<std::uint32_t, std::int32_t*> pointers;
         InsertIndexValue(pointers, 1, &borrowed);
         const auto* stored = &pointers.begin()->second;
         pointers.rehash(2048);
@@ -99,7 +100,7 @@ static bool renderingAndSymbolIndexes()
     srHuffman::Sampler sampler;
     sampler.insert(0);
     sampler.insert(500);
-    for (unsigned int symbol = 1; symbol < 500; ++symbol) sampler.insert(symbol);
+    for (std::uint32_t symbol = 1; symbol < 500; ++symbol) sampler.insert(symbol);
     sampler.insert(0);
     sampler.insert(500);
     REQUIRE(sampler.getNumSymbols() == 501);

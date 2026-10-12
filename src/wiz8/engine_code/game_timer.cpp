@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <cstddef>
 #include <exception>
 
@@ -21,11 +22,11 @@ srClock* g_shared_timer_base;
 // GLOBAL: WIZ8 0x006598C0
 static srClock* g_shared_timer;
 // GLOBAL: WIZ8 0x006598C4
-int g_shared_timer_pause_base;
+std::int32_t g_shared_timer_pause_base;
 // GLOBAL: WIZ8 0x006598C8
-int g_shared_timer_pause_time;
+std::int32_t g_shared_timer_pause_time;
 // GLOBAL: WIZ8 0x006598CC
-static int g_shared_timer_refs;
+static std::int32_t g_shared_timer_refs;
 // GLOBAL: WIZ8 0x006598D0
 bool g_shared_timer_paused;
 // GLOBAL: WIZ8 0x006598D1
@@ -68,11 +69,11 @@ void ResumeSharedGameTimers(void)
     W8GameTimeAccumulator* timer = g_game_time_accumulator;
     if (timer != 0) {
         timer->m_flags.paused = false;
-        int sample = timer->ReadClock();
+        std::int32_t sample = timer->ReadClock();
         float duration = timer->m_duration_scale * timer->m_duration_seconds * g_float_ten_thousand;
-        int start = sample - timer->m_start;
+        std::int32_t start = sample - timer->m_start;
         timer->m_start = start;
-        timer->m_duration = static_cast<int>(duration);
+        timer->m_duration = static_cast<std::int32_t>(duration);
         timer->m_end = start + timer->m_duration;
     }
 }
@@ -101,7 +102,7 @@ W8GameTimer::~W8GameTimer()
 }
 
 // FUNCTION: WIZ8 0x00439a60
-int W8GameTimer::GetTime()
+std::int32_t W8GameTimer::GetTime()
 {
     return ReadClock();
 }
@@ -147,7 +148,7 @@ W8GameTimer::W8GameTimer(float duration, bool raw_time)
     ++g_shared_timer_refs;
     m_start = ReadClock();
     m_duration_seconds = duration;
-    m_duration = static_cast<int>(duration * 10000.0f);
+    m_duration = static_cast<std::int32_t>(duration * 10000.0f);
     m_end = m_start + m_duration;
 }
 
@@ -157,7 +158,7 @@ void W8GameTimer::SetDuration(float duration)
     if (duration > 0.0f) {
         m_duration_seconds = duration;
     }
-    m_duration = static_cast<int>(m_duration_scale * m_duration_seconds * 10000.0f);
+    m_duration = static_cast<std::int32_t>(m_duration_scale * m_duration_seconds * 10000.0f);
     m_end = m_start + m_duration;
 }
 
@@ -183,7 +184,7 @@ void W8GameTimer::SetDurationScale(float scale)
         m_flags.slow_scale = true;
     }
     float progress = GetProgress();
-    m_duration = static_cast<int>(m_duration_seconds * m_duration_scale * 10000.0f);
+    m_duration = static_cast<std::int32_t>(m_duration_seconds * m_duration_scale * 10000.0f);
     SetProgress(progress);
 }
 
@@ -193,19 +194,19 @@ void W8GameTimer::ResetDurationScale()
     m_flags.slow_scale = false;
     m_duration_scale = 1.0f;
     float progress = GetProgress();
-    m_duration = static_cast<int>(m_duration_seconds * m_duration_scale * 10000.0f);
+    m_duration = static_cast<std::int32_t>(m_duration_seconds * m_duration_scale * 10000.0f);
     SetProgress(progress);
 }
 
 // FUNCTION: WIZ8 0x0043a190
 float W8GameTimer::GetProgress()
 {
-    int sample = ReadClock();
-    int start = m_start;
-    int end = m_end;
-    float progress = static_cast<unsigned int>(sample - start) /
-                     static_cast<float>(static_cast<unsigned int>(end - start));
-    int completed = static_cast<int>(progress);
+    std::int32_t sample = ReadClock();
+    std::int32_t start = m_start;
+    std::int32_t end = m_end;
+    float progress = static_cast<std::uint32_t>(sample - start) /
+                     static_cast<float>(static_cast<std::uint32_t>(end - start));
+    std::int32_t completed = static_cast<std::int32_t>(progress);
 
     if (completed != 0 && completed > 0) {
         m_start = (completed - 1) * m_duration + end;
@@ -222,8 +223,8 @@ float W8GameTimer::GetProgress()
 // FUNCTION: WIZ8 0x0043a290
 void W8GameTimer::SetProgress(float progress)
 {
-    int sample = ReadClock();
-    m_start = sample - static_cast<int>(static_cast<unsigned int>(m_duration) * progress);
+    std::int32_t sample = ReadClock();
+    m_start = sample - static_cast<std::int32_t>(static_cast<std::uint32_t>(m_duration) * progress);
     m_end = m_start + m_duration;
 }
 
@@ -236,11 +237,11 @@ try
     bool loaded = (handle.read(&progress, sizeof(progress)).bytes == static_cast<std::size_t>(sizeof(progress)));
     loaded |= (handle.read(&m_duration_scale, sizeof(m_duration_scale)).bytes == static_cast<std::size_t>(sizeof(m_duration_scale)));
     if (loaded != 0) {
-        m_duration = static_cast<int>(m_duration_seconds * m_duration_scale * 10000.0f);
+        m_duration = static_cast<std::int32_t>(m_duration_seconds * m_duration_scale * 10000.0f);
         m_end = m_start + m_duration;
-        unsigned int sample = ReadClock();
-        unsigned int elapsed =
-            static_cast<unsigned int>(static_cast<unsigned int>(m_duration) * progress);
+        std::uint32_t sample = ReadClock();
+        std::uint32_t elapsed =
+            static_cast<std::uint32_t>(static_cast<std::uint32_t>(m_duration) * progress);
         m_start = sample < elapsed ? 0 : sample - elapsed;
         m_end = m_start + m_duration;
     }
@@ -251,8 +252,8 @@ catch (const std::exception&) { return false; }
 // FUNCTION: WIZ8 0x0043a440
 float W8GameTimer::GetElapsedSeconds()
 {
-    int sample = ReadClock();
-    return (static_cast<unsigned int>(sample - m_start) /
-            static_cast<float>(static_cast<unsigned int>(m_end - m_start))) *
+    std::int32_t sample = ReadClock();
+    return (static_cast<std::uint32_t>(sample - m_start) /
+            static_cast<float>(static_cast<std::uint32_t>(m_end - m_start))) *
            m_duration_seconds;
 }

@@ -51,7 +51,7 @@ public:
         : srNode(parent, ownership) {}
     ~TestNode() override { ++destroyed; }
     TestNode& operator=(const TestNode&) = default;
-    static inline int destroyed = 0;
+    static inline std::int32_t destroyed = 0;
 };
 
 bool recursiveSceneGraph()
@@ -93,7 +93,7 @@ bool recursiveSceneGraph()
     REQUIRE(child->getParent() == &first);
 
     // Parent destruction recurses into child destruction under the same mutex.
-    const int before = TestNode::destroyed;
+    const std::int32_t before = TestNode::destroyed;
     {
         TestNode parent;
         new TestNode(new TestNode(&parent));
@@ -119,9 +119,9 @@ public:
 class Counter : public srVertexProcessor {
 public:
     bool enabled = true;
-    int selections = 0;
-    int calls = 0;
-    int isActive(srVertexPipe&) override { ++selections; return enabled; }
+    std::int32_t selections = 0;
+    std::int32_t calls = 0;
+    std::int32_t isActive(srVertexPipe&) override { ++selections; return enabled; }
     void process(srVertexPipe&) override { ++calls; }
 };
 
@@ -152,7 +152,7 @@ public:
         // First request is deliberately in a later material sub-batch. The
         // cache must fill the whole batch, not overread from that offset.
         const auto depth = indices[0] == 0 ? std::span<const float>{} : pipe.getDepthCue();
-        for (w8_ulong i = 0; i < pipe.getVertexCount(); ++i) {
+        for (std::uint32_t i = 0; i < pipe.getVertexCount(); ++i) {
             const float z = static_cast<float>(indices[i] + 1) + z_bias;
             valid &= normals[i].x == 0 && normals[i].y == 0 && normals[i].z == -1;
             valid &= std::abs(directions[i].z - 1) < 1e-5f;
@@ -177,11 +177,11 @@ bool processorOwnership()
     Counter inactive;
     inactive.enabled = false;
     std::array<glm::vec3, 65> positions;
-    std::array<w8_ulong, 65> indices;
+    std::array<std::uint32_t, 65> indices;
     std::array<std::shared_ptr<srMaterialIFace>, 65> materials;
     std::array<glm::vec4, 65> eye_locations;
-    std::array<unsigned char, 65> attributes{};
-    for (w8_ulong i = 0; i < positions.size(); ++i) {
+    std::array<std::uint8_t, 65> attributes{};
+    for (std::uint32_t i = 0; i < positions.size(); ++i) {
         positions[i] = glm::vec3(0, 0, static_cast<float>(i + 1));
         indices[i] = i;
         materials[i] = i == 0 ? first_material : second_material;
@@ -242,13 +242,13 @@ bool processorOwnership()
 
 class SeedMaterialChannels : public srVertexProcessor {
 public:
-    int isActive(srVertexPipe&) override { return 1; }
+    std::int32_t isActive(srVertexPipe&) override { return 1; }
     void process(srVertexPipe& pipe) override
     {
         const auto diffuse = pipe.getDiffuse();
         const auto specular = pipe.getSpecular();
         const auto alpha = pipe.getAlpha();
-        for (w8_ulong i = 0; i < pipe.getVertexCount(); ++i) {
+        for (std::uint32_t i = 0; i < pipe.getVertexCount(); ++i) {
             diffuse[i] = glm::vec4(0.25f);
             specular[i] = glm::vec4(0.5f);
             alpha[i] = 0.8f;
@@ -269,7 +269,7 @@ public:
 
 class SeedCoverage : public srVertexProcessor {
 public:
-    int isActive(srVertexPipe&) override { return 1; }
+    std::int32_t isActive(srVertexPipe&) override { return 1; }
     void process(srVertexPipe& pipe) override
     {
         const auto diffuse = pipe.getDiffuse();
@@ -278,7 +278,7 @@ public:
         const auto fog = pipe.getFog();
         const auto indices = pipe.getAVT();
         const float values[] = {-2.f, 0.f, .25f, 1.f, 2.f};
-        for (w8_ulong index = 0; index < pipe.getVertexCount(); ++index) {
+        for (std::uint32_t index = 0; index < pipe.getVertexCount(); ++index) {
             diffuse[index] = specular[index] = glm::vec4(.5f);
             alpha[index] = fog[index] = values[indices[index] % 5];
         }
@@ -288,10 +288,10 @@ public:
 bool coverageFinalization()
 {
     std::array<glm::vec3, 65> positions;
-    std::array<w8_ulong, 65> indices;
+    std::array<std::uint32_t, 65> indices;
     std::array<glm::vec4, 65> eye, diffuse, specular;
-    std::array<unsigned char, 65> attributes{};
-    for (unsigned index = 0; index < positions.size(); ++index) {
+    std::array<std::uint8_t, 65> attributes{};
+    for (std::uint32_t index = 0; index < positions.size(); ++index) {
         positions[index] = glm::vec3(0, 0, float(index + 1));
         indices[index] = index;
     }
@@ -311,19 +311,19 @@ bool coverageFinalization()
     input.processors = {&processor, 1};
     input.environment_maximum = input.environment_inverse_scale = 1;
     const float values[] = {-2.f, 0.f, .25f, 1.f, 2.f};
-    for (unsigned channels = 1; channels < 16; ++channels) {
-        unsigned enabled = 0;
+    for (std::uint32_t channels = 1; channels < 16; ++channels) {
+        std::uint32_t enabled = 0;
         const srVertexProcessor::e_channel kinds[] = {
             srVertexProcessor::CHANNEL_DIFFUSE, srVertexProcessor::CHANNEL_ALPHA,
             srVertexProcessor::CHANNEL_SPECULAR, srVertexProcessor::CHANNEL_FOG};
-        for (unsigned bit = 0; bit < 4; ++bit)
+        for (std::uint32_t bit = 0; bit < 4; ++bit)
             if (channels & (1u << bit)) enabled |= 1u << kinds[bit];
         record.channels = ~enabled;
         for (float scale : {-2.f, 0.f, .5f, 1.f, 2.f}) {
             material.scale = scale;
             srVertexPipe pipe;
             pipe.process(input);
-            for (unsigned index = 0; index < positions.size(); ++index) {
+            for (std::uint32_t index = 0; index < positions.size(); ++index) {
                 const float source = values[index % 5];
                 // With colour enabled, clamp the final scaled component; without
                 // it, clamp coverage first and retain the scaled alpha as-is.
@@ -345,20 +345,20 @@ bool coverageFinalization()
 class SurfaceLightProbe : public Counter {
 public:
     srLight light;
-    unsigned channels = 0, ready = 0;
-    unsigned attenuation_kind = 0;
+    std::uint32_t channels = 0, ready = 0;
+    std::uint32_t attenuation_kind = 0;
     bool directional = false;
     void process(srVertexPipe& pipe) override
     {
         ++calls;
-        const unsigned count = pipe.getVertexCount();
+        const std::uint32_t count = pipe.getVertexCount();
         if (ready & 1) {
             const auto colors = pipe.getDiffuse();
-            for (unsigned i = 0; i < count; ++i) colors[i] = glm::vec4(.25f);
+            for (std::uint32_t i = 0; i < count; ++i) colors[i] = glm::vec4(.25f);
         }
         if (ready & 2) {
             const auto colors = pipe.getSpecular();
-            for (unsigned i = 0; i < count; ++i) colors[i] = glm::vec4(.5f);
+            for (std::uint32_t i = 0; i < count; ++i) colors[i] = glm::vec4(.5f);
         }
         auto& statistics = srCore.getStatisticsManager()->statistics;
         const auto before_diffuse = statistics.diffuse_operations;
@@ -371,14 +371,14 @@ public:
         if (channels & 1) {
             const auto colors = pipe.getDiffuse();
             const float expected = (ready & 1 ? .25f : .125f) + .25f * attenuation;
-            for (unsigned i = 0; i < count; ++i)
-                for (unsigned c = 0; c < 4; ++c) REQUIRE(colors[i][c] == expected);
+            for (std::uint32_t i = 0; i < count; ++i)
+                for (std::uint32_t c = 0; c < 4; ++c) REQUIRE(colors[i][c] == expected);
         }
         if (channels & 2) {
             const auto colors = pipe.getSpecular();
             const float expected = (ready & 2 ? .5f : 0.f) + .0625f * attenuation;
-            for (unsigned i = 0; i < count; ++i)
-                for (unsigned c = 0; c < 4; ++c) REQUIRE(colors[i][c] == expected);
+            for (std::uint32_t i = 0; i < count; ++i)
+                for (std::uint32_t c = 0; c < 4; ++c) REQUIRE(colors[i][c] == expected);
         }
     }
 };
@@ -398,10 +398,10 @@ public:
 bool surfaceLighting()
 {
     std::array<glm::vec3, 65> positions, normals;
-    std::array<w8_ulong, 65> indices;
+    std::array<std::uint32_t, 65> indices;
     std::array<glm::vec4, 65> diffuse, specular, eye;
-    std::array<unsigned char, 65> attributes{};
-    for (unsigned i = 0; i < 65; ++i) {
+    std::array<std::uint8_t, 65> attributes{};
+    for (std::uint32_t i = 0; i < 65; ++i) {
         positions[i] = glm::vec3(0, 0, -10); normals[i] = glm::vec3(0, 0, 1); indices[i] = i;
     }
     srVertexArray arrays{};
@@ -419,11 +419,11 @@ bool surfaceLighting()
 
     input.processors = {&processor, 1};
     input.ambient_light = glm::vec4(0);
-    for (unsigned channels = 1; channels < 4; ++channels)
-    for (unsigned ready = 0; ready < 4; ++ready)
+    for (std::uint32_t channels = 1; channels < 4; ++channels)
+    for (std::uint32_t ready = 0; ready < 4; ++ready)
     for (bool directional : {false, true})
-    for (unsigned attenuation_kind : {0u, 1u, 2u, 3u, 4u})
-    for (unsigned count : {0u, 1u, 65u}) {
+    for (std::uint32_t attenuation_kind : {0u, 1u, 2u, 3u, 4u})
+    for (std::uint32_t count : {0u, 1u, 65u}) {
         CAPTURE(channels, ready, directional, attenuation_kind, count);
         probe.channels = channels; probe.ready = ready;
         probe.directional = directional; probe.attenuation_kind = attenuation_kind;
@@ -446,7 +446,7 @@ bool surfaceLighting()
         light.scaled_diffuse = glm::vec4(.5f); light.scaled_specular = glm::vec4(.25f);
         input.active_vertices = std::span{indices}.first(count);
         record.channels = ~(light.channel_mask | (1u << srVertexProcessor::CHANNEL_DIFFUSE));
-        const int before = probe.calls;
+        const std::int32_t before = probe.calls;
         srVertexPipe pipe;
         pipe.process(input);
         REQUIRE(probe.calls - before == (count == 0 ? 0 : count == 65 ? 2 : 1));
@@ -475,7 +475,7 @@ public:
         ++calls;
         const auto indices = pipe.getAVT();
         const auto cue = pipe.getDepthCue();
-        for (unsigned index = 0; index < pipe.getVertexCount(); ++index) {
+        for (std::uint32_t index = 0; index < pipe.getVertexCount(); ++index) {
             const float distance = float(indices[index] + 1);
             float expected;
             if (minimum == maximum) expected = distance < minimum ? 1 - low : 1 - high;
@@ -493,10 +493,10 @@ public:
 bool distanceProfiles()
 {
     std::array<glm::vec3, 65> positions;
-    std::array<w8_ulong, 65> indices;
+    std::array<std::uint32_t, 65> indices;
     std::array<glm::vec4, 65> eye, specular;
-    std::array<unsigned char, 65> attributes{};
-    for (unsigned index = 0; index < positions.size(); ++index) {
+    std::array<std::uint8_t, 65> attributes{};
+    for (std::uint32_t index = 0; index < positions.size(); ++index) {
         positions[index] = glm::vec3(0, 0, float(index + 1));
         indices[index] = index;
     }
@@ -528,7 +528,7 @@ bool distanceProfiles()
             srVertexPipe pipe;
             pipe.process(input);
             REQUIRE(probe.valid);
-            for (unsigned index = 0; index < positions.size(); ++index) {
+            for (std::uint32_t index = 0; index < positions.size(); ++index) {
                 const float distance = float(index + 1);
                 float normalized = range.first == range.second
                     ? distance <= range.first ? 0 : 1
@@ -546,10 +546,10 @@ bool materialChannelOperations()
 {
     // Cross the 64-vertex batch boundary for every combination of material operations.
     std::array<glm::vec3, 65> positions;
-    std::array<w8_ulong, 65> indices;
+    std::array<std::uint32_t, 65> indices;
     std::array<glm::vec4, 65> eye, diffuse, specular;
-    std::array<unsigned char, 65> attributes{};
-    for (unsigned i = 0; i < positions.size(); ++i) {
+    std::array<std::uint8_t, 65> attributes{};
+    for (std::uint32_t i = 0; i < positions.size(); ++i) {
         positions[i] = glm::vec3(0, 0, float(i + 1));
         indices[i] = i;
     }
@@ -580,8 +580,8 @@ bool materialChannelOperations()
     input.environment_maximum = 100;
     input.environment_inverse_scale = 1;
     srVertexPipe pipe;
-    for (unsigned operations = 0; operations < 32; ++operations) {
-        for (unsigned bit = 0; bit < 5; ++bit) {
+    for (std::uint32_t operations = 0; operations < 32; ++operations) {
+        for (std::uint32_t bit = 0; bit < 5; ++bit) {
             auto operation = static_cast<srMaterial::e_oper>(bit);
             if (operations & (1u << bit)) material.enable(operation);
             else material.disable(operation);
@@ -595,7 +595,7 @@ bool materialChannelOperations()
         } else if (operations & (1u << srMaterial::OPER_SPECULAR)) {
             diffuse_value = specular_value;
         }
-        for (unsigned i = 0; i < positions.size(); ++i) {
+        for (std::uint32_t i = 0; i < positions.size(); ++i) {
             CAPTURE(operations, i);
             const float depth = 1 - float(i + 1) / 100;
             const float color_scale = operations & (1u << srMaterial::OPER_DEPTH_CUE) ? depth : 1;
@@ -653,7 +653,7 @@ bool rendererOwnership()
                     expected = view * instance.getWorldSpaceMatrix<glm::mat4>();
                 }
                 const auto actual = gerd.getMatrix(srGERD::MATRIX_MODELVIEW);
-                for (int column = 0; column < 4; ++column)
+                for (std::int32_t column = 0; column < 4; ++column)
                     REQUIRE(glm::length(actual[column] - expected[column]) < 1e-5f);
             }
             REQUIRE(gerd.getMatrix(srGERD::MATRIX_MODELVIEW) == view);
@@ -664,7 +664,7 @@ bool rendererOwnership()
     auto statistics = renderer->getStatistics();
     REQUIRE(statistics.device_calls == 1);
 
-    for (int mode = 0; mode < 4; ++mode) {
+    for (std::int32_t mode = 0; mode < 4; ++mode) {
         std::promise<srGERD::Renderer*> acquired;
         std::promise<void> release;
         auto permission = release.get_future();
@@ -727,20 +727,20 @@ bool rendererOwnership()
 bool rendererTextureStages()
 {
     srGERD gerd(srCreateSDLGPUDevice(), "texture stage fixture");
-    for (unsigned stages : {1u, 2u}) {
+    for (std::uint32_t stages : {1u, 2u}) {
         srGERD::Renderer renderer({&gerd, 0, 256, stages});
         auto arrays = renderer.allocVertexArray(3);
-        for (unsigned stage = 0; stage < 2; ++stage)
-            for (unsigned i = 0; i < 3; ++i) {
+        for (std::uint32_t stage = 0; stage < 2; ++stage)
+            for (std::uint32_t i = 0; i < 3; ++i) {
                 renderer.vertices.st[stage][i] = glm::vec2(10 * stage + i, 20 + i);
                 renderer.vertices.q[stage][i] = 0.25f * (stage + i + 1);
             }
-        for (unsigned attributes = 0; attributes < 128; ++attributes) {
+        for (std::uint32_t attributes = 0; attributes < 128; ++attributes) {
             for (auto& stream : renderer.stq) stream.clear();
             renderer.vertices.attributes[0] = attributes;
             renderer.programVertexArrays(&arrays, 3);
             const auto mask = gerd.getVertexArrayMask().value;
-            for (unsigned stage = 0; stage < 2; ++stage) {
+            for (std::uint32_t stage = 0; stage < 2; ++stage) {
                 const bool enabled = stage < stages &&
                     (attributes & (srVertexArray::ATTRIBUTE_ST0 << stage));
                 REQUIRE(bool(mask & (1u << (srRendererDefs::VERTEX_ARRAY_TEXCOORD0 + stage))) == enabled);
@@ -748,7 +748,7 @@ bool rendererTextureStages()
                     (attributes & (srVertexArray::ATTRIBUTE_Q0 << stage));
                 REQUIRE(renderer.stq[stage].size() == (combined ? 3u : 0u));
                 if (combined)
-                    for (unsigned i = 0; i < 3; ++i) {
+                    for (std::uint32_t i = 0; i < 3; ++i) {
                         REQUIRE(renderer.stq[stage][i].st == renderer.vertices.st[stage][i]);
                         REQUIRE(renderer.stq[stage][i].q == renderer.vertices.q[stage][i]);
                     }
@@ -762,12 +762,12 @@ bool rendererCornerRemapping()
 {
     // All combinations of reused/new corners, mixed UV and flat passes, and
     // a nonzero batch base exercise allocation order and copied vertex streams.
-    for (unsigned changed = 0; changed < 8; ++changed) {
-        for (int sorted : {0, 1}) {
+    for (std::uint32_t changed = 0; changed < 8; ++changed) {
+        for (std::int32_t sorted : {0, 1}) {
             srGERD::Renderer renderer({nullptr, sorted, 256, 2});
             renderer.vertices.alloc(5);
             renderer.allocVertexArray(6);
-            for (unsigned i = 5; i < 11; ++i) {
+            for (std::uint32_t i = 5; i < 11; ++i) {
                 renderer.vertices.positions[i] = glm::vec4(float(i), 2, 3, 1);
                 renderer.vertices.diffuse[i] = glm::vec4(float(i) / 20);
                 renderer.vertices.specular[i] = glm::vec4(float(i) / 30);
@@ -775,15 +775,15 @@ bool rendererCornerRemapping()
                 renderer.vertices.q[1][i] = float(i) / 10;
                 renderer.vertices.attributes[i] = i;
             }
-            std::array<w8_ulong, 1> indices{0};
-            std::array<w8_ulong, 3> vertices{2, 0, 1};
+            std::array<std::uint32_t, 1> indices{0};
+            std::array<std::uint32_t, 3> vertices{2, 0, 1};
             std::array<glm::ivec3, 1> triangles{{{0, 1, 2}}};
-            std::array<int, 3> uv;
-            for (unsigned corner = 0; corner < 3; ++corner)
+            std::array<std::int32_t, 3> uv;
+            for (std::uint32_t corner = 0; corner < 3; ++corner)
                 uv[corner] = corner + ((changed & (1u << corner)) ? 3 : 0);
             std::array<glm::ivec3, 1> poly_uv{{{uv[0], uv[1], uv[2]}}};
             std::array<glm::vec2, 6> texcoords;
-            for (unsigned i = 0; i < texcoords.size(); ++i) texcoords[i] = glm::vec2(i, i + 10);
+            for (std::uint32_t i = 0; i < texcoords.size(); ++i) texcoords[i] = glm::vec2(i, i + 10);
             std::array<srTriMeshPipeline::Pass, 2> passes{};
             passes[0].poly_uv = poly_uv.data();
             passes[0].texcoords = texcoords.data();
@@ -797,9 +797,9 @@ bool rendererCornerRemapping()
             renderer.expandTriangles(input, sorted);
             const auto& result = renderer.indices.triangles[0];
             const std::array corners{result.x, result.y, result.z};
-            int next = 11;
-            for (unsigned corner = 0; corner < 3; ++corner) {
-                const int source = 5 + static_cast<int>(vertices[corner]);
+            std::int32_t next = 11;
+            for (std::uint32_t corner = 0; corner < 3; ++corner) {
+                const std::int32_t source = 5 + static_cast<std::int32_t>(vertices[corner]);
                 if ((changed & (1u << corner)) == 0) {
                     REQUIRE(corners[corner] == source);
                     continue;
@@ -831,23 +831,23 @@ bool pipelineRecordTexcoords()
     srGERD renderer(srCreateSDLGPUDevice(), "record handoff");
     auto* pipeline = srTriMeshPipeline::Get(&renderer);
     std::array<glm::vec3, 3> positions{{{0, 0, 1}, {1, 0, 1}, {0, 1, 1}}};
-    std::array<w8_ulong, 3> indices{2, 0, 1};
+    std::array<std::uint32_t, 3> indices{2, 0, 1};
     glm::mat4 identity;
     identity = glm::mat4(1);
     std::array<std::array<glm::vec2, 3>, 4> source;
     std::array<std::array<glm::vec2, 3>, 4> output;
     std::array<std::array<float, 3>, 4> q;
     std::array<std::array<glm::vec4, 3>, 2> eyes;
-    std::array<std::array<unsigned char, 3>, 2> attributes;
+    std::array<std::array<std::uint8_t, 3>, 2> attributes;
     std::array<srVertexArray, 2> arrays{};
-    for (unsigned record = 0; record < arrays.size(); ++record) {
+    for (std::uint32_t record = 0; record < arrays.size(); ++record) {
         auto& slot = *pipeline->current_record;
         slot.flags = srVertexPipe::Record::HAS_TEXCOORD0 | srVertexPipe::Record::HAS_TEXCOORD1;
         slot.channels = ~((1u << srVertexProcessor::CHANNEL_ST0) |
                           (1u << srVertexProcessor::CHANNEL_ST1));
-        for (unsigned layer = 0; layer < 2; ++layer) {
-            const unsigned channel = record * 2 + layer;
-            for (unsigned vertex = 0; vertex < positions.size(); ++vertex)
+        for (std::uint32_t layer = 0; layer < 2; ++layer) {
+            const std::uint32_t channel = record * 2 + layer;
+            for (std::uint32_t vertex = 0; vertex < positions.size(); ++vertex)
                 source[channel][vertex] =
                     glm::vec2(float(10 * channel + vertex), float(20 + vertex));
             slot.st_source[layer] = source[channel].data();
@@ -867,8 +867,8 @@ bool pipelineRecordTexcoords()
     input.vertex_arrays = arrays;
     input.records = std::span{pipeline->records}.first(pipeline->slot_count);
     pipeline->vertex_pipe->process(input);
-    for (unsigned channel = 0; channel < output.size(); ++channel)
-        for (unsigned vertex = 0; vertex < positions.size(); ++vertex) {
+    for (std::uint32_t channel = 0; channel < output.size(); ++channel)
+        for (std::uint32_t vertex = 0; vertex < positions.size(); ++vertex) {
             REQUIRE(output[channel][vertex].x == source[channel][indices[vertex]].x);
             REQUIRE(output[channel][vertex].y == source[channel][indices[vertex]].y);
             REQUIRE(q[channel][vertex] == 1.0f);
@@ -881,13 +881,13 @@ bool countedGeometryTransforms()
 {
     struct Probe : Counter {
         const srVertexPipe::Input* input = nullptr;
-        unsigned processed = 0;
+        std::uint32_t processed = 0;
         void process(srVertexPipe& pipe) override
         {
             const auto locations = pipe.getEyeSpaceLocation();
             const auto normals = pipe.getEyeSpaceNormal();
             const auto attributes = pipe.getAVT();
-            for (unsigned index = 0; index < locations.size(); ++index) {
+            for (std::uint32_t index = 0; index < locations.size(); ++index) {
                 const auto source = input->geometryIndex(processed + index);
                 REQUIRE(locations[index] == input->model_view * glm::vec4(input->positions[source], 1));
                 const auto expected = input->normals.empty() ? glm::vec3(0, 0, -1) :
@@ -899,10 +899,10 @@ bool countedGeometryTransforms()
         }
     } probe;
     std::array<glm::vec3, 65> positions, normals;
-    std::array<w8_ulong, 65> indices;
+    std::array<std::uint32_t, 65> indices;
     std::array<glm::vec4, 65> eyes;
-    std::array<unsigned char, 65> attributes{};
-    for (unsigned index = 0; index < positions.size(); ++index) {
+    std::array<std::uint8_t, 65> attributes{};
+    for (std::uint32_t index = 0; index < positions.size(); ++index) {
         positions[index] = glm::vec3(index, 2, 3);
         normals[index] = glm::vec3(1, index, 2);
         indices[index] = positions.size() - index - 1;
@@ -943,7 +943,7 @@ bool countedGeometryTransforms()
 TEST_CASE("Scene membership preserves independent node ownership")
 {
     REQUIRE(srInit());
-    const int before = TestNode::destroyed;
+    const std::int32_t before = TestNode::destroyed;
     const auto root_children = srCore.getRootNode()->getChildCount();
     auto owned = std::make_unique<TestNode>(nullptr, srNode::Ownership::independent);
     REQUIRE(srCore.getRootNode()->getChildCount() == root_children);
@@ -962,7 +962,7 @@ TEST_CASE("Scene membership preserves independent node ownership")
 TEST_CASE("Scene adoption transfers node destruction ownership")
 {
     REQUIRE(srInit());
-    const int before = TestNode::destroyed;
+    const std::int32_t before = TestNode::destroyed;
     {
         TestNode scene;
         auto owned = std::make_unique<TestNode>(nullptr, srNode::Ownership::independent);
@@ -977,7 +977,7 @@ TEST_CASE("Scene adoption transfers node destruction ownership")
 
 TEST_CASE("renderer_ownership_test")
 {
-    for (int cycle = 0; cycle < 2; ++cycle) {
+    for (std::int32_t cycle = 0; cycle < 2; ++cycle) {
         REQUIRE(srInit());
         REQUIRE(recursiveSceneGraph());
         REQUIRE(processorOwnership());
@@ -998,14 +998,14 @@ TEST_CASE("renderer_ownership_test")
 TEST_CASE("Counted mipmap chains copy adjacent levels and preserve file cache policy")
 {
     SurRenderTestFixture runtime;
-    constexpr w8_ulong color = 0xff102030;
+    constexpr std::uint32_t color = 0xff102030;
     const auto source = [] {
         auto pixels = std::make_unique<srColorSurface>(srPixelConvert::SURFACE_BGRA32, 8, 8);
         pixels->fill(color);
         return pixels;
     };
     struct PreparedFile : srTextureFile {
-        PreparedFile(std::unique_ptr<srColorSurfaceIFace> pixels, int cache) : srTextureFile({}, cache)
+        PreparedFile(std::unique_ptr<srColorSurfaceIFace> pixels, std::int32_t cache) : srTextureFile({}, cache)
         {
             surface = std::move(pixels);
         }
@@ -1046,12 +1046,12 @@ TEST_CASE("Picking honors counted selections, direct indices, nearest depth and 
     SurRenderTestFixture runtime;
     srGERD renderer(srCreateSDLGPUDevice(), "counted picking");
     srModelInstance selected;
-    renderer.setPickKey(reinterpret_cast<w8_ulong_ptr>(&selected));
+    renderer.setPickKey(reinterpret_cast<std::uintptr_t>(&selected));
     REQUIRE_FALSE(renderer.popPick());
     const std::array<glm::vec4, 3> positions{{{-1, -1, .4f, 1}, {1, -1, .4f, 1}, {0, 1, .4f, 1}}};
     const std::array<glm::ivec3, 2> triangles{{{0, 0, 0}, {1, 2, 0}}};
-    const std::array<w8_ulong, 1> indices{1};
-    const std::array<w8_ulong, 3> remap{2, 0, 1};
+    const std::array<std::uint32_t, 1> indices{1};
+    const std::array<std::uint32_t, 3> remap{2, 0, 1};
     srGERD::Renderer batch({&renderer, 0, 256, 1});
     const glm::mat4 projection(1);
     const srTriMeshPipeline::Pass pass{};
@@ -1092,7 +1092,7 @@ TEST_CASE("Picking honors counted selections, direct indices, nearest depth and 
     performPick();
     REQUIRE(renderer.popPick()->selected_model == &selected);
 
-    const std::array<w8_ulong, 2> invalid_selection{1, 2};
+    const std::array<std::uint32_t, 2> invalid_selection{1, 2};
     input.indices = invalid_selection;
     renderer.pushPick({{0, 0, 1}, nullptr, 9});
     REQUIRE_THROWS_AS(performPick(), std::invalid_argument);

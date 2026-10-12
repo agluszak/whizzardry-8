@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/dialog_code/DialogScrollBar.h"
@@ -13,23 +14,23 @@
 // VTABLE: WIZ8 0x005efab0
 class W8SpellInfoDialog : public W8DialogBase {
 public:
-    W8SpellInfoDialog(unsigned int spell);
-    virtual int CreateControls() override;
+    W8SpellInfoDialog(std::uint32_t spell);
+    virtual std::int32_t CreateControls() override;
     virtual void Draw() override;
     virtual void OnRightButtonUp() override;
-    virtual void OnMouseWheel(int delta) override;
+    virtual void OnMouseWheel(std::int32_t delta) override;
 
 private:
     bool PopulateText();
     void DrawLabels();
-    static void ScrollCallback(W8DialogScrollBar* scroll_bar, int first_visible_entry);
+    static void ScrollCallback(W8DialogScrollBar* scroll_bar, std::int32_t first_visible_entry);
 
-    unsigned int m_spell;
+    std::uint32_t m_spell;
     W8DialogScrollBar m_scroll_bar;
     W8ButtonWidget m_button;
     W8DialogTextArea m_text_area;
     W8GameTimer m_timer;
-    unsigned int m_animation_frame;
+    std::uint32_t m_animation_frame;
 };
 
 /* The "(on ...)" parenthetical per spell target type. */
@@ -41,4 +42,4 @@ extern char g_comma_space[];
 /* The "%d %s" count-and-name notice format. */
 
 /* GppStringList indices naming each W8RangeCategory band. */
-extern unsigned short g_spell_range_name_ids[4];
+extern std::uint16_t g_spell_range_name_ids[4];

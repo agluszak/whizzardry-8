@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include "srFlags.h"
 
 class srRendererDefs {
@@ -48,11 +49,11 @@ public:
     /* Vertex-stream state handed to srDD::setVertexArrayInfo before each draw. */
     struct VertexArrayInfo {
         srFlags<e_vertexArray> mask;
-        w8_ulong count;
+        std::uint32_t count;
         srFlags<e_clip> clip;
-        w8_long components[6];
+        std::int32_t components[6];
         e_type types[6];
-        w8_ulong strides[6];
+        std::uint32_t strides[6];
         const void* arrays[6];
     };
 };

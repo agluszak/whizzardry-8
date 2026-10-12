@@ -80,13 +80,13 @@
 #include "surrender/srMath.h"
 #include "wiz8/npc_interaction.h"
 
-static bool ProbeNpcPlacementNearParty(int party_slot, int mode, srVector3T<float>* position_out);
+static bool ProbeNpcPlacementNearParty(std::int32_t party_slot, std::int32_t mode, srVector3T<float>* position_out);
 static bool InitializeNpcCharacter(W8NpcState* npc, W8Character* character);
 static void InitializeNpcItemTable(W8NpcState* npc);
 static bool RestoreNpcMonster(W8NpcState* npc, const char* entity_name);
 static bool SaveNpcItemLists(wiz8::File& file);
 static bool LoadNpcItemLists(wiz8::File& file);
-static bool NpcOffersService(W8NpcState* npc, unsigned int service_id);
+static bool NpcOffersService(W8NpcState* npc, std::uint32_t service_id);
 
 
 enum { W8_NPC_TOPIC_SLOTS = 5, W8_NPC_FACT_SLOTS = 14 };
@@ -109,7 +109,7 @@ std::vector<W8NpcState*> g_npc_states;
 static std::vector<W8NpcState*> g_retired_npc_states;
 
 /* Whether the NPC's database record names a trade pool. */
-void QueueNpcHeldItemNotice(int npc_kind)
+void QueueNpcHeldItemNotice(std::int32_t npc_kind)
 {
     auto* npc = GetNpcStateByKind(npc_kind);
     auto* item = g_status.item_in_cursor ? &g_status.item_in_hand : nullptr;
@@ -133,8 +133,8 @@ static char GetNpcDisposition(W8NpcState* npc)
     char disposition = npc->disposition;
     char faction_disposition;
     W8MonsterInfo* monster_info;
-    int bound_index;
-    unsigned int slot;
+    std::int32_t bound_index;
+    std::uint32_t slot;
 
     if (npc->has_monster && npc->is_present) {
         monster_info = FindMonster(npc->location_id);
@@ -178,7 +178,7 @@ static char GetNpcDisposition(W8NpcState* npc)
    friendly while a bound lead NPC belongs to the record's ally faction. */
 
 // FUNCTION: WIZ8 0x0050a500
-unsigned char GetNpcDispositionBand(W8NpcState* npc)
+std::uint8_t GetNpcDispositionBand(W8NpcState* npc)
 {
     char disposition = GetNpcDisposition(npc);
 
@@ -190,7 +190,7 @@ unsigned char GetNpcDispositionBand(W8NpcState* npc)
 
 /* Test a placement near the party without retaining the position. */
 // FUNCTION: WIZ8 0x0050b2d0
-bool CanPlaceNpcNearParty(int party_slot)
+bool CanPlaceNpcNearParty(std::int32_t party_slot)
 {
     srVector3T<float> position;
 
@@ -200,9 +200,9 @@ bool CanPlaceNpcNearParty(int party_slot)
 /* Whether the NPC will talk about one topic. Topics are stored one more than
    they name, so zero can mean an empty slot. */
 // FUNCTION: WIZ8 0x0050c190
-bool NpcHasTopic(W8NpcState* npc, int topic)
+bool NpcHasTopic(W8NpcState* npc, std::int32_t topic)
 {
-    int slot;
+    std::int32_t slot;
 
     for (slot = 0; slot < W8_NPC_TOPIC_SLOTS; ++slot) {
         if (npc->topics[slot] == topic + 1) {
@@ -215,9 +215,9 @@ bool NpcHasTopic(W8NpcState* npc, int topic)
 /* Tell the NPC one fact, in the first empty slot. A full list silently drops
    it. */
 // FUNCTION: WIZ8 0x0050dd50
-void TellNpcFact(W8NpcState* npc, short fact)
+void TellNpcFact(W8NpcState* npc, std::int16_t fact)
 {
-    int slot;
+    std::int32_t slot;
 
     for (slot = 0; slot < W8_NPC_FACT_SLOTS; ++slot) {
         if (npc->known_facts[slot] == 0) {
@@ -233,11 +233,11 @@ void TellNpcFact(W8NpcState* npc, short fact)
 // FUNCTION: WIZ8 0x0050dd10
 bool NpcKnowsFact(W8NpcState* npc, W8FactId fact)
 {
-    int slot;
+    std::int32_t slot;
 
     for (slot = 0; slot < W8_NPC_FACT_SLOTS; ++slot) {
         if (npc->known_facts[slot] != 0 &&
-            static_cast<unsigned short>(npc->known_facts[slot]) == fact) {
+            static_cast<std::uint16_t>(npc->known_facts[slot]) == fact) {
             return true;
         }
     }
@@ -246,7 +246,7 @@ bool NpcKnowsFact(W8NpcState* npc, W8FactId fact)
 
 /* The NPC state at one index, skipping released bindings and invalid indices. */
 // FUNCTION: WIZ8 0x0050b800
-W8NpcState* GetNpcState(int index)
+W8NpcState* GetNpcState(std::int32_t index)
 {
     if (index < 0 || static_cast<std::size_t>(index) >= g_npc_states.size()) return nullptr;
     auto* npc = g_npc_states[index];
@@ -254,7 +254,7 @@ W8NpcState* GetNpcState(int index)
 }
 
 // FUNCTION: WIZ8 0x0050b830
-W8NpcState* GetNpcStateByKind(int kind)
+W8NpcState* GetNpcStateByKind(std::int32_t kind)
 {
     for (W8NpcState* npc : g_npc_states) {
         if (npc->record->kind == kind) {
@@ -342,7 +342,7 @@ bool WillNpcTradeForItem(W8NpcState* npc, W8ItemInstance* item)
 /* How many of the two leading party slots are occupied. Written as nested
    tests rather than a count, which is why the first slot is read twice. */
 // FUNCTION: WIZ8 0x0050b9b0
-unsigned char CountLeadingPartySlots(void)
+std::uint8_t CountLeadingPartySlots(void)
 {
     if (g_status.buffers.XChar[0].fOccupied) {
         if (g_status.buffers.XChar[1].fOccupied) {
@@ -362,9 +362,9 @@ unsigned char CountLeadingPartySlots(void)
    word at 0x00619DF8. Service lookup starts one word into each row.
    The five mutable race bytes at 0x00619EAC are a separate object. */
 struct W8NpcServiceRow {
-    unsigned int npc_id;
-    unsigned int service_id;
-    unsigned int bit;
+    std::uint32_t npc_id;
+    std::uint32_t service_id;
+    std::uint32_t bit;
 };
 // GLOBAL: WIZ8 0x00619DF8
 W8NpcServiceRow g_npc_services[] = {
@@ -386,7 +386,7 @@ W8NpcServiceRow g_npc_services[] = {
 };
 
 // GLOBAL: WIZ8 0x00619EAC
-unsigned char g_npc_join_races[5] = {W8_RACE_UMPANI, W8_RACE_T_RANG, W8_RACE_RAPAX, W8_RACE_ANDROID,
+std::uint8_t g_npc_join_races[5] = {W8_RACE_UMPANI, W8_RACE_T_RANG, W8_RACE_RAPAX, W8_RACE_ANDROID,
                                      W8_RACE_TRYNNIE};
 
 /* Whether the NPC wants the offered item: it matches one of the record's
@@ -395,11 +395,11 @@ unsigned char g_npc_join_races[5] = {W8_RACE_UMPANI, W8_RACE_T_RANG, W8_RACE_RAP
 // FUNCTION: WIZ8 0x0050DC50
 bool NpcWantsItem(W8NpcState* npc, W8ItemInstance* item)
 {
-    int index;
+    std::int32_t index;
     const w8_unaligned_short* wanted = npc->record->character.wanted_item_ids;
 
     for (index = 0; index < 3; ++index) {
-        int wanted_id = wanted[index] - 1;
+        std::int32_t wanted_id = wanted[index] - 1;
         if (wanted_id < 0) {
             continue;
         }
@@ -428,7 +428,7 @@ static void ReturnDismissedNpcItems(W8NpcState* npc, W8Character* character)
 {
     bool returned = false;
     bool dropped = false;
-    unsigned int slot;
+    std::uint32_t slot;
     for (slot = 0; slot < 12; ++slot) {
         W8ItemInstance* item = &character->EquippedItem[slot];
         if (item->iItemNo != -1 && CanUnequipSlotItem(character, static_cast<W8EquipSlot>(slot)) &&
@@ -461,7 +461,7 @@ static void ReturnDismissedNpcItems(W8NpcState* npc, W8Character* character)
 }
 
 // FUNCTION: WIZ8 0x0050b590
-int DismissNpcFromParty(int party_slot, int /*unused*/, bool skip_spawn, bool neutral)
+std::int32_t DismissNpcFromParty(std::int32_t party_slot, std::int32_t /*unused*/, bool skip_spawn, bool neutral)
 {
     W8PartySlotRow* row = &g_status.buffers.XChar[party_slot];
     if (row->npc_index == -1) {
@@ -490,7 +490,7 @@ int DismissNpcFromParty(int party_slot, int /*unused*/, bool skip_spawn, bool ne
     if (npc->character->highest_condition != W8_CONDITION_DEAD && !skip_spawn) {
         W8MonsterRecord* records;
         LoadMonsterDatabase(&records);
-        unsigned int species;
+        std::uint32_t species;
         for (species = 0; species < gXStatus.uiMonstersInDatabase; ++species) {
             if ((records[species].flags & W8_MONSTER_FLAG_NPC) != 0 &&
                 records[species].npc_kind == npc->name_style) {
@@ -506,9 +506,9 @@ int DismissNpcFromParty(int party_slot, int /*unused*/, bool skip_spawn, bool ne
         if (monster != 0) {
             CopyCharacterConditionsToTarget(npc->character, &monster->location_id);
             if (monster->uiCondition[W8_CONDITION_UNCONSCIOUS] == W8_CONDITION_INDEFINITE) {
-                unsigned int stamina = static_cast<unsigned int>(npc->character->uiStaminaMax);
-                if (static_cast<unsigned int>(npc->character->stamina) < stamina) {
-                    stamina = static_cast<unsigned int>(npc->character->stamina);
+                std::uint32_t stamina = static_cast<std::uint32_t>(npc->character->uiStaminaMax);
+                if (static_cast<std::uint32_t>(npc->character->stamina) < stamina) {
+                    stamina = static_cast<std::uint32_t>(npc->character->stamina);
                 }
                 monster->stamina = stamina;
             }
@@ -532,7 +532,7 @@ int DismissNpcFromParty(int party_slot, int /*unused*/, bool skip_spawn, bool ne
    service check and queues either the scripted group action or the slot's
    ambient event. */
 // FUNCTION: WIZ8 0x0050B3B0
-void UpdateNpcPartyMember(int party_slot)
+void UpdateNpcPartyMember(std::int32_t party_slot)
 {
     W8NpcState* npc = GetNpcState(g_status.buffers.XChar[party_slot].npc_index);
     W8Character* character = &g_status.buffers.Char[party_slot];
@@ -575,11 +575,11 @@ bool RecruitNpcIntoParty(W8NpcState* npc)
     if (npc->record->has_group == 0) {
         return false;
     }
-    int party_slot = AddCharacterToParty(npc->character, npc->partner_index);
+    std::int32_t party_slot = AddCharacterToParty(npc->character, npc->partner_index);
     if (party_slot == -1) {
         return false;
     }
-    int index;
+    std::int32_t index;
     for (index = 0; index < 0x29; ++index) {
         if (g_status.buffers.Char[party_slot].skills[index].points > 0) {
             g_status.buffers.Char[party_slot].skills[index].available = true;
@@ -594,7 +594,7 @@ bool RecruitNpcIntoParty(W8NpcState* npc)
                 true);
         }
     }
-    npc->group_index = static_cast<signed char>(party_slot);
+    npc->group_index = static_cast<std::int8_t>(party_slot);
     npc->is_grouped = true;
     npc->is_present = false;
     npc->event_pending = 0;
@@ -603,9 +603,9 @@ bool RecruitNpcIntoParty(W8NpcState* npc)
 
     /* Retail writes the race into this initially populated list, then tests
        the value just written. Preserve that assignment and early exit. */
-    unsigned char race = 0;
+    std::uint8_t race = 0;
     for (index = 0; index < 5; ++index) {
-        race = static_cast<unsigned char>(npc->record->character.race);
+        race = static_cast<std::uint8_t>(npc->record->character.race);
         g_npc_join_races[index] = race;
         if (race != 0) {
             break;
@@ -683,7 +683,7 @@ void SetNpcDispositionBand(W8NpcState* npc, char band)
    disposition into the friendly band, then re-flag its monster group's
    hostility from `enabled`. */
 // FUNCTION: WIZ8 0x0050AE40
-void ResumeNpc(W8NpcState* npc, int enabled)
+void ResumeNpc(W8NpcState* npc, std::int32_t enabled)
 {
     W8MonsterInfo* monster_info = GetNpcMonsterInfo(npc);
 
@@ -704,15 +704,15 @@ void ResumeNpc(W8NpcState* npc, int enabled)
    says - the two answers are the same value, so a kind that is not there is
    indistinguishable from one whose byte is zero. */
 // FUNCTION: WIZ8 0x0050dd80
-unsigned char FindNpcOfKind(int kind)
+std::uint8_t FindNpcOfKind(std::int32_t kind)
 {
     auto* npc = GetNpcStateByKind(kind);
-    return npc ? static_cast<unsigned char>(npc->spawned) : 0;
+    return npc ? static_cast<std::uint8_t>(npc->spawned) : 0;
 }
 
 /* Mark the NPC of one kind, raising both of the two flags that go together. */
 // FUNCTION: WIZ8 0x0050ca30
-void MarkNpcOfKind(int kind)
+void MarkNpcOfKind(std::int32_t kind)
 {
     if (auto* npc = GetNpcStateByKind(kind)) {
         npc->event_pending = true;
@@ -723,10 +723,10 @@ void MarkNpcOfKind(int kind)
 // FUNCTION: WIZ8 0x0050C870
 bool CanNpcJoinParty(W8NpcState* npc)
 {
-    int index;
-    unsigned int count;
-    unsigned int total;
-    unsigned int average;
+    std::int32_t index;
+    std::uint32_t count;
+    std::uint32_t total;
+    std::uint32_t average;
 
     if (npc->record->has_group == 0) {
         return false;
@@ -779,9 +779,9 @@ bool CanNpcJoinParty(W8NpcState* npc)
 /* Whether the NPC offers one service. The service id is looked up in a table
    that pairs it with its bit, so the ids need not be contiguous. */
 // FUNCTION: WIZ8 0x0050c9e0
-static bool NpcOffersService(W8NpcState* npc, unsigned int service_id)
+static bool NpcOffersService(W8NpcState* npc, std::uint32_t service_id)
 {
-    int row = 0;
+    std::int32_t row = 0;
 
     if (g_npc_services[0].service_id == 0xffffffff) {
         return false;
@@ -798,9 +798,9 @@ static bool NpcOffersService(W8NpcState* npc, unsigned int service_id)
 /* Add a topic to the front of the NPC's five, pushing the oldest off the end
    when they are full. An empty slot is filled in place instead. */
 // FUNCTION: WIZ8 0x0050c140
-void AddNpcTopic(W8NpcState* npc, int topic)
+void AddNpcTopic(W8NpcState* npc, std::int32_t topic)
 {
-    int slot;
+    std::int32_t slot;
 
     for (slot = 0; slot < W8_NPC_TOPIC_SLOTS; ++slot) {
         if (npc->topics[slot] == 0) {
@@ -853,7 +853,7 @@ W8NpcState* FindNpcStateByName(std::string_view name)
    accumulator passes 0x3c of those units, and each dialogue cooldown flag
    drops once its world-clock stamp is more than 0xa8c0 old. */
 // FUNCTION: WIZ8 0x0050C7D0
-void AdvanceNpcTimers(unsigned int elapsed)
+void AdvanceNpcTimers(std::uint32_t elapsed)
 {
     for (W8NpcState* npc : g_npc_states) {
         if (npc->binding_unavailable == 0) {
@@ -864,12 +864,12 @@ void AdvanceNpcTimers(unsigned int elapsed)
                 }
             }
             if (npc->talk_cooldown_active &&
-                static_cast<unsigned int>(g_status.world_clock - npc->talk_cooldown_clock) >
+                static_cast<std::uint32_t>(g_status.world_clock - npc->talk_cooldown_clock) >
                     0xa8c0) {
                 npc->talk_cooldown_active = false;
             }
             if (npc->trade_cooldown_active &&
-                static_cast<unsigned int>(g_status.world_clock - npc->trade_cooldown_clock) >
+                static_cast<std::uint32_t>(g_status.world_clock - npc->trade_cooldown_clock) >
                     0xa8c0) {
                 npc->trade_cooldown_active = false;
             }
@@ -895,7 +895,7 @@ void ProcessNpcPendingEvents(void)
             bool flagged = false;
             for (W8NpcState* candidate : g_npc_states) {
                 if (candidate->record->kind == 0x42) {
-                    if (candidate != 0 && static_cast<unsigned char>(candidate->spawned) != 0) {
+                    if (candidate != 0 && static_cast<std::uint8_t>(candidate->spawned) != 0) {
                         flagged = true;
                     }
                     break;
@@ -920,17 +920,17 @@ void ProcessNpcPendingEvents(void)
         }
         if (g_status.binding_reset_pending &&
             (g_status.world_clock - g_status.binding_reset_clock) > 0x3c) {
-            int service = 0;
+            std::int32_t service = 0;
             if (g_npc_services[0].service_id != 0xffffffff) {
                 while (g_npc_services[service].service_id !=
-                       static_cast<unsigned int>(GetLevelBand(g_status.current_level))) {
+                       static_cast<std::uint32_t>(GetLevelBand(g_status.current_level))) {
                     ++service;
                     if (g_npc_services[service].service_id == 0xffffffff) {
                         g_status.binding_reset_pending = false;
                         return;
                     }
                 }
-                for (int slot = 0; slot < 2; ++slot) {
+                for (std::int32_t slot = 0; slot < 2; ++slot) {
                     W8PartySlotRow* row = &g_status.buffers.XChar[slot];
                     W8Character* character = &g_status.buffers.Char[slot];
                     if (!row->fOccupied || character->hp_current == 0) {
@@ -938,7 +938,7 @@ void ProcessNpcPendingEvents(void)
                     }
                     W8NpcState* npc = GetNpcState(row->npc_index);
                     if (character->highest_condition < W8_CONDITION_ASLEEP) {
-                        int event = 0;
+                        std::int32_t event = 0;
                         if (GetLevelBand(g_status.current_level) != 0xd) {
                             if (npc->name_style == W8_NPC_RODAN &&
                                 (!g_status.buffers.XChar[0].fOccupied ||
@@ -971,17 +971,17 @@ void ProcessNpcPendingEvents(void)
                                 service != 0xc && service != 0xd) {
                                 QueueCharacterEvent(
                                     character,
-                                    static_cast<unsigned char>(g_npc_services[service].npc_id), 0,
+                                    static_cast<std::uint8_t>(g_npc_services[service].npc_id), 0,
                                     g_character_event_no_flags, g_character_event_full_volume);
                             }
                         }
                         bound = GetNpcState(row->npc_index);
                         if (bound != 0) {
                             char band = GetLevelBand(g_status.current_level);
-                            for (int index = 0; g_npc_services[index].service_id != 0xffffffff;
+                            for (std::int32_t index = 0; g_npc_services[index].service_id != 0xffffffff;
                                  ++index) {
                                 if (g_npc_services[index].service_id ==
-                                    static_cast<unsigned int>(band)) {
+                                    static_cast<std::uint32_t>(band)) {
                                     if ((bound->record->service_flags &
                                          g_npc_services[index].bit) != 0) {
                                         row->npc_bound = true;
@@ -1016,10 +1016,10 @@ void ProcessNpcPendingEvents(void)
    belong to that campaign path. Import 0x4c is Gigas, 0x4b is the bluff, and
    0x4e or neither is the monastery. */
 // FUNCTION: WIZ8 0x005092f0
-void ChooseNewGameStartLocation(int* level, int* entrance)
+void ChooseNewGameStartLocation(std::int32_t* level, std::int32_t* entrance)
 {
-    unsigned char value;
-    int start_level;
+    std::uint8_t value;
+    std::int32_t start_level;
 
     value = GetFact(W8_FACT_VIRGIN);
     if (value != 0) {
@@ -1068,7 +1068,7 @@ static void SelectStartNpcGreeting(void)
     W8Monster* monster;
     W8NpcState* npc;
     W8MonsterInfo* monster_info;
-    unsigned char value;
+    std::uint8_t value;
     srVector3T<float> head;
 
     value = GetFact(W8_FACT_VIRGIN);
@@ -1109,9 +1109,9 @@ static void SelectStartNpcGreeting(void)
 /* New-game start level from the campaign facts InitializeFactState planted.
    Import path 0x4c is level 14, 0x4b is level 6, and 0x4e or neither is 8. */
 // FUNCTION: WIZ8 0x00509750
-int SelectNewGameStartLevel(void)
+std::int32_t SelectNewGameStartLevel(void)
 {
-    unsigned char value;
+    std::uint8_t value;
 
     value = GetFact(W8_FACT_VIRGIN);
     if (value != 0) {
@@ -1150,7 +1150,7 @@ static void DestroyNpcState(W8NpcState* npc)
 // FUNCTION: WIZ8 0x00509920
 void ResetNpcStates(void)
 {
-    unsigned int npc_id;
+    std::uint32_t npc_id;
 
     ReleaseNpcStates();
     for (npc_id = 0; npc_id < gXStatus.uiNpcsInDatabase; ++npc_id) {
@@ -1174,11 +1174,11 @@ void ReleaseNpcStates(void)
 bool SaveNpcStates(wiz8::File& file)
 try
 {
-    unsigned char version = 3;
+    std::uint8_t version = 3;
     W8NpcState* npc;
-    unsigned int count;
-    unsigned int index;
-    int size;
+    std::uint32_t count;
+    std::uint32_t index;
+    std::int32_t size;
 
     file.write(&version, 1);
     count = g_npc_states.size();
@@ -1209,9 +1209,9 @@ try
 {
     for (std::size_t npc_index = 0; npc_index < g_npc_states.size(); ++npc_index) {
         W8NpcState* npc = g_npc_states[npc_index];
-        const unsigned int item_count = npc->items != nullptr ? npc->items->size() : 0;
+        const std::uint32_t item_count = npc->items != nullptr ? npc->items->size() : 0;
         file.write(&item_count, sizeof(item_count));
-        for (unsigned int index = 0; index < item_count; ++index) {
+        for (std::uint32_t index = 0; index < item_count; ++index) {
             auto* entry = (*npc->items)[index];
             file.write(entry, sizeof(*entry));
         }
@@ -1223,11 +1223,11 @@ catch (const std::exception&) { return false; }
 /* Build one runtime NPC state, reusing an unavailable slot or appending a new
    one. Save records and monster bindings refer to these stable slot indices. */
 // FUNCTION: WIZ8 0x00509aa0
-W8NpcState* CreateNpcRuntimeNode(int npc_id)
+W8NpcState* CreateNpcRuntimeNode(std::int32_t npc_id)
 {
     W8NpcState* npc;
     W8NpcState* released;
-    int index;
+    std::int32_t index;
 
     npc = new W8NpcState;
     memset(npc, 0, sizeof(*npc));
@@ -1248,17 +1248,17 @@ W8NpcState* CreateNpcRuntimeNode(int npc_id)
     npc->greeting_pending = true;
     npc->trade_pool = g_npc_records[npc_id].trade_pool;
 
-    for (index = 0; index < static_cast<int>(g_npc_states.size()); ++index) {
+    for (index = 0; index < static_cast<std::int32_t>(g_npc_states.size()); ++index) {
         released = g_npc_states[index];
         if (released != 0 && released->binding_unavailable != 0) {
             g_retired_npc_states.push_back(released);
             g_npc_states[index] = npc;
-            npc->partner_index = static_cast<unsigned char>(index);
+            npc->partner_index = static_cast<std::uint8_t>(index);
             return npc;
         }
     }
     g_npc_states.push_back(npc);
-    npc->partner_index = static_cast<unsigned char>(static_cast<int>(g_npc_states.size()) - 1);
+    npc->partner_index = static_cast<std::uint8_t>(static_cast<std::int32_t>(g_npc_states.size()) - 1);
     return npc;
 }
 
@@ -1266,7 +1266,7 @@ W8NpcState* CreateNpcRuntimeNode(int npc_id)
    database entry allows it. The dialogue path instead finds the existing state
    by its database kind and only refreshes its presence fields. */
 // FUNCTION: WIZ8 0x00509cd0
-void BindNpcToMonster(unsigned char npc_id, bool has_monster, int location_id)
+void BindNpcToMonster(std::uint8_t npc_id, bool has_monster, std::int32_t location_id)
 {
     W8NpcState* npc = 0;
     W8MonsterInfo* monster_info = 0;
@@ -1304,7 +1304,7 @@ void BindNpcToMonster(unsigned char npc_id, bool has_monster, int location_id)
     npc->is_present = has_monster;
     npc->has_monster = true;
     npc->level_band = GetLevelBand(g_status.current_level);
-    npc->bound_level = static_cast<unsigned char>(g_status.current_level);
+    npc->bound_level = static_cast<std::uint8_t>(g_status.current_level);
     ReloadNpcScriptResources(npc);
 }
 
@@ -1317,7 +1317,7 @@ static bool InitializeNpcCharacter(W8NpcState* npc, W8Character* character)
     W8NpcDatabaseRecord* record = npc->record;
     W8NpcCharacterTemplate* source;
     W8ItemInstance item;
-    int index;
+    std::int32_t index;
 
     if (record->has_group == 0) {
         return false;
@@ -1352,14 +1352,14 @@ static bool InitializeNpcCharacter(W8NpcState* npc, W8Character* character)
     }
     for (index = 0; index < 12; ++index) {
         if (source->equipment_present[index] != 0 && source->equipment_ids[index] != 0xffff) {
-            ReplaceOrCreateItem(&item, static_cast<short>(source->equipment_ids[index]), true, true,
+            ReplaceOrCreateItem(&item, static_cast<std::int16_t>(source->equipment_ids[index]), true, true,
                                 false);
             character->EquippedItem[index] = item;
         }
     }
     for (index = 0; index < 8; ++index) {
         if (source->backpack_present[index] != 0 && source->backpack_ids[index] != 0xffff) {
-            ReplaceOrCreateItem(&item, static_cast<short>(source->backpack_ids[index]), true, true,
+            ReplaceOrCreateItem(&item, static_cast<std::int16_t>(source->backpack_ids[index]), true, true,
                                 false);
             character->backpack[index] = item;
         }
@@ -1392,10 +1392,10 @@ static bool InitializeNpcCharacter(W8NpcState* npc, W8Character* character)
 // FUNCTION: WIZ8 0x0050b9e0
 static void InitializeNpcItemTable(W8NpcState* npc)
 {
-    unsigned int index;
+    std::uint32_t index;
 
     memset(npc->item_ids, 0xff, sizeof(npc->item_ids));
-    if (npc->record->item_table_id >= static_cast<int>(gXStatus.uiItemTablesInDatabase)) {
+    if (npc->record->item_table_id >= static_cast<std::int32_t>(gXStatus.uiItemTablesInDatabase)) {
         return;
     }
     if (npc->record->item_table_id == 0) {
@@ -1414,7 +1414,7 @@ static void InitializeNpcItemTable(W8NpcState* npc)
 
 /* Release the monster binding and script held by an active NPC slot. */
 // FUNCTION: WIZ8 0x00509EA0
-void ReleaseNpcBinding(int value)
+void ReleaseNpcBinding(std::int32_t value)
 {
     auto* npc = GetNpcState(value);
     if (!npc) return;
@@ -1442,11 +1442,11 @@ void ReleaseNpcBinding(int value)
 // FUNCTION: WIZ8 0x00509FC0
 void LoadNpcStates(wiz8::File& file)
 {
-    unsigned char version = 3;
-    unsigned int count;
-    unsigned int loaded;
-    unsigned int npc_id;
-    unsigned int size;
+    std::uint8_t version = 3;
+    std::uint32_t count;
+    std::uint32_t loaded;
+    std::uint32_t npc_id;
+    std::uint32_t size;
     W8NpcState* npc;
 
     struct StateRollback {
@@ -1460,7 +1460,7 @@ void LoadNpcStates(wiz8::File& file)
     } rollback;
     file.read_exact(&version, 1);
     file.read_exact(&count, 4);
-    if (count > static_cast<unsigned int>(std::numeric_limits<int>::max()) ||
+    if (count > static_cast<std::uint32_t>(std::numeric_limits<std::int32_t>::max()) ||
         count > (file.size() - file.tell()) / sizeof(wiz8::retail::NpcState)) {
         throw std::runtime_error("invalid NPC state count");
     }
@@ -1469,12 +1469,12 @@ void LoadNpcStates(wiz8::File& file)
         const bool has_character = image.character != 0;
         W8NpcState disk_state;
         wiz8::retail::decode_image(image, disk_state);
-        const unsigned int record_id = disk_state.name_style == 0 ? loaded : disk_state.name_style;
+        const std::uint32_t record_id = disk_state.name_style == 0 ? loaded : disk_state.name_style;
         if (record_id >= gXStatus.uiNpcsInDatabase ||
-            record_id > std::numeric_limits<unsigned char>::max()) {
+            record_id > std::numeric_limits<std::uint8_t>::max()) {
             throw std::runtime_error("invalid NPC database index");
         }
-        disk_state.name_style = static_cast<unsigned char>(record_id);
+        disk_state.name_style = static_cast<std::uint8_t>(record_id);
         disk_state.record = &g_npc_records[record_id];
         std::unique_ptr<W8NpcState, decltype(&DestroyNpcState)> owner(
             new W8NpcState(disk_state), DestroyNpcState);
@@ -1490,7 +1490,7 @@ void LoadNpcStates(wiz8::File& file)
             npc->character = character.get();
             (void)character.release();
         }
-        npc->partner_index = static_cast<int>(g_npc_states.size());
+        npc->partner_index = static_cast<std::int32_t>(g_npc_states.size());
         g_npc_states.push_back(npc);
         (void)owner.release();
     }
@@ -1540,9 +1540,9 @@ try
     std::vector<ItemListOwner> pending;
     pending.reserve(g_npc_states.size());
     for (std::size_t npc_index = 0; npc_index < g_npc_states.size(); ++npc_index) {
-        unsigned int item_count;
+        std::uint32_t item_count;
         file.read_exact(&item_count, sizeof(item_count));
-        if (item_count > static_cast<unsigned int>(std::numeric_limits<int>::max()) ||
+        if (item_count > static_cast<std::uint32_t>(std::numeric_limits<std::int32_t>::max()) ||
             item_count > (file.size() - file.tell()) / sizeof(W8NpcItemEntry)) {
             return false;
         }
@@ -1550,7 +1550,7 @@ try
         if (item_count != 0) {
             items.reset(new std::vector<W8NpcItemEntry*>);
             items->reserve(item_count);
-            for (unsigned int index = 0; index < item_count; ++index) {
+            for (std::uint32_t index = 0; index < item_count; ++index) {
                 auto entry = std::make_unique<W8NpcItemEntry>();
                 file.read_exact(entry.get(), sizeof(*entry));
                 items->push_back(entry.get());
@@ -1606,9 +1606,9 @@ W8NpcState* GetNpcStateForMonsterInfo(W8MonsterInfo* monster_info, bool allow_un
     return 0;
 }
 
-static void AdjustNpcDisposition(W8NpcState* npc, signed char delta)
+static void AdjustNpcDisposition(W8NpcState* npc, std::int8_t delta)
 {
-    int sum = npc->disposition + delta;
+    std::int32_t sum = npc->disposition + delta;
     if (sum > 99) {
         npc->disposition = 99;
     } else if (sum < 0) {
@@ -1618,14 +1618,14 @@ static void AdjustNpcDisposition(W8NpcState* npc, signed char delta)
     }
 }
 
-static void DebitNpcTradePool(W8NpcState* npc, unsigned int price)
+static void DebitNpcTradePool(W8NpcState* npc, std::uint32_t price)
 {
-    int level = static_cast<int>(GetBestPartySkillLevel(W8_SKILL_COMMUNICATION, 0));
-    unsigned int adjusted = price + level * (static_cast<int>(price & 0xffff) / 5) / 100;
-    if (static_cast<int>(npc->trade_pool - (adjusted & 0xffff)) < 0) {
+    std::int32_t level = static_cast<std::int32_t>(GetBestPartySkillLevel(W8_SKILL_COMMUNICATION, 0));
+    std::uint32_t adjusted = price + level * (static_cast<std::int32_t>(price & 0xffff) / 5) / 100;
+    if (static_cast<std::int32_t>(npc->trade_pool - (adjusted & 0xffff)) < 0) {
         npc->trade_pool = 0;
     } else {
-        npc->trade_pool = static_cast<unsigned short>(npc->trade_pool - adjusted);
+        npc->trade_pool = static_cast<std::uint16_t>(npc->trade_pool - adjusted);
     }
     if (npc->trade_pool != 0) {
         return;
@@ -1651,27 +1651,27 @@ static void DebitNpcTradePool(W8NpcState* npc, unsigned int price)
    argument's stack slot as the best-skill out-parameter; kind 2 and 3 fall
    into the shared disposition refresh at the tail. */
 // FUNCTION: WIZ8 0x0050A570
-void ApplyNpcInteraction(W8NpcState* npc, int kind, int value, W8ItemInstance* item,
-                         unsigned int gold)
+void ApplyNpcInteraction(W8NpcState* npc, std::int32_t kind, std::int32_t value, W8ItemInstance* item,
+                         std::uint32_t gold)
 {
     switch (static_cast<char>(kind)) {
     case 0: {
-        int scale = npc->record->talk_scale;
-        int quotient;
-        int level;
-        int delta;
+        std::int32_t scale = npc->record->talk_scale;
+        std::int32_t quotient;
+        std::int32_t level;
+        std::int32_t delta;
 
         npc->talk_cooldown_active = true;
         npc->talk_cooldown_clock = g_status.world_clock;
         if (scale < 1) {
-            level = static_cast<int>(GetBestPartySkillLevel(W8_SKILL_COMMUNICATION, &kind));
+            level = static_cast<std::int32_t>(GetBestPartySkillLevel(W8_SKILL_COMMUNICATION, &kind));
             quotient = -scale / 5;
         } else {
-            level = static_cast<int>(GetBestPartySkillLevel(W8_SKILL_COMMUNICATION, &kind));
+            level = static_cast<std::int32_t>(GetBestPartySkillLevel(W8_SKILL_COMMUNICATION, &kind));
             quotient = scale / 5;
         }
         delta = scale + level * quotient / 100;
-        AdjustNpcDisposition(npc, static_cast<signed char>(delta));
+        AdjustNpcDisposition(npc, static_cast<std::int8_t>(delta));
         PracticeCharacterSkill(&g_status.buffers.Char[kind], W8_SKILL_COMMUNICATION, 8, false);
         GetNpcDisposition(npc);
         return;
@@ -1679,15 +1679,15 @@ void ApplyNpcInteraction(W8NpcState* npc, int kind, int value, W8ItemInstance* i
     case 1: {
         W8MonsterInfo* monster_info;
         W8MonsterRecord* monster_record;
-        unsigned int monster_level;
-        unsigned int total_level = 0;
-        unsigned int count = 0;
-        unsigned int average_level;
-        int scale;
-        int quotient;
-        int level;
-        int delta;
-        int index;
+        std::uint32_t monster_level;
+        std::uint32_t total_level = 0;
+        std::uint32_t count = 0;
+        std::uint32_t average_level;
+        std::int32_t scale;
+        std::int32_t quotient;
+        std::int32_t level;
+        std::int32_t delta;
+        std::int32_t index;
 
         npc->trade_cooldown_active = true;
         npc->trade_cooldown_clock = g_status.world_clock;
@@ -1716,23 +1716,23 @@ void ApplyNpcInteraction(W8NpcState* npc, int kind, int value, W8ItemInstance* i
         }
         scale = npc->record->charm_scale;
         if (scale < 1) {
-            level = static_cast<int>(GetBestPartySkillLevel(W8_SKILL_COMMUNICATION, &value));
+            level = static_cast<std::int32_t>(GetBestPartySkillLevel(W8_SKILL_COMMUNICATION, &value));
             quotient = -scale / 5;
         } else {
-            level = static_cast<int>(GetBestPartySkillLevel(W8_SKILL_COMMUNICATION, &value));
+            level = static_cast<std::int32_t>(GetBestPartySkillLevel(W8_SKILL_COMMUNICATION, &value));
             quotient = scale / 5;
         }
         delta = scale + level * quotient / 100;
         if (delta > 0) {
-            delta = static_cast<int>(average_level * delta / monster_level);
+            delta = static_cast<std::int32_t>(average_level * delta / monster_level);
         }
-        AdjustNpcDisposition(npc, static_cast<signed char>(delta));
+        AdjustNpcDisposition(npc, static_cast<std::int8_t>(delta));
         PracticeCharacterSkill(&g_status.buffers.Char[value], W8_SKILL_COMMUNICATION, 5, false);
         GetNpcDisposition(npc);
         return;
     }
     case 4: {
-        AdjustNpcDisposition(npc, static_cast<signed char>(gold));
+        AdjustNpcDisposition(npc, static_cast<std::int8_t>(gold));
         GetNpcDisposition(npc);
         return;
     }
@@ -1742,7 +1742,7 @@ void ApplyNpcInteraction(W8NpcState* npc, int kind, int value, W8ItemInstance* i
         break;
     }
     case 3: {
-        unsigned int price = GetItemStackValue(item);
+        std::uint32_t price = GetItemStackValue(item);
         DebitNpcTradePool(npc, price);
         break;
     }
@@ -1759,37 +1759,37 @@ void ApplyNpcInteraction(W8NpcState* npc, int kind, int value, W8ItemInstance* i
    item is offered - its weight and price penalties, all scaled by the
    character's difficulty. */
 // FUNCTION: WIZ8 0x0050BAF0
-static char ScoreNpcTheft(W8Character* character, W8NpcState* npc, int item_id, int count)
+static char ScoreNpcTheft(W8Character* character, W8NpcState* npc, std::int32_t item_id, std::int32_t count)
 {
     W8ItemInstance item;
-    int score;
+    std::int32_t score;
 
-    unsigned int skill = character->skills[W8_SKILL_PICKPOCKET].level;
+    std::uint32_t skill = character->skills[W8_SKILL_PICKPOCKET].level;
     if (character->iProfession == W8_PROFESSION_ROGUE) {
         skill += character->attributes[W8_ATTRIBUTE_DEXTERITY].effective / 10;
-    } else if (static_cast<int>(skill) >= 1) {
+    } else if (static_cast<std::int32_t>(skill) >= 1) {
         skill += character->attributes[W8_ATTRIBUTE_DEXTERITY].effective / 0x14;
     }
     score = skill + (GetNpcDisposition(npc) - 0x32) / 4;
-    score -= (Random(5) + 10) * static_cast<signed char>(npc->suspicion);
+    score -= (Random(5) + 10) * static_cast<std::int8_t>(npc->suspicion);
     W8MonsterInfo* monster_info = GetNpcMonsterInfo(npc);
     W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
-    unsigned int penalty = character->skills[W8_SKILL_PICKPOCKET].level >> 2;
+    std::uint32_t penalty = character->skills[W8_SKILL_PICKPOCKET].level >> 2;
     score += (character->uiExpLevel - record->effective_level) * 5;
     if (item_id != -1) {
-        unsigned int weight = g_item_records[item_id].weight * count;
+        std::uint32_t weight = g_item_records[item_id].weight * count;
         ReplaceOrCreateItem(&item, item_id, false, false, false);
-        item.stack_count = static_cast<unsigned char>(count);
+        item.stack_count = static_cast<std::uint8_t>(count);
         penalty = penalty - weight / 10 - GetItemStackValue(&item) / 100;
     }
-    if (static_cast<int>(penalty) > 0) {
+    if (static_cast<std::int32_t>(penalty) > 0) {
         penalty = 0;
     }
     score += penalty;
-    unsigned int slot = CharacterPointerToPartySlot(character);
+    std::uint32_t slot = CharacterPointerToPartySlot(character);
     ScaleValueForCharacterDifficulty(slot, &score);
-    unsigned int result = score < 0 ? 0 : score;
-    if (static_cast<int>(result) > 0x7e) {
+    std::uint32_t result = score < 0 ? 0 : score;
+    if (static_cast<std::int32_t>(result) > 0x7e) {
         result = 0x7f;
     }
     return result;
@@ -1797,10 +1797,10 @@ static char ScoreNpcTheft(W8Character* character, W8NpcState* npc, int item_id, 
 
 static void SeedNpcTheftRoll(W8Character* character, W8NpcState* npc)
 {
-    int spins = CharacterPointerToPartySlot(character) + npc->name_style * 0xb +
-                static_cast<signed char>(npc->suspicion) * 7;
-    unsigned int seed = 0;
-    for (int index = 2; index < 8; ++index) {
+    std::int32_t spins = CharacterPointerToPartySlot(character) + npc->name_style * 0xb +
+                static_cast<std::int8_t>(npc->suspicion) * 7;
+    std::uint32_t seed = 0;
+    for (std::int32_t index = 2; index < 8; ++index) {
         if (g_status.buffers.XChar[index].fOccupied) {
             seed += g_status.buffers.Char[index].experience;
         }
@@ -1817,16 +1817,16 @@ static void SeedNpcTheftRoll(W8Character* character, W8NpcState* npc)
    Results: 0 item taken, 1 gold taken, 2 refused, 3 caught, 4 nothing left. */
 // FUNCTION: WIZ8 0x0050BC90
 W8NpcPickpocketResult AttemptNpcPickpocket(W8Character* character, W8NpcState* npc,
-                                           W8ItemInstance* item_out, unsigned int* gold_out)
+                                           W8ItemInstance* item_out, std::uint32_t* gold_out)
 {
     bool empty_pick = false;
-    std::vector<int> candidates;
-    unsigned int picked = 0xffffffff;
-    int index;
+    std::vector<std::int32_t> candidates;
+    std::uint32_t picked = 0xffffffff;
+    std::int32_t index;
 
     SeedNpcTheftRoll(character, npc);
     for (index = 0; index < 40; ++index) {
-        short item_id = npc->item_ids[index];
+        std::int16_t item_id = npc->item_ids[index];
         if (item_id != -1 && item_id != 0x242 && item_id != 0x244 && item_id != 0x243) {
             candidates.push_back(index);
         }
@@ -1837,11 +1837,11 @@ W8NpcPickpocketResult AttemptNpcPickpocket(W8Character* character, W8NpcState* n
         score = ScoreNpcTheft(character, npc, -1, 0);
     } else {
         W8ItemInstance item;
-        picked = candidates[Random(static_cast<int>(candidates.size()))];
+        picked = candidates[Random(static_cast<std::int32_t>(candidates.size()))];
         ReplaceOrCreateItem(&item, npc->item_ids[picked], true, true, false);
         score = ScoreNpcTheft(character, npc, item.iItemNo, 1);
     }
-    if (static_cast<signed char>(npc->suspicion) < 'd') {
+    if (static_cast<std::int8_t>(npc->suspicion) < 'd') {
         ++npc->suspicion;
     }
     char roll = static_cast<char>(Random(100));
@@ -1854,8 +1854,8 @@ W8NpcPickpocketResult AttemptNpcPickpocket(W8Character* character, W8NpcState* n
     if (empty_pick) {
         if (npc->gold != 0) {
             PracticeCharacterSkill(character, W8_SKILL_PICKPOCKET, 5, false);
-            unsigned int taken = Random(100) * 7;
-            if (static_cast<unsigned int>(npc->gold) < taken) {
+            std::uint32_t taken = Random(100) * 7;
+            if (static_cast<std::uint32_t>(npc->gold) < taken) {
                 taken = npc->gold;
             }
             npc->gold -= taken;
@@ -1873,7 +1873,7 @@ W8NpcPickpocketResult AttemptNpcPickpocket(W8Character* character, W8NpcState* n
     if (npc == 0) {
         srAssertFail("npc", __FILE__, __LINE__, 0);
     }
-    short item_id = npc->item_ids[picked & 0xff];
+    std::int16_t item_id = npc->item_ids[picked & 0xff];
     if (item_id != -1) {
         if (item_out != 0) {
             ReplaceOrCreateItem(item_out, item_id, true, true, false);
@@ -1887,11 +1887,11 @@ W8NpcPickpocketResult AttemptNpcPickpocket(W8Character* character, W8NpcState* n
 /* The trade-screen steal of one offered item, scored by the same pickpocket
    roll: 0 takes it (and practices the skill), 1 is refused, 2 is caught. */
 // FUNCTION: WIZ8 0x0050C040
-char AttemptNpcItemTheft(W8Character* character, W8NpcState* npc, int item_id, int count)
+char AttemptNpcItemTheft(W8Character* character, W8NpcState* npc, std::int32_t item_id, std::int32_t count)
 {
     SeedNpcTheftRoll(character, npc);
     char score = ScoreNpcTheft(character, npc, item_id, count);
-    if (static_cast<signed char>(npc->suspicion) < 'd') {
+    if (static_cast<std::int8_t>(npc->suspicion) < 'd') {
         ++npc->suspicion;
     }
     char roll = static_cast<char>(Random(100));
@@ -1911,7 +1911,7 @@ const float g_targeting_quarter_pi = 0.7853981256484985f;
 /* Probe the navigator from the party eye at three height bands, reporting
    whether any band reaches. */
 // FUNCTION: WIZ8 0x0050B2F0
-static bool ProbeNpcPlacementNearParty(int /*party_slot*/, int /*mode*/, srVector3T<float>* position_out)
+static bool ProbeNpcPlacementNearParty(std::int32_t /*party_slot*/, std::int32_t /*mode*/, srVector3T<float>* position_out)
 {
     srVector3T<float> party_position;
     float yaw;
@@ -1919,7 +1919,7 @@ static bool ProbeNpcPlacementNearParty(int /*party_slot*/, int /*mode*/, srVecto
     party_position = cameraLocation();
     party_position.y -= g_default_world_height;
     yaw = GetCameraYawRadians() + g_targeting_quarter_pi;
-    for (const int mode : {10, 20, 30}) {
+    for (const std::int32_t mode : {10, 20, 30}) {
         const auto placement = g_octree->navigatorPositions(party_position.glmValue(), yaw,
             1000.0f, 1, true, false, true, mode, false);
         party_position = placement.source;
@@ -1967,10 +1967,10 @@ void UpdateNpcEvents(void)
     W8MonsterGroup* group;
     W8MonsterInfo* monster_info;
     W8NpcState* npc;
-    unsigned int index;
+    std::uint32_t index;
 
     if (g_status.trang_check_pending &&
-        static_cast<unsigned int>(g_status.world_clock - g_status.trang_check_clock) > 0x2a30) {
+        static_cast<std::uint32_t>(g_status.world_clock - g_status.trang_check_clock) > 0x2a30) {
         if (GetFact(W8_FACT_ALIGNMENT_UMPANI) != 0 && Random(100) < 6) {
             SetFact(W8_FACT_TRANG_YOU_ARE_BUSTED, 1, false);
         }
@@ -1979,17 +1979,17 @@ void UpdateNpcEvents(void)
     /* The ticks live in the serialized status block at 32 bits wide, so the
        elapsed check stays a wrap-tolerant 32-bit difference. */
     if (g_status.savant_hack_tick != 0 &&
-        int32_t(uint32_t(w8_get_ticks()) - uint32_t(g_status.savant_hack_tick)) > 0x32) {
+        std::int32_t(std::uint32_t(w8_get_ticks()) - std::uint32_t(g_status.savant_hack_tick)) > 0x32) {
         group = FindFirstMonsterByID(0x1b3);
         if (group != 0) {
             monster_info = FindMonster(group->leader_location_id);
             MonsterStartsDying(monster_info, true);
         }
         g_status.savant_hack_tick = 0;
-        g_status.bela_cycle_tick = int(uint32_t(w8_get_ticks()));
+        g_status.bela_cycle_tick = std::int32_t(std::uint32_t(w8_get_ticks()));
     }
     if (g_status.bela_cycle_tick != 0 &&
-        int32_t(uint32_t(w8_get_ticks()) - uint32_t(g_status.bela_cycle_tick)) > 0x1388) {
+        std::int32_t(std::uint32_t(w8_get_ticks()) - std::uint32_t(g_status.bela_cycle_tick)) > 0x1388) {
         group = FindFirstMonsterByID(0x1b6);
         if (group != 0) {
             monster_info = FindMonster(group->leader_location_id);
@@ -2002,17 +2002,17 @@ void UpdateNpcEvents(void)
     if (g_status.npc_restore_pending) {
         W8NpcState* partner = 0;
 
-        for (int slot = 0; slot < static_cast<int>(g_npc_states.size()); ++slot) {
+        for (std::int32_t slot = 0; slot < static_cast<std::int32_t>(g_npc_states.size()); ++slot) {
             npc = g_npc_states[slot];
             if (npc->binding_unavailable != 0 || !npc->restored) {
                 g_status.npc_restore_pending = false;
                 continue;
             }
-            unsigned int kind = npc->name_style;
+            std::uint32_t kind = npc->name_style;
 
             partner = 0;
             for (W8NpcState* candidate : g_npc_states) {
-                if (static_cast<unsigned int>(candidate->record->kind) == kind) {
+                if (static_cast<std::uint32_t>(candidate->record->kind) == kind) {
                     partner = candidate;
                     break;
                 }
@@ -2038,7 +2038,7 @@ void UpdateNpcEvents(void)
         if (!run_event) {
             for (W8NpcState* candidate : g_npc_states) {
                 if (candidate->record->kind == 99) {
-                    if (candidate != 0 && static_cast<unsigned char>(candidate->spawned) != 0) {
+                    if (candidate != 0 && static_cast<std::uint8_t>(candidate->spawned) != 0) {
                         run_event = true;
                     }
                     break;
@@ -2060,7 +2060,7 @@ void UpdateNpcEvents(void)
     }
 
     if (!gXStatus.fSurprisePossible) {
-        for (int slot = 0; slot < 2; ++slot) {
+        for (std::int32_t slot = 0; slot < 2; ++slot) {
             W8PartySlotRow* row = &g_status.buffers.XChar[slot];
             W8Character* character = &g_status.buffers.Char[slot];
 
@@ -2070,7 +2070,7 @@ void UpdateNpcEvents(void)
                     if (Random(2) == 0) {
                         npc_state->event_clock = g_status.world_clock + Random(6) * 0x3c;
                     } else {
-                        int event = Random(2) == 0 ? 0x57 : 0x58;
+                        std::int32_t event = Random(2) == 0 ? 0x57 : 0x58;
                         QueueCharacterEvent(character, event, 0, g_character_event_no_flags,
                                             g_character_event_full_volume);
                         npc_state->event_clock = g_status.world_clock;
@@ -2081,7 +2081,7 @@ void UpdateNpcEvents(void)
     }
 
     if (g_status.fact_b8_pending &&
-        static_cast<unsigned int>(g_status.world_clock - g_status.fact_b8_clock) > 0x2a300) {
+        static_cast<std::uint32_t>(g_status.world_clock - g_status.fact_b8_clock) > 0x2a300) {
         g_status.fact_b8_pending = false;
         SetFact(W8_FACT_MOOK_CHAOS_STOLEN, 1, false);
     }
@@ -2102,7 +2102,7 @@ void ResetNpcBindingsForParty(void)
 {
     g_status.binding_reset_clock = g_status.world_clock;
     g_status.binding_reset_pending = true;
-    for (int party_slot = 0; party_slot < 2; ++party_slot) {
+    for (std::int32_t party_slot = 0; party_slot < 2; ++party_slot) {
         W8PartySlotRow* row = &g_status.buffers.XChar[party_slot];
         W8Character* character = &g_status.buffers.Char[party_slot];
 
@@ -2120,7 +2120,7 @@ void ResetNpcBindingsForParty(void)
 // FUNCTION: WIZ8 0x0050dbf0
 void ApplyBoundNpcPenalty(W8Character* character, W8GameplayModifierBlock* target)
 {
-    unsigned int index;
+    std::uint32_t index;
 
     if (g_status.buffers.XChar[CharacterPointerToPartySlot(character)].npc_bound == 0) {
         return;
@@ -2137,7 +2137,7 @@ void ApplyBoundNpcPenalty(W8Character* character, W8GameplayModifierBlock* targe
    for the level-entry pass. The runtime node is created when no state for the
    record kind exists. */
 // FUNCTION: WIZ8 0x0050C1C0
-void RestoreNamedNpcAtLevel(int kind, char level, std::string_view entity_name)
+void RestoreNamedNpcAtLevel(std::int32_t kind, char level, std::string_view entity_name)
 {
     auto* npc = GetNpcStateByKind(kind);
     if (npc == 0) {
@@ -2220,7 +2220,7 @@ void ReleaseNpcMonsterBinding(W8NpcState* npc, char level)
    its live monster is destroyed and the partner node its index names gets its
    binding handed back. */
 // FUNCTION: WIZ8 0x0050C680
-void ReleaseNpcMonsterByKind(int kind)
+void ReleaseNpcMonsterByKind(std::int32_t kind)
 {
     W8NpcState* npc = GetNpcStateByKind(kind);
     ReleaseNpcCompanionMonster(npc);
@@ -2238,7 +2238,7 @@ static bool RestoreNpcMonster(W8NpcState* npc, const char* entity_name)
 
     if (!npc->has_monster) {
         W8MonsterRecord* records = 0;
-        unsigned int index = 0;
+        std::uint32_t index = 0;
 
         LoadMonsterDatabase(&records);
         if (gXStatus.uiMonstersInDatabase != 0) {
@@ -2415,7 +2415,7 @@ bool NotifyNpcTriggerActivation(Trigger* trigger)
 // FUNCTION: WIZ8 0x0050ac60
 void RebindNpcLevelTriggers(void)
 {
-    unsigned int npc_index;
+    std::uint32_t npc_index;
 
     for (std::size_t index = 0; index < g_npc_states.size(); ++index) {
         auto* npc = g_npc_states[index];
@@ -2430,7 +2430,7 @@ void RebindNpcLevelTriggers(void)
         }
     }
 
-    for (npc_index = 0; npc_index < static_cast<unsigned int>(static_cast<int>(g_npc_states.size()));
+    for (npc_index = 0; npc_index < static_cast<std::uint32_t>(static_cast<std::int32_t>(g_npc_states.size()));
          ++npc_index) {
         W8NpcState* npc = g_npc_states[npc_index];
         std::string trigger_name;
@@ -2441,10 +2441,10 @@ void RebindNpcLevelTriggers(void)
 
             if (trigger != 0) {
                 trigger->activation_callback = NotifyNpcTriggerActivation;
-                trigger->m_lData1 = static_cast<int>(npc_index);
+                trigger->m_lData1 = static_cast<std::int32_t>(npc_index);
                 npc->has_monster = true;
-                npc->level_band = static_cast<unsigned char>(GetLevelBand(g_status.current_level));
-                npc->bound_level = static_cast<unsigned char>(g_status.current_level);
+                npc->level_band = static_cast<std::uint8_t>(GetLevelBand(g_status.current_level));
+                npc->bound_level = static_cast<std::uint8_t>(g_status.current_level);
                 ReloadNpcScriptResources(npc);
                 npc->is_present = false;
             }
@@ -2456,12 +2456,12 @@ void RebindNpcLevelTriggers(void)
    item into `out` first - the scheduled-stock handoff the pickpocket and trade
    resolutions run. */
 // FUNCTION: WIZ8 0x0050BA80
-bool ClearNpcScheduledItem(W8NpcState* npc, int item_id, W8ItemInstance* out)
+bool ClearNpcScheduledItem(W8NpcState* npc, std::int32_t item_id, W8ItemInstance* out)
 {
     if (npc == 0) {
         srAssertFail("npc", __FILE__, __LINE__, 0);
     }
-    for (int index = 0; index < 40; ++index) {
+    for (std::int32_t index = 0; index < 40; ++index) {
         if (npc->item_ids[index] == item_id) {
             if (out != 0) {
                 ReplaceOrCreateItem(out, npc->item_ids[index], true, true, false);
@@ -2473,7 +2473,7 @@ bool ClearNpcScheduledItem(W8NpcState* npc, int item_id, W8ItemInstance* out)
     return false;
 }
 
-static bool HasHealthyNpcPartner(unsigned char kind)
+static bool HasHealthyNpcPartner(std::uint8_t kind)
 {
     if (g_status.buffers.XChar[0].fOccupied) {
         W8NpcState* lead = GetNpcState(g_status.buffers.XChar[0].npc_index);
@@ -2498,11 +2498,11 @@ static bool HasHealthyNpcPartner(unsigned char kind)
    healthy partner does the same. Any queued event raises the travel-confirm
    message and resets the level data vectors. */
 // FUNCTION: WIZ8 0x0050DEC0
-bool QueueNpcDepartureEvents(int destination_level)
+bool QueueNpcDepartureEvents(std::int32_t destination_level)
 {
     bool queued = false;
 
-    for (int slot = 0; slot < 2; ++slot) {
+    for (std::int32_t slot = 0; slot < 2; ++slot) {
         W8PartySlotRow* row = &g_status.buffers.XChar[slot];
         W8Character* character = &g_status.buffers.Char[slot];
 
@@ -2513,18 +2513,18 @@ bool QueueNpcDepartureEvents(int destination_level)
         if (character->highest_condition >= W8_CONDITION_ASLEEP) {
             continue;
         }
-        int service = 0;
+        std::int32_t service = 0;
         if (g_npc_services[0].service_id != 0xffffffff) {
             while (g_npc_services[service].service_id != 0xffffffff) {
                 if (g_npc_services[service].service_id ==
-                    static_cast<unsigned int>(GetLevelBand(destination_level))) {
+                    static_cast<std::uint32_t>(GetLevelBand(destination_level))) {
                     if ((npc->record->service_flags & g_npc_services[service].bit) != 0) {
-                        int other = 0;
+                        std::int32_t other = 0;
                         bool serves_here = false;
                         if (g_npc_services[0].service_id != 0xffffffff) {
                             while (g_npc_services[other].service_id != 0xffffffff) {
                                 if (g_npc_services[other].service_id ==
-                                    static_cast<unsigned int>(
+                                    static_cast<std::uint32_t>(
                                         GetLevelBand(g_status.current_level))) {
                                     if ((npc->record->service_flags & g_npc_services[other].bit) !=
                                         0) {
@@ -2536,11 +2536,11 @@ bool QueueNpcDepartureEvents(int destination_level)
                             }
                         }
                         if (!serves_here) {
-                            int departure = 0;
+                            std::int32_t departure = 0;
                             if (g_npc_services[0].service_id != 0xffffffff) {
                                 while (g_npc_services[departure].service_id != 0xffffffff) {
                                     if (g_npc_services[departure].service_id ==
-                                        static_cast<unsigned int>(
+                                        static_cast<std::uint32_t>(
                                             GetLevelBand(destination_level))) {
                                         QueueCharacterEvent(character,
                                                             g_npc_services[departure].npc_id, 0,
@@ -2560,7 +2560,7 @@ bool QueueNpcDepartureEvents(int destination_level)
             }
         }
         if (GetLevelBand(g_status.current_level) == 0xd) {
-            int event = 0;
+            std::int32_t event = 0;
             if (npc->name_style == W8_NPC_RODAN) {
                 bool paired = HasHealthyNpcPartner(W8_NPC_DRAZIC);
                 if (!paired) {
@@ -2590,10 +2590,10 @@ bool QueueNpcDepartureEvents(int destination_level)
    serves the destination region speaks the group-action line, and a Rodan or
    Drazic whose healthy partner is not also in the party does the same. */
 // FUNCTION: WIZ8 0x0050E230
-void QueueNpcTravelRefusals(int destination_level)
+void QueueNpcTravelRefusals(std::int32_t destination_level)
 {
     ClearLevelMovementStopped();
-    for (int slot = 0; slot < 2; ++slot) {
+    for (std::int32_t slot = 0; slot < 2; ++slot) {
         W8PartySlotRow* row = &g_status.buffers.XChar[slot];
         W8Character* character = &g_status.buffers.Char[slot];
 
@@ -2630,10 +2630,10 @@ void QueueNpcTravelRefusals(int destination_level)
    twice. The npc null check is the original's own dead assert: the pointer
    was already dereferenced by the scan. */
 // FUNCTION: WIZ8 0x0050E4B0
-void ClearNpcItemId(W8NpcState* npc, int item_id)
+void ClearNpcItemId(W8NpcState* npc, std::int32_t item_id)
 {
-    int index;
-    unsigned char slot;
+    std::int32_t index;
+    std::uint8_t slot;
 
     for (index = 0; index < 40; ++index) {
         if (npc->item_ids[index] == item_id) {

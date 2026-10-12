@@ -1,6 +1,7 @@
 #ifndef WIZ8_LAYOUTS_GAMEPLAY_DATABASES_H
 #define WIZ8_LAYOUTS_GAMEPLAY_DATABASES_H
 
+#include <cstdint>
 #include <string>
 #include <vector>
 struct W8NpcItemStockRule;
@@ -87,29 +88,29 @@ enum { W8_MAX_MONSTER_ATTACKS = 3 };
    attack block. */
 #pragma pack(push, 1)
 struct W8MonsterAttack {
-    unsigned char fHasAttack; /* Retail offset 0x00 */
+    std::uint8_t fHasAttack; /* Retail offset 0x00 */
     /* Retail offset 0x01: indexes the announcement verb table; must not be
        MON_WEAPON_NAME_UNARMED. */
-    unsigned char ubWeaponNameIndex;
+    std::uint8_t ubWeaponNameIndex;
     /* Retail offset 0x02: the weapon type; the announcement reports "weapon type is NONE"
        when it is zero. */
-    unsigned char weapon_type;
-    unsigned char range_category; /* Retail offset 0x03 */
+    std::uint8_t weapon_type;
+    std::uint8_t range_category; /* Retail offset 0x03 */
     /* Retail offset 0x04: the attack's innate attack-score value; the monster score formula
        adds it alongside the modifier hit bonus and re-reads it inside the
        surprise repick penalty. */
-    unsigned char attack_score;
-    unsigned char missile_values[W8_ATTACK_EFFECT_COUNT]; /* Retail offset 0x05 */
-    unsigned short attack_modes;                          /* Retail offset 0x15 */
+    std::uint8_t attack_score;
+    std::uint8_t missile_values[W8_ATTACK_EFFECT_COUNT]; /* Retail offset 0x05 */
+    std::uint16_t attack_modes;                          /* Retail offset 0x15 */
     /* Retail offset 0x17: the attack's damage dice, packed; the missile path copies it
        into the attack block and the melee path rolls it. */
     W8Dice damage_dice;
-    unsigned char missile_magnitude;
+    std::uint8_t missile_magnitude;
     /* Retail offset 0x1c: the attack's weapon class, handed signed to BlockedForSpecialReason
        the way a character's weapon_sound_class is. */
-    signed char weapon_class;
-    signed char missile_type; /* Retail offset 0x1d */
-    unsigned char unknown_1e[4];
+    std::int8_t weapon_class;
+    std::int8_t missile_type; /* Retail offset 0x1d */
+    std::uint8_t unknown_1e[4];
 };
 #pragma pack(pop) /* Retail offset 0x22 */
 
@@ -194,27 +195,27 @@ enum W8SpellTargetType {
 /* One spell, as the database holds it at run time. */
 struct W8SpellRuntimeRecord {
     std::string database_name; /* Retail offset 0x000 */
-    unsigned char unknown_040[4];
+    std::uint8_t unknown_040[4];
     /* Retail offset 0x044: base duration the spell-info dialog prints. */
-    int duration;
-    unsigned char alchemy_spell; /* Retail offset 0x048 */
-    int spell_point_cost;        /* Retail offset 0x049: per power level */
+    std::int32_t duration;
+    std::uint8_t alchemy_spell; /* Retail offset 0x048 */
+    std::int32_t spell_point_cost;        /* Retail offset 0x049: per power level */
     /* Retail offset 0x04d: per-level duration added to duration on the same line. */
-    int duration_per_level;
+    std::int32_t duration_per_level;
     W8Dice effect_dice; /* Retail offset 0x051 */
-    unsigned char unknown_055;
-    int spell_level;              /* Retail offset 0x056: zero through seven */
-    unsigned char wizardry_spell; /* Retail offset 0x05a */
+    std::uint8_t unknown_055;
+    std::int32_t spell_level;              /* Retail offset 0x056: zero through seven */
+    std::uint8_t wizardry_spell; /* Retail offset 0x05a */
     std::string resource_name;       /* Retail offset 0x05b: visual/MLS resource basename */
     std::string display_name;     /* Retail offset 0x09b */
-    unsigned char unknown_11b[4];
-    unsigned char divinity_spell; /* Retail offset 0x11f */
-    unsigned char psionics_spell; /* Retail offset 0x120 */
+    std::uint8_t unknown_11b[4];
+    std::uint8_t divinity_spell; /* Retail offset 0x11f */
+    std::uint8_t psionics_spell; /* Retail offset 0x120 */
     float effect_radius;          /* Retail offset 0x121 */
-    unsigned char unknown_125;
+    std::uint8_t unknown_125;
     /* Retail offset 0x126: a monster may cast the spell at all. MonsterOKToCastSpell reports
        a spell without it by name and asserts. */
-    unsigned char monster_castable;
+    std::uint8_t monster_castable;
     /* Retail offset 0x127: radius added per power level; PopulateSpellTargetMarkers scales
        the pair as (radius_per_level * power + effect_radius) * 500. */
     float radius_per_level;
@@ -231,19 +232,19 @@ struct W8SpellRuntimeRecord {
        assertion calls it uiSpellUsableWhen with a SPELL_USAGE_COUNT of five. */
     W8SpellUsage usable_when;
     /* Retail offset 0x13f: the spell has to be aimed before it can be cast. */
-    unsigned char needs_aim;
+    std::uint8_t needs_aim;
     /* Retail offset 0x140: the MissileTables.dbs row index the cast fires its effect
        through when missile_delivered is set. */
-    int missile_index;
+    std::int32_t missile_index;
     /* Retail offset 0x144: the spell's effect is delivered by a missile in flight, so its
        queued effect stays alive until the missile lands. Set for the ten
        projectile spells - Frost, Heal Wounds, Make Wounds, Sleep, Stamina,
        Terror, Noxious Fumes, Crush, Return to Portal and the monster Special
        Attack Cone. */
-    unsigned char missile_delivered;
-    unsigned char unknown_145[2];
+    std::uint8_t missile_delivered;
+    std::uint8_t unknown_145[2];
     /* Retail offset 0x147: SpellInfoDialog prints the effect-dice line when this is set. */
-    int show_effect_dice;
+    std::int32_t show_effect_dice;
     std::string sound_name; /* Retail offset 0x14b: relative to Data\Spells\Sounds */
 };
 
@@ -255,9 +256,9 @@ struct W8FactDatabaseRecord {
     W8FactId identifier;      /* Retail offset 0x000 */
     std::string symbolic_name; /* Retail offset 0x004 .. 0x035 */
     /* Retail offset 0x036: the journal shades this fact's text when its value is true. */
-    unsigned char highlight_when_true;
+    std::uint8_t highlight_when_true;
     /* Retail offset 0x037: the visibility level the journal entry needs. */
-    signed char visibility;
+    std::int8_t visibility;
     /* Retail offset 0x038 and 0x100: the alternate and normal journal descriptions, wide,
        selected by the fact's current value. */
     std::string alternate_description;
@@ -271,9 +272,9 @@ struct W8FactDatabaseRecord {
    while holding no more than half the quantity, and tops up by the shortfall. */
 #pragma pack(push, 1)
 struct W8NpcItemStockRule {
-    int item_id;              /* Retail offset 0x00: Items.dbs index */
-    unsigned char quantity;   /* Retail offset 0x04: configured stock quantity */
-    unsigned char persistent; /* Retail offset 0x05: retain and replenish this item */
+    std::int32_t item_id;              /* Retail offset 0x00: Items.dbs index */
+    std::uint8_t quantity;   /* Retail offset 0x04: configured stock quantity */
+    std::uint8_t persistent; /* Retail offset 0x05: retain and replenish this item */
 };
 #pragma pack(pop) /* Retail offset 0x06 */
 
@@ -282,85 +283,85 @@ struct W8NpcItemStockRule {
 struct W8NpcCharacterTemplate {
     std::string name;       /* Retail offset 0x000, record 0x0c4 */
     std::string name_part_2; /* Retail offset 0x014, record 0x0d8 */
-    unsigned char unknown_01a[0x44]; // Unidentified retail data, preserved verbatim.
+    std::uint8_t unknown_01a[0x44]; // Unidentified retail data, preserved verbatim.
     W8Profession
         profession;     /* Retail offset 0x064, record 0x128: index into profession_levels[W8_PROFESSION_COUNT] */
     W8Race race;        /* Retail offset 0x068, record 0x12c */
-    int table_value;    /* Retail offset 0x06c, record 0x130 */
-    unsigned int level; /* Retail offset 0x070, record 0x134: starting profession level */
-    int attributes[7];  /* Retail offset 0x074, record 0x138: W8CharacterAttribute::value per attribute */
-    int skills[0x29];   /* Retail offset 0x090, record 0x154: W8CharacterSkill::value_02 per skill */
-    unsigned char
+    std::int32_t table_value;    /* Retail offset 0x06c, record 0x130 */
+    std::uint32_t level; /* Retail offset 0x070, record 0x134: starting profession level */
+    std::int32_t attributes[7];  /* Retail offset 0x074, record 0x138: W8CharacterAttribute::value per attribute */
+    std::int32_t skills[0x29];   /* Retail offset 0x090, record 0x154: W8CharacterSkill::value_02 per skill */
+    std::uint8_t
         spells[0x72]; /* Retail offset 0x134, record 0x1f8: one flag per learnable spell, indexed from one */
-    unsigned short equipment_present[12]; /* Retail offset 0x1a6, record 0x26a: zero leaves the slot empty */
-    unsigned short equipment_ids[12];     /* Retail offset 0x1be, record 0x282: Items.dbs index, 0xffff empty */
-    unsigned short backpack_present[8];   /* Retail offset 0x1d6, record 0x29a */
-    unsigned short backpack_ids[8];       /* Retail offset 0x1e6, record 0x2aa */
-    signed char gender; /* Retail offset 0x1f6, record 0x2ba: copied into the character's own sex field */
-    short wanted_item_ids[3];
-    unsigned char unknown_1fd[9];
+    std::uint16_t equipment_present[12]; /* Retail offset 0x1a6, record 0x26a: zero leaves the slot empty */
+    std::uint16_t equipment_ids[12];     /* Retail offset 0x1be, record 0x282: Items.dbs index, 0xffff empty */
+    std::uint16_t backpack_present[8];   /* Retail offset 0x1d6, record 0x29a */
+    std::uint16_t backpack_ids[8];       /* Retail offset 0x1e6, record 0x2aa */
+    std::int8_t gender; /* Retail offset 0x1f6, record 0x2ba: copied into the character's own sex field */
+    std::int16_t wanted_item_ids[3];
+    std::uint8_t unknown_1fd[9];
 };
 
 
 
 /* One Data\Databases\NPC.DBS record. */
 struct W8NpcDatabaseRecord {
-    unsigned short
+    std::uint16_t
         version; /* Retail offset 0x000: two in the corpus; the rule tail loads only when this exceeds 1 */
     /* Retail offset 0x002: trade-pool stock count; CreateNpcRuntimeNode copies it into the
        runtime state's trade_pool. */
-    short trade_pool;
+    std::int16_t trade_pool;
     /* Retail offset 0x004: the wide source name the level-entry rebinding prefixes with an
        underscore to build the NPC's trigger name. */
     std::string source_name;
     /* Retail offset 0x054: monster-bound NPC: no standalone runtime node is created, its
        state comes through the monster binding, and releasing the binding
        marks it unavailable. */
-    unsigned char monster_bound;
+    std::uint8_t monster_bound;
     /* Retail offset 0x055: the NPC's stock is released only while this is set. */
-    unsigned char owns_stock;
+    std::uint8_t owns_stock;
     /* Retail offset 0x056: merchant: still opens dialogue when the disposition band is
        hostile, and item drops go through the trade transcript layout. */
-    unsigned char merchant;
+    std::uint8_t merchant;
     /* Retail offset 0x057: the NPC carries an RPC character and can join a monster group,
        which is what makes the group index on its runtime state meaningful. */
-    unsigned char has_group;
+    std::uint8_t has_group;
     /* Retail offset 0x058: the NPC's kind. Kind twenty refuses to trade. */
-    int kind;
+    std::int32_t kind;
     /* Retail offset 0x05c: the disposition byte CreateNpcRuntimeNode starts the state with. */
-    unsigned char disposition;
+    std::uint8_t disposition;
     /* Retail offset 0x05d/0x05e: the signed scales the charm and talk interactions fold into
        the disposition shift; the sub-one path negates the /5 quotient. */
-    signed char charm_scale;
-    signed char talk_scale;
+    std::int8_t charm_scale;
+    std::int8_t talk_scale;
     /* Retail offset 0x05f: the faction the NPC belongs to; zero leaves GetNpcDisposition on
        the record's own disposition byte. */
-    unsigned char faction;
+    std::uint8_t faction;
     /* Retail offset 0x060: one bit per named-person alias the NPC answers to; read as one
        dword by FindNpcNameOrPlaceQuote. */
-    unsigned int name_alias_mask;
+    std::uint32_t name_alias_mask;
     /* Retail offset 0x064: one-based index into g_item_tables selecting the record's item
        table, copied into the runtime state. */
-    int item_table_id;
+    std::int32_t item_table_id;
     /* Retail offset 0x068: one bit per service the NPC offers. */
-    unsigned int service_flags;
-    unsigned char unknown_06c[2];
+    std::uint32_t service_flags;
+    std::uint8_t unknown_06c[2];
     /* Retail offset 0x06e: an allied faction; while a front-rank party member's bound NPC
        belongs to it, GetNpcDisposition pins this NPC's answer at fifty. The
        compare sign-extends it. */
-    signed char allied_faction;
+    std::int8_t allied_faction;
     /* Retail offset 0x06f: the minimum average party level before this NPC's group can be
        invited. */
-    unsigned char min_party_level;
+    std::uint8_t min_party_level;
     /* Retail offset 0x070/0x074: the level this NPC restores its binding at and the
        FindEntityByName key the restore moves its monster to - the default
        pair copied into the runtime state's pending restore. */
     char restore_level;
-    unsigned char unknown_071[3];
+    std::uint8_t unknown_071[3];
     std::string restore_entity_name;
     /* Retail offset 0x09d: set when the record carries no appended item-stock
        rules; the load path reads them only while this is clear. */
-    unsigned char no_item_stock;
+    std::uint8_t no_item_stock;
     /* Retail offset 0x09e: what the NPC is called, unless a fact substitutes another name.
        The wide RPC-character name at 0x0c4 bounds the string extent. */
     std::string display_name;
@@ -372,17 +373,17 @@ struct W8NpcDatabaseRecord {
     float buy_price_factor;
     float sell_price_factor;
     /* Retail offset 0x2d6: one accepted trade-item class per bit. */
-    unsigned int trade_item_class_mask;
-    unsigned char unknown_2da[0x10];
+    std::uint32_t trade_item_class_mask;
+    std::uint8_t unknown_2da[0x10];
     /* Retail offset 0x2ea: voice-script NPC: picks the VOC_ script/sound prefix over NPC_
        and gates the normal dialogue paths. */
-    unsigned char voice_script;
+    std::uint8_t voice_script;
     /* Retail offset 0x2eb: the purse the NPC carries; the party gets it when the NPC's
        monster dies. */
-    int gold;
-    unsigned char combat_script_notice_enabled;       /* Retail offset 0x2ef: hostile-NPC combat notice */
-    unsigned char allow_dismissed_departure_dialogue; /* Retail offset 0x2f0: permits dismissed-NPC dialogue */
-    unsigned char unknown_2f1[0x18];
+    std::int32_t gold;
+    std::uint8_t combat_script_notice_enabled;       /* Retail offset 0x2ef: hostile-NPC combat notice */
+    std::uint8_t allow_dismissed_departure_dialogue; /* Retail offset 0x2f0: permits dismissed-NPC dialogue */
+    std::uint8_t unknown_2f1[0x18];
 };
 
 
@@ -395,16 +396,16 @@ struct W8LevelDatabaseRecord {
     std::string display_name;
     /* Retail offset 0x3c..0x50: the per-level random-encounter budget parameters, all five
        read by UpdateRandomEncounterBudget and the sixth by the culling pass. */
-    int maximum_random_encounters; /* Retail offset 0x3c */
-    int minimum_random_encounters; /* Retail offset 0x40 */
-    int maximum_encounter_budget;  /* Retail offset 0x44 */
-    int minimum_encounter_budget;  /* Retail offset 0x48 */
-    int encounter_budget_period;   /* Retail offset 0x4c: elapsed-time divisor */
-    int encounter_culling_seconds; /* Retail offset 0x50 */
+    std::int32_t maximum_random_encounters; /* Retail offset 0x3c */
+    std::int32_t minimum_random_encounters; /* Retail offset 0x40 */
+    std::int32_t maximum_encounter_budget;  /* Retail offset 0x44 */
+    std::int32_t minimum_encounter_budget;  /* Retail offset 0x48 */
+    std::int32_t encounter_budget_period;   /* Retail offset 0x4c: elapsed-time divisor */
+    std::int32_t encounter_culling_seconds; /* Retail offset 0x50 */
     /* Retail offset 0x54: float divisor the surprise transition uses when scaling game time
        and monster-generator duration. */
     float gameplay_time_scale;
-    unsigned char unknown_058[0x80];
+    std::uint8_t unknown_058[0x80];
 };
 
 
@@ -419,10 +420,10 @@ enum { W8_MONSTER_RECORD_ALTERNATE_NAME = 397 };
    Random(100) roll stays under chance. */
 #pragma pack(push, 1)
 struct W8MonsterTreasureEntry {
-    unsigned char type;     /* Retail offset 0x00 */
-    short count;            /* Retail offset 0x01: nonzero gates the slot */
-    unsigned short item_id; /* Retail offset 0x03: item id, or table id when type is 1 */
-    unsigned char chance;   /* Retail offset 0x05 */
+    std::uint8_t type;     /* Retail offset 0x00 */
+    std::int16_t count;            /* Retail offset 0x01: nonzero gates the slot */
+    std::uint16_t item_id; /* Retail offset 0x03: item id, or table id when type is 1 */
+    std::uint8_t chance;   /* Retail offset 0x05 */
     W8Dice dice;            /* Retail offset 0x06: rolled once for the drop count */
 };
 #pragma pack(pop)
@@ -436,8 +437,8 @@ struct W8MonsterTreasureBlock {
 
 #pragma pack(push, 1)
 struct W8EncounterCompanionRecord {
-    short species;
-    unsigned char chance;
+    std::int16_t species;
+    std::uint8_t chance;
 };
 #pragma pack(pop)
 
@@ -455,85 +456,85 @@ struct W8MonsterRecord {
     std::string name2; /* Retail offset 0x060: suffix after '#' removed at load */
     std::string name3; /* Retail offset 0x090: suffix after '#' removed at load */
     /* Cosmic Forge's Monster Editor exposes this byte as 'Can open doors'. */
-    unsigned char can_open_doors;
+    std::uint8_t can_open_doors;
     /* Retail offset 0x0c1: rolled by the group-attack summon to size the spawned group. */
     W8Dice group_size_dice;
     W8EncounterCompanionRecord companions[2];
     /* Retail offset 0x0cb: the monster's kind. The alchemy-casting rule admits kinds four,
        five and thirteen and no others, which is the only body that reads it. */
-    unsigned char kind;
+    std::uint8_t kind;
     /* Retail offset 0x0cc: selects this monster's row in the name-prefix table, the same
        table a character indexes by sex. */
-    unsigned char name_group;
+    std::uint8_t name_group;
     /* Retail offset 0x0cd: the NPC record index this monster is bound to, fed to
        GetNpcStateByKind and compared against W8NpcState::name_style; 0xfa
        marks a record with no bound NPC. */
-    unsigned char npc_kind;
+    std::uint8_t npc_kind;
     /* Retail offset 0x0ce: signed stamina regeneration rate (Monster Editor: ST Regen). */
-    signed char stamina_regeneration;
+    std::int8_t stamina_regeneration;
     /* Retail offset 0x0cf: the monster's own percentage reduction on incoming damage. */
-    unsigned char damage_reduction;
+    std::uint8_t damage_reduction;
     /* Retail offset 0x0d0: W8MonsterRecordFlag mask; retain the serialized byte width. */
-    unsigned char flags;
-    unsigned char attribute_values[5]; /* Retail offset 0x0d1 */
+    std::uint8_t flags;
+    std::uint8_t attribute_values[5]; /* Retail offset 0x0d1 */
     W8Dice hit_points;                 /* Retail offset 0x0d6: rolled into uiHPMax/hp_current */
     W8Dice stamina_dice;               /* Retail offset 0x0da: initializes maximum and current stamina */
-    unsigned char unknown_0de[2];
+    std::uint8_t unknown_0de[2];
     /* Retail offset 0x0e0/0x0e1: the percentage chances the AI casts a spell or flees each
        round; a monster with a usable attack ignores them and always tries. */
-    unsigned char spell_chance;
-    unsigned char flee_chance;
+    std::uint8_t spell_chance;
+    std::uint8_t flee_chance;
     /* Retail offset 0x0e2: the percentage chance the AI advances on the party each round;
        zero falls back to the behavior byte at +0x1c0. */
-    unsigned char advance_chance;
+    std::uint8_t advance_chance;
     /* Retail offset 0x0e3: Special attack selector; indexes the effect rows used by
        GroupAttacks.cpp and the corresponding display-name table. */
-    unsigned char special_attack_kind;
-    unsigned char initiative; /* Retail offset 0x0e4: Monster Editor Initiative */
+    std::uint8_t special_attack_kind;
+    std::uint8_t initiative; /* Retail offset 0x0e4: Monster Editor Initiative */
     /* Retail offset 0x0e5/0x0e6: attacks and swings per round. */
-    unsigned char attacks_per_round;
-    unsigned char swings_per_round;
+    std::uint8_t attacks_per_round;
+    std::uint8_t swings_per_round;
     /* Retail offset 0x0e7: the monster's three attacks, named by the Combat Range.cpp
        assertions pMonsterDB->Attack[uiAttack].fHasAttack and uiAttack <
        MAX_MONSTER_ATTACKS, which is what bounds the array at three. */
     W8MonsterAttack attacks[W8_MAX_MONSTER_ATTACKS]; /* Retail offset 0x0e7 */
     /* Retail offset 0x14d: the ten spells the AI may cast, zero for none. */
-    unsigned char spells[10];
-    unsigned char attack_body_part_chances[5];
-    unsigned char special_attack_cooldown;
-    signed char evasion;
+    std::uint8_t spells[10];
+    std::uint8_t attack_body_part_chances[5];
+    std::uint8_t special_attack_cooldown;
+    std::int8_t evasion;
     /* Retail offset 0x15e: Monster Editor Constitution selector; chooses the body-specific
        hit-location label row. */
-    unsigned char constitution;
+    std::uint8_t constitution;
     /* Retail offset 0x15f: the percentage of hits that land on each of the seven monster
        hit locations; the total is reported when it falls short of 100. */
-    unsigned char hit_location_chances[7];
+    std::uint8_t hit_location_chances[7];
     /* Retail offset 0x166/0x16d: the monster's armour per hit location and per attack mode,
        the terms TargetArmorClassAtLocation subtracts on top of evasion. */
-    signed char armor_class_by_location[7];
-    signed char armor_class_by_attack_mode[9];
+    std::int8_t armor_class_by_location[7];
+    std::int8_t armor_class_by_attack_mode[9];
     /* Retail offset 0x176: the monster's own resistance per realm, read alongside the
        gameplay-modifier bonus wherever a character would read
        W8CharacterResistance::total. */
-    unsigned char resistances[6];
+    std::uint8_t resistances[6];
     /* Retail offset 0x17c: hit points gained (or lost, when negative) per game minute. */
-    signed char hp_regeneration;
-    unsigned char unknown_17d[4];
-    unsigned int experience; /* Retail offset 0x181: base experience value */
-    unsigned char unknown_185[2];
-    short record_id;       /* Retail offset 0x187: equals the zero-based database index */
+    std::int8_t hp_regeneration;
+    std::uint8_t unknown_17d[4];
+    std::uint32_t experience; /* Retail offset 0x181: base experience value */
+    std::uint8_t unknown_185[2];
+    std::int16_t record_id;       /* Retail offset 0x187: equals the zero-based database index */
     std::string cycle_name; /* Retail offset 0x189: GrCycle lookup key */
     /* Retail offset 0x1b9: prefer ranged actions instead of closing/backing off. */
-    unsigned char prefer_ranged_actions;
+    std::uint8_t prefer_ranged_actions;
     float combat_move_range; /* Retail offset 0x1ba: designer-facing combat movement range */
     /* Retail offset 0x1be: blocks the DEAD condition. */
-    unsigned char instant_death_immune;
+    std::uint8_t instant_death_immune;
     /* Retail offset 0x1bf/0x1c0: the Monster Editor's Combat Behaviour and Combat Morale selectors. */
-    unsigned char combat_behavior;
-    unsigned char combat_morale;
+    std::uint8_t combat_behavior;
+    std::uint8_t combat_morale;
     /* Retail offset 0x1c1: the MIPE monster list only admits records carrying -1 here, and
        stores the value itself as the selected monster index. */
-    short editor_index;
+    std::int16_t editor_index;
     /* Cosmic Forge's Remains column consumes this as a narrow item-model
        name. The canonical rows contain creaturegoo, plantgoo or an empty
        string. It precedes the treasure entries rather than belonging to them. */
@@ -544,37 +545,37 @@ struct W8MonsterRecord {
        type 1 feeds the id to GenerateItemsFromTable. The gold dice lands in
        AddPartyGold. */
     W8MonsterTreasureBlock treasure;
-    unsigned char attack_multiple_targets;
+    std::uint8_t attack_multiple_targets;
     /* Retail offset 0x248: Monster Editor camouflage rating. */
-    unsigned char camouflage0;
-    unsigned char camouflage1;
+    std::uint8_t camouflage0;
+    std::uint8_t camouflage1;
     /* Retail offset 0x24a: the monster cannot be targeted at all. Every sweep that gathers
        candidates drops it before any other test. */
-    unsigned char untargetable;
-    unsigned char unknown_24b[4];
+    std::uint8_t untargetable;
+    std::uint8_t unknown_24b[4];
     /* Retail offset 0x24f: effective/combat monster level used by attack, resistance,
        spell and effect formulas. Distinct from the displayed level at 0x251. */
-    unsigned char effective_level;
-    unsigned char unknown_250;
+    std::uint8_t effective_level;
+    std::uint8_t unknown_250;
     /* Retail offset 0x251: monster level shown by MonsterInfo and related UI. */
-    unsigned char display_level;
-    unsigned char unknown_252;
-    int model_index;           /* Retail offset 0x253 */
-    int alternate_model_index; /* Retail offset 0x257: alternate selected value */
-    int hostility_radius;      /* Retail offset 0x25b: Minimal Neutrality Distance / Hostility Radius */
-    int faction_id;            /* Retail offset 0x25f: W8Faction value, domain 0..20 */
-    int material;              /* Retail offset 0x263: Monster Editor Material selector */
-    unsigned char deleted;     /* Retail offset 0x267: LoadMonsterGroup skips the record */
-    unsigned char significant_kill;
-    unsigned char unknown_269;
+    std::uint8_t display_level;
+    std::uint8_t unknown_252;
+    std::int32_t model_index;           /* Retail offset 0x253 */
+    std::int32_t alternate_model_index; /* Retail offset 0x257: alternate selected value */
+    std::int32_t hostility_radius;      /* Retail offset 0x25b: Minimal Neutrality Distance / Hostility Radius */
+    std::int32_t faction_id;            /* Retail offset 0x25f: W8Faction value, domain 0..20 */
+    std::int32_t material;              /* Retail offset 0x263: Monster Editor Material selector */
+    std::uint8_t deleted;     /* Retail offset 0x267: LoadMonsterGroup skips the record */
+    std::uint8_t significant_kill;
+    std::uint8_t unknown_269;
     /* Retail offset 0x26a: unborn monsters enter the birth/encounter lists before acting. */
-    unsigned char unborn;
-    unsigned int experience_override; /* Retail offset 0x26b: nonzero experience override */
+    std::uint8_t unborn;
+    std::uint32_t experience_override; /* Retail offset 0x26b: nonzero experience override */
     /* Retail offset 0x26f: the spell-point budget the monster casts out of, before its own
        runtime bonus. Zero is a data error the power-level chooser reports by
        name. */
-    int sp_budget;
-    unsigned char unknown_273[0x24];
+    std::int32_t sp_budget;
+    std::uint8_t unknown_273[0x24];
 };
 
 
@@ -593,8 +594,8 @@ struct W8MonsterRecord {
    W8_RACE_ADJUSTMENT_ATTRIBUTE_BIAS names a character attribute instead of a
    flat amount. */
 struct W8RaceResistanceAdjustment {
-    int resistance_index;
-    int adjustment_or_attribute;
+    std::int32_t resistance_index;
+    std::int32_t adjustment_or_attribute;
 }; /* Retail offset 0x08 */
 
 struct W8RaceResistanceProfile {
@@ -608,6 +609,6 @@ extern W8FactDatabaseRecord* g_fact_records;
 extern W8LevelDatabaseRecord* g_level_records;
 extern W8NpcDatabaseRecord* g_npc_records;
 extern W8SpellRuntimeRecord* g_spell_records;
-extern unsigned int g_spell_database_version;
+extern std::uint32_t g_spell_database_version;
 
 #endif

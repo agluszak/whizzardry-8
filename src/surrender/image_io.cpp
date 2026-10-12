@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <SDL3_image/SDL_image.h>
 #include <SDL3/SDL_iostream.h>
 #include <SDL3/SDL_pixels.h>
@@ -21,7 +22,7 @@
 
 namespace srImage {
 bool copyRows(const SDL_Surface& source, srColorSurfaceIFace& destination,
-                     unsigned bytes_per_pixel, bool mirror)
+                     std::uint32_t bytes_per_pixel, bool mirror)
 {
     const size_t row_bytes = size_t(source.w) * bytes_per_pixel;
     if (source.w <= 0 || source.h <= 0 || !source.pixels || !destination.getDataPtr() ||
@@ -29,13 +30,13 @@ bool copyRows(const SDL_Surface& source, srColorSurfaceIFace& destination,
         source.pitch < 0 || size_t(source.pitch) < row_bytes ||
         size_t(destination.getPitch()) < row_bytes)
         return false;
-    for (int y = 0; y < source.h; ++y) {
-        const auto* src = static_cast<const unsigned char*>(source.pixels) + size_t(y) * source.pitch;
-        auto* dst = static_cast<unsigned char*>(destination.getDataPtr()) + size_t(y) * destination.getPitch();
+    for (std::int32_t y = 0; y < source.h; ++y) {
+        const auto* src = static_cast<const std::uint8_t*>(source.pixels) + size_t(y) * source.pitch;
+        auto* dst = static_cast<std::uint8_t*>(destination.getDataPtr()) + size_t(y) * destination.getPitch();
         if (!mirror) {
             SDL_memcpy(dst, src, row_bytes);
         } else {
-            for (int x = 0; x < source.w; ++x)
+            for (std::int32_t x = 0; x < source.w; ++x)
                 SDL_memcpy(dst + size_t(x) * bytes_per_pixel,
                            src + size_t(source.w - 1 - x) * bytes_per_pixel, bytes_per_pixel);
         }
@@ -46,9 +47,9 @@ bool copyRows(const SDL_Surface& source, srColorSurfaceIFace& destination,
 
 namespace {
 struct JpegHeader {
-    unsigned width = 0;
-    unsigned height = 0;
-    unsigned components = 0;
+    std::uint32_t width = 0;
+    std::uint32_t height = 0;
+    std::uint32_t components = 0;
 };
 
 std::unique_ptr<srColorSurface> loadJpeg(SDL_IOStream* io)
@@ -61,12 +62,12 @@ std::unique_ptr<srColorSurface> loadJpeg(SDL_IOStream* io)
     JpegHeader header;
     if (!bytes || size > 256 * 1024 * 1024 ||
         SDL_GetIOStatus(io) == SDL_IO_STATUS_ERROR ||
-        !srValidateJpeg(static_cast<const unsigned char*>(bytes.get()), size,
+        !srValidateJpeg(static_cast<const std::uint8_t*>(bytes.get()), size,
                         &header.width, &header.height, &header.components))
         return nullptr;
     auto source = srIO::own(SDL_IOFromConstMem(bytes.get(), size));
     srImage::Surface decoded(IMG_LoadJPG_IO(source.get()), SDL_DestroySurface);
-    if (!decoded || decoded->w != int(header.width) || decoded->h != int(header.height))
+    if (!decoded || decoded->w != std::int32_t(header.width) || decoded->h != std::int32_t(header.height))
         return nullptr;
     const bool four_channels = header.components == 4;
     srImage::Surface bgr(SDL_ConvertSurface(decoded.get(), four_channels ? SDL_PIXELFORMAT_BGRA32 :
@@ -79,10 +80,10 @@ std::unique_ptr<srColorSurface> loadJpeg(SDL_IOStream* io)
                                           header.width, header.height);
     if (!result->getDataPtr()) return nullptr;
     if (header.components == 1) {
-        for (unsigned y = 0; y < header.height; ++y) {
+        for (std::uint32_t y = 0; y < header.height; ++y) {
             const auto* src = static_cast<const Uint8*>(bgr->pixels) + size_t(y) * bgr->pitch;
             auto* dst = static_cast<Uint8*>(result->getDataPtr()) + size_t(y) * result->getPitch();
-            for (unsigned x = 0; x < header.width; ++x)
+            for (std::uint32_t x = 0; x < header.width; ++x)
                 dst[x] = src[x * 3];
         }
     } else if (!srImage::copyRows(*bgr, *result, four_channels ? 4 : 3)) {
@@ -118,14 +119,14 @@ OutputFormat outputFormat(const char* path)
     throw std::runtime_error("Unsupported image output format");
 }
 
-void saveImage(OutputFormat output, SDL_IOStream* io, srColorSurfaceIFace& source, int quality)
+void saveImage(OutputFormat output, SDL_IOStream* io, srColorSurfaceIFace& source, std::int32_t quality)
 {
     if (!srCore.isInitialized()) throw std::runtime_error("Image I/O requires SurRender initialization");
     const auto& format = source.getPixelFormat();
     if (!source.getWidth() || !source.getHeight() || source.getWidth() > 65535 ||
         source.getHeight() > 65535 ||
         source.getPitch() <= 0 || Uint64(source.getPitch()) <
-            Uint64(source.getWidth()) * (unsigned(format.pixel_size) + 1) ||
+            Uint64(source.getWidth()) * (std::uint32_t(format.pixel_size) + 1) ||
         Uint64(source.getWidth()) * source.getHeight() > 64 * 1024 * 1024)
         throw std::runtime_error("Image output dimensions are invalid");
     const bool jpeg = output == OutputFormat::jpeg;
@@ -236,18 +237,18 @@ void describe(srColorSurfaceIFace::SurfaceDesc& description, const char* path)
 }
 
 // FUNCTION: SURRENDER 0x1002DCD0
-void save(const char* path, SDL_IOStream* stream, srColorSurfaceIFace& surface, int quality)
+void save(const char* path, SDL_IOStream* stream, srColorSurfaceIFace& surface, std::int32_t quality)
 {
     saveImage(outputFormat(path), stream, surface, quality);
 }
 
-void save(const char* path, wiz8::File& file, srColorSurfaceIFace& surface, int quality)
+void save(const char* path, wiz8::File& file, srColorSurfaceIFace& surface, std::int32_t quality)
 {
     save(path, file.io(), surface, quality);
 }
 
 // FUNCTION: SURRENDER 0x1002DBC0
-void save(const char* path, srColorSurfaceIFace& surface, int quality)
+void save(const char* path, srColorSurfaceIFace& surface, std::int32_t quality)
 {
     const auto format = outputFormat(path);
     if (!srCore.isInitialized()) throw std::runtime_error("Image I/O requires SurRender initialization");
