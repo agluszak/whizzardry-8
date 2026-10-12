@@ -22,7 +22,6 @@ extern const unsigned int g_W8DialogTextAreaShortenText;
    text-buffer base. Both vectors belong to this object; only all_lines owns
    the entries. visible_lines references entries selected/ordered from it. */
 class W8DialogTextArea {
-    friend class W8NpcDialogueScrollWidget;
     friend class W8NpcDialogueTextController;
 
 public:

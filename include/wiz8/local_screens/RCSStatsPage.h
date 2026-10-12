@@ -1,3 +1,4 @@
+#include "wiz8/ui_layer.h"
 #pragma once
 
 #include "wiz8/regions.h"
@@ -54,6 +55,4 @@ void FilterCampEffectList(void);
    2; DisableCampSkillRegions releases them on camp leave. */
 void CreateCampSkillRegions(void);
 void DisableCampSkillRegions(void);
-unsigned char CampSkillListRegionHandler(const InputEvent* event, W8Region* region, unsigned short);
-
-extern ScreenRegionSet g_camp_skill_regions;
+UiResult HandleCampSkillList(const UiPointerEvent& event, int category);

@@ -197,85 +197,6 @@ W8CampScreenRegion g_camp_screen_regions[12] = {
    prefix. */
 
 
-// Retail set 0x29, regions 231-243
-static constexpr std::array<RegionTemplate, 11> g_camp_main_templates{{
-    {0x00000001, 164, 12, 254, 84, CampDismissPortraitRegionEvent, 0, true, 2368},
-    {0x00000001, 0, 0, 0, 0, CampPortraitSlotRegionEvent, 0, false, -1},
-    {0x00000001, 0, 0, 0, 0, CampPortraitSlotRegionEvent, 1, false, -1},
-    {0x00000001, 0, 0, 0, 0, CampPortraitSlotRegionEvent, 2, false, -1},
-    {0x00000001, 0, 0, 0, 0, CampPortraitSlotRegionEvent, 3, false, -1},
-    {0x00000001, 0, 0, 0, 0, CampPortraitSlotRegionEvent, 4, false, -1},
-    {0x00000001, 0, 0, 0, 0, CampPortraitSlotRegionEvent, 5, false, -1},
-    {0x00000001, 0, 0, 0, 0, CampPortraitSlotRegionEvent, 6, false, -1},
-    {0x00000001, 0, 0, 0, 0, CampPortraitSlotRegionEvent, 7, false, -1},
-    {0x00000001, 106, 96, 302, 109, CampOpenCharacterScreenRegionEvent, 0, true, 2362},
-    {0x00000001, 106, 124, 302, 133, CampProfessionHistoryRegionEvent, 0, true, 2363},
-}};
-
-// Retail set 0x2a, regions 244-263
-static constexpr std::array<RegionTemplate, 20> g_camp_inventory_templates{{
-    {0x00000001, 0, 0, 0, 0, BackpackRegionHandler, 0, true, -1},
-    {0x00000001, 0, 0, 0, 0, BackpackRegionHandler, 1, true, -1},
-    {0x00000001, 0, 0, 0, 0, BackpackRegionHandler, 2, true, -1},
-    {0x00000001, 0, 0, 0, 0, BackpackRegionHandler, 3, true, -1},
-    {0x00000001, 0, 0, 0, 0, BackpackRegionHandler, 4, true, -1},
-    {0x00000001, 0, 0, 0, 0, BackpackRegionHandler, 5, true, -1},
-    {0x00000001, 0, 0, 0, 0, BackpackRegionHandler, 6, true, -1},
-    {0x00000001, 0, 0, 0, 0, BackpackRegionHandler, 7, true, -1},
-    {0x00000001, 0, 0, 0, 0, EquipSlotRegionHandler, 0, true, -1},
-    {0x00000001, 0, 0, 0, 0, EquipSlotRegionHandler, 1, true, -1},
-    {0x00000001, 0, 0, 0, 0, EquipSlotRegionHandler, 2, true, -1},
-    {0x00000001, 0, 0, 0, 0, EquipSlotRegionHandler, 3, true, -1},
-    {0x00000001, 0, 0, 0, 0, EquipSlotRegionHandler, 4, true, -1},
-    {0x00000001, 0, 0, 0, 0, EquipSlotRegionHandler, 5, true, -1},
-    {0x00000001, 0, 0, 0, 0, EquipSlotRegionHandler, 6, true, -1},
-    {0x00000001, 0, 0, 0, 0, EquipSlotRegionHandler, 7, true, -1},
-    {0x00000001, 0, 0, 0, 0, EquipSlotRegionHandler, 8, true, -1},
-    {0x00000001, 0, 0, 0, 0, EquipSlotRegionHandler, 9, true, -1},
-    {0x00000001, 0, 0, 0, 0, EquipSlotRegionHandler, 10, true, -1},
-    {0x00000001, 0, 0, 0, 0, EquipSlotRegionHandler, 11, true, -1},
-}};
-
-// Retail set 0x2b, regions 264-280
-static constexpr std::array<RegionTemplate, 8> g_camp_item_pool_templates{{
-    {0x00000001, 0, 0, 0, 0, ItemPoolRegionHandler, 0, true, -1},
-    {0x00000001, 0, 0, 0, 0, ItemPoolRegionHandler, 1, true, -1},
-    {0x00000001, 0, 0, 0, 0, ItemPoolRegionHandler, 2, true, -1},
-    {0x00000001, 0, 0, 0, 0, ItemPoolRegionHandler, 3, true, -1},
-    {0x00000001, 0, 0, 0, 0, ItemPoolRegionHandler, 4, true, -1},
-    {0x00000001, 0, 0, 0, 0, ItemPoolRegionHandler, 5, true, -1},
-    {0x00000001, 0, 0, 0, 0, ItemPoolRegionHandler, 6, true, -1},
-    {0x00000001, 0, 0, 0, 0, ItemPoolRegionHandler, 7, true, -1},
-}};
-
-// Retail set 0x2c, regions 281-286
-static constexpr std::array<RegionTemplate, 6> g_camp_spell_list_templates{{
-    {0x00000001, 0, 0, 0, 0, SpellListRegionHandler, 0, false, -1},
-    {0x00000001, 0, 0, 0, 0, SpellListRegionHandler, 1, false, -1},
-    {0x00000001, 0, 0, 0, 0, SpellListRegionHandler, 2, false, -1},
-    {0x00000001, 0, 0, 0, 0, SpellListRegionHandler, 3, false, -1},
-    {0x00000001, 0, 0, 0, 0, SpellListRegionHandler, 4, false, -1},
-    {0x00000001, 0, 0, 0, 0, SpellListRegionHandler, 5, false, -1},
-}};
-
-
-
-// Retail set 0x2f, region 300
-static constexpr std::array<RegionTemplate, 1> g_camp_automap_templates{{
-    {0x00000001, 0, 0, 639, 479, AutomapBackgroundRegionEvent, 0, false, -1},
-}};
-
-// Retail set 0x30, region 301
-static constexpr std::array<RegionTemplate, 1> g_camp_overlay_templates{{
-    {0x00000001, 0, 0, 639, 479, nullptr, 0, false, -1},
-}};
-
-ScreenRegionSet g_camp_main_regions{g_camp_main_templates, 0x29};
-ScreenRegionSet g_camp_inventory_regions{g_camp_inventory_templates, 0x2a};
-ScreenRegionSet g_camp_item_pool_regions{g_camp_item_pool_templates, 0x2b};
-ScreenRegionSet g_camp_spell_list_regions{g_camp_spell_list_templates, 0x2c};
-ScreenRegionSet g_camp_automap_regions{g_camp_automap_templates, 0x2f};
-ScreenRegionSet g_camp_overlay_regions{g_camp_overlay_templates, 0x30};
 /* Enable or disable the six spell-realm scrollbars together. While enabling, a
    realm whose learned spells fit the eight visible rows keeps its bar off. */
 void SetCampSpellRangesEnabled(bool enable)
@@ -378,7 +299,7 @@ void DrawCampSpellPages(void)
                     g_camp_screen->learned_spells
                         .spell_ids_by_realm[realm]
                                            [g_camp_screen->learned_spells.scroll[realm] + row];
-                if (g_camp_screen->hover_region == g_camp_spell_list_regions->index(realm) &&
+                if (g_camp_screen->spell_targets[realm]->hovered() &&
                     g_camp_screen->selected_spell_row == row) {
                     palette = g_font_state_palettes[W8_FONT_PALETTE_YELLOW];
                 } else if (g_spell_records[spell_id].spell_point_cost <=
@@ -449,79 +370,26 @@ void DrawCampResistances(void)
    event's cursor position picks the highlighted row within the eight visible
    ones, wheel input scrolls the realm's range control, and activating a valid
    row opens its spell info dialog. */
-unsigned char SpellListRegionHandler(const InputEvent* event, W8Region* region, unsigned short id)
+UiResult HandleCampSpellList(const UiPointerEvent& event, int realm)
 {
-    unsigned short realm;
-    int row;
-    unsigned int visible;
-    int delta;
-    int count;
-
     PushButtonSoundScheme(0, true);
-    realm = id;
-    row = (GetEventCursorY(event) - region->y1 - 1) / 0xd;
-    visible = g_review_character->skill_unlocks[0x1c + realm] -
-              g_camp_screen->learned_spells.scroll[realm];
-    if (visible >= 8) {
-        visible = 8;
-    }
-    if (row >= static_cast<int>(visible)) {
-        row = -1;
-    }
-    if (row != g_camp_screen->selected_spell_row) {
+    int row = (event.local.y - 1) / 13;
+    const int visible = std::min(8, int(g_review_character->skill_unlocks[0x1c + realm]) -
+        int(g_camp_screen->learned_spells.scroll[realm]));
+    if (!event.inside || row < 0 || row >= visible) row = -1;
+    if (row != g_camp_screen->selected_spell_row || event.action == UiPointerAction::Enter ||
+        event.action == UiPointerAction::Leave) {
         g_camp_screen->selected_spell_row = row;
         g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_REALM_SPELLS_FIRST << realm;
     }
-    if (!IsLeftButtonEvent(event->type) && event->type != InputEventType::RightButtonDown && event->type != InputEventType::RightButtonUp) {
-        if (event->type == InputEventType::MouseMove) {
-            if ((region->flags & W8_REGION_MOUSE_TRANSITION_MASK) != 0) {
-                g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_REALM_SPELLS_FIRST << realm;
-            }
-            return 0;
-        }
-        if (event->type == InputEventType::MouseWheel) {
-            delta = event->wheel;
-            if (delta > 0) {
-                for (count = delta; count != 0; --count) {
-                    g_camp_screen->spell_ranges[realm]->Decrement();
-                }
-                delta = 0;
-            }
-            if (delta < 0) {
-                for (count = -delta; count != 0; --count) {
-                    g_camp_screen->spell_ranges[realm]->Increment();
-                }
-            }
-            return 1;
-        }
-        return 0;
+    if (event.action == UiPointerAction::Wheel) {
+        g_camp_screen->spell_ranges[realm]->AdjustValue(event.wheel);
+    } else if (event.action == UiPointerAction::Up && row != -1 && event.captured_buttons) {
+        const auto spell = g_camp_screen->learned_spells.spell_ids_by_realm[realm]
+            [g_camp_screen->learned_spells.scroll[realm] + row];
+        AfterUiDispatch([spell] { OpenSpellInfoDialog(spell); });
     }
-    if (event->type == InputEventType::RightButtonUp) {
-        if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) != 0 && row != -1) {
-            OpenSpellInfoDialog(
-                g_camp_screen->learned_spells
-                    .spell_ids_by_realm[realm][g_camp_screen->learned_spells.scroll[realm] + row]);
-        }
-        return 1;
-    }
-    if (event->type == InputEventType::LeftButtonDown) {
-        region->flags |= W8_REGION_LEFT_BUTTON_HELD;
-        return 1;
-    }
-    if (event->type != InputEventType::LeftButtonUp) {
-        if (event->type != InputEventType::RightButtonDown) {
-            return 0;
-        }
-        region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
-        return 1;
-    }
-    if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0 && row != -1) {
-        OpenSpellInfoDialog(
-            g_camp_screen->learned_spells
-                .spell_ids_by_realm[realm][g_camp_screen->learned_spells.scroll[realm] + row]);
-        return 1;
-    }
-    return 1;
+    return UiResult::Handled;
 }
 
 /* Open the spell info dialog for one spell id off the camp spell lists. */
@@ -711,7 +579,7 @@ void DrawCampBackpackItems(void)
             character->backpack[slot].bound) {
             CatalogArtwork::Load(0x115, 0).draw(GetFrameBufferSurface(), 0x32, left, top);
         }
-        if (state->hover_region == g_camp_inventory_regions->index(slot) &&
+        if (g_camp_screen->inventory_targets[slot]->hovered() &&
             (item_id != -1 ||
              (g_status.item_in_cursor && state->item_action != W8_CAMP_ITEM_ACTION_MOVE))) {
             CatalogArtwork::Load(0x115, 0).draw(GetFrameBufferSurface(), 0x30, left, top);
@@ -791,7 +659,7 @@ void DrawCampEquipmentItems(void)
             character->EquippedItem[slot].bound) {
             CatalogArtwork::Load(0x115, 0).drawAndInvalidate(GetFrameBufferSurface(), region->frame + 2, region->x - 2, region->y - 2);
         }
-        if (state->hover_region == g_camp_inventory_regions->index(kCampEquipmentRegionOffset + slot)) {
+        if (g_camp_screen->inventory_targets[kCampEquipmentRegionOffset + slot]->hovered()) {
             if (!g_status.item_in_cursor) {
                 if (character->EquippedItem[slot].iItemNo == -1) {
                     continue;
@@ -882,7 +750,7 @@ void DrawCampItemPool(void)
         if (g_item_records[item->iItemNo].binds_on_equip != 0 && item->bound) {
             CatalogArtwork::Load(0x115, 0).draw(GetFrameBufferSurface(), 0x32, left, top);
         }
-        if (state->hover_region == g_camp_item_pool_regions->index(i)) {
+        if (g_camp_screen->pool_targets[i]->hovered()) {
             CatalogArtwork::Load(0x115, 0).draw(GetFrameBufferSurface(), 0x30, left, top);
         }
     }
@@ -896,7 +764,7 @@ void DrawCampItemPool(void)
             CatalogArtwork::Load(0x1b6, 0).drawRect(
                 GetFrameBufferSurface(), SDL_Rect{0, 0, (right) - (left), (bottom) - (top)}, left,
                 top);
-            if (state->hover_region == g_camp_item_pool_regions->index(i) && g_status.item_in_cursor &&
+            if (g_camp_screen->pool_targets[i]->hovered() && g_status.item_in_cursor &&
                 state->item_action != W8_CAMP_ITEM_ACTION_MOVE) {
                 CatalogArtwork::Load(0x115, 0).draw(GetFrameBufferSurface(), 0x30, left, top);
             }
@@ -1175,48 +1043,39 @@ void W8CampCharacterInfo::Redraw(SDL_Surface& target, bool full_redraw)
     }
 }
 
-/* The four region blocks the camp screen lays out by rule, and the twelve it
-   lays out from the explicit table below. Only the leading four fields of each
-   record are read here, so the remaining five stay positional. */
-void CampScreenInitializeRegions(void)
+static void CreateCampInput()
 {
-    unsigned int index;
-    for (index = 0; index < 8; ++index) {
-        unsigned short x = static_cast<unsigned short>((index & 1) * 0x30 + 6);
-        unsigned short y = static_cast<unsigned short>((index >> 1) * 0x27 + 5);
-        (*g_camp_main_regions)[kCampPartyPortraitRegionOffset + index].SetBounds(x, y,
-                        x + 0x2d, y + 0x24);
+    auto& state = *g_camp_screen;
+    state.inventory_input.setEnabled(false);
+    state.pool_input.setEnabled(false);
+    state.spell_input.setEnabled(false);
+    state.main_targets[0] = &state.main_input.add(SDL_Rect{164, 12, 91, 73}, HandleCampDismissPortrait);
+    state.main_targets[0]->setTooltip([] { return g_localized_strings[2368]; });
+    state.main_targets[9] = &state.main_input.add(SDL_Rect{106, 96, 197, 14}, HandleCampCharacterHeader);
+    state.main_targets[9]->setTooltip([] { return g_localized_strings[2362]; });
+    state.main_targets[10] = &state.main_input.add(SDL_Rect{106, 124, 197, 10}, HandleCampProfessionHistory);
+    state.main_targets[10]->setTooltip([] { return g_localized_strings[2363]; });
+    for (int slot = 0; slot < 8; ++slot) {
+        state.main_targets[1 + slot] = &state.main_input.add(
+            SDL_Rect{(slot & 1) * 48 + 6, (slot / 2) * 39 + 5, 46, 37},
+            [slot](const UiPointerEvent& event) { return HandleCampPortrait(event, slot); });
+        state.inventory_targets[slot] = &state.inventory_input.add(
+            SDL_Rect{(slot & 1) * 49 + 11, (slot / 2) * 57 + 192, 47, 55},
+            [slot](const UiPointerEvent& event) { return HandleCampItem(event, slot, W8_ITEM_ORIGIN_BACKPACK); });
+        state.pool_targets[slot] = &state.pool_input.add(
+            SDL_Rect{(slot & 1) * 49 + 512, (slot / 2) * 57 + 192, 47, 55},
+            [slot](const UiPointerEvent& event) { return HandleCampItem(event, slot, W8_ITEM_ORIGIN_PARTY_POOL); });
     }
-    for (index = 0; index < 8; ++index) {
-        unsigned short x = static_cast<unsigned short>((index & 1) * 0x31 + 0xb);
-        unsigned short y = static_cast<unsigned short>((index >> 1) * 0x39 + 0xc0);
-        (*g_camp_inventory_regions)[index].SetBounds(x, y, x + 0x2e, y + 0x36);
+    for (int slot = 0; slot < 12; ++slot) {
+        const auto& bounds = g_camp_screen_regions[slot];
+        state.inventory_targets[8 + slot] = &state.inventory_input.add(
+            SDL_Rect{bounds.x, bounds.y, bounds.width + 1, bounds.height + 1},
+            [slot](const UiPointerEvent& event) { return HandleCampItem(event, slot, W8_ITEM_ORIGIN_EQUIPPED); });
     }
-    for (index = 0; index < 12; ++index) {
-        const W8CampScreenRegion& region = g_camp_screen_regions[index];
-        (*g_camp_inventory_regions)[kCampEquipmentRegionOffset + index].SetBounds(static_cast<unsigned short>(region.x),
-                        static_cast<unsigned short>(region.y),
-                        static_cast<unsigned short>(region.x + region.width),
-                        static_cast<unsigned short>(region.y + region.height));
-    }
-    for (index = 0; index < 8; ++index) {
-        unsigned short x = static_cast<unsigned short>((index & 1) * 0x31 + 0x200);
-        unsigned short y = static_cast<unsigned short>((index >> 1) * 0x39 + 0xc0);
-        (*g_camp_item_pool_regions)[index].SetBounds(x, y, x + 0x2e, y + 0x36);
-    }
-}
-
-/* The camp screen's remaining six regions, three across and two down. Camp
-   entry calls this immediately after the block above, once the region sets
-   exist; nothing else reaches it, and nothing here names what the six cells
-   hold. */
-void LayoutCampSecondaryRegions(void)
-{
-    unsigned int index;
-    for (index = 0; index < 6; ++index) {
-        unsigned short x = static_cast<unsigned short>((index % 3) * 0xd5 + 0x1d);
-        unsigned short y = static_cast<unsigned short>((index / 3) * 0x8c + 0xc3);
-        (*g_camp_spell_list_regions)[index].SetBounds(x, y, x + 0x99, y + 0x65);
+    for (int realm = 0; realm < 6; ++realm) {
+        state.spell_targets[realm] = &state.spell_input.add(
+            SDL_Rect{(realm % 3) * 213 + 29, (realm / 3) * 140 + 195, 154, 102},
+            [realm](const UiPointerEvent& event) { return HandleCampSpellList(event, realm); });
     }
 }
 
@@ -1240,14 +1099,7 @@ unsigned char CampScreenEnter(void)
         g_camp_screen = std::make_unique<W8CampScreenState>();
     }
     CreatePartyPortraitEventRegions();
-    g_camp_main_regions.Create();
-    g_camp_inventory_regions.Create();
-    g_camp_item_pool_regions.Create();
-    g_camp_spell_list_regions.Create();
-    g_camp_automap_regions.Create();
-    g_camp_overlay_regions.Create();
-    CampScreenInitializeRegions();
-    LayoutCampSecondaryRegions();
+    CreateCampInput();
     g_camp_screen->item_action = initial_item_action;
     for (unsigned int filter = 0; filter < W8_CAMP_ITEM_FILTER_COUNT; ++filter) {
         g_camp_screen->item_filters[filter] = 0;
@@ -1359,7 +1211,7 @@ void CampScreenFrame(void)
     }
     SDL_Point point;
     SGPMouseGetPos(&point);
-    g_camp_screen->hover_region = UpdateRegionMousePosition(point.x, point.y);
+    UpdateRegionMousePosition(point.x, point.y);
     PumpUiInput({.unhandled = [&](const InputEvent& input) {
         if (input.type == InputEventType::KeyDown) {
             if (input.key == VK_ESCAPE) {
@@ -1434,13 +1286,6 @@ unsigned char CampScreenLeave(int)
         ReleaseInputSinkCapture();
     }
     g_camp_screen.reset();
-    g_camp_overlay_regions.Destroy();
-    g_camp_skill_regions.Destroy();
-    g_camp_automap_regions.Destroy();
-    g_camp_spell_list_regions.Destroy();
-    g_camp_item_pool_regions.Destroy();
-    g_camp_inventory_regions.Destroy();
-    g_camp_main_regions.Destroy();
     ResetRegions();
     if (gXStatus.fCampMode) {
         gXStatus.dialogue_sync_pending = true;
@@ -1567,10 +1412,10 @@ done:
 void SyncReviewCharInputRegion(void)
 {
     if (giReviewCharSlot != -1 && g_status.buffers.XChar[giReviewCharSlot].npc_index != -1) {
-        (*g_camp_main_regions)[kCampCharacterHeaderRegionOffset].SetInputEnabled(false);
+        g_camp_screen->main_targets[kCampCharacterHeaderRegionOffset]->setEnabled(false);
         return;
     }
-    (*g_camp_main_regions)[kCampCharacterHeaderRegionOffset].SetInputEnabled(true);
+    g_camp_screen->main_targets[kCampCharacterHeaderRegionOffset]->setEnabled(true);
 }
 
 /* Switch the active camp page: tear the old page down, record the new index,
@@ -1591,31 +1436,31 @@ void ActivateCampPage(void)
     W8CampScreenState* state = g_camp_screen.get();
     unsigned int index;
 
-    g_camp_main_regions.Enable();
+    g_camp_screen->main_input.setEnabled(true);
     if (state->page != W8_CAMP_PAGE_ITEMS) {
         SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
     }
     if (giReviewCharSlot == -1) {
         for (index = 0; index < 8; ++index) {
-            (*g_camp_main_regions)[kCampPartyPortraitRegionOffset + index].SetInputEnabled(false);
+            g_camp_screen->main_targets[kCampPartyPortraitRegionOffset + index]->setEnabled(false);
         }
     } else if (g_status.buffers.XChar[giReviewCharSlot].npc_index == -1) {
-        (*g_camp_main_regions)[kCampCharacterHeaderRegionOffset].SetInputEnabled(true);
+        g_camp_screen->main_targets[kCampCharacterHeaderRegionOffset]->setEnabled(true);
     } else {
-        (*g_camp_main_regions)[kCampCharacterHeaderRegionOffset].SetInputEnabled(false);
+        g_camp_screen->main_targets[kCampCharacterHeaderRegionOffset]->setEnabled(false);
     }
     state->header_mode = W8_CAMP_HEADER_SUMMARY;
     state->redraw_flags |= 0x7ff;
     switch (state->page) {
     case W8_CAMP_PAGE_ITEMS:
-        g_camp_inventory_regions.Enable();
+        g_camp_screen->inventory_input.setEnabled(true);
         EnableCampActionButtons();
         UpdateCampItemFilters();
         EnableCampSecondaryPanel();
         SetCampInfoPageMode(state->info_page);
         state->item_range->SetActive(true);
         if (g_status.game_started) {
-            g_camp_item_pool_regions.Enable();
+            g_camp_screen->pool_input.setEnabled(true);
             state->item_scroll = 0;
             RebuildCampItemList();
             return;
@@ -1631,7 +1476,7 @@ void ActivateCampPage(void)
         CreateCampSkillRegions();
         return;
     case W8_CAMP_PAGE_SPELLS:
-        g_camp_spell_list_regions.Enable();
+        g_camp_screen->spell_input.setEnabled(true);
         BuildLearnedSpellState(&state->learned_spells, g_review_character);
         RefreshCampSpellRanges();
         gXStatus.fSpellCastMode = false;
@@ -1652,14 +1497,14 @@ void DeactivateCampPage(void)
 
     switch (state->page) {
     case W8_CAMP_PAGE_ITEMS:
-        g_camp_inventory_regions.Disable();
+        g_camp_screen->inventory_input.setEnabled(false);
         DisableItemsRealmTabs();
         DisableCampActionButtons();
         DisableCampSecondaryPanel();
         state->character_info->SetActive(false);
         state->item_range->SetActive(false);
         if (g_status.game_started) {
-            g_camp_item_pool_regions.Disable();
+            g_camp_screen->pool_input.setEnabled(false);
             return;
         }
         break;
@@ -1676,7 +1521,7 @@ void DeactivateCampPage(void)
         }
         return;
     case W8_CAMP_PAGE_SPELLS:
-        g_camp_spell_list_regions.Disable();
+        g_camp_screen->spell_input.setEnabled(false);
         SetCampSpellRangesEnabled(false);
         break;
     default:

@@ -58,16 +58,6 @@ static int g_camp_stats_origin_x;
 // GLOBAL: WIZ8 0x0069c524
 static int g_camp_skill_hover_row;
 // GLOBAL: WIZ8 0x0069c528
-/* Five skill-category list regions; bounds are applied by CreateCampSkillRegions. */
-static constexpr std::array<RegionTemplate, 5> g_camp_skill_templates{{
-    {0x00000001, 0, 0, 0, 0, CampSkillListRegionHandler, 0, true, -1},
-    {0x00000001, 0, 0, 0, 0, CampSkillListRegionHandler, 1, true, -1},
-    {0x00000001, 0, 0, 0, 0, CampSkillListRegionHandler, 2, true, -1},
-    {0x00000001, 0, 0, 0, 0, CampSkillListRegionHandler, 3, true, -1},
-    {0x00000001, 0, 0, 0, 0, CampSkillListRegionHandler, 4, true, -1},
-}};
-ScreenRegionSet g_camp_skill_regions{g_camp_skill_templates};
-
 void DrawCampEffectList(void);
 void DrawCampEffectEntry(W8CampEffectEntry* entry, int* line_out);
 
@@ -628,7 +618,7 @@ void DrawCampEffectEntry(W8CampEffectEntry* entry, int* line_out)
 // FUNCTION: WIZ8 0x005c5cd0
 void CreateCampSkillRegions(void)
 {
-    g_camp_skill_regions.Create();
+    g_camp_screen->skill_input = std::make_unique<UiLayer>();
     for (unsigned int category = 0; category < 5; ++category) {
         int x = g_camp_skill_category_positions[category].x;
         int y = g_camp_skill_category_positions[category].y;
@@ -637,16 +627,17 @@ void CreateCampSkillRegions(void)
         } else {
             y += 0xa5;
         }
-        (*g_camp_skill_regions)[category].SetBounds(x, y, x + 0x6d,
-                        g_camp_skill_category_rows[category] * 0xe + y);
+        auto& target = g_camp_screen->skill_input->add(
+            SDL_Rect{x, y, 110, g_camp_skill_category_rows[category] * 14 + 1},
+            [category](const UiPointerEvent& event) { return HandleCampSkillList(event, category); });
+        target.setTooltip([] { return g_camp_skill_hover_row < 0 ? std::string{} : g_localized_strings[0x958]; });
     }
-    g_camp_skill_regions.Enable();
 }
 
 // FUNCTION: WIZ8 0x005c5d70
 void DisableCampSkillRegions(void)
 {
-    g_camp_skill_regions.Disable();
+    g_camp_screen->skill_input.reset();
 }
 
 /* Unlike the gameplay best-skill query, the camp display includes every
@@ -784,13 +775,13 @@ void DrawCampSkillsPage(void)
    dialog's second argument is raised when the character's level is the best
    among the occupied party slots. */
 // FUNCTION: WIZ8 0x005c6230
-unsigned char CampSkillListRegionHandler(const InputEvent* event, W8Region* region, unsigned short id)
+UiResult HandleCampSkillList(const UiPointerEvent& event, int category)
 {
-    int row = (GetEventCursorY(event) - region->y1 - 1) / 0xe;
+    int row = (event.local.y - 1) / 0xe;
     int skill = -1;
     int occurrence = 0;
     for (int index = 0; index < 0x29; ++index) {
-        if (g_skill_attributes[index].category == static_cast<int>(id) &&
+        if (g_skill_attributes[index].category == category &&
             (g_review_character->skills[index].active ||
              g_review_character->skills[index].level != 0)) {
             if (occurrence == row) {
@@ -801,21 +792,17 @@ unsigned char CampSkillListRegionHandler(const InputEvent* event, W8Region* regi
         }
     }
     PushButtonSoundScheme(0, true);
-    if (event->type == InputEventType::RightButtonDown) {
-        region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
-    } else if (event->type != InputEventType::RightButtonUp) {
-        if (event->type != InputEventType::MouseMove) {
-            return 0;
-        }
-        if ((region->flags & W8_REGION_MOUSE_ENTER) != 0 || row != g_camp_skill_hover_row) {
-            std::string text = skill == -1 ? std::string{} : g_localized_strings[0x958];
-            SetRegionHelpText(text);
+    if (event.action == UiPointerAction::Enter || event.action == UiPointerAction::Move ||
+        event.action == UiPointerAction::Leave) {
+        const int hover = event.inside && skill != -1 ? row : -1;
+        if (hover != g_camp_skill_hover_row) {
             ResetRegionHelp(true);
-            g_camp_skill_hover_row = row;
+            g_camp_skill_hover_row = hover;
         }
-        return 0;
     }
-    if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) != 0 && skill != -1) {
+    if (event.action == UiPointerAction::Up && event.inside &&
+        event.button == UiPointerButton::Right && (event.captured_buttons & SDL_BUTTON_RMASK) && skill != -1) {
+        AfterUiDispatch([skill] {
         bool best = false;
         if (g_status.game_started && g_review_character->skills[skill].level != 0) {
             best = IsBestCampSkillLevel(static_cast<W8Skill>(skill),
@@ -825,8 +812,9 @@ unsigned char CampSkillListRegionHandler(const InputEvent* event, W8Region* regi
             static_cast<W8Skill>(skill), best, !g_review_character->skills[skill].active,
             skill == g_profession_bonus_skills[g_review_character->iProfession]);
         DisplayCampDialog(std::move(dialog));
+        });
     }
-    return 1;
+    return UiResult::Handled;
 }
 
 /* The character screen's fourth page (name, portrait, personality and voice)

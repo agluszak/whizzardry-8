@@ -26,12 +26,6 @@ struct W8Character;
 struct W8CombatSlot;
 struct W8Region;
 
-extern ScreenRegionSet g_camp_main_regions;
-extern ScreenRegionSet g_camp_inventory_regions;
-extern ScreenRegionSet g_camp_item_pool_regions;
-extern ScreenRegionSet g_camp_spell_list_regions;
-extern ScreenRegionSet g_camp_automap_regions;
-extern ScreenRegionSet g_camp_overlay_regions;
 
 enum CampMainRegionOffset {
     kCampPartyPortraitRegionOffset = 1,
@@ -136,7 +130,12 @@ enum W8CampItemRedrawFlag {
 struct W8CampScreenState {
     std::string text_buffer;
     W8CampPage page;
-    unsigned int hover_region;
+    UiLayer main_input{0x29}, inventory_input{0x2a}, pool_input{0x2b}, spell_input{0x2c};
+    std::array<HitTarget*, 11> main_targets{};
+    std::array<HitTarget*, 20> inventory_targets{};
+    std::array<HitTarget*, 8> pool_targets{};
+    std::array<HitTarget*, 6> spell_targets{};
+    std::unique_ptr<UiLayer> skill_input;
     unsigned int redraw_flags;
     unsigned int item_redraw_flags;
     W8LearnedSpellState learned_spells;
@@ -255,8 +254,6 @@ int CommitPartySlotItemUse(int party_slot, W8ItemInstance* item, W8CombatSlot* t
    hand - split one off into the hand, or add one onto the held stack. */
 void TakeItemUnitToHand(W8ItemInstance* item, unsigned short slot, W8ItemOrigin origin);
 
-void CampScreenInitializeRegions(void);
-void LayoutCampSecondaryRegions(void);
 unsigned char CampScreenEnter(void);
 void CampScreenFrame(void);
 unsigned char CampScreenLeave(int leaving);
@@ -268,7 +265,7 @@ void SetCampSpellRangesEnabled(bool enable);
 void RefreshCampSpellRanges(void);
 void DrawCampSpellPages(void);
 void DrawCampResistances(void);
-unsigned char SpellListRegionHandler(const InputEvent* event, W8Region* region, unsigned short);
+UiResult HandleCampSpellList(const UiPointerEvent& event, int realm);
 void OpenSpellInfoDialog(unsigned int spell_id);
 void SyncReviewCharInputRegion(void);
 bool IsEquippableItemClass(W8ItemInstance* item);

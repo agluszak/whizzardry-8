@@ -1,3 +1,5 @@
+#include "image.h"
+#include "wiz8/item_video_object_vector.h"
 #include "wiz8/modal_content.h"
 #include <functional>
 #include <SDL3/SDL_surface.h>
@@ -352,7 +354,7 @@ static void AddNpcAction(int index, int panel, SDL_Rect bounds, int catalog, std
                 if (event.action == UiPointerAction::Leave) action.interaction.leave(action.policy);
                 if (index == 9) {
                     auto& transcript = *ui.transcript;
-                    if (event.action == UiPointerAction::Enter) transcript.text_area.SelectEntry(transcript.text_area.m_first_visible_entry);
+                    if (event.action == UiPointerAction::Enter) transcript.HighlightFirstEntry();
                     else transcript.text_area.ClearSelection();
                     transcript.InvalidateLayout();
                 }
@@ -4334,7 +4336,8 @@ unsigned char SetNpcDialoguePanelVisible(unsigned char value)
             controller = g_npc_interaction_state->ui->transcript.get();
             controller->Collapse();
             controller = g_npc_interaction_state->ui->transcript.get();
-            controller->SetActive(false);
+            controller->m_active = false;
+            controller->input.setEnabled(false);
             SetNpcPanelActive(3, false);
             controller = g_npc_interaction_state->ui->transcript.get();
             controller->ClearBackground();
@@ -4351,7 +4354,8 @@ unsigned char SetNpcDialoguePanelVisible(unsigned char value)
 
         controller =
             g_npc_interaction_state->ui->transcript.get();
-        controller->SetActive(true);
+        controller->m_active = true;
+        controller->input.setEnabled(true);
         SetNpcPanelActive(3, true);
         controller =
             g_npc_interaction_state->ui->transcript.get();

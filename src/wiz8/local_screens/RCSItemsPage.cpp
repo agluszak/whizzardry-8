@@ -812,302 +812,74 @@ static void ShowCampItemInfo(W8ItemInstance* item)
     SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
 }
 
-// FUNCTION: WIZ8 0x005BB350
-unsigned char BackpackRegionHandler(const InputEvent* event, W8Region* region, unsigned short id)
+static std::pair<W8ItemInstance*, int> CampItemAt(int slot, int origin)
 {
-    int slot;
-    W8ItemInstance* item;
-
-    slot = id;
-    item = g_review_character->backpack + slot;
-    if (item->iItemNo == -1 && !g_status.item_in_cursor) {
-        PushButtonSoundScheme(0, true);
-    }
-    if (IsLeftButtonEvent(event->type) || event->type == InputEventType::RightButtonDown) {
-        if (event->type == InputEventType::RightButtonDown) {
-            region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
-            return 1;
-        }
-        if (event->type == InputEventType::LeftButtonDown) {
-            region->flags |= W8_REGION_LEFT_BUTTON_HELD;
-        } else {
-            if (event->type != InputEventType::LeftButtonUp) {
-                return 0;
-            }
-            if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) == 0) {
-                return 1;
-            }
-            HandleCampItemClick(item, slot, W8_ITEM_ORIGIN_BACKPACK);
-            if (item->iItemNo != -1) {
-                SetItemTooltip(item, region);
-                SetRegionHelpForceEnabled(true);
-                return 1;
-            }
-        }
-        DisableRegionHelpFlag(region);
-        return 1;
-    }
-    if (event->type == InputEventType::RightButtonUp) {
-        if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) != 0 && item->iItemNo != -1 &&
-            g_camp_screen->item_action != W8_CAMP_ITEM_ACTION_IDENTIFY) {
-            ShowCampItemInfo(item);
-        }
-        return 1;
-    }
-    if (event->type == InputEventType::MouseMove) {
-        if ((region->flags & W8_REGION_MOUSE_TRANSITION_MASK) != 0) {
-            if (item->iItemNo != -1 || g_status.item_in_cursor) {
-                g_camp_screen->item_redraw_flags |= W8_CAMP_ITEM_REDRAW_BACKPACK_CELL_FIRST
-                                                    << (slot & 0x1f);
-            }
-            UpdateItemCursorForState((region->flags & W8_REGION_MOUSE_ENTER) != 0, item, 0);
-            if ((region->flags & W8_REGION_MOUSE_ENTER) == 0) {
-                if ((region->flags & W8_REGION_MOUSE_LEAVE) == 0) {
-                    return 0;
-                }
-            } else if (item->iItemNo != -1) {
-                SetItemTooltip(item, region);
-                SetRegionHelpForceEnabled(true);
-                return 0;
-            }
-            DisableRegionHelpFlag(region);
-        }
-        return 0;
-    }
-    return 0;
+    if (origin == W8_ITEM_ORIGIN_BACKPACK) return {g_review_character->backpack + slot, slot};
+    if (origin == W8_ITEM_ORIGIN_EQUIPPED) return {g_review_character->EquippedItem + slot, slot};
+    const auto visible = g_camp_screen->item_scroll + slot;
+    const int index = visible < g_camp_screen->item_list_count &&
+        g_status.party_item_pool[g_camp_screen->item_list[visible]].iItemNo != -1
+        ? g_camp_screen->item_list[visible] : g_status.party_item_count;
+    return {g_status.party_item_pool + index, index};
 }
 
-// FUNCTION: WIZ8 0x005BB560
-unsigned char EquipSlotRegionHandler(const InputEvent* event, W8Region* region, unsigned short id)
+static std::string CampItemTooltip(int slot, int origin)
 {
-    int slot;
-    int delay;
-    W8ItemInstance* item;
-    std::string name;
+    const auto [item, index] = CampItemAt(slot, origin);
+    std::string text = item->iItemNo == -1 ? std::string{} : FormatItemDisplayName(item, false);
+    if (origin == W8_ITEM_ORIGIN_EQUIPPED) {
+        const auto& label = g_localized_strings[g_equip_slot_label_ids[slot]];
+        return text.empty() ? std::string(label) : fmt::format("{} ({})", text, label);
+    }
+    if (item->iItemNo != -1) {
+        const auto& record = g_item_records[item->iItemNo];
+        if (record.category == W8_ITEM_CATEGORY_SPELL_SOURCE && record.spell_id != W8_SPELL_NONE &&
+            g_review_character->spell_learned[record.spell_id] && (item->identified || item->spell_hint))
+            text += fmt::format(" ({})", g_localized_strings[0x930]);
+    }
+    return text;
+}
 
-    slot = id;
-    item = g_review_character->EquippedItem + slot;
-    if (item->iItemNo == -1 &&
-        (!g_status.item_in_cursor || g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_MOVE ||
+UiResult HandleCampItem(const UiPointerEvent& event, int slot, int origin)
+{
+    const auto [item, index] = CampItemAt(slot, origin);
+    const bool equipped = origin == W8_ITEM_ORIGIN_EQUIPPED;
+    const bool pool = origin == W8_ITEM_ORIGIN_PARTY_POOL;
+    auto& target = *(pool ? g_camp_screen->pool_targets[slot] :
+        g_camp_screen->inventory_targets[slot + (equipped ? 8 : 0)]);
+    if (item->iItemNo == -1 && (!g_status.item_in_cursor || (equipped &&
+        (g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_MOVE ||
          !CanEquipItemInSlot(g_review_character, g_status.item_in_hand.iItemNo,
-                             static_cast<unsigned char>(slot), true) ||
-         !CanCharacterUseItem(g_review_character, g_status.item_in_hand.iItemNo))) {
+                            static_cast<unsigned char>(slot), true) ||
+         !CanCharacterUseItem(g_review_character, g_status.item_in_hand.iItemNo)))))
         PushButtonSoundScheme(0, true);
+    if (event.action == UiPointerAction::Enter || event.action == UiPointerAction::Leave) {
+        if (item->iItemNo != -1 || g_status.item_in_cursor)
+            g_camp_screen->item_redraw_flags |= (pool ? W8_CAMP_ITEM_REDRAW_POOL_CELL_FIRST :
+                equipped ? W8_CAMP_ITEM_REDRAW_EQUIPMENT_CELL_FIRST : W8_CAMP_ITEM_REDRAW_BACKPACK_CELL_FIRST) << slot;
+        UpdateItemCursorForState(event.action == UiPointerAction::Enter, item, 0);
     }
-    if (IsLeftButtonEvent(event->type) || event->type == InputEventType::RightButtonDown) {
-        if (event->type == InputEventType::RightButtonDown) {
-            region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
-            return 1;
-        }
-        if (event->type == InputEventType::LeftButtonDown) {
-            region->flags |= W8_REGION_LEFT_BUTTON_HELD;
-            DisableRegionHelpFlag(region);
-            return 1;
-        }
-        if (event->type != InputEventType::LeftButtonUp) {
-            return 0;
-        }
-        if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
-            HandleCampItemClick(item, slot, W8_ITEM_ORIGIN_EQUIPPED);
-            delay = g_settings.tooltip_delay_ms;
-            if (static_cast<unsigned int>(delay) > 300) {
-                delay = 300;
-            }
-            SetRegionHelpDelay(delay);
-            SetRegionHelpForceEnabled(true);
-            EnableRegionHelpFlag(region);
-            if (item->iItemNo != -1) {
-                name = FormatItemDisplayName(item, false);
-                g_camp_screen->text_buffer =
-                    fmt::format("{} ({})", name, g_localized_strings[g_equip_slot_label_ids[slot]]);
-                SetRegionHelpText(g_camp_screen->text_buffer);
-                return 1;
-            }
-            g_camp_screen->text_buffer =
-                fmt::format("{}", g_localized_strings[g_equip_slot_label_ids[slot]]);
-            SetRegionHelpText(g_camp_screen->text_buffer);
-            return 1;
-        }
-    } else {
-        if (event->type != InputEventType::RightButtonUp) {
-            if (event->type != InputEventType::MouseMove) {
-                return 0;
-            }
-            if ((region->flags & W8_REGION_MOUSE_ENTER) != 0) {
-                if (item->iItemNo != -1 || g_status.item_in_cursor) {
-                    g_camp_screen->item_redraw_flags |= W8_CAMP_ITEM_REDRAW_EQUIPMENT_CELL_FIRST
-                                                        << (slot & 0x1f);
-                }
-                UpdateItemCursorForState(1, item, 0);
-                EnableRegionHelpFlag(region);
-                delay = g_settings.tooltip_delay_ms;
-                if (static_cast<unsigned int>(delay) > 300) {
-                    delay = 300;
-                }
-                SetRegionHelpDelay(delay);
-                SetRegionHelpForceEnabled(true);
-                if (item->iItemNo == -1) {
-                    g_camp_screen->text_buffer =
-                        fmt::format("{}", g_localized_strings[g_equip_slot_label_ids[slot]]);
-                } else {
-                    name = FormatItemDisplayName(item, false);
-                    g_camp_screen->text_buffer = fmt::format(
-                        "{} ({})", name, g_localized_strings[g_equip_slot_label_ids[slot]]);
-                }
-                SetRegionHelpText(g_camp_screen->text_buffer);
-            }
-            if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
-                if (item->iItemNo != -1 || g_status.item_in_cursor) {
-                    g_camp_screen->item_redraw_flags |= W8_CAMP_ITEM_REDRAW_EQUIPMENT_CELL_FIRST
-                                                        << (slot & 0x1f);
-                }
-                UpdateItemCursorForState(0, item, 0);
-                DisableRegionHelpFlag(region);
-            }
-            return 0;
-        }
-        if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) != 0 && item->iItemNo != -1 &&
-            g_camp_screen->item_action != W8_CAMP_ITEM_ACTION_IDENTIFY) {
-            ShowCampItemInfo(item);
-        }
+    if (event.action == UiPointerAction::Leave ||
+        (event.action == UiPointerAction::Down && event.button == UiPointerButton::Left)) {
+        target.setTooltip({});
+        return UiResult::Handled;
     }
-    return 1;
-}
-
-// FUNCTION: WIZ8 0x005BB900
-unsigned char ItemPoolRegionHandler(const InputEvent* event, W8Region* region, unsigned short id)
-{
-    unsigned int slot;
-    unsigned int pool_index;
-    int delta;
-    int count;
-    W8ItemInstance* item;
-
-    slot = id;
-    pool_index = g_camp_screen->item_scroll + slot;
-    if (g_camp_screen->item_list_count <= pool_index ||
-        g_status.party_item_pool[g_camp_screen->item_list[pool_index]].iItemNo == -1) {
-        pool_index = g_status.party_item_count;
-    } else {
-        pool_index = g_camp_screen->item_list[pool_index];
+    if (event.action == UiPointerAction::Wheel && pool)
+        g_camp_screen->item_range->AdjustValue(event.wheel);
+    if (event.action == UiPointerAction::Up && event.inside) {
+        if (event.button == UiPointerButton::Left && (event.captured_buttons & SDL_BUTTON_LMASK))
+            AfterUiDispatch([item, index, origin] { HandleCampItemClick(item, index, origin); });
+        if (event.button == UiPointerButton::Right && (event.captured_buttons & SDL_BUTTON_RMASK) &&
+            item->iItemNo != -1 && g_camp_screen->item_action != W8_CAMP_ITEM_ACTION_IDENTIFY)
+            AfterUiDispatch([item] { ShowCampItemInfo(item); });
     }
-    item = g_status.party_item_pool + pool_index;
-    if (item->iItemNo == -1 && !g_status.item_in_cursor) {
-        PushButtonSoundScheme(0, true);
+    if (event.action == UiPointerAction::Enter || event.action == UiPointerAction::Up ||
+        event.action == UiPointerAction::Wheel) {
+        SetRegionHelpDelay(std::min(g_settings.tooltip_delay_ms, 300));
+        SetRegionHelpForceEnabled(true);
+        target.setTooltip([slot, origin] { return CampItemTooltip(slot, origin); });
     }
-    if (IsLeftButtonEvent(event->type) || event->type == InputEventType::RightButtonDown || event->type == InputEventType::RightButtonUp) {
-        if (event->type == InputEventType::RightButtonUp) {
-            if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) != 0 &&
-                pool_index < g_status.party_item_count &&
-                g_camp_screen->item_action != W8_CAMP_ITEM_ACTION_IDENTIFY) {
-                ShowCampItemInfo(item);
-            }
-            return 1;
-        }
-        if (event->type == InputEventType::LeftButtonDown) {
-            region->flags |= W8_REGION_LEFT_BUTTON_HELD;
-            DisableRegionHelpFlag(region);
-            return 1;
-        }
-        if (event->type != InputEventType::LeftButtonUp) {
-            if (event->type != InputEventType::RightButtonDown) {
-                return 0;
-            }
-            region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
-            return 1;
-        }
-        if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) == 0) {
-            return 1;
-        }
-        HandleCampItemClick(item, pool_index, W8_ITEM_ORIGIN_PARTY_POOL);
-        if (item->iItemNo != -1) {
-            SetItemTooltip(item, region);
-            return 1;
-        }
-    } else {
-        if (event->type == InputEventType::MouseMove) {
-            if ((region->flags & W8_REGION_MOUSE_TRANSITION_MASK) != 0) {
-                if (item->iItemNo != -1 || g_status.item_in_cursor) {
-                    g_camp_screen->item_redraw_flags |= W8_CAMP_ITEM_REDRAW_POOL_CELL_FIRST
-                                                        << (slot & 0x1f);
-                }
-                UpdateItemCursorForState((region->flags & W8_REGION_MOUSE_ENTER) != 0, item, 0);
-                if ((region->flags & W8_REGION_MOUSE_ENTER) == 0) {
-                    if ((region->flags & W8_REGION_MOUSE_LEAVE) == 0) {
-                        return 0;
-                    }
-                } else if (item->iItemNo != -1) {
-                    SetItemTooltip(item, region);
-                    return 0;
-                }
-                DisableRegionHelpFlag(region);
-            }
-            return 0;
-        }
-        if (event->type != InputEventType::MouseWheel) {
-            return 0;
-        }
-        delta = event->wheel;
-        count = delta;
-        if (delta > 0) {
-            do {
-                g_camp_screen->item_range->Decrement();
-                --count;
-            } while (count != 0);
-            delta = 0;
-        }
-        if (delta < 0) {
-            count = -delta;
-            do {
-                g_camp_screen->item_range->Increment();
-                --count;
-            } while (count != 0);
-        }
-        pool_index = g_camp_screen->item_scroll + slot;
-        if (g_camp_screen->item_list_count <= pool_index) {
-            pool_index = g_status.party_item_count;
-        } else {
-            pool_index = g_camp_screen->item_list[pool_index];
-        }
-        if (g_status.party_item_pool[pool_index].iItemNo != -1) {
-            SetItemTooltip(g_status.party_item_pool + pool_index, region);
-            return 1;
-        }
-    }
-    DisableRegionHelpFlag(region);
-    return 1;
-}
-
-// FUNCTION: WIZ8 0x005BBD30
-void SetItemTooltip(W8ItemInstance* item, W8Region* region)
-{
-    int delay;
-    std::string name;
-    const W8ItemDatabaseRecord* record;
-
-    delay = g_settings.tooltip_delay_ms;
-    if (static_cast<unsigned int>(delay) > 300) {
-        delay = 300;
-    }
-    SetRegionHelpDelay(delay);
-    SetRegionHelpForceEnabled(true);
-    EnableRegionHelpFlag(region);
-    name = FormatItemDisplayName(item, false);
-    g_camp_screen->text_buffer = name;
-    record = g_item_records + item->iItemNo;
-    if (record->category == W8_ITEM_CATEGORY_SPELL_SOURCE) {
-        if (record->spell_id == W8_SPELL_NONE) {
-            srAssertFail("ubSpell != SPELL_NONE",
-                         "C:\\Projects\\Wizardry 8\\Local Screens\\RCSItemsPage.cpp", 0xa7a, 0);
-        }
-        if (g_review_character->spell_learned[record->spell_id] == 1 &&
-            (item->identified || item->spell_hint)) {
-            g_camp_screen->text_buffer += " (";
-            g_camp_screen->text_buffer += g_localized_strings[0x930];
-            g_camp_screen->text_buffer += ")";
-        }
-    }
-    SetRegionHelpText(g_camp_screen->text_buffer);
+    return UiResult::Handled;
 }
 
 /* The items page's per-row label boxes: the backpack grid (two columns of

@@ -1,3 +1,4 @@
+#include "wiz8/ui_layer.h"
 #pragma once
 
 #include <memory>
@@ -82,10 +83,10 @@ void RedrawRcsDismissPanel(void);
 /* The bottom Controls panel CreateCampButtonPanel parents
    the page and item-action strips to. */
 
-unsigned char CampDismissPortraitRegionEvent(const InputEvent* event, W8Region* region, unsigned short);
-unsigned char CampPortraitSlotRegionEvent(const InputEvent* event, W8Region* region, unsigned short);
-unsigned char CampOpenCharacterScreenRegionEvent(const InputEvent* event, W8Region* region, unsigned short);
-unsigned char CampProfessionHistoryRegionEvent(const InputEvent* event, W8Region* region, unsigned short);
+UiResult HandleCampDismissPortrait(const UiPointerEvent& event);
+UiResult HandleCampPortrait(const UiPointerEvent& event, int slot);
+UiResult HandleCampCharacterHeader(const UiPointerEvent& event);
+UiResult HandleCampProfessionHistory(const UiPointerEvent& event);
 
 void CreateCampHeaderButtons();
 void DestroyCampHeaderButtons();

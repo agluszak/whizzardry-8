@@ -154,6 +154,7 @@ public:
     /* Snapshot the transcript lines into the screen state's
        dialogue_transcript records (text plus category byte). */
     void SaveTranscriptEntries();
+    void HighlightFirstEntry() { text_area.SelectEntry(text_area.m_first_visible_entry); }
     /* Drop every transcript line from the text area and invalidate. */
     void ClearTranscriptEntries();
     int GetSelectedTranscriptEntryIndex();

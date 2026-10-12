@@ -280,56 +280,33 @@ static void OpenLevelUpCharacterScreen(void)
     SetPendingScreenState(W8_SCREEN_CHARACTER);
 }
 
-/* Dismiss-confirm portrait/name hitbox (help 2368): click dismisses the
-   reviewed party member; mouse enter/leave toggles portrait_hovered[0]. */
-// FUNCTION: WIZ8 0x005B5E90
-unsigned char CampDismissPortraitRegionEvent(const InputEvent* event, W8Region* region, unsigned short)
+UiResult HandleCampDismissPortrait(const UiPointerEvent& event)
 {
-    const InputEventType us_event = event->type;
-
-    if (us_event == InputEventType::LeftButtonDown) {
-        region->flags |= W8_REGION_LEFT_BUTTON_HELD;
-        return 1;
-    }
-    if (us_event != InputEventType::LeftButtonUp) {
-        if (us_event != InputEventType::MouseMove) {
-            return 0;
-        }
-        if ((region->flags & W8_REGION_MOUSE_LEAVE) == 0) {
-            if ((region->flags & W8_REGION_MOUSE_ENTER) == 0) {
-                return 0;
-            }
-            g_camp_screen->portrait_hovered[0] = 1;
-        } else {
-            g_camp_screen->portrait_hovered[0] = 0;
-        }
+    if (event.action == UiPointerAction::Enter || event.action == UiPointerAction::Leave) {
+        g_camp_screen->portrait_hovered[0] = event.action == UiPointerAction::Enter;
         g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_PORTRAIT;
-        return 0;
     }
-    if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) == 0) {
-        return 1;
-    }
-    DismissSelectedPartyCharacter();
-    return 1;
+    if (event.action == UiPointerAction::Up && event.inside &&
+        event.button == UiPointerButton::Left && (event.captured_buttons & SDL_BUTTON_LMASK))
+        AfterUiDispatch(DismissSelectedPartyCharacter);
+    return UiResult::Handled;
 }
 
-/* Eight party portrait slots on the camp screen. Targeting modes 1 and 7 aim
-   spells/items; otherwise a click selects the reviewed character. */
-// FUNCTION: WIZ8 0x005B5F10
-unsigned char CampPortraitSlotRegionEvent(const InputEvent* event, W8Region* region, unsigned short id)
+UiResult HandleCampPortrait(const UiPointerEvent& event, int target_slot)
 {
-    const InputEventType us_event = event->type;
-    int target_slot = id;
-
-    if (IsLeftButtonEvent(us_event) || us_event == InputEventType::RightButtonDown) {
-        if (region->CaptureButtonDown(us_event)) {
-            return 1;
-        }
-        if (us_event != InputEventType::LeftButtonUp) {
-            return 0;
-        }
-        if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0 &&
-            g_status.buffers.XChar[target_slot].fOccupied) {
+    if (event.action == UiPointerAction::Enter || event.action == UiPointerAction::Leave) {
+        g_camp_screen->redraw_flags |= 1u << target_slot;
+        if ((g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_CAST_SPELL ||
+             g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_USE_ON_CHARACTER) &&
+            g_status.buffers.Char[target_slot].uiCondition[W8_CONDITION_MISSING] == 0)
+            UpdateItemCursorForState(event.action == UiPointerAction::Enter, nullptr, target_slot);
+    }
+    if (event.action != UiPointerAction::Up || !event.inside) return UiResult::Handled;
+    if (event.button == UiPointerButton::Right && (event.captured_buttons & SDL_BUTTON_RMASK) && g_status.item_in_cursor)
+        AfterUiDispatch([target_slot] { TryGiveHeldItemToCampPortrait(target_slot); });
+    if (event.button == UiPointerButton::Left && (event.captured_buttons & SDL_BUTTON_LMASK) &&
+        g_status.buffers.XChar[target_slot].fOccupied) {
+        AfterUiDispatch([target_slot] {
             if (gXStatus.iTargetingMode == W8_TARGET_NEED_ALLY) {
                 if (g_camp_screen->page != W8_CAMP_PAGE_ITEMS ||
                     (g_camp_screen->item_action != W8_CAMP_ITEM_ACTION_CAST_SPELL &&
@@ -338,19 +315,19 @@ unsigned char CampPortraitSlotRegionEvent(const InputEvent* event, W8Region* reg
                         QueueCharacterEvent(&g_status.buffers.Char[giReviewCharSlot],
                                             g_character_event_kind2, 0, g_character_event_no_flags,
                                             g_character_event_full_volume);
-                        return 1;
+                        return;
                     }
                     AimAtCharacter(giReviewCharSlot, target_slot, W8_TARGETING_CONTEXT_CURRENT);
                     StartBreathCycle(giReviewCharSlot, false);
-                    return 1;
+                    return;
                 }
                 if (g_status.buffers.Char[target_slot].uiCondition[W8_CONDITION_MISSING] == 0) {
                     if (g_camp_screen->item_action != W8_CAMP_ITEM_ACTION_CAST_SPELL) {
                         TargetCharacterWithHeldItem(target_slot);
-                        return 1;
+                        return;
                     }
                     ReportCastResult(target_slot);
-                    return 1;
+                    return;
                 }
             } else {
                 if (gXStatus.iTargetingMode == W8_TARGET_NEED_CHARACTER_INDIRECT) {
@@ -358,105 +335,52 @@ unsigned char CampPortraitSlotRegionEvent(const InputEvent* event, W8Region* reg
                         QueueCharacterEvent(&g_status.buffers.Char[giReviewCharSlot],
                                             g_character_event_kind2, 0, g_character_event_no_flags,
                                             g_character_event_full_volume);
-                        return 1;
+                        return;
                     }
                     AimAtCharacterIndirect(giReviewCharSlot, target_slot,
                                            W8_TARGETING_CONTEXT_CURRENT);
                     StartBreathCycle(giReviewCharSlot, false);
-                    return 1;
+                    return;
                 }
                 if (giReviewCharSlot != target_slot) {
                     SelectCampCharacter(target_slot);
-                    return 1;
+                    return;
                 }
             }
-        }
-    } else {
-        if (us_event != InputEventType::RightButtonUp) {
-            if (us_event != InputEventType::MouseMove) {
-                return 0;
-            }
-            if ((region->flags & W8_REGION_MOUSE_TRANSITION_MASK) != 0) {
-                g_camp_screen->redraw_flags |= 1u << (id & 0x1f);
-                if ((g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_CAST_SPELL ||
-                     g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_USE_ON_CHARACTER) &&
-                    g_status.buffers.Char[target_slot].uiCondition[W8_CONDITION_MISSING] == 0) {
-                    if ((region->flags & W8_REGION_MOUSE_ENTER) != 0) {
-                        UpdateItemCursorForState(1, 0, target_slot);
-                        return 0;
-                    }
-                    UpdateItemCursorForState(0, 0, target_slot);
-                }
-            }
-            return 0;
-        }
-        if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) != 0 && g_status.item_in_cursor) {
-            TryGiveHeldItemToCampPortrait(target_slot);
-        }
+        });
     }
-    return 1;
+    return UiResult::Handled;
 }
 
-/* Opens the character editor (W8_SCREEN_CHARACTER, mode 1) for the reviewed
-   party member. Help 2362. */
-// FUNCTION: WIZ8 0x005B61A0
-unsigned char CampOpenCharacterScreenRegionEvent(const InputEvent* event, W8Region* region, unsigned short)
+UiResult HandleCampCharacterHeader(const UiPointerEvent& event)
 {
-    const InputEventType us_event = event->type;
-
-    if (us_event == InputEventType::LeftButtonDown) {
-        region->flags |= W8_REGION_LEFT_BUTTON_HELD;
-    } else {
-        if (us_event != InputEventType::LeftButtonUp) {
-            if (us_event != InputEventType::MouseMove) {
-                return 0;
-            }
-            if ((region->flags & W8_REGION_MOUSE_TRANSITION_MASK) != 0) {
-                g_camp_screen->redraw_flags |= 0x200;
-            }
-            return 0;
-        }
-        if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
+    if (event.action == UiPointerAction::Enter || event.action == UiPointerAction::Leave)
+        g_camp_screen->redraw_flags |= 0x200;
+    if (event.action == UiPointerAction::Up && event.inside &&
+        event.button == UiPointerButton::Left && (event.captured_buttons & SDL_BUTTON_LMASK)) {
+        AfterUiDispatch([] {
             g_current_screen_state.parameter_3 = g_review_character;
             g_current_screen_state.parameter_2 = giReviewCharSlot;
             g_pending_screen_state.mode = 1;
             g_pending_screen_state.parameter_3 = g_review_character;
             SetPendingScreenState(W8_SCREEN_CHARACTER);
-            return 1;
-        }
+        });
     }
-    return 1;
+    return UiResult::Handled;
 }
 
-/* Holding the header region (help 2363) shows profession history; releasing
-   it restores the summary and clears the active hover region. */
-// FUNCTION: WIZ8 0x005B6220
-unsigned char CampProfessionHistoryRegionEvent(const InputEvent* event, W8Region* region, unsigned short)
+UiResult HandleCampProfessionHistory(const UiPointerEvent& event)
 {
-    const InputEventType us_event = event->type;
-
-    if (us_event == InputEventType::LeftButtonDown) {
-        region->flags |= W8_REGION_LEFT_BUTTON_HELD;
-        SetCampHeaderMode(W8_CAMP_HEADER_PROFESSION_HISTORY);
-        ActivateDialogRegion(g_camp_screen->hover_region);
-    } else {
-        if (us_event != InputEventType::LeftButtonUp) {
-            if (us_event == InputEventType::MouseMove) {
-                if ((region->flags & W8_REGION_MOUSE_TRANSITION_MASK) != 0) {
-                    g_camp_screen->redraw_flags |= 0x200;
-                }
-                return 0;
-            }
-            return 0;
-        }
-        if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) == 0) {
-            return 1;
-        }
-        SetCampHeaderMode(W8_CAMP_HEADER_SUMMARY);
-        ClearActiveRegionIfMatches(g_camp_screen->hover_region);
+    if (event.action == UiPointerAction::Enter || event.action == UiPointerAction::Leave)
+        g_camp_screen->redraw_flags |= 0x200;
+    if (event.button == UiPointerButton::Left) {
+        if (event.action == UiPointerAction::Down)
+            SetCampHeaderMode(W8_CAMP_HEADER_PROFESSION_HISTORY);
+        else if (event.action == UiPointerAction::Up && (event.captured_buttons & SDL_BUTTON_LMASK))
+            SetCampHeaderMode(W8_CAMP_HEADER_SUMMARY);
+        g_camp_screen->redraw_flags |= 0x7ff;
     }
-    g_camp_screen->redraw_flags |= 0x7ff;
-    return 1;
+    return UiResult::Handled;
 }
 
 void CreateCampHeaderButtons()
@@ -664,7 +588,7 @@ void DrawCampHeader(void)
     }
     if ((state->redraw_flags & 0x200) != 0) {
         g_wiz_text_bold_font.setShade(Font::kNormalShade);
-        if (state->hover_region == g_camp_main_regions->index(kCampCharacterHeaderRegionOffset)) {
+        if (state->main_targets[kCampCharacterHeaderRegionOffset]->hovered()) {
             g_wiz_text_bold_font.setPalette(g_font_state_palettes[W8_FONT_PALETTE_GREEN]);
         }
         state->text_buffer = character->name;
@@ -681,7 +605,7 @@ void DrawCampHeader(void)
             GetFrameBufferSurface(), g_wiz_text_font_secondary,
             {(0xba - g_wiz_text_font_secondary.textWidth(state->text_buffer)) / 2 + 0x74, 0x6f},
             state->text_buffer);
-        if (state->hover_region == g_camp_main_regions->index(10)) {
+        if (state->main_targets[10]->hovered()) {
             g_wiz_text_font_secondary.setPalette(g_font_state_palettes[W8_FONT_PALETTE_GREEN]);
         }
         state->text_buffer = g_localized_strings[g_profession_name_message_ids[character->iProfession]];
@@ -723,8 +647,7 @@ void DrawCampHeader(void)
                     ShadowRect(GetFrameBufferSurface(), bounds);
                     ShadowRect(GetFrameBufferSurface(), bounds);
                 }
-                if (state->hover_region ==
-                    g_camp_main_regions->index(kCampPartyPortraitRegionOffset + slot)) {
+                if (state->main_targets[kCampPartyPortraitRegionOffset + slot]->hovered()) {
                     CatalogArtwork::Load(0x117, 0).draw(GetFrameBufferSurface(), 0, left, top);
                 } else if (static_cast<int>(slot) == giReviewCharSlot) {
                     CatalogArtwork::Load(0x117, 0).draw(GetFrameBufferSurface(), 1, left, top);

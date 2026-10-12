@@ -330,25 +330,6 @@ static void ClearAutomapMarkers()
     wiz8::remove_all_and_delete_in_order(g_automap_markers);
 }
 
-/* Full-screen automap background: arm on left-down, dismiss on left-up. */
-unsigned char AutomapBackgroundRegionEvent(const InputEvent* event, W8Region* region, unsigned short)
-{
-    switch (event->type) {
-    case InputEventType::LeftButtonDown:
-        region->flags |= W8_REGION_LEFT_BUTTON_HELD;
-        break;
-    case InputEventType::LeftButtonUp:
-        if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
-            RequestScreenTransition();
-            return 1;
-        }
-        break;
-    default:
-        return 0;
-    }
-    return 1;
-}
-
 static void ClearAutomapNotes()
 {
     g_automap_editing_note = nullptr;

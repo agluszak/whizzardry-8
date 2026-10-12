@@ -1,3 +1,4 @@
+#include "wiz8/ui_layer.h"
 #pragma once
 #include <string>
 
@@ -68,10 +69,7 @@ void ToggleCampUsabilityFilter(void);
 void ToggleCampUnidentifiedItemFilter(void);
 void SortCampItemPool(void);
 void ToggleCampItemFilter(W8CampItemFilterButton tab);
-unsigned char BackpackRegionHandler(const InputEvent* event, W8Region* region, unsigned short);
-unsigned char EquipSlotRegionHandler(const InputEvent* event, W8Region* region, unsigned short);
-unsigned char ItemPoolRegionHandler(const InputEvent* event, W8Region* region, unsigned short);
-void SetItemTooltip(W8ItemInstance* item, W8Region* region);
+UiResult HandleCampItem(const UiPointerEvent& event, int slot, int origin);
 void DrawCampItemIcons(void);
 
 bool IsSpecialItemId(W8ItemInstance* item);
