@@ -241,6 +241,7 @@ TEST_CASE("active_panels_attach_detach_and_migrate_nested_regions")
 TEST_CASE("circular_hit_areas_follow_panel_moves_and_reparenting")
 {
     Controls source;
+    source.SetActive(true);
     source.SetBounds({100, 100, 100, 100});
     source.CreateRegionSet();
     auto* pip = source.EmplaceControl<W8TextControl>(-1u, 10, 20, 30, 40);
@@ -254,6 +255,7 @@ TEST_CASE("circular_hit_areas_follow_panel_moves_and_reparenting")
     Controls destination;
     destination.SetBounds({300, 100, 100, 100});
     destination.CreateRegionSet();
+    destination.SetActive(true);
     destination.AddControl(source.TakeControl(pip));
     REQUIRE(g_regions[pip->m_region].ContainsPoint(320, 130));
     REQUIRE_FALSE(g_regions[pip->m_region].ContainsPoint(329, 130));

@@ -1087,7 +1087,8 @@ void CheckGameplayUi(Game& game)
         REQUIRE(!gpSCSV);
     } else {
         // Target-free spells may commit in the same frame as power selection.
-        REQUIRE(character.iSPLeft[realm] == 100 - 2 * g_spell_records[W8_SPELL_LIGHT].spell_point_cost);
+        REQUIRE(g_status.buffers.XChar[slot].spell_id == W8_SPELL_LIGHT);
+        REQUIRE(g_status.buffers.XChar[slot].spell_detail.spell.power_level == 2);
     }
     character = original_character;
 
