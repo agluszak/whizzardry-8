@@ -129,9 +129,9 @@ void SetSubMenuButtonTooltips(int enabled);
    banks around the surprise/camp sequence. */
 void EnableMenuButtonBanks(void);
 void DisableMenuButtonBanks(void);
-unsigned char SubMenuBackgroundRegionEvent(const InputEvent* event, W8Region* region);
+unsigned char SubMenuBackgroundRegionEvent(const InputEvent* event, W8Region* region, unsigned short);
 /* Region callback the five sub-menu rows share. */
-unsigned char SubMenuRowRegionEvent(const InputEvent* event, W8Region* region);
+unsigned char SubMenuRowRegionEvent(const InputEvent* event, W8Region* region, unsigned short);
 
 /* Enable the panel region set and one input region per live row. */
 void EnableSubMenuRegions(void);

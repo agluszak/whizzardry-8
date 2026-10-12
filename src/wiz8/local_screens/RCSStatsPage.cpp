@@ -68,7 +68,7 @@ static constexpr std::array<RegionTemplate, 5> g_camp_skill_templates{{
 }};
 ScreenRegionSet g_camp_skill_regions{g_camp_skill_templates};
 
-static unsigned char CampStatsMouseWheel(const InputEvent* event, W8Region*);
+static unsigned char CampStatsMouseWheel(const InputEvent* event, W8Region*, unsigned short);
 void DrawCampEffectList(void);
 void DrawCampEffectEntry(W8CampEffectEntry* entry, int* line_out);
 
@@ -656,7 +656,7 @@ void DrawCampEffectEntry(W8CampEffectEntry* entry, int* line_out)
 /* Wheel input over the stats page's effect-list region steps the
    scrollbar. */
 // FUNCTION: WIZ8 0x005c5c60
-static unsigned char CampStatsMouseWheel(const InputEvent* event, W8Region*)
+static unsigned char CampStatsMouseWheel(const InputEvent* event, W8Region*, unsigned short)
 {
     PushButtonSoundScheme(0, true);
     if (event->type != InputEventType::MouseWheel) {
@@ -828,13 +828,13 @@ void DrawCampSkillsPage(void)
    dialog's second argument is raised when the character's level is the best
    among the occupied party slots. */
 // FUNCTION: WIZ8 0x005c6230
-unsigned char CampSkillListRegionHandler(const InputEvent* event, W8Region* region)
+unsigned char CampSkillListRegionHandler(const InputEvent* event, W8Region* region, unsigned short id)
 {
     int row = (GetEventCursorY(event) - region->y1 - 1) / 0xe;
     int skill = -1;
     int occurrence = 0;
     for (int index = 0; index < 0x29; ++index) {
-        if (g_skill_attributes[index].category == static_cast<int>(region->callback_id) &&
+        if (g_skill_attributes[index].category == static_cast<int>(id) &&
             (g_review_character->skills[index].active ||
              g_review_character->skills[index].level != 0)) {
             if (occurrence == row) {

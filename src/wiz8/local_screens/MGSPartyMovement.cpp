@@ -275,12 +275,12 @@ void InvalidatePartyMovementPanel(void)
     g_party_movement_panel->Invalidate(0);
 }
 
-unsigned char FreeTurnButtonRegionEvent(const InputEvent* event, W8Region* region)
+unsigned char FreeTurnButtonRegionEvent(const InputEvent* event, W8Region* region, unsigned short id)
 {
     if (!gXStatus.fPartyMovementUi) {
         return 0;
     }
-    return DispatchButtonRegionEvent(event, region, g_party_movement_buttons[region->callback_id]);
+    return DispatchButtonRegionEvent(event, region, g_party_movement_buttons[id]);
 }
 
 void DisableFreeTurnButton(void)

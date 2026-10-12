@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <memory>
 #include <deque>
 #include <optional>
 #include <span>
@@ -84,7 +85,8 @@ enum W8RegionFlags {
 };
 
 struct W8Region;
-typedef unsigned char (*W8RegionCallback)(const InputEvent* event, struct W8Region* region);
+typedef unsigned char (*W8RegionCallback)(const InputEvent* event, struct W8Region* region,
+                                          unsigned short id);
 
 struct RegionTemplate {
     std::uint32_t flags;
@@ -144,8 +146,6 @@ struct W8Region {
     short y1;
     short x2;
     short y2;
-    W8RegionCallback callback;
-    unsigned short callback_id;
     bool help_enabled;
     unsigned char unknown_13;
     int help_text_id;
@@ -154,6 +154,23 @@ struct W8Region {
     std::string help_text{};
     bool text_field = false; // Hit-tested at the cursor tip, ahead of every other set.
     W8RegionHandler* handler = nullptr;
+};
+
+/* A region-template row's callback, bound to the row id it was declared with. */
+class RegionFunctionHandler final : public W8RegionHandler {
+public:
+    RegionFunctionHandler(W8RegionCallback callback, unsigned short id)
+        : callback_(callback), id_(id)
+    {
+    }
+    int HandleRegionInput(W8Region& region, const InputEvent& input) override
+    {
+        return callback_(&input, &region, id_);
+    }
+
+private:
+    W8RegionCallback callback_;
+    unsigned short id_;
 };
 
 class OwnedRegion {
@@ -180,6 +197,7 @@ private:
     unsigned int set_ = 0;
     unsigned int index_ = 0;
     uint64_t generation_ = 0;
+    std::unique_ptr<RegionFunctionHandler> function_;
 };
 
 class OwnedRegionSet {
@@ -276,12 +294,12 @@ unsigned char InitializeRegionHelpState(void);
 
 /* Text-box static-catalog callbacks, implemented in Local
    Screens\MGSTextBox.cpp. */
-unsigned char TextBoxScrollUpRegionEvent(const InputEvent*, W8Region*);    /* 0x0058E2A0 */
-unsigned char TextBoxScrollDownRegionEvent(const InputEvent*, W8Region*);  /* 0x0058E650 */
-unsigned char TextBoxScrollThumbRegionEvent(const InputEvent*, W8Region*); /* 0x0058E9F0 */
-unsigned char TextBoxBodyRegionEvent(const InputEvent*, W8Region*);        /* 0x0058ED90 */
-unsigned char TextBoxChannelTabRegionEvent(const InputEvent*, W8Region*);  /* 0x0058EFD0 */
-unsigned char TextBoxMuteRegionEvent(const InputEvent*, W8Region*);        /* 0x0058F240 */
+unsigned char TextBoxScrollUpRegionEvent(const InputEvent*, W8Region*, unsigned short);    /* 0x0058E2A0 */
+unsigned char TextBoxScrollDownRegionEvent(const InputEvent*, W8Region*, unsigned short);  /* 0x0058E650 */
+unsigned char TextBoxScrollThumbRegionEvent(const InputEvent*, W8Region*, unsigned short); /* 0x0058E9F0 */
+unsigned char TextBoxBodyRegionEvent(const InputEvent*, W8Region*, unsigned short);        /* 0x0058ED90 */
+unsigned char TextBoxChannelTabRegionEvent(const InputEvent*, W8Region*, unsigned short);  /* 0x0058EFD0 */
+unsigned char TextBoxMuteRegionEvent(const InputEvent*, W8Region*, unsigned short);        /* 0x0058F240 */
 
 extern std::deque<W8RegionSet> g_region_sets;
 extern std::deque<W8Region> g_regions;
@@ -303,8 +321,6 @@ void DestroyRegionSet(unsigned int region_set_index);
 void ResetRegionSet(unsigned int region_set_index);
 unsigned int AddRegionToSet(unsigned int region_set_index, int priority = 0);
 void RemoveRegionFromSet(unsigned int region_set_index, unsigned int region_index);
-void SetRegionCallback(unsigned int region_index, W8RegionCallback callback,
-                       unsigned short callback_id);
 void ClearHotRegion(void);
 void UpdateRegionHelp(void);
 void ShowRegionHelp(unsigned int region_index);

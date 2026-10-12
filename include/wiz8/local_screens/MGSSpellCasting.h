@@ -78,9 +78,9 @@ class W8DialogBase;
 
 /* Destroy callback for the spell/use-item reason notices. */
 void SpellCastingNoticeClosed(W8DialogBase* dialog);
-unsigned char SpellRealmButtonRegionEvent(const InputEvent* event, W8Region* region);
-unsigned char SpellPowerPipRegionEvent(const InputEvent* event, W8Region* region);
-unsigned char IgnoreSpellCastingInput(const InputEvent* event, W8Region* region);
+unsigned char SpellRealmButtonRegionEvent(const InputEvent* event, W8Region* region, unsigned short);
+unsigned char SpellPowerPipRegionEvent(const InputEvent* event, W8Region* region, unsigned short);
+unsigned char IgnoreSpellCastingInput(const InputEvent* event, W8Region* region, unsigned short);
 /* Text-box body callback while spell casting is active. */
 unsigned char SpellCastTextBoxRegionEvent(const InputEvent* event, W8Region* region);
 

@@ -57,7 +57,7 @@ void RequeueSelectedPortraitEvent(void);
 void SetPortraitTargetPose(struct W8MonsterManagerEntry* slot, int pose);
 /* Left-click on a party portrait completes that slot's active
    event, or finishes the NPC voice playback for the player portraits. */
-unsigned char PartyPortraitEventRegionEvent(const InputEvent* event, struct W8Region* region);
+unsigned char PartyPortraitEventRegionEvent(const InputEvent* event, struct W8Region* region, unsigned short);
 /* Re-blit each active portrait quote bubble when the screen comes
    back from a modal view. */
 void RedrawPortraitQuoteBubbles(void);

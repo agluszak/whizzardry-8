@@ -1127,7 +1127,7 @@ void DeleteDialogueTextCharacter(unsigned int key)
     InvalidateDialogueTextCursor();
 }
 
-unsigned char TextBoxScrollThumbRegionEvent(const InputEvent* input_event, W8Region* region)
+unsigned char TextBoxScrollThumbRegionEvent(const InputEvent* input_event, W8Region* region, unsigned short)
 {
     PushButtonSoundScheme(0, true);
     if (input_event->type != InputEventType::MouseMove) {
@@ -1181,7 +1181,7 @@ unsigned char TextBoxScrollThumbRegionEvent(const InputEvent* input_event, W8Reg
     return 1;
 }
 
-unsigned char TextBoxScrollUpRegionEvent(const InputEvent* event, W8Region* region)
+unsigned char TextBoxScrollUpRegionEvent(const InputEvent* event, W8Region* region, unsigned short)
 {
     short text_box = g_status.text_line_cursor;
     if (g_level_block->text_lines[text_box] == 0) {
@@ -1229,7 +1229,7 @@ unsigned char TextBoxScrollUpRegionEvent(const InputEvent* event, W8Region* regi
     return 1;
 }
 
-unsigned char TextBoxScrollDownRegionEvent(const InputEvent* event, W8Region* region)
+unsigned char TextBoxScrollDownRegionEvent(const InputEvent* event, W8Region* region, unsigned short)
 {
     short text_box = g_status.text_line_cursor;
     unsigned int visible = GetTextBoxVisibleLineCount();
@@ -1278,7 +1278,7 @@ unsigned char TextBoxScrollDownRegionEvent(const InputEvent* event, W8Region* re
     return 1;
 }
 
-unsigned char TextBoxBodyRegionEvent(const InputEvent* event, W8Region* region)
+unsigned char TextBoxBodyRegionEvent(const InputEvent* event, W8Region* region, unsigned short)
 {
     PushButtonSoundScheme(0, true);
     if (event->type == InputEventType::MouseWheel) {
@@ -1312,7 +1312,7 @@ unsigned char TextBoxBodyRegionEvent(const InputEvent* event, W8Region* region)
     return SpellCastTextBoxRegionEvent(event, region);
 }
 
-unsigned char TextBoxChannelTabRegionEvent(const InputEvent* event, W8Region* region)
+unsigned char TextBoxChannelTabRegionEvent(const InputEvent* event, W8Region* region, unsigned short id)
 {
     SDL_Point mouse_pos;
 
@@ -1322,7 +1322,7 @@ unsigned char TextBoxChannelTabRegionEvent(const InputEvent* event, W8Region* re
         return 0;
     }
 
-    g_status.text_line_cursor = static_cast<short>(region->callback_id);
+    g_status.text_line_cursor = static_cast<short>(id);
     region->flags |= W8_REGION_LEFT_BUTTON_HELD;
     RedrawTextBox();
 
@@ -1344,7 +1344,7 @@ unsigned char TextBoxChannelTabRegionEvent(const InputEvent* event, W8Region* re
         }
     }
 
-    if (region->callback_id == 3) {
+    if (id == 3) {
         if (g_status.text_box_lines_shown[text_box] > 7) {
             ScrollTextBoxTo(g_status.text_box_lines_shown[text_box] - 7);
             return 1;
@@ -1356,7 +1356,7 @@ unsigned char TextBoxChannelTabRegionEvent(const InputEvent* event, W8Region* re
 
 /* Background mute for the message/text-box plates that share this catalog
    callback - suppress the default region click sound and swallow the event. */
-unsigned char TextBoxMuteRegionEvent(const InputEvent*, W8Region*)
+unsigned char TextBoxMuteRegionEvent(const InputEvent*, W8Region*, unsigned short)
 {
     PushButtonSoundScheme(0, true);
     return 0;

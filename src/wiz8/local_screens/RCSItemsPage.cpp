@@ -71,7 +71,7 @@ W8ItemInstance* g_split_item_source;
 
 
 /* The twelve equip-slot label message ids indexed by region
-   callback_id. */
+   region id. */
 // GLOBAL: WIZ8 0x0061E7C4
 unsigned short g_equip_slot_label_ids[12] = {
     0x433, 0x434, 0x435, 0x436, 0x437, 0x438, 0x439, 0x43a, 0x43b, 0x43c, 0x43d, 0x43e,
@@ -796,12 +796,12 @@ static void ShowCampItemInfo(W8ItemInstance* item)
 }
 
 // FUNCTION: WIZ8 0x005BB350
-unsigned char BackpackRegionHandler(const InputEvent* event, W8Region* region)
+unsigned char BackpackRegionHandler(const InputEvent* event, W8Region* region, unsigned short id)
 {
     int slot;
     W8ItemInstance* item;
 
-    slot = region->callback_id;
+    slot = id;
     item = g_review_character->backpack + slot;
     if (item->iItemNo == -1 && !g_status.item_in_cursor) {
         PushButtonSoundScheme(0, true);
@@ -861,14 +861,14 @@ unsigned char BackpackRegionHandler(const InputEvent* event, W8Region* region)
 }
 
 // FUNCTION: WIZ8 0x005BB560
-unsigned char EquipSlotRegionHandler(const InputEvent* event, W8Region* region)
+unsigned char EquipSlotRegionHandler(const InputEvent* event, W8Region* region, unsigned short id)
 {
     int slot;
     int delay;
     W8ItemInstance* item;
     std::string name;
 
-    slot = region->callback_id;
+    slot = id;
     item = g_review_character->EquippedItem + slot;
     if (item->iItemNo == -1 &&
         (!g_status.item_in_cursor || g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_MOVE ||
@@ -958,7 +958,7 @@ unsigned char EquipSlotRegionHandler(const InputEvent* event, W8Region* region)
 }
 
 // FUNCTION: WIZ8 0x005BB900
-unsigned char ItemPoolRegionHandler(const InputEvent* event, W8Region* region)
+unsigned char ItemPoolRegionHandler(const InputEvent* event, W8Region* region, unsigned short id)
 {
     unsigned int slot;
     unsigned int pool_index;
@@ -966,7 +966,7 @@ unsigned char ItemPoolRegionHandler(const InputEvent* event, W8Region* region)
     int count;
     W8ItemInstance* item;
 
-    slot = region->callback_id;
+    slot = id;
     pool_index = g_camp_screen->item_scroll + slot;
     if (g_camp_screen->item_list_count <= pool_index ||
         g_status.party_item_pool[g_camp_screen->item_list[pool_index]].iItemNo == -1) {
@@ -1064,16 +1064,16 @@ unsigned char ItemPoolRegionHandler(const InputEvent* event, W8Region* region)
 /* Reason 0x40/0x8 press the tab control, 0x10 releases it, and the 0x400
    enter/leave transition forwards the matching mouse events. */
 // FUNCTION: WIZ8 0x005BBBB0
-unsigned char RealmTabRegionHandler(const InputEvent* event, W8Region* region)
+unsigned char RealmTabRegionHandler(const InputEvent* event, W8Region* region, unsigned short id)
 {
     return DispatchButtonRegionEvent(event, region,
-                                     g_camp_item_filter_buttons[region->callback_id]);
+                                     g_camp_item_filter_buttons[id]);
 }
 
 // FUNCTION: WIZ8 0x005BBC70
-unsigned char PanelTabRegionHandler(const InputEvent* event, W8Region* region)
+unsigned char PanelTabRegionHandler(const InputEvent* event, W8Region* region, unsigned short id)
 {
-    return DispatchButtonRegionEvent(event, region, g_camp_action_buttons[region->callback_id]);
+    return DispatchButtonRegionEvent(event, region, g_camp_action_buttons[id]);
 }
 
 // FUNCTION: WIZ8 0x005BBD30

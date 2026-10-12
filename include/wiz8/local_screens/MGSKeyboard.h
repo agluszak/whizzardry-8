@@ -84,9 +84,9 @@ void AssignKeyboardMenuCallback(short menu, short item, W8TextControl* row);
 /* Invalidate (when asked) then redraw the menu panel. */
 void RedrawKeyboardMenuPanel(bool invalidate);
 /* Region callback the thirteen keyboard-menu rows share. */
-unsigned char KeyboardMenuRowRegionEvent(const InputEvent* event, W8Region* region);
+unsigned char KeyboardMenuRowRegionEvent(const InputEvent* event, W8Region* region, unsigned short);
 /* Region callback for the keyboard-menu background: right-up closes the menu. */
-unsigned char KeyboardMenuBackgroundRegionEvent(const InputEvent* event, W8Region* region);
+unsigned char KeyboardMenuBackgroundRegionEvent(const InputEvent* event, W8Region* region, unsigned short);
 /* Dispatch a bound MGS command number through the keyboard system. */
 void DispatchMGSCommand(W8MGSCommand command);
 /* Route one non-mouse input atom to text entry, dialogue, the trap text box,

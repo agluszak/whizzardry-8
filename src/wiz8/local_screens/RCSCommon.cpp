@@ -270,7 +270,7 @@ static void OpenLevelUpCharacterScreen(void)
 /* Dismiss-confirm portrait/name hitbox (help 2368): click dismisses the
    reviewed party member; mouse enter/leave toggles portrait_hovered[0]. */
 // FUNCTION: WIZ8 0x005B5E90
-unsigned char CampDismissPortraitRegionEvent(const InputEvent* event, W8Region* region)
+unsigned char CampDismissPortraitRegionEvent(const InputEvent* event, W8Region* region, unsigned short)
 {
     const InputEventType us_event = event->type;
 
@@ -303,10 +303,10 @@ unsigned char CampDismissPortraitRegionEvent(const InputEvent* event, W8Region* 
 /* Eight party portrait slots on the camp screen. Targeting modes 1 and 7 aim
    spells/items; otherwise a click selects the reviewed character. */
 // FUNCTION: WIZ8 0x005B5F10
-unsigned char CampPortraitSlotRegionEvent(const InputEvent* event, W8Region* region)
+unsigned char CampPortraitSlotRegionEvent(const InputEvent* event, W8Region* region, unsigned short id)
 {
     const InputEventType us_event = event->type;
-    int target_slot = region->callback_id;
+    int target_slot = id;
 
     if (IsLeftButtonEvent(us_event) || us_event == InputEventType::RightButtonDown) {
         if (region->CaptureButtonDown(us_event)) {
@@ -364,7 +364,7 @@ unsigned char CampPortraitSlotRegionEvent(const InputEvent* event, W8Region* reg
                 return 0;
             }
             if ((region->flags & W8_REGION_MOUSE_TRANSITION_MASK) != 0) {
-                g_camp_screen->redraw_flags |= 1u << (region->callback_id & 0x1f);
+                g_camp_screen->redraw_flags |= 1u << (id & 0x1f);
                 if ((g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_CAST_SPELL ||
                      g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_USE_ON_CHARACTER) &&
                     g_status.buffers.Char[target_slot].uiCondition[W8_CONDITION_MISSING] == 0) {
@@ -387,7 +387,7 @@ unsigned char CampPortraitSlotRegionEvent(const InputEvent* event, W8Region* reg
 /* Opens the character editor (W8_SCREEN_CHARACTER, mode 1) for the reviewed
    party member. Help 2362. */
 // FUNCTION: WIZ8 0x005B61A0
-unsigned char CampOpenCharacterScreenRegionEvent(const InputEvent* event, W8Region* region)
+unsigned char CampOpenCharacterScreenRegionEvent(const InputEvent* event, W8Region* region, unsigned short)
 {
     const InputEventType us_event = event->type;
 
@@ -418,7 +418,7 @@ unsigned char CampOpenCharacterScreenRegionEvent(const InputEvent* event, W8Regi
 /* Holding the header region (help 2363) shows profession history; releasing
    it restores the summary and clears the active hover region. */
 // FUNCTION: WIZ8 0x005B6220
-unsigned char CampProfessionHistoryRegionEvent(const InputEvent* event, W8Region* region)
+unsigned char CampProfessionHistoryRegionEvent(const InputEvent* event, W8Region* region, unsigned short)
 {
     const InputEventType us_event = event->type;
 
@@ -448,16 +448,16 @@ unsigned char CampProfessionHistoryRegionEvent(const InputEvent* event, W8Region
 
 /* Shared handler for the five bottom page buttons in g_camp_page_buttons. */
 // FUNCTION: WIZ8 0x005B62C0
-unsigned char CampPageButtonRegionEvent(const InputEvent* event, W8Region* region)
+unsigned char CampPageButtonRegionEvent(const InputEvent* event, W8Region* region, unsigned short id)
 {
-    return DispatchButtonRegionEvent(event, region, g_camp_page_buttons[region->callback_id]);
+    return DispatchButtonRegionEvent(event, region, g_camp_page_buttons[id]);
 }
 
 /* Shared handler for the eight item-action buttons. */
 // FUNCTION: WIZ8 0x005B6360
-unsigned char CampItemActionRegionEvent(const InputEvent* event, W8Region* region)
+unsigned char CampItemActionRegionEvent(const InputEvent* event, W8Region* region, unsigned short id)
 {
-    return DispatchButtonRegionEvent(event, region, g_item_action_controls[region->callback_id]);
+    return DispatchButtonRegionEvent(event, region, g_item_action_controls[id]);
 }
 
 // FUNCTION: WIZ8 0x005b6400
@@ -528,7 +528,7 @@ void UpdateRcsLevelUpPanel(void)
 /* Single level-up button (help 1984). Assembly writes region flags through the
    second parameter; Ghidra wrongly folded them into the event pointer. */
 // FUNCTION: WIZ8 0x005B66B0
-unsigned char CampLevelUpButtonRegionEvent(const InputEvent* event, W8Region* region)
+unsigned char CampLevelUpButtonRegionEvent(const InputEvent* event, W8Region* region, unsigned short)
 {
     return DispatchButtonRegionEvent(event, region, g_level_up_button);
 }
@@ -598,7 +598,7 @@ static void OnDismissCharacterDialogClosed(W8DialogBase* base)
 /* Single dismiss button (help 2387). Same region-flag pattern as the level-up
    button. */
 // FUNCTION: WIZ8 0x005B6AA0
-unsigned char CampDismissButtonRegionEvent(const InputEvent* event, W8Region* region)
+unsigned char CampDismissButtonRegionEvent(const InputEvent* event, W8Region* region, unsigned short)
 {
     return DispatchButtonRegionEvent(event, region, g_dismiss_button);
 }

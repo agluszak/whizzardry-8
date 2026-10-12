@@ -30,13 +30,13 @@ void UpdateFormationCompass(void);
 void CreateFormationBoardOverlay(void);
 /* Board callback: opens the formation panel on release, hit-tests the cell
    markers for tooltips, and switches board art on hover transitions. */
-unsigned char FormationBoardRegionEvent(const InputEvent* event, W8Region* region);
+unsigned char FormationBoardRegionEvent(const InputEvent* event, W8Region* region, unsigned short);
 /* Open the formation panel: build the controls, snapshot the live formation
    into gXStatus.edited_formation and pause the world. */
 void OpenFormationPanel(void);
 /* Region callback the fifteen formation cells share. */
-unsigned char FormationCellRegionEvent(const InputEvent* event, W8Region* region);
-unsigned char FormationActionRegionEvent(const InputEvent* event, W8Region* region);
-unsigned char FormationBackgroundRegionEvent(const InputEvent* event, W8Region* region);
+unsigned char FormationCellRegionEvent(const InputEvent* event, W8Region* region, unsigned short);
+unsigned char FormationActionRegionEvent(const InputEvent* event, W8Region* region, unsigned short);
+unsigned char FormationBackgroundRegionEvent(const InputEvent* event, W8Region* region, unsigned short);
 /* Highlight the cell holding one party slot and un-highlight the rest. */
 void SelectFormationSlotCell(int party_slot);

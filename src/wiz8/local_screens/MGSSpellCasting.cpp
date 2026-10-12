@@ -1128,20 +1128,20 @@ void CommitSpellCastingSelection(void)
    realm button, invalidates its icon, and on enter sets the realm tooltip
    (plain name when disabled, or name with skill level when enabled). */
 // FUNCTION: WIZ8 0x005A0C80
-unsigned char SpellRealmButtonRegionEvent(const InputEvent* event, W8Region* region)
+unsigned char SpellRealmButtonRegionEvent(const InputEvent* event, W8Region* region, unsigned short id)
 {
     const InputEventType us_event = event->type;
 
     if (IsLeftButtonEvent(us_event)) {
         if (us_event == InputEventType::LeftButtonRepeat || us_event == InputEventType::LeftButtonDown) {
-            gpSCSV->realm_buttons[region->callback_id]->OnLeftButtonDown(0);
-            gpSCSV->realm_icons[region->callback_id]->Invalidate(false);
+            gpSCSV->realm_buttons[id]->OnLeftButtonDown(0);
+            gpSCSV->realm_icons[id]->Invalidate(false);
             region->flags |= W8_REGION_LEFT_BUTTON_HELD;
             return 1;
         }
         if (us_event == InputEventType::LeftButtonUp) {
-            gpSCSV->realm_buttons[region->callback_id]->OnLeftButtonUp(0);
-            gpSCSV->realm_icons[region->callback_id]->Invalidate(false);
+            gpSCSV->realm_buttons[id]->OnLeftButtonUp(0);
+            gpSCSV->realm_icons[id]->Invalidate(false);
             if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
                 region->flags &= ~W8_REGION_LEFT_BUTTON_HELD;
             }
@@ -1149,12 +1149,12 @@ unsigned char SpellRealmButtonRegionEvent(const InputEvent* event, W8Region* reg
         }
     } else if (us_event == InputEventType::MouseMove) {
         if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
-            gpSCSV->realm_buttons[region->callback_id]->OnMouseLeave(0);
-            gpSCSV->realm_icons[region->callback_id]->Invalidate(false);
+            gpSCSV->realm_buttons[id]->OnMouseLeave(0);
+            gpSCSV->realm_icons[id]->Invalidate(false);
             return 1;
         }
         if ((region->flags & W8_REGION_MOUSE_ENTER) != 0) {
-            unsigned int realm = region->callback_id;
+            unsigned int realm = id;
             gpSCSV->realm_buttons[realm]->OnMouseEnter(0);
             if (!gpSCSV->realm_buttons[realm]->m_enabled) {
                 SetRegionHelpText(g_localized_strings[g_spell_realm_help_string_ids[realm]]);
@@ -1176,10 +1176,9 @@ unsigned char SpellRealmButtonRegionEvent(const InputEvent* event, W8Region* reg
 /* Power-pip / cancel-button region callback (ids 0..8 and 10). While
    input_blocked is set the handler swallows input. */
 // FUNCTION: WIZ8 0x005A0E50
-unsigned char SpellPowerPipRegionEvent(const InputEvent* event, W8Region* region)
+unsigned char SpellPowerPipRegionEvent(const InputEvent* event, W8Region* region, unsigned short id)
 {
     InputEventType us_event;
-    unsigned int callback_id;
 
     if (gpSCSV->input_blocked) {
         return 1;
@@ -1188,16 +1187,15 @@ unsigned char SpellPowerPipRegionEvent(const InputEvent* event, W8Region* region
     us_event = event->type;
     if (IsLeftButtonEvent(us_event)) {
         if (us_event == InputEventType::LeftButtonRepeat || us_event == InputEventType::LeftButtonDown) {
-            gpSCSV->power_controls[region->callback_id]->OnLeftButtonDown(0);
+            gpSCSV->power_controls[id]->OnLeftButtonDown(0);
             region->flags |= W8_REGION_LEFT_BUTTON_HELD;
             return 1;
         }
         if (us_event == InputEventType::LeftButtonUp) {
-            gpSCSV->power_controls[region->callback_id]->OnLeftButtonUp(0);
-            callback_id = region->callback_id;
-            if (callback_id < 7 && (gpSCSV->power_controls[callback_id]->m_stateFlags &
+            gpSCSV->power_controls[id]->OnLeftButtonUp(0);
+            if (id < 7 && (gpSCSV->power_controls[id]->m_stateFlags &
                                     g_W8TextControlStateSecondary) == 0) {
-                PreviewSpellPowerPipHover(callback_id);
+                PreviewSpellPowerPipHover(id);
             }
             if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
                 region->flags &= ~W8_REGION_LEFT_BUTTON_HELD;
@@ -1207,12 +1205,12 @@ unsigned char SpellPowerPipRegionEvent(const InputEvent* event, W8Region* region
     } else if (us_event == InputEventType::MouseMove) {
         if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
             PreviewSpellPowerPipHover(-1);
-            gpSCSV->power_controls[region->callback_id]->OnMouseLeave(0);
+            gpSCSV->power_controls[id]->OnMouseLeave(0);
             return 1;
         }
         if ((region->flags & W8_REGION_MOUSE_ENTER) != 0) {
-            PreviewSpellPowerPipHover(region->callback_id);
-            gpSCSV->power_controls[region->callback_id]->OnMouseEnter(0);
+            PreviewSpellPowerPipHover(id);
+            gpSCSV->power_controls[id]->OnMouseEnter(0);
             return 1;
         }
     }
@@ -1285,7 +1283,7 @@ unsigned char SpellCastTextBoxRegionEvent(const InputEvent* event, W8Region* reg
 }
 
 // FUNCTION: WIZ8 0x005A1140
-unsigned char IgnoreSpellCastingInput(const InputEvent* event, W8Region*)
+unsigned char IgnoreSpellCastingInput(const InputEvent* event, W8Region*, unsigned short)
 {
     return 0;
 }

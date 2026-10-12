@@ -858,7 +858,7 @@ void DisableMenuButtonBanks(void)
 }
 
 // FUNCTION: WIZ8 0x00598CD0
-unsigned char SubMenuBackgroundRegionEvent(const InputEvent* event, W8Region* region)
+unsigned char SubMenuBackgroundRegionEvent(const InputEvent* event, W8Region* region, unsigned short)
 {
     InputEventType us_event;
 
@@ -883,7 +883,7 @@ unsigned char SubMenuBackgroundRegionEvent(const InputEvent* event, W8Region* re
 }
 
 // FUNCTION: WIZ8 0x00598DB0
-unsigned char SubMenuRowRegionEvent(const InputEvent* event, W8Region* region)
+unsigned char SubMenuRowRegionEvent(const InputEvent* event, W8Region* region, unsigned short id)
 {
     W8PartySlotRow* party_row;
     W8ItemInstance* item;
@@ -896,28 +896,28 @@ unsigned char SubMenuRowRegionEvent(const InputEvent* event, W8Region* region)
     RequestRedraw(W8_MAIN_REDRAW_FRAME);
     switch (event->type) {
     case InputEventType::RightButtonDown:
-        g_submenu_rows[region->callback_id]->OnRightButtonDown(0);
+        g_submenu_rows[id]->OnRightButtonDown(0);
         region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
         return 1;
     case InputEventType::LeftButtonDown:
     case InputEventType::LeftButtonUp:
-        return DispatchButtonRegionEvent(event, region, g_submenu_rows[region->callback_id]);
+        return DispatchButtonRegionEvent(event, region, g_submenu_rows[id]);
     case InputEventType::RightButtonUp:
-        g_submenu_rows[region->callback_id]->OnRightButtonUp(0);
+        g_submenu_rows[id]->OnRightButtonUp(0);
         if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) != 0) {
             region->flags &= ~W8_REGION_RIGHT_BUTTON_HELD;
         }
         return 1;
     case InputEventType::MouseMove:
         if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
-            g_submenu_rows[region->callback_id]->OnMouseLeave(0);
+            g_submenu_rows[id]->OnMouseLeave(0);
             return 1;
         }
         if ((region->flags & W8_REGION_MOUSE_ENTER) == 0) {
             return 0;
         }
         if (g_level_block->combat_end_notification == 3 &&
-            g_submenu_entries[region->callback_id] == 2) {
+            g_submenu_entries[id] == 2) {
             SetRegionHelpForceEnabled(true);
             slot = g_status.selected_character;
             if (!CanPartySlotUseRecordedItem(slot)) {
@@ -929,7 +929,7 @@ unsigned char SubMenuRowRegionEvent(const InputEvent* event, W8Region* region)
                 SetRegionHelpText(fmt::format("{}: {}", g_localized_strings[0x5d], name));
             }
         }
-        g_submenu_rows[region->callback_id]->OnMouseEnter(0);
+        g_submenu_rows[id]->OnMouseEnter(0);
         return 1;
     default:
         break;

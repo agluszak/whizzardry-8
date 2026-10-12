@@ -331,10 +331,11 @@ static unsigned int FindActiveEffectSlotIndex(const W8EffectSlot* slots, unsigne
 /* All three effect strips use the same active-slot hover policy. The caller
    retains the combat guard and sound setup before supplying its current slots. */
 static unsigned char DispatchEffectIconRegionEvent(const InputEvent* event, W8Region* region,
+                                                   unsigned short id,
                                                    const W8EffectSlot* slots, unsigned int count,
                                                    void (*show_help)(int))
 {
-    unsigned int slot_index = FindActiveEffectSlotIndex(slots, count, region->callback_id);
+    unsigned int slot_index = FindActiveEffectSlotIndex(slots, count, id);
     if (slot_index != count && event->type == InputEventType::MouseMove) {
         if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
             return 1;
@@ -352,10 +353,10 @@ static unsigned char DispatchEffectIconRegionEvent(const InputEvent* event, W8Re
 }
 
 // FUNCTION: WIZ8 0x005AEEA0
-unsigned char PartyEffectIconRegionEvent(const InputEvent* event, W8Region* region)
+unsigned char PartyEffectIconRegionEvent(const InputEvent* event, W8Region* region, unsigned short id)
 {
     PushButtonSoundScheme(0, true);
-    return DispatchEffectIconRegionEvent(event, region, g_status.effect_slots, 12,
+    return DispatchEffectIconRegionEvent(event, region, id, g_status.effect_slots, 12,
                                          ShowPartyEffectIconHelp);
 }
 
@@ -373,29 +374,29 @@ void ShowCombatRightEffectIconHelp(int slot_index)
     ShowEffectIconHelp(&g_combat_state->effect_slots0[slot_index], true, 0x30d);
 }
 
-/* Top-row party effect icons: map callback_id onto the Nth active party
+/* Top-row party effect icons: map the region id onto the Nth active party
    effect slot and refresh help on enter. */
 
 // FUNCTION: WIZ8 0x005AF530
-unsigned char CombatLeftEffectIconRegionEvent(const InputEvent* event, W8Region* region)
+unsigned char CombatLeftEffectIconRegionEvent(const InputEvent* event, W8Region* region, unsigned short id)
 {
     if (!gXStatus.fCombatMode) {
         return 0;
     }
     PushButtonSoundScheme(0, true);
-    return DispatchEffectIconRegionEvent(event, region, g_combat_state->effect_slots, 9,
+    return DispatchEffectIconRegionEvent(event, region, id, g_combat_state->effect_slots, 9,
                                          ShowCombatLeftEffectIconHelp);
 }
 
 /* Right combat-effect strip (six slots at g_combat_state->effect_slots0). */
 
 // FUNCTION: WIZ8 0x005AF5E0
-unsigned char CombatRightEffectIconRegionEvent(const InputEvent* event, W8Region* region)
+unsigned char CombatRightEffectIconRegionEvent(const InputEvent* event, W8Region* region, unsigned short id)
 {
     if (!gXStatus.fCombatMode) {
         return 0;
     }
     PushButtonSoundScheme(0, true);
-    return DispatchEffectIconRegionEvent(event, region, g_combat_state->effect_slots0, 6,
+    return DispatchEffectIconRegionEvent(event, region, id, g_combat_state->effect_slots0, 6,
                                          ShowCombatRightEffectIconHelp);
 }
