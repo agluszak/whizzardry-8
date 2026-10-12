@@ -19,6 +19,7 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/regions.h"
+#include "wiz8/local_code/Widget.h"
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/fonts.h"
 #include "wiz8/text_input.h"
@@ -40,24 +41,24 @@
  * .cpp / local_code/ placement remains a recovery choice.
  */
 
-class W8TextField final : public W8RegionHandler {
+/* One editable field of a group. Its hit region is hit-tested at the cursor
+   tip, ahead of the panel hosting it. */
+class W8TextField final : public W8Widget {
 public:
-    W8TextField(TextFieldGroup& group, int id, int priority)
-        : group(group), id(id), region(InputLayerSet(group.layer_), priority, *this)
+    W8TextField(TextFieldGroup& group, int id, int priority) : group(group), id(id)
     {
-        region.region().text_field = true;
+        ClaimRegion(priority, InputLayerSet(group.layer_));
+        g_regions[m_region].text_field = true;
     }
-    ~W8TextField()
+    ~W8TextField() override
     {
-        g_ui.ReleaseCapture(region.index());
+        g_ui.ReleaseCapture(static_cast<unsigned int>(m_region));
     }
-    W8TextField(const W8TextField&) = delete;
-    W8TextField& operator=(const W8TextField&) = delete;
 
     int HandleRegionInput(W8Region& target, const InputEvent& event) override;
 
-    W8Region& bounds() { return region.region(); }
-    int EditWidth() { return bounds().x2 - bounds().x1 - 10; }
+    W8ControlsRect Edges() const { return ToEdges(ScreenBounds()); }
+    int EditWidth() const { return Bounds().w - 10; }
     Font& font() { return *group.style_.font; }
 
     /* Scrolls so the cursor stays visible; updates the caret x and visible byte span. */
@@ -100,7 +101,7 @@ public:
     }
     std::size_t MousePosition(int mouse_x)
     {
-        const int offset = mouse_x - bounds().x1;
+        const int offset = mouse_x - ScreenBounds().x;
         int previous_width = 0;
         for (auto position = parking; position < text.size();) {
             const auto end = wiz8::text::next_grapheme(text, position);
@@ -132,7 +133,6 @@ public:
     std::size_t visible_count = 0;
     std::size_t mouse_down = 0;
     int cursor_x = 0;
-    OwnedRegion region;
 };
 
 int W8TextField::HandleRegionInput(W8Region& target, const InputEvent& event)
@@ -142,11 +142,11 @@ int W8TextField::HandleRegionInput(W8Region& target, const InputEvent& event)
         MouseMoved(RegionReasonForInput(target, event), event.position.x, event.buttons);
         return 1;
     case InputEventType::LeftButtonDown:
-        g_ui.captured = region.index();
+        g_ui.captured = static_cast<unsigned int>(m_region);
         MouseClicked(RegionReasonForInput(target, event), event.position.x, event.buttons);
         return 1;
     case InputEventType::LeftButtonUp:
-        g_ui.ReleaseCapture(region.index());
+        g_ui.ReleaseCapture(static_cast<unsigned int>(m_region));
         MouseClicked(RegionReasonForInput(target, event), event.position.x, event.buttons);
         return 1;
     case InputEventType::LeftButtonDoubleClick:
@@ -252,7 +252,7 @@ TextFieldGroup* TextFieldGroup::Focused() { return g_ui.focus; }
 void TextFieldGroup::Suspend()
 {
     for (auto& field : fields_) {
-        field->bounds().SetInputEnabled(false);
+        field->SetActive(false);
         field->enabled = false;
     }
     suspended_focus_ = focused_;
@@ -262,7 +262,7 @@ void TextFieldGroup::Suspend()
 void TextFieldGroup::Resume()
 {
     for (auto& field : fields_) {
-        field->bounds().SetInputEnabled(true);
+        field->SetActive(true);
         field->enabled = true;
     }
     focused_ = suspended_focus_ ? suspended_focus_ : fields_.empty() ? nullptr : fields_.front().get();
@@ -331,7 +331,7 @@ int TextFieldGroup::Add(int left, int top, int width, int height, int priority,
     field.capacity = input_type == 0x1002 ? 6 : capacity;
     field.text.assign(text);
     field.use_inactive_color = use_inactive_color;
-    field.bounds().SetBounds(left, top, left + width, top + height);
+    field.SetBounds({left, top, width, height});
     if (fields_.size() == 1) field.SelectAll();
     return id;
 }
@@ -677,8 +677,7 @@ void TextFieldGroup::SelectWordAtMouse(int mouse_x)
 
 void TextFieldGroup::RenderBackground(W8TextField& field)
 {
-    const auto& region = field.bounds();
-    const int left = region.x1, top = region.y1, right = region.x2, bottom = region.y2;
+    const auto [left, top, right, bottom] = field.Edges();
     if (style_.bevelled) {
         const SDL_Rect darker{left, top, right - left, bottom - top};
         const SDL_Rect brighter{left + 1, top + 1, right - left - 1, bottom - top - 1};
@@ -714,13 +713,13 @@ void TextFieldGroup::RenderFocused()
     auto& field = *focused_;
     auto& font = *style_.font;
     if (IsLeftButtonHeld()) {
-        if (GetGameMousePosition().x < field.bounds().x1) {
+        if (GetGameMousePosition().x < field.Edges().left) {
             if (field.cursor != 0) {
                 field.cursor = wiz8::text::previous_grapheme(field.text, field.cursor);
                 field.Relayout();
             }
             if (field.selecting) field.selection_start = field.visible_start;
-        } else if (field.bounds().x2 < GetGameMousePosition().x) {
+        } else if (field.Edges().right < GetGameMousePosition().x) {
             if (field.cursor < field.text.size()) {
                 field.cursor = wiz8::text::next_grapheme(field.text, field.cursor);
                 field.Relayout();
@@ -730,7 +729,7 @@ void TextFieldGroup::RenderFocused()
     }
     const unsigned short font_height = font.height();
     const int text_top =
-        field.bounds().y1 + (field.bounds().y2 - field.bounds().y1 - font_height) / 2;
+        field.Edges().top + (field.Edges().bottom - field.Edges().top - font_height) / 2;
     RenderBackground(field);
     const std::string_view visible = std::string_view(field.text).substr(field.parking);
     const bool has_selection = field.selecting && field.selection_start != field.selection_end;
@@ -747,12 +746,12 @@ void TextFieldGroup::RenderFocused()
                      : FieldTextOptions(font, style_.fore_color, style_.shadow_color, 0);
         std::size_t end = index;
         wiz8::text::next(visible, end);
-        DrawText(GetFrameBufferSurface(), font, {field.bounds().x1 + prefix + 3, text_top},
+        DrawText(GetFrameBufferSurface(), font, {field.Edges().left + prefix + 3, text_top},
                  visible.substr(index, end - index), options);
         index = end;
     }
     if (editing_ && !IsLeftButtonHeld() && w8_get_ticks() % 1000 < 500) {
-        const SDL_Rect caret{field.bounds().x1 + field.cursor_x, text_top, 1, font_height};
+        const SDL_Rect caret{field.Edges().left + field.cursor_x, text_top, 1, font_height};
         SDL_FillSurfaceRect(&GetFrameBufferSurface(), &caret, style_.cursor_color);
     }
 }
@@ -766,7 +765,7 @@ void TextFieldGroup::RenderInactive(W8TextField& field)
                  : FieldTextOptions(font, style_.fore_color, style_.shadow_color, 0);
     const unsigned short font_height = font.height();
     const int text_top =
-        field.bounds().y1 + (field.bounds().y2 - field.bounds().y1 - font_height) / 2;
+        field.Edges().top + (field.Edges().bottom - field.Edges().top - font_height) / 2;
     RenderBackground(field);
     const std::string_view text = field.text;
     for (std::size_t index = 0; index < text.size();) {
@@ -774,14 +773,13 @@ void TextFieldGroup::RenderInactive(W8TextField& field)
         if (field.EditWidth() < prefix + 3) break;
         std::size_t end = index;
         wiz8::text::next(text, end);
-        DrawText(GetFrameBufferSurface(), font, {field.bounds().x1 + prefix + 3, text_top},
+        DrawText(GetFrameBufferSurface(), font, {field.Edges().left + prefix + 3, text_top},
                  text.substr(index, end - index), options);
         index = end;
     }
     if (disabled) {
-        const auto& region = field.bounds();
-        ShadowRect(GetFrameBufferSurface(),
-                   SDL_Rect{region.x1, region.y1, region.x2 - region.x1 + 1, region.y2 - region.y1 + 1});
+        const auto bounds = field.ScreenBounds();
+        ShadowRect(GetFrameBufferSurface(), SDL_Rect{bounds.x, bounds.y, bounds.w + 1, bounds.h + 1});
     }
 }
 
