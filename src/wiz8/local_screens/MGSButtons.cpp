@@ -36,7 +36,7 @@
 #include "wiz8/local_screens/MGSSpellCasting.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/npc_interaction.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/catalog_artwork.h"
@@ -1365,17 +1365,14 @@ unsigned char BuildSubMenuPanel(short notification)
         button->SetPosition(left + index * 19 + 5, 0x1c8);
         button->Resize(18, 18);
         if (menu == W8_SUBMENU_ITEMS && entry == 2) {
-            button->on_hover = [](bool hovered) {
-                if (!hovered) return;
-                SetRegionHelpForceEnabled(true);
+            button->on_hover = [](bool hovered) { if (hovered) SetRegionHelpForceEnabled(true); };
+            button->SetTooltip([] {
                 const int slot = g_status.selected_character;
-                if (!CanPartySlotUseRecordedItem(slot)) SetRegionHelpText(g_localized_strings[0x5d]);
-                else {
-                    const auto& row = g_status.buffers.XChar[slot];
-                    const auto* item = FindCharacterItemAt(slot, row.item_origin, row.item_slot);
-                    SetRegionHelpText(fmt::format("{}: {}", g_localized_strings[0x5d], FormatItemDisplayName(item, false)));
-                }
-            };
+                if (!CanPartySlotUseRecordedItem(slot)) return std::string(g_localized_strings[0x5d]);
+                const auto& row = g_status.buffers.XChar[slot];
+                const auto* item = FindCharacterItemAt(slot, row.item_origin, row.item_slot);
+                return fmt::format("{}: {}", g_localized_strings[0x5d], FormatItemDisplayName(item, false));
+            });
         }
         submenu->buttons.push_back(std::move(button));
     }

@@ -53,7 +53,7 @@
 #include "wiz8/local_screens/OptionsScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/npc_interaction.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 #include "wiz8/text_input.h"
 #include "wiz8/version.h"
 #include "wiz8/world_cursor.h"

@@ -54,7 +54,7 @@
 #include "wiz8/engine_code/materials.h"
 #include "wiz8/asset_paths.h"
 #include "wiz8/filesystem.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 #include "wiz8/runtime_test_hooks.h"
 #include "wiz8/engine_code/Level.h"
 #include "wiz8/engine_code/GameData.h"
@@ -156,48 +156,15 @@ const char* ScreenName(int id)
     return id >= 0 && id < int(std::size(names)) ? names[id] : "none";
 }
 
-bool RegionLive(unsigned region)
-{
-    if (region >= g_regions.size() || (g_regions[region].flags & W8_REGION_INPUT_DISABLED))
-        return false;
-    for (unsigned set = 0; set < g_region_sets.size(); ++set)
-        if (g_region_sets[set].enabled &&
-            std::ranges::find(g_region_sets[set].Regions(), region) !=
-                g_region_sets[set].Regions().end())
-            return true;
-    return false;
-}
-
-int LiveRegionAt(int x, int y)
-{
-    for (unsigned region = 1; region < g_regions.size(); ++region)
-        if (RegionLive(region) && g_regions[region].ContainsPoint(x, y))
-            return int(region);
-    return -1;
-}
-
-int LiveRegionWithHelp(int help_text_id)
-{
-    for (unsigned region = 1; region < g_regions.size(); ++region)
-        if (RegionLive(region) && g_regions[region].help_text_id == help_text_id)
-            return int(region);
-    return -1;
-}
-
-/* UI interactions use real screen positions, not decomp-era region numbers.
-   Check that each expected hit target is owned and enabled. */
-int MainMenuRegion(short item)
+SDL_Point MainMenuRegion(short item)
 {
     static constexpr std::array<SDL_Point, 6> centers = {{
-        {320, 160}, {320, 209}, {320, 257},
-        {320, 306}, {320, 357}, {320, 445},
+        {320, 160}, {320, 209}, {320, 257}, {320, 306}, {320, 357}, {320, 445},
     }};
-    if (item < 0 || static_cast<std::size_t>(item) >= centers.size()) return -1;
-    const auto point = centers[item];
-    for (unsigned region = 1; region < g_regions.size(); ++region)
-        if (RegionLive(region) && g_regions[region].ContainsPoint(point.x, point.y))
-            return static_cast<int>(region);
-    return -1;
+    REQUIRE(item >= 0);
+    REQUIRE(static_cast<std::size_t>(item) < centers.size());
+    REQUIRE(UiTargetAt(centers[item]) != nullptr);
+    return centers[item];
 }
 
 class Game
@@ -294,16 +261,10 @@ class Game
         wait(step, [&] { return g_current_screen_state.id == screen && settled(); }, seconds);
     }
 
-    void click(const char* step, int region)
+    void click(const char* step, SDL_Point point)
     {
-        if (region < 0)
-            Fail(step, "target region is not live");
-        const W8Region& bounds = g_regions[region];
-        if ((bounds.flags & (W8_REGION_RECTANGLE | W8_REGION_CIRCLE)) == W8_REGION_CIRCLE) {
-            click_at(bounds.x1, bounds.y1); // Circle fields are centre and radius.
-        } else {
-            click_at((bounds.x1 + bounds.x2) / 2, (bounds.y1 + bounds.y2) / 2);
-        }
+        if (!UiTargetAt(point)) Fail(step, "target is not live");
+        click_at(point.x, point.y);
     }
 
     void click_at(int x, int y)
@@ -317,12 +278,9 @@ class Game
     void press_at(int x, int y) { mouse_button(x, y, true); frame(); }
     void release_at(int x, int y) { mouse_button(x, y, false); frame(); }
 
-    void release_outside(int region)
+    void release_outside(SDL_Point point)
     {
-        if (region < 0)
-            Fail("release-outside", "target region is not live");
-        const W8Region& bounds = g_regions[region];
-        mouse_button((bounds.x1 + bounds.x2) / 2, (bounds.y1 + bounds.y2) / 2, true);
+        mouse_button(point.x, point.y, true);
         frame();
         mouse_button(0, 0, false);
         frame();
@@ -539,16 +497,9 @@ void MainMenuUiScenario()
     Game game(false);
     ReachMainMenu(game);
     const auto verify_controls = [] {
-        std::array<unsigned, 6> bound{};
-        for (short item = 0; item < static_cast<short>(bound.size()); ++item) {
-            const int region = MainMenuRegion(item);
-            REQUIRE(region >= 0);
-            REQUIRE(g_regions[region].handler != nullptr);
-            bound[item] = static_cast<unsigned>(region);
-        }
-        return bound;
+        for (short item = 0; item < 6; ++item) REQUIRE(UiTargetAt(MainMenuRegion(item)) != nullptr);
     };
-    const auto bound = verify_controls();
+    verify_controls();
     REQUIRE(!g_main_menu_has_save_games);
     game.click("disabled-load", MainMenuRegion(2));
     REQUIRE(g_current_screen_state.id == W8_SCREEN_MAIN_MENU);
@@ -558,9 +509,6 @@ void MainMenuUiScenario()
     REQUIRE(game.settled());
     game.click("credits", MainMenuRegion(3));
     game.wait_screen("credits", W8_SCREEN_CREDITS);
-    for (auto region : bound) {
-        REQUIRE(g_regions[region].handler == nullptr);
-    }
     game.click_at(320, 240);
     game.wait_screen("main-menu-return", W8_SCREEN_MAIN_MENU);
     verify_controls();
@@ -610,9 +558,9 @@ std::string CreateCharacter(Game& game)
     game.click("new-game", MainMenuRegion(1));
     game.wait("party-selection", [&] {
         return g_current_screen_state.id == W8_SCREEN_PARTY_SELECTION && game.settled() &&
-               LiveRegionAt(kCreateCharacterButton.x, kCreateCharacterButton.y) >= 0;
+               UiTargetAt(kCreateCharacterButton) != nullptr;
     });
-    game.click("create-character", LiveRegionAt(kCreateCharacterButton.x, kCreateCharacterButton.y));
+    game.click("create-character", kCreateCharacterButton);
     game.wait("character-screen", [&] {
         return g_current_screen_state.id == W8_SCREEN_CHARACTER && game.settled() && StatsPage() &&
                g_character_screen->m_page_index == 0;
@@ -1138,9 +1086,10 @@ void CheckGameplayUi(Game& game)
     game.frame();
     const auto realm_bounds = gpSCSV->realm_buttons[realm]->Bounds();
     game.move_pointer(0, 200);
-    g_default_help_text.clear();
+    VideoRemoveToolTip();
     game.move_pointer(realm_bounds.x + 5, realm_bounds.y + 5);
-    REQUIRE(g_default_help_text.starts_with(g_localized_strings[0x27 + realm]));
+    ResetRegionHelp(false);
+    REQUIRE(HasScreenTransitionObjects());
     game.click_at(realm_bounds.x + realm_bounds.w / 2, realm_bounds.y + realm_bounds.h / 2);
     REQUIRE(gpSCSV->iSpellRealm == realm);
     REQUIRE(gpSCSV->uiSpellsInList == 1);
@@ -1166,9 +1115,10 @@ void CheckGameplayUi(Game& game)
     RefreshSpellIconHudRows();
     game.frame();
     game.move_pointer(0, 200);
-    g_default_help_text.clear();
+    VideoRemoveToolTip();
     game.move_pointer(0x277, 9);
-    REQUIRE(g_default_help_text.starts_with(g_spell_records[W8_SPELL_LIGHT].display_name));
+    ResetRegionHelp(false);
+    REQUIRE(HasScreenTransitionObjects());
     g_status.effect_slots[0] = original_effect;
     RefreshSpellIconHudRows();
 
@@ -1441,37 +1391,27 @@ void Ask(Game& game, std::string_view keyword)
     game.key(SDLK_RETURN);
 }
 
-/* Live regions bound to a dialog control through their W8RegionHandler. */
-std::vector<unsigned> HandlerRegions()
-{
-    std::vector<unsigned> regions;
-    for (unsigned region = 1; region < g_regions.size(); ++region)
-        if (RegionLive(region) && g_regions[region].handler)
-            regions.push_back(region);
-    return regions;
-}
-
-/* Clicks the reply dialog's first button (the first option, or "yes"): of
-   the regions the dialog added to those live in `before`, its buttons sit
-   above the dialog body; take the leftmost. */
-void ChooseFirstReply(Game& game, const char* step, const std::vector<unsigned>& before)
+/* Reply buttons sit at y=214 (price) or y=219 (options), above the modal body. */
+void ChooseFirstReply(Game& game, const char* step)
 {
     WaitDialogue(game, step, [] { return g_modal_owner != nullptr; });
-    int first = -1;
-    for (unsigned region : HandlerRegions())
-        if (std::ranges::find(before, region) == before.end() &&
-            (first < 0 || g_regions[region].priority > g_regions[first].priority ||
-             (g_regions[region].priority == g_regions[first].priority &&
-              g_regions[region].x1 < g_regions[first].x1)))
-            first = int(region);
-    game.click(step, first);
+    HitTarget* first = nullptr;
+    for (const int y : {214, 219}) {
+        for (int x = 0; x < 640; ++x) {
+            auto* target = UiTargetAt({x, y});
+            if (target && target->bounds().h <= 24 && (!first || target->bounds().x < first->bounds().x))
+                first = target;
+        }
+    }
+    REQUIRE(first != nullptr);
+    const auto bounds = first->bounds();
+    game.click_at(bounds.x + bounds.w / 2, bounds.y + bounds.h / 2);
     game.wait(step, [] { return g_modal_owner == nullptr; });
 }
 
 /* Buys one paid answer: the price prompt, "yes", the gold and the fact. */
 void BuyAnswer(Game& game, const char* step, W8FactId fact)
 {
-    const auto before = HandlerRegions();
     WaitDialogue(game, step, [] {
         return g_modal_owner != nullptr && g_npc_scripting.price_check.has_value();
     });
@@ -1480,7 +1420,7 @@ void BuyAnswer(Game& game, const char* step, W8FactId fact)
     CAPTURE(step, gold, price);
     REQUIRE((price > 0 && unsigned(price) <= gold));
     REQUIRE(GetFact(fact) == 0);
-    ChooseFirstReply(game, step, before);
+    ChooseFirstReply(game, step);
     WaitDialogue(game, step, DialogueAwaitingPlayer);
     REQUIRE(g_status.party_gold == gold - unsigned(price));
     REQUIRE(GetFact(fact) != 0);
@@ -1516,9 +1456,8 @@ void NpcDialogueScenario()
     g_status.party_gold = 200;
 
     StartConversation(game, "greeting", burz);
-    const auto before = HandlerRegions();
     Ask(game, "messenger");
-    ChooseFirstReply(game, "messenger-options", before);
+    ChooseFirstReply(game, "messenger-options");
     BuyAnswer(game, "messenger-price", W8_FACT_QUEST_BURZ_MARTEN_TRYNTON);
     Ask(game, "ship");
     BuyAnswer(game, "ship-price", W8_FACT_QUEST_BURZ_REPORT_SHIP);

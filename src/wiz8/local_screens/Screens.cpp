@@ -24,7 +24,7 @@
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/dialog_code/DialogTextArea.h"
 #include "wiz8/fonts.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/utility.h"
 #include "Font.h"

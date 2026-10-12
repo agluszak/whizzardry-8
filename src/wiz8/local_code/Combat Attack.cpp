@@ -60,7 +60,7 @@
 #include "wiz8/fact_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/NPCManager.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 #include "Navigator.h"
 #include "attack_modes.h"
 #include "dice.h"

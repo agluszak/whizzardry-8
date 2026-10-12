@@ -1,3 +1,4 @@
+#include "wiz8/ui_layer.h"
 #pragma once
 
 #include "input.h"
@@ -6,7 +7,6 @@
    fifteen cells in five rows of three drawn over the main-game view, with a
    rotating compass needle tracking the party's heading. */
 
-struct W8Region;
 void ReleaseFormationBoard(void);
 void EnableFormationInput();
 void DestroyFormationPanel(void);

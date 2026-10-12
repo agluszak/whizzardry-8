@@ -39,7 +39,7 @@
 #include "wiz8/engine_code/AmbientSound.h"
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/music_playlist.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/fonts.h"

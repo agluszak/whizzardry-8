@@ -94,7 +94,7 @@
 #include "surrender/srShader.h"
 #include "wiz8/surface2d.h"
 #include "wiz8/utility.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/fonts.h"

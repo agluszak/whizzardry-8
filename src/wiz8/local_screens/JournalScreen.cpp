@@ -31,7 +31,7 @@
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 #include "wiz8/catalog_artwork.h"
 #include "Font.h"
 #include "soundman.h"

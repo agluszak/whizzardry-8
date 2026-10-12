@@ -7,7 +7,7 @@
 #include <string_view>
 #include <array>
 #include <optional>
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 
 #include "input.h"
 #include "wiz8/dialog_code/DialogBase.h"

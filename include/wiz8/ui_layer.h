@@ -7,6 +7,7 @@
 #include <memory>
 #include <string>
 #include <variant>
+#include <vector>
 
 enum class UiPointerAction { Enter, Leave, Move, Down, Up, Repeat, Wheel };
 enum class UiPointerButton { None, Left, Right };
@@ -35,7 +36,9 @@ class UiLayer;
 class TextFieldGroup;
 class W8TextField;
 class W8DialogBase;
-struct RegionSetRef;
+struct UiState;
+struct InputEvent;
+UiLayer* CurrentInputLayer();
 
 // A persistent input registration, borrowed from its layer. No painting or
 // widget lifetime is attached to it. Rectangles use SDL's half-open bounds;
@@ -55,20 +58,27 @@ public:
     void releaseCapture();
     bool hovered() const;
     bool hitAt(SDL_Point point) const;
+    SDL_Rect bounds() const;
     SDL_MouseButtonFlags capturedButtons() const;
 
 private:
     friend class UiLayer;
     friend class W8TextField;
     void useTextCursor();
-    HitTarget(unsigned int set, HitShape shape, Handler handler, int priority);
-    struct Backend;
-    std::unique_ptr<Backend> backend_;
+    friend struct UiState;
+    friend bool DispatchRegionInput(const InputEvent*);
+    friend void ResetRegions();
+    HitTarget(UiLayer& layer, HitShape shape, Handler handler, int priority);
+    UiLayer& layer_;
+    HitShape shape_;
+    Handler handler_;
+    std::function<std::string()> tooltip_;
+    int priority_;
+    bool enabled_ = true, text_cursor_ = false;
+    SDL_MouseButtonFlags captured_buttons_ = 0;
 };
 
-// Temporary RegionManager-backed registration API. There is still exactly one
-// input dispatcher, hover state, capture owner and tooltip timer. Lower layer
-// orders win; within a layer higher priorities win, then first registration.
+// Lower layer orders win; within a layer higher priorities win, then first registration.
 enum class UiLayerMode { Normal, Modal };
 
 class UiLayer {
@@ -88,12 +98,18 @@ private:
     friend class TextFieldGroup;
     friend class W8DialogBase;
     friend class W8ButtonWidget;
-    friend RegionSetRef CurrentInputLayer();
-    unsigned int legacySet() const;
+    friend struct UiState;
+    friend void ResetRegions();
+    friend std::size_t LiveDynamicRegionCount();
+    friend class HitTarget;
     struct InheritInputScope {};
     explicit UiLayer(InheritInputScope);
-    struct Backend;
-    std::unique_ptr<Backend> backend_;
+    UiLayer* parent_ = nullptr;
+    int order_;
+    bool enabled_ = true, modal_ = false, inherited_ = false;
+    std::vector<std::unique_ptr<HitTarget>> targets_;
+    HitTarget *saved_hover_ = nullptr, *saved_capture_ = nullptr;
+    SDL_MouseButtonFlags saved_buttons_ = 0;
 };
 
 // Callbacks request removal, owner destruction or screen transitions here.

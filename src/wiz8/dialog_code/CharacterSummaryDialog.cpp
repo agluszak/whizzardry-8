@@ -20,7 +20,7 @@
 #include "layouts/game_status.h"
 #include "local_code/ControlsRect.h"
 #include "local_code/MonsterManager.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 
 /* The bodies from 0x005E0320 through 0x005E0C30 form one dialog lifecycle
    cluster immediately after StatInfoDialogs.cpp.  Retail does not expose its

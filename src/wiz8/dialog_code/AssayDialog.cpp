@@ -20,7 +20,7 @@
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/game_status.h"

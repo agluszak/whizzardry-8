@@ -19,7 +19,7 @@
 #include "input.h"
 #include "wiz8/ui_layer.h"
 #include "wiz8/engine_code/Video2.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 #include "wiz8/fonts.h"
 #include "wiz8/text_input.h"
 #include "wiz8/local_screens/Screens.h"

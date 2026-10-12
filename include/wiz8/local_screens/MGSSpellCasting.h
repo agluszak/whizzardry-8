@@ -64,7 +64,6 @@ void CommitSpellCastingSelection(void);
 void SetSpellCastingMode(W8MainUiMode value);
 int GetSpellCastingSelection(void);
 
-struct W8Region;
 class W8DialogBase;
 
 /* Destroy callback for the spell/use-item reason notices. */

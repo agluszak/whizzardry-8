@@ -8,7 +8,6 @@
 
 struct W8Character;
 struct W8ItemInstance;
-struct W8Region;
 
 /* The UI orders Other before Accessory, and places the two non-group filters last. */
 enum W8CampItemFilterButton {

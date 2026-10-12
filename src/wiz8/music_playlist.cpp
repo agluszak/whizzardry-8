@@ -10,7 +10,7 @@
 #include "wiz8/engine_code/stScript.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/music_playlist.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 #include "random.h"
 #include "soundman.h"
 #include "compat/native.h"

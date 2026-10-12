@@ -2,7 +2,6 @@
 
 struct W8Character;
 struct W8MonsterInfo;
-class ScreenRegionSet;
 
 
 

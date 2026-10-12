@@ -8,7 +8,6 @@
 #include <string>
 
 void SyncNpcDialogueTranscriptScrollButtons();
-class ScreenRegionSet;
 void SetNpcDialogueInputEnabled(int group, bool enabled);
 void ShowNpcQuoteBubbleRegion(int x1, int y1, int x2, int y2);
 void HideNpcQuoteBubbleRegion();
@@ -45,7 +44,6 @@ struct W8ControlsRect;
 struct W8NpcQuoteEntry;
 struct W8NpcScriptQuote;
 struct W8NpcState;
-struct W8Region;
 
 class W8NpcDialogueTextController;
 struct SpriteSheet;

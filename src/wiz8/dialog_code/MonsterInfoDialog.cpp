@@ -27,7 +27,7 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/Strings.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/utility.h"
 #include "Font.h"

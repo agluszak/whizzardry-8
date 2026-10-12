@@ -43,7 +43,7 @@
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/music_playlist.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 #include "wiz8/fonts.h"
 #include "wiz8/catalog_artwork.h"
 #include "input.h"

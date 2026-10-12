@@ -7,7 +7,7 @@
 
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/local_code/ButtonWidget.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
 #include "wiz8/modal_content.h"
 
@@ -37,7 +37,7 @@ void DialogCloseButtonCallback(W8ButtonWidget* button);
 class W8DialogBase : public ModalContent {
     /* First, so it outlives every control's region. */
     UiLayer m_input;
-    friend RegionSetRef CurrentInputLayer();
+    friend UiLayer* CurrentInputLayer();
 
 public:
     W8DialogBase();
@@ -108,12 +108,3 @@ protected:
     int m_field_4c;
     bool m_right_button_down;
 };
-
-
-/* Each live dialog is an input layer with its own region set; buttons and
-   text fields made while it is innermost take input there, so its modal
-   scope reaches exactly its own controls. Outside dialogs the layer is the
-   shared control set. InputLayerSet resolves a captured layer, falling back
-   to the shared set once that layer's dialog is gone. */
-RegionSetRef CurrentInputLayer();
-unsigned int InputLayerSet(const RegionSetRef& layer);

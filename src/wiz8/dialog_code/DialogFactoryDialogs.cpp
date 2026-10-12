@@ -15,7 +15,7 @@
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/button_interaction.h"
 #include "wiz8/dialog_code/DialogInterface.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 #include "wiz8/utility.h"
 #include "wiz8/fonts.h"
 #include "wiz8/item_spawning.h"

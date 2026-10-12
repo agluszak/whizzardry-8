@@ -40,7 +40,7 @@
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_screens/MGSPortraitCombat.h"
 #include "wiz8/engine_code/OctBuildPreTree.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 #include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/FormationAndFacing.h"
 #include "wiz8/engine_code/Spells.h"

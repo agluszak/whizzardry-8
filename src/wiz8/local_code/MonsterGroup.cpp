@@ -33,7 +33,7 @@
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/engine_code/PolyPick.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/local_screens/mipe.h"
 #include "wiz8/local_code/character_events.h"

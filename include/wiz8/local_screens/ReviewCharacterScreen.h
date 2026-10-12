@@ -8,7 +8,7 @@
 #include <memory>
 #include <array>
 #include <cstddef>
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 #include <string>
 #include <vector>
 #include <cstdint>
@@ -24,7 +24,6 @@
 
 struct W8Character;
 struct W8CombatSlot;
-struct W8Region;
 
 
 enum CampMainRegionOffset {

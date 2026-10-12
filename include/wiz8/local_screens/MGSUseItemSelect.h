@@ -3,7 +3,6 @@
 #include "input.h"
 #include "wiz8/layouts/main_game_screen.h"
 
-struct W8Region;
 class W8DialogBase;
 struct W8ItemInstance;
 

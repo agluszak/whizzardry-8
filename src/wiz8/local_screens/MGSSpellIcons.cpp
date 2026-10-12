@@ -20,7 +20,7 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/3dapi.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 #include "wiz8/xstatus.h"
 
 namespace {
@@ -52,13 +52,11 @@ void PaintEffectStrip(std::unique_ptr<UiLayer>& layer, std::span<const W8EffectS
                 PushButtonSoundScheme(0, true);
                 if (event.action == UiPointerAction::Enter) {
                     duration = slot.duration;
-                    SetRegionHelpText(EffectHelp(slot, show_duration));
                     return UiResult::Handled;
                 }
                 if (event.action == UiPointerAction::Leave) return UiResult::Handled;
                 if (event.action == UiPointerAction::Move && duration != slot.duration) {
                     duration = slot.duration;
-                    SetRegionHelpText(EffectHelp(slot, show_duration));
                     ResetRegionHelp(false);
                 }
                 return UiResult::Pass;

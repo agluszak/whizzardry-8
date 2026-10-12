@@ -33,7 +33,7 @@
 #include "layouts/item_instance.h"
 #include "layouts/npc_state.h"
 #include "mgs_commands.h"
-#include "regions.h"
+#include "ui_input.h"
 #include "sight_state.h"
 
 
@@ -266,85 +266,4 @@ TEST_CASE("collections_test")
     REQUIRE(keyboardBindingReplacement());
     REQUIRE(journalSerialization());
     REQUIRE(visibilityRecordLifetime());
-}
-
-TEST_CASE("region_storage_grows_without_aliasing_sets")
-{
-    std::vector<unsigned int> created_sets;
-    struct ReleaseSets {
-        std::vector<unsigned int>& sets;
-        ~ReleaseSets()
-        {
-            for (auto it = sets.rbegin(); it != sets.rend(); ++it) DestroyRegionSet(*it);
-        }
-    } release{created_sets};
-    const auto first = created_sets.emplace_back(CreateRegionSet());
-    const auto second = created_sets.emplace_back(CreateRegionSet());
-    const auto a = AddRegionToSet(first);
-    const auto b = AddRegionToSet(second);
-    const auto c = AddRegionToSet(first);
-    REQUIRE(a != b);
-    REQUIRE(b != c);
-    REQUIRE(a != c);
-    REQUIRE(g_region_sets[first].Regions().size() == 2);
-    REQUIRE(g_region_sets[second].Regions().size() == 1);
-    g_region_sets[first].SetInputEnabled(false);
-    REQUIRE(g_regions[a].flags & W8_REGION_INPUT_DISABLED);
-    REQUIRE(g_regions[c].flags & W8_REGION_INPUT_DISABLED);
-    REQUIRE(!(g_regions[b].flags & W8_REGION_INPUT_DISABLED));
-    g_region_sets[first].SetInputEnabled(true);
-    REQUIRE(!(g_regions[c].flags & W8_REGION_INPUT_DISABLED));
-    ResetRegionSet(first);
-    REQUIRE(g_region_sets[first].Regions().empty());
-    REQUIRE(AddRegionToSet(first) == a);
-    REQUIRE(AddRegionToSet(first) == c);
-
-    auto* region = &g_regions[a];
-    auto* set = &g_region_sets[first];
-    for (int i = 0; i < 1600; ++i) AddRegionToSet(first);
-    for (int i = 0; i < 320; ++i) created_sets.push_back(CreateRegionSet());
-    REQUIRE(&g_regions[a] == region);
-    REQUIRE(&g_region_sets[first] == set);
-    REQUIRE(g_regions.size() > 1500);
-    REQUIRE(g_region_sets.size() > 300);
-    REQUIRE(g_region_sets[second].Regions()[0] == b);
-}
-
-TEST_CASE("SDL region rectangles keep inclusive edges and circle hit tests")
-{
-    const auto size = g_regions.size();
-    struct RestoreCatalog {
-        size_t size;
-        ~RestoreCatalog() { g_regions.resize(size); }
-    } restore{size};
-    auto& region = g_regions.emplace_back();
-    region.flags = W8_REGION_RECTANGLE;
-    region.x1 = 10;
-    region.y1 = 20;
-    region.x2 = 30;
-    region.y2 = 40;
-    for (unsigned short x : {10, 20, 30})
-        for (unsigned short y : {20, 30, 40}) REQUIRE(g_regions[size].ContainsPoint(x, y));
-    REQUIRE_FALSE(g_regions[size].ContainsPoint(9, 30));
-    REQUIRE_FALSE(g_regions[size].ContainsPoint(31, 30));
-    REQUIRE_FALSE(g_regions[size].ContainsPoint(20, 19));
-    REQUIRE_FALSE(g_regions[size].ContainsPoint(20, 41));
-    region.x2 = region.x1;
-    region.y2 = region.y1;
-    REQUIRE(g_regions[size].ContainsPoint(10, 20));
-    REQUIRE_FALSE(g_regions[size].ContainsPoint(11, 20));
-    region.x2 = 9;
-    REQUIRE_FALSE(g_regions[size].ContainsPoint(10, 20));
-    region.x1 = region.y1 = 32767;
-    region.x2 = region.y2 = 32767;
-    REQUIRE(g_regions[size].ContainsPoint(32767, 32767));
-    REQUIRE_FALSE(g_regions[size].ContainsPoint(0, 0));
-    region.x1 = region.y1 = -1;
-    region.x2 = region.y2 = -1;
-    REQUIRE_FALSE(g_regions[size].ContainsPoint(65535, 65535));
-    region.flags = W8_REGION_CIRCLE;
-    region.x1 = region.y1 = 20;
-    region.x2 = 5;
-    REQUIRE(g_regions[size].ContainsPoint(23, 24));
-    REQUIRE_FALSE(g_regions[size].ContainsPoint(24, 24));
 }

@@ -50,7 +50,7 @@
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/cursor.h"
 #include "wiz8/npc_interaction.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/xstatus.h"

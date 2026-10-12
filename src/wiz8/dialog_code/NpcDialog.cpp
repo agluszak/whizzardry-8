@@ -18,7 +18,7 @@
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/text_input.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
 #include "input.h"
 #include "Font.h"

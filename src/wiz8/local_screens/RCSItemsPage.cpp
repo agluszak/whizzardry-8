@@ -53,7 +53,7 @@
 #include "local_code/ControlsRect.h"
 #include "local_code/RangeControl.h"
 #include "local_code/TextBuffer.h"
-#include "regions.h"
+#include "ui_input.h"
 
 /* Retail Local Screens\RCSItemsPage.cpp - the items page of the camp
    review screen: page-mode toggling, the item-info/split/stat dialogs,

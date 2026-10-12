@@ -23,7 +23,7 @@
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_code/GameplayTime.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Navigator.h"

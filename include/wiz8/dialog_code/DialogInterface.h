@@ -8,7 +8,7 @@
 #include "wiz8/engine_code/Video2.h"
 #include "input.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 
 /* Numeric split dialogs release the active field before forwarding button-up,
    and forward repeat events unchanged. The field reference remains live across

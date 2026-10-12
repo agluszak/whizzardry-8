@@ -1,7 +1,7 @@
 #include "wiz8/ui_layer.h"
 #pragma once
 
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include <array>
@@ -10,7 +10,6 @@
 #include "input.h"
 #include "compat/compiler.h"
 
-struct W8Region;
 
 /* One row of the stats page's effect list: a character condition, an
    enchantment, or the modifiers of one equipped item. */

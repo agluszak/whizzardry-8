@@ -33,7 +33,7 @@
 #include "wiz8/local_screens/mipe.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/ButtonSound.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 #include "wiz8/cursor.h"
 #include "wiz8/xstatus.h"
 #include "timer.h"

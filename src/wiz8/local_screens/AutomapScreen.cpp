@@ -61,7 +61,7 @@
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/item_video_object_vector.h"
 #include "wiz8/xstatus.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/fonts.h"
 #include "wiz8/local_screens/MGSKeyboard.h"

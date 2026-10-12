@@ -63,7 +63,7 @@
 #include "surrender/srMeshModel.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srShader.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/utility.h"
 #include "wiz8/learned_spells.h"
@@ -830,7 +830,6 @@ W8CampCharacterInfo::W8CampCharacterInfo()
         m_values[index] = &input.add(SDL_Rect{positions[index].x, positions[index].y, 33, 13},
             [this, index](const UiPointerEvent& event) {
                 PushButtonSoundScheme(0, true);
-                if (event.action == UiPointerAction::Enter) SetRegionHelpText(m_help[index]);
                 return UiResult::Handled;
             });
         m_values[index]->setTooltip([this, index] { return m_help[index]; });

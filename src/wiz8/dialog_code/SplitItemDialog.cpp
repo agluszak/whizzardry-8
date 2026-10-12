@@ -9,7 +9,7 @@
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
 #include "wiz8/local_code/ButtonWidget.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/fonts.h"

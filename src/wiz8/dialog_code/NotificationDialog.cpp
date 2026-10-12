@@ -3,7 +3,7 @@
 #include <vector>
 
 #include "wiz8/local_code/Strings.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 #include "dialog_code/MessageDialogBase.h"
 
 /* Dialog Code. W8NotificationDialog is a modal popup built on the unnamed base

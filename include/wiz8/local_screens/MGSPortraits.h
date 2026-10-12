@@ -6,7 +6,6 @@
 #include "wiz8/layouts/targeting.h"
 #include "compat/compiler.h"
 
-struct W8Region;
 
 extern char s_general_magic_sound[];
 

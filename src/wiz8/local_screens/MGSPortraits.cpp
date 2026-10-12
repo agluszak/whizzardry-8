@@ -33,7 +33,7 @@
 #include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/fonts.h"
 #include "wiz8/item_video_object_vector.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"

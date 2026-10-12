@@ -1,7 +1,7 @@
 
 
 #include "wiz8/local_screens/MGSPortraitCombat.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/Search.h"
@@ -311,7 +311,7 @@ static void SubMenuButtonUseItem(W8ButtonWidget* button)
     }
     if (gXStatus.fCombatMode) {
         OpenSubMenuPanel(3);
-        g_ui.captured = 0;
+        ReleaseUiCapture();
         return;
     }
     OpenUseItemSelectView(g_status.selected_character);

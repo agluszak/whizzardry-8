@@ -28,7 +28,7 @@
 #include "wiz8/character_event_queue.h"
 #include "wiz8/cursor.h"
 #include "wiz8/fonts.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 #include "wiz8/text_input.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/engine_code/Video2.h"

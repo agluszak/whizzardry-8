@@ -7,7 +7,7 @@
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/dialog_code/DialogTextArea.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "input.h"
@@ -16,15 +16,9 @@
 // GLOBAL: WIZ8 0x0069CA28
 static std::vector<W8DialogBase*> g_live_dialogs;
 
-RegionSetRef CurrentInputLayer()
+UiLayer* CurrentInputLayer()
 {
-    return CaptureRegionSet(g_live_dialogs.empty() ? ControlRegionSetIndex()
-                                                   : g_live_dialogs.back()->m_input.legacySet());
-}
-
-unsigned int InputLayerSet(const RegionSetRef& layer)
-{
-    return RegionSetLive(layer) ? layer.index : ControlRegionSetIndex();
+    return g_live_dialogs.empty() ? nullptr : &g_live_dialogs.back()->m_input;
 }
 
 void W8DialogBase::CreateCloseButton(W8ButtonWidget& button, int left, int top)

@@ -8,7 +8,7 @@
 #include <string_view>
 
 #include "input.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 
 struct W8MonsterInfo;
 namespace wiz8 { class File; }

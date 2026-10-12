@@ -13,7 +13,6 @@ void SetVoiceMuted(unsigned char muted);
 struct W8Character;
 struct W8CharacterEvent;
 struct W8MonsterManagerEntry;
-struct W8Region;
 
 extern int g_special_event13;
 extern int g_special_event14;

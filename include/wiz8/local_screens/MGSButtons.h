@@ -15,7 +15,6 @@
 
 #include "wiz8/local_screens/MGSPortraitCombat.h"
 
-struct W8Region;
 class W8ButtonWidget;
 
 /* Owned globals. */

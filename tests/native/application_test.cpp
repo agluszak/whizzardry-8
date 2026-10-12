@@ -13,7 +13,7 @@
 #include "wiz8/asset_paths.h"
 #include "temporary_directory.h"
 #include "scoped_asset_roots.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 
 
 static void CheckStopped()

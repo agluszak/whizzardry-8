@@ -45,7 +45,7 @@
 #include "wiz8/local_screens/PartySelectionScreen.h"
 #include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/music_playlist.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 #include "wiz8/fonts.h"
 #include "wiz8/text_input.h"
 #include "wiz8/catalog_artwork.h"

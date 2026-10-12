@@ -50,7 +50,7 @@
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/npc_interaction.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/utility.h"
 #include "wiz8/world_cursor.h"
@@ -141,7 +141,6 @@ static void CreateSpellCastingViewControls(void)
         button->SetTooltip(tooltip);
         button->on_hover = [tooltip](bool entered) {
             gpSCSV->dirty[0] = true;
-            if (entered) SetRegionHelpText(tooltip());
         };
         auto& text = gpSCSV->realm_text[realm];
         text.SetLayoutMode(g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);

@@ -19,7 +19,7 @@
 #include "wiz8/game_init.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/fonts.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/CombatSound.h"

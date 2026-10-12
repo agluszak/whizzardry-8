@@ -61,7 +61,7 @@
 #include "timer.h"
 #include "wiz8/dialog_code/PortraitQuote.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/local_screens/mipe.h"
@@ -486,7 +486,8 @@ W8CharacterEventQueue::W8CharacterEventQueue()
 }
 
 // FUNCTION: WIZ8 0x0052d5b0
-W8CharacterEventQueue::~W8CharacterEventQueue() { DestroyAllEvents(); }
+static void ReleasePartyQuoteInput();
+W8CharacterEventQueue::~W8CharacterEventQueue() { DestroyAllEvents(); ReleasePartyQuoteInput(); }
 
 /* Completes every active event, then drops the undispatched ones. */
 // FUNCTION: WIZ8 0x0052db80
@@ -874,6 +875,8 @@ struct PartyQuoteInput {
 // Quotes persist while switching between camp and the live game.
 std::unique_ptr<PartyQuoteInput> party_quote_input;
 }
+
+static void ReleasePartyQuoteInput() { party_quote_input.reset(); }
 
 void CreatePartyPortraitEventRegions()
 {

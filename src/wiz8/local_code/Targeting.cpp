@@ -48,7 +48,7 @@
 #include "wiz8/engine_code/Cursor3d.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/local_code/Sight.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/PolyPick.h"
 #include "Navigator.h"

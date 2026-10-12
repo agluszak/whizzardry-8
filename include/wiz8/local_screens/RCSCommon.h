@@ -9,7 +9,6 @@
 #include "wiz8/catalog_artwork.h"
 #include "input.h"
 
-struct W8Region;
 
 /* Button order differs from W8CampItemAction's byte values. */
 enum W8CampItemActionButton {

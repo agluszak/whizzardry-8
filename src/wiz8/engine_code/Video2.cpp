@@ -60,7 +60,7 @@
 #include "wiz8/fonts.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 #include "wiz8/engine_code/Quality.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/startup_world.h"

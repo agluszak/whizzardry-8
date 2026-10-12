@@ -121,7 +121,6 @@ add_library(WIZ8_GAME_CORE STATIC
     learned_spells.cpp
     packed_bits.cpp
     local_code/Noise.cpp
-    local_code/RegionManager.cpp
     local_code/chunk.cpp
     local_code/DifficultyScaling.cpp
     engine_code/GrCycle.cpp

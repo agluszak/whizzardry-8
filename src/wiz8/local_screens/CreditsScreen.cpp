@@ -16,7 +16,7 @@
 #include "wiz8/local_screens/CreditsScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/music_playlist.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/fonts.h"
 #include "wiz8/filesystem.h"

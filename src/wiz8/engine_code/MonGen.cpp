@@ -23,7 +23,7 @@
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_screens/mipe.h"
 #include "wiz8/fact_state.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/utility.h"
 #include "random.h"

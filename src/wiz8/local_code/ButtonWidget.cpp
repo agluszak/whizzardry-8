@@ -10,7 +10,7 @@
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Strings.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 
 #include <SDL3/SDL_mouse.h>
 #include <SDL3/SDL_rect.h>

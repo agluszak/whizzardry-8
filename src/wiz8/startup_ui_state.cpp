@@ -2,7 +2,7 @@
 #include <string>
 
 #include "wiz8/local_code/Configuration.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 
 /* Original translation-unit ownership is unknown; surrounding anchors do not resolve it. */
 
@@ -17,6 +17,5 @@ unsigned char InitializeRegionHelpState(void)
     g_region_help_delay = g_settings.tooltip_delay_ms;
     g_ui.ClearPointer();
     g_region_help_force_enabled = false;
-    g_default_help_text.clear();
     return 1;
 }

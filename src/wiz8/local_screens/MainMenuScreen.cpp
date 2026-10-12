@@ -10,7 +10,7 @@
 
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/engine_code/Video2.h"
-#include "wiz8/regions.h"
+#include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
 #include "wiz8/local_screens/MainMenuScreen.h"
 #include "wiz8/cursor.h"
