@@ -428,33 +428,12 @@ bool Trigger::Save(wiz8::File& hFile)
             progress_delay = 0;
             action_kind = 2;
             hFile.write(&action_kind, sizeof(action_kind));
-            if (static_cast<W8DoorTriggerActionData*>(action_data)->open) {
-                action_flags |= 1;
-            }
-            if (static_cast<W8DoorTriggerActionData*>(action_data)->lockable) {
-                action_flags |= 2;
-            }
-            if (static_cast<W8DoorTriggerActionData*>(action_data)->locked) {
-                action_flags |= 4;
-            }
-            if (static_cast<W8DoorTriggerActionData*>(action_data)->auto_locking) {
-                action_flags |= 8;
-            }
-            if (static_cast<W8DoorTriggerActionData*>(action_data)->one_way) {
-                action_flags |= 0x10;
-            }
-            if (static_cast<W8DoorTriggerActionData*>(action_data)->secret) {
-                action_flags |= 0x20;
-            }
-            if (static_cast<W8DoorTriggerActionData*>(action_data)->found) {
-                action_flags |= 0x40;
-            }
-            if (static_cast<W8DoorTriggerActionData*>(action_data)->jammable) {
-                action_flags |= 0x80;
-            }
-            if (static_cast<W8DoorTriggerActionData*>(action_data)->jammed) {
-                action_flags |= 0x100;
-            }
+            const auto* door = static_cast<W8DoorTriggerActionData*>(action_data);
+            action_flags = static_cast<decltype(action_flags)>(
+                (door->open ? 1u : 0u) | (door->lockable ? 2u : 0u) | (door->locked ? 4u : 0u) |
+                (door->auto_locking ? 8u : 0u) | (door->one_way ? 0x10u : 0u) |
+                (door->secret ? 0x20u : 0u) | (door->found ? 0x40u : 0u) |
+                (door->jammable ? 0x80u : 0u) | (door->jammed ? 0x100u : 0u));
             if (static_cast<W8DoorTriggerActionData*>(action_data)->item != 0) {
                 action_flags |= 0x200;
             }
