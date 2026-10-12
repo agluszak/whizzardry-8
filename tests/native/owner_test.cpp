@@ -768,8 +768,8 @@ void widget_owned_regions_release_with_widget()
     {
         Controls panel;
         panel.CreateRegionSet();
-        auto widget = std::make_unique<W8Widget>();
-        widget->SetPanel(panel);
+        auto* widget = panel.EmplaceControl<W8Widget>();
+        REQUIRE(widget->m_pPanel == &panel);
         REQUIRE(LiveDynamicRegionCount() == baseline_region_count + 1);
         REQUIRE(LiveRegionSetCount() == baseline_set_count + 1);
     }

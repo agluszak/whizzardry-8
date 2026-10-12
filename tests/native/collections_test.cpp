@@ -16,6 +16,7 @@
 
 #include "wiz8/xstatus.h"
 #include "wiz8/local_code/Controls.h"
+#include "wiz8/local_code/TextControl.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
@@ -71,7 +72,7 @@ static bool ownershipAndCallbacks()
     REQUIRE(owner.ControlCount() == 0);
     REQUIRE(destroyed.size() == 3);
     Controls destination;
-    destination.AdoptControl(std::move(detached));
+    destination.AddControl(std::move(detached));
     REQUIRE(!detached);
     REQUIRE(destination.ControlAt(0) == child);
     REQUIRE(child->m_pPanel == &destination);
@@ -84,6 +85,59 @@ static bool ownershipAndCallbacks()
     }
     REQUIRE((destroyed == std::vector<int>{3, 2, 1, 4, 6, 5}));
     return true;
+}
+
+TEST_CASE("panel_adopts_and_transfers_unattached_widgets")
+{
+    Controls source;
+    source.CreateRegionSet();
+
+    auto pending = std::make_unique<W8Widget>(-1u, 1, 2, 20, 30);
+    auto* widget = pending.get();
+    REQUIRE(widget->m_pPanel == nullptr);
+    REQUIRE(source.ControlCount() == 0);
+    source.AddControl(std::move(pending));
+    REQUIRE(pending == nullptr);
+    REQUIRE(source.ControlAt(0) == widget);
+    REQUIRE(widget->m_pPanel == &source);
+    const auto original_region = widget->m_region;
+    REQUIRE(original_region >= 0);
+    REQUIRE(g_regions[original_region].widget == widget);
+
+    Controls target;
+    target.CreateRegionSet();
+    auto detached = source.TakeControl(widget);
+    REQUIRE(source.ControlCount() == 0);
+    REQUIRE(detached.get() == widget);
+    REQUIRE(widget->m_pPanel == nullptr);
+    REQUIRE(g_regions[original_region].widget == nullptr);
+    target.AddControl(std::move(detached));
+    REQUIRE(detached == nullptr);
+    REQUIRE(target.ControlAt(0) == widget);
+    REQUIRE(widget->m_pPanel == &target);
+    REQUIRE(g_regions[widget->m_region].widget == widget);
+
+    // Text controls may borrow geometry from the panel during construction,
+    // but must not register or change ownership until AddControl is called.
+    auto pending_text = std::make_unique<W8TextControl>(
+        source, -1u, 3, 4, 18, 20, std::nullopt, -1, -1, -1, -1, -1);
+    auto* text = pending_text.get();
+    REQUIRE(text->m_pPanel == nullptr);
+    REQUIRE(source.ControlCount() == 0);
+    source.AddControl(std::move(pending_text));
+    REQUIRE(source.ControlCount() == 1);
+    REQUIRE(text->m_pPanel == &source);
+    REQUIRE(g_regions[text->m_region].widget == text);
+    source.RemoveControl(text);
+    REQUIRE(source.ControlCount() == 0);
+
+    auto* another = target.EmplaceControl<W8Widget>();
+    REQUIRE(target.ControlCount() == 2);
+    REQUIRE(another->m_pPanel == &target);
+    target.RemoveControl(another);
+    REQUIRE(target.ControlCount() == 1);
+    target.DestroyAllControls();
+    REQUIRE(target.ControlCount() == 0);
 }
 
 // Exercise real region bindings rather than manually filling a panel vector.
@@ -141,8 +195,7 @@ TEST_CASE("widget_region_lifetimes")
 
     Controls second_panel;
     second_panel.CreateRegionSet();
-    third->SetPanel(second_panel);
-    third->SetPanel(second_panel);
+    second_panel.AddControl(first_panel->TakeControl(third));
     REQUIRE(second_panel.ControlCount() == 1);
     third_region = third->m_region; // Reparenting moved the region into second_panel's set.
     REQUIRE(std::ranges::contains(g_region_sets[second_panel.RegionSet()].Regions(),

@@ -121,7 +121,7 @@ struct W8CharacterStatsRecord {
 // VTABLE: WIZ8 0x005ef6b0 W8CharacterStatsValue
 class W8CharacterStatsValue : public W8TextControl {
 public:
-    W8CharacterStatsValue(Controls* owner, int x, int y,
+    W8CharacterStatsValue(Controls& owner, int x, int y,
                           const W8CharacterStatsRecord* default_record);
     virtual void Redraw(bool full_redraw) override;
     virtual void OnRightButtonUp(int event) override;

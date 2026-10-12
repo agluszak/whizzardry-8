@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <optional>
+#include <utility>
 
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/Widget.h"
@@ -55,8 +56,19 @@ struct Controls {
     /* The region set this panel's widgets register in; 0 until CreateRegionSet. */
     unsigned int RegionSet() const { return m_regionSet; }
     void EnableRegionSet(bool enable);
-    void AdoptControl(std::unique_ptr<W8Widget> control);
+    // Takes ownership of an unattached widget; callers keep borrowed pointers.
+    void AddControl(std::unique_ptr<W8Widget> control);
+    template <class T, class... Args>
+    T* EmplaceControl(Args&&... args)
+    {
+        auto control = std::make_unique<T>(std::forward<Args>(args)...);
+        auto* result = control.get();
+        AddControl(std::move(control));
+        return result;
+    }
     [[nodiscard]] std::unique_ptr<W8Widget> TakeControl(W8Widget* control);
+    // Remove and destroy a child. Callers must not delete borrowed pointers.
+    void RemoveControl(W8Widget* control);
     size_t ControlCount() const { return m_controls.size(); }
     void DestroyAllControls();
     void InvalidateLayout();

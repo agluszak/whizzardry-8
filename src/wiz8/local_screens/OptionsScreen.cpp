@@ -263,14 +263,14 @@ void W8OptionsSaveLoadPanel::Populate()
 
     if (m_panel == 11) {
         m_delete_button =
-            new W8TextControl(this, 0xffffffff, 0xd, 0x1b0, 0, 0, CatalogArtwork::Load(0xf8, 0), 6, 8, 7, -1, -1);
+            EmplaceControl<W8TextControl>(*this, 0xffffffff, 0xd, 0x1b0, 0, 0, CatalogArtwork::Load(0xf8, 0), 6, 8, 7, -1, -1);
         m_delete_button->m_listener = this;
     } else {
         m_delete_button = 0;
     }
 
     int first_sprite = m_panel == 11 ? 3 : 0;
-    m_action_button = new W8TextControl(this, 0xffffffff, 0xf5, 0x1b0, 0, 0, CatalogArtwork::Load(0xf8, 0), first_sprite, first_sprite + 2, first_sprite + 1, -1, -1);
+    m_action_button = EmplaceControl<W8TextControl>(*this, 0xffffffff, 0xf5, 0x1b0, 0, 0, CatalogArtwork::Load(0xf8, 0), first_sprite, first_sprite + 2, first_sprite + 1, -1, -1);
     m_action_button->m_listener = this;
 
     if (m_panel == 11 && static_cast<int>(g_options_screen->m_save_slots.size()) == 1) {
@@ -1474,13 +1474,13 @@ W8OptionsMenuButton::W8OptionsMenuButton(Controls* owner, const W8OptionsMenuRow
     m_item_id = row->item_id;
 
     if (row->child_bounds[0].left != -1) {
-        W8TextControl* control = new W8TextControl(m_pPanel, 0xffffffff, row->child_bounds[0].left, row->child_bounds[0].top, row->child_bounds[0].right, row->child_bounds[0].bottom, std::nullopt, -1, -1, -1, -1, -1);
+        W8TextControl* control = m_pPanel->EmplaceControl<W8TextControl>(*m_pPanel, 0xffffffff, row->child_bounds[0].left, row->child_bounds[0].top, row->child_bounds[0].right, row->child_bounds[0].bottom, std::nullopt, -1, -1, -1, -1, -1);
         control->m_listener = this;
         control->AddLayoutFlags(g_W8TextControlSilentHover);
     }
 
     if (row->child_bounds[1].left != -1) {
-        W8TextControl* control = new W8TextControl(m_pPanel, 0xffffffff, row->child_bounds[1].left, row->child_bounds[1].top, row->child_bounds[1].right, row->child_bounds[1].bottom, std::nullopt, -1, -1, -1, -1, -1);
+        W8TextControl* control = m_pPanel->EmplaceControl<W8TextControl>(*m_pPanel, 0xffffffff, row->child_bounds[1].left, row->child_bounds[1].top, row->child_bounds[1].right, row->child_bounds[1].bottom, std::nullopt, -1, -1, -1, -1, -1);
         control->m_listener = this;
         control->AddLayoutFlags(g_W8TextControlSilentHover);
     }
@@ -1594,7 +1594,7 @@ W8TextControl* W8OptionsPanel::AddChoiceButton(int label)
     W8TextBuffer* text = new W8TextBuffer(&bounds, g_localized_strings[label], g_options_detail_font,
                                           g_W8TextBufferAlignTop | g_W8TextBufferAlignRight, 4);
     m_text_buffers.emplace_back(text);
-    W8TextControl* button = new W8TextControl(this, 0xffffffff, 0x151, m_content_top + 1, 0, 0, CatalogArtwork::Load(0xf1, 0), 4, 6, 5, 7, -1);
+    W8TextControl* button = EmplaceControl<W8TextControl>(*this, 0xffffffff, 0x151, m_content_top + 1, 0, 0, CatalogArtwork::Load(0xf1, 0), 4, 6, 5, 7, -1);
     button->AddLayoutFlags(g_W8TextControlLayoutLatchedImage | g_W8TextControlLayoutToggle);
     m_content_top += 22;
     return button;
@@ -1687,10 +1687,10 @@ W8OptionsMenuSet::W8OptionsMenuSet()
     m_bounds.right = m_bounds.left + static_cast<unsigned short>(width);
     m_bounds.bottom = m_bounds.top + static_cast<unsigned short>(height);
 
-    m_previous = new W8TextControl(this, 0xffffffff, 3, 3, 0, 0, CatalogArtwork::Load(0xf4, 0), 0, 2, 1, -1, 3);
+    m_previous = EmplaceControl<W8TextControl>(*this, 0xffffffff, 3, 3, 0, 0, CatalogArtwork::Load(0xf4, 0), 0, 2, 1, -1, 3);
     m_previous->m_listener = this;
 
-    m_next = new W8TextControl(this, 0xffffffff, 0x11f, 3, 0, 0, CatalogArtwork::Load(0xf4, 0), 4, 6, 5, -1, 7);
+    m_next = EmplaceControl<W8TextControl>(*this, 0xffffffff, 0x11f, 3, 0, 0, CatalogArtwork::Load(0xf4, 0), 4, 6, 5, -1, 7);
     m_next->m_listener = this;
 
     m_page_text = std::make_unique<W8TextBuffer>(&m_bounds, "", g_options_detail_font,

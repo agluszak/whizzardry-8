@@ -1012,16 +1012,16 @@ W8CampCharacterInfo::W8CampCharacterInfo()
 {
     CreateRegionSet();
     m_combat_view = true;
-    m_stats_tab = new W8TextControl(this, -1, 8, 0x8b, 0, 0, CatalogArtwork::Load(0x121, 0), 15, 16, 17, 19, 18);
+    m_stats_tab = EmplaceControl<W8TextControl>(*this, -1, 8, 0x8b, 0, 0, CatalogArtwork::Load(0x121, 0), 15, 16, 17, 19, 18);
     m_stats_tab->m_listener = this;
     m_stats_tab->EnableRegionHelp(0x960);
-    m_combat_tab = new W8TextControl(this, -1, 8, 0x8b, 0, 0, CatalogArtwork::Load(0x121, 0), 10, 11, 12, 14, 13);
+    m_combat_tab = EmplaceControl<W8TextControl>(*this, -1, 8, 0x8b, 0, 0, CatalogArtwork::Load(0x121, 0), 10, 11, 12, 14, 13);
     m_combat_tab->m_listener = this;
     m_combat_tab->EnableRegionHelp(0x95f);
-    m_values[0] = new W8HelpTextControl(this, -1, 0xa0, 0x4c, 0xc0, 0x58);
-    m_values[1] = new W8HelpTextControl(this, -1, 0x122, 0x4c, 0x142, 0x58);
-    m_values[2] = new W8HelpTextControl(this, -1, 0xa0, 0x3e, 0xc0, 0x4a);
-    m_values[3] = new W8HelpTextControl(this, -1, 0x122, 0x3e, 0x142, 0x4a);
+    m_values[0] = EmplaceControl<W8HelpTextControl>(*this, -1, 0xa0, 0x4c, 0xc0, 0x58);
+    m_values[1] = EmplaceControl<W8HelpTextControl>(*this, -1, 0x122, 0x4c, 0x142, 0x58);
+    m_values[2] = EmplaceControl<W8HelpTextControl>(*this, -1, 0xa0, 0x3e, 0xc0, 0x4a);
+    m_values[3] = EmplaceControl<W8HelpTextControl>(*this, -1, 0x122, 0x3e, 0x142, 0x4a);
 }
 
 void W8CampCharacterInfo::SetEnabled(bool enabled)

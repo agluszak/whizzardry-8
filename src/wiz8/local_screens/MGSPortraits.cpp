@@ -1215,7 +1215,7 @@ void CreateLevelButtons(void)
         unsigned int column_x = (uiSlot & 1) != 0 ? 0x23b : 0;
         int row_y = (uiSlot >> 1) * 0x55;
         g_portrait_controls[uiSlot] =
-            new W8TextControl(g_portrait_panel.get(), g_main_portrait_controls->index(uiSlot), column_x + 0x19, row_y + 0x46,
+            g_portrait_panel->EmplaceControl<W8TextControl>(*g_portrait_panel, g_main_portrait_controls->index(uiSlot), column_x + 0x19, row_y + 0x46,
                               column_x + 0x2b, row_y + 0x58, CatalogArtwork::Load(0xa7, 0), 0, 2,
                               1, 4, 3);
         g_portrait_controls[uiSlot]->m_primaryActivationCallback = OnLevelButtonActivate;

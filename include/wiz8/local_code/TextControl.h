@@ -44,6 +44,12 @@ public:
     };
 
     W8TextControl();
+    // Explicit parent adoption: panel geometry is borrowed for text layout,
+    // but this constructor leaves the widget unattached.
+    W8TextControl(Controls& panel, unsigned int region, int left, int top, int right, int bottom,
+                  std::optional<CatalogArtwork> image_artwork, int normal_sprite, int pressed_sprite,
+                  int alternate_normal_sprite, int alternate_pressed_sprite, int disabled_sprite);
+    // Legacy constructor, still used by callers that adopt during construction.
     W8TextControl(Controls* panel, unsigned int region, int left, int top, int right, int bottom,
                   std::optional<CatalogArtwork> image_artwork, int normal_sprite, int pressed_sprite,
                   int alternate_normal_sprite, int alternate_pressed_sprite, int disabled_sprite);
@@ -109,7 +115,7 @@ protected:
 // VTABLE: WIZ8 0x005ed758
 class W8HelpTextControl : public W8TextControl {
 public:
-    W8HelpTextControl(Controls* panel, unsigned int region, int left, int top, int right,
+    W8HelpTextControl(Controls& panel, unsigned int region, int left, int top, int right,
                       int bottom);
 
     void SetRegionHelp(std::string_view text);

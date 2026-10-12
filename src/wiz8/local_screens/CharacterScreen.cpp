@@ -143,23 +143,23 @@ void W8CharacterScreen::BuildControls()
     m_controls = std::make_unique<Controls>(0, 0x1c2, 0, 0, CatalogArtwork::Load(0x107, 0), 4);
     m_controls->CreateRegionSet();
 
-    m_next = new W8TextControl(m_controls.get(), 0xffffffff, 0x254, 0, 0, 0, CatalogArtwork::Load(0x106, 0), 8, 10, 9, 10, 0xb);
+    m_next = m_controls->EmplaceControl<W8TextControl>(*m_controls, 0xffffffff, 0x254, 0, 0, 0, CatalogArtwork::Load(0x106, 0), 8, 10, 9, 10, 0xb);
     m_next->EnableRegionHelp(0xdc);
     m_next->m_listener = this;
 
-    m_previous = new W8TextControl(m_controls.get(), 0xffffffff, 0x228, 0, 0, 0, CatalogArtwork::Load(0x106, 0), 0xc, 0xe, 0xd, 0xe, 0xf);
+    m_previous = m_controls->EmplaceControl<W8TextControl>(*m_controls, 0xffffffff, 0x228, 0, 0, 0, CatalogArtwork::Load(0x106, 0), 0xc, 0xe, 0xd, 0xe, 0xf);
     m_previous->EnableRegionHelp(0xdd);
     m_previous->m_listener = this;
 
-    m_exit = new W8TextControl(m_controls.get(), 0xffffffff, 0x1fc, 0, 0, 0, CatalogArtwork::Load(0x106, 0), 0x14, 0x16, 0x15, 0x16, 0x17);
+    m_exit = m_controls->EmplaceControl<W8TextControl>(*m_controls, 0xffffffff, 0x1fc, 0, 0, 0, CatalogArtwork::Load(0x106, 0), 0x14, 0x16, 0x15, 0x16, 0x17);
     m_exit->EnableRegionHelp(0xde);
     m_exit->m_listener = this;
 
-    m_accept = new W8TextControl(m_controls.get(), 0xffffffff, 0x1d0, 0, 0, 0, CatalogArtwork::Load(0x106, 0), 4, 6, 5, 6, 7);
+    m_accept = m_controls->EmplaceControl<W8TextControl>(*m_controls, 0xffffffff, 0x1d0, 0, 0, 0, CatalogArtwork::Load(0x106, 0), 4, 6, 5, 6, 7);
     m_accept->EnableRegionHelp(0xdf);
     m_accept->m_listener = this;
 
-    m_reset = new W8TextControl(m_controls.get(), 0xffffffff, 0, 0, 0, 0, CatalogArtwork::Load(0x106, 0), 0x1d, 0x1f, 0x1e, 0x1f, 0x20);
+    m_reset = m_controls->EmplaceControl<W8TextControl>(*m_controls, 0xffffffff, 0, 0, 0, 0, CatalogArtwork::Load(0x106, 0), 0x1d, 0x1f, 0x1e, 0x1f, 0x20);
     m_reset->EnableRegionHelp(0xe1);
     m_reset->m_listener = this;
 

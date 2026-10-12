@@ -149,15 +149,15 @@ void W8CampRangeListener::UpdateRange(bool range_changed)
 W8CampStatsControls::W8CampStatsControls()
 {
     CreateRegionSet();
-    m_buttons[0] = new W8TextControl(this, -1, 0x13c, 0xbe, 0, 0, CatalogArtwork::Load(0x145, 0), 0, 1, 2, 4, 3);
+    m_buttons[0] = EmplaceControl<W8TextControl>(*this, -1, 0x13c, 0xbe, 0, 0, CatalogArtwork::Load(0x145, 0), 0, 1, 2, 4, 3);
     m_buttons[0]->AddLayoutFlags(g_W8TextControlLayoutLatchedImage | g_W8TextControlLayoutToggle);
     m_buttons[0]->m_listener = this;
     m_buttons[0]->EnableRegionHelp(0x954);
-    m_buttons[1] = new W8TextControl(this, -1, 0x13c, 0xd6, 0, 0, CatalogArtwork::Load(0x145, 0), 5, 6, 7, 9, 8);
+    m_buttons[1] = EmplaceControl<W8TextControl>(*this, -1, 0x13c, 0xd6, 0, 0, CatalogArtwork::Load(0x145, 0), 5, 6, 7, 9, 8);
     m_buttons[1]->AddLayoutFlags(g_W8TextControlLayoutLatchedImage | g_W8TextControlLayoutToggle);
     m_buttons[1]->m_listener = this;
     m_buttons[1]->EnableRegionHelp(0x955);
-    m_buttons[2] = new W8TextControl(this, -1, 0x13c, 0xf3, 0, 0, CatalogArtwork::Load(0x145, 0), 10, 15, 12, 17, 13);
+    m_buttons[2] = EmplaceControl<W8TextControl>(*this, -1, 0x13c, 0xf3, 0, 0, CatalogArtwork::Load(0x145, 0), 10, 15, 12, 17, 13);
     m_buttons[2]->AddLayoutFlags(g_W8TextControlLayoutLatchedImage | g_W8TextControlLayoutToggle);
     m_buttons[2]->m_listener = this;
     m_buttons[2]->EnableRegionHelp(0x956);
@@ -892,16 +892,16 @@ void W8CharacterPersonalityPage::SetCharacter(W8Character* character,
     W8TextControl::Listener* action_listener = this;
 
     m_control5 =
-        new W8TextControl(this, 0xffffffff, 100, 0x19, 0, 0, CatalogArtwork::Load(0x10a, 0), 10, 0xc, 0xb, 0xe, 0xd);
+        EmplaceControl<W8TextControl>(*this, 0xffffffff, 100, 0x19, 0, 0, CatalogArtwork::Load(0x10a, 0), 10, 0xc, 0xb, 0xe, 0xd);
     m_control5->m_listener = action_listener;
-    m_control4 = new W8TextControl(this, 0xffffffff, 0x144, 0x19, 0, 0, CatalogArtwork::Load(0x10a, 0), 0xf, 0x11, 0x10, 0x13, 0x12);
+    m_control4 = EmplaceControl<W8TextControl>(*this, 0xffffffff, 0x144, 0x19, 0, 0, CatalogArtwork::Load(0x10a, 0), 0xf, 0x11, 0x10, 0x13, 0x12);
     m_control4->m_listener = action_listener;
     m_control7 =
-        new W8TextControl(this, 0xffffffff, 100, 0x67, 0, 0, CatalogArtwork::Load(0x10a, 0), 10, 0xc, 0xb, 0xe, 0xd);
+        EmplaceControl<W8TextControl>(*this, 0xffffffff, 100, 0x67, 0, 0, CatalogArtwork::Load(0x10a, 0), 10, 0xc, 0xb, 0xe, 0xd);
     m_control7->m_listener = action_listener;
-    m_control6 = new W8TextControl(this, 0xffffffff, 0x144, 0x67, 0, 0, CatalogArtwork::Load(0x10a, 0), 0xf, 0x11, 0x10, 0x13, 0x12);
+    m_control6 = EmplaceControl<W8TextControl>(*this, 0xffffffff, 0x144, 0x67, 0, 0, CatalogArtwork::Load(0x10a, 0), 0xf, 0x11, 0x10, 0x13, 0x12);
     m_control6->m_listener = action_listener;
-    m_randomize = new W8TextControl(this, 0xffffffff, 0x16d, 0x155, 0, 0, CatalogArtwork::Load(0x10a, 0), 0x14, 0x16, 0x15, 0x18, 0x17);
+    m_randomize = EmplaceControl<W8TextControl>(*this, 0xffffffff, 0x16d, 0x155, 0, 0, CatalogArtwork::Load(0x10a, 0), 0x14, 0x16, 0x15, 0x18, 0x17);
     m_randomize->m_listener = action_listener;
     m_randomize->EnableRegionHelp(0xf5);
 
@@ -910,7 +910,7 @@ void W8CharacterPersonalityPage::SetCharacter(W8Character* character,
         int column = index % 3;
         int row = index / 3;
         W8TextControl* entry =
-            new W8TextControl(this, 0xffffffff, column * 0x80 + 0x24, row * 0xe + 0x107, column * 0x80 + 0xa3, row * 0xe + 0x114, CatalogArtwork::Load(0x105, 0), 5, 7, 6, 8, -1);
+            EmplaceControl<W8TextControl>(*this, 0xffffffff, column * 0x80 + 0x24, row * 0xe + 0x107, column * 0x80 + 0xa3, row * 0xe + 0x114, CatalogArtwork::Load(0x105, 0), 5, 7, 6, 8, -1);
         entry->AddLayoutFlags(g_W8TextControlLayoutImageAtOrigin);
         m_personality_selection.AddEntry(entry);
     }
@@ -919,7 +919,7 @@ void W8CharacterPersonalityPage::SetCharacter(W8Character* character,
 
     for (index = 0; index < 2; ++index) {
         int top = index == 0 ? 0x140 : 0x15d;
-        W8TextControl* entry = new W8TextControl(this, 0xffffffff, 0x21, top, 0x69, top + 0xe, CatalogArtwork::Load(0x105, 0), 5, 7, 6, 8, -1);
+        W8TextControl* entry = EmplaceControl<W8TextControl>(*this, 0xffffffff, 0x21, top, 0x69, top + 0xe, CatalogArtwork::Load(0x105, 0), 5, 7, 6, 8, -1);
         entry->AddLayoutFlags(g_W8TextControlLayoutImageAtOrigin);
         m_voice_selection.AddEntry(entry);
     }

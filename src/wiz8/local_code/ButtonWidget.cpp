@@ -150,7 +150,6 @@ W8ButtonWidget::W8ButtonWidget()
     m_dirty = true;
 }
 
-
 // FUNCTION: WIZ8 0x005db260
 W8ButtonWidget::~W8ButtonWidget() = default;
 

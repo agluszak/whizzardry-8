@@ -173,8 +173,7 @@ void CreateMainMenuControls()
     main_menu_controls = std::make_unique<Controls>();
     main_menu_controls->CreateRegionSet();
     for (short item = 0; item < static_cast<short>(main_menu_item_bounds.size()); ++item) {
-        main_menu_controls->AdoptControl(
-            std::make_unique<MainMenuItemWidget>(item, main_menu_item_bounds[item]));
+        main_menu_controls->EmplaceControl<MainMenuItemWidget>(item, main_menu_item_bounds[item]);
     }
     main_menu_controls->SetEnabled(true);
     main_menu_controls->EnableRegionSet(true);
