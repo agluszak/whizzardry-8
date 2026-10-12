@@ -547,12 +547,12 @@ void srVertexPipe::Record::ColorSource::copyDiffuseColors(glm::vec4* destination
         return;
     }
     if (format == FORMAT_ARGB) {
-        for (std::size_t i = 0; i < count; ++i)
-            destination[i] = glm::vec4((static_cast<const srARGB*>(colors))[indices[i]].red,
-                                       (static_cast<const srARGB*>(colors))[indices[i]].green,
-                                       (static_cast<const srARGB*>(colors))[indices[i]].blue,
-                                       (static_cast<const srARGB*>(colors))[indices[i]].alpha) *
-                   (1.0f / 255.0f);
+        const auto* argb = static_cast<const srARGB*>(colors);
+        for (std::size_t i = 0; i < count; ++i) {
+            const srARGB& color = argb[indices[i]];
+            destination[i] = glm::vec4(color.red, color.green, color.blue, color.alpha) *
+                             (1.0f / 255.0f);
+        }
         return;
     }
     if (format == FORMAT_VECTOR3) {
@@ -580,9 +580,7 @@ void srVertexPipe::setupDiffuse()
         } else {
             current_record->color_source.copyDiffuseColors(diffuse, avt + sub_batch_offset,
                                                            vertex_count);
-            if ((((color.x != 0.0f) || (color.y != 0.0f)) ||
-                 ((color.z != 0.0f) || (color.w != 0.0f))) &&
-                (vertex_count != 0)) {
+            if (color != glm::vec4(0.0f) && vertex_count != 0) {
                 srLightingMath::accumulateLight({diffuse, vertex_count}, color);
             }
         }

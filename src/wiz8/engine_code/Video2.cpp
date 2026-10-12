@@ -723,6 +723,19 @@ srVector3T<float>* __fastcall SaturateColor(srVector3T<float>* color)
 static RuntimeWorldRenderData ObserveWorldRenderState();
 #endif
 
+/* Design-space bounds (640x480, right and bottom exclusive) scaled onto a
+   surface of the given size. */
+struct SurfaceViewport {
+    w8_long x, y, width, height;
+};
+
+static SurfaceViewport scaleDesignViewport(int left, int top, int right, int bottom,
+                                           w8_long surface_width, w8_long surface_height)
+{
+    return {surface_width * left / 640, surface_height * top / 480,
+            surface_width * (right - left) / 640, surface_height * (bottom - top) / 480};
+}
+
 // FUNCTION: WIZ8 0x00427850
 void RenderScene(srScene* scene, srCamera* camera, const int* viewport, bool preserve_fog)
 {
@@ -733,19 +746,17 @@ void RenderScene(srScene* scene, srCamera* camera, const int* viewport, bool pre
         return;
     }
     if (viewport != 0) {
-        w8_ulong left = viewport[0] * width / 640;
-        w8_ulong top = viewport[1] * height / 480;
-        w8_ulong viewport_width = (viewport[2] - viewport[0]) * width / 640;
-        w8_ulong viewport_height = (viewport[3] - viewport[1]) * height / 480;
-        g_gerd->setViewPort(left, top, viewport_width, viewport_height);
-        g_gerd->setScissor(left, top, viewport_width, viewport_height);
+        const auto rect = scaleDesignViewport(viewport[0], viewport[1], viewport[2], viewport[3],
+                                              width, height);
+        g_gerd->setViewPort(rect.x, rect.y, rect.width, rect.height);
+        g_gerd->setScissor(rect.x, rect.y, rect.width, rect.height);
 #ifdef WIZ8_RUNTIME_TESTS
         if (g_world != 0 && scene == g_world->static_scene) {
             RuntimeWorldRenderData data = ObserveWorldRenderState();
-            data.applied_viewport[0] = left;
-            data.applied_viewport[1] = top;
-            data.applied_viewport[2] = viewport_width;
-            data.applied_viewport[3] = viewport_height;
+            data.applied_viewport[0] = rect.x;
+            data.applied_viewport[1] = rect.y;
+            data.applied_viewport[2] = rect.width;
+            data.applied_viewport[3] = rect.height;
             RuntimeObserveWorld(RUNTIME_WORLD_VIEWPORT_APPLIED, data);
         }
 #endif
@@ -863,9 +874,9 @@ void RenderFrame(void)
     clear_viewport: {
         w8_ulong height = g_gerd->getHeight();
         w8_ulong width = g_gerd->getWidth();
-        g_gerd->setScissor(g_viewport.left * width / 640, g_viewport.top * height / 480,
-                           (g_viewport.right - g_viewport.left) * width / 640,
-                           (g_viewport.bottom - g_viewport.top) * height / 480);
+        const auto rect = scaleDesignViewport(g_viewport.left, g_viewport.top, g_viewport.right,
+                                              g_viewport.bottom, width, height);
+        g_gerd->setScissor(rect.x, rect.y, rect.width, rect.height);
         g_gerd->clear(srFlags<srGERD::e_buffer>(srGERD::BUFFER_COLOR | srGERD::BUFFER_DEPTH));
         g_gerd->setScissor(0, 0, width, height);
     }
@@ -992,16 +1003,11 @@ unsigned char RenderWorldToSurface(srColorSurface* target, W8ScreenRect* rect,
     gerd->beginFrame();
     gerd->setTextureReduction(g_resident_texture_policy);
     gerd->setScissor(0, 0, gerd->getWidth(), gerd->getHeight());
-    if (rect != 0) {
-        gerd->setViewPort(rect->left * gerd->getWidth() / 640, rect->top * gerd->getHeight() / 480,
-                          (rect->right - rect->left) * gerd->getWidth() / 640,
-                          (rect->bottom - rect->top) * gerd->getHeight() / 480);
-    } else {
-        gerd->setViewPort(g_viewport.left * gerd->getWidth() / 640,
-                          g_viewport.top * gerd->getHeight() / 480,
-                          (g_viewport.right - g_viewport.left) * gerd->getWidth() / 640,
-                          (g_viewport.bottom - g_viewport.top) * gerd->getHeight() / 480);
-    }
+    const W8ViewportRect bounds =
+        rect != 0 ? W8ViewportRect{rect->left, rect->top, rect->right, rect->bottom} : g_viewport;
+    const auto viewport = scaleDesignViewport(bounds.left, bounds.top, bounds.right, bounds.bottom,
+                                              gerd->getWidth(), gerd->getHeight());
+    gerd->setViewPort(viewport.x, viewport.y, viewport.width, viewport.height);
     if (IsFogEnabled()) {
         GetLightDirection(&clear_color);
     } else {
@@ -1569,20 +1575,25 @@ static void FlushUiUpload()
 /* Viewport. */
 /* Scale a 640x480 design-space rect onto the GERD viewport and remember it;
    no-ops when the stored bounds already match. */
-// FUNCTION: WIZ8 0x00425C90
-void SetAutomapScaledViewport(int left, int top, int right, int bottom)
+static void setScaledViewport(int left, int top, int right, int bottom)
 {
     if (left == g_viewport.left && top == g_viewport.top && right == g_viewport.right &&
         bottom == g_viewport.bottom) {
         return;
     }
-    g_gerd->setViewPort(g_gerd->getWidth() * left / 640, g_gerd->getHeight() * top / 480,
-                        g_gerd->getWidth() * (right - left) / 640,
-                        g_gerd->getHeight() * (bottom - top) / 480);
+    const auto rect = scaleDesignViewport(left, top, right, bottom, g_gerd->getWidth(),
+                                          g_gerd->getHeight());
+    g_gerd->setViewPort(rect.x, rect.y, rect.width, rect.height);
     g_viewport.left = left;
     g_viewport.top = top;
     g_viewport.right = right;
     g_viewport.bottom = bottom;
+}
+
+// FUNCTION: WIZ8 0x00425C90
+void SetAutomapScaledViewport(int left, int top, int right, int bottom)
+{
+    setScaledViewport(left, top, right, bottom);
 }
 
 /* Sets the viewport and rebuilds the camera view plane to match it. */
@@ -2932,23 +2943,7 @@ void DrawColorSurface(srColorSurface* surface, int x, int y)
 // FUNCTION: WIZ8 0x00425DA0
 void SetWorldScaledViewport(int left, int top, int right, int bottom)
 {
-    if (left == g_viewport.left && top == g_viewport.top && right == g_viewport.right &&
-        bottom == g_viewport.bottom) {
-        return;
-    }
-    if (left == g_viewport.left) {
-        if (top == g_viewport.top && right == g_viewport.right && bottom == g_viewport.bottom) {
-            goto store;
-        }
-    }
-    g_gerd->setViewPort(g_gerd->getWidth() * left / 640, g_gerd->getHeight() * top / 480,
-                        g_gerd->getWidth() * (right - left) / 640,
-                        g_gerd->getHeight() * (bottom - top) / 480);
-store:
-    g_viewport.left = left;
-    g_viewport.top = top;
-    g_viewport.right = right;
-    g_viewport.bottom = bottom;
+    setScaledViewport(left, top, right, bottom);
 }
 
 // FUNCTION: WIZ8 0x00426490

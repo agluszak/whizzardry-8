@@ -344,8 +344,7 @@ void srLight::process(srVertexPipe& pipe)
                 if (has_near) srChannelMath::multiply(attenuation, far_values);
                 else attenuation = far_values;
             }
-            if (!attenuation.empty() && std::ranges::all_of(attenuation,
-                                                        [](float v) { return v == 0.0f; })) {
+            if (!attenuation.empty() && srChannelMath::allZero(attenuation)) {
                 return;
             }
         } else if (attenuation_model == ATTENUATION_OPENGL) {
@@ -373,8 +372,7 @@ void srLight::process(srVertexPipe& pipe)
                     (glm::dot(directions[i], spot_direction) - spot_cutoff) * spot_scale;
                 spot_factors[i] = factor <= 0.0f ? 0.0f : factor;
             }
-            if (std::ranges::all_of(std::span<const float>{spot_factors, count},
-                                    [](float v) { return v == 0.0f; })) {
+            if (srChannelMath::allZero({spot_factors, count})) {
                 return;
             }
             if (spot_exponent != 1.0f) {
@@ -408,8 +406,7 @@ void srLight::process(srVertexPipe& pipe)
     if (!need_normals) {
         return;
     }
-    if (std::ranges::all_of(std::span<const float>{dots, count},
-                            [](float v) { return v == 0.0f; })) {
+    if (srChannelMath::allZero({dots, count})) {
         return;
     }
     if ((channels & (1UL << srVertexProcessor::CHANNEL_LIGHT_DIFFUSE)) != 0) {
