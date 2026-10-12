@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "wiz8/engine_code/GameTimeAccumulator.h"
 
 #include "game_timer.h"
@@ -29,7 +30,7 @@ W8GameTimeAccumulator::W8GameTimeAccumulator()
     m_elapsed_ticks = 0;
     m_elapsed = 0;
     m_duration_scale = 1.0f;
-    m_duration = static_cast<int>(m_duration_seconds * 10000.0f);
+    m_duration = static_cast<std::int32_t>(m_duration_seconds * 10000.0f);
     m_end = m_duration;
 }
 
@@ -41,7 +42,7 @@ void W8GameTimeAccumulator::SetDurationScale(float scale)
         m_flags.slow_scale = true;
     }
     m_max_frame_delta = 2.0f / scale;
-    m_duration = static_cast<int>(scale * m_duration_seconds * 10000.0f);
+    m_duration = static_cast<std::int32_t>(scale * m_duration_seconds * 10000.0f);
     Restart();
     m_frame_delta = 0.0f;
 }
@@ -52,7 +53,7 @@ void W8GameTimeAccumulator::ResetDurationScale()
     m_flags.slow_scale = false;
     m_max_frame_delta = 2.0f;
     m_duration_scale = 1.0f;
-    m_duration = static_cast<int>(m_duration_seconds * 10000.0f);
+    m_duration = static_cast<std::int32_t>(m_duration_seconds * 10000.0f);
     Restart();
     m_frame_delta = 0.0f;
 }
@@ -63,13 +64,13 @@ float W8GameTimeAccumulator::Update()
     if (m_flags.paused || (g_shared_timer_paused && !m_flags.raw_time) || g_shared_timer_flag0) {
         m_frame_delta = 0.0f;
     } else {
-        int sample = ReadClock();
-        m_elapsed_ticks = static_cast<unsigned int>(sample - m_start);
+        std::int32_t sample = ReadClock();
+        m_elapsed_ticks = static_cast<std::uint32_t>(sample - m_start);
         m_start = sample;
-        m_frame_delta = m_elapsed_ticks / static_cast<float>(static_cast<unsigned int>(m_duration));
+        m_frame_delta = m_elapsed_ticks / static_cast<float>(static_cast<std::uint32_t>(m_duration));
         if (m_frame_delta > m_max_frame_delta) {
             m_frame_delta = m_max_frame_delta;
-            m_elapsed_ticks = static_cast<unsigned int>(static_cast<unsigned int>(m_duration) *
+            m_elapsed_ticks = static_cast<std::uint32_t>(static_cast<std::uint32_t>(m_duration) *
                                                         m_max_frame_delta);
         }
         m_elapsed += m_frame_delta;

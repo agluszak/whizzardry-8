@@ -44,10 +44,9 @@
 enum { W8_SCREEN_WIDTH = 640, W8_SCREEN_HEIGHT = 480, W8_HELP_MARGIN = 2 };
 enum { W8_REGION_MODE_MASK = 0xf };
 
-// bool-byte-ok: W8RegionCallback result
-static unsigned char ConsumeRegionInput(const InputEvent*, W8Region*)
+static bool ConsumeRegionInput(const InputEvent*, W8Region*)
 {
-    return 1;
+    return true;
 }
 
 namespace {
@@ -93,13 +92,13 @@ std::deque<W8Region> g_regions = {
 // GLOBAL: WIZ8 0x0061f238
 std::deque<W8RegionSet> g_region_sets = {W8RegionSet{}};
 // GLOBAL: WIZ8 0x00689B3C
-unsigned int g_current_region_index;
+std::uint32_t g_current_region_index;
 // GLOBAL: WIZ8 0x00689B40
 std::string g_default_help_text;
 // GLOBAL: WIZ8 0x00689B44
-unsigned int g_captured_region_index;
+std::uint32_t g_captured_region_index;
 // GLOBAL: WIZ8 0x00689B4C
-unsigned int g_hover_region_index;
+std::uint32_t g_hover_region_index;
 // GLOBAL: WIZ8 0x00689B50
 bool g_region_help_force_enabled;
 SDL_Point g_region_mouse_position{};
@@ -110,19 +109,19 @@ bool g_dev_mode;
 namespace {
 struct ExclusiveRegionScope {
     ExclusiveRegionSet* scope;
-    unsigned int set_index;
+    std::uint32_t set_index;
     std::uint64_t sequence;
 };
 
 std::vector<ExclusiveRegionScope> g_exclusive_region_sets;
-std::vector<unsigned int> g_reusable_region_indices;
-std::vector<unsigned int> g_reusable_region_set_indices;
+std::vector<std::uint32_t> g_reusable_region_indices;
+std::vector<std::uint32_t> g_reusable_region_set_indices;
 // Live set indices sorted by (order, sequence); the hit-test scan order.
-std::vector<unsigned int> g_region_set_scan_order;
+std::vector<std::uint32_t> g_region_set_scan_order;
 std::uint64_t g_region_set_sequence = 0;
 constexpr std::size_t kFirstDynamicRegionIndex = 1;
 constexpr std::size_t kFirstDynamicRegionSetIndex = 1;
-unsigned int g_control_region_set = 0;
+std::uint32_t g_control_region_set = 0;
 
 // A scope whose set slot was destroyed and reused must not expose the new occupant.
 bool ExclusiveScopeIsLive(const ExclusiveRegionScope& scope)
@@ -131,7 +130,7 @@ bool ExclusiveScopeIsLive(const ExclusiveRegionScope& scope)
            g_region_sets[scope.set_index].sequence == scope.sequence;
 }
 
-bool RegionAllowedByExclusiveSet(unsigned int region_index)
+bool RegionAllowedByExclusiveSet(std::uint32_t region_index)
 {
     if (g_exclusive_region_sets.empty()) return true;
     const auto& scope = g_exclusive_region_sets.back();
@@ -141,34 +140,34 @@ bool RegionAllowedByExclusiveSet(unsigned int region_index)
 }
 
 struct DispatchPoint {
-    unsigned short x;
-    unsigned short y;
+    std::uint16_t x;
+    std::uint16_t y;
 };
 
 DispatchPoint ToDispatchPoint(const InputEvent& event)
 {
     return {
-        static_cast<unsigned short>(event.position.x +
+        static_cast<std::uint16_t>(event.position.x +
                                     g_cursor_hotspot_x),
-        static_cast<unsigned short>(event.position.y +
+        static_cast<std::uint16_t>(event.position.y +
                                     g_cursor_hotspot_y)};
 }
 
-bool RegionContainsInputPoint(unsigned int region_index, unsigned short x, unsigned short y,
+bool RegionContainsInputPoint(std::uint32_t region_index, std::uint16_t x, std::uint16_t y,
                               bool dispatch_coordinates)
 {
     const auto& region = g_regions[region_index];
     if (dispatch_coordinates && region.text_field) {
         return RegionContainsPoint(
-            region_index, static_cast<unsigned short>(static_cast<int>(x) - g_cursor_hotspot_x),
-            static_cast<unsigned short>(static_cast<int>(y) - g_cursor_hotspot_y));
+            region_index, static_cast<std::uint16_t>(static_cast<std::int32_t>(x) - g_cursor_hotspot_x),
+            static_cast<std::uint16_t>(static_cast<std::int32_t>(y) - g_cursor_hotspot_y));
     }
     return RegionContainsPoint(region_index, x, y);
 }
 }
 
 // FUNCTION: WIZ8 0x004f27a0
-void SetRegionHelpDelay(int delay_ms)
+void SetRegionHelpDelay(std::int32_t delay_ms)
 {
     if (delay_ms == 0) {
         delay_ms = g_settings.tooltip_delay_ms;
@@ -228,16 +227,16 @@ void ReleaseDefaultHelpText(void)
     g_default_help_text.clear();
 }
 
-static bool FindEnabledRegionInSet(const W8RegionSet& set, unsigned short x, unsigned short y,
-                                   bool dispatch_coordinates, unsigned int* found_region)
+static bool FindEnabledRegionInSet(const W8RegionSet& set, std::uint16_t x, std::uint16_t y,
+                                   bool dispatch_coordinates, std::uint32_t* found_region)
 {
     if (set.enabled != 1) return false;
     bool found_in_set = false;
-    unsigned int best_region = 0;
-    int best_priority = 0;
+    std::uint32_t best_region = 0;
+    std::int32_t best_priority = 0;
     for (const auto region_index : set.Regions()) {
         if (!RegionContainsInputPoint(region_index, x, y, dispatch_coordinates)) continue;
-        const int priority = g_regions[region_index].priority;
+        const std::int32_t priority = g_regions[region_index].priority;
         if (found_in_set && priority <= best_priority) continue;
         found_in_set = true;
         best_region = region_index;
@@ -250,7 +249,7 @@ static bool FindEnabledRegionInSet(const W8RegionSet& set, unsigned short x, uns
 /* Sets are scanned by declared order, then creation sequence; the widget
    control set is always consulted last. A modal scope restricts the scan to
    its own set. */
-static bool FindEnabledRegionAtPoint(unsigned short x, unsigned short y, unsigned int* found_region,
+static bool FindEnabledRegionAtPoint(std::uint16_t x, std::uint16_t y, std::uint32_t* found_region,
                                      bool dispatch_coordinates = false)
 {
     if (!g_exclusive_region_sets.empty()) {
@@ -273,7 +272,7 @@ static bool FindEnabledRegionAtPoint(unsigned short x, unsigned short y, unsigne
 
 namespace {
 struct RegionDispatchResult {
-    unsigned char handled;
+    std::uint8_t handled;
     bool binding_unchanged;
 };
 
@@ -281,11 +280,11 @@ struct RegionDispatchResult {
 RegionDispatchResult DispatchRegionEvent(W8Region& region, const InputEvent& event)
 {
     const auto generation = region.binding_generation;
-    unsigned char handled = 0;
+    std::uint8_t handled = 0;
     if (region.callback) {
         handled = region.callback(&event, &region);
     } else if (region.handler) {
-        handled = static_cast<unsigned char>(region.handler->HandleRegionInput(region, event));
+        handled = static_cast<std::uint8_t>(region.handler->HandleRegionInput(region, event));
     } else {
         return {0, false};
     }
@@ -306,12 +305,12 @@ bool LeaveRegion(W8Region& region, const InputEvent& event)
         region.flags &= ~W8_REGION_HELP_SHOWN;
     }
     region.flags &= ~W8_REGION_MOUSE_STATE_MASK;
-    g_region_help_delay = static_cast<unsigned short>(g_settings.tooltip_delay_ms);
+    g_region_help_delay = static_cast<std::uint16_t>(g_settings.tooltip_delay_ms);
     SetRegionHelpForceEnabled(false);
     return true;
 }
 
-W8Region* FindDispatchRegion(const DispatchPoint& point, unsigned int& region_index)
+W8Region* FindDispatchRegion(const DispatchPoint& point, std::uint32_t& region_index)
 {
     region_index =
         RegionAllowedByExclusiveSet(g_captured_region_index) ? g_captured_region_index : 0;
@@ -324,10 +323,10 @@ W8Region* FindDispatchRegion(const DispatchPoint& point, unsigned int& region_in
 }
 }
 
-ExclusiveRegionSet::ExclusiveRegionSet(unsigned int set)
+ExclusiveRegionSet::ExclusiveRegionSet(std::uint32_t set)
     : set_(set), sequence_(set < g_region_sets.size() ? g_region_sets[set].sequence : 0)
 {
-    const auto save_region = [](unsigned int index) {
+    const auto save_region = [](std::uint32_t index) {
         SavedRegionState saved{index, 0, 0};
         if (index != 0 && index < g_regions.size()) {
             auto& region = g_regions[index];
@@ -350,7 +349,7 @@ ExclusiveRegionSet::ExclusiveRegionSet(unsigned int set)
         event.position = mouse;
         LeaveRegion(g_regions[saved_hover_.index], event);
     }
-    const auto clear_mouse_state = [](unsigned int index) {
+    const auto clear_mouse_state = [](std::uint32_t index) {
         if (index != 0 && index < g_regions.size()) {
             auto& region = g_regions[index];
             if (region.flags & W8_REGION_HELP_SHOWN) VideoRemoveToolTip();
@@ -388,7 +387,7 @@ ExclusiveRegionSet::~ExclusiveRegionSet()
         return;
     }
 
-    const auto clear_mouse_state = [](unsigned int index) {
+    const auto clear_mouse_state = [](std::uint32_t index) {
         if (index != 0 && index < g_regions.size()) {
             auto& region = g_regions[index];
             if (region.flags & W8_REGION_HELP_SHOWN) VideoRemoveToolTip();
@@ -430,11 +429,11 @@ ExclusiveRegionSet::~ExclusiveRegionSet()
    receives leave/enter transitions, hover help timing, and the ordinary
    position callback as one transaction. */
 // FUNCTION: WIZ8 0x004f1360
-unsigned int UpdateRegionMousePosition(int x, int y)
+std::uint32_t UpdateRegionMousePosition(std::int32_t x, std::int32_t y)
 {
     g_region_mouse_position = {x, y};
     InputEvent event{};
-    unsigned int region_index;
+    std::uint32_t region_index;
 
     event.timestamp = w8_get_ticks();
     event.modifiers = GetInputState().modifiers;
@@ -446,7 +445,7 @@ unsigned int UpdateRegionMousePosition(int x, int y)
         const auto captured_index = g_captured_region_index;
         W8Region* forced = &g_regions[captured_index];
         const bool inside = RegionContainsInputPoint(
-            captured_index, static_cast<unsigned short>(x), static_cast<unsigned short>(y), true);
+            captured_index, static_cast<std::uint16_t>(x), static_cast<std::uint16_t>(y), true);
         const bool was_hovered = g_hover_region_index == captured_index;
         if (!inside && was_hovered) {
             const auto held_buttons =
@@ -477,11 +476,11 @@ unsigned int UpdateRegionMousePosition(int x, int y)
     }
     if (g_captured_region_index != 0) g_captured_region_index = 0;
 
-    if (FindEnabledRegionAtPoint(static_cast<unsigned short>(x), static_cast<unsigned short>(y),
+    if (FindEnabledRegionAtPoint(static_cast<std::uint16_t>(x), static_cast<std::uint16_t>(y),
                                  &region_index)) {
         W8Region* region = &g_regions[region_index];
         const auto generation = region->binding_generation;
-        unsigned int previous_index = g_hover_region_index;
+        std::uint32_t previous_index = g_hover_region_index;
         g_current_region_index = region_index;
         if (previous_index != 0 && previous_index != region_index) {
             W8Region* previous = &g_regions[previous_index];
@@ -508,7 +507,7 @@ unsigned int UpdateRegionMousePosition(int x, int y)
 
     g_current_region_index = 0;
     if (g_hover_region_index != 0) {
-        unsigned int previous_index = g_hover_region_index;
+        std::uint32_t previous_index = g_hover_region_index;
         W8Region* previous = &g_regions[previous_index];
         if (!LeaveRegion(*previous, event)) return g_current_region_index;
         PlayButtonSound(1);
@@ -526,10 +525,10 @@ SDL_Point GetRegionMousePosition()
    different region also sends the old region its leave transition and drops
    any help box it still owns. */
 // FUNCTION: WIZ8 0x004f16f0
-unsigned int FindRegionAtPoint(unsigned short x, unsigned short y)
+std::uint32_t FindRegionAtPoint(std::uint16_t x, std::uint16_t y)
 {
     InputEvent event;
-    unsigned int region_index;
+    std::uint32_t region_index;
 
     event.timestamp = w8_get_ticks();
     event.modifiers = GetInputState().modifiers;
@@ -555,7 +554,7 @@ unsigned int FindRegionAtPoint(unsigned short x, unsigned short y)
 
     if (g_hover_region_index != 0 &&
         (g_regions[g_hover_region_index].flags & W8_REGION_HELP_SHOWN) != 0) {
-        unsigned int previous_index = g_hover_region_index;
+        std::uint32_t previous_index = g_hover_region_index;
         VideoRemoveToolTip();
         g_regions[previous_index].flags &= ~W8_REGION_HELP_SHOWN;
     }
@@ -568,10 +567,10 @@ unsigned int FindRegionAtPoint(unsigned short x, unsigned short y)
    0x004F1C4C and 0x004F1D34 for the current and captured regions); each runs
    the callback, plays the optional sound and returns the callback result. */
 // FUNCTION: WIZ8 0x004f1910
-unsigned char DispatchRegionInput(const InputEvent* event)
+std::uint8_t DispatchRegionInput(const InputEvent* event)
 {
-    unsigned int region_index = 0;
-    int sound_id = -1;
+    std::uint32_t region_index = 0;
+    std::int32_t sound_id = -1;
     g_region_mouse_position = {event->position.x,
                                event->position.y};
     const auto point = ToDispatchPoint(*event);
@@ -580,7 +579,7 @@ unsigned char DispatchRegionInput(const InputEvent* event)
         event->type == InputEventType::LeftButtonUp || event->type == InputEventType::RightButtonDown ||
         event->type == InputEventType::RightButtonUp) {
         RuntimeObserve(RUNTIME_MOUSE_DISPATCH, event->type,
-                       static_cast<w8_ulong>(point.x) | (static_cast<w8_ulong>(point.y) << 16),
+                       static_cast<std::uint32_t>(point.x) | (static_cast<std::uint32_t>(point.y) << 16),
                        g_current_screen_state.id);
     }
 #endif
@@ -622,7 +621,7 @@ unsigned char DispatchRegionInput(const InputEvent* event)
     }
 
 #ifdef WIZ8_RUNTIME_TESTS
-    w8_ulong callback_address = 0;
+    std::uint32_t callback_address = 0;
     memcpy(&callback_address, &region->callback, sizeof(callback_address));
     RuntimeObserve(RUNTIME_REGION_ACTIVATED, region_index, callback_address, region->callback_id);
 #endif
@@ -648,14 +647,14 @@ unsigned char DispatchRegionInput(const InputEvent* event)
    shared fallback, and the final position is clamped inside the 640x480
    screen before the region records ownership of the box. */
 // FUNCTION: WIZ8 0x004f2650
-void ShowRegionHelp(unsigned int region_index)
+void ShowRegionHelp(std::uint32_t region_index)
 {
     W8Region* region;
-    unsigned int mode;
+    std::uint32_t mode;
     std::string text;
     SDL_Point anchor;
-    int width;
-    int height;
+    std::int32_t width;
+    std::int32_t height;
 
     if (!g_settings.tooltips_enabled && !g_region_help_force_enabled) {
         return;
@@ -704,7 +703,7 @@ void ShowRegionHelp(unsigned int region_index)
    that role, send its ordinary mouse-leave callback first and release any
    transition object it still owns. */
 // FUNCTION: WIZ8 0x004f2040
-void ActivateDialogRegion(unsigned int region_index)
+void ActivateDialogRegion(std::uint32_t region_index)
 {
     if (region_index >= g_regions.size()) {
         srAssertFail("uiRegionIndex < guiRegionCount",
@@ -731,24 +730,24 @@ void ActivateDialogRegion(unsigned int region_index)
 }
 
 // FUNCTION: WIZ8 0x004f21b0
-unsigned char ClearActiveRegionIfMatches(unsigned int region_index)
+bool ClearActiveRegionIfMatches(std::uint32_t region_index)
 {
     if (g_captured_region_index == region_index) {
         g_captured_region_index = 0;
         g_current_region_index = 0;
-        return 1;
+        return true;
     }
-    return 0;
+    return false;
 }
 
 // FUNCTION: WIZ8 0x004f21d0
-unsigned int GetForcedRegion(void)
+std::uint32_t GetForcedRegion(void)
 {
     return g_captured_region_index;
 }
 
 // FUNCTION: WIZ8 0x004f21e0
-void RegionSetEnable(unsigned int region_set_index)
+void RegionSetEnable(std::uint32_t region_set_index)
 {
     if (region_set_index >= g_region_sets.size()) {
         srAssertFail("uiRegionSetIndex < guiRegsetCount",
@@ -758,7 +757,7 @@ void RegionSetEnable(unsigned int region_set_index)
 }
 
 // FUNCTION: WIZ8 0x004f2220
-void RegionSetDisable(unsigned int region_set_index)
+void RegionSetDisable(std::uint32_t region_set_index)
 {
     if (region_set_index >= g_region_sets.size()) {
         srAssertFail("uiRegionSetIndex < guiRegsetCount",
@@ -768,21 +767,21 @@ void RegionSetDisable(unsigned int region_set_index)
 }
 
 // FUNCTION: WIZ8 0x004f2260
-void EnableRegionSetInput(unsigned int region_set_index)
+void EnableRegionSetInput(std::uint32_t region_set_index)
 {
     for (auto index : g_region_sets.at(region_set_index).Regions())
         g_regions[index].flags &= ~W8_REGION_INPUT_MODE_MASK;
 }
 
 // FUNCTION: WIZ8 0x004f22f0
-void DisableRegionSetInput(unsigned int region_set_index)
+void DisableRegionSetInput(std::uint32_t region_set_index)
 {
     for (auto index : g_region_sets.at(region_set_index).Regions())
         g_regions[index].flags = (g_regions[index].flags & ~W8_REGION_INPUT_MODE_MASK) | W8_REGION_INPUT_DISABLED;
 }
 
 // FUNCTION: WIZ8 0x004f2380
-void EnableRegionInput(unsigned int region_index)
+void EnableRegionInput(std::uint32_t region_index)
 {
     if (region_index >= g_regions.size()) {
         srAssertFail("uiRegionIndex < guiRegionCount",
@@ -792,21 +791,21 @@ void EnableRegionInput(unsigned int region_index)
 }
 
 // FUNCTION: WIZ8 0x004f23d0
-void DisableRegionInput(unsigned int region_index)
+void DisableRegionInput(std::uint32_t region_index)
 {
     if (region_index >= g_regions.size()) {
         srAssertFail("uiRegionIndex < guiRegionCount",
                      "C:\\Projects\\Wizardry 8\\Local Code\\RegionManager.cpp", 0x262, 0);
     }
-    unsigned int flags = g_regions[region_index].flags;
+    std::uint32_t flags = g_regions[region_index].flags;
     flags &= 0xfff3;
     flags |= W8_REGION_INPUT_DISABLED;
     g_regions[region_index].flags = flags;
 }
 
 // FUNCTION: WIZ8 0x004f2420
-void SetRegionBounds(unsigned int region_index, unsigned short x1, unsigned short y1,
-                     unsigned short x2, unsigned short y2)
+void SetRegionBounds(std::uint32_t region_index, std::uint16_t x1, std::uint16_t y1,
+                     std::uint16_t x2, std::uint16_t y2)
 {
     if (region_index >= g_regions.size()) {
         srAssertFail("uiRegionIndex < guiRegionCount",
@@ -819,7 +818,7 @@ void SetRegionBounds(unsigned int region_index, unsigned short x1, unsigned shor
 }
 
 // FUNCTION: WIZ8 0x004f2490
-bool RegionContainsPoint(unsigned int region_index, unsigned short x, unsigned short y)
+bool RegionContainsPoint(std::uint32_t region_index, std::uint16_t x, std::uint16_t y)
 {
     W8Region* region;
 
@@ -836,8 +835,8 @@ bool RegionContainsPoint(unsigned int region_index, unsigned short x, unsigned s
         return SDL_PointInRect(&point, &bounds);
     }
     case W8_REGION_CIRCLE: {
-        short delta_x = x - region->x1;
-        short delta_y = y - region->y1;
+        std::int16_t delta_x = x - region->x1;
+        std::int16_t delta_y = y - region->y1;
         if (delta_x * delta_x + delta_y * delta_y <= region->x2 * region->x2) {
             return true;
         }
@@ -848,7 +847,7 @@ bool RegionContainsPoint(unsigned int region_index, unsigned short x, unsigned s
 }
 
 // FUNCTION: WIZ8 0x004f2550
-bool RegionHasFlags(unsigned int region_index, unsigned int flags)
+bool RegionHasFlags(std::uint32_t region_index, std::uint32_t flags)
 {
     bool has_flags;
 
@@ -886,7 +885,7 @@ void SetRegionHelpText(std::string_view text)
 // FUNCTION: WIZ8 0x004f27f0
 void ResetRegionHelp(bool delayed)
 {
-    unsigned int region_index = g_current_region_index;
+    std::uint32_t region_index = g_current_region_index;
 
     VideoRemoveToolTip();
     g_regions[region_index].flags &= 0xfffffdff;
@@ -898,29 +897,29 @@ void ResetRegionHelp(bool delayed)
     }
 }
 
-static void RemoveFromScanOrder(unsigned int set_index)
+static void RemoveFromScanOrder(std::uint32_t set_index)
 {
     std::erase(g_region_set_scan_order, set_index);
 }
 
-static void InsertIntoScanOrder(unsigned int set_index)
+static void InsertIntoScanOrder(std::uint32_t set_index)
 {
     RemoveFromScanOrder(set_index);
     std::erase_if(g_region_set_scan_order,
-                  [](unsigned int index) { return index >= g_region_sets.size(); });
+                  [](std::uint32_t index) { return index >= g_region_sets.size(); });
     const auto& set = g_region_sets[set_index];
     const auto key = std::pair{set.order, set.sequence};
     const auto position = std::ranges::upper_bound(
-        g_region_set_scan_order, key, {}, [](unsigned int index) {
+        g_region_set_scan_order, key, {}, [](std::uint32_t index) {
             return std::pair{g_region_sets[index].order, g_region_sets[index].sequence};
         });
     g_region_set_scan_order.insert(position, set_index);
 }
 
 // FUNCTION: WIZ8 0x004f2880
-unsigned int CreateRegionSet(int order)
+std::uint32_t CreateRegionSet(std::int32_t order)
 {
-    unsigned int set_index = 0;
+    std::uint32_t set_index = 0;
     while (!g_reusable_region_set_indices.empty()) {
         const auto candidate = g_reusable_region_set_indices.back();
         g_reusable_region_set_indices.pop_back();
@@ -932,7 +931,7 @@ unsigned int CreateRegionSet(int order)
     }
     if (set_index == 0) {
         g_region_sets.emplace_back();
-        set_index = static_cast<unsigned int>(g_region_sets.size() - 1);
+        set_index = static_cast<std::uint32_t>(g_region_sets.size() - 1);
     }
     auto& set = g_region_sets[set_index];
     set = W8RegionSet{};
@@ -942,7 +941,7 @@ unsigned int CreateRegionSet(int order)
     return set_index;
 }
 
-static void ReleaseRegionSetSlot(unsigned int region_set_index)
+static void ReleaseRegionSetSlot(std::uint32_t region_set_index)
 {
     if (region_set_index < kFirstDynamicRegionSetIndex ||
         region_set_index >= g_region_sets.size() || region_set_index == g_control_region_set) {
@@ -956,7 +955,7 @@ static void ReleaseRegionSetSlot(unsigned int region_set_index)
     }
 }
 
-void DestroyRegionSet(unsigned int region_set_index)
+void DestroyRegionSet(std::uint32_t region_set_index)
 {
     if (region_set_index < kFirstDynamicRegionSetIndex ||
         region_set_index >= g_region_sets.size() || region_set_index == g_control_region_set) {
@@ -965,14 +964,14 @@ void DestroyRegionSet(unsigned int region_set_index)
 
     RegionSetDisable(region_set_index);
     const auto active_regions = g_region_sets[region_set_index].Regions();
-    const std::vector<unsigned int> region_indices(active_regions.begin(), active_regions.end());
+    const std::vector<std::uint32_t> region_indices(active_regions.begin(), active_regions.end());
     for (const auto region_index : region_indices) {
         RemoveRegionFromSet(region_set_index, region_index);
     }
     ReleaseRegionSetSlot(region_set_index);
 }
 
-unsigned int ControlRegionSetIndex(void)
+std::uint32_t ControlRegionSetIndex(void)
 {
     if (g_control_region_set == 0) {
         g_control_region_set = CreateRegionSet();
@@ -993,7 +992,7 @@ std::size_t LiveDynamicRegionCount(void)
         const bool registered = std::ranges::any_of(
             g_region_sets, [index](const W8RegionSet& set) {
                 const auto regions = set.Regions();
-                return std::ranges::find(regions, static_cast<unsigned int>(index)) !=
+                return std::ranges::find(regions, static_cast<std::uint32_t>(index)) !=
                        regions.end();
             });
         if (registered) ++count;
@@ -1001,14 +1000,14 @@ std::size_t LiveDynamicRegionCount(void)
     return count;
 }
 // FUNCTION: WIZ8 0x004f28e0
-void ResetRegionSet(unsigned int region_set_index)
+void ResetRegionSet(std::uint32_t region_set_index)
 {
     g_region_sets.at(region_set_index).Reset();
 }
 
-unsigned int W8RegionSet::AddRegion(int priority)
+std::uint32_t W8RegionSet::AddRegion(std::int32_t priority)
 {
-    unsigned int region_index;
+    std::uint32_t region_index;
     if (active_count == region_ids.size()) {
         // Reserve first so a failed allocation cannot orphan a region.
         if (region_ids.size() == region_ids.capacity())
@@ -1020,7 +1019,7 @@ unsigned int W8RegionSet::AddRegion(int priority)
             g_regions[region_index] = g_regions.front();
             g_regions[region_index].binding_generation = generation;
         } else {
-            region_index = static_cast<unsigned int>(g_regions.size());
+            region_index = static_cast<std::uint32_t>(g_regions.size());
             g_regions.push_back(g_regions.front());
             ++g_regions.back().binding_generation;
         }
@@ -1042,7 +1041,7 @@ unsigned int W8RegionSet::AddRegion(int priority)
     return region_index;
 }
 
-bool W8RegionSet::RemoveRegion(unsigned int region_index)
+bool W8RegionSet::RemoveRegion(std::uint32_t region_index)
 {
     const auto found = std::ranges::find(region_ids, region_index);
     if (found == region_ids.end()) return false;
@@ -1052,7 +1051,7 @@ bool W8RegionSet::RemoveRegion(unsigned int region_index)
     return true;
 }
 
-void W8RegionSet::AttachRegion(unsigned int region_index)
+void W8RegionSet::AttachRegion(std::uint32_t region_index)
 {
     if (region_index >= g_regions.size()) {
         throw std::out_of_range("region index out of range");
@@ -1081,12 +1080,12 @@ void W8RegionSet::AttachRegion(unsigned int region_index)
 }
 
 // FUNCTION: WIZ8 0x004f2920
-unsigned int AddRegionToSet(unsigned int region_set_index, int priority)
+std::uint32_t AddRegionToSet(std::uint32_t region_set_index, std::int32_t priority)
 {
     return g_region_sets.at(region_set_index).AddRegion(priority);
 }
 
-OwnedRegion::OwnedRegion(unsigned int set, int priority, W8RegionHandler& handler)
+OwnedRegion::OwnedRegion(std::uint32_t set, std::int32_t priority, W8RegionHandler& handler)
     : set_(set), index_(AddRegionToSet(set, priority))
 {
     auto& owned_region = g_regions[index_];
@@ -1094,7 +1093,7 @@ OwnedRegion::OwnedRegion(unsigned int set, int priority, W8RegionHandler& handle
     generation_ = ++owned_region.binding_generation;
 }
 
-OwnedRegion::OwnedRegion(unsigned int set, const RegionTemplate& entry, int priority)
+OwnedRegion::OwnedRegion(std::uint32_t set, const RegionTemplate& entry, std::int32_t priority)
     : set_(set), index_(AddRegionToSet(set, priority))
 {
     auto& owned_region = g_regions[index_];
@@ -1115,7 +1114,7 @@ OwnedRegion::OwnedRegion(unsigned int set, const RegionTemplate& entry, int prio
     generation_ = ++owned_region.binding_generation;
 }
 
-OwnedRegionSet::OwnedRegionSet(std::span<const RegionTemplate> entries, int order)
+OwnedRegionSet::OwnedRegionSet(std::span<const RegionTemplate> entries, std::int32_t order)
     : set_(CreateRegionSet(order))
 {
     try {
@@ -1205,7 +1204,7 @@ void ScreenRegionSet::DisableInput()
 }
 
 RegionSetView::RegionSetView(const OwnedRegionSet& source, std::size_t first, std::size_t count,
-                             int order)
+                             std::int32_t order)
 {
     if (first > source.size() || count > source.size() - first) {
         throw std::out_of_range("region set view range out of bounds");
@@ -1297,7 +1296,7 @@ void OwnedRegion::reset()
     generation_ = 0;
 }
 
-void RemoveRegionFromSet(unsigned int region_set_index, unsigned int region_index)
+void RemoveRegionFromSet(std::uint32_t region_set_index, std::uint32_t region_index)
 {
     if (!g_region_sets.at(region_set_index).RemoveRegion(region_index) ||
         region_index < kFirstDynamicRegionIndex || region_index >= g_regions.size()) {
@@ -1317,7 +1316,7 @@ void RemoveRegionFromSet(unsigned int region_set_index, unsigned int region_inde
     if (g_hover_region_index == region_index) g_hover_region_index = 0;
 }
 
-void UnbindWidgetRegion(unsigned int region_index, W8Widget* widget, OwnedRegion* owner)
+void UnbindWidgetRegion(std::uint32_t region_index, W8Widget* widget, OwnedRegion* owner)
 {
     if (region_index >= g_regions.size()) return;
     auto& region = g_regions[region_index];
@@ -1341,8 +1340,8 @@ void UnbindWidgetRegion(unsigned int region_index, W8Widget* widget, OwnedRegion
 }
 
 // FUNCTION: WIZ8 0x004f29c0
-void SetRegionCallback(unsigned int region_index, W8RegionCallback callback,
-                       unsigned short callback_id)
+void SetRegionCallback(std::uint32_t region_index, W8RegionCallback callback,
+                       std::uint16_t callback_id)
 {
     if (region_index >= g_regions.size()) {
         srAssertFail("uiRegionIndex < guiRegionCount",
@@ -1354,7 +1353,7 @@ void SetRegionCallback(unsigned int region_index, W8RegionCallback callback,
 }
 
 // FUNCTION: WIZ8 0x004f2a30
-void SetRegionHelp(unsigned int region_index, bool enabled, int help_text_id)
+void SetRegionHelp(std::uint32_t region_index, bool enabled, std::int32_t help_text_id)
 {
     if (region_index >= g_regions.size()) {
         srAssertFail("uiRegionIndex < guiRegionCount",
@@ -1380,7 +1379,7 @@ void ClearHotRegion(void)
 
     if (g_current_region_index != 0) {
         W8Region* region = &g_regions[g_current_region_index];
-        unsigned int mode = region->flags & W8_REGION_MODE_MASK;
+        std::uint32_t mode = region->flags & W8_REGION_MODE_MASK;
         if (mode == 1 || mode == 2) {
             if (!LeaveRegion(*region, event)) return;
             g_current_region_index = 0;
@@ -1389,7 +1388,7 @@ void ClearHotRegion(void)
 }
 
 // FUNCTION: WIZ8 0x004f2bb0
-void EnableRegionHelp(unsigned int region_index)
+void EnableRegionHelp(std::uint32_t region_index)
 {
     if (region_index >= g_regions.size()) {
         srAssertFail("uiRegionIndex < guiRegionCount",
@@ -1399,7 +1398,7 @@ void EnableRegionHelp(unsigned int region_index)
 }
 
 // FUNCTION: WIZ8 0x004f2bf0
-void DisableRegionHelp(unsigned int region_index)
+void DisableRegionHelp(std::uint32_t region_index)
 {
     if (region_index >= g_regions.size()) {
         srAssertFail("uiRegionIndex < guiRegionCount",
@@ -1416,7 +1415,7 @@ void DisableRegionHelp(unsigned int region_index)
 // FUNCTION: WIZ8 0x004f1240
 void ResetRegions(void)
 {
-    unsigned int index;
+    std::uint32_t index;
 
     index = g_current_region_index;
     if (g_current_region_index != 0 &&
@@ -1453,5 +1452,5 @@ void ResetRegions(void)
     g_hover_region_index = 0;
     g_captured_region_index = 0;
     SetRegionHelpForceEnabled(false);
-    g_region_help_delay = static_cast<unsigned short>(g_settings.tooltip_delay_ms);
+    g_region_help_delay = static_cast<std::uint16_t>(g_settings.tooltip_delay_ms);
 }

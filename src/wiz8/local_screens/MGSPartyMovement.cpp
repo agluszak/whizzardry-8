@@ -44,13 +44,13 @@
 // GLOBAL: WIZ8 0x0069BF40
 static W8TextControl* g_party_movement_buttons[2];
 // GLOBAL: WIZ8 0x0069BF48
-uint64_t g_party_movement_animation_clock;
+std::uint64_t g_party_movement_animation_clock;
 // GLOBAL: WIZ8 0x0069BF4C
 std::unique_ptr<Controls> g_party_movement_panel;
 // GLOBAL: WIZ8 0x0069BF50
 std::unique_ptr<W8TextBuffer> g_party_movement_caption;
 // GLOBAL: WIZ8 0x0069BF54
-unsigned int g_party_movement_animation_frame;
+std::uint32_t g_party_movement_animation_frame;
 
 // Retail set 0x1c, regions 200-201.
 static constexpr std::array<RegionTemplate, 2> g_party_movement_region_templates{{
@@ -62,9 +62,9 @@ ScreenRegionSet g_party_movement_regions{g_party_movement_region_templates, 0x1c
 // GLOBAL: WIZ8 0x005EECD0
 const float g_movement_fatigue_tick_scale = 0.0004f;
 
-void DrawPartyMovementGauge(short right, short image, bool panel_live, int caption);
+void DrawPartyMovementGauge(std::int16_t right, std::int16_t image, bool panel_live, std::int32_t caption);
 
-unsigned char CreatePartyMovementPanel(void)
+bool CreatePartyMovementPanel(void)
 {
     W8ControlsRect bounds;
 
@@ -102,10 +102,10 @@ unsigned char CreatePartyMovementPanel(void)
         g_level_block->move_percent = 100;
         g_level_block->move_percent_shown = 100;
         g_party_movement_panel->Invalidate(0);
-        return 1;
+        return true;
     }
     ReleasePartyMovement();
-    return 0;
+    return false;
 }
 
 void ReleasePartyMovement(void)
@@ -143,9 +143,9 @@ void DrawPartyMovementPanel(void)
 {
     SDL_Rect clip;
     bool panel_live;
-    int caption;
-    short right;
-    int image;
+    std::int32_t caption;
+    std::int16_t right;
+    std::int32_t image;
 
     if (!gXStatus.fCombatMode) {
         srAssertFail("gXStatus.fCombatMode", PARTY_MOVEMENT_CPP, 0xf6, 0);
@@ -213,13 +213,13 @@ void DrawPartyMovementPanel(void)
 
 /* The movement gauge: a static end frame for the empty/full states and the
    twelve-frame animated bar otherwise, rearming its own countdown each tick. */
-void DrawPartyMovementGauge(short right, short image, bool panel_live, int caption)
+void DrawPartyMovementGauge(std::int16_t right, std::int16_t image, bool panel_live, std::int32_t caption)
 {
     bool rearm;
     bool advanced;
-    int frame;
-    int timer_length;
-    int frame_base;
+    std::int32_t frame;
+    std::int32_t timer_length;
+    std::int32_t frame_base;
 
     frame_base = 0;
     rearm = false;
@@ -241,7 +241,7 @@ void DrawPartyMovementGauge(short right, short image, bool panel_live, int capti
         }
         frame = 0;
     }
-    unsigned int action;
+    std::uint32_t action;
     if (!CanPartyMove() || (g_combat_state->execution_active != 0 && IsPartyEngaged() == 0)) {
         action = g_combat_state->uiCurrentPartyAction;
     } else {
@@ -275,10 +275,10 @@ void InvalidatePartyMovementPanel(void)
     g_party_movement_panel->Invalidate(0);
 }
 
-unsigned char FreeTurnButtonRegionEvent(const InputEvent* event, W8Region* region)
+bool FreeTurnButtonRegionEvent(const InputEvent* event, W8Region* region)
 {
     if (!gXStatus.fPartyMovementUi) {
-        return 0;
+        return false;
     }
     return DispatchButtonRegionEvent(event, region, g_party_movement_buttons[region->callback_id]);
 }
@@ -297,15 +297,15 @@ void EnableFreeTurnButton(void)
    and a bearable load accumulates distance scaled by load, doubled in combat
    and raised again while the second condition runs, until the accumulator
    crosses 2500 and converts into real fatigue. */
-unsigned char HandlePartyMovement(float* real_elapsed, float* frame_elapsed)
+bool HandlePartyMovement(float* real_elapsed, float* frame_elapsed)
 {
-    int party_slot;
+    std::int32_t party_slot;
     float amount;
     float multiplier;
-    unsigned int ticks;
+    std::uint32_t ticks;
 
     if (ConsumeLevelElapsedTime(real_elapsed, frame_elapsed) == 0) {
-        return 0;
+        return false;
     }
     for (party_slot = 0; party_slot < W8_PARTY_SLOT_COUNT; ++party_slot) {
         W8PartySlotRow* row = &g_status.buffers.XChar[party_slot];
@@ -347,10 +347,10 @@ unsigned char HandlePartyMovement(float* real_elapsed, float* frame_elapsed)
         row->movement_fatigue = multiplier * amount + row->movement_fatigue;
         if (row->movement_fatigue > g_position_height_epsilon) {
             ticks =
-                static_cast<unsigned int>(row->movement_fatigue * g_movement_fatigue_tick_scale);
+                static_cast<std::uint32_t>(row->movement_fatigue * g_movement_fatigue_tick_scale);
             FatigueCharacter(party_slot, ticks, false, 0);
             row->movement_fatigue = row->movement_fatigue - (ticks * 0x9c4);
         }
     }
-    return 1;
+    return true;
 }

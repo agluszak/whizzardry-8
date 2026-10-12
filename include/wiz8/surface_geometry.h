@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <algorithm>
 #include <cstddef>
 #include <span>
@@ -30,8 +31,8 @@ inline void initializePropSurface(W8GDSurface& surface, std::span<const srVector
 }
 
 struct CompilationOrder {
-    std::vector<int> indices;
-    int walkable_count;
+    std::vector<std::int32_t> indices;
+    std::int32_t walkable_count;
 };
 
 // Keep source order within both runs, dropping triangles collapsed by welding.
@@ -42,11 +43,11 @@ inline CompilationOrder compilationOrder(std::span<const W8GDSurface> surfaces)
     for (std::size_t index = 0; index < surfaces.size(); ++index) {
         const auto& vertices = surfaces[index].vertex_indices;
         if (vertices[0] != vertices[1] && vertices[0] != vertices[2] && vertices[1] != vertices[2])
-            result.indices.push_back(static_cast<int>(index));
+            result.indices.push_back(static_cast<std::int32_t>(index));
     }
     const auto boundary = std::stable_partition(result.indices.begin(), result.indices.end(),
-        [&](int index) { return (surfaces[index].flags & W8_GD_SURFACE_WALKABLE) != 0; });
-    result.walkable_count = static_cast<int>(boundary - result.indices.begin());
+        [&](std::int32_t index) { return (surfaces[index].flags & W8_GD_SURFACE_WALKABLE) != 0; });
+    result.walkable_count = static_cast<std::int32_t>(boundary - result.indices.begin());
     return result;
 }
 } // namespace surfaceGeometry

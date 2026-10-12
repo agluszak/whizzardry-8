@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "glm/ext/vector_double3.hpp"
 #include "surrender/srCamera.h" // IWYU pragma: keep - complete camera type for conversion to srNode.
 #include <wiz8/asset_paths.h>
@@ -120,18 +121,18 @@ W8LevelFolderRecord g_level_folders[W8_LEVEL_COUNT] = {
 /* The sky index of the world currently held in g_secondary_world, or -1 when no
    sky is loaded. Every retail access is a byte access. */
 // GLOBAL: WIZ8 0x00604470
-static signed char g_loaded_sky_index = -1;
+static std::int8_t g_loaded_sky_index = -1;
 // GLOBAL: WIZ8 0x00659738
 W8MaterialMapper g_material_mapper;
 
 // FUNCTION: WIZ8 0x0042b720
-int GetLevelCdNumber(int level)
+std::int32_t GetLevelCdNumber(std::int32_t level)
 {
     return g_level_folders[level].cd_number;
 }
 
 // FUNCTION: WIZ8 0x0042b6f0
-bool IsLevelCdMissing(int level)
+bool IsLevelCdMissing(std::int32_t level)
 {
     char directory[4];
     return FindGameDataPath(directory, g_level_folders[level].cd_number) == 0;
@@ -139,29 +140,29 @@ bool IsLevelCdMissing(int level)
 
 /* Configured disc roots are immutable D: through F: asset namespaces. */
 // FUNCTION: WIZ8 0x0042B590
-unsigned char FindGameDataPath(char* path, int cd_number)
+bool FindGameDataPath(char* path, std::int32_t cd_number)
 {
-    if (path == nullptr || cd_number < 1 || cd_number > 3) return 0;
+    if (path == nullptr || cd_number < 1 || cd_number > 3) return false;
     path[0] = '\0';
     try {
-        if (w8_native::path_roots().discs[cd_number - 1].empty()) return 0;
+        if (w8_native::path_roots().discs[cd_number - 1].empty()) return false;
         char disc[] = "D:\\";
         disc[0] += cd_number - 1;
         const auto root = wiz8::file_status(disc);
         const auto data = wiz8::file_status(std::string(disc) + "Data");
         if (!root || root->info.type != SDL_PATHTYPE_DIRECTORY || root->writable ||
-            !data || data->info.type != SDL_PATHTYPE_DIRECTORY || data->writable) return 0;
+            !data || data->info.type != SDL_PATHTYPE_DIRECTORY || data->writable) return false;
         strcpy(path, disc);
-        return 1;
+        return true;
     } catch (const std::exception&) {
-        return 0;
+        return false;
     }
 }
 
 // FUNCTION: WIZ8 0x0042b740
-char GetLevelBand(int saved_level)
+char GetLevelBand(std::int32_t saved_level)
 {
-    int level = NormalizeMasterFunctionValue(saved_level);
+    std::int32_t level = NormalizeMasterFunctionValue(saved_level);
     /* `<= 0x2f` is the retail bound: it admits the first test-level slot, one
        past the W8_LEVEL_COUNT-entry table. */
     if (level >= 0 && level <= 0x2f) {
@@ -173,7 +174,7 @@ char GetLevelBand(int saved_level)
 /* Start the saved level's music playlist. Formats a path from the level's
    name, falls back to Adventure.MPL when no level-specific playlist exists. */
 // FUNCTION: WIZ8 0x0042b770
-void StartLevelMusic(int fade, int replace_current)
+void StartLevelMusic(std::int32_t fade, std::int32_t replace_current)
 {
     char path[260];
     const char* level_name = g_level_folders[g_status.current_level].level_name;
@@ -203,21 +204,21 @@ void UnloadSkyWorld(void)
 // The original bounds-checks only the upper end, so a negative level_id reads
 // before the table. Reproduced as-is; GetLevelFolderName checks both ends.
 // FUNCTION: WIZ8 0x0042b500
-unsigned char GetLevelLocationCode(int level_id, char* location_code)
+bool GetLevelLocationCode(std::int32_t level_id, char* location_code)
 {
     if (level_id >= W8_LEVEL_COUNT) {
-        return 0;
+        return false;
     }
     if (!location_code) {
-        return 0;
+        return false;
     }
     strcpy(location_code, g_level_folders[level_id].location_code);
-    return 1;
+    return true;
 }
 
-static int LevelFindIDByLocationCode(const char* location_code)
+static std::int32_t LevelFindIDByLocationCode(const char* location_code)
 {
-    int level_id;
+    std::int32_t level_id;
 
     for (level_id = 0; level_id < W8_LEVEL_COUNT; level_id++) {
         if (_stricmp(g_level_folders[level_id].location_code, location_code) == 0) {
@@ -228,10 +229,10 @@ static int LevelFindIDByLocationCode(const char* location_code)
 }
 
 // FUNCTION: WIZ8 0x0042b410
-int FindLevelIdByLocationCode(const char* location_code)
+std::int32_t FindLevelIdByLocationCode(const char* location_code)
 {
     W8LevelInfo info;
-    int level_id;
+    std::int32_t level_id;
 
     if (!location_code) {
         return -1;
@@ -256,7 +257,7 @@ int FindLevelIdByLocationCode(const char* location_code)
 }
 
 // FUNCTION: WIZ8 0x0042b550
-const char* GetLevelFolderName(int level_id)
+const char* GetLevelFolderName(std::int32_t level_id)
 {
     if (level_id >= W8_LEVEL_COUNT || level_id < 0) {
         return 0;
@@ -265,13 +266,13 @@ const char* GetLevelFolderName(int level_id)
 }
 
 // FUNCTION: WIZ8 0x0042b580
-int GetLoadedLevelID(void)
+std::int32_t GetLoadedLevelID(void)
 {
     return g_status.current_level;
 }
 /* Retail shares the no-op stub at 0x004023A0 across arities; this typed
    overload is called with the sky world and two zero arguments. */
-void NoOp(W8World* world, int first, int second)
+void NoOp(W8World* world, std::int32_t first, std::int32_t second)
 {
     (void)world;
     (void)first;
@@ -284,9 +285,9 @@ void NoOp(W8World* world, int first, int second)
    animated-cloud material: its cloud meshes are marked for the renderer's
    control bits and every CloudsN prop's mesh chain is rebound to it. */
 // FUNCTION: WIZ8 0x0042B020
-unsigned char LoadSkyWorld(int level, W8LevelInfo* info)
+bool LoadSkyWorld(std::int32_t level, W8LevelInfo* info)
 {
-    signed char sky_index;
+    std::int8_t sky_index;
     W8LevelInfo local_info;
     W8World* sky_world;
 
@@ -296,11 +297,11 @@ unsigned char LoadSkyWorld(int level, W8LevelInfo* info)
         sky_index = 0;
     }
     if (sky_index == g_loaded_sky_index) {
-        return 1;
+        return true;
     }
     if (info == 0) {
         if (!LevelBuildInfoByID(level, &local_info)) {
-            return 0;
+            return false;
         }
         info = &local_info;
     }
@@ -311,16 +312,16 @@ unsigned char LoadSkyWorld(int level, W8LevelInfo* info)
         ResetEnvironment();
     }
     if (sky_index == -1) {
-        return 1;
+        return true;
     }
     sky_world = CreateWorld();
     g_secondary_world = sky_world;
     if (sky_world == 0) {
-        return 0;
+        return false;
     }
     if (!LoadWorld(sky_world, info->sky_file_name, info->sky_folder, info->sky_bitmap_folder,
                    false)) {
-        return 0;
+        return false;
     }
 
     const glm::dvec3 position(0);
@@ -351,7 +352,7 @@ unsigned char LoadSkyWorld(int level, W8LevelInfo* info)
         }
     }
 
-    for (int index = 1; index < 9; ++index) {
+    for (std::int32_t index = 1; index < 9; ++index) {
         char prop_name[28];
 
         sprintf(prop_name, "Clouds0%d", index);
@@ -373,11 +374,11 @@ unsigned char LoadSkyWorld(int level, W8LevelInfo* info)
     WorldRemoveLight(sky_world, sky_world->camera_light);
     sky_world->camera_light = 0;
     g_loaded_sky_index = sky_index;
-    return 1;
+    return true;
 }
 
 // GLOBAL: WIZ8 0x00605820
-unsigned short g_level_name_indices[W8_LEVEL_COUNT] = {
+std::uint16_t g_level_name_indices[W8_LEVEL_COUNT] = {
     0x6f7, 0x6f8, 0x6f9, 0x6fa, 0x6fb, 0x6fd, 0x6fc, 0x6fe, 0x6ff, 0x700, 0x701, 0x719,
     0x702, 0x703, 0x704, 0x705, 0x706, 0x707, 0x708, 0x709, 0x70a, 0x70b, 0x70c, 0x719,
     0x70d, 0x70e, 0x70f, 0x710, 0x719, 0x711, 0x719, 0x712, 0x713, 0x714, 0x719, 0x715,
@@ -394,7 +395,7 @@ float g_default_world_height = 1000.0f;
 const float g_position_height_epsilon = 2500.0f;
 
 // GLOBAL: WIZ8 0x00603ad0
-unsigned char g_environment_load_flag = 1;
+bool g_environment_load_flag = true;
 
 // GLOBAL: WIZ8 0x0065ba70
 bool g_camera_path_active;
@@ -415,12 +416,12 @@ const char* g_sky_names[] = {
    slots synthesize level1..level9 and DefaultLevel. A missing LVL file is
    valid only when both its OCT and PVL replacements exist. */
 // FUNCTION: WIZ8 0x0042A370
-bool LevelBuildInfoByID(int level, W8LevelInfo* info)
+bool LevelBuildInfoByID(std::int32_t level, W8LevelInfo* info)
 {
     char oct_path[1020];
     char pvl_path[1020];
 
-    if (static_cast<unsigned int>(level) >= 57) {
+    if (static_cast<std::uint32_t>(level) >= 57) {
         srAssertFail("ulLevel < TEST_LEVEL_COUNT",
                      "C:\\Projects\\Wizardry 8\\Engine Code\\Levels.cpp", 237, 0);
     }
@@ -481,11 +482,11 @@ bool LevelBuildInfoByID(int level, W8LevelInfo* info)
    rollback boundary, entry positioning, first-visit work and final renderer
    publication. */
 // FUNCTION: WIZ8 0x0042A6F0
-unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
+bool LoadLevel(std::int32_t requested_level, std::int32_t entrance, bool restoring_game)
 {
-    int level = NormalizeMasterFunctionValue(requested_level);
+    std::int32_t level = NormalizeMasterFunctionValue(requested_level);
     W8LevelInfo level_info;
-    int previous_level;
+    std::int32_t previous_level;
     bool first_visit = false;
     char path[260];
     char music_path[260];
@@ -642,7 +643,7 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
 }
 
 // FUNCTION: WIZ8 0x0042ACE0
-unsigned char UnloadLevel(const char* save_directory)
+bool UnloadLevel(const char* save_directory)
 {
     if (gXStatus.fCombatMode) {
         EndCombat(true);
@@ -666,19 +667,19 @@ unsigned char UnloadLevel(const char* save_directory)
     }
 
     if (ReleaseItemLists() == 0) {
-        return 0;
+        return false;
     }
     if (g_world_cleanup_flag) {
         RenderFrame();
     }
     if (ShutdownMonsterManager() == 0) {
-        return 0;
+        return false;
     }
     if (g_world_cleanup_flag) {
         RenderFrame();
     }
     if (ScreenLifecycleSuccess() == 0) {
-        return 0;
+        return false;
     }
     if (g_world_cleanup_flag) {
         RenderFrame();
@@ -708,7 +709,7 @@ unsigned char UnloadLevel(const char* save_directory)
     ReleaseEnvironmentObjects();
     g_runtime_world_scale = 500.0f;
     ClearActiveWorldCursorNode();
-    return 1;
+    return true;
 }
 
 /* Unload the current level and load `level` at `entrance`. When the request
@@ -716,7 +717,7 @@ unsigned char UnloadLevel(const char* save_directory)
    saved yaw/pitch records and position are put back after the load; every
    other request is a plain unload+load. */
 // FUNCTION: WIZ8 0x0042AF60
-unsigned char ReloadLevelPreservingCamera(int level, int entrance)
+bool ReloadLevelPreservingCamera(std::int32_t level, std::int32_t entrance)
 {
     W8CameraAngleRecord saved_angle;
     W8CameraAngleRecord saved_pitch;
@@ -730,15 +731,15 @@ unsigned char ReloadLevelPreservingCamera(int level, int entrance)
     }
     if (g_status.current_level != -1) {
         if (UnloadLevel("Saves") == 0) {
-            return 0;
+            return false;
         }
     }
     if (LoadLevel(level, entrance, false) == 0) {
-        return 0;
+        return false;
     }
     if (restore) {
         RestoreWorldCameraOrientation(saved_angle, saved_pitch, GetWorld());
         SetWorldScenePosition(GetWorld(), &saved_position);
     }
-    return 1;
+    return true;
 }

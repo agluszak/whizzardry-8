@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "wiz8/engine_code/Camera.h"
 
 #include <vector>
@@ -40,17 +41,17 @@ W8CameraPath::~W8CameraPath() = default;
    a reconstructed owner in GDCamera.cpp. */
 
 // GLOBAL: WIZ8 0x0060AA64
-static int g_saved_environment_flag = 1;
+static std::int32_t g_saved_environment_flag = 1;
 
 /* Find the named camera path in the world's list and toggle it. Retail
    callers push the flag as a plain int and the body forwards it raw to
    UpdateCameraPathState. */
 // FUNCTION: WIZ8 0x0048F280
-void UpdateCameraPathStateByName(W8World* world, const char* name, int active)
+void UpdateCameraPathStateByName(W8World* world, const char* name, std::int32_t active)
 {
-    unsigned int count = world->plsCameras.size();
+    std::uint32_t count = world->plsCameras.size();
     if (count != 0) {
-        for (int index = 0; index < static_cast<int>(count); ++index) {
+        for (std::int32_t index = 0; index < static_cast<std::int32_t>(count); ++index) {
             W8CameraPath* path = GetWorldCameraPath(world, index);
             if (_stricmp(path->name0, name) == 0) {
                 UpdateCameraPathState(world, path, active);
@@ -61,12 +62,12 @@ void UpdateCameraPathStateByName(W8World* world, const char* name, int active)
 }
 
 // FUNCTION: WIZ8 0x0048F2F0
-void UpdateCameraPathState(W8World* world, W8CameraPath* path, int active)
+void UpdateCameraPathState(W8World* world, W8CameraPath* path, std::int32_t active)
 {
     W8NpcState* npc;
     W8MonsterGroup* group;
     W8MonsterInfo* monster_info;
-    unsigned int index;
+    std::uint32_t index;
     srVector3T<float> target;
     srVector3T<float> position;
     glm::mat3 rotation;

@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "glm/ext/vector_int3.hpp"
 #include <optional>
 #include <algorithm>
@@ -8,7 +9,6 @@
 #include <span>
 #include <vector>
 
-#include "compat/compiler.h"
 #include "glm/common.hpp"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float3.hpp"
@@ -75,7 +75,7 @@ class srMaterialIFace;
 class srTextureIFace;
 
 // GLOBAL: WIZ8 0x00652da8
-unsigned int* g_level_flags;
+std::uint32_t* g_level_flags;
 // GLOBAL: WIZ8 0x00652dac
 W8LevelDataRecord* g_level_data;
 // GLOBAL: WIZ8 0x00652da7
@@ -111,11 +111,11 @@ bool g_shared_timers_paused;
 
 /* Resolve a complete triangle from the active processed vertex table. */
 // FUNCTION: WIZ8 0x004214d0
-std::optional<RuntimeTriangle> surfaceTriangle(std::span<const int, 3> vertexIndices)
+std::optional<RuntimeTriangle> surfaceTriangle(std::span<const std::int32_t, 3> vertexIndices)
 {
     if (!g_octree_game_data) return std::nullopt;
     const auto& vertices = g_octree_game_data->m_pVertices;
-    for (const int index : vertexIndices)
+    for (const std::int32_t index : vertexIndices)
         if (index < 0 || static_cast<std::size_t>(index) >= vertices.size())
             return std::nullopt;
     return indexedTriangle(vertices, vertexIndices);
@@ -162,7 +162,7 @@ void UpdateGameDataRuntime()
    rotation into `saved`. ECX is the owning W8GameData; the body reads only
    globals. */
 // FUNCTION: WIZ8 0x0041F330
-CameraRotation W8GameData::cameraRotation(unsigned int flags, const glm::mat3& rotation)
+CameraRotation W8GameData::cameraRotation(std::uint32_t flags, const glm::mat3& rotation)
 {
     CameraRotation result{rotation, rotation};
     float pitch_input;
@@ -240,7 +240,7 @@ CameraRotation W8GameData::cameraRotation(unsigned int flags, const glm::mat3& r
 }
 
 // GLOBAL: WIZ8 0x00652dcd
-unsigned char g_level_motion_fast;
+bool g_level_motion_fast;
 // GLOBAL: WIZ8 0x00652db9
 bool g_level_footstep_pending;
 // GLOBAL: WIZ8 0x00603ac0
@@ -262,13 +262,13 @@ srVector3T<float> g_world_origin;
    W8GameData; the body mostly reads globals. Zero elapsed (`camera_scale`)
    returns before the motion helpers. */
 // FUNCTION: WIZ8 0x0041F5F0
-CameraMotion W8GameData::cameraMotion(unsigned int flags, const glm::vec3& position,
+CameraMotion W8GameData::cameraMotion(std::uint32_t flags, const glm::vec3& position,
                                        const glm::mat3& movement_basis)
 {
     CameraMotion result;
     auto& delta = result.displacement;
     W8GameTimer::Flags timer_flags;
-    unsigned int level_flags;
+    std::uint32_t level_flags;
     W8LevelDataRecord* level;
     float forward_scale;
     bool fast_move;
@@ -393,7 +393,7 @@ after_move:
 // GLOBAL: WIZ8 0x005ebc48
 const double g_motion_vector_epsilon = 5.0;
 // GLOBAL: WIZ8 0x00603ad1
-unsigned char g_environment_motion_active = 1;
+std::uint8_t g_environment_motion_active = 1;
 // GLOBAL: WIZ8 0x00652db8
 bool g_environ_ground_latch;
 
@@ -413,7 +413,7 @@ glm::vec3 W8EnvironRecord::withScaledMotion(const glm::vec3& position) const
 }
 
 // FUNCTION: WIZ8 0x0041FE20
-unsigned char W8LevelDataRecord::ClampCameraToBounds(const srVector3T<float>* minimum,
+bool W8LevelDataRecord::ClampCameraToBounds(const srVector3T<float>* minimum,
                                                      const srVector3T<float>* maximum)
 {
     bool clamped = false;
@@ -440,7 +440,7 @@ unsigned char W8LevelDataRecord::ClampCameraToBounds(const srVector3T<float>* mi
     }
     if (camera_position.z <= maximum->z) {
         if (!clamped) {
-            return 0;
+            return false;
         }
     } else {
         clamped = true;
@@ -474,9 +474,9 @@ W8GDSurface* W8GameData::ProbePropsAlongMotion(srVector3T<float>* direction,
     W8Prop* prop;
     GDProp* gd_prop;
     W8LevelDataRecord* level;
-    unsigned int index;
-    int surface_index;
-    int hit_prop_id;
+    std::uint32_t index;
+    std::int32_t surface_index;
+    std::int32_t hit_prop_id;
     bool direction_zero;
     float slope;
     float along_length;
@@ -592,12 +592,12 @@ W8GDSurface* W8GameData::ProbePropsAlongMotion(srVector3T<float>* direction,
 }
 
 // FUNCTION: WIZ8 0x0041BD60
-unsigned char W8GameData::ProbeMonstersAlongMotion(srVector3T<float>* direction,
-                                                   srVector3T<float>* position, int)
+bool W8GameData::ProbeMonstersAlongMotion(srVector3T<float>* direction,
+                                                   srVector3T<float>* position, std::int32_t)
 {
-    std::vector<w8_ulong> objects;
-    unsigned int count;
-    unsigned int index;
+    std::vector<std::uint32_t> objects;
+    std::uint32_t count;
+    std::uint32_t index;
     W8MonsterInfo* monster_info;
     W8Monster* monster;
     srVector3T<float> lower;
@@ -624,7 +624,7 @@ unsigned char W8GameData::ProbeMonstersAlongMotion(srVector3T<float>* direction,
     objects = g_octree->queryObjects({lower.glmValue(), upper.glmValue()}, W8_OCTREE_KIND_LOCATION, -1);
     count = objects.size();
     if (count == 0) {
-        return 0;
+        return false;
     }
     for (index = 0; index < count; ++index) {
         if (objects[index] == 0) {
@@ -673,7 +673,7 @@ unsigned char W8GameData::ProbeMonstersAlongMotion(srVector3T<float>* direction,
    gravity into the path, then walk up to five collision attempts against
    props/octree/geometry before committing crossed surfaces. */
 // FUNCTION: WIZ8 0x0041AB40
-unsigned char W8GameData::AdvanceEnvironmentMotion()
+std::uint8_t W8GameData::AdvanceEnvironmentMotion()
 {
     W8LevelDataRecord* level;
     W8EnvironRecord* environ_record;
@@ -688,13 +688,13 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
     W8GDSurface* nearest_surface;
     W8GDSurface* surface;
     W8GDSurface* collisions[101];
-    std::vector<w8_ulong> octree_hits;
+    std::vector<std::uint32_t> octree_hits;
     std::vector<W8GDSurface*> geometry_hits;
-    int hit_count = 0;
-    int collision_count;
-    int attempt;
-    int index;
-    int crossed_count;
+    std::int32_t hit_count = 0;
+    std::int32_t collision_count;
+    std::int32_t attempt;
+    std::int32_t index;
+    std::int32_t crossed_count;
     float nearest_distance;
     float motion_length;
     float scale;
@@ -917,7 +917,7 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
                         surface->segmentContact(probe_position.glmValue(), motion_delta.glmValue(),
                             indexedTriangle(m_pVertices, surface->vertex_indices))) {
                         if (0 < crossed_count) {
-                            for (int swap = 0; swap < crossed_count; ++swap) {
+                            for (std::int32_t swap = 0; swap < crossed_count; ++swap) {
                                 W8GDSurface* prior = collisions[swap];
                                 if (fabsf(surface->distance) < fabsf(prior->distance)) {
                                     collisions[swap] = surface;
@@ -958,7 +958,7 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
             g_environ->ground_latch = g_environ_ground_latch;
 
             if (m_iNumTriggers != 0) {
-                for (unsigned int trigger_index = 0; trigger_index < pending_trigger_bits.size();
+                for (std::uint32_t trigger_index = 0; trigger_index < pending_trigger_bits.size();
                      ++trigger_index) {
                     if (pending_trigger_bits[trigger_index] &&
                         !TestBit(active_trigger_bits, trigger_index)) {
@@ -990,10 +990,10 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
 /* Run the buffered prop id list through TestProp and report the id of the
    last prop that hit; an empty list reports -1. */
 // FUNCTION: WIZ8 0x0041c0d0
-int W8GameData::TestPropSurfaces(int count, w8_ulong* ids, W8OctreeTrace* trace,
+std::int32_t W8GameData::TestPropSurfaces(std::int32_t count, std::uint32_t* ids, W8OctreeTrace* trace,
                                  char skip_flag, char gate)
 {
-    int last_hit = -1;
+    std::int32_t last_hit = -1;
     if (count == 0) {
         return -1;
     }
@@ -1014,7 +1014,7 @@ int W8GameData::TestPropSurfaces(int count, w8_ulong* ids, W8OctreeTrace* trace,
    position delta; on a hit the caller's record is reseeded from the start to
    the world-space contact. `gate` skips flag-4 props when set. */
 // FUNCTION: WIZ8 0x0041c140
-bool W8GameData::TestProp(int prop_id, W8OctreeTrace* trace, char skip_flag, char gate)
+bool W8GameData::TestProp(std::int32_t prop_id, W8OctreeTrace* trace, char skip_flag, char gate)
 {
     bool hit = false;
     GDProp* gd_prop;
@@ -1061,22 +1061,22 @@ bool W8GameData::TestProp(int prop_id, W8OctreeTrace* trace, char skip_flag, cha
    storing index into last_hit_surface, the contact into end and the hit
    distance into hit_limit/length. */
 // FUNCTION: WIZ8 0x0041c330
-bool W8GameData::TestTraceResult(int count, w8_ulong* surface_ids, W8OctreeTrace* trace,
-                                 char skip_flag, int mode)
+bool W8GameData::TestTraceResult(std::int32_t count, std::uint32_t* surface_ids, W8OctreeTrace* trace,
+                                 char skip_flag, std::int32_t mode)
 { return TestGeometryTrace(m_pSurfaces, m_pVertices, count, surface_ids, trace, skip_flag, mode); }
 
 bool W8GameData::TestGeometryTrace(std::span<W8GDSurface> surfaces,
-    std::span<const srVector3T<float>> vertices_bank, int count, w8_ulong* surface_ids,
-    W8OctreeTrace* trace, char skip_flag, int mode)
+    std::span<const srVector3T<float>> vertices_bank, std::int32_t count, std::uint32_t* surface_ids,
+    W8OctreeTrace* trace, char skip_flag, std::int32_t mode)
 {
     bool hit = false;
     glm::vec3 best_contact;
 
     last_hit_surface = 0;
     if (count != 0) {
-        w8_ulong* id = surface_ids;
-        int index = 0;
-        int remaining = count;
+        std::uint32_t* id = surface_ids;
+        std::int32_t index = 0;
+        std::int32_t remaining = count;
         do {
             W8GDSurface* surface;
             if (surface_ids == 0) {
@@ -1088,10 +1088,10 @@ bool W8GameData::TestGeometryTrace(std::span<W8GDSurface> surfaces,
                  (surface->flags & W8_GD_SURFACE_CROSSING_MASK) == 0 &&
                  (skip_flag == 0 || (surface->flags & W8_GD_SURFACE_SKIP_FILTERED_TRACE) == 0)) &&
                 (surface->chance == 0 ||
-                 (mode != -1 && (mode < 2 || static_cast<int>(surface->chance) < mode) &&
+                 (mode != -1 && (mode < 2 || static_cast<std::int32_t>(surface->chance) < mode) &&
                   (mode != 1 ||
-                   (static_cast<int>(surface->chance) < 100 &&
-                    static_cast<int>(surface->chance) < static_cast<int>(Random(100))))))) {
+                   (static_cast<std::int32_t>(surface->chance) < 100 &&
+                    static_cast<std::int32_t>(surface->chance) < static_cast<std::int32_t>(Random(100))))))) {
                 const auto contact = planeContact(
                     glm::vec4(surface->plane.normal.glmValue(), surface->plane.w),
                     {trace->start, trace->end, trace->step, trace->length, trace->hit_limit},
@@ -1130,13 +1130,13 @@ bool W8GameData::TestGeometryTrace(std::span<W8GDSurface> surfaces,
    polygons clear surface flag 0x10 while every other state's polygons set
    it. Asserts the interface id and the state slice bounds. */
 // FUNCTION: WIZ8 0x0041c680
-char W8GameData::SetInterfaceState(int iID, int state)
+char W8GameData::SetInterfaceState(std::int32_t iID, std::int32_t state)
 {
-    int iStates;
-    int poly_count;
+    std::int32_t iStates;
+    std::int32_t poly_count;
     W8GDInterface* interface_rec;
     W8GDInterfaceState* states;
-    int* polys;
+    std::int32_t* polys;
 
     if (iID == 0 || InterfacesCount() <= iID) {
         srAssertFail("iID && iID < InterfacesCount()",
@@ -1176,7 +1176,7 @@ char W8GameData::SetInterfaceState(int iID, int state)
 void W8GameData::ProcessCrossedSurface(W8GDSurface* surface)
 {
     Trigger* trigger;
-    int direction;
+    std::int32_t direction;
 
     if ((surface->flags & W8_GD_SURFACE_ENVIRONMENT) != 0) {
         const bool entering = surface->distance > 0.0f;
@@ -1242,14 +1242,14 @@ std::unique_ptr<stModelInstance> W8GameData::CreateTraceModel()
     glm::vec2* texcoords = mesh->getVertexTexCoords(0, 0, 1);
     std::shared_ptr<srMaterialIFace>* vertex_materials =
         mesh->getVertexMaterial(0, srMeshModel::SIDE_FRONT, 1);
-    w8_ulong* shade_indices = mesh->getVertexShadeIndex(1);
-    int vertex = 0;
-    for (int index = 0; index < SurfacesCount(); ++index) {
+    std::uint32_t* shade_indices = mesh->getVertexShadeIndex(1);
+    std::int32_t vertex = 0;
+    for (std::int32_t index = 0; index < SurfacesCount(); ++index) {
         W8GDSurface* surface = m_pSurfaces.data() + index;
         poly_textures[index] = g_oct_mesh_default.texture;
         const std::array corners{&poly_vertices[index].x, &poly_vertices[index].y,
                                   &poly_vertices[index].z};
-        for (unsigned corner = 0; corner < corners.size(); ++corner) {
+        for (std::uint32_t corner = 0; corner < corners.size(); ++corner) {
             const auto destination = vertex + corner;
             if ((surface->flags & W8_GD_SURFACE_WALKABLE) != 0) selected[destination] = true;
             texcoords[destination] = glm::vec2(0);
@@ -1264,7 +1264,7 @@ std::unique_ptr<stModelInstance> W8GameData::CreateTraceModel()
     mesh->setDirty(srMeshModel::DIRTY_TRI_MESH);
     glm::vec3* normals = mesh->getVertexNormal();
     glm::vec3* dig = mesh->getVertexDIG(0, 1);
-    for (int i = 0; i < vertex; ++i) {
+    for (std::int32_t i = 0; i < vertex; ++i) {
         if (selected[i]) {
             dig[i] = normals[i];
             if (dig[i].y < g_float_half) {
@@ -1323,7 +1323,7 @@ const double g_collision_centroid_scale = 0.33333298563957214;
 std::optional<PlaneContact> W8GDSurface::segmentContact(const glm::vec3& from,
     const glm::vec3& direction, std::span<const glm::vec3, 3> vertices)
 {
-    unsigned int flags = this->flags;
+    std::uint32_t flags = this->flags;
     bool special = false;
     if ((flags & W8_GD_SURFACE_INACTIVE_MASK) != 0) {
         return std::nullopt;
@@ -1374,11 +1374,11 @@ std::optional<PlaneContact> W8GDSurface::segmentContact(const glm::vec3& from,
             return std::nullopt;
         }
     }
-    int axis = flags & W8_GD_SURFACE_AXIS_MASK;
+    std::int32_t axis = flags & W8_GD_SURFACE_AXIS_MASK;
     const auto start_proj = point - normal * dist_start;
     const auto end_proj = end - normal * dist_end;
     bool crossed = false;
-    for (unsigned edge = 0; edge < vertices.size() && !crossed; ++edge)
+    for (std::uint32_t edge = 0; edge < vertices.size() && !crossed; ++edge)
         crossed = SegmentCrossesEdge(start_proj, end_proj, vertices[edge],
                                      vertices[(edge + 1) % vertices.size()], axis);
     const bool inside = !crossed && srTriangleProjection::contains(vertices, axis, end_proj,
@@ -1443,7 +1443,7 @@ std::optional<PlaneContact> W8GDSurface::segmentContact(const glm::vec3& from,
    axes and their line-crossing parameters must both fall inside [0,1]. */
 // FUNCTION: WIZ8 0x0041D7A0
 bool SegmentCrossesEdge(const glm::vec3& seg_start, const glm::vec3& seg_end,
-                        const glm::vec3& edge_a, const glm::vec3& edge_b, unsigned int axis)
+                        const glm::vec3& edge_a, const glm::vec3& edge_b, std::uint32_t axis)
 {
     const auto start = srTriangleProjection::coordinates(seg_start, axis);
     const auto end = srTriangleProjection::coordinates(seg_end, axis);
@@ -1475,8 +1475,8 @@ std::optional<float> W8GDSurface::edgeContactLimit(const glm::vec3& point,
     std::span<const glm::vec3, 3> vertices, float limit) const
 {
     float nearest_dist = 10000000.0f;
-    short nearest_edge = 0;
-    for (short edge = 0; edge < 3; ++edge) {
+    std::int16_t nearest_edge = 0;
+    for (std::int16_t edge = 0; edge < 3; ++edge) {
         const float dist = srSegmentMath::project(point,
             vertices[edge],
             vertices[(edge + 1) % 3]).distance;
@@ -1522,7 +1522,7 @@ std::optional<float> W8GDSurface::edgeContactLimit(const glm::vec3& point,
    so sequential bounces wedge the slide between them. */
 // FUNCTION: WIZ8 0x0041DC10
 bool W8GDSurface::ResolveCollision(srVector3T<float>* origin, const srVector3T<float>* hit_point,
-                                   srVector3T<float>* direction, int collision_index)
+                                   srVector3T<float>* direction, std::int32_t collision_index)
 {
     /* Statics 0x652d50/0x652d68/0x652d80 carry the latched entry direction and
        the first/second contact normals; their atexit thunks are the SYNTHETIC
@@ -1530,9 +1530,9 @@ bool W8GDSurface::ResolveCollision(srVector3T<float>* origin, const srVector3T<f
     static glm::vec3 s_entry_direction;
     static glm::vec3 s_second_normal;
     static glm::vec3 s_first_normal;
-    static short s_collision_state;
+    static std::int16_t s_collision_state;
     static float s_second_limit;
-    static int s_first_surface;
+    static std::int32_t s_first_surface;
     static float s_first_limit;
 
     bool recomputed = false;
@@ -1717,13 +1717,13 @@ bool W8GDSurface::ResolveCollision(srVector3T<float>* origin, const srVector3T<f
    centroid than the from→to normal offset: used to tell genuinely different
    contact planes apart when wedging a slide. */
 // FUNCTION: WIZ8 0x0041E8E0
-bool W8GDSurface::CentroidsDiverging(int surface_index, const glm::vec3& from, const glm::vec3& to)
+bool W8GDSurface::CentroidsDiverging(std::int32_t surface_index, const glm::vec3& from, const glm::vec3& to)
 {
     const W8GDSurface* other = g_octree_game_data->m_pSurfaces.data() + surface_index;
     const srVector3T<float>* vertices = g_octree_game_data->m_pVertices.data();
     glm::vec3 this_centroid(g_float_zero, g_float_zero, g_float_zero);
     glm::vec3 other_centroid(g_float_zero, g_float_zero, g_float_zero);
-    for (int vertex = 0; vertex < 3; ++vertex) {
+    for (std::int32_t vertex = 0; vertex < 3; ++vertex) {
         const srVector3T<float>* this_vertex = vertices + vertex_indices[vertex];
         this_centroid += this_vertex->glmValue();
         const srVector3T<float>* other_vertex = vertices + other->vertex_indices[vertex];
@@ -1905,7 +1905,7 @@ void ClearLevelMovementStopped(void)
    into the session accumulators, clear the pending pair, and report whether
    either was above the camera-transition epsilon. */
 // FUNCTION: WIZ8 0x0041f170
-unsigned char ConsumeLevelElapsedTime(float* real_elapsed, float* frame_elapsed)
+bool ConsumeLevelElapsedTime(float* real_elapsed, float* frame_elapsed)
 {
     W8LevelDataRecord* record = g_level_data;
     bool elapsed = false;
@@ -2035,10 +2035,10 @@ void ResetCurrentEnvironment(void)
 }
 
 // FUNCTION: WIZ8 0x0041AAE0
-unsigned char SetEnvironmentLoadFlag(unsigned char flag)
+bool SetEnvironmentLoadFlag(bool flag)
 {
     srVector3T<float> zero_vector(0.0f, 0.0f, 0.0f);
-    unsigned char previous = g_environment_load_flag;
+    bool previous = g_environment_load_flag;
     if (g_environ != 0) {
         g_environ->vector = zero_vector;
         if (flag == 0) {
@@ -2089,7 +2089,7 @@ void GetLevelSoundEnvironment(char* environment, char* secondary)
 }
 
 // FUNCTION: WIZ8 0x00420b40
-float MoveTimer(int value)
+float MoveTimer(std::int32_t value)
 {
     if (g_game_time_accumulator == 0) {
         g_game_time_accumulator = new W8GameTimeAccumulator;
@@ -2155,13 +2155,13 @@ void BeginManualCameraControl()
    yaw-rotation matrix. The diagnostics dump passes null and uses only the
    yaw. */
 // FUNCTION: WIZ8 0x00420F40
-int GetCameraYawAndRotation(glm::mat3* rotation)
+std::int32_t GetCameraYawAndRotation(glm::mat3* rotation)
 {
     float degrees = g_gd_camera->m_yaw * g_camera_radians_to_degrees;
     if (rotation != 0) {
         *rotation = g_gd_camera->m_yaw_rotation;
     }
-    return static_cast<int>(degrees);
+    return static_cast<std::int32_t>(degrees);
 }
 
 // FUNCTION: WIZ8 0x00420F70
@@ -2255,9 +2255,9 @@ void RestoreWorldCameraOrientation(void* angle, void* pitch, W8World*)
 }
 
 // FUNCTION: WIZ8 0x00421550
-int GetCameraYawDegrees(void)
+std::int32_t GetCameraYawDegrees(void)
 {
-    return static_cast<int>(glm::degrees(g_gd_camera->m_yaw));
+    return static_cast<std::int32_t>(glm::degrees(g_gd_camera->m_yaw));
 }
 
 /* Point-visibility query: returns whether the camera has line of sight to the
@@ -2317,7 +2317,7 @@ W8LevelDataRecord::W8LevelDataRecord() : interval_gate()
     g_level_override = false;
 }
 
-unsigned int W8LevelDataRecord::resolveMotionFlags(unsigned int input, bool engaged)
+std::uint32_t W8LevelDataRecord::resolveMotionFlags(std::uint32_t input, bool engaged)
 {
     if (!engaged || (flags & (W8_LEVEL_FLAG_MOVEMENT_STOPPED | W8_LEVEL_FLAG_MOVEMENT_RESET))) {
         input &= W8_CAMERA_MOTION_HIGH_BYTE_MASK;
@@ -2389,7 +2389,7 @@ bool W8LevelDataRecord::IntegrateCameraForward()
 }
 
 // FUNCTION: WIZ8 0x00420810
-unsigned char W8LevelDataRecord::ApplySavedMotionMatrix(unsigned char prior_fast, bool fast_move,
+bool W8LevelDataRecord::ApplySavedMotionMatrix(bool prior_fast, bool fast_move,
                                                         const glm::mat3& saved)
 {
     float horizontal;
@@ -2401,7 +2401,7 @@ unsigned char W8LevelDataRecord::ApplySavedMotionMatrix(unsigned char prior_fast
     motion_input = saved * motion_input;
     integrated_motion = motion_input * camera_scale;
     if (!IntegrateCameraForward()) {
-        return 0;
+        return false;
     }
 
     horizontal = glm::length(glm::vec2(motion_velocity.x, motion_velocity.z));
@@ -2457,7 +2457,7 @@ bool W8LevelDataRecord::UpdateFootstepFromMotion()
    only while its setting-6f2 latch is set, and the secondary follows when it
    is still set on the far side; a secondary that fails the check reports 0. */
 // FUNCTION: WIZ8 0x0041FF00
-unsigned char W8LevelDataRecord::ToggleBoundProps()
+bool W8LevelDataRecord::ToggleBoundProps()
 {
     W8Prop* prop;
     bool toggled = false;
@@ -2471,7 +2471,7 @@ unsigned char W8LevelDataRecord::ToggleBoundProps()
             if (secondary_contact_prop_id >= 0) {
                 prop = g_world->collidable_props[secondary_contact_prop_id];
                 if (!prop->IsAnimationPingPong()) {
-                    return 0;
+                    return false;
                 }
                 prop->ReverseAnimationDirection();
             }
@@ -2481,7 +2481,7 @@ unsigned char W8LevelDataRecord::ToggleBoundProps()
 }
 
 // FUNCTION: WIZ8 0x0041FF90
-void W8LevelDataRecord::UpdateMotionProgress(unsigned char fast_move, unsigned char moved)
+void W8LevelDataRecord::UpdateMotionProgress(std::uint8_t fast_move, bool moved)
 {
     bool allow_override;
     float length;

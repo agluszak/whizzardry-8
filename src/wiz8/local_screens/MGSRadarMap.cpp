@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "sprite.h"
 #include "surrender/srScene.h" // IWYU pragma: keep - complete scene type for conversion to srNode.
 #include <glm/gtx/rotate_vector.hpp>
@@ -51,7 +52,7 @@ static float g_radar_blip_colors[18][3] = {
 
 /* UbDisposition to blip class for live monsters. */
 // GLOBAL: WIZ8 0x0064cb68
-static unsigned char g_radar_disposition_class[4] = {0, 1, 2, 0};
+static std::uint8_t g_radar_disposition_class[4] = {0, 1, 2, 0};
 
 /* Screen offsets at which the zoomed map image gets each
    occupied formation cell's party-order chip painted. */
@@ -75,7 +76,7 @@ static stModelInstance2D* g_radar_frame = 0;
 // GLOBAL: WIZ8 0x0069bf68
 static std::vector<stModelInstance2D*> g_radar_icon_pools[18];
 // GLOBAL: WIZ8 0x0069c08c
-static int g_radar_icon_cursors[18];
+static std::int32_t g_radar_icon_cursors[18];
 // GLOBAL: WIZ8 0x0069c0d4
 static float g_radar_outer_radius;
 // GLOBAL: WIZ8 0x0069c0d8
@@ -96,17 +97,17 @@ const float g_radar_center_x = 75.0f;
 // GLOBAL: WIZ8 0x005eecf0
 const float g_radar_max_marker_scale = 38.0f;
 
-static stModelInstance2D* AcquireRadarBlip(int sector, bool lit);
-static unsigned char PlaceRadarBlip(srVector3T<float>* delta, int group, bool lit);
+static stModelInstance2D* AcquireRadarBlip(std::int32_t sector, bool lit);
+static bool PlaceRadarBlip(srVector3T<float>* delta, std::int32_t group, bool lit);
 
 static void ResetRadarBlips()
 {
-    for (int sector = 0; sector < 18; ++sector) {
+    for (std::int32_t sector = 0; sector < 18; ++sector) {
         auto& pool = g_radar_icon_pools[sector];
-        int count = static_cast<int>(pool.size());
+        std::int32_t count = static_cast<std::int32_t>(pool.size());
 
         g_radar_icon_cursors[sector] = 0;
-        for (int index = 0; index < count; ++index) {
+        for (std::int32_t index = 0; index < count; ++index) {
             (pool[index])->setFlag(srNode::FLAG_DISABLE);
         }
     }
@@ -138,13 +139,13 @@ void EnsureRadarMapOverlay(void)
 }
 
 // FUNCTION: WIZ8 0x005a21b0
-static stModelInstance2D* AcquireRadarBlip(int sector, bool lit)
+static stModelInstance2D* AcquireRadarBlip(std::int32_t sector, bool lit)
 {
     auto& pool = g_radar_icon_pools[sector];
     stModelInstance2D* icon;
-    int cursor = g_radar_icon_cursors[sector];
+    std::int32_t cursor = g_radar_icon_cursors[sector];
 
-    if (cursor < static_cast<int>(pool.size())) {
+    if (cursor < static_cast<std::int32_t>(pool.size())) {
         g_radar_icon_cursors[sector] = cursor + 1;
         icon = pool[cursor];
     } else {
@@ -162,7 +163,7 @@ static stModelInstance2D* AcquireRadarBlip(int sector, bool lit)
         } else {
             glm::vec4 first;
             glm::vec4 second;
-            int group = sector - sector % 3;
+            std::int32_t group = sector - sector % 3;
 
             icon->SetGlowEnabled(true);
             second.w = 1.0f;
@@ -195,7 +196,7 @@ void ReleaseRadarMap(void)
         ReleaseObject(g_radar_compass);
         g_radar_compass = 0;
     }
-    for (int sector = 0; sector < 18; ++sector) {
+    for (std::int32_t sector = 0; sector < 18; ++sector) {
         auto& pool = g_radar_icon_pools[sector];
 
         wiz8::remove_all_and_delete_in_order(pool);
@@ -206,7 +207,7 @@ void ReleaseRadarMap(void)
 // FUNCTION: WIZ8 0x005a24a0
 void RefreshRadarMap(void)
 {
-    int sector;
+    std::int32_t sector;
 
     if (!g_radar_map_enabled) {
         return;
@@ -217,12 +218,12 @@ void RefreshRadarMap(void)
     auto map_surface = RenderSpriteToImage(*map_artwork.spriteSheet(), 0);
     if (!map_surface) return;
     if (g_radar_zoomed) {
-        for (int slot = 0; slot < 8; ++slot) {
+        for (std::int32_t slot = 0; slot < 8; ++slot) {
             W8PartySlotRow* row = &g_status.buffers.XChar[slot];
             W8PartyFormationPosition* position = &g_status.formation.positions[slot];
 
             if (row->fOccupied && position->bQuadrant != -1) {
-                int cell = position->bQuadrant * 3 + position->bQuadrantSlot;
+                std::int32_t cell = position->bQuadrant * 3 + position->bQuadrantSlot;
                 CatalogArtwork::Load(0xa5, 0).draw(*map_surface, row->party_order_index, g_radar_cell_offsets[cell].x, g_radar_cell_offsets[cell].y);
             }
         }
@@ -277,7 +278,7 @@ void UpdateRadarBlips(void)
     }
     if (g_radar_compass != 0) {
         RotateNodeInDegrees(g_radar_compass, g_status.party_facing -
-                                                 static_cast<int>(g_status.party_heading) + 0x168);
+                                                 static_cast<std::int32_t>(g_status.party_heading) + 0x168);
     }
     if (g_radar_frame != 0) {
         RotateNodeInDegrees(g_radar_frame, g_status.party_facing);
@@ -320,7 +321,7 @@ void UpdateRadarBlips(void)
 
             if (gXStatus.fCombatMode && g_status.selected_character != -1 &&
                 g_status.buffers.XChar[g_status.selected_character].fOccupied != 0 &&
-                (static_cast<unsigned char>(1 << g_status.selected_character) &
+                (static_cast<std::uint8_t>(1 << g_status.selected_character) &
                  MonsterGetHighlightMask(monster)) != 0) {
                 hostile = true;
             }
@@ -408,11 +409,11 @@ void UpdateRadarBlips(void)
 }
 
 // FUNCTION: WIZ8 0x005a3060
-static unsigned char PlaceRadarBlip(srVector3T<float>* delta, int group, bool lit)
+static bool PlaceRadarBlip(srVector3T<float>* delta, std::int32_t group, bool lit)
 {
-    int ring = 0;
-    int left;
-    int top;
+    std::int32_t ring = 0;
+    std::int32_t left;
+    std::int32_t top;
 
     if (fabs(delta->y) >= g_double_fifteen_hundred) {
         if (delta->y > g_double_zero) {
@@ -436,8 +437,8 @@ static unsigned char PlaceRadarBlip(srVector3T<float>* delta, int group, bool li
         } else {
             scale = g_radar_map_scale / distance;
         }
-        left = static_cast<int>(scale * delta->x) + 0x4b;
-        top = 0x194 - static_cast<int>(scale * delta->z);
+        left = static_cast<std::int32_t>(scale * delta->x) + 0x4b;
+        top = 0x194 - static_cast<std::int32_t>(scale * delta->z);
     } else {
         float scale = g_radar_map_scale + (distance - g_radar_inner_radius) *
                                               (g_radar_max_marker_scale - g_radar_map_scale) /
@@ -447,12 +448,12 @@ static unsigned char PlaceRadarBlip(srVector3T<float>* delta, int group, bool li
             scale = g_radar_max_marker_scale;
         }
         scale /= distance;
-        left = static_cast<int>(scale * delta->x + g_radar_center_x);
-        top = static_cast<int>(g_radar_center_y - scale * delta->z);
+        left = static_cast<std::int32_t>(scale * delta->x + g_radar_center_x);
+        top = static_cast<std::int32_t>(g_radar_center_y - scale * delta->z);
     }
     stModelInstance2D* blip = AcquireRadarBlip(ring + group * 3, lit);
     Position2DNodeUnsnapped(blip, left, top);
-    return 1;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x005a3360

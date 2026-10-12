@@ -15,9 +15,9 @@ std::array<std::uint16_t, 65536> ShadeTable{};
 void SetShadeTablePercent(float percent)
 {
     // Steps of 4 reach every 5- and 6-bit channel level of the packed formats.
-    for (unsigned red = 0; red < 256; red += 4)
-        for (unsigned green = 0; green < 256; green += 4)
-            for (unsigned blue = 0; blue < 256; blue += 4) {
+    for (std::uint32_t red = 0; red < 256; red += 4)
+        for (std::uint32_t green = 0; green < 256; green += 4)
+            for (std::uint32_t blue = 0; blue < 256; blue += 4) {
                 const std::uint16_t index = Get16BPPColor(SDL_Color{static_cast<std::uint8_t>(red),
                     static_cast<std::uint8_t>(green), static_cast<std::uint8_t>(blue), SDL_ALPHA_OPAQUE});
                 ShadeTable[index] = Get16BPPColor(SDL_Color{static_cast<std::uint8_t>(red * percent),

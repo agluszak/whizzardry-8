@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <memory>
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_rect.h>
@@ -58,13 +59,13 @@
 #include "soundman.h"
 #include "wiz8/local_code/NPCScripting.h"
 
-static void DrawDamageSplatOverlay(unsigned int party_slot);
-void DrawPortraitEffectIcon(unsigned int party_slot);
+static void DrawDamageSplatOverlay(std::uint32_t party_slot);
+void DrawPortraitEffectIcon(std::uint32_t party_slot);
 
 /* Dead-character portrait catalog ids, two per race - the small
    party-strip image at [race][0] and the large header portrait at [race][1]. */
 // GLOBAL: WIZ8 0x006488D0
-int g_dead_portrait_catalog_ids[W8_RACE_COUNT][2] = {
+std::int32_t g_dead_portrait_catalog_ids[W8_RACE_COUNT][2] = {
     {20, 31}, {20, 31}, {20, 31}, {20, 31}, {20, 31}, {20, 31}, {23, 34}, {21, 32},
     {22, 33}, {25, 36}, {24, 35}, {27, 38}, {26, 37}, {28, 39}, {29, 40}, {30, 41},
 };
@@ -73,7 +74,7 @@ int g_dead_portrait_catalog_ids[W8_RACE_COUNT][2] = {
    stores the right-hand id at +0 and the left-hand id at +4 (retail also reaches
    the left id through 0x00649DD8). */
 // GLOBAL: WIZ8 0x00649DD4
-int g_empty_hand_catalog_ids[32] = {
+std::int32_t g_empty_hand_catalog_ids[32] = {
     103, 102, 103, 102, 103, 102, 103, 102, 103, 102, 105, 104, 109, 108, 109, 108,
     107, 106, 107, 106, 107, 106, 107, 106, 109, 108, 103, 102, 109, 108, 111, 110,
 };
@@ -92,7 +93,7 @@ static W8ConditionButton* g_condition_buttons[8];
 static std::unique_ptr<Controls> g_condition_buttons_panel;
 /* Party slot the level-up portrait button opens; -1 while idle. */
 // GLOBAL: WIZ8 0x0069B948
-static int giLevelUpChar;
+static std::int32_t giLevelUpChar;
 
 static void OnLevelButtonActivate(void);
 
@@ -101,13 +102,13 @@ static void OnLevelButtonActivate(void);
 // FUNCTION: WIZ8 0x0059A3A0
 void SyncPartyPortraitVitalsBars(void)
 {
-    int slot;
+    std::int32_t slot;
 
     for (slot = 0; slot < 8; ++slot) {
         W8MonsterManagerEntry* entry = &gXStatus.monster_manager_entries[slot];
-        unsigned int hp_bar = 0;
-        unsigned int stamina_bar = 0;
-        unsigned int spell_bar = 0;
+        std::uint32_t hp_bar = 0;
+        std::uint32_t stamina_bar = 0;
+        std::uint32_t spell_bar = 0;
         W8Character* character;
 
         if (!g_status.buffers.XChar[slot].fOccupied) {
@@ -119,18 +120,18 @@ void SyncPartyPortraitVitalsBars(void)
             hp_bar = 0;
             stamina_bar = 0;
         } else {
-            unsigned int stamina;
-            int left;
-            int total;
+            std::uint32_t stamina;
+            std::int32_t left;
+            std::int32_t total;
 
-            hp_bar = (character->hp_current * 0x2d) / static_cast<unsigned int>(character->uiHPMax);
+            hp_bar = (character->hp_current * 0x2d) / static_cast<std::uint32_t>(character->uiHPMax);
             if (hp_bar == 0) {
                 hp_bar = 1;
             }
 
             stamina = character->stamina;
-            stamina_bar = ((static_cast<int>(stamina) < 0 ? 0 : stamina) * 0x2d) /
-                          static_cast<unsigned int>(character->uiStaminaMax);
+            stamina_bar = ((static_cast<std::int32_t>(stamina) < 0 ? 0 : stamina) * 0x2d) /
+                          static_cast<std::uint32_t>(character->uiStaminaMax);
             if (stamina_bar == 0 && stamina != 0) {
                 stamina_bar = 1;
             }
@@ -146,26 +147,26 @@ void SyncPartyPortraitVitalsBars(void)
                 }
                 total = SumCharacterSpellPoints(character);
                 spell_bar =
-                    (static_cast<unsigned int>(left) * 0x2d) / static_cast<unsigned int>(total);
+                    (static_cast<std::uint32_t>(left) * 0x2d) / static_cast<std::uint32_t>(total);
                 if (spell_bar == 0 && SumCharacterSpellPointsLeft(character) != 0) {
                     spell_bar = 1;
                 }
             }
 
-            if (hp_bar != static_cast<unsigned int>(entry->cached_hp_bar) ||
-                stamina_bar != static_cast<unsigned int>(entry->cached_stamina_bar) ||
-                spell_bar != static_cast<unsigned int>(entry->cached_spell_bar) ||
+            if (hp_bar != static_cast<std::uint32_t>(entry->cached_hp_bar) ||
+                stamina_bar != static_cast<std::uint32_t>(entry->cached_stamina_bar) ||
+                spell_bar != static_cast<std::uint32_t>(entry->cached_spell_bar) ||
                 (g_settings.numeric_hit_points != 0 &&
-                 static_cast<int>(character->hp_current) != entry->cached_hp)) {
+                 static_cast<std::int32_t>(character->hp_current) != entry->cached_hp)) {
                 entry->portrait_stats_dirty = true;
                 RequestRedraw(W8_MAIN_REDRAW_FRAME);
             }
         }
 
-        entry->cached_hp_bar = static_cast<int>(hp_bar);
-        entry->cached_stamina_bar = static_cast<int>(stamina_bar);
-        entry->cached_spell_bar = static_cast<int>(spell_bar);
-        entry->cached_hp = static_cast<int>(character->hp_current);
+        entry->cached_hp_bar = static_cast<std::int32_t>(hp_bar);
+        entry->cached_stamina_bar = static_cast<std::int32_t>(stamina_bar);
+        entry->cached_spell_bar = static_cast<std::int32_t>(spell_bar);
+        entry->cached_hp = static_cast<std::int32_t>(character->hp_current);
     }
 }
 
@@ -175,7 +176,7 @@ void SyncPartyPortraitVitalsBars(void)
    portrait refresh defers the frame to -1, and a still-playing effect icon
    defers it likewise. */
 // FUNCTION: WIZ8 0x0059AC40
-void RecordCharacterDamage(int party_slot, unsigned int amount)
+void RecordCharacterDamage(std::int32_t party_slot, std::uint32_t amount)
 {
     bool splat_started = false;
 
@@ -231,14 +232,14 @@ void RecordCharacterDamage(int party_slot, unsigned int amount)
    splat is deferred behind a portrait refresh or a still-playing effect
    icon. */
 // FUNCTION: WIZ8 0x0059ADD0
-static void DrawDamageSplatOverlay(unsigned int party_slot)
+static void DrawDamageSplatOverlay(std::uint32_t party_slot)
 {
     W8MonsterManagerEntry* entry = &gXStatus.monster_manager_entries[party_slot];
-    int frame = entry->damage_splat_frame;
-    int top = 0;
+    std::int32_t frame = entry->damage_splat_frame;
+    std::int32_t top = 0;
 
     if (frame != -1) {
-        int left = ((party_slot & 1) != 0 ? 0x1ff : 0) + 0x16;
+        std::int32_t left = ((party_slot & 1) != 0 ? 0x1ff : 0) + 0x16;
         switch (party_slot >> 1) {
         case 0:
             top = 0x12;
@@ -253,9 +254,9 @@ static void DrawDamageSplatOverlay(unsigned int party_slot)
             top = 0x111;
             break;
         }
-        unsigned int object =
+        std::uint32_t object =
             !entry->damage_splat_death_variant ? entry->damage_splat_catalog : 0x92;
-        CatalogArtwork::Load(object, 0).draw(GetFrameBufferSurface(), static_cast<short>(frame), left, top);
+        CatalogArtwork::Load(object, 0).draw(GetFrameBufferSurface(), static_cast<std::int16_t>(frame), left, top);
         if (entry->damage_splat_frame < 6) {
             W8ControlsRect bounds;
             bounds.left = left;
@@ -277,10 +278,10 @@ static void DrawDamageSplatOverlay(unsigned int party_slot)
    while a pending portrait refresh sits under another overlay (the settings
    mode parked off PORTRAITS with the slot's refresh flag set). */
 // FUNCTION: WIZ8 0x0059B0F0
-void DrawPortraitEffectIcon(unsigned int party_slot)
+void DrawPortraitEffectIcon(std::uint32_t party_slot)
 {
-    int image = gXStatus.monster_manager_entries[party_slot].effect_icon_frame;
-    int top = 0;
+    std::int32_t image = gXStatus.monster_manager_entries[party_slot].effect_icon_frame;
+    std::int32_t top = 0;
     if (image != -1) {
         switch (party_slot >> 1) {
         case 0:
@@ -307,7 +308,7 @@ void DrawPortraitEffectIcon(unsigned int party_slot)
 // FUNCTION: WIZ8 0x0059B1A0
 void TickPartyPortraitFx(void)
 {
-    unsigned char slot;
+    std::uint8_t slot;
 
     for (slot = 0; slot < 8; ++slot) {
         W8MonsterManagerEntry* entry = &gXStatus.monster_manager_entries[slot];
@@ -356,7 +357,7 @@ void TickPartyPortraitFx(void)
 // FUNCTION: WIZ8 0x0059B270
 void ResetPartyPortraitFx(void)
 {
-    unsigned char slot;
+    std::uint8_t slot;
 
     for (slot = 0; slot < 8; ++slot) {
         W8MonsterManagerEntry* entry = &gXStatus.monster_manager_entries[slot];
@@ -383,11 +384,11 @@ void ResetPartyPortraitFx(void)
 // FUNCTION: WIZ8 0x0059B720
 void RedrawCombatPortraits(void)
 {
-    int portrait_x;
-    int badge_x;
-    int row_y;
-    int portrait_image;
-    int slot;
+    std::int32_t portrait_x;
+    std::int32_t badge_x;
+    std::int32_t row_y;
+    std::int32_t portrait_image;
+    std::int32_t slot;
 
     for (slot = 0; slot < 8; ++slot) {
         W8PartySlotRow* party_row = &g_status.buffers.XChar[slot];
@@ -433,7 +434,7 @@ void RedrawCombatPortraits(void)
 void ToggleNumericHitPoints(void)
 {
     g_settings.numeric_hit_points = g_settings.numeric_hit_points == 0;
-    for (unsigned int slot = 0; slot < 8; slot++) {
+    for (std::uint32_t slot = 0; slot < 8; slot++) {
         RequestRedraw(1u << slot);
     }
 }
@@ -443,8 +444,8 @@ void ToggleNumericHitPoints(void)
    the grid row and the column pixel. 'adjust' applies the compact-display
    shift used when the party display is a single column. */
 // FUNCTION: WIZ8 0x0059AA60
-void GetPartySlotMenuAnchor(int party_slot, int* menu_x, int* menu_y, int* band_menu_edge,
-                            int* band_portrait_edge, int* grid_row, int* column_x, int adjust)
+void GetPartySlotMenuAnchor(std::int32_t party_slot, std::int32_t* menu_x, std::int32_t* menu_y, std::int32_t* band_menu_edge,
+                            std::int32_t* band_portrait_edge, std::int32_t* grid_row, std::int32_t* column_x, std::int32_t adjust)
 {
     switch (party_slot) {
     case 0:
@@ -515,8 +516,8 @@ void GetPartySlotMenuAnchor(int party_slot, int* menu_x, int* menu_y, int* band_
         break;
     }
     if (adjust != 0 && g_settings.main_ui_mode != W8_MAIN_UI_MODE_PORTRAITS &&
-        static_cast<unsigned int>(g_settings.main_ui_mode) <=
-            static_cast<unsigned int>(W8_MAIN_UI_MODE_RADAR)) {
+        static_cast<std::uint32_t>(g_settings.main_ui_mode) <=
+            static_cast<std::uint32_t>(W8_MAIN_UI_MODE_RADAR)) {
         if ((party_slot & 1) == 0) {
             *menu_x -= 0x69;
             *band_menu_edge = -1;
@@ -536,24 +537,24 @@ void GetPartySlotMenuAnchor(int party_slot, int* menu_x, int* menu_y, int* band_
 /* Repaint one party slot's HP, stamina and optional spell-point bars beside
    the portrait, including numeric HP text when that option is enabled. */
 // FUNCTION: WIZ8 0x0059A540
-void RedrawPartyPortraitBars(unsigned int party_slot, bool slot_enabled)
+void RedrawPartyPortraitBars(std::uint32_t party_slot, bool slot_enabled)
 {
     W8MonsterManagerEntry* entry = &gXStatus.monster_manager_entries[party_slot];
     W8Character* character = &g_status.buffers.Char[party_slot];
-    int menu_x;
-    int menu_y;
-    int band_menu_edge;
-    int band_portrait_edge;
-    int grid_row;
-    int column_x;
-    int bar_y;
-    int hp_bar_x;
-    unsigned int stamina_bar_x;
-    unsigned int spell_bar_x;
-    int hp_catalog;
-    int stamina_catalog;
-    int spell_catalog;
-    unsigned int numeric_hp_mode;
+    std::int32_t menu_x;
+    std::int32_t menu_y;
+    std::int32_t band_menu_edge;
+    std::int32_t band_portrait_edge;
+    std::int32_t grid_row;
+    std::int32_t column_x;
+    std::int32_t bar_y;
+    std::int32_t hp_bar_x;
+    std::uint32_t stamina_bar_x;
+    std::uint32_t spell_bar_x;
+    std::int32_t hp_catalog;
+    std::int32_t stamina_catalog;
+    std::int32_t spell_catalog;
+    std::uint32_t numeric_hp_mode;
 
     if (character->hp_current != 0) {
         GetPartySlotMenuAnchor(party_slot, &menu_x, &menu_y, &band_menu_edge, &band_portrait_edge,
@@ -617,7 +618,7 @@ void RedrawPartyPortraitBars(unsigned int party_slot, bool slot_enabled)
 }
 
 // FUNCTION: WIZ8 0x0059AF40
-void StageMonsterCastIcon(unsigned int party_slot, W8SpellRealm realm, bool alternate, int spell_id)
+void StageMonsterCastIcon(std::uint32_t party_slot, W8SpellRealm realm, bool alternate, std::int32_t spell_id)
 {
     if (g_current_screen_state.id != W8_SCREEN_MAIN_GAME) {
         return;
@@ -625,7 +626,7 @@ void StageMonsterCastIcon(unsigned int party_slot, W8SpellRealm realm, bool alte
     W8MonsterManagerEntry* entry = &gXStatus.monster_manager_entries[party_slot];
     entry->effect_icon_active = true;
     entry->effect_icon_frame = 0;
-    int catalog;
+    std::int32_t catalog;
     switch (realm) {
     case 0:
         catalog = 0xac - (alternate);
@@ -650,7 +651,7 @@ void StageMonsterCastIcon(unsigned int party_slot, W8SpellRealm realm, bool alte
     }
     entry->effect_icon_catalog = catalog;
     entry->effect_icon_end_frame =
-        static_cast<unsigned short>(CatalogArtwork::Load(catalog).spriteSheet()->frames.size());
+        static_cast<std::uint16_t>(CatalogArtwork::Load(catalog).spriteSheet()->frames.size());
     std::string sound =
         spell_id != W8_SPELL_NONE && g_spell_records[spell_id].sound_name[0] != 0
             ? fmt::format("Data\\Spells\\Sounds\\{}.wav", g_spell_records[spell_id].sound_name)
@@ -673,7 +674,7 @@ void StageMonsterCastIcon(unsigned int party_slot, W8SpellRealm realm, bool alte
 }
 
 // FUNCTION: WIZ8 0x005993A0
-bool PreparePartyPortraitOverlay(unsigned int party_slot, unsigned int left, unsigned int top)
+bool PreparePartyPortraitOverlay(std::uint32_t party_slot, std::uint32_t left, std::uint32_t top)
 {
     if (gXStatus.fNpcDialogueMode && (party_slot & 1) != 0 &&
         IsPortraitObscuredByNpcDialogue(party_slot)) {
@@ -686,7 +687,7 @@ bool PreparePartyPortraitOverlay(unsigned int party_slot, unsigned int left, uns
         g_status.buffers.XChar[party_slot].fOccupied) {
         W8Character* character = &g_status.buffers.Char[party_slot];
         if (character->hp_current != 0) {
-            int portrait = character->portrait_index;
+            std::int32_t portrait = character->portrait_index;
             SpriteDraw draw{};
             if ((g_portrait_descriptors[portrait].render_mode == 1 && (party_slot & 1) == 0) ||
                 (g_portrait_descriptors[portrait].render_mode == 2 && (party_slot & 1) != 0)) {
@@ -707,31 +708,31 @@ bool PreparePartyPortraitOverlay(unsigned int party_slot, unsigned int left, uns
    hands, HP/stamina chrome, labels, condition/enchantment icons, and any
    active overlay callees for that slot. */
 // FUNCTION: WIZ8 0x005994C0
-void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool overlay_ready,
+void RedrawPartyPortraitOverlay(std::uint32_t party_slot, bool highlighted, bool overlay_ready,
                                 bool slot_enabled)
 {
-    int menu_x;
-    int menu_y;
-    int band_menu_edge;
-    int band_portrait_edge;
-    int grid_row;
-    int column_x;
+    std::int32_t menu_x;
+    std::int32_t menu_y;
+    std::int32_t band_menu_edge;
+    std::int32_t band_portrait_edge;
+    std::int32_t grid_row;
+    std::int32_t column_x;
     W8Character* character;
     W8PartySlotRow* party_row;
     W8MonsterManagerEntry* entry;
     SpriteDraw portrait_draw{};
-    int portrait_catalog;
-    int left_condition_x;
-    int right_condition_x;
-    int condition_frame;
-    int enchantment_frame;
+    std::int32_t portrait_catalog;
+    std::int32_t left_condition_x;
+    std::int32_t right_condition_x;
+    std::int32_t condition_frame;
+    std::int32_t enchantment_frame;
     std::string text;
-    short text_width;
-    unsigned int text_shade;
-    int main_hand_item_id;
-    int off_hand_item_id;
+    std::int16_t text_width;
+    std::uint32_t text_shade;
+    std::int32_t main_hand_item_id;
+    std::int32_t off_hand_item_id;
     bool show_off_hand_row;
-    unsigned short hp_bar_frame;
+    std::uint16_t hp_bar_frame;
 
     if (gXStatus.fNpcDialogueMode && (party_slot & 1) != 0) {
         IsPortraitObscuredByNpcDialogue(party_slot);
@@ -771,7 +772,7 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
             RenderPartyPortrait(portrait_catalog, menu_x + 0x14, menu_y, portrait_draw, 1,
                                 party_slot);
         }
-        CatalogArtwork::Load(0x82, 0).draw(GetFrameBufferSurface(), static_cast<short>(grid_row), column_x, menu_y);
+        CatalogArtwork::Load(0x82, 0).draw(GetFrameBufferSurface(), static_cast<std::int16_t>(grid_row), column_x, menu_y);
     }
 
     CatalogArtwork::Load(0x82, 0).draw(GetFrameBufferSurface(), 0x10, menu_x + 0x17, menu_y);
@@ -789,7 +790,7 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
                     show_off_hand_row = true;
                     hp_bar_frame = 2;
                 }
-                CatalogArtwork::Load(0x80, 0).draw(GetFrameBufferSurface(), static_cast<short>(hp_bar_frame), band_menu_edge, menu_y);
+                CatalogArtwork::Load(0x80, 0).draw(GetFrameBufferSurface(), static_cast<std::int16_t>(hp_bar_frame), band_menu_edge, menu_y);
 
                 if (main_hand_item_id == -1) {
                     CatalogArtwork::Load(g_empty_hand_catalog_ids[character->iRace * W8_RACE_DWARF], 0).draw(GetFrameBufferSurface(), 0, band_menu_edge + 4, menu_y + 0x17);
@@ -800,7 +801,7 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
                     if (character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].stack_count != 0) {
                         text = fmt::format(
                             "{:d}",
-                            static_cast<int>(
+                            static_cast<std::int32_t>(
                                 character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].stack_count));
                         g_smfnt_font.resetPalette();
                         text_width = g_smfnt_font.textWidth(text);
@@ -822,7 +823,7 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
                         if (character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].stack_count !=
                             0) {
                             text = fmt::format(
-                                "{:d}", static_cast<int>(
+                                "{:d}", static_cast<std::int32_t>(
                                             character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON]
                                                 .stack_count));
                             g_smfnt_font.resetPalette();
@@ -837,7 +838,7 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
             }
 
             hp_bar_frame = g_settings.numeric_hit_points == 0 ? 1 : 3;
-            CatalogArtwork::Load(0x80, 0).draw(GetFrameBufferSurface(), static_cast<short>(hp_bar_frame), band_portrait_edge, menu_y);
+            CatalogArtwork::Load(0x80, 0).draw(GetFrameBufferSurface(), static_cast<std::int16_t>(hp_bar_frame), band_portrait_edge, menu_y);
             RedrawPartyPortraitBars(party_slot, slot_enabled);
 
             if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS ||
@@ -868,7 +869,7 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
                 (g_wiz_text_font_secondary.resetPalette(),
                  g_current_screen_state.id != W8_SCREEN_MAIN_GAME) ||
                 (text_shade = 1,
-                 g_level_block->name_hover_party_slot != static_cast<int>(party_slot))) {
+                 g_level_block->name_hover_party_slot != static_cast<std::int32_t>(party_slot))) {
                 text_shade = 4;
             }
             g_wiz_text_font_secondary.setShade(text_shade);
@@ -887,12 +888,12 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
             (g_settings.main_ui_mode == W8_MAIN_UI_MODE_FORMATION ||
              g_settings.main_ui_mode == W8_MAIN_UI_MODE_RADAR) &&
             g_level_block->portrait_refresh_pending[party_slot] == 0) {
-            int highlight_x;
-            int highlight_y;
-            int highlight_catalog;
+            std::int32_t highlight_x;
+            std::int32_t highlight_y;
+            std::int32_t highlight_catalog;
 
             if (!highlighted || IsLeftButtonHeld() || g_level_block->portrait_flash != 0) {
-                if (g_status.selected_character != static_cast<int>(party_slot)) {
+                if (g_status.selected_character != static_cast<std::int32_t>(party_slot)) {
                     goto draw_condition_icons;
                 }
                 highlight_x = band_portrait_edge + 1;
@@ -905,15 +906,15 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
             }
             CatalogArtwork::Load(highlight_catalog, 0).draw(GetFrameBufferSurface(), 0, highlight_x, highlight_y);
         } else {
-            int highlight_x;
-            int highlight_y;
-            int highlight_catalog;
+            std::int32_t highlight_x;
+            std::int32_t highlight_y;
+            std::int32_t highlight_catalog;
 
             highlight_y = menu_y;
             if (!highlighted || (IsLeftButtonHeld() && !gXStatus.fReviewCharacterMode) ||
                 (g_current_screen_state.id == W8_SCREEN_MAIN_GAME &&
                  g_level_block->portrait_flash != 0)) {
-                if (g_status.selected_character != static_cast<int>(party_slot)) {
+                if (g_status.selected_character != static_cast<std::int32_t>(party_slot)) {
                     goto draw_condition_icons;
                 }
                 highlight_x = menu_x + 0x17;
@@ -940,7 +941,7 @@ draw_condition_icons:
     }
 
     if (character->highest_condition != W8_CONDITION_NONE) {
-        condition_frame = static_cast<int>(character->highest_condition) + 0xb6;
+        condition_frame = static_cast<std::int32_t>(character->highest_condition) + 0xb6;
     }
     CatalogArtwork::Load(condition_frame, 0).draw(GetFrameBufferSurface(), 0, left_condition_x, menu_y + 3);
 
@@ -950,19 +951,19 @@ draw_condition_icons:
     CatalogArtwork::Load(enchantment_frame, 0).draw(GetFrameBufferSurface(), 0, right_condition_x, menu_y + 3);
 
     if (party_row->fOccupied && g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
-        if (g_level_block->condition_hover_party_slot == static_cast<int>(party_slot)) {
+        if (g_level_block->condition_hover_party_slot == static_cast<std::int32_t>(party_slot)) {
             CatalogArtwork::Load(0x60, 0).draw(GetFrameBufferSurface(), 0, left_condition_x - 1, menu_y + 2);
         } else if (character->highest_condition != W8_CONDITION_NONE) {
             CatalogArtwork::Load(0x61, 0).draw(GetFrameBufferSurface(), 0, left_condition_x - 1, menu_y + 2);
         }
 
-        if (g_level_block->enchantment_hover_party_slot == static_cast<int>(party_slot)) {
+        if (g_level_block->enchantment_hover_party_slot == static_cast<std::int32_t>(party_slot)) {
             CatalogArtwork::Load(0x60, 0).draw(GetFrameBufferSurface(), 0, right_condition_x - 1, menu_y + 2);
         } else if (character->highest_condition != W8_CONDITION_NONE) {
             CatalogArtwork::Load(0x61, 0).draw(GetFrameBufferSurface(), 0, right_condition_x - 1, menu_y + 2);
         }
 
-        if (g_level_block->name_hover_party_slot == static_cast<int>(party_slot) &&
+        if (g_level_block->name_hover_party_slot == static_cast<std::int32_t>(party_slot) &&
             (g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS ||
              g_level_block->portrait_refresh_pending[party_slot] != 0)) {
             CatalogArtwork::Load(0x62, 0).draw(GetFrameBufferSurface(), 0, menu_x + 0x13, menu_y + 0x48);
@@ -970,9 +971,9 @@ draw_condition_icons:
 
         if ((g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS ||
              g_level_block->portrait_refresh_pending[party_slot] != 0) &&
-            g_level_block->assay_hover_party_slot == static_cast<int>(party_slot)) {
-            int assay_y;
-            int assay_catalog;
+            g_level_block->assay_hover_party_slot == static_cast<std::int32_t>(party_slot)) {
+            std::int32_t assay_y;
+            std::int32_t assay_catalog;
 
             if (g_level_block->portrait_assay_hover_mode == 1) {
                 assay_y = menu_y + 0x15;
@@ -998,10 +999,10 @@ portrait_fx:
         DrawPortraitEffectIcon(party_slot);
     }
 
-    if (g_level_block->vitals_hover_party_slot == static_cast<int>(party_slot)) {
-        int hp_overlay_y;
-        int hp_overlay_x;
-        int hp_overlay_catalog;
+    if (g_level_block->vitals_hover_party_slot == static_cast<std::int32_t>(party_slot)) {
+        std::int32_t hp_overlay_y;
+        std::int32_t hp_overlay_x;
+        std::int32_t hp_overlay_catalog;
 
         if (g_settings.numeric_hit_points == 0) {
             hp_overlay_y = menu_y + 0x15;
@@ -1019,16 +1020,16 @@ portrait_fx:
         g_portrait_controls[party_slot]->Invalidate(false);
     }
 
-    if (g_level_block->portrait_overlay_party_slot == static_cast<int>(party_slot)) {
+    if (g_level_block->portrait_overlay_party_slot == static_cast<std::int32_t>(party_slot)) {
         DrawPortraitConditionOverlay(g_level_block->portrait_overlay_party_slot);
     }
-    if (g_level_block->condition_orb_party_slot == static_cast<int>(party_slot)) {
+    if (g_level_block->condition_orb_party_slot == static_cast<std::int32_t>(party_slot)) {
         DrawPortraitEnchantmentOverlay(g_level_block->condition_orb_party_slot);
     }
-    if (g_level_block->enchantment_orb_party_slot == static_cast<int>(party_slot)) {
+    if (g_level_block->enchantment_orb_party_slot == static_cast<std::int32_t>(party_slot)) {
         DrawPortraitVitalsOverlay(g_level_block->enchantment_orb_party_slot);
     }
-    if (g_level_block->condition_highlight_party_slot == static_cast<int>(party_slot)) {
+    if (g_level_block->condition_highlight_party_slot == static_cast<std::int32_t>(party_slot)) {
         DrawPortraitStatusOverlay(g_level_block->condition_highlight_party_slot);
     }
 
@@ -1050,13 +1051,13 @@ portrait_fx:
 }
 
 // FUNCTION: WIZ8 0x0059A110
-void ShadeStatusBarGap(int length, int left, int top)
+void ShadeStatusBarGap(std::int32_t length, std::int32_t left, std::int32_t top)
 {
     if (length != 0) {
-        int rows = (g_settings.numeric_hit_points != 0 ? 2 : 0) + 3;
+        std::int32_t rows = (g_settings.numeric_hit_points != 0 ? 2 : 0) + 3;
         auto& framebuffer = GetFrameBufferSurface();
         while (rows != 0) {
-            short color = Get16BPPColor(SDL_Color{1, 1, 1, SDL_ALPHA_OPAQUE});
+            std::int16_t color = Get16BPPColor(SDL_Color{1, 1, 1, SDL_ALPHA_OPAQUE});
             const SDL_Rect line{left, top, 1, length + 1};
             SDL_FillSurfaceRect(&framebuffer, &line, static_cast<Uint16>(color));
             ++left;
@@ -1098,7 +1099,7 @@ static void ClearConditionHighlight(void)
 void DisablePortraitControls(void)
 {
     g_main_portrait_controls.Disable();
-    for (int slot = 0; slot < 8; ++slot) {
+    for (std::int32_t slot = 0; slot < 8; ++slot) {
         g_portrait_controls[slot]->SetActive(false);
     }
 }
@@ -1122,7 +1123,7 @@ void EnableConditionButtons(void)
     }
     g_main_conditions.Enable();
     g_condition_buttons_panel->SetEnabled(true);
-    for (int slot = 0; slot < 8; ++slot) {
+    for (std::int32_t slot = 0; slot < 8; ++slot) {
         g_condition_buttons[slot]->SetEnabled(true);
     }
     g_condition_buttons_panel->Invalidate(0);
@@ -1132,7 +1133,7 @@ void EnableConditionButtons(void)
 void EnablePortraitAdvanceRegions(void)
 {
     g_main_portrait_controls.Enable();
-    for (int party_slot = 0; party_slot < 8; ++party_slot) {
+    for (std::int32_t party_slot = 0; party_slot < 8; ++party_slot) {
         if (!IsCharacterReadyToAdvance(party_slot) ||
             g_status.buffers.XChar[party_slot].portrait_advance == 0) {
             DisableRegionInput(g_main_portrait_controls->index(party_slot));
@@ -1143,7 +1144,7 @@ void EnablePortraitAdvanceRegions(void)
 }
 
 // FUNCTION: WIZ8 0x0059BBD0
-void InvalidatePortraitControl(unsigned int party_slot)
+void InvalidatePortraitControl(std::uint32_t party_slot)
 {
     if (party_slot < 8 && g_status.buffers.XChar[party_slot].fOccupied) {
         g_portrait_controls[party_slot]->Invalidate(false);
@@ -1159,7 +1160,7 @@ void InvalidatePortraitPanel(void)
 // FUNCTION: WIZ8 0x0059BC10
 void UpdatePortraitAdvanceButtons(void)
 {
-    int slot;
+    std::int32_t slot;
     W8TextControl** control;
 
     for (slot = 0, control = g_portrait_controls; control < &g_portrait_controls[8];
@@ -1180,7 +1181,7 @@ void UpdatePortraitAdvanceButtons(void)
 // FUNCTION: WIZ8 0x0059BCA0
 static void OnLevelButtonActivate(void)
 {
-    int slot = giLevelUpChar;
+    std::int32_t slot = giLevelUpChar;
 
     if (slot == -1 || slot >= 8) {
         return;
@@ -1197,7 +1198,7 @@ static void OnLevelButtonActivate(void)
 // FUNCTION: WIZ8 0x0059B940
 void CreateLevelButtons(void)
 {
-    unsigned int uiSlot;
+    std::uint32_t uiSlot;
 
     g_portrait_panel.reset();
     const auto artwork = CatalogArtwork::Load(0xa8);
@@ -1212,8 +1213,8 @@ void CreateLevelButtons(void)
     }
 
     for (uiSlot = 0; uiSlot < 8; ++uiSlot) {
-        unsigned int column_x = (uiSlot & 1) != 0 ? 0x23b : 0;
-        int row_y = (uiSlot >> 1) * 0x55;
+        std::uint32_t column_x = (uiSlot & 1) != 0 ? 0x23b : 0;
+        std::int32_t row_y = (uiSlot >> 1) * 0x55;
         g_portrait_controls[uiSlot] =
             new W8TextControl(g_portrait_panel.get(), g_main_portrait_controls->index(uiSlot), column_x + 0x19, row_y + 0x46,
                               column_x + 0x2b, row_y + 0x58, CatalogArtwork::Load(0xa7, 0), 0, 2,
@@ -1236,8 +1237,8 @@ void CreateLevelButtons(void)
 void W8ConditionButton::Redraw(bool full_redraw)
 {
     bool dirty = m_dirty;
-    int left;
-    int top;
+    std::int32_t left;
+    std::int32_t top;
 
     W8TextControl::Redraw(full_redraw);
     if (!m_active) {
@@ -1260,7 +1261,7 @@ void W8ConditionButton::Redraw(bool full_redraw)
 }
 
 // FUNCTION: WIZ8 0x005992E0
-void W8ConditionButton::OnMouseLeave(int event)
+void W8ConditionButton::OnMouseLeave(std::int32_t event)
 {
     W8TextControl::OnMouseLeave(event);
     if (g_level_block->condition_highlight_party_slot != -1) {
@@ -1269,7 +1270,7 @@ void W8ConditionButton::OnMouseLeave(int event)
 }
 
 // FUNCTION: WIZ8 0x00599330
-void W8ConditionButton::OnLeftButtonDown(int event)
+void W8ConditionButton::OnLeftButtonDown(std::int32_t event)
 {
     W8TextControl::OnLeftButtonDown(event);
     g_level_block->condition_highlight_party_slot = m_ui_slot;
@@ -1277,7 +1278,7 @@ void W8ConditionButton::OnLeftButtonDown(int event)
 }
 
 // FUNCTION: WIZ8 0x00599360
-void W8ConditionButton::OnLeftButtonUp(int event)
+void W8ConditionButton::OnLeftButtonUp(std::int32_t event)
 {
     W8TextControl::OnLeftButtonUp(event);
     ClearConditionHighlight();
@@ -1286,7 +1287,7 @@ void W8ConditionButton::OnLeftButtonUp(int event)
 // FUNCTION: WIZ8 0x0059BDB0
 void CreateConditionButtons(void)
 {
-    unsigned int uiSlot;
+    std::uint32_t uiSlot;
 
     g_condition_buttons_panel.reset();
     for (uiSlot = 0; uiSlot < 8; ++uiSlot) {
@@ -1301,8 +1302,8 @@ void CreateConditionButtons(void)
 
     const CatalogArtwork artwork = CatalogArtwork::Load(0xa8);
     for (uiSlot = 0; uiSlot < 8; ++uiSlot) {
-        unsigned int column_x = (uiSlot & 1) != 0 ? 0x23f : 0;
-        int row_y = (uiSlot >> 1) * 0x55;
+        std::uint32_t column_x = (uiSlot & 1) != 0 ? 0x23f : 0;
+        std::int32_t row_y = (uiSlot >> 1) * 0x55;
         g_condition_buttons[uiSlot] = new W8ConditionButton(
             g_condition_buttons_panel.get(), g_main_conditions->index(uiSlot), column_x + 0x17, row_y + 0x13,
             column_x + 0x2a, row_y + 0x26, artwork, 0, 0, 1, 1, -1, uiSlot);
@@ -1316,46 +1317,46 @@ void CreateConditionButtons(void)
 }
 
 // FUNCTION: WIZ8 0x0059BD20
-unsigned char PortraitControlRegionEvent(const InputEvent* event, W8Region* region)
+bool PortraitControlRegionEvent(const InputEvent* event, W8Region* region)
 {
     W8TextControl* control = g_portrait_controls[region->callback_id];
     if (control == 0) {
-        return 0;
+        return false;
     }
     switch (event->type) {
     case InputEventType::LeftButtonDown:
         control->OnLeftButtonDown(0);
         region->flags |= W8_REGION_LEFT_BUTTON_HELD;
-        return 1;
+        return true;
     case InputEventType::LeftButtonUp:
         if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
             giLevelUpChar = region->callback_id;
             control->OnLeftButtonUp(0);
             region->flags &= ~W8_REGION_LEFT_BUTTON_HELD;
         }
-        return 1;
+        return true;
     case InputEventType::MouseMove:
         if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
             giLevelUpChar = -1;
             control->OnMouseLeave(0);
-            return 1;
+            return true;
         }
         if ((region->flags & W8_REGION_MOUSE_ENTER) != 0) {
             control->OnMouseEnter(0);
-            return 1;
+            return true;
         }
         break;
     default:
         break;
     }
-    return 0;
+    return false;
 }
 
 // FUNCTION: WIZ8 0x0059C080
 void UpdateConditionButtons(void)
 {
-    int image;
-    int slot;
+    std::int32_t image;
+    std::int32_t slot;
 
     for (slot = 0; slot < 8; ++slot) {
         W8ConditionButton* button = g_condition_buttons[slot];
@@ -1411,7 +1412,7 @@ void UpdateConditionButtons(void)
 }
 
 // FUNCTION: WIZ8 0x0059C260
-unsigned char ConditionButtonRegionEvent(const InputEvent* event, W8Region* region)
+bool ConditionButtonRegionEvent(const InputEvent* event, W8Region* region)
 {
     switch (event->type) {
     case InputEventType::LeftButtonDown:
@@ -1419,6 +1420,6 @@ unsigned char ConditionButtonRegionEvent(const InputEvent* event, W8Region* regi
     case InputEventType::MouseMove:
         return DispatchButtonRegionEvent(event, region, g_condition_buttons[region->callback_id]);
     default:
-        return 0;
+        return false;
     }
 }

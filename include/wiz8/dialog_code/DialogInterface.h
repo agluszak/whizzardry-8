@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "Font.h"
 #pragma once
 
@@ -38,14 +39,14 @@ struct W8Character;
    them. Declared here because this unit owns their definitions. */
 extern Font* g_dialog_interface_font;
 extern bool g_dialog_font_enabled;
-extern unsigned char g_dialog_font_foreground;
-extern unsigned char g_dialog_font_background;
-void ConfigureDialogFont(Font& font, bool enabled, unsigned char foreground,
-                         unsigned char background);
+extern std::uint8_t g_dialog_font_foreground;
+extern std::uint8_t g_dialog_font_background;
+void ConfigureDialogFont(Font& font, bool enabled, std::uint8_t foreground,
+                         std::uint8_t background);
 W8DialogBase* CreateCharacterSummaryDialog(W8Character* character);
 W8DialogBase* CreateDialogByKind(W8DialogKind kind);
 bool GetDialogResult(W8DialogBase* dialog);
-void SetDialogPrompt(W8MessageDialogBase* dialog, std::string_view text, int, int);
+void SetDialogPrompt(W8MessageDialogBase* dialog, std::string_view text, std::int32_t, std::int32_t);
 void DrawDialog(W8DialogBase* dialog);
 bool ProcessDialogInput(W8DialogBase* dialog);
 void SetDialogDestroyCallback(W8DialogBase* dialog, W8DialogDestroyCallback callback);

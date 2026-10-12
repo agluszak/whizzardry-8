@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include "wiz8/character_skills.h"
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/local_code/ButtonWidget.h"
@@ -13,21 +14,21 @@
 class W8StatInfoDialogBase : public W8DialogBase {
 public:
     W8StatInfoDialogBase();
-    virtual int CreateControls() override;
+    virtual std::int32_t CreateControls() override;
     virtual void Draw() override;
     virtual void OnRightButtonUp() override;
-    virtual void OnMouseWheel(int delta) override;
+    virtual void OnMouseWheel(std::int32_t delta) override;
     virtual void DrawTitle();
     virtual bool PopulateText();
 
 protected:
-    static void ScrollCallback(W8DialogScrollBar* scroll_bar, int first_visible_entry);
+    static void ScrollCallback(W8DialogScrollBar* scroll_bar, std::int32_t first_visible_entry);
 
     W8DialogScrollBar scrollbar;
     W8ButtonWidget button;
     W8DialogTextArea textarea;
-    unsigned int m_title_id;  /* g_localized_strings index, DrawTitle */
-    unsigned int m_detail_id; /* g_localized_strings index, PopulateText */
+    std::uint32_t m_title_id;  /* g_localized_strings index, DrawTitle */
+    std::uint32_t m_detail_id; /* g_localized_strings index, PopulateText */
 };
 
 // VTABLE: WIZ8 0x005efcc8
@@ -42,10 +43,10 @@ private:
 // VTABLE: WIZ8 0x005efd48
 class W8SecondaryAttributeInfoDialog : public W8StatInfoDialogBase {
 public:
-    W8SecondaryAttributeInfoDialog(unsigned int uiIndex);
+    W8SecondaryAttributeInfoDialog(std::uint32_t uiIndex);
 
 private:
-    unsigned int m_uiIndex;
+    std::uint32_t m_uiIndex;
 };
 
 // VTABLE: WIZ8 0x005efd08
@@ -64,4 +65,4 @@ private:
 };
 
 /* GppStringList indices naming each attribute/resistance row. */
-extern unsigned short g_attr_table1[18];
+extern std::uint16_t g_attr_table1[18];

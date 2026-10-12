@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <memory>
 #include <SDL3/SDL_rect.h>
 #include <fmt/format.h>
@@ -56,15 +57,15 @@ using W8MipeCategoryEntry = std::variant<std::monostate, W8MipeMonsterEntry*, W8
                                          W8EncounterTableRuntime*, W8ItemTableRecord*>;
 
 template <class T>
-static T* MipeCategoryValue(const std::vector<W8MipeCategoryEntry>* rows, int index)
+static T* MipeCategoryValue(const std::vector<W8MipeCategoryEntry>* rows, std::int32_t index)
 {
-    if (!rows || index < 0 || index >= static_cast<int>(rows->size()))
+    if (!rows || index < 0 || index >= static_cast<std::int32_t>(rows->size()))
         return nullptr;
     const auto* value = std::get_if<T*>(&(*rows)[index]);
     return value ? *value : nullptr;
 }
 
-static std::string_view MipeCategoryName(const std::vector<W8MipeCategoryEntry>* rows, int index)
+static std::string_view MipeCategoryName(const std::vector<W8MipeCategoryEntry>* rows, std::int32_t index)
 {
     if (auto* monster = MipeCategoryValue<W8MipeMonsterEntry>(rows, index))
         return monster->name;
@@ -82,14 +83,14 @@ static std::string_view MipeCategoryName(const std::vector<W8MipeCategoryEntry>*
 static bool g_mipe_mongen_visible;
 
 // GLOBAL: WIZ8 0x0068f108
-int g_mipe_mode;
+std::int32_t g_mipe_mode;
 
 /* How many monsters/items the next Enter in the create modes spawns. */
 // GLOBAL: WIZ8 0x0068f10c
-int g_mipe_count;
+std::int32_t g_mipe_count;
 
 // GLOBAL: WIZ8 0x0068f110
-static short g_mipe_item_index;
+static std::int16_t g_mipe_item_index;
 
 // GLOBAL: WIZ8 0x0068f0fc
 bool g_debug_monster_cycle;
@@ -98,16 +99,16 @@ bool g_debug_monster_cycle;
 std::unique_ptr<W8MipeState> g_mipe_state;
 
 // GLOBAL: WIZ8 0x0068f112
-static short g_mipe_monster_index;
+static std::int16_t g_mipe_monster_index;
 
 // GLOBAL: WIZ8 0x0068f114
-static unsigned char g_mipe_category;
+static std::uint8_t g_mipe_category;
 
 // GLOBAL: WIZ8 0x0068f118
-static int g_mipe_table_row;
+static std::int32_t g_mipe_table_row;
 
 // GLOBAL: WIZ8 0x0068f120
-int g_mipe_table_base;
+std::int32_t g_mipe_table_base;
 
 // GLOBAL: WIZ8 0x0068f124
 static std::vector<W8MipeMonsterEntry> g_mipe_monster_entries;
@@ -120,9 +121,9 @@ static W8WorldCursorNode* g_mipe_cube;
 // GLOBAL: WIZ8 0x0064a1cc
 static bool g_mipe_choose_group = true;
 
-int FindCategoryItemTable(unsigned int category, int ordinal);
+std::int32_t FindCategoryItemTable(std::uint32_t category, std::int32_t ordinal);
 static void ShowMipeNamedCategory(std::vector<W8MipeCategoryEntry>* list,
-                                  const unsigned short* name_ids);
+                                  const std::uint16_t* name_ids);
 
 /* The MIPE toggle: leaving the panel restores the level flags and combat
    state and tears the editor state down; entering it clears combat flags,
@@ -163,7 +164,7 @@ void ToggleMipePanel(void)
         if (g_mipe_cube != 0) {
             SetWorldCursorNodeColorComponents(g_mipe_cube, 0.0f, 0.0f, 0.5f);
         }
-        for (unsigned int monster_list_index = 0; monster_list_index < gXStatus.monsters.size(); ++monster_list_index) {
+        for (std::uint32_t monster_list_index = 0; monster_list_index < gXStatus.monsters.size(); ++monster_list_index) {
             W8MonsterInfo* monster = GetMonsterListEntry(monster_list_index);
             if (monster != 0 && monster->fInCombat) {
                 SetMonsterHighlight(0, monster->location_id, false);
@@ -190,7 +191,7 @@ void ToggleMipePanel(void)
     LoadMonsterDatabaseRange(0, gXStatus.uiMonstersInDatabase - 1, records.data());
     g_mipe_monster_entries.clear();
     g_mipe_monster_entries.reserve(records.size());
-    for (unsigned int index = 0; index < gXStatus.uiMonstersInDatabase; ++index) {
+    for (std::uint32_t index = 0; index < gXStatus.uiMonstersInDatabase; ++index) {
         W8MipeMonsterEntry& entry = g_mipe_monster_entries.emplace_back();
         entry.name = records[index].name0;
         entry.kind = records[index].kind;
@@ -207,22 +208,22 @@ void ToggleMipePanel(void)
     g_mipe_state->edit_selection = -1;
     g_mipe_state->waypoints.reserve(10);
 
-    for (int cursor_index = 0, count = GetWorldCursorNodeCount(); cursor_index < count;
+    for (std::int32_t cursor_index = 0, count = GetWorldCursorNodeCount(); cursor_index < count;
          ++cursor_index) {
         W8WorldCursorNode* node = GetWorldCursorNode(cursor_index);
         SetWorldCursorNodeColorComponents(node, 0.0f, 0.0f, 0.5f);
         RefreshWorldCursorNodeLabel(node);
     }
 
-    int selection = g_mipe_table_row + g_mipe_table_base;
+    std::int32_t selection = g_mipe_table_row + g_mipe_table_base;
     /* Both scans below compare their index against the database count as
        signed, which is this file's established reading of those counts - see
        the static_cast<int> on the same two members throughout. The retail
        agrees: 0x0057D9E3 cmp esi,eax; jl and 0x0057DA1C test esi,esi; jle
        for the monsters, 0x0057DA5A cmp eax,esi; jl for the items. */
-    int monster_index = 0;
-    int visible = 0;
-    while (monster_index < static_cast<int>(gXStatus.uiMonstersInDatabase)) {
+    std::int32_t monster_index = 0;
+    std::int32_t visible = 0;
+    while (monster_index < static_cast<std::int32_t>(gXStatus.uiMonstersInDatabase)) {
         W8MipeMonsterEntry* entry = &g_mipe_monster_entries[monster_index];
         if (entry->kind == g_mipe_category && entry->selectable) {
             if (visible == selection) {
@@ -232,7 +233,7 @@ void ToggleMipePanel(void)
         }
         ++monster_index;
     }
-    if (monster_index == static_cast<int>(gXStatus.uiMonstersInDatabase)) {
+    if (monster_index == static_cast<std::int32_t>(gXStatus.uiMonstersInDatabase)) {
         g_mipe_monster_index = 0;
     } else {
         W8MonsterRecord record;
@@ -240,9 +241,9 @@ void ToggleMipePanel(void)
         g_mipe_monster_index = record.editor_index;
     }
 
-    int item_index = 0;
+    std::int32_t item_index = 0;
     visible = 0;
-    while (item_index < static_cast<int>(gXStatus.uiItemsInDatabase)) {
+    while (item_index < static_cast<std::int32_t>(gXStatus.uiItemsInDatabase)) {
         if (g_item_records[item_index].equip_class == g_mipe_category &&
             g_item_records[item_index].editor_excluded == 0) {
             if (visible == selection) {
@@ -252,10 +253,10 @@ void ToggleMipePanel(void)
         }
         ++item_index;
     }
-    if (item_index == static_cast<int>(gXStatus.uiItemsInDatabase)) {
+    if (item_index == static_cast<std::int32_t>(gXStatus.uiItemsInDatabase)) {
         item_index = 0;
     }
-    g_mipe_item_index = static_cast<short>(item_index);
+    g_mipe_item_index = static_cast<std::int16_t>(item_index);
 }
 
 // GLOBAL: WIZ8 0x0068f11c
@@ -266,10 +267,10 @@ static std::unique_ptr<std::vector<W8MipeCategoryEntry>> g_mipe_category_list;
 static bool g_mipe_item_hidden;
 
 // GLOBAL: WIZ8 0x0068f130
-static int g_mipe_cube_param;
+static std::int32_t g_mipe_cube_param;
 
 // GLOBAL: WIZ8 0x0068f134
-static int g_mipe_scale_plane;
+static std::int32_t g_mipe_scale_plane;
 
 /* Lock/trap kind names for the selected trigger's lock_type, printed by the
    prop-edit menu and the locks & traps editor. */
@@ -310,7 +311,7 @@ static void ShowMipeItemStatus(void)
 {
     std::string name;
     const char* line;
-    unsigned int palette;
+    std::uint32_t palette;
 
     name = g_item_records[g_mipe_item_index].display_name;
     ResetEditorStatusLine(-1);
@@ -342,8 +343,8 @@ static void ShowMipeItemStatus(void)
 void ShowMipeTableRows(std::vector<W8MipeCategoryEntry>* list)
 {
     std::string_view entry;
-    int row;
-    unsigned int palette;
+    std::int32_t row;
+    std::uint32_t palette;
 
     if (list != 0) {
         for (row = 0; row < 6; ++row) {
@@ -419,7 +420,7 @@ void ShowMipePropMenu(void)
 static void ShowMipeTriggerMenu(void)
 {
     const char* status;
-    int kind;
+    std::int32_t kind;
 
     ShowMipeMenu("Select what you want to do.", {
         "1) Create trigger.",
@@ -564,9 +565,9 @@ void ShowMonsterGeneratorEditor(void)
     MonGen* generator;
     W8EncounterTableRuntime* table;
     const char* state;
-    int chance;
-    short interval;
-    int color;
+    std::int32_t chance;
+    std::int16_t interval;
+    std::int32_t color;
     const char* interval_kind;
 
     ResetEditorStatusLine(-1);
@@ -603,12 +604,12 @@ void ShowMonsterGeneratorEditor(void)
 template <class Entry> static void ShowMipeNamedTableRows(std::vector<W8MipeCategoryEntry>* list)
 {
     if (list != 0) {
-        for (int row = 0; row < 6; ++row) {
+        for (std::int32_t row = 0; row < 6; ++row) {
             Entry* entry = MipeCategoryValue<Entry>(list, g_mipe_table_base + row);
             if (entry == 0) {
                 ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "");
             } else {
-                unsigned int palette = row == g_mipe_table_row ? 3 : 0xf;
+                std::uint32_t palette = row == g_mipe_table_row ? 3 : 0xf;
                 ShowNotice(palette, fmt::format("    {}", entry->name));
             }
         }
@@ -636,14 +637,14 @@ void ShowMipeItemTableCategory(void)
 /* Mode-1 key handler: digit keys build the spawn count, Enter creates the
    selected monster group at the world cursor, 'C' jumps to the monster
    category picker and 'O' cycles the creation method. */
-static unsigned int FindMipeVisibleMonster(int visible)
+static std::uint32_t FindMipeVisibleMonster(std::int32_t visible)
 {
-    int index;
-    unsigned int monster_index;
+    std::int32_t index;
+    std::uint32_t monster_index;
     W8MipeMonsterEntry* entry;
     index = 0;
     monster_index = 0;
-    if (0 < static_cast<int>(gXStatus.uiMonstersInDatabase)) {
+    if (0 < static_cast<std::int32_t>(gXStatus.uiMonstersInDatabase)) {
         do {
             entry = &g_mipe_monster_entries[monster_index];
             if (entry->kind == g_mipe_category && entry->selectable) {
@@ -653,19 +654,19 @@ static unsigned int FindMipeVisibleMonster(int visible)
                 ++index;
             }
             ++monster_index;
-        } while (static_cast<int>(monster_index) < static_cast<int>(gXStatus.uiMonstersInDatabase));
+        } while (static_cast<std::int32_t>(monster_index) < static_cast<std::int32_t>(gXStatus.uiMonstersInDatabase));
     }
     return monster_index;
 }
 
-unsigned char HandleMipeMonsterCreateKey(unsigned short key)
+bool HandleMipeMonsterCreateKey(std::uint16_t key)
 {
     std::vector<W8MipeCategoryEntry>* list;
     W8MipeMonsterEntry* entry;
     W8MonsterGroup* monster_group;
-    int index;
-    int visible;
-    unsigned int monster_index;
+    std::int32_t index;
+    std::int32_t visible;
+    std::uint32_t monster_index;
     srVector3T<float> anchor;
     srVector3T<float> formation;
     W8MonsterRecord record;
@@ -673,7 +674,7 @@ unsigned char HandleMipeMonsterCreateKey(unsigned short key)
     if (!g_mipe_category_list) {
         g_mipe_category_list = std::make_unique<std::vector<W8MipeCategoryEntry>>();
         list = g_mipe_category_list.get();
-        for (index = 0; index < static_cast<int>(gXStatus.uiMonstersInDatabase); ++index) {
+        for (index = 0; index < static_cast<std::int32_t>(gXStatus.uiMonstersInDatabase); ++index) {
             entry = &g_mipe_monster_entries[index];
             if (entry->kind == g_mipe_category && entry->selectable) {
                 list->push_back(entry);
@@ -685,9 +686,9 @@ unsigned char HandleMipeMonsterCreateKey(unsigned short key)
     case 8:
         g_mipe_count /= 10;
         ShowMipeMonsterStatus();
-        return 1;
+        return true;
     default:
-        return 0;
+        return false;
     case 0xd:
         break;
     case 0x30:
@@ -701,23 +702,23 @@ unsigned char HandleMipeMonsterCreateKey(unsigned short key)
     case 0x38:
     case 0x39:
         g_mipe_count =
-            static_cast<int>(static_cast<char>(static_cast<char>(key) - 0x30)) + g_mipe_count * 10;
+            static_cast<std::int32_t>(static_cast<char>(static_cast<char>(key) - 0x30)) + g_mipe_count * 10;
         [[fallthrough]];
     case 0x20:
         ShowMipeMonsterStatus();
-        return 1;
+        return true;
     case 0x43:
         g_mipe_count = 1;
         g_mipe_mode = 6;
         ShowMipeNamedCategory(list, g_special_category_name_ids);
-        return 1;
+        return true;
     case 0x4f:
         ++g_mipe_state->creation_method;
         if (2 < g_mipe_state->creation_method) {
             g_mipe_state->creation_method = 0;
         }
         ShowMipeMonsterStatus();
-        return 1;
+        return true;
     }
     if (g_mipe_count != 0) {
         visible = g_mipe_table_row + g_mipe_table_base;
@@ -729,24 +730,24 @@ unsigned char HandleMipeMonsterCreateKey(unsigned short key)
         }
         GetWorldCursorAnchor(&anchor);
         monster_group =
-            CreateGroup(static_cast<unsigned int>(static_cast<unsigned short>(record.record_id)),
-                        static_cast<unsigned int>(g_mipe_count), &anchor, true, true, true);
+            CreateGroup(static_cast<std::uint32_t>(static_cast<std::uint16_t>(record.record_id)),
+                        static_cast<std::uint32_t>(g_mipe_count), &anchor, true, true, true);
         if (monster_group == 0) {
             g_mipe_count = 0;
-            return 1;
+            return true;
         }
         formation = anchor;
         SetMonsterGroupFormation(monster_group, &formation);
         monster_group->group_state[0x6d] = g_mipe_state->creation_method;
     }
-    return 1;
+    return true;
 }
 
-static unsigned int FindMipeVisibleItem(int visible)
+static std::uint32_t FindMipeVisibleItem(std::int32_t visible)
 {
-    int found = 0;
-    unsigned int item_index;
-    for (item_index = 0; static_cast<int>(item_index) < static_cast<int>(gXStatus.uiItemsInDatabase); ++item_index) {
+    std::int32_t found = 0;
+    std::uint32_t item_index;
+    for (item_index = 0; static_cast<std::int32_t>(item_index) < static_cast<std::int32_t>(gXStatus.uiItemsInDatabase); ++item_index) {
         if (g_item_records[item_index].equip_class == g_mipe_category &&
             g_item_records[item_index].editor_excluded == 0) {
             if (found == visible) {
@@ -761,7 +762,7 @@ static unsigned int FindMipeVisibleItem(int visible)
 /* Six-row picker navigation is shared by items, monsters, encounter tables
    and treasure tables. A stationary Up still requests a redraw; exhausted
    Down/Page Down and Page Up at the first page do not. */
-static bool MoveMipeTableSelection(unsigned short key)
+static bool MoveMipeTableSelection(std::uint16_t key)
 {
     switch (key) {
     case 0x26:
@@ -785,11 +786,11 @@ static bool MoveMipeTableSelection(unsigned short key)
     case 0x28:
         if (g_mipe_table_row < 5 &&
             g_mipe_table_base + g_mipe_table_row <
-                static_cast<int>((g_mipe_category_list ? g_mipe_category_list->size() : 0) - 1)) {
+                static_cast<std::int32_t>((g_mipe_category_list ? g_mipe_category_list->size() : 0) - 1)) {
             ++g_mipe_table_row;
             return true;
         }
-        if (static_cast<int>((g_mipe_category_list ? g_mipe_category_list->size() : 0) - 1) <=
+        if (static_cast<std::int32_t>((g_mipe_category_list ? g_mipe_category_list->size() : 0) - 1) <=
             g_mipe_table_base + g_mipe_table_row) {
             return false;
         }
@@ -797,20 +798,20 @@ static bool MoveMipeTableSelection(unsigned short key)
         return true;
     case 0x22:
         if (g_mipe_table_base + g_mipe_table_row <
-            static_cast<int>((g_mipe_category_list ? g_mipe_category_list->size() : 0) - 6)) {
+            static_cast<std::int32_t>((g_mipe_category_list ? g_mipe_category_list->size() : 0) - 6)) {
             g_mipe_table_base += 6;
             return true;
         }
-        if (static_cast<int>((g_mipe_category_list ? g_mipe_category_list->size() : 0)) <=
+        if (static_cast<std::int32_t>((g_mipe_category_list ? g_mipe_category_list->size() : 0)) <=
             g_mipe_table_base + g_mipe_table_row) {
             return false;
         }
         g_mipe_table_base += 6;
         g_mipe_table_row = 0;
-        if (static_cast<int>((g_mipe_category_list ? g_mipe_category_list->size() : 0)) <=
+        if (static_cast<std::int32_t>((g_mipe_category_list ? g_mipe_category_list->size() : 0)) <=
             g_mipe_table_base) {
             g_mipe_table_base =
-                static_cast<int>((g_mipe_category_list ? g_mipe_category_list->size() : 0));
+                static_cast<std::int32_t>((g_mipe_category_list ? g_mipe_category_list->size() : 0));
             --g_mipe_table_base;
         }
         return true;
@@ -819,7 +820,7 @@ static bool MoveMipeTableSelection(unsigned short key)
 }
 
 static void ShowMipeNamedCategory(std::vector<W8MipeCategoryEntry>* list,
-                                  const unsigned short* name_ids)
+                                  const std::uint16_t* name_ids)
 {
     ResetEditorStatusLine(-1);
     ShowNotice(W8_FONT_PALETTE_PINK,
@@ -831,7 +832,7 @@ static void RebuildMipeItemCategory(std::vector<W8MipeCategoryEntry>* list)
 {
     if (g_mipe_category_list != 0) {
         g_mipe_category_list->clear();
-        for (int index = 0; index < static_cast<int>(gXStatus.uiItemsInDatabase); ++index) {
+        for (std::int32_t index = 0; index < static_cast<std::int32_t>(gXStatus.uiItemsInDatabase); ++index) {
             W8ItemDatabaseRecord* entry = &g_item_records[index];
             if (entry->equip_class == g_mipe_category && entry->editor_excluded == 0) {
                 list->push_back(entry);
@@ -844,7 +845,7 @@ static void RebuildMipeMonsterCategory(std::vector<W8MipeCategoryEntry>* list)
 {
     if (g_mipe_category_list != 0) {
         g_mipe_category_list->clear();
-        for (int index = 0; index < static_cast<int>(gXStatus.uiMonstersInDatabase); ++index) {
+        for (std::int32_t index = 0; index < static_cast<std::int32_t>(gXStatus.uiMonstersInDatabase); ++index) {
             W8MipeMonsterEntry* entry = &g_mipe_monster_entries[index];
             if (entry->kind == g_mipe_category && entry->selectable) {
                 list->push_back(entry);
@@ -856,10 +857,10 @@ static void RebuildMipeMonsterCategory(std::vector<W8MipeCategoryEntry>* list)
 /* Mode-7 key handler: the item-category picker. Enter resolves the highlighted
    record back to a database index and drops into item-create mode; the arrows
    page and walk the six-row view and cycle categories. */
-void HandleMipeItemCategoryKey(unsigned short key)
+void HandleMipeItemCategoryKey(std::uint16_t key)
 {
     std::vector<W8MipeCategoryEntry>* list;
-    unsigned int item_index;
+    std::uint32_t item_index;
 
     list = g_mipe_category_list.get();
     switch (key) {
@@ -868,7 +869,7 @@ void HandleMipeItemCategoryKey(unsigned short key)
         if (item_index == gXStatus.uiItemsInDatabase) {
             item_index = 0;
         }
-        g_mipe_item_index = static_cast<short>(item_index);
+        g_mipe_item_index = static_cast<std::int16_t>(item_index);
         ShowMipeItemStatus();
         g_mipe_mode = 2;
         return;
@@ -911,21 +912,21 @@ void HandleMipeItemCategoryKey(unsigned short key)
    the selected item at the world cursor, 'A' flips the invisible-item display
    and activates/deactivates the flagged items, 'C' opens the item category
    picker and 'H' toggles the spawned item's hidden flag. */
-unsigned char HandleMipeItemCreateKey(unsigned short key)
+bool HandleMipeItemCreateKey(std::uint16_t key)
 {
     std::vector<W8MipeCategoryEntry>* list;
     W8WorldItem* spawned;
     W8WorldItem* world_item;
-    int index;
-    unsigned int item_index;
-    unsigned int spawned_index;
+    std::int32_t index;
+    std::uint32_t item_index;
+    std::uint32_t spawned_index;
     bool show_invisible;
     srVector3T<float> anchor;
 
     if (!g_mipe_category_list) {
         g_mipe_category_list = std::make_unique<std::vector<W8MipeCategoryEntry>>();
         list = g_mipe_category_list.get();
-        for (index = 0; index < static_cast<int>(gXStatus.uiItemsInDatabase); ++index) {
+        for (index = 0; index < static_cast<std::int32_t>(gXStatus.uiItemsInDatabase); ++index) {
             if (g_item_records[index].equip_class == g_mipe_category &&
                 g_item_records[index].editor_excluded == 0) {
                 list->push_back(&g_item_records[index]);
@@ -941,7 +942,7 @@ unsigned char HandleMipeItemCreateKey(unsigned short key)
         g_mipe_count = 0;
         g_mipe_mode = 7;
         ShowMipeNamedCategory(list, g_equip_class_name_ids);
-        return 1;
+        return true;
     case 8:
         g_mipe_count /= 10;
         ShowMipeItemStatus();
@@ -957,7 +958,7 @@ unsigned char HandleMipeItemCreateKey(unsigned short key)
     case 0x38:
     case 0x39:
         g_mipe_count =
-            static_cast<int>(static_cast<char>(static_cast<char>(key) - 0x30)) + g_mipe_count * 10;
+            static_cast<std::int32_t>(static_cast<char>(static_cast<char>(key) - 0x30)) + g_mipe_count * 10;
         ShowMipeItemStatus();
         break;
     case 0x48:
@@ -980,16 +981,16 @@ unsigned char HandleMipeItemCreateKey(unsigned short key)
             }
         }
         ShowMipeItemStatus();
-        return 1;
+        return true;
     case 0xd:
         item_index = FindMipeVisibleItem(g_mipe_table_base + g_mipe_table_row);
         if (item_index == gXStatus.uiItemsInDatabase) {
             item_index = 0;
         }
         GetWorldCursorAnchor(&anchor);
-        for (spawned_index = 0; spawned_index < static_cast<unsigned int>(g_mipe_count);
+        for (spawned_index = 0; spawned_index < static_cast<std::uint32_t>(g_mipe_count);
              ++spawned_index) {
-            int flags = W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE;
+            std::int32_t flags = W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE;
             if (g_mipe_item_hidden) {
                 flags =
                     W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE | W8_ITEM_ENTITY_HIGHLIGHT_BLUE;
@@ -1000,23 +1001,23 @@ unsigned char HandleMipeItemCreateKey(unsigned short key)
                 RegisterSearchableWorldItem(spawned);
             }
         }
-        return 1;
+        return true;
     default:
-        return 0;
+        return false;
     }
-    return 1;
+    return true;
 }
 
 /* Mode-6 key handler: the monster-category picker. Enter resolves the
    highlighted entry to a monster record, seeds the spawn count from the
    creation method and drops back to mode 1; the arrows page/walk rows and
    cycle through non-empty categories. */
-void HandleMipeMonsterCategoryKey(unsigned short key)
+void HandleMipeMonsterCategoryKey(std::uint16_t key)
 {
     std::vector<W8MipeCategoryEntry>* list;
-    int index;
-    int wraps;
-    unsigned int monster_index;
+    std::int32_t index;
+    std::int32_t wraps;
+    std::uint32_t monster_index;
     W8MonsterRecord record;
     W8MonsterRecord selected;
 
@@ -1033,7 +1034,7 @@ void HandleMipeMonsterCategoryKey(unsigned short key)
         g_mipe_monster_index = record.record_id;
         if (g_mipe_state->creation_method != 1) {
             if (g_mipe_state->creation_method == 2) {
-                LoadMonsterDatabaseRecord(static_cast<int>(record.record_id), &selected);
+                LoadMonsterDatabaseRecord(static_cast<std::int32_t>(record.record_id), &selected);
                 g_mipe_count = selected.group_size_dice.Maximum();
             }
             ShowMipeMonsterStatus();
@@ -1094,12 +1095,12 @@ void HandleMipeMonsterCategoryKey(unsigned short key)
 /* '1' halves the selected monster's animation scale, '2' doubles it, '3'
    arms speed editing, '4' sends it to the world cursor, '5' advances it one
    subcycle. */
-void HandleMonsterDebugKey(unsigned short key)
+void HandleMonsterDebugKey(std::uint16_t key)
 {
     W8Monster* monster;
     W8MonsterInfo* info;
     W8World* world;
-    signed char cycle;
+    std::int8_t cycle;
     float scale;
     srVector3T<float> position;
     srVector3T<float> location;
@@ -1122,14 +1123,14 @@ void HandleMonsterDebugKey(unsigned short key)
         }
         break;
     case 0x33:
-        if (static_cast<unsigned int>(g_mipe_state->monster_ids.size()) == 1) {
+        if (static_cast<std::uint32_t>(g_mipe_state->monster_ids.size()) == 1) {
             g_mipe_mode = 0xb;
             ShowMonsterSpeedStatus();
             return;
         }
         break;
     case 0x34:
-        if (static_cast<unsigned int>(g_mipe_state->monster_ids.size()) == 1) {
+        if (static_cast<std::uint32_t>(g_mipe_state->monster_ids.size()) == 1) {
             info = FindMonster(g_mipe_state->SelectedMonsterLocationId());
             if (info == 0 || info->p3D == 0) {
                 srAssertFail("pMonsterInfo && pMonsterInfo->p3D", MIPE_CPP, 0x6e5, 0);
@@ -1146,7 +1147,7 @@ void HandleMonsterDebugKey(unsigned short key)
         }
         break;
     case 0x35:
-        if (static_cast<unsigned int>(g_mipe_state->monster_ids.size()) == 1) {
+        if (static_cast<std::uint32_t>(g_mipe_state->monster_ids.size()) == 1) {
             info = FindMonster(g_mipe_state->SelectedMonsterLocationId());
             if (info == 0) {
                 srAssertFail("pMonsterInfo", MIPE_CPP, 0x705, 0);
@@ -1189,7 +1190,7 @@ void HandleMonsterDebugKey(unsigned short key)
 }
 
 /* The ',', '.', 'k' and 'l' keys while speed editing the debug monster. */
-void AdjustMonsterSpeed(unsigned short key)
+void AdjustMonsterSpeed(std::uint16_t key)
 {
     W8PathAI* path;
     float speed;
@@ -1260,7 +1261,7 @@ static void ShowMipeWaypointStatus()
 static void ShowMipeLockTrapStatus()
 {
     Trigger* trigger;
-    int key_id;
+    std::int32_t key_id;
     std::string key_name;
 
     trigger = g_mipe_state->prop->GetTrigger();
@@ -1280,7 +1281,7 @@ static void ShowMipeLockTrapStatus()
 }
 
 /* 'C' drops a waypoint monster at the cursor, 'X' removes the newest one. */
-void HandleWaypointKey(unsigned short key)
+void HandleWaypointKey(std::uint16_t key)
 {
     W8Monster* monster;
     W8World* world;
@@ -1303,7 +1304,7 @@ void HandleWaypointKey(unsigned short key)
         ShowMipeWaypointStatus();
     } else if (key == 0x58) {
         if (g_mipe_state) {
-            unsigned int count = static_cast<unsigned int>(g_mipe_state->waypoints.size());
+            std::uint32_t count = static_cast<std::uint32_t>(g_mipe_state->waypoints.size());
             if (count != 0) {
                 monster = g_mipe_state->waypoints.back();
                 if (monster != 0) {
@@ -1323,16 +1324,16 @@ void HandleWaypointKey(unsigned short key)
 /* Mode-0xd key handler: scans the world's props for the picked one with a
    trigger, stores it as the edit target and opens the locks & traps ('1') or
    treasure-table ('2') editors. */
-void HandleMipePropEditKey(unsigned short key)
+void HandleMipePropEditKey(std::uint16_t key)
 {
     std::vector<W8MipeCategoryEntry>* list;
     W8World* world;
     W8Prop* prop;
     Trigger* trigger;
     W8ItemTableRecord* table;
-    int index;
-    int count;
-    int table_index;
+    std::int32_t index;
+    std::int32_t count;
+    std::int32_t table_index;
 
     g_mipe_count = 0;
     world = GetWorld();
@@ -1369,7 +1370,7 @@ void HandleMipePropEditKey(unsigned short key)
                     g_mipe_table_row = 0;
                     if (g_mipe_category_list != 0) {
                         g_mipe_category_list->clear();
-                        for (index = 0; index < static_cast<int>(gXStatus.uiItemTablesInDatabase); ++index) {
+                        for (index = 0; index < static_cast<std::int32_t>(gXStatus.uiItemTablesInDatabase); ++index) {
                             table = &g_item_tables[index];
                             if (table->category_id == 0) {
                                 list->push_back(table);
@@ -1377,19 +1378,19 @@ void HandleMipePropEditKey(unsigned short key)
                         }
                     }
                 } else {
-                    unsigned char category = g_item_tables[table_index].category_id;
+                    std::uint8_t category = g_item_tables[table_index].category_id;
                     g_mipe_category = category;
                     if (g_mipe_category_list != 0) {
                         g_mipe_category_list->clear();
-                        for (index = 0; index < static_cast<int>(gXStatus.uiItemTablesInDatabase); ++index) {
+                        for (index = 0; index < static_cast<std::int32_t>(gXStatus.uiItemTablesInDatabase); ++index) {
                             table = &g_item_tables[index];
-                            if (table->category_id == static_cast<unsigned int>(category)) {
+                            if (table->category_id == static_cast<std::uint32_t>(category)) {
                                 list->push_back(table);
                             }
                         }
                     }
                     for (index = 0;
-                         index < static_cast<int>(
+                         index < static_cast<std::int32_t>(
                                      (g_mipe_category_list ? g_mipe_category_list->size() : 0));
                          ++index) {
                         table = MipeCategoryValue<W8ItemTableRecord>(g_mipe_category_list.get(), index);
@@ -1424,21 +1425,21 @@ static void ShowMipeCubeMenu()
 
 /* The volume cube top menu: create, delete, edit parameters, move, scale and
    select. */
-int HandleCubeMenuKey(unsigned int key)
+bool HandleCubeMenuKey(std::uint32_t key)
 {
     const char* prompt;
     srVector3T<float> position;
     srVector3T<float> anchor;
     std::string name;
-    int serial;
+    std::int32_t serial;
     char scale_planes[4];
 
     switch (key & 0xffff) {
     case 0x20:
         ShowMipeCubeMenu();
-        return 1;
+        return true;
     default:
-        return 0;
+        return false;
     case 0x31:
         g_mipe_cube = CreateWorldCursorCube();
         GetCameraForwardPointCopy(2500.0f, &position);
@@ -1450,23 +1451,23 @@ int HandleCubeMenuKey(unsigned int key)
         ++gXStatus.mipe_cube_serial;
         name = fmt::format("Cube{:03d}", serial);
         SetWorldCursorNodeName(g_mipe_cube, name.c_str());
-        return 1;
+        return true;
     case 0x32:
         if (g_mipe_cube != 0) {
             DestroyWorldCursorCube(g_mipe_cube);
             g_mipe_cube = 0;
         }
-        return 1;
+        return true;
     case 0x33:
         if (g_mipe_cube != 0) {
             g_mipe_mode = 0x10;
             g_mipe_menu_active = false;
             ShowCubeParameters();
         }
-        return 1;
+        return true;
     case 0x34:
         if (g_mipe_cube == 0) {
-            return 1;
+            return true;
         }
         g_mipe_mode = 0x11;
         ResetEditorStatusLine(-1);
@@ -1484,10 +1485,10 @@ int HandleCubeMenuKey(unsigned int key)
         MoveWorldCursorNode(g_mipe_cube, &anchor);
         g_mipe_state->dragging = true;
         g_mipe_menu_active = false;
-        return 1;
+        return true;
     case 0x35:
         if (g_mipe_cube == 0) {
-            return 1;
+            return true;
         }
         g_mipe_mode = 0x12;
         scale_planes[0] = 'X';
@@ -1498,10 +1499,10 @@ int HandleCubeMenuKey(unsigned int key)
         if (g_mipe_cube != 0) {
             ShowNotice(W8_FONT_PALETTE_TEXT_BOX,
                        fmt::format("Scaling in the {:c} plane. ",
-                                   static_cast<int>(scale_planes[g_mipe_scale_plane])));
+                                   static_cast<std::int32_t>(scale_planes[g_mipe_scale_plane])));
             ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "Press X/Y/Z to change plane.");
             g_mipe_menu_active = false;
-            return 1;
+            return true;
         }
         prompt = "Click on trigger to scale.";
         break;
@@ -1518,31 +1519,31 @@ int HandleCubeMenuKey(unsigned int key)
     }
     ShowNotice(W8_FONT_PALETTE_TEXT_BOX, prompt);
     g_mipe_menu_active = false;
-    return 1;
+    return true;
 }
 
 /* The digit keys editing the selected cube parameter, plus the arrow keys
    stepping between Message, Search and Function. */
-int HandleCubeParameterKey(unsigned int key)
+bool HandleCubeParameterKey(std::uint32_t key)
 {
-    int value;
+    std::int32_t value;
 
     switch (key & 0xffff) {
     case 0x20:
         ShowMipeCubeMenu();
-        return 1;
+        return true;
     case 0x26:
         if (0 < g_mipe_cube_param) {
             --g_mipe_cube_param;
             ShowCubeParameters();
-            return 1;
+            return true;
         }
         break;
     case 0x28:
         if (g_mipe_cube_param < 2) {
             ++g_mipe_cube_param;
             ShowCubeParameters();
-            return 1;
+            return true;
         }
         break;
     case 8:
@@ -1551,7 +1552,7 @@ int HandleCubeParameterKey(unsigned int key)
             SetWorldCursorNodeParameter(g_mipe_cube, g_mipe_cube_param, value / 10);
             DrawWorldCursorNodeLabel(g_mipe_cube);
             ShowCubeParameters();
-            return 1;
+            return true;
         }
         break;
     case 0x30:
@@ -1574,14 +1575,14 @@ int HandleCubeParameterKey(unsigned int key)
         }
         break;
     default:
-        return 0;
+        return false;
     }
-    return 1;
+    return true;
 }
 
 /* The scale editor's keys: arrows resize the current plane and X/Y/Z pick the
    plane. */
-int HandleCubeScaleKey(unsigned short key)
+bool HandleCubeScaleKey(std::uint16_t key)
 {
     char scale_planes[8];
 
@@ -1594,28 +1595,28 @@ int HandleCubeScaleKey(unsigned short key)
         ShowNotice(W8_FONT_PALETTE_PINK, "Scale Volume Trigger.");
         if (g_mipe_cube == 0) {
             ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "Click on trigger to scale.");
-            return 1;
+            return true;
         }
         ShowNotice(W8_FONT_PALETTE_TEXT_BOX,
                    fmt::format("Scaling in the {:c} plane. ",
-                               static_cast<int>(scale_planes[g_mipe_scale_plane])));
+                               static_cast<std::int32_t>(scale_planes[g_mipe_scale_plane])));
         ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "Press X/Y/Z to change plane.");
-        return 1;
+        return true;
     default:
-        return 0;
+        return false;
     case 0x26:
         if (g_mipe_cube != 0) {
             if (g_mipe_scale_plane == 0) {
                 ScaleWorldCursorNodeX(g_mipe_cube, 1.1);
-                return 1;
+                return true;
             }
             if (g_mipe_scale_plane == 1) {
                 ScaleWorldCursorNodeY(g_mipe_cube, 1.1);
-                return 1;
+                return true;
             }
             if (g_mipe_scale_plane == 2) {
                 ScaleWorldCursorNodeZ(g_mipe_cube, 1.1);
-                return 1;
+                return true;
             }
         }
         break;
@@ -1623,47 +1624,47 @@ int HandleCubeScaleKey(unsigned short key)
         if (g_mipe_cube != 0) {
             if (g_mipe_scale_plane == 0) {
                 ScaleWorldCursorNodeX(g_mipe_cube, 0.9);
-                return 1;
+                return true;
             }
             if (g_mipe_scale_plane == 1) {
                 ScaleWorldCursorNodeY(g_mipe_cube, 0.9);
-                return 1;
+                return true;
             }
             if (g_mipe_scale_plane == 2) {
                 ScaleWorldCursorNodeZ(g_mipe_cube, 0.9);
-                return 1;
+                return true;
             }
         }
         break;
     case 0x58:
         g_mipe_scale_plane = 0;
-        return 1;
+        return true;
     case 0x59:
         g_mipe_scale_plane = 1;
-        return 1;
+        return true;
     case 0x5a:
         g_mipe_scale_plane = 2;
         break;
     }
-    return 1;
+    return true;
 }
 
 /* The monster generator top-menu keys. */
-static int HandleMonsterGeneratorKey(unsigned short key)
+static bool HandleMonsterGeneratorKey(std::uint16_t key)
 {
     MonGen* generator;
     MonGen* other;
     srVector3T<float> anchor;
     srVector3T<float> position;
     std::string name;
-    int index;
-    int count;
+    std::int32_t index;
+    std::int32_t count;
 
     switch (key) {
     case 0x20:
         break;
     default:
-        return 0;
+        return false;
     case 0x31:
         GetWorldCursorAnchor(&anchor);
         count = GetMonsterGeneratorCount();
@@ -1696,25 +1697,25 @@ static int HandleMonsterGeneratorKey(unsigned short key)
             static_cast<W8ItemRep*>(generator->marker_item->m_pRep)->SetFlags(0x10, true);
             generator->marker_item->SetHighlight(true);
         }
-        return 1;
+        return true;
     case 0x32:
         if (g_mipe_state->generator != 0) {
             RemoveMonsterGenerator(g_mipe_state->generator);
             g_mipe_state->generator = 0;
             ShowMonsterGeneratorStatus();
         }
-        return 1;
+        return true;
     case 0x33:
         if (g_mipe_state->generator != 0) {
             g_mipe_mode = 0x16;
             ShowMonsterGeneratorEditor();
         }
-        return 1;
+        return true;
     case 0x34:
         g_mipe_state->selecting = 1;
         HideWorldCursor();
         ShowMonsterGeneratorStatus();
-        return 1;
+        return true;
     case 0x35: {
         bool visible = !g_mipe_mongen_visible;
         count = GetMonsterGeneratorCount();
@@ -1724,14 +1725,14 @@ static int HandleMonsterGeneratorKey(unsigned short key)
         g_mipe_mongen_visible = visible;
         ShowMonsterGeneratorStatus();
         ShowMonsterGeneratorStatus();
-        return 1;
+        return true;
     }
     case 0x36:
         g_generator_save_flag = g_generator_save_flag == 0;
         break;
     }
     ShowMonsterGeneratorStatus();
-    return 1;
+    return true;
 }
 
 /* The edit-menu keys for the selected monster generator: name entry, table
@@ -1740,24 +1741,24 @@ static int HandleMonsterGeneratorKey(unsigned short key)
 static void RebuildMipeEncounterCategory(std::vector<W8MipeCategoryEntry>* list)
 {
     list->clear();
-    int count = static_cast<int>(g_encounter_tables.size());
-    for (int index = 0; index < count; ++index) {
+    std::int32_t count = static_cast<std::int32_t>(g_encounter_tables.size());
+    for (std::int32_t index = 0; index < count; ++index) {
         W8EncounterTableRuntime* entry = GetEncounterTable(index);
-        if (entry->category == static_cast<unsigned int>(g_mipe_category)) {
+        if (entry->category == static_cast<std::uint32_t>(g_mipe_category)) {
             list->push_back(entry);
         }
     }
 }
 
-int HandleMonsterGeneratorEditKey(unsigned short key)
+bool HandleMonsterGeneratorEditKey(std::uint16_t key)
 {
     std::vector<W8MipeCategoryEntry>* list;
     W8EncounterTableRuntime* table;
     W8EncounterTableRuntime* entry;
     MonGen* generator;
-    int current_index;
-    int found;
-    int slot;
+    std::int32_t current_index;
+    std::int32_t found;
+    std::int32_t slot;
 
     if (!g_mipe_category_list) {
         g_mipe_category_list = std::make_unique<std::vector<W8MipeCategoryEntry>>();
@@ -1766,15 +1767,15 @@ int HandleMonsterGeneratorEditKey(unsigned short key)
     switch (key) {
     case 0x20:
         ShowMonsterGeneratorStatus();
-        return 1;
+        return true;
     default:
-        return 0;
+        return false;
     case 0x31:
         g_mipe_mode = 0x19;
         ResetEditorStatusLine(-1);
         ShowNotice(W8_FONT_PALETTE_PINK, "Enter the name for this generator:");
         ShowNotice(W8_FONT_PALETTE_TEXT_BOX, g_mipe_state->generator->name);
-        return 1;
+        return true;
     case 0x32:
         current_index = g_mipe_state->generator->encounter_table_index;
         if (current_index < 0) {
@@ -1783,11 +1784,11 @@ int HandleMonsterGeneratorEditKey(unsigned short key)
         } else {
             table = GetEncounterTable(current_index);
             list = g_mipe_category_list.get();
-            g_mipe_category = static_cast<unsigned char>(table->category);
+            g_mipe_category = static_cast<std::uint8_t>(table->category);
             if (g_mipe_category_list != 0) {
                 RebuildMipeEncounterCategory(list);
             }
-            for (found = 0; found < static_cast<int>(
+            for (found = 0; found < static_cast<std::int32_t>(
                                         (g_mipe_category_list ? g_mipe_category_list->size() : 0));
                  ++found) {
                 table = MipeCategoryValue<W8EncounterTableRuntime>(g_mipe_category_list.get(), found);
@@ -1804,7 +1805,7 @@ int HandleMonsterGeneratorEditKey(unsigned short key)
         ShowNotice(W8_FONT_PALETTE_PINK,
                    fmt::format("Category: {}", g_encounter_names[g_mipe_category & 0xff]));
         if (g_mipe_category_list == 0) {
-            return 1;
+            return true;
         }
         for (slot = 0; slot < 6; ++slot) {
             entry = MipeCategoryValue<W8EncounterTableRuntime>(g_mipe_category_list.get(),
@@ -1815,25 +1816,25 @@ int HandleMonsterGeneratorEditKey(unsigned short key)
                 ShowNotice(slot == g_mipe_table_row ? 3 : 0xf, fmt::format("    {}", entry->name));
             }
         }
-        return 1;
+        return true;
     case 0x33:
         g_mipe_state->generator->generation_enabled =
             g_mipe_state->generator->generation_enabled == 0;
         ShowMonsterGeneratorEditor();
-        return 1;
+        return true;
     case 0x34:
         generator = g_mipe_state->generator;
         if ((generator->flags >> 3 & 1) == 0) {
             if ('\0' < generator->custom_spawn_chance) {
                 generator->custom_spawn_chance -= 10;
                 ShowMonsterGeneratorEditor();
-                return 1;
+                return true;
             }
         } else if ('\0' < static_cast<char>(g_generator_interval_min)) {
-            g_generator_interval_min = static_cast<short>(
+            g_generator_interval_min = static_cast<std::int16_t>(
                 static_cast<char>(static_cast<char>(g_generator_interval_min) - 10));
             ShowMonsterGeneratorEditor();
-            return 1;
+            return true;
         }
         break;
     case 0x35:
@@ -1842,13 +1843,13 @@ int HandleMonsterGeneratorEditKey(unsigned short key)
             if (generator->custom_spawn_chance < 'd') {
                 generator->custom_spawn_chance = generator->custom_spawn_chance + '\n';
                 ShowMonsterGeneratorEditor();
-                return 1;
+                return true;
             }
         } else if (static_cast<char>(g_generator_interval_min) < 'd') {
-            g_generator_interval_min = static_cast<short>(
+            g_generator_interval_min = static_cast<std::int16_t>(
                 static_cast<char>(static_cast<char>(g_generator_interval_min) + '\n'));
             ShowMonsterGeneratorEditor();
-            return 1;
+            return true;
         }
         break;
     case 0x36:
@@ -1858,12 +1859,12 @@ int HandleMonsterGeneratorEditKey(unsigned short key)
                 generator->custom_interval_seconds -= 10;
                 g_mipe_state->generator->Reset();
                 ShowMonsterGeneratorEditor();
-                return 1;
+                return true;
             }
         } else if (0 < g_generator_default_interval) {
             g_generator_default_interval -= 10;
             ShowMonsterGeneratorEditor();
-            return 1;
+            return true;
         }
         break;
     case 0x37:
@@ -1872,47 +1873,47 @@ int HandleMonsterGeneratorEditKey(unsigned short key)
             generator->custom_interval_seconds += 10;
             g_mipe_state->generator->Reset();
             ShowMonsterGeneratorEditor();
-            return 1;
+            return true;
         }
         g_generator_default_interval += 10;
         ShowMonsterGeneratorEditor();
-        return 1;
+        return true;
     case 0x38:
         generator = g_mipe_state->generator;
         if ((generator->flags >> 3 & 1) != 0) {
             generator->flags &= 0xfffffff7;
             ShowMonsterGeneratorEditor();
-            return 1;
+            return true;
         }
         generator->flags |= 8;
         break;
     }
     ShowMonsterGeneratorEditor();
-    return 1;
+    return true;
 }
 
 /* Mode-0x17 key handler: the generator's encounter-table picker. Enter binds
    the highlighted table to the selected generator; the arrows page/walk the
    rows and cycle through the categories. */
-void HandleMipeGeneratorTableKey(unsigned short key)
+void HandleMipeGeneratorTableKey(std::uint16_t key)
 {
     std::vector<W8MipeCategoryEntry>* list;
     W8EncounterTableRuntime* entry;
-    int index;
-    int found;
-    int wraps;
-    int count;
-    unsigned int table_index;
+    std::int32_t index;
+    std::int32_t found;
+    std::int32_t wraps;
+    std::int32_t count;
+    std::uint32_t table_index;
 
-    count = static_cast<int>(g_encounter_tables.size());
+    count = static_cast<std::int32_t>(g_encounter_tables.size());
     switch (key) {
     case 0xd:
         if (g_mipe_state->generator != 0) {
             found = 0;
             table_index = 0;
             index = g_mipe_table_base + g_mipe_table_row;
-            if (0 < static_cast<int>(g_encounter_tables.size())) {
-                unsigned int category = g_mipe_category & 0xff;
+            if (0 < static_cast<std::int32_t>(g_encounter_tables.size())) {
+                std::uint32_t category = g_mipe_category & 0xff;
                 do {
                     entry = GetEncounterTable(table_index);
                     if (entry->category == category) {
@@ -1922,7 +1923,7 @@ void HandleMipeGeneratorTableKey(unsigned short key)
                         ++found;
                     }
                     ++table_index;
-                } while (static_cast<int>(table_index) < count);
+                } while (static_cast<std::int32_t>(table_index) < count);
             }
             g_mipe_state->generator->SetEncounterTable(table_index & 0xffff);
         }
@@ -1946,19 +1947,19 @@ void HandleMipeGeneratorTableKey(unsigned short key)
         wraps = 0;
         do {
             list = g_mipe_category_list.get();
-            unsigned char category;
+            std::uint8_t category;
             if (g_mipe_category == 0) {
-                g_mipe_category = static_cast<unsigned char>(g_encounter_names.size());
+                g_mipe_category = static_cast<std::uint8_t>(g_encounter_names.size());
                 ++wraps;
             }
             category = g_mipe_category - 1;
             g_mipe_category = category;
             if (g_mipe_category_list != 0) {
                 g_mipe_category_list->clear();
-                count = static_cast<int>(g_encounter_tables.size());
+                count = static_cast<std::int32_t>(g_encounter_tables.size());
                 for (index = 0; index < count; ++index) {
                     entry = GetEncounterTable(index);
-                    if (entry->category == static_cast<unsigned int>(category)) {
+                    if (entry->category == static_cast<std::uint32_t>(category)) {
                         list->push_back(entry);
                     }
                 }
@@ -1972,7 +1973,7 @@ void HandleMipeGeneratorTableKey(unsigned short key)
         wraps = 0;
         do {
             list = g_mipe_category_list.get();
-            if ((g_mipe_category & 0xff) < static_cast<int>(g_encounter_names.size()) - 1) {
+            if ((g_mipe_category & 0xff) < static_cast<std::int32_t>(g_encounter_names.size()) - 1) {
                 ++g_mipe_category;
             } else {
                 ++wraps;
@@ -1988,10 +1989,10 @@ void HandleMipeGeneratorTableKey(unsigned short key)
 }
 
 /* Character entry for the generator name, capped at the 32-byte field. */
-void EditMonsterGeneratorName(unsigned short key)
+void EditMonsterGeneratorName(std::uint16_t key)
 {
     std::string name;
-    int length;
+    std::int32_t length;
 
     name = g_mipe_state->generator->name;
     length = name.size();
@@ -2015,13 +2016,13 @@ void EditMonsterGeneratorName(unsigned short key)
 /* Mode-0x1b key handler: the selected prop trigger's locks & traps editor.
    '1' cycles the lock type and re-rolls the pin state, '2' enters key-id
    input, '3'/'4' bump the difficulty, and every path repaints the menu. */
-void HandleMipeLockTrapKey(unsigned short key)
+void HandleMipeLockTrapKey(std::uint16_t key)
 {
     Trigger* trigger;
     Trigger* action_trigger;
     W8TriggerActionData* action;
     W8LockState* lock_state;
-    int key_id;
+    std::int32_t key_id;
     bool pending;
 
     trigger = g_mipe_state->prop->GetTrigger();
@@ -2053,7 +2054,7 @@ void HandleMipeLockTrapKey(unsigned short key)
             }
             static_cast<W8DoorTriggerActionData*>(action)->locked = pending;
             static_cast<W8DoorTriggerActionData*>(action)->item =
-                static_cast<short>(trigger->lock_state.key_id);
+                static_cast<std::int16_t>(trigger->lock_state.key_id);
         }
         break;
     case 0x32:
@@ -2079,11 +2080,11 @@ void HandleMipeLockTrapKey(unsigned short key)
 }
 
 /* The digit keys editing the selected prop trigger's key id. */
-void EditTriggerKeyID(unsigned int key)
+void EditTriggerKeyID(std::uint32_t key)
 {
     Trigger* trigger;
     W8TriggerActionData* action;
-    int key_id;
+    std::int32_t key_id;
     bool pending;
 
     trigger = g_mipe_state->prop->GetTrigger();
@@ -2127,7 +2128,7 @@ void EditTriggerKeyID(unsigned int key)
         }
         static_cast<W8DoorTriggerActionData*>(action)->locked = pending;
         static_cast<W8DoorTriggerActionData*>(action)->item =
-            static_cast<short>(trigger->lock_state.key_id);
+            static_cast<std::int16_t>(trigger->lock_state.key_id);
     }
     trigger = g_mipe_state->prop->GetTrigger();
     ResetEditorStatusLine(-1);
@@ -2139,14 +2140,14 @@ void EditTriggerKeyID(unsigned int key)
    copies the highlighted table's name into the trigger's inline action data
    and returns to the prop menu; the arrows page/walk rows and cycle the item
    table categories. */
-void HandleMipeItemTableKey(unsigned short key)
+void HandleMipeItemTableKey(std::uint16_t key)
 {
     std::vector<W8MipeCategoryEntry>* list;
     Trigger* trigger;
     W8ItemTableRecord* table;
-    unsigned int table_index;
-    int wraps;
-    int index;
+    std::uint32_t table_index;
+    std::int32_t wraps;
+    std::int32_t index;
 
     switch (key) {
     case 0xd:
@@ -2177,19 +2178,19 @@ void HandleMipeItemTableKey(unsigned short key)
         g_mipe_table_row = 0;
         g_mipe_table_base = 0;
         do {
-            unsigned char category;
+            std::uint8_t category;
             list = g_mipe_category_list.get();
             category = g_mipe_category;
             if (g_mipe_category == 0) {
                 ++wraps;
-                category = static_cast<unsigned char>(gXStatus.uiItemTableCategories);
+                category = static_cast<std::uint8_t>(gXStatus.uiItemTableCategories);
             }
             g_mipe_category = category - 1;
             if (g_mipe_category_list != 0) {
                 g_mipe_category_list->clear();
-                for (index = 0; index < static_cast<int>(gXStatus.uiItemTablesInDatabase); ++index) {
+                for (index = 0; index < static_cast<std::int32_t>(gXStatus.uiItemTablesInDatabase); ++index) {
                     table = &g_item_tables[index];
-                    if (table->category_id == static_cast<unsigned int>(category - 1)) {
+                    if (table->category_id == static_cast<std::uint32_t>(category - 1)) {
                         list->push_back(table);
                     }
                 }
@@ -2211,9 +2212,9 @@ void HandleMipeItemTableKey(unsigned short key)
             }
             if (g_mipe_category_list != 0) {
                 g_mipe_category_list->clear();
-                for (index = 0; index < static_cast<int>(gXStatus.uiItemTablesInDatabase); ++index) {
+                for (index = 0; index < static_cast<std::int32_t>(gXStatus.uiItemTablesInDatabase); ++index) {
                     table = &g_item_tables[index];
-                    if (table->category_id == static_cast<unsigned int>(g_mipe_category & 0xff)) {
+                    if (table->category_id == static_cast<std::uint32_t>(g_mipe_category & 0xff)) {
                         list->push_back(table);
                     }
                 }
@@ -2228,20 +2229,20 @@ void HandleMipeItemTableKey(unsigned short key)
    early Escape block unwinds the mode stack, the combat-timer shortcut keeps
    only 'V'/'X' live, and the mode switch routes everything else into the
    per-mode handlers above. */
-unsigned char HandleMipeKey(const InputEvent* event)
+bool HandleMipeKey(const InputEvent* event)
 {
     bool handled;
-    unsigned short key;
+    std::uint16_t key;
     InputEventType event_type;
     Trigger* trigger;
     W8Item* rep_item;
-    int shown;
+    std::int32_t shown;
 
     handled = false;
     if (g_mipe_state->dragging) {
-        return 1;
+        return true;
     }
-    key = static_cast<unsigned short>(event->key);
+    key = static_cast<std::uint16_t>(event->key);
     if (key == 0x1b) {
         if (event->type == InputEventType::KeyUp || event->type == InputEventType::KeyRepeat) {
             g_mipe_count = 0;
@@ -2265,7 +2266,7 @@ unsigned char HandleMipeKey(const InputEvent* event)
                         g_mipe_mode = 5;
                         ShowMipeEditMenu();
                         g_debug_monster_cycle = false;
-                        return 1;
+                        return true;
                     }
                     if (g_mipe_mode == 0xd) {
                         g_mipe_mode = 5;
@@ -2347,7 +2348,7 @@ unsigned char HandleMipeKey(const InputEvent* event)
                                         g_mipe_state->dragging = false;
                                         g_mipe_menu_active = true;
                                         ShowMipeCubeMenu();
-                                        return 1;
+                                        return true;
                                     }
                                     if (g_mipe_mode == 0x12 || g_mipe_mode == 0x13) {
                                         g_mipe_mode = 0xf;
@@ -2376,12 +2377,12 @@ unsigned char HandleMipeKey(const InputEvent* event)
                                                 g_mipe_category_list.reset();
                                                 
                                             }
-                                            return 1;
+                                            return true;
                                         }
                                         if (g_mipe_mode < 1) {
                                             g_mipe_state->monster = 0;
                                             ToggleMipePanel();
-                                            return 1;
+                                            return true;
                                         }
                                         g_mipe_mode = 0;
                                     }
@@ -2412,7 +2413,7 @@ unsigned char HandleMipeKey(const InputEvent* event)
             if (g_mipe_mode != 6 && g_mipe_mode != 7 && g_mipe_mode != 0xf && g_mipe_mode != 0x12) {
                 return handled;
             }
-            return 1;
+            return true;
         default:
             return handled;
         case 8:
@@ -2458,7 +2459,7 @@ unsigned char HandleMipeKey(const InputEvent* event)
         case 0x5a:
         case 0xbc:
         case 0xbe:
-            return 1;
+            return true;
         }
     }
     if (event_type != InputEventType::KeyUp && event_type != InputEventType::KeyRepeat) {
@@ -2728,12 +2729,12 @@ bool IsMipeMenuActive(void)
 
 /* Index of the `ordinal`-th item table in `category`, or the table count when
    fewer than `ordinal` tables match. */
-int FindCategoryItemTable(unsigned int category, int ordinal)
+std::int32_t FindCategoryItemTable(std::uint32_t category, std::int32_t ordinal)
 {
-    int found = 0;
-    int index;
+    std::int32_t found = 0;
+    std::int32_t index;
 
-    for (index = 0; index < static_cast<int>(gXStatus.uiItemTablesInDatabase); ++index) {
+    for (index = 0; index < static_cast<std::int32_t>(gXStatus.uiItemTablesInDatabase); ++index) {
         if (g_item_tables[index].category_id == (category & 0xff)) {
             if (found == ordinal) {
                 return index;
@@ -2756,9 +2757,9 @@ void UpdateMipeSelection(void)
     W8MonsterInfo* info;
     W8Item* marker;
     float best_distance;
-    int group_id;
-    int location_id;
-    int index;
+    std::int32_t group_id;
+    std::int32_t location_id;
+    std::int32_t index;
 
     if (g_mipe_state->selecting == 0) {
         return;
@@ -2809,8 +2810,8 @@ void UpdateMipeSelection(void)
         if (group_id == g_mipe_state->selected_group_id) {
             return;
         }
-        for (index = 0; index < static_cast<int>(g_mipe_state->monster_ids.size()); ++index) {
-            int listed = g_mipe_state->monster_ids[index];
+        for (index = 0; index < static_cast<std::int32_t>(g_mipe_state->monster_ids.size()); ++index) {
+            std::int32_t listed = g_mipe_state->monster_ids[index];
             info = FindMonster(listed);
             if (info->fActive) {
                 SetMonsterHighlight(0, listed, false);
@@ -2819,7 +2820,7 @@ void UpdateMipeSelection(void)
         g_mipe_state->monster_ids.clear();
         for (index = 0;
              index <
-             static_cast<int>(gXStatus.monsters.size());
+             static_cast<std::int32_t>(gXStatus.monsters.size());
              ++index) {
             info = GetMonsterListEntry(index);
             if (info->fActive && info->monster_group_id == group_id) {
@@ -2827,7 +2828,7 @@ void UpdateMipeSelection(void)
                 g_mipe_state->monster_ids.push_back(info->location_id);
             }
         }
-        if (static_cast<unsigned int>(g_mipe_state->monster_ids.size()) == 1) {
+        if (static_cast<std::uint32_t>(g_mipe_state->monster_ids.size()) == 1) {
             info = FindMonster(location_id);
             if (info == 0) {
                 srAssertFail("pMonsterInfo", MIPE_CPP, 0x10ea, 0);
@@ -2842,7 +2843,7 @@ void UpdateMipeSelection(void)
         return;
     }
     if (!g_mipe_state->monster_ids.empty()) {
-        int old_id = g_mipe_state->SelectedMonsterLocationId();
+        std::int32_t old_id = g_mipe_state->SelectedMonsterLocationId();
         g_mipe_state->monster_ids.clear();
         SetMonsterHighlight(0, old_id, false);
     }
@@ -2867,7 +2868,7 @@ void DragSelectionWithCursor(void)
     srVector3T<float> position;
     srVector3T<float> moved;
     W8MonsterInfo* info;
-    int index;
+    std::int32_t index;
 
     GetWorldCursorPosition(&cursor);
     if (g_mipe_state->trigger != 0) {
@@ -2877,7 +2878,7 @@ void DragSelectionWithCursor(void)
                   cursor.z - g_mipe_state->drag_anchor.z + position.z);
         g_mipe_state->trigger->SetPosition(&moved);
     } else {
-        for (index = 0; index < static_cast<int>(g_mipe_state->monster_ids.size()); ++index) {
+        for (index = 0; index < static_cast<std::int32_t>(g_mipe_state->monster_ids.size()); ++index) {
             info = FindMonster(g_mipe_state->monster_ids[index]);
             position = MonsterGetLocalLocation(info->p3D);
             moved.Set(cursor.x - g_mipe_state->drag_anchor.x + position.x,
@@ -2987,15 +2988,15 @@ bool MipeWorldViewEvent(InputEventType event, const SDL_Point* point)
 /* Monster-generator index that last satisfied
    AnyMonsterGeneratorMarkerWithinReach. */
 // GLOBAL: WIZ8 0x0064A1E0
-static int g_last_reachable_mongen_marker = -1;
+static std::int32_t g_last_reachable_mongen_marker = -1;
 
 /* Any monster-generator marker item within reach of the camera (radius
    250000), resuming the scan at the last match. */
 bool AnyMonsterGeneratorMarkerWithinReach(void)
 {
     srVector3T<float> camera;
-    int count;
-    int index;
+    std::int32_t count;
+    std::int32_t index;
     MonGen* generator;
     W8Item* marker;
 

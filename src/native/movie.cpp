@@ -48,7 +48,7 @@ extern "C"
 
 namespace
 {
-void check(int result, const char* operation)
+void check(std::int32_t result, const char* operation)
 {
     if (result >= 0)
         return;
@@ -60,7 +60,7 @@ void check(int result, const char* operation)
 struct W8NativeVideo::State
 {
     std::unique_ptr<wiz8::File> file;
-    uint64_t start = 0, length = 0, position = 0;
+    std::uint64_t start = 0, length = 0, position = 0;
     AVIOContext* io = nullptr;
     AVFormatContext* format = nullptr;
     AVCodecContext *video = nullptr, *audio = nullptr;
@@ -68,12 +68,12 @@ struct W8NativeVideo::State
     AVFrame* decoded = nullptr;
     SwsContext* scale = nullptr;
     SwrContext* resample = nullptr;
-    int video_index = -1, audio_index = -1;
+    std::int32_t video_index = -1, audio_index = -1;
     double origin = 0, frame_duration = 0, last_video_time = 0, end_time = 0;
-    unsigned video_frames = 0;
-    uint64_t audio_frames = 0;
+    std::uint32_t video_frames = 0;
+    std::uint64_t audio_frames = 0;
     bool eof = false, started = false;
-    uint64_t began = 0; // w8_clock_us
+    std::uint64_t began = 0; // w8_clock_us
     std::unique_ptr<w8_native::MovieAudio> voice;
     std::deque<Frame> queued;
     Frame current{};
@@ -96,7 +96,7 @@ struct W8NativeVideo::State
         avio_context_free(&io);
         file.reset();
     }
-    static int read(void* opaque, uint8_t* bytes, int size)
+    static std::int32_t read(void* opaque, std::uint8_t* bytes, std::int32_t size)
     {
         auto& source = *static_cast<State*>(opaque);
         if (size < 0)
@@ -110,47 +110,47 @@ struct W8NativeVideo::State
         try
         {
             const auto result = source.file->read(
-                bytes, std::min<uint64_t>(size, source.length - source.position));
+                bytes, std::min<std::uint64_t>(size, source.length - source.position));
             source.position += result.bytes;
-            return result.bytes ? int(result.bytes) : result.eof ? AVERROR_EOF : AVERROR(EIO);
+            return result.bytes ? std::int32_t(result.bytes) : result.eof ? AVERROR_EOF : AVERROR(EIO);
         }
         catch (...)
         {
             return AVERROR(EIO);
         }
     }
-    static int64_t seek(void* opaque, int64_t offset, int whence)
+    static std::int64_t seek(void* opaque, std::int64_t offset, std::int32_t whence)
     {
         auto& source = *static_cast<State*>(opaque);
-        const auto limit = uint64_t(std::numeric_limits<int64_t>::max());
+        const auto limit = std::uint64_t(std::numeric_limits<std::int64_t>::max());
         if (source.length > limit || source.position > source.length ||
             source.start > limit - source.length)
             return AVERROR(EINVAL);
         if (whence & AVSEEK_SIZE)
-            return int64_t(source.length);
+            return std::int64_t(source.length);
         whence &= ~AVSEEK_FORCE;
-        const int64_t base = whence == SEEK_SET   ? 0
-                             : whence == SEEK_CUR ? int64_t(source.position)
-                             : whence == SEEK_END ? int64_t(source.length)
+        const std::int64_t base = whence == SEEK_SET   ? 0
+                             : whence == SEEK_CUR ? std::int64_t(source.position)
+                             : whence == SEEK_END ? std::int64_t(source.length)
                                                   : -1;
-        if (base < 0 || offset < -base || offset > int64_t(source.length) - base)
+        if (base < 0 || offset < -base || offset > std::int64_t(source.length) - base)
             return AVERROR(EINVAL);
-        const uint64_t target = base + offset;
+        const std::uint64_t target = base + offset;
         try
         {
             if (!source.file ||
-                source.file->seek(int64_t(source.start + target), wiz8::SeekOrigin::begin) !=
-                    int64_t(source.start + target))
+                source.file->seek(std::int64_t(source.start + target), wiz8::SeekOrigin::begin) !=
+                    std::int64_t(source.start + target))
                 return AVERROR(EIO);
             source.position = target;
-            return int64_t(target);
+            return std::int64_t(target);
         }
         catch (...)
         {
             return AVERROR(EIO);
         }
     }
-    AVCodecContext* codec(int index)
+    AVCodecContext* codec(std::int32_t index)
     {
         auto parameters = format->streams[index]->codecpar;
         auto decoder = avcodec_find_decoder(parameters->codec_id);
@@ -178,10 +178,10 @@ struct W8NativeVideo::State
         if (!file)
             throw std::runtime_error("Cannot open movie stream");
         start = file->tell();
-        const auto size = uint64_t(file->size());
+        const auto size = std::uint64_t(file->size());
         if (start > size || length > size - start)
             throw std::runtime_error("Movie stream exceeds its file");
-        auto buffer = static_cast<unsigned char*>(av_malloc(32768));
+        auto buffer = static_cast<std::uint8_t*>(av_malloc(32768));
         if (!buffer)
             throw std::bad_alloc();
         io = avio_alloc_context(buffer, 32768, 0, this, read, nullptr, seek);
@@ -228,12 +228,12 @@ struct W8NativeVideo::State
     }
     void audio_frame(const AVFrame* frame)
     {
-        int capacity = swr_get_out_samples(resample, frame ? frame->nb_samples : 0);
+        std::int32_t capacity = swr_get_out_samples(resample, frame ? frame->nb_samples : 0);
         check(capacity, "Movie audio capacity");
         std::vector<float> samples(size_t(capacity) * 2);
-        uint8_t* output = reinterpret_cast<uint8_t*>(samples.data());
-        int count = swr_convert(resample, &output, capacity,
-                                frame ? const_cast<const uint8_t**>(frame->extended_data) : nullptr,
+        std::uint8_t* output = reinterpret_cast<std::uint8_t*>(samples.data());
+        std::int32_t count = swr_convert(resample, &output, capacity,
+                                frame ? const_cast<const std::uint8_t**>(frame->extended_data) : nullptr,
                                 frame ? frame->nb_samples : 0);
         check(count, "Movie audio conversion");
         if (voice && count)
@@ -255,9 +255,9 @@ struct W8NativeVideo::State
                                  SWS_BILINEAR | SWS_BITEXACT, nullptr, nullptr, nullptr);
         if (!scale)
             throw std::runtime_error("Cannot create movie RGB555 converter");
-        uint8_t* output[] = {reinterpret_cast<uint8_t*>(frame.pixels.data()), nullptr, nullptr,
+        std::uint8_t* output[] = {reinterpret_cast<std::uint8_t*>(frame.pixels.data()), nullptr, nullptr,
                              nullptr};
-        int pitch[] = {frame.width * 2, 0, 0, 0};
+        std::int32_t pitch[] = {frame.width * 2, 0, 0, 0};
         check(sws_scale(scale, decoded->data, decoded->linesize, 0, frame.height, output, pitch),
               "Movie pixel conversion");
         last_video_time = frame.time;
@@ -270,7 +270,7 @@ struct W8NativeVideo::State
         check(avcodec_send_packet(context, input), "Movie packet");
         while (true)
         {
-            int result = avcodec_receive_frame(context, decoded);
+            std::int32_t result = avcodec_receive_frame(context, decoded);
             if (result == AVERROR(EAGAIN) || result == AVERROR_EOF)
                 break;
             check(result, "Movie decoding");
@@ -285,7 +285,7 @@ struct W8NativeVideo::State
     {
         while (!eof && (queued.empty() || last_video_time < until))
         {
-            int result = av_read_frame(format, packet);
+            std::int32_t result = av_read_frame(format, packet);
             if (result == AVERROR_EOF)
             {
                 decode(video, nullptr);
@@ -351,18 +351,18 @@ const W8NativeVideo::Frame& W8NativeVideo::frame() const
 {
     return state->current;
 }
-unsigned W8NativeVideo::decoded_frames() const
+std::uint32_t W8NativeVideo::decoded_frames() const
 {
     return state->video_frames;
 }
-uint64_t W8NativeVideo::decoded_audio_frames() const
+std::uint64_t W8NativeVideo::decoded_audio_frames() const
 {
     return state->audio_frames;
 }
 
 W8NativeVideo::Result W8NativeVideo::update_now()
 {
-    const uint64_t now = w8_clock_us();
+    const std::uint64_t now = w8_clock_us();
     if (!state->started)
         state->began = now;
     return update((now - state->began) / 1e6);
@@ -383,9 +383,9 @@ void W8NativeVideo::present(SDL_Surface* target)
     }
     if (!description.pixels)
         throw std::runtime_error("Movie presentation surface has no pixels");
-    for (int y = 0; y < description.h; ++y)
+    for (std::int32_t y = 0; y < description.h; ++y)
         state->presentation_surface->setPixelRowRaw(
-            static_cast<unsigned char*>(description.pixels) + y * description.pitch, y, 0,
+            static_cast<std::uint8_t*>(description.pixels) + y * description.pitch, y, 0,
             description.w);
     // stSurface2D uploads from its source surface, not updateRectangle's ABI
     // pixel argument.

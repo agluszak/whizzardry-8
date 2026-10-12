@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <vector>
@@ -49,28 +50,28 @@ public:
     void RenderShadow(srGERD& renderer, srMeshModel::TriMesh& mesh);
 
     stTextureAnim* FindMouthTexture(); /* 0x00481080 */
-    int AddDamageStage(const char* name);
-    int AddExistingDamageStage(const char* name);
-    int FindDamageStage(const char* name);
-    unsigned char ReplaceDamageStageTexture(int stage, const char* old_name,
+    std::int32_t AddDamageStage(const char* name);
+    std::int32_t AddExistingDamageStage(const char* name);
+    std::int32_t FindDamageStage(const char* name);
+    bool ReplaceDamageStageTexture(std::int32_t stage, const char* old_name,
                                             const std::shared_ptr<srTextureIFace>& replacement);
 
 public:
-    w8_ulong overlay_scene_flag;
+    std::uint32_t overlay_scene_flag;
     glm::vec4 highlight_colour;
     /* Lazily built highlight material; RenderMeshes fills it from the
        render-state RGBA and installs it as the pass material. */
     std::shared_ptr<srMaterial> highlight_material;
-    w8_ulong render_flags;
-    w8_long mesh_index;
-    unsigned int frame_index;
-    int damage_stage;
-    std::vector<int> damage_stage_tables;
-    int highlight_pass_mode;
+    std::uint32_t render_flags;
+    std::int32_t mesh_index;
+    std::uint32_t frame_index;
+    std::int32_t damage_stage;
+    std::vector<std::int32_t> damage_stage_tables;
+    std::int32_t highlight_pass_mode;
     glm::vec3 light_scale;
     bool diffuse_scale_enabled;
     bool emissive_override_enabled;
-    unsigned char padding_1a2[2];
+    std::uint8_t padding_1a2[2];
     float diffuse_scale;
     float emissive_override;
     float frame_interpolation;
@@ -95,16 +96,16 @@ public:
     void SetModel(std::shared_ptr<srModel> model);                                /* 0x0047F3A0 */
 
     void process(const ProcessInfo& info, e_processType type) override; /* 0x00480920 */
-    unsigned short GetScaledWidth();                                    /* 0x00480EF0 */
-    unsigned short GetScaledHeight();                                   /* 0x00480F70 */
+    std::uint16_t GetScaledWidth();                                    /* 0x00480EF0 */
+    std::uint16_t GetScaledHeight();                                   /* 0x00480F70 */
     void SetGlowEnabled(bool enable);                                   /* 0x00480EB0 */
     void SetGlowColors(const glm::vec4& first, const glm::vec4& second);
 
-    unsigned char displayState() const
+    std::uint8_t displayState() const
     {
         return render_state.display_state;
     }
-    void configure2D(unsigned short width, unsigned short height)
+    void configure2D(std::uint16_t width, std::uint16_t height)
     {
         overlay_scene_flag = 0;
         render_state.render_depth = 2000;
@@ -118,12 +119,12 @@ public:
         glow_color_peak.reset();
         glow_material.reset();
     }
-    void setRenderDepth(w8_ulong depth)
+    void setRenderDepth(std::uint32_t depth)
     {
         render_state.render_depth = depth;
     }
 
-    w8_ulong overlay_scene_flag;
+    std::uint32_t overlay_scene_flag;
     W8ModelInstance2DRenderState render_state;
     std::optional<glm::vec4> glow_color_base;
     std::optional<glm::vec4> glow_color_peak;

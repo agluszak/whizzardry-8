@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <ostream>
 
 /* SurRender's diagnostic-console stream. The constructor creates a window-backed stream buffer and
@@ -8,6 +9,6 @@
 // class srWindowOut
 class srWindowOut : public std::ostream {
 public:
-    srWindowOut(w8_ulong handle, const char* title, w8_long width, w8_ulong height);
+    srWindowOut(std::uint32_t handle, const char* title, std::int32_t width, std::uint32_t height);
     virtual ~srWindowOut();
 };

@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "glm/ext/vector_int3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include <catch2/catch_test_macros.hpp>
@@ -42,11 +43,11 @@ static bool defaults()
     REQUIRE(mesh->bounds_maximum == glm::vec3(0, 0, 0));
     REQUIRE(mesh->bounds_center == glm::vec3(0, 0, 0));
     REQUIRE((mesh->bounds_radius == 0 && mesh->sort_bias == 0));
-    for (int pass = 0; pass < srMeshModel::MAX_PASSES; ++pass) {
+    for (std::int32_t pass = 0; pass < srMeshModel::MAX_PASSES; ++pass) {
         REQUIRE((mesh->dig[pass] == nullptr && mesh->dcg[pass] == nullptr && mesh->scg[pass] == nullptr));
         REQUIRE((mesh->poly_uv[pass] == nullptr && mesh->poly_shaders[pass] == nullptr));
         REQUIRE(mesh->shaders[pass].value == srShader().value);
-        for (int side = 0; side < 2; ++side) {
+        for (std::int32_t side = 0; side < 2; ++side) {
             REQUIRE((mesh->texcoords[pass][side] == nullptr && mesh->materials[pass][side] == nullptr));
             REQUIRE(mesh->textures[pass][side] == nullptr);
             REQUIRE(mesh->vertex_materials[pass][side] == nullptr);
@@ -84,11 +85,11 @@ static bool lazyTables()
     srMeshModel mesh(2, 3);
     REQUIRE((mesh.poly_vertices.empty() && mesh.vertex_locations.empty() && mesh.vertex_normals.empty()));
     REQUIRE((mesh.poly_equations.empty() && mesh.active_polygons.empty()));
-    for (int pass = 0; pass < srMeshModel::MAX_PASSES; ++pass) {
+    for (std::int32_t pass = 0; pass < srMeshModel::MAX_PASSES; ++pass) {
         REQUIRE((mesh.getPolyShader(pass, 0) == nullptr && mesh.getPolyUVIndex(pass, 0) == nullptr));
         REQUIRE((mesh.getVertexDIG(pass, 0) == nullptr && mesh.getVertexDCG(pass, 0) == nullptr));
         REQUIRE(mesh.getVertexSCG(pass, 0) == nullptr);
-        for (int side = 0; side < 2; ++side) {
+        for (std::int32_t side = 0; side < 2; ++side) {
             REQUIRE(mesh.getPolyTexture(pass, side, 0) == nullptr);
             REQUIRE(mesh.getVertexMaterial(pass, static_cast<srMeshModel::e_side>(side), 0) == nullptr);
             REQUIRE(mesh.getVertexTexCoords(pass, side, 0) == nullptr);
@@ -115,7 +116,7 @@ static bool lazyTables()
     REQUIRE(mesh.getTriMesh().active_polygons->size() == 1);
     auto* dig = mesh.getVertexDIG(0, 1);
     REQUIRE(mesh.getTriMesh().dig[0] == dig);
-    for (int index = 0; index < 3; ++index) {
+    for (std::int32_t index = 0; index < 3; ++index) {
         REQUIRE(dig[index] == glm::vec3(0, 0, 0));
         const auto& dcg = mesh.getVertexDCG(0, 1)[index];
         const auto& scg = mesh.getVertexSCG(0, 1)[index];
@@ -142,14 +143,14 @@ static bool uvGrowth()
     mesh.setUVCount(12);
     uv = mesh.getVertexTexCoords(1, 1, 0);
     REQUIRE((mesh.texcoords[1][1].size() == 12 && uv[0].x == 0.25f && uv[0].y == 0.75f));
-    for (int index = 3; index < 12; ++index) REQUIRE((uv[index].x == 0 && uv[index].y == 0));
+    for (std::int32_t index = 3; index < 12; ++index) REQUIRE((uv[index].x == 0 && uv[index].y == 0));
     REQUIRE(mesh.getTriMesh().texcoords[1][1] == uv);
     REQUIRE(mesh.getVertexTexCoords(0, 0, 0) == nullptr);
     mesh.setUVCount(1);
     REQUIRE((mesh.getUVCount() == 3 && mesh.texcoords[1][1].size() == 3));
     mesh.setUVCount(6);
     uv = mesh.getVertexTexCoords(1, 1, 0);
-    for (int index = 3; index < 6; ++index) REQUIRE((uv[index].x == 0 && uv[index].y == 0));
+    for (std::int32_t index = 3; index < 6; ++index) REQUIRE((uv[index].x == 0 && uv[index].y == 0));
 
     // A cleared table may still have allocation capacity; it is nevertheless absent/null.
     srMeshModel no_vertices;
@@ -214,7 +215,7 @@ static bool pipelineSlots()
     srShader shader;
     auto submitted = mesh.getTriMesh();
     submitted.poly_shaders[0] = &shader;
-    for (unsigned slot = 0; slot < 96; ++slot) {
+    for (std::uint32_t slot = 0; slot < 96; ++slot) {
         REQUIRE(pipeline->current_record == &pipeline->records[slot]);
         REQUIRE(pipeline->current_pass == &pipeline->passes[slot]);
         REQUIRE((pipeline->current_record->flags == 0 &&
@@ -223,7 +224,7 @@ static bool pipelineSlots()
               pipeline->current_record->alpha_source == nullptr));
         REQUIRE(pipeline->current_pass->poly_uv == nullptr);
         pipeline->AppendMeshPass(submitted, 0, srMeshModel::SIDE_FRONT, srShader());
-        for (unsigned previous = 0; previous <= slot; ++previous) {
+        for (std::uint32_t previous = 0; previous <= slot; ++previous) {
             REQUIRE(pipeline->records[previous].st_source[0] == uv);
             REQUIRE(pipeline->passes[previous].poly_uv == indices);
             REQUIRE(pipeline->passes[previous].texture_tables[0] == textures);
@@ -249,8 +250,8 @@ static bool pipelineSlots()
     REQUIRE(pipeline->passes[1].shader.value == override_shader.value);
 
     // Sphere bounds take precedence when both automatic bounds are enabled.
-    for (unsigned box = 0; box < 2; ++box) {
-        for (unsigned sphere = 0; sphere < 2; ++sphere) {
+    for (std::uint32_t box = 0; box < 2; ++box) {
+        for (std::uint32_t sphere = 0; sphere < 2; ++sphere) {
             pipeline->Reset(&renderer);
             submitted.control_flags =
                 (box ? 0 : 1u << srMeshModel::CONTROL_SKIP_AUTO_BOX) |

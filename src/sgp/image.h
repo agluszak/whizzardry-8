@@ -32,9 +32,9 @@ private:
 
 SDL_Surface& GetFrameBufferSurface();
 // Surfaces in g_sgp_pixel_format without blending.
-SDLSurfaceOwner CreateFrameSurface(int width, int height);
+SDLSurfaceOwner CreateFrameSurface(std::int32_t width, std::int32_t height);
 SDLSurfaceOwner ConvertBitmapToFrameSurface(const SDL_Surface& bitmap);
-void BlitImage(SDL_Surface& destination, int x, int y, SDL_Surface& source,
+void BlitImage(SDL_Surface& destination, std::int32_t x, std::int32_t y, SDL_Surface& source,
                const SDL_Rect* source_rect = nullptr, ImageBlit options = {});
 void PixelateRect(SDL_Surface& surface, const SDL_Rect& area,
                   std::span<const std::uint8_t, 64> pattern, std::uint16_t color);

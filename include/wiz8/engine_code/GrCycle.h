@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <optional>
 #include "surrender/srBoundingBox.h"
 #include <string_view>
@@ -54,8 +55,8 @@ public:
         bool quadratic_falloff : 1;
         bool fade_out : 1;
         bool fade_in : 1;
-        unsigned char reserved : 2;
-        unsigned char reserved_bytes[3];
+        std::uint8_t reserved : 2;
+        std::uint8_t reserved_bytes[3];
     };
 
     W8CameraShakeEffect(float duration, bool preset, float intensity, float distance_cap,
@@ -63,7 +64,7 @@ public:
     W8CameraShakeEffect(const W8CameraShakeEffect& other);  /* 0x004AE000 */
     /* Per-frame evaluation: answers whether the effect is still active and
        reports how much it contributes this frame. */
-    unsigned char Evaluate(const srVector3T<float>* position, float* out_amount);
+    bool Evaluate(const srVector3T<float>* position, float* out_amount);
 
     Flags flags;                /* 0x00: runtime effect and list state */
     float intensity;            /* 0x04 */
@@ -71,9 +72,9 @@ public:
     srVector3T<float> position; /* 0x0c */
     W8GameTimer timer;          /* 0x18 */
     /* The key 0x004AE170 matches an animation event against. */
-    int cycle;                         /* 0x3c */
-    int frame;                         /* 0x40 */
-    int subcycle;                      /* 0x44 */
+    std::int32_t cycle;                         /* 0x3c */
+    std::int32_t frame;                         /* 0x40 */
+    std::int32_t subcycle;                      /* 0x44 */
     void (*completion_callback)(void); /* 0x48 */
 };
 
@@ -87,8 +88,8 @@ W8CameraShakeEffect* CreateCameraShakeEffect(float duration, bool preset, float 
                                              float distance_cap, const srVector3T<float>* position);
 /* Fire every effect in one cycle's vector whose key matches, moving it onto the
    live list and restarting its timer. */
-void TriggerShakeEffects(std::vector<W8CameraShakeEffect*>* effects, int cycle, unsigned int frame,
-                         int subcycle, const srVector3T<float>* position);
+void TriggerShakeEffects(std::vector<W8CameraShakeEffect*>* effects, std::int32_t cycle, std::uint32_t frame,
+                         std::int32_t subcycle, const srVector3T<float>* position);
 /* Take every active effect in one cycle's vector back off the live list, and
    release the ones that list owned. */
 void StopShakeEffects(std::vector<W8CameraShakeEffect*>* effects);
@@ -101,11 +102,11 @@ void UpdateShakeEffects();
    0x00498180, a vector at +0x0c, and the 0x24-byte tail wholesale. */
 class W8GrCycleParticleAttachment {
 public:
-    void SelectCycle(signed char selected_cycle);
+    void SelectCycle(std::int8_t selected_cycle);
 
-    int cycle;
-    signed char subcycle;
-    unsigned char padding_05[3];
+    std::int32_t cycle;
+    std::int8_t subcycle;
+    std::uint8_t padding_05[3];
     stParticle* m_pstParticles;
     srVector3T<float> position;
     /* 0x004A7E50 composes this into the model instance's own rotation with
@@ -120,16 +121,16 @@ public:
     W8GrCycle(const W8GrCycle& other); /* 0x004A5F20 */
     virtual ~W8GrCycle() override;
     // FUNCTION: WIZ8 0x004a7140
-    virtual unsigned char CanEnterCycle(signed char)
+    virtual bool CanEnterCycle(std::int8_t)
     {
-        return 1;
+        return true;
     }
     virtual void TickAnimation(float scale);           /* 0x004A6E20 */
-    virtual unsigned char ApplyPendingCycle();         /* 0x004A6FC0 */
+    virtual bool ApplyPendingCycle();         /* 0x004A6FC0 */
     virtual void UpdateRepresentation(W8World* world); /* 0x004A7470 */
-    virtual signed char GetNumSubCycles() = 0;
-    virtual bool IsCycleSupported(signed char cycle) = 0;
-    virtual signed char GetTotalAnimationCount() = 0;
+    virtual std::int8_t GetNumSubCycles() = 0;
+    virtual bool IsCycleSupported(std::int8_t cycle) = 0;
+    virtual std::int8_t GetTotalAnimationCount() = 0;
     virtual float GetCurrentAnimationScale() = 0;
     /* The concrete cycle owns the representation placed in GrObject::m_pRep.
        This typed view supplies animation, particles, lights, and model state;
@@ -140,14 +141,14 @@ public:
     const char* GetRegisteredName() const;     /* 0x004A8650 */
     bool IsSoleRegisteredCycleForName() const; /* 0x004A8700 */
     virtual std::optional<srBoundingBox> GetAnimationBounds();
-    virtual unsigned char GetAnimationRadius(float* radius);
-    virtual void SetCycle(signed char cycle) = 0;
+    virtual std::uint8_t GetAnimationRadius(float* radius);
+    virtual void SetCycle(std::int8_t cycle) = 0;
     virtual W8AnimObj* GetCurrentAnimation() = 0;
-    virtual void AdvanceAnimationFrame(int value, int flags);
+    virtual void AdvanceAnimationFrame(std::int32_t value, std::int32_t flags);
     virtual W8AniMesh* GetCurrentAniMesh() = 0;
 
-    void SetSubCycle(unsigned char subcycle);
-    void SetBehaviour(signed char bBehaviour);
+    void SetSubCycle(std::uint8_t subcycle);
+    void SetBehaviour(std::int8_t bBehaviour);
     void SetLights(std::vector<stLight*>* lights);
     void DetachCycleLights(std::vector<stLight*>* lights);
     void AttachCycleLights(std::vector<stLight*>* lights);
@@ -161,9 +162,9 @@ public:
     void UpdateParticleAttachments();
     void SelectLOD(const srVector3T<float>* position); /* 0x004A7BE0 */
     void UpdateLights();
-    srModelInstance* SelectCycleFrameLod(signed char cycle, signed char frame, signed char lod);
+    srModelInstance* SelectCycleFrameLod(std::int8_t cycle, std::int8_t frame, std::int8_t lod);
     srModelInstance* GetCurrentModelInstance();
-    unsigned char ReplacePath(W8PathAI* path);
+    bool ReplacePath(W8PathAI* path);
     void SubmitTargetValue();
 
 public:
@@ -172,8 +173,8 @@ public:
     std::vector<W8CameraShakeEffect*>* m_plsShakeEvents; /* 0x1b0 */
     bool m_fDeleteLights;                             /* 0x1b4: named by GrCycle.cpp:1656 */
     /* 0x1b5: the subcycle the last update pass left on the representation. */
-    unsigned char last_subcycle;
-    unsigned char padding_1b6[2];
+    std::uint8_t last_subcycle;
+    std::uint8_t padding_1b6[2];
     std::vector<W8GrCycleParticleAttachment*>* m_plsParticles; /* 0x1b8 */
     /* 0x1bc: set when the frame walk wrapped to first_frame; suppresses the
        per-subcycle light reset. */
@@ -199,11 +200,11 @@ public:
 extern const float g_float_one_thousandth;
 
 W8GrCycle* FindFirstGrCycleByName(std::string_view name);
-unsigned char UnregisterGrCycle(W8GrCycle* cycle);
+bool UnregisterGrCycle(W8GrCycle* cycle);
 void RegisterGrCycle(const char* name, W8GrCycle* cycle);
 bool LoadGrCycle(const W8GrCycleLoadContext* context, const char* mon_name, W8GrCycle** cycle,
-                 int cycle_index, int value, const char* directory, unsigned char object_type,
+                 std::int32_t cycle_index, std::int32_t value, const char* directory, std::uint8_t object_type,
                  const char* bitmap_directory = 0);
-unsigned char ReadGrCycleData(W8ReadLevelInfo* info, W8GrCycle** cycle, int cycle_index, int value,
-                              unsigned char object_type);
-int FindMappedIndexInMeshChain(stMeshModel** mesh, int key); /* 0x004A8D10 */
+std::uint8_t ReadGrCycleData(W8ReadLevelInfo* info, W8GrCycle** cycle, std::int32_t cycle_index, std::int32_t value,
+                              std::uint8_t object_type);
+std::int32_t FindMappedIndexInMeshChain(stMeshModel** mesh, std::int32_t key); /* 0x004A8D10 */

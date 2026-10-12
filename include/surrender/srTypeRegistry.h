@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <iosfwd>
 #include <memory>
 #include <mutex>
@@ -20,7 +21,7 @@ class srRegistry {
 public:
     struct ClassNode {
         ClassNode* parent;
-        w8_ulong class_id;
+        std::uint32_t class_id;
         std::string class_name;
         std::vector<ClassNode*> children;
     };
@@ -29,16 +30,16 @@ public:
     srRegistry(const srRegistry&) = delete;
     srRegistry& operator=(const srRegistry&) = delete;
 
-    ClassNode* getClassNode(w8_ulong class_id);
-    w8_ulong getClassID(ClassNode* node);
+    ClassNode* getClassNode(std::uint32_t class_id);
+    std::uint32_t getClassID(ClassNode* node);
     const char* getClassName(ClassNode* node);
     ClassNode* getRootNode();
-    int isDerivedOrSame(ClassNode* base, ClassNode* derived);
-    ClassNode* registerClass(const char* class_name, ClassNode* parent, w8_ulong class_id);
+    bool isDerivedOrSame(ClassNode* base, ClassNode* derived);
+    ClassNode* registerClass(const char* class_name, ClassNode* parent, std::uint32_t class_id);
 
 private:
     ClassNode root{nullptr, 0, "root", {}};
-    std::unordered_map<w8_ulong, std::unique_ptr<ClassNode>> classes;
+    std::unordered_map<std::uint32_t, std::unique_ptr<ClassNode>> classes;
     std::recursive_mutex mutex;
 };
 
@@ -49,7 +50,7 @@ public:
     enum e_verify { VERIFY_DEFAULT = 0 };
 
     virtual SR_DLL_IMPORT const char* getClassName() const;
-    virtual SR_DLL_IMPORT w8_ulong getClassID() const;
+    virtual SR_DLL_IMPORT std::uint32_t getClassID() const;
     virtual SR_DLL_IMPORT srRegistry::ClassNode* getClassNode() const;
     virtual SR_DLL_IMPORT void dump(std::ostream& stream);
     virtual SR_DLL_IMPORT void verify(e_verify mode);
@@ -58,8 +59,8 @@ public:
 
     SR_DLL_IMPORT void setName(std::string name);
     SR_DLL_IMPORT const std::string& getName() const;
-    SR_DLL_IMPORT int isNamed() const;
-    SR_DLL_IMPORT int matchClassID(w8_ulong class_id) const;
+    SR_DLL_IMPORT bool isNamed() const;
+    SR_DLL_IMPORT bool matchClassID(std::uint32_t class_id) const;
 
     virtual SR_DLL_IMPORT ~srRuntimeClass() = default;
 
@@ -70,7 +71,7 @@ protected:
     srRuntimeClass& operator=(const srRuntimeClass&) { return *this; }
 
 private:
-    static SR_DLL_IMPORT w8_ulong sGetClassID();
+    static SR_DLL_IMPORT std::uint32_t sGetClassID();
 
     std::string name;
 };
@@ -98,7 +99,7 @@ protected:
 };
 
 /* Supplies format identity and cloning for a concrete scene/data type. */
-template <class Derived, class Base, w8_ulong ClassID>
+template <class Derived, class Base, std::uint32_t ClassID>
 class srClassSupport : public Base {
 public:
     typedef Derived RegistryClass;
@@ -120,7 +121,7 @@ public:
         return Derived::sGetClassName();
     }
 
-    virtual w8_ulong getClassID() const override
+    virtual std::uint32_t getClassID() const override
     {
         return ClassID;
     }

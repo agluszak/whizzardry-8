@@ -190,7 +190,7 @@ struct StagingDirectory
     explicit StagingDirectory(const fs::path& parent)
     {
         std::random_device random;
-        for (unsigned attempt = 0; attempt < 100; ++attempt)
+        for (std::uint32_t attempt = 0; attempt < 100; ++attempt)
         {
             auto candidate = parent / (".wiz8-copy-" + std::to_string(random()));
             if (fs::create_directory(candidate))

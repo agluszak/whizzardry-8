@@ -24,26 +24,26 @@ wiz8::sound::Playback g_music_sample_handle = nullptr;
 // GLOBAL: WIZ8 0x0065BA74
 static stScript* g_music_playlist;
 // GLOBAL: WIZ8 0x0065BA78
-static uint64_t g_music_playlist_tick;
+static std::uint64_t g_music_playlist_tick;
 // GLOBAL: WIZ8 0x0065BA7E
 bool g_music_playlist_active;
 // GLOBAL: WIZ8 0x0065BA80
-int g_music_playlist_weight_total;
+std::int32_t g_music_playlist_weight_total;
 // GLOBAL: WIZ8 0x0065BA84
-int g_music_playlist_track_count;
+std::int32_t g_music_playlist_track_count;
 // GLOBAL: WIZ8 0x0060AAE4
-static unsigned char g_music_fade = 1;
+static std::uint8_t g_music_fade = 1;
 // GLOBAL: WIZ8 0x0060AAE5
 static bool g_music_force_next = true;
 // GLOBAL: WIZ8 0x0060AAE8
-int g_music_pause_min_seconds = 20;
+std::int32_t g_music_pause_min_seconds = 20;
 // GLOBAL: WIZ8 0x0060AAEC
-int g_music_pause_max_seconds = 60;
+std::int32_t g_music_pause_max_seconds = 60;
 // GLOBAL: WIZ8 0x0060AAF0
-int g_music_pause_chance_percent = 30;
+std::int32_t g_music_pause_chance_percent = 30;
 
 // FUNCTION: WIZ8 0x0048fe50
-void SetMusicVolume(unsigned char volume)
+void SetMusicVolume(std::uint8_t volume)
 {
     g_settings.music_volume = volume;
     if (g_music_sample_handle != nullptr) {
@@ -58,7 +58,7 @@ bool IsMusicMuted(void)
 }
 
 // FUNCTION: WIZ8 0x0048fe90
-void SetMusicMuted(unsigned char muted)
+void SetMusicMuted(bool muted)
 {
     if (muted != 0) {
         if (g_settings.muted_music_volume == 0xff) {
@@ -78,7 +78,7 @@ bool IsCurrentMusicPlaylist(const char* playlist)
 }
 
 // FUNCTION: WIZ8 0x0048f940
-unsigned char InitializeMusicPlaylist(void)
+bool InitializeMusicPlaylist(void)
 {
     g_music_playlist = new stScript();
     if (g_music_playlist) {
@@ -94,9 +94,9 @@ unsigned char InitializeMusicPlaylist(void)
 /* Count playable rows, load the pause directives, and retain a nonzero weight
    total only when every playable row carries a parenthesized weight. */
 // FUNCTION: WIZ8 0x0048FF50
-int AnalyzeMusicPlaylist(stScript* playlist, int* total_weight)
+std::int32_t AnalyzeMusicPlaylist(stScript* playlist, std::int32_t* total_weight)
 {
-    int playable_count = 0;
+    std::int32_t playable_count = 0;
     bool found_unweighted = false;
 
     *total_weight = 0;
@@ -131,7 +131,7 @@ int AnalyzeMusicPlaylist(stScript* playlist, int* total_weight)
 // FUNCTION: WIZ8 0x0048F9E0
 void ServiceMusicPlaylist(void)
 {
-    int failures = 0;
+    std::int32_t failures = 0;
 
     if (!g_music_playlist_active) {
         return;
@@ -144,7 +144,7 @@ void ServiceMusicPlaylist(void)
     }
 
     if (!g_music_force_next && !gXStatus.fCombatMode &&
-        Random(100) <= static_cast<unsigned int>(g_music_pause_chance_percent)) {
+        Random(100) <= static_cast<std::uint32_t>(g_music_pause_chance_percent)) {
         g_music_playlist_tick =
             w8_get_ticks() + g_music_pause_min_seconds * 1000 +
             Random(g_music_pause_max_seconds * 1000 - g_music_pause_min_seconds * 1000);
@@ -152,14 +152,14 @@ void ServiceMusicPlaylist(void)
     }
 
     for (;;) {
-        int selected = -1;
+        std::int32_t selected = -1;
 
         if (g_music_playlist_weight_total == 0) {
             selected = Random(g_music_playlist_track_count);
         } else {
-            unsigned int target = Random(g_music_playlist_weight_total);
-            unsigned int accumulated = 0;
-            for (int index = 0; index < static_cast<int>(g_music_playlist->lines.size()); ++index) {
+            std::uint32_t target = Random(g_music_playlist_weight_total);
+            std::uint32_t accumulated = 0;
+            for (std::int32_t index = 0; index < static_cast<std::int32_t>(g_music_playlist->lines.size()); ++index) {
                 const char* line = g_music_playlist->lines[index].text.c_str();
                 if (line[0] == '#') {
                     continue;
@@ -191,12 +191,12 @@ void ServiceMusicPlaylist(void)
 }
 
 // FUNCTION: WIZ8 0x0048FC10
-unsigned char StartMusicResource(const char* resource, int fade, unsigned char replace_current)
+bool StartMusicResource(const char* resource, std::int32_t fade, bool replace_current)
 {
     std::string path;
 
     if (resource == 0) {
-        return 0;
+        return false;
     }
     if (g_dev_mode) {
         RequestExitScreen();
@@ -204,7 +204,7 @@ unsigned char StartMusicResource(const char* resource, int fade, unsigned char r
 
     path = fmt::format("Data\\Music\\{}", resource);
     _strupr(path.data());
-    g_music_fade = static_cast<unsigned char>(fade);
+    g_music_fade = static_cast<std::uint8_t>(fade);
 
     if (strstr(path.c_str(), ".MPL") == 0) {
         if (!g_music_playlist_active) {
@@ -216,17 +216,17 @@ unsigned char StartMusicResource(const char* resource, int fade, unsigned char r
                                                  .group = wiz8::sound::Group::music,
                                                  .fade_in_ms = crossfade ? 5000u : 0u});
         if (handle == nullptr) {
-            return 0;
+            return false;
         }
         if (g_music_sample_handle != nullptr) {
             wiz8::sound::stop(g_music_sample_handle, crossfade ? 2000u : 0u);
         }
         g_music_sample_handle = handle;
-        return 1;
+        return true;
     }
 
     if (_stricmp(resource, g_music_playlist->getName().c_str()) == 0) {
-        return 1;
+        return true;
     }
 
     g_music_playlist_tick = w8_get_ticks() - 1;
@@ -237,7 +237,7 @@ unsigned char StartMusicResource(const char* resource, int fade, unsigned char r
     g_music_playlist->Load(path.c_str());
 
     if (g_music_playlist->lines.empty()) {
-        return 0;
+        return false;
     }
     if (replace_current != 0) {
         if (g_music_sample_handle != nullptr) {
@@ -257,7 +257,7 @@ unsigned char StartMusicResource(const char* resource, int fade, unsigned char r
         g_music_playlist_active = true;
         g_music_force_next = true;
     }
-    return 1;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x0048FF00

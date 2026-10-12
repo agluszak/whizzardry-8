@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <iosfwd>
 #include <memory>
 
@@ -11,7 +12,7 @@
 
 namespace wiz8 { class File; }
 
-std::unique_ptr<srColorSurface> __stdcall LoadSurface(wiz8::File* handle, w8_long*);
+std::unique_ptr<srColorSurface> __stdcall LoadSurface(wiz8::File* handle, std::int32_t*);
 
 /* Wizardry's virtual-file-backed texture, parallel to SR.DLL's srTextureFile
    (id 0x2112). It overrides the same texture-interface methods SR does;
@@ -25,7 +26,7 @@ public:
         return "stTextureFile";
     }
 
-    stTextureFile(const char* file_name, int cached); /* 0x0047C630 */
+    stTextureFile(const char* file_name, std::int32_t cached); /* 0x0047C630 */
     stTextureFile& operator=(const stTextureFile& other);
 
     const char* getFileName() const
@@ -33,11 +34,11 @@ public:
         return file_name;
     }
     void setFileName(const char* file_name); /* 0x0047C830 */
-    void setCached(int cached)
+    void setCached(std::int32_t cached)
     {
         this->cached = cached;
     }
-    int isSurfaceLoaded() const
+    bool isSurfaceLoaded() const
     {
         return surface != 0;
     }
@@ -45,7 +46,7 @@ public:
     {
         return surface.get();
     }
-    unsigned char hasAlpha() const
+    std::uint8_t hasAlpha() const
     {
         return has_alpha;
     }
@@ -56,7 +57,7 @@ public:
     void releaseSurface(); /* 0x0047BBD0 */
 
     virtual void dump(std::ostream& stream) override;
-    virtual w8_ulong getTextureFrameHandle() override;     /* 0x0047C5F0 */
+    virtual std::uint32_t getTextureFrameHandle() override;     /* 0x0047C5F0 */
     virtual void getMipmapData(const MultiRequest& request) override; /* 0x0047CA50 */
     virtual void getMipmapLevelPartial(PartialRequest& request) override;
     virtual void invalidate() override; /* 0x0047C8B0 */
@@ -71,9 +72,9 @@ private:
         DEFAULTS_PENDING = 1UL << FLAG_DIRTY_DEFAULTS
     };
 
-    int cached;
+    std::int32_t cached;
     char* file_name;
     std::unique_ptr<srColorSurface> surface;
-    w8_ulong frame_handle;
+    std::uint32_t frame_handle;
     bool has_alpha;
 };

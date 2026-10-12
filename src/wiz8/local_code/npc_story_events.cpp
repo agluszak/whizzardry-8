@@ -61,18 +61,18 @@ static void NpcScriptHenchmanArrives(W8Monster* monster);
 static void NpcScriptHenchmanDeparted(W8Monster* monster);
 static void NpcScriptSavantHackDone(W8Monster* monster);
 
-static W8MonsterInfo* FindMonsterByLocation(int location_id)
+static W8MonsterInfo* FindMonsterByLocation(std::int32_t location_id)
 {
     return FindMonster(location_id);
 }
 
-static W8MonsterInfo* FindMonsterGroupLeader(int species)
+static W8MonsterInfo* FindMonsterGroupLeader(std::int32_t species)
 {
     W8MonsterGroup* group = FindFirstMonsterByID(species);
     return group == 0 ? 0 : FindMonsterByLocation(group->leader_location_id);
 }
 
-static W8MonsterInfo* FindNpcKindMonster(int npc_kind)
+static W8MonsterInfo* FindNpcKindMonster(std::int32_t npc_kind)
 {
     W8NpcState* npc = GetNpcStateByKind(npc_kind);
     return npc == 0 ? 0 : GetNpcMonsterInfo(npc);
@@ -85,7 +85,7 @@ static void RemoveMonsterNow(W8MonsterInfo* monster_info)
 
 /* Fade an active NPC monster out of the world; one that is not active is
    removed immediately. */
-static void RemoveNpcKindMonster(int npc_kind)
+static void RemoveNpcKindMonster(std::int32_t npc_kind)
 {
     W8MonsterInfo* monster_info = FindNpcKindMonster(npc_kind);
     if (monster_info == 0) {
@@ -98,14 +98,14 @@ static void RemoveNpcKindMonster(int npc_kind)
     }
 }
 
-static void FadeOutNpcKindMonster(int npc_kind)
+static void FadeOutNpcKindMonster(std::int32_t npc_kind)
 {
     if (W8MonsterInfo* monster_info = FindNpcKindMonster(npc_kind)) {
         monster_info->p3D->BeginFadeOutAndRemove(W8_MONSTER_REMOVAL_NONE);
     }
 }
 
-static void SetMonsterGroupScript(int species, const char* script)
+static void SetMonsterGroupScript(std::int32_t species, const char* script)
 {
     if (W8MonsterInfo* monster_info = FindMonsterGroupLeader(species)) {
         monster_info->p3D->SetScript(script, true);
@@ -150,7 +150,7 @@ static void NpcScriptEndgameScreen(void)
 // FUNCTION: WIZ8 0x00529BE0
 void BeginNpcScriptedScene(void)
 {
-    int party_slot;
+    std::int32_t party_slot;
 
     g_npc_dialogue.HoldForScene();
     ResetLevelDataVectors();
@@ -171,13 +171,13 @@ void BeginNpcScriptedScene(void)
    and fills the alternate-name display), and anything else falls back to
    facts 0x1c1 or 0x227. The party-member region sets reopen on the way out. */
 // FUNCTION: WIZ8 0x00529C40
-void EndScriptedPortraitPick(int party_slot)
+void EndScriptedPortraitPick(std::int32_t party_slot)
 {
     W8ItemInstance* found;
     W8Character* character;
     /* 0x00529EDC compares the slot counter as slot - 7 against 8 with a
        signed jump, so the counter is not unsigned. */
-    int slot;
+    std::int32_t slot;
     bool other_gender_present;
 
     if (!gXStatus.scripted_scene) {
@@ -265,7 +265,7 @@ void UpdateSedexusScene(void)
     if (!g_sedexus_scene.capture_pending && !g_sedexus_scene.release_pending) {
         return;
     }
-    const int environment = GetEnvironmentValue();
+    const std::int32_t environment = GetEnvironmentValue();
     if (environment != 0 && environment != 2) {
         return;
     }
@@ -275,8 +275,8 @@ void UpdateSedexusScene(void)
             wiz8::sound::stream("Data\\Sound\\Ambients\\Al_Sedexus Moaning.wav");
     } else {
         ClearMainGameTargetState();
-        int sedexus_party_slot = g_status.sedexus_party_slot;
-        for (int party_slot = 0; party_slot < 8; ++party_slot) {
+        std::int32_t sedexus_party_slot = g_status.sedexus_party_slot;
+        for (std::int32_t party_slot = 0; party_slot < 8; ++party_slot) {
             const W8PartySlotRow& row = g_status.buffers.XChar[party_slot];
             const W8Character& character = g_status.buffers.Char[party_slot];
             if (row.fOccupied &&
@@ -307,7 +307,7 @@ void UpdateSedexusScene(void)
 // FUNCTION: WIZ8 0x00529EF0
 void BeginSedexusCapture(void)
 {
-    unsigned int party_slot;
+    std::uint32_t party_slot;
 
     g_npc_dialogue.HoldForScene();
     BeginScriptedWorldAction();
@@ -318,7 +318,7 @@ void BeginSedexusCapture(void)
         if (g_status.buffers.XChar[party_slot].fOccupied &&
             (g_status.buffers.Char[party_slot].hp_current > 0 ||
              g_status.buffers.Char[party_slot].highest_condition < W8_CONDITION_DEAD) &&
-            party_slot != static_cast<unsigned int>(g_status.sedexus_party_slot)) {
+            party_slot != static_cast<std::uint32_t>(g_status.sedexus_party_slot)) {
             SetCharacterCondition(party_slot, W8_CONDITION_UNCONSCIOUS, W8_CONDITION_INDEFINITE, 0,
                                   0, 0);
         }
@@ -333,7 +333,7 @@ static void ResolveSedexusCapture(void)
 {
     W8MonsterGroup* group;
     srVector3T<float> position;
-    int location_id;
+    std::int32_t location_id;
     W8MonsterInfo* info;
 
     ReleaseNpcMonsterByKind(0x3b);
@@ -368,7 +368,7 @@ static void NpcScriptHenchmanArrives(W8Monster* monster)
     if (FindEntityByName("NP_HENCHMEN", &position, 0, 0)) {
         PointCameraAtTarget(&position, false, true);
         W8MonsterGroup* group = SpawnMonsters(0xdc, 1, &position, 2, true, false, false);
-        int location_id = group->MemberLocationId(0);
+        std::int32_t location_id = group->MemberLocationId(0);
         if (location_id != 0) {
             W8MonsterInfo* monster_info = FindMonsterByLocation(location_id);
             if (monster_info != 0) {
@@ -401,7 +401,7 @@ static void NpcScriptHenchmanDeparted(W8Monster* monster)
 // FUNCTION: WIZ8 0x0052A190
 static void NpcScriptSavantHackDone(W8Monster* monster)
 {
-    g_status.savant_hack_tick = int(uint32_t(w8_get_ticks()));
+    g_status.savant_hack_tick = std::int32_t(std::uint32_t(w8_get_ticks()));
 }
 
 void RunNpcStoryAction(W8NpcStoryAction action)
@@ -481,8 +481,8 @@ void RunNpcStoryAction(W8NpcStoryAction action)
         RemoveAletheides();
         break;
     case W8NpcStoryAction::mook_comment: {
-        unsigned int eligible = 0;
-        int party_slot;
+        std::uint32_t eligible = 0;
+        std::int32_t party_slot;
         for (party_slot = 2; party_slot < 8; ++party_slot) {
             if (g_status.buffers.XChar[party_slot].fOccupied &&
                 g_status.buffers.Char[party_slot].highest_condition < W8_CONDITION_ASLEEP) {
@@ -596,7 +596,7 @@ void RunNpcStoryAction(W8NpcStoryAction action)
         srVector3T<float> position;
         if (FindEntityByName("NP_DS1", &position, 0, 0)) {
             W8MonsterGroup* group = SpawnMonsters(0x234, 1, &position, 0, true, false, false);
-            int location_id = group->MemberLocationId(0);
+            std::int32_t location_id = group->MemberLocationId(0);
             if (location_id != 0) {
                 W8MonsterInfo* monster_info = FindMonsterByLocation(location_id);
                 MonsterForwardReferencePosition(monster_info->p3D, 0);
@@ -636,7 +636,7 @@ void RunNpcStoryAction(W8NpcStoryAction action)
             srVector3T<float> position;
             if (FindEntityByName("NP_VI1", &position, 0, 0)) {
                 W8MonsterGroup* group = SpawnMonsters(0x1b9, 1, &position, 2, true, false, false);
-                int location_id = group->MemberLocationId(0);
+                std::int32_t location_id = group->MemberLocationId(0);
                 if (location_id != 0) {
                     W8MonsterInfo* monster_info = FindMonsterByLocation(location_id);
                     if (FindEntityByName("NP_DS1", &position, 0, 0)) {

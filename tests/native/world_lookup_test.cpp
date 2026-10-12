@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <catch2/catch_test_macros.hpp>
 #include <cstdio>
 #include <cstring>
@@ -101,7 +102,7 @@ bool nodes(const std::filesystem::path& directory)
     REQUIRE((FindWorldNode<stLight>("LAYER 1") == nullptr));
     REQUIRE((FindLightByName("TORCH") == torch));
 
-    int lights = 0;
+    std::int32_t lights = 0;
     ForEachWorldNode<stLight>([&](stLight*) { ++lights; });
     REQUIRE((lights == 3));
 
@@ -161,7 +162,7 @@ TEST_CASE("world_lookup_test")
     const bool passed = triggers() && nodes(directory);
     // Empty worlds need no collection initialization and can be torn down
     // without ever loading a level or publishing them as the active world.
-    for (int iteration = 0; iteration < 3; ++iteration) {
+    for (std::int32_t iteration = 0; iteration < 3; ++iteration) {
         auto* world = CreateWorld();
         REQUIRE(world->level != nullptr);
         REQUIRE(world->dynamic_scene->getParent() == world->static_scene);

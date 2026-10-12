@@ -11,7 +11,7 @@ class W8Prop;
 class stTextureAnim;
 
 // GLOBAL: WIZ8 0x0065a154
-uint64_t g_frame_tick;
+std::uint64_t g_frame_tick;
 // GLOBAL: WIZ8 0x0065a158
 float g_frame_elapsed;
 
@@ -21,8 +21,8 @@ float g_frame_elapsed;
 // FUNCTION: WIZ8 0x00482140
 void UpdateRenderElapsedTime(void)
 {
-    uint64_t now = w8_get_ticks();
-    uint64_t elapsed = now - g_frame_tick;
+    std::uint64_t now = w8_get_ticks();
+    std::uint64_t elapsed = now - g_frame_tick;
     g_frame_tick = now;
     g_frame_elapsed = elapsed * 0.001f;
 }
@@ -48,15 +48,15 @@ float g_celestial_orbit_radius = -1.0f;
 // GLOBAL: WIZ8 0x0065AD78
 EnvironmentColour g_light_direction;
 
-static float normalized_colour(unsigned int component)
+static float normalized_colour(std::uint32_t component)
 {
     return component * (1.0f / 127.0f);
 }
 
 // FUNCTION: WIZ8 0x00482280
-unsigned char InitializeEnvironmentColours(void)
+bool InitializeEnvironmentColours(void)
 {
-    unsigned int index;
+    std::uint32_t index;
     float value;
 
     for (index = 0; index != 128; ++index) {
@@ -77,5 +77,5 @@ unsigned char InitializeEnvironmentColours(void)
     g_environment_lights.clear();
     g_view_distance = 12.0f;
     g_sky_gradient_animations[2].reset();
-    return 1;
+    return true;
 }

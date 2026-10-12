@@ -20,6 +20,7 @@ enum {
     W8_CAMERA_MOTION_HIGH_BYTE_MASK = 0xff00u
 };
 
+#include <cstdint>
 #include <array>
 #include "glm/common.hpp"
 #include "glm/ext/matrix_float3x3.hpp"
@@ -38,10 +39,10 @@ struct CameraMotion {
 
 // Apply each held key in input order, clamping after each contribution. Opposed
 // keys near a limit are not equivalent to summing the contributions first.
-inline glm::vec3 cameraMotionInput(unsigned flags, glm::vec3 input, float step,
+inline glm::vec3 cameraMotionInput(std::uint32_t flags, glm::vec3 input, float step,
                                    float limit, bool allow_up, bool allow_down)
 {
-    struct Contribution { unsigned flag; unsigned axis; float step; bool allowed; };
+    struct Contribution { std::uint32_t flag; std::uint32_t axis; float step; bool allowed; };
     const std::array contributions{
         Contribution{W8_CAMERA_MOTION_FORWARD, 2, step, true},
         Contribution{W8_CAMERA_MOTION_BACKWARD, 2, -step, true},

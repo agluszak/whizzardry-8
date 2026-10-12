@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "Font.h"
 #pragma once
 
@@ -15,15 +16,15 @@
 enum { W8_DIALOG_ATTRIBUTE_COUNT = 7 };
 
 struct W8AttributeMinimums {
-    int values[W8_DIALOG_ATTRIBUTE_COUNT];
+    std::int32_t values[W8_DIALOG_ATTRIBUTE_COUNT];
 };
 
 /* One row supplies the two string ids and the catalog image index copied into
    a profession or race information dialog. */
 struct W8ProfRaceInfoRow {
-    unsigned int name_id;
-    unsigned int detail_id;
-    unsigned int image_id;
+    std::uint32_t name_id;
+    std::uint32_t detail_id;
+    std::uint32_t image_id;
 };
 
 extern W8AttributeMinimums g_profession_attribute_minimums[];
@@ -38,28 +39,28 @@ extern W8ProfRaceInfoRow g_race_info_rows[W8_RACE_COUNT];
 class W8ProfRaceInfoDialogBase : public W8DialogBase {
 public:
     W8ProfRaceInfoDialogBase();
-    virtual int CreateControls() override;
+    virtual std::int32_t CreateControls() override;
     virtual void Draw() override;
     virtual void OnRightButtonUp() override;
-    virtual void OnMouseWheel(int delta) override;
+    virtual void OnMouseWheel(std::int32_t delta) override;
 
 protected:
     virtual bool PopulateText();
 
 private:
-    static void ScrollCallback(W8DialogScrollBar* scroll_bar, int first_visible_entry);
+    static void ScrollCallback(W8DialogScrollBar* scroll_bar, std::int32_t first_visible_entry);
     /* Renders one text line at a dialog-relative rectangle through a scratch
        W8TextBuffer. */
-    void DrawTextLine(unsigned int layout_mode, int left, int top, int width, int height,
+    void DrawTextLine(std::uint32_t layout_mode, std::int32_t left, std::int32_t top, std::int32_t width, std::int32_t height,
                       std::string_view text, Font& font);
 
 protected:
     std::optional<CatalogArtwork> m_uiArtwork;
-    unsigned int m_uiSummaryImage;
-    unsigned int m_uiNameId;    /* g_localized_strings index */
-    unsigned int m_uiHeadingId; /* g_localized_strings index */
-    unsigned int m_uiDetailId;  /* g_localized_strings index */
-    int m_minimums[W8_DIALOG_ATTRIBUTE_COUNT];
+    std::uint32_t m_uiSummaryImage;
+    std::uint32_t m_uiNameId;    /* g_localized_strings index */
+    std::uint32_t m_uiHeadingId; /* g_localized_strings index */
+    std::uint32_t m_uiDetailId;  /* g_localized_strings index */
+    std::int32_t m_minimums[W8_DIALOG_ATTRIBUTE_COUNT];
     W8DialogScrollBar m_scroll_bar;
     W8ButtonWidget m_button;
     W8DialogTextArea m_text_area;

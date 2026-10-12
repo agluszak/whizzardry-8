@@ -18,7 +18,7 @@ extern const float g_startup_near_limit = 250.0f;
 
 /* Original translation-unit ownership of startup navigation and its globals is unknown. */
 // FUNCTION: WIZ8 0x0044f060
-unsigned char InitializeStartupNavigation(void)
+bool InitializeStartupNavigation(void)
 {
     W8Navigator* navigator;
 
@@ -37,7 +37,7 @@ unsigned char InitializeStartupNavigation(void)
                                          ? g_startup_near_limit
                                          : g_default_world_height,
                                      g_default_world_height);
-    return 1;
+    return true;
 }
 /* Tears down the startup navigation state InitializeStartupNavigation
    built: the ani-mesh cache, render quality, environment globals, and the

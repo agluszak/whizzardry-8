@@ -18,14 +18,14 @@ struct TEXTINPUTNODE;
 
 extern bool g_dev_mode;
 
-inline constexpr int REGION_PRIORITY_BACKGROUND = -1;
-inline constexpr int REGION_PRIORITY_LOWEST = 0;
-inline constexpr int REGION_PRIORITY_LOW = 15;
-inline constexpr int REGION_PRIORITY_BASE = 31;
-inline constexpr int REGION_PRIORITY_NORMAL = REGION_PRIORITY_BASE;
-inline constexpr int REGION_PRIORITY_HIGH = 63;
-inline constexpr int REGION_PRIORITY_HIGHEST = 127;
-inline constexpr int REGION_PRIORITY_AUTO = -1;
+inline constexpr std::int32_t REGION_PRIORITY_BACKGROUND = -1;
+inline constexpr std::int32_t REGION_PRIORITY_LOWEST = 0;
+inline constexpr std::int32_t REGION_PRIORITY_LOW = 15;
+inline constexpr std::int32_t REGION_PRIORITY_BASE = 31;
+inline constexpr std::int32_t REGION_PRIORITY_NORMAL = REGION_PRIORITY_BASE;
+inline constexpr std::int32_t REGION_PRIORITY_HIGH = 63;
+inline constexpr std::int32_t REGION_PRIORITY_HIGHEST = 127;
+inline constexpr std::int32_t REGION_PRIORITY_AUTO = -1;
 
 enum : std::int32_t {
     REGION_REASON_NONE = 0,
@@ -49,22 +49,22 @@ inline constexpr std::int32_t REGION_REASON_BUTTONS =
 // Hit-test precedence between region sets: lower orders win, and sets with the
 // same order resolve by creation sequence. Screen sets pass the retail catalog
 // set index they replaced; everything else is dynamic.
-inline constexpr int kDynamicRegionSetOrder = 0x33;
+inline constexpr std::int32_t kDynamicRegionSetOrder = 0x33;
 
 struct W8RegionSet {
     W8RegionSet() = default;
-    unsigned int enabled = 0;
-    int order = kDynamicRegionSetOrder;
+    std::uint32_t enabled = 0;
+    std::int32_t order = kDynamicRegionSetOrder;
     std::uint64_t sequence = 0;
-    std::span<const unsigned int> Regions() const { return {region_ids.data(), active_count}; }
+    std::span<const std::uint32_t> Regions() const { return {region_ids.data(), active_count}; }
     void Reset() { active_count = 0; }
-    unsigned int AddRegion(int priority = 0);
-    void AttachRegion(unsigned int region_index);
-    bool RemoveRegion(unsigned int region_index);
+    std::uint32_t AddRegion(std::int32_t priority = 0);
+    void AttachRegion(std::uint32_t region_index);
+    bool RemoveRegion(std::uint32_t region_index);
 
 private:
     // Keep slots for screen rebuilds, without assuming contiguous allocation.
-    std::vector<unsigned int> region_ids;
+    std::vector<std::uint32_t> region_ids;
     std::size_t active_count = 0;
 };
 
@@ -83,7 +83,7 @@ enum W8RegionFlags {
 };
 
 struct W8Region;
-typedef unsigned char (*W8RegionCallback)(const InputEvent* event, struct W8Region* region);
+typedef bool (*W8RegionCallback)(const InputEvent* event, struct W8Region* region);
 
 struct RegionTemplate {
     std::uint32_t flags;
@@ -99,7 +99,7 @@ struct RegionTemplate {
 
 class W8RegionHandler {
 public:
-    virtual int HandleRegionInput(W8Region& region, const InputEvent& input) = 0;
+    virtual std::int32_t HandleRegionInput(W8Region& region, const InputEvent& input) = 0;
 
 protected:
     ~W8RegionHandler() = default;
@@ -119,19 +119,19 @@ struct W8Region {
         return false;
     }
 
-    unsigned int flags;
-    short x1;
-    short y1;
-    short x2;
-    short y2;
+    std::uint32_t flags;
+    std::int16_t x1;
+    std::int16_t y1;
+    std::int16_t x2;
+    std::int16_t y2;
     W8RegionCallback callback;
-    unsigned short callback_id;
+    std::uint16_t callback_id;
     bool help_enabled;
-    unsigned char unknown_13;
-    int help_text_id;
+    std::uint8_t unknown_13;
+    std::int32_t help_text_id;
     W8Widget* widget; // Non-owning callback target; cleared by widget teardown.
     std::uint64_t binding_generation = 0; // Detect replacement during callback dispatch.
-    int priority = 0;
+    std::int32_t priority = 0;
     std::string help_text{};
     TEXTINPUTNODE* text_field = nullptr;
     W8RegionHandler* handler = nullptr;
@@ -140,8 +140,8 @@ struct W8Region {
 class OwnedRegion {
 public:
     OwnedRegion() = default;
-    OwnedRegion(unsigned int set, int priority, W8RegionHandler& handler);
-    OwnedRegion(unsigned int set, const RegionTemplate& entry, int priority = REGION_PRIORITY_LOWEST);
+    OwnedRegion(std::uint32_t set, std::int32_t priority, W8RegionHandler& handler);
+    OwnedRegion(std::uint32_t set, const RegionTemplate& entry, std::int32_t priority = REGION_PRIORITY_LOWEST);
     ~OwnedRegion();
     OwnedRegion(const OwnedRegion&) = delete;
     OwnedRegion& operator=(const OwnedRegion&) = delete;
@@ -151,30 +151,30 @@ public:
     explicit operator bool() const;
     W8Region& region();
     const W8Region& region() const;
-    unsigned int index() const { return index_; }
-    unsigned int set() const { return set_; }
+    std::uint32_t index() const { return index_; }
+    std::uint32_t set() const { return set_; }
     void reset();
 
 private:
-    friend void UnbindWidgetRegion(unsigned int region_index, W8Widget* widget, OwnedRegion* owner);
+    friend void UnbindWidgetRegion(std::uint32_t region_index, W8Widget* widget, OwnedRegion* owner);
 
-    unsigned int set_ = 0;
-    unsigned int index_ = 0;
-    uint64_t generation_ = 0;
+    std::uint32_t set_ = 0;
+    std::uint32_t index_ = 0;
+    std::uint64_t generation_ = 0;
 };
 
 class OwnedRegionSet {
 public:
     explicit OwnedRegionSet(std::span<const RegionTemplate> entries,
-                            int order = kDynamicRegionSetOrder);
+                            std::int32_t order = kDynamicRegionSetOrder);
     ~OwnedRegionSet();
     OwnedRegionSet(const OwnedRegionSet&) = delete;
     OwnedRegionSet& operator=(const OwnedRegionSet&) = delete;
 
-    unsigned int set() const { return set_; }
+    std::uint32_t set() const { return set_; }
     std::size_t size() const { return regions_.size(); }
     W8Region& operator[](std::size_t index) { return regions_.at(index).region(); }
-    unsigned int index(std::size_t index) const { return regions_.at(index).index(); }
+    std::uint32_t index(std::size_t index) const { return regions_.at(index).index(); }
     void Enable();
     void Disable();
     void EnableInput();
@@ -182,7 +182,7 @@ public:
     bool IsEnabled() const;
 
 private:
-    unsigned int set_ = 0;
+    std::uint32_t set_ = 0;
     std::vector<OwnedRegion> regions_;
 };
 
@@ -190,7 +190,7 @@ private:
 class ScreenRegionSet {
 public:
     explicit ScreenRegionSet(std::span<const RegionTemplate> templates,
-                             int order = kDynamicRegionSetOrder)
+                             std::int32_t order = kDynamicRegionSetOrder)
         : templates_(templates), order_(order)
     {
     }
@@ -206,7 +206,7 @@ public:
 
 private:
     std::span<const RegionTemplate> templates_;
-    int order_;
+    std::int32_t order_;
     std::optional<OwnedRegionSet> set_;
 };
 
@@ -215,105 +215,105 @@ private:
 class RegionSetView {
 public:
     RegionSetView(const OwnedRegionSet& source, std::size_t first, std::size_t count,
-                  int order = kDynamicRegionSetOrder);
+                  std::int32_t order = kDynamicRegionSetOrder);
     ~RegionSetView();
     RegionSetView(const RegionSetView&) = delete;
     RegionSetView& operator=(const RegionSetView&) = delete;
 
-    unsigned int set() const { return set_; }
+    std::uint32_t set() const { return set_; }
     void Enable();
     void Disable();
     bool IsEnabled() const;
 
 private:
-    unsigned int set_ = 0;
+    std::uint32_t set_ = 0;
 };
 
 class ExclusiveRegionSet {
 public:
-    explicit ExclusiveRegionSet(unsigned int set);
+    explicit ExclusiveRegionSet(std::uint32_t set);
     ~ExclusiveRegionSet();
     ExclusiveRegionSet(const ExclusiveRegionSet&) = delete;
     ExclusiveRegionSet& operator=(const ExclusiveRegionSet&) = delete;
 
 private:
     struct SavedRegionState {
-        unsigned int index;
+        std::uint32_t index;
         std::uint64_t generation;
-        unsigned int flags;
+        std::uint32_t flags;
     };
-    unsigned int set_;
+    std::uint32_t set_;
     std::uint64_t sequence_ = 0;
     SavedRegionState saved_current_{};
     SavedRegionState saved_captured_{};
     SavedRegionState saved_hover_{};
 };
 
-unsigned char InitializeRegionHelpState(void);
+bool InitializeRegionHelpState(void);
 
 /* Text-box static-catalog callbacks, implemented in Local
    Screens\MGSTextBox.cpp. */
-unsigned char TextBoxScrollUpRegionEvent(const InputEvent*, W8Region*);    /* 0x0058E2A0 */
-unsigned char TextBoxScrollDownRegionEvent(const InputEvent*, W8Region*);  /* 0x0058E650 */
-unsigned char TextBoxScrollThumbRegionEvent(const InputEvent*, W8Region*); /* 0x0058E9F0 */
-unsigned char TextBoxBodyRegionEvent(const InputEvent*, W8Region*);        /* 0x0058ED90 */
-unsigned char TextBoxChannelTabRegionEvent(const InputEvent*, W8Region*);  /* 0x0058EFD0 */
-unsigned char TextBoxMuteRegionEvent(const InputEvent*, W8Region*);        /* 0x0058F240 */
+bool TextBoxScrollUpRegionEvent(const InputEvent*, W8Region*);    /* 0x0058E2A0 */
+bool TextBoxScrollDownRegionEvent(const InputEvent*, W8Region*);  /* 0x0058E650 */
+bool TextBoxScrollThumbRegionEvent(const InputEvent*, W8Region*); /* 0x0058E9F0 */
+bool TextBoxBodyRegionEvent(const InputEvent*, W8Region*);        /* 0x0058ED90 */
+bool TextBoxChannelTabRegionEvent(const InputEvent*, W8Region*);  /* 0x0058EFD0 */
+bool TextBoxMuteRegionEvent(const InputEvent*, W8Region*);        /* 0x0058F240 */
 
 extern std::deque<W8RegionSet> g_region_sets;
 extern std::deque<W8Region> g_regions;
-extern int g_region_help_delay;
+extern std::int32_t g_region_help_delay;
 extern std::uint64_t g_region_help_clock;
-extern unsigned int g_current_region_index;
-extern unsigned int g_captured_region_index;
-extern unsigned int g_hover_region_index;
+extern std::uint32_t g_current_region_index;
+extern std::uint32_t g_captured_region_index;
+extern std::uint32_t g_hover_region_index;
 extern bool g_region_help_force_enabled;
 extern std::string g_default_help_text;
 
-unsigned int GetForcedRegion(void);
+std::uint32_t GetForcedRegion(void);
 void ReleaseDefaultHelpText(void);
-unsigned int UpdateRegionMousePosition(int x, int y);
+std::uint32_t UpdateRegionMousePosition(std::int32_t x, std::int32_t y);
 SDL_Point GetRegionMousePosition();
-unsigned int FindRegionAtPoint(unsigned short x, unsigned short y);
-void RegionSetEnable(unsigned int region_set_index);
-void RegionSetDisable(unsigned int region_set_index);
-void EnableRegionSetInput(unsigned int region_set_index);
-void DisableRegionSetInput(unsigned int region_set_index);
-void EnableRegionInput(unsigned int region_index);
-void DisableRegionInput(unsigned int region_index);
-void SetRegionBounds(unsigned int region_index, unsigned short x1, unsigned short y1,
-                     unsigned short x2, unsigned short y2);
-bool RegionContainsPoint(unsigned int region_index, unsigned short x, unsigned short y);
-bool RegionHasFlags(unsigned int region_index, unsigned int flags);
-unsigned int CreateRegionSet(int order = kDynamicRegionSetOrder);
-void DestroyRegionSet(unsigned int region_set_index);
-void ResetRegionSet(unsigned int region_set_index);
-unsigned int AddRegionToSet(unsigned int region_set_index, int priority = 0);
-void RemoveRegionFromSet(unsigned int region_set_index, unsigned int region_index);
-void SetRegionCallback(unsigned int region_index, W8RegionCallback callback,
-                       unsigned short callback_id);
-void SetRegionHelp(unsigned int region_index, bool enabled, int help_text_id);
+std::uint32_t FindRegionAtPoint(std::uint16_t x, std::uint16_t y);
+void RegionSetEnable(std::uint32_t region_set_index);
+void RegionSetDisable(std::uint32_t region_set_index);
+void EnableRegionSetInput(std::uint32_t region_set_index);
+void DisableRegionSetInput(std::uint32_t region_set_index);
+void EnableRegionInput(std::uint32_t region_index);
+void DisableRegionInput(std::uint32_t region_index);
+void SetRegionBounds(std::uint32_t region_index, std::uint16_t x1, std::uint16_t y1,
+                     std::uint16_t x2, std::uint16_t y2);
+bool RegionContainsPoint(std::uint32_t region_index, std::uint16_t x, std::uint16_t y);
+bool RegionHasFlags(std::uint32_t region_index, std::uint32_t flags);
+std::uint32_t CreateRegionSet(std::int32_t order = kDynamicRegionSetOrder);
+void DestroyRegionSet(std::uint32_t region_set_index);
+void ResetRegionSet(std::uint32_t region_set_index);
+std::uint32_t AddRegionToSet(std::uint32_t region_set_index, std::int32_t priority = 0);
+void RemoveRegionFromSet(std::uint32_t region_set_index, std::uint32_t region_index);
+void SetRegionCallback(std::uint32_t region_index, W8RegionCallback callback,
+                       std::uint16_t callback_id);
+void SetRegionHelp(std::uint32_t region_index, bool enabled, std::int32_t help_text_id);
 void ClearHotRegion(void);
 void UpdateRegionHelp(void);
-void ShowRegionHelp(unsigned int region_index);
+void ShowRegionHelp(std::uint32_t region_index);
 void SetRegionHelpText(std::string_view text);
 void ResetRegionHelp(bool delayed);
-void SetRegionHelpDelay(int delay_ms);
-unsigned int ControlRegionSetIndex(void);
+void SetRegionHelpDelay(std::int32_t delay_ms);
+std::uint32_t ControlRegionSetIndex(void);
 std::size_t LiveDynamicRegionCount(void);
 // Dynamic region sets currently allocated, including empty ones.
 std::size_t LiveRegionSetCount(void);
 void CaptureInputSink(void);
 void ReleaseInputSinkCapture(void);
 bool InputSinkCaptured(void);
-void UnbindWidgetRegion(unsigned int region_index, W8Widget* widget, OwnedRegion* owner);
+void UnbindWidgetRegion(std::uint32_t region_index, W8Widget* widget, OwnedRegion* owner);
 std::int32_t RegionReasonForInput(const W8Region& region, const InputEvent& input);
-void EnableRegionHelp(unsigned int region_index);
-void DisableRegionHelp(unsigned int region_index);
-unsigned char ClearActiveRegionIfMatches(unsigned int region_index);
-void ActivateDialogRegion(unsigned int region_index); /* 0x004F2040 */
+void EnableRegionHelp(std::uint32_t region_index);
+void DisableRegionHelp(std::uint32_t region_index);
+bool ClearActiveRegionIfMatches(std::uint32_t region_index);
+void ActivateDialogRegion(std::uint32_t region_index); /* 0x004F2040 */
 /* 0x004F1910 returns the byte produced by the selected region callback. */
-unsigned char DispatchRegionInput(const InputEvent* event);
+std::uint8_t DispatchRegionInput(const InputEvent* event);
 
 void SetRegionHelpForceEnabled(bool enabled);
 void EnableRegionHelpFlag(W8Region* region);

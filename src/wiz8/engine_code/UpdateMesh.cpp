@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <algorithm>
 #include <array>
 #include "glm/ext/vector_int2.hpp"
@@ -16,7 +17,6 @@
 #include "surrender/srMeshModel.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srCamera.h"
-#include "compat/compiler.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "layouts/world.h"
@@ -25,12 +25,12 @@
 // GLOBAL: WIZ8 0x005ED168
 const float g_mesh_view_degrees_to_radians = 0.01745329424738884f;
 
-static bool AppendQuadRow(int left, int right, int max_x, int row,
+static bool AppendQuadRow(std::int32_t left, std::int32_t right, std::int32_t max_x, std::int32_t row,
                           std::vector<glm::ivec2>& cells)
 {
     if (left > 0) --left;
     if (right < max_x) ++right;
-    for (int x = left; x <= right; ++x) cells.emplace_back(x, row);
+    for (std::int32_t x = left; x <= right; ++x) cells.emplace_back(x, row);
     return left <= right;
 }
 
@@ -39,7 +39,7 @@ struct QuadRowEdges {
     glm::vec2 step;
 };
 
-static bool ScanQuadTriangleRows(const glm::ivec2& dimensions, int first_row, int last_row,
+static bool ScanQuadTriangleRows(const glm::ivec2& dimensions, std::int32_t first_row, std::int32_t last_row,
                                 QuadRowEdges edges, bool clip_x, bool skip_boundary,
                                 std::vector<glm::ivec2>& cells)
 {
@@ -48,15 +48,15 @@ static bool ScanQuadTriangleRows(const glm::ivec2& dimensions, int first_row, in
         first_row = 0;
     }
     last_row = std::min(last_row, dimensions.y - 1);
-    const int max_x = dimensions.x - 1;
+    const std::int32_t max_x = dimensions.x - 1;
     bool emitted = false;
-    for (int row = first_row; row <= last_row; ++row) {
+    for (std::int32_t row = first_row; row <= last_row; ++row) {
         if (!clip_x && skip_boundary && row == first_row) {
             edges.position += edges.step;
             continue;
         }
-        int left = static_cast<int>(edges.position.x);
-        int right = static_cast<int>(edges.position.y);
+        std::int32_t left = static_cast<std::int32_t>(edges.position.x);
+        std::int32_t right = static_cast<std::int32_t>(edges.position.y);
         if (clip_x) {
             edges.position += edges.step;
             if (left < 0) {
@@ -84,8 +84,8 @@ static bool ScanQuadTriangleHalf(const glm::ivec2& dimensions, glm::ivec2 left,
                                 bool skip_boundary, std::vector<glm::ivec2>& cells)
 {
     if (right.x < left.x) std::swap(left, right);
-    const int first_row = flat_top ? left.y : tip.y;
-    const int last_row = flat_top ? tip.y : left.y;
+    const std::int32_t first_row = flat_top ? left.y : tip.y;
+    const std::int32_t last_row = flat_top ? tip.y : left.y;
     const glm::ivec2 start = flat_top ? glm::ivec2(left.x, right.x) : glm::ivec2(tip.x);
     const glm::ivec2 end = flat_top ? glm::ivec2(tip.x) : glm::ivec2(left.x, right.x);
     const float height = static_cast<float>(last_row - first_row);
@@ -111,7 +111,7 @@ std::vector<glm::ivec2> rasterizeQuadTriangle(const glm::ivec2& dimensions,
     } else if (middle.y == last.y) {
         ScanQuadTriangleHalf(dimensions, middle, last, first, false, false, cells);
     } else {
-        const int split = static_cast<int>(static_cast<float>(last.x - first.x) *
+        const std::int32_t split = static_cast<std::int32_t>(static_cast<float>(last.x - first.x) *
                                           (middle.y - first.y) / (last.y - first.y));
         const glm::ivec2 edge(first.x + split, middle.y);
         const bool emitted = ScanQuadTriangleHalf(dimensions, edge, middle, first, false, false, cells);
@@ -127,14 +127,14 @@ std::vector<glm::ivec2> visibleQuadCells(const W8World& world)
     const W8Quad& quad = *world.quads;
     const float cell_size = quad.cell_size;
     const glm::ivec2 camera_cell(
-        static_cast<int>((world.camera->getLocationX() - quad.origin.x) / cell_size),
-        static_cast<int>((world.camera->getLocationZ() - quad.origin.y) / cell_size));
+        static_cast<std::int32_t>((world.camera->getLocationX() - quad.origin.x) / cell_size),
+        static_cast<std::int32_t>((world.camera->getLocationZ() - quad.origin.y) / cell_size));
     const auto rotation = world.camera->getRotation<glm::mat3>();
     const auto edge = [&](float angle) {
         const auto direction = rotation * glm::mat3_cast(glm::angleAxis(angle, glm::vec3(0, 1, 0))) *
                                glm::vec3(0, 0, world.render_range);
-        return camera_cell + glm::ivec2(static_cast<int>(direction.x / cell_size),
-                                       static_cast<int>(direction.z / cell_size));
+        return camera_cell + glm::ivec2(static_cast<std::int32_t>(direction.x / cell_size),
+                                       static_cast<std::int32_t>(direction.z / cell_size));
     };
     const auto left = edge(-g_mesh_view_half_angle_degrees * g_mesh_view_degrees_to_radians);
     const auto right = edge(g_mesh_view_half_angle_degrees * g_mesh_view_degrees_to_radians);
@@ -154,12 +154,12 @@ void UpdateWorldMeshFromQuads(W8World* world)
     srMeshModel* mesh = static_cast<srMeshModel*>(world->update_mesh_source->getModel());
     W8Quad& quad = *world->quads;
     const auto cells = visibleQuadCells(*world);
-    w8_long polygon_count = 0;
+    std::int32_t polygon_count = 0;
     for (const auto& cell : cells) polygon_count += quad.Cell(cell.x, cell.y).size();
     mesh->setActivePolygonCount(polygon_count);
-    w8_ulong* table = mesh->getActivePolygonTable(1);
+    std::uint32_t* table = mesh->getActivePolygonTable(1);
     for (const auto& cell : cells) {
-        for (int polygon : quad.Cell(cell.x, cell.y)) {
+        for (std::int32_t polygon : quad.Cell(cell.x, cell.y)) {
             *table++ = polygon;
         }
     }
@@ -177,9 +177,9 @@ void UpdateWorldMesh(W8World* world)
 {
     srModelInstance* source;
     srMeshModel* mesh;
-    w8_ulong* table;
-    w8_long polygon_count;
-    w8_ulong index;
+    std::uint32_t* table;
+    std::int32_t polygon_count;
+    std::uint32_t index;
 
     if (world == 0) {
         srAssertFail("pWorld", "C:\\Projects\\Wizardry 8\\Engine Code\\UpdateMesh.cpp", 0x2a2, 0);
@@ -190,7 +190,7 @@ void UpdateWorldMesh(W8World* world)
         polygon_count = mesh->polygon_count;
         mesh->setActivePolygonCount(polygon_count);
         table = mesh->getActivePolygonTable(1);
-        for (index = 0; static_cast<w8_long>(index) < polygon_count; ++index) {
+        for (index = 0; static_cast<std::int32_t>(index) < polygon_count; ++index) {
             table[index] = index;
         }
         mesh->setDirty(srMeshModel::DIRTY_TRI_MESH);

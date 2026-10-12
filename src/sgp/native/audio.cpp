@@ -69,7 +69,7 @@ void audio_offline_for_test(bool enabled)
 bool audio_render_for_test(float* samples, size_t frames)
 {
     return mixer && offline && samples && frames <= size_t(INT_MAX) / (2 * sizeof(float)) &&
-           MIX_Generate(mixer.get(), samples, int(frames * 2 * sizeof(float))) >= 0;
+           MIX_Generate(mixer.get(), samples, std::int32_t(frames * 2 * sizeof(float))) >= 0;
 }
 
 struct MovieAudio::State
@@ -77,13 +77,13 @@ struct MovieAudio::State
     std::shared_ptr<MIX_Mixer> owner = retain_audio_mixer();
     PCMStream stream;
     Track track;
-    unsigned rate, channels;
+    std::uint32_t rate, channels;
     bool finished = false;
-    State(unsigned frequency, unsigned channel_count) : rate(frequency), channels(channel_count)
+    State(std::uint32_t frequency, std::uint32_t channel_count) : rate(frequency), channels(channel_count)
     {
         if (!owner || !rate || rate > INT_MAX || !channels || channels > 8)
             throw std::runtime_error("Movie audio has no valid mixer/PCM format");
-        SDL_AudioSpec input{SDL_AUDIO_F32, int(channels), int(rate)}, output{};
+        SDL_AudioSpec input{SDL_AUDIO_F32, std::int32_t(channels), std::int32_t(rate)}, output{};
         if (!MIX_GetMixerFormat(owner.get(), &output)) throw std::runtime_error(SDL_GetError());
         stream.reset(SDL_CreateAudioStream(&input, &output));
         track.reset(MIX_CreateTrack(owner.get()));
@@ -91,15 +91,15 @@ struct MovieAudio::State
             throw std::runtime_error(SDL_GetError());
     }
 };
-MovieAudio::MovieAudio(unsigned rate, unsigned channels) : state(std::make_unique<State>(rate, channels)) {}
+MovieAudio::MovieAudio(std::uint32_t rate, std::uint32_t channels) : state(std::make_unique<State>(rate, channels)) {}
 MovieAudio::~MovieAudio() = default;
 void MovieAudio::append(const float* samples, size_t frames)
 {
     const auto queued = SDL_GetAudioStreamQueued(state->stream.get());
     if (state->finished || queued < 0 || !samples || frames > state->rate * 2 ||
-        uint64_t(queued) / (state->channels * sizeof(float)) + frames > state->rate * 2)
+        std::uint64_t(queued) / (state->channels * sizeof(float)) + frames > state->rate * 2)
         throw std::runtime_error("Movie audio exceeded two seconds of lookahead or finished");
-    if (!SDL_PutAudioStreamData(state->stream.get(), samples, int(frames * state->channels * sizeof(float))))
+    if (!SDL_PutAudioStreamData(state->stream.get(), samples, std::int32_t(frames * state->channels * sizeof(float))))
         throw std::runtime_error(SDL_GetError());
 }
 void MovieAudio::start()

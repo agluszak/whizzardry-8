@@ -1,6 +1,7 @@
 #pragma once
 
 extern char g_default_level[];
+#include <cstdint>
 #include <vector>
 
 #include "wiz8/fact_state.h"
@@ -24,14 +25,14 @@ public:
     W8TextControl* m_close;
     W8TextControl* m_mode;
     W8TextBuffer* m_page_text;
-    unsigned char m_alternate_mode;
-    unsigned char m_pad_065[3];
+    std::uint8_t m_alternate_mode;
+    std::uint8_t m_pad_065[3];
 };
 
 struct W8JournalEntry {
-    int level;
+    std::int32_t level;
     W8FactId fact;
-    int alternate_text;
+    std::int32_t alternate_text;
 };
 
 /* The fact journal, created lazily by the initializer below and
@@ -46,10 +47,10 @@ void RecordFactChangeForJournal(W8FactId fact_id);
 /* Write the entry count, a format dword and each journal entry
    into the open JRNL chunk. */
 void SaveFactJournal(wiz8::File& file);
-unsigned char JournalScreenInitialize(void);
-unsigned char JournalScreenEnter(void);
+bool JournalScreenInitialize(void);
+bool JournalScreenEnter(void);
 void JournalScreenFrame(void);
-unsigned char JournalScreenLeave(int leaving);
-unsigned char JournalScreenFinalize(void);
+bool JournalScreenLeave(std::int32_t leaving);
+bool JournalScreenFinalize(void);
 /* Load the fact journal vector from the JRNL section. */
 void LoadJournalEntries(wiz8::File& file);

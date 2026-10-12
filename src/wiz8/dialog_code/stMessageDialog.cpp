@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <fmt/format.h>
 #include <algorithm>
 #include <string_view>
@@ -36,8 +37,8 @@ W8MessageDialogBase::W8MessageDialogBase()
 // FUNCTION: WIZ8 0x005d2660
 void W8MessageDialogBase::Draw()
 {
-    int y;
-    unsigned int index;
+    std::int32_t y;
+    std::uint32_t index;
 
     W8DialogBase::Draw();
     m_message_button.m_dirty = true;
@@ -57,7 +58,7 @@ void W8MessageDialogBase::Draw()
                 g_dialog_interface_font->color(g_dialog_font_background);
             for (index = 0; index < m_line_count; ++index) {
                 const auto& line = m_lines[index];
-                short width = g_dialog_interface_font->textWidth(line);
+                std::int16_t width = g_dialog_interface_font->textWidth(line);
                 DrawText(GetFrameBufferSurface(), *g_dialog_interface_font,
                          {m_x + (m_width - width) / 2, y}, line, options);
                 y += g_dialog_interface_font->height();
@@ -75,20 +76,20 @@ void W8MessageDialogBase::Draw()
 }
 
 // FUNCTION: WIZ8 0x005d2800
-void W8MessageDialogBase::SetMessage(std::string_view message, int line_count,
-                                     unsigned short characters_per_line, bool confirmation,
+void W8MessageDialogBase::SetMessage(std::string_view message, std::int32_t line_count,
+                                     std::uint16_t characters_per_line, bool confirmation,
                                      bool cancel, bool size_to_message, bool wrap_message,
-                                     int maximum_width, int maximum_height)
+                                     std::int32_t maximum_width, std::int32_t maximum_height)
 {
     /* 0x005D2950 compares the line counter unsigned; the signed compare in
        this function is the width clamp at 0x005D295E, and `width` carries it. */
-    unsigned int index;
+    std::uint32_t index;
 
     m_lines.clear();
     if (line_count == 1 && wrap_message) {
         line_count = WrapMessage(message);
     } else {
-        for (index = 0; index < static_cast<unsigned int>(line_count); ++index) {
+        for (index = 0; index < static_cast<std::uint32_t>(line_count); ++index) {
             auto bytes = wiz8::text::codepoint_prefix(message, characters_per_line);
             m_lines.emplace_back(message.substr(0, bytes));
             message.remove_prefix(bytes);
@@ -99,11 +100,11 @@ void W8MessageDialogBase::SetMessage(std::string_view message, int line_count,
     allow_cancel = cancel;
     if (size_to_message) {
         /* 0x005D295E clamps the width with a signed compare. */
-        int width = 0;
-        int height;
+        std::int32_t width = 0;
+        std::int32_t height;
 
         for (index = 0; index < m_line_count; ++index) {
-            short line_width = g_dialog_interface_font->textWidth(m_lines[index]);
+            std::int16_t line_width = g_dialog_interface_font->textWidth(m_lines[index]);
             if (width < line_width) {
                 width = line_width;
             }
@@ -131,7 +132,7 @@ void W8MessageDialogBase::SetMessage(std::string_view message, int line_count,
 }
 
 // FUNCTION: WIZ8 0x005d2a50
-unsigned int W8MessageDialogBase::WrapMessage(std::string_view message)
+std::uint32_t W8MessageDialogBase::WrapMessage(std::string_view message)
 {
     const auto maximum_width = std::max(m_width + 15, 1);
     std::string line;
@@ -158,21 +159,21 @@ unsigned int W8MessageDialogBase::WrapMessage(std::string_view message)
 }
 
 // FUNCTION: WIZ8 0x005d2cb0
-void W8MessageDialogBase::SetClientExtent(int width, int height)
+void W8MessageDialogBase::SetClientExtent(std::int32_t width, std::int32_t height)
 {
-    int old_width = m_width;
-    int old_height = m_height;
+    std::int32_t old_width = m_width;
+    std::int32_t old_height = m_height;
 
     SetExtent(width, height);
     SetOrigin(m_x + (old_width - width) / 2, m_y + (old_height - height) / 2);
 }
 
 // FUNCTION: WIZ8 0x005d2d00
-int W8MessageDialogBase::CreateControls()
+std::int32_t W8MessageDialogBase::CreateControls()
 {
-    if (int error = W8DialogBase::CreateControls(); error != 0) return error;
+    if (std::int32_t error = W8DialogBase::CreateControls(); error != 0) return error;
     if (!m_edge_image) {
-        m_edge_image = LoadGenericButtonImages({}, "Data\\Dialogs\\DialogEdge.STI", {}, "Data\\Dialogs\\DialogEdge.STI", {}, m_background_path, static_cast<short>(m_background_flags), 0, 0);
+        m_edge_image = LoadGenericButtonImages({}, "Data\\Dialogs\\DialogEdge.STI", {}, "Data\\Dialogs\\DialogEdge.STI", {}, m_background_path, static_cast<std::int16_t>(m_background_flags), 0, 0);
         if (!m_edge_image) {
             return m_error = 3;
         }
@@ -190,9 +191,9 @@ int W8MessageDialogBase::CreateControls()
                                   W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr)) {
         m_confirm_button.m_owner = this;
         m_cancel_button.m_owner = this;
-        const int button_width = m_confirm_button.GetWidth();
-        const int button_y = m_y + m_height - m_confirm_button.GetHeight() - 0xf;
-        const int button_x = m_x + (m_width - button_width * (allow_cancel ? 3 : 1)) / 2;
+        const std::int32_t button_width = m_confirm_button.GetWidth();
+        const std::int32_t button_y = m_y + m_height - m_confirm_button.GetHeight() - 0xf;
+        const std::int32_t button_x = m_x + (m_width - button_width * (allow_cancel ? 3 : 1)) / 2;
         m_confirm_button.SetPosition(button_x, button_y);
         m_cancel_button.SetPosition(m_x + m_width / 2 + button_width / 2, button_y);
         m_confirm_button.SetVisible(m_show_confirm);
@@ -206,7 +207,7 @@ int W8MessageDialogBase::CreateControls()
 // FUNCTION: WIZ8 0x005d2f40
 void W8MessageDialogBase::DestroyControls()
 {
-    unsigned int index;
+    std::uint32_t index;
 
     W8DialogBase::DestroyControls();
     m_edge_image.reset();
@@ -224,7 +225,7 @@ bool W8MessageDialogBase::HandleInput(const InputEvent* input)
     }
 
     if (allow_cancel) {
-        int key = toupper(input->key);
+        std::int32_t key = toupper(input->key);
         if (key == VK_ESCAPE) {
             accepted = false;
             is_open = false;

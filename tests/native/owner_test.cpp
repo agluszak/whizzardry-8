@@ -51,7 +51,6 @@
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/utility.h"
-#include "wiz8/compat/compiler.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/engine_code/Video2.h"
 #include "Font.h"
@@ -73,15 +72,15 @@
 
 
 namespace {
-std::vector<int>* scrollbar_position_sink = nullptr;
-void RecordScrollPosition(W8DialogScrollBar*, int position)
+std::vector<std::int32_t>* scrollbar_position_sink = nullptr;
+void RecordScrollPosition(W8DialogScrollBar*, std::int32_t position)
 {
     if (scrollbar_position_sink) scrollbar_position_sink->push_back(position);
 }
 
 class ScrollPositionCapture {
 public:
-    explicit ScrollPositionCapture(std::vector<int>& positions)
+    explicit ScrollPositionCapture(std::vector<std::int32_t>& positions)
         : previous_(scrollbar_position_sink)
     {
         scrollbar_position_sink = &positions;
@@ -90,19 +89,19 @@ public:
     ~ScrollPositionCapture() { scrollbar_position_sink = previous_; }
 
 private:
-    std::vector<int>* previous_;
+    std::vector<std::int32_t>* previous_;
 };
 
-std::vector<int> screen_leaves;
-int screen_entries, screen_frames;
-unsigned char enter() { ++screen_entries; return 1; }
-unsigned char leave(int discard) { screen_leaves.push_back(discard); return 1; }
+std::vector<std::int32_t> screen_leaves;
+std::int32_t screen_entries, screen_frames;
+bool enter() { ++screen_entries; return true; }
+bool leave(std::int32_t discard) { screen_leaves.push_back(discard); return true; }
 void frame() { ++screen_frames; }
 
-void button_image_fixture(const std::filesystem::path& root, std::string name, unsigned count = 9,
-                          bool app_data = false, unsigned width = 1, unsigned height = 1,
+void button_image_fixture(const std::filesystem::path& root, std::string name, std::uint32_t count = 9,
+                          bool app_data = false, std::uint32_t width = 1, std::uint32_t height = 1,
                           std::array<std::uint8_t, 5> frame_palette_indices = {},
-                          short offset_x = 0, short offset_y = 0);
+                          std::int16_t offset_x = 0, std::int16_t offset_y = 0);
 
 void initialize_test_framebuffer()
 {
@@ -125,8 +124,8 @@ void screen_stack()
     g_pending_screen_state.id = W8_SCREEN_NONE;
     g_screen_return_requested = false;
     REQUIRE(GetPendingScreenState() == W8_SCREEN_NONE);
-    int payload;
-    for (int index = 0; index < 40; ++index) {
+    std::int32_t payload;
+    for (std::int32_t index = 0; index < 40; ++index) {
         g_pending_screen_state = {};
         g_pending_screen_state.id = index % 2 ? W8_SCREEN_OPTIONS : W8_SCREEN_INTRO;
         g_pending_screen_state.parameter = index;
@@ -140,7 +139,7 @@ void screen_stack()
     REQUIRE((screen_entries == 40 && screen_frames == 40));
     REQUIRE((screen_leaves.size() == 39 && screen_leaves.back() == 0));
     REQUIRE(GetPendingScreenState() == W8_SCREEN_INTRO);
-    for (int index = 38; index >= 0; --index) {
+    for (std::int32_t index = 38; index >= 0; --index) {
         RequestScreenTransition();
         GameLoop();
         REQUIRE(g_current_screen_state.parameter == index);
@@ -250,7 +249,7 @@ void dispatch_mouse(InputEventType event, std::uint16_t x, std::uint16_t y, bool
     DispatchRegionInput(&input);
 }
 
-unsigned int new_test_region_set()
+std::uint32_t new_test_region_set()
 {
     const auto set = CreateRegionSet();
     RegionSetEnable(set);
@@ -258,12 +257,12 @@ unsigned int new_test_region_set()
 }
 
 struct RegionStateSnapshot {
-    std::vector<unsigned int> set_enabled;
-    std::vector<unsigned int> region_flags;
-    unsigned int current = g_current_region_index;
-    unsigned int captured = g_captured_region_index;
-    unsigned int hover = g_hover_region_index;
-    int help_delay = g_region_help_delay;
+    std::vector<std::uint32_t> set_enabled;
+    std::vector<std::uint32_t> region_flags;
+    std::uint32_t current = g_current_region_index;
+    std::uint32_t captured = g_captured_region_index;
+    std::uint32_t hover = g_hover_region_index;
+    std::int32_t help_delay = g_region_help_delay;
     bool help_force_enabled = g_region_help_force_enabled;
 
     RegionStateSnapshot()
@@ -293,34 +292,34 @@ struct RegionStateSnapshot {
     }
 };
 
-unsigned int add_test_region(unsigned int set, unsigned short id, int x1, int y1, int x2, int y2,
-                             int priority, W8RegionCallback callback)
+std::uint32_t add_test_region(std::uint32_t set, std::uint16_t id, std::int32_t x1, std::int32_t y1, std::int32_t x2, std::int32_t y2,
+                             std::int32_t priority, W8RegionCallback callback)
 {
     const auto index = AddRegionToSet(set, priority);
     g_regions[index].flags = W8_REGION_RECTANGLE;
-    SetRegionBounds(index, static_cast<unsigned short>(x1), static_cast<unsigned short>(y1),
-                    static_cast<unsigned short>(x2), static_cast<unsigned short>(y2));
+    SetRegionBounds(index, static_cast<std::uint16_t>(x1), static_cast<std::uint16_t>(y1),
+                    static_cast<std::uint16_t>(x2), static_cast<std::uint16_t>(y2));
     SetRegionCallback(index, callback, id);
     return index;
 }
 
-std::vector<std::pair<int, int>> region_events;
+std::vector<std::pair<std::int32_t, std::int32_t>> region_events;
 struct TestOwnedRegionHandler final : W8RegionHandler {
     std::vector<std::int32_t> reasons;
 
-    int HandleRegionInput(W8Region& region, const InputEvent& input) override
+    std::int32_t HandleRegionInput(W8Region& region, const InputEvent& input) override
     {
         reasons.push_back(RegionReasonForInput(region, input));
         return 1;
     }
 };
 
-unsigned char record_region_event(const InputEvent* event, W8Region* region)
+bool record_region_event(const InputEvent* event, W8Region* region)
 {
-    region_events.emplace_back(region->callback_id, static_cast<int>(event->type));
-    return 1;
+    region_events.emplace_back(region->callback_id, static_cast<std::int32_t>(event->type));
+    return true;
 }
-unsigned char hover_region(const InputEvent*, W8Region* region)
+bool hover_region(const InputEvent*, W8Region* region)
 {
     if (region->flags & W8_REGION_MOUSE_LEAVE)
         region_events.emplace_back(region->callback_id, REGION_REASON_LOST_MOUSE);
@@ -328,14 +327,14 @@ unsigned char hover_region(const InputEvent*, W8Region* region)
         region_events.emplace_back(region->callback_id, REGION_REASON_GAIN_MOUSE);
     else
         region_events.emplace_back(region->callback_id, REGION_REASON_MOVE);
-    return 1;
+    return true;
 }
 
-unsigned int nested_region_set = 0;
-unsigned int nested_region_index = 0;
+std::uint32_t nested_region_set = 0;
+std::uint32_t nested_region_index = 0;
 bool remove_nested_region = false;
 std::vector<InputEventType> nested_region_events;
-unsigned char nested_region_callback(const InputEvent* event, W8Region*)
+bool nested_region_callback(const InputEvent* event, W8Region*)
 {
     if (event->type == InputEventType::LeftButtonDown) {
         nested_region_events.push_back(InputEventType::LeftButtonDown);
@@ -349,7 +348,7 @@ unsigned char nested_region_callback(const InputEvent* event, W8Region*)
             RemoveRegionFromSet(nested_region_set, nested_region_index);
         }
     }
-    return 1;
+    return true;
 }
 void region_nested_input()
 {
@@ -366,7 +365,7 @@ void region_nested_input()
     REQUIRE(g_captured_region_index == 0);
 
     const auto region_count = g_regions.size();
-    for (unsigned repeat = 0; repeat < 32; ++repeat) {
+    for (std::uint32_t repeat = 0; repeat < 32; ++repeat) {
         const auto index = AddRegionToSet(nested_region_set, 0);
         REQUIRE(index == nested_region_index);
         RemoveRegionFromSet(nested_region_set, index);
@@ -386,8 +385,8 @@ void nested_hover_transitions()
         UpdateRegionMousePosition(25, 5);
     }
     REQUIRE(region_events.size() >= 2);
-    REQUIRE((region_events[0] == std::pair<int, int>{1, REGION_REASON_LOST_MOUSE}));
-    REQUIRE((region_events[1] == std::pair<int, int>{2, REGION_REASON_GAIN_MOUSE}));
+    REQUIRE((region_events[0] == std::pair<std::int32_t, std::int32_t>{1, REGION_REASON_LOST_MOUSE}));
+    REQUIRE((region_events[1] == std::pair<std::int32_t, std::int32_t>{2, REGION_REASON_GAIN_MOUSE}));
 }
 void owned_region_captures_across_frames()
 {
@@ -523,7 +522,7 @@ void later_region_set_precedes_button_set()
     dispatch_mouse(InputEventType::LeftButtonDown, 105, 105);
 
     REQUIRE(std::find(region_events.begin(), region_events.end(),
-                      std::pair<int, int>{7, static_cast<int>(InputEventType::LeftButtonDown)}) != region_events.end());
+                      std::pair<std::int32_t, std::int32_t>{7, static_cast<std::int32_t>(InputEventType::LeftButtonDown)}) != region_events.end());
     REQUIRE(handler.reasons.empty());
 }
 
@@ -558,7 +557,7 @@ void owned_region_move_and_teardown()
 }
 void owned_region_set_templates_and_teardown()
 {
-    constexpr int left_button_down = static_cast<int>(InputEventType::LeftButtonDown);
+    constexpr std::int32_t left_button_down = static_cast<std::int32_t>(InputEventType::LeftButtonDown);
     RegionStateSnapshot saved_state;
     ResetRegions();
 
@@ -569,7 +568,7 @@ void owned_region_set_templates_and_teardown()
     }};
 
     const auto baseline_region_count = LiveDynamicRegionCount();
-    unsigned int released_set_index;
+    std::uint32_t released_set_index;
     {
         std::optional<OwnedRegionSet> regions;
         regions.emplace(templates);
@@ -599,7 +598,7 @@ void owned_region_set_templates_and_teardown()
         dispatch_mouse(InputEventType::LeftButtonDown, 45, 15, true);
         REQUIRE(g_captured_region_index == regions->index(1));
         REQUIRE(std::find(region_events.begin(), region_events.end(),
-                          std::pair<int, int>{12, left_button_down}) != region_events.end());
+                          std::pair<std::int32_t, std::int32_t>{12, left_button_down}) != region_events.end());
         dispatch_mouse(InputEventType::LeftButtonUp, 45, 15);
 
         regions->Disable();
@@ -628,7 +627,7 @@ void owned_region_set_templates_and_teardown()
 
 void region_set_views_share_owned_regions()
 {
-    constexpr int left_button_down = static_cast<int>(InputEventType::LeftButtonDown);
+    constexpr std::int32_t left_button_down = static_cast<std::int32_t>(InputEventType::LeftButtonDown);
     RegionStateSnapshot saved_state;
     ResetRegions();
 
@@ -639,7 +638,7 @@ void region_set_views_share_owned_regions()
     }};
 
     const auto baseline_region_count = LiveDynamicRegionCount();
-    unsigned int released_view_set;
+    std::uint32_t released_view_set;
     {
         OwnedRegionSet source(templates);
         source.Disable();
@@ -657,14 +656,14 @@ void region_set_views_share_owned_regions()
             dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
             REQUIRE(g_captured_region_index == source.index(0));
             REQUIRE(std::find(region_events.begin(), region_events.end(),
-                              std::pair<int, int>{21, left_button_down}) != region_events.end());
+                              std::pair<std::int32_t, std::int32_t>{21, left_button_down}) != region_events.end());
             dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
 
             region_events.clear();
             dispatch_mouse(InputEventType::LeftButtonDown, 45, 15, true);
             REQUIRE(g_captured_region_index == source.index(1));
             REQUIRE(std::find(region_events.begin(), region_events.end(),
-                              std::pair<int, int>{22, left_button_down}) != region_events.end());
+                              std::pair<std::int32_t, std::int32_t>{22, left_button_down}) != region_events.end());
             dispatch_mouse(InputEventType::LeftButtonUp, 45, 15);
 
             region_events.clear();
@@ -683,13 +682,13 @@ void region_set_views_share_owned_regions()
             region_events.clear();
             dispatch_mouse(InputEventType::LeftButtonDown, 45, 15, true);
             REQUIRE(std::find(region_events.begin(), region_events.end(),
-                              std::pair<int, int>{22, left_button_down}) != region_events.end());
+                              std::pair<std::int32_t, std::int32_t>{22, left_button_down}) != region_events.end());
             dispatch_mouse(InputEventType::LeftButtonUp, 45, 15);
 
             region_events.clear();
             dispatch_mouse(InputEventType::LeftButtonDown, 75, 15, true);
             REQUIRE(std::find(region_events.begin(), region_events.end(),
-                              std::pair<int, int>{23, left_button_down}) != region_events.end());
+                              std::pair<std::int32_t, std::int32_t>{23, left_button_down}) != region_events.end());
             dispatch_mouse(InputEventType::LeftButtonUp, 75, 15);
 
             region_events.clear();
@@ -708,7 +707,7 @@ void region_set_views_share_owned_regions()
         region_events.clear();
         dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
         REQUIRE(std::find(region_events.begin(), region_events.end(),
-                          std::pair<int, int>{21, left_button_down}) != region_events.end());
+                          std::pair<std::int32_t, std::int32_t>{21, left_button_down}) != region_events.end());
         dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
 
         {
@@ -915,7 +914,7 @@ void image_and_sprite_ownership()
     image.frames[0].width = image.frames[0].height = 1;
 
     std::array<std::unique_ptr<SpriteSheet>, 64> objects{};
-    for (unsigned i = 0; i < objects.size(); ++i) {
+    for (std::uint32_t i = 0; i < objects.size(); ++i) {
         objects[i] = std::make_unique<SpriteSheet>(image);
         REQUIRE(objects[i]);
         REQUIRE((objects[i]->frames.size() == 1 && objects[i]->frames[0].indices.size() == 1));
@@ -933,7 +932,7 @@ void image_and_sprite_ownership()
     REQUIRE(moved.frames[0].paletteIndexAt(0, 0) == 2);
     image = {};
     REQUIRE(image.frames.empty());
-    for (unsigned index : {0u, 31u, 63u}) {
+    for (std::uint32_t index : {0u, 31u, 63u}) {
         objects[index].reset();
     }
     auto& surviving = *objects[32];
@@ -941,12 +940,12 @@ void image_and_sprite_ownership()
              surviving.frames[0].width == 1));
     std::vector<SDLSurfaceOwner> surfaces;
     surfaces.reserve(64);
-    for (unsigned index = 0; index < 64; ++index) {
+    for (std::uint32_t index = 0; index < 64; ++index) {
         surfaces.push_back(CreateCpuStorage(8, 8, SDL_PIXELFORMAT_RGB565));
         REQUIRE(surfaces.back());
     }
     auto& surviving_surface = *surfaces[32];
-    for (unsigned index : {0u, 31u, 63u})
+    for (std::uint32_t index : {0u, 31u, 63u})
         surfaces[index].reset();
     REQUIRE(surviving_surface.w == 8);
 
@@ -955,7 +954,7 @@ void image_and_sprite_ownership()
 void font_resource_ownership()
 {
     initialize_test_framebuffer();
-    for (unsigned repeat = 0; repeat < 32; ++repeat) {
+    for (std::uint32_t repeat = 0; repeat < 32; ++repeat) {
         auto translation = CreateEnglishTransTable();
         REQUIRE(translation.size() == 252);
         ConfigureFontRendering(translation);
@@ -973,7 +972,7 @@ void font_resource_ownership()
 void text_input_ownership()
 {
     Font font{};
-    for (unsigned repeat = 0; repeat < 32; ++repeat) {
+    for (std::uint32_t repeat = 0; repeat < 32; ++repeat) {
         InitTextInputMode(font);
         const auto first = AddTextInputField(0, 0, 80, 20, REGION_PRIORITY_NORMAL,
                                              "alpha", 32, 0, 0);
@@ -993,7 +992,7 @@ void text_input_ownership()
                 });
             REQUIRE(field_region != g_regions.end());
             const auto region_index =
-                static_cast<unsigned int>(field_region - g_regions.begin());
+                static_cast<std::uint32_t>(field_region - g_regions.begin());
             ExclusiveRegionSet scope(ControlRegionSetIndex());
             dispatch_mouse(InputEventType::LeftButtonDown, 5, 5);
             REQUIRE(g_captured_region_index == region_index);
@@ -1032,10 +1031,10 @@ void formatted_strings()
     REQUIRE(std::string("100% literal") == "100% literal");
 }
 
-void button_image_fixture(const std::filesystem::path& root, std::string name, unsigned count,
-                          bool app_data, unsigned width, unsigned height,
+void button_image_fixture(const std::filesystem::path& root, std::string name, std::uint32_t count,
+                          bool app_data, std::uint32_t width, std::uint32_t height,
                           std::array<std::uint8_t, 5> frame_palette_indices,
-                          short offset_x, short offset_y)
+                          std::int16_t offset_x, std::int16_t offset_y)
 {
     REQUIRE((width > 0 && width < 128 && height > 0));
     std::replace(name.begin(), name.end(), '\\', '/');
@@ -1048,7 +1047,7 @@ void button_image_fixture(const std::filesystem::path& root, std::string name, u
     };
     STCIHeader header{};
     memcpy(header.cID, STCI_ID_STRING, STCI_ID_LEN);
-    const unsigned image_size = (width + 2) * height;
+    const std::uint32_t image_size = (width + 2) * height;
     header.uiOriginalSize = count * width * height;
     header.uiStoredSize = count * image_size;
     header.fFlags = STCI_INDEXED | STCI_ETRLE_COMPRESSED;
@@ -1079,7 +1078,7 @@ void button_image_fixture(const std::filesystem::path& root, std::string name, u
     }
     write(palette.data(), STCI_8BIT_PALETTE_SIZE);
     std::vector<STCISubImage> regions(count);
-    for (unsigned index = 0; index < count; ++index) {
+    for (std::uint32_t index = 0; index < count; ++index) {
         regions[index].uiDataOffset = index * image_size;
         regions[index].uiDataLength = image_size;
         regions[index].sOffsetX = offset_x;
@@ -1091,10 +1090,10 @@ void button_image_fixture(const std::filesystem::path& root, std::string name, u
     std::vector<std::uint8_t> pixels(width + 2, 1);
     pixels.front() = width;
     pixels.back() = 0;
-    for (unsigned index = 0; index < count; ++index) {
+    for (std::uint32_t index = 0; index < count; ++index) {
         if (frame_palette_indices[0])
             pixels[1] = frame_palette_indices[index % frame_palette_indices.size()];
-        for (unsigned row = 0; row < height; ++row)
+        for (std::uint32_t row = 0; row < height; ++row)
             write(pixels.data(), pixels.size());
     }
     if (app_data) {
@@ -1130,7 +1129,7 @@ void bitmap_image_fixture(const std::filesystem::path& root, std::string name)
     write(pixels, sizeof(pixels));
 }
 
-std::uint16_t surface_pixel(const SDL_Surface& surface, int x, int y)
+std::uint16_t surface_pixel(const SDL_Surface& surface, std::int32_t x, std::int32_t y)
 {
     const auto* row = reinterpret_cast<const std::uint16_t*>(
         static_cast<const std::uint8_t*>(surface.pixels) + y * surface.pitch);
@@ -1194,7 +1193,7 @@ void generic_button_images()
         }
     }
     std::string long_image_path;
-    for (int i = 0; i < 8; ++i)
+    for (std::int32_t i = 0; i < 8; ++i)
         long_image_path += "long-component-for-a-native-image-path/";
     long_image_path += "button.sti";
     REQUIRE(long_image_path.size() > 260);
@@ -1264,7 +1263,7 @@ void generic_button_images()
                         REQUIRE(pixels);
                         const auto color = pixels[0];
                         const bool highlight = hover && (!checkbox || mouse_down);
-                        const unsigned expected_frame = !enabled ? 0 :
+                        const std::uint32_t expected_frame = !enabled ? 0 :
                             pressed ? (highlight ? 4 : 3) : (highlight ? 2 : 1);
                         REQUIRE(color == frame_colors[expected_frame + 1]);
                     }
@@ -1283,9 +1282,9 @@ void generic_button_images()
     REQUIRE(lifetime.expired());
 
     // Validate each of the five states, including invalid negative indices.
-    for (int bad : {-2, 9, 65536}) {
+    for (std::int32_t bad : {-2, 9, 65536}) {
         for (size_t state = 0; state < 5; ++state) {
-            std::array<int, 5> frames{0, 1, 2, 3, 4};
+            std::array<std::int32_t, 5> frames{0, 1, 2, 3, 4};
             frames[state] = bad;
             REQUIRE(!ButtonGraphics::Load("button.sti", frames[0], frames[1], frames[2],
                                            frames[3], frames[4]));
@@ -1295,7 +1294,7 @@ void generic_button_images()
     REQUIRE(!ButtonGraphics::Load("button.sti", -1, -1, -1, -1, -1));
     REQUIRE(ButtonGraphics::Load("button.sti", -1, 0, -1, 1, -1));
     std::vector<ButtonImage> quick_images;
-    for (unsigned index = 0; index < 300; ++index)
+    for (std::uint32_t index = 0; index < 300; ++index)
         quick_images.push_back(ButtonGraphics::Load("button.sti", 0, 1, 2, 3, 4));
     REQUIRE(std::all_of(quick_images.begin(), quick_images.end(),
                         [](const auto& item) { return item != nullptr; }));
@@ -1392,12 +1391,12 @@ void generic_button_images()
 
     // There is no fixed image slot limit. Lifetime is owned by the image.
     std::vector<GenericButtonImage> images;
-    for (int index = 0; index < 45; ++index)
+    for (std::int32_t index = 0; index < 45; ++index)
         images.push_back(load({filename, filename, {}, {}, {}, {}}));
     REQUIRE(std::all_of(images.begin(), images.end(), [](const auto& item) { return item != nullptr; }));
     images.clear();
 
-    for (unsigned repeat = 0; repeat < 32; ++repeat) {
+    for (std::uint32_t repeat = 0; repeat < 32; ++repeat) {
         ConfigureFontRendering(CreateEnglishTransTable());
         Font primary;
         REQUIRE(primary.load(filename));
@@ -1422,7 +1421,7 @@ void generic_button_images()
     }
     // Font lifetime is independent of rendering setup and has no slot limit.
     std::vector<Font> many_fonts;
-    for (unsigned index = 0; index < 32; ++index) {
+    for (std::uint32_t index = 0; index < 32; ++index) {
         many_fonts.emplace_back();
         REQUIRE(many_fonts.back().load(filename));
     }
@@ -1471,7 +1470,7 @@ void generic_button_images()
     const auto surface_pixels = [](const SDL_Surface& surface) {
         std::vector<std::uint16_t> pixels(static_cast<std::size_t>(surface.w * surface.h));
         const auto* bytes = static_cast<const std::uint8_t*>(surface.pixels);
-        for (int y = 0; y < surface.h; ++y) {
+        for (std::int32_t y = 0; y < surface.h; ++y) {
             const auto* row = reinterpret_cast<const std::uint16_t*>(bytes + y * surface.pitch);
             std::copy_n(row, surface.w, pixels.begin() + y * surface.w);
         }
@@ -1488,7 +1487,7 @@ void generic_button_images()
     const auto first_drawn = std::find_if(
         expected_pixels.begin(), expected_pixels.end(), [](auto pixel) { return pixel != 0; });
     REQUIRE(first_drawn != expected_pixels.end());
-    const int first_drawn_x = static_cast<int>(first_drawn - expected_pixels.begin()) % 64;
+    const std::int32_t first_drawn_x = static_cast<std::int32_t>(first_drawn - expected_pixels.begin()) % 64;
     const SDL_Rect text_clip{first_drawn_x + 1, 0, 64 - first_drawn_x - 1, 32};
     {
         ScopedClipRect clipping(*clipped_surface, text_clip);
@@ -1496,8 +1495,8 @@ void generic_button_images()
     }
     const auto clipped_pixels = surface_pixels(*clipped_surface);
     REQUIRE(clipped_pixels[first_drawn - expected_pixels.begin()] == 0);
-    for (int y = 0; y < 32; ++y) {
-        for (int x = text_clip.x; x < 64; ++x) {
+    for (std::int32_t y = 0; y < 32; ++y) {
+        for (std::int32_t x = text_clip.x; x < 64; ++x) {
             REQUIRE(clipped_pixels[static_cast<std::size_t>(y * 64 + x)] ==
                     expected_pixels[static_cast<std::size_t>(y * 64 + x)]);
         }
@@ -1507,7 +1506,7 @@ void generic_button_images()
     REQUIRE(wrapped_surface);
     REQUIRE(primary.height() < 32);
     REQUIRE(SDL_FillSurfaceRect(wrapped_surface.get(), nullptr, 0));
-    const int glyph_width = primary.textWidth("é");
+    const std::int32_t glyph_width = primary.textWidth("é");
     const SDL_Rect wrap_clip{0, 0, glyph_width, 32};
     {
         ScopedClipRect clipping(*wrapped_surface, wrap_clip);
@@ -1527,13 +1526,13 @@ void generic_button_images()
 
     initialize_test_framebuffer();
     ConfigureFontRendering(CreateEnglishTransTable());
-    const int dirty_before = g_dirty_tile_count;
+    const std::int32_t dirty_before = g_dirty_tile_count;
     const SDL_Point invalidation_at{16, 16};
-    const int invalidated_width = primary.textWidth("A");
-    const int invalidated_height = primary.height();
+    const std::int32_t invalidated_width = primary.textWidth("A");
+    const std::int32_t invalidated_height = primary.height();
     REQUIRE(invalidated_width > 0);
     REQUIRE(invalidated_height > 0);
-    const int expected_dirty_tiles =
+    const std::int32_t expected_dirty_tiles =
         ((invalidation_at.x + invalidated_width + 7) / 8 - invalidation_at.x / 8) *
         ((invalidation_at.y + invalidated_height + 7) / 8 - invalidation_at.y / 8);
     DrawTextAndInvalidate(GetFrameBufferSurface(), primary, invalidation_at, "A");
@@ -1606,7 +1605,7 @@ void generic_button_images()
     REQUIRE(HandleTextInput(&backspace));
     REQUIRE(GetTextFromField(field).empty());
     std::string long_text;
-    for (unsigned n = 0; n < 100; ++n) long_text += "中";
+    for (std::uint32_t n = 0; n < 100; ++n) long_text += "中";
     SetInputFieldText(field, long_text);
     SetTextInputCursor(long_text.size());
     REQUIRE(GetTextInputByteCursor() == 300);
@@ -1727,7 +1726,7 @@ TEST_CASE("Dialog controls own interaction without legacy GUI buttons", "[owner]
     g_localized_strings.emplace_back("Button tooltip");
     Font font{};
     PushButtonSoundScheme(0, true);
-    int activations = 0;
+    std::int32_t activations = 0;
     {
         W8ButtonWidget button;
         REQUIRE(button.ConfigureTextButton("button", font, 0, 0, 10, 10, 40, 20,
@@ -1831,7 +1830,7 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
     g_image_assets.clear();
     ScopedAssetRoots scoped_roots{{assets.string(), (root / "user").string(), {"", "", ""}}};
     PushButtonSoundScheme(0, true);
-    std::vector<int> positions;
+    std::vector<std::int32_t> positions;
     ScrollPositionCapture position_capture(positions);
     {
         W8DialogScrollBar bar;
@@ -1842,11 +1841,11 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
         GetInputState().mouse.y = 400;
         dispatch_mouse(InputEventType::LeftButtonDown, 101, 116, true);
         dispatch_mouse(InputEventType::LeftButtonUp, 101, 116);
-        REQUIRE(positions == std::vector<int>{17});
+        REQUIRE(positions == std::vector<std::int32_t>{17});
         dispatch_mouse(InputEventType::LeftButtonDown, 101, 21, true);
         dispatch_mouse(InputEventType::LeftButtonRepeat, 101, 21, true);
         dispatch_mouse(InputEventType::LeftButtonUp, 101, 21);
-        REQUIRE(positions == std::vector<int>{17, 16, 15});
+        REQUIRE(positions == std::vector<std::int32_t>{17, 16, 15});
         bar.SetLayout(100, 20, 1, 0, 10, 30);
         dispatch_mouse(InputEventType::LeftButtonDown, 101, 21, true);
         dispatch_mouse(InputEventType::LeftButtonUp, 101, 21);
@@ -1885,7 +1884,7 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
         list.SetOrigin(10, 10);
         list.SetExtent(100, 80);
         list.SetBackground("background.sti", 0);
-        for (int index = 0; index < 20; ++index) list.m_lines.emplace_back("X");
+        for (std::int32_t index = 0; index < 20; ++index) list.m_lines.emplace_back("X");
         REQUIRE(list.CreateControls() == 0);
         list.Draw();
         GetInputState().mouse.y = 400;
@@ -1932,7 +1931,7 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
 }
 
 namespace {
-int message_box_callback_count = 0;
+std::int32_t message_box_callback_count = 0;
 void message_box_callback()
 {
     ++message_box_callback_count;
@@ -2063,7 +2062,7 @@ TEST_CASE("assert-plain", "[.death]")
 }
 
 namespace {
-void assertion_message_handler(const char* expression, const char*, w8_long, const char*)
+void assertion_message_handler(const char* expression, const char*, std::int32_t, const char*)
 {
     std::fprintf(stderr, "Assertion failed: %s\n", expression);
     std::abort();
@@ -2073,7 +2072,7 @@ void assertion_message_handler(const char* expression, const char*, w8_long, con
 TEST_CASE("assert-message", "[.death]")
 {
     srAssertSetFunc(assertion_message_handler);
-    SetRegionBounds(static_cast<unsigned int>(g_regions.size()), 0, 0, 1, 1);
+    SetRegionBounds(static_cast<std::uint32_t>(g_regions.size()), 0, 0, 1, 1);
     FAIL("SetRegionBounds did not abort");
 }
 
@@ -2156,10 +2155,10 @@ TEST_CASE("CatalogArtwork renders sprite storage", "[owner][image][catalog]")
     REQUIRE(SDL_FillSurfaceRect(&framebuffer, nullptr, 0x07e0));
     sprites.draw(framebuffer, 0, 10, 10);
     REQUIRE(surface_pixel(framebuffer, 12, 13) == sprites.spriteSheet()->colors[1]);
-    const int sprite_dirty_before = g_dirty_tile_count;
+    const std::int32_t sprite_dirty_before = g_dirty_tile_count;
     sprites.drawAndInvalidate(framebuffer, 0, 20, 20);
     REQUIRE(g_dirty_tile_count > sprite_dirty_before);
-    const int explicit_dirty_before = g_dirty_tile_count;
+    const std::int32_t explicit_dirty_before = g_dirty_tile_count;
     sprites.invalidate(0, 30, 30, 2);
     REQUIRE(g_dirty_tile_count > explicit_dirty_before);
     REQUIRE_THROWS_AS(sprites.drawRect(framebuffer, {0, 0, 1, 1}, 40, 40),
@@ -2181,7 +2180,7 @@ TEST_CASE("CatalogArtwork renders bitmap storage with mirror key semantics", "[o
     bitmap.draw(framebuffer, 0, 50, 50);
     REQUIRE(surface_pixel(framebuffer, 50, 50) == 0x07e0);
     REQUIRE(surface_pixel(framebuffer, 51, 50) == red);
-    const int bitmap_dirty_before = g_dirty_tile_count;
+    const std::int32_t bitmap_dirty_before = g_dirty_tile_count;
     bitmap.drawAndInvalidate(framebuffer, 0, 60, 60);
     REQUIRE(g_dirty_tile_count > bitmap_dirty_before);
 
@@ -2262,7 +2261,7 @@ TEST_CASE("Item image cache owns shared sprite sheets", "[owner][catalog]")
     REQUIRE(&g_item_video_objects.Sprites(0) == held.get());
     REQUIRE_THROWS_AS(CatalogArtwork::Load(-1, 0), std::out_of_range);
     REQUIRE_THROWS_AS(CatalogArtwork::Load(0, -1), std::out_of_range);
-    REQUIRE_THROWS_AS(CatalogArtwork::Load(0x86, std::numeric_limits<int>::max()),
+    REQUIRE_THROWS_AS(CatalogArtwork::Load(0x86, std::numeric_limits<std::int32_t>::max()),
                       std::out_of_range);
 
     g_item_video_objects.Initialize(records.size());

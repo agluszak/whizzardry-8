@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <fmt/format.h>
 #include <SDL3/SDL_rect.h>
 #include <string>
@@ -35,8 +36,8 @@
    label for each side of the transaction. The six retail expansions of the running-totals refresh share UpdateTotals. */
 
 struct W8SplitButtonOffset {
-    int x;
-    int y;
+    std::int32_t x;
+    std::int32_t y;
 };
 
 // GLOBAL: WIZ8 0x0064FE38
@@ -55,7 +56,7 @@ static W8ControlsRect g_split_text_bounds[14] = {
 };
 
 // GLOBAL: WIZ8 0x0064FF68
-static int g_split_text_string_ids[14] = {
+static std::int32_t g_split_text_string_ids[14] = {
     268, 269, 270, 270, 271, 270, 272, 270, 272, 270, 273, 270, 273, 270,
 };
 
@@ -63,9 +64,9 @@ static int g_split_text_string_ids[14] = {
 static W8ScreenRect g_split_count_field_bounds = {0xbc, 0x6f, 0xef, 0x7b};
 
 // FUNCTION: WIZ8 0x005DCED0
-W8SplitItemDialog::W8SplitItemDialog(W8ItemSplitMode mode, W8ItemInstance* item, int count)
+W8SplitItemDialog::W8SplitItemDialog(W8ItemSplitMode mode, W8ItemInstance* item, std::int32_t count)
 {
-    int index;
+    std::int32_t index;
 
     SetExtent(0x142, 0xbd);
     if (mode == W8_ITEM_SPLIT_SELL || mode == W8_ITEM_SPLIT_BUY) {
@@ -107,32 +108,32 @@ W8SplitItemDialog::~W8SplitItemDialog()
    is descriptive; its mode-dependent extent and delete order come from retail. */
 void W8SplitItemDialog::DestroyButtons()
 {
-    int count;
+    std::int32_t count;
     count = 0;
     if (m_mode == W8_ITEM_SPLIT_INVENTORY) {
         count = 8;
-    } else if (static_cast<unsigned int>(m_mode) <= W8_ITEM_SPLIT_BUY) {
+    } else if (static_cast<std::uint32_t>(m_mode) <= W8_ITEM_SPLIT_BUY) {
         count = 10;
     }
-    for (int index = 0; index < count; ++index) m_buttons[index].Reset();
+    for (std::int32_t index = 0; index < count; ++index) m_buttons[index].Reset();
 }
 
 /* Shared cleanup in failure paths and DestroyControls. The helper name
    is descriptive; its mode-dependent extent and delete order come from retail. */
 void W8SplitItemDialog::DestroyTextBuffers()
 {
-    int count;
+    std::int32_t count;
     count = 0;
     if (m_mode == W8_ITEM_SPLIT_INVENTORY) {
         count = 10;
-    } else if (static_cast<unsigned int>(m_mode) <= W8_ITEM_SPLIT_BUY) {
+    } else if (static_cast<std::uint32_t>(m_mode) <= W8_ITEM_SPLIT_BUY) {
         count = 14;
     }
     DestroyDialogTextBuffers(m_texts, count);
 }
 
 // FUNCTION: WIZ8 0x005DD130
-int W8SplitItemDialog::CreateControls()
+std::int32_t W8SplitItemDialog::CreateControls()
 {
     W8DialogBase::CreateControls();
     m_first_draw = true;
@@ -172,13 +173,13 @@ void W8SplitItemDialog::DestroyControls()
 // FUNCTION: WIZ8 0x005DD480
 bool W8SplitItemDialog::CreateButtons()
 {
-    int count;
-    int index;
+    std::int32_t count;
+    std::int32_t index;
 
     count = 0;
     if (m_mode == W8_ITEM_SPLIT_INVENTORY) {
         count = 8;
-    } else if (static_cast<unsigned int>(m_mode) <= W8_ITEM_SPLIT_BUY) {
+    } else if (static_cast<std::uint32_t>(m_mode) <= W8_ITEM_SPLIT_BUY) {
         count = 10;
     }
     m_buttons[0].Configure("Data\\Dialogs\\popup_splititem.sti", 0xc, 9, 10, 0xd, 0xb,
@@ -222,15 +223,15 @@ bool W8SplitItemDialog::CreateButtons()
 // FUNCTION: WIZ8 0x005DD750
 bool W8SplitItemDialog::CreateTextBuffers()
 {
-    int count;
-    int index;
+    std::int32_t count;
+    std::int32_t index;
     std::string header;
     W8ControlsRect bounds;
 
     count = 0;
     if (m_mode == W8_ITEM_SPLIT_INVENTORY) {
         count = 10;
-    } else if (static_cast<unsigned int>(m_mode) <= W8_ITEM_SPLIT_BUY) {
+    } else if (static_cast<std::uint32_t>(m_mode) <= W8_ITEM_SPLIT_BUY) {
         count = 14;
     }
     for (index = 0; index < count; ++index) {
@@ -295,20 +296,20 @@ bool W8SplitItemDialog::CreateNumericInput()
 // FUNCTION: WIZ8 0x005DDB60
 void W8SplitItemDialog::Draw()
 {
-    int index;
-    int button_count;
-    int text_count;
+    std::int32_t index;
+    std::int32_t button_count;
+    std::int32_t text_count;
 
     button_count = 0;
     if (m_mode == W8_ITEM_SPLIT_INVENTORY) {
         button_count = 8;
-    } else if (static_cast<unsigned int>(m_mode) <= W8_ITEM_SPLIT_BUY) {
+    } else if (static_cast<std::uint32_t>(m_mode) <= W8_ITEM_SPLIT_BUY) {
         button_count = 10;
     }
     text_count = 0;
     if (m_mode == W8_ITEM_SPLIT_INVENTORY) {
         text_count = 10;
-    } else if (static_cast<unsigned int>(m_mode) <= W8_ITEM_SPLIT_BUY) {
+    } else if (static_cast<std::uint32_t>(m_mode) <= W8_ITEM_SPLIT_BUY) {
         text_count = 14;
     }
     if ((m_dirty_flags & W8_DIALOG_DIRTY_REDRAW) != 0) {
@@ -356,22 +357,22 @@ void W8SplitItemDialog::UpdateCostLabels()
 {
     W8ItemInstance stack;
     std::string text;
-    int remaining_price;
-    int split_price;
+    std::int32_t remaining_price;
+    std::int32_t split_price;
 
     stack = *m_item;
     if (m_mode == W8_ITEM_SPLIT_INVENTORY) {
         return;
     }
     if (m_mode == W8_ITEM_SPLIT_SELL) {
-        stack.stack_count = static_cast<unsigned char>(split_count);
+        stack.stack_count = static_cast<std::uint8_t>(split_count);
         if (split_count == 0) {
             split_price = 0;
         } else {
             split_price = CalculateTradeStackPrice(g_npc_interaction_state->dialogue_npc, &stack,
                                                    W8_TRADE_PRICE_PARTY_SELLS);
         }
-        stack.stack_count = static_cast<unsigned char>(m_remaining);
+        stack.stack_count = static_cast<std::uint8_t>(m_remaining);
         if (m_remaining == 0) {
             remaining_price = 0;
         } else {
@@ -379,14 +380,14 @@ void W8SplitItemDialog::UpdateCostLabels()
                                                        &stack, W8_TRADE_PRICE_PARTY_SELLS);
         }
     } else if (m_mode == W8_ITEM_SPLIT_BUY) {
-        stack.stack_count = static_cast<unsigned char>(split_count);
+        stack.stack_count = static_cast<std::uint8_t>(split_count);
         if (split_count == 0) {
             split_price = 0;
         } else {
             split_price = CalculateTradeStackPrice(g_npc_interaction_state->dialogue_npc, &stack,
                                                    W8_TRADE_PRICE_PARTY_BUYS);
         }
-        stack.stack_count = static_cast<unsigned char>(m_remaining);
+        stack.stack_count = static_cast<std::uint8_t>(m_remaining);
         if (m_remaining == 0) {
             remaining_price = 0;
         } else {
@@ -421,19 +422,19 @@ void W8SplitItemDialog::UpdateAcceptButton()
     bool can_accept;
 
     stack = *m_item;
-    stack.stack_count = static_cast<unsigned char>(split_count);
+    stack.stack_count = static_cast<std::uint8_t>(split_count);
     can_accept = split_count != 0;
     switch (m_mode) {
     case W8_ITEM_SPLIT_SELL:
         if (g_status.party_gold <
-            static_cast<unsigned int>(CalculateTradeStackPrice(
+            static_cast<std::uint32_t>(CalculateTradeStackPrice(
                 g_npc_interaction_state->dialogue_npc, &stack, W8_TRADE_PRICE_PARTY_SELLS))) {
             can_accept = false;
         }
         break;
     case W8_ITEM_SPLIT_BUY:
         if (g_status.party_gold <
-            static_cast<unsigned int>(CalculateTradeStackPrice(
+            static_cast<std::uint32_t>(CalculateTradeStackPrice(
                 g_npc_interaction_state->dialogue_npc, &stack, W8_TRADE_PRICE_PARTY_BUYS))) {
             can_accept = false;
         }
@@ -478,7 +479,7 @@ void W8SplitItemDialog::UpdateTotals()
 }
 
 // FUNCTION: WIZ8 0x005DDFA0
-void W8SplitItemDialog::OnNumericInputChanged(int value)
+void W8SplitItemDialog::OnNumericInputChanged(std::int32_t value)
 {
     if (value != 0) {
         return;
@@ -491,7 +492,7 @@ void W8SplitItemDialog::OnNumericInputChanged(int value)
 // FUNCTION: WIZ8 0x005DE120
 bool W8SplitItemDialog::HandleInputEvent(const InputEvent* input)
 {
-    int index;
+    std::int32_t index;
     W8DialogNumericInput** field;
 
     field = &m_count_input;
@@ -502,7 +503,7 @@ bool W8SplitItemDialog::HandleInputEvent(const InputEvent* input)
         ++field;
     }
     if (input->type == InputEventType::KeyDown || input->type == InputEventType::KeyRepeat) {
-        int key = toupper(input->key);
+        std::int32_t key = toupper(input->key);
         if (key == '\r') {
             split_result = W8_SPLIT_RESULT_CONFIRMED;
             m_keep_open = false;

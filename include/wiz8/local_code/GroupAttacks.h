@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <vector>
 
 /* Local Code\GroupAttacks.cpp. The pair resolves a monster group's special
@@ -13,15 +14,15 @@ struct W8CombatSlot;
    Its two effect slots each roll against a per-target miss chance and dispatch
    on the effect style; the hit/damage tallies are summarized to the text box
    unless combat announcements are verbose. */
-void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
-                               W8CombatSlot* pAttackerSlot, std::vector<int> char_targets,
-                               std::vector<int> monster_targets);
+void ResolveMonsterGroupAttack(std::int32_t special_attack_kind, W8TargetSource* pSource,
+                               W8CombatSlot* pAttackerSlot, std::vector<std::int32_t> char_targets,
+                               std::vector<std::int32_t> monster_targets);
 /* Whether the special-attack kind is one of the seven the casting-blocked
    condition keeps from fleeing. */
-bool MonsterSpecialAttackHonorsCastingBlock(int special_attack_kind);
+bool MonsterSpecialAttackHonorsCastingBlock(std::int32_t special_attack_kind);
 
 /* Translate a summoning special-attack kind to its monster species, roll that
    record's group size and bring the new group in as close to the attacker's
    position as camera-facing placement allows. */
-void SpawnSummonedMonsterGroup(int special_attack_kind, W8TargetSource* pSource,
+void SpawnSummonedMonsterGroup(std::int32_t special_attack_kind, W8TargetSource* pSource,
                                W8CombatSlot* pAttackerSlot);

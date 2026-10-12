@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "wiz8/level_specific_code/RapaxMainFloor.h"
 
 #include "wiz8/engine_code/Trigger.hpp"
@@ -39,7 +40,7 @@ static void SetRamTriggerEnabled(const char* name, bool enabled)
 bool RapaxMainFloorAltarBox(Trigger* pTrigger)
 {
     srVector3T<float> position;
-    int var_id;
+    std::int32_t var_id;
 
     if (!g_status.rpc_active) {
         var_id = GetLocationVarIDByName("LezboDemonAppeared");

@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <fmt/format.h>
 #include <string>
 #include <cstdarg>
@@ -80,9 +81,9 @@ const float g_sound_node_full_volume = 127.0f;
 // FUNCTION: WIZ8 0x004D8E40
 void RunMasterFunctions(void)
 {
-    int count = static_cast<int>(g_master_functions.size());
+    std::int32_t count = static_cast<std::int32_t>(g_master_functions.size());
 
-    for (int index = 0; index < count; ++index) {
+    for (std::int32_t index = 0; index < count; ++index) {
         g_master_functions[index](0);
         if (g_remove_current_master_function) {
             g_master_functions.erase(g_master_functions.begin() + index);
@@ -98,9 +99,9 @@ void RunMasterFunctions(void)
 // FUNCTION: WIZ8 0x004D8EC0
 void SaveMasterFunctions(void)
 {
-    int count = static_cast<int>(g_master_functions.size());
+    std::int32_t count = static_cast<std::int32_t>(g_master_functions.size());
 
-    for (int index = 0; index < count; ++index) {
+    for (std::int32_t index = 0; index < count; ++index) {
         g_master_functions[index](-1);
     }
 }
@@ -109,7 +110,7 @@ void SaveMasterFunctions(void)
    ground when asked, create the group, apply hostility, refresh its centre
    cache and re-run outward sight for the new arrivals. */
 // FUNCTION: WIZ8 0x004D8F00
-W8MonsterGroup* SpawnMonsters(int monster_id, int count, srVector3T<float>* position, int hostility,
+W8MonsterGroup* SpawnMonsters(std::int32_t monster_id, std::int32_t count, srVector3T<float>* position, std::int32_t hostility,
                               bool settle, bool a, bool b)
 {
     W8MonsterGroup* group;
@@ -146,7 +147,7 @@ stSound3D* CreateAndPlaySoundNode(const char* sound_name, srVector3T<float> posi
         glm::dvec3 sound_position;
         sound_position = glm::dvec3(position.glmValue());
         sound->setLocation(sound_position);
-        sound->volume = static_cast<int>(volume * g_sound_node_full_volume);
+        sound->volume = static_cast<std::int32_t>(volume * g_sound_node_full_volume);
         sound->falloff = scale * g_world_scale;
         sound->Play(play_flag, true);
     }
@@ -158,31 +159,31 @@ stSound3D* CreateAndPlaySoundNode(const char* sound_name, srVector3T<float> posi
    (command, node, context); the context slot normally carries the address of
    the command's argument byte, while command 4 smuggles the byte itself
    through it. */
-typedef unsigned char (*W8WorldCursorNodeHandler)(int command, W8WorldCursorNode* node,
-                                                  int context);
+typedef bool (*W8WorldCursorNodeHandler)(std::int32_t command, W8WorldCursorNode* node,
+                                                  std::int32_t context);
 
-static unsigned char WorldCursorNodeShowMessageOnce(int command, W8WorldCursorNode* node,
-                                                    int context);
-static unsigned char WorldCursorNodeShowContextMessage(int command, W8WorldCursorNode* node,
-                                                       int context);
-static unsigned char WorldCursorNodeShowMessage(int command, W8WorldCursorNode* node, int context);
-static unsigned char WorldCursorNodeApplyItemEffect(int command, W8WorldCursorNode* node,
-                                                    int context);
-static unsigned char WorldCursorNodeMaleCharacterEvent(int command, W8WorldCursorNode* node,
-                                                       int context);
-static unsigned char IsMasterFunctionTypeEight(int command, W8WorldCursorNode* node, int context);
-static unsigned char WorldCursorNodeSeenBodies(int command, W8WorldCursorNode* node, int context);
-static unsigned char WorldCursorNodeApplyType6ItemEffect(int command, W8WorldCursorNode* node,
-                                                         int context);
-static unsigned char WorldCursorNodePartyVoice(int command, W8WorldCursorNode* node, int context);
+static bool WorldCursorNodeShowMessageOnce(std::int32_t command, W8WorldCursorNode* node,
+                                                    std::int32_t context);
+static bool WorldCursorNodeShowContextMessage(std::int32_t command, W8WorldCursorNode* node,
+                                                       std::int32_t context);
+static bool WorldCursorNodeShowMessage(std::int32_t command, W8WorldCursorNode* node, std::int32_t context);
+static bool WorldCursorNodeApplyItemEffect(std::int32_t command, W8WorldCursorNode* node,
+                                                    std::int32_t context);
+static bool WorldCursorNodeMaleCharacterEvent(std::int32_t command, W8WorldCursorNode* node,
+                                                       std::int32_t context);
+static bool IsMasterFunctionTypeEight(std::int32_t command, W8WorldCursorNode* node, std::int32_t context);
+static bool WorldCursorNodeSeenBodies(std::int32_t command, W8WorldCursorNode* node, std::int32_t context);
+static bool WorldCursorNodeApplyType6ItemEffect(std::int32_t command, W8WorldCursorNode* node,
+                                                         std::int32_t context);
+static bool WorldCursorNodePartyVoice(std::int32_t command, W8WorldCursorNode* node, std::int32_t context);
 
 /* The character-event kind constants the cursor-node handlers queue. */
 // GLOBAL: WIZ8 0x005EE5F4
-const int g_character_event_kind0 = 0x1b;
+const std::int32_t g_character_event_kind0 = 0x1b;
 // GLOBAL: WIZ8 0x005EE63C
-const int g_character_event_kind1 = 0x2d;
+const std::int32_t g_character_event_kind1 = 0x2d;
 // GLOBAL: WIZ8 0x005EE688
-const int g_character_event_kind3 = 0x40;
+const std::int32_t g_character_event_kind3 = 0x40;
 
 // GLOBAL: WIZ8 0x006109F4
 static W8WorldCursorNodeHandler g_world_cursor_node_handlers[10] = {
@@ -205,14 +206,14 @@ static W8WorldCursorNodeHandler g_world_cursor_node_handlers[10] = {
    themselves to nodes of type 3, 2 and 7 respectively. Answers whether any
    handler reported the command handled. */
 // FUNCTION: WIZ8 0x004D9080
-unsigned char DispatchWorldCursorNodeCommand(W8MonsterInfo* info, int command, ...)
+bool DispatchWorldCursorNodeCommand(W8MonsterInfo* info, std::int32_t command, ...)
 {
     srVector3T<float> position;
     W8WorldCursorNode* node;
     W8WorldCursorNode* previous;
-    int context;
+    std::int32_t context;
     bool handled;
-    unsigned char result;
+    std::uint8_t result;
 
     result = 0;
     handled = false;
@@ -235,7 +236,7 @@ unsigned char DispatchWorldCursorNodeCommand(W8MonsterInfo* info, int command, .
     position.y = probeGround(position.glmValue()).position.y + g_float_one_hundred_twenty_five;
     node = FindWorldCursorNodeAtPoint(0, &position);
     if (command == 4) {
-        context = va_arg(arguments, int);
+        context = va_arg(arguments, std::int32_t);
     }
     va_end(arguments);
     if (node == 0) {
@@ -268,7 +269,7 @@ unsigned char DispatchWorldCursorNodeCommand(W8MonsterInfo* info, int command, .
             break;
         case 3:
             if (node != 0) {
-                int type = GetWorldCursorNodeParameter(node, 2);
+                std::int32_t type = GetWorldCursorNodeParameter(node, 2);
                 if (type == 3) {
                     result = g_world_cursor_node_handlers[3](type, node, context);
                 }
@@ -291,16 +292,16 @@ unsigned char DispatchWorldCursorNodeCommand(W8MonsterInfo* info, int command, .
    Parameter 1 additionally gates the message on a living party member with
    trait 0x0c while the party is neither searching nor under effect 0x11. */
 // FUNCTION: WIZ8 0x004D9260
-static unsigned char WorldCursorNodeShowMessageOnce(int command, W8WorldCursorNode* node,
-                                                    int context)
+static bool WorldCursorNodeShowMessageOnce(std::int32_t command, W8WorldCursorNode* node,
+                                                    std::int32_t context)
 {
-    int message_id;
+    std::int32_t message_id;
     const char* folder;
-    int type;
-    unsigned char enabled;
+    std::int32_t type;
+    std::uint8_t enabled;
     bool result;
     char* shown;
-    int slot;
+    std::int32_t slot;
     std::string path;
     std::string text;
 
@@ -308,7 +309,7 @@ static unsigned char WorldCursorNodeShowMessageOnce(int command, W8WorldCursorNo
     message_id = GetWorldCursorNodeParameter(node, 0);
     folder = GetLevelFolderName(GetLoadedLevelID());
     type = GetWorldCursorNodeParameter(node, 2);
-    enabled = static_cast<unsigned char>(GetWorldCursorNodeParameter(node, 1));
+    enabled = static_cast<std::uint8_t>(GetWorldCursorNodeParameter(node, 1));
     if (enabled != 0 && g_status.search_mode == 0 && g_status.party_modifiers.detect_secrets == 0) {
         for (slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
             if (g_status.buffers.XChar[slot].fOccupied &&
@@ -316,11 +317,11 @@ static unsigned char WorldCursorNodeShowMessageOnce(int command, W8WorldCursorNo
                 goto command_check;
             }
         }
-        return 0;
+        return false;
     }
 command_check:
     if (command != 1) {
-        return 0;
+        return false;
     }
     if (type == 0) {
         result = true;
@@ -330,7 +331,7 @@ command_check:
             shown = static_cast<char*>(node->pUserdata);
         }
         if (*shown != 0) {
-            return 0;
+            return false;
         }
         *shown = 1;
         if (folder == 0) {
@@ -347,19 +348,19 @@ command_check:
 /* Type-2 nodes: command 4 with a nonzero context flag shows the node's
    message while the main game screen is up. */
 // FUNCTION: WIZ8 0x004D93E0
-static unsigned char WorldCursorNodeShowContextMessage(int command, W8WorldCursorNode* node,
-                                                       int context)
+static bool WorldCursorNodeShowContextMessage(std::int32_t command, W8WorldCursorNode* node,
+                                                       std::int32_t context)
 {
     const char* folder;
-    int message_id;
+    std::int32_t message_id;
     std::string path;
     std::string text;
 
     folder = GetLevelFolderName(GetLoadedLevelID());
     if (command != 4) {
-        return 0;
+        return false;
     }
-    if (static_cast<unsigned char>(context) != 0) {
+    if (static_cast<std::uint8_t>(context) != 0) {
         message_id = GetWorldCursorNodeParameter(node, 0);
         if (folder == 0) {
             folder = "Test";
@@ -371,21 +372,21 @@ static unsigned char WorldCursorNodeShowContextMessage(int command, W8WorldCurso
             }
         }
     }
-    return 1;
+    return true;
 }
 
 /* Type-3 nodes: command 3 shows the node's message unconditionally. */
 // FUNCTION: WIZ8 0x004D94B0
-static unsigned char WorldCursorNodeShowMessage(int command, W8WorldCursorNode* node, int context)
+static bool WorldCursorNodeShowMessage(std::int32_t command, W8WorldCursorNode* node, std::int32_t context)
 {
     const char* folder;
-    int message_id;
+    std::int32_t message_id;
     std::string path;
     std::string text;
 
     folder = GetLevelFolderName(GetLoadedLevelID());
     if (command != 3) {
-        return 0;
+        return false;
     }
     message_id = GetWorldCursorNodeParameter(node, 0);
     if (folder == 0) {
@@ -397,27 +398,27 @@ static unsigned char WorldCursorNodeShowMessage(int command, W8WorldCursorNode* 
             ShowString(text);
         }
     }
-    return 1;
+    return true;
 }
 
 /* Type-4 nodes: entering applies the node's item effect to a random party
    member. */
 // FUNCTION: WIZ8 0x004D9560
-static unsigned char WorldCursorNodeApplyItemEffect(int command, W8WorldCursorNode* node,
-                                                    int context)
+static bool WorldCursorNodeApplyItemEffect(std::int32_t command, W8WorldCursorNode* node,
+                                                    std::int32_t context)
 {
     if (command == 1) {
         ApplyItemEffectToRandomCharacter(g_character_event_kind0, -1, 0,
                                          g_character_event_no_flags);
     }
-    return 1;
+    return true;
 }
 
 /* Type-9 nodes: entering while the fact-0x14c gate holds queues the male
    event for the indexed party member when that member is male. */
 // FUNCTION: WIZ8 0x004D9590
-static unsigned char WorldCursorNodeMaleCharacterEvent(int command, W8WorldCursorNode* node,
-                                                       int context)
+static bool WorldCursorNodeMaleCharacterEvent(std::int32_t command, W8WorldCursorNode* node,
+                                                       std::int32_t context)
 {
     W8Character* character;
 
@@ -428,12 +429,12 @@ static unsigned char WorldCursorNodeMaleCharacterEvent(int command, W8WorldCurso
                                 g_character_event_full_volume);
         }
     }
-    return 1;
+    return true;
 }
 
 /* Predicate installed in the master-function callback table. */
 // FUNCTION: WIZ8 0x004D95F0
-static unsigned char IsMasterFunctionTypeEight(int command, W8WorldCursorNode* node, int context)
+static bool IsMasterFunctionTypeEight(std::int32_t command, W8WorldCursorNode* node, std::int32_t context)
 {
     return command == 8;
 }
@@ -443,7 +444,7 @@ static unsigned char IsMasterFunctionTypeEight(int command, W8WorldCursorNode* n
    and latch the AP_SeenBodies location variable. Retail runs the fact-0x133
    clear twice. */
 // FUNCTION: WIZ8 0x004D9600
-static unsigned char WorldCursorNodeSeenBodies(int command, W8WorldCursorNode* node, int context)
+static bool WorldCursorNodeSeenBodies(std::int32_t command, W8WorldCursorNode* node, std::int32_t context)
 {
     if (command == 1) {
         if (GetLocationVarIDByName("AP_SeenBodies") == -1) {
@@ -463,20 +464,20 @@ static unsigned char WorldCursorNodeSeenBodies(int command, W8WorldCursorNode* n
             }
         }
     }
-    return 1;
+    return true;
 }
 
 /* Type-6 nodes: entering applies the node's item effect to a random party
    member. */
 // FUNCTION: WIZ8 0x004D96C0
-static unsigned char WorldCursorNodeApplyType6ItemEffect(int command, W8WorldCursorNode* node,
-                                                         int context)
+static bool WorldCursorNodeApplyType6ItemEffect(std::int32_t command, W8WorldCursorNode* node,
+                                                         std::int32_t context)
 {
     if (command == 1) {
         ApplyItemEffectToRandomCharacter(g_character_event_kind3, -1, 0,
                                          g_character_event_no_flags);
     }
-    return 1;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x004D96F0
@@ -488,7 +489,7 @@ void ClearActiveWorldCursorNode(void)
 /* Master-function values 0x10 and 0x26 select the same path once either of
    the two enabling facts has been set. */
 // FUNCTION: WIZ8 0x004D9700
-int NormalizeMasterFunctionValue(int value)
+std::int32_t NormalizeMasterFunctionValue(std::int32_t value)
 {
     if (value == 0x10 || value == 0x26) {
         if (GetFact(W8_FACT_RAPAX_AWAY_CAMP_EXISTS) == 0 && GetFact(W8_FACT_PARTY_AT_RAC) == 0) {
@@ -519,7 +520,7 @@ void LoadAwayCampChest(void)
     W8Prop* pChest;
     Trigger* pTrigger;
     W8WorldItem* pContainer;
-    int index;
+    std::int32_t index;
 
     pChest = FindPropByName(g_world, "AwayCampChest");
     if (pChest == 0) {
@@ -534,7 +535,7 @@ void LoadAwayCampChest(void)
         srAssertFail("pContainer", MASTER_FUNCTION_CPP, 0x5a8, 0);
     }
     LoadSavedLevelItems(0x26, items);
-    for (index = 0; index < static_cast<int>(items.size()); ++index) {
+    for (index = 0; index < static_cast<std::int32_t>(items.size()); ++index) {
         W8WorldItem* item = items[index];
 
         if (ItemInfoIsWorldPersistent(item)) {
@@ -556,11 +557,11 @@ void LoadAwayCampChest(void)
    node's event type, once - the first byte of the node's userdata is the
    shown flag. */
 // FUNCTION: WIZ8 0x004D98C0
-static unsigned char WorldCursorNodePartyVoice(int command, W8WorldCursorNode* node, int context)
+static bool WorldCursorNodePartyVoice(std::int32_t command, W8WorldCursorNode* node, std::int32_t context)
 {
-    int event_type;
+    std::int32_t event_type;
     char* shown;
-    int slot;
+    std::int32_t slot;
 
     event_type = GetWorldCursorNodeParameter(node, 0);
     if (command == 1) {
@@ -578,13 +579,13 @@ static unsigned char WorldCursorNodePartyVoice(int command, W8WorldCursorNode* n
             }
         }
     }
-    return 1;
+    return true;
 }
 
 /* Format the current level's message-database path, fetch the indexed string
    and show it. Answers whether the string existed. */
 // FUNCTION: WIZ8 0x004D9960
-unsigned char ShowLevelMessage(int message_id)
+bool ShowLevelMessage(std::int32_t message_id)
 {
     const char* folder;
     std::string path;
@@ -597,9 +598,9 @@ unsigned char ShowLevelMessage(int message_id)
     path = fmt::format("Data\\Messages\\{}.msg", folder);
     if ((!(text = GetStringFromStringDatabase(path, message_id, 0, 0)).empty()) != 0) {
         ShowString(text);
-        return 1;
+        return true;
     }
-    return 0;
+    return false;
 }
 
 /* The level-specific callbacks and master-function helpers this unit
@@ -629,7 +630,7 @@ static bool BlockTriggerActivation(Trigger* trigger)
 
 /* Repeated level setup owns the find/assert/bind operation. Diagnostics keep
    their original line and literal spelling, including the inconsistent names. */
-static void BindLevelTrigger(const char* name, Trigger::ActivationCallback callback, int line,
+static void BindLevelTrigger(const char* name, Trigger::ActivationCallback callback, std::int32_t line,
                              const char* diagnostic)
 {
     Trigger* trigger = FindTriggerByName(name);
@@ -639,7 +640,7 @@ static void BindLevelTrigger(const char* name, Trigger::ActivationCallback callb
     trigger->activation_callback = callback;
 }
 
-static void BindLevelTrigger(const char* name, Trigger::ActivationCallback callback, int line)
+static void BindLevelTrigger(const char* name, Trigger::ActivationCallback callback, std::int32_t line)
 {
     Trigger* trigger = FindTriggerByName(name);
     if (trigger == 0) {
@@ -651,7 +652,7 @@ static void BindLevelTrigger(const char* name, Trigger::ActivationCallback callb
 
 /* Install the level's trigger callbacks and master-function helpers. */
 // FUNCTION: WIZ8 0x004D6C50
-void InitializeLevelMasterFunctions(int level)
+void InitializeLevelMasterFunctions(std::int32_t level)
 {
     Trigger* pTrigger;
 

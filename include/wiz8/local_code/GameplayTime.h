@@ -1,15 +1,17 @@
 #pragma once
 
+
+#include <cstdint>
 struct W8Character;
 struct W8MonsterInfo;
 class ScreenRegionSet;
 
 extern ScreenRegionSet g_game_time_combat_bar_region;
 
-void UpdateGameClock(int elapsed);
+void UpdateGameClock(std::int32_t elapsed);
 /* The 120-second aging tick - wait-state machine, per-character
    aging, combat/monster effect expiry and NPC-side aging. */
-void AdvanceTimedEffects(unsigned int minutes);
+void AdvanceTimedEffects(std::uint32_t minutes);
 /* Tear down the surprise sequence's world-state overrides. */
 void RestoreSurpriseView(void);
 void ResolveSurpriseWake(void);
@@ -19,16 +21,16 @@ void ResolveSurpriseHold(void);
 /* Per-character share of the aging tick - damage/heal/
    stamina/spell-point modifiers, disease progression, regen accumulators and
    the condition/enchantment countdowns. */
-void GameTurnsPassedChar(int party_slot, unsigned int minutes);
+void GameTurnsPassedChar(std::int32_t party_slot, std::uint32_t minutes);
 /* Camping fatigue tick - rolls fatigue dice per character. */
-void UpdateCampFatigue(int ticks);
+void UpdateCampFatigue(std::int32_t ticks);
 /* Stamina driver - refreshes the wait state then ticks each
    eligible character. */
-void UpdatePartyStamina(int ticks);
+void UpdatePartyStamina(std::int32_t ticks);
 /* Per-character stamina regen/fatigue tick. */
-void RegenCharacterStamina(int party_slot, unsigned int elapsed);
-void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
-                     unsigned char full_health_regeneration);
+void RegenCharacterStamina(std::int32_t party_slot, std::uint32_t elapsed);
+void AgeMonsterSight(W8MonsterInfo* monster_info, std::uint32_t minutes,
+                     std::uint8_t full_health_regeneration);
 /* Rebuild the per-realm stamina and spell regeneration rates from
    the pool ceilings and the three regeneration-boost flags. */
 void RebuildCharacterRegenRates(W8Character* character);

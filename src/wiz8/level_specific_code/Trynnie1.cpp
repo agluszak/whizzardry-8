@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <vector>
 
 #include "random.h"
@@ -76,9 +77,9 @@ void EnsureTrynnie1KilledVar(void)
 // FUNCTION: WIZ8 0x004DA740
 bool Trynnie1FountRandomFX(Trigger* pTrigger)
 {
-    unsigned int roll;
-    int slot;
-    int i;
+    std::uint32_t roll;
+    std::int32_t slot;
+    std::int32_t i;
 
     roll = Random(100);
     if (roll < 25) {
@@ -119,12 +120,12 @@ void KillTrynnieGroups(void)
     W8MonsterGroup* group;
     W8MonsterRecord* record;
     MonGen* generator;
-    int iOldTable;
-    int iNewTable;
-    int index;
+    std::int32_t iOldTable;
+    std::int32_t iNewTable;
+    std::int32_t index;
 
     for (index = 0;
-         index < static_cast<int>(
+         index < static_cast<std::int32_t>(
                      gXStatus.monster_groups.size());
          ++index) {
         group = GetMonsterGroupByListIndex(index);
@@ -143,7 +144,7 @@ void KillTrynnieGroups(void)
         srAssertFail("iNewTable!=(-1)", TRYNNIE1_CPP, 0x69,
                      "Can't find monster table 'Dead Trynnies'");
     }
-    for (index = 0; index < static_cast<int>(g_world->monster_generators.size()); ++index) {
+    for (index = 0; index < static_cast<std::int32_t>(g_world->monster_generators.size()); ++index) {
         generator = g_world->monster_generators[index];
         if (generator->encounter_table_index == iOldTable) {
             generator->SetEncounterTable(iNewTable);

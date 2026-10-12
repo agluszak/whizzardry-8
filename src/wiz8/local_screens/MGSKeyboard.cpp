@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <SDL3/SDL_rect.h>
 #include <fmt/format.h>
 #include <array>
@@ -96,10 +97,10 @@ static constexpr std::array<RegionTemplate, 14> g_keyboard_menu_region_templates
 ScreenRegionSet g_keyboard_menu_regions{g_keyboard_menu_region_templates, 0x26};
 
 // FUNCTION: WIZ8 0x0055d260
-int MGSKeyboard::FindBinding(W8MGSCommand command) const
+std::int32_t MGSKeyboard::FindBinding(W8MGSCommand command) const
 {
-    int count = static_cast<int>(m_bindings.size());
-    int index;
+    std::int32_t count = static_cast<std::int32_t>(m_bindings.size());
+    std::int32_t index;
     for (index = 0; index < count; ++index) {
         MGSKeyBinding* binding = m_bindings[index].get();
         if (binding->command == command) {
@@ -112,8 +113,8 @@ int MGSKeyboard::FindBinding(W8MGSCommand command) const
 // FUNCTION: WIZ8 0x0055d2a0
 W8MGSCommand MGSKeyboard::FindCommandForEvent(const InputEvent* event) const
 {
-    int count = static_cast<int>(m_bindings.size());
-    int index;
+    std::int32_t count = static_cast<std::int32_t>(m_bindings.size());
+    std::int32_t index;
     for (index = 0; index < count; ++index) {
         MGSKeyBinding* binding = m_bindings[index].get();
         if (binding->active != 0 && event->type == InputEventType::KeyDown &&
@@ -126,7 +127,7 @@ W8MGSCommand MGSKeyboard::FindCommandForEvent(const InputEvent* event) const
 }
 
 // FUNCTION: WIZ8 0x0055d300
-MGSKeyBinding* MGSKeyboard::GetBinding(int index) const
+MGSKeyBinding* MGSKeyboard::GetBinding(std::int32_t index) const
 {
     if (index < 0 || m_bindings.empty()) {
         return nullptr;
@@ -147,7 +148,7 @@ bool MGSKeyboard::IsCommandPressed(W8MGSCommand command) const
     }
     const auto* binding = found->second;
     if (IsKeyHeld(binding->key)) {
-        unsigned short modifiers = 0;
+        std::uint16_t modifiers = 0;
         if (IsKeyHeld(VK_SHIFT)) {
             modifiers |= SHIFT_DOWN;
         }
@@ -183,20 +184,20 @@ void MGSKeyboard::Clear()
 }
 
 // FUNCTION: WIZ8 0x0055d590
-unsigned char MGSKeyboard::Load(wiz8::File& handle, bool clear)
+std::uint8_t MGSKeyboard::Load(wiz8::File& handle, bool clear)
 try
 {
-    int count;
+    std::int32_t count;
 
     if (clear) {
         Clear();
     }
     handle.read_exact(&count, sizeof(count));
-    for (int index = 0; index < count; ++index) {
+    for (std::int32_t index = 0; index < count; ++index) {
         auto binding = std::make_unique<MGSKeyBinding>();
         handle.read_exact(binding.get(), sizeof(*binding));
 
-        int old_index = FindBinding(binding->command);
+        std::int32_t old_index = FindBinding(binding->command);
         if (old_index != -1) {
             m_command_index.erase(binding->command);
             m_bindings.erase(m_bindings.begin() + old_index);
@@ -204,18 +205,18 @@ try
         auto* borrowed = binding.get();
         m_bindings.push_back(std::move(binding));
         // Copy the packed disk field before unordered_map binds its arguments.
-        m_command_index.emplace(static_cast<unsigned int>(borrowed->command), borrowed);
+        m_command_index.emplace(static_cast<std::uint32_t>(borrowed->command), borrowed);
     }
     return 1;
 }
 catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x0055d7a0
-unsigned char MGSKeyboard::Save(wiz8::File& handle) const
+std::uint8_t MGSKeyboard::Save(wiz8::File& handle) const
 {
-    int count = static_cast<int>(m_bindings.size());
+    std::int32_t count = static_cast<std::int32_t>(m_bindings.size());
     handle.write(&count, sizeof(count));
-    for (int index = 0; index < count; ++index) {
+    for (std::int32_t index = 0; index < count; ++index) {
         handle.write(m_bindings[index].get(), sizeof(MGSKeyBinding));
     }
     return 1;
@@ -238,31 +239,31 @@ void ResetMGSKeyboardBindings()
    gate on their flags; everything else resolves to a bound MGS command.
    Attribution-gap body leading the MGSKeyboard.cpp hull at 0x00591960. */
 // FUNCTION: WIZ8 0x00591890
-unsigned char HandleMainGameInputEvent(const InputEvent* input)
+bool HandleMainGameInputEvent(const InputEvent* input)
 {
     if (IsTypingEvent(*input) && static_cast<char>(HandleTextInput(input)) != 0) {
-        return 1;
+        return true;
     }
     if ((input->type == InputEventType::KeyDown || input->type == InputEventType::KeyRepeat) && gXStatus.fNpcDialogueMode) {
         HandleNpcDialogueKeyEvent(input);
-        return 1;
+        return true;
     }
     if ((input->type == InputEventType::KeyDown || input->type == InputEventType::KeyRepeat) &&
         gXStatus.fTrapInteractMode && TextBoxHandleKey(input) != 0) {
-        return 1;
+        return true;
     }
     if (IsMipeActive() && HandleMipeKey(input) != 0) {
-        return 1;
+        return true;
     }
     if (IsRecordModeActive()) {
         if (!IsKeyHeld(VK_CONTROL) && HandleRecordModeKey(input, PromptRecordModeEntry) == 1) {
             ApplyRecordModeLine();
-            return 1;
+            return true;
         }
     } else {
         DispatchMGSCommand(g_mgs_keyboard->FindCommandForEvent(input));
     }
-    return 1;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x00591960
@@ -322,7 +323,7 @@ void DispatchMGSCommand(W8MGSCommand command)
         }
         break;
     case W8_MGS_COMMAND_COMBAT_DELAY_UP: {
-        unsigned int delay = g_settings.combat_delay_ms;
+        std::uint32_t delay = g_settings.combat_delay_ms;
         if (delay < 0x1388) {
             if (delay % 0xfa == 0) {
                 delay += 0xfa;
@@ -339,7 +340,7 @@ void DispatchMGSCommand(W8MGSCommand command)
         break;
     }
     case W8_MGS_COMMAND_COMBAT_DELAY_DOWN: {
-        unsigned int delay = g_settings.combat_delay_ms;
+        std::uint32_t delay = g_settings.combat_delay_ms;
         if (delay > 0) {
             if (delay % 0xfa == 0) {
                 delay -= 0xfa;
@@ -356,7 +357,7 @@ void DispatchMGSCommand(W8MGSCommand command)
         break;
     }
     case W8_MGS_COMMAND_TEXT_DELAY_UP: {
-        unsigned int delay = g_settings.text_display_delay_ms;
+        std::uint32_t delay = g_settings.text_display_delay_ms;
         if (delay < 0x1388) {
             if (delay % 0xfa == 0) {
                 delay += 0xfa;
@@ -373,7 +374,7 @@ void DispatchMGSCommand(W8MGSCommand command)
         break;
     }
     case W8_MGS_COMMAND_TEXT_DELAY_DOWN: {
-        unsigned int delay = g_settings.text_display_delay_ms;
+        std::uint32_t delay = g_settings.text_display_delay_ms;
         if (delay > 0) {
             if (delay % 0xfa == 0) {
                 delay -= 0xfa;
@@ -551,7 +552,7 @@ void DispatchMGSCommand(W8MGSCommand command)
     case W8_MGS_COMMAND_SELECT_PC_4:
     case W8_MGS_COMMAND_SELECT_PC_5:
     case W8_MGS_COMMAND_SELECT_PC_6: {
-        int slot = command - W8_MGS_COMMAND_SELECT_RECRUITED_1;
+        std::int32_t slot = command - W8_MGS_COMMAND_SELECT_RECRUITED_1;
         if (!g_status.buffers.XChar[slot].fOccupied) {
             break;
         }
@@ -685,11 +686,11 @@ srVector2i g_keyboard_row_positions[13] = {
 };
 
 // GLOBAL: WIZ8 0x0069b7ec
-short g_keyboard_menu_items[12];
+std::int16_t g_keyboard_menu_items[12];
 // GLOBAL: WIZ8 0x0069b804
 std::unique_ptr<Controls> g_keyboard_menu_panel;
 // GLOBAL: WIZ8 0x0069b808
-short g_keyboard_menu_pages[12];
+std::int16_t g_keyboard_menu_pages[12];
 // GLOBAL: WIZ8 0x0069b820
 W8TextControl* g_keyboard_menu_rows[13];
 
@@ -707,7 +708,7 @@ static void KeyboardMenuCastRecordedSpell(void);
 static void KeyboardMenuUseRecordedItem(void);
 
 // FUNCTION: WIZ8 0x00592C70
-void OpenKeyboardMenuForSlot(int slot)
+void OpenKeyboardMenuForSlot(std::int32_t slot)
 {
     memset(g_keyboard_menu_rows, 0, sizeof(g_keyboard_menu_rows));
     g_selected_party_slot = slot;
@@ -761,25 +762,25 @@ void CloseKeyboardMenu(void)
 }
 
 // FUNCTION: WIZ8 0x00592F90
-unsigned char BuildKeyboardMenu(void)
+bool BuildKeyboardMenu(void)
 {
-    int left;
-    int top;
-    int unused_4;
-    int unused_5;
-    int unused_6;
-    int unused_7;
-    short menu;
-    short item;
-    short row;
+    std::int32_t left;
+    std::int32_t top;
+    std::int32_t unused_4;
+    std::int32_t unused_5;
+    std::int32_t unused_6;
+    std::int32_t unused_7;
+    std::int16_t menu;
+    std::int16_t item;
+    std::int16_t row;
     W8TextControl* control;
-    short message;
+    std::int16_t message;
     GetPartySlotMenuAnchor(g_selected_party_slot, &left, &top, &unused_4, &unused_5, &unused_6,
                            &unused_7, 0);
     left += 0x17;
     g_keyboard_menu_panel = std::make_unique<Controls>(left, top, left + 0x52, top + 0x4a, CatalogArtwork::Load(0xa6, 0), 0);
     if (!g_keyboard_menu_panel) {
-        return 0;
+        return false;
     }
     SetRegionBounds(g_keyboard_menu_regions->index(13), left, top, left + 0x52, top + 0x4a);
     row = 0;
@@ -799,7 +800,7 @@ unsigned char BuildKeyboardMenu(void)
             if (control == 0) {
                 g_keyboard_menu_panel.reset();
                 for (auto& row : g_keyboard_menu_rows) row = nullptr;
-                return 0;
+                return false;
             }
             AssignKeyboardMenuCallback(menu, item, control);
             control->m_secondaryActivationCallback = CloseKeyboardMenu;
@@ -820,13 +821,13 @@ unsigned char BuildKeyboardMenu(void)
     SetRegionHelp(g_keyboard_menu_regions->index(row), true, 0x11);
     g_keyboard_menu_panel->SetEnabled(true);
     RefreshKeyboardMenuRows();
-    return 1;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x005932D0
 void EnableKeyboardMenuInput(void)
 {
-    int index;
+    std::int32_t index;
 
     g_keyboard_menu_regions.Enable();
     EnableRegionInput(g_keyboard_menu_regions->index(13));
@@ -846,14 +847,14 @@ bool KeyboardMenuContainsCursor(void)
 // FUNCTION: WIZ8 0x00593360
 void RefreshKeyboardMenuRows(void)
 {
-    int remaining;
-    short item;
-    short menu;
-    short message;
-    short icon;
+    std::int32_t remaining;
+    std::int16_t item;
+    std::int16_t menu;
+    std::int16_t message;
+    std::int16_t icon;
     W8TextControl* row;
-    int adjust;
-    int index;
+    std::int32_t adjust;
+    std::int32_t index;
 
     index = 0;
     remaining = 12;
@@ -917,7 +918,7 @@ void RefreshKeyboardMenuRows(void)
 }
 
 // FUNCTION: WIZ8 0x005935E0
-void AssignKeyboardMenuCallback(short menu, short item, W8TextControl* row)
+void AssignKeyboardMenuCallback(std::int16_t menu, std::int16_t item, W8TextControl* row)
 {
     switch (menu) {
     case W8_SUBMENU_ATTACK:
@@ -1078,14 +1079,14 @@ static void KeyboardMenuUseRecordedItem(void)
 }
 
 // FUNCTION: WIZ8 0x00594760
-unsigned char KeyboardMenuRowRegionEvent(const InputEvent* event, W8Region* region)
+bool KeyboardMenuRowRegionEvent(const InputEvent* event, W8Region* region)
 {
     W8TextControl* row = g_keyboard_menu_rows[region->callback_id];
-    unsigned short row_id;
+    std::uint16_t row_id;
     W8PartySlotRow* party_row;
     W8ItemInstance* item;
     std::string name;
-    int power;
+    std::int32_t power;
 
     if (row == 0) {
         return 0;
@@ -1152,16 +1153,16 @@ unsigned char KeyboardMenuRowRegionEvent(const InputEvent* event, W8Region* regi
 }
 
 // FUNCTION: WIZ8 0x005949A0
-unsigned char KeyboardMenuBackgroundRegionEvent(const InputEvent* event, W8Region*)
+bool KeyboardMenuBackgroundRegionEvent(const InputEvent* event, W8Region*)
 {
     if (!g_level_block->keyboard_menu_open) {
-        return 0;
+        return false;
     }
     if (event->type != InputEventType::RightButtonUp) {
-        return 0;
+        return false;
     }
     CloseKeyboardMenu();
-    return 1;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x005929d0

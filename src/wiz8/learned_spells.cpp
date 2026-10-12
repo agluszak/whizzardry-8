@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "wiz8/learned_spells.h"
 
 #include "wiz8/layouts/character.h"
@@ -9,9 +10,9 @@
 // FUNCTION: WIZ8 0x004F9600
 void BuildLearnedSpellState(W8LearnedSpellState* scratch, W8Character* character)
 {
-    int spell_id;
-    int realm;
-    int count;
+    std::int32_t spell_id;
+    std::int32_t realm;
+    std::int32_t count;
 
     for (realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
         character->skill_unlocks[0x1c + realm] = 0;

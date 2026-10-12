@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <fmt/format.h>
 #include <string_view>
 #include <cstring>
@@ -48,13 +49,13 @@ W8PortraitDescriptor g_portrait_descriptors[80] = {
 // class W8CharacterPageEntry
 
 // FUNCTION: WIZ8 0x005af690
-W8CharacterPageEntry::W8CharacterPageEntry(Controls* owner, int x, int y, bool compact)
+W8CharacterPageEntry::W8CharacterPageEntry(Controls* owner, std::int32_t x, std::int32_t y, bool compact)
     : m_listener(0), m_first(0), m_second(0), m_third(0), m_id(-1), m_draw_background(compact),
       m_dirty(1), m_enabled(0), m_increment_allowed(1)
 {
     m_x = owner->m_bounds.left + x;
     m_y = owner->m_bounds.top + y;
-    int split = m_x + (compact ? 0x6d : 0x78);
+    std::int32_t split = m_x + (compact ? 0x6d : 0x78);
     W8ControlsRect bounds = {m_x + 5, m_y + 1, split, m_y + 0xd};
     m_label = new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, 0, 4);
     m_label->SetLayoutMode(g_W8TextBufferAlignLeft);
@@ -67,7 +68,7 @@ W8CharacterPageEntry::W8CharacterPageEntry(Controls* owner, int x, int y, bool c
     m_second_text = new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, 0, 4);
     m_second_text->SetLayoutMode(g_W8TextBufferAlignRight);
 
-    int relative_split = split - owner->m_bounds.left;
+    std::int32_t relative_split = split - owner->m_bounds.left;
     m_decrement = new W8TextControl(owner, 0xffffffff, relative_split + 0x1b, y + 1, 0, 0, CatalogArtwork::Load(0x10a, 0), 0x19, 0x1b, 0x1a, 0x1d, 0x1c);
     m_decrement->AddLayoutFlags(0x100);
     m_decrement->SetEnabled(false);
@@ -85,8 +86,8 @@ W8CharacterPageEntry::W8CharacterPageEntry(Controls* owner, int x, int y, bool c
 }
 
 // FUNCTION: WIZ8 0x005af9e0
-void W8CharacterPageEntry::SetContent(unsigned int id, std::string_view label, unsigned int* first,
-                                      int* second, int* third, int help_id)
+void W8CharacterPageEntry::SetContent(std::uint32_t id, std::string_view label, std::uint32_t* first,
+                                      std::int32_t* second, std::int32_t* third, std::int32_t help_id)
 {
     m_id = id;
     m_first = first;
@@ -133,8 +134,8 @@ void W8CharacterPageEntry::Redraw()
         if (m_draw_background) {
             CatalogArtwork::Load(0x108, 0).drawAndInvalidate(GetFrameBufferSurface(), 2, m_x, m_y);
         }
-        m_first_text->SetText(fmt::format("{:d}", ReadStatValue<unsigned int>(m_first)), g_wiz_text_font_secondary);
-        m_second_text->SetText(fmt::format("{:d}", ReadStatValue<int>(m_second)), g_wiz_text_font_secondary);
+        m_first_text->SetText(fmt::format("{:d}", ReadStatValue<std::uint32_t>(m_first)), g_wiz_text_font_secondary);
+        m_second_text->SetText(fmt::format("{:d}", ReadStatValue<std::int32_t>(m_second)), g_wiz_text_font_secondary);
         m_first_text->FillBounds(0x8000);
         m_second_text->FillBounds(0x8000);
         m_label->RenderToTarget(0, true, GetFrameBufferSurface());
@@ -148,7 +149,7 @@ void W8CharacterPageEntry::Redraw()
 }
 
 // FUNCTION: WIZ8 0x005afbf0
-void W8CharacterPageEntry::SetLabelFontState(int state)
+void W8CharacterPageEntry::SetLabelFontState(std::int32_t state)
 {
     m_label->SetFontStateIndex(state);
 }
@@ -165,12 +166,12 @@ void W8CharacterPageEntry::MarkDirty()
 void W8CharacterPageEntry::UpdateButtons()
 {
     if (m_enabled) {
-        bool enabled = ReadStatValue<int>(m_second) > 0;
+        bool enabled = ReadStatValue<std::int32_t>(m_second) > 0;
         if (m_decrement->m_enabled != enabled) {
             m_decrement->SetEnabled(enabled);
             m_decrement->Invalidate(false);
         }
-        enabled = m_increment_allowed && ReadStatValue<int>(m_second) < ReadStatValue<int>(m_third);
+        enabled = m_increment_allowed && ReadStatValue<std::int32_t>(m_second) < ReadStatValue<std::int32_t>(m_third);
         if (m_increment->m_enabled != enabled) {
             m_increment->SetEnabled(enabled);
             m_increment->Invalidate(false);
@@ -232,7 +233,7 @@ W8CharacterPage::~W8CharacterPage()
 
 // FUNCTION: WIZ8 0x005aff00
 void W8CharacterPage::SetCharacter(W8Character* character, W8CharacterCreationState* creation_state,
-                                   int mode)
+                                   std::int32_t mode)
 {
     m_character = character;
     m_creation_state = creation_state;
@@ -243,7 +244,7 @@ void W8CharacterPage::SetCharacter(W8Character* character, W8CharacterCreationSt
 void W8CharacterPage::Redraw()
 {
     Controls::Redraw();
-    for (int index = 0; index < static_cast<int>(m_entries.size()); ++index) {
+    for (std::int32_t index = 0; index < static_cast<std::int32_t>(m_entries.size()); ++index) {
         m_entries[index]->Redraw();
     }
 }

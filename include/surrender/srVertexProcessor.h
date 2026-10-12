@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include "srFlags.h"
 #include "srMath.h"
 #include "srShader.h"
@@ -24,7 +25,7 @@ struct srVertexArray {
     glm::vec2* st1;
     float* q0;
     float* q1;
-    unsigned char* attributes;
+    std::uint8_t* attributes;
 };
 
 /* Interface with no data beyond its vptr. */
@@ -45,7 +46,7 @@ public:
         float value_38;                  /* 0x38 */
         glm::vec4 emissive;      /* 0x3c */
         float fog_scale;                 /* 0x4c */
-        w8_ulong disabled_channels; /* 0x50 */
+        std::uint32_t disabled_channels; /* 0x50 */
     };
 
     /* Bit indices for enableChannel/getChannelMask. */
@@ -68,7 +69,7 @@ protected:
 public:
     // The provider's base vtable contains these bodies, not _purecall.
     // FUNCTION: SURRENDER 0x10035470
-    virtual int isActive(srVertexPipe& pipe)
+    virtual std::int32_t isActive(srVertexPipe& pipe)
     {
         return 1;
     }

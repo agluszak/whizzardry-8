@@ -23,7 +23,7 @@ void W8ButtonWidget::Draw()
 {
     if (m_dirty && OwnsRegion() && (Region().flags & W8_REGION_INPUT_DISABLED) == 0) {
         m_visual.hovered = (Region().flags & W8_REGION_MOUSE_ENTER) != 0 ||
-                           g_hover_region_index == static_cast<unsigned int>(m_region);
+                           g_hover_region_index == static_cast<std::uint32_t>(m_region);
         DrawButtonAppearance(GetFrameBufferSurface(), m_appearance, m_visual);
         const auto& bounds = m_appearance.bounds;
         InvalidateRegion(bounds.x, bounds.y, bounds.x + bounds.w, bounds.y + bounds.h, 0);
@@ -32,7 +32,7 @@ void W8ButtonWidget::Draw()
 }
 
 // FUNCTION: WIZ8 0x005db550
-void W8ButtonWidget::SetPosition(int x, int y)
+void W8ButtonWidget::SetPosition(std::int32_t x, std::int32_t y)
 {
     auto& bounds = m_appearance.bounds;
     if (bounds.x == x && bounds.y == y) return;
@@ -42,7 +42,7 @@ void W8ButtonWidget::SetPosition(int x, int y)
     m_dirty = true;
 }
 
-void W8ButtonWidget::Resize(int width, int height)
+void W8ButtonWidget::Resize(std::int32_t width, std::int32_t height)
 {
     auto& bounds = m_appearance.bounds;
     bounds.w = std::max(width, 4);
@@ -57,7 +57,7 @@ void W8ButtonWidget::SetText(std::string_view text)
     m_dirty = true;
 }
 
-void W8ButtonWidget::SetTextOffsets(int x, int y, bool shift)
+void W8ButtonWidget::SetTextOffsets(std::int32_t x, std::int32_t y, bool shift)
 {
     m_appearance.bTextXOffset = x;
     m_appearance.bTextYOffset = y;
@@ -82,9 +82,9 @@ void W8ButtonWidget::ApplyRegionBounds()
     m_right = bounds.x + bounds.w;
     m_bottom = bounds.y + bounds.h;
     if (!OwnsRegion()) return;
-    SetRegionBounds(static_cast<unsigned int>(m_region), static_cast<unsigned short>(m_left),
-                    static_cast<unsigned short>(m_top), static_cast<unsigned short>(m_right),
-                    static_cast<unsigned short>(m_bottom));
+    SetRegionBounds(static_cast<std::uint32_t>(m_region), static_cast<std::uint16_t>(m_left),
+                    static_cast<std::uint16_t>(m_top), static_cast<std::uint16_t>(m_right),
+                    static_cast<std::uint16_t>(m_bottom));
 }
 
 // FUNCTION: WIZ8 0x005db8d0
@@ -117,9 +117,9 @@ void W8ButtonWidget::SetVisible(bool visible)
     if (visible == currently_visible) return;
     m_active = visible;
     if (visible) {
-        EnableRegionInput(static_cast<unsigned int>(m_region));
+        EnableRegionInput(static_cast<std::uint32_t>(m_region));
     } else {
-        DisableRegionInput(static_cast<unsigned int>(m_region));
+        DisableRegionInput(static_cast<std::uint32_t>(m_region));
         m_armed_buttons = m_repeated_buttons = 0;
         if (!m_left_toggles && !m_right_toggles) m_visual.pressed = false;
     }
@@ -135,12 +135,12 @@ void W8ButtonWidget::SetTooltipEnabled(bool enabled)
     const bool show_tooltip =
         enabled && m_tooltip_index != W8_DIALOG_BUTTON_NO_TOOLTIP && g_settings.tooltips_enabled;
     Region().help_text = show_tooltip ? g_localized_strings[m_tooltip_index] : std::string{};
-    SetRegionHelp(static_cast<unsigned int>(m_region), show_tooltip,
+    SetRegionHelp(static_cast<std::uint32_t>(m_region), show_tooltip,
                   show_tooltip ? m_tooltip_index : W8_DIALOG_BUTTON_NO_TOOLTIP);
 }
 
 // FUNCTION: WIZ8 0x005dbac0
-void W8ButtonWidget::SetTooltipIndex(int tooltip_index)
+void W8ButtonWidget::SetTooltipIndex(std::int32_t tooltip_index)
 {
     m_tooltip_index = tooltip_index;
     SetTooltipEnabled(true);
@@ -177,7 +177,7 @@ void W8ButtonWidget::Reset()
     m_dirty = true;
 }
 
-void W8ButtonWidget::ConfigureRegion(int priority)
+void W8ButtonWidget::ConfigureRegion(std::int32_t priority)
 {
     ReleaseRegion();
     const RegionTemplate region_template{W8_REGION_RECTANGLE, 0, 0, 0, 0,
@@ -196,10 +196,10 @@ void W8ButtonWidget::ConfigureRegion(int priority)
 }
 
 // FUNCTION: WIZ8 0x005DB350
-bool W8ButtonWidget::ConfigureTextButton(std::string_view text, Font& font, short fore_color,
-                                       short shadow_color, short x, short y, short width,
-                                       short height, W8ButtonCallback left_callback,
-                                       int user_data, GenericButtonImage image, int priority)
+bool W8ButtonWidget::ConfigureTextButton(std::string_view text, Font& font, std::int16_t fore_color,
+                                       std::int16_t shadow_color, std::int16_t x, std::int16_t y, std::int16_t width,
+                                       std::int16_t height, W8ButtonCallback left_callback,
+                                       std::int32_t user_data, GenericButtonImage image, std::int32_t priority)
 {
     m_appearance = {};
     m_appearance.generic_image = image ? std::move(image) : DefaultGenericButtonImage();
@@ -207,7 +207,7 @@ bool W8ButtonWidget::ConfigureTextButton(std::string_view text, Font& font, shor
     m_appearance.usFont = &font;
     m_appearance.sForeColor = fore_color;
     m_appearance.sShadowColor = shadow_color;
-    m_appearance.bounds = {x, y, std::max<int>(width, 4), std::max<int>(height, 3)};
+    m_appearance.bounds = {x, y, std::max<std::int32_t>(width, 4), std::max<std::int32_t>(height, 3)};
     m_user_data = user_data;
     m_left_callback = left_callback;
     m_right_callback = m_move_callback = m_double_click_callback = nullptr;
@@ -219,11 +219,11 @@ bool W8ButtonWidget::ConfigureTextButton(std::string_view text, Font& font, shor
 }
 
 // FUNCTION: WIZ8 0x005db3e0
-bool W8ButtonWidget::Configure(const char* image_path, int gray_frame, int off_normal_frame,
-                              int off_hover_frame, int on_normal_frame, int on_hover_frame,
+bool W8ButtonWidget::Configure(const char* image_path, std::int32_t gray_frame, std::int32_t off_normal_frame,
+                              std::int32_t off_hover_frame, std::int32_t on_normal_frame, std::int32_t on_hover_frame,
                               W8ButtonCallback left_callback,
                               W8ButtonCallback move_callback, bool left_toggles,
-                              int priority, int tooltip_index,
+                              std::int32_t priority, std::int32_t tooltip_index,
                               W8ButtonCallback right_callback,
                               W8ButtonCallback double_click_callback)
 {
@@ -231,7 +231,7 @@ bool W8ButtonWidget::Configure(const char* image_path, int gray_frame, int off_n
                                      off_hover_frame, on_normal_frame, on_hover_frame);
     if (!image) return false;
     m_appearance = {};
-    m_appearance.bounds = {0, 0, static_cast<int>(image->MaxWidth), static_cast<int>(image->MaxHeight)};
+    m_appearance.bounds = {0, 0, static_cast<std::int32_t>(image->MaxWidth), static_cast<std::int32_t>(image->MaxHeight)};
     m_appearance.quick_image = std::move(image);
     m_left_callback = left_callback;
     m_right_callback = right_callback;
@@ -243,11 +243,11 @@ bool W8ButtonWidget::Configure(const char* image_path, int gray_frame, int off_n
     return true;
 }
 
-bool W8ButtonWidget::Configure(std::shared_ptr<const SpriteSheet> sprites, int gray_frame,
-                               int off_normal_frame, int off_hover_frame, int on_normal_frame,
-                               int on_hover_frame, W8ButtonCallback left_callback,
+bool W8ButtonWidget::Configure(std::shared_ptr<const SpriteSheet> sprites, std::int32_t gray_frame,
+                               std::int32_t off_normal_frame, std::int32_t off_hover_frame, std::int32_t on_normal_frame,
+                               std::int32_t on_hover_frame, W8ButtonCallback left_callback,
                                W8ButtonCallback move_callback, bool left_toggles,
-                               int priority, int tooltip_index,
+                               std::int32_t priority, std::int32_t tooltip_index,
                                W8ButtonCallback right_callback,
                                W8ButtonCallback double_click_callback)
 {
@@ -255,8 +255,8 @@ bool W8ButtonWidget::Configure(std::shared_ptr<const SpriteSheet> sprites, int g
                                       off_hover_frame, on_normal_frame, on_hover_frame);
     if (!image) return false;
     m_appearance = {};
-    m_appearance.bounds = {0, 0, static_cast<int>(image->MaxWidth),
-                           static_cast<int>(image->MaxHeight)};
+    m_appearance.bounds = {0, 0, static_cast<std::int32_t>(image->MaxWidth),
+                           static_cast<std::int32_t>(image->MaxHeight)};
     m_appearance.quick_image = std::move(image);
     m_left_callback = left_callback;
     m_right_callback = right_callback;
@@ -269,19 +269,19 @@ bool W8ButtonWidget::Configure(std::shared_ptr<const SpriteSheet> sprites, int g
 }
 
 // FUNCTION: WIZ8 0x005db620
-void W8ButtonWidget::OnMouseEnter(int) { HandleMouseEvent(REGION_REASON_GAIN_MOUSE); }
-void W8ButtonWidget::OnMouseLeave(int) { HandleMouseEvent(REGION_REASON_LOST_MOUSE); }
-void W8ButtonWidget::OnMouseMove(int) { HandleMouseEvent(REGION_REASON_MOVE); }
-void W8ButtonWidget::OnLeftButtonDown(int) { HandleMouseEvent(REGION_REASON_LBUTTON_DWN); }
-void W8ButtonWidget::OnLeftButtonUp(int) { HandleMouseEvent(REGION_REASON_LBUTTON_UP); }
-void W8ButtonWidget::OnLeftButtonDoubleClick(int)
+void W8ButtonWidget::OnMouseEnter(std::int32_t) { HandleMouseEvent(REGION_REASON_GAIN_MOUSE); }
+void W8ButtonWidget::OnMouseLeave(std::int32_t) { HandleMouseEvent(REGION_REASON_LOST_MOUSE); }
+void W8ButtonWidget::OnMouseMove(std::int32_t) { HandleMouseEvent(REGION_REASON_MOVE); }
+void W8ButtonWidget::OnLeftButtonDown(std::int32_t) { HandleMouseEvent(REGION_REASON_LBUTTON_DWN); }
+void W8ButtonWidget::OnLeftButtonUp(std::int32_t) { HandleMouseEvent(REGION_REASON_LBUTTON_UP); }
+void W8ButtonWidget::OnLeftButtonDoubleClick(std::int32_t)
 {
     HandleMouseEvent(REGION_REASON_LBUTTON_DOUBLECLICK);
 }
-void W8ButtonWidget::ActivatePrimary(int) { HandleMouseEvent(REGION_REASON_LBUTTON_REPEAT); }
-void W8ButtonWidget::OnRightButtonDown(int) { HandleMouseEvent(REGION_REASON_RBUTTON_DWN); }
-void W8ButtonWidget::OnRightButtonUp(int) { HandleMouseEvent(REGION_REASON_RBUTTON_UP); }
-void W8ButtonWidget::ActivateSecondary(int) { HandleMouseEvent(REGION_REASON_RBUTTON_REPEAT); }
+void W8ButtonWidget::ActivatePrimary(std::int32_t) { HandleMouseEvent(REGION_REASON_LBUTTON_REPEAT); }
+void W8ButtonWidget::OnRightButtonDown(std::int32_t) { HandleMouseEvent(REGION_REASON_RBUTTON_DWN); }
+void W8ButtonWidget::OnRightButtonUp(std::int32_t) { HandleMouseEvent(REGION_REASON_RBUTTON_UP); }
+void W8ButtonWidget::ActivateSecondary(std::int32_t) { HandleMouseEvent(REGION_REASON_RBUTTON_REPEAT); }
 
 void W8ButtonWidget::HandleMouseEvent(std::int32_t reason)
 {

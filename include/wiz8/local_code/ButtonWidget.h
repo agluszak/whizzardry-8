@@ -33,15 +33,15 @@ public:
     void Redraw(bool) override { Draw(); }
     void Reset();
     bool IsConfigured() const { return OwnsRegion(); }
-    void SetPosition(int x, int y);
-    void Resize(int width, int height);
+    void SetPosition(std::int32_t x, std::int32_t y);
+    void Resize(std::int32_t width, std::int32_t height);
     void SetText(std::string_view text);
-    void SetTextOffsets(int x, int y, bool shift);
+    void SetTextOffsets(std::int32_t x, std::int32_t y, bool shift);
     void SetMultiColor(bool enabled);
-    int GetWidth() const { return m_appearance.bounds.w; }
-    int GetHeight() const { return m_appearance.bounds.h; }
-    int GetX() const { return m_appearance.bounds.x; }
-    int GetY() const { return m_appearance.bounds.y; }
+    std::int32_t GetWidth() const { return m_appearance.bounds.w; }
+    std::int32_t GetHeight() const { return m_appearance.bounds.h; }
+    std::int32_t GetX() const { return m_appearance.bounds.x; }
+    std::int32_t GetY() const { return m_appearance.bounds.y; }
     SDL_Point GetMousePosition() const { return GetRegionMousePosition(); }
     bool IsLeftButtonHeld() const
     {
@@ -66,22 +66,22 @@ public:
     /* Installs the tooltip string on the mouse region (when one is configured
        and tooltips are on), or clears it. */
     void SetTooltipEnabled(bool enabled);
-    int GetUserData() const { return m_user_data; }
+    std::int32_t GetUserData() const { return m_user_data; }
     /* Load the frame images, configure the owned region, and store the
        per-button callbacks, left-toggle flag, priority and tooltip index. */
-    bool Configure(const char* image_path, int gray_frame, int off_normal_frame,
-                   int off_hover_frame, int on_normal_frame, int on_hover_frame,
+    bool Configure(const char* image_path, std::int32_t gray_frame, std::int32_t off_normal_frame,
+                   std::int32_t off_hover_frame, std::int32_t on_normal_frame, std::int32_t on_hover_frame,
                    W8ButtonCallback left_callback, W8ButtonCallback move_callback,
-                   bool left_toggles, int priority, int tooltip_index,
+                   bool left_toggles, std::int32_t priority, std::int32_t tooltip_index,
                    W8ButtonCallback right_callback, W8ButtonCallback double_click_callback);
-    bool Configure(std::shared_ptr<const SpriteSheet> sprites, int gray_frame,
-                   int off_normal_frame, int off_hover_frame, int on_normal_frame,
-                   int on_hover_frame, W8ButtonCallback left_callback,
-                   W8ButtonCallback move_callback, bool left_toggles, int priority,
-                   int tooltip_index, W8ButtonCallback right_callback,
+    bool Configure(std::shared_ptr<const SpriteSheet> sprites, std::int32_t gray_frame,
+                   std::int32_t off_normal_frame, std::int32_t off_hover_frame, std::int32_t on_normal_frame,
+                   std::int32_t on_hover_frame, W8ButtonCallback left_callback,
+                   W8ButtonCallback move_callback, bool left_toggles, std::int32_t priority,
+                   std::int32_t tooltip_index, W8ButtonCallback right_callback,
                    W8ButtonCallback double_click_callback);
-    bool ConfigureIcon(const char* image_path, int disabled_frame, int normal_frame, int priority,
-                       int tooltip_index)
+    bool ConfigureIcon(const char* image_path, std::int32_t disabled_frame, std::int32_t normal_frame, std::int32_t priority,
+                       std::int32_t tooltip_index)
     {
         return Configure(image_path, disabled_frame, normal_frame, BUTTON_NO_IMAGE, normal_frame,
                          BUTTON_NO_IMAGE, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK, false, priority,
@@ -89,36 +89,36 @@ public:
     }
 
     /* Configure a text button with an owner-local numeric callback payload. */
-    bool ConfigureTextButton(std::string_view text, Font& font, short fore_color,
-                             short shadow_color, short x, short y, short width, short height,
-                             W8ButtonCallback left_callback, int user_data,
-                             GenericButtonImage image = {}, int priority = REGION_PRIORITY_HIGHEST);
+    bool ConfigureTextButton(std::string_view text, Font& font, std::int16_t fore_color,
+                             std::int16_t shadow_color, std::int16_t x, std::int16_t y, std::int16_t width, std::int16_t height,
+                             W8ButtonCallback left_callback, std::int32_t user_data,
+                             GenericButtonImage image = {}, std::int32_t priority = REGION_PRIORITY_HIGHEST);
     /* Store the tooltip string-table index and, when tooltips are
        enabled, push its text onto the mouse region. */
-    void SetTooltipIndex(int tooltip_index);
+    void SetTooltipIndex(std::int32_t tooltip_index);
 
-    void OnMouseEnter(int) override;
-    void OnMouseLeave(int) override;
-    void OnMouseMove(int) override;
-    void OnLeftButtonDown(int) override;
-    void OnLeftButtonUp(int) override;
-    void OnLeftButtonDoubleClick(int) override;
-    void ActivatePrimary(int) override;
-    void OnRightButtonDown(int) override;
-    void OnRightButtonUp(int) override;
-    void ActivateSecondary(int) override;
+    void OnMouseEnter(std::int32_t) override;
+    void OnMouseLeave(std::int32_t) override;
+    void OnMouseMove(std::int32_t) override;
+    void OnLeftButtonDown(std::int32_t) override;
+    void OnLeftButtonUp(std::int32_t) override;
+    void OnLeftButtonDoubleClick(std::int32_t) override;
+    void ActivatePrimary(std::int32_t) override;
+    void OnRightButtonDown(std::int32_t) override;
+    void OnRightButtonUp(std::int32_t) override;
+    void ActivateSecondary(std::int32_t) override;
 
 private:
     ButtonAppearance m_appearance;
     ButtonVisualState m_visual;
     SDL_MouseButtonFlags m_armed_buttons = 0;
     SDL_MouseButtonFlags m_repeated_buttons = 0;
-    int m_user_data = 0;
+    std::int32_t m_user_data = 0;
     W8Region& Region() const { return g_regions[m_region]; }
-    void ConfigureRegion(int priority);
+    void ConfigureRegion(std::int32_t priority);
     void ApplyRegionBounds();
     void HandleMouseEvent(std::int32_t reason);
-    int m_tooltip_index; /* g_localized_strings index, or -1 */
+    std::int32_t m_tooltip_index; /* g_localized_strings index, or -1 */
     W8ButtonCallback m_left_callback;
     W8ButtonCallback m_right_callback;
     W8ButtonCallback m_move_callback;
@@ -144,5 +144,5 @@ public:
 private:
     /* Snapshot of the live-dialog count; dispatch ignores events when a
        nested dialog has changed that count. */
-    int m_live_dialog_count;
+    std::int32_t m_live_dialog_count;
 };

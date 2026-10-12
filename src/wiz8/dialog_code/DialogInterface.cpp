@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "Font.h"
 #include <string_view>
 
@@ -23,9 +24,9 @@ Font* g_dialog_interface_font = nullptr;
 // GLOBAL: WIZ8 0x0069ca32
 bool g_dialog_font_enabled;
 // GLOBAL: WIZ8 0x0064fdec
-unsigned char g_dialog_font_foreground = 255;
+std::uint8_t g_dialog_font_foreground = 255;
 // GLOBAL: WIZ8 0x0064fded
-unsigned char g_dialog_font_background = 255;
+std::uint8_t g_dialog_font_background = 255;
 
 // FUNCTION: WIZ8 0x005cf280
 W8DialogBase* CreateCharacterSummaryDialog(W8Character* character)
@@ -73,8 +74,8 @@ W8DialogBase* CreateDialogByKind(W8DialogKind kind)
 }
 
 // FUNCTION: WIZ8 0x005cf250
-void ConfigureDialogFont(Font& font, bool enabled, unsigned char foreground,
-                         unsigned char background)
+void ConfigureDialogFont(Font& font, bool enabled, std::uint8_t foreground,
+                         std::uint8_t background)
 {
     g_dialog_interface_font = &font;
     g_dialog_font_enabled = enabled;
@@ -85,7 +86,7 @@ void ConfigureDialogFont(Font& font, bool enabled, unsigned char foreground,
 #define DIALOG_INTERFACE_CPP "C:\\Projects\\Wizardry 8\\Dialog Code\\DialogInterface.cpp"
 
 // FUNCTION: WIZ8 0x005CF4F0
-void SetDialogPrompt(W8MessageDialogBase* dialog, std::string_view text, int, int)
+void SetDialogPrompt(W8MessageDialogBase* dialog, std::string_view text, std::int32_t, std::int32_t)
 {
     dialog->SetMessage(text, 1, 0x32, true, true, true, false, 0, 0);
 }

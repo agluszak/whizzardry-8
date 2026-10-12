@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <vector>
 #include <optional>
 
@@ -20,12 +21,12 @@ extern char g_W8TextSeparator[];
 /* The region callback a widget without its own region is given. It answers
    whether the event was consumed; the screen-input dispatcher returns that
    byte to its caller. */
-extern unsigned char DispatchControlRegionEvent(const InputEvent* event, struct W8Region* region);
+extern bool DispatchControlRegionEvent(const InputEvent* event, struct W8Region* region);
 
 /* The simple button-region policy shared by camp tabs, scrolling and
    movement controls. Repeat presses again; release is unconditional. The
    panel-owned dispatcher above has a different repeat/release policy. */
-unsigned char DispatchButtonRegionEvent(const InputEvent* event, W8Region* region,
+bool DispatchButtonRegionEvent(const InputEvent* event, W8Region* region,
                                                W8Widget* button);
 
 /* Panel/container, not a W8Widget base. Child ownership is held by unique_ptr;
@@ -35,8 +36,8 @@ unsigned char DispatchButtonRegionEvent(const InputEvent* event, W8Region* regio
 // VTABLE: WIZ8 0x005ed5a4
 struct Controls {
     Controls();
-    Controls(int left, int top, int right, int bottom, std::optional<CatalogArtwork> background,
-             int background_image);
+    Controls(std::int32_t left, std::int32_t top, std::int32_t right, std::int32_t bottom, std::optional<CatalogArtwork> background,
+             std::int32_t background_image);
     virtual ~Controls();
     Controls(const Controls&) = delete;
     Controls& operator=(const Controls&) = delete;
@@ -50,33 +51,33 @@ struct Controls {
     bool m_fLayoutDirty;
     W8ControlsRect m_bounds; /* widget rectangles are relative to its origin */
     std::optional<CatalogArtwork> m_background;
-    int m_backgroundImage;
+    std::int32_t m_backgroundImage;
     W8ControlsRect m_dirtyRect;
     bool m_fWholeAreaDirty; /* set when a caller passes no rectangle */
     /* The region set this panel's widgets register in; 0 until CreateRegionSet. */
-    unsigned int RegionSet() const { return m_regionSet; }
+    std::uint32_t RegionSet() const { return m_regionSet; }
     void EnableRegionSet(bool enable);
     void AdoptControl(std::unique_ptr<W8Widget> control);
     [[nodiscard]] std::unique_ptr<W8Widget> TakeControl(W8Widget* control);
     size_t ControlCount() const { return m_controls.size(); }
     void DestroyAllControls();
     void InvalidateLayout();
-    void SetBounds(int left, int top, int right, int bottom);
+    void SetBounds(std::int32_t left, std::int32_t top, std::int32_t right, std::int32_t bottom);
     /* Creates the panel's own region set, or empties it so the panel can repopulate it. */
     void CreateRegionSet();
 
     /* Non-owning view of a child; event dispatch does not use this index. */
-    inline W8Widget* ControlAt(int index) { return m_controls[index].get(); }
+    inline W8Widget* ControlAt(std::int32_t index) { return m_controls[index].get(); }
 
   private:
     friend class W8Widget;
     std::vector<std::unique_ptr<W8Widget>> m_controls;
-    unsigned int m_regionSet = 0;
+    std::uint32_t m_regionSet = 0;
 
   protected:
     void RedrawChildren(bool full_redraw)
     {
-        for (int index = 0; index < static_cast<int>(m_controls.size()); ++index) {
+        for (std::int32_t index = 0; index < static_cast<std::int32_t>(m_controls.size()); ++index) {
             if (ControlAt(index)->m_active) {
                 ControlAt(index)->Redraw(full_redraw);
             }

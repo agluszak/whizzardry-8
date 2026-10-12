@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <catch2/catch_test_macros.hpp>
 #include <SDL3/SDL_init.h>
 #include <SDL3/SDL_stdinc.h>
@@ -47,7 +48,7 @@ TEST_CASE("application_test")
 
     const std::array<std::string_view, 4> arguments{
         "/STRINGDATA=string data.wiz", "/window", "/vIdEoCfG", "C:\\missing video.cfg"};
-    for (int attempt = 0; attempt < 2; ++attempt) {
+    for (std::int32_t attempt = 0; attempt < 2; ++attempt) {
         bool failed = false;
         try {
             wiz8::Application application(arguments);

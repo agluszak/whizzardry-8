@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <glm/gtx/euler_angles.hpp>
 #include <glm/glm.hpp>
 #include <cmath>
@@ -50,10 +51,10 @@ public:
                              W8LevelDataRecord* context);                       /* 0x00476610 */
     void SnapToTarget(const srVector3T<float>* target);                         /* 0x00476950 */
     void SetOrientationImmediate(float pitch, float angle);                     /* 0x00476C30 */
-    unsigned char LookAt(const srVector3T<float>* target, bool preserve_pitch); /* 0x00476F90 */
-    unsigned char ComputeTrackingOrientation(const srVector3T<float>* target, float* angle,
+    std::uint8_t LookAt(const srVector3T<float>* target, bool preserve_pitch); /* 0x00476F90 */
+    bool ComputeTrackingOrientation(const srVector3T<float>* target, float* angle,
                                              float* pitch); /* 0x00477180 */
-    unsigned char BeginOrientationTransition(float target_pitch, float target_angle,
+    std::uint8_t BeginOrientationTransition(float target_pitch, float target_angle,
                                              bool force); /* 0x00477440 */
     void Update(float elapsed);                           /* 0x004776A0 */
     void ApplyYawInput(float input);                      /* 0x00477B90 */
@@ -79,7 +80,7 @@ public:
     void GetForwardPoint(float distance, srVector3T<float>* output); /* 0x00478CE0 */
     void SetManualControlActive(bool enabled);                       /* 0x00478E00 */
 
-    w8_ulong m_orientation_flags;
+    std::uint32_t m_orientation_flags;
     float m_yaw;                        /* 0x004 */
     float m_pitch;                      /* 0x008 */
     glm::mat3 m_pitch_rotation;    /* 0x00c */
@@ -89,7 +90,7 @@ public:
     float m_frame_elapsed;              /* 0x084 */
     bool m_transition_active;           /* 0x088 */
     bool m_forced_transition;           /* 0x089 */
-    unsigned char m_padding_08a[2];
+    std::uint8_t m_padding_08a[2];
     glm::vec3 m_position;                 /* 0x08c */
     float m_target_yaw;                   /* 0x098 */
     float m_target_pitch;                 /* 0x09c */

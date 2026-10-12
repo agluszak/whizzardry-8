@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include "input.h"
 
 class Trigger;
@@ -10,14 +11,14 @@ enum { W8_TRAP_TYPE_COUNT = 15, W8_TRAP_DEVICE_COUNT = 8 };
 
 /* Spell-id-per-trap-type at index 11+; the opening entries are unrelated
    chance values used by the lock interaction. */
-extern int g_table2[];
+extern std::int32_t g_table2[];
 bool IsRecordModeActive(void);
 /* Record-mode console line input and its per-key prompt/apply callbacks. */
 void WriteRecordModeEntry(void);
 char HandleRecordModeKey(const InputEvent* input, void (*prompt)(void));
 void ApplyRecordModeLine(void);
 void PromptRecordModeEntry(void);
-unsigned char GetTable650434Entry(int trap, int device);
+std::uint8_t GetTable650434Entry(std::int32_t trap, std::int32_t device);
 /* Picks the trigger's trap type (device_id) by rejection-rolling a table row
    whose difficulty sits within four of the trigger's grade (difficulty). */
 void SelectTrapType(Trigger* trigger);

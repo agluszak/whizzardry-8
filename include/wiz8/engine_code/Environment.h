@@ -7,8 +7,8 @@
    runs, 1 while a lighting transition is in progress, 0 once a transition has
    faded the world out. The only retail caller is in NPC Scripting, so the
    accessor keeps its address name until that owner can be renamed with it. */
-int GetEnvironmentValue(void);
-unsigned char GetEnvironmentFlag(void); /* 0x00482A10 */
+std::int32_t GetEnvironmentValue(void);
+std::uint8_t GetEnvironmentFlag(void); /* 0x00482A10 */
 
 #include <vector>
 
@@ -33,12 +33,12 @@ public:
     /* Retail ICF folds this onto W8NormalTexcoordMapper's deleting
        destructor at 0x004B8A50. */
 
-    virtual int isActive(srVertexPipe& pipe) override;
+    virtual std::int32_t isActive(srVertexPipe& pipe) override;
     virtual void process(srVertexPipe& pipe) override;
 
     float scroll_rate_u;         /* 0x04 */
     float scroll_rate_v;         /* 0x08 */
-    unsigned char padding_0c[8]; /* 0x0c */
+    std::uint8_t padding_0c[8]; /* 0x0c */
     float scroll_u;              /* 0x14 */
     float scroll_v;              /* 0x18 */
 };
@@ -89,7 +89,7 @@ void ReleaseEnvironmentObjects(void);
 /* Turn the environment clock on or off; enabling resets its tick baseline. */
 void SetEnvironmentTimeEnabled(bool enabled);
 float GetViewDistance(void);
-void SetGameTimeMilliseconds(int value);
+void SetGameTimeMilliseconds(std::int32_t value);
 /* The per-frame environment update, and the alternate lighting transition it
    hands off to when the bypass value is set. */
 void UpdateEnvironment(void);
@@ -103,12 +103,12 @@ void SetSkyNodeVisible(bool visible);
 void SetCameraLightIntensity(float value);
 /* Mode 0 raises the camera light's intensity, 1 lowers it, 2 disables the
    node, 3 re-enables it. */
-void SetCameraLightMode(int mode);
+void SetCameraLightMode(std::int32_t mode);
 void RefreshFogRanges(void);
 
 void SetViewDistance(float distance);
-unsigned char InitializeEnvironmentColours(void);
-extern uint64_t g_frame_tick;
+bool InitializeEnvironmentColours(void);
+extern std::uint64_t g_frame_tick;
 extern float g_frame_elapsed;
 
 /* The environment's lighting mode: 2 while the per-frame day/night cycle runs,
@@ -116,16 +116,16 @@ extern float g_frame_elapsed;
    out. Retail writes it only from the transition bodies at 0x00483FD0 and
    0x00484300 and reads it from UpdateEnvironment; the exported accessor
    above still carries the address name. */
-extern int g_environment_lighting_mode;
+extern std::int32_t g_environment_lighting_mode;
 extern bool g_fog_enabled;
 /* 1/duration while the lighting transition body at 0x00484300 runs, zero when
    idle: UpdateEnvironment hands off to that body while it is not zero. */
 extern float g_environment_transition_rate;
-extern w8_ulong g_environment_transition_tick;
+extern std::uint32_t g_environment_transition_tick;
 /* Last day phase the light direction was published from. */
-extern int g_last_light_phase;
+extern std::int32_t g_last_light_phase;
 /* Last day phase the world's environment colour was refreshed from. */
-extern int g_last_environment_colour_phase;
+extern std::int32_t g_last_environment_colour_phase;
 /* Gates the per-frame world-colour refresh. Retail writes it nowhere and
    initialises it to 1, so that refresh always runs; the only reference is the
    read inside UpdateEnvironment. */
@@ -157,8 +157,8 @@ extern srVector3T<float> g_celestial_origin;
    The vector count occupies 0x0065B99C. */
 extern std::vector<stLight*> g_environment_lights;
 
-void SetGameTimeDays(int value);
-void AdvanceEnvironmentTime(int elapsed); /* 0x00482A20 */
+void SetGameTimeDays(std::int32_t value);
+void AdvanceEnvironmentTime(std::int32_t elapsed); /* 0x00482A20 */
 void SetWorldEnvironmentIntensity(W8World* world, float value);
 /* Arm the lighting transition. Duration is in milliseconds: negative fades the
    world out, positive fades it back in over abs(duration); zero applies the

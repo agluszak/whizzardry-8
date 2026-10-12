@@ -1,11 +1,12 @@
 #pragma once
 
+#include <cstdint>
 #include <optional>
 
 #include "wiz8/layouts/targeting.h"
 
 void SetPendingMoveKind(W8ActionKind kind);
-std::optional<unsigned int> GetPartyHasteSteps();
+std::optional<std::uint32_t> GetPartyHasteSteps();
 void CompletePartyMovementTurns(void);
 void BeginFreeTurnPhase(void);
 void BeginPartyMovement(void);
@@ -13,12 +14,12 @@ void EndPartyMovementPhase(void);
 void CancelPartyMovement(void);
 void InterruptActivePartyMovement(void);
 bool CanPartyMove(void);
-void ClearPendingPartyMovement(int excluded_party_slot);
+void ClearPendingPartyMovement(std::int32_t excluded_party_slot);
 void StartPartyMovementAction(W8PartyAction move_kind);
 void UpdateActivePartyMovement(void);
 void UpdatePartyMovementControl(void);
-void RoundPhaseToStep(unsigned int* phase, unsigned int base);
-int GetPhaseStep(void);
+void RoundPhaseToStep(std::uint32_t* phase, std::uint32_t base);
+std::int32_t GetPhaseStep(void);
 float GetPartyMovementSpeed(void);
 void BeginPartyMovementPhase(void);
 void FinishPartyMovementAction(void);

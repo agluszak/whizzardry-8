@@ -26,7 +26,6 @@
 #include "surrender/srDD_SDLGPU.h"
 #include "sr_fragment.spv.h"
 #include "sr_vertex.spv.h"
-#include "compat/compiler.h"
 #include "surrender/srDD.h"
 #include "surrender/srFlags.h"
 #include "surrender/srPixelConvert.h"
@@ -74,20 +73,20 @@ enum PrimitiveClass { PRIMITIVE_CLASS_TRIANGLES, PRIMITIVE_CLASS_LINES, PRIMITIV
 
 /* Fixed-function state that SDL GPU bakes into a pipeline. */
 struct PipelineKey {
-    uint32_t value = 0;
-    w8_long offset = 0;
+    std::uint32_t value = 0;
+    std::int32_t offset = 0;
 
     PipelineKey() = default;
     PipelineKey(const srShader& shader, srDD::e_cullMode cull, srDD::e_polygonMode polygon,
-                PrimitiveClass primitive, w8_long bias)
+                PrimitiveClass primitive, std::int32_t bias)
     {
         offset = bias;
-        const uint32_t packed_shader =
+        const std::uint32_t packed_shader =
             shader.value & (srShader::PASS_MASK | srShader::MASK_DEPTH_WRITE |
                             srShader::MASK_COLOR_WRITE | 0x7u << srShader::DSTBLEND_SHIFT |
                             0x3u << srShader::SRCBLEND_SHIFT);
-        value = packed_shader | (uint32_t)cull << 24 | (uint32_t)polygon << 26 |
-                (uint32_t)primitive << 28;
+        value = packed_shader | (std::uint32_t)cull << 24 | (std::uint32_t)polygon << 26 |
+                (std::uint32_t)primitive << 28;
     }
 
     bool operator<(const PipelineKey& other) const
@@ -101,9 +100,9 @@ struct DrawCommand {
     Kind kind;
     /* DRAW */
     PipelineKey pipeline_key;
-    uint32_t first_vertex;
-    uint32_t vertex_count;
-    uint32_t textures[2];
+    std::uint32_t first_vertex;
+    std::uint32_t vertex_count;
+    std::uint32_t textures[2];
     SDL_GPUSampler* samplers[2];
     VertexUniforms vertex_uniforms;
     FragmentUniforms fragment_uniforms;
@@ -111,24 +110,24 @@ struct DrawCommand {
     SDL_Rect scissor;
     SDL_GPUViewport viewport;
     /* CLEAR */
-    uint32_t clear_buffers;
+    std::uint32_t clear_buffers;
     SDL_FColor clear_color;
     float clear_depth;
-    uint8_t clear_stencil;
+    std::uint8_t clear_stencil;
 };
 
 struct DeviceTexture {
     SDL_GPUTexture* texture;
-    uint32_t width;
-    uint32_t height;
-    uint32_t levels;
+    std::uint32_t width;
+    std::uint32_t height;
+    std::uint32_t levels;
 };
 
 struct PendingUpload {
-    uint32_t texture;
-    uint32_t level;
-    uint32_t x, y, width, height;
-    std::vector<uint32_t> pixels;
+    std::uint32_t texture;
+    std::uint32_t level;
+    std::uint32_t x, y, width, height;
+    std::vector<std::uint32_t> pixels;
 };
 
 /* The device exposes one 32-bit ARGB format for textures and the back buffer.
@@ -149,7 +148,7 @@ srDD::PixelFormat argb8888Format()
     return format;
 }
 
-SDL_GPUCompareOp compareOp(uint32_t pass)
+SDL_GPUCompareOp compareOp(std::uint32_t pass)
 {
     static const SDL_GPUCompareOp ops[8] = {
         SDL_GPU_COMPAREOP_NEVER,   SDL_GPU_COMPAREOP_LESS,      SDL_GPU_COMPAREOP_EQUAL,
@@ -159,7 +158,7 @@ SDL_GPUCompareOp compareOp(uint32_t pass)
     return ops[pass & 7];
 }
 
-SDL_GPUBlendFactor sourceFactor(uint32_t blend)
+SDL_GPUBlendFactor sourceFactor(std::uint32_t blend)
 {
     static const SDL_GPUBlendFactor factors[4] = {
         SDL_GPU_BLENDFACTOR_ZERO, SDL_GPU_BLENDFACTOR_ONE, SDL_GPU_BLENDFACTOR_SRC_ALPHA,
@@ -168,7 +167,7 @@ SDL_GPUBlendFactor sourceFactor(uint32_t blend)
     return factors[blend & 3];
 }
 
-SDL_GPUBlendFactor destinationFactor(uint32_t blend)
+SDL_GPUBlendFactor destinationFactor(std::uint32_t blend)
 {
     static const SDL_GPUBlendFactor factors[6] = {
         SDL_GPU_BLENDFACTOR_ZERO,      SDL_GPU_BLENDFACTOR_ONE,
@@ -246,11 +245,11 @@ public:
     }
 
     void resetStatistics() override {}
-    void extCommand(w8_ulong, void*, w8_ulong) override {}
+    void extCommand(std::uint32_t, void*, std::uint32_t) override {}
 
-    int isBusy() override
+    bool isBusy() override
     {
-        return 0;
+        return false;
     }
 
     e_error openWindow(const OpenInfo& info, OpenResult& result) override
@@ -310,7 +309,7 @@ public:
         flush(false);
     }
 
-    void flipFrame(const Scissor*, const Scissor*, w8_ulong) override
+    void flipFrame(const Scissor*, const Scissor*, std::uint32_t) override
     {
         flush(true);
     }
@@ -323,7 +322,7 @@ public:
         command.clear_color = {clear_values.color.x, clear_values.color.y, clear_values.color.z,
                                clear_values.color.w};
         command.clear_depth = (float)clear_values.depth;
-        command.clear_stencil = (uint8_t)clear_values.stencil;
+        command.clear_stencil = (std::uint8_t)clear_values.stencil;
         command.scissor = scissor;
         command.viewport = viewport;
         commands.push_back(command);
@@ -404,14 +403,14 @@ public:
         shader = value;
     }
 
-    void setTextureParameters(w8_ulong stage, const TexParms& parms) override
+    void setTextureParameters(std::uint32_t stage, const TexParms& parms) override
     {
         if (stage < 2) {
             parameters[stage] = parms;
         }
     }
 
-    void bindTexture(w8_ulong stage, Texture& texture) override
+    void bindTexture(std::uint32_t stage, Texture& texture) override
     {
         if (stage >= 2) {
             return;
@@ -424,13 +423,13 @@ public:
 
     void deleteTexture(Texture& texture) override
     {
-        const uint32_t handle = texture.resident_data;
+        const std::uint32_t handle = texture.resident_data;
         if (handle == 0 || handle > textures.size()) {
             return;
         }
         /* Queued draws may still sample it; release after the next flush. */
         released.push_back(handle);
-        for (int stage = 0; stage < 2; ++stage) {
+        for (std::int32_t stage = 0; stage < 2; ++stage) {
             if (bound[stage] == handle) {
                 bound[stage] = 0;
             }
@@ -439,7 +438,7 @@ public:
         texture.resident_size = 0;
     }
 
-    void texImage(Texture& texture, w8_ulong level) override
+    void texImage(Texture& texture, std::uint32_t level) override
     {
         if (texture.resident_data == 0) {
             makeResident(texture);
@@ -449,8 +448,8 @@ public:
                    texture.levels[level]);
     }
 
-    void texSubImage(Texture& texture, w8_ulong level, w8_ulong x, w8_ulong y, w8_ulong right,
-                     w8_ulong bottom) override
+    void texSubImage(Texture& texture, std::uint32_t level, std::uint32_t x, std::uint32_t y, std::uint32_t right,
+                     std::uint32_t bottom) override
     {
         if (texture.resident_data == 0) {
             makeResident(texture);
@@ -461,11 +460,11 @@ public:
     }
 
     /* Only 32-bit ARGB textures are offered, so palettes never reach the device. */
-    void setGlobalPalette(w8_ulong*, w8_ulong) override {}
+    void setGlobalPalette(std::uint32_t*, std::uint32_t) override {}
     void bindPalette(Palette&) override {}
     void deletePalette(Palette&) override {}
 
-    e_error createContext(w8_ulong_ptr handle) override
+    e_error createContext(std::uintptr_t handle) override
     {
         window = reinterpret_cast<SDL_Window*>(handle);
         device = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV, SDL_getenv("WIZ8_GPU_DEBUG") != 0,
@@ -496,7 +495,7 @@ public:
         /* Handle 1 is the white texture unbound stages sample. */
         DeviceTexture white = createTexture(1, 1, 1);
         textures.push_back(white);
-        PendingUpload upload = {1, 0, 0, 0, 1, 1, std::vector<uint32_t>(1, 0xffffffffu)};
+        PendingUpload upload = {1, 0, 0, 0, 1, 1, std::vector<std::uint32_t>(1, 0xffffffffu)};
         uploads.push_back(upload);
         return vertex_shader != 0 && fragment_shader != 0 ? ERROR_NONE : static_cast<e_error>(1);
     }
@@ -553,7 +552,7 @@ public:
         return argb8888Format();
     }
 
-    void preBindTexture(w8_ulong, Texture&) override {}
+    void preBindTexture(std::uint32_t, Texture&) override {}
 
     void setPolygonMode(e_polygonMode mode) override
     {
@@ -576,25 +575,25 @@ public:
         vertex_arrays = *info;
     }
 
-    void drawElements(srRendererDefs::e_primitive primitive, w8_ulong count,
+    void drawElements(srRendererDefs::e_primitive primitive, std::uint32_t count,
                       srRendererDefs::e_indexType, const void* indices) override
     {
-        draw(primitive, count, static_cast<const w8_ulong*>(indices), 0);
+        draw(primitive, count, static_cast<const std::uint32_t*>(indices), 0);
     }
 
-    void drawArrays(srRendererDefs::e_primitive primitive, w8_long first, w8_ulong count) override
+    void drawArrays(srRendererDefs::e_primitive primitive, std::int32_t first, std::uint32_t count) override
     {
         draw(primitive, count, 0, first);
     }
 
-    void setPolygonOffset(w8_long offset) override
+    void setPolygonOffset(std::int32_t offset) override
     {
         polygon_offset = offset;
     }
 
 private:
-    SDL_GPUShader* createShader(const uint32_t* code, size_t size, SDL_GPUShaderStage stage,
-                                uint32_t sampler_count)
+    SDL_GPUShader* createShader(const std::uint32_t* code, size_t size, SDL_GPUShaderStage stage,
+                                std::uint32_t sampler_count)
     {
         SDL_GPUShaderCreateInfo info = {};
         info.code_size = size;
@@ -611,7 +610,7 @@ private:
         return shader_object;
     }
 
-    DeviceTexture createTexture(uint32_t texture_width, uint32_t texture_height, uint32_t levels)
+    DeviceTexture createTexture(std::uint32_t texture_width, std::uint32_t texture_height, std::uint32_t levels)
     {
         SDL_GPUTextureCreateInfo info = {};
         info.type = SDL_GPU_TEXTURETYPE_2D;
@@ -628,41 +627,41 @@ private:
 
     void makeResident(Texture& texture)
     {
-        const uint32_t levels = texture.last_level - texture.first_level + 1;
+        const std::uint32_t levels = texture.last_level - texture.first_level + 1;
         DeviceTexture created = createTexture(texture.width, texture.height, levels);
         if (created.texture == 0) {
             SDL_Log("srDD_SDLGPU: texture %ux%u: %s", texture.width, texture.height,
                     SDL_GetError());
             return;
         }
-        uint32_t handle = 0;
+        std::uint32_t handle = 0;
         for (size_t index = 1; index < textures.size(); ++index) {
             if (textures[index].texture == 0) {
-                handle = (uint32_t)index + 1;
+                handle = (std::uint32_t)index + 1;
                 textures[index] = created;
                 break;
             }
         }
         if (handle == 0) {
             textures.push_back(created);
-            handle = (uint32_t)textures.size();
+            handle = (std::uint32_t)textures.size();
         }
         texture.resident_data = handle;
         texture.resident_size = texture.width * texture.height * 4;
-        for (uint32_t level = texture.first_level; level <= texture.last_level; ++level) {
+        for (std::uint32_t level = texture.first_level; level <= texture.last_level; ++level) {
             queueLevel(texture, level, 0, 0, SDL_max(texture.width >> level, 1u),
                        SDL_max(texture.height >> level, 1u), texture.levels[level]);
         }
     }
 
     /* Copies now: srGERD may release the level storage after the bind. */
-    void queueLevel(const Texture& texture, uint32_t level, uint32_t x, uint32_t y,
-                    uint32_t level_width, uint32_t level_height, const void* pixels)
+    void queueLevel(const Texture& texture, std::uint32_t level, std::uint32_t x, std::uint32_t y,
+                    std::uint32_t level_width, std::uint32_t level_height, const void* pixels)
     {
         if (pixels == 0 || texture.resident_data == 0) {
             return;
         }
-        const uint32_t pitch = SDL_max(texture.width >> level, 1u);
+        const std::uint32_t pitch = SDL_max(texture.width >> level, 1u);
         PendingUpload upload;
         upload.texture = texture.resident_data;
         upload.level = level - texture.first_level;
@@ -671,8 +670,8 @@ private:
         upload.width = level_width;
         upload.height = level_height;
         upload.pixels.resize((size_t)level_width * level_height);
-        const uint32_t* source = static_cast<const uint32_t*>(pixels);
-        for (uint32_t row = 0; row < level_height; ++row) {
+        const std::uint32_t* source = static_cast<const std::uint32_t*>(pixels);
+        for (std::uint32_t row = 0; row < level_height; ++row) {
             memcpy(&upload.pixels[(size_t)row * level_width],
                    source + (size_t)(y + row) * pitch + x, level_width * 4);
         }
@@ -680,21 +679,21 @@ private:
     }
 
     template<class Vector>
-    Vector fetch(srRendererDefs::e_vertexArray slot, uint32_t index,
+    Vector fetch(srRendererDefs::e_vertexArray slot, std::uint32_t index,
                  Vector fallback) const
     {
         if (((vertex_arrays.mask.value >> slot) & 1) == 0 &&
             slot != srRendererDefs::VERTEX_ARRAY_POSITIONS) return fallback;
         if (vertex_arrays.arrays[slot] == nullptr) return fallback;
-        const int components = SDL_min(static_cast<int>(vertex_arrays.components[slot]), Vector::length());
-        const uint32_t stride = vertex_arrays.strides[slot] != 0
+        const std::int32_t components = SDL_min(static_cast<std::int32_t>(vertex_arrays.components[slot]), Vector::length());
+        const std::uint32_t stride = vertex_arrays.strides[slot] != 0
             ? vertex_arrays.strides[slot] : vertex_arrays.components[slot] * sizeof(float);
         const auto* source = static_cast<const char*>(vertex_arrays.arrays[slot]) + size_t(index) * stride;
         std::memcpy(glm::value_ptr(fallback), source, components * sizeof(float));
         return fallback;
     }
 
-    void appendVertex(uint32_t index)
+    void appendVertex(std::uint32_t index)
     {
         using enum srRendererDefs::e_vertexArray;
         vertices.push_back({fetch(VERTEX_ARRAY_POSITIONS, index, glm::vec4(0, 0, 0, 1)),
@@ -707,25 +706,25 @@ private:
 
     /* Expands every primitive to a list: SDL GPU has no fans, and lists let
        consecutive draws share one vertex stream. */
-    void draw(srRendererDefs::e_primitive primitive, uint32_t count, const w8_ulong* indices,
-              uint32_t first)
+    void draw(srRendererDefs::e_primitive primitive, std::uint32_t count, const std::uint32_t* indices,
+              std::uint32_t first)
     {
         if (count == 0) {
             return;
         }
-        const uint32_t start = (uint32_t)vertices.size();
+        const std::uint32_t start = (std::uint32_t)vertices.size();
         PrimitiveClass primitive_class = PRIMITIVE_CLASS_TRIANGLES;
 #define SR_INDEX(i) (indices != 0 ? indices[(i)] : first + (i))
         switch (primitive) {
         case srRendererDefs::PRIMITIVE_TRIANGLES:
-            for (uint32_t i = 0; i + 2 < count; i += 3) {
+            for (std::uint32_t i = 0; i + 2 < count; i += 3) {
                 appendVertex(SR_INDEX(i));
                 appendVertex(SR_INDEX(i + 1));
                 appendVertex(SR_INDEX(i + 2));
             }
             break;
         case srRendererDefs::PRIMITIVE_TRIANGLE_STRIP:
-            for (uint32_t i = 0; i + 2 < count; ++i) {
+            for (std::uint32_t i = 0; i + 2 < count; ++i) {
                 const bool odd = (i & 1) != 0;
                 appendVertex(SR_INDEX(odd ? i + 1 : i));
                 appendVertex(SR_INDEX(odd ? i : i + 1));
@@ -733,7 +732,7 @@ private:
             }
             break;
         case srRendererDefs::PRIMITIVE_TRIANGLE_FAN:
-            for (uint32_t i = 1; i + 1 < count; ++i) {
+            for (std::uint32_t i = 1; i + 1 < count; ++i) {
                 appendVertex(SR_INDEX(0));
                 appendVertex(SR_INDEX(i));
                 appendVertex(SR_INDEX(i + 1));
@@ -741,21 +740,21 @@ private:
             break;
         case srRendererDefs::PRIMITIVE_LINES:
             primitive_class = PRIMITIVE_CLASS_LINES;
-            for (uint32_t i = 0; i + 1 < count; i += 2) {
+            for (std::uint32_t i = 0; i + 1 < count; i += 2) {
                 appendVertex(SR_INDEX(i));
                 appendVertex(SR_INDEX(i + 1));
             }
             break;
         case srRendererDefs::PRIMITIVE_LINE_STRIP:
             primitive_class = PRIMITIVE_CLASS_LINES;
-            for (uint32_t i = 0; i + 1 < count; ++i) {
+            for (std::uint32_t i = 0; i + 1 < count; ++i) {
                 appendVertex(SR_INDEX(i));
                 appendVertex(SR_INDEX(i + 1));
             }
             break;
         case srRendererDefs::PRIMITIVE_POINTS:
             primitive_class = PRIMITIVE_CLASS_POINTS;
-            for (uint32_t i = 0; i < count; ++i) {
+            for (std::uint32_t i = 0; i < count; ++i) {
                 appendVertex(SR_INDEX(i));
             }
             break;
@@ -771,7 +770,7 @@ private:
             SDL_Log("srDD draw prim=%d count=%u shader=%08x cull=%d pos=(%g %g %g %g) "
                     "proj=[%g %g %g %g | %g %g %g %g | %g %g %g %g | %g %g %g %g] "
                     "viewport=(%g %g %g %g) scissor=(%d %d %d %d)",
-                    (int)primitive, count, shader.value, (int)cull_mode, v.position[0],
+                    (std::int32_t)primitive, count, shader.value, (std::int32_t)cull_mode, v.position[0],
                     v.position[1], v.position[2], v.position[3], m[0], m[1], m[2], m[3], m[4],
                     m[5], m[6], m[7], m[8], m[9], m[10], m[11], m[12], m[13], m[14], m[15],
                     viewport.x, viewport.y, viewport.w, viewport.h, scissor.x, scissor.y,
@@ -790,9 +789,9 @@ private:
         command.kind = DrawCommand::DRAW;
         command.pipeline_key = PipelineKey(shader, cull_mode, polygon_mode, primitive_class, polygon_offset);
         command.first_vertex = start;
-        command.vertex_count = (uint32_t)vertices.size() - start;
+        command.vertex_count = (std::uint32_t)vertices.size() - start;
         const bool texturing = (shader.value & srShader::MASK_TEXTURING) != 0;
-        for (int stage = 0; stage < 2; ++stage) {
+        for (std::int32_t stage = 0; stage < 2; ++stage) {
             command.textures[stage] = texturing && bound[stage] != 0 ? bound[stage] : 1;
             command.samplers[stage] = sampler(parameters[stage]);
         }
@@ -839,19 +838,19 @@ private:
 
     SDL_GPUGraphicsPipeline* pipeline(const PipelineKey& key)
     {
-        const uint32_t key_value = key.value;
+        const std::uint32_t key_value = key.value;
         std::map<PipelineKey, SDL_GPUGraphicsPipeline*>::iterator found = pipelines.find(key);
         if (found != pipelines.end()) {
             return found->second;
         }
-        const uint32_t pass = key_value & srShader::PASS_MASK;
+        const std::uint32_t pass = key_value & srShader::PASS_MASK;
         const bool depth_write = (key_value & srShader::MASK_DEPTH_WRITE) != 0;
         const bool color_write = (key_value & srShader::MASK_COLOR_WRITE) != 0;
-        const uint32_t destination = key_value >> srShader::DSTBLEND_SHIFT & 7;
-        const uint32_t source = key_value >> srShader::SRCBLEND_SHIFT & 3;
-        const uint32_t cull = key_value >> 24 & 3;
-        const uint32_t polygon = key_value >> 26 & 3;
-        const uint32_t primitive = key_value >> 28 & 3;
+        const std::uint32_t destination = key_value >> srShader::DSTBLEND_SHIFT & 7;
+        const std::uint32_t source = key_value >> srShader::SRCBLEND_SHIFT & 3;
+        const std::uint32_t cull = key_value >> 24 & 3;
+        const std::uint32_t polygon = key_value >> 26 & 3;
+        const std::uint32_t primitive = key_value >> 28 & 3;
 
         SDL_GPUVertexBufferDescription buffer = {};
         buffer.slot = 0;
@@ -939,7 +938,7 @@ private:
             if (vertex_buffer != 0) {
                 SDL_ReleaseGPUBuffer(device, vertex_buffer);
             }
-            vertex_buffer_size = SDL_max((uint32_t)vertex_bytes * 2, 1u << 20);
+            vertex_buffer_size = SDL_max((std::uint32_t)vertex_bytes * 2, 1u << 20);
             SDL_GPUBufferCreateInfo buffer = {};
             buffer.usage = SDL_GPU_BUFFERUSAGE_VERTEX;
             buffer.size = vertex_buffer_size;
@@ -1026,14 +1025,14 @@ private:
             if (clip.w <= 0 || clip.h <= 0) {
                 clip.x = 0;
                 clip.y = 0;
-                clip.w = (int)width;
-                clip.h = (int)height;
+                clip.w = (std::int32_t)width;
+                clip.h = (std::int32_t)height;
             }
             SDL_SetGPUScissor(pass, &clip);
             SDL_GPUBufferBinding binding = {vertex_buffer, 0};
             SDL_BindGPUVertexBuffers(pass, 0, &binding, 1);
             SDL_GPUTextureSamplerBinding bindings[2];
-            for (int stage = 0; stage < 2; ++stage) {
+            for (std::int32_t stage = 0; stage < 2; ++stage) {
                 SDL_GPUTexture* texture = textures[entry.textures[stage] - 1].texture;
                 bindings[stage].texture = texture != 0 ? texture : textures[0].texture;
                 bindings[stage].sampler = entry.samplers[stage];
@@ -1193,15 +1192,15 @@ private:
         const glm::ivec2 dimensions(width, height);
         if (glm::any(glm::lessThan(position, glm::ivec2(0))) ||
             glm::any(glm::greaterThanEqual(position, dimensions))) return;
-        const unsigned axis = vertical ? 1 : 0;
+        const std::uint32_t axis = vertical ? 1 : 0;
         const auto count = glm::min(command.count, dimensions[axis] - position[axis]);
         if (count <= 0) return;
         const bool read = command.opcode == 2 || command.opcode == 6;
         const bool fill = command.opcode == 4;
         const size_t stride = vertical ? width : 1;
         auto* line = readback.data() + size_t(command.y) * width + command.x;
-        auto* data = static_cast<uint32_t*>(command.data);
-        for (w8_long index = 0; index < count; ++index) {
+        auto* data = static_cast<std::uint32_t*>(command.data);
+        for (std::int32_t index = 0; index < count; ++index) {
             if (read) data[index] = line[size_t(index) * stride];
             else line[size_t(index) * stride] = data[fill ? 0 : index];
         }
@@ -1215,35 +1214,35 @@ private:
     SDL_GPUTextureFormat depth_format;
     SDL_GPUShader* vertex_shader;
     SDL_GPUShader* fragment_shader;
-    std::map<std::pair<w8_ulong, float>, SDL_GPUSampler*> samplers;
+    std::map<std::pair<std::uint32_t, float>, SDL_GPUSampler*> samplers;
     SDL_GPUBuffer* vertex_buffer;
-    uint32_t vertex_buffer_size;
+    std::uint32_t vertex_buffer_size;
     SDL_GPUCommandBuffer* command_buffer;
-    uint32_t width;
-    uint32_t height;
+    std::uint32_t width;
+    std::uint32_t height;
 
     srShader shader;
     e_cullMode cull_mode;
     e_polygonMode polygon_mode;
-    w8_long polygon_offset;
+    std::int32_t polygon_offset;
     VertexUniforms projection;
     ClearValues clear_values;
     glm::vec4 fog_color;
     SDL_Rect scissor;
     SDL_GPUViewport viewport;
     srRendererDefs::VertexArrayInfo vertex_arrays;
-    uint32_t bound[2];
+    std::uint32_t bound[2];
     TexParms parameters[2];
 
     std::map<PipelineKey, SDL_GPUGraphicsPipeline*> pipelines;
     std::vector<DeviceTexture> textures;
-    std::vector<uint32_t> released;
+    std::vector<std::uint32_t> released;
     std::vector<PendingUpload> uploads;
     std::vector<Vertex> vertices;
     std::vector<DrawCommand> commands;
-    std::vector<uint32_t> readback;
-    int readback_dirty;
-    int locked;
+    std::vector<std::uint32_t> readback;
+    std::int32_t readback_dirty;
+    std::int32_t locked;
     bool trace;
 };
 

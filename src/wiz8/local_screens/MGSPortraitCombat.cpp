@@ -1,5 +1,6 @@
 
 
+#include <cstdint>
 #include "wiz8/local_screens/MGSPortraitCombat.h"
 #include "wiz8/regions.h"
 
@@ -71,13 +72,13 @@ srVector2i g_layout_arrow_positions[6] = {
 };
 /* The (menu, item) keyed message indexes both menus build rows from. */
 // GLOBAL: WIZ8 0x0064C548
-short g_submenu_entry_message_ids[25] = {
+std::int16_t g_submenu_entry_message_ids[25] = {
     0,  63, 70,  77,  84, 91, 98, -1,  -1,  -1, 154, 161, 168,
     -1, -1, 105, 112, -1, -1, -1, 175, 182, -1, -1,  -1,
 };
 /* The matching help indexes. */
 // GLOBAL: WIZ8 0x0064C57C
-int g_submenu_entry_help_ids[25] = {
+std::int32_t g_submenu_entry_help_ids[25] = {
     82, 83, 84, 85, 86, 87, 88, -1, -1, -1, 91, 92, -1,
     -1, -1, 89, -1, -1, -1, -1, 95, 94, -1, -1, -1,
 };
@@ -92,9 +93,9 @@ static void SubMenuButtonOpenMenu1(W8ButtonWidget* button);
 static void SubMenuButtonToggleCombat(W8ButtonWidget* button);
 
 // FUNCTION: WIZ8 0x00594AF0
-unsigned char CreateSubMenuButtons(void)
+bool CreateSubMenuButtons(void)
 {
-    int index;
+    std::int32_t index;
 
     g_submenu_buttons[0].Configure(g_submenu_icons_path, 0x2b, 0x28, 0x29, 0x2a, 0x2c,
                                     SubMenuButtonPendingScreen, BUTTON_NO_CALLBACK, false,
@@ -134,11 +135,11 @@ unsigned char CreateSubMenuButtons(void)
                                               g_submenu_button_positions[index].y);
         g_submenu_buttons[index].m_owner = 0;
     }
-    return 1;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x00594D20
-void UpdateSubMenuButton(int index)
+void UpdateSubMenuButton(std::int32_t index)
 {
     switch (index) {
     case 5:
@@ -374,7 +375,7 @@ void DestroySubMenuControls(void)
 // FUNCTION: WIZ8 0x00595600
 void ReopenSubMenuPanel(void)
 {
-    short notification = g_level_block->combat_end_notification;
+    std::int16_t notification = g_level_block->combat_end_notification;
 
     if (notification == -1) {
         return;

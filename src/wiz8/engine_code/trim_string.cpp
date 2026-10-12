@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "wiz8/engine_code/materials.h"
 
 #include <cstring>
@@ -11,8 +12,8 @@
 // FUNCTION: WIZ8 0x00497940
 char* TrimAndLowercaseString(char* text)
 {
-    unsigned short length;
-    unsigned short index;
+    std::uint16_t length;
+    std::uint16_t index;
     char copy[1024];
 
     length = strlen(text);

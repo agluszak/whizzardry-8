@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <array>
 #include <cmath>
 #include <optional>
@@ -22,8 +23,8 @@ inline glm::vec4 projectedPosition(const glm::vec4& position)
 inline std::optional<float> triangleDepth(std::span<const glm::vec4, 3> corners,
                                          const glm::vec3& pick)
 {
-    unsigned positive_edges = 0;
-    for (unsigned edge = 0; edge < corners.size(); ++edge) {
+    std::uint32_t positive_edges = 0;
+    for (std::uint32_t edge = 0; edge < corners.size(); ++edge) {
         const glm::vec2 first(corners[edge]);
         const glm::vec2 second(corners[(edge + 1) % corners.size()]);
         const auto area = srTriangleProjection::orientedArea(first, second, glm::vec2(pick));
@@ -31,7 +32,7 @@ inline std::optional<float> triangleDepth(std::span<const glm::vec4, 3> corners,
     }
     if (positive_edges != 0 && positive_edges != 3) return std::nullopt;
     std::array<glm::vec3, 3> points;
-    for (unsigned corner = 0; corner < points.size(); ++corner)
+    for (std::uint32_t corner = 0; corner < points.size(); ++corner)
         points[corner] = glm::vec3(corners[corner]) * corners[corner].w;
     const auto normal = srPlaneMath::triangleNormal(points[0], points[1], points[2]);
     const float depth = -(glm::dot(glm::vec2(normal), glm::vec2(pick)) -

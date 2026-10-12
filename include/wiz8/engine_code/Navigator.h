@@ -6,6 +6,7 @@
 
 struct srBoundingBox;
 
+#include <cstdint>
 #include <vector>
 #include <memory>
 
@@ -42,14 +43,14 @@ enum W8NavigatorAttachmentFlag {
 };
 
 struct W8NavigatorAttachment {
-    unsigned int flags;
+    std::uint32_t flags;
     /* Live waypoint cursor. AdvanceAlongPathPositions compacts consumed
        waypoints and returns this cursor to one. */
-    unsigned short path_cursor;
-    unsigned short position_cursor;
-    unsigned short path_position_index;
-    unsigned short follow_offset;
-    unsigned short padding_0e;
+    std::uint16_t path_cursor;
+    std::uint16_t position_cursor;
+    std::uint16_t path_position_index;
+    std::uint16_t follow_offset;
+    std::uint16_t padding_0e;
     srVector3T<float> segment_start;
     srVector3T<float> path_destination;
     srVector3T<float> start_waypoint; /* valid while W8_NAV_ATTACHMENT_START_WAYPOINT */
@@ -57,14 +58,14 @@ struct W8NavigatorAttachment {
     srVector3T<float> recorded_position;
     struct PathEntry {
         srVector3T<float> position{};
-        unsigned short value = 0;
+        std::uint16_t value = 0;
     };
     std::vector<PathEntry> path;
     float separation;
     /* Direct segment length after initialization; MeasurePathLength later
        replaces it with the eligible route length and latches flag 0x00400000. */
     float path_length;
-    unsigned char padding_05c[4];
+    std::uint8_t padding_05c[4];
 
     W8NavigatorAttachment(); /* 0x00456210 */
     /* The from/to form 0x004604B0 constructs on the stack: both endpoints of
@@ -86,10 +87,10 @@ struct W8NavigatorAttachment {
     }
     void GrowPathStorage();
     /* Append a waypoint and its value, reserving a spare endpoint slot. */
-    void AppendPathPosition(const srVector3T<float>* position, unsigned short value)
+    void AppendPathPosition(const srVector3T<float>* position, std::uint16_t value)
     {
         const auto saved_position = *position;
-        if (path.size() <= static_cast<unsigned int>(path_position_index + 1)) {
+        if (path.size() <= static_cast<std::uint32_t>(path_position_index + 1)) {
             GrowPathStorage();
         }
         path[path_position_index] = {saved_position, value};
@@ -128,7 +129,7 @@ struct W8NavigatorAttachment {
                                       srVector3T<float>* direction); /* 0x00457150 */
 
 private:
-    bool withinHopHeight(const glm::vec2& point, unsigned base, bool include_next) const;
+    bool withinHopHeight(const glm::vec2& point, std::uint32_t base, bool include_next) const;
 };
 
 /* The polymorphic object the navigator owns at +0xa0. 0x00452120 deletes it
@@ -145,16 +146,16 @@ public:
    independently. World collision routines receive this subobject, while the
    surrounding Navigator owns the path and group-following state. */
 struct W8NavigatorMovementState {
-    unsigned int navigation_filter;
-    unsigned short location_id;
-    unsigned short padding_006;
-    int leadership_rank;
-    int active_rank;
+    std::uint32_t navigation_filter;
+    std::uint16_t location_id;
+    std::uint16_t padding_006;
+    std::int32_t leadership_rank;
+    std::int32_t active_rank;
     /* -1 means no resolved target. Navigation and OctPath use this as the
        location id of the tracked target; OctPath's single-candidate path
        search aliases the slot itself as its one-element candidate array
        (LEA [movement+0x10]); native path queries copy this ID into their owned candidate vector. */
-    int target_location_id;
+    std::int32_t target_location_id;
     float yaw;
     float target_yaw;
     /* UpdateYawSteering accelerates/decelerates this signed angular rate. */
@@ -172,12 +173,12 @@ struct W8NavigatorMovementState {
     float movement_scale;
     float movement_speed;
     float turn_rate;
-    unsigned short flags;
-    unsigned char padding_06e[6];
+    std::uint16_t flags;
+    std::uint8_t padding_06e[6];
     bool pitch_enabled;
     bool roll_enabled;
     bool boundary_enabled;
-    unsigned char padding_077;
+    std::uint8_t padding_077;
     float vertical_velocity;
     float vertical_base;
     float vertical_amplitude;
@@ -196,7 +197,7 @@ struct W8NavigatorMovementState {
     float vertical_offset;
     float scale;
     bool position_adjusted;
-    unsigned char padding_0c9[3];
+    std::uint8_t padding_0c9[3];
 
     W8NavigatorMovementState(); /* 0x004572C0 */
     /* A second, different set of defaults over the same subobject, run by
@@ -255,7 +256,7 @@ public:
        octree to route toward `target`, and returns the measured path length or
        -1 when no route inside `max_range` exists. */
     double MeasurePathDistance(const srVector3T<float>* target, float max_range,
-                               int location_id); /* 0x00453300 */
+                               std::int32_t location_id); /* 0x00453300 */
     /* Find the navigator occupying `to`; the move collides when both sides'
        OnCollision accept it. */
     bool CheckNavigatorCollision(const srVector3T<float>* from, const srVector3T<float>* to);
@@ -277,7 +278,7 @@ public:
 
     srVector3T<float> GetPosition();
     bool UpdateTrackedPosition();                               /* 0x00454950 */
-    void UpdateNavigation(unsigned char value, bool condition); /* 0x004553A0 */
+    void UpdateNavigation(std::uint8_t value, bool condition); /* 0x004553A0 */
     void SetAngles(float angle);                                /* 0x004538F0 */
     void SetPitch(float pitch);                                 /* 0x00453940 */
     float GetYaw();                                             /* 0x00453970 */
@@ -285,16 +286,16 @@ public:
     /* The world-path reachability probe the group engagement check runs:
        fills `out_distance` with the route length and returns nonzero when a
        route inside `max_range` exists. */
-    int FindNavigatorPathDistance(float max_range, float* out_distance);          /* 0x00453480 */
+    std::int32_t FindNavigatorPathDistance(float max_range, float* out_distance);          /* 0x00453480 */
     void SetMovementScale(float value);                                           /* 0x00453C50 */
     float GetMovementScale();                                                     /* 0x00453C60 */
     void SetMonsterTurnSpeed(float speed);                                        /* 0x00453C70 */
-    unsigned char ConfigureMovementToPosition(const srVector3T<float>* position); /* 0x00452630 */
+    std::uint8_t ConfigureMovementToPosition(const srVector3T<float>* position); /* 0x00452630 */
     /* Point the movement target at another navigator's position and enter the
        moving mode; the result is nonzero once the target was accepted. */
-    unsigned short SetMovementTargetToNavigator(W8Navigator* target,
+    std::uint16_t SetMovementTargetToNavigator(W8Navigator* target,
                                                 double separation); /* 0x004526C0 */
-    void LinkGroupNavigator(W8Navigator* target, double separation, int value);
+    void LinkGroupNavigator(W8Navigator* target, double separation, std::int32_t value);
     /* Whether `other` belongs to this navigator's link group: either side may
        nominate the shared linked navigator directly. */
     bool IsLinkedToNavigator(W8Navigator* other); /* 0x00452E10 */
@@ -302,14 +303,14 @@ public:
        the linked movement stopped or re-sync the collected group. */
     void ResetMovementAndGroupState();               /* 0x00452C90 */
     void SetPitchRollEnabled(bool pitch, bool roll); /* 0x00453CA0 */
-    unsigned short ConfigureMovementToNavigator(W8Navigator* target, float separation,
+    std::uint16_t ConfigureMovementToNavigator(W8Navigator* target, float separation,
                                                 float maximum_distance, srVector3T<float> position,
-                                                int trace_mode, float facing,
-                                                unsigned char* probe_result); /* 0x004529A0 */
+                                                std::int32_t trace_mode, float facing,
+                                                std::uint8_t* probe_result); /* 0x004529A0 */
     void AddPathPoint(const srVector3T<float>* position);                     /* 0x00453690 */
     void SetPositionInternal(const srVector3T<float>* position);
     void SetPathLooping(char value);                                       /* 0x004537C0 */
-    unsigned char LinkToNavigator(W8Navigator* target, double separation); /* 0x004527A0 */
+    std::uint8_t LinkToNavigator(W8Navigator* target, double separation); /* 0x004527A0 */
     void SetFacingToward(const srVector3T<float>* position);               /* 0x00454040 */
     void AimAtPosition(const srVector3T<float>* position);                 /* 0x00453F30 */
     bool StartPatrol(const srVector3T<float>* home, float distance,
@@ -322,13 +323,13 @@ public:
     /* Save the presence-gated movement state LoadMovementState
        consumes: the flag byte, then for an ungrouped navigator with flag
        0x20000000 set the height bounds, position and movement target. */
-    unsigned char LoadMovementState(wiz8::File* hFile); /* 0x00454AD0 */
-    unsigned char SaveMovementState(wiz8::File* hFile); /* 0x004549D0 */
+    std::uint8_t LoadMovementState(wiz8::File* hFile); /* 0x00454AD0 */
+    std::uint8_t SaveMovementState(wiz8::File* hFile); /* 0x004549D0 */
     void CopyPathToGroup();
     void PropagateGroupPosition();                        /* 0x00454C80 */
     void UpdateAngles();                                  /* 0x00453990 */
     bool ConfigureMovement(float minimum, float maximum); /* 0x00453D20 */
-    unsigned char SetMovementTarget(const srVector3T<float>* target,
+    std::uint8_t SetMovementTarget(const srVector3T<float>* target,
                                     bool propagate); /* 0x00454170 */
     srVector3T<float>* AdjustPosition(srVector3T<float>* result, const srVector3T<float>* current,
                                       const srVector3T<float>* previous); /* 0x00454440 */
@@ -336,18 +337,18 @@ public:
     void UpdateLinkedNavigator();                                         /* 0x00454D70 */
     bool UpdateLinkedPosition();
     void CollectGroupNavigators(std::vector<W8Navigator*>& navigators);      /* 0x00455140 */
-    int ResolveMovement();                                                   /* 0x00455CC0 */
+    std::int32_t ResolveMovement();                                                   /* 0x00455CC0 */
     void ClearMovement();                                                    /* 0x004537E0 */
     /* Modes 1 and 4 clear pitch/roll; 2, 3 and 5 enable pitch; 6 enables
        both. Mode 4 keeps the existing path; the other named modes build a
        fresh animated path. Later facing logic distinguishes 2/3 from 5/6. */
-    void SetNavigationMode(int mode); /* 0x00452E50 */
+    void SetNavigationMode(std::int32_t mode); /* 0x00452E50 */
     void SetBounds(const srBoundingBox& bounds); /* 0x00452F10 */
     void SetTurnRate(float turn_rate);                /* 0x00453C90 */
 
 public:
-    int navigation_mode;
-    unsigned int flags;
+    std::int32_t navigation_mode;
+    std::uint32_t flags;
     double collision_margin;
     /* Current 3D movement target. */
     srVector3T<float> movement_target;
@@ -368,12 +369,12 @@ public:
     float minimum_height;
     float maximum_height;
     srVector3T<float> patrol_home;
-    unsigned int unknown_048;
+    std::uint32_t unknown_048;
     W8Navigator* target_navigator;
     srVector3T<float> target_last_position;
     W8Navigator* linked_navigator;
-    unsigned int unknown_060;
-    unsigned int unknown_064;
+    std::uint32_t unknown_060;
+    std::uint32_t unknown_064;
     W8PathAI* path_ai;
     /* 0x00451EC0 fills these as -500 and +500 triples. */
     srVector3T<float> minimum;
@@ -383,32 +384,32 @@ public:
        owner deactivates (monster despawn, cursor teardown), restored on
        activation; traceSphereHit and GameData skip navigators with it zero. */
     bool active;
-    unsigned char padding_089[3];
+    std::uint8_t padding_089[3];
     void(__cdecl* movement_callback)(W8Navigator* navigator);
     /* Trace-hit exclusion mask: traceSphereHit skips monsters whose
        (trace_mask & flags) is nonzero; configureStartupRange raises bit 0. */
-    unsigned int trace_mask;
-    unsigned int unknown_094;
-    unsigned int unknown_098;
+    std::uint32_t trace_mask;
+    std::uint32_t unknown_094;
+    std::uint32_t unknown_098;
     /* 0x09c: byte flag - SetMonsterGroupNavigatorDirty stores its uchar
        parameter raw, with no bool normalization. */
     bool position_dirty;
     /* 0x09d: raised by the trigger sweep after it reactivates the monster
        (members_active, animation restart, rep/path reset). */
     bool reactivated;
-    unsigned char padding_09e[2];
+    std::uint8_t padding_09e[2];
     std::unique_ptr<W8NavigatorOwned0A0> owned_object;
     srVector3T<float> tracked_position;
     float tracked_distance;
     bool tracked_dirty;
-    unsigned char padding_0b5[3];
-    int linked_update_time;
+    std::uint8_t padding_0b5[3];
+    std::int32_t linked_update_time;
     bool movement_plan_failed;
     /* Raised on combat entry for the group leader's navigator (or the monster
        itself when unlinked); SetNavigatorLinkMode uses it to re-base the group
        onto the navigator's path when free-roam resumes. */
     bool group_linked;
-    unsigned char padding_0be[2];
+    std::uint8_t padding_0be[2];
     /* Constructed first as its own 0xcc-byte subobject, then Reset by this
        owner. Copy construction constructs a fresh attachment and transfers
        selected settings; it never shares the source's path allocation. */
@@ -416,7 +417,7 @@ public:
     std::unique_ptr<srNode> node;
 }; /* 0x190 */
 
-void SetNavigatorLinkMode(unsigned char mode);
+void SetNavigatorLinkMode(std::uint8_t mode);
 void StopAllNavigators(void);
 void ResumeAllNavigators(void);
 
@@ -424,8 +425,8 @@ void NavigatorDefaultCallback(W8Navigator* navigator);
 
 extern const float g_navigator_vertical_phase_step;
 extern const float g_navigator_snap_angle;
-extern unsigned char g_combat_inactive;
-extern unsigned char g_navigator_link_mode;
+extern bool g_combat_inactive;
+extern std::uint8_t g_navigator_link_mode;
 extern const float g_navigator_linked_radius_scale;
 extern std::vector<W8Navigator*> g_navigator_group;
 /* Runtime scale applied to the startup navigator's radius when the trace

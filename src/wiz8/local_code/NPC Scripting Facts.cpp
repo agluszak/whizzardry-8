@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <fmt/format.h>
 #include <string>
 #include <cstring>
@@ -71,7 +72,7 @@ static void ReplayEarthquakeShake(void)
 }
 
 // FUNCTION: WIZ8 0x00506670
-void HandleFactChange(W8FactId fact_id, unsigned char value)
+void HandleFactChange(W8FactId fact_id, std::uint8_t value)
 {
     W8NpcState* npc;
     W8MonsterGroup* group;
@@ -82,10 +83,10 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
     W8MonsterInfo* monster_info;
     W8CameraShakeEffect* shake;
     srVector3T<float> position;
-    unsigned char fact_value;
-    unsigned int added;
-    int location_id;
-    int slot;
+    std::uint8_t fact_value;
+    std::uint32_t added;
+    std::int32_t location_id;
+    std::int32_t slot;
     const char* trigger_name;
 
     switch (fact_id) {
@@ -829,7 +830,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
 }
 
 // FUNCTION: WIZ8 0x00508d70
-void HandleScriptedNpcDeath(unsigned int monster_list_index)
+void HandleScriptedNpcDeath(std::uint32_t monster_list_index)
 {
     W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_list_index);
     W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
@@ -841,7 +842,7 @@ void HandleScriptedNpcDeath(unsigned int monster_list_index)
         if (npc != 0) {
             npc->spawned = 1;
             if (npc->name_style == W8_NPC_VI_DOMINA) {
-                unsigned char fact_ok = GetFact(W8_FACT_VI_RESCUED);
+                std::uint8_t fact_ok = GetFact(W8_FACT_VI_RESCUED);
                 if (fact_ok == 0) {
                     fact_ok = GetFact(W8_FACT_MYLES_MISSION_RESCUE_VI_ASSIGNED);
                     if (fact_ok == 0) {
@@ -854,7 +855,7 @@ void HandleScriptedNpcDeath(unsigned int monster_list_index)
     if (record->record_id != 0x234) {
         return;
     }
-    int lead_index = -1;
+    std::int32_t lead_index = -1;
     if (NpcLeadHasNameStyle(W8_NPC_VI_DOMINA)) {
         W8NpcState* lead = GetNpcStateByKind(W8_NPC_VI_DOMINA);
         if (lead != 0) {
@@ -862,12 +863,12 @@ void HandleScriptedNpcDeath(unsigned int monster_list_index)
         }
     }
     BeginScriptedWorldAction();
-    int eligible_slots[8];
+    std::int32_t eligible_slots[8];
     /* 0x00508F08 and 0x00508F58 test the eligible count unsigned. */
-    unsigned int eligible_count = 0;
-    int slot;
-    unsigned int index;
-    int pick;
+    std::uint32_t eligible_count = 0;
+    std::int32_t slot;
+    std::uint32_t index;
+    std::int32_t pick;
     for (slot = 0; slot < 8; ++slot) {
         W8Character* character = &g_status.buffers.Char[slot];
         if (g_status.buffers.XChar[slot].fOccupied && character->hp_current != 0 &&
@@ -905,7 +906,7 @@ void HandleScriptedNpcDeath(unsigned int monster_list_index)
     } else if (g_status.endgame3_queued != 0) {
         g_npc_dialogue.Queue(W8NpcStoryAction::phoonzang_notice);
     }
-    for (unsigned int entry_index = 0; entry_index < gXStatus.monsters.size(); ++entry_index) {
+    for (std::uint32_t entry_index = 0; entry_index < gXStatus.monsters.size(); ++entry_index) {
         W8MonsterInfo* entry = MonsterGetScriptPartByLocationIndex(entry_index);
         if (entry->fActive && entry->ubDisposition == W8_DISPOSITION_HOSTILE &&
             !entry->p3D->IsDying()) {
@@ -920,9 +921,9 @@ void HandleScriptedNpcDeath(unsigned int monster_list_index)
    and the 0x22b cleanup that clears the victim's condition and queues the
    death event on the recorded party slot. */
 // FUNCTION: WIZ8 0x005090C0
-void MonsterKilled(int record_id, int killer_party_slot)
+void MonsterKilled(std::int32_t record_id, std::int32_t killer_party_slot)
 {
-    unsigned char value;
+    std::uint8_t value;
 
     if (record_id == 0x131) {
         SetFact(W8_FACT_CROCK_BREKEK_DEAD, 1, false);
@@ -973,12 +974,12 @@ void MonsterKilled(int record_id, int killer_party_slot)
 /* Original translation-unit ownership of these helpers is unknown. */
 
 // GLOBAL: WIZ8 0x00689b78
-unsigned char g_fact_values[1000];
+std::uint8_t g_fact_values[1000];
 
 // FUNCTION: WIZ8 0x00506280
-unsigned char GetFact(W8FactId fact_id)
+std::uint8_t GetFact(W8FactId fact_id)
 {
-    unsigned char value;
+    std::uint8_t value;
     std::string display_value;
 
     if (fact_id > 1000) {
@@ -1000,9 +1001,9 @@ unsigned char GetFact(W8FactId fact_id)
 }
 
 // FUNCTION: WIZ8 0x005061a0
-void SetFact(W8FactId fact_id, unsigned char value, bool suppress_side_effects)
+void SetFact(W8FactId fact_id, std::uint8_t value, bool suppress_side_effects)
 {
-    unsigned char previous_value;
+    std::uint8_t previous_value;
     std::string display_value;
 
     if (fact_id > 1000) {
@@ -1012,7 +1013,7 @@ void SetFact(W8FactId fact_id, unsigned char value, bool suppress_side_effects)
     previous_value = g_fact_values[fact_id];
     g_fact_values[fact_id] = value;
 
-    if (fact_id < static_cast<int>(gXStatus.uiFactsInDatabase)) {
+    if (fact_id < static_cast<std::int32_t>(gXStatus.uiFactsInDatabase)) {
         if (value) {
             display_value = "TRUE";
         } else {

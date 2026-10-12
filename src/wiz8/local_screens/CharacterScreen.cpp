@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <memory>
 #include <fmt/format.h>
 #include <fmt/printf.h>
@@ -49,30 +50,30 @@
 #include "local_code/Controls.h"
 
 // GLOBAL: WIZ8 0x0061e3a4
-unsigned short g_character_description_first_ids[22] = {
+std::uint16_t g_character_description_first_ids[22] = {
     0x274, 0x275, 0x276, 0x277, 0x278, 0x279, 0x27a, 0,     0x27b, 0x27c, 0x27d,
     0x27e, 0x27f, 0x280, 0x281, 0,     0x6ac, 0x6ad, 0x6ae, 0x6af, 0x6b0, 0,
 };
 // GLOBAL: WIZ8 0x0061e3d0
-unsigned short g_race_name_message_ids[W8_RACE_COUNT] = {
+std::uint16_t g_race_name_message_ids[W8_RACE_COUNT] = {
     0x284, 0x285, 0x286, 0x287, 0x288, 0x289, 0x28a, 0x28b,
     0x28c, 0x28d, 0x28e, 0x28f, 0x290, 0x291, 0x292, 0x293,
 };
 // GLOBAL: WIZ8 0x0061e3f0
-unsigned short g_profession_name_message_ids[32] = {
+std::uint16_t g_profession_name_message_ids[32] = {
     0x2a4, 0x2a5, 0x2a6, 0x2a7, 0x2a8, 0x2a9, 0x2aa, 0x2ab, 0x2ac, 0x2ad, 0x2ae,
     0x2af, 0x2b0, 0x2b1, 0x2b2, 0,     0x2c2, 0x2c3, 0x2c4, 0x2c5, 0x2c6, 0x2c7,
     0x2c8, 0x2c9, 0x2ca, 0x2cb, 0x2cc, 0x2cd, 0x2ce, 0x2cf, 0x2d0, 0,
 };
 // GLOBAL: WIZ8 0x0061e430
-unsigned short g_gender_name_message_rows[4][4] = {
+std::uint16_t g_gender_name_message_rows[4][4] = {
     {0x2d1, 0x2d4, 0x2d7, 0x2da},
     {0x2d2, 0x2d5, 0x2d8, 0x2db},
     {0x2d3, 0x2d6, 0x2d9, 0x2dc},
     {0x2dd, 0x2de, 0x2df, 0x2e0},
 };
 // GLOBAL: WIZ8 0x0061e454
-unsigned short g_character_skill_name_ids[84] = {
+std::uint16_t g_character_skill_name_ids[84] = {
     0x2e2, 0x2e3, 0x2e4, 0x2e5, 0x2e6, 0x2e7, 0x2e8, 0x2e9, 0x2ea, 0x2eb, 0x2ec, 0x2ed,
     0x2ee, 0x2ef, 0x2f0, 0x2f1, 0x2f2, 0x2f3, 0x2f4, 0x2f5, 0x2f6, 0x2f7, 0x2f8, 0x2f9,
     0x2fa, 0x2fb, 0x2fc, 0x2fd, 0x2fe, 0x2ff, 0x300, 0x301, 0x302, 0x303, 0x304, 0x305,
@@ -82,11 +83,11 @@ unsigned short g_character_skill_name_ids[84] = {
     0x695, 0x696, 0x697, 0x698, 0x699, 0x69a, 0x69b, 0x69c, 0x69d, 0x69e, 0x69f, 0,
 };
 // GLOBAL: WIZ8 0x0061e674
-unsigned short g_personality_message_ids[10] = {
+std::uint16_t g_personality_message_ids[10] = {
     0x3ad, 0x3ae, 0x3af, 0x3b0, 0x3b1, 0x3b2, 0x3b3, 0x3b4, 0x3b5, 0,
 };
 // GLOBAL: WIZ8 0x0061e688
-unsigned short g_profession_level_name_message_ids[15][9] = {
+std::uint16_t g_profession_level_name_message_ids[15][9] = {
     {0x3b6, 0x3b7, 0x3b8, 0x3b9, 0x3ba, 0x3bb, 0x3bc, 0x3bd, 0x3be},
     {0x3b6, 0x3b7, 0x3bf, 0x3c0, 0x3c1, 0x3c2, 0x3c3, 0x3c4, 0x3c5},
     {0x3b6, 0x3b7, 0x3c6, 0x3b9, 0x3c7, 0x3c2, 0x3c8, 0x3c9, 0x3ca},
@@ -104,7 +105,7 @@ unsigned short g_profession_level_name_message_ids[15][9] = {
     {0x3b6, 0x3b7, 0x415, 0x416, 0x417, 0x418, 0x419, 0x41a, 0x41b},
 };
 // GLOBAL: WIZ8 0x0064da9c
-static int g_character_page_title_ids[4] = {0xcf, 0xd1, 0xd0, 0xd2};
+static std::int32_t g_character_page_title_ids[4] = {0xcf, 0xd1, 0xd0, 0xd2};
 
 // GLOBAL: WIZ8 0x0069c2e8
 std::unique_ptr<W8CharacterScreen> g_character_screen;
@@ -114,7 +115,7 @@ std::unique_ptr<W8CharacterScreen> g_character_screen;
 // class W8CharacterScreen
 
 // FUNCTION: WIZ8 0x005b0040
-W8CharacterScreen::W8CharacterScreen(int mode, W8Character* character)
+W8CharacterScreen::W8CharacterScreen(std::int32_t mode, W8Character* character)
     : m_mode(mode), m_original(character), m_block_advance(0), m_confirm_profession(0),
       m_force_transition(0), m_dialog(0), m_capture_dialog_result(0)
 {
@@ -176,7 +177,7 @@ void W8CharacterScreen::BuildControls()
     }
 
     m_page_index = -1;
-    int index = 0;
+    std::int32_t index = 0;
     while (index < 4 && !m_page_enabled[index]) {
         ++index;
     }
@@ -202,7 +203,7 @@ void W8CharacterScreen::UpdateDialog()
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored                                                                   \
     "-Wsometimes-uninitialized" // uninit-ok: uncaptured response can use a stale stack byte as acceptance
-            unsigned char accepted;
+            std::uint8_t accepted;
             if (m_capture_dialog_result) {
                 accepted = static_cast<W8MessageDialogBase*>(m_dialog)->accepted;
                 m_capture_dialog_result = false;
@@ -235,7 +236,7 @@ void W8CharacterScreen::UpdateNavigation(W8CharacterPage* page)
 }
 
 // FUNCTION: WIZ8 0x005b0610
-void W8CharacterScreen::ShowSpellInfo(int value)
+void W8CharacterScreen::ShowSpellInfo(std::int32_t value)
 {
     m_dialog_response = 0;
     m_dialog = new W8SpellInfoDialog(value);
@@ -271,7 +272,7 @@ void W8CharacterScreen::ShowPrimaryAttributeInfo(W8Attribute attribute)
 }
 
 // FUNCTION: WIZ8 0x005b0850
-void W8CharacterScreen::ShowSecondaryAttributeInfo(unsigned int attribute)
+void W8CharacterScreen::ShowSecondaryAttributeInfo(std::uint32_t attribute)
 {
     m_dialog_response = 0;
     m_dialog = new W8SecondaryAttributeInfoDialog(attribute);
@@ -304,7 +305,7 @@ void W8CharacterScreen::OnPrimary(W8TextControl* control)
     } else if (control == m_exit) {
         m_pages[m_page_index]->Accept();
     } else if (control == m_previous) {
-        int index = m_page_index - 1;
+        std::int32_t index = m_page_index - 1;
         while (index >= 0 && !m_page_enabled[index]) {
             --index;
         }
@@ -327,7 +328,7 @@ void W8CharacterScreen::OnPrimary(W8TextControl* control)
 void W8CharacterScreen::OnSecondary(W8TextControl*) {}
 
 // FUNCTION: WIZ8 0x005b09b0
-void W8CharacterScreen::ShowDescription(int first, int second)
+void W8CharacterScreen::ShowDescription(std::int32_t first, std::int32_t second)
 {
     ShowMessage(fmt::sprintf(g_localized_strings[0x1d6],
                              g_localized_strings[g_character_description_first_ids[first]],
@@ -348,7 +349,7 @@ void W8CharacterScreen::ShowCharacterSummary()
 void W8CharacterScreen::AdvancePage(bool forward)
 {
     if (!forward || (m_page_index != 3 && m_next->m_enabled)) {
-        int index = m_page_index;
+        std::int32_t index = m_page_index;
         if (index == 1 && m_creation_state.spell_points_remaining > 0 && !m_block_advance) {
             ShowMessage(g_localized_strings[0xc4], 1, 3);
             return;
@@ -356,7 +357,7 @@ void W8CharacterScreen::AdvancePage(bool forward)
         if (index == 0) {
             if (m_mode == 2 && m_character.iProfession != m_original->iProfession &&
                 !m_confirm_profession) {
-                int value = ComputeRealmSkillDebt(m_original, &m_character);
+                std::int32_t value = ComputeRealmSkillDebt(m_original, &m_character);
                 if (value > 0) {
                     ShowMessage(
                         fmt::sprintf(g_localized_strings[0xdb],
@@ -402,7 +403,7 @@ void W8CharacterScreen::AdvancePage(bool forward)
 }
 
 // FUNCTION: WIZ8 0x005b0d50
-void W8CharacterScreen::SelectPage(int index)
+void W8CharacterScreen::SelectPage(std::int32_t index)
 {
     if (m_page_index >= 0) {
         m_pages[m_page_index]->SetEnabled(false);
@@ -434,11 +435,11 @@ void W8CharacterScreen::SelectPage(int index)
     page->Activate();
     page->SetEnabled(true);
 
-    int previous = index - 1;
+    std::int32_t previous = index - 1;
     while (previous >= 0 && !m_page_enabled[previous])
         --previous;
     m_previous->SetActive(previous != -1);
-    int next = index + 1;
+    std::int32_t next = index + 1;
     while (next < 4 && !m_page_enabled[next])
         ++next;
     if (next == 4) {
@@ -463,7 +464,7 @@ void W8CharacterScreen::SelectPage(int index)
 }
 
 // FUNCTION: WIZ8 0x005b0f30
-void W8CharacterScreen::SyncCharacterForPage(int index)
+void W8CharacterScreen::SyncCharacterForPage(std::int32_t index)
 {
     if (m_page_index > index)
         return;
@@ -495,7 +496,7 @@ void W8CharacterScreen::DrawHeader()
     if (m_mode == 0) {
         CatalogArtwork::Load(0x107, 0).draw(GetFrameBufferSurface(), 2, 10, 0xc);
     } else {
-        int frame = m_original == 0 ? m_character.portrait_index : m_original->portrait_index;
+        std::int32_t frame = m_original == 0 ? m_character.portrait_index : m_original->portrait_index;
         CatalogArtwork::Load(0x11, frame).draw(GetFrameBufferSurface(), 0, 10, 0xc);
     }
 
@@ -540,7 +541,7 @@ bool W8CharacterScreen::CommitCharacter()
     if (!ValidateName())
         return false;
 
-    int mode = m_mode;
+    std::int32_t mode = m_mode;
     W8Character backup;
     backup = m_character;
     if (mode != 1) {
@@ -596,7 +597,7 @@ void RefundCharacterScreenSkill(W8Skill skill_id)
 }
 
 // FUNCTION: WIZ8 0x005b1430
-void W8CharacterScreen::ShowMessage(std::string_view text, int confirmation, int response)
+void W8CharacterScreen::ShowMessage(std::string_view text, std::int32_t confirmation, std::int32_t response)
 {
     m_dialog_response = response;
     m_dialog = new W8MessageDialogBase;
@@ -613,7 +614,7 @@ void W8CharacterScreen::ShowMessage(std::string_view text, int confirmation, int
 }
 
 // FUNCTION: WIZ8 0x005b1520
-void W8CharacterScreen::HandleDialogResult(int response, unsigned char accepted)
+void W8CharacterScreen::HandleDialogResult(std::int32_t response, bool accepted)
 {
     if (accepted) {
         switch (response) {
@@ -629,8 +630,8 @@ void W8CharacterScreen::HandleDialogResult(int response, unsigned char accepted)
             AdvancePage(false);
             break;
         case 5: {
-            int value = ComputeStartingEquipmentCost(&m_character);
-            int next_response;
+            std::int32_t value = ComputeStartingEquipmentCost(&m_character);
+            std::int32_t next_response;
             std::string format;
             if (CanAffordStartingEquipment(&m_character)) {
                 format = g_localized_strings[0xd7];
@@ -674,7 +675,7 @@ bool W8CharacterScreen::ValidateName()
             return false;
         }
     }
-    for (int index = 0; index < W8_PARTY_SLOT_COUNT; ++index) {
+    for (std::int32_t index = 0; index < W8_PARTY_SLOT_COUNT; ++index) {
         if (g_status.buffers.XChar[index].fOccupied &&
             strcmp(g_status.buffers.Char[index].name.c_str(), m_character.name.c_str()) == 0) {
             ShowMessage(g_localized_strings[0xd5], 0, 0);
@@ -698,13 +699,13 @@ W8Character* W8CharacterScreen::GetOriginalCharacter()
 
 /* Retail's shared success return, also used by the screen lifecycle table. */
 // FUNCTION: WIZ8 0x005b1740
-unsigned char ScreenLifecycleSuccess(void)
+bool ScreenLifecycleSuccess(void)
 {
-    return 1;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x005b1750
-unsigned char CharacterScreenEnter(void)
+bool CharacterScreenEnter(void)
 {
     SetViewport(0, 0, 0x280, 0x1e0);
     SetPrimarySurfaceTextureHint2Enabled(false);
@@ -719,16 +720,16 @@ unsigned char CharacterScreenEnter(void)
         (g_current_screen_state.mode == 0 || g_current_screen_state.mode == 2)) {
         StartMusicResource("Menus.MPL", 1, 1);
     }
-    return 1;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x005b1840
-unsigned char CharacterScreenLeave(int leaving)
+bool CharacterScreenLeave(std::int32_t leaving)
 {
     if (leaving) g_character_screen.reset();
     NoOp();
     ResetRegions();
-    return 1;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x005b18e0
@@ -753,7 +754,7 @@ void CharacterScreenFrame(void)
                 }
             } else if ((input.key == VK_LEFT || input.key == 0x42) &&
                        screen->m_page_index != 3) {
-                int index = screen->m_page_index - 1;
+                std::int32_t index = screen->m_page_index - 1;
                 while (index >= 0 && !screen->m_page_enabled[index])
                     --index;
                 if (index != -1)
@@ -772,7 +773,7 @@ void CharacterScreenFrame(void)
 }
 
 // FUNCTION: WIZ8 0x005b1ad0
-void RefreshCharacterScreenPartySlot(unsigned int)
+void RefreshCharacterScreenPartySlot(std::uint32_t)
 {
     if (g_character_screen->m_dialog != 0 && g_character_screen->m_dialog_response == 1) {
         static_cast<W8CharacterSummaryDialog*>(g_character_screen->m_dialog)

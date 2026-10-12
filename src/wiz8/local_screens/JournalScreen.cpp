@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "himage.h"
 #include "image.h"
 #include <memory>
@@ -39,21 +40,21 @@
 #include "message_box.h"
 
 // GLOBAL: WIZ8 0x0064df38
-int g_journal_page = -1;
+std::int32_t g_journal_page = -1;
 // GLOBAL: WIZ8 0x0069c4e0
 bool g_journal_show_all;
 // GLOBAL: WIZ8 0x0064d7b8
 char g_default_level[] = "Default Level";
 // GLOBAL: WIZ8 0x0064df40
-signed char g_journal_factions[12] = {4, 5, 6, 7, 8, 9, 12, 11, 13, 15, 16, 0};
+std::int8_t g_journal_factions[12] = {4, 5, 6, 7, 8, 9, 12, 11, 13, 15, 16, 0};
 // GLOBAL: WIZ8 0x0064df4c
-int g_journal_faction_name_indices[11] = {
+std::int32_t g_journal_faction_name_indices[11] = {
     0x6e0, 0x6e1, 0x6e2, 0x6e3, 0x6e4, 0x6e5, 0x6e6, 0x6e7, 0x6e8, 0x6e9, 0x6ea,
 };
 // GLOBAL: WIZ8 0x0064df78
 char g_journal_alternate_page[] = "1 / 1";
 // GLOBAL: WIZ8 0x0064df3c
-int g_journal_page_count = -1;
+std::int32_t g_journal_page_count = -1;
 // GLOBAL: WIZ8 0x0069C4CC
 Font g_journal_font;
 // GLOBAL: WIZ8 0x0069C4D0
@@ -95,7 +96,7 @@ void RecordFactChangeForJournal(W8FactId fact_id)
     if (g_fact_notifications_suppressed) {
         return;
     }
-    int visibility;
+    std::int32_t visibility;
     if (g_settings.difficulty == W8_DIFFICULTY_NOVICE) {
         visibility = 2;
     } else if (g_settings.difficulty == W8_DIFFICULTY_NORMAL) {
@@ -119,7 +120,7 @@ void RecordFactChangeForJournal(W8FactId fact_id)
         g_npc_dialogue.Queue(W8NpcCommand::journal_quote);
         return;
     }
-    int range = GetTextBoxScrollRange();
+    std::int32_t range = GetTextBoxScrollRange();
     ShowNotice(W8_FONT_PALETTE_BLUE, g_localized_strings[0x74a], 2, range);
     wiz8::sound::play("Data\\Sound\\Misc\\Journal Entry.wav");
 }
@@ -128,10 +129,10 @@ void RecordFactChangeForJournal(W8FactId fact_id)
 // FUNCTION: WIZ8 0x00558A90
 void SaveFactJournal(wiz8::File& file)
 {
-    int format = 1;
-    int count;
+    std::int32_t format = 1;
+    std::int32_t count;
 
-    count = static_cast<int>(g_fact_journal_entries.size());
+    count = static_cast<std::int32_t>(g_fact_journal_entries.size());
     file.write(&format, 4);
     file.write(&count, 4);
     for (const auto& entry : g_fact_journal_entries) {
@@ -143,8 +144,8 @@ void SaveFactJournal(wiz8::File& file)
 // FUNCTION: WIZ8 0x00558B20
 void LoadJournalEntries(wiz8::File& file)
 {
-    int format;
-    int count;
+    std::int32_t format;
+    std::int32_t count;
 
     InitializeFactJournal();
     file.read_exact(&format, 4);
@@ -156,11 +157,11 @@ void LoadJournalEntries(wiz8::File& file)
 }
 
 // FUNCTION: WIZ8 0x005bdd00
-void DrawJournalLine(std::string_view text, int column, int y, int palette, bool centered)
+void DrawJournalLine(std::string_view text, std::int32_t column, std::int32_t y, std::int32_t palette, bool centered)
 {
-    int left;
-    int right;
-    int x;
+    std::int32_t left;
+    std::int32_t right;
+    std::int32_t x;
 
     if (column == 0) {
         left = 0x0b;
@@ -191,8 +192,8 @@ void DrawJournalLine(std::string_view text, int column, int y, int palette, bool
 void W8JournalPanel::Refresh()
 {
     if (!m_alternate_mode) {
-        int last_page = (static_cast<int>(g_journal_entries.size()) - 1) / 12;
-        int page_count = last_page + 1;
+        std::int32_t last_page = (static_cast<std::int32_t>(g_journal_entries.size()) - 1) / 12;
+        std::int32_t page_count = last_page + 1;
         if (page_count != g_journal_page_count || g_journal_page < 0 ||
             g_journal_page >= page_count) {
             g_journal_page_count = page_count;
@@ -208,17 +209,17 @@ void W8JournalPanel::Refresh()
         DrawJournalLine(g_localized_strings[0x6db], 0, 0x19, 0, true);
         DrawJournalLine(g_localized_strings[0x6dc], 1, 0x19, 0, true);
 
-        int first = g_journal_page * 12;
-        int last = first + 11;
-        if (last >= static_cast<int>(g_journal_entries.size())) {
-            last = static_cast<int>(g_journal_entries.size()) - 1;
+        std::int32_t first = g_journal_page * 12;
+        std::int32_t last = first + 11;
+        if (last >= static_cast<std::int32_t>(g_journal_entries.size())) {
+            last = static_cast<std::int32_t>(g_journal_entries.size()) - 1;
         }
-        int previous_level = -1;
-        int y = 0x39;
-        for (int index = first; index <= last; ++index, y += 0x1e) {
+        std::int32_t previous_level = -1;
+        std::int32_t y = 0x39;
+        for (std::int32_t index = first; index <= last; ++index, y += 0x1e) {
             const W8JournalEntry* entry = &g_journal_entries[index];
             const W8FactDatabaseRecord* fact = &g_fact_records[entry->fact];
-            int active = fact->highlight_when_true && GetFact(entry->fact);
+            std::int32_t active = fact->highlight_when_true && GetFact(entry->fact);
             std::string description =
                 entry->alternate_text ? fact->alternate_description : fact->description;
             std::string level_name;
@@ -243,9 +244,9 @@ void W8JournalPanel::Refresh()
         DrawJournalLine(g_localized_strings[0x6de], 0, 0x19, 0, true);
         DrawJournalLine(g_localized_strings[0x6df], 1, 0x19, 0, true);
 
-        int y = 0x39;
-        for (int index = 0; index < 11; ++index) {
-            signed char faction = g_journal_factions[index];
+        std::int32_t y = 0x39;
+        for (std::int32_t index = 0; index < 11; ++index) {
+            std::int8_t faction = g_journal_factions[index];
             if (GetFactionFlag(faction)) {
                 W8FactionDisposition disposition = GetFactionDisposition(faction);
                 std::string disposition_name;
@@ -281,15 +282,15 @@ W8JournalPanel::W8JournalPanel()
     : Controls(0x66, 0x1bb, 0, 0, CatalogArtwork::Load(0xf3, 0), 0), m_next(0), m_previous(0), m_close(0), m_mode(0),
       m_page_text(0), m_alternate_mode(0)
 {
-    short width;
-    short height;
+    std::int16_t width;
+    std::int16_t height;
 
     CreateRegionSet();
     const SDL_Point _catalog_size_4 = CatalogArtwork::Load(0xf3, 0).size(0);
         width = _catalog_size_4.x;
         height = _catalog_size_4.y;;
-    m_bounds.right = m_bounds.left + static_cast<unsigned short>(width);
-    m_bounds.bottom = m_bounds.top + static_cast<unsigned short>(height);
+    m_bounds.right = m_bounds.left + static_cast<std::uint16_t>(width);
+    m_bounds.bottom = m_bounds.top + static_cast<std::uint16_t>(height);
 
     m_previous = new W8TextControl(this, 0xffffffff, 3, 3, 0, 0, CatalogArtwork::Load(0xf4, 0), 0, 2, 1, -1, 3);
     m_previous->m_listener = this;
@@ -343,7 +344,7 @@ void W8JournalPanel::OnPrimary(W8TextControl* control)
             Refresh();
         }
     } else if (control == m_next) {
-        if (g_journal_page < (static_cast<int>(g_journal_entries.size()) - 1) / 12) {
+        if (g_journal_page < (static_cast<std::int32_t>(g_journal_entries.size()) - 1) / 12) {
             ++g_journal_page;
             Refresh();
         }
@@ -351,7 +352,7 @@ void W8JournalPanel::OnPrimary(W8TextControl* control)
         RequestScreenTransition();
     } else {
         m_alternate_mode =
-            static_cast<unsigned char>(m_mode->m_stateFlags & g_W8TextControlStateSecondary);
+            static_cast<std::uint8_t>(m_mode->m_stateFlags & g_W8TextControlStateSecondary);
         if (m_alternate_mode) {
             m_mode->EnableRegionHelp(0x6ec);
             if ((m_mode->m_stateFlags & g_W8TextControlStateSecondary) == 0) {
@@ -374,26 +375,26 @@ void W8JournalPanel::OnPrimary(W8TextControl* control)
    proof that a record's fifth slot is its finalizer rather than a second
    initializer - record 10's allocate/free pair is the first. */
 // FUNCTION: WIZ8 0x005bddd0
-unsigned char JournalScreenInitialize(void)
+bool JournalScreenInitialize(void)
 {
     if (!g_journal_font.load("Data\\Journal\\journal_font.sti"))
-        return 0;
+        return false;
     g_journal_font_palette = CatalogArtwork::Load(0x1b9).spriteSheet()->colors;
-    return 1;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x005bde10
-unsigned char JournalScreenFinalize(void)
+bool JournalScreenFinalize(void)
 {
     g_journal_font.clear();
     g_journal_font_palette = {};
-    return 1;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x005bde40
-unsigned char JournalScreenEnter(void)
+bool JournalScreenEnter(void)
 {
-    int maximum_visibility;
+    std::int32_t maximum_visibility;
 
     SetViewport(0, 0, 0x280, 0x1e0);
     SetPrimarySurfaceTextureHint2Enabled(false);
@@ -424,11 +425,11 @@ unsigned char JournalScreenEnter(void)
     }
     g_journal_panel->Refresh();
     CatalogArtwork::Load(0x1b7, 0).drawAndInvalidate(GetFrameBufferSurface(), 1, 0, 0x1b4);
-    return 1;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x005be0b0
-unsigned char JournalScreenLeave(int)
+bool JournalScreenLeave(std::int32_t)
 {
     ResetRegions();
     g_journal_panel.reset();
@@ -436,7 +437,7 @@ unsigned char JournalScreenLeave(int)
     if (gXStatus.fCampMode) {
         SyncDialogueNpcState();
     }
-    return 1;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x005be110
@@ -455,7 +456,7 @@ void JournalScreenFrame(void)
                 --g_journal_page;
                 g_journal_panel->Refresh();
             } else if (input.key == VK_RIGHT &&
-                       g_journal_page < (static_cast<int>(g_journal_entries.size()) - 1) / 12) {
+                       g_journal_page < (static_cast<std::int32_t>(g_journal_entries.size()) - 1) / 12) {
                 ++g_journal_page;
                 g_journal_panel->Refresh();
             }

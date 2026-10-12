@@ -59,11 +59,11 @@ std::unique_ptr<W8LevelDatabaseRecord[]> level_records;
    leading count exceeds one and its 0x9D flag is clear: a count, then that many
    six-byte elements appended to a freshly created list. */
 // FUNCTION: WIZ8 0x0054aac0
-unsigned char InitializeNpcDatabase(void)
+std::uint8_t InitializeNpcDatabase(void)
 try
 {
     auto handle = wiz8::open_file("Data\\Databases\\NPC.DBS", wiz8::OpenMode::read);
-    unsigned int count;
+    std::uint32_t count;
     handle->read_exact(&count, sizeof(count));
     if (count > (handle->size() - handle->tell()) / std::int64_t(wiz8::retail::kNpcDatabaseRecordBytes)) {
         return 0;
@@ -71,24 +71,24 @@ try
     auto records = std::make_unique<W8NpcDatabaseRecord[]>(count);
     std::vector<std::unique_ptr<W8NpcItemStockRule>> entries;
     std::vector<std::unique_ptr<std::vector<W8NpcItemStockRule*>>> lists;
-    for (unsigned int index = 0; index < count; ++index) {
+    for (std::uint32_t index = 0; index < count; ++index) {
         auto& record = records.get()[index];
         wiz8::retail::read_exact(*handle, record);
         record.item_stock_rules = nullptr;
         if (record.no_item_stock == 0 && record.version > 1) {
-            unsigned int entry_count;
+            std::uint32_t entry_count;
             handle->read_exact(&entry_count, sizeof(entry_count));
             const auto remaining = handle->size() - handle->tell();
             const auto following_records = std::int64_t(count - index - 1) * std::int64_t(wiz8::retail::kNpcDatabaseRecordBytes);
             if (remaining < following_records ||
                 entry_count > (remaining - following_records) / std::int64_t(sizeof(W8NpcItemStockRule)) ||
-                entry_count > std::numeric_limits<int>::max()) {
+                entry_count > std::numeric_limits<std::int32_t>::max()) {
                 return 0;
             }
             if (entry_count > 0) {
                 auto rules = std::make_unique<std::vector<W8NpcItemStockRule*>>();
                 rules->reserve(entry_count);
-                for (unsigned int entry = 0; entry < entry_count; ++entry) {
+                for (std::uint32_t entry = 0; entry < entry_count; ++entry) {
                     auto element = std::make_unique<W8NpcItemStockRule>();
                     handle->read_exact(element.get(), sizeof(*element));
                     rules->push_back(element.get());
@@ -113,11 +113,11 @@ try
 catch (const std::exception&) { return 0; }
 
 // FUNCTION: WIZ8 0x0054ad00
-unsigned char InitializeFactDatabase(void)
+std::uint8_t InitializeFactDatabase(void)
 try
 {
     auto handle = wiz8::open_file("Data\\Databases\\FACT.DBS", wiz8::OpenMode::read);
-    unsigned int count;
+    std::uint32_t count;
     auto records = wiz8::retail::read_database<W8FactDatabaseRecord>(*handle, count, std::size(g_fact_values));
     fact_records = std::move(records);
     g_fact_records = fact_records.get();
@@ -135,11 +135,11 @@ void DestroyFactDatabase(void)
 }
 
 // FUNCTION: WIZ8 0x0054ae20
-unsigned char InitializeLevelDatabase(void)
+std::uint8_t InitializeLevelDatabase(void)
 try
 {
     auto handle = wiz8::open_file("Data\\Databases\\LEVELS.DBS", wiz8::OpenMode::read);
-    unsigned int count;
+    std::uint32_t count;
     auto records = wiz8::retail::read_database<W8LevelDatabaseRecord>(*handle, count);
     level_records = std::move(records);
     g_level_records = level_records.get();
@@ -224,8 +224,8 @@ void ResetForNewGame(void)
 {
     W8ItemInstance item;
     W8ItemInstance* slot;
-    unsigned int* id;
-    unsigned int index;
+    std::uint32_t* id;
+    std::uint32_t index;
 
     ResetGameStatus(true);
     ReleaseMessageStorage();
@@ -281,7 +281,7 @@ void RunNewGameOpeningSequence(bool notify, std::string_view target)
 // FUNCTION: WIZ8 0x0054b2d0
 void ResetTargetingState(void)
 {
-    unsigned int slot;
+    std::uint32_t slot;
 
     for (slot = 0; slot < 8; ++slot) {
         ResetGameplaySlot(slot);
@@ -297,10 +297,10 @@ void ResetTargetingState(void)
    and 2 here. The five countdown clocks and the Random call share one stack
    cleanup, as consecutive cdecl calls do. */
 // FUNCTION: WIZ8 0x0054b300
-void ResetGameplaySlot(unsigned int slot)
+void ResetGameplaySlot(std::uint32_t slot)
 {
     W8MonsterManagerEntry* record = &gXStatus.monster_manager_entries[slot];
-    int tier;
+    std::int32_t tier;
 
     *record = {};
     record->portrait_event_active = false;
@@ -355,7 +355,7 @@ void ResetGameplaySlot(unsigned int slot)
    direct teardown of a null backing store), so no reconstruction runs. */
 
 // FUNCTION: WIZ8 0x0054b470
-void ResetPartySlotRow(int slot)
+void ResetPartySlotRow(std::int32_t slot)
 {
     W8PartySlotRow* row = &g_status.buffers.XChar[slot];
 

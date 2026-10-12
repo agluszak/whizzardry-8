@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "glm/ext/vector_int3.hpp"
 #include "wiz8/engine_code/ReadLevel.h"
 #include "surrender/srModel.h"
@@ -15,7 +16,6 @@
 #include <ranges>
 #include "surrender/triangle_selection.h"
 
-#include "compat/compiler.h"
 #include "compat/native.h"
 #include "glm/common.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
@@ -48,15 +48,15 @@ extern float g_monster_light_scale;
 std::vector<stMeshModel*> g_mesh_models;
 
 // GLOBAL: WIZ8 0x0065a0e8
-int g_decompressed_mesh_bytes;
+std::int32_t g_decompressed_mesh_bytes;
 
 /* Byte budget for the decompressed per-frame caches; AllocateFrameBuffers
    reclaims least-recently-used frames past it. */
 // GLOBAL: WIZ8 0x00609d34
-static int g_decompressed_mesh_byte_limit = 0x800000;
+static std::int32_t g_decompressed_mesh_byte_limit = 0x800000;
 
 // FUNCTION: WIZ8 0x00470B00
-stMeshModel::stMeshModel(w8_long polygons, w8_long vertices)
+stMeshModel::stMeshModel(std::int32_t polygons, std::int32_t vertices)
     : srClassSupport<stMeshModel, srMeshModel, 0x10003>(polygons, vertices)
 {
     vertex_lighting_ready = false;
@@ -128,7 +128,7 @@ void stMeshModel::RevealVerticesNear(const glm::vec3& position, float range, con
     const auto lights = GetVertexLights(true, -1);
     const auto* vertices =
         (flags & W8_MESH_HAS_FRAME_STORAGE) ? GetVertexLocations(0, true, 0.0f) : getVertexLoc();
-    for (int i = 0; i < vertex_location_count; ++i) {
+    for (std::int32_t i = 0; i < vertex_location_count; ++i) {
         const auto point = glm::vec3(world * glm::vec4(vertices[i], 1));
         if (glm::distance(point, position) <= range) {
             lights[i] = glm::vec3(1);
@@ -137,9 +137,9 @@ void stMeshModel::RevealVerticesNear(const glm::vec3& position, float range, con
     }
 }
 // FUNCTION: WIZ8 0x00473190
-srBoundingBox stMeshModel::GetFrameBounds(int frame)
+srBoundingBox stMeshModel::GetFrameBounds(std::int32_t frame)
 {
-    if (static_cast<unsigned int>(frame) >= frames.size() || vertex_location_count == 0) {
+    if (static_cast<std::uint32_t>(frame) >= frames.size() || vertex_location_count == 0) {
         return {};
     }
     std::vector<glm::vec3> scratch;
@@ -175,7 +175,7 @@ void stMeshModel::updateBakedLighting()
     const srMaterialIFace* previous_material = nullptr;
     glm::vec3 material_ambient(0);
 
-    for (int vertex = 0; vertex < vertex_location_count; ++vertex) {
+    for (std::int32_t vertex = 0; vertex < vertex_location_count; ++vertex) {
         glm::vec3 color;
         if (materials) {
             color = suppress_ambient ? glm::vec3(0) : ambient_color * vertex_sunlight[vertex];
@@ -206,7 +206,7 @@ srMeshModel::TriMesh stMeshModel::getTriMesh()
 {
     if ((flags & W8_MESH_VERTEX_LIGHTING_DIRTY) != 0 && !g_render_unlit) {
         updateBakedLighting();
-        flags &= ~static_cast<unsigned int>(W8_MESH_VERTEX_LIGHTING_DIRTY);
+        flags &= ~static_cast<std::uint32_t>(W8_MESH_VERTEX_LIGHTING_DIRTY);
     }
     return srMeshModel::getTriMesh();
 }
@@ -217,23 +217,23 @@ void stMeshModel::renderTriMesh(srGERD& renderer, const TriMesh& mesh)
     RenderTriMeshWithEquations(renderer, mesh, {});
 }
 
-std::vector<w8_ulong> stMeshModel::facingPolygons(const TriMesh& mesh,
+std::vector<std::uint32_t> stMeshModel::facingPolygons(const TriMesh& mesh,
                                                 std::span<const glm::vec3> normals,
                                                 const glm::vec3& eye, bool positive_winding,
                                                 float threshold)
 {
     const auto available = mesh.active_polygons ? mesh.active_polygons->size() : mesh.polygon_count;
     if (available <= 0) return {};
-    const auto count = static_cast<w8_ulong>(available);
-    std::vector<w8_ulong> polygons(count);
-    const auto keep = [&](w8_ulong polygon) {
+    const auto count = static_cast<std::uint32_t>(available);
+    std::vector<std::uint32_t> polygons(count);
+    const auto keep = [&](std::uint32_t polygon) {
         const auto position = mesh.positions[mesh.poly_vertices[polygon].y];
         const float facing = glm::dot(eye - position, normals[polygon]);
         return positive_winding ? threshold <= facing : facing <= threshold;
     };
     const auto kept = mesh.active_polygons
         ? srRender::selectTriangles(polygons, *mesh.active_polygons, keep)
-        : srRender::selectTriangles(polygons, std::views::iota(w8_ulong{0}, count), keep);
+        : srRender::selectTriangles(polygons, std::views::iota(std::uint32_t{0}, count), keep);
     polygons.resize(kept);
     return polygons;
 }
@@ -249,7 +249,7 @@ void stMeshModel::RenderTriMeshWithEquations(srGERD& renderer, const TriMesh& me
     if (!arg_poly_equations.empty() &&
         arg_poly_equations.size() < static_cast<std::size_t>(mesh.polygon_count))
         throw std::invalid_argument("Incomplete mesh polygon normals");
-    std::vector<w8_ulong> software_polygons;
+    std::vector<std::uint32_t> software_polygons;
     if (mesh.polygon_count != 0 && mesh.vertex_count != 0) {
         {
             const srMeshSubmission::EnableScope enabled(renderer,
@@ -272,14 +272,14 @@ void stMeshModel::RenderTriMeshWithEquations(srGERD& renderer, const TriMesh& me
 
             if (arg_poly_equations.empty() || !software_polygons.empty()) {
                 srMeshSubmission::drawSides(renderer, mesh,
-                    [&](srTriMeshPipeline& pipeline, w8_long side) {
+                    [&](srTriMeshPipeline& pipeline, std::int32_t side) {
                         if (!arg_poly_equations.empty()) {
                             pipeline.projected_vertices = nullptr;
-                            pipeline.active_triangles = std::span<const w8_ulong>(software_polygons);
+                            pipeline.active_triangles = std::span<const std::uint32_t>(software_polygons);
                         }
                         return side;
                     },
-                    [&](w8_long pass) {
+                    [&](std::int32_t pass) {
                         auto shader = mesh.shaders[pass];
                         if (g_inverted_depth_render)
                             shader.value = (shader.value & 0xfffffffeUL) | 6UL;
@@ -292,7 +292,7 @@ void stMeshModel::RenderTriMeshWithEquations(srGERD& renderer, const TriMesh& me
 }
 
 // FUNCTION: WIZ8 0x0046ffa0
-int __fastcall IsZeroVector(const srVector3T<float>* vector)
+std::int32_t __fastcall IsZeroVector(const srVector3T<float>* vector)
 {
     if (vector->x == g_float_zero && vector->y == g_float_zero && vector->z == g_float_zero) {
         return 1;
@@ -308,7 +308,7 @@ int __fastcall IsZeroVector(const srVector3T<float>* vector)
 static bool MeshNameEquals(std::string_view left, std::string_view right)
 {
     return left.size() == right.size() &&
-           std::equal(left.begin(), left.end(), right.begin(), [](unsigned char a, unsigned char b) {
+           std::equal(left.begin(), left.end(), right.begin(), [](std::uint8_t a, std::uint8_t b) {
                return std::tolower(a) == std::tolower(b);
            });
 }
@@ -316,11 +316,11 @@ static bool MeshNameEquals(std::string_view left, std::string_view right)
 // FUNCTION: WIZ8 0x00473fa0
 void stMeshModel::ApplyAutomapPolygonFilter(std::span<const std::string_view> excluded_textures)
 {
-    std::vector<w8_ulong> active;
+    std::vector<std::uint32_t> active;
     active.reserve(polygon_count);
     auto* textures = getPolyTexture(0, 0, 0);
     if (textures != nullptr) {
-        for (unsigned int polygon = 0; polygon < static_cast<unsigned int>(polygon_count); ++polygon) {
+        for (std::uint32_t polygon = 0; polygon < static_cast<std::uint32_t>(polygon_count); ++polygon) {
             if (textures[polygon] == nullptr ||
                 std::none_of(excluded_textures.begin(), excluded_textures.end(), [&](auto name) {
                     return MeshNameEquals(name, textures[polygon]->getName());
@@ -329,7 +329,7 @@ void stMeshModel::ApplyAutomapPolygonFilter(std::span<const std::string_view> ex
             }
         }
     }
-    if (active.size() == static_cast<unsigned int>(polygon_count)) {
+    if (active.size() == static_cast<std::uint32_t>(polygon_count)) {
         automap_polygons.reset();
     } else {
         automap_polygons = std::move(active);
@@ -350,24 +350,24 @@ void stMeshModel::ClearAutomapPolygonFilter()
    submits. Skin scans drop textures whose name starts with "blank"; a table
    not found among the skins uses the base/automap selection. */
 // FUNCTION: WIZ8 0x00473CD0
-srMeshModel::PolygonSelection stMeshModel::GetActivePolygons(int table, bool check_blanking)
+srMeshModel::PolygonSelection stMeshModel::GetActivePolygons(std::int32_t table, bool check_blanking)
 {
     auto skin = std::find_if(skins.begin(), skins.end(),
                             [table](const auto& skin) { return skin.id == table; });
     auto& selection = skin != skins.end() ? skin->active_polygons : automap_polygons;
     auto& checked = skin != skins.end() ? skin->blanking_checked : automap_filter_active;
     if (!checked && check_blanking) {
-        std::vector<w8_ulong> active;
+        std::vector<std::uint32_t> active;
         active.reserve(polygon_count);
         auto* textures = skin != skins.end() ? skin->textures.data() : getPolyTexture(0, 0, 0);
         if (textures != nullptr) {
-            for (unsigned int polygon = 0; polygon < static_cast<unsigned int>(polygon_count); ++polygon) {
+            for (std::uint32_t polygon = 0; polygon < static_cast<std::uint32_t>(polygon_count); ++polygon) {
                 if (textures[polygon] == nullptr ||
                     !MeshNameEquals(std::string_view(textures[polygon]->getName()).substr(0, 5), "blank")) {
                     active.push_back(polygon);
                 }
             }
-            if (active.size() != static_cast<unsigned int>(polygon_count)) {
+            if (active.size() != static_cast<std::uint32_t>(polygon_count)) {
                 selection = std::move(active);
             }
         }
@@ -376,17 +376,17 @@ srMeshModel::PolygonSelection stMeshModel::GetActivePolygons(int table, bool che
     if (!selection) {
         return std::nullopt;
     }
-    return std::span<const w8_ulong>(*selection);
+    return std::span<const std::uint32_t>(*selection);
 }
 
 // FUNCTION: WIZ8 0x00471160
-void stMeshModel::SetMappedVertex(short vertex, short key)
+void stMeshModel::SetMappedVertex(std::int16_t vertex, std::int16_t key)
 {
     mapped_vertices.insert_or_assign(key, vertex);
 }
 
 // FUNCTION: WIZ8 0x004712d0
-int stMeshModel::FindMappedIndex(short key)
+std::int32_t stMeshModel::FindMappedIndex(std::int16_t key)
 {
     if (key < 0) {
         return -1;
@@ -414,13 +414,13 @@ stMeshModel* stMeshModel::Next() const
 /* One frame's compressed vertex table, refused outright when there is no
    table at all. */
 // FUNCTION: WIZ8 0x00471aa0
-short* stMeshModel::GetVertex(unsigned int frame)
+std::int16_t* stMeshModel::GetVertex(std::uint32_t frame)
 {
     return frame < frames.size() ? frames[frame].compressed_locations.data() : nullptr;
 }
 
 // FUNCTION: WIZ8 0x00473b00
-void stMeshModel::InitializeVertexFrames(int count)
+void stMeshModel::InitializeVertexFrames(std::int32_t count)
 {
     if (count <= 0) {
         srAssertFail("uiFrames", "C:\\Projects\\Wizardry 8\\Engine Code\\stMeshModel.cpp", 0x6e8,
@@ -445,9 +445,9 @@ void stMeshModel::InitializeVertexFrames(int count)
 /* Drop every decompressed float cache, returning the bytes actually released.
    Resetting the optional destroys its vector allocation, unlike vector::clear. */
 // FUNCTION: WIZ8 0x004739e0
-int stMeshModel::ReleaseDecompressedFrames()
+std::int32_t stMeshModel::ReleaseDecompressedFrames()
 {
-    int released = 0;
+    std::int32_t released = 0;
     for (auto& frame : frames) {
         for (auto* cache : {&frame.locations, &frame.vertex_normals, &frame.polygon_normals}) {
             if (*cache) {
@@ -464,9 +464,9 @@ int stMeshModel::ReleaseDecompressedFrames()
 /* Evict least-recently-used decompressed frames until `needed` bytes are
    available, or give up when every eligible model has been drained. */
 // FUNCTION: WIZ8 0x00473BF0
-unsigned char ReclaimDecompressedBytes(unsigned int needed, const stMeshModel* retained_model)
+bool ReclaimDecompressedBytes(std::uint32_t needed, const stMeshModel* retained_model)
 {
-    unsigned int released = 0;
+    std::uint32_t released = 0;
     while (released < needed) {
         stMeshModel* oldest = nullptr;
         for (stMeshModel* model : g_mesh_models) {
@@ -493,7 +493,7 @@ unsigned char ReclaimDecompressedBytes(unsigned int needed, const stMeshModel* r
 }
 
 // FUNCTION: WIZ8 0x004736d0
-int stMeshModel::FindSkinTable(std::string_view name)
+std::int32_t stMeshModel::FindSkinTable(std::string_view name)
 {
     for (const auto& skin : skins) {
         if (MeshNameEquals(name, skin.name)) {
@@ -506,7 +506,7 @@ int stMeshModel::FindSkinTable(std::string_view name)
 }
 
 // FUNCTION: WIZ8 0x00473720
-std::shared_ptr<srTextureIFace>* stMeshModel::GetTextureTable(int table)
+std::shared_ptr<srTextureIFace>* stMeshModel::GetTextureTable(std::int32_t table)
 {
     auto skin = std::find_if(skins.begin(), skins.end(),
                             [table](const auto& skin) { return skin.id == table; });
@@ -516,7 +516,7 @@ std::shared_ptr<srTextureIFace>* stMeshModel::GetTextureTable(int table)
 /* Clone one polygon-texture table under an owned name. Table ids are the lowest
    free non-negative integer and remain stable independently of vector position. */
 // FUNCTION: WIZ8 0x00473260
-int stMeshModel::CreateSkinTable(std::string_view name, int base_table)
+std::int32_t stMeshModel::CreateSkinTable(std::string_view name, std::int32_t base_table)
 {
     if (FindSkinTable(name) != -1) {
         return -1;
@@ -528,7 +528,7 @@ int stMeshModel::CreateSkinTable(std::string_view name, int base_table)
     if (source == nullptr) {
         return -1;
     }
-    int table = 0;
+    std::int32_t table = 0;
     while (std::any_of(skins.begin(), skins.end(),
                        [table](const auto& skin) { return skin.id == table; })) {
         ++table;
@@ -539,9 +539,9 @@ int stMeshModel::CreateSkinTable(std::string_view name, int base_table)
 }
 
 // FUNCTION: WIZ8 0x00473830
-void stMeshModel::RemoveSkinTable(int index)
+void stMeshModel::RemoveSkinTable(std::int32_t index)
 {
-    if (static_cast<unsigned int>(index) < skins.size()) {
+    if (static_cast<std::uint32_t>(index) < skins.size()) {
         skins.erase(skins.begin() + index);
     }
 }
@@ -559,15 +559,15 @@ void stMeshModel::RemoveSkinTablesForCycle(std::string_view cycle_name)
     }
 }
 
-static void DecompressMeshNormals(const unsigned char* normals, int count,
+static void DecompressMeshNormals(const std::uint8_t* normals, std::int32_t count,
                                   glm::vec3* destination)
 {
     // The former lookup table (WIZ8 0x00659ce8, ready flag 0x0065a0ef) only decoded signed bytes.
-    const auto expand = [](unsigned char component) {
-        return std::clamp(static_cast<signed char>(component) * (1.0f / 127.0f), -1.0f, 1.0f);
+    const auto expand = [](std::uint8_t component) {
+        return std::clamp(static_cast<std::int8_t>(component) * (1.0f / 127.0f), -1.0f, 1.0f);
     };
-    for (int index = 0; index < count; ++index) {
-        const unsigned char* source = &normals[index * 3];
+    for (std::int32_t index = 0; index < count; ++index) {
+        const std::uint8_t* source = &normals[index * 3];
         destination[index] = glm::vec3(expand(source[0]), expand(source[1]), expand(source[2]));
     }
 }
@@ -575,53 +575,53 @@ static void DecompressMeshNormals(const unsigned char* normals, int count,
 /* Expand one frame's compressed table into `destination`: bit 1 the vertex
    locations, bit 2 the vertex normals, bit 4 the polygon normals. */
 // FUNCTION: WIZ8 0x00471930
-unsigned char stMeshModel::DecompressFrame(int frame, unsigned char flags,
+bool stMeshModel::DecompressFrame(std::int32_t frame, std::uint8_t flags,
                                            std::span<glm::vec3> destination)
 {
-    if (static_cast<unsigned int>(frame) >= frames.size()) {
-        return 0;
+    if (static_cast<std::uint32_t>(frame) >= frames.size()) {
+        return false;
     }
     const auto& storage = frames[frame];
     const auto count = flags & (W8_MESH_FRAME_LOCATIONS | W8_MESH_FRAME_VERTEX_NORMALS)
                            ? vertex_location_count : polygon_count;
-    if (destination.size() < static_cast<std::size_t>(count)) return 0;
+    if (destination.size() < static_cast<std::size_t>(count)) return false;
     if (flags & W8_MESH_FRAME_LOCATIONS) {
-        for (int index = 0; index < vertex_location_count; ++index) {
-            const short* source = &storage.compressed_locations[index * 3];
+        for (std::int32_t index = 0; index < vertex_location_count; ++index) {
+            const std::int16_t* source = &storage.compressed_locations[index * 3];
             destination[index] = glm::vec3(source[0] * vertex_compression_scale,
                                    source[1] * vertex_compression_scale,
                                    source[2] * vertex_compression_scale);
         }
-        return 1;
+        return true;
     }
     if (flags & W8_MESH_FRAME_VERTEX_NORMALS) {
         DecompressMeshNormals(storage.compressed_vertex_normals.data(), vertex_location_count,
                               destination.data());
-        return 1;
+        return true;
     }
     if (flags & W8_MESH_FRAME_POLYGON_NORMALS) {
         DecompressMeshNormals(storage.compressed_polygon_normals.data(), polygon_count,
                               destination.data());
-        return 1;
+        return true;
     }
-    return 0;
+    return false;
 }
 
 /* Allocate one frame's decompressed caches for the tables named by `flags`
    (bit 0 locations, bit 1 vertex normals, bit 2 polygon normals), reclaiming
    least-recently-used frames when the byte budget would overflow. */
 // FUNCTION: WIZ8 0x00471720
-unsigned char stMeshModel::AllocateFrameBuffers(unsigned int uiFrame, unsigned char flags)
+std::uint8_t stMeshModel::AllocateFrameBuffers(std::uint32_t uiFrame, std::uint8_t flags)
 {
     if (uiFrame >= frames.size()) {
         return 0;
     }
     auto& frame = frames[uiFrame];
-    auto allocate = [&](auto& cache, int count, unsigned char bit) {
+    auto allocate = [&](auto& cache, std::int32_t count, std::uint8_t bit) {
         if ((flags & bit) == 0 || cache) {
             return;
         }
-        int needed = count * sizeof(glm::vec3);
+        std::int32_t needed = count * sizeof(glm::vec3);
         if (g_decompressed_mesh_byte_limit <= g_decompressed_mesh_bytes + needed) {
             // Never evict this model between returning positions and normals,
             // or between loading the two frames of an interpolation. The budget
@@ -643,7 +643,7 @@ unsigned char stMeshModel::AllocateFrameBuffers(unsigned int uiFrame, unsigned c
    `interpolation` is positive and another frame follows, both frames are
    decompressed and lerped into lerp_buffer (m_pLerpBuffer). */
 // FUNCTION: WIZ8 0x00471AD0
-glm::vec3* stMeshModel::GetVertexLocations(unsigned int frame, bool load,
+glm::vec3* stMeshModel::GetVertexLocations(std::uint32_t frame, bool load,
                                                    float interpolation)
 {
     if (frame >= frames.size()) {
@@ -657,7 +657,7 @@ glm::vec3* stMeshModel::GetVertexLocations(unsigned int frame, bool load,
             if (interpolation == g_float_one) {
                 std::copy_n(next, vertex_location_count, lerp_buffer.data());
             } else {
-                for (int i = 0; i < vertex_location_count; ++i)
+                for (std::int32_t i = 0; i < vertex_location_count; ++i)
                     lerp_buffer[i] =
                         glm::mix(current[i], next[i], interpolation);
             }
@@ -668,18 +668,18 @@ glm::vec3* stMeshModel::GetVertexLocations(unsigned int frame, bool load,
 }
 
 // FUNCTION: WIZ8 0x00471CA0
-glm::vec3* stMeshModel::GetVertexNormals(unsigned int frame, bool load)
+glm::vec3* stMeshModel::GetVertexNormals(std::uint32_t frame, bool load)
 {
     return frameTable(frame, load, W8_MESH_FRAME_VERTEX_NORMALS);
 }
 
 // FUNCTION: WIZ8 0x00471D00
-glm::vec3* stMeshModel::GetPolygonNormals(unsigned int frame, bool load)
+glm::vec3* stMeshModel::GetPolygonNormals(std::uint32_t frame, bool load)
 {
     return frameTable(frame, load, W8_MESH_FRAME_POLYGON_NORMALS);
 }
 
-glm::vec3* stMeshModel::frameTable(unsigned int frame, bool load, unsigned char kind)
+glm::vec3* stMeshModel::frameTable(std::uint32_t frame, bool load, std::uint8_t kind)
 {
     if (frame >= frames.size()) return nullptr;
     auto& storage = frames[frame];
@@ -693,7 +693,7 @@ glm::vec3* stMeshModel::frameTable(unsigned int frame, bool load, unsigned char 
     return cache->data();
 }
 
-stMeshModel::FrameGeometry stMeshModel::frameGeometry(unsigned int frame, float interpolation)
+stMeshModel::FrameGeometry stMeshModel::frameGeometry(std::uint32_t frame, float interpolation)
 {
     if (frame >= frames.size()) throw std::out_of_range("Mesh frame index out of range");
     auto* positions = GetVertexLocations(frame, true, interpolation);
@@ -729,12 +729,12 @@ static inline char CompressNormalByte(float value)
 }
 
 static void CompressMeshNormals(const std::vector<glm::vec3>& normals,
-                                std::vector<unsigned char>& compressed)
+                                std::vector<std::uint8_t>& compressed)
 {
     compressed.resize(normals.size() * 3);
     for (std::size_t i = 0; i < normals.size(); ++i) {
         const auto normal = normalizedOrZero(normals[i]) * 127.0f;
-        for (int component = 0; component < 3; ++component)
+        for (std::int32_t component = 0; component < 3; ++component)
             compressed[i * 3 + component] = CompressNormalByte(normal[component]);
     }
 }
@@ -744,9 +744,9 @@ static void CompressMeshNormals(const std::vector<glm::vec3>& normals,
    the shade index table when there is one, unitized, and stored as signed
    bytes scaled by 127. */
 // FUNCTION: WIZ8 0x004729F0
-void stMeshModel::ComputeFrameNormals(int frame)
+void stMeshModel::ComputeFrameNormals(std::int32_t frame)
 {
-    if (static_cast<unsigned int>(frame) >= frames.size() || polygon_count == 0 ||
+    if (static_cast<std::uint32_t>(frame) >= frames.size() || polygon_count == 0 ||
         vertex_location_count == 0) {
         return;
     }
@@ -767,7 +767,7 @@ void stMeshModel::ComputeFrameNormals(int frame)
         l = scratch.data();
     }
 
-    for (int poly = 0; poly < polygon_count; ++poly)
+    for (std::int32_t poly = 0; poly < polygon_count; ++poly)
         pnorm[poly] = srMeshMath::polygonNormal(
             std::span<const glm::vec3>(l, vertex_location_count), poly_vertex[poly]);
 
@@ -775,8 +775,8 @@ void stMeshModel::ComputeFrameNormals(int frame)
     const auto vnorm = srMeshMath::vertexNormalSums(
         std::span<const glm::ivec3>(poly_vertex, polygon_count),
         std::span<const glm::vec3>(pnorm), vertex_location_count,
-        shade_index ? std::span<const w8_ulong>(shade_index, vertex_location_count)
-                    : std::span<const w8_ulong>{});
+        shade_index ? std::span<const std::uint32_t>(shade_index, vertex_location_count)
+                    : std::span<const std::uint32_t>{});
 
     CompressMeshNormals(vnorm, storage.compressed_vertex_normals);
     CompressMeshNormals(pnorm, storage.compressed_polygon_normals);
@@ -791,7 +791,7 @@ void stMeshModel::ComputeFrameNormals(int frame)
 
 /* Thirteen-byte forwarder onto the per-frame normal builder. */
 // FUNCTION: WIZ8 0x00472100
-std::span<glm::vec3> stMeshModel::GetVertexLights(bool initialize, int table)
+std::span<glm::vec3> stMeshModel::GetVertexLights(bool initialize, std::int32_t table)
 {
     if (table == -1) {
         table = vertex_light_table;
@@ -817,7 +817,7 @@ std::span<float> stMeshModel::GetVertexSunlight(bool initialize)
 }
 
 // FUNCTION: WIZ8 0x00473180
-void stMeshModel::FinalizeVertexFrame(int frame)
+void stMeshModel::FinalizeVertexFrame(std::int32_t frame)
 {
     ComputeFrameNormals(frame);
 }

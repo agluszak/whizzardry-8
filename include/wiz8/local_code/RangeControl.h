@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include "wiz8/local_code/Controls.h"
 #include "wiz8/local_code/TextControl.h"
 
@@ -10,18 +11,18 @@ class W8RangeControl;
 // VTABLE: WIZ8 0x005ed6fc
 class W8RangeButton : public W8TextControl {
 public:
-    W8RangeButton(Controls* panel, unsigned int region, int left, int top, int right, int bottom,
-                  std::optional<CatalogArtwork> image_artwork, int normal_sprite, int pressed_sprite,
-                  int alternate_normal_sprite, int alternate_pressed_sprite, int disabled_sprite,
-                  short direction, W8RangeControl* range);
+    W8RangeButton(Controls* panel, std::uint32_t region, std::int32_t left, std::int32_t top, std::int32_t right, std::int32_t bottom,
+                  std::optional<CatalogArtwork> image_artwork, std::int32_t normal_sprite, std::int32_t pressed_sprite,
+                  std::int32_t alternate_normal_sprite, std::int32_t alternate_pressed_sprite, std::int32_t disabled_sprite,
+                  std::int16_t direction, W8RangeControl* range);
 
-    virtual void OnLeftButtonDown(int event) override;
-    virtual void ActivatePrimary(int event) override;
-    virtual void AdjustValue(int steps) override;
+    virtual void OnLeftButtonDown(std::int32_t event) override;
+    virtual void ActivatePrimary(std::int32_t event) override;
+    virtual void AdjustValue(std::int32_t steps) override;
 
 protected:
-    short m_direction; /* zero decrements */
-    unsigned short pad_ba;
+    std::int16_t m_direction; /* zero decrements */
+    std::uint16_t pad_ba;
     W8RangeControl* m_range;
 };
 
@@ -47,16 +48,16 @@ class W8RangeControl : public Controls {
 public:
     friend class W8VerticalRangeThumb;
 
-    W8RangeControl(int left, int top, int right, int bottom);
+    W8RangeControl(std::int32_t left, std::int32_t top, std::int32_t right, std::int32_t bottom);
     ~W8RangeControl();
 
-    void SetRange(int first, int second);
-    void SetValue(int value);
+    void SetRange(std::int32_t first, std::int32_t second);
+    void SetValue(std::int32_t value);
     void Decrement();
     void Increment();
     void SetRangeEnabled(bool enabled);
 
-    void AdjustValue(int steps)
+    void AdjustValue(std::int32_t steps)
     {
         for (; steps > 0; --steps)
             Decrement();
@@ -64,9 +65,9 @@ public:
             Increment();
     }
 
-    int m_minimum;
-    int m_maximum;
-    int m_value;
+    std::int32_t m_minimum;
+    std::int32_t m_maximum;
+    std::int32_t m_value;
     W8Widget* m_decrement;
     W8Widget* m_increment;
     W8VerticalRangeThumb* m_thumb;
@@ -85,31 +86,31 @@ public:
 // VTABLE: WIZ8 0x005ed66c
 class W8HorizontalRangeThumb : public W8Widget {
 public:
-    W8HorizontalRangeThumb(Controls* panel, unsigned int region, int left, int top,
-                           CatalogArtwork artwork, int background_sprite,
-                           int normal_thumb_sprite, int hovered_thumb_sprite,
-                           int disabled_thumb_sprite);
+    W8HorizontalRangeThumb(Controls* panel, std::uint32_t region, std::int32_t left, std::int32_t top,
+                           CatalogArtwork artwork, std::int32_t background_sprite,
+                           std::int32_t normal_thumb_sprite, std::int32_t hovered_thumb_sprite,
+                           std::int32_t disabled_thumb_sprite);
     virtual void Redraw(bool full_redraw) override;
     void UpdatePixelPosition();
-    virtual void OnLeftButtonDown(int event) override;
-    virtual void OnLeftButtonUp(int event) override;
-    virtual void OnMouseEnter(int event) override;
-    virtual void OnMouseLeave(int event) override;
-    virtual void OnMouseMove(int event) override;
+    virtual void OnLeftButtonDown(std::int32_t event) override;
+    virtual void OnLeftButtonUp(std::int32_t event) override;
+    virtual void OnMouseEnter(std::int32_t event) override;
+    virtual void OnMouseLeave(std::int32_t event) override;
+    virtual void OnMouseMove(std::int32_t event) override;
 
 protected:
     CatalogArtwork m_artwork;
-    int m_backgroundSprite;
-    int m_normalThumbSprite;
-    int m_hoveredThumbSprite;
-    int m_disabledThumbSprite;
-    int m_trackLength;
-    int m_thumbWidth;
-    int m_pixelPosition;
-    int m_dragCoordinate;
+    std::int32_t m_backgroundSprite;
+    std::int32_t m_normalThumbSprite;
+    std::int32_t m_hoveredThumbSprite;
+    std::int32_t m_disabledThumbSprite;
+    std::int32_t m_trackLength;
+    std::int32_t m_thumbWidth;
+    std::int32_t m_pixelPosition;
+    std::int32_t m_dragCoordinate;
     bool m_hovered;  /* cursor over the thumb */
     bool m_dragging; /* thumb drag in progress */
-    unsigned char pad_5e[2];
+    std::uint8_t pad_5e[2];
 
 public:
     /* OptionsScreen.cpp sets these bounds and attaches the listener directly. */

@@ -1,6 +1,6 @@
 #pragma once
 
-unsigned char InitializeMenuFonts(void);
+bool InitializeMenuFonts(void);
 void ReleaseMenuFonts();
 
 #include "Font.h"

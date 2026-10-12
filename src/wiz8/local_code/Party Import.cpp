@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <string_view>
 #include <cstring>
 #include <exception>
@@ -37,7 +38,7 @@
 /* The three bonus attributes each profession grants on top of the imported
    values. */
 // GLOBAL: WIZ8 0x00614FC8
-static int g_profession_primary_attributes[15][3] = {
+static std::int32_t g_profession_primary_attributes[15][3] = {
     {W8_ATTRIBUTE_STRENGTH, W8_ATTRIBUTE_DEXTERITY, W8_ATTRIBUTE_VITALITY},
     {W8_ATTRIBUTE_STRENGTH, W8_ATTRIBUTE_DEXTERITY, W8_ATTRIBUTE_PIETY},
     {W8_ATTRIBUTE_VITALITY, W8_ATTRIBUTE_STRENGTH, W8_ATTRIBUTE_PIETY},
@@ -57,7 +58,7 @@ static int g_profession_primary_attributes[15][3] = {
 
 /* The starting spells LearnSpell grants each profession on import. */
 // GLOBAL: WIZ8 0x0062A5F8
-static int g_profession_starting_spells[15][6] = {
+static std::int32_t g_profession_starting_spells[15][6] = {
     {0, 0, 0, 0, 0, 0},   {6, 2, 0, 0, 0, 0},     {6, 13, 0, 0, 0, 0},  {6, 1, 0, 0, 0, 0},
     {5, 12, 0, 0, 0, 0},  {1, 7, 0, 0, 0, 0},     {6, 10, 0, 0, 0, 0},  {0, 0, 0, 0, 0, 0},
     {0, 0, 0, 0, 0, 0},   {0, 0, 0, 0, 0, 0},     {6, 2, 13, 11, 0, 0}, {6, 1, 7, 12, 0, 0},
@@ -66,9 +67,9 @@ static int g_profession_starting_spells[15][6] = {
 
 /* The item database index whose legacy item number matches the imported
    one, or -1 when no record carries it. */
-static int FindItemByLegacyNumber(short item_number)
+static std::int32_t FindItemByLegacyNumber(std::int16_t item_number)
 {
-    unsigned int index = 0;
+    std::uint32_t index = 0;
     while (index < gXStatus.uiItemsInDatabase) {
         if (g_item_records[index].legacy_item_number == item_number) {
             return index;
@@ -82,19 +83,19 @@ static int FindItemByLegacyNumber(short item_number)
    count, whether the save carries an ending selector, that selector's two
    nibbles decoded, the ninety-six flag bits and the character records. */
 // GLOBAL: WIZ8 0x0068DE48
-int g_import_character_count;
+std::int32_t g_import_character_count;
 
 // GLOBAL: WIZ8 0x0068DE4C
 bool g_import_ending_record;
 
 // GLOBAL: WIZ8 0x0068DE50
-int g_wiz7_ending;
+std::int32_t g_wiz7_ending;
 
 // GLOBAL: WIZ8 0x0068DE54
-int g_import_difficulty;
+std::int32_t g_import_difficulty;
 
 // GLOBAL: WIZ8 0x0068DE58
-unsigned char g_import_flags[0x60];
+std::uint8_t g_import_flags[0x60];
 
 // GLOBAL: WIZ8 0x0068DEB8
 W8Wiz7Character g_imported_characters[6];
@@ -107,32 +108,32 @@ W8Wiz7Character g_imported_characters[6];
    one's tag byte. On success the ending and difficulty nibbles decode from
    the shared tag and the flag bits unpack into g_import_flags. */
 // FUNCTION: WIZ8 0x00558D00
-unsigned char LoadWizardry7ImportFile(std::string_view path)
+std::uint8_t LoadWizardry7ImportFile(std::string_view path)
 try
 {
     if (path.empty()) return 0;
     auto file = wiz8::open_file(path, wiz8::OpenMode::read);
-    unsigned char header[0x34c];
-    short party_block[0x26];
+    std::uint8_t header[0x34c];
+    std::int16_t party_block[0x26];
     W8Wiz7Character characters[6]{};
     file->read_exact(header, sizeof(header));
-    short record_skip;
-    short bank_skip;
+    std::int16_t record_skip;
+    std::int16_t bank_skip;
     memcpy(&record_skip, header + 0x2cc, sizeof(record_skip));
     memcpy(&bank_skip, header + 0x2ce, sizeof(bank_skip));
     if (record_skip < 0 || bank_skip < 0) return 0;
     file->seek(record_skip * 6 + bank_skip * 8 + 0x20 * 0x100, wiz8::SeekOrigin::current);
     file->read_exact(party_block, sizeof(party_block));
-    const int character_count = party_block[0x25];
+    const std::int32_t character_count = party_block[0x25];
     if (character_count < 1 || character_count > 6) return 0;
     file->seek(0x80 + 0x90 + 0x68 + 0x14a + 0x344 + 0x42 + 100, wiz8::SeekOrigin::current);
     file->read_exact(characters, character_count * sizeof(characters[0]));
-    for (int index = 1; index < character_count; ++index) {
+    for (std::int32_t index = 1; index < character_count; ++index) {
         if (characters[index].party_tag != characters[0].party_tag) return 0;
     }
 
     const bool ending_record = party_block[0] == -1;
-    int ending = -1;
+    std::int32_t ending = -1;
     if (ending_record) {
         switch (characters[0].party_tag & 0xf0) {
         case 0x10: ending = 0; break;
@@ -142,7 +143,7 @@ try
         default: return 0;
         }
     }
-    int difficulty = -1;
+    std::int32_t difficulty = -1;
     switch (characters[0].party_tag & 0xf) {
     case 1: difficulty = 0; break;
     case 2: difficulty = 1; break;
@@ -155,7 +156,7 @@ try
     g_import_ending_record = ending_record;
     g_wiz7_ending = ending;
     g_import_difficulty = difficulty;
-    for (int index = 0; index < 0x60; ++index) {
+    for (std::int32_t index = 0; index < 0x60; ++index) {
         g_import_flags[index] = (header[0x200 + (index >> 3)] >> (index & 7)) & 1;
     }
     return 1;
@@ -167,10 +168,10 @@ catch (const std::exception&) { return false; }
    Reports 1 when the file does not load or a slot cannot take the character,
    2 when the ending selector holds the value three, 0 otherwise. */
 // FUNCTION: WIZ8 0x00558C40
-unsigned char ImportWizardry7Party(std::string_view path)
+std::uint8_t ImportWizardry7Party(std::string_view path)
 {
     W8Character scratch;
-    int index;
+    std::int32_t index;
 
     if (LoadWizardry7ImportFile(path) == 0) {
         return 1;
@@ -194,9 +195,9 @@ unsigned char ImportWizardry7Party(std::string_view path)
 void ImportWizardry7Character(W8Character* character, W8Wiz7Character* imported)
 {
     W8Profession profession;
-    unsigned int level;
-    unsigned int skill_id;
-    int status;
+    std::uint32_t level;
+    std::uint32_t skill_id;
+    std::int32_t status;
 
     *character = W8Character{};
     character->name = TitleCaseString(imported->name);
@@ -249,7 +250,7 @@ void ImportWizardry7Character(W8Character* character, W8Wiz7Character* imported)
     }
     character->iProfession = profession;
     CalcCharacterTableValue(character);
-    level = static_cast<unsigned short>(imported->level);
+    level = static_cast<std::uint16_t>(imported->level);
     if (imported->level > 0) {
         level = 1;
     }
@@ -291,18 +292,18 @@ void ImportWizardry7Character(W8Character* character, W8Wiz7Character* imported)
 // FUNCTION: WIZ8 0x005592D0
 void ConvertAttribute(W8Character* character, const W8Wiz7Character* imported)
 {
-    unsigned int imported_values[7] = {0};
-    int mapped;
-    int i;
-    int total = 0;
-    int average;
-    int points;
-    int added;
-    int spins;
-    unsigned int add;
-    unsigned int cap;
-    unsigned int pick;
-    int removed;
+    std::uint32_t imported_values[7] = {0};
+    std::int32_t mapped;
+    std::int32_t i;
+    std::int32_t total = 0;
+    std::int32_t average;
+    std::int32_t points;
+    std::int32_t added;
+    std::int32_t spins;
+    std::uint32_t add;
+    std::uint32_t cap;
+    std::uint32_t pick;
+    std::int32_t removed;
 
     for (i = 0; i < 8; ++i) {
         if (i != 6 && i != 7) {
@@ -370,9 +371,9 @@ void ConvertAttribute(W8Character* character, const W8Wiz7Character* imported)
     points = 0;
     for (i = 0; i < 7; ++i) {
         if (character->attributes[i].base <
-            static_cast<unsigned int>(
+            static_cast<std::uint32_t>(
                 g_profession_attribute_minimums[character->iProfession].values[i])) {
-            int deficit = g_profession_attribute_minimums[character->iProfession].values[i] -
+            std::int32_t deficit = g_profession_attribute_minimums[character->iProfession].values[i] -
                           character->attributes[i].base;
             character->attributes[i].base += deficit;
             points += deficit;
@@ -410,7 +411,7 @@ void ConvertAttribute(W8Character* character, const W8Wiz7Character* imported)
         do {
             pick = Random(7);
             if (g_profession_attribute_minimums[character->iProfession].values[pick] != 0 &&
-                static_cast<unsigned int>(
+                static_cast<std::uint32_t>(
                     g_race_attribute_minimums[character->iRace].values[pick]) <
                     character->attributes[pick].base) {
                 ++removed;
@@ -427,8 +428,8 @@ void GrantStartingSpells(W8Character* character, const W8Wiz7Character*)
 {
     W8LearnedSpellState scratch;
     char count;
-    int offset;
-    int i;
+    std::int32_t offset;
+    std::int32_t i;
 
     for (i = 0; i < 0x72; ++i) {
         character->spell_learned[i] = 0;
@@ -460,18 +461,18 @@ void ImportEquipment(W8Character* character, const W8Wiz7Character* imported)
        (value above 3000), band 1 the next three (above 1000). */
     W8Wiz7Item candidates[2][20];
     W8Wiz7Item empty_item;
-    int maximum[2];
-    int counts[2];
+    std::int32_t maximum[2];
+    std::int32_t counts[2];
     const W8Wiz7Item* source;
     const W8Wiz7Item* entry;
-    int slot;
-    int index;
-    int best_index;
-    int best_value;
-    int item_index;
-    int price;
-    int give;
-    int item_id;
+    std::int32_t slot;
+    std::int32_t index;
+    std::int32_t best_index;
+    std::int32_t best_value;
+    std::int32_t item_index;
+    std::int32_t price;
+    std::int32_t give;
+    std::int32_t item_id;
     W8EquipSlot equip_slot;
     W8Profession profession;
 
@@ -487,17 +488,17 @@ void ImportEquipment(W8Character* character, const W8Wiz7Character* imported)
                 if (item_index != -1) {
                     if (item_index != 0x128) {
                         if (g_item_records[item_index].unidentified_name_index == 0x84 ||
-                            4999 < static_cast<int>(g_item_records[item_index].value)) {
+                            4999 < static_cast<std::int32_t>(g_item_records[item_index].value)) {
                             source++;
                             continue;
                         }
-                        if (2999 < static_cast<int>(g_item_records[item_index].value)) {
+                        if (2999 < static_cast<std::int32_t>(g_item_records[item_index].value)) {
                             candidates[0][counts[0]] = *source;
                             ++counts[0];
                             source++;
                             continue;
                         }
-                        if (999 < static_cast<int>(g_item_records[item_index].value)) {
+                        if (999 < static_cast<std::int32_t>(g_item_records[item_index].value)) {
                             candidates[1][counts[1]] = *source;
                             ++counts[1];
                             source++;
@@ -507,7 +508,7 @@ void ImportEquipment(W8Character* character, const W8Wiz7Character* imported)
                     ReplaceOrCreateItem(&item, item_index, true, true, true);
                     if (g_item_records[item_index].binds_on_equip == 0) {
                         StoreItemWithCharacterOrParty(character, &item, false, false,
-                                                      static_cast<unsigned int>(slot == 0));
+                                                      static_cast<std::uint32_t>(slot == 0));
                     } else {
                         AddItemToCharacter(character, &item, false, false, false);
                     }
@@ -607,14 +608,14 @@ void ImportEquipment(W8Character* character, const W8Wiz7Character* imported)
 /* Retail fell through the failed assert and read `imported->skills` by
    whatever `mapped` held; the recovery keeps that read. */
 // FUNCTION: WIZ8 0x00559BC0
-unsigned int ConvertSkill(W8Skill skill_id, W8Character* character, const W8Wiz7Character* imported)
+std::uint32_t ConvertSkill(W8Skill skill_id, W8Character* character, const W8Wiz7Character* imported)
 {
-    int mapped;
-    unsigned int unlocks;
-    unsigned int roll;
-    unsigned int base_value;
+    std::int32_t mapped;
+    std::uint32_t unlocks;
+    std::uint32_t roll;
+    std::uint32_t base_value;
     bool routed = false;
-    int i;
+    std::int32_t i;
 
     if (g_skill_attributes[skill_id].import_policy == W8_SKILL_IMPORT_PROFESSION) {
         if (g_profession_skill_availability[skill_id][character->iProfession] != 1) {
@@ -760,7 +761,7 @@ unsigned int ConvertSkill(W8Skill skill_id, W8Character* character, const W8Wiz7
             break;
         case W8_SKILL_ARTIFACTS:
             base_value =
-                (static_cast<unsigned int>(imported->skills[0x1b] + imported->skills[0x18] * 4) *
+                (static_cast<std::uint32_t>(imported->skills[0x1b] + imported->skills[0x18] * 4) *
                  0x14) /
                 100;
             break;
@@ -805,14 +806,14 @@ unsigned int ConvertSkill(W8Skill skill_id, W8Character* character, const W8Wiz7
     }
     if (!routed) {
         base_value = imported->skills[mapped];
-        if (0x17 < static_cast<unsigned int>(skill_id) &&
-            static_cast<unsigned int>(skill_id) < W8_SKILL_FIRE_MAGIC) {
+        if (0x17 < static_cast<std::uint32_t>(skill_id) &&
+            static_cast<std::uint32_t>(skill_id) < W8_SKILL_FIRE_MAGIC) {
             if (character->iProfession == W8_PROFESSION_BISHOP &&
                 (skill_id == W8_SKILL_SPELLBOOK_ALCHEMY ||
                  skill_id == W8_SKILL_SPELLBOOK_PSIONICS) &&
                 base_value == 0) {
                 base_value =
-                    (static_cast<unsigned int>(imported->skills[0x20] + imported->skills[0x1e])) /
+                    (static_cast<std::uint32_t>(imported->skills[0x20] + imported->skills[0x1e])) /
                     2;
             }
             unlocks = 0;

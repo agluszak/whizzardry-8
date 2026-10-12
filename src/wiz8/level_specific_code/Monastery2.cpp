@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "wiz8/level_specific_code/Monastery2.h"
 
 #include "wiz8/engine_code/Prop.h"
@@ -21,7 +22,7 @@
 
 #define MONASTERY2_CPP "C:\\Projects\\Wizardry 8\\Level Specific Code\\Monastery2.cpp"
 
-static void DisableBellTrigger(const char* name, int line)
+static void DisableBellTrigger(const char* name, std::int32_t line)
 {
     Trigger* pPropTrigger = FindTriggerByName(name);
     if (pPropTrigger == 0) {
@@ -34,7 +35,7 @@ static void DisableBellTrigger(const char* name, int line)
 bool Monastery2BellButton(Trigger* pTrigger)
 {
     W8Prop* prop;
-    int slot;
+    std::int32_t slot;
 
     prop = FindPropByName(g_world, "dial1");
     if (prop != 0) {

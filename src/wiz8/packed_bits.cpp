@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "wiz8/packed_bits.h"
 
 #include <SDL3/SDL_iostream.h>
@@ -35,7 +36,7 @@ try
     const auto position = SDL_TellIO(io), length = SDL_GetIOSize(io);
     if (position < 0 || length < position || Uint64(packed_size) + 4 > Uint64(length - position))
         return false;
-    std::vector<unsigned char> packed(packed_size);
+    std::vector<std::uint8_t> packed(packed_size);
     srIO::readExact(io, packed.data(), packed.size());
     auto stream = srIO::own(SDL_IOFromConstMem(packed.data(), packed.size()));
     srHuffman::BitIStream input(stream.get());
@@ -43,7 +44,7 @@ try
     if (decoder.getDataCount() != WordCount(bit_count)) return false;
     std::vector<bool> decoded(bit_count);
     for (std::size_t word = 0; word < WordCount(bit_count); ++word) {
-        const unsigned int value = decoder.decompressSymbol();
+        const std::uint32_t value = decoder.decompressSymbol();
         for (std::size_t bit = 0; bit < kBitsPerWord; ++bit) {
             if ((value >> bit) & 1) {
                 SetBit(decoded, word * kBitsPerWord + bit);
@@ -59,9 +60,9 @@ catch (const std::exception&) { return false; }
 
 bool SavePackedBits(wiz8::File& handle, const std::vector<bool>& bits)
 {
-    std::vector<unsigned int> words(WordCount(bits.size()));
+    std::vector<std::uint32_t> words(WordCount(bits.size()));
     for (std::size_t bit = 0; bit < bits.size(); ++bit) {
-        words[bit / kBitsPerWord] |= static_cast<unsigned int>(bits[bit]) << (bit % kBitsPerWord);
+        words[bit / kBitsPerWord] |= static_cast<std::uint32_t>(bits[bit]) << (bit % kBitsPerWord);
     }
 
     srIO::check(SDL_WriteU32LE(handle.io(), kMagic));
@@ -71,15 +72,15 @@ bool SavePackedBits(wiz8::File& handle, const std::vector<bool>& bits)
     {
         srHuffman::BitOStream output(stream.get());
         srHuffman::Sampler sampler;
-        for (unsigned int word : words) {
+        for (std::uint32_t word : words) {
             sampler.insert(word);
         }
         srHuffman::Compressor compressor(sampler);
         output.put(compressor.num_symbols, 32);
         output.put(compressor.code_width, 6);
-        output.put(static_cast<unsigned int>(words.size()), 32);
+        output.put(static_cast<std::uint32_t>(words.size()), 32);
         compressor.storeSymbolTable(output);
-        for (unsigned int word : words) {
+        for (std::uint32_t word : words) {
             compressor.compressSymbol(output, word);
         }
         output.flush();

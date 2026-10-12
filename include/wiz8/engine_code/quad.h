@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <memory>
 #include <vector>
 
@@ -11,13 +12,13 @@ class srModelInstance;
 /* A grid of square cells over the level mesh, each listing the polygons whose
    centroid falls inside it. Rows run along x, columns along z. */
 struct W8Quad {
-    unsigned int row_count;
-    unsigned int column_count;
+    std::uint32_t row_count;
+    std::uint32_t column_count;
     glm::vec2 origin; /* minimum x and z */
     float cell_size;
-    std::vector<std::vector<int>> cells; /* row-major polygon indices */
+    std::vector<std::vector<std::int32_t>> cells; /* row-major polygon indices */
 
-    std::vector<int>& Cell(unsigned int row, unsigned int column)
+    std::vector<std::int32_t>& Cell(std::uint32_t row, std::uint32_t column)
     {
         return cells[row * column_count + column];
     }

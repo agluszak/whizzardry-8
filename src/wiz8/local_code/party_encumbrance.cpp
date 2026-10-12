@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/integer_constants.h"
 #include "wiz8/local_code/PC_Item.h"
@@ -36,7 +37,7 @@
 // FUNCTION: WIZ8 0x004ed9d0
 void RecalculateCharacterDerivedStats(W8Character* character)
 {
-    int index;
+    std::int32_t index;
 
     if (character->iProfession >= W8_PROFESSION_COUNT || character->iRace >= W8_RACE_COUNT ||
         character->gender == W8_GENDER_UNSET) {
@@ -46,7 +47,7 @@ void RecalculateCharacterDerivedStats(W8Character* character)
         character->uiExpLevel = 0x32;
     }
     for (index = 0; index < 0xf; ++index) {
-        if (static_cast<unsigned int>(character->profession_levels[index]) > 0x32) {
+        if (static_cast<std::uint32_t>(character->profession_levels[index]) > 0x32) {
             character->profession_levels[index] = 0x32;
         }
     }
@@ -64,7 +65,7 @@ void RecalculateCharacterDerivedStats(W8Character* character)
         character->damage_reduction += character->attributes[W8_ATTRIBUTE_VITALITY].effective / 10;
     }
     if (CharacterHasTrait(character, W8_TRAIT_MONK_DAMAGE_RESISTANCE)) {
-        character->damage_reduction += static_cast<int>(
+        character->damage_reduction += static_cast<std::int32_t>(
             ScaleValueByProfessionLevel(character, W8_TRAIT_MONK_DAMAGE_RESISTANCE, 15.0f));
     }
     if (character->skills[W8_SKILL_IRON_SKIN].active) {
@@ -73,10 +74,10 @@ void RecalculateCharacterDerivedStats(W8Character* character)
     character->damage_reduction += character->bonus.damage_reduction_adjustment;
     RecalculateCharacterResistances(character);
 
-    int base = character->attributes[W8_ATTRIBUTE_VITALITY].effective +
+    std::int32_t base = character->attributes[W8_ATTRIBUTE_VITALITY].effective +
                character->attributes[W8_ATTRIBUTE_STRENGTH].effective * 2;
-    unsigned int previous_capacity = character->carrying_capacity;
-    unsigned int capacity = base * 0xc;
+    std::uint32_t previous_capacity = character->carrying_capacity;
+    std::uint32_t capacity = base * 0xc;
     if (CharacterHasTrait(character, W8_TRAIT_FAERIE_REDUCED_CARRY_CAPACITY)) {
         capacity = capacity * 2 / 3;
     }
@@ -90,7 +91,7 @@ void RecalculateCharacterDerivedStats(W8Character* character)
     }
     character->total_carried_weight = character->party_weight_share + character->inventory_weight;
 
-    unsigned int load = static_cast<unsigned int>(character->total_carried_weight * 100) /
+    std::uint32_t load = static_cast<std::uint32_t>(character->total_carried_weight * 100) /
                         character->carrying_capacity;
     if (load < 0x32) {
         character->load_category = W8_LOAD_NONE;
@@ -118,12 +119,12 @@ void RecalculateCharacterDerivedStats(W8Character* character)
 // FUNCTION: WIZ8 0x004edc10
 bool RecalculateCarryingCapacity(W8Character* character)
 {
-    unsigned int previous = character->carrying_capacity;
-    int base = character->attributes[W8_ATTRIBUTE_VITALITY].effective +
+    std::uint32_t previous = character->carrying_capacity;
+    std::int32_t base = character->attributes[W8_ATTRIBUTE_VITALITY].effective +
                character->attributes[W8_ATTRIBUTE_STRENGTH].effective * 2;
-    unsigned int capacity = base * 0xc;
+    std::uint32_t capacity = base * 0xc;
     if (CharacterHasTrait(character, W8_TRAIT_FAERIE_REDUCED_CARRY_CAPACITY)) {
-        capacity = static_cast<unsigned int>(base * 0x18) / 3;
+        capacity = static_cast<std::uint32_t>(base * 0x18) / 3;
     }
     character->carrying_capacity = capacity;
     return previous != capacity;
@@ -135,17 +136,17 @@ bool RecalculateCarryingCapacity(W8Character* character)
 // FUNCTION: WIZ8 0x004edc60
 bool RecalculateCarriedWeight(W8Character* character)
 {
-    unsigned int previous = character->inventory_weight;
+    std::uint32_t previous = character->inventory_weight;
     character->inventory_weight = 0;
-    for (int index = 0; index < W8_EQUIP_SLOT_COUNT; ++index) {
+    for (std::int32_t index = 0; index < W8_EQUIP_SLOT_COUNT; ++index) {
         character->inventory_weight += GetItemStackWeight(&character->EquippedItem[index]);
     }
-    for (int backpack_index = 0; backpack_index < 8; ++backpack_index) {
+    for (std::int32_t backpack_index = 0; backpack_index < 8; ++backpack_index) {
         character->inventory_weight += GetItemStackWeight(&character->backpack[backpack_index]);
     }
     if (previous < character->carrying_capacity &&
         character->carrying_capacity < character->inventory_weight) {
-        int effect = g_camp_overload_event_id;
+        std::int32_t effect = g_camp_overload_event_id;
         if (g_current_screen_state.id != W8_SCREEN_CAMP) {
             effect = g_special_event13;
         }
@@ -161,8 +162,8 @@ bool RecalculateCarriedWeight(W8Character* character)
 // FUNCTION: WIZ8 0x004edd20
 void RedistributePartyEncumbrance(void)
 {
-    int capacity[8];
-    int unassigned[8];
+    std::int32_t capacity[8];
+    std::int32_t unassigned[8];
     float load_ratio[8];
     W8Character* characters = g_status.buffers.Char;
     W8PartySlotRow* active = g_status.buffers.XChar;
@@ -175,7 +176,7 @@ void RedistributePartyEncumbrance(void)
         return;
     }
 
-    unsigned int slot;
+    std::uint32_t slot;
     for (slot = 0; slot < 8; ++slot) {
         W8Character* character = &characters[slot];
         character->party_weight_share = 0;
@@ -186,13 +187,13 @@ void RedistributePartyEncumbrance(void)
         }
     }
 
-    unsigned int party_weight = 0;
+    std::uint32_t party_weight = 0;
     for (slot = 0; slot < g_status.party_item_count; ++slot) {
         party_weight += GetItemStackWeight(&g_status.party_item_pool[slot]);
     }
 
     for (party_weight >>= 1; party_weight != 0; --party_weight) {
-        unsigned int best_slot = static_cast<unsigned int>(-1);
+        std::uint32_t best_slot = static_cast<std::uint32_t>(-1);
         float best_ratio = -999999.0f;
         for (slot = 0; slot < 8; ++slot) {
             W8Character* character = &characters[slot];
@@ -202,7 +203,7 @@ void RedistributePartyEncumbrance(void)
                 best_slot = slot;
             }
         }
-        if (best_slot == static_cast<unsigned int>(-1)) {
+        if (best_slot == static_cast<std::uint32_t>(-1)) {
             return;
         }
         W8Character* character = &characters[best_slot];
@@ -216,10 +217,10 @@ void RedistributePartyEncumbrance(void)
             continue;
         }
         W8Character* character = &characters[slot];
-        int carried = character->inventory_weight + character->party_weight_share;
+        std::int32_t carried = character->inventory_weight + character->party_weight_share;
         character->total_carried_weight = carried;
-        unsigned int percent =
-            static_cast<unsigned int>(carried * 100) / character->carrying_capacity;
+        std::uint32_t percent =
+            static_cast<std::uint32_t>(carried * 100) / character->carrying_capacity;
         W8LoadCategory old_band = character->load_category;
         if (percent < 50) {
             character->load_category = W8_LOAD_NONE;

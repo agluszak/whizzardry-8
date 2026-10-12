@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "wiz8/level_specific_code/MartensBluff2.h"
 
 #include <glm/ext/quaternion_trigonometric.hpp>
@@ -38,7 +39,6 @@
 #include "surrender/srMath.h"
 #include "random.h"
 #include "Navigator.h"
-#include "compat/compiler.h"
 #include "conditions.h"
 #include "dice.h"
 #include "glm/ext/matrix_float3x3.hpp"
@@ -66,7 +66,7 @@ static bool g_crusher_active;
 // GLOBAL: WIZ8 0x00683530
 static W8IntervalGate* g_spikeball_gate;
 // GLOBAL: WIZ8 0x00683534
-static int g_spikeball_count;
+static std::int32_t g_spikeball_count;
 // GLOBAL: WIZ8 0x00683538
 static W8Monster* g_crusher_excluded;
 // GLOBAL: WIZ8 0x0068353C
@@ -80,7 +80,7 @@ static W8Prop* g_dummy_rope_prop;
 // GLOBAL: WIZ8 0x0068354C
 static stSound3D* g_crusher_sound;
 // GLOBAL: WIZ8 0x00683550
-static int g_crusher_state;
+static std::int32_t g_crusher_state;
 // GLOBAL: WIZ8 0x00683554
 static W8IntervalGate* g_idol_gas_gate;
 
@@ -96,9 +96,9 @@ void MartensBluff2Setup(void)
     W8MonsterGroup* group;
     W8MonsterInfo* info;
     srVector3T<float> position;
-    int quest_state;
-    int location_id;
-    int value;
+    std::int32_t quest_state;
+    std::int32_t location_id;
+    std::int32_t value;
 
     pTrigger = FindTriggerByName("PerfumeBox");
     quest_state = 0;
@@ -218,7 +218,7 @@ bool TriggerArrowTrap(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004DD3E0
 bool MartensBluff2Spikeballtrigger(Trigger* pTrigger)
 {
-    MartensBluff2Spikeball(static_cast<int>(0xEFFFFFFF));
+    MartensBluff2Spikeball(static_cast<std::int32_t>(0xEFFFFFFF));
     return true;
 }
 
@@ -228,7 +228,7 @@ bool MartensBluff2Spikeballtrigger(Trigger* pTrigger)
    run; it fires the four Spikeball-launcher entities every two seconds until
    the count reaches sixteen, then unregisters and saves the reset. */
 // FUNCTION: WIZ8 0x004DD3F0
-void MartensBluff2Spikeball(int command)
+void MartensBluff2Spikeball(std::int32_t command)
 {
     W8SpellEffectDefinition effect;
     srVector3T<float> position;
@@ -250,13 +250,13 @@ void MartensBluff2Spikeball(int command)
             }
             return;
         }
-        if (command == static_cast<int>(0xEFFFFFFF)) {
+        if (command == static_cast<std::int32_t>(0xEFFFFFFF)) {
             if (g_spikeball_count == 0 || g_spikeball_count > 0xf) {
                 g_spikeball_count = 0;
             } else {
                 g_spikeball_count = 1;
             }
-        } else if (static_cast<unsigned int>(command) <= 0xf) {
+        } else if (static_cast<std::uint32_t>(command) <= 0xf) {
             g_spikeball_count = command;
         }
         if (g_spikeball_gate == 0) {
@@ -352,9 +352,9 @@ bool MartensBluff2PerfumeBox(Trigger* pTrigger)
     srVector3T<float> position;
     W8MonsterGroup* group;
     W8MonsterInfo* info;
-    int location_id;
+    std::int32_t location_id;
 
-    int quest_state;
+    std::int32_t quest_state;
 
     if (!g_status.item_in_cursor) {
         return false;
@@ -414,7 +414,7 @@ bool MartensBluff2DoorControls(Trigger* pTrigger)
 bool MartensBluff2SquisherControls(Trigger* pTrigger)
 {
     if (!g_crusher_active) {
-        MartensBluff2MonsterCrusher(static_cast<int>(0xEFFFFFFF));
+        MartensBluff2MonsterCrusher(static_cast<std::int32_t>(0xEFFFFFFF));
         return true;
     }
     return false;
@@ -429,7 +429,7 @@ bool MartensBluff2SquisherControls(Trigger* pTrigger)
    AwardPartyExperience); once the squisher finishes it runs the Dummy and DummyRope
    triggers, and once those props finish it unregisters. */
 // FUNCTION: WIZ8 0x004DDF40
-void MartensBluff2MonsterCrusher(int command)
+void MartensBluff2MonsterCrusher(std::int32_t command)
 {
     /* The bounds box the octree query below sweeps; function-local statics,
        with the compiler's atexit destructor thunks at 0x004DE500/0x004DE510. */
@@ -440,9 +440,9 @@ void MartensBluff2MonsterCrusher(int command)
     srVector3T<float> upper;
     srVector3T<float> centre;
     srVector3T<float> position;
-    std::vector<w8_ulong> location_ids;
-    unsigned int count;
-    unsigned int i;
+    std::vector<std::uint32_t> location_ids;
+    std::uint32_t count;
+    std::uint32_t i;
     W8MonsterInfo* info;
     W8Monster* monster;
     float left;
@@ -470,7 +470,7 @@ void MartensBluff2MonsterCrusher(int command)
         if (pTrigger != 0) {
             g_squisher4_prop = pTrigger->GetProp();
         }
-        if (command != static_cast<int>(0xEFFFFFFF)) {
+        if (command != static_cast<std::int32_t>(0xEFFFFFFF)) {
             g_crusher_state = command;
         }
         if (g_squisher3_prop != 0 && g_squisher4_prop != 0) {
@@ -628,7 +628,7 @@ bool MartensBluff2BlueFlowers(Trigger* pTrigger)
    no kind-0x1e NPC is around and stops the particle; the following run
    unregisters. */
 // FUNCTION: WIZ8 0x004DE660
-void MartensBluff2IdolGas(int command)
+void MartensBluff2IdolGas(std::int32_t command)
 {
     stParticle* particle;
 
@@ -677,12 +677,12 @@ void MartensBluff2IdolGas(int command)
 // FUNCTION: WIZ8 0x004DE7D0
 void MartensBluff2IdolGasVictim(void)
 {
-    unsigned int severities[8];
-    unsigned int lowest;
-    unsigned int slot;
-    unsigned int count;
-    unsigned int pick;
-    int i;
+    std::uint32_t severities[8];
+    std::uint32_t lowest;
+    std::uint32_t slot;
+    std::uint32_t count;
+    std::uint32_t pick;
+    std::int32_t i;
 
     lowest = 10;
     for (slot = 0; slot < 8; slot++) {

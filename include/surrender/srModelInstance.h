@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include "model_view_scope.h"
 
 #include "srModel.h"
@@ -43,14 +44,14 @@ public:
 
     double getAlignAngle() const;
     glm::vec3 getAlignAxis() const;
-    w8_ulong getExclusionMask() const;
-    int isAligned() const;
+    std::uint32_t getExclusionMask() const;
+    std::int32_t isAligned() const;
     void setAlignAngle(double angle);
     void setAlignAxis(const glm::vec3& axis);
-    void setAlignment(int enabled);
-    void setExclusionMask(w8_ulong mask);
+    void setAlignment(std::int32_t enabled);
+    void setExclusionMask(std::uint32_t mask);
 
-    srFlags<int> alignment_flags;
+    srFlags<std::int32_t> alignment_flags;
 
 protected:
     class RenderScope {
@@ -63,7 +64,7 @@ protected:
         RenderScope(const srModelInstance& instance, srGERD& renderer, bool apply_exclusion);
         srGERD& renderer;
         srModelViewScope transform;
-        w8_ulong previous_mask = 0;
+        std::uint32_t previous_mask = 0;
         bool restore_mask = false;
     };
     RenderScope scopedRender(srGERD& renderer, bool apply_exclusion = true) const;
@@ -73,7 +74,7 @@ protected:
 
     glm::vec3 align_axis;
     float align_angle;
-    w8_ulong exclusion_mask;
+    std::uint32_t exclusion_mask;
 
 private:
     std::shared_ptr<srModel> model_;

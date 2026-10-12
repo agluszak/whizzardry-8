@@ -1,6 +1,7 @@
 #ifndef WIZ8_LAYOUTS_ITEM_TABLES_H
 #define WIZ8_LAYOUTS_ITEM_TABLES_H
 
+#include <cstdint>
 #include <array>
 #include <string>
 
@@ -11,22 +12,22 @@
 
 #pragma pack(push, 1)
 struct W8ItemTableEntry {
-    short selector;         /* Retail offset 0x00: zero disables the slot */
-    unsigned short item_id; /* Retail offset 0x02: index into Items.dbs */
-    unsigned char weight;   /* Retail offset 0x04 */
+    std::int16_t selector;         /* Retail offset 0x00: zero disables the slot */
+    std::uint16_t item_id; /* Retail offset 0x02: index into Items.dbs */
+    std::uint8_t weight;   /* Retail offset 0x04 */
 };
 #pragma pack(pop) /* Retail offset 0x05 */
 
 #pragma pack(push, 1)
 struct W8ItemTableRecord {
     char name[256];               /* Retail offset 0x000 */
-    unsigned int category_id;     /* Retail offset 0x100 */
+    std::uint32_t category_id;     /* Retail offset 0x100 */
     W8ItemTableEntry entries[40]; /* Retail offset 0x104 */
-    unsigned char level_scaled;   /* Retail offset 0x1cc */
+    std::uint8_t level_scaled;   /* Retail offset 0x1cc */
     W8Dice item_count_dice;       /* Retail offset 0x1cd */
-    unsigned char unknown_1d1[4];
+    std::uint8_t unknown_1d1[4];
     W8Dice gold_dice; /* Retail offset 0x1d5 */
-    unsigned char unknown_1d9[0x18];
+    std::uint8_t unknown_1d9[0x18];
 };
 #pragma pack(pop) /* Retail offset 0x1f1 */
 

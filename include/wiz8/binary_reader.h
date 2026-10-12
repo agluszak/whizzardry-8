@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 #include "wiz8/filesystem.h"
 #include <limits>
 #include <stdexcept>

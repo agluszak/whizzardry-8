@@ -13,7 +13,6 @@
 #include <memory>
 #include <utility>
 
-#include "compat/compiler.h"
 #include "layouts/targeting.h"
 #include "wiz8/retail_text_records.h"
 #include "wiz8/containers.h"
@@ -80,7 +79,7 @@ std::unique_ptr<W8AIRecord> W8AIMissile::Clone() const
    steer the representation while the path is unobstructed, and end the flight
    at expiry or an early-impact limit. */
 // FUNCTION: WIZ8 0x004a4cf0
-unsigned char UpdateMissileAI(W8AIMissile* record)
+bool UpdateMissileAI(W8AIMissile* record)
 {
     W8Missile* missile;
     srVector3T<float> position;
@@ -90,16 +89,16 @@ unsigned char UpdateMissileAI(W8AIMissile* record)
     float pitch;
     float yaw;
     glm::mat3 rotation;
-    unsigned int count;
-    unsigned int delta;
+    std::uint32_t count;
+    std::uint32_t delta;
 
     if (record == 0) {
-        return 0;
+        return false;
     }
     missile = record->missile;
     if (missile->impacting) {
         if (!missile->align_explosion) {
-            return 1;
+            return true;
         }
         position = missile->GetPosition();
         pitch = ElevationToTargetCPP(&position);
@@ -109,7 +108,7 @@ unsigned char UpdateMissileAI(W8AIMissile* record)
         rotation *= glm::mat3_cast(glm::angleAxis(float(yaw), glm::vec3(0, 1, 0)));
         rotation *= glm::mat3_cast(glm::angleAxis(float(pitch), glm::vec3(1, 0, 0)));
         missile->m_pRep->SetRotation(&rotation);
-        return 1;
+        return true;
     }
     position = missile->GetPosition();
     count = g_shared_timer_base->milliseconds() >> 1;
@@ -119,7 +118,7 @@ unsigned char UpdateMissileAI(W8AIMissile* record)
     }
     record->last_half_tick = count;
     if (gXStatus.world_update_blocked) {
-        return 1;
+        return true;
     }
     advance = AdvanceMissileAI(record, &out, delta);
     remaining = missile->duration - record->elapsed + 1.0f;
@@ -147,7 +146,7 @@ unsigned char UpdateMissileAI(W8AIMissile* record)
             !missile->CheckNavigatorCollision(&position, &out)) {
             missile->EnterImpactCycle();
         }
-        return 1;
+        return true;
     }
     missile->flight_done = true;
     if (missile->missile_table_index == 0x23 &&
@@ -157,7 +156,7 @@ unsigned char UpdateMissileAI(W8AIMissile* record)
     if (g_missile_table[missile->missile_table_index].spell_missile != 0) {
         AbsorbMissileDamage(missile);
     }
-    return 1;
+    return true;
 }
 
 /* Predict the homing missile's next position `steps` half-ticks ahead and
@@ -165,7 +164,7 @@ unsigned char UpdateMissileAI(W8AIMissile* record)
    flags the record when a prop blocks the path and fires the prop's
    missile trigger. Returns the distance the step covered. */
 // FUNCTION: WIZ8 0x004a50a0
-float AdvanceMissileAI(W8AIMissile* record, srVector3T<float>* out, unsigned int steps)
+float AdvanceMissileAI(W8AIMissile* record, srVector3T<float>* out, std::uint32_t steps)
 {
     W8MissileRep* representation;
     W8Missile* missile;
@@ -237,12 +236,12 @@ W8MissileTableRecord* g_missile_table;
 // GLOBAL: WIZ8 0x0060c9c8
 const char* g_missile_cycle_names[] = {"FLY", "EXPLODE"};
 // GLOBAL: WIZ8 0x0065bddc
-unsigned int g_missile_table_count;
+std::uint32_t g_missile_table_count;
 
 /* Engine Code\\Missile.cpp's startup database load.  Each disk row has a
    0x101-byte editor prefix followed by the 0x1e5-byte runtime record. */
 // FUNCTION: WIZ8 0x004a5600
-unsigned char LoadMissileDatabase(void)
+std::uint8_t LoadMissileDatabase(void)
 try
 {
     ReleaseMissileDatabase();
@@ -290,7 +289,7 @@ bool W8Missile::BlocksEndingCombat()
 }
 
 // FUNCTION: WIZ8 0x004A57B0
-void GetCharacterProjectilePosition(unsigned int character_index, srVector3T<float>* position)
+void GetCharacterProjectilePosition(std::uint32_t character_index, srVector3T<float>* position)
 {
     srVector3 camera = cameraLocation();
     const glm::vec3 offset((character_index & 1) ? -75.0f : 75.0f,
@@ -308,7 +307,7 @@ void GetCharacterProjectilePosition(unsigned int character_index, srVector3T<flo
 // VTABLE: WIZ8 0x005ecdf4 W8Navigator
 // class W8Missile
 // GLOBAL: WIZ8 0x0065BDE4
-static int g_missile_iterator;
+static std::int32_t g_missile_iterator;
 
 /* Iterate the world's missile vector. A nonzero argument restarts the shared
    cursor; a missing world or vector answers null. */
@@ -321,7 +320,7 @@ W8Missile* NextMissile(bool restart)
         if (restart) {
             g_missile_iterator = 0;
         }
-        if (g_missile_iterator < static_cast<int>(g_world->missiles.size())) {
+        if (g_missile_iterator < static_cast<std::int32_t>(g_world->missiles.size())) {
             missile = g_world->missiles[g_missile_iterator];
             ++g_missile_iterator;
         }
@@ -340,8 +339,8 @@ void UpdateWorldMissiles(W8World* world)
     if (world == 0) {
         srAssertFail("pWorld", MISSILE_CPP, 200, 0);
     }
-    int index = 0;
-    int count = static_cast<int>(world->missiles.size());
+    std::int32_t index = 0;
+    std::int32_t count = static_cast<std::int32_t>(world->missiles.size());
     while (index < count) {
         W8Missile* missile = world->missiles[index];
         if (missile != 0) {
@@ -364,9 +363,9 @@ void UpdateWorldMissiles(W8World* world)
 /* Derive the two launch angles from the source and target, then forward the
    remaining launch values to the missile factory. */
 // FUNCTION: WIZ8 0x004A2D30
-W8Missile* FireMissile(unsigned int missile_table_index, srVector3T<float>* source,
-                       srVector3T<float>* target, float flight_speed, unsigned int trace_mask,
-                       unsigned int block_released, float duration)
+W8Missile* FireMissile(std::uint32_t missile_table_index, srVector3T<float>* source,
+                       srVector3T<float>* target, float flight_speed, std::uint32_t trace_mask,
+                       std::uint32_t block_released, float duration)
 {
     return CreateMissile(missile_table_index, source, GetHeadingAngle(source, target),
                          GetElevationAngle(source, target), flight_speed, trace_mask,
@@ -377,7 +376,7 @@ W8Missile* FireMissile(unsigned int missile_table_index, srVector3T<float>* sour
    the table row names, then stamp the index, register the result on the world
    missile list and give it the default navigation bounds. */
 // FUNCTION: WIZ8 0x004A5450
-W8Missile* AllocateMissile(int missile_table_index)
+W8Missile* AllocateMissile(std::int32_t missile_table_index)
 {
     W8GrCycleLoadContext context;
     W8Missile* missile;
@@ -415,8 +414,8 @@ W8Missile* AllocateMissile(int missile_table_index)
    gravity/velocity keywords set the missile's tail flags - and the cycle
    lines load through the ordinary GrCycle path. */
 // FUNCTION: WIZ8 0x004a3550
-unsigned char LoadMissileCycle(W8GrCycleLoadContext* context, const char* name,
-                               W8Missile** ppMissile, int)
+std::uint8_t LoadMissileCycle(W8GrCycleLoadContext* context, const char* name,
+                               W8Missile** ppMissile, std::int32_t)
 {
     W8GrCycle* found;
     W8GrCycle* loaded_cycle;
@@ -431,9 +430,9 @@ unsigned char LoadMissileCycle(W8GrCycleLoadContext* context, const char* name,
     float velocity;
     std::unique_ptr<wiz8::File> handle;
     W8SoundEventKind sound_kind;
-    int frame;
-    int cycle;
-    int index;
+    std::int32_t frame;
+    std::int32_t cycle;
+    std::int32_t index;
     float duration;
     float seconds;
     float intensity;
@@ -620,9 +619,9 @@ close_file:
    octree for an early-impact limit, and attach the kind-3 AI record that
    drives the flight. */
 // FUNCTION: WIZ8 0x004A28D0
-W8Missile* CreateMissile(unsigned int missile_table_index, srVector3T<float>* source, float heading,
-                         float pitch, float flight_speed, unsigned int trace_mask,
-                         unsigned char block_released, float duration)
+W8Missile* CreateMissile(std::uint32_t missile_table_index, srVector3T<float>* source, float heading,
+                         float pitch, float flight_speed, std::uint32_t trace_mask,
+                         std::uint8_t block_released, float duration)
 {
     W8Missile* missile;
     W8Octree* octree;
@@ -686,13 +685,13 @@ W8Missile* CreateMissile(unsigned int missile_table_index, srVector3T<float>* so
 /* The missile and spell representations use the same ordinary AnimObj
    operations for these two vtable slots.  Retail points both final tables at
    the corresponding bodies at 0x004AB290 and 0x004AB310. */
-srModelInstance* W8MissileRep::SetCycleFrameLod(signed char emitter, signed char frame,
-                                                signed char lod)
+srModelInstance* W8MissileRep::SetCycleFrameLod(std::int8_t emitter, std::int8_t frame,
+                                                std::int8_t lod)
 {
     return AnimObjDispatch(emitters[emitter], lod, frame);
 }
 
-W8AniMesh* W8MissileRep::GetEmitterAniMesh(signed char emitter)
+W8AniMesh* W8MissileRep::GetEmitterAniMesh(std::int8_t emitter)
 {
     W8AnimObj* target = emitters[emitter];
 
@@ -704,7 +703,7 @@ W8AniMesh* W8MissileRep::GetEmitterAniMesh(signed char emitter)
 
 /* Apply the representation's current LOD to one required animation. */
 // FUNCTION: WIZ8 0x004A2710
-unsigned int W8MissileRep::ApplyEmitterSetting(signed char emitter)
+std::uint32_t W8MissileRep::ApplyEmitterSetting(std::int8_t emitter)
 {
     W8AnimObj* target = emitters[emitter];
 
@@ -741,8 +740,8 @@ W8AnimRepBase* W8MissileRep::Clone()
 }
 
 // FUNCTION: WIZ8 0x004A3300
-unsigned char W8MissileRep::ReadCycleData(W8ReadLevelInfo* info, W8Missile* missile,
-                                          int cycle_index, int)
+std::uint8_t W8MissileRep::ReadCycleData(W8ReadLevelInfo* info, W8Missile* missile,
+                                          std::int32_t cycle_index, std::int32_t)
 {
     if (info == 0 || info->hFile == 0 || missile == 0) {
         srAssertFail("pInfo && pInfo->hFile && pMissile", MISSILE_CPP, 0x1df, 0);
@@ -812,7 +811,7 @@ W8Missile::W8Missile(const W8Missile& other)
 /* Mode-keyed query over the representation's emitter/cycle state; used by the
    missile script handlers. */
 // FUNCTION: WIZ8 0x004A4640
-w8_ulong W8Missile::GetAnimationState(int mode)
+std::uint32_t W8Missile::GetAnimationState(std::int32_t mode)
 {
     switch (mode) {
     case 0:
@@ -904,7 +903,7 @@ void DestroyAllMissiles(W8World* world)
 // FUNCTION: WIZ8 0x004A3230
 W8MissileRep::~W8MissileRep()
 {
-    int emitter;
+    std::int32_t emitter;
 
     for (emitter = 0; emitter < 2; ++emitter) {
         if (emitters[emitter] != 0) {
@@ -914,9 +913,9 @@ W8MissileRep::~W8MissileRep()
     }
 
     for (emitter = 0; emitter < 2; ++emitter) {
-        int light_list;
+        std::int32_t light_list;
 
-        for (light_list = 0; light_list < static_cast<int>(light_lists[emitter].size());
+        for (light_list = 0; light_list < static_cast<std::int32_t>(light_lists[emitter].size());
              ++light_list) {
             DestroyLightVector(light_lists[emitter][light_list]);
         }
@@ -968,9 +967,9 @@ W8AniMesh* W8Missile::GetCurrentAniMesh()
 /* How many emitters the launcher has, counted by testing each for null rather
    than read from a stored count. */
 // FUNCTION: WIZ8 0x004a4590
-signed char W8Missile::GetTotalAnimationCount()
+std::int8_t W8Missile::GetTotalAnimationCount()
 {
-    signed char count = 0;
+    std::int8_t count = 0;
 
     if (m_pRep->emitters[0] != 0) {
         count = 1;
@@ -991,15 +990,15 @@ void W8Missile::UpdateRepresentation(W8World* world)
 
 /* Hand the representation's LOD to the current animation. */
 // FUNCTION: WIZ8 0x004a4110
-signed char W8Missile::GetNumSubCycles()
+std::int8_t W8Missile::GetNumSubCycles()
 {
     W8AnimObj* animation = GetCurrentAnimation();
 
-    return static_cast<signed char>(AnimObjValue(animation, m_pRep->m_bLOD));
+    return static_cast<std::int8_t>(AnimObjValue(animation, m_pRep->m_bLOD));
 }
 
 // FUNCTION: WIZ8 0x004a42b0
-bool W8Missile::IsCycleSupported(signed char cycle)
+bool W8Missile::IsCycleSupported(std::int8_t cycle)
 {
     if (cycle >= 2) {
         srAssertFail("bCycle<MISSILE_NUM_CYCLES", MISSILE_CPP, 0x4bf, 0);
@@ -1013,7 +1012,7 @@ bool W8Missile::IsCycleSupported(signed char cycle)
    animation-record field copy after the timestamp read, not a separate
    authored function. */
 // FUNCTION: WIZ8 0x004a4300
-void W8Missile::SetCycle(signed char cycle)
+void W8Missile::SetCycle(std::int8_t cycle)
 {
     std::vector<stLight*>* lights;
 
@@ -1032,8 +1031,8 @@ void W8Missile::SetCycle(signed char cycle)
     AttachCycleLights(lights);
 
     if (m_plsParticles != 0) {
-        int count = static_cast<int>(m_plsParticles->size());
-        for (int index = 0; index < count; ++index) {
+        std::int32_t count = static_cast<std::int32_t>(m_plsParticles->size());
+        for (std::int32_t index = 0; index < count; ++index) {
             W8GrCycleParticleAttachment* event = (*m_plsParticles)[index];
             event->SelectCycle(cycle);
         }
@@ -1044,7 +1043,7 @@ void W8Missile::SetCycle(signed char cycle)
    than the missile's own virtual answer, and the launcher pointer is taken
    before the virtual call rather than after. */
 // FUNCTION: WIZ8 0x004a4140
-void W8Missile::AdvanceAnimationFrame(int value, int arg_flags)
+void W8Missile::AdvanceAnimationFrame(std::int32_t value, std::int32_t arg_flags)
 {
     W8MissileRep* representation_before;
 
@@ -1085,10 +1084,10 @@ void W8Missile::DetonateMissileSpell()
 void W8Missile::AnnounceCollisionTarget()
 {
     std::string text;
-    unsigned char target_start;
-    unsigned char target_stop;
-    unsigned char source_color;
-    unsigned char target_color;
+    std::uint8_t target_start;
+    std::uint8_t target_stop;
+    std::uint8_t source_color;
+    std::uint8_t target_color;
 
     if (!gXStatus.fCombatMode) {
         return;
@@ -1143,7 +1142,7 @@ void W8Missile::EnterImpactCycle()
 bool W8Missile::OnCollision(W8Navigator* other)
 {
     char hit_result;
-    unsigned char deflect_chance;
+    std::uint8_t deflect_chance;
 
     if (g_startup_world == other) {
         if (TargetSourceIsCharacter(&m_Source, 0)) {
@@ -1169,7 +1168,7 @@ bool W8Missile::OnCollision(W8Navigator* other)
             goto miss;
         }
         W8Monster* monster = static_cast<W8Monster*>(other);
-        int location_id = monster->location_id;
+        std::int32_t location_id = monster->location_id;
         W8MonsterInfo* monster_info = FindMonster(location_id);
         if (TargetSourceIsMonster(&m_Source, 0) && m_Source.iMonsterID == location_id) {
             goto miss;

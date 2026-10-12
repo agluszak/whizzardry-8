@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <SDL3/SDL_platform.h>
 #include <memory>
 #include <iostream>
@@ -18,7 +19,6 @@
 #include "surrender/srTextureMap.h"
 #include "surrender/srTriMeshPipeline.h"
 #include "surrender/srTypeRegistry.h"
-#include "compat/compiler.h"
 #include "compat/native.h"
 #include "surrender/srClock.h"
 #include "surrender/srColorSurfaceIFace.h"
@@ -54,7 +54,7 @@ std::string_view srCore::getVersion() const
 }
 
 // FUNCTION: SURRENDER 0x10015040
-int __cdecl srInit()
+std::int32_t __cdecl srInit()
 {
     if (srCore.initialized == 0) {
         srCore.reset();
@@ -75,7 +75,7 @@ int __cdecl srInit()
         srDebugPrintf(0xfe, "srInit() -- setting up default texture/surface\n");
         srCore.surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_L8, 0x40, 0x40);
         srCore.surface->setName("SurRender default surface");
-        for (int i = 0; i < 0x1000; ++i) {
+        for (std::int32_t i = 0; i < 0x1000; ++i) {
             srCore.surface->setPixelRaw(i & 0x3f, i / 64, srLogo[i]);
         }
         srCore.texture = std::make_unique<srTextureMap>(srCore.surface);
@@ -87,43 +87,43 @@ int __cdecl srInit()
 }
 
 // FUNCTION: SURRENDER 0x10015680
-unsigned char srCore::getDebugLevel() const
+std::uint8_t srCore::getDebugLevel() const
 {
     return debug_level;
 }
 
 // FUNCTION: SURRENDER 0x100156D0
-w8_ulong srCore::getUniqueID()
+std::uint32_t srCore::getUniqueID()
 {
     return next_unique_id++;
 }
 
 // FUNCTION: SURRENDER 0x100156E0
-int srCore::isInitialized() const
+std::int32_t srCore::isInitialized() const
 {
     return initialized;
 }
 
 // FUNCTION: SURRENDER 0x100156F0
-void srCore::setDebugLevel(unsigned char level)
+void srCore::setDebugLevel(std::uint8_t level)
 {
     debug_level = level;
 }
 
 // FUNCTION: SURRENDER 0x10015710
-int srCore::supportMultiThread()
+std::int32_t srCore::supportMultiThread()
 {
     return multi_thread;
 }
 
 // FUNCTION: SURRENDER 0x10015720
-void srCore::supportMultiThread(int enabled)
+void srCore::supportMultiThread(std::int32_t enabled)
 {
     multi_thread = enabled;
 }
 
 // FUNCTION: SURRENDER 0x100157A0
-int __cdecl srExit()
+std::int32_t __cdecl srExit()
 {
     if (srCore.initialized != 0) {
         srDebugPrintf(0xfe, "srExit() -- shutting down SurRender\n");
@@ -230,9 +230,9 @@ void srCore::dump(std::ostream& stream)
 }
 
 // GLOBAL: SURRENDER 0x100A4778
-int srCore::initialized;
+std::int32_t srCore::initialized;
 // GLOBAL: SURRENDER 0x100755E0
-const unsigned char srLogo[0x1000] = {
+const std::uint8_t srLogo[0x1000] = {
     0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x91, 0x92, 0x93, 0x93,
     0x93, 0x93, 0x92, 0x93, 0x93, 0x93, 0x92, 0x92, 0x92, 0x93, 0x93, 0x93, 0x92, 0x92, 0x91, 0x92,
     0x93, 0x92, 0x92, 0x92, 0x93, 0x93, 0x93, 0x93, 0x93, 0x93, 0x93, 0x92, 0x91, 0x92, 0x93, 0x91,

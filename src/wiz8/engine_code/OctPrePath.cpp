@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <span>
 #include <vector>
 #include <algorithm>
@@ -38,8 +39,8 @@ public:
     OctPrePathLog(float scale, const W8BoundingBox* bounds); /* 0x004CCE00 */
     void MarkPathNode(W8PrePathNode* node);                  /* 0x004CCF50 */
 
-    int width;
-    int rows;
+    std::int32_t width;
+    std::int32_t rows;
     float scale;
     srVector3T<float> m_minimum;
     char** m_pPathStrings;
@@ -53,15 +54,15 @@ OctPrePathLog::OctPrePathLog(float scale, const W8BoundingBox* bounds)
     rows = 0;
     this->scale = scale;
     if (bounds != 0) {
-        width = static_cast<int>((bounds->maximum.x - bounds->minimum.x) / scale) + 1;
-        rows = static_cast<int>((bounds->maximum.z - bounds->minimum.z) / scale) + 1;
+        width = static_cast<std::int32_t>((bounds->maximum.x - bounds->minimum.x) / scale) + 1;
+        rows = static_cast<std::int32_t>((bounds->maximum.z - bounds->minimum.z) / scale) + 1;
         m_minimum = bounds->minimum;
         m_pPathStrings = static_cast<char**>(malloc(rows * sizeof(*m_pPathStrings)));
         if (m_pPathStrings == 0) {
             ReportBuildStatus(7, "OctPrePathLog: Could not allocate m_pPathStrings.\n");
             return;
         }
-        for (int i = 0; i < rows; ++i) {
+        for (std::int32_t i = 0; i < rows; ++i) {
             m_pPathStrings[i] = static_cast<char*>(malloc(width + 1));
             memset(m_pPathStrings[i], ' ', width);
             m_pPathStrings[i][width] = 0;
@@ -71,7 +72,7 @@ OctPrePathLog::OctPrePathLog(float scale, const W8BoundingBox* bounds)
             ReportBuildStatus(7, "OctPrePathLog: Could not allocate m_pLinkStrings.\n");
             return;
         }
-        for (int j = 0; j < rows; ++j) {
+        for (std::int32_t j = 0; j < rows; ++j) {
             m_pLinkStrings[j] = static_cast<char*>(malloc(width + 1));
             memset(m_pLinkStrings[j], ' ', width);
             m_pLinkStrings[j][width] = 0;
@@ -82,10 +83,10 @@ OctPrePathLog::OctPrePathLog(float scale, const W8BoundingBox* bounds)
 // FUNCTION: WIZ8 0x004CCF50
 void OctPrePathLog::MarkPathNode(W8PrePathNode* node)
 {
-    unsigned int row = node->cell >> 0x10;
-    unsigned int column = node->cell & 0xffff;
-    int links = 0;
-    for (int i = 0; i < 8; ++i) {
+    std::uint32_t row = node->cell >> 0x10;
+    std::uint32_t column = node->cell & 0xffff;
+    std::int32_t links = 0;
+    for (std::int32_t i = 0; i < 8; ++i) {
         if ((node->level_flags & (1 << (i + 0x10))) != 0) {
             ++links;
         }
@@ -123,7 +124,7 @@ PrePathing::~PrePathing()
     }
     if (path_log != 0) {
         if (path_log->m_pPathStrings != 0 && path_log->m_pLinkStrings != 0) {
-            for (int i = 0; i < path_log->rows; ++i) {
+            for (std::int32_t i = 0; i < path_log->rows; ++i) {
                 if (path_log->m_pPathStrings[i] != 0) {
                     free(path_log->m_pPathStrings[i]);
                 }
@@ -142,20 +143,20 @@ PrePathing::~PrePathing()
     if (named_positions != 0) {
         delete[] named_positions;
     }
-    for (int i = 0; i <= chunk_index; ++i) {
+    for (std::int32_t i = 0; i <= chunk_index; ++i) {
         free(node_chunks[i]);
     }
 }
 
 // FUNCTION: WIZ8 0x004CD130
-int PrePathing::SnapNamedPositions(std::span<const W8LevelFileNamedPosition> positions,
-                                   unsigned int min_component_percent, OctPreTree* octree)
+std::int32_t PrePathing::SnapNamedPositions(std::span<const W8LevelFileNamedPosition> positions,
+                                   std::uint32_t min_component_percent, OctPreTree* octree)
 {
     this->min_component_percent = min_component_percent;
-    named_position_count = static_cast<int>(positions.size());
+    named_position_count = static_cast<std::int32_t>(positions.size());
     if (named_position_count != 0) {
         named_positions = new srVector3T<float>[named_position_count];
-        for (int i = 0; i < named_position_count; ++i) {
+        for (std::int32_t i = 0; i < named_position_count; ++i) {
             named_positions[i].Set(positions[i].position.x * g_world_scale,
                                    positions[i].position.y * g_world_scale,
                                    positions[i].position.z * g_world_scale);
@@ -168,9 +169,9 @@ int PrePathing::SnapNamedPositions(std::span<const W8LevelFileNamedPosition> pos
 // FUNCTION: WIZ8 0x004CD210
 W8PrePathNode* PrePathing::GetPathNode()
 {
-    if (1000 <= static_cast<unsigned int>(chunk_node_count)) {
+    if (1000 <= static_cast<std::uint32_t>(chunk_node_count)) {
         ++chunk_index;
-        if (1000 <= static_cast<unsigned int>(chunk_index)) {
+        if (1000 <= static_cast<std::uint32_t>(chunk_index)) {
             ReportBuildStatus(7, "There are over one million path nodes required for this level!");
         }
         node_chunks[chunk_index] =
@@ -187,8 +188,8 @@ W8PrePathNode* PrePathing::GetPathNode()
 }
 
 // FUNCTION: WIZ8 0x004CD2C0
-unsigned char PrePathing::BuildPathList(W8PrePathNode* nodes,
-                                        std::unordered_map<unsigned int, int>* cell_map)
+bool PrePathing::BuildPathList(W8PrePathNode* nodes,
+                                        std::unordered_map<std::uint32_t, std::int32_t>* cell_map)
 {
     this->cell_map = cell_map;
     path_log = new OctPrePathLog(grid_scale, &level_bounds);
@@ -198,44 +199,44 @@ unsigned char PrePathing::BuildPathList(W8PrePathNode* nodes,
         sprintf(message, "BuildPathList: Could not allocate path node list, length %d nodes.\n",
                 path_node_count);
         ReportBuildStatus(7, message);
-        return 0;
+        return false;
     }
-    for (int i = 0; i < path_node_count; ++i) {
+    for (std::int32_t i = 0; i < path_node_count; ++i) {
         path_node_list[i] = nodes;
         nodes = nodes->next;
     }
     if (LinkPathNodes() == 0) {
-        return 0;
+        return false;
     }
     CreatePathNodeArray();
-    return 1;
+    return true;
 }
 
-W8PrePathNode* PrePathing::FindAdjacentPathNode(const W8PrePathNode* node, int direction)
+W8PrePathNode* PrePathing::FindAdjacentPathNode(const W8PrePathNode* node, std::int32_t direction)
 {
-    int x = node->cell & 0xffff;
-    int z = node->cell >> 0x10;
+    std::int32_t x = node->cell & 0xffff;
+    std::int32_t z = node->cell >> 0x10;
     StepPathCell(&x, &z, direction);
-    unsigned int key = (z << 0x10) + x;
+    std::uint32_t key = (z << 0x10) + x;
     W8PrePathNode* target = 0;
-    unsigned int index = LookupIndexValue(*cell_map, key);
-    if (index != 0 && index < static_cast<unsigned int>(path_node_count)) {
+    std::uint32_t index = LookupIndexValue(*cell_map, key);
+    if (index != 0 && index < static_cast<std::uint32_t>(path_node_count)) {
         target = path_node_list[index];
     }
     return target;
 }
 
 // FUNCTION: WIZ8 0x004CD390
-unsigned char PrePathing::LinkPathNodes()
+bool PrePathing::LinkPathNodes()
 {
     float link_height = grid_scale * g_prepath_link_height;
-    int links_found = 0;
-    int last_percent = 0;
+    std::int32_t links_found = 0;
+    std::int32_t last_percent = 0;
     char message[0x400];
-    unsigned int i;
+    std::uint32_t i;
 
-    for (i = 1; i < static_cast<unsigned int>(path_node_count); ++i) {
-        int percent = static_cast<int>(i * 100.0f / path_node_count);
+    for (i = 1; i < static_cast<std::uint32_t>(path_node_count); ++i) {
+        std::int32_t percent = static_cast<std::int32_t>(i * 100.0f / path_node_count);
         if (last_percent + 5 < percent) {
             last_percent += 5;
             sprintf(message, "Linking:  %d%% Complete:  %d Links Found  \r", last_percent,
@@ -246,7 +247,7 @@ unsigned char PrePathing::LinkPathNodes()
         if (node->level_flags == 0) {
             continue;
         }
-        for (int direction = 0; direction < 4; ++direction) {
+        for (std::int32_t direction = 0; direction < 4; ++direction) {
             W8PrePathNode* target = FindAdjacentPathNode(node, direction);
             if (target != 0) {
                 while (link_height < fabsf(target->y - node->y)) {
@@ -265,7 +266,7 @@ unsigned char PrePathing::LinkPathNodes()
         }
     }
     DeleteUnreachableAreas();
-    for (i = 1; i < static_cast<unsigned int>(path_node_count); ++i) {
+    for (i = 1; i < static_cast<std::uint32_t>(path_node_count); ++i) {
         W8PrePathNode* edge = path_node_list[i];
         edge->level_flags &= 0xfffffff;
         if ((edge->level_flags & W8_PATH_CELL_NEIGHBOR_OR_DEPTH_MASK) !=
@@ -274,8 +275,8 @@ unsigned char PrePathing::LinkPathNodes()
         }
     }
     last_percent = 1;
-    for (i = 1; i < static_cast<unsigned int>(path_node_count); ++i) {
-        int percent = static_cast<int>(i * 100.0f / path_node_count);
+    for (i = 1; i < static_cast<std::uint32_t>(path_node_count); ++i) {
+        std::int32_t percent = static_cast<std::int32_t>(i * 100.0f / path_node_count);
         if (last_percent + 1 < percent) {
             ++last_percent;
             sprintf(message, "Computing Pathnode Clearance:  %d%% Complete  \r", last_percent);
@@ -286,11 +287,11 @@ unsigned char PrePathing::LinkPathNodes()
             PropagatePathNodeClearance(edge, 0);
         }
     }
-    return 1;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x004CD650
-void PrePathing::PropagatePathNodeClearance(W8PrePathNode* node, unsigned int depth)
+void PrePathing::PropagatePathNodeClearance(W8PrePathNode* node, std::uint32_t depth)
 {
     if (depth == 0) {
         if ((node->level_flags & W8_PATH_CELL_HAS_DIRECTIONS) == 0) {
@@ -300,7 +301,7 @@ void PrePathing::PropagatePathNodeClearance(W8PrePathNode* node, unsigned int de
         if (0x32 <= depth) {
             return;
         }
-        unsigned int flags = node->level_flags;
+        std::uint32_t flags = node->level_flags;
         if ((flags & W8_PATH_CELL_HAS_DIRECTIONS) != 0) {
             return;
         }
@@ -312,11 +313,11 @@ void PrePathing::PropagatePathNodeClearance(W8PrePathNode* node, unsigned int de
     }
     ++depth;
     float link_height = grid_scale * g_prepath_link_height;
-    for (int direction = 0; direction < 4; ++direction) {
+    for (std::int32_t direction = 0; direction < 4; ++direction) {
         W8PrePathNode* neighbor = FindAdjacentPathNode(node, direction);
         if (neighbor != 0) {
             while (link_height < fabsf(neighbor->y - node->y)) {
-                unsigned int cell = neighbor->cell;
+                std::uint32_t cell = neighbor->cell;
                 neighbor = neighbor->next;
                 if (neighbor == 0 || neighbor->cell != cell) {
                     goto next_direction;
@@ -329,28 +330,28 @@ void PrePathing::PropagatePathNodeClearance(W8PrePathNode* node, unsigned int de
 }
 
 // FUNCTION: WIZ8 0x004CD7C0
-unsigned int PrePathing::DeleteUnreachableAreas()
+std::uint32_t PrePathing::DeleteUnreachableAreas()
 {
     float link_height = grid_scale * g_prepath_link_height;
-    int deleted = 0;
-    int last_percent = 0;
-    unsigned int minimum = 0;
+    std::int32_t deleted = 0;
+    std::int32_t last_percent = 0;
+    std::uint32_t minimum = 0;
     char message[0x400];
 
     if (min_component_percent != 0) {
         if (0x32 < min_component_percent) {
             min_component_percent = 0x32;
         }
-        minimum = static_cast<unsigned int>(path_node_count * min_component_percent) / 100;
+        minimum = static_cast<std::uint32_t>(path_node_count * min_component_percent) / 100;
     }
     m_marked_path_nodes.assign(path_node_count, false);
     m_visited_path_nodes.assign(path_node_count, false);
     m_collected_path_nodes.assign(path_node_count, false);
-    std::vector<unsigned int> pending;
+    std::vector<std::uint32_t> pending;
     ReportBuildStatus(6, "Deleting Unreacheable Areas.\n");
     ReportBuildStatus(6, "Deleting Nodes: \t");
-    for (unsigned int i = 1; i < static_cast<unsigned int>(path_node_count); ++i) {
-        int percent = static_cast<int>(i * 100.0f / path_node_count);
+    for (std::uint32_t i = 1; i < static_cast<std::uint32_t>(path_node_count); ++i) {
+        std::int32_t percent = static_cast<std::int32_t>(i * 100.0f / path_node_count);
         if (last_percent < percent) {
             last_percent = percent;
             sprintf(message, "Deleting:  %d%% Complete:  %d Pathnodes Deleted  \r", percent,
@@ -360,37 +361,37 @@ unsigned int PrePathing::DeleteUnreachableAreas()
         if (TestBit(m_visited_path_nodes, i)) {
             continue;
         }
-        int component_size = 0;
+        std::int32_t component_size = 0;
         std::ranges::fill(m_marked_path_nodes, false);
         std::ranges::fill(m_collected_path_nodes, false);
         // Flood the component reachable from i; marked nodes are queued once.
         pending.assign(1, i);
         while (!pending.empty()) {
             {
-                unsigned int index = pending.back();
+                std::uint32_t index = pending.back();
                 pending.pop_back();
                 if (path_node_list[index] != 0) {
                     SetBit(m_collected_path_nodes, index);
                     ++component_size;
-                    for (int direction = 0; direction < 8; ++direction) {
+                    for (std::int32_t direction = 0; direction < 8; ++direction) {
                         W8PrePathNode* node = path_node_list[index];
                         if ((node->level_flags & (1 << (direction + 0x10))) == 0) {
                             continue;
                         }
-                        int x = node->cell & 0xffff;
-                        int z = node->cell >> 0x10;
+                        std::int32_t x = node->cell & 0xffff;
+                        std::int32_t z = node->cell >> 0x10;
                         bool scanning = true;
                         bool first_probe = true;
                         StepPathCell(&x, &z, direction);
-                        unsigned int key = (z << 0x10) + x;
-                        unsigned int next_index = LookupIndexValue(*cell_map, key);
-                        if (static_cast<unsigned int>(path_node_count) <= next_index) {
+                        std::uint32_t key = (z << 0x10) + x;
+                        std::uint32_t next_index = LookupIndexValue(*cell_map, key);
+                        if (static_cast<std::uint32_t>(path_node_count) <= next_index) {
                             next_index = 0;
                         }
                         W8PrePathNode* neighbor = 0;
                         while (next_index != 0 && scanning) {
                             neighbor = path_node_list[next_index];
-                            if (static_cast<unsigned int>(path_node_count) < next_index) {
+                            if (static_cast<std::uint32_t>(path_node_count) < next_index) {
                                 neighbor = 0;
                                 scanning = false;
                             } else {
@@ -425,19 +426,19 @@ unsigned int PrePathing::DeleteUnreachableAreas()
                 }
             }
         }
-        if (component_size < static_cast<int>(minimum)) {
+        if (component_size < static_cast<std::int32_t>(minimum)) {
             bool clear_of_named = true;
-            for (unsigned int collected = 0;
+            for (std::uint32_t collected = 0;
                  collected < m_collected_path_nodes.size() && clear_of_named; ++collected) {
                 if (m_collected_path_nodes[collected]) {
                     W8PrePathNode* node = path_node_list[collected];
-                    unsigned int cell = node->cell;
+                    std::uint32_t cell = node->cell;
                     float world_y = node->y;
                     float world_x =
                         ((cell & 0xffff) + g_float_half) * grid_scale + level_bounds.minimum.x;
                     float world_z =
                         ((cell >> 0x10) + g_float_half) * grid_scale + level_bounds.minimum.z;
-                    for (int n = 0; n < named_position_count && clear_of_named; ++n) {
+                    for (std::int32_t n = 0; n < named_position_count && clear_of_named; ++n) {
                         float dx = world_x - named_positions[n].x;
                         float dy = world_y - named_positions[n].y;
                         float dz = world_z - named_positions[n].z;
@@ -447,7 +448,7 @@ unsigned int PrePathing::DeleteUnreachableAreas()
                     }
                 }
             }
-            for (unsigned int collected = 0;
+            for (std::uint32_t collected = 0;
                  collected < m_collected_path_nodes.size() && clear_of_named; ++collected) {
                 if (m_collected_path_nodes[collected]) {
                     path_node_list[collected]->level_flags |= W8_PREPATH_NODE_PRUNED;
@@ -462,13 +463,13 @@ unsigned int PrePathing::DeleteUnreachableAreas()
         }
     }
     cell_map->clear();
-    int kept = 1;
-    for (unsigned int j = 1; j < static_cast<unsigned int>(path_node_count); ++j) {
+    std::int32_t kept = 1;
+    for (std::uint32_t j = 1; j < static_cast<std::uint32_t>(path_node_count); ++j) {
         W8PrePathNode* node = path_node_list[j];
         if ((node->level_flags & W8_PREPATH_NODE_PRUNED) == 0) {
             path_node_list[kept] = node;
             cell_map->insert_or_assign(node->cell, kept);
-            if (j != static_cast<unsigned int>(kept)) {
+            if (j != static_cast<std::uint32_t>(kept)) {
                 path_node_list[j] = 0;
             }
             ++kept;
@@ -484,9 +485,9 @@ unsigned int PrePathing::DeleteUnreachableAreas()
 }
 
 // FUNCTION: WIZ8 0x004CDF70
-int PrePathing::CreatePathNodeArray()
+std::int32_t PrePathing::CreatePathNodeArray()
 {
-    unsigned int i = 1;
+    std::uint32_t i = 1;
     char message[0x400];
 
     edge_node_count = 1;
@@ -496,10 +497,10 @@ int PrePathing::CreatePathNodeArray()
         sprintf(message, "CreatePathNodeArray: Could not allocate m_pulNodeHashArray.\n");
         ReportBuildStatus(7, message);
     }
-    if (1 < static_cast<unsigned int>(path_node_count)) {
+    if (1 < static_cast<std::uint32_t>(path_node_count)) {
         do {
             W8PrePathNode* node = path_node_list[i];
-            unsigned int flags = node->level_flags;
+            std::uint32_t flags = node->level_flags;
             if ((flags & W8_PATH_CELL_HAS_DIRECTIONS) != 0) {
                 path_log->MarkPathNode(node);
                 ++edge_node_count;
@@ -507,13 +508,13 @@ int PrePathing::CreatePathNodeArray()
             file_path_nodes[i - 1].cell = path_node_list[i]->cell;
             file_path_nodes[i - 1].level_flags = flags & 0xfffffff;
             ++i;
-        } while (i < static_cast<unsigned int>(path_node_count));
+        } while (i < static_cast<std::uint32_t>(path_node_count));
     }
     sprintf(message, "  %d Total Pathnodes, %d of which are Edge Nodes.\n", path_node_count,
             edge_node_count);
     ReportBuildStatus(6, message);
     sprintf(message, "Total memory taken by Path Nodes: %dk.\n",
-            (static_cast<unsigned int>(path_node_count) & 0x1fffffff) >> 7);
+            (static_cast<std::uint32_t>(path_node_count) & 0x1fffffff) >> 7);
     ReportBuildStatus(6, message);
     m_ulNumWayPoints = 0;
     m_pFileWayPoints = 0;
@@ -521,21 +522,21 @@ int PrePathing::CreatePathNodeArray()
 }
 
 // FUNCTION: WIZ8 0x004CE070
-unsigned char PrePathing::CreateAutomapNodes(W8LevelFile& level)
+bool PrePathing::CreateAutomapNodes(W8LevelFile& level)
 {
-    int last_percent = 0;
-    std::vector<int> node_keys;
-    std::unordered_map<unsigned int, unsigned char> used_keys;
+    std::int32_t last_percent = 0;
+    std::vector<std::int32_t> node_keys;
+    std::unordered_map<std::uint32_t, std::uint8_t> used_keys;
     char message[0x400];
 
     if (path_node_list == 0) {
-        return 0;
+        return false;
     }
     SetAutomapGridCellSize(AutomapLevelIsLarge() ? 4000.0f : 2000.0f);
-    int created = 0;
-    unsigned int i;
-    for (i = 1; i < static_cast<unsigned int>(path_node_count); ++i) {
-        int percent = static_cast<int>(i * 100.0f / path_node_count);
+    std::int32_t created = 0;
+    std::uint32_t i;
+    for (i = 1; i < static_cast<std::uint32_t>(path_node_count); ++i) {
+        std::int32_t percent = static_cast<std::int32_t>(i * 100.0f / path_node_count);
         if (last_percent < percent) {
             sprintf(message, "Creating Automap Nodes:  %d%% Complete:  %d Nodes created  \r",
                     percent, created);
@@ -547,44 +548,44 @@ unsigned char PrePathing::CreateAutomapNodes(W8LevelFile& level)
         position.Set((node->cell & 0xffff) * grid_scale,
                      (node->level_flags & W8_PATH_CELL_HEIGHT_MASK) * span,
                      (node->cell >> 0x10) * grid_scale);
-        unsigned int key = AutomapNodeKey(&position);
+        std::uint32_t key = AutomapNodeKey(&position);
         if (!used_keys.contains(key)) {
             node_keys.push_back(key);
-            unsigned char present = 1;
+            std::uint8_t present = 1;
             used_keys.emplace(key, present);
             ++created;
         }
     }
     used_keys.clear();
     sprintf(message, "Creating Automap Nodes:  100%% Complete:  %d Automap Nodes created  \n",
-            static_cast<int>(node_keys.size()));
+            static_cast<std::int32_t>(node_keys.size()));
     ReportStartupMessage(message);
-    sprintf(message, "  %d Total Automap Nodes.\n", static_cast<int>(node_keys.size()));
+    sprintf(message, "  %d Total Automap Nodes.\n", static_cast<std::int32_t>(node_keys.size()));
     ReportBuildStatus(6, message);
     level.automap_nodes.assign(node_keys.begin(), node_keys.end());
     std::ranges::sort(level.automap_nodes);
-    for (i = 1; i < static_cast<unsigned int>(path_node_count); ++i) {
+    for (i = 1; i < static_cast<std::uint32_t>(path_node_count); ++i) {
         path_node_list[i] = 0;
     }
     free(path_node_list);
     path_node_list = 0;
-    return 1;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x004CE510
-void W8PathingService::LinkCollideableProps(int lNumProps, W8PreProp* pPreProps,
-                                            std::unordered_multimap<unsigned int, CondPathNode*>* pCondValues)
+void W8PathingService::LinkCollideableProps(std::int32_t lNumProps, W8PreProp* pPreProps,
+                                            std::unordered_multimap<std::uint32_t, CondPathNode*>* pCondValues)
 {
-    int aiLookup[10000];
-    unsigned int aulKeys[10000];
-    unsigned short ausFrames[10000];
-    unsigned int aulValues[10000];
-    int i;
+    std::int32_t aiLookup[10000];
+    std::uint32_t aulKeys[10000];
+    std::uint16_t ausFrames[10000];
+    std::uint32_t aulValues[10000];
+    std::int32_t i;
 
     m_ulNumCondPaths = 1;
     m_ulNumCondNodes = 1;
     m_ulNumCondFrames = 1;
-    m_pPathValues = new std::unordered_multimap<unsigned int, unsigned int>;
+    m_pPathValues = new std::unordered_multimap<std::uint32_t, std::uint32_t>;
     for (i = 0; i < path_node_count; ++i) {
         InsertIndexValue(*m_pPathValues, file_path_nodes[i].cell, file_path_nodes[i].level_flags);
     }
@@ -596,15 +597,15 @@ void W8PathingService::LinkCollideableProps(int lNumProps, W8PreProp* pPreProps,
     }
     memset(ppCondPaths, 0, (lNumProps + 2) * sizeof(*ppCondPaths));
 
-    int ulOriginalCount = 0;
+    std::int32_t ulOriginalCount = 0;
     for (i = 0; i < lNumProps; ++i) {
         ++ulOriginalCount;
         W8PreProp* pProp = pPreProps + i;
         if (pProp->num_stop_meshes != 0) {
-            for (unsigned short j = 0; j < pProp->num_stop_meshes; ++j) {
+            for (std::uint16_t j = 0; j < pProp->num_stop_meshes; ++j) {
                 bool bWroteFrame = false;
-                unsigned int key =
-                    (static_cast<unsigned int>(pProp->pStopMeshes[j].m_prop_number) << 16) |
+                std::uint32_t key =
+                    (static_cast<std::uint32_t>(pProp->pStopMeshes[j].m_prop_number) << 16) |
                     (i + 1);
                 auto slot = pCondValues->equal_range(key).first;
                 if (slot != pCondValues->end()) {
@@ -613,8 +614,8 @@ void W8PathingService::LinkCollideableProps(int lNumProps, W8PreProp* pPreProps,
                         if ((puValue != 0) &&
                             (FindConditionalPathValue(puValue->cell, puValue->value) != 0)) {
                             if (ppCondPaths[i] == 0) {
-                                if (static_cast<unsigned int>(lNumProps) <
-                                    static_cast<unsigned int>(ulOriginalCount)) {
+                                if (static_cast<std::uint32_t>(lNumProps) <
+                                    static_cast<std::uint32_t>(ulOriginalCount)) {
                                     srAssertFail("ulOriginalCount <= (UINT32)lNumProps",
                                                  OCTPREPATH_CPP, 1065,
                                                  "LinkCollideableProps: Invalid count for "
@@ -672,8 +673,8 @@ void W8PathingService::LinkCollideableProps(int lNumProps, W8PreProp* pPreProps,
         }
     }
 
-    if ((static_cast<unsigned int>(m_ulNumCondFrames) < 2) ||
-        (static_cast<unsigned int>(m_ulNumCondNodes) < 2)) {
+    if ((static_cast<std::uint32_t>(m_ulNumCondFrames) < 2) ||
+        (static_cast<std::uint32_t>(m_ulNumCondNodes) < 2)) {
         m_ulNumCondNodes = 0;
         m_ulNumCondFrames = 0;
         return;
@@ -690,32 +691,32 @@ void W8PathingService::LinkCollideableProps(int lNumProps, W8PreProp* pPreProps,
     if (ulOriginalCount > 1) {
         for (i = 1; i < ulOriginalCount; ++i) {
             if (ppCondPaths[i] != 0) {
-                int index = m_ulNumCondPaths;
+                std::int32_t index = m_ulNumCondPaths;
                 ++m_ulNumCondPaths;
                 m_pCondPaths[index] = *ppCondPaths[i];
             }
         }
     }
 
-    m_pulCondLookup = static_cast<unsigned int*>(malloc(m_ulNumCondFrames * sizeof(*m_pulCondLookup)));
+    m_pulCondLookup = static_cast<std::uint32_t*>(malloc(m_ulNumCondFrames * sizeof(*m_pulCondLookup)));
     if (m_pulCondLookup == 0) {
         srAssertFail("m_pulCondLookup", OCTPREPATH_CPP, 1127, 0);
     }
     memcpy(m_pulCondLookup, aiLookup + 1, m_ulNumCondFrames * sizeof(*m_pulCondLookup));
 
-    m_pusCondNodeFrames = static_cast<unsigned short*>(malloc(m_ulNumCondFrames * sizeof(*m_pusCondNodeFrames)));
+    m_pusCondNodeFrames = static_cast<std::uint16_t*>(malloc(m_ulNumCondFrames * sizeof(*m_pusCondNodeFrames)));
     if (m_pusCondNodeFrames == 0) {
         srAssertFail("m_pusCondNodeFrames", OCTPREPATH_CPP, 1130, 0);
     }
     memcpy(m_pusCondNodeFrames, ausFrames, m_ulNumCondFrames * sizeof(*m_pusCondNodeFrames));
 
-    m_pulCondNodeKeys = static_cast<unsigned int*>(malloc(m_ulNumCondNodes * sizeof(*m_pulCondNodeKeys)));
+    m_pulCondNodeKeys = static_cast<std::uint32_t*>(malloc(m_ulNumCondNodes * sizeof(*m_pulCondNodeKeys)));
     if (m_pulCondNodeKeys == 0) {
         srAssertFail("m_pulCondNodeKeys", OCTPREPATH_CPP, 1134, 0);
     }
     memcpy(m_pulCondNodeKeys, aulKeys, m_ulNumCondNodes * sizeof(*m_pulCondNodeKeys));
 
-    m_pulCondNodeValues = static_cast<unsigned int*>(malloc(m_ulNumCondNodes * sizeof(*m_pulCondNodeValues)));
+    m_pulCondNodeValues = static_cast<std::uint32_t*>(malloc(m_ulNumCondNodes * sizeof(*m_pulCondNodeValues)));
     if (m_pulCondNodeValues == 0) {
         srAssertFail("m_pulCondNodeValues", OCTPREPATH_CPP, 1137, 0);
     }

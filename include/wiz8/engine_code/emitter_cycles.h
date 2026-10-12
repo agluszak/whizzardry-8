@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include "wiz8/engine_code/AnimObj.h"
 #include "wiz8/engine_code/Emitter.h"
 #include "wiz8/engine_code/game_timer.h"
@@ -40,7 +41,7 @@ void CloneEmitterLightLists(Host& host, const Host& source,
     }
 }
 
-inline void SelectInitialEmitterLod(W8EmitterHost& host, signed char cycle)
+inline void SelectInitialEmitterLod(W8EmitterHost& host, std::int8_t cycle)
 {
     if (host.SetCycleFrameLod(cycle, 0, 2)) host.m_bLOD = 2;
     else if (host.SetCycleFrameLod(cycle, 0, 1)) host.m_bLOD = 1;
@@ -48,7 +49,7 @@ inline void SelectInitialEmitterLod(W8EmitterHost& host, signed char cycle)
 }
 
 template<class Host>
-void StartEmitterCycle(Host& host, signed char cycle)
+void StartEmitterCycle(Host& host, std::int8_t cycle)
 {
     host.current_cycle = cycle;
     W8AnimObj* animation = host.emitters[cycle];
@@ -64,12 +65,12 @@ void StartEmitterCycle(Host& host, signed char cycle)
 // Missile and spell hosts own different-sized emitter tables, but load the same cycle state.
 template<class Host, class Visual>
 bool ReadEmitterCycle(Host& host, W8ReadLevelInfo* info, Visual& visual,
-                      int cycle_index, bool select_lod)
+                      std::int32_t cycle_index, bool select_lod)
 {
     auto* lights = new std::vector<stLight*>;
     auto* animation = new W8AnimObj;
     const bool success = AnimObjReadFromFile(info, animation, 1, lights, 1);
-    signed char emitter = static_cast<signed char>(animation->cycle);
+    std::int8_t emitter = static_cast<std::int8_t>(animation->cycle);
     if (lights->empty()) {
         delete lights;
         lights = nullptr;
@@ -78,7 +79,7 @@ bool ReadEmitterCycle(Host& host, W8ReadLevelInfo* info, Visual& visual,
     }
     host.light_lists[cycle_index].push_back(lights);
     if (cycle_index != -1) {
-        emitter = static_cast<signed char>(cycle_index);
+        emitter = static_cast<std::int8_t>(cycle_index);
         host.current_cycle = emitter;
     }
     host.emitter_playback_scales[emitter] = animation->playback_scale;

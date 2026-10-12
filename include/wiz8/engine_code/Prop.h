@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <optional>
 #include "surrender/srBoundingBox.h"
 #include <vector>
@@ -29,8 +30,8 @@ extern bool g_animated_prop_present;
    narrows to a byte; the segment walkers sign-extend the frame, and
    SelectAnimationSlot treats a negative frame as a slot with no animation. */
 struct W8PropAnimationSegment {
-    signed char frame;
-    unsigned char tag;
+    std::int8_t frame;
+    std::uint8_t tag;
 };
 
 /* Prop.cpp's m_pRep.  Assertions name the member; the constructor allocates
@@ -50,10 +51,10 @@ public:
     virtual ~W8PropRepresentation() override;
     virtual W8AnimRepBase* Clone() override;
 
-    srModelInstance* ToggleAnimation(int argument); /* 0x0044BA00 */
-    unsigned char SelectAnimationSlot(unsigned char tag);
-    int FindCurrentAnimationSlot(); /* 0x0044BAE0 */
-    unsigned char AdvanceAnimationSegment();
+    srModelInstance* ToggleAnimation(std::int32_t argument); /* 0x0044BA00 */
+    bool SelectAnimationSlot(std::uint8_t tag);
+    std::int32_t FindCurrentAnimationSlot(); /* 0x0044BAE0 */
+    std::uint8_t AdvanceAnimationSegment();
     /* CreateAndLoadProp loads m_pRep into ECX, then passes (pInfo, pProp). */
     bool LoadProp(W8ReadLevelInfo* info, W8Prop* prop); /* 0x0044AEE0 */
 
@@ -62,18 +63,18 @@ public:
     /* 0xa0: integer path position accumulator.  UpdatePropAnimation adds the elapsed
        frame count to it with a dword add, compares it against the animation's
        value_16, and FILD-converts it for PathAISetValue. */
-    int frame_index;
+    std::int32_t frame_index;
     bool animation_running; /* 0xa4 */
     bool random_play;       /* 0xa5 */
-    unsigned char padding_0a6[2];
+    std::uint8_t padding_0a6[2];
     float play_chance;            /* 0xa8: constructed as 0.5 */
-    unsigned char saved_subcycle; /* 0xac */
-    unsigned char frame_steps;    /* 0xad */
-    unsigned char padding_0ae[2];
+    std::uint8_t saved_subcycle; /* 0xac */
+    std::uint8_t frame_steps;    /* 0xad */
+    std::uint8_t padding_0ae[2];
     std::vector<W8PropAnimationSegment*> slots; /* 0xb0 */
-    unsigned char footstep_surface;          /* 0xc0 */
-    unsigned char footstep_material;         /* 0xc1 */
-    unsigned char padding_0c2[2];
+    std::uint8_t footstep_surface;          /* 0xc0 */
+    std::uint8_t footstep_material;         /* 0xc1 */
+    std::uint8_t padding_0c2[2];
 }; /* 0xc4 */
 
 /* Engine Code\Prop.cpp.  Prop::Prop() calls W8GrObject::W8GrObject and
@@ -107,7 +108,7 @@ public:
     /* Advance the rep's animation value by `frames`, honouring the direction,
        bounce and wrap modes; clamps to the counter range and pushes the new
        value to every bound path. `total` is the animation's frame count. */
-    void AdvanceAnimationValue(int frames, char total);
+    void AdvanceAnimationValue(std::int32_t frames, char total);
     /* The animation value one step ahead of the current one, without
        committing it - clamped for transitive animations, wrapping or bouncing
        for the looping kinds. */
@@ -117,7 +118,7 @@ public:
        discarded byte, clamped to the loaded animation's frame count, with
        path values re-synced while a running animation is active. */
     bool LoadAnimationState(wiz8::File& hFile);        /* 0x0044DBD0 */
-    int BuildOrRefreshPathingRepresentation(); /* 0x0044DEA0 */
+    std::int32_t BuildOrRefreshPathingRepresentation(); /* 0x0044DEA0 */
     /* Current minus previous position when the animation advances exactly
        one frame; otherwise zero. */
     srVector3T<float> GetDelta(); /* 0x0044E130 */
@@ -132,17 +133,17 @@ public:
        type-10 action payload naming item). */
     bool TriggerRequiresItem(); /* 0x0044E380 */
     /* The prop's current animation value; -1 when it has none. */
-    int GetAnimationState() const; /* 0x0044EBE0 */
+    std::int32_t GetAnimationState() const; /* 0x0044EBE0 */
     void AttachAnimationInstances(W8World* world);
     /* Raw activation byte, also persisted in prop animation state. */
-    unsigned char GetActivationState();
-    srModelInstance* ToggleRepAnimation(int argument);
+    std::uint8_t GetActivationState();
+    srModelInstance* ToggleRepAnimation(std::int32_t argument);
     srModelInstance* ToggleRepAnimationDefault();
     std::optional<srBoundingBox> GetFrameBounds();
     void SetAnimationDirection(W8AnimationDirection direction);
-    void SetRepresentationActive(unsigned char active, bool update_animation);
-    bool CanBeUsedFrom(int path_x, int path_z, bool notify);
-    void SetActivationState(unsigned char value);
+    void SetRepresentationActive(std::uint8_t active, bool update_animation);
+    bool CanBeUsedFrom(std::int32_t path_x, std::int32_t path_z, bool notify);
+    void SetActivationState(std::uint8_t value);
     /* Queues the signed byte as a short; -1 becomes the 0xffff sentinel. */
     void SetPendingAnimationSubcycle(char value);
     void SetAnimationSpeed(float speed);
@@ -163,7 +164,7 @@ public:
     void RunMissileTrigger(W8AIMissile* record);
 
     Trigger* trigger;   /* 0x18 */
-    unsigned int flags; /* 0x1c */
+    std::uint32_t flags; /* 0x1c */
     char* m_name;       /* 0x20 */
     /* 0x24: UpdatePropAnimation stores the animation timer's progress here, then
        reduces it by the whole-frame count - the fractional remainder. */
@@ -181,7 +182,7 @@ W8Prop* FindPropByName(W8World* world, const char* name);
 bool CreateAndLoadProp(W8ReadLevelInfo* info, W8Prop** prop);
 
 bool ResolvePickedProp(W8World* world);
-int GetSelectedPropIndex(void);
+std::int32_t GetSelectedPropIndex(void);
 /* Run the latched selected-prop trigger, or clear the latch when the
    renderer has no pick. */
 bool ActivateSelectedProp(void);

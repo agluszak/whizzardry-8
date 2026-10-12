@@ -64,7 +64,7 @@ Font g_smfnt_font;
 std::array<Palette16, 15> g_font_state_palettes;
 
 // FUNCTION: WIZ8 0x004e27a0
-unsigned char InitializeMenuFonts(void)
+bool InitializeMenuFonts(void)
 {
     const std::array fonts{
         std::tuple{&g_large_font, "Data\\Fonts\\LargeFont.sti", FONT_GLOW_GREEN},
@@ -95,7 +95,7 @@ unsigned char InitializeMenuFonts(void)
     for (size_t index = 0; index < fonts.size(); ++index) {
         const auto& [role, filename, shade] = fonts[index];
         if (!loaded[index].load(filename)) {
-            return 0;
+            return false;
         }
     }
     for (size_t index = 0; index < fonts.size(); ++index) {
@@ -110,7 +110,7 @@ unsigned char InitializeMenuFonts(void)
         *std::get<0>(fonts[index]) = std::move(loaded[index]);
     g_font_state_palettes.swap(palettes);
     ConfigureDialogFont(g_wiz_dialog_font, 1, 0xff, 0);
-    return 1;
+    return true;
 }
 
 void ReleaseMenuFonts()

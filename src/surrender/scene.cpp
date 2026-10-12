@@ -1,4 +1,5 @@
 
+#include <cstdint>
 #include <ostream>
 #include <vector>
 
@@ -7,7 +8,6 @@
 #include "surrender/srCamera.h"
 #include "surrender/srCore.h"
 #include "surrender/srGERD.h"
-#include "compat/compiler.h"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "surrender/srClock.h"
@@ -64,27 +64,27 @@ void srScene::process(const ProcessInfo& info, e_processType type)
     traversal.nodes.clear();
     traversal.renderer = info.renderer;
     first_child_->traverse(traversal);
-    const auto node_count = static_cast<w8_long>(traversal.nodes.size());
-    const auto entry_count = static_cast<w8_long>(traversal.entries.size());
+    const auto node_count = static_cast<std::int32_t>(traversal.nodes.size());
+    const auto entry_count = static_cast<std::int32_t>(traversal.entries.size());
     srGERD* renderer = info.renderer;
-    w8_ulong_ptr pick_key = renderer->getPickKey();
+    std::uintptr_t pick_key = renderer->getPickKey();
     const auto fog_color = renderer->getFogColor();
     const auto ambient_light = renderer->getAmbientLight();
     renderer->setFogColor(glm::vec4(this->fog_color, 0));
     renderer->setAmbientLight(glm::vec4(this->ambient_light, 0));
     ProcessInfo process_info = info;
-    for (w8_long index = 0; index < node_count; ++index) {
+    for (std::int32_t index = 0; index < node_count; ++index) {
         traversal.nodes[index]->process(process_info, PROCESS_PUSH_GLOBAL);
     }
-    for (w8_long index = 0; index < entry_count; ++index) {
+    for (std::int32_t index = 0; index < entry_count; ++index) {
         const auto entry = traversal.entries[index];
         if ((enabled.value & 1) != 0) {
             // reinterpret-ok: the pick key is the node pointer itself.
-            renderer->setPickKey(reinterpret_cast<w8_ulong_ptr>(entry.node));
+            renderer->setPickKey(reinterpret_cast<std::uintptr_t>(entry.node));
         }
         entry.node->process(process_info, static_cast<e_processType>(entry.value));
     }
-    for (w8_long index = node_count; index > 0; --index) {
+    for (std::int32_t index = node_count; index > 0; --index) {
         traversal.nodes[index - 1]->process(process_info, PROCESS_POP_GLOBAL);
     }
     renderer->setFogColor(fog_color);
@@ -169,7 +169,7 @@ void srScene::enable(e_enable option)
 }
 
 // FUNCTION: SURRENDER 0x10056B90
-int srScene::isEnabled(e_enable option) const
+bool srScene::isEnabled(e_enable option) const
 {
     return (enabled.value & (1ul << option)) != 0;
 }

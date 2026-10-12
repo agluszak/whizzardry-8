@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <vector>
 #pragma once
 
@@ -7,4 +8,4 @@
 
 bool SaveItemFile(wiz8::File& handle, W8WorldItem* item);
 W8WorldItem* LoadItem(wiz8::File& handle, bool add_to_list);
-bool LoadSavedLevelItems(int level, std::vector<W8WorldItem*>& items);
+bool LoadSavedLevelItems(std::int32_t level, std::vector<W8WorldItem*>& items);

@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <vector>
 
 #include "wiz8/spell_ids.h"
@@ -57,7 +58,7 @@ bool SwampOilPool(Trigger* pTrigger)
 }
 
 static bool SwampGasFireSpawn(Trigger* pTrigger); /* 0x004DAA70 */
-static void SwampGasFireItemDrop(int command);    /* 0x004DACD0 */
+static void SwampGasFireItemDrop(std::int32_t command);    /* 0x004DACD0 */
 
 /* "gas_trig_plane01-07": while fact 0x16d is unset the trigger defers to the
    one-shot spawner; once set, it casts spell 0x2a at power 4 on the camera
@@ -109,7 +110,7 @@ static bool SwampGasFireSpawn(Trigger* pTrigger)
     W8MonsterGroup* group;
     W8MonsterInfo* monster_info;
     W8NpcState* npc;
-    int index;
+    std::int32_t index;
 
     if (GetFact(W8_FACT_SAVANT_PARTY_SWAMP_MEET) != 0) {
         return false;
@@ -153,14 +154,14 @@ static bool SwampGasFireSpawn(Trigger* pTrigger)
    queued NPC script notice completes - then drops an unidentified item 0x264
    at the spawned monster and fades it out for removal. */
 // FUNCTION: WIZ8 0x004DACD0
-static void SwampGasFireItemDrop(int command)
+static void SwampGasFireItemDrop(std::int32_t command)
 {
     srVector3T<float> position;
     srVector3T<float> drop_position;
     W8WorldItem* item;
 
     if (command != 0) {
-        if (command == static_cast<int>(0xEFFFFFFF)) {
+        if (command == static_cast<std::int32_t>(0xEFFFFFFF)) {
             g_npc_dialogue_closed = false;
             g_master_functions.push_back(SwampGasFireItemDrop);
         }

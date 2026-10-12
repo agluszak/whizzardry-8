@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <vector>
@@ -66,7 +67,7 @@ W8ConditionNoticeIds g_condition_notices[25] = {
 
 /* Enchantment-slot names, indexed by W8EnchantmentSlot. */
 // GLOBAL: WIZ8 0x0061e638
-unsigned short g_enchantment_notices[16] = {
+std::uint16_t g_enchantment_notices[16] = {
     0x398, 0x399, 0x39a, 0x39b, 0x39c, 0x39d, 0x39e, 0x39f,
     0x273, 0x670, 0x671, 0x672, 0x673, 0x674, 0x675, 0x676,
 };
@@ -74,12 +75,12 @@ unsigned short g_enchantment_notices[16] = {
 /* Notices posted when a condition interrupts a character's action, indexed
    by GetConditionInterrupt's result. */
 // GLOBAL: WIZ8 0x0061e658
-unsigned short g_condition_interrupt_notices[12] = {
+std::uint16_t g_condition_interrupt_notices[12] = {
     0x3a0, 0x3a1, 0x3a2, 0x3a3, 0x3a4, 0x3a5, 0x3a6, 0x3a7, 0x3a8, 0x3a9, 0x3aa, 0x3ab,
 };
 
 // FUNCTION: WIZ8 0x005248a0
-bool GetConditionRecordFlag(int party_slot, W8CharacterDependence dependence)
+bool GetConditionRecordFlag(std::int32_t party_slot, W8CharacterDependence dependence)
 {
     return g_status.buffers.Char[party_slot].conditions[dependence].active;
 }
@@ -87,7 +88,7 @@ bool GetConditionRecordFlag(int party_slot, W8CharacterDependence dependence)
 // FUNCTION: WIZ8 0x005248D0
 void ReleaseMonsterConditionBindings(W8MonsterInfo* monster_info)
 {
-    for (unsigned int slot_kind = 0; slot_kind < W8_DEPENDENCE_COUNT; ++slot_kind) {
+    for (std::uint32_t slot_kind = 0; slot_kind < W8_DEPENDENCE_COUNT; ++slot_kind) {
         bool cleared = false;
         if ((monster_info->condition_binding_mask & (1 << slot_kind)) != 0) {
             W8Condition condition;
@@ -99,7 +100,7 @@ void ReleaseMonsterConditionBindings(W8MonsterInfo* monster_info)
                 condition = W8_CONDITION_MISSING;
                 break;
             }
-            for (unsigned int party_slot = 0; party_slot < 8; ++party_slot) {
+            for (std::uint32_t party_slot = 0; party_slot < 8; ++party_slot) {
                 W8Character* character = &g_status.buffers.Char[party_slot];
                 W8CharacterConditionRecord* record = &character->conditions[slot_kind];
                 if ((condition == W8_CONDITION_NONE || character->uiCondition[condition] != 0) &&
@@ -115,7 +116,7 @@ void ReleaseMonsterConditionBindings(W8MonsterInfo* monster_info)
                 }
             }
             if (!cleared && slot_kind == 0) {
-                for (unsigned int index = 0; index < gXStatus.monsters.size(); ++index) {
+                for (std::uint32_t index = 0; index < gXStatus.monsters.size(); ++index) {
                     W8MonsterInfo* bound = MonsterGetScriptPartByLocationIndex(index);
                     if (bound->elemental_summon == monster_info->location_id) {
                         bound->elemental_summon = -1;
@@ -130,7 +131,7 @@ void ReleaseMonsterConditionBindings(W8MonsterInfo* monster_info)
 /* Lifting a character's condition clears its duration and any state that
    condition alone maintained, then notifies dependents. */
 // FUNCTION: WIZ8 0x00523330
-void RemoveCharacterCondition(int party_slot, W8Condition condition, bool announce)
+void RemoveCharacterCondition(std::int32_t party_slot, W8Condition condition, bool announce)
 {
     W8Character* character = &g_status.buffers.Char[party_slot];
     W8PartySlotRow* row = &g_status.buffers.XChar[party_slot];
@@ -167,7 +168,7 @@ void RemoveCharacterCondition(int party_slot, W8Condition condition, bool announ
                 found_character = FindPartyMemberWithLowestResistance4();
             }
             if (CharacterPointerToPartySlot(found_character) ==
-                    static_cast<unsigned int>(party_slot) &&
+                    static_cast<std::uint32_t>(party_slot) &&
                 !FindItemOnCharacter(found_character, 0x239, 0, 0, 0)) {
                 return;
             }
@@ -231,7 +232,7 @@ void RemoveCharacterCondition(int party_slot, W8Condition condition, bool announ
 // FUNCTION: WIZ8 0x00522e80
 void NormalizeItemQuantityKind(W8ItemInstance* item)
 {
-    unsigned char quantity_kind;
+    std::uint8_t quantity_kind;
 
     if (item->iItemNo == -1) {
         return;
@@ -272,8 +273,8 @@ void NormalizeItemQuantityKind(W8ItemInstance* item)
 // FUNCTION: WIZ8 0x00522ef0
 void SanitizeLoadedItems(void)
 {
-    unsigned int slot;
-    unsigned int index;
+    std::uint32_t slot;
+    std::uint32_t index;
     W8Character* character;
 
     for (slot = 0; slot < 8; ++slot) {
@@ -337,14 +338,14 @@ W8ConditionImmunity g_condition_immunities[3] = {
    the dead threshold was crossed either way, the portrait pose and the
    portrait page if it is up. */
 // FUNCTION: WIZ8 0x005237e0
-void RecomputeCharacterHighestCondition(int party_slot)
+void RecomputeCharacterHighestCondition(std::int32_t party_slot)
 {
     if (!g_status.buffers.XChar[party_slot].fOccupied) {
         srAssertFail("fCHAR_OCCUPIED(uiChar)", CONDITIONS_CPP, 0x183, 0);
     }
     W8Character* character = &g_status.buffers.Char[party_slot];
     W8Condition previous = character->highest_condition;
-    for (int index = 0x13; index >= 0; --index) {
+    for (std::int32_t index = 0x13; index >= 0; --index) {
         if (character->uiCondition[index] != 0 || index == 0) {
             character->highest_condition = static_cast<W8Condition>(index);
             break;
@@ -359,7 +360,7 @@ void RecomputeCharacterHighestCondition(int party_slot)
         RedistributePartyEncumbrance();
     }
     RequestPartySlotRedraw(party_slot);
-    int pose = gXStatus.monster_manager_entries[party_slot].target_portrait_pose;
+    std::int32_t pose = gXStatus.monster_manager_entries[party_slot].target_portrait_pose;
     if (character->highest_condition < W8_CONDITION_ASLEEP) {
         if (pose != 2) {
             goto done;
@@ -383,24 +384,24 @@ done:
    replaces the stored one, slot two rolls its bonus dice, and the top scan,
    redraw and stats rebuild follow. */
 // FUNCTION: WIZ8 0x00523940
-void ApplyCharacterCondition(int party_slot, W8EnchantmentSlot slot, int argument,
-                             unsigned int duration, unsigned int percent)
+void ApplyCharacterCondition(std::int32_t party_slot, W8EnchantmentSlot slot, std::int32_t argument,
+                             std::uint32_t duration, std::uint32_t percent)
 {
     W8Character* character = &g_status.buffers.Char[party_slot];
     W8Enchantment* enchantment = &character->enchantments[slot];
-    if (enchantment->power < static_cast<unsigned int>(argument)) {
+    if (enchantment->power < static_cast<std::uint32_t>(argument)) {
         enchantment->power = argument;
-        enchantment->percent = static_cast<unsigned short>(percent);
+        enchantment->percent = static_cast<std::uint16_t>(percent);
         enchantment->turns = duration;
         if (slot == W8_ENCHANTMENT_GUARDIAN_ANGEL) {
-            enchantment->magnitude = static_cast<short>(
+            enchantment->magnitude = static_cast<std::int16_t>(
                 RollDice(&g_spell_records[W8_SPELL_GUARDIAN_ANGEL].effect_dice) * argument);
             enchantment->magnitude =
-                static_cast<short>((static_cast<unsigned int>(enchantment->magnitude) * percent) /
+                static_cast<std::int16_t>((static_cast<std::uint32_t>(enchantment->magnitude) * percent) /
                                    100) +
                 enchantment->magnitude;
         }
-        for (int scan = 7; scan >= 0; --scan) {
+        for (std::int32_t scan = 7; scan >= 0; --scan) {
             if (character->enchantments[scan].turns > 0 || scan == 0) {
                 character->enchantment_top = static_cast<W8EnchantmentSlot>(scan);
                 break;
@@ -426,7 +427,7 @@ void ApplyCharacterCondition(int party_slot, W8EnchantmentSlot slot, int argumen
    stored strength pro rata over the remaining duration, with a hundred-sided
    roll covering the fractional part when the quotient floors to zero. */
 // FUNCTION: WIZ8 0x005236A0
-void TickCharacterCondition(unsigned int party_slot, W8Condition condition, unsigned int minutes)
+void TickCharacterCondition(std::uint32_t party_slot, W8Condition condition, std::uint32_t minutes)
 {
     W8PartySlotRow* row = &g_status.buffers.XChar[party_slot];
 
@@ -445,8 +446,8 @@ void TickCharacterCondition(unsigned int party_slot, W8Condition condition, unsi
         return;
     }
     if (condition == W8_CONDITION_POISONED) {
-        int strength = g_status.buffers.Char[party_slot].condition_argument;
-        unsigned int lost = strength * minutes /
+        std::int32_t strength = g_status.buffers.Char[party_slot].condition_argument;
+        std::uint32_t lost = strength * minutes /
                             g_status.buffers.Char[party_slot].uiCondition[W8_CONDITION_POISONED];
 
         if (lost == 0 &&
@@ -462,7 +463,7 @@ void TickCharacterCondition(unsigned int party_slot, W8Condition condition, unsi
 
 static void RefreshMonsterConditionState(W8MonsterInfo* monster_info)
 {
-    int slot = 0x13;
+    std::int32_t slot = 0x13;
     while (monster_info->uiCondition[slot] == 0) {
         if (slot == 0) {
             break;
@@ -479,15 +480,15 @@ static void RefreshMonsterConditionState(W8MonsterInfo* monster_info)
 }
 
 // FUNCTION: WIZ8 0x00523C00
-void SetMonsterCondition(int location_id, W8Condition condition, int duration, int poison_strength,
+void SetMonsterCondition(std::int32_t location_id, W8Condition condition, std::int32_t duration, std::int32_t poison_strength,
                          W8TargetSource* target, bool announce)
 {
     W8MonsterInfo* monster_info;
     W8MonsterRecord* record;
     W8ConditionImmunity* immunity;
-    unsigned char kind;
-    int index;
-    int old_duration;
+    std::uint8_t kind;
+    std::int32_t index;
+    std::int32_t old_duration;
     bool handled;
 
     if (poison_strength != 0 && condition != W8_CONDITION_POISONED) {
@@ -545,7 +546,7 @@ void SetMonsterCondition(int location_id, W8Condition condition, int duration, i
         /* The retail's mangled signature keeps condition an int, but 0x00523D8A
            tests it and 0x00523D8F bounds it unsigned, which is the same cast the
            three later uses of condition in this function already carry. */
-        unsigned int condition_index = static_cast<unsigned int>(condition);
+        std::uint32_t condition_index = static_cast<std::uint32_t>(condition);
         if (old_duration == 0 && condition_index != 0 && condition_index <= 0x12) {
             SetMonsterSpellIcon(monster_info->p3D, static_cast<W8MonsterSpellIconId>(condition - 1),
                                 true);
@@ -553,7 +554,7 @@ void SetMonsterCondition(int location_id, W8Condition condition, int duration, i
         if (monster_info->fInCombat && TargetSourceIsCharacter(target, 0) && target->iChar != -1) {
             w8_unaligned_int* hate = &monster_info->pCombat->character_hate[target->iChar];
             record = GetMonsterDataForInfo(monster_info);
-            *hate += (record->effective_level * static_cast<unsigned int>(condition)) / 3;
+            *hate += (record->effective_level * static_cast<std::uint32_t>(condition)) / 3;
         }
         handled = true;
     } else {
@@ -564,8 +565,8 @@ void SetMonsterCondition(int location_id, W8Condition condition, int duration, i
             monster_info->condition_target = *target;
         }
     }
-    if (static_cast<unsigned int>(poison_strength) >
-        static_cast<unsigned int>(monster_info->condition_argument)) {
+    if (static_cast<std::uint32_t>(poison_strength) >
+        static_cast<std::uint32_t>(monster_info->condition_argument)) {
         monster_info->condition_argument = poison_strength;
         handled = true;
     }
@@ -573,10 +574,10 @@ void SetMonsterCondition(int location_id, W8Condition condition, int duration, i
     if (!handled) {
         return;
     }
-    if (static_cast<unsigned int>(condition) >= 0xD) {
+    if (static_cast<std::uint32_t>(condition) >= 0xD) {
         ResetCombatSlot(&monster_info->Target);
     }
-    if (static_cast<unsigned int>(condition) >= 0x12) {
+    if (static_cast<std::uint32_t>(condition) >= 0x12) {
         MonsterStartsDying(monster_info, announce);
         return;
     }
@@ -593,9 +594,9 @@ void SetMonsterCondition(int location_id, W8Condition condition, int duration, i
 /* Clearing a monster's condition also re-derives its highest set condition
    index, recounts its group, and possibly stops it moving. */
 // FUNCTION: WIZ8 0x00523F40
-void ClearMonsterCondition(int location_id, W8Condition condition)
+void ClearMonsterCondition(std::int32_t location_id, W8Condition condition)
 {
-    unsigned int list_index;
+    std::uint32_t list_index;
     W8MonsterInfo* monster_info;
     W8MonsterGroup* monster_group;
 
@@ -648,7 +649,7 @@ void ClearMonsterCondition(int location_id, W8Condition condition)
    same proportion as its remaining duration, with a probabilistic one-point
    correction when integer division rounds the loss to zero. */
 // FUNCTION: WIZ8 0x00524110
-void TickMonsterCondition(int location_id, W8Condition condition, unsigned int minutes)
+void TickMonsterCondition(std::int32_t location_id, W8Condition condition, std::uint32_t minutes)
 {
     W8MonsterInfo* monster_info = FindMonster(location_id);
 
@@ -663,8 +664,8 @@ void TickMonsterCondition(int location_id, W8Condition condition, unsigned int m
         return;
     }
     if (condition == W8_CONDITION_POISONED) {
-        int strength = monster_info->condition_argument;
-        unsigned int lost = strength * minutes / monster_info->uiCondition[condition];
+        std::int32_t strength = monster_info->condition_argument;
+        std::uint32_t lost = strength * minutes / monster_info->uiCondition[condition];
 
         if (lost == 0 &&
             Random(100) < strength * minutes * 100 / monster_info->uiCondition[condition]) {
@@ -679,14 +680,14 @@ void TickMonsterCondition(int location_id, W8Condition condition, unsigned int m
    switch, trait gates, and the same rescan/notify/tail handling as the other
    transitions. */
 // FUNCTION: WIZ8 0x00522FE0
-unsigned char SetCharacterCondition(int party_slot, W8Condition condition, int duration,
-                                    int poison_strength, char alternate_missing_notice,
+bool SetCharacterCondition(std::int32_t party_slot, W8Condition condition, std::int32_t duration,
+                                    std::int32_t poison_strength, char alternate_missing_notice,
                                     char announce)
 {
     W8Character* character = &g_status.buffers.Char[party_slot];
     W8PartySlotRow* row = &g_status.buffers.XChar[party_slot];
     W8Condition old_highest;
-    unsigned int old_duration;
+    std::uint32_t old_duration;
     bool handled;
 
     if (!row->fOccupied) {
@@ -700,12 +701,12 @@ unsigned char SetCharacterCondition(int party_slot, W8Condition condition, int d
                      0);
     }
     if (condition == W8_CONDITION_POISONED && poison_strength == 0) {
-        return 0;
+        return false;
     }
     if (condition == W8_CONDITION_DEAD && CharacterHasTrait(character, W8_TRAIT_CHEAT_DEATH) &&
         character->uiCondition[W8_CONDITION_UNCONSCIOUS] < 7) {
         CheatDeathRevive(party_slot);
-        return 0;
+        return false;
     }
     switch (condition) {
     case W8_CONDITION_DISEASED:
@@ -716,7 +717,7 @@ unsigned char SetCharacterCondition(int party_slot, W8Condition condition, int d
         break;
     default:
         if (duration == 0) {
-            return 0;
+            return false;
         }
         break;
     }
@@ -724,13 +725,13 @@ unsigned char SetCharacterCondition(int party_slot, W8Condition condition, int d
         PostCharacterNotice(party_slot,
                             fmt::sprintf(g_localized_strings[0x242],
                                          g_localized_strings[g_condition_notices[condition].name]));
-        return 0;
+        return false;
     }
     switch (condition) {
     case W8_CONDITION_AFRAID:
         if (CharacterHasTrait(character, W8_TRAIT_FEARLESS)) {
             PostCharacterNotice(party_slot, g_localized_strings[0x180]);
-            return 0;
+            return false;
         }
         [[fallthrough]];
     case W8_CONDITION_DISEASED:
@@ -739,7 +740,7 @@ unsigned char SetCharacterCondition(int party_slot, W8Condition condition, int d
     case W8_CONDITION_POISONED:
     case W8_CONDITION_ASLEEP:
         if (CharacterHasTrait(character, static_cast<W8Trait>(0x1e))) {
-            return 0;
+            return false;
         }
         break;
     case W8_CONDITION_INSANE:
@@ -750,7 +751,7 @@ unsigned char SetCharacterCondition(int party_slot, W8Condition condition, int d
     case W8_CONDITION_TURNCOAT:
         if (CharacterHasTrait(character, W8_TRAIT_MENTAL_CONDITION_IMMUNITY)) {
             PostCharacterNotice(party_slot, g_localized_strings[0x181]);
-            return 0;
+            return false;
         }
         break;
     default:
@@ -758,7 +759,7 @@ unsigned char SetCharacterCondition(int party_slot, W8Condition condition, int d
     }
     old_highest = character->highest_condition;
     old_duration = character->uiCondition[condition];
-    if (old_duration < static_cast<unsigned int>(duration)) {
+    if (old_duration < static_cast<std::uint32_t>(duration)) {
         if (old_duration == 0) {
             if (condition == W8_CONDITION_HEXED || condition == W8_CONDITION_BLIND) {
                 gXStatus.sight_refresh_pending = true;
@@ -772,13 +773,13 @@ unsigned char SetCharacterCondition(int party_slot, W8Condition condition, int d
     } else {
         handled = false;
     }
-    if (static_cast<unsigned int>(character->condition_argument) <
-        static_cast<unsigned int>(poison_strength)) {
+    if (static_cast<std::uint32_t>(character->condition_argument) <
+        static_cast<std::uint32_t>(poison_strength)) {
         character->condition_argument = poison_strength;
     }
     RebuildConditionsAndDerivedStats(party_slot);
     if (!handled) {
-        return 0;
+        return false;
     }
     if (condition == W8_CONDITION_DEAD) {
         CharacterDies(party_slot);
@@ -803,19 +804,19 @@ unsigned char SetCharacterCondition(int party_slot, W8Condition condition, int d
         gXStatus.fCombatMode) {
         ClearPartySlotMonsterHighlights(party_slot);
     }
-    return 1;
+    return true;
 }
 
 /* Copy every condition a character is under onto something else in the world.
    Condition seven carries an argument alongside its duration, so it is the one
    entry that is not just a duration. */
 // FUNCTION: WIZ8 0x005241e0
-void CopyCharacterConditionsToTarget(const W8Character* character, const int* target)
+void CopyCharacterConditionsToTarget(const W8Character* character, const std::int32_t* target)
 {
     W8TargetSource target_block;
-    unsigned int condition;
-    int duration;
-    int argument;
+    std::uint32_t condition;
+    std::int32_t duration;
+    std::int32_t argument;
 
     ResetTargetSource(&target_block);
     for (condition = 0; condition < W8_CONDITION_COUNT; ++condition) {
@@ -838,9 +839,9 @@ void CopyCharacterConditionsToTarget(const W8Character* character, const int* ta
 // FUNCTION: WIZ8 0x00524250
 void CopyMonsterConditionsToCharacter(W8Character* character, const W8MonsterInfo* monster_info)
 {
-    unsigned int condition;
-    int duration;
-    int argument;
+    std::uint32_t condition;
+    std::int32_t duration;
+    std::int32_t argument;
 
     for (condition = 0; condition < W8_CONDITION_COUNT; ++condition) {
         duration = monster_info->uiCondition[condition];
@@ -859,10 +860,10 @@ void CopyMonsterConditionsToCharacter(W8Character* character, const W8MonsterInf
    in use, scanning down from the last. Emptying the sixth also raises the flag
    the interface watches. */
 // FUNCTION: WIZ8 0x00523a80
-void ClearCharacterEnchantmentSlot(int party_slot, W8EnchantmentSlot slot)
+void ClearCharacterEnchantmentSlot(std::int32_t party_slot, W8EnchantmentSlot slot)
 {
     W8Character* character;
-    int scan;
+    std::int32_t scan;
 
     memset(&g_status.buffers.Char[party_slot].enchantments[slot], 0, sizeof(W8Enchantment));
 
@@ -889,9 +890,9 @@ void ClearCharacterEnchantmentSlot(int party_slot, W8EnchantmentSlot slot)
    turns, emptying it the same way ClearCharacterEnchantmentSlot does when
    nothing is left. */
 // FUNCTION: WIZ8 0x00523b30
-void TickCharacterEnchantmentSlot(int party_slot, W8EnchantmentSlot slot, unsigned int turns)
+void TickCharacterEnchantmentSlot(std::int32_t party_slot, W8EnchantmentSlot slot, std::uint32_t turns)
 {
-    unsigned int remaining = g_status.buffers.Char[party_slot].enchantments[slot].turns;
+    std::uint32_t remaining = g_status.buffers.Char[party_slot].enchantments[slot].turns;
 
     if (remaining <= turns) {
         ClearCharacterEnchantmentSlot(party_slot, slot);
@@ -905,24 +906,24 @@ void TickCharacterEnchantmentSlot(int party_slot, W8EnchantmentSlot slot, unsign
    applied slot adds the spell icon, and the stats rebuild and special-slot
    sight refresh follow. */
 // FUNCTION: WIZ8 0x005242b0
-void ApplyMonsterCondition(int location_id, W8EnchantmentSlot slot, int argument,
-                           unsigned int duration, unsigned int percent)
+void ApplyMonsterCondition(std::int32_t location_id, W8EnchantmentSlot slot, std::int32_t argument,
+                           std::uint32_t duration, std::uint32_t percent)
 {
     W8MonsterInfo* monster_info = FindMonster(location_id);
     W8Enchantment* enchantment = &monster_info->enchantments[slot];
-    if (enchantment->power <= static_cast<unsigned int>(argument)) {
-        unsigned int previous = enchantment->turns;
+    if (enchantment->power <= static_cast<std::uint32_t>(argument)) {
+        std::uint32_t previous = enchantment->turns;
         enchantment->power = argument;
-        enchantment->percent = static_cast<unsigned short>(percent);
+        enchantment->percent = static_cast<std::uint16_t>(percent);
         enchantment->turns = duration;
         if (slot == W8_ENCHANTMENT_GUARDIAN_ANGEL) {
-            int roll = RollDice(&g_spell_records[W8_SPELL_GUARDIAN_ANGEL].effect_dice);
+            std::int32_t roll = RollDice(&g_spell_records[W8_SPELL_GUARDIAN_ANGEL].effect_dice);
             enchantment->magnitude =
-                static_cast<short>(
-                    (static_cast<unsigned int>(static_cast<unsigned short>(roll * argument)) *
+                static_cast<std::int16_t>(
+                    (static_cast<std::uint32_t>(static_cast<std::uint16_t>(roll * argument)) *
                      percent) /
                     100) +
-                static_cast<short>(roll * argument);
+                static_cast<std::int16_t>(roll * argument);
         }
         if (previous == 0) {
             SetMonsterSpellIcon(monster_info->p3D, static_cast<W8MonsterSpellIconId>(slot + 0x10),
@@ -938,7 +939,7 @@ void ApplyMonsterCondition(int location_id, W8EnchantmentSlot slot, int argument
 /* Empty one of a monster's enchantment slots and tell the live engine object
    that the matching effect is over. */
 // FUNCTION: WIZ8 0x00524390
-void ClearMonsterEnchantmentSlot(int location_id, W8EnchantmentSlot slot)
+void ClearMonsterEnchantmentSlot(std::int32_t location_id, W8EnchantmentSlot slot)
 {
     W8MonsterInfo* monster_info = FindMonster(location_id);
 
@@ -954,10 +955,10 @@ void ClearMonsterEnchantmentSlot(int location_id, W8EnchantmentSlot slot)
    emptying it when nothing is left. The look-up is repeated rather than
    reused, which is what the two separate index calls show. */
 // FUNCTION: WIZ8 0x00524400
-void TickMonsterEnchantmentSlot(int location_id, W8EnchantmentSlot slot, unsigned int turns)
+void TickMonsterEnchantmentSlot(std::int32_t location_id, W8EnchantmentSlot slot, std::uint32_t turns)
 {
     W8MonsterInfo* monster_info = FindMonster(location_id);
-    unsigned int remaining = monster_info->enchantments[slot].turns;
+    std::uint32_t remaining = monster_info->enchantments[slot].turns;
 
     if (turns < remaining) {
         monster_info->enchantments[slot].turns = remaining - turns;
@@ -971,7 +972,7 @@ void TickMonsterEnchantmentSlot(int location_id, W8EnchantmentSlot slot, unsigne
 // FUNCTION: WIZ8 0x005246c0
 void RemoveConditionFromParty(W8Condition condition)
 {
-    unsigned int party_slot;
+    std::uint32_t party_slot;
 
     for (party_slot = 0; party_slot < 8; ++party_slot) {
         if (g_status.buffers.XChar[party_slot].fOccupied &&
@@ -987,7 +988,7 @@ void RemoveConditionFromParty(W8Condition condition)
 // FUNCTION: WIZ8 0x005244a0
 void RemoveConditionFromEveryone(W8Condition condition)
 {
-    unsigned int monster_index;
+    std::uint32_t monster_index;
     W8MonsterInfo* monster_info;
 
     RemoveConditionFromParty(condition);
@@ -1007,8 +1008,8 @@ void RemoveConditionFromEveryone(W8Condition condition)
 // FUNCTION: WIZ8 0x00524540
 void RemoveAllEnchantments(void)
 {
-    for (unsigned int enchantment = 0; enchantment < 8; ++enchantment) {
-        for (int party_slot = 0; party_slot < 8; ++party_slot) {
+    for (std::uint32_t enchantment = 0; enchantment < 8; ++enchantment) {
+        for (std::int32_t party_slot = 0; party_slot < 8; ++party_slot) {
             W8Character* character = &g_status.buffers.Char[party_slot];
 
             if (g_status.buffers.XChar[party_slot].fOccupied &&
@@ -1017,7 +1018,7 @@ void RemoveAllEnchantments(void)
                                               static_cast<W8EnchantmentSlot>(enchantment));
             }
         }
-        for (unsigned int index = 0; index < gXStatus.monsters.size(); ++index) {
+        for (std::uint32_t index = 0; index < gXStatus.monsters.size(); ++index) {
             W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(index);
 
             if (monster_info->enchantments[enchantment].turns != 0) {
@@ -1034,7 +1035,7 @@ void RemoveAllEnchantments(void)
 // FUNCTION: WIZ8 0x00524720
 void RemoveAllConditionsFromParty(void)
 {
-    unsigned int condition;
+    std::uint32_t condition;
 
     for (condition = 0; condition < W8_CONDITION_CLEARABLE_COUNT; ++condition) {
         if (condition == W8_CONDITION_INFATUATED) {
@@ -1050,8 +1051,8 @@ void RemoveAllConditionsFromParty(void)
    it happened on, the monster's id and the live flag before the derived
    stats rebuild. */
 // FUNCTION: WIZ8 0x00524780
-void BindMonsterToCharacterDependence(unsigned int party_slot, unsigned int dependence_slot,
-                                      int monster_id)
+void BindMonsterToCharacterDependence(std::uint32_t party_slot, std::uint32_t dependence_slot,
+                                      std::int32_t monster_id)
 {
     W8MonsterInfo* monster_info;
 
@@ -1067,7 +1068,7 @@ void BindMonsterToCharacterDependence(unsigned int party_slot, unsigned int depe
 
     monster_info = FindMonster(monster_id);
     monster_info->condition_binding_mask =
-        static_cast<unsigned char>(monster_info->condition_binding_mask | (1 << dependence_slot));
+        static_cast<std::uint8_t>(monster_info->condition_binding_mask | (1 << dependence_slot));
     if (dependence_slot == W8_DEPENDENCE_SWALLOWED) {
         RetireMonsterGroupAndAllies(FindMonsterGroup(monster_info->monster_group_id));
     }

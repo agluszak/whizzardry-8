@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "surrender/srTexture.h" // IWYU pragma: keep - complete texture type for shared_ptr base conversion.
 #include <glm/gtx/rotate_vector.hpp>
 #include <SDL3/SDL_rect.h>
@@ -73,7 +74,7 @@ static bool g_cursor_pick_latch;
 /* 0x60ab44: the saved world-cursor monster group id; -1 until a cursor is
    torn down. Seeds and restores monster_group_id. */
 // GLOBAL: WIZ8 0x0060ab44
-static int g_cursor_saved_group_id = -1;
+static std::int32_t g_cursor_saved_group_id = -1;
 
 // GLOBAL: WIZ8 0x0060ab48
 static float g_cursor_projection_distance = 4000.0f;
@@ -521,7 +522,7 @@ void SetWorldCursorRange(float distance)
 
 /* Store the selected monster group id on the world cursor. */
 // FUNCTION: WIZ8 0x004916a0
-void SetWorldCursorGroupId(int group_id)
+void SetWorldCursorGroupId(std::int32_t group_id)
 {
     if (gp3DCursor != 0) {
         gp3DCursor->monster_group_id = group_id;
@@ -649,9 +650,9 @@ char MarchWorldCursorTarget(srVector3T<float>* target)
     float lower_best = -1e+10f;
     float upper_best;
     float ground;
-    int lower_count;
+    std::int32_t lower_count;
     bool upper_found;
-    int i;
+    std::int32_t i;
 
     trace_from = *target + gp3DCursor->probe_center;
     origin = gp3DCursor->position;
@@ -773,7 +774,7 @@ void SetWorldCursorExtents(const srVector3T<float>* minimum, const srVector3T<fl
    and their crossed corner combinations are probed instead, and a settled
    height too far from the input height fails the resolution. */
 // FUNCTION: WIZ8 0x004921E0
-int ResolveWorldCursorTarget(srVector3T<float>* position)
+bool ResolveWorldCursorTarget(srVector3T<float>* position)
 {
     W8WorldCursorState* cursor = gp3DCursor;
     float best = g_cursor_ground_height_sentinel;
@@ -784,9 +785,9 @@ int ResolveWorldCursorTarget(srVector3T<float>* position)
         *position = cursor->position;
     }
     if (cursor == 0) {
-        return 1;
+        return true;
     }
-    for (int corner = 0; corner < 4; ++corner) {
+    for (std::int32_t corner = 0; corner < 4; ++corner) {
         glm::vec3 offset;
         if (!cursor->footprint_mode) {
             offset = cursor->probe_offsets[corner + 4].glmValue();
@@ -804,10 +805,10 @@ int ResolveWorldCursorTarget(srVector3T<float>* position)
     if (cursor->footprint_mode &&
         static_cast<float>(g_monster_poster_max_distance) <= fabs(best - position->y)) {
         position->y = best + g_float_one_thousand;
-        return 0;
+        return false;
     }
     position->y = best + g_float_one_thousand;
-    return 1;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x00492500

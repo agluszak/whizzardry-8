@@ -1,29 +1,31 @@
 #ifndef WIZ8_LAYOUTS_LEVELS_H
 #define WIZ8_LAYOUTS_LEVELS_H
 
+
+#include <cstdint>
 #pragma pack(push, 1)
 
 struct W8LevelFolderRecord {
     char folder_name[50];
     char level_name[50];
     char location_code[4];
-    signed char sky_index;
-    signed char cd_number;
-    signed char level_band; /* 0x6a: returned by GetLevelBand */
+    std::int8_t sky_index;
+    std::int8_t cd_number;
+    std::int8_t level_band; /* 0x6a: returned by GetLevelBand */
 };
 
 struct W8LevelProgressRow {
     bool visited;
     /* 0x01: incremented by the combat teardown for each finished fight while
        characters are still active. */
-    unsigned short combat_end_count;
+    std::uint16_t combat_end_count;
     /* 0x03: counted by RecordMonsterKill for each in-combat kill credited
        while the party is on this level. */
-    short monster_kill_count;
-    unsigned int experience_gained; /* 0x05: accumulated when experience is awarded */
-    int gold_collected;
-    int sight_clock;
-    unsigned char unknown_11[0x10];
+    std::int16_t monster_kill_count;
+    std::uint32_t experience_gained; /* 0x05: accumulated when experience is awarded */
+    std::int32_t gold_collected;
+    std::int32_t sight_clock;
+    std::uint8_t unknown_11[0x10];
 };
 
 #pragma pack(pop)

@@ -13,7 +13,7 @@ namespace
 // Random() to 0..2, so reduce every roll to the retail 15-bit range.
 constexpr std::uint64_t kRetailRandMax = 0x7fff;
 
-std::uint32_t ScaleRoll(int roll, std::uint32_t range)
+std::uint32_t ScaleRoll(std::int32_t roll, std::uint32_t range)
 {
     return static_cast<std::uint32_t>((static_cast<std::uint64_t>(roll) & kRetailRandMax) * range /
                                       kRetailRandMax % range);
@@ -32,7 +32,7 @@ void InitializeRandom()
 {
     // Seed the random-number generator with current time so that
     // the numbers will be different every time we run.
-    srand((unsigned)time(nullptr));
+    srand((std::uint32_t)time(nullptr));
 #ifdef PRERANDOM_GENERATOR
     //Pregenerate all of the random numbers.
     for (guiPreRandomIndex = 0; guiPreRandomIndex < MAX_PREGENERATED_NUMS; guiPreRandomIndex++) {
@@ -67,7 +67,7 @@ std::uint32_t PreRandom(std::uint32_t uiRange)
     if (!uiRange)
         return 0;
     //Extract the current pregenerated number
-    uiNum = ScaleRoll(static_cast<int>(guiPreRandomNums[guiPreRandomIndex]), uiRange);
+    uiNum = ScaleRoll(static_cast<std::int32_t>(guiPreRandomNums[guiPreRandomIndex]), uiRange);
     //Replace the current pregenerated number with a new one.
 
     //This was removed in the name of optimization.  Uncomment if you hate recycling.

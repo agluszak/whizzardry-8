@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <array>
 #include <span>
 #include <memory>
@@ -47,7 +48,7 @@ public:
         bool operator==(const Vertex& other) const = default;
 
         glm::vec3 position;
-        w8_ulong shade_index;
+        std::uint32_t shade_index;
         std::shared_ptr<srMaterialIFace> materials[4][2];
         glm::vec3 dcg[4];
         glm::vec3 dig[4];
@@ -65,24 +66,24 @@ public:
         std::shared_ptr<srTextureIFace> textures[4][2];
         srShader shaders[4];
         Vertex vertices[3];
-        w8_ulong flags;
-        w8_ulong disabled;
+        std::uint32_t flags;
+        std::uint32_t disabled;
     };
 
     class Polygon {
     public:
-        Polygon(int vertices);
+        Polygon(std::int32_t vertices);
         void reset();
-        void reAllocate(int vertices);
+        void reAllocate(std::int32_t vertices);
 
         std::shared_ptr<srTextureIFace> textures[4][2];
         srShader shaders[4];
         /* Engine Code\stCube.cpp assigns positions and UVs through this table
            after Polygon(4) allocates it. */
         std::vector<Vertex> vertices;
-        int vertex_count;
-        w8_ulong flags;
-        w8_ulong disabled;
+        std::int32_t vertex_count;
+        std::uint32_t flags;
+        std::uint32_t disabled;
     };
 
     srModeler();
@@ -91,57 +92,57 @@ public:
 
     void discard();
 
-    w8_ulong getTriangleCount() const;
-    void setTriangleCount(w8_ulong triangles);
-    w8_ulong addTriangle(const Triangle& triangle);
-    std::optional<Triangle> getTriangle(w8_ulong index) const;
-    void setTriangle(w8_ulong index, const Triangle& triangle);
-    void setTriangleVertex(w8_ulong triangle, w8_ulong vertex, const Vertex& value);
-    void flipTriangle(w8_ulong triangle);
+    std::uint32_t getTriangleCount() const;
+    void setTriangleCount(std::uint32_t triangles);
+    std::uint32_t addTriangle(const Triangle& triangle);
+    std::optional<Triangle> getTriangle(std::uint32_t index) const;
+    void setTriangle(std::uint32_t index, const Triangle& triangle);
+    void setTriangleVertex(std::uint32_t triangle, std::uint32_t vertex, const Vertex& value);
+    void flipTriangle(std::uint32_t triangle);
     void flipTriangles();
-    void enableTriangle(w8_ulong triangle);
-    void disableTriangle(w8_ulong triangle);
-    w8_ulong getEnabledTriangleCount();
+    void enableTriangle(std::uint32_t triangle);
+    void disableTriangle(std::uint32_t triangle);
+    std::uint32_t getEnabledTriangleCount();
     void removeDisabledTriangles();
     void disableDegenerateTriangles();
     void addFromModeler(srModeler& other);
 
     void scale(const glm::vec3& scale);
-    void scale(w8_ulong triangle, const glm::vec3& scale);
+    void scale(std::uint32_t triangle, const glm::vec3& scale);
     void move(const glm::vec3& delta);
-    void move(w8_ulong triangle, const glm::vec3& delta);
+    void move(std::uint32_t triangle, const glm::vec3& delta);
     void rotate(const glm::mat3& matrix);
-    void rotate(w8_ulong triangle, const glm::mat3& matrix);
+    void rotate(std::uint32_t triangle, const glm::mat3& matrix);
     double getMaxVertexDist();
     std::optional<std::pair<float, float>> getAxialBounds(e_axis axis) const;
 
-    w8_long getPassCount() const;
-    void setPassCount(w8_long passes);
+    std::int32_t getPassCount() const;
+    void setPassCount(std::int32_t passes);
 
-    w8_ulong getUniqueVertexCount();
+    std::uint32_t getUniqueVertexCount();
 
-    void createSphere(w8_long detail);
-    void createTorus(w8_long major_segments, w8_long minor_segments, double radius);
-    void createGrid(w8_long columns, w8_long rows);
+    void createSphere(std::int32_t detail);
+    void createTorus(std::int32_t major_segments, std::int32_t minor_segments, double radius);
+    void createGrid(std::int32_t columns, std::int32_t rows);
     void tesselateEdges(double threshold);
-    void tesselateEdges(w8_ulong triangle, double threshold);
+    void tesselateEdges(std::uint32_t triangle, double threshold);
     /* Delegates to the file-local AutoSmoother worker in modeler.cpp: it
        builds per-shade-vertex triangle adjacency, tests each coincident pair's
        facing/materials, and floods group bits back into flags. */
-    void autoSmooth(double threshold, int smooth);
+    void autoSmooth(double threshold, std::int32_t smooth);
 
     void addPolygon(const Polygon& polygon);
-    void planarMap(w8_long pass, w8_long layer, const MappingInfo& mapping);
-    void planarMapAbsolute(w8_long pass, w8_long layer, const MappingInfo& mapping);
-    void cylinderMap(w8_long pass, w8_long layer, const MappingInfo& mapping);
-    void removeMapping(w8_long pass, w8_long layer);
+    void planarMap(std::int32_t pass, std::int32_t layer, const MappingInfo& mapping);
+    void planarMapAbsolute(std::int32_t pass, std::int32_t layer, const MappingInfo& mapping);
+    void cylinderMap(std::int32_t pass, std::int32_t layer, const MappingInfo& mapping);
+    void removeMapping(std::int32_t pass, std::int32_t layer);
 
-    void setMaterial(std::shared_ptr<srMaterialIFace> material, w8_long pass, srMeshModel::e_side side);
-    void setTexture(std::shared_ptr<srTextureIFace> texture, w8_long pass, w8_long layer);
-    void setShader(srShader shader, w8_long pass);
+    void setMaterial(std::shared_ptr<srMaterialIFace> material, std::int32_t pass, srMeshModel::e_side side);
+    void setTexture(std::shared_ptr<srTextureIFace> texture, std::int32_t pass, std::int32_t layer);
+    void setShader(srShader shader, std::int32_t pass);
     /* A nonzero remove_degenerate disables and drops triangles with
        coincident corners before building the mesh (the game passes 1). */
-    void convert(srMeshModel& model, int remove_degenerate);
+    void convert(srMeshModel& model, std::int32_t remove_degenerate);
 
     /* getUniqueVertexList's deduplication table: an entry pool, 1024
        position-hash buckets chaining entries, and the per-source-vertex
@@ -150,31 +151,31 @@ public:
        table. */
     struct VertexHash {
         struct Entry {
-            w8_ulong flags;
+            std::uint32_t flags;
             /* Signed: the AutoSmoother worker's max scan in modeler.cpp
                compares it against its long vertex count with a signed JGE. */
-            w8_long shade_index;
+            std::int32_t shade_index;
             Vertex* vertex;
             Entry* next;
-            w8_ulong index;
+            std::uint32_t index;
         };
 
-        VertexHash(w8_ulong vertex_count);
+        VertexHash(std::uint32_t vertex_count);
 
-        static w8_ulong hash(double x, double y, double z);
+        static std::uint32_t hash(double x, double y, double z);
 
         std::vector<Entry> entries;
         std::array<Entry*, 1024> buckets{};
         std::vector<Entry*> table;
-        w8_ulong unique_count;
+        std::uint32_t unique_count;
     };
 
 private:
     std::unique_ptr<VertexHash> getUniqueVertexList();
     bool isClockwise(std::span<const glm::vec2> points);
 
-    w8_ulong triangle_count;
+    std::uint32_t triangle_count;
     std::vector<Triangle> triangles;
-    w8_long pass_count;
+    std::int32_t pass_count;
 };
 

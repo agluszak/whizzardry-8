@@ -13,9 +13,9 @@ struct W8NativeVideo
     };
     struct Frame
     {
-        int width, height;
+        std::int32_t width, height;
         double time, duration;
-        std::vector<uint16_t> pixels;
+        std::vector<std::uint16_t> pixels;
     };
     W8NativeVideo();
     ~W8NativeVideo();
@@ -24,8 +24,8 @@ struct W8NativeVideo
     Result update_now();
     void present(SDL_Surface* target);
     const Frame& frame() const;
-    unsigned decoded_frames() const;
-    uint64_t decoded_audio_frames() const;
+    std::uint32_t decoded_frames() const;
+    std::uint64_t decoded_audio_frames() const;
 
   private:
     struct State;

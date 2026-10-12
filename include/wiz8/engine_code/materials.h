@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <string_view>
 
 #include <memory>
@@ -49,7 +50,7 @@ public:
 
 public:
     stMaterial& operator=(const stMaterial&) = default;
-    int m_surface_flags; /* 0x78 */
+    std::int32_t m_surface_flags; /* 0x78 */
 };
 
 #pragma pack(push, 1)
@@ -58,7 +59,7 @@ public:
    level particles and animated-texture descriptors. The four 40-byte texture
    names and the unaligned tail fields are fixed by 0x004B8A70/0x004B98F0. */
 struct W8MaterialRecord {
-    unsigned char version;                 /* 0x000 */
+    std::uint8_t version;                 /* 0x000 */
     char texture_name[0x28];               /* 0x001 */
     char texture_names[4][0x28];           /* 0x029 */
     srVector3T<float> ambient;             /* 0x0c9 */
@@ -68,11 +69,11 @@ struct W8MaterialRecord {
     float shininess;                       /* 0x0f9 */
     float opacity;                         /* 0x0fd */
     float emission;                        /* 0x101 */
-    unsigned char padding_105[8];          /* 0x105 */
+    std::uint8_t padding_105[8];          /* 0x105 */
     W8TextureAnimationMode animation_mode; /* 0x10d */
-    int animation_frame;                   /* 0x10e */
+    std::int32_t animation_frame;                   /* 0x10e */
     float animation_rate;                  /* 0x112 */
-    w8_ulong surface_flags;           /* 0x116 */
+    std::uint32_t surface_flags;           /* 0x116 */
     float texture_modes[4];                /* 0x11a */
 };
 
@@ -106,7 +107,7 @@ std::shared_ptr<srTexture> LoadTextureFromFolder(const char* folder, const char*
 std::shared_ptr<stTextureAnim> LoadAnimatedTexture(const char* folder, const char* name,
                                                    const W8MaterialRecord* source, bool required);
 bool MeshHasAnimatedTexture(srMeshModel* model);
-void SetModelAnimatedTextureFrame(srModelInstance* instance, int frame);
+void SetModelAnimatedTextureFrame(srModelInstance* instance, std::int32_t frame);
 stTextureAnim* GetModelAnimatedTexture(srModelInstance* instance);
 
 W8MeshMaterial CreateDefaultMaterial();
@@ -119,6 +120,6 @@ struct W8OctRegionPolygon;
 extern W8OctPreTreeVertex* g_gd_vertices;
 extern W8OctRegionPolygon* g_gd_polygons;
 
-void ReportBuildStatus(short channel, std::string_view message);
+void ReportBuildStatus(std::int16_t channel, std::string_view message);
 void ReportStartupMessage(std::string_view message);
 char* TrimAndLowercaseString(char* text);

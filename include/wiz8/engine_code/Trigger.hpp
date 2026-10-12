@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <source_location>
 #include "surrender/srMath.h"
 #include "surrender/srTypeRegistry.h"
@@ -25,8 +26,8 @@ public:
     virtual ~W8TriggerEvent();
     virtual void Update();
 
-    short action;
-    unsigned short unknown_006;
+    std::int16_t action;
+    std::uint16_t unknown_006;
     W8GameTimer timer;
     W8GameTimer* m_pCountdown;
     Trigger* trigger;
@@ -50,7 +51,7 @@ public:
     W8TriggerActionData();
     virtual ~W8TriggerActionData();
 
-    signed char type; /* W8TriggerPayloadKind */
+    std::int8_t type; /* W8TriggerPayloadKind */
 };
 
 /* Type 5 installs its own final table and retains the previous environment value. */
@@ -97,7 +98,7 @@ public:
     bool jammable : 1;
     bool jammed : 1;
     bool has_position : 1;
-    short item; /* key item id; -1 for none */
+    std::int16_t item; /* key item id; -1 for none */
     char linked_trigger[0x80];
     srVector3T<float> position;
 };
@@ -139,8 +140,8 @@ enum W8TriggerFlag {
    interaction finishes; `pins` holds the eight tumbler bytes of a pickable
    lock, re-rolled by W8LockState::Reset. */
 struct W8TriggerDeviceState {
-    unsigned char completed;
-    unsigned char pins[8];
+    std::uint8_t completed;
+    std::uint8_t pins[8];
 };
 
 /* The locks & traps device record embedded at the tail of Trigger. `lock_type` is the editor "Type" (0 none,
@@ -153,19 +154,19 @@ struct W8LockState {
     /* Re-rolls the eight pin bytes of a pickable lock (lock_type == 1) and
        resets its difficulty-derived countdown and interaction state. */
     void Reset(); /* 0x00445730 */
-    void ReadRuntimeRecord(wiz8::File& handle, int version, int restoring);
+    void ReadRuntimeRecord(wiz8::File& handle, std::int32_t version, std::int32_t restoring);
     /* Spends one point of the lock countdown and reports whether one
        remained to spend. */
     bool ConsumeCountdown(); /* 0x004457A0 */
 
-    int lock_type;
-    int difficulty;
+    std::int32_t lock_type;
+    std::int32_t difficulty;
     W8TriggerDeviceState device_state;
-    unsigned char unknown_011[3];
-    int device_id;
-    int key_id;
-    int lock_countdown;
-    int last_interaction_clock;
+    std::uint8_t unknown_011[3];
+    std::int32_t device_id;
+    std::int32_t key_id;
+    std::int32_t lock_countdown;
+    std::int32_t last_interaction_clock;
 };
 
 /* Engine Code\Trigger.cpp. Trigger is registered directly below srClass. It is
@@ -204,7 +205,7 @@ public:
     }
 
     bool HasActorWithinRadius(float radius, bool include_party);
-    bool PlayActionSound(const char* sound_name, int volume);
+    bool PlayActionSound(const char* sound_name, std::int32_t volume);
     void UpdateActionAnimation();
     void CommitActionResult(bool apply_state_changes);
     void CompleteItemInteraction();
@@ -229,67 +230,67 @@ public:
        the special-item notice (required_item_id != -1) or the nothing-happened notice. */
     void PrintNothingHappenedOrSpecialItemRequired(); /* 0x004456E0 */
     void RunDestination(const char* destination);
-    void Run(int source);
+    void Run(std::int32_t source);
 
-    int trigger_kind;
+    std::int32_t trigger_kind;
     char name[0x80];
-    int trigger_id;
+    std::int32_t trigger_id;
     /* W8TriggerFlag bits with established producer/consumer semantics. The
        rest of the word is record-loaded or unresolved state and stays masked
        by literal. */
-    unsigned int flags;
+    std::uint32_t flags;
     float range_minimum;
     float range_maximum;
-    int action_value;
-    unsigned char state_count;
-    unsigned char state_index;
-    unsigned char state_direction;
-    unsigned char cycle_bounce;
-    unsigned char state_mod_mode;
-    unsigned char unknown_0b5[3];
-    int surface_id;
-    int m_lData1;
-    int m_lData2;
-    int m_lData3;
-    unsigned short searchable;
-    unsigned char unknown_0ca[2];
+    std::int32_t action_value;
+    std::uint8_t state_count;
+    std::uint8_t state_index;
+    std::uint8_t state_direction;
+    std::uint8_t cycle_bounce;
+    std::uint8_t state_mod_mode;
+    std::uint8_t unknown_0b5[3];
+    std::int32_t surface_id;
+    std::int32_t m_lData1;
+    std::int32_t m_lData2;
+    std::int32_t m_lData3;
+    std::uint16_t searchable;
+    std::uint8_t unknown_0ca[2];
     srVector3T<float> representation_vectors[4];
     float angle;
     srVector3T<float> direction;
-    unsigned char m_bRepType;
-    unsigned char unknown_10d[3];
+    std::uint8_t m_bRepType;
+    std::uint8_t unknown_10d[3];
     W8Prop* m_pProp;
     W8Item* rep_item;
     srVector3T<float> position;
     W8World* m_pWorld;
     char action_data[0x80];
     char alternate_action_data[0x80];
-    signed char action_data_mode;
-    signed char sound_volume;
-    unsigned short initial_action;
-    unsigned short alternate_action;
-    unsigned short fallback_action;
-    unsigned short action;
-    unsigned char action_state;
-    unsigned char unknown_233;
+    std::int8_t action_data_mode;
+    std::int8_t sound_volume;
+    std::uint16_t initial_action;
+    std::uint16_t alternate_action;
+    std::uint16_t fallback_action;
+    std::uint16_t action;
+    std::uint8_t action_state;
+    std::uint8_t unknown_233;
     W8TriggerActionData* m_pActionData;
     char* m_pacRecipients;
-    int required_item_id;
+    std::int32_t required_item_id;
     char* m_pacRequiredStates;
     char* m_pacStateToMod;
     W8TriggerEvent* m_pEvent;
     char inline_action_data[0x100];
     W8WorldItem* world_item_group;
-    unsigned char items_generated;
-    unsigned char unknown_351[3];
+    std::uint8_t items_generated;
+    std::uint8_t unknown_351[3];
     /* Sampled during construction, persisted in saves and used to reseed
        item-table generation so a trigger's generated loot is repeatable. */
-    unsigned int item_group_seed;
-    int gold;
-    int uses_remaining;
+    std::uint32_t item_group_seed;
+    std::int32_t gold;
+    std::int32_t uses_remaining;
     ActivationCallback activation_callback;
     bool running;
-    unsigned char unknown_365[3];
+    std::uint8_t unknown_365[3];
     W8LockState lock_state;
 };
 
@@ -299,7 +300,7 @@ Trigger* FindTriggerByName(const char* name);
 Trigger* FindRequiredTriggerByName(const char* name,
     std::source_location caller = std::source_location::current());
 
-inline void RunNamedTrigger(const char* name, int source)
+inline void RunNamedTrigger(const char* name, std::int32_t source)
 {
     Trigger* trigger = FindTriggerByName(name);
     if (trigger != 0) {
@@ -310,7 +311,7 @@ inline void RunNamedTrigger(const char* name, int source)
 W8TriggerActionData* ReadDoorTriggerActionData(wiz8::File* handle);
 /* The TRES save chunk: the world's triggers, their runtime states, and their
    action data. */
-int ResetNextTriggerId(void);
+std::int32_t ResetNextTriggerId(void);
 void SaveWorldTriggers(W8World* world, wiz8::File& handle);
 bool LoadWorldTriggers(W8World* world, wiz8::File& handle);
 void SaveTriggerRuntimeStates(W8World* world, wiz8::File& handle, bool restoring);
@@ -325,12 +326,12 @@ extern srVector3T<float> g_trigger_camera;
    action is active, and the flag that says one is. */
 extern bool g_trigger_action_active;
 extern srVector3T<float> g_trigger_action_scene_offset;
-extern int g_container_event_alt;
-extern int g_trap_notice_event;
-extern int g_lock_notice_event;
-extern int g_container_event;
+extern std::int32_t g_container_event_alt;
+extern std::int32_t g_trap_notice_event;
+extern std::int32_t g_lock_notice_event;
+extern std::int32_t g_container_event;
 
-bool CreateTriggerShakeEvent(int intensity, float duration, float countdown_duration, bool reverse);
+bool CreateTriggerShakeEvent(std::int32_t intensity, float duration, float countdown_duration, bool reverse);
 bool AnyPropTriggerInView(W8World* world);
 
 void ReleaseAllTriggers(void);

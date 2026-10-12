@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <memory>
 #include <vector>
 
@@ -25,7 +26,7 @@ public:
     stTextureAnim();                           /* 0x00484BE0 */
     stTextureAnim(const stTextureAnim& other); /* 0x00485070 */
 
-    virtual w8_ulong getTextureFrameHandle() override;               /* 0x004856F0 */
+    virtual std::uint32_t getTextureFrameHandle() override;               /* 0x004856F0 */
     virtual float getPriority() override;                                 /* 0x00484D60 */
     Dimensions getDimensions() override;          /* 0x00484D80 */
     virtual void getMipmapData(const MultiRequest& request) override;           /* 0x00484DB0 */
@@ -34,10 +35,10 @@ public:
     virtual const char* getTextureName() override;                        /* 0x00484E40 */
     virtual void invalidate() override;                                   /* 0x004023A0 */
 
-    void SetFrame(int frame);
+    void SetFrame(std::int32_t frame);
     void AddTexture(std::shared_ptr<srTextureIFace> texture);
-    int IsFinished() const;
-    unsigned char Prepare();
+    std::int32_t IsFinished() const;
+    std::uint8_t Prepare();
     virtual void setupDefaultValues() override; /* 0x00485760 */
 
 public:
@@ -45,12 +46,12 @@ public:
     void UpdateFrame();
 
     std::vector<std::shared_ptr<srTextureIFace>> textures;
-    int frame = 0;
-    int direction = 1;
+    std::int32_t frame = 0;
+    std::int32_t direction = 1;
     W8TextureAnimationMode animation_mode = W8_TEXTURE_ANIM_LOOP;
-    int initial_frame = 0;
+    std::int32_t initial_frame = 0;
     float frame_rate = 15.0f;
-    w8_ulong frame_tick;
+    std::uint32_t frame_tick;
     W8TextureTriggerMode trigger_mode = W8_TEXTURE_TRIGGER_CONTINUOUS;
     float probability = -1.0f;
     bool running = false;

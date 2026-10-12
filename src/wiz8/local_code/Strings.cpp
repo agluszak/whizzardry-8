@@ -16,31 +16,31 @@
 #include "wiz8/unicode.h"
 
 // GLOBAL: WIZ8 0x0068c098
-int giStringListLen;
+std::int32_t giStringListLen;
 // GLOBAL: WIZ8 0x0068c09c
 std::vector<std::string> g_localized_strings;
 
 // FUNCTION: WIZ8 0x0052FF80
-std::string GetStringFromStringDatabase(std::string_view path, int index,
-                                          unsigned int* metadata_00, unsigned int* metadata_04)
+std::string GetStringFromStringDatabase(std::string_view path, std::int32_t index,
+                                          std::uint32_t* metadata_00, std::uint32_t* metadata_04)
 try
 {
     auto handle = wiz8::open_file(path);
-    unsigned char header[5];
+    std::uint8_t header[5];
     handle->read_exact(header, sizeof(header));
-    int count;
+    std::int32_t count;
     handle->seek(-8, wiz8::SeekOrigin::end);
     handle->read_exact(&count, 4);
     if (index < 0 || count < 0 || index >= count) return {};
-    int entry_offset;
+    std::int32_t entry_offset;
     handle->seek(-static_cast<std::int64_t>((count - index) * 4LL + 8), wiz8::SeekOrigin::end);
     handle->read_exact(&entry_offset, 4);
     if (entry_offset < 5) return {};
     handle->seek(entry_offset, wiz8::SeekOrigin::begin);
-    unsigned int first, second;
+    std::uint32_t first, second;
     handle->read_exact(&first, 4);
     handle->read_exact(&second, 4);
-    int length;
+    std::int32_t length;
     handle->read_exact(&length, 4);
     if (length < 0 || length > 2000) return {};
     std::vector<std::byte> bytes(static_cast<std::size_t>(length) * 2);
@@ -82,13 +82,13 @@ static std::string ImportLocalizedPattern(std::string text)
 void LoadLocalizedStrings(std::string_view path)
 {
     auto handle = wiz8::open_file(path);
-    int count;
+    std::int32_t count;
     handle->read_exact(&count, 4);
     if (count <= 0 || count > 100000) throw std::runtime_error("Invalid localization entry count");
     std::vector<std::string> pending;
     pending.reserve(count);
-    for (int index = 0; index < count; ++index) {
-        int byte_count;
+    for (std::int32_t index = 0; index < count; ++index) {
+        std::int32_t byte_count;
         handle->read_exact(&byte_count, 4);
         if (byte_count < 0 || byte_count > 1024 * 1024 || byte_count % 2)
             throw std::runtime_error("Invalid localization text length");

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include "glm/ext/vector_float3.hpp"
 
 #include "srBoundingSphere.h"
@@ -25,7 +26,7 @@ public:
         Input(const glm::mat4& model_view, const glm::mat4& normal_matrix)
             : model_view(model_view), normal_matrix(normal_matrix) {}
 
-        std::span<const w8_ulong> active_vertices;
+        std::span<const std::uint32_t> active_vertices;
         bool direct_vertex_indices = false;
         std::span<const glm::vec3> positions;
         std::span<const glm::vec3> normals;
@@ -33,7 +34,7 @@ public:
         const glm::mat4& model_view;
         const glm::mat4& normal_matrix;
         std::span<srVertexArray> vertex_arrays;
-        w8_ulong exclusion_mask = 0;
+        std::uint32_t exclusion_mask = 0;
         glm::vec4 ambient_light{0};
         std::span<const Record> records;
         std::span<srVertexProcessor* const> processors;
@@ -42,7 +43,7 @@ public:
         float environment_scale = 0;
         float environment_inverse_scale = 0;
 
-        w8_ulong geometryIndex(w8_ulong processed_index) const
+        std::uint32_t geometryIndex(std::uint32_t processed_index) const
         {
             return direct_vertex_indices ? processed_index : active_vertices[processed_index];
         }
@@ -67,12 +68,12 @@ public:
     {
         channel_mask |= 1u << channel;
     }
-    SR_DLL_IMPORT std::span<const w8_ulong> getAVT() const;
+    SR_DLL_IMPORT std::span<const std::uint32_t> getAVT() const;
     SR_DLL_IMPORT std::span<float> getAlpha();
     SR_DLL_IMPORT srFlags<srVertexProcessor::e_channel> getChannelMask() const;
     SR_DLL_IMPORT std::span<const float> getDepthCue();
     SR_DLL_IMPORT std::span<glm::vec4> getDiffuse();
-    SR_DLL_IMPORT w8_ulong getExclusionMask() const;
+    SR_DLL_IMPORT std::uint32_t getExclusionMask() const;
     SR_DLL_IMPORT srBoundingSphere getEyeSpaceBoundingSphere() const;
     SR_DLL_IMPORT std::span<const glm::vec3> getEyeSpaceDir();
     SR_DLL_IMPORT std::span<const float> getEyeSpaceDist();
@@ -81,20 +82,20 @@ public:
     SR_DLL_IMPORT std::span<const float> getEyeSpaceZDist();
     SR_DLL_IMPORT std::span<float> getFog();
     SR_DLL_IMPORT const srVertexProcessor::MaterialInfo& getMaterialInfo() const;
-    SR_DLL_IMPORT float* getQ(w8_ulong index, int create);
-    glm::vec2* getST(w8_ulong index, int create);
+    SR_DLL_IMPORT float* getQ(std::uint32_t index, std::int32_t create);
+    glm::vec2* getST(std::uint32_t index, std::int32_t create);
     static SR_DLL_IMPORT srFlags<srVertexProcessor::e_channel>
     getShaderDisableMask(const srShader& shader);
     static SR_DLL_IMPORT srFlags<srVertexProcessor::e_channel>
-    getShaderDisableMask(const srShader* shader, const w8_ulong* channels,
-                         w8_ulong channel_count);
+    getShaderDisableMask(const srShader* shader, const std::uint32_t* channels,
+                         std::uint32_t channel_count);
     SR_DLL_IMPORT std::span<glm::vec4> getSpecular();
-    SR_DLL_IMPORT void* getUserArray(w8_ulong index);
-    w8_ulong getVertexCount() const;
-    int isChannelAvailable(srVertexProcessor::e_channel channel) const;
+    SR_DLL_IMPORT void* getUserArray(std::uint32_t index);
+    std::uint32_t getVertexCount() const;
+    bool isChannelAvailable(srVertexProcessor::e_channel channel) const;
     SR_DLL_IMPORT void process(const Input& input);
     SR_DLL_IMPORT void swapDiffuseAndSpecular();
-    SR_DLL_IMPORT int testEyeSpaceBounds(const glm::vec3& center, float radius) const;
+    SR_DLL_IMPORT bool testEyeSpaceBounds(const glm::vec3& center, float radius) const;
 
     /* Per-record render state from Input::records. flags: bit0 vertex colors present, bit1 indexed
        specular into diffuse, bit2 indexed specular into specular, bit3 indexed alpha, bits4/5
@@ -110,16 +111,16 @@ public:
             HAS_TEXCOORD1 = 0x20u,
             HAS_VERTEX_MATERIALS = 0x40u
         };
-        w8_ulong flags = 0;
-        w8_ulong channels = 0;
+        std::uint32_t flags = 0;
+        std::uint32_t channels = 0;
         srMaterialIFace* material = nullptr;
         struct ColorSource {
             enum e_format { FORMAT_ARGB = 0, FORMAT_VECTOR3 = 1, FORMAT_VECTOR4 = 2 };
             const void* colors = nullptr;
             e_format format = FORMAT_VECTOR4;
 
-            void copyDiffuseColors(glm::vec4* destination, const w8_ulong* indices,
-                                   w8_ulong count) const;
+            void copyDiffuseColors(glm::vec4* destination, const std::uint32_t* indices,
+                                   std::uint32_t count) const;
         };
         ColorSource color_source{};
         const glm::vec4* spec_for_diffuse = nullptr;
@@ -140,10 +141,10 @@ private:
     SR_DLL_IMPORT void finishDiffuseAlpha();
     SR_DLL_IMPORT void finishSpecularFog();
     SR_DLL_IMPORT void processVertexBuffer();
-    static SR_DLL_IMPORT w8_ulong scanChangeIndexed(const w8_ulong* first,
-                                                         w8_ulong first_count,
-                                                         const w8_ulong* second,
-                                                         w8_ulong second_count);
+    static SR_DLL_IMPORT std::uint32_t scanChangeIndexed(const std::uint32_t* first,
+                                                         std::uint32_t first_count,
+                                                         const std::uint32_t* second,
+                                                         std::uint32_t second_count);
     SR_DLL_IMPORT void setMaterial(srMaterialIFace* material);
     SR_DLL_IMPORT void setupAlpha();
     SR_DLL_IMPORT void setupDepthCue();
@@ -152,8 +153,8 @@ private:
     SR_DLL_IMPORT void setupEyeSpaceNormal();
     SR_DLL_IMPORT void setupEyeSpaceZDist();
     SR_DLL_IMPORT void setupFog();
-    SR_DLL_IMPORT void setupQ(w8_ulong index);
-    SR_DLL_IMPORT void setupST(w8_ulong index);
+    SR_DLL_IMPORT void setupQ(std::uint32_t index);
+    SR_DLL_IMPORT void setupST(std::uint32_t index);
     SR_DLL_IMPORT void setupSpecular();
 
     friend class srEnvironmentMapper;
@@ -174,7 +175,7 @@ private:
         float depth_cue[0x40];
         float alpha[0x40];
         float fog[0x40];
-        w8_ulong flags = 0;
+        std::uint32_t flags = 0;
     };
 
     /* Each lazy setup fills its batch range before use. Preserve the former heap's
@@ -182,28 +183,28 @@ private:
     alignas(16) Scratch scratch;
     /* Borrowed processors selected for this invocation; the pipe owns only the list. */
     std::vector<srVertexProcessor*> active_processors;
-    w8_ulong channel_mask;                    /* 0x0c */
-    w8_ulong lazy_setup_mask;                 /* 0x10 */
+    std::uint32_t channel_mask;                    /* 0x0c */
+    std::uint32_t lazy_setup_mask;                 /* 0x10 */
     srVertexProcessor::MaterialInfo material_info; /* 0x14 through 0x67 */
     srMaterialIFace* material;                     /* 0x68 */
     const Input* input;                            /* 0x6c */
-    const w8_ulong* avt;                      /* 0x70 */
+    const std::uint32_t* avt;                      /* 0x70 */
     const Record* current_record;                  /* 0x74 */
     srVertexArray* vertex_array;                   /* 0x78 */
     glm::vec4* eye_space_locations;        /* 0x7c */
-    w8_ulong batch_base;                      /* 0x80 */
-    w8_ulong sub_batch_offset;                /* 0x84 */
-    w8_ulong vertex_count;                    /* 0x88 */
-    w8_ulong batch_count;                     /* 0x8c */
+    std::uint32_t batch_base;                      /* 0x80 */
+    std::uint32_t sub_batch_offset;                /* 0x84 */
+    std::uint32_t vertex_count;                    /* 0x88 */
+    std::uint32_t batch_count;                     /* 0x8c */
 private:
     using SetupChannel = void (srVertexPipe::*)();
     template<class T, std::size_t Count>
-    std::span<const T> scratchChannel(const T (&values)[Count], w8_ulong ready, SetupChannel setup)
+    std::span<const T> scratchChannel(const T (&values)[Count], std::uint32_t ready, SetupChannel setup)
     {
         if ((scratch.flags & ready) == 0) (this->*setup)();
         return std::span<const T>(values).subspan(sub_batch_offset, vertex_count);
     }
-    void prepareOutputChannel(srVertexProcessor::e_channel channel, w8_ulong& operations,
+    void prepareOutputChannel(srVertexProcessor::e_channel channel, std::uint32_t& operations,
                               SetupChannel setup);
     void copyColorChannel(std::span<const glm::vec4> source, glm::vec4* destination,
                           srVertexProcessor::e_channel channel);
@@ -212,14 +213,14 @@ private:
 
 // FUNCTION: SURRENDER 0x1002C4B0 SYMBOL
 // RECOMP: ?getVertexCount@srVertexPipe@@QBEKXZ
-inline w8_ulong srVertexPipe::getVertexCount() const
+inline std::uint32_t srVertexPipe::getVertexCount() const
 {
     return vertex_count;
 }
 
 // FUNCTION: SURRENDER 0x1002C4E0 SYMBOL
 // RECOMP: ?isChannelAvailable@srVertexPipe@@QBEHW4e_channel@srVertexProcessor@@@Z
-inline int srVertexPipe::isChannelAvailable(srVertexProcessor::e_channel channel) const
+inline bool srVertexPipe::isChannelAvailable(srVertexProcessor::e_channel channel) const
 {
     return ((1u << channel) & channel_mask) != 0;
 }
@@ -231,7 +232,7 @@ inline std::span<const glm::vec3> srVertexPipe::getEyeSpaceNormal()
     return scratchChannel(scratch.normals, Scratch::READY_EYE_NORMALS, &srVertexPipe::setupEyeSpaceNormal);
 }
 
-inline glm::vec2* srVertexPipe::getST(w8_ulong index, int create)
+inline glm::vec2* srVertexPipe::getST(std::uint32_t index, std::int32_t create)
 {
     srCore.getStatisticsManager()->statistics.texture_coordinate_operations += vertex_count;
     if ((create == 0) &&

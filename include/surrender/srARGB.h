@@ -1,5 +1,7 @@
 #pragma once
 
+
+#include <cstdint>
 /* Four-byte packed color, stored B,G,R,A (the little-endian 0xAARRGGBB dword). e_index is the
    logical ARGB channel, not a memory offset. */
 class srARGB {
@@ -8,9 +10,9 @@ public:
 
     srARGB() {}
 
-    unsigned char blue;
-    unsigned char green;
-    unsigned char red;
-    unsigned char alpha;
+    std::uint8_t blue;
+    std::uint8_t green;
+    std::uint8_t red;
+    std::uint8_t alpha;
 };
 

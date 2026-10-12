@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <sstream>
 #include <string_view>
 #include <limits>
@@ -18,7 +19,7 @@
    `more`.  The terminator is not retained and CRLF is normalised by removing
    the CR after the loop. */
 // FUNCTION: WIZ8 0x004CEE40
-bool ReadTextLine(wiz8::File* handle, char* destination, int capacity, bool& more)
+bool ReadTextLine(wiz8::File* handle, char* destination, std::int32_t capacity, bool& more)
 try
 {
     more = 0;
@@ -26,7 +27,7 @@ try
     destination[0] = 0;
     if (capacity == 1) return 0;
     more = 1;
-    int length = 0;
+    std::int32_t length = 0;
     for (;;) {
         char character;
         if (handle->read(&character, sizeof(character)).eof) {
@@ -58,9 +59,9 @@ try {
     std::istringstream input(wiz8::open_file(path)->read_text());
     std::string text;
     stScript pending;
-    int source_line = 0;
+    std::int32_t source_line = 0;
     while (std::getline(input, text)) {
-        if (source_line == std::numeric_limits<int>::max()) return false;
+        if (source_line == std::numeric_limits<std::int32_t>::max()) return false;
         ++source_line;
         if (text.ends_with('\r'))
             text.pop_back();
@@ -73,9 +74,9 @@ try {
         if (token.ends_with(':')) {
             token.remove_suffix(1);
             if (FindLabelLine(token) == -1 && pending.FindLabelLine(token) == -1)
-                pending.labels.push_back({std::string(token), static_cast<int>(lines.size() + pending.lines.size())});
+                pending.labels.push_back({std::string(token), static_cast<std::int32_t>(lines.size() + pending.lines.size())});
         } else {
-            if (lines.size() + pending.lines.size() >= static_cast<std::size_t>(std::numeric_limits<int>::max())) return false;
+            if (lines.size() + pending.lines.size() >= static_cast<std::size_t>(std::numeric_limits<std::int32_t>::max())) return false;
             pending.lines.push_back({std::move(text), source_line});
         }
     }
@@ -89,7 +90,7 @@ try {
 }
 
 // FUNCTION: WIZ8 0x004CF730
-int stScript::FindLabelLine(std::string_view label) const
+std::int32_t stScript::FindLabelLine(std::string_view label) const
 {
     for (const auto& entry : labels)
         if (CompareTextIgnoreAsciiCase(entry.name, label) == 0)
@@ -98,7 +99,7 @@ int stScript::FindLabelLine(std::string_view label) const
 }
 
 // FUNCTION: WIZ8 0x004CF790
-int stScript::GetSourceLine(int line) const
+std::int32_t stScript::GetSourceLine(std::int32_t line) const
 {
     return line >= 0 && static_cast<std::size_t>(line) < lines.size() ? lines[line].source_line
                                                                       : -1;

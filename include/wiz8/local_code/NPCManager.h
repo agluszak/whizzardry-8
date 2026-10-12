@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <string_view>
 #pragma once
 
@@ -27,7 +28,7 @@ enum W8NpcDispositionBand {
     W8_NPC_BAND_HOSTILE = 2
 };
 
-void QueueNpcHeldItemNotice(int npc_kind);
+void QueueNpcHeldItemNotice(std::int32_t npc_kind);
 
 struct W8Chunk;
 class W8Monster;
@@ -72,28 +73,28 @@ enum W8NpcServiceFlag {
 
 W8Monster* GetNpcMonster(W8NpcState* npc);
 
-void ChooseNewGameStartLocation(int* level, int* entrance);
-int SelectNewGameStartLevel(void);
-void BindNpcToMonster(unsigned char value, bool enabled, int location_id);
+void ChooseNewGameStartLocation(std::int32_t* level, std::int32_t* entrance);
+std::int32_t SelectNewGameStartLevel(void);
+void BindNpcToMonster(std::uint8_t value, bool enabled, std::int32_t location_id);
 bool RecruitNpcIntoParty(W8NpcState* npc);
-int DismissNpcFromParty(int party_slot, int, bool skip_spawn, bool neutral);
+bool DismissNpcFromParty(std::int32_t party_slot, std::int32_t, bool skip_spawn, bool neutral);
 /* How many leading party slots are occupied. */
-unsigned char CountLeadingPartySlots(void);
+std::uint8_t CountLeadingPartySlots(void);
 bool NpcKnowsFact(W8NpcState* npc, W8FactId fact);
-unsigned char FindNpcOfKind(int kind);
+std::uint8_t FindNpcOfKind(std::int32_t kind);
 bool CanNpcJoinParty(W8NpcState* npc);
-bool CanPlaceNpcNearParty(int party_slot);
+bool CanPlaceNpcNearParty(std::int32_t party_slot);
 W8MonsterInfo* GetNpcMonsterInfo(W8NpcState* npc);
 W8NpcState* GetNpcStateForMonsterInfo(W8MonsterInfo* monster_info, bool allow_unavailable);
-void ResumeNpc(W8NpcState* npc, int enabled);
-void QueueNpcTravelRefusals(int destination_level);
-void MarkNpcOfKind(int kind);
+void ResumeNpc(W8NpcState* npc, std::int32_t enabled);
+void QueueNpcTravelRefusals(std::int32_t destination_level);
+void MarkNpcOfKind(std::int32_t kind);
 W8Character* GetNpcGroupCharacter(W8NpcState* npc);
 
 /* The NPC-side global frame operation: timed world events and the per-frame
    NPC state passes. */
 void UpdateNpcEvents(void);
-void AdvanceNpcTimers(unsigned int elapsed);
+void AdvanceNpcTimers(std::uint32_t elapsed);
 void ProcessNpcPendingEvents(void);
 
 /* Lazily create and then empty the shared NPC-state
@@ -102,7 +103,7 @@ void ResetNpcStates(void);
 void ReleaseNpcStates(void);
 /* Build one runtime state from its database record and return it,
    reusing the slot of a released node when one is free. */
-W8NpcState* CreateNpcRuntimeNode(int npc_id);
+W8NpcState* CreateNpcRuntimeNode(std::int32_t npc_id);
 
 /* The NPC-side consequence pass the sight code runs when a marked NPC's
    binding is released. */
@@ -117,50 +118,50 @@ void ClearPendingNpcLevelFlags(void);
 void ReleaseNpcMonsterBindings(void);
 void ReleaseMarkedNpcBindings(void);
 void RebindNpcLevelTriggers(void);
-W8NpcState* GetNpcState(int index);
-W8NpcState* GetNpcStateByKind(int kind);
+W8NpcState* GetNpcState(std::int32_t index);
+W8NpcState* GetNpcStateByKind(std::int32_t kind);
 /* Whether the NPC wants the offered item - it matches one of the
    record's wanted entries by id or by the shared 0x83 name kind, and a grouped
    NPC whose member already carries more than one declines. */
 bool NpcWantsItem(W8NpcState* npc, W8ItemInstance* item);
-bool NpcHasTopic(W8NpcState* npc, int topic);
+bool NpcHasTopic(W8NpcState* npc, std::int32_t topic);
 bool NpcLeadHasNameStyle(W8NpcId kind);
 /* Clear one NPC binding's monster link and hand the handle to the
    owned item-list teardown. */
-void ReleaseNpcBinding(int value);
+void ReleaseNpcBinding(std::int32_t value);
 /* The NPC binding selected by a monster-list index, or null. */
 W8NpcState* FindNpcBindingForMonster(W8MonsterInfo* monster_info);
-unsigned char GetNpcDispositionBand(W8NpcState* npc);
+std::uint8_t GetNpcDispositionBand(W8NpcState* npc);
 void SetNpcDispositionBand(W8NpcState* npc, char band);
 bool WillNpcTradeForItem(W8NpcState* npc, W8ItemInstance* item);
-void ApplyNpcInteraction(W8NpcState* npc, int kind, int value, W8ItemInstance* item,
-                         unsigned int gold);
+void ApplyNpcInteraction(W8NpcState* npc, std::int32_t kind, std::int32_t value, W8ItemInstance* item,
+                         std::uint32_t gold);
 /* Whether the NPC's database entry carries the value at 0x002. */
 bool NpcRecordHasTradePool(W8NpcState* npc);
 /* Push a topic onto the NPC's five-slot topic list. */
-void AddNpcTopic(W8NpcState* npc, int topic);
+void AddNpcTopic(W8NpcState* npc, std::int32_t topic);
 /* Resolve one pickpocket attempt; the taken item goes to
    item_out and the taken gold to gold_out. */
 W8NpcPickpocketResult AttemptNpcPickpocket(W8Character* character, W8NpcState* npc,
-                                           W8ItemInstance* item_out, unsigned int* gold_out);
+                                           W8ItemInstance* item_out, std::uint32_t* gold_out);
 /* Clear the npc's item_ids slots matching the item the quote
    entry just handed out. */
-void ClearNpcItemId(W8NpcState* npc, int item_id);
+void ClearNpcItemId(W8NpcState* npc, std::int32_t item_id);
 /* The live NPC state whose display (or fact-substituted) name
    matches case-insensitively; 0 when none does. */
 W8NpcState* FindNpcStateByName(std::string_view name);
 W8MonsterManagerEntry* GetNpcGroupEntry(W8NpcState* npc);
 std::string GetNpcDisplayName(W8NpcState* npc);
 void ReleaseNpcMonsterBinding(W8NpcState* npc, char level);
-void RestoreNamedNpcAtLevel(int kind, char level, std::string_view entity_name);
-bool ClearNpcScheduledItem(W8NpcState* npc, int item_id, W8ItemInstance* out);
-void ReleaseNpcMonsterByKind(int kind);
+void RestoreNamedNpcAtLevel(std::int32_t kind, char level, std::string_view entity_name);
+bool ClearNpcScheduledItem(W8NpcState* npc, std::int32_t item_id, W8ItemInstance* out);
+void ReleaseNpcMonsterByKind(std::int32_t kind);
 /* Record that the NPC has told the party the given fact. */
-void TellNpcFact(W8NpcState* npc, short fact);
+void TellNpcFact(W8NpcState* npc, std::int16_t fact);
 struct W8Chunk;
 bool SaveNpcStates(wiz8::File& file);
 void LoadNpcStates(wiz8::File& file);
-char AttemptNpcItemTheft(W8Character* character, W8NpcState* npc, int item_id, int count);
-void UpdateNpcPartyMember(int party_slot);
-bool QueueNpcDepartureEvents(int destination_level);
+char AttemptNpcItemTheft(W8Character* character, W8NpcState* npc, std::int32_t item_id, std::int32_t count);
+void UpdateNpcPartyMember(std::int32_t party_slot);
+bool QueueNpcDepartureEvents(std::int32_t destination_level);
 

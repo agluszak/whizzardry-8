@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <memory>
@@ -77,7 +78,7 @@ enum { W8_ITEM_BUNDLE_SIZE = 25 };
 /* One item's weight, or nothing at all when the caller has no item. Unlike the
    stack form below this ignores how many are held. */
 // FUNCTION: WIZ8 0x0051b8b0
-unsigned int GetItemUnitWeight(const W8ItemInstance* item)
+std::uint32_t GetItemUnitWeight(const W8ItemInstance* item)
 {
     if (item != 0) {
         return g_item_records[item->iItemNo].weight;
@@ -86,7 +87,7 @@ unsigned int GetItemUnitWeight(const W8ItemInstance* item)
 }
 
 // FUNCTION: WIZ8 0x0051b9e0
-int GetItemInHand(void)
+std::int32_t GetItemInHand(void)
 {
     if (!g_status.item_in_cursor) {
         return -1;
@@ -98,9 +99,9 @@ int GetItemInHand(void)
    an item that does not stack still weighs one of it - the count is zero for
    every quantity kind but the stacking one. */
 // FUNCTION: WIZ8 0x0051bfd0
-unsigned int GetItemStackWeight(const W8ItemInstance* item)
+std::uint32_t GetItemStackWeight(const W8ItemInstance* item)
 {
-    unsigned int weight;
+    std::uint32_t weight;
 
     weight = 0;
     if (item->iItemNo != -1) {
@@ -114,7 +115,7 @@ unsigned int GetItemStackWeight(const W8ItemInstance* item)
    across the count and round up; anything else that stacks multiplies, and
    everything else is worth exactly what one of it is worth. */
 // FUNCTION: WIZ8 0x0051b840
-unsigned int GetItemStackValue(const W8ItemInstance* item)
+std::uint32_t GetItemStackValue(const W8ItemInstance* item)
 {
     if (g_item_records[item->iItemNo].equip_class == W8_ITEM_EQUIP_CLASS_AMMUNITION) {
         return (item->stack_count * g_item_records[item->iItemNo].value +
@@ -133,7 +134,7 @@ unsigned int GetItemStackValue(const W8ItemInstance* item)
    the off-hand class move from the primary pair of hand slots to the alternate
    pair, which the character-creation screens do not fill. */
 // FUNCTION: WIZ8 0x0051c4e0
-W8EquipSlot GetItemDefaultEquipSlot(int item_id)
+W8EquipSlot GetItemDefaultEquipSlot(std::int32_t item_id)
 {
     switch (g_item_records[item_id].equip_class) {
     case W8_ITEM_EQUIP_CLASS_SHORT_WEAPON:
@@ -188,7 +189,7 @@ W8EquipSlot GetPairedEquipSlot(W8EquipSlot equip_slot)
 }
 
 /* Which slot each bit of an equip-slot mask stands for: bit N is slot N. */
-#define W8_EQUIP_SLOT_BIT(slot) ((unsigned short)(1 << (slot)))
+#define W8_EQUIP_SLOT_BIT(slot) ((std::uint16_t)(1 << (slot)))
 
 /* No weapon skill at all, which GetItemEquipSlotMask treats as a data error. */
 enum { W8_WEAPON_SKILL_NONE = -1 };
@@ -197,7 +198,7 @@ enum { W8_WEAPON_SKILL_NONE = -1 };
    was used on, read at every other entry. The last six ids, from
    W8_ITEM_PROPERTY_MESSAGE_FIRST, are the item property labels. */
 // GLOBAL: WIZ8 0x0061e956
-unsigned short g_item_use_messages[25] = {
+std::uint16_t g_item_use_messages[25] = {
     0x4f6, 0x4f7, 0x4f8, 0x4f9, 0x4fa, 0x4fb, 0x4fc, 0x4fd, 0x4fe, 0x4ff, 0x500, 0x501, 0x502,
     0x503, 0x504, 0x505, 0x506, 0x507, 0x508, 0x509, 0x50a, 0x50b, 0x50c, 0x50d, 0x50e,
 };
@@ -212,11 +213,11 @@ W8Skill g_item_spell_presentation[11] = {
 /* The twelve slots' paper-doll icons: the two alternate-set hand slots have
    none, which is the value the bound-item predicates refuse a binding behind. */
 // GLOBAL: WIZ8 0x00648c5c
-int g_equip_slot_icons[12] = {0, 0, 0, 0, 0, 0, 0, 0, -1, -1, 0, 0};
+std::int32_t g_equip_slot_icons[12] = {0, 0, 0, 0, 0, 0, 0, 0, -1, -1, 0, 0};
 /* The notice each generic name index formats from. */
 // GLOBAL: WIZ8 0x0061E810
 // offset alias of the tail of g_equip_class_name_ids; shared retail
-unsigned short g_generic_item_name_notice[W8_GENERIC_ITEM_NAME_COUNT] = {
+std::uint16_t g_generic_item_name_notice[W8_GENERIC_ITEM_NAME_COUNT] = {
     0x45a, 0x45b, 0x45c, 0x45d, 0x45e, 0x45f, 0x460, 0x461, 0x462, 0x463, 0x464, 0x465, 0x466,
     0x467, 0x468, 0x469, 0x46a, 0x46b, 0x46c, 0x46d, 0x46e, 0x46f, 0x470, 0x471, 0x472, 0x473,
     0x474, 0x475, 0x476, 0x477, 0x478, 0x479, 0x47a, 0x47b, 0x47c, 0x47d, 0x47e, 0x47f, 0x480,
@@ -403,12 +404,12 @@ static const std::array<std::string_view, 145> g_item_video_object_fallback_name
                                                              "rocketlauncher.sti"};
 
 // FUNCTION: WIZ8 0x0055ce80
-const SpriteSheet& W8ItemVideoObjectCache::Sprites(int item_id)
+const SpriteSheet& W8ItemVideoObjectCache::Sprites(std::int32_t item_id)
 {
     return *SharedSprites(item_id);
 }
 
-std::shared_ptr<const SpriteSheet> W8ItemVideoObjectCache::SharedSprites(int item_id)
+std::shared_ptr<const SpriteSheet> W8ItemVideoObjectCache::SharedSprites(std::int32_t item_id)
 {
     auto& image = images_.at(item_id);
     if (!image) {
@@ -427,7 +428,7 @@ std::shared_ptr<const SpriteSheet> W8ItemVideoObjectCache::SharedSprites(int ite
 }
 
 // GLOBAL: WIZ8 0x00652da6
-unsigned char g_party_has_slope_override_item;
+std::uint8_t g_party_has_slope_override_item;
 
 /* Build the stable display form used by notices and inventory controls.  The
    generic unidentified names are allocated once, while this returned buffer
@@ -436,7 +437,7 @@ unsigned char g_party_has_slope_override_item;
 std::string FormatItemDisplayName(const W8ItemInstance* item, bool include_quantity)
 {
     std::string name;
-    unsigned int name_index;
+    std::uint32_t name_index;
 
     if (item->identified) {
         name = g_item_records[item->iItemNo].display_name;
@@ -451,7 +452,7 @@ std::string FormatItemDisplayName(const W8ItemInstance* item, bool include_quant
     }
 
     if (include_quantity && item->stack_count > 1) {
-        return fmt::format("{} ({:d})", name, static_cast<unsigned int>(item->stack_count));
+        return fmt::format("{} ({:d})", name, static_cast<std::uint32_t>(item->stack_count));
     } else {
         return fmt::format("{}", name);
     }
@@ -461,7 +462,7 @@ std::string FormatItemDisplayName(const W8ItemInstance* item, bool include_quant
    item - which is indistinguishable from the first real class, so callers
    test the item themselves. */
 // FUNCTION: WIZ8 0x0051b8e0
-unsigned char GetItemEquipClass(const W8ItemInstance* item)
+std::uint8_t GetItemEquipClass(const W8ItemInstance* item)
 {
     if (item != 0) {
         return g_item_records[item->iItemNo].equip_class;
@@ -471,7 +472,7 @@ unsigned char GetItemEquipClass(const W8ItemInstance* item)
 
 /* Which generic name this item wears while unidentified. */
 // FUNCTION: WIZ8 0x0051b910
-unsigned short GetItemUnidentifiedNameIndex(const W8ItemInstance* item)
+std::uint16_t GetItemUnidentifiedNameIndex(const W8ItemInstance* item)
 {
     if (item != 0) {
         return g_item_records[item->iItemNo].unidentified_name_index;
@@ -521,11 +522,11 @@ bool IsItemBoundToWearer(const W8ItemInstance* item)
    the main hand of that set is not already holding something two-handed.
    Everything else has exactly one home. */
 // FUNCTION: WIZ8 0x0051cf80
-unsigned short GetItemEquipSlotMask(int item_id, bool primary_off_hand_free,
+std::uint16_t GetItemEquipSlotMask(std::int32_t item_id, bool primary_off_hand_free,
                                     bool alternate_off_hand_free, bool primary_main_hand_free,
                                     bool alternate_main_hand_free)
 {
-    unsigned short slots = 0;
+    std::uint16_t slots = 0;
 
     switch (g_item_records[item_id].equip_class) {
     case W8_ITEM_EQUIP_CLASS_SHORT_WEAPON:
@@ -591,7 +592,7 @@ unsigned short GetItemEquipSlotMask(int item_id, bool primary_off_hand_free,
    a main hand also counts when whatever it holds is not two-handed. Asking to
    ignore what is worn answers for an empty character instead. */
 // FUNCTION: WIZ8 0x0051cea0
-bool CanEquipItemInSlot(W8Character* character, int item_id, unsigned char equip_slot,
+bool CanEquipItemInSlot(W8Character* character, std::int32_t item_id, std::uint8_t equip_slot,
                         bool ignore_worn_items)
 {
     bool primary_off_hand_free;
@@ -626,15 +627,15 @@ bool CanEquipItemInSlot(W8Character* character, int item_id, unsigned char equip
 /* The name-index pairs that may be held together; a zero first entry ends
    the run. */
 // GLOBAL: WIZ8 0x00616e6c
-static short g_compatible_partner_pairs[6][2] = {
+static std::int16_t g_compatible_partner_pairs[6][2] = {
     {114, 113}, {110, 132}, {104, 132}, {144, 143}, {145, 146}, {0, 0},
 };
 
 // FUNCTION: WIZ8 0x0051E980
-bool GetItemMergeKind(int item_id, short* related_kind)
+bool GetItemMergeKind(std::int32_t item_id, std::int16_t* related_kind)
 {
     if (related_kind && item_id != -1) {
-        for (int index = 0; g_compatible_partner_pairs[index][0] != 0; ++index) {
+        for (std::int32_t index = 0; g_compatible_partner_pairs[index][0] != 0; ++index) {
             if (g_compatible_partner_pairs[index][0] ==
                 g_item_records[item_id].unidentified_name_index) {
                 *related_kind = g_compatible_partner_pairs[index][1];
@@ -651,21 +652,21 @@ bool GetItemMergeKind(int item_id, short* related_kind)
    ranged items carry their own accepted classes. Anything not named is
    refused. */
 // FUNCTION: WIZ8 0x0051c8f0
-bool CompatiblePartnerItems(int ranged_item_id, int other_item_id)
+bool CompatiblePartnerItems(std::int32_t ranged_item_id, std::int32_t other_item_id)
 {
-    if (static_cast<unsigned int>(ranged_item_id) >= gXStatus.uiItemsInDatabase) {
+    if (static_cast<std::uint32_t>(ranged_item_id) >= gXStatus.uiItemsInDatabase) {
         srAssertFail("uiRangedItem < gXStatus.uiItemsInDatabase", PC_ITEM_CPP, 0x3fd,
                      fmt::format("CompatiblePartnerItems: ERROR - Illegal RANGED item index {:d}",
                                  ranged_item_id));
     }
-    if (static_cast<unsigned int>(other_item_id) >= gXStatus.uiItemsInDatabase) {
+    if (static_cast<std::uint32_t>(other_item_id) >= gXStatus.uiItemsInDatabase) {
         srAssertFail("uiOtherItem < gXStatus.uiItemsInDatabase", PC_ITEM_CPP, 0x3fe,
                      fmt::format("CompatiblePartnerItems: ERROR - Illegal OTHER item index {:d}",
                                  other_item_id));
     }
 
-    short ranged_name = static_cast<short>(g_item_records[ranged_item_id].unidentified_name_index);
-    short other_name = static_cast<short>(g_item_records[other_item_id].unidentified_name_index);
+    std::int16_t ranged_name = static_cast<std::int16_t>(g_item_records[ranged_item_id].unidentified_name_index);
+    std::int16_t other_name = static_cast<std::int16_t>(g_item_records[other_item_id].unidentified_name_index);
 
     switch (ranged_name) {
     case 0xb:
@@ -691,8 +692,8 @@ bool CompatiblePartnerItems(int ranged_item_id, int other_item_id)
             g_item_records[ranged_item_id].range_category ==
                 g_item_records[other_item_id].range_category) {
             if (ranged_item_id != -1 && g_compatible_partner_pairs[0][0] != 0) {
-                int index = 0;
-                short name = g_compatible_partner_pairs[0][0];
+                std::int32_t index = 0;
+                std::int16_t name = g_compatible_partner_pairs[0][0];
 
                 while (name != ranged_name) {
                     ++index;
@@ -757,7 +758,7 @@ bool CompatiblePartnerItems(int ranged_item_id, int other_item_id)
    passed. Two things that are not both weapons always agree, and two weapons
    have to belong to the same wield group. */
 // FUNCTION: WIZ8 0x0051cc40
-static bool CanHoldItemsTogether(int first_item_id, int second_item_id)
+static bool CanHoldItemsTogether(std::int32_t first_item_id, std::int32_t second_item_id)
 {
     if (first_item_id == -1 || second_item_id == -1) {
         return true;
@@ -785,11 +786,11 @@ static bool CanHoldItemsTogether(int first_item_id, int second_item_id)
 }
 
 // FUNCTION: WIZ8 0x0051CDE0
-bool HeldItemFitsPairedSlot(int party_slot, W8EquipSlot equip_slot)
+bool HeldItemFitsPairedSlot(std::int32_t party_slot, W8EquipSlot equip_slot)
 {
     if (party_slot == -1)
         srAssertFail("iChar != -1", PC_ITEM_CPP, 0x4e0, 0);
-    if (static_cast<unsigned int>(equip_slot) >= W8_EQUIP_SLOT_COUNT)
+    if (static_cast<std::uint32_t>(equip_slot) >= W8_EQUIP_SLOT_COUNT)
         srAssertFail("uiSlot < SLOT_COUNT", PC_ITEM_CPP, 0x4e1, 0);
 
     W8EquipSlot paired_slot;
@@ -831,10 +832,10 @@ enum { W8_CASTER_PROFESSION_INDEX_8 = 8, W8_CASTER_PROFESSION_INDEX_9 = 9 };
    identifying the corresponding localized attribute or skill name. */
 static bool FindUnmetItemRequirement(const W8Character* character,
                                      const W8ItemDatabaseRecord* record,
-                                     unsigned short* message_id)
+                                     std::uint16_t* message_id)
 {
-    for (unsigned int index = 0; index < 2; ++index) {
-        const int stat = static_cast<signed char>(record->attribute_requirements[index].stat_id);
+    for (std::uint32_t index = 0; index < 2; ++index) {
+        const std::int32_t stat = static_cast<std::int8_t>(record->attribute_requirements[index].stat_id);
         if (record->attribute_requirements[index].stat_id != W8_ITEM_REQUIREMENT_NONE &&
             character->attributes[stat].effective < record->attribute_requirements[index].minimum) {
             if (message_id)
@@ -842,8 +843,8 @@ static bool FindUnmetItemRequirement(const W8Character* character,
             return true;
         }
     }
-    for (unsigned int index = 0; index < 2; ++index) {
-        const int stat = static_cast<signed char>(record->skill_requirements[index].stat_id);
+    for (std::uint32_t index = 0; index < 2; ++index) {
+        const std::int32_t stat = static_cast<std::int8_t>(record->skill_requirements[index].stat_id);
         if (record->skill_requirements[index].stat_id != W8_ITEM_REQUIREMENT_NONE &&
             character->skills[stat].level < record->skill_requirements[index].minimum) {
             if (message_id)
@@ -859,11 +860,11 @@ static bool FindUnmetItemRequirement(const W8Character* character,
    met, and a spell-bearing item additionally has to be one they have not
    already learned or are strong enough to trigger. */
 // FUNCTION: WIZ8 0x0051d610
-bool CanCharacterUseItem(const W8Character* character, int item_id)
+bool CanCharacterUseItem(const W8Character* character, std::int32_t item_id)
 {
     const W8ItemDatabaseRecord* record = &g_item_records[item_id];
-    unsigned int spell_id;
-    unsigned int minimum_caster_level;
+    std::uint32_t spell_id;
+    std::uint32_t minimum_caster_level;
 
     if ((record->profession_mask & (W8_PROFESSION_LORD << character->iProfession)) == 0) {
         return false;
@@ -894,9 +895,9 @@ bool CanCharacterUseItem(const W8Character* character, int item_id)
             srAssertFail("uiSpell != SPELL_NONE", PC_ITEM_CPP, 1844, 0);
         }
         minimum_caster_level = GetMinimumCasterLevelForSpell(spell_id);
-        const int profession = record->category == W8_ITEM_CATEGORY_CASTER_ITEM_6
+        const std::int32_t profession = record->category == W8_ITEM_CATEGORY_CASTER_ITEM_6
                                    ? W8_CASTER_PROFESSION_INDEX_9 : W8_CASTER_PROFESSION_INDEX_8;
-        if (static_cast<unsigned int>(character->profession_levels[profession]) <
+        if (static_cast<std::uint32_t>(character->profession_levels[profession]) <
             minimum_caster_level) {
             return false;
         }
@@ -907,9 +908,9 @@ bool CanCharacterUseItem(const W8Character* character, int item_id)
 /* Whether anybody in the party could use this item. Only occupied slots with a
    character who is conscious enough to act are asked. */
 // FUNCTION: WIZ8 0x0051d7a0
-bool AnyPartyMemberCanUseItem(int item_id)
+bool AnyPartyMemberCanUseItem(std::int32_t item_id)
 {
-    int slot;
+    std::int32_t slot;
 
     for (slot = 0; slot < 8; ++slot) {
         if (CanPartySlotParticipate(slot)) {
@@ -941,7 +942,7 @@ bool CanCharacterActivateItem(W8Character* character, const W8ItemInstance* item
     if (item->iItemNo < -1) {
         srAssertFail("pPCItem->iItemNo >= -1", PC_ITEM_CPP, 0x76b, 0);
     }
-    if (item->iItemNo >= static_cast<int>(gXStatus.uiItemsInDatabase)) {
+    if (item->iItemNo >= static_cast<std::int32_t>(gXStatus.uiItemsInDatabase)) {
         // c-style-cast-ok: verbatim retail assert string
         srAssertFail("pPCItem->iItemNo < (INT32) gXStatus.uiItemsInDatabase", PC_ITEM_CPP, 0x76c,
                      0);
@@ -986,7 +987,7 @@ bool AreAllHandSlotsEmpty(const W8Character* character)
 /* Which of four groups an item's home slot belongs to. The four hand slots
    share one group and the rest split two ways. */
 // FUNCTION: WIZ8 0x0051c850
-W8ItemEquipSlotGroup GetItemEquipSlotGroup(int item_id)
+W8ItemEquipSlotGroup GetItemEquipSlotGroup(std::int32_t item_id)
 {
     switch (GetItemDefaultEquipSlot(item_id)) {
     case W8_EQUIP_SLOT_PRIMARY_WEAPON:
@@ -1016,7 +1017,7 @@ W8ItemEquipSlotGroup GetItemEquipSlotGroup(int item_id)
 // FUNCTION: WIZ8 0x0051b7b0
 std::string GetItemDisplayName(const W8ItemInstance* item)
 {
-    unsigned int name_index;
+    std::uint32_t name_index;
     std::string built;
 
     if (item->identified) {
@@ -1034,7 +1035,7 @@ std::string GetItemDisplayName(const W8ItemInstance* item)
 
 /* Whether an item's generic name is one of five the callers single out. */
 // FUNCTION: WIZ8 0x0051cce0
-bool ItemHasSingledOutGenericName(int item_id)
+bool ItemHasSingledOutGenericName(std::int32_t item_id)
 {
     if (item_id != -1) {
         switch (g_item_records[item_id].unidentified_name_index) {
@@ -1051,7 +1052,7 @@ bool ItemHasSingledOutGenericName(int item_id)
 
 /* Whether the item counts its quantity in shots. */
 // FUNCTION: WIZ8 0x0051cdb0
-bool ItemUsesShots(int item_id)
+bool ItemUsesShots(std::int32_t item_id)
 {
     if (item_id == -1) {
         return false;
@@ -1086,17 +1087,17 @@ W8Skill GetItemSpellPresentation(const W8ItemDatabaseRecord* record)
 #pragma clang diagnostic ignored                                                                   \
     "-Wuninitialized" // uninit-ok: retail returns the unset used byte on rejected/spent-item paths; callers observe that indeterminate result.
 // FUNCTION: WIZ8 0x0051dde0
-unsigned char UseItem(W8Character* character, W8ItemInstance* item, int* out_uses)
+std::uint8_t UseItem(W8Character* character, W8ItemInstance* item, std::int32_t* out_uses)
 {
     const W8ItemDatabaseRecord* record = &g_item_records[item->iItemNo];
-    unsigned int party_slot = CharacterPointerToPartySlot(character);
-    unsigned int power;
-    unsigned int chance;
+    std::uint32_t party_slot = CharacterPointerToPartySlot(character);
+    std::uint32_t power;
+    std::uint32_t chance;
     W8Skill skill;
-    int event_type;
-    int fatigue_cost = -1;
+    std::int32_t event_type;
+    std::int32_t fatigue_cost = -1;
     W8TargetSource target;
-    unsigned char used;
+    std::uint8_t used;
 
     if (!CanCharacterUseItem(character, item->iItemNo)) {
         PostCharacterNotice(party_slot,
@@ -1313,9 +1314,9 @@ bool MergeItems(W8Character* character, W8ItemInstance* destination)
     W8ItemInstance created;
     const W8ItemDatabaseRecord* recipe;
     W8ItemInstance* result_destination;
-    unsigned int result_item_id;
-    unsigned int index;
-    unsigned char quantity;
+    std::uint32_t result_item_id;
+    std::uint32_t index;
+    std::uint8_t quantity;
     bool found = false;
     bool merged = false;
     bool partially_merged = false;
@@ -1452,7 +1453,7 @@ bool AddItemToCharacter(W8Character* character, W8ItemInstance* item, bool equip
                         bool announce, bool skip_stacking)
 {
     W8ItemInstance* stored_item = 0;
-    unsigned int stored_index = 0;
+    std::uint32_t stored_index = 0;
 
     if (equip_if_possible && CanCharacterUseItem(character, item->iItemNo)) {
         W8EquipSlot equip_slot = ChooseCharacterEquipSlot(character, item->iItemNo);
@@ -1478,7 +1479,7 @@ bool AddItemToCharacter(W8Character* character, W8ItemInstance* item, bool equip
 
     std::string display_name = FormatItemDisplayName(item, true);
     if (g_item_records[item->iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK && !skip_stacking) {
-        unsigned int index;
+        std::uint32_t index;
         for (index = 0; index < 12; ++index) {
             if (MergeItemStacks(&character->EquippedItem[index], item, 0)) {
                 stored_item = &character->EquippedItem[index];
@@ -1529,7 +1530,7 @@ bool AddItemToCharacter(W8Character* character, W8ItemInstance* item, bool equip
 /* Take gold from the party. Asking for more than it has empties the purse
    rather than wrapping it around. */
 // FUNCTION: WIZ8 0x0051bf40
-void SpendPartyGold(unsigned int amount)
+void SpendPartyGold(std::uint32_t amount)
 {
     if (amount > g_status.party_gold) {
         g_status.party_gold = 0;
@@ -1541,17 +1542,17 @@ void SpendPartyGold(unsigned int amount)
 /* Resolve a recorded (origin, slot) pair back to the item instance it names:
    the carrier's backpack, their worn equipment or the shared party pool. */
 // FUNCTION: WIZ8 0x00522180
-W8ItemInstance* FindCharacterItemAt(int party_slot, unsigned char origin, unsigned short slot)
+W8ItemInstance* FindCharacterItemAt(std::int32_t party_slot, std::uint8_t origin, std::uint16_t slot)
 {
     W8Character* character = &g_status.buffers.Char[party_slot];
 
-    if (static_cast<signed char>(origin) < 0) {
+    if (static_cast<std::int8_t>(origin) < 0) {
         srAssertFail("bSlotType >= 0", PC_ITEM_CPP, 0x14fd, 0);
     }
     if (origin >= W8_ITEM_ORIGIN_COUNT) {
         srAssertFail("bSlotType < SLOT_TYPE_COUNT", PC_ITEM_CPP, 0x14fe, 0);
     }
-    if (static_cast<short>(slot) < 0) {
+    if (static_cast<std::int16_t>(slot) < 0) {
         srAssertFail("sSlotIndex >= 0", PC_ITEM_CPP, 0x1500, 0);
     }
 
@@ -1576,12 +1577,12 @@ W8ItemInstance* FindCharacterItemAt(int party_slot, unsigned char origin, unsign
 }
 
 // FUNCTION: WIZ8 0x005222d0
-void GetOriginOfCharacterItem(int character_index, W8ItemInstance* item, unsigned char* origin,
-                              unsigned short* slot)
+void GetOriginOfCharacterItem(std::int32_t character_index, W8ItemInstance* item, std::uint8_t* origin,
+                              std::uint16_t* slot)
 {
-    unsigned int backpack_index;
-    unsigned int equipped_index;
-    unsigned int pool_index;
+    std::uint32_t backpack_index;
+    std::uint32_t equipped_index;
+    std::uint32_t pool_index;
     W8Character* character;
     W8ItemInstance* cursor;
 
@@ -1594,7 +1595,7 @@ void GetOriginOfCharacterItem(int character_index, W8ItemInstance* item, unsigne
     for (backpack_index = 0; backpack_index < 8; ++backpack_index) {
         if (item == &character->backpack[backpack_index]) {
             *origin = W8_ITEM_ORIGIN_BACKPACK;
-            *slot = static_cast<unsigned short>(backpack_index);
+            *slot = static_cast<std::uint16_t>(backpack_index);
             return;
         }
     }
@@ -1604,7 +1605,7 @@ void GetOriginOfCharacterItem(int character_index, W8ItemInstance* item, unsigne
     for (; equipped_index < 12; ++equipped_index, ++cursor) {
         if (item == cursor) {
             *origin = W8_ITEM_ORIGIN_EQUIPPED;
-            *slot = static_cast<unsigned short>(equipped_index);
+            *slot = static_cast<std::uint16_t>(equipped_index);
             return;
         }
     }
@@ -1612,7 +1613,7 @@ void GetOriginOfCharacterItem(int character_index, W8ItemInstance* item, unsigne
     for (pool_index = 0; pool_index < g_status.party_item_count; ++pool_index) {
         if (item == &g_status.party_item_pool[pool_index]) {
             *origin = W8_ITEM_ORIGIN_PARTY_POOL;
-            *slot = static_cast<unsigned short>(pool_index);
+            *slot = static_cast<std::uint16_t>(pool_index);
             return;
         }
     }
@@ -1654,9 +1655,9 @@ static void DropUnstoredCharacterItem(W8ItemInstance* item)
 // FUNCTION: WIZ8 0x005223a0
 void StashDepartingCharacterItems(W8Character* character)
 {
-    int item_id;
+    std::int32_t item_id;
 
-    for (int equip_slot = 0; equip_slot < W8_EQUIP_SLOT_COUNT; ++equip_slot) {
+    for (std::int32_t equip_slot = 0; equip_slot < W8_EQUIP_SLOT_COUNT; ++equip_slot) {
         W8ItemInstance* item = &character->EquippedItem[equip_slot];
         item_id = item->iItemNo;
         if (item_id != -1 &&
@@ -1670,7 +1671,7 @@ void StashDepartingCharacterItems(W8Character* character)
         }
     }
 
-    for (int slot = 0; slot < 8; ++slot) {
+    for (std::int32_t slot = 0; slot < 8; ++slot) {
         W8ItemInstance* item = &character->backpack[slot];
         item_id = character->EquippedItem[slot].iItemNo;
         if (item_id != -1 && !AddItemToParty(item, false, false)) {
@@ -1706,7 +1707,7 @@ void ReleaseGenericItemNames(void)
    doubles as the result, so a failed party-first attempt still reports
    success. */
 // FUNCTION: WIZ8 0x0051ba00
-bool GiveHeldItemToCharacterOrParty(int uiChar, bool party_first)
+bool GiveHeldItemToCharacterOrParty(std::int32_t uiChar, bool party_first)
 {
     W8ItemInstance* item = &g_status.item_in_hand;
     bool stored = party_first;
@@ -1756,7 +1757,7 @@ bool GiveHeldItemToCharacterOrParty(int uiChar, bool party_first)
    item is stored: the item in hand clears the cursor state instead, and a party
    pool entry that was already empty is shifted out of the packed array. */
 // FUNCTION: WIZ8 0x0051bc00
-bool GiveItemToCharacterOrParty(int uiChar, W8ItemInstance* item, bool party_first)
+bool GiveItemToCharacterOrParty(std::int32_t uiChar, W8ItemInstance* item, bool party_first)
 {
     bool stored;
 
@@ -1790,7 +1791,7 @@ bool GiveItemToCharacterOrParty(int uiChar, W8ItemInstance* item, bool party_fir
 /* Drop whatever is in hand, unless it is one of the items that may not be
    discarded - in which case say so instead. */
 // FUNCTION: WIZ8 0x0051be50
-bool DropItemInHand(int unused)
+bool DropItemInHand(std::int32_t unused)
 {
     if ((g_item_records[g_status.item_in_hand.iItemNo].flags & W8_ITEM_FLAG_NO_DISCARD) != 0) {
         ShowNoticeLine(g_localized_strings[0x4ef], 0, true, false);
@@ -1803,7 +1804,7 @@ bool DropItemInHand(int unused)
 /* Conjure one item and put it either straight into the party pool or into the
    hand, depending on where the last one was taken from. */
 // FUNCTION: WIZ8 0x0051bf60
-void CreateItemIntoHandOrPool(int item_id, bool quality)
+void CreateItemIntoHandOrPool(std::int32_t item_id, bool quality)
 {
     W8ItemInstance created;
 
@@ -1823,10 +1824,10 @@ void CreateItemIntoHandOrPool(int item_id, bool quality)
    right now - the twelve worn and the eight carried, walked as two runs
    rather than one. */
 // FUNCTION: WIZ8 0x0051f870
-int CountUsableCharacterItems(W8Character* character)
+std::int32_t CountUsableCharacterItems(W8Character* character)
 {
-    int count = 0;
-    int index;
+    std::int32_t count = 0;
+    std::int32_t index;
 
     for (index = 0; index < 12; ++index) {
         if (CanCharacterActivateItem(character, &character->EquippedItem[index])) {
@@ -1847,7 +1848,7 @@ int CountUsableCharacterItems(W8Character* character)
 // FUNCTION: WIZ8 0x005207c0
 bool ItemClassNormalizesTarget(const W8ItemDatabaseRecord* record)
 {
-    unsigned char equip_class = record->equip_class;
+    std::uint8_t equip_class = record->equip_class;
 
     if (equip_class != W8_ITEM_EQUIP_CLASS_POTION &&
         (equip_class < W8_ITEM_EQUIP_CLASS_FOOD || equip_class > W8_ITEM_EQUIP_CLASS_DRINK)) {
@@ -1862,7 +1863,7 @@ bool ItemClassNormalizesTarget(const W8ItemDatabaseRecord* record)
 // FUNCTION: WIZ8 0x00520f20
 bool IsItemWornByCharacter(W8Character* character, const W8ItemInstance* item)
 {
-    unsigned int slot;
+    std::uint32_t slot;
 
     if (character == 0) {
         return false;
@@ -1880,7 +1881,7 @@ bool IsItemWornByCharacter(W8Character* character, const W8ItemInstance* item)
 // FUNCTION: WIZ8 0x00520f60
 bool IsItemCarriedByCharacter(W8Character* character, const W8ItemInstance* item)
 {
-    unsigned int slot;
+    std::uint32_t slot;
 
     if (character == 0) {
         return false;
@@ -1897,7 +1898,7 @@ bool IsItemCarriedByCharacter(W8Character* character, const W8ItemInstance* item
    tally is open, and announcing it plays the coin sound - copied to the stack
    first because the sound call takes a writable path. */
 // FUNCTION: WIZ8 0x0051bea0
-void AddPartyGold(int amount, bool announce)
+void AddPartyGold(std::int32_t amount, bool announce)
 {
     std::string sound_path;
 
@@ -1921,10 +1922,10 @@ void AddPartyGold(int amount, bool announce)
    pool slot first removes that slot from the pool; the new instance then gets
    its rolled (or maximum) quantity and the record's identification policy. */
 // FUNCTION: WIZ8 0x0051c020
-void ReplaceOrCreateItem(W8ItemInstance* item, int item_id, bool maximum_quantity,
+void ReplaceOrCreateItem(W8ItemInstance* item, std::int32_t item_id, bool maximum_quantity,
                          bool force_identified, bool mark_special)
 {
-    if (static_cast<unsigned int>(item_id) >= gXStatus.uiItemsInDatabase) {
+    if (static_cast<std::uint32_t>(item_id) >= gXStatus.uiItemsInDatabase) {
         srAssertFail("uiItemNo < gXStatus.uiItemsInDatabase", PC_ITEM_CPP, 564,
                      fmt::format("InitNewItem: error, invalid item # {:d} specified", item_id));
     }
@@ -1934,13 +1935,13 @@ void ReplaceOrCreateItem(W8ItemInstance* item, int item_id, bool maximum_quantit
     item->iItemNo = item_id;
     const W8ItemDatabaseRecord* record = &g_item_records[item_id];
     if (record->quantity_kind != W8_ITEM_QUANTITY_NONE) {
-        int maximum = record->initial_quantity.Maximum();
+        std::int32_t maximum = record->initial_quantity.Maximum();
         if (maximum >= 256) {
             srAssertFail("uiMAX_DICE(pMulti) < 256", PC_ITEM_CPP, 578, 0);
         }
-        unsigned char quantity =
-            maximum_quantity ? static_cast<unsigned char>(maximum)
-                             : static_cast<unsigned char>(RollDice(&record->initial_quantity));
+        std::uint8_t quantity =
+            maximum_quantity ? static_cast<std::uint8_t>(maximum)
+                             : static_cast<std::uint8_t>(RollDice(&record->initial_quantity));
         if (record->quantity_kind == W8_ITEM_QUANTITY_STACK) {
             item->stack_count = quantity;
         } else if (record->quantity_kind >= W8_ITEM_QUANTITY_CHARGES &&
@@ -1985,7 +1986,7 @@ void BindEquippedItem(W8Character* character, W8EquipSlot equip_slot)
 /* The spell an item carries, with both bounds on the item id asserted - the
    second names the database count as gXStatus.uiItemsInDatabase. */
 // FUNCTION: WIZ8 0x00520880
-int GetItemSpell(const W8ItemInstance* item)
+std::int32_t GetItemSpell(const W8ItemInstance* item)
 {
     if (item == 0) {
         return 0;
@@ -1993,7 +1994,7 @@ int GetItemSpell(const W8ItemInstance* item)
     if (item->iItemNo == -1) {
         srAssertFail("pPCItem->iItemNo != -1", PC_ITEM_CPP, 4003, 0);
     }
-    if (item->iItemNo >= static_cast<int>(gXStatus.uiItemsInDatabase)) {
+    if (item->iItemNo >= static_cast<std::int32_t>(gXStatus.uiItemsInDatabase)) {
         srAssertFail("pPCItem->iItemNo < (INT32) gXStatus.uiItemsInDatabase", PC_ITEM_CPP, 4004, 0);
     }
     return g_item_records[item->iItemNo].spell_id;
@@ -2003,10 +2004,10 @@ int GetItemSpell(const W8ItemInstance* item)
    tries, but only the first attempt's answer is reported - the rest still
    happen for whatever they do to the item. */
 // FUNCTION: WIZ8 0x005209f0
-bool PartyAttemptsToIdentifyItem(W8ItemInstance* item, int)
+bool PartyAttemptsToIdentifyItem(W8ItemInstance* item, std::int32_t)
 {
     bool result = false;
-    int party_slot;
+    std::int32_t party_slot;
 
     if (item->identified) {
         return false;
@@ -2029,9 +2030,9 @@ bool PartyAttemptsToIdentifyItem(W8ItemInstance* item, int)
    the attempter's percentage, has to reach the item's difficulty; clearing it
    reveals everything about the item at once. */
 // FUNCTION: WIZ8 0x00520b40
-void ApplyIdentifyAttempt(W8ItemInstance* item, unsigned int strength, unsigned int percent)
+void ApplyIdentifyAttempt(W8ItemInstance* item, std::uint32_t strength, std::uint32_t percent)
 {
-    unsigned int score = strength * 3;
+    std::uint32_t score = strength * 3;
 
     AdjustIntegerByPercent(&score, percent);
     if (g_item_records[item->iItemNo].identify_difficulty <= score) {
@@ -2049,11 +2050,11 @@ void ApplyIdentifyAttempt(W8ItemInstance* item, unsigned int strength, unsigned 
    difficulty. Counted downwards from the ceiling division, so the answer is
    the smallest count that still clears it. */
 // FUNCTION: WIZ8 0x00520a70
-unsigned int CountIdentifyAttemptsNeeded(W8ItemInstance* item, unsigned int percent)
+std::uint32_t CountIdentifyAttemptsNeeded(W8ItemInstance* item, std::uint32_t percent)
 {
-    unsigned int attempts;
-    unsigned int candidate;
-    unsigned int score;
+    std::uint32_t attempts;
+    std::uint32_t candidate;
+    std::uint32_t score;
 
     if (item == 0) {
         srAssertFail("pPCItem", PC_ITEM_CPP, 4113, 0);
@@ -2083,13 +2084,13 @@ unsigned int CountIdentifyAttemptsNeeded(W8ItemInstance* item, unsigned int perc
    reaches. Nothing bound at all answers zero; some still hidden answers one
    and all revealed answers two. */
 // FUNCTION: WIZ8 0x00520bc0
-int RevealCharacterItemBindings(unsigned int party_slot, int strength, unsigned int percent)
+std::int32_t RevealCharacterItemBindings(std::uint32_t party_slot, std::int32_t strength, std::uint32_t percent)
 {
     W8Character* character = &g_status.buffers.Char[party_slot];
-    unsigned int score = strength * 3;
-    int revealed = 0;
-    int still_hidden = 0;
-    int slot;
+    std::uint32_t score = strength * 3;
+    std::int32_t revealed = 0;
+    std::int32_t still_hidden = 0;
+    std::int32_t slot;
 
     AdjustIntegerByPercent(&score, percent);
     for (slot = 0; slot < 12; ++slot) {
@@ -2114,10 +2115,10 @@ int RevealCharacterItemBindings(unsigned int party_slot, int strength, unsigned 
    of the mask at 0x04e, or - with the flag at 0x062 clear - any of the six
    bytes at 0x06f, the spell-bearing byte at 0x08c or the three at 0x06c. */
 // FUNCTION: WIZ8 0x00520750
-bool ItemHasHiddenProperties(int item_id)
+bool ItemHasHiddenProperties(std::int32_t item_id)
 {
     const W8ItemDatabaseRecord* record = &g_item_records[item_id];
-    unsigned int index;
+    std::uint32_t index;
 
     for (index = 0; index < 9; ++index) {
         if ((record->attack_flags & (1 << index)) != 0) {
@@ -2144,7 +2145,7 @@ bool ItemHasHiddenProperties(int item_id)
 
 /* The most of one item a character can hold at once: the record's own quantity
    dice taken at their maximum. */
-static int MaximumQuantity(int item_id)
+static std::int32_t MaximumQuantity(std::int32_t item_id)
 {
     return g_item_records[item_id].initial_quantity.Maximum();
 }
@@ -2153,15 +2154,15 @@ static int MaximumQuantity(int item_id)
 // FUNCTION: WIZ8 0x0051e920
 void AddItemUses(W8ItemInstance* item, char uses)
 {
-    unsigned char total = item->uses_or_charges + uses;
-    int maximum = MaximumQuantity(item->iItemNo);
+    std::uint8_t total = item->uses_or_charges + uses;
+    std::int32_t maximum = MaximumQuantity(item->iItemNo);
 
     item->uses_or_charges = total;
-    if (static_cast<int>(static_cast<unsigned int>(total)) < maximum) {
+    if (static_cast<std::int32_t>(static_cast<std::uint32_t>(total)) < maximum) {
         item->uses_or_charges = total;
         return;
     }
-    item->uses_or_charges = static_cast<unsigned char>(maximum);
+    item->uses_or_charges = static_cast<std::uint8_t>(maximum);
 }
 
 /* Pour one item's uses into another and take that many off the source, one at
@@ -2170,9 +2171,9 @@ void AddItemUses(W8ItemInstance* item, char uses)
 // FUNCTION: WIZ8 0x0051e9f0
 void MergeItemUses(W8Character* character, W8ItemInstance* into, W8ItemInstance* from)
 {
-    unsigned char available;
-    unsigned char held;
-    unsigned int moved;
+    std::uint8_t available;
+    std::uint8_t held;
+    std::uint32_t moved;
 
     available = g_item_records[from->iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK
                     ? from->stack_count
@@ -2197,7 +2198,7 @@ void MergeItemUses(W8Character* character, W8ItemInstance* into, W8ItemInstance*
    otherwise the caller may name an item that has to be found on the character.
    Neither being available queues the character's event instead of swapping. */
 // FUNCTION: WIZ8 0x0051eb90
-void EquipMatchingPartnerItem(W8Character* character, W8ItemInstance* item, int item_id,
+void EquipMatchingPartnerItem(W8Character* character, W8ItemInstance* item, std::int32_t item_id,
                               W8EquipSlot equip_slot)
 {
     W8ItemInstance* pair;
@@ -2228,10 +2229,10 @@ void EquipMatchingPartnerItem(W8Character* character, W8ItemInstance* item, int 
    the carried ones only when asked for; a starting slot makes the search
    resume after it rather than from the front. */
 // FUNCTION: WIZ8 0x00520f90
-bool FindItemOnCharacter(W8Character* character, int item_id, W8ItemInstance** found,
-                         int include_backpack, const W8ItemInstance* resume_after)
+bool FindItemOnCharacter(W8Character* character, std::int32_t item_id, W8ItemInstance** found,
+                         std::int32_t include_backpack, const W8ItemInstance* resume_after)
 {
-    unsigned int slot = 0;
+    std::uint32_t slot = 0;
 
     if (resume_after != 0) {
         for (slot = 0; slot < 12; ++slot) {
@@ -2282,8 +2283,8 @@ bool FindItemOnCharacter(W8Character* character, int item_id, W8ItemInstance** f
    pool. The resume item skips everything up to and including itself, which
    is how a caller walks a stack of matches. */
 // FUNCTION: WIZ8 0x00521060
-bool FindItemOnParty(int item_id, W8ItemInstance** found, W8Character** found_character,
-                     int include_backpack, const W8ItemInstance* resume_after)
+bool FindItemOnParty(std::int32_t item_id, W8ItemInstance** found, W8Character** found_character,
+                     std::int32_t include_backpack, const W8ItemInstance* resume_after)
 {
     if (found_character != 0) {
         *found_character = 0;
@@ -2296,7 +2297,7 @@ bool FindItemOnParty(int item_id, W8ItemInstance** found, W8Character** found_ch
         return true;
     }
 
-    for (int party_slot = 0; party_slot < 8; ++party_slot) {
+    for (std::int32_t party_slot = 0; party_slot < 8; ++party_slot) {
         if (g_status.buffers.XChar[party_slot].fOccupied &&
             FindItemOnCharacter(&g_status.buffers.Char[party_slot], item_id, found,
                                 include_backpack, resume_after)) {
@@ -2308,7 +2309,7 @@ bool FindItemOnParty(int item_id, W8ItemInstance** found, W8Character** found_ch
     }
 
     if (include_backpack == 2) {
-        unsigned int index = 0;
+        std::uint32_t index = 0;
         if (resume_after != 0) {
             while (index < g_status.party_item_count &&
                    &g_status.party_item_pool[index] != resume_after) {
@@ -2336,11 +2337,11 @@ bool FindItemOnParty(int item_id, W8ItemInstance** found, W8Character** found_ch
 /* How many of one item a character holds, counting a stack as its count and
    anything else as one, and optionally reporting the first slot it is in. */
 // FUNCTION: WIZ8 0x005211a0
-int CountItemOnCharacter(W8Character* character, int item_id, W8ItemInstance** first,
-                         int include_backpack)
+std::int32_t CountItemOnCharacter(W8Character* character, std::int32_t item_id, W8ItemInstance** first,
+                         std::int32_t include_backpack)
 {
-    int total = 0;
-    int slot;
+    std::int32_t total = 0;
+    std::int32_t slot;
 
     for (slot = 0; slot < 12; ++slot) {
         if (character->EquippedItem[slot].iItemNo == item_id) {
@@ -2371,10 +2372,10 @@ int CountItemOnCharacter(W8Character* character, int item_id, W8ItemInstance** f
 /* The whole-party counterpart of the count: the item in hand, every occupied
    slot, and the party item pool when the caller asks for it. */
 // FUNCTION: WIZ8 0x00521240
-unsigned int CountItemOnParty(int item_id, W8ItemInstance** found, W8Character** first_holder,
-                              int include_backpack)
+std::uint32_t CountItemOnParty(std::int32_t item_id, W8ItemInstance** found, W8Character** first_holder,
+                              std::int32_t include_backpack)
 {
-    unsigned int total = 0;
+    std::uint32_t total = 0;
 
     if (first_holder != 0) {
         *first_holder = 0;
@@ -2389,9 +2390,9 @@ unsigned int CountItemOnParty(int item_id, W8ItemInstance** found, W8Character**
         }
     }
 
-    for (unsigned int party_slot = 0; party_slot < 8; ++party_slot) {
+    for (std::uint32_t party_slot = 0; party_slot < 8; ++party_slot) {
         if (g_status.buffers.XChar[party_slot].fOccupied) {
-            int count = CountItemOnCharacter(&g_status.buffers.Char[party_slot], item_id, found,
+            std::int32_t count = CountItemOnCharacter(&g_status.buffers.Char[party_slot], item_id, found,
                                              include_backpack);
             if (count != 0) {
                 total += count;
@@ -2403,7 +2404,7 @@ unsigned int CountItemOnParty(int item_id, W8ItemInstance** found, W8Character**
     }
 
     if (include_backpack == 2) {
-        for (unsigned int index = 0; index < g_status.party_item_count; ++index) {
+        for (std::uint32_t index = 0; index < g_status.party_item_count; ++index) {
             W8ItemInstance* item = &g_status.party_item_pool[index];
             if (item->iItemNo == item_id) {
                 total += item->stack_count == 0 ? 1 : item->stack_count;
@@ -2419,9 +2420,9 @@ unsigned int CountItemOnParty(int item_id, W8ItemInstance** found, W8Character**
 /* Whether every occupied party slot holds one item. The first character who
    does not settles it. */
 // FUNCTION: WIZ8 0x00521360
-bool EveryCharacterHasItem(int item_id, int include_backpack)
+bool EveryCharacterHasItem(std::int32_t item_id, std::int32_t include_backpack)
 {
-    unsigned int party_slot;
+    std::uint32_t party_slot;
 
     for (party_slot = 0; party_slot < 8; ++party_slot) {
         if (g_status.buffers.XChar[party_slot].fOccupied) {
@@ -2435,10 +2436,10 @@ bool EveryCharacterHasItem(int item_id, int include_backpack)
 }
 
 // FUNCTION: WIZ8 0x005213C0
-bool FindCharacterItemByDatabaseKind(W8Character* character, short item_kind, W8ItemInstance** out,
-                                     int include_backpack)
+bool FindCharacterItemByDatabaseKind(W8Character* character, std::int16_t item_kind, W8ItemInstance** out,
+                                     std::int32_t include_backpack)
 {
-    for (int slot = 0; slot < 12; ++slot) {
+    for (std::int32_t slot = 0; slot < 12; ++slot) {
         W8ItemInstance* item = &character->EquippedItem[slot];
         if (item->iItemNo != -1 &&
             g_item_records[item->iItemNo].unidentified_name_index == item_kind) {
@@ -2449,7 +2450,7 @@ bool FindCharacterItemByDatabaseKind(W8Character* character, short item_kind, W8
         }
     }
     if (include_backpack != 0) {
-        for (int slot = 0; slot < 8; ++slot) {
+        for (std::int32_t slot = 0; slot < 8; ++slot) {
             W8ItemInstance* item = &character->backpack[slot];
             if (item->iItemNo != -1 &&
                 g_item_records[item->iItemNo].unidentified_name_index == item_kind) {
@@ -2473,7 +2474,7 @@ W8RangeCategory GetItemSpellRange(const W8ItemInstance* item)
 {
     if (item == nullptr)
         return W8_RANGE_NONE;
-    const int spell_id = GetItemSpell(item);
+    const std::int32_t spell_id = GetItemSpell(item);
     return spell_id == W8_SPELL_NONE ? W8_RANGE_NONE : g_spell_records[spell_id].range_category;
 }
 
@@ -2485,7 +2486,7 @@ W8RangeCategory GetItemSpellRange(const W8ItemInstance* item)
 bool TryIdentifyItemFor(W8Character* character, W8ItemInstance* item)
 {
     char strength;
-    int margin;
+    std::int32_t margin;
 
     if (item == 0) {
         srAssertFail("pPCItem", PC_ITEM_CPP, 4014, 0);
@@ -2522,7 +2523,7 @@ bool TryIdentifyItemFor(W8Character* character, W8ItemInstance* item)
 // FUNCTION: WIZ8 0x0051d230
 void BindEveryPartyItem(void)
 {
-    unsigned int party_slot;
+    std::uint32_t party_slot;
 
     if (gXStatus.fCombatMode && !g_combat_state->round_active && !gXStatus.fPartyMovementMode) {
         ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[W8_NOTICE_WEAPON_SWAP_BLOCKED_COMBAT]);
@@ -2542,7 +2543,7 @@ void BindEveryPartyItem(void)
    finally by uses. Every comparison is the reverse of the usual sense, so the
    pool ends up in descending order. */
 // FUNCTION: WIZ8 0x00520600
-int __cdecl CompareItemsForPool(const void* first, const void* second)
+std::int32_t __cdecl CompareItemsForPool(const void* first, const void* second)
 {
     const W8ItemInstance* a = (const W8ItemInstance*)first;
     const W8ItemInstance* b = (const W8ItemInstance*)second;
@@ -2644,7 +2645,7 @@ void NormalizeItemStack(W8ItemInstance* item)
     }
     while (item->stack_count > record->maximum_quantity) {
         W8ItemInstance split = *item;
-        unsigned char quantity = item->stack_count - record->maximum_quantity;
+        std::uint8_t quantity = item->stack_count - record->maximum_quantity;
         if (quantity > record->maximum_quantity) {
             quantity = record->maximum_quantity;
         }
@@ -2693,11 +2694,11 @@ bool MergeItemStacks(W8ItemInstance* destination, W8ItemInstance* source, bool* 
         return false;
     }
 
-    unsigned char room = record->maximum_quantity - destination->stack_count;
+    std::uint8_t room = record->maximum_quantity - destination->stack_count;
     if (room == 0) {
         return false;
     }
-    unsigned char moved = source->stack_count < room ? source->stack_count : room;
+    std::uint8_t moved = source->stack_count < room ? source->stack_count : room;
     destination->stack_count += moved;
     source->stack_count -= moved;
     if (source->stack_count == 0) {
@@ -2717,9 +2718,9 @@ bool MergeItemStacks(W8ItemInstance* destination, W8ItemInstance* source, bool* 
 void CopyItemInstance(W8ItemInstance* destination, W8ItemInstance* source, W8Character* character,
                       bool refresh)
 {
-    unsigned int held_character = static_cast<unsigned int>(-1);
-    unsigned char held_origin = W8_ITEM_ORIGIN_NONE;
-    unsigned short held_slot = 0xffff;
+    std::uint32_t held_character = static_cast<std::uint32_t>(-1);
+    std::uint8_t held_origin = W8_ITEM_ORIGIN_NONE;
+    std::uint16_t held_slot = 0xffff;
 
     if (destination == source) {
         srAssertFail("pToPCItem != pFromPCItem", PC_ITEM_CPP, 3558, 0);
@@ -2759,7 +2760,7 @@ void SwapItemInstances(W8ItemInstance* item, W8ItemInstance* destination, W8Char
                        bool refresh)
 {
     W8ItemInstance temporary;
-    unsigned int party_slot;
+    std::uint32_t party_slot;
 
     if (item->iItemNo == -1 && destination->iItemNo == -1) {
         srAssertFail("(pPCItem1->iItemNo != -1) || (pPCItem2->iItemNo != -1)", PC_ITEM_CPP, 0xdbc,
@@ -2792,10 +2793,10 @@ void SetHandType(W8Character* character, W8EquipSlot slot)
     if (character == 0) {
         srAssertFail("pPC != NULL", PC_ITEM_CPP, 3676, 0);
     }
-    if (static_cast<unsigned int>(slot) > W8_EQUIP_SLOT_FEET) {
+    if (static_cast<std::uint32_t>(slot) > W8_EQUIP_SLOT_FEET) {
         srAssertFail("uiSlot < SLOT_COUNT", PC_ITEM_CPP, 3677, 0);
     }
-    int hand;
+    std::int32_t hand;
     if (slot == W8_EQUIP_SLOT_PRIMARY_WEAPON) {
         hand = 0;
     } else {
@@ -2808,8 +2809,8 @@ void SetHandType(W8Character* character, W8EquipSlot slot)
         }
         hand = 1;
     }
-    int item_id = character->EquippedItem[slot].iItemNo;
-    int wield_kind;
+    std::int32_t item_id = character->EquippedItem[slot].iItemNo;
+    std::int32_t wield_kind;
     if (item_id == -1) {
         wield_kind = 0;
     } else {
@@ -2851,20 +2852,20 @@ void SetHandType(W8Character* character, W8EquipSlot slot)
    yet, in thirds rounded up. Cure spells consult it when the target's worn
    items ask for more power than the condition does. */
 // FUNCTION: WIZ8 0x00520C70
-unsigned int GetEquipmentBindingDifficulty(int character_index)
+std::uint32_t GetEquipmentBindingDifficulty(std::int32_t character_index)
 {
-    unsigned char max_difficulty = 0;
+    std::uint8_t max_difficulty = 0;
     W8ItemInstance* slot = g_status.buffers.Char[character_index].EquippedItem;
 
-    for (int remaining = 12; remaining != 0; --remaining) {
-        int item_id = slot->iItemNo;
+    for (std::int32_t remaining = 12; remaining != 0; --remaining) {
+        std::int32_t item_id = slot->iItemNo;
         if (item_id != -1 && g_item_records[item_id].binds_on_equip != 0 && !slot->bind_announced &&
             max_difficulty < g_item_records[item_id].identify_difficulty) {
             max_difficulty = g_item_records[item_id].identify_difficulty;
         }
         ++slot;
     }
-    unsigned int level = max_difficulty / 3;
+    std::uint32_t level = max_difficulty / 3;
     if (level * 3 < max_difficulty) {
         ++level;
     }
@@ -2894,7 +2895,7 @@ void RefreshAfterItemRecordChange(W8ItemInstance* item, W8Character* character, 
         return;
     }
 
-    unsigned int party_slot = CharacterPointerToPartySlot(character);
+    std::uint32_t party_slot = CharacterPointerToPartySlot(character);
     if (primary_right || primary_left) {
         CalcAttacks(character);
     }
@@ -2940,7 +2941,7 @@ void RefreshAfterItemRecordChange(W8ItemInstance* item, W8Character* character, 
                 }
             }
             g_combat_state->characters[party_slot].alternate_hand ^= 1;
-            if (party_slot == static_cast<unsigned int>(g_status.selected_character)) {
+            if (party_slot == static_cast<std::uint32_t>(g_status.selected_character)) {
                 RequestRefreshPartyState();
             }
         }
@@ -2974,7 +2975,7 @@ void EmptyItemRecord(W8ItemInstance* item, W8Character* character, bool refresh)
     }
 
     if (item >= g_status.party_item_pool && item <= &g_status.party_item_pool[499]) {
-        for (unsigned int index = 0; index < g_status.party_item_count; ++index) {
+        for (std::uint32_t index = 0; index < g_status.party_item_count; ++index) {
             if (item == &g_status.party_item_pool[index]) {
                 RemovePartyPoolEntry(index);
                 break;
@@ -2987,7 +2988,7 @@ void EmptyItemRecord(W8ItemInstance* item, W8Character* character, bool refresh)
 // FUNCTION: WIZ8 0x00520310
 void EmptyAllCarriedItems(W8Character* character)
 {
-    unsigned int index;
+    std::uint32_t index;
 
     for (index = 0; index < 12; ++index) {
         EmptyItemRecord(&character->EquippedItem[index], character, true);
@@ -3054,13 +3055,13 @@ void UpdateFactsAfterAcquiringItem(const W8ItemInstance* item)
 void DeliverExceptionalItemReaction(W8ItemInstance* item, bool choose_character,
                                     W8Character* character)
 {
-    int message;
+    std::int32_t message;
 
     if (g_current_screen_state.id == W8_SCREEN_PARTY_SELECTION) {
         return;
     }
     if (choose_character) {
-        int party_slot = GetRandomCharacter(0, 0, -1, -1);
+        std::int32_t party_slot = GetRandomCharacter(0, 0, -1, -1);
         if (party_slot == -1) {
             return;
         }
@@ -3096,7 +3097,7 @@ void DeliverExceptionalItemReaction(W8ItemInstance* item, bool choose_character,
         if (npc == 0) {
             return;
         }
-        signed char npc_slot = npc->group_index;
+        std::int8_t npc_slot = npc->group_index;
         QueueCharacterEvent(&g_status.buffers.Char[npc_slot], g_item_message8, 0,
                             g_character_event_no_flags, g_character_event_full_volume);
         return;
@@ -3135,7 +3136,7 @@ bool IsUsableItemClass(W8ItemInstance* item)
    spell the moment admits. The use-item view's context slot is parked on the
    instance while the target check runs. */
 // FUNCTION: WIZ8 0x00522a30
-bool CanUseItemForAction(int party_slot, const W8ItemInstance* item)
+bool CanUseItemForAction(std::int32_t party_slot, const W8ItemInstance* item)
 {
     const W8ItemDatabaseRecord* record = &g_item_records[item->iItemNo];
     W8Character* character = &g_status.buffers.Char[party_slot];
@@ -3164,7 +3165,7 @@ bool CanUseItemForAction(int party_slot, const W8ItemInstance* item)
 /* Validate an item's embedded spell for use now; nonzero reports use blocked
    with the reason notice queued through the callback. */
 // FUNCTION: WIZ8 0x00522B80
-bool ValidateItemSpellUse(int character_index, W8ItemInstance* item,
+bool ValidateItemSpellUse(std::int32_t character_index, W8ItemInstance* item,
                           W8DialogDestroyCallback callback)
 {
     const W8ItemDatabaseRecord* record = &g_item_records[item->iItemNo];
@@ -3222,7 +3223,7 @@ static bool IsActivatableServiceItem(W8Character* character, W8ItemInstance* ite
 // FUNCTION: WIZ8 0x00522D40
 bool CharacterHasServiceItem(W8Character* character)
 {
-    unsigned int index;
+    std::uint32_t index;
 
     for (index = 0; index < 8; ++index) {
         if (IsActivatableServiceItem(character, &character->backpack[index])) {
@@ -3245,14 +3246,14 @@ bool CharacterHasServiceItem(W8Character* character)
 /* Insert one item into the packed party pool, first coalescing compatible
    stacks unless requested otherwise. */
 // FUNCTION: WIZ8 0x00521E20
-bool InsertItemIntoPartyPool(W8ItemInstance* item, int index)
+bool InsertItemIntoPartyPool(W8ItemInstance* item, std::int32_t index)
 {
     W8ItemInstance shifted[500];
 
     if (g_status.party_item_count >= 500) {
         return false;
     }
-    if (g_status.party_item_count != static_cast<unsigned int>(index)) {
+    if (g_status.party_item_count != static_cast<std::uint32_t>(index)) {
         memcpy(&shifted[index], &g_status.party_item_pool[index],
                (g_status.party_item_count - index) * sizeof(W8ItemInstance));
         memcpy(&g_status.party_item_pool[index + 1], &shifted[index],
@@ -3271,7 +3272,7 @@ bool AddItemToParty(W8ItemInstance* item, bool announce, bool skip_stacking)
 {
     std::string display_name = FormatItemDisplayName(item, true);
     bool partially_merged = false;
-    unsigned int index = 0;
+    std::uint32_t index = 0;
     bool stored = false;
 
     if (g_item_records[item->iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK && !skip_stacking) {
@@ -3323,7 +3324,7 @@ void UnequipUnusableItems(W8Character* character)
         return;
     }
 
-    for (int slot = 0; slot < 12; ++slot) {
+    for (std::int32_t slot = 0; slot < 12; ++slot) {
         W8ItemInstance* item = &character->EquippedItem[slot];
         if (item->iItemNo == -1) {
             continue;
@@ -3332,9 +3333,9 @@ void UnequipUnusableItems(W8Character* character)
             continue;
         }
 
-        unsigned int party_slot = CharacterPointerToPartySlot(character);
+        std::uint32_t party_slot = CharacterPointerToPartySlot(character);
         const W8ItemDatabaseRecord* record = &g_item_records[item->iItemNo];
-        unsigned short message_id = 0;
+        std::uint16_t message_id = 0;
         bool unmet = false;
         W8ItemInstance destination;
 
@@ -3373,7 +3374,7 @@ void UnequipUnusableItems(W8Character* character)
    gear fills a free pair before anything else, and class-four gear looks for
    a two-handed holder and otherwise fails. */
 // FUNCTION: WIZ8 0x0051c5a0
-W8EquipSlot ChooseCharacterEquipSlot(W8Character* character, int item_id)
+W8EquipSlot ChooseCharacterEquipSlot(W8Character* character, std::int32_t item_id)
 {
     W8EquipSlot slot = GetItemDefaultEquipSlot(item_id);
     if (g_status.game_started ||
@@ -3381,10 +3382,10 @@ W8EquipSlot ChooseCharacterEquipSlot(W8Character* character, int item_id)
         return slot;
     }
 
-    int primary_right = character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo;
-    int alternate_right = character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON].iItemNo;
-    int primary_left = character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].iItemNo;
-    int alternate_left = character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON].iItemNo;
+    std::int32_t primary_right = character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo;
+    std::int32_t alternate_right = character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON].iItemNo;
+    std::int32_t primary_left = character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].iItemNo;
+    std::int32_t alternate_left = character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON].iItemNo;
     switch (g_item_records[item_id].equip_class) {
     case W8_ITEM_EQUIP_CLASS_SHORT_WEAPON:
     case W8_ITEM_EQUIP_CLASS_EXTENDED_WEAPON:
@@ -3454,15 +3455,15 @@ W8EquipSlot ChooseCharacterEquipSlot(W8Character* character, int item_id)
    twenty is the most forgiving of the four and takes ten percent off, while
    skill nine takes twenty. */
 // FUNCTION: WIZ8 0x0051dcd0
-unsigned int GetItemUseDifficulty(const W8Character* character, W8Skill skill,
-                                  unsigned int skill_level, unsigned int spell_id,
-                                  unsigned int power)
+std::uint32_t GetItemUseDifficulty(const W8Character* character, W8Skill skill,
+                                  std::uint32_t skill_level, std::uint32_t spell_id,
+                                  std::uint32_t power)
 {
-    unsigned int failure = GetSpellFailureChance(skill_level, spell_id, power);
-    unsigned int shortfall;
-    int minimum_caster_level;
-    int caster_level;
-    int adjusted_power;
+    std::uint32_t failure = GetSpellFailureChance(skill_level, spell_id, power);
+    std::uint32_t shortfall;
+    std::int32_t minimum_caster_level;
+    std::int32_t caster_level;
+    std::int32_t adjusted_power;
 
     switch (skill) {
     case W8_SKILL_THROWING_SLING:
@@ -3477,7 +3478,7 @@ unsigned int GetItemUseDifficulty(const W8Character* character, W8Skill skill,
         caster_level = skill == W8_SKILL_MUSIC
                            ? character->profession_levels[W8_CASTER_PROFESSION_INDEX_9]
                            : character->profession_levels[W8_CASTER_PROFESSION_INDEX_8];
-        adjusted_power = (minimum_caster_level - caster_level) - 1 + static_cast<int>(power);
+        adjusted_power = (minimum_caster_level - caster_level) - 1 + static_cast<std::int32_t>(power);
         if (adjusted_power > 0) {
             return failure + g_spell_records[spell_id].spell_level * adjusted_power;
         }
@@ -3497,7 +3498,7 @@ unsigned int GetItemUseDifficulty(const W8Character* character, W8Skill skill,
 // FUNCTION: WIZ8 0x0051db60
 void AimItemUseAtCurrentTarget(W8Character* character, W8ItemInstance* item)
 {
-    unsigned int party_slot = CharacterPointerToPartySlot(character);
+    std::uint32_t party_slot = CharacterPointerToPartySlot(character);
     W8ActionDetailBlock detail;
 
     detail.item_use.item = item;
@@ -3515,7 +3516,7 @@ void AimItemUseAtCurrentTarget(W8Character* character, W8ItemInstance* item)
 /* Stage the slot row's item-use detail block, aimed target and provenance for
    an item use that is about to commit. */
 // FUNCTION: WIZ8 0x0051DC50
-void StagePartySlotItemUse(int party_slot, W8ItemInstance* item, const W8CombatSlot* target)
+void StagePartySlotItemUse(std::int32_t party_slot, W8ItemInstance* item, const W8CombatSlot* target)
 {
     W8PartySlotRow* row = &g_status.buffers.XChar[party_slot];
 
@@ -3534,7 +3535,7 @@ void StagePartySlotItemUse(int party_slot, W8ItemInstance* item, const W8CombatS
 // FUNCTION: WIZ8 0x0051e760
 void RemoveCharacterItem(W8Character* character, W8ItemInstance* item, bool remove_exhausted)
 {
-    int item_id = item->iItemNo;
+    std::int32_t item_id = item->iItemNo;
 
     if (item_id == -1) {
         return;
@@ -3577,8 +3578,8 @@ void RemoveCharacterItem(W8Character* character, W8ItemInstance* item, bool remo
 void MergeMatchingPartnerItem(W8Character* character, W8ItemInstance* item)
 {
     W8ItemInstance* partner;
-    int item_id = item->iItemNo;
-    int row;
+    std::int32_t item_id = item->iItemNo;
+    std::int32_t row;
 
     if (item_id == -1 || !ItemUsesShots(item_id)) {
         return;
@@ -3628,18 +3629,18 @@ bool AddItemToPartyOrDrop(W8ItemInstance* item, bool announce)
    item's own resource name; and the effect's outcome decides whether the item
    is marked used, reported as a finding, or practised on afterwards. */
 // FUNCTION: WIZ8 0x0051ee70
-int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int power)
+std::int32_t CastItemSpell(W8Character* character, W8ItemInstance* item, std::uint32_t power)
 {
     const W8ItemDatabaseRecord* record = &g_item_records[item->iItemNo];
-    unsigned int party_slot = CharacterPointerToPartySlot(character);
-    unsigned int spell_id = record->spell_id;
+    std::uint32_t party_slot = CharacterPointerToPartySlot(character);
+    std::uint32_t spell_id = record->spell_id;
     W8TargetSource target;
     bool rejected_spell;
-    unsigned int difficulty = 0;
+    std::uint32_t difficulty = 0;
     W8Skill skill;
-    int effect;
-    int caster_figure;
-    int difficulty_kind;
+    std::int32_t effect;
+    std::int32_t caster_figure;
+    std::int32_t difficulty_kind;
 
     /* A record with no spell, an off-hand-only class and the two casting-aid
        classes are the ones the spell engine is told about rather than cast. */
@@ -3687,7 +3688,7 @@ int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int pow
         caster_figure = character->uiExpLevel;
     }
     target.spell_difficulty =
-        static_cast<unsigned char>(GetSpellDifficulty(caster_figure, spell_id, power));
+        static_cast<std::uint8_t>(GetSpellDifficulty(caster_figure, spell_id, power));
 
     if (record->sound_name.size() != 0) {
 
@@ -3695,11 +3696,11 @@ int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int pow
     }
 
     {
-        int power_out = static_cast<int>(power);
+        std::int32_t power_out = static_cast<std::int32_t>(power);
         effect = CastSpellFromSource(
             spell_id, &target, &g_status.buffers.XChar[party_slot].target_out_of_combat, power, 0,
             difficulty, false, &power_out, difficulty_kind, 0, 0);
-        power = static_cast<unsigned int>(power_out);
+        power = static_cast<std::uint32_t>(power_out);
     }
 
     if (effect == 1) {
@@ -3739,8 +3740,8 @@ void SplitThrowableStackBetweenHands(W8Character* character, W8EquipSlot equip_s
     W8ItemInstance created;
     W8EquipSlot source_slot;
     W8ItemInstance* source;
-    int item_id;
-    unsigned char moved;
+    std::int32_t item_id;
+    std::uint8_t moved;
 
     if (equip_slot != W8_EQUIP_SLOT_PRIMARY_WEAPON &&
         equip_slot != W8_EQUIP_SLOT_SECONDARY_WEAPON) {
@@ -3780,7 +3781,7 @@ void SplitThrowableStackBetweenHands(W8Character* character, W8EquipSlot equip_s
    place and the count drops. The caller has already emptied the record, so an
    entry that still holds an item is left alone. */
 // FUNCTION: WIZ8 0x00521c20
-void RemovePartyPoolEntry(unsigned int index)
+void RemovePartyPoolEntry(std::uint32_t index)
 {
     W8ItemInstance shifted[500];
 
@@ -3799,7 +3800,7 @@ void RemovePartyPoolEntry(unsigned int index)
 /* Empty one of a character's eight carried slots. When the emptied entry also
    lives in the party pool, the hole is closed. */
 // FUNCTION: WIZ8 0x00521ac0
-void EmptyBackpackSlot(W8Character* character, int slot)
+void EmptyBackpackSlot(W8Character* character, std::int32_t slot)
 {
     if (character == 0 || slot < 0 || slot >= 8) {
         return;
@@ -3810,9 +3811,9 @@ void EmptyBackpackSlot(W8Character* character, int slot)
 
 /* Empty one entry of the packed party pool by index and close the hole. */
 // FUNCTION: WIZ8 0x00521cd0
-void EmptyPartyPoolEntry(int index)
+void EmptyPartyPoolEntry(std::int32_t index)
 {
-    if (index < 0 || static_cast<unsigned int>(index) >= g_status.party_item_count) {
+    if (index < 0 || static_cast<std::uint32_t>(index) >= g_status.party_item_count) {
         return;
     }
 
@@ -3824,8 +3825,8 @@ void EmptyPartyPoolEntry(int index)
    for it. The character that held the match comes back through the third
    output. */
 // FUNCTION: WIZ8 0x00521480
-bool FindItemByDatabaseKindOnParty(unsigned short item_kind, W8ItemInstance** found,
-                                   W8Character** found_character, int include_backpack)
+bool FindItemByDatabaseKindOnParty(std::uint16_t item_kind, W8ItemInstance** found,
+                                   W8Character** found_character, std::int32_t include_backpack)
 {
     if (found_character != 0) {
         *found_character = 0;
@@ -3839,7 +3840,7 @@ bool FindItemByDatabaseKindOnParty(unsigned short item_kind, W8ItemInstance** fo
         return true;
     }
 
-    for (unsigned int slot = 0; slot < 8; ++slot) {
+    for (std::uint32_t slot = 0; slot < 8; ++slot) {
         if (!g_status.buffers.XChar[slot].fOccupied) {
             continue;
         }
@@ -3853,7 +3854,7 @@ bool FindItemByDatabaseKindOnParty(unsigned short item_kind, W8ItemInstance** fo
     }
 
     if (include_backpack == 2) {
-        for (unsigned int index = 0; index < g_status.party_item_count; ++index) {
+        for (std::uint32_t index = 0; index < g_status.party_item_count; ++index) {
             W8ItemInstance* entry = &g_status.party_item_pool[index];
             if (entry->iItemNo != -1 &&
                 g_item_records[entry->iItemNo].unidentified_name_index == item_kind) {
@@ -3880,8 +3881,8 @@ void UpgradeProfessionClassItem(W8Character* character)
 {
     W8ItemInstance* found = 0;
     W8ItemInstance created;
-    int item_id;
-    int message_id;
+    std::int32_t item_id;
+    std::int32_t message_id;
 
     switch (character->profession_levels[W8_CASTER_PROFESSION_INDEX_8]) {
     case 0:
@@ -3976,7 +3977,7 @@ void UpgradeProfessionClassItem(W8Character* character)
    stops at the first hit. Even when it is set, only one copy per party member
    is cleared; the pool walk does compact every matching pool entry. */
 // FUNCTION: WIZ8 0x005215d0
-bool RemovePartyItemByID(int item_id, bool remove_all)
+bool RemovePartyItemByID(std::int32_t item_id, bool remove_all)
 {
     bool removed = false;
 
@@ -3989,7 +3990,7 @@ bool RemovePartyItemByID(int item_id, bool remove_all)
     }
 
     W8ItemInstance* pool = g_status.party_item_pool;
-    for (unsigned int slot = 0; slot < 8; ++slot) {
+    for (std::uint32_t slot = 0; slot < 8; ++slot) {
         if (!g_status.buffers.XChar[slot].fOccupied) {
             continue;
         }
@@ -4007,7 +4008,7 @@ bool RemovePartyItemByID(int item_id, bool remove_all)
         removed = true;
     }
 
-    for (unsigned int index = 0; index < g_status.party_item_count; ++index) {
+    for (std::uint32_t index = 0; index < g_status.party_item_count; ++index) {
         if (pool[index].iItemNo != item_id) {
             continue;
         }
@@ -4028,14 +4029,14 @@ bool RemovePartyItemByID(int item_id, bool remove_all)
    has been announced; and an item that cannot be held together with what is
    already there is left where it is, with the pair swapping around it. */
 // FUNCTION: WIZ8 0x0051d3b0
-bool SwapWeaponSetSlots(int party_slot, bool announce, bool refresh)
+bool SwapWeaponSetSlots(std::int32_t party_slot, bool announce, bool refresh)
 {
     W8Character* character = &g_status.buffers.Char[party_slot];
-    int notice_context = gXStatus.fNpcDialogueMode ? 0 : -1;
+    std::int32_t notice_context = gXStatus.fNpcDialogueMode ? 0 : -1;
     bool blocked_primary = false;
     bool blocked_alternate = false;
-    int primary_right_item;
-    int alternate_right_item;
+    std::int32_t primary_right_item;
+    std::int32_t alternate_right_item;
 
     if (character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo == -1 &&
         character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].iItemNo == -1 &&
@@ -4102,7 +4103,7 @@ bool SwapWeaponSetSlots(int party_slot, bool announce, bool refresh)
    chosen. Otherwise the weapon sets swap, the row's one-shot flag clears, and
    the portraits redraw. */
 // FUNCTION: WIZ8 0x0051d2c0
-void BindCharacterItems(int party_slot, bool announce)
+void BindCharacterItems(std::int32_t party_slot, bool announce)
 {
     if (gXStatus.fCombatMode) {
         if (!g_combat_state->round_active && !gXStatus.fPartyMovementMode) {

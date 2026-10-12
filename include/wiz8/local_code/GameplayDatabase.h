@@ -1,13 +1,15 @@
 #pragma once
 
+
+#include <cstdint>
 struct W8MonsterRecord;
 
 bool LoadMonsterDatabase(W8MonsterRecord** records);
-bool LoadMonsterDatabaseRange(unsigned int uiStartIndex, unsigned int uiEndIndex,
+bool LoadMonsterDatabaseRange(std::uint32_t uiStartIndex, std::uint32_t uiEndIndex,
                               W8MonsterRecord* records);
-bool LoadMonsterDatabaseRecord(unsigned int monster_species, W8MonsterRecord* record);
+bool LoadMonsterDatabaseRecord(std::uint32_t monster_species, W8MonsterRecord* record);
 
-extern unsigned int g_starting_item_ids[];
+extern std::uint32_t g_starting_item_ids[];
 
 bool InitializeItemDatabase(void);
 bool InitializeItemTables(void);

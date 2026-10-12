@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "Font.h"
 #include <fmt/format.h>
 #include <fmt/printf.h>
@@ -82,7 +83,7 @@ W8ProfRaceInfoDialogBase::W8ProfRaceInfoDialogBase()
 }
 
 // FUNCTION: WIZ8 0x005DEC40
-int W8ProfRaceInfoDialogBase::CreateControls()
+std::int32_t W8ProfRaceInfoDialogBase::CreateControls()
 {
     W8DialogBase::CreateControls();
     if (!PopulateText()) {
@@ -96,7 +97,7 @@ int W8ProfRaceInfoDialogBase::CreateControls()
     resources.track_frame = 1;
     resources.on_scroll = ScrollCallback;
     m_scroll_bar.CreateControls(&resources);
-    int x = m_x;
+    std::int32_t x = m_x;
     m_scroll_bar.SetLayout(x + 0x159, m_y + 0x29, m_text_area.GetTotalLineCount(), 0,
                            m_text_area.GetLineHeight(), 0xb8);
     m_scroll_bar.m_owner = this;
@@ -122,8 +123,8 @@ void W8ProfRaceInfoDialogBase::Draw()
                      g_options_detail_font);
         DrawTextLine(g_W8TextBufferAlignCenter, 0xd, 0x29, 0x8e, 0xc, g_localized_strings[m_uiHeadingId],
                      g_wiz_text_font_secondary);
-        int top = 0x37;
-        for (int attribute = 0; attribute < ATTR_COUNT; ++attribute) {
+        std::int32_t top = 0x37;
+        for (std::int32_t attribute = 0; attribute < ATTR_COUNT; ++attribute) {
             DrawTextLine(g_W8TextBufferAlignLeft, 0x10, top, 0x74, 0xc,
                          g_localized_strings[g_character_description_first_ids[attribute]],
                          g_wiz_text_font_secondary);
@@ -144,8 +145,8 @@ void W8ProfRaceInfoDialogBase::Draw()
 }
 
 // FUNCTION: WIZ8 0x005DEEE0
-void W8ProfRaceInfoDialogBase::DrawTextLine(unsigned int layout_mode, int left, int top, int width,
-                                            int height, std::string_view text, Font& font)
+void W8ProfRaceInfoDialogBase::DrawTextLine(std::uint32_t layout_mode, std::int32_t left, std::int32_t top, std::int32_t width,
+                                            std::int32_t height, std::string_view text, Font& font)
 {
     W8TextBuffer buffer;
     buffer.SetLayoutMode(g_W8TextBufferAlignMiddle | layout_mode);
@@ -180,14 +181,14 @@ void W8ProfRaceInfoDialogBase::OnRightButtonUp()
 }
 
 // FUNCTION: WIZ8 0x005DF010
-void W8ProfRaceInfoDialogBase::OnMouseWheel(int delta)
+void W8ProfRaceInfoDialogBase::OnMouseWheel(std::int32_t delta)
 {
     m_scroll_bar.ScrollBy(delta);
 }
 
 // FUNCTION: WIZ8 0x005DF050
 void W8ProfRaceInfoDialogBase::ScrollCallback(W8DialogScrollBar* scroll_bar,
-                                              int first_visible_entry)
+                                              std::int32_t first_visible_entry)
 {
     W8ProfRaceInfoDialogBase* dialog = static_cast<W8ProfRaceInfoDialogBase*>(scroll_bar->m_owner);
     if (dialog != 0) {
@@ -209,7 +210,7 @@ W8ProfessionInfoDialog::W8ProfessionInfoDialog(W8Profession uiIndex)
     m_uiSummaryImage = g_profession_info_rows[uiIndex].image_id;
     m_uiNameId = g_profession_info_rows[uiIndex].name_id;
     m_uiDetailId = g_profession_info_rows[uiIndex].detail_id;
-    for (int attribute = 0; attribute < ATTR_COUNT; ++attribute) {
+    for (std::int32_t attribute = 0; attribute < ATTR_COUNT; ++attribute) {
         m_minimums[attribute] = g_profession_attribute_minimums[uiIndex].values[attribute];
     }
 }
@@ -221,7 +222,7 @@ bool W8ProfessionInfoDialog::PopulateText()
     m_text_area.AddEntry(g_localized_strings[0x153], g_localized_strings[m_uiDetailId], 10, 0xf, 0);
     m_text_area.AddEntry({}, "", 10, 0xf, 0);
     m_text_area.AddEntry(g_localized_strings[0x14d], "", 10, 0xf, 0);
-    unsigned int index;
+    std::uint32_t index;
     for (index = 0; index < 3; ++index) {
         W8Trait ability = g_profession_abilities[m_uiIndex].ability_ids[index];
         if (ability == W8_TRAIT_NONE) {
@@ -246,7 +247,7 @@ bool W8ProfessionInfoDialog::PopulateText()
     m_text_area.AddEntry({}, "", 10, 0xf, 0);
     m_text_area.AddEntry(g_localized_strings[0x150], "", 10, 0xf, 0);
     for (index = 0; index < 6; ++index) {
-        int item = g_starting_equipment[m_uiIndex][index];
+        std::int32_t item = g_starting_equipment[m_uiIndex][index];
         if (item != -1) {
             m_text_area.AddEntry({}, g_item_records[item].display_name, 10, 0xf, 0);
         }
@@ -290,7 +291,7 @@ W8RaceInfoDialog::W8RaceInfoDialog(W8Race uiIndex)
     m_uiSummaryImage = g_race_info_rows[uiIndex].image_id;
     m_uiNameId = g_race_info_rows[uiIndex].name_id;
     m_uiDetailId = g_race_info_rows[uiIndex].detail_id;
-    for (unsigned int attribute = 0; attribute < ATTR_COUNT; ++attribute) {
+    for (std::uint32_t attribute = 0; attribute < ATTR_COUNT; ++attribute) {
         if (uiIndex < W8_RACE_PLAYABLE_COUNT) {
             m_minimums[attribute] = g_race_attribute_minimums[uiIndex].values[attribute];
         } else {
@@ -307,7 +308,7 @@ bool W8RaceInfoDialog::PopulateText()
     m_text_area.AddEntry({}, "", 10, 0xf, 0);
     m_text_area.AddEntry(g_localized_strings[0x14d], "", 10, 0xf, 0);
     bool listed = false;
-    for (unsigned int index = 0; index < 5; ++index) {
+    for (std::uint32_t index = 0; index < 5; ++index) {
         W8Trait ability = g_race_abilities[m_uiIndex].ability_ids[index];
         if (ability == W8_TRAIT_NONE) {
             if (!listed) {

@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <cstring>
 #include <vector>
 
@@ -41,7 +42,7 @@ void PostNewGameLoad(void)
 void LoadFactState(wiz8::File& save_handle)
 {
     W8NpcState* npc;
-    unsigned char values[sizeof(g_fact_values)];
+    std::uint8_t values[sizeof(g_fact_values)];
 
     save_handle.read_exact(values, sizeof(values));
     memcpy(g_fact_values, values, sizeof(values));
@@ -66,10 +67,10 @@ void LoadFactState(wiz8::File& save_handle)
    recursively for the combined facts and logs each dependency when the
    fact-check log is enabled. */
 // FUNCTION: WIZ8 0x005080f0
-unsigned char EvaluateFact(W8FactId fact_id)
+std::uint8_t EvaluateFact(W8FactId fact_id)
 {
-    unsigned char value;
-    unsigned char count;
+    std::uint8_t value;
+    std::uint8_t count;
 
     if (fact_id == W8_FACT_DEVICE_ONE || fact_id == W8_FACT_DEVICE_TWO ||
         fact_id == W8_FACT_DEVICE_THREE) {
@@ -112,7 +113,7 @@ unsigned char EvaluateFact(W8FactId fact_id)
         case W8_FACT_TWO_IN_PARTY:
             return CountLeadingPartySlots() == 2;
         case W8_FACT_MOOK_MOOK_IN_PARTY: {
-            unsigned int slot = 0;
+            std::uint32_t slot = 0;
             while (!g_status.buffers.XChar[slot].fOccupied ||
                    g_status.buffers.Char[slot].iRace != W8_RACE_MOOK ||
                    g_status.buffers.Char[slot].highest_condition > W8_CONDITION_WEBBED) {
@@ -139,7 +140,7 @@ unsigned char EvaluateFact(W8FactId fact_id)
             if (npc == 0) {
                 return 0;
             }
-            return static_cast<unsigned char>(npc->spawned);
+            return static_cast<std::uint8_t>(npc->spawned);
         }
         case W8_FACT_UMISSION_TRAIN_FIRE_NOAMMO:
             value = GetFact(W8_FACT_UMISSION_TRAIN_COVERT_ASSIGN);
@@ -193,9 +194,9 @@ unsigned char EvaluateFact(W8FactId fact_id)
             return NpcLeadHasNameStyle(W8_NPC_MYLES);
         case W8_FACT_FATHER_IN_PARTY:
             if (g_status.rpc_active) {
-                for (unsigned int slot = 0; slot < 8; ++slot) {
+                for (std::uint32_t slot = 0; slot < 8; ++slot) {
                     if (g_status.buffers.XChar[slot].fOccupied &&
-                        slot == static_cast<unsigned int>(g_status.sedexus_party_slot)) {
+                        slot == static_cast<std::uint32_t>(g_status.sedexus_party_slot)) {
                         return 1;
                     }
                 }

@@ -77,7 +77,7 @@ TEST_CASE("FILETIME representative 100ns ticks round-trip", "[time][serializatio
 TEST_CASE("FILETIME seeded random round-trip", "[time][serialization]")
 {
     std::mt19937_64 random(8);
-    for (unsigned i = 0; i < 50000; ++i)
+    for (std::uint32_t i = 0; i < 50000; ++i)
     {
         const auto ticks = random();
         REQUIRE(file_time_from_utc(file_time_to_utc(DiskFileTime::from_ticks(ticks))).ticks() == ticks);

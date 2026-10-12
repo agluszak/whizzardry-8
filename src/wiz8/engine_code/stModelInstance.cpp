@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "glm/ext/vector_int3.hpp"
 #include "wiz8/engine_code/ReadLevel.h"
 #include <algorithm>
@@ -56,7 +57,7 @@ stTextureAnim* stModelInstance::FindMouthTexture()
             damage_stage == -1 ? mesh->getPolyTexture(0, 0, 0)
                                : mesh->GetTextureTable(damage_stage_tables[damage_stage]);
         if (textures != nullptr) {
-            for (int polygon = 0; polygon < mesh->polygon_count; ++polygon) {
+            for (std::int32_t polygon = 0; polygon < mesh->polygon_count; ++polygon) {
                 auto* animation = sr_cast<stTextureAnim>(textures[polygon]);
                 if (animation != nullptr &&
                     _strnicmp(animation->getName().c_str(), "mouth", 5) == 0) {
@@ -70,7 +71,7 @@ stTextureAnim* stModelInstance::FindMouthTexture()
 }
 
 // FUNCTION: WIZ8 0x00480790
-int stModelInstance::FindDamageStage(const char* name)
+std::int32_t stModelInstance::FindDamageStage(const char* name)
 {
     stMeshModel* mesh = static_cast<stMeshModel*>(getModel());
     return mesh->FindSkinTable(name);
@@ -105,7 +106,7 @@ void stModelInstance::traverse(TraverseInfo& info)
 /* Add a stage by cloning the first stage's table across the complete linked
    mesh chain. The instance stores the table id shared by that chain. */
 // FUNCTION: WIZ8 0x00480560
-int stModelInstance::AddDamageStage(const char* name)
+std::int32_t stModelInstance::AddDamageStage(const char* name)
 {
     stMeshModel* mesh = static_cast<stMeshModel*>(getModel());
 
@@ -113,8 +114,8 @@ int stModelInstance::AddDamageStage(const char* name)
         return -1;
     }
 
-    int stage = static_cast<int>(damage_stage_tables.size());
-    int base_table = stage > 0 ? damage_stage_tables[0] : -1;
+    std::int32_t stage = static_cast<std::int32_t>(damage_stage_tables.size());
+    std::int32_t base_table = stage > 0 ? damage_stage_tables[0] : -1;
     damage_stage_tables.push_back(mesh->CreateSkinTable(name, base_table));
     for (mesh = mesh->Next(); mesh != 0; mesh = mesh->Next()) {
         mesh->CreateSkinTable(name, base_table);
@@ -123,23 +124,23 @@ int stModelInstance::AddDamageStage(const char* name)
 }
 
 // FUNCTION: WIZ8 0x00480670
-int stModelInstance::AddExistingDamageStage(const char* name)
+std::int32_t stModelInstance::AddExistingDamageStage(const char* name)
 {
     stMeshModel* mesh = static_cast<stMeshModel*>(getModel());
-    int table = mesh->FindSkinTable(name);
+    std::int32_t table = mesh->FindSkinTable(name);
 
     if (table == -1) {
         return -1;
     }
 
-    int stage = static_cast<int>(damage_stage_tables.size());
+    std::int32_t stage = static_cast<std::int32_t>(damage_stage_tables.size());
     damage_stage_tables.push_back(table);
     return stage;
 }
 
 // FUNCTION: WIZ8 0x004807b0
-unsigned char stModelInstance::ReplaceDamageStageTexture(
-    int stage, const char* old_name, const std::shared_ptr<srTextureIFace>& replacement)
+bool stModelInstance::ReplaceDamageStageTexture(
+    std::int32_t stage, const char* old_name, const std::shared_ptr<srTextureIFace>& replacement)
 {
     stMeshModel* mesh = static_cast<stMeshModel*>(getModel());
     bool replaced = false;
@@ -154,7 +155,7 @@ unsigned char stModelInstance::ReplaceDamageStageTexture(
             continue;
         }
 
-        for (int polygon = 0; polygon < mesh->polygon_count; ++polygon) {
+        for (std::int32_t polygon = 0; polygon < mesh->polygon_count; ++polygon) {
             srTextureIFace* texture = textures[polygon].get();
             if (!sr_cast<stTextureFile>(texture) && !sr_cast<stTextureAnim>(texture)) {
                 continue;
@@ -261,7 +262,7 @@ void stModelInstance2D::process(const ProcessInfo& info, e_processType)
 
         float glow_weight = static_cast<float>(
             fabs(sin(((w8_get_ticks() % render_state.render_depth) /
-                      static_cast<double>(static_cast<int>(render_state.render_depth))) *
+                      static_cast<double>(static_cast<std::int32_t>(render_state.render_depth))) *
                      g_camera_angle_period)));
         float base_weight = g_float_one - glow_weight;
         /* Each weighted colour is rounded to float before the sum. */
@@ -292,18 +293,18 @@ void stModelInstance2D::SetGlowEnabled(bool enable)
    scale returns the stored screen extent directly; otherwise the matching
    axis scale from the node is applied and truncated. */
 // FUNCTION: WIZ8 0x00480EF0
-unsigned short stModelInstance2D::GetScaledWidth()
+std::uint16_t stModelInstance2D::GetScaledWidth()
 {
     srVector3T<double> scale = getScale();
     float scale_z = static_cast<float>(scale.z);
     if (scale.x == 1.0f && scale.y == 1.0f && scale_z == 1.0f) {
         return render_state.width;
     }
-    return static_cast<unsigned short>(render_state.width * scale.x);
+    return static_cast<std::uint16_t>(render_state.width * scale.x);
 }
 
 // FUNCTION: WIZ8 0x00480F70
-unsigned short stModelInstance2D::GetScaledHeight()
+std::uint16_t stModelInstance2D::GetScaledHeight()
 {
     srVector3T<double> scale = getScale();
     float scale_y = static_cast<float>(scale.y);
@@ -311,7 +312,7 @@ unsigned short stModelInstance2D::GetScaledHeight()
     if (scale.x == 1.0f && scale_y == 1.0f && scale_z == 1.0f) {
         return render_state.height;
     }
-    return static_cast<unsigned short>(render_state.height * scale_z);
+    return static_cast<std::uint16_t>(render_state.height * scale_z);
 }
 
 /* The process pass blends between the two glow colors into the material's
@@ -454,7 +455,7 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
     const auto selectPolygons = [&](stMeshModel& linked, srMeshModel::TriMesh& selected,
                                     bool replace_damage_texture) {
         if (selected.active_polygons) return;
-        const int table = damage_stage >= 0 ? damage_stage_tables.at(damage_stage) : -1;
+        const std::int32_t table = damage_stage >= 0 ? damage_stage_tables.at(damage_stage) : -1;
         if (replace_damage_texture && damage_stage >= 0)
             selected.poly_textures[0][0] = linked.GetTextureTable(table);
         if (const auto active = linked.GetActivePolygons(table, true))

@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "glm/ext/vector_int3.hpp"
 #include <glm/ext/quaternion_trigonometric.hpp>
 #include <glm/gtc/quaternion.hpp>
@@ -41,8 +42,8 @@
 const float g_float_three_quarters = 0.75f;
 
 // FUNCTION: WIZ8 0x004b6e00
-GDProp::GDProp(srModelInstance* instance, const char* path_name, unsigned short prop_number,
-               unsigned char footstep_surface, unsigned char footstep_material)
+GDProp::GDProp(srModelInstance* instance, const char* path_name, std::uint16_t prop_number,
+               std::uint8_t footstep_surface, std::uint8_t footstep_material)
 {
     Flags initial_flags = {false, false, false, false, 0, 0};
     m_flags = initial_flags;
@@ -88,8 +89,8 @@ GDProp::~GDProp()
 // FUNCTION: WIZ8 0x004b6f30
 void GDProp::PrepareGeometry(srModelInstance* instance)
 {
-    int surface_count = 0;
-    int vertex_count = 0;
+    std::int32_t surface_count = 0;
+    std::int32_t vertex_count = 0;
     stMeshModel* mesh = static_cast<stMeshModel*>(instance->getModel());
     while (mesh != 0) {
         surface_count += mesh->polygon_count;
@@ -129,8 +130,8 @@ void GDProp::PrepareGeometry(srModelInstance* instance)
    into world space before each accumulated triangle receives its plane,
    dominant axis, slope classification and caller-provided material bytes. */
 // FUNCTION: WIZ8 0x004b7060
-void GDProp::Initialize(srModelInstance* instance, bool attach, unsigned short prop_number,
-                        unsigned char footstep_surface, unsigned char footstep_material)
+void GDProp::Initialize(srModelInstance* instance, bool attach, std::uint16_t prop_number,
+                        std::uint8_t footstep_surface, std::uint8_t footstep_material)
 {
     if (!attach) {
         m_flags.unattached = true;
@@ -142,13 +143,13 @@ void GDProp::Initialize(srModelInstance* instance, bool attach, unsigned short p
     PrepareGeometry(instance);
     auto world_matrix = instance->getWorldSpaceMatrix<glm::mat4>();
 
-    int vertex_base = 0;
-    int surface_total = 0;
+    std::int32_t vertex_base = 0;
+    std::int32_t surface_total = 0;
     stMeshModel* mesh = static_cast<stMeshModel*>(instance->getModel());
     while (mesh != 0) {
-        unsigned int mesh_flags = mesh->flags;
+        std::uint32_t mesh_flags = mesh->flags;
         glm::ivec3* polygon_vertices = mesh->getPolyVertex();
-        for (int polygon = 0; polygon < mesh->polygon_count; ++polygon) {
+        for (std::int32_t polygon = 0; polygon < mesh->polygon_count; ++polygon) {
             W8GDSurface* surface = &m_pGDSurfaces[surface_total + polygon];
             surface->vertex_indices[0] = polygon_vertices[polygon].x + vertex_base;
             surface->vertex_indices[1] = polygon_vertices[polygon].y + vertex_base;
@@ -161,7 +162,7 @@ void GDProp::Initialize(srModelInstance* instance, bool attach, unsigned short p
             glm::mat4x3(world_matrix), [&](std::size_t vertex) { return source_vertices[vertex]; });
         vertex_base += mesh->vertex_location_count;
 
-        for (int surface_index = 0; surface_index < surface_total; ++surface_index) {
+        for (std::int32_t surface_index = 0; surface_index < surface_total; ++surface_index) {
             W8GDSurface* surface = &m_pGDSurfaces[surface_index];
             surfaceGeometry::initializePropSurface(*surface, {m_pVertices, static_cast<std::size_t>(m_vertex_count)});
             surface->footstep_surface = footstep_surface;
@@ -203,7 +204,7 @@ void GDProp::Initialize(srModelInstance* instance, bool attach, unsigned short p
     if (owner != 0 && attach) {
         W8TriggerActionData* action = owner->m_pActionData;
         if (action != 0 && action->type == W8_TRIGGER_PAYLOAD_DOOR) {
-            unsigned int flags = W8_PATH_CELL_DOOR;
+            std::uint32_t flags = W8_PATH_CELL_DOOR;
             if ((owner->lock_state.lock_type != 0 &&
                  owner->lock_state.device_state.completed == 0) ||
                 ((owner->flags & W8_TRIGGER_ENABLED) == 0 ||
@@ -234,7 +235,7 @@ void GDProp::BindTrigger(Trigger* owner)
     if (action != 0 && action->type == W8_TRIGGER_PAYLOAD_DOOR) {
         if (action != 0) {
             m_flags.door = true;
-            unsigned int path_flags = W8_PATH_CELL_DOOR;
+            std::uint32_t path_flags = W8_PATH_CELL_DOOR;
             if ((owner->lock_state.lock_type == 0 ||
                  owner->lock_state.device_state.completed != 0) &&
                 (owner->flags & W8_TRIGGER_ENABLED) != 0 &&
@@ -274,7 +275,7 @@ srBoundingBox GDProp::computeBounds()
 /* The pathing record supplies inclusive unsigned coordinate bounds at
    +0x4c..+0x52. */
 // FUNCTION: WIZ8 0x004B75F0
-bool GDProp::ContainsPathCoordinate(unsigned short x, unsigned short y) const
+bool GDProp::ContainsPathCoordinate(std::uint16_t x, std::uint16_t y) const
 {
     if (x >= m_path_bounds.min_x && x <= m_path_bounds.max_x && y >= m_path_bounds.min_z &&
         y <= m_path_bounds.max_z) {
@@ -288,7 +289,7 @@ bool GDProp::ContainsPathCoordinate(unsigned short x, unsigned short y) const
 bool GDProp::boundsOverlap(const srBoundingBox& box)
 {
     bool hit = false;
-    for (int index = 0; index < m_surface_count && hit == 0; ++index) {
+    for (std::int32_t index = 0; index < m_surface_count && hit == 0; ++index) {
         W8GDSurface* surface = &m_pGDSurfaces[index];
         hit = triangleIntersectsBox(box,
             indexedTriangle(std::span<const srVector3>(m_pVertices, m_vertex_count), surface->vertex_indices),
@@ -301,17 +302,17 @@ bool GDProp::boundsOverlap(const srBoundingBox& box)
    The prop owns a counted waypoint list consumed by
    CheckConditionalWayPtStatus. */
 // FUNCTION: WIZ8 0x004b7730
-unsigned char GDProp::RegisterPathSurface(unsigned int index, const glm::ivec2& point)
+bool GDProp::RegisterPathSurface(std::uint32_t index, const glm::ivec2& point)
 {
-    if (static_cast<unsigned short>(point.x) < m_path_bounds.min_x ||
-        static_cast<unsigned short>(point.x) > m_path_bounds.max_x ||
-        static_cast<unsigned short>(point.y) < m_path_bounds.min_z ||
-        static_cast<unsigned short>(point.y) > m_path_bounds.max_z) {
-        return 0;
+    if (static_cast<std::uint16_t>(point.x) < m_path_bounds.min_x ||
+        static_cast<std::uint16_t>(point.x) > m_path_bounds.max_x ||
+        static_cast<std::uint16_t>(point.y) < m_path_bounds.min_z ||
+        static_cast<std::uint16_t>(point.y) > m_path_bounds.max_z) {
+        return false;
     }
 
-    m_path_waypoints.push_back(static_cast<unsigned short>(index));
-    return 1;
+    m_path_waypoints.push_back(static_cast<std::uint16_t>(index));
+    return true;
 }
 
 /* Record a link index when the segment between the two grid points touches
@@ -320,14 +321,14 @@ unsigned char GDProp::RegisterPathSurface(unsigned int index, const glm::ivec2& 
    cell of the rectangle. The vertical branch re-tests its first crossing
    instead of interpolating the second — a faithful retail oddity. */
 // FUNCTION: WIZ8 0x004b7830
-unsigned char GDProp::RegisterPathVertex(unsigned int index, const glm::ivec2& point,
+bool GDProp::RegisterPathVertex(std::uint32_t index, const glm::ivec2& point,
                                       const glm::ivec2& second)
 {
-    const glm::vec2 from(static_cast<unsigned short>(point.x), static_cast<unsigned short>(point.y));
-    const glm::vec2 to(static_cast<unsigned short>(second.x), static_cast<unsigned short>(second.y));
+    const glm::vec2 from(static_cast<std::uint16_t>(point.x), static_cast<std::uint16_t>(point.y));
+    const glm::vec2 to(static_cast<std::uint16_t>(second.x), static_cast<std::uint16_t>(second.y));
     const auto delta = to - from;
-    const int major = std::abs(delta.x) > std::abs(delta.y) ? 0 : 1;
-    const int minor = 1 - major;
+    const std::int32_t major = std::abs(delta.x) > std::abs(delta.y) ? 0 : 1;
+    const std::int32_t minor = 1 - major;
     const glm::vec2 minimum(m_path_bounds.min_x, m_path_bounds.min_z);
     const glm::vec2 maximum(m_path_bounds.max_x, m_path_bounds.max_z);
     // The vertical policy tests the first boundary twice, as before.
@@ -336,15 +337,15 @@ unsigned char GDProp::RegisterPathVertex(unsigned int index, const glm::ivec2& p
     bool found = false;
     for (float cross : {crossings.x, crossings.y})
         found |= cross > minimum[minor] - 1 && cross < maximum[minor] + 1;
-    if (!found) return 0;
-    m_path_edges.push_back(static_cast<unsigned short>(index));
-    return 1;
+    if (!found) return false;
+    m_path_edges.push_back(static_cast<std::uint16_t>(index));
+    return true;
 }
 
 /* Register the item on the collidable prop's sector list, building the path
    representation and the list itself on first use. */
 // FUNCTION: WIZ8 0x004b7ad0
-void AddItemToSector(int sector, W8WorldItem* item)
+void AddItemToSector(std::int32_t sector, W8WorldItem* item)
 {
     if (item != 0 && sector >= 0) {
         W8Prop* prop = g_world->collidable_props[sector];
@@ -364,7 +365,7 @@ void AddItemToSector(int sector, W8WorldItem* item)
 
 /* Drop the item from the collidable prop's sector list when both exist. */
 // FUNCTION: WIZ8 0x004b7b50
-void RemoveItemFromSector(int sector, W8WorldItem* item)
+void RemoveItemFromSector(std::int32_t sector, W8WorldItem* item)
 {
     if (item != 0 && sector >= 0) {
         W8Prop* prop = g_world->collidable_props[sector];
@@ -394,7 +395,7 @@ GDPreProp::GDPreProp()
    conditional frame number; the counts accumulated for allocation are then
    reset so each transform's fill re-counts the appended geometry. */
 // FUNCTION: WIZ8 0x004b7c00
-void GDProp::ApplyAnimFrame(unsigned short frame, const W8LevelFileAnimObj& anim)
+void GDProp::ApplyAnimFrame(std::uint16_t frame, const W8LevelFileAnimObj& anim)
 {
     frame = anim.ClampFrame(frame);
     m_prop_number = frame;
@@ -426,11 +427,11 @@ void GDProp::ApplyAnimFrame(unsigned short frame, const W8LevelFileAnimObj& anim
         appendMeshGeometry(transform.pathAI.Node(frame), transform.frames.front().mesh);
 }
 
-void GDProp::AppendMeshFaces(const W8LevelFileMesh& mesh, int vertex_base)
+void GDProp::AppendMeshFaces(const W8LevelFileMesh& mesh, std::int32_t vertex_base)
 {
-    for (int face = 0; face < mesh.num_faces; ++face) {
+    for (std::int32_t face = 0; face < mesh.num_faces; ++face) {
         auto& surface = m_pGDSurfaces[m_surface_count++];
-        for (unsigned corner = 0; corner < 3; ++corner)
+        for (std::uint32_t corner = 0; corner < 3; ++corner)
             surface.vertex_indices[corner] = vertex_base + (mesh.HasCompressedFaces()
                 ? mesh.compressed_faces[face].vertex_indices[corner] : mesh.faces[face].vertices[corner]);
     }
@@ -444,7 +445,7 @@ void GDProp::AppendMeshFaces(const W8LevelFileMesh& mesh, int vertex_base)
 // FUNCTION: WIZ8 0x004b7e50
 void GDProp::appendMeshGeometry(const W8LevelFileScaledPathNode& node, const W8LevelFileMesh& mesh)
 {
-    int surface_base = m_surface_count;
+    std::int32_t surface_base = m_surface_count;
 
     const auto axis = node.path.axis.glmValue();
     glm::mat3 rotation(1);
@@ -464,13 +465,13 @@ void GDProp::appendMeshGeometry(const W8LevelFileScaledPathNode& node, const W8L
 
     glm::mat4x3 matrix(rotation);
     matrix[3] = translation;
-    for (int column = 0; column < 3; ++column) matrix[column] *= scale[column];
+    for (std::int32_t column = 0; column < 3; ++column) matrix[column] *= scale[column];
 
     const bool has_lods = (mesh.flags & W8_LEVEL_MESH_LOD_VERTICES) != 0;
     const bool compressed = has_lods && (mesh.flags & W8_LEVEL_MESH_SHORT_LOD_VERTICES) != 0;
-    const int frame_count = has_lods ? mesh.LodCount() : 1;
-    for (int frame = 0; frame < frame_count; ++frame) {
-        const int vertex_base = m_vertex_count;
+    const std::int32_t frame_count = has_lods ? mesh.LodCount() : 1;
+    for (std::int32_t frame = 0; frame < frame_count; ++frame) {
+        const std::int32_t vertex_base = m_vertex_count;
         surfaceGeometry::transformPositions({m_pVertices + vertex_base, static_cast<std::size_t>(mesh.num_vertices)},
             matrix, [&](std::size_t vertex) {
                 if (compressed) {
@@ -484,7 +485,7 @@ void GDProp::appendMeshGeometry(const W8LevelFileScaledPathNode& node, const W8L
         AppendMeshFaces(mesh, vertex_base);
     }
 
-    for (int index = surface_base; index < m_surface_count; ++index) {
+    for (std::int32_t index = surface_base; index < m_surface_count; ++index) {
         W8GDSurface* surface = &m_pGDSurfaces[index];
         surfaceGeometry::initializePropSurface(*surface, {m_pVertices, static_cast<std::size_t>(m_vertex_count)});
     }

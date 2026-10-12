@@ -6,16 +6,14 @@
 #include "wiz8/compat/native.h"
 #include "wiz8/runtime_test_hooks.h"
 
-extern "C" {
-
-uint64_t w8_clock_us(void)
+std::uint64_t w8_clock_us(void)
 {
     WIZ8_TEST_HOOK(if (g_runtime_test_hooks.virtual_clock) return g_runtime_test_hooks.clock_us;)
     using namespace std::chrono;
-    return uint64_t(duration_cast<microseconds>(steady_clock::now().time_since_epoch()).count());
+    return std::uint64_t(duration_cast<microseconds>(steady_clock::now().time_since_epoch()).count());
 }
 
-uint64_t w8_get_ticks(void)
+std::uint64_t w8_get_ticks(void)
 {
     return w8_clock_us() / 1000;
 }
@@ -24,7 +22,7 @@ uint64_t w8_get_ticks(void)
 char* w8_strupr(char* text)
 {
     for (char* cursor = text; *cursor != 0; ++cursor) {
-        *cursor = (char)toupper((unsigned char)*cursor);
+        *cursor = (char)toupper((std::uint8_t)*cursor);
     }
     return text;
 }
@@ -32,7 +30,7 @@ char* w8_strupr(char* text)
 char* w8_strlwr(char* text)
 {
     for (char* cursor = text; *cursor != 0; ++cursor) {
-        *cursor = (char)tolower((unsigned char)*cursor);
+        *cursor = (char)tolower((std::uint8_t)*cursor);
     }
     return text;
 }
@@ -70,4 +68,3 @@ void w8_splitpath(const char* path, char* drive, char* directory, char* name, ch
     }
 }
 
-} // extern "C"

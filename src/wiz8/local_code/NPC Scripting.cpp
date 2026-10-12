@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <fmt/chrono.h> // IWYU pragma: keep - std::tm formatter specialization.
 #include <fmt/format.h>
 #include <fmt/printf.h>
@@ -71,7 +72,7 @@ class W8DialogBase;
 
 struct W8NpcScriptRegionName {
     std::string name;
-    int region;
+    std::int32_t region;
 };
 
 // GLOBAL: WIZ8 0x0061b788
@@ -91,9 +92,9 @@ static W8NpcScriptRegionName g_npc_script_region_names[] = {{"Monastery", 1},
                                                             {"Cosmic Circle", 14},
                                                             {"", 0}};
 
-void ApplyScriptedDialogueKeyword(int kind, const char* text)
+void ApplyScriptedDialogueKeyword(std::int32_t kind, const char* text)
 {
-    signed char category;
+    std::int8_t category;
     switch (kind) {
     case W8_NPC_ENTRY_PERSON_KEYWORD:
     case 31:
@@ -123,7 +124,7 @@ void ApplyScriptedDialogueKeyword(int kind, const char* text)
 }
 
 // FUNCTION: WIZ8 0x00528f10
-std::string GetNpcScriptRegionName(int region)
+std::string GetNpcScriptRegionName(std::int32_t region)
 {
     for (const auto& entry : g_npc_script_region_names)
         if (entry.region == region) return entry.name;
@@ -135,8 +136,8 @@ std::string GetNpcScriptRegionName(int region)
    and the quote id the keyword maps to. */
 struct W8NpcNamedQuote {
     std::string name;
-    unsigned int mask;
-    int quote;
+    std::uint32_t mask;
+    std::int32_t quote;
 };
 
 // GLOBAL: WIZ8 0x0061aea8
@@ -156,7 +157,7 @@ static W8NpcNamedQuote g_npc_named_quotes[] = {
 /* Region-by-level-band quote table: one 0x12-int row per
    g_npc_script_region_names region id; band 0 is unused. */
 // GLOBAL: WIZ8 0x0061bda0
-static int g_npc_region_quotes[15][0x12] = {
+static std::int32_t g_npc_region_quotes[15][0x12] = {
     {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
     {-1, 117, 210, 210, 210, 210, 210, 213, 210, 211, 211, 211, 211, 213, 210, -1, 210, 213},
     {-1, 211, 117, 210, 210, 210, 210, 213, 210, 213, 213, 211, 211, 213, 210, -1, 210, 213},
@@ -176,16 +177,16 @@ static int g_npc_region_quotes[15][0x12] = {
 
 /* Kind 0x0b consumes the item; kind 0x0f only mentions it. */
 // FUNCTION: WIZ8 0x00528CD0
-std::optional<W8NpcScriptItemQuote> FindNpcScriptItemQuote(int item_id)
+std::optional<W8NpcScriptItemQuote> FindNpcScriptItemQuote(std::int32_t item_id)
 {
     W8NpcScriptFile* script = g_npc_dialogue.speaker()->script_file;
-    int entry_index;
-    int quote_index;
+    std::int32_t entry_index;
+    std::int32_t quote_index;
 
     for (quote_index = 0;
-         quote_index < static_cast<int>(script->quote_count); ++quote_index) {
+         quote_index < static_cast<std::int32_t>(script->quote_count); ++quote_index) {
         W8NpcScriptQuote* quote = script->quotes.data() + quote_index;
-        for (entry_index = 0; entry_index < static_cast<int>(quote->entry_count); ++entry_index) {
+        for (entry_index = 0; entry_index < static_cast<std::int32_t>(quote->entry_count); ++entry_index) {
             W8NpcQuoteEntry* entry = quote->entries.data() + entry_index;
             if ((entry->kind == W8_NPC_ENTRY_ITEM_REQUEST ||
                  entry->kind == W8_NPC_ENTRY_ITEM_MENTION) &&
@@ -202,10 +203,10 @@ std::optional<W8NpcScriptItemQuote> FindNpcScriptItemQuote(int item_id)
    speaker answers with; -1 when nothing applies. The record's alias mask
    selects which named persons this NPC will speak for. */
 // FUNCTION: WIZ8 0x00528D50
-int FindNpcNameOrPlaceQuote(W8NpcState* npc, std::string_view text)
+std::int32_t FindNpcNameOrPlaceQuote(W8NpcState* npc, std::string_view text)
 {
-    int index;
-    int band;
+    std::int32_t index;
+    std::int32_t band;
 
     if (CompareTextIgnoreAsciiCase(npc->record->source_name, text) == 0) {
         return 0x75;
@@ -260,11 +261,11 @@ static void ShowConsumedItemQuote(std::string_view text)
    trade item. The first hit announces the loss through the quote bubble or
    the layout-4 path and returns. */
 // FUNCTION: WIZ8 0x00528FF0
-void RemoveNpcScriptItem(W8ItemInstance* item, int match_item_id, int item_id)
+void RemoveNpcScriptItem(W8ItemInstance* item, std::int32_t match_item_id, std::int32_t item_id)
 {
     std::string text;
-    unsigned int slot;
-    unsigned int index;
+    std::uint32_t slot;
+    std::uint32_t index;
     W8ItemInstance* slot_item;
 
     for (slot = 0; slot < 8; ++slot) {
@@ -327,10 +328,10 @@ void StripNpcKeywordPunctuation(std::string& text)
 // GLOBAL: WIZ8 0x0068C4FC
 
 // GLOBAL: WIZ8 0x0068c500
-static unsigned char g_npc_script_event_active;
+static bool g_npc_script_event_active;
 
 // GLOBAL: WIZ8 0x0068C358
-static int g_pending_npc_travel_level;
+static std::int32_t g_pending_npc_travel_level;
 
 
 // FUNCTION: WIZ8 0x00524BD0
@@ -430,7 +431,7 @@ bool ShouldDeferCharacterEventForNpcScript(bool require_group_entry)
    modal dialog kinds. The party slot's pending portrait event clears once the
    entry has run. */
 // FUNCTION: WIZ8 0x00526810
-void W8NpcDialogue::RunQuoteEntry(W8NpcQuoteEntry* entry, int continuation_quote)
+void W8NpcDialogue::RunQuoteEntry(W8NpcQuoteEntry* entry, std::int32_t continuation_quote)
 {
     W8NpcState* target;
     W8ItemInstance item;
@@ -529,7 +530,7 @@ void W8NpcDialogue::RunQuoteEntry(W8NpcQuoteEntry* entry, int continuation_quote
 void W8NpcDialogue::RunNextAction()
 {
     W8NpcState* npc;
-    int index;
+    std::int32_t index;
 
     if (queue_.empty()) {
         if (!queue_idle_) {
@@ -572,7 +573,7 @@ void W8NpcDialogue::RunNextAction()
             pending_quotes_.clear();
         }
 
-        const int quote_index = quote_line->quote_index;
+        const std::int32_t quote_index = quote_line->quote_index;
         if (quote_line->mark_pending) {
             pending_quotes_.push_back(quote_index);
         }
@@ -609,10 +610,10 @@ void W8NpcDialogue::RunNextAction()
         {
             W8NpcScriptFile* script = npc != 0 ? npc->script_file : 0;
             if (script != 0 && queued.quote_index >= 0 &&
-                queued.quote_index < static_cast<int>(script->quotes.size()) &&
+                queued.quote_index < static_cast<std::int32_t>(script->quotes.size()) &&
                 queued.entry_index >= 0 &&
                 queued.entry_index <
-                    static_cast<int>(script->quotes[queued.quote_index].entries.size())) {
+                    static_cast<std::int32_t>(script->quotes[queued.quote_index].entries.size())) {
                 dialogue.RunQuoteEntry(
                     &script->quotes[queued.quote_index].entries[queued.entry_index],
                     queued.continuation_quote);
@@ -700,7 +701,7 @@ void W8NpcDialogue::RunNextAction()
             ClearMainGameTargetState();
             DismissNpcFromParty(dismiss.party_slot, 0, false, false);
             if (g_npc_interaction_state->dialogue_layout == W8_DIALOGUE_LAYOUT_TRANSCRIPT) {
-                for (int party_slot = 0; party_slot < 8; ++party_slot) {
+                for (std::int32_t party_slot = 0; party_slot < 8; ++party_slot) {
                     if (g_status.buffers.XChar[party_slot].fOccupied) {
                         DisableMainGamePortraitSlot(party_slot);
                     }
@@ -709,9 +710,9 @@ void W8NpcDialogue::RunNextAction()
         }
         void operator()(W8NpcPartySpeakerEvent event) const
         {
-            int party_slot = PickRandomPartySpeaker(event.event_type, g_status.selected_party_member);
+            std::int32_t party_slot = PickRandomPartySpeaker(event.event_type, g_status.selected_party_member);
             if (party_slot != -1) {
-                g_status.selected_party_member = static_cast<unsigned char>(party_slot);
+                g_status.selected_party_member = static_cast<std::uint8_t>(party_slot);
                 QueueCharacterEvent(&g_status.buffers.Char[party_slot], event.event_type,
                                     g_character_event_no_npc_defer, g_character_event_no_flags,
                                     g_character_event_full_volume);
@@ -751,7 +752,7 @@ void W8NpcDialogue::RunNextAction()
             if (g_combat_state == 0) {
                 return;
             }
-            const int party_slot = leave.party_slot;
+            const std::int32_t party_slot = leave.party_slot;
             if (g_combat_state->iActionChar == party_slot) {
                 g_combat_state->eCombatActionStatus = 0;
                 g_combat_state->iActionChar = -1;
@@ -799,13 +800,13 @@ void AuditNpcScriptQuotes(void)
     std::string path;
     std::string display;
     std::string_view text;
-    int file_lines;
-    int file_quotes;
-    int total_lines;
-    int total_quotes;
-    int total_scripts;
-    int record_index;
-    int sub_index;
+    std::int32_t file_lines;
+    std::int32_t file_quotes;
+    std::int32_t total_lines;
+    std::int32_t total_quotes;
+    std::int32_t total_scripts;
+    std::int32_t record_index;
+    std::int32_t sub_index;
 
     total_lines = 0;
     total_quotes = 0;
@@ -887,7 +888,7 @@ void ShowString(std::string_view text)
     }
 }
 // FUNCTION: WIZ8 0x0052A1A0
-void SetNpcScriptEventActive(unsigned char value)
+void SetNpcScriptEventActive(bool value)
 {
     g_npc_script_event_active = value;
 }

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include "glm/ext/vector_int3.hpp"
 
 #include <span>
@@ -8,10 +9,10 @@
 namespace srRender {
 // Supports both table order and an existing active list; compaction may be in place.
 template<class Indices, class Keep>
-w8_ulong selectTriangles(std::span<w8_ulong> destination, const Indices& indices, Keep keep)
+std::uint32_t selectTriangles(std::span<std::uint32_t> destination, const Indices& indices, Keep keep)
 {
-    w8_ulong count = 0;
-    for (w8_ulong index : indices)
+    std::uint32_t count = 0;
+    for (std::uint32_t index : indices)
         if (keep(index)) destination[count++] = index;
     return count;
 }
@@ -19,9 +20,9 @@ w8_ulong selectTriangles(std::span<w8_ulong> destination, const Indices& indices
 // Clip flags may refer to original vertices or a compact active-vertex table.
 template<class Flag>
 bool triangleVisible(const glm::ivec3& triangle, const Flag* flags,
-                     const w8_ulong* remap = nullptr)
+                     const std::uint32_t* remap = nullptr)
 {
-    const auto vertex = [remap](int index) { return remap ? remap[index] : index; };
+    const auto vertex = [remap](std::int32_t index) { return remap ? remap[index] : index; };
     const auto first = flags[vertex(triangle.x)];
     return first == 0 || (first & flags[vertex(triangle.z)] & flags[vertex(triangle.y)]) == 0;
 }

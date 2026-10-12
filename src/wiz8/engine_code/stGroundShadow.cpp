@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <glm/ext/vector_float3.hpp>
 #include <cstddef>
 #include <algorithm>
@@ -19,7 +20,6 @@
 #include "surrender/srStatisticsManager.h"
 #include "surrender/srTexture.h"
 #include "surrender/srVertexPipe.h"
-#include "compat/compiler.h"
 #include "glm/ext/vector_float2.hpp"
 #include "surrender/srGERD.h"
 #include "surrender/mesh_submission.h"
@@ -55,7 +55,7 @@ class W8GroundShadowMapper : public srVertexProcessor {
 public:
     /* Retail ICF folds this onto W8NormalTexcoordMapper::isActive at
        0x004D6190. */
-    virtual int isActive(srVertexPipe&) override
+    virtual std::int32_t isActive(srVertexPipe&) override
     {
         return 1;
     }
@@ -63,7 +63,7 @@ public:
 
     std::optional<GroundShadowProjection> projection;
     std::span<const glm::vec3> vertices;
-    std::vector<w8_ulong> polygons;
+    std::vector<std::uint32_t> polygons;
 };
 
 // GLOBAL: WIZ8 0x00683430
@@ -79,7 +79,7 @@ void W8GroundShadowMapper::process(srVertexPipe& pipe)
     pipe.lazy_setup_mask |= 1 << CHANNEL_ST0;
 
     if (pipe.vertex_count == 0) return;
-    const std::span<const w8_ulong> indices(pipe.avt + pipe.sub_batch_offset, pipe.vertex_count);
+    const std::span<const std::uint32_t> indices(pipe.avt + pipe.sub_batch_offset, pipe.vertex_count);
     const std::span<glm::vec2> output(
         pipe.vertex_array->st0 + pipe.batch_base + pipe.sub_batch_offset, pipe.vertex_count);
     for (std::size_t i = 0; i < output.size(); ++i)
@@ -160,7 +160,7 @@ void stGroundShadow::renderGroundShadow(srGERD& renderer)
 
     const struct OffsetScope {
         srGERD& renderer;
-        w8_long previous;
+        std::int32_t previous;
         ~OffsetScope() { renderer.setPolygonOffset(previous); }
     } offset{renderer, renderer.getPolygonOffset()};
     renderer.setPolygonOffset(2);
@@ -175,7 +175,7 @@ void stGroundShadow::renderGroundShadow(srGERD& renderer)
         do {
             selected.push_back(polygons[first++] & 0xffff);
         } while (first < polygons.size() && (polygons[first] >> 16) == mesh_index);
-        mesh.active_polygons = std::span<const w8_ulong>(selected);
+        mesh.active_polygons = std::span<const std::uint32_t>(selected);
         mesh.materials[0][0] = g_ground_shadow_material;
         mesh.poly_textures[0][0] = nullptr;
         mesh.textures[0][0] = g_ground_shadow_texture;

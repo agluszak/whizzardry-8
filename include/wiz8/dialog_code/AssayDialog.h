@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <array>
 
 #include "wiz8/dialog_code/DialogBase.h"
@@ -21,12 +22,12 @@ class W8AssayDialog : public W8DialogBase {
 public:
     W8AssayDialog(W8ItemInstance* item, W8Character* character);
     virtual ~W8AssayDialog() override;
-    virtual int CreateControls() override;
+    virtual std::int32_t CreateControls() override;
     virtual void DestroyControls() override;
     virtual void Draw() override;
     virtual void OnRightButtonUp() override;
-    virtual void OnMouseWheel(int delta) override;
-    static void ScrollCallback(W8DialogScrollBar* scroll_bar, int first_visible_entry);
+    virtual void OnMouseWheel(std::int32_t delta) override;
+    static void ScrollCallback(W8DialogScrollBar* scroll_bar, std::int32_t first_visible_entry);
 
 private:
     bool PopulateText();
@@ -48,4 +49,4 @@ private:
     W8DialogTextArea m_text_area;
     W8Character* m_character;
 };
-extern unsigned short g_equip_class_name_ids[32];
+extern std::uint16_t g_equip_class_name_ids[32];

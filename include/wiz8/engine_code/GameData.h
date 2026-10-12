@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include "wiz8/audio_resources.h"
 #include "wiz8/ground_probe.h"
 #include "wiz8/camera_motion.h"
@@ -43,7 +44,7 @@ enum {
 extern bool g_shared_timers_paused;
 
 enum { TIMER_SUSPEND = 1, TIMER_RESUME = 8 };
-float MoveTimer(int action);
+float MoveTimer(std::int32_t action);
 
 void ResetLevelMovement(float movement_limit, bool reset, bool fast_move); /* 0x0041EEE0 */
 
@@ -57,14 +58,14 @@ void ResetLevelMovement(float movement_limit, bool reset, bool fast_move); /* 0x
    the record's destructor at 0x00421890 exists only to tear that member down.
    The bare `add ecx,0xc4` body is member teardown, not an adjustor thunk. */
 struct W8LevelDataRecord {
-    unsigned int flags; /* 0x00 */
+    std::uint32_t flags; /* 0x00 */
     /* 0x04/0x08: prop ids filled by the motion collision path; ToggleBoundProps
        flips setting-6e props referenced here. */
-    int primary_contact_prop_id;   /* 0x04 */
-    int secondary_contact_prop_id; /* 0x08 */
-    signed char sound_environment;
-    signed char sound_environment_alt;
-    unsigned char pad_0e[2];
+    std::int32_t primary_contact_prop_id;   /* 0x04 */
+    std::int32_t secondary_contact_prop_id; /* 0x08 */
+    std::int8_t sound_environment;
+    std::int8_t sound_environment_alt;
+    std::uint8_t pad_0e[2];
     float footstep_accumulator; /* 0x10 */
     float camera_scale;         /* 0x14 */
     /* 0x18/0x1c: residual segment length and facing metric from the nearest
@@ -92,31 +93,31 @@ struct W8LevelDataRecord {
        constructor writes 1.0f). Remaining 8 bytes stay unresolved. */
     glm::vec3 contact_normal{0}; /* 0xac */
     float contact_normal_scale;       /* 0xb8 */
-    unsigned char unknown_bc[8];      /* 0xbc */
+    std::uint8_t unknown_bc[8];      /* 0xbc */
     W8IntervalGate interval_gate;     /* 0xc4 */
     bool flag5;                       /* 0xec */
     bool flag6;                       /* 0xed */
-    unsigned char pad_ee[2];
+    std::uint8_t pad_ee[2];
     float vertical_motion; /* 0xf0 */
 
     W8LevelDataRecord(); /* 0x0041FD10 */
     /* 0x0041FE20: when the camera sits outside the game-data AABB, push
        motion_displacement toward the box, clear environ vector, and optionally start
        party movement; returns non-zero when a clamp fired. */
-    unsigned char ClampCameraToBounds(const srVector3T<float>* minimum,
+    bool ClampCameraToBounds(const srVector3T<float>* minimum,
                                       const srVector3T<float>* maximum);
     /* 0x0041FF00: toggle setting-6e props referenced by
      * primary_contact_prop_id/secondary_contact_prop_id. */
-    unsigned char ToggleBoundProps();
+    bool ToggleBoundProps();
     /* 0x00420470: integrate camera_motion_velocity into motion_velocity/integrated_motion. */
-    unsigned int resolveMotionFlags(unsigned int input, bool engaged);
+    std::uint32_t resolveMotionFlags(std::uint32_t input, bool engaged);
     bool IntegrateCameraForward();
     /* 0x00420810: rotate motion_input by the saved yaw matrix and refresh
        motion_displacement; returns the updated fast-move latch. */
-    unsigned char ApplySavedMotionMatrix(unsigned char prior_fast, bool fast_move,
+    bool ApplySavedMotionMatrix(bool prior_fast, bool fast_move,
                                          const glm::mat3& saved);
     /* 0x0041FF90: advance movement progress / footstep state for one tick. */
-    void UpdateMotionProgress(unsigned char fast_move, unsigned char moved);
+    void UpdateMotionProgress(std::uint8_t fast_move, bool moved);
     /* 0x00420A60: accumulate footstep distance and optionally play a step. */
     bool UpdateFootstepFromMotion();
 };
@@ -154,11 +155,11 @@ struct W8EnvironRecord {
         value_40 = 1.0f;
     }
 
-    int value_00;
+    std::int32_t value_00;
     bool ground_latch;
-    unsigned char airborne;
-    unsigned char pad_06[2];
-    int value_08;
+    std::uint8_t airborne;
+    std::uint8_t pad_06[2];
+    std::int32_t value_08;
     /* Per-frame scale copied from the level camera_scale; 0x00421850 multiplies
        vector by it when advancing the camera under environment load. */
     float scale;
@@ -174,7 +175,7 @@ struct W8EnvironRecord {
     float momentum_scale;
     float value_40;
 
-    unsigned char RescaleToReference(const W8EnvironRecord* reference);
+    bool RescaleToReference(const W8EnvironRecord* reference);
     /* 0x00421800: store `motion` / scale as the per-frame vector. */
     void SetScaledMotion(const glm::vec3& motion);
     /* 0x00421850: add vector * scale into `position`. */
@@ -186,18 +187,18 @@ struct W8EnvironRecord {
    Field +0 is the interface's own id. Retail's SetInterfaceState assertion
    names the first-index member iStates. */
 struct W8GDInterface {
-    int id;
-    int state_count;
-    int iStates;
+    std::int32_t id;
+    std::int32_t state_count;
+    std::int32_t iStates;
 };
 
 /* One switch-interface state, 0xc bytes: the group id the selected state is
    compared against, and the count/first-index slice of conditional-poly
    surface indexes in W8GameData::m_piCondPolys. */
 struct W8GDInterfaceState {
-    int group;
-    int poly_count;
-    int poly_first;
+    std::int32_t group;
+    std::int32_t poly_count;
+    std::int32_t poly_first;
 };
 
 /* The processed game-data record the octree and world own. The proven prefix
@@ -210,11 +211,11 @@ struct W8GameData {
     ~W8GameData();                          /* 0x00449BB0 */
     void ReadProcessedGameData(wiz8::File* handle); /* 0x00449240 */
     /* Writes the game-data block WriteOctFile appends after the terminator. */
-    unsigned char WriteGameData(wiz8::File* handle); /* 0x0044AA40 */
+    bool WriteGameData(wiz8::File* handle); /* 0x0044AA40 */
     /* Reads one WGD vertex/polygon list: counts, the scaled vertex bank with
        unscaled bounds tracking, the face records, and — for the non-primary
        pass — the interface name and conditional-face records. */
-    unsigned char ReadWGDList(wiz8::File& file, int poly_type);
+    bool ReadWGDList(wiz8::File& file, std::int32_t poly_type);
     /* Builds m_pInterfaces/m_pStates/m_piCondPolys from the {interface id,
        surface index, group} triples collected by ReadWGDList. */
 
@@ -224,7 +225,7 @@ struct W8GameData {
     /* Selects a switch interface's state: the matching state group's
        conditional polygons clear surface flag 0x10 while every other state's
        polygons set it. */
-    char SetInterfaceState(int interface_id, int state); /* 0x0041C680 */
+    char SetInterfaceState(std::int32_t interface_id, std::int32_t state); /* 0x0041C680 */
     /* Apply one surface the mover's trace crossed, nearest first: an
        environment boundary (flag 0x1000) swaps the active environment record,
        carrying the live blend fields across; a trigger surface runs its
@@ -233,15 +234,15 @@ struct W8GameData {
     void ProcessCrossedSurface(W8GDSurface* surface); /* 0x0041C770 */
     /* Builds the octree trace mesh and answers its model instance. */
     std::unique_ptr<stModelInstance> CreateTraceModel(); /* 0x0041c930 */
-    CameraRotation cameraRotation(unsigned int flags, const glm::mat3& rotation);
-    CameraMotion cameraMotion(unsigned int flags, const glm::vec3& position,
+    CameraRotation cameraRotation(std::uint32_t flags, const glm::mat3& rotation);
+    CameraMotion cameraMotion(std::uint32_t flags, const glm::vec3& position,
                               const glm::mat3& movement_basis);
     /* 0x0041AB40: advance camera under environment-load motion, tracing
        props/octree/geometry and applying crossed surfaces. */
-    unsigned char AdvanceEnvironmentMotion();
+    std::uint8_t AdvanceEnvironmentMotion();
     /* 0x0041BD60: push the motion delta away from nearby active monsters. */
-    unsigned char ProbeMonstersAlongMotion(srVector3T<float>* direction,
-                                           srVector3T<float>* position, int mode);
+    bool ProbeMonstersAlongMotion(srVector3T<float>* direction,
+                                           srVector3T<float>* position, std::int32_t mode);
     /* 0x0041B770: probe active collidable props along the motion segment;
        returns the nearest hit surface and may adjust `direction`. */
     W8GDSurface* ProbePropsAlongMotion(srVector3T<float>* direction, srVector3T<float>* position,
@@ -256,43 +257,43 @@ struct W8GameData {
     srVector3T<float> maximum;
     // Contiguous owned banks; counts are derived from container sizes.
     std::vector<srVector3T<float>> m_pVertices;
-    int trigger_surface_base;
-    int trigger_surface_count;
-    int integrated_surface_count;
+    std::int32_t trigger_surface_base;
+    std::int32_t trigger_surface_count;
+    std::int32_t integrated_surface_count;
     std::vector<W8GDSurface> m_pSurfaces;
-    int TrigSurfacesCount() const noexcept { return int(m_pTrigSurfaces.size()); }
-    int TrigVerticesCount() const noexcept { return int(m_pTrigVertices.size()); }
-    int m_iNumTriggers;
+    std::int32_t TrigSurfacesCount() const noexcept { return std::int32_t(m_pTrigSurfaces.size()); }
+    std::int32_t TrigVerticesCount() const noexcept { return std::int32_t(m_pTrigVertices.size()); }
+    std::int32_t m_iNumTriggers;
     std::vector<W8GDSurface> m_pTrigSurfaces;
     std::vector<srVector3T<float>> m_pTrigVertices;
     std::vector<Trigger*> m_ppTriggers;
-    int last_hit_surface;
+    std::int32_t last_hit_surface;
     std::vector<bool> pending_trigger_bits;
     std::vector<bool> active_trigger_bits;
     std::vector<W8GDInterface> m_pInterfaces;
     std::vector<W8GDInterfaceState> m_pStates;
-    std::vector<int> m_piCondPolys;
-    int VerticesCount() const noexcept { return int(m_pVertices.size()); }
-    int SurfacesCount() const noexcept { return int(m_pSurfaces.size()); }
-    int InterfacesCount() const noexcept { return int(m_pInterfaces.size()); }
-    int StatesCount() const noexcept { return int(m_pStates.size()); }
-    int CondPolysCount() const noexcept { return int(m_piCondPolys.size()); }
-    int EnvironsCount() const noexcept { return int(m_ppEnvirons.size()); }
+    std::vector<std::int32_t> m_piCondPolys;
+    std::int32_t VerticesCount() const noexcept { return std::int32_t(m_pVertices.size()); }
+    std::int32_t SurfacesCount() const noexcept { return std::int32_t(m_pSurfaces.size()); }
+    std::int32_t InterfacesCount() const noexcept { return std::int32_t(m_pInterfaces.size()); }
+    std::int32_t StatesCount() const noexcept { return std::int32_t(m_pStates.size()); }
+    std::int32_t CondPolysCount() const noexcept { return std::int32_t(m_piCondPolys.size()); }
+    std::int32_t EnvironsCount() const noexcept { return std::int32_t(m_ppEnvirons.size()); }
     std::vector<std::string> interface_names;
     std::vector<std::unique_ptr<W8EnvironRecord>> m_ppEnvirons;
     /* Set by W8Octree::settleToGround around its TestTraceResult calls: while
        set, only flag-4 surfaces are admitted by the surface trace. */
     bool trace_flag4_gate;
-    unsigned char pad_89[3];
+    std::uint8_t pad_89[3];
 
     /* Descriptive name for appending a plane's classified trigger triangle. */
-    void AddTriggerTriangle(int trigger_index, int vertex_0, int vertex_1, int vertex_2);
+    void AddTriggerTriangle(std::int32_t trigger_index, std::int32_t vertex_0, std::int32_t vertex_1, std::int32_t vertex_2);
     void IntegrateTriggers();
     void AddTriggerPlane(const srVector3T<float>* vertices, Trigger* trigger);
     /* Registers a linked record's twelve generated surfaces; the `face`-indexed
        surface also spawns an environment record scaled by `value`. */
     void AddTriggerPlane(const srVector3T<float>* vertices, float value, float scalar,
-                         const signed char* face); /* 0x00448C60 */
+                         const std::int8_t* face); /* 0x00448C60 */
     /* Grows the environment bank by tens and appends a record whose motion
        derives from the linked surface's scaled plane. */
     void CreateGDEnviron(const W8GDSurface* surface, float scale);
@@ -300,7 +301,7 @@ struct W8GameData {
        rebuilding the spatial index; the CompileGameData path. */
     void IntegrateTriggerGeometry();
     /* 1-based ordinal of the interface_names entry whose name matches, else -1. */
-    int FindPointerByName(const char* name); /* 0x004482A0 */
+    std::int32_t FindPointerByName(const char* name); /* 0x004482A0 */
     /* Registers one invisible-plane record; the OctBuild driver feeds it the
        level file's plane table. */
     void AddLevelPlane(const W8LevelFilePlane& plane); /* 0x004485F0 */
@@ -309,35 +310,35 @@ struct W8GameData {
        (the payload), the +0x1b3 float, the +0x1b7 scalar and a pointer to the
        +0x1b1 face byte. */
     void AddLinkedRecord(const srVector3T<float>* vertices, float value, float scalar,
-                         const signed char* face); /* 0x00448BF0 */
+                         const std::int8_t* face); /* 0x00448BF0 */
     /* Compiles the read game data into the shared build arrays. */
     void CompileGameData(); /* 0x00449D10 */
 
     /* Loop the buffered prop ids through TestProp and return the id of the
        last prop that reported a hit, or -1. */
-    int TestPropSurfaces(int count, w8_ulong* ids, W8OctreeTrace* trace, char skip_flag,
+    std::int32_t TestPropSurfaces(std::int32_t count, std::uint32_t* ids, W8OctreeTrace* trace, char skip_flag,
                          char gate); /* 0x0041C0D0 */
     /* Ray-test one collidable prop: swaps the prop's surface/vertex arrays
        into this context, traces in prop-local space through the prop's
        position delta when no pre-tree exists (reseeding the caller's record
        to the world-space hit), and restores the arrays. `gate` skips flag-4
        props when set. */
-    bool TestProp(int prop_id, W8OctreeTrace* trace, char skip_flag, char gate); /* 0x0041C140 */
+    bool TestProp(std::int32_t prop_id, W8OctreeTrace* trace, char skip_flag, char gate); /* 0x0041C140 */
     /* Ray-test `count` surfaces - all of m_pSurfaces when `surface_ids` is
        null, else the listed surface indexes - against the trace record.
        trace_flag4_gate, flag and mode filters apply; a closer hit stores index
        into last_hit_surface, the contact into the record's end and the distance
        into hit_limit. */
     bool TestGeometryTrace(std::span<W8GDSurface> surfaces, std::span<const srVector3T<float>> vertices,
-                           int count, w8_ulong* surface_ids, W8OctreeTrace* trace, char skip_flag, int mode);
-    bool TestTraceResult(int count, w8_ulong* surface_ids, W8OctreeTrace* trace,
-                         char skip_flag, int mode); /* 0x0041C330 */
+                           std::int32_t count, std::uint32_t* surface_ids, W8OctreeTrace* trace, char skip_flag, std::int32_t mode);
+    bool TestTraceResult(std::int32_t count, std::uint32_t* surface_ids, W8OctreeTrace* trace,
+                         char skip_flag, std::int32_t mode); /* 0x0041C330 */
 };
 
 extern W8LevelDataRecord* g_level_data;
 /* Companion pointer cleared alongside g_level_data on level
    transitions; its target's +0 flags have 0x200 masked off at 0x0044FCD0. */
-extern unsigned int* g_level_flags;
+extern std::uint32_t* g_level_flags;
 /* Teardown flag tested and cleared by ReleaseLevelData. */
 extern bool g_level_data_teardown_flag;
 /* Read by the level-data reset and written by the GameData constructor in
@@ -347,7 +348,7 @@ extern W8EnvironRecord* g_environ;
 void ResetInactiveLevelDataVectors(void);
 void UpdateSharedGameDataObject();
 void UpdateGameDataRuntime();
-std::optional<RuntimeTriangle> surfaceTriangle(std::span<const int, 3> vertexIndices);
+std::optional<RuntimeTriangle> surfaceTriangle(std::span<const std::int32_t, 3> vertexIndices);
 
 void ClearLevelMovementStopped(void);
 void ResetLevelDataVectors(void);
@@ -359,12 +360,12 @@ void SetLevelFastMovement(void);    /* 0x0041EFE0 */
 bool LevelMovedThisUpdate(void);    /* 0x0041EFF0 */
 bool HasLevelDataVector(void);      /* 0x0041F010 */
 void ResetCurrentEnvironment(void);
-unsigned char SetEnvironmentLoadFlag(unsigned char flag); /* 0x0041AAE0 */
+bool SetEnvironmentLoadFlag(bool flag); /* 0x0041AAE0 */
 void BeginCameraSway(void);
 void EndCameraSway(void);
 
 bool IsLevelMovementStopped(void);
-unsigned char ConsumeLevelElapsedTime(float* real_elapsed, float* frame_elapsed);
+bool ConsumeLevelElapsedTime(float* real_elapsed, float* frame_elapsed);
 /* Retail tests level flag 0x008; when set both outputs are -1. */
 void GetLevelSoundEnvironment(char* environment, char* secondary);
 
@@ -391,7 +392,7 @@ void SetCameraOrientation(void* angle, void* pitch,
                           glm::mat3* rotation);
 /* 0x00420F40: camera yaw in whole degrees plus an optional yaw-rotation
    matrix copy. */
-int GetCameraYawAndRotation(glm::mat3* rotation);
+std::int32_t GetCameraYawAndRotation(glm::mat3* rotation);
 /* 0x00421440: project `vector` onto `onto` in place; fails on a degenerate
    target direction. */
 glm::vec3 ProjectVectorOntoVector(const glm::vec3& vector, const glm::vec3& onto);
@@ -401,7 +402,7 @@ glm::vec3 ProjectVectorOntoVector(const glm::vec3& vector, const glm::vec3& onto
 void RestoreWorldCameraOrientation(void* angle, void* pitch,
                                    W8World* world);
 glm::vec3 cameraLocation();
-int GetCameraYawDegrees(void);
+std::int32_t GetCameraYawDegrees(void);
 /* 0x004215E0: point-visibility query through the world octree; false with no
    world, true for a loaded world without an octree. */
 bool HasCameraLineOfSight(const srVector3T<float>* position);
@@ -411,7 +412,7 @@ void UpdateLevelMovementAudio(void);
 /* 0x004EF9A0: fall-impact override handler owned by GameplayCode.cpp;
    declared in wiz8/local_code/GameplayCode.h. */
 
-extern unsigned char g_level_motion_fast;
+extern bool g_level_motion_fast;
 extern bool g_level_footstep_pending;
 extern float g_camera_motion_clamp;
 extern float g_camera_motion_divisor;
@@ -420,6 +421,6 @@ extern float g_level_footstep_time;
 extern const double g_motion_delta_epsilon;
 extern const double g_motion_vector_epsilon;
 extern const float g_footstep_fall_threshold;
-extern unsigned char g_environment_motion_active;
+extern std::uint8_t g_environment_motion_active;
 extern bool g_environ_ground_latch;
 extern srVector3T<float> g_world_origin;

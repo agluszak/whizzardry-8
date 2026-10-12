@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include "input.h"
 #include "wiz8/layouts/main_game_screen.h"
 
@@ -25,26 +26,26 @@ extern W8ItemInstance* g_use_item_select_override_item;
 
 /* GXStatus.iCurrentCursor saved while an item/spell info dialog
    is open; RestoreTargetCursor puts it back on dialog destroy. */
-extern int g_saved_target_cursor;
+extern std::int32_t g_saved_target_cursor;
 
 void SetUseItemSelectReturnMode(W8MainUiMode value);
 extern ScreenRegionSet g_use_item_select_regions;
 void InvalidateUseItemSelectPanel(void);
 void CloseUseItemSelection(void);
 /* Scroll-button region callback for use-item select (ids 0 and 1). */
-unsigned char UseItemSelectScrollRegionEvent(const InputEvent* event, W8Region* region);
+bool UseItemSelectScrollRegionEvent(const InputEvent* event, W8Region* region);
 /* Action/icon control region callback (catalog ids 0, 3, 8). */
-unsigned char UseItemSelectControlRegionEvent(const InputEvent* event, W8Region* region);
+bool UseItemSelectControlRegionEvent(const InputEvent* event, W8Region* region);
 /* Text-box body callback while use-item select is active. */
-unsigned char UseItemSelectTextBoxRegionEvent(const InputEvent* event, W8Region* region);
+bool UseItemSelectTextBoxRegionEvent(const InputEvent* event, W8Region* region);
 /* Text-box wheel helper while use-item select is active. */
-void UseItemSelectTextBoxWheelAt(short x, unsigned short y, bool flag);
+void UseItemSelectTextBoxWheelAt(std::int16_t x, std::uint16_t y, bool flag);
 W8ItemInstance* GetSelectedOrFallbackValue(void);
 void SelectCurrentUseItemLine(void);
 void SetUseItemSelectOverrideItem(W8ItemInstance* value);
 
 void CommitSelectedItemUse(void); /* FItemSelectMode per-frame commit */
-void SelectUseItemLine(int line);
+void SelectUseItemLine(std::int32_t line);
 void OpenUseItemAssayDialog(W8ItemInstance* item);
 void RestoreTargetCursor(W8DialogBase* dialog);
 void UpdateUseItemDetailPanel(W8ItemInstance* item);
@@ -53,7 +54,7 @@ void TakeUseItemIntoHand(void);
 void CloseUseItemSelectView(void);
 /* Retarget the open use-item list at party_slot (drag, recorded
    item, or plain refresh paths). */
-void RefreshUseItemSelectionForSlot(int party_slot);
+void RefreshUseItemSelectionForSlot(std::int32_t party_slot);
 /* FItemSelectMode per-frame update: panel redraws plus the
    pending-use commit check. */
 void UpdateUseItemSelect(bool active);

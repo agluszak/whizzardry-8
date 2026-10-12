@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
@@ -82,28 +83,28 @@ void W8ListBoxDialog::SetText(std::string_view text)
 }
 
 // FUNCTION: WIZ8 0x005CC650
-int W8ListBoxDialog::GetVisibleLineCount()
+std::int32_t W8ListBoxDialog::GetVisibleLineCount()
 {
     if (!m_area_button.IsConfigured()) {
         return 0;
     }
     return m_area_button.GetHeight() /
-           static_cast<int>(static_cast<unsigned int>(g_dialog_interface_font->height()));
+           static_cast<std::int32_t>(static_cast<std::uint32_t>(g_dialog_interface_font->height()));
 }
 
 /* Both selection directions clamp the requested top row independently of
    the selected row. */
-void W8ListBoxDialog::SetFirstVisibleLine(int requested)
+void W8ListBoxDialog::SetFirstVisibleLine(std::int32_t requested)
 {
     if (m_area_button.IsConfigured()) {
-        int first = requested;
-        if (static_cast<int>(m_lines.size()) - GetVisibleLineCount() < requested) {
-            first = static_cast<int>(m_lines.size()) - GetVisibleLineCount();
+        std::int32_t first = requested;
+        if (static_cast<std::int32_t>(m_lines.size()) - GetVisibleLineCount() < requested) {
+            first = static_cast<std::int32_t>(m_lines.size()) - GetVisibleLineCount();
         }
         if (first < 0) {
             first = 0;
-        } else if (static_cast<int>(m_lines.size()) - GetVisibleLineCount() < requested) {
-            first = static_cast<int>(m_lines.size()) - GetVisibleLineCount();
+        } else if (static_cast<std::int32_t>(m_lines.size()) - GetVisibleLineCount() < requested) {
+            first = static_cast<std::int32_t>(m_lines.size()) - GetVisibleLineCount();
         }
         if (first != m_first_visible_line) {
             m_first_visible_line = first;
@@ -113,7 +114,7 @@ void W8ListBoxDialog::SetFirstVisibleLine(int requested)
 }
 
 // FUNCTION: WIZ8 0x005CCB80
-void W8ListBoxDialog::SetCurrentLine(int line)
+void W8ListBoxDialog::SetCurrentLine(std::int32_t line)
 {
     if (m_selected_line == line) {
         return;
@@ -122,14 +123,14 @@ void W8ListBoxDialog::SetCurrentLine(int line)
         m_selected_line = -1;
         return;
     }
-    int target = line < 0 ? 0 : line;
-    if (static_cast<int>(m_lines.size()) - 1 < target) {
-        target = static_cast<int>(m_lines.size()) - 1;
+    std::int32_t target = line < 0 ? 0 : line;
+    if (static_cast<std::int32_t>(m_lines.size()) - 1 < target) {
+        target = static_cast<std::int32_t>(m_lines.size()) - 1;
     }
-    int visible = GetVisibleLineCount();
+    std::int32_t visible = GetVisibleLineCount();
     if (target < m_first_visible_line) {
         SetFirstVisibleLine(target);
-    } else if (target < static_cast<int>(m_lines.size()) &&
+    } else if (target < static_cast<std::int32_t>(m_lines.size()) &&
                m_first_visible_line - 1 + visible < target) {
         SetFirstVisibleLine(target - visible + 1);
     }
@@ -148,7 +149,7 @@ bool W8ListBoxDialog::HandleInputEvent(const InputEvent* input)
         if (m_selected_line > 0) {
             SetCurrentLine(m_selected_line - 1);
         }
-    } else if (IsKeyHeld(VK_DOWN) && m_selected_line < static_cast<int>(m_lines.size())) {
+    } else if (IsKeyHeld(VK_DOWN) && m_selected_line < static_cast<std::int32_t>(m_lines.size())) {
         SetCurrentLine(m_selected_line + 1);
     }
 
@@ -172,7 +173,7 @@ bool W8ListBoxDialog::HandleInputEvent(const InputEvent* input)
         SetCurrentLine(0);
         return m_keep_open;
     case VK_END:
-        SetCurrentLine(static_cast<int>(m_lines.size()) - 1);
+        SetCurrentLine(static_cast<std::int32_t>(m_lines.size()) - 1);
         return m_keep_open;
     default:
         return m_keep_open;
@@ -182,12 +183,12 @@ bool W8ListBoxDialog::HandleInputEvent(const InputEvent* input)
 /* Build two text buttons, the scrolling text area, the up and down arrows, a
    slider and the confirmation pair. */
 // FUNCTION: WIZ8 0x005cbdb0
-int W8ListBoxDialog::CreateControls()
+std::int32_t W8ListBoxDialog::CreateControls()
 {
     if (W8DialogBase::CreateControls() != 0) {
         return m_error;
     }
-    edge_inlay = LoadGenericButtonImages({}, "Data\\Dialogs\\DialogEdge.STI", {}, "Data\\Dialogs\\DialogEdge.STI", {}, m_background_path, static_cast<short>(m_background_flags), 0, 0);
+    edge_inlay = LoadGenericButtonImages({}, "Data\\Dialogs\\DialogEdge.STI", {}, "Data\\Dialogs\\DialogEdge.STI", {}, m_background_path, static_cast<std::int16_t>(m_background_flags), 0, 0);
     if (!edge_inlay) return m_error = 4;
     m_text_button.ConfigureTextButton(m_text, *g_dialog_interface_font, g_dialog_font_foreground,
                                      g_dialog_font_background, m_x + 9, m_y + 9, m_width - 0x12,
@@ -258,7 +259,7 @@ int W8ListBoxDialog::CreateControls()
                 m_area_button.Resize(m_text_button.GetWidth(),
                     -6 - m_text_button.GetY() - m_text_button.GetHeight() +
                     m_second_text_button.GetY());
-                int selected = m_selected_line;
+                std::int32_t selected = m_selected_line;
                 m_selected_line = 0;
                 SetCurrentLine(selected);
                 return 0;
@@ -294,8 +295,8 @@ void W8ListBoxDialog::DestroyControls()
 void W8ListBoxDialog::Draw()
 {
     SDL_Rect rect;
-    int index;
-    int line;
+    std::int32_t index;
+    std::int32_t line;
 
     if (m_area_button.m_dirty || m_third_text_button.m_dirty ||
         m_up_button.m_dirty || m_down_button.m_dirty || m_slider_button.m_dirty ||
@@ -306,26 +307,26 @@ void W8ListBoxDialog::Draw()
     m_text_button.m_dirty = m_second_text_button.m_dirty = true;
     m_text_button.Draw();
     m_second_text_button.Draw();
-    int dx = m_text_button.GetX() - m_x;
-    int dy = m_text_button.GetY() + m_text_button.GetHeight() + 4 - m_y;
-    int width = m_text_button.GetWidth();
-    int height = -6 - m_text_button.GetY() - m_text_button.GetHeight() +
+    std::int32_t dx = m_text_button.GetX() - m_x;
+    std::int32_t dy = m_text_button.GetY() + m_text_button.GetHeight() + 4 - m_y;
+    std::int32_t width = m_text_button.GetWidth();
+    std::int32_t height = -6 - m_text_button.GetY() - m_text_button.GetHeight() +
                  m_second_text_button.GetY();
-    unsigned int visible_lines;
-    if (static_cast<int>(m_lines.size()) < height / static_cast<int>(static_cast<unsigned int>(
+    std::uint32_t visible_lines;
+    if (static_cast<std::int32_t>(m_lines.size()) < height / static_cast<std::int32_t>(static_cast<std::uint32_t>(
                                                         g_dialog_interface_font->height()))) {
         m_scrollable = false;
-        visible_lines = static_cast<int>(m_lines.size());
+        visible_lines = static_cast<std::int32_t>(m_lines.size());
     } else {
-        int rows = height / static_cast<int>(
-                                static_cast<unsigned int>(g_dialog_interface_font->height()));
-        if (static_cast<int>(m_lines.size()) > rows) {
+        std::int32_t rows = height / static_cast<std::int32_t>(
+                                static_cast<std::uint32_t>(g_dialog_interface_font->height()));
+        if (static_cast<std::int32_t>(m_lines.size()) > rows) {
             width = width + (-7 - m_up_button.GetWidth());
             m_scrollable = true;
             visible_lines = rows;
         } else {
             m_scrollable = false;
-            visible_lines = static_cast<int>(m_lines.size());
+            visible_lines = static_cast<std::int32_t>(m_lines.size());
         }
     }
     m_area_button.Resize(width, height);
@@ -342,10 +343,10 @@ void W8ListBoxDialog::Draw()
             m_area_button.GetHeight() +
                 ((height - m_up_button.GetHeight() - m_down_button.GetHeight() - 7) *
                  m_selected_line) /
-                    static_cast<int>(m_lines.size()) +
+                    static_cast<std::int32_t>(m_lines.size()) +
                 m_y + 3 + dy);
-        const int fill_left = m_x + width + dx;
-        const int fill_top = m_y + dy + m_up_button.GetHeight();
+        const std::int32_t fill_left = m_x + width + dx;
+        const std::int32_t fill_top = m_y + dy + m_up_button.GetHeight();
         const SDL_Rect fill{fill_left, fill_top, m_up_button.GetWidth(),
                             height - m_up_button.GetHeight() - m_down_button.GetHeight()};
         SDL_FillSurfaceRect(&GetFrameBufferSurface(), &fill, Get16BPPColor(m_fill_colour));
@@ -374,15 +375,15 @@ void W8ListBoxDialog::Draw()
     {
         SDL_Rect text_clip{rect.x + 3, rect.y + 3, rect.w - 6, rect.h - 6};
         ScopedClipRect clipping(GetFrameBufferSurface(), text_clip);
-        if (static_cast<int>(m_lines.size()) <=
-            static_cast<int>(visible_lines + m_first_visible_line)) {
-            visible_lines = static_cast<int>(m_lines.size()) - m_first_visible_line;
+        if (static_cast<std::int32_t>(m_lines.size()) <=
+            static_cast<std::int32_t>(visible_lines + m_first_visible_line)) {
+            visible_lines = static_cast<std::int32_t>(m_lines.size()) - m_first_visible_line;
         }
-        for (index = 0; index < static_cast<int>(visible_lines); ++index) {
+        for (index = 0; index < static_cast<std::int32_t>(visible_lines); ++index) {
             line = m_first_visible_line + index;
             const std::string& text = m_lines[line];
             if (line == m_selected_line) {
-                const int top = m_y + g_dialog_interface_font->height() * index + 2 + dy;
+                const std::int32_t top = m_y + g_dialog_interface_font->height() * index + 2 + dy;
                 const SDL_Rect selection{m_x + 3 + dx, top, width - 6,
                                          g_dialog_interface_font->height() - 2};
                 SDL_FillSurfaceRect(&GetFrameBufferSurface(), &selection,
@@ -390,7 +391,7 @@ void W8ListBoxDialog::Draw()
             }
             DrawText(GetFrameBufferSurface(), *g_dialog_interface_font,
                      {m_x + 3 + dx,
-                      static_cast<int>(g_dialog_interface_font->height()) * index + m_y + 2 + dy},
+                      static_cast<std::int32_t>(g_dialog_interface_font->height()) * index + m_y + 2 + dy},
                      text);
         }
     }
@@ -422,8 +423,8 @@ W8DialogKind W8ListBoxDialog::GetDialogType()
 /* The split-size dialog ("popup_splititem.sti" with a numeric entry field):
    two stepper buttons, two passive frames around the field, accept/cancel. */
 struct W8SplitAmountButtonOffset {
-    int x;
-    int y;
+    std::int32_t x;
+    std::int32_t y;
 };
 
 // GLOBAL: WIZ8 0x0064fc08
@@ -442,7 +443,7 @@ static W8ControlsRect g_split_amount_text_bounds[3] = {
 static W8ScreenRect g_split_amount_field_bounds = {0xbe, 0x35, 0xf4, 0x41};
 
 // GLOBAL: WIZ8 0x0064fc78
-static int g_split_amount_string_ids[3] = {265, 266, 267};
+static std::int32_t g_split_amount_string_ids[3] = {265, 266, 267};
 
 // FUNCTION: WIZ8 0x005d97d0
 W8SplitAmountDialog::W8SplitAmountDialog()
@@ -451,7 +452,7 @@ W8SplitAmountDialog::W8SplitAmountDialog()
 }
 
 // FUNCTION: WIZ8 0x005d9890
-W8SplitAmountDialog::W8SplitAmountDialog(int total)
+W8SplitAmountDialog::W8SplitAmountDialog(std::int32_t total)
     : m_active_field(nullptr), m_remaining(total), m_taken(0), m_total(total),
       m_result(W8_SPLIT_RESULT_PENDING)
 {
@@ -475,9 +476,9 @@ W8SplitAmountDialog::~W8SplitAmountDialog() = default;
 /* The split-item dialog. Three text buffers show the running totals, the
    numeric field edits the taken amount, and the buttons step it. */
 // FUNCTION: WIZ8 0x005d99f0
-int W8SplitAmountDialog::CreateControls()
+std::int32_t W8SplitAmountDialog::CreateControls()
 {
-    if (int error = W8DialogBase::CreateControls(); error != 0) return error;
+    if (std::int32_t error = W8DialogBase::CreateControls(); error != 0) return error;
     m_result = W8_SPLIT_RESULT_PENDING;
     if (!CreateButtons()) {
         DestroyControls();
@@ -502,7 +503,7 @@ int W8SplitAmountDialog::CreateControls()
 // FUNCTION: WIZ8 0x005d9b30
 bool W8SplitAmountDialog::CreateButtons()
 {
-    int index;
+    std::int32_t index;
 
     for (auto& button : m_buttons) button = std::make_unique<W8ButtonWidget>();
     if (!m_buttons[0]->Configure("Data\\Dialogs\\popup_splititem.sti", 0xc, 9, 10, 0xd, 0xb,
@@ -536,7 +537,7 @@ bool W8SplitAmountDialog::CreateButtons()
 // FUNCTION: WIZ8 0x005d9d10
 bool W8SplitAmountDialog::CreateTextBuffers()
 {
-    int index;
+    std::int32_t index;
     W8ControlsRect bounds;
 
     for (index = 0; index < 3; ++index) {
@@ -570,7 +571,7 @@ bool W8SplitAmountDialog::CreateNumericInput()
 // FUNCTION: WIZ8 0x005d9f20
 void W8SplitAmountDialog::Draw()
 {
-    int index;
+    std::int32_t index;
 
     if ((m_dirty_flags & W8_DIALOG_DIRTY_REDRAW) != 0) {
         if (!m_initialized && CreateControls() != 0) return;
@@ -641,10 +642,10 @@ void W8SplitAmountDialog::UpdateButtonStates()
 }
 
 // FUNCTION: WIZ8 0x005da140
-void W8SplitAmountDialog::OnNumericInputChanged(int value)
+void W8SplitAmountDialog::OnNumericInputChanged(std::int32_t value)
 {
     if (value == 0) {
-        int field_value = m_split_input->m_value;
+        std::int32_t field_value = m_split_input->m_value;
         m_remaining = m_total - field_value;
         m_taken = field_value;
         UpdateButtonStates();
@@ -652,7 +653,7 @@ void W8SplitAmountDialog::OnNumericInputChanged(int value)
     }
 }
 
-void W8SplitAmountDialog::DecreaseAmount(int amount)
+void W8SplitAmountDialog::DecreaseAmount(std::int32_t amount)
 {
     m_taken -= amount;
     if (m_taken < 0) {
@@ -666,7 +667,7 @@ void W8SplitAmountDialog::DecreaseAmount(int amount)
     UpdateTextBuffers();
 }
 
-void W8SplitAmountDialog::IncreaseAmount(int amount)
+void W8SplitAmountDialog::IncreaseAmount(std::int32_t amount)
 {
     m_remaining -= amount;
     if (m_remaining < 0) {
@@ -686,7 +687,7 @@ bool W8SplitAmountDialog::HandleInputEvent(const InputEvent* input)
     if (m_split_input && m_split_input->m_active && m_split_input->HandleInput(input))
         return true;
     if (input->type == InputEventType::KeyDown || input->type == InputEventType::KeyRepeat) {
-        int key = toupper(input->key);
+        std::int32_t key = toupper(input->key);
         if (key == 0x1b) {
             m_keep_open = false;
         } else if (key == 0x2b) {
@@ -881,13 +882,13 @@ W8DialogKind W8TriggerItemPickerDialog::GetDialogType()
 // FUNCTION: WIZ8 0x005ce420
 void W8TriggerItemPickerDialog::RefreshScrollButtons()
 {
-    if (static_cast<int>(items.size()) <= 4) {
+    if (static_cast<std::int32_t>(items.size()) <= 4) {
         m_first_item = 0;
     }
-    for (int index = 0; index < 4; ++index) {
+    for (std::int32_t index = 0; index < 4; ++index) {
         W8ButtonWidget& button = *m_buttons[5 + index];
-        int item = m_first_item + index;
-        if (item < static_cast<int>(items.size())) {
+        std::int32_t item = m_first_item + index;
+        if (item < static_cast<std::int32_t>(items.size())) {
             button.SetPressed(IsItemSelected(item));
         } else if (button.IsPressed() != 0) {
             button.SetPressed(false);
@@ -896,28 +897,28 @@ void W8TriggerItemPickerDialog::RefreshScrollButtons()
     }
 }
 
-void W8TriggerItemPickerDialog::SetFirstVisible(int index)
+void W8TriggerItemPickerDialog::SetFirstVisible(std::int32_t index)
 {
-    if (static_cast<int>(items.size()) <= 4) {
+    if (static_cast<std::int32_t>(items.size()) <= 4) {
         m_first_item = 0;
         return;
     }
-    if (index < 0 || index > static_cast<int>(items.size()) - 4) {
+    if (index < 0 || index > static_cast<std::int32_t>(items.size()) - 4) {
         return;
     }
     m_first_item = index;
     m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
 }
 
-bool W8TriggerItemPickerDialog::IsItemSelected(int index)
+bool W8TriggerItemPickerDialog::IsItemSelected(std::int32_t index)
 {
-    if (index < 0 || index >= static_cast<int>(items.size())) {
+    if (index < 0 || index >= static_cast<std::int32_t>(items.size())) {
         return false;
     }
     return flags[index] != 0;
 }
 
-void W8TriggerItemPickerDialog::SetItemSelected(int index, bool selected)
+void W8TriggerItemPickerDialog::SetItemSelected(std::int32_t index, bool selected)
 {
     if (static_cast<std::size_t>(index) < items.size()) {
         flags[index] = selected;
@@ -928,10 +929,10 @@ void W8TriggerItemPickerDialog::SetItemSelected(int index, bool selected)
     }
 }
 
-void W8TriggerItemPickerDialog::ToggleItem(int index, W8ButtonWidget* button)
+void W8TriggerItemPickerDialog::ToggleItem(std::int32_t index, W8ButtonWidget* button)
 {
     bool selected = !IsItemSelected(index);
-    if (index < 0 || index >= static_cast<int>(items.size())) {
+    if (index < 0 || index >= static_cast<std::int32_t>(items.size())) {
         button->SetPressed(false);
     } else {
         SetItemSelected(index, selected);
@@ -944,12 +945,12 @@ void W8TriggerItemPickerDialog::ToggleItem(int index, W8ButtonWidget* button)
    row; any failure raises the beep flag. Afterwards the scroll state refreshes
    and an emptied picker closes itself. */
 // FUNCTION: WIZ8 0x005ce4c0
-void W8TriggerItemPickerDialog::TransferSelectedItems(int destination)
+void W8TriggerItemPickerDialog::TransferSelectedItems(std::int32_t destination)
 {
-    int index;
+    std::int32_t index;
     bool failed = false;
 
-    for (index = 0; index < static_cast<int>(items.size()); ++index) {
+    for (index = 0; index < static_cast<std::int32_t>(items.size()); ++index) {
         if (flags[index] != 0) {
             W8ItemInstance& instance = items[index]->item;
             bool added;
@@ -990,10 +991,10 @@ void W8TriggerItemPickerDialog::ToggleAllItems(W8ButtonWidget* button)
     if (button != 0) {
         W8TriggerItemPickerDialog* dialog =
             static_cast<W8TriggerItemPickerDialog*>(button->m_owner);
-        int index;
+        std::int32_t index;
         bool all_selected = true;
 
-        for (index = 0; index < static_cast<int>(dialog->items.size()); ++index) {
+        for (index = 0; index < static_cast<std::int32_t>(dialog->items.size()); ++index) {
             if (!all_selected) {
                 break;
             }
@@ -1002,7 +1003,7 @@ void W8TriggerItemPickerDialog::ToggleAllItems(W8ButtonWidget* button)
             }
         }
         bool selected = !all_selected;
-        for (index = 0; index < static_cast<int>(dialog->items.size()); ++index) {
+        for (index = 0; index < static_cast<std::int32_t>(dialog->items.size()); ++index) {
             dialog->SetItemSelected(index, selected);
         }
     }
@@ -1045,7 +1046,7 @@ void W8TriggerItemPickerDialog::ToggleVisibleItem1(W8ButtonWidget* button)
     if (button != 0) {
         W8TriggerItemPickerDialog* dialog =
             static_cast<W8TriggerItemPickerDialog*>(button->m_owner);
-        if (dialog->m_first_item < static_cast<int>(dialog->items.size()) + 1) {
+        if (dialog->m_first_item < static_cast<std::int32_t>(dialog->items.size()) + 1) {
             dialog->ToggleItem(dialog->m_first_item + 1, button);
         }
     }
@@ -1057,7 +1058,7 @@ void W8TriggerItemPickerDialog::ToggleVisibleItem2(W8ButtonWidget* button)
     if (button != 0) {
         W8TriggerItemPickerDialog* dialog =
             static_cast<W8TriggerItemPickerDialog*>(button->m_owner);
-        if (dialog->m_first_item < static_cast<int>(dialog->items.size()) + 2) {
+        if (dialog->m_first_item < static_cast<std::int32_t>(dialog->items.size()) + 2) {
             dialog->ToggleItem(dialog->m_first_item + 2, button);
         }
     }
@@ -1069,7 +1070,7 @@ void W8TriggerItemPickerDialog::ToggleVisibleItem3(W8ButtonWidget* button)
     if (button != 0) {
         W8TriggerItemPickerDialog* dialog =
             static_cast<W8TriggerItemPickerDialog*>(button->m_owner);
-        if (dialog->m_first_item < static_cast<int>(dialog->items.size()) + 3) {
+        if (dialog->m_first_item < static_cast<std::int32_t>(dialog->items.size()) + 3) {
             dialog->ToggleItem(dialog->m_first_item + 3, button);
         }
     }
@@ -1077,12 +1078,12 @@ void W8TriggerItemPickerDialog::ToggleVisibleItem3(W8ButtonWidget* button)
 
 /* The four right-click callbacks copy the visible row's world item and open
    the assay dialog on it. */
-void W8TriggerItemPickerDialog::ShowVisibleItemInfo(W8ButtonWidget* button, int row)
+void W8TriggerItemPickerDialog::ShowVisibleItemInfo(W8ButtonWidget* button, std::int32_t row)
 {
     if (button != 0) {
         W8TriggerItemPickerDialog* dialog =
             static_cast<W8TriggerItemPickerDialog*>(button->m_owner);
-        if (dialog->m_first_item < static_cast<int>(dialog->items.size()) + row) {
+        if (dialog->m_first_item < static_cast<std::int32_t>(dialog->items.size()) + row) {
             W8ItemInstance* instance =
                 CopyWorldItemInstance(dialog->items[dialog->m_first_item + row]);
             OpenAssayDialog(instance, -1);
@@ -1141,9 +1142,9 @@ void W8TriggerItemPickerDialog::ScrollItemsDown(W8ButtonWidget* button)
 // FUNCTION: WIZ8 0x005ceaf0
 void W8TriggerItemPickerDialog::ScrollItemsToMouse(W8ButtonWidget* button)
 {
-    int top;
-    int bottom;
-    int index;
+    std::int32_t top;
+    std::int32_t bottom;
+    std::int32_t index;
 
     if (button != 0 && button->IsLeftButtonHeld()) {
         W8TriggerItemPickerDialog* dialog =
@@ -1159,7 +1160,7 @@ void W8TriggerItemPickerDialog::ScrollItemsToMouse(W8ButtonWidget* button)
         if (point.y > top) {
             point.y = top;
         }
-        index = (point.y - bottom) * static_cast<int>(dialog->items.size()) / (top - bottom);
+        index = (point.y - bottom) * static_cast<std::int32_t>(dialog->items.size()) / (top - bottom);
         dialog->SetFirstVisible(index);
     }
 }
@@ -1183,7 +1184,7 @@ bool W8TriggerItemPickerDialog::HandleInputEvent(const InputEvent* input)
             m_keep_open = false;
             return false;
         case VK_PRIOR: {
-            int target = m_first_item - 4;
+            std::int32_t target = m_first_item - 4;
             if (target < 0) {
                 target = 0;
             }
@@ -1191,15 +1192,15 @@ bool W8TriggerItemPickerDialog::HandleInputEvent(const InputEvent* input)
             return m_keep_open;
         }
         case VK_NEXT: {
-            int target = m_first_item + 4;
-            if (target > static_cast<int>(items.size()) - 4) {
-                target = static_cast<int>(items.size()) - 4;
+            std::int32_t target = m_first_item + 4;
+            if (target > static_cast<std::int32_t>(items.size()) - 4) {
+                target = static_cast<std::int32_t>(items.size()) - 4;
             }
             SetFirstVisible(target);
             return m_keep_open;
         }
         case VK_END:
-            SetFirstVisible(static_cast<int>(items.size()) - 4);
+            SetFirstVisible(static_cast<std::int32_t>(items.size()) - 4);
             return m_keep_open;
         case VK_HOME:
             SetFirstVisible(0);
@@ -1208,8 +1209,8 @@ bool W8TriggerItemPickerDialog::HandleInputEvent(const InputEvent* input)
         case '2':
         case '3':
         case '4': {
-            int index = m_first_item + input->key - '1';
-            if (index < static_cast<int>(items.size())) {
+            std::int32_t index = m_first_item + input->key - '1';
+            if (index < static_cast<std::int32_t>(items.size())) {
                 SetItemSelected(index, !IsItemSelected(index));
             }
             break;
@@ -1260,34 +1261,34 @@ W8WorldItem* W8TriggerItemPickerDialog::ReturnItemsToGroup()
    Both vectors grow five at a time on this insertion path. A nil result means
    the caller's group handed in nothing. */
 // FUNCTION: WIZ8 0x005ce210
-int W8TriggerItemPickerDialog::AddItem(W8WorldItem* item)
+std::int32_t W8TriggerItemPickerDialog::AddItem(W8WorldItem* item)
 {
     W8ItemInstance* instance = &item->item;
 
     if (instance != 0) {
-        int index;
+        std::int32_t index;
 
         PartyAttemptsToIdentifyItem(instance, 0);
-        for (index = 0; index < static_cast<int>(items.size()); ++index) {
+        for (index = 0; index < static_cast<std::int32_t>(items.size()); ++index) {
             W8WorldItem* other = items[index];
             if (ItemsShareEquipClass(instance, &other->item)) {
                 break;
             }
         }
-        if (index < static_cast<int>(items.size())) {
+        if (index < static_cast<std::int32_t>(items.size())) {
             W8WorldItem* other = items[index];
-            while (index < static_cast<int>(items.size()) &&
+            while (index < static_cast<std::int32_t>(items.size()) &&
                    !ItemsShareUnidentifiedName(instance, &other->item)) {
                 other = items[index];
                 ++index;
             }
-            if (index < static_cast<int>(items.size())) {
-                while (index < static_cast<int>(items.size()) &&
+            if (index < static_cast<std::int32_t>(items.size())) {
+                while (index < static_cast<std::int32_t>(items.size()) &&
                        other->item.iItemNo != instance->iItemNo) {
                     other = items[index];
                     ++index;
                 }
-                if (index < static_cast<int>(items.size())) {
+                if (index < static_cast<std::int32_t>(items.size())) {
                     items.insert(items.begin() + index, item);
                     flags.insert(flags.begin() + index, 0);
                     return -1;
@@ -1334,8 +1335,8 @@ bool W8TriggerItemPickerDialog::ProcessInput()
 // FUNCTION: WIZ8 0x005cdc70
 void W8TriggerItemPickerDialog::Draw()
 {
-    int count = static_cast<int>(items.size());
-    int visible_rows;
+    std::int32_t count = static_cast<std::int32_t>(items.size());
+    std::int32_t visible_rows;
     if (count < 3) {
         visible_rows = 2;
     } else if (count > 3) {
@@ -1351,7 +1352,7 @@ void W8TriggerItemPickerDialog::Draw()
         m_buttons[2]->SetEnabled(false);
     }
     if ((m_dirty_flags & W8_DIALOG_DIRTY_REDRAW) != 0) {
-        for (int index = 0; index < 13; ++index) {
+        for (std::int32_t index = 0; index < 13; ++index) {
             m_buttons[index]->m_dirty = true;
         }
         SetExtent(m_buttons[4]->GetWidth() + 0xe,
@@ -1379,18 +1380,18 @@ void W8TriggerItemPickerDialog::Draw()
                                                              m_buttons[10]->GetHeight());
         m_buttons[10]->Draw();
 
-        int progress = 0;
+        std::int32_t progress = 0;
         if (m_first_item != 0) {
-            progress = static_cast<int>(items.size());
-            if (m_first_item + 4 < static_cast<int>(items.size())) {
+            progress = static_cast<std::int32_t>(items.size());
+            if (m_first_item + 4 < static_cast<std::int32_t>(items.size())) {
                 progress = m_first_item + 2;
             }
         }
-        int travel = m_buttons[12]->GetHeight() - m_buttons[9]->GetHeight() -
+        std::int32_t travel = m_buttons[12]->GetHeight() - m_buttons[9]->GetHeight() -
                      m_buttons[10]->GetHeight() - m_buttons[11]->GetHeight();
         m_buttons[11]->SetPosition(m_buttons[9]->GetX(),
                                    m_buttons[9]->GetHeight() + m_buttons[12]->GetY() +
-                                       travel * progress / static_cast<int>(items.size()) + 1);
+                                       travel * progress / static_cast<std::int32_t>(items.size()) + 1);
         m_buttons[11]->Draw();
     } else {
         m_buttons[12]->SetVisible(false);
@@ -1416,7 +1417,7 @@ void W8TriggerItemPickerDialog::Draw()
     m_buttons[0]->Draw();
     RefreshScrollButtons();
 
-    for (int row = 0; row < visible_rows; ++row) {
+    for (std::int32_t row = 0; row < visible_rows; ++row) {
         W8ButtonWidget* button = m_buttons[5 + row].get();
 
         button->SetVisible(true);
@@ -1428,8 +1429,8 @@ void W8TriggerItemPickerDialog::Draw()
         if (items.empty()) {
             continue;
         }
-        int item_index = m_first_item + row;
-        if (item_index >= static_cast<int>(items.size())) {
+        std::int32_t item_index = m_first_item + row;
+        if (item_index >= static_cast<std::int32_t>(items.size())) {
             continue;
         }
         W8WorldItem* world_item = items[item_index];
@@ -1446,7 +1447,7 @@ void W8TriggerItemPickerDialog::Draw()
             DrawText(GetFrameBufferSurface(), g_wiz_text_font,
                      {button->GetX() + 0x3c, button->GetY() + 6}, name);
         }
-        unsigned short weight = g_item_records[item->iItemNo].weight;
+        std::uint16_t weight = g_item_records[item->iItemNo].weight;
         DrawText(GetFrameBufferSurface(), g_wiz_text_font,
                  {button->GetX() + 0x3c, button->GetY() + g_wiz_text_font.height() + 6},
                  fmt::format("{:4.1f} lbs", weight * 0.1f));
@@ -1455,7 +1456,7 @@ void W8TriggerItemPickerDialog::Draw()
 
 /* Create the base controls first, then the picker buttons. */
 // FUNCTION: WIZ8 0x005cdc10
-int W8TriggerItemPickerDialog::CreateControls()
+std::int32_t W8TriggerItemPickerDialog::CreateControls()
 {
     if (W8DialogBase::CreateControls() != 0) {
         return m_error;

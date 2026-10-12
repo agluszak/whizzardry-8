@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <fmt/format.h>
 #include <exception>
 #include <string>
@@ -17,9 +18,9 @@ W8GameSettings g_settings;
 static char g_config_file_name[8] = "Wiz8";
 // GLOBAL: WIZ8 0x0061e18c
 static char g_config_file_extension[] = "CFG";
-constexpr unsigned int W8_CHUNK_SETTINGS = W8ChunkId("CNFG");
-constexpr unsigned int W8_CHUNK_RENDER_OPTIONS = W8ChunkId("QLTY");
-constexpr unsigned int W8_CHUNK_KEY_BINDINGS = W8ChunkId("KEYM");
+constexpr std::uint32_t W8_CHUNK_SETTINGS = W8ChunkId("CNFG");
+constexpr std::uint32_t W8_CHUNK_RENDER_OPTIONS = W8ChunkId("QLTY");
+constexpr std::uint32_t W8_CHUNK_KEY_BINDINGS = W8ChunkId("KEYM");
 
 // FUNCTION: WIZ8 0x0054b810
 void LoadGameConfiguration(void)
@@ -32,7 +33,7 @@ void LoadGameConfiguration(void)
     path = fmt::format("{}.{}", g_config_file_name, g_config_file_extension);
     ResetMGSKeyboardBindings();
     if (file.OpenRead(path)) {
-        file.ForEachChunk([&](unsigned int id) {
+        file.ForEachChunk([&](std::uint32_t id) {
             if (id == W8_CHUNK_SETTINGS) {
                 if (file.CurrentChunkExtent() == sizeof(g_settings)) {
                     file.ReadValue(g_settings);
@@ -47,7 +48,7 @@ void LoadGameConfiguration(void)
         file.Close();
     }
     if (loaded) {
-        if (static_cast<unsigned int>(g_settings.combat_delay_ms) <= 5000u &&
+        if (static_cast<std::uint32_t>(g_settings.combat_delay_ms) <= 5000u &&
             g_settings.text_display_delay_ms <= 5000u) {
             reset = false;
         } else {

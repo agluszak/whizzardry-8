@@ -15,7 +15,7 @@
 
 namespace {
 
-SDL_Rect sprite_rect(const SpriteFrame& frame, int x, int y, bool mirror)
+SDL_Rect sprite_rect(const SpriteFrame& frame, std::int32_t x, std::int32_t y, bool mirror)
 {
     return {mirror ? x - frame.offset.x : x + frame.offset.x,
             y + frame.offset.y, frame.width, frame.height};
@@ -24,7 +24,7 @@ SDL_Rect sprite_rect(const SpriteFrame& frame, int x, int y, bool mirror)
 }
 
 void DrawSprite(SDL_Surface& target, const SpriteSheet& sprites, std::size_t frame_index,
-                int x, int y, SpriteDraw options)
+                std::int32_t x, std::int32_t y, SpriteDraw options)
 {
     if (frame_index >= sprites.frames.size())
         return;
@@ -42,14 +42,14 @@ void DrawSprite(SDL_Surface& target, const SpriteSheet& sprites, std::size_t fra
         return;
 
     const auto& palette = options.palette ? *options.palette : sprites.colors;
-    for (int destination_y = visible.y; destination_y < visible.y + visible.h; ++destination_y) {
-        const int source_y = destination_y - requested.y;
+    for (std::int32_t destination_y = visible.y; destination_y < visible.y + visible.h; ++destination_y) {
+        const std::int32_t source_y = destination_y - requested.y;
         const std::uint16_t* input = frame.indices.data() + std::size_t(source_y) * frame.width;
         auto* output = reinterpret_cast<std::uint16_t*>(
             static_cast<std::uint8_t*>(target.pixels) + destination_y * target.pitch);
-        for (int destination_x = visible.x; destination_x < visible.x + visible.w; ++destination_x) {
-            const int relative_x = destination_x - requested.x;
-            const int source_x = options.mirror ? frame.width - 1 - relative_x : relative_x;
+        for (std::int32_t destination_x = visible.x; destination_x < visible.x + visible.w; ++destination_x) {
+            const std::int32_t relative_x = destination_x - requested.x;
+            const std::int32_t source_x = options.mirror ? frame.width - 1 - relative_x : relative_x;
             const std::uint16_t index = input[source_x];
             if (options.blend == SpriteBlend::Mono) {
                 if (index == 1) {
@@ -69,7 +69,7 @@ void DrawSprite(SDL_Surface& target, const SpriteSheet& sprites, std::size_t fra
     }
 }
 
-bool SpriteIsClipped(const SpriteSheet& sprites, std::size_t frame_index, int x, int y,
+bool SpriteIsClipped(const SpriteSheet& sprites, std::size_t frame_index, std::int32_t x, std::int32_t y,
                      const SDL_Rect& clip)
 {
     if (frame_index >= sprites.frames.size())
@@ -89,19 +89,19 @@ void TileSprite(SDL_Surface& target, const SDL_Rect& area, const SpriteSheet& sp
     if (frame_index >= sprites.frames.size() || SDL_RectEmpty(&area))
         return;
     const auto& frame = sprites.frames[frame_index];
-    const int tile_width = frame.width + frame.offset.x;
-    const int tile_height = frame.height + frame.offset.y;
+    const std::int32_t tile_width = frame.width + frame.offset.x;
+    const std::int32_t tile_height = frame.height + frame.offset.y;
     if (frame.indices.empty() || tile_width <= 0 || tile_height <= 0)
         return;
 
     ScopedClipRect clip(target, area);
-    const auto modulo = [](int value, int period) {
+    const auto modulo = [](std::int32_t value, std::int32_t period) {
         return (value % period + period) % period;
     };
-    const int first_x = area.x + modulo(offset.x, tile_width) - tile_width;
-    const int first_y = area.y + modulo(offset.y, tile_height) - tile_height;
-    for (int y = first_y; y < area.y + area.h; y += tile_height)
-        for (int x = first_x; x < area.x + area.w; x += tile_width)
+    const std::int32_t first_x = area.x + modulo(offset.x, tile_width) - tile_width;
+    const std::int32_t first_y = area.y + modulo(offset.y, tile_height) - tile_height;
+    for (std::int32_t y = first_y; y < area.y + area.h; y += tile_height)
+        for (std::int32_t x = first_x; x < area.x + area.w; x += tile_width)
             DrawSprite(target, sprites, frame_index, x, y);
 }
 

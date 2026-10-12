@@ -118,8 +118,8 @@ std::string from_utf16le(std::span<const std::byte> bytes, bool encoded)
     std::u16string units;
     units.reserve(bytes.size()/2);
     for (std::size_t i = 0; i < bytes.size(); i += 2) {
-        auto unit = static_cast<std::uint16_t>(std::to_integer<unsigned>(bytes[i]) |
-                    (std::to_integer<unsigned>(bytes[i+1]) << 8));
+        auto unit = static_cast<std::uint16_t>(std::to_integer<std::uint32_t>(bytes[i]) |
+                    (std::to_integer<std::uint32_t>(bytes[i+1]) << 8));
         // FUNCTION: WIZ8 0x005300e0 (DecodeLocalizedText at the format boundary)
         if (encoded) unit = static_cast<std::uint16_t>(~unit + 0x9697);
         if (!unit) break;
@@ -161,23 +161,23 @@ bool IsPunctuationCharacter(std::uint32_t character)
 }
 
 // FUNCTION: WIZ8 0x00402880
-int ToUppercaseCharacter(int character)
+std::int32_t ToUppercaseCharacter(std::int32_t character)
 {
     return utf8proc_toupper(character);
 }
 
 // FUNCTION: WIZ8 0x004028A0
-int ToLowercaseCharacter(int character)
+std::int32_t ToLowercaseCharacter(std::int32_t character)
 {
     return utf8proc_tolower(character);
 }
 
 // FUNCTION: WIZ8 0x00402920
-int CompareTextIgnoreAsciiCase(std::string_view first, std::string_view second)
+std::int32_t CompareTextIgnoreAsciiCase(std::string_view first, std::string_view second)
 {
-    auto lower = [](unsigned char c) { return c >= 'A' && c <= 'Z' ? c + ('a' - 'A') : c; };
+    auto lower = [](std::uint8_t c) { return c >= 'A' && c <= 'Z' ? c + ('a' - 'A') : c; };
     for (std::size_t i = 0; i < std::min(first.size(), second.size()); ++i) {
-        const int difference = lower(first[i]) - lower(second[i]);
+        const std::int32_t difference = lower(first[i]) - lower(second[i]);
         if (difference) return difference;
     }
     return (first.size() > second.size()) - (first.size() < second.size());

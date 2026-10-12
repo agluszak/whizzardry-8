@@ -12,7 +12,7 @@ namespace wiz8 { class File; }
 /* NSF disk records and owning runtime script data have independent layouts. */
 
 /* Quote-entry opcodes with recovered consumers; unknown values remain unnamed. */
-typedef unsigned char W8NpcQuoteEntryKind;
+typedef std::uint8_t W8NpcQuoteEntryKind;
 
 enum {
     W8_NPC_ENTRY_NEXT_QUOTE = 2,
@@ -63,7 +63,7 @@ struct Quote {
     std::uint8_t dialogue_alert;
 };
 struct Header {
-    unsigned char unknown_00[4];
+    std::uint8_t unknown_00[4];
     std::uint16_t quote_count;
     std::uint32_t name, quotes;
 };
@@ -75,25 +75,25 @@ static_assert(sizeof(Header) == 0x0e);
 }
 
 struct W8NpcQuoteSubEntry {
-    int operand{};
+    std::int32_t operand{};
     std::string text;
 };
 struct W8NpcQuoteEntry {
     W8NpcQuoteEntryKind kind{};
-    int operand0{}, operand1{}, operand2{};
-    unsigned char sub_entry_count{};
+    std::int32_t operand0{}, operand1{}, operand2{};
+    std::uint8_t sub_entry_count{};
     std::vector<W8NpcQuoteSubEntry> sub_entries;
 };
 struct W8NpcScriptQuote {
-    unsigned char subquote_count{};
+    std::uint8_t subquote_count{};
     std::vector<std::string> subquotes;
     std::vector<W8NpcQuoteEntry> entries;
-    unsigned short entry_count{};
-    unsigned char dialogue_alert{};
+    std::uint16_t entry_count{};
+    std::uint8_t dialogue_alert{};
 };
 struct W8NpcScriptFile {
-    unsigned char unknown_00[4]{};
-    unsigned short quote_count{};
+    std::uint8_t unknown_00[4]{};
+    std::uint16_t quote_count{};
     std::string name;
     std::vector<W8NpcScriptQuote> quotes;
 };

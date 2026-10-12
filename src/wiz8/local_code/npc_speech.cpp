@@ -39,12 +39,12 @@ void ResetNpcSpeech(W8NpcSpeech& speech)
 }
 
 // FUNCTION: WIZ8 0x00525E60
-int ComputePortraitMessageDuration(std::string_view text)
+std::int32_t ComputePortraitMessageDuration(std::string_view text)
 {
-    return static_cast<int>(wiz8::text::to_utf16(text).size() * 0x3c + 2000);
+    return static_cast<std::int32_t>(wiz8::text::to_utf16(text).size() * 0x3c + 2000);
 }
 
-void HoldNpcSpeech(W8NpcSpeech& speech, unsigned int hold_ms)
+void HoldNpcSpeech(W8NpcSpeech& speech, std::uint32_t hold_ms)
 {
     speech.hold_ms = hold_ms;
     speech.hold_started_at = w8_get_ticks();

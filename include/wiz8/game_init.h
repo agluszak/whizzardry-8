@@ -2,4 +2,4 @@
 
 #include <cstddef>
 
-unsigned char InitializeGame(size_t& initialized_screens);
+bool InitializeGame(size_t& initialized_screens);

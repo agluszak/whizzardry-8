@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "wiz8/level_specific_code/Arnika.h"
 
 #include <vector>
@@ -45,9 +46,9 @@ struct W8NpcState;
    LazerScanner, ScannerDoor). */
 
 struct W8Elevator {
-    int state;                   /* 0x00: persisted as El0XState */
-    int moving;                  /* 0x04: persisted as El0XMoving */
-    int button_down;             /* 0x08: persisted as Red/GreenButtonDown */
+    std::int32_t state;                   /* 0x00: persisted as El0XState */
+    std::int32_t moving;                  /* 0x04: persisted as El0XMoving */
+    std::int32_t button_down;             /* 0x08: persisted as Red/GreenButtonDown */
     Trigger* pElevator;          /* 0x0c */
     Trigger* pLift;              /* 0x10 */
     Trigger* pTopDoor;           /* 0x14 */
@@ -77,7 +78,7 @@ static W8Prop* g_exit_door_prop;
 // GLOBAL: WIZ8 0x006835D4
 static Trigger* g_exit_door_trigger;
 // GLOBAL: WIZ8 0x006835D8
-static int g_laser_scanning;
+static std::int32_t g_laser_scanning;
 // GLOBAL: WIZ8 0x006835DC
 static stSound3D* g_warning_loop;
 // GLOBAL: WIZ8 0x006835E0
@@ -88,13 +89,13 @@ static W8IntervalGate* g_warning_gate;
 static W8Monster* g_mookholo_monster;
 
 struct ElevatorStateBindings {
-    int which;
-    int initial_state;
+    std::int32_t which;
+    std::int32_t initial_state;
     const char* state_variable;
     const char* moving_variable;
     const char* button_variable;
-    void (*moving_master)(int);
-    void (*button_master)(int);
+    void (*moving_master)(std::int32_t);
+    void (*button_master)(std::int32_t);
     bool open_bottom_on_first_load;
 };
 
@@ -151,7 +152,7 @@ static void RestoreArnikaElevator(W8Elevator& elevator, const ElevatorStateBindi
 }
 
 static void RunArnikaElevatorButton(W8Elevator& elevator, W8Prop*& button_prop,
-                                   const ElevatorStateBindings& bindings, int command)
+                                   const ElevatorStateBindings& bindings, std::int32_t command)
 {
     if (command != 0) {
         if (command == -1) {
@@ -163,7 +164,7 @@ static void RunArnikaElevatorButton(W8Elevator& elevator, W8Prop*& button_prop,
             return;
         }
         g_master_functions.push_back(bindings.button_master);
-        if (command != static_cast<int>(0xEFFFFFFF)) {
+        if (command != static_cast<std::int32_t>(0xEFFFFFFF)) {
             elevator.button_down = command;
         } else {
             elevator.button_down = 1;
@@ -190,7 +191,7 @@ static void RunArnikaElevatorButton(W8Elevator& elevator, W8Prop*& button_prop,
 }
 
 static void RunArnikaElevatorMoving(W8Elevator& elevator, const ElevatorStateBindings& bindings,
-                                   int command)
+                                   std::int32_t command)
 {
     if (command != 0) {
         if (command == -1) {
@@ -240,7 +241,7 @@ void ArnikaLevelSetup(void)
         }
     }
     if (GetLocationVarIDByName("WarningSound") != -1) {
-        int value = GetLocationVarValueByName("WarningSound");
+        std::int32_t value = GetLocationVarValueByName("WarningSound");
         if (value != 0) {
             ArnikaWarningSound(value);
         }
@@ -287,7 +288,7 @@ bool ArnikaLazerScanner(Trigger* pTrigger)
    state into LaserScanning, and a zero tick drops the scan once the prop's
    rep stops animating. */
 // FUNCTION: WIZ8 0x004E0960
-void ArnikaLaserScanMaster(int command)
+void ArnikaLaserScanMaster(std::int32_t command)
 {
     if (command != 0) {
         if (command == -1) {
@@ -334,7 +335,7 @@ bool ArnikaScannerDoor(Trigger* pTrigger)
    remaining time into WarningSound, and a zero tick runs the countdown and
    stops the looped VOC when it expires. */
 // FUNCTION: WIZ8 0x004E0AC0
-void ArnikaWarningSound(int command)
+void ArnikaWarningSound(std::int32_t command)
 {
     srVector3T<float> position;
 
@@ -346,7 +347,7 @@ void ArnikaWarningSound(int command)
         if (command == -1) {
             if (g_warning_gate != 0) {
                 SetTriggerVariableByName("WarningSound",
-                                         static_cast<int>(g_warning_gate->GetElapsedSeconds()));
+                                         static_cast<std::int32_t>(g_warning_gate->GetElapsedSeconds()));
             } else {
                 SetTriggerVariableByName("WarningSound", 0x3e8);
             }
@@ -399,7 +400,7 @@ bool ArnikaMookholo(Trigger* pTrigger)
     srVector3T<float> position;
     W8MonsterGroup* group;
     W8MonsterInfo* info;
-    int location_id;
+    std::int32_t location_id;
 
     if (gXStatus.fCombatMode) {
         return false;
@@ -438,10 +439,10 @@ bool ArnikaMookholo(Trigger* pTrigger)
    fades the spawned monster out once g_npc_dialogue_closed signals the NPC notice
    finished. */
 // FUNCTION: WIZ8 0x004E0F70
-void ArnikaMookholoWatch(int command)
+void ArnikaMookholoWatch(std::int32_t command)
 {
     if (command != 0) {
-        if (command == static_cast<int>(0xEFFFFFFF)) {
+        if (command == static_cast<std::int32_t>(0xEFFFFFFF)) {
             g_npc_dialogue_closed = false;
             g_master_functions.push_back(ArnikaMookholoWatch);
         }
@@ -537,7 +538,7 @@ bool ArnikaExitButton(Trigger* pTrigger)
 /* Teleport watch: once the exit-door prop's rep finishes animating, runs
    the cached trigger and teleports the party to ARN11. */
 // FUNCTION: WIZ8 0x004E1300
-void ArnikaTeleportWatch(int command)
+void ArnikaTeleportWatch(std::int32_t command)
 {
     g_remove_current_master_function = false;
     if (g_exit_door_prop->Rep()->animation_playing != 0) {
@@ -614,7 +615,7 @@ bool ArnikaRedButton(Trigger* pTrigger)
         }
         ArnikaElevatorAdvance(1);
     }
-    ArnikaEl1Button(static_cast<int>(0xEFFFFFFF));
+    ArnikaEl1Button(static_cast<std::int32_t>(0xEFFFFFFF));
     return true;
 }
 
@@ -623,7 +624,7 @@ bool ArnikaRedButton(Trigger* pTrigger)
    value is the pending press. The command-0 run waits for the button prop's
    rep to finish, then runs the button trigger once and clears the press. */
 // FUNCTION: WIZ8 0x004E17C0
-void ArnikaEl1Button(int command)
+void ArnikaEl1Button(std::int32_t command)
 {
     RunArnikaElevatorButton(gEl01, g_el01_button_prop, g_el01_bindings, command);
 }
@@ -651,7 +652,7 @@ bool ArnikaEl1BottomButtons(Trigger* pTrigger)
    command-0 run advances the elevator once the watched door or lift prop's
    rep has finished playing. */
 // FUNCTION: WIZ8 0x004E19B0
-void ArnikaEl1Moving(int command)
+void ArnikaEl1Moving(std::int32_t command)
 {
     RunArnikaElevatorMoving(gEl01, g_el01_bindings, command);
 }
@@ -690,14 +691,14 @@ bool ArnikaGreenButton(Trigger* pTrigger)
     if (gEl02.state != 3) {
         gEl02.pElevator->Run(-1);
     }
-    ArnikaEl2Button(static_cast<int>(0xEFFFFFFF));
+    ArnikaEl2Button(static_cast<std::int32_t>(0xEFFFFFFF));
     return true;
 }
 
 /* The elevator-2 button master function, mirroring ArnikaEl1Button
    against GreenButtonDown. */
 // FUNCTION: WIZ8 0x004E1E10
-void ArnikaEl2Button(int command)
+void ArnikaEl2Button(std::int32_t command)
 {
     RunArnikaElevatorButton(gEl02, g_el02_button_prop, g_el02_bindings, command);
 }
@@ -719,7 +720,7 @@ bool ArnikaElevator02Trigger(Trigger* pTrigger)
 
 /* The El02Moving master function, mirroring ArnikaEl1Moving. */
 // FUNCTION: WIZ8 0x004E1FB0
-void ArnikaEl2Moving(int command)
+void ArnikaEl2Moving(std::int32_t command)
 {
     RunArnikaElevatorMoving(gEl02, g_el02_bindings, command);
 }
@@ -729,7 +730,7 @@ void ArnikaEl2Moving(int command)
    moving master will wait on. States 3 and 7 are the door-closed pauses that
    produce no prop. */
 // FUNCTION: WIZ8 0x004E2010
-void ArnikaElevatorAdvance(int which)
+void ArnikaElevatorAdvance(std::int32_t which)
 {
     W8Elevator* el;
     W8Prop* prop;
@@ -848,8 +849,8 @@ bool ArnikaAstralDominae(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004E2420
 bool ArnikaCMbox(Trigger* pTrigger)
 {
-    int previous = -1;
-    int item;
+    std::int32_t previous = -1;
+    std::int32_t item;
 
     if (g_running_trigger_from_script) {
         return false;
@@ -877,14 +878,14 @@ bool ArnikaCMbox(Trigger* pTrigger)
    the mook and posts the entry notice. Answers the item placed, -1 when the
    pedestal already held one, or -2 when the cursor item was not a relic. */
 // FUNCTION: WIZ8 0x004E24E0
-int ArnikaPedestalItem(int* previous_item)
+std::int32_t ArnikaPedestalItem(std::int32_t* previous_item)
 {
     Trigger* pTrigger;
     W8NpcState* npc;
     W8MonsterInfo* info;
     srVector3T<float> position;
-    int item = -1;
-    int previous;
+    std::int32_t item = -1;
+    std::int32_t previous;
 
     if (g_status.item_in_cursor) {
         item = GetItemInHand();

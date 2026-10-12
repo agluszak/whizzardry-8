@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <catch2/catch_test_macros.hpp>
 #include <SDL3/SDL_iostream.h>
 #include <SDL3/SDL_stdinc.h>
@@ -17,9 +18,9 @@ TEST_CASE("packed bit IO")
 {
     ScopedTemporaryDirectory directory{"bit-array-io"};
     const auto path = directory.path / "bits.bin";
-    const unsigned int words[] = {0x81, 0x12345678, 0};
+    const std::uint32_t words[] = {0x81, 0x12345678, 0};
     std::vector<bool> original(64);
-    for (unsigned bit = 0; bit < original.size(); ++bit)
+    for (std::uint32_t bit = 0; bit < original.size(); ++bit)
         original[bit] = (words[bit / 32] >> (bit % 32)) & 1;
     {
         auto file = wiz8::open_host_file(path, wiz8::OpenMode::replace);
@@ -35,10 +36,10 @@ TEST_CASE("packed bit IO")
         REQUIRE((SDL_ReadU32LE(file->io(), &magic) && magic == 0xdeadd00d));
     }
     auto file = wiz8::open_host_file(path);
-    std::vector<unsigned char> encoded(file->size());
+    std::vector<std::uint8_t> encoded(file->size());
     file->read_exact(encoded.data(), encoded.size());
     // Captured from BitArray::Save at c8b831f, before the vector migration.
-    const std::vector<unsigned char> legacy = {
+    const std::vector<std::uint8_t> legacy = {
         0x0d, 0xd0, 0xad, 0xde, 0x40, 0x00, 0x00, 0x00, 0x15, 0x00, 0x00, 0x00,
         0x03, 0x00, 0x00, 0x00, 0xdd, 0x00, 0x00, 0x00, 0x80, 0x00, 0x00, 0x00,
         0xc0, 0x40, 0x00, 0x00, 0x10, 0xcf, 0x8a, 0x46, 0x36, 0x0d, 0xd0, 0xad,
@@ -69,7 +70,7 @@ TEST_CASE("packed bit IO")
     }
     // Counts near 2^24 exposed the old float divide rounding into the next
     // word. Packed IO must use the integer word count at these boundaries.
-    for (const unsigned count : {31u, 32u, 33u, 16777247u}) {
+    for (const std::uint32_t count : {31u, 32u, 33u, 16777247u}) {
         std::vector<bool> source(count), resized(1);
         SetBit(source, count - 1);
         auto output = wiz8::open_host_file(path, wiz8::OpenMode::replace);

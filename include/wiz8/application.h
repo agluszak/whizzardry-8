@@ -4,7 +4,6 @@
 
 #include <span>
 
-extern "C" {
 extern bool gfProgramIsRunning;
 extern bool gfLoadAtStartup;
 extern std::string gzStringDataOverride;
@@ -19,7 +18,6 @@ union SDL_Event;
 void HandleGameEvent(const SDL_Event& event);
 bool PumpGameEvents(bool wait = false);
 [[noreturn]] void ShutdownWithErrorBox(std::string_view message);
-}
 
 namespace wiz8 {
 class Application {

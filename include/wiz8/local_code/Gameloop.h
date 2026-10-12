@@ -1,6 +1,7 @@
 #ifndef WIZ8_LOCAL_CODE_GAMELOOP_H
 #define WIZ8_LOCAL_CODE_GAMELOOP_H
 
+#include <cstdint>
 #include <vector>
 #include <cstddef>
 
@@ -8,7 +9,7 @@
 
 void ShutdownGame(size_t initialized_screens, bool save_configuration);
 void GameLoop(void);
-void GameloopExit(unsigned char unload_screens);
+void GameloopExit(std::uint8_t unload_screens);
 
 /* Local Code\Gameloop.cpp's screen-state machine storage. */
 extern W8ScreenStateHandlers g_screen_handlers[W8_SCREEN_COUNT];

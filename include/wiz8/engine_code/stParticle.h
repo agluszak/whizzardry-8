@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include "glm/ext/vector_int3.hpp"
 
 #include <memory>
@@ -28,12 +29,12 @@ public:
     {
         return "stParticle";
     }
-    stParticle(srNode* parent, int count); /* 0x00497AF0 */
+    stParticle(srNode* parent, std::int32_t count); /* 0x00497AF0 */
     stParticle(const stParticle& other);   /* 0x00498180 */
-    void SetActive(unsigned char active);
+    void SetActive(bool active);
     void SetTraversalEnabled(bool enabled);
-    void DeactivateParticle(unsigned int index);
-    std::optional<unsigned int> activateParticle(bool replaceWhenFull);
+    void DeactivateParticle(std::uint32_t index);
+    std::optional<std::uint32_t> activateParticle(bool replaceWhenFull);
     glm::vec3 emissionPosition();
     void SetTexture(std::shared_ptr<srTextureIFace> texture);
     void SetMaterial(std::shared_ptr<srMaterialIFace> material);
@@ -46,24 +47,24 @@ public:
     void Update();                                 /* 0x00499FA0 */
     void PrepareRenderer(const glm::mat4& view); /* 0x00498DD0 */
     srShader GetRenderFlags() const;
-    unsigned char ReplaceTexture(const char* old_name, std::shared_ptr<srTextureIFace> replacement);
+    bool ReplaceTexture(const char* old_name, std::shared_ptr<srTextureIFace> replacement);
     virtual void traverse(srNode::TraverseInfo& info) override; /* 0x00498C40 */
     virtual void process(const srNode::ProcessInfo& info,
                          srNode::e_processType type) override; /* 0x00498D60 */
 
     stParticle& operator=(const stParticle&) = default;
 
-    unsigned int requires_sorted_renderer = 0;
+    std::uint32_t requires_sorted_renderer = 0;
     double particle_size = 1.0; /* billboard quad scale */
     std::shared_ptr<srMaterialIFace> material;
     srShader render_flags;
     std::shared_ptr<srTextureIFace> texture;
-    unsigned int particle_count = 0;
+    std::uint32_t particle_count = 0;
     /* Per-particle state. */
     std::vector<glm::vec3> particle_positions;
     std::vector<glm::vec3> velocities;
     /* Unsigned millisecond birth ticks. */
-    std::vector<unsigned int> birth_ticks;
+    std::vector<std::uint32_t> birth_ticks;
     std::vector<bool> particle_active;
     /* Flutter phase per particle; empty without flutter. */
     std::vector<float> flutter_angles;
@@ -77,38 +78,38 @@ public:
     std::vector<std::shared_ptr<srTextureIFace>> texture_frames;
     /* Two triangle indices per still-active particle, rebuilt whenever
        update_flags carries W8_PARTICLE_ACTIVE_TRIANGLES_DIRTY. */
-    std::vector<w8_ulong> active_triangles;
+    std::vector<std::uint32_t> active_triangles;
     /* Both unsigned: 0x004994D0 gates the particle off with the unsigned
        `emission_limit != 0 && emission_limit <= emission_count` pair. */
-    unsigned int emission_limit = 0;
-    unsigned int emission_count = 0;
-    unsigned int active_particle_count = 0;
+    std::uint32_t emission_limit = 0;
+    std::uint32_t emission_count = 0;
+    std::uint32_t active_particle_count = 0;
     /* The particle deletes itself once it stops emitting and has no live particles. */
     bool release_when_done = false;
     bool replace_when_full = false;
     bool persisted = false;
-    unsigned char emitting = 1;
+    std::uint8_t emitting = 1;
     bool traversal_enabled = true;
     W8ParticleBoundsMode bounds_mode = W8_PARTICLE_BOUNDS_SPHERE;
-    int has_acceleration = 0;
+    std::int32_t has_acceleration = 0;
     W8ParticleExpiryMode expiry_mode = W8_PARTICLE_EXPIRY_TIMED;
     W8ParticleEmissionMode emission_mode = W8_PARTICLE_EMISSION_NONE;
-    int los_check_enabled = 0;
+    std::int32_t los_check_enabled = 0;
     W8ParticleDirectionMode direction_mode = W8_PARTICLE_DIRECTION_CONE;
     W8ParticleSpeedMode speed_mode = W8_PARTICLE_SPEED_RANDOM;
     W8ParticleFlutterMode flutter_mode = W8_PARTICLE_FLUTTER_NONE;
-    int camera_relative = 0;
+    std::int32_t camera_relative = 0;
     /* Emission interval; elapsed comparisons use unsigned subtraction. */
-    unsigned int emission_interval = 50;
+    std::uint32_t emission_interval = 50;
     /* Lifetime added to each absolute unsigned birth tick. */
-    unsigned int lifetime_ms = 1500;
+    std::uint32_t lifetime_ms = 1500;
     glm::vec3 emission_minimum{-250.0f, -250.0f, -250.0f};
     glm::vec3 emission_maximum{250.0f, 250.0f, 250.0f};
     glm::vec3 direction{0.0f, -1.0f, 0.0f};
     glm::vec3 acceleration{0.0f, -4905.0f, 0.0f};
     float flutter_amplitude = 0.0f;
     /* 0x00498DD0 uses this as an unsigned modulus period. */
-    unsigned int flutter_period = 0;
+    std::uint32_t flutter_period = 0;
     float cone_yaw = 0.39269906f;
     float cone_pitch = 0.39269906f;
     float initial_speed = 500.0f;
@@ -121,21 +122,21 @@ public:
     /* Added to the camera position when camera_relative selects camera-relative
        placement. */
     glm::vec3 camera_offset{0.0f, 0.0f, 0.0f};
-    unsigned int update_flags = 0;
+    std::uint32_t update_flags = 0;
     /* Last accepted particle-integration tick. */
-    unsigned int last_integration_tick = 0;
+    std::uint32_t last_integration_tick = 0;
     /* Emission schedule tick. */
-    unsigned int last_emission_tick = 0;
-    short attachment_key = -1;
-    int start_frame = -1;
-    int end_frame = -1;
+    std::uint32_t last_emission_tick = 0;
+    std::int16_t attachment_key = -1;
+    std::int32_t start_frame = -1;
+    std::int32_t end_frame = -1;
     W8MonsterShakeCallback* callback = nullptr;
-    unsigned int emission_gap = 25;
-    unsigned int last_emitted_at = 0;
+    std::uint32_t emission_gap = 25;
+    std::uint32_t last_emitted_at = 0;
     float size_scale = 1.0f;
 
 private:
-    void AllocateParticles(unsigned int count);
+    void AllocateParticles(std::uint32_t count);
 };
 
 void SaveParticleStates(wiz8::File& handle);

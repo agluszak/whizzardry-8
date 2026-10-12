@@ -1,6 +1,8 @@
 #ifndef WIZ8_LOCAL_CODE_FACTIONS_H
 #define WIZ8_LOCAL_CODE_FACTIONS_H
 
+
+#include <cstdint>
 namespace wiz8 {
 class File;
 }
@@ -37,57 +39,57 @@ enum W8Faction {
 #pragma pack(push, 1)
 
 struct W8FactionRuntimeRecord {
-    signed char disposition_score;
+    std::int8_t disposition_score;
     /* Witnessed offenses against the faction; RecordFactionOffense
        increments it (cap 0xfa) and reads it for the penalty tiers. */
-    int offense_count;
-    unsigned char unknown_05;
+    std::int32_t offense_count;
+    std::uint8_t unknown_05;
     /* G_status.world_clock at the last band change. */
-    int band_changed_clock;
+    std::int32_t band_changed_clock;
     /* Raised by the sight pass the first time the party sees one of
        this faction's monsters; the journal lists encountered factions. */
     bool encountered;
-    unsigned char unknown_0b[3];
+    std::uint8_t unknown_0b[3];
 };
 
 #pragma pack(pop)
 
-typedef unsigned char W8FactionDisposition;
+typedef std::uint8_t W8FactionDisposition;
 
 enum { W8_FACTION_HOSTILE = 0, W8_FACTION_NEUTRAL = 1, W8_FACTION_FRIENDLY = 2 };
 
-typedef unsigned char W8Disposition;
+typedef std::uint8_t W8Disposition;
 
 enum { W8_DISPOSITION_NEUTRAL = 0, W8_DISPOSITION_HOSTILE = 1, W8_DISPOSITION_FRIENDLY = 2 };
 
 extern W8FactionRuntimeRecord g_factions[W8_FACTION_COUNT];
 /* The 21x21 byte relation matrix, one row per faction, saved and
    loaded whole by the FATA state handlers and reset with g_factions. */
-extern unsigned char g_faction_relations[W8_FACTION_COUNT][W8_FACTION_COUNT];
-W8FactionDisposition GetFactionDisposition(signed char faction);
+extern std::uint8_t g_faction_relations[W8_FACTION_COUNT][W8_FACTION_COUNT];
+W8FactionDisposition GetFactionDisposition(std::int8_t faction);
 
 /* `other` as the party reads the live score band; any other
    target is answered by the static relation matrix. */
-W8FactionDisposition GetFactionDispositionToward(signed char faction, signed char other);
+W8FactionDisposition GetFactionDispositionToward(std::int8_t faction, std::int8_t other);
 
-signed char GetFactionDispositionScore(signed char faction);
+std::int8_t GetFactionDispositionScore(std::int8_t faction);
 
 /* Zero both faction tables and seed the starting dispositions and
    relations a fresh game begins with. */
 void ResetFactions(void);
 
-void SetFactionDispositionBand(signed char faction, signed char band);
+void SetFactionDispositionBand(std::int8_t faction, std::int8_t band);
 
 /* Faction change entry point - op 1 with a faction outside
    unaligned/party routes mode 0 to the witnessed-offense path and modes
    1..3 to a direct disposition delta. */
-void ApplyFactionChange(char mode, char op, signed char faction, int value);
+void ApplyFactionChange(char mode, char op, std::int8_t faction, std::int32_t value);
 /* Bump the faction's offense count and apply the penalty the
    victim's record and the running count select. */
-void RecordFactionOffense(signed char faction, unsigned int victim_location_index);
+void RecordFactionOffense(std::int8_t faction, std::uint32_t victim_location_index);
 /* Clamp disposition_score + delta to 0..99, stamp the world clock
    when the band moved, and post the worsened/improved notice. */
-void AdjustFactionDisposition(signed char faction, char delta);
+void AdjustFactionDisposition(std::int8_t faction, char delta);
 /* FATA section save and load. */
 void SaveFactionState(wiz8::File& file);
 void LoadFactionState(wiz8::File& file);

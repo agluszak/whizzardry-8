@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <fmt/format.h>
 #include <SDL3/SDL_rect.h>
 #include <string_view>
@@ -35,10 +36,10 @@ struct MessageBoxState {
     W8ButtonWidget cancel;
     std::optional<ExclusiveRegionSet> input_scope;
 
-    int state = 0;
+    std::int32_t state = 0;
     void (*callback)(void) = nullptr;
     Font* font = nullptr;
-    unsigned int shade = 0;
+    std::uint32_t shade = 0;
     bool accepted = false;
     bool has_accept = false;
     bool has_cancel = false;
@@ -52,10 +53,10 @@ static SDL_Rect MessageBoxBounds(const MessageBoxState& message_box)
 {
     auto bounds = message_box.background.GetBounds();
     const auto include = [&bounds](SDL_Rect control) {
-        const int left = std::min(bounds.x, control.x);
-        const int top = std::min(bounds.y, control.y);
-        const int right = std::max(bounds.x + bounds.w, control.x + control.w);
-        const int bottom = std::max(bounds.y + bounds.h, control.y + control.h);
+        const std::int32_t left = std::min(bounds.x, control.x);
+        const std::int32_t top = std::min(bounds.y, control.y);
+        const std::int32_t right = std::max(bounds.x + bounds.w, control.x + control.w);
+        const std::int32_t bottom = std::max(bounds.y + bounds.h, control.y + control.h);
         bounds = {left, top, right - left, bottom - top};
     };
 
@@ -72,7 +73,7 @@ static void SetMessageBoxResult(bool accepted)
 }
 
 // FUNCTION: WIZ8 0x00517950
-void SetDice(W8Dice* dice, unsigned char count, unsigned char sides, short base)
+void SetDice(W8Dice* dice, std::uint8_t count, std::uint8_t sides, std::int16_t base)
 {
     dice->count = count;
     dice->sides = sides;
@@ -80,10 +81,10 @@ void SetDice(W8Dice* dice, unsigned char count, unsigned char sides, short base)
 }
 
 // FUNCTION: WIZ8 0x00517970
-int RollDice(const W8Dice* dice)
+std::int32_t RollDice(const W8Dice* dice)
 {
-    unsigned int roll;
-    int result = dice->base;
+    std::uint32_t roll;
+    std::int32_t result = dice->base;
 
     for (roll = 0; roll < dice->count; ++roll) {
         result += Random(dice->sides) + 1;
@@ -91,9 +92,9 @@ int RollDice(const W8Dice* dice)
     return result;
 }
 
-int RollDice(const W8Dice* dice, unsigned int rolls)
+std::int32_t RollDice(const W8Dice* dice, std::uint32_t rolls)
 {
-    int result = 0;
+    std::int32_t result = 0;
     while (rolls != 0) {
         result += RollDice(dice);
         --rolls;
@@ -102,9 +103,9 @@ int RollDice(const W8Dice* dice, unsigned int rolls)
 }
 
 // FUNCTION: WIZ8 0x005179b0
-int IntegerPower(int base, unsigned int exponent)
+std::int32_t IntegerPower(std::int32_t base, std::uint32_t exponent)
 {
-    int result;
+    std::int32_t result;
 
     for (result = 1; exponent > 0; --exponent) {
         result *= base;
@@ -113,9 +114,9 @@ int IntegerPower(int base, unsigned int exponent)
 }
 
 // FUNCTION: WIZ8 0x005179d0
-void ClampInteger(int* value, int minimum, int maximum)
+void ClampInteger(std::int32_t* value, std::int32_t minimum, std::int32_t maximum)
 {
-    int current = *value;
+    std::int32_t current = *value;
 
     if (current > maximum) {
         *value = maximum;
@@ -125,7 +126,7 @@ void ClampInteger(int* value, int minimum, int maximum)
 }
 
 // FUNCTION: WIZ8 0x005179f0
-void ClampUnsignedInteger(unsigned int* value, unsigned int minimum, unsigned int maximum)
+void ClampUnsignedInteger(std::uint32_t* value, std::uint32_t minimum, std::uint32_t maximum)
 {
     if (*value > maximum) {
         *value = maximum;
@@ -135,10 +136,10 @@ void ClampUnsignedInteger(unsigned int* value, unsigned int minimum, unsigned in
 }
 
 // FUNCTION: WIZ8 0x00517a10
-int CompareUnsignedDescending(const void* first, const void* second)
+std::int32_t CompareUnsignedDescending(const void* first, const void* second)
 {
-    unsigned int left = *static_cast<const unsigned int*>(first);
-    unsigned int right = *static_cast<const unsigned int*>(second);
+    std::uint32_t left = *static_cast<const std::uint32_t*>(first);
+    std::uint32_t right = *static_cast<const std::uint32_t*>(second);
 
     if (left > right) {
         return -1;
@@ -150,10 +151,10 @@ int CompareUnsignedDescending(const void* first, const void* second)
 }
 
 // FUNCTION: WIZ8 0x00517a30
-int CompareSignedAscending(const void* first, const void* second)
+std::int32_t CompareSignedAscending(const void* first, const void* second)
 {
-    int left = *static_cast<const int*>(first);
-    int right = *static_cast<const int*>(second);
+    std::int32_t left = *static_cast<const std::int32_t*>(first);
+    std::int32_t right = *static_cast<const std::int32_t*>(second);
 
     if (left < right) {
         return -1;
@@ -165,10 +166,10 @@ int CompareSignedAscending(const void* first, const void* second)
 }
 
 // FUNCTION: WIZ8 0x00517a50
-int CompareSignedDescending(const void* first, const void* second)
+std::int32_t CompareSignedDescending(const void* first, const void* second)
 {
-    int left = *static_cast<const int*>(first);
-    int right = *static_cast<const int*>(second);
+    std::int32_t left = *static_cast<const std::int32_t*>(first);
+    std::int32_t right = *static_cast<const std::int32_t*>(second);
 
     if (left > right) {
         return -1;
@@ -180,7 +181,7 @@ int CompareSignedDescending(const void* first, const void* second)
 }
 
 // FUNCTION: WIZ8 0x00517af0
-std::string FormatUnsignedIntegerWithCommas(unsigned int value)
+std::string FormatUnsignedIntegerWithCommas(std::uint32_t value)
 {
     auto text = std::to_string(value);
     for (std::size_t i = text.size(); i > 3; ) { i -= 3; text.insert(i, ","); }
@@ -272,9 +273,9 @@ void StripMonsterNameSuffix(std::string& name)
 }
 
 // FUNCTION: WIZ8 0x00517ec0
-unsigned int CharacterPointerToPartySlot(const W8Character* character)
+std::uint32_t CharacterPointerToPartySlot(const W8Character* character)
 {
-    unsigned int slot;
+    std::uint32_t slot;
     const W8Character* party_character;
 
     if (!character->fInParty) {
@@ -299,7 +300,7 @@ unsigned int CharacterPointerToPartySlot(const W8Character* character)
 bool IsPartyCharacterPointer(const W8Character* character)
 {
     W8Character* party_character = g_status.buffers.Char;
-    unsigned int slot;
+    std::uint32_t slot;
 
     for (slot = 0; slot < 8; ++slot, ++party_character) {
         if (character == party_character) {
@@ -311,29 +312,29 @@ bool IsPartyCharacterPointer(const W8Character* character)
 }
 
 // FUNCTION: WIZ8 0x00517f60
-void AdjustByteByPercent(unsigned char* value, unsigned int percent)
+void AdjustByteByPercent(std::uint8_t* value, std::uint32_t percent)
 {
-    *value = static_cast<unsigned char>(((percent + 100) * *value + 50) / 100);
+    *value = static_cast<std::uint8_t>(((percent + 100) * *value + 50) / 100);
 }
 
 // FUNCTION: WIZ8 0x00517f90
-void AdjustIntegerByPercent(unsigned int* value, unsigned int percent)
+void AdjustIntegerByPercent(std::uint32_t* value, std::uint32_t percent)
 {
     *value += *value * percent / 100;
 }
 
 // FUNCTION: WIZ8 0x00517FB0
-unsigned int GetRandomPartySlots(int require_primary, int require_secondary,
-                                 unsigned int excluded_slot, unsigned int* selected,
-                                 unsigned int count, bool skip_first_two)
+std::uint32_t GetRandomPartySlots(std::int32_t require_primary, std::int32_t require_secondary,
+                                 std::uint32_t excluded_slot, std::uint32_t* selected,
+                                 std::uint32_t count, bool skip_first_two)
 {
-    int claimed[8];
-    unsigned int eligible[8];
-    unsigned int found = 0;
-    unsigned int returned = 0;
-    unsigned int slot;
+    std::int32_t claimed[8];
+    std::uint32_t eligible[8];
+    std::uint32_t found = 0;
+    std::uint32_t returned = 0;
+    std::uint32_t slot;
     bool relaxed;
-    int index;
+    std::int32_t index;
 
     for (index = 0; index < 8; ++index) {
         claimed[index] = 0;
@@ -366,7 +367,7 @@ unsigned int GetRandomPartySlots(int require_primary, int require_secondary,
                 claimed[index] = 0;
             }
             while (returned < count && found != 0) {
-                unsigned int pick = Random(found);
+                std::uint32_t pick = Random(found);
                 while (pick < 8 && claimed[pick] != 0) {
                     ++pick;
                 }
@@ -386,12 +387,12 @@ unsigned int GetRandomPartySlots(int require_primary, int require_secondary,
 }
 
 // FUNCTION: WIZ8 0x00518150
-int GetRandomCharacter(int require_primary, int require_secondary, int excluded_slot,
-                       signed char excluded_gender)
+std::int32_t GetRandomCharacter(std::int32_t require_primary, std::int32_t require_secondary, std::int32_t excluded_slot,
+                       std::int8_t excluded_gender)
 {
-    int skip;
-    unsigned int slot;
-    unsigned int scanned;
+    std::int32_t skip;
+    std::uint32_t slot;
+    std::uint32_t scanned;
     bool matched;
     W8Character* character;
 
@@ -401,7 +402,7 @@ retry:
     slot = 0;
     do {
         matched = false;
-        if (g_status.buffers.XChar[slot].fOccupied && static_cast<int>(slot) != excluded_slot) {
+        if (g_status.buffers.XChar[slot].fOccupied && static_cast<std::int32_t>(slot) != excluded_slot) {
             character = &g_status.buffers.Char[slot];
             if ((character->hp_current > 0 && character->highest_condition < W8_CONDITION_DEAD) ||
                 require_primary == 2) {
@@ -440,13 +441,13 @@ retry:
 }
 
 // FUNCTION: WIZ8 0x00518230
-int GetNextCharacter(int require_primary, int require_secondary, int previous_slot)
+std::int32_t GetNextCharacter(std::int32_t require_primary, std::int32_t require_secondary, std::int32_t previous_slot)
 {
-    int start_slot = (previous_slot + 1) % 8;
+    std::int32_t start_slot = (previous_slot + 1) % 8;
     W8Character* characters = g_status.buffers.Char;
     W8PartySlotRow* rows = g_status.buffers.XChar;
-    int slot;
-    unsigned int scanned;
+    std::int32_t slot;
+    std::uint32_t scanned;
 
 retry:
     slot = start_slot;
@@ -482,15 +483,15 @@ retry:
 }
 
 // FUNCTION: WIZ8 0x005182e0
-void DebugMessage(int channel, std::string_view message)
+void DebugMessage(std::int32_t channel, std::string_view message)
 {
     (void)channel; (void)message; // The recovered diagnostic sink is inactive.
 }
 
 // FUNCTION: WIZ8 0x00518310
-int RPCPtrToPCSlot(const W8MonsterManagerEntry* rpc)
+std::int32_t RPCPtrToPCSlot(const W8MonsterManagerEntry* rpc)
 {
-    int slot = 0;
+    std::int32_t slot = 0;
 
     for (const W8MonsterManagerEntry* current = gXStatus.monster_manager_entries; current < &gXStatus.monster_manager_entries[8]; ++current) {
         if (rpc == current) {
@@ -511,23 +512,23 @@ void FreeStringTable(void)
 }
 
 // FUNCTION: WIZ8 0x00518510
-bool CreateMessageBox(std::string_view text, Font& font, unsigned int shade, bool has_accept, bool has_cancel,
+bool CreateMessageBox(std::string_view text, Font& font, std::uint32_t shade, bool has_accept, bool has_cancel,
                       void (*callback)(void))
 {
     if (g_message_box) return false;
 
     auto& message_box = g_message_box.emplace();
-    unsigned short height = 0x58;
+    std::uint16_t height = 0x58;
     if (has_accept || has_cancel) {
         height = 0x6c;
     }
-    unsigned short width = font.textWidth(text) + 10;
+    std::uint16_t width = font.textWidth(text) + 10;
     if (width > 0x258) {
         width = 0x258;
     } else if (width < 0x64) {
         width = 0x78;
     }
-    const int y = (0x1e0 - height) / 2;
+    const std::int32_t y = (0x1e0 - height) / 2;
     const auto background_image = LoadGenericButtonImages(
         {}, DEFAULT_GENERIC_BUTTON_OFF, {}, DEFAULT_GENERIC_BUTTON_ON, {},
         "Data\\Dialogs\\DialogBackground.STI", 0, 0, 0);

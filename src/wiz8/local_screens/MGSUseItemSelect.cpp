@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <algorithm>
 #include <memory>
 #include <fmt/format.h>
@@ -52,16 +53,16 @@ struct W8NpcState;
 #define MGSUSEITEMSELECT_CPP "C:\\Projects\\Wizardry 8\\Local Screens\\MGSUseItemSelect.cpp"
 
 // GLOBAL: WIZ8 0x0069B984
-static int g_use_item_select_flags;
+static std::int32_t g_use_item_select_flags;
 // GLOBAL: WIZ8 0x0069b988
 W8MainUiMode g_use_item_select_return_mode;
 // GLOBAL: WIZ8 0x0069B98C
-static int g_use_item_select_mode;
+static std::int32_t g_use_item_select_mode;
 
 // GLOBAL: WIZ8 0x0069B950
 W8TextControl* g_use_item_select_scroll_buttons[3];
 // GLOBAL: WIZ8 0x0069B95C
-static int g_selected_use_item_line;
+static std::int32_t g_selected_use_item_line;
 // GLOBAL: WIZ8 0x0069B960
 W8TextControl* g_use_item_select_controls[9];
 // GLOBAL: WIZ8 0x0069B9A0
@@ -69,23 +70,23 @@ W8ItemInstance* g_use_item_selected;
 // GLOBAL: WIZ8 0x0069B9A4
 W8ItemInstance* g_use_item_select_override_item;
 // GLOBAL: WIZ8 0x0069B990
-static int g_use_item_list_count;
+static std::int32_t g_use_item_list_count;
 // GLOBAL: WIZ8 0x0069B994
 static std::unique_ptr<Controls> g_use_item_select_panels[3];
 // GLOBAL: WIZ8 0x0069B9A8
-static int g_use_item_cursor_x;
+static std::int32_t g_use_item_cursor_x;
 // GLOBAL: WIZ8 0x0069B9AC
-static int g_use_item_cursor_y;
+static std::int32_t g_use_item_cursor_y;
 // GLOBAL: WIZ8 0x0069B9B0
-static int g_use_item_owner_index;
+static std::int32_t g_use_item_owner_index;
 // GLOBAL: WIZ8 0x0069B9B4
 static W8ItemInstance* g_use_item_list[0x15e];
 // GLOBAL: WIZ8 0x0069BF2C
 static W8ItemInstance* g_use_item_detail_item;
 // GLOBAL: WIZ8 0x0069BF30
-int g_saved_target_cursor;
+std::int32_t g_saved_target_cursor;
 // GLOBAL: WIZ8 0x0069BF34
-static int g_use_item_hover_row;
+static std::int32_t g_use_item_hover_row;
 /* Held while CommitSelectedSpellTarget runs for a use-item
    commit; CloseUseItemSelectView early-outs on it so the commit's side
    effects cannot tear the view down mid-call. */
@@ -103,9 +104,9 @@ static constexpr std::array<RegionTemplate, 5> g_use_item_select_region_template
 ScreenRegionSet g_use_item_select_regions{g_use_item_select_region_templates, 0x1a};
 
 void UpdateUseItemScrollButtons(void);
-static void RebuildUseItemSelectList(int mode, W8ItemInstance* select);
+static void RebuildUseItemSelectList(std::int32_t mode, W8ItemInstance* select);
 static bool AppendUseItemListEntry(W8ItemInstance* item, W8ItemInstance* select,
-                                   unsigned char pass);
+                                   std::uint8_t pass);
 bool IsUseItemFilteredOut(W8ItemInstance* item);
 static void UseItemSelectScrollUp(void);
 static void UseItemSelectScrollDown(void);
@@ -190,7 +191,7 @@ static void CreateUseItemSelectControls(void)
 }
 
 // FUNCTION: WIZ8 0x0059C930
-unsigned char OpenUseItemSelectView(int slot)
+bool OpenUseItemSelectView(std::int32_t slot)
 {
     W8TextControl** control;
     W8MainUiMode mode;
@@ -233,7 +234,7 @@ unsigned char OpenUseItemSelectView(int slot)
     RefreshUseItemSelectionForSlot(slot);
     SelectSpellCastingPartySlot(slot);
     PauseMainGameWorld();
-    return 1;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x0059CAC0
@@ -279,7 +280,7 @@ void CloseUseItemSelectView(void)
    recorded item on the party slot re-selects its line; otherwise the current
    mode is rebuilt or the scroll buttons resynced for an idle list. */
 // FUNCTION: WIZ8 0x0059CC40
-void RefreshUseItemSelectionForSlot(int party_slot)
+void RefreshUseItemSelectionForSlot(std::int32_t party_slot)
 {
     W8ItemInstance* item;
 
@@ -359,7 +360,7 @@ void InvalidateUseItemSelectPanel(void)
 void UpdateUseItemSelect(bool active)
 {
     bool panel_dirty;
-    int i;
+    std::int32_t i;
 
     panel_dirty = false;
     UpdateUseItemScrollButtons();
@@ -383,7 +384,7 @@ void UpdateUseItemSelect(bool active)
 }
 
 /* The two scroll buttons are mutually exclusive views of the same list. */
-static void SelectUseItemScrollMode(int mode)
+static void SelectUseItemScrollMode(std::int32_t mode)
 {
     W8TextControl* selected = g_use_item_select_scroll_buttons[mode];
     W8TextControl* other = g_use_item_select_scroll_buttons[1 - mode];
@@ -416,7 +417,7 @@ void UpdateUseItemScrollButtons(void)
         return;
     }
     if (gXStatus.fCombatMode) {
-        if (static_cast<unsigned char>(g_use_item_select_scroll_buttons[0]->m_stateFlags &
+        if (static_cast<std::uint8_t>(g_use_item_select_scroll_buttons[0]->m_stateFlags &
                                        g_W8TextControlStateSecondary) == 0) {
             g_use_item_select_scroll_buttons[0]->EnableSecondaryState(false);
             g_use_item_select_scroll_buttons[0]->Invalidate(false);
@@ -447,7 +448,7 @@ static void UseItemSelectScrollDown(void)
 // FUNCTION: WIZ8 0x0059D830
 static void UseItemSelectFilterToggle(void)
 {
-    if (static_cast<unsigned char>(g_use_item_select_controls[3]->m_stateFlags &
+    if (static_cast<std::uint8_t>(g_use_item_select_controls[3]->m_stateFlags &
                                    g_W8TextControlStateSecondary) == 0) {
         g_use_item_select_controls[3]->EnableSecondaryState(true);
         g_use_item_select_controls[3]->Invalidate(false);
@@ -497,12 +498,12 @@ void CommitSelectedItemUse(void)
    then the rest) through AppendUseItemListEntry; select re-highlights
    the line holding that item. */
 // FUNCTION: WIZ8 0x0059D230
-static void RebuildUseItemSelectList(int mode, W8ItemInstance* select)
+static void RebuildUseItemSelectList(std::int32_t mode, W8ItemInstance* select)
 {
     W8Character* character;
-    unsigned char pass;
-    unsigned int i;
-    int slot;
+    std::uint8_t pass;
+    std::uint32_t i;
+    std::int32_t slot;
 
     slot = g_status.selected_character;
     ResetEditorStatusLine(2);
@@ -559,11 +560,11 @@ static void RebuildUseItemSelectList(int mode, W8ItemInstance* select)
    it when it matches select, and show a display name with stack/charge counts
    or the unidentified "(?)". Returns false when the list is full. */
 // FUNCTION: WIZ8 0x0059D450
-static bool AppendUseItemListEntry(W8ItemInstance* item, W8ItemInstance* select, unsigned char pass)
+static bool AppendUseItemListEntry(W8ItemInstance* item, W8ItemInstance* select, std::uint8_t pass)
 {
     std::string text;
-    unsigned int color;
-    short count;
+    std::uint32_t color;
+    std::int16_t count;
     bool charged;
 
     if (item->iItemNo == -1) {
@@ -727,7 +728,7 @@ void CloseUseItemSelection(void)
 
 /* Scroll up/down buttons for the use-item list (catalog callback_ids 0 and 1). */
 // FUNCTION: WIZ8 0x0059D970
-unsigned char UseItemSelectScrollRegionEvent(const InputEvent* event, W8Region* region)
+bool UseItemSelectScrollRegionEvent(const InputEvent* event, W8Region* region)
 {
     return DispatchButtonRegionEvent(event, region,
                                      g_use_item_select_scroll_buttons[region->callback_id]);
@@ -735,7 +736,7 @@ unsigned char UseItemSelectScrollRegionEvent(const InputEvent* event, W8Region* 
 
 /* Use-item select action/icon controls (catalog callback_ids 0, 3, 8). */
 // FUNCTION: WIZ8 0x0059DA30
-unsigned char UseItemSelectControlRegionEvent(const InputEvent* event, W8Region* region)
+bool UseItemSelectControlRegionEvent(const InputEvent* event, W8Region* region)
 {
     switch (event->type) {
     case InputEventType::RightButtonDown:
@@ -760,45 +761,45 @@ unsigned char UseItemSelectControlRegionEvent(const InputEvent* event, W8Region*
    keeps g_use_item_cursor_x/y as the last cursor point and tracks the hovered
    row into g_use_item_hover_row. */
 // FUNCTION: WIZ8 0x0059DB40
-unsigned char UseItemSelectTextBoxRegionEvent(const InputEvent* event, W8Region* region)
+bool UseItemSelectTextBoxRegionEvent(const InputEvent* event, W8Region* region)
 {
-    unsigned short y;
-    int row;
-    int slot;
+    std::uint16_t y;
+    std::int32_t row;
+    std::int32_t slot;
     const InputEventType us_event = event->type;
 
     switch (us_event) {
     case InputEventType::LeftButtonUp:
         if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) == 0) {
-            return 1;
+            return true;
         }
         region->flags &= ~W8_REGION_LEFT_BUTTON_HELD;
         slot = GetHoveredTextLine(2);
         if (slot == -1) {
-            return 1;
+            return true;
         }
         SelectUseItemLine(slot);
-        return 1;
+        return true;
     case InputEventType::LeftButtonDown:
         region->flags |= W8_REGION_LEFT_BUTTON_HELD;
-        return 1;
+        return true;
     case InputEventType::RightButtonDown:
         region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
-        return 1;
+        return true;
     case InputEventType::MouseMove:
         if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
             ClearHoveredTextLine(2);
             g_use_item_hover_row = -1;
-            return 1;
+            return true;
         }
         if ((region->flags & W8_REGION_MOUSE_ENTER) != 0) {
             g_use_item_cursor_x = event->position.x;
             g_use_item_cursor_y = event->position.y;
-            return 1;
+            return true;
         }
         if (event->position.x == g_use_item_cursor_x &&
             event->position.y == g_use_item_cursor_y) {
-            return 1;
+            return true;
         }
         g_use_item_cursor_x = event->position.x;
         g_use_item_cursor_y = event->position.y;
@@ -810,34 +811,34 @@ unsigned char UseItemSelectTextBoxRegionEvent(const InputEvent* event, W8Region*
             }
             g_use_item_hover_row = row;
         }
-        return 1;
+        return true;
     case InputEventType::RightButtonUp:
         if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) == 0) {
-            return 1;
+            return true;
         }
         region->flags &= ~W8_REGION_RIGHT_BUTTON_HELD;
         y = event->position.y;
         if (y < g_level_block->text_box_top || g_level_block->text_box_bottom < y) {
-            return 1;
+            return true;
         }
         row = (y - g_level_block->text_box_top) / 0xb;
-        if (row < static_cast<int>(g_status.text_box_lines_shown[2]) &&
+        if (row < static_cast<std::int32_t>(g_status.text_box_lines_shown[2]) &&
             g_use_item_list[g_level_block->text_lines[2] + row] != 0) {
             OpenUseItemAssayDialog(g_use_item_list[g_level_block->text_lines[2] + row]);
         }
-        return 1;
+        return true;
     default:
         break;
     }
-    return 0;
+    return false;
 }
 
 /* Wheel rotation over the use-item text box re-selects the row under the
    cursor, even when it is already the hovered row. */
 // FUNCTION: WIZ8 0x0059DD30
-void UseItemSelectTextBoxWheelAt(short x, unsigned short y, bool flag)
+void UseItemSelectTextBoxWheelAt(std::int16_t x, std::uint16_t y, bool flag)
 {
-    int row;
+    std::int32_t row;
 
     if (y < g_level_block->text_box_top || g_level_block->text_box_bottom < y) {
         return;
@@ -853,7 +854,7 @@ void UseItemSelectTextBoxWheelAt(short x, unsigned short y, bool flag)
    this owner, learn it directly when castable-from-item, otherwise point the
    targeting filter at the embedded spell. */
 // FUNCTION: WIZ8 0x0059DDC0
-void SelectUseItemLine(int iTextLine)
+void SelectUseItemLine(std::int32_t iTextLine)
 {
     W8SpellTargetType target_type;
 
@@ -906,7 +907,7 @@ void UpdateUseItemDetailPanel(W8ItemInstance* item)
 {
     std::string text;
     std::string value;
-    short count;
+    std::int16_t count;
     bool charges = false;
 
     g_use_item_select_controls[0]->SetItemImage(item->iItemNo);
@@ -965,8 +966,8 @@ void SelectCurrentUseItemLine(void)
 // FUNCTION: WIZ8 0x0059E0F0
 void TakeUseItemIntoHand(void)
 {
-    unsigned int i;
-    unsigned int old_count;
+    std::uint32_t i;
+    std::uint32_t old_count;
 
     if (!g_status.item_in_cursor) {
         CopyItemInstance(&g_status.item_in_hand, g_use_item_selected, 0, true);

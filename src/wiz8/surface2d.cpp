@@ -1,8 +1,8 @@
+#include <cstdint>
 #include <memory>
 #include <glm/ext/vector_float3.hpp>
 
 #include "wiz8/surface2d.h"
-#include "compat/compiler.h"
 #include "surrender/srGERD.h"
 #include "surrender/srNode.h"
 #include "surrender/srTexture.h"
@@ -33,7 +33,7 @@ stTexture2D::~stTexture2D()
 }
 
 // FUNCTION: WIZ8 0x0047DE50
-w8_ulong stTexture2D::getTextureFrameHandle()
+std::uint32_t stTexture2D::getTextureFrameHandle()
 {
     return frame_handle;
 }
@@ -70,8 +70,8 @@ void stTexture2D::setupDefaultValues()
 }
 
 // FUNCTION: WIZ8 0x0047DAE0
-stSurface2D::stSurface2D(std::shared_ptr<srColorSurfaceIFace> source, int source_width, int source_height,
-                         srNode* parent, int tile_extent)
+stSurface2D::stSurface2D(std::shared_ptr<srColorSurfaceIFace> source, std::int32_t source_width, std::int32_t source_height,
+                         srNode* parent, std::int32_t tile_extent)
     : srClassSupport<stSurface2D, srNode, 0x1000e>(static_cast<srNode*>(0)),
       vertex_array_mask(1 << srRendererDefs::VERTEX_ARRAY_TEXCOORD0),
       shader_bits(0x100a017), tile_size(tile_extent),
@@ -84,8 +84,8 @@ stSurface2D::stSurface2D(std::shared_ptr<srColorSurfaceIFace> source, int source
 {
     setParent(parent, 1);
     tiles.reserve(columns * rows);
-    for (int row = 0; row != rows; ++row) {
-        for (int column = 0; column != columns; ++column) {
+    for (std::int32_t row = 0; row != rows; ++row) {
+        for (std::int32_t column = 0; column != columns; ++column) {
             auto& texture = tiles.emplace_back(std::make_unique<stTexture2D>());
             texture->surface = source;
             texture->texture_dimensions_.width = tile_extent;
@@ -136,9 +136,9 @@ void stSurface2D::process(const ProcessInfo& info, e_processType)
 void stSurface2D::DrawTiles(srGERD* renderer)
 {
     srVector3T<float> location;
-    int row;
-    int column;
-    int index = 0;
+    std::int32_t row;
+    std::int32_t column;
+    std::int32_t index = 0;
 
     location = glm::vec3(getLocation());
     renderer->matrixMode(srGERD::MATRIX_PROJECTION);
@@ -191,8 +191,8 @@ void stSurface2D::setScale(float new_scale)
     float factor = g_float_one / tile_size;
     float delta = (new_scale - scale) * factor;
 
-    for (int corner = 0; corner < 4; ++corner) {
-        for (int axis = 0; axis < 2; ++axis) {
+    for (std::int32_t corner = 0; corner < 4; ++corner) {
+        for (std::int32_t axis = 0; axis < 2; ++axis) {
             texture_coordinates[corner][axis] += delta;
         }
     }
@@ -231,11 +231,11 @@ void stSurface2D::setAlphaTestEnabled(bool enabled)
    source surface. Keeping the source locked brackets the immediate partial
    texture uploads exactly as the caller does. */
 // FUNCTION: WIZ8 0x0047E450
-void stSurface2D::updateRectangle(srGERD* renderer, void*, w8_long, int left, int top, int right,
-                                  int bottom)
+void stSurface2D::updateRectangle(srGERD* renderer, void*, std::int32_t, std::int32_t left, std::int32_t top, std::int32_t right,
+                                  std::int32_t bottom)
 {
-    int x = left;
-    int y = top;
+    std::int32_t x = left;
+    std::int32_t y = top;
 
     while (y < bottom) {
         stTexture2D* texture = 0;
@@ -251,10 +251,10 @@ void stSurface2D::updateRectangle(srGERD* renderer, void*, w8_long, int left, in
             return;
         }
 
-        int destination_x = x - texture->left;
-        int destination_y = y - texture->top;
-        int update_width = right - x;
-        int update_height = bottom - y;
+        std::int32_t destination_x = x - texture->left;
+        std::int32_t destination_y = y - texture->top;
+        std::int32_t update_width = right - x;
+        std::int32_t update_height = bottom - y;
         if (texture->right - x < update_width) {
             update_width = texture->right - x;
         }
@@ -279,7 +279,7 @@ void stSurface2D::updateRectangle(srGERD* renderer, void*, w8_long, int left, in
 }
 
 // FUNCTION: WIZ8 0x0047e5b0
-void stSurface2D::enableTextureUpdateFlags(unsigned int flag)
+void stSurface2D::enableTextureUpdateFlags(std::uint32_t flag)
 {
     texture_update_flags |= flag;
 }

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include "srNode.h"
 #include "srVertexProcessor.h"
 
@@ -20,10 +21,10 @@ public:
     static SR_DLL_IMPORT const char* sGetClassName();
     virtual SR_DLL_IMPORT void traverse(TraverseInfo& info) override;
     virtual SR_DLL_IMPORT void process(const ProcessInfo& info, e_processType type) override;
-    SR_DLL_IMPORT w8_ulong getGroupMask() const;
-    SR_DLL_IMPORT void setGroupMask(w8_ulong mask);
+    SR_DLL_IMPORT std::uint32_t getGroupMask() const;
+    SR_DLL_IMPORT void setGroupMask(std::uint32_t mask);
 
-    w8_ulong group_mask;       /* 0x13c */
+    std::uint32_t group_mask;       /* 0x13c */
     glm::vec3 eye_location;    /* 0x140 */
 };
 

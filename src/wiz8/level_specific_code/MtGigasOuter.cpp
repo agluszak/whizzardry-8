@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <vector>
 
 #include "wiz8/engine_code/Video2.h"
@@ -59,7 +60,7 @@ static float LIFT_PARKED_Y = -5000.0f;
 void ProcessFlagPosition(void)
 {
     if (GetLocationVarIDByName("FlagPosition") != -1) {
-        int value = GetLocationVarValueByName("FlagPosition");
+        std::int32_t value = GetLocationVarValueByName("FlagPosition");
         ControlLiftGate(value);
         if (value >= 1000) {
             return;
@@ -81,7 +82,7 @@ bool OnCrankTriggerActivated(Trigger* trigger)
     W8NpcState* npc;
     Trigger* pFlagTrigger;
     W8Prop* prop;
-    int value;
+    std::int32_t value;
 
     if (g_status.item_in_cursor) {
         return false;
@@ -128,19 +129,19 @@ bool OnCrankTriggerActivated(Trigger* trigger)
    progress into the FlagPosition location variable. The prop slides from
    5228.6 down to -2000.0 while the gate runs; -5000.0 parks it below. */
 // FUNCTION: WIZ8 0x004DC080
-void ControlLiftGate(int command)
+void ControlLiftGate(std::int32_t command)
 {
     srVector3T<float> position;
     Trigger* pFlagTrigger;
     float progress;
-    int value;
+    std::int32_t value;
 
     g_remove_current_master_function = false;
     if (command != 0) {
         value = 0;
         if (command == -1) {
             if (g_lift_gate != 0) {
-                value = static_cast<int>(g_lift_gate->GetProgress() * 100.0f);
+                value = static_cast<std::int32_t>(g_lift_gate->GetProgress() * 100.0f);
             }
             if (GetLocationVarIDByName("FlagPosition") == -1) {
                 CreateLocationVar("FlagPosition", value);
@@ -149,7 +150,7 @@ void ControlLiftGate(int command)
             }
             return;
         }
-        if (command != static_cast<int>(0xEFFFFFFF)) {
+        if (command != static_cast<std::int32_t>(0xEFFFFFFF)) {
             value = command;
         }
         pFlagTrigger = FindRequiredTriggerByName("flag");
@@ -210,7 +211,7 @@ bool OnSecurityButtonActivated(Trigger* trigger)
 }
 
 
-bool PrepareUmpaniAlarmCommand(int command, const char* variable, W8IntervalGate* gate)
+bool PrepareUmpaniAlarmCommand(std::int32_t command, const char* variable, W8IntervalGate* gate)
 {
     g_remove_current_master_function = false;
     if (command == 0) {
@@ -222,7 +223,7 @@ bool PrepareUmpaniAlarmCommand(int command, const char* variable, W8IntervalGate
     if (command != -1) {
         return false;
     }
-    SetTriggerVariableByName(variable, gate ? static_cast<int>(gate->GetElapsedSeconds()) : 0);
+    SetTriggerVariableByName(variable, gate ? static_cast<std::int32_t>(gate->GetElapsedSeconds()) : 0);
     return true;
 }
 
@@ -232,7 +233,7 @@ bool PrepareUmpaniAlarmCommand(int command, const char* variable, W8IntervalGate
    the camera and re-arms the gate (clamped to 30 seconds). When the gate
    finishes the sound is released and the variable is reset to zero. */
 // FUNCTION: WIZ8 0x004DC3D0
-void ControlCampAlarm(int command)
+void ControlCampAlarm(std::int32_t command)
 {
     srVector3T<float> position;
 
@@ -241,7 +242,7 @@ void ControlCampAlarm(int command)
     }
     if (command != 0) {
         position = glm::vec3(GetWorld()->camera->getLocation());
-        if (static_cast<unsigned int>(command) > 0x1e) {
+        if (static_cast<std::uint32_t>(command) > 0x1e) {
             command = 0x1e;
         }
         ReleaseRendererObject(g_mt_gigas_outer_alarm_sound);
@@ -252,7 +253,7 @@ void ControlCampAlarm(int command)
             g_mt_gigas_outer_alarm_gate = 0;
         }
         g_mt_gigas_outer_alarm_gate =
-            new W8IntervalGate(static_cast<float>(static_cast<unsigned int>(command)), false, true);
+            new W8IntervalGate(static_cast<float>(static_cast<std::uint32_t>(command)), false, true);
         if (g_mt_gigas_outer_alarm_gate != 0) {
             g_master_functions.push_back(ControlCampAlarm);
         }
@@ -285,7 +286,7 @@ bool OnSentryTriggerActivated(Trigger* trigger)
 bool OnEwaxxDoor03Activated(Trigger* trigger)
 {
     if (g_status.item_in_cursor) {
-        int item_id = GetItemInHand();
+        std::int32_t item_id = GetItemInHand();
         if (item_id >= 0x268 && item_id <= 0x26e) {
             return true;
         }

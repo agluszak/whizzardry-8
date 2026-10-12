@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "wiz8/local_code/CharGeneration.h"
 
 #include <cstdlib>
@@ -26,8 +27,8 @@
 // FUNCTION: WIZ8 0x00557F90
 void RefundAllSkillPoints(W8Character* character, W8CharacterCreationState* creation_state)
 {
-    int index;
-    int spent;
+    std::int32_t index;
+    std::int32_t spent;
 
     for (index = 0; index < 0x29; ++index) {
         spent = creation_state->skill_points_spent[index];
@@ -41,12 +42,12 @@ void RefundAllSkillPoints(W8Character* character, W8CharacterCreationState* crea
    original holds but the edited build lacks, or the original's own set when
    it has no caster level to compare against. */
 // FUNCTION: WIZ8 0x00557FD0
-int ComputeRealmSkillDebt(W8Character* original, W8Character* edited)
+std::int32_t ComputeRealmSkillDebt(W8Character* original, W8Character* edited)
 {
-    int total = 0;
+    std::int32_t total = 0;
 
     if (GetProfessionCasterLevel(edited, W8_PROFESSION_NONE) != 0) {
-        int index;
+        std::int32_t index;
 
         for (index = 0x18; index <= 0x1b; ++index) {
             if (!original->skills[index].active) {
@@ -63,7 +64,7 @@ int ComputeRealmSkillDebt(W8Character* original, W8Character* edited)
         return 0;
     }
     {
-        int index;
+        std::int32_t index;
 
         for (index = 0x18; index <= 0x1b; ++index) {
             if (!original->skills[index].active) {
@@ -80,18 +81,18 @@ int ComputeRealmSkillDebt(W8Character* original, W8Character* edited)
    reset or level-up hands to the editing state; the byte at 0x34 records that
    a profession change forced the sex to one. */
 // GLOBAL: WIZ8 0x0068de28
-static int g_attribute_point_bonus;
+static std::int32_t g_attribute_point_bonus;
 // GLOBAL: WIZ8 0x0068de2c
-static int g_skill_point_bonus;
+static std::int32_t g_skill_point_bonus;
 // GLOBAL: WIZ8 0x0068de30
-static int g_spell_point_bonus;
+static std::int32_t g_spell_point_bonus;
 // GLOBAL: WIZ8 0x0068de34
 static bool g_gender_locked;
 
 static void InitializeCharacterPointPools(W8Character* character,
                                           W8CharacterCreationState* creation_state)
 {
-    int points = 0;
+    std::int32_t points = 0;
     if (character->iProfession != W8_PROFESSION_NONE && character->iRace != W8_RACE_NONE) {
         points = 0x3c + g_attribute_point_bonus;
         if (character->uiExpLevel != 1) {
@@ -183,10 +184,10 @@ void ResetSkillContribution(W8Character* character, W8CharacterCreationState* cr
     creation_state->skill_points_spent[skill_id] = 0;
 
     if (skill_id >= W8_SKILL_SPELLBOOK_WIZARDRY && skill_id < W8_SKILL_FIRE_MAGIC) {
-        int offset = g_profession_magic_level_offsets[character->iProfession];
+        std::int32_t offset = g_profession_magic_level_offsets[character->iProfession];
         if (offset < 0 && offset > -0xff &&
             character->profession_levels[character->iProfession] + offset == 1) {
-            int missing = 5 - character->skills[skill_id].points;
+            std::int32_t missing = 5 - character->skills[skill_id].points;
             if (missing > 0) {
                 character->skills[skill_id].points += missing;
                 character->skills[skill_id].level += missing;
@@ -202,7 +203,7 @@ void ResetSkillContribution(W8Character* character, W8CharacterCreationState* cr
 void RefundSkillAllocation(W8Character* character, W8CharacterCreationState* creation_state,
                            W8Skill skill_id)
 {
-    int spent = creation_state->skill_points_spent[skill_id];
+    std::int32_t spent = creation_state->skill_points_spent[skill_id];
     if (spent > 0) {
         creation_state->skill_points_remaining += spent;
         character->skills[skill_id].points -= spent;
@@ -216,7 +217,7 @@ void RefundSkillAllocation(W8Character* character, W8CharacterCreationState* cre
 // FUNCTION: WIZ8 0x00557ae0
 void RefundAllocatedAttributes(W8Character* character, W8CharacterCreationState* creation_state)
 {
-    for (int index = 0; index < 7; ++index) {
+    for (std::int32_t index = 0; index < 7; ++index) {
         if (creation_state->attribute_values[index] > 0) {
             AdjustAllocatedAttribute(character, creation_state, static_cast<W8Attribute>(index),
                                      -creation_state->attribute_values[index]);
@@ -229,9 +230,9 @@ void RefundAllocatedAttributes(W8Character* character, W8CharacterCreationState*
 // FUNCTION: WIZ8 0x00557730
 void RecomputeAttributeLimits(W8Character* character, W8CharacterCreationState* creation_state)
 {
-    int points = creation_state->attribute_points_total;
-    int step;
-    int index;
+    std::int32_t points = creation_state->attribute_points_total;
+    std::int32_t step;
+    std::int32_t index;
 
     if (points < 0) {
         step = 0;
@@ -247,10 +248,10 @@ void RecomputeAttributeLimits(W8Character* character, W8CharacterCreationState* 
     creation_state->attribute_step_limit = step;
 
     for (index = 0; index < 7; ++index) {
-        int limit = step - creation_state->attribute_baselines[index];
-        int cap =
+        std::int32_t limit = step - creation_state->attribute_baselines[index];
+        std::int32_t cap =
             (creation_state->attribute_values[index] - character->attributes[index].base) + 100;
-        int value = limit;
+        std::int32_t value = limit;
         if (cap <= limit) {
             value = cap;
         }
@@ -279,17 +280,17 @@ void RecomputeAttributeLimits(W8Character* character, W8CharacterCreationState* 
 // FUNCTION: WIZ8 0x00557800
 void ClampAttributesToBudget(W8Character* character, W8CharacterCreationState* creation_state)
 {
-    int index;
+    std::int32_t index;
 
     for (index = 0; index < 7; ++index) {
-        int value = creation_state->attribute_values[index];
-        int limit = creation_state->attribute_limits[index];
+        std::int32_t value = creation_state->attribute_values[index];
+        std::int32_t limit = creation_state->attribute_limits[index];
         if (value > limit) {
             creation_state->attribute_values[index] = value - (value - limit);
         }
     }
 
-    int total = 0;
+    std::int32_t total = 0;
     for (index = 0; index < 7; ++index) {
         total += creation_state->attribute_values[index];
     }
@@ -317,12 +318,12 @@ void ClampAttributesToBudget(W8Character* character, W8CharacterCreationState* c
 void ApplyProfessionMinimumAttributes(W8Character* character,
                                       W8CharacterCreationState* creation_state)
 {
-    int deficits[7];
-    int index;
+    std::int32_t deficits[7];
+    std::int32_t index;
 
     character->attribute_point_deficit = 0;
     for (index = 0; index < 7; ++index) {
-        int deficit = g_profession_attribute_minimums[character->iProfession].values[index] -
+        std::int32_t deficit = g_profession_attribute_minimums[character->iProfession].values[index] -
                       character->attributes[index].base;
         deficits[index] = deficit;
         if (deficit > 0) {
@@ -338,14 +339,14 @@ void ApplyProfessionMinimumAttributes(W8Character* character,
         character->attribute_point_deficit = 0;
         character->level_band_base = 0;
         for (index = 0; index < 7; ++index) {
-            int deficit = deficits[index];
+            std::int32_t deficit = deficits[index];
             if (deficit < 1) {
                 if (character->uiExpLevel > 1) {
-                    int minimum =
+                    std::int32_t minimum =
                         g_profession_attribute_minimums[character->iProfession].values[index];
-                    int value = creation_state->attribute_values[index];
+                    std::int32_t value = creation_state->attribute_values[index];
                     while (character->attributes[index].base - value <
-                           static_cast<unsigned int>(minimum)) {
+                           static_cast<std::uint32_t>(minimum)) {
                         creation_state->attribute_values[index] = value - 1;
                         --creation_state->attribute_points_total;
                         ++creation_state->attribute_baselines[index];
@@ -371,14 +372,14 @@ void ApplyProfessionMinimumAttributes(W8Character* character,
 // FUNCTION: WIZ8 0x00557200
 void PayDownAttributeDebt(W8Character* character, W8CharacterCreationState* creation_state)
 {
-    int deficits[7][2];
-    int index;
+    std::int32_t deficits[7][2];
+    std::int32_t index;
 
-    int total = 0;
+    std::int32_t total = 0;
     for (index = 0; index < 7; ++index) {
-        unsigned int minimum =
+        std::uint32_t minimum =
             g_profession_attribute_minimums[character->iProfession].values[index];
-        int deficit = 0;
+        std::int32_t deficit = 0;
         if (character->attributes[index].base < minimum) {
             deficit = minimum - character->attributes[index].base;
         }
@@ -396,12 +397,12 @@ void PayDownAttributeDebt(W8Character* character, W8CharacterCreationState* crea
             (index != 6 && deficits[index][0] <= deficits[index + 1][0])) {
             index = (index + 1) % 7;
         } else {
-            int attribute = deficits[index][1];
+            std::int32_t attribute = deficits[index][1];
             ++character->attributes[attribute].base;
             ++character->attributes[attribute].effective;
             total = deficits[index][0];
             ++character->attribute_point_deficit;
-            int available = creation_state->attribute_points_total;
+            std::int32_t available = creation_state->attribute_points_total;
             deficits[index][0] = total - 1;
             creation_state->attribute_points_total = available - 1;
             index = 0;
@@ -423,21 +424,21 @@ void PayDownAttributeDebt(W8Character* character, W8CharacterCreationState* crea
    profession's minimums within the remaining pool and limits. */
 // FUNCTION: WIZ8 0x00557350
 void DetermineEligibleProfessions(W8Character* character, W8CharacterCreationState* creation_state,
-                                  unsigned char* eligibility)
+                                  std::uint8_t* eligibility)
 {
-    int attribute;
+    std::int32_t attribute;
 
     /* 0x00557416 compares the loop counter against 15 with a signed jump. */
-    for (int profession = 0; profession < W8_PROFESSION_COUNT; ++profession) {
+    for (std::int32_t profession = 0; profession < W8_PROFESSION_COUNT; ++profession) {
         eligibility[profession] = 1;
         if (profession == character->iProfession) {
             eligibility[profession] = 1;
         } else if (profession == W8_PROFESSION_VALKYRIE && character->gender != W8_GENDER_FEMALE) {
             eligibility[W8_PROFESSION_VALKYRIE] = 0;
         } else {
-            int deficit = 0;
+            std::int32_t deficit = 0;
             for (attribute = 0; attribute < 7; ++attribute) {
-                int difference = g_profession_attribute_minimums[profession].values[attribute] -
+                std::int32_t difference = g_profession_attribute_minimums[profession].values[attribute] -
                                  character->attributes[attribute].base;
                 if (difference > 0) {
                     deficit -= difference;
@@ -447,10 +448,10 @@ void DetermineEligibleProfessions(W8Character* character, W8CharacterCreationSta
                 eligibility[profession] = 0;
             }
             for (attribute = 0; attribute < 7; ++attribute) {
-                if (static_cast<unsigned int>(creation_state->attribute_limits[attribute] -
+                if (static_cast<std::uint32_t>(creation_state->attribute_limits[attribute] -
                                               creation_state->attribute_values[attribute]) +
                         character->attributes[attribute].base <
-                    static_cast<unsigned int>(
+                    static_cast<std::uint32_t>(
                         g_profession_attribute_minimums[profession].values[attribute])) {
                     eligibility[profession] = 0;
                     break;
@@ -464,9 +465,9 @@ void DetermineEligibleProfessions(W8Character* character, W8CharacterCreationSta
    the creation flow: never below zero, never above the pool or the limit. */
 // FUNCTION: WIZ8 0x005579e0
 void AdjustAllocatedAttribute(W8Character* character, W8CharacterCreationState* creation_state,
-                              W8Attribute attribute, int modifier)
+                              W8Attribute attribute, std::int32_t modifier)
 {
-    int value = creation_state->attribute_values[attribute];
+    std::int32_t value = creation_state->attribute_values[attribute];
     if (value + modifier < 0) {
         if (modifier >= 0) {
             srAssertFail("iModifier < 0", CHAR_GENERATION_CPP, 0x380, 0);
@@ -485,7 +486,7 @@ void AdjustAllocatedAttribute(W8Character* character, W8CharacterCreationState* 
     creation_state->attribute_values[attribute] += modifier;
 
     if (creation_state->attribute_points_remaining > 0) {
-        for (int index = 0; index < 7; ++index) {
+        for (std::int32_t index = 0; index < 7; ++index) {
             if (creation_state->attribute_values[index] < creation_state->attribute_limits[index]) {
                 creation_state->attributes_complete = false;
                 goto complete;
@@ -515,17 +516,17 @@ complete:
 void RecomputeSkillLimits(W8Character* character, W8CharacterCreationState* creation_state)
 {
     InitializeSkillBaseLevels(character);
-    int step = (creation_state->skill_points_total + 2) / 3;
+    std::int32_t step = (creation_state->skill_points_total + 2) / 3;
     creation_state->skill_step_limit = step;
 
-    for (int index = 0; index < 0x29; ++index) {
+    for (std::int32_t index = 0; index < 0x29; ++index) {
         if (!character->skills[index].active) {
             creation_state->skill_limits[index] = 0;
             continue;
         }
-        int limit =
+        std::int32_t limit =
             (creation_state->skill_points_spent[index] - character->skills[index].points) + 0x4b;
-        int value = step;
+        std::int32_t value = step;
         if (limit <= step) {
             value = limit;
         }
@@ -546,18 +547,18 @@ void RecomputeSkillLimits(W8Character* character, W8CharacterCreationState* crea
 // FUNCTION: WIZ8 0x00557eb0
 void ClampSkillsToBudget(W8Character* character, W8CharacterCreationState* creation_state)
 {
-    int index;
+    std::int32_t index;
 
     for (index = 0; index < 0x29; ++index) {
-        int spent = creation_state->skill_points_spent[index];
-        int excess = spent - creation_state->skill_limits[index];
+        std::int32_t spent = creation_state->skill_points_spent[index];
+        std::int32_t excess = spent - creation_state->skill_limits[index];
         if (excess > 0) {
             creation_state->skill_points_spent[index] = spent - excess;
             character->skills[index].points -= excess;
             character->skills[index].level -= excess;
         }
     }
-    int total = 0;
+    std::int32_t total = 0;
     for (index = 0; index < 0x29; ++index) {
         total += creation_state->skill_points_spent[index];
     }
@@ -594,7 +595,7 @@ void ClampSkillsToBudget(W8Character* character, W8CharacterCreationState* creat
 // FUNCTION: WIZ8 0x00558070
 void FinalizeSpellPointPool(W8Character* character, W8CharacterCreationState* creation_state)
 {
-    int spent = creation_state->spell_points_total - creation_state->spell_points_remaining;
+    std::int32_t spent = creation_state->spell_points_total - creation_state->spell_points_remaining;
     if (GetProfessionCasterLevel(character, W8_PROFESSION_NONE) < 1) {
         creation_state->spell_points_total = 0;
     } else {
@@ -604,9 +605,9 @@ void FinalizeSpellPointPool(W8Character* character, W8CharacterCreationState* cr
             creation_state->magic_skill_bonus = 1;
         }
         creation_state->magic_skill_bonus += g_spell_point_bonus;
-        int total = 0;
+        std::int32_t total = 0;
         if (GetProfessionCasterLevel(character, W8_PROFESSION_NONE) > 0) {
-            for (unsigned int realm = 0x18; realm < 0x1c; ++realm) {
+            for (std::uint32_t realm = 0x18; realm < 0x1c; ++realm) {
                 if (character->skills[realm].active) {
                     total += character->skill_costs[realm - 0x18];
                 }
@@ -617,7 +618,7 @@ void FinalizeSpellPointPool(W8Character* character, W8CharacterCreationState* cr
     }
 
     if (creation_state->spell_points_total < spent) {
-        for (unsigned int index = 0; index < 0x72; ++index) {
+        for (std::uint32_t index = 0; index < 0x72; ++index) {
             if (character->spell_learned[index] == 2) {
                 character->spell_learned[index] = 0;
                 --spent;
@@ -638,11 +639,11 @@ void FinalizeSpellPointPool(W8Character* character, W8CharacterCreationState* cr
 /* Re-checks every spell against the character's current realm skills and
    reports how many points still remain to be allocated. */
 // FUNCTION: WIZ8 0x00558180
-int CountRemainingSpellPoints(W8Character* character, W8CharacterCreationState* creation_state)
+std::int32_t CountRemainingSpellPoints(W8Character* character, W8CharacterCreationState* creation_state)
 {
-    int available = 0;
-    int index;
-    int spent = creation_state->spell_points_total - creation_state->spell_points_remaining;
+    std::int32_t available = 0;
+    std::int32_t index;
+    std::int32_t spent = creation_state->spell_points_total - creation_state->spell_points_remaining;
 
     if (creation_state->spell_points_total < 1) {
         for (index = 0; index < 0x72; ++index) {
@@ -652,14 +653,14 @@ int CountRemainingSpellPoints(W8Character* character, W8CharacterCreationState* 
         }
     } else {
         for (index = 0; index < 4; ++index) {
-            int skill = 0x18 + index;
-            int points = creation_state->skill_points_spent[skill];
+            std::int32_t skill = 0x18 + index;
+            std::int32_t points = creation_state->skill_points_spent[skill];
             character->skills[skill].points -= points;
             character->skills[skill].level -= points;
         }
         for (index = 0; index < 6; ++index) {
-            int skill = 0x1c + index;
-            int points = creation_state->skill_points_spent[skill];
+            std::int32_t skill = 0x1c + index;
+            std::int32_t points = creation_state->skill_points_spent[skill];
             character->skills[skill].points -= points;
             character->skills[skill].level -= points;
         }
@@ -680,14 +681,14 @@ int CountRemainingSpellPoints(W8Character* character, W8CharacterCreationState* 
             }
         }
         for (index = 0; index < 4; ++index) {
-            int skill = 0x18 + index;
-            int points = creation_state->skill_points_spent[skill];
+            std::int32_t skill = 0x18 + index;
+            std::int32_t points = creation_state->skill_points_spent[skill];
             character->skills[skill].points += points;
             character->skills[skill].level += points;
         }
         for (index = 0; index < 6; ++index) {
-            int skill = 0x1c + index;
-            int points = creation_state->skill_points_spent[skill];
+            std::int32_t skill = 0x1c + index;
+            std::int32_t points = creation_state->skill_points_spent[skill];
             character->skills[skill].points += points;
             character->skills[skill].level += points;
         }
@@ -695,7 +696,7 @@ int CountRemainingSpellPoints(W8Character* character, W8CharacterCreationState* 
 
     if (available < creation_state->spell_points_total) {
         creation_state->spell_points_total = available;
-        int remaining = available - spent;
+        std::int32_t remaining = available - spent;
         if (remaining < 0) {
             remaining = 0;
         }
@@ -717,7 +718,7 @@ int CountRemainingSpellPoints(W8Character* character, W8CharacterCreationState* 
 // FUNCTION: WIZ8 0x00557d80
 void RebuildSkillAllocations(W8Character* character, W8CharacterCreationState* creation_state)
 {
-    int index;
+    std::int32_t index;
 
     for (index = 0; index < 0x29; ++index) {
         character->skills[index].points = 0;
@@ -726,27 +727,27 @@ void RebuildSkillAllocations(W8Character* character, W8CharacterCreationState* c
     InitializeSkillBaseLevels(character);
 
     W8Profession profession = character->iProfession;
-    int count = 1;
+    std::int32_t count = 1;
     for (index = 0; index < 4; ++index) {
         if (g_profession_skills[profession][index] != -1) {
             ++count;
         }
     }
-    int step = 0x3c / count;
+    std::int32_t step = 0x3c / count;
     if (creation_state->attribute_points_total < 0) {
-        step -= static_cast<unsigned int>(creation_state->attribute_points_total * step * -2) / 100;
+        step -= static_cast<std::uint32_t>(creation_state->attribute_points_total * step * -2) / 100;
     }
 
     for (index = 0; index < 4; ++index) {
         W8Skill skill = g_profession_skills[profession][index];
         if (skill != W8_SKILL_NONE) {
-            int value = (character->skills[skill].base_level * step) / 100;
+            std::int32_t value = (character->skills[skill].base_level * step) / 100;
             character->skills[skill].points = value;
             character->skills[skill].level = value;
         }
     }
     W8Skill bonus_skill = g_profession_bonus_skills[profession];
-    int value = (character->skills[bonus_skill].base_level * step) / 100;
+    std::int32_t value = (character->skills[bonus_skill].base_level * step) / 100;
     character->skills[bonus_skill].points = value;
     character->skills[bonus_skill].level = value;
     for (index = 0; index < 0x29; ++index) {
@@ -760,11 +761,11 @@ void RebuildSkillAllocations(W8Character* character, W8CharacterCreationState* c
    character's six realm pools, saving and restoring the learned-spell flags
    around the trial assignment. */
 // FUNCTION: WIZ8 0x00558330
-int ComputeLevelUpSpellPointAward(W8Character* character, W8CharacterCreationState* creation_state)
+std::int32_t ComputeLevelUpSpellPointAward(W8Character* character, W8CharacterCreationState* creation_state)
 {
-    int total = 0;
-    int index;
-    int saved[0x72];
+    std::int32_t total = 0;
+    std::int32_t index;
+    std::int32_t saved[0x72];
 
     if (character->uiExpLevel <= 1) {
         if (creation_state->spell_points_total > 0) {
@@ -775,7 +776,7 @@ int ComputeLevelUpSpellPointAward(W8Character* character, W8CharacterCreationSta
                 /* Retail clears 0x72 bytes, not 0x72 entries: only the first
                    28 flags and half of the 29th are zeroed for the trial. */
                 memset(character->spell_learned, 0, 0x72);
-                static const int trial_spells[6] = {0xc, 6, 7, 5, 3, 0xb};
+                static const std::int32_t trial_spells[6] = {0xc, 6, 7, 5, 3, 0xb};
                 for (index = 0; index < 6; ++index) {
                     if (CanCharacterLearnSpell(character, trial_spells[index])) {
                         character->spell_learned[trial_spells[index]] = 1;
@@ -783,13 +784,13 @@ int ComputeLevelUpSpellPointAward(W8Character* character, W8CharacterCreationSta
                 }
             }
             RecalculateRealmSpellPoints(character);
-            int pools[6][2];
+            std::int32_t pools[6][2];
             for (index = 0; index < 6; ++index) {
                 pools[index][0] = character->sp_max[index];
                 pools[index][1] = index;
             }
             qsort(pools, 6, sizeof(pools[0]), CompareSignedDescending);
-            int count =
+            std::int32_t count =
                 creation_state->spell_points_total < 7 ? creation_state->spell_points_total : 6;
             for (index = 0; index < count; ++index) {
                 total += character->sp_max[pools[index][1]];
@@ -814,7 +815,7 @@ int ComputeLevelUpSpellPointAward(W8Character* character, W8CharacterCreationSta
    character already knows it. An emptied pool marks the page complete. */
 // FUNCTION: WIZ8 0x005584e0
 void SelectCreationSpell(W8Character* character, W8CharacterCreationState* creation_state,
-                         unsigned int spell)
+                         std::uint32_t spell)
 {
     if (creation_state->spell_points_remaining > 0) {
         character->spell_learned[spell] = 2;
@@ -840,7 +841,7 @@ void SelectCreationSpell(W8Character* character, W8CharacterCreationState* creat
    selected, and the point goes back to the pool. */
 // FUNCTION: WIZ8 0x00558560
 void DeselectCreationSpell(W8Character* character, W8CharacterCreationState* creation_state,
-                           unsigned int spell)
+                           std::uint32_t spell)
 {
     if (character->spell_learned[spell] != 0) {
         character->spell_learned[spell] = -1;
@@ -865,7 +866,7 @@ void DeselectCreationSpell(W8Character* character, W8CharacterCreationState* cre
 // FUNCTION: WIZ8 0x005585D0
 void ResetSpellSelections(W8Character* character, W8CharacterCreationState* creation_state)
 {
-    for (int index = 0; index < 0x72; ++index) {
+    for (std::int32_t index = 0; index < 0x72; ++index) {
         if (character->spell_learned[index] == 2) {
             character->spell_learned[index] = -1;
         }
@@ -877,10 +878,10 @@ void ResetSpellSelections(W8Character* character, W8CharacterCreationState* crea
 /* Price the profession's starting gear: stage the equipment, sum every
    carried stack's value, then empty the character back out. */
 // FUNCTION: WIZ8 0x00558640
-int ComputeStartingEquipmentCost(W8Character* character)
+std::int32_t ComputeStartingEquipmentCost(W8Character* character)
 {
-    int total;
-    int count;
+    std::int32_t total;
+    std::int32_t count;
 
     total = 0;
     AddCharacterStartingEquipment(character);
@@ -902,7 +903,7 @@ int ComputeStartingEquipmentCost(W8Character* character)
 // FUNCTION: WIZ8 0x005586b0
 bool CanAffordStartingEquipment(W8Character* character)
 {
-    return static_cast<unsigned int>(ComputeStartingEquipmentCost(character)) <=
+    return static_cast<std::uint32_t>(ComputeStartingEquipmentCost(character)) <=
            g_status.party_gold;
 }
 
@@ -913,7 +914,7 @@ void RebuildLevelUpPoolsForProfession(W8Character* character,
                                       W8CharacterCreationState* creation_state,
                                       W8Profession profession)
 {
-    int index;
+    std::int32_t index;
 
     if (character->iProfession != W8_PROFESSION_NONE) {
         --character->profession_levels[character->iProfession];
@@ -933,7 +934,7 @@ void RebuildLevelUpPoolsForProfession(W8Character* character,
 
     if (character->uiExpLevel > 1) {
         for (index = 0; index < 7; ++index) {
-            int baseline = creation_state->attribute_baselines[index];
+            std::int32_t baseline = creation_state->attribute_baselines[index];
             if (baseline > 0) {
                 character->attributes[index].base -= baseline;
                 character->attributes[index].effective -= baseline;
@@ -942,7 +943,7 @@ void RebuildLevelUpPoolsForProfession(W8Character* character,
             }
         }
         for (index = 0; index < 0x29; ++index) {
-            int baseline = creation_state->skill_baselines[index];
+            std::int32_t baseline = creation_state->skill_baselines[index];
             if (baseline > 0) {
                 character->skills[index].points -= baseline;
                 character->skills[index].level -= baseline;
@@ -950,8 +951,8 @@ void RebuildLevelUpPoolsForProfession(W8Character* character,
             }
         }
         W8Skill bonus_skill = g_profession_bonus_skills[character->iProfession];
-        int base = character->skills[bonus_skill].points;
-        int missing = (creation_state->skill_points_spent[bonus_skill] - base) + 5;
+        std::int32_t base = character->skills[bonus_skill].points;
+        std::int32_t missing = (creation_state->skill_points_spent[bonus_skill] - base) + 5;
         if (missing > 0) {
             character->skills[bonus_skill].points = base + missing;
             character->skills[bonus_skill].level += missing;
@@ -959,8 +960,8 @@ void RebuildLevelUpPoolsForProfession(W8Character* character,
         }
         for (index = 0; index < 4; ++index) {
             W8Skill skill = g_profession_skills[character->iProfession][index];
-            int value = character->skills[skill].points;
-            int missing = (creation_state->skill_points_spent[skill] - value) + 5;
+            std::int32_t value = character->skills[skill].points;
+            std::int32_t missing = (creation_state->skill_points_spent[skill] - value) + 5;
             if (missing > 0) {
                 character->skills[skill].points = value + missing;
                 character->skills[skill].level += missing;
@@ -993,11 +994,11 @@ void SetCharacterGender(W8Character* character, W8CharacterCreationState* creati
 // FUNCTION: WIZ8 0x00556eb0
 void ApplyRaceProfessionTables(W8Character* character, W8CharacterCreationState* creation_state)
 {
-    int index;
+    std::int32_t index;
     if (character->iRace == W8_RACE_NONE) {
         if (character->iProfession != W8_PROFESSION_NONE) {
             for (index = 0; index < 7; ++index) {
-                unsigned int minimum =
+                std::uint32_t minimum =
                     g_profession_attribute_minimums[character->iProfession].values[index];
                 character->attributes[index].base = minimum;
                 character->attributes[index].effective = minimum;
@@ -1006,14 +1007,14 @@ void ApplyRaceProfessionTables(W8Character* character, W8CharacterCreationState*
     } else {
         if (character->uiExpLevel == 1) {
             for (index = 0; index < 7; ++index) {
-                unsigned int minimum = g_race_attribute_minimums[character->iRace].values[index];
+                std::uint32_t minimum = g_race_attribute_minimums[character->iRace].values[index];
                 character->attributes[index].base = minimum;
                 character->attributes[index].effective = minimum;
             }
         }
         if (character->iProfession != W8_PROFESSION_NONE) {
             if (character->uiExpLevel == 1) {
-                int points = 0x3c + g_attribute_point_bonus;
+                std::int32_t points = 0x3c + g_attribute_point_bonus;
                 if (points < 0) {
                     points = 0;
                 }
@@ -1065,10 +1066,10 @@ void ApplyRaceProfessionTables(W8Character* character, W8CharacterCreationState*
    so the deficit sweep runs before the skill pass. */
 // FUNCTION: WIZ8 0x00557bc0
 void InitializeLevelUpAttributePool(W8Character* character,
-                                    W8CharacterCreationState* creation_state, unsigned int skill,
-                                    int modifier)
+                                    W8CharacterCreationState* creation_state, std::uint32_t skill,
+                                    std::int32_t modifier)
 {
-    int spent = creation_state->skill_points_spent[skill];
+    std::int32_t spent = creation_state->skill_points_spent[skill];
     if (spent + modifier < 0) {
         if (modifier >= 0) {
             srAssertFail("iModifier < 0", CHAR_GENERATION_CPP, 0x448, 0);
@@ -1087,7 +1088,7 @@ void InitializeLevelUpAttributePool(W8Character* character,
     creation_state->skill_points_spent[skill] += modifier;
 
     if (creation_state->skill_points_remaining > 0) {
-        for (int index = 0; index < 0x29; ++index) {
+        for (std::int32_t index = 0; index < 0x29; ++index) {
             if (creation_state->skill_points_spent[index] < creation_state->skill_limits[index]) {
                 creation_state->skills_complete = false;
                 goto complete;
@@ -1113,8 +1114,8 @@ complete:
 void FinalizeCreatedCharacter(W8Character* character, W8CharacterCreationState* creation_state,
                               bool give_starting_equipment)
 {
-    unsigned int realm;
-    unsigned int spell;
+    std::uint32_t realm;
+    std::uint32_t spell;
 
     RecalculateCharacterDerivedStats(character);
     if (give_starting_equipment) {
@@ -1192,7 +1193,7 @@ void FinalizeCreatedCharacter(W8Character* character, W8CharacterCreationState* 
 /* The six starting item ids each profession hands out, with the faerie race's
    own row last; -1 is an empty slot. */
 // GLOBAL: WIZ8 0x0061635c
-int g_starting_equipment[0x10][6] = {
+std::int32_t g_starting_equipment[0x10][6] = {
     {143, 153, 203, 246, -1, -1},  {35, 1, 158, 204, 247, 210},  {75, 170, 197, 246, 215, -1},
     {110, 125, 157, 188, 247, -1}, {38, 49, 165, 192, 246, -1},  {105, 230, 180, 209, 253, -1},
     {79, 105, 165, 192, 246, -1},  {0, 0, 99, 156, 187, 247},    {132, 156, 187, 246, -1, -1},
@@ -1208,8 +1209,8 @@ int g_starting_equipment[0x10][6] = {
 void AddCharacterStartingEquipment(W8Character* character)
 {
     W8ItemInstance item;
-    unsigned int slot;
-    unsigned int set;
+    std::uint32_t slot;
+    std::uint32_t set;
 
     EmptyAllCarriedItems(character);
 

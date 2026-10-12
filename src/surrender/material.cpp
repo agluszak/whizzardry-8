@@ -1,12 +1,12 @@
 /* D:\srsdk1x\sources\corelib\srMaterial.cpp */
 
+#include <cstdint>
 #include <ostream>
 
 #include "surrender/srMaterial.h"
 #include "surrender/stream_scope.h"
 #include "surrender/srCore.h"
 #include "surrender/srDebug.h"
-#include "compat/compiler.h"
 #include "glm/ext/vector_float4.hpp"
 #include "surrender/srFlags.h"
 #include "surrender/srMaterialIFace.h"
@@ -176,7 +176,7 @@ void srMaterial::postProcess(srVertexPipe& pipe)
     const auto cueColor = [&](bool specular) {
         const auto depth = pipe.getDepthCue();
         const auto color = specular ? pipe.getSpecular() : pipe.getDiffuse();
-        for (w8_ulong i = 0; i < pipe.vertex_count; ++i) {
+        for (std::uint32_t i = 0; i < pipe.vertex_count; ++i) {
             color[i] *= depth[i];
         }
     };
@@ -210,7 +210,7 @@ void srMaterial::postProcess(srVertexPipe& pipe)
         (pipe.channel_mask & (1u << srVertexProcessor::CHANNEL_ALPHA)) != 0) {
         const auto depth = pipe.getDepthCue();
         const auto alpha = pipe.getAlpha();
-        for (w8_ulong i = 0; i < pipe.vertex_count; ++i) {
+        for (std::uint32_t i = 0; i < pipe.vertex_count; ++i) {
             alpha[i] *= depth[i];
         }
     }
@@ -372,7 +372,7 @@ void srMaterial::enable(e_oper operation)
 }
 
 // FUNCTION: SURRENDER 0x10034B20
-int srMaterial::isEnabled(e_oper operation) const
+bool srMaterial::isEnabled(e_oper operation) const
 {
     return (operations.value & (1 << (operation & 0x1f))) != 0;
 }
@@ -389,7 +389,7 @@ const char* srMaterialIFace::sGetClassName()
     return "srMaterialIFace";
 }
 
-static void dumpDetailAlpha(std::ostream& stream, w8_ulong value)
+static void dumpDetailAlpha(std::ostream& stream, std::uint32_t value)
 {
     switch (value) {
     case srShader::DETAILALPHA_DISABLE:
@@ -407,7 +407,7 @@ static void dumpDetailAlpha(std::ostream& stream, w8_ulong value)
     }
 }
 
-static void dumpDetailColor(std::ostream& stream, w8_ulong value)
+static void dumpDetailColor(std::ostream& stream, std::uint32_t value)
 {
     switch (value) {
     case srShader::DETAILCOLOR_DISABLE:

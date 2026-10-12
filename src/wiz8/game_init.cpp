@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <cstring>
 #include <optional>
 #include <string>
@@ -40,7 +41,7 @@
  */
 
 // FUNCTION: WIZ8 0x004e2f40
-unsigned char InitializeGame(size_t& initialized_screens)
+bool InitializeGame(size_t& initialized_screens)
 {
     const auto version = FormatVersionBanner(true, true, true);
     bool ok;
@@ -53,15 +54,15 @@ unsigned char InitializeGame(size_t& initialized_screens)
     g_current_screen_state.id = W8_SCREEN_NONE;
     g_pending_screen_state.id = W8_SCREEN_NONE;
     g_screen_return_stack.clear();
-    for (int screen = 0; screen < W8_SCREEN_COUNT; ++screen) {
+    for (std::int32_t screen = 0; screen < W8_SCREEN_COUNT; ++screen) {
         initialized_screens = screen + 1;
         if (!g_screen_handlers[screen].initialize()) {
-            return 0;
+            return false;
         }
     }
     SetShadeTablePercent((float)0.66);
     if (!InitializeMenuFonts()) {
-        return 0;
+        return false;
     }
     InitializeButtonImageManager();
     InitializeRegionHelpState();
@@ -69,25 +70,25 @@ unsigned char InitializeGame(size_t& initialized_screens)
     InitializeGameplayRuntimeObjects();
     UpdateHeldItemCursor();
     if (!VerifyDataSubdirs()) {
-        return 0;
+        return false;
     }
     if (!InitializeItemDatabase()) {
-        return 0;
+        return false;
     }
     if (!InitializeItemTables()) {
-        return 0;
+        return false;
     }
     if (!LoadMonsterDatabase(0)) {
-        return 0;
+        return false;
     }
     if (!InitializeNpcDatabase()) {
-        return 0;
+        return false;
     }
     if (!InitializeFactDatabase()) {
-        return 0;
+        return false;
     }
     if (!InitializeLevelDatabase()) {
-        return 0;
+        return false;
     }
     InitializeItemVideoObjects();
     SetPendingScreenState(W8_SCREEN_INTRO);
@@ -110,9 +111,9 @@ unsigned char InitializeGame(size_t& initialized_screens)
     }
     ReleaseMessageStorage();
     if (!InitializeMusicPlaylist()) {
-        return 0;
+        return false;
     }
-    ok = static_cast<unsigned char>(0x4000000 < GetTotalPhysicalMemory());
+    ok = static_cast<std::uint8_t>(0x4000000 < GetTotalPhysicalMemory());
     g_texture_cache_enabled = ok;
-    return 1;
+    return true;
 }

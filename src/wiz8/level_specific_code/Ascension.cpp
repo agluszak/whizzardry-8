@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "wiz8/level_specific_code/Ascension.h"
 
 #include <vector>
@@ -47,9 +48,9 @@ static W8IntervalGate* g_avalanche_gate;
    0x244) are on the party; the world-cursor "seen bodies" handler requires
    all three. */
 // FUNCTION: WIZ8 0x004DF810
-int CountAscensionPeakItems(void)
+std::int32_t CountAscensionPeakItems(void)
 {
-    int count = 0;
+    std::int32_t count = 0;
 
     if (FindItemOnParty(0x242, 0, 0, 2, 0)) {
         count = 1;
@@ -70,10 +71,10 @@ int CountAscensionPeakItems(void)
 /* Standalone JMP thunk onto AscensionPeakInit. */
 
 // FUNCTION: WIZ8 0x004DF870
-unsigned char AscensionPeakInit(void)
+bool AscensionPeakInit(void)
 {
     srVector3T<float> position;
-    int count = CountAscensionPeakItems();
+    std::int32_t count = CountAscensionPeakItems();
 
     if (count > 1) {
         if (GetLocationVarIDByName("AP_AtLeast2of3Items") == -1) {
@@ -117,49 +118,49 @@ unsigned char AscensionPeakInit(void)
             CreateLocationVar("AP_All3Items", 1);
         }
     }
-    return 1;
+    return true;
 }
 
 /* Spawn the Alfie "chaos" monster (0xae) at the NP_AlfieChaos entity once the
    party carries the Astral Dominae (0x244). */
 // FUNCTION: WIZ8 0x004DFAE0
-unsigned char SpawnAlfieChaos(int)
+bool SpawnAlfieChaos(std::int32_t)
 {
     srVector3T<float> position;
 
     if (!FindItemOnParty(0x244, 0, 0, 2, 0)) {
-        return 0;
+        return false;
     }
     if (FindEntityByName("NP_AlfieChaos", &position, 0, 0)) {
         SpawnMonsters(0xae, 1, &position, 0, true, false, false);
     }
-    return 1;
+    return true;
 }
 
 /* Spawn the Alfie "life" monster (0xaf) at the NP_AlfieLife entity when it is
    present in the level. */
 // FUNCTION: WIZ8 0x004DFB40
-unsigned char SpawnAlfieLife(int)
+bool SpawnAlfieLife(std::int32_t)
 {
     srVector3T<float> position;
 
     if (FindEntityByName("NP_AlfieLife", &position, 0, 0)) {
         SpawnMonsters(0xaf, 1, &position, 0, true, false, false);
     }
-    return 1;
+    return true;
 }
 
 /* Spawn the Alfie "know" monster (0xb0) at the NP_AlfieKnow entity when it is
    present in the level. */
 // FUNCTION: WIZ8 0x004DFB80
-unsigned char SpawnAlfieKnow(int)
+bool SpawnAlfieKnow(std::int32_t)
 {
     srVector3T<float> position;
 
     if (FindEntityByName("NP_AlfieKnow", &position, 0, 0)) {
         SpawnMonsters(0xb0, 1, &position, 0, true, false, false);
     }
-    return 1;
+    return true;
 }
 
 /* Fire the "Avalanche" trigger and, when asked, update the 0x15d/0x15e
@@ -193,7 +194,7 @@ void AscensionAvalanche(bool command)
    lazily created one-second gate runs the LandShaker trigger once it elapses;
    -1 returns early without touching the scripted-sequence flag. */
 // FUNCTION: WIZ8 0x004DFD70
-void AscensionLandShaker(int command)
+void AscensionLandShaker(std::int32_t command)
 {
 
     if (command == -1) {
@@ -229,7 +230,7 @@ bool AscensionRampUp(Trigger* pTrigger)
 /* Spawn the Rapax ambush and the prince once two relics are brought to the
    peak. */
 // FUNCTION: WIZ8 0x004DFEA0
-unsigned char SpawnAscensionAmbush(void)
+bool SpawnAscensionAmbush(void)
 {
     srVector3T<float> position;
 
@@ -245,7 +246,7 @@ unsigned char SpawnAscensionAmbush(void)
     if (FindEntityByName("NP_Prince", &position, 0, 0)) {
         SpawnMonsters(0xb2, 1, &position, 0, true, false, false);
     }
-    return 1;
+    return true;
 }
 
 /* The ChaosBTrigger activation callback: arm ChaosATrigger, and once
@@ -409,7 +410,7 @@ bool AscensionDarkSavantSpawn(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004E0390
 bool AscensionPath1Camera(Trigger* pTrigger)
 {
-    unsigned int index;
+    std::uint32_t index;
 
     if (GetLocationVarIDByName("AP_DSSpawned") == -1) {
         return false;

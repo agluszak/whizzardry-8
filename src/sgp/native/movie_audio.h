@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 #include <cstddef>
 #include <memory>
 namespace w8_native
@@ -7,7 +8,7 @@ namespace w8_native
 class MovieAudio
 {
   public:
-    MovieAudio(unsigned rate, unsigned channels);
+    MovieAudio(std::uint32_t rate, std::uint32_t channels);
     ~MovieAudio();
     MovieAudio(const MovieAudio&) = delete;
     MovieAudio& operator=(const MovieAudio&) = delete;

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <string>
 
 extern float g_automap_grid_cell_size;
@@ -17,7 +18,7 @@ template <class T> class srVector3T;
 /* One map note with owned UTF-8 text. */
 struct W8AutomapNote {
     glm::vec2 position;
-    int layer;
+    std::int32_t layer;
     std::string text;
 };
 
@@ -29,12 +30,12 @@ void SetSavedAutomapUiMode(W8MainUiMode value);
 class W8ButtonWidget;
 
 extern std::vector<std::unique_ptr<W8ButtonWidget>> g_automap_buttons;
-extern int g_automap_zoom_mode;
+extern std::int32_t g_automap_zoom_mode;
 
 extern bool g_mipe_menu_active;
 extern bool g_mipe_active;
 
-bool HasAutomapLayer(int layer);
+bool HasAutomapLayer(std::int32_t layer);
 void RestoreAutomapCameraPosition(void);
 bool CanUseCurrentAutomapTool(void);
 
@@ -51,22 +52,22 @@ bool AutomapHasCellAt(const srVector3T<float>* position);
 void ResetAutomapView(void);
 bool SaveAutomapNotes(wiz8::File& handle);
 bool LoadAutomapNotes(wiz8::File& handle);
-unsigned char GetAutomapPositionUnderCursor(srVector3T<float>* position);
-void SetAutomapToolCursor(int tool);
+bool GetAutomapPositionUnderCursor(srVector3T<float>* position);
+void SetAutomapToolCursor(std::int32_t tool);
 W8AutomapNote* FindAutomapNoteUnderCursor(void);
 void CreateAutomapMarkerSprites(void);
 void RenderAutomapMarkers(void);
 void CreateAutomapButtons(void);
 
-unsigned char ReadAutomapNodes(wiz8::File* hFile);
-unsigned char AutomapScreenEnter(void);
+std::uint8_t ReadAutomapNodes(wiz8::File* hFile);
+bool AutomapScreenEnter(void);
 void AutomapScreenFrame(void);
-unsigned char AutomapScreenLeave(int leaving);
-unsigned char AutomapScreenFinalize(void);
+bool AutomapScreenLeave(std::int32_t leaving);
+bool AutomapScreenFinalize(void);
 /* Full-screen dismiss: left-up after a held press leaves the automap. */
-unsigned char AutomapBackgroundRegionEvent(const InputEvent* event, struct W8Region* region);
+bool AutomapBackgroundRegionEvent(const InputEvent* event, struct W8Region* region);
 float GetAutomapGridCellSize(void);
 void SetAutomapGridCellSize(float value);
 /* Packs a world position into an automap cell key. */
-unsigned int AutomapNodeKey(const srVector3T<float>* position);
+std::uint32_t AutomapNodeKey(const srVector3T<float>* position);
 bool AutomapLevelIsLarge(void);

@@ -1,6 +1,7 @@
 #ifndef WIZ8_GEOMETRY_H
 #define WIZ8_GEOMETRY_H
 
+#include <cstdint>
 #include "glm/common.hpp"
 #include "glm/geometric.hpp"
 #include "glm/ext/vector_float3.hpp"
@@ -55,23 +56,23 @@ struct PlaneContact {
 };
 
 struct W8GDSurface {
-    unsigned int flags;
-    unsigned int index;
+    std::uint32_t flags;
+    std::uint32_t index;
     /* ENVIRONMENT selects the environment table; other crossing faces select triggers. */
-    int trigger_index;
-    int edge_link[3];
-    int vertex_indices[3];
+    std::int32_t trigger_index;
+    std::int32_t edge_link[3];
+    std::int32_t vertex_indices[3];
     /* The region word at +0x32 belongs to W8OctRegionPolygon, not this
        surface. */
     W8Plane plane;
     float distance;
     /* Hit plane ProbePropsAlongMotion fills for ResolveCollision. */
     const W8Plane* hit_plane;
-    unsigned char footstep_surface;  /* W8FootstepSurface selector */
-    unsigned char footstep_material; /* W8FootstepMaterial selector */
-    unsigned char positional[2];
+    std::uint8_t footstep_surface;  /* W8FootstepSurface selector */
+    std::uint8_t footstep_material; /* W8FootstepMaterial selector */
+    std::uint8_t positional[2];
     float contact_margin;
-    unsigned int chance;
+    std::uint32_t chance;
     float slope; /* face slope; generated surfaces derive it from plane.normal.y */
 
     /* The plane's unit normal. */
@@ -90,10 +91,10 @@ struct W8GDSurface {
     /* 0x0041DC10: collision response for a hit surface; `origin` is advanced
        to `hit_point` and `direction` is bent along the contact plane. */
     bool ResolveCollision(srVector3T<float>* origin, const srVector3T<float>* hit_point,
-                          srVector3T<float>* direction, int collision_index);
+                          srVector3T<float>* direction, std::int32_t collision_index);
     /* 0x0041E8E0: whether moving `from` to `to` pushes this surface's
        centroid away from surface `surface_index`'s centroid. */
-    bool CentroidsDiverging(int surface_index, const glm::vec3& from, const glm::vec3& to);
+    bool CentroidsDiverging(std::int32_t surface_index, const glm::vec3& from, const glm::vec3& to);
     /* 0x0041EA90: environment response for a walkable contact surface;
        adjusts `direction` and the active environ record. */
     bool ApplyEnvironContact(glm::vec3& direction);
@@ -125,12 +126,12 @@ inline W8Plane trianglePlane(const glm::vec3& first, const glm::vec3& second,
 }
 
 // Prefer x, then y, then z on ties, including a completely degenerate plane.
-inline unsigned dominantPlaneAxis(const glm::vec3& normal)
+inline std::uint32_t dominantPlaneAxis(const glm::vec3& normal)
 {
     const auto magnitude = glm::abs(normal);
-    unsigned result = 0;
+    std::uint32_t result = 0;
     float largest = 0;
-    for (unsigned axis = 0; axis < 3; ++axis) {
+    for (std::uint32_t axis = 0; axis < 3; ++axis) {
         if (largest < magnitude[axis]) {
             largest = magnitude[axis];
             result = axis;
@@ -186,6 +187,6 @@ inline float SignedPlaneDistance(const W8Plane& plane, const glm::vec3& point)
 void ClassifySurfacePlane(const srVector3T<float>* vertices, W8GDSurface* surface);
 /* Segment intersection projected onto the plane perpendicular to axis. */
 bool SegmentCrossesEdge(const glm::vec3& seg_start, const glm::vec3& seg_end,
-                        const glm::vec3& edge_a, const glm::vec3& edge_b, unsigned int axis);
+                        const glm::vec3& edge_a, const glm::vec3& edge_b, std::uint32_t axis);
 
 #endif

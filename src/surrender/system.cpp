@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <wiz8/asset_paths.h>
 #include <SDL3/SDL_filesystem.h>
 #include <SDL3/SDL_stdinc.h>
@@ -11,9 +12,8 @@
 
 #include "surrender/srSystem.h"
 #include "wiz8/filesystem.h"
-#include "compat/compiler.h"
 
-w8_long srSystem::scanFiles(std::vector<std::string>& files, const char* path)
+std::int32_t srSystem::scanFiles(std::vector<std::string>& files, const char* path)
 {
     if (path == 0 || *path == '\0') {
         return 0;
@@ -31,7 +31,7 @@ w8_long srSystem::scanFiles(std::vector<std::string>& files, const char* path)
     return scanFiles(files, directory.c_str(), slash + 1);
 }
 
-char* srSystem::getCwd(char* path, w8_long size)
+char* srSystem::getCwd(char* path, std::int32_t size)
 {
     if (path == nullptr || size <= 0) return nullptr;
     const auto cwd = w8_native::current_directory();
@@ -40,18 +40,18 @@ char* srSystem::getCwd(char* path, w8_long size)
     return path;
 }
 
-w8_long srSystem::chDir(const char* path)
+std::int32_t srSystem::chDir(const char* path)
 {
     return w8_native::change_directory(path);
 }
 
-w8_long srSystem::scanFiles(std::vector<std::string>& files, const char* directory, const char* pattern)
+std::int32_t srSystem::scanFiles(std::vector<std::string>& files, const char* directory, const char* pattern)
 {
     if (pattern == 0) {
         return 0;
     }
     std::string base = directory != nullptr ? directory : ".";
-    w8_long count = 0;
+    std::int32_t count = 0;
     try {
         const auto host = wiz8::path_from_utf8(base);
         const bool virtual_drive = base.size() >= 2 && base[1] == ':' &&
@@ -114,7 +114,7 @@ void srSystem::makePath(char* path, const char* drive, const char* directory, co
     }
 }
 
-char* srSystem::fullPath(char* absolute_path, const char* path, w8_ulong size)
+char* srSystem::fullPath(char* absolute_path, const char* path, std::uint32_t size)
 {
     const std::string full = w8_native::full_path(path);
     if (full.empty()) return 0;

@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "wiz8/unicode.h"
 #include "surrender/srBoundingBox.h"
 #include <fmt/format.h>
@@ -109,7 +110,7 @@ bool InitializeItemManagerState()
 }
 
 // FUNCTION: WIZ8 0x004f8130
-bool ItemHasFlags(const W8WorldItem* item, unsigned int mask)
+bool ItemHasFlags(const W8WorldItem* item, std::uint32_t mask)
 {
     if (item == 0) {
         srAssertFail("pItemInfo", ITEM_MANAGER_CPP, 998, 0);
@@ -118,7 +119,7 @@ bool ItemHasFlags(const W8WorldItem* item, unsigned int mask)
 }
 
 // FUNCTION: WIZ8 0x004f8170
-void SetItemFlags(W8WorldItem* item, unsigned int mask, bool enabled)
+void SetItemFlags(W8WorldItem* item, std::uint32_t mask, bool enabled)
 {
     if (item == 0) {
         srAssertFail("pItemInfo", ITEM_MANAGER_CPP, 1004, 0);
@@ -131,7 +132,7 @@ void SetItemFlags(W8WorldItem* item, unsigned int mask, bool enabled)
 }
 
 // FUNCTION: WIZ8 0x004f81c0
-void SetItemAndEntityFlags(W8WorldItem* item, unsigned int mask, bool enabled)
+void SetItemAndEntityFlags(W8WorldItem* item, std::uint32_t mask, bool enabled)
 {
     if (item == 0) {
         srAssertFail("pItemInfo", ITEM_MANAGER_CPP, 1019, 0);
@@ -147,14 +148,14 @@ void SetItemAndEntityFlags(W8WorldItem* item, unsigned int mask, bool enabled)
 }
 
 // FUNCTION: WIZ8 0x004f8300
-int ItemInfoGetNumInGroup(W8WorldItem* item)
+std::int32_t ItemInfoGetNumInGroup(W8WorldItem* item)
 {
     if (item == 0) {
         srAssertFail("pItemInfo", ITEM_MANAGER_CPP, 1115,
                      "Bad ITEM_STRUCT in ItemInfoGetNumInGroup");
     }
     item = item->next;
-    int count = 1;
+    std::int32_t count = 1;
     while (item != 0) {
         item = item->next;
         ++count;
@@ -179,9 +180,9 @@ void ItemInfoAddToGroup(W8WorldItem* group, W8WorldItem* item)
 }
 
 struct W8ItemLevelScaleRange {
-    unsigned int minimum_party_level;
-    unsigned int minimum_item_value;
-    unsigned int maximum_item_value;
+    std::uint32_t minimum_party_level;
+    std::uint32_t minimum_item_value;
+    std::uint32_t maximum_item_value;
 };
 
 // GLOBAL: WIZ8 0x00617CE0
@@ -191,11 +192,11 @@ static W8ItemLevelScaleRange g_item_level_scale_ranges[7] = {
 };
 
 // FUNCTION: WIZ8 0x004f88a0
-int FindItemTableByName(const char* name)
+std::int32_t FindItemTableByName(const char* name)
 {
-    int index;
+    std::int32_t index;
 
-    for (index = 0; index < static_cast<int>(gXStatus.uiItemTablesInDatabase); ++index) {
+    for (index = 0; index < static_cast<std::int32_t>(gXStatus.uiItemTablesInDatabase); ++index) {
         if (_stricmp(name, g_item_tables[index].name) == 0) {
             return index;
         }
@@ -203,7 +204,7 @@ int FindItemTableByName(const char* name)
     return -1;
 }
 
-static W8WorldItem* CreateTableItem(int item_id, const srVector3T<float>* position)
+static W8WorldItem* CreateTableItem(std::int32_t item_id, const srVector3T<float>* position)
 {
     W8ItemInstance item;
     W8ItemInstance* item_pointer;
@@ -225,22 +226,22 @@ static W8WorldItem* CreateTableItem(int item_id, const srVector3T<float>* positi
 }
 
 // FUNCTION: WIZ8 0x004f88f0
-int GenerateItemsFromTable(std::vector<W8WorldItem*>& output_items, unsigned int table_id,
-                           unsigned int maximum_items)
+std::int32_t GenerateItemsFromTable(std::vector<W8WorldItem*>& output_items, std::uint32_t table_id,
+                           std::uint32_t maximum_items)
 {
-    unsigned int party_level = GetAveragePartyLevel();
+    std::uint32_t party_level = GetAveragePartyLevel();
     srVector3T<float> position;
-    std::vector<int> candidates;
+    std::vector<std::int32_t> candidates;
     W8ItemTableRecord* table;
     W8ItemTableEntry* entry;
     W8ItemDatabaseRecord* item_record;
     const W8ItemLevelScaleRange* range;
-    unsigned int item_value;
-    unsigned int total_weight;
-    unsigned int selected_count;
-    unsigned int random_value;
-    int entry_index;
-    int position_index;
+    std::uint32_t item_value;
+    std::uint32_t total_weight;
+    std::uint32_t selected_count;
+    std::uint32_t random_value;
+    std::int32_t entry_index;
+    std::int32_t position_index;
 
     table_id &= 0xffff;
     for (entry_index = 0; entry_index < 40; ++entry_index) {
@@ -267,7 +268,7 @@ int GenerateItemsFromTable(std::vector<W8WorldItem*>& output_items, unsigned int
         }
     }
 
-    if (static_cast<int>(candidates.size()) < static_cast<int>(maximum_items) &&
+    if (static_cast<std::int32_t>(candidates.size()) < static_cast<std::int32_t>(maximum_items) &&
         g_item_tables[table_id].level_scaled != 0) {
         candidates.clear();
         for (entry_index = 0; entry_index < 40; ++entry_index) {
@@ -278,7 +279,7 @@ int GenerateItemsFromTable(std::vector<W8WorldItem*>& output_items, unsigned int
     }
 
     total_weight = 0;
-    for (entry_index = 0; entry_index < static_cast<int>(candidates.size()); ++entry_index) {
+    for (entry_index = 0; entry_index < static_cast<std::int32_t>(candidates.size()); ++entry_index) {
         total_weight += g_item_tables[table_id].entries[candidates[entry_index]].weight;
     }
 
@@ -287,7 +288,7 @@ int GenerateItemsFromTable(std::vector<W8WorldItem*>& output_items, unsigned int
         if (candidates.empty()) {
             break;
         }
-        position_index = Random(static_cast<int>(candidates.size()));
+        position_index = Random(static_cast<std::int32_t>(candidates.size()));
         entry_index = candidates[position_index];
         table = &g_item_tables[table_id];
         entry = &table->entries[entry_index];
@@ -299,13 +300,13 @@ int GenerateItemsFromTable(std::vector<W8WorldItem*>& output_items, unsigned int
         }
     }
 
-    return static_cast<int>(output_items.size());
+    return static_cast<std::int32_t>(output_items.size());
 }
 
 /* The cursor the iterator below resumes from. */
 
 // GLOBAL: WIZ8 0x00689b54
-int g_world_item_cursor;
+std::int32_t g_world_item_cursor;
 
 // FUNCTION: WIZ8 0x004f6cc0
 void FreeWorldItemGroup(W8WorldItem* item)
@@ -323,12 +324,12 @@ void FreeWorldItemGroup(W8WorldItem* item)
    record; a record whose name is empty is matched against the display name
    converted down from wide instead. */
 // FUNCTION: WIZ8 0x004f8220
-int FindItemRecordByName(const char* name)
+std::int32_t FindItemRecordByName(const char* name)
 {
-    int index;
+    std::int32_t index;
     std::string internal_name;
 
-    for (index = 0; index < static_cast<int>(gXStatus.uiItemsInDatabase); ++index) {
+    for (index = 0; index < static_cast<std::int32_t>(gXStatus.uiItemsInDatabase); ++index) {
         internal_name = g_item_records[index].internal_name;
         if (internal_name[0] == 0) {
             if (_stricmp(g_item_records[index].display_name.c_str(), name) ==
@@ -347,13 +348,13 @@ int FindItemRecordByName(const char* name)
 // FUNCTION: WIZ8 0x004f82b0
 W8WorldItem* GetNextWorldItem(bool restart)
 {
-    int index;
+    std::int32_t index;
 
     if (restart) {
         g_world_item_cursor = 0;
     }
     index = g_world_item_cursor;
-    if (static_cast<unsigned int>(index) <
+    if (static_cast<std::uint32_t>(index) <
         gXStatus.world_items.size()) {
         ++g_world_item_cursor;
         return GetWorldItemListEntry(index);
@@ -447,7 +448,7 @@ void SetWorldItemFalling(W8WorldItem* item, bool enabled)
 /* The world item at one list position. Both the bound and the fetch are
    asserted, and the second reports the list it failed on. */
 // FUNCTION: WIZ8 0x004f7fe0
-W8WorldItem* ItemInfo(unsigned int item_list_index)
+W8WorldItem* ItemInfo(std::uint32_t item_list_index)
 {
     W8WorldItem* item;
 
@@ -466,9 +467,9 @@ W8WorldItem* ItemInfo(unsigned int item_list_index)
 }
 
 // FUNCTION: WIZ8 0x004f8060
-unsigned int ItemIndex(int runtime_id)
+std::uint32_t ItemIndex(std::int32_t runtime_id)
 {
-    unsigned int index;
+    std::uint32_t index;
 
     for (index = 0; index < gXStatus.world_items.size(); ++index) {
         if (ItemInfo(index)->runtime_id == runtime_id) {
@@ -484,7 +485,7 @@ unsigned int ItemIndex(int runtime_id)
    selection the item manager resets. */
 
 // FUNCTION: WIZ8 0x004f8440
-int ItemInfoMakeGroupList(W8WorldItem* item, std::vector<W8WorldItem*>& out)
+std::int32_t ItemInfoMakeGroupList(W8WorldItem* item, std::vector<W8WorldItem*>& out)
 {
     W8WorldItem* next;
 
@@ -498,7 +499,7 @@ int ItemInfoMakeGroupList(W8WorldItem* item, std::vector<W8WorldItem*>& out)
     for (next = item->next; next != 0; next = next->next) {
         out.push_back(next);
     }
-    return static_cast<int>(out.size());
+    return static_cast<std::int32_t>(out.size());
 }
 
 /* The generic 3D model names ActivateItem falls back to when a
@@ -771,7 +772,7 @@ void DeactivateWorldItem(W8WorldItem* item)
 /* Highlight or un-highlight a world item by runtime id: the rep's highlight
    bit tracks the SetHighlight call so the marker and the flag stay in step. */
 // FUNCTION: WIZ8 0x004F71E0
-void SetWorldItemHighlight(int runtime_id, bool on)
+void SetWorldItemHighlight(std::int32_t runtime_id, bool on)
 {
     W8WorldItem* item = ItemInfo(ItemIndex(runtime_id));
     W8Item* world_item = item->p3D;
@@ -792,11 +793,11 @@ void SetWorldItemHighlight(int runtime_id, bool on)
    and whose screen distance stays inside `max_distance`, or -1. The cursor
    coordinates are carried but unused - the hover test is IsSelected. */
 // FUNCTION: WIZ8 0x004f7370
-int PickNearestItemUnderCursor(int cursor_x, int cursor_y, float max_distance)
+std::int32_t PickNearestItemUnderCursor(std::int32_t cursor_x, std::int32_t cursor_y, float max_distance)
 {
-    int result;
+    std::int32_t result;
     float best_distance;
-    unsigned int index;
+    std::uint32_t index;
 
     result = -1;
     best_distance = 999999.0f;
@@ -829,8 +830,8 @@ int PickNearestItemUnderCursor(int cursor_x, int cursor_y, float max_distance)
 void UpdateNearbyWorldItems(void)
 {
     srVector3T<float> camera;
-    unsigned int index;
-    unsigned int count;
+    std::uint32_t index;
+    std::uint32_t count;
 
     camera = cameraLocation(*GetWorld());
     count = gXStatus.world_items.size();
@@ -884,7 +885,7 @@ glm::vec3 ItemThrowDirection(const glm::vec2& cursor, const glm::mat3& camera_ro
    ground and lifted back up. When the spot is free the held instance becomes
    a world item; otherwise the refusal sound plays. */
 // FUNCTION: WIZ8 0x004F7610
-void DropHeldItem(int)
+void DropHeldItem(std::int32_t)
 {
     glm::mat3 rotation;
     rotation = cameraRotation(*g_world);
@@ -924,7 +925,7 @@ static void OnItemPickerDialogDestroyed(W8DialogBase* dialog)
 {
     W8WorldItem* group;
     W8WorldItem* item;
-    unsigned int index;
+    std::uint32_t index;
 
     if (dialog == 0) {
         return;
@@ -958,10 +959,10 @@ static void OnItemPickerDialogDestroyed(W8DialogBase* dialog)
    runs, the instance copies into the cursor hand, and the world entry is
    stripped back out of its sector and the list. */
 // FUNCTION: WIZ8 0x004f7910
-unsigned char InteractWithWorldItem(int runtime_id)
+std::uint8_t InteractWithWorldItem(std::int32_t runtime_id)
 {
-    unsigned char result = 1;
-    int index = ItemIndex(runtime_id);
+    std::uint8_t result = 1;
+    std::int32_t index = ItemIndex(runtime_id);
     W8WorldItem* item = ItemInfo(index);
 
     if (item == 0) {
@@ -1000,7 +1001,7 @@ unsigned char InteractWithWorldItem(int runtime_id)
 
 /* Detach and release all world item groups. */
 // FUNCTION: WIZ8 0x004f6a50
-unsigned char ReleaseItemLists(void)
+bool ReleaseItemLists(void)
 {
     wiz8::clear_and_dispose(gXStatus.world_items, [](W8WorldItem* item) {
         if (item->sector_id >= 0) {
@@ -1040,7 +1041,7 @@ bool IsWorldItemWithinReach(W8Item* owner, const srVector3T<float>* from, float 
 
 /* plsItemList index that last satisfied AnyWorldItemVisible. */
 // GLOBAL: WIZ8 0x00618E70
-static int g_last_visible_world_item = -1;
+static std::int32_t g_last_visible_world_item = -1;
 
 static bool IsWorldItemMarkerVisible(W8WorldItem* item, const srVector3T<float>& camera)
 {
@@ -1066,8 +1067,8 @@ static bool IsWorldItemMarkerVisible(W8WorldItem* item, const srVector3T<float>&
 bool AnyWorldItemVisible(void)
 {
     srVector3T<float> camera;
-    int count;
-    int index;
+    std::int32_t count;
+    std::int32_t index;
 
     if (g_world == 0 || g_world->camera == 0) {
         return false;
@@ -1094,17 +1095,17 @@ bool AnyWorldItemVisible(void)
 /* Advance one falling world item (flag bit 1) toward the ground for this
    frame. Clears the falling flag once it has landed or the settle misses. */
 // FUNCTION: WIZ8 0x004f9240
-unsigned char AdvanceFallingWorldItem(W8WorldItem* item)
+bool AdvanceFallingWorldItem(W8WorldItem* item)
 {
     srVector3T<float> probe;
     bool hit;
     float ground;
     float previous_y;
     float dt;
-    int sector;
+    std::int32_t sector;
 
     if (!ItemHasFlags(item, W8_WORLD_ITEM_FALLING)) {
-        return 0;
+        return false;
     }
 
     previous_y = item->position.y;
@@ -1121,7 +1122,7 @@ unsigned char AdvanceFallingWorldItem(W8WorldItem* item)
     if (!hit || fabs(ground - previous_y) < g_camera_snap_epsilon) {
         item->flags &= ~W8_WORLD_ITEM_FALLING;
         item->vertical_velocity = 0.0f;
-        return 0;
+        return false;
     }
 
     sector = g_octree->current_prop;
@@ -1150,18 +1151,18 @@ unsigned char AdvanceFallingWorldItem(W8WorldItem* item)
         item->p3D->SetLocation(&probe);
     }
     item->position = probe;
-    return 1;
+    return true;
 }
 
 /* Drop one item onto the ground below where it is. The search starts one world
    unit up so an item already resting does not settle into the floor; landing
    moves it between sectors and clears its saved-marker flag. */
 // FUNCTION: WIZ8 0x004f93d0
-unsigned char SettleWorldItem(W8WorldItem* item)
+bool SettleWorldItem(W8WorldItem* item)
 {
     srVector3T<float> start;
     bool hit;
-    int sector;
+    std::int32_t sector;
 
     start.Set(item->position.x, item->position.y + g_world_scale, item->position.z);
 
@@ -1172,7 +1173,7 @@ unsigned char SettleWorldItem(W8WorldItem* item)
     start = ground_probe.position;
     hit = ground_probe.hit;
     if (!hit) {
-        return 0;
+        return false;
     }
 
     sector = g_octree->current_prop;
@@ -1189,7 +1190,7 @@ unsigned char SettleWorldItem(W8WorldItem* item)
         item->p3D->SetLocation(&start);
     }
     item->position = start;
-    return 1;
+    return true;
 }
 
 /* Rebuild every world item's carried instance from its own item id, which
@@ -1197,7 +1198,7 @@ unsigned char SettleWorldItem(W8WorldItem* item)
 // FUNCTION: WIZ8 0x004f94c0
 void RebuildAllWorldItemInstances(void)
 {
-    unsigned int index;
+    std::uint32_t index;
     W8WorldItem* item;
 
     for (index = 0; index < gXStatus.world_items.size(); ++index) {
@@ -1208,7 +1209,7 @@ void RebuildAllWorldItemInstances(void)
 
 // FUNCTION: WIZ8 0x004f6b90
 W8WorldItem* CreateWorldItem(W8ItemInstance* item, const srVector3T<float>* position,
-                             int entity_flags, bool add_to_world)
+                             std::int32_t entity_flags, bool add_to_world)
 {
     W8WorldItem* result = static_cast<W8WorldItem*>(malloc(sizeof(W8WorldItem)));
 
@@ -1236,7 +1237,7 @@ W8WorldItem* CreateWorldItem(W8ItemInstance* item, const srVector3T<float>* posi
 }
 
 // FUNCTION: WIZ8 0x004f6c50
-W8WorldItem* SpawnItem(int item_id, const srVector3T<float>* position, int entity_flags,
+W8WorldItem* SpawnItem(std::int32_t item_id, const srVector3T<float>* position, std::int32_t entity_flags,
                        bool add_to_world)
 {
     W8ItemInstance local_item;
@@ -1268,27 +1269,27 @@ W8WorldItem* SpawnItem(int item_id, const srVector3T<float>* position, int entit
    position; two or more are chained onto a container spawned with
    SpawnItem - 0x23c by default, or value when the caller names one. */
 // FUNCTION: WIZ8 0x004f8cb0
-void DropMonsterLoot(W8MonsterInfo* monster_info, int value)
+void DropMonsterLoot(W8MonsterInfo* monster_info, std::int32_t value)
 {
     std::vector<W8WorldItem*> items;
     if (monster_info != 0) {
         W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
         srVector3T<float> position = monster_info->p3D->GetPosition();
         W8WorldItem* item;
-        int gold = 0;
-        int slot;
-        int roll;
-        int index;
-        unsigned int remaining;
-        int total_weight;
-        unsigned int take;
-        unsigned int taken;
-        int pick;
+        std::int32_t gold = 0;
+        std::int32_t slot;
+        std::int32_t roll;
+        std::int32_t index;
+        std::uint32_t remaining;
+        std::int32_t total_weight;
+        std::uint32_t take;
+        std::uint32_t taken;
+        std::int32_t pick;
         if ((record->flags & W8_MONSTER_FLAG_NPC) == 0) {
             for (slot = 0; slot < 8; ++slot) {
                 W8MonsterTreasureEntry* entry = &record->treasure.slots[slot];
                 if (entry->count != 0 && Random(100) <= entry->chance) {
-                    int rolls = RollDice(&entry->dice);
+                    std::int32_t rolls = RollDice(&entry->dice);
                     for (roll = 0; roll < rolls; ++roll) {
                         if (entry->type == 0) {
                             item = SpawnItem(entry->item_id, &position,
@@ -1330,7 +1331,7 @@ void DropMonsterLoot(W8MonsterInfo* monster_info, int value)
                 total_weight = 0;
                 for (index = 0; index < 40; ++index) {
                     if (npc->item_ids[index] != -1) {
-                        total_weight += static_cast<signed char>(npc->item_weights[index]);
+                        total_weight += static_cast<std::int8_t>(npc->item_weights[index]);
                     }
                 }
                 take = RollDice(&npc->item_count_dice);
@@ -1341,8 +1342,8 @@ void DropMonsterLoot(W8MonsterInfo* monster_info, int value)
                 while (taken < take) {
                     pick = Random(40);
                     if (npc->item_ids[pick] != -1 &&
-                        static_cast<short>(Random(total_weight)) <=
-                            static_cast<short>(static_cast<signed char>(npc->item_weights[pick]))) {
+                        static_cast<std::int16_t>(Random(total_weight)) <=
+                            static_cast<std::int16_t>(static_cast<std::int8_t>(npc->item_weights[pick]))) {
                         item = SpawnItem(npc->item_ids[pick], &position,
                                          W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE, false);
                         if (item != 0) {
@@ -1358,20 +1359,20 @@ void DropMonsterLoot(W8MonsterInfo* monster_info, int value)
         if (gold != 0) {
             AddPartyGold(gold, true);
         }
-        if (static_cast<int>(items.size()) <= 1) {
+        if (static_cast<std::int32_t>(items.size()) <= 1) {
             item = items[0];
             gXStatus.world_items.push_back(item);
             item->position = position;
         } else {
             W8WorldItem* container;
-            int item_index;
+            std::int32_t item_index;
             if (value == -1) {
                 container = SpawnItem(0x23c, &position, W8_ITEM_ENTITY_ROTATE, true);
             } else {
                 container =
                     SpawnItem(value, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE, true);
             }
-            for (item_index = 0; item_index < static_cast<int>(items.size()); ++item_index) {
+            for (item_index = 0; item_index < static_cast<std::int32_t>(items.size()); ++item_index) {
                 ItemInfoAddToGroup(container, items[item_index]);
             }
         }

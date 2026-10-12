@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "himage.h"
 #include "image.h"
 #include <fmt/format.h>
@@ -50,13 +51,13 @@
 /* 0x0069C514/0x0069C518: the stats page's text origin, initialized by the
    page renderer before every full redraw. */
 // GLOBAL: WIZ8 0x0069c514
-static int g_camp_stats_origin_y;
+static std::int32_t g_camp_stats_origin_y;
 // GLOBAL: WIZ8 0x0069c518
-static int g_camp_stats_origin_x;
+static std::int32_t g_camp_stats_origin_x;
 /* The skills page row the cursor last hovered, kept so the help
    text only resets on a real change. */
 // GLOBAL: WIZ8 0x0069c524
-static int g_camp_skill_hover_row;
+static std::int32_t g_camp_skill_hover_row;
 // GLOBAL: WIZ8 0x0069c528
 /* Five skill-category list regions; bounds are applied by CreateCampSkillRegions. */
 static constexpr std::array<RegionTemplate, 5> g_camp_skill_templates{{
@@ -68,9 +69,9 @@ static constexpr std::array<RegionTemplate, 5> g_camp_skill_templates{{
 }};
 ScreenRegionSet g_camp_skill_regions{g_camp_skill_templates};
 
-static unsigned char CampStatsMouseWheel(const InputEvent* event, W8Region*);
+static bool CampStatsMouseWheel(const InputEvent* event, W8Region*);
 void DrawCampEffectList(void);
-void DrawCampEffectEntry(W8CampEffectEntry* entry, int* line_out);
+void DrawCampEffectEntry(W8CampEffectEntry* entry, std::int32_t* line_out);
 
 /* The five skill-category blocks shared by the camp skills page: (x, y)
    origins, the row count that bounds each region, and the catalog frame each
@@ -81,20 +82,20 @@ static srVector2i g_camp_skill_category_positions[5] = {
     {0x160, 0x8}, {0x160, 0xcc}, {0x22, 0x9}, {0x22, 0x86}, {0x2a, 0x21},
 };
 // GLOBAL: WIZ8 0x0064ef68
-static int g_camp_skill_category_rows[5] = {0xb, 5, 8, 0xa, 7};
+static std::int32_t g_camp_skill_category_rows[5] = {0xb, 5, 8, 0xa, 7};
 // GLOBAL: WIZ8 0x0064ef7c
-static int g_camp_skill_category_images[5] = {2, 3, 0, 1, 4};
+static std::int32_t g_camp_skill_category_images[5] = {2, 3, 0, 1, 4};
 
 // GLOBAL: WIZ8 0x0064ef90
 static srVector2i g_character_page2_category_geometry[5] = {
     {0xf9, 0x0a}, {0xf9, 0xcd}, {0x22, 0x0a}, {0x22, 0x87}, {0xf9, 0x120},
 };
 // GLOBAL: WIZ8 0x0064efb8
-static int g_character_page2_category_frames[5] = {2, 3, 0, 1, 4};
+static std::int32_t g_character_page2_category_frames[5] = {2, 3, 0, 1, 4};
 
 struct W8PortraitGroup {
-    int count;
-    int portraits[14];
+    std::int32_t count;
+    std::int32_t portraits[14];
 };
 // GLOBAL: WIZ8 0x00648950
 static W8PortraitGroup g_portrait_groups[12] = {
@@ -180,7 +181,7 @@ W8CampStatsControls::~W8CampStatsControls()
 void W8CampStatsControls::OnPrimary(W8TextControl* control)
 {
     if (control == m_buttons[0]) {
-        if (static_cast<unsigned char>(m_buttons[0]->m_stateFlags &
+        if (static_cast<std::uint8_t>(m_buttons[0]->m_stateFlags &
                                        g_W8TextControlStateSecondary)) {
             m_buttons[1]->DisableSecondaryState(false);
             g_camp_screen->effect_filter = W8_CAMP_EFFECT_FILTER_BENEFICIAL;
@@ -188,7 +189,7 @@ void W8CampStatsControls::OnPrimary(W8TextControl* control)
             g_camp_screen->effect_filter = W8_CAMP_EFFECT_FILTER_ALL;
         }
     } else if (control == m_buttons[1]) {
-        if (static_cast<unsigned char>(m_buttons[1]->m_stateFlags &
+        if (static_cast<std::uint8_t>(m_buttons[1]->m_stateFlags &
                                        g_W8TextControlStateSecondary)) {
             m_buttons[0]->DisableSecondaryState(false);
             g_camp_screen->effect_filter = W8_CAMP_EFFECT_FILTER_DETRIMENTAL;
@@ -197,7 +198,7 @@ void W8CampStatsControls::OnPrimary(W8TextControl* control)
         }
     } else {
         g_camp_screen->effect_items_only =
-            static_cast<unsigned char>(m_buttons[2]->m_stateFlags &
+            static_cast<std::uint8_t>(m_buttons[2]->m_stateFlags &
                                        g_W8TextControlStateSecondary) != 0;
     }
     FilterCampEffectList();
@@ -214,16 +215,16 @@ void DrawCampStatsPage(void)
         CatalogArtwork::Load(0x142, 0).drawAndInvalidate(GetFrameBufferSurface(), 1, 0, 0xa5);
         g_camp_stats_origin_x = 0;
         g_camp_stats_origin_y = 0xa5;
-        int index;
+        std::int32_t index;
         std::string text = g_localized_strings[0x937];
         DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {g_camp_stats_origin_x + 10 +
                          ((0x11f - g_wiz_text_font_secondary.textWidth(text)) >> 1), g_camp_stats_origin_y + 10}, text);
-        int row_y = 0xbf;
+        std::int32_t row_y = 0xbf;
         for (index = 0; index < 7; ++index) {
             std::string label = g_localized_strings[g_attribute_label_ids[index]];
             DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {g_camp_stats_origin_x + 10 +
                              ((0x7b - g_wiz_text_font_secondary.textWidth(label)) >> 1), row_y - 0xa6 + g_camp_stats_origin_y}, label);
-            unsigned int effective = g_review_character->attributes[index].effective;
+            std::uint32_t effective = g_review_character->attributes[index].effective;
             DrawCampValueBar(effective, g_review_character->attributes[index].base, 0x88, row_y);
             g_camp_screen->text_buffer = fmt::format("{:d}", effective);
             DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {g_camp_stats_origin_x + 0x108 +
@@ -240,7 +241,7 @@ void DrawCampStatsPage(void)
                                     [g_profession_bonus_skills[g_review_character->iProfession]]],
             g_localized_strings[0x8c5]);
         DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x10, 0x142}, g_camp_screen->text_buffer);
-        int trait_count = 0;
+        std::int32_t trait_count = 0;
         char traits[0x20];
         for (index = 0; index < 0x20; ++index) {
             if (CharacterHasTrait(g_review_character, static_cast<W8Trait>(index))) {
@@ -250,8 +251,8 @@ void DrawCampStatsPage(void)
                 traits[index] = 0;
             }
         }
-        int step = (trait_count < 8) ? 2 : 0;
-        int trait_y = step + 0x14e;
+        std::int32_t step = (trait_count < 8) ? 2 : 0;
+        std::int32_t trait_y = step + 0x14e;
         for (index = 0; index < 0x20; ++index) {
             if (traits[index] != 0) {
                 DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x10, trait_y}, g_localized_strings[g_character_trait_name_ids[index]]);
@@ -277,11 +278,11 @@ void DrawCampStatsPage(void)
    counts only on slots that actually take armor (not the two weapon/shield
    rows, 0 and 4/5 and 10/11) and never on equip-class 5 items. */
 // FUNCTION: WIZ8 0x005c4d40
-unsigned int CountEquipItemBenefits(int slot)
+std::uint32_t CountEquipItemBenefits(std::int32_t slot)
 {
     W8ItemDatabaseRecord* record = &g_item_records[g_review_character->EquippedItem[slot].iItemNo];
-    unsigned int count = record->attack_damage_bonus > 0;
-    int index;
+    std::uint32_t count = record->attack_damage_bonus > 0;
+    std::int32_t index;
     for (index = 0; index < 0x10; ++index) {
         if (record->missile_values[index] != 0) {
             ++count;
@@ -321,11 +322,11 @@ unsigned int CountEquipItemBenefits(int slot)
 }
 
 // FUNCTION: WIZ8 0x005c4e20
-unsigned int CountEquipItemPenalties(int slot)
+std::uint32_t CountEquipItemPenalties(std::int32_t slot)
 {
     W8ItemDatabaseRecord* record = &g_item_records[g_review_character->EquippedItem[slot].iItemNo];
-    unsigned int count = record->attack_damage_bonus < 0;
-    int index;
+    std::uint32_t count = record->attack_damage_bonus < 0;
+    std::int32_t index;
     if (record->attack_hit_bonus < 0) {
         ++count;
     }
@@ -387,7 +388,7 @@ void RebuildCampEffectList(void)
     screen->effect_visible_lines = 0;
     screen->effect_scroll = 0;
     W8Character* character = g_review_character;
-    for (int condition = 0x13; condition >= 0; --condition) {
+    for (std::int32_t condition = 0x13; condition >= 0; --condition) {
         if (character->uiCondition[condition] != 0) {
             W8CampEffectEntry entry{};
             entry.kind = 0;
@@ -409,7 +410,7 @@ void RebuildCampEffectList(void)
             AddCampEffectEntry(screen, &entry);
         }
     }
-    for (int index = 7; index >= 0; --index) {
+    for (std::int32_t index = 7; index >= 0; --index) {
         if (character->enchantments[index].turns != 0) {
             W8CampEffectEntry entry{};
             entry.kind = 1;
@@ -421,11 +422,11 @@ void RebuildCampEffectList(void)
             AddCampEffectEntry(screen, &entry);
         }
     }
-    for (int slot = 0; slot < 12; ++slot) {
+    for (std::int32_t slot = 0; slot < 12; ++slot) {
         W8ItemInstance* item = &g_review_character->EquippedItem[slot];
         if (slot != 8 && slot != 9 && item->identified && item->iItemNo != -1) {
-            int beneficial = CountEquipItemBenefits(slot);
-            int detrimental = CountEquipItemPenalties(slot);
+            std::int32_t beneficial = CountEquipItemBenefits(slot);
+            std::int32_t detrimental = CountEquipItemPenalties(slot);
             if (beneficial != 0 || detrimental != 0) {
                 W8CampEffectEntry entry{};
                 entry.beneficial = beneficial != 0;
@@ -451,8 +452,8 @@ void FilterCampEffectList(void)
     W8CampScreenState* screen = g_camp_screen.get();
     screen->effect_visible_lines = 0;
     bool any_visible = false;
-    unsigned int count = screen->effect_list.size();
-    for (unsigned int pos = 0; pos < count; ++pos) {
+    std::uint32_t count = screen->effect_list.size();
+    for (std::uint32_t pos = 0; pos < count; ++pos) {
         auto& entry = screen->effect_list[pos];
         entry.visible = false;
         if (entry.items == screen->effect_items_only &&
@@ -471,7 +472,7 @@ void FilterCampEffectList(void)
             screen->effect_visible_lines += entry.lines + 1;
         }
     }
-    int second = screen->effect_visible_lines - 0x11;
+    std::int32_t second = screen->effect_visible_lines - 0x11;
     W8RangeControl* range = screen->stats_range->m_range;
     if (second < 1) {
         second = 0;
@@ -495,9 +496,9 @@ void DrawCampEffectList(void)
     W8CampScreenState* screen = g_camp_screen.get();
     SDL_Rect effect_clip{0, 0xbe, 0x280, 0xee};
     ScopedClipRect clipping(GetFrameBufferSurface(), effect_clip);
-    int line = -screen->effect_scroll;
-    unsigned int count = screen->effect_list.size();
-    for (unsigned int pos = 0; pos < count; ++pos) {
+    std::int32_t line = -screen->effect_scroll;
+    std::uint32_t count = screen->effect_list.size();
+    for (std::uint32_t pos = 0; pos < count; ++pos) {
         if (line > 0x10) {
             break;
         }
@@ -516,16 +517,16 @@ void DrawCampEffectList(void)
    y 0xbf) and advances the counter past its height plus one row of spacing.
    Kind 0 is a condition, kind 1 an enchantment, kind 2 an equipped item. */
 // FUNCTION: WIZ8 0x005c54a0
-void DrawCampEffectEntry(W8CampEffectEntry* entry, int* line_out)
+void DrawCampEffectEntry(W8CampEffectEntry* entry, std::int32_t* line_out)
 {
-    int index;
-    int line = *line_out;
+    std::int32_t index;
+    std::int32_t line = *line_out;
     if (entry->kind == 0) {
         g_wiz_text_font_secondary.setPalette(g_font_state_palettes[W8_FONT_PALETTE_GREEN]);
         DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x15e, line * 0xe + 0xbf}, fmt::format("{} {}", g_localized_strings[0x8d1],
                                  g_localized_strings[g_condition_notices[entry->index].name]));
         g_wiz_text_font_secondary.resetPalette();
-        int next = line + 1;
+        std::int32_t next = line + 1;
         if (entry->turns == W8_CONDITION_INDEFINITE) {
             DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x15e, (line + 1) * 0xe + 0xbf}, g_localized_strings[0x8d2]);
             next = line + 2;
@@ -539,7 +540,7 @@ void DrawCampEffectEntry(W8CampEffectEntry* entry, int* line_out)
             }
             if (g_review_character->fatigue_penalty != 0) {
                 DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x15e, line * 0xe + 0xbf}, fmt::format("{}: {:+d}", g_localized_strings[0x8dc],
-                                         -static_cast<int>(g_review_character->fatigue_penalty)));
+                                         -static_cast<std::int32_t>(g_review_character->fatigue_penalty)));
                 ++line;
             }
         }
@@ -558,7 +559,7 @@ void DrawCampEffectEntry(W8CampEffectEntry* entry, int* line_out)
         g_wiz_text_font_secondary.setPalette(g_font_state_palettes[W8_FONT_PALETTE_GREEN]);
         DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x15e, line * 0xe + 0xbf}, GetItemDisplayName(&g_review_character->EquippedItem[entry->index]));
         g_wiz_text_font_secondary.resetPalette();
-        int next = line + 1;
+        std::int32_t next = line + 1;
         if (record->attack_damage_bonus != 0) {
             DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x15e, (line + 1) * 0xe + 0xbf}, fmt::format("{} {:+d}", g_localized_strings[0x8b1], record->attack_damage_bonus));
             next = line + 2;
@@ -656,14 +657,14 @@ void DrawCampEffectEntry(W8CampEffectEntry* entry, int* line_out)
 /* Wheel input over the stats page's effect-list region steps the
    scrollbar. */
 // FUNCTION: WIZ8 0x005c5c60
-static unsigned char CampStatsMouseWheel(const InputEvent* event, W8Region*)
+static bool CampStatsMouseWheel(const InputEvent* event, W8Region*)
 {
     PushButtonSoundScheme(0, true);
     if (event->type != InputEventType::MouseWheel) {
-        return 0;
+        return false;
     }
     g_camp_screen->stats_range->m_range->AdjustValue(event->wheel);
-    return 1;
+    return true;
 }
 
 /* Creates the five skill-category regions once per camp session and points
@@ -673,9 +674,9 @@ static unsigned char CampStatsMouseWheel(const InputEvent* event, W8Region*)
 void CreateCampSkillRegions(void)
 {
     g_camp_skill_regions.Create();
-    for (unsigned int category = 0; category < 5; ++category) {
-        int x = g_camp_skill_category_positions[category].x;
-        int y = g_camp_skill_category_positions[category].y;
+    for (std::uint32_t category = 0; category < 5; ++category) {
+        std::int32_t x = g_camp_skill_category_positions[category].x;
+        std::int32_t y = g_camp_skill_category_positions[category].y;
         if (category == 4) {
             x += 0x136;
         } else {
@@ -695,9 +696,9 @@ void DisableCampSkillRegions(void)
 
 /* Unlike the gameplay best-skill query, the camp display includes every
    occupied slot, regardless of health or conditions. Ties count as best. */
-static bool IsBestCampSkillLevel(W8Skill skill, unsigned int level)
+static bool IsBestCampSkillLevel(W8Skill skill, std::uint32_t level)
 {
-    for (int slot = 0; slot < 8; ++slot) {
+    for (std::int32_t slot = 0; slot < 8; ++slot) {
         if (g_status.buffers.XChar[slot].fOccupied &&
             level < g_status.buffers.Char[slot].skills[skill].level) {
             return false;
@@ -714,7 +715,7 @@ void DrawCampSkillsPage(void)
 {
     if (g_camp_screen->redraw_flags == W8_CAMP_REDRAW_ALL) {
         bool has_fifth = false;
-        int skill;
+        std::int32_t skill;
         for (skill = 0; skill < 0x29; ++skill) {
             if ((g_review_character->skills[skill].active ||
                  g_review_character->skills[skill].level != 0) &&
@@ -725,25 +726,25 @@ void DrawCampSkillsPage(void)
         }
         CatalogArtwork::Load(0x141, 0).drawAndInvalidate(GetFrameBufferSurface(), has_fifth, 0x136, 0);
         CatalogArtwork::Load(0x141, 0).drawAndInvalidate(GetFrameBufferSurface(), 2, 0, 0xa5);
-        for (int category = 0; category < 5; ++category) {
+        for (std::int32_t category = 0; category < 5; ++category) {
             if (category != 4 || has_fifth) {
-                int x = g_camp_skill_category_positions[category].x;
-                int y = g_camp_skill_category_positions[category].y;
+                std::int32_t x = g_camp_skill_category_positions[category].x;
+                std::int32_t y = g_camp_skill_category_positions[category].y;
                 if (category == 4) {
                     x += 0x136;
                 } else {
                     y += 0xa5;
                 }
-                CatalogArtwork::Load(0x144, 0).draw(GetFrameBufferSurface(), static_cast<short>(g_camp_skill_category_images[category]), x - 0x16, y - 3);
+                CatalogArtwork::Load(0x144, 0).draw(GetFrameBufferSurface(), static_cast<std::int16_t>(g_camp_skill_category_images[category]), x - 0x16, y - 3);
             }
         }
-        int category_count[5] = {0, 0, 0, 0, 0};
+        std::int32_t category_count[5] = {0, 0, 0, 0, 0};
         for (skill = 0; skill < 0x29; ++skill) {
             W8CharacterSkill* value = &g_review_character->skills[skill];
             if (value->active || value->points != 0 || value->level != 0) {
-                int category = g_skill_attributes[skill].category;
-                int left = g_camp_skill_category_positions[category].x;
-                int top = g_camp_skill_category_positions[category].y;
+                std::int32_t category = g_skill_attributes[skill].category;
+                std::int32_t left = g_camp_skill_category_positions[category].x;
+                std::int32_t top = g_camp_skill_category_positions[category].y;
                 if (category == 4) {
                     left += 0x136;
                 } else {
@@ -751,10 +752,10 @@ void DrawCampSkillsPage(void)
                 }
                 top += category_count[category] * 0xe;
                 CatalogArtwork::Load(0x141, 0).draw(GetFrameBufferSurface(), 3, left, top);
-                unsigned int level = value->level;
-                unsigned int base = value->points;
-                int gained;
-                int lost;
+                std::uint32_t level = value->level;
+                std::uint32_t base = value->points;
+                std::int32_t gained;
+                std::int32_t lost;
                 if (level < base) {
                     lost = base - level;
                     gained = 0;
@@ -806,14 +807,14 @@ void DrawCampSkillsPage(void)
                     }
                 }
                 g_wiz_text_font_secondary.setPalette(palette);
-                short width = g_wiz_text_font_secondary.textWidth(g_localized_strings[g_character_skill_name_ids[skill]]);
+                std::int16_t width = g_wiz_text_font_secondary.textWidth(g_localized_strings[g_character_skill_name_ids[skill]]);
                 DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {(0x6b - width) / 2 + 2 + left, top + 1}, g_localized_strings[g_character_skill_name_ids[skill]]);
                 palette = g_wiz_text_font_secondary.glyphs->colors;
                 if (value->improved) {
                     palette = g_font_state_palettes[W8_FONT_PALETTE_GREEN];
                 }
                 g_wiz_text_font_secondary.setPalette(palette);
-                short value_width = g_wiz_text_font_secondary.codepointPrefixWidth(fmt::format("{:d}", value->level), 3);
+                std::int16_t value_width = g_wiz_text_font_secondary.codepointPrefixWidth(fmt::format("{:d}", value->level), 3);
                 DrawTextAndInvalidate(GetFrameBufferSurface(), g_wiz_text_font_secondary, {(0x24 - value_width) / 2 + 0xee + left, top + 1}, fmt::format("{:d}", value->level));
                 g_wiz_text_font_secondary.resetPalette();
                 g_wiz_text_font_secondary.setShade(Font::kNormalShade);
@@ -828,13 +829,13 @@ void DrawCampSkillsPage(void)
    dialog's second argument is raised when the character's level is the best
    among the occupied party slots. */
 // FUNCTION: WIZ8 0x005c6230
-unsigned char CampSkillListRegionHandler(const InputEvent* event, W8Region* region)
+bool CampSkillListRegionHandler(const InputEvent* event, W8Region* region)
 {
-    int row = (GetEventCursorY(event) - region->y1 - 1) / 0xe;
-    int skill = -1;
-    int occurrence = 0;
-    for (int index = 0; index < 0x29; ++index) {
-        if (g_skill_attributes[index].category == static_cast<int>(region->callback_id) &&
+    std::int32_t row = (GetEventCursorY(event) - region->y1 - 1) / 0xe;
+    std::int32_t skill = -1;
+    std::int32_t occurrence = 0;
+    for (std::int32_t index = 0; index < 0x29; ++index) {
+        if (g_skill_attributes[index].category == static_cast<std::int32_t>(region->callback_id) &&
             (g_review_character->skills[index].active ||
              g_review_character->skills[index].level != 0)) {
             if (occurrence == row) {
@@ -849,7 +850,7 @@ unsigned char CampSkillListRegionHandler(const InputEvent* event, W8Region* regi
         region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
     } else if (event->type != InputEventType::RightButtonUp) {
         if (event->type != InputEventType::MouseMove) {
-            return 0;
+            return false;
         }
         if ((region->flags & W8_REGION_MOUSE_ENTER) != 0 || row != g_camp_skill_hover_row) {
             std::string text = skill == -1 ? std::string{} : g_localized_strings[0x958];
@@ -857,7 +858,7 @@ unsigned char CampSkillListRegionHandler(const InputEvent* event, W8Region* regi
             ResetRegionHelp(true);
             g_camp_skill_hover_row = row;
         }
-        return 0;
+        return false;
     }
     if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) != 0 && skill != -1) {
         bool best = false;
@@ -870,7 +871,7 @@ unsigned char CampSkillListRegionHandler(const InputEvent* event, W8Region* regi
             skill == g_profession_bonus_skills[g_review_character->iProfession]);
         DisplayCampDialog(std::move(dialog));
     }
-    return 1;
+    return true;
 }
 
 /* The character screen's fourth page (name, portrait, personality and voice)
@@ -885,7 +886,7 @@ unsigned char CampSkillListRegionHandler(const InputEvent* event, W8Region* regi
 // class W8CharacterPersonalityPage
 // FUNCTION: WIZ8 0x005c6460
 void W8CharacterPersonalityPage::SetCharacter(W8Character* character,
-                                              W8CharacterCreationState* creation_state, int mode)
+                                              W8CharacterCreationState* creation_state, std::int32_t mode)
 {
     CreateRegionSet();
     W8CharacterPage::SetCharacter(character, creation_state, mode);
@@ -905,10 +906,10 @@ void W8CharacterPersonalityPage::SetCharacter(W8Character* character,
     m_randomize->m_listener = action_listener;
     m_randomize->EnableRegionHelp(0xf5);
 
-    int index;
+    std::int32_t index;
     for (index = 0; index < 9; ++index) {
-        int column = index % 3;
-        int row = index / 3;
+        std::int32_t column = index % 3;
+        std::int32_t row = index / 3;
         W8TextControl* entry =
             new W8TextControl(this, 0xffffffff, column * 0x80 + 0x24, row * 0xe + 0x107, column * 0x80 + 0xa3, row * 0xe + 0x114, CatalogArtwork::Load(0x105, 0), 5, 7, 6, 8, -1);
         entry->AddLayoutFlags(g_W8TextControlLayoutImageAtOrigin);
@@ -918,12 +919,12 @@ void W8CharacterPersonalityPage::SetCharacter(W8Character* character,
     m_personality_selection.m_selectionListener = this;
 
     for (index = 0; index < 2; ++index) {
-        int top = index == 0 ? 0x140 : 0x15d;
+        std::int32_t top = index == 0 ? 0x140 : 0x15d;
         W8TextControl* entry = new W8TextControl(this, 0xffffffff, 0x21, top, 0x69, top + 0xe, CatalogArtwork::Load(0x105, 0), 5, 7, 6, 8, -1);
         entry->AddLayoutFlags(g_W8TextControlLayoutImageAtOrigin);
         m_voice_selection.AddEntry(entry);
     }
-    character->voice = std::clamp(int(character->voice), 0, 1);
+    character->voice = std::clamp(std::int32_t(character->voice), 0, 1);
     m_voice_selection.SetSelected(character->voice);
     m_voice_selection.m_selectionListener = this;
 }
@@ -1003,7 +1004,7 @@ void W8CharacterPersonalityPage::HandleInput(InputEvent* input)
     }
 
     const char32_t character = TypedCharacter(*input);
-    if (character != 0 && character < 0x80 && strchr("\\/:*?\"<>|", int(character)) != 0) {
+    if (character != 0 && character < 0x80 && strchr("\\/:*?\"<>|", std::int32_t(character)) != 0) {
         return;
     }
     if (input->key == VK_TAB) {
@@ -1013,7 +1014,7 @@ void W8CharacterPersonalityPage::HandleInput(InputEvent* input)
     if (!HandleTextInput(input))
         return;
 
-    short field = GetActiveTextInputField();
+    std::int16_t field = GetActiveTextInputField();
     if (field == 0) {
         m_character->name_part_2 = GetTextFromField(0);
     } else if (field == 1) {
@@ -1038,7 +1039,7 @@ void W8CharacterPersonalityPage::Refresh()
 void W8CharacterPersonalityPage::Redraw()
 {
     if (m_animation_active) {
-        int elapsed = static_cast<int>(anim_timer.GetProgress());
+        std::int32_t elapsed = static_cast<std::int32_t>(anim_timer.GetProgress());
         if (elapsed > 0) {
             m_animation_frame = (m_animation_frame + elapsed) % 3;
             CatalogArtwork::Load(0x105, 0).drawAndInvalidate(GetFrameBufferSurface(), m_animation_frame + 2, m_bounds.left + 0x156, m_bounds.top + 0x137);
@@ -1096,8 +1097,8 @@ void W8CharacterPersonalityPage::Redraw()
         text.RenderString(&bounds, g_localized_strings[0x86], g_wiz_text_font_secondary, true,
                           GetFrameBufferSurface());
 
-        int index = 0;
-        for (const unsigned short* message_id = g_personality_message_ids;
+        std::int32_t index = 0;
+        for (const std::uint16_t* message_id = g_personality_message_ids;
              message_id < g_personality_message_ids + 9; ++message_id, ++index) {
             bounds.left = (index % 3) * 0x80 + 0x30 + m_bounds.left;
             bounds.right = bounds.left + 0x80;
@@ -1161,23 +1162,23 @@ void W8CharacterPersonalityPage::Redraw()
 // FUNCTION: WIZ8 0x005c7220
 void W8CharacterPersonalityPage::OnPrimary(W8TextControl* control)
 {
-    int portrait = m_character->portrait_index;
+    std::int32_t portrait = m_character->portrait_index;
     if (control == m_control4) {
-        int group = g_portrait_descriptors[portrait].group + 1;
+        std::int32_t group = g_portrait_descriptors[portrait].group + 1;
         if (group > 11)
             group = 0;
         m_character->portrait_index = g_portrait_groups[group].portraits[0];
         m_portrait_dirty = true;
     } else if (control == m_control5) {
-        int group = g_portrait_descriptors[portrait].group - 1;
+        std::int32_t group = g_portrait_descriptors[portrait].group - 1;
         if (group < 0)
             group = 11;
         m_character->portrait_index = g_portrait_groups[group].portraits[0];
         m_portrait_dirty = true;
     } else if (control == m_control6 || control == m_control7) {
-        int group = g_portrait_descriptors[portrait].group;
+        std::int32_t group = g_portrait_descriptors[portrait].group;
         W8PortraitGroup* portraits = &g_portrait_groups[group];
-        int index = 0;
+        std::int32_t index = 0;
         while (index < portraits->count && portraits->portraits[index] != portrait) {
             ++index;
         }
@@ -1207,7 +1208,7 @@ void W8CharacterPersonalityPage::OnPrimary(W8TextControl* control)
 }
 
 // FUNCTION: WIZ8 0x005c73b0
-void W8CharacterPersonalityPage::OnSelectionChanged(W8ControlSelection* control, int selected)
+void W8CharacterPersonalityPage::OnSelectionChanged(W8ControlSelection* control, std::int32_t selected)
 {
     if (control == &m_voice_selection) {
         m_character->voice = selected;
@@ -1229,13 +1230,13 @@ W8CharacterPersonalityPage* CreateCharacterPersonalityPage()
 // class W8CharacterSkillsPage
 // FUNCTION: WIZ8 0x005c7580
 void W8CharacterSkillsPage::SetCharacter(W8Character* character,
-                                         W8CharacterCreationState* creation_state, int mode)
+                                         W8CharacterCreationState* creation_state, std::int32_t mode)
 {
     CreateRegionSet();
     W8CharacterPage::SetCharacter(character, creation_state, mode);
-    int category_count[5] = {0, 0, 0, 0, 0};
-    for (int skill = 0; skill < 0x29; ++skill) {
-        int category = g_skill_attributes[skill].category;
+    std::int32_t category_count[5] = {0, 0, 0, 0, 0};
+    for (std::int32_t skill = 0; skill < 0x29; ++skill) {
+        std::int32_t category = g_skill_attributes[skill].category;
         W8CharacterPageEntry* entry = new W8CharacterPageEntry(
             this, g_character_page2_category_geometry[category].x,
             g_character_page2_category_geometry[category].y + category_count[category] * 0xe, true);
@@ -1267,7 +1268,7 @@ void W8CharacterSkillsPage::Accept()
     Invalidate(0);
     m_dirty = true;
     m_screen->UpdateNavigation(this);
-    for (int index = 0; index < static_cast<int>(m_entries.size()); ++index) {
+    for (std::int32_t index = 0; index < static_cast<std::int32_t>(m_entries.size()); ++index) {
         m_entries[index]->UpdateButtons();
     }
 }
@@ -1278,7 +1279,7 @@ void W8CharacterSkillsPage::GetNavigationState(bool* next_enabled, bool* exit_en
     *next_enabled = m_creation_state->skills_complete;
     *exit_enabled = m_creation_state->skill_points_remaining < m_creation_state->skill_points_total;
     if (*next_enabled != nav_next_state) {
-        for (int index = 0; index < static_cast<int>(m_entries.size()); ++index) {
+        for (std::int32_t index = 0; index < static_cast<std::int32_t>(m_entries.size()); ++index) {
             m_entries[index]->SetIncrementAllowed(!*next_enabled);
         }
         nav_next_state = *next_enabled;
@@ -1286,7 +1287,7 @@ void W8CharacterSkillsPage::GetNavigationState(bool* next_enabled, bool* exit_en
 }
 
 // FUNCTION: WIZ8 0x005c7790
-void W8CharacterSkillsPage::AdjustEntry(W8CharacterPageEntry* entry, int delta)
+void W8CharacterSkillsPage::AdjustEntry(W8CharacterPageEntry* entry, std::int32_t delta)
 {
     entry->MarkDirty();
     m_dirty = true;
@@ -1303,7 +1304,7 @@ void W8CharacterSkillsPage::ShowEntryInfo(W8CharacterPageEntry* entry)
 // FUNCTION: WIZ8 0x005c77f0
 void W8CharacterSkillsPage::Redraw()
 {
-    bool redraw = static_cast<unsigned char>(m_fEnabled && m_fDirty);
+    bool redraw = static_cast<std::uint8_t>(m_fEnabled && m_fDirty);
     if (m_force_redraw) {
         UpdateEntries();
         Invalidate(0);
@@ -1313,9 +1314,9 @@ void W8CharacterSkillsPage::Redraw()
     W8CharacterPage::Redraw();
 
     if (redraw) {
-        for (int category = 0; category < 5; ++category) {
+        for (std::int32_t category = 0; category < 5; ++category) {
             if (category != 4 || m_show_fifth_category) {
-                CatalogArtwork::Load(0x144, 0).draw(GetFrameBufferSurface(), static_cast<short>(g_character_page2_category_frames[category]), m_bounds.left + g_character_page2_category_geometry[category].x -
+                CatalogArtwork::Load(0x144, 0).draw(GetFrameBufferSurface(), static_cast<std::int16_t>(g_character_page2_category_frames[category]), m_bounds.left + g_character_page2_category_geometry[category].x -
                                      0x16, m_bounds.top + g_character_page2_category_geometry[category].y - 3);
             }
         }
@@ -1364,19 +1365,19 @@ void W8CharacterSkillsPage::Redraw()
 // FUNCTION: WIZ8 0x005c7b50
 void W8CharacterSkillsPage::UpdateEntries()
 {
-    int index;
+    std::int32_t index;
     for (index = 0; index < 0x29; ++index) {
         m_entries[index]->SetEnabled(false);
     }
 
-    int category_count[5] = {0, 0, 0, 0, 0};
+    std::int32_t category_count[5] = {0, 0, 0, 0, 0};
     m_show_fifth_category = false;
-    for (int skill = 0; skill < 0x29; ++skill) {
+    for (std::int32_t skill = 0; skill < 0x29; ++skill) {
         W8CharacterSkill* value = &m_character->skills[skill];
         if (value->active || value->points != 0) {
-            int category = g_skill_attributes[skill].category;
-            int entry_index = 0;
-            int occurrence = 0;
+            std::int32_t category = g_skill_attributes[skill].category;
+            std::int32_t entry_index = 0;
+            std::int32_t occurrence = 0;
             for (; entry_index < 0x29; ++entry_index) {
                 if (g_skill_attributes[entry_index].category == category &&
                     occurrence++ == category_count[category]) {

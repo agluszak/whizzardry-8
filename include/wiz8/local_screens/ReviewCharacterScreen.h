@@ -119,7 +119,7 @@ public:
     virtual void OnPrimary(W8TextControl* control) override;
     void SetCombatView(bool enabled);
     bool m_combat_view;
-    unsigned char m_pad_051[3];
+    std::uint8_t m_pad_051[3];
     W8TextControl* m_combat_tab;
     W8TextControl* m_stats_tab;
     W8HelpTextControl* m_values[4];
@@ -159,58 +159,58 @@ enum W8CampItemRedrawFlag {
 struct W8CampScreenState {
     std::string text_buffer;
     W8CampPage page;
-    unsigned int hover_region;
-    unsigned int redraw_flags;
-    unsigned int item_redraw_flags;
+    std::uint32_t hover_region;
+    std::uint32_t redraw_flags;
+    std::uint32_t item_redraw_flags;
     W8LearnedSpellState learned_spells;
-    unsigned char item_filters[W8_CAMP_ITEM_FILTER_COUNT];
-    unsigned char padding_4e2[2];
-    unsigned int item_scroll;
+    std::uint8_t item_filters[W8_CAMP_ITEM_FILTER_COUNT];
+    std::uint8_t padding_4e2[2];
+    std::uint32_t item_scroll;
     /* The displayed item-pool indices - the count and the list of pool
        slots RCSItemsPage.cpp renders. RebuildCampItemList rebuilds it; the pool
        handler reads it through item_scroll. */
-    unsigned int item_list_count;
-    int item_list[500];
+    std::uint32_t item_list_count;
+    std::int32_t item_list[500];
     std::unique_ptr<W8CampItemRange> item_range;
     std::array<std::unique_ptr<W8CampSpellRange>, 6> spell_ranges;
     std::unique_ptr<W8CampStatsRange> stats_range;
     std::unique_ptr<W8CampStatsControls> stats_controls;
-    uint64_t item_timer;
+    std::uint64_t item_timer;
     bool item_timer_active;
     bool item_timer_expired;
-    unsigned char padding_ce6[2];
-    uint64_t animation_timer;
-    unsigned int animation_frames[6];
+    std::uint8_t padding_ce6[2];
+    std::uint64_t animation_timer;
+    std::uint32_t animation_frames[6];
     W8CampHeaderMode header_mode;
     /* The stats page's condition/equipment effect list, rebuilt
        by RebuildCampEffectList and refiltered by
        FilterCampEffectList. */
     bool effect_items_only; /* true lists equipped items, false conditions/enchantments */
-    unsigned char padding_d09[3];
+    std::uint8_t padding_d09[3];
     W8CampEffectFilter effect_filter; /* 0 all, 1 beneficial only, 2 detrimental only */
-    int effect_beneficial_count;
-    int effect_detrimental_count;
-    int effect_selection; /* cleared when the reviewed character changes */
-    unsigned char unknown_d1c[4];
-    int effect_first_visible;
-    int effect_last_visible;
-    int effect_visible_lines;
-    int effect_scroll;
+    std::int32_t effect_beneficial_count;
+    std::int32_t effect_detrimental_count;
+    std::int32_t effect_selection; /* cleared when the reviewed character changes */
+    std::uint8_t unknown_d1c[4];
+    std::int32_t effect_first_visible;
+    std::int32_t effect_last_visible;
+    std::int32_t effect_visible_lines;
+    std::int32_t effect_scroll;
     std::vector<W8CampEffectEntry> effect_list; /* W8CampEffectEntry rows */
-    int selected_spell_row;
-    unsigned char unknown_d38[7];
-    unsigned char item_action;
+    std::int32_t selected_spell_row;
+    std::uint8_t unknown_d38[7];
+    std::uint8_t item_action;
     /* 0xd40[0]: mouse is over the reviewed portrait; drives the highlight
        frame and a redraw. */
-    unsigned char portrait_hovered[4];
+    std::uint8_t portrait_hovered[4];
     std::unique_ptr<W8DialogBase> dialog;
-    unsigned char info_page;
-    unsigned char padding_d49[3];
+    std::uint8_t info_page;
+    std::uint8_t padding_d49[3];
     std::unique_ptr<W8CampCharacterInfo> character_info;
     /* The camp item icons were drawn while the monster/combat
        timer was enabled; its stop forces a full redraw to drop them. */
     bool item_icons_drawn;
-    unsigned char padding_d51[3];
+    std::uint8_t padding_d51[3];
 
     W8CampScreenState() = default;
     ~W8CampScreenState();
@@ -219,7 +219,7 @@ struct W8CampScreenState {
 };
 
 extern std::unique_ptr<W8CampScreenState> g_camp_screen;
-extern int giReviewCharSlot;
+extern std::int32_t giReviewCharSlot;
 extern W8Character* g_review_character;
 extern W8Character* g_camp_identifying_character; /* gpIdentifyingPC */
 extern W8Character* g_camp_character;
@@ -241,30 +241,30 @@ extern W8TextControl* g_camp_item_filter_buttons[7];
 extern std::unique_ptr<Controls> g_camp_item_filter_panel;
 /* One g_localized_strings id per primary attribute row; defined in
    ReviewCharacterScreen.cpp, drawn by RCSStatsPage.cpp's stats page. */
-extern int g_attribute_label_ids[7];
+extern std::int32_t g_attribute_label_ids[7];
 
 /* The twelve camp-screen regions the layout rules do not cover,
    given as explicit rectangles. The region initializer reads the first four
    fields; the trailing five are never touched there and stay positional. */
 struct W8CampScreenRegion {
-    int x;
-    int y;
-    int width;
-    int height;
-    int frame;              /* catalog frame for the slot border */
-    int unidentified_frame; /* overlay frame while the item is unidentified */
-    int label_x;            /* item label left */
-    int label_y;            /* item label top */
-    int label_flag;         /* label draw flag */
+    std::int32_t x;
+    std::int32_t y;
+    std::int32_t width;
+    std::int32_t height;
+    std::int32_t frame;              /* catalog frame for the slot border */
+    std::int32_t unidentified_frame; /* overlay frame while the item is unidentified */
+    std::int32_t label_x;            /* item label left */
+    std::int32_t label_y;            /* item label top */
+    std::int32_t label_flag;         /* label draw flag */
 };
 
 extern W8CampScreenRegion g_camp_screen_regions[12];
 /* Load-category font-palette selectors indexed by
    W8Character::load_category. */
-extern int g_load_category_palettes[5];
+extern std::int32_t g_load_category_palettes[5];
 /* The three portrait catalog ids per race used by the camp
    party strip. */
-extern int g_race_portrait_images[0x30];
+extern std::int32_t g_race_portrait_images[0x30];
 
 void SwitchCampPage(W8CampPage page);
 void ClearOtherCampItemGroupFilters(W8CampItemFilter filter);
@@ -279,19 +279,19 @@ bool ResolvePendingCampCharacter(bool force);
 void MarkCampCharacterPending(W8ItemInstance* item);
 /* Whether an item click fits the character's remaining action allowance in
    combat. */
-bool IsCampActionAllowed(int party_slot);
-int CommitPartySlotSpell(int party_slot, int spell_id, int power_level, W8CombatSlot* target);
-int CommitPartySlotItemUse(int party_slot, W8ItemInstance* item, W8CombatSlot* target);
+bool IsCampActionAllowed(std::int32_t party_slot);
+std::int32_t CommitPartySlotSpell(std::int32_t party_slot, std::int32_t spell_id, std::int32_t power_level, W8CombatSlot* target);
+std::int32_t CommitPartySlotItemUse(std::int32_t party_slot, W8ItemInstance* item, W8CombatSlot* target);
 
 /* Move a single unit between the clicked stack and the item in
    hand - split one off into the hand, or add one onto the held stack. */
-void TakeItemUnitToHand(W8ItemInstance* item, unsigned short slot, W8ItemOrigin origin);
+void TakeItemUnitToHand(W8ItemInstance* item, std::uint16_t slot, W8ItemOrigin origin);
 
 void CampScreenInitializeRegions(void);
 void LayoutCampSecondaryRegions(void);
-unsigned char CampScreenEnter(void);
+bool CampScreenEnter(void);
 void CampScreenFrame(void);
-unsigned char CampScreenLeave(int leaving);
+bool CampScreenLeave(std::int32_t leaving);
 
 /* Camp spell-page pieces in ReviewCharacterScreen.cpp: the character switch,
    the six realm scrollbars, the page renderer, the resistance bars and the
@@ -300,16 +300,16 @@ void SetCampSpellRangesEnabled(bool enable);
 void RefreshCampSpellRanges(void);
 void DrawCampSpellPages(void);
 void DrawCampResistances(void);
-unsigned char SpellListRegionHandler(const InputEvent* event, W8Region* region);
-void OpenSpellInfoDialog(unsigned int spell_id);
+bool SpellListRegionHandler(const InputEvent* event, W8Region* region);
+void OpenSpellInfoDialog(std::uint32_t spell_id);
 void SyncReviewCharInputRegion(void);
 bool IsEquippableItemClass(W8ItemInstance* item);
 
 /* Begin the timed screen fade and run `callback` when it
    finishes; `fade_to_black` selects the alpha ramp. */
-void BeginScreenFade(int fade_to_black, int fade_out, int duration, void (*callback)(void),
+void BeginScreenFade(std::int32_t fade_to_black, std::int32_t fade_out, std::int32_t duration, void (*callback)(void),
                      bool fullscreen_scene_last, char render_each_tick);
-unsigned char UpdateScreenFade(void);
+std::uint8_t UpdateScreenFade(void);
 void BeginPartyDeath(void);
 void PumpReviewTransition(void);
 void DrawPartyDeathScreen(void);
@@ -320,4 +320,4 @@ void BeginEndgameSequence(void);
 /* Camp and main-game notice dialogs ShowNoticeLine forwards into. */
 void ShowCampNoticeLine(std::string_view text, W8DialogDestroyCallback callback, bool confirmation,
                         bool cancel);
-void HandleCampItemClick(W8ItemInstance* item, unsigned int slot_index, W8ItemOrigin origin);
+void HandleCampItemClick(W8ItemInstance* item, std::uint32_t slot_index, W8ItemOrigin origin);

@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "Font.h"
 #pragma once
 
@@ -38,19 +39,19 @@ class W8DialogBase {
 public:
     W8DialogBase();
     virtual ~W8DialogBase();
-    virtual int CreateControls();
+    virtual std::int32_t CreateControls();
     virtual void DestroyControls();
     virtual void Draw();
     virtual W8DialogKind GetDialogType(); /* Base=0, modal=1, list=3 */
     virtual void SetText(std::string_view text);
-    virtual void SetOrigin(int x, int y);
-    virtual void SetExtent(int width, int height);
-    virtual void SetBackground(const char* path, int flags);
+    virtual void SetOrigin(std::int32_t x, std::int32_t y);
+    virtual void SetExtent(std::int32_t width, std::int32_t height);
+    virtual void SetBackground(const char* path, std::int32_t flags);
     virtual bool ProcessInput();
-    virtual void OnNumericInputChanged(int control_id);
+    virtual void OnNumericInputChanged(std::int32_t control_id);
     virtual void OnRightButtonDown();
     virtual void OnRightButtonUp();
-    virtual void OnMouseWheel(int delta);
+    virtual void OnMouseWheel(std::int32_t delta);
 
     template <class HandleInput>
     static void DrainModalInput(HandleInput&& handle_input)
@@ -72,31 +73,31 @@ public:
 
 public:
     /* Main Game raises the redraw bit when promoting its pending dialog. */
-    unsigned int m_dirty_flags;
+    std::uint32_t m_dirty_flags;
 
 protected:
     void BeginModalInput();
     void EndModalInput();
-    void CreateCloseButton(W8ButtonWidget& button, int left, int top);
-    void ScrollTextArea(W8DialogTextArea& area, int first_visible_line, int left, int top,
-                        int width, int height);
+    void CreateCloseButton(W8ButtonWidget& button, std::int32_t left, std::int32_t top);
+    void ScrollTextArea(W8DialogTextArea& area, std::int32_t first_visible_line, std::int32_t left, std::int32_t top,
+                        std::int32_t width, std::int32_t height);
 
-    int m_error;
+    std::int32_t m_error;
     W8ButtonWidget m_resource;
     std::string m_text;
     Font* m_font;
-    unsigned char m_foreground;
-    unsigned char m_background;
-    unsigned char padding_01a[2];
+    std::uint8_t m_foreground;
+    std::uint8_t m_background;
+    std::uint8_t padding_01a[2];
     std::string m_background_path;
-    int m_background_flags;
+    std::int32_t m_background_flags;
     GenericButtonImage m_border;
-    unsigned char padding_026[2];
-    int m_x;
-    int m_y;
-    int m_width;
-    int m_height;
-    unsigned char unknown_038[8];
+    std::uint8_t padding_026[2];
+    std::int32_t m_x;
+    std::int32_t m_y;
+    std::int32_t m_width;
+    std::int32_t m_height;
+    std::uint8_t unknown_038[8];
     bool m_initialized;
 
 public:
@@ -106,7 +107,7 @@ public:
 public:
     /* The trigger update installs its callback with a plain store, so this
        slot is public rather than reachable only through the setter. */
-    unsigned char padding_042[2];
+    std::uint8_t padding_042[2];
     W8DialogDestroyCallback m_destroy_callback;
     /* Base constructor clears this slot; the destruction callback consumes
        it. The item-picker callback's payload is a Trigger*. */
@@ -114,11 +115,11 @@ public:
 
 protected:
     /* Cleared by W8DialogNumericInput when its field deactivates. */
-    int m_field_4c;
+    std::int32_t m_field_4c;
     bool m_right_button_down;
-    unsigned char padding_051[3];
+    std::uint8_t padding_051[3];
     std::optional<ExclusiveRegionSet> m_input_scope;
 };
 
 
-extern int g_live_dialog_count;
+extern std::int32_t g_live_dialog_count;

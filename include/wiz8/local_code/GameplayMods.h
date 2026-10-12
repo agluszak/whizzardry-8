@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include "wiz8/gameplay_modifiers.h"
 
 /* Local Code\Gameplay Mods.cpp. */
@@ -14,19 +15,19 @@ void RebuildPartyEffectBlock(void);
 void RebuildEquipmentAndDerivedStats(W8Character* character);
 /* The party-slot counterpart of RebuildEquipmentAndDerivedStats,
    run wherever worn equipment changes. */
-void RebuildEquipmentAndDerivedStatsForSlot(int party_slot);
+void RebuildEquipmentAndDerivedStatsForSlot(std::int32_t party_slot);
 /* Rebuild the character's condition/enchantment modifier block at
    0x16a2 from its live status sources, then the derived block and stats. */
-void RebuildConditionsAndDerivedStats(int party_slot);
+void RebuildConditionsAndDerivedStats(std::int32_t party_slot);
 /* The monster-side rebuild - refill the monster's modifier block
    from its conditions, enchantments and effect slots, then refresh its
    derived attributes and regeneration rates. */
-void RebuildMonsterDerivedStats(int location_id);
+void RebuildMonsterDerivedStats(std::int32_t location_id);
 
 /* The unit's block-fold helpers. Each folds its source into the shared
    modifier block; the party-wide block is their usual target. */
-void ApplyConditionModifiers(W8Character* character, const unsigned int* condition_turns,
-                             int condition_argument, W8GameplayModifierBlock* target);
+void ApplyConditionModifiers(W8Character* character, const std::uint32_t* condition_turns,
+                             std::int32_t condition_argument, W8GameplayModifierBlock* target);
 void ApplyEnchantmentModifiers(const W8Enchantment* enchantments, W8GameplayModifierBlock* target);
 void ApplyPartyEffectSlots(const W8EffectSlot* source, W8GameplayModifierBlock* target);
 void ApplyCombatEffectSlots(const W8EffectSlot* source, W8GameplayModifierBlock* target);

@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <SDL3/SDL_rect.h>
 #include <string>
 #include <string_view>
@@ -13,9 +14,9 @@
 #include "wiz8/dialog_code/ButtonAppearance.h"
 
 // GLOBAL: WIZ8 0x0069CA28
-int g_live_dialog_count;
+std::int32_t g_live_dialog_count;
 
-void W8DialogBase::CreateCloseButton(W8ButtonWidget& button, int left, int top)
+void W8DialogBase::CreateCloseButton(W8ButtonWidget& button, std::int32_t left, std::int32_t top)
 {
     button.Configure("Data\\Dialogs\\popup_confirmationbuttons.sti", 3, 0, 1, 4, 2,
                      DialogCloseButtonCallback, BUTTON_NO_CALLBACK, false, REGION_PRIORITY_HIGHEST,
@@ -24,14 +25,14 @@ void W8DialogBase::CreateCloseButton(W8ButtonWidget& button, int left, int top)
     button.m_owner = this;
 }
 
-void W8DialogBase::ScrollTextArea(W8DialogTextArea& area, int first_visible_line, int left, int top,
-                                  int width, int height)
+void W8DialogBase::ScrollTextArea(W8DialogTextArea& area, std::int32_t first_visible_line, std::int32_t left, std::int32_t top,
+                                  std::int32_t width, std::int32_t height)
 {
     area.SetFirstVisibleLine(first_visible_line);
     left += m_x;
     top += m_y;
-    int right = left + width;
-    int bottom = top + height;
+    std::int32_t right = left + width;
+    std::int32_t bottom = top + height;
     InvalidateRegion(left, top, right, bottom, 0);
     CatalogArtwork::Load(0x1b6, 0).drawRect(GetFrameBufferSurface(), SDL_Rect{0, 0, (right) - (left), (bottom) - (top)}, left, top);
     area.m_dirty = true;
@@ -98,7 +99,7 @@ void W8DialogBase::SetText(std::string_view text)
 }
 
 // FUNCTION: WIZ8 0x005dc9c0
-void W8DialogBase::SetOrigin(int x, int y)
+void W8DialogBase::SetOrigin(std::int32_t x, std::int32_t y)
 {
     m_x = x;
     m_y = y;
@@ -109,7 +110,7 @@ void W8DialogBase::SetOrigin(int x, int y)
 }
 
 // FUNCTION: WIZ8 0x005dc9f0
-void W8DialogBase::SetExtent(int width, int height)
+void W8DialogBase::SetExtent(std::int32_t width, std::int32_t height)
 {
     if (m_width != width || m_height != height) {
         if (m_initialized && m_width > 0 && m_height > 0) {
@@ -123,7 +124,7 @@ void W8DialogBase::SetExtent(int width, int height)
 }
 
 // FUNCTION: WIZ8 0x005dca70
-void W8DialogBase::SetBackground(const char* path, int flags)
+void W8DialogBase::SetBackground(const char* path, std::int32_t flags)
 {
     m_background_path = path ? path : "";
     m_background_flags = flags;
@@ -131,7 +132,7 @@ void W8DialogBase::SetBackground(const char* path, int flags)
 }
 
 // FUNCTION: WIZ8 0x005dcaf0
-int W8DialogBase::CreateControls()
+std::int32_t W8DialogBase::CreateControls()
 {
     if (m_x < 0 || m_y < 0) {
         return m_error = 1;
@@ -146,7 +147,7 @@ int W8DialogBase::CreateControls()
         return m_error = 4;
     }
     if (!m_border) {
-        m_border = LoadGenericButtonImages({}, "Data\\Dialogs\\DialogBorder.STI", {}, "Data\\Dialogs\\DialogBorder.STI", {}, m_background_path, static_cast<short>(m_background_flags), 0, 0);
+        m_border = LoadGenericButtonImages({}, "Data\\Dialogs\\DialogBorder.STI", {}, "Data\\Dialogs\\DialogBorder.STI", {}, m_background_path, static_cast<std::int16_t>(m_background_flags), 0, 0);
         if (!m_border) {
             return m_error = 4;
         }
@@ -230,7 +231,7 @@ W8DialogKind W8DialogBase::GetDialogType()
 
 /* Retail ICF shares this one-argument no-op with the retained widget Redraw
    body at 0x005B1BE0; this override has no separate retail address marker. */
-void W8DialogBase::OnNumericInputChanged(int) {}
+void W8DialogBase::OnNumericInputChanged(std::int32_t) {}
 
 // FUNCTION: WIZ8 0x005ad270
 void W8DialogBase::OnRightButtonDown()
@@ -242,4 +243,4 @@ void W8DialogBase::OnRightButtonDown()
 void W8DialogBase::OnRightButtonUp() {}
 
 /* Retail ICF shares this no-op with the retained body at 0x005B1BE0. */
-void W8DialogBase::OnMouseWheel(int) {}
+void W8DialogBase::OnMouseWheel(std::int32_t) {}

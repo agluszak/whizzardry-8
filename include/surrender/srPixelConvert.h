@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <optional>
 #include <span>
 #include <cstddef>
@@ -42,30 +43,30 @@ public:
     enum e_pixelSize { PIXEL_SIZE_8 = 0, PIXEL_SIZE_16 = 1, PIXEL_SIZE_24 = 2, PIXEL_SIZE_32 = 3 };
 
     struct PixelFormat {
-        unsigned char red_bits;
-        unsigned char red_shift;
-        unsigned char green_bits;
-        unsigned char green_shift;
-        unsigned char blue_bits;
-        unsigned char blue_shift;
-        unsigned char alpha_bits;
-        unsigned char alpha_shift;
+        std::uint8_t red_bits;
+        std::uint8_t red_shift;
+        std::uint8_t green_bits;
+        std::uint8_t green_shift;
+        std::uint8_t blue_bits;
+        std::uint8_t blue_shift;
+        std::uint8_t alpha_bits;
+        std::uint8_t alpha_shift;
         /* Generic converter family; pixel_size stores (bits per pixel / 8) - 1. */
         e_colorModel color_model;
         e_pixelSize pixel_size;
-        w8_ulong fourcc;
+        std::uint32_t fourcc;
 
         PixelFormat() : fourcc(0) {}
 
         std::string getName() const;
-        int isValid() const;
+        bool isValid() const;
         std::optional<std::size_t> match(std::span<const PixelFormat> formats) const;
 
-        int operator==(const PixelFormat& other) const
+        std::int32_t operator==(const PixelFormat& other) const
         {
-            const w8_ulong* a = reinterpret_cast<const w8_ulong*>(
+            const std::uint32_t* a = reinterpret_cast<const std::uint32_t*>(
                 this); // reinterpret-ok: packed pixel-format block compare
-            const w8_ulong* b = reinterpret_cast<const w8_ulong*>(
+            const std::uint32_t* b = reinterpret_cast<const std::uint32_t*>(
                 &other); // reinterpret-ok: packed pixel-format block compare
             return a[4] == b[4] && b[0] == a[0] && b[1] == a[1] && a[3] == b[3] && a[2] == b[2];
         }
@@ -76,7 +77,7 @@ public:
     struct ConversionInfo {
         void* dest;
         const void* source;
-        w8_ulong count;
+        std::uint32_t count;
         srPalette* palette;
         const PixelFormat* format;
     };

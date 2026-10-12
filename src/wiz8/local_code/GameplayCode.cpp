@@ -72,10 +72,10 @@ enum {
 
 /* One entry per sex, race and profession together. */
 // GLOBAL: WIZ8 0x00616308
-unsigned char gubLocalACPercent[5] = {15, 40, 30, 10, 5};
+std::uint8_t gubLocalACPercent[5] = {15, 40, 30, 10, 5};
 
 // GLOBAL: WIZ8 0x00616604
-static int g_character_table[480] = {
+static std::int32_t g_character_table[480] = {
     3,  1,  0,  0,  3,  56, 4,  2,  1,  2,  5,  4,  24, 4,  5,  13, 12, 0,  12, 13, 56, 13, 12, 12,
     12, 14, 14, 14, 14, 14, 19, 19, 0,  19, 19, 56, 20, 20, 20, 20, 18, 18, 18, 18, 18, 24, 24, 0,
     24, 24, 56, 24, 24, 25, 25, 25, 25, 25, 25, 25, 28, 28, 0,  28, 28, 56, 28, 28, 29, 29, 29, 29,
@@ -107,7 +107,7 @@ static W8Dice g_unarmed_damage_dice[12] = {{0, 1, 2}, {0, 1, 3}, {0, 2, 2}, {0, 
 // FUNCTION: WIZ8 0x004eee20
 bool AnyMonsterEngaged(void)
 {
-    unsigned int index;
+    std::uint32_t index;
     const W8MonsterInfo* monster_info;
 
     for (index = 0; index < gXStatus.monsters.size(); ++index) {
@@ -123,10 +123,10 @@ bool AnyMonsterEngaged(void)
 
 /* How many party members are still on their feet. */
 // FUNCTION: WIZ8 0x004eee80
-int CountActiveCharacters(void)
+std::int32_t CountActiveCharacters(void)
 {
-    int count = 0;
-    int party_slot;
+    std::int32_t count = 0;
+    std::int32_t party_slot;
 
     for (party_slot = 0; party_slot < 8; ++party_slot) {
         if (CanPartySlotParticipate(party_slot)) {
@@ -147,7 +147,7 @@ bool AnyCharacterActive(void)
    at each step so the goals for the level below are the ones they actually
    passed. */
 // FUNCTION: WIZ8 0x004ef010
-void AdvanceCharacterToLevel(W8Character* character, unsigned int level)
+void AdvanceCharacterToLevel(W8Character* character, std::uint32_t level)
 {
     character->uiExpLevel = 1;
     character->experience_previous_goal = 0;
@@ -167,8 +167,8 @@ void AdvanceCharacterToLevel(W8Character* character, unsigned int level)
 // FUNCTION: WIZ8 0x004ef090
 void CalcXPGoal(W8Character* character)
 {
-    int weight;
-    unsigned int value;
+    std::int32_t weight;
+    std::uint32_t value;
 
     if (character == 0) {
         srAssertFail("pPC != NULL", GAMEPLAY_CODE_CPP, 0x725, 0);
@@ -220,7 +220,7 @@ void CalcXPGoal(W8Character* character)
         return;
     }
     value = IntegerPower(2, 8) * weight;
-    for (unsigned int current = 10; current < character->uiExpLevel; ++current) {
+    for (std::uint32_t current = 10; current < character->uiExpLevel; ++current) {
         value = value * 12 / 10;
     }
     character->experience_goal = character->experience_previous_goal + value;
@@ -233,7 +233,7 @@ void CalcXPGoal(W8Character* character)
 // FUNCTION: WIZ8 0x004ef1f0
 void RefreshLevelUpReadyNotices(void)
 {
-    int party_slot;
+    std::int32_t party_slot;
 
     if (g_status.greeting_pending || GetLevelBand(g_status.current_level) == 0xe) {
         return;
@@ -269,7 +269,7 @@ void RefreshLevelUpReadyNotices(void)
                     if (row->portrait_advance == 0) {
                         std::string text = " ";
                         utf8::append(0xb4, std::back_inserter(text));
-                        utf8::append(GetPartyOrderTextColor(static_cast<signed char>(row->party_order_index)), std::back_inserter(text));
+                        utf8::append(GetPartyOrderTextColor(static_cast<std::int8_t>(row->party_order_index)), std::back_inserter(text));
                         text += " " + character->name + " ";
                         utf8::append(0xb5, std::back_inserter(text));
                         text += " ";
@@ -296,7 +296,7 @@ void RefreshLevelUpReadyNotices(void)
 /* Whether one party slot has earned its next level: occupied, alive, in shape
    to act, and holding at least the experience the next level asks for. */
 // FUNCTION: WIZ8 0x004ef3c0
-bool IsCharacterReadyToAdvance(int party_slot)
+bool IsCharacterReadyToAdvance(std::int32_t party_slot)
 {
     const W8Character* character = &g_status.buffers.Char[party_slot];
 
@@ -314,16 +314,16 @@ bool IsCharacterReadyToAdvance(int party_slot)
 
 /* The first free party slot in a range, or -1 when the range is full. */
 // FUNCTION: WIZ8 0x004ef460
-unsigned int FindFreePartySlot(unsigned int first, unsigned int last)
+std::uint32_t FindFreePartySlot(std::uint32_t first, std::uint32_t last)
 {
-    unsigned int slot;
+    std::uint32_t slot;
 
     for (slot = first; slot < last; ++slot) {
         if (!g_status.buffers.XChar[slot].fOccupied) {
             return slot;
         }
     }
-    return static_cast<unsigned int>(-1);
+    return static_cast<std::uint32_t>(-1);
 }
 
 /* Recompute the eight-band ladder over the character's level in their current
@@ -333,7 +333,7 @@ unsigned int FindFreePartySlot(unsigned int first, unsigned int last)
 // FUNCTION: WIZ8 0x004eed80
 void CalcCharacterLevelBand(W8Character* character)
 {
-    unsigned int level = character->profession_levels[character->iProfession];
+    std::uint32_t level = character->profession_levels[character->iProfession];
 
     if (character->iProfession == character->original_profession) {
         level -= character->level_band_base;
@@ -380,12 +380,12 @@ static char s_fall_impact_wav[] = "Data\\Sound\\Misc\\Fall Impact.wav";
 // FUNCTION: WIZ8 0x004EF9A0
 void HandleLevelOverride(float fall)
 {
-    unsigned int count = static_cast<unsigned int>(pow(fall + 0.7, 8.0));
+    std::uint32_t count = static_cast<std::uint32_t>(pow(fall + 0.7, 8.0));
     if (count > 0) {
         ShowNotice(W8_FONT_PALETTE_WHITE, g_localized_strings[0x252]);
         wiz8::sound::play(s_fall_impact_wav, {.volume = std::uint32_t(g_settings.sound_effects_volume)});
         W8Dice dice;
-        SetDice(&dice, static_cast<unsigned char>(count), 6, 0);
+        SetDice(&dice, static_cast<std::uint8_t>(count), 6, 0);
         ApplyRolledHealthChangeToParty(&dice, 0, 1);
     }
 }
@@ -394,12 +394,12 @@ void HandleLevelOverride(float fall)
    profession they have ever held counts, weighted by how much fighting that
    profession does. */
 // FUNCTION: WIZ8 0x004ee130
-int CalcPhysCombatExperience(W8Character* character)
+std::int32_t CalcPhysCombatExperience(W8Character* character)
 {
-    int total = 0;
-    int weight = 0;
-    unsigned int profession;
-    int levels;
+    std::int32_t total = 0;
+    std::int32_t weight = 0;
+    std::uint32_t profession;
+    std::int32_t levels;
 
     if (character->iProfession == W8_PROFESSION_NONE) {
         return 0;
@@ -490,9 +490,9 @@ void CalcAttacks(W8Character* character)
     W8HandAttack* attacks[2];
     W8ItemDatabaseRecord* records[2];
     W8ItemInstance* equipment[2];
-    unsigned int hand;
-    int physical_experience;
-    int load_penalty = 0;
+    std::uint32_t hand;
+    std::int32_t physical_experience;
+    std::int32_t load_penalty = 0;
 
     for (hand = 0; hand < 2; ++hand) {
         SetHandType(character, static_cast<W8EquipSlot>(hand + W8_EQUIP_SLOT_PRIMARY_WEAPON));
@@ -563,9 +563,9 @@ void CalcAttacks(W8Character* character)
     for (hand = 0; hand < 2; ++hand) {
         W8HandAttack* attack = attacks[hand];
         W8HandAttack* other = attacks[hand == 0];
-        int dual_penalty;
-        int score;
-        unsigned int divisor;
+        std::int32_t dual_penalty;
+        std::int32_t score;
+        std::uint32_t divisor;
 
         if (!attack->in_play) {
             continue;
@@ -623,7 +623,7 @@ void CalcAttacks(W8Character* character)
                 3 +
             60;
         if (character->fInParty && character->iRace == W8_RACE_ANDROID) {
-            unsigned int party_slot = CharacterPointerToPartySlot(character);
+            std::uint32_t party_slot = CharacterPointerToPartySlot(character);
             W8NpcState* npc = GetNpcState(g_status.buffers.XChar[party_slot].npc_index);
             if (npc != 0 && npc->name_style == W8_NPC_RFS81_A &&
                 !GetFact(W8_FACT_RFS81_HAS_BEEN_FIXED)) {
@@ -785,23 +785,23 @@ void CalcAttacks(W8Character* character)
 void CalcArmorClasses(W8Character* character)
 {
     bool defensive_action = false;
-    int location_slot = 0;
+    std::int32_t location_slot = 0;
     if (gXStatus.fCombatMode) {
-        unsigned int slot = CharacterPointerToPartySlot(character);
+        std::uint32_t slot = CharacterPointerToPartySlot(character);
         defensive_action = TryCharacterAction(slot, W8_ACTION_DEFEND, false) ||
                            TryCharacterAction(slot, W8_ACTION_PROTECT, false);
     }
 
-    unsigned int index;
+    std::uint32_t index;
     for (index = 0; index < 13; ++index) {
         character->armor_class_components[index] = 0;
     }
 
     for (index = 0; index < 12; ++index) {
-        int item_id = character->EquippedItem[index].iItemNo;
+        std::int32_t item_id = character->EquippedItem[index].iItemNo;
         if (index != 0 && index != 4 && index != 5 && index != 8 && index != 9 && index != 10 &&
             index != 11 && item_id != -1) {
-            int component =
+            std::int32_t component =
                 g_item_records[item_id].equip_class == W8_ITEM_EQUIP_CLASS_SHIELD ? 3 : 4;
             character->armor_class_components[component] +=
                 g_item_records[item_id].armor_class_bonus;
@@ -812,7 +812,7 @@ void CalcArmorClasses(W8Character* character)
         if (CharacterHasTrait(character, W8_TRAIT_FAERIE_BASE_ARMOR_CLASS)) {
             character->armor_class_components[W8_AC_COMPONENT_RACE] += 2;
         }
-        unsigned int speed = character->attributes[W8_ATTRIBUTE_SPEED].effective;
+        std::uint32_t speed = character->attributes[W8_ATTRIBUTE_SPEED].effective;
         if (speed > 79) {
             ++character->armor_class_components[W8_AC_COMPONENT_SPEED];
         }
@@ -833,12 +833,12 @@ void CalcArmorClasses(W8Character* character)
                 character->skills[W8_SKILL_REFLEXTION].level / 20 + 1;
         }
 
-        int shield = character->armor_class_components[W8_AC_COMPONENT_SHIELD];
+        std::int32_t shield = character->armor_class_components[W8_AC_COMPONENT_SHIELD];
         if (shield > 0) {
-            int skill_bonus = defensive_action
-                                  ? static_cast<int>(character->skills[W8_SKILL_SHIELD].level / 15)
-                                  : static_cast<int>(character->skills[W8_SKILL_SHIELD].level / 25);
-            int ceiling = defensive_action ? shield * 3 / 2 : shield;
+            std::int32_t skill_bonus = defensive_action
+                                  ? static_cast<std::int32_t>(character->skills[W8_SKILL_SHIELD].level / 15)
+                                  : static_cast<std::int32_t>(character->skills[W8_SKILL_SHIELD].level / 25);
+            std::int32_t ceiling = defensive_action ? shield * 3 / 2 : shield;
             if (skill_bonus > ceiling) {
                 skill_bonus = ceiling;
             }
@@ -881,7 +881,7 @@ void CalcArmorClasses(W8Character* character)
         character->armor_class_total = -5;
     }
 
-    int weighted_total = 0;
+    std::int32_t weighted_total = 0;
     for (index = 0; index < 5; ++index) {
         character->armor_class_by_location[index] = character->armor_class_total;
         character->armor_class_by_location[index] +=
@@ -906,7 +906,7 @@ void CalcArmorClasses(W8Character* character)
             srAssertFail("FALSE", GAMEPLAY_CODE_CPP, 0x5a1,
                          "CalcArmorClasses: ERROR - Invalid AC location");
         }
-        int item_id = character->EquippedItem[location_slot].iItemNo;
+        std::int32_t item_id = character->EquippedItem[location_slot].iItemNo;
         if (item_id != -1) {
             character->armor_class_by_location[index] += g_item_records[item_id].armor_class_bonus;
         }
@@ -920,7 +920,7 @@ void CalcArmorClasses(W8Character* character)
    two dwords per row. It ends exactly where the sex/race/profession table
    at 0x00616604 begins. */
 // GLOBAL: WIZ8 0x006164F4
-static int g_character_value_table[34][2] = {
+static std::int32_t g_character_value_table[34][2] = {
     {0, 2}, {0, 1}, {6, 1}, {0, 1}, {0, 1}, {2, 2}, {0, 1}, {8, 1}, {7, 2}, {7, 2}, {7, 2}, {7, 2},
     {7, 2}, {7, 2}, {4, 1}, {4, 1}, {1, 1}, {5, 2}, {7, 1}, {6, 2}, {6, 2}, {6, 1}, {3, 2}, {3, 2},
     {5, 1}, {1, 1}, {1, 2}, {5, 2}, {1, 1}, {1, 2}, {2, 1}, {2, 1}, {2, 2}, {2, 2}};
@@ -930,10 +930,10 @@ static int g_character_value_table[34][2] = {
 // FUNCTION: WIZ8 0x004EFA30
 void DeriveCharacterPersonality(W8Character* character)
 {
-    int gender = character->gender;
-    int value = character->iProfession;
-    int index;
-    int flag;
+    std::int32_t gender = character->gender;
+    std::int32_t value = character->iProfession;
+    std::int32_t index;
+    std::int32_t flag;
 
     if (gender == 0) {
         switch (value) {
@@ -967,8 +967,8 @@ void DeriveCharacterPersonality(W8Character* character)
 void EnsureUniquePartyVoice(W8Character* character)
 {
     W8Character* other;
-    unsigned int slot;
-    int attempts = 0;
+    std::uint32_t slot;
+    std::int32_t attempts = 0;
 
     for (;;) {
         slot = 0;
@@ -996,11 +996,11 @@ void EnsureUniquePartyVoice(W8Character* character)
 }
 
 // FUNCTION: WIZ8 0x004ef420
-unsigned int GetAveragePartyLevel(void)
+std::uint32_t GetAveragePartyLevel(void)
 {
-    unsigned int total_level = 0;
-    unsigned int occupied_slots = 0;
-    int slot;
+    std::uint32_t total_level = 0;
+    std::uint32_t occupied_slots = 0;
+    std::int32_t slot;
 
     for (slot = 0; slot < 8; ++slot) {
         if (g_status.buffers.XChar[slot].fOccupied) {
@@ -1016,9 +1016,9 @@ unsigned int GetAveragePartyLevel(void)
    and enter it in the marching order. The band is 2..7 for a regular member
    and 0..1 for the two auxiliary slots. */
 // FUNCTION: WIZ8 0x004ef4a0
-int AddCharacterToParty(W8Character* character, int slot_kind)
+std::int32_t AddCharacterToParty(W8Character* character, std::int32_t slot_kind)
 {
-    unsigned int slot;
+    std::uint32_t slot;
 
     if (slot_kind == -1) {
         slot = 2;
@@ -1037,7 +1037,7 @@ int AddCharacterToParty(W8Character* character, int slot_kind)
             }
         }
     }
-    if (static_cast<int>(slot) < 0) {
+    if (static_cast<std::int32_t>(slot) < 0) {
         return -1;
     }
 
@@ -1049,8 +1049,8 @@ int AddCharacterToParty(W8Character* character, int slot_kind)
 
     W8PartySlotRow* row = &g_status.buffers.XChar[slot];
     row->npc_index = slot_kind;
-    for (unsigned int index = 0; index < 8; ++index) {
-        if (g_status.party_order_slots[index] == static_cast<unsigned int>(-1)) {
+    for (std::uint32_t index = 0; index < 8; ++index) {
+        if (g_status.party_order_slots[index] == static_cast<std::uint32_t>(-1)) {
             g_status.party_order_slots[index] = slot;
             row->party_order_index = index;
             break;
@@ -1083,7 +1083,7 @@ int AddCharacterToParty(W8Character* character, int slot_kind)
    and marching-order entry, and fix the member counts and selection. Saving
    is only meaningful for NPC-bound slots; a failed save keeps the member. */
 // FUNCTION: WIZ8 0x004EF610
-bool RemoveCharacterFromParty(int party_slot, bool save_character_data)
+bool RemoveCharacterFromParty(std::int32_t party_slot, bool save_character_data)
 {
     W8Character* character = &g_status.buffers.Char[party_slot];
 
@@ -1136,12 +1136,12 @@ bool RemoveCharacterFromParty(int party_slot, bool save_character_data)
    as a regular member. When the caller pays for it, the starting equipment is
    bought out of the party gold the way a new recruit would bring it. */
 // FUNCTION: WIZ8 0x004ef7e0
-unsigned char RecruitCharacterIntoParty(W8Character* character, W8Character* record,
+std::uint8_t RecruitCharacterIntoParty(W8Character* character, W8Character* record,
                                         bool buy_equipment)
 {
-    unsigned int slot = CharacterPointerToPartySlot(character);
-    int index;
-    unsigned int order_index;
+    std::uint32_t slot = CharacterPointerToPartySlot(character);
+    std::int32_t index;
+    std::uint32_t order_index;
 
     for (index = 0; index < 12; ++index) {
         if (character->EquippedItem[index].iItemNo != -1) {
@@ -1160,7 +1160,7 @@ unsigned char RecruitCharacterIntoParty(W8Character* character, W8Character* rec
     ResetGameplaySlot(slot);
     g_status.buffers.XChar[slot].npc_index = -1;
     for (order_index = 0; order_index < 8; ++order_index) {
-        if (g_status.party_order_slots[order_index] == static_cast<unsigned int>(-1)) {
+        if (g_status.party_order_slots[order_index] == static_cast<std::uint32_t>(-1)) {
             g_status.party_order_slots[order_index] = slot;
             g_status.buffers.XChar[slot].party_order_index = order_index;
             break;
@@ -1173,7 +1173,7 @@ unsigned char RecruitCharacterIntoParty(W8Character* character, W8Character* rec
     RebuildCharacterModifierBlock(character);
     RecalculateCharacterDerivedStats(character);
     if (buy_equipment) {
-        unsigned int cost = ComputeStartingEquipmentCost(character);
+        std::uint32_t cost = ComputeStartingEquipmentCost(character);
         if (g_status.party_gold < cost) {
             srAssertFail("uiValue <= gStatus.uiPartyGold", GAMEPLAY_CODE_CPP, 0x922, 0);
         }
@@ -1187,21 +1187,21 @@ unsigned char RecruitCharacterIntoParty(W8Character* character, W8Character* rec
 }
 
 // FUNCTION: WIZ8 0x004EEF10
-void AwardPartyExperience(int amount, int alternate_message)
+void AwardPartyExperience(std::int32_t amount, std::int32_t alternate_message)
 {
-    for (int slot = 0; slot < 8; ++slot) {
+    for (std::int32_t slot = 0; slot < 8; ++slot) {
         W8Character* character = &g_status.buffers.Char[slot];
         if (CanPartySlotParticipate(slot) && amount != 0) {
-            unsigned int total = character->experience + static_cast<unsigned int>(amount);
+            std::uint32_t total = character->experience + static_cast<std::uint32_t>(amount);
             if (total > character->experience) {
                 character->experience = total;
             } else {
-                character->experience = static_cast<unsigned int>(-1);
+                character->experience = static_cast<std::uint32_t>(-1);
             }
             if (g_status.current_level < W8_LEVEL_COUNT) {
                 auto& progress = g_status.level_progress[g_status.current_level];
-                const unsigned int gained = progress.experience_gained;
-                total = gained + static_cast<unsigned int>(amount);
+                const std::uint32_t gained = progress.experience_gained;
+                total = gained + static_cast<std::uint32_t>(amount);
                 if (total > gained) {
                     progress.experience_gained = total;
                 }
@@ -1211,6 +1211,6 @@ void AwardPartyExperience(int amount, int alternate_message)
     }
     auto text = fmt::sprintf(g_localized_strings[alternate_message ? 0x231 : 0x232], amount);
     g_npc_dialogue.QueuePortraitMessage(std::move(text),
-                          W8ExperienceNoticePayload{static_cast<unsigned int>(amount),
-                                                    static_cast<unsigned char>(alternate_message)});
+                          W8ExperienceNoticePayload{static_cast<std::uint32_t>(amount),
+                                                    static_cast<std::uint8_t>(alternate_message)});
 }

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include "wiz8/character_skills.h"
 #include "wiz8/dialog_code/DialogBase.h"
 #include "input.h"
@@ -19,7 +20,7 @@ enum W8CampItemFilterButton {
 };
 
 /* The caster slot the use-item-on-character path aims from. */
-extern int giCasterCharSlot;
+extern std::int32_t giCasterCharSlot;
 
 /* The stack being split while the split-stack dialog is open; set by
    OpenSplitStackDialog and consumed by SplitStackDialogResult. */
@@ -43,19 +44,19 @@ void OpenSecondaryAttributeInfoDialog1(void);
 void OpenSecondaryAttributeInfoDialog3(void);
 void OpenSecondaryAttributeInfoDialog4(void);
 void OpenAttributeInfoDialog(W8Attribute attribute);
-void OpenSecondaryAttributeInfoDialog(unsigned int uiIndex);
+void OpenSecondaryAttributeInfoDialog(std::uint32_t uiIndex);
 void IdentifyAndOpenItemInfo(W8ItemInstance* item);
 void DropHeldCampItem(void);
 void OpenSplitStackDialog(W8ItemInstance* item);
 void UseCampItem(W8ItemInstance* item);
 void MergeItemStacksWithHeld(W8ItemInstance* item);
-void ReportCastResult(int party_slot);
+void ReportCastResult(std::int32_t party_slot);
 void UseHeldItemOnItem(W8ItemInstance* item);
-void TargetCharacterWithHeldItem(unsigned int uiTargetChar);
-int CanCharacterUseItemEntry(W8Character* character, W8ItemInstance* item);
+void TargetCharacterWithHeldItem(std::uint32_t uiTargetChar);
+bool CanCharacterUseItemEntry(W8Character* character, W8ItemInstance* item);
 bool CanSplitItemStack(const W8ItemInstance* item);
 void SplitStackDialogResult(W8DialogBase* dialog);
-void UpdateItemCursorForState(int flag, W8ItemInstance* item, int slot);
+void UpdateItemCursorForState(std::int32_t flag, W8ItemInstance* item, std::int32_t slot);
 void SetHandCursors(char mode);
 void UnequipBothHands(void);
 void TogglePartyRowFlag(void);
@@ -67,31 +68,31 @@ void ToggleCampUsabilityFilter(void);
 void ToggleCampUnidentifiedItemFilter(void);
 void SortCampItemPool(void);
 void ToggleCampItemFilter(W8CampItemFilterButton tab);
-unsigned char BackpackRegionHandler(const InputEvent* event, W8Region* region);
-unsigned char EquipSlotRegionHandler(const InputEvent* event, W8Region* region);
-unsigned char ItemPoolRegionHandler(const InputEvent* event, W8Region* region);
-unsigned char RealmTabRegionHandler(const InputEvent* event, W8Region* region);
-unsigned char PanelTabRegionHandler(const InputEvent* event, W8Region* region);
+bool BackpackRegionHandler(const InputEvent* event, W8Region* region);
+bool EquipSlotRegionHandler(const InputEvent* event, W8Region* region);
+bool ItemPoolRegionHandler(const InputEvent* event, W8Region* region);
+bool RealmTabRegionHandler(const InputEvent* event, W8Region* region);
+bool PanelTabRegionHandler(const InputEvent* event, W8Region* region);
 void SetItemTooltip(W8ItemInstance* item, W8Region* region);
 void DrawCampItemIcons(void);
 
 bool IsSpecialItemId(W8ItemInstance* item);
 
 /* The twelve equip-slot label message ids indexed by region callback_id. */
-extern unsigned short g_equip_slot_label_ids[12];
+extern std::uint16_t g_equip_slot_label_ids[12];
 
 /* Camp panel lifecycle helpers. */
-int CreateCampActionPanel(void);
+bool CreateCampActionPanel(void);
 void ReleaseCampActionPanel(void);
 void EnableCampActionButtons(void);
 void DisableCampActionButtons(void);
 void RefreshCampActionPanel(bool invalidate);
-int CreateItemsTabPanel(void);
+bool CreateItemsTabPanel(void);
 void ReleaseItemsTabPanel(void);
 void UpdateCampItemFilters(void);
 void DisableItemsRealmTabs(void);
 void RefreshItemsTabPanel(bool invalidate);
-int CreateCampSecondaryPanel(void);
+bool CreateCampSecondaryPanel(void);
 void ReleaseCampSecondaryPanel(void);
 void InvalidateCampPanel(void);
 void EnableCampSecondaryPanel(void);

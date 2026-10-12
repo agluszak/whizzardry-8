@@ -43,7 +43,7 @@ ScopedClipRect::~ScopedClipRect()
     SDL_SetSurfaceClipRect(surface_, &previous_);
 }
 
-SDLSurfaceOwner CreateFrameSurface(int width, int height)
+SDLSurfaceOwner CreateFrameSurface(std::int32_t width, std::int32_t height)
 {
     if (width <= 0 || height <= 0)
         throw std::invalid_argument("Frame surface dimensions");
@@ -64,13 +64,13 @@ SDLSurfaceOwner ConvertBitmapToFrameSurface(const SDL_Surface& bitmap)
         if (bitmap.format != SDL_PIXELFORMAT_INDEX8 || !colors)
             throw std::invalid_argument("Indexed bitmap format");
         Palette8 palette{};
-        std::copy_n(colors->colors, std::min(colors->ncolors, int(palette.size())), palette.begin());
+        std::copy_n(colors->colors, std::min(colors->ncolors, std::int32_t(palette.size())), palette.begin());
         const Palette16 packed = Create16BPPPalette(palette);
-        for (int y = 0; y < bitmap.h; ++y) {
+        for (std::int32_t y = 0; y < bitmap.h; ++y) {
             const auto* input = static_cast<const std::uint8_t*>(bitmap.pixels) + y * bitmap.pitch;
             auto* output = reinterpret_cast<std::uint16_t*>(
                 static_cast<std::uint8_t*>(result->pixels) + y * result->pitch);
-            for (int x = 0; x < bitmap.w; ++x)
+            for (std::int32_t x = 0; x < bitmap.w; ++x)
                 output[x] = packed[input[x]];
         }
         return result;
@@ -79,24 +79,24 @@ SDLSurfaceOwner ConvertBitmapToFrameSurface(const SDL_Surface& bitmap)
                                   result->format, result->pixels, result->pitch));
     const auto* details = SDL_GetPixelFormatDetails(result->format);
     const auto rgb_mask = details->Rmask | details->Gmask | details->Bmask;
-    for (int y = 0; y < result->h; ++y) {
+    for (std::int32_t y = 0; y < result->h; ++y) {
         auto* row = reinterpret_cast<std::uint16_t*>(
             static_cast<std::uint8_t*>(result->pixels) + y * result->pitch);
-        for (int x = 0; x < result->w; ++x)
+        for (std::int32_t x = 0; x < result->w; ++x)
             row[x] = (row[x] & rgb_mask) ? std::uint16_t(row[x] | details->Amask)
                                          : std::uint16_t(kBitmapTransparentPixel);
     }
     return result;
 }
 
-void BlitImage(SDL_Surface& destination, int x, int y, SDL_Surface& source,
+void BlitImage(SDL_Surface& destination, std::int32_t x, std::int32_t y, SDL_Surface& source,
                const SDL_Rect* source_rect, ImageBlit options)
 {
     const SDL_Rect source_area = source_rect ? *source_rect : surface_bounds(source);
     if (SDL_RectEmpty(&source_area))
         return;
     SDL_Rect destination_area{x, y, source_area.w, source_area.h};
-    const unsigned bytes_per_pixel = SDL_BYTESPERPIXEL(destination.format);
+    const std::uint32_t bytes_per_pixel = SDL_BYTESPERPIXEL(destination.format);
     const bool shares_pixels = destination.pixels == source.pixels;
 
     if (shares_pixels && !options.mirror && !options.color_key &&
@@ -118,13 +118,13 @@ void BlitImage(SDL_Surface& destination, int x, int y, SDL_Surface& source,
         visible.w = clipped_source.w;
         visible.h = clipped_source.h;
 
-        const int first_source_y = source_area.y + visible.y - y;
+        const std::int32_t first_source_y = source_area.y + visible.y - y;
         const bool copy_bottom_up = visible.y > first_source_y;
         const std::size_t row_bytes = static_cast<std::size_t>(visible.w) * bytes_per_pixel;
-        for (int row = 0; row < visible.h; ++row) {
-            const int offset = copy_bottom_up ? visible.h - 1 - row : row;
-            const int destination_y = visible.y + offset;
-            const int source_y = source_area.y + destination_y - y;
+        for (std::int32_t row = 0; row < visible.h; ++row) {
+            const std::int32_t offset = copy_bottom_up ? visible.h - 1 - row : row;
+            const std::int32_t destination_y = visible.y + offset;
+            const std::int32_t source_y = source_area.y + destination_y - y;
             const auto* input = static_cast<const std::uint8_t*>(source.pixels) +
                 source_y * source.pitch + clipped_source.x * bytes_per_pixel;
             auto* output = static_cast<std::uint8_t*>(destination.pixels) +
@@ -168,12 +168,12 @@ void BlitImage(SDL_Surface& destination, int x, int y, SDL_Surface& source,
         source_row.resize(visible.w);
         source_valid.resize(visible.w);
     }
-    const int first_source_y = source_area.y + visible.y - y;
+    const std::int32_t first_source_y = source_area.y + visible.y - y;
     const bool copy_bottom_up = shares_pixels && visible.y > first_source_y;
-    for (int row = 0; row < visible.h; ++row) {
-        const int offset = copy_bottom_up ? visible.h - 1 - row : row;
-        const int destination_y = visible.y + offset;
-        const int source_y = source_area.y + destination_y - y;
+    for (std::int32_t row = 0; row < visible.h; ++row) {
+        const std::int32_t offset = copy_bottom_up ? visible.h - 1 - row : row;
+        const std::int32_t destination_y = visible.y + offset;
+        const std::int32_t source_y = source_area.y + destination_y - y;
         if (source_y < 0 || source_y >= source.h)
             continue;
         const auto* input = reinterpret_cast<const std::uint16_t*>(
@@ -182,10 +182,10 @@ void BlitImage(SDL_Surface& destination, int x, int y, SDL_Surface& source,
             static_cast<std::uint8_t*>(destination.pixels) + destination_y * destination.pitch);
         if (shares_pixels) {
             std::fill(source_valid.begin(), source_valid.end(), 0);
-            for (int column = 0; column < visible.w; ++column) {
-                const int destination_x = visible.x + column;
-                const int relative_x = destination_x - x;
-                const int source_x = options.mirror
+            for (std::int32_t column = 0; column < visible.w; ++column) {
+                const std::int32_t destination_x = visible.x + column;
+                const std::int32_t relative_x = destination_x - x;
+                const std::int32_t source_x = options.mirror
                     ? source_area.x + source_area.w - 1 - relative_x
                     : source_area.x + relative_x;
                 if (source_x >= 0 && source_x < source.w) {
@@ -194,10 +194,10 @@ void BlitImage(SDL_Surface& destination, int x, int y, SDL_Surface& source,
                 }
             }
         }
-        for (int column = 0; column < visible.w; ++column) {
-            const int destination_x = visible.x + column;
-            const int relative_x = destination_x - x;
-            const int source_x = options.mirror
+        for (std::int32_t column = 0; column < visible.w; ++column) {
+            const std::int32_t destination_x = visible.x + column;
+            const std::int32_t relative_x = destination_x - x;
+            const std::int32_t source_x = options.mirror
                 ? source_area.x + source_area.w - 1 - relative_x
                 : source_area.x + relative_x;
             if (shares_pixels ? !source_valid[column] : source_x < 0 || source_x >= source.w)
@@ -220,10 +220,10 @@ void ShadowRect(SDL_Surface& surface, const SDL_Rect& area)
     if (!SDL_GetRectIntersection(&area, &clip, &visible))
         return;
 
-    for (int y = visible.y; y < visible.y + visible.h; ++y) {
+    for (std::int32_t y = visible.y; y < visible.y + visible.h; ++y) {
         auto* row = reinterpret_cast<std::uint16_t*>(
             static_cast<std::uint8_t*>(surface.pixels) + y * surface.pitch);
-        for (int x = visible.x; x < visible.x + visible.w; ++x)
+        for (std::int32_t x = visible.x; x < visible.x + visible.w; ++x)
             row[x] = ShadeTable[row[x]];
     }
 }
@@ -239,10 +239,10 @@ void PixelateRect(SDL_Surface& surface, const SDL_Rect& area,
     if (!SDL_GetRectIntersection(&area, &clip, &visible))
         return;
 
-    for (int y = 0; y < visible.h; ++y) {
+    for (std::int32_t y = 0; y < visible.h; ++y) {
         auto* row = reinterpret_cast<std::uint16_t*>(
             static_cast<std::uint8_t*>(surface.pixels) + (visible.y + y) * surface.pitch);
-        for (int x = 0; x < visible.w; ++x) {
+        for (std::int32_t x = 0; x < visible.w; ++x) {
             const std::uint8_t mask = x == 0 ? pattern[0] : pattern[(y & 7) * 8 + (x & 7)];
             if (mask != 0)
                 row[visible.x + x] = color;
@@ -260,10 +260,10 @@ void HatchRect(SDL_Surface& surface, const SDL_Rect& area)
     if (!SDL_GetRectIntersection(&area, &clip, &visible))
         return;
 
-    for (int y = 0; y < visible.h; ++y) {
+    for (std::int32_t y = 0; y < visible.h; ++y) {
         auto* row = reinterpret_cast<std::uint16_t*>(
             static_cast<std::uint8_t*>(surface.pixels) + (visible.y + y) * surface.pitch);
-        for (int x = 0; x < visible.w; ++x)
+        for (std::int32_t x = 0; x < visible.w; ++x)
             if (x == 0 || ((x + y) & 1) == 0)
                 row[visible.x + x] = 0;
     }

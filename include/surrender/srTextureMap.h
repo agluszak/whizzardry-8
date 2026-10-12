@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <memory>
 #include "srTexture.h"
 
@@ -24,7 +25,7 @@ public:
     virtual void dump(std::ostream& stream) override;
 
 public:
-    virtual w8_ulong getTextureFrameHandle() override;
+    virtual std::uint32_t getTextureFrameHandle() override;
     virtual void getMipmapData(const MultiRequest& request) override;
     void setSurfacePtr(std::shared_ptr<srColorSurfaceIFace> surface);
     srColorSurfaceIFace* getSurfacePtr() const;
@@ -33,6 +34,6 @@ public:
 protected:
     virtual void setupDefaultValues() override;
     std::shared_ptr<srColorSurfaceIFace> surface;
-    w8_ulong frame_handle; /* 0x58: ctor stores getNewFrameHandle() */
+    std::uint32_t frame_handle; /* 0x58: ctor stores getNewFrameHandle() */
 };
 

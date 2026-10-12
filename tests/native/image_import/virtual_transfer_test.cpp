@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <catch2/catch_test_macros.hpp>
 #include <ios>
 #include <wiz8/filesystem.h>
@@ -26,7 +27,7 @@
 #include "surrender/srColorSurface.h"
 #include "surrender/srColorSurfaceIFace.h"
 
-using Bytes = std::vector<unsigned char>;
+using Bytes = std::vector<std::uint8_t>;
 namespace fs = std::filesystem;
 using Surface = std::unique_ptr<srColorSurfaceIFace>;
 static void write(const fs::path& path, const Bytes& bytes)
@@ -60,23 +61,23 @@ static Bytes archive(const Bytes& jpeg, const Bytes& tga)
     auto broken_tga = tga; broken_tga.pop_back();
     const Bytes* payloads[] = {&broken_jpeg, &jpeg, &broken_tga, &tga};
     const char* names[] = {"Broken.jpg", "Archive.jpg", "Broken.tga", "Archive.tga"};
-    Bytes bytes(reinterpret_cast<const unsigned char*>(&header),
-                reinterpret_cast<const unsigned char*>(&header) + sizeof(header));
-    for (unsigned i = 0; i < 4; ++i) {
+    Bytes bytes(reinterpret_cast<const std::uint8_t*>(&header),
+                reinterpret_cast<const std::uint8_t*>(&header) + sizeof(header));
+    for (std::uint32_t i = 0; i < 4; ++i) {
         snprintf(entries[i].sFileName, sizeof(entries[i].sFileName), "%s", names[i]);
         entries[i].uiOffset = bytes.size(); entries[i].uiLength = payloads[i]->size();
         bytes.insert(bytes.end(), payloads[i]->begin(), payloads[i]->end());
     }
-    const auto* directory = reinterpret_cast<const unsigned char*>(entries);
+    const auto* directory = reinterpret_cast<const std::uint8_t*>(entries);
     bytes.insert(bytes.end(), directory, directory + sizeof(entries));
     return bytes;
 }
 static void checkGray(srColorSurfaceIFace* surface)
 {
     REQUIRE((surface && surface->getWidth() == 3 && surface->getHeight() == 2));
-    for (unsigned y = 0; y < 2; ++y) {
-        const auto* row = static_cast<const unsigned char*>(surface->getDataPtr()) + y * surface->getPitch();
-        for (unsigned x = 0; x < 3; ++x) REQUIRE(abs(int(row[x]) - int(20 + (y * 3 + x) * 9)) <= 1);
+    for (std::uint32_t y = 0; y < 2; ++y) {
+        const auto* row = static_cast<const std::uint8_t*>(surface->getDataPtr()) + y * surface->getPitch();
+        for (std::uint32_t x = 0; x < 3; ++x) REQUIRE(abs(std::int32_t(row[x]) - std::int32_t(20 + (y * 3 + x) * 9)) <= 1);
     }
 }
 static void checkTga(const char* name, bool succeeds)
@@ -87,14 +88,14 @@ static void checkTga(const char* name, bool succeeds)
     auto surface = LoadSurface(handle.get(), nullptr);
     REQUIRE(bool(surface) == succeeds);
     if (surface) {
-        const unsigned char expected[] = {0, 0, 0x03, 0xfc, 0xe0, 0x03, 0x1f, 0, 0, 0x7c, 0xff, 0xff};
+        const std::uint8_t expected[] = {0, 0, 0x03, 0xfc, 0xe0, 0x03, 0x1f, 0, 0, 0x7c, 0xff, 0xff};
         REQUIRE((surface->getWidth() == 3 && surface->getHeight() == 2));
-        for (unsigned y = 0; y < 2; ++y)
-            REQUIRE(memcmp(static_cast<const unsigned char*>(surface->getDataPtr()) + y * surface->getPitch(),
+        for (std::uint32_t y = 0; y < 2; ++y)
+            REQUIRE(memcmp(static_cast<const std::uint8_t*>(surface->getDataPtr()) + y * surface->getPitch(),
                          expected + y * 6, 6) == 0);
     }
     REQUIRE((handle->size() > 0 && (handle->seek(0, wiz8::SeekOrigin::begin), true)));
-    unsigned char signature = 255; unsigned int count = 0;
+    std::uint8_t signature = 255; std::uint32_t count = 0;
     REQUIRE((((count = handle->read(&signature, 1).bytes) == static_cast<std::size_t>(1)) && count == 1 && signature == 0));
     handle.reset();
 }
@@ -114,9 +115,9 @@ static void runtimeImages()
         srColorSurfaceIFace::SurfaceDesc desc;
         srImage::describe(desc, name);
         REQUIRE((desc.width == 3 && desc.height == 2));
-        const unsigned char expected[] = {0, 0, 0x03, 0xfc, 0xe0, 0x03, 0x1f, 0, 0, 0x7c, 0xff, 0xff};
-        for (unsigned y = 0; y < 2; ++y)
-            REQUIRE(memcmp(static_cast<const unsigned char*>(surface->getDataPtr()) + y * surface->getPitch(),
+        const std::uint8_t expected[] = {0, 0, 0x03, 0xfc, 0xe0, 0x03, 0x1f, 0, 0, 0x7c, 0xff, 0xff};
+        for (std::uint32_t y = 0; y < 2; ++y)
+            REQUIRE(memcmp(static_cast<const std::uint8_t*>(surface->getDataPtr()) + y * surface->getPitch(),
                          expected + y * 6, 6) == 0);
     }
     for (const char* name : {"Data/Broken.jpg", "Data/Broken.tga", "Data/missing.jpeg",
@@ -141,8 +142,8 @@ static void runtimeImages()
         output->close();
         auto decoded = srImage::load(name);
         REQUIRE((decoded && decoded->getWidth() == 3 && decoded->getHeight() == 2));
-        for (unsigned y = 0; y < 2; ++y)
-            for (unsigned x = 0; x < 3; ++x)
+        for (std::uint32_t y = 0; y < 2; ++y)
+            for (std::uint32_t x = 0; x < 3; ++x)
                 REQUIRE(decoded->getPixel(x, y) == surface->getPixel(x, y));
     }
 }
@@ -172,7 +173,7 @@ TEST_CASE("virtual_transfer_test")
     wiz8::mount_slf("Data\\Data.slf");
     checkUninitialized();
     REQUIRE(srInit());
-    for (unsigned cycle = 0; cycle < 3; ++cycle) {
+    for (std::uint32_t cycle = 0; cycle < 3; ++cycle) {
         runtimeImages();
         REQUIRE((fs::exists(user / "capture.jpeg") && !fs::exists(assets / "capture.jpeg")));
         srExit();
@@ -184,7 +185,7 @@ TEST_CASE("virtual_transfer_test")
             auto surface = srImage::load(name, *stream);
             checkGray(surface.get());
             stream->seek(0, wiz8::SeekOrigin::begin);
-            unsigned char byte = 0; stream->read_exact(&byte, 1);
+            std::uint8_t byte = 0; stream->read_exact(&byte, 1);
             REQUIRE((stream->is_open() && byte == 0xff));
         }
         auto first = wiz8::open_file("C:/DATA/archive.jpg"), second = wiz8::open_file("Data\\ARCHIVE.JPG");
@@ -202,7 +203,7 @@ TEST_CASE("virtual_transfer_test")
             auto* io = first->io();
             REQUIRE((io && SDL_GetIOSize(io) == Sint64(jpeg.size())));
             REQUIRE(SDL_SeekIO(io, -1, SDL_IO_SEEK_END) == Sint64(jpeg.size() - 1));
-            unsigned char bytes[8];
+            std::uint8_t bytes[8];
             REQUIRE((SDL_ReadIO(io, bytes, sizeof(bytes)) == 1 && bytes[0] == 0xd9));
             REQUIRE((SDL_ReadIO(io, bytes, sizeof(bytes)) == 0 && SDL_GetIOStatus(io) == SDL_IO_STATUS_EOF));
         }
@@ -221,7 +222,7 @@ TEST_CASE("virtual_transfer_test")
             archived.reset();
             REQUIRE((moved.io() == borrowed && SDL_GetIOSize(borrowed) == Sint64(jpeg.size())));
             REQUIRE((SDL_SeekIO(borrowed, 9, SDL_IO_SEEK_SET) == 9 && moved.tell() == 9));
-            unsigned char byte;
+            std::uint8_t byte;
             REQUIRE((SDL_ReadIO(borrowed, &byte, 1) == 1 && moved.tell() == 10));
             REQUIRE(SDL_WriteIO(borrowed, &byte, 1) == 0);
         }
@@ -246,7 +247,7 @@ TEST_CASE("virtual_transfer_test")
     {
         auto archived = wiz8::open_file("Data/archive.jpg");
         fs::resize_file(archived->physical_path(), 0);
-        unsigned char byte;
+        std::uint8_t byte;
         REQUIRE(SDL_ReadIO(archived->io(), &byte, 1) == 0);
         REQUIRE(SDL_GetIOStatus(archived->io()) == SDL_IO_STATUS_ERROR);
         write(assets / "data" / "DATA.SLF", archive(jpeg, tga));

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <memory>
 #include <vector>
 #include <unordered_map>
@@ -14,10 +15,10 @@ namespace wiz8 { class File; }
 
 #pragma pack(push, 1)
 struct MGSKeyBinding {
-    unsigned short key;
-    unsigned short modifiers;
+    std::uint16_t key;
+    std::uint16_t modifiers;
     /* Always written 1 when LoadDefaults creates the binding; never read. */
-    unsigned short active;
+    std::uint16_t active;
     W8MGSCommand command;
 };
 #pragma pack(pop)
@@ -29,19 +30,19 @@ class MGSKeyboard {
 public:
     virtual ~MGSKeyboard() = default;
 
-    int FindBinding(W8MGSCommand command) const;
+    std::int32_t FindBinding(W8MGSCommand command) const;
     /* Match a live InputEvent against the binding table; returns command or -1. */
     W8MGSCommand FindCommandForEvent(const InputEvent* event) const;
-    MGSKeyBinding* GetBinding(int index) const;
+    MGSKeyBinding* GetBinding(std::int32_t index) const;
     bool IsCommandPressed(W8MGSCommand command) const;
     void Clear();
-    unsigned char Load(wiz8::File& handle, bool clear);
-    unsigned char Save(wiz8::File& handle) const;
-    unsigned char LoadDefaults(const char* path);
+    std::uint8_t Load(wiz8::File& handle, bool clear);
+    std::uint8_t Save(wiz8::File& handle) const;
+    std::uint8_t LoadDefaults(const char* path);
 
 private:
   std::vector<std::unique_ptr<MGSKeyBinding>> m_bindings;
-  std::unordered_map<unsigned int, MGSKeyBinding*> m_command_index;
+  std::unordered_map<std::uint32_t, MGSKeyBinding*> m_command_index;
 };
 
 extern MGSKeyboard* g_mgs_keyboard;
@@ -54,9 +55,9 @@ class W8TextControl;
    twelve menu/item-keyed rows plus a trailing row, and the per-row callback
    selection the availability refresh drives. */
 /* Each keyboard-menu row's (W8SubMenuPage, entry) selection. */
-extern short g_keyboard_menu_items[12];
+extern std::int16_t g_keyboard_menu_items[12];
 extern std::unique_ptr<Controls> g_keyboard_menu_panel;
-extern short g_keyboard_menu_pages[12];
+extern std::int16_t g_keyboard_menu_pages[12];
 extern W8TextControl* g_keyboard_menu_rows[13];
 /* The (x, y) of the twelve menu rows and the trailing close row. */
 extern srVector2i g_keyboard_row_positions[13];
@@ -69,9 +70,9 @@ void DrainInputEventQueue(void);
 /* Reset the slot's combat selection and tear down the menu panel and rows. */
 void CloseKeyboardMenu(void);
 /* Open the keyboard-action menu for one party slot. */
-void OpenKeyboardMenuForSlot(int slot);
+void OpenKeyboardMenuForSlot(std::int32_t slot);
 /* Build the panel and one row per selectable menu entry. */
-unsigned char BuildKeyboardMenu(void);
+bool BuildKeyboardMenu(void);
 /* Re-enable the menu's region set and every row region. */
 void EnableKeyboardMenuInput(void);
 /* Whether the cursor sits inside the menu panel rectangle. */
@@ -80,18 +81,18 @@ bool KeyboardMenuContainsCursor(void);
 void RefreshKeyboardMenuRows(void);
 /* Install the row's primary callback for its (menu, item) pair. */
 /* Install the row's primary callback for its (W8SubMenuPage, entry) pair. */
-void AssignKeyboardMenuCallback(short menu, short item, W8TextControl* row);
+void AssignKeyboardMenuCallback(std::int16_t menu, std::int16_t item, W8TextControl* row);
 /* Invalidate (when asked) then redraw the menu panel. */
 void RedrawKeyboardMenuPanel(bool invalidate);
 /* Region callback the thirteen keyboard-menu rows share. */
-unsigned char KeyboardMenuRowRegionEvent(const InputEvent* event, W8Region* region);
+bool KeyboardMenuRowRegionEvent(const InputEvent* event, W8Region* region);
 /* Region callback for the keyboard-menu background: right-up closes the menu. */
-unsigned char KeyboardMenuBackgroundRegionEvent(const InputEvent* event, W8Region* region);
+bool KeyboardMenuBackgroundRegionEvent(const InputEvent* event, W8Region* region);
 /* Dispatch a bound MGS command number through the keyboard system. */
 void DispatchMGSCommand(W8MGSCommand command);
 /* Route one non-mouse input atom to text entry, dialogue, the trap text box,
    the MIPE editor, the record-mode console or a bound MGS command. */
-unsigned char HandleMainGameInputEvent(const InputEvent* input);
+bool HandleMainGameInputEvent(const InputEvent* input);
 /* Poll the camera/movement command bindings and set the world-render flags. */
 void HandleManualCameraHotkeys(void);
 void ApplyCameraMotionHotkeys(void);

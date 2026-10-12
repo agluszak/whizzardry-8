@@ -1,21 +1,23 @@
 #pragma once
 
+
+#include <cstdint>
 // Dice also occur at odd offsets inside packed database records.
 #pragma pack(push, 1)
 struct W8Dice {
     /* Smallest and largest results of `count` d`sides` plus `base`. */
-    int Minimum() const
+    std::int32_t Minimum() const
     {
         return base + count;
     }
-    int Maximum() const
+    std::int32_t Maximum() const
     {
         return base + count * sides;
     }
 
-    short base;
-    unsigned char count;
-    unsigned char sides;
+    std::int16_t base;
+    std::uint8_t count;
+    std::uint8_t sides;
 };
 #pragma pack(pop)
 

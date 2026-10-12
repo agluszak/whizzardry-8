@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <array>
 #include <memory>
 #include <string>
@@ -25,9 +26,9 @@ class W8NpcDialog : public W8DialogBase {
     friend void OnNpcDialogClosed(W8DialogBase* dialog);
 
 public:
-    W8NpcDialog(W8NpcQuoteEntry* message, int aux_data);
+    W8NpcDialog(W8NpcQuoteEntry* message, std::int32_t aux_data);
     virtual ~W8NpcDialog() override;
-    virtual int CreateControls() override;
+    virtual std::int32_t CreateControls() override;
     virtual void Draw() override;
     virtual W8DialogKind GetDialogType() override; /* 7 */
     virtual bool ProcessInput() override;
@@ -39,13 +40,13 @@ private:
 
     std::array<std::unique_ptr<W8TextBuffer>, 2> m_text_buffers;
     std::array<std::unique_ptr<W8ButtonWidget>, 3> m_buttons;
-    signed char m_selected_option;
+    std::int8_t m_selected_option;
     W8NpcQuoteEntry* m_message;
-    int m_aux_data;
+    std::int32_t m_aux_data;
     bool m_compact_options; /* option list may size under 200 wide */
-    unsigned char unknown_075;
-    unsigned short m_text_width; /* widest option text + 6 */
-    unsigned char m_input_field; /* AddTextInputField id for opcode 0x13 */
-    unsigned char unknown_079;
+    std::uint8_t unknown_075;
+    std::uint16_t m_text_width; /* widest option text + 6 */
+    std::uint8_t m_input_field; /* AddTextInputField id for opcode 0x13 */
+    std::uint8_t unknown_079;
     std::string m_input_text; /* fills the 0x270-byte allocation */
 };

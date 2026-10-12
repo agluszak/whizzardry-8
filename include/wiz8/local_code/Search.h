@@ -22,7 +22,7 @@ struct W8Searchable {
     void Reveal();
     /* The best searching party member within range of this
        searchable, or -1. Practices the searching skill on a qualified pick. */
-    int PickBestSearcher();
+    std::int32_t PickBestSearcher();
 
     W8WorldItem* world_item;
     /* Never written; the only reader resolves a world cursor node's
@@ -37,14 +37,14 @@ struct W8Searchable {
 struct W8SearchableView {
     W8SearchableView();
 
-    int cursor;
+    std::int32_t cursor;
     std::vector<W8Searchable*> items;
 };
 
 extern std::vector<W8Searchable*> g_searchables;
 extern W8SearchableView g_search_view;
 /* 500ms pulse clock arming the search-mode sweep. */
-extern uint64_t g_search_pulse_clock;
+extern std::uint64_t g_search_pulse_clock;
 
 void RegisterSearchableWorldItem(W8WorldItem* item);
 void RegisterSearchableTrigger(Trigger* trigger);

@@ -3,7 +3,6 @@
 #ifndef __TYPES_
 #define __TYPES_
 
-#ifdef __cplusplus
 #include <SDL3/SDL_log.h>
 #include <cstdlib>
 
@@ -16,7 +15,6 @@
             std::abort();                                                                          \
         }                                                                                          \
     } while (false)
-#endif
 
 #define BAD_INDEX -1
 

@@ -1,35 +1,35 @@
+#include <cstdint>
 #include <SDL3/SDL_video.h>
 
 #include "surrender/srWindow.h"
-#include "compat/compiler.h"
 
 /* Native window handles are SDL_Window pointers carried as unsigned long. */
 namespace {
-SDL_Window* nativeWindow(w8_ulong_ptr handle)
+SDL_Window* nativeWindow(std::uintptr_t handle)
 {
     return reinterpret_cast<SDL_Window*>(handle);
 }
 } // namespace
 
-w8_long srWindow::getWidth(w8_ulong_ptr handle)
+std::int32_t srWindow::getWidth(std::uintptr_t handle)
 {
-    int width = 0;
+    std::int32_t width = 0;
     if (isWindow(handle) == 0 || !SDL_GetWindowSizeInPixels(nativeWindow(handle), &width, 0)) {
         return 0;
     }
     return width;
 }
 
-w8_long srWindow::getHeight(w8_ulong_ptr handle)
+std::int32_t srWindow::getHeight(std::uintptr_t handle)
 {
-    int height = 0;
+    std::int32_t height = 0;
     if (isWindow(handle) == 0 || !SDL_GetWindowSizeInPixels(nativeWindow(handle), 0, &height)) {
         return 0;
     }
     return height;
 }
 
-int srWindow::isWindow(w8_ulong_ptr handle)
+bool srWindow::isWindow(std::uintptr_t handle)
 {
     return handle != 0;
 }

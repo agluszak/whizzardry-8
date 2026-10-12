@@ -10,6 +10,7 @@
 #include <fstream>
 #include <stdexcept>
 #include <vector>
+#include <cinttypes>
 #include <cstdint>
 #include <cstdlib>
 #include <exception>
@@ -25,35 +26,35 @@
 #include "temporary_directory.h"
 #include "scoped_asset_roots.h"
 
-std::vector<unsigned char> read(const char* path)
+std::vector<std::uint8_t> read(const char* path)
 {
     std::ifstream file(path, std::ios::binary | std::ios::ate);
     if (!file)
         throw std::runtime_error("Missing test fixture");
-    std::vector<unsigned char> bytes(static_cast<size_t>(file.tellg()));
+    std::vector<std::uint8_t> bytes(static_cast<size_t>(file.tellg()));
     file.seekg(0);
     if (!file.read(reinterpret_cast<char*>(bytes.data()), bytes.size()))
         throw std::runtime_error("Short fixture");
     return bytes;
 }
-void write(const std::filesystem::path& path, const std::vector<unsigned char>& bytes)
+void write(const std::filesystem::path& path, const std::vector<std::uint8_t>& bytes)
 {
     std::ofstream file(path, std::ios::binary);
     if (!file.write(reinterpret_cast<const char*>(bytes.data()), bytes.size()))
         throw std::runtime_error("Cannot create fixture");
 }
-bool matchesFrame(const std::vector<uint16_t>& pixels, const unsigned char* golden)
+bool matchesFrame(const std::vector<std::uint16_t>& pixels, const std::uint8_t* golden)
 {
-    unsigned largest_difference = 0;
+    std::uint32_t largest_difference = 0;
     for (size_t i = 0; i < pixels.size(); ++i)
     {
-        const unsigned expected = golden[i * 2] | (unsigned(golden[i * 2 + 1]) << 8);
+        const std::uint32_t expected = golden[i * 2] | (std::uint32_t(golden[i * 2 + 1]) << 8);
         if ((pixels[i] & 0x8000) != (expected & 0x8000))
             return false;
-        for (unsigned shift : {0u, 5u, 10u})
+        for (std::uint32_t shift : {0u, 5u, 10u})
         {
-            const int difference = int((pixels[i] >> shift) & 31) - int((expected >> shift) & 31);
-            largest_difference = std::max(largest_difference, unsigned(std::abs(difference)));
+            const std::int32_t difference = std::int32_t((pixels[i] >> shift) & 31) - std::int32_t((expected >> shift) & 31);
+            largest_difference = std::max(largest_difference, std::uint32_t(std::abs(difference)));
         }
     }
     if (largest_difference > 1)
@@ -83,29 +84,29 @@ static void exercise_movie(const char* retail_movie)
         strcpy(entries[1].sFileName, "Truncated.mkv");
         entries[1].uiOffset = sizeof(header);
         entries[1].uiLength = 16; // The rest of the valid movie must be inaccessible.
-        std::vector<unsigned char> archive(reinterpret_cast<unsigned char*>(&header),
-                                           reinterpret_cast<unsigned char*>(&header) +
+        std::vector<std::uint8_t> archive(reinterpret_cast<std::uint8_t*>(&header),
+                                           reinterpret_cast<std::uint8_t*>(&header) +
                                                sizeof(header));
         archive.insert(archive.end(), encoded.begin(), encoded.end());
-        archive.insert(archive.end(), reinterpret_cast<unsigned char*>(entries),
-                       reinterpret_cast<unsigned char*>(entries) + sizeof(entries));
+        archive.insert(archive.end(), reinterpret_cast<std::uint8_t*>(entries),
+                       reinterpret_cast<std::uint8_t*>(entries) + sizeof(entries));
         write(assets / "Data" / "DATA.SLF", archive);
 
         wiz8::mount_slf("Data\\Data.slf");
         w8_native::audio_offline_for_test(true);
         REQUIRE(wiz8::sound::initialize(true));
         double energy = 0;
-        std::vector<uint16_t> first_frame;
+        std::vector<std::uint16_t> first_frame;
         {
             W8NativeVideo movies[3];
             movies[0].open("C:\\MOVIE.MKV");
             movies[1].open("data\\PACKED.mkv");
             movies[2].open("Data\\Packed.mkv");
-            unsigned shown[3]{};
+            std::uint32_t shown[3]{};
             bool done[3]{};
-            for (int tick = 0; tick < 700; ++tick)
+            for (std::int32_t tick = 0; tick < 700; ++tick)
             {
-                for (unsigned i = 0; i < 3; ++i)
+                for (std::uint32_t i = 0; i < 3; ++i)
                 {
                     if (done[i])
                         continue;
@@ -133,7 +134,7 @@ static void exercise_movie(const char* retail_movie)
                 for (auto value : samples)
                     energy += value * value;
             }
-            for (unsigned i = 0; i < 3; ++i)
+            for (std::uint32_t i = 0; i < 3; ++i)
             {
                 REQUIRE((done[i] && shown[i] == 5 && movies[i].decoded_frames() == 5));
                 REQUIRE(movies[i].decoded_audio_frames() == 22050);
@@ -170,8 +171,8 @@ static void exercise_movie(const char* retail_movie)
             movie.SetTarget(target.get());
             REQUIRE(movie.Open("Movie.mkv", 0));
             REQUIRE(!movie.UpdateFrame());
-            for (int y = 0; y < 24; ++y)
-                REQUIRE(std::memcmp(static_cast<unsigned char*>(description.pixels) +
+            for (std::int32_t y = 0; y < 24; ++y)
+                REQUIRE(std::memcmp(static_cast<std::uint8_t*>(description.pixels) +
                                       y * description.pitch,
                                   first_frame.data() + y * 32, 64) == 0);
             REQUIRE(movie.Open("Data\\Packed.mkv",
@@ -191,10 +192,10 @@ static void exercise_movie(const char* retail_movie)
         {
             W8NativeVideo retail;
             retail.open(retail_movie);
-            uint64_t hash = 14695981039346656037ull;
-            unsigned shown = 0;
+            std::uint64_t hash = 14695981039346656037ull;
+            std::uint32_t shown = 0;
             bool done = false;
-            for (int tick = 0; tick < 600000; ++tick)
+            for (std::int32_t tick = 0; tick < 600000; ++tick)
             {
                 auto result = retail.update(tick / 1000.0);
                 if (result == W8NativeVideo::FrameReady)
@@ -215,8 +216,8 @@ static void exercise_movie(const char* retail_movie)
                 REQUIRE(w8_native::audio_render_for_test(silence.data(), tick % 10 == 9 ? 45 : 44));
             }
             REQUIRE((done && shown == retail.decoded_frames()));
-            printf("retail movie: %u frames, %llu PCM frames, RGB555 FNV64 %016llx\n", shown,
-                   (unsigned long long)retail.decoded_audio_frames(), (unsigned long long)hash);
+            printf("retail movie: %u frames, %" PRIu64 " PCM frames, RGB555 FNV64 %016" PRIx64 "\n", shown,
+                   (std::uint64_t)retail.decoded_audio_frames(), (std::uint64_t)hash);
         }
         wiz8::sound::shutdown();
         wiz8::clear_asset_archives();

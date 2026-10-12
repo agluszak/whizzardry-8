@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include "srPixelConvert.h"
 #include "srTextureIFace.h"
 
@@ -12,7 +13,7 @@ public:
 
     srTexture& operator=(const srTexture& other);
     virtual void dump(std::ostream& stream) override;
-    virtual w8_ulong getTextureFrameHandle() override;
+    virtual std::uint32_t getTextureFrameHandle() override;
     virtual float getPriority() override;
     Dimensions getDimensions() override;
     void setDimensions(const Dimensions& dimensions);
@@ -30,7 +31,7 @@ public:
     void setCompression(e_compression compression);
     void enableHint(e_hint hint);
     void disableHint(e_hint hint);
-    int isHintEnabled(e_hint hint) const;
+    bool isHintEnabled(e_hint hint) const;
     void setCorrection(e_correction correction);
     void setMagFilter(e_filter filter);
     void setMinFilter(e_filter filter);
@@ -53,17 +54,17 @@ public:
 protected:
     friend class stSurface2D;
     srTexture();
-    static w8_ulong getNewFrameHandle();
+    static std::uint32_t getNewFrameHandle();
     /* Allocates count consecutive frame handles and returns the first. */
-    static w8_ulong getNewFrameHandles(w8_ulong count);
-    static w8_ulong _frameHandle;
-    void invalidateFrameHandle(w8_ulong handle);
+    static std::uint32_t getNewFrameHandles(std::uint32_t count);
+    static std::uint32_t _frameHandle;
+    void invalidateFrameHandle(std::uint32_t handle);
     void setupDefaultValuesFromSurface(srColorSurfaceIFace* surface);
 
-    w8_ulong packed_state;     /* 0x18: correction/mag/min/mipmap/wrap bits */
+    std::uint32_t packed_state;     /* 0x18: correction/mag/min/mipmap/wrap bits */
     float mipmap_bias;              /* 0x1c */
     Dimensions texture_dimensions_; /* 0x20 */
     float texture_priority;         /* 0x4c: getPriority; the ctor seeds 0.5f */
-    w8_ulong texture_flags_;   /* 0x50 */
+    std::uint32_t texture_flags_;   /* 0x50 */
 };
 

@@ -1,5 +1,7 @@
 #pragma once
 
+
+#include <cstdint>
 enum W8PartySelectionMode {
     W8_PARTY_SELECT_CHARACTERS = 0,
     W8_PARTY_SELECT_IMPORT = 1,
@@ -29,15 +31,14 @@ enum W8PartyConfirmationAction {
 
 /* One byte per portrait, nonzero for the portraits that carry
    animation frames. */
-extern unsigned char g_portrait_frame_flags[0x50];
+extern std::uint8_t g_portrait_frame_flags[0x50];
 
 /* Refresh one party-selection list portrait after a slot change. */
-void RefreshPartySelectionPortrait(unsigned int party_slot);
+void RefreshPartySelectionPortrait(std::uint32_t party_slot);
 /* Nonzero while the selector is reviewing an existing character. */
 bool PartySelectionInReviewMode(void);
-unsigned char PartySelectionScreenEnter(void);
+bool PartySelectionScreenEnter(void);
 void PartySelectionScreenFrame(void);
-unsigned char PartySelectionScreenLeave(int leaving);
+bool PartySelectionScreenLeave(std::int32_t leaving);
 void GameStartRouterFrame(void);
-// bool-byte-ok: W8ScreenStateHandlers leave slot
-unsigned char GameStartRouterLeave(int leaving);
+bool GameStartRouterLeave(std::int32_t leaving);

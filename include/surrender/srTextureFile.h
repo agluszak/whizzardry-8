@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include "srColorSurface.h"
 #include "srTexture.h"
 
@@ -14,7 +15,7 @@
 class srTextureFile : public srClassSupport<srTextureFile, srTexture, 0x2112> {
 public:
     virtual ~srTextureFile() override;
-    srTextureFile(std::string file_name = {}, int cached = 0);
+    srTextureFile(std::string file_name = {}, std::int32_t cached = 0);
 
     srTextureFile& operator=(const srTextureFile& other);
 
@@ -26,13 +27,13 @@ public:
 
     const std::string& getFileName() const;
     void setFileName(std::string file_name);
-    void setCached(int cached);
-    int isSurfaceLoaded() const;
+    void setCached(std::int32_t cached);
+    bool isSurfaceLoaded() const;
     void loadSurface();
     void releaseSurface();
 
     virtual void dump(std::ostream& stream) override;
-    virtual w8_ulong getTextureFrameHandle() override;
+    virtual std::uint32_t getTextureFrameHandle() override;
     virtual void getMipmapData(const MultiRequest& request) override;
     virtual void getMipmapLevelPartial(PartialRequest& request) override;
     virtual void invalidate() override;
@@ -40,9 +41,9 @@ public:
 protected:
     virtual void setupDefaultValues() override;
 
-    int cached;
+    std::int32_t cached;
     std::string file_name;
     std::unique_ptr<srColorSurfaceIFace> surface;
-    w8_ulong frame_handle;
+    std::uint32_t frame_handle;
 };
 

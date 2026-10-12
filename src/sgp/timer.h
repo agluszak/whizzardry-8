@@ -3,9 +3,11 @@
 #pragma once
 
 
+
+#include <cstdint>
 /* Countdowns are stored as 64-bit w8_get_ticks deadline stamps. */
-inline uint64_t TimeUntilDeadline(uint64_t deadline)
+inline std::uint64_t TimeUntilDeadline(std::uint64_t deadline)
 {
-    const int64_t remaining = int64_t(deadline - w8_get_ticks());
-    return remaining > 0 ? uint64_t(remaining) : 0;
+    const std::int64_t remaining = std::int64_t(deadline - w8_get_ticks());
+    return remaining > 0 ? std::uint64_t(remaining) : 0;
 }

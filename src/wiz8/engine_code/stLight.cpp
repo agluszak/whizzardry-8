@@ -1,10 +1,10 @@
+#include <cstdint>
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
 #include <string>
 #include <vector>
 
-#include "compat/compiler.h"
 #include "glm/common.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "surrender/srNode.h"
@@ -35,7 +35,7 @@
    established by its definitions. */
 
 // GLOBAL: WIZ8 0x0060bfdc
-unsigned int g_light_update_flags = 1;
+std::uint32_t g_light_update_flags = 1;
 
 /* Normalizes a retail 15-bit rand() roll to a 0..1 flicker probability;
    only Update uses it. */
@@ -165,12 +165,12 @@ void stLight::Update()
         stKeyframedLightDefinition* definition =
             static_cast<stKeyframedLightDefinition*>(m_definition);
         float time = definition->time;
-        int count = static_cast<int>(definition->key_frames.size());
+        std::int32_t count = static_cast<std::int32_t>(definition->key_frames.size());
         if (time <= definition->key_frames.back()) {
             definition->keyframe_index = 0;
             if (count > 1) {
                 do {
-                    int next = definition->keyframe_index + 1;
+                    std::int32_t next = definition->keyframe_index + 1;
                     if (definition->key_frames[next] <= time) {
                         definition->keyframe_index = next;
                     } else {
@@ -183,12 +183,12 @@ void stLight::Update()
             definition->keyframe_index = count - 2;
         }
         if (definition->key_frames.front() <= time) {
-            int index = definition->keyframe_index;
+            std::int32_t index = definition->keyframe_index;
             if (count - 2 <= index) {
                 return;
             }
-            const int from = definition->key_frames[index];
-            const int to = definition->key_frames[index + 1];
+            const std::int32_t from = definition->key_frames[index];
+            const std::int32_t to = definition->key_frames[index + 1];
             float span = to - from;
             float blend = g_float_one;
             if (span != g_float_zero) {
@@ -209,7 +209,7 @@ void stLight::Update()
         return;
     }
 
-    w8_ulong ticks = w8_get_ticks();
+    std::uint32_t ticks = w8_get_ticks();
     W8PathAI* path = path_ai;
     float seconds = ticks * g_float_one_thousandth;
     stParametricLightDefinition* definition =
@@ -217,7 +217,7 @@ void stLight::Update()
     if (definition->period < g_float_one_ten_thousandth) {
         definition->period = 1.0f;
     }
-    unsigned int mode = definition->flags & W8_PARAM_LIGHT_MODE_MASK;
+    std::uint32_t mode = definition->flags & W8_PARAM_LIGHT_MODE_MASK;
     if (mode == W8_PARAM_LIGHT_OSCILLATE) {
         float step = (seconds - m_level_time) * definition->rate;
         if (g_float_zero < step) {
@@ -288,7 +288,7 @@ void stLight::Update()
                 SetModelAnimatedTextureFrame(instance, 1);
             }
         } else {
-            int roll = rand() & 0x7fff;
+            std::int32_t roll = rand() & 0x7fff;
             if (roll * g_light_flicker_random_unit_scale < definition->flicker_chance) {
                 if (testFlag(FLAG_DISABLE) == 0) {
                     setFlag(FLAG_DISABLE);
@@ -308,16 +308,16 @@ void stLight::Update()
         ((seconds - m_path_time) * definition->path_speed < g_float_one)) {
         return;
     }
-    int index = static_cast<int>((seconds - m_path_time) * definition->path_speed);
+    std::int32_t index = static_cast<std::int32_t>((seconds - m_path_time) * definition->path_speed);
     index = index * m_path_direction + m_path_index;
-    if (index < static_cast<int>(path->nodes.size())) {
+    if (index < static_cast<std::int32_t>(path->nodes.size())) {
         if (index < 0) {
             m_path_direction = 1;
             index = 0;
         }
     } else if ((definition->flags & W8_PARAM_LIGHT_PING_PONG_PATH) != 0) {
         m_path_direction = -1;
-        index = static_cast<int>(path->nodes.size()) - 2;
+        index = static_cast<std::int32_t>(path->nodes.size()) - 2;
     } else {
         index = 0;
     }
@@ -364,7 +364,7 @@ void SaveLightStates(wiz8::File& handle)
 {
     char name[0x80] = {0};
     memcpy(name, &g_empty_ambient_name, sizeof(g_empty_ambient_name));
-    unsigned char version = 1;
+    std::uint8_t version = 1;
 
     handle.write(&version, sizeof(version));
 
@@ -374,13 +374,13 @@ void SaveLightStates(wiz8::File& handle)
             marked.push_back(light);
         }
     });
-    int count = static_cast<int>(marked.size());
+    std::int32_t count = static_cast<std::int32_t>(marked.size());
     handle.write(&count, sizeof(count));
 
     for (stLight* light : marked) {
         strcpy(name, light->getName().c_str());
         handle.write(name, sizeof(name));
-        unsigned char enabled = light->testFlag(srNode::FLAG_DISABLE) == 0;
+        std::uint8_t enabled = light->testFlag(srNode::FLAG_DISABLE) == 0;
         handle.write(&enabled, sizeof(enabled));
     }
 }
@@ -393,14 +393,14 @@ void LoadLightStates(wiz8::File& handle)
 {
     char name[0x80] = {0};
     memcpy(name, &g_empty_ambient_name, sizeof(g_empty_ambient_name));
-    unsigned char version;
-    int count = 0;
+    std::uint8_t version;
+    std::int32_t count = 0;
 
     handle.read_exact(&version, sizeof(version));
     handle.read_exact(&count, sizeof(count));
 
-    for (int index = 0; index < count; ++index) {
-        unsigned char enabled;
+    for (std::int32_t index = 0; index < count; ++index) {
+        std::uint8_t enabled;
         handle.read_exact(name, sizeof(name));
         handle.read_exact(&enabled, sizeof(enabled));
 

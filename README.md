@@ -205,9 +205,9 @@ decodes UTF-8 at its boundary; retail fonts still limit the available glyphs.
 
 The original game has a 32-bit data model, two-byte strings and packed binary
 records. Native storage may use 64-bit pointers, but saved pointer words and
-format-defined sizes must preserve their serialized layout. `w8_long` and
-`w8_ulong` name historical 32-bit fields; `W8_PTR32` represents disk-size
-pointer slots. `wiz8/retail_records.h` defines independent fixed-size disk records;
+format-defined sizes must preserve their serialized layout. Integers use the
+`<cstdint>` fixed-width types and flags use `bool`; `W8_PTR32` represents
+disk-size pointer slots. `wiz8/retail_records.h` defines independent fixed-size disk records;
 `wiz8/retail_text_records.h` translates their named fields to runtime objects
 that own strings. Native records use natural compiler layout, with no packing
 scopes or historical runtime size assertions. Packing is confined to disk types

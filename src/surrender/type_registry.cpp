@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <ios>
 #include "surrender/stream_scope.h"
 #include <ostream>
@@ -10,7 +11,6 @@
 
 #include "surrender/srTypeRegistry.h"
 #include "surrender/srDebug.h"
-#include "compat/compiler.h"
 #include "surrender/srCore.h"
 
 #define SRRUNTIMECLASS_CPP "srRuntimeClass.cpp"
@@ -40,7 +40,7 @@ void srRuntimeClass::verify(e_verify)
 }
 
 // FUNCTION: SURRENDER 0x100118D0
-int srRuntimeClass::matchClassID(w8_ulong class_id) const
+bool srRuntimeClass::matchClassID(std::uint32_t class_id) const
 {
     srRegistry* registry = srCore.getRegistry();
     srRegistry::ClassNode* instance_class = getClassNode();
@@ -49,7 +49,7 @@ int srRuntimeClass::matchClassID(w8_ulong class_id) const
 }
 
 // FUNCTION: SURRENDER 0x10011900
-int srRuntimeClass::isNamed() const
+bool srRuntimeClass::isNamed() const
 {
     return !name.empty();
 }
@@ -87,7 +87,7 @@ srRegistry::ClassNode* srRuntimeClass::sGetClassNode()
 }
 
 // FUNCTION: SURRENDER 0x10011C90
-w8_ulong srRuntimeClass::sGetClassID()
+std::uint32_t srRuntimeClass::sGetClassID()
 {
     srRegistry* registry = srCore.getRegistry();
     return registry->getClassID(sGetClassNode());
@@ -100,7 +100,7 @@ const char* srRuntimeClass::getClassName() const
 }
 
 // FUNCTION: SURRENDER 0x10011CD0
-w8_ulong srRuntimeClass::getClassID() const
+std::uint32_t srRuntimeClass::getClassID() const
 {
     return sGetClassID();
 }
@@ -167,7 +167,7 @@ srRegistry::ClassNode* srRegistry::getRootNode()
     return &root;
 }
 
-srRegistry::ClassNode* srRegistry::getClassNode(w8_ulong class_id)
+srRegistry::ClassNode* srRegistry::getClassNode(std::uint32_t class_id)
 {
     std::lock_guard lock(mutex);
     auto found = classes.find(class_id);
@@ -175,7 +175,7 @@ srRegistry::ClassNode* srRegistry::getClassNode(w8_ulong class_id)
 }
 
 srRegistry::ClassNode* srRegistry::registerClass(const char* class_name, ClassNode* parent,
-                                               w8_ulong class_id)
+                                               std::uint32_t class_id)
 {
     std::lock_guard lock(mutex);
     if (auto* existing = getClassNode(class_id)) {
@@ -190,7 +190,7 @@ srRegistry::ClassNode* srRegistry::registerClass(const char* class_name, ClassNo
     return node;
 }
 
-w8_ulong srRegistry::getClassID(ClassNode* node)
+std::uint32_t srRegistry::getClassID(ClassNode* node)
 {
     return node ? node->class_id : 0;
 }
@@ -200,11 +200,11 @@ const char* srRegistry::getClassName(ClassNode* node)
     return node ? node->class_name.c_str() : nullptr;
 }
 
-int srRegistry::isDerivedOrSame(ClassNode* base, ClassNode* derived)
+bool srRegistry::isDerivedOrSame(ClassNode* base, ClassNode* derived)
 {
-    if (!base) return 0;
+    if (!base) return false;
     for (; derived; derived = derived->parent) {
-        if (derived == base) return 1;
+        if (derived == base) return true;
     }
-    return 0;
+    return false;
 }

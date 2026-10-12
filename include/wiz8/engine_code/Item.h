@@ -43,11 +43,11 @@ struct W8ItemRep : public W8AnimRepBase {
     glm::vec3 bounds_maximum;         /* 0x74 */
     float bounds_radius;              /* 0x80 */
     float pulse_level; /* 0x88 */
-    unsigned int flags; /* 0x90 */
+    std::uint32_t flags; /* 0x90 */
 
     bool ReadFromFile(W8ReadLevelInfo* info, W8Item* item, bool anonymous_mesh);
     void RefreshBounds();
-    unsigned int SetFlags(unsigned int mask, bool enabled); /* 0x0049F310 */
+    std::uint32_t SetFlags(std::uint32_t mask, bool enabled); /* 0x0049F310 */
 };
 
 struct W8Item : public W8GrObject {
@@ -56,7 +56,7 @@ struct W8Item : public W8GrObject {
 
     Trigger* trigger;
     /* 0x1c: countdown clock; IsTicking reports whether it is running. */
-    uint64_t countdown;
+    std::uint64_t countdown;
 
     void DetachMesh(W8World* world);
     void ApplyRepTransform();
@@ -84,7 +84,7 @@ struct W8Item : public W8GrObject {
 
 bool ReadItemFromFile(W8ReadLevelInfo* info, W8Item** item, bool anonymous_mesh);
 /* Run the item's trigger, if any, and report its action state. */
-unsigned char RunItemTrigger(W8Item* item); /* 0x004A0070 */
+bool RunItemTrigger(W8Item* item); /* 0x004A0070 */
 std::optional<srBoundingBox> GetItemWorldBounds(const W8Item* item);
 
 bool LoadItemFromFile(const W8ReadLevelInfo* context, const char* name, W8Item** item,

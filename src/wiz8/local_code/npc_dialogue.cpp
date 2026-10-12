@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <fmt/format.h>
 #include <list>
 #include <optional>
@@ -34,10 +35,10 @@
    queued QUOTE_ENTRY continuation line when operand2 is 4. Returns the
    response index, -1 when a guard fails, and -2 after queueing. */
 // FUNCTION: WIZ8 0x005251F0
-int W8NpcDialogue::SelectResponse(W8NpcQuoteEntry* entry, int quote_index, int entry_index)
+std::int32_t W8NpcDialogue::SelectResponse(W8NpcQuoteEntry* entry, std::int32_t quote_index, std::int32_t entry_index)
 {
-    int index;
-    unsigned char expected;
+    std::int32_t index;
+    std::uint8_t expected;
     char response_count;
 
     index = 0;
@@ -45,7 +46,7 @@ int W8NpcDialogue::SelectResponse(W8NpcQuoteEntry* entry, int quote_index, int e
         index = 1;
     }
     while (index < entry->sub_entry_count) {
-        expected = static_cast<unsigned char>(
+        expected = static_cast<std::uint8_t>(
             entry->sub_entries[index + 1].operand) /* c-style-cast-ok: packed byte operand */;
         if (GetFact(static_cast<W8FactId>(entry->sub_entries[index].operand)) != expected) {
             return -1;
@@ -67,15 +68,15 @@ int W8NpcDialogue::SelectResponse(W8NpcQuoteEntry* entry, int quote_index, int e
    scan every quote for a subentry whose text
    matches, reporting the entry and subentry indices through the out-pointers. */
 // FUNCTION: WIZ8 0x00525E80
-int FindNpcScriptQuoteByKeyword(std::string_view keyword, short* entry_index, short* sub_entry_index)
+std::int32_t FindNpcScriptQuoteByKeyword(std::string_view keyword, std::int16_t* entry_index, std::int16_t* sub_entry_index)
 {
     W8NpcScriptFile* script;
     W8NpcScriptQuote* quote;
     W8NpcQuoteEntry* entry;
     std::string text;
-    int quote_index;
-    int item_index;
-    int sub_index;
+    std::int32_t quote_index;
+    std::int32_t item_index;
+    std::int32_t sub_index;
 
     script = g_npc_dialogue.speaker()->script_file;
     for (quote_index = 0; quote_index < script->quote_count; quote_index++) {
@@ -87,10 +88,10 @@ int FindNpcScriptQuoteByKeyword(std::string_view keyword, short* entry_index, sh
                     text = entry->sub_entries[sub_index].text.c_str();
                     if (CompareTextIgnoreAsciiCase(text, keyword) == 0) {
                         if (entry_index != 0) {
-                            *entry_index = static_cast<short>(item_index);
+                            *entry_index = static_cast<std::int16_t>(item_index);
                         }
                         if (sub_entry_index != 0) {
-                            *sub_entry_index = static_cast<short>(sub_index);
+                            *sub_entry_index = static_cast<std::int16_t>(sub_index);
                         }
                         return quote_index;
                     }
@@ -107,16 +108,16 @@ int FindNpcScriptQuoteByKeyword(std::string_view keyword, short* entry_index, sh
    the current subquote and queue the continuation line. Quote indices
    'F'..'R' fall outside the scripted world-action dispatch. */
 // FUNCTION: WIZ8 0x00525FA0
-void W8NpcDialogue::Speak(int script_line, bool force_npc_voice)
+void W8NpcDialogue::Speak(std::int32_t script_line, bool force_npc_voice)
 {
     W8NpcScriptQuote* quote;
     W8NpcQuoteEntry* entry;
     W8Monster* monster;
     W8NpcState* target;
-    signed char faction;
+    std::int8_t faction;
     char response_count;
-    int response;
-    int entry_index;
+    std::int32_t response;
+    std::int32_t entry_index;
     bool finished;
 
     session_.current_quote_index = script_line;
@@ -199,7 +200,7 @@ void W8NpcDialogue::Speak(int script_line, bool force_npc_voice)
                             if (!target->is_grouped) {
                                 ClearMainGameTargetState();
                             } else {
-                                Queue(W8NpcDismiss{static_cast<int>(target->group_index)});
+                                Queue(W8NpcDismiss{static_cast<std::int32_t>(target->group_index)});
                             }
                         }
                     }
@@ -219,7 +220,7 @@ void W8NpcDialogue::Speak(int script_line, bool force_npc_voice)
                         g_world_action_quote_max <
                             session_.current_quote_index) {
                         BeginScriptedWorldAction();
-                        Queue(W8NpcDismiss{static_cast<int>(session_.npc->group_index)});
+                        Queue(W8NpcDismiss{static_cast<std::int32_t>(session_.npc->group_index)});
                     }
                     break;
                 case W8_NPC_ENTRY_NPC_INTERACTION: {
@@ -238,7 +239,7 @@ void W8NpcDialogue::Speak(int script_line, bool force_npc_voice)
                     break;
                 case W8_NPC_ENTRY_PARTY_SPEAKER_EVENT:
                     Queue(
-                        W8NpcPartySpeakerEvent{static_cast<unsigned int>(entry->operand0)});
+                        W8NpcPartySpeakerEvent{static_cast<std::uint32_t>(entry->operand0)});
                     break;
                 case W8_NPC_ENTRY_PERSON_KEYWORD:
                 case W8_NPC_ENTRY_ITEM_KEYWORD:
@@ -294,7 +295,7 @@ void W8NpcDialogue::Push(W8NpcAction action, bool prepend)
 }
 
 // FUNCTION: WIZ8 0x00528830
-void W8NpcDialogue::QueueQuote(int quote, bool mark_pending, bool prepend, bool suppress_entries)
+void W8NpcDialogue::QueueQuote(std::int32_t quote, bool mark_pending, bool prepend, bool suppress_entries)
 {
     Push(W8NpcQueuedQuote{quote, mark_pending, suppress_entries}, prepend);
 }
@@ -314,14 +315,14 @@ void W8NpcDialogue::QueuePortraitMessage(std::string text, W8QuoteNotice notice)
    answer. No keyword match at all falls back to the role-2 entry. -1 when the
    quote has no usable reply. */
 // FUNCTION: WIZ8 0x00529300
-int W8NpcDialogue::FindReplyQuote(std::string_view text) const
+std::int32_t W8NpcDialogue::FindReplyQuote(std::string_view text) const
 {
     W8NpcScriptQuote* quote;
     W8NpcQuoteEntry* entry;
     std::string sub_text;
-    int quote_index;
-    int index;
-    int sub;
+    std::int32_t quote_index;
+    std::int32_t index;
+    std::int32_t sub;
 
     quote_index = session_.current_quote_index;
     quote = session_.npc->script_file->quotes.data() + quote_index;
@@ -372,10 +373,10 @@ int W8NpcDialogue::FindReplyQuote(std::string_view text) const
 }
 
 // FUNCTION: WIZ8 0x005294c0
-std::string GetNpcQuoteText(W8NpcState* npc, int type)
+std::string GetNpcQuoteText(W8NpcState* npc, std::int32_t type)
 {
     const W8NpcScriptFile* script = npc->script_file;
-    if (type < 0 || type >= static_cast<int>(script->quote_count)) return {};
+    if (type < 0 || type >= static_cast<std::int32_t>(script->quote_count)) return {};
     const auto& record = script->quotes[type];
     if (record.subquotes.empty() || record.subquotes[0].empty()) return {};
     return record.subquotes[0];
@@ -384,7 +385,7 @@ std::string GetNpcQuoteText(W8NpcState* npc, int type)
 /* Queue a quote-entry line carrying `continuation_quote`; `prepend` inserts it
    at the front of the queue (continuation subquotes overtake pending lines). */
 // FUNCTION: WIZ8 0x00528B50
-void W8NpcDialogue::QueueQuoteEntry(int quote_index, int entry_index, int continuation_quote,
+void W8NpcDialogue::QueueQuoteEntry(std::int32_t quote_index, std::int32_t entry_index, std::int32_t continuation_quote,
                                     bool prepend)
 {
     Push(W8NpcQueuedEntry{quote_index, entry_index, continuation_quote}, prepend);
@@ -396,10 +397,10 @@ void W8NpcDialogue::Cancel() { cancelled_ = true; }
 /* Run every kind-0x17 consequence entry of the given quote - the reply
    handler's decline path when the party refuses a price offer. */
 // FUNCTION: WIZ8 0x00529610
-void W8NpcDialogue::RunDeclineActions(int quote_index)
+void W8NpcDialogue::RunDeclineActions(std::int32_t quote_index)
 {
     W8NpcScriptQuote* quote;
-    int index;
+    std::int32_t index;
 
     quote = session_.npc->script_file->quotes.data() + quote_index;
     for (index = 0; index < quote->entry_count; ++index) {
@@ -415,14 +416,14 @@ void W8NpcDialogue::RunDeclineActions(int quote_index)
 void W8NpcDialogue::Answer(std::string_view text)
 {
     if (!price_check_) {
-        const int line = FindReplyQuote(text);
+        const std::int32_t line = FindReplyQuote(text);
         if (line != -1) {
             QueueQuote(line, false, false, false);
         }
     } else {
         const W8NpcPriceCheck check = *price_check_;
         if (CompareTextIgnoreAsciiCase(text, g_localized_strings[0x7df]) == 0) {
-            if (static_cast<unsigned int>(check.price) > g_status.party_gold) {
+            if (static_cast<std::uint32_t>(check.price) > g_status.party_gold) {
                 Speak(0x14, false);
             } else {
                 SpendPartyGold(check.price);

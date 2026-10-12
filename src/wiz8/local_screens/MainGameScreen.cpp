@@ -20,7 +20,6 @@
 #include <optional>
 #include <utility>
 
-#include "compat/compiler.h"
 #include "layouts/targeting.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/conditions.h"
@@ -177,7 +176,7 @@ W8DialogBase* g_modal_owner;
 W8DialogBase* g_pending_main_game_dialog;
 
 // GLOBAL: WIZ8 0x0068edb0
-static uint64_t g_mouselook_last_tick;
+static std::uint64_t g_mouselook_last_tick;
 // GLOBAL: WIZ8 0x0068edb4
 static bool g_mouselook_tick_init;
 // GLOBAL: WIZ8 0x0068edbc
@@ -222,7 +221,7 @@ W8MainGameResourceSlot g_main_game_resource_slots[17] = {
 bool g_build_level_links;
 
 // GLOBAL: WIZ8 0x0068ede8
-int g_next_link_level;
+std::int32_t g_next_link_level;
 
 // GLOBAL: WIZ8 0x0068edd9
 bool g_mouselook_left_held;
@@ -235,7 +234,7 @@ bool g_node_cull_pending;
 
 
 // GLOBAL: WIZ8 0x0061e9ec
-unsigned short g_trap_name_string_ids[] = {
+std::uint16_t g_trap_name_string_ids[] = {
     0x542, 0x543, 0x544, 0x545, 0x546, 0x547, 0x548, 0x549, 0x54a, 0x54b,
     0x54c, 0x54d, 0x54e, 0x54f, 0x550, 0,     0x551, 0x552, 0x553, 0x554,
     0x555, 0,     0x556, 0x557, 0x558, 0x559, 0x55a, 0x55b,
@@ -289,15 +288,15 @@ void UpdateKeyboardMenu(void);
 void ApplySavedRedrawInvalidates(void);
 void InvalidatePortraitPanel(void);
 
-void RedrawPartyPortraitBars(unsigned int party_slot, bool slot_enabled);
+void RedrawPartyPortraitBars(std::uint32_t party_slot, bool slot_enabled);
 
 static void DrawMainGamePrompt(void);
 void InvalidateLockInteractionPanels(void);
-unsigned char GetOpenDialogueFlag(void);
+std::uint8_t GetOpenDialogueFlag(void);
 void RedrawTextBoxComplete(void);
-unsigned char HandleMouselookInput(const InputEvent* input);
+bool HandleMouselookInput(const InputEvent* input);
 
-static bool IsPartyPortraitUnderCursor(unsigned int party_slot);
+static bool IsPartyPortraitUnderCursor(std::uint32_t party_slot);
 void UpdateFormationPortraitRefresh(void);
 extern bool g_mouselook_manual;
 /* Insanity (spell 0x3c) world-cursor extent rows: six doubles per row.
@@ -312,14 +311,14 @@ double g_world_cursor_extent_table[18] = {
    Insanity cursor reads it byte-indexed by the power field; the eleven bytes
    run to 0x00616f4c, where the separate Magic Effects dword table starts. */
 // GLOBAL: WIZ8 0x00616f41
-signed char g_spell_power_extent_index[8] = {0, 0, 0, 1, 1, 2, 2, 0};
+std::int8_t g_spell_power_extent_index[8] = {0, 0, 0, 1, 1, 2, 2, 0};
 
 void ServiceNpcDialogue(void);
 // GLOBAL: WIZ8 0x0064BA80
-static int g_lock_pin_target_height[4] = {10, 16, 22, 28};
+static std::int32_t g_lock_pin_target_height[4] = {10, 16, 22, 28};
 
 // GLOBAL: WIZ8 0x0064ba90
-static int g_knock_knock_chance[8] = {0, 344, 459, 516, 550, 573, 589, 602};
+static std::int32_t g_knock_knock_chance[8] = {0, 344, 459, 516, 550, 573, 589, 602};
 // GLOBAL: WIZ8 0x0064BAE8
 static char s_lock_pin_falling[] = "Data\\Sound\\Misc\\Lock_Pin_Falling.wav";
 // GLOBAL: WIZ8 0x0064BABC
@@ -331,11 +330,11 @@ static char s_lock_forcing_fail[] = "Data\\Sound\\Misc\\Lock_Forcing_Fail.wav";
 // GLOBAL: WIZ8 0x0064BB5C
 static char s_lock_forcing_success[] = "Data\\Sound\\Misc\\Lock_Forcing_Successful.wav";
 // GLOBAL: WIZ8 0x0068F2B4
-static int g_lock_phase;
+static std::int32_t g_lock_phase;
 // GLOBAL: WIZ8 0x0068F2C0
 static std::unique_ptr<W8LockInteraction> g_lock_interaction;
 /* The selected slot's effective power with spell 0x27. */
-int GetKnockKnockSpellPower(int slot);
+std::int32_t GetKnockKnockSpellPower(std::int32_t slot);
 void CancelMouselook()
 {
     if (g_mouselook_active) {
@@ -349,7 +348,7 @@ void CancelMouselook()
    is suspended; outside those paths a random party member eats the trigger's
    event and the failure sound plays. */
 
-static void QueueInteractionNotice(int event_type)
+static void QueueInteractionNotice(std::int32_t event_type)
 {
     W8CharacterEvent* event = ApplyItemEffectToRandomCharacter(
         event_type, -1, g_character_event_no_preempt, g_character_event_no_flags);
@@ -368,15 +367,15 @@ static void EnableActionPanelRegions()
     }
 }
 
-int OpenLockInteraction(Trigger* trigger)
+bool OpenLockInteraction(Trigger* trigger)
 {
     W8Character* character;
     W8LockTumblerPanel* panel;
-    int count;
+    std::int32_t count;
     W8MainUiMode mode;
-    int skill;
-    int i;
-    unsigned int force;
+    std::int32_t skill;
+    std::int32_t i;
+    std::uint32_t force;
     bool can_cast;
 
     if (gXStatus.fTrapInteractMode || gXStatus.fTrapInteract) {
@@ -436,9 +435,9 @@ int OpenLockInteraction(Trigger* trigger)
         count = g_settings.difficulty + g_lock_interaction->m_tumbler_count - 1;
         ClampInteger(&count, 2, 8);
         force = (character->attributes[W8_ATTRIBUTE_STRENGTH].effective - 0x32) /
-                static_cast<unsigned int>(IntegerPower(2, count - 2));
+                static_cast<std::uint32_t>(IntegerPower(2, count - 2));
     }
-    g_lock_interaction->m_force_button->SetEnabled(static_cast<int>(force) >= 0);
+    g_lock_interaction->m_force_button->SetEnabled(static_cast<std::int32_t>(force) >= 0);
     gXStatus.fLockInteract = false;
     return 1;
 }
@@ -478,16 +477,16 @@ void EndLockInteractMode(char suspend)
     RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
 }
 
-static unsigned int CanSelectedCharacterCastKnockKnock(W8Character* character)
+static std::uint32_t CanSelectedCharacterCastKnockKnock(W8Character* character)
 {
     if (IsPartySlotEligible(g_status.selected_character) && character->spell_learned[0x27] == 1) {
-        unsigned int book =
+        std::uint32_t book =
             GetBestSpellbookSkillForSpell(character, W8_SPELL_KNOCK_KNOCK, true, false, 7);
-        unsigned int realm =
-            character->skills[static_cast<int>(W8_SKILL_FIRE_MAGIC) + g_spell_records[W8_SPELL_KNOCK_KNOCK].realm]
+        std::uint32_t realm =
+            character->skills[static_cast<std::int32_t>(W8_SKILL_FIRE_MAGIC) + g_spell_records[W8_SPELL_KNOCK_KNOCK].realm]
                 .level;
         book = character->skills[book].level;
-        int power = (book + realm * 4) / 5;
+        std::int32_t power = (book + realm * 4) / 5;
         if (power > -1) {
             return CanCharacterCastSpell(character, W8_SPELL_KNOCK_KNOCK);
         }
@@ -504,10 +503,10 @@ void RefreshLockInteractionControls(void)
 {
     W8LockInteraction* interaction = g_lock_interaction.get();
     W8Character* character;
-    int level;
-    unsigned int figure;
-    int divisor;
-    int i;
+    std::int32_t level;
+    std::uint32_t figure;
+    std::int32_t divisor;
+    std::int32_t i;
 
     level = GetPartySlotLocksTrapsLevel(g_status.selected_character);
     for (i = 0; i < interaction->m_tumbler_panel->m_tumbler_count; i++) {
@@ -530,7 +529,7 @@ void RefreshLockInteractionControls(void)
                      IntegerPower(2, divisor - 2);
         }
     }
-    interaction->m_force_button->SetEnabled(static_cast<int>(figure) > -1);
+    interaction->m_force_button->SetEnabled(static_cast<std::int32_t>(figure) > -1);
     interaction->m_info_panel->RefreshInfo();
     interaction->m_action_panel->Invalidate(0);
 }
@@ -557,11 +556,11 @@ void InvalidateLockInteractionPanels(void)
 
 void W8LockTumbler::Redraw(bool full_redraw)
 {
-    int left;
-    int top;
-    int right;
-    int bottom;
-    int frame;
+    std::int32_t left;
+    std::int32_t top;
+    std::int32_t right;
+    std::int32_t bottom;
+    std::int32_t frame;
 
     if (!m_active) {
         return;
@@ -592,7 +591,7 @@ void W8LockTumbler::Redraw(bool full_redraw)
     m_dirty = false;
 }
 
-void W8LockTumbler::OnMouseEnter(int event)
+void W8LockTumbler::OnMouseEnter(std::int32_t event)
 {
     PushButtonSoundScheme(0, true);
     m_hovered = true;
@@ -601,7 +600,7 @@ void W8LockTumbler::OnMouseEnter(int event)
     }
 }
 
-void W8LockTumbler::OnMouseLeave(int event)
+void W8LockTumbler::OnMouseLeave(std::int32_t event)
 {
     PushButtonSoundScheme(0, true);
     m_hovered = false;
@@ -612,12 +611,12 @@ void W8LockTumbler::OnMouseLeave(int event)
 
 /* Retail ICF folds this onto W8HorizontalRangeThumb::OnMouseEnter. The fold
    does not make the two source methods one identity. */
-void W8LockTumbler::OnLeftButtonDown(int)
+void W8LockTumbler::OnLeftButtonDown(std::int32_t)
 {
     PushButtonSoundScheme(0, true);
 }
 
-void W8LockTumbler::OnLeftButtonUp(int event)
+void W8LockTumbler::OnLeftButtonUp(std::int32_t event)
 {
     PushButtonSoundScheme(0, true);
     if (m_enabled && m_hovered && !m_rising && !m_falling && !m_pin_set && m_listener != 0) {
@@ -625,12 +624,12 @@ void W8LockTumbler::OnLeftButtonUp(int event)
     }
 }
 
-W8LockTumblerPanel::W8LockTumblerPanel(int tumbler_count, const unsigned char* pin_data)
+W8LockTumblerPanel::W8LockTumblerPanel(std::int32_t tumbler_count, const std::uint8_t* pin_data)
     : Controls(0xd3, 0x166, 0, 0, CatalogArtwork::Load(0x1af, 0), 1), m_phase_timer(0.04f, 0), m_rise_timer(0.03f, 0),
       m_fall_timer(0.01f, 0)
 {
-    int i;
-    int x;
+    std::int32_t i;
+    std::int32_t x;
 
     m_tumbler_count = tumbler_count;
     m_animating = false;
@@ -659,7 +658,7 @@ W8LockTumblerPanel::~W8LockTumblerPanel()
 
 void W8LockTumblerPanel::OnTumblerReleased(W8LockTumbler* tumbler)
 {
-    int index;
+    std::int32_t index;
 
     if (m_animating) {
         return;
@@ -677,14 +676,14 @@ void W8LockTumblerPanel::OnTumblerReleased(W8LockTumbler* tumbler)
 void W8LockTumblerPanel::UpdateTumblerAnimation()
 {
     W8LockTumbler* tumbler;
-    int phase;
-    int rise;
-    int fall;
-    int i;
+    std::int32_t phase;
+    std::int32_t rise;
+    std::int32_t fall;
+    std::int32_t i;
 
-    phase = static_cast<int>(m_phase_timer.GetProgress());
-    rise = static_cast<int>(m_rise_timer.GetProgress());
-    fall = static_cast<int>(m_fall_timer.GetProgress());
+    phase = static_cast<std::int32_t>(m_phase_timer.GetProgress());
+    rise = static_cast<std::int32_t>(m_rise_timer.GetProgress());
+    fall = static_cast<std::int32_t>(m_fall_timer.GetProgress());
     if (phase != 0) {
         m_phase += phase;
         g_lock_phase = m_phase % 0xc;
@@ -725,7 +724,7 @@ void W8LockTumblerPanel::UpdateTumblerAnimation()
     }
 }
 
-W8LockInfoPanel::W8LockInfoPanel(int tumbler_count)
+W8LockInfoPanel::W8LockInfoPanel(std::int32_t tumbler_count)
     : Controls(0x17, 0x166, 0, 0, CatalogArtwork::Load(0x1af, 0), 0)
 {
     W8ControlsRect bounds;
@@ -766,16 +765,16 @@ W8LockInfoPanel::W8LockInfoPanel(int tumbler_count)
 void W8LockInfoPanel::RefreshInfo()
 {
     W8Character* character = &g_status.buffers.Char[g_status.selected_character];
-    unsigned int figure;
-    int divisor;
-    unsigned int book;
-    unsigned int realm;
+    std::uint32_t figure;
+    std::int32_t divisor;
+    std::uint32_t book;
+    std::uint32_t realm;
 
     m_text0->SetText(character->name, g_wiz_text_font_secondary);
     if (!IsPartySlotEligible(g_status.selected_character) ||
         (!character->skills[W8_SKILL_LOCKS_TRAPS].active &&
          character->skills[W8_SKILL_LOCKS_TRAPS].level == 0) ||
-        static_cast<int>(character->skills[W8_SKILL_LOCKS_TRAPS].level) < 0) {
+        static_cast<std::int32_t>(character->skills[W8_SKILL_LOCKS_TRAPS].level) < 0) {
         m_text2->SetFontStateIndex(0);
         m_text2->SetText(g_dash, g_wiz_text_font_secondary);
     } else {
@@ -789,7 +788,7 @@ void W8LockInfoPanel::RefreshInfo()
     } else {
         W8Skill book_skill =
             GetBestSpellbookSkillForSpell(character, W8_SPELL_KNOCK_KNOCK, true, false, 7);
-        realm = character->skills[static_cast<int>(W8_SKILL_FIRE_MAGIC) + g_spell_records[W8_SPELL_KNOCK_KNOCK].realm]
+        realm = character->skills[static_cast<std::int32_t>(W8_SKILL_FIRE_MAGIC) + g_spell_records[W8_SPELL_KNOCK_KNOCK].realm]
                     .level;
         book = character->skills[book_skill].level;
         m_text4->SetFontStateIndex(-1);
@@ -801,7 +800,7 @@ void W8LockInfoPanel::RefreshInfo()
         ClampInteger(&divisor, 2, 8);
         figure = (character->attributes[W8_ATTRIBUTE_STRENGTH].effective - 0x32) /
                  IntegerPower(2, divisor - 2);
-        if (static_cast<int>(figure) > -1) {
+        if (static_cast<std::int32_t>(figure) > -1) {
             m_text->SetFontStateIndex(-1);
             m_text->SetText(fmt::format("{:d}%", figure), g_wiz_text_font_secondary);
             goto done;
@@ -833,10 +832,10 @@ void W8LockInfoPanel::Redraw()
 W8LockInteraction::W8LockInteraction(Trigger* trigger) : m_timer()
 {
     W8Character* character;
-    int level;
-    unsigned int figure;
-    int divisor;
-    int i;
+    std::int32_t level;
+    std::uint32_t figure;
+    std::int32_t divisor;
+    std::int32_t i;
 
     m_trigger = trigger;
     m_state = 0;
@@ -893,15 +892,15 @@ W8LockInteraction::W8LockInteraction(Trigger* trigger) : m_timer()
         figure = (character->attributes[W8_ATTRIBUTE_STRENGTH].effective - 0x32) /
                  IntegerPower(2, divisor - 2);
     }
-    m_force_button->SetEnabled(static_cast<int>(figure) > -1);
+    m_force_button->SetEnabled(static_cast<std::int32_t>(figure) > -1);
     m_info_panel->RefreshInfo();
     m_action_panel->Invalidate(0);
 }
 
-int W8LockInteraction::ReleaseOwnedTumblers(int slot)
+std::int32_t W8LockInteraction::ReleaseOwnedTumblers(std::int32_t slot)
 {
-    int dropped = 0;
-    int i;
+    std::int32_t dropped = 0;
+    std::int32_t i;
     for (i = 0; i < m_tumbler_count; i++) {
         if (m_tumbler_owner[i] == slot && m_tumbler_locked[i] != 0) {
             m_tumbler_owner[i] = -1;
@@ -919,9 +918,9 @@ int W8LockInteraction::ReleaseOwnedTumblers(int slot)
 
 void W8LockInteraction::Process()
 {
-    int slot;
-    int i;
-    int dropped;
+    std::int32_t slot;
+    std::int32_t i;
+    std::int32_t dropped;
 
     if (m_state == 8 && m_timer.GetProgress() >= g_float_one) {
         m_trigger->CompleteItemInteraction();
@@ -989,7 +988,7 @@ void W8LockInteraction::Process()
     }
 }
 
-int GetKnockKnockSpellPower(int slot)
+std::int32_t GetKnockKnockSpellPower(std::int32_t slot)
 {
     W8Character* character = &g_status.buffers.Char[slot];
     W8Skill book;
@@ -1004,16 +1003,16 @@ int GetKnockKnockSpellPower(int slot)
     return GetSpellCastingSkillLevel(character, book, g_spell_records[W8_SPELL_KNOCK_KNOCK].realm);
 }
 
-void W8LockInteraction::EnablePanels(int enable)
+void W8LockInteraction::EnablePanels(std::int32_t enable)
 {
     m_tumbler_panel->EnableRegionSet(enable);
     m_action_panel->EnableRegionSet(enable);
 }
 
-void W8LockInteraction::OnTumblerPicked(int index)
+void W8LockInteraction::OnTumblerPicked(std::int32_t index)
 {
     W8Character* character;
-    int i;
+    std::int32_t i;
 
     if (!IsPartySlotEligible(g_status.selected_character)) {
         return;
@@ -1023,7 +1022,7 @@ void W8LockInteraction::OnTumblerPicked(int index)
         character->skills[W8_SKILL_LOCKS_TRAPS].level == 0) {
         return;
     }
-    if (static_cast<int>(character->skills[W8_SKILL_LOCKS_TRAPS].level) < 0) {
+    if (static_cast<std::int32_t>(character->skills[W8_SKILL_LOCKS_TRAPS].level) < 0) {
         return;
     }
     if (m_selected_slot != g_status.selected_character) {
@@ -1068,18 +1067,18 @@ void W8LockInteraction::OnPrimary(W8TextControl* control)
 void W8LockInteraction::ResolvePick()
 {
     W8Character* character;
-    int chance;
-    int level;
-    int i;
-    int dropped;
+    std::int32_t chance;
+    std::int32_t level;
+    std::int32_t i;
+    std::int32_t dropped;
 
     dropped = 0;
     for (i = 0; i < m_tumbler_count; i++) {
         if (m_tumbler_owner[i] == m_selected_slot && m_tumbler_locked[i] == 0) {
             character = &g_status.buffers.Char[m_selected_slot];
             chance = character->skills[W8_SKILL_LOCKS_TRAPS].level + g_settings.difficulty * -5 + 5;
-            if ((chance < 0 ? 0 : static_cast<unsigned char>(chance)) <=
-                static_cast<int>(Random(100))) {
+            if ((chance < 0 ? 0 : static_cast<std::uint8_t>(chance)) <=
+                static_cast<std::int32_t>(Random(100))) {
                 m_tumbler_owner[i] = -1;
                 m_tumbler_panel->m_tumblers[i]->m_pin_set = false;
                 m_tumbler_panel->m_tumblers[i]->m_falling = true;
@@ -1094,7 +1093,7 @@ void W8LockInteraction::ResolvePick()
         character = &g_status.buffers.Char[m_selected_slot];
         level = character->skills[W8_SKILL_LOCKS_TRAPS].level;
         PracticeCharacterSkill(character, W8_SKILL_LOCKS_TRAPS, 1, false);
-        if (level != static_cast<int>(character->skills[W8_SKILL_LOCKS_TRAPS].level)) {
+        if (level != static_cast<std::int32_t>(character->skills[W8_SKILL_LOCKS_TRAPS].level)) {
             m_info_panel->RefreshInfo();
         }
     }
@@ -1114,12 +1113,12 @@ void W8LockInteraction::ResolvePick()
 void W8LockInteraction::AttemptForce()
 {
     W8Character* character;
-    unsigned int chance;
+    std::uint32_t chance;
     W8Skill book;
-    int level;
-    int power;
-    int divisor;
-    int i;
+    std::int32_t level;
+    std::int32_t power;
+    std::int32_t divisor;
+    std::int32_t i;
 
     character = &g_status.buffers.Char[g_status.selected_character];
     if (IsPartySlotEligible(g_status.selected_character) && character->stamina > 0x4f &&
@@ -1128,9 +1127,9 @@ void W8LockInteraction::AttemptForce()
         ClampInteger(&divisor, 2, 8);
         chance = (character->attributes[W8_ATTRIBUTE_STRENGTH].effective - 0x32) /
                  IntegerPower(2, divisor - 2);
-        if (static_cast<int>(chance) > -1) {
+        if (static_cast<std::int32_t>(chance) > -1) {
             FatigueCharacter(g_status.selected_character, 0x50, false, 0);
-            if (static_cast<int>(Random(100)) < static_cast<int>(chance)) {
+            if (static_cast<std::int32_t>(Random(100)) < static_cast<std::int32_t>(chance)) {
                 wiz8::sound::play(s_lock_forcing_success);
                 ShowString(fmt::format("{} {}", character->name, g_localized_strings[0x7ae]));
                 BeginUnlock();
@@ -1172,7 +1171,7 @@ void W8LockInteraction::AttemptForce()
                 chance = (character->attributes[W8_ATTRIBUTE_STRENGTH].effective - 0x32) /
                          IntegerPower(2, divisor - 2);
             }
-            m_force_button->SetEnabled(static_cast<int>(chance) > -1);
+            m_force_button->SetEnabled(static_cast<std::int32_t>(chance) > -1);
             m_info_panel->RefreshInfo();
             m_action_panel->Invalidate(0);
         }
@@ -1184,15 +1183,15 @@ void W8LockInteraction::AttemptForce()
    backfire, drops a raised one) and animates the tumbler. The control enables
    are then re-derived exactly as RefreshLockInteractionControls does and the
    interaction enters state 7. */
-void W8LockInteraction::ApplyKnockKnock(int level, int /*flag*/, char backfire)
+void W8LockInteraction::ApplyKnockKnock(std::int32_t level, std::int32_t /*flag*/, char backfire)
 {
-    int order[8];
-    int slot;
-    int pins;
-    int i;
-    int pin;
-    unsigned int count;
-    unsigned int chance;
+    std::int32_t order[8];
+    std::int32_t slot;
+    std::int32_t pins;
+    std::int32_t i;
+    std::int32_t pin;
+    std::uint32_t count;
+    std::uint32_t chance;
     bool rolled;
     W8LockTumbler* tumbler;
     W8LockTumblerPanel* panel;
@@ -1200,14 +1199,14 @@ void W8LockInteraction::ApplyKnockKnock(int level, int /*flag*/, char backfire)
     slot = g_status.selected_character;
     count = m_tumbler_count;
     rolled = false;
-    for (i = 0; i < static_cast<int>(count); ++i) {
+    for (i = 0; i < static_cast<std::int32_t>(count); ++i) {
         order[i] = i;
     }
-    for (i = 0; i < static_cast<int>(count); ++i) {
-        unsigned int first = Random(count);
-        unsigned int second = Random(m_tumbler_count);
+    for (i = 0; i < static_cast<std::int32_t>(count); ++i) {
+        std::uint32_t first = Random(count);
+        std::uint32_t second = Random(m_tumbler_count);
         if (first != second) {
-            int swap = order[first];
+            std::int32_t swap = order[first];
             order[first] = order[second];
             order[second] = swap;
         }
@@ -1267,7 +1266,7 @@ void W8LockInteraction::BeginUnlock()
     m_timer.Restart();
 }
 
-void CastSpellAtLockInteraction(unsigned int level, int flag, int backfire)
+void CastSpellAtLockInteraction(std::uint32_t level, std::int32_t flag, std::int32_t backfire)
 {
     if (gXStatus.fTrapInteractMode) {
         AttemptTrapDisarm(level, flag, backfire);
@@ -1280,9 +1279,9 @@ void CastSpellAtLockInteraction(unsigned int level, int flag, int backfire)
     g_lock_interaction->ApplyKnockKnock(level, flag, backfire);
 }
 
-W8MainGameTextKeyHandler::W8MainGameTextKeyHandler(Controls* panel, int left, int top, int right,
-                                                   int bottom, int line_count,
-                                                   const unsigned short* line_string_ids)
+W8MainGameTextKeyHandler::W8MainGameTextKeyHandler(Controls* panel, std::int32_t left, std::int32_t top, std::int32_t right,
+                                                   std::int32_t bottom, std::int32_t line_count,
+                                                   const std::uint16_t* line_string_ids)
     : W8Widget(panel, 0xffffffff, left, top, right - 0x13, bottom),
       m_range(panel->m_bounds.left - 0x12 + right, panel->m_bounds.top + top,
               right + panel->m_bounds.left, panel->m_bounds.top + bottom)
@@ -1303,12 +1302,12 @@ W8MainGameTextKeyHandler::W8MainGameTextKeyHandler(Controls* panel, int left, in
 
 void W8MainGameTextKeyHandler::Redraw(bool full_redraw)
 {
-    int left;
-    int top;
-    int right;
-    int bottom;
-    int line;
-    int last;
+    std::int32_t left;
+    std::int32_t top;
+    std::int32_t right;
+    std::int32_t bottom;
+    std::int32_t line;
+    std::int32_t last;
     Palette16 colour;
 
     if (!m_active) {
@@ -1343,16 +1342,16 @@ void W8MainGameTextKeyHandler::Redraw(bool full_redraw)
     m_dirty = false;
 }
 
-void W8MainGameTextKeyHandler::OnMouseLeave(int event)
+void W8MainGameTextKeyHandler::OnMouseLeave(std::int32_t event)
 {
     m_hover_line = -1;
-    Invalidate(static_cast<unsigned char>(event));
+    Invalidate(static_cast<std::uint8_t>(event));
 }
 
-void W8MainGameTextKeyHandler::OnMouseMove(int)
+void W8MainGameTextKeyHandler::OnMouseMove(std::int32_t)
 {
     SDL_Point point;
-    int line;
+    std::int32_t line;
 
     SGPMouseGetPos(&point);
     line = (point.y - m_pPanel->m_bounds.top - m_top) / 0xe + m_first_visible_line;
@@ -1362,12 +1361,12 @@ void W8MainGameTextKeyHandler::OnMouseMove(int)
     }
 }
 
-void W8MainGameTextKeyHandler::AdjustValue(int steps)
+void W8MainGameTextKeyHandler::AdjustValue(std::int32_t steps)
 {
     m_range.AdjustValue(steps);
 }
 
-void W8MainGameTextKeyHandler::OnLeftButtonUp(int)
+void W8MainGameTextKeyHandler::OnLeftButtonUp(std::int32_t)
 {
     SDL_Point point;
 
@@ -1375,7 +1374,7 @@ void W8MainGameTextKeyHandler::OnLeftButtonUp(int)
     SetSelectedLine((point.y - m_pPanel->m_bounds.top - m_top) / 0xe + m_first_visible_line);
 }
 
-void W8MainGameTextKeyHandler::SetSelectedLine(int line)
+void W8MainGameTextKeyHandler::SetSelectedLine(std::int32_t line)
 {
     if (line == m_selected_line) {
         return;
@@ -1383,7 +1382,7 @@ void W8MainGameTextKeyHandler::SetSelectedLine(int line)
     m_selected_line = line;
     Invalidate(false);
     if (m_selected_line < m_range.m_value || m_selected_line >= m_range.m_value + m_visible_lines) {
-        int first = m_selected_line;
+        std::int32_t first = m_selected_line;
         if (m_selected_line >= m_range.m_value) {
             first = m_selected_line - m_visible_lines + 1;
         }
@@ -1395,9 +1394,9 @@ void W8MainGameTextKeyHandler::SetSelectedLine(int line)
     }
 }
 
-char W8MainGameTextKeyHandler::HandleKey(unsigned short key)
+char W8MainGameTextKeyHandler::HandleKey(std::uint16_t key)
 {
-    int line;
+    std::int32_t line;
 
     switch (key) {
     case 0x26:
@@ -1441,11 +1440,11 @@ void W8MainGameTextKeyHandler::OnRangeChanged(W8RangeControl* control)
     Invalidate(false);
 }
 
-W8MainGameTextEntry::W8MainGameTextEntry(Controls* panel, int index)
+W8MainGameTextEntry::W8MainGameTextEntry(Controls* panel, std::int32_t index)
 {
-    int sprites = index * 4;
-    int left;
-    int top;
+    std::int32_t sprites = index * 4;
+    std::int32_t left;
+    std::int32_t top;
 
     m_input_blocked = false;
     m_image = -1;
@@ -1469,9 +1468,9 @@ W8MainGameTextEntry::W8MainGameTextEntry(Controls* panel, int index)
 void W8MainGameTextEntry::Redraw(bool full_redraw)
 {
     bool dirty = m_dirty;
-    int image;
-    int left;
-    int top;
+    std::int32_t image;
+    std::int32_t left;
+    std::int32_t top;
 
     W8TextControl::Redraw(full_redraw);
     if (!m_active) {
@@ -1501,15 +1500,15 @@ void W8MainGameTextPanel::BeginProgress(std::string_view text, float duration, f
     m_progress_drawn = 0;
     m_timer0.SetDuration(hold);
     m_timer0.Restart();
-    for (int i = 0; i < 8; ++i) {
-        if ((static_cast<unsigned char>(m_entries[i]->m_stateFlags) &
+    for (std::int32_t i = 0; i < 8; ++i) {
+        if ((static_cast<std::uint8_t>(m_entries[i]->m_stateFlags) &
              g_W8TextControlStateSecondary) == 0) {
             m_entries[i]->m_input_blocked = true;
         }
     }
 }
 
-void W8MainGameTextEntry::OnLeftButtonDown(int event)
+void W8MainGameTextEntry::OnLeftButtonDown(std::int32_t event)
 {
     if (m_input_blocked) {
         PushButtonSoundScheme(0, true);
@@ -1518,7 +1517,7 @@ void W8MainGameTextEntry::OnLeftButtonDown(int event)
     W8TextControl::OnLeftButtonDown(event);
 }
 
-void W8MainGameTextEntry::OnLeftButtonUp(int event)
+void W8MainGameTextEntry::OnLeftButtonUp(std::int32_t event)
 {
     if (m_input_blocked) {
         PushButtonSoundScheme(0, true);
@@ -1527,7 +1526,7 @@ void W8MainGameTextEntry::OnLeftButtonUp(int event)
     W8TextControl::OnLeftButtonUp(event);
 }
 
-void W8MainGameTextEntry::OnMouseEnter(int event)
+void W8MainGameTextEntry::OnMouseEnter(std::int32_t event)
 {
     if (m_input_blocked) {
         PushButtonSoundScheme(0, true);
@@ -1540,7 +1539,7 @@ W8MainGameTextPanel::W8MainGameTextPanel()
     : Controls(0xd3, 0x166, 0, 0, CatalogArtwork::Load(0x1b1, 0), 1), m_selection(0), m_screen(0), m_values(0),
       m_progress_display(0), m_timer1(0.04f, 0)
 {
-    int index;
+    std::int32_t index;
 
     m_marker_anim_time = 0;
     m_target_changed = false;
@@ -1564,7 +1563,7 @@ W8MainGameTextPanel::W8MainGameTextPanel()
     SetEnabled(true);
     Invalidate(0);
     for (index = 0; index < 8; ++index) {
-        if ((static_cast<unsigned char>(m_entries[index]->m_stateFlags) &
+        if ((static_cast<std::uint8_t>(m_entries[index]->m_stateFlags) &
              g_W8TextControlStateSecondary) == 0) {
             m_entries[index]->SetEnabled(GetTable650434Entry(m_selection, index) != 0);
             m_entries[index]->Invalidate(false);
@@ -1590,7 +1589,7 @@ W8MainGameTextPanel::~W8MainGameTextPanel()
 void W8MainGameTextPanel::Redraw()
 {
     SDL_Rect clip;
-    int progress;
+    std::int32_t progress;
 
     if (m_fDirty) {
         m_target_marker_pending = true;
@@ -1601,7 +1600,7 @@ void W8MainGameTextPanel::Redraw()
         return;
     }
     if (m_progress_display) {
-        progress = static_cast<int>(m_progress_elapsed * g_text_panel_progress_scale);
+        progress = static_cast<std::int32_t>(m_progress_elapsed * g_text_panel_progress_scale);
         if (progress > m_progress_drawn) {
             m_progress_drawn = progress;
             InvalidateRegion(m_text_bounds.left, m_text_bounds.top, m_text_bounds.right,
@@ -1615,7 +1614,7 @@ void W8MainGameTextPanel::Redraw()
         }
     }
     if (m_fEnabled && m_target_changed && m_target_marker_pending) {
-        int frame = m_marker_anim_time % 12;
+        std::int32_t frame = m_marker_anim_time % 12;
         if (frame >= 7) {
             frame = 12 - frame;
         }
@@ -1626,7 +1625,7 @@ void W8MainGameTextPanel::Redraw()
 
 void W8MainGameTextPanel::OnPrimary(W8TextControl* control)
 {
-    int index;
+    std::int32_t index;
 
     for (index = 0; index < 8; ++index) {
         if (control == m_entries[index]) {
@@ -1641,14 +1640,14 @@ void W8MainGameTextPanel::OnPrimary(W8TextControl* control)
 
 void W8MainGameTextPanel::OnRangeChanged(W8RangeControl* control)
 {
-    int column;
-    int* values;
-    int selection = m_key_handler->m_selected_line;
+    std::int32_t column;
+    std::int32_t* values;
+    std::int32_t selection = m_key_handler->m_selected_line;
 
     (void)control;
     m_selection = selection;
     for (column = 0; column < 8; ++column) {
-        if ((static_cast<unsigned char>(m_entries[column]->m_stateFlags) &
+        if ((static_cast<std::uint8_t>(m_entries[column]->m_stateFlags) &
              g_W8TextControlStateSecondary) == 0) {
             m_entries[column]->SetEnabled(GetTable650434Entry(selection, column) != 0);
             m_entries[column]->Invalidate(false);
@@ -1706,10 +1705,10 @@ W8MainGameStatusPanel::W8MainGameStatusPanel()
 void W8MainGameStatusPanel::RefreshStatusTexts()
 {
     W8Character* character = &g_status.buffers.Char[g_status.selected_character];
-    int level = GetPartySlotLocksTrapsLevel(g_status.selected_character);
-    unsigned int book;
-    unsigned int realm;
-    unsigned int figure;
+    std::int32_t level = GetPartySlotLocksTrapsLevel(g_status.selected_character);
+    std::uint32_t book;
+    std::uint32_t realm;
+    std::uint32_t figure;
 
     m_text->SetText(character->name, g_wiz_text_font_secondary);
     if (level >= 0) {
@@ -1728,7 +1727,7 @@ void W8MainGameStatusPanel::RefreshStatusTexts()
     } else {
         W8Skill book_skill =
             GetBestSpellbookSkillForSpell(character, W8_SPELL_KNOCK_KNOCK, true, false, 7);
-        realm = character->skills[static_cast<int>(W8_SKILL_FIRE_MAGIC) + g_spell_records[W8_SPELL_KNOCK_KNOCK].realm]
+        realm = character->skills[static_cast<std::int32_t>(W8_SKILL_FIRE_MAGIC) + g_spell_records[W8_SPELL_KNOCK_KNOCK].realm]
                     .level;
         book = character->skills[book_skill].level;
         m_text3->SetFontStateIndex(-1);
@@ -1739,7 +1738,7 @@ void W8MainGameStatusPanel::RefreshStatusTexts()
             GetBestSpellbookSkillForSpell(character, W8_SPELL_DIVINE_TRAP, true, false, 7);
         figure = GetSpellCastingSkillLevel(character, figure_skill,
                                            g_spell_records[W8_SPELL_DIVINE_TRAP].realm);
-        if (static_cast<int>(figure) >= 0) {
+        if (static_cast<std::int32_t>(figure) >= 0) {
             m_text5->SetFontStateIndex(-1);
             m_text5->SetText(fmt::format("{:d}%", figure), g_wiz_text_font_secondary);
             m_text0->SetGeometryDirty();
@@ -1757,7 +1756,7 @@ void W8MainGameStatusPanel::RefreshStatusTexts()
     Invalidate(0);
 }
 
-int GetPartySlotLocksTrapsLevel(int slot)
+std::int32_t GetPartySlotLocksTrapsLevel(std::int32_t slot)
 {
     W8Character* character;
 
@@ -1769,7 +1768,7 @@ int GetPartySlotLocksTrapsLevel(int slot)
         character->skills[W8_SKILL_LOCKS_TRAPS].level == 0) {
         return -1;
     }
-    return static_cast<int>(character->skills[W8_SKILL_LOCKS_TRAPS].level);
+    return static_cast<std::int32_t>(character->skills[W8_SKILL_LOCKS_TRAPS].level);
 }
 
 void W8MainGameStatusPanel::Redraw()
@@ -1817,19 +1816,19 @@ W8MainGameScreen::W8MainGameScreen(Trigger* owner)
     m_action_panel->EnableRegionSet(true);
     m_action_panel->SetEnabled(true);
     m_action_panel->Invalidate(0);
-    for (int i = 0; i < 8; ++i) {
+    for (std::int32_t i = 0; i < 8; ++i) {
         m_column_filled[i] = 0;
         m_slot_attempted[i] = 0;
     }
     RefreshActionPanel();
 }
 
-void W8MainGameScreen::SelectTextEntry(int index)
+void W8MainGameScreen::SelectTextEntry(std::int32_t index)
 {
-    int slot = g_status.selected_character;
-    int skill;
-    int chance;
-    int roll;
+    std::int32_t slot = g_status.selected_character;
+    std::int32_t skill;
+    std::int32_t chance;
+    std::int32_t roll;
     float hold;
     float duration;
 
@@ -1855,7 +1854,7 @@ void W8MainGameScreen::SelectTextEntry(int index)
         m_disarm_state = 4;
         duration = (Random(0x18) + 0x32) * g_movement_speed_step;
     } else {
-        roll = static_cast<int>(Random(0x64));
+        roll = static_cast<std::int32_t>(Random(0x64));
         if (roll < (chance * chance) / 100) {
             m_column_filled[index] = 1;
             m_disarm_state = 2;
@@ -1874,10 +1873,10 @@ void W8MainGameScreen::SelectTextEntry(int index)
     m_sound_handle = wiz8::sound::play(g_trap_sounds[index]);
 }
 
-int W8MainGameScreen::GetTrapInteractionChance() const
+std::int32_t W8MainGameScreen::GetTrapInteractionChance() const
 {
-    int chance;
-    int skill;
+    std::int32_t chance;
+    std::int32_t skill;
 
     chance = m_difficulty;
     if (chance < 0) {
@@ -1899,10 +1898,10 @@ int W8MainGameScreen::GetTrapInteractionChance() const
 
 void W8MainGameScreen::OnPrimary(W8TextControl* control)
 {
-    int slot;
-    int skill;
-    int chance;
-    int roll;
+    std::int32_t slot;
+    std::int32_t skill;
+    std::int32_t chance;
+    std::int32_t roll;
     float hold;
     float duration;
 
@@ -1929,7 +1928,7 @@ void W8MainGameScreen::OnPrimary(W8TextControl* control)
     skill = GetPartySlotLocksTrapsLevel(slot);
     hold = g_float_six - skill * g_camera_snap_epsilon;
     chance = GetTrapInteractionChance();
-    roll = static_cast<int>(Random(0x64));
+    roll = static_cast<std::int32_t>(Random(0x64));
     if (roll < chance) {
         m_disarm_state = 1;
         duration = 1.0f;
@@ -1949,8 +1948,8 @@ void W8MainGameScreen::OnPrimary(W8TextControl* control)
 void W8MainGameScreen::Update()
 {
     W8MainGameTextPanel* panel;
-    int column;
-    int elapsed;
+    std::int32_t column;
+    std::int32_t elapsed;
     float progress;
 
     if (m_disarm_state == 9 && m_timer.GetProgress() >= g_float_one &&
@@ -1965,7 +1964,7 @@ void W8MainGameScreen::Update()
 
     panel = m_text_panel.get();
     if (panel->m_target_changed) {
-        elapsed = static_cast<int>(panel->m_timer1.GetProgress());
+        elapsed = static_cast<std::int32_t>(panel->m_timer1.GetProgress());
         if (elapsed != 0) {
             panel->m_marker_anim_time += elapsed;
             panel->m_target_marker_pending = true;
@@ -1982,7 +1981,7 @@ void W8MainGameScreen::Update()
         panel->m_progress_display = false;
         panel->Invalidate(0);
         for (column = 0; column < 8; ++column) {
-            if ((static_cast<unsigned char>(panel->m_entries[column]->m_stateFlags) &
+            if ((static_cast<std::uint8_t>(panel->m_entries[column]->m_stateFlags) &
                  g_W8TextControlStateSecondary) == 0) {
                 panel->m_entries[column]->m_input_blocked = false;
             }
@@ -2047,17 +2046,17 @@ void W8MainGameScreen::Update()
 
 void W8MainGameScreen::RefreshActionPanel()
 {
-    int slot = g_status.selected_character;
-    int skill = GetPartySlotLocksTrapsLevel(slot);
+    std::int32_t slot = g_status.selected_character;
+    std::int32_t skill = GetPartySlotLocksTrapsLevel(slot);
     W8Character* character = &g_status.buffers.Char[slot];
-    int can_cast;
-    int column;
-    int* values;
-    int i;
+    std::int32_t can_cast;
+    std::int32_t column;
+    std::int32_t* values;
+    std::int32_t i;
 
     m_action_controls[4]->SetEnabled(skill >= 0);
     for (i = 0; i < 8; ++i) {
-        if ((static_cast<unsigned char>(m_text_panel->m_entries[i]->m_stateFlags) &
+        if ((static_cast<std::uint8_t>(m_text_panel->m_entries[i]->m_stateFlags) &
              g_W8TextControlStateSecondary) == 0) {
             m_text_panel->m_entries[i]->m_input_blocked = skill < 0;
         }
@@ -2119,10 +2118,10 @@ void EnableTrapInteractionPanelRegions(void)
 
 void W8MainGameScreen::ApplyInspectSuccess()
 {
-    int chance;
-    int column;
-    int* values;
-    int roll;
+    std::int32_t chance;
+    std::int32_t column;
+    std::int32_t* values;
+    std::int32_t roll;
 
     m_sound_handle = nullptr;
     PracticeCharacterSkill(&g_status.buffers.Char[m_selected_character], W8_SKILL_LOCKS_TRAPS, 1,
@@ -2130,7 +2129,7 @@ void W8MainGameScreen::ApplyInspectSuccess()
     RefreshActionPanel();
     chance = GetTrapInteractionChance();
     for (column = 0; column < 8; ++column) {
-        roll = static_cast<int>(Random(0x64));
+        roll = static_cast<std::int32_t>(Random(0x64));
         if (roll < chance) {
             m_slot_columns[m_selected_character][column] = GetTable650434Entry(m_device_id, column);
         } else {
@@ -2171,18 +2170,18 @@ static void BeginTrapTargetAction()
 
 void W8MainGameScreen::CastTrapSpell()
 {
-    int slot = g_status.selected_character;
+    std::int32_t slot = g_status.selected_character;
     W8Character* character = &g_status.buffers.Char[slot];
     W8Skill book;
-    unsigned int figure;
-    int spell;
+    std::uint32_t figure;
+    std::int32_t spell;
     bool ready = false;
 
     if (IsPartySlotEligible(slot) && character->spell_learned[0x27] == 1) {
         book = GetBestSpellbookSkillForSpell(character, W8_SPELL_KNOCK_KNOCK, true, false, 7);
         figure =
             GetSpellCastingSkillLevel(character, book, g_spell_records[W8_SPELL_KNOCK_KNOCK].realm);
-        if (static_cast<int>(figure) >= 0) {
+        if (static_cast<std::int32_t>(figure) >= 0) {
             ready = true;
         }
     }
@@ -2194,7 +2193,7 @@ void W8MainGameScreen::CastTrapSpell()
         book = GetBestSpellbookSkillForSpell(character, W8_SPELL_DIVINE_TRAP, true, false, 7);
         figure =
             GetSpellCastingSkillLevel(character, book, g_spell_records[W8_SPELL_DIVINE_TRAP].realm);
-        if (static_cast<int>(figure) < 0) {
+        if (static_cast<std::int32_t>(figure) < 0) {
             return;
         }
     }
@@ -2219,28 +2218,28 @@ void W8MainGameScreen::UseTrapItem()
 /* Open the trap interaction over a trigger, or re-raise its panels while one
    is suspended; a trigger in state 9 is already open. Outside those paths a
    random party member eats the detection event and the detect sound plays. */
-int OpenTrapInteraction(Trigger* trigger)
+bool OpenTrapInteraction(Trigger* trigger)
 {
     W8MainGameScreen* screen;
     W8MainGameTextPanel* panel;
     W8MainUiMode mode;
-    unsigned int event_type;
+    std::uint32_t event_type;
 
     if (gXStatus.fLockInteractMode || gXStatus.fLockInteract) {
-        return 0;
+        return false;
     }
     if (gXStatus.fTrapInteractMode || (gXStatus.fTrapInteract && trigger != 0)) {
         if (g_main_game_screen != 0 && g_main_game_screen->m_disarm_state == 9) {
-            return 1;
+            return true;
         }
         QueueInteractionNotice(g_trap_notice_event);
         wiz8::sound::play(s_trap_detect);
-        return 1;
+        return true;
     }
     if (gXStatus.fCombatMode) {
         QueueInteractionNotice(g_trap_notice_event);
         wiz8::sound::play(s_trap_detect);
-        return 1;
+        return true;
     }
     gXStatus.fTrapInteractMode = true;
     if (g_level_block->combat_end_notification != -1) {
@@ -2266,14 +2265,14 @@ int OpenTrapInteraction(Trigger* trigger)
         screen->m_action_panel->Invalidate(0);
         g_main_game_screen->RefreshActionPanel();
         gXStatus.fTrapInteract = false;
-        return 1;
+        return true;
     }
     if (trigger->lock_state.device_id == -1) {
         SelectTrapType(trigger);
     }
     g_main_game_screen = std::make_unique<W8MainGameScreen>(trigger);
     if (trigger->lock_state.last_interaction_clock == -1 ||
-        0x3840 < static_cast<unsigned int>(g_status.world_clock -
+        0x3840 < static_cast<std::uint32_t>(g_status.world_clock -
                                            trigger->lock_state.last_interaction_clock)) {
         event_type = g_effect15;
         if (0x13 < Random(100)) {
@@ -2284,7 +2283,7 @@ int OpenTrapInteraction(Trigger* trigger)
     trigger->lock_state.last_interaction_clock = g_status.world_clock;
     wiz8::sound::play(s_trap_detect);
     gXStatus.fTrapInteract = false;
-    return 1;
+    return true;
 }
 
 void UpdateMainGameScreen(void)
@@ -2331,18 +2330,18 @@ void RefreshMainGameActionPanel(void)
     g_main_game_screen->RefreshActionPanel();
 }
 
-W8NpcDialogueTextController::W8NpcDialogueTextController(int panel_left, int panel_top,
-                                                         int panel_right, int panel_bottom,
+W8NpcDialogueTextController::W8NpcDialogueTextController(std::int32_t panel_left, std::int32_t panel_top,
+                                                         std::int32_t panel_right, std::int32_t panel_bottom,
                                                          CatalogArtwork artwork,
-                                                         int background_image, int margin_image_id,
-                                                         int line_image_id)
+                                                         std::int32_t background_image, std::int32_t margin_image_id,
+                                                         std::int32_t line_image_id)
     : Controls(panel_left, panel_top, panel_right, panel_bottom, std::move(artwork),
                background_image),
       text_area()
 {
     W8ControlsRect bounds;
-    short width;
-    short height;
+    std::int16_t width;
+    std::int16_t height;
 
     margin_image = margin_image_id;
     line_image = line_image_id;
@@ -2373,8 +2372,8 @@ void W8NpcDialogueTextController::Redraw()
 {
     bool was_dirty;
     bool force;
-    int height;
-    int top;
+    std::int32_t height;
+    std::int32_t top;
 
     was_dirty = m_fDirty;
     if (m_fEnabled) {
@@ -2409,15 +2408,15 @@ void W8NpcDialogueTextController::Redraw()
     }
 }
 
-unsigned char W8NpcDialogueTextController::AddTranscriptEntry(std::string_view text,
-                                                              signed char category, char mark)
+bool W8NpcDialogueTextController::AddTranscriptEntry(std::string_view text,
+                                                              std::int8_t category, char mark)
 {
-    int index;
-    int added;
+    std::int32_t index;
+    std::int32_t added;
 
-    for (index = 0; index < static_cast<int>(text_area.m_all_lines.size()); ++index) {
+    for (index = 0; index < static_cast<std::int32_t>(text_area.m_all_lines.size()); ++index) {
         if (CompareTextIgnoreAsciiCase(*text_area.GetEntryText(index), text) == 0) {
-            return 0;
+            return false;
         }
     }
     added = text_area.AddEntry({}, text, 0, 7, category);
@@ -2425,8 +2424,8 @@ unsigned char W8NpcDialogueTextController::AddTranscriptEntry(std::string_view t
     if (mark != 0) {
         text_area.SetEntryMarked(added, true);
     }
-    if (1u < static_cast<int>((unsigned)text_area.m_all_lines.size())) {
-        for (index = 0; index < static_cast<int>(text_area.m_all_lines.size()); ++index) {
+    if (1u < static_cast<std::int32_t>((std::uint32_t)text_area.m_all_lines.size())) {
+        for (index = 0; index < static_cast<std::int32_t>(text_area.m_all_lines.size()); ++index) {
             if (CompareTextIgnoreAsciiCase(*text_area.GetEntryText(index), " [No Keywords]") == 0) {
                 text_area.RemoveEntry(index);
                 Invalidate(0);
@@ -2434,12 +2433,12 @@ unsigned char W8NpcDialogueTextController::AddTranscriptEntry(std::string_view t
             }
         }
     }
-    return 1;
+    return true;
 }
 
-bool W8NpcDialogueTextController::IsSlotPortraitTranscriptCovered(unsigned int party_slot)
+bool W8NpcDialogueTextController::IsSlotPortraitTranscriptCovered(std::uint32_t party_slot)
 {
-    int top;
+    std::int32_t top;
 
     if (visible == 1) {
         top = ((1 - scroll_height / line_height) * line_height - margin) + m_bounds.top;
@@ -2469,7 +2468,7 @@ bool W8NpcDialogueTextController::IsSlotPortraitTranscriptCovered(unsigned int p
 void W8NpcDialogueTextController::Collapse()
 {
     W8ControlsRect bounds;
-    int top;
+    std::int32_t top;
 
     visible = 0;
     top = (m_bounds.top - (scroll_height / line_height) * line_height) - margin;
@@ -2507,8 +2506,8 @@ void W8NpcDialogueTextController::Collapse()
 void W8NpcDialogueTextController::Expand()
 {
     W8ControlsRect bounds;
-    int line_height;
-    int text_height;
+    std::int32_t line_height;
+    std::int32_t text_height;
 
     visible = 1;
     line_height = text_area.GetLineHeight();
@@ -2528,9 +2527,9 @@ void W8NpcDialogueTextController::Expand()
         text_area.SetFirstVisibleEntry(0);
     }
     SetRegionBounds(
-        g_main_dialogue->index(0), static_cast<unsigned short>(bounds.left),
-        static_cast<unsigned short>(bounds.top),
-        static_cast<unsigned short>(bounds.right), static_cast<unsigned short>(bounds.bottom));
+        g_main_dialogue->index(0), static_cast<std::uint16_t>(bounds.left),
+        static_cast<std::uint16_t>(bounds.top),
+        static_cast<std::uint16_t>(bounds.right), static_cast<std::uint16_t>(bounds.bottom));
     g_main_dialogue.Enable();
     EnableRegionInput(g_main_dialogue->index(0));
     Invalidate(0);
@@ -2538,7 +2537,7 @@ void W8NpcDialogueTextController::Expand()
 
 void W8NpcDialogueTextController::ClearBackground()
 {
-    int top;
+    std::int32_t top;
 
     top = ((1 - scroll_height / line_height) * line_height - margin) + m_bounds.top;
     ClearSurfaceRect(m_bounds.left, top, m_bounds.right, m_bounds.bottom);
@@ -2572,14 +2571,14 @@ bool W8NpcDialogueTextController::IsExpanded()
 /* Standalone JMP thunk onto W8Widget::~W8Widget; the vtable slot of
    W8NpcDialogueScrollWidget reaches it. */
 
-W8NpcDialogueScrollWidget::W8NpcDialogueScrollWidget(Controls* panel, unsigned int region, int left,
-                                                     int top, int right, int bottom)
+W8NpcDialogueScrollWidget::W8NpcDialogueScrollWidget(Controls* panel, std::uint32_t region, std::int32_t left,
+                                                     std::int32_t top, std::int32_t right, std::int32_t bottom)
     : W8Widget(panel, region, left, top, right, bottom)
 {
     m_flags = 0;
 }
 
-void W8NpcDialogueScrollWidget::OnMouseEnter(int event)
+void W8NpcDialogueScrollWidget::OnMouseEnter(std::int32_t event)
 {
     W8NpcDialogueTextController* controller;
 
@@ -2590,7 +2589,7 @@ void W8NpcDialogueScrollWidget::OnMouseEnter(int event)
     }
 }
 
-void W8NpcDialogueScrollWidget::OnMouseLeave(int event)
+void W8NpcDialogueScrollWidget::OnMouseLeave(std::int32_t event)
 {
     W8NpcDialogueTextController* controller;
 
@@ -2601,7 +2600,7 @@ void W8NpcDialogueScrollWidget::OnMouseLeave(int event)
     }
 }
 
-void W8NpcDialogueScrollWidget::OnLeftButtonDown(int event)
+void W8NpcDialogueScrollWidget::OnLeftButtonDown(std::int32_t event)
 {
     if (m_active && m_enabled) {
         m_flags |= 1;
@@ -2611,7 +2610,7 @@ void W8NpcDialogueScrollWidget::OnLeftButtonDown(int event)
     }
 }
 
-void W8NpcDialogueScrollWidget::OnLeftButtonUp(int event)
+void W8NpcDialogueScrollWidget::OnLeftButtonUp(std::int32_t event)
 {
     if (m_active && m_enabled && (m_flags & 1)) {
         m_flags &= ~1u;
@@ -2621,7 +2620,7 @@ void W8NpcDialogueScrollWidget::OnLeftButtonUp(int event)
     }
 }
 
-void W8NpcDialogueTextController::SetTranscriptCategoryFilter(signed char category)
+void W8NpcDialogueTextController::SetTranscriptCategoryFilter(std::int8_t category)
 {
     text_area.SetCategoryFilter(category);
     Collapse();
@@ -2633,9 +2632,9 @@ void W8NpcDialogueTextController::RestoreTranscriptEntries()
 {
     W8DialogueTranscriptRecord* record;
     W8NpcDialogueTextController* controller;
-    int index;
+    std::int32_t index;
 
-    for (index = 0; index < static_cast<int>(g_npc_interaction_state->dialogue_transcript.size());
+    for (index = 0; index < static_cast<std::int32_t>(g_npc_interaction_state->dialogue_transcript.size());
          ++index) {
         record = g_npc_interaction_state->dialogue_transcript[index].get();
         AddTranscriptEntry(record->text, record->category, 0);
@@ -2663,13 +2662,13 @@ void RefreshFlaggedMainGameState(void)
    first eight entries are the portrait-slot columns (zero base rects, scaled
    by portrait_hover_x_origin and shifted by portrait_refresh_image). */
 struct W8MainGameInvalidateRect {
-    int left;
-    int top;
-    int right;
-    int bottom;
-    int x_scale;
-    int apply_y_offset;
-    unsigned int refresh_image_index;
+    std::int32_t left;
+    std::int32_t top;
+    std::int32_t right;
+    std::int32_t bottom;
+    std::int32_t x_scale;
+    std::int32_t apply_y_offset;
+    std::uint32_t refresh_image_index;
 };
 
 extern W8MainGameInvalidateRect g_main_game_invalidate_rects[23];
@@ -2677,7 +2676,7 @@ extern W8MainGameInvalidateRect g_main_game_invalidate_rects[23];
 /* Reset the owned Main Game state and its coupled UI/selection state. */
 void ResetMainGameScreenState(void)
 {
-    int unset;
+    std::int32_t unset;
 
     if (g_level_block) {
         *g_level_block = W8LevelRuntimeBlock{};
@@ -2693,10 +2692,10 @@ void ResetMainGameScreenState(void)
         gXStatus.world_update_blocked = false;
         gXStatus.world_paused = false;
         unset = -1;
-        gXStatus.review_character_slot = static_cast<unsigned short>(unset);
+        gXStatus.review_character_slot = static_cast<std::uint16_t>(unset);
         gXStatus.held_item_source = unset;
-        gXStatus.held_item_origin = static_cast<unsigned char>(unset);
-        gXStatus.held_item_slot = static_cast<unsigned short>(unset);
+        gXStatus.held_item_origin = static_cast<std::uint8_t>(unset);
+        gXStatus.held_item_slot = static_cast<std::uint16_t>(unset);
         gXStatus.gameplay_timer->Restart();
         gXStatus.assay_professions_tab = true;
         ClearItemDrag();
@@ -2887,9 +2886,9 @@ static constexpr std::array<RegionTemplate, 26> g_main_effect_templates{{
 // Retail sets 0x07-0x0e (one per party slot) and 0x11.
 void CreateMainGameRegionViews()
 {
-    for (unsigned int slot = 0; slot < 8; ++slot) {
+    for (std::uint32_t slot = 0; slot < 8; ++slot) {
         g_main_portrait_slot_views[slot].emplace(*g_main_portrait_regions, slot * 6, 6,
-                                                 0x07 + static_cast<int>(slot));
+                                                 0x07 + static_cast<std::int32_t>(slot));
     }
     g_main_portrait_edge_view.emplace(*g_main_portrait_edge_regions, 0, 8, 0x11);
 }
@@ -2912,13 +2911,13 @@ ScreenRegionSet g_main_formation_board_regions{g_main_formation_board_templates,
 ScreenRegionSet g_main_submenu_regions{g_main_submenu_templates, 0x27};
 ScreenRegionSet g_main_effect_regions{g_main_effect_templates, 0x28};
 
-void EnableMainGamePortraitSlot(unsigned int slot) {
+void EnableMainGamePortraitSlot(std::uint32_t slot) {
     if (slot < g_main_portrait_slot_views.size() && g_main_portrait_slot_views[slot]) {
         g_main_portrait_slot_views[slot]->Enable();
         EnableRegionSetInput(g_main_portrait_slot_views[slot]->set());
     }
 }
-void DisableMainGamePortraitSlot(unsigned int slot) {
+void DisableMainGamePortraitSlot(std::uint32_t slot) {
     if (slot < g_main_portrait_slot_views.size() && g_main_portrait_slot_views[slot]) {
         g_main_portrait_slot_views[slot]->Disable();
         DisableRegionSetInput(g_main_portrait_slot_views[slot]->set());
@@ -2926,9 +2925,9 @@ void DisableMainGamePortraitSlot(unsigned int slot) {
 }
 
 /* Enter the live game screen, constructing its owned native state on first entry. */
-unsigned char MainGameScreenEnter(void)
+bool MainGameScreenEnter(void)
 {
-    int display_mode;
+    std::int32_t display_mode;
     W8Difficulty difficulty = g_status.difficulty;
 
     if (!g_level_block) {
@@ -3036,7 +3035,7 @@ unsigned char MainGameScreenEnter(void)
     if (!gXStatus.fCombatMode) {
         StartLevelMusic(1, 1);
     }
-    return 1;
+    return true;
 }
 
 /* While the party is idle, arm a one-minute countdown after input and, once the
@@ -3068,7 +3067,7 @@ void BeginLevelTransition(void)
     SetPendingScreenState(W8_SCREEN_PLEASE_WAIT);
 }
 
-void TickAmbientFollowUpIdle(unsigned char input_handled)
+void TickAmbientFollowUpIdle(bool input_handled)
 {
     if (!gXStatus.fCombatMode && !gXStatus.fSpellCastMode && !gXStatus.fItemSelectMode &&
         !gXStatus.fNpcDialogueMode && !gXStatus.fLockInteractMode && !gXStatus.fTrapInteractMode &&
@@ -3125,7 +3124,7 @@ void SetMainGameMode(W8MainGameMode mode)
     g_main_game_mode = mode;
 }
 
-unsigned char ProcessMainGameInput(void)
+bool ProcessMainGameInput(void)
 {
     SDL_Point mouse;
     SGPMouseGetPos(&mouse);
@@ -3149,7 +3148,7 @@ unsigned char ProcessMainGameInput(void)
                 if (HandleDialogueTextInput(&input) == 0 &&
                     HandleMainGameInputEvent(&input) == 0) {
                     ResetMainGameMode();
-                    return 1;
+                    return true;
                 }
                 break;
             }
@@ -3179,7 +3178,7 @@ void MainGameScreenFrame(void)
         for (; g_next_link_level < W8_LEVEL_COUNT; ++g_next_link_level) {
             if (LevelBuildInfoByID(g_next_link_level, &info)) {
                 if (g_next_link_level < W8_LEVEL_COUNT) {
-                    int level = g_next_link_level++;
+                    std::int32_t level = g_next_link_level++;
                     RequestLevelTransition(level, -1, 0);
                     goto update_screen;
                 }
@@ -3210,7 +3209,7 @@ update_screen:
         BeginPartyDeath();
     }
     if (gXStatus.review_character_slot != 0xffff) {
-        UpdateNpcPartyMember(static_cast<short>(gXStatus.review_character_slot));
+        UpdateNpcPartyMember(static_cast<std::int16_t>(gXStatus.review_character_slot));
         gXStatus.review_character_slot = 0xffff;
     }
     if (gXStatus.dialogue_sync_pending) {
@@ -3256,7 +3255,7 @@ update_screen:
     }
     UpdateSurpriseMode();
     if (gXStatus.fCombatMode) {
-        for (int slot = 0; slot < 8; ++slot) {
+        for (std::int32_t slot = 0; slot < 8; ++slot) {
             if (!g_status.buffers.XChar[slot].fOccupied ||
                 g_status.buffers.Char[slot].highest_condition > W8_CONDITION_UNCONSCIOUS ||
                 (g_level_block->keyboard_menu_open && g_level_block->combat_slot == slot)) {
@@ -3288,12 +3287,12 @@ update_screen:
                 g_level_block->hover_region = UpdateRegionMousePosition(point.x, point.y);
             } else {
                 g_level_block->hover_region = FindRegionAtPoint(
-                    static_cast<unsigned short>(point.x), static_cast<unsigned short>(point.y));
+                    static_cast<std::uint16_t>(point.x), static_cast<std::uint16_t>(point.y));
             }
         } else {
-            g_level_block->hover_region = FindRegionAtPoint(static_cast<unsigned short>(point.x),
-                                                            static_cast<unsigned short>(point.y));
-            for (int portrait = 0; portrait < 8; ++portrait) {
+            g_level_block->hover_region = FindRegionAtPoint(static_cast<std::uint16_t>(point.x),
+                                                            static_cast<std::uint16_t>(point.y));
+            for (std::int32_t portrait = 0; portrait < 8; ++portrait) {
                 if (g_status.buffers.XChar[portrait].fOccupied &&
                     (g_level_block->hover_region ==
                          g_main_portrait_regions->index(portrait * 6 + kPortraitWorldRegionOffset) ||
@@ -3364,7 +3363,7 @@ render_world:
             !g_mouselook_active) {
             ++gXStatus.current_cursor_frame;
             if (gXStatus.current_cursor_frame ==
-                static_cast<int>(g_main_game_resource_slots[gXStatus.iCurrentCursor].frame_count)) {
+                static_cast<std::int32_t>(g_main_game_resource_slots[gXStatus.iCurrentCursor].frame_count)) {
                 gXStatus.current_cursor_frame = 0;
             }
             ApplyCurrentCursor();
@@ -3374,9 +3373,9 @@ render_world:
             W8Monster* monster = GetMonsterByLocationID(g_mipe_state->SelectedMonsterLocationId());
             if (monster) {
                 ClearSurfaceRect(0x122, 0x159, 0x226, 0x168);
-                unsigned char frame = monster->m_pRep->subcycle;
+                std::uint8_t frame = monster->m_pRep->subcycle;
                 const char* cycle = g_cycle_names[monster->Query(W8_MONSTER_QUERY_CYCLE)].name;
-                unsigned char subcycles = static_cast<unsigned char>(monster->GetNumSubCycles());
+                std::uint8_t subcycles = static_cast<std::uint8_t>(monster->GetNumSubCycles());
                 DrawTextAndInvalidate(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x122, 0x159}, fmt::format("{:2d}/{:2d} {}", frame, subcycles, cycle));
             }
         }
@@ -3445,7 +3444,7 @@ render_world:
             ProcessLockInteractMode();
         if (gXStatus.fTrapInteractMode)
             UpdateMainGameScreen();
-        int active;
+        std::int32_t active;
         if (!AnyPropTriggerInView(g_world) && !AnyMonsterVisible() && !AnyWorldItemVisible() &&
             !AnyMonsterGeneratorMarkerWithinReach() && !SelectWorldCursorNode()) {
             active = 0;
@@ -3458,7 +3457,7 @@ render_world:
             RefreshLevelUpReadyNotices();
         }
         if (g_status.selected_character == -1) {
-            int next = GetNextCharacter(1, 1, -1);
+            std::int32_t next = GetNextCharacter(1, 1, -1);
             if (next == -1) {
                 srAssertFail("iNextChar != BAD_INDEX",
                              __FILE__, 0x1047,
@@ -3472,9 +3471,9 @@ render_world:
 
 /* Suspension retains the allocation and resource strip. A full leave also
    unloads the level and releases the per-screen block. */
-unsigned char MainGameScreenLeave(int leaving)
+bool MainGameScreenLeave(std::int32_t leaving)
 {
-    int index;
+    std::int32_t index;
 
     SetMainGameMode(W8_MAIN_GAME_DEFAULT);
 
@@ -3513,7 +3512,7 @@ unsigned char MainGameScreenLeave(int leaving)
             gXStatus.gameplay_timer->GetTime() - gXStatus.gameplay_timer->m_start;
     }
 
-    if (static_cast<unsigned char>(leaving)) {
+    if (static_cast<std::uint8_t>(leaving)) {
         for (index = 0; index < 17; ++index) {
             g_main_game_resource_slots[index].object.reset();
         }
@@ -3527,11 +3526,11 @@ unsigned char MainGameScreenLeave(int leaving)
 
     CloseMainGameOverlays();
 
-    if (static_cast<unsigned char>(leaving)) {
+    if (static_cast<std::uint8_t>(leaving)) {
         if (g_status.current_level != -1) {
             UnloadSkyWorld();
             if (!UnloadLevel("")) {
-                return 0;
+                return false;
             }
         }
         if (gXStatus.fPartyMovementUi) {
@@ -3572,7 +3571,7 @@ unsigned char MainGameScreenLeave(int leaving)
     DisableSky();
     DestroyMainGameInterfaceButtons();
     DestroySpellIconHudControls();
-    return 1;
+    return true;
 }
 
 /* The "leave the current game" confirmation callback: on accept it tears
@@ -3601,7 +3600,7 @@ void OnQuitGameDialogClosed(W8DialogBase* dialog)
 /* Ask for part of the screen to be redrawn. A request made while another
    screen is up, or before the level block exists, is dropped rather than
    queued - which is what makes the block the only place redraw state lives. */
-void RequestRedraw(unsigned int mask)
+void RequestRedraw(std::uint32_t mask)
 {
     if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME && g_level_block != 0) {
         g_level_block->redraw_flags |= mask;
@@ -3613,14 +3612,14 @@ void RequestRedraw(unsigned int mask)
    chrome panels the current UI mode owns, and repaint any dirty party slots. */
 void ApplyMainGameRedrawFlags(void)
 {
-    unsigned int redraw_flags;
+    std::uint32_t redraw_flags;
     bool keyboard_menu_invalidate;
-    int party_slot;
-    int text_box_variant;
-    unsigned char text_box_mode;
+    std::int32_t party_slot;
+    std::int32_t text_box_variant;
+    std::uint8_t text_box_mode;
     bool show_portraits;
     SDL_Rect combat_clip;
-    short health_percent;
+    std::int16_t health_percent;
     W8MainGameInvalidateRect* portrait_rect;
 
     redraw_flags = g_level_block->redraw_flags;
@@ -3836,7 +3835,7 @@ finish_mode_overlays:
    "iNextChar != BAD_INDEX" in MainGameScreenFrame (retail line 0x1047). */
 void DrawMainGameScreen(void)
 {
-    int stopped_line;
+    std::int32_t stopped_line;
     srNode* node;
 
     SyncPartyFacingFromCamera();
@@ -3855,7 +3854,7 @@ void DrawMainGameScreen(void)
         !gXStatus.fItemSelectMode) {
         stopped_line = FindStoppedTextLine();
         if (stopped_line != -1 && g_level_block->text_lines[4 + g_status.text_line_cursor] !=
-                                      static_cast<unsigned int>(stopped_line)) {
+                                      static_cast<std::uint32_t>(stopped_line)) {
             RequestRedraw(W8_MAIN_REDRAW_TEXT_BOX);
             SetRendererModePair();
         }
@@ -3991,16 +3990,16 @@ void RequestRedrawParty(void)
    hovered action group and current target, and resize input region 0xe5. */
 void RedrawCombatMonsterList(void)
 {
-    unsigned int group_list_index;
-    unsigned int live_row_count;
-    unsigned int max_text_width;
-    unsigned int list_length;
-    int row_y;
+    std::uint32_t group_list_index;
+    std::uint32_t live_row_count;
+    std::uint32_t max_text_width;
+    std::uint32_t list_length;
+    std::int32_t row_y;
     W8MonsterGroup* monster_group;
-    short text_width;
+    std::int16_t text_width;
     bool is_action_group;
     bool is_target_group;
-    int context_slot;
+    std::int32_t context_slot;
     W8CombatSlot* target;
     Palette16 palette;
     W8MonsterInfo* monster_info;
@@ -4011,8 +4010,8 @@ void RedrawCombatMonsterList(void)
     row_y = 0x19;
     scratch_text = g_level_block->text_paint_scratch;
     if (g_level_block->group_list_rows != 0) {
-        unsigned int clear_bottom = g_level_block->group_list_rows * 0xb + 0x1a;
-        int clear_right = g_level_block->group_list_width + 0xfb;
+        std::uint32_t clear_bottom = g_level_block->group_list_rows * 0xb + 0x1a;
+        std::int32_t clear_right = g_level_block->group_list_width + 0xfb;
         ClearSurfaceRect(0xfa, 0x19, clear_right, clear_bottom);
         InvalidateRegion(0xfa, 0x19, clear_right, clear_bottom, 1);
     }
@@ -4067,8 +4066,8 @@ void RedrawCombatMonsterList(void)
                     DrawTextAndInvalidate(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0xfa, row_y}, scratch_text);
                     row_y += 0xb;
                     ++live_row_count;
-                    if (max_text_width < static_cast<unsigned int>(text_width)) {
-                        max_text_width = static_cast<unsigned int>(text_width);
+                    if (max_text_width < static_cast<std::uint32_t>(text_width)) {
+                        max_text_width = static_cast<std::uint32_t>(text_width);
                     }
                     if (0x18 < live_row_count) {
                         break;
@@ -4080,16 +4079,16 @@ void RedrawCombatMonsterList(void)
             } while (group_list_index < list_length);
         }
     }
-    if (live_row_count != static_cast<unsigned int>(g_level_block->group_list_rows) ||
-        max_text_width != static_cast<unsigned int>(g_level_block->group_list_width)) {
+    if (live_row_count != static_cast<std::uint32_t>(g_level_block->group_list_rows) ||
+        max_text_width != static_cast<std::uint32_t>(g_level_block->group_list_width)) {
         g_main_game_invalidate_rects[17].right = max_text_width + 0xfa;
         g_main_game_invalidate_rects[17].bottom = row_y;
         if (live_row_count == 0) {
             DisableRegionInput(g_main_effect_regions->index(kMonsterListRegionOffset));
         } else {
             SetRegionBounds(g_main_effect_regions->index(kMonsterListRegionOffset), 0xfa, 0x19,
-                            static_cast<unsigned short>(max_text_width) + 0xf9,
-                            static_cast<unsigned short>(live_row_count) * 0xb + 0x18);
+                            static_cast<std::uint16_t>(max_text_width) + 0xf9,
+                            static_cast<std::uint16_t>(live_row_count) * 0xb + 0x18);
             EnableRegionInput(g_main_effect_regions->index(kMonsterListRegionOffset));
         }
         g_level_block->group_list_rows = live_row_count;
@@ -4101,10 +4100,10 @@ void RedrawCombatMonsterList(void)
    only re-aims the camera; a real change redraws both slots, hands the new
    slot to each open mode, drops the submenu and keyboard menu state and
    queues the slot's pick quote when not in combat. */
-void SelectPartyCharacter(int party_slot)
+void SelectPartyCharacter(std::int32_t party_slot)
 {
     W8Character* character;
-    int previous;
+    std::int32_t previous;
 
     if (!g_status.buffers.XChar[party_slot].fOccupied) {
         ReportAssertion("gStatus.XChar[uiChar].fOccupied",
@@ -4170,14 +4169,14 @@ void SelectPartyCharacter(int party_slot)
     g_level_block->pick_changed = true;
 }
 
-void RefreshSelectedPartyPortrait(unsigned int party_slot)
+void RefreshSelectedPartyPortrait(std::uint32_t party_slot)
 {
     if (g_level_block->main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS ||
         g_level_block->portrait_refresh_pending[party_slot] != 0) {
         return;
     }
     if (g_level_block->keyboard_menu_open &&
-        party_slot == static_cast<unsigned int>(GetSelectedPartySlot()) &&
+        party_slot == static_cast<std::uint32_t>(GetSelectedPartySlot()) &&
         !gXStatus.monster_manager_entries[party_slot].effect_icon_active &&
         !gXStatus.monster_manager_entries[party_slot].damage_splat_active) {
         if (!gXStatus.monster_manager_entries[party_slot].quote.bubble ||
@@ -4186,7 +4185,7 @@ void RefreshSelectedPartyPortrait(unsigned int party_slot)
         }
     }
 
-    if (g_level_block->condition_highlight_party_slot == static_cast<int>(party_slot)) {
+    if (g_level_block->condition_highlight_party_slot == static_cast<std::int32_t>(party_slot)) {
         g_level_block->condition_highlight_party_slot = -1;
         DismissHighlightOverlay();
         RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL | W8_MAIN_REDRAW_PORTRAITS);
@@ -4194,7 +4193,7 @@ void RefreshSelectedPartyPortrait(unsigned int party_slot)
         RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
     }
 
-    if (g_level_block->portrait_overlay_party_slot == static_cast<int>(party_slot)) {
+    if (g_level_block->portrait_overlay_party_slot == static_cast<std::int32_t>(party_slot)) {
         g_level_block->portrait_overlay_party_slot = -1;
         DismissHighlightOverlay();
         RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL | W8_MAIN_REDRAW_PORTRAITS);
@@ -4247,11 +4246,11 @@ void DismissHighlightOverlay(void)
     g_main_game_mode = W8_MAIN_GAME_DEFAULT;
 }
 
-static void DrawHighlightFrameRow(int left, int right, int y, unsigned int tiles)
+static void DrawHighlightFrameRow(std::int32_t left, std::int32_t right, std::int32_t y, std::uint32_t tiles)
 {
     CatalogArtwork::Load(0x70, 0).draw(GetFrameBufferSurface(), 3, left, y);
-    int inner = left + 6;
-    for (unsigned int tile = tiles; tile != 0; --tile) {
+    std::int32_t inner = left + 6;
+    for (std::uint32_t tile = tiles; tile != 0; --tile) {
         CatalogArtwork::Load(0x70, 0).draw(GetFrameBufferSurface(), 8, inner, y);
         inner += 6;
     }
@@ -4264,26 +4263,26 @@ static void DrawHighlightFrameRow(int left, int right, int y, unsigned int tiles
    mode-5 panel or previous overlay is torn down first; the panel is anchored
    off the slot's portrait column and clamped inside the viewport. The retail
    assertion names the sprite gpMGSV->pHighlightGraphic. */
-void DrawHighlightOverlay(unsigned int party_slot, int row_count, unsigned int min_width)
+void DrawHighlightOverlay(std::uint32_t party_slot, std::int32_t row_count, std::uint32_t min_width)
 {
     SetMainGameMode(W8_MAIN_GAME_HIGHLIGHT_OVERLAY);
 
     std::string name = g_status.buffers.Char[party_slot].name;
-    int width = g_wiz_text_font.textWidth(name);
-    if (min_width < static_cast<unsigned int>(width)) {
+    std::int32_t width = g_wiz_text_font.textWidth(name);
+    if (min_width < static_cast<std::uint32_t>(width)) {
         width = g_wiz_text_font.textWidth(name);
         min_width = width;
     }
     min_width += 6;
-    unsigned int tiles = min_width / 6;
+    std::uint32_t tiles = min_width / 6;
     if (min_width % 6 != 0) {
         ++tiles;
         min_width = tiles * 6;
     }
-    unsigned int panel_width = min_width + 0xc;
+    std::uint32_t panel_width = min_width + 0xc;
 
-    int left;
-    unsigned char pending = g_level_block->portrait_refresh_pending[party_slot];
+    std::int32_t left;
+    std::uint8_t pending = g_level_block->portrait_refresh_pending[party_slot];
     if ((party_slot & 1) == 0) {
         left = g_level_block->portrait_refresh_image[party_slot] -
                g_level_block->portrait_hover_x_origin + 0x80;
@@ -4293,7 +4292,7 @@ void DrawHighlightOverlay(unsigned int party_slot, int row_count, unsigned int m
         }
     } else {
         left = g_level_block->portrait_hover_x_origin -
-               g_level_block->portrait_refresh_image[party_slot] - static_cast<int>(panel_width) +
+               g_level_block->portrait_refresh_image[party_slot] - static_cast<std::int32_t>(panel_width) +
                0x200;
         if (pending == 0 && (g_level_block->condition_highlight_party_slot != -1 ||
                              g_level_block->portrait_overlay_party_slot != -1)) {
@@ -4301,10 +4300,10 @@ void DrawHighlightOverlay(unsigned int party_slot, int row_count, unsigned int m
         }
     }
 
-    unsigned int content_height = row_count * 9 + 0x12;
-    int row_y = (party_slot >> 1) * 0x55;
-    int top = g_viewport_modes[g_level_block->camera_mode].top;
-    int candidate = row_y - static_cast<int>(content_height) + 0x3c;
+    std::uint32_t content_height = row_count * 9 + 0x12;
+    std::int32_t row_y = (party_slot >> 1) * 0x55;
+    std::int32_t top = g_viewport_modes[g_level_block->camera_mode].top;
+    std::int32_t candidate = row_y - static_cast<std::int32_t>(content_height) + 0x3c;
     if (candidate >= top) {
         if (candidate + content_height * 2 > 0x166) {
             top = 0x166 - content_height * 2;
@@ -4324,27 +4323,27 @@ void DrawHighlightOverlay(unsigned int party_slot, int row_count, unsigned int m
     g_level_block->dialogue_text_x = left + 9;
     g_level_block->dialogue_text_width = panel_width - 0x12;
 
-    unsigned int tile;
-    int row;
-    int inner;
+    std::uint32_t tile;
+    std::int32_t row;
+    std::int32_t inner;
     CatalogArtwork::Load(0x70, 0).draw(GetFrameBufferSurface(), 0, left, top);
     inner = left + 6;
     for (tile = tiles; tile != 0; --tile) {
         CatalogArtwork::Load(0x70, 0).draw(GetFrameBufferSurface(), 1, inner, top);
         inner += 6;
     }
-    int right = left + (tiles * 3 + 3) * 2;
+    std::int32_t right = left + (tiles * 3 + 3) * 2;
     CatalogArtwork::Load(0x70, 0).draw(GetFrameBufferSurface(), 2, right, top);
-    int row_y_pos = top + 6;
+    std::int32_t row_y_pos = top + 6;
     for (row = 0; row < 2; ++row) {
         DrawHighlightFrameRow(left, right, row_y_pos, tiles);
         row_y_pos += 6;
     }
 
     g_wiz_text_font.setPalette(g_font_state_palettes[g_status.buffers.XChar[party_slot].party_order_index]);
-    int font_height = g_wiz_text_font.height();
-    int name_width = g_wiz_text_font.textWidth(name);
-    DrawText(GetFrameBufferSurface(), g_wiz_text_font, {left + static_cast<int>(panel_width >> 1) - name_width / 2, (0xc - font_height) / 2 + top + 6}, name);
+    std::int32_t font_height = g_wiz_text_font.height();
+    std::int32_t name_width = g_wiz_text_font.textWidth(name);
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font, {left + static_cast<std::int32_t>(panel_width >> 1) - name_width / 2, (0xc - font_height) / 2 + top + 6}, name);
     g_wiz_text_font.resetPalette();
 
     row_y_pos = top + 0x12;
@@ -4393,7 +4392,7 @@ void DrawHighlightOverlay(unsigned int party_slot, int row_count, unsigned int m
                      g_level_block->dialogue_y + g_level_block->dialogue_height, 1);
 }
 
-static void BeginPortraitOverlay(unsigned int party_slot, int row_count, unsigned int width)
+static void BeginPortraitOverlay(std::uint32_t party_slot, std::int32_t row_count, std::uint32_t width)
 {
     g_level_block->highlight_row = 0;
     DrawHighlightOverlay(party_slot, row_count, width);
@@ -4402,27 +4401,27 @@ static void BeginPortraitOverlay(unsigned int party_slot, int row_count, unsigne
     }
 }
 
-static void DrawPortraitConditionRow(int condition, int text_x, int row_y, unsigned int width)
+static void DrawPortraitConditionRow(std::int32_t condition, std::int32_t text_x, std::int32_t row_y, std::uint32_t width)
 {
     CatalogArtwork::Load(condition + 0xb6, 0).draw(GetFrameBufferSurface(), 0, text_x, row_y);
     g_level_block->text_paint_scratch =
         fmt::format("{}", g_localized_strings[g_condition_notices[condition].name]);
-    int text_width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
+    std::int32_t text_width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
     DrawText(GetFrameBufferSurface(), g_wiz_text_font,
-             {static_cast<int>(((width >> 1) - text_width / 2) + 0x1a + text_x), row_y},
+             {static_cast<std::int32_t>(((width >> 1) - text_width / 2) + 0x1a + text_x), row_y},
              g_level_block->text_paint_scratch);
 }
 
-static void DrawPortraitEnchantmentRow(const W8Character* character, int slot, int text_x,
-                                       int row_y, unsigned int width)
+static void DrawPortraitEnchantmentRow(const W8Character* character, std::int32_t slot, std::int32_t text_x,
+                                       std::int32_t row_y, std::uint32_t width)
 {
     CatalogArtwork::Load(slot + 0xc9, 0).draw(GetFrameBufferSurface(), 0, text_x, row_y);
     g_level_block->text_paint_scratch =
         fmt::format("{} ({:d})", g_localized_strings[g_enchantment_notices[slot]],
                     character->enchantments[slot].power);
-    int text_width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
+    std::int32_t text_width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
     DrawText(GetFrameBufferSurface(), g_wiz_text_font,
-             {static_cast<int>(((width >> 1) - text_width / 2) + 0x1a + text_x), row_y},
+             {static_cast<std::int32_t>(((width >> 1) - text_width / 2) + 0x1a + text_x), row_y},
              g_level_block->text_paint_scratch);
 }
 
@@ -4431,16 +4430,16 @@ static void DrawPortraitEnchantmentRow(const W8Character* character, int slot, i
    of the labels. Retail seeds the value-column width from the HP/stamina
    strings; the realm pass widens it only when a realm string beats the label
    width rather than the running value width. */
-void DrawPortraitVitalsOverlay(int party_slot)
+void DrawPortraitVitalsOverlay(std::int32_t party_slot)
 {
-    int realm_icons[6] = {0x193, 0x194, 0x195, 0x196, 0x197, 0x198};
+    std::int32_t realm_icons[6] = {0x193, 0x194, 0x195, 0x196, 0x197, 0x198};
     W8Character* character = &g_status.buffers.Char[party_slot];
 
     g_level_block->text_paint_scratch = fmt::format("{}: ", g_localized_strings[0x282]);
-    unsigned int label_width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
+    std::uint32_t label_width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
     g_level_block->text_paint_scratch = fmt::format("{}: ", g_localized_strings[0x283]);
-    int width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
-    if (label_width < static_cast<unsigned int>(width)) {
+    std::int32_t width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
+    if (label_width < static_cast<std::uint32_t>(width)) {
         width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
         label_width = width;
     }
@@ -4451,21 +4450,21 @@ void DrawPortraitVitalsOverlay(int party_slot)
 
     g_level_block->text_paint_scratch =
         fmt::format("{:d}/{:d}", character->hp_current, character->uiHPMax);
-    unsigned int value_width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
+    std::uint32_t value_width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
     g_level_block->text_paint_scratch =
         fmt::format("{:d}/{:d}", character->stamina, character->uiStaminaMax);
     width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
-    if (value_width < static_cast<unsigned int>(width)) {
+    if (value_width < static_cast<std::uint32_t>(width)) {
         width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
         value_width = width;
     }
-    int realm;
+    std::int32_t realm;
     for (realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
         g_level_block->text_paint_scratch = fmt::format(
             "{:d}/{:d}", GetCharacterRealmSpellPoints(character, static_cast<W8SpellRealm>(realm)),
             character->sp_max[realm]);
         width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
-        if (label_width < static_cast<unsigned int>(width)) {
+        if (label_width < static_cast<std::uint32_t>(width)) {
             width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
             value_width = width;
         }
@@ -4473,18 +4472,18 @@ void DrawPortraitVitalsOverlay(int party_slot)
 
     BeginPortraitOverlay(party_slot, 8, value_width + label_width);
 
-    int text_width = g_level_block->dialogue_text_width;
-    int text_x = g_level_block->dialogue_text_x;
-    int row_y = g_level_block->dialogue_row_y;
+    std::int32_t text_width = g_level_block->dialogue_text_width;
+    std::int32_t text_x = g_level_block->dialogue_text_x;
+    std::int32_t row_y = g_level_block->dialogue_row_y;
 
     g_level_block->text_paint_scratch = fmt::format("{}: ", g_localized_strings[0x282]);
     DrawText(GetFrameBufferSurface(), g_wiz_text_font, {text_x, row_y}, g_level_block->text_paint_scratch);
     g_level_block->text_paint_scratch =
         fmt::format("{:d}/{:d}", character->hp_current, character->uiHPMax);
-    unsigned int value_center = (text_width - label_width) >> 1;
+    std::uint32_t value_center = (text_width - label_width) >> 1;
     width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
     DrawText(GetFrameBufferSurface(), g_wiz_text_font,
-             {static_cast<int>(value_center - width / 2 + text_x + label_width), row_y},
+             {static_cast<std::int32_t>(value_center - width / 2 + text_x + label_width), row_y},
              g_level_block->text_paint_scratch);
     row_y += 0x12;
 
@@ -4494,28 +4493,28 @@ void DrawPortraitVitalsOverlay(int party_slot)
         fmt::format("{:d}/{:d}", character->stamina, character->uiStaminaMax);
     width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
     DrawText(GetFrameBufferSurface(), g_wiz_text_font,
-             {static_cast<int>(value_center - width / 2 + text_x + label_width), row_y},
+             {static_cast<std::int32_t>(value_center - width / 2 + text_x + label_width), row_y},
              g_level_block->text_paint_scratch);
     row_y += 0x12;
 
     for (realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
-        CatalogArtwork::Load(realm_icons[realm], 0).draw(GetFrameBufferSurface(), static_cast<short>(g_spell_realm_animations[realm].initial_frame), text_x, row_y);
+        CatalogArtwork::Load(realm_icons[realm], 0).draw(GetFrameBufferSurface(), static_cast<std::int16_t>(g_spell_realm_animations[realm].initial_frame), text_x, row_y);
         g_level_block->text_paint_scratch = fmt::format(
             "{:d}/{:d}", GetCharacterRealmSpellPoints(character, static_cast<W8SpellRealm>(realm)),
             character->sp_max[realm]);
-        int text_y = (0x12 - g_wiz_text_font.height()) / 2 + row_y;
+        std::int32_t text_y = (0x12 - g_wiz_text_font.height()) / 2 + row_y;
         width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
         DrawText(GetFrameBufferSurface(), g_wiz_text_font,
-                 {static_cast<int>(value_center - width / 2 + text_x + label_width), text_y},
+                 {static_cast<std::int32_t>(value_center - width / 2 + text_x + label_width), text_y},
                  g_level_block->text_paint_scratch);
         row_y += 0x12;
     }
 }
 
-static int MeasurePortraitConditions(const W8Character* character, unsigned int& max_width)
+static std::int32_t MeasurePortraitConditions(const W8Character* character, std::uint32_t& max_width)
 {
-    int condition;
-    int row_count = 0;
+    std::int32_t condition;
+    std::int32_t row_count = 0;
     for (condition = 0; condition < W8_CONDITION_COUNT; ++condition) {
         if (character->uiCondition[condition] != 0) {
             ++row_count;
@@ -4525,8 +4524,8 @@ static int MeasurePortraitConditions(const W8Character* character, unsigned int&
         if (character->uiCondition[condition] != 0) {
             g_level_block->text_paint_scratch =
                 fmt::format("{}", g_localized_strings[g_condition_notices[condition].name]);
-            int width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
-            if (max_width < static_cast<unsigned int>(width)) {
+            std::int32_t width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
+            if (max_width < static_cast<std::uint32_t>(width)) {
                 max_width = width;
             }
         }
@@ -4535,10 +4534,10 @@ static int MeasurePortraitConditions(const W8Character* character, unsigned int&
     return row_count;
 }
 
-static int MeasurePortraitEnchantments(const W8Character* character, unsigned int& max_width)
+static std::int32_t MeasurePortraitEnchantments(const W8Character* character, std::uint32_t& max_width)
 {
-    int slot;
-    int row_count = 0;
+    std::int32_t slot;
+    std::int32_t row_count = 0;
     for (slot = 0; slot < 8; ++slot) {
         if (character->enchantments[slot].turns != 0) {
             ++row_count;
@@ -4549,8 +4548,8 @@ static int MeasurePortraitEnchantments(const W8Character* character, unsigned in
             g_level_block->text_paint_scratch =
                 fmt::format("{} ({:d})", g_localized_strings[g_enchantment_notices[slot]],
                             character->enchantments[slot].power);
-            int width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
-            if (max_width < static_cast<unsigned int>(width)) {
+            std::int32_t width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
+            if (max_width < static_cast<std::uint32_t>(width)) {
                 max_width = width;
             }
         }
@@ -4564,19 +4563,19 @@ static int MeasurePortraitEnchantments(const W8Character* character, unsigned in
    twenty condition slots while the measure and draw passes visit 0x13 down to
    1 only, paired with the g_condition_notices
    row names. */
-void DrawPortraitConditionOverlay(int party_slot)
+void DrawPortraitConditionOverlay(std::int32_t party_slot)
 {
     W8Character* character = &g_status.buffers.Char[party_slot];
 
-    unsigned int max_width = 0;
-    int row_count = MeasurePortraitConditions(character, max_width);
+    std::uint32_t max_width = 0;
+    std::int32_t row_count = MeasurePortraitConditions(character, max_width);
 
     BeginPortraitOverlay(party_slot, row_count, max_width + 0x1a);
 
-    int text_x = g_level_block->dialogue_text_x;
-    int row_y = g_level_block->dialogue_row_y;
-    int text_width = g_level_block->dialogue_text_width;
-    for (int condition = W8_CONDITION_COUNT - 1; condition > 0; --condition) {
+    std::int32_t text_x = g_level_block->dialogue_text_x;
+    std::int32_t row_y = g_level_block->dialogue_row_y;
+    std::int32_t text_width = g_level_block->dialogue_text_width;
+    for (std::int32_t condition = W8_CONDITION_COUNT - 1; condition > 0; --condition) {
         if (character->uiCondition[condition] != 0) {
             DrawPortraitConditionRow(condition, text_x, row_y, text_width - 0x1aU);
             row_y += 0x12;
@@ -4588,23 +4587,23 @@ void DrawPortraitConditionOverlay(int party_slot)
    followed by the active enchantments, capped at 0x14 rows. When the lists
    overflow, the last row instead prints the "more" notice (0x7d8) - the extra
    enchantment power argument it pushes is dead, "%s" never consumes it. */
-void DrawPortraitStatusOverlay(int party_slot)
+void DrawPortraitStatusOverlay(std::int32_t party_slot)
 {
     W8Character* character = &g_status.buffers.Char[party_slot];
-    unsigned int max_width = 0;
+    std::uint32_t max_width = 0;
     bool truncated = false;
-    int condition;
-    int slot;
+    std::int32_t condition;
+    std::int32_t slot;
 
-    int condition_count = MeasurePortraitConditions(character, max_width);
-    int enchantment_count = MeasurePortraitEnchantments(character, max_width);
+    std::int32_t condition_count = MeasurePortraitConditions(character, max_width);
+    std::int32_t enchantment_count = MeasurePortraitEnchantments(character, max_width);
 
-    int row_count = condition_count + enchantment_count;
+    std::int32_t row_count = condition_count + enchantment_count;
     if (0x14 < row_count) {
         row_count = 0x14;
         truncated = true;
-        int width = g_wiz_text_font.textWidth(g_localized_strings[0x7d8]);
-        if (max_width < static_cast<unsigned int>(width - 0x1a)) {
+        std::int32_t width = g_wiz_text_font.textWidth(g_localized_strings[0x7d8]);
+        if (max_width < static_cast<std::uint32_t>(width - 0x1a)) {
             width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
             max_width = width - 0x1a;
         }
@@ -4612,10 +4611,10 @@ void DrawPortraitStatusOverlay(int party_slot)
 
     BeginPortraitOverlay(party_slot, row_count, max_width + 0x1a);
 
-    int text_x = g_level_block->dialogue_text_x;
-    int row_y = g_level_block->dialogue_row_y;
-    unsigned int text_width = g_level_block->dialogue_text_width - 0x1a;
-    int rows_drawn = 0;
+    std::int32_t text_x = g_level_block->dialogue_text_x;
+    std::int32_t row_y = g_level_block->dialogue_row_y;
+    std::uint32_t text_width = g_level_block->dialogue_text_width - 0x1a;
+    std::int32_t rows_drawn = 0;
     for (condition = W8_CONDITION_COUNT - 1; condition > 0; --condition) {
         if (character->uiCondition[condition] != 0) {
             DrawPortraitConditionRow(condition, text_x, row_y, text_width);
@@ -4626,9 +4625,9 @@ void DrawPortraitStatusOverlay(int party_slot)
     for (slot = 7; slot > 0; --slot) {
         if (rows_drawn == 0x13 && truncated) {
             g_level_block->text_paint_scratch = g_localized_strings[0x7d8];
-            int width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
+            std::int32_t width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
             DrawText(GetFrameBufferSurface(), g_wiz_text_font,
-                     {static_cast<int>((((text_width - width) + 0x1a) >> 1) + text_x), row_y},
+                     {static_cast<std::int32_t>((((text_width - width) + 0x1a) >> 1) + text_x), row_y},
                      g_level_block->text_paint_scratch);
             return;
         }
@@ -4644,19 +4643,19 @@ void DrawPortraitStatusOverlay(int party_slot)
    its icon and "name (power)" text. The count covers all eight slots while the
    measure and draw passes visit 7 down to 1 - slot 0's row is counted but
    never drawn. */
-void DrawPortraitEnchantmentOverlay(int party_slot)
+void DrawPortraitEnchantmentOverlay(std::int32_t party_slot)
 {
     W8Character* character = &g_status.buffers.Char[party_slot];
 
-    unsigned int max_width = 0;
-    int row_count = MeasurePortraitEnchantments(character, max_width);
+    std::uint32_t max_width = 0;
+    std::int32_t row_count = MeasurePortraitEnchantments(character, max_width);
 
     BeginPortraitOverlay(party_slot, row_count, max_width + 0x1a);
 
-    int text_x = g_level_block->dialogue_text_x;
-    int row_y = g_level_block->dialogue_row_y;
-    int text_width = g_level_block->dialogue_text_width;
-    for (int slot = 7; slot > 0; --slot) {
+    std::int32_t text_x = g_level_block->dialogue_text_x;
+    std::int32_t row_y = g_level_block->dialogue_row_y;
+    std::int32_t text_width = g_level_block->dialogue_text_width;
+    for (std::int32_t slot = 7; slot > 0; --slot) {
         if (character->enchantments[slot].turns != 0) {
             DrawPortraitEnchantmentRow(character, slot, text_x, row_y, text_width - 0x1aU);
             row_y += 0x12;
@@ -4703,7 +4702,7 @@ void RequestRefreshPartyState(void)
 /* The party slot's chosen action turned out unreachable: re-arm the matching
    targeting mode or view so the player can pick a fresh target instead of
    silently dropping the action. */
-void FallbackFromUnreachableAction(int party_slot)
+void FallbackFromUnreachableAction(std::int32_t party_slot)
 {
     W8PartySlotRow* row = &g_status.buffers.XChar[party_slot];
     if (!row->fOccupied || g_combat_state->characters[party_slot].dead) {
@@ -4733,7 +4732,7 @@ void FallbackFromUnreachableAction(int party_slot)
         if (!g_combat_state->round_active) {
             if (gXStatus.fPartyMovementMode &&
                 (SelectPartyCharacter(party_slot), party_slot == g_status.selected_character)) {
-                const int spell_id = casting ? row->action_detail0
+                const std::int32_t spell_id = casting ? row->action_detail0
                                              : GetItemSpell(row->action_detail1.item_use.item);
                 const W8TargetNeed needed_kind =
                     GetTargetNeededForSpellFriendly(spell_id, false, W8_TARGETING_CONTEXT_CURRENT);
@@ -4814,13 +4813,13 @@ W8MainGameInvalidateRect g_main_game_invalidate_rects[23] = {
    saved_redraw_flags, applying the mode-6 portrait layout offsets. */
 void ApplySavedRedrawInvalidates(void)
 {
-    unsigned char bit;
+    std::uint8_t bit;
     W8MainGameInvalidateRect* entry;
-    int left;
-    int top;
-    int right;
-    int bottom;
-    int delta;
+    std::int32_t left;
+    std::int32_t top;
+    std::int32_t right;
+    std::int32_t bottom;
+    std::int32_t delta;
 
     if (g_level_block->saved_redraw_flags == W8_MAIN_REDRAW_ALL) {
         ClearVideoDirtyBlocks();
@@ -4863,9 +4862,9 @@ void ApplySavedRedrawInvalidates(void)
    simply snapped to the trigger location or the dialog owns the modal region
    until OnEnterLevelDialogClosed runs. With it clear the transition is staged
    straight into the pending screen state and modes 3/5/6 are torn down. */
-void RequestLevelTransition(int level, int entry, unsigned char flag)
+void RequestLevelTransition(std::int32_t level, std::int32_t entry, bool flag)
 {
-    unsigned int normalized = NormalizeMasterFunctionValue(level);
+    std::uint32_t normalized = NormalizeMasterFunctionValue(level);
 
     g_level_block->pending_level = normalized;
     g_level_block->pending_entry_id = entry;
@@ -4900,7 +4899,7 @@ void RequestLevelTransition(int level, int entry, unsigned char flag)
 
 /* Switch the 3D view to another viewport mode: resize the view region to the
    inclusive rectangle and hand the renderer the exclusive one. */
-void SetViewportMode(int mode)
+void SetViewportMode(std::int32_t mode)
 {
     W8ScreenRect* rect;
 
@@ -4922,12 +4921,12 @@ void SetViewportMode(int mode)
 /* True when the cursor hotspot lies in the formation-mode portrait rect for
    `party_slot`, accounting for the hover panel's x origin and the slot's
    mirrored even/odd layout. */
-static bool IsPartyPortraitUnderCursor(unsigned int party_slot)
+static bool IsPartyPortraitUnderCursor(std::uint32_t party_slot)
 {
     W8MainGameInvalidateRect& row = g_main_game_invalidate_rects[party_slot];
-    int image = g_level_block->portrait_refresh_image[party_slot];
-    int left;
-    int right;
+    std::int32_t image = g_level_block->portrait_refresh_image[party_slot];
+    std::int32_t left;
+    std::int32_t right;
 
     if ((party_slot & 1) == 0) {
         left = (row.left - g_level_block->portrait_hover_x_origin) + image;
@@ -4951,13 +4950,13 @@ static bool IsPartyPortraitUnderCursor(unsigned int party_slot)
    combatant's portrait while the action pacing clock holds. */
 void UpdateCombatPortraitStatus(void)
 {
-    for (int slot = 0; slot < 8; ++slot) {
+    for (std::int32_t slot = 0; slot < 8; ++slot) {
         W8PartySlotRow* row = &g_status.buffers.XChar[slot];
         W8Character* character = &g_status.buffers.Char[slot];
         W8CombatCharacterRow* combat_row = &g_combat_state->characters[slot];
         W8MonsterManagerEntry* entry = &gXStatus.monster_manager_entries[slot];
-        int image = -1;
-        int alternate = -1;
+        std::int32_t image = -1;
+        std::int32_t alternate = -1;
         char status = -1;
 
         if (row->fOccupied && character->hp_current > 0 &&
@@ -5056,7 +5055,7 @@ void UpdateKeyboardMenu(void)
    portrait refresh latch in sync with dirty flags, occupancy, and hover. */
 void UpdateFormationPortraitRefresh(void)
 {
-    unsigned int party_slot;
+    std::uint32_t party_slot;
     W8MonsterManagerEntry* entry;
 
     for (party_slot = 0; party_slot < 8; ++party_slot) {
@@ -5068,13 +5067,13 @@ void UpdateFormationPortraitRefresh(void)
                 entry->auto_portrait_refresh = true;
             }
         } else if (!g_status.buffers.XChar[party_slot].fOccupied) {
-            ClearPortraitRefreshSlot(static_cast<int>(party_slot));
+            ClearPortraitRefreshSlot(static_cast<std::int32_t>(party_slot));
             entry->auto_portrait_refresh = false;
             DisableRegionInput(g_main_portrait_edge_regions->index(party_slot));
         } else if (!entry->portrait_refresh_pinned && !entry->damage_splat_active &&
                    !entry->effect_icon_active && !entry->portrait_event_active) {
             if (!IsPartyPortraitUnderCursor(party_slot) || entry->auto_portrait_refresh) {
-                ClearPortraitRefreshSlot(static_cast<int>(party_slot));
+                ClearPortraitRefreshSlot(static_cast<std::int32_t>(party_slot));
                 entry->auto_portrait_refresh = false;
             }
         }
@@ -5085,7 +5084,7 @@ void UpdateFormationPortraitRefresh(void)
    portrait mode: drop the pending latch and cached image/mode, wipe the
    startup-grid portrait rect, re-enable the portrait input region and disable
    the slot's region set. */
-void ClearPortraitRefreshSlot(int slot)
+void ClearPortraitRefreshSlot(std::int32_t slot)
 {
     W8MainGameInvalidateRect* row;
 
@@ -5110,7 +5109,7 @@ void ClearPortraitRefreshSlot(int slot)
 /* Note what the pointer is hovering over. Moving to anything else restarts the
    tooltip clock; staying put leaves it running, which is what makes the four
    fields one tooltip rather than four settings. */
-void SetTooltipSubject(int kind, int subject)
+void SetTooltipSubject(std::int32_t kind, std::int32_t subject)
 {
     if (g_level_block->tooltip_kind != kind || g_level_block->tooltip_subject != subject) {
         g_level_block->tooltip_pending = true;
@@ -5125,7 +5124,7 @@ void SetTooltipSubject(int kind, int subject)
    entering portrait mode, refresh tooltip kind, and sync region/layout state. */
 void ApplyMainGameModeFlag(W8MainUiMode mode, bool enable)
 {
-    unsigned int slot;
+    std::uint32_t slot;
 
     if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS) {
         SetTooltipSubject(4, -1);
@@ -5239,19 +5238,19 @@ void OpenModal(W8DialogBase* owner)
    changes. */
 void RefreshPartySlotRegions(void)
 {
-    int slot;
+    std::int32_t slot;
 
     for (slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
         if (!g_main_portrait_slot_views[slot]) {
             continue;
         }
         RegionSetView& slot_view = *g_main_portrait_slot_views[slot];
-        unsigned int edge_region = g_main_portrait_edge_regions->index(slot);
+        std::uint32_t edge_region = g_main_portrait_edge_regions->index(slot);
         if (!g_status.buffers.XChar[slot].fOccupied) {
             if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS) {
                 DisableRegionSetInput(slot_view.set());
-            } else if (static_cast<unsigned int>(g_settings.main_ui_mode) <=
-                       static_cast<unsigned int>(W8_MAIN_UI_MODE_RADAR)) {
+            } else if (static_cast<std::uint32_t>(g_settings.main_ui_mode) <=
+                       static_cast<std::uint32_t>(W8_MAIN_UI_MODE_RADAR)) {
                 DisableRegionInput(edge_region);
             }
         } else if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS) {
@@ -5260,8 +5259,8 @@ void RefreshPartySlotRegions(void)
             } else {
                 DisableRegionSetInput(slot_view.set());
             }
-        } else if (static_cast<unsigned int>(g_settings.main_ui_mode) <=
-                   static_cast<unsigned int>(W8_MAIN_UI_MODE_RADAR)) {
+        } else if (static_cast<std::uint32_t>(g_settings.main_ui_mode) <=
+                   static_cast<std::uint32_t>(W8_MAIN_UI_MODE_RADAR)) {
             if (!gXStatus.monster_manager_entries[slot].keyboard_menu_open) {
                 if (g_level_block->portrait_refresh_pending[slot] == 0) {
                     EnableRegionInput(edge_region);
@@ -5369,9 +5368,9 @@ void SyncMainGameModeRegions(void)
 /* Party portrait hit region: left-click selects / aims, right-hold opens camp,
    drag-hover arms the mode-6 overlay, and InputEventType::MouseMove drives help plus targeting
    cursor. Skips the slot parked in gXStatus.review_character_slot. */
-unsigned char PortraitSelectRegionEvent(const InputEvent* event, W8Region* region)
+bool PortraitSelectRegionEvent(const InputEvent* event, W8Region* region)
 {
-    int slot = region->callback_id;
+    std::int32_t slot = region->callback_id;
     bool targeting = false;
     bool aim_ok = false;
     bool front_rank = false;
@@ -5380,8 +5379,8 @@ unsigned char PortraitSelectRegionEvent(const InputEvent* event, W8Region* regio
     InputEventType us_event;
     std::string help_text;
 
-    if (slot == static_cast<short>(gXStatus.review_character_slot)) {
-        return 0;
+    if (slot == static_cast<std::int16_t>(gXStatus.review_character_slot)) {
+        return false;
     }
 
     needed = GetTargetNeededForCurrentAction(g_status.selected_character);
@@ -5421,7 +5420,7 @@ unsigned char PortraitSelectRegionEvent(const InputEvent* event, W8Region* regio
                 g_level_block->portrait_overlay_party_slot = slot;
                 if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME && g_level_block != 0) {
                     RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
-                    return 1;
+                    return true;
                 }
             }
             /* retail falls through to return 1 at the end when the arm did not
@@ -5432,7 +5431,7 @@ unsigned char PortraitSelectRegionEvent(const InputEvent* event, W8Region* regio
                 g_settings.main_ui_mode != W8_MAIN_UI_MODE_PORTRAITS &&
                 g_level_block->portrait_overlay_party_slot == -1) {
                 g_level_block->countdown5 = w8_get_ticks() + (500);
-                return 1;
+                return true;
             }
         } else if (us_event == InputEventType::LeftButtonUp) {
             if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
@@ -5441,18 +5440,18 @@ unsigned char PortraitSelectRegionEvent(const InputEvent* event, W8Region* regio
                     DismissHighlightOverlay();
                     if (g_current_screen_state.id != W8_SCREEN_MAIN_GAME) {
                         g_main_game_mode = W8_MAIN_GAME_DEFAULT;
-                        return 1;
+                        return true;
                     }
                     if (g_level_block == 0) {
                         g_main_game_mode = W8_MAIN_GAME_DEFAULT;
-                        return 1;
+                        return true;
                     }
                     RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
                     if (g_current_screen_state.id != W8_SCREEN_MAIN_GAME) {
-                        return 1;
+                        return true;
                     }
                     if (g_level_block == 0) {
-                        return 1;
+                        return true;
                     }
                     RequestRedraw(W8_MAIN_REDRAW_PORTRAITS);
                 } else if (IsNpcDialogueCursorActive() == 0) {
@@ -5510,16 +5509,16 @@ unsigned char PortraitSelectRegionEvent(const InputEvent* event, W8Region* regio
                 RequestRedraw(1 << (slot & 0x1f));
                 if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME && g_level_block != 0) {
                     RequestRedraw(W8_MAIN_REDRAW_CHARACTER_ACTION);
-                    return 1;
+                    return true;
                 }
             }
         } else {
             if (us_event != InputEventType::LeftButtonDoubleClick) {
-                return 0;
+                return false;
             }
             if (IsNpcDialogueCursorActive() == 0 && !gXStatus.scripted_scene) {
                 OpenCharacterScreenForPartySlot(slot, false);
-                return 1;
+                return true;
             }
         }
     } else if (us_event == InputEventType::RightButtonDown) {
@@ -5532,7 +5531,7 @@ unsigned char PortraitSelectRegionEvent(const InputEvent* event, W8Region* regio
     } else {
         if (us_event != InputEventType::RightButtonUp) {
             if (us_event != InputEventType::MouseMove) {
-                return 0;
+                return false;
             }
             if (g_level_block->portrait_right_hold_armed &&
                 TimeUntilDeadline(g_level_block->countdown4) == 0) {
@@ -5547,7 +5546,7 @@ unsigned char PortraitSelectRegionEvent(const InputEvent* event, W8Region* regio
                                 RevalidateSelectedTarget(g_status.selected_character);
                             }
                             SetTargetCursor(4);
-                            return 0;
+                            return false;
                         }
                         SetTargetCursor(GetTargetingCursorForState(0));
                     }
@@ -5569,7 +5568,7 @@ unsigned char PortraitSelectRegionEvent(const InputEvent* event, W8Region* regio
                         SetTooltipSubject(0, slot);
                         if (gXStatus.iTargetingMode == W8_TARGET_NEED_NONE) {
                             UpdateSlotMonsterHighlights(slot, true);
-                            return 0;
+                            return false;
                         }
                     }
                 }
@@ -5591,39 +5590,39 @@ unsigned char PortraitSelectRegionEvent(const InputEvent* event, W8Region* regio
                         if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME &&
                             g_level_block != 0) {
                             RequestRedraw(W8_MAIN_REDRAW_PORTRAITS);
-                            return 0;
+                            return false;
                         }
                     }
                 }
             }
-            return 0;
+            return false;
         }
         if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) != 0 && !targeting &&
             IsNpcDialogueCursorActive() == 0 && !gXStatus.scripted_scene) {
             g_level_block->portrait_right_hold_armed = false;
             if (!g_status.item_in_cursor || IsKeyHeld(VK_CONTROL)) {
                 OpenCharacterScreenForPartySlot(slot, false);
-                return 1;
+                return true;
             }
             GiveHeldItemToCharacterOrParty(slot, true);
             if (gXStatus.fItemSelectMode) {
                 RefreshUseItemSelection();
-                return 1;
+                return true;
             }
         }
     }
-    return 1;
+    return true;
 }
 
 /* Both portrait orbs share this event policy. Member pointers retain their
    distinct enum fields and reload the live overlay owner after callbacks. */
 template <class Effect>
-static unsigned char DispatchPortraitOrbRegionEvent(const InputEvent* event, W8Region* region,
+static bool DispatchPortraitOrbRegionEvent(const InputEvent* event, W8Region* region,
                                                     Effect W8Character::* effect, Effect none,
-                                                    int W8LevelRuntimeBlock::* selection,
-                                                    int tooltip_kind)
+                                                    std::int32_t W8LevelRuntimeBlock::* selection,
+                                                    std::int32_t tooltip_kind)
 {
-    int slot = region->callback_id;
+    std::int32_t slot = region->callback_id;
     W8Character* character = &g_status.buffers.Char[slot];
     InputEventType us_event;
 
@@ -5635,7 +5634,7 @@ static unsigned char DispatchPortraitOrbRegionEvent(const InputEvent* event, W8R
     if (us_event != InputEventType::LeftButtonDown) {
         if (us_event != InputEventType::LeftButtonUp) {
             if (us_event != InputEventType::MouseMove) {
-                return 0;
+                return false;
             }
             if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
                 SetTooltipSubject(tooltip_kind, -1);
@@ -5656,36 +5655,36 @@ static unsigned char DispatchPortraitOrbRegionEvent(const InputEvent* event, W8R
                             }
                         }
                         EnableRegionHelpFlag(region);
-                        return 0;
+                        return false;
                     }
                 } else {
-                    return 0;
+                    return false;
                 }
             }
             DisableRegionHelpFlag(region);
-            return 0;
+            return false;
         }
         if ((g_level_block.get()->*selection) == -1) {
-            return 1;
+            return true;
         }
         (g_level_block.get()->*selection) = -1;
         DismissHighlightOverlay();
         RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
-        return 1;
+        return true;
     }
 
     if ((character->*effect) == none) {
-        return 1;
+        return true;
     }
     (g_level_block.get()->*selection) = slot;
     RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
-    return 1;
+    return true;
 }
 
 /* Condition orb on a party portrait (help 25): press while highest_condition
    is set arms the overlay slot; release and leave dismiss the hover plate;
    enter drives tooltip kind 1 and region help. */
-unsigned char PortraitConditionOrbRegionEvent(const InputEvent* event, W8Region* region)
+bool PortraitConditionOrbRegionEvent(const InputEvent* event, W8Region* region)
 {
     return DispatchPortraitOrbRegionEvent(event, region, &W8Character::highest_condition,
                                           W8_CONDITION_NONE,
@@ -5694,7 +5693,7 @@ unsigned char PortraitConditionOrbRegionEvent(const InputEvent* event, W8Region*
 
 /* Enchantment orb on a party portrait (help 26): near-clone of the condition
    orb against enchantment_top and tooltip kind 2. */
-unsigned char PortraitEnchantmentOrbRegionEvent(const InputEvent* event, W8Region* region)
+bool PortraitEnchantmentOrbRegionEvent(const InputEvent* event, W8Region* region)
 {
     return DispatchPortraitOrbRegionEvent(event, region, &W8Character::enchantment_top,
                                           W8_ENCHANTMENT_NONE,
@@ -5703,17 +5702,17 @@ unsigned char PortraitEnchantmentOrbRegionEvent(const InputEvent* event, W8Regio
 
 /* Help 28: portrait side bar — hover picks upper/lower weapon or assayable
    item; click opens Assay or binds items with Shift. */
-unsigned char PortraitAssaySidebarRegionEvent(const InputEvent* event, W8Region* region)
+bool PortraitAssaySidebarRegionEvent(const InputEvent* event, W8Region* region)
 {
-    int previous_mode = g_level_block->portrait_assay_hover_mode;
-    int slot = region->callback_id;
+    std::int32_t previous_mode = g_level_block->portrait_assay_hover_mode;
+    std::int32_t slot = region->callback_id;
     W8Character* character;
     W8ItemInstance* item;
-    int item_id;
+    std::int32_t item_id;
     InputEventType us_event;
 
     if (!IsPartySlotEligible(slot)) {
-        return 0;
+        return false;
     }
 
     character = &g_status.buffers.Char[slot];
@@ -5735,24 +5734,24 @@ unsigned char PortraitAssaySidebarRegionEvent(const InputEvent* event, W8Region*
     us_event = event->type;
     if (IsLeftButtonEvent(us_event) || us_event == InputEventType::RightButtonDown) {
         if (region->CaptureButtonDown(us_event)) {
-            return 1;
+            return true;
         }
         if (us_event != InputEventType::LeftButtonUp) {
-            return 0;
+            return false;
         }
         if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) == 0) {
-            return 1;
+            return true;
         }
         if ((event->modifiers & SHIFT_DOWN) == 0) {
             BindCharacterItems(slot, true);
-            return 1;
+            return true;
         }
         BindEveryPartyItem();
-        return 1;
+        return true;
     }
     if (us_event != InputEventType::RightButtonUp) {
         if (us_event != InputEventType::MouseMove) {
-            return 0;
+            return false;
         }
         if ((region->flags & W8_REGION_MOUSE_LEAVE) == 0) {
             if ((region->flags & W8_REGION_MOUSE_ENTER) != 0) {
@@ -5761,22 +5760,22 @@ unsigned char PortraitAssaySidebarRegionEvent(const InputEvent* event, W8Region*
             }
         } else {
             SetTooltipSubject(5, -1);
-            return 0;
+            return false;
         }
-        return 0;
+        return false;
     }
     if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) == 0) {
-        return 1;
+        return true;
     }
     {
-        int mode = g_level_block->portrait_assay_hover_mode;
+        std::int32_t mode = g_level_block->portrait_assay_hover_mode;
         if (mode != 1) {
             if (mode == 2) {
                 item = &character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON];
                 goto open_assay;
             }
             if (mode != 3) {
-                return 1;
+                return true;
             }
         }
         item = &character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON];
@@ -5785,69 +5784,69 @@ unsigned char PortraitAssaySidebarRegionEvent(const InputEvent* event, W8Region*
             OpenAssayDialog(item, slot);
         }
     }
-    return 1;
+    return true;
 }
 
 /* Help 24: portrait overlay hover strip; left-down and enter (while held)
    set portrait_overlay_party_slot, leave and up dismiss the mode-6 plate. */
-unsigned char PortraitOverlayHoverRegionEvent(const InputEvent* event, W8Region* region)
+bool PortraitOverlayHoverRegionEvent(const InputEvent* event, W8Region* region)
 {
     const InputEventType us_event = event->type;
-    int slot = region->callback_id;
+    std::int32_t slot = region->callback_id;
 
     if (us_event == InputEventType::LeftButtonDown) {
         g_level_block->portrait_overlay_party_slot = slot;
     } else {
         if (us_event != InputEventType::LeftButtonUp) {
             if (us_event != InputEventType::MouseMove) {
-                return 0;
+                return false;
             }
             if ((region->flags & W8_REGION_MOUSE_LEAVE) == 0) {
                 if ((region->flags & W8_REGION_MOUSE_ENTER) == 0) {
-                    return 0;
+                    return false;
                 }
                 PushButtonSoundScheme(0, true);
                 SetTooltipSubject(4, slot);
                 if (!IsLeftButtonHeld()) {
-                    return 0;
+                    return false;
                 }
                 g_level_block->portrait_overlay_party_slot = slot;
             } else {
                 SetTooltipSubject(4, -1);
                 if (g_level_block->portrait_overlay_party_slot == -1) {
-                    return 0;
+                    return false;
                 }
                 g_level_block->portrait_overlay_party_slot = -1;
                 DismissHighlightOverlay();
             }
             RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
-            return 0;
+            return false;
         }
         g_level_block->portrait_overlay_party_slot = -1;
         DismissHighlightOverlay();
     }
     RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
-    return 1;
+    return true;
 }
 
 /* Combat-action hit regions beside the eight party portraits (region set 4):
    open the keyboard menu on release while combat input is live, drive hover
    help for a queued spell/item, and right-click falls back when an action is
    unreachable. */
-unsigned char PartyCombatActionRegionEvent(const InputEvent* event, W8Region* region)
+bool PartyCombatActionRegionEvent(const InputEvent* event, W8Region* region)
 {
-    int slot = region->callback_id;
+    std::int32_t slot = region->callback_id;
     if (!IsPartySlotEligible(slot)) {
-        return 0;
+        return false;
     }
 
     switch (event->type) {
     case InputEventType::RightButtonDown:
         region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
-        return 1;
+        return true;
     case InputEventType::LeftButtonDown:
         region->flags |= W8_REGION_LEFT_BUTTON_HELD;
-        return 1;
+        return true;
     case InputEventType::LeftButtonUp:
         if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0 &&
             g_status.buffers.XChar[slot].fOccupied) {
@@ -5857,16 +5856,16 @@ unsigned char PartyCombatActionRegionEvent(const InputEvent* event, W8Region* re
             if (g_combat_state->round_active) {
                 g_level_block->combat_slot = slot;
                 OpenKeyboardMenuForSlot(slot);
-                return 1;
+                return true;
             }
         }
-        return 1;
+        return true;
     case InputEventType::RightButtonUp:
         if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) != 0 && !gXStatus.fSpellCastMode &&
             !gXStatus.fItemSelectMode) {
             FallbackFromUnreachableAction(slot);
         }
-        return 1;
+        return true;
     case InputEventType::MouseMove:
         if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
             if (!g_level_block->keyboard_menu_open) {
@@ -5877,10 +5876,10 @@ unsigned char PartyCombatActionRegionEvent(const InputEvent* event, W8Region* re
             g_level_block->combat_action_hover_party_slot = -1;
             gXStatus.monster_manager_entries[slot].combat_portrait_dirty = true;
             DisableRegionHelpFlag(region);
-            return 0;
+            return false;
         }
         if ((region->flags & W8_REGION_MOUSE_ENTER) == 0) {
-            return 0;
+            return false;
         }
         if (g_combat_state->round_active) {
             g_level_block->combat_action_hover_party_slot = slot;
@@ -5893,42 +5892,42 @@ unsigned char PartyCombatActionRegionEvent(const InputEvent* event, W8Region* re
                 SetRegionHelpText(fmt::format("{}: {} ({:d})", g_localized_strings[0x68],
                                               g_spell_records[row->action_detail0].display_name,
                                               row->action_detail1.spell.power_level));
-                return 0;
+                return false;
             }
             if (row->action == W8_ACTION_USE_ITEM) {
                 EnableRegionHelpFlag(region);
                 SetRegionHelpText(
                     fmt::format("{}: {}", g_localized_strings[0x69],
                                 FormatItemDisplayName(row->action_detail1.item_use.item, false)));
-                return 0;
+                return false;
             }
         }
         DisableRegionHelpFlag(region);
-        return 0;
+        return false;
     default:
         break;
     }
-    return 0;
+    return false;
 }
 
 /* Help 31: radar-map button near the text area — left-up opens automap after
    tearing down mode 3/5/6 overlays; right-up toggles zoom; enter/leave hover
    the map button art. */
-unsigned char RadarMapButtonRegionEvent(const InputEvent* event, W8Region* region)
+bool RadarMapButtonRegionEvent(const InputEvent* event, W8Region* region)
 {
     const InputEventType us_event = event->type;
 
     if (IsLeftButtonEvent(us_event) || us_event == InputEventType::RightButtonDown) {
         if (region->CaptureButtonDown(us_event)) {
-            return 1;
+            return true;
         }
         if (us_event != InputEventType::LeftButtonUp) {
-            return 0;
+            return false;
         }
         if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
             SetMainGameMode(W8_MAIN_GAME_DEFAULT);
             SetPendingScreenState(W8_SCREEN_AUTOMAP);
-            return 1;
+            return true;
         }
     } else if (us_event == InputEventType::RightButtonUp) {
         if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) != 0) {
@@ -5936,20 +5935,20 @@ unsigned char RadarMapButtonRegionEvent(const InputEvent* event, W8Region* regio
         }
     } else {
         if (us_event != InputEventType::MouseMove) {
-            return 0;
+            return false;
         }
         if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
             g_level_block->radar_map_alternate = 0;
             RefreshRadarMap();
-            return 1;
+            return true;
         }
         if ((region->flags & W8_REGION_MOUSE_ENTER) != 0) {
             g_level_block->radar_map_alternate = 1;
             RefreshRadarMap();
-            return 1;
+            return true;
         }
     }
-    return 1;
+    return true;
 }
 
 /* Restore the cursor and clear the mouse-look state on both exit paths. */
@@ -5967,18 +5966,18 @@ static void StopWorldMouseLook()
    world-item hover and the portrait strip; left-up runs the targeting, item
    and monster dispatch; right-down opens monster info or the assay dialog or
    toggles the mouselook latch. */
-unsigned char WorldViewRegionEvent(const InputEvent* event, W8Region* region)
+bool WorldViewRegionEvent(const InputEvent* event, W8Region* region)
 {
     SDL_Point cursor_pos;
-    int cursor_x;
-    int cursor_y;
+    std::int32_t cursor_x;
+    std::int32_t cursor_y;
     W8TargetNeed needed;
-    int slot;
+    std::int32_t slot;
     InputEventType us_event;
 
     PushButtonSoundScheme(0, true);
     if (IsMessageBoxActive() || gXStatus.fReviewCharacterMode || g_camera_path_active) {
-        return 0;
+        return false;
     }
     needed = GetTargetNeededForCurrentAction(g_status.selected_character);
     us_event = event->type;
@@ -5986,24 +5985,24 @@ unsigned char WorldViewRegionEvent(const InputEvent* event, W8Region* region)
         if (us_event == InputEventType::RightButtonUp) {
             if (g_mouselook_active && g_settings.mouselook_toggle == 0) {
                 StopWorldMouseLook();
-                return 1;
+                return true;
             }
             if (!IsMipeActive()) {
-                return 1;
+                return true;
             }
             SGPMouseGetPos(&cursor_pos);
             MipeWorldViewEvent(InputEventType::RightButtonUp, &cursor_pos);
-            return 1;
+            return true;
         }
         if (us_event != InputEventType::MouseMove) {
-            return 0;
+            return false;
         }
         cursor_y = GetEventCursorY(event);
         cursor_x = GetEventCursorX(event);
         if (IsMipeActive()) {
             UpdateMipeSelection();
         } else {
-            int hover;
+            std::int32_t hover;
             if (!gXStatus.fNpcDialogueMode && gXStatus.iTargetingMode != W8_TARGET_NEED_PLACE &&
                 gXStatus.iTargetingMode != W8_TARGET_NEED_CONE &&
                 gXStatus.iTargetingMode != W8_TARGET_NEED_ITEM &&
@@ -6029,28 +6028,28 @@ unsigned char WorldViewRegionEvent(const InputEvent* event, W8Region* region)
                 if (g_status.buffers.XChar[slot].fOccupied &&
                     g_level_block->portrait_refresh_pending[slot] != 0 &&
                     IsPartyPortraitUnderCursor(slot)) {
-                    return 0;
+                    return false;
                 }
             }
             UpdateWorldViewCursor(event, needed);
-            return 1;
+            return true;
         }
         ClearCombatSelection();
-        return 1;
+        return true;
     }
     if (us_event == InputEventType::RightButtonDown) {
         region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
         if (IsMipeActive()) {
             SGPMouseGetPos(&cursor_pos);
             MipeWorldViewEvent(InputEventType::RightButtonDown, &cursor_pos);
-            return 1;
+            return true;
         }
         if (g_level_block->highlighted_item != -1 && !gXStatus.fSpellCastMode &&
             !gXStatus.fNpcDialogueMode && !gXStatus.fItemSelectMode &&
             !gXStatus.fLockInteractMode && !gXStatus.fTrapInteractMode &&
             (g_settings.ctrl_right_click_info == 0 || IsKeyHeld(VK_CONTROL))) {
             OpenMonsterInfoDialog(g_level_block->highlighted_item);
-            return 1;
+            return true;
         }
         if (!g_status.item_in_cursor && g_level_block->selected_item != -1 &&
             !gXStatus.fSpellCastMode && !gXStatus.fNpcDialogueMode && !gXStatus.fItemSelectMode &&
@@ -6059,16 +6058,16 @@ unsigned char WorldViewRegionEvent(const InputEvent* event, W8Region* region)
             W8WorldItem* world_item = ItemInfo(ItemIndex(g_level_block->selected_item));
             PartyAttemptsToIdentifyItem(&world_item->item, 0);
             OpenAssayDialog(&world_item->item, -1);
-            return 1;
+            return true;
         }
         if (!IsWorldCursorVisible() && !gXStatus.fNpcDialogueMode) {
             if (g_settings.mouselook_toggle != 0) {
                 if (g_mouselook_active) {
                     StopWorldMouseLook();
-                    return 1;
+                    return true;
                 }
             } else if (g_mouselook_active) {
-                return 1;
+                return true;
             }
             SGPMouseGetPos(&g_mouselook_cursor_pos);
             DisableCursorScene();
@@ -6079,32 +6078,32 @@ unsigned char WorldViewRegionEvent(const InputEvent* event, W8Region* region)
             g_mouselook_manual = true;
             SetMouseMoveEventsEnabled(1);
         }
-        return 1;
+        return true;
     }
     if (us_event == InputEventType::LeftButtonDown) {
         if (g_mouselook_active) {
-            return 0;
+            return false;
         }
         region->flags |= W8_REGION_LEFT_BUTTON_HELD;
         if (!IsMipeActive()) {
-            return 1;
+            return true;
         }
         SGPMouseGetPos(&cursor_pos);
         MipeWorldViewEvent(InputEventType::LeftButtonDown, &cursor_pos);
-        return 1;
+        return true;
     }
     if (us_event != InputEventType::LeftButtonUp) {
-        return 0;
+        return false;
     }
     if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) == 0) {
-        return 1;
+        return true;
     }
     if (g_mouselook_active) {
-        return 1;
+        return true;
     }
     region->flags &= ~W8_REGION_LEFT_BUTTON_HELD;
     if (FinishNpcVoiceIfSessionActive()) {
-        return 1;
+        return true;
     }
     if (gXStatus.iTargetingMode == W8_TARGET_NEED_PLACE ||
         (needed == W8_TARGET_NEED_PLACE && (event->modifiers & CTRL_DOWN) != 0)) {
@@ -6115,7 +6114,7 @@ unsigned char WorldViewRegionEvent(const InputEvent* event, W8Region* region)
             GetCharActionRange(g_status.selected_character, 0, W8_TARGETING_CONTEXT_CURRENT)));
         if (gpSCSV && GetActionSpellLikeId(g_status.selected_character,
                                                 W8_TARGETING_CONTEXT_CURRENT) == 0x3c) {
-            signed char extent_index;
+            std::int8_t extent_index;
             srVector3T<float> minimum;
             srVector3T<float> maximum;
             if (gpSCSV->iSpellPower == -1) {
@@ -6201,20 +6200,20 @@ unsigned char WorldViewRegionEvent(const InputEvent* event, W8Region* region)
         }
     }
     if (!IsMipeActive()) {
-        return 1;
+        return true;
     }
     SGPMouseGetPos(&cursor_pos);
     MipeWorldViewEvent(InputEventType::LeftButtonUp, &cursor_pos);
-    return 1;
+    return true;
 }
 
 /* Help 36: combat monster-list rows. Hit-test by 11-pixel row, hover via
    SetCombatAction, left-up aims, right-up posts the group info notice. */
-unsigned char MonsterListRegionEvent(const InputEvent* event, W8Region* region)
+bool MonsterListRegionEvent(const InputEvent* event, W8Region* region)
 {
-    int row = -1;
+    std::int32_t row = -1;
     W8MonsterGroup* group = 0;
-    int group_id = -1;
+    std::int32_t group_id = -1;
 
     if ((region->flags & W8_REGION_MOUSE_LEAVE) == 0 && !gXStatus.fNpcDialogueMode &&
         gXStatus.iTargetingMode != W8_TARGET_NEED_PLACE &&
@@ -6233,24 +6232,24 @@ unsigned char MonsterListRegionEvent(const InputEvent* event, W8Region* region)
     switch (event->type) {
     case InputEventType::LeftButtonDown:
         region->flags |= W8_REGION_LEFT_BUTTON_HELD;
-        return 1;
+        return true;
     case InputEventType::LeftButtonUp:
         if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0 &&
             g_status.selected_character != -1 && group_id != -1 &&
             g_level_block->target_highlight_ok[0] != 0) {
             AimAtMonsterGroupMember(g_status.selected_character, group);
         }
-        return 1;
+        return true;
     case InputEventType::RightButtonDown:
         region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
-        return 1;
+        return true;
     case InputEventType::RightButtonUp:
         if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) != 0 && group_id != -1 &&
             !gXStatus.fSpellCastMode && !gXStatus.fNpcDialogueMode && !gXStatus.fItemSelectMode &&
             !gXStatus.fLockInteractMode && !gXStatus.fTrapInteractMode) {
             ShowMonsterGroupInfoNotice(group_id);
         }
-        return 1;
+        return true;
     default:
         return row == -1;
     }
@@ -6272,7 +6271,7 @@ void ClearCombatSelection(void)
    otherwise the cursor comes from the current targeting state. */
 void UpdateWorldViewCursor(const InputEvent* event, W8TargetNeed target_needed)
 {
-    int cursor = gXStatus.iCurrentCursor;
+    std::int32_t cursor = gXStatus.iCurrentCursor;
     if (cursor == W8_CURSOR_INVALID_TARGET) {
         return;
     }
@@ -6286,9 +6285,9 @@ void UpdateWorldViewCursor(const InputEvent* event, W8TargetNeed target_needed)
                 SetTargetCursor(cursor);
                 return;
             }
-            int cursor_y = GetEventCursorY(event);
-            int cursor_x = GetEventCursorX(event);
-            int prop_index = ForwardSelectedPropIndex(g_world, cursor_x, cursor_y);
+            std::int32_t cursor_y = GetEventCursorY(event);
+            std::int32_t cursor_x = GetEventCursorX(event);
+            std::int32_t prop_index = ForwardSelectedPropIndex(g_world, cursor_x, cursor_y);
             if (prop_index > -1) {
                 W8Prop* prop = GetWorldProp(g_world, prop_index);
                 if (!gXStatus.world_update_blocked) {
@@ -6327,7 +6326,7 @@ void UpdateWorldViewCursor(const InputEvent* event, W8TargetNeed target_needed)
 }
 
 /* Drop the highlight when the thing being highlighted is the one going away. */
-void ClearHighlightIfItIs(const int* item)
+void ClearHighlightIfItIs(const std::int32_t* item)
 {
     if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME && g_level_block != 0 &&
         g_level_block->highlighted_item != -1 && *item == g_level_block->highlighted_item) {
@@ -6338,18 +6337,18 @@ void ClearHighlightIfItIs(const int* item)
 /* Whether the screen is in one of the states that takes the player's input
    away. The first flag settles it outright; otherwise one state only counts
    while a further check disagrees, and three more count on their own. */
-int IsScreenInputBlocked(void)
+bool IsScreenInputBlocked(void)
 {
     if (gXStatus.fSpellCastMode) {
-        return 1;
+        return true;
     }
     if (gXStatus.fNpcDialogueMode && !CanOpenNpcDialogue()) {
-        return 1;
+        return true;
     }
     if (!gXStatus.fLockInteractMode && !gXStatus.fTrapInteractMode && !gXStatus.fItemSelectMode) {
-        return 0;
+        return false;
     }
-    return 1;
+    return true;
 }
 
 /* Whether the screen is idle - none of the six overlays is up. The same six
@@ -6407,8 +6406,8 @@ void DisableCombatRegions(void)
    mid-range deltas by frame time when mouselook smoothing is enabled. */
 static void ApplyPendingMouselook(void)
 {
-    uint64_t now;
-    uint64_t elapsed;
+    std::uint64_t now;
+    std::uint64_t elapsed;
     float scale;
     float pitch_step;
     float yaw_step;
@@ -6416,7 +6415,7 @@ static void ApplyPendingMouselook(void)
     W8CameraAngleRecord pitch;
 
     if ((g_mouselook_tick_init & 1) == 0) {
-        g_mouselook_tick_init = static_cast<unsigned char>(g_mouselook_tick_init | 1);
+        g_mouselook_tick_init = static_cast<std::uint8_t>(g_mouselook_tick_init | 1);
         g_mouselook_last_tick = w8_get_ticks();
     }
     now = w8_get_ticks();
@@ -6539,7 +6538,7 @@ void ApplyPendingTooltip(void)
 
 static void PositionSelectionToolTip(SDL_Point point)
 {
-    int y = point.y - g_cursor_image_height / 2;
+    std::int32_t y = point.y - g_cursor_image_height / 2;
     if (point.x < 0) {
         point.x = 2;
     }
@@ -6560,9 +6559,9 @@ static void PositionSelectionToolTip(SDL_Point point)
    monster's group or target highlight, and a valid new pick relights it in
    the colour CanTargetMonster just judged, so the group tint always agrees
    with the selection marker. */
-void SetCombatSelection(int value)
+void SetCombatSelection(std::int32_t value)
 {
-    int current = g_level_block->highlighted_item;
+    std::int32_t current = g_level_block->highlighted_item;
 
     if (value == current) {
         if (current != -1 && !TimeUntilDeadline(g_level_block->countdown1) &&
@@ -6627,7 +6626,7 @@ void SetCombatSelection(int value)
     }
     RequestRedraw(W8_MAIN_REDRAW_MONSTER_LIST);
     VideoRemoveToolTip();
-    unsigned int delay = g_settings.tooltip_delay_ms;
+    std::uint32_t delay = g_settings.tooltip_delay_ms;
     if (delay > 500) {
         delay = 500;
     }
@@ -6637,9 +6636,9 @@ void SetCombatSelection(int value)
 /* The world-item twin of SetCombatSelection: a pick change drops the old
    item's highlight and lights a visible new one; re-picking the same item
    while its tooltip clock is idle pops its display name at the cursor. */
-void SetCombatTarget(int value)
+void SetCombatTarget(std::int32_t value)
 {
-    int current = g_level_block->selected_item;
+    std::int32_t current = g_level_block->selected_item;
 
     if (value != current) {
         if (current != -1) {
@@ -6660,7 +6659,7 @@ void SetCombatTarget(int value)
             }
         }
         VideoRemoveToolTip();
-        unsigned int delay = g_settings.tooltip_delay_ms;
+        std::uint32_t delay = g_settings.tooltip_delay_ms;
         if (delay > 500) {
             delay = 500;
         }
@@ -6687,9 +6686,9 @@ void SetCombatTarget(int value)
    the old group's tint, then either empties the selection or re-tints the new
    group - its lead member when the action picks monsters individually, the
    whole group when it wants the group. The cursor follows the result. */
-void SetCombatAction(int value)
+void SetCombatAction(std::int32_t value)
 {
-    int current = g_level_block->action_group;
+    std::int32_t current = g_level_block->action_group;
 
     if (value == current) {
         return;
@@ -6811,7 +6810,7 @@ void SetFormationBoardVisible(bool visible)
 
 /* Hand one frame to whichever overlays are up. Each is independent, so more
    than one can take the same frame. */
-void UpdateScreenOverlays(int frame)
+void UpdateScreenOverlays(std::int32_t frame)
 {
     if (gXStatus.fLockInteractMode) {
         EndLockInteractMode(frame);
@@ -6835,9 +6834,9 @@ void UpdateScreenOverlays(int frame)
    and spell views admit only their own toggle, and combat commands check the
    entry's submenu state. Command 0x10 re-checks the slot's queued action's
    own command. */
-bool IsMGSActionKeyEnabled(unsigned short command)
+bool IsMGSActionKeyEnabled(std::uint16_t command)
 {
-    short state;
+    std::int16_t state;
 
     state = -1;
     if (gXStatus.fNpcDialogueMode) {
@@ -6948,7 +6947,7 @@ bool IsMGSActionKeyEnabled(unsigned short command)
 /* Run the numbered action-key command: dismiss the transient menu first, then
    act - toggle the item or spell view, fire the recorded spell/item, choose
    the combat action, or dispatch the slot's queued action's own command. */
-void RunMGSActionKey(unsigned short command)
+void RunMGSActionKey(std::uint16_t command)
 {
     if (g_level_block->combat_end_notification != -1) {
         DestroySubMenuControls();
@@ -7066,10 +7065,10 @@ void TryMGSActionKey(W8MGSAction command)
 /* Which party portrait the pointer is over, if any. The slots are walked
    against two runs of region numbers at once - one starting at 0x24 six apart
    and one at 0x5a one apart - and only two event kinds are answered. */
-unsigned char HitTestPartyPortrait(const InputEvent* event)
+std::uint8_t HitTestPartyPortrait(const InputEvent* event)
 {
-    unsigned int region = 0x24;
-    int slot = 0;
+    std::uint32_t region = 0x24;
+    std::int32_t slot = 0;
 
     while (!g_status.buffers.XChar[slot].fOccupied ||
            (g_level_block->hover_region !=
@@ -7101,19 +7100,19 @@ void LoadMainGameCursorResources(void)
     for (; slot < end; ++slot) {
         const auto artwork = CatalogArtwork::Load(slot->image_id);
         const auto sprites = artwork.spriteSheet();
-        short frame = artwork.imageOffset();
+        std::int16_t frame = artwork.imageOffset();
         if (frame < sprites->frames.size()) {
             slot->size_x = sprites->frames[frame].width;
             slot->size_y = sprites->frames[frame].height;
         }
         slot->object =
-            VideoVObjectToTextureAnim(*sprites, static_cast<unsigned short>(frame),
-                                      static_cast<unsigned short>(slot->frame_count), true);
+            VideoVObjectToTextureAnim(*sprites, static_cast<std::uint16_t>(frame),
+                                      static_cast<std::uint16_t>(slot->frame_count), true);
         slot->object->animation_mode = W8_TEXTURE_ANIM_MANUAL;
     }
 }
 
-unsigned int DispatchMainGameMouseButtons(const InputEvent* input)
+std::uint32_t DispatchMainGameMouseButtons(const InputEvent* input)
 {
     switch (input->type) {
     case InputEventType::LeftButtonDown:
@@ -7130,17 +7129,17 @@ unsigned int DispatchMainGameMouseButtons(const InputEvent* input)
    look flag, and each mouse move accumulates yaw/pitch from the offset off
    the 320x240 anchor before recentering the cursor. Smoothing defers the
    apply to the frame tick; otherwise it applies immediately. */
-unsigned char HandleMouselookInput(const InputEvent* input)
+bool HandleMouselookInput(const InputEvent* input)
 {
     if (!g_camera_path_active && (!gXStatus.world_paused || gXStatus.fCombatMode)) {
         const InputEventType us_event = input->type;
         switch (us_event) {
         case InputEventType::LeftButtonDown:
             g_mouselook_left_held = true;
-            return 1;
+            return true;
         case InputEventType::LeftButtonUp:
             g_mouselook_left_held = false;
-            return 1;
+            return true;
         case InputEventType::MouseMove:
             g_mouselook_pending_yaw =
                 (input->position.x - 0x140) * g_mouselook_yaw_scale +
@@ -7153,12 +7152,12 @@ unsigned char HandleMouselookInput(const InputEvent* input)
             if (g_settings.mouselook_smoothing == 0) {
                 ApplyPendingMouselook();
             }
-            return 1;
+            return true;
         default:
             break;
         }
     }
-    return 0;
+    return false;
 }
 
 void PauseMainGameWorld(void)
@@ -7237,7 +7236,7 @@ static void InvalidateMainGameScreen(W8DialogBase* dialog)
    highlighted monster: only while the entry is live, not dying and still has
    hit points. Closing leaves the whole screen dirty via the destroy
    callback. */
-void OpenMonsterInfoDialog(int location_id)
+void OpenMonsterInfoDialog(std::int32_t location_id)
 {
     W8MonsterInfo* monster_info = FindMonster(location_id);
     if (!monster_info->fActive || monster_info->p3D->IsDying() || monster_info->hp_current == 0) {
@@ -7252,7 +7251,7 @@ void OpenMonsterInfoDialog(int location_id)
 
 /* Open the assay dialog over the main game screen. A live modal dialog is
    parked in the pending slot so it resumes when this one closes. */
-void OpenAssayDialog(W8ItemInstance* item, int character_slot)
+void OpenAssayDialog(W8ItemInstance* item, std::int32_t character_slot)
 {
     W8DialogBase* dialog;
 
@@ -7276,7 +7275,7 @@ void OpenAssayDialog(W8ItemInstance* item, int character_slot)
    mode is live - dialogue, review screen or the mode-6 highlight overlay -
    before handing off. The flag decides whether the pending payload carries
    the slot's character pointer. */
-void OpenCharacterScreenForPartySlot(unsigned int party_slot, bool flag)
+void OpenCharacterScreenForPartySlot(std::uint32_t party_slot, bool flag)
 {
     if (gXStatus.fNpcDialogueMode) {
         CloseNpcDialogueForCamp();
@@ -7298,7 +7297,7 @@ void OpenCharacterScreenForPartySlot(unsigned int party_slot, bool flag)
    Retail expands this body (sign-extending the short result) in the
    radar/action-panel/formation-board setters and in SyncMainGameModeRegions
    and calls it elsewhere in this unit. All consumers use this canonical helper. */
-short GetMainGameViewportMode(void)
+std::int16_t GetMainGameViewportMode(void)
 {
     if (!gXStatus.fSpellCastMode && (!gXStatus.fNpcDialogueMode || CanOpenNpcDialogue()) &&
         !gXStatus.fLockInteractMode && !gXStatus.fTrapInteractMode && !gXStatus.fItemSelectMode &&
@@ -7349,7 +7348,7 @@ void ClearHighlightOverlayRegion(void)
                          g_level_block->dialogue_x + g_level_block->dialogue_width,
                          g_level_block->dialogue_y + g_level_block->dialogue_height, 0);
         if (g_level_block->dialogue_y <
-            static_cast<unsigned int>(g_viewport_modes[g_level_block->camera_mode].top)) {
+            static_cast<std::uint32_t>(g_viewport_modes[g_level_block->camera_mode].top)) {
             RequestRedrawCombatBar();
         }
         if (g_level_block->dialogue_y + g_level_block->dialogue_height > 0x166) {
@@ -7363,7 +7362,7 @@ void ClearHighlightOverlayRegion(void)
 void W8NpcDialogueTextController::SaveTranscriptEntries()
 {
     ClearNpcDialogueTranscript();
-    for (int index = 0; index < static_cast<int>(text_area.m_all_lines.size()); ++index) {
+    for (std::int32_t index = 0; index < static_cast<std::int32_t>(text_area.m_all_lines.size()); ++index) {
         auto record = std::make_unique<W8DialogueTranscriptRecord>();
         W8DialogTextEntry* entry = text_area.GetEntry(index);
         record->text = entry->GetText();
@@ -7374,7 +7373,7 @@ void W8NpcDialogueTextController::SaveTranscriptEntries()
 
 void W8NpcDialogueTextController::ClearTranscriptEntries()
 {
-    while (0u < static_cast<int>((unsigned)text_area.m_all_lines.size())) {
+    while (0u < static_cast<std::int32_t>((std::uint32_t)text_area.m_all_lines.size())) {
         text_area.RemoveEntry(0);
     }
     Invalidate(0);
@@ -7383,7 +7382,7 @@ void W8NpcDialogueTextController::ClearTranscriptEntries()
 void W8NpcDialogueTextController::RemoveSelectedTranscriptEntry()
 {
     if (text_area.m_highlighted_entry != -1) {
-        int index = text_area.GetOwningEntryIndex(text_area.m_highlighted_entry);
+        std::int32_t index = text_area.GetOwningEntryIndex(text_area.m_highlighted_entry);
         if (index != -1) {
             text_area.RemoveEntry(index);
             Invalidate(0);
@@ -7391,7 +7390,7 @@ void W8NpcDialogueTextController::RemoveSelectedTranscriptEntry()
     }
 }
 
-int W8NpcDialogueTextController::GetSelectedTranscriptEntryIndex()
+std::int32_t W8NpcDialogueTextController::GetSelectedTranscriptEntryIndex()
 {
     return text_area.m_highlighted_entry;
 }
@@ -7413,13 +7412,13 @@ void ConfirmNpcTradeItem(void)
     W8Character* trading;
     W8NpcState* npc;
     bool wants;
-    int selected;
-    int npc_kind;
-    int moved;
-    int shown;
-    int index;
-    int slot;
-    int target;
+    std::int32_t selected;
+    std::int32_t npc_kind;
+    std::int32_t moved;
+    std::int32_t shown;
+    std::int32_t index;
+    std::int32_t slot;
+    std::int32_t target;
 
     wants = false;
     if (!ValidateNpcTradeSelection()) {
@@ -7452,7 +7451,7 @@ void ConfirmNpcTradeItem(void)
                             g_npc_interaction_state->trade_item->iItemNo);
         if (SellItemToNpc(
                 g_npc_interaction_state->dialogue_npc, g_npc_interaction_state->trade_item,
-                static_cast<unsigned char>(g_npc_interaction_state->trade_quantity), wants) == 0) {
+                static_cast<std::uint8_t>(g_npc_interaction_state->trade_quantity), wants) == 0) {
             break;
         }
         slot = GetSelectedTextLine(2);
@@ -7475,7 +7474,7 @@ void ConfirmNpcTradeItem(void)
             if (index != -1) {
                 if (trading->backpack[index].stack_count > 0) {
                     trading->backpack[index].stack_count -=
-                        static_cast<unsigned char>(g_npc_interaction_state->trade_quantity);
+                        static_cast<std::uint8_t>(g_npc_interaction_state->trade_quantity);
                 }
                 if (trading->backpack[index].stack_count == 0) {
                     EmptyBackpackSlot(trading, index);
@@ -7491,7 +7490,7 @@ void ConfirmNpcTradeItem(void)
                 if (g_npc_interaction_state->trade_mode == W8_NPC_TRADE_GIVE) {
                     --target;
                 }
-                for (index = 0; static_cast<unsigned int>(index) < g_status.party_item_count;
+                for (index = 0; static_cast<std::uint32_t>(index) < g_status.party_item_count;
                      ++index) {
                     item = &g_status.party_item_pool[index];
                     if (item->iItemNo == -1 || NpcTradeItemAllowed(item)) {
@@ -7505,7 +7504,7 @@ void ConfirmNpcTradeItem(void)
                 if (index != -1) {
                     if (g_status.party_item_pool[index].stack_count > 0) {
                         g_status.party_item_pool[index].stack_count -=
-                            static_cast<unsigned char>(g_npc_interaction_state->trade_quantity);
+                            static_cast<std::uint8_t>(g_npc_interaction_state->trade_quantity);
                     }
                     if (g_status.party_item_pool[index].stack_count == 0) {
                         EmptyPartyPoolEntry(index);
@@ -7527,7 +7526,7 @@ void ConfirmNpcTradeItem(void)
         index = ResolveNpcTradeStockIndex(slot);
         if (index != -1 && CompleteNpcItemPurchase(
                                g_npc_interaction_state->dialogue_npc, index,
-                               static_cast<unsigned char>(g_npc_interaction_state->trade_quantity),
+                               static_cast<std::uint8_t>(g_npc_interaction_state->trade_quantity),
                                false, &moved)) {
             RebuildNpcTradeItemList(false);
             g_npc_interaction_state->trade_item = 0;
@@ -7542,7 +7541,7 @@ void ConfirmNpcTradeItem(void)
         if (index != -1) {
             entry = GetNpcItemAt(g_npc_interaction_state->dialogue_npc, index);
             AttemptNpcItemTrade(&entry->item,
-                                static_cast<unsigned char>(g_npc_interaction_state->trade_quantity),
+                                static_cast<std::uint8_t>(g_npc_interaction_state->trade_quantity),
                                 index);
         }
         break;
@@ -7556,15 +7555,15 @@ void ConfirmNpcTradeItem(void)
 void ShowNpcTradeItemNotice(W8ItemInstance* item)
 {
     W8NpcTradeMode mode = g_npc_interaction_state->trade_mode;
-    unsigned int font_palette = 0xf;
-    unsigned int price;
+    std::uint32_t font_palette = 0xf;
+    std::uint32_t price;
     W8TradePriceKind price_kind = W8_TRADE_PRICE_PARTY_SELLS;
 
     if (mode == W8_NPC_TRADE_BUY || mode == W8_NPC_TRADE_SHOPLIFT) {
         price_kind = W8_TRADE_PRICE_PARTY_BUYS;
     }
     if (mode == W8_NPC_TRADE_BUY || mode == W8_NPC_TRADE_SHOPLIFT || mode == W8_NPC_TRADE_SELL) {
-        unsigned char stack_count;
+        std::uint8_t stack_count;
         if (g_item_records[item->iItemNo].equip_class == W8_ITEM_EQUIP_CLASS_AMMUNITION) {
             stack_count = item->stack_count;
         } else {
@@ -7591,12 +7590,12 @@ void ShowNpcTradeItemNotice(W8ItemInstance* item)
     AppendTextBoxLine(g_level_block->text_paint_scratch, 2);
 }
 
-int ResolveNpcTradeStockIndex(int index)
+std::int32_t ResolveNpcTradeStockIndex(std::int32_t index)
 {
-    unsigned int count = GetNpcItemCount(g_npc_interaction_state->dialogue_npc);
-    int visible = 0;
+    std::uint32_t count = GetNpcItemCount(g_npc_interaction_state->dialogue_npc);
+    std::int32_t visible = 0;
 
-    for (unsigned int i = 0; i < count; ++i) {
+    for (std::uint32_t i = 0; i < count; ++i) {
         W8NpcItemEntry* entry = GetNpcItemAt(g_npc_interaction_state->dialogue_npc, i);
         if (entry != 0 && !NpcTradeItemAllowed(&entry->item) && entry->available_at == 0) {
             if (visible == index) {
@@ -7618,9 +7617,9 @@ void RebuildNpcTradeItemList(bool scroll_to_top)
     }
     if (g_npc_interaction_state->trade_mode == W8_NPC_TRADE_BUY ||
         g_npc_interaction_state->trade_mode == W8_NPC_TRADE_SHOPLIFT) {
-        unsigned int shown = 0;
-        unsigned int count = GetNpcItemCount(g_npc_interaction_state->dialogue_npc);
-        for (int index = 0; index < static_cast<int>(count); ++index) {
+        std::uint32_t shown = 0;
+        std::uint32_t count = GetNpcItemCount(g_npc_interaction_state->dialogue_npc);
+        for (std::int32_t index = 0; index < static_cast<std::int32_t>(count); ++index) {
             W8NpcItemEntry* entry = GetNpcItemAt(g_npc_interaction_state->dialogue_npc, index);
             ++shown;
             if (shown > 0x15e) {
@@ -7638,14 +7637,14 @@ void RebuildNpcTradeItemList(bool scroll_to_top)
     }
 }
 
-static void ShowNpcPlayerTradeItem(W8ItemInstance* item, bool acceptable, unsigned int font_palette)
+static void ShowNpcPlayerTradeItem(W8ItemInstance* item, bool acceptable, std::uint32_t font_palette)
 {
     if (g_npc_interaction_state->trade_mode == W8_NPC_TRADE_SELL) {
-        unsigned char count =
+        std::uint8_t count =
             g_item_records[item->iItemNo].equip_class == W8_ITEM_EQUIP_CLASS_AMMUNITION
                 ? item->stack_count
                 : 1;
-        int price =
+        std::int32_t price =
             CalculateNpcTradeStackPrice(g_npc_interaction_state->dialogue_npc, item->iItemNo,
                                         W8_TRADE_PRICE_PARTY_SELLS, count, item->identified);
         if (acceptable) {
@@ -7666,7 +7665,7 @@ static void ShowNpcPlayerTradeItem(W8ItemInstance* item, bool acceptable, unsign
 void PopulateNpcTradeList(void)
 {
     W8Character* trading = &g_status.buffers.Char[g_status.selected_character];
-    unsigned int shown = 0;
+    std::uint32_t shown = 0;
 
     ResetEditorStatusLine(2);
     ResetNpcDialogueItemEditor();
@@ -7687,10 +7686,10 @@ void PopulateNpcTradeList(void)
                  g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_6])
                  ->m_stateFlags &
              g_W8TextControlStateSecondary) != 0) {
-            for (unsigned int index = 0; index < g_status.party_item_count; ++index) {
+            for (std::uint32_t index = 0; index < g_status.party_item_count; ++index) {
                 W8ItemInstance* item = &g_status.party_item_pool[index];
                 bool acceptable = true;
-                unsigned int font_palette;
+                std::uint32_t font_palette;
                 if (item->iItemNo == -1) {
                     continue;
                 }
@@ -7712,10 +7711,10 @@ void PopulateNpcTradeList(void)
             }
         }
     } else {
-        for (unsigned int index = 0; index < 8; ++index) {
+        for (std::uint32_t index = 0; index < 8; ++index) {
             W8ItemInstance* item = &trading->backpack[index];
             bool acceptable = true;
-            unsigned int font_palette;
+            std::uint32_t font_palette;
             if (item->iItemNo == -1) {
                 continue;
             }
@@ -7781,9 +7780,9 @@ void NpcTradeSplitDialogResult(W8DialogBase* dialog)
     W8SplitItemDialog* split = static_cast<W8SplitItemDialog*>(dialog);
 
     if (split->split_result == g_item_split_confirm_result) {
-        int count = split->split_count;
+        std::int32_t count = split->split_count;
         if (count != 0) {
-            int slot = GetSelectedTextLine(2);
+            std::int32_t slot = GetSelectedTextLine(2);
             g_npc_interaction_state->trade_quantity = count - 1;
             SetSelectedTextLine(slot, 2);
             UpdateNpcTradeSelection(slot, 0, 1);
@@ -7809,9 +7808,9 @@ bool ValidateNpcTradeSelection(void)
         if (item == 0) {
             return false;
         }
-        unsigned int price = CalculateNpcTradeStackPrice(
+        std::uint32_t price = CalculateNpcTradeStackPrice(
             g_npc_interaction_state->dialogue_npc, item->iItemNo, W8_TRADE_PRICE_PARTY_BUYS,
-            static_cast<unsigned char>(g_npc_interaction_state->trade_quantity), item->identified);
+            static_cast<std::uint8_t>(g_npc_interaction_state->trade_quantity), item->identified);
         if (g_status.party_gold < price) {
             g_npc_dialogue.QueueQuote(0x14, false, false, false);
             return false;
@@ -7820,7 +7819,7 @@ bool ValidateNpcTradeSelection(void)
     return accepted;
 }
 
-bool AttemptNpcItemTrade(W8ItemInstance* item, unsigned char quantity, int index)
+bool AttemptNpcItemTrade(W8ItemInstance* item, std::uint8_t quantity, std::int32_t index)
 {
     std::string text;
     char result;
@@ -7843,9 +7842,9 @@ bool AttemptNpcItemTrade(W8ItemInstance* item, unsigned char quantity, int index
             PopulateNpcTradeList();
             return true;
         }
-        unsigned int shown = 0;
-        int count = GetNpcItemCount(g_npc_interaction_state->dialogue_npc);
-        for (int i = 0; i < count; ++i) {
+        std::uint32_t shown = 0;
+        std::int32_t count = GetNpcItemCount(g_npc_interaction_state->dialogue_npc);
+        for (std::int32_t i = 0; i < count; ++i) {
             W8NpcItemEntry* entry = GetNpcItemAt(g_npc_interaction_state->dialogue_npc, i);
             ++shown;
             if (shown > 0x15e) {
@@ -7876,64 +7875,64 @@ bool AttemptNpcItemTrade(W8ItemInstance* item, unsigned char quantity, int index
 /* Highlight a clicked transcript keyword; clicking it again submits it to
    the dialogue input handler and clears its marked-entry palette. */
 
-void W8NpcDialogueTextController::SelectTranscriptKeywordAtPoint(int x, int y)
+void W8NpcDialogueTextController::SelectTranscriptKeywordAtPoint(std::int32_t x, std::int32_t y)
 {
-    unsigned int hit;
+    std::uint32_t hit;
 
     if (g_npc_interaction_state->modal_dialog_open) {
         return;
     }
 
     hit = text_area.HitTestEntry(x, y);
-    if (hit == static_cast<unsigned int>(-1)) {
+    if (hit == static_cast<std::uint32_t>(-1)) {
         return;
     }
     const auto keyword = text_area.GetVisibleEntryText(hit);
     if (!keyword)
         return;
 
-    if (text_area.m_highlighted_entry == static_cast<int>(hit)) {
+    if (text_area.m_highlighted_entry == static_cast<std::int32_t>(hit)) {
         text_area.ClearEntryHighlight();
-        text_area.HighlightVisibleEntry(static_cast<int>(hit));
+        text_area.HighlightVisibleEntry(static_cast<std::int32_t>(hit));
         SetDialogueFieldKeyword(std::string(*keyword), false);
         HandleNpcDialogueInput();
-        text_area.SetEntryMarked(text_area.GetOwningEntryIndex(static_cast<int>(hit)), false);
+        text_area.SetEntryMarked(text_area.GetOwningEntryIndex(static_cast<std::int32_t>(hit)), false);
         InvalidateLayout();
         return;
     }
 
     text_area.ClearEntryHighlight();
-    text_area.HighlightVisibleEntry(static_cast<int>(hit));
+    text_area.HighlightVisibleEntry(static_cast<std::int32_t>(hit));
     SetDialogueFieldKeyword(std::string(*keyword), false);
     InvalidateLayout();
 }
 
-unsigned char DialogueTranscriptRegionEvent(const InputEvent* event, W8Region* region)
+bool DialogueTranscriptRegionEvent(const InputEvent* event, W8Region* region)
 {
     const InputEventType us_event = event->type;
     W8NpcDialogueTextController* controller;
     bool scrolled;
-    short delta;
+    std::int16_t delta;
 
     if (IsLeftButtonEvent(us_event)) {
         if (us_event == InputEventType::LeftButtonRepeat || us_event == InputEventType::LeftButtonDown) {
             region->flags |= W8_REGION_LEFT_BUTTON_HELD;
-            return 1;
+            return true;
         }
         if (us_event != InputEventType::LeftButtonUp) {
-            return 0;
+            return false;
         }
         if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
             region->flags &= ~W8_REGION_LEFT_BUTTON_HELD;
             static_cast<W8NpcDialogueTextController*>(g_npc_interaction_state->dialogue_panels[2])
                 ->SelectTranscriptKeywordAtPoint(event->position.x,
                                                  event->position.y);
-            return 1;
+            return true;
         }
     } else {
         if (us_event != InputEventType::MouseMove) {
             if (us_event != InputEventType::MouseWheel) {
-                return 0;
+                return false;
             }
             delta = event->wheel;
             if (delta > 0) {
@@ -7941,19 +7940,19 @@ unsigned char DialogueTranscriptRegionEvent(const InputEvent* event, W8Region* r
                     g_npc_interaction_state->dialogue_panels[2]);
                 scrolled = controller->text_area.ScrollUp(false);
                 if (!scrolled) {
-                    return 0;
+                    return false;
                 }
                 controller->Invalidate(0);
-                return 0;
+                return false;
             }
             controller = static_cast<W8NpcDialogueTextController*>(
                 g_npc_interaction_state->dialogue_panels[2]);
             scrolled = controller->text_area.ScrollDown(false);
             if (!scrolled) {
-                return 0;
+                return false;
             }
             controller->Invalidate(0);
-            return 0;
+            return false;
         }
         if ((region->flags & W8_REGION_MOUSE_LEAVE) == 0) {
             if ((region->flags & W8_REGION_MOUSE_ENTER) == 0) {
@@ -7970,14 +7969,14 @@ unsigned char DialogueTranscriptRegionEvent(const InputEvent* event, W8Region* r
                 g_npc_interaction_state->dialogue_panels[2]);
             if (controller->text_area.ClearPointSelection()) {
                 controller->InvalidateLayout();
-                return 1;
+                return true;
             }
         }
     }
-    return 1;
+    return true;
 }
 
-unsigned char CombatBarRegionEvent(const InputEvent* event, W8Region*)
+bool CombatBarRegionEvent(const InputEvent* event, W8Region*)
 {
     const InputEventType us_event = event->type;
 
@@ -7991,12 +7990,12 @@ unsigned char CombatBarRegionEvent(const InputEvent* event, W8Region*)
             goto resume_world;
         }
         if (us_event == InputEventType::MouseMove) {
-            return 1;
+            return true;
         }
     }
 
     if (g_mgs_keyboard->FindCommandForEvent(event) == W8_MGS_COMMAND_NONE) {
-        return 0;
+        return false;
     }
 
 resume_world:
@@ -8004,17 +8003,17 @@ resume_world:
         AcknowledgeSurprise();
     }
     if (!gXStatus.world_paused) {
-        return 1;
+        return true;
     }
     ResumeMainGameWorld();
-    return 1;
+    return true;
 }
 
 /* Note that the party's state changed. The combat half is only asked for while
    a fight is on; the party half always. */
 
 // GLOBAL: WIZ8 0x0068edb8
-static w8_ulong g_surprise_fade_tick_base;
+static std::uint32_t g_surprise_fade_tick_base;
 // GLOBAL: WIZ8 0x005ee9a8
 const float g_fade_resume_scale = -500.0f;
 // GLOBAL: WIZ8 0x0068edca
@@ -8072,13 +8071,13 @@ void ReverseSurpriseFade(void)
             static_cast<srMaterial*>(static_cast<srMeshModel*>(g_surprise_fade_node->getModel())
                                          ->getMaterial(0, srMeshModel::SIDE_FRONT));
         float opacity = material->parms.diffuse.w;
-        w8_ulong now = w8_get_ticks();
+        std::uint32_t now = w8_get_ticks();
         g_surprise_fade_in = !g_surprise_fade_in;
         if (g_surprise_fade_in) {
             g_surprise_fade_tick_base =
-                now + static_cast<int>((g_float_one - opacity) * g_fade_resume_scale);
+                now + static_cast<std::int32_t>((g_float_one - opacity) * g_fade_resume_scale);
         } else {
-            g_surprise_fade_tick_base = now + static_cast<int>(opacity * g_fade_resume_scale);
+            g_surprise_fade_tick_base = now + static_cast<std::int32_t>(opacity * g_fade_resume_scale);
         }
     } else {
         g_surprise_fade_node->clearFlag(srNode::FLAG_DISABLE);
@@ -8096,12 +8095,12 @@ void DestroySurpriseFade(void)
     g_world_render_enabled = 1;
 }
 
-unsigned char UpdateSurpriseFade(void)
+bool UpdateSurpriseFade(void)
 {
     bool done = false;
     bool boundary = false;
     float opacity;
-    w8_ulong now = w8_get_ticks();
+    std::uint32_t now = w8_get_ticks();
 
     if (g_surprise_fade_tick_base + 500 < now) {
         if (!g_surprise_fade_in) {

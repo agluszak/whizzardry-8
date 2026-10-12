@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include "wiz8/filesystem.h"
 
 #include "wiz8/layouts/world.h"
@@ -18,9 +19,9 @@ void MarkRendererReady(void);
 
 W8World* CreateWorld();
 W8World* ForwardCreateWorld(void);
-unsigned char LoadWorld(W8World* world, char* level_file_name, const char* level_folder,
+std::uint8_t LoadWorld(W8World* world, char* level_file_name, const char* level_folder,
                         const char* asset_folder, bool use_octree);
-unsigned char ForwardLoadWorld(W8World* world, char* level_file_name, const char* level_folder,
+std::uint8_t ForwardLoadWorld(W8World* world, char* level_file_name, const char* level_folder,
                                const char* asset_folder, bool use_octree);
 void ForwardDestroyWorld(W8World* world);
 void SetCurrentWorld(W8World* world);
@@ -39,17 +40,17 @@ void SetWorldScenePosition(W8World* world, const srVector3T<float>* position);
 stParticle* FindParticleByName(W8World* world, const char* name);
 bool FindEntityByName(const char* name, srVector3T<float>* position, float* angle,
                       srVector3T<float>* direction);
-unsigned char AdjustWorldCollisionPosition(float radius, srVector3T<float>* position,
+bool AdjustWorldCollisionPosition(float radius, srVector3T<float>* position,
                                            bool check_items, bool check_monsters);
-unsigned char FindNearbyFreePosition(float radius, srVector3T<float>* position, bool check_items,
+bool FindNearbyFreePosition(float radius, srVector3T<float>* position, bool check_items,
                                      bool check_monsters);
 
 void SetSecondaryWorld(W8World* world);
 
 /* Scene nodes of the loaded worlds (the level world, then the sky world) that
    derive from class_id. Lookups return the first match by exact name. */
-srNode* FindWorldNode(std::string_view name, w8_ulong class_id);
-void ForEachWorldNode(w8_ulong class_id, const std::function<void(srNode*)>& visit);
+srNode* FindWorldNode(std::string_view name, std::uint32_t class_id);
+void ForEachWorldNode(std::uint32_t class_id, const std::function<void(srNode*)>& visit);
 
 template <class T> T* FindWorldNode(std::string_view name)
 {
@@ -68,4 +69,4 @@ void SaveWorldProps(W8World* world, wiz8::File& handle);
    selects the name-keyed format; older saves carry a bare count plus the
    object's id key. Unmatched records are consumed by a scratch prop. */
 void LoadWorldProps(W8World* world, wiz8::File& handle);
-void UpdateCameraPathStateByName(W8World* world, const char* name, int active);
+void UpdateCameraPathStateByName(W8World* world, const char* name, std::int32_t active);

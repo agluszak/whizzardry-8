@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <memory>
 
 #include "wiz8/audio_resources.h"
@@ -35,26 +36,26 @@ public:
 
     char* pacSoundName;          /* 0x000: assertion-backed at 0x47A790 */
     W8AmbientSoundConfig config; /* 0x004: wave filename; shared sounds match on it */
-    unsigned char stopped;       /* 0x084: script-stopped via the ByName commands */
-    unsigned char padding_085[3];
+    std::uint8_t stopped;       /* 0x084: script-stopped via the ByName commands */
+    std::uint8_t padding_085[3];
     srVector3T<float> position;  /* 0x088: emitter world position */
-    unsigned int volume_min;     /* 0x094 */
-    unsigned int volume_max;     /* 0x098 */
-    unsigned int target_volume;  /* 0x09c: fade endpoint */
-    unsigned int current_volume; /* 0x0a0: live fade value */
-    int speed_min;               /* 0x0a4: playback speed low bound */
-    int speed_max;               /* 0x0a8: playback speed high bound */
-    int time_min;                /* 0x0ac: random retrigger interval, low ms */
-    int time_max;                /* 0x0b0: random retrigger interval, high ms */
+    std::uint32_t volume_min;     /* 0x094 */
+    std::uint32_t volume_max;     /* 0x098 */
+    std::uint32_t target_volume;  /* 0x09c: fade endpoint */
+    std::uint32_t current_volume; /* 0x0a0: live fade value */
+    std::int32_t speed_min;               /* 0x0a4: playback speed low bound */
+    std::int32_t speed_max;               /* 0x0a8: playback speed high bound */
+    std::int32_t time_min;                /* 0x0ac: random retrigger interval, low ms */
+    std::int32_t time_max;                /* 0x0b0: random retrigger interval, high ms */
     float radius;                /* 0x0b4: audible range in world units */
-    unsigned char in_range;      /* 0x0b8: listener currently inside radius/region */
-    unsigned char looping;       /* 0x0b9: continuous loop vs random one-shot */
-    unsigned char padding_0ba[2];
+    std::uint8_t in_range;      /* 0x0b8: listener currently inside radius/region */
+    std::uint8_t looping;       /* 0x0b9: continuous loop vs random one-shot */
+    std::uint8_t padding_0ba[2];
     wiz8::sound::Playback sound_handle;      // Current playback, shared during group handoff.
     std::shared_ptr<W8RandomAmbient> random; // One-shot schedule; empty for looping sounds.
-    unsigned char shared;  /* 0x0c4: shared 2D group sound; voices hand off by name */
-    unsigned char bounded; /* 0x0c5: region test enabled (v2 trigger field) */
-    unsigned char padding_0c6[2];
+    bool shared;  /* 0x0c4: shared 2D group sound; voices hand off by name */
+    bool bounded; /* 0x0c5: region test enabled (v2 trigger field) */
+    std::uint8_t padding_0c6[2];
     srVector3T<float> region_min;    /* 0x0c8 */
     srVector3T<float> region_max;    /* 0x0d4 */
     srVector3T<float> region_center; /* 0x0e0 */
@@ -123,41 +124,41 @@ enum W8FootstepKind {
 /* 0x00479030: drop every random schedule and stop the ambient group */
 void StopAllAmbientSounds();
 
-void BuildFootstepPath(char* path, signed char surface, signed char material, char kind,
-                       int variant);
-wiz8::sound::Playback PlayFootstep(signed char surface, signed char material, W8FootstepKind kind);
+void BuildFootstepPath(char* path, std::int8_t surface, std::int8_t material, char kind,
+                       std::int32_t variant);
+wiz8::sound::Playback PlayFootstep(std::int8_t surface, std::int8_t material, W8FootstepKind kind);
 void UpdateAmbientSounds(W8World* world);
 void RepositionAmbientSounds(W8World* world);
-unsigned char ReadAmbientSoundListFile(char* filename);
+std::uint8_t ReadAmbientSoundListFile(char* filename);
 
 void PositionAmbientSoundByName(W8World* /* unused */, const char* name);
 void StopAmbientSoundByName(W8World* /* unused */, const char* name);
 void ToggleAmbientSoundByName(W8World* /* unused */, const char* name);
 void DestroyAmbientSound(W8AmbientSound* ambient);
-unsigned char AddAmbientSound(W8World* world, const char* name, const W8AmbientSoundConfig* config,
+bool AddAmbientSound(W8World* world, const char* name, const W8AmbientSoundConfig* config,
                               const srVector3T<float>* position,
                               const srVector3T<float>* region_min,
-                              const srVector3T<float>* region_max, int volume_min, int volume_max,
-                              int time_min, int time_max, int speed_min, int speed_max,
-                              float radius, bool looping, unsigned char bounded,
+                              const srVector3T<float>* region_max, std::int32_t volume_min, std::int32_t volume_max,
+                              std::int32_t time_min, std::int32_t time_max, std::int32_t speed_min, std::int32_t speed_max,
+                              float radius, bool looping, bool bounded,
                               const srVector3T<float>* region_center, float region_angle,
                               const srVector3T<float>* region_axis,
-                              const srVector3T<float>* region_scale, unsigned char shared);
+                              const srVector3T<float>* region_scale, bool shared);
 
 void SaveAmbientSoundList(wiz8::File& handle);
 void LoadAmbientSoundList(wiz8::File& handle);
 
 bool IsSoundEffectsMuted(void);
-unsigned char GetSoundEffectsVolume(void);
-void SetSoundEffectsVolume(unsigned char volume);
-void SetSoundEffectsMuted(unsigned char muted);
+std::uint8_t GetSoundEffectsVolume(void);
+void SetSoundEffectsVolume(std::uint8_t volume);
+void SetSoundEffectsMuted(bool muted);
 
-extern unsigned char g_default_footstep_surface;
-extern unsigned char g_default_footstep_material;
+extern std::uint8_t g_default_footstep_surface;
+extern std::uint8_t g_default_footstep_material;
 extern bool g_footstep_alternate;
-extern int g_previous_ambient_footstep_variant;
+extern std::int32_t g_previous_ambient_footstep_variant;
 extern const char* g_footstep_names[];
 extern const char* g_footstep_surfaces[];
 /* Zeroed 128-byte ambient name image; only its first word is ever read — a
    `memcpy` of it followed by a memset seeds an empty fixed-size name. */
-extern unsigned short g_empty_ambient_name;
+extern std::uint16_t g_empty_ambient_name;

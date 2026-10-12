@@ -1,6 +1,7 @@
 #ifndef WIZ8_LAYOUTS_WORLD_H
 #define WIZ8_LAYOUTS_WORLD_H
 
+#include <cstdint>
 #include <utility>
 #include <memory>
 
@@ -81,14 +82,14 @@ struct W8World {
     W8GameData* game_data;
     W8Octree* octree;
     stLight* camera_light;
-    unsigned char m_padding_058[0x11];
+    std::uint8_t m_padding_058[0x11];
     bool m_loaded;
-    unsigned char m_padding_06a[2];
+    std::uint8_t m_padding_06a[2];
     std::unique_ptr<W8Quad> quads;
     srModelInstance* update_mesh_source;
     float render_range0;
     float render_range;
-    unsigned char m_unknown_07c[0x20];
+    std::uint8_t m_unknown_07c[0x20];
     std::vector<srNode*> nodes_to_disable;
     std::vector<stLight*> transient_lights;
     std::vector<W8SpellVisual*> spell_visuals;
@@ -99,15 +100,15 @@ struct W8World {
     std::vector<Trigger*> triggers;
     std::vector<stParticle*> particles;
     std::vector<W8NamedPosition> named_positions;
-    unsigned char m_unknown_0d4[8];
+    std::uint8_t m_unknown_0d4[8];
 };
 
 extern W8World* g_world;
 extern W8World* g_secondary_world;
-extern int g_combat_round_counter;
+extern std::int32_t g_combat_round_counter;
 
 /* Typed element access for the homogeneous world lists. */
-inline W8Prop* GetWorldProp(W8World* world, int index)
+inline W8Prop* GetWorldProp(W8World* world, std::int32_t index)
 {
     if (index < 0 || std::cmp_greater_equal(index, world->plsProps.size())) {
         return nullptr;
@@ -115,7 +116,7 @@ inline W8Prop* GetWorldProp(W8World* world, int index)
     return world->plsProps[index];
 }
 
-inline W8CameraPath* GetWorldCameraPath(W8World* world, int index)
+inline W8CameraPath* GetWorldCameraPath(W8World* world, std::int32_t index)
 {
     if (index < 0 ||
         std::cmp_greater_equal(index, world->plsCameras.size())) {
@@ -124,7 +125,7 @@ inline W8CameraPath* GetWorldCameraPath(W8World* world, int index)
     return world->plsCameras[index].get();
 }
 
-inline W8AmbientSound* GetWorldAmbientSound(W8World* world, int index)
+inline W8AmbientSound* GetWorldAmbientSound(W8World* world, std::int32_t index)
 {
     if (index < 0 ||
         std::cmp_greater_equal(index, world->plsAmbientSounds.size())) {

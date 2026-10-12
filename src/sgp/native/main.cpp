@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <wiz8/asset_paths.h>
 #include <cstdio>
 #include <exception>
@@ -8,7 +9,7 @@
 
 #include "wiz8/application.h"
 
-int main(int argc, char** argv)
+int main(std::int32_t argc, char** argv)
 {
     try {
         if (argc == 2 && std::string_view(argv[1]) == "--print-user-root") {

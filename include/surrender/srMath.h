@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <fenv.h>
 #include <cmath>
 #include <glm/glm.hpp>
@@ -11,7 +12,7 @@
 #include <type_traits>
 
 /* Float-to-int through the FPU's current rounding mode (round to nearest, not truncation). */
-inline w8_long srFloatToInt(double value)
+inline std::int32_t srFloatToInt(double value)
 {
     const double rounded = rint(value);
     // Retail FISTP stores a signed dword. LP64 lrint instead has a 64-bit
@@ -20,10 +21,10 @@ inline w8_long srFloatToInt(double value)
         feraiseexcept(FE_INVALID);
         return (-2147483647 - 1);
     }
-    return static_cast<w8_long>(rounded);
+    return static_cast<std::int32_t>(rounded);
 }
 
-inline w8_long srFloatToInt(float value)
+inline std::int32_t srFloatToInt(float value)
 {
     return srFloatToInt(static_cast<double>(value));
 }
@@ -102,7 +103,7 @@ public:
     srVector3T<T>& operator/=(double scalar);
     bool operator==(const srVector3T<T>& other) const;
 
-    int isValid() const
+    bool isValid() const
     {
         return std::isfinite(static_cast<double>(x)) && std::isfinite(static_cast<double>(y)) &&
                std::isfinite(static_cast<double>(z));
@@ -246,12 +247,10 @@ template <class T> srVector3T<T> operator/(const srVector3T<T>& vector, double s
 class srVector2i
 {
 public:
-    int x;
-    int y;
+    std::int32_t x;
+    std::int32_t y;
 };
 
-using SRBYTE = unsigned char;
-using SRDWORD = w8_ulong;
 using srVector3 = srVector3T<float>;
 static_assert(sizeof(srVector3) == 12 && alignof(srVector3) == 1);
 static_assert(std::is_trivially_copyable_v<srVector3>);

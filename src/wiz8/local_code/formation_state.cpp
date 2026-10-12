@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <cstring>
 
 #include "wiz8/local_code/FormationAndFacing.h"
@@ -12,7 +13,7 @@
 // FUNCTION: WIZ8 0x00554580
 void InitializePartyFormation(W8PartyFormationState* formation)
 {
-    unsigned int index;
+    std::uint32_t index;
 
     memset(formation, 0, sizeof(*formation));
     for (index = 0; index < 5; ++index) {

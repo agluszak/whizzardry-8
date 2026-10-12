@@ -32,11 +32,11 @@ const char* g_spell_desc_database_path = "Data\\Databases\\SpellDesc.dbs";
 // GLOBAL: WIZ8 0x00619794
 char g_comma_space[] = ", ";
 // GLOBAL: WIZ8 0x0060cff0
-static unsigned short g_spellbook_name_ids[4] = {791, 792, 793, 794};
+static std::uint16_t g_spellbook_name_ids[4] = {791, 792, 793, 794};
 // GLOBAL: WIZ8 0x0060d4a8
-static unsigned short g_spell_usage_name_ids[5] = {795, 797, 796, 796, 796};
+static std::uint16_t g_spell_usage_name_ids[5] = {795, 797, 796, 796, 796};
 // GLOBAL: WIZ8 0x0060d4b4
-static unsigned short g_spell_target_type_name_ids[11] = {798, 799, 800, 801, 802, 803,
+static std::uint16_t g_spell_target_type_name_ids[11] = {798, 799, 800, 801, 802, 803,
                                                           804, 805, 806, 807, 807};
 // GLOBAL: WIZ8 0x0060d4cc
 static char g_spell_target_mark4[] = "\xef\xbf\xb4";
@@ -55,7 +55,7 @@ const char* g_spell_target_parentheticals[11] = {
     g_spell_target_mark0, g_spell_target_mark4, g_spell_target_mark4,
 };
 // GLOBAL: WIZ8 0x0061e9a0
-unsigned short g_spell_range_name_ids[4] = {1307, 1308, 1309, 1310};
+std::uint16_t g_spell_range_name_ids[4] = {1307, 1308, 1309, 1310};
 // GLOBAL: WIZ8 0x0064fdc4
 static char g_plus_space[] = "+ ";
 
@@ -63,7 +63,7 @@ static char g_plus_space[] = "+ ";
 #define SPELL_INFO_DIALOG_CPP "C:\\Projects\\Wizardry 8\\Dialog Code\\SpellInfoDialog.cpp"
 
 // FUNCTION: WIZ8 0x005dbb60
-W8SpellInfoDialog::W8SpellInfoDialog(unsigned int spell)
+W8SpellInfoDialog::W8SpellInfoDialog(std::uint32_t spell)
     : m_spell(spell), m_timer(0.05f, 1), m_animation_frame(0)
 {
     SetOrigin(0x9c, 0x5a);
@@ -72,7 +72,7 @@ W8SpellInfoDialog::W8SpellInfoDialog(unsigned int spell)
 }
 
 // FUNCTION: WIZ8 0x005dbcf0
-int W8SpellInfoDialog::CreateControls()
+std::int32_t W8SpellInfoDialog::CreateControls()
 {
     W8DialogBase::CreateControls();
     if (!PopulateText()) {
@@ -86,7 +86,7 @@ int W8SpellInfoDialog::CreateControls()
     resources.track_frame = 1;
     resources.on_scroll = ScrollCallback;
     m_scroll_bar.CreateControls(&resources);
-    int x = m_x;
+    std::int32_t x = m_x;
     m_scroll_bar.SetLayout(x + 0x12b, m_y + 0x43, m_text_area.GetTotalLineCount(), 0,
                            m_text_area.GetLineHeight(), 0xb9);
     m_scroll_bar.m_owner = this;
@@ -99,7 +99,7 @@ int W8SpellInfoDialog::CreateControls()
 // FUNCTION: WIZ8 0x005dbe00
 void W8SpellInfoDialog::Draw()
 {
-    int steps;
+    std::int32_t steps;
     W8SpellRealm realm;
     W8SpellRealmAnimation* animation;
 
@@ -116,7 +116,7 @@ void W8SpellInfoDialog::Draw()
     m_text_area.Draw(false);
     m_scroll_bar.Draw(false);
     m_button.Draw();
-    steps = static_cast<int>(m_timer.GetProgress());
+    steps = static_cast<std::int32_t>(m_timer.GetProgress());
     if (steps > 0) {
         realm = g_spell_records[m_spell].realm;
         animation = &g_spell_realm_animations[realm];
@@ -132,16 +132,16 @@ bool W8SpellInfoDialog::PopulateText()
     W8ControlsRect bounds;
     W8SpellRuntimeRecord* record;
     std::string text;
-    unsigned int spellbook_mask;
-    unsigned int book;
-    int count;
+    std::uint32_t spellbook_mask;
+    std::uint32_t book;
+    std::int32_t count;
     W8SpellTargetType target_type;
-    int duration_per_level;
-    int duration_base;
-    int ui_units;
-    int ui_units_lvl;
-    int display;
-    int display_base;
+    std::int32_t duration_per_level;
+    std::int32_t duration_base;
+    std::int32_t ui_units;
+    std::int32_t ui_units_lvl;
+    std::int32_t display;
+    std::int32_t display_base;
 
     bounds.left = m_x + 0x11;
     bounds.top = m_y + 0x43;
@@ -152,7 +152,7 @@ bool W8SpellInfoDialog::PopulateText()
 
     record = &g_spell_records[m_spell];
     text.clear();
-    spellbook_mask = static_cast<unsigned int>(record->wizardry_spell != 0) |
+    spellbook_mask = static_cast<std::uint32_t>(record->wizardry_spell != 0) |
                      (record->divinity_spell != 0 ? W8_SPELLBOOK_DIVINITY : W8_SPELLBOOK_NONE) |
                      (record->alchemy_spell != 0 ? W8_SPELLBOOK_ALCHEMY : W8_SPELLBOOK_NONE) |
                      (record->psionics_spell != 0 ? W8_SPELLBOOK_PSIONICS : W8_SPELLBOOK_NONE);
@@ -183,14 +183,14 @@ bool W8SpellInfoDialog::PopulateText()
         (record->effect_dice.base != 0 || record->effect_dice.count != 0)) {
         if (record->effect_dice.count == 0) {
             m_text_area.AddEntry(g_localized_strings[0x120],
-                                 fmt::format("{:d} {}", static_cast<int>(record->effect_dice.base),
+                                 fmt::format("{:d} {}", static_cast<std::int32_t>(record->effect_dice.base),
                                              g_localized_strings[0x121]),
                                  10, 0xf, 0);
         } else {
             m_text_area.AddEntry(
                 g_localized_strings[0x120],
                 fmt::format("{:d}-{:d} {}",
-                            record->effect_dice.count + static_cast<int>(record->effect_dice.base),
+                            record->effect_dice.count + static_cast<std::int32_t>(record->effect_dice.base),
                             record->effect_dice.Maximum(), g_localized_strings[0x121]),
                 10, 0xf, 0);
         }
@@ -311,7 +311,7 @@ void W8SpellInfoDialog::DrawLabels()
 }
 
 // FUNCTION: WIZ8 0x005dc6c0
-void W8SpellInfoDialog::ScrollCallback(W8DialogScrollBar* scroll_bar, int first_visible_entry)
+void W8SpellInfoDialog::ScrollCallback(W8DialogScrollBar* scroll_bar, std::int32_t first_visible_entry)
 {
     W8SpellInfoDialog* dialog = static_cast<W8SpellInfoDialog*>(scroll_bar->m_owner);
     if (dialog != 0) {
@@ -330,7 +330,7 @@ void W8SpellInfoDialog::OnRightButtonUp()
 
 /* Same folded body as W8MonsterInfoDialog::OnMouseWheel at 0x005D6E70;
    /OPT:NOICF emits this copy. */
-void W8SpellInfoDialog::OnMouseWheel(int delta)
+void W8SpellInfoDialog::OnMouseWheel(std::int32_t delta)
 {
     m_scroll_bar.ScrollBy(delta);
 }

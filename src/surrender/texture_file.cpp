@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "surrender/stream_scope.h"
 #include <ostream>
 #include <utility>
@@ -6,12 +7,11 @@
 
 #include "surrender/srTextureFile.h"
 #include "surrender/srImageIO.h"
-#include "compat/compiler.h"
 #include "surrender/srColorSurfaceIFace.h"
 #include "surrender/srTexture.h"
 
 // FUNCTION: SURRENDER 0x1005F8E0
-srTextureFile::srTextureFile(std::string file_name, int cached)
+srTextureFile::srTextureFile(std::string file_name, std::int32_t cached)
     : cached(cached != 0), surface(nullptr), frame_handle(getNewFrameHandle())
 {
     setFileName(std::move(file_name));
@@ -56,7 +56,7 @@ void srTextureFile::setFileName(std::string file_name)
 }
 
 // FUNCTION: SURRENDER 0x1005FAA0
-void srTextureFile::setCached(int cached)
+void srTextureFile::setCached(std::int32_t cached)
 {
     if (cached != 0) {
         this->cached |= 1;
@@ -66,7 +66,7 @@ void srTextureFile::setCached(int cached)
 }
 
 // FUNCTION: SURRENDER 0x1005FF00
-int srTextureFile::isSurfaceLoaded() const
+bool srTextureFile::isSurfaceLoaded() const
 {
     return surface != 0;
 }
@@ -101,7 +101,7 @@ void srTextureFile::releaseSurface()
 }
 
 // FUNCTION: SURRENDER 0x1005F8A0
-w8_ulong srTextureFile::getTextureFrameHandle()
+std::uint32_t srTextureFile::getTextureFrameHandle()
 {
     if ((texture_flags_ & (1 << FLAG_GENERATESURFACE_FAILURE)) != 0) {
         return 0;

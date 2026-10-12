@@ -24,6 +24,7 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include <cinttypes>
 #include <cstdint>
 #include <cstddef>
 #include <iterator>
@@ -133,26 +134,26 @@ using Clock = std::chrono::steady_clock;
 std::vector<std::string> g_logged_errors;
 SDL_LogOutputFunction g_default_log;
 void* g_default_log_data;
-void CaptureLog(void* data, int category, SDL_LogPriority priority, const char* message)
+void CaptureLog(void* data, std::int32_t category, SDL_LogPriority priority, const char* message)
 {
     if (priority >= SDL_LOG_PRIORITY_ERROR)
         g_logged_errors.emplace_back(message);
     g_default_log(g_default_log_data, category, priority, message);
 }
 
-const char* ScreenName(int id)
+const char* ScreenName(std::int32_t id)
 {
     static const char* names[] = {"intro",     "main-menu", "router",   "character", "please-wait",
                                   "party",     "camp",      "main-game", "automap",  "credits",
                                   "options",   "journal",   "exit"};
-    return id >= 0 && id < int(std::size(names)) ? names[id] : "none";
+    return id >= 0 && id < std::int32_t(std::size(names)) ? names[id] : "none";
 }
 
-bool RegionLive(unsigned region)
+bool RegionLive(std::uint32_t region)
 {
     if (region >= g_regions.size() || (g_regions[region].flags & W8_REGION_INPUT_DISABLED))
         return false;
-    for (unsigned set = 0; set < g_region_sets.size(); ++set)
+    for (std::uint32_t set = 0; set < g_region_sets.size(); ++set)
         if (g_region_sets[set].enabled &&
             std::ranges::find(g_region_sets[set].Regions(), region) !=
                 g_region_sets[set].Regions().end())
@@ -160,25 +161,25 @@ bool RegionLive(unsigned region)
     return false;
 }
 
-int LiveRegionAt(int x, int y)
+std::int32_t LiveRegionAt(std::int32_t x, std::int32_t y)
 {
-    for (unsigned region = 1; region < g_regions.size(); ++region)
+    for (std::uint32_t region = 1; region < g_regions.size(); ++region)
         if (RegionLive(region) && RegionContainsPoint(region, x, y))
-            return int(region);
+            return std::int32_t(region);
     return -1;
 }
 
-int LiveRegionWithHelp(int help_text_id)
+std::int32_t LiveRegionWithHelp(std::int32_t help_text_id)
 {
-    for (unsigned region = 1; region < g_regions.size(); ++region)
+    for (std::uint32_t region = 1; region < g_regions.size(); ++region)
         if (RegionLive(region) && g_regions[region].help_text_id == help_text_id)
-            return int(region);
+            return std::int32_t(region);
     return -1;
 }
 
 /* UI interactions use real screen positions, not decomp-era region numbers.
    Check that each expected hit target is owned and enabled. */
-int MainMenuRegion(short item)
+std::int32_t MainMenuRegion(std::int16_t item)
 {
     static constexpr std::array<SDL_Point, 6> centers = {{
         {320, 160}, {320, 209}, {320, 257},
@@ -186,13 +187,13 @@ int MainMenuRegion(short item)
     }};
     if (item < 0 || static_cast<std::size_t>(item) >= centers.size()) return -1;
     const auto point = centers[item];
-    for (unsigned region = 1; region < g_regions.size(); ++region)
+    for (std::uint32_t region = 1; region < g_regions.size(); ++region)
         if (RegionLive(region) && RegionContainsPoint(region, point.x, point.y))
-            return static_cast<int>(region);
+            return static_cast<std::int32_t>(region);
     return -1;
 }
 
-int ControlRegion(const W8TextControl* control)
+std::int32_t ControlRegion(const W8TextControl* control)
 {
     return control && control->m_region >= 0 && RegionLive(control->m_region) ? control->m_region
                                                                               : -1;
@@ -275,9 +276,9 @@ class Game
 
     /* For effects the game applies synchronously to input: a few frames is
        always enough, and more would only hide a dropped event. */
-    bool within_frames(int frames, const std::function<bool()>& done)
+    bool within_frames(std::int32_t frames, const std::function<bool()>& done)
     {
-        for (int i = 0; !done() && i < frames; ++i)
+        for (std::int32_t i = 0; !done() && i < frames; ++i)
             frame();
         return done();
     }
@@ -292,7 +293,7 @@ class Game
         wait(step, [&] { return g_current_screen_state.id == screen && settled(); }, seconds);
     }
 
-    void click(const char* step, int region)
+    void click(const char* step, std::int32_t region)
     {
         if (region < 0)
             Fail(step, "target region is not live");
@@ -300,7 +301,7 @@ class Game
         click_at((bounds.x1 + bounds.x2) / 2, (bounds.y1 + bounds.y2) / 2);
     }
 
-    void click_at(int x, int y)
+    void click_at(std::int32_t x, std::int32_t y)
     {
         mouse_button(x, y, true);
         frame();
@@ -308,7 +309,7 @@ class Game
         frame();
     }
 
-    void release_outside(int region)
+    void release_outside(std::int32_t region)
     {
         if (region < 0)
             Fail("release-outside", "target region is not live");
@@ -371,19 +372,19 @@ class Game
        modifiers, as SDL key events (bindings hold virtual-key codes). */
     void command_key(W8MGSCommand command, bool down)
     {
-        const int index = g_mgs_keyboard ? g_mgs_keyboard->FindBinding(command) : -1;
+        const std::int32_t index = g_mgs_keyboard ? g_mgs_keyboard->FindBinding(command) : -1;
         const MGSKeyBinding* binding = index >= 0 ? g_mgs_keyboard->GetBinding(index) : nullptr;
         if (!binding || !binding->key)
-            Fail("command", "no key bound to command " + std::to_string(int(command)));
+            Fail("command", "no key bound to command " + std::to_string(std::int32_t(command)));
         SDL_Scancode scancode = SDL_SCANCODE_UNKNOWN;
-        for (int candidate = 1; candidate < SDL_SCANCODE_COUNT && scancode == SDL_SCANCODE_UNKNOWN; ++candidate) {
+        for (std::int32_t candidate = 1; candidate < SDL_SCANCODE_COUNT && scancode == SDL_SCANCODE_UNKNOWN; ++candidate) {
             const auto code = static_cast<SDL_Scancode>(candidate);
             if (GameKeyFromSdl(code, SDL_GetKeyFromScancode(code, SDL_KMOD_NONE, false)) == binding->key)
                 scancode = code;
         }
         if (scancode == SDL_SCANCODE_UNKNOWN)
             Fail("command", "no SDL key produces virtual key " + std::to_string(binding->key));
-        const struct { unsigned short flag; SDL_Scancode scancode; SDL_Keycode key; SDL_Keymod mod; } modifiers[] = {
+        const struct { std::uint16_t flag; SDL_Scancode scancode; SDL_Keycode key; SDL_Keymod mod; } modifiers[] = {
             {SHIFT_DOWN, SDL_SCANCODE_LSHIFT, SDLK_LSHIFT, SDL_KMOD_LSHIFT},
             {CTRL_DOWN, SDL_SCANCODE_LCTRL, SDLK_LCTRL, SDL_KMOD_LCTRL},
             {ALT_DOWN, SDL_SCANCODE_LALT, SDLK_LALT, SDL_KMOD_LALT}};
@@ -422,34 +423,34 @@ class Game
     }
 
     /* Pixels of the last rendered frame, or the CPU frame before renderer setup. */
-    std::vector<unsigned> read_frame()
+    std::vector<std::uint32_t> read_frame()
     {
         if (!g_gerd) {
             // Camp renders through SGP's CPU surface, without a world renderer.
             const auto& surface = GetFrameBufferSurface();
-            std::vector<unsigned> pixels(SCREEN_WIDTH * SCREEN_HEIGHT);
+            std::vector<std::uint32_t> pixels(SCREEN_WIDTH * SCREEN_HEIGHT);
             REQUIRE(SDL_ConvertPixels(SCREEN_WIDTH, SCREEN_HEIGHT, surface.format,
                                       surface.pixels, surface.pitch, SDL_PIXELFORMAT_XRGB8888,
-                                      pixels.data(), SCREEN_WIDTH * sizeof(unsigned)));
+                                      pixels.data(), SCREEN_WIDTH * sizeof(std::uint32_t)));
             return pixels;
         }
         auto* surface = g_gerd->lockBuffer();
         REQUIRE(surface);
-        std::vector<unsigned> pixels(SCREEN_WIDTH * SCREEN_HEIGHT);
-        for (int y = 0; y < SCREEN_HEIGHT; ++y)
-            for (int x = 0; x < SCREEN_WIDTH; ++x)
+        std::vector<std::uint32_t> pixels(SCREEN_WIDTH * SCREEN_HEIGHT);
+        for (std::int32_t y = 0; y < SCREEN_HEIGHT; ++y)
+            for (std::int32_t x = 0; x < SCREEN_WIDTH; ++x)
                 pixels[y * SCREEN_WIDTH + x] = surface->getPixel(x, y) & 0xffffff;
         g_gerd->unlockBuffer();
         return pixels;
     }
 
-    unsigned long frames() const { return frames_; }
-    static constexpr unsigned long long frame_us = 16'667;
+    std::uint64_t frames() const { return frames_; }
+    static constexpr std::uint64_t frame_us = 16'667;
 
   private:
-    void mouse_button(int x, int y, bool down)
+    void mouse_button(std::int32_t x, std::int32_t y, bool down)
     {
-        int width = 0, height = 0;
+        std::int32_t width = 0, height = 0;
         SDL_GetWindowSize(window_, &width, &height);
         const float wx = (x + 0.5f) * width / 640, wy = (y + 0.5f) * height / 480;
         SDL_Event motion{};
@@ -473,18 +474,18 @@ class Game
     std::optional<ScopedAssetRoots> roots_;
     std::optional<wiz8::Application> application_;
     SDL_Window* window_ = nullptr;
-    unsigned long frames_ = 0;
+    std::uint64_t frames_ = 0;
 };
 
 /* With WIZ8_RUNTIME_SNAPSHOT_DIR set, frames the scenario checks are also
    saved there as BMPs for inspection. */
-void Snapshot(const char* name, const std::vector<unsigned>& pixels)
+void Snapshot(const char* name, const std::vector<std::uint32_t>& pixels)
 {
     const char* directory = SDL_getenv("WIZ8_RUNTIME_SNAPSHOT_DIR");
     if (!directory)
         return;
     SDL_Surface* surface = SDL_CreateSurfaceFrom(SCREEN_WIDTH, SCREEN_HEIGHT, SDL_PIXELFORMAT_XRGB8888,
-                                                 const_cast<unsigned*>(pixels.data()),
+                                                 const_cast<std::uint32_t*>(pixels.data()),
                                                  SCREEN_WIDTH * 4);
     if (!surface)
         return;
@@ -506,13 +507,13 @@ void MainMenuUiScenario()
     Game game(false);
     ReachMainMenu(game);
     const auto verify_controls = [] {
-        std::array<unsigned, 6> bound{};
-        for (short item = 0; item < static_cast<short>(bound.size()); ++item) {
-            const int region = MainMenuRegion(item);
+        std::array<std::uint32_t, 6> bound{};
+        for (std::int16_t item = 0; item < static_cast<std::int16_t>(bound.size()); ++item) {
+            const std::int32_t region = MainMenuRegion(item);
             REQUIRE(region >= 0);
             REQUIRE(g_regions[region].widget != nullptr);
             REQUIRE(g_regions[region].callback == DispatchControlRegionEvent);
-            bound[item] = static_cast<unsigned>(region);
+            bound[item] = static_cast<std::uint32_t>(region);
         }
         return bound;
     };
@@ -545,18 +546,18 @@ W8CharacterStatsPage* StatsPage()
 
 /* Spend a page's point pool through each entry's increment control until the
    page reports the allocation complete. */
-void SpendPool(Game& game, const char* step, int page_index, const bool& complete)
+void SpendPool(Game& game, const char* step, std::int32_t page_index, const bool& complete)
 {
     W8CharacterPage* page = g_character_screen->m_pages[page_index].get();
     REQUIRE((page && !page->m_entries.empty()));
-    for (int index = 0; index < static_cast<int>(page->m_entries.size()) && !complete; ++index) {
+    for (std::int32_t index = 0; index < static_cast<std::int32_t>(page->m_entries.size()) && !complete; ++index) {
         W8CharacterPageEntry* entry = page->m_entries[index].get();
         if (!entry || !entry->m_enabled || !entry->m_second || !entry->m_third ||
             (page_index == 2 && !entry->m_increment_allowed))
             continue;
         while (!complete && *entry->m_second < *entry->m_third)
         {
-            const int before = *entry->m_second;
+            const std::int32_t before = *entry->m_second;
             game.click(step, ControlRegion(entry->m_increment));
             if (!game.within_frames(2, [&] { return complete || *entry->m_second != before; }))
                 break; // The entry is capped by something else (race maximum).
@@ -638,7 +639,7 @@ void StartGame(Game& game)
 
     /* Confirm walks the screen's own steps: a party of fewer than six asks
        for confirmation, then the options page's Confirm runs the opening. */
-    for (int press = 0; press < 3 && g_current_screen_state.id == W8_SCREEN_PARTY_SELECTION &&
+    for (std::int32_t press = 0; press < 3 && g_current_screen_state.id == W8_SCREEN_PARTY_SELECTION &&
                         game.settled();
          ++press)
     {
@@ -678,7 +679,7 @@ void WaitMainGame(Game& game, const char* step)
 srVector3T<float> Settle(Game& game, const char* step)
 {
     srVector3T<float> last = PartyPosition();
-    for (int frame = 0, still = 0; frame < 600; ++frame)
+    for (std::int32_t frame = 0, still = 0; frame < 600; ++frame)
     {
         game.frame();
         const srVector3T<float> now = PartyPosition();
@@ -701,10 +702,10 @@ srVector3T<float> Walk(Game& game, const char* step, float distance)
     return Settle(game, step);
 }
 
-int PremadeSlot()
+std::int32_t PremadeSlot()
 {
     REQUIRE(CountActiveCharacters() == 1);
-    for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
+    for (std::int32_t slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
         if (g_status.buffers.XChar[slot].fOccupied) {
             REQUIRE(g_status.buffers.Char[slot].fInParty);
             return slot;
@@ -749,7 +750,7 @@ fs::path QuickSave(Game& game)
     game.command(W8_MGS_COMMAND_QUICK_SAVE);
     const auto saves = SaveFiles(game.user_root());
     REQUIRE((saves.size() == 1 && fs::file_size(saves[0]) > 0));
-    REQUIRE(GetSaveGameLevel(saves[0].stem().string().c_str()) == int(g_status.current_level));
+    REQUIRE(GetSaveGameLevel(saves[0].stem().string().c_str()) == std::int32_t(g_status.current_level));
     return saves[0];
 }
 
@@ -775,15 +776,15 @@ void VideoScenario(bool intro_seen)
     // The startup logo movie plays on the intro screen.
     game.wait("logo", [] { return g_runtime_test_hooks.movie_frames_presented >= 1; });
     REQUIRE(g_current_screen_state.id == W8_SCREEN_INTRO);
-    unsigned lit = 0;
+    std::uint32_t lit = 0;
     game.wait("logo-content", [&] {
         if (g_runtime_test_hooks.movie_frames_presented > 150)
             Fail("logo-content", "movie frames are black");
-        for (unsigned pixel : game.read_frame())
+        for (std::uint32_t pixel : game.read_frame())
             lit += (pixel & 0xf0f0f0) != 0;
         return lit > 1000;
     });
-    const unsigned logo_frames = g_runtime_test_hooks.movie_frames_presented;
+    const std::uint32_t logo_frames = g_runtime_test_hooks.movie_frames_presented;
     game.key(SDLK_ESCAPE);
     if (!intro_seen)
     {
@@ -816,7 +817,7 @@ void GameStartScenario()
         return std::sqrt(dx * dx + dz * dz) > 1.0f;
     }, 20);
     game.hold_key(SDLK_UP, false);
-    std::printf("game-start: main game after %lu frames, walked to (%g %g %g)\n", game.frames(),
+    std::printf("game-start: main game after %" PRIu64 " frames, walked to (%g %g %g)\n", game.frames(),
                 now.position.x, now.position.y, now.position.z);
 }
 
@@ -845,7 +846,7 @@ void InventoryChestScenario()
     REQUIRE(gXStatus.world_update_blocked);
     auto* picker = static_cast<W8TriggerItemPickerDialog*>(g_modal_owner);
     REQUIRE_FALSE(picker->items.empty());
-    const auto click_button = [&](int index) {
+    const auto click_button = [&](std::int32_t index) {
         auto& button = *picker->m_buttons[index];
         game.click_at(button.GetX() + button.GetWidth() / 2,
                       button.GetY() + button.GetHeight() / 2);
@@ -857,8 +858,8 @@ void InventoryChestScenario()
     const auto pool_count = g_status.party_item_count;
     const auto original_item = picker->items.front()->item;
     const auto picker_count = picker->items.size();
-    int stack_id = -1, nonstack_id = -1;
-    for (unsigned i = 0; i < gXStatus.uiItemsInDatabase; ++i) {
+    std::int32_t stack_id = -1, nonstack_id = -1;
+    for (std::uint32_t i = 0; i < gXStatus.uiItemsInDatabase; ++i) {
         const auto& record = g_item_records[i];
         if (record.quantity_kind == W8_ITEM_QUANTITY_STACK && record.maximum_quantity >= 5)
             stack_id = i;
@@ -902,8 +903,8 @@ void InventoryChestScenario()
     REQUIRE(g_camera_motion_clamp == motion_clamp);
     REQUIRE(g_camera_motion_divisor == motion_divisor);
     Walk(game, "walk-after-chest", 5);
-    int potion_slot = -1;
-    for (int i = 0; i < 500; ++i)
+    std::int32_t potion_slot = -1;
+    for (std::int32_t i = 0; i < 500; ++i)
         if (g_status.party_item_pool[i].iItemNo >= 0 &&
             g_item_records[g_status.party_item_pool[i].iItemNo].unidentified_name_index == 102) {
             potion_slot = i;
@@ -918,8 +919,8 @@ void InventoryChestScenario()
     REQUIRE(g_camera_motion_clamp == motion_clamp);
     REQUIRE(g_camera_motion_divisor == motion_divisor);
     REQUIRE(g_pending_main_menu_message.empty());
-    int potion_cell = -1;
-    for (unsigned i = 0; i < std::min(8u, g_camp_screen->item_list_count); ++i)
+    std::int32_t potion_cell = -1;
+    for (std::uint32_t i = 0; i < std::min(8u, g_camp_screen->item_list_count); ++i)
         if (g_camp_screen->item_list[i] == potion_slot)
             potion_cell = i;
     REQUIRE(potion_cell >= 0);
@@ -930,18 +931,18 @@ void InventoryChestScenario()
     game.click_at(320, 170); // Keep the cursor outside the grids for pixel comparisons.
     const auto rendered = game.read_frame();
     const auto& surface = GetFrameBufferSurface();
-    std::vector<unsigned> expected(SCREEN_WIDTH * SCREEN_HEIGHT);
+    std::vector<std::uint32_t> expected(SCREEN_WIDTH * SCREEN_HEIGHT);
     REQUIRE(SDL_ConvertPixels(SCREEN_WIDTH, SCREEN_HEIGHT, surface.format,
                               surface.pixels, surface.pitch, SDL_PIXELFORMAT_XRGB8888,
-                              expected.data(), SCREEN_WIDTH * sizeof(unsigned)));
-    unsigned mismatches = 0;
-    for (int y = 192; y < 417; ++y)
-        for (int x : {11, 60, 512, 561})
-            for (int column = x; column < x + 46; ++column)
-                for (unsigned shift : {0u, 8u, 16u}) {
+                              expected.data(), SCREEN_WIDTH * sizeof(std::uint32_t)));
+    std::uint32_t mismatches = 0;
+    for (std::int32_t y = 192; y < 417; ++y)
+        for (std::int32_t x : {11, 60, 512, 561})
+            for (std::int32_t column = x; column < x + 46; ++column)
+                for (std::uint32_t shift : {0u, 8u, 16u}) {
                     const auto index = y * SCREEN_WIDTH + column;
-                    mismatches += std::abs(int(rendered[index] >> shift & 255) -
-                                           int(expected[index] >> shift & 255)) > 1;
+                    mismatches += std::abs(std::int32_t(rendered[index] >> shift & 255) -
+                                           std::int32_t(expected[index] >> shift & 255)) > 1;
                 }
     REQUIRE(mismatches == 0);
     Snapshot("inventory", rendered);
@@ -967,8 +968,8 @@ void InventoryChestScenario()
 void CheckWorldRender(Game& game)
 {
     W8World* world = GetWorld();
-    unsigned enabled = 0;
-    for (unsigned i = 0; i <= world->octree->GetMeshCount(); ++i)
+    std::uint32_t enabled = 0;
+    for (std::uint32_t i = 0; i <= world->octree->GetMeshCount(); ++i)
         if (world->psrMeshes[i] && !world->psrMeshes[i]->testFlag(srNode::FLAG_DISABLE))
             ++enabled;
     REQUIRE(enabled > 0);
@@ -977,7 +978,7 @@ void CheckWorldRender(Game& game)
     REQUIRE((g_world_render_enabled && !g_world_blacked_out));
     RenderFrame();
     const auto with_world = g_gerd->getStatistics();
-    const unsigned polygons = world->level->m_submitted_polygons;
+    const std::uint32_t polygons = world->level->m_submitted_polygons;
     const auto visible = game.read_frame();
     g_world_render_enabled = 0;
     RenderFrame();
@@ -987,9 +988,9 @@ void CheckWorldRender(Game& game)
 
     Snapshot("world", visible);
     Snapshot("world-control", control);
-    unsigned changed = 0, viewport = 0;
-    for (int y = g_viewport.top; y < g_viewport.bottom; ++y)
-        for (int x = g_viewport.left; x < g_viewport.right; ++x, ++viewport)
+    std::uint32_t changed = 0, viewport = 0;
+    for (std::int32_t y = g_viewport.top; y < g_viewport.bottom; ++y)
+        for (std::int32_t x = g_viewport.left; x < g_viewport.right; ++x, ++viewport)
             changed += visible[y * SCREEN_WIDTH + x] != control[y * SCREEN_WIDTH + x];
     std::printf("world: %u meshes, %u polygons, draws %u/%u, triangles %u/%u, %u/%u viewport "
                 "pixels from the world\n",
@@ -1014,11 +1015,11 @@ void ResourceLifecycleScenario()
     CheckWorldRender(game);
     // Automap buttons own their sprite sheets. Re-entering the screen must
     // rebuild all sixteen controls after the previous owners are destroyed.
-    for (int visit = 0; visit != 2; ++visit) {
+    for (std::int32_t visit = 0; visit != 2; ++visit) {
         game.command(W8_MGS_COMMAND_AUTOMAP);
         game.wait_screen("automap-buttons", W8_SCREEN_AUTOMAP);
         REQUIRE(g_automap_buttons.size() == 16);
-        for (int index = 0; index != 16; ++index) {
+        for (std::int32_t index = 0; index != 16; ++index) {
             REQUIRE(g_automap_buttons[index]);
             REQUIRE(g_automap_buttons[index]->GetWidth() > 0);
             REQUIRE(g_automap_buttons[index]->GetHeight() > 0);
@@ -1040,14 +1041,14 @@ void ResourceLifecycleScenario()
     REQUIRE(g_screen_return_stack.size() == return_depth);
     REQUIRE((GetWorld() && GetWorld()->level));
 
-    const int level = g_status.current_level;
+    const std::int32_t level = g_status.current_level;
     const auto anchor = Walk(game, "settle-before-save", 2.0f);
     QuickSave(game);
     { // One save/load cycle covers eviction, reconstruction and live teardown.
         auto* world = GetWorld();
         REQUIRE((world && world->octree && world->level));
-        unsigned linked = 0, animated = 0;
-        for (unsigned i = 0; i <= world->octree->GetMeshCount(); ++i) {
+        std::uint32_t linked = 0, animated = 0;
+        for (std::uint32_t i = 0; i <= world->octree->GetMeshCount(); ++i) {
             auto* instance = world->psrMeshes[i];
             if (!instance) continue;
             auto* model = static_cast<stMeshModel*>(instance->getModel());
@@ -1058,7 +1059,7 @@ void ResourceLifecycleScenario()
                     linked, animated);
         REQUIRE(linked > 0);
         REQUIRE(animated > 0);
-        for (int frame = 0; frame != 4; ++frame) game.frame();
+        for (std::int32_t frame = 0; frame != 4; ++frame) game.frame();
         RenderFrame();
         REQUIRE(world->level->m_submitted_polygons > 0);
         REQUIRE(g_gerd->getTextureCacheUsed() > 0);
@@ -1104,9 +1105,9 @@ void QuickSaveScenario()
     Game game(false);
     StartPremadeGame(game);
     const srVector3T<float> anchor = Walk(game, "walk", 2.0f);
-    const int level = g_status.current_level;
-    const unsigned experience = g_status.buffers.Char[PremadeSlot()].experience;
-    const int health = g_status.buffers.Char[PremadeSlot()].hp_current;
+    const std::int32_t level = g_status.current_level;
+    const std::uint32_t experience = g_status.buffers.Char[PremadeSlot()].experience;
+    const std::int32_t health = g_status.buffers.Char[PremadeSlot()].hp_current;
     REQUIRE(health > 1);
     const fs::path save = QuickSave(game);
     WriteSaveFixture(WIZ8_RUNTIME_SAVE_FIXTURE, save, anchor);
@@ -1129,7 +1130,7 @@ void QuickSaveScenario()
     REQUIRE(g_status.current_level == level);
     REQUIRE(g_status.buffers.Char[PremadeSlot()].experience == experience);
     REQUIRE(g_status.buffers.Char[PremadeSlot()].hp_current == health);
-    std::printf("quick-save: %s round-tripped after %lu frames\n",
+    std::printf("quick-save: %s round-tripped after %" PRIu64 " frames\n",
                 save.filename().string().c_str(), game.frames());
 }
 
@@ -1140,9 +1141,9 @@ void LoadGameScenario(const fs::path& fixture)
        failing on the absent fixture when save-fixture itself skipped. */
     Game game(false);
     srVector3T<float> anchor{};
-    int level = -1;
-    unsigned experience = 0;
-    unsigned health = 0;
+    std::int32_t level = -1;
+    std::uint32_t experience = 0;
+    std::uint32_t health = 0;
     std::ifstream metadata(fixture / "Fixture.txt");
     REQUIRE(metadata >> anchor.x >> anchor.y >> anchor.z >> level >> experience >> health);
     REQUIRE((std::isfinite(anchor.x) && std::isfinite(anchor.y) && std::isfinite(anchor.z)));
@@ -1174,7 +1175,7 @@ void LoadGameScenario(const fs::path& fixture)
     REQUIRE(g_status.current_level == level);
     REQUIRE(g_status.buffers.Char[PremadeSlot()].experience == experience);
     REQUIRE(g_status.buffers.Char[PremadeSlot()].hp_current == health);
-    std::printf("load-game: loaded the fixture after %lu frames\n", game.frames());
+    std::printf("load-game: loaded the fixture after %" PRIu64 " frames\n", game.frames());
 }
 
 /* --- NPC dialogue ---------------------------------------------------------- */
@@ -1222,10 +1223,10 @@ void Ask(Game& game, std::string_view keyword)
 
 /* Live regions bound to a dialog control: a W8ButtonWidget binds through
    `widget`, the remaining W8RegionHandler controls through `handler`. */
-std::vector<unsigned> HandlerRegions()
+std::vector<std::uint32_t> HandlerRegions()
 {
-    std::vector<unsigned> regions;
-    for (unsigned region = 1; region < g_regions.size(); ++region)
+    std::vector<std::uint32_t> regions;
+    for (std::uint32_t region = 1; region < g_regions.size(); ++region)
         if (RegionLive(region) && (g_regions[region].handler || g_regions[region].widget))
             regions.push_back(region);
     return regions;
@@ -1234,16 +1235,16 @@ std::vector<unsigned> HandlerRegions()
 /* Clicks the reply dialog's first button (the first option, or "yes"): of
    the regions the dialog added to those live in `before`, its buttons sit
    above the dialog body; take the leftmost. */
-void ChooseFirstReply(Game& game, const char* step, const std::vector<unsigned>& before)
+void ChooseFirstReply(Game& game, const char* step, const std::vector<std::uint32_t>& before)
 {
     WaitDialogue(game, step, [] { return g_modal_owner != nullptr; });
-    int first = -1;
-    for (unsigned region : HandlerRegions())
+    std::int32_t first = -1;
+    for (std::uint32_t region : HandlerRegions())
         if (std::ranges::find(before, region) == before.end() &&
             (first < 0 || g_regions[region].priority > g_regions[first].priority ||
              (g_regions[region].priority == g_regions[first].priority &&
               g_regions[region].x1 < g_regions[first].x1)))
-            first = int(region);
+            first = std::int32_t(region);
     game.click(step, first);
     game.wait(step, [] { return g_modal_owner == nullptr; });
 }
@@ -1255,14 +1256,14 @@ void BuyAnswer(Game& game, const char* step, W8FactId fact)
     WaitDialogue(game, step, [] {
         return g_modal_owner != nullptr && g_npc_dialogue.price_check().has_value();
     });
-    const unsigned gold = g_status.party_gold;
-    const int price = g_npc_dialogue.price_check()->price;
+    const std::uint32_t gold = g_status.party_gold;
+    const std::int32_t price = g_npc_dialogue.price_check()->price;
     CAPTURE(step, gold, price);
-    REQUIRE((price > 0 && unsigned(price) <= gold));
+    REQUIRE((price > 0 && std::uint32_t(price) <= gold));
     REQUIRE(GetFact(fact) == 0);
     ChooseFirstReply(game, step, before);
     WaitDialogue(game, step, DialogueAwaitingPlayer);
-    REQUIRE(g_status.party_gold == gold - unsigned(price));
+    REQUIRE(g_status.party_gold == gold - std::uint32_t(price));
     REQUIRE(GetFact(fact) != 0);
 }
 
@@ -1307,7 +1308,7 @@ void NpcDialogueScenario()
 
     StartConversation(game, "second-greeting", burz);
     SayFarewell(game, "second-farewell");
-    std::printf("npc-dialogue: two visits after %lu frames\n", game.frames());
+    std::printf("npc-dialogue: two visits after %" PRIu64 " frames\n", game.frames());
 }
 
 /* Combat through its key bindings: enter, run a defended round, kill a
@@ -1328,15 +1329,15 @@ void CombatScenario()
     REQUIRE(monster);
     if (!monster->fInCombat)
         MonsterInfoEnterCombat(monster);
-    const unsigned experience = g_status.buffers.Char[PremadeSlot()].experience;
-    const int kills = g_status.buffers.Char[PremadeSlot()].kill_count;
-    const unsigned reward = GetMonsterExperience(GetMonsterDataForInfo(monster));
+    const std::uint32_t experience = g_status.buffers.Char[PremadeSlot()].experience;
+    const std::int32_t kills = g_status.buffers.Char[PremadeSlot()].kill_count;
+    const std::uint32_t reward = GetMonsterExperience(GetMonsterDataForInfo(monster));
     REQUIRE(reward > 0);
 
-    for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
+    for (std::int32_t slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
         if (g_status.buffers.XChar[slot].fOccupied)
             ChooseAction(slot, W8_ACTION_DEFEND, -1, nullptr, false, 1);
-    const unsigned round = g_combat_state->round_count;
+    const std::uint32_t round = g_combat_state->round_count;
     game.command(W8_MGS_COMMAND_START_COMBAT_ROUND);
     REQUIRE((g_combat_state && g_combat_state->round_count == round + 1));
     game.wait("round", [&] {
@@ -1348,7 +1349,7 @@ void CombatScenario()
     attacker.iType = W8_TARGET_SOURCE_CHARACTER;
     attacker.iChar = PremadeSlot();
     attacker.iMonsterID = -1;
-    const int monster_id = monster->location_id;
+    const std::int32_t monster_id = monster->location_id;
     CAPTURE(monster_id, round, game.frames());
     ApplyDamageToMonster(monster, monster->hp_current, &attacker, false, 1, 0, nullptr, false);
     // Resolve by ID after death/cleanup rather than relying on a retained pointer.
@@ -1369,7 +1370,7 @@ void CombatScenario()
     game.command(W8_MGS_COMMAND_TOGGLE_COMBAT);
     game.wait("leave-combat-again", [] { return gXStatus.fCombatMode == 0; }, 10);
     REQUIRE(!g_combat_state);
-    std::printf("combat: round, kill and exit after %lu frames\n", game.frames());
+    std::printf("combat: round, kill and exit after %" PRIu64 " frames\n", game.frames());
 }
 
 } // namespace

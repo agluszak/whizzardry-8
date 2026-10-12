@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "wiz8/engine_code/3d.h"
 #include <array>
 #include <span>
@@ -31,18 +32,18 @@ bool W8OctRegionPolygon::containsPoint(const srBoundingBox& bounds) const
 /* Grow `*run` to (count + capacity) dwords when count lands on a capacity
    boundary, preserving existing entries. */
 // FUNCTION: WIZ8 0x004cfb70
-unsigned char W8OctPreTreeGeometry::CheckArrayLength(int** run, unsigned short count,
-                                                     unsigned short capacity)
+bool W8OctPreTreeGeometry::CheckArrayLength(std::int32_t** run, std::uint16_t count,
+                                                     std::uint16_t capacity)
 {
     if (capacity == 0) {
-        return 0;
+        return false;
     }
     if (count % capacity == 0) {
-        if (unsigned(count) + capacity > 65535) {
-            return 0;
+        if (std::uint32_t(count) + capacity > 65535) {
+            return false;
         }
-        const unsigned short total = count + capacity;
-        int* grown = static_cast<int*>(malloc(total * sizeof(int)));
+        const std::uint16_t total = count + capacity;
+        std::int32_t* grown = static_cast<std::int32_t*>(malloc(total * sizeof(std::int32_t)));
         if (grown != 0) {
             memset(grown, 0, total * sizeof(*grown));
             if (*run != 0) {
@@ -50,20 +51,20 @@ unsigned char W8OctPreTreeGeometry::CheckArrayLength(int** run, unsigned short c
                 free(*run);
             }
             *run = grown;
-            return 1;
+            return true;
         }
         ReportBuildStatus(7, "CheckArrayLength: Could not allocate new array.\n");
     }
-    return 0;
+    return false;
 }
 
 // Records reserve index zero. Keep channel frees interleaved in record order.
 template<class Record, std::size_t Channels>
 static void ReleaseSharedRuns(std::span<Record> records,
-                              const std::array<int* Record::*, Channels>& fields)
+                              const std::array<std::int32_t* Record::*, Channels>& fields)
 {
     if (records.empty()) return;
-    std::array<int*, Channels> previous;
+    std::array<std::int32_t*, Channels> previous;
     for (std::size_t channel = 0; channel < Channels; ++channel)
         previous[channel] = records.front().*fields[channel];
     for (auto& record : records) {

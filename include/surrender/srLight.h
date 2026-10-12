@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include "srIlluminator.h"
 
 // VTABLE: SURRENDER 0x100770F8 srVertexProcessor
@@ -47,14 +48,14 @@ public:
 public:
     virtual void traverse(srNode::TraverseInfo& info) override;
     virtual void process(const srNode::ProcessInfo& info, srNode::e_processType type) override;
-    virtual int isActive(srVertexPipe& pipe) override;
+    virtual std::int32_t isActive(srVertexPipe& pipe) override;
     virtual void process(srVertexPipe& pipe) override;
 
 public:
     void setLinearAttenuation(float range, float attenuation);
     void disable(e_enable option);
     void enable(e_enable option);
-    int isEnabled(e_enable option) const;
+    bool isEnabled(e_enable option) const;
     glm::vec3 getAmbient() const;
     glm::vec3 getDiffuse() const;
     float getIntensity() const;
@@ -90,7 +91,7 @@ public:
     float far_attenuation;   /* 0x184 */
 
     glm::vec3 opengl_attenuation;    /* 0x188 */
-    w8_ulong enable_flags;           /* 0x194 */
+    std::uint32_t enable_flags;           /* 0x194 */
     glm::vec3 ambient;               /* 0x198 */
     glm::vec3 diffuse;               /* 0x1a4 */
     glm::vec3 specular;              /* 0x1b0 */
@@ -113,6 +114,6 @@ public:
         DERIVED_CONSTANT_ATTENUATION = 0x10u,
         DERIVED_RANGE_CULL = 0x20u
     };
-    w8_ulong derived_flags; /* 0x21c */
-    w8_ulong channel_mask;  /* 0x220 */
+    std::uint32_t derived_flags; /* 0x21c */
+    std::uint32_t channel_mask;  /* 0x220 */
 };

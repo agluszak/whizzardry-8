@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <SDL3/SDL_hints.h>
 #include <SDL3/SDL_init.h>
 #include <catch2/catch_test_macros.hpp>
@@ -43,9 +44,9 @@ struct Fixture {
         device->setVertexArrayInfo(&arrays);
         device->drawArrays(srRendererDefs::PRIMITIVE_TRIANGLES, 0, 3);
     }
-    unsigned pixel()
+    std::uint32_t pixel()
     {
-        unsigned pixel = 0;
+        std::uint32_t pixel = 0;
         REQUIRE(device->bufferOp({0, 0, nullptr, 0, 0, 0}) == srDD::ERROR_NONE);
         srDD::BufferCommand read{0, 2, &pixel, 32, 32, 1};
         REQUIRE(device->bufferOp(read) == srDD::ERROR_NONE);
@@ -59,7 +60,7 @@ TEST_CASE("Queued coplanar overlays preserve depth bias and its restoration")
 {
     Fixture fixture;
     srShader shader;
-    shader.value = unsigned(srShader::PASS_LESS) | srShader::MASK_DEPTH_WRITE |
+    shader.value = std::uint32_t(srShader::PASS_LESS) | srShader::MASK_DEPTH_WRITE |
                    srShader::MASK_COLOR_WRITE | (srShader::SRCBLEND_ONE << srShader::SRCBLEND_SHIFT);
     fixture.device->setShader(shader);
     fixture.triangle(0, {1, 0, 0, 1});
@@ -73,7 +74,7 @@ TEST_CASE("Queued coplanar overlays preserve depth bias and its restoration")
 TEST_CASE("Queued texture draws preserve independent clamp and repeat samplers")
 {
     Fixture fixture;
-    std::array<unsigned, 4> pixels{0xffff0000, 0xff00ff00, 0xff0000ff, 0xffffffff};
+    std::array<std::uint32_t, 4> pixels{0xffff0000, 0xff00ff00, 0xff0000ff, 0xffffffff};
     srDD::Texture texture{};
     texture.reset();
     texture.width = texture.height = 2;
@@ -82,7 +83,7 @@ TEST_CASE("Queued texture draws preserve independent clamp and repeat samplers")
     fixture.device->texImage(texture, 0);
     fixture.device->bindTexture(0, texture);
     srShader shader;
-    shader.value = unsigned(srShader::PASS_ALWAYS) | srShader::MASK_COLOR_WRITE | srShader::MASK_TEXTURING |
+    shader.value = std::uint32_t(srShader::PASS_ALWAYS) | srShader::MASK_COLOR_WRITE | srShader::MASK_TEXTURING |
                    (srShader::SRCBLEND_ONE << srShader::SRCBLEND_SHIFT);
     fixture.device->setShader(shader);
     // U clamps to the green column, V repeats into the top row.

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <SDL3/SDL_rect.h>
 #include <memory>
 #include <string>
@@ -18,7 +19,7 @@ enum { W8_MIPE_NO_GROUP = 1000000 };
 
 struct W8MipeMonsterEntry {
     std::string name;
-    unsigned char kind;
+    std::uint8_t kind;
     bool selectable;
 };
 
@@ -30,35 +31,35 @@ struct W8MipeMonsterEntry {
    g_mipe_key_names table. */
 struct W8MipeEditField {
     char type;
-    int label_index;
-    signed char option_count;
-    signed char option_base;
+    std::int32_t label_index;
+    std::int8_t option_count;
+    std::int8_t option_base;
     std::string text;
     float float_value;
-    int value;
+    std::int32_t value;
 };
 
 
 /* The editor owns selected monster IDs and borrows its waypoint monsters. */
 struct W8MipeState {
-    int SelectedMonsterLocationId() const
+    std::int32_t SelectedMonsterLocationId() const
     {
         if (monster_ids.empty())
             return -1;
         return monster_ids.front();
     }
 
-    std::vector<int> monster_ids;
+    std::vector<std::int32_t> monster_ids;
 
-    int selected_group_id; /* group id of the last group pick; W8_MIPE_NO_GROUP = none */
-    unsigned char selecting;
-    unsigned char unknown_11[0x13];
+    std::int32_t selected_group_id; /* group id of the last group pick; W8_MIPE_NO_GROUP = none */
+    std::uint8_t selecting;
+    std::uint8_t unknown_11[0x13];
     srVector3T<float> drag_anchor;
-    unsigned char creation_method; /* 0 exact, 1 placeholder, 2 selection */
+    std::uint8_t creation_method; /* 0 exact, 1 placeholder, 2 selection */
     bool dragging;
-    unsigned char padding_32[2];
+    std::uint8_t padding_32[2];
     float value_34; /* initialised to 1.0 */
-    int waypoint_count;
+    std::int32_t waypoint_count;
     std::vector<W8Monster*> waypoints;
     W8Monster* monster;
     float speed_step;
@@ -66,22 +67,22 @@ struct W8MipeState {
     MonGen* generator;
     W8Prop* prop;
     W8MipeEditField* edit_fields; /* mipeEdit.cpp prop field table */
-    signed char edit_field_count;
-    signed char edit_selection; /* -1 = no row selected */
+    std::int8_t edit_field_count;
+    std::int8_t edit_selection; /* -1 = no row selected */
 };
 
 
 extern bool g_debug_monster_cycle;
 extern std::unique_ptr<W8MipeState> g_mipe_state;
-extern int g_mipe_mode;
-extern int g_mipe_count;
+extern std::int32_t g_mipe_mode;
+extern std::int32_t g_mipe_count;
 /* First visible table row; shared by mipe.cpp's table view and mipeEdit.cpp's
    prop field editor. */
-extern int g_mipe_table_base;
+extern std::int32_t g_mipe_table_base;
 
 /* mipeEdit.cpp: prop field-editor key handler, fed MSG wParam key values by
    mipe.cpp's mode-0xd dispatcher. */
-void HandleMipeEditPropKey(unsigned short key);
+void HandleMipeEditPropKey(std::uint16_t key);
 
 void ShowMonsterSpeedStatus(void);
 void ShowCubeParameters(void);
@@ -90,7 +91,7 @@ void ShowMonsterGeneratorStatus(void);
 /* The MIPE input dispatcher fed from the main game input loop: routes key
    events through the mode state machine and returns nonzero when the event
    was consumed. */
-unsigned char HandleMipeKey(const InputEvent* event);
+bool HandleMipeKey(const InputEvent* event);
 void ShowMonsterGeneratorEditor(void);
 
 void ToggleMipePanel(void);

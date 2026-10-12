@@ -64,7 +64,7 @@
 
 /* Suppress hover sounds on the registered options-row children. */
 // GLOBAL: WIZ8 0x005ed590
-extern const unsigned int g_W8TextControlSilentHover = 0x40;
+extern const std::uint32_t g_W8TextControlSilentHover = 0x40;
 
 // GLOBAL: WIZ8 0x0069c1c8
 static bool g_options_first_frame;
@@ -76,7 +76,7 @@ std::unique_ptr<W8OptionsScreen> g_options_screen;
 std::string g_options_last_save_name;
 
 // GLOBAL: WIZ8 0x0064d72c
-static int g_last_options_panel = 5;
+static std::int32_t g_last_options_panel = 5;
 
 
 // GLOBAL: WIZ8 0x0064d0b8
@@ -94,28 +94,28 @@ static W8OptionsMenuRow g_options_menu_rows[8] = {
 static W8OptionsPanelRange g_options_panel_ranges[8] = {{0, 2},   {3, 3},   {4, 5}, {6, 10},
                                                         {11, 11}, {12, 12}, {0, 0}, {0, 0}};
 // GLOBAL: WIZ8 0x0064d730
-static int g_options_difficulty_labels[3] = {0x7f8, 0x7f9, 0x7fa};
+static std::int32_t g_options_difficulty_labels[3] = {0x7f8, 0x7f9, 0x7fa};
 // GLOBAL: WIZ8 0x0064d73c
-static int g_options_camera_rotation_labels[3] = {0x7fe, 0x7ff, 0x800};
+static std::int32_t g_options_camera_rotation_labels[3] = {0x7fe, 0x7ff, 0x800};
 // GLOBAL: WIZ8 0x0064d748
-static int g_options_combat_mode_labels[2] = {0x7f6, 0x7f5};
+static std::int32_t g_options_combat_mode_labels[2] = {0x7f6, 0x7f5};
 // GLOBAL: WIZ8 0x0064d750
-static int g_options_audio_labels[4] = {0x81e, 0x81f, 0x821, 0x820};
+static std::int32_t g_options_audio_labels[4] = {0x81e, 0x81f, 0x821, 0x820};
 
 struct W8OptionsKeyName {
-    unsigned short key;
-    unsigned short reserved;
-    int label;
+    std::uint16_t key;
+    std::uint16_t reserved;
+    std::int32_t label;
 };
 
 struct W8OptionsKeyRow {
     W8MGSCommand primary_binding;
     W8MGSCommand secondary_binding;
-    int label;
+    std::int32_t label;
 };
 
 struct W8OptionsKeyboardPage {
-    int title;
+    std::int32_t title;
     W8MGSCommand first_binding;
     W8MGSCommand last_binding;
 };
@@ -220,17 +220,17 @@ W8OptionsGraphicsPanel::W8OptionsGraphicsPanel() : W8OptionsPanel() {}
 
 W8OptionsAdvancedGraphicsPanel::W8OptionsAdvancedGraphicsPanel() : W8OptionsPanel() {}
 
-W8OptionsKeyboardPanel::W8OptionsKeyboardPanel(int panel)
+W8OptionsKeyboardPanel::W8OptionsKeyboardPanel(std::int32_t panel)
     : W8OptionsPanel(), m_panel(panel), m_captured_button(0)
 {
 }
-W8OptionsSaveLoadPanel::W8OptionsSaveLoadPanel(int panel) : W8OptionsPanel(), m_panel(panel)
+W8OptionsSaveLoadPanel::W8OptionsSaveLoadPanel(std::int32_t panel) : W8OptionsPanel(), m_panel(panel)
 {
     m_background = CatalogArtwork::Load(0xf7);
     m_backgroundImage = 0;
 }
 
-W8OptionsUnavailablePanel::W8OptionsUnavailablePanel(int message)
+W8OptionsUnavailablePanel::W8OptionsUnavailablePanel(std::int32_t message)
     : W8OptionsPanel(), m_message(message)
 {
 }
@@ -251,8 +251,8 @@ void W8OptionsSaveRow::ClearSave()
 
 void W8OptionsSaveLoadPanel::Populate()
 {
-    int top = 0x12;
-    for (int index = 0; index < 5; ++index) {
+    std::int32_t top = 0x12;
+    for (std::int32_t index = 0; index < 5; ++index) {
         W8OptionsSaveRow* row = new W8OptionsSaveRow(this, top, m_panel == 12);
         row->m_save_listener = this;
         m_selection.AddEntry(row);
@@ -269,19 +269,19 @@ void W8OptionsSaveLoadPanel::Populate()
         m_delete_button = 0;
     }
 
-    int first_sprite = m_panel == 11 ? 3 : 0;
+    std::int32_t first_sprite = m_panel == 11 ? 3 : 0;
     m_action_button = new W8TextControl(this, 0xffffffff, 0xf5, 0x1b0, 0, 0, CatalogArtwork::Load(0xf8, 0), first_sprite, first_sprite + 2, first_sprite + 1, -1, -1);
     m_action_button->m_listener = this;
 
-    if (m_panel == 11 && static_cast<int>(g_options_screen->m_save_slots.size()) == 1) {
+    if (m_panel == 11 && static_cast<std::int32_t>(g_options_screen->m_save_slots.size()) == 1) {
         m_delete_button->SetEnabled(false);
         m_action_button->SetEnabled(false);
     }
 
-    int page = 0;
-    int selected = 0;
+    std::int32_t page = 0;
+    std::int32_t selected = 0;
     if (m_panel == 11 && g_options_last_save_name[0] != 0) {
-        for (int index = 1; index < static_cast<int>(g_options_screen->m_save_slots.size()); ++index) {
+        for (std::int32_t index = 1; index < static_cast<std::int32_t>(g_options_screen->m_save_slots.size()); ++index) {
             if (strcmp(g_options_last_save_name.c_str(), (g_options_screen->m_save_slots[index])->name.c_str()) == 0) {
                 page = (index - 1) / 5;
                 selected = (index - 1) % 5;
@@ -302,7 +302,7 @@ void W8OptionsSaveLoadPanel::SetActive(bool active)
 }
 
 /* Commit or cancel the active save-name edit before changing options pages. */
-static void FinishOptionsTextEdit(W8OptionsScreen* screen, unsigned char cancelled)
+static void FinishOptionsTextEdit(W8OptionsScreen* screen, bool cancelled)
 {
     W8OptionsTextEditor* editor = screen->m_text_editor.get();
     if (!editor)
@@ -312,21 +312,21 @@ static void FinishOptionsTextEdit(W8OptionsScreen* screen, unsigned char cancell
     screen->m_text_editor.reset();
 }
 
-void W8OptionsSaveLoadPanel::SetCurrent(int current)
+void W8OptionsSaveLoadPanel::SetCurrent(std::int32_t current)
 {
     FinishOptionsTextEdit(g_options_screen.get(), 1);
     m_current = current;
     Invalidate(0);
 
-    int first = current * 5;
+    std::int32_t first = current * 5;
     if (m_panel == 11) {
         ++first;
     }
-    int limit = static_cast<int>(g_options_screen->m_save_slots.size());
+    std::int32_t limit = static_cast<std::int32_t>(g_options_screen->m_save_slots.size());
     if (first + 5 < limit) {
         limit = first + 5;
     }
-    for (int slot = first; slot < limit; ++slot) {
+    for (std::int32_t slot = first; slot < limit; ++slot) {
         m_rows[slot - first]->SetSave(*g_options_screen->m_save_slots[slot]);
     }
     for (; limit < first + 5; ++limit) {
@@ -362,9 +362,9 @@ void W8OptionsSaveLoadPanel::OnPrimary(W8TextControl* control)
     }
 }
 
-void W8OptionsSaveLoadPanel::OnDialogClosed(bool accepted, int value)
+void W8OptionsSaveLoadPanel::OnDialogClosed(bool accepted, std::int32_t value)
 {
-    int selected_slot;
+    std::int32_t selected_slot;
     if (!accepted) {
         if (value == 2) {
             if (g_options_screen->m_text_editor != 0 || m_panel != 12 ||
@@ -412,9 +412,9 @@ void W8OptionsSaveLoadPanel::OnDialogClosed(bool accepted, int value)
     }
 }
 
-void W8OptionsSaveLoadPanel::OnTextEditComplete(W8OptionsTextEditor*, unsigned char cancelled)
+void W8OptionsSaveLoadPanel::OnTextEditComplete(W8OptionsTextEditor*, bool cancelled)
 {
-    int selected_slot = m_current * 5 + m_selection.m_selectedIndex;
+    std::int32_t selected_slot = m_current * 5 + m_selection.m_selectedIndex;
     m_rows[m_editing_row]->m_editing = false;
     if (cancelled != 0) {
         m_rows[m_selection.m_selectedIndex]->Invalidate(false);
@@ -445,7 +445,7 @@ void W8OptionsSaveLoadPanel::OnTextEditComplete(W8OptionsTextEditor*, unsigned c
 
 void W8OptionsSaveLoadPanel::OnEditSaveName(W8OptionsSaveRow*)
 {
-    int selected_slot = m_current * 5 + m_selection.m_selectedIndex;
+    std::int32_t selected_slot = m_current * 5 + m_selection.m_selectedIndex;
     g_options_screen->BeginSaveNameEdit(this, m_selection.m_selectedIndex,
                                         g_options_screen->m_save_slots[selected_slot]->name);
     m_editing_row = m_selection.m_selectedIndex;
@@ -457,7 +457,7 @@ void W8OptionsSaveLoadPanel::OnActivateSave(W8OptionsSaveRow*)
     OnPrimary(m_action_button);
 }
 
-void W8OptionsSaveLoadPanel::OnSelectionChanged(W8ControlSelection*, int)
+void W8OptionsSaveLoadPanel::OnSelectionChanged(W8ControlSelection*, std::int32_t)
 {
     FinishOptionsTextEdit(g_options_screen.get(), 1);
     if (m_panel == 12 && m_current == 0 && m_selection.m_selectedIndex == 0) {
@@ -467,7 +467,7 @@ void W8OptionsSaveLoadPanel::OnSelectionChanged(W8ControlSelection*, int)
 
 void W8OptionsSaveLoadPanel::DeleteSelectedSave()
 {
-    int selected_slot = m_current * 5 + 1 + m_selection.m_selectedIndex;
+    std::int32_t selected_slot = m_current * 5 + 1 + m_selection.m_selectedIndex;
     W8SaveSlot& slot = *g_options_screen->m_save_slots[selected_slot];
     std::string path;
     path = fmt::format("{}\\{}.{}", "Saves", slot.name, g_save_extension);
@@ -477,13 +477,13 @@ void W8OptionsSaveLoadPanel::DeleteSelectedSave()
     }
 
     g_options_screen->m_save_slots.erase(g_options_screen->m_save_slots.begin() + selected_slot);
-    if (static_cast<int>(g_options_screen->m_save_slots.size()) == 1) {
+    if (static_cast<std::int32_t>(g_options_screen->m_save_slots.size()) == 1) {
         selected_slot = -1;
         if (m_panel == 11) {
             m_delete_button->SetEnabled(false);
             m_action_button->SetEnabled(false);
         }
-    } else if (selected_slot >= static_cast<int>(g_options_screen->m_save_slots.size())) {
+    } else if (selected_slot >= static_cast<std::int32_t>(g_options_screen->m_save_slots.size())) {
         --selected_slot;
         if (m_selection.m_selectedIndex == 0) {
             --m_current;
@@ -492,10 +492,10 @@ void W8OptionsSaveLoadPanel::DeleteSelectedSave()
 
     if (g_options_screen->m_selected_panel == 4) {
         g_options_screen->m_panel[4]->m_page_count =
-            (static_cast<int>(g_options_screen->m_save_slots.size()) - 2) / 5 + 1;
+            (static_cast<std::int32_t>(g_options_screen->m_save_slots.size()) - 2) / 5 + 1;
     } else if (g_options_screen->m_selected_panel == 5) {
         g_options_screen->m_panel[5]->m_page_count =
-            (static_cast<int>(g_options_screen->m_save_slots.size()) - 1) / 5 + 1;
+            (static_cast<std::int32_t>(g_options_screen->m_save_slots.size()) - 1) / 5 + 1;
     }
     g_options_screen->m_menu_set->UpdateMenuSet();
     SetCurrent(m_current);
@@ -504,7 +504,7 @@ void W8OptionsSaveLoadPanel::DeleteSelectedSave()
 
 void W8OptionsSaveLoadPanel::LoadSelectedSave()
 {
-    int selected_slot = m_current * 5 + 1 + m_selection.m_selectedIndex;
+    std::int32_t selected_slot = m_current * 5 + 1 + m_selection.m_selectedIndex;
     W8SaveSlot& slot = *g_options_screen->m_save_slots[selected_slot];
     if (slot.version_major + slot.version_minor * 0.1f + slot.version_patch * 0.01f <= 1.24f) {
         SetLastSaveName(slot.name);
@@ -521,7 +521,7 @@ void W8OptionsSaveLoadPanel::LoadSelectedSave()
 
 void W8OptionsSaveLoadPanel::SaveSelectedSave(std::string_view previous_name)
 {
-    int selected_slot = m_current * 5 + m_selection.m_selectedIndex;
+    std::int32_t selected_slot = m_current * 5 + m_selection.m_selectedIndex;
     W8SaveSlot& slot = *g_options_screen->m_save_slots[selected_slot];
     if (slot.name.size() == 0) {
         g_options_screen->ShowNotification(this, false, 0x82a, 0);
@@ -544,7 +544,7 @@ void W8OptionsSaveLoadPanel::SaveSelectedSave(std::string_view previous_name)
     SetPendingScreenState(W8_SCREEN_PLEASE_WAIT);
 }
 
-W8OptionsButton::W8OptionsButton(Controls* owner, int left, int top, int right, int bottom,
+W8OptionsButton::W8OptionsButton(Controls* owner, std::int32_t left, std::int32_t top, std::int32_t right, std::int32_t bottom,
                                  std::string_view text)
     : W8TextControl(owner, 0xffffffff, left, top, right, bottom, std::nullopt, -1, -1, -1, -1, -1)
 {
@@ -552,7 +552,7 @@ W8OptionsButton::W8OptionsButton(Controls* owner, int left, int top, int right, 
     m_textBuffer.SetText(text, g_options_detail_font);
 }
 
-W8OptionsKeyButton::W8OptionsKeyButton(Controls* owner, int top, W8MGSCommand primary_binding,
+W8OptionsKeyButton::W8OptionsKeyButton(Controls* owner, std::int32_t top, W8MGSCommand primary_binding,
                                        W8MGSCommand secondary_binding)
     : W8OptionsButton(owner, 100, top, 0x15e, top + 22, ""), m_primary_binding(primary_binding),
       m_secondary_binding(secondary_binding)
@@ -571,7 +571,7 @@ enum W8OptionsSaveRowSprite {
     W8_OPTIONS_SAVE_ROW_DISABLED = 4
 };
 
-W8OptionsSaveRow::W8OptionsSaveRow(Controls* owner, int top, unsigned char save_mode)
+W8OptionsSaveRow::W8OptionsSaveRow(Controls* owner, std::int32_t top, std::uint8_t save_mode)
     : W8TextControl(owner, 0xffffffff, 10, top, 0, 0, CatalogArtwork::Load(0xf9, 0), save_mode ? W8_OPTIONS_SAVE_ROW_SAVE_NORMAL : W8_OPTIONS_SAVE_ROW_LOAD_NORMAL, save_mode ? W8_OPTIONS_SAVE_ROW_SAVE_PRESSED : W8_OPTIONS_SAVE_ROW_LOAD_PRESSED, -1, -1, W8_OPTIONS_SAVE_ROW_DISABLED),
       m_save_mode(save_mode), m_editing(0), m_save(0), m_save_listener(0)
 {
@@ -588,8 +588,8 @@ void W8OptionsSaveRow::Redraw(bool full_redraw)
         return;
     }
 
-    int x = m_pPanel->m_bounds.left + m_left;
-    int y = m_pPanel->m_bounds.top + m_top;
+    std::int32_t x = m_pPanel->m_bounds.left + m_left;
+    std::int32_t y = m_pPanel->m_bounds.top + m_top;
     if (m_save->screenshot.capture_result == 0) {
         CatalogArtwork::Load(0xf6, 0).draw(GetFrameBufferSurface(), 0, x + 6, y + 6);
     } else {
@@ -606,7 +606,7 @@ void W8OptionsSaveRow::Redraw(bool full_redraw)
                             m_save->timestamp.month, m_save->timestamp.day, m_save->timestamp.hour,
                             m_save->timestamp.minute);
 
-    int text_x = x + 0x5e;
+    std::int32_t text_x = x + 0x5e;
     if (m_save->version_major + m_save->version_minor * 0.1f + m_save->version_patch * 0.01f <=
         1.24f) {
         DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {text_x, y + 9}, level_name);
@@ -628,7 +628,7 @@ void W8OptionsSaveRow::Redraw(bool full_redraw)
     }
 }
 
-void W8OptionsSaveRow::OnLeftButtonUp(int event)
+void W8OptionsSaveRow::OnLeftButtonUp(std::int32_t event)
 {
     if (m_active && m_enabled && !m_editing &&
         (m_stateFlags & g_W8TextControlStateSecondary) != 0) {
@@ -643,7 +643,7 @@ void W8OptionsSaveRow::OnLeftButtonUp(int event)
     W8TextControl::OnLeftButtonUp(event);
 }
 
-void W8OptionsSaveRow::OnLeftButtonDoubleClick(int event)
+void W8OptionsSaveRow::OnLeftButtonDoubleClick(std::int32_t event)
 {
     if (m_active && m_enabled && !m_editing &&
         (m_stateFlags & g_W8TextControlStateSecondary) != 0 && m_save_listener != 0) {
@@ -652,7 +652,7 @@ void W8OptionsSaveRow::OnLeftButtonDoubleClick(int event)
     W8TextControl::OnLeftButtonDoubleClick(event);
 }
 
-void W8OptionsScreen::BeginSaveNameEdit(W8OptionsTextEditor::Listener* listener, int row,
+void W8OptionsScreen::BeginSaveNameEdit(W8OptionsTextEditor::Listener* listener, std::int32_t row,
                                         std::string_view text)
 {
     auto editor = std::make_unique<W8OptionsTextEditor>();
@@ -667,7 +667,7 @@ void W8OptionsButton::Redraw(bool full_redraw)
 {
     if (m_active && (full_redraw || m_dirty) && m_textBuffer.HasBuffer()) {
         if (m_enabled) {
-            int font_state;
+            std::int32_t font_state;
             if ((m_stateFlags & g_W8TextControlStatePressed) != 0) {
                 font_state = 13;
             } else {
@@ -680,21 +680,21 @@ void W8OptionsButton::Redraw(bool full_redraw)
     }
 }
 
-void W8OptionsButton::OnMouseEnter(int event)
+void W8OptionsButton::OnMouseEnter(std::int32_t event)
 {
     W8TextControl::OnMouseEnter(event);
     SetAlternateTextEnabled(true);
-    Invalidate(static_cast<unsigned char>(event));
+    Invalidate(static_cast<std::uint8_t>(event));
 }
 
-void W8OptionsButton::OnMouseLeave(int event)
+void W8OptionsButton::OnMouseLeave(std::int32_t event)
 {
     W8TextControl::OnMouseLeave(event);
     SetAlternateTextEnabled(false);
-    Invalidate(static_cast<unsigned char>(event));
+    Invalidate(static_cast<std::uint8_t>(event));
 }
 
-void W8OptionsKeyButton::SetKey(unsigned short key)
+void W8OptionsKeyButton::SetKey(std::uint16_t key)
 {
     m_textBuffer.SetFontStateIndex(m_alternateTextEnabled ? 14 : -1);
     if (key == VK_ESCAPE) {
@@ -717,7 +717,7 @@ void W8OptionsKeyButton::SetKey(unsigned short key)
     Invalidate(true);
 }
 
-void W8OptionsKeyButton::SetKeyText(unsigned short key)
+void W8OptionsKeyButton::SetKeyText(std::uint16_t key)
 {
     std::string text;
     for (const auto* name = g_options_key_names; name->key != 0; ++name) {
@@ -732,7 +732,7 @@ void W8OptionsKeyButton::SetKeyText(unsigned short key)
             text = g_localized_strings[0x86d];
         } else {
             text.push_back(static_cast<char>(
-                std::toupper(static_cast<unsigned char>(character))));
+                std::toupper(static_cast<std::uint8_t>(character))));
         }
     }
 
@@ -755,7 +755,7 @@ void W8OptionsKeyboardPanel::Populate()
     m_text_buffers.emplace_back(title);
     m_content_top += 44;
 
-    int first = 0;
+    std::int32_t first = 0;
     while (g_options_key_rows[first].primary_binding != page.first_binding) {
         ++first;
     }
@@ -778,8 +778,8 @@ void W8OptionsKeyboardPanel::Populate()
         ++row;
         if (binding == page.last_binding) {
             std::string reset_text = g_localized_strings[0x833];
-            short text_width = g_options_detail_font.textWidth(reset_text);
-            int left = (m_bounds.right - (text_width + 20) - m_bounds.left) / 2;
+            std::int16_t text_width = g_options_detail_font.textWidth(reset_text);
+            std::int32_t left = (m_bounds.right - (text_width + 20) - m_bounds.left) / 2;
             W8OptionsButton* reset =
                 new W8OptionsButton(this, left, 0x18e, left + text_width + 20, 0x1a4, reset_text);
             reset->m_listener = this;
@@ -799,7 +799,7 @@ void W8OptionsKeyboardPanel::OnPrimary(W8TextControl*)
     g_options_screen->ShowNotification(this, true, 0x834, 0);
 }
 
-void W8OptionsKeyboardPanel::OnSelectionChanged(W8ControlSelection*, int selected)
+void W8OptionsKeyboardPanel::OnSelectionChanged(W8ControlSelection*, std::int32_t selected)
 {
     if (selected == -1) {
         m_captured_button = 0;
@@ -813,8 +813,8 @@ void W8OptionsKeyboardPanel::OnSelectionChanged(W8ControlSelection*, int selecte
 
 void W8OptionsKeyboardPanel::RefreshBindingLabels()
 {
-    int count = static_cast<int>(ControlCount()) - 1;
-    for (int index = 0; index < count; ++index) {
+    std::int32_t count = static_cast<std::int32_t>(ControlCount()) - 1;
+    for (std::int32_t index = 0; index < count; ++index) {
         W8OptionsKeyButton* button = static_cast<W8OptionsKeyButton*>(ControlAt(index));
         MGSKeyBinding* binding =
             g_mgs_keyboard->GetBinding(g_mgs_keyboard->FindBinding(button->m_primary_binding));
@@ -833,20 +833,20 @@ void W8OptionsKeyboardPanel::SetActive(bool active)
     m_selection.SetSelected(-1);
 }
 
-unsigned char W8OptionsKeyboardPanel::OnKey(unsigned short key, unsigned short modifiers)
+bool W8OptionsKeyboardPanel::OnKey(std::uint16_t key, std::uint16_t modifiers)
 {
     if (modifiers != 0) {
-        return 0;
+        return false;
     }
     if (key != VK_ESCAPE) {
         ClearDuplicateBinding(key);
     }
     m_captured_button->SetKey(key);
     m_selection.SetSelected(-1);
-    return 1;
+    return true;
 }
 
-void W8OptionsKeyboardPanel::OnDialogClosed(bool accepted, int)
+void W8OptionsKeyboardPanel::OnDialogClosed(bool accepted, std::int32_t)
 {
     m_selection.SetSelected(-1);
     if (accepted) {
@@ -855,9 +855,9 @@ void W8OptionsKeyboardPanel::OnDialogClosed(bool accepted, int)
     }
 }
 
-void W8OptionsKeyboardPanel::ClearDuplicateBinding(unsigned short key)
+void W8OptionsKeyboardPanel::ClearDuplicateBinding(std::uint16_t key)
 {
-    int row_index = 0;
+    std::int32_t row_index = 0;
     if (g_options_key_rows[0].primary_binding == W8_MGS_COMMAND_NONE) {
         return;
     }
@@ -888,8 +888,8 @@ void W8OptionsKeyboardPanel::ClearDuplicateBinding(unsigned short key)
     }
 }
 
-W8OptionsPanel* CreateOptionsPanel(int panel, unsigned char* compact,
-                                   unsigned char* hide_navigation)
+W8OptionsPanel* CreateOptionsPanel(std::int32_t panel, std::uint8_t* compact,
+                                   std::uint8_t* hide_navigation)
 {
     switch (panel) {
     case 0:
@@ -1000,7 +1000,7 @@ void W8OptionsInterfacePanel::Populate()
 
 void W8OptionsInterfacePanel::OnDragEnd(W8HorizontalRangeThumb* thumb)
 {
-    g_settings.tooltip_delay_ms = static_cast<int>(thumb->m_position);
+    g_settings.tooltip_delay_ms = static_cast<std::int32_t>(thumb->m_position);
     SetRegionHelpDelay(0);
 }
 
@@ -1013,8 +1013,8 @@ void W8OptionsInterfacePanel::OnPrimary(W8TextControl* control)
 
 void W8OptionsAudioPanel::Populate()
 {
-    for (int index = 0; index < 4; ++index) {
-        int volume;
+    for (std::int32_t index = 0; index < 4; ++index) {
+        std::int32_t volume;
         bool muted = false;
 
         m_content_top += 22;
@@ -1073,7 +1073,7 @@ void W8OptionsAudioPanel::Populate()
 
 void W8OptionsAudioPanel::OnDrag(W8HorizontalRangeThumb* thumb)
 {
-    int index;
+    std::int32_t index;
     for (index = 0; index < 4; ++index) {
         if (thumb == m_sliders[index]) {
             break;
@@ -1081,23 +1081,23 @@ void W8OptionsAudioPanel::OnDrag(W8HorizontalRangeThumb* thumb)
     }
     switch (index) {
     case 0:
-        SetMusicVolume(static_cast<unsigned char>(thumb->m_position));
+        SetMusicVolume(static_cast<std::uint8_t>(thumb->m_position));
         return;
     case 1:
-        SetSoundEffectsVolume(static_cast<unsigned char>(thumb->m_position));
+        SetSoundEffectsVolume(static_cast<std::uint8_t>(thumb->m_position));
         return;
     case 2:
-        g_settings.footstep_volume = static_cast<unsigned char>(thumb->m_position);
+        g_settings.footstep_volume = static_cast<std::uint8_t>(thumb->m_position);
         return;
     case 3:
-        g_settings.voice_volume = static_cast<unsigned char>(thumb->m_position);
+        g_settings.voice_volume = static_cast<std::uint8_t>(thumb->m_position);
         return;
     }
 }
 
 void W8OptionsAudioPanel::OnDragEnd(W8HorizontalRangeThumb* thumb)
 {
-    int index;
+    std::int32_t index;
     for (index = 0; index < 4; ++index) {
         if (thumb == m_sliders[index]) {
             break;
@@ -1124,7 +1124,7 @@ void W8OptionsAudioPanel::OnDragEnd(W8HorizontalRangeThumb* thumb)
 
 void W8OptionsAudioPanel::OnPrimary(W8TextControl* control)
 {
-    int index;
+    std::int32_t index;
     for (index = 0; index < 4; ++index) {
         if (control == m_mute_buttons[index]) {
             break;
@@ -1133,8 +1133,8 @@ void W8OptionsAudioPanel::OnPrimary(W8TextControl* control)
     if (index == 4) {
         index = -1;
     }
-    unsigned char muted =
-        static_cast<unsigned char>(control->m_stateFlags) & g_W8TextControlStateSecondary;
+    std::uint8_t muted =
+        static_cast<std::uint8_t>(control->m_stateFlags) & g_W8TextControlStateSecondary;
     switch (index) {
     case 0:
         SetMusicMuted(muted);
@@ -1207,7 +1207,7 @@ void W8OptionsUnavailablePanel::Populate()
 W8OptionsScreen::W8OptionsScreen()
     : m_redraw_pending(1), m_modal_closing(0), m_selected_panel(-1), m_key_capture(0)
 {
-    for (int index = 0; index < 8; ++index) {
+    for (std::int32_t index = 0; index < 8; ++index) {
         m_panel[index] = 0;
     }
     auto& current = m_save_slots.emplace_back(std::make_unique<W8SaveSlot>());
@@ -1222,7 +1222,7 @@ void W8OptionsScreen::CreateControls()
     m_controls = std::make_unique<Controls>();
     m_menu_selection = std::make_unique<W8ControlSelection>();
     m_controls->CreateRegionSet();
-    for (int index = 0; index < 8; ++index) {
+    for (std::int32_t index = 0; index < 8; ++index) {
         W8OptionsMenuButton* button =
             new W8OptionsMenuButton(m_controls.get(), &g_options_menu_rows[index]);
         if (index == 7) {
@@ -1234,7 +1234,7 @@ void W8OptionsScreen::CreateControls()
             if (index == 5) {
                 button->SetEnabled(g_status.game_started);
             } else if (index == 4) {
-                button->SetEnabled(static_cast<int>(m_save_slots.size()) > 1);
+                button->SetEnabled(static_cast<std::int32_t>(m_save_slots.size()) > 1);
             }
         }
     }
@@ -1252,7 +1252,7 @@ W8OptionsScreen::~W8OptionsScreen()
     SelectPanel(-1, true);
 }
 
-void W8OptionsScreen::SelectPanel(int selected, bool notify)
+void W8OptionsScreen::SelectPanel(std::int32_t selected, bool notify)
 {
     if (selected == m_selected_panel) {
         return;
@@ -1268,7 +1268,7 @@ void W8OptionsScreen::SelectPanel(int selected, bool notify)
         if (!m_panel[selected]) {
             m_panel[selected] = std::make_unique<W8OptionsPanelSet>();
             W8OptionsPanelSet* created = m_panel[m_selected_panel].get();
-            for (int index = g_options_panel_ranges[m_selected_panel].first;
+            for (std::int32_t index = g_options_panel_ranges[m_selected_panel].first;
                  index <= g_options_panel_ranges[m_selected_panel].last; ++index) {
                 W8OptionsPanel* panel = CreateOptionsPanel(index, &created->m_compact_layout,
                                                            &created->m_hide_navigation);
@@ -1285,9 +1285,9 @@ void W8OptionsScreen::SelectPanel(int selected, bool notify)
         m_menu_set->m_pMenuSet = m_panel[m_selected_panel].get();
         m_menu_set->UpdateMenuSet();
         if (m_selected_panel == 4) {
-            m_panel[4]->m_page_count = (static_cast<int>(m_save_slots.size()) - 2) / 5 + 1;
+            m_panel[4]->m_page_count = (static_cast<std::int32_t>(m_save_slots.size()) - 2) / 5 + 1;
         } else if (m_selected_panel == 5) {
-            m_panel[5]->m_page_count = (static_cast<int>(m_save_slots.size()) - 1) / 5 + 1;
+            m_panel[5]->m_page_count = (static_cast<std::int32_t>(m_save_slots.size()) - 1) / 5 + 1;
         }
         m_menu_set->UpdateMenuSet();
     }
@@ -1300,7 +1300,7 @@ void W8OptionsScreen::SelectPanel(int selected, bool notify)
 }
 
 void W8OptionsScreen::ShowNotification(W8DialogCloseListener* listener, bool allow_cancel,
-                                       int message, int value)
+                                       std::int32_t message, std::int32_t value)
 {
     m_modal_closing = true;
     m_active_modal = std::make_unique<W8NotificationDialog>(message, allow_cancel, value);
@@ -1316,14 +1316,14 @@ void W8OptionsScreen::OnPrimary(W8TextControl*)
     ShowNotification(this, true, 0x832, 0);
 }
 
-unsigned char W8OptionsScreen::ProcessInput(const InputEvent* input)
+std::uint8_t W8OptionsScreen::ProcessInput(const InputEvent* input)
 {
     W8OptionsTextEditor* editor = m_text_editor.get();
     if (editor != 0) {
         if (IsTypingEvent(*input)) {
             if (input->key != VK_ESCAPE && input->key != VK_RETURN) {
                 const char32_t character = TypedCharacter(*input);
-                if (character != 0 && character < 0x80 && strchr("\\/:*?\"<>|", int(character)) != 0) {
+                if (character != 0 && character < 0x80 && strchr("\\/:*?\"<>|", std::int32_t(character)) != 0) {
                     return 0;
                 }
                 HandleTextInput(input);
@@ -1337,7 +1337,7 @@ unsigned char W8OptionsScreen::ProcessInput(const InputEvent* input)
             return 1;
         }
     } else if (m_key_capture != 0 && input->type == InputEventType::KeyDown) {
-        return m_key_capture->OnKey(static_cast<unsigned short>(input->key), input->modifiers);
+        return m_key_capture->OnKey(static_cast<std::uint16_t>(input->key), input->modifiers);
     }
     return 0;
 }
@@ -1368,16 +1368,16 @@ void W8OptionsScreen::Redraw()
     }
 }
 
-void W8OptionsValues::TransferByte(int* value, unsigned char* setting)
+void W8OptionsValues::TransferByte(std::int32_t* value, std::uint8_t* setting)
 {
     if (applying == 0) {
         *value = *setting;
     } else {
-        *setting = static_cast<unsigned char>(*value);
+        *setting = static_cast<std::uint8_t>(*value);
     }
 }
 
-void W8OptionsValues::TransferRenderOption(int* value, W8RenderOption option)
+void W8OptionsValues::TransferRenderOption(std::int32_t* value, W8RenderOption option)
 {
     if (applying == 0) {
         *value = GetRenderOptionState(option);
@@ -1417,7 +1417,7 @@ void W8OptionsValues::TransferSettings()
     if (applying == 0) {
         text_display_delay_ms = static_cast<float>(g_settings.text_display_delay_ms);
     } else {
-        g_settings.text_display_delay_ms = static_cast<unsigned int>(text_display_delay_ms);
+        g_settings.text_display_delay_ms = static_cast<std::uint32_t>(text_display_delay_ms);
     }
     TransferByte(&auto_save, &g_settings.auto_save);
     if (applying == 0) {
@@ -1449,7 +1449,7 @@ void W8OptionsValues::TransferSettings()
                                    : g_settings.camera_rotation_style;
         TransferByte(&continuous_combat, &g_settings.continuous_combat);
     } else {
-        g_settings.combat_delay_ms = 5000 - static_cast<int>(combat_speed * 5000.0f);
+        g_settings.combat_delay_ms = 5000 - static_cast<std::int32_t>(combat_speed * 5000.0f);
         if (camera_auto_rotation == 2) {
             g_settings.camera_rotation_mode = W8_CAMERA_ROTATION_DISABLED;
         } else {
@@ -1493,7 +1493,7 @@ void W8OptionsMenuButton::OnPrimary(W8TextControl*)
     }
 }
 
-W8OptionsCheckbox::W8OptionsCheckbox(Controls* owner, int top, int* value)
+W8OptionsCheckbox::W8OptionsCheckbox(Controls* owner, std::int32_t top, std::int32_t* value)
     : W8TextControl(owner, 0xffffffff, 0x14d, top - 2, 0, 0, CatalogArtwork::Load(0xf1, 0), 2, 0, 3, 1, -1),
       m_value(value)
 {
@@ -1503,13 +1503,13 @@ W8OptionsCheckbox::W8OptionsCheckbox(Controls* owner, int top, int* value)
     }
 }
 
-void W8OptionsCheckbox::OnLeftButtonUp(int event)
+void W8OptionsCheckbox::OnLeftButtonUp(std::int32_t event)
 {
     W8TextControl::OnLeftButtonUp(event);
-    *m_value = static_cast<unsigned char>(m_stateFlags) & g_W8TextControlStateSecondary & 0xff;
+    *m_value = static_cast<std::uint8_t>(m_stateFlags) & g_W8TextControlStateSecondary & 0xff;
 }
 
-W8OptionsSlider::W8OptionsSlider(Controls* owner, int top, float* value, bool alternate)
+W8OptionsSlider::W8OptionsSlider(Controls* owner, std::int32_t top, float* value, bool alternate)
     : W8HorizontalRangeThumb(owner, 0xffffffff, 0xc9, top - 2, CatalogArtwork::Load(0xf5),
                              alternate ? 4 : 0, 1, 2, 3),
       m_value(value)
@@ -1519,7 +1519,7 @@ W8OptionsSlider::W8OptionsSlider(Controls* owner, int top, float* value, bool al
     }
 }
 
-void W8OptionsSlider::OnMouseMove(int event)
+void W8OptionsSlider::OnMouseMove(std::int32_t event)
 {
     W8HorizontalRangeThumb::OnMouseMove(event);
     if (m_dragging && m_value != 0) {
@@ -1532,10 +1532,10 @@ void W8OptionsSlider::Redraw(bool full_redraw)
     if (m_active && (full_redraw || m_dirty)) {
         W8HorizontalRangeThumb::Redraw(full_redraw);
         if (m_enabled && m_pixelPosition > 13) {
-            int left = m_pPanel->m_bounds.left + m_left;
-            int top = m_pPanel->m_bounds.top + m_top;
-            unsigned short color = Get16BPPColor(SDL_Color{0, 255, 0, SDL_ALPHA_OPAQUE});
-            int end = m_pixelPosition < 74 ? m_pixelPosition - 1 : 73;
+            std::int32_t left = m_pPanel->m_bounds.left + m_left;
+            std::int32_t top = m_pPanel->m_bounds.top + m_top;
+            std::uint16_t color = Get16BPPColor(SDL_Color{0, 255, 0, SDL_ALPHA_OPAQUE});
+            std::int32_t end = m_pixelPosition < 74 ? m_pixelPosition - 1 : 73;
             const SDL_Rect first_segment{left + 13, top + 7, end - 13, 2};
             SDL_FillSurfaceRect(&GetFrameBufferSurface(), &first_segment, color);
             if (m_pixelPosition > 83) {
@@ -1549,7 +1549,7 @@ void W8OptionsSlider::Redraw(bool full_redraw)
 /* The base cleanup at 0x005A93A0 destroys m_lsButtons; absence of constructor
    unwind registration does not establish its authored declaration. */
 
-W8OptionsSelection::W8OptionsSelection(int* value) : m_value(value) {}
+W8OptionsSelection::W8OptionsSelection(std::int32_t* value) : m_value(value) {}
 
 /* The empty body still emits the m_lsButtons vector teardown over the
    W8ControlSelection base. */
@@ -1568,7 +1568,7 @@ W8OptionsPanel::~W8OptionsPanel()
 }
 
 /* All labelled option rows use the same geometry and text formatting. */
-static void AddOptionsLabel(W8OptionsPanel& panel, int label)
+static void AddOptionsLabel(W8OptionsPanel& panel, std::int32_t label)
 {
     W8ControlsRect bounds = {panel.m_bounds.left + 20,
                              panel.m_bounds.top + panel.m_content_top,
@@ -1579,7 +1579,7 @@ static void AddOptionsLabel(W8OptionsPanel& panel, int label)
                          g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4));
 }
 
-W8OptionsCheckbox* W8OptionsPanel::AddCheckbox(int label, int* value)
+W8OptionsCheckbox* W8OptionsPanel::AddCheckbox(std::int32_t label, std::int32_t* value)
 {
     AddOptionsLabel(*this, label);
     W8OptionsCheckbox* checkbox = new W8OptionsCheckbox(this, m_content_top, value);
@@ -1587,7 +1587,7 @@ W8OptionsCheckbox* W8OptionsPanel::AddCheckbox(int label, int* value)
     return checkbox;
 }
 
-W8TextControl* W8OptionsPanel::AddChoiceButton(int label)
+W8TextControl* W8OptionsPanel::AddChoiceButton(std::int32_t label)
 {
     W8ControlsRect bounds = {m_bounds.left, m_bounds.top + m_content_top, m_bounds.left + 0x147,
                              m_bounds.top + m_content_top + 22};
@@ -1600,7 +1600,7 @@ W8TextControl* W8OptionsPanel::AddChoiceButton(int label)
     return button;
 }
 
-W8OptionsSlider* W8OptionsPanel::AddSlider(int label, float* value, bool alternate)
+W8OptionsSlider* W8OptionsPanel::AddSlider(std::int32_t label, float* value, bool alternate)
 {
     AddOptionsLabel(*this, label);
     W8OptionsSlider* slider = new W8OptionsSlider(this, m_content_top, value, alternate);
@@ -1608,12 +1608,12 @@ W8OptionsSlider* W8OptionsPanel::AddSlider(int label, float* value, bool alterna
     return slider;
 }
 
-void W8OptionsPanel::AddChoices(int label, int count, const int* choices, int* value)
+void W8OptionsPanel::AddChoices(std::int32_t label, std::int32_t count, const std::int32_t* choices, std::int32_t* value)
 {
     AddOptionsLabel(*this, label);
     W8OptionsSelection* selection = new W8OptionsSelection(value);
     m_option_selections.emplace_back(selection);
-    for (int index = 0; index < count; ++index) {
+    for (std::int32_t index = 0; index < count; ++index) {
         selection->AddEntry(AddChoiceButton(choices[index]));
     }
     selection->SetSelected(*selection->m_value);
@@ -1640,7 +1640,7 @@ void W8OptionsPanel::Redraw()
     bool redraw_text = m_fDirty && m_fEnabled;
     Controls::Redraw();
     if (redraw_text) {
-        for (int index = 0; index < static_cast<int>(m_text_buffers.size()); ++index) {
+        for (std::int32_t index = 0; index < static_cast<std::int32_t>(m_text_buffers.size()); ++index) {
             m_text_buffers[index]->RenderToTarget(0, true, GetFrameBufferSurface());
         }
     }
@@ -1661,13 +1661,13 @@ W8OptionsPanel::W8OptionsPanel()
 {
     CreateRegionSet();
 
-    short width;
-    short height;
+    std::int16_t width;
+    std::int16_t height;
     const SDL_Point _catalog_size_0 = CatalogArtwork::Load(0xf2, 0).size(0);
         width = _catalog_size_0.x;
         height = _catalog_size_0.y;;
-    m_bounds.right = m_bounds.left + static_cast<unsigned short>(width);
-    m_bounds.bottom = m_bounds.top + static_cast<unsigned short>(height);
+    m_bounds.right = m_bounds.left + static_cast<std::uint16_t>(width);
+    m_bounds.bottom = m_bounds.top + static_cast<std::uint16_t>(height);
 }
 
 /* The menu set builds itself from the shared options font: its panel bounds
@@ -1679,13 +1679,13 @@ W8OptionsMenuSet::W8OptionsMenuSet()
 {
     CreateRegionSet();
 
-    short width;
-    short height;
+    std::int16_t width;
+    std::int16_t height;
     const SDL_Point _catalog_size_1 = CatalogArtwork::Load(0xf3, 0).size(0);
         width = _catalog_size_1.x;
         height = _catalog_size_1.y;;
-    m_bounds.right = m_bounds.left + static_cast<unsigned short>(width);
-    m_bounds.bottom = m_bounds.top + static_cast<unsigned short>(height);
+    m_bounds.right = m_bounds.left + static_cast<std::uint16_t>(width);
+    m_bounds.bottom = m_bounds.top + static_cast<std::uint16_t>(height);
 
     m_previous = new W8TextControl(this, 0xffffffff, 3, 3, 0, 0, CatalogArtwork::Load(0xf4, 0), 0, 2, 1, -1, 3);
     m_previous->m_listener = this;
@@ -1711,7 +1711,7 @@ void W8OptionsPanel::SetActive(bool active)
     Invalidate(0);
 }
 
-void W8OptionsPanel::SetCurrent(int current)
+void W8OptionsPanel::SetCurrent(std::int32_t current)
 {
     m_current = current;
     Invalidate(0);
@@ -1719,11 +1719,11 @@ void W8OptionsPanel::SetCurrent(int current)
 
 void W8OptionsPanelSet::Advance()
 {
-    int current;
+    std::int32_t current;
 
     if (m_page_count == 0) {
         current = m_current;
-        if (current < static_cast<int>(m_panels.size()) - 1) {
+        if (current < static_cast<std::int32_t>(m_panels.size()) - 1) {
             m_panels[current]->SetActive(false);
             current = m_current + 1;
             m_current = current;
@@ -1736,7 +1736,7 @@ void W8OptionsPanelSet::Advance()
 
 void W8OptionsPanelSet::Retreat()
 {
-    int current;
+    std::int32_t current;
 
     if (m_page_count == 0) {
         current = m_current;
@@ -1755,14 +1755,14 @@ void W8OptionsMenuSet::UpdateMenuSet()
 {
     W8ControlsRect bounds;
     W8OptionsPanelSet* panel_set;
-    int current;
-    int count;
+    std::int32_t current;
+    std::int32_t count;
 
     bounds.left = m_bounds.left;
     bounds.top = m_bounds.top;
     bounds.right = m_bounds.right;
     bounds.bottom = m_bounds.bottom;
-    int height = m_bounds.bottom - m_bounds.top;
+    std::int32_t height = m_bounds.bottom - m_bounds.top;
     if (m_pMenuSet == 0) {
         srAssertFail("m_pMenuSet", __FILE__,
                      0x5c9, 0);
@@ -1770,7 +1770,7 @@ void W8OptionsMenuSet::UpdateMenuSet()
     panel_set = m_pMenuSet;
     if (panel_set->m_page_count == 0) {
         current = panel_set->m_current;
-        count = static_cast<int>(panel_set->m_panels.size());
+        count = static_cast<std::int32_t>(panel_set->m_panels.size());
     } else {
         current = panel_set->m_panels[0]->m_current;
         count = panel_set->m_page_count;
@@ -1809,7 +1809,7 @@ void W8OptionsMenuSet::OnPrimary(W8TextControl* control)
 /* The dialog callback's teardown decision is part of the Options screen's
    state transition: only an accepted close outside combat saves an active
    party, then the common audio-state update runs for every accepted close. */
-void W8OptionsScreen::OnDialogClosed(bool accepted, int)
+void W8OptionsScreen::OnDialogClosed(bool accepted, std::int32_t)
 {
     if (accepted) {
         if (g_status.game_started && !gXStatus.fCombatMode && AnyCharacterActive()) {
@@ -1822,7 +1822,7 @@ void W8OptionsScreen::OnDialogClosed(bool accepted, int)
 /* The selection-listener slot receives the originating control and its selected
    row.  The retail thunk deliberately ignores the control and chooses the
    panel without emitting another notification. */
-void W8OptionsScreen::OnSelectionChanged(W8ControlSelection*, int selected)
+void W8OptionsScreen::OnSelectionChanged(W8ControlSelection*, std::int32_t selected)
 {
     SelectPanel(selected, false);
 }
@@ -1830,22 +1830,22 @@ void W8OptionsScreen::OnSelectionChanged(W8ControlSelection*, int selected)
 /* State 10 first transfers its option values back to the shared settings
    block, then releases every controller-owned control before returning the
    display and region systems to their common screen boundary. */
-unsigned char OptionsScreenLeave(int)
+bool OptionsScreenLeave(std::int32_t)
 {
     g_options_values.applying = 1;
     g_options_values.TransferSettings();
     g_options_screen.reset();
     NoOp();
     ResetRegions();
-    return 1;
+    return true;
 }
 
 /* State 10 creates the controller after resetting the shared 2D screen
    systems.  The selected panel is determined by the transition mode, with the
    in-game branch preserving the combat and save-state overrides. */
-unsigned char OptionsScreenEnter()
+bool OptionsScreenEnter()
 {
-    int selected;
+    std::int32_t selected;
 
     SetViewport(0, 0, 0x280, 0x1e0);
     SetPrimarySurfaceTextureHint2Enabled(false);
@@ -1880,7 +1880,7 @@ unsigned char OptionsScreenEnter()
     }
     g_options_screen->SelectPanel(selected, true);
     g_options_first_frame = true;
-    return 1;
+    return true;
 }
 
 /* The state-10 frame owns modal retirement, input refusal order and redraw

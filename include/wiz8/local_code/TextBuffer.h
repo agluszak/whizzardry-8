@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <SDL3/SDL_surface.h>
 #include <string>
 #include <string_view>
@@ -9,13 +10,13 @@
 
 /* Shared declaration owner; implementation remains in Local Code\Controls.cpp. */
 
-extern const unsigned int g_W8TextBufferAlignLeft;
-extern const unsigned int g_W8TextBufferAlignCenter;
-extern const unsigned int g_W8TextBufferAlignRight;
-extern const unsigned int g_W8TextBufferAlignMiddle;
-extern const unsigned int g_W8TextBufferAlignTop;
-extern const unsigned int g_W8TextBufferAlignBottom;
-extern const unsigned int g_W8TextBufferNoWrap;
+extern const std::uint32_t g_W8TextBufferAlignLeft;
+extern const std::uint32_t g_W8TextBufferAlignCenter;
+extern const std::uint32_t g_W8TextBufferAlignRight;
+extern const std::uint32_t g_W8TextBufferAlignMiddle;
+extern const std::uint32_t g_W8TextBufferAlignTop;
+extern const std::uint32_t g_W8TextBufferAlignBottom;
+extern const std::uint32_t g_W8TextBufferNoWrap;
 
 // VTABLE: WIZ8 0x005ed5b8
 class W8TextBuffer {
@@ -23,17 +24,17 @@ public:
     friend class W8DialogTextArea;
     W8TextBuffer();
     W8TextBuffer(const W8ControlsRect* bounds, std::string_view text, Font& font,
-                 unsigned int layout_mode, int render_mode);
+                 std::uint32_t layout_mode, std::int32_t render_mode);
     std::string_view GetText() const { return m_text; }
-    unsigned int GetLineHeight();
-    int GetHorizontalPosition(int width);
-    int GetVerticalPosition();
-    void SetLineHeight(unsigned int height);
-    void FillBounds(int colour);
-    void RenderText(SDL_Surface& target, int x_offset, int y_offset, bool force);
-    void RenderToTarget(int offset, bool force, SDL_Surface& target);
+    std::uint32_t GetLineHeight();
+    std::int32_t GetHorizontalPosition(std::int32_t width);
+    std::int32_t GetVerticalPosition();
+    void SetLineHeight(std::uint32_t height);
+    void FillBounds(std::int32_t colour);
+    void RenderText(SDL_Surface& target, std::int32_t x_offset, std::int32_t y_offset, bool force);
+    void RenderToTarget(std::int32_t offset, bool force, SDL_Surface& target);
     void UpdateLayout();
-    void SetLayoutMode(unsigned int layout_mode);
+    void SetLayoutMode(std::uint32_t layout_mode);
     void SetText(std::string_view text, Font& font);
     void SetLayoutBounds(const W8ControlsRect* bounds, bool copy_pending, bool update_layout);
 
@@ -50,7 +51,7 @@ public:
         RenderString(text, font, force, target);
     }
 
-    void SetLayoutBounds(int left, int top, int right, int bottom)
+    void SetLayoutBounds(std::int32_t left, std::int32_t top, std::int32_t right, std::int32_t bottom)
     {
         m_layoutBounds.left = left;
         m_layoutBounds.top = top;
@@ -67,15 +68,15 @@ public:
     {
         m_geometryDirty = true;
     }
-    void SetRenderMode(int mode)
+    void SetRenderMode(std::int32_t mode)
     {
         m_renderMode = mode;
     }
-    void SetFontStateIndex(int index)
+    void SetFontStateIndex(std::int32_t index)
     {
         m_fontStateIndex = index;
     }
-    void MarkGeometryDirty(unsigned int mode)
+    void MarkGeometryDirty(std::uint32_t mode)
     {
         m_geometryDirty = true;
         m_layoutMode = mode;
@@ -86,34 +87,34 @@ public:
 protected:
     W8ControlsRect m_layoutBounds;  /* current absolute layout bounds */
     W8ControlsRect m_pendingBounds; /* mirrored pending bounds */
-    int m_field_24;                 /* the constructor steps over this one */
+    std::int32_t m_field_24;                 /* the constructor steps over this one */
     Font* m_font;                     /* font used for uncached line height */
 public:
     /* The tooltip builder in Video2.cpp reads the finished layout directly. */
-    int m_lineCount;
+    std::int32_t m_lineCount;
 
 protected:
-    unsigned int m_lineHeight; /* cached height, zero means query font */
+    std::uint32_t m_lineHeight; /* cached height, zero means query font */
     std::string m_text; // Original text; wrapping never modifies it.
     std::string m_buffer; // Rebuilt layout text, owned by this control.
-    unsigned int m_layoutMode; /* 10 initially */
+    std::uint32_t m_layoutMode; /* 10 initially */
 public:
-    unsigned int m_maxLineWidth;
+    std::uint32_t m_maxLineWidth;
 
 public:
     /* The party-selection controller raises the geometry-dirty byte directly
        when it changes modes; retain that observed public storage access. */
     bool m_geometryDirty;
-    unsigned char m_alternateRenderer;
-    unsigned char pad_42[2];
-    int m_renderMode;     /* 4 initially */
-    int m_fontStateIndex; /* -1 skips the state-table override */
+    std::uint8_t m_alternateRenderer;
+    std::uint8_t pad_42[2];
+    std::int32_t m_renderMode;     /* 4 initially */
+    std::int32_t m_fontStateIndex; /* -1 skips the state-table override */
     bool m_highlighted;
 };
 
-inline void DestroyDialogTextBuffers(W8TextBuffer** buffers, int count)
+inline void DestroyDialogTextBuffers(W8TextBuffer** buffers, std::int32_t count)
 {
-    for (int index = 0; index < count; ++index) {
+    for (std::int32_t index = 0; index < count; ++index) {
         if (buffers[index] != 0) {
             delete buffers[index];
             buffers[index] = 0;

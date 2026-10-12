@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <SDL3/SDL_surface.h>
 #include "himage.h"
 #include <fmt/format.h>
@@ -52,7 +53,6 @@
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/filesystem.h"
 #include "Font.h"
-#include "compat/compiler.h"
 #include "difficulty.h"
 #include "file_time.h"
 
@@ -65,10 +65,10 @@
 struct W8PartySelectionCharacterCollection {
     W8PartySelectionCharacterCollection() : first_visible(0) {}
     ~W8PartySelectionCharacterCollection();
-    W8Character* GetCharacter(int index);
-    int FindPartySlot(int index);
-    void DetachFromParty(int index);
-    void DeleteAt(int index);
+    W8Character* GetCharacter(std::int32_t index);
+    std::int32_t FindPartySlot(std::int32_t index);
+    void DetachFromParty(std::int32_t index);
+    void DeleteAt(std::int32_t index);
     void ClearCharacters();
     void ReloadCharacters();
     void LoadExternalCharacters();
@@ -76,7 +76,7 @@ struct W8PartySelectionCharacterCollection {
 
     std::vector<W8Character*> characters;
     std::vector<char*> names;
-    int first_visible;
+    std::int32_t first_visible;
 };
 
 // GLOBAL: WIZ8 0x0069C4EC
@@ -92,9 +92,9 @@ static std::unique_ptr<W8PartySelectionCharacterCollection> g_party_selection_ch
 // FUNCTION: WIZ8 0x005be270
 W8PartySelectionCharacterCollection::~W8PartySelectionCharacterCollection()
 {
-    int index;
+    std::int32_t index;
     ClearCharacters();
-    for (index = 0; index < static_cast<int>(names.size()); ++index) {
+    for (index = 0; index < static_cast<std::int32_t>(names.size()); ++index) {
         delete names[index];
     }
     names.clear();
@@ -102,8 +102,8 @@ W8PartySelectionCharacterCollection::~W8PartySelectionCharacterCollection()
 
 void W8PartySelectionCharacterCollection::ClearCharacters()
 {
-    int index;
-    for (index = 0; index < static_cast<int>(characters.size()); ++index) {
+    std::int32_t index;
+    for (index = 0; index < static_cast<std::int32_t>(characters.size()); ++index) {
         W8Character* character = GetCharacter(index);
         if (!character->fInParty) {
             delete character;
@@ -116,7 +116,7 @@ void W8PartySelectionCharacterCollection::ReloadCharacters()
 {
     ClearCharacters();
     W8PartySlotRow* rows = g_status.buffers.XChar;
-    for (int slot = 2; slot < 8; ++slot) {
+    for (std::int32_t slot = 2; slot < 8; ++slot) {
         if (rows[slot].fOccupied) {
             characters.push_back(&g_status.buffers.Char[slot]);
         }
@@ -126,7 +126,7 @@ void W8PartySelectionCharacterCollection::ReloadCharacters()
 }
 
 // FUNCTION: WIZ8 0x005be4b0
-W8Character* W8PartySelectionCharacterCollection::GetCharacter(int index)
+W8Character* W8PartySelectionCharacterCollection::GetCharacter(std::int32_t index)
 {
     if (static_cast<std::size_t>(index) < characters.size()) {
         return characters[index];
@@ -135,10 +135,10 @@ W8Character* W8PartySelectionCharacterCollection::GetCharacter(int index)
 }
 
 // FUNCTION: WIZ8 0x005be4d0
-void W8PartySelectionCharacterCollection::DetachFromParty(int index)
+void W8PartySelectionCharacterCollection::DetachFromParty(std::int32_t index)
 {
     W8Character* previous = GetCharacter(index);
-    int slot = FindPartySlot(index);
+    std::int32_t slot = FindPartySlot(index);
     W8Character* replacement = new W8Character;
     std::string path;
     path = BuildCharacterPath(previous->name, -1);
@@ -151,12 +151,12 @@ void W8PartySelectionCharacterCollection::DetachFromParty(int index)
 }
 
 // FUNCTION: WIZ8 0x005be5f0
-int W8PartySelectionCharacterCollection::FindPartySlot(int index)
+std::int32_t W8PartySelectionCharacterCollection::FindPartySlot(std::int32_t index)
 {
     W8Character* character = GetCharacter(index);
     if (character && character->fInParty) {
         W8PartySlotRow* rows = g_status.buffers.XChar;
-        for (int slot = 0; slot < 6; ++slot) {
+        for (std::int32_t slot = 0; slot < 6; ++slot) {
             if (rows[slot + 2].fOccupied && &g_status.buffers.Char[slot + 2] == character) {
                 return slot;
             }
@@ -166,7 +166,7 @@ int W8PartySelectionCharacterCollection::FindPartySlot(int index)
 }
 
 // FUNCTION: WIZ8 0x005c34d0
-void W8PartySelectionCharacterCollection::DeleteAt(int index)
+void W8PartySelectionCharacterCollection::DeleteAt(std::int32_t index)
 {
     if (index >= 0 && std::cmp_less(index, characters.size())) {
         auto* object = characters[index];
@@ -192,7 +192,7 @@ void W8PartySelectionCharacterCollection::LoadExternalCharacters()
         if (!LoadCharacter(entry.c_str(), character, -1, false)) {
             delete character;
         } else {
-            int slot;
+            std::int32_t slot;
             for (slot = 2; slot < 8; ++slot) {
                 if (g_status.buffers.XChar[slot].fOccupied &&
                     strcmp(g_status.buffers.Char[slot].name.c_str(), character->name.c_str()) == 0) {
@@ -213,13 +213,13 @@ void W8PartySelectionCharacterCollection::LoadExternalCharacters()
    time as the quicksort pivot, matching the retail split at ten elements. */
 // FUNCTION: WIZ8 0x005c3520
 static void SortPartySelectionCharactersByTime(W8Character** characters, wiz8::DiskFileTime* times,
-                                               int first, int last)
+                                               std::int32_t first, std::int32_t last)
 {
     if (last - first < 9) {
-        for (int next = first + 1; next <= last; ++next) {
+        for (std::int32_t next = first + 1; next <= last; ++next) {
             wiz8::DiskFileTime time = times[next];
             W8Character* character = characters[next];
-            int insert = next;
+            std::int32_t insert = next;
             while (insert > first && times[insert - 1].ticks() < time.ticks()) {
                 times[insert] = times[insert - 1];
                 characters[insert] = characters[insert - 1];
@@ -232,8 +232,8 @@ static void SortPartySelectionCharactersByTime(W8Character** characters, wiz8::D
     }
 
     wiz8::DiskFileTime pivot = times[last];
-    int left = first - 1;
-    int right = last;
+    std::int32_t left = first - 1;
+    std::int32_t right = last;
     for (;;) {
         do {
             ++left;
@@ -267,12 +267,12 @@ static void SortPartySelectionCharactersByTime(W8Character** characters, wiz8::D
 // FUNCTION: WIZ8 0x005be650
 void W8PartySelectionCharacterCollection::SortCharactersByWriteTime()
 {
-    if (static_cast<int>(characters.size()) <= 1) {
+    if (static_cast<std::int32_t>(characters.size()) <= 1) {
         return;
     }
 
     std::vector<wiz8::DiskFileTime> times(characters.size());
-    for (int index = 0; index < static_cast<int>(characters.size()); ++index) {
+    for (std::int32_t index = 0; index < static_cast<std::int32_t>(characters.size()); ++index) {
         std::string path;
         path = BuildCharacterPath(characters[index]->name, -1);
         std::unique_ptr<wiz8::File> handle = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
@@ -283,14 +283,14 @@ void W8PartySelectionCharacterCollection::SortCharactersByWriteTime()
         }
     }
     SortPartySelectionCharactersByTime(characters.data(), times.data(), 0,
-                                       static_cast<int>(characters.size()) - 1);
+                                       static_cast<std::int32_t>(characters.size()) - 1);
 }
 
 class W8PartySelectionListControl;
 
 class W8PartySelectionListSelectionListener {
 public:
-    virtual void OnSelectionChanged(W8PartySelectionListControl* control, int selection) = 0;
+    virtual void OnSelectionChanged(W8PartySelectionListControl* control, std::int32_t selection) = 0;
 };
 
 /* State 5's scrolling party-name list. Its secondary vtable is the existing
@@ -299,23 +299,23 @@ public:
 // VTABLE: WIZ8 0x005ef464
 class W8PartySelectionListControl : public W8Widget, public W8RangeListener {
 public:
-    W8PartySelectionListControl(Controls* panel, unsigned int region, int left, int top, int right,
-                                int bottom)
+    W8PartySelectionListControl(Controls* panel, std::uint32_t region, std::int32_t left, std::int32_t top, std::int32_t right,
+                                std::int32_t bottom)
         : W8Widget(panel, region, left, top, right, bottom), m_visible_rows(0x11), m_selection(0),
           m_hovered(-1), m_first_visible(0), m_listener(0)
     {
     }
 
     virtual void Redraw(bool full_redraw) override;
-    virtual void OnMouseLeave(int event) override;
-    virtual void OnMouseMove(int event) override;
-    virtual void OnLeftButtonUp(int event) override;
+    virtual void OnMouseLeave(std::int32_t event) override;
+    virtual void OnMouseMove(std::int32_t event) override;
+    virtual void OnLeftButtonUp(std::int32_t event) override;
     virtual void OnRangeChanged(W8RangeControl* control) override;
 
-    int m_visible_rows;
-    int m_selection;
-    int m_hovered;
-    int m_first_visible;
+    std::int32_t m_visible_rows;
+    std::int32_t m_selection;
+    std::int32_t m_hovered;
+    std::int32_t m_first_visible;
     W8PartySelectionListSelectionListener* m_listener;
 };
 
@@ -323,22 +323,22 @@ public:
 void W8PartySelectionListControl::Redraw(bool full_redraw)
 {
     if (m_active && (m_dirty || full_redraw)) {
-        int left = m_pPanel->m_bounds.left + m_left;
-        int top = m_pPanel->m_bounds.top + m_top;
-        int right = m_pPanel->m_bounds.left + m_right;
-        int bottom = m_pPanel->m_bounds.top + m_bottom;
+        std::int32_t left = m_pPanel->m_bounds.left + m_left;
+        std::int32_t top = m_pPanel->m_bounds.top + m_top;
+        std::int32_t right = m_pPanel->m_bounds.left + m_right;
+        std::int32_t bottom = m_pPanel->m_bounds.top + m_bottom;
 
         InvalidateRegion(left, top, right, bottom, 0);
         CatalogArtwork::Load(0x1b6, 0).drawRect(GetFrameBufferSurface(), SDL_Rect{0, 0, (right) - (left), (bottom) - (top)}, left, top);
         SDL_Rect clip{left, top, right - left, bottom - top};
         ScopedClipRect clipping(GetFrameBufferSurface(), clip);
 
-        int end = m_first_visible + m_visible_rows;
-        if (static_cast<int>(g_party_selection_character_collection->names.size()) <= end) {
-            end = static_cast<int>(g_party_selection_character_collection->names.size());
+        std::int32_t end = m_first_visible + m_visible_rows;
+        if (static_cast<std::int32_t>(g_party_selection_character_collection->names.size()) <= end) {
+            end = static_cast<std::int32_t>(g_party_selection_character_collection->names.size());
         }
         top += 1;
-        for (int row = m_first_visible; row < end; ++row) {
+        for (std::int32_t row = m_first_visible; row < end; ++row) {
             Palette16 colour = g_font_state_palettes[W8_FONT_PALETTE_BLUE];
             if (row != m_selection) {
                 colour = g_wiz_text_font_secondary.glyphs->colors;
@@ -356,18 +356,18 @@ void W8PartySelectionListControl::Redraw(bool full_redraw)
 }
 
 // FUNCTION: WIZ8 0x005c00c0
-void W8PartySelectionListControl::OnMouseLeave(int event)
+void W8PartySelectionListControl::OnMouseLeave(std::int32_t event)
 {
     m_hovered = -1;
-    Invalidate(static_cast<unsigned char>(event));
+    Invalidate(static_cast<std::uint8_t>(event));
 }
 
 // FUNCTION: WIZ8 0x005c00e0
-void W8PartySelectionListControl::OnMouseMove(int)
+void W8PartySelectionListControl::OnMouseMove(std::int32_t)
 {
     SDL_Point point;
     SGPMouseGetPos(&point);
-    int hovered = (point.x - m_pPanel->m_bounds.top - m_top) / 0x0e + m_first_visible;
+    std::int32_t hovered = (point.x - m_pPanel->m_bounds.top - m_top) / 0x0e + m_first_visible;
     if (hovered != m_hovered) {
         m_hovered = hovered;
         Invalidate(false);
@@ -375,14 +375,14 @@ void W8PartySelectionListControl::OnMouseMove(int)
 }
 
 // FUNCTION: WIZ8 0x005c0140
-void W8PartySelectionListControl::OnLeftButtonUp(int event)
+void W8PartySelectionListControl::OnLeftButtonUp(std::int32_t event)
 {
     SDL_Point point;
     SGPMouseGetPos(&point);
-    int selection = (point.y - m_pPanel->m_bounds.top - m_top) / 0x0e + m_first_visible;
+    std::int32_t selection = (point.y - m_pPanel->m_bounds.top - m_top) / 0x0e + m_first_visible;
     if (selection != m_selection) {
         m_selection = selection;
-        Invalidate(static_cast<unsigned char>(event));
+        Invalidate(static_cast<std::uint8_t>(event));
         if (m_listener) {
             m_listener->OnSelectionChanged(this, m_selection);
         }
@@ -400,15 +400,15 @@ class W8PartySelectionInputHandler;
 
 class W8PartySelectionDecisionListener {
 public:
-    virtual void OnDecision(W8PartySelectionInputHandler* handler, unsigned char accepted) = 0;
-    virtual void OnToggle(int value) = 0;
+    virtual void OnDecision(W8PartySelectionInputHandler* handler, bool accepted) = 0;
+    virtual void OnToggle(std::int32_t value) = 0;
 };
 
 class W8PartySelectionPanelSelectionListener {
 public:
-    virtual void SelectPartyMemberRow(int row) = 0;
-    virtual void OpenCampForSelectedMember(int row) = 0;
-    virtual void AdjustPartyMemberRange(int amount) = 0;
+    virtual void SelectPartyMemberRow(std::int32_t row) = 0;
+    virtual void OpenCampForSelectedMember(std::int32_t row) = 0;
+    virtual void AdjustPartyMemberRange(std::int32_t amount) = 0;
 };
 
 /* Each visible character row is the same text control that W8Control stores
@@ -416,14 +416,14 @@ public:
    index, and the panel callback used for row/scroll actions. */
 class W8PartySelectionCharacterRow : public W8TextControl {
 public:
-    W8PartySelectionCharacterRow(Controls* panel, int top, int row);
+    W8PartySelectionCharacterRow(Controls* panel, std::int32_t top, std::int32_t row);
     virtual void Redraw(bool full_redraw) override;
-    virtual void AdjustValue(int amount) override;
-    virtual void OnRightButtonUp(int event) override;
-    virtual void OnLeftButtonDoubleClick(int event) override;
+    virtual void AdjustValue(std::int32_t amount) override;
+    virtual void OnRightButtonUp(std::int32_t event) override;
+    virtual void OnLeftButtonDoubleClick(std::int32_t event) override;
 
-    int m_row;
-    int m_character_index;
+    std::int32_t m_row;
+    std::int32_t m_character_index;
     W8PartySelectionPanelSelectionListener* m_selection_listener;
 };
 
@@ -437,7 +437,7 @@ public:
         RemoveTextInputField(0);
         KillTextInputMode();
     }
-    unsigned char HandleInput(const InputEvent* input);
+    std::uint8_t HandleInput(const InputEvent* input);
 
     W8PartySelectionDecisionListener* m_listener;
 };
@@ -454,19 +454,19 @@ class W8PartySelectionCharacterPanel : public Controls,
 public:
     W8PartySelectionCharacterPanel();
     virtual ~W8PartySelectionCharacterPanel();
-    virtual void OnSelectionChanged(W8ControlSelection* control, int selected) override;
+    virtual void OnSelectionChanged(W8ControlSelection* control, std::int32_t selected) override;
     virtual void OnRangeChanged(W8RangeControl* control) override;
-    virtual void SelectPartyMemberRow(int row) override;
-    virtual void OpenCampForSelectedMember(int row) override;
-    virtual void AdjustPartyMemberRange(int amount) override;
+    virtual void SelectPartyMemberRow(std::int32_t row) override;
+    virtual void OpenCampForSelectedMember(std::int32_t row) override;
+    virtual void AdjustPartyMemberRange(std::int32_t amount) override;
     /* Descriptive name for the visible character-row refresh operation. */
     void RefreshVisibleRows();
     void SynchronizeVisibleSelection();
-    void SetSelectedRow(int selection);
+    void SetSelectedRow(std::int32_t selection);
 
     W8ControlSelection m_control;
     W8RangeControl* m_range;
-    int m_selected_row;
+    std::int32_t m_selected_row;
 };
 
 // VTABLE: WIZ8 0x005ef448 W8TextControl::Listener
@@ -480,12 +480,12 @@ public:
 
 class W8PartySelectionPartySlotRow : public W8TextControl {
 public:
-    W8PartySelectionPartySlotRow(Controls* panel, int row);
+    W8PartySelectionPartySlotRow(Controls* panel, std::int32_t row);
     virtual void Redraw(bool full_redraw) override;
-    virtual void OnRightButtonUp(int event) override;
-    virtual void OnLeftButtonDoubleClick(int event) override;
+    virtual void OnRightButtonUp(std::int32_t event) override;
+    virtual void OnLeftButtonDoubleClick(std::int32_t event) override;
 
-    int m_row;
+    std::int32_t m_row;
     W8Widget* m_redraw_partner;
 };
 
@@ -495,7 +495,7 @@ public:
 
     W8PartySelectionPartySlotPanel();
     virtual ~W8PartySelectionPartySlotPanel();
-    virtual void OnSelectionChanged(W8ControlSelection* control, int selected) override;
+    virtual void OnSelectionChanged(W8ControlSelection* control, std::int32_t selected) override;
 
     W8ControlSelection m_control;
 };
@@ -524,10 +524,10 @@ public:
     W8TextControl* m_toggle;
     W8TextControl* npc_interact_toggle;
     std::vector<std::unique_ptr<W8TextBuffer>> m_entries;
-    int m_render_left;
-    int m_render_top;
-    short m_image_width;
-    short m_image_height;
+    std::int32_t m_render_left;
+    std::int32_t m_render_top;
+    std::int16_t m_image_width;
+    std::int16_t m_image_height;
 };
 
 /* The party-selection owner is established by three construction-phase abstract
@@ -543,25 +543,25 @@ public:
 
     virtual void OnPrimary(W8TextControl* control) override;
     virtual void OnSecondary(W8TextControl*) override {}
-    virtual void OnSelectionChanged(W8PartySelectionListControl* control, int selection) override;
-    virtual void OnDecision(W8PartySelectionInputHandler* handler, unsigned char accepted) override;
-    virtual void OnToggle(int value) override;
+    virtual void OnSelectionChanged(W8PartySelectionListControl* control, std::int32_t selection) override;
+    virtual void OnDecision(W8PartySelectionInputHandler* handler, bool accepted) override;
+    virtual void OnToggle(std::int32_t value) override;
 
     void SetMode(W8PartySelectionMode mode);
-    void SetSelection(int selection, bool highlighted, bool refresh);
+    void SetSelection(std::int32_t selection, bool highlighted, bool refresh);
     void OpenNotification(std::string_view message, bool allow_cancel,
                           W8PartyConfirmationAction action);
     void Setup();
     void InvalidatePartySelectionComposition();
     void DrawPartySelectionComposition();
     void ApplyPartySelectionConfirmation(W8PartyConfirmationAction action, bool accepted);
-    void LoadImportedPartyFile(int selection);
+    void LoadImportedPartyFile(std::int32_t selection);
     void TogglePartyMemberSelection();
 
     W8PartySelectionMode m_mode;
     W8PartySelectionMode m_previous_mode;
     bool m_redraw_backdrop;
-    unsigned char pad_15[3];
+    std::uint8_t pad_15[3];
     W8Character* m_character;
     std::unique_ptr<W8RangeControl> m_range;
     std::unique_ptr<W8PartySelectionCharacterPanel> m_character_panel;
@@ -590,19 +590,19 @@ public:
 static std::unique_ptr<W8PartySelectionController> g_party_selection_controller;
 
 // FUNCTION: WIZ8 0x005C33C0
-void RefreshPartySelectionPortrait(unsigned int party_slot)
+void RefreshPartySelectionPortrait(std::uint32_t party_slot)
 {
     const auto& buttons = g_party_selection_controller->m_control1->m_control.m_lsButtons;
     if (buttons.empty()) {
         return;
     }
-    unsigned int index = party_slot - 2;
+    std::uint32_t index = party_slot - 2;
     if (index >= buttons.size()) {
         index = 0;
     }
     auto* row = static_cast<W8PartySelectionPartySlotRow*>(buttons[index]);
     Controls* panel = row->m_pPanel;
-    int portrait = g_status.buffers.Char[row->m_row + 2].portrait_index;
+    std::int32_t portrait = g_status.buffers.Char[row->m_row + 2].portrait_index;
     SpriteDraw draw{};
     if ((g_portrait_descriptors[portrait].render_mode == 1 && row->m_row % 2 == 0) ||
         (g_portrait_descriptors[portrait].render_mode == 2 && row->m_row % 2 != 0)) {
@@ -620,14 +620,14 @@ bool PartySelectionInReviewMode(void)
     return g_party_selection_controller->m_mode == W8_PARTY_SELECT_IMPORT;
 }
 
-W8PartySelectionCharacterRow::W8PartySelectionCharacterRow(Controls* panel, int top, int row)
+W8PartySelectionCharacterRow::W8PartySelectionCharacterRow(Controls* panel, std::int32_t top, std::int32_t row)
     : W8TextControl(panel, 0xffffffff, 0, top, 0, 0, CatalogArtwork::Load(0xfb, 0), 0, 1, 2, 1, -1), m_row(row),
       m_character_index(0), m_selection_listener(0)
 {
     AddLayoutFlags(0x11);
     m_character_index = g_party_selection_character_collection->first_visible + m_row;
     SetActive(m_character_index <
-              static_cast<int>(g_party_selection_character_collection->characters.size()));
+              static_cast<std::int32_t>(g_party_selection_character_collection->characters.size()));
     Invalidate(false);
 }
 
@@ -641,8 +641,8 @@ void W8PartySelectionCharacterRow::Redraw(bool full_redraw)
     W8TextControl::Redraw(full_redraw);
     W8Character* character =
         g_party_selection_character_collection->GetCharacter(m_character_index);
-    int left = m_pPanel->m_bounds.left + m_left;
-    int top = m_pPanel->m_bounds.top + m_top;
+    std::int32_t left = m_pPanel->m_bounds.left + m_left;
+    std::int32_t top = m_pPanel->m_bounds.top + m_top;
     CatalogArtwork::Load(0x13, character->portrait_index).draw(GetFrameBufferSurface(), 0, left + 2, top + 2);
     if (character->fInParty) {
         ShadowRect(GetFrameBufferSurface(), {left + 2, top + 2, 0x2d, 0x24});
@@ -660,7 +660,7 @@ void W8PartySelectionCharacterRow::Redraw(bool full_redraw)
 }
 
 // FUNCTION: WIZ8 0x005beb90
-void W8PartySelectionCharacterRow::AdjustValue(int amount)
+void W8PartySelectionCharacterRow::AdjustValue(std::int32_t amount)
 {
     if (m_active && m_enabled && m_selection_listener) {
         m_selection_listener->AdjustPartyMemberRange(amount);
@@ -668,7 +668,7 @@ void W8PartySelectionCharacterRow::AdjustValue(int amount)
 }
 
 // FUNCTION: WIZ8 0x005beb10
-void W8PartySelectionCharacterRow::OnRightButtonUp(int event)
+void W8PartySelectionCharacterRow::OnRightButtonUp(std::int32_t event)
 {
     if (m_active && m_enabled) {
         SetAlternateTextEnabled(false);
@@ -680,7 +680,7 @@ void W8PartySelectionCharacterRow::OnRightButtonUp(int event)
 }
 
 // FUNCTION: WIZ8 0x005beb50
-void W8PartySelectionCharacterRow::OnLeftButtonDoubleClick(int event)
+void W8PartySelectionCharacterRow::OnLeftButtonDoubleClick(std::int32_t event)
 {
     if (m_active && m_enabled && m_selection_listener) {
         m_selection_listener->SelectPartyMemberRow(m_row);
@@ -690,19 +690,19 @@ void W8PartySelectionCharacterRow::OnLeftButtonDoubleClick(int event)
 
 void W8PartySelectionCharacterPanel::RefreshVisibleRows()
 {
-    for (int index = 0; index < static_cast<int>(ControlCount()); ++index) {
+    for (std::int32_t index = 0; index < static_cast<std::int32_t>(ControlCount()); ++index) {
         W8PartySelectionCharacterRow* row =
             static_cast<W8PartySelectionCharacterRow*>(ControlAt(index));
         row->m_character_index = g_party_selection_character_collection->first_visible + row->m_row;
         row->SetActive(row->m_character_index <
-                       static_cast<int>(g_party_selection_character_collection->characters.size()));
+                       static_cast<std::int32_t>(g_party_selection_character_collection->characters.size()));
         row->Invalidate(false);
     }
 }
 
 void W8PartySelectionCharacterPanel::SynchronizeVisibleSelection()
 {
-    int selection = m_selected_row - g_party_selection_character_collection->first_visible;
+    std::int32_t selection = m_selected_row - g_party_selection_character_collection->first_visible;
     if (selection < 0 || selection > 5) {
         selection = -1;
     }
@@ -719,8 +719,8 @@ W8PartySelectionCharacterPanel::W8PartySelectionCharacterPanel()
     m_bounds.left = 0x148;
     m_bounds.top = 0x31;
 
-    int top = 0;
-    for (int row = 0; row < 6; ++row) {
+    std::int32_t top = 0;
+    for (std::int32_t row = 0; row < 6; ++row) {
         W8PartySelectionCharacterRow* control = new W8PartySelectionCharacterRow(this, top, row);
         control->m_selection_listener = this;
         m_control.AddEntry(control);
@@ -734,7 +734,7 @@ W8PartySelectionCharacterPanel::W8PartySelectionCharacterPanel()
 W8PartySelectionCharacterPanel::~W8PartySelectionCharacterPanel() = default;
 
 // FUNCTION: WIZ8 0x005bee70
-void W8PartySelectionCharacterPanel::OnSelectionChanged(W8ControlSelection*, int selected)
+void W8PartySelectionCharacterPanel::OnSelectionChanged(W8ControlSelection*, std::int32_t selected)
 {
     m_selected_row = selected + g_party_selection_character_collection->first_visible;
     g_party_selection_controller->SetSelection(m_selected_row, false, false);
@@ -752,16 +752,16 @@ void W8PartySelectionCharacterPanel::OnRangeChanged(W8RangeControl* control)
 }
 
 // FUNCTION: WIZ8 0x005bef60
-void W8PartySelectionCharacterPanel::SetSelectedRow(int selection)
+void W8PartySelectionCharacterPanel::SetSelectedRow(std::int32_t selection)
 {
     m_selected_row = selection;
-    int visible = selection - g_party_selection_character_collection->first_visible;
+    std::int32_t visible = selection - g_party_selection_character_collection->first_visible;
     if (visible < 0 || visible > 5 ||
-        static_cast<int>(g_party_selection_character_collection->characters.size()) <
+        static_cast<std::int32_t>(g_party_selection_character_collection->characters.size()) <
             g_party_selection_character_collection->first_visible + 6) {
-        int maximum =
-            static_cast<int>(g_party_selection_character_collection->characters.size()) - 6;
-        int first = selection < maximum ? selection : maximum;
+        std::int32_t maximum =
+            static_cast<std::int32_t>(g_party_selection_character_collection->characters.size()) - 6;
+        std::int32_t first = selection < maximum ? selection : maximum;
         if (first < 0) {
             first = 0;
         }
@@ -774,17 +774,17 @@ void W8PartySelectionCharacterPanel::SetSelectedRow(int selection)
 }
 
 // FUNCTION: WIZ8 0x005bf0c0
-void W8PartySelectionCharacterPanel::SelectPartyMemberRow(int row)
+void W8PartySelectionCharacterPanel::SelectPartyMemberRow(std::int32_t row)
 {
     m_control.SetSelected(row);
     g_party_selection_controller->TogglePartyMemberSelection();
 }
 
 // FUNCTION: WIZ8 0x005bf050
-void W8PartySelectionCharacterPanel::OpenCampForSelectedMember(int row)
+void W8PartySelectionCharacterPanel::OpenCampForSelectedMember(std::int32_t row)
 {
     m_control.SetSelected(row);
-    int slot;
+    std::int32_t slot;
     for (slot = 0; slot < 6; ++slot) {
         if (g_status.buffers.XChar[slot + 2].fOccupied &&
             &g_status.buffers.Char[slot + 2] == g_party_selection_controller->m_character) {
@@ -797,13 +797,13 @@ void W8PartySelectionCharacterPanel::OpenCampForSelectedMember(int row)
 }
 
 // FUNCTION: WIZ8 0x005bf0e0
-void W8PartySelectionCharacterPanel::AdjustPartyMemberRange(int amount)
+void W8PartySelectionCharacterPanel::AdjustPartyMemberRange(std::int32_t amount)
 {
     m_range->AdjustValue(amount);
 }
 
 // FUNCTION: WIZ8 0x005bf120
-W8PartySelectionPartySlotRow::W8PartySelectionPartySlotRow(Controls* panel, int row)
+W8PartySelectionPartySlotRow::W8PartySelectionPartySlotRow(Controls* panel, std::int32_t row)
     : W8TextControl(panel, 0xffffffff, (row & 1) * 0x20b + 0x0e, (row / 2) * 0x82 + 0x3a, 0, 0, CatalogArtwork::Load(0x101, 0), -1, 1, 0, 0, -1),
       m_row(row), m_redraw_partner(0)
 {
@@ -818,17 +818,17 @@ void W8PartySelectionPartySlotRow::Redraw(bool full_redraw)
         return;
     }
 
-    int left = m_pPanel->m_bounds.left + m_left;
-    int top = m_pPanel->m_bounds.top + m_top;
+    std::int32_t left = m_pPanel->m_bounds.left + m_left;
+    std::int32_t top = m_pPanel->m_bounds.top + m_top;
     W8Character* character = 0;
     if (!g_status.buffers.XChar[m_row + 2].fOccupied) {
-        const int right = m_pPanel->m_bounds.left + m_right;
-        const int bottom = m_pPanel->m_bounds.top + m_bottom;
+        const std::int32_t right = m_pPanel->m_bounds.left + m_right;
+        const std::int32_t bottom = m_pPanel->m_bounds.top + m_bottom;
         const SDL_Rect area{left, top, right - left, bottom - top};
         SDL_FillSurfaceRect(&GetFrameBufferSurface(), &area, 0x8000);
     } else {
         character = &g_status.buffers.Char[m_row + 2];
-        int portrait = character->portrait_index;
+        std::int32_t portrait = character->portrait_index;
         SpriteDraw draw{};
         if ((g_portrait_descriptors[portrait].render_mode == 1 && !(m_row & 1)) ||
             (g_portrait_descriptors[portrait].render_mode == 2 && (m_row & 1))) {
@@ -845,7 +845,7 @@ void W8PartySelectionPartySlotRow::Redraw(bool full_redraw)
 }
 
 // FUNCTION: WIZ8 0x005bf410
-void W8PartySelectionPartySlotRow::OnRightButtonUp(int event)
+void W8PartySelectionPartySlotRow::OnRightButtonUp(std::int32_t event)
 {
     W8TextControl::OnRightButtonUp(event);
     if (!m_enabled || !m_active) {
@@ -853,7 +853,7 @@ void W8PartySelectionPartySlotRow::OnRightButtonUp(int event)
     }
     SetAlternateTextEnabled(false);
     if (m_row == -1) {
-        int slot;
+        std::int32_t slot;
         for (slot = 0; slot < 6; ++slot) {
             if (g_status.buffers.XChar[slot + 2].fOccupied &&
                 &g_status.buffers.Char[slot + 2] == g_party_selection_controller->m_character) {
@@ -870,7 +870,7 @@ void W8PartySelectionPartySlotRow::OnRightButtonUp(int event)
 }
 
 // FUNCTION: WIZ8 0x005bf4e0
-void W8PartySelectionPartySlotRow::OnLeftButtonDoubleClick(int event)
+void W8PartySelectionPartySlotRow::OnLeftButtonDoubleClick(std::int32_t event)
 {
     W8TextControl::OnLeftButtonDoubleClick(event);
     if (m_enabled && m_active) {
@@ -880,7 +880,7 @@ void W8PartySelectionPartySlotRow::OnLeftButtonDoubleClick(int event)
 }
 
 // FUNCTION: WIZ8 0x005bf6b0
-void W8PartySelectionPartySlotPanel::OnSelectionChanged(W8ControlSelection*, int)
+void W8PartySelectionPartySlotPanel::OnSelectionChanged(W8ControlSelection*, std::int32_t)
 {
     g_party_selection_controller->SetSelection(m_control.m_selectedIndex, true, false);
 }
@@ -889,11 +889,11 @@ void W8PartySelectionPartySlotPanel::OnSelectionChanged(W8ControlSelection*, int
 W8PartySelectionPartySlotPanel::W8PartySelectionPartySlotPanel() : Controls()
 {
     CreateRegionSet();
-    for (int row = 0; row < 6; ++row) {
+    for (std::int32_t row = 0; row < 6; ++row) {
         m_control.AddEntry(new W8PartySelectionPartySlotRow(this, row));
     }
     m_control.m_selectionListener = this;
-    for (int slot = 0; slot < 6; ++slot) {
+    for (std::int32_t slot = 0; slot < 6; ++slot) {
         W8TextControl* control = m_control.m_lsButtons[slot];
         control->SetEnabled(g_status.buffers.XChar[slot + 2].fOccupied);
     }
@@ -904,9 +904,9 @@ W8PartySelectionPartySlotPanel::W8PartySelectionPartySlotPanel() : Controls()
 W8PartySelectionCharacterGridPanel::W8PartySelectionCharacterGridPanel() : Controls()
 {
     CreateRegionSet();
-    for (int index = 0; index < 6; ++index) {
-        int left = (index & 1) ? 0x21d : 0x52;
-        int top = (index / 2) * 0x82 + 0x6c;
+    for (std::int32_t index = 0; index < 6; ++index) {
+        std::int32_t left = (index & 1) ? 0x21d : 0x52;
+        std::int32_t top = (index / 2) * 0x82 + 0x6c;
         W8TextControl* control =
             new W8TextControl(this, 0xffffffff, left, top, 0, 0, CatalogArtwork::Load(0xa7, 0), 0, 2, 1, 4, 3);
         control->m_listener = this;
@@ -916,7 +916,7 @@ W8PartySelectionCharacterGridPanel::W8PartySelectionCharacterGridPanel() : Contr
 // FUNCTION: WIZ8 0x005bf840
 void W8PartySelectionCharacterGridPanel::OnPrimary(W8TextControl* control)
 {
-    int index;
+    std::int32_t index;
     for (index = 0; index < 6; ++index) {
         if (ControlAt(index) == control) {
             break;
@@ -976,7 +976,7 @@ void W8PartySelectionCharacterSummaryPanel::Redraw()
         g_localized_strings[g_profession_name_message_ids[character->iProfession]];
     std::string level_line =
         fmt::format("{} {:d} {}", level_text, character->uiExpLevel, profession);
-    int width = g_wiz_text_font_secondary.textWidth(level_line);
+    std::int32_t width = g_wiz_text_font_secondary.textWidth(level_line);
     DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {(0xbf - width) / 2 + 0x78, 0xef}, fmt::format("{} {:d} {}", level_text, character->uiExpLevel, profession));
 
     std::string gender = g_localized_strings[g_gender_name_message_rows[character->gender][0]];
@@ -1025,16 +1025,16 @@ W8PartySelectionOptionPanel::W8PartySelectionOptionPanel()
 {
     CreateRegionSet();
 
-    short width;
-    short height;
+    std::int16_t width;
+    std::int16_t height;
     const SDL_Point _catalog_size_2 = CatalogArtwork::Load(0x102, 0).size(0);
         width = _catalog_size_2.x;
         height = _catalog_size_2.y;;
-    m_bounds.right = m_bounds.left + static_cast<unsigned short>(width);
-    m_bounds.bottom = m_bounds.top + static_cast<unsigned short>(height);
+    m_bounds.right = m_bounds.left + static_cast<std::uint16_t>(width);
+    m_bounds.bottom = m_bounds.top + static_cast<std::uint16_t>(height);
 
-    int top = 0x13;
-    for (int index = 0; index < 3; ++index) {
+    std::int32_t top = 0x13;
+    for (std::int32_t index = 0; index < 3; ++index) {
         m_options.AddEntry(
             new W8TextControl(this, 0xffffffff, 0x15f, top, 0, 0, CatalogArtwork::Load(0xf1, 0), 4, 6, 5, 7, -1));
         top += 0x16;
@@ -1056,7 +1056,7 @@ W8PartySelectionOptionPanel::W8PartySelectionOptionPanel()
     const SDL_Point _catalog_size_3 = CatalogArtwork::Load(0x102, 0).size(1);
         m_image_width = _catalog_size_3.x;
         m_image_height = _catalog_size_3.y;;
-    m_render_left = m_bounds.left + 0x18 + (0x160 - static_cast<unsigned short>(m_image_width)) / 2;
+    m_render_left = m_bounds.left + 0x18 + (0x160 - static_cast<std::uint16_t>(m_image_width)) / 2;
     m_render_top = m_bounds.top + 0x80;
 }
 
@@ -1069,7 +1069,7 @@ void W8PartySelectionOptionPanel::Redraw()
         return;
     }
 
-    for (int index = 0; index < static_cast<int>(m_entries.size()); ++index) {
+    for (std::int32_t index = 0; index < static_cast<std::int32_t>(m_entries.size()); ++index) {
         m_entries[index]->RenderToTarget(0, true, GetFrameBufferSurface());
     }
     if (m_page == W8_PARTY_CREATION_SAVE_NAME) {
@@ -1081,7 +1081,7 @@ void W8PartySelectionOptionPanel::Redraw()
    filename characters retail excludes, and report both edit-state and final
    Escape/Return decisions to the controller's decision-listener subobject. */
 // FUNCTION: WIZ8 0x005c0e50
-unsigned char W8PartySelectionInputHandler::HandleInput(const InputEvent* input)
+std::uint8_t W8PartySelectionInputHandler::HandleInput(const InputEvent* input)
 {
     if (!IsTypingEvent(*input)) {
         return 0;
@@ -1090,7 +1090,7 @@ unsigned char W8PartySelectionInputHandler::HandleInput(const InputEvent* input)
     if (input->key != VK_ESCAPE) {
         if (input->key != VK_RETURN) {
             const char32_t character = TypedCharacter(*input);
-            if (character != 0 && character < 0x80 && strchr("\\/:*?\"<>|", int(character))) {
+            if (character != 0 && character < 0x80 && strchr("\\/:*?\"<>|", std::int32_t(character))) {
                 return 1;
             }
             HandleTextInput(input);
@@ -1121,7 +1121,7 @@ void W8PartySelectionOptionPanel::SetOptionPanelMode(W8PartyCreationPage page)
 {
     m_page = page;
     m_entries.clear();
-    for (int index = 0; index < static_cast<int>(ControlCount()); ++index) {
+    for (std::int32_t index = 0; index < static_cast<std::int32_t>(ControlCount()); ++index) {
         ControlAt(index)->SetActive(page == W8_PARTY_CREATION_OPTIONS);
     }
 
@@ -1194,8 +1194,8 @@ void W8PartySelectionOptionPanel::SetOptionPanelMode(W8PartyCreationPage page)
     W8PartySelectionInputHandler* input_handler = new W8PartySelectionInputHandler;
     InitTextInputModeWithScheme(1);
     AddTextInputField(m_render_left + 2, m_render_top + 2,
-                      static_cast<unsigned short>(m_image_width) - 4,
-                      static_cast<unsigned short>(m_image_height) - 4, 0x7f, "", 0x28, 0x0f, 1);
+                      static_cast<std::uint16_t>(m_image_width) - 4,
+                      static_cast<std::uint16_t>(m_image_height) - 4, 0x7f, "", 0x28, 0x0f, 1);
     SetActiveField(0);
     controller->m_input_handler.reset(input_handler);
     input_handler->m_listener = controller;
@@ -1216,7 +1216,7 @@ void W8PartySelectionController::Setup()
     m_control2 = std::make_unique<W8PartySelectionCharacterSummaryPanel>();
     m_control3 = std::make_unique<W8PartySelectionOptionPanel>();
 
-    for (int slot = 0; slot < 6; ++slot) {
+    for (std::int32_t slot = 0; slot < 6; ++slot) {
         W8PartySelectionPartySlotRow* row =
             static_cast<W8PartySelectionPartySlotRow*>(m_control1->m_control.m_lsButtons[slot]);
         row->m_redraw_partner = m_control0->ControlAt(slot);
@@ -1305,8 +1305,8 @@ void W8PartySelectionController::SetMode(W8PartySelectionMode mode)
 
         m_character_panel->m_range = m_range.get();
         m_range->m_listener = m_character_panel.get();
-        int maximum =
-            static_cast<int>(g_party_selection_character_collection->characters.size()) - 6;
+        std::int32_t maximum =
+            static_cast<std::int32_t>(g_party_selection_character_collection->characters.size()) - 6;
         if (maximum < 0) {
             maximum = 0;
         }
@@ -1315,14 +1315,14 @@ void W8PartySelectionController::SetMode(W8PartySelectionMode mode)
         m_range->Invalidate(0);
 
         m_character_panel->m_control.m_selectionListener = 0;
-        int selected = m_character_panel->m_selected_row -
+        std::int32_t selected = m_character_panel->m_selected_row -
                        g_party_selection_character_collection->first_visible;
         if (selected < 0 || selected > 5) {
             selected = -1;
         }
         m_character_panel->m_control.SetSelected(selected);
         m_character_panel->m_control.m_selectionListener = m_character_panel.get();
-        for (int index = 0; index < static_cast<int>(m_character_panel->ControlCount());
+        for (std::int32_t index = 0; index < static_cast<std::int32_t>(m_character_panel->ControlCount());
              ++index) {
             W8PartySelectionCharacterRow* row =
                 static_cast<W8PartySelectionCharacterRow*>(m_character_panel->ControlAt(index));
@@ -1330,7 +1330,7 @@ void W8PartySelectionController::SetMode(W8PartySelectionMode mode)
                 g_party_selection_character_collection->first_visible + row->m_row;
             row->SetActive(
                 row->m_character_index <
-                static_cast<int>(g_party_selection_character_collection->characters.size()));
+                static_cast<std::int32_t>(g_party_selection_character_collection->characters.size()));
             row->Invalidate(false);
         }
 
@@ -1370,7 +1370,7 @@ void W8PartySelectionController::SetMode(W8PartySelectionMode mode)
         m_character_panel->EnableRegionSet(false);
         m_control0->EnableRegionSet(true);
         m_control0->SetEnabled(true);
-        for (int slot = 0; slot < 6; ++slot) {
+        for (std::int32_t slot = 0; slot < 6; ++slot) {
             bool occupied = g_status.buffers.XChar[slot + 2].fOccupied;
             m_control0->ControlAt(slot)->SetActive(m_mode == W8_PARTY_SELECT_IMPORT && occupied &&
                                                    IsCharacterReadyToAdvance(slot + 2));
@@ -1381,7 +1381,7 @@ void W8PartySelectionController::SetMode(W8PartySelectionMode mode)
         m_import_panel->EnableRegionSet(true);
 
         m_range->m_listener = m_list;
-        int maximum = static_cast<int>(g_party_selection_character_collection->names.size()) -
+        std::int32_t maximum = static_cast<std::int32_t>(g_party_selection_character_collection->names.size()) -
                       m_list->m_visible_rows;
         if (maximum < 0) {
             maximum = 0;
@@ -1433,14 +1433,14 @@ void W8PartySelectionController::SetMode(W8PartySelectionMode mode)
 }
 
 // FUNCTION: WIZ8 0x005c1680
-void W8PartySelectionController::SetSelection(int selection, bool party_slot, bool refresh_other)
+void W8PartySelectionController::SetSelection(std::int32_t selection, bool party_slot, bool refresh_other)
 {
     if (!party_slot) {
         if (m_mode == W8_PARTY_SELECT_CHARACTERS) {
             m_character = g_party_selection_character_collection->GetCharacter(selection);
-            int selected_slot = -1;
+            std::int32_t selected_slot = -1;
             if (m_character && m_character->fInParty) {
-                for (int slot = 0; slot < 6; ++slot) {
+                for (std::int32_t slot = 0; slot < 6; ++slot) {
                     if (g_status.buffers.XChar[slot + 2].fOccupied &&
                         &g_status.buffers.Char[slot + 2] == m_character) {
                         selected_slot = slot;
@@ -1462,11 +1462,11 @@ void W8PartySelectionController::SetSelection(int selection, bool party_slot, bo
             selection = -1;
         }
         if (m_mode == W8_PARTY_SELECT_CHARACTERS) {
-            int character_index = -1;
+            std::int32_t character_index = -1;
             if (selection >= 0 && g_status.buffers.XChar[selection + 2].fOccupied) {
-                for (int index = 0;
+                for (std::int32_t index = 0;
                      index <
-                     static_cast<int>(g_party_selection_character_collection->characters.size());
+                     static_cast<std::int32_t>(g_party_selection_character_collection->characters.size());
                      ++index) {
                     if (g_party_selection_character_collection->GetCharacter(index) ==
                         m_character) {
@@ -1543,7 +1543,7 @@ void W8PartySelectionController::OnPrimary(W8TextControl* control)
         return;
     }
     if (control == m_review_button) {
-        int slot;
+        std::int32_t slot;
         for (slot = 0; slot < 6; ++slot) {
             if (g_status.buffers.XChar[slot + 2].fOccupied &&
                 &g_status.buffers.Char[slot + 2] == m_character) {
@@ -1565,7 +1565,7 @@ void W8PartySelectionController::OnPrimary(W8TextControl* control)
     if (control == m_confirm_button) {
         switch (m_mode) {
         case W8_PARTY_SELECT_CHARACTERS:
-            if (static_cast<unsigned int>(CountActiveCharacters()) < 6) {
+            if (static_cast<std::uint32_t>(CountActiveCharacters()) < 6) {
                 OpenNotification(fmt::sprintf(g_localized_strings[0x6d9], CountActiveCharacters()),
                                  true, W8_PARTY_CONFIRM_PROCEED_TO_OPTIONS);
                 return;
@@ -1579,7 +1579,7 @@ void W8PartySelectionController::OnPrimary(W8TextControl* control)
         case W8_PARTY_SELECT_OPTIONS:
             g_settings.difficulty =
                 static_cast<W8Difficulty>(m_control3->m_options.m_selectedIndex);
-            g_settings.simplified_npc_interaction = static_cast<unsigned char>(
+            g_settings.simplified_npc_interaction = static_cast<std::uint8_t>(
                 m_control3->npc_interact_toggle->m_stateFlags & g_W8TextControlStateSecondary);
             if ((m_control3->m_toggle->m_stateFlags & g_W8TextControlStateSecondary) != 0) {
                 SetMode(W8_PARTY_SELECT_CREATION_NOTICE);
@@ -1613,7 +1613,7 @@ void W8PartySelectionController::OnPrimary(W8TextControl* control)
     }
 
     W8PartySelectionCharacterCollection* collection = g_party_selection_character_collection.get();
-    for (int index = 0; index < static_cast<int>(collection->characters.size()); ++index) {
+    for (std::int32_t index = 0; index < static_cast<std::int32_t>(collection->characters.size()); ++index) {
         W8Character* previous = collection->GetCharacter(index);
         if (!previous->fInParty) {
             continue;
@@ -1626,13 +1626,13 @@ void W8PartySelectionController::OnPrimary(W8TextControl* control)
 }
 
 // FUNCTION: WIZ8 0x005c1d60
-void W8PartySelectionController::OnSelectionChanged(W8PartySelectionListControl*, int selection)
+void W8PartySelectionController::OnSelectionChanged(W8PartySelectionListControl*, std::int32_t selection)
 {
     LoadImportedPartyFile(selection);
 }
 
 // FUNCTION: WIZ8 0x005c1d70
-void W8PartySelectionController::OnDecision(W8PartySelectionInputHandler*, unsigned char accepted)
+void W8PartySelectionController::OnDecision(W8PartySelectionInputHandler*, bool accepted)
 {
     if (!accepted) {
         std::string slot_name;
@@ -1665,10 +1665,10 @@ void W8PartySelectionController::OnDecision(W8PartySelectionInputHandler*, unsig
 }
 
 // FUNCTION: WIZ8 0x005c1ea0
-void W8PartySelectionController::OnToggle(int value)
+void W8PartySelectionController::OnToggle(std::int32_t value)
 {
     if (static_cast<char>(m_confirm_button->m_enabled) != static_cast<char>(value)) {
-        m_confirm_button->SetEnabled(static_cast<unsigned char>(value));
+        m_confirm_button->SetEnabled(static_cast<std::uint8_t>(value));
         m_confirm_button->Invalidate(false);
     }
 }
@@ -1755,7 +1755,7 @@ void W8PartySelectionController::ApplyPartySelectionConfirmation(W8PartyConfirma
     W8PartySelectionCharacterCollection* collection = g_party_selection_character_collection.get();
     switch (m_confirmation_action) {
     case W8_PARTY_CONFIRM_DELETE_CHARACTER: {
-        int selected = m_character_panel->m_selected_row;
+        std::int32_t selected = m_character_panel->m_selected_row;
         W8Character* character = collection->GetCharacter(selected);
         if (character->fInParty) {
             collection->DetachFromParty(selected);
@@ -1768,7 +1768,7 @@ void W8PartySelectionController::ApplyPartySelectionConfirmation(W8PartyConfirma
 
         m_character_panel->m_range = m_range.get();
         m_range->m_listener = m_character_panel.get();
-        int maximum = static_cast<int>(collection->characters.size()) - 6;
+        std::int32_t maximum = static_cast<std::int32_t>(collection->characters.size()) - 6;
         if (maximum < 0) {
             maximum = 0;
         }
@@ -1794,7 +1794,7 @@ void W8PartySelectionController::ApplyPartySelectionConfirmation(W8PartyConfirma
         SetMode(W8_PARTY_SELECT_OPTIONS);
         return;
     case W8_PARTY_CONFIRM_IMPORT: {
-        for (int index = 0; index < static_cast<int>(collection->characters.size()); ++index) {
+        for (std::int32_t index = 0; index < static_cast<std::int32_t>(collection->characters.size()); ++index) {
             W8Character* previous = collection->GetCharacter(index);
             if (!previous->fInParty) {
                 continue;
@@ -1816,14 +1816,14 @@ void W8PartySelectionController::ApplyPartySelectionConfirmation(W8PartyConfirma
 /* Load the selected imported-party file, report its two failure classes, and
    refresh every control whose state depends on the resulting six party slots. */
 // FUNCTION: WIZ8 0x005c2c60
-void W8PartySelectionController::LoadImportedPartyFile(int selection)
+void W8PartySelectionController::LoadImportedPartyFile(std::int32_t selection)
 {
     ResetForNewGame();
     W8PartySelectionCharacterCollection* collection = g_party_selection_character_collection.get();
-    if (selection >= 0 && selection < static_cast<int>(collection->names.size())) {
+    if (selection >= 0 && selection < static_cast<std::int32_t>(collection->names.size())) {
         std::string path;
         path = fmt::format("{}\\{}", "Saves\\Import", collection->names[selection]);
-        int result = ImportWizardry7Party(path);
+        std::int32_t result = ImportWizardry7Party(path);
         if (result != 0) {
             ResetForNewGame();
             OpenNotification(g_localized_strings[(result == 2 ? 0x1b60 : 0x1b5c) / 4], false,
@@ -1833,7 +1833,7 @@ void W8PartySelectionController::LoadImportedPartyFile(int selection)
 
     m_confirm_button->SetEnabled(CountActiveCharacters() != 0);
     m_confirm_button->Invalidate(false);
-    int slot;
+    std::int32_t slot;
     for (slot = 0; slot < 6; ++slot) {
         bool occupied = g_status.buffers.XChar[slot + 2].fOccupied;
         m_control1->m_control.m_lsButtons[slot]->SetEnabled(occupied);
@@ -1854,7 +1854,7 @@ void W8PartySelectionController::LoadImportedPartyFile(int selection)
 // FUNCTION: WIZ8 0x005c2970
 void W8PartySelectionController::TogglePartyMemberSelection()
 {
-    int selected = m_character_panel->m_selected_row;
+    std::int32_t selected = m_character_panel->m_selected_row;
     if (selected == -1) {
         return;
     }
@@ -1862,20 +1862,20 @@ void W8PartySelectionController::TogglePartyMemberSelection()
     W8PartySelectionCharacterCollection* collection = g_party_selection_character_collection.get();
     W8Character* character = collection->GetCharacter(selected);
     if (!character->fInParty) {
-        int slot = AddCharacterToParty(character, -1);
+        std::int32_t slot = AddCharacterToParty(character, -1);
         if (slot != -1) {
             delete character;
             collection->characters[selected] = &g_status.buffers.Char[slot];
         }
-        if (selected < static_cast<int>(collection->characters.size()) - 1) {
+        if (selected < static_cast<std::int32_t>(collection->characters.size()) - 1) {
             ++selected;
         }
         SetSelection(selected, false, true);
     } else {
-        int previous_slot = collection->FindPartySlot(selected);
+        std::int32_t previous_slot = collection->FindPartySlot(selected);
         collection->DetachFromParty(selected);
 
-        int next_slot = previous_slot + 1;
+        std::int32_t next_slot = previous_slot + 1;
         bool found = false;
         while (next_slot != previous_slot) {
             if (next_slot > 5) {
@@ -1897,7 +1897,7 @@ void W8PartySelectionController::TogglePartyMemberSelection()
         }
     }
 
-    for (int slot = 0; slot < 6; ++slot) {
+    for (std::int32_t slot = 0; slot < 6; ++slot) {
         bool occupied = g_status.buffers.XChar[slot + 2].fOccupied;
         m_control1->m_control.m_lsButtons[slot]->SetEnabled(occupied);
     }
@@ -1912,7 +1912,7 @@ void W8PartySelectionController::TogglePartyMemberSelection()
    from state 3 that is not preserving mode 1.  Loose CHR files are then merged
    and ordered before the controller presents them. */
 // FUNCTION: WIZ8 0x005c2de0
-unsigned char PartySelectionScreenEnter(void)
+bool PartySelectionScreenEnter(void)
 {
     SetViewport(0, 0, 0x280, 0x1e0);
     SetPrimarySurfaceTextureHint2Enabled(false);
@@ -1940,14 +1940,14 @@ unsigned char PartySelectionScreenEnter(void)
         g_party_selection_controller->SetMode(g_party_selection_controller->m_mode);
     }
     StartMusicResource("MainMenu.MPL", 1, 1);
-    return 1;
+    return true;
 }
 
 /* The state persists its controller and imported-character collection while
    another screen is temporarily stacked over it.  A leaving tick destroys
    both; an ordinary tick only performs the common display/region reset. */
 // FUNCTION: WIZ8 0x005c30b0
-unsigned char PartySelectionScreenLeave(int leaving)
+bool PartySelectionScreenLeave(std::int32_t leaving)
 {
     if (leaving) {
         g_party_selection_character_collection.reset();
@@ -1955,7 +1955,7 @@ unsigned char PartySelectionScreenLeave(int leaving)
     }
     NoOp();
     ResetRegions();
-    return 1;
+    return true;
 }
 
 /* Run modal close-out, cursor/region dispatch and the party-selection keyboard layer.
@@ -2025,7 +2025,7 @@ void PartySelectionScreenFrame(void)
             case VK_DOWN:
                 if (controller->m_mode == W8_PARTY_SELECT_CHARACTERS &&
                     controller->m_character_panel->m_selected_row <
-                        static_cast<int>(
+                        static_cast<std::int32_t>(
                             g_party_selection_character_collection->characters.size()) -
                             1) {
                     controller->SetSelection(controller->m_character_panel->m_selected_row + 1,
@@ -2053,7 +2053,7 @@ void PartySelectionScreenFrame(void)
 // FUNCTION: WIZ8 0x005c3800
 void GameStartRouterFrame(void)
 {
-    w8_ulong code;
+    std::uint32_t code;
 
     RequestScreenTransition();
     if (!g_status.skip_loose_character_check) {
@@ -2077,14 +2077,14 @@ void GameStartRouterFrame(void)
 
 /* Lifecycle record 2 has nothing to release. Retail's linker folded this body
    into ScreenLifecycleSuccess, which compiles to the same bytes. */
-unsigned char GameStartRouterLeave(int leaving)
+bool GameStartRouterLeave(std::int32_t leaving)
 {
-    return 1;
+    return true;
 }
 
 /* One byte per portrait; the retail table is one for every portrait. */
 // GLOBAL: WIZ8 0x0061cbc0
-unsigned char g_portrait_frame_flags[0x50] = {
+std::uint8_t g_portrait_frame_flags[0x50] = {
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,

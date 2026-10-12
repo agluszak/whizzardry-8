@@ -1,6 +1,7 @@
 #ifndef WIZ8_BINK_VIDEO_H
 #define WIZ8_BINK_VIDEO_H
 
+#include <cstdint>
 #include "compat/compiler.h"
 
 struct W8NativeVideo;
@@ -12,10 +13,10 @@ public:
     W8BinkVideo();
     ~W8BinkVideo();
 
-    unsigned char Open(const char* path, int flags);
-    unsigned char UpdateFrame();
-    unsigned char CopyFrameToPrimarySurface();
-    unsigned char CopyFrameToTargetSurface();
+    bool Open(const char* path, std::int32_t flags);
+    bool UpdateFrame();
+    bool CopyFrameToPrimarySurface();
+    bool CopyFrameToTargetSurface();
     void SetTarget(SDL_Surface* target);
 
 private:

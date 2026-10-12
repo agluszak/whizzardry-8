@@ -1,8 +1,10 @@
 #pragma once
 
+
+#include <cstdint>
 class srWindow {
 public:
-    static int isWindow(w8_ulong_ptr handle);
-    static w8_long getWidth(w8_ulong_ptr handle);
-    static w8_long getHeight(w8_ulong_ptr handle);
+    static bool isWindow(std::uintptr_t handle);
+    static std::int32_t getWidth(std::uintptr_t handle);
+    static std::int32_t getHeight(std::uintptr_t handle);
 };

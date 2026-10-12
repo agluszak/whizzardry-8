@@ -1,10 +1,10 @@
+#include <cstdint>
 #include "glm/ext/vector_int3.hpp"
 #include <stdexcept>
 #include <array>
 #include <vector>
 #include <span>
 #include "surrender/triangle_selection.h"
-#include "compat/compiler.h"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include <catch2/catch_test_macros.hpp>
@@ -48,10 +48,10 @@ template <class T> static bool rotations()
 {
     constexpr std::array angles = {0.0, 1e-12, -1e-7, std::numbers::pi / 2, -std::numbers::pi / 2, std::numbers::pi, 0.731, -2.193};
     std::mt19937 random(0x55D40);
-    for (int sample = 0; sample < 256; ++sample) {
-        const glm::dvec3 axis = glm::normalize(glm::dvec3(int(random() % 2000001) - 1000000,
-                                                          int(random() % 2000001) - 1000000,
-                                                          int(random() % 2000001) - 1000000));
+    for (std::int32_t sample = 0; sample < 256; ++sample) {
+        const glm::dvec3 axis = glm::normalize(glm::dvec3(std::int32_t(random() % 2000001) - 1000000,
+                                                          std::int32_t(random() % 2000001) - 1000000,
+                                                          std::int32_t(random() % 2000001) - 1000000));
         for (double angle : angles) {
             Node node;
             node.setRotation(angle, glm::dvec3(axis));
@@ -62,19 +62,19 @@ template <class T> static bool rotations()
             const long double components[] = {axis.x, axis.y, axis.z};
             const long double sine = std::sin(static_cast<long double>(angle));
             const long double cosine = std::cos(static_cast<long double>(angle));
-            for (int row = 0; row < 3; ++row) {
-                for (int column = 0; column < 3; ++column) {
+            for (std::int32_t row = 0; row < 3; ++row) {
+                for (std::int32_t column = 0; column < 3; ++column) {
                     long double reference = components[row] * components[column] * (1 - cosine);
                     if (row == column)
                         reference += cosine;
                     else {
-                        const int remaining = 3 - row - column;
+                        const std::int32_t remaining = 3 - row - column;
                         reference += (column == (row + 1) % 3 ? -1 : 1) * components[remaining] * sine;
                     }
                     REQUIRE(std::abs(actual[column][row] - reference) <=
                           8 * std::numeric_limits<T>::epsilon());
                 }
-                for (int other = 0; other < 3; ++other)
+                for (std::int32_t other = 0; other < 3; ++other)
                     REQUIRE(std::abs(glm::dot(actual[row], actual[other]) - T(row == other)) <=
                           16 * std::numeric_limits<T>::epsilon());
             }
@@ -104,7 +104,7 @@ static bool transforms()
     REQUIRE(float_coordinates.location == glm::vec3(world[3]));
     REQUIRE(glm::length(coordinates.scale - glm::dvec3(2, 3, 4)) < 1e-12);
     REQUIRE(glm::length(float_coordinates.scale - glm::vec3(2, 3, 4)) < 1e-6f);
-    for (int column = 0; column < 3; ++column) {
+    for (std::int32_t column = 0; column < 3; ++column) {
         REQUIRE(glm::length(coordinates.rotation[column] -
                             glm::normalize(glm::dvec3(world[column]))) < 1e-12);
         REQUIRE(glm::length(float_coordinates.rotation[column] -
@@ -115,7 +115,7 @@ static bool transforms()
     const std::array movements{&srNode::moveRight, &srNode::moveLeft,
                                &srNode::moveUp, &srNode::moveDown,
                                &srNode::moveForward, &srNode::moveBackward};
-    for (unsigned index = 0; index < movements.size(); ++index) {
+    for (std::uint32_t index = 0; index < movements.size(); ++index) {
         const auto before = child.getWorldSpaceLocation();
         const auto axis = parent.getRotation()[index / 2];
         const double distance = index % 2 == 0 ? 2 : -2;
@@ -131,7 +131,7 @@ static bool transforms()
     const glm::dmat4 desired = glm::translate(glm::dmat4(1), glm::dvec3(7, 8, 9));
     child.setWorldSpaceMatrix(desired);
     world = child.getWorldSpaceMatrix<glm::dmat4>();
-    for (int column = 0; column < 4; ++column)
+    for (std::int32_t column = 0; column < 4; ++column)
         REQUIRE(glm::length(world[column] - desired[column]) < 1e-12);
 
     Node aiming;
@@ -145,7 +145,7 @@ static bool transforms()
     aiming.rollAt(glm::dvec3(1, 1, 0), .5);
     const auto roll = glm::dmat3(glm::rotate(glm::dmat4(1), -std::numbers::pi / 8,
                                            glm::dvec3(0, 0, 1)));
-    for (int column = 0; column < 3; ++column)
+    for (std::int32_t column = 0; column < 3; ++column)
         REQUIRE(glm::length(aiming.getRotation()[column] - roll[column]) < 1e-12);
 
     const glm::mat4 transform =
@@ -174,8 +174,8 @@ static bool interfaces()
             glm::dmat3(glm::rotate(glm::dmat4(1), 0.71, glm::dvec3(0.6, 0.8, 0)));
         auto actual_rotation = rotated.getRotation<glm::dmat3>();
         const auto delta = actual_rotation - reference;
-        for (int col = 0; col < 3; ++col)
-            for (int row = 0; row < 3; ++row)
+        for (std::int32_t col = 0; col < 3; ++col)
+            for (std::int32_t row = 0; row < 3; ++row)
                 REQUIRE(std::abs(delta[col][row]) < 1e-14);
         srScene scene;
         scene.setAmbientLight(0.3f, 0.4f, 0.5f);
@@ -281,25 +281,25 @@ TEST_CASE("Triangle culling owns ordered indices and vertex remapping", "[surren
     input.cull_mode = 0;
     input.clip_mask = 1u << 7;
     auto result = srTriangleCuller::cull(input);
-    REQUIRE(result.indices == std::vector<w8_ulong>{0, 2});
-    REQUIRE(result.avt == std::vector<w8_ulong>{1, 3, 4, 5});
-    REQUIRE(result.vertex_remap == std::vector<w8_ulong>{0, 0, 0, 1, 2, 3});
+    REQUIRE(result.indices == std::vector<std::uint32_t>{0, 2});
+    REQUIRE(result.avt == std::vector<std::uint32_t>{1, 3, 4, 5});
+    REQUIRE(result.vertex_remap == std::vector<std::uint32_t>{0, 0, 0, 1, 2, 3});
 
     // Active lists retain their order and bypass the already-applied clip test.
-    const std::array<w8_ulong, 3> active{3, 1, 3};
+    const std::array<std::uint32_t, 3> active{3, 1, 3};
     input.active_triangles = active;
     input.cull_mode = 2;
     const auto active_result = srTriangleCuller::cull(input);
-    REQUIRE(active_result.indices == std::vector<w8_ulong>{3, 1, 3});
-    REQUIRE(active_result.avt == std::vector<w8_ulong>{0, 2, 4, 5});
-    REQUIRE(result.indices == std::vector<w8_ulong>{0, 2});
+    REQUIRE(active_result.indices == std::vector<std::uint32_t>{3, 1, 3});
+    REQUIRE(active_result.avt == std::vector<std::uint32_t>{0, 2, 4, 5});
+    REQUIRE(result.indices == std::vector<std::uint32_t>{0, 2});
 
     input.active_triangles.reset();
     input.cull_mode = 1;
     const auto opposite = srTriangleCuller::cull(input);
-    REQUIRE(opposite.indices == std::vector<w8_ulong>{3});
+    REQUIRE(opposite.indices == std::vector<std::uint32_t>{3});
     input.clip_mask = 0;
-    REQUIRE(srTriangleCuller::cull(input).indices == std::vector<w8_ulong>{1, 3});
+    REQUIRE(srTriangleCuller::cull(input).indices == std::vector<std::uint32_t>{1, 3});
     input.triangles = {};
     const auto empty = srTriangleCuller::cull(input);
     REQUIRE(empty.indices.empty());
@@ -310,10 +310,10 @@ TEST_CASE("Triangle culling owns ordered indices and vertex remapping", "[surren
 TEST_CASE("Renderer triangle clipping uses direct and remapped vertices", "[surrender][culling]")
 {
     const std::array<glm::ivec3, 3> triangles{{{0, 1, 2}, {1, 2, 3}, {3, 4, 5}}};
-    const std::array<unsigned char, 6> flags{1, 1, 1, 2, 2, 2};
-    const std::array<w8_ulong, 6> remap{3, 4, 5, 0, 1, 2};
-    std::array<w8_ulong, 4> indices{2, 0, 1, 2};
-    const auto count = srRender::selectTriangles(indices, std::span{indices}, [&](w8_ulong index) {
+    const std::array<std::uint8_t, 6> flags{1, 1, 1, 2, 2, 2};
+    const std::array<std::uint32_t, 6> remap{3, 4, 5, 0, 1, 2};
+    std::array<std::uint32_t, 4> indices{2, 0, 1, 2};
+    const auto count = srRender::selectTriangles(indices, std::span{indices}, [&](std::uint32_t index) {
         return srRender::triangleVisible(triangles[index], flags.data(), remap.data());
     });
     REQUIRE(count == 1);
@@ -337,11 +337,11 @@ TEST_CASE("Triangle culling rejects inconsistent spans and retains empty selecti
     REQUIRE_THROWS_AS(srTriangleCuller::cull(input), std::invalid_argument);
     REQUIRE_THROWS_AS(srTriangleCuller::getClipMask({0, 0, 0}, 1, planes, 1u << 31),
                       std::invalid_argument);
-    const std::array<w8_ulong, 1> active{0};
+    const std::array<std::uint32_t, 1> active{0};
     input.active_triangles = active;
     // Explicit selections have already been clipped, so the unused plane mask is ignored.
-    REQUIRE(srTriangleCuller::cull(input).indices == std::vector<w8_ulong>{0});
-    const std::array<w8_ulong, 1> invalid{1};
+    REQUIRE(srTriangleCuller::cull(input).indices == std::vector<std::uint32_t>{0});
+    const std::array<std::uint32_t, 1> invalid{1};
     input.active_triangles = invalid;
     REQUIRE_THROWS_AS(srTriangleCuller::cull(input), std::invalid_argument);
     input.active_triangles = active;
@@ -350,21 +350,21 @@ TEST_CASE("Triangle culling rejects inconsistent spans and retains empty selecti
     triangles[0].x = 0;
     input.cull_mode = 0;
     REQUIRE_THROWS_AS(srTriangleCuller::cull(input), std::invalid_argument);
-    input.active_triangles = std::span<const w8_ulong>{};
+    input.active_triangles = std::span<const std::uint32_t>{};
     REQUIRE(srTriangleCuller::cull(input).indices.empty());
     input.active_triangles.reset();
     input.clip_mask = 0;
     input.cull_mode = 2;
-    REQUIRE(srTriangleCuller::cull(input).indices == std::vector<w8_ulong>{0});
+    REQUIRE(srTriangleCuller::cull(input).indices == std::vector<std::uint32_t>{0});
 }
 
 TEST_CASE("Triangle clipping retains high plane bits across large meshes", "[surrender][culling]")
 {
     std::array<glm::vec3, 513> vertices;
     std::array<glm::ivec3, 171> triangles;
-    for (int vertex = 0; vertex < 513; ++vertex)
+    for (std::int32_t vertex = 0; vertex < 513; ++vertex)
         vertices[vertex] = {vertex % 7 < 4 ? -1.0f : 1.0f, 0, 0};
-    for (int triangle = 0; triangle < 171; ++triangle)
+    for (std::int32_t triangle = 0; triangle < 171; ++triangle)
         triangles[triangle] = {3 * triangle, 3 * triangle + 1, 3 * triangle + 2};
     std::array<glm::vec4, 32> planes{};
     planes[31] = {1, 0, 0, 0};
@@ -377,8 +377,8 @@ TEST_CASE("Triangle clipping retains high plane bits across large meshes", "[sur
     input.cull_mode = 2;
     input.clip_mask = (1u << 31) | (1u << 5);
     const auto result = srTriangleCuller::cull(input);
-    std::vector<w8_ulong> expected;
-    for (w8_ulong index = 0; index < triangles.size(); ++index) {
+    std::vector<std::uint32_t> expected;
+    for (std::uint32_t index = 0; index < triangles.size(); ++index) {
         const auto& triangle = triangles[index];
         if (vertices[triangle.x].x >= 0 || vertices[triangle.y].x >= 0 || vertices[triangle.z].x >= 0)
             expected.push_back(index);

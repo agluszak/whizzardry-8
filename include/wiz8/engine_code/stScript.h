@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <vector>
 #include <string>
 #include <string_view>
@@ -7,12 +8,12 @@
 
 struct stScriptLine {
     std::string text;
-    int source_line;
+    std::int32_t source_line;
 };
 
 struct stScriptLabel {
     std::string name;
-    int line;
+    std::int32_t line;
 };
 
 /* Owns parsed script lines and labels. */
@@ -27,8 +28,8 @@ public:
         this->name = std::move(name);
     }
 
-    int FindLabelLine(std::string_view label) const;
-    int GetSourceLine(int line) const;
+    std::int32_t FindLabelLine(std::string_view label) const;
+    std::int32_t GetSourceLine(std::int32_t line) const;
     bool Load(const char* path);
     void Clear();
 

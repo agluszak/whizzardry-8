@@ -35,11 +35,11 @@ enum { ATTR_COUNT = 7 };
 enum { SKILL_COUNT = 0x29 };
 
 // GLOBAL: WIZ8 0x0061e4fc
-static unsigned short g_attr_table0[8] = {
+static std::uint16_t g_attr_table0[8] = {
     0x6a0, 0x6a1, 0x6a2, 0x6a3, 0x6a4, 0x6a5, 0x6a6, 0,
 };
 // GLOBAL: WIZ8 0x0061e50c
-unsigned short g_attr_table1[18] = {
+std::uint16_t g_attr_table1[18] = {
     0x6a7, 0x6a8, 0x6a9, 0x6aa, 0x6ab, 0,     0x30b, 0x30c, 0x30d,
     0x30e, 0x30f, 0x310, 0x311, 0x312, 0x313, 0x314, 0x315, 0x316,
 };
@@ -53,7 +53,7 @@ W8StatInfoDialogBase::W8StatInfoDialogBase()
 }
 
 // FUNCTION: WIZ8 0x005df9d0
-int W8StatInfoDialogBase::CreateControls()
+std::int32_t W8StatInfoDialogBase::CreateControls()
 {
     W8DialogBase::CreateControls();
     if (!PopulateText()) {
@@ -111,21 +111,21 @@ void W8StatInfoDialogBase::OnRightButtonUp()
 }
 
 // FUNCTION: WIZ8 0x005dfbb0
-void W8StatInfoDialogBase::OnMouseWheel(int delta)
+void W8StatInfoDialogBase::OnMouseWheel(std::int32_t delta)
 {
     if (delta > 0) {
-        for (int step = 0; step < delta; ++step) {
+        for (std::int32_t step = 0; step < delta; ++step) {
             scrollbar.ScrollUp();
         }
     } else if (delta < 0) {
-        for (int step = 0; step < -delta; ++step) {
+        for (std::int32_t step = 0; step < -delta; ++step) {
             scrollbar.ScrollDown();
         }
     }
 }
 
 // FUNCTION: WIZ8 0x005dfbf0
-void W8StatInfoDialogBase::ScrollCallback(W8DialogScrollBar* scroll_bar, int first_visible_entry)
+void W8StatInfoDialogBase::ScrollCallback(W8DialogScrollBar* scroll_bar, std::int32_t first_visible_entry)
 {
     W8StatInfoDialogBase* dialog = static_cast<W8StatInfoDialogBase*>(scroll_bar->m_owner);
     if (dialog != 0) {
@@ -151,7 +151,7 @@ bool W8StatInfoDialogBase::PopulateText()
 // FUNCTION: WIZ8 0x005dfc70
 W8AttributeInfoDialog::W8AttributeInfoDialog(W8Attribute uiIndex)
 {
-    if (static_cast<unsigned int>(uiIndex) >= ATTR_COUNT) {
+    if (static_cast<std::uint32_t>(uiIndex) >= ATTR_COUNT) {
         srAssertFail("uiIndex < ATTR_COUNT", STAT_INFO_DIALOGS_CPP, 204, 0);
     }
     m_uiIndex = uiIndex;
@@ -162,7 +162,7 @@ W8AttributeInfoDialog::W8AttributeInfoDialog(W8Attribute uiIndex)
 // FUNCTION: WIZ8 0x005dfe40
 W8SkillInfoDialog::W8SkillInfoDialog(W8Skill skill, bool first, bool second, bool bonus)
 {
-    if (static_cast<unsigned int>(skill) >= SKILL_COUNT) {
+    if (static_cast<std::uint32_t>(skill) >= SKILL_COUNT) {
         srAssertFail("uiIndex < SKILL_COUNT", STAT_INFO_DIALOGS_CPP, 227, 0);
     }
     m_skill = skill;
@@ -201,7 +201,7 @@ bool W8SkillInfoDialog::PopulateText()
 }
 
 // FUNCTION: WIZ8 0x005e0180
-W8SecondaryAttributeInfoDialog::W8SecondaryAttributeInfoDialog(unsigned int uiIndex)
+W8SecondaryAttributeInfoDialog::W8SecondaryAttributeInfoDialog(std::uint32_t uiIndex)
 {
     if (uiIndex >= ATTR_COUNT) {
         srAssertFail("uiIndex < ATTR_COUNT", STAT_INFO_DIALOGS_CPP, 278, 0);

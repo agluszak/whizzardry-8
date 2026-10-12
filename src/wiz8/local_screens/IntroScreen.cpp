@@ -1,9 +1,9 @@
+#include <cstdint>
 #include <fmt/format.h>
 #include <SDL3/SDL_filesystem.h>
 #include <optional>
 #include <string>
 
-#include "compat/compiler.h"
 #include "wiz8/bink_video.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/engine_code/Video2.h"
@@ -24,7 +24,7 @@
 #include "wiz8/layouts/game_status.h"
 
 // GLOBAL: WIZ8 0x0064d8ac
-w8_ulong g_intro_video_index = 6;
+std::uint32_t g_intro_video_index = 6;
 // GLOBAL: WIZ8 0x0064D8B0
 static char g_intro_video_names[7][40] = {
     "Wizardry8.bik", "unaligned.bik", "Umpani.bik",  "T'Rang.bik",
@@ -40,7 +40,7 @@ void ContinueAfterDarkEndingVideo(void)
 W8BinkVideo* gpVideo;
 
 // FUNCTION: WIZ8 0x005ae510
-unsigned char IntroScreenEnter(void)
+bool IntroScreenEnter(void)
 {
     std::string path;
     char gzCdDirectory[4];
@@ -158,18 +158,18 @@ static void AdvanceIntroScreen(void)
 }
 
 // FUNCTION: WIZ8 0x005ae940
-unsigned char IntroScreenLeave(int)
+bool IntroScreenLeave(std::int32_t)
 {
     if (gpVideo != 0) {
         FinishVideoPresentation();
         delete gpVideo;
     }
     gpVideo = 0;
-    return 1;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x005AE9C0
-void SetIntroVideoIndex(w8_ulong value)
+void SetIntroVideoIndex(std::uint32_t value)
 {
     g_intro_video_index = value;
 }

@@ -28,18 +28,18 @@ struct W8PathAI : W8AIRecord {
     std::unique_ptr<W8AIRecord> Clone() const override;
 
     /* Serialized record selector: value 2 adds a per-point scale array. */
-    unsigned char version{};
+    std::uint8_t version{};
     /* Normalized for interpolated movement, point units in discrete mode. */
     float position{};
-    unsigned int unknown_08{};             /* serialized */
+    std::uint32_t unknown_08{};             /* serialized */
     std::vector<srVector3T<float>> nodes;
-    int entry_index{};                     /* level camera/path entry index, assigned at load */
+    std::int32_t entry_index{};                     /* level camera/path entry index, assigned at load */
     std::vector<glm::mat3> rotations;
     std::vector<srVector3T<float>> scales;
     bool discrete_mode{};
-    unsigned int point_index{};
+    std::uint32_t point_index{};
     float interpolation_fraction{};
-    uint64_t last_update_tick{};
+    std::uint64_t last_update_tick{};
     float speed{};
     float distance_travelled{};
     float total_length{};
@@ -55,7 +55,7 @@ struct W8PathAI : W8AIRecord {
 
 /* Tagged-record dispatchers: the body switches on kind and hands the
    record to the path or missile implementation. */
-bool PathAIUpdate(W8AIRecord* record, signed char direction);
+bool PathAIUpdate(W8AIRecord* record, std::int8_t direction);
 void PathAIResetRecord(W8AIRecord* record);
 void PathAIApplyToRep(W8AIRecord* record, W8AnimRepBase* representation);
 /* Places one srNode (model instance, light, camera, …) through a path. The
@@ -70,7 +70,7 @@ bool PathAINextPoint(W8PathAI* path, srVector3T<float>* point);
 bool PathAIIsComplete(W8PathAI* path);
 void PathAISetValue(W8PathAI* path, float value);
 void PathAIAdvanceNormalized(W8PathAI* path, float amount);
-bool PathAITick(W8PathAI* path, signed char direction);
+bool PathAITick(W8PathAI* path, std::int8_t direction);
 void PathAIPosition(W8PathAI* path, srVector3T<float>* value);
 bool LoadPathAI(W8PathAI** path, wiz8::File* handle);
 void PathAIAddPoint(W8PathAI& path, const srVector3T<float>& point);

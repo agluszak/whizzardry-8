@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "himage.h"
 #include "image.h"
 #include <SDL3/SDL_rect.h>
@@ -16,13 +17,13 @@
 
 /* Retail initializer 0x005D1010 copies the Controls layout constant. */
 // GLOBAL: WIZ8 0x0069c5d0
-unsigned int g_dialog_text_layout_mask = g_W8TextBufferNoWrap;
+std::uint32_t g_dialog_text_layout_mask = g_W8TextBufferNoWrap;
 
 // FUNCTION: WIZ8 0x005d1050
 W8DialogTextEntry::W8DialogTextEntry(std::string_view prefix, std::string_view text,
-                                     unsigned int prefix_palette, unsigned int text_palette,
-                                     const W8ControlsRect* bounds, Font& font, unsigned char category,
-                                     unsigned int layout_mode, unsigned char shorten)
+                                     std::uint32_t prefix_palette, std::uint32_t text_palette,
+                                     const W8ControlsRect* bounds, Font& font, std::uint8_t category,
+                                     std::uint32_t layout_mode, std::uint8_t shorten)
 {
     m_prefix_palette = prefix_palette;
     m_font = &font;
@@ -41,11 +42,11 @@ W8DialogTextEntry::W8DialogTextEntry(std::string_view prefix, std::string_view t
     UpdateLayout();
 }
 
-int W8DialogTextEntry::DrawLine(std::string_view line, int prefix_remaining, int y)
+std::int32_t W8DialogTextEntry::DrawLine(std::string_view line, std::int32_t prefix_remaining, std::int32_t y)
 {
-    int x = GetHorizontalPosition(m_font->textWidth(line));
+    std::int32_t x = GetHorizontalPosition(m_font->textWidth(line));
     if (prefix_remaining > 0) {
-        if (prefix_remaining < static_cast<int>(line.size())) {
+        if (prefix_remaining < static_cast<std::int32_t>(line.size())) {
             const auto prefix = line.substr(0, prefix_remaining);
             DrawText(GetFrameBufferSurface(), *m_font, {x, y}, prefix);
             x += m_font->textWidth(prefix);
@@ -65,8 +66,8 @@ int W8DialogTextEntry::DrawLine(std::string_view line, int prefix_remaining, int
 // FUNCTION: WIZ8 0x005d1170
 void W8DialogTextEntry::Draw(bool force)
 {
-    int width = m_layoutBounds.right - m_layoutBounds.left;
-    int prefix_remaining = m_prefix_length;
+    std::int32_t width = m_layoutBounds.right - m_layoutBounds.left;
+    std::int32_t prefix_remaining = m_prefix_length;
     if (m_buffer.empty() || (!force && !m_geometryDirty)) {
         return;
     }
@@ -98,7 +99,7 @@ void W8DialogTextEntry::Draw(bool force)
                   m_pendingBounds.right - m_pendingBounds.left,
                   m_pendingBounds.bottom - m_pendingBounds.top};
     ScopedClipRect clipping(GetFrameBufferSurface(), clip);
-    int y = GetVerticalPosition();
+    std::int32_t y = GetVerticalPosition();
     for (;;) {
         const auto end = remaining.find('\n');
         prefix_remaining = DrawLine(remaining.substr(0, end), prefix_remaining, y);

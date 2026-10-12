@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include "compat/compiler.h"
 
 namespace wiz8 { class File; }
@@ -34,29 +35,29 @@ enum W8RenderOption {
    save path establish the seventeen byte states starting at +0x02.
    The other fields' roles remain unresolved. */
 struct W8RenderQuality {
-    unsigned char unknown_00[2];
-    unsigned char option_states[W8_RENDER_OPTION_COUNT];
-    unsigned char unknown_13;
-    unsigned char unknown_14;
-    unsigned char unknown_15[11];
-    unsigned int unknown_20;
-    unsigned int unknown_24;
-    unsigned char unknown_28[4];
-    unsigned int unknown_2c;
-    unsigned char unknown_30[4];
+    std::uint8_t unknown_00[2];
+    std::uint8_t option_states[W8_RENDER_OPTION_COUNT];
+    std::uint8_t unknown_13;
+    std::uint8_t unknown_14;
+    std::uint8_t unknown_15[11];
+    std::uint32_t unknown_20;
+    std::uint32_t unknown_24;
+    std::uint8_t unknown_28[4];
+    std::uint32_t unknown_2c;
+    std::uint8_t unknown_30[4];
 };
 
 extern W8RenderQuality* g_render_options;
 
 void InitializeRenderQuality(void);
 void DestroyRenderQuality(void);
-void SetRenderOption(W8RenderOption option, int enabled);
+void SetRenderOption(W8RenderOption option, std::int32_t enabled);
 void EnableRenderOption(W8RenderOption option);
 void DisableRenderOption(W8RenderOption option);
 void DisableAllRenderOptions(void);
 void EnableAllRenderOptions(void);
-unsigned char GetRenderOptionState(W8RenderOption option);
-unsigned char LoadRenderOptions(wiz8::File& handle);
+std::uint8_t GetRenderOptionState(W8RenderOption option);
+std::uint8_t LoadRenderOptions(wiz8::File& handle);
 bool SaveRenderOptions(wiz8::File& handle);
 
 extern float g_render_brightness;

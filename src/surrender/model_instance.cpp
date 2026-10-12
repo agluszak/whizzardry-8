@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "surrender/model_view_scope.h"
 #include <ostream>
 #include <memory>
@@ -11,7 +12,6 @@
 #include "surrender/srCore.h"
 #include "surrender/srDebug.h"
 #include "surrender/srGERD.h"
-#include "compat/compiler.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
@@ -164,19 +164,19 @@ glm::vec3 srModelInstance::getAlignAxis() const
 }
 
 // FUNCTION: SURRENDER 0x1004FE90
-int srModelInstance::isAligned() const
+std::int32_t srModelInstance::isAligned() const
 {
-    return (int)(alignment_flags.value & 1);
+    return (std::int32_t)(alignment_flags.value & 1);
 }
 
 // FUNCTION: SURRENDER 0x10050000
-w8_ulong srModelInstance::getExclusionMask() const
+std::uint32_t srModelInstance::getExclusionMask() const
 {
     return exclusion_mask;
 }
 
 // FUNCTION: SURRENDER 0x1004FE60
-void srModelInstance::setAlignment(int enabled)
+void srModelInstance::setAlignment(std::int32_t enabled)
 {
     if (enabled != 0) {
         alignment_flags.value |= 1;
@@ -200,7 +200,7 @@ void srModelInstance::setAlignAxis(const glm::vec3& axis)
 }
 
 // FUNCTION: SURRENDER 0x1004FFF0
-void srModelInstance::setExclusionMask(w8_ulong mask)
+void srModelInstance::setExclusionMask(std::uint32_t mask)
 {
     exclusion_mask = mask;
 }

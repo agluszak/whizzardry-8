@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "surrender/srBoundingBox.h"
 #include "surrender/segment_math.h"
 #include <memory>
@@ -57,7 +58,7 @@ std::vector<W8Navigator*> g_registered_navigators;
 // FUNCTION: WIZ8 0x004566C0
 bool W8NavigatorAttachment::TruncatePathAtRadius(const srVector3T<float>* target, float radius)
 {
-    unsigned int index = path_cursor;
+    std::uint32_t index = path_cursor;
     float distance = (path[index].position - *target).Length();
     /* Retail leaves this slot cold when path[path_cursor].position is already
        outside the radius, so the interpolation below reads whatever occupied
@@ -83,7 +84,7 @@ bool W8NavigatorAttachment::TruncatePathAtRadius(const srVector3T<float>* target
                              (path[index].position.z - path[index - 1].position.z) * fraction +
                                  path[index - 1].position.z);
         path[index].position = path_destination;
-        path_position_index = static_cast<unsigned short>(index);
+        path_position_index = static_cast<std::uint16_t>(index);
         flags &= ~W8_NAV_ATTACHMENT_PATH_LENGTH_CACHED;
         return true;
     }
@@ -98,7 +99,7 @@ bool W8NavigatorAttachment::TruncatePathAtRadius(const srVector3T<float>* target
 // FUNCTION: WIZ8 0x00456B00
 float W8NavigatorAttachment::MeasurePathLength()
 {
-    unsigned int index = 1;
+    std::uint32_t index = 1;
     if ((flags & W8_NAV_ATTACHMENT_PATH_LENGTH_CACHED) == 0) {
         path_length = 0;
         if (path_cursor > 0) {
@@ -191,14 +192,14 @@ void NavigatorDefaultCallback(W8Navigator* navigator)
    monster group already following a navigator onto that navigator's path and
    position; every other mode stops them and clears their velocity. */
 // FUNCTION: WIZ8 0x00452F50
-void SetNavigatorLinkMode(unsigned char mode)
+void SetNavigatorLinkMode(std::uint8_t mode)
 {
     if (g_navigator_link_mode == mode) {
         return;
     }
     g_navigator_link_mode = mode;
     if (mode == 0) {
-        for (int index = 0; index < static_cast<int>(g_registered_navigators.size()); ++index) {
+        for (std::int32_t index = 0; index < static_cast<std::int32_t>(g_registered_navigators.size()); ++index) {
             W8Navigator* navigator = g_registered_navigators[index];
 
             navigator->halted = false;
@@ -220,8 +221,8 @@ void SetNavigatorLinkMode(unsigned char mode)
                         navigator->linked_update_time = 0;
                         g_navigator_group.clear();
                         navigator->CollectGroupNavigators(g_navigator_group);
-                        for (int group_index = 0;
-                             group_index < static_cast<int>(g_navigator_group.size());
+                        for (std::int32_t group_index = 0;
+                             group_index < static_cast<std::int32_t>(g_navigator_group.size());
                              ++group_index) {
                             W8Navigator* group_navigator = g_navigator_group[group_index];
 
@@ -238,7 +239,7 @@ void SetNavigatorLinkMode(unsigned char mode)
             }
         }
     } else {
-        for (int index = 0; index < static_cast<int>(g_registered_navigators.size()); ++index) {
+        for (std::int32_t index = 0; index < static_cast<std::int32_t>(g_registered_navigators.size()); ++index) {
             W8Navigator* navigator = g_registered_navigators[index];
 
             NavigatorDefaultCallback(navigator);
@@ -250,8 +251,8 @@ void SetNavigatorLinkMode(unsigned char mode)
 // FUNCTION: WIZ8 0x00453160
 void StopAllNavigators(void)
 {
-    int count = static_cast<int>(g_registered_navigators.size());
-    for (int index = 0; index < count; ++index) {
+    std::int32_t count = static_cast<std::int32_t>(g_registered_navigators.size());
+    for (std::int32_t index = 0; index < count; ++index) {
         W8Navigator* navigator = g_registered_navigators[index];
         NavigatorDefaultCallback(navigator);
     }
@@ -260,8 +261,8 @@ void StopAllNavigators(void)
 // FUNCTION: WIZ8 0x004531a0
 void ResumeAllNavigators(void)
 {
-    int count = static_cast<int>(g_registered_navigators.size());
-    for (int index = 0; index < count; ++index) {
+    std::int32_t count = static_cast<std::int32_t>(g_registered_navigators.size());
+    for (std::int32_t index = 0; index < count; ++index) {
         W8Navigator* navigator = g_registered_navigators[index];
         navigator->halted = false;
         if (navigator->path_ai != 0) {
@@ -486,7 +487,7 @@ bool W8Navigator::IsLinkedToNavigator(W8Navigator* other)
    pair: mode one and four clear both, two, three and five enable pitch, and six
    enables pitch and roll. */
 // FUNCTION: WIZ8 0x00452e50
-void W8Navigator::SetNavigationMode(int mode)
+void W8Navigator::SetNavigationMode(std::int32_t mode)
 {
     W8PathAI* path;
 
@@ -581,7 +582,7 @@ void W8Navigator::ClearMovementStopped()
     if (g_combat_inactive != 0 && linked_navigator == 0) {
         g_navigator_group.clear();
         CollectGroupNavigators(g_navigator_group);
-        for (int index = 0; index < static_cast<int>(g_navigator_group.size()); ++index) {
+        for (std::int32_t index = 0; index < static_cast<std::int32_t>(g_navigator_group.size()); ++index) {
             g_navigator_group[index]->movement_stopped = false;
         }
     }
@@ -591,10 +592,10 @@ void W8Navigator::ClearMovementStopped()
    byte, then for an ungrouped navigator whose 0x20000000 movement flag is set
    the height bounds, the position and the attachment's segment target. */
 // FUNCTION: WIZ8 0x004549d0
-unsigned char W8Navigator::SaveMovementState(wiz8::File* hFile)
+std::uint8_t W8Navigator::SaveMovementState(wiz8::File* hFile)
 {
-    unsigned char has_state = 0;
-    unsigned char ok;
+    std::uint8_t has_state = 0;
+    std::uint8_t ok;
     srVector3T<float> position;
     srVector3T<float> target;
 
@@ -622,13 +623,13 @@ unsigned char W8Navigator::SaveMovementState(wiz8::File* hFile)
    accepts the target through SetMovementTarget and releases the navigator and
    its group to move again. */
 // FUNCTION: WIZ8 0x00454ad0
-unsigned char W8Navigator::LoadMovementState(wiz8::File* hFile)
+std::uint8_t W8Navigator::LoadMovementState(wiz8::File* hFile)
 try
 {
     srVector3T<float> loaded;
     srVector3T<float> target;
-    unsigned char has_state;
-    unsigned char ok;
+    std::uint8_t has_state;
+    std::uint8_t ok;
 
     if (hFile == 0) {
         return 0;
@@ -781,12 +782,12 @@ const float g_navigator_snap_angle = 0.029999999329447746f;
 // GLOBAL: WIZ8 0x005ebca4
 const float g_navigator_mode3_scale = 0.4000000059604645f;
 // GLOBAL: WIZ8 0x006081e4
-unsigned char g_combat_inactive = 1;
+bool g_combat_inactive = true;
 
 // FUNCTION: WIZ8 0x004526c0
-unsigned short W8Navigator::SetMovementTargetToNavigator(W8Navigator* target, double separation)
+std::uint16_t W8Navigator::SetMovementTargetToNavigator(W8Navigator* target, double separation)
 {
-    unsigned short result = 0;
+    std::uint16_t result = 0;
 
     movement_target.SetZero();
     collision_margin = separation;
@@ -809,7 +810,7 @@ unsigned short W8Navigator::SetMovementTargetToNavigator(W8Navigator* target, do
         flags = 5;
         result = 1;
         if (g_combat_inactive == 0) {
-            result = static_cast<unsigned short>(movement.attachment->flags & 7);
+            result = static_cast<std::uint16_t>(movement.attachment->flags & 7);
         }
     }
     target_last_position = target->movement.position;
@@ -831,7 +832,7 @@ bool W8Navigator::StartPatrol(const srVector3T<float>* home, float distance, flo
     return navigator->ConfigureMovement(distance, variation);
 }
 // GLOBAL: WIZ8 0x00659c10
-unsigned char g_navigator_link_mode;
+std::uint8_t g_navigator_link_mode;
 // GLOBAL: WIZ8 0x005ebc98
 const float g_navigator_linked_radius_scale = 4.0f;
 // GLOBAL: WIZ8 0x005ebcc8
@@ -879,8 +880,8 @@ void W8Navigator::UpdateLinkedNavigator()
         UpdateLinkedPosition();
         return;
     }
-    int tick = static_cast<int>(g_game_time_accumulator->GetElapsed());
-    if (static_cast<unsigned int>(tick - linked_update_time) <= 50) {
+    std::int32_t tick = static_cast<std::int32_t>(g_game_time_accumulator->GetElapsed());
+    if (static_cast<std::uint32_t>(tick - linked_update_time) <= 50) {
         return;
     }
     linked_update_time = tick;
@@ -1060,8 +1061,8 @@ void W8Navigator::UpdateFacing(bool immediate)
 W8Navigator* W8Navigator::ResolveBlockingNavigator(const srVector3T<float>* from,
                                                    srVector3T<float>* to, bool include_target)
 {
-    int hit_location;
-    int location;
+    std::int32_t hit_location;
+    std::int32_t location;
 
     if (!active) {
         return 0;
@@ -1094,11 +1095,11 @@ W8Navigator* W8Navigator::ResolveBlockingNavigator(const srVector3T<float>* from
 
 // FUNCTION: WIZ8 0x00453300
 double W8Navigator::MeasurePathDistance(const srVector3T<float>* target, float max_range,
-                                        int location_id)
+                                        std::int32_t location_id)
 {
     static W8NavigatorMovementState movement;
     auto& attachment = *movement.attachment;
-    unsigned char ready;
+    std::uint8_t ready;
 
     movement.CopySettingsFrom(this->movement);
     movement.target_location_id = location_id;
@@ -1120,7 +1121,7 @@ double W8Navigator::MeasurePathDistance(const srVector3T<float>* target, float m
 }
 
 // FUNCTION: WIZ8 0x00453480
-int W8Navigator::FindNavigatorPathDistance(float max_range, float* out_distance)
+std::int32_t W8Navigator::FindNavigatorPathDistance(float max_range, float* out_distance)
 {
     double distance = MeasurePathDistance(&g_startup_world->movement.position, max_range, 0);
 
@@ -1191,7 +1192,7 @@ void W8NavigatorAttachment::CopyPathFrom(const W8NavigatorAttachment* other)
     if (path_position_index + 1 >= path.size()) {
         path.resize((path_position_index / 10 + 1) * 10);
     }
-    for (unsigned int index = 1; index <= path_position_index; ++index) {
+    for (std::uint32_t index = 1; index <= path_position_index; ++index) {
         path[index].position = other->path[index].position;
         path[index].value = other->path[index].value;
     }
@@ -1270,7 +1271,7 @@ bool W8NavigatorAttachment::AdvanceAlongPathPositions(float distance, srVector3T
     return on_path;
 }
 
-bool W8NavigatorAttachment::withinHopHeight(const glm::vec2& point, unsigned base,
+bool W8NavigatorAttachment::withinHopHeight(const glm::vec2& point, std::uint32_t base,
                                            bool include_next) const
 {
     auto projection = srSegmentMath::project(point, path[base].position.xz(),
@@ -1294,7 +1295,7 @@ bool W8NavigatorAttachment::withinHopHeight(const glm::vec2& point, unsigned bas
 // FUNCTION: WIZ8 0x00456CB0
 bool W8NavigatorAttachment::checkPositionHopHeight(const glm::vec3& position) const
 {
-    const unsigned base = path_cursor == 1 ? 1 : path_cursor - 1;
+    const std::uint32_t base = path_cursor == 1 ? 1 : path_cursor - 1;
     if (path_position_index < base + 1) return false;
     return withinHopHeight({position.x, position.z}, base, false);
 }
@@ -1410,7 +1411,7 @@ void W8Navigator::SetScale(float scale)
 }
 
 // FUNCTION: WIZ8 0x00452630
-unsigned char W8Navigator::ConfigureMovementToPosition(const srVector3T<float>* position)
+std::uint8_t W8Navigator::ConfigureMovementToPosition(const srVector3T<float>* position)
 {
     flags = 6;
     movement.target_location_id = -1;
@@ -1454,9 +1455,9 @@ void W8Navigator::SetPitchRollEnabled(bool pitch, bool roll)
    g_pathing nonnull branch with the call registers still live, not a
    separate authored function. */
 // FUNCTION: WIZ8 0x004527a0
-unsigned char W8Navigator::LinkToNavigator(W8Navigator* target, double separation)
+std::uint8_t W8Navigator::LinkToNavigator(W8Navigator* target, double separation)
 {
-    unsigned char result = 0;
+    std::uint8_t result = 0;
     if (g_pathing == 0) {
         return 0;
     }
@@ -1476,7 +1477,7 @@ unsigned char W8Navigator::LinkToNavigator(W8Navigator* target, double separatio
         }
         flags = 9;
         target_last_position = target->movement.position;
-        result = static_cast<unsigned char>(movement.attachment->flags & 7);
+        result = static_cast<std::uint8_t>(movement.attachment->flags & 7);
         ClearMovementStopped();
     } else if (g_octree->LinkNavigatorTarget(&movement, &target->movement.position,
                                              static_cast<float>(separation)) != 0) {
@@ -1489,10 +1490,10 @@ unsigned char W8Navigator::LinkToNavigator(W8Navigator* target, double separatio
 }
 
 // FUNCTION: WIZ8 0x004529a0
-unsigned short W8Navigator::ConfigureMovementToNavigator(W8Navigator* target, float separation,
+std::uint16_t W8Navigator::ConfigureMovementToNavigator(W8Navigator* target, float separation,
                                                          float maximum_distance,
-                                                         srVector3T<float> position, int trace_mode,
-                                                         float facing, unsigned char* probe_result)
+                                                         srVector3T<float> position, std::int32_t trace_mode,
+                                                         float facing, std::uint8_t* probe_result)
 {
     if (g_pathing == 0) {
         return 0;
@@ -1509,7 +1510,7 @@ unsigned short W8Navigator::ConfigureMovementToNavigator(W8Navigator* target, fl
     movement.target_position = target->movement.position;
     PathAIClearOwned(path_ai);
     radius = movement.alternate_radius;
-    unsigned short result = g_pathing->ConfigureMovementSearch(
+    std::uint16_t result = g_pathing->ConfigureMovementSearch(
         &movement, target->movement.location_id, radius, separation, maximum_distance, position,
         trace_mode, target->movement.height_offset, facing, probe_result);
     target_last_position = target->movement.position;
@@ -1527,7 +1528,7 @@ unsigned short W8Navigator::ConfigureMovementToNavigator(W8Navigator* target, fl
 }
 
 // FUNCTION: WIZ8 0x00452bd0
-void W8Navigator::LinkGroupNavigator(W8Navigator* target, double, int)
+void W8Navigator::LinkGroupNavigator(W8Navigator* target, double, std::int32_t)
 {
     if (g_combat_inactive != 0) {
         movement_target.SetZero();
@@ -1611,11 +1612,11 @@ bool W8Navigator::ConfigureMovement(float minimum, float maximum)
 }
 
 // FUNCTION: WIZ8 0x00454170
-unsigned char W8Navigator::SetMovementTarget(const srVector3T<float>* target, bool propagate)
+std::uint8_t W8Navigator::SetMovementTarget(const srVector3T<float>* target, bool propagate)
 {
     movement.target_position = *target;
     movement_target = *target;
-    unsigned char result;
+    std::uint8_t result;
     if (g_combat_inactive == 0) {
         radius = movement.alternate_radius;
         result = g_octree->PrepareNavigatorTarget(&movement, radius,
@@ -1856,8 +1857,8 @@ void W8Navigator::CollectGroupNavigators(std::vector<W8Navigator*>& navigators)
 {
     W8MonsterInfo* monster_info;
     W8MonsterGroup* group;
-    unsigned int member;
-    int ally;
+    std::uint32_t member;
+    std::int32_t ally;
 
     if (linked_navigator != 0) {
         return;
@@ -1867,7 +1868,7 @@ void W8Navigator::CollectGroupNavigators(std::vector<W8Navigator*>& navigators)
     group = FindMonsterGroup(monster_info->monster_group_id);
 
     for (member = 0; member < group->member_count; ++member) {
-        int location_id = group->MemberLocationId(member);
+        std::int32_t location_id = group->MemberLocationId(member);
         if (location_id != movement.location_id) {
             monster_info = FindMonster(location_id);
             navigators.push_back(monster_info->p3D);
@@ -1886,12 +1887,12 @@ void W8Navigator::CollectGroupNavigators(std::vector<W8Navigator*>& navigators)
 }
 
 // FUNCTION: WIZ8 0x004553a0
-void W8Navigator::UpdateNavigation(unsigned char skip_movement, bool slowed)
+void W8Navigator::UpdateNavigation(std::uint8_t skip_movement, bool slowed)
 {
     srVector3T<float> previous = movement.position;
     srVector3T<float> adjusted;
-    int movement_result = 0;
-    unsigned int movement_kind;
+    std::int32_t movement_result = 0;
+    std::uint32_t movement_kind;
     bool was_stopped;
 
     tracked_dirty = false;
@@ -2020,10 +2021,10 @@ void W8Navigator::UpdateNavigation(unsigned char skip_movement, bool slowed)
                 if (movement_stopped) {
                     movement_stopped = false;
                     if (g_combat_inactive != 0 && linked_navigator == 0) {
-                        int index;
+                        std::int32_t index;
                         g_navigator_group.clear();
                         CollectGroupNavigators(g_navigator_group);
-                        for (index = 0; index < static_cast<int>(g_navigator_group.size());
+                        for (index = 0; index < static_cast<std::int32_t>(g_navigator_group.size());
                              ++index) {
                             g_navigator_group[index]->movement_stopped = false;
                         }
@@ -2040,7 +2041,7 @@ void W8Navigator::UpdateNavigation(unsigned char skip_movement, bool slowed)
     }
 
     if ((flags & 0x800000) != 0 && movement_result == 1) {
-        unsigned int previous_flags = flags;
+        std::uint32_t previous_flags = flags;
         flags &= 0xff7fffff;
         if (flags == 0) {
             ClearMovement();
@@ -2113,7 +2114,7 @@ void W8Navigator::UpdateNavigation(unsigned char skip_movement, bool slowed)
 }
 
 // FUNCTION: WIZ8 0x00455cc0
-int W8Navigator::ResolveMovement()
+std::int32_t W8Navigator::ResolveMovement()
 {
     W8Navigator* target = target_navigator;
 
@@ -2121,7 +2122,7 @@ int W8Navigator::ResolveMovement()
         return 0;
     }
     if (g_combat_inactive == 0) {
-        int result =
+        std::int32_t result =
             g_octree->AdvanceNavigator(&movement, radius, static_cast<float>(collision_margin));
         if (result == 1) {
             ClearMovement();
@@ -2138,13 +2139,13 @@ int W8Navigator::ResolveMovement()
 
             if (target->radius + radius + collision_margin <
                 (target->movement.position - movement.position).Length()) {
-                int index;
+                std::int32_t index;
 
                 movement_stopped = false;
                 if (linked_navigator == 0) {
                     g_navigator_group.clear();
                     CollectGroupNavigators(g_navigator_group);
-                    for (index = 0; index < static_cast<int>(g_navigator_group.size()); ++index) {
+                    for (index = 0; index < static_cast<std::int32_t>(g_navigator_group.size()); ++index) {
                         g_navigator_group[index]->movement_stopped = false;
                     }
                 }
@@ -2155,7 +2156,7 @@ int W8Navigator::ResolveMovement()
         }
 
         if (!halted && !movement_stopped) {
-            int result =
+            std::int32_t result =
                 g_octree->AdvanceNavigator(&movement, radius, static_cast<float>(collision_margin));
             if (result != 1) {
                 if (result == 3 && SetMovementTarget(&target->movement.position, false) == 0) {

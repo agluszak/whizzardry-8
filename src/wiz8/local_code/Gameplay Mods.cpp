@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <cstring>
 
 #include "wiz8/local_code/GameplayMods.h"
@@ -32,9 +33,9 @@ void RebuildPartyEffectBlock(void)
     memset(&g_status.party_modifiers, 0, sizeof(W8GameplayModifierBlock));
     ApplyPartyEffectSlots(g_status.effect_slots, &g_status.party_modifiers);
     if (gXStatus.fCombatMode) {
-        unsigned char value = g_status.party_modifiers.armor_matchup;
+        std::uint8_t value = g_status.party_modifiers.armor_matchup;
 
-        for (int index = 0; index < 9; ++index) {
+        for (std::int32_t index = 0; index < 9; ++index) {
             W8EffectSlot* slot = &g_combat_state->effect_slots[index];
             if (slot->active && slot->effect_id == 0x31) {
                 value -= slot->amount;
@@ -43,8 +44,8 @@ void RebuildPartyEffectBlock(void)
         }
         ApplyCombatEffectSlots(g_combat_state->effect_slots0, &g_status.party_modifiers);
     }
-    int active = 0;
-    unsigned int slot_byte = 0;
+    std::int32_t active = 0;
+    std::uint32_t slot_byte = 0;
     while (slot_byte <= 0x82f) {
         W8Character* character = &g_status.buffers.Char[active];
         if (g_status.buffers.XChar[active].fOccupied && character->hp_current != 0 &&
@@ -60,7 +61,7 @@ void RebuildPartyEffectBlock(void)
         g_status.party_modifiers.boost_stamina_regen = 1;
         g_status.party_modifiers.boost_spell_regen = 1;
     }
-    for (int party_slot = 0; party_slot < 8; ++party_slot) {
+    for (std::int32_t party_slot = 0; party_slot < 8; ++party_slot) {
         if (g_status.buffers.XChar[party_slot].fOccupied) {
             W8Character* character = &g_status.buffers.Char[party_slot];
             RebuildCharacterModifierBlock(character);
@@ -82,12 +83,12 @@ void RebuildPartyEffectBlock(void)
 // FUNCTION: WIZ8 0x0050e980
 void AccumulateEquipmentModifiers(W8Character* character, W8GameplayModifierBlock* equipment_bonus)
 {
-    int resistance_totals[6] = {0};
-    unsigned int slot;
-    int index;
+    std::int32_t resistance_totals[6] = {0};
+    std::uint32_t slot;
+    std::int32_t index;
 
     for (slot = 0; slot < 12; ++slot) {
-        int item_id = character->EquippedItem[slot].iItemNo;
+        std::int32_t item_id = character->EquippedItem[slot].iItemNo;
         if (slot == 8 || slot == 9 || item_id == -1) {
             continue;
         }
@@ -112,13 +113,13 @@ void AccumulateEquipmentModifiers(W8Character* character, W8GameplayModifierBloc
     }
 
     for (index = 0; index < 6; ++index) {
-        int value = resistance_totals[index];
+        std::int32_t value = resistance_totals[index];
         if (value < -0x7c) {
             value = -0x7d;
         } else if (value > 0x7c) {
             value = 0x7d;
         }
-        equipment_bonus->resistance_bonus[index] = static_cast<signed char>(value);
+        equipment_bonus->resistance_bonus[index] = static_cast<std::int8_t>(value);
     }
 }
 
@@ -127,7 +128,7 @@ void AccumulateEquipmentModifiers(W8Character* character, W8GameplayModifierBloc
 // FUNCTION: WIZ8 0x0050f090
 void ApplyModifierBlock(W8GameplayModifierBlock* target, const W8GameplayModifierBlock* source)
 {
-    unsigned int index;
+    std::uint32_t index;
 
     target->damage_bonus += source->damage_bonus;
     target->hit_bonus += source->hit_bonus;
@@ -186,25 +187,25 @@ void ApplyPartyEffectSlots(const W8EffectSlot* source, W8GameplayModifierBlock* 
 {
     const W8EffectSlot* slot = source;
 
-    for (int index = 0; index < 12; ++index, ++slot) {
+    for (std::int32_t index = 0; index < 12; ++index, ++slot) {
         if (slot->active) {
-            unsigned char amount = static_cast<unsigned char>(slot->amount);
-            unsigned int percent = slot->percent;
-            unsigned char adjusted = amount;
+            std::uint8_t amount = static_cast<std::uint8_t>(slot->amount);
+            std::uint32_t percent = slot->percent;
+            std::uint8_t adjusted = amount;
 
             switch (slot->effect_id) {
             case 0x14:
-                adjusted = static_cast<unsigned char>((slot->amount + 1) / 2);
+                adjusted = static_cast<std::uint8_t>((slot->amount + 1) / 2);
                 AdjustByteByPercent(&adjusted, percent);
                 target->hit_bonus += adjusted;
                 break;
             case 0x20:
-                adjusted = static_cast<unsigned char>((slot->amount + 1) / 2);
+                adjusted = static_cast<std::uint8_t>((slot->amount + 1) / 2);
                 AdjustByteByPercent(&adjusted, percent);
                 target->armor_matchup += adjusted;
                 break;
             case 0x28:
-                adjusted = static_cast<unsigned char>(slot->amount * 4 + 7);
+                adjusted = static_cast<std::uint8_t>(slot->amount * 4 + 7);
                 AdjustByteByPercent(&adjusted, percent);
                 target->resistance_bonus_all += adjusted;
                 break;
@@ -220,7 +221,7 @@ void ApplyPartyEffectSlots(const W8EffectSlot* source, W8GameplayModifierBlock* 
                 target->value = adjusted;
                 break;
             case 0x1a:
-                adjusted = static_cast<unsigned char>((slot->amount + 5) * 5);
+                adjusted = static_cast<std::uint8_t>((slot->amount + 5) * 5);
                 AdjustByteByPercent(&adjusted, percent);
                 target->missile_deflect_chance = adjusted;
                 break;
@@ -238,10 +239,10 @@ void ApplyCombatEffectSlots(const W8EffectSlot* source, W8GameplayModifierBlock*
 {
     const W8EffectSlot* slot = source;
 
-    for (int index = 0; index < 6; ++index, ++slot) {
+    for (std::int32_t index = 0; index < 6; ++index, ++slot) {
         if (slot->active) {
-            unsigned char adjusted;
-            unsigned int percent = slot->percent;
+            std::uint8_t adjusted;
+            std::uint32_t percent = slot->percent;
 
             switch (slot->effect_id) {
             case 2:
@@ -251,7 +252,7 @@ void ApplyCombatEffectSlots(const W8EffectSlot* source, W8GameplayModifierBlock*
                 target->hit_bonus += adjusted;
                 break;
             case 0x35:
-                adjusted = static_cast<unsigned char>(slot->amount * 7);
+                adjusted = static_cast<std::uint8_t>(slot->amount * 7);
                 AdjustByteByPercent(&adjusted, percent);
                 target->resistance_bonus[0] += adjusted;
                 target->resistance_bonus[1] += adjusted;
@@ -259,7 +260,7 @@ void ApplyCombatEffectSlots(const W8EffectSlot* source, W8GameplayModifierBlock*
                 target->resistance_bonus[3] += adjusted;
                 break;
             case 0x3b:
-                adjusted = static_cast<unsigned char>(slot->amount * 10);
+                adjusted = static_cast<std::uint8_t>(slot->amount * 10);
                 AdjustByteByPercent(&adjusted, percent);
                 target->resistance_bonus[5] += adjusted;
                 target->resistance_bonus[4] += adjusted;
@@ -298,7 +299,7 @@ void RebuildEquipmentAndDerivedStats(W8Character* character)
    member's equipment bonus block from its worn items, then its derived block
    and stats. */
 // FUNCTION: WIZ8 0x0050e5c0
-void RebuildEquipmentAndDerivedStatsForSlot(int party_slot)
+void RebuildEquipmentAndDerivedStatsForSlot(std::int32_t party_slot)
 {
     RebuildEquipmentAndDerivedStats(&g_status.buffers.Char[party_slot]);
 }
@@ -308,7 +309,7 @@ void RebuildEquipmentAndDerivedStatsForSlot(int party_slot)
    then its derived block and stats. Every condition and enchantment change
    funnels through it. */
 // FUNCTION: WIZ8 0x0050e650
-void RebuildConditionsAndDerivedStats(int party_slot)
+void RebuildConditionsAndDerivedStats(std::int32_t party_slot)
 {
     W8Character* character = &g_status.buffers.Char[party_slot];
 
@@ -326,7 +327,7 @@ void RebuildConditionsAndDerivedStats(int party_slot)
    combat adjustment and the combat effect run, and finally the derived
    attributes and regeneration rates. */
 // FUNCTION: WIZ8 0x0050e8c0
-void RebuildMonsterDerivedStats(int location_id)
+void RebuildMonsterDerivedStats(std::int32_t location_id)
 {
     W8MonsterInfo* monster_info = FindMonster(location_id);
     W8GameplayModifierBlock* modifiers = &monster_info->modifiers;
@@ -338,7 +339,7 @@ void RebuildMonsterDerivedStats(int location_id)
     ApplyPartyEffectSlots(monster_info->effect_slots, modifiers);
     if (monster_info->fInCombat) {
         W8EffectSlot* slot = monster_info->pCombat->combat_effects;
-        for (int index = 9; index != 0; --index, ++slot) {
+        for (std::int32_t index = 9; index != 0; --index, ++slot) {
             if (slot->active && slot->effect_id == 0x31) {
                 modifiers->armor_matchup -= slot->amount;
             }
@@ -355,17 +356,17 @@ void RebuildMonsterDerivedStats(int location_id)
    scales its hit adjustment off the bound monster when the record still
    resolves on the saved level. */
 // FUNCTION: WIZ8 0x0050eac0
-void ApplyConditionModifiers(W8Character* character, const unsigned int* condition_turns,
-                             int condition_argument, W8GameplayModifierBlock* target)
+void ApplyConditionModifiers(W8Character* character, const std::uint32_t* condition_turns,
+                             std::int32_t condition_argument, W8GameplayModifierBlock* target)
 {
     // Monster and character condition banks are embedded in packed records.
-    unsigned int aligned_turns[W8_CONDITION_COUNT];
-    memcpy(aligned_turns, reinterpret_cast<const unsigned char*>(condition_turns),
+    std::uint32_t aligned_turns[W8_CONDITION_COUNT];
+    memcpy(aligned_turns, reinterpret_cast<const std::uint8_t*>(condition_turns),
            sizeof(aligned_turns)); // reinterpret-ok: packed condition bytes
     condition_turns = aligned_turns;
-    unsigned int i;
+    std::uint32_t i;
 
-    for (unsigned int index = 0; index < W8_CONDITION_COUNT; ++index) {
+    for (std::uint32_t index = 0; index < W8_CONDITION_COUNT; ++index) {
         if (condition_turns[index] == 0) {
             continue;
         }
@@ -408,7 +409,7 @@ void ApplyConditionModifiers(W8Character* character, const unsigned int* conditi
                 target->out_of_formation = 1;
             } else {
                 target->attribute_adjustments[W8_ATTRIBUTE_SENSES] +=
-                    static_cast<signed char>(ScaleValueByProfessionLevel(
+                    static_cast<std::int8_t>(ScaleValueByProfessionLevel(
                         character, W8_TRAIT_EFFECTIVE_WHILE_BLIND, 50.0f)) -
                     0x32;
             }
@@ -447,32 +448,32 @@ void ApplyConditionModifiers(W8Character* character, const unsigned int* conditi
 // FUNCTION: WIZ8 0x0050ecc0
 void ApplyEnchantmentModifiers(const W8Enchantment* enchantments, W8GameplayModifierBlock* target)
 {
-    unsigned char amount;
-    unsigned int i;
+    std::uint8_t amount;
+    std::uint32_t i;
 
-    for (unsigned int index = 0; index < 8; ++index) {
+    for (std::uint32_t index = 0; index < 8; ++index) {
         const W8Enchantment* slot = &enchantments[index];
         if (slot->turns == 0) {
             continue;
         }
         switch (index) {
         case 5:
-            amount = static_cast<unsigned char>(slot->power * 10);
+            amount = static_cast<std::uint8_t>(slot->power * 10);
             AdjustByteByPercent(&amount, slot->percent);
             target->attribute_adjustments[W8_ATTRIBUTE_SPEED] += amount;
             break;
         case 6:
-            amount = static_cast<unsigned char>(slot->power * 5);
+            amount = static_cast<std::uint8_t>(slot->power * 5);
             AdjustByteByPercent(&amount, slot->percent);
             for (i = 0; i < 7; ++i) {
                 target->attribute_adjustments[i] += amount;
             }
             break;
         case 7:
-            amount = static_cast<unsigned char>(slot->power << 3);
+            amount = static_cast<std::uint8_t>(slot->power << 3);
             AdjustByteByPercent(&amount, slot->percent);
             target->damage_reduction_adjustment += amount;
-            amount = static_cast<unsigned char>(slot->power);
+            amount = static_cast<std::uint8_t>(slot->power);
             AdjustByteByPercent(&amount, slot->percent);
             target->armor_matchup += amount;
             break;

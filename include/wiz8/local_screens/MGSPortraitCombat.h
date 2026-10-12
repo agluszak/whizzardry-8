@@ -1,5 +1,7 @@
 #pragma once
 
+
+#include <cstdint>
 class srVector2i;
 /* The portrait combat sub-menu's bank buttons and the shared (menu, entry)
    state tables. */
@@ -48,13 +50,13 @@ extern srVector2i g_roof_button_positions[3];
 extern srVector2i g_layout_arrow_positions[6];
 /* The (menu, item) keyed entry message/help indexes both menus build rows
    from; the keyboard menu shares them. */
-extern short g_submenu_entry_message_ids[25];
-extern int g_submenu_entry_help_ids[25];
+extern std::int16_t g_submenu_entry_message_ids[25];
+extern std::int32_t g_submenu_entry_help_ids[25];
 
 /* Create the nine-button bank and keep its state flag clear. */
-unsigned char CreateSubMenuButtons(void);
+bool CreateSubMenuButtons(void);
 /* Restate one bank button against the live mode flags. */
-void UpdateSubMenuButton(int index);
+void UpdateSubMenuButton(std::int32_t index);
 /* Drop the combat-end notification, rebuild the panel for the saved one. */
 void ReopenSubMenuPanel(void);
 /* Descriptive name for panel/row deletion shared with failed construction. */

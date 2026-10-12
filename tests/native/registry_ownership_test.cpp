@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <catch2/catch_test_macros.hpp>
 #include <algorithm>
 #include <cstdio>
@@ -5,7 +6,6 @@
 #include <vector>
 
 #include "surrender/srTypeRegistry.h"
-#include "compat/compiler.h"
 #include "surrender/srCore.h"
 
 // The focused fixture can link just type_registry.cpp while the rest of SurRender is changing.
@@ -16,18 +16,18 @@
 class srCore srCore;
 srCore::srCore() = default;
 srCore::~srCore() = default;
-int __cdecl srInit()
+std::int32_t __cdecl srInit()
 {
     srCore.registry_ = std::make_unique<srRegistry>();
     return 1;
 }
-int __cdecl srExit()
+std::int32_t __cdecl srExit()
 {
     srCore.registry_.reset();
     return 1;
 }
-w8_long __cdecl srDebugPrintf(w8_ulong, const char*, ...) { return 0; }
-void __cdecl srAssertFail(const char* expression, const char* path, w8_long line, const char*, ...)
+std::int32_t __cdecl srDebugPrintf(std::uint32_t, const char*, ...) { return 0; }
+void __cdecl srAssertFail(const char* expression, const char* path, std::int32_t line, const char*, ...)
 {
     std::fprintf(stderr, "%s:%d: %s\n", path, line, expression);
     std::abort();
@@ -69,7 +69,7 @@ void class_tree()
     REQUIRE((registry.getRootNode()->children.empty()));
     auto* root = registry.getRootNode();
     std::vector<srRegistry::ClassNode*> nodes;
-    for (w8_ulong id = 1; id <= 1024; ++id) {
+    for (std::uint32_t id = 1; id <= 1024; ++id) {
         std::string name = "owned-class-" + std::to_string(id);
         nodes.push_back(registry.registerClass(name.c_str(), root, id));
         name.assign("changed producer buffer");
@@ -84,7 +84,7 @@ void class_tree()
     REQUIRE((nodes.front()->children.empty()));
     // Ownership is flat, so teardown does not recursively delete a potentially deep class tree.
     auto* parent = nodes.front();
-    for (w8_ulong id = 2048; id < 4096; ++id) {
+    for (std::uint32_t id = 2048; id < 4096; ++id) {
         parent = registry.registerClass("deep descendant", parent, id);
     }
     REQUIRE((registry.isDerivedOrSame(nodes.front(), parent)));
@@ -95,7 +95,7 @@ void class_tree()
 TEST_CASE("registry_ownership_test")
 {
     class_tree();
-    for (int cycle = 0; cycle < 3; ++cycle) {
+    for (std::int32_t cycle = 0; cycle < 3; ++cycle) {
         REQUIRE((srInit()));
         REQUIRE((srCore.getRegistry()->getClassNode(Registered::CLASS_ID) == nullptr));
         names();

@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "himage.h"
 #include <memory>
 #include <SDL3/SDL_rect.h>
@@ -112,7 +113,7 @@ static void OnDismissCharacterDialogClosed(W8DialogBase* dialog);
 /* Swap the reviewed party member: rebuild the item list or learned-spell
    scratch for the new character and repaint whichever page is showing. */
 // FUNCTION: WIZ8 0x005B6B30
-void SelectCampCharacter(int slot)
+void SelectCampCharacter(std::int32_t slot)
 {
     giReviewCharSlot = slot;
     g_review_character = &g_status.buffers.Char[slot];
@@ -149,7 +150,7 @@ void SelectCampCharacter(int slot)
    stoned with a notice, check eligibility and combat action allowance, then
    AddItemToCharacter. */
 // FUNCTION: WIZ8 0x005B6C10
-void TryGiveHeldItemToCampPortrait(int slot)
+void TryGiveHeldItemToCampPortrait(std::int32_t slot)
 {
     W8Character* character;
 
@@ -180,7 +181,7 @@ void TryGiveHeldItemToCampPortrait(int slot)
 }
 
 // FUNCTION: WIZ8 0x005b6d20
-bool CanSelectRcsPartySlot(int ui_slot)
+bool CanSelectRcsPartySlot(std::int32_t ui_slot)
 {
     if (!g_status.buffers.XChar[ui_slot].fOccupied) {
         srAssertFail("gStatus.XChar[uiSlot].fOccupied",
@@ -212,7 +213,7 @@ bool CanSelectRcsPartySlot(int ui_slot)
 }
 
 // FUNCTION: WIZ8 0x005b6df0
-void DrawRcsText(std::string_view text, int left, int top, int width, unsigned int layout_mode)
+void DrawRcsText(std::string_view text, std::int32_t left, std::int32_t top, std::int32_t width, std::uint32_t layout_mode)
 {
     W8ControlsRect bounds = {left, top, left + width, top + 12};
     W8TextBuffer buffer(&bounds, text, g_wiz_text_font_secondary, layout_mode, 4);
@@ -220,7 +221,7 @@ void DrawRcsText(std::string_view text, int left, int top, int width, unsigned i
 }
 
 // FUNCTION: WIZ8 0x005b6e90
-void DrawRcsBoldText(std::string_view text, int left, int top, int width, unsigned int layout_mode)
+void DrawRcsBoldText(std::string_view text, std::int32_t left, std::int32_t top, std::int32_t width, std::uint32_t layout_mode)
 {
     W8ControlsRect bounds = {left, top, left + width, top + 12};
     W8TextBuffer buffer(&bounds, text, g_wiz_text_bold_font, layout_mode, 4);
@@ -228,7 +229,7 @@ void DrawRcsBoldText(std::string_view text, int left, int top, int width, unsign
 }
 
 // FUNCTION: WIZ8 0x005b6f30
-void DrawTallRcsText(std::string_view text, int left, int top, int width, unsigned int layout_mode)
+void DrawTallRcsText(std::string_view text, std::int32_t left, std::int32_t top, std::int32_t width, std::uint32_t layout_mode)
 {
     W8ControlsRect bounds = {left, top, left + width, top + 18};
     W8TextBuffer buffer(&bounds, text, g_wiz_text_font_secondary, layout_mode, 4);
@@ -240,8 +241,8 @@ void DrawTallRcsText(std::string_view text, int left, int top, int width, unsign
    masks shift the start by the measured string length and the baseline is
    centered on the caller-provided height. */
 // FUNCTION: WIZ8 0x005b6fd0
-void DrawRcsTextJustified(std::string_view text, int left, int top, int width, int height,
-                          unsigned int layout_mode)
+void DrawRcsTextJustified(std::string_view text, std::int32_t left, std::int32_t top, std::int32_t width, std::int32_t height,
+                          std::uint32_t layout_mode)
 {
     if (layout_mode == (g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter)) {
         left +=
@@ -270,50 +271,50 @@ static void OpenLevelUpCharacterScreen(void)
 /* Dismiss-confirm portrait/name hitbox (help 2368): click dismisses the
    reviewed party member; mouse enter/leave toggles portrait_hovered[0]. */
 // FUNCTION: WIZ8 0x005B5E90
-unsigned char CampDismissPortraitRegionEvent(const InputEvent* event, W8Region* region)
+bool CampDismissPortraitRegionEvent(const InputEvent* event, W8Region* region)
 {
     const InputEventType us_event = event->type;
 
     if (us_event == InputEventType::LeftButtonDown) {
         region->flags |= W8_REGION_LEFT_BUTTON_HELD;
-        return 1;
+        return true;
     }
     if (us_event != InputEventType::LeftButtonUp) {
         if (us_event != InputEventType::MouseMove) {
-            return 0;
+            return false;
         }
         if ((region->flags & W8_REGION_MOUSE_LEAVE) == 0) {
             if ((region->flags & W8_REGION_MOUSE_ENTER) == 0) {
-                return 0;
+                return false;
             }
             g_camp_screen->portrait_hovered[0] = 1;
         } else {
             g_camp_screen->portrait_hovered[0] = 0;
         }
         g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_PORTRAIT;
-        return 0;
+        return false;
     }
     if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) == 0) {
-        return 1;
+        return true;
     }
     DismissSelectedPartyCharacter();
-    return 1;
+    return true;
 }
 
 /* Eight party portrait slots on the camp screen. Targeting modes 1 and 7 aim
    spells/items; otherwise a click selects the reviewed character. */
 // FUNCTION: WIZ8 0x005B5F10
-unsigned char CampPortraitSlotRegionEvent(const InputEvent* event, W8Region* region)
+bool CampPortraitSlotRegionEvent(const InputEvent* event, W8Region* region)
 {
     const InputEventType us_event = event->type;
-    int target_slot = region->callback_id;
+    std::int32_t target_slot = region->callback_id;
 
     if (IsLeftButtonEvent(us_event) || us_event == InputEventType::RightButtonDown) {
         if (region->CaptureButtonDown(us_event)) {
-            return 1;
+            return true;
         }
         if (us_event != InputEventType::LeftButtonUp) {
-            return 0;
+            return false;
         }
         if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0 &&
             g_status.buffers.XChar[target_slot].fOccupied) {
@@ -325,19 +326,19 @@ unsigned char CampPortraitSlotRegionEvent(const InputEvent* event, W8Region* reg
                         QueueCharacterEvent(&g_status.buffers.Char[giReviewCharSlot],
                                             g_character_event_kind2, 0, g_character_event_no_flags,
                                             g_character_event_full_volume);
-                        return 1;
+                        return true;
                     }
                     AimAtCharacter(giReviewCharSlot, target_slot, W8_TARGETING_CONTEXT_CURRENT);
                     StartBreathCycle(giReviewCharSlot, false);
-                    return 1;
+                    return true;
                 }
                 if (g_status.buffers.Char[target_slot].uiCondition[W8_CONDITION_MISSING] == 0) {
                     if (g_camp_screen->item_action != W8_CAMP_ITEM_ACTION_CAST_SPELL) {
                         TargetCharacterWithHeldItem(target_slot);
-                        return 1;
+                        return true;
                     }
                     ReportCastResult(target_slot);
-                    return 1;
+                    return true;
                 }
             } else {
                 if (gXStatus.iTargetingMode == W8_TARGET_NEED_CHARACTER_INDIRECT) {
@@ -345,23 +346,23 @@ unsigned char CampPortraitSlotRegionEvent(const InputEvent* event, W8Region* reg
                         QueueCharacterEvent(&g_status.buffers.Char[giReviewCharSlot],
                                             g_character_event_kind2, 0, g_character_event_no_flags,
                                             g_character_event_full_volume);
-                        return 1;
+                        return true;
                     }
                     AimAtCharacterIndirect(giReviewCharSlot, target_slot,
                                            W8_TARGETING_CONTEXT_CURRENT);
                     StartBreathCycle(giReviewCharSlot, false);
-                    return 1;
+                    return true;
                 }
                 if (giReviewCharSlot != target_slot) {
                     SelectCampCharacter(target_slot);
-                    return 1;
+                    return true;
                 }
             }
         }
     } else {
         if (us_event != InputEventType::RightButtonUp) {
             if (us_event != InputEventType::MouseMove) {
-                return 0;
+                return false;
             }
             if ((region->flags & W8_REGION_MOUSE_TRANSITION_MASK) != 0) {
                 g_camp_screen->redraw_flags |= 1u << (region->callback_id & 0x1f);
@@ -370,24 +371,24 @@ unsigned char CampPortraitSlotRegionEvent(const InputEvent* event, W8Region* reg
                     g_status.buffers.Char[target_slot].uiCondition[W8_CONDITION_MISSING] == 0) {
                     if ((region->flags & W8_REGION_MOUSE_ENTER) != 0) {
                         UpdateItemCursorForState(1, 0, target_slot);
-                        return 0;
+                        return false;
                     }
                     UpdateItemCursorForState(0, 0, target_slot);
                 }
             }
-            return 0;
+            return false;
         }
         if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) != 0 && g_status.item_in_cursor) {
             TryGiveHeldItemToCampPortrait(target_slot);
         }
     }
-    return 1;
+    return true;
 }
 
 /* Opens the character editor (W8_SCREEN_CHARACTER, mode 1) for the reviewed
    party member. Help 2362. */
 // FUNCTION: WIZ8 0x005B61A0
-unsigned char CampOpenCharacterScreenRegionEvent(const InputEvent* event, W8Region* region)
+bool CampOpenCharacterScreenRegionEvent(const InputEvent* event, W8Region* region)
 {
     const InputEventType us_event = event->type;
 
@@ -396,12 +397,12 @@ unsigned char CampOpenCharacterScreenRegionEvent(const InputEvent* event, W8Regi
     } else {
         if (us_event != InputEventType::LeftButtonUp) {
             if (us_event != InputEventType::MouseMove) {
-                return 0;
+                return false;
             }
             if ((region->flags & W8_REGION_MOUSE_TRANSITION_MASK) != 0) {
                 g_camp_screen->redraw_flags |= 0x200;
             }
-            return 0;
+            return false;
         }
         if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
             g_current_screen_state.parameter_3 = g_review_character;
@@ -409,16 +410,16 @@ unsigned char CampOpenCharacterScreenRegionEvent(const InputEvent* event, W8Regi
             g_pending_screen_state.mode = 1;
             g_pending_screen_state.parameter_3 = g_review_character;
             SetPendingScreenState(W8_SCREEN_CHARACTER);
-            return 1;
+            return true;
         }
     }
-    return 1;
+    return true;
 }
 
 /* Holding the header region (help 2363) shows profession history; releasing
    it restores the summary and clears the active hover region. */
 // FUNCTION: WIZ8 0x005B6220
-unsigned char CampProfessionHistoryRegionEvent(const InputEvent* event, W8Region* region)
+bool CampProfessionHistoryRegionEvent(const InputEvent* event, W8Region* region)
 {
     const InputEventType us_event = event->type;
 
@@ -432,30 +433,30 @@ unsigned char CampProfessionHistoryRegionEvent(const InputEvent* event, W8Region
                 if ((region->flags & W8_REGION_MOUSE_TRANSITION_MASK) != 0) {
                     g_camp_screen->redraw_flags |= 0x200;
                 }
-                return 0;
+                return false;
             }
-            return 0;
+            return false;
         }
         if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) == 0) {
-            return 1;
+            return true;
         }
         SetCampHeaderMode(W8_CAMP_HEADER_SUMMARY);
         ClearActiveRegionIfMatches(g_camp_screen->hover_region);
     }
     g_camp_screen->redraw_flags |= 0x7ff;
-    return 1;
+    return true;
 }
 
 /* Shared handler for the five bottom page buttons in g_camp_page_buttons. */
 // FUNCTION: WIZ8 0x005B62C0
-unsigned char CampPageButtonRegionEvent(const InputEvent* event, W8Region* region)
+bool CampPageButtonRegionEvent(const InputEvent* event, W8Region* region)
 {
     return DispatchButtonRegionEvent(event, region, g_camp_page_buttons[region->callback_id]);
 }
 
 /* Shared handler for the eight item-action buttons. */
 // FUNCTION: WIZ8 0x005B6360
-unsigned char CampItemActionRegionEvent(const InputEvent* event, W8Region* region)
+bool CampItemActionRegionEvent(const InputEvent* event, W8Region* region)
 {
     return DispatchButtonRegionEvent(event, region, g_item_action_controls[region->callback_id]);
 }
@@ -528,7 +529,7 @@ void UpdateRcsLevelUpPanel(void)
 /* Single level-up button (help 1984). Assembly writes region flags through the
    second parameter; Ghidra wrongly folded them into the event pointer. */
 // FUNCTION: WIZ8 0x005B66B0
-unsigned char CampLevelUpButtonRegionEvent(const InputEvent* event, W8Region* region)
+bool CampLevelUpButtonRegionEvent(const InputEvent* event, W8Region* region)
 {
     return DispatchButtonRegionEvent(event, region, g_level_up_button);
 }
@@ -590,7 +591,7 @@ static void ShowDismissCharacterDialog(void)
 static void OnDismissCharacterDialogClosed(W8DialogBase* base)
 {
     if (GetDialogResult(base) && g_status.buffers.XChar[giReviewCharSlot].npc_index != -1) {
-        gXStatus.review_character_slot = static_cast<unsigned short>(giReviewCharSlot);
+        gXStatus.review_character_slot = static_cast<std::uint16_t>(giReviewCharSlot);
         DismissSelectedPartyCharacter();
     }
 }
@@ -598,7 +599,7 @@ static void OnDismissCharacterDialogClosed(W8DialogBase* base)
 /* Single dismiss button (help 2387). Same region-flag pattern as the level-up
    button. */
 // FUNCTION: WIZ8 0x005B6AA0
-unsigned char CampDismissButtonRegionEvent(const InputEvent* event, W8Region* region)
+bool CampDismissButtonRegionEvent(const InputEvent* event, W8Region* region)
 {
     return DispatchButtonRegionEvent(event, region, g_dismiss_button);
 }
@@ -677,18 +678,18 @@ void DrawCampHeader(void)
 {
     W8CampScreenState* state = g_camp_screen.get();
     W8Character* character = g_review_character;
-    unsigned int row;
-    unsigned int slot;
-    int profession;
-    int name_x;
-    int level_x;
-    int y;
-    int left;
-    int top;
-    int band_x;
-    int band_y;
-    int image;
-    int sub_image;
+    std::uint32_t row;
+    std::uint32_t slot;
+    std::int32_t profession;
+    std::int32_t name_x;
+    std::int32_t level_x;
+    std::int32_t y;
+    std::int32_t left;
+    std::int32_t top;
+    std::int32_t band_x;
+    std::int32_t band_y;
+    std::int32_t image;
+    std::int32_t sub_image;
 
     if (state->header_mode != W8_CAMP_HEADER_SUMMARY) {
         if ((state->redraw_flags & 0x7ff) != 0) {
@@ -823,7 +824,7 @@ void DrawCampHeader(void)
                 if (state->hover_region ==
                     g_camp_main_regions->index(kCampPartyPortraitRegionOffset + slot)) {
                     CatalogArtwork::Load(0x117, 0).draw(GetFrameBufferSurface(), 0, left, top);
-                } else if (static_cast<int>(slot) == giReviewCharSlot) {
+                } else if (static_cast<std::int32_t>(slot) == giReviewCharSlot) {
                     CatalogArtwork::Load(0x117, 0).draw(GetFrameBufferSurface(), 1, left, top);
                 }
             }
@@ -838,21 +839,21 @@ void DrawCampHeader(void)
 // FUNCTION: WIZ8 0x005b4790
 void DrawCampVitals(void)
 {
-    int image;
-    int numeric;
-    int frame_column;
-    int hp_row;
-    int stamina_row;
-    int spell_column;
-    int hp_frame;
-    int stamina_frame;
-    int spell_frame;
-    int bar_top;
-    unsigned int hp_fill;
-    unsigned int stamina_fill;
-    unsigned int spell_fill;
-    int spell_left;
-    unsigned int gap;
+    std::int32_t image;
+    std::int32_t numeric;
+    std::int32_t frame_column;
+    std::int32_t hp_row;
+    std::int32_t stamina_row;
+    std::int32_t spell_column;
+    std::int32_t hp_frame;
+    std::int32_t stamina_frame;
+    std::int32_t spell_frame;
+    std::int32_t bar_top;
+    std::uint32_t hp_fill;
+    std::uint32_t stamina_fill;
+    std::uint32_t spell_fill;
+    std::int32_t spell_left;
+    std::uint32_t gap;
     W8ControlsRect bounds;
     W8TextBuffer* text;
     std::string formatted;
@@ -955,14 +956,14 @@ void DrawCampVitals(void)
 
 /* Each hand uses the same equipment icon and stack-count rendering. The
    caller supplies the two layouts and decides whether the off-hand is visible. */
-static void DrawCampHand(W8EquipSlot slot, int hand_index, int top, int count_center)
+static void DrawCampHand(W8EquipSlot slot, std::int32_t hand_index, std::int32_t top, std::int32_t count_center)
 {
-    int item_id = g_review_character->EquippedItem[slot].iItemNo;
+    std::int32_t item_id = g_review_character->EquippedItem[slot].iItemNo;
     if (item_id == -1) {
         CatalogArtwork::Load(g_empty_hand_catalog_ids[g_review_character->iRace * W8_RACE_DWARF + hand_index], 0).draw(GetFrameBufferSurface(), 0, 0x85, top);
     } else {
         DrawSprite(GetFrameBufferSurface(), g_item_video_objects.Sprites(item_id), 2, 0x84, top);
-        unsigned char count = g_review_character->EquippedItem[slot].stack_count;
+        std::uint8_t count = g_review_character->EquippedItem[slot].stack_count;
         if (count != 0) {
             std::string text;
             text = fmt::format("{:d}", count);
@@ -981,8 +982,8 @@ static void DrawCampHand(W8EquipSlot slot, int hand_index, int top, int count_ce
 void DrawCampHands(void)
 {
     bool two_handed;
-    int item_id;
-    int hand_image;
+    std::int32_t item_id;
+    std::int32_t hand_image;
     std::string text;
     Palette16 palette;
 
@@ -1015,9 +1016,9 @@ void DrawCampHands(void)
    controls live on; it is created with the camp screen and torn down by
    DestroyCampButtonPanel. Returns 0 when any allocation fails. */
 // FUNCTION: WIZ8 0x005b4eb0
-int CreateCampButtonPanel(void)
+bool CreateCampButtonPanel(void)
 {
-    int index;
+    std::int32_t index;
 
     g_item_actions_panel.reset();
     for (index = 0; index < 5; ++index) {
@@ -1157,7 +1158,7 @@ void DestroyCampButtonPanel(void)
 // FUNCTION: WIZ8 0x005b5670
 void RefreshCampItemActions(bool invalidate)
 {
-    int index;
+    std::int32_t index;
     W8SpellRuntimeRecord* spell;
     W8ItemInstance* held = &g_status.item_in_hand;
 
@@ -1269,14 +1270,14 @@ void RefreshCampItemActions(bool invalidate)
 // FUNCTION: WIZ8 0x005b59b0
 void SetCampItemActionMode(char mode)
 {
-    int index;
-    short selected = W8_CAMP_ACTION_BUTTON_NONE;
+    std::int32_t index;
+    std::int16_t selected = W8_CAMP_ACTION_BUTTON_NONE;
     W8TargetNeed targeting;
     W8TextControl** control;
 
     for (control = g_item_action_controls, index = W8_CAMP_ACTION_BUTTON_COUNT; index != 0;
          ++control, --index) {
-        if (static_cast<unsigned char>((*control)->m_stateFlags & g_W8TextControlStateSecondary) !=
+        if (static_cast<std::uint8_t>((*control)->m_stateFlags & g_W8TextControlStateSecondary) !=
             0) {
             (*control)->DisableSecondaryState(false);
         }
@@ -1325,7 +1326,7 @@ void SetCampItemActionMode(char mode)
         SetItemCursor(0);
     }
     if (selected != W8_CAMP_ACTION_BUTTON_NONE &&
-        static_cast<unsigned char>(g_item_action_controls[selected]->m_stateFlags &
+        static_cast<std::uint8_t>(g_item_action_controls[selected]->m_stateFlags &
                                    g_W8TextControlStateSecondary) == 0) {
         g_item_action_controls[selected]->EnableSecondaryState(false);
     }
@@ -1333,12 +1334,12 @@ void SetCampItemActionMode(char mode)
 }
 
 /* Descriptive name for the page-button operation expanded in the callbacks. */
-static void SelectCampPageButton(int button, W8CampPage page)
+static void SelectCampPageButton(std::int32_t button, W8CampPage page)
 {
-    if (static_cast<unsigned char>(g_camp_page_buttons[button]->m_stateFlags &
+    if (static_cast<std::uint8_t>(g_camp_page_buttons[button]->m_stateFlags &
                                    g_W8TextControlStateSecondary) != 0) {
-        for (int index = 0; index < 5; ++index) {
-            if (static_cast<unsigned char>(g_camp_page_buttons[index]->m_stateFlags &
+        for (std::int32_t index = 0; index < 5; ++index) {
+            if (static_cast<std::uint8_t>(g_camp_page_buttons[index]->m_stateFlags &
                                            g_W8TextControlStateSecondary) != 0) {
                 g_camp_page_buttons[index]->DisableSecondaryState(false);
             }
@@ -1387,7 +1388,7 @@ static void CampPageDismissAction(void)
 // FUNCTION: WIZ8 0x005b5c30
 static void OnCampIdentifyItem(void)
 {
-    if (static_cast<unsigned char>(
+    if (static_cast<std::uint8_t>(
             g_item_action_controls[W8_CAMP_ACTION_BUTTON_IDENTIFY]->m_stateFlags &
             g_W8TextControlStateSecondary) != 0) {
         g_camp_identifying_character = g_review_character;
@@ -1404,7 +1405,7 @@ static void OnCampIdentifyItem(void)
 // FUNCTION: WIZ8 0x005b5c80
 static void OnCampMoveItem(void)
 {
-    if (static_cast<unsigned char>(
+    if (static_cast<std::uint8_t>(
             g_item_action_controls[W8_CAMP_ACTION_BUTTON_MOVE]->m_stateFlags &
             g_W8TextControlStateSecondary) != 0) {
         SetCampItemActionMode(W8_CAMP_ITEM_ACTION_MOVE);
@@ -1420,7 +1421,7 @@ static void OnCampMoveItem(void)
 // FUNCTION: WIZ8 0x005b5cd0
 static void OnCampSplitStack(void)
 {
-    if (static_cast<unsigned char>(
+    if (static_cast<std::uint8_t>(
             g_item_action_controls[W8_CAMP_ACTION_BUTTON_SPLIT_STACK]->m_stateFlags &
             g_W8TextControlStateSecondary) != 0) {
         if (g_status.item_in_cursor) {
@@ -1436,7 +1437,7 @@ static void OnCampSplitStack(void)
 // FUNCTION: WIZ8 0x005b5d10
 static void OnCampUseItem(void)
 {
-    if (static_cast<unsigned char>(g_item_action_controls[W8_CAMP_ACTION_BUTTON_USE]->m_stateFlags &
+    if (static_cast<std::uint8_t>(g_item_action_controls[W8_CAMP_ACTION_BUTTON_USE]->m_stateFlags &
                                    g_W8TextControlStateSecondary) != 0) {
         if (g_status.item_in_cursor) {
             UseCampItem(&g_status.item_in_hand);
@@ -1451,7 +1452,7 @@ static void OnCampUseItem(void)
 // FUNCTION: WIZ8 0x005b5d50
 static void OnCampDropItem(void)
 {
-    if (static_cast<unsigned char>(
+    if (static_cast<std::uint8_t>(
             g_item_action_controls[W8_CAMP_ACTION_BUTTON_DROP]->m_stateFlags &
             g_W8TextControlStateSecondary) != 0) {
         if (g_status.item_in_cursor) {
@@ -1470,10 +1471,10 @@ static void OnCampDropItem(void)
 static void OnCampCastSpell(void)
 {
     bool eligible;
-    unsigned char active;
+    std::uint8_t active;
 
     eligible = IsCampActionAllowed(giReviewCharSlot);
-    active = static_cast<unsigned char>(
+    active = static_cast<std::uint8_t>(
         g_item_action_controls[W8_CAMP_ACTION_BUTTON_CAST_SPELL]->m_stateFlags &
         g_W8TextControlStateSecondary);
     if (!eligible) {
@@ -1493,7 +1494,7 @@ static void OnCampCastSpell(void)
 // FUNCTION: WIZ8 0x005b5df0
 static void OnCampUseItemOnItem(void)
 {
-    if (static_cast<unsigned char>(
+    if (static_cast<std::uint8_t>(
             g_item_action_controls[W8_CAMP_ACTION_BUTTON_USE_ON_ITEM]->m_stateFlags &
             g_W8TextControlStateSecondary) != 0) {
         giCasterCharSlot = giReviewCharSlot;
@@ -1512,7 +1513,7 @@ static void OnCampUseItemOnItem(void)
 // FUNCTION: WIZ8 0x005b5e60
 static void OnCampUseItemOnCharacter(void)
 {
-    if (static_cast<unsigned char>(
+    if (static_cast<std::uint8_t>(
             g_item_action_controls[W8_CAMP_ACTION_BUTTON_USE_ON_CHARACTER]->m_stateFlags &
             g_W8TextControlStateSecondary) != 0) {
         giCasterCharSlot = giReviewCharSlot;
