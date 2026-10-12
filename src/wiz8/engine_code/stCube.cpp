@@ -261,10 +261,9 @@ void DrawWorldCursorNodeLabel(W8WorldCursorNode* entry)
     }
 }
 
-// FUNCTION: WIZ8 0x0048de40
-void ScaleWorldCursorNodeX(W8WorldCursorNode* entry, double scale)
+// Scales the cursor's mesh by per-axis factors; a missing node or model is a no-op.
+static void scaleWorldCursorNode(W8WorldCursorNode* entry, const glm::vec3& factors)
 {
-    glm::vec3 factors(static_cast<float>(scale), 1.0f, 1.0f);
     if (entry != 0) {
         stMeshModel* model =
             static_cast<stMeshModel*>(static_cast<stModelInstance*>(entry->node)->getModel());
@@ -272,32 +271,24 @@ void ScaleWorldCursorNodeX(W8WorldCursorNode* entry, double scale)
             model->scale(factors);
         }
     }
+}
+
+// FUNCTION: WIZ8 0x0048de40
+void ScaleWorldCursorNodeX(W8WorldCursorNode* entry, double scale)
+{
+    scaleWorldCursorNode(entry, glm::vec3(static_cast<float>(scale), 1.0f, 1.0f));
 }
 
 // FUNCTION: WIZ8 0x0048de90
 void ScaleWorldCursorNodeY(W8WorldCursorNode* entry, double scale)
 {
-    glm::vec3 factors(1.0f, static_cast<float>(scale), 1.0f);
-    if (entry != 0) {
-        stMeshModel* model =
-            static_cast<stMeshModel*>(static_cast<stModelInstance*>(entry->node)->getModel());
-        if (model != 0) {
-            model->scale(factors);
-        }
-    }
+    scaleWorldCursorNode(entry, glm::vec3(1.0f, static_cast<float>(scale), 1.0f));
 }
 
 // FUNCTION: WIZ8 0x0048dee0
 void ScaleWorldCursorNodeZ(W8WorldCursorNode* entry, double scale)
 {
-    glm::vec3 factors(1.0f, 1.0f, static_cast<float>(scale));
-    if (entry != 0) {
-        stMeshModel* model =
-            static_cast<stMeshModel*>(static_cast<stModelInstance*>(entry->node)->getModel());
-        if (model != 0) {
-            model->scale(factors);
-        }
-    }
+    scaleWorldCursorNode(entry, glm::vec3(1.0f, 1.0f, static_cast<float>(scale)));
 }
 
 /* Debug wireframe box: project the eight corners of a world-aligned bounding
