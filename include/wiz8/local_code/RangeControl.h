@@ -3,6 +3,8 @@
 #include "wiz8/local_code/Controls.h"
 #include "wiz8/local_code/TextControl.h"
 
+#include <memory>
+
 /* Shared declaration owner; implementation remains in Local Code\Controls.cpp. */
 
 class W8RangeControl;
@@ -30,16 +32,6 @@ class W8VerticalRangeThumb;
 class W8RangeListener {
 public:
     virtual void OnRangeChanged(W8RangeControl* control) = 0;
-};
-
-/* Common base of the camp screen's three range listeners (item, spell-realm
-   and stats): each owns one W8RangeControl. */
-class W8CampRangeListener : public W8RangeListener {
-public:
-    /* Re-invalidates the range control when the visible pool
-       changed and always repaints it. */
-    void UpdateRange(bool range_changed);
-    W8RangeControl* m_range;
 };
 
 // VTABLE: WIZ8 0x005ed74c
@@ -72,6 +64,17 @@ public:
     W8Widget* m_increment;
     W8VerticalRangeThumb* m_thumb;
     W8RangeListener* m_listener;
+};
+
+/* Common base of the camp screen's three range listeners (item, spell-realm
+   and stats): each owns one active W8RangeControl and listens to it. */
+class W8CampRangeListener : public W8RangeListener {
+public:
+    explicit W8CampRangeListener(const W8ControlsRect& bounds);
+    /* Re-invalidates the range control when the visible pool
+       changed and always repaints it. */
+    void UpdateRange(bool range_changed);
+    std::unique_ptr<W8RangeControl> m_range;
 };
 
 class W8HorizontalRangeThumb;

@@ -174,6 +174,24 @@ TEST_CASE("panels_nest_as_widgets")
     REQUIRE(inner->m_active);
     REQUIRE(leaf->m_active);
     REQUIRE(g_regions[leaf->m_region].InputEnabled());
+
+    // A panel without a set of its own is never a hit target; its children
+    // register in the set of the panel it joins, and leave it with the panel.
+    outer.CreateRegionSet();
+    auto row = std::make_unique<Controls>();
+    row->SetBounds({5, 5, 50, 20});
+    auto* hotspot = row->EmplaceControl<W8Widget>(-1u, 0, 0, 10, 10);
+    REQUIRE(hotspot->m_region == -1);
+    auto* attached_row = row.get();
+    outer.AddControl(std::move(row));
+    REQUIRE(attached_row->m_region == -1);
+    REQUIRE(std::ranges::contains(g_region_sets[outer.RegionSet()].Regions(),
+                                  unsigned(hotspot->m_region)));
+    REQUIRE(g_regions[hotspot->m_region].x1 == 305);
+    const auto hotspot_region = hotspot->m_region;
+    auto detached_row = outer.TakeControl(attached_row);
+    REQUIRE(hotspot->m_region == -1);
+    REQUIRE(g_regions[hotspot_region].handler == nullptr);
 }
 
 // Exercise real region bindings rather than manually filling a panel vector.

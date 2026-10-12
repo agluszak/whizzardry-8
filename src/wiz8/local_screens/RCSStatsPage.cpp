@@ -112,19 +112,16 @@ static W8PortraitGroup g_portrait_groups[12] = {
     {2, {56, 57}},
 };
 
-// FUNCTION: WIZ8 0x005c4430
-W8CampStatsRange::W8CampStatsRange()
+W8CampRangeListener::W8CampRangeListener(const W8ControlsRect& bounds)
+    : m_range(std::make_unique<W8RangeControl>(bounds.left, bounds.top, bounds.right,
+                                               bounds.bottom))
 {
-    m_range = new W8RangeControl(0x264, 0xbe, 0x276, 0x1b5);
     m_range->m_listener = this;
     m_range->SetActive(true);
 }
 
-// FUNCTION: WIZ8 0x005c44c0
-W8CampStatsRange::~W8CampStatsRange()
-{
-    delete m_range;
-}
+// FUNCTION: WIZ8 0x005c4430
+W8CampStatsRange::W8CampStatsRange() : W8CampRangeListener({0x264, 0xbe, 0x276, 0x1b5}) {}
 
 // FUNCTION: WIZ8 0x005c44e0
 void W8CampStatsRange::OnRangeChanged(W8RangeControl*)
@@ -472,7 +469,7 @@ void FilterCampEffectList(void)
         }
     }
     int second = screen->effect_visible_lines - 0x11;
-    W8RangeControl* range = screen->stats_range->m_range;
+    W8RangeControl* range = screen->stats_range->m_range.get();
     if (second < 1) {
         second = 0;
         range->SetEnabled(false);

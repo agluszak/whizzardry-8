@@ -284,6 +284,27 @@ int W8Widget::HandleRegionInput(W8Region& region, const InputEvent& input)
     return 0;
 }
 
+/* Gives an adopted widget its hit region in the set its panel registers in;
+   a catalog region the widget was built with is bound in place. */
+void W8Widget::BindRegion(unsigned int set)
+{
+    const bool needs_region =
+        set != 0 && (m_region == -1 || (OwnsRegion() && m_owned_region.set() != set));
+    if (!needs_region) {
+        if (m_region != -1) SetRegion(m_region);
+        return;
+    }
+    // Allocate before binding, so a failure leaves no half-registered region.
+    OwnedRegion allocated(set, g_widget_region_template);
+    SetRegion(allocated.index());
+    m_owned_region = std::move(allocated);
+}
+
+void W8Widget::UnbindRegion()
+{
+    ReleaseRegion();
+}
+
 // FUNCTION: WIZ8 0x004f4020
 void W8Widget::SetRegion(unsigned int region)
 {
@@ -1836,27 +1857,10 @@ void Controls::AddControl(std::unique_ptr<W8Widget> control)
     // A widget must not already belong to another panel.
     assert(control->m_pPanel == nullptr);
 
-    // Prepare the region before inserting the child in the panel. A failure
-    // cannot leave a half-registered region behind.
-    const bool needs_region =
-        m_regionSet != 0 &&
-        (control->m_region == -1 ||
-         (control->OwnsRegion() && control->m_owned_region.set() != m_regionSet));
-    OwnedRegion allocated_region;
-    if (needs_region) {
-        allocated_region = OwnedRegion(m_regionSet, g_widget_region_template);
-    }
-    const auto region = needs_region ? allocated_region.index() : 0;
-
     auto* child = control.get();
     m_controls.push_back(std::move(control));
     child->m_pPanel = this;
-    if (needs_region) {
-        child->SetRegion(region);
-        child->m_owned_region = std::move(allocated_region);
-    } else if (child->m_region != -1) {
-        child->SetRegion(child->m_region);
-    }
+    child->BindRegion(ChildRegionSet());
     // Panel-relative layout is resolved only once the parent is known.
     child->OnGeometryChanged();
 }
@@ -1868,7 +1872,7 @@ std::unique_ptr<W8Widget> Controls::TakeControl(W8Widget* control)
     if (found == m_controls.end()) return {};
     auto owned = std::move(*found);
     m_controls.erase(found);
-    owned->ReleaseRegion();
+    owned->UnbindRegion();
     owned->m_pPanel = nullptr;
     return owned;
 }
@@ -1894,6 +1898,7 @@ void Controls::InvalidateAll()
 {
     m_dirtyRect.reset();
     m_dirty = true;
+    if (m_pPanel) m_pPanel->InvalidateLayout();
     RequestRedraw(W8_MAIN_REDRAW_FRAME);
 }
 
@@ -1910,13 +1915,16 @@ void Controls::InvalidateArea(const W8ControlsRect& rect)
                                      combined.y + combined.h};
     }
     m_dirty = true;
+    if (m_pPanel) m_pPanel->InvalidateLayout();
     RequestRedraw(W8_MAIN_REDRAW_FRAME);
 }
 
 // FUNCTION: WIZ8 0x004f2f00
+/* Some child needs repainting; ancestors must visit this panel to reach it. */
 void Controls::InvalidateLayout()
 {
     m_childrenDirty = true;
+    if (m_pPanel) m_pPanel->InvalidateLayout();
     RequestRedraw(W8_MAIN_REDRAW_FRAME);
 }
 
@@ -1973,6 +1981,30 @@ void Controls::OnGeometryChanged()
     W8Widget::OnGeometryChanged();
     for (const auto& control : m_controls) {
         control->OnGeometryChanged();
+    }
+}
+
+unsigned int Controls::ChildRegionSet() const
+{
+    if (m_regionSet != 0) return m_regionSet;
+    return m_pPanel ? m_pPanel->ChildRegionSet() : 0;
+}
+
+/* A panel is never a hit target itself. Without a set of its own, its
+   children register in (and leave) the set of the panel it joins. */
+void Controls::BindRegion(unsigned int set)
+{
+    if (m_regionSet != 0) return;
+    for (const auto& control : m_controls) {
+        control->BindRegion(set);
+    }
+}
+
+void Controls::UnbindRegion()
+{
+    if (m_regionSet != 0) return;
+    for (const auto& control : m_controls) {
+        control->UnbindRegion();
     }
 }
 

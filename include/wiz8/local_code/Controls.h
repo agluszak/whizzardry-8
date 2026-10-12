@@ -49,8 +49,10 @@ struct Controls : W8Widget {
     bool m_childrenDirty = false;
     std::optional<CatalogArtwork> m_background;
     int m_backgroundImage;
-    /* The region set this panel's widgets register in; 0 until CreateRegionSet. */
+    /* The region set this panel owns; 0 until CreateRegionSet. */
     unsigned int RegionSet() const { return m_regionSet; }
+    /* The set children register in: this panel's own, else its parent's. */
+    unsigned int ChildRegionSet() const;
     void EnableRegionSet(bool enable);
     // Takes ownership of an unattached widget; callers keep borrowed pointers.
     void AddControl(std::unique_ptr<W8Widget> control);
@@ -82,6 +84,8 @@ struct Controls : W8Widget {
 
   protected:
     void OnGeometryChanged() override;
+    void BindRegion(unsigned int set) override;
+    void UnbindRegion() override;
     void RedrawChildren(bool full_redraw)
     {
         for (int index = 0; index < static_cast<int>(m_controls.size()); ++index) {

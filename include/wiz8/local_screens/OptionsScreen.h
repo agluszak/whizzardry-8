@@ -341,18 +341,26 @@ struct W8OptionsPanelRange {
     int last;
 };
 
-/* One options menu row. */
+/* The button of one options menu row. */
 // VTABLE: WIZ8 0x005eed3c W8TextControl
-// VTABLE: WIZ8 0x005eed34 W8TextControl::Listener
-class W8OptionsMenuButton : public W8TextControl, public W8TextControl::Listener {
+class W8OptionsMenuButton : public W8TextControl {
 public:
-    W8OptionsMenuButton(const W8OptionsMenuRow* row);
-    void CreateSiblingControls(const W8OptionsMenuRow& row);
+    explicit W8OptionsMenuButton(const W8OptionsMenuRow& row);
     virtual void Redraw(bool full_redraw) override;
     virtual void EnableSecondaryState(bool immediate) override;
-    virtual void OnPrimary(W8TextControl* control) override;
 
     int m_item_id;
+};
+
+/* One options menu row: its button and up to two hotspots on the menu
+   artwork that activate it as if the button itself were clicked. */
+// VTABLE: WIZ8 0x005eed34 W8TextControl::Listener
+class W8OptionsMenuRowControl : public Controls, public W8TextControl::Listener {
+public:
+    explicit W8OptionsMenuRowControl(const W8OptionsMenuRow& row);
+    void OnPrimary(W8TextControl* hotspot) override;
+
+    W8OptionsMenuButton* m_button;
 };
 
 /* The options menu: its rows and the panel set they select. */

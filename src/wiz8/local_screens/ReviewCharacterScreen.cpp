@@ -1229,12 +1229,7 @@ void W8CampCharacterInfo::Redraw(bool full_redraw)
     }
 }
 
-W8CampItemRange::W8CampItemRange()
-{
-    m_range = new W8RangeControl(0x263, 0xc1, 0x275, 0x1a1);
-    m_range->SetActive(true);
-    m_range->m_listener = this;
-}
+W8CampItemRange::W8CampItemRange() : W8CampRangeListener({0x263, 0xc1, 0x275, 0x1a1}) {}
 
 void W8CampItemRange::OnRangeChanged(W8RangeControl*)
 {
@@ -1246,19 +1241,16 @@ void W8CampItemRange::OnRangeChanged(W8RangeControl*)
     g_camp_screen->item_redraw_flags |= W8_CAMP_ITEM_REDRAW_POOL;
 }
 
-W8CampSpellRange::W8CampSpellRange(W8SpellRealm realm)
+static W8ControlsRect CampSpellRangeBounds(W8SpellRealm realm)
 {
-    m_realm = realm;
-    int x = (realm % 3) * 0xd5;
-    int y = (realm / 3) * 0x8c;
-    m_range = new W8RangeControl(x + 0xbb, y + 0xc3, x + 0xcd, y + 0x129);
-    m_range->m_listener = this;
-    m_range->SetActive(true);
+    const int x = (realm % 3) * 0xd5;
+    const int y = (realm / 3) * 0x8c;
+    return {x + 0xbb, y + 0xc3, x + 0xcd, y + 0x129};
 }
 
-W8CampSpellRange::~W8CampSpellRange()
+W8CampSpellRange::W8CampSpellRange(W8SpellRealm realm)
+    : W8CampRangeListener(CampSpellRangeBounds(realm)), m_realm(realm)
 {
-    delete m_range;
 }
 
 void W8CampSpellRange::OnRangeChanged(W8RangeControl*)
@@ -1841,7 +1833,7 @@ void RebuildCampItemList(void)
             ++g_camp_screen->item_list_count;
         }
     }
-    scrollbar = g_camp_screen->item_range->m_range;
+    scrollbar = g_camp_screen->item_range->m_range.get();
     scrollbar->SetEnabled(g_camp_screen->item_list_count > 8);
     rows = g_camp_screen->item_list_count - 8;
     if (rows > 0) {

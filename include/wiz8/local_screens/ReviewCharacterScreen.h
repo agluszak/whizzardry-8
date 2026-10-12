@@ -93,10 +93,6 @@ enum W8CampItemFilter {
 class W8CampItemRange final : public W8CampRangeListener {
 public:
     W8CampItemRange();
-    ~W8CampItemRange()
-    {
-        delete m_range;
-    }
     virtual void OnRangeChanged(W8RangeControl* control) override;
 };
 
@@ -104,7 +100,6 @@ public:
 class W8CampSpellRange final : public W8CampRangeListener {
 public:
     explicit W8CampSpellRange(W8SpellRealm realm);
-    ~W8CampSpellRange();
     virtual void OnRangeChanged(W8RangeControl* control) override;
     W8SpellRealm m_realm;
 };

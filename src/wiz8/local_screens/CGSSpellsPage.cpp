@@ -36,7 +36,6 @@ W8SpellRealmAnimation g_spell_realm_animations[6] = {{486, 22, 3}, {487, 18, 8},
 class W8CharacterSpellList : public W8Widget, public W8RangeListener {
 public:
     W8CharacterSpellList(int x, int y, W8CharacterSpellEntry* entries);
-    virtual ~W8CharacterSpellList() override;
     virtual void Redraw(bool force) override;
     virtual void OnMouseEnter(int event) override;
     virtual void OnMouseLeave(int event) override;
@@ -53,7 +52,7 @@ private:
     int GetMouseEntry();
 
 public:
-    W8RangeControl* m_range;
+    std::unique_ptr<W8RangeControl> m_range;
     W8CharacterSpellEntry* m_entries;
     int m_first_entry;
     int m_entry_count;
@@ -66,26 +65,19 @@ public:
 
 W8CharacterSpellList::W8CharacterSpellList(int x, int y,
                                            W8CharacterSpellEntry* entries)
-    : W8Widget(0xffffffff, x + 0x1a, y + 0x19, x + 0xb4, y + 0x79), m_range(0),
+    : W8Widget(0xffffffff, x + 0x1a, y + 0x19, x + 0xb4, y + 0x79),
       m_entries(entries), m_hovered_entry(-1), m_scroll_offset(0), m_listener(0),
       m_x(x), m_y(y)
 {
-}
-
-// FUNCTION: WIZ8 0x005c7da0
-W8CharacterSpellList::~W8CharacterSpellList()
-{
-    delete m_range;
 }
 
 // FUNCTION: WIZ8 0x005c7e10
 void W8CharacterSpellList::SetEntryCount(int count)
 {
     if (!m_range) {
-        m_range = new W8RangeControl(m_pPanel->ScreenBounds().x + m_x + 0xb8,
-                                     m_pPanel->ScreenBounds().y + m_y + 0x1a,
-                                     m_pPanel->ScreenBounds().x + m_x + 0xca,
-                                     m_pPanel->ScreenBounds().y + m_y + 0x78);
+        const auto panel = m_pPanel->ScreenBounds();
+        m_range = std::make_unique<W8RangeControl>(panel.x + m_x + 0xb8, panel.y + m_y + 0x1a,
+                                                   panel.x + m_x + 0xca, panel.y + m_y + 0x78);
         m_range->m_listener = this;
     }
     m_range->InvalidateAll();

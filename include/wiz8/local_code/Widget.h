@@ -65,6 +65,9 @@ protected:
        including attachment to a panel. Overrides that derive screen
        coordinates from the panel origin must call the base. */
     virtual void OnGeometryChanged();
+    /* Join or leave the hit-region set of the panel tree this widget is in. */
+    virtual void BindRegion(unsigned int set);
+    virtual void UnbindRegion();
     bool OwnsRegion() const;
     void ReleaseRegion();
     SDL_Point PanelOrigin() const;

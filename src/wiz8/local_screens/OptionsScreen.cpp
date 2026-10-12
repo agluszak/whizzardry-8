@@ -1223,8 +1223,8 @@ void W8OptionsScreen::CreateControls()
     m_controls->CreateRegionSet();
     for (int index = 0; index < 8; ++index) {
         W8OptionsMenuButton* button =
-            m_controls->EmplaceControl<W8OptionsMenuButton>(&g_options_menu_rows[index]);
-        button->CreateSiblingControls(g_options_menu_rows[index]);
+            m_controls->EmplaceControl<W8OptionsMenuRowControl>(g_options_menu_rows[index])
+                ->m_button;
         if (index == 7) {
             button->m_primaryActivationCallback = RequestScreenTransition;
         } else if (index == 6) {
@@ -1463,36 +1463,30 @@ void W8OptionsValues::TransferSettings()
     }
 }
 
-/* Menu rows come from the shared source table: the button's own geometry and
-   text parameters sit in row[9..17], the item id in row[0], and the two
-   optional child controls in row[1..4] and row[5..8].  Each child joins the
-   button's owner panel, registers the button's listener subobject, and picks
-   up the shared layout flag. */
-W8OptionsMenuButton::W8OptionsMenuButton(const W8OptionsMenuRow* row)
-    : W8TextControl(0xffffffff, row->bounds.left, row->bounds.top, row->bounds.right, row->bounds.bottom, CatalogArtwork::Load(0xef, 0), row->image_indices[0], row->image_indices[1], row->image_indices[2], row->image_indices[3], row->image_indices[4])
+/* Menu rows come from the shared source table: the item id, the two
+   optional hotspot rectangles (left == -1 when absent), the button bounds and
+   its image indices. */
+W8OptionsMenuButton::W8OptionsMenuButton(const W8OptionsMenuRow& row)
+    : W8TextControl(0xffffffff, row.bounds.left, row.bounds.top, row.bounds.right, row.bounds.bottom, CatalogArtwork::Load(0xef, 0), row.image_indices[0], row.image_indices[1], row.image_indices[2], row.image_indices[3], row.image_indices[4])
 {
-    m_item_id = row->item_id;
+    m_item_id = row.item_id;
 }
 
-void W8OptionsMenuButton::CreateSiblingControls(const W8OptionsMenuRow& row)
+W8OptionsMenuRowControl::W8OptionsMenuRowControl(const W8OptionsMenuRow& row)
 {
-    if (row.child_bounds[0].left != -1) {
-        W8TextControl* control = m_pPanel->EmplaceControl<W8TextControl>(0xffffffff, row.child_bounds[0].left, row.child_bounds[0].top, row.child_bounds[0].right, row.child_bounds[0].bottom, std::nullopt, -1, -1, -1, -1, -1);
-        control->m_listener = this;
-        control->AddLayoutFlags(g_W8TextControlSilentHover);
-    }
-
-    if (row.child_bounds[1].left != -1) {
-        W8TextControl* control = m_pPanel->EmplaceControl<W8TextControl>(0xffffffff, row.child_bounds[1].left, row.child_bounds[1].top, row.child_bounds[1].right, row.child_bounds[1].bottom, std::nullopt, -1, -1, -1, -1, -1);
-        control->m_listener = this;
-        control->AddLayoutFlags(g_W8TextControlSilentHover);
+    m_button = EmplaceControl<W8OptionsMenuButton>(row);
+    for (const auto& bounds : row.child_bounds) {
+        if (bounds.left == -1) continue;
+        auto* hotspot = EmplaceControl<W8TextControl>(0xffffffff, bounds.left, bounds.top, bounds.right, bounds.bottom, std::nullopt, -1, -1, -1, -1, -1);
+        hotspot->m_listener = this;
+        hotspot->AddLayoutFlags(g_W8TextControlSilentHover);
     }
 }
 
-void W8OptionsMenuButton::OnPrimary(W8TextControl*)
+void W8OptionsMenuRowControl::OnPrimary(W8TextControl*)
 {
-    if (m_listener != 0) {
-        m_listener->OnPrimary(this);
+    if (m_button->m_listener != 0) {
+        m_button->m_listener->OnPrimary(m_button);
     }
 }
 
