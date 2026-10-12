@@ -1105,7 +1105,6 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and failure recovery", "[save]
     g_npc_records = database;
     // All three database nodes are supplied by the serialized states below.
     gXStatus.uiNpcsInDatabase = 3;
-    W8Character unrelated = {};
     // A small word that a process-local handle table could have resolved.
     const unsigned int live_handle = 1;
     const unsigned char version = GENERATE(static_cast<unsigned char>(2), static_cast<unsigned char>(3));
@@ -1151,15 +1150,15 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and failure recovery", "[save]
         {
             W8NpcState* npc = g_npc_states[i];
             REQUIRE(npc->record == &database[i]);
-            REQUIRE((npc->items == 0 && npc->script_file == 0));
+            REQUIRE((npc->items.empty() && npc->script_file == 0));
             if (i < 2)
             {
-                REQUIRE((npc->character != 0 && npc->character != &unrelated));
+                REQUIRE(npc->character.has_value());
                 REQUIRE(npc->character->name[0] == static_cast<char>('A' + i));
             }
             else
             {
-                REQUIRE(npc->character == 0);
+                REQUIRE(!npc->character);
             }
         }
         unsigned int trailer;
@@ -1188,7 +1187,7 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and failure recovery", "[save]
         REQUIRE(g_npc_states.size() == 3);
         for (int index = 0; index < 3; ++index) {
             auto* npc = g_npc_states[index];
-            REQUIRE((npc->record == &database[index] && !npc->items));
+            REQUIRE((npc->record == &database[index] && npc->items.empty()));
             if (index < 2) REQUIRE((npc->character && npc->character->name[0] == L'A' + index));
             else REQUIRE(!npc->character);
         }

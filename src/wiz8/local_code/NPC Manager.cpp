@@ -3,7 +3,6 @@
 #include <string_view>
 #include <vector>
 #include <limits>
-#include <memory>
 #include <stdexcept>
 #include <cstdint>
 #include <cstdlib>
@@ -81,7 +80,7 @@
 #include "wiz8/npc_interaction.h"
 
 static bool ProbeNpcPlacementNearParty(int party_slot, int mode, srVector3T<float>* position_out);
-static bool InitializeNpcCharacter(W8NpcState* npc, W8Character* character);
+static bool InitializeNpcCharacter(W8NpcState* npc, W8Character& character);
 static void InitializeNpcItemTable(W8NpcState* npc);
 static bool RestoreNpcMonster(W8NpcState* npc, const char* entity_name);
 static bool SaveNpcItemLists(wiz8::File& file);
@@ -424,14 +423,14 @@ bool NpcWantsItem(W8NpcState* npc, W8ItemInstance* item)
 }
 
 // FUNCTION: WIZ8 0x0050ddc0
-static void ReturnDismissedNpcItems(W8NpcState* npc, W8Character* character)
+static void ReturnDismissedNpcItems(W8NpcState* npc, W8Character& character)
 {
     bool returned = false;
     bool dropped = false;
     unsigned int slot;
     for (slot = 0; slot < 12; ++slot) {
-        W8ItemInstance* item = &character->EquippedItem[slot];
-        if (item->iItemNo != -1 && CanUnequipSlotItem(character, static_cast<W8EquipSlot>(slot)) &&
+        W8ItemInstance* item = &character.EquippedItem[slot];
+        if (item->iItemNo != -1 && CanUnequipSlotItem(&character, static_cast<W8EquipSlot>(slot)) &&
             !NpcWantsItem(npc, item)) {
             if (AddItemToPartyOrDrop(item, false)) {
                 returned = true;
@@ -441,7 +440,7 @@ static void ReturnDismissedNpcItems(W8NpcState* npc, W8Character* character)
         }
     }
     for (slot = 0; slot < 8; ++slot) {
-        W8ItemInstance* item = &character->backpack[slot];
+        W8ItemInstance* item = &character.backpack[slot];
         if (item->iItemNo != -1 && !NpcWantsItem(npc, item)) {
             if (AddItemToPartyOrDrop(item, false)) {
                 returned = true;
@@ -504,7 +503,7 @@ int DismissNpcFromParty(int party_slot, int /*unused*/, bool skip_spawn, bool ne
         W8MonsterGroup* group = CreateGroup(species, 1, &position, true, false, true);
         W8MonsterInfo* monster = FindMonster(group->leader_location_id);
         if (monster != 0) {
-            CopyCharacterConditionsToTarget(npc->character, &monster->location_id);
+            CopyCharacterConditionsToTarget(*npc->character, &monster->location_id);
             if (monster->uiCondition[W8_CONDITION_UNCONSCIOUS] == W8_CONDITION_INDEFINITE) {
                 unsigned int stamina = static_cast<unsigned int>(npc->character->uiStaminaMax);
                 if (static_cast<unsigned int>(npc->character->stamina) < stamina) {
@@ -519,7 +518,7 @@ int DismissNpcFromParty(int party_slot, int /*unused*/, bool skip_spawn, bool ne
         }
     }
     RequestRedraw(W8_MAIN_REDRAW_ALL);
-    ReturnDismissedNpcItems(npc, npc->character);
+    ReturnDismissedNpcItems(npc, *npc->character);
     npc->dismissed_flag = true;
     memset(&npc->dismissed_timer, 0, sizeof(npc->dismissed_timer));
     npc->event_pending = 1;
@@ -575,7 +574,7 @@ bool RecruitNpcIntoParty(W8NpcState* npc)
     if (npc->record->has_group == 0) {
         return false;
     }
-    int party_slot = AddCharacterToParty(npc->character, npc->partner_index);
+    int party_slot = AddCharacterToParty(*npc->character, npc->partner_index);
     if (party_slot == -1) {
         return false;
     }
@@ -1130,7 +1129,6 @@ int SelectNewGameStartLevel(void)
     return 8;
 }
 
-static void DestroyNpcItemList(std::vector<W8NpcItemEntry*>* items);
 
 /* Complete teardown for the state's owned resources, regardless of whether
    its database record normally supplies stock. */
@@ -1138,8 +1136,6 @@ static void DestroyNpcState(W8NpcState* npc)
 {
     ReleaseNpcScriptFile(npc->script_file);
     npc->script_file = 0;
-    DestroyNpcItemList(npc->items);
-    delete npc->character;
     delete npc;
 }
 
@@ -1178,7 +1174,6 @@ try
     W8NpcState* npc;
     unsigned int count;
     unsigned int index;
-    int size;
 
     file.write(&version, 1);
     count = g_npc_states.size();
@@ -1186,11 +1181,7 @@ try
     for (index = 0; index < count; ++index) {
         npc = g_npc_states[index];
         wiz8::retail::write(file, *npc);
-        if (npc->character != 0) {
-            size = wiz8::retail::kCharacterBytes;
-            file.write(&size, 4);
-            wiz8::retail::write(file, *npc->character);
-        }
+        if (npc->character) wiz8::retail::write_sized(file, *npc->character);
     }
     return SaveNpcItemLists(file);
 }
@@ -1207,14 +1198,10 @@ catch (const std::exception&) { return false; }
 static bool SaveNpcItemLists(wiz8::File& file)
 try
 {
-    for (std::size_t npc_index = 0; npc_index < g_npc_states.size(); ++npc_index) {
-        W8NpcState* npc = g_npc_states[npc_index];
-        const unsigned int item_count = npc->items != nullptr ? npc->items->size() : 0;
+    for (const auto* npc : g_npc_states) {
+        const auto item_count = static_cast<unsigned int>(npc->items.size());
         file.write(&item_count, sizeof(item_count));
-        for (unsigned int index = 0; index < item_count; ++index) {
-            auto* entry = (*npc->items)[index];
-            file.write(entry, sizeof(*entry));
-        }
+        file.write(npc->items.data(), npc->items.size() * sizeof(W8NpcItemEntry));
     }
     return true;
 }
@@ -1229,13 +1216,11 @@ W8NpcState* CreateNpcRuntimeNode(int npc_id)
     W8NpcState* released;
     int index;
 
-    npc = new W8NpcState;
-    memset(npc, 0, sizeof(*npc));
+    npc = new W8NpcState{};
     npc->name_style = npc_id;
     npc->record = &g_npc_records[npc_id];
     if (npc->record->has_group != 0) {
-        npc->character = new W8Character;
-        InitializeNpcCharacter(npc, npc->character);
+        InitializeNpcCharacter(npc, npc->character.emplace());
     }
     if (npc->record->owns_stock != 0) {
         PopulateNpcStock(npc);
@@ -1312,7 +1297,7 @@ void BindNpcToMonster(unsigned char npc_id, bool has_monster, int location_id)
    the name, profession and starting level, attributes, skills, known spells
    and worn/carried items, then the derived passes a level advance settles. */
 // FUNCTION: WIZ8 0x0050aed0
-static bool InitializeNpcCharacter(W8NpcState* npc, W8Character* character)
+static bool InitializeNpcCharacter(W8NpcState* npc, W8Character& character)
 {
     W8NpcDatabaseRecord* record = npc->record;
     W8NpcCharacterTemplate* source;
@@ -1323,64 +1308,64 @@ static bool InitializeNpcCharacter(W8NpcState* npc, W8Character* character)
         return false;
     }
     source = &record->character;
-    *character = W8Character{};
-    character->level_band_base = 0;
-    character->attribute_point_deficit = 0;
-    character->highest_condition = W8_CONDITION_NONE;
-    character->enchantment_top = W8_ENCHANTMENT_NONE;
-    character->unknown_007d = -1;
-    character->personality = -1;
+    character = W8Character{};
+    character.level_band_base = 0;
+    character.attribute_point_deficit = 0;
+    character.highest_condition = W8_CONDITION_NONE;
+    character.enchantment_top = W8_ENCHANTMENT_NONE;
+    character.unknown_007d = -1;
+    character.personality = -1;
     for (index = 0; index < 12; ++index) {
-        EmptyItemRecord(&character->EquippedItem[index], 0, true);
+        EmptyItemRecord(&character.EquippedItem[index], 0, true);
     }
     for (index = 0; index < 8; ++index) {
-        EmptyItemRecord(&character->backpack[index], 0, true);
+        EmptyItemRecord(&character.backpack[index], 0, true);
     }
-    character->name = source->name;
-    character->name_part_2 = source->name_part_2;
-    character->iProfession = source->profession;
-    character->original_profession = source->profession;
-    character->profession_levels[source->profession] = source->level;
-    character->iRace = source->race;
-    character->gender = static_cast<W8Gender>(source->gender);
-    character->portrait_index = source->table_value;
+    character.name = source->name;
+    character.name_part_2 = source->name_part_2;
+    character.iProfession = source->profession;
+    character.original_profession = source->profession;
+    character.profession_levels[source->profession] = source->level;
+    character.iRace = source->race;
+    character.gender = static_cast<W8Gender>(source->gender);
+    character.portrait_index = source->table_value;
     for (index = 0; index < 7; ++index) {
-        character->attributes[index].base = source->attributes[index];
+        character.attributes[index].base = source->attributes[index];
     }
     for (index = 0; index < 0x29; ++index) {
-        character->skills[index].points = source->skills[index];
+        character.skills[index].points = source->skills[index];
     }
     for (index = 0; index < 12; ++index) {
         if (source->equipment_present[index] != 0 && source->equipment_ids[index] != 0xffff) {
             ReplaceOrCreateItem(&item, static_cast<short>(source->equipment_ids[index]), true, true,
                                 false);
-            character->EquippedItem[index] = item;
+            character.EquippedItem[index] = item;
         }
     }
     for (index = 0; index < 8; ++index) {
         if (source->backpack_present[index] != 0 && source->backpack_ids[index] != 0xffff) {
             ReplaceOrCreateItem(&item, static_cast<short>(source->backpack_ids[index]), true, true,
                                 false);
-            character->backpack[index] = item;
+            character.backpack[index] = item;
         }
     }
-    AdvanceCharacterToLevel(character, source->level);
-    AccumulateEquipmentModifiers(character, &character->equipment_bonus);
-    RebuildCharacterModifierBlock(character);
-    CalcCharacterLevelBand(character);
-    RefreshCharacterSkillAvailability(character);
-    RecalculateCharacterDerivedStats(character);
+    AdvanceCharacterToLevel(&character, source->level);
+    AccumulateEquipmentModifiers(&character, &character.equipment_bonus);
+    RebuildCharacterModifierBlock(&character);
+    CalcCharacterLevelBand(&character);
+    RefreshCharacterSkillAvailability(&character);
+    RecalculateCharacterDerivedStats(&character);
     for (index = 1; index < 0x73; ++index) {
-        if (source->spells[index - 1] != 0 && CanCharacterLearnSpell(character, index)) {
-            LearnSpell(character, index, false);
+        if (source->spells[index - 1] != 0 && CanCharacterLearnSpell(&character, index)) {
+            LearnSpell(&character, index, false);
         } else {
-            character->spell_learned[index] = 0;
+            character.spell_learned[index] = 0;
         }
     }
-    character->hp_current = character->uiHPMax;
-    character->stamina = character->uiStaminaMax;
+    character.hp_current = character.uiHPMax;
+    character.stamina = character.uiStaminaMax;
     for (index = 0; index < W8_SPELL_REALM_COUNT; ++index) {
-        character->iSPLeft[index] = character->sp_max[index];
+        character.iSPLeft[index] = character.sp_max[index];
     }
     return true;
 }
@@ -1476,23 +1461,18 @@ void LoadNpcStates(wiz8::File& file)
         }
         disk_state.name_style = static_cast<unsigned char>(record_id);
         disk_state.record = &g_npc_records[record_id];
-        std::unique_ptr<W8NpcState, decltype(&DestroyNpcState)> owner(
-            new W8NpcState(disk_state), DestroyNpcState);
-        npc = owner.get();
         if (has_character) {
+            // Version 3 sizes the character block; older saves store 0x185c bytes.
             size = 0x185c;
             if (version >= 3) file.read_exact(&size, sizeof(size));
             if (size > wiz8::retail::kCharacterBytes) {
                 throw std::runtime_error("invalid NPC character size");
             }
-            auto character = std::make_unique<W8Character>();
-            wiz8::retail::read_exact(file, *character, size);
-            npc->character = character.get();
-            (void)character.release();
+            wiz8::retail::read_exact(file, disk_state.character.emplace(), size);
         }
-        npc->partner_index = static_cast<int>(g_npc_states.size());
-        g_npc_states.push_back(npc);
-        (void)owner.release();
+        disk_state.partner_index = static_cast<unsigned char>(g_npc_states.size());
+        g_npc_states.reserve(g_npc_states.size() + 1);
+        g_npc_states.push_back(new W8NpcState(std::move(disk_state)));
     }
     for (loaded = 0; loaded < count; ++loaded) {
         npc = g_npc_states[loaded];
@@ -1524,46 +1504,24 @@ void LoadNpcStates(wiz8::File& file)
     rollback.committed = true;
 }
 
-static void DestroyNpcItemList(std::vector<W8NpcItemEntry*>* items)
-{
-    if (items == nullptr) return;
-    for (auto* item : *items) delete item;
-    delete items;
-}
-
 /* Stage all stock lists before replacing any live NPC's inventory. */
 // FUNCTION: WIZ8 0x0050AAF0
 static bool LoadNpcItemLists(wiz8::File& file)
 try
 {
-    using ItemListOwner = std::unique_ptr<std::vector<W8NpcItemEntry*>, decltype(&DestroyNpcItemList)>;
-    std::vector<ItemListOwner> pending;
-    pending.reserve(g_npc_states.size());
-    for (std::size_t npc_index = 0; npc_index < g_npc_states.size(); ++npc_index) {
+    std::vector<std::vector<W8NpcItemEntry>> pending(g_npc_states.size());
+    for (auto& items : pending) {
         unsigned int item_count;
         file.read_exact(&item_count, sizeof(item_count));
         if (item_count > static_cast<unsigned int>(std::numeric_limits<int>::max()) ||
             item_count > (file.size() - file.tell()) / sizeof(W8NpcItemEntry)) {
             return false;
         }
-        ItemListOwner items(nullptr, DestroyNpcItemList);
-        if (item_count != 0) {
-            items.reset(new std::vector<W8NpcItemEntry*>);
-            items->reserve(item_count);
-            for (unsigned int index = 0; index < item_count; ++index) {
-                auto entry = std::make_unique<W8NpcItemEntry>();
-                file.read_exact(entry.get(), sizeof(*entry));
-                items->push_back(entry.get());
-                (void)entry.release();
-            }
-        }
-        pending.push_back(std::move(items));
+        items.resize(item_count);
+        file.read_exact(items.data(), items.size() * sizeof(W8NpcItemEntry));
     }
     for (std::size_t npc_index = 0; npc_index < g_npc_states.size(); ++npc_index) {
-        W8NpcState* npc = g_npc_states[npc_index];
-        DestroyNpcItemList(npc->items);
-        npc->items = pending[npc_index].get();
-        (void)pending[npc_index].release();
+        g_npc_states[npc_index]->items = std::move(pending[npc_index]);
     }
     return true;
 }

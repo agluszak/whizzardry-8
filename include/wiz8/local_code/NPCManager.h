@@ -29,7 +29,6 @@ enum W8NpcDispositionBand {
 
 void QueueNpcHeldItemNotice(int npc_kind);
 
-struct W8Chunk;
 class W8Monster;
 class Trigger;
 struct W8GameplayModifierBlock;
@@ -157,7 +156,6 @@ bool ClearNpcScheduledItem(W8NpcState* npc, int item_id, W8ItemInstance* out);
 void ReleaseNpcMonsterByKind(int kind);
 /* Record that the NPC has told the party the given fact. */
 void TellNpcFact(W8NpcState* npc, short fact);
-struct W8Chunk;
 bool SaveNpcStates(wiz8::File& file);
 void LoadNpcStates(wiz8::File& file);
 char AttemptNpcItemTheft(W8Character* character, W8NpcState* npc, int item_id, int count);

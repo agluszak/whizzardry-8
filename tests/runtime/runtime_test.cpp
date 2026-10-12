@@ -724,7 +724,7 @@ void StartPremadeGame(Game& game)
     REQUIRE((character.iProfession == W8_PROFESSION_FIGHTER &&
                            character.iRace == W8_RACE_HUMAN && character.gender == W8_GENDER_MALE));
     REQUIRE((character.hp_current == 18 && character.experience == 0));
-    REQUIRE(AddCharacterToParty(&character, -1) >= 0);
+    REQUIRE(AddCharacterToParty(character, -1) >= 0);
     REQUIRE(CountActiveCharacters() == 1);
     RunNewGameOpeningSequence(false, {});
     WaitMainGame(game, "premade-main-game");

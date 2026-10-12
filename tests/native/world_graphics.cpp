@@ -112,7 +112,7 @@ TEST_CASE("world graphics")
         ResetForNewGame();
         W8Character character{};
         REQUIRE(LoadCharacter(character_name, &character, -1, false));
-        REQUIRE(AddCharacterToParty(&character, -1) == 2);
+        REQUIRE(AddCharacterToParty(character, -1) == 2);
         RunNewGameOpeningSequence(false, {});
         // Bypass only the opening movie; use the normal new-game loading screen.
         g_pending_screen_state.mode = 0;

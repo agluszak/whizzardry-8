@@ -1016,7 +1016,7 @@ unsigned int GetAveragePartyLevel(void)
    and enter it in the marching order. The band is 2..7 for a regular member
    and 0..1 for the two auxiliary slots. */
 // FUNCTION: WIZ8 0x004ef4a0
-int AddCharacterToParty(W8Character* character, int slot_kind)
+int AddCharacterToParty(W8Character& character, int slot_kind)
 {
     unsigned int slot;
 
@@ -1042,7 +1042,7 @@ int AddCharacterToParty(W8Character* character, int slot_kind)
     }
 
     W8Character* destination = &g_status.buffers.Char[slot];
-    *destination = *character;
+    *destination = character;
     destination->fInParty = true;
     ResetPartySlotRow(slot);
     ResetGameplaySlot(slot);
