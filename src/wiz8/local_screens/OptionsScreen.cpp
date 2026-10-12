@@ -253,7 +253,7 @@ void W8OptionsSaveLoadPanel::Populate()
 {
     int top = 0x12;
     for (int index = 0; index < 5; ++index) {
-        W8OptionsSaveRow* row = new W8OptionsSaveRow(this, top, m_panel == 12);
+        W8OptionsSaveRow* row = EmplaceControl<W8OptionsSaveRow>(*this, top, m_panel == 12);
         row->m_save_listener = this;
         m_selection.AddEntry(row);
         m_rows.push_back(row);
@@ -263,14 +263,14 @@ void W8OptionsSaveLoadPanel::Populate()
 
     if (m_panel == 11) {
         m_delete_button =
-            new W8TextControl(this, 0xffffffff, 0xd, 0x1b0, 0, 0, CatalogArtwork::Load(0xf8, 0), 6, 8, 7, -1, -1);
+            EmplaceControl<W8TextControl>(*this, 0xffffffff, 0xd, 0x1b0, 0, 0, CatalogArtwork::Load(0xf8, 0), 6, 8, 7, -1, -1);
         m_delete_button->m_listener = this;
     } else {
         m_delete_button = 0;
     }
 
     int first_sprite = m_panel == 11 ? 3 : 0;
-    m_action_button = new W8TextControl(this, 0xffffffff, 0xf5, 0x1b0, 0, 0, CatalogArtwork::Load(0xf8, 0), first_sprite, first_sprite + 2, first_sprite + 1, -1, -1);
+    m_action_button = EmplaceControl<W8TextControl>(*this, 0xffffffff, 0xf5, 0x1b0, 0, 0, CatalogArtwork::Load(0xf8, 0), first_sprite, first_sprite + 2, first_sprite + 1, -1, -1);
     m_action_button->m_listener = this;
 
     if (m_panel == 11 && static_cast<int>(g_options_screen->m_save_slots.size()) == 1) {
@@ -544,7 +544,7 @@ void W8OptionsSaveLoadPanel::SaveSelectedSave(std::string_view previous_name)
     SetPendingScreenState(W8_SCREEN_PLEASE_WAIT);
 }
 
-W8OptionsButton::W8OptionsButton(Controls* owner, int left, int top, int right, int bottom,
+W8OptionsButton::W8OptionsButton(Controls& owner, int left, int top, int right, int bottom,
                                  std::string_view text)
     : W8TextControl(owner, 0xffffffff, left, top, right, bottom, std::nullopt, -1, -1, -1, -1, -1)
 {
@@ -552,7 +552,7 @@ W8OptionsButton::W8OptionsButton(Controls* owner, int left, int top, int right, 
     m_textBuffer.SetText(text, g_options_detail_font);
 }
 
-W8OptionsKeyButton::W8OptionsKeyButton(Controls* owner, int top, W8MGSCommand primary_binding,
+W8OptionsKeyButton::W8OptionsKeyButton(Controls& owner, int top, W8MGSCommand primary_binding,
                                        W8MGSCommand secondary_binding)
     : W8OptionsButton(owner, 100, top, 0x15e, top + 22, ""), m_primary_binding(primary_binding),
       m_secondary_binding(secondary_binding)
@@ -571,7 +571,7 @@ enum W8OptionsSaveRowSprite {
     W8_OPTIONS_SAVE_ROW_DISABLED = 4
 };
 
-W8OptionsSaveRow::W8OptionsSaveRow(Controls* owner, int top, unsigned char save_mode)
+W8OptionsSaveRow::W8OptionsSaveRow(Controls& owner, int top, unsigned char save_mode)
     : W8TextControl(owner, 0xffffffff, 10, top, 0, 0, CatalogArtwork::Load(0xf9, 0), save_mode ? W8_OPTIONS_SAVE_ROW_SAVE_NORMAL : W8_OPTIONS_SAVE_ROW_LOAD_NORMAL, save_mode ? W8_OPTIONS_SAVE_ROW_SAVE_PRESSED : W8_OPTIONS_SAVE_ROW_LOAD_PRESSED, -1, -1, W8_OPTIONS_SAVE_ROW_DISABLED),
       m_save_mode(save_mode), m_editing(0), m_save(0), m_save_listener(0)
 {
@@ -768,8 +768,7 @@ void W8OptionsKeyboardPanel::Populate()
                              g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4);
         m_text_buffers.emplace_back(label);
 
-        W8OptionsKeyButton* button = new W8OptionsKeyButton(
-            this, m_content_top, row->primary_binding, row->secondary_binding);
+        W8OptionsKeyButton* button = EmplaceControl<W8OptionsKeyButton>(*this, m_content_top, row->primary_binding, row->secondary_binding);
         m_selection.AddEntry(button);
         m_content_top += 22;
 
@@ -780,7 +779,7 @@ void W8OptionsKeyboardPanel::Populate()
             short text_width = g_options_detail_font.textWidth(reset_text);
             int left = (m_bounds.right - (text_width + 20) - m_bounds.left) / 2;
             W8OptionsButton* reset =
-                new W8OptionsButton(this, left, 0x18e, left + text_width + 20, 0x1a4, reset_text);
+                EmplaceControl<W8OptionsButton>(*this, left, 0x18e, left + text_width + 20, 0x1a4, reset_text);
             reset->m_listener = this;
             return;
         }
@@ -1224,7 +1223,8 @@ void W8OptionsScreen::CreateControls()
     m_controls->CreateRegionSet();
     for (int index = 0; index < 8; ++index) {
         W8OptionsMenuButton* button =
-            new W8OptionsMenuButton(m_controls.get(), &g_options_menu_rows[index]);
+            m_controls->EmplaceControl<W8OptionsMenuButton>(*m_controls, &g_options_menu_rows[index]);
+        button->CreateSiblingControls(g_options_menu_rows[index]);
         if (index == 7) {
             button->m_primaryActivationCallback = RequestScreenTransition;
         } else if (index == 6) {
@@ -1468,19 +1468,22 @@ void W8OptionsValues::TransferSettings()
    optional child controls in row[1..4] and row[5..8].  Each child joins the
    button's owner panel, registers the button's listener subobject, and picks
    up the shared layout flag. */
-W8OptionsMenuButton::W8OptionsMenuButton(Controls* owner, const W8OptionsMenuRow* row)
+W8OptionsMenuButton::W8OptionsMenuButton(Controls& owner, const W8OptionsMenuRow* row)
     : W8TextControl(owner, 0xffffffff, row->bounds.left, row->bounds.top, row->bounds.right, row->bounds.bottom, CatalogArtwork::Load(0xef, 0), row->image_indices[0], row->image_indices[1], row->image_indices[2], row->image_indices[3], row->image_indices[4])
 {
     m_item_id = row->item_id;
+}
 
-    if (row->child_bounds[0].left != -1) {
-        W8TextControl* control = new W8TextControl(m_pPanel, 0xffffffff, row->child_bounds[0].left, row->child_bounds[0].top, row->child_bounds[0].right, row->child_bounds[0].bottom, std::nullopt, -1, -1, -1, -1, -1);
+void W8OptionsMenuButton::CreateSiblingControls(const W8OptionsMenuRow& row)
+{
+    if (row.child_bounds[0].left != -1) {
+        W8TextControl* control = m_pPanel->EmplaceControl<W8TextControl>(*m_pPanel, 0xffffffff, row.child_bounds[0].left, row.child_bounds[0].top, row.child_bounds[0].right, row.child_bounds[0].bottom, std::nullopt, -1, -1, -1, -1, -1);
         control->m_listener = this;
         control->AddLayoutFlags(g_W8TextControlSilentHover);
     }
 
-    if (row->child_bounds[1].left != -1) {
-        W8TextControl* control = new W8TextControl(m_pPanel, 0xffffffff, row->child_bounds[1].left, row->child_bounds[1].top, row->child_bounds[1].right, row->child_bounds[1].bottom, std::nullopt, -1, -1, -1, -1, -1);
+    if (row.child_bounds[1].left != -1) {
+        W8TextControl* control = m_pPanel->EmplaceControl<W8TextControl>(*m_pPanel, 0xffffffff, row.child_bounds[1].left, row.child_bounds[1].top, row.child_bounds[1].right, row.child_bounds[1].bottom, std::nullopt, -1, -1, -1, -1, -1);
         control->m_listener = this;
         control->AddLayoutFlags(g_W8TextControlSilentHover);
     }
@@ -1493,7 +1496,7 @@ void W8OptionsMenuButton::OnPrimary(W8TextControl*)
     }
 }
 
-W8OptionsCheckbox::W8OptionsCheckbox(Controls* owner, int top, int* value)
+W8OptionsCheckbox::W8OptionsCheckbox(Controls& owner, int top, int* value)
     : W8TextControl(owner, 0xffffffff, 0x14d, top - 2, 0, 0, CatalogArtwork::Load(0xf1, 0), 2, 0, 3, 1, -1),
       m_value(value)
 {
@@ -1509,8 +1512,8 @@ void W8OptionsCheckbox::OnLeftButtonUp(int event)
     *m_value = static_cast<unsigned char>(m_stateFlags) & g_W8TextControlStateSecondary & 0xff;
 }
 
-W8OptionsSlider::W8OptionsSlider(Controls* owner, int top, float* value, bool alternate)
-    : W8HorizontalRangeThumb(owner, 0xffffffff, 0xc9, top - 2, CatalogArtwork::Load(0xf5),
+W8OptionsSlider::W8OptionsSlider(int top, float* value, bool alternate)
+    : W8HorizontalRangeThumb(0xffffffff, 0xc9, top - 2, CatalogArtwork::Load(0xf5),
                              alternate ? 4 : 0, 1, 2, 3),
       m_value(value)
 {
@@ -1582,7 +1585,7 @@ static void AddOptionsLabel(W8OptionsPanel& panel, int label)
 W8OptionsCheckbox* W8OptionsPanel::AddCheckbox(int label, int* value)
 {
     AddOptionsLabel(*this, label);
-    W8OptionsCheckbox* checkbox = new W8OptionsCheckbox(this, m_content_top, value);
+    W8OptionsCheckbox* checkbox = EmplaceControl<W8OptionsCheckbox>(*this, m_content_top, value);
     m_content_top += 44;
     return checkbox;
 }
@@ -1594,7 +1597,7 @@ W8TextControl* W8OptionsPanel::AddChoiceButton(int label)
     W8TextBuffer* text = new W8TextBuffer(&bounds, g_localized_strings[label], g_options_detail_font,
                                           g_W8TextBufferAlignTop | g_W8TextBufferAlignRight, 4);
     m_text_buffers.emplace_back(text);
-    W8TextControl* button = new W8TextControl(this, 0xffffffff, 0x151, m_content_top + 1, 0, 0, CatalogArtwork::Load(0xf1, 0), 4, 6, 5, 7, -1);
+    W8TextControl* button = EmplaceControl<W8TextControl>(*this, 0xffffffff, 0x151, m_content_top + 1, 0, 0, CatalogArtwork::Load(0xf1, 0), 4, 6, 5, 7, -1);
     button->AddLayoutFlags(g_W8TextControlLayoutLatchedImage | g_W8TextControlLayoutToggle);
     m_content_top += 22;
     return button;
@@ -1603,7 +1606,7 @@ W8TextControl* W8OptionsPanel::AddChoiceButton(int label)
 W8OptionsSlider* W8OptionsPanel::AddSlider(int label, float* value, bool alternate)
 {
     AddOptionsLabel(*this, label);
-    W8OptionsSlider* slider = new W8OptionsSlider(this, m_content_top, value, alternate);
+    W8OptionsSlider* slider = EmplaceControl<W8OptionsSlider>(m_content_top, value, alternate);
     m_content_top += 22;
     return slider;
 }
@@ -1687,10 +1690,10 @@ W8OptionsMenuSet::W8OptionsMenuSet()
     m_bounds.right = m_bounds.left + static_cast<unsigned short>(width);
     m_bounds.bottom = m_bounds.top + static_cast<unsigned short>(height);
 
-    m_previous = new W8TextControl(this, 0xffffffff, 3, 3, 0, 0, CatalogArtwork::Load(0xf4, 0), 0, 2, 1, -1, 3);
+    m_previous = EmplaceControl<W8TextControl>(*this, 0xffffffff, 3, 3, 0, 0, CatalogArtwork::Load(0xf4, 0), 0, 2, 1, -1, 3);
     m_previous->m_listener = this;
 
-    m_next = new W8TextControl(this, 0xffffffff, 0x11f, 3, 0, 0, CatalogArtwork::Load(0xf4, 0), 4, 6, 5, -1, 7);
+    m_next = EmplaceControl<W8TextControl>(*this, 0xffffffff, 0x11f, 3, 0, 0, CatalogArtwork::Load(0xf4, 0), 4, 6, 5, -1, 7);
     m_next->m_listener = this;
 
     m_page_text = std::make_unique<W8TextBuffer>(&m_bounds, "", g_options_detail_font,

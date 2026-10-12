@@ -10,7 +10,7 @@ class W8RangeControl;
 // VTABLE: WIZ8 0x005ed6fc
 class W8RangeButton : public W8TextControl {
 public:
-    W8RangeButton(Controls* panel, unsigned int region, int left, int top, int right, int bottom,
+    W8RangeButton(Controls& panel, unsigned int region, int left, int top, int right, int bottom,
                   std::optional<CatalogArtwork> image_artwork, int normal_sprite, int pressed_sprite,
                   int alternate_normal_sprite, int alternate_pressed_sprite, int disabled_sprite,
                   short direction, W8RangeControl* range);
@@ -85,7 +85,7 @@ public:
 // VTABLE: WIZ8 0x005ed66c
 class W8HorizontalRangeThumb : public W8Widget {
 public:
-    W8HorizontalRangeThumb(Controls* panel, unsigned int region, int left, int top,
+    W8HorizontalRangeThumb(unsigned int region, int left, int top,
                            CatalogArtwork artwork, int background_sprite,
                            int normal_thumb_sprite, int hovered_thumb_sprite,
                            int disabled_thumb_sprite);

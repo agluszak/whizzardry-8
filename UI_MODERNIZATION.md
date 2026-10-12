@@ -18,7 +18,10 @@ will still need to render the game's original graphics and text.
   order. The eight party-portrait event regions are process-lifetime because
   the main game and camp both drive them while the other is suspended.
 - **Controls / W8Widget / W8TextControl**: already owns child controls through
-  unique_ptr and routes region events into virtual widget methods. It backs
+  unique_ptr through `AddControl` / `EmplaceControl` and routes region events
+  into virtual widget methods. Constructors leave widgets unattached;
+  `TakeControl` transfers ownership and `RemoveControl` destroys a child.
+  Widget destructors release regions without mutating the parent. It backs
   game panels and many screens. A panel that needs hit testing creates its own
   region set (`Controls::CreateRegionSet`) and destroys it with the panel; the
   retail per-panel global set slots are gone, and a widget's region moves with

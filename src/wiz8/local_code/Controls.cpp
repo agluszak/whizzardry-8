@@ -2,6 +2,7 @@
 #include <tuple>
 #include <SDL3/SDL_rect.h>
 #include <algorithm>
+#include <cassert>
 #include <memory>
 #include <optional>
 #include <string_view>
@@ -199,7 +200,6 @@ void W8Widget::ReleaseRegion()
 W8Widget::~W8Widget()
 {
     ReleaseRegion();
-    if (m_pPanel) m_pPanel->TakeControl(this).release();
 }
 
 /* Widget geometry is relative to its panel; a widget without a panel sits
@@ -220,45 +220,8 @@ void W8Widget::UpdateRegionBounds(int left, int top, int right, int bottom)
                                   static_cast<unsigned short>(bottom + origin.y));
 }
 
-/* Move a widget between panels, preserving its existing region when it has
-   one and allocating a region from the new panel otherwise. */
-// FUNCTION: WIZ8 0x004f3f30
-void W8Widget::SetPanel(Controls& new_panel)
-{
-    auto* panel = &new_panel;
-    if (panel == m_pPanel) return;
-    // Allocate before unlinking so failure leaves the old owner intact.
-    if (panel->m_controls.size() == panel->m_controls.capacity())
-        panel->m_controls.reserve(std::max(size_t{8}, panel->m_controls.capacity() * 2));
-    // A widget's region lives in its panel's set; moving panels moves the region.
-    const bool needs_region =
-        panel->m_regionSet != 0 &&
-        (m_region == -1 || (OwnsRegion() && m_owned_region.set() != panel->m_regionSet));
-    OwnedRegion allocated_region;
-    if (needs_region) {
-        allocated_region = OwnedRegion(panel->m_regionSet, g_widget_region_template);
-    }
-    const auto region = needs_region ? allocated_region.index() : 0;
-    if (m_pPanel) {
-        auto& children = m_pPanel->m_controls;
-        const auto found = std::ranges::find(children, this, &std::unique_ptr<W8Widget>::get);
-        auto owned = std::move(*found);
-        children.erase(found);
-        panel->m_controls.push_back(std::move(owned));
-    } else {
-        panel->m_controls.emplace_back(this);
-    }
-    m_pPanel = panel;
-    if (needs_region) {
-        SetRegion(region);
-        m_owned_region = std::move(allocated_region);
-    } else if (m_region != -1) {
-        SetRegion(m_region);
-    }
-}
-
 // FUNCTION: WIZ8 0x004f3dd0
-W8Widget::W8Widget(Controls* owner, unsigned int region, int left, int top, int right, int bottom)
+W8Widget::W8Widget(unsigned int region, int left, int top, int right, int bottom)
     : W8Widget()
 {
     m_left = left;
@@ -266,7 +229,6 @@ W8Widget::W8Widget(Controls* owner, unsigned int region, int left, int top, int 
     m_right = right;
     m_bottom = bottom;
     m_region = static_cast<int>(region);
-    if (owner) SetPanel(*owner);
 }
 
 // Widget regions dispatch straight to their widget. Removing or moving another
@@ -777,11 +739,12 @@ bool W8TextControl::MeasureText()
    constructor and the default one, so call-site argument patterns do not
    establish overloads or default arguments. */
 // FUNCTION: WIZ8 0x004f4250
-W8TextControl::W8TextControl(Controls* panel, unsigned int region, int left, int top, int right,
+// Parent-owned construction borrows layout geometry without adopting raw this.
+W8TextControl::W8TextControl(Controls& panel, unsigned int region, int left, int top, int right,
                              int bottom, std::optional<CatalogArtwork> image_artwork, int normal_sprite,
                              int pressed_sprite, int alternate_normal_sprite,
                              int alternate_pressed_sprite, int disabled_sprite)
-    : W8Widget(panel, region, left, top, right, bottom)
+    : W8Widget(region, left, top, right, bottom)
 {
     m_pressedSprite = pressed_sprite;
     m_alternatePressedSprite = alternate_pressed_sprite;
@@ -811,8 +774,8 @@ W8TextControl::W8TextControl(Controls* panel, unsigned int region, int left, int
         SetBounds(left, top, right, bottom);
     }
 
-    m_textBuffer.SetLayoutBounds(panel->m_bounds.left + left, panel->m_bounds.top + top,
-                                 panel->m_bounds.left + right, panel->m_bounds.top + bottom);
+    m_textBuffer.SetLayoutBounds(panel.m_bounds.left + left, panel.m_bounds.top + top,
+                                 panel.m_bounds.left + right, panel.m_bounds.top + bottom);
     if (m_textBuffer.HasBuffer()) {
         m_textBuffer.UpdateLayout();
     }
@@ -1315,7 +1278,7 @@ void W8TextControl::SetAlternateTextEnabled(bool enabled)
 }
 
 // FUNCTION: WIZ8 0x004f65e0
-W8HelpTextControl::W8HelpTextControl(Controls* panel, unsigned int region, int left, int top,
+W8HelpTextControl::W8HelpTextControl(Controls& panel, unsigned int region, int left, int top,
                                      int right, int bottom)
     : W8TextControl(panel, region, left, top, right, bottom, std::nullopt, -1, -1, -1, -1, -1)
 {
@@ -1366,7 +1329,7 @@ protected:
     void SynchronizeRangeValue();
 };
 
-W8RangeButton::W8RangeButton(Controls* panel, unsigned int region, int left, int top, int right,
+W8RangeButton::W8RangeButton(Controls& panel, unsigned int region, int left, int top, int right,
                              int bottom, std::optional<CatalogArtwork> image_artwork,
                              int normal_sprite,
                              int pressed_sprite, int alternate_normal_sprite,
@@ -1398,10 +1361,10 @@ W8RangeControl::W8RangeControl(int left, int top, int right, int bottom)
     CreateRegionSet();
 
     m_decrement =
-        new W8RangeButton(this, 0xffffffff, 0, 0, 0x10, 0x10, CatalogArtwork::Load(0x86), 0, 2, 1, 2, 3, 0, this);
-    m_increment = new W8RangeButton(this, 0xffffffff, 0, height - 0x10, 0x10, height, CatalogArtwork::Load(0x86), 8,
+        EmplaceControl<W8RangeButton>(*this, 0xffffffff, 0, 0, 0x10, 0x10, CatalogArtwork::Load(0x86), 0, 2, 1, 2, 3, 0, this);
+    m_increment = EmplaceControl<W8RangeButton>(*this, 0xffffffff, 0, height - 0x10, 0x10, height, CatalogArtwork::Load(0x86), 8,
                                     10, 9, 10, 0xb, 1, this);
-    m_thumb = new W8VerticalRangeThumb(this, 0, 0x10, 0x10, height - 0x10,
+    m_thumb = EmplaceControl<W8VerticalRangeThumb>(this, 0, 0x10, 0x10, height - 0x10,
                                        CatalogArtwork::Load(0x86), 4, 5, -1);
     m_enabled = false;
 }
@@ -1513,7 +1476,7 @@ void W8VerticalRangeThumb::SynchronizeRangeValue()
 W8VerticalRangeThumb::W8VerticalRangeThumb(W8RangeControl* range, int left, int top, int right,
                                            int bottom, CatalogArtwork artwork, int normal_sprite,
                                            int hovered_sprite, int disabled_sprite)
-    : W8Widget(range, 0xffffffff, left, top, 0, bottom), m_artwork(std::move(artwork))
+    : W8Widget(0xffffffff, left, top, 0, bottom), m_artwork(std::move(artwork))
 {
     short width;
     short height;
@@ -1750,11 +1713,11 @@ void W8HorizontalRangeThumb::ClampPositionAndInvalidate()
 }
 
 // FUNCTION: WIZ8 0x004f5620
-W8HorizontalRangeThumb::W8HorizontalRangeThumb(Controls* panel, unsigned int region, int left,
+W8HorizontalRangeThumb::W8HorizontalRangeThumb(unsigned int region, int left,
                                                int top, CatalogArtwork artwork,
                                                int background_sprite, int normal_thumb_sprite,
                                                int hovered_thumb_sprite, int disabled_thumb_sprite)
-    : W8Widget(panel, region, left, top, 0, 0), m_artwork(std::move(artwork))
+    : W8Widget(region, left, top, 0, 0), m_artwork(std::move(artwork))
 {
     short width;
     short height;
@@ -1775,7 +1738,6 @@ W8HorizontalRangeThumb::W8HorizontalRangeThumb(Controls* panel, unsigned int reg
     height = background_size.y;
     m_right = static_cast<unsigned short>(width) + m_left;
     m_bottom = m_top + static_cast<unsigned short>(height);
-    SetRegion(m_region);
     const SDL_Point thumb_size = m_artwork.size(m_normalThumbSprite);
     width = thumb_size.x;
     height = thumb_size.y;
@@ -1928,11 +1890,35 @@ void Controls::SetEnabled(bool enable)
     }
 }
 
-void Controls::AdoptControl(std::unique_ptr<W8Widget> control)
+void Controls::AddControl(std::unique_ptr<W8Widget> control)
 {
-    if (!control) return;
-    control->SetPanel(*this);
-    control.release(); // SetPanel transferred ownership to this panel.
+    if (!control) {
+        return;
+    }
+    // A widget must not already belong to another panel.
+    assert(control->m_pPanel == nullptr);
+
+    // Prepare the region before inserting the child in the panel. A failure
+    // cannot leave a half-registered region behind.
+    const bool needs_region =
+        m_regionSet != 0 &&
+        (control->m_region == -1 ||
+         (control->OwnsRegion() && control->m_owned_region.set() != m_regionSet));
+    OwnedRegion allocated_region;
+    if (needs_region) {
+        allocated_region = OwnedRegion(m_regionSet, g_widget_region_template);
+    }
+    const auto region = needs_region ? allocated_region.index() : 0;
+
+    auto* child = control.get();
+    m_controls.push_back(std::move(control));
+    child->m_pPanel = this;
+    if (needs_region) {
+        child->SetRegion(region);
+        child->m_owned_region = std::move(allocated_region);
+    } else if (child->m_region != -1) {
+        child->SetRegion(child->m_region);
+    }
 }
 
 // FUNCTION: WIZ8 0x004f2da0
@@ -1947,13 +1933,17 @@ std::unique_ptr<W8Widget> Controls::TakeControl(W8Widget* control)
     return owned;
 }
 
+void Controls::RemoveControl(W8Widget* control)
+{
+    auto removed = TakeControl(control);
+}
+
 // FUNCTION: WIZ8 0x004f2df0
 void Controls::DestroyAllControls()
 {
     // Unlink before invoking destructors: they may destroy another child.
     while (!m_controls.empty()) {
-        auto child = std::move(m_controls.back());
-        m_controls.pop_back();
+        RemoveControl(m_controls.back().get());
     }
 }
 

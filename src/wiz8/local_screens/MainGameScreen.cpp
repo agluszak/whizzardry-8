@@ -638,7 +638,7 @@ W8LockTumblerPanel::W8LockTumblerPanel(int tumbler_count, const unsigned char* p
     m_listener = 0;
     CreateRegionSet();
     for (i = 0, x = 0x28; x < 0x108; i++, x += 0x1c) {
-        m_tumblers[i] = new W8LockTumbler(this, x, 8, x + 0x14, 0x52, pin_data[i]);
+        m_tumblers[i] = EmplaceControl<W8LockTumbler>( x, 8, x + 0x14, 0x52, pin_data[i]);
         m_tumblers[i]->m_listener = this;
     }
     EnableRegionSet(true);
@@ -852,16 +852,16 @@ W8LockInteraction::W8LockInteraction(Trigger* trigger) : m_timer()
     m_action_panel = std::make_unique<Controls>(0x1e7, 0x166, 0, 0, CatalogArtwork::Load(0x1af, 0), 2);
     m_action_panel->CreateRegionSet();
     m_spell_button =
-        new W8TextControl(m_action_panel.get(), 0xffffffff, 6, 6, 0, 0, CatalogArtwork::Load(0x1b0, 0), 8, 10, 9, 10, 0xb);
+        m_action_panel->EmplaceControl<W8TextControl>(*m_action_panel, 0xffffffff, 6, 6, 0, 0, CatalogArtwork::Load(0x1b0, 0), 8, 10, 9, 10, 0xb);
     m_spell_button->m_listener = this;
     m_force_button =
-        new W8TextControl(m_action_panel.get(), 0xffffffff, 0x24, 6, 0, 0, CatalogArtwork::Load(0x1b0, 0), 0, 2, 1, 2, 3);
+        m_action_panel->EmplaceControl<W8TextControl>(*m_action_panel, 0xffffffff, 0x24, 6, 0, 0, CatalogArtwork::Load(0x1b0, 0), 0, 2, 1, 2, 3);
     m_force_button->m_listener = this;
     m_cancel_button =
-        new W8TextControl(m_action_panel.get(), 0xffffffff, 6, 0x24, 0, 0, CatalogArtwork::Load(0x1b0, 0), 4, 6, 5, 6, 7);
+        m_action_panel->EmplaceControl<W8TextControl>(*m_action_panel, 0xffffffff, 6, 0x24, 0, 0, CatalogArtwork::Load(0x1b0, 0), 4, 6, 5, 6, 7);
     m_cancel_button->m_listener = this;
     m_done_button =
-        new W8TextControl(m_action_panel.get(), 0xffffffff, 0x44, 6, 0, 0, CatalogArtwork::Load(0x8e, 0), 4, 6, 5, 6, 7);
+        m_action_panel->EmplaceControl<W8TextControl>(*m_action_panel, 0xffffffff, 0x44, 6, 0, 0, CatalogArtwork::Load(0x8e, 0), 4, 6, 5, 6, 7);
     m_done_button->m_listener = this;
     m_spell_button->EnableRegionHelp(0x7cb);
     m_force_button->EnableRegionHelp(0x7cd);
@@ -1280,12 +1280,12 @@ void CastSpellAtLockInteraction(unsigned int level, int flag, int backfire)
     g_lock_interaction->ApplyKnockKnock(level, flag, backfire);
 }
 
-W8MainGameTextKeyHandler::W8MainGameTextKeyHandler(Controls* panel, int left, int top, int right,
+W8MainGameTextKeyHandler::W8MainGameTextKeyHandler(Controls& panel, int left, int top, int right,
                                                    int bottom, int line_count,
                                                    const unsigned short* line_string_ids)
-    : W8Widget(panel, 0xffffffff, left, top, right - 0x13, bottom),
-      m_range(panel->m_bounds.left - 0x12 + right, panel->m_bounds.top + top,
-              right + panel->m_bounds.left, panel->m_bounds.top + bottom)
+    : W8Widget(0xffffffff, left, top, right - 0x13, bottom),
+      m_range(panel.m_bounds.left - 0x12 + right, panel.m_bounds.top + top,
+              right + panel.m_bounds.left, panel.m_bounds.top + bottom)
 {
     m_line_count = line_count;
     m_visible_lines = (bottom - top) / 0xe;
@@ -1441,7 +1441,7 @@ void W8MainGameTextKeyHandler::OnRangeChanged(W8RangeControl* control)
     Invalidate(false);
 }
 
-W8MainGameTextEntry::W8MainGameTextEntry(Controls* panel, int index)
+W8MainGameTextEntry::W8MainGameTextEntry(int index)
 {
     int sprites = index * 4;
     int left;
@@ -1462,7 +1462,6 @@ W8MainGameTextEntry::W8MainGameTextEntry(Controls* panel, int index)
     m_right = m_measured_w + left;
     m_bottom = m_measured_h + top;
     m_top = top;
-    SetPanel(*panel);
     AddLayoutFlags(g_W8TextControlLayoutLatchedImage | g_W8TextControlLayoutToggle);
 }
 
@@ -1547,12 +1546,12 @@ W8MainGameTextPanel::W8MainGameTextPanel()
     m_target_marker_pending = false;
     CreateRegionSet();
     for (index = 0; index < 8; ++index) {
-        m_entries[index] = new W8MainGameTextEntry(this, index);
+        m_entries[index] = EmplaceControl<W8MainGameTextEntry>(index);
         m_entries[index]->m_listener = this;
         m_entries[index]->EnableRegionHelp(0x7d1);
     }
-    m_key_handler = new W8MainGameTextKeyHandler(
-        this, 0x8e, 5, 0x10f, 0x59, 0xf, g_trap_name_string_ids);
+    m_key_handler = EmplaceControl<W8MainGameTextKeyHandler>(
+        *this, 0x8e, 5, 0x10f, 0x59, 0xf, g_trap_name_string_ids);
     m_key_handler->m_range_listener = this;
     m_text_bounds.left = m_bounds.left + 0xc;
     m_text_bounds.top = m_bounds.top + 0x29;
@@ -1797,18 +1796,18 @@ W8MainGameScreen::W8MainGameScreen(Trigger* owner)
     m_action_panel = std::make_unique<Controls>(0x1e7, 0x166, 0, 0, CatalogArtwork::Load(0x1b1, 0), 2);
     m_action_panel->CreateRegionSet();
     m_action_controls[1] =
-        new W8TextControl(m_action_panel.get(), 0xffffffff, 6, 6, 0, 0, CatalogArtwork::Load(0x1b0, 0), 8, 10, 9, 10, 0xb);
+        m_action_panel->EmplaceControl<W8TextControl>(*m_action_panel, 0xffffffff, 6, 6, 0, 0, CatalogArtwork::Load(0x1b0, 0), 8, 10, 9, 10, 0xb);
     m_action_controls[1]->m_listener = this;
     m_action_controls[2] =
-        new W8TextControl(m_action_panel.get(), 0xffffffff, 0x24, 6, 0, 0, CatalogArtwork::Load(0x1b0, 0), 0, 2, 1, 2, 3);
+        m_action_panel->EmplaceControl<W8TextControl>(*m_action_panel, 0xffffffff, 0x24, 6, 0, 0, CatalogArtwork::Load(0x1b0, 0), 0, 2, 1, 2, 3);
     m_action_controls[2]->m_listener = this;
     m_action_controls[3] =
-        new W8TextControl(m_action_panel.get(), 0xffffffff, 6, 0x24, 0, 0, CatalogArtwork::Load(0x1b0, 0), 4, 6, 5, 6, 7);
+        m_action_panel->EmplaceControl<W8TextControl>(*m_action_panel, 0xffffffff, 6, 0x24, 0, 0, CatalogArtwork::Load(0x1b0, 0), 4, 6, 5, 6, 7);
     m_action_controls[3]->m_listener = this;
-    m_action_controls[4] = new W8TextControl(m_action_panel.get(), 0xffffffff, 0x24, 0x24, 0, 0, CatalogArtwork::Load(0x1b0, 0), 0xc, 0xe, 0xd, 0xe, 0xf);
+    m_action_controls[4] = m_action_panel->EmplaceControl<W8TextControl>(*m_action_panel, 0xffffffff, 0x24, 0x24, 0, 0, CatalogArtwork::Load(0x1b0, 0), 0xc, 0xe, 0xd, 0xe, 0xf);
     m_action_controls[4]->m_listener = this;
     m_action_controls[0] =
-        new W8TextControl(m_action_panel.get(), 0xffffffff, 0x44, 6, 0, 0, CatalogArtwork::Load(0x8e, 0), 4, 6, 5, 6, 7);
+        m_action_panel->EmplaceControl<W8TextControl>(*m_action_panel, 0xffffffff, 0x44, 6, 0, 0, CatalogArtwork::Load(0x8e, 0), 4, 6, 5, 6, 7);
     m_action_controls[0]->m_listener = this;
     m_action_controls[1]->EnableRegionHelp(0x7ce);
     m_action_controls[2]->EnableRegionHelp(0x7cf);
@@ -2571,9 +2570,9 @@ bool W8NpcDialogueTextController::IsExpanded()
 /* Standalone JMP thunk onto W8Widget::~W8Widget; the vtable slot of
    W8NpcDialogueScrollWidget reaches it. */
 
-W8NpcDialogueScrollWidget::W8NpcDialogueScrollWidget(Controls* panel, unsigned int region, int left,
+W8NpcDialogueScrollWidget::W8NpcDialogueScrollWidget(unsigned int region, int left,
                                                      int top, int right, int bottom)
-    : W8Widget(panel, region, left, top, right, bottom)
+    : W8Widget(region, left, top, right, bottom)
 {
     m_flags = 0;
 }

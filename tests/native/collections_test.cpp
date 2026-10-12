@@ -11,11 +11,13 @@
 #include <utility>
 #include <vector>
 #include <memory>
+#include <optional>
 #include <span>
 #include <unordered_map>
 
 #include "wiz8/xstatus.h"
 #include "wiz8/local_code/Controls.h"
+#include "wiz8/local_code/TextControl.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
@@ -42,13 +44,13 @@ struct Entry : W8Widget {
     std::vector<int>& destroyed;
     int id;
     Entry* erase_also;
-    Entry(Controls& owner, std::vector<int>& destroyed, int id, Entry* erase_also = nullptr)
-        : W8Widget(&owner, -1u, 0, 0, 0, 0), destroyed(destroyed), id(id), erase_also(erase_also) {}
+    Entry(std::vector<int>& destroyed, int id, Entry* erase_also = nullptr)
+        : W8Widget(-1u, 0, 0, 0, 0), destroyed(destroyed), id(id), erase_also(erase_also) {}
     ~Entry() override
     {
         destroyed.push_back(id);
         if (erase_also) {
-            auto sibling = erase_also->m_pPanel->TakeControl(erase_also);
+            erase_also->m_pPanel->RemoveControl(erase_also);
         }
     }
 };
@@ -57,21 +59,21 @@ static bool ownershipAndCallbacks()
 {
     std::vector<int> destroyed;
     Controls owner;
-    new Entry(owner, destroyed, 1);
-    auto* second = new Entry(owner, destroyed, 2);
-    new Entry(owner, destroyed, 3, second);
+    owner.EmplaceControl<Entry>(destroyed, 1);
+    auto* second = owner.EmplaceControl<Entry>(destroyed, 2);
+    owner.EmplaceControl<Entry>(destroyed, 3, second);
     owner.DestroyAllControls();
     REQUIRE(owner.ControlCount() == 0);
     REQUIRE((destroyed == std::vector<int>{3, 2, 1}));
 
-    auto* child = new Entry(owner, destroyed, 4);
+    auto* child = owner.EmplaceControl<Entry>(destroyed, 4);
     auto detached = owner.TakeControl(child);
     REQUIRE(detached.get() == child);
     REQUIRE(child->m_pPanel == nullptr);
     REQUIRE(owner.ControlCount() == 0);
     REQUIRE(destroyed.size() == 3);
     Controls destination;
-    destination.AdoptControl(std::move(detached));
+    destination.AddControl(std::move(detached));
     REQUIRE(!detached);
     REQUIRE(destination.ControlAt(0) == child);
     REQUIRE(child->m_pPanel == &destination);
@@ -79,11 +81,71 @@ static bool ownershipAndCallbacks()
     REQUIRE(destroyed.back() == 4);
     {
         Controls automatic_owner;
-        new Entry(automatic_owner, destroyed, 5);
-        new Entry(automatic_owner, destroyed, 6);
+        automatic_owner.EmplaceControl<Entry>(destroyed, 5);
+        automatic_owner.EmplaceControl<Entry>(destroyed, 6);
     }
     REQUIRE((destroyed == std::vector<int>{3, 2, 1, 4, 6, 5}));
     return true;
+}
+
+TEST_CASE("panel_adopts_and_transfers_unattached_widgets")
+{
+    Controls source;
+    source.SetBounds(100, 200, 200, 300);
+    source.CreateRegionSet();
+
+    auto pending = std::make_unique<W8Widget>(-1u, 1, 2, 20, 30);
+    auto* widget = pending.get();
+    REQUIRE(widget->m_pPanel == nullptr);
+    REQUIRE(source.ControlCount() == 0);
+    source.AddControl(std::move(pending));
+    REQUIRE(pending == nullptr);
+    REQUIRE(source.ControlAt(0) == widget);
+    REQUIRE(widget->m_pPanel == &source);
+    const auto original_region = widget->m_region;
+    REQUIRE(original_region >= 0);
+    REQUIRE(g_regions[original_region].handler == widget);
+    REQUIRE(g_regions[original_region].x1 == 101);
+    REQUIRE(g_regions[original_region].y1 == 202);
+
+    Controls target;
+    target.SetBounds(300, 400, 400, 500);
+    target.CreateRegionSet();
+    auto detached = source.TakeControl(widget);
+    REQUIRE(source.ControlCount() == 0);
+    REQUIRE(detached.get() == widget);
+    REQUIRE(widget->m_pPanel == nullptr);
+    REQUIRE(g_regions[original_region].handler == nullptr);
+    target.AddControl(std::move(detached));
+    REQUIRE(detached == nullptr);
+    REQUIRE(target.ControlAt(0) == widget);
+    REQUIRE(widget->m_pPanel == &target);
+    REQUIRE(g_regions[widget->m_region].handler == widget);
+    REQUIRE(g_regions[widget->m_region].x1 == 301);
+    REQUIRE(g_regions[widget->m_region].y1 == 402);
+
+    // Text controls may borrow geometry from the panel during construction,
+    // but must not register or change ownership until AddControl is called.
+    auto pending_text = std::make_unique<W8TextControl>(
+        source, -1u, 3, 4, 18, 20, std::nullopt, -1, -1, -1, -1, -1);
+    auto* text = pending_text.get();
+    REQUIRE(text->m_pPanel == nullptr);
+    REQUIRE(text->m_textBuffer.GetHorizontalPosition(10) == 105);
+    REQUIRE(source.ControlCount() == 0);
+    source.AddControl(std::move(pending_text));
+    REQUIRE(source.ControlCount() == 1);
+    REQUIRE(text->m_pPanel == &source);
+    REQUIRE(g_regions[text->m_region].handler == text);
+    source.RemoveControl(text);
+    REQUIRE(source.ControlCount() == 0);
+
+    auto* another = target.EmplaceControl<W8Widget>();
+    REQUIRE(target.ControlCount() == 2);
+    REQUIRE(another->m_pPanel == &target);
+    target.RemoveControl(another);
+    REQUIRE(target.ControlCount() == 1);
+    target.DestroyAllControls();
+    REQUIRE(target.ControlCount() == 0);
 }
 
 // Exercise real region bindings rather than manually filling a panel vector.
@@ -91,8 +153,8 @@ struct RecordingWidget : W8Widget {
     std::vector<int>& events;
     int id;
     std::function<void()> on_event;
-    RecordingWidget(Controls& owner, std::vector<int>& events, int id, unsigned region = -1u)
-        : W8Widget(&owner, region, 0, 0, 20, 20), events(events), id(id) {}
+    RecordingWidget(std::vector<int>& events, int id, unsigned region = -1u)
+        : W8Widget(region, 0, 0, 20, 20), events(events), id(id) {}
     void OnLeftButtonDown(int) override { Fire(); }
     void OnLeftButtonUp(int) override { Fire(); }
     void OnRightButtonDown(int) override { Fire(); }
@@ -128,11 +190,11 @@ TEST_CASE("widget_region_lifetimes")
     std::vector<int> events;
     auto first_panel = std::make_unique<Controls>();
     first_panel->CreateRegionSet();
-    auto* first = new RecordingWidget(*first_panel, events, 1);
-    auto* second = new RecordingWidget(*first_panel, events, 2);
-    auto* third = new RecordingWidget(*first_panel, events, 3);
+    auto* first = first_panel->EmplaceControl<RecordingWidget>(events, 1);
+    auto* second = first_panel->EmplaceControl<RecordingWidget>(events, 2);
+    auto* third = first_panel->EmplaceControl<RecordingWidget>(events, 3);
     auto third_region = third->m_region;
-    delete first;
+    first_panel->RemoveControl(first);
     REQUIRE(first_panel->ControlCount() == 2);
     InputEvent event{};
     event.type = InputEventType::LeftButtonDown;
@@ -141,8 +203,7 @@ TEST_CASE("widget_region_lifetimes")
 
     Controls second_panel;
     second_panel.CreateRegionSet();
-    third->SetPanel(second_panel);
-    third->SetPanel(second_panel);
+    second_panel.AddControl(first_panel->TakeControl(third));
     REQUIRE(second_panel.ControlCount() == 1);
     third_region = third->m_region; // Reparenting moved the region into second_panel's set.
     REQUIRE(std::ranges::contains(g_region_sets[second_panel.RegionSet()].Regions(),
@@ -157,15 +218,20 @@ TEST_CASE("widget_region_lifetimes")
     REQUIRE(DispatchWidgetRegion(event, g_regions[third_region]) == 1);
     REQUIRE(events.back() == 3);
 
-    // A failed derived constructor must remove the base-class registration.
+    // A failed derived constructor must never register or enter the owner.
     struct FailingWidget : W8Widget {
-        explicit FailingWidget(Controls& owner) : W8Widget(&owner, -1u, 0, 0, 10, 10)
-        { throw std::runtime_error("incomplete widget"); }
+        explicit FailingWidget(Controls& owner) : W8Widget(-1u, 0, 0, 10, 10)
+        {
+            REQUIRE(m_pPanel == nullptr);
+            REQUIRE(owner.ControlCount() == 0);
+            REQUIRE(g_region_sets[owner.RegionSet()].Regions().empty());
+            throw std::runtime_error("incomplete widget");
+        }
     };
     Controls failing_panel;
     failing_panel.CreateRegionSet();
     const auto live_before_failure = LiveDynamicRegionCount();
-    REQUIRE_THROWS_AS(new FailingWidget(failing_panel), std::runtime_error);
+    REQUIRE_THROWS_AS(failing_panel.EmplaceControl<FailingWidget>(failing_panel), std::runtime_error);
     REQUIRE(failing_panel.ControlCount() == 0);
     REQUIRE(g_region_sets[failing_panel.RegionSet()].Regions().empty());
     REQUIRE(LiveDynamicRegionCount() == live_before_failure);
@@ -173,13 +239,13 @@ TEST_CASE("widget_region_lifetimes")
     // An old widget may outlive a rebuilt panel reusing the same region slots.
     Controls rebuilt_panel;
     rebuilt_panel.CreateRegionSet();
-    auto* old = new RecordingWidget(rebuilt_panel, events, 4);
+    auto* old = rebuilt_panel.EmplaceControl<RecordingWidget>(events, 4);
     const auto reused_region = old->m_region;
     rebuilt_panel.CreateRegionSet();
-    auto* replacement = new RecordingWidget(rebuilt_panel, events, 5);
+    auto* replacement = rebuilt_panel.EmplaceControl<RecordingWidget>(events, 5);
     REQUIRE(replacement->m_region == reused_region);
     replacement->SetActive(true);
-    delete old;
+    rebuilt_panel.RemoveControl(old);
     REQUIRE(g_regions[reused_region].handler == replacement);
     REQUIRE(!(g_regions[reused_region].flags & W8_REGION_INPUT_DISABLED));
     REQUIRE(DispatchWidgetRegion(event, g_regions[reused_region]) == 1);
@@ -189,9 +255,9 @@ TEST_CASE("widget_region_lifetimes")
     for (auto reason : {InputEventType::LeftButtonDown, InputEventType::LeftButtonUp, InputEventType::RightButtonDown, InputEventType::RightButtonUp}) {
         auto* victim = replacement;
         victim->on_event = [&, victim] {
-            delete victim;
+            rebuilt_panel.RemoveControl(victim);
             rebuilt_panel.CreateRegionSet();
-            replacement = new RecordingWidget(rebuilt_panel, events, 6);
+            replacement = rebuilt_panel.EmplaceControl<RecordingWidget>(events, 6);
             g_regions[reused_region].flags = W8_REGION_RECTANGLE;
         };
         event.type = reason;
@@ -201,22 +267,22 @@ TEST_CASE("widget_region_lifetimes")
     }
     // Destroying a captured/hovered widget also releases those global views.
     g_ui.captured = g_ui.current = g_ui.hover = reused_region;
-    delete replacement;
+    rebuilt_panel.RemoveControl(replacement);
     REQUIRE((g_ui.captured == 0 && g_ui.current == 0 && g_ui.hover == 0));
     REQUIRE(rebuilt_panel.ControlCount() == 0);
     REQUIRE(DispatchWidgetRegion(event, g_regions[reused_region]) == 0);
 
     Controls hover_panel;
     hover_panel.CreateRegionSet();
-    auto* outgoing = new RecordingWidget(hover_panel, events, 7);
-    auto* incoming = new RecordingWidget(hover_panel, events, 8);
+    auto* outgoing = hover_panel.EmplaceControl<RecordingWidget>(events, 7);
+    auto* incoming = hover_panel.EmplaceControl<RecordingWidget>(events, 8);
     incoming->SetBounds(40, 0, 60, 20);
     hover_panel.SetEnabled(true);
     hover_panel.EnableRegionSet(true);
     PushButtonSoundScheme(0, true);
     const auto outgoing_region = outgoing->m_region;
     REQUIRE(UpdateRegionMousePosition(5, 5) == static_cast<unsigned>(outgoing_region));
-    outgoing->on_event = [&] { delete incoming; incoming = nullptr; };
+    outgoing->on_event = [&] { hover_panel.RemoveControl(incoming); incoming = nullptr; };
     PushButtonSoundScheme(0, true);
     REQUIRE(UpdateRegionMousePosition(45, 5) == 0);
     REQUIRE(incoming == nullptr);
@@ -225,9 +291,9 @@ TEST_CASE("widget_region_lifetimes")
     // A leave callback can rebuild its own region. Cleanup belongs to the
     // old binding and must leave the replacement's transition flags alone.
     outgoing->on_event = [&] {
-        delete outgoing;
+        hover_panel.RemoveControl(outgoing);
         hover_panel.CreateRegionSet();
-        outgoing = new RecordingWidget(hover_panel, events, 9);
+        outgoing = hover_panel.EmplaceControl<RecordingWidget>(events, 9);
         outgoing->SetActive(true);
         g_regions[outgoing_region].flags |= W8_REGION_MOUSE_ENTER;
     };

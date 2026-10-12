@@ -68,7 +68,7 @@ class W8MainGameScreen;
 // VTABLE: WIZ8 0x005eeafc
 class W8MainGameTextKeyHandler : public W8Widget, public W8RangeListener {
 public:
-    W8MainGameTextKeyHandler(Controls* panel, int left, int top, int right, int bottom,
+    W8MainGameTextKeyHandler(Controls& panel, int left, int top, int right, int bottom,
                              int line_count, const unsigned short* line_string_ids);
     virtual void Redraw(bool full_redraw) override;
     virtual void OnMouseLeave(int event) override;
@@ -94,7 +94,7 @@ public:
 // VTABLE: WIZ8 0x005eeb4c
 class W8MainGameTextEntry : public W8TextControl {
 public:
-    W8MainGameTextEntry(Controls* panel, int index);
+    explicit W8MainGameTextEntry(int index);
     virtual void Redraw(bool full_redraw) override;
     virtual void OnMouseEnter(int event) override;
     virtual void OnLeftButtonDown(int event) override;
@@ -218,7 +218,7 @@ public:
 // VTABLE: WIZ8 0x005ee92c
 class W8NpcDialogueScrollWidget : public W8Widget {
 public:
-    W8NpcDialogueScrollWidget(Controls* panel, unsigned int region, int left, int top, int right,
+    W8NpcDialogueScrollWidget(unsigned int region, int left, int top, int right,
                               int bottom);
 
     virtual void OnMouseEnter(int event) override;
@@ -242,8 +242,8 @@ public:
 // VTABLE: WIZ8 0x005eea60
 class W8LockTumbler : public W8Widget {
 public:
-    W8LockTumbler(Controls* panel, int left, int top, int right, int bottom, int pin_index)
-        : W8Widget(panel, 0xffffffff, left, top, right, bottom), m_pin_set(0), m_rising(0),
+    W8LockTumbler(int left, int top, int right, int bottom, int pin_index)
+        : W8Widget(0xffffffff, left, top, right, bottom), m_pin_set(0), m_rising(0),
           m_falling(0), m_at_top(0), m_hovered(0), m_pin_index(pin_index), m_pin_height(0x22),
           m_listener(0)
     {

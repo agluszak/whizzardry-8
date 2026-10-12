@@ -291,22 +291,22 @@ W8JournalPanel::W8JournalPanel()
     m_bounds.right = m_bounds.left + static_cast<unsigned short>(width);
     m_bounds.bottom = m_bounds.top + static_cast<unsigned short>(height);
 
-    m_previous = new W8TextControl(this, 0xffffffff, 3, 3, 0, 0, CatalogArtwork::Load(0xf4, 0), 0, 2, 1, -1, 3);
+    m_previous = EmplaceControl<W8TextControl>(*this, 0xffffffff, 3, 3, 0, 0, CatalogArtwork::Load(0xf4, 0), 0, 2, 1, -1, 3);
     m_previous->m_listener = this;
 
-    m_next = new W8TextControl(this, 0xffffffff, 0x11f, 3, 0, 0, CatalogArtwork::Load(0xf4, 0), 4, 6, 5, -1, 7);
+    m_next = EmplaceControl<W8TextControl>(*this, 0xffffffff, 0x11f, 3, 0, 0, CatalogArtwork::Load(0xf4, 0), 4, 6, 5, -1, 7);
     m_next->m_listener = this;
 
     W8ControlsRect bounds = {m_bounds.left, m_bounds.top, m_bounds.right, m_bounds.bottom};
     m_page_text = new W8TextBuffer(&bounds, "", g_options_detail_font,
                                    g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
 
-    m_mode = new W8TextControl(this, 0xffffffff, 0x1b0, -2, 0, 0, CatalogArtwork::Load(0x1bb, 0), 0, 2, 1, 2, 3);
+    m_mode = EmplaceControl<W8TextControl>(*this, 0xffffffff, 0x1b0, -2, 0, 0, CatalogArtwork::Load(0x1bb, 0), 0, 2, 1, 2, 3);
     m_mode->AddLayoutFlags(g_W8TextControlLayoutToggle);
     m_mode->m_listener = this;
 
     m_close =
-        new W8TextControl(this, 0xffffffff, 0x1ea, -2, 0, 0, CatalogArtwork::Load(0x106, 0), 0x10, -1, 0x11, 0x12, 0x13);
+        EmplaceControl<W8TextControl>(*this, 0xffffffff, 0x1ea, -2, 0, 0, CatalogArtwork::Load(0x106, 0), 0x10, -1, 0x11, 0x12, 0x13);
     m_close->m_listener = this;
     m_close->EnableRegionHelp(0x6ed);
     SetEnabled(true);

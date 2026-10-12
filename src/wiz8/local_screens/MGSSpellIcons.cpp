@@ -89,7 +89,7 @@ unsigned char CreateSpellIconHudControls(void)
 static void DestroyEffectIconRows(const std::unique_ptr<Controls>& panel, W8TextControl** rows, const unsigned int& count)
 {
     for (unsigned int index = 0; index < count; ++index) {
-        auto row = panel->TakeControl(rows[index]);
+        panel->RemoveControl(rows[index]);
         rows[index] = nullptr;
     }
 }
@@ -156,7 +156,7 @@ void RebuildSpellIconHudRows(void)
             if (icon == -1) {
                 ReportAssertion("iSpellIcon != BAD_INDEX", MGSSPELLICONS_CPP, 0x108);
             }
-            control = new W8TextControl(g_spell_icon_strip.get(), g_main_effect_regions->index(8 - g_spell_icon_count),
+            control = g_spell_icon_strip->EmplaceControl<W8TextControl>(*g_spell_icon_strip, g_main_effect_regions->index(8 - g_spell_icon_count),
                                         left, 0, right, 0x12, CatalogArtwork::Load(icon, 0), 0, -1,
                                         -1, -1, -1);
             g_spell_icon_rows[g_spell_icon_count] = control;
@@ -220,7 +220,7 @@ static void RebuildCombatEffectHudRows(void)
                 ReportAssertion("iSpellIcon != BAD_INDEX", MGSSPELLICONS_CPP, 0x228);
             }
             control =
-                new W8TextControl(g_combat_effect_left_panel.get(),
+                g_combat_effect_left_panel->EmplaceControl<W8TextControl>(*g_combat_effect_left_panel,
                                   g_main_effect_regions->index(9 + g_combat_effect_left_count), left,
                                   0, right, 0x14, CatalogArtwork::Load(icon, 0), 0, -1, -1, -1,
                                   -1);
@@ -244,8 +244,7 @@ static void RebuildCombatEffectHudRows(void)
                 ReportAssertion("iSpellIcon != BAD_INDEX", MGSSPELLICONS_CPP, 0x25e);
             }
             control =
-                new W8TextControl(
-                    g_combat_effect_right_panel.get(),
+                g_combat_effect_right_panel->EmplaceControl<W8TextControl>(*g_combat_effect_right_panel,
                     g_main_effect_regions->index(23 - g_combat_effect_right_count), left, 0, right,
                     0x14, CatalogArtwork::Load(icon, 0), 0, -1, -1, -1, -1);
             g_combat_effect_right_rows[g_combat_effect_right_count] = control;
