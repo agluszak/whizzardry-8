@@ -93,12 +93,11 @@ bool W8CharacterSummaryDialog::CreateQuoteText()
                                    g_character_summary_quote_bounds[index].right + m_x,
                                    g_character_summary_quote_bounds[index].bottom + m_y};
         W8Character* character = m_use_original_character ? m_character : g_status.buffers.Char;
-        W8CharacterEvent* event = new W8CharacterEvent(
-            character, g_effect0, 0, g_character_event_no_flags, g_character_event_full_volume);
+        W8CharacterEvent event(character, g_effect0, 0, g_character_event_no_flags,
+                               g_character_event_full_volume);
         *buffers[index] =
-            new W8TextBuffer(&absolute, event->GetQuoteText(), g_wiz_text_font_secondary,
+            new W8TextBuffer(&absolute, event.GetQuoteText(), g_wiz_text_font_secondary,
                              g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
-        delete event;
         if (*buffers[index] == 0) {
             delete m_quote_text;
             m_quote_text = 0;

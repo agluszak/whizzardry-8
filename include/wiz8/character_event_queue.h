@@ -2,15 +2,15 @@
 #ifndef WIZ8_CHARACTER_EVENT_QUEUE_H
 #define WIZ8_CHARACTER_EVENT_QUEUE_H
 
-#include "wiz8/containers.h"
 #include "wiz8/audio_resources.h"
 #include "timer.h"
 
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/integer_constants.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
+#include <array>
+#include <memory>
 #include <vector>
-#include <algorithm>
 
 struct W8Character;
 
@@ -99,13 +99,12 @@ struct W8CharacterEvent {
    asserts that file's name before it and 0x52FE80 is placed after it, so the
    bodies live in Health Stamina Mana.cpp. */
 struct W8CharacterEventQueue {
-    /* 0x00/0x20: no retail code path ever enqueues into these; they are still
-       drained and scanned alongside the live vectors. */
-    std::vector<W8CharacterEvent*> vector0;
-    std::vector<W8CharacterEvent*> pending_events;
-    std::vector<W8CharacterEvent*> vector1;
-    std::vector<W8CharacterEvent*> npc_deferred_events;
-    std::vector<W8CharacterEvent*> active_events;
+    /* The queue owns every event it accepts: pending and NPC-deferred entries
+       until they dispatch or are dropped, dispatched ones until they
+       complete. */
+    std::vector<std::unique_ptr<W8CharacterEvent>> pending_events;
+    std::vector<std::unique_ptr<W8CharacterEvent>> npc_deferred_events;
+    std::vector<std::unique_ptr<W8CharacterEvent>> active_events;
     int active_event_type;
     int active_party_slot;
     /* 0x58: a five-second countdown armed by every successful Dispatch; while
@@ -117,12 +116,17 @@ struct W8CharacterEventQueue {
     /* 0x64: the party slot that spoke the last follow-up event; the response
        pick excludes it. */
     int follow_up_speaker_slot;
-    unsigned char* event_character_masks;
+    /* One party-slot bit mask per (remapped) event type. */
+    std::array<unsigned char, 0xb1> event_character_masks{};
 
     W8CharacterEventQueue();
     ~W8CharacterEventQueue();
+    W8CharacterEventQueue(const W8CharacterEventQueue&) = delete;
+    W8CharacterEventQueue& operator=(const W8CharacterEventQueue&) = delete;
     void DestroyAllEvents();
-    int QueueEntry(W8CharacterEvent* entry);
+    /* Takes ownership of `entry`. Returns the event while the queue still
+       holds it, so the caller may adjust it, or null when it was dropped. */
+    W8CharacterEvent* QueueEntry(std::unique_ptr<W8CharacterEvent> entry);
     /* Descriptive name for the successful-dispatch bookkeeping operation. */
     void RecordDispatchedEvent(unsigned int event_type, unsigned int party_slot);
     void SetEventCharacterMask(unsigned int event_type, unsigned int party_slot, bool enabled);
@@ -131,20 +135,13 @@ struct W8CharacterEventQueue {
     unsigned char TryAdjustQueuedEvent(W8CharacterEvent* entry);              /* 0x0052DC80 */
     bool IsMainQueueEmpty() const;                                            /* 0x0052E470 */
     /* Unlink an active event, restart the follow-up clock for it, complete it
-       and delete it. Retail expands this body in the dispatch helpers as well
+       and release it. Retail expands this body in the dispatch helpers as well
        as retaining the emission. */
-    // FUNCTION: WIZ8 0x0052D8D0
-    void CompleteActiveEvent(W8CharacterEvent* entry)
-    {
-        wiz8::erase_first(active_events, entry);
-        RestartFollowUpClock(entry);
-        entry->Complete();
-        delete entry;
-    }
+    void CompleteActiveEvent(W8CharacterEvent* entry); /* 0x0052D8D0 */
     void CompleteFirstActiveEvent();
     void RestartFollowUpClock(W8CharacterEvent* entry);
     /* Removes every queued event belonging to a character; active ones are
-       completed, the rest deleted. Runs when a character dies. */
+       completed first. Runs when a character dies. */
     void RemoveCharacterEvents(W8Character* character); /* 0x0052D970 */
     void CompleteAllActiveEvents();                     /* 0x0052DB30 */
     bool HasActiveEvents();                             /* 0x0052E460 */
