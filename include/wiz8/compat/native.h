@@ -22,13 +22,12 @@
 #include <io.h>
 #include <direct.h>
 #endif
-#ifdef __cplusplus
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <string>
-#endif
 
 #ifndef _WIN32
 #define __cdecl
@@ -59,23 +58,15 @@
 #define __min(a, b) (((a) < (b)) ? (a) : (b))
 #define __max(a, b) (((a) > (b)) ? (a) : (b))
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /* The game's one monotonic clock; runtime tests can substitute a virtual one. */
-uint64_t w8_clock_us(void);
+std::uint64_t w8_clock_us(void);
 /* Milliseconds on the same clock, 64-bit so deadlines never wrap. */
-uint64_t w8_get_ticks(void);
+std::uint64_t w8_get_ticks(void);
 
 /* Narrow CRT spelling extensions. */
 char* w8_strupr(char* text);
 char* w8_strlwr(char* text);
 void w8_splitpath(const char* path, char* drive, char* directory, char* name, char* extension);
-
-#ifdef __cplusplus
-}
-#endif
 
 
 #define _strupr w8_strupr

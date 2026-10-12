@@ -1,14 +1,15 @@
 #pragma once
-#include <stddef.h>
-#include <stdbool.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-// libjpeg validates all scans and reports corrupt/truncated data as warnings.
-// Kept in C so its setjmp error boundary cannot skip C++ destructors.
-bool srValidateJpeg(const unsigned char* data, size_t size,
-                    unsigned* width, unsigned* height, unsigned* components);
-#ifdef __cplusplus
-}
-#endif
+#include <cstdint>
+#include <optional>
+#include <span>
+
+struct srJpegInfo {
+    std::uint32_t width;
+    std::uint32_t height;
+    std::uint32_t components;
+};
+
+/* Run libjpeg over every scan without decoding pixels. Corrupt or truncated
+   data, which libjpeg reports as warnings, rejects the image. */
+std::optional<srJpegInfo> srValidateJpeg(std::span<const std::uint8_t> data);

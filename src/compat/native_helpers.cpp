@@ -6,8 +6,6 @@
 #include "wiz8/compat/native.h"
 #include "wiz8/runtime_test_hooks.h"
 
-extern "C" {
-
 std::uint64_t w8_clock_us(void)
 {
     WIZ8_TEST_HOOK(if (g_runtime_test_hooks.virtual_clock) return g_runtime_test_hooks.clock_us;)
@@ -70,4 +68,3 @@ void w8_splitpath(const char* path, char* drive, char* directory, char* name, ch
     }
 }
 
-} // extern "C"

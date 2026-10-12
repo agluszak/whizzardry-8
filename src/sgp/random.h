@@ -7,10 +7,6 @@
 #include <stdlib.h>
 #include <time.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 extern void InitializeRandom(void);
 extern std::uint32_t Random(std::uint32_t uiRange);
 
@@ -31,10 +27,6 @@ extern bool PreChance(std::uint32_t uiChance);
 #define MAX_PREGENERATED_NUMS 256
 extern std::uint32_t guiPreRandomIndex;
 extern std::uint32_t guiPreRandomNums[MAX_PREGENERATED_NUMS];
-#endif
-
-#ifdef __cplusplus
-}
 #endif
 
 #endif

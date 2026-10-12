@@ -46,11 +46,6 @@ bool copyRows(const SDL_Surface& source, srColorSurfaceIFace& destination,
 } // namespace srImage
 
 namespace {
-struct JpegHeader {
-    std::uint32_t width = 0;
-    std::uint32_t height = 0;
-    std::uint32_t components = 0;
-};
 
 std::unique_ptr<srColorSurface> loadJpeg(SDL_IOStream* io)
 {
@@ -59,12 +54,13 @@ std::unique_ptr<srColorSurface> loadJpeg(SDL_IOStream* io)
         return nullptr;
     size_t size = 0;
     std::unique_ptr<void, decltype(&SDL_free)> bytes(SDL_LoadFile_IO(io, &size, false), SDL_free);
-    JpegHeader header;
-    if (!bytes || size > 256 * 1024 * 1024 ||
-        SDL_GetIOStatus(io) == SDL_IO_STATUS_ERROR ||
-        !srValidateJpeg(static_cast<const std::uint8_t*>(bytes.get()), size,
-                        &header.width, &header.height, &header.components))
+    if (!bytes || size > 256 * 1024 * 1024 || SDL_GetIOStatus(io) == SDL_IO_STATUS_ERROR)
         return nullptr;
+    const auto valid =
+        srValidateJpeg(std::span(static_cast<const std::uint8_t*>(bytes.get()), size));
+    if (!valid)
+        return nullptr;
+    const srJpegInfo header = *valid;
     auto source = srIO::own(SDL_IOFromConstMem(bytes.get(), size));
     srImage::Surface decoded(IMG_LoadJPG_IO(source.get()), SDL_DestroySurface);
     if (!decoded || decoded->w != std::int32_t(header.width) || decoded->h != std::int32_t(header.height))

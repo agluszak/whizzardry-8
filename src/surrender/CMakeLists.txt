@@ -13,7 +13,7 @@ set(SURRENDER_SOURCES
     gerd_filters.cpp
     huffman.cpp
     illuminator.cpp
-    jpeg_validate.c
+    jpeg_validate.cpp
     image_io.cpp
     image_tga.cpp
     light.cpp
