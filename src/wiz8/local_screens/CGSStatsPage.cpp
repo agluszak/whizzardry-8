@@ -303,9 +303,9 @@ void W8CharacterStatsRow::BuildSubpanel()
                 top = index * 0x16 + 2;
                 height = 0x16;
             }
-            m_subpanel_entries[index] = m_subpanel->EmplaceControl<W8CharacterStatsRecordControl>(*m_subpanel, top, height,
-                                                                          &m_table[index], variant);
-            auto* control = m_subpanel_entries[index];
+            auto* control = m_subpanel->EmplaceControl<W8CharacterStatsRecordControl>(
+                *m_subpanel, top, height, &m_table[index], variant);
+            m_subpanel_entries[index] = control;
             control->UpdateTextBounds(0x19, control->m_text_offset + top, 0x7e,
                                       control->m_text_offset + top + 0x16);
             control->m_listener = this;
