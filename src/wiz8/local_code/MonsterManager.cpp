@@ -1051,6 +1051,14 @@ bool AnyMonsterDying(void)
     return false;
 }
 
+/* The group registries still store non-owning pointer slots. Dispose any
+   groups left after normal member removal, including encounter-only groups. */
+static void ClearRemainingMonsterGroups()
+{
+    wiz8::clear_and_dispose(gXStatus.monster_groups, [](W8MonsterGroup* group) { delete group; });
+    wiz8::clear_and_dispose(gXStatus.encounter_groups, [](W8MonsterGroup* group) { delete group; });
+}
+
 /* Reset the two generated runtime IDs and the live manager counts, then create
    or clear the four lists owned by gXStatus. The final two success checks are
    deliberately asymmetric: retail rechecks plsMonsterList after initializing
@@ -1067,9 +1075,8 @@ bool InitializeMonsterManagerState(void)
         g_level_block->highlighted_item = -1;
     }
     gXStatus.monsters.clear();
-    gXStatus.monster_groups.clear();
+    ClearRemainingMonsterGroups();
     gXStatus.unborn_monsters.clear();
-    gXStatus.encounter_groups.clear();
     return true;
 }
 
@@ -1086,9 +1093,8 @@ unsigned char ShutdownMonsterManager(void)
         }
     }
     gXStatus.monsters.clear();
-    gXStatus.monster_groups.clear();
+    ClearRemainingMonsterGroups();
     gXStatus.unborn_monsters.clear();
-    gXStatus.encounter_groups.clear();
     // Direct member access retains the packed cache's alignment information.
     for (int index = 0; index < MAX_MONSTERS_IN_DATABASE; ++index) {
         if (gXStatus.monster_record_cache[index] != 0) {
