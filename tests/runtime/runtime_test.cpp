@@ -162,7 +162,7 @@ bool RegionLive(unsigned region)
 int LiveRegionAt(int x, int y)
 {
     for (unsigned region = 1; region < g_regions.size(); ++region)
-        if (RegionLive(region) && RegionContainsPoint(region, x, y))
+        if (RegionLive(region) && g_regions[region].ContainsPoint(x, y))
             return int(region);
     return -1;
 }
@@ -186,7 +186,7 @@ int MainMenuRegion(short item)
     if (item < 0 || static_cast<std::size_t>(item) >= centers.size()) return -1;
     const auto point = centers[item];
     for (unsigned region = 1; region < g_regions.size(); ++region)
-        if (RegionLive(region) && RegionContainsPoint(region, point.x, point.y))
+        if (RegionLive(region) && g_regions[region].ContainsPoint(point.x, point.y))
             return static_cast<int>(region);
     return -1;
 }

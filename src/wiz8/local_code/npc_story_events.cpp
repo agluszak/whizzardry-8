@@ -157,7 +157,7 @@ void BeginNpcScriptedScene(void)
     for (party_slot = 0; party_slot < 8; ++party_slot) {
         if (g_status.buffers.XChar[party_slot].fOccupied) {
             EnableMainGamePortraitSlot(party_slot);
-            EnableRegionInput(g_main_portrait_edge_regions->index(party_slot));
+            (*g_main_portrait_edge_regions)[party_slot].SetInputEnabled(true);
         }
     }
 }
@@ -188,7 +188,7 @@ void EndScriptedPortraitPick(int party_slot)
     for (slot = 0; slot < 8; ++slot) {
         if (g_status.buffers.XChar[slot].fOccupied) {
             DisableMainGamePortraitSlot(slot);
-            DisableRegionInput(g_main_portrait_edge_regions->index(slot));
+            (*g_main_portrait_edge_regions)[slot].SetInputEnabled(false);
         }
     }
     ClearScriptedSceneActive();
@@ -233,7 +233,7 @@ void EndScriptedPortraitPick(int party_slot)
     for (slot = 0; slot < 8; ++slot) {
         if (g_status.buffers.XChar[slot].fOccupied) {
             EnableMainGamePortraitSlot(slot);
-            EnableRegionInput(g_main_portrait_edge_regions->index(slot));
+            (*g_main_portrait_edge_regions)[slot].SetInputEnabled(true);
         }
     }
 }

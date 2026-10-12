@@ -182,7 +182,7 @@ void InitTextInputMode(Font& font)
         pInputStack = std::move(session);
         for (TEXTINPUTNODE* field = head; field != 0; field = field->next.get()) {
             if (field->fEnabled != 0) {
-                DisableRegionInput(field->region_index);
+                g_regions[field->region_index].SetInputEnabled(false);
                 field->fEnabled = 0;
             }
         }
@@ -282,7 +282,7 @@ void KillTextInputMode(void)
     for (field = gpTextInputHead.get(); field != 0; field = field->next.get()) {
         gpTextInputTail = field;
         if (field->fEnabled == 0) {
-            EnableRegionInput(field->region_index);
+            g_regions[field->region_index].SetInputEnabled(true);
             field->fEnabled = 1;
         }
     }
@@ -356,7 +356,7 @@ char AddTextInputField(int left, int top, int width, int height, int priority, s
     field->region_index = AddRegionToSet(ControlRegionSetIndex(), priority);
     auto& region = g_regions[field->region_index];
     region.text_field = field;
-    SetRegionBounds(field->region_index, static_cast<unsigned short>(left),
+    g_regions[field->region_index].SetBounds(static_cast<unsigned short>(left),
                     static_cast<unsigned short>(top), static_cast<unsigned short>(left + width),
                     static_cast<unsigned short>(top + height));
     SetRegionCallback(field->region_index, TextFieldRegionEvent, field->ubID);

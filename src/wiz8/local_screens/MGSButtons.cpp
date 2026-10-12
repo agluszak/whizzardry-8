@@ -1300,12 +1300,12 @@ void EnableSubMenuRegions(void)
     int index;
 
     g_main_submenu_regions.Enable();
-    EnableRegionInput(g_main_submenu_regions->index(5));
+    (*g_main_submenu_regions)[5].SetInputEnabled(true);
     for (index = 0; index < g_submenu_entry_count; ++index) {
-        EnableRegionInput(g_main_submenu_regions->index(index));
+        (*g_main_submenu_regions)[index].SetInputEnabled(true);
     }
     for (index = g_submenu_entry_count; index < 5; ++index) {
-        DisableRegionInput(g_main_submenu_regions->index(index));
+        (*g_main_submenu_regions)[index].SetInputEnabled(false);
     }
 }
 
@@ -1394,7 +1394,7 @@ unsigned char BuildSubMenuPanel(short notification)
         break;
     }
     gpSubMenuPanel = std::make_unique<Controls>(left, 0x1c3, icon_delta + left, 0x1df, CatalogArtwork::Load(0x7f, 0), base);
-    SetRegionBounds(g_main_submenu_regions->index(5), left, 0x1c3, icon_delta + left, 0x1df);
+    (*g_main_submenu_regions)[5].SetBounds(left, 0x1c3, icon_delta + left, 0x1df);
     for (index = 0; index < built - 1; ++index) {
         entry = g_submenu_entries[index];
         state = g_submenu_entry_states[entry];
@@ -1436,7 +1436,7 @@ unsigned char BuildSubMenuPanel(short notification)
         }
         AssignSubMenuCallback(g_submenu_rows[index], menu, entry);
         g_submenu_rows[index]->m_secondaryActivationCallback = DestroySubMenuControls;
-        SetRegionHelp(g_main_submenu_regions->index(index), true, g_submenu_entry_help_ids[menu * 5 + entry]);
+        (*g_main_submenu_regions)[index].SetHelp(true, g_submenu_entry_help_ids[menu * 5 + entry]);
     }
     g_submenu_rows[built - 1] =
         new W8TextControl(gpSubMenuPanel.get(), g_main_submenu_regions->index(built - 1), built * 19 - 14, 5,
@@ -1447,7 +1447,7 @@ unsigned char BuildSubMenuPanel(short notification)
     }
     g_submenu_rows[built - 1]->m_primaryActivationCallback = DestroySubMenuControls;
     g_submenu_rows[built - 1]->m_secondaryActivationCallback = DestroySubMenuControls;
-    SetRegionHelp(g_main_submenu_regions->index(built - 1), true, 0x11);
+    (*g_main_submenu_regions)[built - 1].SetHelp(true, 0x11);
     g_main_submenu_regions.Enable();
     gpSubMenuPanel->SetEnabled(true);
     g_level_block->combat_end_notification = notification;

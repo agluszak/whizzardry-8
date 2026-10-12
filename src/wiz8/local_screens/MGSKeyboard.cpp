@@ -722,8 +722,8 @@ void OpenKeyboardMenuForSlot(int slot)
     gXStatus.monster_manager_entries[slot].keyboard_menu_open = true;
     DisableMainGamePortraitSlot(slot);
 
-    DisableRegionInput(g_main_portrait_edge_regions->index(slot));
-    DisableRegionInput(g_main_combat_actions->index(slot));
+    (*g_main_portrait_edge_regions)[slot].SetInputEnabled(false);
+    (*g_main_combat_actions)[slot].SetInputEnabled(false);
     EnableKeyboardMenuInput();
     RequestRedraw(1 << slot);
 }
@@ -745,7 +745,7 @@ void CloseKeyboardMenu(void)
     }
     g_keyboard_menu_regions.Disable();
     if (g_keyboard_menu_regions) {
-        DisableRegionSetInput(g_keyboard_menu_regions->set());
+        g_keyboard_menu_regions->DisableInput();
     }
     if (g_level_block->portrait_refresh_pending[g_selected_party_slot] == 0) {
         ClearSurfaceRect(g_keyboard_menu_panel->m_bounds.left, g_keyboard_menu_panel->m_bounds.top,
@@ -781,7 +781,7 @@ unsigned char BuildKeyboardMenu(void)
     if (!g_keyboard_menu_panel) {
         return 0;
     }
-    SetRegionBounds(g_keyboard_menu_regions->index(13), left, top, left + 0x52, top + 0x4a);
+    (*g_keyboard_menu_regions)[13].SetBounds(left, top, left + 0x52, top + 0x4a);
     row = 0;
     for (menu = 0; menu < 4; ++menu) {
         for (item = 0; item < 5; ++item) {
@@ -805,7 +805,7 @@ unsigned char BuildKeyboardMenu(void)
             control->m_secondaryActivationCallback = CloseKeyboardMenu;
             g_keyboard_menu_pages[row] = menu;
             g_keyboard_menu_items[row] = item;
-            SetRegionHelp(g_keyboard_menu_regions->index(row), true,
+            (*g_keyboard_menu_regions)[row].SetHelp(true,
                           g_submenu_entry_help_ids[menu * 5 + item]);
             ++row;
         }
@@ -817,7 +817,7 @@ unsigned char BuildKeyboardMenu(void)
         0xbf, -1);
     g_keyboard_menu_rows[row]->m_primaryActivationCallback = CloseKeyboardMenu;
     g_keyboard_menu_rows[row]->m_secondaryActivationCallback = CloseKeyboardMenu;
-    SetRegionHelp(g_keyboard_menu_regions->index(row), true, 0x11);
+    (*g_keyboard_menu_regions)[row].SetHelp(true, 0x11);
     g_keyboard_menu_panel->SetEnabled(true);
     RefreshKeyboardMenuRows();
     return 1;
@@ -829,9 +829,9 @@ void EnableKeyboardMenuInput(void)
     int index;
 
     g_keyboard_menu_regions.Enable();
-    EnableRegionInput(g_keyboard_menu_regions->index(13));
+    (*g_keyboard_menu_regions)[13].SetInputEnabled(true);
     for (index = 0; index < 13; ++index) {
-        EnableRegionInput(g_keyboard_menu_regions->index(index));
+        (*g_keyboard_menu_regions)[index].SetInputEnabled(true);
     }
 }
 

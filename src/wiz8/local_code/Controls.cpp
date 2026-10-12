@@ -161,9 +161,9 @@ void Controls::EnableRegionSet(bool enable)
 {
     if (m_regionSet == 0) return;
     if (enable) {
-        RegionSetEnable(m_regionSet);
+        g_region_sets[m_regionSet].enabled = 1;
     } else {
-        RegionSetDisable(m_regionSet);
+        g_region_sets[m_regionSet].enabled = 0;
     }
 }
 
@@ -181,8 +181,8 @@ void W8Widget::SetActive(bool active)
 {
     m_active = active;
     if (OwnsRegion()) {
-        if (active) EnableRegionInput(m_region);
-        else DisableRegionInput(m_region);
+        if (active) g_regions[m_region].SetInputEnabled(true);
+        else g_regions[m_region].SetInputEnabled(false);
     }
 }
 
@@ -205,8 +205,7 @@ W8Widget::~W8Widget()
 void W8Widget::UpdateRegionBounds(int left, int top, int right, int bottom)
 {
     if (!OwnsRegion() || !m_pPanel) return;
-    SetRegionBounds(m_region,
-                    static_cast<unsigned short>(static_cast<short>(left) +
+    g_regions[m_region].SetBounds(static_cast<unsigned short>(static_cast<short>(left) +
                                                 static_cast<short>(m_pPanel->m_bounds.left)),
                     static_cast<unsigned short>(static_cast<short>(top) +
                                                 static_cast<short>(m_pPanel->m_bounds.top)),
@@ -965,8 +964,8 @@ void W8TextControl::SetBounds(int left, int top, int right, int bottom)
 // FUNCTION: WIZ8 0x004f4600
 void W8TextControl::SetFlaggedRegionBounds(int left, int top, int right)
 {
-    if (m_region != -1 && m_pPanel != 0 && RegionHasFlags(m_region, 2)) {
-        SetRegionBounds(m_region, m_pPanel->m_bounds.left + left, m_pPanel->m_bounds.top + top,
+    if (m_region != -1 && m_pPanel != 0 && (g_regions[m_region].flags & 2) != 0) {
+        g_regions[m_region].SetBounds(m_pPanel->m_bounds.left + left, m_pPanel->m_bounds.top + top,
                         right, 0);
     }
 }
@@ -1687,11 +1686,11 @@ void W8HelpTextControl::OnMouseEnter(int event)
     W8TextControl::OnMouseEnter(event);
     if (m_regionHelp.size() > 1 && m_region != -1) {
         ::SetRegionHelpText(m_regionHelp);
-        ::EnableRegionHelp(m_region);
+        g_regions[m_region].help_enabled = true;
         return;
     }
     if (m_region != -1) {
-        ::DisableRegionHelp(m_region);
+        g_regions[m_region].help_enabled = false;
     }
 }
 
@@ -2063,7 +2062,7 @@ void Controls::CreateRegionSet()
 void W8Widget::EnableRegionHelp(int help_text_id)
 {
     if (OwnsRegion()) {
-        SetRegionHelp(m_region, true, help_text_id);
+        g_regions[m_region].SetHelp(true, help_text_id);
     }
 }
 
@@ -2071,7 +2070,7 @@ void W8Widget::EnableRegionHelp(int help_text_id)
 void W8Widget::DisableRegionHelp()
 {
     if (OwnsRegion()) {
-        SetRegionHelp(m_region, false, -1);
+        g_regions[m_region].SetHelp(false, -1);
     }
 }
 

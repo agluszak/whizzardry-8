@@ -681,7 +681,7 @@ void CreateCampSkillRegions(void)
         } else {
             y += 0xa5;
         }
-        SetRegionBounds(g_camp_skill_regions->index(category), x, y, x + 0x6d,
+        (*g_camp_skill_regions)[category].SetBounds(x, y, x + 0x6d,
                         g_camp_skill_category_rows[category] * 0xe + y);
     }
     g_camp_skill_regions.Enable();

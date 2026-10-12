@@ -58,6 +58,7 @@ struct W8RegionSet {
     std::uint64_t sequence = 0;
     std::span<const unsigned int> Regions() const { return {region_ids.data(), active_count}; }
     void Reset() { active_count = 0; }
+    void SetInputEnabled(bool enabled) const;
     unsigned int AddRegion(int priority = 0);
     void AttachRegion(unsigned int region_index);
     bool RemoveRegion(unsigned int region_index);
@@ -118,6 +119,25 @@ struct W8Region {
         }
         return false;
     }
+
+    void SetBounds(int left, int top, int right, int bottom)
+    {
+        x1 = static_cast<short>(left);
+        y1 = static_cast<short>(top);
+        x2 = static_cast<short>(right);
+        y2 = static_cast<short>(bottom);
+    }
+    void SetInputEnabled(bool enabled)
+    {
+        flags = (flags & ~W8_REGION_INPUT_MODE_MASK) | (enabled ? 0u : W8_REGION_INPUT_DISABLED);
+    }
+    bool InputEnabled() const { return (flags & W8_REGION_INPUT_DISABLED) == 0; }
+    void SetHelp(bool enabled, int text_id)
+    {
+        help_enabled = enabled;
+        help_text_id = text_id;
+    }
+    bool ContainsPoint(int x, int y) const;
 
     unsigned int flags;
     short x1;
@@ -223,6 +243,8 @@ public:
     unsigned int set() const { return set_; }
     void Enable();
     void Disable();
+    void EnableInput();
+    void DisableInput();
     bool IsEnabled() const;
 
 private:
@@ -275,16 +297,6 @@ void ReleaseDefaultHelpText(void);
 unsigned int UpdateRegionMousePosition(int x, int y);
 SDL_Point GetRegionMousePosition();
 unsigned int FindRegionAtPoint(unsigned short x, unsigned short y);
-void RegionSetEnable(unsigned int region_set_index);
-void RegionSetDisable(unsigned int region_set_index);
-void EnableRegionSetInput(unsigned int region_set_index);
-void DisableRegionSetInput(unsigned int region_set_index);
-void EnableRegionInput(unsigned int region_index);
-void DisableRegionInput(unsigned int region_index);
-void SetRegionBounds(unsigned int region_index, unsigned short x1, unsigned short y1,
-                     unsigned short x2, unsigned short y2);
-bool RegionContainsPoint(unsigned int region_index, unsigned short x, unsigned short y);
-bool RegionHasFlags(unsigned int region_index, unsigned int flags);
 unsigned int CreateRegionSet(int order = kDynamicRegionSetOrder);
 void DestroyRegionSet(unsigned int region_set_index);
 void ResetRegionSet(unsigned int region_set_index);
@@ -292,7 +304,6 @@ unsigned int AddRegionToSet(unsigned int region_set_index, int priority = 0);
 void RemoveRegionFromSet(unsigned int region_set_index, unsigned int region_index);
 void SetRegionCallback(unsigned int region_index, W8RegionCallback callback,
                        unsigned short callback_id);
-void SetRegionHelp(unsigned int region_index, bool enabled, int help_text_id);
 void ClearHotRegion(void);
 void UpdateRegionHelp(void);
 void ShowRegionHelp(unsigned int region_index);
@@ -308,8 +319,6 @@ void ReleaseInputSinkCapture(void);
 bool InputSinkCaptured(void);
 void UnbindWidgetRegion(unsigned int region_index, W8Widget* widget, OwnedRegion* owner);
 std::int32_t RegionReasonForInput(const W8Region& region, const InputEvent& input);
-void EnableRegionHelp(unsigned int region_index);
-void DisableRegionHelp(unsigned int region_index);
 unsigned char ClearActiveRegionIfMatches(unsigned int region_index);
 void ActivateDialogRegion(unsigned int region_index); /* 0x004F2040 */
 /* 0x004F1910 returns the byte produced by the selected region callback. */

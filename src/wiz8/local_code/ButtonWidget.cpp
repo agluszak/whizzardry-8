@@ -82,7 +82,7 @@ void W8ButtonWidget::ApplyRegionBounds()
     m_right = bounds.x + bounds.w;
     m_bottom = bounds.y + bounds.h;
     if (!OwnsRegion()) return;
-    SetRegionBounds(static_cast<unsigned int>(m_region), static_cast<unsigned short>(m_left),
+    Region().SetBounds(static_cast<unsigned short>(m_left),
                     static_cast<unsigned short>(m_top), static_cast<unsigned short>(m_right),
                     static_cast<unsigned short>(m_bottom));
 }
@@ -117,9 +117,9 @@ void W8ButtonWidget::SetVisible(bool visible)
     if (visible == currently_visible) return;
     m_active = visible;
     if (visible) {
-        EnableRegionInput(static_cast<unsigned int>(m_region));
+        Region().SetInputEnabled(true);
     } else {
-        DisableRegionInput(static_cast<unsigned int>(m_region));
+        Region().SetInputEnabled(false);
         m_armed_buttons = m_repeated_buttons = 0;
         if (!m_left_toggles && !m_right_toggles) m_visual.pressed = false;
     }
@@ -135,7 +135,7 @@ void W8ButtonWidget::SetTooltipEnabled(bool enabled)
     const bool show_tooltip =
         enabled && m_tooltip_index != W8_DIALOG_BUTTON_NO_TOOLTIP && g_settings.tooltips_enabled;
     Region().help_text = show_tooltip ? g_localized_strings[m_tooltip_index] : std::string{};
-    SetRegionHelp(static_cast<unsigned int>(m_region), show_tooltip,
+    Region().SetHelp(show_tooltip,
                   show_tooltip ? m_tooltip_index : W8_DIALOG_BUTTON_NO_TOOLTIP);
 }
 

@@ -267,8 +267,8 @@ static void CreateSpellCastingViewControls(void)
         for (index = 0; index < W8_PARTY_SLOT_COUNT; ++index) {
             if (g_main_portrait_slot_views[index]) {
                 g_main_portrait_slot_views[index]->Disable();
-                DisableRegionSetInput(g_main_portrait_slot_views[index]->set());
-                DisableRegionInput(g_main_portrait_edge_regions->index(index));
+                g_main_portrait_slot_views[index]->DisableInput();
+                (*g_main_portrait_edge_regions)[index].SetInputEnabled(false);
             }
         }
     }

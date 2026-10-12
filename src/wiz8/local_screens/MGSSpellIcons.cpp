@@ -104,7 +104,7 @@ static void ClearSpellIconHudRows()
        leave path that has already destroyed them. */
     if (g_main_effect_regions) {
         for (index = 0; index < kPartyEffectIconCount; ++index) {
-            DisableRegionInput(g_main_effect_regions->index(kPartyEffectIconCount - 1 - index));
+            (*g_main_effect_regions)[kPartyEffectIconCount - 1 - index].SetInputEnabled(false);
         }
     }
     g_spell_icon_count = 0;
@@ -161,7 +161,7 @@ void RebuildSpellIconHudRows(void)
                                         -1, -1, -1);
             g_spell_icon_rows[g_spell_icon_count] = control;
             control->Invalidate(false);
-            EnableRegionInput(g_main_effect_regions->index(8 - g_spell_icon_count));
+            (*g_main_effect_regions)[8 - g_spell_icon_count].SetInputEnabled(true);
             ++g_spell_icon_count;
             right = left - 1;
             left -= 0x13;
@@ -226,7 +226,7 @@ static void RebuildCombatEffectHudRows(void)
                                   -1);
             g_combat_effect_left_rows[g_combat_effect_left_count] = control;
             control->Invalidate(false);
-            EnableRegionInput(g_main_effect_regions->index(9 + g_combat_effect_left_count));
+            (*g_main_effect_regions)[9 + g_combat_effect_left_count].SetInputEnabled(true);
             ++g_combat_effect_left_count;
             left = right + 1;
             right += 0x15;
@@ -250,7 +250,7 @@ static void RebuildCombatEffectHudRows(void)
                     0x14, CatalogArtwork::Load(icon, 0), 0, -1, -1, -1, -1);
             g_combat_effect_right_rows[g_combat_effect_right_count] = control;
             control->Invalidate(false);
-            EnableRegionInput(g_main_effect_regions->index(23 - g_combat_effect_right_count));
+            (*g_main_effect_regions)[23 - g_combat_effect_right_count].SetInputEnabled(true);
             ++g_combat_effect_right_count;
             right = left - 1;
             left -= 0x15;
@@ -266,7 +266,7 @@ void DestroyCombatEffectHudRows(void)
                           g_combat_effect_left_count);
     if (g_main_effect_regions) {
         for (index = 0; index < 9; ++index) {
-            DisableRegionInput(g_main_effect_regions->index(9 + index));
+            (*g_main_effect_regions)[9 + index].SetInputEnabled(false);
         }
     }
     g_combat_effect_left_count = 0;
@@ -275,7 +275,7 @@ void DestroyCombatEffectHudRows(void)
                           g_combat_effect_right_count);
     if (g_main_effect_regions) {
         for (index = 0; index < 6; ++index) {
-            DisableRegionInput(g_main_effect_regions->index(23 - index));
+            (*g_main_effect_regions)[23 - index].SetInputEnabled(false);
         }
     }
     g_combat_effect_right_count = 0;

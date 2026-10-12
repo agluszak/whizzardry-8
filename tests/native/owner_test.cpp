@@ -253,7 +253,7 @@ void dispatch_mouse(InputEventType event, std::uint16_t x, std::uint16_t y, bool
 unsigned int new_test_region_set()
 {
     const auto set = CreateRegionSet();
-    RegionSetEnable(set);
+    g_region_sets[set].enabled = 1;
     return set;
 }
 
@@ -298,7 +298,7 @@ unsigned int add_test_region(unsigned int set, unsigned short id, int x1, int y1
 {
     const auto index = AddRegionToSet(set, priority);
     g_regions[index].flags = W8_REGION_RECTANGLE;
-    SetRegionBounds(index, static_cast<unsigned short>(x1), static_cast<unsigned short>(y1),
+    g_regions[index].SetBounds(static_cast<unsigned short>(x1), static_cast<unsigned short>(y1),
                     static_cast<unsigned short>(x2), static_cast<unsigned short>(y2));
     SetRegionCallback(index, callback, id);
     return index;
@@ -397,7 +397,7 @@ void owned_region_captures_across_frames()
     TestOwnedRegionHandler handler;
     OwnedRegion region(set, REGION_PRIORITY_NORMAL, handler);
     region.region().flags = W8_REGION_RECTANGLE;
-    SetRegionBounds(region.index(), 10, 10, 30, 30);
+    region.region().SetBounds(10, 10, 30, 30);
     ExclusiveRegionSet scope(set);
 
     dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
@@ -440,7 +440,7 @@ void modal_scope_preserves_capture_across_frames()
     TestOwnedRegionHandler handler;
     OwnedRegion region(button_set, REGION_PRIORITY_NORMAL, handler);
     region.region().flags = W8_REGION_RECTANGLE;
-    SetRegionBounds(region.index(), 10, 10, 30, 30);
+    region.region().SetBounds(10, 10, 30, 30);
 
     std::optional<ExclusiveRegionSet> scope;
     scope.emplace(button_set);
@@ -490,9 +490,9 @@ void reset_regions_preserves_hidden_buttons()
     TestOwnedRegionHandler handler;
     OwnedRegion region(button_set, REGION_PRIORITY_NORMAL, handler);
     region.region().flags = W8_REGION_RECTANGLE;
-    SetRegionBounds(region.index(), 70, 70, 90, 90);
+    region.region().SetBounds(70, 70, 90, 90);
     const auto region_index = region.index();
-    DisableRegionInput(region_index);
+    g_regions[region_index].SetInputEnabled(false);
     REQUIRE((g_regions[region_index].flags & W8_REGION_INPUT_DISABLED) != 0);
 
     ResetRegions();
@@ -511,7 +511,7 @@ void later_region_set_precedes_button_set()
     TestOwnedRegionHandler handler;
     OwnedRegion control(button_set, REGION_PRIORITY_NORMAL, handler);
     control.region().flags = W8_REGION_RECTANGLE;
-    SetRegionBounds(control.index(), 100, 100, 120, 120);
+    control.region().SetBounds(100, 100, 120, 120);
     const auto screen_set = new_test_region_set();
     const auto screen_region =
         add_test_region(screen_set, 7, 100, 100, 120, 120, 0, record_region_event);
@@ -537,7 +537,7 @@ void owned_region_move_and_teardown()
 
     OwnedRegion owned(set, 0, handler);
     owned.region().flags = W8_REGION_RECTANGLE;
-    SetRegionBounds(owned.index(), 10, 10, 30, 30);
+    owned.region().SetBounds(10, 10, 30, 30);
     const auto index = owned.index();
     UpdateRegionMousePosition(15, 15);
     REQUIRE(g_hover_region_index == index);
@@ -891,8 +891,8 @@ void owned_regions_honor_priority()
     OwnedRegion low(set, REGION_PRIORITY_LOW, low_handler);
     OwnedRegion high(set, REGION_PRIORITY_HIGH, high_handler);
     low.region().flags = high.region().flags = W8_REGION_RECTANGLE;
-    SetRegionBounds(low.index(), 0, 0, 40, 40);
-    SetRegionBounds(high.index(), 0, 0, 20, 20);
+    low.region().SetBounds(0, 0, 40, 40);
+    high.region().SetBounds(0, 0, 20, 20);
 
     ExclusiveRegionSet scope(set);
     dispatch_mouse(InputEventType::MouseMove, 10, 10);
@@ -1976,7 +1976,7 @@ TEST_CASE("Message box owns its buttons and isolates modal input", "[owner]")
     const auto screen_set = new_test_region_set();
     OwnedRegion underlying(screen_set, REGION_PRIORITY_NORMAL, screen_handler);
     underlying.region().flags = W8_REGION_RECTANGLE;
-    SetRegionBounds(underlying.index(), 275, 256, 315, 276);
+    underlying.region().SetBounds(275, 256, 315, 276);
     const auto baseline_regions = LiveDynamicRegionCount();
 
     Font font{};
@@ -2008,7 +2008,7 @@ TEST_CASE("Owned regions use SDL click counts", "[owner]")
     TestOwnedRegionHandler handler;
     OwnedRegion region(set, REGION_PRIORITY_NORMAL, handler);
     region.region().flags = W8_REGION_RECTANGLE;
-    SetRegionBounds(region.index(), 0, 0, 40, 40);
+    region.region().SetBounds(0, 0, 40, 40);
     ExclusiveRegionSet scope(set);
     for (const std::uint8_t click_count : {0, 1, 2, 3, 4}) {
         const auto down = mouse_atom(InputEventType::LeftButtonDown, 10, 10, true, false, click_count);
@@ -2073,8 +2073,8 @@ void assertion_message_handler(const char* expression, const char*, w8_long, con
 TEST_CASE("assert-message", "[.death]")
 {
     srAssertSetFunc(assertion_message_handler);
-    SetRegionBounds(static_cast<unsigned int>(g_regions.size()), 0, 0, 1, 1);
-    FAIL("SetRegionBounds did not abort");
+    srAssertFail("handler installed", __FILE__, __LINE__, 0);
+    FAIL("srAssertFail did not abort");
 }
 
 TEST_CASE("Image assets share normalized paths and retain resources across clearing", "[owner][image]")
