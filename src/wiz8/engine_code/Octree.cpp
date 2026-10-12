@@ -3008,34 +3008,16 @@ W8Octree::~W8Octree()
     }
 
     free(m_aulGDObjs);
-    if (m_branches != 0) {
-        free(m_branches);
-    }
-    if (m_leaves != 0) {
-        free(m_leaves);
-    }
-    if (m_polygon_index_stream != 0) {
-        free(m_polygon_index_stream);
-    }
-    if (m_aulPolyLookup != 0) {
-        free(m_aulPolyLookup);
-    }
-    if (m_leaf_lookup != 0) {
-        free(m_leaf_lookup);
-    }
-    if (m_gd_surface_index_stream != 0) {
-        free(m_gd_surface_index_stream);
-    }
-    if (m_region_index_stream != 0) {
-        free(m_region_index_stream);
-    }
-    if (m_trigger_indices != 0) {
-        free(m_trigger_indices);
-    }
+    free(m_branches);
+    free(m_leaves);
+    free(m_polygon_index_stream);
+    free(m_aulPolyLookup);
+    free(m_leaf_lookup);
+    free(m_gd_surface_index_stream);
+    free(m_region_index_stream);
+    free(m_trigger_indices);
 
-    if (m_spatial.m_region_volumes != 0) {
-        free(m_spatial.m_region_volumes);
-    }
+    free(m_spatial.m_region_volumes);
 
     if (m_pRegionLinks != 0) {
         m_pRegionLinks->clear();
@@ -3043,35 +3025,23 @@ W8Octree::~W8Octree()
         m_pRegionLinks = 0;
     }
 
-    if (m_pfRegsVisited != 0) {
-        free(m_pfRegsVisited);
-    }
+    free(m_pfRegsVisited);
 
     m_particle_links = {};
     m_prop_links = {};
-    if (m_papProps != 0) {
-        free(m_papProps);
-    }
-    if (m_papParticles != 0) {
-        free(m_papParticles);
-    }
+    free(m_papProps);
+    free(m_papParticles);
 
     m_point_count = 0;
     if (m_sample_points != 0) {
         delete[] m_sample_points;
     }
-    if (m_owned_0c0 != 0) {
-        free(m_owned_0c0);
-    }
+    free(m_owned_0c0);
 
     delete object_registry;
 
-    if (m_pSubmeshes != 0) {
-        free(m_pSubmeshes);
-    }
-    if (g_octree_storage_ != 0) {
-        free(g_octree_storage_);
-    }
+    free(m_pSubmeshes);
+    free(g_octree_storage_);
     delete pathing;
     pathing = 0;
     if (g_octree_trace_node != 0) {

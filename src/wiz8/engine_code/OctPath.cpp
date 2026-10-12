@@ -5587,6 +5587,34 @@ void W8PathingService::EditTeleportalLink(const srVector3T<float>* destination,
    the pending-'D' direction keys actually change state; the 'G' second key
    computes a bit the retail code drops, and the 'M'/'S' second keys are dead.
    Returns the accepted direction mask, zero on cancel. */
+/* Appends each name whose bit is set in value, in table order. */
+struct FlagName {
+    unsigned int bit;
+    const char* name;
+};
+
+static const FlagName kMovementNames[] = {
+    {W8_NAV_WALK, "Walk "},
+    {W8_NAV_FLY, "Fly "},
+    {W8_NAV_SWIM, "Swim "},
+};
+
+static const FlagName kSizeNames[] = {
+    {W8_NAV_TINY, "Tiny "},
+    {W8_NAV_SMALL, "Small "},
+    {W8_NAV_MEDIUM, "Medium "},
+    {W8_NAV_LARGE, "Large "},
+    {W8_NAV_HUGE, "Huge "},
+};
+
+template<std::size_t Count>
+static void appendFlagNames(char* line, unsigned int value, const FlagName (&names)[Count])
+{
+    for (const auto& entry : names) {
+        if ((value & entry.bit) != 0) strcat(line, entry.name);
+    }
+}
+
 // FUNCTION: WIZ8 0x0045f530
 unsigned int W8PathingService::EditWaypointLinkFlags(const char* title, unsigned int* flags,
                                                      unsigned int direction)
@@ -5654,35 +5682,13 @@ unsigned int W8PathingService::EditWaypointLinkFlags(const char* title, unsigned
         if ((current & W8_NAV_MOVEMENT_MASK) == W8_NAV_MOVEMENT_MASK) {
             strcat(lines[3], "All types              ");
         } else {
-            if ((current & W8_NAV_WALK) != 0) {
-                strcat(lines[3], "Walk ");
-            }
-            if ((current & W8_NAV_FLY) != 0) {
-                strcat(lines[3], "Fly ");
-            }
-            if ((current & W8_NAV_SWIM) != 0) {
-                strcat(lines[3], "Swim ");
-            }
+            appendFlagNames(lines[3], current, kMovementNames);
         }
         sprintf(lines[4], " (S)ize of Monster: ");
         if ((current & W8_NAV_SIZE_FILTER_MASK) == W8_NAV_SIZE_FILTER_MASK) {
             strcat(lines[4], "All sizes");
         } else {
-            if ((current & W8_NAV_TINY) != 0) {
-                strcat(lines[4], "Tiny ");
-            }
-            if ((current & W8_NAV_SMALL) != 0) {
-                strcat(lines[4], "Small ");
-            }
-            if ((current & W8_NAV_MEDIUM) != 0) {
-                strcat(lines[4], "Medium ");
-            }
-            if ((current & W8_NAV_LARGE) != 0) {
-                strcat(lines[4], "Large ");
-            }
-            if ((current & W8_NAV_HUGE) != 0) {
-                strcat(lines[4], "Huge ");
-            }
+            appendFlagNames(lines[4], current, kSizeNames);
         }
         sprintf(lines[5], " (G)roup: ");
         if ((current & W8_NAV_GROUP_MASK) == W8_NAV_GROUP_MASK) {
