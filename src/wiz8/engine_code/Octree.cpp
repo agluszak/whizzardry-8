@@ -2462,9 +2462,7 @@ bool W8Octree::SetPathStem(const char* path)
     if (name_length == 0) {
         return false;
     }
-    if (m_owned_0c0 != 0) {
-        free(m_owned_0c0);
-    }
+    free(m_owned_0c0);
     m_owned_0c0 = static_cast<char*>(malloc(name_length + 1));
     if (m_owned_0c0 == 0) {
         return false;

@@ -75,9 +75,7 @@ GDProp::GDProp(srModelInstance* instance, const char* path_name, unsigned short 
 // FUNCTION: WIZ8 0x004b6ed0
 GDProp::~GDProp()
 {
-    if (m_pGDSurfaces != 0) {
-        free(m_pGDSurfaces);
-    }
+    free(m_pGDSurfaces);
     if (m_pVertices != 0) {
         delete[] m_pVertices;
     }
@@ -99,9 +97,7 @@ void GDProp::PrepareGeometry(srModelInstance* instance)
 
     if (m_surface_count != surface_count) {
         m_surface_count = surface_count;
-        if (m_pGDSurfaces != 0) {
-            free(m_pGDSurfaces);
-        }
+        free(m_pGDSurfaces);
         m_pGDSurfaces = static_cast<W8GDSurface*>(malloc(m_surface_count * sizeof(W8GDSurface)));
         if (m_pGDSurfaces == 0) {
             srAssertFail("m_pGDSurfaces", "C:\\Projects\\Wizardry 8\\Engine Code\\GDProp.cpp", 0xa0,

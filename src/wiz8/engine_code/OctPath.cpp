@@ -3065,18 +3065,10 @@ unsigned int W8PathingService::StepMonsterAlongPath(W8NavigatorMovementState* mo
 // FUNCTION: WIZ8 0x00457b10
 W8PathingService::~W8PathingService()
 {
-    if (file_path_nodes != 0) {
-        free(file_path_nodes);
-    }
-    if (m_waypoints != 0) {
-        free(m_waypoints);
-    }
-    if (m_pEdges != 0) {
-        free(m_pEdges);
-    }
-    if (m_pFileWayPoints != 0) {
-        free(m_pFileWayPoints);
-    }
+    free(file_path_nodes);
+    free(m_waypoints);
+    free(m_pEdges);
+    free(m_pFileWayPoints);
     m_path_visualization.reset();
     delete m_pPathValues;
     delete m_pVisitedCells;
@@ -3087,25 +3079,13 @@ W8PathingService::~W8PathingService()
     if (m_steering_context != 0) {
         delete m_steering_context;
     }
-    if (g_path_scratch != 0) {
-        free(g_path_scratch);
-    }
+    free(g_path_scratch);
     g_path_scratch = 0;
-    if (m_pCondPaths != 0) {
-        free(m_pCondPaths);
-    }
-    if (m_pulCondLookup != 0) {
-        free(m_pulCondLookup);
-    }
-    if (m_pusCondNodeFrames != 0) {
-        free(m_pusCondNodeFrames);
-    }
-    if (m_pulCondNodeKeys != 0) {
-        free(m_pulCondNodeKeys);
-    }
-    if (m_pulCondNodeValues != 0) {
-        free(m_pulCondNodeValues);
-    }
+    free(m_pCondPaths);
+    free(m_pulCondLookup);
+    free(m_pusCondNodeFrames);
+    free(m_pulCondNodeKeys);
+    free(m_pulCondNodeValues);
     g_pathing = 0;
 }
 

@@ -65,9 +65,7 @@ W8CountedOctBuildNode::W8CountedOctBuildNode()
 // FUNCTION: WIZ8 0x004af780
 W8CountedOctBuildNode::~W8CountedOctBuildNode()
 {
-    if (children[1] != 0) {
-        free(children[1]);
-    }
+    free(children[1]);
     if (g_build_node_instances != 0) {
         --g_build_node_instances;
     }
