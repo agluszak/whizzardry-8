@@ -1,7 +1,9 @@
+#include <cstddef>
 #include <mutex>
 
 #include "surrender/srGERD.h"
 #include "surrender/srTextureIFace.h"
+#include "compat/compiler.h"
 
 // Resolves a requested DEFAULT to its concrete choice, then mirrors that choice's entry into the
 // DEFAULT slot of the lookup table.

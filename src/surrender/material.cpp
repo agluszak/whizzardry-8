@@ -1,5 +1,7 @@
 /* D:\srsdk1x\sources\corelib\srMaterial.cpp */
 
+#include <algorithm>
+#include <cstddef>
 #include <ostream>
 
 #include "surrender/srMaterial.h"
