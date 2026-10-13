@@ -1446,19 +1446,21 @@ void srGERD::ortho(double left, double right, double bottom, double top, double 
 // FUNCTION: SURRENDER 0x100223A0
 void srGERD::rotate(double angle, const glm::vec3& axis)
 {
-    const auto& direction = axis;
-    if (glm::dot(direction, direction) == 0) {
+    if (glm::dot(axis, axis) == 0) {
         loadIdentity();
         return;
     }
-    updateCurrentMatrix(
-        [&](const glm::mat4& matrix) { return glm::rotate(matrix, float(angle), direction); });
+    auto& current = state.matrix_current[state.matrix_mode];
+    current = glm::rotate(current, float(angle), axis);
+    setMatrixDirty();
 }
 
 // FUNCTION: SURRENDER 0x10022780
 void srGERD::scale(const glm::vec3& factors)
 {
-    updateCurrentMatrix([&](const glm::mat4& matrix) { return glm::scale(matrix, factors); });
+    auto& current = state.matrix_current[state.matrix_mode];
+    current = glm::scale(current, factors);
+    setMatrixDirty();
 }
 
 // FUNCTION: SURRENDER 0x10022870
@@ -1470,7 +1472,9 @@ void srGERD::scale(double x, double y, double z)
 // FUNCTION: SURRENDER 0x10022960
 void srGERD::translate(const glm::vec3& offset)
 {
-    updateCurrentMatrix([&](const glm::mat4& matrix) { return glm::translate(matrix, offset); });
+    auto& current = state.matrix_current[state.matrix_mode];
+    current = glm::translate(current, offset);
+    setMatrixDirty();
 }
 
 // FUNCTION: SURRENDER 0x10022A20

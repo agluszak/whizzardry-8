@@ -1,3 +1,4 @@
+#include "wiz8/design_rect.h"
 #ifndef WIZ8_VIDEO2_H
 #define WIZ8_VIDEO2_H
 
@@ -76,9 +77,8 @@ void SGPMouseGetPos(SDL_Point* point);
 /* Tooltip ownership query: nonzero while a VideoToolTip object is alive. */
 bool HasScreenTransitionObjects(void); /* 0x004297D0 */
 /* 0x00422EC0: invalidate each rectangle in a run. */
-struct W8ScreenRect;
 
-void InvalidateScreenRects(W8ScreenRect* rects, unsigned int count);
+void InvalidateScreenRects(DesignRect* rects, unsigned int count);
 
 /* Renderer state and helpers shared by the product C++ consumers. */
 extern bool g_auto_capture;
@@ -108,7 +108,7 @@ stModelInstance2D* CreateSpriteFromTexture(std::shared_ptr<srTextureIFace> textu
                                            bool keep_aspect, bool overlay);
 /* 0x00426F80: render the world into a caller-owned color surface through a
    scissored viewport, then blit the locked frame buffer onto the target. */
-unsigned char RenderWorldToSurface(srColorSurface* target, W8ScreenRect* rect,
+unsigned char RenderWorldToSurface(srColorSurface* target, const DesignRect* rect,
                                    bool render_secondary);
 void SetPickKey(void* key);
 
@@ -190,7 +190,6 @@ extern bool g_screenshot_pending;
 extern bool g_video_inspector_enabled;
 extern bool g_cursor_scene_enabled;
 extern unsigned char g_fullscreen_scene_last;
-extern const int* g_overlay_viewport;
 extern srModeler* g_modeler;
 extern srScene* g_scene_user;
 extern srScene* g_scene_fullscreen;
@@ -220,13 +219,7 @@ extern int g_paired_render_mode;
 extern float g_surface_scale;
 extern int g_surface_opaque_shader_bits;
 extern int g_surface_alpha_blend_shader_bits;
-struct W8ViewportRect {
-    int left;
-    int top;
-    int right;
-    int bottom;
-};
-extern W8ViewportRect g_viewport;
+extern DesignRect g_viewport;
 extern int g_resident_texture_policy;
 extern unsigned char g_world_render_enabled;
 extern bool g_world_blacked_out;
@@ -236,14 +229,9 @@ void SetSurfaceScale(float scale);
 void SetTextureCacheSize(w8_ulong bytes);
 void SetSwapInterval(bool enabled);
 unsigned char GetRendererModeByte(void);
-void SetViewport(int left, int top, int right, int bottom);
-/* Scale a 640x480 design-space rect onto the GERD surface and remember it;
-   no-ops when the stored bounds already match. */
-
-void SetWorldScaledViewport(int left, int top, int right, int bottom);
-/* 0x00425C90: same scaled-viewport update; the automap installs its viewport
-   through it. */
-void SetAutomapScaledViewport(int left, int top, int right, int bottom);
+void SetViewport(const DesignRect& bounds);
+// Update the surface viewport without changing the camera view plane.
+void SetScaledViewport(const DesignRect& bounds);
 /* Read the stored pixel viewport back out in normalized 0..1 scale. */
 struct ViewportBounds {
     glm::vec2 minimum;
@@ -259,7 +247,7 @@ void SetPrimarySurfaceTextureHint2Enabled(bool enabled);
 unsigned char ClearPrimarySurface(void);
 void ResetTransientRenderScenes(void);
 void ClearVideoDirtyBlocks(void); /* 0x00423150 */
-void RenderScene(srScene* scene, srCamera* camera, const int* viewport, bool preserve_fog);
+void RenderScene(srScene* scene, srCamera* camera, const DesignRect* viewport, bool preserve_fog);
 void RenderFrame(void);
 /* The native presentation shell also owns this opaque surface entry point. */
 SDL_Surface* BeginVideoPresentation(void);
@@ -279,7 +267,6 @@ void InvalidateRendererTextureCache(void);
 void AssertFailureHandler(const char* expression, const char* file, w8_long line, const char* message);
 unsigned char DisableCursorScene(void);
 unsigned char EnableCursorScene(void);
-void SetOverlayViewport(const int* value);
 void SetWorldModelPickingEnabled(bool enabled);
 bool RendererBufferIsLockable(void);
 void SetRendererAutoFlipEnabled(bool enabled);

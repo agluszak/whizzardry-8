@@ -1180,7 +1180,7 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
         m_papParticles[particle]->SetTraversalEnabled(false);
     }
     SetViewportMode(0);
-    SetWorldScaledViewport(0, 0, 0x140, 0xf0);
+    SetScaledViewport({0, 0, 0x140, 0xf0});
     srVector3T<float> saved_location;
     glm::mat3 saved_rotation;
     saved_location = glm::vec3(world->camera->getLocation());
@@ -1312,7 +1312,7 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
     SetCameraLightMode(3);
     g_render_unlit = false;
     g_render_cull_front = false;
-    SetWorldScaledViewport(0, 0, 0x280, 0x1e0);
+    SetScaledViewport({0, 0, 0x280, 0x1e0});
     m_region_links_dirty = true;
     m_region_links_ready = true;
     m_reset_visibility = true;

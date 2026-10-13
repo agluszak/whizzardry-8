@@ -181,7 +181,7 @@ unsigned char MainMenuScreenEnter(void)
     colour = Get16BPPColor(SDL_Color{1, 1, 1, SDL_ALPHA_OPAQUE});
     const SDL_Rect bounds{0, 0, 0x280, 0x1e0};
     SDL_FillSurfaceRect(&GetFrameBufferSurface(), &bounds, colour);
-    SetViewport(0, 0, 0x280, 0x1e0);
+    SetViewport({0, 0, 0x281, 0x1e1});
     g_main_menu_selected_item = 0;
     CatalogArtwork::Load(0xe8, 0).draw(GetFrameBufferSurface(), 0, 0, 0);
 
