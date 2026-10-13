@@ -493,6 +493,14 @@ try
     return false;
 }
 
+/* Reads a record count; false when the read fails or the count is implausibly large. */
+template<class Info>
+static bool ReadRecordCount(Info& info, int& count)
+{
+    const bool read = info.hFile->read(&count, sizeof(count)).bytes == static_cast<std::size_t>(sizeof(count));
+    return read && count < 100000;
+}
+
 // FUNCTION: WIZ8 0x004BC5E0
 static unsigned char ReadWorldProps(W8ReadLevelInfo* pInfo, W8World* pWorld,
                                     bool mark_model_instances)
@@ -512,8 +520,7 @@ try
     if (pInfo == 0 || pInfo->hFile == 0 || pWorld == 0) {
         return 0;
     }
-    success = (pInfo->hFile->read(&count, sizeof(count)).bytes == static_cast<std::size_t>(sizeof(count)));
-    if (!success || count >= 100000) {
+    if (!ReadRecordCount(*pInfo, count)) {
         return 0;
     }
     if (count == 0) {
@@ -583,8 +590,7 @@ try
     if (pInfo == 0 || pInfo->hFile == 0 || pWorld == 0) {
         return 0;
     }
-    success = (pInfo->hFile->read(&count, sizeof(count)).bytes == static_cast<std::size_t>(sizeof(count)));
-    if (!success || count >= 100000) {
+    if (!ReadRecordCount(*pInfo, count)) {
         return 0;
     }
     if (count == 0) {
@@ -668,8 +674,7 @@ try
     if (pInfo == 0 || pInfo->hFile == 0 || pWorld == 0) {
         return 0;
     }
-    success = (pInfo->hFile->read(&count, sizeof(count)).bytes == static_cast<std::size_t>(sizeof(count)));
-    if (!success || count >= 100000) {
+    if (!ReadRecordCount(*pInfo, count)) {
         return 0;
     }
     if (count == 0) {
