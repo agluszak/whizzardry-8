@@ -189,11 +189,12 @@ void camp_effects()
         auto* state = g_camp_screen.get();
         REQUIRE((state->effect_list.empty() && state->stats_range == nullptr));
         const auto layer_count = LiveUiLayerCount();
-        state->stats_range = std::make_unique<W8RangeControl>(state->scroll_input, 0x264, 0xbe, 0x276, 0x1b5);
+        state->stats_range = std::make_unique<W8RangeControl>(
+            state->scroll_input, 0x264, 0xbe, 0x276, 0x1b5);
         REQUIRE(LiveUiLayerCount() == layer_count);
         // Disabling one scrollbar must not disable unrelated targets in its layer.
-        auto& sibling = state->scroll_input.add(SDL_Rect{0, 0, 640, 480},
-            [](const UiPointerEvent&) { return UiResult::Handled; });
+        const auto consume = [](const UiPointerEvent&) { return UiResult::Handled; };
+        auto& sibling = state->scroll_input.add(SDL_Rect{0, 0, 640, 480}, consume);
         state->stats_range->SetActive(true);
         state->stats_range->SetActive(false);
         REQUIRE(sibling.hitAt({0, 0}));
