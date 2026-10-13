@@ -1,5 +1,5 @@
+#include "wiz8/layouts/world.h"
 #include <cstddef>
-#include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/emitter_resources.h"
 #include <array>
 #include <catch2/catch_test_macros.hpp>
