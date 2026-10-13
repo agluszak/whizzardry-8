@@ -724,6 +724,7 @@ private:
         std::span<const glm::vec4> positions;
     };
 
+    srGERD(const srGERD&) = delete;
     srGERD& operator=(const srGERD& other);
     srDD* getDD() const;
 

@@ -8,6 +8,7 @@
 
 #include "wiz8/text_input.h"
 
+#include "surrender/non_copyable.h"
 #include <string_view>
 #include <memory>
 #include <vector>
