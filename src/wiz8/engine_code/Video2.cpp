@@ -1828,6 +1828,25 @@ static srScene* createOverlayScene(const char* name)
     return scene;
 }
 
+/* A 2D overlay camera over the unit view plane, from (0, 0) to (right, top). */
+static srCamera* createOverlayCamera(srNode* parent, const char* name, double right, double top)
+{
+    srCamera::Rect view;
+
+    auto* camera = new srCamera(parent);
+    camera->setName(name);
+    camera->setClipRange(0.01, 2.0);
+    camera->setLocation(0.0, 0.0, -1.0);
+    camera->setRotation(0.0, 0.0, 0.0);
+    view.left = 0.0;
+    view.bottom = 0.0;
+    view.right = right;
+    view.top = top;
+    camera->setViewPlane(view, 1.0);
+    camera->setEnvironmentRange(0.0f, 0.0f);
+    return camera;
+}
+
 // FUNCTION: WIZ8 0x00423500
 unsigned char InitializeRendererSceneObjects(void)
 {
@@ -1854,29 +1873,9 @@ unsigned char InitializeRendererSceneObjects(void)
 
     g_scene_prerender1 = createOverlayScene("2D Pre-render Overlay Scene (1)");
 
-    g_overlay_camera = new srCamera(static_cast<srNode*>(0));
-    g_overlay_camera->setName("2D Overlay Camera");
-    g_overlay_camera->setClipRange(0.01, 2.0);
-    g_overlay_camera->setLocation(0.0, 0.0, -1.0);
-    g_overlay_camera->setRotation(0.0, 0.0, 0.0);
-    view.left = 0.0;
-    view.bottom = 0.0;
-    view.right = 1.0;
-    view.top = 1.0;
-    g_overlay_camera->setViewPlane(view, 1.0);
-    g_overlay_camera->setEnvironmentRange(0.0f, 0.0f);
+    g_overlay_camera = createOverlayCamera(static_cast<srNode*>(0), "2D Overlay Camera", 1.0, 1.0);
 
-    g_square_camera = new srCamera(g_scene_square);
-    g_square_camera->setName("2D Square Overlay Camera");
-    g_square_camera->setClipRange(0.01, 2.0);
-    g_square_camera->setLocation(0.0, 0.0, -1.0);
-    g_square_camera->setRotation(0.0, 0.0, 0.0);
-    view.left = 0.0;
-    view.bottom = 0.0;
-    view.right = 1.0;
-    view.top = 0.75;
-    g_square_camera->setViewPlane(view, 1.0);
-    g_square_camera->setEnvironmentRange(0.0f, 0.0f);
+    g_square_camera = createOverlayCamera(g_scene_square, "2D Square Overlay Camera", 1.0, 0.75);
 
     material = std::make_shared<srMaterial>();
     g_blit_material = material;
