@@ -69,7 +69,6 @@
 
 // GLOBAL: WIZ8 0x0069c3c8
 
-
 /* The eight item-page action buttons, indexed by the mode SetCampItemActionMode
    arms: one control per actionable entry-mode, cleared before each reselection. */
 // GLOBAL: WIZ8 0x0069c3cc
@@ -81,7 +80,6 @@
 // GLOBAL: WIZ8 0x0069c3c0
 
 // GLOBAL: WIZ8 0x0069c400
-
 
 /* The shared bottom panel CreateCampButtonPanel parents the five page
    buttons and the eight item-action controls to. */
@@ -101,7 +99,6 @@ struct CampButtons {
 };
 std::unique_ptr<CampButtons> camp_buttons;
 }
-
 
 /* The level-line format the header draws - name, level and the
    profession's level-band title. */
@@ -387,9 +384,12 @@ void CreateCampHeaderButtons()
     header_buttons = std::make_unique<CampHeaderButtons>();
     const auto button = [](int art, SDL_Rect bounds, int pressed_hover, int help, void (*action)()) {
         auto result = std::make_unique<W8ButtonWidget>(header_buttons->input);
-        result->Configure(CatalogArtwork::Load(art, 0).spriteSheet(), 3, 0, 1, 2, pressed_hover,
-            [action](auto*) { AfterUiDispatch(action); }, {}, false, 0, help, {}, {});
-        result->policy.controller_activation = true;
+        result->SetTooltipIndex(help);
+        result->Configure(
+            ButtonGraphics::Load(CatalogArtwork::Load(art, 0).spriteSheet(), 3, 0, 1, 2, pressed_hover),
+            [action](auto*) { AfterUiDispatch(action); }, 0);
+        result->policy.input_rule = ButtonInputRule::PrimaryPressedState;
+        result->menu_artwork = true;
         result->SetPosition(bounds.x, bounds.y);
         result->Resize(bounds.w, bounds.h);
         result->SetVisible(false);
@@ -417,7 +417,11 @@ void UpdateRcsLevelUpPanel(void)
         header_buttons->level_up->SetVisible(true);
         RedrawRcsLevelUpPanel();
     }
-    header_buttons->level_up->Draw(GetFrameBufferSurface());
+    if (header_buttons->level_up->m_dirty) {
+        header_buttons->level_up->Draw(GetFrameBufferSurface());
+        InvalidateRegion(header_buttons->level_up->Bounds());
+        header_buttons->level_up->m_dirty = false;
+    }
 }
 
 // FUNCTION: WIZ8 0x005b6950
@@ -473,7 +477,11 @@ void UpdateRcsDismissPanel(void)
     } else if (header_buttons->dismiss->IsVisible()) {
         header_buttons->dismiss->SetVisible(false);
     }
-    header_buttons->dismiss->Draw(GetFrameBufferSurface());
+    if (header_buttons->dismiss->m_dirty) {
+        header_buttons->dismiss->Draw(GetFrameBufferSurface());
+        InvalidateRegion(header_buttons->dismiss->Bounds());
+        header_buttons->dismiss->m_dirty = false;
+    }
 }
 
 /* Release the formation board, compass and overlay sprites. */
@@ -845,10 +853,13 @@ int CreateCampButtonPanel(void)
     const auto button = [](int artwork, int frame, int x, int help, bool page,
                            std::function<void()> action) {
         auto result = std::make_unique<W8ButtonWidget>(camp_buttons->input);
-        result->Configure(CatalogArtwork::Load(artwork, 0).spriteSheet(), frame + 3,
-            frame, frame + 1, page ? frame + 4 : frame + 2, page ? frame + 2 : frame + 4,
-            [action](auto*) { AfterUiDispatch(action); }, {}, false, 0, help, {}, {});
-        result->policy.controller_activation = true;
+        result->SetTooltipIndex(help);
+        result->Configure(
+            ButtonGraphics::Load(CatalogArtwork::Load(artwork, 0).spriteSheet(), frame + 3, frame, frame + 1,
+                                 page ? frame + 4 : frame + 2, page ? frame + 2 : frame + 4),
+            [action](auto*) { AfterUiDispatch(action); }, 0);
+        result->policy.input_rule = ButtonInputRule::PrimaryPressedState;
+        result->menu_artwork = true;
         result->policy.primary_toggle = ButtonToggle::Release;
         result->SetPosition(x, 0x1c2);
         result->Resize(44, 30);
@@ -992,8 +1003,26 @@ void RefreshCampItemActions(bool invalidate)
     if (camp_buttons->dirty) {
         auto& target = GetFrameBufferSurface();
         CatalogArtwork::Load(0x110, 0).drawAndInvalidate(target, 0, 0, 0x1c2);
-        for (const auto& button : camp_buttons->pages) { button->m_dirty = true; button->Draw(target); }
-        for (const auto& button : camp_buttons->actions) { button->m_dirty = true; button->Draw(target); }
+        for (const auto& button : camp_buttons->pages) {
+            button->m_dirty = true;
+            {
+                if (button->m_dirty) {
+                    button->Draw(target);
+                    InvalidateRegion(button->Bounds());
+                    button->m_dirty = false;
+                }
+            }
+        }
+        for (const auto& button : camp_buttons->actions) {
+            button->m_dirty = true;
+            {
+                if (button->m_dirty) {
+                    button->Draw(target);
+                    InvalidateRegion(button->Bounds());
+                    button->m_dirty = false;
+                }
+            }
+        }
         camp_buttons->dirty = false;
     }
 }

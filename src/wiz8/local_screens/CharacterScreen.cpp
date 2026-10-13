@@ -145,10 +145,13 @@ void W8CharacterScreen::BuildControls()
 {
     const auto button = [this](int x, int frame, int help, std::function<void()> action) {
         auto result = std::make_unique<W8ButtonWidget>(m_input);
-        result->Configure(CatalogArtwork::Load(0x106, 0).spriteSheet(), frame + 3,
-            frame, frame + 1, frame + 2, frame + 2,
-            [action](auto*) { AfterUiDispatch(action); }, {}, false, 0, help, {}, {});
-        result->policy.controller_activation = true;
+        result->SetTooltipIndex(help);
+        result->Configure(
+            ButtonGraphics::Load(CatalogArtwork::Load(0x106, 0).spriteSheet(), frame + 3, frame, frame + 1,
+                                 frame + 2, frame + 2),
+            [action](auto*) { AfterUiDispatch(action); }, 0);
+        result->policy.input_rule = ButtonInputRule::PrimaryPressedState;
+        result->menu_artwork = true;
         result->SetPosition(x, 0x1c2);
         return result;
     };
@@ -303,8 +306,9 @@ void W8CharacterScreen::DrawNavigation(SDL_Surface& target)
     if (!m_navigation_dirty) return;
     CatalogArtwork::Load(0x107, 0).drawAndInvalidate(target, 4, 0, 0x1c2);
     for (auto* button : buttons) {
-        button->m_dirty = true;
         button->Draw(target);
+        InvalidateRegion(button->Bounds());
+        button->m_dirty = false;
         button->m_dirty = false;
     }
     m_navigation_dirty = false;

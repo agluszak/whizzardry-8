@@ -1,3 +1,4 @@
+#include "wiz8/engine_code/Video2.h"
 #include <SDL3/SDL_rect.h>
 #include "wiz8/ui_layer.h"
 #include "wiz8/local_code/ButtonWidget.h"
@@ -22,7 +23,6 @@
 #include "input.h"
 
 #define CGS_STATS_PAGE_CPP "C:\\Projects\\Wizardry 8\\Local Screens\\CGSStatsPage.cpp"
-
 
 // GLOBAL: WIZ8 0x0064f028
 static W8CharacterStatsRecord g_character_profession_records[15] = {
@@ -105,11 +105,13 @@ W8CharacterStatsRow::W8CharacterStatsRow(W8CharacterStatsPage& owner, int x, int
 {
     const auto arrow = [this](int x, int frame, int help, int direction) {
         auto button = std::make_unique<W8ButtonWidget>(m_owner.input);
-        button->Configure(CatalogArtwork::Load(0x10a, 0).spriteSheet(), frame + 3,
-            frame, frame + 1, frame + 2, frame + 4,
-            [this, direction](auto*) { AfterUiDispatch([this, direction] { Step(direction); }); },
-            {}, false, 0, help, {}, {});
-        button->policy.controller_activation = true;
+        button->SetTooltipIndex(help);
+        button->Configure(
+            ButtonGraphics::Load(CatalogArtwork::Load(0x10a, 0).spriteSheet(), frame + 3, frame, frame + 1,
+                                 frame + 2, frame + 4),
+            [this, direction](auto*) { AfterUiDispatch([this, direction] { Step(direction); }); }, 0);
+        button->policy.input_rule = ButtonInputRule::PrimaryPressedState;
+        button->menu_artwork = true;
         button->SetPosition(x, m_y + 4);
         return button;
     };
@@ -221,8 +223,16 @@ void W8CharacterStatsRow::Draw(SDL_Surface& target, bool force)
     }
     m_decrement->m_dirty |= force;
     m_increment->m_dirty |= force;
-    m_decrement->Draw(target);
-    m_increment->Draw(target);
+    if (m_decrement->m_dirty) {
+        m_decrement->Draw(target);
+        InvalidateRegion(m_decrement->Bounds());
+        m_decrement->m_dirty = false;
+    }
+    if (m_increment->m_dirty) {
+        m_increment->Draw(target);
+        InvalidateRegion(m_increment->Bounds());
+        m_increment->m_dirty = false;
+    }
     if (!m_choices) m_dirty = false;
 }
 

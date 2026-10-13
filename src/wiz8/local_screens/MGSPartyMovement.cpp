@@ -65,10 +65,12 @@ unsigned char CreatePartyMovementPanel(void)
     for (int index = 0; index < 2; ++index) {
         auto& button = movement->buttons[index];
         button = std::make_unique<W8ButtonWidget>(movement->input);
-        button->Configure(art.spriteSheet(), 7, 4, 5, 6, 6,
-            [index](auto*) { AfterUiDispatch(index ? CancelPartyMovement : BeginFreeTurnPhase); },
-            {}, false, 0, 37 + index, {}, {});
-        button->policy.controller_activation = true;
+        button->SetTooltipIndex(37 + index);
+        button->Configure(
+            ButtonGraphics::Load(art.spriteSheet(), 7, 4, 5, 6, 6),
+            [index](auto*) { AfterUiDispatch(index ? CancelPartyMovement : BeginFreeTurnPhase); }, 0);
+        button->policy.input_rule = ButtonInputRule::PrimaryPressedState;
+        button->menu_artwork = true;
         button->SetPosition(0x1bb, 0x13f);
         button->Resize(20, 20);
         button->SetVisible(index == 1);
@@ -130,8 +132,9 @@ void DrawPartyMovementPanel(void)
     panel_live = movement->dirty || movement->buttons[visible]->m_dirty;
     if (panel_live) {
         CatalogArtwork::Load(0x93, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0xb1, 0x13f);
-        movement->buttons[visible]->m_dirty = true;
         movement->buttons[visible]->Draw(GetFrameBufferSurface());
+        InvalidateRegion(movement->buttons[visible]->Bounds());
+        movement->buttons[visible]->m_dirty = false;
         movement->dirty = false;
     }
     right = 0x1b9 - g_level_block->move_percent * 0xf6 / 100;

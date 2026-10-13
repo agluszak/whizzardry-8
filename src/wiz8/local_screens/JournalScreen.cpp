@@ -310,13 +310,14 @@ JournalScreen::JournalScreen()
         auto& button = m_buttons[action];
         button = std::make_unique<W8ButtonWidget>(m_input);
         const auto frame = [&](int index) { return index < 0 ? -1 : index + artwork.imageOffset(); };
-        button->Configure(artwork.spriteSheet(), frame(frames[4]), frame(frames[0]),
-            frame(frames[2]), frame(frames[1]), frame(frames[3]),
-            [this, action](W8ButtonWidget*) { AfterUiDispatch([this, action] { Activate(action); }); },
-            {}, false, 0, W8_DIALOG_BUTTON_NO_TOOLTIP, {}, {});
+        button->Configure(
+            ButtonGraphics::Load(artwork.spriteSheet(), frame(frames[4]), frame(frames[0]), frame(frames[2]),
+                                 frame(frames[1]), frame(frames[3])),
+            [this, action](W8ButtonWidget*) { AfterUiDispatch([this, action] { Activate(action); }); }, 0);
         button->SetPosition(bounds.x, bounds.y);
         button->Resize(bounds.w, bounds.h);
-        button->policy = {.primary_toggle = toggle, .controller_activation = true};
+        button->policy = {.primary_toggle = toggle, .input_rule = ButtonInputRule::PrimaryPressedState};
+        button->menu_artwork = true;
     };
     add(Previous, 0xf4, {0x69, 0x1be}, {0, 2, 1, -1, 3});
     add(Next, 0xf4, {0x185, 0x1be}, {4, 6, 5, -1, 7});
@@ -340,8 +341,9 @@ void JournalScreen::Draw(SDL_Surface& target)
         CatalogArtwork::Load(0x1b7, 0).drawAndInvalidate(target, 1, 0, 0x1b4);
         m_bar.drawAndInvalidate(target, 0, 0x66, 0x1bb);
         for (auto& button : m_buttons) {
-            button->m_dirty = true;
             button->Draw(target);
+            InvalidateRegion(button->Bounds());
+            button->m_dirty = false;
         }
         m_page_text->RenderToTarget(0, true, target);
     }

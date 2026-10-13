@@ -1,3 +1,4 @@
+#include "wiz8/engine_code/Video2.h"
 #include <SDL3/SDL_surface.h>
 #include <cstdint>
 #include <fmt/format.h>
@@ -21,7 +22,6 @@
 #include "game_timer.h"
 #include "layouts/gameplay_databases.h"
 #include "local_code/ControlsRect.h"
-
 
 // GLOBAL: WIZ8 0x0064fccc
 const char* g_spell_info_background_path = "Data\\Dialogs\\popup_spellinfo.sti";
@@ -95,7 +95,6 @@ int W8SpellInfoDialog::CreateControls()
     return 0;
 }
 
-
 // FUNCTION: WIZ8 0x005dbe00
 void W8SpellInfoDialog::Draw(SDL_Surface& target)
 {
@@ -115,7 +114,11 @@ void W8SpellInfoDialog::Draw(SDL_Surface& target)
     }
     m_text_area.Draw(target, false);
     m_scroll_bar.Draw(target, false);
-    m_button.Draw(target);
+    if (m_button.m_dirty) {
+        m_button.Draw(target);
+        InvalidateRegion(m_button.Bounds());
+        m_button.m_dirty = false;
+    }
     steps = static_cast<int>(m_timer.GetProgress());
     if (steps > 0) {
         realm = g_spell_records[m_spell].realm;

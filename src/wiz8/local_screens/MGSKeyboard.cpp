@@ -216,7 +216,6 @@ void ResetMGSKeyboardBindings()
     g_mgs_keyboard->LoadDefaults("Data\\Strings\\MGSKeyboard.ini");
 }
 
-
 /* Route one non-mouse input atom: text entry, NPC dialogue and the trap text
    box consume key presses first; the MIPE editor and the record-mode console
    gate on their flags; everything else resolves to a bound MGS command.
@@ -792,7 +791,7 @@ unsigned char BuildKeyboardMenu(void)
                      top + g_keyboard_row_positions[i].y, 19, 19},
             [&row](const UiPointerEvent& event) {
                 keyboard_menu->dirty = true;
-                const ButtonPolicy policy{.controller_activation = true};
+                const ButtonPolicy policy{.input_rule = ButtonInputRule::PrimaryPressedState};
                 if (event.action == UiPointerAction::Leave) row.press.leave(policy);
                 if (event.action == UiPointerAction::Enter &&
                     ((row.menu == W8_SUBMENU_ITEMS && row.item == 2) ||

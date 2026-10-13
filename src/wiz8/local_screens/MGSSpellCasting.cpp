@@ -72,7 +72,6 @@ struct W8NpcState;
 // GLOBAL: WIZ8 0x0064C840
 static int g_spell_realm_help_string_ids[6] = {0x27, 0x28, 0x29, 0x2a, 0x2b, 0x2c};
 
-
 // GLOBAL: WIZ8 0x0069BF3C
 std::unique_ptr<W8SpellCastingView> gpSCSV;
 
@@ -109,10 +108,13 @@ static void CreateSpellCastingViewControls(void)
     const auto make_button = [](int artwork, const std::array<int, 5>& frames,
                                 SDL_Rect bounds, int help, std::function<void()> action) {
         auto button = std::make_unique<W8ButtonWidget>(gpSCSV->input);
-        button->Configure(CatalogArtwork::Load(artwork, 0).spriteSheet(),
-            frames[0], frames[1], frames[2], frames[3], frames[4],
-            [action](auto*) { AfterUiDispatch(action); }, {}, false, 0, help, {}, {});
-        button->policy.controller_activation = true;
+        button->SetTooltipIndex(help);
+        button->Configure(
+            ButtonGraphics::Load(CatalogArtwork::Load(artwork, 0).spriteSheet(), frames[0], frames[1],
+                                 frames[2], frames[3], frames[4]),
+            [action](auto*) { AfterUiDispatch(action); }, 0);
+        button->policy.input_rule = ButtonInputRule::PrimaryPressedState;
+        button->menu_artwork = true;
         button->policy.primary_toggle = ButtonToggle::Release;
         button->SetPosition(bounds.x, bounds.y);
         button->Resize(bounds.w, bounds.h);
@@ -691,8 +693,9 @@ void SetSpellCastingPanelsActive(bool active)
         if (panel == 0) {
             for (int realm = 0; realm < 6; ++realm) {
                 auto& button = *view.realm_buttons[realm];
-                button.m_dirty = true;
                 button.Draw(target);
+                InvalidateRegion(button.Bounds());
+                button.m_dirty = false;
                 const int offset = button.IsPressed() ? 1 : 0;
                 view.realm_text[realm].RenderText(target, offset, offset, true);
                 const auto& animation = g_spell_realm_animations[realm];
@@ -708,10 +711,15 @@ void SetSpellCastingPanelsActive(bool active)
                 const auto& f = view.power_frames[pip];
                 view.power_controls[pip]->SetImage(ButtonGraphics::Load(
                     CatalogArtwork::Load(0x192, 0).spriteSheet(), f[0], f[1], f[2], f[3], f[4]));
-                view.power_controls[pip]->Draw(target);
+                if (view.power_controls[pip]->m_dirty) {
+                    view.power_controls[pip]->Draw(target);
+                    InvalidateRegion(view.power_controls[pip]->Bounds());
+                    view.power_controls[pip]->m_dirty = false;
+                }
             }
-            view.cancel->m_dirty = true;
             view.cancel->Draw(target);
+            InvalidateRegion(view.cancel->Bounds());
+            view.cancel->m_dirty = false;
             view.spell_name.RenderToTarget(0, true, target);
         }
         view.dirty[panel] = false;

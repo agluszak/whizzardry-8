@@ -70,7 +70,7 @@ struct NpcDialogueUi {
         HitTarget* target = nullptr;
         W8TextBuffer text;
         ButtonInteraction interaction;
-        ButtonPolicy policy{.controller_activation = true};
+        ButtonPolicy policy{.input_rule = ButtonInputRule::PrimaryPressedState};
         std::function<void()> primary, secondary, down;
         bool visible = true, enabled = true, dirty = true;
     };

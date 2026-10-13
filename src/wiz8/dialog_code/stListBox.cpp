@@ -7,71 +7,62 @@
 #include "Font.h"
 #include "dialog_code/DialogBase.h"
 
-/* Retail Dialog Code\stListBox.cpp - the button callbacks that give
-   W8ListBoxDialog its scrolling text-list behaviour. The list state lives on
-   the dialog (first visible line 0x0f0, selected line 0x0f4) and each button's
-   owner link carries the dialog pointer. The gap helpers it calls -
-   GetVisibleLineCount 0x005CC650, SetCurrentLine 0x005CCB80 and the keyboard
-   path 0x005CD2B0 - are not proven to this unit and stay declared in
-   DialogFactoryDialogs.h for these call sites. */
+/* The list buttons capture their dialog. Scroll and selection state lives
+   on that owner, rather than being recovered from a generic button pointer. */
 
 // FUNCTION: WIZ8 0x005cce70
 void W8ListBoxDialog::TextAreaButtonCallback(W8ButtonWidget* button)
 {
-    auto* dialog = static_cast<W8ListBoxDialog*>(button->m_owner);
     const SDL_Point cursor = button->GetMousePosition();
     const int height = g_dialog_interface_font->height();
-    if (height == 0) return;
-    const int line = (cursor.y - dialog->m_area_button.Bounds().y) / height +
-                     dialog->m_first_visible_line;
-    if (line == dialog->m_selected_line) {
-        dialog->m_keep_open = false;
+    if (height == 0)
+        return;
+    const int line = (cursor.y - m_area_button.Bounds().y) / height + m_first_visible_line;
+    if (line == m_selected_line) {
+        m_keep_open = false;
         return;
     }
-    dialog->SetCurrentLine(line);
+    SetCurrentLine(line);
 }
 
 // FUNCTION: WIZ8 0x005ccf30
-void W8ListBoxDialog::UpButtonCallback(W8ButtonWidget* button)
+void W8ListBoxDialog::UpButtonCallback()
 {
-    auto* dialog = static_cast<W8ListBoxDialog*>(button->m_owner);
-    dialog->SetCurrentLine(dialog->m_selected_line - 1);
+    SetCurrentLine(m_selected_line - 1);
 }
 
 // FUNCTION: WIZ8 0x005ccfe0
-void W8ListBoxDialog::DownButtonCallback(W8ButtonWidget* button)
+void W8ListBoxDialog::DownButtonCallback()
 {
-    auto* dialog = static_cast<W8ListBoxDialog*>(button->m_owner);
-    dialog->SetCurrentLine(dialog->m_selected_line + 1);
+    SetCurrentLine(m_selected_line + 1);
 }
 
 // FUNCTION: WIZ8 0x005cd090
-void W8ListBoxDialog::OkButtonCallback(W8ButtonWidget* button)
+void W8ListBoxDialog::OkButtonCallback()
 {
-    auto* dialog = static_cast<W8ListBoxDialog*>(button->m_owner);
-    dialog->m_keep_open = false;
-    dialog->m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
+    m_keep_open = false;
+    m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
 }
 
 // FUNCTION: WIZ8 0x005cd130
-void W8ListBoxDialog::CancelButtonCallback(W8ButtonWidget* button)
+void W8ListBoxDialog::CancelButtonCallback()
 {
-    auto* dialog = static_cast<W8ListBoxDialog*>(button->m_owner);
-    dialog->m_keep_open = false;
-    dialog->SetCurrentLine(-1);
-    dialog->m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
+    m_keep_open = false;
+    SetCurrentLine(-1);
+    m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
 }
 
 // FUNCTION: WIZ8 0x005cd1e0
 void W8ListBoxDialog::SliderTrackButtonCallback(W8ButtonWidget* button)
 {
-    auto* dialog = static_cast<W8ListBoxDialog*>(button->m_owner);
     SDL_Point cursor = button->GetMousePosition();
-    const int top = button->Bounds().y + dialog->m_up_button.Bounds().h;
-    const int bottom = button->Bounds().y + button->Bounds().h - dialog->m_down_button.Bounds().h;
-    if (cursor.y < top) cursor.y = top;
-    if (cursor.y > bottom) cursor.y = bottom;
-    if (bottom <= top) return;
-    dialog->SetCurrentLine((cursor.y - top) * static_cast<int>(dialog->m_lines.size()) /
-                           (bottom - top));
+    const int top = button->Bounds().y + m_up_button.Bounds().h;
+    const int bottom = button->Bounds().y + button->Bounds().h - m_down_button.Bounds().h;
+    if (cursor.y < top)
+        cursor.y = top;
+    if (cursor.y > bottom)
+        cursor.y = bottom;
+    if (bottom <= top)
+        return;
+    SetCurrentLine((cursor.y - top) * static_cast<int>(m_lines.size()) / (bottom - top));
 }

@@ -1,3 +1,4 @@
+#include "wiz8/engine_code/Video2.h"
 #include <SDL3/SDL_surface.h>
 #include <cstdint>
 #include <fmt/printf.h>
@@ -90,7 +91,11 @@ void W8StatInfoDialogBase::Draw(SDL_Surface& target)
     }
     textarea.Draw(target, false);
     scrollbar.Draw(target, false);
-    button.Draw(target);
+    if (button.m_dirty) {
+        button.Draw(target);
+        InvalidateRegion(button.Bounds());
+        button.m_dirty = false;
+    }
 }
 
 // FUNCTION: WIZ8 0x005dfb40

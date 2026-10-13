@@ -534,10 +534,14 @@ bool CreateMessageBox(std::string_view text, Font& font, unsigned int shade, boo
         return false;
     };
 
-    if (!message_box.background.ConfigureTextButton(
-            text, font, 0xff, 0, (0x280 - width) / 2, y, width, height,
-            [](W8ButtonWidget*) { SetMessageBoxResult(true); },
-            0, background_image, UI_PRIORITY_BACKGROUND)) {
+    if (!message_box.background.Configure(
+            ButtonAppearance{.generic_image = background_image,
+                             .string = std::string(text),
+                             .usFont = &(font),
+                             .sForeColor = 0xff,
+                             .sShadowColor = 0},
+            {(0x280 - width) / 2, y, width, height}, [](W8ButtonWidget*) { SetMessageBoxResult(true); },
+            UI_PRIORITY_BACKGROUND)) {
         return fail_creation();
     }
     message_box.background.SetMultiColor(true);
@@ -546,20 +550,16 @@ bool CreateMessageBox(std::string_view text, Font& font, unsigned int shade, boo
     message_box.has_cancel = has_cancel;
     if (has_accept) {
         if (!message_box.accept.Configure(
-                "Data\\Message Box\\Ok.sti", 0, 1, 2, 3, 4,
-                [](W8ButtonWidget*) { SetMessageBoxResult(true); },
-                nullptr, false, UI_PRIORITY_HIGHEST - 1,
-                W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr)) {
+                ButtonGraphics::Load("Data\\Message Box\\Ok.sti", 0, 1, 2, 3, 4),
+                [](W8ButtonWidget*) { SetMessageBoxResult(true); }, UI_PRIORITY_HIGHEST - 1)) {
             return fail_creation();
         }
         message_box.accept.SetPosition(0x131 - (has_cancel ? 0x1e : 0), y + 0x46);
     }
     if (has_cancel) {
         if (!message_box.cancel.Configure(
-                "Data\\Message Box\\Cancel.sti", 0, 1, 2, 3, 4,
-                [](W8ButtonWidget*) { SetMessageBoxResult(false); },
-                nullptr, false, UI_PRIORITY_HIGHEST - 1,
-                W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr)) {
+                ButtonGraphics::Load("Data\\Message Box\\Cancel.sti", 0, 1, 2, 3, 4),
+                [](W8ButtonWidget*) { SetMessageBoxResult(false); }, UI_PRIORITY_HIGHEST - 1)) {
             return fail_creation();
         }
         message_box.cancel.SetPosition(0x131 + (has_accept ? 0x1e : 0), y + 0x46);
@@ -628,9 +628,25 @@ void RenderMessageBox(void)
             : message_box.font == &g_wiz_text_font ? g_wiz_text_font
             : g_wiz_text_font_secondary;
         shade_font.setShade(message_box.shade);
-        message_box.background.Draw(GetFrameBufferSurface());
-        if (message_box.has_accept) message_box.accept.Draw(GetFrameBufferSurface());
-        if (message_box.has_cancel) message_box.cancel.Draw(GetFrameBufferSurface());
+        if (message_box.background.m_dirty) {
+            message_box.background.Draw(GetFrameBufferSurface());
+            InvalidateRegion(message_box.background.Bounds());
+            message_box.background.m_dirty = false;
+        }
+        if (message_box.has_accept) {
+            if (message_box.accept.m_dirty) {
+                message_box.accept.Draw(GetFrameBufferSurface());
+                InvalidateRegion(message_box.accept.Bounds());
+                message_box.accept.m_dirty = false;
+            }
+        }
+        if (message_box.has_cancel) {
+            if (message_box.cancel.m_dirty) {
+                message_box.cancel.Draw(GetFrameBufferSurface());
+                InvalidateRegion(message_box.cancel.Bounds());
+                message_box.cancel.m_dirty = false;
+            }
+        }
     } else if (message_box.state == 3) {
         const bool accepted = message_box.accepted;
         const auto callback = message_box.callback;

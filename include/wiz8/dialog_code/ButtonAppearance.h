@@ -18,7 +18,6 @@ inline constexpr std::string_view DEFAULT_GENERIC_BUTTON_OFF_HI = "Data\\Message
 inline constexpr std::string_view DEFAULT_GENERIC_BUTTON_ON_HI = "Data\\Message Box\\GENBUTN4.STI";
 
 inline constexpr int BUTTON_NO_IMAGE = -1;
-inline constexpr std::nullptr_t BUTTON_NO_CALLBACK = nullptr;
 
 struct ButtonGraphics;
 struct GenericButtonImages;
@@ -74,7 +73,6 @@ struct GenericButtonImages {
     std::int16_t offset_x = 0;
     std::int16_t offset_y = 0;
 };
-
 
 void DrawButtonAppearance(SDL_Surface& target, const ButtonAppearance& appearance,
                           const SDL_Rect& bounds, const ButtonVisualState& state);

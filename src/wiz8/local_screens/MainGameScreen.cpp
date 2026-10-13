@@ -238,8 +238,6 @@ bool g_mouselook_left_held;
 // GLOBAL: WIZ8 0x0068edda
 bool g_node_cull_pending;
 
-
-
 // GLOBAL: WIZ8 0x0061e9ec
 unsigned short g_trap_name_string_ids[] = {
     0x542, 0x543, 0x544, 0x545, 0x546, 0x547, 0x548, 0x549, 0x54a, 0x54b,
@@ -265,14 +263,8 @@ static char g_trap_inspection_sound[] = "Data\\Sound\\Misc\\Trap Inspection.wav"
 // GLOBAL: WIZ8 0x0064bcd0
 static char g_trap_sprung_sound[] = "Data\\Sound\\Misc\\Trap Sprung.wav";
 
-
-
-
-
 // GLOBAL: WIZ8 0x006480b8
 static char g_text_enter_default_level[] = "Enter default level ?";
-
-
 
 // GLOBAL: WIZ8 0x005ec258
 const float g_float_one_fiftieth = 0.019999999552965164f;
@@ -807,11 +799,13 @@ W8LockInteraction::W8LockInteraction(Trigger* trigger) : m_timer()
     const int help[]{0x7cb, 0x7cd, 0x7cc, -1};
     for (int i = 0; i < 4; ++i) {
         auto& button = buttons[i] = std::make_unique<W8ButtonWidget>(input);
-        button->Configure(CatalogArtwork::Load(i == 3 ? 0x8e : 0x1b0, 0).spriteSheet(),
-            normal[i] + 3, normal[i], normal[i] + 1, normal[i] + 2, normal[i] + 2,
-            [this](auto* control) { AfterUiDispatch([this, control] { OnPrimary(control); }); },
-            {}, false, 0, help[i], {}, {});
-        button->policy.controller_activation = true;
+        button->SetTooltipIndex(help[i]);
+        button->Configure(
+            ButtonGraphics::Load(CatalogArtwork::Load(i == 3 ? 0x8e : 0x1b0, 0).spriteSheet(), normal[i] + 3,
+                                 normal[i], normal[i] + 1, normal[i] + 2, normal[i] + 2),
+            [this](auto* control) { AfterUiDispatch([this, control] { OnPrimary(control); }); }, 0);
+        button->policy.input_rule = ButtonInputRule::PrimaryPressedState;
+        button->menu_artwork = true;
         button->SetPosition(positions[i].x, positions[i].y);
     }
     m_spell_button = buttons[0].get(); m_force_button = buttons[1].get();
@@ -1234,7 +1228,13 @@ void W8LockInteraction::DrawActions(SDL_Surface& target)
         for (auto& button : buttons) button->m_dirty = true;
         actions_dirty = false;
     }
-    for (auto& button : buttons) button->Draw(target);
+    for (auto& button : buttons) {
+        if (button->m_dirty) {
+            button->Draw(target);
+            InvalidateRegion(button->Bounds());
+            button->m_dirty = false;
+        }
+    }
 }
 
 W8MainGameTextKeyHandler::W8MainGameTextKeyHandler()
@@ -1382,7 +1382,8 @@ W8MainGameTextPanel::W8MainGameTextPanel()
         cells[index].target = &input.add(SDL_Rect{0xe0 + (index % 4) * 30, 0x16e + (index / 4) * 50, size.x + 1, size.y + 1},
             [this, index](const UiPointerEvent& event) {
                 auto& cell = cells[index];
-                const ButtonPolicy policy{.primary_toggle = ButtonToggle::Release, .controller_activation = true};
+                const ButtonPolicy policy{.primary_toggle = ButtonToggle::Release,
+                                          .input_rule = ButtonInputRule::PrimaryPressedState};
                 cell.dirty = true;
                 if (event.action == UiPointerAction::Leave) cell.interaction.leave(policy);
                 if (!cell.enabled || cell.blocked) return UiResult::Handled;
@@ -1602,10 +1603,13 @@ W8MainGameScreen::W8MainGameScreen(Trigger* owner)
     const int help[]{-1, 0x7ce, 0x7cf, 0x7cc, 0x7d0};
     for (int i = 0; i < 5; ++i) {
         auto& button = m_action_controls[i] = std::make_unique<W8ButtonWidget>(input);
-        button->Configure(CatalogArtwork::Load(i == 0 ? 0x8e : 0x1b0, 0).spriteSheet(),
-            normal[i] + 3, normal[i], normal[i] + 1, normal[i] + 2, normal[i] + 2,
-            [this, i](auto*) { AfterUiDispatch([this, i] { OnPrimary(i); }); }, {}, false, 0, help[i], {}, {});
-        button->policy.controller_activation = true;
+        button->SetTooltipIndex(help[i]);
+        button->Configure(
+            ButtonGraphics::Load(CatalogArtwork::Load(i == 0 ? 0x8e : 0x1b0, 0).spriteSheet(), normal[i] + 3,
+                                 normal[i], normal[i] + 1, normal[i] + 2, normal[i] + 2),
+            [this, i](auto*) { AfterUiDispatch([this, i] { OnPrimary(i); }); }, 0);
+        button->policy.input_rule = ButtonInputRule::PrimaryPressedState;
+        button->menu_artwork = true;
         button->SetPosition(positions[i].x, positions[i].y);
     }
     for (int i = 0; i < 8; ++i) {
@@ -1622,7 +1626,13 @@ void W8MainGameScreen::DrawActions(SDL_Surface& target)
         for (auto& button : m_action_controls) button->m_dirty = true;
         actions_dirty = false;
     }
-    for (auto& button : m_action_controls) button->Draw(target);
+    for (auto& button : m_action_controls) {
+        if (button->m_dirty) {
+            button->Draw(target);
+            InvalidateRegion(button->Bounds());
+            button->m_dirty = false;
+        }
+    }
 }
 
 void W8MainGameScreen::SelectTextEntry(int index)
@@ -2417,7 +2427,6 @@ void ResetMainGameScreenState(void)
     }
 }
 
-
 std::unique_ptr<MainGameInput> g_main_input;
 
 void SetWorldResumeInput(bool enabled)
@@ -2496,7 +2505,6 @@ unsigned char MainGameScreenEnter(void)
     gXStatus.level_up_notice = true;
     ResetUiInput();
     CreatePartyPortraitEventRegions();
-
 
     if (!g_main_input) g_main_input = std::make_unique<MainGameInput>();
     InitTextBoxRegions();
@@ -3053,7 +3061,6 @@ unsigned char MainGameScreenLeave(int leaving)
         }
         g_main_input.reset();
 
-
         HideNpcQuoteBubbleRegion();
         ShutdownTextBoxRegions();
         DestroyFormationPanel();
@@ -3103,7 +3110,6 @@ void RequestRedraw(unsigned int mask)
         g_level_block->redraw_flags |= mask;
     }
 }
-
 
 /* Consume the live redraw_flags word: clear the primary surface, refresh the
    chrome panels the current UI mode owns, and repaint any dirty party slots. */

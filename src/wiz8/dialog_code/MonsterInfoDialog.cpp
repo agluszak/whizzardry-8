@@ -1,3 +1,4 @@
+#include "wiz8/engine_code/Video2.h"
 #include <SDL3/SDL_surface.h>
 #include <cstdint>
 #include <fmt/format.h>
@@ -469,7 +470,6 @@ void W8MonsterInfoDialog::ScrollCallback(W8DialogScrollBar* scroll_bar, int firs
     }
 }
 
-
 // FUNCTION: WIZ8 0x005d6080
 void W8MonsterInfoDialog::Draw(SDL_Surface& target)
 {
@@ -490,5 +490,9 @@ void W8MonsterInfoDialog::Draw(SDL_Surface& target)
     }
     m_text_area.Draw(target, false);
     m_scroll_bar.Draw(target, false);
-    m_button.Draw(target);
+    if (m_button.m_dirty) {
+        m_button.Draw(target);
+        InvalidateRegion(m_button.Bounds());
+        m_button.m_dirty = false;
+    }
 }

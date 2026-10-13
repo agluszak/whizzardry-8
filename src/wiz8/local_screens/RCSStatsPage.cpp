@@ -110,11 +110,13 @@ W8CampStatsControls::W8CampStatsControls()
         const int frame = index * 5;
         auto& button = m_buttons[index];
         button = std::make_unique<W8ButtonWidget>(input);
-        button->Configure(CatalogArtwork::Load(0x145, 0).spriteSheet(), frame + 3,
-            frame, frame + 2, index == 2 ? 15 : frame + 1, index == 2 ? 17 : frame + 4,
-            [this, index](auto*) { AfterUiDispatch([this, index] { SelectFilter(index); }); },
-            {}, false, 0, 0x954 + index, {}, {});
-        button->policy.controller_activation = true;
+        button->SetTooltipIndex(0x954 + index);
+        button->Configure(
+            ButtonGraphics::Load(CatalogArtwork::Load(0x145, 0).spriteSheet(), frame + 3, frame, frame + 2,
+                                 index == 2 ? 15 : frame + 1, index == 2 ? 17 : frame + 4),
+            [this, index](auto*) { AfterUiDispatch([this, index] { SelectFilter(index); }); }, 0);
+        button->policy.input_rule = ButtonInputRule::PrimaryPressedState;
+        button->menu_artwork = true;
         button->policy.primary_toggle = ButtonToggle::Release;
         button->SetPosition(0x13c, y[index]);
     }
@@ -134,7 +136,16 @@ void W8CampStatsControls::InvalidateAll()
 
 void W8CampStatsControls::Redraw(SDL_Surface& target, bool force)
 {
-    for (const auto& button : m_buttons) { button->m_dirty |= force; button->Draw(target); }
+    for (const auto& button : m_buttons) {
+        button->m_dirty |= force;
+        {
+            if (button->m_dirty) {
+                button->Draw(target);
+                InvalidateRegion(button->Bounds());
+                button->m_dirty = false;
+            }
+        }
+    }
 }
 
 void W8CampStatsControls::SelectFilter(int index)
@@ -837,11 +848,13 @@ void W8CharacterPersonalityPage::SetCharacter(W8Character* character,
         const int frame = action == 4 ? 20 : action % 2 ? 15 : 10;
         auto& button = m_buttons[action];
         button = std::make_unique<W8ButtonWidget>(input);
-        button->Configure(CatalogArtwork::Load(0x10a, 0).spriteSheet(), frame + 3,
-            frame, frame + 1, frame + 2, frame + 4,
-            [this, action](auto*) { AfterUiDispatch([this, action] { ChangePortrait(action); }); },
-            {}, false, 0, action == 4 ? 0xf5 : -1, {}, {});
-        button->policy.controller_activation = true;
+        button->SetTooltipIndex(action == 4 ? 0xf5 : -1);
+        button->Configure(
+            ButtonGraphics::Load(CatalogArtwork::Load(0x10a, 0).spriteSheet(), frame + 3, frame, frame + 1,
+                                 frame + 2, frame + 4),
+            [this, action](auto*) { AfterUiDispatch([this, action] { ChangePortrait(action); }); }, 0);
+        button->policy.input_rule = ButtonInputRule::PrimaryPressedState;
+        button->menu_artwork = true;
         button->SetPosition(0xc3 + positions[action].x, 0x2b + positions[action].y);
     }
     character->voice = std::clamp(int(character->voice), 0, 1);
@@ -988,7 +1001,11 @@ void W8CharacterPersonalityPage::Redraw(SDL_Surface& target, bool full_redraw)
     W8CharacterPage::Redraw(target, full_redraw);
     for (auto& button : m_buttons) {
         button->m_dirty |= redraw || full_redraw;
-        button->Draw(target);
+        if (button->m_dirty) {
+            button->Draw(target);
+            InvalidateRegion(button->Bounds());
+            button->m_dirty = false;
+        }
     }
     if (redraw || full_redraw || m_choices_dirty) {
         for (int index = 0; index < 11; ++index) {

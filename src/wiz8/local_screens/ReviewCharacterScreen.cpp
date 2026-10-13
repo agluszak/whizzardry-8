@@ -196,7 +196,6 @@ W8CampScreenRegion g_camp_screen_regions[12] = {
    formats - zero-padded cost, plain number, plain string and the realm label
    prefix. */
 
-
 /* Enable or disable the six spell-realm scrollbars together. While enabling, a
    realm whose learned spells fit the eight visible rows keeps its bar off. */
 void SetCampSpellRangesEnabled(bool enable)
@@ -815,11 +814,13 @@ W8CampCharacterInfo::W8CampCharacterInfo()
 {
     const auto button = [this](int frame, int help, bool combat) {
         auto result = std::make_unique<W8ButtonWidget>(input);
-        result->Configure(CatalogArtwork::Load(0x121, 0).spriteSheet(), frame + 3,
-            frame, frame + 2, frame + 1, frame + 4,
-            [this, combat](auto*) { AfterUiDispatch([this, combat] { SetCombatView(combat); }); },
-            {}, false, 0, help, {}, {});
-        result->policy.controller_activation = true;
+        result->SetTooltipIndex(help);
+        result->Configure(
+            ButtonGraphics::Load(CatalogArtwork::Load(0x121, 0).spriteSheet(), frame + 3, frame, frame + 2,
+                                 frame + 1, frame + 4),
+            [this, combat](auto*) { AfterUiDispatch([this, combat] { SetCombatView(combat); }); }, 0);
+        result->policy.input_rule = ButtonInputRule::PrimaryPressedState;
+        result->menu_artwork = true;
         result->SetPosition(0x13e, 0x8b);
         return result;
     };
@@ -882,8 +883,16 @@ void W8CampCharacterInfo::Redraw(SDL_Surface& target, bool full_redraw)
     if (redraw) CatalogArtwork::Load(0x122, 0).drawAndInvalidate(target, m_backgroundImage, 0x136, 0);
     m_stats_tab->m_dirty |= redraw;
     m_combat_tab->m_dirty |= redraw;
-    m_stats_tab->Draw(target);
-    m_combat_tab->Draw(target);
+    if (m_stats_tab->m_dirty) {
+        m_stats_tab->Draw(target);
+        InvalidateRegion(m_stats_tab->Bounds());
+        m_stats_tab->m_dirty = false;
+    }
+    if (m_combat_tab->m_dirty) {
+        m_combat_tab->Draw(target);
+        InvalidateRegion(m_combat_tab->Bounds());
+        m_combat_tab->m_dirty = false;
+    }
     if (!redraw) return;
     m_dirty = false;
     InvalidateCampPanel();

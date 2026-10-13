@@ -76,7 +76,7 @@ struct FormationPanel {
 };
 std::unique_ptr<FormationPanel> formation;
 constexpr ButtonPolicy cell_policy{.primary_toggle = ButtonToggle::Release,
-                                  .controller_activation = true};
+                                   .input_rule = ButtonInputRule::PrimaryPressedState};
 }
 
 static UiResult HandleFormationCell(const UiPointerEvent& event, int cell);
@@ -250,12 +250,14 @@ static void CreateFormationPanel()
         const int frame = artwork.imageOffset() + (action == 1 ? 4 : 0);
         auto& button = formation->actions[action];
         button = std::make_unique<W8ButtonWidget>(formation->input);
-        button->Configure(artwork.spriteSheet(), frame + 3, frame, frame + 1, -1, frame + 2,
-            [action](W8ButtonWidget*) { AfterUiDispatch(actions[action]); },
-            {}, false, 0, 1981 + action, {}, {});
+        button->SetTooltipIndex(1981 + action);
+        button->Configure(
+            ButtonGraphics::Load(artwork.spriteSheet(), frame + 3, frame, frame + 1, -1, frame + 2),
+            [action](W8ButtonWidget*) { AfterUiDispatch(actions[action]); }, 0);
         button->SetPosition(bounds[action].x, bounds[action].y);
         button->Resize(bounds[action].w, bounds[action].h);
-        button->policy.controller_activation = true;
+        button->policy.input_rule = ButtonInputRule::PrimaryPressedState;
+        button->menu_artwork = true;
     }
     formation->input.add(SDL_Rect{214, 60, 214, 244}, HandleFormationBackground);
 }
@@ -283,8 +285,9 @@ void RefreshFormationPanel(bool force)
         chips.draw(target, chip, 0xd6 + position.x, 0x3c + position.y);
     }
     for (auto& button : formation->actions) {
-        button->m_dirty = true;
         button->Draw(target);
+        InvalidateRegion(button->Bounds());
+        button->m_dirty = false;
     }
     formation->dirty = false;
 }

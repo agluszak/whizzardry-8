@@ -52,13 +52,32 @@ controllers, separate from modal UI ownership.
 `ButtonInteraction` supplies press, selection, arming and repeat state.
 `W8ButtonWidget` is an ordinary layer-backed button with the shared artwork painter;
 its historical name does not imply widget inheritance. Policies preserve press and
-release toggles, latches and controller activation. Screen-specific animated art
+release toggles and latches. The named `ButtonInputRule` preserves two contracts:
+
+| Rule | Release/repeat eligibility | Pressed artwork | Repeat suppression |
+| --- | --- | --- | --- |
+| `MatchingPress` | Each pointer button needs its own matching press. | Depressed while any button remains armed. | Each button suppresses only its own release after repeating. |
+| `PrimaryPressedState` | Left requires pressed state; right may be driven by a controller without a matching press. | Only left press depresses artwork; selected state survives leaving. | Repeating either button suppresses the next eligible release of either button. |
+
+Press toggles activate immediately and do not repeat; release toggles and stay-latched
+controls retain their selected state. Pointer capture still rejects stray mouse
+releases before they reach a button. Menu artwork is an independent visual choice.
+ Screen-specific animated art
 and readouts are painted by their owners.
 
 `TextFieldGroup` supplies UTF-8 editing, selection, capacity, tab order and nested
 focus restoration. Numeric split fields use this editor with digit restriction and
 value validation; their small dialog-specific painter retains right alignment.
 There is no separate numeric editing algorithm or global numeric scratch buffer.
+
+`W8ButtonWidget::Draw` paints every visible configured button into its supplied
+canvas, even when the button is clean. It does not invalidate the main framebuffer
+or clear screen dirtiness. Owners restore backing artwork, paint in order, then
+clear control dirtiness and invalidate the composed area. Auxiliary painting cannot
+commit an on-screen update. All button groups borrow an explicitly owned input
+layer, including the HUD banks and automap chrome; there is no per-button layer.
+Configuration uses existing image/appearance values and closures capturing the
+actual owner or action, without a generic dialog-owner or numeric payload route.
 
 Buttons, text buffers, editors, scrollbars and dialog text controls paint into an
 explicit `SDL_Surface&`, including the complete dialog painting path. Scroll

@@ -14,7 +14,6 @@
 /* Tooltip string-table sentinel; independent of the five frame indices. */
 enum { W8_DIALOG_BUTTON_NO_TOOLTIP = -1 };
 
-class W8DialogBase;
 class UiLayer;
 class W8ButtonWidget;
 
@@ -26,10 +25,13 @@ using W8ButtonCallback = std::function<void(W8ButtonWidget*)>;
 // VTABLE: WIZ8 0x005efa98
 class W8ButtonWidget {
 public:
-    W8ButtonWidget();
     explicit W8ButtonWidget(UiLayer& layer);
     ~W8ButtonWidget();
-    void Draw(SDL_Surface& target);
+    W8ButtonWidget(const W8ButtonWidget&) = delete;
+    W8ButtonWidget& operator=(const W8ButtonWidget&) = delete;
+    // Paint only. The screen owner restores backing, clears dirtiness and
+    // invalidates the framebuffer when it commits an on-screen update.
+    void Draw(SDL_Surface& target) const;
     void Reset();
     bool IsConfigured() const { return m_target != nullptr; }
     const SDL_Rect& Bounds() const { return m_bounds; }
@@ -66,39 +68,15 @@ public:
     /* Installs the tooltip string on the input target (when one is configured
        and tooltips are on), or clears it. */
     void SetTooltipEnabled(bool enabled);
-    int GetUserData() const { return m_user_data; }
-    /* Load the frame images, configure the input target, and store the
-       per-button callbacks, left-toggle flag, priority and tooltip index. */
-    bool Configure(const char* image_path, int gray_frame, int off_normal_frame,
-                   int off_hover_frame, int on_normal_frame, int on_hover_frame,
-                   W8ButtonCallback left_callback, W8ButtonCallback move_callback,
-                   bool left_toggles, int priority, int tooltip_index,
-                   W8ButtonCallback right_callback, W8ButtonCallback double_click_callback);
-    bool Configure(std::shared_ptr<const SpriteSheet> sprites, int gray_frame,
-                   int off_normal_frame, int off_hover_frame, int on_normal_frame,
-                   int on_hover_frame, W8ButtonCallback left_callback,
-                   W8ButtonCallback move_callback, bool left_toggles, int priority,
-                   int tooltip_index, W8ButtonCallback right_callback,
-                   W8ButtonCallback double_click_callback);
-    bool ConfigureIcon(const char* image_path, int disabled_frame, int normal_frame, int priority,
-                       int tooltip_index)
-    {
-        return Configure(image_path, disabled_frame, normal_frame, BUTTON_NO_IMAGE, normal_frame,
-                         BUTTON_NO_IMAGE, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK, false, priority,
-                         tooltip_index, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
-    }
+    bool Configure(ButtonImage image, W8ButtonCallback action = {}, int priority = 127);
+    bool Configure(ButtonAppearance appearance, SDL_Rect bounds, W8ButtonCallback action = {},
+                   int priority = 127);
 
-    /* Configure a text button with an owner-local numeric callback payload. */
-    bool ConfigureTextButton(std::string_view text, Font& font, short fore_color,
-                             short shadow_color, short x, short y, short width, short height,
-                             W8ButtonCallback left_callback, int user_data,
-                             GenericButtonImage image = {}, int priority = 127);
     /* Store the tooltip string-table index and, when tooltips are
        enabled, push its text onto the input target. */
     void SetTooltipIndex(int tooltip_index);
 
 private:
-    std::unique_ptr<UiLayer> m_owned_layer;
     UiLayer* m_layer;
     HitTarget* m_target = nullptr;
     SDL_Rect m_bounds{};
@@ -108,19 +86,15 @@ private:
     UiResult HandlePointer(const UiPointerEvent& event);
     ButtonAppearance m_appearance;
     ButtonInteraction m_interaction;
-    int m_user_data = 0;
     void ConfigureInput(int priority);
     int m_tooltip_index = W8_DIALOG_BUTTON_NO_TOOLTIP; /* g_localized_strings index, or -1 */
     W8ButtonCallback m_left_callback;
-    W8ButtonCallback m_right_callback;
-    W8ButtonCallback m_move_callback;
-    W8ButtonCallback m_double_click_callback;
     std::shared_ptr<bool> m_alive = std::make_shared<bool>(true);
 
 public:
     ButtonPolicy policy;
-    /* Set by the dialog factories to the owning dialog; the per-button
-       dispatch callback reads it back when a stored callback needs it. */
-    W8DialogBase* m_owner = nullptr;
-
+    bool menu_artwork = false;
+    W8ButtonCallback on_right_click;
+    W8ButtonCallback on_move;
+    W8ButtonCallback on_double_click;
 };

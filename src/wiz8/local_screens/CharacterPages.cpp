@@ -1,3 +1,4 @@
+#include "wiz8/engine_code/Video2.h"
 #include <string>
 #include <SDL3/SDL_rect.h>
 #include "wiz8/local_code/ButtonWidget.h"
@@ -79,11 +80,13 @@ W8CharacterPageEntry::W8CharacterPageEntry(UiLayer& input, int x, int y, bool co
             UpdateButtons();
             MarkDirty();
         };
-        result->Configure(CatalogArtwork::Load(0x10a, 0).spriteSheet(), frame + 3,
-            frame, frame + 1, frame + 2, frame + 4,
-            [adjust](auto*) { AfterUiDispatch([adjust] { adjust(1); }); }, {}, false, 0, -1,
-            [adjust](auto*) { AfterUiDispatch([adjust] { adjust(5); }); }, {});
-        result->policy.controller_activation = true;
+        result->on_right_click = [adjust](auto*) { AfterUiDispatch([adjust] { adjust(5); }); };
+        result->Configure(
+            ButtonGraphics::Load(CatalogArtwork::Load(0x10a, 0).spriteSheet(), frame + 3, frame, frame + 1,
+                                 frame + 2, frame + 4),
+            [adjust](auto*) { AfterUiDispatch([adjust] { adjust(1); }); }, 0);
+        result->policy.input_rule = ButtonInputRule::PrimaryPressedState;
+        result->menu_artwork = true;
         result->policy.repeat = true;
         result->SetPosition(x, m_y + 1);
         result->SetVisible(false);
@@ -170,8 +173,16 @@ void W8CharacterPageEntry::Redraw(SDL_Surface& target)
         m_label.RenderToTarget(0, true, target);
         m_dirty = false;
     }
-    m_increment->Draw(target);
-    m_decrement->Draw(target);
+    if (m_increment->m_dirty) {
+        m_increment->Draw(target);
+        InvalidateRegion(m_increment->Bounds());
+        m_increment->m_dirty = false;
+    }
+    if (m_decrement->m_dirty) {
+        m_decrement->Draw(target);
+        InvalidateRegion(m_decrement->Bounds());
+        m_decrement->m_dirty = false;
+    }
     m_increment->m_dirty = m_decrement->m_dirty = false;
 }
 
@@ -208,7 +219,6 @@ void W8CharacterPageEntry::UpdateButtons()
 
 // VTABLE: WIZ8 0x005ef1e4 W8CharacterPage
 // class W8CharacterPage
-
 
 // FUNCTION: WIZ8 0x005afd90
 W8CharacterPage::W8CharacterPage(CatalogArtwork background)

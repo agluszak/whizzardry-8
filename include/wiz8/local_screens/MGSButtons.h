@@ -15,22 +15,37 @@
 
 #include "wiz8/local_screens/MGSPortraitCombat.h"
 
-class W8ButtonWidget;
+#include "wiz8/local_code/ButtonWidget.h"
 
-/* Owned globals. */
-extern std::array<W8ButtonWidget, 2> g_submenu_scroll_buttons;
-extern std::array<W8ButtonWidget, 2> g_submenu_panel_buttons;
-extern std::array<W8ButtonWidget, 6> g_layout_arrow_buttons;
-extern std::array<W8ButtonWidget, 5> g_combat_stance_buttons;
-extern std::array<W8ButtonWidget, 3> g_roof_buttons;
-extern W8ButtonWidget g_options_disk_button;
+// The HUD banks share a screen-owned input group. Modal submenu controls
+// retain their separate layer because they activate independently.
+struct MainGameHudButtons
+{
+    UiLayer input{0x33};
+    std::array<W8ButtonWidget, 2> submenu_scroll{W8ButtonWidget{input}, W8ButtonWidget{input}};
+    std::array<W8ButtonWidget, 2> submenu_panel{W8ButtonWidget{input}, W8ButtonWidget{input}};
+    std::array<W8ButtonWidget, 6> layout_arrows{W8ButtonWidget{input}, W8ButtonWidget{input},
+                                                W8ButtonWidget{input}, W8ButtonWidget{input},
+                                                W8ButtonWidget{input}, W8ButtonWidget{input}};
+    std::array<W8ButtonWidget, 5> combat_stance{W8ButtonWidget{input}, W8ButtonWidget{input},
+                                                W8ButtonWidget{input}, W8ButtonWidget{input},
+                                                W8ButtonWidget{input}};
+    std::array<W8ButtonWidget, 9> submenu{
+        W8ButtonWidget{input}, W8ButtonWidget{input}, W8ButtonWidget{input},
+        W8ButtonWidget{input}, W8ButtonWidget{input}, W8ButtonWidget{input},
+        W8ButtonWidget{input}, W8ButtonWidget{input}, W8ButtonWidget{input}};
+    std::array<W8ButtonWidget, 3> roof{W8ButtonWidget{input}, W8ButtonWidget{input}, W8ButtonWidget{input}};
+    W8ButtonWidget options_disk{input};
+};
+extern MainGameHudButtons g_hud_buttons;
+
+/* Submenu selection state. */
 extern short g_submenu_entry_count;
 extern uint64_t g_submenu_clock;
 extern bool g_submenu_close_pending;
 /* The cancel row lands at [built-1] where built is the available-entry count
    plus one, so five rows only suffice because Berserk (fighter trait 0x14) and
    Pray (priest trait 0x0b) can never be available together. */
-extern std::array<W8ButtonWidget, 9> g_submenu_buttons;
 /* The action-kind message indexes the caption draw maps through. */
 extern unsigned short g_action_kind_message_ids[12];
 /* Which menu the open sub-menu panel serves (W8SubMenuPage value), each row's

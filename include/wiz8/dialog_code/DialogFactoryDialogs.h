@@ -85,14 +85,14 @@ private:
 
     /* Owner-local activation callbacks for the text area, scroll arrows and
        the confirmation buttons. */
-    static void TextAreaButtonCallback(W8ButtonWidget* button);
-    static void UpButtonCallback(W8ButtonWidget* button);
-    static void DownButtonCallback(W8ButtonWidget* button);
-    static void OkButtonCallback(W8ButtonWidget* button);
-    static void CancelButtonCallback(W8ButtonWidget* button);
-    static void SliderTrackButtonCallback(W8ButtonWidget* button);
+    void TextAreaButtonCallback(W8ButtonWidget* button);
+    void UpButtonCallback();
+    void DownButtonCallback();
+    void OkButtonCallback();
+    void CancelButtonCallback();
+    void SliderTrackButtonCallback(W8ButtonWidget* button);
 
-public:
+  public:
     std::vector<std::string> m_lines;
     std::vector<void (*)(int)> m_field_064;
     int m_field_074;
@@ -154,15 +154,11 @@ private:
     bool HandleInputEvent(const InputEvent* input);
 
     /* Per-button callbacks stored through W8ButtonWidget::Configure. */
-    static void SplitDecrementOne(W8ButtonWidget* button);
-    static void SplitDecrementFive(W8ButtonWidget* button);
-    static void SplitIncrementOne(W8ButtonWidget* button);
-    static void SplitIncrementFive(W8ButtonWidget* button);
-    static void SplitAccept(W8ButtonWidget* button);
-    static void SplitCancel(W8ButtonWidget* button);
-    static void SplitActivateField(W8ButtonWidget* button);
+    void SplitAccept();
+    void SplitCancel();
+    void SplitActivateField(W8ButtonWidget* button);
 
-private:
+  private:
     std::array<std::unique_ptr<W8ButtonWidget>, 6> m_buttons;
     /* The labels named by g_split_amount_string_ids; [2] shows the
        amount still remaining. */
@@ -204,7 +200,7 @@ private:
     bool IsItemSelected(int index);
     void SetItemSelected(int index, bool selected);
     void ToggleItem(int index, W8ButtonWidget* button);
-    static void ShowVisibleItemInfo(W8ButtonWidget* button, int row);
+    void ShowVisibleItemInfo(W8ButtonWidget* button, int row);
     /* Move every flagged item to the destination: -1 copies it into the shared
        party pool, any other value gives it to that party slot's character.
        Each successful transfer unlinks the item and its flag; a failure plays
@@ -214,34 +210,24 @@ private:
     bool HandleInputEvent(const InputEvent* input);
 
     /* Per-button callbacks stored through W8ButtonWidget::Configure.
-       CloseOwningDialog is public because AssayDialog also stores it
-       on its close button. */
-    static void ToggleAllItems(W8ButtonWidget* button);
-    static void TakeSelectedToParty(W8ButtonWidget* button);
-    static void TakeSelectedToCharacter(W8ButtonWidget* button);
+       Their configuration captures the owning picker directly. */
+    void ToggleAllItems();
 
-public:
-    static void CloseOwningDialog(W8ButtonWidget* button);
+  private:
+    void ToggleVisibleItem0(W8ButtonWidget* button);
+    void ToggleVisibleItem1(W8ButtonWidget* button);
+    void ToggleVisibleItem2(W8ButtonWidget* button);
+    void ToggleVisibleItem3(W8ButtonWidget* button);
+    void ScrollItemsUp();
+    void ScrollItemsDown();
+    void ScrollItemsToMouse(W8ButtonWidget* button);
 
-private:
-    static void ToggleVisibleItem0(W8ButtonWidget* button);
-    static void ToggleVisibleItem1(W8ButtonWidget* button);
-    static void ToggleVisibleItem2(W8ButtonWidget* button);
-    static void ToggleVisibleItem3(W8ButtonWidget* button);
-    static void ShowVisibleItemInfo0(W8ButtonWidget* button);
-    static void ShowVisibleItemInfo1(W8ButtonWidget* button);
-    static void ShowVisibleItemInfo2(W8ButtonWidget* button);
-    static void ShowVisibleItemInfo3(W8ButtonWidget* button);
-    static void ScrollItemsUp(W8ButtonWidget* button);
-    static void ScrollItemsDown(W8ButtonWidget* button);
-    static void ScrollItemsToMouse(W8ButtonWidget* button);
-
-public:
-  std::vector<W8WorldItem*> items;
-  std::vector<unsigned char> flags;
-  std::array<std::unique_ptr<W8ButtonWidget>, 13> m_buttons;
-  int m_first_item;
-  W8WorldItem* m_item_group;
+  public:
+    std::vector<W8WorldItem*> items;
+    std::vector<unsigned char> flags;
+    std::array<std::unique_ptr<W8ButtonWidget>, 13> m_buttons;
+    int m_first_item;
+    W8WorldItem* m_item_group;
 };
 
 /* The item-split dialog opened for stackable item stacks. The destroy
@@ -279,15 +265,15 @@ private:
     bool HandleInputEvent(const InputEvent* input);
 
     /* Per-button callbacks stored through W8ButtonWidget::Configure. */
-    static void OnSplitDecrement(W8ButtonWidget* button);
-    static void OnSplitIncrement(W8ButtonWidget* button);
-    static void OnSplitDecrementMany(W8ButtonWidget* button);
-    static void OnSplitIncrementMany(W8ButtonWidget* button);
-    static void OnAccept(W8ButtonWidget* button);
-    static void OnCancel(W8ButtonWidget* button);
-    static void OnCountFieldClick(W8ButtonWidget* button);
+    void OnSplitDecrement();
+    void OnSplitIncrement();
+    void OnSplitDecrementMany();
+    void OnSplitIncrementMany();
+    void OnAccept();
+    void OnCancel();
+    void OnCountFieldClick(W8ButtonWidget* button);
 
-public:
+  public:
     std::deque<W8ButtonWidget> m_buttons; /* minus/plus, frames, accept/cancel */
     W8TextBuffer* m_texts[14];
     std::unique_ptr<W8DialogNumericInput> m_count_input;

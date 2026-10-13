@@ -131,10 +131,13 @@ static void CreateUseItemSelectControls(void)
     const auto make_button = [](int artwork, int normal, int pressed, int hover, int pressed_hover,
                                 int disabled, SDL_Rect bounds, int help, void (*action)()) {
         auto button = std::make_unique<W8ButtonWidget>(use_item->input);
-        button->Configure(CatalogArtwork::Load(artwork, 0).spriteSheet(), disabled, normal, hover,
-            pressed, pressed_hover, [action](auto*) { AfterUiDispatch(action); }, {}, false,
-            0, help, {}, {});
-        button->policy.controller_activation = true;
+        button->SetTooltipIndex(help);
+        button->Configure(
+            ButtonGraphics::Load(CatalogArtwork::Load(artwork, 0).spriteSheet(), disabled, normal, hover,
+                                 pressed, pressed_hover),
+            [action](auto*) { AfterUiDispatch(action); }, 0);
+        button->policy.input_rule = ButtonInputRule::PrimaryPressedState;
+        button->menu_artwork = true;
         button->SetPosition(bounds.x, bounds.y);
         button->Resize(bounds.w, bounds.h);
         return button;
@@ -335,8 +338,9 @@ void UpdateUseItemSelect(bool active)
         if (panel == 0) {
             use_item->caption.RenderToTarget(0, true, target);
             for (auto& button : use_item->pools) {
-                button->m_dirty = true;
                 button->Draw(target);
+                InvalidateRegion(button->Bounds());
+                button->m_dirty = false;
             }
         } else if (panel == 1) RedrawTextBoxScrollChrome();
         else {
@@ -346,8 +350,16 @@ void UpdateUseItemSelect(bool active)
                 actions.draw(target, index * 5 + 3, 0x212 + (index % 3) * 17, 0x16c + (index / 3) * 17);
             CatalogArtwork::Load(0x1aa, 0).draw(target, 0x21, 0x211, 0x18d);
             use_item->filter->m_dirty = use_item->close->m_dirty = true;
-            use_item->filter->Draw(target);
-            use_item->close->Draw(target);
+            if (use_item->filter->m_dirty) {
+                use_item->filter->Draw(target);
+                InvalidateRegion(use_item->filter->Bounds());
+                use_item->filter->m_dirty = false;
+            }
+            if (use_item->close->m_dirty) {
+                use_item->close->Draw(target);
+                InvalidateRegion(use_item->close->Bounds());
+                use_item->close->m_dirty = false;
+            }
             if (use_item->item_image) DrawSpriteAndInvalidate(target, *use_item->item_image, 0, 0x1e1, 0x16b);
             use_item->quantity.RenderToTarget(0, true, target);
         }
