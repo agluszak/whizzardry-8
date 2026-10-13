@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <vector>
 #include "glm/ext/vector_float3.hpp"
 
@@ -21,7 +22,7 @@ struct W8ReadLevelInfo {
 
 unsigned char ReadLevel(W8World* world, wiz8::File* handle, bool use_octree, const char* bitmap_folder);
 unsigned char ReadWorldParticles(W8ReadLevelInfo* info, srNode* scene,
-                                 std::vector<stParticle*>* particles);
+                                 std::vector<std::unique_ptr<stParticle>>* particles);
 
 // Append a complete named-position section; failure leaves the destination unchanged.
 bool ReadNamedPositions(wiz8::File* file, std::vector<W8NamedPosition>& positions);

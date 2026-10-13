@@ -394,7 +394,7 @@ static void DestroyWorldResources(W8World* world)
     wiz8::remove_all_and_delete_in_order(world->plsProps);
     DestroyAllWorldTriggers(world);
     wiz8::clear_and_dispose(world->plsAmbientSounds, DestroyAmbientSound);
-    wiz8::remove_all_and_delete_in_order(world->particles);
+    world->particles.clear();
     DestroyAllMissiles(world);
     DestroyAllSpellVisuals(world);
     DestroyWorldLights(world);
@@ -542,7 +542,7 @@ stParticle* FindParticleByName(W8World* world, const char* name)
         int count = static_cast<int>(world->particles.size());
 
         for (int index = 0; index < count; ++index) {
-            stParticle* particle = world->particles[index];
+            stParticle* particle = world->particles[index].get();
 
             if (_stricmp(particle->getName().c_str(), name) == 0) {
                 return particle;

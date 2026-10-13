@@ -106,14 +106,14 @@ void SaveParticleStates(wiz8::File& handle)
     handle.write(&version, sizeof(version));
 
     if (g_world != 0) {
-        for (stParticle* particle : g_world->particles) {
+        for (const auto& particle : g_world->particles) {
             count += particle->persisted;
         }
     }
     handle.write(&count, sizeof(count));
 
     if (g_world != 0) {
-        for (stParticle* particle : g_world->particles) {
+        for (const auto& particle : g_world->particles) {
             if (particle->persisted) {
                 strcpy(name, particle->getName().c_str());
                 handle.write(name, sizeof(name));
@@ -172,8 +172,8 @@ void stParticle::AllocateParticles(unsigned int count)
 }
 
 // FUNCTION: WIZ8 0x00497AF0
-stParticle::stParticle(srNode* parent, int count)
-    : srClassSupport<stParticle, srNode, 0x10009>(static_cast<srNode*>(0))
+stParticle::stParticle(srNode* parent, int count, Ownership ownership)
+    : srClassSupport<stParticle, srNode, 0x10009>(static_cast<srNode*>(0), ownership)
 {
     setParent(parent, 1);
     if (count == 0) {

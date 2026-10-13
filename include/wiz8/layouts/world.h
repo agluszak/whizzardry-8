@@ -18,6 +18,7 @@ class stLight;
 #include "wiz8/named_position.h"
 #include "wiz8/engine_code/Camera.h"
 #include "wiz8/engine_code/quad.h"
+#include "wiz8/engine_code/stParticle.h"
 
 class srCamera;
 class srModelInstance;
@@ -98,7 +99,8 @@ struct W8World {
     std::vector<W8Prop*> collidable_props;
     std::vector<MonGen*> monster_generators;
     std::vector<Trigger*> triggers;
-    std::vector<stParticle*> particles;
+    // Level particles: the world owns them; the dynamic scene only attaches them.
+    std::vector<std::unique_ptr<stParticle>> particles;
     std::vector<W8NamedPosition> named_positions;
     unsigned char m_unknown_0d4[8];
 };

@@ -380,7 +380,7 @@ try
 
     (info->hFile->read(&has_particles, 1).bytes == static_cast<std::size_t>(1));
     if (has_particles != 0) {
-        std::vector<stParticle*> particles;
+        std::vector<std::unique_ptr<stParticle>> particles;
 
         success = ReadWorldParticles(info, g_world->dynamic_scene, &particles);
         if (!particles.empty()) {
@@ -390,7 +390,8 @@ try
                 (*cycle)->m_plsParticles = new std::vector<W8GrCycleParticleAttachment*>;
             }
             for (index = 0; index < static_cast<int>(particles.size()); ++index) {
-                stParticle* particle = particles[index];
+                // The attachment now owns the particle (GrCycle destruction or self-release).
+                stParticle* particle = particles[index].release();
                 W8GrCycleParticleAttachment* event = new W8GrCycleParticleAttachment;
                 glm::dvec3 location;
 

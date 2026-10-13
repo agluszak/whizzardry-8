@@ -28,7 +28,8 @@ public:
     {
         return "stParticle";
     }
-    stParticle(srNode* parent, int count); /* 0x00497AF0 */
+    stParticle(srNode* parent, int count,
+               Ownership ownership = Ownership::parent); /* 0x00497AF0 */
     stParticle(const stParticle& other);   /* 0x00498180 */
     void SetActive(unsigned char active);
     void SetTraversalEnabled(bool enabled);
