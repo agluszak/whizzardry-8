@@ -1,13 +1,16 @@
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
+#include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "compat/compiler.h"
 #include "glm/common.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "surrender/srNode.h"
+#include "surrender/srTypeRegistry.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/AmbientSound.h"
@@ -19,6 +22,7 @@
 #include "wiz8/engine_code/materials.h"
 #include "wiz8/engine_code/GrCycle.h"
 #include "wiz8/engine_code/World.h"
+#include "wiz8/layouts/world.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srMeshModel.h"
 #include "wiz8/filesystem.h"
