@@ -52,6 +52,10 @@ public:
     void setShape(HitShape shape);
     void setEnabled(bool enabled);
     void setTooltip(std::function<std::string()> text);
+    // Hover-only targets (tooltips, previews) see presses but never capture the
+    // pointer. Other targets capture on press whatever their handler returns:
+    // gameplay controls that Pass a press still expect the matching release.
+    void setPassive() { passive_ = true; }
     // Release capture when gameplay starts a drag whose destination should
     // receive the release. This changes the existing dispatcher's capture.
     void releaseCapture();
@@ -73,7 +77,7 @@ private:
     Handler handler_;
     std::function<std::string()> tooltip_;
     int priority_;
-    bool enabled_ = true, text_cursor_ = false;
+    bool enabled_ = true, text_cursor_ = false, passive_ = false;
     SDL_MouseButtonFlags captured_buttons_ = 0;
 };
 
@@ -94,6 +98,7 @@ public:
     void setEnabled(bool enabled);
 
 private:
+    static void retire(std::unique_ptr<HitTarget> target);
     friend class TextFieldGroup;
     friend class W8DialogBase;
     friend class W8ButtonWidget;
@@ -108,6 +113,8 @@ private:
     SDL_MouseButtonFlags saved_buttons_ = 0;
 };
 
+// Removing a target or destroying a layer during dispatch is safe: the target
+// and its handler live until the outermost dispatch ends.
 // Callbacks request removal, owner destruction or screen transitions here.
 // Actions run after the outermost pointer dispatch, including hover callbacks;
 // PumpUiInput includes the screen's event policy in this transaction and yields
