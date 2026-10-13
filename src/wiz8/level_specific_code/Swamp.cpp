@@ -59,11 +59,9 @@ bool SwampOilPool(Trigger* pTrigger)
 static bool SwampGasFireSpawn(Trigger* pTrigger); /* 0x004DAA70 */
 static void SwampGasFireItemDrop(int command);    /* 0x004DACD0 */
 
-/* "gas_trig_plane01-07": while fact 0x16d is unset the trigger defers to the
-   one-shot spawner; once set, it casts spell 0x2a at power 4 on the camera
-   position. */
-// FUNCTION: WIZ8 0x004DA9B0
-bool SwampGasPlane(Trigger* pTrigger)
+/* Casts a spell at the camera position once the savant party has met; before
+   that, spawns the gas fire. */
+static bool CastSwampPlaneSpell(Trigger* pTrigger, int spell_id)
 {
     srVector3T<float> position;
 
@@ -72,8 +70,17 @@ bool SwampGasPlane(Trigger* pTrigger)
         return false;
     }
     position = glm::vec3(GetWorld()->camera->getLocation());
-    PointCastSpell(position, W8_SPELL_NOXIOUS_FUMES, 4);
+    PointCastSpell(position, spell_id, 4);
     return true;
+}
+
+/* "gas_trig_plane01-07": while fact 0x16d is unset the trigger defers to the
+   one-shot spawner; once set, it casts spell 0x2a at power 4 on the camera
+   position. */
+// FUNCTION: WIZ8 0x004DA9B0
+bool SwampGasPlane(Trigger* pTrigger)
+{
+    return CastSwampPlaneSpell(pTrigger, W8_SPELL_NOXIOUS_FUMES);
 }
 
 /* "fire_trig_plane01-07": same fact gate as the gas planes, but casts spell
@@ -81,15 +88,7 @@ bool SwampGasPlane(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004DAA10
 bool SwampFirePlane(Trigger* pTrigger)
 {
-    srVector3T<float> position;
-
-    if (GetFact(W8_FACT_SAVANT_PARTY_SWAMP_MEET) == 0) {
-        SwampGasFireSpawn(pTrigger);
-        return false;
-    }
-    position = glm::vec3(GetWorld()->camera->getLocation());
-    PointCastSpell(position, W8_SPELL_FIREBALL, 4);
-    return true;
+    return CastSwampPlaneSpell(pTrigger, W8_SPELL_FIREBALL);
 }
 
 /* The one-shot behind the gas and fire trigger planes, armed while fact 0x16d

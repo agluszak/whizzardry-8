@@ -2462,9 +2462,7 @@ bool W8Octree::SetPathStem(const char* path)
     if (name_length == 0) {
         return false;
     }
-    if (m_owned_0c0 != 0) {
-        free(m_owned_0c0);
-    }
+    free(m_owned_0c0);
     m_owned_0c0 = static_cast<char*>(malloc(name_length + 1));
     if (m_owned_0c0 == 0) {
         return false;
@@ -2962,18 +2960,27 @@ void W8Octree::Initialize(const W8OctFileHeader* header)
     ToggleUpdateSuspension(0);
 }
 
+/* Appends an item to a null-terminated list that holds at most `capacity` items. */
+template<class Item>
+static void AppendLoadedItem(Item** items, unsigned short& loaded, w8_ulong capacity, Item* item,
+                             const char* expression, int line, const char* message)
+{
+    if (loaded >= static_cast<unsigned short>(capacity)) {
+        srAssertFail(expression, "C:\\Projects\\Wizardry 8\\Engine Code\\Octree.cpp", line,
+                     message);
+    }
+    items[loaded] = item;
+    loaded++;
+    items[loaded] = 0;
+}
+
 // FUNCTION: WIZ8 0x0042e440
 void W8Octree::AddLoadedProp(W8Prop* prop)
 {
     if (m_fAccumulating) {
-        if (m_usNumPropsLoaded >= static_cast<unsigned short>(m_ulNumProps)) {
-            srAssertFail("m_usNumPropsLoaded<(UINT16)m_ulNumProps",
-                         "C:\\Projects\\Wizardry 8\\Engine Code\\Octree.cpp", 0x485,
+        AppendLoadedItem(m_papProps, m_usNumPropsLoaded, m_ulNumProps, prop,
+                         "m_usNumPropsLoaded<(UINT16)m_ulNumProps", 0x485,
                          "Too many props loaded for Octree");
-        }
-        m_papProps[m_usNumPropsLoaded] = prop;
-        m_usNumPropsLoaded++;
-        m_papProps[m_usNumPropsLoaded] = 0;
     }
 }
 
@@ -2981,14 +2988,9 @@ void W8Octree::AddLoadedProp(W8Prop* prop)
 void W8Octree::AddLoadedParticle(stParticle* particle)
 {
     if (m_fAccumulating) {
-        if (m_usNumParticlesLoaded >= static_cast<unsigned short>(m_ulNumParticles)) {
-            srAssertFail("m_usNumParticlesLoaded<(UINT16)m_ulNumParticles",
-                         "C:\\Projects\\Wizardry 8\\Engine Code\\Octree.cpp", 0x49d,
+        AppendLoadedItem(m_papParticles, m_usNumParticlesLoaded, m_ulNumParticles, particle,
+                         "m_usNumParticlesLoaded<(UINT16)m_ulNumParticles", 0x49d,
                          "Too many particles loaded for Octree");
-        }
-        m_papParticles[m_usNumParticlesLoaded] = particle;
-        m_usNumParticlesLoaded++;
-        m_papParticles[m_usNumParticlesLoaded] = 0;
     }
 }
 
@@ -3008,34 +3010,16 @@ W8Octree::~W8Octree()
     }
 
     free(m_aulGDObjs);
-    if (m_branches != 0) {
-        free(m_branches);
-    }
-    if (m_leaves != 0) {
-        free(m_leaves);
-    }
-    if (m_polygon_index_stream != 0) {
-        free(m_polygon_index_stream);
-    }
-    if (m_aulPolyLookup != 0) {
-        free(m_aulPolyLookup);
-    }
-    if (m_leaf_lookup != 0) {
-        free(m_leaf_lookup);
-    }
-    if (m_gd_surface_index_stream != 0) {
-        free(m_gd_surface_index_stream);
-    }
-    if (m_region_index_stream != 0) {
-        free(m_region_index_stream);
-    }
-    if (m_trigger_indices != 0) {
-        free(m_trigger_indices);
-    }
+    free(m_branches);
+    free(m_leaves);
+    free(m_polygon_index_stream);
+    free(m_aulPolyLookup);
+    free(m_leaf_lookup);
+    free(m_gd_surface_index_stream);
+    free(m_region_index_stream);
+    free(m_trigger_indices);
 
-    if (m_spatial.m_region_volumes != 0) {
-        free(m_spatial.m_region_volumes);
-    }
+    free(m_spatial.m_region_volumes);
 
     if (m_pRegionLinks != 0) {
         m_pRegionLinks->clear();
@@ -3043,35 +3027,23 @@ W8Octree::~W8Octree()
         m_pRegionLinks = 0;
     }
 
-    if (m_pfRegsVisited != 0) {
-        free(m_pfRegsVisited);
-    }
+    free(m_pfRegsVisited);
 
     m_particle_links = {};
     m_prop_links = {};
-    if (m_papProps != 0) {
-        free(m_papProps);
-    }
-    if (m_papParticles != 0) {
-        free(m_papParticles);
-    }
+    free(m_papProps);
+    free(m_papParticles);
 
     m_point_count = 0;
     if (m_sample_points != 0) {
         delete[] m_sample_points;
     }
-    if (m_owned_0c0 != 0) {
-        free(m_owned_0c0);
-    }
+    free(m_owned_0c0);
 
     delete object_registry;
 
-    if (m_pSubmeshes != 0) {
-        free(m_pSubmeshes);
-    }
-    if (g_octree_storage_ != 0) {
-        free(g_octree_storage_);
-    }
+    free(m_pSubmeshes);
+    free(g_octree_storage_);
     delete pathing;
     pathing = 0;
     if (g_octree_trace_node != 0) {

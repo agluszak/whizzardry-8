@@ -1655,6 +1655,18 @@ static unsigned char MaterialSort(W8OctPreTreeGeometry* geometry, std::span<W8Ma
     return 1;
 }
 
+/* Flips an editor option and writes its ON/OFF label. */
+static void ToggleOption(bool& option, char* label)
+{
+    if (!option) {
+        strcpy(label, "ON ");
+        option = true;
+    } else {
+        strcpy(label, "OFF");
+        option = false;
+    }
+}
+
 /* Interactive OctBuild option screen: draws the seven status lines, handles the
    toggle keys and the six numeric editors, then prints the preprocessing banner
    line and restores the saved light direction. */
@@ -1791,43 +1803,19 @@ void W8Octree::OctBuildOptions(char* stem)
                     }
                     break;
                 case 0x4c:
-                    if (!g_option_logging) {
-                        strcpy(log_state, "ON ");
-                        g_option_logging = true;
-                    } else {
-                        strcpy(log_state, "OFF");
-                        g_option_logging = false;
-                    }
+                    ToggleOption(g_option_logging, log_state);
                     break;
                 case 0x4d:
-                    if (!g_option_mesh_linking) {
-                        strcpy(mesh_state, "ON ");
-                        g_option_mesh_linking = true;
-                    } else {
-                        strcpy(mesh_state, "OFF");
-                        g_option_mesh_linking = false;
-                    }
+                    ToggleOption(g_option_mesh_linking, mesh_state);
                     break;
                 case 0x4e:
                     edit_mode = 1;
                     break;
                 case 0x50:
-                    if (!g_option_pathing) {
-                        strcpy(pathing_state, "ON ");
-                        g_option_pathing = true;
-                    } else {
-                        strcpy(pathing_state, "OFF");
-                        g_option_pathing = false;
-                    }
+                    ToggleOption(g_option_pathing, pathing_state);
                     break;
                 case 0x52:
-                    if (!g_option_rename_alphas) {
-                        strcpy(rename_state, "ON ");
-                        g_option_rename_alphas = true;
-                    } else {
-                        strcpy(rename_state, "OFF");
-                        g_option_rename_alphas = false;
-                    }
+                    ToggleOption(g_option_rename_alphas, rename_state);
                     break;
                 case 0x53:
                     edit_mode = 2;

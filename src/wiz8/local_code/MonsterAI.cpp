@@ -1825,6 +1825,31 @@ int ChooseMonsterSpell(W8MonsterInfo* monster_info, W8MonsterRecord* record)
     return spell_ids[index];
 }
 
+/* Adds each active monster in combat with the given disposition that can reach the
+   caster and accept the spell. exclude_caster skips the caster itself. */
+static void addMonsterSpellTargets(W8MonsterInfo* monster_info, int spell_id,
+                                   W8MonsterRecord* record, W8Disposition disposition,
+                                   bool exclude_caster, std::vector<W8CombatSlot>& targets)
+{
+    W8CombatSlot slot;
+    W8MonsterInfo* member;
+
+    for (unsigned int index = 0; index < gXStatus.monsters.size(); ++index) {
+        member = MonsterGetScriptPartByLocationIndex(index);
+        if ((!exclude_caster || member != monster_info) && member->fActive &&
+            member->hp_current != 0 && member->highest_condition < W8_CONDITION_DEAD &&
+            member->fInCombat && MonsterHostility(monster_info, member) == disposition &&
+            MonsterAttackReachesMonster(monster_info, record, 0, member)) {
+            ResetCombatSlot(&slot);
+            slot.iType = W8_TARGET_KIND_MONSTER;
+            slot.iMonsterID = member->location_id;
+            if (MonsterSpellTargetOK(monster_info, spell_id, &slot)) {
+                targets.push_back(slot);
+            }
+        }
+    }
+}
+
 /* Fill `targets` with the combat slots `spell_id` may be cast at by this
    monster. The monster's action fields carry the action being probed while
    the reachability helpers run and are restored afterwards; spell 0x77 asks
@@ -1863,20 +1888,7 @@ void CollectMonsterSpellTargets(W8MonsterInfo* monster_info, int spell_id,
         targets.push_back(slot);
         break;
     case W8_TARGET_TYPE_ALLY:
-        for (index = 0; index < gXStatus.monsters.size(); ++index) {
-            member = MonsterGetScriptPartByLocationIndex(index);
-            if (member->fActive && member->hp_current != 0 &&
-                member->highest_condition < W8_CONDITION_DEAD && member->fInCombat &&
-                MonsterHostility(monster_info, member) == W8_DISPOSITION_FRIENDLY &&
-                MonsterAttackReachesMonster(monster_info, record, 0, member)) {
-                ResetCombatSlot(&slot);
-                slot.iType = W8_TARGET_KIND_MONSTER;
-                slot.iMonsterID = member->location_id;
-                if (MonsterSpellTargetOK(monster_info, spell_id, &slot)) {
-                    targets.push_back(slot);
-                }
-            }
-        }
+        addMonsterSpellTargets(monster_info, spell_id, record, W8_DISPOSITION_FRIENDLY, false, targets);
         if (IsVisibleUnderConditions(monster_info, &monster_info->player_visibility, sight_kind)) {
             for (index = 0; index < W8_PARTY_SLOT_COUNT; ++index) {
                 if (CanPartySlotParticipate(index) &&
@@ -1893,20 +1905,7 @@ void CollectMonsterSpellTargets(W8MonsterInfo* monster_info, int spell_id,
         }
         break;
     case W8_TARGET_TYPE_ENEMY:
-        for (index = 0; index < gXStatus.monsters.size(); ++index) {
-            member = MonsterGetScriptPartByLocationIndex(index);
-            if (member != monster_info && member->fActive && member->hp_current != 0 &&
-                member->highest_condition < W8_CONDITION_DEAD && member->fInCombat &&
-                MonsterHostility(monster_info, member) == W8_DISPOSITION_HOSTILE &&
-                MonsterAttackReachesMonster(monster_info, record, 0, member)) {
-                ResetCombatSlot(&slot);
-                slot.iType = W8_TARGET_KIND_MONSTER;
-                slot.iMonsterID = member->location_id;
-                if (MonsterSpellTargetOK(monster_info, spell_id, &slot)) {
-                    targets.push_back(slot);
-                }
-            }
-        }
+        addMonsterSpellTargets(monster_info, spell_id, record, W8_DISPOSITION_HOSTILE, true, targets);
         if (IsVisibleUnderConditions(monster_info, &monster_info->player_visibility, sight_kind)) {
             for (index = 0; index < W8_PARTY_SLOT_COUNT; ++index) {
                 if (CanPartySlotParticipate(index) &&

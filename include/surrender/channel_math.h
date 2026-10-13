@@ -14,6 +14,11 @@ inline void scale(std::span<float> values, float factor)
     else for (float& value : values) value = factor * value;
 }
 
+inline bool allZero(std::span<const float> values)
+{
+    return std::ranges::all_of(values, [](float value) { return value == 0.0f; });
+}
+
 inline void clamp(std::span<float> values)
 {
     for (float& value : values) value = glm::clamp(value, 0.0f, 1.0f);

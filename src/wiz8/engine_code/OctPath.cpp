@@ -3065,18 +3065,10 @@ unsigned int W8PathingService::StepMonsterAlongPath(W8NavigatorMovementState* mo
 // FUNCTION: WIZ8 0x00457b10
 W8PathingService::~W8PathingService()
 {
-    if (file_path_nodes != 0) {
-        free(file_path_nodes);
-    }
-    if (m_waypoints != 0) {
-        free(m_waypoints);
-    }
-    if (m_pEdges != 0) {
-        free(m_pEdges);
-    }
-    if (m_pFileWayPoints != 0) {
-        free(m_pFileWayPoints);
-    }
+    free(file_path_nodes);
+    free(m_waypoints);
+    free(m_pEdges);
+    free(m_pFileWayPoints);
     m_path_visualization.reset();
     delete m_pPathValues;
     delete m_pVisitedCells;
@@ -3087,25 +3079,13 @@ W8PathingService::~W8PathingService()
     if (m_steering_context != 0) {
         delete m_steering_context;
     }
-    if (g_path_scratch != 0) {
-        free(g_path_scratch);
-    }
+    free(g_path_scratch);
     g_path_scratch = 0;
-    if (m_pCondPaths != 0) {
-        free(m_pCondPaths);
-    }
-    if (m_pulCondLookup != 0) {
-        free(m_pulCondLookup);
-    }
-    if (m_pusCondNodeFrames != 0) {
-        free(m_pusCondNodeFrames);
-    }
-    if (m_pulCondNodeKeys != 0) {
-        free(m_pulCondNodeKeys);
-    }
-    if (m_pulCondNodeValues != 0) {
-        free(m_pulCondNodeValues);
-    }
+    free(m_pCondPaths);
+    free(m_pulCondLookup);
+    free(m_pusCondNodeFrames);
+    free(m_pulCondNodeKeys);
+    free(m_pulCondNodeValues);
     g_pathing = 0;
 }
 
@@ -5579,6 +5559,34 @@ void W8PathingService::EditTeleportalLink(const srVector3T<float>* destination,
     waypoints_dirty = true;
 }
 
+struct FlagName {
+    unsigned int bit;
+    const char* name;
+};
+
+static const FlagName kMovementNames[] = {
+    {W8_NAV_WALK, "Walk "},
+    {W8_NAV_FLY, "Fly "},
+    {W8_NAV_SWIM, "Swim "},
+};
+
+static const FlagName kSizeNames[] = {
+    {W8_NAV_TINY, "Tiny "},
+    {W8_NAV_SMALL, "Small "},
+    {W8_NAV_MEDIUM, "Medium "},
+    {W8_NAV_LARGE, "Large "},
+    {W8_NAV_HUGE, "Huge "},
+};
+
+/* Appends each name whose bit is set in value, in table order. */
+template<std::size_t Count>
+static void appendFlagNames(char* line, unsigned int value, const FlagName (&names)[Count])
+{
+    for (const auto& entry : names) {
+        if ((value & entry.bit) != 0) strcat(line, entry.name);
+    }
+}
+
 /* Modal waypoint-link flag editor: renders the link's direction, movement,
    size, nav-group, collision and door bits over nine heap-allocated text/wide
    line buffers and services a keyboard loop. 'C' and 'T' toggle the collide
@@ -5654,35 +5662,13 @@ unsigned int W8PathingService::EditWaypointLinkFlags(const char* title, unsigned
         if ((current & W8_NAV_MOVEMENT_MASK) == W8_NAV_MOVEMENT_MASK) {
             strcat(lines[3], "All types              ");
         } else {
-            if ((current & W8_NAV_WALK) != 0) {
-                strcat(lines[3], "Walk ");
-            }
-            if ((current & W8_NAV_FLY) != 0) {
-                strcat(lines[3], "Fly ");
-            }
-            if ((current & W8_NAV_SWIM) != 0) {
-                strcat(lines[3], "Swim ");
-            }
+            appendFlagNames(lines[3], current, kMovementNames);
         }
         sprintf(lines[4], " (S)ize of Monster: ");
         if ((current & W8_NAV_SIZE_FILTER_MASK) == W8_NAV_SIZE_FILTER_MASK) {
             strcat(lines[4], "All sizes");
         } else {
-            if ((current & W8_NAV_TINY) != 0) {
-                strcat(lines[4], "Tiny ");
-            }
-            if ((current & W8_NAV_SMALL) != 0) {
-                strcat(lines[4], "Small ");
-            }
-            if ((current & W8_NAV_MEDIUM) != 0) {
-                strcat(lines[4], "Medium ");
-            }
-            if ((current & W8_NAV_LARGE) != 0) {
-                strcat(lines[4], "Large ");
-            }
-            if ((current & W8_NAV_HUGE) != 0) {
-                strcat(lines[4], "Huge ");
-            }
+            appendFlagNames(lines[4], current, kSizeNames);
         }
         sprintf(lines[5], " (G)roup: ");
         if ((current & W8_NAV_GROUP_MASK) == W8_NAV_GROUP_MASK) {

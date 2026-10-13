@@ -236,6 +236,17 @@ W8MissileTableRecord* g_missile_table;
 
 // GLOBAL: WIZ8 0x0060c9c8
 const char* g_missile_cycle_names[] = {"FLY", "EXPLODE"};
+
+/* Index of the cycle whose name starts the PAC name, or -1 when none does. */
+static int missileCycleIndex(const char* pac_name)
+{
+    for (int index = 0; index < 2; ++index) {
+        if (_strnicmp(pac_name, g_missile_cycle_names[index], strlen(g_missile_cycle_names[index])) ==
+            0)
+            return index;
+    }
+    return -1;
+}
 // GLOBAL: WIZ8 0x0065bddc
 unsigned int g_missile_table_count;
 
@@ -536,14 +547,7 @@ unsigned char LoadMissileCycle(W8GrCycleLoadContext* context, const char* name,
 #pragma clang diagnostic pop
                                     srAssertFail("pacName", MISSILE_CPP, 0x32f, 0);
                                 }
-                                cycle = -1;
-                                for (index = 0; index < 2; ++index) {
-                                    if (_strnicmp(pacName, g_missile_cycle_names[index],
-                                                  strlen(g_missile_cycle_names[index])) == 0) {
-                                        cycle = index;
-                                        break;
-                                    }
-                                }
+                                                                cycle = missileCycleIndex(pacName);
                                 effect = new W8CameraShakeEffect(duration, true, intensity,
                                                                  seconds * g_world_scale, 0);
                                 if (effect != 0) {
@@ -567,14 +571,7 @@ unsigned char LoadMissileCycle(W8GrCycleLoadContext* context, const char* name,
 #pragma clang diagnostic pop
                         srAssertFail("pacName", MISSILE_CPP, 0x32f, 0);
                     }
-                    cycle = -1;
-                    for (index = 0; index < 2; ++index) {
-                        if (_strnicmp(pacName, g_missile_cycle_names[index],
-                                      strlen(g_missile_cycle_names[index])) == 0) {
-                            cycle = index;
-                            break;
-                        }
-                    }
+                                        cycle = missileCycleIndex(pacName);
                     snprintf(wave_path, sizeof(wave_path), "Data\\Missiles\\Sounds\\%s.WAV", pacFileName);
                     sound = std::make_unique<W8SoundEvent>(sound_kind, cycle, frame, 0, wave_path,
                                              _stricmp(pacLoop, "LOOP") == 0);
@@ -904,24 +901,7 @@ void DestroyAllMissiles(W8World* world)
 // FUNCTION: WIZ8 0x004A3230
 W8MissileRep::~W8MissileRep()
 {
-    int emitter;
-
-    for (emitter = 0; emitter < 2; ++emitter) {
-        if (emitters[emitter] != 0) {
-            delete emitters[emitter];
-            emitters[emitter] = 0;
-        }
-    }
-
-    for (emitter = 0; emitter < 2; ++emitter) {
-        int light_list;
-
-        for (light_list = 0; light_list < static_cast<int>(light_lists[emitter].size());
-             ++light_list) {
-            DestroyLightVector(light_lists[emitter][light_list]);
-        }
-        light_lists[emitter].clear();
-    }
+    ReleaseEmitterCycles(emitters, light_lists);
 }
 
 /* Copy the effect definition, then replace its radius from the selected

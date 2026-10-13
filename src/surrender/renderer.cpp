@@ -713,26 +713,15 @@ void srRender::clipFlags(std::span<SRBYTE> destination, std::span<const glm::vec
     assert(source.size() >= destination.size());
     const std::size_t count = destination.size();
     for (std::size_t index = 0; index < count; ++index) {
-        float w = source[index].w;
-        float negative_w = -w;
+        const glm::vec4& point = source[index];
+        const float negative_w = -point.w;
+        // Each axis owns two bits: the low side (below -w) and the high side (above w).
+        // x uses 0x01/0x02, y 0x04/0x08, z 0x10/0x20.
         SRBYTE flags = 0;
-        if (negative_w > source[index].z) {
-            flags = 0x10;
-        }
-        if (source[index].z > w) {
-            flags |= 0x20;
-        }
-        if (negative_w > source[index].x) {
-            flags |= 0x01;
-        }
-        if (source[index].x > w) {
-            flags |= 0x02;
-        }
-        if (negative_w > source[index].y) {
-            flags |= 0x04;
-        }
-        if (source[index].y > w) {
-            flags |= 0x08;
+        for (std::size_t axis = 0; axis < 3; ++axis) {
+            const auto low = static_cast<SRBYTE>(1u << (2 * axis));
+            if (negative_w > point[axis]) flags |= low;
+            if (point[axis] > point.w) flags |= static_cast<SRBYTE>(low << 1);
         }
         destination[index] = flags;
     }

@@ -233,16 +233,9 @@ void srCamera::setFocalLength(double focal_length, double aspect_ratio)
 // FUNCTION: SURRENDER 0x10048920
 void srCamera::setViewPlane(double width, double height)
 {
-    if (width <= -3.141592653589793) {
-        width = -3.141592653589793;
-    } else if (width >= 3.141592653589793) {
-        width = 3.141592653589793;
-    }
-    if (height <= -3.141592653589793) {
-        height = -3.141592653589793;
-    } else if (height >= 3.141592653589793) {
-        height = 3.141592653589793;
-    }
+    constexpr double half_turn = 3.141592653589793;
+    width = std::clamp(width, -half_turn, half_turn);
+    height = std::clamp(height, -half_turn, half_turn);
     double half_width = tan(width * 0.5);
     view_plane_distance = 1.0;
     double half_height = tan(height * 0.5);
@@ -257,13 +250,9 @@ void srCamera::setViewPlane(double width, double height)
 // FUNCTION: SURRENDER 0x10048A10
 void srCamera::setFOV(double field_of_view, double aspect_ratio)
 {
-    double angle = fabs(field_of_view);
-    double maximum = 3.141592653589793 - 5.9604644775390625e-08;
-    if (angle <= 5.9604644775390625e-08) {
-        angle = 5.9604644775390625e-08;
-    } else if (angle >= maximum) {
-        angle = maximum;
-    }
+    constexpr double minimum = 5.9604644775390625e-08;
+    constexpr double maximum = 3.141592653589793 - minimum;
+    const double angle = std::clamp(fabs(field_of_view), minimum, maximum);
     double half_angle = tan(angle * 0.5);
     view_plane_distance = 1.0;
     Rect rectangle;

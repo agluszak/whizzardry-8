@@ -2,6 +2,7 @@
 
 #include "wiz8/engine_code/AnimObj.h"
 #include "wiz8/engine_code/Emitter.h"
+#include "wiz8/engine_code/GrCycle.h"
 #include "wiz8/engine_code/game_timer.h"
 #include "surrender/srClock.h"
 #include "wiz8/engine_code/stLight.hpp"
@@ -91,4 +92,23 @@ bool ReadEmitterCycle(Host& host, W8ReadLevelInfo* info, Visual& visual,
     host.emitters[emitter] = animation;
     if (select_lod) SelectInitialEmitterLod(host, host.current_cycle);
     return success;
+}
+
+// Frees each owned emitter, then every cloned light vector of each cycle.
+template<std::size_t Count>
+void ReleaseEmitterCycles(W8AnimObj* (&emitters)[Count],
+                          std::vector<std::vector<stLight*>*> (&light_lists)[Count])
+{
+    for (std::size_t emitter = 0; emitter < Count; ++emitter) {
+        if (emitters[emitter] != 0) {
+            delete emitters[emitter];
+            emitters[emitter] = 0;
+        }
+    }
+    for (std::size_t emitter = 0; emitter < Count; ++emitter) {
+        for (auto* light_vector : light_lists[emitter]) {
+            DestroyLightVector(light_vector);
+        }
+        light_lists[emitter].clear();
+    }
 }

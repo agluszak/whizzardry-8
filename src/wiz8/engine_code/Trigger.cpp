@@ -78,6 +78,13 @@
 #include "glm/ext/vector_float3.hpp"
 #include "layouts/item_instance.h"
 #include "layouts/item_tables.h"
+
+// Sets or clears one flag bit from a retail integer or float condition.
+static void assignFlag(unsigned int& flags, unsigned int flag, bool on)
+{
+    if (on) flags |= flag;
+    else flags &= ~flag;
+}
 #include "layouts/world.h"
 #include "surrender/srClock.h"
 #include "surrender/srNode.h"
@@ -421,33 +428,12 @@ bool Trigger::Save(wiz8::File& hFile)
             progress_delay = 0;
             action_kind = 2;
             hFile.write(&action_kind, sizeof(action_kind));
-            if (static_cast<W8DoorTriggerActionData*>(action_data)->open) {
-                action_flags |= 1;
-            }
-            if (static_cast<W8DoorTriggerActionData*>(action_data)->lockable) {
-                action_flags |= 2;
-            }
-            if (static_cast<W8DoorTriggerActionData*>(action_data)->locked) {
-                action_flags |= 4;
-            }
-            if (static_cast<W8DoorTriggerActionData*>(action_data)->auto_locking) {
-                action_flags |= 8;
-            }
-            if (static_cast<W8DoorTriggerActionData*>(action_data)->one_way) {
-                action_flags |= 0x10;
-            }
-            if (static_cast<W8DoorTriggerActionData*>(action_data)->secret) {
-                action_flags |= 0x20;
-            }
-            if (static_cast<W8DoorTriggerActionData*>(action_data)->found) {
-                action_flags |= 0x40;
-            }
-            if (static_cast<W8DoorTriggerActionData*>(action_data)->jammable) {
-                action_flags |= 0x80;
-            }
-            if (static_cast<W8DoorTriggerActionData*>(action_data)->jammed) {
-                action_flags |= 0x100;
-            }
+            const auto* door = static_cast<W8DoorTriggerActionData*>(action_data);
+            action_flags = static_cast<decltype(action_flags)>(
+                (door->open ? 1u : 0u) | (door->lockable ? 2u : 0u) | (door->locked ? 4u : 0u) |
+                (door->auto_locking ? 8u : 0u) | (door->one_way ? 0x10u : 0u) |
+                (door->secret ? 0x20u : 0u) | (door->found ? 0x40u : 0u) |
+                (door->jammable ? 0x80u : 0u) | (door->jammed ? 0x100u : 0u));
             if (static_cast<W8DoorTriggerActionData*>(action_data)->item != 0) {
                 action_flags |= 0x200;
             }
@@ -480,6 +466,15 @@ bool Trigger::Save(wiz8::File& hFile)
     hFile.write(&gold, sizeof(gold));
     hFile.write(&uses_remaining, sizeof(uses_remaining));
     return header_ok;
+}
+
+/* One door flag is stored as a byte whose low bit is the flag. */
+template<class File>
+static bool readDoorFlag(File& file)
+{
+    unsigned char flag = 0;
+    file.read_exact(&flag, 1);
+    return (flag & 1) != 0;
 }
 
 /* Read one trigger back from the save file. The version byte selects how much
@@ -522,73 +517,28 @@ try
             pDoor->type = W8_TRIGGER_PAYLOAD_DOOR;
             hFile.read_exact(&flag_mode, 1);
             if (flag_mode == 1) {
-                hFile.read_exact(&flag, 1);
-                pDoor->open = (flag & 1) != 0;
-                hFile.read_exact(&flag, 1);
-                pDoor->lockable = (flag & 1) != 0;
-                hFile.read_exact(&flag, 1);
-                pDoor->locked = (flag & 1) != 0;
-                hFile.read_exact(&flag, 1);
-                pDoor->auto_locking = (flag & 1) != 0;
-                hFile.read_exact(&flag, 1);
-                pDoor->one_way = (flag & 1) != 0;
-                hFile.read_exact(&flag, 1);
-                pDoor->secret = (flag & 1) != 0;
-                hFile.read_exact(&flag, 1);
-                pDoor->found = (flag & 1) != 0;
-                hFile.read_exact(&flag, 1);
-                pDoor->jammable = (flag & 1) != 0;
-                hFile.read_exact(&flag, 1);
-                pDoor->jammed = (flag & 1) != 0;
+                pDoor->open = readDoorFlag(hFile);
+                pDoor->lockable = readDoorFlag(hFile);
+                pDoor->locked = readDoorFlag(hFile);
+                pDoor->auto_locking = readDoorFlag(hFile);
+                pDoor->one_way = readDoorFlag(hFile);
+                pDoor->secret = readDoorFlag(hFile);
+                pDoor->found = readDoorFlag(hFile);
+                pDoor->jammable = readDoorFlag(hFile);
+                pDoor->jammed = readDoorFlag(hFile);
             } else {
                 action_flags = 0;
                 progress_delay = 0;
                 hFile.read_exact(&action_flags, 2);
-                if ((action_flags & 1) != 0) {
-                    pDoor->open = true;
-                } else {
-                    pDoor->open = false;
-                }
-                if ((action_flags & 2) != 0) {
-                    pDoor->lockable = true;
-                } else {
-                    pDoor->lockable = false;
-                }
-                if ((action_flags & 4) != 0) {
-                    pDoor->locked = true;
-                } else {
-                    pDoor->locked = false;
-                }
-                if ((action_flags & 8) != 0) {
-                    pDoor->auto_locking = true;
-                } else {
-                    pDoor->auto_locking = false;
-                }
-                if ((action_flags & 0x10) != 0) {
-                    pDoor->one_way = true;
-                } else {
-                    pDoor->one_way = false;
-                }
-                if ((action_flags & 0x20) != 0) {
-                    pDoor->secret = true;
-                } else {
-                    pDoor->secret = false;
-                }
-                if ((action_flags & 0x40) != 0) {
-                    pDoor->found = true;
-                } else {
-                    pDoor->found = false;
-                }
-                if ((action_flags & 0x80) != 0) {
-                    pDoor->jammable = true;
-                } else {
-                    pDoor->jammable = false;
-                }
-                if ((action_flags & 0x100) != 0) {
-                    pDoor->jammed = true;
-                } else {
-                    pDoor->jammed = false;
-                }
+                pDoor->open = (action_flags & 1) != 0;
+                pDoor->lockable = (action_flags & 2) != 0;
+                pDoor->locked = (action_flags & 4) != 0;
+                pDoor->auto_locking = (action_flags & 8) != 0;
+                pDoor->one_way = (action_flags & 0x10) != 0;
+                pDoor->secret = (action_flags & 0x20) != 0;
+                pDoor->found = (action_flags & 0x40) != 0;
+                pDoor->jammable = (action_flags & 0x80) != 0;
+                pDoor->jammed = (action_flags & 0x100) != 0;
                 hFile.read_exact(&progress_delay, 2);
                 if (m_lData1 != 0 && progress_delay != 0) {
                     if (m_pEvent == 0) {
@@ -1323,44 +1273,26 @@ W8TriggerActionData* ReadDoorTriggerActionData(wiz8::File* handle)
     W8DoorTriggerActionData* data = new W8DoorTriggerActionData;
 
     unsigned char version;
-    unsigned char open;
-    unsigned char lockable;
-    unsigned char locked;
-    unsigned char auto_locking;
-    unsigned char one_way;
-    unsigned char secret;
-    unsigned char found;
-    unsigned char jammable;
-    unsigned char jammed;
     unsigned short item;
     unsigned char has_position;
     srVector3T<float> position;
     char linked_trigger[0x80];
     handle->read_exact(&version, 1);
-    handle->read_exact(&open, 1);
-    handle->read_exact(&lockable, 1);
-    handle->read_exact(&locked, 1);
-    handle->read_exact(&auto_locking, 1);
-    handle->read_exact(&one_way, 1);
-    handle->read_exact(&secret, 1);
-    handle->read_exact(&found, 1);
-    handle->read_exact(&jammable, 1);
-    handle->read_exact(&jammed, 1);
+    data->open = readDoorFlag(*handle);
+    data->lockable = readDoorFlag(*handle);
+    data->locked = readDoorFlag(*handle);
+    data->auto_locking = readDoorFlag(*handle);
+    data->one_way = readDoorFlag(*handle);
+    data->secret = readDoorFlag(*handle);
+    data->found = readDoorFlag(*handle);
+    data->jammable = readDoorFlag(*handle);
+    data->jammed = readDoorFlag(*handle);
     handle->read_exact(&item, 2);
     handle->read_exact(&has_position, 1);
     handle->read_exact(&position, sizeof(position));
     position *= 500.0f;
     handle->read_exact(linked_trigger, sizeof(linked_trigger));
 
-    data->open = (open & 1) != 0;
-    data->lockable = (lockable & 1) != 0;
-    data->locked = (locked & 1) != 0;
-    data->auto_locking = (auto_locking & 1) != 0;
-    data->one_way = (one_way & 1) != 0;
-    data->secret = (secret & 1) != 0;
-    data->found = (found & 1) != 0;
-    data->jammable = (jammable & 1) != 0;
-    data->jammed = (jammed & 1) != 0;
     data->item = item;
     strcpy(data->linked_trigger, linked_trigger);
     if (has_position != 0) {
@@ -1478,26 +1410,11 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
         trigger->cycle_bounce = byte0;
         trigger->action_value = action_value;
         trigger->initial_action = action;
-        if (animate_states != 0.0f)
-            trigger->flags |= W8_TRIGGER_ANIMATE_STATES;
-        else
-            trigger->flags &= ~W8_TRIGGER_ANIMATE_STATES;
-        if (animate_action != 0)
-            trigger->flags |= W8_TRIGGER_ANIMATE_ACTION;
-        else
-            trigger->flags &= ~W8_TRIGGER_ANIMATE_ACTION;
-        if (enabled != 0)
-            trigger->flags |= W8_TRIGGER_ENABLED;
-        else
-            trigger->flags &= ~W8_TRIGGER_ENABLED;
-        if ((packed_flags & 2) != 0)
-            trigger->flags |= W8_TRIGGER_LINK_ON_DEACTIVATE;
-        else
-            trigger->flags &= ~W8_TRIGGER_LINK_ON_DEACTIVATE;
-        if ((packed_flags & 1) != 0)
-            trigger->flags |= W8_TRIGGER_FIRE_LINKED;
-        else
-            trigger->flags &= ~W8_TRIGGER_FIRE_LINKED;
+        assignFlag(trigger->flags, W8_TRIGGER_ANIMATE_STATES, animate_states != 0.0f);
+        assignFlag(trigger->flags, W8_TRIGGER_ANIMATE_ACTION, animate_action != 0);
+        assignFlag(trigger->flags, W8_TRIGGER_ENABLED, enabled != 0);
+        assignFlag(trigger->flags, W8_TRIGGER_LINK_ON_DEACTIVATE, (packed_flags & 2) != 0);
+        assignFlag(trigger->flags, W8_TRIGGER_FIRE_LINKED, (packed_flags & 1) != 0);
         world->triggers.push_back(trigger);
         if (trigger->name[0] != 0) {
             trigger->setName(trigger->name);
@@ -1592,18 +1509,9 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
         trigger->initial_action = static_cast<unsigned short>(action);
         trigger->searchable = value_c8;
         trigger->flags |= W8_TRIGGER_POSITIONED;
-        if (fire_linked != 0)
-            trigger->flags |= W8_TRIGGER_FIRE_LINKED;
-        else
-            trigger->flags &= ~W8_TRIGGER_FIRE_LINKED;
-        if (enabled != 0)
-            trigger->flags |= W8_TRIGGER_ENABLED;
-        else
-            trigger->flags &= ~W8_TRIGGER_ENABLED;
-        if (keep_on_finish != 0)
-            trigger->flags |= W8_TRIGGER_KEEP_ON_FINISH;
-        else
-            trigger->flags &= ~W8_TRIGGER_KEEP_ON_FINISH;
+        assignFlag(trigger->flags, W8_TRIGGER_FIRE_LINKED, fire_linked != 0);
+        assignFlag(trigger->flags, W8_TRIGGER_ENABLED, enabled != 0);
+        assignFlag(trigger->flags, W8_TRIGGER_KEEP_ON_FINISH, keep_on_finish != 0);
         if (plane == 1)
             trigger->flags |= W8_TRIGGER_PLANE;
         trigger->m_pacRecipients = new char[strlen(recipients) + 1];
@@ -1779,38 +1687,14 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
         trigger->initial_action = static_cast<unsigned short>(initial_action);
         trigger->fallback_action = static_cast<unsigned short>(fallback_action);
         trigger->searchable = searchable;
-        if (enabled != 0)
-            trigger->flags |= W8_TRIGGER_ENABLED;
-        else
-            trigger->flags &= ~W8_TRIGGER_ENABLED;
-        if (fire_linked != 0)
-            trigger->flags |= W8_TRIGGER_FIRE_LINKED;
-        else
-            trigger->flags &= ~W8_TRIGGER_FIRE_LINKED;
-        if (link_on_deactivate != 0)
-            trigger->flags |= W8_TRIGGER_LINK_ON_DEACTIVATE;
-        else
-            trigger->flags &= ~W8_TRIGGER_LINK_ON_DEACTIVATE;
-        if (keep_on_finish != 0)
-            trigger->flags |= W8_TRIGGER_KEEP_ON_FINISH;
-        else
-            trigger->flags &= ~W8_TRIGGER_KEEP_ON_FINISH;
-        if (flag != 0)
-            trigger->flags |= 0x1000;
-        else
-            trigger->flags &= ~0x1000U;
-        if (consume_item != 0)
-            trigger->flags |= W8_TRIGGER_CONSUME_ITEM;
-        else
-            trigger->flags &= ~W8_TRIGGER_CONSUME_ITEM;
-        if (animate_action != 0)
-            trigger->flags |= W8_TRIGGER_ANIMATE_ACTION;
-        else
-            trigger->flags &= ~W8_TRIGGER_ANIMATE_ACTION;
-        if (alternate_toggles != 0)
-            trigger->flags |= W8_TRIGGER_ALTERNATE_TOGGLES;
-        else
-            trigger->flags &= ~W8_TRIGGER_ALTERNATE_TOGGLES;
+        assignFlag(trigger->flags, W8_TRIGGER_ENABLED, enabled != 0);
+        assignFlag(trigger->flags, W8_TRIGGER_FIRE_LINKED, fire_linked != 0);
+        assignFlag(trigger->flags, W8_TRIGGER_LINK_ON_DEACTIVATE, link_on_deactivate != 0);
+        assignFlag(trigger->flags, W8_TRIGGER_KEEP_ON_FINISH, keep_on_finish != 0);
+        assignFlag(trigger->flags, 0x1000, flag != 0);
+        assignFlag(trigger->flags, W8_TRIGGER_CONSUME_ITEM, consume_item != 0);
+        assignFlag(trigger->flags, W8_TRIGGER_ANIMATE_ACTION, animate_action != 0);
+        assignFlag(trigger->flags, W8_TRIGGER_ALTERNATE_TOGGLES, alternate_toggles != 0);
         if (trigger->alternate_action != 0)
             trigger->flags |= W8_TRIGGER_HAS_ALTERNATE;
 
@@ -1849,10 +1733,7 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
         trigger->state_count = value_b0;
         trigger->cycle_bounce = value_b3;
         trigger->state_mod_mode = value_b4;
-        if (animate_states != 0)
-            trigger->flags |= W8_TRIGGER_ANIMATE_STATES;
-        else
-            trigger->flags &= ~W8_TRIGGER_ANIMATE_STATES;
+        assignFlag(trigger->flags, W8_TRIGGER_ANIMATE_STATES, animate_states != 0);
 
         if (trigger->m_pacStateToMod != 0 &&
             (initial_location_value == 0 || initial_location_value == 1)) {
@@ -1870,10 +1751,7 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
         if (version > 2) {
             handle->read_exact(sound, sizeof(sound));
             sprintf(trigger->alternate_action_data, "data\\sound\\%s", sound);
-            if (flag0 != 0)
-                trigger->flags |= W8_TRIGGER_ALTERNATE_ACTION;
-            else
-                trigger->flags &= ~W8_TRIGGER_ALTERNATE_ACTION;
+            assignFlag(trigger->flags, W8_TRIGGER_ALTERNATE_ACTION, flag0 != 0);
         }
 
         if ((packed_flags & 1) == 0) {
@@ -2226,6 +2104,17 @@ char* NextTriggerRecipient(char** cursor)
     return g_trigger_parse_buffer;
 }
 
+/* The location variable a state-changing action writes. A missing variable is a retail assert. */
+static int FindModifiedLocationVar(const char* name, int line)
+{
+    const int id = GetLocationVarIDByName(name);
+    if (id == -1) {
+        srAssertFail("iVar != BAD_INDEX", "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp",
+                     line, 0);
+    }
+    return id;
+}
+
 // FUNCTION: WIZ8 0x004409b0
 void Trigger::CommitActionResult(bool apply_state_changes)
 {
@@ -2252,31 +2141,15 @@ void Trigger::CommitActionResult(bool apply_state_changes)
         int state_value;
 
         if (state_mod_mode == 1) {
-            state_id = GetLocationVarIDByName(m_pacStateToMod);
-            if (state_id == -1) {
-                srAssertFail("iVar != BAD_INDEX",
-                             "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 4297, 0);
-            }
+            state_id = FindModifiedLocationVar(m_pacStateToMod, 4297);
             state_value = 1;
         } else if (state_mod_mode == 2) {
-            state_id = GetLocationVarIDByName(m_pacStateToMod);
-            if (state_id == -1) {
-                srAssertFail("iVar != BAD_INDEX",
-                             "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 4297, 0);
-            }
+            state_id = FindModifiedLocationVar(m_pacStateToMod, 4297);
             state_value = 0;
         } else if (state_mod_mode == 3) {
-            state_id = GetLocationVarIDByName(m_pacStateToMod);
-            if (state_id == -1) {
-                srAssertFail("iVar != BAD_INDEX",
-                             "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 4317, 0);
-            }
+            state_id = FindModifiedLocationVar(m_pacStateToMod, 4317);
             state_value = g_location_variable_values[state_id] == 0;
-            state_id = GetLocationVarIDByName(m_pacStateToMod);
-            if (state_id == -1) {
-                srAssertFail("iVar != BAD_INDEX",
-                             "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 4297, 0);
-            }
+            state_id = FindModifiedLocationVar(m_pacStateToMod, 4297);
         } else {
             goto show_action_message;
         }

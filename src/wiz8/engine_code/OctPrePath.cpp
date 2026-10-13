@@ -118,27 +118,19 @@ PrePathing::PrePathing()
 // FUNCTION: WIZ8 0x004CD030
 PrePathing::~PrePathing()
 {
-    if (path_node_list != 0) {
-        free(path_node_list);
-    }
+    free(path_node_list);
     if (path_log != 0) {
         if (path_log->m_pPathStrings != 0 && path_log->m_pLinkStrings != 0) {
             for (int i = 0; i < path_log->rows; ++i) {
-                if (path_log->m_pPathStrings[i] != 0) {
-                    free(path_log->m_pPathStrings[i]);
-                }
-                if (path_log->m_pLinkStrings[i] != 0) {
-                    free(path_log->m_pLinkStrings[i]);
-                }
+                free(path_log->m_pPathStrings[i]);
+                free(path_log->m_pLinkStrings[i]);
             }
             free(path_log->m_pPathStrings);
             free(path_log->m_pLinkStrings);
         }
         delete path_log;
     }
-    if (owned_248 != 0) {
-        free(owned_248);
-    }
+    free(owned_248);
     if (named_positions != 0) {
         delete[] named_positions;
     }

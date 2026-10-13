@@ -139,18 +139,24 @@ bool MartensBluff1FHandlock(Trigger* pTrigger)
     return false;
 }
 
+/* Advances one 4-bit digit of DialState modulo 8, leaving the other digits alone. */
+static void advanceDialDigit(int shift)
+{
+    int state = GetLocationVarValueByName("DialState");
+    const int digit = (((state >> shift) & 0xf) + 1) % 8;
+
+    state = (digit << shift) | (state & ~(0xf << shift));
+    SetTriggerVariableByName("DialState", state);
+}
+
 /* The "Dial-A" callback: advance the lowest DialState digit modulo 8. */
 // FUNCTION: WIZ8 0x004DEE10
 bool MartensBluff1DialA(Trigger* pTrigger)
 {
-    int state;
-
     if (g_door_controller == 0) {
         return false;
     }
-    state = GetLocationVarValueByName("DialState");
-    state = ((state & 0xf) + 1) % 8 | (state & 0xfffffff0);
-    SetTriggerVariableByName("DialState", state);
+    advanceDialDigit(0);
     return true;
 }
 
@@ -158,14 +164,10 @@ bool MartensBluff1DialA(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004DEE50
 bool MartensBluff1DialB(Trigger* pTrigger)
 {
-    int state;
-
     if (g_door_controller == 0) {
         return false;
     }
-    state = GetLocationVarValueByName("DialState");
-    state = (((state >> 4) & 0xf) + 1) % 8 << 4 | (state & 0xffffff0f);
-    SetTriggerVariableByName("DialState", state);
+    advanceDialDigit(4);
     return true;
 }
 
@@ -173,14 +175,10 @@ bool MartensBluff1DialB(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004DEEA0
 bool MartensBluff1DialC(Trigger* pTrigger)
 {
-    int state;
-
     if (g_door_controller == 0) {
         return false;
     }
-    state = GetLocationVarValueByName("DialState");
-    state = (((state >> 8) & 0xf) + 1) % 8 << 8 | (state & 0xfffff0ff);
-    SetTriggerVariableByName("DialState", state);
+    advanceDialDigit(8);
     return true;
 }
 
@@ -407,49 +405,43 @@ bool MartensBluff1Teleporter(Trigger* pTrigger)
     return false;
 }
 
+/* Advances the teleporter to a pad; while a teleport runs, a press only re-arms the input. */
+static bool pressTeleporterButton(int pad)
+{
+    if (!g_teleport_running) {
+        return MartensBluff1TeleportState(pad);
+    }
+    g_trigger_feedback = true;
+    return true;
+}
+
 /* "ButtonGigas": advances the teleporter to pad 1. While the state helper is
    running it only re-arms the consumed-input flag. */
 // FUNCTION: WIZ8 0x004DF540
 bool MartensBluff1ButtonGigas(Trigger* pTrigger)
 {
-    if (!g_teleport_running) {
-        return MartensBluff1TeleportState(1);
-    }
-    g_trigger_feedback = true;
-    return true;
+    return pressTeleporterButton(1);
 }
 
 /* "ButtonTrang": advances the teleporter to pad 2. */
 // FUNCTION: WIZ8 0x004DF560
 bool MartensBluff1ButtonTrang(Trigger* pTrigger)
 {
-    if (!g_teleport_running) {
-        return MartensBluff1TeleportState(2);
-    }
-    g_trigger_feedback = true;
-    return true;
+    return pressTeleporterButton(2);
 }
 
 /* "ButtonRift": advances the teleporter to pad 3. */
 // FUNCTION: WIZ8 0x004DF580
 bool MartensBluff1ButtonRift(Trigger* pTrigger)
 {
-    if (!g_teleport_running) {
-        return MartensBluff1TeleportState(3);
-    }
-    g_trigger_feedback = true;
-    return true;
+    return pressTeleporterButton(3);
 }
 
 /* "ButtonMaten": advances the teleporter to pad 4. */
 // FUNCTION: WIZ8 0x004DF5A0
 bool MartensBluff1ButtonMaten(Trigger* pTrigger)
 {
-    if (!g_teleport_running) {
-        return MartensBluff1TeleportState(4);
-    }
-    g_trigger_feedback = true;
-    return true;
+    return pressTeleporterButton(4);
 }
 
 /* Shared teleporter state advance. Asserts the MR109 trigger exists, reads

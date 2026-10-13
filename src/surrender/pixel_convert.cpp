@@ -645,22 +645,16 @@ void __cdecl readRGB(const srPixelConvert::ConversionInfo& info)
    converter does not fit the generic kernels: the 8-bit indexed pair
    delegates to the vector processor copy, the 32-bit color-keyed formats
    mask through _and/_or, and the packed formats run dedicated loops. */
-static void convertByteChannels(const srPixelConvert::ConversionInfo& info,
-                                SDL_PixelFormat sourceFormat, SDL_PixelFormat destFormat)
-{
-    ConvertCpuPixels(info.dest, info.source, info.count, sourceFormat, destFormat);
-}
-
 // FUNCTION: SURRENDER 0x1000A8C0
 void __cdecl writeRGB24(const srPixelConvert::ConversionInfo& info)
 {
-    convertByteChannels(info, SDL_PIXELFORMAT_ARGB8888, SDL_PIXELFORMAT_RGB24);
+    ConvertCpuPixels(info.dest, info.source, info.count, SDL_PIXELFORMAT_ARGB8888, SDL_PIXELFORMAT_RGB24);
 }
 
 // FUNCTION: SURRENDER 0x1000A900
 void __cdecl readRGB24(const srPixelConvert::ConversionInfo& info)
 {
-    convertByteChannels(info, SDL_PIXELFORMAT_RGB24, SDL_PIXELFORMAT_ARGB8888);
+    ConvertCpuPixels(info.dest, info.source, info.count, SDL_PIXELFORMAT_RGB24, SDL_PIXELFORMAT_ARGB8888);
 }
 
 /* format_table[srPixelConvert::SURFACE_BGRA32] write/read: straight dword copy for BGRA32. */
@@ -684,7 +678,7 @@ void __cdecl writeBGRX(const srPixelConvert::ConversionInfo& info)
 // FUNCTION: SURRENDER 0x1000A9E0
 void __cdecl readBGRX(const srPixelConvert::ConversionInfo& info)
 {
-    convertByteChannels(info, SDL_PIXELFORMAT_XRGB8888, SDL_PIXELFORMAT_ARGB8888);
+    ConvertCpuPixels(info.dest, info.source, info.count, SDL_PIXELFORMAT_XRGB8888, SDL_PIXELFORMAT_ARGB8888);
 }
 
 /* format_table[srPixelConvert::SURFACE_RGBA32] write/read: rotate each BGRA pixel one byte lane so
@@ -692,13 +686,13 @@ void __cdecl readBGRX(const srPixelConvert::ConversionInfo& info)
 // FUNCTION: SURRENDER 0x1000AA10
 void __cdecl writeABGR(const srPixelConvert::ConversionInfo& info)
 {
-    convertByteChannels(info, SDL_PIXELFORMAT_ARGB8888, SDL_PIXELFORMAT_RGBA8888);
+    ConvertCpuPixels(info.dest, info.source, info.count, SDL_PIXELFORMAT_ARGB8888, SDL_PIXELFORMAT_RGBA8888);
 }
 
 // FUNCTION: SURRENDER 0x1000AB70
 void __cdecl readABGR(const srPixelConvert::ConversionInfo& info)
 {
-    convertByteChannels(info, SDL_PIXELFORMAT_RGBA8888, SDL_PIXELFORMAT_ARGB8888);
+    ConvertCpuPixels(info.dest, info.source, info.count, SDL_PIXELFORMAT_RGBA8888, SDL_PIXELFORMAT_ARGB8888);
 }
 
 /* format_table[srPixelConvert::SURFACE_RGB555] write/read: 32-bit BGRA packed to RGB555 through the

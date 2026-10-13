@@ -1958,6 +1958,18 @@ void ReplaceOrCreateItem(W8ItemInstance* item, int item_id, bool maximum_quantit
     }
 }
 
+/* Puts a new item in the hand when the cursor is free; false when it already holds something. */
+bool PlaceItemOnCursor(int item_id, bool maximum_quantity, bool force_identified, bool mark_special)
+{
+    if (g_status.item_in_cursor) {
+        return false;
+    }
+    ReplaceOrCreateItem(&g_status.item_in_hand, item_id, maximum_quantity, force_identified,
+                        mark_special);
+    SetItemCursor(0);
+    return true;
+}
+
 /* Bind one worn item to its wearer. A binding that has not been announced yet
    is announced as it takes hold; one already announced just takes hold. A slot
    with no interface position binds nothing. */

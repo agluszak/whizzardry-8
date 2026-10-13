@@ -60,39 +60,31 @@ bool RapaxMainFloorAltarBox(Trigger* pTrigger)
     return true;
 }
 
-/* "platformtrigger": drop the three cursed Rapax items (0x1fd robe, 0x1fe
-   helm, 0x1ff dagger) at their NP_C* entities and enable RAM03. */
-// FUNCTION: WIZ8 0x004DA460
-bool RapaxMainFloorPlatform(Trigger* pTrigger)
+/* Spawns a pulsing, rotating item at a named entity and activates it, if the entity exists. */
+static void SpawnActivatedItemAt(const char* entity, int item_id)
 {
     srVector3T<float> entity_position;
     srVector3T<float> position;
     W8WorldItem* world_item;
 
-    if (FindEntityByName("NP_CRobe", &entity_position, 0, 0)) {
+    if (FindEntityByName(entity, &entity_position, 0, 0)) {
         position = entity_position;
         world_item =
-            SpawnItem(0x1fd, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE, true);
+            SpawnItem(item_id, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE, true);
         if (world_item != 0) {
             ActivateItem(world_item);
         }
     }
-    if (FindEntityByName("NP_CHelm", &entity_position, 0, 0)) {
-        position = entity_position;
-        world_item =
-            SpawnItem(0x1fe, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE, true);
-        if (world_item != 0) {
-            ActivateItem(world_item);
-        }
-    }
-    if (FindEntityByName("NP_CDagger", &entity_position, 0, 0)) {
-        position = entity_position;
-        world_item =
-            SpawnItem(0x1ff, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE, true);
-        if (world_item != 0) {
-            ActivateItem(world_item);
-        }
-    }
+}
+
+/* "platformtrigger": drop the three cursed Rapax items (0x1fd robe, 0x1fe
+   helm, 0x1ff dagger) at their NP_C* entities and enable RAM03. */
+// FUNCTION: WIZ8 0x004DA460
+bool RapaxMainFloorPlatform(Trigger* pTrigger)
+{
+    SpawnActivatedItemAt("NP_CRobe", 0x1fd);
+    SpawnActivatedItemAt("NP_CHelm", 0x1fe);
+    SpawnActivatedItemAt("NP_CDagger", 0x1ff);
     SetRamTriggerEnabled("RAM03", true);
     return true;
 }

@@ -723,6 +723,19 @@ srVector3T<float>* __fastcall SaturateColor(srVector3T<float>* color)
 static RuntimeWorldRenderData ObserveWorldRenderState();
 #endif
 
+/* Design-space bounds (640x480, right and bottom exclusive) scaled onto a
+   surface of the given size. */
+struct SurfaceViewport {
+    w8_long x, y, width, height;
+};
+
+static SurfaceViewport scaleDesignViewport(int left, int top, int right, int bottom,
+                                           w8_long surface_width, w8_long surface_height)
+{
+    return {surface_width * left / 640, surface_height * top / 480,
+            surface_width * (right - left) / 640, surface_height * (bottom - top) / 480};
+}
+
 // FUNCTION: WIZ8 0x00427850
 void RenderScene(srScene* scene, srCamera* camera, const int* viewport, bool preserve_fog)
 {
@@ -733,19 +746,17 @@ void RenderScene(srScene* scene, srCamera* camera, const int* viewport, bool pre
         return;
     }
     if (viewport != 0) {
-        w8_ulong left = viewport[0] * width / 640;
-        w8_ulong top = viewport[1] * height / 480;
-        w8_ulong viewport_width = (viewport[2] - viewport[0]) * width / 640;
-        w8_ulong viewport_height = (viewport[3] - viewport[1]) * height / 480;
-        g_gerd->setViewPort(left, top, viewport_width, viewport_height);
-        g_gerd->setScissor(left, top, viewport_width, viewport_height);
+        const auto rect = scaleDesignViewport(viewport[0], viewport[1], viewport[2], viewport[3],
+                                              width, height);
+        g_gerd->setViewPort(rect.x, rect.y, rect.width, rect.height);
+        g_gerd->setScissor(rect.x, rect.y, rect.width, rect.height);
 #ifdef WIZ8_RUNTIME_TESTS
         if (g_world != 0 && scene == g_world->static_scene) {
             RuntimeWorldRenderData data = ObserveWorldRenderState();
-            data.applied_viewport[0] = left;
-            data.applied_viewport[1] = top;
-            data.applied_viewport[2] = viewport_width;
-            data.applied_viewport[3] = viewport_height;
+            data.applied_viewport[0] = rect.x;
+            data.applied_viewport[1] = rect.y;
+            data.applied_viewport[2] = rect.width;
+            data.applied_viewport[3] = rect.height;
             RuntimeObserveWorld(RUNTIME_WORLD_VIEWPORT_APPLIED, data);
         }
 #endif
@@ -863,9 +874,9 @@ void RenderFrame(void)
     clear_viewport: {
         w8_ulong height = g_gerd->getHeight();
         w8_ulong width = g_gerd->getWidth();
-        g_gerd->setScissor(g_viewport.left * width / 640, g_viewport.top * height / 480,
-                           (g_viewport.right - g_viewport.left) * width / 640,
-                           (g_viewport.bottom - g_viewport.top) * height / 480);
+        const auto rect = scaleDesignViewport(g_viewport.left, g_viewport.top, g_viewport.right,
+                                              g_viewport.bottom, width, height);
+        g_gerd->setScissor(rect.x, rect.y, rect.width, rect.height);
         g_gerd->clear(srFlags<srGERD::e_buffer>(srGERD::BUFFER_COLOR | srGERD::BUFFER_DEPTH));
         g_gerd->setScissor(0, 0, width, height);
     }
@@ -992,16 +1003,11 @@ unsigned char RenderWorldToSurface(srColorSurface* target, W8ScreenRect* rect,
     gerd->beginFrame();
     gerd->setTextureReduction(g_resident_texture_policy);
     gerd->setScissor(0, 0, gerd->getWidth(), gerd->getHeight());
-    if (rect != 0) {
-        gerd->setViewPort(rect->left * gerd->getWidth() / 640, rect->top * gerd->getHeight() / 480,
-                          (rect->right - rect->left) * gerd->getWidth() / 640,
-                          (rect->bottom - rect->top) * gerd->getHeight() / 480);
-    } else {
-        gerd->setViewPort(g_viewport.left * gerd->getWidth() / 640,
-                          g_viewport.top * gerd->getHeight() / 480,
-                          (g_viewport.right - g_viewport.left) * gerd->getWidth() / 640,
-                          (g_viewport.bottom - g_viewport.top) * gerd->getHeight() / 480);
-    }
+    const W8ViewportRect bounds =
+        rect != 0 ? W8ViewportRect{rect->left, rect->top, rect->right, rect->bottom} : g_viewport;
+    const auto viewport = scaleDesignViewport(bounds.left, bounds.top, bounds.right, bounds.bottom,
+                                              gerd->getWidth(), gerd->getHeight());
+    gerd->setViewPort(viewport.x, viewport.y, viewport.width, viewport.height);
     if (IsFogEnabled()) {
         GetLightDirection(&clear_color);
     } else {
@@ -1569,20 +1575,25 @@ static void FlushUiUpload()
 /* Viewport. */
 /* Scale a 640x480 design-space rect onto the GERD viewport and remember it;
    no-ops when the stored bounds already match. */
-// FUNCTION: WIZ8 0x00425C90
-void SetAutomapScaledViewport(int left, int top, int right, int bottom)
+static void setScaledViewport(int left, int top, int right, int bottom)
 {
     if (left == g_viewport.left && top == g_viewport.top && right == g_viewport.right &&
         bottom == g_viewport.bottom) {
         return;
     }
-    g_gerd->setViewPort(g_gerd->getWidth() * left / 640, g_gerd->getHeight() * top / 480,
-                        g_gerd->getWidth() * (right - left) / 640,
-                        g_gerd->getHeight() * (bottom - top) / 480);
+    const auto rect = scaleDesignViewport(left, top, right, bottom, g_gerd->getWidth(),
+                                          g_gerd->getHeight());
+    g_gerd->setViewPort(rect.x, rect.y, rect.width, rect.height);
     g_viewport.left = left;
     g_viewport.top = top;
     g_viewport.right = right;
     g_viewport.bottom = bottom;
+}
+
+// FUNCTION: WIZ8 0x00425C90
+void SetAutomapScaledViewport(int left, int top, int right, int bottom)
+{
+    setScaledViewport(left, top, right, bottom);
 }
 
 /* Sets the viewport and rebuilds the camera view plane to match it. */
@@ -1807,6 +1818,35 @@ unsigned char InitializeMouseSurface(void)
     return 1;
 }
 
+/* A black, fog-free scene with no parent, used for the 2D overlay layers. */
+static srScene* createOverlayScene(const char* name)
+{
+    auto* scene = new srScene(static_cast<srNode*>(0));
+    scene->setName(name);
+    scene->setAmbientLight(0.0f, 0.0f, 0.0f);
+    scene->setFogColor(0.0f, 0.0f, 0.0f);
+    return scene;
+}
+
+/* A 2D overlay camera over the unit view plane, from (0, 0) to (right, top). */
+static srCamera* createOverlayCamera(srNode* parent, const char* name, double right, double top)
+{
+    srCamera::Rect view;
+
+    auto* camera = new srCamera(parent);
+    camera->setName(name);
+    camera->setClipRange(0.01, 2.0);
+    camera->setLocation(0.0, 0.0, -1.0);
+    camera->setRotation(0.0, 0.0, 0.0);
+    view.left = 0.0;
+    view.bottom = 0.0;
+    view.right = right;
+    view.top = top;
+    camera->setViewPlane(view, 1.0);
+    camera->setEnvironmentRange(0.0f, 0.0f);
+    return camera;
+}
+
 // FUNCTION: WIZ8 0x00423500
 unsigned char InitializeRendererSceneObjects(void)
 {
@@ -1817,69 +1857,25 @@ unsigned char InitializeRendererSceneObjects(void)
 
     InitializeMouseSurface();
     g_modeler = new srModeler;
-    g_scene_permanent = new srScene(static_cast<srNode*>(0));
-    g_scene_permanent->setName("2D Permanent Overlay Scene");
-    g_scene_permanent->setAmbientLight(0.0f, 0.0f, 0.0f);
-    g_scene_permanent->setFogColor(0.0f, 0.0f, 0.0f);
+    g_scene_permanent = createOverlayScene("2D Permanent Overlay Scene");
 
-    g_scene_user = new srScene(static_cast<srNode*>(0));
-    g_scene_user->setName("2D User Overlay Scene");
-    g_scene_user->setAmbientLight(0.0f, 0.0f, 0.0f);
-    g_scene_user->setFogColor(0.0f, 0.0f, 0.0f);
+    g_scene_user = createOverlayScene("2D User Overlay Scene");
 
-    g_scene_fullscreen = new srScene(static_cast<srNode*>(0));
-    g_scene_fullscreen->setName("Full Screen Overlay Scene");
-    g_scene_fullscreen->setAmbientLight(0.0f, 0.0f, 0.0f);
-    g_scene_fullscreen->setFogColor(0.0f, 0.0f, 0.0f);
+    g_scene_fullscreen = createOverlayScene("Full Screen Overlay Scene");
 
-    g_scene_overlay0 = new srScene(static_cast<srNode*>(0));
-    g_scene_overlay0->setName("2D Overlay Scene (0)");
-    g_scene_overlay0->setAmbientLight(0.0f, 0.0f, 0.0f);
-    g_scene_overlay0->setFogColor(0.0f, 0.0f, 0.0f);
+    g_scene_overlay0 = createOverlayScene("2D Overlay Scene (0)");
 
-    g_scene_overlay1 = new srScene(static_cast<srNode*>(0));
-    g_scene_overlay1->setName("2D Overlay Scene (1)");
-    g_scene_overlay1->setAmbientLight(0.0f, 0.0f, 0.0f);
-    g_scene_overlay1->setFogColor(0.0f, 0.0f, 0.0f);
+    g_scene_overlay1 = createOverlayScene("2D Overlay Scene (1)");
 
-    g_scene_square = new srScene(static_cast<srNode*>(0));
-    g_scene_square->setName("2D Square Overlay Scene");
-    g_scene_square->setAmbientLight(0.0f, 0.0f, 0.0f);
-    g_scene_square->setFogColor(0.0f, 0.0f, 0.0f);
+    g_scene_square = createOverlayScene("2D Square Overlay Scene");
 
-    g_scene_prerender0 = new srScene(static_cast<srNode*>(0));
-    g_scene_prerender0->setName("2D Pre-render Overlay Scene (0)");
-    g_scene_prerender0->setAmbientLight(0.0f, 0.0f, 0.0f);
-    g_scene_prerender0->setFogColor(0.0f, 0.0f, 0.0f);
+    g_scene_prerender0 = createOverlayScene("2D Pre-render Overlay Scene (0)");
 
-    g_scene_prerender1 = new srScene(static_cast<srNode*>(0));
-    g_scene_prerender1->setName("2D Pre-render Overlay Scene (1)");
-    g_scene_prerender1->setAmbientLight(0.0f, 0.0f, 0.0f);
-    g_scene_prerender1->setFogColor(0.0f, 0.0f, 0.0f);
+    g_scene_prerender1 = createOverlayScene("2D Pre-render Overlay Scene (1)");
 
-    g_overlay_camera = new srCamera(static_cast<srNode*>(0));
-    g_overlay_camera->setName("2D Overlay Camera");
-    g_overlay_camera->setClipRange(0.01, 2.0);
-    g_overlay_camera->setLocation(0.0, 0.0, -1.0);
-    g_overlay_camera->setRotation(0.0, 0.0, 0.0);
-    view.left = 0.0;
-    view.bottom = 0.0;
-    view.right = 1.0;
-    view.top = 1.0;
-    g_overlay_camera->setViewPlane(view, 1.0);
-    g_overlay_camera->setEnvironmentRange(0.0f, 0.0f);
+    g_overlay_camera = createOverlayCamera(static_cast<srNode*>(0), "2D Overlay Camera", 1.0, 1.0);
 
-    g_square_camera = new srCamera(g_scene_square);
-    g_square_camera->setName("2D Square Overlay Camera");
-    g_square_camera->setClipRange(0.01, 2.0);
-    g_square_camera->setLocation(0.0, 0.0, -1.0);
-    g_square_camera->setRotation(0.0, 0.0, 0.0);
-    view.left = 0.0;
-    view.bottom = 0.0;
-    view.right = 1.0;
-    view.top = 0.75;
-    g_square_camera->setViewPlane(view, 1.0);
-    g_square_camera->setEnvironmentRange(0.0f, 0.0f);
+    g_square_camera = createOverlayCamera(g_scene_square, "2D Square Overlay Camera", 1.0, 0.75);
 
     material = std::make_shared<srMaterial>();
     g_blit_material = material;
@@ -2932,23 +2928,7 @@ void DrawColorSurface(srColorSurface* surface, int x, int y)
 // FUNCTION: WIZ8 0x00425DA0
 void SetWorldScaledViewport(int left, int top, int right, int bottom)
 {
-    if (left == g_viewport.left && top == g_viewport.top && right == g_viewport.right &&
-        bottom == g_viewport.bottom) {
-        return;
-    }
-    if (left == g_viewport.left) {
-        if (top == g_viewport.top && right == g_viewport.right && bottom == g_viewport.bottom) {
-            goto store;
-        }
-    }
-    g_gerd->setViewPort(g_gerd->getWidth() * left / 640, g_gerd->getHeight() * top / 480,
-                        g_gerd->getWidth() * (right - left) / 640,
-                        g_gerd->getHeight() * (bottom - top) / 480);
-store:
-    g_viewport.left = left;
-    g_viewport.top = top;
-    g_viewport.right = right;
-    g_viewport.bottom = bottom;
+    setScaledViewport(left, top, right, bottom);
 }
 
 // FUNCTION: WIZ8 0x00426490

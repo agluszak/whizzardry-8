@@ -2,6 +2,7 @@
 #include <cstdlib>
 #include <glm/gtx/rotate_vector.hpp>
 #include <algorithm>
+#include <optional>
 #include <string>
 
 #include "glm/common.hpp"
@@ -208,22 +209,30 @@ bool GDCamera::CanTrackTarget() const
                                          m_manual_input_timer->PollFinished());
 }
 
+/* Angles that aim from position at target, with yaw wrapped into one turn. Targets
+   within a unit of the camera have no usable bearing. */
+static std::optional<DirectionAngles> aimAngles(const glm::vec3& target, const glm::vec3& position)
+{
+    const auto direction = target - position;
+    if (glm::length(direction) < 1.0f)
+        return std::nullopt;
+    auto angles = directionAngles(direction);
+    angles.yaw = glm::mod(angles.yaw, g_camera_angle_period0);
+    return angles;
+}
+
 // FUNCTION: WIZ8 0x00476950
 void GDCamera::SnapToTarget(const srVector3T<float>* target)
 {
     if (!CanTrackTarget())
         return;
 
-    const auto direction = target->glmValue() - m_position;
-    if (glm::length(direction) < 1.0f)
+    const auto aim = aimAngles(target->glmValue(), m_position);
+    if (!aim)
         return;
-    const auto angles = directionAngles(direction);
-    const float pitch = angles.pitch;
-    const float angle = glm::mod(angles.yaw, g_camera_angle_period0);
-
-    m_target_pitch = pitch;
-    m_target_yaw = angle;
-    SetOrientationImmediate(pitch, angle);
+    m_target_pitch = aim->pitch;
+    m_target_yaw = aim->yaw;
+    SetOrientationImmediate(aim->pitch, aim->yaw);
 }
 
 // FUNCTION: WIZ8 0x00476C30
@@ -248,12 +257,10 @@ unsigned char GDCamera::LookAt(const srVector3T<float>* target, bool preserve_pi
     if (!CanTrackTarget())
         return 0;
 
-    const auto direction = target->glmValue() - m_position;
-    if (glm::length(direction) < 1.0f)
+    const auto aim = aimAngles(target->glmValue(), m_position);
+    if (!aim)
         return 0;
-    const auto angles = directionAngles(direction);
-    return BeginOrientationTransition(preserve_pitch ? m_pitch : angles.pitch,
-                                      glm::mod(angles.yaw, g_camera_angle_period0), false);
+    return BeginOrientationTransition(preserve_pitch ? m_pitch : aim->pitch, aim->yaw, false);
 }
 
 // FUNCTION: WIZ8 0x00477180

@@ -39,9 +39,7 @@ bool g_render_mesh_sky = true;
 // FUNCTION: WIZ8 0x0047b570
 void DestroyRenderQuality(void)
 {
-    if (g_render_options != 0) {
-        free(g_render_options);
-    }
+    free(g_render_options);
     g_render_options = 0;
 }
 

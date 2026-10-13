@@ -1451,17 +1451,14 @@ void srGERD::rotate(double angle, const glm::vec3& axis)
         loadIdentity();
         return;
     }
-    auto& current = state.matrix_current[state.matrix_mode];
-    current = glm::rotate(current, float(angle), direction);
-    setMatrixDirty();
+    updateCurrentMatrix(
+        [&](const glm::mat4& matrix) { return glm::rotate(matrix, float(angle), direction); });
 }
 
 // FUNCTION: SURRENDER 0x10022780
 void srGERD::scale(const glm::vec3& factors)
 {
-    auto& current = state.matrix_current[state.matrix_mode];
-    current = glm::scale(current, factors);
-    setMatrixDirty();
+    updateCurrentMatrix([&](const glm::mat4& matrix) { return glm::scale(matrix, factors); });
 }
 
 // FUNCTION: SURRENDER 0x10022870
@@ -1473,9 +1470,7 @@ void srGERD::scale(double x, double y, double z)
 // FUNCTION: SURRENDER 0x10022960
 void srGERD::translate(const glm::vec3& offset)
 {
-    auto& current = state.matrix_current[state.matrix_mode];
-    current = glm::translate(current, offset);
-    setMatrixDirty();
+    updateCurrentMatrix([&](const glm::mat4& matrix) { return glm::translate(matrix, offset); });
 }
 
 // FUNCTION: SURRENDER 0x10022A20
