@@ -51,7 +51,6 @@
 #include "wiz8/engine_code/Navigator.h"
 #include "wiz8/engine_code/GameTimeAccumulator.h"
 #include "wiz8/startup_world.h"
-#include "wiz8/sr_api.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Prop.h"
