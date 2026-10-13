@@ -73,8 +73,9 @@ public:
                                   : (repeated_ & button) != 0;
         if (policy.input_rule == ButtonInputRule::PrimaryPressedState) {
             repeated_ = 0;
-        } else
+        } else {
             repeated_ &= ~button;
+        }
         return {.activate = !repeated && policy.activation == ButtonActivation::Release,
                 .repeated_release = repeated};
     }
