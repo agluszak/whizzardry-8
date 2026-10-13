@@ -1295,10 +1295,9 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
         for (int camera_index = 0; camera_index < static_cast<int>(camera_count); ++camera_index) {
             W8CameraPath* entry = GetWorldCameraPath(world, camera_index);
             if (entry != 0 && entry->path != 0) {
-                for (int node_index = 0; node_index < static_cast<int>(entry->path->nodes.size());
-                     ++node_index) {
+                for (auto& node : entry->path->nodes) {
                     unsigned int key =
-                        SampleRegionLinks(&entry->path->nodes[node_index], true, true, 0);
+                        SampleRegionLinks(&node, true, true, 0);
                     RecordRegionMeshLinks(key);
                 }
             }
@@ -3395,14 +3394,13 @@ static float g_scatter_column_offsets[5] = {0.0f, 1.0f, -1.0f, 2.0f, -2.0f};
 static bool OverlapsNearbyMonster(const glm::vec3& point, float reach,
                                    std::span<const w8_ulong> locations, bool alternate_radius)
 {
-    for (const auto id : locations) {
+    return std::ranges::any_of(locations, [&](const w8_ulong id) {
         auto* monster = GetMonsterByLocationID(id);
         const auto delta = monster->GetPosition().glmValue() - point;
         const float clearance =
             (alternate_radius ? monster->movement.alternate_radius : monster->radius) + reach;
-        if (glm::dot(delta, delta) < clearance * clearance) return true;
-    }
-    return false;
+        return glm::dot(delta, delta) < clearance * clearance;
+    });
 }
 
 // FUNCTION: WIZ8 0x00437980

@@ -951,8 +951,8 @@ W8MonsterRep::W8MonsterRep()
       special_movement(0), idle_playback_scale(10.0f), random_idle_fps_min(0),
       random_idle_fps_max(0), left_handed(0), monster_light(0)
 {
-    for (int index = 0; index < 8; ++index) {
-        objects[index] = 0;
+    for (auto& object : objects) {
+        object = 0;
     }
     icon_count = 0;
 }
@@ -1050,8 +1050,8 @@ W8MonsterRep::W8MonsterRep(const W8MonsterRep& other)
 {
     signed char cycle;
 
-    for (int index = 0; index < 8; ++index) {
-        objects[index] = 0;
+    for (auto& object : objects) {
+        object = 0;
     }
     icon_count = 0;
     for (cycle = W8_MONSTER_CYCLE_BIRTH; cycle < W8_MONSTER_CYCLE_COUNT; ++cycle) {
@@ -4696,8 +4696,8 @@ bool W8Monster::ReplaceSkinTexture(int stage, const char* old_name, const char* 
 
     std::vector<stModelInstance*> instances;
     CollectModelInstances(instances);
-    for (int index = 0; index < static_cast<int>(instances.size()); ++index) {
-        if (instances[index]->ReplaceDamageStageTexture(stage, old_name, texture) != 0) {
+    for (auto& instance : instances) {
+        if (instance->ReplaceDamageStageTexture(stage, old_name, texture) != 0) {
             replaced = true;
         }
     }
@@ -4743,8 +4743,8 @@ void W8Monster::RemoveCycleSkinTables()
 
     if (cycle_name != 0) {
         CollectModelInstances(instances);
-        for (int index = 0; index < static_cast<int>(instances.size()); ++index) {
-            stMeshModel* mesh = static_cast<stMeshModel*>(instances[index]->getModel());
+        for (auto& instance : instances) {
+            stMeshModel* mesh = static_cast<stMeshModel*>(instance->getModel());
             for (; mesh != 0; mesh = mesh->Next()) {
                 mesh->RemoveSkinTablesForCycle(cycle_name);
             }
@@ -5004,11 +5004,11 @@ void W8Monster::ApplyRepresentationScale()
         }
     }
     if (m_plsParticles != 0) {
-        for (int index = 0; index < static_cast<int>(m_plsParticles->size()); ++index) {
-            stParticle* particle = ((*m_plsParticles)[index])->m_pstParticles;
+        for (auto& owned_particle : *m_plsParticles) {
+            stParticle* particle = owned_particle->m_pstParticles;
             particle->SetParticleScale(m_pRep->scale);
             if (mirror_x) {
-                ((*m_plsParticles)[index])->position.x *= -1.0f;
+                owned_particle->position.x *= -1.0f;
                 particle->setScale(glm::dvec3(-1.0, 1.0, 1.0));
             }
         }

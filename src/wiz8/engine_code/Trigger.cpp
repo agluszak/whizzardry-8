@@ -222,8 +222,8 @@ void W8LockState::Reset()
     int pins;
 
     if (lock_type == 1) {
-        for (int pin = 0; pin < 8; ++pin) {
-            device_state.pins[pin] = static_cast<char>(Random(4));
+        for (unsigned char& pin : device_state.pins) {
+            pin = static_cast<char>(Random(4));
         }
         pins = difficulty < 8 ? (difficulty < 2 ? 2 : difficulty) : 8;
         lock_countdown = pins * 3;
@@ -668,8 +668,8 @@ void SaveWorldTriggers(W8World* world, wiz8::File& hFile)
 {
     std::vector<Trigger*>* triggers = &world->triggers;
 
-    for (int index = 0; index < static_cast<int>(triggers->size()); ++index) {
-        if (!((*triggers)[index])->Save(hFile)) {
+    for (auto& trigger : *triggers) {
+        if (!trigger->Save(hFile)) {
             return;
         }
     }
@@ -1225,7 +1225,7 @@ W8TriggerActionData::~W8TriggerActionData() = default;
 // VTABLE: WIZ8 0x005ec134
 // class W8DoorTriggerActionData
 // VTABLE: WIZ8 0x005ec158
-// class W8StringTriggerActionData
+// class W8StringTriggerActionData : private NonCopyable
 // FUNCTION: WIZ8 0x00443750
 W8StringTriggerActionData::~W8StringTriggerActionData()
 {
@@ -1455,8 +1455,8 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
         if (version > 1) {
             handle->read_exact(&plane, 1);
             handle->read_exact(trigger->representation_vectors, sizeof(trigger->representation_vectors));
-            for (int vector = 0; vector < 4; ++vector) {
-                trigger->representation_vectors[vector] *= 500.0f;
+            for (auto& representation_vector : trigger->representation_vectors) {
+                representation_vector *= 500.0f;
             }
         }
         if (version > 2) {
@@ -1493,9 +1493,9 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
                     srVector3T<float> legacy_vertices[36];
                     unsigned char legacy_flags[2];
                     handle->read_exact(&count, 1);
-                    for (int index = 0; index < 36; ++index) {
-                        handle->read_exact(&legacy_vertices[index], sizeof(legacy_vertices[index]));
-                        legacy_vertices[index] *= 500.0f;
+                    for (auto& legacy_vertex : legacy_vertices) {
+                        handle->read_exact(&legacy_vertex, sizeof(legacy_vertex));
+                        legacy_vertex *= 500.0f;
                     }
                     handle->read_exact(&legacy_flags[0], 1);
                     handle->read_exact(&legacy_flags[1], 1);
@@ -1766,8 +1766,8 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
                 trigger->flags |= W8_TRIGGER_POSITIONED;
             } else if (representation_kind == 2) {
                 handle->read_exact(trigger->representation_vectors, sizeof(trigger->representation_vectors));
-                for (int vector = 0; vector < 4; ++vector) {
-                    trigger->representation_vectors[vector] *= 500.0f;
+                for (auto& representation_vector : trigger->representation_vectors) {
+                    representation_vector *= 500.0f;
                 }
             }
             unsigned char has_legacy_action;
@@ -1795,9 +1795,9 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
                 srVector3T<float> legacy_vertices[36];
                 unsigned char legacy_flags[2];
                 handle->read_exact(&count, 1);
-                for (int index = 0; index < 36; ++index) {
-                    handle->read_exact(&legacy_vertices[index], sizeof(legacy_vertices[index]));
-                    legacy_vertices[index] *= 500.0f;
+                for (auto& legacy_vertex : legacy_vertices) {
+                    handle->read_exact(&legacy_vertex, sizeof(legacy_vertex));
+                    legacy_vertex *= 500.0f;
                 }
                 handle->read_exact(&legacy_flags[0], 1);
                 handle->read_exact(&legacy_flags[1], 1);

@@ -2479,8 +2479,7 @@ unsigned short W8PathingService::ResolveSearchNodeCollisions(W8NavigatorMovement
         result = 3;
     }
 
-    for (unsigned int candidate = 0; candidate < m_path_candidates.size(); ++candidate) {
-        int location_id = m_path_candidates[candidate];
+    for (int location_id : m_path_candidates) {
         W8MonsterInfo* info = FindMonster(location_id, false);
         if (info == 0) {
             continue;
