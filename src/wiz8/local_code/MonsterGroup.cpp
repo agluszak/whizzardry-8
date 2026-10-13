@@ -79,9 +79,9 @@ bool MoveMonsterGroupToPosition(W8MonsterGroup* group, const srVector3T<float>* 
         location_ids[index] = group->MemberLocationId(index);
     }
     if (include_allies) {
-        for (int ally_index = 0; ally_index < 4; ++ally_index) {
-            if (group->allied_group_ids[ally_index] != 0) {
-                W8MonsterGroup* ally = FindMonsterGroup(group->allied_group_ids[ally_index]);
+        for (int allied_group_id : group->allied_group_ids) {
+            if (allied_group_id != 0) {
+                W8MonsterGroup* ally = FindMonsterGroup(allied_group_id);
                 W8MonsterInfo* ally_leader =
                     FindMonster(ally->leader_location_id);
                 float ally_radius = alternate_radius ? ally_leader->p3D->movement.alternate_radius

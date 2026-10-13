@@ -1228,8 +1228,8 @@ after_early: {
         }
     }
     if (monster_info->fInCombat) {
-        for (int combat_index = 0; combat_index < 9; ++combat_index) {
-            W8EffectSlot* slot = &monster_info->pCombat->combat_effects[combat_index];
+        for (auto& combat_effect : monster_info->pCombat->combat_effects) {
+            W8EffectSlot* slot = &combat_effect;
 
             if (slot->active) {
                 if (minutes < slot->duration) {
@@ -1241,8 +1241,8 @@ after_early: {
                 }
             }
         }
-        for (int d7_index = 0; d7_index < 6; ++d7_index) {
-            W8EffectSlot* slot = &monster_info->pCombat->combat_effects_2[d7_index];
+        for (auto& d7_index : monster_info->pCombat->combat_effects_2) {
+            W8EffectSlot* slot = &d7_index;
 
             if (slot->active) {
                 if (minutes < slot->duration) {

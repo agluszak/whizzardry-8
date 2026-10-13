@@ -548,8 +548,8 @@ static int GetMonsterProtectionScore(W8MonsterInfo* monster)
         armed = record->attacks[0].attack_score;
     }
     unsigned int penalty = FatigueArmorPenalty(monster->fatigue_band);
-    for (int index = 0; index < 0x12; ++index) {
-        if (record->attacks[0].ubWeaponNameIndex == g_low_fatigue_attack_verbs[index]) {
+    for (unsigned char g_low_fatigue_attack_verb : g_low_fatigue_attack_verbs) {
+        if (record->attacks[0].ubWeaponNameIndex == g_low_fatigue_attack_verb) {
             penalty >>= 1;
             break;
         }
@@ -1857,8 +1857,8 @@ int ContinueMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record)
                 (monster_info->modifiers.attack_bonus + monster_info->modifiers.hit_bonus) * 5 +
                 attack->attack_score;
             penetration += AttackModeMod(1, action_detail);
-            for (int i = 0; i < 0x12; ++i) {
-                if (attack->ubWeaponNameIndex == g_low_fatigue_attack_verbs[i]) {
+            for (unsigned char g_low_fatigue_attack_verb : g_low_fatigue_attack_verbs) {
+                if (attack->ubWeaponNameIndex == g_low_fatigue_attack_verb) {
                     penetration -= FatigueArmorPenalty(monster_info->fatigue_band);
                     break;
                 }

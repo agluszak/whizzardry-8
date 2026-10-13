@@ -7,6 +7,7 @@
 #include <string_view>
 #include <vector>
 #include <algorithm>
+#include <array>
 #include <memory>
 #include <stdexcept>
 #include <limits>
@@ -247,6 +248,7 @@ struct DetachedStatus {
     }
     DetachedStatus(const DetachedStatus&) = delete;
     DetachedStatus& operator=(const DetachedStatus&) = delete;
+    ~DetachedStatus() = default;
 };
 
 /* Find the top-level LVLS group saved for `level` (the first group when no
@@ -1253,12 +1255,12 @@ void ResetLiveSessionForLoad(void)
 bool VerifyDataSubdirs(void)
 try
 {
-    for (const char* directory : {"Saves", "Saves\\Characters", "Saves\\NPCs"}) {
+    return std::ranges::all_of(std::array<const char*, 3>{"Saves", "Saves\\Characters", "Saves\\NPCs"},
+                               [](const char* directory) {
         wiz8::create_directory(directory);
         const auto entry = wiz8::file_status(directory);
-        if (!entry || entry->info.type != SDL_PATHTYPE_DIRECTORY || !entry->writable) return false;
-    }
-    return true;
+        return entry && entry->info.type == SDL_PATHTYPE_DIRECTORY && entry->writable;
+    });
 }
 catch (const std::exception&) { return false; }
 

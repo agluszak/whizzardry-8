@@ -568,10 +568,7 @@ void StartCharacterBreathAttack(int party_slot)
 // FUNCTION: WIZ8 0x00500460
 void AbsorbMissileDamage(W8Missile* missile)
 {
-    for (int effect_index = 0; effect_index < static_cast<int>(g_spell_effects.size());
-         ++effect_index) {
-        W8SpellEffectEntry* effect = g_spell_effects[effect_index];
-
+    for (auto effect : g_spell_effects) {
         for (int missile_index = 0; missile_index < static_cast<int>(effect->missiles.size());
              ++missile_index) {
             if (effect->missiles[missile_index] == missile) {
@@ -724,9 +721,7 @@ void UpdateSpellEffects(void)
                 visual->finished = true;
             }
         }
-        for (int release_missile = 0; release_missile < static_cast<int>(effect->missiles.size());
-             ++release_missile) {
-            W8Missile* missile = effect->missiles[release_missile];
+        for (auto missile : effect->missiles) {
             missile->block_released = 1;
         }
         g_spell_effects.erase(g_spell_effects.begin() + index);
