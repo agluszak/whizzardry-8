@@ -798,7 +798,8 @@ try
 
 // FUNCTION: WIZ8 0x004BD0D0
 unsigned char ReadWorldParticles(W8ReadLevelInfo* pInfo, srNode* pScene,
-                                 std::vector<std::unique_ptr<stParticle>>* pParticles)
+                                 std::vector<std::unique_ptr<stParticle>>* pParticles,
+                                 srNode::Ownership ownership)
 try
 {
     W8LevelParticleRecord record;
@@ -836,9 +837,7 @@ try
             srAssertFail("0", READ_LEVEL_CPP, 0x5fe, "Unknown particle structure version");
         }
 
-        // The caller's list owns the particle; the scene only attaches it.
-        auto owned = std::make_unique<stParticle>(pScene, record.particle_count,
-                                                  srNode::Ownership::independent);
+        auto owned = std::make_unique<stParticle>(pScene, record.particle_count, ownership);
         particle = owned.get();
 
         _strupr(record.name);
@@ -1149,7 +1148,8 @@ try
         !(handle->read(&environment_offset.z, sizeof(environment_offset.z)).bytes == static_cast<std::size_t>(sizeof(environment_offset.z)))) {
         success = 0;
     } else {
-        success = ReadWorldParticles(&info, world->dynamic_scene, &world->particles);
+        success = ReadWorldParticles(&info, world->dynamic_scene, &world->particles,
+                                       srNode::Ownership::independent);
     }
     CHECK_PVL_OFFSET("Wrong offset in .pvl file after particles.");
     success = success && ReadNamedPositions(info.hFile, world->named_positions);

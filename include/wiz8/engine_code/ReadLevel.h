@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <vector>
+#include "surrender/srNode.h"
 #include "glm/ext/vector_float3.hpp"
 
 extern glm::vec3 g_environment_offset;
@@ -10,7 +11,6 @@ namespace wiz8 { class File; }
 
 struct W8World;
 struct W8NamedPosition;
-class srNode;
 class stParticle;
 
 struct W8ReadLevelInfo {
@@ -21,8 +21,11 @@ struct W8ReadLevelInfo {
 };
 
 unsigned char ReadLevel(W8World* world, wiz8::File* handle, bool use_octree, const char* bitmap_folder);
+// `ownership` says whether the scene keeps destroying the particles (cycle
+// attachments, still scene-owned) or the returned list owns them (world particles).
 unsigned char ReadWorldParticles(W8ReadLevelInfo* info, srNode* scene,
-                                 std::vector<std::unique_ptr<stParticle>>* particles);
+                                 std::vector<std::unique_ptr<stParticle>>* particles,
+                                 srNode::Ownership ownership);
 
 // Append a complete named-position section; failure leaves the destination unchanged.
 bool ReadNamedPositions(wiz8::File* file, std::vector<W8NamedPosition>& positions);

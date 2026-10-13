@@ -382,7 +382,8 @@ try
     if (has_particles != 0) {
         std::vector<std::unique_ptr<stParticle>> particles;
 
-        success = ReadWorldParticles(info, g_world->dynamic_scene, &particles);
+        success = ReadWorldParticles(info, g_world->dynamic_scene, &particles,
+                                   srNode::Ownership::parent);
         if (!particles.empty()) {
             int index;
 
@@ -390,7 +391,7 @@ try
                 (*cycle)->m_plsParticles = new std::vector<W8GrCycleParticleAttachment*>;
             }
             for (index = 0; index < static_cast<int>(particles.size()); ++index) {
-                // The attachment now owns the particle (GrCycle destruction or self-release).
+                // Still scene-owned: the attachment only borrows it (deleted by GrCycle or self-release).
                 stParticle* particle = particles[index].release();
                 W8GrCycleParticleAttachment* event = new W8GrCycleParticleAttachment;
                 glm::dvec3 location;
